@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,12 +32,13 @@
 ------------------------------------------------------------------------------
 
 with Ada.Tags;                use Ada.Tags;
-with Interfaces.C;            use Interfaces.C;
 with System;                  use System;
 with System.Storage_Elements; use System.Storage_Elements;
 with Unchecked_Conversion;
 
 package body Interfaces.CPP is
+
+   --  The declarations below need (extensive) comments ???
 
    subtype Cstring is String (Positive);
    type Cstring_Ptr is access all Cstring;
@@ -53,17 +54,15 @@ package body Interfaces.CPP is
    end record;
 
    type Vtable_Entry is record
-     Pfn    : System.Address;
+     Pfn : System.Address;
    end record;
 
    type Type_Specific_Data_Ptr is access all Type_Specific_Data;
    type Vtable_Entry_Array is array (Positive range <>) of Vtable_Entry;
 
    type VTable is record
-      Unused1   : C.short;
-      Unused2   : C.short;
-      TSD       : Type_Specific_Data_Ptr;
       Prims_Ptr : Vtable_Entry_Array (Positive);
+      TSD       : Type_Specific_Data_Ptr;
    end record;
 
    --------------------------------------------------------
@@ -100,8 +99,7 @@ package body Interfaces.CPP is
 
    function CPP_CW_Membership
      (Obj_Tag : Vtable_Ptr;
-      Typ_Tag : Vtable_Ptr)
-      return Boolean
+      Typ_Tag : Vtable_Ptr) return Boolean
    is
       Pos : constant Integer := Obj_Tag.TSD.Idepth - Typ_Tag.TSD.Idepth;
    begin
@@ -141,8 +139,8 @@ package body Interfaces.CPP is
 
    function CPP_Get_Prim_Op_Address
      (T        : Vtable_Ptr;
-      Position : Positive)
-      return Address is
+      Position : Positive) return Address
+   is
    begin
       return T.Prims_Ptr (Position).Pfn;
    end CPP_Get_Prim_Op_Address;
@@ -153,7 +151,6 @@ package body Interfaces.CPP is
 
    function CPP_Get_RC_Offset (T : Vtable_Ptr) return SSE.Storage_Offset is
       pragma Warnings (Off, T);
-
    begin
       return 0;
    end CPP_Get_RC_Offset;
@@ -164,7 +161,6 @@ package body Interfaces.CPP is
 
    function CPP_Get_Remotely_Callable (T : Vtable_Ptr) return Boolean is
       pragma Warnings (Off, T);
-
    begin
       return True;
    end CPP_Get_Remotely_Callable;
@@ -202,8 +198,8 @@ package body Interfaces.CPP is
      (Old_TSD : Address;
       New_Tag : Vtable_Ptr)
    is
-      TSD : constant Type_Specific_Data_Ptr
-        := To_Type_Specific_Data_Ptr (Old_TSD);
+      TSD : constant Type_Specific_Data_Ptr :=
+              To_Type_Specific_Data_Ptr (Old_TSD);
 
       New_TSD : Type_Specific_Data renames New_Tag.TSD.all;
 
@@ -269,7 +265,6 @@ package body Interfaces.CPP is
    procedure CPP_Set_RC_Offset (T : Vtable_Ptr; Value : SSE.Storage_Offset) is
       pragma Warnings (Off, T);
       pragma Warnings (Off, Value);
-
    begin
       null;
    end CPP_Set_RC_Offset;
@@ -281,7 +276,6 @@ package body Interfaces.CPP is
    procedure CPP_Set_Remotely_Callable (T : Vtable_Ptr; Value : Boolean) is
       pragma Warnings (Off, T);
       pragma Warnings (Off, Value);
-
    begin
       null;
    end CPP_Set_Remotely_Callable;
@@ -321,7 +315,6 @@ package body Interfaces.CPP is
 
    function Expanded_Name (T : Vtable_Ptr) return String is
       Result : constant Cstring_Ptr := T.TSD.Expanded_Name;
-
    begin
       return Result (1 .. Length (Result));
    end Expanded_Name;
@@ -332,7 +325,6 @@ package body Interfaces.CPP is
 
    function External_Tag (T : Vtable_Ptr) return String is
       Result : constant Cstring_Ptr := T.TSD.External_Tag;
-
    begin
       return Result (1 .. Length (Result));
    end External_Tag;
@@ -351,4 +343,5 @@ package body Interfaces.CPP is
 
       return Len - 1;
    end Length;
+
 end Interfaces.CPP;

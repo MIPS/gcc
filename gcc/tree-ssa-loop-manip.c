@@ -110,8 +110,8 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 
   stmt = create_phi_node (vb, loop->header);
   SSA_NAME_DEF_STMT (vb) = stmt;
-  add_phi_arg (&stmt, initial, loop_preheader_edge (loop));
-  add_phi_arg (&stmt, va, loop_latch_edge (loop));
+  add_phi_arg (stmt, initial, loop_preheader_edge (loop));
+  add_phi_arg (stmt, va, loop_latch_edge (loop));
 }
 
 /* Add exit phis for the USE on EXIT.  */
@@ -140,7 +140,7 @@ add_exit_phis_edge (basic_block exit, tree use)
   phi = create_phi_node (use, exit);
 
   FOR_EACH_EDGE (e, ei, exit->preds)
-    add_phi_arg (&phi, use, e);
+    add_phi_arg (phi, use, e);
 
   SSA_NAME_DEF_STMT (use) = def_stmt;
 }
@@ -152,7 +152,7 @@ static void
 add_exit_phis_var (tree var, bitmap livein, bitmap exits)
 {
   bitmap def;
-  int index;
+  unsigned index;
   basic_block def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
   bitmap_iterator bi;
 
@@ -254,7 +254,7 @@ find_uses_to_rename_stmt (tree stmt, bitmap *use_blocks)
 
   get_stmt_operands (stmt);
 
-  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
     find_uses_to_rename_use (bb, var, use_blocks);
 }
 
@@ -272,9 +272,9 @@ find_uses_to_rename (bitmap *use_blocks)
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	  find_uses_to_rename_use (PHI_ARG_EDGE (phi, i)->src,
+	  find_uses_to_rename_use (EDGE_PRED (bb, i)->src,
 				   PHI_ARG_DEF (phi, i), use_blocks);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -383,7 +383,7 @@ verify_loop_closed_ssa (void)
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
 	  check_loop_closed_ssa_use (PHI_ARG_EDGE (phi, i)->src,
 				     PHI_ARG_DEF (phi, i));
@@ -404,7 +404,7 @@ split_loop_exit_edge (edge exit)
   tree phi, new_phi, new_name, name;
   use_operand_p op_p;
 
-  for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
       op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, EDGE_SUCC (bb, 0));
 
@@ -420,7 +420,7 @@ split_loop_exit_edge (edge exit)
       new_name = duplicate_ssa_name (name, NULL);
       new_phi = create_phi_node (new_name, bb);
       SSA_NAME_DEF_STMT (new_name) = new_phi;
-      add_phi_arg (&new_phi, name, exit);
+      add_phi_arg (new_phi, name, exit);
       SET_USE (op_p, new_name);
     }
 }
@@ -567,11 +567,11 @@ set_phi_def_stmts (basic_block bb)
 {
   tree phi;
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = phi;
 }
 
-/* The same ad cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
+/* The same as cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
    ssa.  In order to achieve this, only loops whose exits all lead to the same
    location are handled.
    
@@ -589,7 +589,6 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   unsigned first_new_block;
   basic_block bb;
   unsigned i;
-  tree phi, arg, map, def;
   bitmap definitions;
 
   if (!(loops->state & LOOPS_HAVE_SIMPLE_LATCHES))
@@ -609,17 +608,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
     return false;
 
   /* Readd the removed phi args for e.  */
-  map = PENDING_STMT (e);
-  PENDING_STMT (e) = NULL;
-
-  for (phi = phi_nodes (e->dest), arg = map;
-       phi;
-       phi = TREE_CHAIN (phi), arg = TREE_CHAIN (arg))
-    {
-      def = TREE_VALUE (arg);
-      add_phi_arg (&phi, def, e);
-    }
-  gcc_assert (arg == NULL);
+  flush_pending_stmts (e);
 
   /* Copy the phi node arguments.  */
   copy_phi_node_args (first_new_block);
@@ -676,23 +665,21 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 
   for (phi2 = phi_nodes (second), phi1 = phi_nodes (first); 
        phi2 && phi1; 
-       phi2 = TREE_CHAIN (phi2),  phi1 = TREE_CHAIN (phi1))
+       phi2 = PHI_CHAIN (phi2),  phi1 = PHI_CHAIN (phi1))
     {
-      int i;
-      for (i = 0; i < PHI_NUM_ARGS (phi2); i++)
+      edge e2 = find_edge (new_head, second);
+
+      if (e2)
 	{
-	  if (PHI_ARG_EDGE (phi2, i)->src == new_head)
-	    {
-	      tree def = PHI_ARG_DEF (phi2, i);
-	      add_phi_arg (&phi1, def, e);
-	    }
+	  tree def = PHI_ARG_DEF (phi2, e2->dest_idx);
+	  add_phi_arg (phi1, def, e);
 	}
     }
 }
 
 /* Adjust entry edge for lv.
    
-  e is a incoming edge. 
+  e is an incoming edge. 
 
   --- edge e ---- > [second_head]
 
@@ -747,31 +734,6 @@ lv_adjust_loop_entry_edge (basic_block first_head,
   return new_head;
 }
 
-/* Add phi args using PENDINT_STMT list.  */
-
-static void
-lv_update_pending_stmts (edge e)
-{
-  basic_block dest;
-  tree phi, arg, def;
-
-  if (!PENDING_STMT (e))
-    return;
-
-  dest = e->dest;
-
-  for (phi = phi_nodes (dest), arg = PENDING_STMT (e);
-       phi;
-       phi = TREE_CHAIN (phi), arg = TREE_CHAIN (arg))
-    {
-      def = TREE_VALUE (arg);
-      add_phi_arg (&phi, def, e);
-    }
-
-  PENDING_STMT (e) = NULL;
-}
-
-
 /* Main entry point for Loop Versioning transformation.
    
 This transformation given a condition and a loop, creates
@@ -785,7 +747,7 @@ struct loop *
 tree_ssa_loop_version (struct loops *loops, struct loop * loop, 
 		       tree cond_expr, basic_block *condition_bb)
 {
-  edge entry, latch_edge, exit;
+  edge entry, latch_edge, exit, true_edge, false_edge;
   basic_block first_head, second_head;
   int irred_flag;
   struct loop *nloop;
@@ -819,10 +781,12 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
 					    cond_expr); 
 
   latch_edge = EDGE_SUCC (loop->latch->rbi->copy, 0);
+  
+  extract_true_false_edges_from_block (*condition_bb, &true_edge, &false_edge);
   nloop = loopify (loops, 
 		   latch_edge,
 		   EDGE_PRED (loop->header->rbi->copy, 0),
-		   *condition_bb,
+		   *condition_bb, true_edge, false_edge,
 		   false /* Do not redirect all edges.  */);
 
   exit = loop->single_exit;
@@ -830,10 +794,11 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
     nloop->single_exit = find_edge (exit->src->rbi->copy, exit->dest);
 
   /* loopify redirected latch_edge. Update its PENDING_STMTS.  */ 
-  lv_update_pending_stmts (latch_edge);
+  flush_pending_stmts (latch_edge);
 
   /* loopify redirected condition_bb's succ edge. Update its PENDING_STMTS.  */ 
-  lv_update_pending_stmts (FALLTHRU_EDGE (*condition_bb));
+  extract_true_false_edges_from_block (*condition_bb, &true_edge, &false_edge);
+  flush_pending_stmts (false_edge);
 
   /* Adjust irreducible flag.  */
   if (irred_flag)
@@ -846,7 +811,7 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
 
   /* At this point condition_bb is loop predheader with two successors, 
      first_head and second_head.   Make sure that loop predheader has only 
-     one successor. */
+     one successor.  */
   loop_split_edge_with (loop_preheader_edge (loop), NULL);
   loop_split_edge_with (loop_preheader_edge (nloop), NULL);
 

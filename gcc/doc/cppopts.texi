@@ -133,7 +133,7 @@ time it is redefined or undefined.
 Built-in macros, macros defined on the command line, and macros
 defined in include files are not warned about.
 
-@strong{Note:} If a macro is actually used, but only used in skipped
+@emph{Note:} If a macro is actually used, but only used in skipped
 conditional blocks, then CPP will report it as unused.  To avoid the
 warning in such a case, you might improve the scope of the macro's
 definition by, for example, moving it into the first skipped block.
@@ -314,7 +314,7 @@ a dependency output file as a side-effect of the compilation process.
 @item -MMD
 @opindex MMD
 Like @option{-MD} except mention only user header files, not system
--header files.
+header files.
 
 @ifclear cppmanual
 @item -fpch-deps
@@ -333,10 +333,10 @@ Headers}) together with @option{-E}.  It inserts a special @code{#pragma},
 @code{#pragma GCC pch_preprocess "<filename>"} in the output to mark
 the place where the precompiled header was found, and its filename.  When
 @option{-fpreprocessed} is in use, GCC recognizes this @code{#pragma} and
-loads the PCH.
+loads the PCH@.
 
 This option is off by default, because the resulting preprocessed output
-is only really suitable as input to GCC.  It is switched on by
+is only really suitable as input to GCC@.  It is switched on by
 @option{-save-temps}.
 
 You should not write this @code{#pragma} in your own code, but it is
@@ -359,7 +359,7 @@ extensions for C++ and assembly are also recognized.  If cpp does not
 recognize the extension, it will treat the file as C; this is the most
 generic mode.
 
-@strong{Note:} Previous versions of cpp accepted a @option{-lang} option
+@emph{Note:} Previous versions of cpp accepted a @option{-lang} option
 which selected both the language and the standards conformance level.
 This option has been removed, because it conflicts with the @option{-l}
 option.
@@ -546,11 +546,11 @@ problems with encodings that do not fit exactly in @code{wchar_t}.
 @item -finput-charset=@var{charset}
 @opindex finput-charset
 Set the input character set, used for translation from the character
-set of the input file to the source character set used by GCC. If the
+set of the input file to the source character set used by GCC@.  If the
 locale does not specify, or GCC cannot get this information from the
-locale, the default is UTF-8. This can be overridden by either the locale
-or this command line option. Currently the command line option takes
-precedence if there's a conflict. @var{charset} can be any encoding
+locale, the default is UTF-8.  This can be overridden by either the locale
+or this command line option.  Currently the command line option takes
+precedence if there's a conflict.  @var{charset} can be any encoding
 supported by the system's @code{iconv} library routine.
 
 @item -fworking-directory

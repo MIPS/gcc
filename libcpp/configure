@@ -6149,8 +6149,7 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 
-#include "ansidecl.h"
-#include "system.h"
+#include <sys/types.h>
 
 int
 main ()
@@ -7044,6 +7043,7 @@ case $target in
 	x86_64-*-* | \
 	ia64-*-* | \
 	hppa*64*-*-* | parisc*64*-*-* | \
+	i[34567]86-*-solaris2.1[0-9]* | \
 	mips*-*-* | \
 	mmix-*-* | \
 	powerpc*-*-* | \

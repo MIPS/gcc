@@ -286,17 +286,9 @@ struct gcc_target
   struct vectorize
   {
     /* The following member value is a pointer to a function called
-       by the vectorizer, and when expanding a MISALIGNED_INDIREC_REF
-       expression.  If the hook returns true (false) then a move* pattern
-       to/from memory can (cannot) be generated for this mode even if the
-       memory location is unaligned.  */
-    bool (* misaligned_mem_ok) (enum machine_mode);
-
-    /* The following member values are pointers to functions called
        by the vectorizer, and return the decl of the target builtin
        function.  */
     tree (* builtin_mask_for_load) (void);
-    tree (* builtin_mask_for_store) (void);
   } vectorize;
 
   /* Return machine mode for filter value.  */
@@ -495,6 +487,15 @@ struct gcc_target
      the function is being declared as an int.  */
   int (* dwarf_calling_convention) (tree);
 
+  /* This target hook allows the backend to emit frame-related insns that
+     contain UNSPECs or UNSPEC_VOLATILEs.  The call frame debugging info
+     engine will invoke it on insns of the form
+       (set (reg) (unspec [...] UNSPEC_INDEX))
+     and
+       (set (reg) (unspec_volatile [...] UNSPECV_INDEX))
+     to let the backend emit the call frame instructions.  */
+  void (* dwarf_handle_frame_unspec) (const char *, rtx, int);
+
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
     bool (*promote_function_args) (tree fntype);
@@ -536,6 +537,12 @@ struct gcc_target
        the caller.  It is never called for TYPE requiring constructors.  */
     bool (* callee_copies) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 			    tree type, bool named);
+
+    /* Return zero for arguments passed entirely on the stack or entirely
+       in registers.  If passed in both, return the number of bytes passed
+       in registers; the balance is therefore passed on the stack.  */
+    int (* arg_partial_bytes) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			       tree type, bool named);
   } calls;
 
   /* Functions specific to the C++ frontend.  */
@@ -597,10 +604,9 @@ struct gcc_target
   /* True if #pragma extern_prefix is to be supported.  */
   bool handle_pragma_extern_prefix;
 
-  /* True if the RTL prologue and epilogue should be expanded after all
-     passes that modify the instructions (and not merely reorder them)
-     have been run.  */
-  bool late_rtl_prologue_epilogue;
+  /* True if the target is allowed to reorder memory accesses unless
+     synchronization is explicitly requested.  */
+  bool relaxed_ordering;
 
   /* Leave the boolean fields at the end.  */
 };

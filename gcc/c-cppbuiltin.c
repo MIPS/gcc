@@ -219,7 +219,12 @@ builtin_define_float_constants (const char *name_prefix, const char *fp_suffix, 
   /* The difference between 1 and the least value greater than 1 that is
      representable in the given floating point type, b**(1-p).  */
   sprintf (name, "__%s_EPSILON__", name_prefix);
-  sprintf (buf, "0x1p%d", (1 - fmt->p) * fmt->log2_b);
+  if (fmt->pnan < fmt->p)
+    /* This is an IBM extended double format, so 1.0 + any double is
+       representable precisely.  */
+      sprintf (buf, "0x1p%d", (fmt->emin - fmt->p) * fmt->log2_b);
+    else      
+      sprintf (buf, "0x1p%d", (1 - fmt->p) * fmt->log2_b);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
 
   /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
@@ -347,7 +352,7 @@ c_cpp_builtins (cpp_reader *pfile)
        different from system to system.  */
     builtin_define_with_int_value ("__GXX_ABI_VERSION", 999999);
   else if (flag_abi_version == 1)
-    /* Due to an historical accident, this version had the value
+    /* Due to a historical accident, this version had the value
        "102".  */
     builtin_define_with_int_value ("__GXX_ABI_VERSION", 102);
   else

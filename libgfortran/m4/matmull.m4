@@ -27,8 +27,12 @@ include(iparm.m4)dnl
 
 /* Dimensions: retarray(x,y) a(x, count) b(count,y).
    Either a or b can be rank 1.  In this case x or y is 1.  */
+
+extern void matmul_`'rtype_code (rtype *, gfc_array_l4 *, gfc_array_l4 *);
+export_proto(matmul_`'rtype_code);
+
 void
-`__matmul_'rtype_code (rtype * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
+matmul_`'rtype_code (rtype * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
 {
   GFC_INTEGER_4 *abase;
   GFC_INTEGER_4 *bbase;
@@ -77,7 +81,8 @@ void
           retarray->dim[1].stride = retarray->dim[0].ubound+1;
         }
           
-      retarray->data = internal_malloc (sizeof (rtype_name) * size0 (retarray));
+      retarray->data
+	= internal_malloc_size (sizeof (rtype_name) * size0 (retarray));
       retarray->base = 0;
     }
 
@@ -180,4 +185,3 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       dest += rystride - (rxstride * xcount);
     }
 }
-

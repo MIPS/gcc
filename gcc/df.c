@@ -107,8 +107,8 @@ These are linked into a variety of lists; namely reg-def, reg-use,
 the reg-def lists contain all the refs that define a given register
 while the insn-use lists contain all the refs used by an insn.
 
-Note that the reg-def and reg-use chains are generally short (except for the
-hard registers) and thus it is much faster to search these chains
+Note that the reg-def and reg-use chains are generally short (except for
+the hard registers) and thus it is much faster to search these chains
 rather than searching the def or use bitmaps.
 
 If the insns are in SSA form then the reg-def and use-def lists
@@ -166,10 +166,13 @@ generates a use of reg 41 then a def of reg 41 (both marked read/write),
 even though reg 41 is decremented before it is used for the memory
 address in this second example.
 
-A set to a REG inside a ZERO_EXTRACT, SIGN_EXTRACT, or SUBREG invokes
-a read-modify write operation.  We generate both a use and a def
-and again mark them read/write.
-*/
+A set to a REG inside a ZERO_EXTRACT, or a set to a non-paradoxical SUBREG
+for which the number of word_mode units covered by the outer mode is
+smaller than that covered by the inner mode, invokes a read-modify-write.
+operation.  We generate both a use and a def and again mark them
+read/write.
+Paradoxical subreg writes don't leave a trace of the old content, so they
+are write-only operations.  */
 
 #include "config.h"
 #include "system.h"
@@ -580,12 +583,10 @@ df_free (struct df *df)
   df->regs = 0;
   df->reg_size = 0;
 
-  if (df->bbs_modified)
-    BITMAP_XFREE (df->bbs_modified);
+  BITMAP_XFREE (df->bbs_modified);
   df->bbs_modified = 0;
 
-  if (df->insns_modified)
-    BITMAP_XFREE (df->insns_modified);
+  BITMAP_XFREE (df->insns_modified);
   df->insns_modified = 0;
 
   BITMAP_XFREE (df->all_blocks);
@@ -860,8 +861,10 @@ df_ref_record (struct df *df, rtx reg, rtx *loc, rtx insn,
 }
 
 
-/* Return nonzero if writes to paradoxical SUBREGs, or SUBREGs which
-   are too narrow, are read-modify-write.  */
+/* A set to a non-paradoxical SUBREG for which the number of word_mode units
+   covered by the outer mode is smaller than that covered by the inner mode,
+   is a read-modify-write operation.
+   This function returns true iff the SUBREG X is such a SUBREG.  */
 bool
 read_modify_subreg_p (rtx x)
 {
@@ -870,7 +873,6 @@ read_modify_subreg_p (rtx x)
     return false;
   isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
   osize = GET_MODE_SIZE (GET_MODE (x));
-  /* Paradoxical subreg writes don't leave a trace of the old content.  */
   return (isize > osize && isize > UNITS_PER_WORD);
 }
 
@@ -911,7 +913,6 @@ df_def_record_1 (struct df *df, rtx x, basic_block bb, rtx insn)
      be handy for the reg allocator.  */
   while (GET_CODE (dst) == STRICT_LOW_PART
 	 || GET_CODE (dst) == ZERO_EXTRACT
-	 || GET_CODE (dst) == SIGN_EXTRACT
 	 || ((df->flags & DF_FOR_REGALLOC) == 0
              && read_modify_subreg_p (dst)))
     {
@@ -1588,7 +1589,7 @@ df_rd_transfer_function (int bb ATTRIBUTE_UNUSED, int *changed, void *in,
 			 void *out, void *gen, void *kill,
 			 void *data ATTRIBUTE_UNUSED)
 {
-  *changed = bitmap_union_of_diff (out, gen, in, kill);
+  *changed = bitmap_ior_and_compl (out, gen, in, kill);
 }
 
 
@@ -1597,7 +1598,7 @@ df_ru_transfer_function (int bb ATTRIBUTE_UNUSED, int *changed, void *in,
 			 void *out, void *gen, void *kill,
 			 void *data ATTRIBUTE_UNUSED)
 {
-  *changed = bitmap_union_of_diff (in, gen, out, kill);
+  *changed = bitmap_ior_and_compl (in, gen, out, kill);
 }
 
 
@@ -1606,7 +1607,7 @@ df_lr_transfer_function (int bb ATTRIBUTE_UNUSED, int *changed, void *in,
 			 void *out, void *use, void *def,
 			 void *data ATTRIBUTE_UNUSED)
 {
-  *changed = bitmap_union_of_diff (in, use, out, def);
+  *changed = bitmap_ior_and_compl (in, use, out, def);
 }
 
 
@@ -1657,8 +1658,7 @@ df_bb_rd_local_compute (struct df *df, basic_block bb, bitmap call_killed_defs)
 
       if (CALL_P (insn) && (df->flags & DF_HARD_REGS))
 	{
-	  bitmap_operation (bb_info->rd_kill, bb_info->rd_kill,
-			    call_killed_defs, BITMAP_IOR);
+	  bitmap_ior_into (bb_info->rd_kill, call_killed_defs);
 	  call_seen = 1;
 	}
     }
@@ -2239,7 +2239,7 @@ static int
 df_refs_update (struct df *df, bitmap blocks)
 {
   basic_block bb;
-  int count = 0, bbno;
+  unsigned count = 0, bbno;
 
   df->n_regs = max_reg_num ();
   if (df->n_regs >= df->reg_size)
@@ -3724,10 +3724,13 @@ debug_df_chain (struct df_link *link)
 }
 
 
+/* Perform the set operation OP1 OP OP2, using set representation REPR, and
+   storing the result in OP1.  */
+
 static void
 dataflow_set_a_op_b (enum set_representation repr,
 		     enum df_confluence_op op,
-		     void *rslt, void *op1, void *op2)
+		     void *op1, void *op2)
 {
   switch (repr)
     {
@@ -3735,11 +3738,11 @@ dataflow_set_a_op_b (enum set_representation repr,
       switch (op)
 	{
 	case DF_UNION:
-	  sbitmap_a_or_b (rslt, op1, op2);
+	  sbitmap_a_or_b (op1, op1, op2);
 	  break;
 
 	case DF_INTERSECTION:
-	  sbitmap_a_and_b (rslt, op1, op2);
+	  sbitmap_a_and_b (op1, op1, op2);
 	  break;
 
     	default:
@@ -3751,11 +3754,11 @@ dataflow_set_a_op_b (enum set_representation repr,
       switch (op)
 	{
 	case DF_UNION:
-	  bitmap_a_or_b (rslt, op1, op2);
+	  bitmap_ior_into (op1, op2);
 	  break;
 
 	case DF_INTERSECTION:
-	  bitmap_a_and_b (rslt, op1, op2);
+	  bitmap_and_into (op1, op2);
 	  break;
 
     	default:
@@ -3816,7 +3819,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
 	    continue;							\
 									\
 	  dataflow_set_a_op_b (dataflow->repr, dataflow->conf_op,	\
-			       IN_SET[i], IN_SET[i],			\
+			       IN_SET[i],      			        \
 			       OUT_SET[e->E_ANTI_BB->index]);		\
 	}								\
 									\

@@ -105,7 +105,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	mark_referenced call in assemble_variable functions referenced by
 	static variables are noticed too.
 
-	The intra-procedural information is produced and it's existence
+	The intra-procedural information is produced and its existence
 	indicated by global_info_ready.  Once this flag is set it is impossible
 	to change function from !reachable to reachable and thus
 	assemble_variable no longer call mark_referenced.
@@ -590,8 +590,8 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 
 static bool error_found;
 
-/* Callbrack of verify_cgraph_node.  Check that all call_exprs have cgraph
-   nodes.  */
+/* Callback of verify_cgraph_node.  Check that all call_exprs have
+   cgraph nodes.  */
 
 static tree
 verify_cgraph_node_1 (tree *tp, int *walk_subtrees, void *data)
@@ -771,9 +771,7 @@ cgraph_varpool_analyze_pending_decls (void)
       /* Some datastructures (such as typeinfos for EH handling) can be output
          late during the RTL compilation.  We need to make these invisible to
 	 IPA optimizers or we confuse them badly.  */
-      if (!cgraph_global_info_ready)
-        ipa_analyze_variable (cgraph_varpool_first_unanalyzed_node);
-      else
+      if (cgraph_global_info_ready)
         cgraph_varpool_first_unanalyzed_node->non_ipa = true;
       cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
 
@@ -867,15 +865,19 @@ cgraph_finalize_compilation_unit (void)
       return;
     }
 
-  if (!flag_whole_program)
+  /*
+    if (!flag_whole_program)
     cgraph_varpool_assemble_pending_decls ();
+  */
 
   if (!quiet_flag)
-    fprintf (stderr, "\nAnalyzing compilation unit\n");
+    {
+      fprintf (stderr, "\nAnalyzing compilation unit");
+      fflush (stderr);
+    }
 
   timevar_push (TV_CGRAPH);
   cgraph_varpool_analyze_pending_decls ();
-
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Initial entry points:");
@@ -1135,6 +1137,7 @@ cgraph_function_and_variable_visibility (void)
 	  gcc_assert (flag_whole_program || !TREE_PUBLIC (vnode->decl));
 	  TREE_PUBLIC (vnode->decl) = 0;
 	}
+     gcc_assert (TREE_STATIC (vnode->decl));
     }
 
   /* Because we have to be conservative on the boundaries of source
@@ -1184,6 +1187,7 @@ void
 cgraph_optimize (void)
 {
   struct cgraph_node *node;
+  struct cgraph_varpool_node *vnode;
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
@@ -1194,6 +1198,9 @@ cgraph_optimize (void)
       return;
     }
   timevar_push (TV_IPA_OPT);
+
+  process_pending_assemble_externals ();
+
   if (!quiet_flag)
     {
       fprintf (stderr, "Performing intraprocedural optimizations");
@@ -1214,6 +1221,8 @@ cgraph_optimize (void)
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed)
       ipa_analyze_function (node);
+  for (vnode = cgraph_varpool_nodes_queue; vnode; vnode = vnode->next_needed)
+    ipa_analyze_variable (vnode);
 
   if (flag_ipa_cp && flag_ipa_no_cloning)
     ipcp_driver ();
@@ -1234,8 +1243,7 @@ cgraph_optimize (void)
   ipa_passes ();
   /* FIXME: this should be unnecesary if inliner took care of removing dead
      functions.  */
-  cgraph_remove_unreachable_nodes (false, dump_file); 
-
+  cgraph_remove_unreachable_nodes (false, dump_file);  
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
     {

@@ -55,19 +55,19 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    transform matrix for locality purposes.
    TODO: Completion of partial transforms.  */
 
-/* Gather statistics for loop interchange.  LOOP_NUMBER is a relative
-   index in the considered loop nest.  The first loop in the
-   considered loop nest is FIRST_LOOP, and consequently the index of
-   the considered loop is obtained by FIRST_LOOP + LOOP_NUMBER.
+/* Gather statistics for loop interchange.  LOOP is the loop being
+   considered. The first loop in the considered loop nest is
+   FIRST_LOOP, and consequently, the index of the considered loop is
+   obtained by LOOP->DEPTH - FIRST_LOOP->DEPTH
    
    Initializes:
    - DEPENDENCE_STEPS the sum of all the data dependence distances
-   carried by loop LOOP_NUMBER,
+   carried by loop LOOP,
 
    - NB_DEPS_NOT_CARRIED_BY_LOOP the number of dependence relations
-   for which the loop LOOP_NUMBER is not carrying any dependence,
+   for which the loop LOOP is not carrying any dependence,
 
-   - ACCESS_STRIDES the sum of all the strides in LOOP_NUMBER.
+   - ACCESS_STRIDES the sum of all the strides in LOOP.
 
    Example: for the following loop,
 
@@ -88,13 +88,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    DEPENDENCE_STEPS = 3000
    NB_DEPS_NOT_CARRIED_BY_LOOP = 7
    ACCESS_STRIDES = 8010
-  */
+*/
 
 static void
 gather_interchange_stats (varray_type dependence_relations, 
 			  varray_type datarefs,
-			  unsigned int loop_number, 
-			  unsigned int first_loop,
+			  struct loop *loop,
+			  struct loop *first_loop,
 			  unsigned int *dependence_steps, 
 			  unsigned int *nb_deps_not_carried_by_loop, 
 			  unsigned int *access_strides)
@@ -120,10 +120,9 @@ gather_interchange_stats (varray_type dependence_relations,
 	  || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know
 	  || DDR_ARE_DEPENDENT (ddr) == chrec_known)
 	continue;
+      
 
-
-
-      dist = DDR_DIST_VECT (ddr)[loop_number];
+      dist = DDR_DIST_VECT (ddr)[loop->depth - first_loop->depth];
       if (dist == 0)
 	(*nb_deps_not_carried_by_loop) += 1;
       else if (dist < 0)
@@ -139,17 +138,16 @@ gather_interchange_stats (varray_type dependence_relations,
       struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
       tree stmt = DR_STMT (dr);
       struct loop *stmt_loop = loop_containing_stmt (stmt);
-      struct loop *inner_loop = current_loops->parray[first_loop + 1];
-
-      if (!flow_loop_nested_p (inner_loop, stmt_loop)
-	  && inner_loop->num != stmt_loop->num)
+      struct loop *inner_loop = first_loop->inner;
+      
+      if (inner_loop != stmt_loop 
+	  && !flow_loop_nested_p (inner_loop, stmt_loop))
 	continue;
-
       for (it = 0; it < DR_NUM_DIMENSIONS (dr); it++)
 	{
 	  tree chrec = DR_ACCESS_FN (dr, it);
 	  tree tstride = evolution_part_in_loop_num 
-	    (chrec, first_loop + loop_number);
+	    (chrec, loop->num);
 	  
 	  if (tstride == NULL_TREE
 	      || TREE_CODE (tstride) != INTEGER_CST)
@@ -160,7 +158,8 @@ gather_interchange_stats (varray_type dependence_relations,
     }
 }
 
-/* Apply to TRANS any loop interchange that minimize inner loop steps.
+/* Attempt to apply interchange transformations to TRANS to maximize the
+   spatial and temporal locality of the loop.  
    Returns the new transform matrix.  The smaller the reuse vector
    distances in the inner loops, the fewer the cache misses.
    FIRST_LOOP is the loop->num of the first loop in the analyzed loop
@@ -172,9 +171,10 @@ try_interchange_loops (lambda_trans_matrix trans,
 		       unsigned int depth,		       
 		       varray_type dependence_relations,
 		       varray_type datarefs, 
-		       unsigned int first_loop)
+		       struct loop *first_loop)
 {
-  unsigned int loop_i, loop_j;
+  struct loop *loop_i;
+  struct loop *loop_j;
   unsigned int dependence_steps_i, dependence_steps_j;
   unsigned int access_strides_i, access_strides_j;
   unsigned int nb_deps_not_carried_by_i, nb_deps_not_carried_by_j;
@@ -188,8 +188,12 @@ try_interchange_loops (lambda_trans_matrix trans,
     return trans;
   
   /* LOOP_I is always the outer loop.  */
-  for (loop_j = 1; loop_j < depth; loop_j++)
-    for (loop_i = 0; loop_i < loop_j; loop_i++)
+  for (loop_j = first_loop->inner; 
+       loop_j; 
+       loop_j = loop_j->inner)
+    for (loop_i = first_loop; 
+	 loop_i->depth < loop_j->depth; 
+	 loop_i = loop_i->inner)
       {
 	gather_interchange_stats (dependence_relations, datarefs,
 				  loop_i, first_loop,
@@ -217,11 +221,15 @@ try_interchange_loops (lambda_trans_matrix trans,
 	    || nb_deps_not_carried_by_i > nb_deps_not_carried_by_j
 	    || access_strides_i < access_strides_j)
 	  {
-	    lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
+	    lambda_matrix_row_exchange (LTM_MATRIX (trans),
+					loop_i->depth - first_loop->depth,
+					loop_j->depth - first_loop->depth);
 	    /* Validate the resulting matrix.  When the transformation
 	       is not valid, reverse to the previous transformation.  */
 	    if (!lambda_transform_legal_p (trans, depth, dependence_relations))
-	      lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
+	      lambda_matrix_row_exchange (LTM_MATRIX (trans), 
+					  loop_i->depth - first_loop->depth, 
+					  loop_j->depth - first_loop->depth);
 	  }
       }
 
@@ -302,11 +310,11 @@ linear_transform_loops (struct loops *loops)
 		{
 		  fprintf (dump_file, "DISTANCE_V (");
 		  print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), 
-				       loops->num);
+				       DDR_SIZE_VECT (ddr));
 		  fprintf (dump_file, ")\n");
 		  fprintf (dump_file, "DIRECTION_V (");
 		  print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), 
-				       loops->num);
+				       DDR_SIZE_VECT (ddr));
 		  fprintf (dump_file, ")\n");
 		}
 	    }
@@ -315,8 +323,9 @@ linear_transform_loops (struct loops *loops)
       /* Build the transformation matrix.  */
       trans = lambda_trans_matrix_new (depth, depth);
       lambda_matrix_id (LTM_MATRIX (trans), depth);
+
       trans = try_interchange_loops (trans, depth, dependence_relations,
-				     datarefs, loop_nest->num);
+				     datarefs, loop_nest);
 
       if (lambda_trans_matrix_id_p (trans))
 	{

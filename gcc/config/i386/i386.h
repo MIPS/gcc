@@ -177,6 +177,9 @@ extern int target_flags;
    This is because FreeBSD lacks these in the math-emulator-code */
 #define TARGET_NO_FANCY_MATH_387 (target_flags & MASK_NO_FANCY_MATH_387)
 
+/* Generate 387 floating point intrinsics for the current target.  */
+#define TARGET_USE_FANCY_MATH_387 (! TARGET_NO_FANCY_MATH_387)
+
 /* Don't create frame pointers for leaf functions */
 #define TARGET_OMIT_LEAF_FRAME_POINTER \
   (target_flags & MASK_OMIT_LEAF_FRAME_POINTER)
@@ -240,10 +243,11 @@ extern const int x86_partial_reg_dependency, x86_memory_mismatch_stall;
 extern const int x86_accumulate_outgoing_args, x86_prologue_using_move;
 extern const int x86_epilogue_using_move, x86_decompose_lea;
 extern const int x86_arch_always_fancy_math_387, x86_shift1;
-extern const int x86_sse_partial_reg_dependency, x86_sse_partial_regs;
+extern const int x86_sse_partial_reg_dependency, x86_sse_split_regs;
 extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
-extern const int x86_use_ffreep, x86_sse_partial_regs_for_cvtsd2ss;
+extern const int x86_use_ffreep;
 extern const int x86_inter_unit_moves, x86_schedule;
+extern const int x86_use_bt;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
@@ -282,11 +286,8 @@ extern int x86_prefetch_sse;
 #define TARGET_PARTIAL_REG_DEPENDENCY (x86_partial_reg_dependency & TUNEMASK)
 #define TARGET_SSE_PARTIAL_REG_DEPENDENCY \
 				      (x86_sse_partial_reg_dependency & TUNEMASK)
-#define TARGET_SSE_PARTIAL_REGS (x86_sse_partial_regs & TUNEMASK)
-#define TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS \
-				(x86_sse_partial_regs_for_cvtsd2ss & TUNEMASK)
+#define TARGET_SSE_SPLIT_REGS (x86_sse_split_regs & TUNEMASK)
 #define TARGET_SSE_TYPELESS_STORES (x86_sse_typeless_stores & TUNEMASK)
-#define TARGET_SSE_TYPELESS_LOAD0 (x86_sse_typeless_load0 & TUNEMASK)
 #define TARGET_SSE_LOAD0_BY_PXOR (x86_sse_load0_by_pxor & TUNEMASK)
 #define TARGET_MEMORY_MISMATCH_STALL (x86_memory_mismatch_stall & TUNEMASK)
 #define TARGET_PROLOGUE_USING_MOVE (x86_prologue_using_move & TUNEMASK)
@@ -299,6 +300,7 @@ extern int x86_prefetch_sse;
 #define TARGET_INTER_UNIT_MOVES (x86_inter_unit_moves & TUNEMASK)
 #define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 #define TARGET_SCHEDULE (x86_schedule & TUNEMASK)
+#define TARGET_USE_BT (x86_use_bt & TUNEMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -391,19 +393,19 @@ extern int x86_prefetch_sse;
     N_("Do not use push instructions to save outgoing arguments") },	      \
   { "mmx",			 MASK_MMX,				      \
     N_("Support MMX built-in functions") },				      \
-  { "no-mmx",			 -MASK_MMX,				      \
+  { "no-mmx",			 -(MASK_MMX|MASK_3DNOW|MASK_3DNOW_A),	      \
     N_("Do not support MMX built-in functions") },			      \
   { "3dnow",                     MASK_3DNOW,				      \
     N_("Support 3DNow! built-in functions") },				      \
-  { "no-3dnow",                  -MASK_3DNOW,				      \
+  { "no-3dnow",                  -(MASK_3DNOW|MASK_3DNOW_A),		      \
     N_("Do not support 3DNow! built-in functions") },			      \
   { "sse",			 MASK_SSE,				      \
     N_("Support MMX and SSE built-in functions and code generation") },	      \
-  { "no-sse",			 -MASK_SSE,				      \
+  { "no-sse",			 -(MASK_SSE|MASK_SSE2|MASK_SSE3),	      \
     N_("Do not support MMX and SSE built-in functions and code generation") },\
   { "sse2",			 MASK_SSE2,				      \
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
-  { "no-sse2",			 -MASK_SSE2,				      \
+  { "no-sse2",			 -(MASK_SSE2|MASK_SSE3),		      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
   { "sse3",			 MASK_SSE3,				      \
     N_("Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
@@ -450,6 +452,10 @@ extern int x86_prefetch_sse;
    it's analogous to similar code for Mach-O on PowerPC.  darwin.h
    redefines this to 1.  */
 #define TARGET_MACHO 0
+
+/* Subtargets may reset this to 1 in order to enable 96-bit long double
+   with the rounding mode forced to 53 bits.  */
+#define TARGET_96_ROUND_53_LONG_DOUBLE 0
 
 /* This macro is similar to `TARGET_SWITCHES' but defines names of
    command options that have values.  Its definition is an
@@ -1066,14 +1072,11 @@ do {									\
 
 #define VALID_SSE2_REG_MODE(MODE) \
     ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode    \
-     || (MODE) == V2DImode)
+     || (MODE) == V2DImode || (MODE) == DFmode)
 
 #define VALID_SSE_REG_MODE(MODE)					\
     ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
-     || (MODE) == SFmode || (MODE) == TFmode				\
-     /* Always accept SSE2 modes so that xmmintrin.h compiles.  */	\
-     || VALID_SSE2_REG_MODE (MODE)					\
-     || (TARGET_SSE2 && ((MODE) == DFmode || VALID_MMX_REG_MODE (MODE))))
+     || (MODE) == SFmode || (MODE) == TFmode)
 
 #define VALID_MMX_REG_MODE_3DNOW(MODE) \
     ((MODE) == V2SFmode || (MODE) == SFmode)
@@ -1082,8 +1085,9 @@ do {									\
     ((MODE) == DImode || (MODE) == V8QImode || (MODE) == V4HImode	\
      || (MODE) == V2SImode || (MODE) == SImode)
 
-#define UNITS_PER_SIMD_WORD \
-    (TARGET_SSE ? 16 : TARGET_MMX || TARGET_3DNOW ? 8 : 0)
+/* ??? No autovectorization into MMX or 3DNOW until we can reliably
+   place emms and femms instructions.  */
+#define UNITS_PER_SIMD_WORD (TARGET_SSE ? 16 : 0)
 
 #define VALID_FP_MODE_P(MODE)						\
     ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\
@@ -1438,6 +1442,11 @@ enum reg_class
 #define INDEX_REG_CLASS INDEX_REGS
 #define BASE_REG_CLASS GENERAL_REGS
 
+/* Unused letters:
+    B                 TU W   
+          h jk          vw  z
+*/
+
 /* Get reg_class from a letter such as appears in the machine description.  */
 
 #define REG_CLASS_FROM_LETTER(C)	\
@@ -1463,7 +1472,9 @@ enum reg_class
    (C) == 'y' ? TARGET_MMX ? MMX_REGS : NO_REGS :		\
    (C) == 'A' ? AD_REGS :					\
    (C) == 'D' ? DIREG :						\
-   (C) == 'S' ? SIREG : NO_REGS)
+   (C) == 'S' ? SIREG :						\
+   (C) == 'l' ? INDEX_REGS :					\
+   NO_REGS)
 
 /* The letters I, J, K, L and M in a register constraint string
    can be used to stand for particular ranges of immediate operands.
@@ -1765,12 +1776,6 @@ typedef struct ix86_args {
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&(CUM), (MODE), (TYPE), (NAMED))
-
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
-
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
@@ -2788,12 +2793,6 @@ do {									\
 
 #define JUMP_TABLES_IN_TEXT_SECTION \
   (!TARGET_64BIT && flag_pic && !HAVE_AS_GOTOFF_IN_DATA)
-
-/* A C statement that outputs an address constant appropriate to
-   for DWARF debugging.  */
-
-#define ASM_OUTPUT_DWARF_ADDR_CONST(FILE, X) \
-  i386_dwarf_output_addr_const ((FILE), (X))
 
 /* Emit a dtp-relative reference to a TLS variable.  */
 

@@ -10,10 +10,12 @@ MULTILIB_EXCEPTIONS=
 EXTRA_MULTILIB_PARTS= crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
 
 # Override t-slibgcc-elf-ver to export some libgcc symbols with
-# the symbol versions that glibc used.  Also use an sh specific
-# libgcc-std.ver to avoid to export some lib1func routines which
-# should not be called via PLT.
-SHLIB_MAPFILES =  $(srcdir)/config/sh/libgcc-std.ver \
+# the symbol versions that glibc used, and hide some lib1func
+# routines which should not be called via PLT.  We have to create
+# the list from scratch.
+SHLIB_MAPFILES = \
+	$(srcdir)/libgcc-std.ver \
+	$(srcdir)/config/sh/libgcc-excl.ver \
 	$(srcdir)/config/sh/libgcc-glibc.ver
 
 # Override SHLIB_LINK and SHLIB_INSTALL to use linker script
@@ -24,7 +26,7 @@ SHLIB_LINK = $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -shared -nodefaultlibs \
 	-o $(SHLIB_NAME).tmp @multilib_flags@ $(SHLIB_OBJS) $(SHLIB_LC) && \
 	rm -f $(SHLIB_SOLINK) && \
 	if [ -f $(SHLIB_NAME) ]; then \
-	  mv -f $(SHLIB_NAME) $(SHLIB_NAME).`basename $(STAGE_PREFIX)`; \
+	  mv -f $(SHLIB_NAME) $(SHLIB_NAME).backup; \
 	else true; fi && \
 	mv $(SHLIB_NAME).tmp $(SHLIB_NAME) && \
 	(echo "/* GNU ld script"; \

@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-mudflap.h"
 #include "cgraph.h"
 #include "tree-inline.h"
+#include "c-pragma.h"
 
 extern cpp_reader *parse_in;
 
@@ -157,7 +158,7 @@ cp_build_parm_decl (tree name, tree type)
 /* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
    indicated NAME.  */
 
-tree
+static tree
 build_artificial_parm (tree name, tree type)
 {
   tree parm = cp_build_parm_decl (name, type);
@@ -418,8 +419,6 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
       return t;
     }
 
-  exp = convert_from_reference (exp);
-
   /* An array can't have been allocated by new, so complain.  */
   if (TREE_CODE (exp) == VAR_DECL
       && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
@@ -628,10 +627,10 @@ check_classfn (tree ctype, tree function, tree template_parms)
       VEC(tree) *methods = CLASSTYPE_METHOD_VEC (ctype);
       tree fndecls, fndecl = 0;
       bool is_conv_op;
-      bool pop_p;
+      tree pushed_scope;
       const char *format = NULL;
       
-      pop_p = push_scope (ctype);
+      pushed_scope = push_scope (ctype);
       for (fndecls = VEC_index (tree, methods, ix);
 	   fndecls; fndecls = OVL_NEXT (fndecls))
 	{
@@ -670,11 +669,11 @@ check_classfn (tree ctype, tree function, tree template_parms)
 		      == DECL_TI_TEMPLATE (fndecl))))
 	    break;
 	}
-      if (pop_p)
-	pop_scope (ctype);
+      if (pushed_scope)
+	pop_scope (pushed_scope);
       if (fndecls)
 	return OVL_CURRENT (fndecls);
-      error ("prototype for `%#D' does not match any in class `%T'",
+      error ("prototype for %q#D does not match any in class %qT",
 	     function, ctype);
       is_conv_op = DECL_CONV_FN_P (fndecl);
 
@@ -831,11 +830,11 @@ grokfield (const cp_declarator *declarator,
 
   if (!declspecs->any_specifiers_p
       && declarator->kind == cdk_id
-      && TREE_CODE (declarator->u.id.name) == SCOPE_REF
-      && (TREE_CODE (TREE_OPERAND (declarator->u.id.name, 1)) 
-	  == IDENTIFIER_NODE))
+      && declarator->u.id.qualifying_scope 
+      && TREE_CODE (declarator->u.id.unqualified_name) == IDENTIFIER_NODE)
     /* Access declaration */
-    return do_class_using_decl (declarator->u.id.name);
+    return do_class_using_decl (declarator->u.id.qualifying_scope,
+				declarator->u.id.unqualified_name);
 
   if (init
       && TREE_CODE (init) == TREE_LIST
@@ -918,12 +917,11 @@ grokfield (const cp_declarator *declarator,
 
 	  if (!processing_template_decl)
 	    {
-	      if (TREE_CODE (init) == CONST_DECL)
-		init = DECL_INITIAL (init);
-	      else if (TREE_READONLY_DECL_P (init))
-		init = decl_constant_value (init);
-	      else if (TREE_CODE (init) == CONSTRUCTOR)
+	      if (TREE_CODE (init) == CONSTRUCTOR)
 		init = digest_init (TREE_TYPE (value), init, (tree *)0);
+	      else
+		init = integral_constant_value (init);
+	      
 	      if (init != error_mark_node && ! TREE_CONSTANT (init))
 		{
 		  /* We can allow references to things that are effectively
@@ -961,7 +959,7 @@ grokfield (const cp_declarator *declarator,
 
     case FIELD_DECL:
       if (asmspec)
-	error ("`asm' specifiers are not permitted on non-static data members");
+	error ("%<asm%> specifiers are not permitted on non-static data members");
       if (DECL_INITIAL (value) == error_mark_node)
 	init = error_mark_node;
       cp_finish_decl (value, init, NULL_TREE, flags);
@@ -1743,7 +1741,7 @@ import_export_decl (tree decl)
      vague linkage, maybe_commonize_var is used.
 
      Therefore, the only declarations that should be provided to this
-     function are those with external linkage that:
+     function are those with external linkage that are:
 
      * implicit instantiations of function templates
 
@@ -2000,6 +1998,7 @@ get_guard (tree decl)
         DECL_WEAK (guard) = DECL_WEAK (decl);
       
       DECL_ARTIFICIAL (guard) = 1;
+      DECL_IGNORED_P (guard) = 1;
       TREE_USED (guard) = 1;
       pushdecl_top_level_and_finish (guard, NULL_TREE);
     }
@@ -3031,7 +3030,7 @@ cp_finish_file (void)
 	     already verified there was a definition.  */
 	  && !DECL_EXPLICIT_INSTANTIATION (decl))
 	{
-	  cp_warning_at ("inline function `%D' used but never defined", decl);
+	  cp_warning_at ("inline function %qD used but never defined", decl);
 	  /* This symbol is effectively an "extern" declaration now.
 	     This is not strictly necessary, but removes a duplicate
 	     warning.  */
@@ -3062,6 +3061,9 @@ cp_finish_file (void)
   /* We're done with the splay-tree now.  */
   if (priority_info_map)
     splay_tree_delete (priority_info_map);
+
+  /* Generate any missing aliases.  */
+  maybe_apply_pending_pragma_weaks ();
 
   /* We're done with static constructors, so we can go back to "C++"
      linkage now.  */

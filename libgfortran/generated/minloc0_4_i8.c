@@ -27,8 +27,12 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 
+
+extern void minloc0_4_i8 (gfc_array_i4 * retarray, gfc_array_i8 *array);
+export_proto(minloc0_4_i8);
+
 void
-__minloc0_4_i8 (gfc_array_i4 * retarray, gfc_array_i8 *array)
+minloc0_4_i8 (gfc_array_i4 * retarray, gfc_array_i8 *array)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
@@ -117,8 +121,13 @@ __minloc0_4_i8 (gfc_array_i4 * retarray, gfc_array_i8 *array)
   }
 }
 
+
+extern void mminloc0_4_i8 (gfc_array_i4 *, gfc_array_i8 *, gfc_array_l4 *);
+export_proto(mminloc0_4_i8);
+
 void
-__mminloc0_4_i8 (gfc_array_i4 * retarray, gfc_array_i8 *array, gfc_array_l4 * mask)
+mminloc0_4_i8 (gfc_array_i4 * retarray, gfc_array_i8 *array,
+				  gfc_array_l4 * mask)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];

@@ -23,9 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "flags.h"
-
-#include <string.h>
-
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -968,10 +965,10 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
   if (e->ts.type != tag->type)
     {
       /* Format label can be integer varibale.  */
-      if (tag != &tag_format)
+      if (tag != &tag_format || e->ts.type != BT_INTEGER)
         {
           gfc_error ("%s tag at %L must be of type %s", tag->name, &e->where,
-          gfc_basic_typename (tag->type));
+		     gfc_basic_typename (tag->type));
           return FAILURE;
         }
     }

@@ -45,6 +45,7 @@ struct pragma_entry
   struct pragma_entry *next;
   const cpp_hashnode *pragma;	/* Name and length.  */
   bool is_nspace;
+  bool allow_expansion;
   bool is_internal;
   union {
     pragma_cb handler;
@@ -108,9 +109,9 @@ static struct pragma_entry *insert_pragma_entry (cpp_reader *,
                                                  struct pragma_entry **,
                                                  const cpp_hashnode *,
                                                  pragma_cb,
-						 bool);
+						 bool, bool);
 static void register_pragma (cpp_reader *, const char *, const char *,
-			     pragma_cb, bool);
+			     pragma_cb, bool, bool);
 static int count_registered_pragmas (struct pragma_entry *);
 static char ** save_registered_pragmas (struct pragma_entry *, char **);
 static char ** restore_registered_pragmas (cpp_reader *, struct pragma_entry *,
@@ -325,7 +326,7 @@ directive_diagnostics (cpp_reader *pfile, const directive *dir, int indented)
 
 /* Check if we have a known directive.  INDENTED is nonzero if the
    '#' of the directive was indented.  This function is in this file
-   to save unnecessarily exporting dtable etc. to cpplex.c.  Returns
+   to save unnecessarily exporting dtable etc. to lex.c.  Returns
    nonzero if the line of tokens has been handled, zero if we should
    continue processing the line.  */
 int
@@ -381,7 +382,7 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
 
 	 does not cause '#define foo bar' to get executed when
 	 compiled with -save-temps, we recognize directives in
-	 -fpreprocessed mode only if the # is in column 1.  cppmacro.c
+	 -fpreprocessed mode only if the # is in column 1.  macro.c
 	 puts a space in front of any '#' at the start of a macro.  */
       if (CPP_OPTION (pfile, preprocessed)
 	  && (indented || !(dir->flags & IN_I)))
@@ -502,7 +503,7 @@ lex_macro_node (cpp_reader *pfile)
   return NULL;
 }
 
-/* Process a #define directive.  Most work is done in cppmacro.c.  */
+/* Process a #define directive.  Most work is done in macro.c.  */
 static void
 do_define (cpp_reader *pfile)
 {
@@ -666,6 +667,14 @@ do_include_common (cpp_reader *pfile, enum include_type type)
   fname = parse_include (pfile, &angle_brackets);
   if (!fname)
     return;
+
+  if (!*fname)
+  {
+    cpp_error (pfile, CPP_DL_ERROR, "empty filename in #%s",
+               pfile->directive->name);
+    free ((void *) fname);
+    return;
+  }
 
   /* Prevent #include recursion.  */
   if (pfile->line_table->depth >= CPP_STACK_MAX)
@@ -964,7 +973,7 @@ lookup_pragma_entry (struct pragma_entry *chain, const cpp_hashnode *pragma)
 static struct pragma_entry *
 insert_pragma_entry (cpp_reader *pfile, struct pragma_entry **chain,
 		     const cpp_hashnode *pragma, pragma_cb handler,
-		     bool internal)
+		     bool allow_expansion, bool internal)
 {
   struct pragma_entry *new;
 
@@ -982,6 +991,7 @@ insert_pragma_entry (cpp_reader *pfile, struct pragma_entry **chain,
       new->u.space = NULL;
     }
 
+  new->allow_expansion = allow_expansion;
   new->is_internal = internal;
   new->next = *chain;
   *chain = new;
@@ -990,12 +1000,13 @@ insert_pragma_entry (cpp_reader *pfile, struct pragma_entry **chain,
 
 /* Register a pragma NAME in namespace SPACE.  If SPACE is null, it
    goes in the global namespace.  HANDLER is the handler it will call,
-   which must be non-NULL.  INTERNAL is true if this is a pragma
-   registered by cpplib itself, false if it is registered via
+   which must be non-NULL.  If ALLOW_EXPANSION is set, allow macro
+   expansion while parsing pragma NAME.  INTERNAL is true if this is a
+   pragma registered by cpplib itself, false if it is registered via
    cpp_register_pragma */
 static void
 register_pragma (cpp_reader *pfile, const char *space, const char *name,
-		 pragma_cb handler, bool internal)
+		 pragma_cb handler, bool allow_expansion, bool internal)
 {
   struct pragma_entry **chain = &pfile->pragmas;
   struct pragma_entry *entry;
@@ -1009,7 +1020,8 @@ register_pragma (cpp_reader *pfile, const char *space, const char *name,
       node = cpp_lookup (pfile, U space, strlen (space));
       entry = lookup_pragma_entry (*chain, node);
       if (!entry)
-	entry = insert_pragma_entry (pfile, chain, node, NULL, internal);
+	entry = insert_pragma_entry (pfile, chain, node, NULL, 
+				     allow_expansion, internal);
       else if (!entry->is_nspace)
 	goto clash;
       chain = &entry->u.space;
@@ -1032,17 +1044,20 @@ register_pragma (cpp_reader *pfile, const char *space, const char *name,
 	cpp_error (pfile, CPP_DL_ICE, "#pragma %s is already registered", name);
     }
   else
-    insert_pragma_entry (pfile, chain, node, handler, internal);
+    insert_pragma_entry (pfile, chain, node, handler, allow_expansion, 
+			 internal);
 }
 
 /* Register a pragma NAME in namespace SPACE.  If SPACE is null, it
    goes in the global namespace.  HANDLER is the handler it will call,
-   which must be non-NULL.  This function is exported from libcpp. */
+   which must be non-NULL.  If ALLOW_EXPANSION is set, allow macro
+   expansion while parsing pragma NAME.  This function is exported
+   from libcpp. */
 void
 cpp_register_pragma (cpp_reader *pfile, const char *space, const char *name,
-		     pragma_cb handler)
+		     pragma_cb handler, bool allow_expansion)
 {
-  register_pragma (pfile, space, name, handler, false);
+  register_pragma (pfile, space, name, handler, allow_expansion, false);
 }
 
 /* Register the pragmas the preprocessor itself handles.  */
@@ -1050,12 +1065,14 @@ void
 _cpp_init_internal_pragmas (cpp_reader *pfile)
 {
   /* Pragmas in the global namespace.  */
-  register_pragma (pfile, 0, "once", do_pragma_once, true);
+  register_pragma (pfile, 0, "once", do_pragma_once, false, true);
 
   /* New GCC-specific pragmas should be put in the GCC namespace.  */
-  register_pragma (pfile, "GCC", "poison", do_pragma_poison, true);
-  register_pragma (pfile, "GCC", "system_header", do_pragma_system_header, true);
-  register_pragma (pfile, "GCC", "dependency", do_pragma_dependency, true);
+  register_pragma (pfile, "GCC", "poison", do_pragma_poison, false, true);
+  register_pragma (pfile, "GCC", "system_header", do_pragma_system_header, 
+		   false, true);
+  register_pragma (pfile, "GCC", "dependency", do_pragma_dependency, 
+		   false, true);
 }
 
 /* Return the number of registered pragmas in PE.  */
@@ -1167,37 +1184,48 @@ do_pragma (cpp_reader *pfile)
 	}
     }
 
-  if (p && (p->is_internal || !CPP_OPTION (pfile, defer_pragmas)))
+  if (p)
     {
-      /* Since the handler below doesn't get the line number, that it
-	 might need for diagnostics, make sure it has the right
-	 numbers in place.  */
-      if (pfile->cb.line_change)
-	(*pfile->cb.line_change) (pfile, pragma_token, false);
-      (*p->u.handler) (pfile);
-    }
-  else if (CPP_OPTION (pfile, defer_pragmas))
-    {
-      /* Squirrel away the pragma text.  Pragmas are newline-terminated. */
-      const uchar *line_end;
-      uchar *s;
-      cpp_string body;
-      cpp_token *ptok;
+      if (p->is_internal || !CPP_OPTION (pfile, defer_pragmas))
+	{
+	  /* Since the handler below doesn't get the line number, that it
+	     might need for diagnostics, make sure it has the right
+	     numbers in place.  */
+	  if (pfile->cb.line_change)
+	    (*pfile->cb.line_change) (pfile, pragma_token, false);
+	  /* Never expand macros if handling a deferred pragma, since
+	     the macro definitions now applicable may be different
+	     from those at the point the pragma appeared.  */
+	  if (p->allow_expansion && !pfile->state.in_deferred_pragma)
+	    pfile->state.prevent_expansion--;
+	  (*p->u.handler) (pfile);
+	  if (p->allow_expansion && !pfile->state.in_deferred_pragma)
+	    pfile->state.prevent_expansion++;
+	}
+      else
+	{
+	  /* Squirrel away the pragma text.  Pragmas are
+	     newline-terminated. */
+	  const uchar *line_end;
+	  uchar *s;
+	  cpp_string body;
+	  cpp_token *ptok;
 
-      line_end = ustrchr (line_start, '\n');
+	  line_end = ustrchr (line_start, '\n');
 
-      body.len = (line_end - line_start) + 1;
-      s = _cpp_unaligned_alloc (pfile, body.len + 1);
-      memcpy (s, line_start, body.len);
-      s[body.len] = '\0';
-      body.text = s;
+	  body.len = (line_end - line_start) + 1;
+	  s = _cpp_unaligned_alloc (pfile, body.len + 1);
+	  memcpy (s, line_start, body.len);
+	  s[body.len] = '\0';
+	  body.text = s;
 
-      /* Create a CPP_PRAGMA token.  */
-      ptok = &pfile->directive_result;
-      ptok->src_loc = pragma_token->src_loc;
-      ptok->type = CPP_PRAGMA;
-      ptok->flags = pragma_token->flags | NO_EXPAND;
-      ptok->val.str = body;
+	  /* Create a CPP_PRAGMA token.  */
+	  ptok = &pfile->directive_result;
+	  ptok->src_loc = pragma_token->src_loc;
+	  ptok->type = CPP_PRAGMA;
+	  ptok->flags = pragma_token->flags | NO_EXPAND;
+	  ptok->val.str = body;
+	}
     }
   else if (pfile->cb.def_pragma)
     {
@@ -1426,15 +1454,17 @@ cpp_handle_deferred_pragma (cpp_reader *pfile, const cpp_string *s)
   pfile->context->macro = 0;
   pfile->context->prev = 0;
   pfile->cb.line_change = NULL;
+  pfile->state.in_deferred_pragma = true;
   CPP_OPTION (pfile, defer_pragmas) = false;
 
-  run_directive (pfile, T_PRAGMA, s->text, s->len);
+  run_directive (pfile, T_PRAGMA, (const char *)s->text, s->len);
 
   XDELETE (pfile->context);
   pfile->context = saved_context;
   pfile->cur_token = saved_cur_token;
   pfile->cur_run = saved_cur_run;
   pfile->cb.line_change = saved_line_change;
+  pfile->state.in_deferred_pragma = false;
   CPP_OPTION (pfile, defer_pragmas) = saved_defer_pragmas;
 }
 

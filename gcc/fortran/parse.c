@@ -22,9 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #include "config.h"
-#include <string.h>
+#include "system.h"
 #include <setjmp.h>
-
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -400,7 +399,7 @@ next_fixed (void)
 	  break;
 
           /* Comments have already been skipped by the time we get
-	     here so don't bother checking for them. */
+	     here so don't bother checking for them.  */
 
 	default:
 	  gfc_buffer_error (0);

@@ -81,12 +81,21 @@ extern void darwin_pragma_unused (struct cpp_reader *);
 
 extern void darwin_file_end (void);
 
-extern void darwin_make_decl_one_only (tree decl);
 extern void darwin_mark_decl_preserved (const char *);
 
+extern tree darwin_handle_weak_import_attribute (tree *node, tree name,
+						 tree args, int flags,
+						 bool * no_add_attrs);
+
 /* Expanded by EXTRA_SECTION_FUNCTIONS into varasm.o.  */
+extern void text_coal_section (void);
+extern void text_unlikely_section (void);
+extern void text_unlikely_coal_section (void);
 extern void const_section (void);
+extern void const_coal_section (void);
 extern void const_data_section (void);
+extern void const_data_coal_section (void);
+extern void data_coal_section (void);
 extern void cstring_section (void);
 extern void literal4_section (void);
 extern void literal8_section (void);

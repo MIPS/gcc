@@ -1,5 +1,5 @@
 /* Miscellaneous stuff that doesn't fit anywhere else.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -21,10 +21,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #include "config.h"
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-
+#include "system.h"
 #include "gfortran.h"
 
 
@@ -278,12 +275,10 @@ gfc_intent_string (sym_intent i)
 void
 gfc_init_1 (void)
 {
-
   gfc_error_init_1 ();
   gfc_scanner_init_1 ();
   gfc_arith_init_1 ();
   gfc_intrinsic_init_1 ();
-  gfc_iresolve_init_1 ();
   gfc_simplify_init_1 ();
 }
 
@@ -306,10 +301,8 @@ gfc_init_2 (void)
 void
 gfc_done_1 (void)
 {
-
   gfc_scanner_done_1 ();
   gfc_intrinsic_done_1 ();
-  gfc_iresolve_done_1 ();
   gfc_arith_done_1 ();
 }
 

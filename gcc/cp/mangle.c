@@ -1969,6 +1969,16 @@ write_expression (tree expr)
 
   code = TREE_CODE (expr);
 
+  /* Skip NOP_EXPRs.  They can occur when (say) a pointer argument
+     is converted (via qualification conversions) to another
+     type.  */
+  while (TREE_CODE (expr) == NOP_EXPR
+	 || TREE_CODE (expr) == NON_LVALUE_EXPR)
+    {
+      expr = TREE_OPERAND (expr, 0);
+      code = TREE_CODE (expr);
+    }
+
   /* Handle pointers-to-members by making them look like expression
      nodes.  */
   if (code == PTRMEM_CST)
@@ -1977,16 +1987,6 @@ write_expression (tree expr)
 		       build_nt (SCOPE_REF,
 				 PTRMEM_CST_CLASS (expr),
 				 PTRMEM_CST_MEMBER (expr)));
-      code = TREE_CODE (expr);
-    }
-
-  /* Skip NOP_EXPRs.  They can occur when (say) a pointer argument
-     is converted (via qualification conversions) to another
-     type.  */
-  while (TREE_CODE (expr) == NOP_EXPR
-	 || TREE_CODE (expr) == NON_LVALUE_EXPR)
-    {
-      expr = TREE_OPERAND (expr, 0);
       code = TREE_CODE (expr);
     }
 
@@ -2169,7 +2169,7 @@ write_expression (tree expr)
 		 expression without extending the C++ ABI.  */
 	      if (code == COND_EXPR && i == 1 && !operand)
 		{
-		  error ("omitted middle operand to `?:' operand "
+		  error ("omitted middle operand to %<?:%> operand "
 			 "cannot be mangled");
 		  continue;
 		}
@@ -2479,7 +2479,7 @@ static inline const char *
 finish_mangling (const bool warn)
 {
   if (warn_abi && warn && G.need_abi_warning)
-    warning ("the mangled name of `%D' will change in a future "
+    warning ("the mangled name of %qD will change in a future "
 	     "version of GCC",
 	     G.entity);
 

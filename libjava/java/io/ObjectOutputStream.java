@@ -220,7 +220,6 @@ public class ObjectOutputStream extends OutputStream
 	      {
 		Class cl = (Class)obj;
 		ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(cl);
-		assignNewHandle(obj);
 		realOutput.writeByte(TC_CLASS);
 		if (!osc.isProxyClass)
 		  {
@@ -241,6 +240,7 @@ public class ObjectOutputStream extends OutputStream
 		    
 		    writeObject(osc.getSuper());
 		  }
+		assignNewHandle(obj);
 		break;
 	      }
 
@@ -347,8 +347,8 @@ public class ObjectOutputStream extends OutputStream
 		    fieldsAlreadyWritten = false;
 		    if (currentObjectStreamClass.hasWriteMethod())
 		      {
-			if (dump)
-			  dumpElementln ("WRITE METHOD CALLED FOR: " + obj);
+				if (dump)
+				  dumpElementln ("WRITE METHOD CALLED FOR: " + obj);
 			setBlockDataMode(true);
 			callWriteMethod(obj, currentObjectStreamClass);
 			setBlockDataMode(false);
@@ -358,10 +358,10 @@ public class ObjectOutputStream extends OutputStream
 		      }
 		    else
 		      {
-			if (dump)
-			  dumpElementln ("WRITE FIELDS CALLED FOR: " + obj);
-		      writeFields(obj, currentObjectStreamClass);
-		  }
+				if (dump)
+				  dumpElementln ("WRITE FIELDS CALLED FOR: " + obj);
+				writeFields(obj, currentObjectStreamClass);
+			  }
 		  }
 
 		this.currentObject = prevObject;
@@ -1239,7 +1239,8 @@ public class ObjectOutputStream extends OutputStream
 
 
   // Toggles writing primitive data to block-data buffer.
-  private boolean setBlockDataMode(boolean on) throws IOException
+  // Package-private to avoid a trampoline constructor.
+  boolean setBlockDataMode(boolean on) throws IOException
   {
     if (on == writeDataAsBlocks)
       return on;
@@ -1563,7 +1564,8 @@ public class ObjectOutputStream extends OutputStream
   private byte[] blockData;
   private int blockDataCount;
   private Object currentObject;
-  private ObjectStreamClass currentObjectStreamClass;
+  // Package-private to avoid a trampoline.
+  ObjectStreamClass currentObjectStreamClass;
   private PutField currentPutField;
   private boolean fieldsAlreadyWritten;
   private boolean replacementEnabled;

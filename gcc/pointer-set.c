@@ -51,7 +51,7 @@ struct pointer_set_t
 
    We don't need to do anything special for full-width multiplication
    because we're only interested in the least significant word of the
-   product, and unsigned arithmetic in C is modulo the word size. */
+   product, and unsigned arithmetic in C is modulo the word size.  */
 
 static inline size_t
 hash1 (const void *p, unsigned long max, unsigned long logmax)
@@ -69,7 +69,7 @@ hash1 (const void *p, unsigned long max, unsigned long logmax)
   return ((A * (unsigned long) p) >> shift) & (max - 1);
 }
 
-/* Allocate an empty pointer set. */
+/* Allocate an empty pointer set.  */
 struct pointer_set_t *
 pointer_set_create (void)
 {
@@ -83,7 +83,7 @@ pointer_set_create (void)
   return result;
 }
 
-/* Reclaims all memory associated with PSET. */
+/* Reclaims all memory associated with PSET.  */
 void pointer_set_destroy (struct pointer_set_t *pset)
 {
   XDELETEVEC (pset->slots);
@@ -92,9 +92,7 @@ void pointer_set_destroy (struct pointer_set_t *pset)
 
 /* Returns nonzero if PSET contains P.  P must be nonnull.
 
-   Collisions are resolved by linear probing.  More complicated
-   collision management schemes are only useful when the load factor
-   significantly exceeds 0.5, and we never let that happen. */
+   Collisions are resolved by linear probing.  */
 int
 pointer_set_contains (struct pointer_set_t *pset, void *p)
 {
@@ -103,21 +101,21 @@ pointer_set_contains (struct pointer_set_t *pset, void *p)
   while (true)
     {
       if (pset->slots[n] == p)
-	return 1;
+       return 1;
       else if (pset->slots[n] == 0)
-	return 0;
+       return 0;
       else
-	{
-	  ++n;
-	  if (n == pset->n_slots)
-	    n = 0;
-	}
+       {
+         ++n;
+         if (n == pset->n_slots)
+           n = 0;
+       }
     }
 }
 
 /* Subroutine of pointer_set_insert.  Inserts P into an empty
    element of SLOTS, an array of length N_SLOTS.  Returns nonzero
-   if P was already present in N_SLOTS. */
+   if P was already present in N_SLOTS.  */
 static int
 insert_aux (void *p, void **slots, size_t n_slots, size_t log_slots)
 {
@@ -141,7 +139,7 @@ insert_aux (void *p, void **slots, size_t n_slots, size_t log_slots)
 }
 
 /* Inserts P into PSET if it wasn't already there.  Returns nonzero
-   if it was already there. P must be nonnull. */
+   if it was already there. P must be nonnull.  */
 int
 pointer_set_insert (struct pointer_set_t *pset, void *p)
 {
@@ -149,7 +147,7 @@ pointer_set_insert (struct pointer_set_t *pset, void *p)
     return 1;
       
   /* We've inserted a new element.  Expand the table if necessary to keep
-     the load factor small. */
+     the load factor small.  */
   ++pset->n_elements;
   if (pset->n_elements > pset->n_slots / 4)
     {

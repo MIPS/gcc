@@ -57,7 +57,6 @@ with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
-with Stringt;  use Stringt;
 with Snames;   use Snames;
 with Tbuild;   use Tbuild;
 with Ttypes;   use Ttypes;
@@ -286,6 +285,11 @@ package body Exp_Ch3 is
    function Predefined_Primitive_Freeze (Tag_Typ : Entity_Id) return List_Id;
    --  Freeze entities of all predefined primitive operations. This is needed
    --  because the bodies of these operations do not normally do any freezeing.
+
+   function Stream_Operations_OK (Typ : Entity_Id) return Boolean;
+   --  Check whether stream operations must be emitted for a given type.
+   --  Various restrictions prevent the generation of these operations, as
+   --  a useful optimization or for certification purposes.
 
    --------------------------
    -- Adjust_Discriminants --
@@ -641,7 +645,7 @@ package body Exp_Ch3 is
       P    : Node_Id;
 
    begin
-      --  Nothing to do if there is no task hierarchy.
+      --  Nothing to do if there is no task hierarchy
 
       if Restriction_Active (No_Task_Hierarchy) then
          return;
@@ -687,7 +691,7 @@ package body Exp_Ch3 is
          end loop;
       end if;
 
-      --  Now define the renaming of the master_id.
+      --  Now define the renaming of the master_id
 
       M_Id :=
         Make_Defining_Identifier (Loc,
@@ -1118,15 +1122,10 @@ package body Exp_Ch3 is
          --  This is just a workaround that must be improved later???
 
          if With_Default_Init then
-            declare
-               S           : String_Id;
-               Null_String : Node_Id;
-            begin
-               Start_String;
-               S := End_String;
-               Null_String := Make_String_Literal (Loc, Strval => S);
-               Append_To (Args, Null_String);
-            end;
+            Append_To (Args,
+              Make_String_Literal (Loc,
+                Strval => ""));
+
          else
             Decls := Build_Task_Image_Decls (Loc, Id_Ref, Enclos_Type);
             Decl  := Last (Decls);
@@ -1316,7 +1315,7 @@ package body Exp_Ch3 is
       Decl : Node_Id;
 
    begin
-      --  Nothing to do if there is no task hierarchy.
+      --  Nothing to do if there is no task hierarchy
 
       if Restriction_Active (No_Task_Hierarchy) then
          return;
@@ -2669,7 +2668,7 @@ package body Exp_Ch3 is
                   Expressions => New_List (New_Occurrence_Of (Rnn, Loc))))),
           End_Label  => Empty);
 
-      --  Build exit condition.
+      --  Build exit condition
 
       declare
          F_Ass : constant List_Id := New_List;
@@ -3976,7 +3975,7 @@ package body Exp_Ch3 is
          end loop;
       end if;
 
-      --  Now build an array declaration.
+      --  Now build an array declaration
 
       --    typA : array (Natural range 0 .. num - 1) of ctype :=
       --             (v, v, v, v, v, ....)
@@ -4087,7 +4086,7 @@ package body Exp_Ch3 is
 
          if Enumeration_Rep (Ent) = Last_Repval then
 
-            --  Another special case: for a single literal, Pos is zero.
+            --  Another special case: for a single literal, Pos is zero
 
             Pos_Expr := Make_Integer_Literal (Loc, Uint_0);
 
@@ -4548,7 +4547,7 @@ package body Exp_Ch3 is
 
          if RACW_Seen then
 
-            --  If there are RACWs designating this type, make stubs now.
+            --  If there are RACWs designating this type, make stubs now
 
             Remote_Types_Tagged_Full_View_Encountered (Def_Id);
          end if;
@@ -4580,7 +4579,7 @@ package body Exp_Ch3 is
             begin
                if Scope (Old_C) = Base_Type (Def_Id) then
 
-                  --  The entity is the one in the parent. Create new one.
+                  --  The entity is the one in the parent. Create new one
 
                   New_C := New_Copy (Old_C);
                   Set_Parent (New_C, Parent (Old_C));
@@ -5370,10 +5369,7 @@ package body Exp_Ch3 is
       --  We also skip these operations if dispatching is not available
       --  or if streams are not available (since what's the point?)
 
-      if not Is_Limited_Type (Tag_Typ)
-        and then RTE_Available (RE_Tag)
-        and then RTE_Available (RE_Root_Stream_Type)
-      then
+      if Stream_Operations_OK (Tag_Typ) then
          Append_To (Res,
            Predef_Stream_Attr_Spec (Loc, Tag_Typ, TSS_Stream_Read));
          Append_To (Res,
@@ -5825,11 +5821,9 @@ package body Exp_Ch3 is
 
       --  Bodies for Dispatching stream IO routines. We need these only for
       --  non-limited types (in the limited case there is no dispatching).
-      --  We also skip them if dispatching is not available.
+      --  We also skip them if dispatching or finalization are not available.
 
-      if not Is_Limited_Type (Tag_Typ)
-        and then not Restriction_Active (No_Finalization)
-      then
+      if Stream_Operations_OK (Tag_Typ) then
          if No (TSS (Tag_Typ, TSS_Stream_Read)) then
             Build_Record_Read_Procedure (Loc, Tag_Typ, Decl, Ent);
             Append_To (Res, Decl);
@@ -6040,4 +6034,18 @@ package body Exp_Ch3 is
 
       return Res;
    end Predefined_Primitive_Freeze;
+
+   --------------------------
+   -- Stream_Operations_OK --
+   --------------------------
+
+   function Stream_Operations_OK (Typ : Entity_Id) return Boolean is
+   begin
+      return
+        not Is_Limited_Type (Typ)
+          and then RTE_Available (RE_Tag)
+          and then RTE_Available (RE_Root_Stream_Type)
+          and then not Restriction_Active (No_Dispatch)
+          and then not Restriction_Active (No_Streams);
+   end Stream_Operations_OK;
 end Exp_Ch3;

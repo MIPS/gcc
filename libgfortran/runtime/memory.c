@@ -37,7 +37,6 @@ Boston, MA 02111-1307, USA.  */
    the memory we allocate internally.  We could also use this for user
    allocated memory (ALLOCATE/DEALLOCATE).  This should be stored in a
    seperate list.  */
-#define malloc_t	prefix(malloc_t)
 typedef struct malloc_t
 {
   int magic;
@@ -59,32 +58,25 @@ malloc_t;
 
 /* The root of the circular double linked list for compiler generated
    malloc calls.  */
-static malloc_t mem_root;
+static malloc_t mem_root = {
+	.next = &mem_root,
+	.prev = &mem_root
+};
 
-
-void
-memory_init (void)
-{
-
-  /* The root should never be used directly, so don't set the magic.  */
-  mem_root.magic = 0;
-  mem_root.next = &mem_root;
-  mem_root.prev = &mem_root;
-  mem_root.marker = 0;
-}
-
-
+#if 0
+/* ??? Disabled because, well, it wasn't being called before transforming
+   it to a destructor, and turning it on causes testsuite failures.  */
 /* Doesn't actually do any cleaning up, just throws an error if something
    has got out of sync somewhere.  */
 
-void
+static void __attribute__((destructor))
 runtime_cleanup (void)
 {
   /* Make sure all memory we've allocated is freed on exit.  */
   if (mem_root.next != &mem_root)
     runtime_error ("Unfreed memory on program termination");
 }
-
+#endif
 
 
 void *
@@ -93,13 +85,9 @@ get_mem (size_t n)
   void *p;
 
 #ifdef GFC_CLEAR_MEMORY
-  p = (void *) calloc (n, 1);
+  p = (void *) calloc (1, n);
 #else
-#define temp malloc
-#undef malloc
   p = (void *) malloc (n);
-#define malloc temp
-#undef temp
 #endif
   if (p == NULL)
     os_error ("Memory allocation failed");
@@ -111,7 +99,6 @@ get_mem (size_t n)
 void
 free_mem (void *p)
 {
-
   free (p);
 }
 
@@ -159,6 +146,8 @@ internal_malloc_size (size_t size)
   return DATA_POINTER (newmem);
 }
 
+extern void *internal_malloc (GFC_INTEGER_4);
+export_proto(internal_malloc);
 
 void *
 internal_malloc (GFC_INTEGER_4 size)
@@ -172,6 +161,8 @@ internal_malloc (GFC_INTEGER_4 size)
   return internal_malloc_size ((size_t) size);
 }
 
+extern void *internal_malloc64 (GFC_INTEGER_8);
+export_proto(internal_malloc64);
 
 void *
 internal_malloc64 (GFC_INTEGER_8 size)
@@ -211,6 +202,7 @@ internal_free (void *mem)
 
   free (m);
 }
+iexport(internal_free);
 
 
 /* User-allocate, one call for each member of the alloc-list of an
@@ -246,11 +238,12 @@ allocate_size (void **mem, size_t size, GFC_INTEGER_4 * stat)
     *stat = 0;
 }
 
+extern void allocate (void **, GFC_INTEGER_4, GFC_INTEGER_4 *);
+export_proto(allocate);
 
 void
 allocate (void **mem, GFC_INTEGER_4 size, GFC_INTEGER_4 * stat)
 {
-
   if (size < 0)
     {
       runtime_error ("Attempt to allocate negative amount of memory.  "
@@ -261,11 +254,12 @@ allocate (void **mem, GFC_INTEGER_4 size, GFC_INTEGER_4 * stat)
   allocate_size (mem, (size_t) size, stat);
 }
 
+extern void allocate64 (void **, GFC_INTEGER_8, GFC_INTEGER_4 *);
+export_proto(allocate64);
 
 void
 allocate64 (void **mem, GFC_INTEGER_8 size, GFC_INTEGER_4 * stat)
 {
-
   if (size < 0)
     {
       runtime_error
@@ -280,10 +274,12 @@ allocate64 (void **mem, GFC_INTEGER_8 size, GFC_INTEGER_4 * stat)
 
 /* User-deallocate; pointer is NULLified. */
 
+extern void deallocate (void **, GFC_INTEGER_4 *);
+export_proto(deallocate);
+
 void
 deallocate (void **mem, GFC_INTEGER_4 * stat)
 {
-
   if (!mem)
     runtime_error ("Internal: NULL mem pointer in ALLOCATE.");
 
@@ -309,4 +305,3 @@ deallocate (void **mem, GFC_INTEGER_4 * stat)
   if (stat)
     *stat = 0;
 }
-

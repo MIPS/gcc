@@ -1901,7 +1901,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 					     new_ivs,
 					     invariants, MAX_EXPR, &stmts);
       bsi_insert_on_edge (loop_preheader_edge (temp), stmts);
-      bsi_commit_edge_inserts (NULL);
+      bsi_commit_edge_inserts ();
       /* Build the new upper bound and insert its statements in the
          basic block of the exit condition */
       newupperbound = lle_to_gcc_expression (LL_UPPER_BOUND (newloop),
@@ -2189,9 +2189,10 @@ can_convert_to_perfect_nest (struct loop *loop,
 			     VEC (tree) *loopivs)
 {
   basic_block *bbs;
-  tree exit_condition;
+  tree exit_condition, phi;
   size_t i;
   block_stmt_iterator bsi;
+  basic_block exitdest;
 
   /* Can't handle triply nested+ loops yet.  */
   if (!loop->inner || loop->inner->inner)
@@ -2233,6 +2234,16 @@ can_convert_to_perfect_nest (struct loop *loop,
 	    }
 	}
     }  
+
+  /* We also need to make sure the loop exit only has simple copy phis in it,
+     otherwise we don't know how to transform it into a perfect nest right
+     now.  */
+  exitdest = loop->single_exit->dest;
+  
+  for (phi = phi_nodes (exitdest); phi; phi = PHI_CHAIN (phi))
+    if (PHI_NUM_ARGS (phi) != 1)
+      return false;
+
   return true;
 }
 
@@ -2309,9 +2320,6 @@ perfect_nestify (struct loops *loops,
 
   for (phi = phi_nodes (olddest); phi; phi = PHI_CHAIN (phi))
     {
-      /* These should be simple exit phi copies.  */
-      if (PHI_NUM_ARGS (phi) != 1)
-	return false;
       VEC_safe_push (tree, phis, PHI_RESULT (phi));
       VEC_safe_push (tree, phis, PHI_ARG_DEF (phi, 0));
       mark_for_rewrite (PHI_RESULT (phi));
@@ -2330,7 +2338,7 @@ perfect_nestify (struct loops *loops,
       def = VEC_pop (tree, phis);
       phiname = VEC_pop (tree, phis);      
       phi = create_phi_node (phiname, preheaderbb);
-      add_phi_arg (&phi, def, EDGE_PRED (preheaderbb, 0));
+      add_phi_arg (phi, def, EDGE_PRED (preheaderbb, 0));
     }       
   flush_pending_stmts (e);
   unmark_all_for_rewrite ();

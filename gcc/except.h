@@ -23,8 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct function;
 
-struct inline_remap;
-
 /* Per-function EH data.  Used only in except.c, but GC and others
    manipulate pointers to the opaque type.  */
 struct eh_status;

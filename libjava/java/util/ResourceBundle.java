@@ -1,5 +1,6 @@
 /* ResourceBundle -- aids in loading resource bundles
-   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -243,7 +244,7 @@ public abstract class ResourceBundle
 
   /** Cache key for the ResourceBundle cache.  Resource bundles are keyed
       by the combination of bundle name, locale, and class loader. */
-  private static class BundleKey implements Cloneable
+  private static class BundleKey
   {
     String baseName;
     Locale locale;
@@ -280,19 +281,7 @@ public abstract class ResourceBundle
 	baseName.equals(key.baseName) &&
         locale.equals(key.locale) &&
 	classLoader.equals(key.classLoader);
-    }
-    
-    public Object clone()
-    {
-      Object clone = null;
-      try
-      {
-	clone = super.clone();
-      }
-      catch (CloneNotSupportedException x) {}
-      
-      return clone;
-    }
+    }    
   }
   
   /** A cache lookup key. This avoids having to a new one for every
@@ -395,6 +384,7 @@ public abstract class ResourceBundle
     
     Object obj = bundleCache.get(lookupKey);
     ResourceBundle rb = null;
+    
     if (obj instanceof ResourceBundle)
       {
         return (ResourceBundle) obj;
@@ -415,7 +405,7 @@ public abstract class ResourceBundle
 	if (bundle == null && !locale.equals(defaultLocale))
 	  bundle = tryBundle(baseName, defaultLocale, classLoader, true);
 
-	BundleKey key = (BundleKey) lookupKey.clone();
+	BundleKey key = new BundleKey(baseName, locale, classLoader);
         if (bundle == null)
 	  {
 	    // Cache the fact that this lookup has previously failed.
@@ -473,12 +463,18 @@ public abstract class ResourceBundle
           rbClass = Class.forName(localizedName);
         else
           rbClass = classloader.loadClass(localizedName);
-        bundle = (ResourceBundle) rbClass.newInstance();
+	// Note that we do the check up front instead of catching
+	// ClassCastException.  The reason for this is that some crazy
+	// programs (Eclipse) have classes that do not extend
+	// ResourceBundle but that have the same name as a property
+	// bundle; in fact Eclipse relies on ResourceBundle not
+	// instantiating these classes.
+	if (ResourceBundle.class.isAssignableFrom(rbClass))
+	  bundle = (ResourceBundle) rbClass.newInstance();
       }
     catch (IllegalAccessException ex) {}
     catch (InstantiationException ex) {}
     catch (ClassNotFoundException ex) {}
-    catch (ClassCastException ex) {}
 
     if (bundle == null)
       {
@@ -510,7 +506,7 @@ public abstract class ResourceBundle
    * Tries to load a the bundle for a given locale, also loads the backup
    * locales with the same language.
    *
-   * @param name the name
+   * @param baseName the raw bundle name, without locale qualifiers
    * @param locale the locale
    * @param classloader the classloader
    * @param bundle the backup (parent) bundle

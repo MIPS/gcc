@@ -36,9 +36,10 @@ with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Text_IO;       use Ada.Text_IO;
 with GNAT.Command_Line; use GNAT.Command_Line;
 with GNAT.Strings;      use GNAT.Strings;
----------------
---  Gnatfind --
----------------
+
+--------------
+-- Gnatfind --
+--------------
 
 procedure Gnatfind is
    Output_Ref      : Boolean := False;
@@ -208,6 +209,7 @@ procedure Gnatfind is
                end if;
 
             --  Next arguments are the files to search
+
             else
                Add_Xref_File (S);
                Wide_Search := False;
@@ -238,8 +240,8 @@ procedure Gnatfind is
 
    procedure Write_Usage is
    begin
-      Put_Line ("GNATFIND " & Gnatvsn.Gnat_Version_String
-                & " Copyright 1998-2004, Ada Core Technologies Inc.");
+      Put_Line ("GNATFIND " & Gnatvsn.Gnat_Version_String);
+      Put_Line ("Copyright 1998-2004, Ada Core Technologies Inc.");
       Put_Line ("Usage: gnatfind pattern[:sourcefile[:line[:column]]] "
                 & "[file1 file2 ...]");
       New_Line;

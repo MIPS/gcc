@@ -27,13 +27,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tree.h"
 #include "convert.h"
-#include <stdio.h>
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
 #include "tree-gimple.h"
 #include "flags.h"
-#include <gmp.h>
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-const.h"
@@ -156,7 +154,7 @@ gfc_get_expr_charlen (gfc_expr *e)
 
   /* First candidate: if the variable is of type CHARACTER, the
      expression's length could be the length of the character
-     variable. */
+     variable.  */
   if (e->symtree->n.sym->ts.type == BT_CHARACTER)
     length = e->symtree->n.sym->ts.cl->backend_decl;
 
@@ -542,7 +540,8 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
   n = abs (TREE_INT_CST_LOW (rhs));
   sgn = tree_int_cst_sgn (rhs);
 
-  if ((!flag_unsafe_math_optimizations || optimize_size) && (n > 2 || n < -1))
+  if (((FLOAT_TYPE_P (type) && !flag_unsafe_math_optimizations) || optimize_size)
+      && (n > 2 || n < -1))
     return 0;
 
   /* rhs == 0  */
@@ -1566,11 +1565,11 @@ gfc_trans_subarray_assign (tree dest, gfc_component * cm, gfc_expr * expr)
   gfc_add_block_to_block (&block, &loop.pre);
   gfc_add_block_to_block (&block, &loop.post);
 
-  gfc_cleanup_loop (&loop);
-
   for (n = 0; n < cm->as->rank; n++)
     mpz_clear (lss->shape[n]);
   gfc_free (lss->shape);
+
+  gfc_cleanup_loop (&loop);
 
   return gfc_finish_block (&block);
 }

@@ -34,6 +34,14 @@ enum operation_type {
   binary_op
 };
 
+/* Define type of available alignment support.  */
+enum dr_alignment_support {
+  dr_unaligned_unsupported,
+  dr_unaligned_supported,
+  dr_unaligned_software_pipeline,
+  dr_aligned
+};
+
 /*-----------------------------------------------------------------*/
 /* Info on vectorized defs.                                        */
 /*-----------------------------------------------------------------*/
@@ -77,26 +85,46 @@ typedef struct _stmt_vec_info {
   /* Aliasing information.  */
   tree memtag;
 
-  /* Data reference base. This field holds the entire invariant part of the 
-     data-reference (with respect to the relevant loop), as opposed to the 
-     field DR_BASE of the STMT_VINFO_DATA_REF struct, which holds only the 
-     initial base; e.g:
-     REF	BR_BASE	    VECT_DR_BASE
-     a[i]	a		a
-     a[i][j]	a		a[i]  */
-  tree vect_dr_base;
+  /** The following fields are used to store the information about 
+      data-reference. {base + initial_offset} is the first location accessed by
+      data-ref in the loop, and step is the stride of data-ref in the loop;
+      e.g.:
+    
+                       Example 1                      Example 2
+      data-ref         a[j].b[i][j]                   a + 4B (a is int*)
+
+      base             a                              a
+      initial_offset   j_0*D_j + i_0*D_i + C          4
+      step             D_j                            4
+
+  **/
+  /* The above base, offset and step.  */
+  tree base;
+  tree initial_offset;
+  tree step;
+
+  /* Alignment information. Whether the base of the data-reference is aligned 
+     to vectype.  */
+  bool base_aligned_p;
+  /* Alignment information. The offset of the data-reference from its base 
+     in bytes.  */
+  tree misalignment;
 } *stmt_vec_info;
 
 /* Access Functions.  */
-#define STMT_VINFO_TYPE(S)          (S)->type
-#define STMT_VINFO_STMT(S)          (S)->stmt
-#define STMT_VINFO_LOOP(S)          (S)->loop
-#define STMT_VINFO_RELEVANT_P(S)    (S)->relevant
-#define STMT_VINFO_VECTYPE(S)       (S)->vectype
-#define STMT_VINFO_VEC_STMT(S)      (S)->vectorized_stmt
-#define STMT_VINFO_DATA_REF(S)      (S)->data_ref_info
-#define STMT_VINFO_MEMTAG(S)        (S)->memtag
-#define STMT_VINFO_VECT_DR_BASE(S)  (S)->vect_dr_base
+#define STMT_VINFO_TYPE(S)                (S)->type
+#define STMT_VINFO_STMT(S)                (S)->stmt
+#define STMT_VINFO_LOOP(S)                (S)->loop
+#define STMT_VINFO_RELEVANT_P(S)          (S)->relevant
+#define STMT_VINFO_VECTYPE(S)             (S)->vectype
+#define STMT_VINFO_VEC_STMT(S)            (S)->vectorized_stmt
+#define STMT_VINFO_DATA_REF(S)            (S)->data_ref_info
+#define STMT_VINFO_MEMTAG(S)              (S)->memtag
+#define STMT_VINFO_VECT_DR_BASE(S)        (S)->base
+#define STMT_VINFO_VECT_INIT_OFFSET(S)    (S)->initial_offset
+#define STMT_VINFO_VECT_STEP(S)           (S)->step
+#define STMT_VINFO_VECT_BASE_ALIGNED_P(S) (S)->base_aligned_p
+#define STMT_VINFO_VECT_MISALIGNMENT(S)   (S)->misalignment
 
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);
@@ -121,7 +149,6 @@ vinfo_for_stmt (tree stmt)
 
 /* The misalignment of the memory access in bytes.  */
 #define DR_MISALIGNMENT(DR)   (DR)->aux
-#define MAX_NUMBER_OF_UNALIGNED_DATA_REFS 1
 
 static inline bool
 aligned_access_p (struct data_reference *data_ref_info)
@@ -163,7 +190,7 @@ typedef struct _loop_vec_info {
   int vectorization_factor;
 
   /* Unknown DRs according to which loop was peeled.  */
-  struct data_reference *unaligned_drs [MAX_NUMBER_OF_UNALIGNED_DATA_REFS];
+  struct data_reference *unaligned_dr;
 
   /* If true, loop is peeled.
    unaligned_drs show in this case DRs used for peeling.  */
@@ -187,7 +214,7 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_DATAREF_READS(L)  (L)->data_ref_reads
 #define LOOP_VINFO_INT_NITERS(L) (TREE_INT_CST_LOW ((L)->num_iters))       
 #define LOOP_DO_PEELING_FOR_ALIGNMENT(L) (L)->do_peeling_for_alignment
-#define LOOP_UNALIGNED_DR(L, I)      (L)->unaligned_drs[(I)] 
+#define LOOP_VINFO_UNALIGNED_DR(L)       (L)->unaligned_dr
   
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L)                     \

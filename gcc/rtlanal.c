@@ -33,7 +33,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "basic-block.h"
 #include "real.h"
 #include "regs.h"
 #include "function.h"
@@ -41,6 +40,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Forward declarations */
 static int global_reg_mentioned_p_1 (rtx *, void *);
 static void set_of_1 (rtx, rtx, void *);
+static bool covers_regno_p (rtx, unsigned int);
+static bool covers_regno_no_parallel_p (rtx, unsigned int);
 static int rtx_referenced_p_1 (rtx *, void *);
 static int computed_jump_p_1 (rtx);
 static void parms_set (rtx, rtx, void *);
@@ -1074,8 +1075,7 @@ set_noop_p (rtx set)
   if (MEM_P (dst) && MEM_P (src))
     return rtx_equal_p (dst, src) && !side_effects_p (dst);
 
-  if (GET_CODE (dst) == SIGN_EXTRACT
-      || GET_CODE (dst) == ZERO_EXTRACT)
+  if (GET_CODE (dst) == ZERO_EXTRACT)
     return rtx_equal_p (XEXP (dst, 0), src)
 	   && ! BYTES_BIG_ENDIAN && XEXP (dst, 2) == const0_rtx
 	   && !side_effects_p (src);
@@ -1404,7 +1404,6 @@ note_stores (rtx x, void (*fun) (rtx, rtx, void *), void *data)
 	      && (!REG_P (SUBREG_REG (dest))
 		  || REGNO (SUBREG_REG (dest)) >= FIRST_PSEUDO_REGISTER))
 	     || GET_CODE (dest) == ZERO_EXTRACT
-	     || GET_CODE (dest) == SIGN_EXTRACT
 	     || GET_CODE (dest) == STRICT_LOW_PART)
 	dest = XEXP (dest, 0);
 
@@ -1513,8 +1512,8 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
    This will be true if X is (cc0) or if X is a register and
    X dies in INSN or because INSN entirely sets X.
 
-   "Entirely set" means set directly and not through a SUBREG,
-   ZERO_EXTRACT or SIGN_EXTRACT, so no trace of the old contents remains.
+   "Entirely set" means set directly and not through a SUBREG, or
+   ZERO_EXTRACT, so no trace of the old contents remains.
    Likewise, REG_INC does not count.
 
    REG may be a hard or pseudo reg.  Renumbering is not taken into account,
@@ -1549,13 +1548,64 @@ dead_or_set_p (rtx insn, rtx x)
   return 1;
 }
 
+/* Return TRUE iff DEST is a register or subreg of a register and
+   doesn't change the number of words of the inner register, and any
+   part of the register is TEST_REGNO.  */
+
+static bool
+covers_regno_no_parallel_p (rtx dest, unsigned int test_regno)
+{
+  unsigned int regno, endregno;
+
+  if (GET_CODE (dest) == SUBREG
+      && (((GET_MODE_SIZE (GET_MODE (dest))
+	    + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+	  == ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest)))
+	       + UNITS_PER_WORD - 1) / UNITS_PER_WORD)))
+    dest = SUBREG_REG (dest);
+
+  if (!REG_P (dest))
+    return false;
+
+  regno = REGNO (dest);
+  endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
+	      : regno + hard_regno_nregs[regno][GET_MODE (dest)]);
+  return (test_regno >= regno && test_regno < endregno);
+}
+
+/* Like covers_regno_no_parallel_p, but also handles PARALLELs where
+   any member matches the covers_regno_no_parallel_p criteria.  */
+
+static bool
+covers_regno_p (rtx dest, unsigned int test_regno)
+{
+  if (GET_CODE (dest) == PARALLEL)
+    {
+      /* Some targets place small structures in registers for return
+	 values of functions, and those registers are wrapped in
+	 PARALLELs that we may see as the destination of a SET.  */
+      int i;
+
+      for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
+	{
+	  rtx inner = XEXP (XVECEXP (dest, 0, i), 0);
+	  if (inner != NULL_RTX
+	      && covers_regno_no_parallel_p (inner, test_regno))
+	    return true;
+	}
+
+      return false;
+    }
+  else
+    return covers_regno_no_parallel_p (dest, test_regno);
+}
+
 /* Utility function for dead_or_set_p to check an individual register.  Also
    called from flow.c.  */
 
 int
 dead_or_set_regno_p (rtx insn, unsigned int test_regno)
 {
-  unsigned int regno, endregno;
   rtx pattern;
 
   /* See if there is a death note for something that includes TEST_REGNO.  */
@@ -1572,28 +1622,7 @@ dead_or_set_regno_p (rtx insn, unsigned int test_regno)
     pattern = COND_EXEC_CODE (pattern);
 
   if (GET_CODE (pattern) == SET)
-    {
-      rtx dest = SET_DEST (pattern);
-
-      /* A value is totally replaced if it is the destination or the
-	 destination is a SUBREG of REGNO that does not change the number of
-	 words in it.  */
-      if (GET_CODE (dest) == SUBREG
-	  && (((GET_MODE_SIZE (GET_MODE (dest))
-		+ UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-	      == ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest)))
-		   + UNITS_PER_WORD - 1) / UNITS_PER_WORD)))
-	dest = SUBREG_REG (dest);
-
-      if (!REG_P (dest))
-	return 0;
-
-      regno = REGNO (dest);
-      endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
-		  : regno + hard_regno_nregs[regno][GET_MODE (dest)]);
-
-      return (test_regno >= regno && test_regno < endregno);
-    }
+    return covers_regno_p (SET_DEST (pattern), test_regno);
   else if (GET_CODE (pattern) == PARALLEL)
     {
       int i;
@@ -1605,27 +1634,9 @@ dead_or_set_regno_p (rtx insn, unsigned int test_regno)
 	  if (GET_CODE (body) == COND_EXEC)
 	    body = COND_EXEC_CODE (body);
 
-	  if (GET_CODE (body) == SET || GET_CODE (body) == CLOBBER)
-	    {
-	      rtx dest = SET_DEST (body);
-
-	      if (GET_CODE (dest) == SUBREG
-		  && (((GET_MODE_SIZE (GET_MODE (dest))
-			+ UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-		      == ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest)))
-			   + UNITS_PER_WORD - 1) / UNITS_PER_WORD)))
-		dest = SUBREG_REG (dest);
-
-	      if (!REG_P (dest))
-		continue;
-
-	      regno = REGNO (dest);
-	      endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
-			  : regno + hard_regno_nregs[regno][GET_MODE (dest)]);
-
-	      if (test_regno >= regno && test_regno < endregno)
-		return 1;
-	    }
+	  if ((GET_CODE (body) == SET || GET_CODE (body) == CLOBBER)
+	      && covers_regno_p (SET_DEST (body), test_regno))
+	    return 1;
 	}
     }
 
@@ -4333,3 +4344,315 @@ insn_rtx_cost (rtx pat)
   cost = rtx_cost (SET_SRC (set), SET);
   return cost > 0 ? cost : COSTS_N_INSNS (1);
 }
+
+/* Given an insn INSN and condition COND, return the condition in a
+   canonical form to simplify testing by callers.  Specifically:
+
+   (1) The code will always be a comparison operation (EQ, NE, GT, etc.).
+   (2) Both operands will be machine operands; (cc0) will have been replaced.
+   (3) If an operand is a constant, it will be the second operand.
+   (4) (LE x const) will be replaced with (LT x <const+1>) and similarly
+       for GE, GEU, and LEU.
+
+   If the condition cannot be understood, or is an inequality floating-point
+   comparison which needs to be reversed, 0 will be returned.
+
+   If REVERSE is nonzero, then reverse the condition prior to canonizing it.
+
+   If EARLIEST is nonzero, it is a pointer to a place where the earliest
+   insn used in locating the condition was found.  If a replacement test
+   of the condition is desired, it should be placed in front of that
+   insn and we will be sure that the inputs are still valid.
+
+   If WANT_REG is nonzero, we wish the condition to be relative to that
+   register, if possible.  Therefore, do not canonicalize the condition
+   further.  If ALLOW_CC_MODE is nonzero, allow the condition returned 
+   to be a compare to a CC mode register.
+
+   If VALID_AT_INSN_P, the condition must be valid at both *EARLIEST
+   and at INSN.  */
+
+rtx
+canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
+			rtx want_reg, int allow_cc_mode, int valid_at_insn_p)
+{
+  enum rtx_code code;
+  rtx prev = insn;
+  rtx set;
+  rtx tem;
+  rtx op0, op1;
+  int reverse_code = 0;
+  enum machine_mode mode;
+
+  code = GET_CODE (cond);
+  mode = GET_MODE (cond);
+  op0 = XEXP (cond, 0);
+  op1 = XEXP (cond, 1);
+
+  if (reverse)
+    code = reversed_comparison_code (cond, insn);
+  if (code == UNKNOWN)
+    return 0;
+
+  if (earliest)
+    *earliest = insn;
+
+  /* If we are comparing a register with zero, see if the register is set
+     in the previous insn to a COMPARE or a comparison operation.  Perform
+     the same tests as a function of STORE_FLAG_VALUE as find_comparison_args
+     in cse.c  */
+
+  while ((GET_RTX_CLASS (code) == RTX_COMPARE
+	  || GET_RTX_CLASS (code) == RTX_COMM_COMPARE)
+	 && op1 == CONST0_RTX (GET_MODE (op0))
+	 && op0 != want_reg)
+    {
+      /* Set nonzero when we find something of interest.  */
+      rtx x = 0;
+
+#ifdef HAVE_cc0
+      /* If comparison with cc0, import actual comparison from compare
+	 insn.  */
+      if (op0 == cc0_rtx)
+	{
+	  if ((prev = prev_nonnote_insn (prev)) == 0
+	      || !NONJUMP_INSN_P (prev)
+	      || (set = single_set (prev)) == 0
+	      || SET_DEST (set) != cc0_rtx)
+	    return 0;
+
+	  op0 = SET_SRC (set);
+	  op1 = CONST0_RTX (GET_MODE (op0));
+	  if (earliest)
+	    *earliest = prev;
+	}
+#endif
+
+      /* If this is a COMPARE, pick up the two things being compared.  */
+      if (GET_CODE (op0) == COMPARE)
+	{
+	  op1 = XEXP (op0, 1);
+	  op0 = XEXP (op0, 0);
+	  continue;
+	}
+      else if (!REG_P (op0))
+	break;
+
+      /* Go back to the previous insn.  Stop if it is not an INSN.  We also
+	 stop if it isn't a single set or if it has a REG_INC note because
+	 we don't want to bother dealing with it.  */
+
+      if ((prev = prev_nonnote_insn (prev)) == 0
+	  || !NONJUMP_INSN_P (prev)
+	  || FIND_REG_INC_NOTE (prev, NULL_RTX))
+	break;
+
+      set = set_of (op0, prev);
+
+      if (set
+	  && (GET_CODE (set) != SET
+	      || !rtx_equal_p (SET_DEST (set), op0)))
+	break;
+
+      /* If this is setting OP0, get what it sets it to if it looks
+	 relevant.  */
+      if (set)
+	{
+	  enum machine_mode inner_mode = GET_MODE (SET_DEST (set));
+#ifdef FLOAT_STORE_FLAG_VALUE
+	  REAL_VALUE_TYPE fsfv;
+#endif
+
+	  /* ??? We may not combine comparisons done in a CCmode with
+	     comparisons not done in a CCmode.  This is to aid targets
+	     like Alpha that have an IEEE compliant EQ instruction, and
+	     a non-IEEE compliant BEQ instruction.  The use of CCmode is
+	     actually artificial, simply to prevent the combination, but
+	     should not affect other platforms.
+
+	     However, we must allow VOIDmode comparisons to match either
+	     CCmode or non-CCmode comparison, because some ports have
+	     modeless comparisons inside branch patterns.
+
+	     ??? This mode check should perhaps look more like the mode check
+	     in simplify_comparison in combine.  */
+
+	  if ((GET_CODE (SET_SRC (set)) == COMPARE
+	       || (((code == NE
+		     || (code == LT
+			 && GET_MODE_CLASS (inner_mode) == MODE_INT
+			 && (GET_MODE_BITSIZE (inner_mode)
+			     <= HOST_BITS_PER_WIDE_INT)
+			 && (STORE_FLAG_VALUE
+			     & ((HOST_WIDE_INT) 1
+				<< (GET_MODE_BITSIZE (inner_mode) - 1))))
+#ifdef FLOAT_STORE_FLAG_VALUE
+		     || (code == LT
+			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
+			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
+			     REAL_VALUE_NEGATIVE (fsfv)))
+#endif
+		     ))
+		   && COMPARISON_P (SET_SRC (set))))
+	      && (((GET_MODE_CLASS (mode) == MODE_CC)
+		   == (GET_MODE_CLASS (inner_mode) == MODE_CC))
+		  || mode == VOIDmode || inner_mode == VOIDmode))
+	    x = SET_SRC (set);
+	  else if (((code == EQ
+		     || (code == GE
+			 && (GET_MODE_BITSIZE (inner_mode)
+			     <= HOST_BITS_PER_WIDE_INT)
+			 && GET_MODE_CLASS (inner_mode) == MODE_INT
+			 && (STORE_FLAG_VALUE
+			     & ((HOST_WIDE_INT) 1
+				<< (GET_MODE_BITSIZE (inner_mode) - 1))))
+#ifdef FLOAT_STORE_FLAG_VALUE
+		     || (code == GE
+			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
+			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
+			     REAL_VALUE_NEGATIVE (fsfv)))
+#endif
+		     ))
+		   && COMPARISON_P (SET_SRC (set))
+		   && (((GET_MODE_CLASS (mode) == MODE_CC)
+			== (GET_MODE_CLASS (inner_mode) == MODE_CC))
+		       || mode == VOIDmode || inner_mode == VOIDmode))
+
+	    {
+	      reverse_code = 1;
+	      x = SET_SRC (set);
+	    }
+	  else
+	    break;
+	}
+
+      else if (reg_set_p (op0, prev))
+	/* If this sets OP0, but not directly, we have to give up.  */
+	break;
+
+      if (x)
+	{
+	  /* If the caller is expecting the condition to be valid at INSN,
+	     make sure X doesn't change before INSN.  */
+	  if (valid_at_insn_p)
+	    if (modified_in_p (x, prev) || modified_between_p (x, prev, insn))
+	      break;
+	  if (COMPARISON_P (x))
+	    code = GET_CODE (x);
+	  if (reverse_code)
+	    {
+	      code = reversed_comparison_code (x, prev);
+	      if (code == UNKNOWN)
+		return 0;
+	      reverse_code = 0;
+	    }
+
+	  op0 = XEXP (x, 0), op1 = XEXP (x, 1);
+	  if (earliest)
+	    *earliest = prev;
+	}
+    }
+
+  /* If constant is first, put it last.  */
+  if (CONSTANT_P (op0))
+    code = swap_condition (code), tem = op0, op0 = op1, op1 = tem;
+
+  /* If OP0 is the result of a comparison, we weren't able to find what
+     was really being compared, so fail.  */
+  if (!allow_cc_mode
+      && GET_MODE_CLASS (GET_MODE (op0)) == MODE_CC)
+    return 0;
+
+  /* Canonicalize any ordered comparison with integers involving equality
+     if we can do computations in the relevant mode and we do not
+     overflow.  */
+
+  if (GET_MODE_CLASS (GET_MODE (op0)) != MODE_CC
+      && GET_CODE (op1) == CONST_INT
+      && GET_MODE (op0) != VOIDmode
+      && GET_MODE_BITSIZE (GET_MODE (op0)) <= HOST_BITS_PER_WIDE_INT)
+    {
+      HOST_WIDE_INT const_val = INTVAL (op1);
+      unsigned HOST_WIDE_INT uconst_val = const_val;
+      unsigned HOST_WIDE_INT max_val
+	= (unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (op0));
+
+      switch (code)
+	{
+	case LE:
+	  if ((unsigned HOST_WIDE_INT) const_val != max_val >> 1)
+	    code = LT, op1 = gen_int_mode (const_val + 1, GET_MODE (op0));
+	  break;
+
+	/* When cross-compiling, const_val might be sign-extended from
+	   BITS_PER_WORD to HOST_BITS_PER_WIDE_INT */
+	case GE:
+	  if ((HOST_WIDE_INT) (const_val & max_val)
+	      != (((HOST_WIDE_INT) 1
+		   << (GET_MODE_BITSIZE (GET_MODE (op0)) - 1))))
+	    code = GT, op1 = gen_int_mode (const_val - 1, GET_MODE (op0));
+	  break;
+
+	case LEU:
+	  if (uconst_val < max_val)
+	    code = LTU, op1 = gen_int_mode (uconst_val + 1, GET_MODE (op0));
+	  break;
+
+	case GEU:
+	  if (uconst_val != 0)
+	    code = GTU, op1 = gen_int_mode (uconst_val - 1, GET_MODE (op0));
+	  break;
+
+	default:
+	  break;
+	}
+    }
+
+  /* Never return CC0; return zero instead.  */
+  if (CC0_P (op0))
+    return 0;
+
+  return gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
+}
+
+/* Given a jump insn JUMP, return the condition that will cause it to branch
+   to its JUMP_LABEL.  If the condition cannot be understood, or is an
+   inequality floating-point comparison which needs to be reversed, 0 will
+   be returned.
+
+   If EARLIEST is nonzero, it is a pointer to a place where the earliest
+   insn used in locating the condition was found.  If a replacement test
+   of the condition is desired, it should be placed in front of that
+   insn and we will be sure that the inputs are still valid.  If EARLIEST
+   is null, the returned condition will be valid at INSN.
+
+   If ALLOW_CC_MODE is nonzero, allow the condition returned to be a
+   compare CC mode register.
+
+   VALID_AT_INSN_P is the same as for canonicalize_condition.  */
+
+rtx
+get_condition (rtx jump, rtx *earliest, int allow_cc_mode, int valid_at_insn_p)
+{
+  rtx cond;
+  int reverse;
+  rtx set;
+
+  /* If this is not a standard conditional jump, we can't parse it.  */
+  if (!JUMP_P (jump)
+      || ! any_condjump_p (jump))
+    return 0;
+  set = pc_set (jump);
+
+  cond = XEXP (SET_SRC (set), 0);
+
+  /* If this branches to JUMP_LABEL when the condition is false, reverse
+     the condition.  */
+  reverse
+    = GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
+      && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump);
+
+  return canonicalize_condition (jump, cond, reverse, earliest, NULL_RTX,
+				 allow_cc_mode, valid_at_insn_p);
+}
+

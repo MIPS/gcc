@@ -81,9 +81,6 @@ extern bool is_gimple_condexpr (tree);
 
 /* Returns true iff T is a type conversion.  */
 extern bool is_gimple_cast (tree);
-/* Returns true iff T is a valid CONSTRUCTOR element (either an rvalue or
-   another CONSTRUCTOR).  */
-extern bool is_gimple_constructor_elt (tree);
 /* Returns true iff T is a variable that does not need to live in memory.  */
 extern bool is_gimple_non_addressable (tree t);
 
@@ -116,7 +113,7 @@ extern void gimplify_type_sizes (tree, tree *);
 extern void gimplify_one_sizepos (tree *, tree *);
 extern void gimplify_stmt (tree *);
 extern void gimplify_to_stmt_list (tree *);
-extern void gimplify_body (tree *, tree);
+extern void gimplify_body (tree *, tree, bool);
 extern void push_gimplify_context (void);
 extern void pop_gimplify_context (tree);
 extern void gimplify_and_add (tree, tree *);

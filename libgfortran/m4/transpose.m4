@@ -24,8 +24,11 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
+extern void transpose_`'rtype_kind (rtype * ret, rtype * source);
+export_proto(transpose_`'rtype_kind);
+
 void
-`__transpose_'rtype_kind (rtype * ret, rtype * source)
+transpose_`'rtype_kind (rtype * ret, rtype * source)
 {
   /* r.* indicates the return array.  */
   index_type rxstride, rystride;
@@ -52,7 +55,7 @@ void
       ret->dim[1].ubound = source->dim[0].ubound - source->dim[0].lbound;
       ret->dim[1].stride = ret->dim[0].ubound+1;
 
-      ret->data = internal_malloc (sizeof (rtype_name) * size0 (ret));
+      ret->data = internal_malloc_size (sizeof (rtype_name) * size0 (ret));
       ret->base = 0;
     }
 

@@ -137,7 +137,7 @@ public abstract class DateFormat extends Format implements Cloneable
     public static final DateFormat.Field TIME_ZONE
 	= new Field("timezone", Calendar.ZONE_OFFSET);
  
-    public static final DateFormat.Field[] allFields =
+    static final DateFormat.Field[] allFields =
     {
       ERA, YEAR, MONTH, DAY_OF_MONTH, HOUR_OF_DAY1,
       HOUR_OF_DAY0, MINUTE, SECOND, MILLISECOND,
@@ -309,18 +309,15 @@ public abstract class DateFormat extends Format implements Cloneable
     return calendar;
   }
 
-  private static final DateFormat computeInstance (int style, Locale loc,
-						   boolean use_date,
-						   boolean use_time)
+  private static DateFormat computeInstance (int style, Locale loc,
+                                             boolean use_date, boolean use_time)
   {
     return computeInstance (style, style, loc, use_date, use_time);
   }
 
-  private static final DateFormat computeInstance (int dateStyle, 
-						   int timeStyle,
-						   Locale loc,
-						   boolean use_date,
-						   boolean use_time)
+  private static DateFormat computeInstance (int dateStyle, int timeStyle,
+                                             Locale loc, boolean use_date,
+                                             boolean use_time)
   {
     ResourceBundle res;
     try

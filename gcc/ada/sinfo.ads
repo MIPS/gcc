@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -48,7 +48,7 @@
 
 --  WARNING: There is a C version of this package. Any changes to this
 --  source file must be properly reflected in this C header file sinfo.h
---  which is created automatically from sinfo.ads using xsinfo.spt.
+--  which is created automatically from sinfo.ads using xsinfo.adb.
 
 with Types;  use Types;
 with Uintp;  use Uintp;
@@ -1767,6 +1767,11 @@ package Sinfo is
       --  Debug_Statement (Node3) (set to Empty if not Debug, Assert)
       --  Next_Rep_Item (Node4-Sem)
 
+      --  Note: we should have a section on what pragmas are passed on to
+      --  the back end to be processed. This section should note that pragma
+      --  Psect_Object is always converted to Common_Object, but there are
+      --  undoubtedly many other similar notes required ???
+
       --------------------------------------
       -- 2.8  Pragma Argument Association --
       --------------------------------------
@@ -2154,7 +2159,7 @@ package Sinfo is
 
       --  INTEGER_TYPE_DEFINITION ::=
       --    SIGNED_INTEGER_TYPE_DEFINITION
-      --    MODULAR_TYPE_DEFINITION
+      --  | MODULAR_TYPE_DEFINITION
 
       -------------------------------------------
       -- 3.5.4  Signed Integer Type Definition --
@@ -2163,17 +2168,17 @@ package Sinfo is
       --  SIGNED_INTEGER_TYPE_DEFINITION ::=
       --    range static_SIMPLE_EXPRESSION .. static_SIMPLE_EXPRESSION
 
-      --  Note: the Low_Bound and High_Bound fields are set to Empty for
-      --  integer types defined in package Standard.
+      --  Note: the Low_Bound and High_Bound fields are set to Empty
+      --  for integer types defined in package Standard.
 
       --  N_Signed_Integer_Type_Definition
       --  Sloc points to RANGE
       --  Low_Bound (Node1)
       --  High_Bound (Node2)
 
-      -----------------------------------------
-      -- 3.5.4  Unsigned Range Specification --
-      -----------------------------------------
+      ------------------------------------
+      -- 3.5.4  Modular Type Definition --
+      ------------------------------------
 
       --  MODULAR_TYPE_DEFINITION ::= mod static_EXPRESSION
 
@@ -2230,9 +2235,6 @@ package Sinfo is
       --    delta static_EXPRESSION REAL_RANGE_SPECIFICATION
 
       --  Note: In Ada 83, the EXPRESSION must be a SIMPLE_EXPRESSION
-
-      --  Note: the Delta_Expression and Real_Range_Specification fields
-      --  are set to Empty for fixed point types declared in Standard.
 
       --  N_Ordinary_Fixed_Point_Definition
       --  Sloc points to DELTA

@@ -41,7 +41,9 @@ details.  */
 #include <java/lang/ThreadGroup.h>
 #include <java/lang/Thread.h>
 #include <java/lang/IllegalAccessError.h>
+#include <java/nio/Buffer.h>
 #include <java/nio/DirectByteBufferImpl.h>
+#include <java/nio/DirectByteBufferImpl$ReadWrite.h>
 #include <java/util/IdentityHashMap.h>
 #include <gnu/gcj/RawData.h>
 
@@ -562,11 +564,12 @@ _Jv_JNI_ThrowNew (JNIEnv *env, jclass clazz, const char *message)
 					       NULL);
 
       jclass *elts = elements (argtypes);
-      elts[0] = &StringClass;
+      elts[0] = &java::lang::String::class$;
 
       Constructor *cons = clazz->getConstructor (argtypes);
 
-      jobjectArray values = JvNewObjectArray (1, &StringClass, NULL);
+      jobjectArray values = JvNewObjectArray (1, &java::lang::String::class$,
+					      NULL);
       jobject *velts = elements (values);
       velts[0] = JvNewStringUTF (message);
 
@@ -1203,7 +1206,7 @@ _Jv_JNI_GetAnyFieldID (JNIEnv *env, jclass clazz,
 
 	      // The field might be resolved or it might not be.  It
 	      // is much simpler to always resolve it.
-	      _Jv_ResolveField (field, loader);
+	      _Jv_Linker::resolve_field (field, loader);
 	      if (_Jv_equalUtf8Consts (f_name, a_name)
 		  && field->getClass() == field_class)
 		return field;
@@ -1396,7 +1399,7 @@ _Jv_JNI_GetArrayLength (JNIEnv *, jarray array)
   return unwrap (array)->length;
 }
 
-static jarray JNICALL
+static jobjectArray JNICALL
 _Jv_JNI_NewObjectArray (JNIEnv *env, jsize length, 
 			jclass elementClass, jobject init)
 {
@@ -1407,7 +1410,7 @@ _Jv_JNI_NewObjectArray (JNIEnv *env, jsize length,
 
       _Jv_CheckCast (elementClass, init);
       jarray result = JvNewObjectArray (length, elementClass, init);
-      return (jarray) wrap_value (env, result);
+      return (jobjectArray) wrap_value (env, result);
     }
   catch (jthrowable t)
     {
@@ -1723,24 +1726,30 @@ _Jv_JNI_NewDirectByteBuffer (JNIEnv *, void *address, jlong length)
 {
   using namespace gnu::gcj;
   using namespace java::nio;
-  return new DirectByteBufferImpl (reinterpret_cast<RawData *> (address),
-				   length);
+  return new DirectByteBufferImpl$ReadWrite
+    (reinterpret_cast<RawData *> (address), length);
 }
 
 static void * JNICALL
 _Jv_JNI_GetDirectBufferAddress (JNIEnv *, jobject buffer)
 {
   using namespace java::nio;
-  DirectByteBufferImpl* bb = static_cast<DirectByteBufferImpl *> (buffer);
-  return reinterpret_cast<void *> (bb->address);
+  if (! _Jv_IsInstanceOf (buffer, &Buffer::class$))
+    return NULL;
+  Buffer *tmp = static_cast<Buffer *> (buffer);
+  return reinterpret_cast<void *> (tmp->address);
 }
 
 static jlong JNICALL
 _Jv_JNI_GetDirectBufferCapacity (JNIEnv *, jobject buffer)
 {
   using namespace java::nio;
-  DirectByteBufferImpl* bb = static_cast<DirectByteBufferImpl *> (buffer);
-  return bb->capacity();
+  if (! _Jv_IsInstanceOf (buffer, &Buffer::class$))
+    return -1;
+  Buffer *tmp = static_cast<Buffer *> (buffer);
+  if (tmp->address == NULL)
+    return -1;
+  return tmp->capacity();
 }
 
 

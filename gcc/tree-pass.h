@@ -127,7 +127,9 @@ struct dump_file_info
 #define TODO_verify_ssa		(1 << 3)
 #define TODO_verify_flow	(1 << 4)
 #define TODO_verify_stmts	(1 << 5)
-#define TODO_dump_cgraph	(1 << 6)
+#define TODO_fix_def_def_chains (1 << 6)        /* rewrite def-def chains  */
+#define TODO_cleanup_cfg        (1 << 7)        /* cleanup the cfg.  */
+#define TODO_dump_cgraph	(1 << 8)
 
 #define TODO_verify_all \
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
@@ -185,11 +187,13 @@ extern struct tree_opt_pass pass_redundant_phi;
 extern struct tree_opt_pass pass_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_remove_useless_vars;
+extern struct tree_opt_pass pass_mark_used_blocks;
 extern struct tree_opt_pass pass_rename_ssa_copies;
 extern struct tree_opt_pass pass_expand;
 extern struct tree_opt_pass pass_rest_of_compilation;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
+extern struct tree_opt_pass pass_maybe_create_global_var;
 
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_ipa_static;

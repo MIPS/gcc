@@ -667,6 +667,7 @@ configure-host:  \
     maybe-configure-fileutils \
     maybe-configure-findutils \
     maybe-configure-find \
+    maybe-configure-fixincludes \
     maybe-configure-flex \
     maybe-configure-gas \
     maybe-configure-gcc \
@@ -768,6 +769,7 @@ all-host:  \
     maybe-all-fileutils \
     maybe-all-findutils \
     maybe-all-find \
+    maybe-all-fixincludes \
     maybe-all-flex \
     maybe-all-gas \
     maybe-all-gcc \
@@ -864,6 +866,7 @@ info-host:  \
     maybe-info-fileutils \
     maybe-info-findutils \
     maybe-info-find \
+    maybe-info-fixincludes \
     maybe-info-flex \
     maybe-info-gas \
     maybe-info-gcc \
@@ -956,6 +959,7 @@ dvi-host:  \
     maybe-dvi-fileutils \
     maybe-dvi-findutils \
     maybe-dvi-find \
+    maybe-dvi-fixincludes \
     maybe-dvi-flex \
     maybe-dvi-gas \
     maybe-dvi-gcc \
@@ -1025,6 +1029,99 @@ dvi-target:  \
     maybe-dvi-target-rda \
     maybe-dvi-target-libada
 
+.PHONY: do-html
+do-html: unstage html-host html-target stage
+
+.PHONY: html-host
+html-host:  \
+    maybe-html-ash \
+    maybe-html-autoconf \
+    maybe-html-automake \
+    maybe-html-bash \
+    maybe-html-bfd \
+    maybe-html-opcodes \
+    maybe-html-binutils \
+    maybe-html-bison \
+    maybe-html-byacc \
+    maybe-html-bzip2 \
+    maybe-html-dejagnu \
+    maybe-html-diff \
+    maybe-html-dosutils \
+    maybe-html-etc \
+    maybe-html-fastjar \
+    maybe-html-fileutils \
+    maybe-html-findutils \
+    maybe-html-find \
+    maybe-html-fixincludes \
+    maybe-html-flex \
+    maybe-html-gas \
+    maybe-html-gcc \
+    maybe-html-gawk \
+    maybe-html-gettext \
+    maybe-html-gnuserv \
+    maybe-html-gprof \
+    maybe-html-gzip \
+    maybe-html-hello \
+    maybe-html-indent \
+    maybe-html-intl \
+    maybe-html-tcl \
+    maybe-html-itcl \
+    maybe-html-ld \
+    maybe-html-libcpp \
+    maybe-html-libgui \
+    maybe-html-libiberty \
+    maybe-html-libtool \
+    maybe-html-m4 \
+    maybe-html-make \
+    maybe-html-mmalloc \
+    maybe-html-patch \
+    maybe-html-perl \
+    maybe-html-prms \
+    maybe-html-rcs \
+    maybe-html-readline \
+    maybe-html-release \
+    maybe-html-recode \
+    maybe-html-sed \
+    maybe-html-send-pr \
+    maybe-html-shellutils \
+    maybe-html-sid \
+    maybe-html-sim \
+    maybe-html-tar \
+    maybe-html-texinfo \
+    maybe-html-textutils \
+    maybe-html-time \
+    maybe-html-uudecode \
+    maybe-html-wdiff \
+    maybe-html-zip \
+    maybe-html-zlib \
+    maybe-html-gdb \
+    maybe-html-expect \
+    maybe-html-guile \
+    maybe-html-tk \
+    maybe-html-libtermcap \
+    maybe-html-utils
+
+.PHONY: html-target
+html-target:  \
+    maybe-html-target-libstdc++-v3 \
+    maybe-html-target-libmudflap \
+    maybe-html-target-newlib \
+    maybe-html-target-libgfortran \
+    maybe-html-target-libobjc \
+    maybe-html-target-libtermcap \
+    maybe-html-target-winsup \
+    maybe-html-target-libgloss \
+    maybe-html-target-libiberty \
+    maybe-html-target-gperf \
+    maybe-html-target-examples \
+    maybe-html-target-libffi \
+    maybe-html-target-libjava \
+    maybe-html-target-zlib \
+    maybe-html-target-boehm-gc \
+    maybe-html-target-qthreads \
+    maybe-html-target-rda \
+    maybe-html-target-libada
+
 .PHONY: do-TAGS
 do-TAGS: unstage TAGS-host TAGS-target stage
 
@@ -1048,6 +1145,7 @@ TAGS-host:  \
     maybe-TAGS-fileutils \
     maybe-TAGS-findutils \
     maybe-TAGS-find \
+    maybe-TAGS-fixincludes \
     maybe-TAGS-flex \
     maybe-TAGS-gas \
     maybe-TAGS-gcc \
@@ -1140,6 +1238,7 @@ install-info-host:  \
     maybe-install-info-fileutils \
     maybe-install-info-findutils \
     maybe-install-info-find \
+    maybe-install-info-fixincludes \
     maybe-install-info-flex \
     maybe-install-info-gas \
     maybe-install-info-gcc \
@@ -1232,6 +1331,7 @@ installcheck-host:  \
     maybe-installcheck-fileutils \
     maybe-installcheck-findutils \
     maybe-installcheck-find \
+    maybe-installcheck-fixincludes \
     maybe-installcheck-flex \
     maybe-installcheck-gas \
     maybe-installcheck-gcc \
@@ -1324,6 +1424,7 @@ mostlyclean-host:  \
     maybe-mostlyclean-fileutils \
     maybe-mostlyclean-findutils \
     maybe-mostlyclean-find \
+    maybe-mostlyclean-fixincludes \
     maybe-mostlyclean-flex \
     maybe-mostlyclean-gas \
     maybe-mostlyclean-gcc \
@@ -1416,6 +1517,7 @@ clean-host:  \
     maybe-clean-fileutils \
     maybe-clean-findutils \
     maybe-clean-find \
+    maybe-clean-fixincludes \
     maybe-clean-flex \
     maybe-clean-gas \
     maybe-clean-gcc \
@@ -1508,6 +1610,7 @@ distclean-host:  \
     maybe-distclean-fileutils \
     maybe-distclean-findutils \
     maybe-distclean-find \
+    maybe-distclean-fixincludes \
     maybe-distclean-flex \
     maybe-distclean-gas \
     maybe-distclean-gcc \
@@ -1600,6 +1703,7 @@ maintainer-clean-host:  \
     maybe-maintainer-clean-fileutils \
     maybe-maintainer-clean-findutils \
     maybe-maintainer-clean-find \
+    maybe-maintainer-clean-fixincludes \
     maybe-maintainer-clean-flex \
     maybe-maintainer-clean-gas \
     maybe-maintainer-clean-gcc \
@@ -1672,12 +1776,13 @@ maintainer-clean-target:  \
 
 # Here are the targets which correspond to the do-X targets.
 
-.PHONY: info installcheck dvi install-info
+.PHONY: info installcheck dvi html install-info
 .PHONY: clean distclean mostlyclean maintainer-clean realclean
 .PHONY: local-clean local-distclean local-maintainer-clean
 info: do-info
 installcheck: do-installcheck
 dvi: do-dvi
+html: do-html
 
 # Make sure makeinfo is built before we do a `make info', if we're
 # in fact building texinfo.
@@ -1723,6 +1828,7 @@ clean-target-libgcc:
 	(cd gcc/libgcc && find . -type d -print) | \
 	while read d; do rm -f gcc/$$d/libgcc.a || : ; done
 	-rm -rf gcc/libgcc
+	-rm -f gcc/stmp-dirs
 
 # Check target.
 
@@ -1749,6 +1855,7 @@ do-check: unstage  \
     maybe-check-fileutils \
     maybe-check-findutils \
     maybe-check-find \
+    maybe-check-fixincludes \
     maybe-check-flex \
     maybe-check-gas \
     maybe-check-gcc \
@@ -1861,6 +1968,7 @@ install-host-nogcc:  \
     maybe-install-fileutils \
     maybe-install-findutils \
     maybe-install-find \
+    maybe-install-fixincludes \
     maybe-install-flex \
     maybe-install-gas \
     maybe-install-gawk \
@@ -1928,6 +2036,7 @@ install-host:  \
     maybe-install-fileutils \
     maybe-install-findutils \
     maybe-install-find \
+    maybe-install-fixincludes \
     maybe-install-flex \
     maybe-install-gas \
     maybe-install-gcc \
@@ -2636,6 +2745,32 @@ dvi-ash: \
 
 @endif ash
 
+.PHONY: maybe-html-ash html-ash
+maybe-html-ash:
+@if ash
+maybe-html-ash: html-ash
+
+html-ash: \
+    configure-ash 
+	@[ -f ./ash/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in ash" ; \
+	(cd ash && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif ash
+
 .PHONY: maybe-TAGS-ash TAGS-ash
 maybe-TAGS-ash:
 @if ash
@@ -2936,6 +3071,32 @@ dvi-autoconf: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif autoconf
+
+.PHONY: maybe-html-autoconf html-autoconf
+maybe-html-autoconf:
+@if autoconf
+maybe-html-autoconf: html-autoconf
+
+html-autoconf: \
+    configure-autoconf 
+	@[ -f ./autoconf/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in autoconf" ; \
+	(cd autoconf && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif autoconf
@@ -3244,6 +3405,32 @@ dvi-automake: \
 
 @endif automake
 
+.PHONY: maybe-html-automake html-automake
+maybe-html-automake:
+@if automake
+maybe-html-automake: html-automake
+
+html-automake: \
+    configure-automake 
+	@[ -f ./automake/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in automake" ; \
+	(cd automake && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif automake
+
 .PHONY: maybe-TAGS-automake TAGS-automake
 maybe-TAGS-automake:
 @if automake
@@ -3544,6 +3731,32 @@ dvi-bash: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif bash
+
+.PHONY: maybe-html-bash html-bash
+maybe-html-bash:
+@if bash
+maybe-html-bash: html-bash
+
+html-bash: \
+    configure-bash 
+	@[ -f ./bash/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in bash" ; \
+	(cd bash && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif bash
@@ -3854,6 +4067,32 @@ dvi-bfd: \
 
 @endif bfd
 
+.PHONY: maybe-html-bfd html-bfd
+maybe-html-bfd:
+@if bfd
+maybe-html-bfd: html-bfd
+
+html-bfd: \
+    configure-bfd 
+	@[ -f ./bfd/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in bfd" ; \
+	(cd bfd && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif bfd
+
 .PHONY: maybe-TAGS-bfd TAGS-bfd
 maybe-TAGS-bfd:
 @if bfd
@@ -4160,6 +4399,32 @@ dvi-opcodes: \
 
 @endif opcodes
 
+.PHONY: maybe-html-opcodes html-opcodes
+maybe-html-opcodes:
+@if opcodes
+maybe-html-opcodes: html-opcodes
+
+html-opcodes: \
+    configure-opcodes 
+	@[ -f ./opcodes/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in opcodes" ; \
+	(cd opcodes && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif opcodes
+
 .PHONY: maybe-TAGS-opcodes TAGS-opcodes
 maybe-TAGS-opcodes:
 @if opcodes
@@ -4462,6 +4727,32 @@ dvi-binutils: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif binutils
+
+.PHONY: maybe-html-binutils html-binutils
+maybe-html-binutils:
+@if binutils
+maybe-html-binutils: html-binutils
+
+html-binutils: \
+    configure-binutils 
+	@[ -f ./binutils/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in binutils" ; \
+	(cd binutils && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif binutils
@@ -4773,6 +5064,32 @@ dvi-bison: \
 
 @endif bison
 
+.PHONY: maybe-html-bison html-bison
+maybe-html-bison:
+@if bison
+maybe-html-bison: html-bison
+
+html-bison: \
+    configure-bison 
+	@[ -f ./bison/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in bison" ; \
+	(cd bison && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif bison
+
 .PHONY: maybe-TAGS-bison TAGS-bison
 maybe-TAGS-bison:
 @if bison
@@ -5076,6 +5393,32 @@ dvi-byacc: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif byacc
+
+.PHONY: maybe-html-byacc html-byacc
+maybe-html-byacc:
+@if byacc
+maybe-html-byacc: html-byacc
+
+html-byacc: \
+    configure-byacc 
+	@[ -f ./byacc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in byacc" ; \
+	(cd byacc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif byacc
@@ -5384,6 +5727,32 @@ dvi-bzip2: \
 
 @endif bzip2
 
+.PHONY: maybe-html-bzip2 html-bzip2
+maybe-html-bzip2:
+@if bzip2
+maybe-html-bzip2: html-bzip2
+
+html-bzip2: \
+    configure-bzip2 
+	@[ -f ./bzip2/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in bzip2" ; \
+	(cd bzip2 && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif bzip2
+
 .PHONY: maybe-TAGS-bzip2 TAGS-bzip2
 maybe-TAGS-bzip2:
 @if bzip2
@@ -5684,6 +6053,32 @@ dvi-dejagnu: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif dejagnu
+
+.PHONY: maybe-html-dejagnu html-dejagnu
+maybe-html-dejagnu:
+@if dejagnu
+maybe-html-dejagnu: html-dejagnu
+
+html-dejagnu: \
+    configure-dejagnu 
+	@[ -f ./dejagnu/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in dejagnu" ; \
+	(cd dejagnu && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif dejagnu
@@ -5992,6 +6387,32 @@ dvi-diff: \
 
 @endif diff
 
+.PHONY: maybe-html-diff html-diff
+maybe-html-diff:
+@if diff
+maybe-html-diff: html-diff
+
+html-diff: \
+    configure-diff 
+	@[ -f ./diff/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in diff" ; \
+	(cd diff && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif diff
+
 .PHONY: maybe-TAGS-diff TAGS-diff
 maybe-TAGS-diff:
 @if diff
@@ -6287,6 +6708,32 @@ dvi-dosutils: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif dosutils
+
+.PHONY: maybe-html-dosutils html-dosutils
+maybe-html-dosutils:
+@if dosutils
+maybe-html-dosutils: html-dosutils
+
+html-dosutils: \
+    configure-dosutils 
+	@[ -f ./dosutils/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in dosutils" ; \
+	(cd dosutils && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif dosutils
@@ -6591,6 +7038,32 @@ dvi-etc: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif etc
+
+.PHONY: maybe-html-etc html-etc
+maybe-html-etc:
+@if etc
+maybe-html-etc: html-etc
+
+html-etc: \
+    configure-etc 
+	@[ -f ./etc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in etc" ; \
+	(cd etc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif etc
@@ -6902,6 +7375,32 @@ dvi-fastjar: \
 
 @endif fastjar
 
+.PHONY: maybe-html-fastjar html-fastjar
+maybe-html-fastjar:
+@if fastjar
+maybe-html-fastjar: html-fastjar
+
+html-fastjar: \
+    configure-fastjar 
+	@[ -f ./fastjar/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in fastjar" ; \
+	(cd fastjar && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif fastjar
+
 .PHONY: maybe-TAGS-fastjar TAGS-fastjar
 maybe-TAGS-fastjar:
 @if fastjar
@@ -7202,6 +7701,32 @@ dvi-fileutils: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif fileutils
+
+.PHONY: maybe-html-fileutils html-fileutils
+maybe-html-fileutils:
+@if fileutils
+maybe-html-fileutils: html-fileutils
+
+html-fileutils: \
+    configure-fileutils 
+	@[ -f ./fileutils/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in fileutils" ; \
+	(cd fileutils && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif fileutils
@@ -7510,6 +8035,32 @@ dvi-findutils: \
 
 @endif findutils
 
+.PHONY: maybe-html-findutils html-findutils
+maybe-html-findutils:
+@if findutils
+maybe-html-findutils: html-findutils
+
+html-findutils: \
+    configure-findutils 
+	@[ -f ./findutils/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in findutils" ; \
+	(cd findutils && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif findutils
+
 .PHONY: maybe-TAGS-findutils TAGS-findutils
 maybe-TAGS-findutils:
 @if findutils
@@ -7814,6 +8365,32 @@ dvi-find: \
 
 @endif find
 
+.PHONY: maybe-html-find html-find
+maybe-html-find:
+@if find
+maybe-html-find: html-find
+
+html-find: \
+    configure-find 
+	@[ -f ./find/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in find" ; \
+	(cd find && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif find
+
 .PHONY: maybe-TAGS-find TAGS-find
 maybe-TAGS-find:
 @if find
@@ -7994,6 +8571,255 @@ maintainer-clean-find:
 @endif find
 
 
+.PHONY: configure-fixincludes maybe-configure-fixincludes
+maybe-configure-fixincludes:
+@if fixincludes
+maybe-configure-fixincludes: configure-fixincludes
+configure-fixincludes:
+	@test ! -f fixincludes/Makefile || exit 0; \
+	[ -d fixincludes ] || mkdir fixincludes; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	echo Configuring in fixincludes; \
+	cd fixincludes || exit 1; \
+	case $(srcdir) in \
+	  \.) \
+	    srcdiroption="--srcdir=."; \
+	    libsrcdir=".";; \
+	  /* | [A-Za-z]:[\\/]*) \
+	    srcdiroption="--srcdir=$(srcdir)/fixincludes"; \
+	    libsrcdir="$$s/fixincludes";; \
+	  *) \
+	    srcdiroption="--srcdir=../$(srcdir)/fixincludes"; \
+	    libsrcdir="$$s/fixincludes";; \
+	esac; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption}  \
+	  || exit 1
+@endif fixincludes
+
+.PHONY: all-fixincludes maybe-all-fixincludes
+maybe-all-fixincludes:
+@if fixincludes
+TARGET-fixincludes=all
+maybe-all-fixincludes: all-fixincludes
+all-fixincludes: configure-fixincludes
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	(cd fixincludes && $(MAKE) $(FLAGS_TO_PASS)  \
+	  $(TARGET-fixincludes))
+@endif fixincludes
+
+.PHONY: check-fixincludes maybe-check-fixincludes
+maybe-check-fixincludes:
+@if fixincludes
+maybe-check-fixincludes: check-fixincludes
+
+check-fixincludes:
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	(cd fixincludes && $(MAKE) $(FLAGS_TO_PASS) check)
+
+@endif fixincludes
+
+.PHONY: install-fixincludes maybe-install-fixincludes
+maybe-install-fixincludes:
+@if fixincludes
+maybe-install-fixincludes: install-fixincludes
+
+install-fixincludes: installdirs
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	(cd fixincludes && $(MAKE) $(FLAGS_TO_PASS) install)
+
+@endif fixincludes
+
+# Other targets (info, dvi, etc.)
+
+.PHONY: maybe-info-fixincludes info-fixincludes
+maybe-info-fixincludes:
+@if fixincludes
+maybe-info-fixincludes: info-fixincludes
+
+# fixincludes doesn't support info.
+info-fixincludes:
+
+@endif fixincludes
+
+.PHONY: maybe-dvi-fixincludes dvi-fixincludes
+maybe-dvi-fixincludes:
+@if fixincludes
+maybe-dvi-fixincludes: dvi-fixincludes
+
+# fixincludes doesn't support dvi.
+dvi-fixincludes:
+
+@endif fixincludes
+
+.PHONY: maybe-html-fixincludes html-fixincludes
+maybe-html-fixincludes:
+@if fixincludes
+maybe-html-fixincludes: html-fixincludes
+
+html-fixincludes: \
+    configure-fixincludes 
+	@[ -f ./fixincludes/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in fixincludes" ; \
+	(cd fixincludes && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif fixincludes
+
+.PHONY: maybe-TAGS-fixincludes TAGS-fixincludes
+maybe-TAGS-fixincludes:
+@if fixincludes
+maybe-TAGS-fixincludes: TAGS-fixincludes
+
+# fixincludes doesn't support TAGS.
+TAGS-fixincludes:
+
+@endif fixincludes
+
+.PHONY: maybe-install-info-fixincludes install-info-fixincludes
+maybe-install-info-fixincludes:
+@if fixincludes
+maybe-install-info-fixincludes: install-info-fixincludes
+
+# fixincludes doesn't support install-info.
+install-info-fixincludes:
+
+@endif fixincludes
+
+.PHONY: maybe-installcheck-fixincludes installcheck-fixincludes
+maybe-installcheck-fixincludes:
+@if fixincludes
+maybe-installcheck-fixincludes: installcheck-fixincludes
+
+# fixincludes doesn't support installcheck.
+installcheck-fixincludes:
+
+@endif fixincludes
+
+.PHONY: maybe-mostlyclean-fixincludes mostlyclean-fixincludes
+maybe-mostlyclean-fixincludes:
+@if fixincludes
+maybe-mostlyclean-fixincludes: mostlyclean-fixincludes
+
+mostlyclean-fixincludes: 
+	@[ -f ./fixincludes/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing mostlyclean in fixincludes" ; \
+	(cd fixincludes && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          mostlyclean) \
+	  || exit 1
+
+@endif fixincludes
+
+.PHONY: maybe-clean-fixincludes clean-fixincludes
+maybe-clean-fixincludes:
+@if fixincludes
+maybe-clean-fixincludes: clean-fixincludes
+
+clean-fixincludes: 
+	@[ -f ./fixincludes/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing clean in fixincludes" ; \
+	(cd fixincludes && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          clean) \
+	  || exit 1
+
+@endif fixincludes
+
+.PHONY: maybe-distclean-fixincludes distclean-fixincludes
+maybe-distclean-fixincludes:
+@if fixincludes
+maybe-distclean-fixincludes: distclean-fixincludes
+
+distclean-fixincludes: 
+	@[ -f ./fixincludes/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing distclean in fixincludes" ; \
+	(cd fixincludes && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          distclean) \
+	  || exit 1
+
+@endif fixincludes
+
+.PHONY: maybe-maintainer-clean-fixincludes maintainer-clean-fixincludes
+maybe-maintainer-clean-fixincludes:
+@if fixincludes
+maybe-maintainer-clean-fixincludes: maintainer-clean-fixincludes
+
+maintainer-clean-fixincludes: 
+	@[ -f ./fixincludes/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing maintainer-clean in fixincludes" ; \
+	(cd fixincludes && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          maintainer-clean) \
+	  || exit 1
+
+@endif fixincludes
+
+
 .PHONY: configure-flex maybe-configure-flex
 maybe-configure-flex:
 @if flex
@@ -8117,6 +8943,32 @@ dvi-flex: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif flex
+
+.PHONY: maybe-html-flex html-flex
+maybe-html-flex:
+@if flex
+maybe-html-flex: html-flex
+
+html-flex: \
+    configure-flex 
+	@[ -f ./flex/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in flex" ; \
+	(cd flex && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif flex
@@ -8427,6 +9279,32 @@ dvi-gas: \
 
 @endif gas
 
+.PHONY: maybe-html-gas html-gas
+maybe-html-gas:
+@if gas
+maybe-html-gas: html-gas
+
+html-gas: \
+    configure-gas 
+	@[ -f ./gas/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in gas" ; \
+	(cd gas && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif gas
+
 .PHONY: maybe-TAGS-gas TAGS-gas
 maybe-TAGS-gas:
 @if gas
@@ -8729,6 +9607,32 @@ dvi-gcc: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif gcc
+
+.PHONY: maybe-html-gcc html-gcc
+maybe-html-gcc:
+@if gcc
+maybe-html-gcc: html-gcc
+
+html-gcc: \
+    configure-gcc 
+	@[ -f ./gcc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in gcc" ; \
+	(cd gcc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif gcc
@@ -9037,6 +9941,32 @@ dvi-gawk: \
 
 @endif gawk
 
+.PHONY: maybe-html-gawk html-gawk
+maybe-html-gawk:
+@if gawk
+maybe-html-gawk: html-gawk
+
+html-gawk: \
+    configure-gawk 
+	@[ -f ./gawk/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in gawk" ; \
+	(cd gawk && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif gawk
+
 .PHONY: maybe-TAGS-gawk TAGS-gawk
 maybe-TAGS-gawk:
 @if gawk
@@ -9337,6 +10267,32 @@ dvi-gettext: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif gettext
+
+.PHONY: maybe-html-gettext html-gettext
+maybe-html-gettext:
+@if gettext
+maybe-html-gettext: html-gettext
+
+html-gettext: \
+    configure-gettext 
+	@[ -f ./gettext/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in gettext" ; \
+	(cd gettext && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif gettext
@@ -9645,6 +10601,32 @@ dvi-gnuserv: \
 
 @endif gnuserv
 
+.PHONY: maybe-html-gnuserv html-gnuserv
+maybe-html-gnuserv:
+@if gnuserv
+maybe-html-gnuserv: html-gnuserv
+
+html-gnuserv: \
+    configure-gnuserv 
+	@[ -f ./gnuserv/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in gnuserv" ; \
+	(cd gnuserv && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif gnuserv
+
 .PHONY: maybe-TAGS-gnuserv TAGS-gnuserv
 maybe-TAGS-gnuserv:
 @if gnuserv
@@ -9945,6 +10927,32 @@ dvi-gprof: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif gprof
+
+.PHONY: maybe-html-gprof html-gprof
+maybe-html-gprof:
+@if gprof
+maybe-html-gprof: html-gprof
+
+html-gprof: \
+    configure-gprof 
+	@[ -f ./gprof/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in gprof" ; \
+	(cd gprof && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif gprof
@@ -10253,6 +11261,32 @@ dvi-gzip: \
 
 @endif gzip
 
+.PHONY: maybe-html-gzip html-gzip
+maybe-html-gzip:
+@if gzip
+maybe-html-gzip: html-gzip
+
+html-gzip: \
+    configure-gzip 
+	@[ -f ./gzip/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in gzip" ; \
+	(cd gzip && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif gzip
+
 .PHONY: maybe-TAGS-gzip TAGS-gzip
 maybe-TAGS-gzip:
 @if gzip
@@ -10557,6 +11591,32 @@ dvi-hello: \
 
 @endif hello
 
+.PHONY: maybe-html-hello html-hello
+maybe-html-hello:
+@if hello
+maybe-html-hello: html-hello
+
+html-hello: \
+    configure-hello 
+	@[ -f ./hello/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in hello" ; \
+	(cd hello && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif hello
+
 .PHONY: maybe-TAGS-hello TAGS-hello
 maybe-TAGS-hello:
 @if hello
@@ -10857,6 +11917,32 @@ dvi-indent: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif indent
+
+.PHONY: maybe-html-indent html-indent
+maybe-html-indent:
+@if indent
+maybe-html-indent: html-indent
+
+html-indent: \
+    configure-indent 
+	@[ -f ./indent/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in indent" ; \
+	(cd indent && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif indent
@@ -11167,6 +12253,32 @@ dvi-intl: \
 
 @endif intl
 
+.PHONY: maybe-html-intl html-intl
+maybe-html-intl:
+@if intl
+maybe-html-intl: html-intl
+
+html-intl: \
+    configure-intl 
+	@[ -f ./intl/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in intl" ; \
+	(cd intl && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif intl
+
 .PHONY: maybe-TAGS-intl TAGS-intl
 maybe-TAGS-intl:
 @if intl
@@ -11471,6 +12583,32 @@ dvi-tcl: \
 
 @endif tcl
 
+.PHONY: maybe-html-tcl html-tcl
+maybe-html-tcl:
+@if tcl
+maybe-html-tcl: html-tcl
+
+html-tcl: \
+    configure-tcl 
+	@[ -f ./tcl/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in tcl" ; \
+	(cd tcl && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif tcl
+
 .PHONY: maybe-TAGS-tcl TAGS-tcl
 maybe-TAGS-tcl:
 @if tcl
@@ -11756,6 +12894,32 @@ dvi-itcl: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif itcl
+
+.PHONY: maybe-html-itcl html-itcl
+maybe-html-itcl:
+@if itcl
+maybe-html-itcl: html-itcl
+
+html-itcl: \
+    configure-itcl 
+	@[ -f ./itcl/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in itcl" ; \
+	(cd itcl && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif itcl
@@ -12066,6 +13230,32 @@ dvi-ld: \
 
 @endif ld
 
+.PHONY: maybe-html-ld html-ld
+maybe-html-ld:
+@if ld
+maybe-html-ld: html-ld
+
+html-ld: \
+    configure-ld 
+	@[ -f ./ld/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in ld" ; \
+	(cd ld && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif ld
+
 .PHONY: maybe-TAGS-ld TAGS-ld
 maybe-TAGS-ld:
 @if ld
@@ -12372,6 +13562,32 @@ dvi-libcpp: \
 
 @endif libcpp
 
+.PHONY: maybe-html-libcpp html-libcpp
+maybe-html-libcpp:
+@if libcpp
+maybe-html-libcpp: html-libcpp
+
+html-libcpp: \
+    configure-libcpp 
+	@[ -f ./libcpp/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in libcpp" ; \
+	(cd libcpp && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif libcpp
+
 .PHONY: maybe-TAGS-libcpp TAGS-libcpp
 maybe-TAGS-libcpp:
 @if libcpp
@@ -12672,6 +13888,32 @@ dvi-libgui: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif libgui
+
+.PHONY: maybe-html-libgui html-libgui
+maybe-html-libgui:
+@if libgui
+maybe-html-libgui: html-libgui
+
+html-libgui: \
+    configure-libgui 
+	@[ -f ./libgui/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in libgui" ; \
+	(cd libgui && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif libgui
@@ -12982,6 +14224,32 @@ dvi-libiberty: \
 
 @endif libiberty
 
+.PHONY: maybe-html-libiberty html-libiberty
+maybe-html-libiberty:
+@if libiberty
+maybe-html-libiberty: html-libiberty
+
+html-libiberty: \
+    configure-libiberty 
+	@[ -f ./libiberty/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in libiberty" ; \
+	(cd libiberty && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif libiberty
+
 .PHONY: maybe-TAGS-libiberty TAGS-libiberty
 maybe-TAGS-libiberty:
 @if libiberty
@@ -13282,6 +14550,32 @@ dvi-libtool: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif libtool
+
+.PHONY: maybe-html-libtool html-libtool
+maybe-html-libtool:
+@if libtool
+maybe-html-libtool: html-libtool
+
+html-libtool: \
+    configure-libtool 
+	@[ -f ./libtool/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in libtool" ; \
+	(cd libtool && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif libtool
@@ -13590,6 +14884,32 @@ dvi-m4: \
 
 @endif m4
 
+.PHONY: maybe-html-m4 html-m4
+maybe-html-m4:
+@if m4
+maybe-html-m4: html-m4
+
+html-m4: \
+    configure-m4 
+	@[ -f ./m4/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in m4" ; \
+	(cd m4 && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif m4
+
 .PHONY: maybe-TAGS-m4 TAGS-m4
 maybe-TAGS-m4:
 @if m4
@@ -13894,6 +15214,32 @@ dvi-make: \
 
 @endif make
 
+.PHONY: maybe-html-make html-make
+maybe-html-make:
+@if make
+maybe-html-make: html-make
+
+html-make: \
+    configure-make 
+	@[ -f ./make/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in make" ; \
+	(cd make && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif make
+
 .PHONY: maybe-TAGS-make TAGS-make
 maybe-TAGS-make:
 @if make
@@ -14189,6 +15535,32 @@ dvi-mmalloc: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif mmalloc
+
+.PHONY: maybe-html-mmalloc html-mmalloc
+maybe-html-mmalloc:
+@if mmalloc
+maybe-html-mmalloc: html-mmalloc
+
+html-mmalloc: \
+    configure-mmalloc 
+	@[ -f ./mmalloc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in mmalloc" ; \
+	(cd mmalloc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif mmalloc
@@ -14497,6 +15869,32 @@ dvi-patch: \
 
 @endif patch
 
+.PHONY: maybe-html-patch html-patch
+maybe-html-patch:
+@if patch
+maybe-html-patch: html-patch
+
+html-patch: \
+    configure-patch 
+	@[ -f ./patch/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in patch" ; \
+	(cd patch && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif patch
+
 .PHONY: maybe-TAGS-patch TAGS-patch
 maybe-TAGS-patch:
 @if patch
@@ -14797,6 +16195,32 @@ dvi-perl: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif perl
+
+.PHONY: maybe-html-perl html-perl
+maybe-html-perl:
+@if perl
+maybe-html-perl: html-perl
+
+html-perl: \
+    configure-perl 
+	@[ -f ./perl/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in perl" ; \
+	(cd perl && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif perl
@@ -15105,6 +16529,32 @@ dvi-prms: \
 
 @endif prms
 
+.PHONY: maybe-html-prms html-prms
+maybe-html-prms:
+@if prms
+maybe-html-prms: html-prms
+
+html-prms: \
+    configure-prms 
+	@[ -f ./prms/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in prms" ; \
+	(cd prms && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif prms
+
 .PHONY: maybe-TAGS-prms TAGS-prms
 maybe-TAGS-prms:
 @if prms
@@ -15405,6 +16855,32 @@ dvi-rcs: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif rcs
+
+.PHONY: maybe-html-rcs html-rcs
+maybe-html-rcs:
+@if rcs
+maybe-html-rcs: html-rcs
+
+html-rcs: \
+    configure-rcs 
+	@[ -f ./rcs/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in rcs" ; \
+	(cd rcs && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif rcs
@@ -15713,6 +17189,32 @@ dvi-readline: \
 
 @endif readline
 
+.PHONY: maybe-html-readline html-readline
+maybe-html-readline:
+@if readline
+maybe-html-readline: html-readline
+
+html-readline: \
+    configure-readline 
+	@[ -f ./readline/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in readline" ; \
+	(cd readline && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif readline
+
 .PHONY: maybe-TAGS-readline TAGS-readline
 maybe-TAGS-readline:
 @if readline
@@ -16003,6 +17505,32 @@ dvi-release: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif release
+
+.PHONY: maybe-html-release html-release
+maybe-html-release:
+@if release
+maybe-html-release: html-release
+
+html-release: \
+    configure-release 
+	@[ -f ./release/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in release" ; \
+	(cd release && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif release
@@ -16311,6 +17839,32 @@ dvi-recode: \
 
 @endif recode
 
+.PHONY: maybe-html-recode html-recode
+maybe-html-recode:
+@if recode
+maybe-html-recode: html-recode
+
+html-recode: \
+    configure-recode 
+	@[ -f ./recode/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in recode" ; \
+	(cd recode && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif recode
+
 .PHONY: maybe-TAGS-recode TAGS-recode
 maybe-TAGS-recode:
 @if recode
@@ -16611,6 +18165,32 @@ dvi-sed: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif sed
+
+.PHONY: maybe-html-sed html-sed
+maybe-html-sed:
+@if sed
+maybe-html-sed: html-sed
+
+html-sed: \
+    configure-sed 
+	@[ -f ./sed/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in sed" ; \
+	(cd sed && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif sed
@@ -16919,6 +18499,32 @@ dvi-send-pr: \
 
 @endif send-pr
 
+.PHONY: maybe-html-send-pr html-send-pr
+maybe-html-send-pr:
+@if send-pr
+maybe-html-send-pr: html-send-pr
+
+html-send-pr: \
+    configure-send-pr 
+	@[ -f ./send-pr/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in send-pr" ; \
+	(cd send-pr && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif send-pr
+
 .PHONY: maybe-TAGS-send-pr TAGS-send-pr
 maybe-TAGS-send-pr:
 @if send-pr
@@ -17219,6 +18825,32 @@ dvi-shellutils: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif shellutils
+
+.PHONY: maybe-html-shellutils html-shellutils
+maybe-html-shellutils:
+@if shellutils
+maybe-html-shellutils: html-shellutils
+
+html-shellutils: \
+    configure-shellutils 
+	@[ -f ./shellutils/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in shellutils" ; \
+	(cd shellutils && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif shellutils
@@ -17527,6 +19159,32 @@ dvi-sid: \
 
 @endif sid
 
+.PHONY: maybe-html-sid html-sid
+maybe-html-sid:
+@if sid
+maybe-html-sid: html-sid
+
+html-sid: \
+    configure-sid 
+	@[ -f ./sid/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in sid" ; \
+	(cd sid && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif sid
+
 .PHONY: maybe-TAGS-sid TAGS-sid
 maybe-TAGS-sid:
 @if sid
@@ -17827,6 +19485,32 @@ dvi-sim: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif sim
+
+.PHONY: maybe-html-sim html-sim
+maybe-html-sim:
+@if sim
+maybe-html-sim: html-sim
+
+html-sim: \
+    configure-sim 
+	@[ -f ./sim/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in sim" ; \
+	(cd sim && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif sim
@@ -18135,6 +19819,32 @@ dvi-tar: \
 
 @endif tar
 
+.PHONY: maybe-html-tar html-tar
+maybe-html-tar:
+@if tar
+maybe-html-tar: html-tar
+
+html-tar: \
+    configure-tar 
+	@[ -f ./tar/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in tar" ; \
+	(cd tar && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif tar
+
 .PHONY: maybe-TAGS-tar TAGS-tar
 maybe-TAGS-tar:
 @if tar
@@ -18430,6 +20140,32 @@ dvi-texinfo: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif texinfo
+
+.PHONY: maybe-html-texinfo html-texinfo
+maybe-html-texinfo:
+@if texinfo
+maybe-html-texinfo: html-texinfo
+
+html-texinfo: \
+    configure-texinfo 
+	@[ -f ./texinfo/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in texinfo" ; \
+	(cd texinfo && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif texinfo
@@ -18738,6 +20474,32 @@ dvi-textutils: \
 
 @endif textutils
 
+.PHONY: maybe-html-textutils html-textutils
+maybe-html-textutils:
+@if textutils
+maybe-html-textutils: html-textutils
+
+html-textutils: \
+    configure-textutils 
+	@[ -f ./textutils/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in textutils" ; \
+	(cd textutils && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif textutils
+
 .PHONY: maybe-TAGS-textutils TAGS-textutils
 maybe-TAGS-textutils:
 @if textutils
@@ -19038,6 +20800,32 @@ dvi-time: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif time
+
+.PHONY: maybe-html-time html-time
+maybe-html-time:
+@if time
+maybe-html-time: html-time
+
+html-time: \
+    configure-time 
+	@[ -f ./time/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in time" ; \
+	(cd time && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif time
@@ -19346,6 +21134,32 @@ dvi-uudecode: \
 
 @endif uudecode
 
+.PHONY: maybe-html-uudecode html-uudecode
+maybe-html-uudecode:
+@if uudecode
+maybe-html-uudecode: html-uudecode
+
+html-uudecode: \
+    configure-uudecode 
+	@[ -f ./uudecode/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in uudecode" ; \
+	(cd uudecode && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif uudecode
+
 .PHONY: maybe-TAGS-uudecode TAGS-uudecode
 maybe-TAGS-uudecode:
 @if uudecode
@@ -19646,6 +21460,32 @@ dvi-wdiff: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif wdiff
+
+.PHONY: maybe-html-wdiff html-wdiff
+maybe-html-wdiff:
+@if wdiff
+maybe-html-wdiff: html-wdiff
+
+html-wdiff: \
+    configure-wdiff 
+	@[ -f ./wdiff/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in wdiff" ; \
+	(cd wdiff && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif wdiff
@@ -19957,6 +21797,32 @@ dvi-zip: \
 
 @endif zip
 
+.PHONY: maybe-html-zip html-zip
+maybe-html-zip:
+@if zip
+maybe-html-zip: html-zip
+
+html-zip: \
+    configure-zip 
+	@[ -f ./zip/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in zip" ; \
+	(cd zip && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif zip
+
 .PHONY: maybe-TAGS-zip TAGS-zip
 maybe-TAGS-zip:
 @if zip
@@ -20249,6 +22115,32 @@ dvi-zlib: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif zlib
+
+.PHONY: maybe-html-zlib html-zlib
+maybe-html-zlib:
+@if zlib
+maybe-html-zlib: html-zlib
+
+html-zlib: \
+    configure-zlib 
+	@[ -f ./zlib/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in zlib" ; \
+	(cd zlib && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif zlib
@@ -20557,6 +22449,32 @@ dvi-gdb: \
 
 @endif gdb
 
+.PHONY: maybe-html-gdb html-gdb
+maybe-html-gdb:
+@if gdb
+maybe-html-gdb: html-gdb
+
+html-gdb: \
+    configure-gdb 
+	@[ -f ./gdb/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) $(X11_FLAGS_TO_PASS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in gdb" ; \
+	(cd gdb && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif gdb
+
 .PHONY: maybe-TAGS-gdb TAGS-gdb
 maybe-TAGS-gdb:
 @if gdb
@@ -20857,6 +22775,32 @@ dvi-expect: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif expect
+
+.PHONY: maybe-html-expect html-expect
+maybe-html-expect:
+@if expect
+maybe-html-expect: html-expect
+
+html-expect: \
+    configure-expect 
+	@[ -f ./expect/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) $(X11_FLAGS_TO_PASS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in expect" ; \
+	(cd expect && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif expect
@@ -21165,6 +23109,32 @@ dvi-guile: \
 
 @endif guile
 
+.PHONY: maybe-html-guile html-guile
+maybe-html-guile:
+@if guile
+maybe-html-guile: html-guile
+
+html-guile: \
+    configure-guile 
+	@[ -f ./guile/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) $(X11_FLAGS_TO_PASS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in guile" ; \
+	(cd guile && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif guile
+
 .PHONY: maybe-TAGS-guile TAGS-guile
 maybe-TAGS-guile:
 @if guile
@@ -21469,6 +23439,32 @@ dvi-tk: \
 
 @endif tk
 
+.PHONY: maybe-html-tk html-tk
+maybe-html-tk:
+@if tk
+maybe-html-tk: html-tk
+
+html-tk: \
+    configure-tk 
+	@[ -f ./tk/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) $(X11_FLAGS_TO_PASS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in tk" ; \
+	(cd tk && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif tk
+
 .PHONY: maybe-TAGS-tk TAGS-tk
 maybe-TAGS-tk:
 @if tk
@@ -21768,6 +23764,32 @@ dvi-libtermcap: \
 
 @endif libtermcap
 
+.PHONY: maybe-html-libtermcap html-libtermcap
+maybe-html-libtermcap:
+@if libtermcap
+maybe-html-libtermcap: html-libtermcap
+
+html-libtermcap: \
+    configure-libtermcap 
+	@[ -f ./libtermcap/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in libtermcap" ; \
+	(cd libtermcap && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif libtermcap
+
 .PHONY: maybe-TAGS-libtermcap TAGS-libtermcap
 maybe-TAGS-libtermcap:
 @if libtermcap
@@ -22003,6 +24025,32 @@ dvi-utils: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          dvi) \
+	  || exit 1
+
+@endif utils
+
+.PHONY: maybe-html-utils html-utils
+maybe-html-utils:
+@if utils
+maybe-html-utils: html-utils
+
+html-utils: \
+    configure-utils 
+	@[ -f ./utils/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in utils" ; \
+	(cd utils && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
 	  || exit 1
 
 @endif utils
@@ -22328,6 +24376,32 @@ dvi-target-libstdc++-v3: \
 
 @endif target-libstdc++-v3
 
+.PHONY: maybe-html-target-libstdc++-v3 html-target-libstdc++-v3
+maybe-html-target-libstdc++-v3:
+@if target-libstdc++-v3
+maybe-html-target-libstdc++-v3: html-target-libstdc++-v3
+
+html-target-libstdc++-v3: \
+    configure-target-libstdc++-v3 
+	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libstdc++-v3" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libstdc++-v3 && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-libstdc++-v3
+
 .PHONY: maybe-TAGS-target-libstdc++-v3 TAGS-target-libstdc++-v3
 maybe-TAGS-target-libstdc++-v3:
 @if target-libstdc++-v3
@@ -22640,6 +24714,32 @@ dvi-target-libmudflap: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	           dvi) \
+	  || exit 1
+
+@endif target-libmudflap
+
+.PHONY: maybe-html-target-libmudflap html-target-libmudflap
+maybe-html-target-libmudflap:
+@if target-libmudflap
+maybe-html-target-libmudflap: html-target-libmudflap
+
+html-target-libmudflap: \
+    configure-target-libmudflap 
+	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libmudflap" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libmudflap && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
 	  || exit 1
 
 @endif target-libmudflap
@@ -22960,6 +25060,32 @@ dvi-target-newlib: \
 
 @endif target-newlib
 
+.PHONY: maybe-html-target-newlib html-target-newlib
+maybe-html-target-newlib:
+@if target-newlib
+maybe-html-target-newlib: html-target-newlib
+
+html-target-newlib: \
+    configure-target-newlib 
+	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/newlib" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/newlib && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-newlib
+
 .PHONY: maybe-TAGS-target-newlib TAGS-target-newlib
 maybe-TAGS-target-newlib:
 @if target-newlib
@@ -23276,6 +25402,32 @@ dvi-target-libgfortran: \
 
 @endif target-libgfortran
 
+.PHONY: maybe-html-target-libgfortran html-target-libgfortran
+maybe-html-target-libgfortran:
+@if target-libgfortran
+maybe-html-target-libgfortran: html-target-libgfortran
+
+html-target-libgfortran: \
+    configure-target-libgfortran 
+	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libgfortran" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgfortran && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-libgfortran
+
 .PHONY: maybe-TAGS-target-libgfortran TAGS-target-libgfortran
 maybe-TAGS-target-libgfortran:
 @if target-libgfortran
@@ -23588,6 +25740,32 @@ dvi-target-libobjc: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	           dvi) \
+	  || exit 1
+
+@endif target-libobjc
+
+.PHONY: maybe-html-target-libobjc html-target-libobjc
+maybe-html-target-libobjc:
+@if target-libobjc
+maybe-html-target-libobjc: html-target-libobjc
+
+html-target-libobjc: \
+    configure-target-libobjc 
+	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libobjc" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libobjc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
 	  || exit 1
 
 @endif target-libobjc
@@ -23925,6 +26103,32 @@ dvi-target-libtermcap: \
 
 @endif target-libtermcap
 
+.PHONY: maybe-html-target-libtermcap html-target-libtermcap
+maybe-html-target-libtermcap:
+@if target-libtermcap
+maybe-html-target-libtermcap: html-target-libtermcap
+
+html-target-libtermcap: \
+    configure-target-libtermcap 
+	@[ -f $(TARGET_SUBDIR)/libtermcap/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libtermcap" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libtermcap && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-libtermcap
+
 .PHONY: maybe-TAGS-target-libtermcap TAGS-target-libtermcap
 maybe-TAGS-target-libtermcap:
 @if target-libtermcap
@@ -24177,6 +26381,32 @@ dvi-target-winsup: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	           dvi) \
+	  || exit 1
+
+@endif target-winsup
+
+.PHONY: maybe-html-target-winsup html-target-winsup
+maybe-html-target-winsup:
+@if target-winsup
+maybe-html-target-winsup: html-target-winsup
+
+html-target-winsup: \
+    configure-target-winsup 
+	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/winsup" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/winsup && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
 	  || exit 1
 
 @endif target-winsup
@@ -24488,6 +26718,32 @@ dvi-target-libgloss: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	           dvi) \
+	  || exit 1
+
+@endif target-libgloss
+
+.PHONY: maybe-html-target-libgloss html-target-libgloss
+maybe-html-target-libgloss:
+@if target-libgloss
+maybe-html-target-libgloss: html-target-libgloss
+
+html-target-libgloss: \
+    configure-target-libgloss 
+	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libgloss" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libgloss && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
 	  || exit 1
 
 @endif target-libgloss
@@ -24808,6 +27064,32 @@ dvi-target-libiberty: \
 
 @endif target-libiberty
 
+.PHONY: maybe-html-target-libiberty html-target-libiberty
+maybe-html-target-libiberty:
+@if target-libiberty
+maybe-html-target-libiberty: html-target-libiberty
+
+html-target-libiberty: \
+    configure-target-libiberty 
+	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libiberty" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libiberty && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-libiberty
+
 .PHONY: maybe-TAGS-target-libiberty TAGS-target-libiberty
 maybe-TAGS-target-libiberty:
 @if target-libiberty
@@ -25124,6 +27406,32 @@ dvi-target-gperf: \
 
 @endif target-gperf
 
+.PHONY: maybe-html-target-gperf html-target-gperf
+maybe-html-target-gperf:
+@if target-gperf
+maybe-html-target-gperf: html-target-gperf
+
+html-target-gperf: \
+    configure-target-gperf 
+	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/gperf" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/gperf && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-gperf
+
 .PHONY: maybe-TAGS-target-gperf TAGS-target-gperf
 maybe-TAGS-target-gperf:
 @if target-gperf
@@ -25426,6 +27734,32 @@ dvi-target-examples: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	           dvi) \
+	  || exit 1
+
+@endif target-examples
+
+.PHONY: maybe-html-target-examples html-target-examples
+maybe-html-target-examples:
+@if target-examples
+maybe-html-target-examples: html-target-examples
+
+html-target-examples: \
+    configure-target-examples 
+	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/examples" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/examples && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
 	  || exit 1
 
 @endif target-examples
@@ -25746,6 +28080,32 @@ dvi-target-libffi: \
 
 @endif target-libffi
 
+.PHONY: maybe-html-target-libffi html-target-libffi
+maybe-html-target-libffi:
+@if target-libffi
+maybe-html-target-libffi: html-target-libffi
+
+html-target-libffi: \
+    configure-target-libffi 
+	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libffi" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libffi && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-libffi
+
 .PHONY: maybe-TAGS-target-libffi TAGS-target-libffi
 maybe-TAGS-target-libffi:
 @if target-libffi
@@ -26058,6 +28418,32 @@ dvi-target-libjava: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	           dvi) \
+	  || exit 1
+
+@endif target-libjava
+
+.PHONY: maybe-html-target-libjava html-target-libjava
+maybe-html-target-libjava:
+@if target-libjava
+maybe-html-target-libjava: html-target-libjava
+
+html-target-libjava: \
+    configure-target-libjava 
+	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(RAW_CXX_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libjava" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libjava && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
 	  || exit 1
 
 @endif target-libjava
@@ -26400,6 +28786,32 @@ dvi-target-zlib: \
 
 @endif target-zlib
 
+.PHONY: maybe-html-target-zlib html-target-zlib
+maybe-html-target-zlib:
+@if target-zlib
+maybe-html-target-zlib: html-target-zlib
+
+html-target-zlib: \
+    configure-target-zlib 
+	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/zlib" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/zlib && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-zlib
+
 .PHONY: maybe-TAGS-target-zlib TAGS-target-zlib
 maybe-TAGS-target-zlib:
 @if target-zlib
@@ -26712,6 +29124,32 @@ dvi-target-boehm-gc: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	           dvi) \
+	  || exit 1
+
+@endif target-boehm-gc
+
+.PHONY: maybe-html-target-boehm-gc html-target-boehm-gc
+maybe-html-target-boehm-gc:
+@if target-boehm-gc
+maybe-html-target-boehm-gc: html-target-boehm-gc
+
+html-target-boehm-gc: \
+    configure-target-boehm-gc 
+	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/boehm-gc" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
 	  || exit 1
 
 @endif target-boehm-gc
@@ -27032,6 +29470,32 @@ dvi-target-qthreads: \
 
 @endif target-qthreads
 
+.PHONY: maybe-html-target-qthreads html-target-qthreads
+maybe-html-target-qthreads:
+@if target-qthreads
+maybe-html-target-qthreads: html-target-qthreads
+
+html-target-qthreads: \
+    configure-target-qthreads 
+	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/qthreads" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/qthreads && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-qthreads
+
 .PHONY: maybe-TAGS-target-qthreads TAGS-target-qthreads
 maybe-TAGS-target-qthreads:
 @if target-qthreads
@@ -27348,6 +29812,32 @@ dvi-target-rda: \
 
 @endif target-rda
 
+.PHONY: maybe-html-target-rda html-target-rda
+maybe-html-target-rda:
+@if target-rda
+maybe-html-target-rda: html-target-rda
+
+html-target-rda: \
+    configure-target-rda 
+	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/rda" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/rda && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
+	  || exit 1
+
+@endif target-rda
+
 .PHONY: maybe-TAGS-target-rda TAGS-target-rda
 maybe-TAGS-target-rda:
 @if target-rda
@@ -27660,6 +30150,32 @@ dvi-target-libada: \
 	          "RANLIB=$${RANLIB}" \
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	           dvi) \
+	  || exit 1
+
+@endif target-libada
+
+.PHONY: maybe-html-target-libada html-target-libada
+maybe-html-target-libada:
+@if target-libada
+maybe-html-target-libada: html-target-libada
+
+html-target-libada: \
+    configure-target-libada 
+	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(SET_LIB_PATH) \
+	$(NORMAL_TARGET_EXPORTS) \
+	echo "Doing html in $(TARGET_SUBDIR)/libada" ; \
+	for flag in $(EXTRA_TARGET_FLAGS); do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	(cd $(TARGET_SUBDIR)/libada && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	           html) \
 	  || exit 1
 
 @endif target-libada
@@ -28133,7 +30649,7 @@ stage1-bubble::
 all-stage1:     \
   maybe-all-stage1-bfd \
   maybe-all-stage1-opcodes \
-  maybe-all-stage1-binutils             \
+  maybe-all-stage1-binutils              \
   maybe-all-stage1-gas \
   maybe-all-stage1-gcc        \
   maybe-all-stage1-intl   \
@@ -28146,7 +30662,7 @@ do-clean: clean-stage1
 clean-stage1:     \
   maybe-clean-stage1-bfd \
   maybe-clean-stage1-opcodes \
-  maybe-clean-stage1-binutils             \
+  maybe-clean-stage1-binutils              \
   maybe-clean-stage1-gas \
   maybe-clean-stage1-gcc        \
   maybe-clean-stage1-intl   \
@@ -28830,7 +31346,7 @@ stage2-bubble:: stage1-bubble
 all-stage2:     \
   maybe-all-stage2-bfd \
   maybe-all-stage2-opcodes \
-  maybe-all-stage2-binutils             \
+  maybe-all-stage2-binutils              \
   maybe-all-stage2-gas \
   maybe-all-stage2-gcc        \
   maybe-all-stage2-intl   \
@@ -28843,7 +31359,7 @@ do-clean: clean-stage2
 clean-stage2:     \
   maybe-clean-stage2-bfd \
   maybe-clean-stage2-opcodes \
-  maybe-clean-stage2-binutils             \
+  maybe-clean-stage2-binutils              \
   maybe-clean-stage2-gas \
   maybe-clean-stage2-gcc        \
   maybe-clean-stage2-intl   \
@@ -29551,7 +32067,7 @@ stage3-bubble:: stage2-bubble
 all-stage3:     \
   maybe-all-stage3-bfd \
   maybe-all-stage3-opcodes \
-  maybe-all-stage3-binutils             \
+  maybe-all-stage3-binutils              \
   maybe-all-stage3-gas \
   maybe-all-stage3-gcc        \
   maybe-all-stage3-intl   \
@@ -29564,7 +32080,7 @@ do-clean: clean-stage3
 clean-stage3:     \
   maybe-clean-stage3-bfd \
   maybe-clean-stage3-opcodes \
-  maybe-clean-stage3-binutils             \
+  maybe-clean-stage3-binutils              \
   maybe-clean-stage3-gas \
   maybe-clean-stage3-gcc        \
   maybe-clean-stage3-intl   \
@@ -30302,7 +32818,7 @@ stage4-bubble:: stage3-bubble
 all-stage4:     \
   maybe-all-stage4-bfd \
   maybe-all-stage4-opcodes \
-  maybe-all-stage4-binutils             \
+  maybe-all-stage4-binutils              \
   maybe-all-stage4-gas \
   maybe-all-stage4-gcc        \
   maybe-all-stage4-intl   \
@@ -30315,7 +32831,7 @@ do-clean: clean-stage4
 clean-stage4:     \
   maybe-clean-stage4-bfd \
   maybe-clean-stage4-opcodes \
-  maybe-clean-stage4-binutils             \
+  maybe-clean-stage4-binutils              \
   maybe-clean-stage4-gas \
   maybe-clean-stage4-gcc        \
   maybe-clean-stage4-intl   \
@@ -31049,7 +33565,7 @@ stageprofile-bubble:: stage1-bubble
 all-stageprofile:     \
   maybe-all-stageprofile-bfd \
   maybe-all-stageprofile-opcodes \
-  maybe-all-stageprofile-binutils             \
+  maybe-all-stageprofile-binutils              \
   maybe-all-stageprofile-gas \
   maybe-all-stageprofile-gcc        \
   maybe-all-stageprofile-intl   \
@@ -31062,7 +33578,7 @@ do-clean: clean-stageprofile
 clean-stageprofile:     \
   maybe-clean-stageprofile-bfd \
   maybe-clean-stageprofile-opcodes \
-  maybe-clean-stageprofile-binutils             \
+  maybe-clean-stageprofile-binutils              \
   maybe-clean-stageprofile-gas \
   maybe-clean-stageprofile-gcc        \
   maybe-clean-stageprofile-intl   \
@@ -31766,7 +34282,7 @@ stagefeedback-bubble:: stage1-bubble
 all-stagefeedback:     \
   maybe-all-stagefeedback-bfd \
   maybe-all-stagefeedback-opcodes \
-  maybe-all-stagefeedback-binutils             \
+  maybe-all-stagefeedback-binutils              \
   maybe-all-stagefeedback-gas \
   maybe-all-stagefeedback-gcc        \
   maybe-all-stagefeedback-intl   \
@@ -31779,7 +34295,7 @@ do-clean: clean-stagefeedback
 clean-stagefeedback:     \
   maybe-clean-stagefeedback-bfd \
   maybe-clean-stagefeedback-opcodes \
-  maybe-clean-stagefeedback-binutils             \
+  maybe-clean-stagefeedback-binutils              \
   maybe-clean-stagefeedback-gas \
   maybe-clean-stagefeedback-gcc        \
   maybe-clean-stagefeedback-intl   \
@@ -32647,15 +35163,16 @@ all-stage3-gcc: all-stage3-libcpp
 all-stage4-gcc: all-stage4-libcpp
 all-stageprofile-gcc: all-stageprofile-libcpp
 all-stagefeedback-gcc: all-stagefeedback-libcpp
-all-gcc: maybe-all-build-libiberty
+all-gcc: maybe-all-libiberty
 
-all-stage1-gcc: maybe-all-build-libiberty
-all-stage2-gcc: maybe-all-build-libiberty
-all-stage3-gcc: maybe-all-build-libiberty
-all-stage4-gcc: maybe-all-build-libiberty
-all-stageprofile-gcc: maybe-all-build-libiberty
-all-stagefeedback-gcc: maybe-all-build-libiberty
-all-prebootstrap: maybe-all-build-libiberty
+all-stage1-gcc: maybe-all-stage1-libiberty
+all-stage2-gcc: maybe-all-stage2-libiberty
+all-stage3-gcc: maybe-all-stage3-libiberty
+all-stage4-gcc: maybe-all-stage4-libiberty
+all-stageprofile-gcc: maybe-all-stageprofile-libiberty
+all-stagefeedback-gcc: maybe-all-stagefeedback-libiberty
+all-gcc: maybe-all-fixincludes
+install-gcc: maybe-install-fixincludes
 configure-libcpp: configure-libiberty
 
 configure-stage1-libcpp: configure-stage1-libiberty
@@ -32688,6 +35205,7 @@ all-stage3-libcpp: maybe-all-stage3-intl
 all-stage4-libcpp: maybe-all-stage4-intl
 all-stageprofile-libcpp: maybe-all-stageprofile-intl
 all-stagefeedback-libcpp: maybe-all-stagefeedback-intl
+all-fixincludes: maybe-all-libiberty
 configure-gdb: maybe-configure-itcl
 configure-gdb: maybe-configure-tcl
 configure-gdb: maybe-configure-tk

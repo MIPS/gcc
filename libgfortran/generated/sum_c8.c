@@ -24,8 +24,12 @@ Boston, MA 02111-1307, USA.  */
 #include <assert.h>
 #include "libgfortran.h"
 
+
+extern void sum_c8 (gfc_array_c8 *, gfc_array_c8 *, index_type *);
+export_proto(sum_c8);
+
 void
-__sum_c8 (gfc_array_c8 * retarray, gfc_array_c8 *array, index_type *pdim)
+sum_c8 (gfc_array_c8 *retarray, gfc_array_c8 *array, index_type *pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
@@ -75,8 +79,10 @@ __sum_c8 (gfc_array_c8 * retarray, gfc_array_c8 *array, index_type *pdim)
             retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
         }
 
-      retarray->data = internal_malloc (sizeof (GFC_COMPLEX_8) * 
-                                        (retarray->dim[rank-1].stride * extent[rank-1]));
+      retarray->data
+	 = internal_malloc_size (sizeof (GFC_COMPLEX_8)
+		 		 * retarray->dim[rank-1].stride
+				 * extent[rank-1]);
       retarray->base = 0;
     }
           
@@ -142,8 +148,14 @@ __sum_c8 (gfc_array_c8 * retarray, gfc_array_c8 *array, index_type *pdim)
     }
 }
 
+
+extern void msum_c8 (gfc_array_c8 *, gfc_array_c8 *, index_type *,
+					       gfc_array_l4 *);
+export_proto(msum_c8);
+
 void
-__msum_c8 (gfc_array_c8 * retarray, gfc_array_c8 * array, index_type *pdim, gfc_array_l4 * mask)
+msum_c8 (gfc_array_c8 * retarray, gfc_array_c8 * array,
+				  index_type *pdim, gfc_array_l4 * mask)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];

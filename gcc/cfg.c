@@ -67,8 +67,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* The obstack on which the flow graph components are allocated.  */
 
-struct obstack flow_obstack;
-static char *flow_firstobj;
+struct bitmap_obstack reg_obstack;
 
 void debug_flow_info (void);
 static void free_edge (edge);
@@ -83,19 +82,6 @@ static void free_edge (edge);
 void
 init_flow (void)
 {
-  static int initialized;
-
-  if (!initialized)
-    {
-      gcc_obstack_init (&flow_obstack);
-      flow_firstobj = obstack_alloc (&flow_obstack, 0);
-      initialized = 1;
-    }
-  else
-    {
-      obstack_free (&flow_obstack, flow_firstobj);
-      flow_firstobj = obstack_alloc (&flow_obstack, 0);
-    }
 
   ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
@@ -229,12 +215,15 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
   e = ggc_alloc_cleared (sizeof (*e));
   n_edges++;
 
-  VEC_safe_insert (edge, src->succs, 0, e);
-  VEC_safe_insert (edge, dst->preds, 0, e);
+  VEC_safe_push (edge, src->succs, e);
+  VEC_safe_push (edge, dst->preds, e);
 
   e->src = src;
   e->dest = dst;
   e->flags = flags;
+  e->dest_idx = EDGE_COUNT (dst->preds) - 1;
+
+  execute_on_growing_pred (e);
 
   return e;
 }
@@ -247,7 +236,6 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
 {
   int use_edge_cache;
   edge e;
-  edge_iterator ei;
 
   /* Don't bother with edge cache for ENTRY or EXIT, if there aren't that
      many edges to them, or we didn't allocate memory for it.  */
@@ -268,12 +256,12 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
 
       /* Fall through.  */
     case 0:
-      FOR_EACH_EDGE (e, ei, src->succs)
-	if (e->dest == dst)
-	  {
-	    e->flags |= flags;
-	    return NULL;
-	  }
+      e = find_edge (src, dst);
+      if (e)
+	{
+	  e->flags |= flags;
+	  return NULL;
+	}
       break;
     }
 
@@ -314,17 +302,21 @@ remove_edge (edge e)
 {
   edge tmp;
   basic_block src, dest;
+  unsigned int dest_idx;
   bool found = false;
   edge_iterator ei;
 
+  execute_on_shrinking_pred (e);
+
   src = e->src;
   dest = e->dest;
+  dest_idx = e->dest_idx;
 
   for (ei = ei_start (src->succs); (tmp = ei_safe_edge (ei)); )
     {
       if (tmp == e)
 	{
-	  VEC_ordered_remove (edge, src->succs, ei.index);
+	  VEC_unordered_remove (edge, src->succs, ei.index);
 	  found = true;
 	  break;
 	}
@@ -334,20 +326,12 @@ remove_edge (edge e)
 
   gcc_assert (found);
 
-  found = false;
-  for (ei = ei_start (dest->preds); (tmp = ei_safe_edge (ei)); )
-    {
-      if (tmp == e)
-	{
-	  VEC_ordered_remove (edge, dest->preds, ei.index);
-	  found = true;
-	  break;
-	}
-      else
-	ei_next (&ei);
-    }
+  VEC_unordered_remove (edge, dest->preds, dest_idx);
 
-  gcc_assert (found);
+  /* If we removed an edge in the middle of the edge vector, we need
+     to update dest_idx of the edge that moved into the "hole".  */
+  if (dest_idx < EDGE_COUNT (dest->preds))
+    EDGE_PRED (dest, dest_idx)->dest_idx = dest_idx;
 
   free_edge (e);
 }
@@ -357,28 +341,23 @@ remove_edge (edge e)
 void
 redirect_edge_succ (edge e, basic_block new_succ)
 {
-  edge tmp;
-  edge_iterator ei;
-  bool found = false;
+  basic_block dest = e->dest;
+  unsigned int dest_idx = e->dest_idx;
 
-  /* Disconnect the edge from the old successor block.  */
-  for (ei = ei_start (e->dest->preds); (tmp = ei_safe_edge (ei)); )
-    {
-      if (tmp == e)
-	{
-	  VEC_ordered_remove (edge, e->dest->preds, ei.index);
-	  found = true;
-	  break;
-	}
-      else
-	ei_next (&ei);
-    }
+  execute_on_shrinking_pred (e);
 
-  gcc_assert (found);
+  VEC_unordered_remove (edge, dest->preds, dest_idx);
+
+  /* If we removed an edge in the middle of the edge vector, we need
+     to update dest_idx of the edge that moved into the "hole".  */
+  if (dest_idx < EDGE_COUNT (dest->preds))
+    EDGE_PRED (dest, dest_idx)->dest_idx = dest_idx;
 
   /* Reconnect the edge to the new successor block.  */
-  VEC_safe_insert (edge, new_succ->preds, 0, e);
+  VEC_safe_push (edge, new_succ->preds, e);
   e->dest = new_succ;
+  e->dest_idx = EDGE_COUNT (new_succ->preds) - 1;
+  execute_on_growing_pred (e);
 }
 
 /* Like previous but avoid possible duplicate edge.  */
@@ -387,14 +366,9 @@ edge
 redirect_edge_succ_nodup (edge e, basic_block new_succ)
 {
   edge s;
-  edge_iterator ei;
 
-  /* Check whether the edge is already present.  */
-  FOR_EACH_EDGE (s, ei, e->src->succs)
-    if (s->dest == new_succ && s != e)
-      break;
-
-  if (s)
+  s = find_edge (e->src, new_succ);
+  if (s && s != e)
     {
       s->flags |= e->flags;
       s->probability += e->probability;
@@ -424,7 +398,7 @@ redirect_edge_pred (edge e, basic_block new_pred)
     {
       if (tmp == e)
 	{
-	  VEC_ordered_remove (edge, e->src->succs, ei.index);
+	  VEC_unordered_remove (edge, e->src->succs, ei.index);
 	  found = true;
 	  break;
 	}
@@ -435,7 +409,7 @@ redirect_edge_pred (edge e, basic_block new_pred)
   gcc_assert (found);
 
   /* Reconnect the edge to the new predecessor block.  */
-  VEC_safe_insert (edge, new_pred->succs, 0, e);
+  VEC_safe_push (edge, new_pred->succs, e);
   e->src = new_pred;
 }
 
@@ -505,7 +479,8 @@ dump_flow_info (FILE *file)
   basic_block bb;
   static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
-  if (reg_n_info)
+  /* There are no pseudo registers after reload.  Don't dump them.  */
+  if (reg_n_info && !reload_completed)
     {
       fprintf (file, "%d registers.\n", max_regno);
       for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
@@ -958,7 +933,8 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
    by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
    function but considerably slower.  */
 void
-scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, gcov_type den)
+scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, 
+			         gcov_type den)
 {
   int i;
   edge e;
@@ -972,4 +948,3 @@ scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, gcov
 	e->count = (e->count * num) /den;
     }
 }
-

@@ -259,6 +259,9 @@ package body Sem_Attr is
       procedure Check_Library_Unit;
       --  Verify that prefix of attribute N is a library unit
 
+      procedure Check_Modular_Integer_Type;
+      --  Verify that prefix of attribute N is a modular integer type
+
       procedure Check_Not_Incomplete_Type;
       --  Check that P (the prefix of the attribute) is not an incomplete
       --  type or a private type for which no full view has been given.
@@ -1074,6 +1077,20 @@ package body Sem_Attr is
          end if;
       end Check_Library_Unit;
 
+      --------------------------------
+      -- Check_Modular_Integer_Type --
+      --------------------------------
+
+      procedure Check_Modular_Integer_Type is
+      begin
+         Check_Type;
+
+         if not Is_Modular_Integer_Type (P_Type) then
+            Error_Attr
+              ("prefix of % attribute must be modular integer type", P);
+         end if;
+      end Check_Modular_Integer_Type;
+
       -------------------------------
       -- Check_Not_Incomplete_Type --
       -------------------------------
@@ -1232,7 +1249,7 @@ package body Sem_Attr is
          if Is_Limited_Type (P_Type)
            and then Comes_From_Source (N)
            and then not Present (TSS (Btyp, Nam))
-           and then No (Get_Rep_Pragma (Btyp, Name_Stream_Convert))
+           and then not Has_Rep_Pragma (Btyp, Name_Stream_Convert)
          then
             Error_Msg_Name_1 := Aname;
             Error_Msg_NE
@@ -1537,7 +1554,7 @@ package body Sem_Attr is
       --   unanalyzed copy for tree transformation. The analyzed copy is used
       --   for its semantic information (whether prefix is a remote subprogram
       --   name), the unanalyzed copy is used to construct new subtree rooted
-      --   with N_aggregate which represents a fat pointer aggregate.
+      --   with N_Aggregate which represents a fat pointer aggregate.
 
       if Aname = Name_Access then
          Discard_Node (Copy_Separate_Tree (N));
@@ -2197,6 +2214,13 @@ package body Sem_Attr is
          --  Case from RM J.4(2) of constrained applied to private type
 
          if Is_Entity_Name (P) and then Is_Type (Entity (P)) then
+            Check_Restriction (No_Obsolescent_Features, N);
+
+            if Warn_On_Obsolescent_Feature then
+               Error_Msg_N
+                 ("constrained for private type is an " &
+                  "obsolescent feature ('R'M 'J.4)?", N);
+            end if;
 
             --  If we are within an instance, the attribute must be legal
             --  because it was valid in the generic unit. Ditto if this is
@@ -2897,6 +2921,21 @@ package body Sem_Attr is
          Resolve (E2, P_Base_Type);
          Set_Etype (N, P_Base_Type);
 
+      ---------
+      -- Mod --
+      ---------
+
+      when Attribute_Mod =>
+
+         --  Note: this attribute is only allowed in Ada 2005 mode, but
+         --  we do not need to test that here, since Mod is only recognized
+         --  as an attribute name in Ada 2005 mode during the parse.
+
+         Check_E1;
+         Check_Modular_Integer_Type;
+         Resolve (E1, Any_Integer);
+         Set_Etype (N, P_Base_Type);
+
       -----------
       -- Model --
       -----------
@@ -2944,12 +2983,7 @@ package body Sem_Attr is
 
       when Attribute_Modulus =>
          Check_E0;
-         Check_Type;
-
-         if not Is_Modular_Integer_Type (P_Type) then
-            Error_Attr ("prefix of % attribute must be modular type", P);
-         end if;
-
+         Check_Modular_Integer_Type;
          Set_Etype (N, Universal_Integer);
 
       --------------------
@@ -3480,22 +3514,21 @@ package body Sem_Attr is
 
       when Attribute_Target_Name => Target_Name : declare
          TN : constant String := Sdefault.Target_Name.all;
-         TL : Integer := TN'Last;
+         TL : Natural;
 
       begin
          Check_Standard_Prefix;
          Check_E0;
-         Start_String;
+
+         TL := TN'Last;
 
          if TN (TL) = '/' or else TN (TL) = '\' then
             TL := TL - 1;
          end if;
 
-         Store_String_Chars (TN (TN'First .. TL));
-
          Rewrite (N,
            Make_String_Literal (Loc,
-             Strval => End_String));
+             Strval => TN (TN'First .. TL)));
          Analyze_And_Resolve (N, Standard_String);
       end Target_Name;
 
@@ -5413,9 +5446,18 @@ package body Sem_Attr is
             Fold_Ureal
               (N, UR_Min (Expr_Value_R (E1), Expr_Value_R (E2)), Static);
          else
-            Fold_Uint (N, UI_Min (Expr_Value (E1), Expr_Value (E2)), Static);
+            Fold_Uint
+              (N, UI_Min (Expr_Value (E1), Expr_Value (E2)), Static);
          end if;
       end Min;
+
+      ---------
+      -- Mod --
+      ---------
+
+      when Attribute_Mod =>
+         Fold_Uint
+           (N, UI_Mod (Expr_Value (E1), Modulus (P_Base_Type)), Static);
 
       -----------
       -- Model --
@@ -6414,6 +6456,63 @@ package body Sem_Attr is
       It       : Interp;
       Nom_Subt : Entity_Id;
 
+      procedure Accessibility_Message;
+      --  Error, or warning within an instance, if the static accessibility
+      --  rules of 3.10.2 are violated.
+
+      ---------------------------
+      -- Accessibility_Message --
+      ---------------------------
+
+      procedure Accessibility_Message is
+         Indic : Node_Id := Parent (Parent (N));
+
+      begin
+         --  In an instance, this is a runtime check, but one we
+         --  know will fail, so generate an appropriate warning.
+
+         if In_Instance_Body then
+            Error_Msg_N
+              ("?non-local pointer cannot point to local object", P);
+            Error_Msg_N
+              ("?Program_Error will be raised at run time", P);
+            Rewrite (N,
+              Make_Raise_Program_Error (Loc,
+                Reason => PE_Accessibility_Check_Failed));
+            Set_Etype (N, Typ);
+            return;
+
+         else
+            Error_Msg_N
+              ("non-local pointer cannot point to local object", P);
+
+            --  Check for case where we have a missing access definition
+
+            if Is_Record_Type (Current_Scope)
+              and then
+                (Nkind (Parent (N)) = N_Discriminant_Association
+                   or else
+                 Nkind (Parent (N)) = N_Index_Or_Discriminant_Constraint)
+            then
+               Indic := Parent (Parent (N));
+               while Present (Indic)
+                 and then Nkind (Indic) /= N_Subtype_Indication
+               loop
+                  Indic := Parent (Indic);
+               end loop;
+
+               if Present (Indic) then
+                  Error_Msg_NE
+                    ("\use an access definition for" &
+                      " the access discriminant of&", N,
+                         Entity (Subtype_Mark (Indic)));
+               end if;
+            end if;
+         end if;
+      end Accessibility_Message;
+
+   --  Start of processing for Resolve_Attribute
+
    begin
       --  If error during analysis, no point in continuing, except for
       --  array types, where we get  better recovery by using unconstrained
@@ -6579,9 +6678,14 @@ package body Sem_Attr is
                   --  outside a generic body when the subprogram is declared
                   --  within that generic body.
 
+                  --  Ada2005: If the expected type is for an access
+                  --  parameter, this clause does not apply.
+
                   elsif Present (Enclosing_Generic_Body (Entity (P)))
                     and then Enclosing_Generic_Body (Entity (P)) /=
                              Enclosing_Generic_Body (Btyp)
+                    and then
+                      Ekind (Btyp) /= E_Anonymous_Access_Subprogram_Type
                   then
                      Error_Msg_N
                        ("access type must not be outside generic body", P);
@@ -6617,14 +6721,18 @@ package body Sem_Attr is
 
             elsif Is_Overloaded (P) then
 
-               --  Use the designated type of the context  to disambiguate
+               --  Use the designated type of the context to disambiguate
+               --  Note that this was not strictly conformant to Ada 95,
+               --  but was the implementation adopted by most Ada 95 compilers.
+               --  The use of the context type to resolve an Access attribute
+               --  reference is now mandated in AI-235 for Ada 2005.
 
                declare
                   Index : Interp_Index;
                   It    : Interp;
+
                begin
                   Get_First_Interp (P, Index, It);
-
                   while Present (It.Typ) loop
                      if Covers (Designated_Type (Typ), It.Typ) then
                         Resolve (P, It.Typ);
@@ -6802,60 +6910,34 @@ package body Sem_Attr is
                  and then Object_Access_Level (P) > Type_Access_Level (Btyp)
                  and then Ekind (Btyp) = E_General_Access_Type
                then
-                  --  In an instance, this is a runtime check, but one we
-                  --  know will fail, so generate an appropriate warning.
-
-                  if In_Instance_Body then
-                     Error_Msg_N
-                       ("?non-local pointer cannot point to local object", P);
-                     Error_Msg_N
-                       ("?Program_Error will be raised at run time", P);
-                     Rewrite (N,
-                       Make_Raise_Program_Error (Loc,
-                         Reason => PE_Accessibility_Check_Failed));
-                     Set_Etype (N, Typ);
-                     return;
-
-                  else
-                     Error_Msg_N
-                       ("non-local pointer cannot point to local object", P);
-
-                     if Is_Record_Type (Current_Scope)
-                       and then (Nkind (Parent (N)) =
-                                  N_Discriminant_Association
-                                   or else
-                                 Nkind (Parent (N)) =
-                                   N_Index_Or_Discriminant_Constraint)
-                     then
-                        declare
-                           Indic : Node_Id := Parent (Parent (N));
-
-                        begin
-                           while Present (Indic)
-                             and then Nkind (Indic) /= N_Subtype_Indication
-                           loop
-                              Indic := Parent (Indic);
-                           end loop;
-
-                           if Present (Indic) then
-                              Error_Msg_NE
-                                ("\use an access definition for" &
-                                  " the access discriminant of&", N,
-                                  Entity (Subtype_Mark (Indic)));
-                           end if;
-                        end;
-                     end if;
-                  end if;
+                  Accessibility_Message;
+                  return;
                end if;
             end if;
 
-            if (Ekind (Btyp) = E_Access_Protected_Subprogram_Type
-                  or else
-                Ekind (Btyp) = E_Anonymous_Access_Protected_Subprogram_Type)
-              and then Is_Entity_Name (P)
-              and then not Is_Protected_Type (Scope (Entity (P)))
+            if Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+                 or else
+               Ekind (Btyp) = E_Anonymous_Access_Protected_Subprogram_Type
             then
-               Error_Msg_N ("context requires a protected subprogram", P);
+               if Is_Entity_Name (P)
+                 and then not Is_Protected_Type (Scope (Entity (P)))
+               then
+                  Error_Msg_N ("context requires a protected subprogram", P);
+
+               --  Check accessibility of protected object against that
+               --  of the access type, but only on user code, because
+               --  the expander creates access references for handlers.
+               --  If the context is an anonymous_access_to_protected,
+               --  there are no accessibility checks either.
+
+               elsif Object_Access_Level (P) > Type_Access_Level (Btyp)
+                 and then Comes_From_Source (N)
+                 and then Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+                 and then No (Original_Access_Type (Typ))
+               then
+                  Accessibility_Message;
+                  return;
+               end if;
 
             elsif (Ekind (Btyp) = E_Access_Subprogram_Type
                      or else

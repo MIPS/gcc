@@ -48,6 +48,13 @@ typedef struct param_info
   const char *const option;
   /* The associated value.  */
   int value;
+
+  /* Minimum acceptable value.  */
+  int min_value;
+  
+  /* Maxiumum acceptable value, if greater than minimum  */
+  int max_value;
+  
   /* A short description of the option.  */
   const char *const help;
 } param_info;
@@ -70,7 +77,7 @@ extern void set_param_value (const char *name, int value);
 
 typedef enum compiler_param
 {
-#define DEFPARAM(enumerator, option, msgid, default) \
+#define DEFPARAM(enumerator, option, msgid, default, min, max) \
   enumerator,
 #include "params.def"
 #undef DEFPARAM
@@ -82,6 +89,10 @@ typedef enum compiler_param
   (compiler_params[(int) ENUM].value)
 
 /* Macros for the various parameters.  */
+#define SRA_MAX_STRUCTURE_SIZE \
+  PARAM_VALUE (PARAM_SRA_MAX_STRUCTURE_SIZE)
+#define SRA_FIELD_STRUCTURE_RATIO \
+  PARAM_VALUE (PARAM_SRA_FIELD_STRUCTURE_RATIO)
 #define MAX_INLINE_INSNS_SINGLE \
   PARAM_VALUE (PARAM_MAX_INLINE_INSNS_SINGLE)
 #define MAX_INLINE_INSNS \
@@ -92,8 +103,6 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_MIN_INLINE_INSNS)
 #define MAX_INLINE_INSNS_AUTO \
   PARAM_VALUE (PARAM_MAX_INLINE_INSNS_AUTO)
-#define MAX_INLINE_INSNS_RTL \
-  PARAM_VALUE (PARAM_MAX_INLINE_INSNS_RTL)
 #define MAX_VARIABLE_EXPANSIONS \
   PARAM_VALUE (PARAM_MAX_VARIABLE_EXPANSIONS)
 #define MAX_DELAY_SLOT_INSN_SEARCH \

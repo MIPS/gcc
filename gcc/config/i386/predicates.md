@@ -474,11 +474,10 @@
 {
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
-  return !(op == stack_pointer_rtx
-	   || op == arg_pointer_rtx
-	   || op == frame_pointer_rtx
-	   || (REGNO (op) >= FIRST_PSEUDO_REGISTER
-	       && REGNO (op) <= LAST_VIRTUAL_REGISTER));
+  if (reload_in_progress || reload_completed)
+    return REG_OK_FOR_INDEX_STRICT_P (op);
+  else
+    return REG_OK_FOR_INDEX_NONSTRICT_P (op);
 })
 
 ;; Return false if this is any eliminable register.  Otherwise general_operand.
@@ -537,10 +536,31 @@
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 15")))
 
+;; Match 0 to 63.
+(define_predicate "const_0_to_63_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 63")))
+
 ;; Match 0 to 255.
 (define_predicate "const_0_to_255_operand"
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 255")))
+
+;; Match exactly one bit in 4-bit mask.
+(define_predicate "const_pow2_1_to_8_operand"
+  (match_code "const_int")
+{
+  unsigned int log = exact_log2 (INTVAL (op));
+  return log <= 3;
+})
+
+;; Match exactly one bit in 8-bit mask.
+(define_predicate "const_pow2_1_to_128_operand"
+  (match_code "const_int")
+{
+  unsigned int log = exact_log2 (INTVAL (op));
+  return log <= 7;
+})
 
 ;; True if this is a constant appropriate for an increment or decrement.
 (define_predicate "incdec_operand"
@@ -713,7 +733,7 @@
 (define_special_predicate "sse_comparison_operator"
   (ior (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered")
        (and (match_code "uneq,unlt,unle,ltgt,ge,gt")
-	    (match_code "!TARGET_IEEE_FP"))))
+	    (match_test "!TARGET_IEEE_FP"))))
 
 ;; Return 1 if OP is a valid comparison operator in valid mode.
 (define_predicate "ix86_comparison_operator"
@@ -795,10 +815,14 @@
 (define_predicate "div_operator"
   (match_code "div"))
 
+;; Return true if this is a float extend operation.
+(define_predicate "float_operator"
+  (match_code "float"))
+
 ;; Return true for ARITHMETIC_P.
 (define_predicate "arith_or_logical_operator"
-  (match_code "PLUS,MULT,AND,IOR,XOR,SMIN,SMAX,UMIN,UMAX,COMPARE,MINUS,DIV,
-	       MOD,UDIV,UMOD,ASHIFT,ROTATE,ASHIFTRT,LSHIFTRT,ROTATERT"))
+  (match_code "plus,mult,and,ior,xor,smin,smax,umin,umax,compare,minus,div,
+	       mod,udiv,umod,ashift,rotate,ashiftrt,lshiftrt,rotatert"))
 
 ;; Return 1 if OP is a binary operator that can be promoted to wider mode.
 ;; Modern CPUs have same latency for HImode and SImode multiply,
@@ -829,3 +853,9 @@
 (define_predicate "cmpsi_operand"
   (ior (match_operand 0 "nonimmediate_operand")
        (match_operand 0 "cmpsi_operand_1")))
+
+(define_predicate "compare_operator"
+  (match_code "compare"))
+
+(define_predicate "absneg_operator"
+  (match_code "abs,neg"))

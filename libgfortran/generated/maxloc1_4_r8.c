@@ -26,8 +26,12 @@ Boston, MA 02111-1307, USA.  */
 #include <limits.h>
 #include "libgfortran.h"
 
+
+extern void maxloc1_4_r8 (gfc_array_i4 *, gfc_array_r8 *, index_type *);
+export_proto(maxloc1_4_r8);
+
 void
-__maxloc1_4_r8 (gfc_array_i4 * retarray, gfc_array_r8 *array, index_type *pdim)
+maxloc1_4_r8 (gfc_array_i4 *retarray, gfc_array_r8 *array, index_type *pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
@@ -77,8 +81,10 @@ __maxloc1_4_r8 (gfc_array_i4 * retarray, gfc_array_r8 *array, index_type *pdim)
             retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
         }
 
-      retarray->data = internal_malloc (sizeof (GFC_INTEGER_4) * 
-                                        (retarray->dim[rank-1].stride * extent[rank-1]));
+      retarray->data
+	 = internal_malloc_size (sizeof (GFC_INTEGER_4)
+		 		 * retarray->dim[rank-1].stride
+				 * extent[rank-1]);
       retarray->base = 0;
     }
           
@@ -150,8 +156,14 @@ __maxloc1_4_r8 (gfc_array_i4 * retarray, gfc_array_r8 *array, index_type *pdim)
     }
 }
 
+
+extern void mmaxloc1_4_r8 (gfc_array_i4 *, gfc_array_r8 *, index_type *,
+					       gfc_array_l4 *);
+export_proto(mmaxloc1_4_r8);
+
 void
-__mmaxloc1_4_r8 (gfc_array_i4 * retarray, gfc_array_r8 * array, index_type *pdim, gfc_array_l4 * mask)
+mmaxloc1_4_r8 (gfc_array_i4 * retarray, gfc_array_r8 * array,
+				  index_type *pdim, gfc_array_l4 * mask)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];

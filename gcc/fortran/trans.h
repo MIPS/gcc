@@ -308,7 +308,7 @@ tree gfc_trans_scalar_assign (gfc_se *, gfc_se *, bt);
 /* Translate COMMON blocks.  */
 void gfc_trans_common (gfc_namespace *);
 
-/* Translate a derived type constructor. */
+/* Translate a derived type constructor.  */
 void gfc_conv_structure (gfc_se *, gfc_expr *, int);
 
 /* Return an expression which determines if a dummy parameter is present.  */
@@ -553,6 +553,8 @@ struct lang_decl		GTY(())
 #define GFC_TYPE_ARRAY_RANK(node) (TYPE_LANG_SPECIFIC(node)->rank)
 #define GFC_TYPE_ARRAY_SIZE(node) (TYPE_LANG_SPECIFIC(node)->size)
 #define GFC_TYPE_ARRAY_OFFSET(node) (TYPE_LANG_SPECIFIC(node)->offset)
+/* Code should use gfc_get_dtype instead of accesig this directly.  It may
+   not be known when the type is created.  */
 #define GFC_TYPE_ARRAY_DTYPE(node) (TYPE_LANG_SPECIFIC(node)->dtype)
 #define GFC_TYPE_ARRAY_DATAPTR_TYPE(node) \
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)

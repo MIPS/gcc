@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "function.h"
 #include "cfgloop.h"
@@ -90,7 +91,7 @@ struct iv_to_split
 struct var_to_expand
 {
   rtx insn;		           /* The insn in that the variable expansion occurs.  */
-  rtx reg;                         /* The accumulator which is expanded. */
+  rtx reg;                         /* The accumulator which is expanded.  */
   varray_type var_expansions;      /* The copies of the accumulator which is expanded.  */ 
   enum rtx_code op;                /* The type of the accumulation - addition, subtraction 
                                       or multiplication.  */
@@ -1454,7 +1455,7 @@ ve_info_hash (const void *ves)
 }
 
 /* Return true if IVTS1 and IVTS2 (which are really both of type 
-   "var_to_expand *") refer to the same instruction. */
+   "var_to_expand *") refer to the same instruction.  */
 
 static int
 ve_info_eq (const void *ivts1, const void *ivts2)
@@ -1465,7 +1466,7 @@ ve_info_eq (const void *ivts1, const void *ivts2)
   return i1->insn == i2->insn;
 }
 
-/* Returns true if REG is referenced in one insn in LOOP. */
+/* Returns true if REG is referenced in one insn in LOOP.  */
 
 bool
 referenced_in_one_insn_in_loop_p (struct loop *loop, rtx reg)

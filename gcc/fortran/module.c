@@ -64,12 +64,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    particular order.  */
 
 #include "config.h"
-#include <string.h>
-#include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <time.h>
-
+#include "system.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -1330,16 +1325,18 @@ mio_integer (int *ip)
 /* Read or write a character pointer that points to a string on the
    heap.  */
 
-static void
-mio_allocated_string (char **sp)
+static const char *
+mio_allocated_string (const char *s)
 {
-
   if (iomode == IO_OUTPUT)
-    write_atom (ATOM_STRING, *sp);
+    {
+      write_atom (ATOM_STRING, s);
+      return s;
+    }
   else
     {
       require_atom (ATOM_STRING);
-      *sp = atom_string;
+      return atom_string;
     }
 }
 
@@ -1398,7 +1395,7 @@ static const mstring attr_bits[] =
     minit (NULL, -1)
 };
 
-/* Specialisation of mio_name. */
+/* Specialisation of mio_name.  */
 DECL_MIO_NAME(ab_attribute)
 DECL_MIO_NAME(ar_type)
 DECL_MIO_NAME(array_type)
@@ -2334,7 +2331,7 @@ static const mstring expr_types[] = {
 
 /* INTRINSIC_ASSIGN is missing because it is used as an index for
    generic operators, not in expressions.  INTRINSIC_USER is also
-   replaced by the correct function name by the time we see it. */
+   replaced by the correct function name by the time we see it.  */
 
 static const mstring intrinsics[] =
 {
@@ -2449,7 +2446,8 @@ mio_expr (gfc_expr ** ep)
 
       if (iomode == IO_OUTPUT)
 	{
-	  mio_allocated_string (&e->value.function.name);
+	  e->value.function.name
+	    = mio_allocated_string (e->value.function.name);
 	  flag = e->value.function.esym != NULL;
 	  mio_integer (&flag);
 	  if (flag)
@@ -2483,7 +2481,8 @@ mio_expr (gfc_expr ** ep)
       break;
 
     case EXPR_SUBSTRING:
-      mio_allocated_string (&e->value.character.string);
+      e->value.character.string = (char *)
+	mio_allocated_string (e->value.character.string);
       mio_expr (&e->op1);
       mio_expr (&e->op2);
       break;
@@ -2518,7 +2517,8 @@ mio_expr (gfc_expr ** ep)
 
 	case BT_CHARACTER:
 	  mio_integer (&e->value.character.length);
-	  mio_allocated_string (&e->value.character.string);
+	  e->value.character.string = (char *)
+	    mio_allocated_string (e->value.character.string);
 	  break;
 
 	default:
@@ -3268,6 +3268,11 @@ write_symbol1 (pointer_info * p)
 
   if (p->type != P_SYMBOL || p->u.wsym.state != NEEDS_WRITE)
     return 0;
+
+  /* FIXME: This shouldn't be necessary, but it works around
+     deficiencies in the module loader or/and symbol handling.  */
+  if (p->u.wsym.sym->module[0] == '\0' && p->u.wsym.sym->attr.dummy)
+    strcpy (p->u.wsym.sym->module, module_name);
 
   p->u.wsym.state = WRITTEN;
   write_symbol (p->integer, p->u.wsym.sym);

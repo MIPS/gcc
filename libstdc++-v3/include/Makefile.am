@@ -228,7 +228,13 @@ ext_headers = \
 tr1_srcdir = ${glibcxx_srcdir}/include/tr1
 tr1_builddir = ./tr1
 tr1_headers = \
-	${tr1_srcdir}/array
+	${tr1_srcdir}/array \
+	${tr1_srcdir}/functional \
+	${tr1_srcdir}/tuple \
+	${tr1_srcdir}/utility \
+	${tr1_srcdir}/type_traits \
+	${tr1_srcdir}/type_traits_fwd.h
+
 
 # This is the common subset of files that all three "C" header models use.
 c_base_srcdir = $(C_INCLUDE_DIR)

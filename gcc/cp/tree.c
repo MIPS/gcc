@@ -215,20 +215,6 @@ lvalue_p (tree ref)
     (lvalue_p_1 (ref, /*class rvalue ok*/ 1) != clk_none);
 }
 
-/* Return nonzero if REF is an lvalue valid for this language;
-   otherwise, print an error message and return zero.  */
-
-int
-lvalue_or_else (tree ref, const char* string)
-{
-  if (!lvalue_p (ref))
-    {
-      error ("non-lvalue in %s", string);
-      return 0;
-    }
-  return 1;
-}
-
 /* Build a TARGET_EXPR, initializing the DECL with the VALUE.  */
 
 static tree
@@ -255,6 +241,7 @@ build_local_temp (tree type)
 {
   tree slot = build_decl (VAR_DECL, NULL_TREE, type);
   DECL_ARTIFICIAL (slot) = 1;
+  DECL_IGNORED_P (slot) = 1;
   DECL_CONTEXT (slot) = current_function_decl;
   layout_decl (slot, 0);
   return slot;
@@ -1558,6 +1545,11 @@ cp_tree_equal (tree t1, tree t2)
 
       return same_type_p (PTRMEM_CST_CLASS (t1), PTRMEM_CST_CLASS (t2));
 
+    case OVERLOAD:
+      if (OVL_FUNCTION (t1) != OVL_FUNCTION (t2))
+	return false;
+      return cp_tree_equal (OVL_CHAIN (t1), OVL_CHAIN (t2));
+
     default:
       break;
     }
@@ -1716,7 +1708,7 @@ pod_type_p (tree t)
     return 1; /* pointer to member */
 
   if (TREE_CODE (t) == VECTOR_TYPE)
-    return 1; /* vectors are (small) arrays if scalars */
+    return 1; /* vectors are (small) arrays of scalars */
 
   if (! CLASS_TYPE_P (t))
     return 0; /* other non-class type (reference or function) */

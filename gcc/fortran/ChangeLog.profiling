@@ -1,0 +1,5 @@
+2004-11-17  Stuart Hastings <stuarth@apple.com>
+	    Dale Johannesen  <dalej@apple.com>
+
+	* fortran/Make-lang.in (f95-lang.o): Depend on cgraph.h
+

@@ -122,7 +122,7 @@ package body Snames is
      "text_io#" &
      "wide_text_io#" &
      "no_dsa#" &
-     "glade_dsa#" &
+     "garlic_dsa#" &
      "polyorb_dsa#" &
      "addr#" &
      "async#" &
@@ -356,15 +356,16 @@ package body Snames is
      "name#" &
      "nca#" &
      "no#" &
-     "on#" &
-     "parameter_types#" &
-     "reference#" &
+     "no_dependence#" &
      "no_dynamic_attachment#" &
      "no_dynamic_interrupts#" &
      "no_requeue#" &
      "no_requeue_statements#" &
      "no_task_attributes#" &
      "no_task_attributes_package#" &
+     "on#" &
+     "parameter_types#" &
+     "reference#" &
      "restricted#" &
      "result_mechanism#" &
      "result_type#" &
@@ -449,6 +450,7 @@ package body Snames is
      "max_size_in_storage_elements#" &
      "maximum_alignment#" &
      "mechanism_code#" &
+     "mod#" &
      "model_emin#" &
      "model_epsilon#" &
      "model_mantissa#" &
@@ -569,7 +571,6 @@ package body Snames is
      "is#" &
      "limited#" &
      "loop#" &
-     "mod#" &
      "new#" &
      "not#" &
      "null#" &
@@ -626,16 +627,24 @@ package body Snames is
      "requeue#" &
      "tagged#" &
      "raise_exception#" &
+     "ada_roots#" &
      "binder#" &
+     "binder_driver#" &
      "body_suffix#" &
      "builder#" &
      "compiler#" &
+     "compiler_driver#" &
+     "compiler_kind#" &
+     "compute_dependency#" &
      "cross_reference#" &
+     "default_linker#" &
      "default_switches#" &
+     "dependency_option#" &
      "exec_dir#" &
      "executable#" &
      "executable_suffix#" &
      "extends#" &
+     "externally_built#" &
      "finder#" &
      "global_configuration_pragmas#" &
      "gnatls#" &
@@ -643,6 +652,8 @@ package body Snames is
      "implementation#" &
      "implementation_exceptions#" &
      "implementation_suffix#" &
+     "include_option#" &
+     "language_processing#" &
      "languages#" &
      "library_dir#" &
      "library_auto_init#" &

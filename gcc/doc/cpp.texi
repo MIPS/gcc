@@ -230,7 +230,7 @@ differences that do exist are detailed in the section @ref{Traditional
 Mode}.
 
 For clarity, unless noted otherwise, references to @samp{CPP} in this
-manual refer to GNU CPP.
+manual refer to GNU CPP@.
 @c man end
 
 @menu
@@ -510,7 +510,7 @@ However, a few of the keywords of C++ are significant even in the
 preprocessor.  @xref{C++ Named Operators}.
 
 In the 1999 C standard, identifiers may contain letters which are not
-part of the ``basic source character set,'' at the implementation's
+part of the ``basic source character set'', at the implementation's
 discretion (such as accented Latin letters, Greek letters, or Chinese
 ideograms).  This may be done with an extended character set, or the
 @samp{\u} and @samp{\U} escape sequences.  GCC does not presently
@@ -596,7 +596,7 @@ Punctuator:      @{   @}   [   ]   #    ##
 @end smallexample
 
 @cindex other tokens
-Any other single character is considered ``other.'' It is passed on to
+Any other single character is considered ``other''.  It is passed on to
 the preprocessor's output unmolested.  The C compiler will almost
 certainly reject source code containing ``other'' tokens.  In ASCII, the
 only other characters are @samp{@@}, @samp{$}, @samp{`}, and control
@@ -901,7 +901,7 @@ This has two effects.  First, directories appearing before the
 quote marks.  Directories after @option{-I-} are searched for all
 headers.  Second, the directory containing the current file is not
 searched for anything, unless it happens to be one of the directories
-named by an @option{-I} switch.  @option{-I-} is deprecated, -iquote
+named by an @option{-I} switch.  @option{-I-} is deprecated, @option{-iquote}
 should be used instead.
 
 @option{-I. -I-} is not the same as no @option{-I} options at all, and does
@@ -1076,7 +1076,7 @@ would have to edit the new headers to match.
 
 There is no way to solve this problem within the C standard, but you can
 use the GNU extension @samp{#include_next}.  It means, ``Include the
-@emph{next} file with this name.''  This directive works like
+@emph{next} file with this name''.  This directive works like
 @samp{#include} except in searching for the specified file: it starts
 searching the list of header file directories @emph{after} the directory
 in which the current file was found.
@@ -2091,7 +2091,7 @@ handling.
 
 @item __NEXT_RUNTIME__
 This macro is defined, with value 1, if (and only if) the NeXT runtime
-(as in @option{-fnext-runtime}) is in use for Objective-C.  If the GNU
+(as in @option{-fnext-runtime}) is in use for Objective-C@.  If the GNU
 runtime is used, this macro is not defined, so that you can use this
 macro to determine which runtime (NeXT or GNU) is being used.
 
@@ -3559,7 +3559,7 @@ replacement text before storing it, but preserves the form of internal
 whitespace.
 
 One consequence is that it is legitimate for the replacement text to
-contain an unmatched quote (@pxref{Traditional lexical analysis}). An
+contain an unmatched quote (@pxref{Traditional lexical analysis}).  An
 unclosed string or character constant continues into the text
 following the macro call.  Similarly, the text at the end of a macro's
 expansion can run together with the text after the macro invocation to
@@ -3802,15 +3802,15 @@ target character, and then or-ing in the bit-pattern of the new
 character truncated to the width of a target character.  The final
 bit-pattern is given type @code{int}, and is therefore signed,
 regardless of whether single characters are signed or not (a slight
-change from versions 3.1 and earlier of GCC).  If there are more
+change from versions 3.1 and earlier of GCC)@.  If there are more
 characters in the constant than would fit in the target @code{int} the
 compiler issues a warning, and the excess leading characters are
 ignored.
 
-For example, 'ab' for a target with an 8-bit @code{char} would be
-interpreted as @w{(int) ((unsigned char) 'a' * 256 + (unsigned char)
-'b')}, and '\234a' as @w{(int) ((unsigned char) '\234' * 256 + (unsigned
-char) 'a')}.
+For example, @code{'ab'} for a target with an 8-bit @code{char} would be
+interpreted as @w{@samp{(int) ((unsigned char) 'a' * 256 + (unsigned char)
+'b')}}, and @code{'\234a'} as @w{@samp{(int) ((unsigned char) '\234' *
+256 + (unsigned char) 'a')}}.
 
 @item Source file inclusion.
 
@@ -4104,7 +4104,7 @@ comma, then @samp{##} behaves as a normal token paste.
 @item @samp{#line} and @samp{#include}
 
 The @samp{#line} directive used to change GCC's notion of the
-``directory containing the current file,'' used by @samp{#include} with
+``directory containing the current file'', used by @samp{#include} with
 a double-quoted header file name.  In 3.0 and later, it does not.
 @xref{Line Control}, for further explanation.
 
@@ -4133,7 +4133,7 @@ here are also acceptable to the C compiler and have the same meaning,
 except that the C compiler has different rules for specifying the output
 file.
 
-@strong{Note:} Whether you use the preprocessor by way of @command{gcc}
+@emph{Note:} Whether you use the preprocessor by way of @command{gcc}
 or @command{cpp}, the @dfn{compiler driver} is run first.  This
 program's purpose is to translate your command into invocations of the
 programs that do the actual work.  Their command line interfaces are

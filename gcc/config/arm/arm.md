@@ -297,11 +297,11 @@
 ;; True if the generic scheduling description should be used.
 
 (define_attr "generic_sched" "yes,no"
-        (if_then_else 
-         (eq_attr "tune" "arm926ejs,arm1026ejs,arm1136js,arm1136jfs") 
-         (const_string "no")
-         (const_string "yes")))
-	
+  (const (if_then_else 
+          (eq_attr "tune" "arm926ejs,arm1026ejs,arm1136js,arm1136jfs") 
+          (const_string "no")
+          (const_string "yes"))))
+
 (include "arm-generic.md")
 (include "arm926ejs.md")
 (include "arm1026ejs.md")
@@ -1097,7 +1097,7 @@
 			 (const_int 0)))
    (set (match_operand:SI 0 "s_register_operand" "=&r,&r")
 	(mult:SI (match_dup 2) (match_dup 1)))]
-  "TARGET_ARM && !arm_arch_xscale"
+  "TARGET_ARM"
   "mul%?s\\t%0, %2, %1"
   [(set_attr "conds" "set")
    (set_attr "insn" "muls")]
@@ -1110,7 +1110,7 @@
 			  (match_operand:SI 1 "s_register_operand" "%?r,0"))
 			 (const_int 0)))
    (clobber (match_scratch:SI 0 "=&r,&r"))]
-  "TARGET_ARM && !arm_arch_xscale"
+  "TARGET_ARM"
   "mul%?s\\t%0, %2, %1"
   [(set_attr "conds" "set")
    (set_attr "insn" "muls")]
@@ -1141,7 +1141,7 @@
    (set (match_operand:SI 0 "s_register_operand" "=&r,&r,&r,&r")
 	(plus:SI (mult:SI (match_dup 2) (match_dup 1))
 		 (match_dup 3)))]
-  "TARGET_ARM && !arm_arch_xscale"
+  "TARGET_ARM"
   "mla%?s\\t%0, %2, %1, %3"
   [(set_attr "conds" "set")
    (set_attr "insn" "mlas")]
@@ -1156,7 +1156,7 @@
 		  (match_operand:SI 3 "s_register_operand" "?r,r,0,0"))
 	 (const_int 0)))
    (clobber (match_scratch:SI 0 "=&r,&r,&r,&r"))]
-  "TARGET_ARM && !arm_arch_xscale"
+  "TARGET_ARM"
   "mla%?s\\t%0, %2, %1, %3"
   [(set_attr "conds" "set")
    (set_attr "insn" "mlas")]
@@ -4156,18 +4156,18 @@
 )
 
 (define_insn "*arm_movdi"
-  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r ,m")
-	(match_operand:DI 1 "di_operand"              "rIK,mi,r"))]
+  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,   r, r, r, m")
+	(match_operand:DI 1 "di_operand"              "rIKDa,Db,Dc,mi,r"))]
   "TARGET_ARM
   && !(TARGET_HARD_FLOAT && (TARGET_MAVERICK || TARGET_VFP))
   && !TARGET_IWMMXT"
   "*
   return (output_move_double (operands));
   "
-  [(set_attr "length" "8")
-   (set_attr "type" "*,load2,store2")
-   (set_attr "pool_range" "*,1020,*")
-   (set_attr "neg_pool_range" "*,1008,*")]
+  [(set_attr "length" "8,12,16,8,8")
+   (set_attr "type" "*,*,*,load2,store2")
+   (set_attr "pool_range" "*,*,*,1020,*")
+   (set_attr "neg_pool_range" "*,*,*,1008,*")]
 )
 
 ;; We can't actually do base+index doubleword loads if the index and
@@ -5165,13 +5165,13 @@
 )
 
 (define_insn "*movdf_soft_insn"
-  [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=r,r,m")
-	(match_operand:DF 1 "soft_df_operand" "r,mF,r"))]
+  [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=r,r,r,r,m")
+	(match_operand:DF 1 "soft_df_operand" "rDa,Db,Dc,mF,r"))]
   "TARGET_ARM && TARGET_SOFT_FLOAT
   "
   "* return output_move_double (operands);"
-  [(set_attr "length" "8,8,8")
-   (set_attr "type" "*,load2,store2")
+  [(set_attr "length" "8,12,16,8,8")
+   (set_attr "type" "*,*,*,load2,store2")
    (set_attr "pool_range" "1020")
    (set_attr "neg_pool_range" "1008")]
 )

@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "function.h"
 #include "cfgloop.h"
@@ -47,6 +48,7 @@ static void place_new_loop (struct loops *, struct loop *);
 static void scale_loop_frequencies (struct loop *, int, int);
 static basic_block create_preheader (struct loop *, int);
 static void fix_irreducible_loops (basic_block);
+static void unloop (struct loops *, struct loop *);
 
 #define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
@@ -464,13 +466,14 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    accordingly. Everything between them plus LATCH_EDGE destination must
    be dominated by HEADER_EDGE destination, and back-reachable from
    LATCH_EDGE source.  HEADER_EDGE is redirected to basic block SWITCH_BB,
-   FALLTHRU_EDGE (SWITCH_BB) to original destination of HEADER_EDGE and
-   BRANCH_EDGE (SWITCH_BB) to original destination of LATCH_EDGE.
+   FALSE_EDGE of SWITCH_BB to original destination of HEADER_EDGE and
+   TRUE_EDGE of SWITCH_BB to original destination of LATCH_EDGE.
    Returns newly created loop.  */
 
 struct loop *
 loopify (struct loops *loops, edge latch_edge, edge header_edge, 
-	 basic_block switch_bb, bool redirect_all_edges)
+	 basic_block switch_bb, edge true_edge, edge false_edge,
+	 bool redirect_all_edges)
 {
   basic_block succ_bb = latch_edge->dest;
   basic_block pred_bb = header_edge->src;
@@ -496,14 +499,14 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
 
   /* Redirect edges.  */
   loop_redirect_edge (latch_edge, loop->header);
-  loop_redirect_edge (BRANCH_EDGE (switch_bb), succ_bb);
+  loop_redirect_edge (true_edge, succ_bb);
 
   /* During loop versioning, one of the switch_bb edge is already properly
      set. Do not redirect it again unless redirect_all_edges is true.  */
   if (redirect_all_edges)
     {
       loop_redirect_edge (header_edge, switch_bb);
-      loop_redirect_edge (FALLTHRU_EDGE (switch_bb), loop->header); 
+      loop_redirect_edge (false_edge, loop->header); 
      
       /* Update dominators.  */
       set_immediate_dominator (CDI_DOMINATORS, switch_bb, pred_bb);
@@ -563,7 +566,7 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
 /* Remove the latch edge of a LOOP and update LOOPS tree to indicate that
    the LOOP was removed.  After this function, original loop latch will
    have no successor, which caller is expected to fix somehow.  */
-void
+static void
 unloop (struct loops *loops, struct loop *loop)
 {
   basic_block *body;
@@ -803,7 +806,7 @@ can_duplicate_loop_p (struct loop *loop)
 /* The NBBS blocks in BBS will get duplicated and the copies will be placed
    to LOOP.  Update the single_exit information in superloops of LOOP.  */
 
-void
+static void
 update_single_exits_after_duplication (basic_block *bbs, unsigned nbbs,
 				       struct loop *loop)
 {
@@ -1121,6 +1124,8 @@ create_preheader (struct loop *loop, int flags)
   struct loop *cloop, *ploop;
   int nentry = 0;
   bool irred = false;
+  bool latch_edge_was_fallthru;
+  edge one_succ_pred = 0;
   edge_iterator ei;
 
   cloop = loop->outer;
@@ -1131,19 +1136,23 @@ create_preheader (struct loop *loop, int flags)
 	continue;
       irred |= (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
       nentry++;
+      if (EDGE_COUNT (e->src->succs) == 1)
+	one_succ_pred = e;
     }
   gcc_assert (nentry);
   if (nentry == 1)
     {
-      FOR_EACH_EDGE (e, ei, loop->header->preds)
-	if (e->src != loop->latch)
-	  break;
+      /* Get an edge that is different from the one from loop->latch
+	 to loop->header.  */
+      e = EDGE_PRED (loop->header,
+		     EDGE_PRED (loop->header, 0)->src == loop->latch);
 
       if (!(flags & CP_SIMPLE_PREHEADERS) || EDGE_COUNT (e->src->succs) == 1)
 	return NULL;
     }
 
   mfb_kj_edge = loop_latch_edge (loop);
+  latch_edge_was_fallthru = (mfb_kj_edge->flags & EDGE_FALLTHRU) != 0;
   fallthru = make_forwarder_block (loop->header, mfb_keep_just,
 				   mfb_update_loops);
   dummy = fallthru->src;
@@ -1155,12 +1164,23 @@ create_preheader (struct loop *loop, int flags)
     if (ploop->latch == dummy)
       ploop->latch = fallthru->dest;
 
-  /* Reorganize blocks so that the preheader is not stuck in the middle of the
-     loop.  */
-  FOR_EACH_EDGE (e, ei, dummy->preds)
-    if (e->src != loop->latch)
-      break;
-  move_block_after (dummy, e->src);
+  /* Try to be clever in placing the newly created preheader.  The idea is to
+     avoid breaking any "fallthruness" relationship between blocks.
+
+     The preheader was created just before the header and all incoming edges
+     to the header were redirected to the preheader, except the latch edge.
+     So the only problematic case is when this latch edge was a fallthru
+     edge: it is not anymore after the preheader creation so we have broken
+     the fallthruness.  We're therefore going to look for a better place.  */
+  if (latch_edge_was_fallthru)
+    {
+      if (one_succ_pred)
+	e = one_succ_pred;
+      else
+	e = EDGE_PRED (dummy, 0);
+
+      move_block_after (dummy, e->src);
+    }
 
   loop->header->loop_father = loop;
   add_bb_to_loop (dummy, cloop);
@@ -1200,14 +1220,11 @@ force_single_succ_latches (struct loops *loops)
 
   for (i = 1; i < loops->num; i++)
     {
-      edge_iterator ei;
       loop = loops->parray[i];
       if (loop->latch != loop->header && EDGE_COUNT (loop->latch->succs) == 1)
 	continue;
 
-      FOR_EACH_EDGE (e, ei, loop->header->preds)
-	if (e->src == loop->latch)
-	  break;
+      e = find_edge (loop->latch, loop->header);
 
       loop_split_edge_with (e, NULL_RTX);
     }

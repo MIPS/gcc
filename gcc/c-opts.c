@@ -949,10 +949,7 @@ c_common_post_options (const char **pfilename)
   if (!flag_no_inline)
     flag_no_inline = 1;
   if (flag_inline_functions)
-    {
-      flag_inline_trees = 2;
-      flag_inline_functions = 0;
-    }
+    flag_inline_trees = 2;
 
   /* If we are given more than one input file, we must use
      unit-at-a-time mode.  */
@@ -1185,6 +1182,7 @@ check_deps_environment_vars (void)
 	deps_file = spec;
 
       deps_append = 1;
+      deps_seen = true;
     }
 }
 
@@ -1229,11 +1227,13 @@ sanitize_cpp_opts (void)
 
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
+  /* Also, flag_no_output implies flag_no_line_commands, always. */
   if (flag_no_output)
     {
       if (flag_dump_macros != 'M')
 	flag_dump_macros = 0;
       flag_dump_includes = 0;
+      flag_no_line_commands = 1;
     }
 
   cpp_opts->unsigned_char = !flag_signed_char;

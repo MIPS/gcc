@@ -276,6 +276,7 @@ static void frv_print_operand_memory_reference_reg
 						(FILE *, rtx);
 static void frv_print_operand_memory_reference	(FILE *, rtx, int);
 static int frv_print_operand_jump_hint		(rtx);
+static const char *comparison_string		(enum rtx_code, rtx);
 static FRV_INLINE int frv_regno_ok_for_base_p	(int, int);
 static rtx single_set_pattern			(rtx);
 static int frv_function_contains_far_jump	(void);
@@ -375,6 +376,8 @@ static void frv_output_const_unspec		(FILE *,
 static bool frv_function_ok_for_sibcall		(tree, tree);
 static rtx frv_struct_value_rtx			(tree, int);
 static bool frv_must_pass_in_stack (enum machine_mode mode, tree type);
+static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
+				  tree, bool);
 
 /* Initialize the GCC target structure.  */
 #undef  TARGET_ASM_FUNCTION_PROLOGUE
@@ -417,6 +420,8 @@ static bool frv_must_pass_in_stack (enum machine_mode mode, tree type);
 #define TARGET_MUST_PASS_IN_STACK frv_must_pass_in_stack
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE hook_pass_by_reference_must_pass_in_stack
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES frv_arg_partial_bytes
 
 #undef TARGET_EXPAND_BUILTIN_SAVEREGS
 #define TARGET_EXPAND_BUILTIN_SAVEREGS frv_expand_builtin_saveregs
@@ -2683,6 +2688,29 @@ frv_print_operand_jump_hint (rtx insn)
 }
 
 
+/* Return the comparison operator to use for CODE given that the ICC
+   register is OP0.  */
+
+static const char *
+comparison_string (enum rtx_code code, rtx op0)
+{
+  bool is_nz_p = GET_MODE (op0) == CC_NZmode;
+  switch (code)
+    {
+    default:  output_operand_lossage ("bad condition code");
+    case EQ:  return "eq";
+    case NE:  return "ne";
+    case LT:  return is_nz_p ? "n" : "lt";
+    case LE:  return "le";
+    case GT:  return "gt";
+    case GE:  return is_nz_p ? "p" : "ge";
+    case LTU: return is_nz_p ? "no" : "c";
+    case LEU: return is_nz_p ? "eq" : "ls";
+    case GTU: return is_nz_p ? "ne" : "hi";
+    case GEU: return is_nz_p ? "ra" : "nc";
+    }
+}
+
 /* Print an operand to an assembler instruction.
 
    `%' followed by a letter and a digit says to output an operand in an
@@ -2786,45 +2814,13 @@ frv_print_operand (FILE * file, rtx x, int code)
 
     case 'C':
       /* Print appropriate test for integer branch false operation.  */
-      switch (GET_CODE (x))
-	{
-	default:
-	  fatal_insn ("Bad insn to frv_print_operand, 'C' modifier:", x);
-
-	case EQ:  fputs ("ne", file); break;
-	case NE:  fputs ("eq", file); break;
-	case LT:  fputs ("ge", file); break;
-	case LE:  fputs ("gt", file); break;
-	case GT:  fputs ("le", file); break;
-	case GE:  fputs ("lt", file); break;
-	case LTU: fputs ("nc", file); break;
-	case LEU: fputs ("hi", file); break;
-	case GTU: fputs ("ls", file); break;
-	case GEU: fputs ("c",  file); break;
-	}
+      fputs (comparison_string (reverse_condition (GET_CODE (x)),
+				XEXP (x, 0)), file);
       break;
-
-    /* case 'c': print a constant without the constant prefix.  If
-       CONSTANT_ADDRESS_P(x) is not true, PRINT_OPERAND is called.  */
 
     case 'c':
       /* Print appropriate test for integer branch true operation.  */
-      switch (GET_CODE (x))
-	{
-	default:
-	  fatal_insn ("Bad insn to frv_print_operand, 'c' modifier:", x);
-
-	case EQ:  fputs ("eq", file); break;
-	case NE:  fputs ("ne", file); break;
-	case LT:  fputs ("lt", file); break;
-	case LE:  fputs ("le", file); break;
-	case GT:  fputs ("gt", file); break;
-	case GE:  fputs ("ge", file); break;
-	case LTU: fputs ("c",  file); break;
-	case LEU: fputs ("ls", file); break;
-	case GTU: fputs ("hi", file); break;
-	case GEU: fputs ("nc", file); break;
-	}
+      fputs (comparison_string (GET_CODE (x), XEXP (x, 0)), file);
       break;
 
     case 'e':
@@ -3200,11 +3196,9 @@ frv_function_arg_advance (CUMULATIVE_ARGS *cum,
    used by the caller for this argument; likewise `FUNCTION_INCOMING_ARG', for
    the called function.  */
 
-int
-frv_function_arg_partial_nregs (CUMULATIVE_ARGS *cum,
-                                enum machine_mode mode,
-                                tree type ATTRIBUTE_UNUSED,
-                                int named ATTRIBUTE_UNUSED)
+static int
+frv_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+		       tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
   enum machine_mode xmode = (mode == BLKmode) ? SImode : mode;
   int bytes = GET_MODE_SIZE (xmode);
@@ -3215,12 +3209,12 @@ frv_function_arg_partial_nregs (CUMULATIVE_ARGS *cum,
   ret = ((arg_num <= LAST_ARG_REGNUM && arg_num + words > LAST_ARG_REGNUM+1)
 	 ? LAST_ARG_REGNUM - arg_num + 1
 	 : 0);
+  ret *= UNITS_PER_WORD;
 
   if (TARGET_DEBUG_ARG && ret)
-    fprintf (stderr, "function_arg_partial_nregs: %d\n", ret);
+    fprintf (stderr, "frv_arg_partial_bytes: %d\n", ret);
 
   return ret;
-
 }
 
 
@@ -4801,13 +4795,20 @@ sibcall_operand (rtx op, enum machine_mode mode)
 int
 relational_operator (rtx op, enum machine_mode mode)
 {
-  rtx op0;
-  rtx op1;
-  int regno;
+  return (integer_relational_operator (op, mode)
+	  || float_relational_operator (op, mode));
+}
 
+/* Return true if OP is a relational operator suitable for CCmode,
+   CC_UNSmode or CC_NZmode.  */
+
+int
+integer_relational_operator (rtx op, enum machine_mode mode)
+{
   if (mode != VOIDmode && mode != GET_MODE (op))
     return FALSE;
 
+  /* The allowable relations depend on the mode of the ICC register.  */
   switch (GET_CODE (op))
     {
     default:
@@ -4815,129 +4816,22 @@ relational_operator (rtx op, enum machine_mode mode)
 
     case EQ:
     case NE:
-    case LE:
     case LT:
     case GE:
-    case GT:
-    case LEU:
-    case LTU:
-    case GEU:
-    case GTU:
-      break;
-    }
+      return (GET_MODE (XEXP (op, 0)) == CC_NZmode
+	      || GET_MODE (XEXP (op, 0)) == CCmode);
 
-  op1 = XEXP (op, 1);
-  if (op1 != const0_rtx)
-    return FALSE;
-
-  op0 = XEXP (op, 0);
-  if (GET_CODE (op0) != REG)
-    return FALSE;
-
-  regno = REGNO (op0);
-  switch (GET_MODE (op0))
-    {
-    default:
-      break;
-
-    case CCmode:
-    case CC_UNSmode:
-      return ICC_OR_PSEUDO_P (regno);
-
-    case CC_FPmode:
-      return FCC_OR_PSEUDO_P (regno);
-
-    case CC_CCRmode:
-      return CR_OR_PSEUDO_P (regno);
-    }
-
-  return FALSE;
-}
-
-/* Return true if operator is a signed integer relational operator.  */
-
-int
-signed_relational_operator (rtx op, enum machine_mode mode)
-{
-  rtx op0;
-  rtx op1;
-  int regno;
-
-  if (mode != VOIDmode && mode != GET_MODE (op))
-    return FALSE;
-
-  switch (GET_CODE (op))
-    {
-    default:
-      return FALSE;
-
-    case EQ:
-    case NE:
     case LE:
-    case LT:
-    case GE:
     case GT:
-      break;
-    }
+      return GET_MODE (XEXP (op, 0)) == CCmode;
 
-  op1 = XEXP (op, 1);
-  if (op1 != const0_rtx)
-    return FALSE;
-
-  op0 = XEXP (op, 0);
-  if (GET_CODE (op0) != REG)
-    return FALSE;
-
-  regno = REGNO (op0);
-  if (GET_MODE (op0) == CCmode && ICC_OR_PSEUDO_P (regno))
-    return TRUE;
-
-  if (GET_MODE (op0) == CC_CCRmode && CR_OR_PSEUDO_P (regno))
-    return TRUE;
-
-  return FALSE;
-}
-
-/* Return true if operator is a signed integer relational operator.  */
-
-int
-unsigned_relational_operator (rtx op, enum machine_mode mode)
-{
-  rtx op0;
-  rtx op1;
-  int regno;
-
-  if (mode != VOIDmode && mode != GET_MODE (op))
-    return FALSE;
-
-  switch (GET_CODE (op))
-    {
-    default:
-      return FALSE;
-
-    case LEU:
-    case LTU:
-    case GEU:
     case GTU:
-      break;
+    case GEU:
+    case LTU:
+    case LEU:
+      return (GET_MODE (XEXP (op, 0)) == CC_NZmode
+	      || GET_MODE (XEXP (op, 0)) == CC_UNSmode);
     }
-
-  op1 = XEXP (op, 1);
-  if (op1 != const0_rtx)
-    return FALSE;
-
-  op0 = XEXP (op, 0);
-  if (GET_CODE (op0) != REG)
-    return FALSE;
-
-  regno = REGNO (op0);
-  if (GET_MODE (op0) == CC_UNSmode && ICC_OR_PSEUDO_P (regno))
-    return TRUE;
-
-  if (GET_MODE (op0) == CC_CCRmode && CR_OR_PSEUDO_P (regno))
-    return TRUE;
-
-  return FALSE;
 }
 
 /* Return true if operator is a floating point relational operator.  */
@@ -4945,10 +4839,6 @@ unsigned_relational_operator (rtx op, enum machine_mode mode)
 int
 float_relational_operator (rtx op, enum machine_mode mode)
 {
-  rtx op0;
-  rtx op1;
-  int regno;
-
   if (mode != VOIDmode && mode != GET_MODE (op))
     return FALSE;
 
@@ -4967,25 +4857,8 @@ float_relational_operator (rtx op, enum machine_mode mode)
     case ORDERED:
     case UNORDERED:
 #endif
-      break;
+      return GET_MODE (XEXP (op, 0)) == CC_FPmode;
     }
-
-  op1 = XEXP (op, 1);
-  if (op1 != const0_rtx)
-    return FALSE;
-
-  op0 = XEXP (op, 0);
-  if (GET_CODE (op0) != REG)
-    return FALSE;
-
-  regno = REGNO (op0);
-  if (GET_MODE (op0) == CC_FPmode && FCC_OR_PSEUDO_P (regno))
-    return TRUE;
-
-  if (GET_MODE (op0) == CC_CCRmode && CR_OR_PSEUDO_P (regno))
-    return TRUE;
-
-  return FALSE;
 }
 
 /* Return true if operator is EQ/NE of a conditional execution register.  */
@@ -5227,18 +5100,13 @@ condexec_memory_operand (rtx op, enum machine_mode mode)
   return frv_legitimate_address_p (mode, addr, reload_completed, TRUE, FALSE);
 }
 
-/* Return true if operator is an integer binary operator that can be combined
-   with a setcc operation.  Do not allow the arithmetic operations that could
-   potentially overflow since the FR-V sets the condition code based on the
-   "true" value of the result, not the result after truncating to a 32-bit
-   register.  */
+/* Return true if OP is an integer binary operator that can be combined
+   with a (set ... (compare:CC_NZ ...)) pattern.  */
 
 int
 intop_compare_operator (rtx op, enum machine_mode mode)
 {
-  enum machine_mode op_mode = GET_MODE (op);
-
-  if (mode != VOIDmode && op_mode != mode)
+  if (mode != VOIDmode && GET_MODE (op) != mode)
     return FALSE;
 
   switch (GET_CODE (op))
@@ -5246,54 +5114,15 @@ intop_compare_operator (rtx op, enum machine_mode mode)
     default:
       return FALSE;
 
+    case PLUS:
+    case MINUS:
     case AND:
     case IOR:
     case XOR:
     case ASHIFTRT:
     case LSHIFTRT:
-      break;
+      return GET_MODE (op) == SImode;
     }
-
-  if (! integer_register_operand (XEXP (op, 0), SImode))
-    return FALSE;
-
-  if (! gpr_or_int10_operand (XEXP (op, 1), SImode))
-    return FALSE;
-
-  return TRUE;
-}
-
-/* Return true if operator is an integer binary operator that can be combined
-   with a setcc operation inside of a conditional execution.  */
-
-int
-condexec_intop_cmp_operator (rtx op, enum machine_mode mode)
-{
-  enum machine_mode op_mode = GET_MODE (op);
-
-  if (mode != VOIDmode && op_mode != mode)
-    return FALSE;
-
-  switch (GET_CODE (op))
-    {
-    default:
-      return FALSE;
-
-    case AND:
-    case IOR:
-    case XOR:
-    case ASHIFTRT:
-    case LSHIFTRT:
-      break;
-    }
-
-  if (! integer_register_operand (XEXP (op, 0), SImode))
-    return FALSE;
-
-  if (! integer_register_operand (XEXP (op, 1), SImode))
-    return FALSE;
-
-  return TRUE;
 }
 
 /* Return 1 if operand is a valid ACC register number.  */
@@ -6895,7 +6724,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
   /* Allocate the appropriate temporary condition code register.  Try to
      allocate the ICR/FCR register that corresponds to the ICC/FCC register so
      that conditional cmp's can be done.  */
-  if (mode == CCmode || mode == CC_UNSmode)
+  if (mode == CCmode || mode == CC_UNSmode || mode == CC_NZmode)
     {
       cr_class = ICR_REGS;
       cc_class = ICC_REGS;
@@ -7050,7 +6879,7 @@ frv_ifcvt_modify_multiple_tests (ce_if_block_t *ce_info,
   if (GET_CODE (cr) != REG)
     goto fail;
 
-  if (mode == CCmode || mode == CC_UNSmode)
+  if (mode == CCmode || mode == CC_UNSmode || mode == CC_NZmode)
     {
       cr_class = ICR_REGS;
       p_new_cr = &frv_ifcvt.extra_int_cr;
@@ -7418,10 +7247,28 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
       else if (frv_ifcvt.scratch_insns_bitmap
 	       && bitmap_bit_p (frv_ifcvt.scratch_insns_bitmap,
 				INSN_UID (insn))
-	       /* We must not unconditionally set a reg set used as
-		  scratch in the THEN branch if the same reg is live
-		  in the ELSE branch.  */
 	       && REG_P (SET_DEST (set))
+	       /* We must not unconditionally set a scratch reg chosen
+		  for a nested if-converted block if its incoming
+		  value from the TEST block (or the result of the THEN
+		  branch) could/should propagate to the JOIN block.
+		  It suffices to test whether the register is live at
+		  the JOIN point: if it's live there, we can infer
+		  that we set it in the former JOIN block of the
+		  nested if-converted block (otherwise it wouldn't
+		  have been available as a scratch register), and it
+		  is either propagated through or set in the other
+		  conditional block.  It's probably not worth trying
+		  to catch the latter case, and it could actually
+		  limit scheduling of the combined block quite
+		  severely.  */
+	       && ce_info->join_bb
+	       && ! (REGNO_REG_SET_P
+		     (ce_info->join_bb->global_live_at_start,
+		      REGNO (SET_DEST (set))))
+	       /* Similarly, we must not unconditionally set a reg
+		  used as scratch in the THEN branch if the same reg
+		  is live in the ELSE branch.  */
 	       && (! ce_info->else_bb
 		   || BLOCK_FOR_INSN (insn) == ce_info->else_bb
 		   || ! (REGNO_REG_SET_P
@@ -7992,6 +7839,7 @@ frv_hard_regno_mode_ok (int regno, enum machine_mode mode)
     {
     case CCmode:
     case CC_UNSmode:
+    case CC_NZmode:
       return ICC_P (regno) || GPR_P (regno);
 
     case CC_CCRmode:
@@ -8145,6 +7993,36 @@ frv_legitimate_constant_p (rtx x)
 
   /* Otherwise store the constant away and do a load.  */
   return FALSE;
+}
+
+/* Implement SELECT_CC_MODE.  Choose CC_FP for floating-point comparisons,
+   CC_NZ for comparisons against zero in which a single Z or N flag test
+   is enough, CC_UNS for other unsigned comparisons, and CC for other
+   signed comparisons.  */
+
+enum machine_mode
+frv_select_cc_mode (enum rtx_code code, rtx x, rtx y)
+{
+  if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+    return CC_FPmode;
+
+  switch (code)
+    {
+    case EQ:
+    case NE:
+    case LT:
+    case GE:
+      return y == const0_rtx ? CC_NZmode : CCmode;
+
+    case GTU:
+    case GEU:
+    case LTU:
+    case LEU:
+      return y == const0_rtx ? CC_NZmode : CC_UNSmode;
+
+    default:
+      return CCmode;
+    }
 }
 
 /* A C expression for the cost of moving data from a register in class FROM to
@@ -8903,6 +8781,10 @@ frv_sort_insn_group (enum frv_insn_group group)
   size_t dfa_size;
 
   packet_group = &frv_packet.groups[group];
+
+  /* Assume no nop is needed.  */
+  packet_group->nop = 0;
+
   if (packet_group->num_insns == 0)
     return;
 
@@ -9613,7 +9495,7 @@ frv_int_to_acc (enum insn_code icode, int opnum, rtx opval)
 
   if (! (*insn_data[icode].operand[opnum].predicate) (reg, VOIDmode))
     {
-      error ("inappropriate accumulator for `%s'", insn_data[icode].name);
+      error ("inappropriate accumulator for %qs", insn_data[icode].name);
       return NULL_RTX;
     }
   return reg;
@@ -9702,12 +9584,12 @@ frv_check_constant_argument (enum insn_code icode, int opnum, rtx opval)
 {
   if (GET_CODE (opval) != CONST_INT)
     {
-      error ("`%s' expects a constant argument", insn_data[icode].name);
+      error ("%qs expects a constant argument", insn_data[icode].name);
       return FALSE;
     }
   if (! (*insn_data[icode].operand[opnum].predicate) (opval, VOIDmode))
     {
-      error ("constant argument out of range for `%s'", insn_data[icode].name);
+      error ("constant argument out of range for %qs", insn_data[icode].name);
       return FALSE;
     }
   return TRUE;

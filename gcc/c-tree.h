@@ -41,10 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct lang_decl GTY(())
 {
-  /* The return types and parameter types may have variable size.
-     This is a list of any SAVE_EXPRs that need to be evaluated to
-     compute those sizes.  */
-  tree pending_sizes;
+  char dummy;
 };
 
 /* In a RECORD_TYPE or UNION_TYPE, nonzero if any component is read-only.  */
@@ -73,6 +70,10 @@ struct lang_type GTY(())
   /* In an ENUMERAL_TYPE, the min and max values.  */
   tree enum_min;
   tree enum_max;
+  /* In a RECORD_TYPE, information specific to Objective-C, such
+     as a list of adopted protocols or a pointer to a corresponding
+     @interface.  See objc/objc-act.h for details.  */
+  tree objc_info;
 };
 
 /* Record whether a type or decl was written with nonconstant size.
@@ -452,7 +453,6 @@ extern struct c_switch *c_switch_stack;
 extern tree require_complete_type (tree);
 extern int same_translation_unit_p (tree, tree);
 extern int comptypes (tree, tree);
-extern tree c_size_in_bytes (tree);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (tree, tree);
 extern tree c_type_promotes_to (tree);
@@ -461,7 +461,6 @@ extern tree build_component_ref (tree, tree);
 extern tree build_indirect_ref (tree, const char *);
 extern tree build_array_ref (tree, tree);
 extern tree build_external_ref (tree, int);
-extern void record_maybe_used_decl (tree);
 extern void pop_maybe_used (bool);
 extern struct c_expr c_expr_sizeof_expr (struct c_expr);
 extern struct c_expr c_expr_sizeof_type (struct c_type_name *);

@@ -110,7 +110,6 @@ static bool check_operand_nalternatives (tree, tree);
 static bool check_unique_operand_names (tree, tree);
 static char *resolve_operand_name_1 (char *, tree, tree);
 static void expand_null_return_1 (void);
-static rtx shift_return_value (rtx);
 static void expand_value_return (rtx);
 static void do_jump_if_equal (rtx, rtx, rtx, int);
 static int estimate_case_costs (case_node_ptr);
@@ -260,7 +259,7 @@ n_occurrences (int c, const char *s)
    or an ADDR_EXPR containing a STRING_CST.  VOL nonzero means the
    insn is volatile; don't optimize it.  */
 
-void
+static void
 expand_asm (tree string, int vol)
 {
   rtx body;
@@ -558,33 +557,6 @@ parse_input_constraint (const char **constraint_p, int input_num,
   return true;
 }
 
-/* INPUT is one of the input operands from EXPR, an ASM_EXPR.  Returns true
-   if it is an operand which must be passed in memory (i.e. an "m"
-   constraint), false otherwise.  */
-
-bool
-asm_op_is_mem_input (tree input, tree expr)
-{
-  const char *constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (input)));
-  tree outputs = ASM_OUTPUTS (expr);
-  int noutputs = list_length (outputs);
-  const char **constraints
-    = (const char **) alloca ((noutputs) * sizeof (const char *));
-  int i = 0;
-  bool allows_mem, allows_reg;
-  tree t;
-
-  /* Collect output constraints.  */
-  for (t = outputs; t ; t = TREE_CHAIN (t), i++)
-    constraints[i] = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
-
-  /* We pass 0 for input_num, ninputs and ninout; they are only used for
-     error checking which will be done at expand time.  */
-  parse_input_constraint (&constraint, 0, 0, noutputs, 0, constraints,
-			  &allows_mem, &allows_reg);
-  return (!allows_reg && allows_mem);
-}
-
 /* Check for overlap between registers marked in CLOBBERED_REGS and
    anything inappropriate in DECL.  Emit error and return TRUE for error,
    FALSE for ok.  */
@@ -638,7 +610,7 @@ decl_conflicts_with_clobbers_p (tree decl, const HARD_REG_SET clobbered_regs)
 
    VOL nonzero means the insn is volatile; don't optimize it.  */
 
-void
+static void
 expand_asm_operands (tree string, tree outputs, tree inputs,
 		     tree clobbers, int vol, location_t locus)
 {
@@ -1527,33 +1499,6 @@ expand_naked_return (void)
   emit_jump (end_label);
 }
 
-/* If the current function returns values in the most significant part
-   of a register, shift return value VAL appropriately.  The mode of
-   the function's return type is known not to be BLKmode.  */
-
-static rtx
-shift_return_value (rtx val)
-{
-  tree type;
-
-  type = TREE_TYPE (DECL_RESULT (current_function_decl));
-  if (targetm.calls.return_in_msb (type))
-    {
-      rtx target;
-      HOST_WIDE_INT shift;
-
-      target = DECL_RTL (DECL_RESULT (current_function_decl));
-      shift = (GET_MODE_BITSIZE (GET_MODE (target))
-	       - BITS_PER_UNIT * int_size_in_bytes (type));
-      if (shift > 0)
-	val = expand_shift (LSHIFT_EXPR, GET_MODE (target),
-			    gen_lowpart (GET_MODE (target), val),
-			    build_int_cst (NULL_TREE, shift), target, 1);
-    }
-  return val;
-}
-
-
 /* Generate RTL to return from the current function, with value VAL.  */
 
 static void
@@ -1591,15 +1536,9 @@ expand_value_return (rtx val)
 static void
 expand_null_return_1 (void)
 {
-  rtx end_label;
-
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
-
-  end_label = return_label;
-  if (end_label == 0)
-     end_label = return_label = gen_label_rtx ();
-  emit_jump (end_label);
+  emit_jump (return_label);
 }
 
 /* Generate RTL to evaluate the expression RETVAL and return it
@@ -1770,7 +1709,7 @@ expand_return (tree retval)
       val = expand_expr (retval_rhs, val, GET_MODE (val), 0);
       val = force_not_mem (val);
       /* Return the calculated value.  */
-      expand_value_return (shift_return_value (val));
+      expand_value_return (val);
     }
   else
     {
@@ -2344,7 +2283,7 @@ expand_case (tree exp)
 {
   tree minval = NULL_TREE, maxval = NULL_TREE, range = NULL_TREE;
   rtx default_label = 0;
-  struct case_node *n, *m;
+  struct case_node *n;
   unsigned int count, uniq;
   rtx index;
   rtx table_label;
@@ -2368,7 +2307,7 @@ expand_case (tree exp)
   struct case_node *case_list = 0;
 
   /* Label to jump to if no case matches.  */
-  tree default_label_decl = 0;
+  tree default_label_decl;
 
   /* The switch body is lowered in gimplify.c, we should never have
      switches with a non-NULL SWITCH_BODY here.  */
@@ -2380,20 +2319,26 @@ expand_case (tree exp)
   /* An ERROR_MARK occurs for various reasons including invalid data type.  */
   if (index_type != error_mark_node)
     {
-      for (i = TREE_VEC_LENGTH (vec); --i >= 0; )
-	{
-	  tree elt = TREE_VEC_ELT (vec, i);
+      tree elt;
+      bitmap label_bitmap;
 
-	  /* Handle default labels specially.  */
-	  if (!CASE_HIGH (elt) && !CASE_LOW (elt))
-	    {
-	      gcc_assert (!default_label_decl);
-	      default_label_decl = CASE_LABEL (elt);
-	    }
-	  else
-	    case_list = add_case_node (case_list, index_type,
-				       CASE_LOW (elt), CASE_HIGH (elt),
-				       CASE_LABEL (elt));
+      /* cleanup_tree_cfg removes all SWITCH_EXPR with their index
+	 expressions being INTEGER_CST.  */
+      gcc_assert (TREE_CODE (index_expr) != INTEGER_CST);
+
+      /* The default case is at the end of TREE_VEC.  */
+      elt = TREE_VEC_ELT (vec, TREE_VEC_LENGTH (vec) - 1);
+      gcc_assert (!CASE_HIGH (elt));
+      gcc_assert (!CASE_LOW (elt));
+      default_label_decl = CASE_LABEL (elt);
+
+      for (i = TREE_VEC_LENGTH (vec) - 1; --i >= 0; )
+	{
+	  elt = TREE_VEC_ELT (vec, i);
+	  gcc_assert (CASE_LOW (elt));
+	  case_list = add_case_node (case_list, index_type,
+				     CASE_LOW (elt), CASE_HIGH (elt),
+				     CASE_LABEL (elt));
 	}
 
 
@@ -2406,23 +2351,15 @@ expand_case (tree exp)
 	  start = get_last_insn ();
 	}
 
-      /* If we don't have a default-label, create one here,
-	 after the body of the switch.  */
-      if (default_label_decl == 0)
-	{
-	  default_label_decl
-	    = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-	  expand_label (default_label_decl);
-	}
       default_label = label_rtx (default_label_decl);
 
       before_case = get_last_insn ();
 
-      /* Get upper and lower bounds of case values.
-	 Also convert all the case values to the index expr's data type.  */
+      /* Get upper and lower bounds of case values.  */
 
       uniq = 0;
       count = 0;
+      label_bitmap = BITMAP_XMALLOC ();
       for (n = case_list; n; n = n->right)
 	{
 	  /* Count the elements and track the largest and smallest
@@ -2443,38 +2380,36 @@ expand_case (tree exp)
 	  if (! tree_int_cst_equal (n->low, n->high))
 	    count++;
 
-	  /* Count the number of unique case node targets.  */
-          uniq++;
+	  /* If we have not seen this label yet, then increase the
+	     number of unique case node targets seen.  */
 	  lab = label_rtx (n->code_label);
-          for (m = case_list; m != n; m = m->right)
-            if (label_rtx (m->code_label) == lab)
-              {
-                uniq--;
-                break;
-              }
+	  if (!bitmap_bit_p (label_bitmap, CODE_LABEL_NUMBER (lab)))
+	    {
+	      bitmap_set_bit (label_bitmap, CODE_LABEL_NUMBER (lab));
+	      uniq++;
+	    }
 	}
+
+      BITMAP_XFREE (label_bitmap);
+
+      /* cleanup_tree_cfg removes all SWITCH_EXPR with a single
+	 destination, such as one with a default case only.  */
+      gcc_assert (count != 0);
 
       /* Compute span of values.  */
-      if (count != 0)
-	range = fold (build2 (MINUS_EXPR, index_type, maxval, minval));
-
-      if (count == 0)
-	{
-	  expand_expr (index_expr, const0_rtx, VOIDmode, 0);
-	  emit_jump (default_label);
-	}
+      range = fold (build2 (MINUS_EXPR, index_type, maxval, minval));
 
       /* Try implementing this switch statement by a short sequence of
 	 bit-wise comparisons.  However, we let the binary-tree case
 	 below handle constant index expressions.  */
-      else if (CASE_USE_BIT_TESTS
-	       && ! TREE_CONSTANT (index_expr)
-	       && compare_tree_int (range, GET_MODE_BITSIZE (word_mode)) < 0
-	       && compare_tree_int (range, 0) > 0
-	       && lshift_cheap_p ()
-	       && ((uniq == 1 && count >= 3)
-		   || (uniq == 2 && count >= 5)
-		   || (uniq == 3 && count >= 6)))
+      if (CASE_USE_BIT_TESTS
+	  && ! TREE_CONSTANT (index_expr)
+	  && compare_tree_int (range, GET_MODE_BITSIZE (word_mode)) < 0
+	  && compare_tree_int (range, 0) > 0
+	  && lshift_cheap_p ()
+	  && ((uniq == 1 && count >= 3)
+	      || (uniq == 2 && count >= 5)
+	      || (uniq == 3 && count >= 6)))
 	{
 	  /* Optimize the case where all the case values fit in a
 	     word without having to subtract MINVAL.  In this case,
@@ -2532,58 +2467,26 @@ expand_case (tree exp)
 
 	  if (MEM_P (index))
 	    index = copy_to_reg (index);
-	  if (GET_CODE (index) == CONST_INT
-	      || TREE_CODE (index_expr) == INTEGER_CST)
-	    {
-	      /* Make a tree node with the proper constant value
-		 if we don't already have one.  */
-	      if (TREE_CODE (index_expr) != INTEGER_CST)
-		{
-		  index_expr
-		    = build_int_cst_wide (NULL_TREE, INTVAL (index),
-					  unsignedp || INTVAL (index) >= 0
-					  ? 0 : -1);
-		  index_expr = convert (index_type, index_expr);
-		}
 
-	      /* For constant index expressions we need only
-		 issue an unconditional branch to the appropriate
-		 target code.  The job of removing any unreachable
-		 code is left to the optimization phase if the
-		 "-O" option is specified.  */
-	      for (n = case_list; n; n = n->right)
-		if (! tree_int_cst_lt (index_expr, n->low)
-		    && ! tree_int_cst_lt (n->high, index_expr))
-		  break;
+	  /* We generate a binary decision tree to select the
+	     appropriate target code.  This is done as follows:
 
-	      if (n)
-		emit_jump (label_rtx (n->code_label));
-	      else
-		emit_jump (default_label);
-	    }
-	  else
-	    {
-	      /* If the index expression is not constant we generate
-		 a binary decision tree to select the appropriate
-		 target code.  This is done as follows:
+	     The list of cases is rearranged into a binary tree,
+	     nearly optimal assuming equal probability for each case.
 
-		 The list of cases is rearranged into a binary tree,
-		 nearly optimal assuming equal probability for each case.
+	     The tree is transformed into RTL, eliminating
+	     redundant test conditions at the same time.
 
-		 The tree is transformed into RTL, eliminating
-		 redundant test conditions at the same time.
+	     If program flow could reach the end of the
+	     decision tree an unconditional jump to the
+	     default code is emitted.  */
 
-		 If program flow could reach the end of the
-		 decision tree an unconditional jump to the
-		 default code is emitted.  */
-
-	      use_cost_table
-		= (TREE_CODE (orig_type) != ENUMERAL_TYPE
-		   && estimate_case_costs (case_list));
-	      balance_case_nodes (&case_list, NULL);
-	      emit_case_nodes (index, case_list, default_label, index_type);
-	      emit_jump (default_label);
-	    }
+	  use_cost_table
+	    = (TREE_CODE (orig_type) != ENUMERAL_TYPE
+	       && estimate_case_costs (case_list));
+	  balance_case_nodes (&case_list, NULL);
+	  emit_case_nodes (index, case_list, default_label, index_type);
+	  emit_jump (default_label);
 	}
       else
 	{
@@ -2650,14 +2553,8 @@ expand_case (tree exp)
 	    emit_jump_insn (gen_rtx_ADDR_VEC (CASE_VECTOR_MODE,
 					      gen_rtvec_v (ncases, labelvec)));
 
-	  /* If the case insn drops through the table,
-	     after the table we must jump to the default-label.
-	     Otherwise record no drop-through after the table.  */
-#ifdef CASE_DROPS_THROUGH
-	  emit_jump (default_label);
-#else
+	  /* Record no drop-through after the table.  */
 	  emit_barrier ();
-#endif
 	}
 
       before_case = NEXT_INSN (before_case);
@@ -3144,11 +3041,12 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
       else if (node->right != 0 && node->left == 0)
 	{
-	  /* Here we have a right child but no left so we issue conditional
+	  /* Here we have a right child but no left so we issue a conditional
 	     branch to default and process the right child.
 
-	     Omit the conditional branch to default if we it avoid only one
-	     right child; it costs too much space to save so little time.  */
+	     Omit the conditional branch to default if the right child
+	     does not have any children and is single valued; it would
+	     cost too much space to save so little time.  */
 
 	  if (node->right->right || node->right->left
 	      || !tree_int_cst_equal (node->right->low, node->right->high))

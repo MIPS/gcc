@@ -1,4 +1,43 @@
+2005-01-09  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20050107)
+
+2004-12-20  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20041219)
+
+2004-12-19  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-static-vars-anal.c: Fix type of index for new bitmap API.
+
+2004-12-17  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (initialize_inlined_parameters): Do not throw away
+	DECLs from BIND expr.
+
+2004-12-15  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20041215)
+	
+2004-12-15  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20041212)
+	
+2004-12-15  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_varpool_analyze_pending_decls): Move
+	ipa_analyze_variable from here....
+	(cgraph_optimize): ... to here.
+
+2004-12-08  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_edge_badness): Simplify.
+	(cgraph_decide_inlining_of_small_functions): Avoid recursive inlining.
+	(cgraph_decide_inlining): Sanity check.
+	* tree-inline.c (optimize_inline_calls): Recount frequencies.
+
 2004-12-07  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+
 	* ipa-static-vars-anal.c (get_asm_expr_operands): keep any function		with volatile asm from being marked const or pure.
 	(static_execute): turn off pure if the function contains backedges.
 

@@ -227,17 +227,8 @@ rest_of_decl_compilation (tree decl,
 	   || DECL_INITIAL (decl))
 	  && !DECL_EXTERNAL (decl))
 	{
-	  /* If we defer processing of decls that have had their
-	     DECL_RTL set above (say, in make_decl_rtl),
-	     check_global_declarations() will clear it before
-	     assemble_variable has a chance to act on it.  This
-	     would remove all traces of the register name in a
-	     global register variable, for example.  */
-	  if (TREE_CODE (decl) != FUNCTION_DECL && top_level
-#if 0
-	      && !DECL_RTL_SET_P (decl))
-#endif
-	      )
+	  if (flag_unit_at_a_time && !cgraph_global_info_ready
+	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
 	    cgraph_varpool_finalize_decl (decl);
 	  else
 	    assemble_variable (decl, top_level, at_end, 0);
@@ -321,9 +312,6 @@ rest_of_handle_final (void)
 
     /* Release all memory allocated by flow.  */
     free_basic_block_vars ();
-
-    /* Release all memory held by regsets now.  */
-    regset_release_memory ();
   }
 
   /* Write DBX symbols if requested.  */
@@ -513,6 +501,7 @@ rest_of_handle_old_regalloc (void)
 
       rebuild_jump_labels (get_insns ());
       purge_all_dead_edges (0);
+      delete_unreachable_blocks ();
 
       timevar_pop (TV_JUMP);
     }
@@ -1313,24 +1302,6 @@ rest_of_handle_eh (void)
     }
 }
 
-
-static void
-rest_of_handle_prologue_epilogue (void)
-{
-  if (optimize && !flow2_completed)
-    cleanup_cfg (CLEANUP_EXPENSIVE);
-
-  /* On some machines, the prologue and epilogue code, or parts thereof,
-     can be represented as RTL.  Doing so lets us schedule insns between
-     it and the rest of the code and also allows delayed branch
-     scheduling to operate in the epilogue.  */
-  thread_prologue_and_epilogue_insns (get_insns ());
-  epilogue_completed = 1;
-
-  if (optimize && flow2_completed)
-    life_analysis (dump_file, PROP_POSTRELOAD);
-}
-
 static void
 rest_of_handle_stack_adjustments (void)
 {
@@ -1368,8 +1339,15 @@ rest_of_handle_flow2 (void)
   if (flag_branch_target_load_optimize)
     rest_of_handle_branch_target_load_optimize ();
 
-  if (!targetm.late_rtl_prologue_epilogue)
-    rest_of_handle_prologue_epilogue ();
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+
+  /* On some machines, the prologue and epilogue code, or parts thereof,
+     can be represented as RTL.  Doing so lets us schedule insns between
+     it and the rest of the code and also allows delayed branch
+     scheduling to operate in the epilogue.  */
+  thread_prologue_and_epilogue_insns (get_insns ());
+  epilogue_completed = 1;
 
   if (optimize)
     rest_of_handle_stack_adjustments ();
@@ -1511,8 +1489,7 @@ rest_of_clean_state (void)
   if (targetm.binds_local_p (current_function_decl))
     {
       int pref = cfun->preferred_stack_boundary;
-      if (cfun->recursive_call_emit
-          && cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
+      if (cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
 	pref = cfun->stack_alignment_needed;
       cgraph_rtl_info (current_function_decl)->preferred_incoming_stack_boundary
         = pref;
@@ -1544,13 +1521,9 @@ rest_of_clean_state (void)
    We run a series of low-level passes here on the function's RTL
    representation.  Each pass is called via a rest_of_* function.  */
 
-void
+static void
 rest_of_compilation (void)
 {
-  /* Convert from NOTE_INSN_EH_REGION style notes, and do other
-     sorts of eh initialization.  */
-  convert_from_eh_region_ranges ();
-
   /* If we're emitting a nested function, make sure its parent gets
      emitted as well.  Doing otherwise confuses debug info.  */
   {
@@ -1691,7 +1664,7 @@ rest_of_compilation (void)
       && !user_defined_section_attribute)
     rest_of_handle_partition_blocks ();
 
-  if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))
+  if (optimize > 0 && flag_regmove)
     rest_of_handle_regmove ();
 
   /* Do unconditional splitting before register allocation to allow machine
@@ -1762,9 +1735,6 @@ rest_of_compilation (void)
   current_function_uses_only_leaf_regs
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
-
-  if (targetm.late_rtl_prologue_epilogue)
-    rest_of_handle_prologue_epilogue ();
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)

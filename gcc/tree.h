@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,6 +51,7 @@ enum tree_code {
 enum tree_code_class {
   tcc_exceptional, /* An exceptional code (fits no category).  */
   tcc_constant,    /* A constant.  */
+  /* Order of tcc_type and tcc_declaration is important.  */
   tcc_type,        /* A type object code.  */
   tcc_declaration, /* A declaration (also serving as variable refs).  */
   tcc_reference,   /* A reference to storage.  */
@@ -96,11 +97,12 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
-/* Nonzero if CODE represents a INDIRECT_REF.  */
+/* Nonzero if CODE represents a INDIRECT_REF.  Keep these checks in
+   ascending code order.  */
 #define INDIRECT_REF_P(CODE)\
   (TREE_CODE (CODE) == INDIRECT_REF \
-   || TREE_CODE (CODE) == MISALIGNED_INDIRECT_REF \
-   || TREE_CODE (CODE) == ALIGN_INDIRECT_REF)
+   || TREE_CODE (CODE) == ALIGN_INDIRECT_REF \
+   || TREE_CODE (CODE) == MISALIGNED_INDIRECT_REF)
 
 /* Nonzero if CODE represents a reference.  */
 
@@ -145,7 +147,7 @@ extern const enum tree_code_class tree_code_type[];
    expression.  */
 
 #define IS_EXPR_CODE_CLASS(CLASS)\
-	(((CLASS) >= tcc_reference) && ((CLASS) <= tcc_expression))
+	((CLASS) >= tcc_reference && (CLASS) <= tcc_expression)
 
 /* Returns nonzero iff NODE is an expression of some kind.  */
 
@@ -366,6 +368,8 @@ struct tree_common GTY(())
            all expressions
 	   all decls
 	   all constants
+       TYPE_SIZES_GIMPLIFIED
+           ..._TYPE
 
    unsigned_flag:
 
@@ -648,9 +652,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
 #define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
 
-#define SET_OR_ARRAY_CHECK(T) \
-  TREE_CHECK2 (T, ARRAY_TYPE, SET_TYPE)
-
 #define RECORD_OR_UNION_CHECK(T)	\
   TREE_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
 #define NOT_RECORD_OR_UNION_CHECK(T) \
@@ -740,11 +741,14 @@ extern void tree_operand_check_failed (int, enum tree_code,
 	EXP = TREE_OPERAND (EXP, 0)
 
 /* Nonzero if TYPE represents an integral type.  Note that we do not
-   include COMPLEX types here.  */
+   include COMPLEX types here.  Keep these checks in ascending code
+   order. */
 
 #define INTEGRAL_TYPE_P(TYPE)  \
-  (TREE_CODE (TYPE) == INTEGER_TYPE || TREE_CODE (TYPE) == ENUMERAL_TYPE  \
-   || TREE_CODE (TYPE) == BOOLEAN_TYPE || TREE_CODE (TYPE) == CHAR_TYPE)
+  (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
+   || TREE_CODE (TYPE) == BOOLEAN_TYPE \
+   || TREE_CODE (TYPE) == CHAR_TYPE \
+   || TREE_CODE (TYPE) == INTEGER_TYPE)
 
 /* Nonzero if TYPE represents a scalar floating-point type.  */
 
@@ -763,21 +767,25 @@ extern void tree_operand_check_failed (int, enum tree_code,
    && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
 
 /* Nonzero if TYPE represents a floating-point type, including complex
-   and vector floating-point types.  */
+   and vector floating-point types.  The vector and complex check does
+   not use the previous two macros to enable early folding.  */
 
-#define FLOAT_TYPE_P(TYPE)		\
-  (SCALAR_FLOAT_TYPE_P (TYPE) || COMPLEX_FLOAT_TYPE_P (TYPE)	\
-   || VECTOR_FLOAT_TYPE_P (TYPE))
+#define FLOAT_TYPE_P(TYPE)			\
+  (SCALAR_FLOAT_TYPE_P (TYPE)			\
+   || ((TREE_CODE (TYPE) == COMPLEX_TYPE 	\
+        || TREE_CODE (TYPE) == VECTOR_TYPE)	\
+       && SCALAR_FLOAT_TYPE_P (TREE_TYPE (TYPE))))
 
-/* Nonzero if TYPE represents an aggregate (multi-component) type.  */
+/* Nonzero if TYPE represents an aggregate (multi-component) type.
+   Keep these checks in ascending code order.  */
 
 #define AGGREGATE_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == ARRAY_TYPE || TREE_CODE (TYPE) == RECORD_TYPE \
-   || TREE_CODE (TYPE) == UNION_TYPE || TREE_CODE (TYPE) == QUAL_UNION_TYPE \
-   || TREE_CODE (TYPE) == SET_TYPE)
+   || TREE_CODE (TYPE) == UNION_TYPE || TREE_CODE (TYPE) == QUAL_UNION_TYPE)
 
 /* Nonzero if TYPE represents a pointer or reference type.
-   (It should be renamed to INDIRECT_TYPE_P.)  */
+   (It should be renamed to INDIRECT_TYPE_P.)  Keep these checks in
+   ascending code order.  */
 
 #define POINTER_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || TREE_CODE (TYPE) == REFERENCE_TYPE)
@@ -928,6 +936,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    also appear in an expression or decl where the value is constant.  */
 #define TREE_CONSTANT(NODE) (NON_TYPE_CHECK (NODE)->common.constant_flag)
 
+/* Nonzero if NODE, a type, has had its sizes gimplified.  */
+#define TYPE_SIZES_GIMPLIFIED(NODE) (TYPE_CHECK (NODE)->common.constant_flag)
+
 /* In a decl (most significantly a FIELD_DECL), means an unsigned field.  */
 #define DECL_UNSIGNED(NODE) (DECL_CHECK (NODE)->common.unsigned_flag)
 
@@ -955,7 +966,8 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero in a _DECL if the name is used in its scope.
    Nonzero in an expr node means inhibit warning if value is unused.
    In IDENTIFIER_NODEs, this means that some extern decl for this name
-   was used.  */
+   was used.  
+   In a BLOCK, this means that the block contains variables that are used.  */
 #define TREE_USED(NODE) ((NODE)->common.used_flag)
 
 /* In a FUNCTION_DECL, nonzero means a call to the function cannot throw
@@ -1164,17 +1176,6 @@ struct tree_vec GTY(())
 #define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK3 (NODE, 	\
 	INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF))
 
-/* In a LABELED_BLOCK_EXPR node.  */
-#define LABELED_BLOCK_LABEL(NODE) \
-  TREE_OPERAND_CHECK_CODE (NODE, LABELED_BLOCK_EXPR, 0)
-#define LABELED_BLOCK_BODY(NODE) \
-  TREE_OPERAND_CHECK_CODE (NODE, LABELED_BLOCK_EXPR, 1)
-
-/* In an EXIT_BLOCK_EXPR node.  */
-#define EXIT_BLOCK_LABELED_BLOCK(NODE) \
-  TREE_OPERAND_CHECK_CODE (NODE, EXIT_BLOCK_EXPR, 0)
-#define EXIT_BLOCK_RETURN(NODE) TREE_OPERAND_CHECK_CODE (NODE, EXIT_BLOCK_EXPR, 1)
-
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
 
@@ -1236,9 +1237,9 @@ struct tree_vec GTY(())
 
 /* CASE_LABEL_EXPR accessors. These give access to the high and low values
    of a case label, respectively.  */
-#define CASE_LOW(NODE)          TREE_OPERAND ((NODE), 0)
-#define CASE_HIGH(NODE)         TREE_OPERAND ((NODE), 1)
-#define CASE_LABEL(NODE)        TREE_OPERAND ((NODE), 2)
+#define CASE_LOW(NODE)          	TREE_OPERAND ((NODE), 0)
+#define CASE_HIGH(NODE)         	TREE_OPERAND ((NODE), 1)
+#define CASE_LABEL(NODE)		TREE_OPERAND ((NODE), 2)
 
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
@@ -1349,8 +1350,6 @@ struct tree_ssa_name GTY(())
   /* _DECL wrapped by this SSA name.  */
   tree var;
 
-  tree equiv;
-
   /* SSA version number.  */
   unsigned int version;
 
@@ -1383,7 +1382,7 @@ struct tree_ssa_name GTY(())
 #define PHI_NUM_ARGS(NODE)		PHI_NODE_CHECK (NODE)->phi.num_args
 #define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
 #define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
-#define PHI_ARG_EDGE(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I).e
+#define PHI_ARG_EDGE(NODE, I) 		(EDGE_PRED (PHI_BB ((NODE)), (I)))
 #define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
 #define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
 #define PHI_DF(NODE)			PHI_NODE_CHECK (NODE)->phi.df
@@ -1393,7 +1392,6 @@ struct edge_def;
 struct phi_arg_d GTY(())
 {
   tree def;
-  struct edge_def * GTY((skip (""))) e;
   bool nonzero;
 };
 
@@ -1414,7 +1412,7 @@ struct tree_phi_node GTY(())
   /* Dataflow information.  */
   struct dataflow_d *df;
 
-  struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
+  struct phi_arg_d GTY ((length ("((tree)&%h)->phi.num_args"))) a[1];
 };
 
 
@@ -1497,7 +1495,7 @@ struct tree_block GTY(())
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->type.size_unit)
 #define TYPE_MODE(NODE) (TYPE_CHECK (NODE)->type.mode)
 #define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type.values)
-#define TYPE_DOMAIN(NODE) (SET_OR_ARRAY_CHECK (NODE)->type.values)
+#define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->type.values)
 #define TYPE_FIELDS(NODE) (RECORD_OR_UNION_CHECK (NODE)->type.values)
 #define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK(NODE)->type.values)
 #define TYPE_ORIG_SIZE_TYPE(NODE)			\
@@ -2024,6 +2022,10 @@ struct tree_binfo GTY (())
    writing debugging information about vfield and vbase decls for C++.  */
 #define DECL_FCONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl.vindex)
 
+/* For VAR_DECL, this is set to the variable we were split from, due to
+   optimization. */
+#define DECL_DEBUG_ALIAS_OF(NODE) (DECL_CHECK (NODE)->decl.vindex)
+
 /* Every ..._DECL node gets a unique number.  */
 #define DECL_UID(NODE) (DECL_CHECK (NODE)->decl.uid)
 
@@ -2158,9 +2160,6 @@ struct tree_binfo GTY (())
 #define DECL_VALUE_EXPR(NODE) \
   (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl.saved_tree)
 
-/* List of FUNCTION_DECLs inlined into this function's body.  */
-#define DECL_INLINED_FNS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.inlined_fns)
-
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as if it were a malloc, meaning it returns a pointer that is
    not an alias.  */
@@ -2269,9 +2268,6 @@ struct tree_binfo GTY (())
 #define DECL_POINTER_ALIAS_SET(NODE) \
   (DECL_CHECK (NODE)->decl.pointer_alias_set)
 
-/* Used to store the alias_var for a DECL node.  */
-#define DECL_PTA_ALIASVAR(NODE) \
-  (DECL_CHECK (NODE)->decl.alias_var)
 
 /* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
    dense, unique within any one function, and may be used to index arrays.
@@ -2317,7 +2313,6 @@ enum symbol_visibility
 #endif
 
 struct function;
-union alias_var_def;
 struct tree_decl GTY(())
 {
   struct tree_common common;
@@ -2419,14 +2414,8 @@ struct tree_decl GTY(())
   /* In a FUNCTION_DECL, this is DECL_SAVED_TREE.
      In a VAR_DECL or PARM_DECL, this is DECL_VALUE_EXPR.  */
   tree saved_tree;
-
-  /* In a FUNCTION_DECL, these are function data which is to be kept
-     as long as FUNCTION_DECL is kept.  */
-  tree inlined_fns;
-
   tree vindex;
   HOST_WIDE_INT pointer_alias_set;
-  union alias_var_def *GTY ((skip(""))) alias_var;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_decl *lang_specific;
 };
@@ -2782,7 +2771,6 @@ extern tree make_tree_vec_stat (int MEM_STAT_DECL);
 
 /* Tree nodes for SSA analysis.  */
 
-extern tree make_phi_node (tree, int);
 extern void init_phinodes (void);
 extern void fini_phinodes (void);
 extern void release_phi_node (tree);
@@ -3018,10 +3006,6 @@ extern tree merge_decl_attributes (tree, tree);
 extern tree merge_type_attributes (tree, tree);
 extern void default_register_cpp_builtins (struct cpp_reader *);
 
-/* Return 1 if an attribute and its arguments are valid for a decl or type.  */
-
-extern int valid_machine_attribute (tree, tree, tree, tree);
-
 /* Given a tree node and a string, return nonzero if the tree node is
    a valid attribute name for the string.  */
 
@@ -3168,7 +3152,6 @@ extern enum machine_mode mode_for_size_tree (tree, enum mode_class, int);
 /* Return an expr equal to X but certainly not valid as an lvalue.  */
 
 extern tree non_lvalue (tree);
-extern tree pedantic_non_lvalue (tree);
 
 extern tree convert (tree, tree);
 extern unsigned int expr_align (tree);
@@ -3263,9 +3246,9 @@ extern int fields_length (tree);
 
 extern bool initializer_zerop (tree);
 
-extern void categorize_ctor_elements (tree, HOST_WIDE_INT *, HOST_WIDE_INT *);
+extern void categorize_ctor_elements (tree, HOST_WIDE_INT *,
+				      HOST_WIDE_INT *, HOST_WIDE_INT *);
 extern HOST_WIDE_INT count_type_elements (tree);
-extern int mostly_zeros_p (tree);
 
 /* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
 
@@ -3312,11 +3295,6 @@ extern tree save_expr (tree);
    the innermost non-arithmetic node.  */
 
 extern tree skip_simple_arithmetic (tree);
-
-/* Returns the index of the first non-tree operand for CODE, or the number
-   of operands if all are trees.  */
-
-extern int first_rtl_op (enum tree_code);
 
 /* Return which tree structure is used by T.  */
 
@@ -3406,7 +3384,8 @@ extern tree get_narrower (tree, int *);
    and find the ultimate containing object, which is returned.  */
 
 extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
-				 tree *, enum machine_mode *, int *, int *);
+				 tree *, enum machine_mode *, int *, int *,
+				 bool);
 
 /* Return 1 if T is an expression that get_inner_reference handles.  */
 
@@ -3473,16 +3452,17 @@ extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
 extern bool associative_tree_code (enum tree_code);
 extern bool commutative_tree_code (enum tree_code);
-
+extern tree get_case_label (tree);
+extern tree upper_bound_in_type (tree, tree);
+extern tree lower_bound_in_type (tree, tree);
+extern int operand_equal_for_phi_arg_p (tree, tree);
 
 /* In stmt.c */
 
 extern void expand_expr_stmt (tree);
-extern void expand_expr_stmt_value (tree, int, int);
 extern int warn_if_unused_value (tree, location_t);
 extern void expand_label (tree);
 extern void expand_goto (tree);
-extern void expand_asm (tree, int);
 
 extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
@@ -3547,8 +3527,8 @@ extern int operand_equal_p (tree, tree, unsigned int);
 extern tree omit_one_operand (tree, tree, tree);
 extern tree omit_two_operands (tree, tree, tree, tree);
 extern tree invert_truthvalue (tree);
-extern tree nondestructive_fold_unary_to_constant (enum tree_code, tree, tree);
-extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, tree);
+extern tree fold_unary_to_constant (enum tree_code, tree, tree);
+extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
 extern tree build_fold_addr_expr (tree);
@@ -3556,6 +3536,7 @@ tree fold_build_cleanup_point_expr (tree type, tree expr);
 extern tree build_fold_addr_expr_with_type (tree, tree);
 extern tree build_fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
+extern tree build_low_bits_mask (tree, unsigned);
 
 extern bool tree_swap_operands_p (tree, tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
@@ -3567,6 +3548,7 @@ extern tree fold_builtin (tree, bool);
 extern tree fold_builtin_fputs (tree, bool, bool, tree);
 extern tree fold_builtin_strcpy (tree, tree);
 extern tree fold_builtin_strncpy (tree, tree);
+extern bool fold_builtin_next_arg (tree);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
@@ -3602,7 +3584,6 @@ extern int simple_cst_list_equal (tree, tree);
 extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree);
-extern void expand_pending_sizes (tree);
 extern void recompute_tree_invarant_for_addr_expr (tree);
 extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
@@ -3631,21 +3612,19 @@ extern void init_function_for_compilation (void);
 extern void allocate_struct_function (tree);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (tree);
-extern void assign_parms (tree);
 extern void setjmp_vars_warning (tree);
 extern void setjmp_args_warning (void);
 extern void init_temp_slots (void);
-extern void combine_temp_slots (void);
 extern void free_temp_slots (void);
 extern void pop_temp_slots (void);
 extern void push_temp_slots (void);
 extern void preserve_temp_slots (rtx);
-extern void preserve_rtl_expr_temps (tree);
 extern int aggregate_value_p (tree, tree);
 extern void push_function_context (void);
 extern void pop_function_context (void);
 extern void push_function_context_to (tree);
 extern void pop_function_context_from (tree);
+extern tree gimplify_parameters (void);
 
 /* In print-rtl.c */
 #ifdef BUFSIZ
@@ -3667,7 +3646,6 @@ extern bool debug_find_tree (tree, tree);
 extern tree unsave_expr_now (tree);
 
 /* In expr.c */
-extern rtx expand_builtin_return_addr (enum built_in_function, int, rtx);
 extern void check_max_integer_computation_mode (tree);
 
 /* In emit-rtl.c */
@@ -3675,9 +3653,11 @@ extern rtx emit_line_note (location_t);
 
 /* In calls.c */
 
-/* Nonzero if this is a call to a `const' function.  */
+/* Nonzero if this is a call to a function whose return value depends
+   solely on its arguments, has no side effects, and does not read
+   global memory.  */
 #define ECF_CONST		1
-/* Nonzero if this is a call to a `volatile' function.  */
+/* Nonzero if this call will never return.  */
 #define ECF_NORETURN		2
 /* Nonzero if this is a call to malloc or a related function.  */
 #define ECF_MALLOC		4
@@ -3687,21 +3667,18 @@ extern rtx emit_line_note (location_t);
 #define ECF_NOTHROW		16
 /* Nonzero if this is a call to setjmp or a related function.  */
 #define ECF_RETURNS_TWICE	32
-/* Nonzero if this is a call to `longjmp'.  */
-#define ECF_LONGJMP		64
-/* Nonzero if this is a syscall that makes a new process in the image of
-   the current one.  */
-#define ECF_SIBCALL		128
+/* Nonzero if this call replaces the current stack frame.  */
+#define ECF_SIBCALL		64
 /* Nonzero if this is a call to "pure" function (like const function,
    but may read memory.  */
-#define ECF_PURE		256
+#define ECF_PURE		128
 /* Nonzero if this is a call to a function that returns with the stack
    pointer depressed.  */
-#define ECF_SP_DEPRESSED	512
+#define ECF_SP_DEPRESSED	256
 /* Nonzero if this call is known to always return.  */
-#define ECF_ALWAYS_RETURN	1024
+#define ECF_ALWAYS_RETURN	512
 /* Create libcall block around the call.  */
-#define ECF_LIBCALL_BLOCK	2048
+#define ECF_LIBCALL_BLOCK	1024
 
 extern int flags_from_decl_or_type (tree);
 extern int call_expr_flags (tree);
@@ -3738,12 +3715,12 @@ extern void make_decl_rtl (tree);
 extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
 extern void variable_section (tree, int);
-enum tls_model decl_tls_model (tree);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void mark_decl_referenced (tree);
 extern void notice_global_symbol (tree);
 extern void set_user_assembler_name (tree, const char *);
+extern void process_pending_assemble_externals (void);
 
 /* In stmt.c */
 extern void expand_computed_goto (tree);
@@ -3751,9 +3728,7 @@ extern bool parse_output_constraint (const char **, int, int, int,
 				     bool *, bool *, bool *);
 extern bool parse_input_constraint (const char **, int, int, int, int,
 				    const char * const *, bool *, bool *);
-extern void expand_asm_operands (tree, tree, tree, tree, int, location_t);
 extern void expand_asm_expr (tree);
-extern bool asm_op_is_mem_input (tree, tree);
 extern tree resolve_asm_operand_names (tree, tree, tree);
 extern void expand_case (tree);
 extern void expand_decl (tree);
@@ -3950,10 +3925,6 @@ extern int tree_node_sizes[];
    be restricted.  False if we are not in gimple form and folding is not
    restricted to creating gimple expressions.  */
 extern bool in_gimple_form;
-
-/* In tree-ssa-loop-niter.c.  */
-tree lower_bound_in_type (tree, tree);
-tree upper_bound_in_type (tree, tree);
 
 /* In tree-ssa-threadupdate.c.  */
 extern bool thread_through_all_blocks (void);

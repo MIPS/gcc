@@ -26,7 +26,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "symtab.h"
 #include "cpp-id-data.h"
 
-#if defined HAVE_ICONV_H && defined HAVE_ICONV
+#ifndef HAVE_ICONV_H
+#undef HAVE_ICONV
+#endif
+
+#if HAVE_ICONV
 #include <iconv.h>
 #else
 #define HAVE_ICONV 0
@@ -153,8 +157,8 @@ struct cpp_context
     /* For traditional macro expansion.  */
     struct
     {
-      const uchar *cur;
-      const uchar *rlimit;
+      const unsigned char *cur;
+      const unsigned char *rlimit;
     } trad;
   } u;
 
@@ -201,6 +205,9 @@ struct lexer_state
   /* Nonzero to prevent macro expansion.  */
   unsigned char prevent_expansion;
 
+  /* Nonzero when handling a deferred pragma.  */
+  unsigned char in_deferred_pragma;
+
   /* Nonzero when parsing arguments to a function-like macro.  */
   unsigned char parsing_args;
 
@@ -225,7 +232,7 @@ typedef struct _cpp_line_note _cpp_line_note;
 struct _cpp_line_note
 {
   /* Location in the clean line the note refers to.  */
-  const uchar *pos;
+  const unsigned char *pos;
 
   /* Type of note.  The 9 'from' trigraph characters represent those
      trigraphs, '\\' an escaped newline, ' ' an escaped newline with
@@ -236,17 +243,17 @@ struct _cpp_line_note
 /* Represents the contents of a file cpplib has read in.  */
 struct cpp_buffer
 {
-  const uchar *cur;		/* Current location.  */
-  const uchar *line_base;	/* Start of current physical line.  */
-  const uchar *next_line;	/* Start of to-be-cleaned logical line.  */
+  const unsigned char *cur;        /* Current location.  */
+  const unsigned char *line_base;  /* Start of current physical line.  */
+  const unsigned char *next_line;  /* Start of to-be-cleaned logical line.  */
 
-  const uchar *buf;		/* Entire character buffer.  */
-  const uchar *rlimit;		/* Writable byte at end of file.  */
+  const unsigned char *buf;        /* Entire character buffer.  */
+  const unsigned char *rlimit;     /* Writable byte at end of file.  */
 
-  _cpp_line_note *notes;	/* Array of notes.  */
-  unsigned int cur_note;	/* Next note to process.  */
-  unsigned int notes_used;	/* Number of notes.  */
-  unsigned int notes_cap;	/* Size of allocated array.  */
+  _cpp_line_note *notes;           /* Array of notes.  */
+  unsigned int cur_note;           /* Next note to process.  */
+  unsigned int notes_used;         /* Number of notes.  */
+  unsigned int notes_cap;          /* Size of allocated array.  */
 
   struct cpp_buffer *prev;
 
@@ -378,8 +385,8 @@ struct cpp_reader
   struct cset_converter wide_cset_desc;
 
   /* Date and time text.  Calculated together if either is requested.  */
-  const uchar *date;
-  const uchar *time;
+  const unsigned char *date;
+  const unsigned char *time;
 
   /* EOF token, and a token forcing paste avoidance.  */
   cpp_token avoid_paste;
@@ -389,11 +396,11 @@ struct cpp_reader
   struct deps *deps;
 
   /* Obstack holding all macro hash nodes.  This never shrinks.
-     See cpphash.c */
+     See identifiers.c */
   struct obstack hash_ob;
 
   /* Obstack holding buffer and conditional structures.  This is a
-     real stack.  See cpplib.c.  */
+     real stack.  See directives.c.  */
   struct obstack buffer_ob;
 
   /* Pragma table - dynamic, because a library user can add to the
@@ -422,14 +429,14 @@ struct cpp_reader
   /* Traditional preprocessing output buffer (a logical line).  */
   struct
   {
-    uchar *base;
-    uchar *limit;
-    uchar *cur;
+    unsigned char *base;
+    unsigned char *limit;
+    unsigned char *cur;
     source_location first_line;
   } out;
 
-  /* Used for buffer overlays by cpptrad.c.  */
-  const uchar *saved_cur, *saved_rlimit, *saved_line_base;
+  /* Used for buffer overlays by traditional.c.  */
+  const unsigned char *saved_cur, *saved_rlimit, *saved_line_base;
 
   /* A saved list of the defined macros, for dependency checking
      of precompiled headers.  */
@@ -441,7 +448,7 @@ struct cpp_reader
    definition of a pp-number in the C standard [section 6.4.8 of C99].
 
    In the unlikely event that characters other than \r and \n enter
-   the set is_vspace, the macro handle_newline() in cpplex.c must be
+   the set is_vspace, the macro handle_newline() in lex.c must be
    updated.  */
 #define _dollar_ok(x)	((x) == '$' && CPP_OPTION (pfile, dollars_in_ident))
 
@@ -474,26 +481,27 @@ cpp_in_system_header (cpp_reader *pfile)
 #define CPP_PEDANTIC(PF) CPP_OPTION (PF, pedantic)
 #define CPP_WTRADITIONAL(PF) CPP_OPTION (PF, warn_traditional)
 
-/* In cpperror.c  */
+/* In errors.c  */
 extern int _cpp_begin_message (cpp_reader *, int,
 			       source_location, unsigned int);
 
-/* In cppmacro.c */
+/* In macro.c */
 extern void _cpp_free_definition (cpp_hashnode *);
 extern bool _cpp_create_definition (cpp_reader *, cpp_hashnode *);
 extern void _cpp_pop_context (cpp_reader *);
 extern void _cpp_push_text_context (cpp_reader *, cpp_hashnode *,
-				    const uchar *, size_t);
+				    const unsigned char *, size_t);
 extern bool _cpp_save_parameter (cpp_reader *, cpp_macro *, cpp_hashnode *);
 extern bool _cpp_arguments_ok (cpp_reader *, cpp_macro *, const cpp_hashnode *,
 			       unsigned int);
-extern const uchar *_cpp_builtin_macro_text (cpp_reader *, cpp_hashnode *);
+extern const unsigned char *_cpp_builtin_macro_text (cpp_reader *,
+						     cpp_hashnode *);
 int _cpp_warn_if_unused_macro (cpp_reader *, cpp_hashnode *, void *);
-/* In cpphash.c */
+/* In identifiers.c */
 extern void _cpp_init_hashtable (cpp_reader *, hash_table *);
 extern void _cpp_destroy_hashtable (cpp_reader *);
 
-/* In cppfiles.c */
+/* In files.c */
 typedef struct _cpp_file _cpp_file;
 extern _cpp_file *_cpp_find_file (cpp_reader *, const char *fname,
 				  cpp_dir *start_dir, bool fake);
@@ -511,11 +519,11 @@ extern void _cpp_pop_file_buffer (cpp_reader *, struct _cpp_file *);
 extern bool _cpp_save_file_entries (cpp_reader *pfile, FILE *f);
 extern bool _cpp_read_file_entries (cpp_reader *, FILE *);
 
-/* In cppexp.c */
+/* In expr.c */
 extern bool _cpp_parse_expr (cpp_reader *);
 extern struct op *_cpp_expand_op_stack (cpp_reader *);
 
-/* In cpplex.c */
+/* In lex.c */
 extern void _cpp_process_line_notes (cpp_reader *, int);
 extern void _cpp_clean_line (cpp_reader *);
 extern bool _cpp_get_fresh_line (cpp_reader *);
@@ -526,10 +534,10 @@ extern cpp_token *_cpp_lex_direct (cpp_reader *);
 extern int _cpp_equiv_tokens (const cpp_token *, const cpp_token *);
 extern void _cpp_init_tokenrun (tokenrun *, unsigned int);
 
-/* In cppinit.c.  */
+/* In init.c.  */
 extern void _cpp_maybe_push_include_file (cpp_reader *);
 
-/* In cpplib.c */
+/* In directives.c */
 extern int _cpp_test_assertion (cpp_reader *, unsigned int *);
 extern int _cpp_handle_directive (cpp_reader *, int);
 extern void _cpp_define_builtin (cpp_reader *, const char *);
@@ -542,69 +550,73 @@ extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,
 				 unsigned int, unsigned int);
 extern void _cpp_pop_buffer (cpp_reader *);
 
-/* In cpptrad.c.  */
+/* In traditional.c.  */
 extern bool _cpp_scan_out_logical_line (cpp_reader *, cpp_macro *);
 extern bool _cpp_read_logical_line_trad (cpp_reader *);
-extern void _cpp_overlay_buffer (cpp_reader *pfile, const uchar *, size_t);
+extern void _cpp_overlay_buffer (cpp_reader *pfile, const unsigned char *,
+				 size_t);
 extern void _cpp_remove_overlay (cpp_reader *);
 extern bool _cpp_create_trad_definition (cpp_reader *, cpp_macro *);
 extern bool _cpp_expansions_different_trad (const cpp_macro *,
 					    const cpp_macro *);
-extern uchar *_cpp_copy_replacement_text (const cpp_macro *, uchar *);
+extern unsigned char *_cpp_copy_replacement_text (const cpp_macro *,
+						  unsigned char *);
 extern size_t _cpp_replacement_text_len (const cpp_macro *);
 
-/* In cppcharset.c.  */
-extern cppchar_t _cpp_valid_ucn (cpp_reader *, const uchar **,
-				 const uchar *, int);
+/* In charset.c.  */
+extern cppchar_t _cpp_valid_ucn (cpp_reader *, const unsigned char **,
+				 const unsigned char *, int);
 extern void _cpp_destroy_iconv (cpp_reader *);
-extern uchar *_cpp_convert_input (cpp_reader *, const char *, uchar *,
-				  size_t, size_t, off_t *);
+extern unsigned char *_cpp_convert_input (cpp_reader *, const char *,
+					  unsigned char *, size_t, size_t,
+					  off_t *);
 extern const char *_cpp_default_encoding (void);
 
 /* Utility routines and macros.  */
-#define DSC(str) (const uchar *)str, sizeof str - 1
+#define DSC(str) (const unsigned char *)str, sizeof str - 1
 
 /* These are inline functions instead of macros so we can get type
    checking.  */
-static inline int ustrcmp (const uchar *, const uchar *);
-static inline int ustrncmp (const uchar *, const uchar *, size_t);
-static inline size_t ustrlen (const uchar *);
-static inline uchar *uxstrdup (const uchar *);
-static inline uchar *ustrchr (const uchar *, int);
-static inline int ufputs (const uchar *, FILE *);
+static inline int ustrcmp (const unsigned char *, const unsigned char *);
+static inline int ustrncmp (const unsigned char *, const unsigned char *,
+			    size_t);
+static inline size_t ustrlen (const unsigned char *);
+static inline unsigned char *uxstrdup (const unsigned char *);
+static inline unsigned char *ustrchr (const unsigned char *, int);
+static inline int ufputs (const unsigned char *, FILE *);
 
 static inline int
-ustrcmp (const uchar *s1, const uchar *s2)
+ustrcmp (const unsigned char *s1, const unsigned char *s2)
 {
   return strcmp ((const char *)s1, (const char *)s2);
 }
 
 static inline int
-ustrncmp (const uchar *s1, const uchar *s2, size_t n)
+ustrncmp (const unsigned char *s1, const unsigned char *s2, size_t n)
 {
   return strncmp ((const char *)s1, (const char *)s2, n);
 }
 
 static inline size_t
-ustrlen (const uchar *s1)
+ustrlen (const unsigned char *s1)
 {
   return strlen ((const char *)s1);
 }
 
-static inline uchar *
-uxstrdup (const uchar *s1)
+static inline unsigned char *
+uxstrdup (const unsigned char *s1)
 {
-  return (uchar *) xstrdup ((const char *)s1);
+  return (unsigned char *) xstrdup ((const char *)s1);
 }
 
-static inline uchar *
-ustrchr (const uchar *s1, int c)
+static inline unsigned char *
+ustrchr (const unsigned char *s1, int c)
 {
-  return (uchar *) strchr ((const char *)s1, c);
+  return (unsigned char *) strchr ((const char *)s1, c);
 }
 
 static inline int
-ufputs (const uchar *s, FILE *f)
+ufputs (const unsigned char *s, FILE *f)
 {
   return fputs ((const char *)s, f);
 }

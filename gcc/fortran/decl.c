@@ -21,10 +21,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #include "config.h"
+#include "system.h"
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
-#include <string.h>
 
 
 /* This flag is set if a an old-style length selector is matched
@@ -401,7 +401,7 @@ match_old_style_init (const char *name)
 /* Match the stuff following a DATA statement. If ERROR_FLAG is set,
    we are matching a DATA statement and are therefore issuing an error
    if we encounter something unexpected, if not, we're trying to match 
-   an old-style intialization expression of the form INTEGER I /2/.   */
+   an old-style intialization expression of the form INTEGER I /2/.  */
 
 match
 gfc_match_data (void)
@@ -2576,8 +2576,8 @@ gfc_match_end (gfc_statement * st)
       if (!eos_ok)
 	{
 	  /* We would have required END [something]  */
-	  gfc_error ("%s statement expected at %C",
-		     gfc_ascii_statement (*st));
+	  gfc_error ("%s statement expected at %L",
+		     gfc_ascii_statement (*st), &old_loc);
 	  goto cleanup;
 	}
 
@@ -3292,7 +3292,7 @@ loop:
      components.  The ways this can happen is via a function
      definition, an INTRINSIC statement or a subtype in another
      derived type that is a pointer.  The first part of the AND clause
-     is true if a the symbol is not the return value of a function. */
+     is true if a the symbol is not the return value of a function.  */
   if (sym->attr.flavor != FL_DERIVED
       && gfc_add_flavor (&sym->attr, FL_DERIVED, NULL) == FAILURE)
     return MATCH_ERROR;

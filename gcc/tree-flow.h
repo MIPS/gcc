@@ -167,6 +167,14 @@ struct var_ann_d GTY(())
      states.  */
   ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
+  /* Used during operand processing to determine if this variable is already 
+     in the vuse list.  */
+  unsigned in_vuse_list : 1;
+
+  /* Used during operand processing to determine if this variable is already 
+     in the v_may_def list.  */
+  unsigned in_v_may_def_list : 1;
+
   /* An artificial variable representing the memory location pointed-to by
      all the pointers that TBAA (type-based alias analysis) considers
      to be aliased.  If the variable is not a pointer or if it is never
@@ -349,10 +357,6 @@ struct bb_ann_d GTY(())
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
 
-  /* Nonzero if this block is forwardable during cfg cleanups.  This is also
-     used to detect loops during cfg cleanups.  */
-  unsigned forwardable: 1;
-
   /* Nonzero if this block contains an escape point (see is_escape_site).  */
   unsigned has_escape_site : 1;
 
@@ -493,17 +497,16 @@ extern tree *last_stmt_ptr (basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern void cfg_remove_useless_stmts (void);
-extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block_fn (struct function *, tree);
 #define label_to_block(t) (label_to_block_fn (cfun, t))
-extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern void bsi_insert_on_edge (edge, tree);
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
-extern void bsi_commit_edge_inserts (int *);
+extern void bsi_commit_one_edge_insert (edge, basic_block *);
+extern void bsi_commit_edge_inserts (void);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void verify_stmts (void);
-extern tree tree_block_label (basic_block bb);
+extern tree tree_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
@@ -529,12 +532,13 @@ extern void dump_generic_bb (FILE *, basic_block, int, int);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
 extern tree_ann_t create_tree_ann (tree);
+extern void reserve_phi_args_for_new_edge (basic_block);
 extern tree create_phi_node (tree, basic_block);
-extern void add_phi_arg (tree *, tree, edge);
-extern void remove_phi_arg (tree, basic_block);
-extern void remove_phi_arg_num (tree, int);
+extern void add_phi_arg (tree, tree, edge);
+extern void remove_phi_args (edge);
 extern void remove_phi_node (tree, tree, basic_block);
 extern void remove_all_phi_nodes_for (bitmap);
+extern tree phi_reverse (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
 extern void debug_referenced_vars (void);
@@ -549,16 +553,17 @@ extern void compute_immediate_uses (int, bool (*)(tree));
 extern void free_df (void);
 extern void free_df_for_stmt (tree);
 extern tree get_virtual_var (tree);
-extern void add_referenced_tmp_var (tree var);
+extern void add_referenced_tmp_var (tree);
 extern void mark_new_vars_to_rename (tree, bitmap);
 extern void find_new_referenced_vars (tree *);
+void mark_call_clobbered_vars_to_rename (void);
 
 extern void redirect_immediate_uses (tree, tree);
 extern tree make_rename_temp (tree, const char *);
 
 /* Flags used when computing reaching definitions and reached uses.  */
-#define TDFA_USE_OPS		1 << 0
-#define TDFA_USE_VOPS		1 << 1
+#define TDFA_USE_OPS		(1 << 0)
+#define TDFA_USE_VOPS		(1 << 1)
 
 /* In gimple-low.c  */
 struct lower_data;
@@ -576,34 +581,38 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
+extern struct ptr_info_def *get_ptr_info (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
+typedef tree tree_on_heap;
+DEF_VEC_MALLOC_P (tree_on_heap);
+
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
 extern void debug_tree_ssa (void);
 extern void debug_def_blocks (void);
 extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
-extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
-extern void register_new_def (tree, varray_type *);
+extern void register_new_def (tree, VEC (tree_on_heap) **);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern void kill_redundant_phi_nodes (void);
+extern bool stmt_references_memory_p (tree);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
 extern void rewrite_ssa_into_ssa (void);
+extern void rewrite_def_def_chains (void);
 
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
@@ -709,10 +718,6 @@ enum move_pos
   };
 extern enum move_pos movement_possibility (tree);
 
-/* In tree-if-conv.c  */
-bool tree_if_conversion (struct loop *, bool);
-
-
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
 static inline bool is_call_clobbered (tree);
@@ -748,17 +753,13 @@ void vn_delete (void);
 
 
 /* In tree-sra.c  */
-void insert_edge_copies (tree stmt, basic_block bb);
-
-/* In tree-ssa-operands.c  */
-extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p, 
-				stmt_operands_p);
+void insert_edge_copies (tree, basic_block);
 
 /* In tree-loop-linear.c  */
 extern void linear_transform_loops (struct loops *);
 
 /* In tree-ssa-loop-ivopts.c  */
-extern bool expr_invariant_in_loop_p (struct loop *loop, tree expr);
+extern bool expr_invariant_in_loop_p (struct loop *, tree);
 /* In gimplify.c  */
 
 tree force_gimple_operand (tree, tree *, bool, tree);

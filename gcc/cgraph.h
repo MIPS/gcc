@@ -61,7 +61,7 @@ struct cgraph_local_info GTY(())
   int self_insns;
 
   /* Set when function function is visible in current compilation unit only
-     and it's address is never taken.  */
+     and its address is never taken.  */
   bool local;
 
   /* Set when function is visible by other units.  */
@@ -73,7 +73,7 @@ struct cgraph_local_info GTY(())
   /* False when there something makes inlining impossible (such as va_arg).  */
   bool inlinable;
 
-  /* True when function should be inlined independently on it's size.  */
+  /* True when function should be inlined independently on its size.  */
   bool disregard_inline_limits;
 
   /* True when the function has been originally extern inline, but it is
@@ -148,7 +148,7 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Unique id of the node.  */
   int uid;
   /* Set when function must be output - it is externally visible
-     or it's address is taken.  */
+     or its address is taken.  */
   bool needed;
   /* Set when function is reachable by call from other function
      that is either reachable or needed.  */
@@ -188,6 +188,8 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
 struct cgraph_varpool_node GTY(())
 {
   tree decl;
+  /* Pointer to the next function in cgraph_varpool_nodes.  */
+  struct cgraph_varpool_node *next;
   /* Pointer to the next function in cgraph_varpool_nodes_queue.  */
   struct cgraph_varpool_node *next_needed;
 
@@ -242,6 +244,7 @@ struct cgraph_edge *cgraph_indirect_assign_edge (struct cgraph_node *,
 struct cgraph_edge *cgraph_indirect_call_edge (struct cgraph_node *, 
 					       tree, tree);
 struct cgraph_node *cgraph_node (tree);
+struct cgraph_node *cgraph_node_for_asm (tree asmname);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree);
 bool cgraph_calls_p (tree, tree);
 struct cgraph_local_info *cgraph_local_info (tree);
@@ -252,6 +255,7 @@ struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *, gcov_type);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree);
+struct cgraph_varpool_node *cgraph_varpool_node_for_asm (tree asmname);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
@@ -271,7 +275,6 @@ void cgraph_varpool_reset_queue (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
 bool cgraph_inline_p (struct cgraph_edge *, const char **);
-
 
 /* In cgraphunit.c  */
 bool cgraph_assemble_pending_functions (void);

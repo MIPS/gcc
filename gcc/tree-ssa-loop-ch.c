@@ -156,6 +156,8 @@ copy_loop_headers (void)
       int limit = 20;
 
       loop = loops->parray[i];
+      if (!loop)
+	continue;
       header = loop->header;
 
       /* If the loop is already a do-while style one (either because it was
@@ -211,7 +213,8 @@ copy_loop_headers (void)
 
       /* Fix profiling info.  Scaling is done in gcov_type arithmetic to
 	 avoid losing information; this is slow, but is done at most
-	 once per loop.  */
+	 once per loop.  We special case 0 to avoid division by 0;
+         probably other special cases exist.  */
       total_count = body_count + entry_count;
       if (total_count == 0LL)
 	{
@@ -222,7 +225,7 @@ copy_loop_headers (void)
 	{
 	  scale_bbs_frequencies_gcov_type (bbs, n_bbs, body_count, total_count);
 	  scale_bbs_frequencies_gcov_type (copied_bbs, n_bbs, entry_count, 
-					   total_count);
+				           total_count);
 	}
 
       /* Ensure that the latch and the preheader is simple (we know that they
@@ -239,11 +242,6 @@ copy_loop_headers (void)
 #endif
 
   loop_optimizer_finalize (loops, NULL);
-
-  /* Run cleanup_tree_cfg here regardless of whether we have done anything, so
-     that we cleanup the blocks created in order to get the loops into a
-     canonical shape.  */
-  cleanup_tree_cfg ();
 }
 
 static bool
@@ -267,7 +265,7 @@ struct tree_opt_pass pass_ch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  (TODO_dump_func
-   | TODO_verify_ssa),			/* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_dump_func 
+  | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
 };

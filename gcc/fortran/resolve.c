@@ -19,10 +19,12 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330,Boston, MA
 02111-1307, USA.  */
 
+
 #include "config.h"
+#include "system.h"
 #include "gfortran.h"
 #include "arith.h"  /* For gfc_compare_expr().  */
-#include <string.h>
+
 
 /* Stack to push the current if we descend into a block during
    resolution.  See resolve_branch() and resolve_code().  */
@@ -287,7 +289,7 @@ resolve_contained_fntype (gfc_symbol * sym, gfc_namespace * ns)
 
 
 /* Add NEW_ARGS to the formal argument list of PROC, taking care not to
-   introduce duplicates.   */
+   introduce duplicates.  */
 
 static void
 merge_argument_lists (gfc_symbol *proc, gfc_formal_arglist *new_args)
@@ -343,7 +345,7 @@ resolve_entries (gfc_namespace * ns)
   if (ns->proc_name->attr.entry_master)
     return;
 
-  /* If this isn't a procedure something has gone horribly wrong.   */
+  /* If this isn't a procedure something has gone horribly wrong.  */
   gcc_assert (ns->proc_name->attr.flavor == FL_PROCEDURE);
   
   /* Remember the current namespace.  */
@@ -433,7 +435,7 @@ resolve_contained_functions (gfc_namespace * ns)
 
 
 /* Resolve all of the elements of a structure constructor and make sure that
-   the types are correct. */
+   the types are correct.  */
 
 static try
 resolve_structure_cons (gfc_expr * expr)
@@ -901,7 +903,7 @@ set_type:
    function is PURE, zero if not.  */
 
 static int
-pure_function (gfc_expr * e, char **name)
+pure_function (gfc_expr * e, const char **name)
 {
   int pure;
 
@@ -936,7 +938,7 @@ static try
 resolve_function (gfc_expr * expr)
 {
   gfc_actual_arglist *arg;
-  char *name;
+  const char *name;
   try t;
 
   if (resolve_actual_arglist (expr->value.function.actual) == FAILURE)
@@ -1581,7 +1583,7 @@ check_dimension (int i, gfc_array_ref * ar, gfc_array_spec * as)
 {
 
 /* Given start, end and stride values, calculate the minimum and
-   maximum referenced indexes. */
+   maximum referenced indexes.  */
 
   switch (ar->type)
     {
@@ -1609,7 +1611,7 @@ check_dimension (int i, gfc_array_ref * ar, gfc_array_spec * as)
 	goto bound;
 
       /* TODO: Possibly, we could warn about end[i] being out-of-bound although
-         it is legal (see 6.2.2.3.1). */
+         it is legal (see 6.2.2.3.1).  */
 
       break;
 
@@ -1982,7 +1984,7 @@ resolve_ref (gfc_expr * expr)
 
 
 /* Given an expression, determine its shape.  This is easier than it sounds.
-   Leaves the shape array NULL if it is not possible to determine the shape. */
+   Leaves the shape array NULL if it is not possible to determine the shape.  */
 
 static void
 expression_shape (gfc_expr * e)
@@ -2022,7 +2024,7 @@ expression_rank (gfc_expr * e)
     {
       if (e->expr_type == EXPR_ARRAY)
 	goto done;
-      /* Constructors can have a rank different from one via RESHAPE().   */
+      /* Constructors can have a rank different from one via RESHAPE().  */
 
       if (e->symtree == NULL)
 	{
@@ -2173,22 +2175,49 @@ gfc_resolve_expr (gfc_expr * e)
 }
 
 
-/* Resolve the expressions in an iterator structure and require that they all
-   be of integer type.  */
+/* Resolve an expression from an iterator.  They must be scalar and have
+   INTEGER or (optionally) REAL type.  */
 
-try
-gfc_resolve_iterator (gfc_iterator * iter)
+static try
+gfc_resolve_iterator_expr (gfc_expr * expr, bool real_ok, const char * name)
 {
-
-  if (gfc_resolve_expr (iter->var) == FAILURE)
+  if (gfc_resolve_expr (expr) == FAILURE)
     return FAILURE;
 
-  if (iter->var->ts.type != BT_INTEGER || iter->var->rank != 0)
+  if (expr->rank != 0)
     {
-      gfc_error ("Loop variable at %L must be a scalar INTEGER",
-		 &iter->var->where);
+      gfc_error ("%s at %L must be a scalar", name, &expr->where);
       return FAILURE;
     }
+
+  if (!(expr->ts.type == BT_INTEGER
+	|| (expr->ts.type == BT_REAL && real_ok)))
+    {
+      gfc_error ("%s at %L must be INTEGER%s",
+		 name,
+		 &expr->where,
+		 real_ok ? " or REAL" : "");
+      return FAILURE;
+    }
+  return SUCCESS;
+}
+
+
+/* Resolve the expressions in an iterator structure.  If REAL_OK is
+   false allow only INTEGER type iterators, otherwise allow REAL types.  */
+
+try
+gfc_resolve_iterator (gfc_iterator * iter, bool real_ok)
+{
+
+  if (iter->var->ts.type == BT_REAL)
+    gfc_notify_std (GFC_STD_F95_DEL,
+		    "Obsolete: REAL DO loop iterator at %L",
+		    &iter->var->where);
+
+  if (gfc_resolve_iterator_expr (iter->var, real_ok, "Loop variable")
+      == FAILURE)
+    return FAILURE;
 
   if (gfc_pure (NULL) && gfc_impure_variable (iter->var->symtree->n.sym))
     {
@@ -2197,43 +2226,43 @@ gfc_resolve_iterator (gfc_iterator * iter)
       return FAILURE;
     }
 
-  if (gfc_resolve_expr (iter->start) == FAILURE)
+  if (gfc_resolve_iterator_expr (iter->start, real_ok,
+				 "Start expression in DO loop") == FAILURE)
     return FAILURE;
 
-  if (iter->start->ts.type != BT_INTEGER || iter->start->rank != 0)
-    {
-      gfc_error ("Start expression in DO loop at %L must be a scalar INTEGER",
-		 &iter->start->where);
-      return FAILURE;
-    }
-
-  if (gfc_resolve_expr (iter->end) == FAILURE)
+  if (gfc_resolve_iterator_expr (iter->end, real_ok,
+				 "End expression in DO loop") == FAILURE)
     return FAILURE;
 
-  if (iter->end->ts.type != BT_INTEGER || iter->end->rank != 0)
-    {
-      gfc_error ("End expression in DO loop at %L must be a scalar INTEGER",
-		 &iter->end->where);
-      return FAILURE;
-    }
-
-  if (gfc_resolve_expr (iter->step) == FAILURE)
+  if (gfc_resolve_iterator_expr (iter->step, real_ok,
+				 "Step expression in DO loop") == FAILURE)
     return FAILURE;
 
-  if (iter->step->ts.type != BT_INTEGER || iter->step->rank != 0)
+  if (iter->step->expr_type == EXPR_CONSTANT)
     {
-      gfc_error ("Step expression in DO loop at %L must be a scalar INTEGER",
-		 &iter->step->where);
-      return FAILURE;
+      if ((iter->step->ts.type == BT_INTEGER
+	   && mpz_cmp_ui (iter->step->value.integer, 0) == 0)
+	  || (iter->step->ts.type == BT_REAL
+	      && mpfr_sgn (iter->step->value.real) == 0))
+	{
+	  gfc_error ("Step expression in DO loop at %L cannot be zero",
+		     &iter->step->where);
+	  return FAILURE;
+	}
     }
 
-  if (iter->step->expr_type == EXPR_CONSTANT
-      && mpz_cmp_ui (iter->step->value.integer, 0) == 0)
-    {
-      gfc_error ("Step expression in DO loop at %L cannot be zero",
-		 &iter->step->where);
-      return FAILURE;
-    }
+  /* Convert start, end, and step to the same type as var.  */
+  if (iter->start->ts.kind != iter->var->ts.kind
+      || iter->start->ts.type != iter->var->ts.type)
+    gfc_convert_type (iter->start, &iter->var->ts, 2);
+
+  if (iter->end->ts.kind != iter->var->ts.kind
+      || iter->end->ts.type != iter->var->ts.type)
+    gfc_convert_type (iter->end, &iter->var->ts, 2);
+
+  if (iter->step->ts.kind != iter->var->ts.kind
+      || iter->step->ts.type != iter->var->ts.type)
+    gfc_convert_type (iter->step, &iter->var->ts, 2);
 
   return SUCCESS;
 }
@@ -3346,7 +3375,7 @@ gfc_resolve_assign_in_forall (gfc_code *code, int nvar, gfc_expr **var_expr)
       forall_index = var_expr[n]->symtree->n.sym;
 
       /* Check whether the assignment target is one of the FORALL index
-         variable. */
+         variable.  */
       if ((code->expr->expr_type == EXPR_VARIABLE)
           && (code->expr->symtree->n.sym == forall_index))
         gfc_error ("Assignment to a FORALL index variable at %L",
@@ -3461,7 +3490,7 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
   if (forall_save == 0)
     {
       /* Count the total number of FORALL index in the nested FORALL
-         construct in order to allocate the VAR_EXPR with proper size.   */
+         construct in order to allocate the VAR_EXPR with proper size.  */
       next = code;
       while ((next != NULL) && (next->op == EXEC_FORALL))
         {
@@ -3470,7 +3499,7 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
           next = next->block->next;
         }
 
-      /* allocate VAR_EXPR with NUMBER_OF_FORALL_INDEX elements.   */
+      /* Allocate VAR_EXPR with NUMBER_OF_FORALL_INDEX elements.  */
       var_expr = (gfc_expr **) gfc_getmem (total_var * sizeof (gfc_expr *));
     }
 
@@ -3678,9 +3707,14 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
           if (code->label->defined == ST_LABEL_UNKNOWN)
             gfc_error ("Label %d referenced at %L is never defined",
                        code->label->value, &code->label->where);
-          if (t == SUCCESS && code->expr->ts.type != BT_INTEGER)
-	    gfc_error ("ASSIGN statement at %L requires an INTEGER "
-		       "variable", &code->expr->where);
+          if (t == SUCCESS
+	      && (code->expr->expr_type != EXPR_VARIABLE
+		  || code->expr->symtree->n.sym->ts.type != BT_INTEGER
+		  || code->expr->symtree->n.sym->ts.kind 
+		        != gfc_default_integer_kind
+		  || code->expr->symtree->n.sym->as != NULL))
+	    gfc_error ("ASSIGN statement at %L requires a scalar "
+		       "default INTEGER variable", &code->expr->where);
 	  break;
 
 	case EXEC_POINTER_ASSIGN:
@@ -3723,7 +3757,7 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 
 	case EXEC_DO:
 	  if (code->ext.iterator != NULL)
-	    gfc_resolve_iterator (code->ext.iterator);
+	    gfc_resolve_iterator (code->ext.iterator, true);
 	  break;
 
 	case EXEC_DO_WHILE:
@@ -4071,7 +4105,7 @@ resolve_symbol (gfc_symbol * sym)
     gfc_error("Intrinsic at %L does not exist", &sym->declared_at);
 
   /* Resolve array specifier. Check as well some constraints
-     on COMMON blocks. */
+     on COMMON blocks.  */
 
   check_constant = sym->attr.in_common && !sym->attr.pointer;
   gfc_resolve_array_spec (sym->as, check_constant);
@@ -4355,7 +4389,7 @@ resolve_data_variables (gfc_data_variable * d)
 	}
       else
 	{
-	  if (gfc_resolve_iterator (&d->iter) == FAILURE)
+	  if (gfc_resolve_iterator (&d->iter, false) == FAILURE)
 	    return FAILURE;
 
 	  if (d->iter.start->expr_type != EXPR_CONSTANT

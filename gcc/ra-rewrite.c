@@ -996,7 +996,8 @@ reloads_to_loads (struct rewrite_info *ri, struct ref **refs,
       struct web *web = ref2web[DF_REF_ID (refs[n])];
       struct web *supweb = find_web_for_subweb (web);
       int is_death;
-      int j;
+      unsigned j;
+      
       /* Only emit reloads when entering their interference
 	 region.  A use of a spilled web never opens an
 	 interference region, independent of it's color.  */
@@ -1034,8 +1035,7 @@ reloads_to_loads (struct rewrite_info *ri, struct ref **refs,
 		}
 	    }
 	  if (num_reloads != old_num_r)
-	    bitmap_operation (ri->need_reload, ri->need_reload, ri->scratch,
-			      BITMAP_AND_COMPL);
+	    bitmap_and_compl_into (ri->need_reload, ri->scratch);
 	}
     }
   ri->num_reloads = num_reloads;
@@ -1063,7 +1063,7 @@ rewrite_program2 (bitmap new_deaths)
     {
       basic_block last_bb = NULL;
       rtx last_block_insn;
-      int i, j;
+      unsigned i, j;
       bitmap_iterator bi;
 
       if (!INSN_P (insn))
@@ -1163,8 +1163,7 @@ rewrite_program2 (bitmap new_deaths)
 		      ri.num_reloads--;
 		    }
 		}
-	      bitmap_operation (ri.need_reload, ri.need_reload, ri.scratch,
-				BITMAP_AND_COMPL);
+	      bitmap_and_compl_into (ri.need_reload, ri.scratch);
 	      last_bb = BLOCK_FOR_INSN (insn);
 	      last_block_insn = insn;
 	      if (!INSN_P (last_block_insn))
@@ -1357,7 +1356,7 @@ rewrite_program2 (bitmap new_deaths)
 	  CLEAR_HARD_REG_SET (cum_colors);
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
-	      int j;
+	      unsigned j;
 
 	      if (num >= 5)
 		break;
@@ -1397,9 +1396,8 @@ rewrite_program2 (bitmap new_deaths)
 		  bitmap_set_bit (ri.scratch, j);
 		  ri.num_reloads--;
 		}
-	  }
-	  bitmap_operation (ri.need_reload, ri.need_reload, ri.scratch,
-			    BITMAP_AND_COMPL);
+	    }
+	  bitmap_and_compl_into (ri.need_reload, ri.scratch);
 	}
 
       ri.need_load = 1;
@@ -1541,8 +1539,7 @@ detect_web_parts_to_rebuild (void)
      indeed not become member of it again).  */
   live_at_end -= 2;
   for (i = 0; i < (unsigned int) last_basic_block + 2; i++)
-    bitmap_operation (live_at_end[i], live_at_end[i], uses_as_bitmap,
-		      BITMAP_AND_COMPL);
+    bitmap_and_compl_into (live_at_end[i], uses_as_bitmap);
   live_at_end += 2;
 
   if (dump_file && (debug_new_regalloc & DUMP_REBUILD) != 0)
@@ -1633,7 +1630,7 @@ reset_changed_flag (void)
 void
 actual_spill (void)
 {
-  int i;
+  unsigned i;
   bitmap_iterator bi;
   bitmap new_deaths = BITMAP_XMALLOC ();
 

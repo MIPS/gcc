@@ -39,6 +39,7 @@
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "function.h"
 #include "errors.h"

@@ -24,10 +24,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 #include "flags.h"
-
-#include <stdarg.h>
-#include <string.h>
-
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -974,7 +970,7 @@ gfc_match_if (gfc_statement * if_type)
       return MATCH_YES;
     }
 
-  if (gfc_match (" then %t") == MATCH_YES)
+  if (gfc_match (" then%t") == MATCH_YES)
     {
       new_st.op = EXEC_IF;
       new_st.expr = expr;
@@ -1822,7 +1818,7 @@ gfc_match_nullify (void)
       tail->expr = p;
       tail->expr2 = e;
 
-      if (gfc_match_char (')') == MATCH_YES)
+      if (gfc_match (" )%t") == MATCH_YES)
 	break;
       if (gfc_match_char (',') != MATCH_YES)
 	goto syntax;
@@ -2306,12 +2302,14 @@ gfc_match_common (void)
 	      as = NULL;
 	    }
 
+	  gfc_gobble_whitespace ();
 	  if (gfc_match_eos () == MATCH_YES)
 	    goto done;
 	  if (gfc_peek_char () == '/')
 	    break;
 	  if (gfc_match_char (',') != MATCH_YES)
 	    goto syntax;
+	  gfc_gobble_whitespace ();
 	  if (gfc_peek_char () == '/')
 	    break;
 	}
@@ -2673,7 +2671,7 @@ match_case_selector (gfc_case ** cp)
 	goto need_expr;
 
       /* If we're not looking at a ':' now, make a range out of a single
-	 target.  Else get the upper bound for the case range. */
+	 target.  Else get the upper bound for the case range.  */
       if (gfc_match_char (':') != MATCH_YES)
 	c->high = c->low;
       else

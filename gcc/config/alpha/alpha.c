@@ -303,7 +303,7 @@ override_options (void)
       else if (! strcmp (alpha_tp_string, "i"))
 	alpha_tp = ALPHA_TP_INSN;
       else
-	error ("bad value `%s' for -mtrap-precision switch", alpha_tp_string);
+	error ("bad value %qs for -mtrap-precision switch", alpha_tp_string);
     }
 
   if (alpha_fprm_string)
@@ -317,7 +317,7 @@ override_options (void)
       else if (! strcmp (alpha_fprm_string,"d"))
 	alpha_fprm = ALPHA_FPRM_DYN;
       else
-	error ("bad value `%s' for -mfp-rounding-mode switch",
+	error ("bad value %qs for -mfp-rounding-mode switch",
 	       alpha_fprm_string);
     }
 
@@ -332,7 +332,7 @@ override_options (void)
       else if (strcmp (alpha_fptm_string, "sui") == 0)
 	alpha_fptm = ALPHA_FPTM_SUI;
       else
-	error ("bad value `%s' for -mfp-trap-mode switch", alpha_fptm_string);
+	error ("bad value %qs for -mfp-trap-mode switch", alpha_fptm_string);
     }
 
   if (alpha_tls_size_string)
@@ -344,7 +344,7 @@ override_options (void)
       else if (strcmp (alpha_tls_size_string, "64") == 0)
 	alpha_tls_size = 64;
       else
-	error ("bad value `%s' for -mtls-size switch", alpha_tls_size_string);
+	error ("bad value %qs for -mtls-size switch", alpha_tls_size_string);
     }
 
   alpha_cpu
@@ -363,7 +363,7 @@ override_options (void)
 	    break;
 	  }
       if (! cpu_table [i].name)
-	error ("bad value `%s' for -mcpu switch", alpha_cpu_string);
+	error ("bad value %qs for -mcpu switch", alpha_cpu_string);
     }
 
   if (alpha_tune_string)
@@ -375,7 +375,7 @@ override_options (void)
 	    break;
 	  }
       if (! cpu_table [i].name)
-	error ("bad value `%s' for -mcpu switch", alpha_tune_string);
+	error ("bad value %qs for -mcpu switch", alpha_tune_string);
     }
 
   /* Do some sanity checks on the above options.  */
@@ -457,7 +457,7 @@ override_options (void)
       }
     else
       {
-	warning ("bad value `%s' for -mmemory-latency", alpha_mlat_string);
+	warning ("bad value %qs for -mmemory-latency", alpha_mlat_string);
 	lat = 3;
       }
 
@@ -1982,35 +1982,10 @@ alpha_emit_set_long_const (rtx target, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 bool
 alpha_expand_mov (enum machine_mode mode, rtx *operands)
 {
-  /* Honor misaligned loads, for those we promised to do so.  */
-  if (GET_CODE (operands[1]) == MEM
-      && alpha_vector_mode_supported_p (mode)
-      && MEM_ALIGN (operands[1]) < GET_MODE_ALIGNMENT (mode))
-    {
-      rtx tmp;
-      if (register_operand (operands[0], mode))
-	tmp = operands[0];
-      else
-	tmp = gen_reg_rtx (mode);
-      alpha_expand_unaligned_load (tmp, operands[1], 8, 0, 0);
-      if (tmp == operands[0])
-	return true;
-      operands[1] = tmp;
-    }
-
   /* If the output is not a register, the input must be.  */
   if (GET_CODE (operands[0]) == MEM
       && ! reg_or_0_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
-
-  /* Honor misaligned stores, for those we promised to do so.  */
-  if (GET_CODE (operands[0]) == MEM
-      && alpha_vector_mode_supported_p (mode)
-      && MEM_ALIGN (operands[0]) < GET_MODE_ALIGNMENT (mode))
-    {
-      alpha_expand_unaligned_store (operands[0], operands[1], 8, 0);
-      return true;
-    }
 
   /* Allow legitimize_address to perform some simplifications.  */
   if (mode == Pmode && symbolic_operand (operands[1], mode))
@@ -2209,6 +2184,36 @@ alpha_expand_mov_nobwx (enum machine_mode mode, rtx *operands)
     }
 
   return false;
+}
+
+/* Implement the movmisalign patterns.  One of the operands is a memory
+   that is not natually aligned.  Emit instructions to load it.  */
+
+void
+alpha_expand_movmisalign (enum machine_mode mode, rtx *operands)
+{
+  /* Honor misaligned loads, for those we promised to do so.  */
+  if (MEM_P (operands[1]))
+    {
+      rtx tmp;
+
+      if (register_operand (operands[0], mode))
+	tmp = operands[0];
+      else
+	tmp = gen_reg_rtx (mode);
+
+      alpha_expand_unaligned_load (tmp, operands[1], 8, 0, 0);
+      if (tmp != operands[0])
+	emit_move_insn (operands[0], tmp);
+    }
+  else if (MEM_P (operands[0]))
+    {
+      if (!reg_or_0_operand (operands[1], mode))
+	operands[1] = force_reg (mode, operands[1]);
+      alpha_expand_unaligned_store (operands[0], operands[1], 8, 0);
+    }
+  else
+    gcc_unreachable ();
 }
 
 /* Generate an unsigned DImode to FP conversion.  This is the same code
@@ -3164,6 +3169,35 @@ alpha_expand_unaligned_load (rtx tgt, rtx mem, HOST_WIDE_INT size,
   rtx meml, memh, addr, extl, exth, tmp, mema;
   enum machine_mode mode;
 
+  if (TARGET_BWX && size == 2)
+    {
+      meml = adjust_address (mem, QImode, ofs);
+      memh = adjust_address (mem, QImode, ofs+1);
+      if (BYTES_BIG_ENDIAN)
+	tmp = meml, meml = memh, memh = tmp;
+      extl = gen_reg_rtx (DImode);
+      exth = gen_reg_rtx (DImode);
+      emit_insn (gen_zero_extendqidi2 (extl, meml));
+      emit_insn (gen_zero_extendqidi2 (exth, memh));
+      exth = expand_simple_binop (DImode, ASHIFT, exth, GEN_INT (8),
+				  NULL, 1, OPTAB_LIB_WIDEN);
+      addr = expand_simple_binop (DImode, IOR, extl, exth,
+				  NULL, 1, OPTAB_LIB_WIDEN);
+
+      if (sign && GET_MODE (tgt) != HImode)
+	{
+	  addr = gen_lowpart (HImode, addr);
+	  emit_insn (gen_extend_insn (tgt, addr, GET_MODE (tgt), HImode, 0));
+	}
+      else
+	{
+	  if (GET_MODE (tgt) != DImode)
+	    addr = gen_lowpart (GET_MODE (tgt), addr);
+	  emit_move_insn (tgt, addr);
+	}
+      return;
+    }
+
   meml = gen_reg_rtx (DImode);
   memh = gen_reg_rtx (DImode);
   addr = gen_reg_rtx (DImode);
@@ -3276,7 +3310,7 @@ alpha_expand_unaligned_load (rtx tgt, rtx mem, HOST_WIDE_INT size,
     }
 
   if (addr != tgt)
-    emit_move_insn (tgt, gen_lowpart(GET_MODE (tgt), addr));
+    emit_move_insn (tgt, gen_lowpart (GET_MODE (tgt), addr));
 }
 
 /* Similarly, use ins and msk instructions to perform unaligned stores.  */
@@ -3286,6 +3320,28 @@ alpha_expand_unaligned_store (rtx dst, rtx src,
 			      HOST_WIDE_INT size, HOST_WIDE_INT ofs)
 {
   rtx dstl, dsth, addr, insl, insh, meml, memh, dsta;
+
+  if (TARGET_BWX && size == 2)
+    {
+      if (src != const0_rtx)
+	{
+	  dstl = gen_lowpart (QImode, src);
+	  dsth = expand_simple_binop (DImode, LSHIFTRT, src, GEN_INT (8),
+				      NULL, 1, OPTAB_LIB_WIDEN);
+	  dsth = gen_lowpart (QImode, dsth);
+	}
+      else
+	dstl = dsth = const0_rtx;
+
+      meml = adjust_address (dst, QImode, ofs);
+      memh = adjust_address (dst, QImode, ofs+1);
+      if (BYTES_BIG_ENDIAN)
+	addr = meml, meml = memh, memh = addr;
+
+      emit_move_insn (meml, dstl);
+      emit_move_insn (memh, dsth);
+      return;
+    }
 
   dstl = gen_reg_rtx (DImode);
   dsth = gen_reg_rtx (DImode);
@@ -5134,6 +5190,31 @@ function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode, tree type,
   return gen_rtx_REG (mode, num_args + basereg);
 }
 
+static int
+alpha_arg_partial_bytes (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+			 enum machine_mode mode ATTRIBUTE_UNUSED,
+			 tree type ATTRIBUTE_UNUSED,
+			 bool named ATTRIBUTE_UNUSED)
+{
+  int words = 0;
+
+#if TARGET_ABI_OPEN_VMS
+  if (cum->num_args < 6
+      && 6 < cum->num_args + ALPHA_ARG_SIZE (mode, type, named))
+    words = 6 - (CUM).num_args;
+#elif TARGET_ABI_UNICOSMK
+  /* Never any split arguments.  */
+#elif TARGET_ABI_OSF
+  if (*cum < 6 && 6 < *cum + ALPHA_ARG_SIZE (mode, type, named))
+    words = 6 - *cum;
+#else
+#error Unhandled ABI
+#endif
+
+  return words * UNITS_PER_WORD;
+}
+
+
 /* Return true if TYPE must be returned in memory, instead of in registers.  */
 
 static bool
@@ -6548,7 +6629,7 @@ alpha_expand_prologue (void)
 }
 
 /* Count the number of .file directives, so that .loc is up to date.  */
-static int num_source_filenames = 0;
+int num_source_filenames = 0;
 
 /* Output the textual info surrounding the prologue.  */
 
@@ -9397,6 +9478,8 @@ alpha_init_libfuncs (void)
 #define TARGET_SPLIT_COMPLEX_ARG alpha_split_complex_arg
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR alpha_gimplify_va_arg
+#undef TARGET_ARG_PARTIAL_BYTES
+#define TARGET_ARG_PARTIAL_BYTES alpha_arg_partial_bytes
 
 #undef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P alpha_scalar_mode_supported_p
@@ -9406,8 +9489,11 @@ alpha_init_libfuncs (void)
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST alpha_build_builtin_va_list
 
-#undef TARGET_VECTORIZE_MISALIGNED_MEM_OK
-#define TARGET_VECTORIZE_MISALIGNED_MEM_OK alpha_vector_mode_supported_p
+/* The Alpha architecture does not require sequential consistency.  See
+   http://www.cs.umd.edu/~pugh/java/memoryModel/AlphaReordering.html
+   for an example of how it can be violated in practice.  */
+#undef TARGET_RELAXED_ORDERING
+#define TARGET_RELAXED_ORDERING true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

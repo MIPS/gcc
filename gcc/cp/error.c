@@ -70,7 +70,6 @@ static void dump_expr_list (tree, int);
 static void dump_global_iord (tree);
 static void dump_parameters (tree, int);
 static void dump_exception_spec (tree, int);
-static const char *class_key_or_enum (tree);
 static void dump_template_argument (tree, int);
 static void dump_template_argument_list (tree, int);
 static void dump_template_parameter (tree, int);
@@ -349,7 +348,10 @@ dump_type (tree t, int flags)
     }
     case TYPENAME_TYPE:
       pp_cxx_cv_qualifier_seq (cxx_pp, t);
-      pp_cxx_identifier (cxx_pp, "typename");
+      pp_cxx_identifier (cxx_pp, 
+			 TYPENAME_IS_ENUM_P (t) ? "enum" 
+			 : TYPENAME_IS_CLASS_P (t) ? "class"
+			 : "typename");
       dump_typename (t, flags);
       break;
 
@@ -396,8 +398,8 @@ dump_typename (tree t, int flags)
 
 /* Return the name of the supplied aggregate, or enumeral type.  */
 
-static const char *
-class_key_or_enum (tree t)
+const char *
+class_key_or_enum_as_string (tree t)
 {
   if (TREE_CODE (t) == ENUMERAL_TYPE)
     return "enum";
@@ -416,7 +418,7 @@ static void
 dump_aggr_type (tree t, int flags)
 {
   tree name;
-  const char *variety = class_key_or_enum (t);
+  const char *variety = class_key_or_enum_as_string (t);
   int typdef = 0;
   int tmplate = 0;
 
@@ -711,19 +713,17 @@ dump_decl (tree t, int flags)
   switch (TREE_CODE (t))
     {
     case TYPE_DECL:
-      {
-	/* Don't say 'typedef class A' */
-        if (DECL_ARTIFICIAL (t))
-	  {
-	    if ((flags & TFF_DECL_SPECIFIERS)
-	        && TREE_CODE (TREE_TYPE (t)) == TEMPLATE_TYPE_PARM)
-	      /* Say `class T' not just `T'.  */
-	      pp_cxx_identifier (cxx_pp, "class");
-
-	    dump_type (TREE_TYPE (t), flags);
-	    break;
-	  }
-      }
+      /* Don't say 'typedef class A' */
+      if (DECL_ARTIFICIAL (t))
+	{
+	  if ((flags & TFF_DECL_SPECIFIERS)
+	      && TREE_CODE (TREE_TYPE (t)) == TEMPLATE_TYPE_PARM)
+	    /* Say `class T' not just `T'.  */
+	    pp_cxx_identifier (cxx_pp, "class");
+	  
+	  dump_type (TREE_TYPE (t), flags);
+	  break;
+	}
       if (flags & TFF_DECL_SPECIFIERS)
 	pp_cxx_identifier (cxx_pp, "typedef");
       dump_simple_decl (t, DECL_ORIGINAL_TYPE (t)
@@ -1293,8 +1293,15 @@ dump_expr (tree t, int flags)
       dump_decl (t, (flags & ~TFF_DECL_SPECIFIERS) | TFF_NO_FUNCTION_ARGUMENTS);
       break;
 
-    case INTEGER_CST:
     case STRING_CST:
+      if (PAREN_STRING_LITERAL_P (t))
+	pp_cxx_left_paren (cxx_pp);
+      pp_c_constant (pp_c_base (cxx_pp), t);
+      if (PAREN_STRING_LITERAL_P (t))
+	pp_cxx_right_paren (cxx_pp);
+      break;
+      
+    case INTEGER_CST:
     case REAL_CST:
        pp_c_constant (pp_c_base (cxx_pp), t);
       break;
@@ -1927,14 +1934,6 @@ decl_as_string (tree decl, int flags)
   return pp_formatted_text (cxx_pp);
 }
 
-const char *
-context_as_string (tree context, int flags)
-{
-  reinit_cxx_pp ();
-  dump_scope (context, flags);
-  return pp_formatted_text (cxx_pp);
-}
-
 /* Generate the three forms of printable names for cxx_printable_name.  */
 
 const char *
@@ -2160,7 +2159,7 @@ cp_print_error_function (diagnostic_context *context,
       if (current_function_decl == NULL)
         pp_base_string (context->printer, "At global scope:");
       else
-        pp_printf (context->printer, "In %s `%s':",
+        pp_printf (context->printer, "In %s %qs:",
                    function_category (current_function_decl),
                    cxx_printable_name (current_function_decl, 2));
       pp_base_newline (context->printer);
@@ -2214,7 +2213,7 @@ print_instantiation_full_context (diagnostic_context *context)
 	    /* Avoid redundancy with the the "In function" line.  */;
 	  else
 	    pp_verbatim (context->printer,
-                         "%s: In instantiation of `%s':\n",
+                         "%s: In instantiation of %qs:\n",
 			 LOCATION_FILE (location),
                          decl_as_string (TINST_DECL (p),
                                          TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
@@ -2238,7 +2237,7 @@ print_instantiation_partial_context (diagnostic_context *context,
       xloc = expand_location (loc);
       if (t == NULL_TREE)
 	break;
-      pp_verbatim (context->printer, "%s:%d:   instantiated from `%s'\n",
+      pp_verbatim (context->printer, "%s:%d:   instantiated from %qs\n",
                    xloc.file, xloc.line,
                    decl_as_string (TINST_DECL (t),
                                    TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
@@ -2378,7 +2377,7 @@ locate_error (const char *msgid, va_list ap)
 
 	    default:
 	      errorcount = 0;  /* damn ICE suppression */
-	      internal_error ("unexpected letter `%c' in locate_error\n", *f);
+	      internal_error ("unexpected letter %qc in locate_error\n", *f);
 	    }
 	}
     }

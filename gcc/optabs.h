@@ -133,6 +133,8 @@ enum optab_index
   OTI_mov,
   /* Move, preserving high part of register.  */
   OTI_movstrict,
+  /* Move, with a misaligned memory.  */
+  OTI_movmisalign,
 
   /* Unary operations */
   /* Negation */
@@ -228,8 +230,6 @@ enum optab_index
   OTI_vec_extract,
   /* Initialize vector operand.  */
   OTI_vec_init,
-  /* Extract specified elements from vectors, for vector store.  */
-  OTI_vec_realign_store,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
 
@@ -275,6 +275,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 
 #define mov_optab (optab_table[OTI_mov])
 #define movstrict_optab (optab_table[OTI_movstrict])
+#define movmisalign_optab (optab_table[OTI_movmisalign])
 
 #define neg_optab (optab_table[OTI_neg])
 #define negv_optab (optab_table[OTI_negv])
@@ -334,7 +335,6 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
-#define vec_realign_store_optab (optab_table[OTI_vec_realign_store])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
 
 /* Conversion optabs have their own table and indexes.  */
@@ -425,6 +425,9 @@ extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab,
 extern rtx expand_binop (enum machine_mode, optab, rtx, rtx, rtx, int,
 			 enum optab_methods);
 
+extern bool force_expand_binop (enum machine_mode, optab, rtx, rtx, rtx, int,
+				enum optab_methods);
+
 /* Expand a binary operation with both signed and unsigned forms.  */
 extern rtx sign_expand_binop (enum machine_mode, optab, optab, rtx, rtx,
 			      rtx, int, enum optab_methods);
@@ -476,9 +479,6 @@ extern optab optab_for_tree_code (enum tree_code, tree);
    (without splitting it into pieces).  */
 extern int can_compare_p (enum rtx_code, enum machine_mode,
 			  enum can_compare_purpose);
-
-extern rtx prepare_operand (int, rtx, int, enum machine_mode,
-			    enum machine_mode, int);
 
 /* Return the INSN_CODE to use for an extend operation.  */
 extern enum insn_code can_extend_p (enum machine_mode, enum machine_mode, int);

@@ -24,8 +24,12 @@ Boston, MA 02111-1307, USA.  */
 #include <assert.h>
 #include "libgfortran.h"
 
+
+extern void count_4_l4 (gfc_array_i4 *, gfc_array_l4 *, index_type *);
+export_proto(count_4_l4);
+
 void
-__count_4_l4 (gfc_array_i4 * retarray, gfc_array_l4 *array, index_type *pdim)
+count_4_l4 (gfc_array_i4 *retarray, gfc_array_l4 *array, index_type *pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
@@ -75,8 +79,10 @@ __count_4_l4 (gfc_array_i4 * retarray, gfc_array_l4 *array, index_type *pdim)
             retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
         }
 
-      retarray->data = internal_malloc (sizeof (GFC_INTEGER_4) * 
-                                        (retarray->dim[rank-1].stride * extent[rank-1]));
+      retarray->data
+	 = internal_malloc_size (sizeof (GFC_INTEGER_4)
+		 		 * retarray->dim[rank-1].stride
+				 * extent[rank-1]);
       retarray->base = 0;
     }
           

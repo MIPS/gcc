@@ -65,9 +65,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    the program unit name.  */
 
 #include "config.h"
-#include <string.h>
-#include <stdlib.h>
-
+#include "system.h"
 #include "gfortran.h"
 #include "match.h"
 
@@ -710,7 +708,7 @@ count_types_test (gfc_formal_arglist * f1, gfc_formal_arglist * f2)
 	  ac1++;
 
       /* Count the number of arguments in f2 with that type, including
-         those that are optional. */
+         those that are optional.  */
       ac2 = 0;
 
       for (f = f2; f; f = f->next)
@@ -1313,7 +1311,7 @@ argpair;
    order:
     - p->a->expr == NULL
     - p->a->expr->expr_type != EXPR_VARIABLE
-    - growing p->a->expr->symbol.   */
+    - growing p->a->expr->symbol.  */
 
 static int
 pair_cmp (const void *p1, const void *p2)

@@ -176,6 +176,9 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90c8534", 2, "__AVR_AT90C8534__" },
   { "at90s8535", 2, "__AVR_AT90S8535__" },
   { "at86rf401", 2, "__AVR_AT86RF401__" },
+    /* Classic + MOVW, <= 8K.  */
+  { "attiny13",   2, "__AVR_ATtiny13__" },
+  { "attiny2313", 2, "__AVR_ATtiny2313__" },
     /* Classic, > 8K.  */
   { "avr3",      3, NULL },
   { "atmega103", 3, "__AVR_ATmega103__" },
@@ -186,6 +189,8 @@ static const struct mcu_type_s avr_mcu_types[] = {
     /* Enhanced, <= 8K.  */
   { "avr4",      4, NULL },
   { "atmega8",   4, "__AVR_ATmega8__" },
+  { "atmega48",   4, "__AVR_ATmega48__" },
+  { "atmega88",   4, "__AVR_ATmega88__" },
   { "atmega8515", 4, "__AVR_ATmega8515__" },
   { "atmega8535", 4, "__AVR_ATmega8535__" },
     /* Enhanced, > 8K.  */
@@ -194,11 +199,18 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega161", 5, "__AVR_ATmega161__" },
   { "atmega162", 5, "__AVR_ATmega162__" },
   { "atmega163", 5, "__AVR_ATmega163__" },
+  { "atmega165", 5, "__AVR_ATmega165__" },
+  { "atmega168", 5, "__AVR_ATmega168__" },
   { "atmega169", 5, "__AVR_ATmega169__" },
   { "atmega32",  5, "__AVR_ATmega32__" },
   { "atmega323", 5, "__AVR_ATmega323__" },
+  { "atmega325", 5, "__AVR_ATmega325__" },
+  { "atmega3250", 5, "__AVR_ATmega3250__" },
   { "atmega64",  5, "__AVR_ATmega64__" },
+  { "atmega645", 5, "__AVR_ATmega645__" },
+  { "atmega6450", 5, "__AVR_ATmega6450__" },
   { "atmega128", 5, "__AVR_ATmega128__" },
+  { "at90can128", 5, "__AVR_AT90CAN128__" },
   { "at94k",     5, "__AVR_AT94K__" },
     /* Assembler only.  */
   { "avr1",      1, NULL },
@@ -4511,7 +4523,7 @@ avr_handle_progmem_attribute (tree *node, tree name,
 	}
       else
 	{
-	  warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	  warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
     }
@@ -4530,9 +4542,35 @@ avr_handle_fndecl_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("`%s' attribute only applies to functions",
+      warning ("%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
+    }
+  else
+    {
+      const char *func_name = IDENTIFIER_POINTER (DECL_NAME (*node));
+      const char *attr = IDENTIFIER_POINTER (name);
+
+      /* If the function has the 'signal' or 'interrupt' attribute, test to
+         make sure that the name of the function is "__vector_NN" so as to
+         catch when the user misspells the interrupt vector name.  */
+
+      if (strncmp (attr, "interrupt", strlen ("interrupt")) == 0)
+        {
+          if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
+            {
+              warning ("`%s' appears to be a misspelled interrupt handler",
+                       func_name);
+            }
+        }
+      else if (strncmp (attr, "signal", strlen ("signal")) == 0)
+        {
+          if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
+            {
+              warning ("`%s' appears to be a misspelled signal handler",
+                       func_name);
+            }
+        }
     }
 
   return NULL_TREE;
@@ -4612,7 +4650,7 @@ static void
 avr_file_start (void)
 {
   if (avr_asm_only_p)
-    error ("MCU `%s' supported for assembler only", avr_mcu_name);
+    error ("MCU %qs supported for assembler only", avr_mcu_name);
 
   default_file_start ();
 

@@ -608,7 +608,7 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
 
 #if 1
   struct_var = get_inner_reference (op, &bitsize, &bitpos, &offsetr, &mode, 
-				    &unsignedp, &volatilep);
+				    &unsignedp, &volatilep, false);
   if (! struct_var)
     return 0;
 

@@ -1376,7 +1376,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:3:0
+libtool_VERSION=6:4:0
 
 
 # Find the rest of the source tree framework.
@@ -3995,14 +3995,7 @@ irix5* | irix6*)
 
 # This must be Linux ELF.
 linux-gnu*)
-  case $host_cpu in
-  alpha* | mips* | hppa* | i*86 | powerpc* | sparc* | ia64* | sh* )
-    lt_cv_deplibs_check_method=pass_all ;;
-  *)
-    # glibc up to 2.1.1 does not perform some relocations on ARM
-    lt_cv_deplibs_check_method='file_magic ELF [0-9][0-9]*-bit [LM]SB (shared object|dynamic lib )' ;;
-  esac
-  lt_cv_file_magic_test_file=`echo /lib/libc.so* /lib/libc-*.so`
+  lt_cv_deplibs_check_method=pass_all
   ;;
 
 netbsd* | knetbsd*-gnu)
@@ -4397,7 +4390,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4400 "configure"' > conftest.$ac_ext
+  echo '#line 4393 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5018,7 +5011,7 @@ fi;
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 5021 "configure"
+#line 5014 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -5789,6 +5782,9 @@ fi
 
         # ... at some point put __strxfrm_l tests in as well.
         ;;
+      darwin*)
+        enable_clocale_flag=darwin
+	;;
       *)
         enable_clocale_flag=generic
         ;;
@@ -5827,6 +5823,25 @@ echo "${ECHO_T}generic" >&6
       CTIME_CC=config/locale/generic/time_members.cc
       CLOCALE_INTERNAL_H=config/locale/generic/c++locale_internal.h
       ;;
+    darwin)
+      echo "$as_me:$LINENO: result: darwin" >&5
+echo "${ECHO_T}darwin" >&6
+
+      CLOCALE_H=config/locale/generic/c_locale.h
+      CLOCALE_CC=config/locale/generic/c_locale.cc
+      CCODECVT_H=config/locale/generic/codecvt_specializations.h
+      CCODECVT_CC=config/locale/generic/codecvt_members.cc
+      CCOLLATE_CC=config/locale/generic/collate_members.cc
+      CCTYPE_CC=config/locale/darwin/ctype_members.cc
+      CMESSAGES_H=config/locale/generic/messages_members.h
+      CMESSAGES_CC=config/locale/generic/messages_members.cc
+      CMONEY_CC=config/locale/generic/monetary_members.cc
+      CNUMERIC_CC=config/locale/generic/numeric_members.cc
+      CTIME_H=config/locale/generic/time_members.h
+      CTIME_CC=config/locale/generic/time_members.cc
+      CLOCALE_INTERNAL_H=config/locale/generic/c++locale_internal.h
+      ;;
+
     gnu)
       echo "$as_me:$LINENO: result: gnu" >&5
 echo "${ECHO_T}gnu" >&6
@@ -7912,9 +7927,11 @@ if $GLIBCXX_IS_NATIVE; then
 
 
 
+
+
 for ac_header in nan.h ieeefp.h endian.h sys/isa_defs.h machine/endian.h \
   machine/param.h sys/machine.h fp.h locale.h float.h inttypes.h gconv.h \
-  sys/types.h
+  sys/types.h sys/ipc.h sys/sem.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then

@@ -129,9 +129,6 @@ Boston, MA 02111-1307, USA.  */
   ((flag_pic || GLOBAL) ? DW_EH_PE_aligned : DW_EH_PE_absptr)
 #endif
 
-/* The Solaris linker doesn't understand constructor priorities.  */
-#undef SUPPORTS_INIT_PRIORITY
-#define SUPPORTS_INIT_PRIORITY 0
 
 /* Define for support of TFmode long double.
    SPARC ABI says that long double is 4 words.  */
@@ -166,5 +163,11 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_ATTRIBUTE_TABLE SOLARIS_ATTRIBUTE_TABLE
 
 /* Output a simple call for .init/.fini.  */
-#define ASM_OUTPUT_CALL(FILE, NAME)			\
-  fprintf (FILE, "\tcall\t%s\n\t nop\n", NAME)
+#define ASM_OUTPUT_CALL(FILE, FN)			        \
+  do								\
+    {								\
+      fprintf (FILE, "\tcall\t");				\
+      print_operand (FILE, XEXP (DECL_RTL (FN), 0), 0);	\
+      fprintf (FILE, "\n\tnop\n");				\
+    }								\
+  while (0)

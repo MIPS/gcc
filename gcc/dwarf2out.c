@@ -121,24 +121,29 @@ void
 named_section_eh_frame_section (void)
 {
 #ifdef EH_FRAME_SECTION_NAME
-#ifdef HAVE_LD_RO_RW_SECTION_MIXING
-  int fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
-  int per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
-  int lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
   int flags;
 
-  flags = (! flag_pic
-	   || ((fde_encoding & 0x70) != DW_EH_PE_absptr
-	       && (fde_encoding & 0x70) != DW_EH_PE_aligned
-	       && (per_encoding & 0x70) != DW_EH_PE_absptr
-	       && (per_encoding & 0x70) != DW_EH_PE_aligned
-	       && (lsda_encoding & 0x70) != DW_EH_PE_absptr
-	       && (lsda_encoding & 0x70) != DW_EH_PE_aligned))
-	  ? 0 : SECTION_WRITE;
+  if (EH_TABLES_CAN_BE_READ_ONLY)
+    {
+      int fde_encoding;
+      int per_encoding;
+      int lsda_encoding;
+
+      fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
+      per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
+      lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
+      flags = (! flag_pic
+	       || ((fde_encoding & 0x70) != DW_EH_PE_absptr
+		   && (fde_encoding & 0x70) != DW_EH_PE_aligned
+		   && (per_encoding & 0x70) != DW_EH_PE_absptr
+		   && (per_encoding & 0x70) != DW_EH_PE_aligned
+		   && (lsda_encoding & 0x70) != DW_EH_PE_absptr
+		   && (lsda_encoding & 0x70) != DW_EH_PE_aligned))
+	      ? 0 : SECTION_WRITE;
+    }
+  else
+    flags = SECTION_WRITE;
   named_section_flags (EH_FRAME_SECTION_NAME, flags);
-#else
-  named_section_flags (EH_FRAME_SECTION_NAME, SECTION_WRITE);
-#endif
 #endif
 }
 
@@ -358,7 +363,7 @@ static void initial_return_save (rtx);
 static HOST_WIDE_INT stack_adjust_offset (rtx);
 static void output_cfi (dw_cfi_ref, dw_fde_ref, int);
 static void output_call_frame_info (int);
-static void dwarf2out_stack_adjust (rtx);
+static void dwarf2out_stack_adjust (rtx, bool);
 static void flush_queued_reg_saves (void);
 static bool clobbers_queued_reg_save (rtx);
 static void dwarf2out_frame_debug_expr (rtx, const char *);
@@ -1046,7 +1051,7 @@ stack_adjust_offset (rtx pattern)
    much extra space it needs to pop off the stack.  */
 
 static void
-dwarf2out_stack_adjust (rtx insn)
+dwarf2out_stack_adjust (rtx insn, bool after_p)
 {
   HOST_WIDE_INT offset;
   const char *label;
@@ -1059,26 +1064,31 @@ dwarf2out_stack_adjust (rtx insn)
   if (prologue_epilogue_contains (insn) || sibcall_epilogue_contains (insn))
     return;
 
-  if (!flag_asynchronous_unwind_tables && CALL_P (insn))
+  /* If only calls can throw, and we have a frame pointer,
+     save up adjustments until we see the CALL_INSN.  */
+  if (!flag_asynchronous_unwind_tables && cfa.reg != STACK_POINTER_REGNUM)
     {
-      /* Extract the size of the args from the CALL rtx itself.  */
-      insn = PATTERN (insn);
-      if (GET_CODE (insn) == PARALLEL)
-	insn = XVECEXP (insn, 0, 0);
-      if (GET_CODE (insn) == SET)
-	insn = SET_SRC (insn);
-      gcc_assert (GET_CODE (insn) == CALL);
-
-      dwarf2out_args_size ("", INTVAL (XEXP (insn, 1)));
+      if (CALL_P (insn) && !after_p)
+	{
+	  /* Extract the size of the args from the CALL rtx itself.  */
+	  insn = PATTERN (insn);
+	  if (GET_CODE (insn) == PARALLEL)
+	    insn = XVECEXP (insn, 0, 0);
+	  if (GET_CODE (insn) == SET)
+	    insn = SET_SRC (insn);
+	  gcc_assert (GET_CODE (insn) == CALL);
+	  dwarf2out_args_size ("", INTVAL (XEXP (insn, 1)));
+	}
       return;
     }
 
-  /* If only calls can throw, and we have a frame pointer,
-     save up adjustments until we see the CALL_INSN.  */
-  else if (!flag_asynchronous_unwind_tables && cfa.reg != STACK_POINTER_REGNUM)
-    return;
-
-  if (BARRIER_P (insn))
+  if (CALL_P (insn) && !after_p)
+    {
+      if (!flag_asynchronous_unwind_tables)
+	dwarf2out_args_size ("", args_size);
+      return;
+    }
+  else if (BARRIER_P (insn))
     {
       /* When we see a BARRIER, we know to reset args_size to 0.  Usually
 	 the compiler will have already emitted a stack adjustment, but
@@ -1119,7 +1129,8 @@ dwarf2out_stack_adjust (rtx insn)
 
   label = dwarf2out_cfi_label ();
   def_cfa_1 (label, &cfa);
-  dwarf2out_args_size (label, args_size);
+  if (flag_asynchronous_unwind_tables)
+    dwarf2out_args_size (label, args_size);
 }
 
 #endif
@@ -1430,7 +1441,11 @@ static dw_cfa_location cfa_temp;
   (set (mem (postinc <reg1>:cfa_temp <const_int>)) <reg2>)
   effects: cfa.reg = <reg1>
 	   cfa.base_offset = -cfa_temp.offset
-	   cfa_temp.offset -= mode_size(mem)  */
+	   cfa_temp.offset -= mode_size(mem)
+
+  Rule 15:
+  (set <reg> {unspec, unspec_volatile})
+  effects: target-dependent  */
 
 static void
 dwarf2out_frame_debug_expr (rtx expr, const char *label)
@@ -1494,7 +1509,10 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	    {
 	      /* Saving a register in a register.  */
 	      gcc_assert (call_used_regs [REGNO (dest)]
-			  && !fixed_regs [REGNO (dest)]);
+			  && (!fixed_regs [REGNO (dest)]
+			      /* For the SPARC and its register window.  */
+			      || DWARF_FRAME_REGNUM (REGNO (src))
+				   == DWARF_FRAME_RETURN_COLUMN));
 	      queue_reg_save (label, src, dest, 0);
 	    }
 	  break;
@@ -1619,6 +1637,13 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	     which will fill in all of the bits.  */
 	  /* Rule 8 */
 	case HIGH:
+	  break;
+
+	  /* Rule 15 */
+	case UNSPEC:
+	case UNSPEC_VOLATILE:
+	  gcc_assert (targetm.dwarf_handle_frame_unspec);
+	  targetm.dwarf_handle_frame_unspec (label, expr, XINT (src, 1));
 	  break;
 
 	default:
@@ -1767,10 +1792,13 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 
 /* Record call frame debugging information for INSN, which either
    sets SP or FP (adjusting how we calculate the frame address) or saves a
-   register to the stack.  If INSN is NULL_RTX, initialize our state.  */
+   register to the stack.  If INSN is NULL_RTX, initialize our state.
+
+   If AFTER_P is false, we're being called before the insn is emitted,
+   otherwise after.  Call instructions get invoked twice.  */
 
 void
-dwarf2out_frame_debug (rtx insn)
+dwarf2out_frame_debug (rtx insn, bool after_p)
 {
   const char *label;
   rtx src;
@@ -1807,8 +1835,7 @@ dwarf2out_frame_debug (rtx insn)
   if (! RTX_FRAME_RELATED_P (insn))
     {
       if (!ACCUMULATE_OUTGOING_ARGS)
-	dwarf2out_stack_adjust (insn);
-
+	dwarf2out_stack_adjust (insn, after_p);
       return;
     }
 
@@ -2050,7 +2077,7 @@ output_call_frame_info (int for_eh)
   /* If we make FDEs linkonce, we may have to emit an empty label for
      an FDE that wouldn't otherwise be emitted.  We want to avoid
      having an FDE kept around when the function it refers to is
-     discarded. (Example where this matters: a primary function
+     discarded.  Example where this matters: a primary function
      template in C++ requires EH information, but an explicit
      specialization doesn't.  */
   if (TARGET_USES_WEAK_UNWIND_INFO
@@ -2059,7 +2086,7 @@ output_call_frame_info (int for_eh)
     for (i = 0; i < fde_table_in_use; i++)
       if ((fde_table[i].nothrow || fde_table[i].all_throwers_are_sibcalls)
           && !fde_table[i].uses_eh_lsda
-	  && ! DECL_ONE_ONLY (fde_table[i].decl))
+	  && ! DECL_WEAK (fde_table[i].decl))
 	targetm.asm_out.unwind_label (asm_out_file, fde_table[i].decl,
 				      for_eh, /* empty */ 1);
 
@@ -2074,8 +2101,7 @@ output_call_frame_info (int for_eh)
       for (i = 0; i < fde_table_in_use; i++)
 	if (fde_table[i].uses_eh_lsda)
 	  any_eh_needed = any_lsda_needed = true;
-        else if (TARGET_USES_WEAK_UNWIND_INFO
-		 && DECL_ONE_ONLY (fde_table[i].decl))
+        else if (TARGET_USES_WEAK_UNWIND_INFO && DECL_WEAK (fde_table[i].decl))
 	  any_eh_needed = true;
 	else if (! fde_table[i].nothrow
 		 && ! fde_table[i].all_throwers_are_sibcalls)
@@ -2222,7 +2248,7 @@ output_call_frame_info (int for_eh)
       /* Don't emit EH unwind info for leaf functions that don't need it.  */
       if (for_eh && !flag_asynchronous_unwind_tables && flag_exceptions
 	  && (fde->nothrow || fde->all_throwers_are_sibcalls)
-	  && (! TARGET_USES_WEAK_UNWIND_INFO || ! DECL_ONE_ONLY (fde->decl))
+	  && ! (TARGET_USES_WEAK_UNWIND_INFO && DECL_WEAK (fde_table[i].decl))
 	  && !fde->uses_eh_lsda)
 	continue;
 
@@ -3937,7 +3963,6 @@ static tree member_declared_type (tree);
 static const char *decl_start_label (tree);
 #endif
 static void gen_array_type_die (tree, dw_die_ref);
-static void gen_set_type_die (tree, dw_die_ref);
 #if 0
 static void gen_entry_point_die (tree, dw_die_ref);
 #endif
@@ -4607,6 +4632,15 @@ block_ultimate_origin (tree block)
 		       ? BLOCK_ABSTRACT_ORIGIN (ret_val) : NULL);
 	}
       while (lookahead != NULL && lookahead != ret_val);
+      
+      /* The block's abstract origin chain may not be the *ultimate* origin of
+	 the block. It could lead to a DECL that has an abstract origin set.
+	 If so, we want that DECL's abstract origin (which is what DECL_ORIGIN
+	 will give us if it has one).  Note that DECL's abstract origins are
+	 supposed to be the most distant ancestor (or so decl_ultimate_origin
+	 claims), so we don't need to loop following the DECL origins.  */
+      if (DECL_P (ret_val))
+	return DECL_ORIGIN (ret_val);
 
       return ret_val;
     }
@@ -8005,7 +8039,6 @@ is_base_type (tree type)
     case CHAR_TYPE:
       return 1;
 
-    case SET_TYPE:
     case ARRAY_TYPE:
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -8941,7 +8974,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	int volatilep;
 
 	obj = get_inner_reference (loc, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &volatilep);
+				   &unsignedp, &volatilep, false);
 
 	if (obj == loc)
 	  return 0;
@@ -9807,7 +9840,8 @@ rtl_for_decl_location (tree decl)
 	  if (dmode == pmode)
 	    rtl = DECL_INCOMING_RTL (decl);
 	  else if (SCALAR_INT_MODE_P (dmode)
-		   && GET_MODE_SIZE (dmode) <= GET_MODE_SIZE (pmode))
+		   && GET_MODE_SIZE (dmode) <= GET_MODE_SIZE (pmode)
+		   && DECL_INCOMING_RTL (decl))
 	    {
 	      rtx inc = DECL_INCOMING_RTL (decl);
 	      if (REG_P (inc))
@@ -10428,9 +10462,17 @@ add_abstract_origin_attribute (dw_die_ref die, tree origin)
   else if (TYPE_P (origin))
     origin_die = lookup_type_die (origin);
 
-  gcc_assert (origin_die);
+  /* XXX: Functions that are never lowered don't always have correct block
+     trees (in the case of java, they simply have no block tree, in some other
+     languages).  For these functions, there is nothing we can really do to
+     output correct debug info for inlined functions in all cases.  Rather
+     than abort, we'll just produce deficient debug info now, in that we will
+     have variables without a proper abstract origin.  In the future, when all
+     functions are lowered, we should re-add a gcc_assert (origin_die)
+     here.  */
 
-  add_AT_die_ref (die, DW_AT_abstract_origin, origin_die);
+  if (origin_die)
+      add_AT_die_ref (die, DW_AT_abstract_origin, origin_die);
 }
 
 /* We do not currently support the pure_virtual attribute.  */
@@ -10784,16 +10826,6 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 #endif
 
   add_type_attribute (array_die, element_type, 0, 0, context_die);
-}
-
-static void
-gen_set_type_die (tree type, dw_die_ref context_die)
-{
-  dw_die_ref type_die
-    = new_die (DW_TAG_set_type, scope_die_for (type, context_die), type);
-
-  equate_type_number_to_die (type, type_die);
-  add_type_attribute (type_die, TREE_TYPE (type), 0, 0, context_die);
 }
 
 #if 0
@@ -11175,12 +11207,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	     It seems reasonable to use AT_specification in this case.  */
 	  && !get_AT (old_die, DW_AT_inline))
 	{
-	  /* ??? This can happen if there is a bug in the program, for
-	     instance, if it has duplicate function definitions.  Ideally,
-	     we should detect this case and ignore it.  For now, if we have
-	     already reported an error, any error at all, then assume that
-	     we got here because of an input error, not a dwarf2 bug.  */
-	  gcc_assert (errorcount);
+	  /* Detect and ignore this case, where we are trying to output
+	     something we have already output.  */
 	  return;
 	}
 
@@ -12064,11 +12092,6 @@ gen_type_die (tree type, dw_die_ref context_die)
       gen_ptr_to_mbr_type_die (type, context_die);
       break;
 
-    case SET_TYPE:
-      gen_type_die (TYPE_DOMAIN (type), context_die);
-      gen_set_type_die (type, context_die);
-      break;
-
     case FILE_TYPE:
       gen_type_die (TREE_TYPE (type), context_die);
       /* No way to represent these in Dwarf yet!  */
@@ -12215,9 +12238,8 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
   tree decl;
   enum tree_code origin_code;
 
-  /* Ignore blocks never really used to make RTL.  */
-  if (stmt == NULL_TREE || !TREE_USED (stmt)
-      || (!TREE_ASM_WRITTEN (stmt) && !BLOCK_ABSTRACT (stmt)))
+  /* Ignore blocks that are NULL.  */
+  if (stmt == NULL_TREE)
     return;
 
   /* If the block is one fragment of a non-contiguous block, do not
@@ -12263,7 +12285,10 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
 	  if (debug_info_level > DINFO_LEVEL_TERSE)
 	    /* We are not in terse mode so *any* local declaration counts
 	       as being a "significant" one.  */
-	    must_output_die = (BLOCK_VARS (stmt) != NULL);
+	    must_output_die = (BLOCK_VARS (stmt) != NULL 
+			       && (TREE_USED (stmt) 
+				   || TREE_ASM_WRITTEN (stmt)
+				   || BLOCK_ABSTRACT (stmt)));
 	  else
 	    /* We are in terse mode, so only local (nested) function
 	       definitions count as "significant" local declarations.  */
@@ -12305,29 +12330,32 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
   tree decl;
   tree subblocks;
 
-  /* Ignore blocks never really used to make RTL.  */
-  if (stmt == NULL_TREE || ! TREE_USED (stmt))
+  /* Ignore NULL blocks.  */
+  if (stmt == NULL_TREE)
     return;
 
-  /* Output the DIEs to represent all of the data objects and typedefs
-     declared directly within this block but not within any nested
-     sub-blocks.  Also, nested function and tag DIEs have been
-     generated with a parent of NULL; fix that up now.  */
-  for (decl = BLOCK_VARS (stmt); decl != NULL; decl = TREE_CHAIN (decl))
+  if (TREE_USED (stmt))
     {
-      dw_die_ref die;
-
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	die = lookup_decl_die (decl);
-      else if (TREE_CODE (decl) == TYPE_DECL && TYPE_DECL_IS_STUB (decl))
-	die = lookup_type_die (TREE_TYPE (decl));
-      else
-	die = NULL;
-
-      if (die != NULL && die->die_parent == NULL)
-	add_child_die (context_die, die);
-      else
-	gen_decl_die (decl, context_die);
+      /* Output the DIEs to represent all of the data objects and typedefs
+	 declared directly within this block but not within any nested
+	 sub-blocks.  Also, nested function and tag DIEs have been
+	 generated with a parent of NULL; fix that up now.  */
+      for (decl = BLOCK_VARS (stmt); decl != NULL; decl = TREE_CHAIN (decl))
+	{
+	  dw_die_ref die;
+	  
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    die = lookup_decl_die (decl);
+	  else if (TREE_CODE (decl) == TYPE_DECL && TYPE_DECL_IS_STUB (decl))
+	    die = lookup_type_die (TREE_TYPE (decl));
+	  else
+	    die = NULL;
+	  
+	  if (die != NULL && die->die_parent == NULL)
+	    add_child_die (context_die, die);
+	  else
+	    gen_decl_die (decl, context_die);
+	}
     }
 
   /* If we're at -g1, we're not interested in subblocks.  */
@@ -13027,6 +13055,7 @@ dwarf2out_var_location (rtx loc_note)
   rtx prev_insn;
   static rtx last_insn;
   static const char *last_label;
+  tree decl;
 
   if (!DECL_P (NOTE_VAR_LOCATION_DECL (loc_note)))
     return;
@@ -13055,8 +13084,10 @@ dwarf2out_var_location (rtx loc_note)
 
   last_insn = loc_note;
   last_label = newloc->label;
-
-  add_var_loc_to_decl (NOTE_VAR_LOCATION_DECL (loc_note), newloc);
+  decl = NOTE_VAR_LOCATION_DECL (loc_note);
+  if (DECL_DEBUG_ALIAS_OF (decl))
+    decl = DECL_DEBUG_ALIAS_OF (decl); 
+  add_var_loc_to_decl (decl, newloc);
 }
 
 /* We need to reset the locations at the beginning of each

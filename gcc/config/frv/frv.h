@@ -1884,26 +1884,6 @@ struct machine_function GTY(())
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED)			\
   frv_function_arg (&CUM, MODE, TYPE, NAMED, TRUE)
 
-/* A C expression for the number of words, at the beginning of an argument,
-   must be put in registers.  The value must be zero for arguments that are
-   passed entirely in registers or that are entirely pushed on the stack.
-
-   On some machines, certain arguments must be passed partially in registers
-   and partially in memory.  On these machines, typically the first N words of
-   arguments are passed in registers, and the rest on the stack.  If a
-   multi-word argument (a `double' or a structure) crosses that boundary, its
-   first few words must be passed in registers and the rest must be pushed.
-   This macro tells the compiler when this occurs, and how many of the words
-   should go in registers.
-
-   `FUNCTION_ARG' for these arguments should return the first register to be
-   used by the caller for this argument; likewise `FUNCTION_INCOMING_ARG', for
-   the called function.  */
-#define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)		\
-  frv_function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
-
-/* extern int frv_function_arg_partial_nregs (CUMULATIVE_ARGS, int, Tree, int);  */
-
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the type
    `int' suffices and can hold the number of bytes of argument so far.
@@ -2384,12 +2364,7 @@ do {							\
               ? CC_NOOVmode : CCmode))
 
    You need not define this macro if `EXTRA_CC_MODES' is not defined.  */
-#define SELECT_CC_MODE(OP, X, Y)					\
-  (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT				\
-   ? CC_FPmode								\
-   : (((OP) == LEU || (OP) == GTU || (OP) == LTU || (OP) == GEU)	\
-      ? CC_UNSmode							\
-      : CCmode))
+#define SELECT_CC_MODE frv_select_cc_mode
 
 /* A C expression whose value is one if it is always safe to reverse a
    comparison whose mode is MODE.  If `SELECT_CC_MODE' can ever return MODE for
@@ -2405,7 +2380,8 @@ do {							\
 
 /* On frv, don't consider floating point comparisons to be reversible.  In
    theory, fp equality comparisons can be reversible.  */
-#define REVERSIBLE_CC_MODE(MODE) ((MODE) == CCmode || (MODE) == CC_UNSmode)
+#define REVERSIBLE_CC_MODE(MODE) \
+  ((MODE) == CCmode || (MODE) == CC_UNSmode || (MODE) == CC_NZmode)
 
 /* Frv CCR_MODE's are not reversible.  */
 #define REVERSE_CONDEXEC_PREDICATES_P(x,y)      0
@@ -3051,8 +3027,8 @@ do {                                                                    \
   { "uint16_operand",			{ CONST_INT }},			\
   { "relational_operator",		{ EQ, NE, LE, LT, GE, GT,	\
 					  LEU, LTU, GEU, GTU }},	\
-  { "signed_relational_operator",	{ EQ, NE, LE, LT, GE, GT }},	\
-  { "unsigned_relational_operator",	{ LEU, LTU, GEU, GTU }},	\
+  { "integer_relational_operator",	{ EQ, NE, LE, LT, GE, GT,	\
+					  LEU, LTU, GEU, GTU }},	\
   { "float_relational_operator",	{ EQ, NE, LE, LT, GE, GT }},	\
   { "ccr_eqne_operator",		{ EQ, NE }},			\
   { "minmax_operator",			{ SMIN, SMAX, UMIN, UMAX }},	\
@@ -3064,8 +3040,6 @@ do {                                                                    \
   { "condexec_sf_add_operator",		{ PLUS, MINUS }},		\
   { "condexec_sf_conv_operator",	{ ABS, NEG }},			\
   { "intop_compare_operator",		{ PLUS, MINUS, AND, IOR, XOR,	\
-					  ASHIFT, ASHIFTRT, LSHIFTRT }}, \
-  { "condexec_intop_cmp_operator",	{ PLUS, MINUS, AND, IOR, XOR,	\
 					  ASHIFT, ASHIFTRT, LSHIFTRT }}, \
   { "fpr_or_int6_operand",		{ REG, SUBREG, CONST_INT }},	\
   { "int6_operand",			{ CONST_INT }},			\

@@ -30,7 +30,7 @@ s-crt0: $(srcdir)/unwind-dw2-fde.h
 
 SHLIB_EXT = .nlm
 SHLIB_SONAME = @shlib_so_name@.nlm
-SHLIB_NAME = @shlib_dir@@shlib_so_name@.nlm
+SHLIB_NAME = @shlib_base_name@.nlm
 SHLIB_SLIBDIR_QUAL = @shlib_slibdir_qual@
 SHLIB_DEF = $(srcdir)/config/i386/netware-libgcc.def
 SHLIB_MAP = $(srcdir)/config/i386/netware-libgcc.exp
@@ -38,6 +38,7 @@ SHLIB_SRC = $(srcdir)/config/i386/netware-libgcc.c
 
 SHLIB_LINK = set -e; \
 	cat $(SHLIB_DEF) >@shlib_so_name@.def; \
+	echo "name $(SHLIB_NAME)" >>@shlib_so_name@.def; \
 	echo "version $(gcc_version)" | sed "s!\.!,!g" >>@shlib_so_name@.def; \
 	touch libgcc/build; \
 	echo "build $$$$(($$$$(<libgcc/build)+0))" >>@shlib_so_name@.def; \
@@ -46,13 +47,9 @@ SHLIB_LINK = set -e; \
 		then echo "xdcdata @shlib_so_name@.xdc" >>@shlib_so_name@.def; \
 		else echo "WARNING: $(SHLIB_NAME) built without XDC data will not work well." 1>&2; \
 	fi; \
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -o $(SHLIB_NAME).tmp \
-		$(SHLIB_SRC) -static-libgcc -lnetware \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -o $(SHLIB_NAME) \
+		$(SHLIB_SRC) -posix -static-libgcc -lnetware \
 		-Wl,--Map,--map-info,full,--strip-all,--def-file,@shlib_so_name@.def; \
-	if [ -f $(SHLIB_NAME) ]; then \
-	  mv -f $(SHLIB_NAME) $(SHLIB_NAME).`basename $(STAGE_PREFIX)`; \
-	else true; fi; \
-	mv $(SHLIB_NAME).tmp $(SHLIB_NAME); \
 	rm -f @shlib_so_name@.imp; $(LN_S) $(SHLIB_MAP) @shlib_so_name@.imp; \
 	echo $$$$(($$$$(<libgcc/build)+1)) >libgcc/build
 

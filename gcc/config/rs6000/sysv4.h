@@ -324,6 +324,10 @@ do {									\
 #undef	PROCESSOR_DEFAULT
 #define	PROCESSOR_DEFAULT PROCESSOR_PPC750
 
+/* SVR4 only defined for PowerPC, so short-circuit POWER patterns.  */
+#undef  TARGET_POWER
+#define TARGET_POWER 0
+
 #define FIXED_R2 1
 /* System V.4 uses register 13 as a pointer to the small data area,
    so it is not available to the normal user.  */
@@ -1363,4 +1367,4 @@ ncrtn.o%s"
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
 
 /* Generate entries in .fixup for relocatable addresses.  */
-#define RELOCATABLE_NEEDS_FIXUP
+#define RELOCATABLE_NEEDS_FIXUP 1

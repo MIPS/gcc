@@ -29,12 +29,11 @@ Boston, MA 02111-1307, USA.  */
 /* This is the offset (in bytes) required to cast from logical(8)* to
    logical(4)*. and still get the same result.  Will be 0 for little-endian
    machines and 4 for big-endian machines.  */
-int l8_to_l4_offset;
+int l8_to_l4_offset = 0;
 
 
 /* Figure out endianness for this machine.  */
 
-#define detetmine_endianness	prefix(determine_endianness)
 static void
 determine_endianness (void)
 {
@@ -71,7 +70,6 @@ set_args (int argc, char **argv)
 void
 get_args (int *argc, char ***argv)
 {
-
   *argc = argc_save;
   *argv = argv_save;
 }
@@ -96,12 +94,10 @@ init (void)
   if (argc > 1 && strcmp (argv[1], "--help") == 0)
     show_variables ();
 
-/*  if (argc > 1 && strcmp(argv[1], "--resume") == 0) resume();  */
+  /* if (argc > 1 && strcmp(argv[1], "--resume") == 0) resume();  */
 #endif
 
-  memory_init ();
   random_seed(NULL,NULL,NULL);
-
 }
 
 
@@ -112,4 +108,3 @@ cleanup ()
 {
   close_units ();
 }
-
