@@ -324,6 +324,11 @@ gfc_resolve_cmplx (gfc_expr * f, gfc_expr * x, gfc_expr * y, gfc_expr * kind)
 		      gfc_type_letter (y->ts.type), y->ts.kind);
 }
 
+void
+gfc_resolve_dcmplx (gfc_expr * f, gfc_expr * x, gfc_expr * y)
+{
+  gfc_resolve_cmplx (f, x, y, gfc_int_expr (gfc_default_double_kind ()));
+}
 
 void
 gfc_resolve_conjg (gfc_expr * f, gfc_expr * x)

@@ -1,3 +1,9 @@
+2004-01-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* intrinsic.c (add_functions): Add resolve function to dcmplx.
+	* intrinsic.h (gfc_resolve_dcmplx): Add prototype.
+	* iresolve.c (gfc_resolve_dcmplx): New function.
+
 2004-01-10  Paul Brook  <paul@codesourcery.com>
 
 	* trans-decl.c (gfc_get_symbol_decl): Don't set subroutine attr.

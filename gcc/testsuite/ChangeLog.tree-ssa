@@ -1,3 +1,7 @@
+2004-01-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/cmplx.f90: Add dcmplx test.
+
 2004-01-10  Paul Brook  <paul@codesourcery.com>
 
 	* gfortran.fortran-torture/execute/mystery_proc.f90: New test.

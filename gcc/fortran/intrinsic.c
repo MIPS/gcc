@@ -853,7 +853,9 @@ add_functions (void)
   /* Making dcmplx a specific of cmplx causes cmplx to return a double
      complex instead of the default complex.  */
 
-  add_sym_2 ("dcmplx", 1, 1, BT_COMPLEX, dd, gfc_check_dcmplx, gfc_simplify_dcmplx, NULL, x, BT_REAL, dd, 0, y, BT_REAL, dd, 1);	/* Extension */
+  add_sym_2 ("dcmplx", 1, 1, BT_COMPLEX, dd,
+	     gfc_check_dcmplx, gfc_simplify_dcmplx, gfc_resolve_dcmplx,
+	     x, BT_REAL, dd, 0, y, BT_REAL, dd, 1);	/* Extension */
 
   make_generic ("dcmplx", GFC_ISYM_CMPLX);
 
