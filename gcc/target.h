@@ -442,9 +442,19 @@ struct gcc_target
   /* Functions relating to vectorization.  */
   struct vect
   {
+    /* True if loads from misaligned addresses are supported.  */
     bool (* support_misaligned_loads) (void);
+
+    /* True if loads from misaligned addresses are permuted.  */
     bool (* permute_misaligned_loads) (void);
+
+    /* Function decl for mask used to shift left by vperm.  */
     tree (* build_builtin_lvsl) (void);
+
+    /* Function decl for mask used to shift right by vperm.  */
+    tree (* build_builtin_lvsr) (void);
+
+    /* Function decl for vector permute.  */
     tree (* build_builtin_vperm) (enum machine_mode);
 
     /* True if vector compare instructions are supported.  */

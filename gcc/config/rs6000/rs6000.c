@@ -472,6 +472,7 @@ static tree get_vector_select_for (tree);
 static bool rs6000_support_misaligned_vloads (void);
 static bool rs6000_permute_misaligned_vloads (void);
 static tree rs6000_build_builtin_lvsl (void);
+static tree rs6000_build_builtin_lvsr (void);
 static tree rs6000_build_builtin_vperm (enum machine_mode);
 /* APPLE LOCAL end AV misaligned -haifa  */
 
@@ -727,6 +728,9 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_VECT_BUILD_BUILTIN_LVSL
 #define TARGET_VECT_BUILD_BUILTIN_LVSL rs6000_build_builtin_lvsl
+
+#undef TARGET_VECT_BUILD_BUILTIN_LVSR
+#define TARGET_VECT_BUILD_BUILTIN_LVSR rs6000_build_builtin_lvsr
 
 #undef TARGET_VECT_BUILD_BUILTIN_VPERM
 #define TARGET_VECT_BUILD_BUILTIN_VPERM rs6000_build_builtin_vperm
@@ -4819,19 +4823,21 @@ rs6000_mixed_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 static bool
 rs6000_support_misaligned_vloads (void)
 {
- return true;
+ return (TARGET_ALTIVEC ? true : false);
 }
 
 static bool
 rs6000_permute_misaligned_vloads (void)
 {
- return true;
+ return (TARGET_ALTIVEC ? true : false);
 }
 
 static tree
 rs6000_build_builtin_lvsl (void)
 {
-  tree pcvoid_type_node = build_pointer_type (build_qualified_type (void_type_node, TYPE_QUAL_CONST));
+  tree pcvoid_type_node
+    = build_pointer_type (build_qualified_type (void_type_node,
+						TYPE_QUAL_CONST));
   tree v16qi_ftype_long_pcvoid
     = build_function_type_list (V16QI_type_node,
                       long_integer_type_node, pcvoid_type_node, NULL_TREE);
@@ -4840,15 +4846,24 @@ rs6000_build_builtin_lvsl (void)
   tree decl = build_decl (FUNCTION_DECL, id, v16qi_ftype_long_pcvoid);
   DECL_BUILT_IN_CLASS (decl) = BUILT_IN_MD;
   DECL_FUNCTION_CODE (decl) = ALTIVEC_BUILTIN_LVSL;
-/* Should the following from c-decl.c/builtin_function be added?:
-  TREE_PUBLIC (decl) = 1;
-  DECL_EXTERNAL (decl) = 1;
-  DECL_LANG_SPECIFIC (decl) = ggc_alloc_cleared (sizeof (struct lang_decl));
-*/
   return decl;
-/* Wish we could simply look it up as in c-decl.c:
-  return lookup_name (get_identifier ("__builtin_altivec_lvsl"));
-*/
+}
+
+static tree
+rs6000_build_builtin_lvsr (void)
+{
+  tree pcvoid_type_node
+    = build_pointer_type (build_qualified_type (void_type_node,
+						TYPE_QUAL_CONST));
+  tree v16qi_ftype_long_pcvoid
+    = build_function_type_list (V16QI_type_node,
+                      long_integer_type_node, pcvoid_type_node, NULL_TREE);
+
+  tree id = get_identifier ("__builtin_altivec_lvsr");
+  tree decl = build_decl (FUNCTION_DECL, id, v16qi_ftype_long_pcvoid);
+  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_MD;
+  DECL_FUNCTION_CODE (decl) = ALTIVEC_BUILTIN_LVSR;
+  return decl;
 }
 
 static tree
@@ -5074,6 +5089,8 @@ static bool
 get_vector_init_fns_for_type (tree type, tree *lve_fn, tree *splt_fn)
 {
   enum machine_mode m0;
+  *lve_fn = NULL_TREE;
+  *splt_fn = NULL_TREE;
 
   m0 = TYPE_MODE (type);
  

@@ -271,6 +271,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECT_SUPPORT_MISALIGNED_LOADS 0
 #define TARGET_VECT_PERMUTE_MISALIGNED_LOADS 0
 #define TARGET_VECT_BUILD_BUILTIN_LVSL 0
+#define TARGET_VECT_BUILD_BUILTIN_LVSR 0
 #define TARGET_VECT_BUILD_BUILTIN_VPERM 0
 #define TARGET_VECTOR_COMPARE_P 0
 #define TARGET_VECTOR_COMPARE_FOR_P 0
@@ -289,6 +290,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   {TARGET_VECT_SUPPORT_MISALIGNED_LOADS,                  \
    TARGET_VECT_PERMUTE_MISALIGNED_LOADS,                  \
    TARGET_VECT_BUILD_BUILTIN_LVSL,                        \
+   TARGET_VECT_BUILD_BUILTIN_LVSR,                        \
    TARGET_VECT_BUILD_BUILTIN_VPERM,                       \
    TARGET_VECTOR_COMPARE_P,                               \
    TARGET_VECTOR_COMPARE_FOR_P,                           \

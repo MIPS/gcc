@@ -215,9 +215,10 @@ static bool vect_analyze_loop_with_symbolic_num_of_iters
 static tree vect_create_destination_var (tree, tree);
 /* APPLE LOCAL begin AV misaligned -haifa  */
 static tree vect_create_data_ref (tree, tree, block_stmt_iterator *, bool,
-                        tree *);
+                        tree *, bool);
 static tree vect_create_index_for_array_ref (tree, block_stmt_iterator *,
-                                 int *);
+					     tree *, bool);
+static void vect_finish_stmt_generation_in_preheader (tree, struct loop *);
 /* APPLE LOCAL end AV misaligned -haifa  */
 static tree get_vectype_for_scalar_type (tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
@@ -551,9 +552,10 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
 
 /* APPLE LOCAL AV misaligned -haifa  */
 /* Additional parameter: init_value  */
+/* Additional parameter: only_init  */
 static tree
 vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
-                       int * init_val)
+				 tree * init, bool only_init)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
@@ -562,8 +564,8 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
   varray_type access_fns = DR_ACCESS_FNS (dr);
   tree access_fn;
   /* APPLE LOCAL AV misaligned -haifa  */
-  int step_val;
-  tree init, step;
+  tree init0;
+  tree step;
   int array_first_index;
   tree indx_before_incr, indx_after_incr;
 
@@ -574,19 +576,17 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
 
   access_fn = DR_ACCESS_FN (dr, 0);
 
-  if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, &init, &step, 
-	true))
+  /* APPLE LOCAL begin AV misaligned -haifa  */
+  if (!vect_is_simple_iv_evolution (loop_num (loop), access_fn, init, &step, 
+      true))
     abort ();
 
-  if (TREE_CODE (init) != INTEGER_CST || TREE_CODE (step) != INTEGER_CST)
+  if (TREE_CODE (step) != INTEGER_CST)
     abort ();	
 
-  if (TREE_INT_CST_HIGH (init) != 0 || TREE_INT_CST_HIGH (step) != 0)
+  if (TREE_INT_CST_HIGH (step) != 0)
     abort ();
-
-  /* APPLE LOCAL AV misaligned -haifa  */
-  *init_val = TREE_INT_CST_LOW (init); 
-  step_val = TREE_INT_CST_LOW (step);
+  /* APPLE LOCAL end AV misaligned -haifa  */
 
 
   /** Handle initialization.  **/
@@ -601,14 +601,18 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi,
 
   array_first_index = vect_get_array_first_index (expr);
 
-  /* APPLE LOCAL AV misaligned -haifa  */
-  init = integer_zero_node;
+  /* APPLE LOCAL begin AV misaligned -haifa  */
+  init0 = integer_zero_node;
   step = integer_one_node;
 
   /* CHECKME: assuming that bsi_insert is used with BSI_NEW_STMT */
 
-  create_iv (init, step, NULL_TREE, loop, bsi, false, 
+  if (only_init)
+    return 0;
+
+  create_iv (init0, step, NULL_TREE, loop, bsi, false, 
 	&indx_before_incr, &indx_after_incr); 
+  /* APPLE LOCAL end AV misaligned -haifa  */
 
   return indx_before_incr;
 }
@@ -739,10 +743,11 @@ vect_align_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt)
    FORNOW: handle only simple array accesses (step 1).  */
 
 /* APPLE LOCAL AV misaligned -haifa  */
-/* Two additional parameters.  */
+/* Three additional parameters.  */
 static tree
 vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt, 
-	block_stmt_iterator *bsi, bool use_max_misaligned_offset, tree * ptr)
+		      block_stmt_iterator *bsi, bool use_max_misaligned_offset,
+		      tree * ptr, bool only_init)
 {
   tree new_base;
   tree data_ref;
@@ -761,10 +766,13 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
   int nvuses = 0, nvdefs = 0;
   int i;
   /* APPLE LOCAL AV misaligned -haifa  */
-  int init_val;
+  tree init_oval;
+  tree dest, init_val;
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree array_type;
   tree base_addr;
+  /* APPLE LOCAL AV misaligned -haifa  */
+  struct loop *loop = STMT_VINFO_LOOP (stmt_info);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -811,20 +819,20 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
     {
       tree symbl = SSA_NAME_VAR (addr_ref);
       tree tag = get_var_ann (symbl)->type_mem_tag;
-      /* APPLE LOCAL begin AV alias-set  -haifa */
-      if (!tag)
-        {
+      /* APPLE LOCAL begin AV alias-set  -haifa */                           
+      if (!tag)                                                              
+        {                                                                    
           /* try to find the tag from the actual pointer used in the stmt  */
-          tree ptr;
-          if (TREE_CODE (ref) != INDIRECT_REF)
-            abort ();
-          ptr = TREE_OPERAND (ref, 0); 
-          symbl = SSA_NAME_VAR (ptr); 
-          tag = get_var_ann (symbl)->type_mem_tag;
-          if (!tag)
-            abort ();
-        }
-      /* APPLE LOCAL end AV alias-set  -haifa */
+          tree ptr;                                                          
+          if (TREE_CODE (ref) != INDIRECT_REF)                               
+            abort ();                                                        
+          ptr = TREE_OPERAND (ref, 0);                                       
+          symbl = SSA_NAME_VAR (ptr);                                        
+          tag = get_var_ann (symbl)->type_mem_tag;                           
+          if (!tag)                                                          
+            abort ();                                                        
+        }                                                                    
+      /* APPLE LOCAL end AV alias-set  -haifa */                             
       get_var_ann (vect_ptr)->type_mem_tag = tag;  /* CHECKME */
     }
 
@@ -863,16 +871,33 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
 
 
   /* APPLE LOCAL begin AV misaligned -haifa  */
-  idx = vect_create_index_for_array_ref (stmt, bsi, &init_val);
+  idx = vect_create_index_for_array_ref (stmt, bsi, &init_oval, only_init);
+
+  /*** init_oval may not be gimple.  Create: init_val = init_oval; ***/
+  dest = create_tmp_var (TREE_TYPE (init_oval), "newinit");
+  add_referenced_tmp_var (dest);
+
+  init_val = force_gimple_operand (init_oval, &stmt, false, dest);
+  if (stmt != NULL)
+    vect_finish_stmt_generation_in_preheader (stmt, loop);
 
   /*** create: p = (vectype *)&a[init_val]; ***/
   if (use_max_misaligned_offset)
     {
-      /*** bump init_val by vectorization_factor - 1.  ***/
-      struct loop *loop = STMT_VINFO_LOOP (stmt_info);
+      /*** bump init_val by (vectorization_factor - 1).  ***/
+      /* struct loop *loop = STMT_VINFO_LOOP (stmt_info); */
       loop_vec_info loop_info = loop->aux;
       int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_info);
-      init_val += vectorization_factor - 1;
+      tree stmt;
+
+      dest = create_tmp_var (TREE_TYPE (init_val), "newinit2");
+      add_referenced_tmp_var (dest);
+      stmt = build (PLUS_EXPR, TREE_TYPE (init_val),
+	            init_val, build_int_2 (vectorization_factor - 1, 0));
+      stmt = build (MODIFY_EXPR, TREE_TYPE (init_val), dest, stmt);
+      init_val = make_ssa_name (dest, stmt);
+      TREE_OPERAND (stmt, 0) = init_val;
+      vect_finish_stmt_generation_in_preheader (stmt, loop);
     }
 
   /* APPLE LOCAL begin pointer support -haifa  */
@@ -882,13 +907,25 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
 	 vect_ptr = (< ptr_typ >) &a[init_val]  */
 
       tree array_ref_base = addr_ref;
+      tree addr_of_array_ref;
+
       array_ref = build (ARRAY_REF, TREE_TYPE (addr_ref), array_ref_base,
-		    build_int_2 (init_val, 0));
+			 init_val);
+      addr_of_array_ref = build1 (ADDR_EXPR,
+				  build_pointer_type (TREE_TYPE (addr_ref)),
+                                  array_ref); 
+
+      dest = create_tmp_var (build_pointer_type (TREE_TYPE (addr_ref)), "ptr");
+      add_referenced_tmp_var (dest);
+      stmt = build (MODIFY_EXPR, build_pointer_type (TREE_TYPE (addr_ref)),
+		    dest, addr_of_array_ref);
+      addr_of_array_ref = make_ssa_name (dest, stmt);
+      TREE_OPERAND (stmt, 0) = addr_of_array_ref;
+      vect_finish_stmt_generation_in_preheader (stmt, loop);
+
       vec_stmt = build (MODIFY_EXPR, void_type_node, vect_ptr,
-		    build1 (NOP_EXPR, ptr_type,
-			    build1 (ADDR_EXPR,
-				    build_pointer_type (TREE_TYPE (addr_ref)),
-				    array_ref)));
+			build1 (NOP_EXPR, ptr_type, addr_of_array_ref)); 
+
     }
   else if (TREE_CODE (addr_ref) == SSA_NAME)
     {
@@ -902,11 +939,17 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
       TYPE_ALIGN (array_type) = TYPE_ALIGN (innertype); /* CHECKME */
 
       array_ref_base = build1 (INDIRECT_REF, array_type, addr_ref);
-      array_ref = build (ARRAY_REF, innertype, array_ref_base,
-			build_int_2 (init_val, 0)); 
+      array_ref = build (ARRAY_REF, innertype, array_ref_base, init_val); 
       addr_of_array_ref = build1 (ADDR_EXPR, build_pointer_type (innertype),
                                   array_ref); 
-      TREE_INVARIANT (addr_of_array_ref) = 1; /* CHECKME */
+      dest = create_tmp_var (build_pointer_type (innertype), "ptr");
+      add_referenced_tmp_var (dest);
+      stmt = build (MODIFY_EXPR, build_pointer_type (innertype),
+		    dest, addr_of_array_ref);
+      addr_of_array_ref = make_ssa_name (dest, stmt);
+      TREE_OPERAND (stmt, 0) = addr_of_array_ref;
+      vect_finish_stmt_generation_in_preheader (stmt, loop);
+
       vec_stmt = build (MODIFY_EXPR, void_type_node, vect_ptr,
 		    build1 (NOP_EXPR, ptr_type, addr_of_array_ref)); 
     }
@@ -917,7 +960,7 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
   TREE_ADDRESSABLE (base_addr) = 1;
   new_temp = make_ssa_name (vect_ptr, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
-  bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
+  vect_finish_stmt_generation_in_preheader (vec_stmt, loop);
 
   *ptr = new_temp;
   /* APPLE LOCAL end AV misaligned -haifa  */
@@ -927,7 +970,13 @@ vect_create_data_ref (tree ref ATTRIBUTE_UNUSED, tree stmt,
   array_type = build_array_type (vectype, 0);
   TYPE_ALIGN (array_type) = TYPE_ALIGN (TREE_TYPE (addr_ref));
   new_base = build1 (INDIRECT_REF, array_type, TREE_OPERAND (vec_stmt, 0)); 
-  data_ref = build (ARRAY_REF, vectype, new_base, idx);
+
+  /* APPLE LOCAL begin AV misaligned -haifa  */
+  if (only_init)
+    data_ref = build (ARRAY_REF, vectype, new_base, integer_zero_node);
+  else
+    data_ref = build (ARRAY_REF, vectype, new_base, idx);
+  /* APPLE LOCAL end AV misaligned -haifa  */
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     print_generic_expr (dump_file, data_ref, TDF_SLIM);
@@ -1490,7 +1539,7 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
 
   /* APPLE LOCAL begin AV misaligned -haifa  */
   vect_align_data_ref (scalar_dest, stmt);
-  data_ref = vect_create_data_ref (scalar_dest, stmt, bsi, false, &t);
+  data_ref = vect_create_data_ref (scalar_dest, stmt, bsi, false, &t, false);
   /* APPLE LOCAL end AV misaligned -haifa  */
   if (!data_ref)
     abort ();
@@ -1545,6 +1594,25 @@ vect_transform_store (tree stmt, block_stmt_iterator *bsi)
 
 /* APPLE LOCAL begin AV misaligned -haifa  */
 static void
+vect_finish_stmt_generation_in_preheader (tree vec_stmt,
+					  struct loop *loop)
+{
+  edge pe;
+  basic_block new_bb;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "add new stmt in preheader\n");
+      print_generic_stmt (dump_file, vec_stmt, TDF_SLIM);
+    }
+
+  pe = loop_preheader_edge (loop);
+  new_bb = bsi_insert_on_edge_immediate (pe, vec_stmt);
+  if (new_bb)
+    add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+}
+
+static void
 vect_finish_stmt_generation (tree stmt, tree vec_stmt, block_stmt_iterator *bsi)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1568,6 +1636,15 @@ vect_finish_stmt_generation (tree stmt, tree vec_stmt, block_stmt_iterator *bsi)
          The iterator bsi should be bumped to point to stmt at location (i+3)
          because this is what the driver vect_transform_loop expects.  */
 
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        {
+          fprintf (dump_file, "update chain:\n");
+          print_generic_stmt (dump_file, bsi_stmt (*bsi), TDF_SLIM);
+        }
+      bsi_next (bsi);
+    }
+  if (stmt != bsi_stmt (*bsi))
+    {
       if (dump_file && (dump_flags & TDF_DETAILS))
         {
           fprintf (dump_file, "update chain:\n");
@@ -1613,15 +1690,12 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
   scalar_dest = TREE_OPERAND (stmt, 0);
   if (TREE_CODE (scalar_dest) != SSA_NAME)
     abort ();
-  vec_dest = vect_create_destination_var (scalar_dest, vectype);
-  if (!vec_dest)
-    abort ();
 
+  /* APPLE LOCAL begin AV misaligned -haifa  */
   /** Handle use.  **/
 
   op = TREE_OPERAND (stmt, 1);
 
-  /* APPLE LOCAL begin AV misaligned -haifa  */
   if (!aligned_access_p (STMT_VINFO_DATA_REF (stmt_info))
       && (!targetm.vect.support_misaligned_loads
           || !(*targetm.vect.support_misaligned_loads) ()))
@@ -1630,42 +1704,56 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
   if (aligned_access_p (STMT_VINFO_DATA_REF (stmt_info)))
     vect_align_data_ref (op, stmt);
 
-  data_ref = vect_create_data_ref (op, stmt, bsi, false, &ptr);
-  /* APPLE LOCAL end AV misaligned -haifa  */
-
-  if (!data_ref)
-    abort ();
-
-  /** Arguments are ready. create the new vector stmt.  **/
-
-  vec_stmt = build (MODIFY_EXPR, vectype, vec_dest, data_ref);
-  new_temp = make_ssa_name (vec_dest, vec_stmt);
-  TREE_OPERAND (vec_stmt, 0) = new_temp;
-
-  /* APPLE LOCAL begin AV misaligned -haifa  */
-  vect_finish_stmt_generation (stmt, vec_stmt, bsi);
-
   if (!aligned_access_p (STMT_VINFO_DATA_REF (stmt_info))
       && targetm.vect.permute_misaligned_loads
       && (*targetm.vect.permute_misaligned_loads) ())
     {
       /* Create a series of:
          1. MSQ = vec_ld (0, target);    -- Most significant quadword.
-	 (This was already created).
-         2. LSQ = vec_ld (15, target);    --  Least significant quadword.
-         3. mask = vec_lvsl (0, target);  -- Create the permute mask.
+                                         -- It is placed in the preheader.
+         2. LSQ = vec_ld (15+i, target);     -- Least significant quadword.
+         3. mask = vec_lvsr (0, 16-target);  -- Create the permute mask.
+                                             -- It is placed in the preheader.
          4. return vec_perm (MSQ, LSQ, mask);  -- Align the data.
+	 5. copy MSQ = LSQ;		       -- For next iteration.
       */
       tree lsq, mask, tmp, result, arg;
       tree lsq_data_ref;
       tree vec_ld_lsq_stmt;
-      tree vec_lvsl_stmt;
+      tree vec_lvsr_stmt;
       tree vec_perm_stmt;
+      tree minus_stmt;
+      tree phi_stmt, msq;
       tree V16QI_type_node;
       tree lsq_ptr;
+      struct loop *loop = STMT_VINFO_LOOP (stmt_info);
+
+      /* 1. Build the msq_load.  */
+      data_ref = vect_create_data_ref (op, stmt, bsi, false, &ptr, true);
+      if (!data_ref)
+        abort ();
+
+      /*** create: msq = (vectype) *msq_data_ref; ***/
+      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+      if (!vec_dest)
+        abort ();
+
+      /** Arguments are ready. create the new vector stmt.  **/
+      vec_stmt = build (MODIFY_EXPR, vectype, vec_dest, data_ref);
+      new_temp = make_ssa_name (vec_dest, vec_stmt);
+      TREE_OPERAND (vec_stmt, 0) = new_temp;
+
+      vect_finish_stmt_generation_in_preheader (vec_stmt, loop);
+
+      /* Create the ssa_name (msq) for the phi.  */
+      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+      if (!vec_dest)
+	abort ();
+      msq = make_ssa_name (vec_dest, NULL_TREE);
 
       /* 2. Build the lsq_load.  */
-      lsq_data_ref = vect_create_data_ref (op, stmt, bsi, true, &lsq_ptr);
+      lsq_data_ref = vect_create_data_ref (op, stmt, bsi, true, &lsq_ptr,
+					   false);
 
       /*** create: lsq = (vectype) *lsq_data_ref; ***/
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
@@ -1678,7 +1766,20 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
 
       vect_finish_stmt_generation (stmt, vec_ld_lsq_stmt, bsi);
 
-      /* 3. Build the call to vec_lvsl.  */
+      /* 3. Build the call to vec_lvsr.  */
+      /*** create: ptr = 16 - ptr; ***/
+      vec_dest = vect_create_destination_var (scalar_dest, TREE_TYPE (ptr));
+      if (!vec_dest)
+	abort ();
+  
+      minus_stmt = build (MODIFY_EXPR, TREE_TYPE (ptr), vec_dest,
+		    build (MINUS_EXPR, TREE_TYPE (ptr),
+		           build_int_2 (16, 0), ptr));
+      ptr = make_ssa_name (vec_dest, minus_stmt);
+      TREE_OPERAND (minus_stmt, 0) = ptr;
+      vect_finish_stmt_generation_in_preheader (minus_stmt, loop);
+
+
       V16QI_type_node = build_vector_type (intQI_type_node, 16);
       vec_dest = vect_create_destination_var (scalar_dest, V16QI_type_node);
       if (!vec_dest)
@@ -1686,18 +1787,18 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
 
       arg = tree_cons (NULL, ptr, NULL);
       arg = tree_cons (NULL, integer_zero_node, arg);
-      if (!targetm.vect.build_builtin_lvsl)
+      if (!targetm.vect.build_builtin_lvsr)
 	abort ();
-      tmp = (*targetm.vect.build_builtin_lvsl) ();
+      tmp = (*targetm.vect.build_builtin_lvsr) ();
       if (tmp == NULL_TREE)
 	abort ();
 
-      vec_lvsl_stmt = build_function_call_expr (tmp, arg);
-      vec_lvsl_stmt = build (MODIFY_EXPR, vectype, vec_dest, vec_lvsl_stmt);
-      mask = make_ssa_name (vec_dest, vec_lvsl_stmt);
-      TREE_OPERAND (vec_lvsl_stmt, 0) = mask;
+      vec_lvsr_stmt = build_function_call_expr (tmp, arg);
+      vec_lvsr_stmt = build (MODIFY_EXPR, vectype, vec_dest, vec_lvsr_stmt);
+      mask = make_ssa_name (vec_dest, vec_lvsr_stmt);
+      TREE_OPERAND (vec_lvsr_stmt, 0) = mask;
 
-      vect_finish_stmt_generation (stmt, vec_lvsl_stmt, bsi);
+      vect_finish_stmt_generation_in_preheader (vec_lvsr_stmt, loop);
 
       /* 4. Build the call to vec_perm.  */
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
@@ -1706,7 +1807,7 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
 
       arg = tree_cons (NULL, mask, NULL);
       arg = tree_cons (NULL, lsq, arg);
-      arg = tree_cons (NULL, new_temp, arg);
+      arg = tree_cons (NULL, msq, arg);
       if (!targetm.vect.build_builtin_vperm)
 	abort ();
       tmp = (*targetm.vect.build_builtin_vperm) (TYPE_MODE (vectype));
@@ -1721,7 +1822,35 @@ vect_transform_load (tree stmt, block_stmt_iterator *bsi)
       vect_finish_stmt_generation (stmt, vec_perm_stmt, bsi);
  
       vec_stmt = vec_perm_stmt;
+
+      /* 5. Copy LSQ over to MSQ for next iteration.  */
+      phi_stmt = create_phi_node (msq, loop->header);
+      SSA_NAME_DEF_STMT (msq) = phi_stmt;
+      add_phi_arg (&phi_stmt, new_temp, loop_preheader_edge (loop));
+      add_phi_arg (&phi_stmt, lsq, loop_latch_edge (loop));
     }
+  else /* aligned_access_p (STMT_VINFO_DATA_REF (stmt_info))
+          || ((*targetm.vect.support_misaligned_loads) ()
+              && !(*targetm.vect.permute_misaligned_loads) ())
+          In this case we generate a regular load.  */
+    {
+      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+      if (!vec_dest)
+        abort ();
+
+      data_ref = vect_create_data_ref (op, stmt, bsi, false, &ptr, false);
+      if (!data_ref)
+        abort ();
+
+      /** Arguments are ready. create the new vector stmt.  **/
+    
+      vec_stmt = build (MODIFY_EXPR, vectype, vec_dest, data_ref);
+      new_temp = make_ssa_name (vec_dest, vec_stmt);
+      TREE_OPERAND (vec_stmt, 0) = new_temp;
+
+      vect_finish_stmt_generation (stmt, vec_stmt, bsi);
+    }
+
   /* APPLE LOCAL end AV misaligned -haifa  */
   return vec_stmt;
 }
@@ -3834,17 +3963,6 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
 	  {
 	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      fprintf (dump_file, "first access not aligned.\n");
-	    return false;
-	  }
-      }
-  else /* We currently deal only with known misalignment; will be fixed.  */
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_read_datarefs); i++)
-      {
-	struct data_reference *dr = VARRAY_GENERIC_PTR (loop_read_datarefs, i);
-	if (DR_MISALIGNMENT (dr) == -1)
-	  {
-	    if (dump_file && (dump_flags & TDF_DETAILS))
-	      fprintf (dump_file, "first access unknown alignment.\n");
 	    return false;
 	  }
       }

@@ -1,3 +1,22 @@
+2004-06-24  Ayal Zaks <zaks@il.ibm.com>
+
+	* target-def.h (TARGET_VECT_BUILD_BUILTIN_LVSR): New macro.
+	* target.h (build_builtin_lvsr): New function.
+	* tree-vectorizer.c (vect_create_index_for_array_ref): Add option
+	to only calculate init_val without creating the iv.
+	(vect_create_data_ref): Deal with unknown alignment; allow creating
+	data refs for initial access only.
+	(vect_transform_store): Call vect_create_data_ref accordingly.
+	(vect_finish_stmt_generation_in_preheader): New function.
+	(vect_finish_stmt_generation): Need to optionally bump bsi again.
+	(vect_transform_load): Replace call to lvsl by a call to lvsr(16-a)
+	in preheader. Move load of msq out to preheader. Removed TREE_INVARIANT.
+	(vect_analyze_data_refs_alignment): Allow unknown aligned loads.
+	* rs6000.c (rs6000_build_builtin_lvsr): New function.
+	(rs6000_support_misaligned_vloads, rs6000_permute_misaligned_vloads):
+	Check if TARGET_ALTIVEC.
+	(get_vector_init_fns_for_type): Initialize lve_fn, splt_fn vars.
+
 2004-06-22  Andrew Pinski  <apinski@apple.com>
 
 	Radar #: 3661615, 3623788
