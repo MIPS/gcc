@@ -8,7 +8,8 @@ vector int foobar;
 
 /* Only floats and integrals allowed.  We don't care if they map to SIs.  */
 struct X { int frances; };
-vector struct X hotdog;	/* { dg-error "invalid vector type" } */
+/* APPLE LOCAL AltiVec */
+vector struct X hotdog;	/* { dg-error "(syntax error|invalid vector type)" } */
 
 /* Arrays of vectors.  */
 vector char b[10], ouch;

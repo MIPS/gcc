@@ -6,7 +6,11 @@
 
 #include "altivec_check.h"
 
+/* APPLE LOCAL begin AltiVec */
+#ifndef vector
 #define vector __attribute__((mode(V4SI)))
+#endif
+/* APPLE LOCAL end AltiVec */
 
 const vector unsigned int v1 = {10,11,12,13};
 const vector unsigned int v2 = {20,21,22,23};
