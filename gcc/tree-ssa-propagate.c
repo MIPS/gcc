@@ -691,7 +691,7 @@ first_vdef (tree stmt)
   if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) > 0)
     return V_MAY_DEF_RESULT (STMT_V_MAY_DEF_OPS (stmt), 0);
   else if (NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt)) > 0)
-    return V_MUST_DEF_OP (STMT_V_MUST_DEF_OPS (stmt), 0);
+    return V_MUST_DEF_RESULT (STMT_V_MUST_DEF_OPS (stmt), 0);
   else
     gcc_unreachable ();
 }

@@ -4239,7 +4239,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	expr = decl_constant_value (expr);
       if (convs->check_copy_constructor_p)
 	check_constructor_callable (totype, expr);
-	return expr;
+      return expr;
     case ck_ambig:
       /* Call build_user_type_conversion again for the error.  */
       return build_user_type_conversion
@@ -4429,7 +4429,7 @@ build_x_va_arg (tree expr, tree type)
   if (! pod_type_p (type))
     {
       /* Undefined behavior [expr.call] 5.2.2/7.  */
-      warning ("cannot receive objects of non-POD type %q#T' through %<...%>; "
+      warning ("cannot receive objects of non-POD type %q#T through %<...%>; "
                "call will abort at runtime", type);
       expr = convert (build_pointer_type (type), null_node);
       expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr),
@@ -4677,8 +4677,8 @@ build_over_call (struct z_candidate *cand, int flags)
       tree base_binfo;
       
       if (convs[i]->bad_p)
-	pedwarn ("passing `%T' as `this' argument of `%#D' discards qualifiers",
-		    TREE_TYPE (argtype), fn);
+	pedwarn ("passing %qT as %<this%> argument of %q#D discards qualifiers",
+                 TREE_TYPE (argtype), fn);
 
       /* [class.mfct.nonstatic]: If a nonstatic member function of a class
 	 X is called for an object that is not of type X, or of a type
@@ -6467,7 +6467,7 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
       conv = conv->u.next;
       /* If the next conversion is a BASE_CONV, skip that too -- but
 	 remember that the conversion was required.  */
-      if (conv->kind == ck_base && conv->need_temporary_p)
+      if (conv->kind == ck_base)
 	{
 	  if (conv->check_copy_constructor_p)
  	    check_constructor_callable (TREE_TYPE (expr), expr);
@@ -6537,6 +6537,11 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	    }
 	  /* Use its address to initialize the reference variable.  */
 	  expr = build_address (var);
+	  if (base_conv_type)
+	    expr = convert_to_base (expr, 
+				    build_pointer_type (base_conv_type),
+				    /*check_access=*/true,
+				    /*nonnull=*/true);
 	  expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr), init, expr);
 	}
       else

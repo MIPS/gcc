@@ -1881,6 +1881,7 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	gnu/gcj/convert/Output_EUCJIS.java \
 	gnu/gcj/convert/Output_JavaSrc.java \
 	gnu/gcj/convert/Output_SJIS.java \
+	gnu/gcj/convert/Output_UnicodeLittleUnmarked.java \
 	gnu/gcj/convert/Output_UTF8.java \
 	gnu/gcj/convert/Output_iconv.java \
 	gnu/gcj/convert/UnicodeToBytes.java \
@@ -2261,8 +2262,8 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc resolve.cc \
 	javax/transaction/UserTransaction.java \
 	java/lang/ConcreteProcess.java \
 	gnu/classpath/Configuration.java boehm.cc nogc.cc \
-	sysdep/dwarf2-backtrace.cc posix.cc win32.cc posix-threads.cc \
-	win32-threads.cc no-threads.cc
+	sysdep/dwarf2-backtrace.cc posix.cc win32.cc darwin.cc \
+	posix-threads.cc win32-threads.cc no-threads.cc
 am__objects_6 = gnu/gcj/natCore.lo \
 	gnu/gcj/convert/JIS0208_to_Unicode.lo \
 	gnu/gcj/convert/JIS0212_to_Unicode.lo \
@@ -3131,8 +3132,9 @@ am__objects_12 = gnu/gcj/convert/BytesToUnicode.lo \
 	gnu/gcj/convert/Output_ASCII.lo \
 	gnu/gcj/convert/Output_EUCJIS.lo \
 	gnu/gcj/convert/Output_JavaSrc.lo \
-	gnu/gcj/convert/Output_SJIS.lo gnu/gcj/convert/Output_UTF8.lo \
-	gnu/gcj/convert/Output_iconv.lo \
+	gnu/gcj/convert/Output_SJIS.lo \
+	gnu/gcj/convert/Output_UnicodeLittleUnmarked.lo \
+	gnu/gcj/convert/Output_UTF8.lo gnu/gcj/convert/Output_iconv.lo \
 	gnu/gcj/convert/UnicodeToBytes.lo
 am__objects_13 = javax/accessibility/Accessible.lo \
 	javax/accessibility/AccessibleAction.lo \
@@ -4028,15 +4030,17 @@ am__objects_16 = java/lang/ConcreteProcess.lo \
 @USING_POSIX_PLATFORM_TRUE@am__objects_20 = posix.lo
 @USING_WIN32_PLATFORM_TRUE@am__objects_21 = win32.lo
 @USING_ECOS_PLATFORM_TRUE@am__objects_22 = posix.lo
-@USING_POSIX_THREADS_TRUE@am__objects_23 = posix-threads.lo
-@USING_WIN32_THREADS_TRUE@am__objects_24 = win32-threads.lo
-@USING_NO_THREADS_TRUE@am__objects_25 = no-threads.lo
+@USING_DARWIN_CRT_TRUE@am__objects_23 = darwin.lo
+@USING_POSIX_THREADS_TRUE@am__objects_24 = posix-threads.lo
+@USING_WIN32_THREADS_TRUE@am__objects_25 = win32-threads.lo
+@USING_NO_THREADS_TRUE@am__objects_26 = no-threads.lo
 am_libgcj_la_OBJECTS = prims.lo jni.lo exception.lo resolve.lo \
 	defineclass.lo interpret.lo verify.lo $(am__objects_6) \
 	$(am__objects_7) $(am__objects_15) $(am__objects_16) \
 	$(am__objects_17) $(am__objects_18) $(am__objects_19) \
 	$(am__objects_20) $(am__objects_21) $(am__objects_22) \
-	$(am__objects_23) $(am__objects_24) $(am__objects_25)
+	$(am__objects_23) $(am__objects_24) $(am__objects_25) \
+	$(am__objects_26)
 libgcj_la_OBJECTS = $(am_libgcj_la_OBJECTS)
 am_libgij_la_OBJECTS = gij.lo
 libgij_la_OBJECTS = $(am_libgij_la_OBJECTS)
@@ -4136,6 +4140,7 @@ CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CHECKREFSPEC = @CHECKREFSPEC@
+CLASSPATH_SEPARATOR = @CLASSPATH_SEPARATOR@
 COMPPATH = @COMPPATH@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
@@ -4243,6 +4248,8 @@ THREADSPEC = @THREADSPEC@
 TOOLKIT = @TOOLKIT@
 USING_BOEHMGC_FALSE = @USING_BOEHMGC_FALSE@
 USING_BOEHMGC_TRUE = @USING_BOEHMGC_TRUE@
+USING_DARWIN_CRT_FALSE = @USING_DARWIN_CRT_FALSE@
+USING_DARWIN_CRT_TRUE = @USING_DARWIN_CRT_TRUE@
 USING_ECOS_PLATFORM_FALSE = @USING_ECOS_PLATFORM_FALSE@
 USING_ECOS_PLATFORM_TRUE = @USING_ECOS_PLATFORM_TRUE@
 USING_GCC_FALSE = @USING_GCC_FALSE@
@@ -4355,6 +4362,8 @@ ACLOCAL_AMFLAGS = -I . -I ../config
 @USING_NO_THREADS_TRUE@NO_THREAD_SRC = no-threads.cc
 @TESTSUBDIR_FALSE@SUBDIRS = $(DIRLTDL) gcj include
 @TESTSUBDIR_TRUE@SUBDIRS = $(DIRLTDL) testsuite gcj include
+@USING_DARWIN_CRT_FALSE@DARWIN_CRT_SRC = 
+@USING_DARWIN_CRT_TRUE@DARWIN_CRT_SRC = darwin.cc
 
 # write_entries_to_file - writes each entry in a list
 # to the specified file. Each entry is written individually
@@ -4426,6 +4435,7 @@ libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 	$(BOEHMGC_SRC) $(NOGC_SRC) \
 	$(BACKTRACE_SRC) \
 	$(POSIX_PLATFORM_SRC) $(WIN32_PLATFORM_SRC) $(ECOS_PLATFORM_SRC) \
+	$(DARWIN_CRT_SRC) \
 	$(POSIX_THREAD_SRC) $(WIN32_THREAD_SRC) $(NO_THREAD_SRC)
 
 libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar \
@@ -4760,6 +4770,7 @@ gnu/gcj/convert/Output_ASCII.java \
 gnu/gcj/convert/Output_EUCJIS.java \
 gnu/gcj/convert/Output_JavaSrc.java \
 gnu/gcj/convert/Output_SJIS.java \
+gnu/gcj/convert/Output_UnicodeLittleUnmarked.java \
 gnu/gcj/convert/Output_UTF8.java \
 gnu/gcj/convert/Output_iconv.java \
 gnu/gcj/convert/UnicodeToBytes.java
@@ -12723,6 +12734,9 @@ gnu/gcj/convert/Output_JavaSrc.lo: gnu/gcj/convert/$(am__dirstamp) \
 	gnu/gcj/convert/$(DEPDIR)/$(am__dirstamp)
 gnu/gcj/convert/Output_SJIS.lo: gnu/gcj/convert/$(am__dirstamp) \
 	gnu/gcj/convert/$(DEPDIR)/$(am__dirstamp)
+gnu/gcj/convert/Output_UnicodeLittleUnmarked.lo:  \
+	gnu/gcj/convert/$(am__dirstamp) \
+	gnu/gcj/convert/$(DEPDIR)/$(am__dirstamp)
 gnu/gcj/convert/Output_UTF8.lo: gnu/gcj/convert/$(am__dirstamp) \
 	gnu/gcj/convert/$(DEPDIR)/$(am__dirstamp)
 gnu/gcj/convert/Output_iconv.lo: gnu/gcj/convert/$(am__dirstamp) \
@@ -14123,6 +14137,8 @@ mostlyclean-compile:
 	-rm -f gnu/gcj/convert/Output_SJIS.lo
 	-rm -f gnu/gcj/convert/Output_UTF8.$(OBJEXT)
 	-rm -f gnu/gcj/convert/Output_UTF8.lo
+	-rm -f gnu/gcj/convert/Output_UnicodeLittleUnmarked.$(OBJEXT)
+	-rm -f gnu/gcj/convert/Output_UnicodeLittleUnmarked.lo
 	-rm -f gnu/gcj/convert/Output_iconv.$(OBJEXT)
 	-rm -f gnu/gcj/convert/Output_iconv.lo
 	-rm -f gnu/gcj/convert/UnicodeToBytes.$(OBJEXT)
@@ -18976,6 +18992,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/boehm.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/darwin.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/defineclass.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exception.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gij.Plo@am__quote@
@@ -19034,6 +19051,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/convert/$(DEPDIR)/Output_JavaSrc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/convert/$(DEPDIR)/Output_SJIS.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/convert/$(DEPDIR)/Output_UTF8.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/convert/$(DEPDIR)/Output_UnicodeLittleUnmarked.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/convert/$(DEPDIR)/Output_iconv.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/convert/$(DEPDIR)/UnicodeToBytes.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/convert/$(DEPDIR)/Unicode_to_JIS.Plo@am__quote@
@@ -23163,7 +23181,7 @@ $(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDEN
 @ONESTEP_TRUE@	-@rm -f libgcj-@gcc_version@.jar
 @ONESTEP_TRUE@	@echo Compiling Java sourcefiles...
 @ONESTEP_TRUE@	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
-@ONESTEP_TRUE@	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) @libgcj.sourcelist
+@ONESTEP_TRUE@	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir) -d $(here) @libgcj.sourcelist
 @ONESTEP_TRUE@	(find java gnu javax org -type d -o -type f -name '*.class'; \
 @ONESTEP_TRUE@	for file in $(all_property_files); do \
 @ONESTEP_TRUE@	  echo "x-C" | sed -e 's/^.//'; \
@@ -23183,7 +23201,7 @@ $(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDEN
 # Compile each classfile individually.
 
 @ONESTEP_FALSE@.java.class:
-@ONESTEP_FALSE@	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) -d $(here) $<
+@ONESTEP_FALSE@	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir) -d $(here) $<
 
 @ONESTEP_FALSE@libgcj-@gcc_version@.jar: $(all_java_class_files) $(all_property_files)
 @ONESTEP_FALSE@	-@rm -f libgcj-@gcc_version@.jar
@@ -23447,31 +23465,31 @@ TexinfoDoclet.class: $(srcdir)/scripts/TexinfoDoclet.java
 texinfo: TexinfoDoclet.class
 	langsource=`ls $(srcdir)/java/lang/*.java`; \
 	lang=`echo $$langsource | sed -e 's/[^ ].*EcosProcess.java//g' | sed -e 's/[^ ].*PosixProcess.java//g'`; \
-	javadoc -outfile $(srcdir)/doc/java-lang.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $$lang
-	javadoc -outfile $(srcdir)/doc/java-lang-ref.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/lang/ref/*.java
-	javadoc -outfile $(srcdir)/doc/java-lang-reflect.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/lang/reflect/*.java
-	javadoc -outfile $(srcdir)/doc/java-applet.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/applet/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-color.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/color/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-datatransfer.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/datatransfer/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-event.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/event/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-geom.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/geom/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-image.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/image/*.java
-	javadoc -outfile $(srcdir)/doc/java-awt-peer.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/awt/peer/*.java
-	javadoc -outfile $(srcdir)/doc/java-beans.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/beans/*.java
-	javadoc -outfile $(srcdir)/doc/java-beans-beancontext.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/beans/beancontext/*.java
-	javadoc -outfile $(srcdir)/doc/java-io.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/io/*.java
-	javadoc -outfile $(srcdir)/doc/java-math.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/math/*.java
-	javadoc -outfile $(srcdir)/doc/java-net.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/net/*.java
-	javadoc -outfile $(srcdir)/doc/java-security.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/security/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-cert.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/security-cert/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-spec.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/security/spec/*.java
-	javadoc -outfile $(srcdir)/doc/java-security-interfaces.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/security/spec/interfaces/*.java
-	javadoc -outfile $(srcdir)/doc/java-sql.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/sql/*.java
-	javadoc -outfile $(srcdir)/doc/java-text.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/text/*.java
-	javadoc -outfile $(srcdir)/doc/java-util.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/util/*.java
-	javadoc -outfile $(srcdir)/doc/java-util-jar.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/util/jar/*.java
-	javadoc -outfile $(srcdir)/doc/java-util-zip.texi -doclet TexinfoDoclet -sourcepath .:$(srcdir) $(srcdir)/java/util/zip/*.java
+	javadoc -outfile $(srcdir)/doc/java-lang.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $$lang
+	javadoc -outfile $(srcdir)/doc/java-lang-ref.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/lang/ref/*.java
+	javadoc -outfile $(srcdir)/doc/java-lang-reflect.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/lang/reflect/*.java
+	javadoc -outfile $(srcdir)/doc/java-applet.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/applet/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-color.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/color/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-datatransfer.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/datatransfer/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-event.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/event/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-geom.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/geom/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-image.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/image/*.java
+	javadoc -outfile $(srcdir)/doc/java-awt-peer.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/awt/peer/*.java
+	javadoc -outfile $(srcdir)/doc/java-beans.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/beans/*.java
+	javadoc -outfile $(srcdir)/doc/java-beans-beancontext.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/beans/beancontext/*.java
+	javadoc -outfile $(srcdir)/doc/java-io.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/io/*.java
+	javadoc -outfile $(srcdir)/doc/java-math.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/math/*.java
+	javadoc -outfile $(srcdir)/doc/java-net.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/net/*.java
+	javadoc -outfile $(srcdir)/doc/java-security.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/*.java
+	javadoc -outfile $(srcdir)/doc/java-security-cert.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security-cert/*.java
+	javadoc -outfile $(srcdir)/doc/java-security-spec.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/spec/*.java
+	javadoc -outfile $(srcdir)/doc/java-security-interfaces.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/security/spec/interfaces/*.java
+	javadoc -outfile $(srcdir)/doc/java-sql.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/sql/*.java
+	javadoc -outfile $(srcdir)/doc/java-text.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/text/*.java
+	javadoc -outfile $(srcdir)/doc/java-util.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/*.java
+	javadoc -outfile $(srcdir)/doc/java-util-jar.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/jar/*.java
+	javadoc -outfile $(srcdir)/doc/java-util-zip.texi -doclet TexinfoDoclet -sourcepath .'$(CLASSPATH_SEPARATOR)'$(srcdir) $(srcdir)/java/util/zip/*.java
 
 all-recursive: libgcj-@gcc_version@.jar $(nat_headers) $(xlib_nat_headers)
 

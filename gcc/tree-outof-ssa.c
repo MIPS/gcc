@@ -1963,7 +1963,7 @@ same_stmt_list_p (edge e)
 }
 
 
-/* Return TRUE if S1 and S2 are equivilent copies.  */
+/* Return TRUE if S1 and S2 are equivalent copies.  */
 static inline bool
 identical_copies_p (tree s1, tree s2)
 {
@@ -1988,7 +1988,7 @@ identical_copies_p (tree s1, tree s2)
 
 
 /* Compare the PENDING_STMT list for two edges, and return true if the lists
-   contain the stmnt sequence of copies.  */
+   contain the same sequence of copies.  */
 
 static inline bool 
 identical_stmt_lists_p (edge e1, edge e2)
@@ -2034,6 +2034,25 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
   bool is_label;
 
   count = 0;
+
+  /* Blocks which contain at least one abnormal edge cannot use 
+     make_forwarder_block.  Look for these blocks, and commit any PENDING_STMTs
+     found on edges in these block.  */
+  have_opportunity = true;
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    if (e->flags & EDGE_ABNORMAL)
+      {
+        have_opportunity = false;
+	break;
+      }
+
+  if (!have_opportunity)
+    {
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (PENDING_STMT (e))
+	  bsi_commit_one_edge_insert (e, NULL);
+      return false;
+    }
   /* Find out how many edges there are with interesting pending stmts on them.  
      Commit the stmts on edges we are not interested in.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
@@ -2064,7 +2083,7 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
 	}
     }
 
-  /* If there isn't at least 2 edges, no sharing will happen.  */
+  /* If there aren't at least 2 edges, no sharing will happen.  */
   if (count < 2)
     {
       if (single_edge)
@@ -2072,7 +2091,7 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
       return false;
     }
 
-  /* ensure we have empty worklists.  */
+  /* Ensure that we have empty worklists.  */
   if (edge_leader == NULL)
     {
       VARRAY_EDGE_INIT (edge_leader, 25, "edge_leader");
@@ -2201,7 +2220,7 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
 }
 
 
-/* THis function will analyze the insertions which were performed on edges,
+/* This function will analyze the insertions which were performed on edges,
    and decide whether they should be left on that edge, or whether it is more
    efficient to emit some subset of them in a single block.  All stmts are
    inserted somewhere, and if non-NULL, debug information is printed via 

@@ -85,14 +85,35 @@ extern void bitmap_clear (bitmap);
 extern void bitmap_copy (bitmap, bitmap);
 
 /* True if two bitmaps are identical.  */
-extern int bitmap_equal_p (bitmap, bitmap);
+extern bool bitmap_equal_p (bitmap, bitmap);
+
+/* True if the bitmaps intersect (their AND is non-empty).  */
+extern bool bitmap_intersect_p (bitmap, bitmap);
+
+/* True if the complement of the second intersects the first (their
+   AND_COMPL is non-empty).  */
+extern bool bitmap_intersect_compl_p (bitmap, bitmap);
+
+/* True if MAP is an empty bitmap.  */
+#define bitmap_empty_p(MAP) (!(MAP)->first)
 
 /* Perform an operation on two bitmaps, yielding a third.  */
 extern int bitmap_operation (bitmap, bitmap, bitmap, enum bitmap_bits);
 
+#define bitmap_and(DST,A,B) (void)bitmap_operation (DST,A,B,BITMAP_AND)
+#define bitmap_and_into(DST_SRC,B) (void)bitmap_operation (DST_SRC,DST_SRC,B,BITMAP_AND)
+#define bitmap_and_compl(DST,A,B) (void)bitmap_operation (DST,A,B,BITMAP_AND_COMPL)
+#define bitmap_and_compl_into(DST_SRC,B) (void)bitmap_operation (DST_SRC,DST_SRC,B,BITMAP_AND_COMPL)
+#define bitmap_ior(DST,A,B) (void)bitmap_operation (DST,A,B,BITMAP_IOR)
+#define bitmap_ior_into(DST_SRC,B) (void)bitmap_operation (DST_SRC,DST_SRC,B,BITMAP_IOR)
+#define bitmap_ior_compl(DST,A,B) (void)bitmap_operation (DST,A,Br,BITMAP_IOR_COMPL)
+#define bitmap_xor(DST,A,B) (void)bitmap_operation (DST,A,B,BITMAP_XOR)
+#define bitmap_xor_into(DST_SRC,B) (void)bitmap_operation (DST_SRC,DST_SRC,B,BITMAP_XOR)
+
 /* `or' into one bitmap the `and' of a second bitmap witih the complement
-   of a third.  */
-extern void bitmap_ior_and_compl (bitmap, bitmap, bitmap);
+   of a third. Return nonzero if the bitmap changes.  */
+extern bool bitmap_ior_and_compl_into (bitmap, bitmap, bitmap);
+extern bool bitmap_ior_and_compl (bitmap, bitmap, bitmap, bitmap);
 
 /* Clear a single register in a register set.  */
 extern void bitmap_clear_bit (bitmap, int);
@@ -122,7 +143,6 @@ extern void bitmap_release_memory (void);
 #define bitmap_zero(a) bitmap_clear (a)
 #define bitmap_a_or_b(a,b,c) bitmap_operation (a, b, c, BITMAP_IOR)
 #define bitmap_a_and_b(a,b,c) bitmap_operation (a, b, c, BITMAP_AND)
-extern int bitmap_union_of_diff (bitmap, bitmap, bitmap, bitmap);
 extern int bitmap_first_set_bit (bitmap);
 extern int bitmap_last_set_bit (bitmap);
 
@@ -286,9 +306,9 @@ bmp_iter_single_init (bitmap_iterator *bi, bitmap bmp, unsigned min)
    were processed.  */
 
 static inline bool
-bmp_iter_end_p (bitmap_iterator bi)
+bmp_iter_end_p (const bitmap_iterator *bi)
 {
-  return bi.ptr1 == NULL;
+  return bi->ptr1 == NULL;
 }
 
 /* Moves the iterator BI to the next bit of bitmap and returns the bit
@@ -307,7 +327,7 @@ bmp_iter_single_next (bitmap_iterator *bi)
 
 #define EXECUTE_IF_SET_IN_BITMAP(BITMAP, MIN, BITNUM, ITER)		\
   for ((BITNUM) = bmp_iter_single_init (&(ITER), (BITMAP), (MIN));	\
-       !bmp_iter_end_p (ITER);					\
+       !bmp_iter_end_p (&(ITER));					\
        (BITNUM) = bmp_iter_single_next (&(ITER)))
 
 /* Moves the iterator BI to the first set bit on or after the current
@@ -436,7 +456,7 @@ bmp_iter_and_not_next (bitmap_iterator *bi)
 
 #define EXECUTE_IF_AND_COMPL_IN_BITMAP(BMP1, BMP2, MIN, BITNUM, ITER)	\
   for ((BITNUM) = bmp_iter_and_not_init (&(ITER), (BMP1), (BMP2), (MIN)); \
-       !bmp_iter_end_p (ITER);						\
+       !bmp_iter_end_p (&(ITER));						\
        (BITNUM) = bmp_iter_and_not_next (&(ITER)))
 
 /* Moves the iterator BI to the first set bit on or after the current
@@ -580,7 +600,7 @@ bmp_iter_and_next (bitmap_iterator *bi)
 
 #define EXECUTE_IF_AND_IN_BITMAP(BMP1, BMP2, MIN, BITNUM, ITER)		\
   for ((BITNUM) = bmp_iter_and_init (&(ITER), (BMP1), (BMP2), (MIN));	\
-       !bmp_iter_end_p (ITER);						\
+       !bmp_iter_end_p (&(ITER));						\
        (BITNUM) = bmp_iter_and_next (&(ITER)))
 
 #endif /* GCC_BITMAP_H */

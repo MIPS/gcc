@@ -663,39 +663,90 @@ bitmap_operation (bitmap to, bitmap from1, bitmap from2,
   return changed;
 }
 
-/* Return true if two bitmaps are identical.  */
+/* Return true if two bitmaps are identical.
+   We do not bother with a check for pointer equality, as that never
+   occurs in practice.  */
 
-int
+bool
 bitmap_equal_p (bitmap a, bitmap b)
 {
-  bitmap_head c;
-  int ret;
-
-  memset (&c, 0, sizeof (c));
-  ret = ! bitmap_operation (&c, a, b, BITMAP_XOR);
-  bitmap_clear (&c);
-
-  return ret;
+  bitmap_element *a_elt;
+  bitmap_element *b_elt;
+  unsigned ix;
+  
+  for (a_elt = a->first, b_elt = b->first;
+       a_elt && b_elt;
+       a_elt = a_elt->next, b_elt = b_elt->next)
+    {
+      if (a_elt->indx != b_elt->indx)
+	return false;
+      for (ix = BITMAP_ELEMENT_WORDS; ix--;)
+	if (a_elt->bits[ix] != b_elt->bits[ix])
+	  return false;
+    }
+  return !a_elt && !b_elt;
 }
-
-/* Or into bitmap TO bitmap FROM1 and'ed with the complement of
-   bitmap FROM2.  */
 
-void
-bitmap_ior_and_compl (bitmap to, bitmap from1, bitmap from2)
+/* Return true if A AND B is not empty.  */
+
+bool
+bitmap_intersect_p (bitmap a, bitmap b)
 {
-  bitmap_head tmp;
-
-  tmp.first = tmp.current = 0;
-  tmp.using_obstack = 0;
-
-  bitmap_operation (&tmp, from1, from2, BITMAP_AND_COMPL);
-  bitmap_operation (to, to, &tmp, BITMAP_IOR);
-  bitmap_clear (&tmp);
+  bitmap_element *a_elt;
+  bitmap_element *b_elt;
+  unsigned ix;
+  
+  for (a_elt = a->first, b_elt = b->first;
+       a_elt && b_elt;)
+    {
+      if (a_elt->indx < b_elt->indx)
+	a_elt = a_elt->next;
+      else if (b_elt->indx < a_elt->indx)
+	b_elt = b_elt->next;
+      else
+	{
+	  for (ix = BITMAP_ELEMENT_WORDS; ix--;)
+	    if (a_elt->bits[ix] & b_elt->bits[ix])
+	      return true;
+	  a_elt = a_elt->next;
+	  b_elt = b_elt->next;
+	}
+    }
+  return false;
 }
 
-int
-bitmap_union_of_diff (bitmap dst, bitmap a, bitmap b, bitmap c)
+/* Return true if A AND NOT B is not empty.  */
+
+bool
+bitmap_intersect_compl_p (bitmap a, bitmap b)
+{
+  bitmap_element *a_elt;
+  bitmap_element *b_elt;
+  unsigned ix;
+  for (a_elt = a->first, b_elt = b->first;
+       a_elt && b_elt;)
+    {
+      if (a_elt->indx < b_elt->indx)
+	return true;
+      else if (b_elt->indx < a_elt->indx)
+	b_elt = b_elt->next;
+      else
+	{
+	  for (ix = BITMAP_ELEMENT_WORDS; ix--;)
+	    if (a_elt->bits[ix] & ~b_elt->bits[ix])
+	      return true;
+	  a_elt = a_elt->next;
+	  b_elt = b_elt->next;
+	}
+    }
+  return a_elt != NULL;
+}
+
+
+/* Produce TO |= FROM1 & ~FROM2.  Return true, if TO changed.  */
+
+bool
+bitmap_ior_and_compl_into (bitmap to, bitmap from1, bitmap from2)
 {
   bitmap_head tmp;
   int changed;
@@ -703,8 +754,25 @@ bitmap_union_of_diff (bitmap dst, bitmap a, bitmap b, bitmap c)
   tmp.first = tmp.current = 0;
   tmp.using_obstack = 0;
 
-  bitmap_operation (&tmp, b, c, BITMAP_AND_COMPL);
-  changed = bitmap_operation (dst, &tmp, a, BITMAP_IOR);
+  bitmap_and_compl (&tmp, from1, from2);
+  changed = bitmap_operation (to, to, &tmp, BITMAP_IOR);
+  bitmap_clear (&tmp);
+  return changed;
+}
+
+/* Produce DST = A | (B & ~C).  Return true if DST != A.  */
+
+bool
+bitmap_ior_and_compl (bitmap dst, bitmap a, bitmap b, bitmap c)
+{
+  bitmap_head tmp;
+  int changed;
+
+  tmp.first = tmp.current = 0;
+  tmp.using_obstack = 0;
+
+  bitmap_and_compl (&tmp, b, c);
+  changed = bitmap_operation (dst, a, &tmp, BITMAP_IOR);
   bitmap_clear (&tmp);
 
   return changed;

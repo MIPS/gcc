@@ -2317,7 +2317,7 @@ expand_case (tree exp)
 {
   tree minval = NULL_TREE, maxval = NULL_TREE, range = NULL_TREE;
   rtx default_label = 0;
-  struct case_node *n, *m;
+  struct case_node *n;
   unsigned int count, uniq;
   rtx index;
   rtx table_label;
@@ -2354,6 +2354,11 @@ expand_case (tree exp)
   if (index_type != error_mark_node)
     {
       tree elt;
+      bitmap label_bitmap;
+
+      /* cleanup_tree_cfg removes all SWITCH_EXPR with their index
+	 expressions being INTEGER_CST.  */
+      gcc_assert (TREE_CODE (index_expr) != INTEGER_CST);
 
       /* The default case is at the end of TREE_VEC.  */
       elt = TREE_VEC_ELT (vec, TREE_VEC_LENGTH (vec) - 1);
@@ -2384,11 +2389,11 @@ expand_case (tree exp)
 
       before_case = get_last_insn ();
 
-      /* Get upper and lower bounds of case values.
-	 Also convert all the case values to the index expr's data type.  */
+      /* Get upper and lower bounds of case values.  */
 
       uniq = 0;
       count = 0;
+      label_bitmap = BITMAP_XMALLOC ();
       for (n = case_list; n; n = n->right)
 	{
 	  /* Count the elements and track the largest and smallest
@@ -2409,38 +2414,36 @@ expand_case (tree exp)
 	  if (! tree_int_cst_equal (n->low, n->high))
 	    count++;
 
-	  /* Count the number of unique case node targets.  */
-          uniq++;
+	  /* If we have not seen this label yet, then increase the
+	     number of unique case node targets seen.  */
 	  lab = label_rtx (n->code_label);
-          for (m = case_list; m != n; m = m->right)
-            if (label_rtx (m->code_label) == lab)
-              {
-                uniq--;
-                break;
-              }
+	  if (!bitmap_bit_p (label_bitmap, CODE_LABEL_NUMBER (lab)))
+	    {
+	      bitmap_set_bit (label_bitmap, CODE_LABEL_NUMBER (lab));
+	      uniq++;
+	    }
 	}
+
+      BITMAP_XFREE (label_bitmap);
+
+      /* cleanup_tree_cfg removes all SWITCH_EXPR with a single
+	 destination, such as one with a default case only.  */
+      gcc_assert (count != 0);
 
       /* Compute span of values.  */
-      if (count != 0)
-	range = fold (build2 (MINUS_EXPR, index_type, maxval, minval));
-
-      if (count == 0)
-	{
-	  expand_expr (index_expr, const0_rtx, VOIDmode, 0);
-	  emit_jump (default_label);
-	}
+      range = fold (build2 (MINUS_EXPR, index_type, maxval, minval));
 
       /* Try implementing this switch statement by a short sequence of
 	 bit-wise comparisons.  However, we let the binary-tree case
 	 below handle constant index expressions.  */
-      else if (CASE_USE_BIT_TESTS
-	       && ! TREE_CONSTANT (index_expr)
-	       && compare_tree_int (range, GET_MODE_BITSIZE (word_mode)) < 0
-	       && compare_tree_int (range, 0) > 0
-	       && lshift_cheap_p ()
-	       && ((uniq == 1 && count >= 3)
-		   || (uniq == 2 && count >= 5)
-		   || (uniq == 3 && count >= 6)))
+      if (CASE_USE_BIT_TESTS
+	  && ! TREE_CONSTANT (index_expr)
+	  && compare_tree_int (range, GET_MODE_BITSIZE (word_mode)) < 0
+	  && compare_tree_int (range, 0) > 0
+	  && lshift_cheap_p ()
+	  && ((uniq == 1 && count >= 3)
+	      || (uniq == 2 && count >= 5)
+	      || (uniq == 3 && count >= 6)))
 	{
 	  /* Optimize the case where all the case values fit in a
 	     word without having to subtract MINVAL.  In this case,
@@ -2498,58 +2501,26 @@ expand_case (tree exp)
 
 	  if (MEM_P (index))
 	    index = copy_to_reg (index);
-	  if (GET_CODE (index) == CONST_INT
-	      || TREE_CODE (index_expr) == INTEGER_CST)
-	    {
-	      /* Make a tree node with the proper constant value
-		 if we don't already have one.  */
-	      if (TREE_CODE (index_expr) != INTEGER_CST)
-		{
-		  index_expr
-		    = build_int_cst_wide (NULL_TREE, INTVAL (index),
-					  unsignedp || INTVAL (index) >= 0
-					  ? 0 : -1);
-		  index_expr = convert (index_type, index_expr);
-		}
 
-	      /* For constant index expressions we need only
-		 issue an unconditional branch to the appropriate
-		 target code.  The job of removing any unreachable
-		 code is left to the optimization phase if the
-		 "-O" option is specified.  */
-	      for (n = case_list; n; n = n->right)
-		if (! tree_int_cst_lt (index_expr, n->low)
-		    && ! tree_int_cst_lt (n->high, index_expr))
-		  break;
+	  /* We generate a binary decision tree to select the
+	     appropriate target code.  This is done as follows:
 
-	      if (n)
-		emit_jump (label_rtx (n->code_label));
-	      else
-		emit_jump (default_label);
-	    }
-	  else
-	    {
-	      /* If the index expression is not constant we generate
-		 a binary decision tree to select the appropriate
-		 target code.  This is done as follows:
+	     The list of cases is rearranged into a binary tree,
+	     nearly optimal assuming equal probability for each case.
 
-		 The list of cases is rearranged into a binary tree,
-		 nearly optimal assuming equal probability for each case.
+	     The tree is transformed into RTL, eliminating
+	     redundant test conditions at the same time.
 
-		 The tree is transformed into RTL, eliminating
-		 redundant test conditions at the same time.
+	     If program flow could reach the end of the
+	     decision tree an unconditional jump to the
+	     default code is emitted.  */
 
-		 If program flow could reach the end of the
-		 decision tree an unconditional jump to the
-		 default code is emitted.  */
-
-	      use_cost_table
-		= (TREE_CODE (orig_type) != ENUMERAL_TYPE
-		   && estimate_case_costs (case_list));
-	      balance_case_nodes (&case_list, NULL);
-	      emit_case_nodes (index, case_list, default_label, index_type);
-	      emit_jump (default_label);
-	    }
+	  use_cost_table
+	    = (TREE_CODE (orig_type) != ENUMERAL_TYPE
+	       && estimate_case_costs (case_list));
+	  balance_case_nodes (&case_list, NULL);
+	  emit_case_nodes (index, case_list, default_label, index_type);
+	  emit_jump (default_label);
 	}
       else
 	{

@@ -399,11 +399,11 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
   NEXT_PASS (pass_unswitch);
-  NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_record_bounds);
+  NEXT_PASS (pass_linear_transform);
+  NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
-  NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_loop_done);
@@ -425,6 +425,11 @@ execute_todo (int properties, unsigned int flags)
   if (flags & TODO_rename_vars)
     {
       rewrite_into_ssa (false);
+      bitmap_clear (vars_to_rename);
+    }
+  if (flags & TODO_fix_def_def_chains)
+    {
+      rewrite_def_def_chains ();
       bitmap_clear (vars_to_rename);
     }
 
@@ -685,10 +690,10 @@ tree_rest_of_compilation (tree fndecl)
 	    = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (ret_type));
 
 	  if (compare_tree_int (TYPE_SIZE_UNIT (ret_type), size_as_int) == 0)
-	    warning ("%Jsize of return value of '%D' is %u bytes",
+	    warning ("%Jsize of return value of %qD is %u bytes",
                      fndecl, fndecl, size_as_int);
 	  else
-	    warning ("%Jsize of return value of '%D' is larger than %wd bytes",
+	    warning ("%Jsize of return value of %qD is larger than %wd bytes",
                      fndecl, fndecl, larger_than_size);
 	}
     }

@@ -14,6 +14,7 @@ details.  */
 
 #pragma interface
 
+#include <stddef.h>
 #include <java/lang/Object.h>
 #include <java/lang/String.h>
 #include <java/net/URL.h>
@@ -24,7 +25,9 @@ details.  */
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
-extern "C" void _Jv_RegisterClasses (jclass *classes);
+extern "C" void _Jv_RegisterClasses (const jclass *classes);
+extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
+					     size_t count);
 
 // This must be predefined with "C" linkage.
 extern "C" void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
@@ -139,6 +142,13 @@ struct _Jv_CatchClass
 #define JV_PRIMITIVE_VTABLE ((_Jv_VTable *) -1)
 
 #define JV_CLASS(Obj) ((jclass) (*(_Jv_VTable **) Obj)->clas)
+
+// Forward declarations for friends of java::lang::Class
+class _Jv_ClassReader;	
+class _Jv_InterpClass;
+class _Jv_InterpMethod;
+class _Jv_BytecodeVerifier;
+class _Jv_StackTrace;
 
 class java::lang::Class : public java::lang::Object
 {
@@ -310,7 +320,9 @@ private:
   friend class java::io::ObjectStreamClass;
 
   friend void _Jv_WaitForState (jclass, int);
-  friend void _Jv_RegisterClasses (jclass *classes);
+  friend void _Jv_RegisterClasses (const jclass *classes);
+  friend void _Jv_RegisterClasses_Counted (const jclass *classes, 
+					   size_t count);
   friend void _Jv_RegisterClassHookDefault (jclass klass);
   friend void _Jv_RegisterInitiatingLoader (jclass,java::lang::ClassLoader*);
   friend void _Jv_UnregisterClass (jclass);
@@ -374,17 +386,17 @@ private:
 
   friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
   
-  friend class _Jv_ClassReader;	
-  friend class _Jv_InterpClass;
-  friend class _Jv_InterpMethod;
+  friend class ::_Jv_ClassReader;	
+  friend class ::_Jv_InterpClass;
+  friend class ::_Jv_InterpMethod;
 #endif
 
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;
 #endif
 
-  friend class _Jv_BytecodeVerifier;
-  friend class _Jv_StackTrace;
+  friend class ::_Jv_BytecodeVerifier;
+  friend class ::_Jv_StackTrace;
   friend class gnu::gcj::runtime::StackTrace;
   friend class java::io::VMObjectStreamClass;
 

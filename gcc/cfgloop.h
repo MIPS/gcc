@@ -97,9 +97,6 @@ struct loop
      the loop latch.  */
   basic_block last;
 
-  /* Bitmap of blocks contained within the loop.  */
-  sbitmap nodes;
-
   /* Number of blocks contained within the loop.  */
   unsigned num_nodes;
 
@@ -147,7 +144,7 @@ struct loop
   void *aux;
 
   /* The following are currently used by loop.c but they are likely to
-     disappear as loop.c is converted to use the CFG.  */
+     disappear when loop.c is replaced and removed.  */
 
   /* The NOTE_INSN_LOOP_BEG.  */
   rtx start;
@@ -339,7 +336,8 @@ extern struct loop * duplicate_loop (struct loops *, struct loop *,
 extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					  unsigned, sbitmap, edge, edge *,
 					  unsigned *, int);
-extern struct loop *loopify (struct loops *, edge, edge, basic_block, bool);
+extern struct loop *loopify (struct loops *, edge, edge,
+			     basic_block, edge, edge, bool);
 extern void unloop (struct loops *, struct loop *);
 extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, void *);

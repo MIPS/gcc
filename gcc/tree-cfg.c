@@ -1598,7 +1598,7 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 	  }
       }
       break;
-    case SWITCH_EXPR:
+    case ASM_EXPR:
       fold_stmt (tp);
       data->last_goto = NULL;
       break;
@@ -1940,9 +1940,9 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 }
 
 
-/* Given a control block BB and a predicate VAL, return the edge that
-   will be taken out of the block.  If VAL does not match a unique
-   edge, NULL is returned.  */
+/* Given a basic block BB ending with COND_EXPR or SWITCH_EXPR, and a
+   predicate VAL, return the edge that will be taken out of the block.
+   If VAL does not match a unique edge, NULL is returned.  */
 
 edge
 find_taken_edge (basic_block bb, tree val)
@@ -1970,7 +1970,7 @@ find_taken_edge (basic_block bb, tree val)
   if (TREE_CODE (stmt) == SWITCH_EXPR)
     return find_taken_edge_switch_expr (bb, val);
 
-  return EDGE_SUCC (bb, 0);
+  gcc_unreachable ();
 }
 
 
@@ -3693,12 +3693,7 @@ tree_make_forwarder_block (edge fallthru)
       if (e == fallthru)
 	continue;
 
-      for (phi = phi_nodes (bb), var = PENDING_STMT (e);
-	   phi;
-	   phi = PHI_CHAIN (phi), var = TREE_CHAIN (var))
-	add_phi_arg (&phi, TREE_VALUE (var), e);
-
-      PENDING_STMT (e) = NULL;
+      flush_pending_stmts (e);
     }
 }
 
@@ -3950,6 +3945,10 @@ thread_jumps (void)
       bb->flags &= ~BB_VISITED;
     }
 
+  /* We pretend to have ENTRY_BLOCK_PTR in WORKLIST.  This way,
+     ENTRY_BLOCK_PTR will never be entered into WORKLIST.  */
+  ENTRY_BLOCK_PTR->flags |= BB_VISITED;
+
   /* Initialize WORKLIST by putting non-forwarder blocks that
      immediately precede forwarder blocks because those are the ones
      that we know we can thread jumps from.  We use BB_VISITED to
@@ -3971,13 +3970,11 @@ thread_jumps (void)
 	 among BB's predecessors.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
-	  /* We are not interested in threading jumps from a forwarder
-	     block.  */
-	  if (!bb_ann (e->src)->forwardable
-	      /* We don't want to visit ENTRY_BLOCK_PTR.  */
-	      && e->src->index >= 0
-	      /* We don't want to put a duplicate into WORKLIST.  */
-	      && (e->src->flags & BB_VISITED) == 0)
+	  /* We don't want to put a duplicate into WORKLIST.  */
+	  if ((e->src->flags & BB_VISITED) == 0
+	      /* We are not interested in threading jumps from a forwarder
+		 block.  */
+	      && !bb_ann (e->src)->forwardable)
 	    {
 	      e->src->flags |= BB_VISITED;
 	      worklist[size] = e->src;
@@ -3992,7 +3989,7 @@ thread_jumps (void)
       size--;
       bb = worklist[size];
 
-      /* BB->INDEX is not longer in WORKLIST, so clear BB_VISITED.  */
+      /* BB is no longer in WORKLIST, so clear BB_VISITED.  */
       bb->flags &= ~BB_VISITED;
 
       if (thread_jumps_from_bb (bb))
@@ -4012,13 +4009,11 @@ thread_jumps (void)
 		 predecessors.  */
 	      FOR_EACH_EDGE (f, ej, bb->preds)
 		{
-		  /* We are not interested in threading jumps from a
-		     forwarder block.  */
-		  if (!bb_ann (f->src)->forwardable
-		      /* We don't want to visit ENTRY_BLOCK_PTR.  */
-		      && f->src->index >= 0
-		      /* We don't want to put a duplicate into WORKLIST.  */
-		      && (f->src->flags & BB_VISITED) == 0)
+		  /* We don't want to put a duplicate into WORKLIST.  */
+		  if ((f->src->flags & BB_VISITED) == 0
+		      /* We are not interested in threading jumps from a
+			 forwarder block.  */
+		      && !bb_ann (f->src)->forwardable)
 		    {
 		      f->src->flags |= BB_VISITED;
 		      worklist[size] = f->src;
@@ -4028,6 +4023,8 @@ thread_jumps (void)
 	    }
 	}
     }
+
+  ENTRY_BLOCK_PTR->flags &= ~BB_VISITED;
 
   free (worklist);
 
@@ -4543,8 +4540,12 @@ rewrite_to_new_ssa_names_bb (basic_block bb, htab_t map)
 
       v_must_defs = V_MUST_DEF_OPS (ann);
       for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	rewrite_to_new_ssa_names_def
-		(V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, map);
+	{
+	  rewrite_to_new_ssa_names_def
+	    (V_MUST_DEF_RESULT_PTR (v_must_defs, i), stmt, map);
+	  rewrite_to_new_ssa_names_use
+	    (V_MUST_DEF_KILL_PTR (v_must_defs, i),  map);
+	}
     }
 
   FOR_EACH_EDGE (e, ei, bb->succs)
@@ -4593,7 +4594,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
   struct loop *loop = entry->dest->loop_father;
   edge exit_copy;
   bitmap definitions;
-  tree phi, var;
+  tree phi;
   basic_block *doms;
   htab_t ssa_name_map = NULL;
   edge redirected;
@@ -4662,11 +4663,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
   /* Redirect the entry and add the phi node arguments.  */
   redirected = redirect_edge_and_branch (entry, entry->dest->rbi->copy);
   gcc_assert (redirected != NULL);
-  for (phi = phi_nodes (entry->dest), var = PENDING_STMT (entry);
-       phi;
-       phi = TREE_CHAIN (phi), var = TREE_CHAIN (var))
-    add_phi_arg (&phi, TREE_VALUE (var), entry);
-  PENDING_STMT (entry) = NULL;
+  flush_pending_stmts (entry);
 
   /* Concerning updating of dominators:  We must recount dominators
      for entry block and its copy.  Anything that is outside of the region, but

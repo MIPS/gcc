@@ -109,7 +109,6 @@ find_referenced_vars (void)
   block_stmt_iterator si;
   struct walk_state walk_state;
 
-  cgraph_reset_static_var_maps ();
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
   memset (&walk_state, 0, sizeof (walk_state));
   walk_state.vars_found = vars_found;
@@ -132,7 +131,7 @@ struct tree_opt_pass pass_referenced_vars =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_FIND_REFERENCED_VARS,		/* tv_id */
   PROP_gimple_leh | PROP_cfg,		/* properties_required */
   PROP_referenced_vars,			/* properties_provided */
   0,					/* properties_destroyed */
@@ -313,7 +312,14 @@ compute_immediate_uses_for_stmt (tree stmt, int flags, bool (*calc_for)(tree))
 	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (use)))
 	    add_immediate_use (imm_rdef_stmt, stmt);
 	}
-    }
+      
+      FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_KILLS)
+	{
+	  tree imm_rdef_stmt = SSA_NAME_DEF_STMT (use);
+	  if (!IS_EMPTY_STMT (imm_rdef_stmt) && (!calc_for || calc_for (use)))
+	    add_immediate_use (imm_rdef_stmt, stmt);
+	}
+    }  
 }
 
 

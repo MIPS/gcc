@@ -374,30 +374,9 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
                                  cp_token *token)
 {
   static int is_extern_c = 0;
-  bool done;
 
-  done = false;
-  /* Keep going until we get a token we like.  */
-  while (!done)
-    {
-      /* Get a new token from the preprocessor.  */
-      token->type = c_lex_with_flags (&token->value, &token->flags);
-      /* Issue messages about tokens we cannot process.  */
-      switch (token->type)
-	{
-	case CPP_ATSIGN:
-	case CPP_HASH:
-	case CPP_PASTE:
-	  error ("invalid token");
-	  break;
-
-	default:
-	  /* This is a good token, so we exit the loop.  */
-	  done = true;
-	  break;
-	}
-    }
-  /* Now we've got our token.  */
+   /* Get a new token from the preprocessor.  */
+  token->type = c_lex_with_flags (&token->value, &token->flags);
   token->location = input_location;
   token->in_system_header = in_system_header;
 
@@ -2011,7 +1990,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree scope, tree id)
 		    if (TREE_CODE (field) == TYPE_DECL
 			&& DECL_NAME (field) == id)
 		      {
-			inform ("(perhaps `typename %T::%E' was intended)",
+			inform ("(perhaps %<typename %T::%E%> was intended)",
 			        BINFO_TYPE (b), id);
 			break;
 		      }
@@ -2029,7 +2008,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree scope, tree id)
 	error ("%qE in namespace %qE does not name a type",
 	       id, parser->scope);
       else if (TYPE_P (parser->scope))
-	error ("q%E in class %qT does not name a type", id, parser->scope);
+	error ("%qE in class %qT does not name a type", id, parser->scope);
       else
 	gcc_unreachable ();
     }
@@ -8207,9 +8186,15 @@ cp_parser_type_parameter (cp_parser* parser)
 	if (cp_lexer_next_token_is_not (parser->lexer, CPP_EQ)
 	    && cp_lexer_next_token_is_not (parser->lexer, CPP_GREATER)
 	    && cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
-	  identifier = cp_parser_identifier (parser);
+	  {
+	    identifier = cp_parser_identifier (parser);
+	    /* Treat invalid names as if the parameter were nameless. */
+	    if (identifier == error_mark_node)
+	      identifier = NULL_TREE;
+	  }
 	else
 	  identifier = NULL_TREE;
+
 	/* Create the template parameter.  */
 	parameter = finish_template_template_parm (class_type_node,
 						   identifier);
@@ -8252,15 +8237,13 @@ cp_parser_type_parameter (cp_parser* parser)
 
 	/* Create the combined representation of the parameter and the
 	   default argument.  */
-	parameter =  build_tree_list (default_argument, parameter);
+	parameter = build_tree_list (default_argument, parameter);
       }
       break;
 
     default:
-      /* Anything else is an error.  */
-      cp_parser_error (parser,
-		       "expected %<class%>, %<typename%>, or %<template%>");
-      parameter = error_mark_node;
+      gcc_unreachable ();
+      break;
     }
 
   return parameter;
@@ -9775,6 +9758,9 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
    enum-specifier:
      enum identifier [opt] { enumerator-list [opt] }
 
+   GNU Extensions:
+     enum identifier [opt] { enumerator-list [opt] } attributes
+
    Returns an ENUM_TYPE representing the enumeration.  */
 
 static tree
@@ -9811,6 +9797,16 @@ cp_parser_enum_specifier (cp_parser* parser)
 
   /* Consume the final '}'.  */
   cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+
+  /* Look for trailing attributes to apply to this enumeration, and
+     apply them if appropriate. */
+  if (cp_parser_allow_gnu_extensions_p (parser))
+    {
+      tree trailing_attr = cp_parser_attributes_opt (parser);
+      cplus_decl_attributes (&type,
+			     trailing_attr,
+			     (int) ATTR_FLAG_TYPE_IN_PLACE);
+    }
 
   /* Finish up the enumeration.  */
   finish_enum (type);
@@ -10068,7 +10064,6 @@ cp_parser_using_declaration (cp_parser* parser)
   bool global_scope_p;
   tree decl;
   tree identifier;
-  tree scope;
   tree qscope;
 
   /* Look for the `using' keyword.  */
@@ -10127,8 +10122,7 @@ cp_parser_using_declaration (cp_parser* parser)
     error ("a template-id may not appear in a using-declaration");
   else
     {
-      scope = current_scope ();
-      if (scope && TYPE_P (scope))
+      if (at_class_scope_p ())
 	{
 	  /* Create the USING_DECL.  */
 	  decl = do_class_using_decl (build_nt (SCOPE_REF,
@@ -10142,7 +10136,7 @@ cp_parser_using_declaration (cp_parser* parser)
 	  decl = cp_parser_lookup_name_simple (parser, identifier);
 	  if (decl == error_mark_node)
 	    cp_parser_name_lookup_error (parser, identifier, decl, NULL);
-	  else if (scope)
+	  else if (!at_namespace_scope_p ())
 	    do_local_using_decl (decl, qscope, identifier);
 	  else
 	    do_toplevel_using_decl (decl, qscope, identifier);
@@ -11003,7 +10997,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      break;
 	    }
 
-	  if (TREE_CODE (id) == SCOPE_REF && !current_scope ())
+	  if (TREE_CODE (id) == SCOPE_REF && at_namespace_scope_p ())
 	    {
 	      tree scope = TREE_OPERAND (id, 0);
 
@@ -12581,8 +12575,6 @@ cp_parser_class_head (cp_parser* parser,
       tree scope;
       /* Figure out in what scope the declaration is being placed.  */
       scope = current_scope ();
-      if (!scope)
-	scope = current_namespace;
       /* If that scope does not contain the scope in which the
 	 class was originally declared, the program is invalid.  */
       if (scope && !is_ancestor (scope, nested_name_specifier))
@@ -14813,6 +14805,11 @@ cp_parser_single_declaration (cp_parser* parser,
   cp_decl_specifier_seq decl_specifiers;
   bool function_definition_p = false;
 
+  /* This function is only used when processing a template
+     declaration.  */
+  gcc_assert (innermost_scope_kind () == sk_template_parms
+	      || innermost_scope_kind () == sk_template_spec);
+
   /* Defer access checks until we know what is being declared.  */
   push_deferring_access_checks (dk_deferred);
 
@@ -14824,6 +14821,14 @@ cp_parser_single_declaration (cp_parser* parser,
 				&declares_class_or_enum);
   if (friend_p)
     *friend_p = cp_parser_friend_p (&decl_specifiers);
+
+  /* There are no template typedefs.  */
+  if (decl_specifiers.specs[(int) ds_typedef])
+    {
+      error ("template declaration of %qs", "typedef");
+      decl = error_mark_node;
+    }
+
   /* Gather up the access checks that occurred the
      decl-specifier-seq.  */
   stop_deferring_access_checks ();
@@ -14855,8 +14860,6 @@ cp_parser_single_declaration (cp_parser* parser,
 	    decl = error_mark_node;
 	}
     }
-  else
-    decl = NULL_TREE;
   /* If it's not a template class, try for a template function.  If
      the next token is a `;', then this declaration does not declare
      anything.  But, if there were errors in the decl-specifiers, then
@@ -14881,7 +14884,8 @@ cp_parser_single_declaration (cp_parser* parser,
   parser->object_scope = NULL_TREE;
   /* Look for a trailing `;' after the declaration.  */
   if (!function_definition_p
-      && !cp_parser_require (parser, CPP_SEMICOLON, "`;'"))
+      && (decl == error_mark_node
+	  || !cp_parser_require (parser, CPP_SEMICOLON, "`;'")))
     cp_parser_skip_to_end_of_block_or_statement (parser);
 
   return decl;
@@ -15499,9 +15503,7 @@ cp_parser_next_token_starts_class_definition_p (cp_parser *parser)
 }
 
 /* Returns TRUE iff the next token is the "," or ">" ending a
-   template-argument. ">>" is also accepted (after the full
-   argument was parsed) because it's probably a typo for "> >",
-   and there is a specific diagnostic for this.  */
+   template-argument.   */
 
 static bool
 cp_parser_next_token_ends_template_argument_p (cp_parser *parser)
@@ -15509,8 +15511,7 @@ cp_parser_next_token_ends_template_argument_p (cp_parser *parser)
   cp_token *token;
 
   token = cp_lexer_peek_token (parser->lexer);
-  return (token->type == CPP_COMMA || token->type == CPP_GREATER
-	  || token->type == CPP_RSHIFT);
+  return (token->type == CPP_COMMA || token->type == CPP_GREATER);
 }
 
 /* Returns TRUE iff the n-th token is a ">", or the n-th is a "[" and the

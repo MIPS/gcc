@@ -4133,14 +4133,9 @@ grokdeclarator (const struct c_declarator *declarator,
 	       zero.  */
 	    if (size && integer_zerop (size))
 	      {
-		layout_type (type);
 		TYPE_SIZE (type) = bitsize_zero_node;
 		TYPE_SIZE_UNIT (type) = size_zero_node;
 	      }
-	    else if (declarator->kind == cdk_pointer)
-	      /* We can never complete an array type which is the
-	         target of a pointer, so go ahead and lay it out.  */
-	      layout_type (type);
 
 	    if (decl_context != PARM
 		&& (array_ptr_quals != TYPE_UNQUALIFIED
@@ -4860,10 +4855,13 @@ get_parm_info (bool ellipsis)
 
 	case CONST_DECL:
 	case TYPE_DECL:
+	case FUNCTION_DECL:
 	  /* CONST_DECLs appear here when we have an embedded enum,
 	     and TYPE_DECLs appear here when we have an embedded struct
 	     or union.  No warnings for this - we already warned about the
-	     type itself.  */
+	     type itself.  FUNCTION_DECLs appear when there is an implicit
+	     function declaration in the parameter list.  */
+
 	  TREE_CHAIN (decl) = others;
 	  others = decl;
 	  /* fall through */
@@ -4880,7 +4878,6 @@ get_parm_info (bool ellipsis)
 
 	  /* Other things that might be encountered.  */
 	case LABEL_DECL:
-	case FUNCTION_DECL:
 	case VAR_DECL:
 	default:
 	  gcc_unreachable ();
@@ -5703,11 +5700,9 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   DECL_INITIAL (decl1) = error_mark_node;
 
   /* If this definition isn't a prototype and we had a prototype declaration
-     before, copy the arg type info from that prototype.
-     But not if what we had before was a builtin function.  */
+     before, copy the arg type info from that prototype.  */
   old_decl = lookup_name_in_scope (DECL_NAME (decl1), current_scope);
   if (old_decl != 0 && TREE_CODE (TREE_TYPE (old_decl)) == FUNCTION_TYPE
-      && !DECL_BUILT_IN (old_decl)
       && comptypes (TREE_TYPE (TREE_TYPE (decl1)),
 		    TREE_TYPE (TREE_TYPE (old_decl)))
       && TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0)

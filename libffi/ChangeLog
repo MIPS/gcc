@@ -1,3 +1,27 @@
+2004-10-27  Richard Earnshaw  <rearnsha@arm.com>
+
+	* src/arm/ffi.c (ffi_prep_cif_machdep): Handle functions that return
+	long long values.  Round stack allocation to a multiple of 8 bytes
+	for ATPCS compatibility.
+	* src/arm/sysv.S (ffi_call_SYSV): Rework to avoid use of APCS register
+	names.  Handle returning long long types.  Add Thumb and interworking
+	support.  Improve soft-float code.
+
+2004-10-27  Richard Earnshaw  <rearnsha@arm.com>
+
+	* testsuite/lib/libffi-db.exp (load_gcc_lib): New function.
+	(libffi_exit): New function.
+	(libffi_init): Build the testglue wrapper if needed.
+
+2004-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/18138
+	* testsuite/lib/libffi-dg.exp: Accept more than one multilib libgcc.
+
+2004-10-25  Kazuhiro Inaoka <inaoka.kazuhiro@renesas.com>
+
+	* src/m32r/libffitarget.h (FFI_CLOSURES): Set to 0.
+
 2004-10-20  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* src/sh/sysv.S (ffi_call_SYSV): Don't align for double data.

@@ -507,8 +507,6 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       tree result_type;
 
       if (pedantic && TYPE_PTRFN_P (t2))
-	/* Although DR195 suggests allowing this when no precision is
-	   lost, that is only allowed in a reinterpret_cast.  */
 	pedwarn ("ISO C++ forbids %s between pointer of type %<void *%> "
                  "and pointer-to-function", location);
       result_type 
@@ -3201,7 +3199,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   /* If we're in a template, the only thing we need to know is the
      RESULT_TYPE.  */
   if (processing_template_decl)
-    return build2 (resultcode, result_type, op0, op1);
+    return build2 (resultcode, 
+		   build_type ? build_type : result_type, 
+		   op0, op1);
 
   if (arithmetic_types_p)
     {
@@ -3620,13 +3620,15 @@ build_x_unary_op (enum tree_code code, tree xarg)
 	{
 	  if (TREE_CODE (xarg) != OFFSET_REF)
 	    {
-	      error ("invalid use of '%E' to form a pointer-to-member-function.  Use a qualified-id.",
+	      error ("invalid use of %qE to form a pointer-to-member-function."
+                     "  Use a qualified-id.",
 		     xarg);
 	      return error_mark_node;
 	    }
 	  else
 	    {
-	      error ("parenthesis around '%E' cannot be used to form a pointer-to-member-function",
+	      error ("parenthesis around %qE cannot be used to form a"
+                     " pointer-to-member-function",
 		     xarg);
 	      PTRMEM_OK_P (xarg) = 1;
 	    }
@@ -4802,7 +4804,7 @@ convert_member_func_to_ptr (tree type, tree expr)
 	      || TREE_CODE (intype) == METHOD_TYPE);
 
   if (pedantic || warn_pmf2ptr)
-    pedwarn ("converting from `%T' to `%T'", intype, type);
+    pedwarn ("converting from %qT to %qT", intype, type);
     
   if (TREE_CODE (intype) == METHOD_TYPE)
     expr = build_addr_func (expr);
@@ -4825,7 +4827,7 @@ convert_member_func_to_ptr (tree type, tree expr)
 
 static tree
 build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
-			  bool for_reinterpret_ref_p, bool *valid_p)
+			  bool *valid_p)
 {
   tree intype;
 
@@ -4865,7 +4867,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       expr = build_unary_op (ADDR_EXPR, expr, 0);
       if (expr != error_mark_node)
 	expr = build_reinterpret_cast_1
-	  (build_pointer_type (TREE_TYPE (type)), expr, c_cast_p, true,
+	  (build_pointer_type (TREE_TYPE (type)), expr, c_cast_p,
 	   valid_p);
       if (expr != error_mark_node)
 	expr = build_indirect_ref (expr, 0);
@@ -4943,24 +4945,12 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
   else if ((TYPE_PTRFN_P (type) && TYPE_PTROBV_P (intype))
 	   || (TYPE_PTRFN_P (intype) && TYPE_PTROBV_P (type)))
     {
-      if (pedantic || !c_cast_p)
-	{
-	  /* DR 195 suggests allowing such casts if they do not lose
-	     precision.  We allow conversion to pointer-to-void, if it
-	     does not lose precision, and we allow conversion from
-	     pointer-to-void regardless, so that one may convert
-	     back again without warning.  Such conversions are not
-	     permitted when we are recursively called to deal with
-	     reinterpreting reference casts.  */
-	  if (!for_reinterpret_ref_p && VOID_TYPE_P (TREE_TYPE (type)))
-	    {
-	      if (TYPE_PRECISION (type) < TYPE_PRECISION (intype))
-		warning ("conversion from %qT to %qT loses precision",
-			 intype, type);
-	    }
-	  else if (for_reinterpret_ref_p || !VOID_TYPE_P (TREE_TYPE (intype)))
-	    pedwarn ("ISO C++ forbids casting between pointer-to-function and pointer-to-object");
-	}
+      if (pedantic)
+	/* Only issue a warning, as we have always supported this
+ 	   where possible, and it is necessary in some cases.  DR 195
+ 	   addresses this issue, but as of 2004/10/26 is still in
+ 	   drafting.  */
+ 	warning ("ISO C++ forbids casting between pointer-to-function and pointer-to-object");
       
       expr = decl_constant_value (expr);
       return fold_if_not_in_template (build_nop (type, expr));
@@ -4996,7 +4986,6 @@ build_reinterpret_cast (tree type, tree expr)
     }
 
   return build_reinterpret_cast_1 (type, expr, /*c_cast_p=*/false,
-				   /*for_reinterpret_ref=*/false,
 				   /*valid_p=*/NULL);
 }
 
@@ -5110,7 +5099,7 @@ build_const_cast_1 (tree dst_type, tree expr, bool complain,
 tree
 build_const_cast (tree type, tree expr)
 {
-  if (type == error_mark_node || expr == error_mark_node)
+  if (type == error_mark_node || error_operand_p (expr))
     return error_mark_node;
 
   if (processing_template_decl)
@@ -5199,7 +5188,6 @@ build_c_cast (tree type, tree expr)
   /* Or a reinterpret_cast.  */
   if (!valid_p)
     result = build_reinterpret_cast_1 (type, value, /*c_cast_p=*/true,
-				       /*for_reinterpret_ref_p=*/false,
 				       &valid_p);
   /* The static_cast or reinterpret_cast may be followed by a
      const_cast.  */
@@ -5609,7 +5597,7 @@ get_delta_difference (tree from, tree to,
 	      virt_binfo = binfo_from_vbase (binfo);
 	      if (virt_binfo)
 		/* This is a reinterpret cast, we choose to do nothing.  */
-		warning ("pointer to member cast via virtual base `%T'",
+		warning ("pointer to member cast via virtual base %qT",
 			 BINFO_TYPE (virt_binfo));
 	      else
 		result = size_diffop (size_zero_node, BINFO_OFFSET (binfo));

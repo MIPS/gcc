@@ -92,7 +92,7 @@ enum rid
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
 
   /* Objective-C */
-  RID_ID,          RID_AT_ENCODE,    RID_AT_END,
+  RID_AT_ENCODE,   RID_AT_END,
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
   RID_AT_PRIVATE,  RID_AT_PROTECTED, RID_AT_PUBLIC,
   RID_AT_PROTOCOL, RID_AT_SELECTOR,  
@@ -905,7 +905,7 @@ extern void objc_check_decl (tree);
 extern int objc_is_reserved_word (tree);
 extern int objc_comptypes (tree, tree, int);
 extern tree objc_message_selector (void);
-extern tree objc_lookup_ivar (tree);
+extern tree objc_lookup_ivar (tree, tree);
 extern void objc_clear_super_receiver (void);
 extern int objc_is_public (tree, tree);
 extern tree objc_is_id (tree);

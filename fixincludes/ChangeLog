@@ -1,3 +1,35 @@
+2004-11-01  Mike Stump  <mrs@apple.com>
+
+	* inclhack.def (stdio_va_list): Break out clients from here...
+	(stdio_va_list_clients): ...to here.  Also, don't fix if stdarg.h is
+        included or ifdef va_start.
+	* fixincl.x: Regenerate.
+
+2004-10-28  Mike Stump  <mrs@apple.com>
+
+	* inclhack.def (void_null): Avoid changing NULL on C++ friendly
+	systems.
+	* fixincl.x: Regenerate.
+
+2004-10-27  Geoffrey Keating  <geoffk@apple.com>
+
+	* inclhack.def (darwin_gcc4_breakage): New.
+	* fixincl.x: Regenerate.
+
+2004-10-27  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	PR bootstrap/17832
+
+	* fixfixes.c (main): Check for _PC_NAME_MAX.
+
+2004-10-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR other/17991
+
+	* configure.ac: Fix typo.
+	* configure: Regenerate.
+	* fixincl.c (fix_with_system): tSCC is not a pointer.  Fix.
+
 2004-10-20  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
 
 	PR bootstrap/17832

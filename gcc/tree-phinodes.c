@@ -1,23 +1,23 @@
 /* Generic routines for manipulating PHIs
    Copyright (C) 2003 Free Software Foundation, Inc.
-                                                                                
+
 This file is part of GCC.
-                                                                                
+
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
-                                                                                
+
 GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-                                                                                
+
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-                                                                                
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Rewriting a function into SSA form can create a huge number of PHIs
    many of which may be thrown away shortly after their creation if jumps
-   were threaded through PHI nodes.  
+   were threaded through PHI nodes.
 
    While our garbage collection mechanisms will handle this situation, it
    is extremely wasteful to create nodes and throw them away, especially
@@ -46,12 +46,12 @@ Boston, MA 02111-1307, USA.  */
 
    Right now we maintain our free list on a per-function basis.  It may
    or may not make sense to maintain the free list for the duration of
-   a compilation unit. 
+   a compilation unit.
 
    We could also use a zone allocator for these objects since they have
    a very well defined lifetime.  If someone wants to experiment with that
    this is the place to try it.
-   
+
    PHI nodes have different sizes, so we can't have a single list of all
    the PHI nodes as it would be too expensive to walk down that list to
    find a PHI of a suitable size.
@@ -71,7 +71,7 @@ Boston, MA 02111-1307, USA.  */
    be very expensive if the program has released a bunch of large PHI nodes,
    but keeps asking for even larger PHI nodes.  Experiments have shown that
    walking the elements of the last array entry would result in finding less
-   than .1% additional reusable PHI nodes. 
+   than .1% additional reusable PHI nodes.
 
    Note that we can never have less than two PHI argument slots.  Thus,
    the -2 on all the calculations below.  */
@@ -123,6 +123,47 @@ phinodes_print_statistics (void)
 }
 #endif
 
+/* Allocate a PHI node with at least LEN arguments.  If the free list
+   happens to contain a PHI node with LEN arguments or more, return
+   that one.  */
+
+static inline tree
+allocate_phi_node (int len)
+{
+  tree phi;
+  int bucket = NUM_BUCKETS - 2;
+  int size = (sizeof (struct tree_phi_node)
+	      + (len - 1) * sizeof (struct phi_arg_d));
+
+  if (free_phinode_count)
+    for (bucket = len - 2; bucket < NUM_BUCKETS - 2; bucket++)
+      if (free_phinodes[bucket])
+	break;
+
+  /* If our free list has an element, then use it.  */
+  if (bucket < NUM_BUCKETS - 2
+      && PHI_ARG_CAPACITY (free_phinodes[bucket]) >= len)
+    {
+      free_phinode_count--;
+      phi = free_phinodes[bucket];
+      free_phinodes[bucket] = PHI_CHAIN (free_phinodes[bucket]);
+#ifdef GATHER_STATISTICS
+      phi_nodes_reused++;
+#endif
+    }
+  else
+    {
+      phi = ggc_alloc (size);
+#ifdef GATHER_STATISTICS
+      phi_nodes_created++;
+      tree_node_counts[(int) phi_kind]++;
+      tree_node_sizes[(int) phi_kind] += size;
+#endif
+    }
+
+  return phi;
+}
+
 /* Given LEN, the original number of requested PHI arguments, return
    a new, "ideal" length for the PHI node.  The "ideal" length rounds
    the total size of the PHI node up to the next power of two bytes.
@@ -149,8 +190,8 @@ ideal_phi_node_len (int len)
   /* Round it up to the next power of two.  */
   log2 = ceil_log2 (size);
   new_size = 1 << log2;
-  
-  /* Now compute and return the number of PHI argument slots given an 
+
+  /* Now compute and return the number of PHI argument slots given an
      ideal size allocation.  */
   new_len = len + (new_size - size) / sizeof (struct phi_arg_d);
   return new_len;
@@ -165,41 +206,17 @@ tree
 make_phi_node (tree var, int len)
 {
   tree phi;
-  int size;
-  int bucket = NUM_BUCKETS - 2;
 
   len = ideal_phi_node_len (len);
 
-  size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
+  phi = allocate_phi_node (len);
 
-  if (free_phinode_count)
-    for (bucket = len - 2; bucket < NUM_BUCKETS - 2; bucket++)
-      if (free_phinodes[bucket])
-	break;
-
-  /* If our free list has an element, then use it.  */
-  if (bucket < NUM_BUCKETS - 2
-      && PHI_ARG_CAPACITY (free_phinodes[bucket]) >= len)
-    {
-      free_phinode_count--;
-      phi = free_phinodes[bucket];
-      free_phinodes[bucket] = PHI_CHAIN (free_phinodes[bucket]);
-#ifdef GATHER_STATISTICS
-      phi_nodes_reused++;
-#endif
-    }
-  else
-    {
-      phi = ggc_alloc (size);
-#ifdef GATHER_STATISTICS
-      phi_nodes_created++;
-      tree_node_counts[(int) phi_kind]++;
-      tree_node_sizes[(int) phi_kind] += size;
-#endif
-
-    }
-
-  memset (phi, 0, size);
+  /* We do not have to clear a part of the PHI node that stores PHI
+     arguments, which is safe because we tell the garbage collector to
+     scan up to num_args elements in the array of PHI arguments.  In
+     other words, the garbage collector will not follow garbage
+     pointers in the unused portion of the array.  */
+  memset (phi, 0, sizeof (struct tree_phi_node) - sizeof (struct phi_arg_d));
   TREE_SET_CODE (phi, PHI_NODE);
   PHI_ARG_CAPACITY (phi) = len;
   TREE_TYPE (phi) = TREE_TYPE (var);
@@ -228,58 +245,26 @@ release_phi_node (tree phi)
 
 /* Resize an existing PHI node.  The only way is up.  Return the
    possibly relocated phi.  */
-                                                                                
+
 static void
 resize_phi_node (tree *phi, int len)
 {
-  int size, old_size;
+  int old_size;
   tree new_phi;
-  int i, old_len, bucket = NUM_BUCKETS - 2;
 
   gcc_assert (len >= PHI_ARG_CAPACITY (*phi));
 
-  /* Note that OLD_SIZE is guaranteed to be smaller than SIZE.  */
+  /* The garbage collector will not look at the PHI node beyond the
+     first PHI_NUM_ARGS elements.  Therefore, all we have to copy is a
+     portion of the PHI node currently in use.  */
   old_size = (sizeof (struct tree_phi_node)
-	     + (PHI_ARG_CAPACITY (*phi) - 1) * sizeof (struct phi_arg_d));
-  size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
+	     + (PHI_NUM_ARGS (*phi) - 1) * sizeof (struct phi_arg_d));
 
-  if (free_phinode_count)
-    for (bucket = len - 2; bucket < NUM_BUCKETS - 2; bucket++)
-      if (free_phinodes[bucket])
-	break;
-
-  /* If our free list has an element, then use it.  */
-  if (bucket < NUM_BUCKETS - 2
-      && PHI_ARG_CAPACITY (free_phinodes[bucket]) >= len)
-    {
-      free_phinode_count--;
-      new_phi = free_phinodes[bucket];
-      free_phinodes[bucket] = PHI_CHAIN (free_phinodes[bucket]);
-#ifdef GATHER_STATISTICS
-      phi_nodes_reused++;
-#endif
-    }
-  else
-    {
-      new_phi = ggc_alloc (size);
-#ifdef GATHER_STATISTICS
-      phi_nodes_created++;
-      tree_node_counts[(int) phi_kind]++;
-      tree_node_sizes[(int) phi_kind] += size;
-#endif
-    }
+  new_phi = allocate_phi_node (len);
 
   memcpy (new_phi, *phi, old_size);
 
-  old_len = PHI_ARG_CAPACITY (new_phi);
   PHI_ARG_CAPACITY (new_phi) = len;
-                                                                                
-  for (i = old_len; i < len; i++)
-    {
-      SET_PHI_ARG_DEF (new_phi, i, NULL_TREE);
-      PHI_ARG_EDGE (new_phi, i) = NULL;
-      PHI_ARG_NONZERO (new_phi, i) = false;
-    }
 
   *phi = new_phi;
 }
@@ -292,10 +277,6 @@ create_phi_node (tree var, basic_block bb)
   tree phi;
 
   phi = make_phi_node (var, EDGE_COUNT (bb->preds));
-
-  /* This is a new phi node, so note that is has not yet been
-     rewritten.  */
-  PHI_REWRITTEN (phi) = 0;
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   PHI_CHAIN (phi) = phi_nodes (bb);
@@ -316,47 +297,41 @@ create_phi_node (tree var, basic_block bb)
 void
 add_phi_arg (tree *phi, tree def, edge e)
 {
+  basic_block bb = e->dest;
   int i = PHI_NUM_ARGS (*phi);
+
+  gcc_assert (bb == bb_for_stmt (*phi));
 
   if (i >= PHI_ARG_CAPACITY (*phi))
     {
       tree old_phi = *phi;
 
-      /* Resize the phi.  Unfortunately, this may also relocate it.  */
+      /* Resize the phi.  Unfortunately, this will relocate it.  */
       resize_phi_node (phi, ideal_phi_node_len (i + 4));
+
+      /* resize_phi_node will necessarily relocate the phi.  */
+      gcc_assert (*phi != old_phi);
 
       /* The result of the phi is defined by this phi node.  */
       SSA_NAME_DEF_STMT (PHI_RESULT (*phi)) = *phi;
 
-      /* If the PHI was relocated, update the PHI chains appropriately and
-	 release the old PHI node.  */
-      if (*phi != old_phi)
+      release_phi_node (old_phi);
+
+      /* Update the list head if replacing the first listed phi.  */
+      if (phi_nodes (bb) == old_phi)
+	bb_ann (bb)->phi_nodes = *phi;
+      else
 	{
-	  /* Extract the basic block for the PHI from the PHI's annotation
-	     rather than the edge.  This works better as the edge's
-	     destination may not currently be the block with the PHI
-	     node if we are in the process of threading the edge to
-	     a new destination.  */
-	  basic_block bb = bb_for_stmt (*phi);
+	  /* Traverse the list looking for the phi node to chain to.  */
+	  tree p;
 
-	  release_phi_node (old_phi);
+	  for (p = phi_nodes (bb);
+	       p && PHI_CHAIN (p) != old_phi;
+	       p = PHI_CHAIN (p))
+	    ;
 
-	  /* Update the list head if replacing the first listed phi.  */
-	  if (phi_nodes (bb) == old_phi)
-	    bb_ann (bb)->phi_nodes = *phi;
-	  else
-	    {
-	      /* Traverse the list looking for the phi node to chain to.  */
-	      tree p;
-
-	      for (p = phi_nodes (bb);
-		   p && PHI_CHAIN (p) != old_phi;
-		   p = PHI_CHAIN (p))
-		;
-
-	      gcc_assert (p);
-	      PHI_CHAIN (p) = *phi;
-	    }
+	  gcc_assert (p);
+	  PHI_CHAIN (p) = *phi;
 	}
     }
 
@@ -407,6 +382,8 @@ remove_phi_arg_num (tree phi, int i)
 {
   int num_elem = PHI_NUM_ARGS (phi);
 
+  gcc_assert (i < num_elem);
+
   /* If we are not at the last element, switch the last element
      with the element we want to delete.  */
   if (i != num_elem - 1)
@@ -416,16 +393,11 @@ remove_phi_arg_num (tree phi, int i)
       PHI_ARG_NONZERO (phi, i) = PHI_ARG_NONZERO (phi, num_elem - 1);
     }
 
-  /* Shrink the vector and return.  */
-  SET_PHI_ARG_DEF (phi, num_elem - 1, NULL_TREE);
-  PHI_ARG_EDGE (phi, num_elem - 1) = NULL;
-  PHI_ARG_NONZERO (phi, num_elem - 1) = false;
+  /* Shrink the vector and return.  Note that we do not have to clear
+     PHI_ARG_DEF, PHI_ARG_EDGE, or PHI_ARG_NONZERO because the garbage
+     collector will not look at those elements beyond the first
+     PHI_NUM_ARGS elements of the array.  */
   PHI_NUM_ARGS (phi)--;
-
-  /* If we removed the last PHI argument, then go ahead and
-     remove the PHI node.  */
-  if (PHI_NUM_ARGS (phi) == 0)
-    remove_phi_node (phi, NULL, bb_for_stmt (phi));
 }
 
 /* Remove PHI node PHI from basic block BB.  If PREV is non-NULL, it is

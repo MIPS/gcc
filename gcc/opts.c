@@ -497,7 +497,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dce = 1;
       flag_tree_dom = 1;
       flag_tree_dse = 1;
-      flag_tree_pre = 1;
       flag_tree_ter = 1;
       flag_tree_live_range_split = 1;
       flag_tree_sra = 1;
@@ -512,6 +511,9 @@ decode_options (unsigned int argc, const char **argv)
 	     the condition is satisfied in the first iteration and therefore
 	     to eliminate it.  Jump threading handles these cases now.  */
 	  flag_tree_ch = 1;
+ 
+          /* PRE tends to generate bigger code.  */
+          flag_tree_pre = 1;
 	}
     }
 
@@ -575,6 +577,9 @@ decode_options (unsigned int argc, const char **argv)
       set_param_value ("max-inline-insns-auto", 5);
       set_param_value ("max-inline-insns-rtl", 10);
       flag_inline_functions = 1;
+
+      /* We want to crossjump as much as possible.  */
+      set_param_value ("min-crossjump-insns", 1);
     }
 
   /* Initialize whether `char' is signed.  */
@@ -857,6 +862,8 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_profile_values = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
+      if (!flag_unroll_loops_set)
+	flag_unroll_loops = value;
 #ifdef HAVE_prefetch
       if (0 && !flag_speculative_prefetching_set)
 	flag_speculative_prefetching = value;

@@ -1,3 +1,160 @@
+2004-11-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18124
+	* parser.c (cp_parser_type_parameter): Robustify.
+
+	PR c++/18155
+	* parser.c (cp_parser_single_declaration): Disallow template
+	typedefs.
+
+	PR c++/18177
+	* typeck.c (build_const_cast): Use error_operand_p.
+
+2004-11-02  Ziemowit Laski  <zlaski@apple.com>
+
+	* cp-lang.c (cxx_types_compatible_p): Remove prototype and definition.
+	(LANG_HOOKS_TYPES_COMPATIBLE_P): Move to cp-objcp-common.h.
+	* cp-objcp-common.c (cxx_types_compatible_p): Moved definition here
+	from cp-lang.c.
+	* cp-objcp-common.h (cxx_types_compatible_p): Moved prototype here
+	from cp-lang.c.
+	(LANG_HOOKS_TYPES_COMPATIBLE_P): Moved here from cp-lang.c.
+
+2004-11-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18064
+	* search.c (check_final_overrider): Deprecate gnu covariant extension.
+
+2004-10-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Convert diagnostics to use quoting flag q 9/n
+	* typeck.c (build_x_unary_op, convert_member_func_to_ptr, 
+	get_delta_difference):  Use new quotation style.
+	* repo.c (reopen_repo_file_for_write): Likewise.
+	* pt.c (do_type_instantiation): Likewise.
+	* parser.c (cp_parser_diagnose_invalid_type_name): 
+	* name-lookup.c (push_overloaded_decl, set_decl_namespace): 
+	* error.c (cp_print_error_function,
+	print_instantiation_full_context): Likewise.
+	* decl.c (define_label, grok_reference_init, 
+	maybe_deduce_size_from_array_init, revert_static_member_fn): 
+	* decl2.c (check_classfn): Likewise.
+	* class.c (add_method, check_field_decls, layout_class_type, 
+	resolve_address_of_overloaded_function): Likewise.
+	* call.c (build_x_va_arg, build_over_call): Likewise.
+
+2004-10-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Convert diagnostics to use quoting flag q 8/n
+	* cvt.c (cp_convert_to_pointer, warn_ref_binding, 
+	convert_to_reference, ocp_convert, convert_to_void 
+	cp_convert_to_pointer): Use new quotation style.
+
+2004-10-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15172
+	* typeck2.c (store_init_value): Use split_nonconstant_init even
+	for types that require construction.
+	
+1004-10-28  Matt Austern  <austern@apple.com>
+
+	PR c++/17542
+	* cp-tree.h (class_key_or_enum_as_string): Declare.
+	* error.c (class_key_or_enum): Rename to class_key_or_enum_as_string
+	and remove static qualifier.
+	* decl.c (shadow_tag): Warn about ignored attributes in class/struct/
+	union/enum declaration.
+	
+2004-10-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* pt.c: Fix a comment typo.
+
+2004-10-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* typeck.c (composite_pointer_type): Remove comment about DR 195.
+	(build_reinterpret_cast_1): Revert DR195 patch. Only emit a
+	warning when being pedantic.
+	(build_reinterpet_cast, build_c_cast): Adjust.
+
+2004-10-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17695
+	* decl.c (grokdeclarator): Mark TYPE_DECLs as abstract when they
+	appear in a constructor/destructor that will be cloned.
+
+1004-10-28  Matt Austern  <austern@apple.com>
+
+	PR c++/14124
+	* decl.c (finish_enum): Handle packed attribute.
+	* parser.c (cp_parser_enum_specifier): Process trailing attributes.
+	
+2004-10-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17132
+	* pt.c (instantiate_class_template): Increment
+	processing_template_decl when substituting into a member class
+	template.
+
+2004-10-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17435
+	* call.c (convert_like_real): Fix formatting.
+	(initialize_reference): When binding a temporary to a base class,
+	ensure that the nominal copy made is to the derived class, not the
+	base class.
+
+	PR c++/18140
+	* parser.c (cp_parser_next_token_ends_template_argument_p): Do not
+	include ">>".
+
+2004-10-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* decl.c (bad_specifiers): Move the q after the %.
+
+2004-10-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* parser.c (cp_parser_diagnose_invalid_type_name): Move the q after
+	the %.
+
+2004-10-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* name-lookup.c (do_namespace_alias): Use FROB_CONTEXT.
+	* search.c (current_scope): Fix prototype.
+
+	PR c++/18093
+	* search.c (current_scope): Return the innermost non-block scope,
+	not the innermost non-block, non-namespace scope.
+	(at_namespace_scope_p): Adjust accordingly.
+	(dfs_accessible_post): Do not pass namespaces to is_friend.
+	(dfs_walk_once_accessible_r): Likewise.
+	* decl.c (grokvardecl): Adjust call to current_scope.
+	(build_enumerator): Likewise.
+	* parser.c (cp_parser_using_declaration): Likewise.
+	(cp_parser_direct_declarator): Use at_namespace_scope_p instead of
+	current_scope.
+	(cp_parser_class_head): Adjust call to current_scope.
+	* name-lookup.c (do_namespace_alias): Set the DECL_CONTEXT for the
+	alias.
+
+	PR c++/18020
+	* pt.c (tusbst_copy_and_build): Resolve enumeration constants to
+	their underlying values.
+
+	PR c++/18161
+	* typeck.c (build_binary_op): Honor build_type, even when in a
+	template.
+
+2004-10-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parser.c (cp_lexer_get_preprocessor_token): Remove unneeded
+	padding token checking.
+
+2004-10-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/18121
+	* decl.c (grokdeclarator) <case cdk_array>: Remove the call
+	layout_type as it is already done by create_array_type_for_decl.
+
 2004-10-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/18095

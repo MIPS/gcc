@@ -703,7 +703,7 @@ SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
 INTEGRATE_H = integrate.h varray.h
 CFGLAYOUT_H = cfglayout.h $(BASIC_BLOCK_H)
 CFGLOOP_H = cfgloop.h $(BASIC_BLOCK_H) $(RTL_H)
-CGRAPH_H = cgraph.h bitmap.h tree.h $(HASHTAB_H)
+CGRAPH_H = cgraph.h tree.h 
 DF_H = df.h bitmap.h sbitmap.h $(BASIC_BLOCK_H)
 DDG_H = ddg.h sbitmap.h $(DF_H)
 GCC_H = gcc.h version.h
@@ -912,9 +912,7 @@ OBJS-common = \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
  loop.o modulo-sched.o optabs.o options.o opts.o			   \
  params.o postreload.o postreload-gcse.o predict.o			   \
- insn-preds.o integrate.o intl.o jump.o langhooks.o lcm.o lists.o 	   \
- local-alloc.o loop.o modulo-sched.o optabs.o options.o opts.o		   \
- params.o pointer-set.o postreload.o postreload-gcse.o predict.o 	   \
+ insn-preds.o pointer-set.o postreload.o				   \
  print-rtl.o print-tree.o value-prof.o var-tracking.o			   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
@@ -1883,7 +1881,7 @@ optabs.o : optabs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_
 dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
    $(FLAGS_H) $(REGS_H) debug.h $(TM_P_H) $(TARGET_H) function.h langhooks.h \
    insn-config.h reload.h gstab.h xcoffout.h output.h dbxout.h toplev.h \
-   $(GGC_H) gt-dbxout.h
+   $(GGC_H) $(OBSTACK_H) gt-dbxout.h
 debug.o : debug.c debug.h $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) debug.h \
    $(TREE_H) $(GGC_H) varray.h $(RTL_H) $(REGS_H) $(FLAGS_H) insn-config.h \
@@ -2406,7 +2404,6 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/cgraph.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h $(srcdir)/reload.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
-  $(srcdir)/cgraphunit.c \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
   $(srcdir)/dojump.c \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
@@ -2832,6 +2829,12 @@ stmp-fixinc: fixinc.sh gsyslimits.h specs.ready
 	chmod a+r include/syslimits.h)
 	$(STAMP) stmp-fixinc
 
+# We can't run fixinc (it's being built for a different host), but we still
+# need to install it so that the user can run it when the compiler is
+# installed.
+stmp-install-fixinc: fixinc.sh gsyslimits.h
+	$(STAMP) $@
+
 # Files related to the fixproto script.
 # gen-protos and fix-header are compiled with CC_FOR_BUILD, but they are only
 # used in native and host-x-target builds, so it's safe to link them with
@@ -2912,6 +2915,12 @@ stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 	  $(STAMP) include/fixed; \
 	fi
 	$(STAMP) stmp-fixproto
+
+# We can't run fixproto (it's being built for a different host), but we still
+# need to install it so that the user can run it when the compiler is
+# installed.
+stmp-install-fixproto: fixproto
+	$(STAMP) $@
 #
 # Remake the info files.
 
