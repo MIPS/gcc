@@ -101,6 +101,8 @@ struct gcc_debug_hooks
   /* Called from final_scan_insn for any CODE_LABEL insn whose
      LABEL_NAME is non-null.  */
   void (* label) PARAMS ((rtx));
+  /* Called from final_scan_insn for any NOTE_INSN_VAR_LOCATION note. */
+  void (* var_location) PARAMS ((rtx));
 };
 
 extern const struct gcc_debug_hooks *debug_hooks;

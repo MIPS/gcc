@@ -1814,6 +1814,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  break;
 
 	case NOTE_INSN_VAR_LOCATION:
+	  (*debug_hooks->var_location) (insn);
 	  break;
 
 	case 0:
