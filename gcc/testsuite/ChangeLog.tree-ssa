@@ -1,3 +1,8 @@
+2003-08-05  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030731-2.c: New test.
+	* gcc.c-torture/execute/builtins/string-5.x: Kill.
+
 2003-07-30  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20030730-1.c: New test.
