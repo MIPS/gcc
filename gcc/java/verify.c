@@ -25,6 +25,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "java-tree.h"
 #include "javaop.h"
@@ -449,7 +451,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 
   /* We read the exception handlers in order of increasing start PC.
      To do this we first read and sort the start PCs.  */
-  starts = (struct pc_index *) xmalloc (eh_count * sizeof (struct pc_index));
+  starts = xmalloc (eh_count * sizeof (struct pc_index));
   for (i = 0; i < eh_count; ++i)
     {
       starts[i].start_pc = GET_u2 (jcf->read_ptr + 8 * i);

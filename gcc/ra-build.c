@@ -20,6 +20,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "insn-config.h"
@@ -612,7 +614,7 @@ struct curr_use {
    It is only called with DEF and USE being (reg:M a) or (subreg:M1 (reg:M2 a)
    x) rtx's.  Furthermore if it's a subreg rtx M1 is at least one word wide,
    and a is a multi-word pseudo.  If DEF or USE are hardregs, they are in
-   wordmode, so we don't need to check for further hardregs which would result
+   word_mode, so we don't need to check for further hardregs which would result
    from wider references.  We are never called with paradoxical subregs.
 
    This returns:

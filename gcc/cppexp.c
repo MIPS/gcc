@@ -20,6 +20,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "cpplib.h"
 #include "cpphash.h"
 
@@ -1446,6 +1448,7 @@ num_part_mul (lhs, rhs)
 
   result.high += HIGH_PART (middle[0]);
   result.high += HIGH_PART (middle[1]);
+  result.unsignedp = 1;
 
   return result;
 }

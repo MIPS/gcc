@@ -60,6 +60,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "auto-host.h"
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "unwind-dw2-fde.h"
 
 #ifndef FORCE_CODE_SECTION_ALIGN
@@ -89,6 +91,11 @@ call_ ## FUNC (void)					\
 #endif
 #if defined(EH_FRAME_SECTION_NAME) && !defined(USE_PT_GNU_EH_FRAME)
 # define USE_EH_FRAME_REGISTRY
+#endif
+#if defined(EH_FRAME_SECTION_NAME) && defined(HAVE_LD_RO_RW_SECTION_MIXING)
+# define EH_FRAME_SECTION_CONST const
+#else
+# define EH_FRAME_SECTION_CONST
 #endif
 
 /* We do not want to add the weak attribute to the declarations of these
@@ -188,7 +195,7 @@ STATIC func_ptr __DTOR_LIST__[1]
 #ifdef USE_EH_FRAME_REGISTRY
 /* Stick a label at the beginning of the frame unwind info so we can register
    and deregister it with the exception handling library code.  */
-STATIC char __EH_FRAME_BEGIN__[]
+STATIC EH_FRAME_SECTION_CONST char __EH_FRAME_BEGIN__[]
      __attribute__((section(EH_FRAME_SECTION_NAME), aligned(4)))
      = { };
 #endif /* USE_EH_FRAME_REGISTRY */
@@ -453,7 +460,7 @@ STATIC func_ptr __DTOR_END__[1]
 #ifdef EH_FRAME_SECTION_NAME
 /* Terminate the frame unwind info section with a 4byte 0 as a sentinel;
    this would be the 'length' field in a real FDE.  */
-STATIC int __FRAME_END__[]
+STATIC EH_FRAME_SECTION_CONST int __FRAME_END__[]
      __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME),
 		     aligned(4)))
      = { 0 };

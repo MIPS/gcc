@@ -369,6 +369,15 @@ case $machine in
 		tm_defines="${tm_defines} NETBSD_ENABLE_PTHREADS"
 		;;
 	esac
+
+	# NetBSD 1.7 and later are set up to use GCC's crtstuff for
+	# ELF configurations.  We will clear extra_parts in the
+	# a.out configurations.
+	case $machine in
+	*-*-netbsd*1.[7-9]* | *-*-netbsd[2-9]* | *-*-netbsdelf[2-9]*)
+		extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
+		;;
+	esac
 	;;
 *-*-freebsd[12] | *-*-freebsd[12].* | *-*-freebsd*aout*)
 	# This is the place-holder for the generic a.out configuration
@@ -607,11 +616,13 @@ arm*-*-freebsd*|strongarm*-*-freebsd*)
 	tmake_file="${tmake_file} arm/t-strongarm-elf"
 	;;
 arm*-*-netbsdelf*)
-	echo "GCC does not yet support the ${machine} target"; exit 1
+	tm_file="dbxelf.h elfos.h netbsd.h netbsd-elf.h arm/elf.h arm/aout.h arm/arm.h arm/netbsd-elf.h"
+	tmake_file="${tmake_file} arm/t-netbsd"
 	;;
 arm*-*-netbsd*)
 	tm_file="arm/aout.h arm/arm.h netbsd.h netbsd-aout.h arm/netbsd.h"
 	tmake_file="t-netbsd arm/t-netbsd"
+	extra_parts=""
 	use_collect2=yes
 	;;
 arm*-*-linux*)			# ARM GNU/Linux with ELF
@@ -1053,6 +1064,7 @@ i[34567]86-*-netbsdelf*)
 i[34567]86-*-netbsd*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h i386/gstabs.h netbsd.h netbsd-aout.h i386/netbsd.h"
 	tmake_file=t-netbsd
+	extra_parts=""
 	use_collect2=yes
 	;;
 x86_64-*-netbsd*)
@@ -1098,7 +1110,7 @@ i[34567]86-*-linux*)	# Intel 80386's running GNU/Linux
 x86_64-*-linux*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h \
 		 i386/x86-64.h i386/linux64.h"
-	tmake_file="t-slibgcc-elf-ver t-linux i386/t-crtstuff i386/t-linux64"
+	tmake_file="t-slibgcc-elf-ver t-linux i386/t-linux64"
 	;;
 i[34567]86-*-gnu*)
 	;;
@@ -1590,6 +1602,7 @@ m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
 m68k*-*-netbsd*)
 	tm_file=m68k/netbsd.h
 	tmake_file=t-netbsd
+	extra_parts=""
 	use_collect2=yes
 	;;
 m68k*-*-openbsd*)
@@ -1761,7 +1774,7 @@ mips-sgi-*)	# would otherwise be caught by mips-*-elf*
 mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	target_cpu_default="MASK_GAS|MASK_ABICALLS"
 	tm_file="elfos.h ${tm_file} mips/netbsd.h"
-	tmake_file="${tmake_file} mips/t-netbsd"
+	tmake_file="${tmake_file}"
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
         tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} mips/linux.h"
@@ -1771,7 +1784,7 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 		tm_defines="MIPS_ISA_DEFAULT=32"
                 ;;
         esac
-	tmake_file="t-slibgcc-elf-ver t-linux mips/t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux"
 	;;
 mips*el-*-openbsd*)	# mips little endian
 	target_cpu_default="MASK_GAS|MASK_ABICALLS"
@@ -1879,6 +1892,7 @@ ns32k-*-netbsd*)
 	tm_file="${tm_file} netbsd.h netbsd-aout.h ns32k/netbsd.h"
 	# On NetBSD, the headers are already okay, except for math.h.
 	tmake_file="t-netbsd ns32k/t-ns32k"
+	extra_parts=""
 	use_collect2=yes
 	;;
 pdp11-*-bsd)
@@ -1939,8 +1953,8 @@ powerpc-*-sysv*)
 	tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
 	;;
 powerpc-*-netbsd*)
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/netbsd.h"
-	tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
+	tm_file="${tm_file} dbxelf.h elfos.h netbsd.h netbsd-elf.h freebsd-spec.h rs6000/sysv4.h rs6000/netbsd.h"
+	tmake_file="${tmake_file} rs6000/t-netbsd"
 	;;
 powerpc-*-chorusos*)
 	xm_defines=POSIX
@@ -2128,7 +2142,7 @@ rs6000-*-lynxos*)
 	;;
 s390-*-linux*)
 	tm_file="s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
-	tmake_file="t-slibgcc-elf-ver t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux s390/t-crtstuff"
 	;;
 s390x-*-linux*)
 	tm_file="s390/s390x.h s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
@@ -2136,7 +2150,7 @@ s390x-*-linux*)
 	md_file=s390/s390.md
 	extra_modes=s390/s390-modes.def
 	out_file=s390/s390.c
-	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux64"
+	tmake_file="t-slibgcc-elf-ver t-linux s390/t-crtstuff s390/t-linux64"
 	;;
 sh-*-elf* | sh[2346l]*-*-elf*)
 	tmake_file="sh/t-sh sh/t-elf"
@@ -2255,6 +2269,7 @@ sparc-*-netbsdelf*)
 sparc-*-netbsd*)
 	tm_file="${tm_file} sparc/aout.h netbsd.h netbsd-aout.h sparc/netbsd.h"
 	tmake_file=t-netbsd
+	extra_parts=""
 	use_collect2=yes
 	;;
 sparc-*-openbsd*)
@@ -2568,6 +2583,7 @@ vax-*-netbsdelf*)
 vax-*-netbsd*)
 	tm_file="${tm_file} netbsd.h netbsd-aout.h vax/netbsd.h"
 	tmake_file=t-netbsd
+	extra_parts=""
 	use_collect2=yes
 	;;
 vax-*-openbsd*)

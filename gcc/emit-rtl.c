@@ -37,6 +37,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "toplev.h"
 #include "rtl.h"
 #include "tree.h"
@@ -802,12 +804,7 @@ gen_reg_rtx (mode)
 	 which makes much better code.  Besides, allocating DCmode
 	 pseudos overstrains reload on some machines like the 386.  */
       rtx realpart, imagpart;
-      int size = GET_MODE_UNIT_SIZE (mode);
-      enum machine_mode partmode
-	= mode_for_size (size * BITS_PER_UNIT,
-			 (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
-			  ? MODE_FLOAT : MODE_INT),
-			 0);
+      enum machine_mode partmode = GET_MODE_INNER (mode);
 
       realpart = gen_reg_rtx (partmode);
       imagpart = gen_reg_rtx (partmode);

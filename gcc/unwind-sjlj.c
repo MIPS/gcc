@@ -21,6 +21,8 @@
 
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "unwind.h"
 #include "gthr.h"
 
@@ -200,6 +202,12 @@ _Unwind_Ptr
 _Unwind_GetRegionStart (struct _Unwind_Context *context __attribute__((unused)) )
 {
   return 0;
+}
+
+void *
+_Unwind_FindEnclosingFunction (void *pc)
+{
+  return NULL;
 }
 
 #ifndef __ia64__

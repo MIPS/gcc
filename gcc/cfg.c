@@ -43,6 +43,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
@@ -502,6 +504,7 @@ dump_flow_info (file)
      FILE *file;
 {
   int i;
+  int max_regno = max_reg_num ();
   basic_block bb;
   static const char * const reg_class_names[] = REG_CLASS_NAMES;
 

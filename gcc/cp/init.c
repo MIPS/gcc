@@ -24,6 +24,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -967,7 +969,7 @@ expand_member_init (tree name, tree init)
     }
   else if (TYPE_P (name))
     {
-      basetype = name;
+      basetype = TYPE_MAIN_VARIANT (name);
       name = TYPE_NAME (name);
     }
   else if (TREE_CODE (name) == TYPE_DECL)

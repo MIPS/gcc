@@ -100,8 +100,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    function are used by gcc instruction scheduler and may be some
    other gcc code.  */
 
-#include "hconfig.h"
+#include "bconfig.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "obstack.h"
 #include "errors.h"

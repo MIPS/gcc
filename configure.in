@@ -33,12 +33,43 @@
 
 ##############################################################################
 
+extra_host_args=
+# Define the trigger file to make sure configure will re-run whenever
+# the gcc version number changes.
+if [ "${with_gcc_version_trigger+set}" = set ]; then
+    gcc_version_trigger="$with_gcc_version_trigger"
+    gcc_version=`grep version_string ${with_gcc_version_trigger} | sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/'`
+else
+    # If gcc's sources are available, define the trigger file.
+    if [ -f ${topsrcdir}/gcc/version.c ] ; then
+	gcc_version_trigger=${topsrcdir}/gcc/version.c
+	gcc_version=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/'`
+	case "$arguments" in
+	  *--with-gcc-version-trigger=$gcc_version_trigger* )
+	    ;;
+	  * )
+	    # Add to all subconfigure arguments: build, host, and target.
+	    arguments="--with-gcc-version-trigger=$gcc_version_trigger $arguments"
+	    ;;
+	esac
+	# This will be redundant when we start all subconfigures from the Makefile.
+	extra_host_args="--with-gcc-version-trigger=$gcc_version_trigger $extra_host_args"
+    fi
+fi
+
 ### To add a new directory to the tree, first choose whether it is a target
 ### or a host dependent tool.  Then put it into the appropriate list
-### (library or tools, host or target), doing a dependency sort.  For
-### example, gdb requires that byacc (or bison) be built first, so it is in
-### the ${host_tools} list after byacc and bison.  
+### (library or tools, host or target), doing a dependency sort.
 
+# Subdirs will be configured in the order listed in build_configdirs, 
+# configdirs, or target_configdirs; see the serialization section below.
+
+# Dependency sorting is only needed when *configuration* must be done in 
+# a particular order.  In all cases a dependency should be specified in 
+# the Makefile, whether or not it's implicitly specified here.
+
+# Double entries in build_configdirs, configdirs, or target_configdirs may
+# cause circular dependencies and break everything horribly.
 
 # these libraries are used by various programs built for the host environment
 #
@@ -49,7 +80,9 @@ libstdcxx_version="target-libstdc++-v3"
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
 # know that we are building the simulator.
-host_tools="texinfo byacc flex bison binutils ld gas gcc sid sim gdb make patch prms send-pr gprof etc expect dejagnu ash bash bzip2 m4 autoconf automake libtool grep diff rcs fileutils shellutils time textutils wdiff find uudecode hello tar gzip indent recode release sed utils guile perl gawk findutils snavigator libtool gettext zip fastjar"
+# binutils, gas and ld appear in that order because it makes sense to run
+# "make check" in that particular order.
+host_tools="texinfo byacc flex bison binutils gas ld gcc sid sim gdb make patch prms send-pr gprof etc expect dejagnu ash bash bzip2 m4 autoconf automake libtool grep diff rcs fileutils shellutils time textutils wdiff find uudecode hello tar gzip indent recode release sed utils guile perl gawk findutils snavigator gettext zip fastjar"
 
 # libgcj represents the runtime libraries only used by gcj.
 libgcj="target-libffi \
@@ -233,6 +266,9 @@ case "${host}" in
     ;;
   powerpc-*-beos*)
     noconfigdirs="$noconfigdirs tk itcl tix libgui gdb dejagnu readline"
+    ;;
+  *-*-darwin*)
+    noconfigdirs="$noconfigdirs tk itcl tix libgui"
     ;;
 esac
 
@@ -521,7 +557,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs gdb target-newlib target-libgloss ${libgcj}"
     ;;
   powerpc-*-darwin*)
-    noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb tk itcl tix libgui gprof ${libgcj}"
+    noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof ${libgcj}"
     ;;
   powerpc-*-eabi)
     noconfigdirs="$noconfigdirs ${libgcj}"
@@ -1186,21 +1222,21 @@ fi
 if test x${use_gnu_as} = x &&
    echo " ${configdirs} " | grep " gas " > /dev/null 2>&1 ; then
   with_gnu_as=yes
-  withoptions="$withoptions --with-gnu-as"
+  extra_host_args="$extra_host_args --with-gnu-as"
 fi
 
 if test x${use_gnu_ld} = x &&
    echo " ${configdirs} " | grep " ld " > /dev/null 2>&1 ; then
   with_gnu_ld=yes
-  withoptions="$withoptions --with-gnu-ld"
+  extra_host_args="$extra_host_args --with-gnu-ld"
 fi
 
-# If using newlib, add --with-newlib to the withoptions so that gcc/configure
+# If using newlib, add --with-newlib to the extra_host_args so that gcc/configure
 # can detect this case.
 
 if test x${with_newlib} != xno && echo " ${target_configdirs} " | grep " target-newlib " > /dev/null 2>&1 ; then
   with_newlib=yes
-  withoptions="$withoptions --with-newlib"
+  extra_host_args="$extra_host_args --with-newlib"
 fi
 
 # We default to --with-shared on platforms where -fpic is meaningless.
@@ -1227,13 +1263,13 @@ if test x${with_stabs} = x ; then
   case "${target}" in
   mips*-*-irix6*o32)
     with_stabs=yes;
-    withoptions="${withoptions} --with-stabs"
+    extra_host_args="${extra_host_args} --with-stabs"
     ;;
   mips*-*-irix6*)
     ;;
   mips*-*-* | alpha*-*-osf*)
     with_stabs=yes;
-    withoptions="${withoptions} --with-stabs"
+    extra_host_args="${extra_host_args} --with-stabs"
     ;;
   esac
 fi
@@ -1242,9 +1278,12 @@ fi
 # them automatically.
 case "${host}" in
   hppa*64*-*-hpux11*)	
-    withoptions="$withoptions -x-libraries=/usr/lib/pa20_64 -x-includes=/usr/X11R6/include"
+    extra_host_args="$extra_host_args -x-libraries=/usr/lib/pa20_64 -x-includes=/usr/X11R6/include"
     ;;
 esac
+
+# This will go away when we start subconfigures from the Makefile.
+withoptions="${withoptions} ${extra_host_args}"
 
 # If we aren't going to be using gcc, see if we can extract a definition
 # of CC from the fragment.
@@ -1404,6 +1443,41 @@ rm -f Makefile
 mv -f Makefile.tem Makefile
 rm -f maybedep.tmp
 
+# Create the serialization dependencies.  This uses a temporary file.
+
+# These force 'configure's to be done one at a time, to avoid problems
+# with contention over a shared config.cache.
+rm -f serdep.tmp
+olditem=
+for item in ${build_configdirs} ; do
+  case ${olditem} in
+    "") ;;
+    *) echo "\$(BUILD_SUBDIR)/${item}/Makefile: \$(BUILD_SUBDIR)/${olditem}/Makefile" >> serdep.tmp ;;
+  esac
+  olditem=${item}
+done
+olditem=
+for item in ${configdirs} ; do
+  case ${olditem} in
+    "") ;;
+    *) echo "${item}/Makefile: ${olditem}/Makefile" >> serdep.tmp ;;
+  esac
+  olditem=${item}
+done
+olditem=
+for item in ${target_configdirs} ; do
+  case ${olditem} in
+    "") ;;
+    *) echo "\$(TARGET_SUBDIR)/${item}/Makefile: \$(TARGET_SUBDIR)/${olditem}/Makefile" >> serdep.tmp ;;
+  esac
+  olditem=${item}
+done
+sed -e '/@serialization_dependencies@/r serdep.tmp' \
+    -e 's/@serialization_dependencies@//' Makefile > Makefile.tem
+rm -f Makefile
+mv -f Makefile.tem Makefile
+rm -f serdep.tmp
+
 # Base args.  Strip norecursion, cache-file, srcdir, host, build, target.
 # These are the ones we might not want to pass down to subconfigures.
 baseargs=`echo "${arguments}" | \
@@ -1418,6 +1492,18 @@ baseargs=`echo "${arguments}" | \
 # and not use the same cache file.  Multilibs are neither needed nor
 # desired.
 buildargs="--cache-file=../config.cache --build=${build_alias} --host=${build_alias} ${baseargs}"
+
+# For host modules, accept cache file option, or specification as blank.
+case "${cache_file}" in
+"") # empty
+  cache_file_option="" ;;
+/* | [A-Za-z]:[\\/]* ) # absolute path
+  cache_file_option="--cache-file=${cache_file}" ;;
+*) # relative path
+  cache_file_option="--cache-file=../${cache_file}" ;;
+esac
+
+hostargs="${cache_file_option} ${buildopt} --host=${host_alias} --target=${target_alias} ${extra_host_args} ${baseargs}"
 
 targargs=${baseargs}
 
@@ -1611,15 +1697,23 @@ qRAW_CXX_FOR_TARGET=`echo "$RAW_CXX_FOR_TARGET" | sed 's,[&%],\\\&,g'`
 qqCXX_FOR_TARGET=`echo "$qCXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
 qqRAW_CXX_FOR_TARGET=`echo "$qRAW_CXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
 
+# BASE_CC_FOR_TARGET is the actual program file of CC_FOR_TARGET,
+# for use in dependencies.  Replace $$r with a relative
+# path if it's present.
+set dummy $CC_FOR_TARGET; cc_for_target_first_word=$2
+BASE_CC_FOR_TARGET=`echo "$cc_for_target_first_word" | sed -e 's,[$][$]r,.,'`
+
 sedtemp=sed.$$
 cat >$sedtemp <<EOF
 s%@GDB_TK@%${GDB_TK}%
-s%@all_build_modules@%${all_build_modules}%
 s%@configure_build_modules@%${configure_build_modules}%
+s%@all_build_modules@%${all_build_modules}%
+s%@configure_host_modules@%${configure_host_modules}%
 s%@all_host_modules@%${all_host_modules}%
 s%@check_host_modules@%${check_host_modules}%
 s%@install_host_modules@%${install_host_modules}%
 s%@install_host_modules_nogcc@%${install_host_modules_nogcc}%
+s%@configure_target_modules@%${configure_target_modules}%
 s%@all_target_modules@%${all_target_modules}%
 s%@check_target_modules@%${check_target_modules}%
 s%@install_target_modules@%${install_target_modules}%
@@ -1627,6 +1721,7 @@ s:@target_configdirs@:${target_configdirs}:
 s%@target_configargs@%${targargs}%
 s%@FLAGS_FOR_TARGET@%${FLAGS_FOR_TARGET}%
 s%@CC_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${CC_FOR_TARGET}%
+s%@BASE_CC_FOR_TARGET@%${BASE_CC_FOR_TARGET}%
 s%@GCJ_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${GCJ_FOR_TARGET}%
 s%@CXX_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${qCXX_FOR_TARGET}%
 s%@RAW_CXX_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${qRAW_CXX_FOR_TARGET}%
@@ -1636,13 +1731,10 @@ s%@target_subdir@%${target_subdir}%
 s%@build_subdir@%${build_subdir}%
 s%@build_configargs@%${buildargs}%
 s%@gxx_include_dir@%${gxx_include_dir}%
+s%@host_configargs@%${hostargs}%
 EOF
 sed -f $sedtemp Makefile > Makefile.tem
 rm -f Makefile $sedtemp
 mv -f Makefile.tem Makefile
 
-#
-# Local Variables:
-# fill-column: 131
-# End:
 #

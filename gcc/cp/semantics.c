@@ -26,6 +26,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "tree-inline.h"
@@ -2275,8 +2277,19 @@ emit_associated_thunks (fn)
   if (DECL_VIRTUAL_P (fn))
     {
       tree thunk;
+      
       for (thunk = DECL_THUNKS (fn); thunk; thunk = TREE_CHAIN (thunk))
-	use_thunk (thunk, /*emit_p=*/1);
+	{
+	  use_thunk (thunk, /*emit_p=*/1);
+	  if (DECL_RESULT_THUNK_P (thunk))
+	    {
+	      tree probe;
+
+	      for (probe = DECL_THUNKS (thunk);
+		   probe; probe = TREE_CHAIN (probe))
+		use_thunk (probe, /*emit_p=*/1);
+	    }
+	}
     }
 }
 

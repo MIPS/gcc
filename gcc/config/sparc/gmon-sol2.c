@@ -34,6 +34,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #if 0
 #include "sparc/gmon.h"

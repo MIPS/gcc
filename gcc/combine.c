@@ -76,6 +76,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -6958,10 +6960,10 @@ force_to_mode (x, mode, mask, reg, just_select)
 	  return force_to_mode (x, mode, mask, reg, next_select);
 	}
 
-      /* Similarly, if C contains every bit in the mask, then we may
+      /* Similarly, if C contains every bit in the fuller_mask, then we may
 	 replace with (not Y).  */
       if (GET_CODE (XEXP (x, 0)) == CONST_INT
-	  && ((INTVAL (XEXP (x, 0)) | (HOST_WIDE_INT) mask)
+	  && ((INTVAL (XEXP (x, 0)) | (HOST_WIDE_INT) fuller_mask)
 	      == INTVAL (XEXP (x, 0))))
 	{
 	  x = simplify_gen_unary (NOT, GET_MODE (x),

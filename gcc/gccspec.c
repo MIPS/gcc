@@ -20,6 +20,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "gcc.h"
 
 /* Filter argc and argv before processing by the gcc driver proper.  */
@@ -101,3 +103,9 @@ lang_specific_pre_link ()
 
 /* Number of extra output files that lang_specific_pre_link may generate.  */
 int lang_specific_extra_outfiles = 0;  /* Not used for C.  */
+
+/* Table of language-specific spec functions.  */ 
+const struct spec_function lang_specific_spec_functions[] =
+{
+  { 0, 0 }
+};

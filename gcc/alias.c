@@ -21,6 +21,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "rtl.h"
 #include "tree.h"
 #include "tm_p.h"
@@ -200,7 +202,7 @@ char *reg_known_equiv_p;
 
 /* True when scanning insns from the start of the rtl to the
    NOTE_INSN_FUNCTION_BEG note.  */
-static int copying_arguments;
+static bool copying_arguments;
 
 /* The splay-tree used to store the various alias set entries.  */
 static splay_tree alias_sets;
@@ -782,9 +784,16 @@ find_base_value (src)
 	 The test above is not sufficient because the scheduler may move
 	 a copy out of an arg reg past the NOTE_INSN_FUNCTION_BEGIN.  */
       if ((regno >= FIRST_PSEUDO_REGISTER || fixed_regs[regno])
-	  && regno < reg_base_value_size
-	  && reg_base_value[regno])
-	return reg_base_value[regno];
+	  && regno < reg_base_value_size)
+	{
+	  /* If we're inside init_alias_analysis, use new_reg_base_value
+	     to reduce the number of relaxation iterations.  */
+	  if (new_reg_base_value && new_reg_base_value[regno])
+	    return new_reg_base_value[regno];
+
+	  if (reg_base_value[regno])
+	    return reg_base_value[regno];
+	}
 
       return src;
 
@@ -2774,7 +2783,7 @@ init_alias_analysis ()
 
       /* We're at the start of the function each iteration through the
 	 loop, so we're copying arguments.  */
-      copying_arguments = 1;
+      copying_arguments = true;
 
       /* Wipe the potential alias information clean for this pass.  */
       memset ((char *) new_reg_base_value, 0, reg_base_value_size * sizeof (rtx));
@@ -2864,7 +2873,7 @@ init_alias_analysis ()
 	    }
 	  else if (GET_CODE (insn) == NOTE
 		   && NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
-	    copying_arguments = 0;
+	    copying_arguments = false;
 	}
 
       /* Now propagate values from new_reg_base_value to reg_base_value.  */

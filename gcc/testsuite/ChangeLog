@@ -1,11 +1,160 @@
+2002-12-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/inherit/covariant2.C: New test.
+	* g++.dg/inherit/covariant3.C: New test.
+	* g++.dg/inherit/covariant4.C: New test.
+	* g++.dg/inherit/covariant1.C: Remove XFAIL.
+	* g++.old-deja/g++.robertl/eb17.C: Likewise.
+
+2002-12-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/20020210-1.c: Fix a comment typo.
+
+2002-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/varmod1.C: Fix typo.
+
+2002-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	DR 180
+	* g++.old-deja/g++.pt/crash32.C: Expect error.
+
+2002-12-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5919
+	* g++.dg/template/varmod1.C: New test.
+
+	PR c++/8727
+	* g++.dg/inherit/typeinfo1.C: New test.
+
+	PR c++/8663
+	* g++.dg/inherit/typedef1.C: New test.
+
+2002-11-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8332
+	PR c++/8493
+	* g++.dg/template/strlen1.C: New test.
+
+	PR c++/8227
+	* g++.dg/template/ctor2.C: New test.
+
+	PR c++/8214
+	* g++.dg/init/string1.C: New test.
+
+	PR c++/8511
+	* g++.dg/template/friend8.C: New test.
+
+2002-11-29  Joe Buck <jbuck@synopsys.com>
+
+	* g++.dg/lookup/anon2.C: New test.
+
+2002-11-28  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/strct-varg-1.x: Remove xfail on the
+	h8300 port.
+
+2002-11-27  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/bitfld-6.c: New test.
+
+Wed Nov 27 14:37:34 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/20021127.[cx]: New test.
+
 Tue Nov 26 22:09:53 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.dg/i386-cmov[123].c: New tests for conditional move code
 	quality.
 
+2002-11-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/init/brace2.C: New test.
+	* g++.old-deja/g++.mike/p9129.C: Correct.
+
+2002-11-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/empty10.C: Don't run on non-x86 targets.
+
 2002-11-25  Andreas Bauer  <baueran@in.tum.de>
 
 	* gcc.dg/sibcall-6: New test for indirect sibcalls.
+
+2002-11-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.dg/abi/empty11.C: New test.
+	* testsuite/g++.dg/rtti/cv1.C: New test.
+
+2002-11-25  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* lib/prune.exp: Prune more -fpic/-fPIC warnings.
+
+2002-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/empty10.C: New test.
+
+2002-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021124-1.c: New test.
+
+2002-11-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/rtti2.C: New test.
+
+2002-11-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-unroll-1.c: New test.
+
+2002-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021120-1.c: New test.
+	* gcc.c-torture/compile/20021120-2.c: New test.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/bitfld-5.c: New test.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021120-3.c: New test.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021120-2.c: New test.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021120-1.c: New test.
+
+2002-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20021118-3.c: New test.
+
+2002-11-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021119-1.c: New test.
+
+2002-11-19  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* gcc.dg/duff-1.c: New test.
+	* gcc.dg/duff-2.c: New test.
+	* gcc.dg/duff-3.c: New test.
+
+2002-11-18  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/_Pragma5.c: New test.
+
+2002-11-18  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021118-2.c: New test.
+
+2002-11-18  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021118-1.c: New test.
+
+2002-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20021116-1.c: New test.
 
 2002-11-14  Mark Mitchell  <mark@codesourcery.com>
 

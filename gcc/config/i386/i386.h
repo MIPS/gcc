@@ -281,6 +281,7 @@ extern int x86_prefetch_sse;
 #define TARGET_PREFETCH_SSE (x86_prefetch_sse)
 #define TARGET_SHIFT1 (x86_shift1 & CPUMASK)
 #define TARGET_USE_FFREEP (x86_use_ffreep & CPUMASK)
+#define TARGET_REP_MOVL_OPTIMAL (x86_rep_movl_optimal & CPUMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -1465,7 +1466,7 @@ enum reg_class
    constraint, the value returned should be 0 regardless of VALUE.  */
 
 #define EXTRA_CONSTRAINT(VALUE, D)				\
-  ((D) == 'e' ? x86_64_sign_extended_value (VALUE, 0)		\
+  ((D) == 'e' ? x86_64_sign_extended_value (VALUE)		\
    : (D) == 'Z' ? x86_64_zero_extended_value (VALUE)		\
    : (D) == 'C' ? standard_sse_constant_p (VALUE)		\
    : 0)
@@ -2583,7 +2584,7 @@ do {							\
   case CONST:							\
   case LABEL_REF:						\
   case SYMBOL_REF:						\
-    if (TARGET_64BIT && !x86_64_sign_extended_value (RTX, 0))	\
+    if (TARGET_64BIT && !x86_64_sign_extended_value (RTX))	\
       return 3;							\
     if (TARGET_64BIT && !x86_64_zero_extended_value (RTX))	\
       return 2;							\
@@ -3467,6 +3468,9 @@ enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
 
 
 #define MACHINE_DEPENDENT_REORG(X) x86_machine_dependent_reorg(X)
+
+#define DLL_IMPORT_EXPORT_PREFIX '@'
+
 /*
 Local variables:
 version-control: t
