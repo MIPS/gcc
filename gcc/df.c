@@ -964,6 +964,13 @@ df_def_record_1 (df, x, bb, insn)
       return;
     }
 
+#ifdef CLASS_CANNOT_CHANGE_MODE
+  if (GET_CODE (dst) == SUBREG
+      && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (dst),
+				     GET_MODE (SUBREG_REG (dst))))
+    flags |= DF_REF_MODE_CHANGE;
+#endif
+
   /* May be, we should flag the use of strict_low_part somehow.  Might be
      handy for the reg allocator.  */
   while (GET_CODE (dst) == STRICT_LOW_PART
@@ -978,6 +985,12 @@ df_def_record_1 (df, x, bb, insn)
 	  loc = &XEXP (dst, 0);
 	  dst = *loc;
 	}
+#ifdef CLASS_CANNOT_CHANGE_MODE
+      if (GET_CODE (dst) == SUBREG
+	  && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (dst),
+				         GET_MODE (SUBREG_REG (dst))))
+        flags |= DF_REF_MODE_CHANGE;
+#endif
       loc = &XEXP (dst, 0);
       dst = *loc;
       flags |= DF_REF_READ_WRITE;
@@ -1073,6 +1086,11 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 	  df_uses_record (df, loc, ref_type, bb, insn, flags);
 	  return;
 	}
+#ifdef CLASS_CANNOT_CHANGE_MODE
+      if (CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (x),
+				      GET_MODE (SUBREG_REG (x))))
+        flags |= DF_REF_MODE_CHANGE;
+#endif
 
       /* ... Fall through ...  */
 
@@ -1089,16 +1107,24 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 
 	switch (GET_CODE (dst))
 	  {
+	    enum df_ref_flags use_flags;
 	    case SUBREG:
 	      if (read_modify_subreg_p (dst))
 		{
+		  use_flags = DF_REF_READ_WRITE;
+#ifdef CLASS_CANNOT_CHANGE_MODE
+		  if (CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (x),
+						  GET_MODE (SUBREG_REG (x))))
+		    use_flags |= DF_REF_MODE_CHANGE;
+#endif
 		  df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
-				  insn, DF_REF_READ_WRITE);
+				  insn, use_flags);
 		  break;
 		}
 	      /* ... FALLTHRU ...  */
 	    case REG:
 	    case PC:
+	    case PARALLEL:
 	      break;
 	    case MEM:
 	      df_uses_record (df, &XEXP (dst, 0),
@@ -1110,8 +1136,14 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 	      dst = XEXP (dst, 0);
 	      if (GET_CODE (dst) != SUBREG)
 		abort ();
+	      use_flags = DF_REF_READ_WRITE;
+#ifdef CLASS_CANNOT_CHANGE_MODE
+	      if (CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (x),
+					      GET_MODE (SUBREG_REG (x))))
+		use_flags |= DF_REF_MODE_CHANGE;
+#endif
 	      df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
-			     insn, DF_REF_READ_WRITE);
+			     insn, use_flags);
 	      break;
 	    case ZERO_EXTRACT:
 	    case SIGN_EXTRACT:

@@ -175,6 +175,9 @@ struct web
                                   in a move) */
   unsigned int live_over_abnormal:1; /* 1 when this web (or parts thereof) are live
 			       over an abnormal edge.  */
+  unsigned int mode_changed:1; /* != 0 if this web is used in subregs where
+				  the mode change was illegal for hardregs
+				  in CLASS_CANNOT_CHANGE_MODE.  */
   unsigned int old_web:1; /* != 0, when this web stems from the last iteration
 			     of the allocator, and still contains all info.  */
   unsigned int in_load:1; /* For rewrite_program2() to remember webs, which
@@ -2424,6 +2427,11 @@ init_one_web_common (web, reg)
       AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
       prune_hardregs_for_mode (&web->usable_regs,
 			       PSEUDO_REGNO_MODE (web->regno));
+#ifdef CLASS_CANNOT_CHANGE_MODE
+      if (web->mode_changed)
+        AND_COMPL_HARD_REG_SET (web->usable_regs, reg_class_contents[
+			          (int) CLASS_CANNOT_CHANGE_MODE]);
+#endif
       web->num_freedom = hard_regs_count (web->usable_regs);
       web->num_freedom -= web->add_hardregs;
       if (!web->num_freedom)
@@ -2458,6 +2466,7 @@ reinit_one_web (web, reg)
   web->is_coalesced = 0;
   web->artificial = 0;
   web->live_over_abnormal = 0;
+  web->mode_changed = 0;
   web->move_related = 0;
   web->in_load = 0;
   web->target_of_spilled_move = 0;
@@ -2911,6 +2920,7 @@ compare_and_free_webs (link)
       if (web1->regno != web2->regno
 	  || web1->crosses_call != web2->crosses_call
 	  || web1->live_over_abnormal != web2->live_over_abnormal
+	  || web1->mode_changed != web2->mode_changed
 	  || !rtx_equal_p (web1->orig_x, web2->orig_x)
 	  || web1->type != web2->type
 	  /* Only compare num_defs/num_uses with non-hardreg webs.
@@ -3073,6 +3083,9 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	{
 	  web = def2web[i];
 	  web = find_web_for_subweb (web);
+	  if ((DF_REF_FLAGS (ref) & DF_REF_MODE_CHANGE) != 0
+	      && web->regno >= FIRST_PSEUDO_REGISTER)
+	    web->mode_changed = 1;
 	  if (i >= def_id
 	      && TEST_BIT (live_over_abnormal, ref_id))
 	    web->live_over_abnormal = 1;
@@ -3106,6 +3119,9 @@ parts_to_webs_1 (df, copy_webs, all_refs)
 	}
       else
 	subweb = web;
+      if ((DF_REF_FLAGS (ref) & DF_REF_MODE_CHANGE) != 0
+	  && web->regno >= FIRST_PSEUDO_REGISTER)
+	web->mode_changed = 1;
       if (i < def_id)
 	{
 	  if (ra_pass > 1)
@@ -3462,9 +3478,22 @@ remember_web_was_spilled (web)
      alternatives needs applying.  Currently this is dealt with by reload, as
      many other things, but at some time we want to integrate that
      functionality into the allocator.  */
-  COPY_HARD_REG_SET (web->usable_regs, reg_class_contents[(int) ALL_REGS]);
+  if (web->regno >= max_normal_pseudo)
+    {
+      COPY_HARD_REG_SET (web->usable_regs,
+			reg_class_contents[reg_preferred_class (web->regno)]);
+      IOR_HARD_REG_SET (web->usable_regs,
+			reg_class_contents[reg_alternate_class (web->regno)]);
+    }
+  else
+    COPY_HARD_REG_SET (web->usable_regs, reg_class_contents[(int) ALL_REGS]);
   AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
   prune_hardregs_for_mode (&web->usable_regs, PSEUDO_REGNO_MODE (web->regno));
+#ifdef CLASS_CANNOT_CHANGE_MODE
+  if (web->mode_changed)
+    AND_COMPL_HARD_REG_SET (web->usable_regs, reg_class_contents[
+			      (int) CLASS_CANNOT_CHANGE_MODE]);
+#endif
   web->num_freedom = hard_regs_count (web->usable_regs);
   if (!web->num_freedom)
     abort();
@@ -5496,6 +5525,11 @@ colorize_one_web (web, hard)
       else
 	COPY_HARD_REG_SET (colors,
 			   usable_regs[reg_preferred_class (web->regno)]);
+#ifdef CLASS_CANNOT_CHANGE_MODE
+      if (web->mode_changed)
+        AND_COMPL_HARD_REG_SET (colors, reg_class_contents[
+			          (int) CLASS_CANNOT_CHANGE_MODE]);
+#endif
       COPY_HARD_REG_SET (call_clobbered, colors);
       AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
 
@@ -5522,6 +5556,11 @@ colorize_one_web (web, hard)
 	  else
 	    IOR_HARD_REG_SET (colors, usable_regs
 			      [reg_alternate_class (web->regno)]);
+#ifdef CLASS_CANNOT_CHANGE_MODE
+	  if (web->mode_changed)
+	    AND_COMPL_HARD_REG_SET (colors, reg_class_contents[
+				      (int) CLASS_CANNOT_CHANGE_MODE]);
+#endif
 	  COPY_HARD_REG_SET (call_clobbered, colors);
 	  AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
 	  
@@ -7005,7 +7044,7 @@ insert_stores (new_deaths)
     {
       unsigned int uid = INSN_UID (insn);
       if (/*GET_CODE (insn) == CODE_LABEL || */GET_CODE (insn) == BARRIER
-	  || JUMP_P (insn))
+	  || JUMP_P (insn) || can_throw_internal (insn))
 	{
 	  /* Clear any info about already emitted stores.  */
 	  last_slot = NULL_RTX;
@@ -7972,6 +8011,24 @@ detect_web_parts_to_rebuild (void)
 	    mark_refs_for_checking (web2, uses_as_bitmap);
 	  });
       }
+
+  /* We also recheck unconditionally all uses of any hardregs.  This means
+     we _can_ delete all these uses from the live_at_end[] bitmaps.
+     And because we sometimes delete insn refering to hardregs (when
+     they became useless because they setup a rematerializable pseudo, which
+     then was rematerialized), some of those uses will go away with the next
+     df_analyse().  This means we even _must_ delete those uses from
+     the live_at_end[] bitmaps.  For simplicity we simply delete
+     all of them.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (!fixed_regs[i])
+      {
+	struct df_link *link;
+	for (link = df->regs[i].uses; link; link = link->next)
+	  if (link->ref)
+	    bitmap_set_bit (uses_as_bitmap, DF_REF_ID (link->ref));
+      }
+
   live_at_end -= 2;
   for (i = 0; i < (unsigned int) n_basic_blocks + 2; i++)
     bitmap_operation (live_at_end[i], live_at_end[i], uses_as_bitmap,

@@ -1,3 +1,21 @@
+2002-06-13  Michael Matz  <matz@suse.de>
+
+	* df.h (DF_REF_MODE_CHANGE): New flag.
+	* df.c (df_def_record_1, df_uses_record): Set this flag for refs
+	involving subregs with invalid mode changes, when
+	CLASS_CANNOT_CHANGE_MODE is defined.
+	* ra.c (struct web.mode_changed): New member.
+	(reinit_one_web): Reset it.
+	(compare_and_free_webs): Check it.
+	(parts_to_webs_1): Set it.
+	(init_one_web_common, remember_web_was_spilled, colorize_one_web):
+	If mode_changed is set, cut off all regs in CLASS_CANNOT_CHANGE_MODE.
+	(remember_web_was_spilled): Use the preferred and alternate class for
+	stack pseudos.
+	(insert_stores): Don't remember stores over trapping insns.
+	(detect_web_parts_to_rebuild): Remove all uses of hardregs from
+	uses_as_bitmap.
+
 2002-05-07  Michael Matz  <matz@suse.de>
 
 	* reload1.c (fixup_abnormal_edges): Don't insert on NULL edge.
