@@ -996,7 +996,7 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
     }
   for (i = 0; i < nv_must_defs; i++)
     {
-      tree def = V_MUST_DEF_OP (v_must_defs, i);
+      tree def = V_MUST_DEF_RESULT (v_must_defs, i);
       if (TREE_CODE (def) == SSA_NAME)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
     }

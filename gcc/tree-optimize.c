@@ -427,17 +427,24 @@ execute_todo (int properties, unsigned int flags)
   if (flags & TODO_rename_vars)
     {
       rewrite_into_ssa (false);
-    /* APPLE LOCAL begin lno */
       bitmap_clear (vars_to_rename);
     }
-
+  /* APPLE LOCAL begin lno */
   if (flags & TODO_write_loop_closed)
     {
       rewrite_into_ssa (false);
       rewrite_into_loop_closed_ssa ();
-    /* APPLE LOCAL end lno */
       bitmap_clear (vars_to_rename);
     }
+  /* APPLE LOCAL end lno */
+  if (flags & TODO_fix_def_def_chains)
+    {
+      rewrite_def_def_chains ();
+      bitmap_clear (vars_to_rename);
+    }
+
+  if (flags & TODO_cleanup_cfg)
+    cleanup_tree_cfg ();
 
   if ((flags & TODO_dump_func) && dump_file)
     {

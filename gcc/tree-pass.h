@@ -101,13 +101,16 @@ struct dump_file_info
 
 /* To-do flags.  */
 #define TODO_dump_func		(1 << 0)	/* pass doesn't dump itself */
-#define TODO_rename_vars	(1 << 1)	 /* rewrite new vars to ssa */
+#define TODO_rename_vars	(1 << 1)	/* rewrite new vars to ssa */
+#define TODO_ggc_collect	(1 << 2)	/* run the collector */
+#define TODO_verify_ssa		(1 << 3)
+#define TODO_verify_flow	(1 << 4)
+#define TODO_verify_stmts	(1 << 5)
+#define TODO_fix_def_def_chains (1 << 6)        /* rewrite def-def chains  */
+#define TODO_cleanup_cfg        (1 << 7)        /* cleanup the cfg.  */
 /* APPLE LOCAL begin lno */
-#define TODO_write_loop_closed	(1 << 2)	/* rewrite into loop-closed-ssa */
-#define TODO_ggc_collect	(1 << 3)	/* run the collector */
-#define TODO_verify_ssa		(1 << 4)
-#define TODO_verify_flow	(1 << 5)
-#define TODO_verify_stmts	(1 << 6)
+/* well not exactly, this was 2 in lno, renumbered to mimize diffs */
+#define TODO_write_loop_closed	(1 << 8)	/* rewrite into loop-closed-ssa */
 /* APPLE LOCAL end lno */
 
 #define TODO_verify_all \
