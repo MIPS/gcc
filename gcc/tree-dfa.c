@@ -337,7 +337,9 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
        	 of interest.  */
       if (subcode != COMPONENT_REF
 	  && subcode != INDIRECT_REF
-	  && subcode != ARRAY_REF)
+	  && subcode != ARRAY_REF
+	  && subcode != PARM_DECL
+	  && subcode != VAR_DECL)
 	return;
 
       /* Avoid recursion.  */

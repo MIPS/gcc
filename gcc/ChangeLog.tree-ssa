@@ -1,5 +1,8 @@
 2003-04-30  Jeff Law  <law@redhat.com>
 
+	* tree-dfa.c (get_expr_operands): Do not ignore operands of an
+	an ADDR_EXPR if it is a PARM_DECL or VAR_DECL.
+
 	* tree-dfa.c (get_expr_operands): Look inside operands in
 	a TREE_LIST.
 
