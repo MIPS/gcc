@@ -1,3 +1,8 @@
+2004-04-15  Devang Patel  <dpatel@apple.com>
+
+	* config/i386.h: Add static tree nodes for vector types to
+	accomodate tree.h changes due to local Altivec patch.
+
 2004-04-15  Caroline Tice  <ctice@apple.com>
 
 	Fix various problems related to hot/cold partitioning (but not all of 

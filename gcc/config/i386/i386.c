@@ -459,6 +459,34 @@ struct processor_costs pentium4_cost = {
 
 const struct processor_costs *ix86_cost = &pentium_cost;
 
+/* APPLE LOCAL begin Altivec */
+/* vector types */
+static GTY(()) tree unsigned_V16QI_type_node;
+static GTY(()) tree unsigned_V4SI_type_node;
+static GTY(()) tree unsigned_V8QI_type_node;
+static GTY(()) tree unsigned_V8HI_type_node;
+static GTY(()) tree unsigned_V4HI_type_node;
+static GTY(()) tree unsigned_V2HI_type_node;
+static GTY(()) tree unsigned_V2SI_type_node;
+static GTY(()) tree unsigned_V2DI_type_node;
+static GTY(()) tree unsigned_V1DI_type_node;
+
+static GTY(()) tree V16QI_type_node;
+static GTY(()) tree V4SF_type_node;
+static GTY(()) tree V4SI_type_node;
+static GTY(()) tree V8QI_type_node;
+static GTY(()) tree V8HI_type_node;
+static GTY(()) tree V4HI_type_node;
+static GTY(()) tree V2HI_type_node;
+static GTY(()) tree V2SI_type_node;
+static GTY(()) tree V2SF_type_node;
+static GTY(()) tree V2DI_type_node;
+static GTY(()) tree V2DF_type_node;
+static GTY(()) tree V16SF_type_node;
+static GTY(()) tree V1DI_type_node;
+static GTY(()) tree V4DF_type_node;
+/* APPLE LOCAL end Altivec */
+
 /* Processor feature/optimization bitmasks.  */
 #define m_386 (1<<PROCESSOR_I386)
 #define m_486 (1<<PROCESSOR_I486)
