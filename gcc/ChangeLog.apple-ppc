@@ -1,3 +1,34 @@
+2004-12-07  Mike Stump  <mrs@apple.com>
+
+	Radar 3603833, 3896176, 3518821.
+	* c-common.c (cw_asm_operands_arg): New.
+	(print_cw_asm_operand): Add support for figuring out if the
+	argument must be a register or a memory reference.
+	(cw_asm_get_register_var): Likewise.
+	(cw_op_constraint): Likewise.
+	(cw_op_comp): Likewise.
+	(cw_constraint_for): Likewise.
+	(cw_process_arg): Likewise.
+	(cw_asm_stmt): Likewise.
+	(print_cw_asm_operand): Likewise.
+	(cw_asm_get_register_var): Likewise.
+	(cw_memory_clobber): Add support for figuring out if the
+	instruction needs a memory clobber.
+	(cw_asm_stmt): Likewise.
+	(print_cw_asm_operand): Add support for static duration variables.
+	
+	(cw_get_identifier): New.
+	(cw_ha16, cw_hi16, cw_lo16): New.
+	(get_cw_asm_label): Add support for ha16(x), hi16(x) and lo16(x).
+	* c-common.h (cw_get_identifier): New.
+	* c-parse.in (cw_identifier): Add support for '+', '-' and '.' in
+	C CW opcodes to allow for a less tightly coupled lexer.
+	(single_cw_asm_stmt): Likewise.
+	(cw_asm_operand): Add support for ha16(x)(r).
+
+	* doc/extend.texi (Asm Blocks and Functions): Document memory
+	clobbers and instructions that take a memory operand.
+	
 2004-12-06  Fariborz Jahanian <fjahanian@apple.com>
 	Radar 3893215
 	Following FSF mainline patch fixes it.

@@ -1038,6 +1038,7 @@ extern tree get_cw_asm_label (tree);
 extern tree cw_asm_entry (tree, tree, tree);
 extern int cw_asm_typename_or_reserved (tree);
 extern tree cw_asm_c_build_component_ref (tree, tree);
+extern tree cw_get_identifier (tree, const char *);
 /* APPLE LOCAL end CW asm blocks */
 
 /* APPLE LOCAL begin AltiVec */

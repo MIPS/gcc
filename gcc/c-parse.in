@@ -251,6 +251,7 @@ do {									\
 %type <ttype> identifiers_or_typenames
 
 /* APPLE LOCAL begin CW asm blocks */
+%type <ttype> cw_identifier
 %type <exprtype> cw_asm_expr_no_commas cw_asm_unary_expr 
 %type <exprtype> cw_asm_primary
 %type <ttype> cw_asm_operands cw_nonnull_asm_operands 
@@ -2082,11 +2083,21 @@ cw_asm_stmt_list:
 	| cw_asm_stmt_list ';'
 	;
 
+cw_identifier:
+	  identifier
+	| cw_identifier '.'
+	  { $$ = cw_get_identifier ($1, "."); }
+	| cw_identifier '+'
+	  { $$ = cw_get_identifier ($1, "+"); }
+	| cw_identifier '-'
+	  { $$ = cw_get_identifier ($1, "-"); }
+	;
+
 /* A single statement consists of one or more labels (identified by a
    leading '@' and/or a trailing ':'), optionally followed by opcode
    and operands.  */
 single_cw_asm_stmt:
-	  identifier
+	  cw_identifier
 		{ cw_asm_in_operands = 1; }
 	  cw_asm_operands
 		{ $$ = cw_asm_stmt ($1, $3); }
@@ -2168,7 +2179,7 @@ cw_nonnull_asm_operands:
    possibility of CW asm coming through.  For example, "offset(reg)"
    would be handled by function call code (bleah).  */
 cw_asm_operand:	cw_asm_expr_no_commas
-	| cw_asm_expr_no_commas '(' cw_asm_expr_no_commas ')'
+	| cw_asm_operand '(' cw_asm_expr_no_commas ')'
 		{ $$.value = cw_asm_build_register_offset ($1.value, $3.value); 
 		  $$.original_code = ERROR_MARK;  }
 	;

@@ -1,3 +1,11 @@
+2004-12-07  Mike Stump  <mrs@apple.com>
+
+	Radar 3603833, 3896176, 3518821.
+	* parser.c (cp_parser_binary_expression): Add support for lines
+	that start with named operators such as and.
+	(cp_parser_cw_identifier): Move reused code from here to
+	cw_get_identifier.
+	
 2004-11-17  Mike Stump  <mrs@apple.com>
 
 	Radar 3860322

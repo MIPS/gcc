@@ -5523,6 +5523,14 @@ cp_parser_binary_expression (cp_parser* parser)
       token = cp_lexer_peek_token (parser->lexer);
       new_prec = TOKEN_PRECEDENCE (token);
 
+      /* APPLE LOCAL begin CW asm blocks */
+      if (flag_cw_asm_blocks && cw_asm_block)
+	{
+	  if ((token->flags & BOL) != 0)
+	    new_prec = PREC_NOT_OPERATOR;
+	}
+      /* APPLE LOCAL end CW asm blocks */
+
       /* Popping an entry off the stack means we completed a subexpression:
          - either we found a token which is not an operator (`>' where it is not
            an operator, or prec == PREC_NOT_OPERATOR), in which case popping
@@ -5553,6 +5561,15 @@ cp_parser_binary_expression (cp_parser* parser)
          cases such as 3 + 4 + 5 or 3 * 4 + 5.   */
       token = cp_lexer_peek_token (parser->lexer);
       lookahead_prec = TOKEN_PRECEDENCE (token);
+
+      /* APPLE LOCAL begin CW asm blocks */
+      if (flag_cw_asm_blocks && cw_asm_block)
+	{
+	  if ((token->flags & BOL) != 0)
+	    lookahead_prec = PREC_NOT_OPERATOR;
+	}
+      /* APPLE LOCAL end CW asm blocks */
+
       if (lookahead_prec > new_prec)
         {
           /* ... and prepare to parse the RHS of the new, higher priority
@@ -16271,7 +16288,6 @@ cp_parser_cw_identifier (cp_parser* parser)
 {
   cp_token *token;
   tree t;
-  char *buf;
   const char *str = "";
 
   /* We have to accept certain keywords.  */
@@ -16337,11 +16353,7 @@ cp_parser_cw_identifier (cp_parser* parser)
 
   cp_lexer_consume_token (parser->lexer);
 
-  buf = (char *) alloca (IDENTIFIER_LENGTH (t) + strlen (str) + 1);
-  memcpy (buf, IDENTIFIER_POINTER (t), IDENTIFIER_LENGTH (t));
-  memcpy (buf + IDENTIFIER_LENGTH (t), str, strlen (str));
-  buf[IDENTIFIER_LENGTH (t) + strlen (str)] = 0;
-  return get_identifier (buf);
+  return cw_get_identifier (t, str);
 }
 
 static tree

@@ -4294,6 +4294,25 @@ reported by the assembler.
 
 Also note that the use of literal registers (such as r3) in functions
 may not work properly with functions that are being inlined.
+
+The following instructions insert memory clobbers: @code{l...} except
+@code{la}, @code{li} and @code{lis} (all memory loads), @code{st...} (all
+memory stores), @code{sc}, @code{td...}, @code{trap}, @code{tw...}.
+
+The following instructions take a memory operand (address operand),
+all other are assumed to not:
+
+@code{la}, @code{lbzu}, @code{ld}, @code{ldu}, @code{lfd},
+@code{lfdu}, @code{lfs}, @code{lfsu}, @code{lha}, @code{lhau},
+@code{lhz}, @code{lhzu}, @code{lmw}, @code{lwa}, @code{lwz},
+@code{lwzu}, @code{stb}, @code{stbu}, @code{std}, @code{stdu},
+@code{stfd}, @code{stfdu}, @code{stfs}, @code{stfsu}, @code{sth},
+@code{sthu}, @code{stmw}, @code{stw}, @code{stwu}.
+
+Arguments that require substitution beyond vector registers, floating
+point registers, general registers are not supported; an example
+would be trying to use the compiler to allocate condition code
+registers instead of just writting a specific condition code register.
 @c APPLE LOCAL end CW asm blocks
 
 @node Alternate Keywords

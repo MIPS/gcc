@@ -10,8 +10,7 @@ int
 foo (int argx, int argy)
 {
   register int locx = argx, locy = argy, rslt;
-  asm
-    {
+  asm {
       add rslt,locx,locy
     }
   return rslt;
@@ -74,4 +73,3 @@ main ()
     abort ();
   return 0;
 }
-
