@@ -1,5 +1,8 @@
 2003-07-16  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030709-2.c: Also test that we eliminate
+	the redundant load of ->fld[1].rtmem.
+
 	* gcc.c-torture/compile/20030716-1.c: New test.
 
 2003-07-16  Dan Nicolaescu  <dann@ics.uci.edu>

@@ -42,6 +42,10 @@ get_alias_set (t)
    more than, then the dominator optimizations failed.  */
 /* { dg-final { scan-tree-dump-times "->decl\\.rtl" 1 "ssa"} } */
   
+/* There should be precisely one load of .rtmem.  If there is
+   more than, then the dominator optimizations failed.  */
+/* { dg-final { scan-tree-dump-times ".rtmem" 1 "ssa"} } */
+  
 /* There should be two IF statements.
 /* { dg-final { scan-tree-dump-times "if " 2 "ssa"} } */
 
