@@ -8,6 +8,12 @@
 
 2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
 
+	Radar 3971074
+
+	* parser.c (cp_parser_cw_asm_statement): Pass lineno to cw_asm_stmt.
+
+2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
+
         Radar 3970655
 
         * cp/parser.c (cw_build_identifier_string): New function.

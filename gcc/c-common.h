@@ -44,7 +44,6 @@ extern int cw_asm_block;
 extern int cw_asm_at_bol;
 extern int cw_asm_in_operands;
 extern int cw_asm_labelno;
-extern int cw_asm_lineno;
 /* APPLE LOCAL end CW asm blocks */
 
 /* Usage of TREE_LANG_FLAG_?:
@@ -1043,7 +1042,7 @@ extern void pp_file_change (const struct line_map *);
 extern void pp_dir_change (cpp_reader *, const char *);
 
 /* APPLE LOCAL begin CW asm blocks */
-extern tree cw_asm_stmt (tree, tree);
+extern tree cw_asm_stmt (tree, tree, int);
 extern tree cw_asm_build_register_offset (tree, tree);
 extern tree cw_asm_label (tree, int);
 extern tree prepend_char_identifier (tree, char);

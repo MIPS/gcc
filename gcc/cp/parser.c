@@ -16520,7 +16520,7 @@ cp_parser_cw_asm_statement (cp_parser* parser)
 		{
 		  cw_asm_in_operands = 1;
 		  operands = cp_parser_cw_asm_operands (parser);
-		  cw_asm_stmt (aname, operands);
+		  cw_asm_stmt (aname, operands, input_line);
 		}
 	      break;
 	    }

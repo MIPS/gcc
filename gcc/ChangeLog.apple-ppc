@@ -1,3 +1,14 @@
+2005-02-17  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3971074
+
+	* c-common.c (cw_asm_stmt): Generate .file and .line
+	directives. Remove cw_asm_lineno declaration.
+	* c-common.h: Add argument to cw_asm_stmt declaration, remove
+	cw_asm_lineno declaration.
+	* c-parse.in: Accurately pass line no information to
+	cw_asm_stmt routine.
+
 2005-02-17  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3635843, 3922342

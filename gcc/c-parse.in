@@ -377,6 +377,8 @@ static int yylexname (void);
 static inline int _yylex (void);
 static int  yylex (void);
 static void init_reswords (void);
+/* APPLE LOCAL CW asm blocks */
+static int cw_asm_lineno = 0;
 
   /* Initialization routine for this file.  */
 void
@@ -2071,7 +2073,7 @@ compstmt: compstmt_start compstmt_nostart
 /* A CW-style asm statement is recognized by having a BOL token preceding it.  */
 cw_asm_stmt: CW_ASM_BOL save_location cw_asm_stmt_list CW_ASM_EOL
 
-{ /*cw_asm_lineno = $2*/; $$ = NULL_TREE; }
+{ $$ = NULL_TREE; }
 	;
 
 /* A single line may have multiple statements separated by ';'.  */
@@ -2100,9 +2102,9 @@ cw_identifier:
    and operands.  */
 single_cw_asm_stmt:
 	  cw_identifier
-		{ cw_asm_in_operands = 1; }
+		{ cw_asm_lineno = input_line; cw_asm_in_operands = 1; }
 	  cw_asm_operands
-		{ $$ = cw_asm_stmt ($1, $3); }
+		{ $$ = cw_asm_stmt ($1, $3, cw_asm_lineno); }
 	| identifier STATIC cw_asm_operand
 		{ $$ = cw_asm_entry ($1, $2, $3.value); }
 	| identifier SCSPEC cw_asm_operand
