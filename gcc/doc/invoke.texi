@@ -780,6 +780,10 @@ preprocessor).
 Fortran source code which must be preprocessed with a RATFOR
 preprocessor (not included with GCC)@.
 
+@item @var{file}.f90
+@itemx @var{file}.f95
+Fortran 90/95 source code which should not be preprocessed.
+
 @xref{Overall Options,,Options Controlling the Kind of Output, g77,
 Using and Porting GNU Fortran}, for more details of the handling of
 Fortran input files.
@@ -833,6 +837,7 @@ objective-c  objective-c-header  objc-cpp-output
 assembler  assembler-with-cpp
 ada
 f77  f77-cpp-input  ratfor
+f95
 java
 treelang
 @end example
@@ -3863,7 +3868,7 @@ The default is @option{-fzero-initialized-in-bss}.
 @opindex fbounds-check
 For front-ends that support it, generate additional code to check that
 indices used to access arrays are within the declared range.  This is
-currently only supported by the Java and Fortran 77 front-ends, where
+currently only supported by the Java and Fortran front-ends, where
 this option defaults to true and false respectively.
 
 @item -fmudflap

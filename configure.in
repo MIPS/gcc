@@ -145,6 +145,7 @@ target_libraries="target-libiberty \
 		target-libstdc++-v3 \
 		target-libmudflap \
 		target-libf2c \
+		target-libgfortran \
 		${libgcj} \
 		target-libobjc"
 
@@ -1369,6 +1370,7 @@ if test "${build}" != "${host}" ; then
   CC_FOR_TARGET=${CC_FOR_TARGET-${target_alias}-gcc}
   CXX_FOR_TARGET=${CXX_FOR_TARGET-${target_alias}-c++}
   GCJ_FOR_TARGET=${GCJ_FOR_TARGET-${target_alias}-gcj}
+  GFORTRAN_FOR_TARGET=${GFORTRAN_FOR_TARGET-${target_alias}-gfortran}
   GCC_FOR_TARGET=${GCC_FOR_TARGET-${CC_FOR_TARGET-${target_alias}-gcc}}
   BUILD_PREFIX=${build_alias}-
   BUILD_PREFIX_1=${build_alias}-
@@ -1936,6 +1938,20 @@ else
 fi
 GCJ_FOR_TARGET=$GCJ_FOR_TARGET' $(FLAGS_FOR_TARGET)'
 
+if test "x${GFORTRAN_FOR_TARGET+set}" = xset; then
+  :
+elif test -d ${srcdir}/gcc; then
+  GFORTRAN_FOR_TARGET='$$r/gcc/gfortran -B$$r/gcc/'
+elif test "$host" = "$target"; then
+  GFORTRAN_FOR_TARGET='gfortran'
+else
+  GFORTRAN_FOR_TARGET=`echo gfortran | sed -e 's/x/x/' ${program_transform_name}`
+fi
+case $GFORTRAN_FOR_TARGET in
+*' $(FLAGS_FOR_TARGET)') ;;
+*) GFORTRAN_FOR_TARGET=$GFORTRAN_FOR_TARGET' $(FLAGS_FOR_TARGET)' ;;
+esac
+
 # Don't use libstdc++-v3's flags to configure/build itself.
 libstdcxx_flags='`test ! -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags || $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags --build-includes` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
 raw_libstdcxx_flags=' -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
@@ -1975,6 +1991,7 @@ qqRAW_CXX_FOR_TARGET=`echo "$qRAW_CXX_FOR_TARGET" | sed -e 's,[[$]][[$]],$$$$,g'
 # Wrap CC_FOR_TARGET and friends, for certain types of builds.
 CC_FOR_TARGET="\$(STAGE_CC_WRAPPER) ${CC_FOR_TARGET}"
 GCJ_FOR_TARGET="\$(STAGE_CC_WRAPPER) ${GCJ_FOR_TARGET}"
+GFORTRAN_FOR_TARGET="\$(STAGE_CC_WRAPPER) ${GFORTRAN_FOR_TARGET}"
 CXX_FOR_TARGET="\$(STAGE_CC_WRAPPER) ${qCXX_FOR_TARGET}"
 RAW_CXX_FOR_TARGET="\$(STAGE_CC_WRAPPER) ${qRAW_CXX_FOR_TARGET}"
 CXX_FOR_TARGET_FOR_RECURSIVE_MAKE="\$(STAGE_CC_WRAPPER) ${qqCXX_FOR_TARGET}"
@@ -2056,6 +2073,7 @@ AC_SUBST(GCC_FOR_TARGET)
 AC_SUBST(FLAGS_FOR_TARGET)
 AC_SUBST(CC_FOR_TARGET)
 AC_SUBST(GCJ_FOR_TARGET)
+AC_SUBST(GFORTRAN_FOR_TARGET)
 AC_SUBST(CXX_FOR_TARGET)
 AC_SUBST(RAW_CXX_FOR_TARGET)
 AC_SUBST(CXX_FOR_TARGET_FOR_RECURSIVE_MAKE)

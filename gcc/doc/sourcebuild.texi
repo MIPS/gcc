@@ -51,6 +51,9 @@ language front ends, and test suites.  @xref{gcc Directory, , The
 Headers for the @code{libiberty} library.
 
 @item libf2c
+The Fortran 77 runtime library.
+
+@item libgfortran
 The Fortran runtime library.
 
 @item libffi

@@ -1,3 +1,13 @@
+2003-07-26  Paul Brook  <paul@nowt.org>
+
+	* Makefile.in: Rename check-g95 to check-gfortran.
+	* gcc.c (default_compilers): Add entries for .f90 and .f95.
+	* doc/frontends.texi: Document new F95 front end.
+	* doc/install.texi: Ditto.
+	* doc/invoke.texi: Ditto.
+	* doc/sourcebuild.texi: Ditto.
+	* fortran: New front end.
+
 2003-07-25  Jeff law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_block): Use may_propagate_copy.

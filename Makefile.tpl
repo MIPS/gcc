@@ -309,6 +309,7 @@ USUAL_DLLTOOL_FOR_TARGET = ` \
   fi`
 
 GCJ_FOR_TARGET = @GCJ_FOR_TARGET@
+GFORTRAN_FOR_TARGET = @GFORTRAN_FOR_TARGET@
 
 LD_FOR_TARGET=@LD_FOR_TARGET@
 USUAL_LD_FOR_TARGET = ` \
@@ -790,6 +791,7 @@ configure-build-[+module+]:
 	CXX="$(CXX_FOR_BUILD)"; export CXX; \
 	CXXFLAGS="$(CXXFLAGS_FOR_BUILD)"; export CXXFLAGS; \
 	GCJ="$(GCJ_FOR_BUILD)"; export GCJ; \
+	GFORTRAN="$(GFORTRAN_FOR_BUILD)"; export GFORTRAN; \
 	DLLTOOL="$(DLLTOOL_FOR_BUILD)"; export DLLTOOL; \
 	LD="$(LD_FOR_BUILD)"; export LD; \
 	LDFLAGS="$(LDFLAGS_FOR_BUILD)"; export LDFLAGS; \
@@ -975,6 +977,7 @@ ELSE normal_cxx +]
 ENDIF raw_cxx +]
 	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
+	GFORTRAN="$(GFORTRAN_FOR_TARGET)"; export GFORTRAN; \
 	DLLTOOL="$(DLLTOOL_FOR_TARGET)"; export DLLTOOL; \
 	LD="$(LD_FOR_TARGET)"; export LD; \
 	LDFLAGS="$(LDFLAGS_FOR_TARGET)"; export LDFLAGS; \
@@ -1361,6 +1364,7 @@ configure-target-fastjar: maybe-configure-target-zlib
 all-target-fastjar: maybe-all-target-zlib maybe-all-target-libiberty
 configure-target-libf2c: $(ALL_GCC_C)
 all-target-libf2c: maybe-all-target-libiberty
+configure-target-libgfortran: $(ALL_GCC_C)
 configure-target-libffi: $(ALL_GCC_C) 
 configure-target-libjava: $(ALL_GCC_C) maybe-configure-target-zlib maybe-configure-target-boehm-gc maybe-configure-target-qthreads maybe-configure-target-libffi
 all-target-libjava: maybe-all-fastjar maybe-all-target-zlib maybe-all-target-boehm-gc maybe-all-target-qthreads maybe-all-target-libffi

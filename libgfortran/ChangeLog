@@ -1,0 +1,366 @@
+2003-07-26  Paul Brook  <paul@nowt.org>
+
+	Rename library to libgfortran.
+	* libgfortran.h: Change prefix to _libgfortran_.
+
+2003-07-24  Paul Brook  <paul@nowt.org>
+
+	* configure.in: Don't pull in system libtool.  Use toplevel
+	auxiliary files.
+
+2003-07-22  Paul Brook  <paul@nowt.org>
+
+	Regenerate all configury files.
+
+2003-07-09  Chun Huang  <compiler@sohu.com>
+
+	* intrinsics/string_intrinsic.c (string_scan): New function.
+	(string_verify): New function.
+
+2003-06-25  Paul Brook  <paul@nowt.org>
+
+	* io/unix.c (mem_alloc_r_at, mem_alloc_w_at): Advance logical_offset.
+	(mem_seek): Don't bother setting physical_offset.
+
+2003-06-20  Paul Brook  <paul@nowt.org>
+
+	* libgfor.h (stop_numeric): Declare.
+	* runtime/pause.c: New file.
+	* Makefile.am: Add it.
+
+2003-06-08  Paul Brook  <paul@nowt.org>
+
+	* m4/cexp.m4 (cabs): Use correct typed version.
+	(csqrt): New function.
+
+2003-06-07  Canqun Yang  <canqun@yahoo.com.cn>
+
+	Spotted by Benjamin and Tobias:
+	* io/list_read.c: Add Separator '\t'.
+	(parse_real, read_real): Accept real values starting with an optional
+	sign follows a decimal point.
+ 
+2003-06-06  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* Makefile.am: Don't put cmath objects in subdir.
+	* configure.in: Rename MATHOBJ to MATH_OBJ.
+
+2003-06-02  Kejia Zhao  <Kejia_zh@yahoo.com.cn>
+
+	* intrinsics/associated.c: New file.
+	* Makefile.am: Add it. Regenerate Makefile.in.
+	* libgfor.h: Define g95_array_void, G95_DESCRIPTOR_DATA, and
+	G95_DESCRIPTOR_DTYPE.
+
+2003-06-01  Canqun Yang  <canqun@yahoo.com.cn>
+
+	* io/write.c (calcuate_exp): Rewrite it to avoid overflow.
+	(calculate_G_format): Rewrite it to eliminate an infinte loop and set
+	the scale_factor to 0 for F editing.
+
+2003-05-11  Tobias Schlüter  <innenminister@gmx.de>
+
+	* libgfor.h: Only include stdint.h if it exists.
+
+2003-05-07  Paul Brook  <paul@nowt.org>
+
+	* libgfor.h: Use stdint.h types.
+	* intrinsics/ishift.c: Ditto.
+	* runtime/memory.c (malloc_t): Reorder fields for better alignment.
+
+2003-05-05  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* libgfor.h (offsetof): Define if nobody else does.
+	* runtime/memory.c (HEADER_SIZE): Use it.
+
+2003-05-01  Tobias Schlüter  <innenminister@gmx.de>
+
+	* configure.in: Require autoconf 2.54.
+
+2003-04-28  Tobias Schlüter  <innenminister@gmx.de>
+	Paul Brook  <paul@nowt.org>
+
+	* intrinsics/reshape_generic.c: Copy the whole element, not just the
+	first byte.
+	* m4/transpose.m4: New file.
+	* Makefile.am: Add them.
+	Regenerate generated files.
+
+2003-04-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* io/format.c (parse_format_list): Allow 'X' without integer
+	prefix.  This is an extension.  Interpretation is '1X'.
+
+2003-04-18  Tobias Schlüter  <Tobias.Schlueter@physik.uni-muenchen.de>
+
+	* io/format.c (parse_format_list): Allow '0P'.
+
+2003-04-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* Makefile.in: Re-regenerate for automake 1.7.3.
+
+2003-04-18  Canqun Yang  <canqun@yahoo.com.cn>
+
+	Port implementation for CHARACTER SELECT from Andy's tree.
+	* runtime/select.c: New file
+	* Makefile.am: Add it.
+	* Makefile.in: Regenerate.
+
+2003-04-17  Xiaoqiang Zhang <zhangapache@yahoo.com>
+
+	* io/transfer.c (formatted_transfer): Modified
+	* io/unix.c (move_pos_offset): New Function.
+	* io/format.c (parse_format_list): Modified.
+
+2003-04-15  Xiaoqiang Zhang <zhangapache@yahoo.com>
+
+	* io/write.c (write_float,write_real): New implemention of
+	FMT_G and default float editing.
+	(calculate_exp,calculate_G_format,output_float): New Function.
+	(write_float,write_real,write_logical): Modified
+	* libgfor.h (default_rtoa): Remove Declaration.
+	* runtime/error.c (default_rtoa): Remove Function.
+
+2003-04-15  Steven Bosscher  <steven@gcc.gnu.org>
+
+	Spotted by Yang:
+	* io/write.c (extract_real): Add missing break statement.
+
+2003-04-13  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cpu_time.c: Make sure we have a definition of HZ.  Don't
+	rely on CLOCKS_PER_SEC, it is always 1000000, on any system.
+
+2003-04-13  Steven Bosscher  <steven@gcc.gnu.org>
+	    Paul Brook  <paul@nowt.org>
+
+	* configure.in: Check for process time headers and GETTIMEOFDAY.
+	* makefile.am: Add intrinsics/cpu_time.c.
+	* acinclude.m4: New file.
+	* intrinsics/cpu_time.c: New file.
+	* m4/dotprodl.m4: Fix typo.
+	Regenerate generated files.
+
+2003-04-11  Xiaoqiang Zhang <zhangapache@yahoo.com>
+
+        * io/write.c (extract_real): Ouput floating point value.
+        (write_float): New Function.
+        (write_e, write_f, write_en, write_es): Modified
+        * io/transfer.c (formatted_transfer): Modified.
+        * libgfor.h (default_rtoa): Declaration.
+        (rtoa): Declaration.
+        * runtime/error.c (default_rtoa): New Function.
+        (rtoa): New Function.
+
+2003-04-05  Paul Brook  <paul@nowt.org>
+
+	* intrinsics/spread_generic.c: New file.
+	* Makefile.am: Add it. Regenerate Makefile.in.
+
+2003-03-29  Paul Brook  <paul@nowt.org>
+
+	* intrinsics/pack_generic.c: New file.
+	* intrinsics/unpack_generic.c: New file.
+	* Makefile.am: Add them. Regenerate Makefile.in.
+
+2003-03-25  Paul Brook  <paul@nowt.org>
+
+	* intrinsics/eoshift0.c: New file.
+	* intrinsics/eoshift2.c: New file.
+	* m4/eoshift1.m4: New file.
+	* m4/eoshift3.m4: New file.
+	* Makefile.am: Add them.
+	* in_unpack_generic.c: Initialize src.
+	Regenerate generated files.
+
+2003-03-14  Paul Brook  <paul@nowt.org>
+
+	* m4/shape.m4: Work properly with array temporaries.
+	* m4/in_pack.m4: Skip redundant checks for array temporaries.
+	* runtime/in_pack_generic.c: Ditto.
+
+2003-03-12  Paul Brook  <paul@nowt.org>
+
+	* m4/shape.m4: Work properly with noncontiguous arrays.
+
+2003-03-08  Paul Brook  <paul@nowt.org>
+
+	* m4/in_pack.m4: Correctly handle zero sized and assumed size arrays.
+	* runtime/in_pack_generic.c: Ditto.
+
+2003-02-08  Paul Brook  <paul@nowt.org>
+
+	* intrinsics/reshape_generic.c: Use runtime_error to report errors.
+	* io/close.c (st_close): Return void.
+	* io/open.c (st_open): Return void.
+	* libgfor.h (g95_array_char): Declare.
+	(internal_malloc_size): Ditto.
+	(internal_pack*, internal_unpack*): Ditto.
+	* m4/in_pack.m4: Allocate storage if neccessary.  Fix logic for packed
+	arrays.
+	* m4/in_unpack.m4: Include file fixes.
+	* m4/reshape.m4: Increment the correct source pointer.
+	* Makefile.am (maxloc): Fix typo.
+	* runtime/in_pack_generic.c: Call optimized functions. Allocate
+	storage if neccessary. Fix logic for packed arrays.
+	* runtime/in_unpack_generic.c: Call optimized functions.
+	* runtime/main.c: Use runtime_error to report errors.
+	* memory.c (internal_malloc_size): Make non-static.
+
+2003-02-02  Arnaud Desitter  <arnaud.desitter@geography.oxford.ac.uk>
+
+	* reshape_packed.c, lock.c: Add #include <string.h>.
+	* libgfor.h, format.c, inquire.c, io.h, transfer.c, unix.c, 
+	environ.c, error.c, memory.c, string.c: Add const.
+	* error.c (show_locus): Add void.
+
+2003-02-21  Paul Brook  <paul@nowt.org>
+
+	* m4/in_pack.m4: Avoid returning const * parameter.
+	* Makefile.am: Only regenerate files in maintainer mode.
+
+2003-02-20  Paul Brook  <paul@nowt.org>
+
+	Add array repacking support functions.
+	* m4/in_pack.m4, m4/in_unpack.m4: New files.
+	* runtime/in_pack_generic.c, runtime/in_unpack_generic.c: New files.
+	* Makefile.am: Build them.  Regenerate configury files.
+	* generated/: New directory for generated files (need to move
+	everything else there).
+
+2003-02-07  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* m4/cexp.m4: Fix typo.
+
+2003-01-26  Paul Brook  <paul@nowt.org>
+
+	* intrinsics/: Add missing generated files.
+
+2003-01-26  Paul Brook  <paul@nowt.org>
+
+	* Makefile.am: Put -I before the filename.
+
+2003-01-24  Paul Brook  <paul@nowt.org>
+
+	* configure.in: Add AM_MAINTAINER_MODE.
+
+2003-01-23  Paul Brook  <paul@nowt.org>
+
+	* configure.in, Makefile.am: Modify to work with unmodified autoconf
+	and auotmake.
+	Also regenerate other configury files.
+
+2003-01-21  Paul Brook  <paul@nowt.org>
+
+	* io/read.c: Don't use stdint.h, it doesn't exist on cygwin.
+
+2003-01-20  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* io/read.c (read_f): Don't use alloca, but safe get_mem instead.
+	Don't include "alloca.h".
+
+2003-01-20  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* intrinsics/string.c: Rename to intrinsics/string_intrinsics.c.
+	* Makefile.am: Adjust file name.
+	* Makefile.in: Regenerate.
+	* gfortypes.h: Kill, include everything in...
+	* libgfor.h: ...here.  Include config.h
+ 	* fmain.c, intrinsics/ishftc.c, intrinsic/reshape_generic.c,
+	intrinsics/reshape_i4.c, intrinsics/reshape_i8.c,
+	intrinsics/reshape_packed.c, intrinsics/size.c,
+	m4/reshape.m4, runtime/main.c, runtime/memory.c: Use macro
+	for prefix for all functions instead of hardcoded.
+
+2003-01-19  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* io/lock.c (library_end): Propagate library return
+	code.
+	
+2003-01-19  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	Port fixes from Andy's tree:
+	* io/read.c (read_decimal): Reverse sense of overflow
+	comparison during integer reads.
+	* io/format.c (revert): Fix comment.
+	(next_format): Fix format revision.
+	* io/unix.c: Fix and simplify mmap version of stream
+	functions.
+
+2003-01-11  Paul Brook  <paul@nowt.org>
+
+	* configure, Makefile.in: Regenerate.
+
+2003-01-11  Paul Brook  <paul@nowt.org>
+
+	* runtime/stop.c: Rewrite.
+
+2003-01-08  Paul Brook  <paul@nowt.org>
+
+	* configure, Makefile.in: Regenerate.
+
+2003-01-05  Paul Brook  <paul@nowt.org>
+
+	* (*.m4) Move to m4/.
+	* intrinsics/string.c (_gfor_string_index): New Function.
+
+2002-12-29  Paul Brook  <paul@nowt.org>
+
+	* intrinsics/reshape.*: New files.
+	* gcc_config.patch: Update to new GCC configure system.
+
+2002-10-10  Paul Brook  <paul@nowt.org>
+
+	* intrinsics/size.c: New file.
+	* intrinsics/shape.m4: New file.
+	* Makefile.am: Add above files.
+
+2002-10-02  Paul Brook  <paul@nowt.org>
+
+	* fmain.c (main): Move here.
+	* libgfor.c: From here.
+	* libgfor.h (gfor_init, gfor_runtime_cleanup): Declare.
+	* Makefile.am: Build libgforbegin.
+	* gcc_config.patch: Remove stray -march=athlon.
+	* dotprodl.m4: Fix use of L8_TO_L4 macro.
+	* ifunction.m4: Move variable declarations to allow compilation with
+	gcc < 3.0
+	* specific.m4, specific4.m4: Fix typo typecode->type_code.
+	* README: Document use of patch -p1.
+
+2002-09-12  Paul Brook  <paul@nowt.org>
+
+	* math/*: Add complex math library functions.
+	* intrinsics/specific(2).m4: Generate Specific intrinsic functions.
+	* Makefile.am: Add details for above.
+	* configure.in: Use AC_PROG_F95.  Test for the presence of csin.
+
+2002-09-09  Paul Brook  <paul@nowt.org>
+
+	* libgfor.c (determine_endianness): Use an array rather than a struct.
+	* intrinsics/dotprod*, matmul*: Implement DOT_PRODUCT and MATMUL.
+
+2002-09-09  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* libgfor.c: Add fatal signal handler.
+	Romove superfluous abort() calls.
+
+2002-09-07  Paul Brook <paul@nowt.org>
+
+	* Makefile.am, intrinsics: Major rewrite.
+
+2002-09-02  Paul Brook <paul@nowt.org>
+
+	* Makefile.am: Added -I$(srcdir) to m4 rule.
+
+2002-08-30  Paul Brook <paul@nowt.org>
+
+	* io/*: Integrated libgforio.
+	* Makefile.am, configure.in: Make compatable with GCC. Build code for
+	intrinsics in the intrisics directory.
+	* intrinsics/intrinsics.m4: Move here. Strip directories from the
+	filename. Add 'and' and 'all' intrinsics.
+
+2002-08-17  Paul Brook <paul@nowt.org>
+
+	* ALL: First release as more than just a single file

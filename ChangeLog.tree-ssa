@@ -1,3 +1,14 @@
+2003-07-26  Paul Brook  <paul@nowt.org>
+
+	* Makefile.def: Add libgfortran and GFORTRAN_FOR_TARGET.
+	* Makefile.tmp: Ditto.
+	* configure.in: Ditto.
+	* depcomp: New file.
+	* maintainer-scripts/gcc_release: Add gcc-fortran.
+	* maintainer-scripts/snapshot-README: Ditto.
+	* maintainer-scripts/snapshot-index.html: Ditto.
+	* libgfortran: New target library.
+
 2003-06-05  Frank Ch. Eigler  <fche@redhat.com>
 
 	* Makefile.in: Regenerated to activate libmudflap builds.

@@ -911,6 +911,7 @@ static const struct compiler default_compilers[] =
   {".f", "#Fortran", 0}, {".for", "#Fortran", 0}, {".fpp", "#Fortran", 0},
   {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
   {".r", "#Ratfor", 0},
+  {".f90", "#Fortran 95", 0}, {".f95", "#Fortran 95", 0},
   {".p", "#Pascal", 0}, {".pas", "#Pascal", 0},
   {".java", "#Java", 0}, {".class", "#Java", 0},
   {".zip", "#Java", 0}, {".jar", "#Java", 0},
