@@ -3435,26 +3435,28 @@ compare_tree_int (t, u)
    (RECORD_TYPE, UNION_TYPE and ENUMERAL_TYPE nodes are
    constructed by language-dependent code, not here.)  */
 
-/* Construct, lay out and return the type of pointers to TO_TYPE.
-   If such a type has already been constructed, reuse it.  */
+/* Construct, lay out and return the type of pointers to TO_TYPE
+   with mode MODE. If such a type has already been constructed,
+   reuse it.  */
 
 tree
-build_pointer_type (to_type)
+build_pointer_type_for_mode (to_type, mode)
      tree to_type;
+     enum machine_mode mode;
 {
   tree t = TYPE_POINTER_TO (to_type);
 
   /* First, if we already have a type for pointers to TO_TYPE, use it.  */
-
-  if (t != 0)
+  if (t != 0 && mode == ptr_mode)
     return t;
 
-  /* We need a new one.  */
   t = make_node (POINTER_TYPE);
 
   TREE_TYPE (t) = to_type;
+  TYPE_MODE (t) = mode;
 
   /* Record this type as the pointer to TO_TYPE.  */
+  if (mode == ptr_mode)
   TYPE_POINTER_TO (to_type) = t;
 
   /* Lay out the type.  This function has many callers that are concerned
@@ -3465,30 +3467,53 @@ build_pointer_type (to_type)
   return t;
 }
 
-/* Build the node for the type of references-to-TO_TYPE.  */
+/* By default build pointers in ptr_mode.  */
 
 tree
-build_reference_type (to_type)
+build_pointer_type (to_type)
      tree to_type;
+{
+  return build_pointer_type_for_mode (to_type, ptr_mode);
+}
+
+/* Construct, lay out and return the type of references to TO_TYPE
+   with mode MODE. If such a type has already been constructed,
+   reuse it.  */
+
+tree
+build_reference_type_for_mode (to_type, mode)
+     tree to_type;
+     enum machine_mode mode;
 {
   tree t = TYPE_REFERENCE_TO (to_type);
 
   /* First, if we already have a type for pointers to TO_TYPE, use it.  */
-
-  if (t)
+  if (t != 0 && mode == ptr_mode)
     return t;
 
-  /* We need a new one.  */
   t = make_node (REFERENCE_TYPE);
 
   TREE_TYPE (t) = to_type;
+  TYPE_MODE (t) = mode;
 
   /* Record this type as the pointer to TO_TYPE.  */
+  if (mode == ptr_mode)
   TYPE_REFERENCE_TO (to_type) = t;
 
   layout_type (t);
 
   return t;
+}
+
+
+/* Build the node for the type of references-to-TO_TYPE by default
+   in ptr_mode.  */
+
+tree
+build_reference_type (to_type)
+     tree to_type;
+{
+  return build_reference_type_for_mode (to_type, ptr_mode);
 }
 
 /* Build a type that is compatible with t but has no cv quals anywhere

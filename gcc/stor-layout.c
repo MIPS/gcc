@@ -1636,15 +1636,15 @@ layout_type (type)
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       {
-	int nbits = ((TREE_CODE (type) == REFERENCE_TYPE
-		      && reference_types_internal)
-		     ? GET_MODE_BITSIZE (Pmode) : POINTER_SIZE);
 
-	TYPE_MODE (type) = nbits == POINTER_SIZE ? ptr_mode : Pmode;
-	TYPE_SIZE (type) = bitsize_int (nbits);
-	TYPE_SIZE_UNIT (type) = size_int (nbits / BITS_PER_UNIT);
+	enum machine_mode mode = ((TREE_CODE (type) == REFERENCE_TYPE
+		      && reference_types_internal)
+				  ? Pmode : TYPE_MODE (type));
+
+	TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (mode));
+	TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (mode));
 	TREE_UNSIGNED (type) = 1;
-	TYPE_PRECISION (type) = nbits;
+	TYPE_PRECISION (type) = GET_MODE_BITSIZE (mode);
       }
       break;
 

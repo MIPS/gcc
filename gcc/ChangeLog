@@ -1,3 +1,25 @@
+2002-10-11  Eric Christopher  <echristo@redhat.com>
+
+       * output.h (default_valid_pointer_mode): Declare.
+       * varasm.c (default_valid_pointer_mode): Define.
+       * target-def.h (TARGET_VALID_POINTER_MODE): Use.
+       * target.h: Ditto.
+       * tree.c (build_pointer_type_for_mode): New function.
+       (build_pointer_type): Use.
+       (build_reference_type_for_mode): New function.
+       (build_reference_type): Use.
+       * tree.h: Declare new functions.
+       * c-common.c (handle_mode_attribute): Use new functions, check
+       for type.
+       * stor-layout.c (layout_type): Depend on machine mode for
+       REFERENCE_TYPE and POINTER_TYPE.
+       * dwarf2out.c (simple_type_size_in_bits): Move upward in file.
+       (modified_type_die): Use instead of PTR_SIZE for POINTER_TYPE
+       and REFERENCE_TYPE.
+       * config/mips/mips.c (mips_valid_pointer_mode): New function.
+       (TARGET_VALID_POINTER_MODE): Use and define.
+       * config/mips/mips-protos.h (mips_valid_pointer_mode): Declare.
+
 2002-10-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* calls.c (flags_from_decl_or_type): Make extern.

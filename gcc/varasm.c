@@ -5364,6 +5364,15 @@ default_binds_local_p_1 (exp, shlib)
   return local_p;
 }
 
+/* Determine whether or not a pointer mode is valid. Assume defaults
+   of ptr_mode or Pmode - can be overriden.  */
+bool
+default_valid_pointer_mode (mode)
+     enum machine_mode mode;
+{
+  return (mode == ptr_mode || mode == Pmode);
+}
+
 /* Default function to output code that will globalize a label.  A
    target must define GLOBAL_ASM_OP or provide it's own function to
    globalize a label.  */
