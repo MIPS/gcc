@@ -1,3 +1,10 @@
+2003-05-12  Frank Ch. Eigler  <fche@redhat.com>
+
+	* toplev.c (lang_independent_options): Add "-fmudflapth".
+	* flags.h (flag_mudflap): Document meaning of >1 value.
+	* gcc.c (MFWRAP_SPEC, MFLIB_SPEC): Add -fmudflapth support.
+	(cpp_unique_options, cc1_options): Ditto.
+
 2003-05-10  Sebastian Pop  <s.pop@laposte.net>
 
 	* gimplify.c (simplify_expr): Replace CONST_DECL with its DECL_INITIAL.

@@ -611,13 +611,14 @@ proper position among the other output files.  */
 /* XXX: valid only if linking with static libmudflap.a */
 /* XXX: valid only for GNU ld */
 /* XXX: should exactly match hooks provided by libmudflap.a */
-#define MFWRAP_SPEC " %{fmudflap: %{static:\
+#define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
  --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
  --wrap=mmap --wrap=munmap --wrap=alloca\
+} %{fmudflapth: --wrap=pthread_create\
 }}"
 #endif
 #ifndef MFLIB_SPEC
-#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{static:%(link_gcc_c_sequence) -lmudflap}}"
+#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{static:%(link_gcc_c_sequence) -lmudflap}} %{fmudflapth: -export-dynamic -lmudflapth -lpthread %{static:%(link_gcc_c_sequence) -lmudflapth}} "
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
@@ -759,6 +760,7 @@ static const char *cpp_unique_options =
  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
  %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
  %{fmudflap:-D_MUDFLAP -include mf-runtime.h}\
+ %{fmudflapth:-D_MUDFLAP -D_MUDFLAPTH -include mf-runtime.h}\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
@@ -785,7 +787,7 @@ static const char *cc1_options =
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
- %{fmudflap:-fmudflap -fno-builtin -fno-merge-constants}";
+ %{fmudflap|fmudflapth:-fmudflap -fno-builtin -fno-merge-constants}";
 
 static const char *asm_options =
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";

@@ -1255,6 +1255,8 @@ static const lang_independent_options f_options[] =
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
   { "mudflap", &flag_mudflap, 1,
    N_("Add mudflap bounds-checking instrumentation") },
+  { "mudflapth", &flag_mudflap, 2,
+   N_("Add mudflap instrumentation, with multithreading support") },
   { "new-ra", &flag_new_regalloc, 1,
    N_("Use graph coloring register allocation.") },
   { "disable-simple", &flag_disable_simple, 1,
