@@ -1,3 +1,13 @@
+2004-08-30  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClass.cc (_Jv_CheckAssignment): Catch
+	ClassNotFoundException.
+	Throw NoClassDefFoundError.
+
+	* java/lang/natClassLoader.cc (_Jv_FindClassInCache): Remove call
+	to klass->verify() from here ...
+	(_Jv_PrepareCompiledClass): ...and put it here.
+
 2004-08-27  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/natClassLoader.cc (_Jv_FindClassInCache): Call

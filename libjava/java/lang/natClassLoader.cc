@@ -94,6 +94,12 @@ _Jv_PrepareCompiledClass (jclass klass)
   if (klass->state >= JV_STATE_LINKED)
     return;
 
+  // We don't need to do any locking here because the class mutex
+  // should be locked by whoever calls _Jv_PrepareCompiledClass.
+  if (klass->verify)
+    klass->verify (klass->getClassLoaderInternal ());
+  klass->verify = NULL;
+
   int state = klass->state;
   try
     {
@@ -256,14 +262,6 @@ _Jv_FindClassInCache (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 	      break;
 	    }
 	}
-    }
-  else
-    {
-      // FIXME  Is this the right place?  dunno.
-      JvSynchronize sync (klass);
-      if (klass->verify)
-	klass->verify (loader);
-      klass->verify = NULL;
     }
 
   return klass;

@@ -1218,8 +1218,25 @@ _Jv_CheckAssignment (java::lang::ClassLoader *loader,
 		     _Jv_Utf8Const *source_name,
 		     _Jv_Utf8Const *dest_name)
 {
-  jclass source = _Jv_FindClassFromSignature (source_name->data, loader);
-  jclass dest = _Jv_FindClassFromSignature (dest_name->data, loader);
+  jclass source = NULL;
+  jclass dest = NULL;
+
+  try
+    {
+      source = _Jv_FindClassFromSignature (source_name->data, loader);
+      dest = _Jv_FindClassFromSignature (dest_name->data, loader);
+    }
+  catch (java::lang::ClassNotFoundException *e)
+    {
+    }
+
+  if (! source || ! dest)
+    {
+      throw new java::lang::NoClassDefFoundError 
+	(_Jv_NewStringUTF ((! source
+			    ? source_name->data 
+			    : dest_name->data)));
+    }
 
   if (! _Jv_IsAssignableFromSlow (dest, source))
     {
