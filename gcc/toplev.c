@@ -2831,6 +2831,71 @@ rest_of_compilation (decl)
 
   ggc_collect ();
 
+  /* Perform global cse.  */
+
+  if (optimize > 0 && flag_gcse)
+    {
+      int save_csb, save_cfj;
+      int tem2 = 0;
+
+      timevar_push (TV_GCSE);
+      open_dump_file (DFI_gcse, decl);
+      if (rtl_dump_file)
+        dump_flow_info (rtl_dump_file);
+
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      tem = gcse_main (insns, rtl_dump_file);
+
+      save_csb = flag_cse_skip_blocks;
+      save_cfj = flag_cse_follow_jumps;
+      flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
+
+      /* If -fexpensive-optimizations, re-run CSE to clean up things done
+	 by gcse.  */
+      if (flag_expensive_optimizations)
+	{
+	  timevar_push (TV_CSE);
+	  reg_scan (insns, max_reg_num (), 1);
+	  tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	  purge_all_dead_edges (0);
+	  timevar_pop (TV_CSE);
+	  cse_not_expected = !flag_rerun_cse_after_loop;
+	}
+
+      /* If gcse or cse altered any jumps, rerun jump optimizations to clean
+	 things up.  Then possibly re-run CSE again.  */
+      while (tem || tem2)
+	{
+	  tem = tem2 = 0;
+	  timevar_push (TV_JUMP);
+	  rebuild_jump_labels (insns);
+	  delete_trivially_dead_insns (insns, max_reg_num (), 1);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+	  /* CFG is no longer maintained up-to-date.  */
+	  timevar_pop (TV_JUMP);
+
+	  if (flag_expensive_optimizations)
+	    {
+	      timevar_push (TV_CSE);
+	      reg_scan (insns, max_reg_num (), 1);
+	      tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	      purge_all_dead_edges (0);
+	      timevar_pop (TV_CSE);
+	    }
+	}
+
+      close_dump_file (DFI_gcse, print_rtl_with_bb, insns);
+      timevar_pop (TV_GCSE);
+
+      ggc_collect ();
+      flag_cse_skip_blocks = save_csb;
+      flag_cse_follow_jumps = save_cfj;
+#ifdef ENABLE_CHECKING
+      verify_flow_info ();
+#endif
+     }
+
   /* Move constant computations out of loops.  */
 
   if (optimize > 0)
@@ -2938,71 +3003,6 @@ rest_of_compilation (decl)
       verify_flow_info ();
 #endif
     }
-
-  /* Perform global cse.  */
-
-  if (optimize > 0 && flag_gcse)
-    {
-      int save_csb, save_cfj;
-      int tem2 = 0;
-
-      timevar_push (TV_GCSE);
-      open_dump_file (DFI_gcse, decl);
-      if (rtl_dump_file)
-        dump_flow_info (rtl_dump_file);
-
-      reg_scan (insns, max_reg_num (), 0);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-      tem = gcse_main (insns, rtl_dump_file);
-
-      save_csb = flag_cse_skip_blocks;
-      save_cfj = flag_cse_follow_jumps;
-      flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
-
-      /* If -fexpensive-optimizations, re-run CSE to clean up things done
-	 by gcse.  */
-      if (flag_expensive_optimizations)
-	{
-	  timevar_push (TV_CSE);
-	  reg_scan (insns, max_reg_num (), 1);
-	  tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
-	  purge_all_dead_edges (0);
-	  timevar_pop (TV_CSE);
-	  cse_not_expected = !flag_rerun_cse_after_loop;
-	}
-
-      /* If gcse or cse altered any jumps, rerun jump optimizations to clean
-	 things up.  Then possibly re-run CSE again.  */
-      while (tem || tem2)
-	{
-	  tem = tem2 = 0;
-	  timevar_push (TV_JUMP);
-	  rebuild_jump_labels (insns);
-	  delete_trivially_dead_insns (insns, max_reg_num (), 1);
-	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-	  /* CFG is no longer maintained up-to-date.  */
-	  timevar_pop (TV_JUMP);
-
-	  if (flag_expensive_optimizations)
-	    {
-	      timevar_push (TV_CSE);
-	      reg_scan (insns, max_reg_num (), 1);
-	      tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
-	      purge_all_dead_edges (0);
-	      timevar_pop (TV_CSE);
-	    }
-	}
-
-      close_dump_file (DFI_gcse, print_rtl_with_bb, insns);
-      timevar_pop (TV_GCSE);
-
-      ggc_collect ();
-      flag_cse_skip_blocks = save_csb;
-      flag_cse_follow_jumps = save_cfj;
-#ifdef ENABLE_CHECKING
-      verify_flow_info ();
-#endif
-     }
 
   if (optimize > 0)
     {
