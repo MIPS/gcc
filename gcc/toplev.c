@@ -4709,7 +4709,9 @@ pop_fd (void)
     abort ();
   fflush (stdin); fflush (stdout); fflush (stderr);
 
-  xclose (0);
+  /* If we've read input from stdin, it has already been closed by now, so
+     just ignore failures.  */
+  close (0);
   xclose (1);
   xclose (2);
   xdup2 (old_fd[0], 0);

@@ -463,7 +463,7 @@ add_input_filename (const char *filename)
 {
   num_in_fnames++;
   if (strcmp (filename, "-") == 0)
-    filename = "";
+    filename = xstrdup ("");
   in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
   in_fnames[num_in_fnames - 1] = filename;
 }
