@@ -1,3 +1,11 @@
+2005-02-11  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3978619
+	* obj-c++.dg/super-dealloc-1.mm: New.
+	* obj-c++.dg/super-dealloc-2.mm: New.
+	* objc.dg/super-dealloc-1.m: New.
+	* objc.dg/super-dealloc-2.m: New.
+
 2005-02-11  Devang Patel  <dpatel@apple.com>
 
 	Radar 3996800
