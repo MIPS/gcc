@@ -2235,6 +2235,7 @@ perfect_nestify (struct loops *loops,
   /* Finally, move the statements from the old loop to the new.
      XXX:  Note that we don't handle moving statements that occur before the
      old inner loop right now.  That is a TODO.  */
+  bbs = get_loop_body (loop);
    for (i = 0; i < loop->num_nodes; i++)
     {
       block_stmt_iterator tobsi = bsi_last (bodybb);
