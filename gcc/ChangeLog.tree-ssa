@@ -1,3 +1,7 @@
+2004-02-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* doc/tree-ssa.texi: Fix formatting mark ups.
+
 2004-02-24  Jeff Law  <law@redhat.com>
 
 	* gimple-low.c (remove_useless_vars): Now static.
