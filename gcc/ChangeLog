@@ -1,3 +1,10 @@
+2003-09-15  Mike Stump  <mrs@apple.com>
+
+	* dwarf2asm.c (dw2_output_indirect_constants): Reinitialize
+	indirect_pool for new output file.
+	* dwarf2out.c (dwarf2out_frame_finish): Reinitialize cie_cfi_head for
+	new output file.
+
 2003-09-15  Per Bothner  <pbothner@apple.com>
 
 	* c-common.c (warn_fragment_invalidation):  New "flag" - for

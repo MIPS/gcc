@@ -771,6 +771,8 @@ dw2_output_indirect_constants (void)
 {
   if (indirect_pool)
     splay_tree_foreach (indirect_pool, dw2_output_indirect_constant_1, NULL);
+  /* Reinitialize for new output file.  */
+  indirect_pool = 0;
 }
 
 /* Like dw2_asm_output_addr_rtx, but encode the pointer as directed.  */

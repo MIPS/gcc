@@ -2271,6 +2271,9 @@ dwarf2out_frame_finish (void)
 
   if (! USING_SJLJ_EXCEPTIONS && (flag_unwind_tables || flag_exceptions))
     output_call_frame_info (1);
+
+  /* Reinitialize for another output file.  */
+  cie_cfi_head = 0;
 }
 #endif
 
