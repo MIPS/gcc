@@ -1,5 +1,15 @@
 2004-09-13  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JSpinner.java:
+	Some Re-formatting.
+	(spinner): New field.
+	(DefaultEditor): New method.
+	(getSpinner): Likewise.
+	(NumberEdito): Likewise.
+	(getModel): Likewise
+
+2004-09-13  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/InputVerifier.java:
 	Re-formatted.
 	* javax/swing/JComponent.java
