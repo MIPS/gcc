@@ -1,3 +1,10 @@
+2003-07-23  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Make
+	found_unreachable a bool.  Create/delete hash tables for
+	copies and available exprs outside the main loop.  Use
+	htab_clean to wipe them after each iteration.
+
 2003-07-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* opts.c (decode_options): Add temporary test for environment

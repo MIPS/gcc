@@ -107,13 +107,17 @@ static void htab_statistics (FILE *, htab_t);
 bool
 tree_ssa_dominator_optimize (tree fndecl)
 {
-  int found_unreachable;
+  bool found_unreachable;
   bitmap unreachable_bitmap = BITMAP_XMALLOC ();
 
   timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
 
   /* Set up debugging dump files.  */
   dump_file = dump_begin (TDI_dom, &dump_flags);
+
+  /* Create our hash tables.  */
+  const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
+  avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
 
   /* Indicate that we have not propagated any ADDR_EXPRs.  */
   addr_expr_propagated_p = false;
@@ -127,16 +131,12 @@ tree_ssa_dominator_optimize (tree fndecl)
     {
       int i;
 
-      /* Create our hash tables.  */
-      const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
-      avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
-
-      /* Now optimize the dominator tree.  */
+      /* Optimize the dominator tree.  */
       optimize_block (ENTRY_BLOCK_PTR, NULL, 0);
 
       /* Wipe the hash tables.  */
-      htab_delete (const_and_copies);
-      htab_delete (avail_exprs);
+      htab_empty (const_and_copies);
+      htab_empty (avail_exprs);
 
       /* We may have made some basic blocks unreachable.  We do not
 	 want to call tree_cleanup_cfg here as it renumbers the blocks
@@ -147,7 +147,7 @@ tree_ssa_dominator_optimize (tree fndecl)
 	 complete removal of the unreachable blocks.  */
       find_unreachable_blocks ();
 
-      found_unreachable = 0;
+      found_unreachable = false;
 
       for (i = 0; i < n_basic_blocks; i++)
 	{
@@ -160,7 +160,7 @@ tree_ssa_dominator_optimize (tree fndecl)
 	      if (bitmap_bit_p (unreachable_bitmap, bb->index))
 		continue;
 
-	      found_unreachable = 1;
+	      found_unreachable = true;
 	      bitmap_set_bit (unreachable_bitmap, bb->index);
 	      remove_phi_nodes_and_edges_for_unreachable_block (bb);
 	    }
@@ -168,6 +168,8 @@ tree_ssa_dominator_optimize (tree fndecl)
     }
   while (found_unreachable);
 
+  htab_delete (const_and_copies);
+  htab_delete (avail_exprs);
   BITMAP_XFREE (unreachable_bitmap);
 
   /* Debugging dumps.  */
