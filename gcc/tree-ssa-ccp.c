@@ -385,6 +385,7 @@ substitute_and_fold (void)
 	  if (replace_uses_in (stmt, &replaced_address))
 	    {
 	      fold_stmt (bsi_stmt_ptr (i));
+	      stmt = bsi_stmt(i);
 	      modify_stmt (stmt);
 	      if (replaced_address)
 		mark_new_vars_to_rename (stmt, vars_to_rename);
