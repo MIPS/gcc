@@ -1,3 +1,11 @@
+2004-08-16  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (estimate_probability): Run BB level predictors just once per block.
+	(return_prediction): Return the expected outcome.
+	(apply_return_prediction): Use the expected outcome.
+	* predict.def (PRED_CONST_RETURN, PRED_NEGATIVE_RETURN,
+	PRED_NULL_RETURN): Fill in values matching the new implementation.
+
 2004-08-14  Jan Hubicka  <jh@suse.cz>
 
 	* predict.c (return_prediction): Do not predict floats.

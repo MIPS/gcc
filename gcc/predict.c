@@ -836,9 +836,8 @@ estimate_probability (struct loops *loops_info)
 		    break;
 		  }
 	    }
-	  bb_estimate_probability_locally (bb);
 	}
-
+      bb_estimate_probability_locally (bb);
     }
 
   /* Attach the combined probability to each conditional jump.  */
@@ -1113,7 +1112,7 @@ tree_predict_by_opcode (basic_block bb)
 
 /* Try to guess whether the value of return means error code.  */
 static enum br_predictor
-return_prediction (tree val)
+return_prediction (tree val, enum prediction *prediction)
 {
   /* VOID.  */
   if (!val)
@@ -1123,7 +1122,10 @@ return_prediction (tree val)
     {
       /* NULL is usually not returned.  */
       if (integer_zerop (val))
-	return PRED_NULL_RETURN;
+	{
+	  *prediction = NOT_TAKEN;
+	  return PRED_NULL_RETURN;
+	}
     }
   else if (INTEGRAL_TYPE_P (TREE_TYPE (val)))
     {
@@ -1131,13 +1133,19 @@ return_prediction (tree val)
          errors.  */
       if (TREE_CODE (val) == INTEGER_CST
 	  && tree_int_cst_sgn (val) < 0)
-	return PRED_NEGATIVE_RETURN;
-      /* Constant return values are also usually erors,
-         zero/one often mean booleans so exclude them from the
+	{
+	  *prediction = NOT_TAKEN;
+	  return PRED_NEGATIVE_RETURN;
+	}
+      /* Constant return values seems to be commonly taken.
+         Zero/one often represent booleans so exclude them from the
 	 heuristics.  */
       if (TREE_CONSTANT (val)
 	  && (!integer_zerop (val) && !integer_onep (val)))
-	return PRED_CONST_RETURN;
+	{
+	  *prediction = TAKEN;
+	  return PRED_NEGATIVE_RETURN;
+	}
     }
   return PRED_NO_PREDICTION;
 }
@@ -1153,6 +1161,7 @@ apply_return_prediction (int *heads)
   tree phi;
   int phi_num_args, i;
   enum br_predictor pred;
+  enum prediction direction;
 
   for (e = EXIT_BLOCK_PTR->pred; e ; e = e->pred_next)
     {
@@ -1182,21 +1191,21 @@ apply_return_prediction (int *heads)
   if (!phi)
     return;
   phi_num_args = PHI_NUM_ARGS (phi);
-  pred = return_prediction (PHI_ARG_DEF (phi, 0));
+  pred = return_prediction (PHI_ARG_DEF (phi, 0), &direction);
 
   /* Avoid the degenerate case where all return values form the function
      belongs to same category (ie they are all positive constants)
      so we can hardly say something about them.  */
   for (i = 1; i < phi_num_args; i++)
-    if (pred != return_prediction (PHI_ARG_DEF (phi, i)))
+    if (pred != return_prediction (PHI_ARG_DEF (phi, i), &direction))
       break;
   if (i != phi_num_args)
     for (i = 0; i < phi_num_args; i++)
       {
-	pred = return_prediction (PHI_ARG_DEF (phi, i));
+	pred = return_prediction (PHI_ARG_DEF (phi, i), &direction);
 	if (pred != PRED_NO_PREDICTION)
 	  predict_paths_leading_to (PHI_ARG_EDGE (phi, i)->src, heads, pred,
-				    NOT_TAKEN);
+				    direction);
       }
 }
 
