@@ -2732,6 +2732,8 @@ code is to provide behavior which is selectable at compile-time.
 @item -Winline
 @opindex Winline
 Warn if a function can not be inlined and it was declared as inline.
+In GCC 3.2.x, this only works for languages using the RTL inliner,
+such as Java, for C, C++ and Objective-C this option has no effect.
 
 @item -Wlong-long
 @opindex Wlong-long

@@ -3396,14 +3396,11 @@ inc (int *a)
 You can also make all ``simple enough'' functions inline with the option
 @option{-finline-functions}.
 
-@opindex Winline
 Note that certain usages in a function definition can make it unsuitable
 for inline substitution.  Among these usages are: use of varargs, use of
 alloca, use of variable sized data types (@pxref{Variable Length}),
 use of computed goto (@pxref{Labels as Values}), use of nonlocal goto,
-and nested functions (@pxref{Nested Functions}).  Using @option{-Winline}
-will warn when a function marked @code{inline} could not be substituted,
-and will give the reason for the failure.
+and nested functions (@pxref{Nested Functions}).
 
 Note that in C and Objective-C, unlike C++, the @code{inline} keyword
 does not affect the linkage of the function.

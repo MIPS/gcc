@@ -1,5 +1,9 @@
 2005-01-03  Jakub Jelinek  <jakub@redhat.com>
 
+	* doc/invoke.texi (-Winline): Document that GCC 3.2.x only
+	uses this warning for frontends using RTL inliner.
+	* doc/extend.texi (Inline): Don't mention -Winline option.
+
 	* cfgrtl.c (try_redirect_by_replacing_jump): Add 2 arguments to
 	tablejump_p.
 
