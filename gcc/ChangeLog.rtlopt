@@ -1,5 +1,18 @@
 2002-12-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* Makefile.in (loop.o): Add cfgloop.h dependency.
+	* cfgloop.h (struct loop): Add av_ninsns field.
+	(average_num_loop_insns): Declare.
+	* cfgloopanal.c (average_num_loop_insns): New function.
+	* loop-unroll.c (decide_unrolling_and_peeling): Use it.
+	(decide_unroll_constant_iterations, decide_unroll_runtime_iterations,
+	decide_unroll_stupid): Use average number of executed insns to bound
+	the number of unrollings.
+	* params.def (PARAM_MAX_UNROLLED_INSNS): Changed default value.
+	(PARAM_MAX_AVERAGE_UNROLLED_INSNS): New.
+
+2002-12-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* basic-block.h (PROP_FINAL): Do not include PROP_LOG_LINKS.
 	* cfgcleanup.c (cleanup_cfg): Do not update log links.
 	* ra.c (reg_alloc): Do not create log links.

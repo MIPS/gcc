@@ -164,6 +164,7 @@ peel_loops_completely (loops, flags)
 	}
 
       loop->ninsns = num_loop_insns (loop);
+
       decide_peel_once_rolling (loops, loop, flags);
       if (loop->lpt_decision.decision == LPT_NONE)
 	decide_peel_completely (loops, loop, flags);
@@ -237,6 +238,7 @@ decide_unrolling_and_peeling (loops, flags)
 	}
 
       loop->ninsns = num_loop_insns (loop);
+      loop->av_ninsns = average_num_loop_insns (loop);
 
       /* Try transformations one by one in decreasing order of
 	 priority.  */
@@ -412,7 +414,7 @@ decide_unroll_constant_iterations (loops, loop, flags)
      struct loop *loop;
      int flags;
 {
-  unsigned nunroll, best_copies, best_unroll, n_copies, i;
+  unsigned nunroll, nunroll_by_av, best_copies, best_unroll, n_copies, i;
 
   if (!(flags & UAP_UNROLL))
     {
@@ -426,6 +428,9 @@ decide_unroll_constant_iterations (loops, loop, flags)
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
   nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
+  nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
+  if (nunroll > nunroll_by_av)
+    nunroll = nunroll_by_av;
   if (nunroll > (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
     nunroll = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
 
@@ -604,7 +609,7 @@ decide_unroll_runtime_iterations (loops, loop, flags)
      struct loop *loop;
      int flags;
 {
-  unsigned nunroll, i;
+  unsigned nunroll, nunroll_by_av, i;
 
   if (!(flags & UAP_UNROLL))
     {
@@ -618,6 +623,9 @@ decide_unroll_runtime_iterations (loops, loop, flags)
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
   nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
+  nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
+  if (nunroll > nunroll_by_av)
+    nunroll = nunroll_by_av;
   if (nunroll > (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
     nunroll = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
 
@@ -1011,7 +1019,7 @@ decide_unroll_stupid (loops, loop, flags)
      struct loop *loop;
      int flags;
 {
-  unsigned nunroll;
+  unsigned nunroll, nunroll_by_av;
 
   if (!(flags & UAP_UNROLL_ALL))
     {
@@ -1025,6 +1033,9 @@ decide_unroll_stupid (loops, loop, flags)
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
   nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
+  nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
+  if (nunroll > nunroll_by_av)
+    nunroll = nunroll_by_av;
   if (nunroll > (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
     nunroll = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
 

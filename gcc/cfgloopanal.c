@@ -1012,6 +1012,38 @@ num_loop_insns (loop)
   return ninsns;
 }
 
+/* Counts number of insns executed on average per iteration LOOP.  */
+int
+average_num_loop_insns (loop)
+     struct loop *loop;
+{
+  basic_block *bbs, bb;
+  unsigned i, binsns, ninsns, ratio;
+  rtx insn;
+
+  bbs = get_loop_body (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      bb = bbs[i];
+
+      binsns = 1;
+      for (insn = bb->head; insn != bb->end; insn = NEXT_INSN (insn))
+	binsns++;
+
+      ratio = loop->header->frequency == 0
+	      ? BB_FREQ_MAX
+	      : (bb->frequency * BB_FREQ_MAX) / loop->header->frequency;
+      ninsns += binsns * ratio;
+    }
+  free(bbs);
+ 
+  ninsns /= BB_FREQ_MAX;
+  if (!ninsns)
+    ninsns = 1; /* To avoid division by zero.  */
+
+  return ninsns;
+}
+
 /* Returns expected number of LOOP iterations.
    Comput upper bound on number of iterations in case they do not fit integer
    to help loop peeling heuristics.  Use exact counts if at all possible.  */

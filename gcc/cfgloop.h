@@ -85,6 +85,9 @@ struct loop
   /* Number of loop insns.  */
   unsigned ninsns;
 
+  /* Average number of executed insns per iteration.  */
+  unsigned av_ninsns;
+
   /* Array of edges along the pre-header extended basic block trace.
      The source of the first edge is the root node of pre-header
      extended basic block, if it exists.  */
@@ -287,6 +290,7 @@ extern bool flow_bb_inside_loop_p	PARAMS ((const struct loop *,
 						basic_block));
 extern struct loop * find_common_loop	PARAMS ((struct loop *, struct loop *));
 extern int num_loop_insns		PARAMS ((struct loop *));
+extern int average_num_loop_insns	PARAMS ((struct loop *));
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body	PARAMS ((const struct loop *));

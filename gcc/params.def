@@ -149,7 +149,13 @@ DEFPARAM(PARAM_MAX_GCSE_PASSES,
 DEFPARAM(PARAM_MAX_UNROLLED_INSNS,
 	 "max-unrolled-insns",
 	 "The maximum number of instructions to consider to unroll in a loop",
-	 50)
+	 200)
+/* This parameter limits how many times the loop is unrolled depending
+   on number of insns really executed in each iteration.  */
+DEFPARAM(PARAM_MAX_AVERAGE_UNROLLED_INSNS,
+	 "max-average-unrolled-insns",
+	 "The maximum number of instructions to consider to unroll in a loop on average",
+	 80)
 /* The maximum number of unrollings of a single loop.  */
 DEFPARAM(PARAM_MAX_UNROLL_TIMES,
 	"max-unroll-times",
