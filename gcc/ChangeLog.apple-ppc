@@ -1,4 +1,11 @@
 2005-02-23  Devang Patel  <dpatel@apple.com>
+	
+	Radar 4021019
+	* config/rs6000/darwin.h (CC1_SPEC): Ignore -march=pentium4 and
+	-mcpu=pentium4.
+	* config/i386/darwin.h (CC1_SPEC): Ignore -mno-fused-madd.
+
+2005-02-23  Devang Patel  <dpatel@apple.com>
 
         Radar 3841402 3841397 3841275
         * config/darwin-driver.c (add_arch_options): Do not supply

@@ -51,7 +51,7 @@ Boston, MA 02111-1307, USA.  */
 /* When -mdynamic-no-pic finally works, remove the "xx" below.  FIXME!!  */
 #define CC1_SPEC "\
 %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
-%{!static:%{!mxxdynamic-no-pic:-fPIC}} %<faltivec %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
+%{!static:%{!mxxdynamic-no-pic:-fPIC}} %<faltivec %<mno-fused-madd %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
 
 
 /* APPLE LOCAL AltiVec */

@@ -128,9 +128,9 @@ do {									\
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
-/* APPLE LOCAL ignore -msse and -msse2 */
+/* APPLE LOCAL ignore -msse and -msse2 and other x86 options */
 #define CC1_SPEC "\
-%<msse  %<msse2 \
+%<msse  %<msse2 %<march=pentium4 %<mcpu=pentium4 \
 %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}"\
 /* APPLE LOCAL -fast and PIC code.  */\

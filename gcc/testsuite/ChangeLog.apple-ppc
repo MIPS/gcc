@@ -1,3 +1,9 @@
+2005-02-23  Devang Patel  <dpatel@apple.com>
+
+	Radar 4021019
+	* gcc.apple/ppc-ignored-options.c: New test.
+	* gcc.apple/x86-ignored-options.c: New test.
+
 2005-02-23  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3809189 (additional test cases)
