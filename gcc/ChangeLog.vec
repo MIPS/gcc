@@ -1,5 +1,9 @@
 2004-08-18  Ben Elliston  <bje@au.ibm.com>
 
+	* except.c (emit_to_new_bb_before): Eliminate FOR_EACH_EDGE.
+
+2004-08-18  Ben Elliston  <bje@au.ibm.com>
+
 	* ra-build.c (live_in): Initialise `e' to silence a warning.
 	* sbitmap.c (sbitmap_intersection_of_succs): Likewise.
 	(sbitmap_intersection_of_preds): Likewise.

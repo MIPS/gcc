@@ -1456,16 +1456,18 @@ emit_to_new_bb_before (rtx seq, rtx insn)
   rtx last;
   basic_block bb;
   edge e;
+  unsigned ix;
 
   /* If there happens to be an fallthru edge (possibly created by cleanup_cfg
      call), we don't want it to go into newly created landing pad or other EH 
      construct.  */
-  FOR_EACH_EDGE (e, BLOCK_FOR_INSN (insn)->preds)
+  for (ix = 0; VEC_iterate (edge, BLOCK_FOR_INSN (insn)->preds, ix, e); )
     {
       if (e->flags & EDGE_FALLTHRU)
 	force_nonfallthru (e);
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
   last = emit_insn_before (seq, insn);
   if (BARRIER_P (last))
     last = PREV_INSN (last);
