@@ -124,22 +124,18 @@ package body MLib.Tgt is
       Lib_Dir      : String;
       Symbol_Data  : Symbol_Record;
       Driver_Name  : Name_Id := No_Name;
-      Lib_Address  : String  := "";
       Lib_Version  : String  := "";
-      Relocatable  : Boolean := False;
       Auto_Init    : Boolean := False)
    is
       pragma Unreferenced (Foreign);
       pragma Unreferenced (Afiles);
       pragma Unreferenced (Interfaces);
       pragma Unreferenced (Symbol_Data);
-      pragma Unreferenced (Lib_Address);
       pragma Unreferenced (Lib_Version);
-      pragma Unreferenced (Relocatable);
 
       Lib_File : constant String :=
-        Lib_Dir & Directory_Separator & "lib" &
-        MLib.Fil.Ext_To (Lib_Filename, DLL_Ext);
+                   Lib_Dir & Directory_Separator & "lib" &
+                   MLib.Fil.Ext_To (Lib_Filename, DLL_Ext);
       --  The file name of the library
 
       Init_Fini : Argument_List_Access := Empty_Argument_List;
@@ -221,15 +217,6 @@ package body MLib.Tgt is
             Driver_Name => Driver_Name,
             Options_2   => Options_2.all);
    end Build_Dynamic_Library;
-
-   -------------------------
-   -- Default_DLL_Address --
-   -------------------------
-
-   function Default_DLL_Address return String is
-   begin
-      return "";
-   end Default_DLL_Address;
 
    -------------
    -- DLL_Ext --

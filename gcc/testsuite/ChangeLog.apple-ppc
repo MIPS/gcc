@@ -7,6 +7,10 @@
 	* testsuite/g++.dg/asm-block-[12].C: New tests.
 	* testsuite/g+.dg/asm-function-[1-6].C: New tests.
 
+2004-07-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-longdouble.c: New file.
+
 2004-07-30  Devang Patel  <dpatel@apple.com>
 
          Re-implement -fwritable-strings support. 

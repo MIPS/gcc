@@ -67,7 +67,7 @@ static int continue_flag, end_flag;
 gfc_source_form gfc_current_form;
 static gfc_linebuf *line_head, *line_tail;
        
-locus gfc_current_locus1;
+locus gfc_current_locus;
 char *gfc_source_file;
       
 
@@ -191,28 +191,6 @@ gfc_open_included_file (const char *name)
   return NULL;
 }
 
-
-/* Return a pointer to the current locus.  */
-
-locus *
-gfc_current_locus (void)
-{
-
-  return &gfc_current_locus1;
-}
-
-
-
-/* Let a caller move the current read pointer (backwards).  */
-
-void
-gfc_set_locus (locus * lp)
-{
-
-  gfc_current_locus1 = *lp;
-}
-
-
 /* Test to see if we're at the end of the main source file.  */
 
 int
@@ -235,7 +213,7 @@ gfc_at_eof (void)
   if (line_head == NULL)
     return 1;			/* Null file */
 
-  if (gfc_current_locus1.lb == NULL)
+  if (gfc_current_locus.lb == NULL)
     return 1;
 
   return 0;
@@ -250,7 +228,7 @@ gfc_at_bol (void)
   if (gfc_at_eof ())
     return 1;
 
-  return (gfc_current_locus1.nextc == gfc_current_locus1.lb->line);
+  return (gfc_current_locus.nextc == gfc_current_locus.lb->line);
 }
 
 
@@ -263,7 +241,7 @@ gfc_at_eol (void)
   if (gfc_at_eof ())
     return 1;
 
-  return (*gfc_current_locus1.nextc == '\0');
+  return (*gfc_current_locus.nextc == '\0');
 }
 
 
@@ -275,19 +253,19 @@ gfc_advance_line (void)
   if (gfc_at_end ())
     return;
 
-  if (gfc_current_locus1.lb == NULL) 
+  if (gfc_current_locus.lb == NULL) 
     {
       end_flag = 1;
       return;
     } 
 
-  gfc_current_locus1.lb = gfc_current_locus1.lb->next;
+  gfc_current_locus.lb = gfc_current_locus.lb->next;
 
-  if (gfc_current_locus1.lb != NULL)         
-    gfc_current_locus1.nextc = gfc_current_locus1.lb->line;
+  if (gfc_current_locus.lb != NULL)         
+    gfc_current_locus.nextc = gfc_current_locus.lb->line;
   else 
     {
-      gfc_current_locus1.nextc = NULL;
+      gfc_current_locus.nextc = NULL;
       end_flag = 1;
     }       
 }
@@ -307,13 +285,13 @@ next_char (void)
 {
   int c;
   
-  if (gfc_current_locus1.nextc == NULL)
+  if (gfc_current_locus.nextc == NULL)
     return '\n';
 
-  c = *gfc_current_locus1.nextc++;
+  c = *gfc_current_locus.nextc++;
   if (c == '\0')
     {
-      gfc_current_locus1.nextc--; /* Remain on this line.  */
+      gfc_current_locus.nextc--; /* Remain on this line.  */
       c = '\n';
     }
 
@@ -351,7 +329,7 @@ skip_free_comments (void)
 
   for (;;)
     {
-      start = gfc_current_locus1;
+      start = gfc_current_locus;
       if (gfc_at_eof ())
 	break;
 
@@ -376,7 +354,7 @@ skip_free_comments (void)
       break;
     }
 
-  gfc_set_locus (&start);
+  gfc_current_locus = start;
 }
 
 
@@ -393,7 +371,7 @@ skip_fixed_comments (void)
 
   for (;;)
     {
-      start = gfc_current_locus1;
+      start = gfc_current_locus;
       if (gfc_at_eof ())
 	break;
 
@@ -433,7 +411,7 @@ skip_fixed_comments (void)
       break;
     }
 
-  gfc_set_locus (&start);
+  gfc_current_locus = start;
 }
 
 
@@ -491,7 +469,7 @@ restart:
 
       /* If the next nonblank character is a ! or \n, we've got a
          continuation line. */
-      old_loc = gfc_current_locus1;
+      old_loc = gfc_current_locus;
 
       c = next_char ();
       while (gfc_is_whitespace (c))
@@ -502,14 +480,14 @@ restart:
 
       if (in_string && c != '\n')
 	{
-	  gfc_set_locus (&old_loc);
+	  gfc_current_locus = old_loc;
 	  c = '&';
 	  goto done;
 	}
 
       if (c != '!' && c != '\n')
 	{
-	  gfc_set_locus (&old_loc);
+	  gfc_current_locus = old_loc;
 	  c = '&';
 	  goto done;
 	}
@@ -529,14 +507,14 @@ restart:
          reading starts at the next character, otherwise we must back
          up to where the whitespace started and resume from there.  */
 
-      old_loc = *gfc_current_locus ();
+      old_loc = gfc_current_locus;
 
       c = next_char ();
       while (gfc_is_whitespace (c))
 	c = next_char ();
 
       if (c != '&')
-	gfc_set_locus (&old_loc);
+	gfc_current_locus = old_loc;
 
     }
   else
@@ -556,7 +534,7 @@ restart:
 	goto done;
 
       continue_flag = 1;
-      old_loc = *gfc_current_locus ();
+      old_loc = gfc_current_locus;
 
       gfc_advance_line ();
       gfc_skip_comments ();
@@ -580,7 +558,7 @@ restart:
 
 not_continuation:
   c = '\n';
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
 
 done:
   continue_flag = 0;
@@ -614,9 +592,9 @@ gfc_peek_char (void)
   locus old_loc;
   int c;
 
-  old_loc = gfc_current_locus1;
+  old_loc = gfc_current_locus;
   c = gfc_next_char ();
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
 
   return c;
 }
@@ -684,12 +662,12 @@ gfc_gobble_whitespace (void)
 
   do
     {
-      old_loc = gfc_current_locus1;
+      old_loc = gfc_current_locus;
       c = gfc_next_char_literal (0);
     }
   while (gfc_is_whitespace (c));
 
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
 }
 
 
@@ -701,13 +679,20 @@ gfc_gobble_whitespace (void)
 static void
 load_line (FILE * input, char *buffer, char *filename, int linenum)
 {
-  int c, maxlen, i, trunc_flag;
+  int c, maxlen, i, trunc_flag, preprocessor_flag;
 
   maxlen = (gfc_current_form == FORM_FREE) 
     ? 132 
     : gfc_option.fixed_line_length;
 
   i = 0;
+
+  preprocessor_flag = 0;
+  c = fgetc (input);
+  if (c == '#')
+    /* Don't truncate preprocessor lines.  */
+    preprocessor_flag = 1;
+  ungetc (c, input);
 
   for (;;)
     {
@@ -744,7 +729,7 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
       *buffer++ = c;
       i++;
 
-      if (i >= maxlen)
+      if (i >= maxlen && !preprocessor_flag)
 	{			/* Truncate the rest of the line.  */
 	  trunc_flag = 1;
 
@@ -758,8 +743,8 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
 		  && trunc_flag
 		  && !gfc_is_whitespace (c))
 		{
-		  gfc_warning_now ("Line %d of %s is being truncated",
-				   linenum, filename);
+		  gfc_warning_now ("%s:%d: Line is being truncated",
+				   filename, linenum);
 		  trunc_flag = 0;
 		}
 	    }
@@ -811,19 +796,21 @@ preprocessor_line (char *c)
     c++;
 
   if (*c < '0' || *c > '9')
-    {
-      gfc_warning_now ("%s:%d Unknown preprocessor directive", 
-		       current_file->filename, current_file->line);
-      current_file->line++;
-      return;
-    }
+    goto bad_cpp_line;
 
   line = atoi (c);
 
-  c = strchr (c, ' ') + 2; /* Skip space and quote.  */
+  c = strchr (c, ' '); 
+  if (c == NULL)
+    /* Something we don't understand has happened.  */
+    goto bad_cpp_line;
+  c += 2;     /* Skip space and quote.  */
   filename = c;
 
   c = strchr (c, '"'); /* Make filename end at quote.  */
+  if (c == NULL)
+    /* Preprocessor line has no closing quote.  */
+    goto bad_cpp_line;
   *c++ = '\0';
 
   /* Get flags.  */
@@ -868,6 +855,13 @@ preprocessor_line (char *c)
       current_file->filename = gfc_getmem (strlen (filename) + 1);
       strcpy (current_file->filename, filename);
     }
+
+  return;
+
+ bad_cpp_line:
+  gfc_warning_now ("%s:%d: Unknown preprocessor directive", 
+		   current_file->filename, current_file->line);
+  current_file->line++;
 }
 
 
@@ -1123,8 +1117,8 @@ gfc_new_file (const char *filename, gfc_source_form form)
 
   result = load_file (gfc_source_file, true);
 
-  gfc_current_locus1.lb = line_head;
-  gfc_current_locus1.nextc = (line_head == NULL) ? NULL : line_head->line;
+  gfc_current_locus.lb = line_head;
+  gfc_current_locus.nextc = (line_head == NULL) ? NULL : line_head->line;
 
 #if 0 /* Debugging aid.  */
   for (; line_head; line_head = line_head->next)

@@ -1297,6 +1297,38 @@ procedure Gnatlink is
 --  Start of processing for Gnatlink
 
 begin
+   --  Add the directory where gnatlink is invoked in front of the
+   --  path, if gnatlink is invoked with directory information.
+   --  Only do this if the platform is not VMS, where the notion of path
+   --  does not really exist.
+
+   if not Hostparm.OpenVMS then
+      declare
+         Command : constant String := Command_Name;
+
+      begin
+         for Index in reverse Command'Range loop
+            if Command (Index) = Directory_Separator then
+               declare
+                  Absolute_Dir : constant String :=
+                                   Normalize_Pathname
+                                     (Command (Command'First .. Index));
+
+                  PATH         : constant String :=
+                                   Absolute_Dir &
+                  Path_Separator &
+                  Getenv ("PATH").all;
+
+               begin
+                  Setenv ("PATH", PATH);
+               end;
+
+               exit;
+            end if;
+         end loop;
+      end;
+   end if;
+
    Process_Args;
 
    if Argument_Count = 0
@@ -1406,12 +1438,16 @@ begin
                        Units.Table (ALIs.Table (A).First_Unit).Last_Arg
             loop
                --  Do not compile with the front end switches except for --RTS
+               --  if the binder generated file is in Ada.
 
                declare
                   Arg : String_Ptr renames Args.Table (Index);
                begin
                   if not Is_Front_End_Switch (Arg.all)
-                    or else Arg (Arg'First + 2 .. Arg'First + 5) = "RTS="
+                    or else
+                      (Ada_Bind_File
+                        and then Arg'Length > 5
+                        and then Arg (Arg'First + 2 .. Arg'First + 5) = "RTS=")
                   then
                      Binder_Options_From_ALI.Increment_Last;
                      Binder_Options_From_ALI.Table

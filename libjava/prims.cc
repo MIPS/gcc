@@ -25,6 +25,7 @@ details.  */
 #include <jvm.h>
 #include <java-signal.h>
 #include <java-threads.h>
+#include <java-interp.h>
 
 #ifdef ENABLE_JVMPI
 #include <jvmpi.h>
@@ -60,7 +61,7 @@ details.  */
 #include <java/lang/VirtualMachineError.h>
 #include <gnu/gcj/runtime/VMClassLoader.h>
 #include <gnu/gcj/runtime/FinalizerThread.h>
-#include <gnu/gcj/runtime/FirstThread.h>
+#include <gnu/java/lang/MainThread.h>
 
 #ifdef USE_LTDL
 #include <ltdl.h>
@@ -953,6 +954,18 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_InitThreads ();
   _Jv_InitGC ();
   _Jv_InitializeSyncMutex ();
+  
+#ifdef INTERPRETER
+  _Jv_InitInterpreter ();
+#endif  
+
+#ifdef HANDLE_SEGV
+  INIT_SEGV;
+#endif
+
+#ifdef HANDLE_FPE
+  INIT_FPE;
+#endif
 
   /* Initialize Utf8 constants declared in jvm.h. */
   void_signature = _Jv_makeUtf8Const ("()V", 3);
@@ -980,15 +993,11 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   // initialization of ClassLoader before we start the initialization
   // of VMClassLoader.
   _Jv_InitClass (&java::lang::ClassLoader::class$);
+
   // Once the bootstrap loader is in place, change it into a kind of
   // system loader, by having it read the class path.
   gnu::gcj::runtime::VMClassLoader::initialize();
 
-  INIT_SEGV;
-#ifdef HANDLE_FPE
-  INIT_FPE;
-#endif
-  
   no_memory = new java::lang::OutOfMemoryError;
 
   java::lang::VMThrowable::trace_enabled = 1;
@@ -1004,8 +1013,7 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_GCInitializeFinalizers (&::gnu::gcj::runtime::FinalizerThread::finalizerReady);
 
   // Start the GC finalizer thread.  A VirtualMachineError can be
-  // thrown by the runtime if, say, threads aren't available.  In this
-  // case finalizers simply won't run.
+  // thrown by the runtime if, say, threads aren't available.
   try
     {
       using namespace gnu::gcj::runtime;
@@ -1045,12 +1053,12 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
       arg_vec = JvConvertArgv (argc - 1, argv + 1);
 #endif
 
-      using namespace gnu::gcj::runtime;
+      using namespace gnu::java::lang;
       if (klass)
-	main_thread = new FirstThread (klass, arg_vec);
+	main_thread = new MainThread (klass, arg_vec);
       else
-	main_thread = new FirstThread (JvNewStringLatin1 (name),
-				       arg_vec, is_jar);
+	main_thread = new MainThread (JvNewStringLatin1 (name),
+				      arg_vec, is_jar);
     }
   catch (java::lang::Throwable *t)
     {

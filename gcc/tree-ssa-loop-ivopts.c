@@ -28,7 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    1) The interesting uses of induction variables are found.  This includes
 
       -- uses of induction variables in non-linear expressions
-      -- adresses of arrays
+      -- addresses of arrays
       -- comparisons of induction variables
 
    2) Candidates for the induction variables are found.  This includes
@@ -41,12 +41,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       cost function assigns a cost to sets of induction variables and consists
       of three parts:
 
-      -- The use costs.  Each of the interesting uses choses the best induction
+      -- The use costs.  Each of the interesting uses chooses the best induction
 	 variable in the set and adds its cost to the sum.  The cost reflects
 	 the time spent on modifying the induction variables value to be usable
 	 for the given purpose (adding base and offset for arrays, etc.).
       -- The variable costs.  Each of the variables has a cost assigned that
-	 reflects the costs assoctiated with incrementing the value of the
+	 reflects the costs associated with incrementing the value of the
 	 variable.  The original variables are somewhat preferred.
       -- The set cost.  Depending on the size of the set, extra cost may be
 	 added to reflect register pressure.
@@ -84,9 +84,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "recog.h"
 #include "hashtab.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
+#include "cfgloop.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -107,7 +107,7 @@ struct iv
   tree ssa_name;	/* The ssa name with the value.  */
   bool biv_p;		/* Is it a biv?  */
   bool have_use_for;	/* Do we already have a use for it?  */
-  unsigned use_id;	/* The identificator in the use if it is the case.  */
+  unsigned use_id;	/* The identifier in the use if it is the case.  */
 };
 
 /* Per-ssa version information (induction variable descriptions, etc.).  */
@@ -186,8 +186,8 @@ struct iv_cand
   enum iv_position pos;	/* Where it is computed.  */
   tree incremented_at;	/* For original biv, the statement where it is
 			   incremented.  */
-  tree var_before;	/* The variable used for it before incrementation.  */
-  tree var_after;	/* The variable used for it after incrementation.  */
+  tree var_before;	/* The variable used for it before increment.  */
+  tree var_after;	/* The variable used for it after increment.  */
   struct iv *iv;	/* The value of the candidate.  NULL for
 			   "pseudocandidate" used to indicate the possibility
 			   to replace the final value of an iv by direct
@@ -351,7 +351,8 @@ dump_use (FILE *file, struct iv_use *use)
    fprintf (file, "\n");
 
    fprintf (file, "  at position ");
-   print_generic_expr (file, *use->op_p, TDF_SLIM);
+   if (use->op_p)
+     print_generic_expr (file, *use->op_p, TDF_SLIM);
    fprintf (file, "\n");
 
    if (iv->step)
@@ -461,27 +462,13 @@ name_info (struct ivopts_data *data, tree name)
 
 /* Checks whether ARG is either NULL_TREE or constant zero.  */
 
-static bool
+bool
 zero_p (tree arg)
 {
-  if (!arg)
+  if (arg == NULL_TREE)
     return true;
 
   return integer_zerop (arg);
-}
-
-/* Checks that X is integer constant that fits in unsigned HOST_WIDE_INT.
-   Similar to host_integerp (x, 1), but does not fail if the value is
-   negative.  */
-
-static bool
-cst_and_fits_in_hwi (tree x)
-{
-  if (TREE_CODE (x) != INTEGER_CST)
-    return false;
-
-  return (TREE_INT_CST_HIGH (x) == 0
-	  || TREE_INT_CST_HIGH (x) == -1);
 }
 
 /* Checks whether there exists number X such that X * B = A, counting modulo
@@ -558,6 +545,8 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 
 	case BIT_FIELD_REF:
 	case COMPONENT_REF:
+	case IMAGPART_EXPR:
+        case REALPART_EXPR:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  break;
 
@@ -641,7 +630,7 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
   tree atmp;
 
   /* Throw away the useless type conversions, so that we do not create
-     unneccesary junk.  */
+     unnecessary junk.  */
   STRIP_TYPE_NOPS (expr);
   STRIP_USELESS_TYPE_CONVERSION (expr);
 
@@ -840,7 +829,32 @@ ip_normal_pos (struct loop *loop)
   return bb;
 }
 
-/* Returs true if STMT is after the place where the IP_NORMAL ivs will be
+/* Returns the standard position for induction variable increment in LOOP
+   (ip_normal_pos if it is available and latch is empty, ip_end_pos
+   otherwise) in BSI.  INSERT_AFTER is set to true if the increment should
+   be inserted after *BSI.  */
+
+void
+standard_iv_increment_position (struct loop *loop, block_stmt_iterator *bsi,
+				bool *insert_after)
+{
+  basic_block bb = ip_normal_pos (loop), latch = ip_end_pos (loop);
+  tree last = last_stmt (latch);
+
+  if (!bb
+      || (last && TREE_CODE (last) != LABEL_EXPR))
+    {
+      *bsi = bsi_last (latch);
+      *insert_after = true;
+    }
+  else
+    {
+      *bsi = bsi_last (bb);
+      *insert_after = false;
+    }
+}
+
+/* Returns true if STMT is after the place where the IP_NORMAL ivs will be
    emitted in LOOP.  */
 
 static bool
@@ -917,7 +931,7 @@ tree_ssa_iv_optimize_init (struct loops *loops, struct ivopts_data *data)
 {
   unsigned i;
 
-  data->version_info_size = 2 * highest_ssa_version;
+  data->version_info_size = 2 * num_ssa_names;
   data->version_info = xcalloc (data->version_info_size,
 				sizeof (struct version_info));
   data->relevant = BITMAP_XMALLOC ();
@@ -932,10 +946,6 @@ tree_ssa_iv_optimize_init (struct loops *loops, struct ivopts_data *data)
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_uses, 20, "iv_uses");
   VARRAY_GENERIC_PTR_NOGC_INIT (data->iv_candidates, 20, "iv_candidates");
   VARRAY_GENERIC_PTR_NOGC_INIT (decl_rtl_to_reset, 20, "decl_rtl_to_reset");
-
-  scev_initialize (loops);
-  estimate_numbers_of_iterations (loops);
-  scev_reset ();
 }
 
 /* Allocates an induction variable with given initial value BASE and step STEP
@@ -999,34 +1009,22 @@ static tree
 determine_biv_step (tree phi)
 {
   struct loop *loop = bb_for_stmt (phi)->loop_father;
-  tree name = PHI_RESULT (phi), ev, step;
+  tree name = PHI_RESULT (phi), base, step;
   tree type = TREE_TYPE (name);
 
   if (!is_gimple_reg (name))
     return NULL_TREE;
 
-  /* Just work for integers and pointers.  */
-  if (TREE_CODE (type) != INTEGER_TYPE
-      && TREE_CODE (type) != POINTER_TYPE)
+  if (!simple_iv (loop, phi, name, &base, &step))
     return NULL_TREE;
 
-  ev = analyze_scalar_evolution (loop, name);
-  if (TREE_CODE (ev) == INTEGER_CST
-      || TREE_CODE (ev) == SSA_NAME)
+  if (!step)
     return convert (type, integer_zero_node);
-
-  if (TREE_CODE (ev) != POLYNOMIAL_CHREC)
-    return NULL_TREE;
-
-  step = CHREC_RIGHT (ev);
-
-  if (TREE_CODE (step) != INTEGER_CST)
-    return NULL_TREE;
 
   return step;
 }
 
-/* Retunrs false if INDEX is a ssa name that occurs in an
+/* Returns false if INDEX is a ssa name that occurs in an
    abnormal phi node.  Callback for for_each_index.  */
 
 static bool
@@ -1102,14 +1100,19 @@ find_bivs (struct ivopts_data *data)
 	  && int_cst_value (step) == 0)
 	continue;
 
-      base = phi_element_for_edge (phi, loop_preheader_edge (loop))->def;
+      base = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
       if (contains_abnormal_ssa_name_p (base))
 	continue;
 
       type = TREE_TYPE (PHI_RESULT (phi));
       base = convert (type, base);
       step = convert (type, step);
- 
+
+      /* FIXME: We do not handle induction variables whose step does
+	 not satisfy cst_and_fits_in_hwi.  */
+      if (!cst_and_fits_in_hwi (step))
+	continue;
+
       set_iv (data, PHI_RESULT (phi), base, step);
       found = true;
     }
@@ -1133,7 +1136,7 @@ mark_bivs (struct ivopts_data *data)
       if (!iv)
 	continue;
 
-      var = phi_element_for_edge (phi, loop_latch_edge (loop))->def;
+      var = PHI_ARG_DEF_FROM_EDGE (phi, loop_latch_edge (loop));
       incr_iv = get_iv (data, var);
       if (!incr_iv)
 	continue;
@@ -1170,6 +1173,12 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
     return false;
 
   if (!simple_iv (loop, stmt, TREE_OPERAND (stmt, 1), base, step))
+    return false;
+
+  /* FIXME: We do not handle induction variables whose step does
+     not satisfy cst_and_fits_in_hwi.  */
+  if (!zero_p (*step)
+      && !cst_and_fits_in_hwi (*step))
     return false;
 
   if (contains_abnormal_ssa_name_p (*base))
@@ -1338,7 +1347,7 @@ find_interesting_uses_outer_or_nonlin (struct ivopts_data *data, tree op,
 {
   struct iv *iv;
   struct iv *civ;
-  tree stmt, *op_p;
+  tree stmt;
   struct iv_use *use;
 
   if (TREE_CODE (op) != SSA_NAME)
@@ -1372,14 +1381,11 @@ find_interesting_uses_outer_or_nonlin (struct ivopts_data *data, tree op,
   *civ = *iv;
 
   stmt = SSA_NAME_DEF_STMT (op);
-  if (TREE_CODE (stmt) == PHI_NODE)
-    op_p = &PHI_RESULT (stmt);
-  else if (TREE_CODE (stmt) == MODIFY_EXPR)
-    op_p = &TREE_OPERAND (stmt, 0);
-  else
+  if (TREE_CODE (stmt) != PHI_NODE
+      && TREE_CODE (stmt) != MODIFY_EXPR)
     abort ();
 
-  use = record_use (data, op_p, civ, stmt, type);
+  use = record_use (data, NULL, civ, stmt, type);
   iv->use_id = use->id;
 
   return use;
@@ -1612,7 +1618,7 @@ static void
 find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 {
   struct iv *iv;
-  tree *op_p, lhs, rhs;
+  tree op, lhs, rhs;
   use_optype uses = NULL;
   unsigned i, n;
 
@@ -1684,18 +1690,18 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
   for (i = 0; i < n; i++)
     {
       if (TREE_CODE (stmt) == PHI_NODE)
-	op_p = &PHI_ARG_DEF (stmt, i);
+	op = PHI_ARG_DEF (stmt, i);
       else
-	op_p = USE_OP_PTR (uses, i);
+	op = USE_OP (uses, i);
 
-      if (TREE_CODE (*op_p) != SSA_NAME)
+      if (TREE_CODE (op) != SSA_NAME)
 	continue;
 
-      iv = get_iv (data, *op_p);
+      iv = get_iv (data, op);
       if (!iv)
 	continue;
 
-      find_interesting_uses_op (data, *op_p);
+      find_interesting_uses_op (data, op);
     }
 }
 
@@ -1709,7 +1715,7 @@ find_interesting_uses_outside (struct ivopts_data *data, edge exit)
 
   for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
     {
-      def = phi_element_for_edge (phi, exit)->def;
+      def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
       find_interesting_uses_outer (data, def);
     }
 }
@@ -1911,8 +1917,7 @@ add_old_iv_candidates (struct ivopts_data *data, struct iv *iv)
     {
       /* Additionally record the possibility of leaving the original iv
 	 untouched.  */
-      def = phi_element_for_edge (phi,
-				  loop_latch_edge (data->current_loop))->def;
+      def = PHI_ARG_DEF_FROM_EDGE (phi, loop_latch_edge (data->current_loop));
       cand = add_candidate_1 (data,
 			      iv->base, iv->step, true, IP_ORIGINAL, NULL,
 			      SSA_NAME_DEF_STMT (def));
@@ -2729,7 +2734,8 @@ force_var_cost (struct ivopts_data *data,
   if (!costs_initialized)
     {
       tree var = create_tmp_var_raw (integer_type_node, "test_var");
-      rtx x = gen_rtx_SYMBOL_REF (Pmode, "test_var");
+      rtx x = gen_rtx_MEM (DECL_MODE (var),
+			   gen_rtx_SYMBOL_REF (Pmode, "test_var"));
       tree addr;
       tree type = build_pointer_type (integer_type_node);
 
@@ -3201,13 +3207,13 @@ iv_value (struct iv *iv, tree niter)
 static tree
 cand_value_at (struct loop *loop, struct iv_cand *cand, tree at, tree niter)
 {
-  tree type = TREE_TYPE (niter);
+  tree val = iv_value (cand->iv, niter);
+  tree type = TREE_TYPE (cand->iv->base);
 
   if (stmt_after_increment (loop, cand, at))
-    niter = fold (build (PLUS_EXPR, type, niter,
-			 convert (type, integer_one_node)));
+    val = fold (build (PLUS_EXPR, type, val, cand->iv->step));
 
-  return iv_value (cand->iv, niter);
+  return val;
 }
 
 /* Check whether it is possible to express the condition in USE by comparison
@@ -3220,7 +3226,8 @@ may_eliminate_iv (struct loop *loop,
 		  enum tree_code *compare, tree *bound)
 {
   edge exit;
-  struct tree_niter_desc *niter;
+  struct tree_niter_desc *niter, new_niter;
+  tree wider_type, type, base;
 
   /* For now just very primitive -- we work just for the single exit condition,
      and are quite conservative about the possible overflows.  TODO -- both of
@@ -3233,19 +3240,39 @@ may_eliminate_iv (struct loop *loop,
 
   niter = &loop_data (loop)->niter;
   if (!niter->niter
-      || !operand_equal_p (niter->assumptions, boolean_true_node, 0)
-      || !operand_equal_p (niter->may_be_zero, boolean_false_node, 0))
+      || !integer_nonzerop (niter->assumptions)
+      || !integer_zerop (niter->may_be_zero))
     return false;
 
-  /* FIXME -- we ignore the possible overflow here.  For example
-     in case the loop iterates MAX_UNSIGNED_INT / 2 times and
-     the step of candidate is 4, this is wrong.  */
   if (exit->flags & EDGE_TRUE_VALUE)
     *compare = EQ_EXPR;
   else
     *compare = NE_EXPR;
 
   *bound = cand_value_at (loop, cand, use->stmt, niter->niter);
+
+  /* Let us check there is not some problem with overflows, by checking that
+     the number of iterations is unchanged.  */
+  base = cand->iv->base;
+  type = TREE_TYPE (base);
+  if (stmt_after_increment (loop, cand, use->stmt))
+    base = fold (build (PLUS_EXPR, type, base, cand->iv->step));
+
+  new_niter.niter = NULL_TREE;
+  number_of_iterations_cond (TREE_TYPE (cand->iv->base), base,
+			     cand->iv->step, NE_EXPR, *bound, NULL_TREE,
+			     &new_niter);
+  if (!new_niter.niter
+      || !integer_nonzerop (new_niter.assumptions)
+      || !integer_zerop (new_niter.may_be_zero))
+    return false;
+
+  wider_type = TREE_TYPE (new_niter.niter);
+  if (TYPE_PRECISION (wider_type) < TYPE_PRECISION (TREE_TYPE (niter->niter)))
+    wider_type = TREE_TYPE (niter->niter);
+  if (!operand_equal_p (fold_convert (wider_type, niter->niter),
+			fold_convert (wider_type, new_niter.niter), 0))
+    return false;
 
   return true;
 }
@@ -3353,7 +3380,8 @@ determine_use_iv_cost_outer (struct ivopts_data *data,
 	 after we take it to determine the value of use.  */
       cost = get_computation_cost_at (data, use, cand, false, &depends_on,
 				      last_stmt (exit->src));
-      cost /= AVG_LOOP_NITER (loop);
+      if (cost != INFTY)
+	cost /= AVG_LOOP_NITER (loop);
     }
   else
     {
@@ -3492,7 +3520,7 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
       return;
     }
 
-  /* There are two costs associated with the candidate -- its incrementation
+  /* There are two costs associated with the candidate -- its increment
      and its initialization.  The second is almost negligible for any loop
      that rolls enough, so we take it just very little into account.  */
 
@@ -3507,7 +3535,7 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
     cand->cost--;
   
   /* Prefer not to insert statements into latch unless there are some
-     already (so that we do not create unnecesary jumps).  */
+     already (so that we do not create unnecessary jumps).  */
   if (cand->pos == IP_END)
     {
       bb = ip_end_pos (data->current_loop);
@@ -3792,7 +3820,7 @@ set_cost (struct ivopts_data *data, bitmap sol, bitmap inv)
 }
 
 /* Finds an initial set of IVS and invariants INV.  We do this by simply
-   chosing the best candidate for each use.  */
+   choosing the best candidate for each use.  */
 
 static unsigned
 get_initial_solution (struct ivopts_data *data, bitmap ivs, bitmap inv)
@@ -4069,7 +4097,7 @@ remove_statement (tree stmt, bool including_defined_name)
       if (!including_defined_name)
 	{
 	  /* Prevent the ssa name defined by the statement from being removed.  */
-	  PHI_RESULT (stmt) = NULL;
+	  SET_PHI_RESULT (stmt, NULL);
 	}
       remove_phi_node (stmt, NULL_TREE, bb_for_stmt (stmt));
     }
@@ -4109,13 +4137,15 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	  bsi_next (&pbsi);
 	}
     }
-  else
+  else if (TREE_CODE (use->stmt) == MODIFY_EXPR)
     {
       tgt = TREE_OPERAND (use->stmt, 0);
       bsi = stmt_bsi (use->stmt);
     }
+  else
+    abort ();
 
-  op = force_gimple_operand (comp, &stmts, false, SSA_NAME_VAR (*use->op_p));
+  op = force_gimple_operand (comp, &stmts, false, SSA_NAME_VAR (tgt));
 
   if (TREE_CODE (use->stmt) == PHI_NODE)
     {
@@ -4187,7 +4217,7 @@ rewrite_address_base (block_stmt_iterator *bsi, tree *op, tree with)
   /* We need to add a memory tag for the variable.  But we do not want
      to add it to the temporary used for the computations, since this leads
      to problems in redundancy elimination when there are common parts
-     in two computations refering to the different arrays.  So we copy
+     in two computations referring to the different arrays.  So we copy
      the variable to a new temporary.  */
   copy = build (MODIFY_EXPR, void_type_node, NULL_TREE, with);
   if (name)
@@ -4287,17 +4317,18 @@ split_loop_exit_edge (edge exit)
 {
   basic_block dest = exit->dest;
   basic_block bb = loop_split_edge_with (exit, NULL);
-  tree phi, *def_p, new_phi, new_name;
+  tree phi, new_phi, new_name;
+  use_operand_p op_p;
 
   for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
     {
-      def_p = &phi_element_for_edge (phi, bb->succ)->def;
+      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, bb->succ);
 
-      new_name = duplicate_ssa_name (*def_p, NULL);
+      new_name = duplicate_ssa_name (USE_FROM_PTR (op_p), NULL);
       new_phi = create_phi_node (new_name, bb);
       SSA_NAME_DEF_STMT (new_name) = new_phi;
-      add_phi_arg (&new_phi, *def_p, exit);
-      *def_p = new_name;
+      add_phi_arg (&new_phi, USE_FROM_PTR (op_p), exit);
+      SET_USE (op_p, new_name);
     }
 }
 
@@ -4305,16 +4336,17 @@ split_loop_exit_edge (edge exit)
    violating loop closed ssa form.  */
 
 static void
-protect_loop_closed_ssa_form_use (edge exit, tree *op_p)
+protect_loop_closed_ssa_form_use (edge exit, use_operand_p op_p)
 {
   basic_block def_bb;
   struct loop *def_loop;
-  tree phi;
+  tree phi, use;
 
-  if (TREE_CODE (*op_p) != SSA_NAME)
+  use = USE_FROM_PTR (op_p);
+  if (TREE_CODE (use) != SSA_NAME)
     return;
 
-  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (*op_p));
+  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (use));
   if (!def_bb)
     return;
 
@@ -4324,20 +4356,20 @@ protect_loop_closed_ssa_form_use (edge exit, tree *op_p)
 
   /* Try finding a phi node that copies the value out of the loop.  */
   for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
-    if (phi_element_for_edge (phi, exit)->def == *op_p)
+    if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == use)
       break;
 
   if (!phi)
     {
       /* Create such a phi node.  */
-      tree new_name = duplicate_ssa_name (*op_p, NULL);
+      tree new_name = duplicate_ssa_name (use, NULL);
 
       phi = create_phi_node (new_name, exit->dest);
       SSA_NAME_DEF_STMT (new_name) = phi;
-      add_phi_arg (&phi, *op_p, exit);
+      add_phi_arg (&phi, use, exit);
     }
 
-  *op_p = PHI_RESULT (phi);
+  SET_USE (op_p, PHI_RESULT (phi));
 }
 
 /* Ensure that operands of STMT may be used at the end of EXIT without
@@ -4348,7 +4380,7 @@ protect_loop_closed_ssa_form (edge exit, tree stmt)
 {
   use_optype uses;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   unsigned i;
 
   get_stmt_operands (stmt);
@@ -4361,9 +4393,9 @@ protect_loop_closed_ssa_form (edge exit, tree stmt)
   for (i = 0; i < NUM_VUSES (vuses); i++)
     protect_loop_closed_ssa_form_use (exit, VUSE_OP_PTR (vuses, i));
 
-  vdefs = STMT_VDEF_OPS (stmt);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
-    protect_loop_closed_ssa_form_use (exit, VDEF_OP_PTR (vdefs, i));
+  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+    protect_loop_closed_ssa_form_use (exit, V_MAY_DEF_OP_PTR (v_may_defs, i));
 }
 
 /* STMTS compute a value of a phi argument OP on EXIT of a loop.  Arrange things
@@ -4401,7 +4433,7 @@ compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
     {
       next = TREE_CHAIN (phi);
 
-      if (phi_element_for_edge (phi, exit)->def == op)
+      if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == op)
 	{
 	  def = PHI_RESULT (phi);
 	  remove_statement (phi, false);
@@ -4421,9 +4453,15 @@ rewrite_use_outer (struct ivopts_data *data,
 		   struct iv_use *use, struct iv_cand *cand)
 {
   edge exit;
-  tree value, op, stmts, tgt = *use->op_p;
+  tree value, op, stmts, tgt;
   tree phi;
 
+  if (TREE_CODE (use->stmt) == PHI_NODE)
+    tgt = PHI_RESULT (use->stmt);
+  else if (TREE_CODE (use->stmt) == MODIFY_EXPR)
+    tgt = TREE_OPERAND (use->stmt, 0);
+  else
+    abort ();
   exit = loop_data (data->current_loop)->single_exit;
 
   if (exit)
@@ -4446,10 +4484,10 @@ rewrite_use_outer (struct ivopts_data *data,
 
       for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
 	{
-	  tree *def_p = &phi_element_for_edge (phi, exit)->def;
+	  use_operand_p use_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, exit);
 
-	  if (*def_p == tgt)
-	    *def_p = op;
+	  if (USE_FROM_PTR (use_p) == tgt)
+	    SET_USE (use_p, op);
 	}
 
       if (stmts)
@@ -4587,9 +4625,9 @@ free_loop_data (struct ivopts_data *data)
     }
   VARRAY_POP_ALL (data->iv_candidates);
 
-  if (data->version_info_size < highest_ssa_version)
+  if (data->version_info_size < num_ssa_names)
     {
-      data->version_info_size = 2 * highest_ssa_version;
+      data->version_info_size = 2 * num_ssa_names;
       free (data->version_info);
       data->version_info = xcalloc (data->version_info_size,
 				    sizeof (struct version_info));
@@ -4628,9 +4666,6 @@ tree_ssa_iv_optimize_finalize (struct loops *loops, struct ivopts_data *data)
   VARRAY_FREE (decl_rtl_to_reset);
   VARRAY_FREE (data->iv_uses);
   VARRAY_FREE (data->iv_candidates);
-
-  scev_finalize ();
-  free_numbers_of_iterations_estimates (loops);
 }
 
 /* Optimizes the LOOP.  Returns true if anything changed.  */
@@ -4713,7 +4748,6 @@ tree_ssa_iv_optimize (struct loops *loops)
   struct loop *loop;
   struct ivopts_data data;
 
-  timevar_push (TV_TREE_LOOP_IVOPTS);
   tree_ssa_iv_optimize_init (loops, &data);
 
   /* Optimize the loops starting with the innermost ones.  */
@@ -4746,6 +4780,4 @@ tree_ssa_iv_optimize (struct loops *loops)
     }
 
   tree_ssa_iv_optimize_finalize (loops, &data);
-
-  timevar_pop (TV_TREE_LOOP_IVOPTS);
 }

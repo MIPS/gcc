@@ -2,7 +2,8 @@
 # APPLE LOCAL fpsave.asm added here --dbj
 LIB2FUNCS_EXTRA = $(srcdir)/config/rs6000/darwin-tramp.asm \
         $(srcdir)/config/rs6000/darwin-fpsave.asm \
-        $(srcdir)/config/rs6000/darwin-ldouble.c
+        $(srcdir)/config/rs6000/darwin-ldouble.c \
+	$(srcdir)/config/rs6000/darwin-fallback.c
 
 # APPLE LOCAL fpsave.asm removed here --dbj
 LIB2FUNCS_STATIC_EXTRA = \

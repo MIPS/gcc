@@ -91,7 +91,7 @@ namespace _GLIBCXX_STD
     vector<_Tp, _Alloc>::
     insert(iterator __position, const value_type& __x)
     {
-      size_type __n = __position - begin();
+      const size_type __n = __position - begin();
       if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage
 	  && __position == end())
 	{
@@ -176,10 +176,9 @@ namespace _GLIBCXX_STD
       else if (__n > size())
 	{
 	  std::fill(begin(), end(), __val);
-	  this->_M_impl._M_finish = std::uninitialized_fill_n(this->
-							      _M_impl._M_finish,
-							      __n - size(),
-							      __val);
+	  std::uninitialized_fill_n(this->_M_impl._M_finish,
+				    __n - size(), __val);
+	  this->_M_impl._M_finish += __n - size();
 	}
       else
         erase(fill_n(begin(), __n, __val), end());
@@ -193,7 +192,7 @@ namespace _GLIBCXX_STD
 		    input_iterator_tag)
       {
 	iterator __cur(begin());
-	for ( ; __first != __last && __cur != end(); ++__cur, ++__first)
+	for (; __first != __last && __cur != end(); ++__cur, ++__first)
 	  *__cur = *__first;
 	if (__first == __last)
 	  erase(__cur, end());
@@ -204,11 +203,11 @@ namespace _GLIBCXX_STD
   template<typename _Tp, typename _Alloc>
     template<typename _ForwardIterator>
       void
-      vector<_Tp,_Alloc>::
+      vector<_Tp, _Alloc>::
       _M_assign_aux(_ForwardIterator __first, _ForwardIterator __last,
 		    forward_iterator_tag)
       {
-	size_type __len = std::distance(__first, __last);
+	const size_type __len = std::distance(__first, __last);
 
 	if (__len > capacity())
 	  {
@@ -242,7 +241,7 @@ namespace _GLIBCXX_STD
 
   template<typename _Tp, typename _Alloc>
     void
-    vector<_Tp,_Alloc>::
+    vector<_Tp, _Alloc>::
     _M_insert_aux(iterator __position, const _Tp& __x)
     {
       if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage)
@@ -293,7 +292,7 @@ namespace _GLIBCXX_STD
 
   template<typename _Tp, typename _Alloc>
     void
-    vector<_Tp,_Alloc>::
+    vector<_Tp, _Alloc>::
     _M_fill_insert(iterator __position, size_type __n, const value_type& __x)
     {
       if (__n != 0)
@@ -336,15 +335,15 @@ namespace _GLIBCXX_STD
 		{
 		  __new_finish = std::uninitialized_copy(begin(), __position,
 							 __new_start);
-		  __new_finish = std::uninitialized_fill_n(__new_finish, __n,
-							   __x);
+		  std::uninitialized_fill_n(__new_finish, __n, __x);
+		  __new_finish += __n;
 		  __new_finish = std::uninitialized_copy(__position, end(),
 							 __new_finish);
 		}
 	      catch(...)
 		{
-		  std::_Destroy(__new_start,__new_finish);
-		  _M_deallocate(__new_start.base(),__len);
+		  std::_Destroy(__new_start, __new_finish);
+		  _M_deallocate(__new_start.base(), __len);
 		  __throw_exception_again;
 		}
 	      std::_Destroy(this->_M_impl._M_start, this->_M_impl._M_finish);
@@ -360,11 +359,11 @@ namespace _GLIBCXX_STD
 
   template<typename _Tp, typename _Alloc> template<typename _InputIterator>
     void
-    vector<_Tp,_Alloc>::
+    vector<_Tp, _Alloc>::
     _M_range_insert(iterator __pos, _InputIterator __first,
 		    _InputIterator __last, input_iterator_tag)
     {
-      for ( ; __first != __last; ++__first)
+      for (; __first != __last; ++__first)
 	{
 	  __pos = insert(__pos, *__first);
 	  ++__pos;
@@ -374,13 +373,13 @@ namespace _GLIBCXX_STD
   template<typename _Tp, typename _Alloc>
     template<typename _ForwardIterator>
       void
-      vector<_Tp,_Alloc>::
+      vector<_Tp, _Alloc>::
       _M_range_insert(iterator __position,_ForwardIterator __first,
 		      _ForwardIterator __last, forward_iterator_tag)
       {
 	if (__first != __last)
 	  {
-	    size_type __n = std::distance(__first, __last);
+	    const size_type __n = std::distance(__first, __last);
 	    if (size_type(this->_M_impl._M_end_of_storage
 			  - this->_M_impl._M_finish) >= __n)
 	      {

@@ -446,18 +446,6 @@ static void sanity_checks (cpp_reader *pfile)
 # define sanity_checks(PFILE)
 #endif
 
-/* Add a dependency target.  Can be called any number of times before
-   cpp_read_main_file().  If no targets have been added before
-   cpp_read_main_file(), then the default target is used.  */
-void
-cpp_add_dependency_target (cpp_reader *pfile, const char *target, int quote)
-{
-  if (!pfile->deps)
-    pfile->deps = deps_init ();
-
-  deps_add_target (pfile->deps, target, quote);
-}
-
 /* This is called after options have been parsed, and partially
    processed.  */
 void
@@ -653,6 +641,8 @@ post_options (cpp_reader *pfile)
 
   if (CPP_OPTION (pfile, traditional))
     {
+      CPP_OPTION (pfile, cplusplus_comments) = 0;
+
       /* Traditional CPP does not accurately track column information.  */
       CPP_OPTION (pfile, show_column) = 0;
       CPP_OPTION (pfile, trigraphs) = 0;

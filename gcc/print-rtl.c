@@ -60,9 +60,6 @@ int flag_simple = 0;
 /* Nonzero if we are dumping graphical description.  */
 int dump_for_graph;
 
-/* Nonzero to dump all call_placeholder alternatives.  */
-static int debug_call_placeholder_verbose;
-
 void
 print_mem_expr (FILE *outfile, tree expr)
 {
@@ -99,7 +96,6 @@ print_rtx (rtx in_rtx)
   int j;
   const char *format_ptr;
   int is_insn;
-  rtx tem;
 
   if (sawclose)
     {
@@ -128,8 +124,8 @@ print_rtx (rtx in_rtx)
   /* When printing in VCG format we write INSNs, NOTE, LABEL, and BARRIER
      in separate nodes and therefore have to handle them special here.  */
   if (dump_for_graph
-      && (is_insn || GET_CODE (in_rtx) == NOTE
-	  || GET_CODE (in_rtx) == CODE_LABEL || GET_CODE (in_rtx) == BARRIER))
+      && (is_insn || NOTE_P (in_rtx)
+	  || LABEL_P (in_rtx) || BARRIER_P (in_rtx)))
     {
       i = 3;
       indent = 0;
@@ -216,7 +212,7 @@ print_rtx (rtx in_rtx)
 	   An exception is the third field of a NOTE, where it indicates
 	   that the field has several different valid contents.  */
       case '0':
-	if (i == 1 && GET_CODE (in_rtx) == REG)
+	if (i == 1 && REG_P (in_rtx))
 	  {
 	    if (REGNO (in_rtx) != ORIGINAL_REGNO (in_rtx))
 	      fprintf (outfile, " [%d]", ORIGINAL_REGNO (in_rtx));
@@ -235,7 +231,7 @@ print_rtx (rtx in_rtx)
 	      print_node_brief (outfile, "", decl, 0);
 	  }
 #endif
-	else if (i == 4 && GET_CODE (in_rtx) == NOTE)
+	else if (i == 4 && NOTE_P (in_rtx))
 	  {
 	    switch (NOTE_LINE_NUMBER (in_rtx))
 	      {
@@ -276,10 +272,13 @@ print_rtx (rtx in_rtx)
 		break;
 
 	      case NOTE_INSN_DELETED_LABEL:
-		if (NOTE_SOURCE_FILE (in_rtx))
-		  fprintf (outfile, " (\"%s\")", NOTE_SOURCE_FILE (in_rtx));
-		else
-		  fprintf (outfile, " \"\"");
+		{
+		  const char *label = NOTE_DELETED_LABEL_NAME (in_rtx);
+		  if (label)
+		    fprintf (outfile, " (\"%s\")", label);
+		  else
+		    fprintf (outfile, " \"\"");
+		}
 		break;
 
 	      case NOTE_INSN_PREDICTION:
@@ -386,7 +385,7 @@ print_rtx (rtx in_rtx)
 	      fprintf(outfile, " %s:%i", insn_file (in_rtx), insn_line (in_rtx));
 #endif
 	  }
-	else if (i == 6 && GET_CODE (in_rtx) == NOTE)
+	else if (i == 6 && NOTE_P (in_rtx))
 	  {
 	    /* This field is only used for NOTE_INSN_DELETED_LABEL, and
 	       other times often contains garbage from INSN->NOTE death.  */
@@ -399,10 +398,10 @@ print_rtx (rtx in_rtx)
 	    const char *name;
 
 #ifndef GENERATOR_FILE
-	    if (GET_CODE (in_rtx) == REG && value < FIRST_PSEUDO_REGISTER)
+	    if (REG_P (in_rtx) && value < FIRST_PSEUDO_REGISTER)
 	      fprintf (outfile, " %d %s", REGNO (in_rtx),
 		       reg_names[REGNO (in_rtx)]);
-	    else if (GET_CODE (in_rtx) == REG
+	    else if (REG_P (in_rtx)
 		     && value <= LAST_VIRTUAL_REGISTER)
 	      {
 		if (value == VIRTUAL_INCOMING_ARGS_REGNUM)
@@ -422,12 +421,12 @@ print_rtx (rtx in_rtx)
 	    else
 #endif
 	      if (flag_dump_unnumbered
-		     && (is_insn || GET_CODE (in_rtx) == NOTE))
+		     && (is_insn || NOTE_P (in_rtx)))
 	      fputc ('#', outfile);
 	    else
 	      fprintf (outfile, " %d", value);
 
-	    if (GET_CODE (in_rtx) == REG && REG_ATTRS (in_rtx))
+	    if (REG_P (in_rtx) && REG_ATTRS (in_rtx))
 	      {
 		fputs (" [", outfile);
 		if (ORIGINAL_REGNO (in_rtx) != REGNO (in_rtx))
@@ -573,56 +572,13 @@ print_rtx (rtx in_rtx)
 	}
       break;
 
-    case CALL_PLACEHOLDER:
-      if (debug_call_placeholder_verbose)
-	{
-	  fputs (" (cond [\n  (const_string \"normal\") (sequence [", outfile);
-	  for (tem = XEXP (in_rtx, 0); tem != 0; tem = NEXT_INSN (tem))
-	    {
-	      fputs ("\n    ", outfile);
-	      print_inline_rtx (outfile, tem, 4);
-	    }
-
-	  tem = XEXP (in_rtx, 1);
-	  if (tem)
-	    fputs ("\n    ])\n  (const_string \"tail_call\") (sequence [",
-		   outfile);
-	  for (; tem != 0; tem = NEXT_INSN (tem))
-	    {
-	      fputs ("\n    ", outfile);
-	      print_inline_rtx (outfile, tem, 4);
-	    }
-
-	  tem = XEXP (in_rtx, 2);
-	  if (tem)
-	    fputs ("\n    ])\n  (const_string \"tail_recursion\") (sequence [",
-		   outfile);
-	  for (; tem != 0; tem = NEXT_INSN (tem))
-	    {
-	      fputs ("\n    ", outfile);
-	      print_inline_rtx (outfile, tem, 4);
-	    }
-
-	  fputs ("\n    ])\n  ])", outfile);
-	  break;
-	}
-
-      for (tem = XEXP (in_rtx, 0); tem != 0; tem = NEXT_INSN (tem))
-	if (GET_CODE (tem) == CALL_INSN)
-	  {
-	    fprintf (outfile, " ");
-	    print_rtx (tem);
-	    break;
-	  }
-      break;
-
     default:
       break;
     }
 
   if (dump_for_graph
-      && (is_insn || GET_CODE (in_rtx) == NOTE
-	  || GET_CODE (in_rtx) == CODE_LABEL || GET_CODE (in_rtx) == BARRIER))
+      && (is_insn || NOTE_P (in_rtx)
+	  || LABEL_P (in_rtx) || BARRIER_P (in_rtx)))
     sawclose = 0;
   else
     {
@@ -761,7 +717,7 @@ print_rtl (FILE *outf, rtx rtx_first)
       case BARRIER:
 	for (tmp_rtx = rtx_first; tmp_rtx != 0; tmp_rtx = NEXT_INSN (tmp_rtx))
 	  if (! flag_dump_unnumbered
-	      || GET_CODE (tmp_rtx) != NOTE || NOTE_LINE_NUMBER (tmp_rtx) < 0)
+	      || !NOTE_P (tmp_rtx) || NOTE_LINE_NUMBER (tmp_rtx) < 0)
 	    {
 	      fputs (print_rtx_head, outfile);
 	      print_rtx (tmp_rtx);
@@ -784,7 +740,7 @@ print_rtl_single (FILE *outf, rtx x)
   outfile = outf;
   sawclose = 0;
   if (! flag_dump_unnumbered
-      || GET_CODE (x) != NOTE || NOTE_LINE_NUMBER (x) < 0)
+      || !NOTE_P (x) || NOTE_LINE_NUMBER (x) < 0)
     {
       fputs (print_rtx_head, outfile);
       print_rtx (x);

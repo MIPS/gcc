@@ -344,7 +344,7 @@ next_flags_user (rtx insn)
       if (INSN_P (insn) && reg_mentioned_p (ix86_flags_rtx, PATTERN (insn)))
 	return insn;
 
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	return NULL_RTX;
     }
   return NULL_RTX;
@@ -506,7 +506,7 @@ record_label_references (rtx insn, rtx pat)
       rtx label = XEXP (pat, 0);
       rtx ref;
 
-      if (GET_CODE (label) != CODE_LABEL)
+      if (!LABEL_P (label))
 	abort ();
 
       /* If this is an undefined label, LABEL_REFS (label) contains
@@ -628,7 +628,7 @@ check_asm_stack_operands (rtx insn)
   /* Strip SUBREGs here to make the following code simpler.  */
   for (i = 0; i < recog_data.n_operands; i++)
     if (GET_CODE (recog_data.operand[i]) == SUBREG
-	&& GET_CODE (SUBREG_REG (recog_data.operand[i])) == REG)
+	&& REG_P (SUBREG_REG (recog_data.operand[i])))
       recog_data.operand[i] = SUBREG_REG (recog_data.operand[i]);
 
   /* Set up CLOBBER_REG.  */
@@ -645,7 +645,7 @@ check_asm_stack_operands (rtx insn)
 	    rtx clobber = XVECEXP (body, 0, i);
 	    rtx reg = XEXP (clobber, 0);
 
-	    if (GET_CODE (reg) == SUBREG && GET_CODE (SUBREG_REG (reg)) == REG)
+	    if (GET_CODE (reg) == SUBREG && REG_P (SUBREG_REG (reg)))
 	      reg = SUBREG_REG (reg);
 
 	    if (STACK_REG_P (reg))
@@ -986,10 +986,10 @@ emit_swap_insn (rtx insn, stack regstack, rtx reg)
       rtx limit = PREV_INSN (BB_HEAD (current_block));
       while (tmp != limit)
 	{
-	  if (GET_CODE (tmp) == CODE_LABEL
-	      || GET_CODE (tmp) == CALL_INSN
+	  if (LABEL_P (tmp)
+	      || CALL_P (tmp)
 	      || NOTE_INSN_BASIC_BLOCK_P (tmp)
-	      || (GET_CODE (tmp) == INSN
+	      || (NONJUMP_INSN_P (tmp)
 		  && stack_regs_mentioned (tmp)))
 	    {
 	      i1 = tmp;
@@ -1008,8 +1008,8 @@ emit_swap_insn (rtx insn, stack regstack, rtx reg)
       /* If the previous register stack push was from the reg we are to
 	 swap with, omit the swap.  */
 
-      if (GET_CODE (i1dest) == REG && REGNO (i1dest) == FIRST_STACK_REG
-	  && GET_CODE (i1src) == REG
+      if (REG_P (i1dest) && REGNO (i1dest) == FIRST_STACK_REG
+	  && REG_P (i1src)
 	  && REGNO (i1src) == (unsigned) hard_regno - 1
 	  && find_regno_note (i1, REG_DEAD, FIRST_STACK_REG) == NULL_RTX)
 	return;
@@ -1017,8 +1017,8 @@ emit_swap_insn (rtx insn, stack regstack, rtx reg)
       /* If the previous insn wrote to the reg we are to swap with,
 	 omit the swap.  */
 
-      if (GET_CODE (i1dest) == REG && REGNO (i1dest) == (unsigned) hard_regno
-	  && GET_CODE (i1src) == REG && REGNO (i1src) == FIRST_STACK_REG
+      if (REG_P (i1dest) && REGNO (i1dest) == (unsigned) hard_regno
+	  && REG_P (i1src) && REGNO (i1src) == FIRST_STACK_REG
 	  && find_regno_note (i1, REG_DEAD, FIRST_STACK_REG) == NULL_RTX)
 	return;
     }
@@ -1266,7 +1266,7 @@ swap_rtx_condition (rtx insn)
   /* We're looking for a single set to cc0 or an HImode temporary.  */
 
   if (GET_CODE (pat) == SET
-      && GET_CODE (SET_DEST (pat)) == REG
+      && REG_P (SET_DEST (pat))
       && REGNO (SET_DEST (pat)) == FLAGS_REG)
     {
       insn = next_flags_user (insn);
@@ -1292,7 +1292,7 @@ swap_rtx_condition (rtx insn)
 	  insn = NEXT_INSN (insn);
 	  if (INSN_P (insn) && reg_mentioned_p (dest, insn))
 	    break;
-	  if (GET_CODE (insn) == CALL_INSN)
+	  if (CALL_P (insn))
 	    return 0;
 	}
 
@@ -1530,7 +1530,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	/* See if this is a `movM' pattern, and handle elsewhere if so.  */
 	if (STACK_REG_P (*src)
 	    || (STACK_REG_P (*dest)
-		&& (GET_CODE (*src) == REG || GET_CODE (*src) == MEM
+		&& (REG_P (*src) || MEM_P (*src)
 		    || GET_CODE (*src) == CONST_DOUBLE)))
 	  {
 	    control_flow_insn_deleted |= move_for_stack_reg (insn, regstack, pat);
@@ -1798,7 +1798,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		swap_to_top (insn, regstack, *src1, *src2);
 
 		/* Push the result back onto stack. Empty stack slot
-		   will be filled in second part of insn. */
+		   will be filled in second part of insn.  */
 		if (STACK_REG_P (*dest)) {
 		  regstack->reg[regstack->top] = REGNO (*dest);
 		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
@@ -1857,7 +1857,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		  abort();
 
 		/* Push the result back onto stack. Empty stack slot
-		   will be filled in second part of insn. */
+		   will be filled in second part of insn.  */
 		if (STACK_REG_P (*dest)) {
 		  regstack->reg[regstack->top + 1] = REGNO (*dest);
 		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
@@ -2072,7 +2072,7 @@ subst_asm_stack_regs (rtx insn, stack regstack)
   /* Strip SUBREGs here to make the following code simpler.  */
   for (i = 0; i < recog_data.n_operands; i++)
     if (GET_CODE (recog_data.operand[i]) == SUBREG
-	&& GET_CODE (SUBREG_REG (recog_data.operand[i])) == REG)
+	&& REG_P (SUBREG_REG (recog_data.operand[i])))
       {
 	recog_data.operand_loc[i] = & SUBREG_REG (recog_data.operand[i]);
 	recog_data.operand[i] = SUBREG_REG (recog_data.operand[i]);
@@ -2093,7 +2093,7 @@ subst_asm_stack_regs (rtx insn, stack regstack)
       rtx reg = XEXP (note, 0);
       rtx *loc = & XEXP (note, 0);
 
-      if (GET_CODE (reg) == SUBREG && GET_CODE (SUBREG_REG (reg)) == REG)
+      if (GET_CODE (reg) == SUBREG && REG_P (SUBREG_REG (reg)))
 	{
 	  loc = & SUBREG_REG (reg);
 	  reg = SUBREG_REG (reg);
@@ -2126,7 +2126,7 @@ subst_asm_stack_regs (rtx insn, stack regstack)
 	    rtx reg = XEXP (clobber, 0);
 	    rtx *loc = & XEXP (clobber, 0);
 
-	    if (GET_CODE (reg) == SUBREG && GET_CODE (SUBREG_REG (reg)) == REG)
+	    if (GET_CODE (reg) == SUBREG && REG_P (SUBREG_REG (reg)))
 	      {
 		loc = & SUBREG_REG (reg);
 		reg = SUBREG_REG (reg);
@@ -2326,7 +2326,7 @@ subst_stack_regs (rtx insn, stack regstack)
   bool control_flow_insn_deleted = false;
   int i;
 
-  if (GET_CODE (insn) == CALL_INSN)
+  if (CALL_P (insn))
     {
       int top = regstack->top;
 
@@ -2388,7 +2388,7 @@ subst_stack_regs (rtx insn, stack regstack)
   /* subst_stack_regs_pat may have deleted a no-op insn.  If so, any
      REG_UNUSED will already have been dealt with, so just return.  */
 
-  if (GET_CODE (insn) == NOTE || INSN_DELETED_P (insn))
+  if (NOTE_P (insn) || INSN_DELETED_P (insn))
     return control_flow_insn_deleted;
 
   /* If there is a REG_UNUSED note on a stack register on this insn,
@@ -2748,7 +2748,7 @@ compensate_edge (edge e, FILE *file)
       tmpstack = regstack;
 
       change_stack (BB_END (block), &tmpstack, target_stack,
-		    (GET_CODE (BB_END (block)) == JUMP_INSN
+		    (JUMP_P (BB_END (block))
 		     ? EMIT_BEFORE : EMIT_AFTER));
     }
   else
@@ -2870,7 +2870,7 @@ convert_regs_1 (FILE *file, basic_block block)
       /* Don't bother processing unless there is a stack reg
 	 mentioned or if it's a CALL_INSN.  */
       if (stack_regs_mentioned (insn)
-	  || GET_CODE (insn) == CALL_INSN)
+	  || CALL_P (insn))
 	{
 	  if (file)
 	    {
@@ -2894,7 +2894,7 @@ convert_regs_1 (FILE *file, basic_block block)
     }
 
   insn = BB_END (block);
-  if (GET_CODE (insn) == JUMP_INSN)
+  if (JUMP_P (insn))
     insn = PREV_INSN (insn);
 
   /* If the function is declared to return a value, but it returns one

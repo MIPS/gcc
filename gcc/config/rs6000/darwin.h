@@ -50,6 +50,7 @@
       builtin_define ("__ppc__");               \
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
+      /* APPLE LOCAL remove __MACH__ and __APPLE__ definitions -- put elsewhere */\
       /* APPLE LOCAL constant cfstrings */	\
       SUBTARGET_OS_CPP_BUILTINS ();		\
     }                                           \
@@ -431,3 +432,20 @@ extern const char *darwin_one_byte_bool;
 /* APPLE LOCAL OS pragma hook */
 /* Register generic Darwin pragmas as "OS" pragmas.  */
 
+#undef REGISTER_TARGET_PRAGMAS
+#define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
+
+#ifdef IN_LIBGCC2
+#include <stdbool.h>
+#endif
+
+#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
+  {									\
+    extern bool _Unwind_fallback_frame_state_for			\
+      (struct _Unwind_Context *context, _Unwind_FrameState *fs);	\
+									\
+    if (_Unwind_fallback_frame_state_for (CONTEXT, FS))			\
+      goto SUCCESS;							\
+  }
+
+#define HAS_MD_FALLBACK_FRAME_STATE_FOR 1

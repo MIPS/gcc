@@ -134,13 +134,12 @@ public class BasicProgressBarUI extends ProgressBarUI
   }
 
   /** The timer used to move the bouncing box. */
-  private transient Timer animationTimer = new Timer();
-
+  private transient Timer animationTimer;
 
   // The total number of frames must be an even number.
   // The total number of frames is calculated from
   // the cycleTime and repaintInterval given by
-  // the basic L&F's defaults.
+  // the basic Look and Feel defaults.
   //
   // +-----------------------------------------------+
   // | frame0 | frame1 | frame2 | frame 3 | frame 4  |
@@ -681,6 +680,8 @@ public class BasicProgressBarUI extends ProgressBarUI
    * This method starts the animation timer. It is called
    * when the propertyChangeListener detects that the progressBar
    * has changed to indeterminate mode.
+   *
+   * @since 1.4
    */
   protected void startAnimationTimer()
   {
@@ -692,6 +693,8 @@ public class BasicProgressBarUI extends ProgressBarUI
    * This method stops the animation timer. It is called when
    * the propertyChangeListener detects that the progressBar
    * has changed to determinate mode.
+   *
+   * @since 1.4
    */
   protected void stopAnimationTimer()
   {
@@ -712,6 +715,7 @@ public class BasicProgressBarUI extends ProgressBarUI
     progressBar.setForeground(defaults.getColor("ProgressBar.foreground"));
     progressBar.setBackground(defaults.getColor("ProgressBar.background"));
     progressBar.setBorder(defaults.getBorder("ProgressBar.border"));
+    progressBar.setOpaque(true);
 
     selectionForeground = defaults.getColor("ProgressBar.selectionForeground");
     selectionBackground = defaults.getColor("ProgressBar.selectionBackground");
@@ -793,7 +797,7 @@ public class BasicProgressBarUI extends ProgressBarUI
       {
 	progressBar = (JProgressBar) c;
 
-	animationTimer = new Timer();
+	animationTimer = new Timer(200, null);
 	animationTimer.setRepeats(true);
 
 	installDefaults();

@@ -62,12 +62,25 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
 #include "flags.h"
+
+
+/* Given two integer constants A and B, determine whether "A >= B".  */
+
+static inline bool
+tree_is_ge (tree a, tree b, bool *res)
+{
+  tree cmp = fold (build (GE_EXPR, boolean_type_node, a, b));
+  if (TREE_CODE (cmp) != INTEGER_CST)
+    return false;
+
+  *res = (tree_int_cst_sgn (cmp) != 0);
+  return true;
+}
 
 /* Determines whether "CHREC0 (x) > CHREC1 (x)" for all the integers x
    such that "0 <= x < nb_iter".  When this property is statically
@@ -265,18 +278,18 @@ prove_truth_value (enum tree_code code,
       fprintf (dump_file, ")\n");
     }
   
-  if (nb_iters_in_then == chrec_top
-      || nb_iters_in_else == chrec_top)
+  if (chrec_contains_undetermined (nb_iters_in_then)
+      || chrec_contains_undetermined (nb_iters_in_else))
     return prove_truth_value_symbolic (code, chrec0, chrec1, value);
   
-  if (nb_iters_in_then == chrec_bot
+  if (nb_iters_in_then == chrec_known
       && integer_zerop (nb_iters_in_else))
     {
       *value = true;
       return true;
     }
   
-  if (nb_iters_in_else == chrec_bot
+  if (nb_iters_in_else == chrec_known
       && integer_zerop (nb_iters_in_then))
     {
       *value = false;
@@ -334,7 +347,7 @@ try_eliminate_check (tree cond)
   bool value;
   tree test, opnd0, opnd1;
   tree chrec0, chrec1;
-  struct loop *loop = loop_of_stmt (cond);
+  struct loop *loop = loop_containing_stmt (cond);
   tree nb_iters = number_of_iterations_in_loop (loop);
   enum tree_code code;
 
@@ -420,8 +433,8 @@ scan_all_loops_r (struct loop *loop)
     return;
   
   /* Recurse on the inner loops, then on the next (sibling) loops.  */
-  scan_all_loops_r (inner_loop (loop));
-  scan_all_loops_r (next_loop (loop));
+  scan_all_loops_r (loop->inner);
+  scan_all_loops_r (loop->next);
   
   flow_loop_scan (loop, LOOP_EXIT_EDGES);
 }
@@ -456,8 +469,8 @@ eliminate_redundant_checks (void)
 	  /* Don't try to prove anything about the loop exit
 	     conditions: avoid the block that contains the condition
 	     that guards the exit of the loop.  */
-	  if (!loop_exit_edges (loop)
-	      || edge_source (loop_exit_edge (loop, 0)) == bb)
+	  if (!loop->exit_edges
+	      || loop->exit_edges[0]->src == bb)
 	    continue;
 	  
 	  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))

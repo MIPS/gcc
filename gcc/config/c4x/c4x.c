@@ -50,6 +50,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+#include "langhooks.h"
 
 rtx smulhi3_libfunc;
 rtx umulhi3_libfunc;
@@ -202,6 +203,7 @@ static int c4x_address_cost (rtx);
 static void c4x_init_libfuncs (void);
 static void c4x_external_libcall (rtx);
 static rtx c4x_struct_value_rtx (tree, int);
+static tree c4x_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -235,6 +237,9 @@ static rtx c4x_struct_value_rtx (tree, int);
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST c4x_adjust_cost
 
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
+
 #undef TARGET_ASM_GLOBALIZE_LABEL
 #define TARGET_ASM_GLOBALIZE_LABEL c4x_globalize_label
 
@@ -251,6 +256,9 @@ static rtx c4x_struct_value_rtx (tree, int);
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX c4x_struct_value_rtx
+
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR c4x_gimplify_va_arg_expr
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -568,7 +576,7 @@ c4x_init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype, rtx libname)
 
 	  if ((mode = TYPE_MODE (type)))
 	    {
-	      if (! MUST_PASS_IN_STACK (mode, type))
+	      if (! targetm.calls.must_pass_in_stack (mode, type))
 		{
 		  /* Look for float, double, or long double argument.  */
 		  if (mode == QFmode || mode == HFmode)
@@ -605,7 +613,7 @@ c4x_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (! TARGET_MEMPARM 
       && named
       && type
-      && ! MUST_PASS_IN_STACK (mode, type))
+      && ! targetm.calls.must_pass_in_stack (mode, type))
     {
       /* Look for float, double, or long double argument.  */
       if (mode == QFmode || mode == HFmode)
@@ -671,7 +679,7 @@ c4x_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (! TARGET_MEMPARM 
       && named 
       && type
-      && ! MUST_PASS_IN_STACK (mode, type))
+      && ! targetm.calls.must_pass_in_stack (mode, type))
     {
       /* Look for float, double, or long double argument.  */
       if (mode == QFmode || mode == HFmode)
@@ -719,16 +727,28 @@ c4x_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 /* C[34]x arguments grow in weird ways (downwards) that the standard
    varargs stuff can't handle..  */
-rtx
-c4x_va_arg (tree valist, tree type)
+
+static tree
+c4x_gimplify_va_arg_expr (tree valist, tree type,
+			  tree *pre_p ATTRIBUTE_UNUSED,
+			  tree *post_p ATTRIBUTE_UNUSED)
 {
   tree t;
+  bool indirect;
+
+  indirect = pass_by_reference (NULL, TYPE_MODE (type), type, false);
+  if (indirect)
+    type = build_pointer_type (type);
 
   t = build (PREDECREMENT_EXPR, TREE_TYPE (valist), valist,
 	     build_int_2 (int_size_in_bytes (type), 0));
-  TREE_SIDE_EFFECTS (t) = 1;
+  t = fold_convert (build_pointer_type (type), t);
+  t = build_fold_indirect_ref (t);
 
-  return expand_expr (t, NULL_RTX, Pmode, EXPAND_NORMAL);
+  if (indirect)
+    t = build_fold_indirect_ref (t);
+
+  return t;
 }
 
 
@@ -2345,7 +2365,7 @@ c4x_rptb_insert (rtx insn)
   rtx count_reg;
 
   /* If the count register has not been allocated to RC, say if
-     there is a movstr pattern in the loop, then do not insert a
+     there is a movmem pattern in the loop, then do not insert a
      RPTB instruction.  Instead we emit a decrement and branch
      at the end of the loop.  */
   count_reg = XEXP (XEXP (SET_SRC (XVECEXP (PATTERN (insn), 0, 0)), 0), 0);
@@ -3809,12 +3829,6 @@ c4x_valid_operands (enum rtx_code code, rtx *operands,
   	case MEM:
 	  break;
 	  
-	  /* After CSE, any remaining (ADDRESSOF:P reg) gets converted
-	     into a stack slot memory address comprising a PLUS and a
-	     constant.  */
-	case ADDRESSOF:
-	  break;
-	  
 	default:
 	  fatal_insn ("c4x_valid_operands: Internal error", op2);
 	  break;
@@ -3857,12 +3871,6 @@ c4x_valid_operands (enum rtx_code code, rtx *operands,
 
 	  /* Any valid memory operand screened by src_operand is OK.  */      
 	case MEM:
-	  break;
-	  
-	  /* After CSE, any remaining (ADDRESSOF:P reg) gets converted
-	     into a stack slot memory address comprising a PLUS and a
-	     constant.  */
-	case ADDRESSOF:
 	  break;
 	  
 	default:
@@ -4760,41 +4768,52 @@ c4x_init_builtins (void)
 {
   tree endlink = void_list_node;
 
-  builtin_function ("fast_ftoi",
-		    build_function_type 
-		    (integer_type_node,
-		     tree_cons (NULL_TREE, double_type_node, endlink)),
-		    C4X_BUILTIN_FIX, BUILT_IN_MD, NULL, NULL_TREE);
-  builtin_function ("ansi_ftoi",
-		    build_function_type 
-		    (integer_type_node, 
-		     tree_cons (NULL_TREE, double_type_node, endlink)),
-		    C4X_BUILTIN_FIX_ANSI, BUILT_IN_MD, NULL, NULL_TREE);
+  lang_hooks.builtin_function ("fast_ftoi",
+			       build_function_type 
+			       (integer_type_node,
+				tree_cons (NULL_TREE, double_type_node,
+					   endlink)),
+			       C4X_BUILTIN_FIX, BUILT_IN_MD, NULL, NULL_TREE);
+  lang_hooks.builtin_function ("ansi_ftoi",
+			       build_function_type 
+			       (integer_type_node, 
+				tree_cons (NULL_TREE, double_type_node,
+					   endlink)),
+			       C4X_BUILTIN_FIX_ANSI, BUILT_IN_MD, NULL,
+			       NULL_TREE);
   if (TARGET_C3X)
-    builtin_function ("fast_imult",
-		      build_function_type
-		      (integer_type_node, 
-		       tree_cons (NULL_TREE, integer_type_node,
-				  tree_cons (NULL_TREE,
-					     integer_type_node, endlink))),
-		      C4X_BUILTIN_MPYI, BUILT_IN_MD, NULL, NULL_TREE);
+    lang_hooks.builtin_function ("fast_imult",
+				 build_function_type
+				 (integer_type_node, 
+				  tree_cons (NULL_TREE, integer_type_node,
+					     tree_cons (NULL_TREE,
+							integer_type_node,
+							endlink))),
+				 C4X_BUILTIN_MPYI, BUILT_IN_MD, NULL,
+				 NULL_TREE);
   else
     {
-      builtin_function ("toieee",
-		        build_function_type 
-			(double_type_node,
-			 tree_cons (NULL_TREE, double_type_node, endlink)),
-		        C4X_BUILTIN_TOIEEE, BUILT_IN_MD, NULL, NULL_TREE);
-      builtin_function ("frieee",
-		        build_function_type
-			(double_type_node, 
-			 tree_cons (NULL_TREE, double_type_node, endlink)),
-		        C4X_BUILTIN_FRIEEE, BUILT_IN_MD, NULL, NULL_TREE);
-      builtin_function ("fast_invf",
-		        build_function_type 
-			(double_type_node, 
-			 tree_cons (NULL_TREE, double_type_node, endlink)),
-		        C4X_BUILTIN_RCPF, BUILT_IN_MD, NULL, NULL_TREE);
+      lang_hooks.builtin_function ("toieee",
+				   build_function_type 
+				   (double_type_node,
+				    tree_cons (NULL_TREE, double_type_node,
+					       endlink)),
+				   C4X_BUILTIN_TOIEEE, BUILT_IN_MD, NULL,
+				   NULL_TREE);
+      lang_hooks.builtin_function ("frieee",
+				   build_function_type
+				   (double_type_node, 
+				    tree_cons (NULL_TREE, double_type_node,
+					       endlink)),
+				   C4X_BUILTIN_FRIEEE, BUILT_IN_MD, NULL,
+				   NULL_TREE);
+      lang_hooks.builtin_function ("fast_invf",
+				   build_function_type 
+				   (double_type_node, 
+				    tree_cons (NULL_TREE, double_type_node,
+					       endlink)),
+				   C4X_BUILTIN_RCPF, BUILT_IN_MD, NULL,
+				   NULL_TREE);
     }
 }
 
@@ -4816,7 +4835,6 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_FIX:
       arg0 = TREE_VALUE (arglist);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
-      r0 = protect_from_queue (r0, 0);
       if (! target || ! register_operand (target, QImode))
 	target = gen_reg_rtx (QImode);
       emit_insn (gen_fixqfqi_clobber (target, r0));
@@ -4825,7 +4843,6 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_FIX_ANSI:
       arg0 = TREE_VALUE (arglist);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
-      r0 = protect_from_queue (r0, 0);
       if (! target || ! register_operand (target, QImode))
 	target = gen_reg_rtx (QImode);
       emit_insn (gen_fix_truncqfqi2 (target, r0));
@@ -4838,8 +4855,6 @@ c4x_expand_builtin (tree exp, rtx target,
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       r0 = expand_expr (arg0, NULL_RTX, QImode, 0);
       r1 = expand_expr (arg1, NULL_RTX, QImode, 0);
-      r0 = protect_from_queue (r0, 0);
-      r1 = protect_from_queue (r1, 0);
       if (! target || ! register_operand (target, QImode))
 	target = gen_reg_rtx (QImode);
       emit_insn (gen_mulqi3_24_clobber (target, r0, r1));
@@ -4850,7 +4865,6 @@ c4x_expand_builtin (tree exp, rtx target,
 	break;
       arg0 = TREE_VALUE (arglist);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
-      r0 = protect_from_queue (r0, 0);
       if (! target || ! register_operand (target, QFmode))
 	target = gen_reg_rtx (QFmode);
       emit_insn (gen_toieee (target, r0));
@@ -4860,10 +4874,7 @@ c4x_expand_builtin (tree exp, rtx target,
       if (TARGET_C3X)
 	break;
       arg0 = TREE_VALUE (arglist);
-      if (TREE_CODE (arg0) == VAR_DECL || TREE_CODE (arg0) == PARM_DECL)
-	put_var_into_stack (arg0, /*rescan=*/true);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
-      r0 = protect_from_queue (r0, 0);
       if (register_operand (r0, QFmode))
 	{
 	  r1 = assign_stack_local (QFmode, GET_MODE_SIZE (QFmode), 0);
@@ -4880,7 +4891,6 @@ c4x_expand_builtin (tree exp, rtx target,
 	break;
       arg0 = TREE_VALUE (arglist);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
-      r0 = protect_from_queue (r0, 0);
       if (! target || ! register_operand (target, QFmode))
 	target = gen_reg_rtx (QFmode);
       emit_insn (gen_rcpfqf_clobber (target, r0));

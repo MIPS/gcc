@@ -1,5 +1,6 @@
 /* Maintain binary trees of symbols.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, 
+   Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -88,18 +89,16 @@ static int next_dummy_order = 1;
 
 gfc_namespace *gfc_current_ns;
 
+gfc_gsymbol *gfc_gsym_root = NULL;
+
 static gfc_symbol *changed_syms = NULL;
 
 
 /*********** IMPLICIT NONE and IMPLICIT statement handlers ***********/
 
-/* The following static variables hold the default types set by
-   IMPLICIT statements.  We have to store kind information because of
-   IMPLICIT DOUBLE PRECISION statements.  IMPLICIT NONE stores a
-   BT_UNKNOWN into all elements.  The arrays of flags indicate whether
-   a particular element has been explicitly set or not.  */
+/* The following static variable indicates whether a particular element has
+   been explicitly set or not.  */
 
-static gfc_typespec new_ts[GFC_LETTERS];
 static int new_flag[GFC_LETTERS];
 
 
@@ -110,48 +109,30 @@ gfc_set_implicit_none (void)
 {
   int i;
 
-  for (i = 'a'; i <= 'z'; i++)
+  for (i = 0; i < GFC_LETTERS; i++)
     {
-      gfc_clear_ts (&gfc_current_ns->default_type[i - 'a']);
-      gfc_current_ns->set_flag[i - 'a'] = 1;
+      gfc_clear_ts (&gfc_current_ns->default_type[i]);
+      gfc_current_ns->set_flag[i] = 1;
     }
 }
 
 
-/* Sets the implicit types parsed by gfc_match_implicit().  */
+/* Reset the implicit range flags.  */
 
 void
-gfc_set_implicit (void)
+gfc_clear_new_implicit (void)
 {
   int i;
 
   for (i = 0; i < GFC_LETTERS; i++)
-    if (new_flag[i])
-      {
-	gfc_current_ns->default_type[i] = new_ts[i];
-	gfc_current_ns->set_flag[i] = 1;
-      }
+    new_flag[i] = 0;
 }
 
 
-/* Wipe anything a previous IMPLICIT statement may have tried to do.  */
-void gfc_clear_new_implicit (void)
-{
-  int i;
+/* Prepare for a new implicit range.  Sets flags in new_flag[].  */
 
-  for (i = 0; i < GFC_LETTERS; i++)
-    {
-      gfc_clear_ts (&new_ts[i]);
-      if (new_flag[i])
-	new_flag[i] = 0;
-    }
-}
-
-
-/* Prepare for a new implicit range. Sets flags in new_flag[] and
-   copies the typespec to new_ts[].  */
-
-try gfc_add_new_implicit_range (int c1, int c2, gfc_typespec * ts)
+try
+gfc_add_new_implicit_range (int c1, int c2)
 {
   int i;
 
@@ -167,7 +148,6 @@ try gfc_add_new_implicit_range (int c1, int c2, gfc_typespec * ts)
 	  return FAILURE;
 	}
 
-      new_ts[i] = *ts;
       new_flag[i] = 1;
     }
 
@@ -175,27 +155,29 @@ try gfc_add_new_implicit_range (int c1, int c2, gfc_typespec * ts)
 }
 
 
-/* Add a matched implicit range for gfc_set_implicit().  An implicit
-   statement has been fully matched at this point.  We now need to
-   check if merging the new implicit types back into the existing
-   types will work.  */
+/* Add a matched implicit range for gfc_set_implicit().  Check if merging
+   the new implicit types back into the existing types will work.  */
 
 try
-gfc_merge_new_implicit (void)
+gfc_merge_new_implicit (gfc_typespec * ts)
 {
   int i;
 
   for (i = 0; i < GFC_LETTERS; i++)
-    if (new_flag[i])
-      {
-	if (gfc_current_ns->set_flag[i])
-	  {
-	    gfc_error ("Letter %c already has an IMPLICIT type at %C",
-		       i + 'A');
-	    return FAILURE;
-	  }
-      }
+    {
+      if (new_flag[i])
+	{
 
+	  if (gfc_current_ns->set_flag[i])
+	    {
+	      gfc_error ("Letter %c already has an IMPLICIT type at %C",
+			 i + 'A');
+	      return FAILURE;
+	    }
+	  gfc_current_ns->default_type[i] = *ts;
+	  gfc_current_ns->set_flag[i] = 1;
+	}
+    }
   return SUCCESS;
 }
 
@@ -272,7 +254,7 @@ check_conflict (symbol_attribute * attr, locus * where)
   const char *a1, *a2;
 
   if (where == NULL)
-    where = gfc_current_locus ();
+    where = &gfc_current_locus;
 
   if (attr->pointer && attr->intent != INTENT_UNKNOWN)
     {
@@ -484,7 +466,7 @@ check_used (symbol_attribute * attr, locus * where)
     return 0;
 
   if (where == NULL)
-    where = gfc_current_locus ();
+    where = &gfc_current_locus;
 
   gfc_error ("Cannot change attributes of USE-associated symbol at %L",
              where);
@@ -506,7 +488,7 @@ check_done (symbol_attribute * attr, locus * where)
     return 0;
 
   if (where == NULL)
-    where = gfc_current_locus ();
+    where = &gfc_current_locus;
 
   gfc_error ("Cannot change attributes of symbol at %L"
              " after it has been used", where);
@@ -522,7 +504,7 @@ duplicate_attr (const char *attr, locus * where)
 {
 
   if (where == NULL)
-    where = gfc_current_locus ();
+    where = &gfc_current_locus;
 
   gfc_error ("Duplicate %s attribute specified at %L", attr, where);
 }
@@ -671,24 +653,6 @@ gfc_add_save (symbol_attribute * attr, locus * where)
 
 
 try
-gfc_add_saved_common (symbol_attribute * attr, locus * where)
-{
-
-  if (check_used (attr, where))
-    return FAILURE;
-
-  if (attr->saved_common)
-    {
-      duplicate_attr ("SAVE", where);
-      return FAILURE;
-    }
-
-  attr->saved_common = 1;
-  return check_conflict (attr, where);
-}
-
-
-try
 gfc_add_target (symbol_attribute * attr, locus * where)
 {
 
@@ -720,22 +684,6 @@ gfc_add_dummy (symbol_attribute * attr, locus * where)
 
 
 try
-gfc_add_common (symbol_attribute * attr, locus * where)
-{
-  /* TODO: We currently add common blocks into the same namespace as normal
-     variables.  This is wrong.  Disable the checks below as a temporary
-     hack.  See PR13249  */
-#if 0
-  if (check_used (attr, where) || check_done (attr, where))
-    return FAILURE;
-#endif
-
-  attr->common = 1;
-  return check_conflict (attr, where);
-}
-
-
-try
 gfc_add_in_common (symbol_attribute * attr, locus * where)
 {
 
@@ -751,6 +699,18 @@ gfc_add_in_common (symbol_attribute * attr, locus * where)
     return SUCCESS;
 
   return gfc_add_flavor (attr, FL_VARIABLE, where);
+}
+
+
+try
+gfc_add_data (symbol_attribute *attr, locus *where)
+{
+
+  if (check_used (attr, where))
+    return FAILURE;
+
+  attr->data = 1;
+  return check_conflict (attr, where);
 }
 
 
@@ -886,7 +846,7 @@ gfc_add_flavor (symbol_attribute * attr, sym_flavor f, locus * where)
   if (attr->flavor != FL_UNKNOWN)
     {
       if (where == NULL)
-	where = gfc_current_locus ();
+	where = &gfc_current_locus;
 
       gfc_error ("%s attribute conflicts with %s attribute at %L",
 		 gfc_code2string (flavors, attr->flavor),
@@ -913,7 +873,7 @@ gfc_add_procedure (symbol_attribute * attr, procedure_type t, locus * where)
     return FAILURE;
 
   if (where == NULL)
-    where = gfc_current_locus ();
+    where = &gfc_current_locus;
 
   if (attr->proc != PROC_UNKNOWN)
     {
@@ -951,7 +911,7 @@ gfc_add_intent (symbol_attribute * attr, sym_intent intent, locus * where)
     }
 
   if (where == NULL)
-    where = gfc_current_locus ();
+    where = &gfc_current_locus;
 
   gfc_error ("INTENT (%s) conflicts with INTENT(%s) at %L",
 	     gfc_intent_string (attr->intent),
@@ -974,7 +934,7 @@ gfc_add_access (symbol_attribute * attr, gfc_access access, locus * where)
     }
 
   if (where == NULL)
-    where = gfc_current_locus ();
+    where = &gfc_current_locus;
   gfc_error ("ACCESS specification at %L was already specified", where);
 
   return FAILURE;
@@ -990,7 +950,7 @@ gfc_add_explicit_interface (gfc_symbol * sym, ifsrc source,
     return FAILURE;
 
   if (where == NULL)
-    where = gfc_current_locus ();
+    where = &gfc_current_locus;
 
   if (sym->attr.if_source != IFSRC_UNKNOWN
       && sym->attr.if_source != IFSRC_DECL)
@@ -1019,7 +979,7 @@ gfc_add_type (gfc_symbol * sym, gfc_typespec * ts, locus * where)
     return FAILURE;*/
 
   if (where == NULL)
-    where = gfc_current_locus ();
+    where = &gfc_current_locus;
 
   if (sym->ts.type != BT_UNKNOWN)
     {
@@ -1059,7 +1019,6 @@ gfc_clear_attr (symbol_attribute * attr)
   attr->save = 0;
   attr->target = 0;
   attr->dummy = 0;
-  attr->common = 0;
   attr->result = 0;
   attr->entry = 0;
   attr->data = 0;
@@ -1067,7 +1026,6 @@ gfc_clear_attr (symbol_attribute * attr)
   attr->in_namelist = 0;
 
   attr->in_common = 0;
-  attr->saved_common = 0;
   attr->function = 0;
   attr->subroutine = 0;
   attr->generic = 0;
@@ -1120,8 +1078,6 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     goto fail;
   if (src->dummy && gfc_add_dummy (dest, where) == FAILURE)
     goto fail;
-  if (src->common && gfc_add_common (dest, where) == FAILURE)
-    goto fail;
   if (src->result && gfc_add_result (dest, where) == FAILURE)
     goto fail;
   if (src->entry)
@@ -1131,8 +1087,6 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
     goto fail;
 
   if (src->in_common && gfc_add_in_common (dest, where) == FAILURE)
-    goto fail;
-  if (src->saved_common && gfc_add_saved_common (dest, where) == FAILURE)
     goto fail;
 
   if (src->generic && gfc_add_generic (dest, where) == FAILURE)
@@ -1221,7 +1175,7 @@ gfc_add_component (gfc_symbol * sym, const char *name, gfc_component ** componen
     tail->next = p;
 
   strcpy (p->name, name);
-  p->loc = *gfc_current_locus ();
+  p->loc = gfc_current_locus;
 
   *component = p;
   return SUCCESS;
@@ -1565,7 +1519,7 @@ gfc_reference_st_label (gfc_st_label * lp, gfc_sl_type type)
   else
     {
       label_type = lp->referenced;
-      lp->where = *gfc_current_locus ();
+      lp->where = gfc_current_locus;
     }
 
   if (label_type == ST_LABEL_FORMAT && type == ST_LABEL_TARGET)
@@ -1811,7 +1765,7 @@ gfc_new_symbol (const char *name, gfc_namespace * ns)
   gfc_clear_attr (&p->attr);
   p->ns = ns;
 
-  p->declared_at = *gfc_current_locus ();
+  p->declared_at = gfc_current_locus;
 
   if (strlen (name) > GFC_MAX_SYMBOL_LEN)
     gfc_internal_error ("new_symbol(): Symbol name too long");
@@ -2185,6 +2139,22 @@ gfc_commit_symbols (void)
 }
 
 
+/* Recursive function that deletes an entire tree and all the common
+   head structures it points to.  */
+
+static void
+free_common_tree (gfc_symtree * common_tree)
+{
+  if (common_tree == NULL)
+    return;
+
+  free_common_tree (common_tree->left);
+  free_common_tree (common_tree->right);
+
+  gfc_free (common_tree);
+}  
+
+
 /* Recursive function that deletes an entire tree and all the user
    operator nodes that it contains.  */
 
@@ -2262,6 +2232,7 @@ gfc_free_namespace (gfc_namespace * ns)
 
   free_sym_tree (ns->sym_root);
   free_uop_tree (ns->uop_root);
+  free_common_tree (ns->common_root);
 
   for (cl = ns->cl_list; cl; cl = cl2)
     {
@@ -2321,25 +2292,16 @@ clear_sym_mark (gfc_symtree * st)
 
 /* Recursively traverse the symtree nodes.  */
 
-static void
-traverse_symtree (gfc_symtree * st, void (*func) (gfc_symtree *))
+void
+gfc_traverse_symtree (gfc_symtree * st, void (*func) (gfc_symtree *))
 {
-
   if (st != NULL)
     {
       (*func) (st);
 
-      traverse_symtree (st->left, func);
-      traverse_symtree (st->right, func);
+      gfc_traverse_symtree (st->left, func);
+      gfc_traverse_symtree (st->right, func);
     }
-}
-
-
-void
-gfc_traverse_symtree (gfc_namespace * ns, void (*func) (gfc_symtree *))
-{
-
-  traverse_symtree (ns->sym_root, func);
 }
 
 
@@ -2368,7 +2330,7 @@ void
 gfc_traverse_ns (gfc_namespace * ns, void (*func) (gfc_symbol *))
 {
 
-  gfc_traverse_symtree (ns, clear_sym_mark);
+  gfc_traverse_symtree (ns->sym_root, clear_sym_mark);
 
   traverse_ns (ns->sym_root, func);
 }
@@ -2382,12 +2344,6 @@ save_symbol (gfc_symbol * sym)
 
   if (sym->attr.use_assoc)
     return;
-
-  if (sym->attr.common)
-    {
-      gfc_add_saved_common (&sym->attr, &sym->declared_at);
-      return;
-    }
 
   if (sym->attr.in_common
       || sym->attr.dummy
@@ -2419,3 +2375,63 @@ gfc_symbol_state(void) {
 }
 #endif
 
+
+/************** Global symbol handling ************/
+
+
+/* Search a tree for the global symbol.  */
+
+gfc_gsymbol *
+gfc_find_gsymbol (gfc_gsymbol *symbol, char *name)
+{
+  gfc_gsymbol *s;
+
+  if (symbol == NULL)
+    return NULL;
+  if (strcmp (symbol->name, name) == 0)
+    return symbol;
+
+  s = gfc_find_gsymbol (symbol->left, name);
+  if (s != NULL)
+    return s;
+
+  s = gfc_find_gsymbol (symbol->right, name);
+  if (s != NULL)
+    return s;
+
+  return NULL;
+}
+
+
+/* Compare two global symbols. Used for managing the BB tree.  */
+
+static int
+gsym_compare (void * _s1, void * _s2)
+{
+  gfc_gsymbol *s1, *s2;
+
+  s1 = (gfc_gsymbol *)_s1;
+  s2 = (gfc_gsymbol *)_s2;
+  return strcmp(s1->name, s2->name);
+}
+
+
+/* Get a global symbol, creating it if it doesn't exist.  */
+
+gfc_gsymbol *
+gfc_get_gsymbol (char *name)
+{
+  gfc_gsymbol *s;
+
+  s = gfc_find_gsymbol (gfc_gsym_root, name);
+  if (s != NULL)
+    return s;
+
+  s = gfc_getmem (sizeof (gfc_gsymbol));
+  s->type = GSYM_UNKNOWN;
+  strcpy (s->name, name);
+
+  gfc_insert_bbt (&gfc_gsym_root, s, gsym_compare);
+
+  return s;
+}

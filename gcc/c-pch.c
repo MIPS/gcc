@@ -35,11 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hosthooks.h"
 #include "target.h"
 
-/* APPLE LOCAL BEGIN pch distcc --mrs */
-#include "flags.h"
-#include "../libcpp/internal.h"
-/* APPLE LOCAL END pch distcc --mrs */
-
 /* This is a list of flag variables that must match exactly, and their
    names for the error message.  The possible values for *flag_var must
    fit in a 'signed char'.  */
@@ -199,7 +194,6 @@ c_common_write_pch (void)
     fatal_error ("can't write %s: %m", pch_file);
   
   buf = xmalloc (16384);
-  fflush (asm_out_file);
 
   if (fseek (asm_out_file, asm_file_startpos, SEEK_SET) != 0)
     fatal_error ("can't seek in %s: %m", asm_file_name);
@@ -216,8 +210,10 @@ c_common_write_pch (void)
       written += size;
     }
   free (buf);
-  /* asm_out_file can be written afterwards, so must be flushed first.  */
-  fflush (asm_out_file);
+  /* asm_out_file can be written afterwards, so fseek to clear
+     _IOREAD flag.  */
+  if (fseek (asm_out_file, 0, SEEK_END) != 0)
+    fatal_error ("can't seek in %s: %m", asm_file_name);
 
   gt_pch_save (pch_outfile);
   cpp_write_pch_state (parse_in, pch_outfile);
@@ -397,28 +393,7 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
 {
   FILE *f;
   struct c_pch_header h;
-  char *buf;
-  unsigned long written;
   struct save_macro_data *smd;
-  
-  /* APPLE LOCAL BEGIN pch distcc --mrs */
-#if 0
-  /* MERGE FIXME: There is no 'print', and no 'outf'.  */
-  if (flag_pch_preprocess
-      && flag_preprocess_only)
-    {
-      fprintf (pfile->print.outf, "#include_pch \"%s\"\n", name);
-      pfile->print.line++;
-      pfile->print.printed = 0;
-    }
-
-  if (! flag_preprocess_only)
-    /* Before we wrote the file, we started a source file, so we have to start
-       one here to match.  */
-    /* MERGE FIXME: And there's no 'lineno'.  */
-    (*debug_hooks->start_source_file) (lineno, orig_name);
-  /* APPLE LOCAL END pch distcc --mrs */
-#endif
   
   f = fdopen (fd, "rb");
   if (f == NULL)
@@ -435,22 +410,30 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
       return;
     }
 
-  buf = xmalloc (16384);
-  for (written = 0; written < h.asm_size; )
+  if (!flag_preprocess_only)
     {
-      long size = h.asm_size - written;
-      if (size > 16384)
-	size = 16384;
-      /* APPLE LOCAL BEGIN pch distcc --mrs */
-      if (fread (buf, size, 1, f) != 1)
-	cpp_errno (pfile, CPP_DL_ERROR, "reading");	
-      else if (!flag_preprocess_only
-	       && fwrite (buf, size, 1, asm_out_file) != 1)
-	cpp_errno (pfile, CPP_DL_ERROR, "writing");
-      /* APPLE LOCAL END pch distcc --mrs */
-      written += size;
+      unsigned long written;
+      char * buf = xmalloc (16384);
+
+      for (written = 0; written < h.asm_size; )
+	{
+	  long size = h.asm_size - written;
+	  if (size > 16384)
+	    size = 16384;
+	  if (fread (buf, size, 1, f) != 1
+	      || fwrite (buf, size, 1, asm_out_file) != 1)
+	    cpp_errno (pfile, CPP_DL_ERROR, "reading");
+	  written += size;
+	}
+      free (buf);
     }
-  free (buf);
+  else
+    {
+      /* If we're preprocessing, don't write to a NULL
+	 asm_out_file.  */
+      if (fseek (f, h.asm_size, SEEK_CUR) != 0)
+	cpp_errno (pfile, CPP_DL_ERROR, "seeking");
+    }
 
   cpp_prepare_state (pfile, &smd);
 
@@ -472,4 +455,48 @@ c_common_no_more_pch (void)
       cpp_get_callbacks (parse_in)->valid_pch = NULL;
       host_hooks.gt_pch_use_address (NULL, 0, -1, 0);
     }
+}
+
+/* Handle #pragma GCC pch_preprocess, to load in the PCH file.  */
+
+#ifndef O_BINARY
+# define O_BINARY 0
+#endif
+
+void
+c_common_pch_pragma (cpp_reader *pfile)
+{
+  tree name_t;
+  const char *name;
+  int fd;
+
+  if (c_lex (&name_t) != CPP_STRING)
+    {
+      error ("malformed #pragma GCC pch_preprocess, ignored");
+      return;
+    }
+
+  if (! cpp_get_options (pfile)->preprocessed)
+    {
+      error ("pch_preprocess pragma should only be used with -fpreprocessed");
+      inform ("use #include instead");
+      return;
+    }
+
+  name = TREE_STRING_POINTER (name_t);
+  
+  fd = open (name, O_RDONLY | O_BINARY, 0666);
+  if (fd == -1)
+    fatal_error ("%s: couldn't open PCH file: %m\n", name);
+  
+  if (c_common_valid_pch (pfile, name, fd) != 1)
+    {
+      if (!cpp_get_options (pfile)->warn_invalid_pch)
+	inform ("use -Winvalid-pch for more information");
+      fatal_error ("%s: PCH file was invalid", name);
+    }
+  
+  c_common_read_pch (pfile, name, fd, name);
+  
+  close (fd);
 }

@@ -27,7 +27,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "rtl.h"
 #include "tree.h"
-#include "expr.h"
 #include "input.h"
 #include "output.h"
 #include "c-tree.h"
@@ -56,7 +55,12 @@ static splay_tree file_info_tree;
 
 int pending_lang_change; /* If we need to switch languages - C++ only */
 int c_header_level;	 /* depth in C headers - C++ only */
-bool c_lex_string_translate = true; /* If we need to translate characters received.  */
+
+/* If we need to translate characters received.  This is tri-state:
+   0 means use only the untranslated string; 1 means use only
+   the translated string; -1 means chain the translated string
+   to the untranslated one.  */
+int c_lex_string_translate = 1;
 
 /* APPLE LOCAL begin CW asm blocks */
 /* This points to the token that we're going to save briefly while
@@ -226,11 +230,15 @@ cb_line_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const cpp_token *token,
 		int parsing_args)
 {
   if (token->type != CPP_EOF && !parsing_args)
+#ifdef USE_MAPPED_LOCATION
+    input_location = token->src_loc;
+#else
     {
       source_location loc = token->src_loc;
       const struct line_map *map = linemap_lookup (&line_table, loc);
       input_line = SOURCE_LINE (map, loc);
     }
+#endif
 }
 
 void
@@ -245,10 +253,17 @@ fe_file_change (const struct line_map *new_map)
 	 we already did in compile_file.  */
       if (! MAIN_FILE_P (new_map))
 	{
+#ifdef USE_MAPPED_LOCATION
+          int included_at = LAST_SOURCE_LINE_LOCATION (new_map - 1);
+
+	  input_location = included_at;
+	  push_srcloc (new_map->start_location);
+#else
           int included_at = LAST_SOURCE_LINE (new_map - 1);
 
 	  input_line = included_at;
 	  push_srcloc (new_map->to_file, 1);
+#endif
 	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
@@ -278,8 +293,12 @@ fe_file_change (const struct line_map *new_map)
 
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;
+#ifdef USE_MAPPED_LOCATION
+  input_location = new_map->start_location;
+#else
   input_filename = new_map->to_file;
   input_line = new_map->to_line;
+#endif
 
   /* Hook for C++.  */
   extract_interface_info ();
@@ -293,7 +312,9 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
      -Wunknown-pragmas has been given.  */
   if (warn_unknown_pragmas > in_system_header)
     {
+#ifndef USE_MAPPED_LOCATION
       const struct line_map *map = linemap_lookup (&line_table, loc);
+#endif
       const unsigned char *space, *name;
       const cpp_token *s;
 
@@ -307,7 +328,11 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
 	    name = cpp_token_as_text (pfile, s);
 	}
 
+#ifdef USE_MAPPED_LOCATION
+      input_location = loc;
+#else
       input_line = SOURCE_LINE (map, loc);
+#endif
       warning ("ignoring #pragma %s %s", space, name);
     }
 }
@@ -851,6 +876,28 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
     {
       value = build_string (istr.len, (char *)istr.text);
       free ((void *)istr.text);
+
+      if (c_lex_string_translate == -1)
+	{
+	  if (!cpp_interpret_string_notranslate (parse_in, strs, count,
+						 &istr, wide, false))
+	    /* Assume that, if we managed to translate the string
+	       above, then the untranslated parsing will always
+	       succeed.  */
+	    abort ();
+	  
+	  if (TREE_STRING_LENGTH (value) != (int)istr.len
+	      || 0 != strncmp (TREE_STRING_POINTER (value), (char *)istr.text,
+			       istr.len))
+	    {
+	      /* Arrange for us to return the untranslated string in
+		 *valp, but to set up the C type of the translated
+		 one.  */
+	      *valp = build_string (istr.len, (char *)istr.text);
+	      valp = &TREE_CHAIN (*valp);
+	    }
+	  free ((void *)istr.text);
+	}
     }
   else
     {

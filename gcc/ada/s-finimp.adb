@@ -91,9 +91,9 @@ package body System.Finalization_Implementation is
    --  Given the address (obj) of a tagged object, return a
    --  pointer to the record controller of this object.
 
-   -------------
-   --  Adjust --
-   -------------
+   ------------
+   -- Adjust --
+   ------------
 
    procedure Adjust (Object : in out Record_Controller) is
 
@@ -102,7 +102,7 @@ package body System.Finalization_Implementation is
                     Object.My_Address - Object'Address;
 
       procedure Ptr_Adjust (Ptr : in out Finalizable_Ptr);
-      --  Substract the offset to the pointer
+      --  Subtract the offset to the pointer
 
       procedure Reverse_Adjust (P : Finalizable_Ptr);
       --  Ajust the components in the reverse order in which they are stored

@@ -1,3 +1,38 @@
+2004-07-16  Jeff Law  <law@redhat.com>
+
+	* analyze_brprob: Fix comments.  More consistent output format.
+
+2004-06-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa.doxy: Update for doxygen 1.3.5.
+
+2004-06-14  Andreas Jaeger  <aj@suse.de>
+
+	* gcc_update: boehm-gc/configure.in -> configure.ac.
+
+2004-06-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc_update (boehm-gc/configure): Depend on
+	boehm-gc/configure.ac instead of boehm-gc/configure.in
+
+2004-06-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc_update (libmudflap/configure): Depend on
+	libmudflap/configure.ac instead of libmudflap/configure.in
+
+2004-06-14  Andreas Jaeger  <aj@suse.de>
+
+	* gcc_update: Add libcpp.
+
+2004-06-10  Andreas Jaeger  <aj@suse.de>
+
+	* gcc_update: Add libgfortran.
+
+2004-05-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc_update (libbanshee/configure): Depend on
+	libbanshee/configure.ac instead of libbanshee/configure.in
+
 2004-05-17  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc_update: Remove gcc/f/intdoc.texi and all libf2c files

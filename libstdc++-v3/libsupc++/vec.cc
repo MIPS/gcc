@@ -96,6 +96,9 @@ namespace __cxxabiv1
       {
 	base += padding_size;
 	reinterpret_cast <std::size_t *> (base)[-1] = element_count;
+#ifdef _GLIBCXX_ELTSIZE_IN_COOKIE
+	reinterpret_cast <std::size_t *> (base)[-2] = element_size;
+#endif
       }
     try
       {
@@ -131,6 +134,9 @@ namespace __cxxabiv1
       {
 	base += padding_size;
 	reinterpret_cast<std::size_t *>(base)[-1] = element_count;
+#ifdef _GLIBCXX_ELTSIZE_IN_COOKIE
+	reinterpret_cast <std::size_t *> (base)[-2] = element_size;
+#endif
       }
     try
       {

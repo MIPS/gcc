@@ -474,3 +474,4 @@ get_loop_level (const struct loop *loop)
     }
   return mx;
 }
+

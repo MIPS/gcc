@@ -1,3 +1,215 @@
+2004-07-11  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/16303
+	* m4/cexp.m4 (carg): Return -pi to pi.
+	* generated/exp_c?.c: Regenerate.
+
+2004-07-08  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR fortran/16291
+	* libgfortran/io/write.c: (write_float): Added length check.
+	Remove pointless memset calls.
+
+2004-07-04  Bud Davis  <bdavis9659@comcast.net>
+	    Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15472
+	* io/transfer.c(us_write): set recl for seq unform writes to max size.
+	* io/transfer.c(data_transfer_init): handle un-opened seq unform unit.
+	* io/unix.c(fd_alloc_w_at): handle requests at start, fd_flush at 
+	right time.
+	* io/unix.c(is_seekable): set based upon the file/device, not the
+	method being used to access it (fd or mmap).
+	* io/unix.c(fd_flush): don't set file_size if !seekable.
+	* io/unix.c(fd_truncate: ditto.
+
+2004-07-04  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15280
+	PR fortran/15665
+	* libgfortran.h (gfc_strlen_type): Define.
+	* intrinsics/args.c (getarg): Rename ...
+	(getarg_i4): ... to this.
+	(getarg_i8, get_command_argument_i4, get_command_argument_i8,
+	get_command_i4, get_command_i8): New functions.
+
+2004-07-04  Matthias Klose  <doko@debian.org>
+
+	* libtool-version: New.
+	* Makefile.am (libgfortran_la_LDFLAGS): Use -version-info for soname.
+	* Makefile.in: Regenerate.
+	* configure.ac: Remove libtool_VERSION macro
+	* configure: Regenerate
+
+2004-06-30  Steve Kargl  <sgk@troutmask.apl.washington.edu>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	* intrinsics/rand.c (rand): Wrap the irand() call from the previous
+	commit in prefix.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	Paul Brook  <paul@codesourcery.com>
+
+	* runtime/normalize.c (normalize_r4_i4, normalize_r8_i8): Fix
+	comments.
+	* intrinsics/rand.c (rand): Call irand() in call to normalize_r4_i4.
+
+2004-06-27  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/12839
+	* io/write.c (write_float): check signbit for Infinity.
+
+2004-06-26  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/16196
+	* unix.c(regular_file): create file if it does not exist.
+
+2004-06-24  Andrew Pinski  <apinski@apple.com>
+
+	* configure.ac: Remove check for libmx.
+	* configure: Regenerate.
+
+2004-06-22  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	PR fortran/15750
+	* inquire.c (st_inquire): Add comment
+	* io.h (st_parameter): Add iolength.
+	(st_iolength, st_iolength_done): Declare.
+	* transfer.c (iolength_transfer, iolength_transfer_init,
+	st_iolength, st_iolength_done): New functions.
+
+2004-06-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* etime.c (etime_sub): Remove array rank check;
+	Add check for sufficient space.
+
+2004-06-19  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/16080
+	* io/list_read.c(set_value): fixed spelling.
+
+2004-06-19  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/16080
+	* io/list_read.c(set_value): don't copy if the string is null.
+
+2004-06-14  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/15292
+	* intrinsics/c99_functions.c: Use fpclassify if it exists.
+
+2004-06-13  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.am (gfor_helper_src): Add runtime/normalize.f90.
+	* configure.ac: Add checks for nextafter and nextafterf.
+	* Makefile.in, config.h.in, configure: Regenerate.
+	* libgfortran.h (normalize_r4_i4, normalize_r8_i8): Declare.
+	* intrinsics/rand.c (rand): Use normalize_r4_i4.
+	* intrinsics/random.c (random_r4): Use normalize_r4_i4.
+	(random_r8): Use normalize_r8_i8.
+	* runtime/normalize.c: New file.
+
+2004-06-13  Steven G. Kargl  <kargls@comcast.net>
+	    Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* random.c: Fix several spelling and formatting mistakes in 
+	comments.
+	(random_r8): Fix loop to make random numbers range in [0,1(.
+	
+
+2004-06-13  Steven G. Kargl  <kargls@comcast.net>
+
+	* random.c (random_r4): Burn a random number.
+	(random_r8): fix infinite loop.
+	
+2004-06-12  Bud Davis  <bdavis9659@comcast.net>
+      Steve Kargl  <sgk@troutmask.apl.washington.edu>
+
+	PR gfortran/15292
+	* intrinsics/c99_functions.c: New file.
+	* Makefile.am: Add new file.
+	* configure.ac: Added test for round/roundf.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* configure.h.in: Regenerate.
+
+2004-06-12  Steven G. Kargl  <kargls@comcast.net>
+
+	* Makefile.am: Add rand.c and etime.c
+	* Makefile.in: Regenerated.
+	* aclocal.in: Regenerated.
+	* cpu_time.c (second_sub, second): New functions.
+	* rand.c (irand, rand, srand): New file.
+	* etime.c (etime_sub, etime): New file.
+
+2004-06-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	PR fortran/14923
+	* intrinsics/date_and_time.c: New file.
+	* Makefile.am (gfor_helper_src): Add intrinsics/date_and_time.c.
+	* Makefile.in, aclocal.m4: Regenerate.
+	* libgfortran.h: Prototype date_and_time().
+
+2004-06-12  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15665
+	* intrinsics/args.c: Implement GETARG and IARGC.
+	* Makefile.am: Add it.
+	* Makefile.in: Regenerate.
+
+2004-06-12  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/12839
+	* io/write.c(write_float): Format inf and nan IAW F2003.
+
+2004-06-09  Bud Davis  <bdavis9659@comcaste.net>
+
+	PR gfortran/14897
+	* io/transfer.c (formatted_transfer): position is unique
+         for T and TL edit descriptors.
+	(data_transfer_init): set record length to size of internal
+         file.
+
+2004-06-09  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/15755
+	* io/backspace.c(st_backspace): call correct routine for
+	formatted and un-formatted units.
+
+2004-05-30  Andreas Jaeger  <aj@suse.de>, Steven Bosscher <stevenb@suse.de>
+
+	PR gfortran/11800
+	* Makefile.am (AM_CPPFLAGS): Renamed from INCLUDES.
+	(lib_LTLIBRARIES): Rename to ...
+	(toolexeclib_LTLIBRARIES): this for multilib support.
+	* configure.in: Rename to ...
+	* configure.ac: this.  Update to modern autoconf style, enable
+	multilibs, support --enable-version-specific-runtime-libs.
+	* Makefile.in: Regenerated.
+	* configure: Regenerated.
+	* aclocal.m4: Regenerated.
+
+2004-05-30  Steven G. Kargl  <kargls@comcast.net>
+
+	* libgfortran.h (random_seed): Update prototype.
+	* intrinsics/random.c: Disable old implementation and add new one.
+
+2004-05-30  Andreas Jaeger  <aj@suse.de>
+
+	* intrinsics/random.c: Include unistd.h for close and read
+	prototypes, remove unneeded inclusion of assert.h.
+
+	* intrinsics/abort.c: Include stdlib.h for abort prototype, remove
+	unneeded inclusion of assert.h.
+
+2004-05-27  Tobias Schlueter  <tobias.shclueter@physik.uni-muenchen.de>
+
+	PR fortran/15234
+	* intrinsics/associated.c: Remove enum.
+	(associated): Replace TRUE/FALSE by 1/0.
+
 2004-05-23  Steven G. Kargl  <kargls@comcast.net>
 
 	* random.c (random_seed): Use correct variable.
@@ -190,7 +402,7 @@
 	* io/unix.c (find_file0): Use fd field of struct
 
 2004-04-03  Bud Davis  <bdavis9659@comcast.net>
- 
+
 	PR 14831
 	* io/inquire.c (inquire_via_unit): Changed return string for
 	BLANK=NULL. Use correct variable for ACTION.
@@ -307,7 +519,7 @@
 	* m4/minloc1.m4: Ditto.
 	* m4/ifunction.m4: Set return value for zero sized arrays.
 	* m4/iforeach.m4: Ditto.
-	* m4/all.m4, m4/any.m4, m4/count.m4, m4/maxloc1.m4, m4/minloc1.m4, 
+	* m4/all.m4, m4/any.m4, m4/count.m4, m4/maxloc1.m4, m4/minloc1.m4,
 	m4/mxaval.m4, m4/minval.m4, m4/product.m4, m4/sum.m4: Ditto.
 	* generated/*: Update.
 
@@ -366,7 +578,7 @@
 	* generated/_mod*.f90: New files.
 
 2003-09-20  Kejia Zhao  <kejia_zh@yahoo.com.cn>
- 
+
 	* intrinsics/selected_kind.f90: New file.
 	* Makefile.am: Add it.
 	* Makefile.in: regenerate.
@@ -398,7 +610,7 @@
 	* libgfortran.h (xtoa, itoa): Parameter modified.
 	* io/io.h (namelist_info): Declaration to support namelist I/O
 	(st_parameter): Add namelist related component
-	(ionml, empty_internal_buffer, st_set_nml_var_int, 
+	(ionml, empty_internal_buffer, st_set_nml_var_int,
 	st_set_nml_var_float, st_set_nml_var_char, st_set_nml_var_complex,
 	st_set_nml_var_log): Declaration
 	(set_integer, set_integer): Parameter changed
@@ -410,7 +622,7 @@
 	(next_char): Add detection of End_Of_Line support
 	(convert_integer): Now can process 64 bits interger
 	(read_real): Bug fixed
-	(init_at_eol, find_nml_node, match_namelist_name): Add new functions 
+	(init_at_eol, find_nml_node, match_namelist_name): Add new functions
 	(match_namelist_name): New implemention
 	* io/lock.c (ionml): New global variable
 	(library_end): Free memory in ionml
@@ -420,11 +632,11 @@
 	 features
 	(read_f, read_radix): Input bug fix
 	* io/transfer.c: (sf_seen_eor): New static variable
-	(read_sf): Zeroize base buffer; fix bugs: single read statement can 
+	(read_sf): Zeroize base buffer; fix bugs: single read statement can
 	not get input in mutli line when read from stdin
 	(formatted_transfer): Fix bug of FMT_O, FMT_B, FMT_Z for INTEGER type
 	 request
-	(data_transfer_init): Clear internal buffer for Internel File I/O. 
+	(data_transfer_init): Clear internal buffer for Internel File I/O.
 	Internal File now worked. Detect some error condition for namelist.
 	Some minor bug fix
 	(next_record_w): Internal file and Namelist I/O support.
@@ -443,7 +655,7 @@
 	(write_decimal): New function to output decimal number
 	(otoa, btoa): Better implemention and 64 bits interger support
 	(namelist_write): New function
-	* runtime/error.c (itoa, xtoa): Better implemention and 64 bits 
+	* runtime/error.c (itoa, xtoa): Better implemention and 64 bits
 	interger support
 
 2003-08-15  Arnaud Desitter  <arnaud.desitter@geography.oxford.ac.uk>
@@ -540,7 +752,7 @@
 	* io/list_read.c: Add Separator '\t'.
 	(parse_real, read_real): Accept real values starting with an optional
 	sign follows a decimal point.
- 
+
 2003-06-06  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* Makefile.am: Don't put cmath objects in subdir.
@@ -711,7 +923,7 @@
 2003-02-02  Arnaud Desitter  <arnaud.desitter@geography.oxford.ac.uk>
 
 	* reshape_packed.c, lock.c: Add #include <string.h>.
-	* libgfor.h, format.c, inquire.c, io.h, transfer.c, unix.c, 
+	* libgfor.h, format.c, inquire.c, io.h, transfer.c, unix.c,
 	environ.c, error.c, memory.c, string.c: Add const.
 	* error.c (show_locus): Add void.
 
@@ -767,7 +979,7 @@
 	* Makefile.in: Regenerate.
 	* gfortypes.h: Kill, include everything in...
 	* libgfor.h: ...here.  Include config.h
- 	* fmain.c, intrinsics/ishftc.c, intrinsic/reshape_generic.c,
+	* fmain.c, intrinsics/ishftc.c, intrinsic/reshape_generic.c,
 	intrinsics/reshape_i4.c, intrinsics/reshape_i8.c,
 	intrinsics/reshape_packed.c, intrinsics/size.c,
 	m4/reshape.m4, runtime/main.c, runtime/memory.c: Use macro
@@ -777,7 +989,7 @@
 
 	* io/lock.c (library_end): Propagate library return
 	code.
-	
+
 2003-01-19  Steven Bosscher  <s.bosscher@student.tudelft.nl>
 
 	Port fixes from Andy's tree:

@@ -42,7 +42,7 @@ with Nmake;    use Nmake;
 with Output;   use Output;
 with Opt;      use Opt;
 with Restrict; use Restrict;
-with Rtsfind; use Rtsfind;
+with Rtsfind;  use Rtsfind;
 with Scans;    use Scans;
 with Scn;      use Scn;
 with Sem;      use Sem;
@@ -820,7 +820,7 @@ package body Sem_Util is
    begin
       if Ekind (T) = E_Incomplete_Type then
 
-         --  Ada0Y (AI-50217): If the type is available through a limited
+         --  Ada 2005 (AI-50217): If the type is available through a limited
          --  with_clause, verify that its full view has been analyzed.
 
          if From_With_Type (T)
@@ -1093,7 +1093,9 @@ package body Sem_Util is
          --  the body of an instance, constraint_checks are only warnings.
          --  We also make this a warning if the Warn parameter is set.
 
-         elsif Warn or else (Ada_83 and then Comes_From_Source (N)) then
+         elsif Warn
+           or else (Ada_Version = Ada_83 and then Comes_From_Source (N))
+         then
             Msgl := Msgl + 1;
             Msgc (Msgl) := '?';
             Wmsg := True;
@@ -1674,10 +1676,8 @@ package body Sem_Util is
          --  hides the implicit one,  which is removed from all visibility,
          --  i.e. the entity list of its scope, and homonym chain of its name.
 
-         elsif (Is_Overloadable (E) and then Present (Alias (E)))
+         elsif (Is_Overloadable (E) and then Is_Inherited_Operation (E))
            or else Is_Internal (E)
-           or else (Ekind (E) = E_Enumeration_Literal
-                     and then Is_Derived_Type (Etype (E)))
          then
             declare
                Prev     : Entity_Id;
@@ -2656,12 +2656,17 @@ package body Sem_Util is
       if Nkind (Decl) = N_Subprogram_Body then
          return Decl;
 
+      --  The below comment is bad, because it is possible for
+      --  Nkind (Decl) to be an N_Subprogram_Body_Stub ???
+
       else           --  Nkind (Decl) = N_Subprogram_Declaration
 
          if Present (Corresponding_Body (Decl)) then
             return Unit_Declaration_Node (Corresponding_Body (Decl));
 
-         else        --  imported subprogram.
+         --  Imported subprogram case
+
+         else
             return Empty;
          end if;
       end if;
@@ -2675,6 +2680,55 @@ package body Sem_Util is
    begin
       return Task_Body_Procedure (Declaration_Node (Root_Type (E)));
    end Get_Task_Body_Procedure;
+
+   -----------------------
+   -- Has_Access_Values --
+   -----------------------
+
+   function Has_Access_Values (T : Entity_Id) return Boolean is
+      Typ : constant Entity_Id := Underlying_Type (T);
+
+   begin
+      --  Case of a private type which is not completed yet. This can only
+      --  happen in the case of a generic format type appearing directly, or
+      --  as a component of the type to which this function is being applied
+      --  at the top level. Return False in this case, since we certainly do
+      --  not know that the type contains access types.
+
+      if No (Typ) then
+         return False;
+
+      elsif Is_Access_Type (Typ) then
+         return True;
+
+      elsif Is_Array_Type (Typ) then
+         return Has_Access_Values (Component_Type (Typ));
+
+      elsif Is_Record_Type (Typ) then
+         declare
+            Comp : Entity_Id;
+
+         begin
+            Comp := First_Entity (Typ);
+            while Present (Comp) loop
+               if (Ekind (Comp) = E_Component
+                     or else
+                   Ekind (Comp) = E_Discriminant)
+                 and then Has_Access_Values (Etype (Comp))
+               then
+                  return True;
+               end if;
+
+               Next_Entity (Comp);
+            end loop;
+         end;
+
+         return False;
+
+      else
+         return False;
+      end if;
+   end Has_Access_Values;
 
    ----------------------
    -- Has_Declarations --
@@ -3456,7 +3510,9 @@ package body Sem_Util is
 
             --  Done if no more derivations to check
 
-            elsif T = T1 then
+            elsif T = T1
+              or else T = Etyp
+            then
                return False;
 
             --  Following test catches error cases resulting from prev errors
@@ -3471,11 +3527,7 @@ package body Sem_Util is
                return False;
             end if;
 
-            --  Return if no further entries to check
-
-            if T = Base_Type (T1) or else T = T1 then
-               return False;
-            end if;
+            T := Base_Type (Etyp);
          end loop;
       end if;
 
@@ -3927,7 +3979,9 @@ package body Sem_Util is
                return Attribute_Name (N) = Name_Input;
 
             when N_Selected_Component =>
-               return Is_Object_Reference (Selector_Name (N));
+               return
+                 Is_Object_Reference (Selector_Name (N))
+                   and then Is_Object_Reference (Prefix (N));
 
             when N_Explicit_Dereference =>
                return True;
@@ -4654,9 +4708,9 @@ package body Sem_Util is
       procedure Kill_Current_Values_For_Entity_Chain (E : Entity_Id);
       --  Clear current value for entity E and all entities chained to E
 
-      -------------------------------------------
-      --  Kill_Current_Values_For_Entity_Chain --
-      -------------------------------------------
+      ------------------------------------------
+      -- Kill_Current_Values_For_Entity_Chain --
+      ------------------------------------------
 
       procedure Kill_Current_Values_For_Entity_Chain (E : Entity_Id) is
          Ent : Entity_Id;
@@ -4992,7 +5046,6 @@ package body Sem_Util is
       end if;
 
       Formal := First_Formal (S);
-
       while Present (Formal) loop
 
          --  Match the formals in order. If the corresponding actual
@@ -5040,7 +5093,8 @@ package body Sem_Util is
                              or else
                            (Nkind (Parent (N)) = N_Function_Call
                              or else
-                           Nkind (Parent (N)) = N_Parameter_Association))
+                            Nkind (Parent (N)) = N_Parameter_Association))
+                          and then Ekind (S) /= E_Function
                         then
                            Set_Etype (N, Etype (S));
                         else
@@ -5094,7 +5148,6 @@ package body Sem_Util is
             Actual := First (Actuals);
 
             while Present (Actual) loop
-
                if Nkind (Actual) = N_Parameter_Association
                  and then Actual /= Last
                  and then No (Next_Named_Actual (Actual))
@@ -5361,7 +5414,25 @@ package body Sem_Util is
          if Is_Private_Type (Btype)
            and then not Is_Generic_Type (Btype)
          then
-            return Btype;
+            if Present (Full_View (Btype))
+              and then Is_Record_Type (Full_View (Btype))
+              and then not Is_Frozen (Btype)
+            then
+               --  To indicate that the ancestor depends on a private type,
+               --  the current Btype is sufficient. However, to check for
+               --  circular definition we must recurse on the full view.
+
+               Candidate := Trace_Components (Full_View (Btype), True);
+
+               if Candidate = Any_Type then
+                  return Any_Type;
+               else
+                  return Btype;
+               end if;
+
+            else
+               return Btype;
+            end if;
 
          elsif Is_Array_Type (Btype) then
             return Trace_Components (Component_Type (Btype), True);
@@ -5651,10 +5722,12 @@ package body Sem_Util is
 
    --  A transient scope is required when variable-sized temporaries are
    --  allocated in the primary or secondary stack, or when finalization
-   --  actions must be generated before the next instruction
+   --  actions must be generated before the next instruction.
 
    function Requires_Transient_Scope (Id : Entity_Id) return Boolean is
       Typ : constant Entity_Id := Underlying_Type (Id);
+
+   --  Start of processing for Requires_Transient_Scope
 
    begin
       --  This is a private type which is not completed yet. This can only
@@ -5664,23 +5737,22 @@ package body Sem_Util is
       if No (Typ) then
          return False;
 
+      --  Do not expand transient scope for non-existent procedure return
+
       elsif Typ = Standard_Void_Type then
          return False;
 
-      --  The back-end has trouble allocating variable-size temporaries so
-      --  we generate them in the front-end and need a transient scope to
-      --  reclaim them properly
+      --  Elementary types do not require a transient scope
 
-      elsif not Size_Known_At_Compile_Time (Typ) then
-         return True;
+      elsif Is_Elementary_Type (Typ) then
+         return False;
 
-      --  Unconstrained discriminated records always require a variable
-      --  length temporary, since the length may depend on the variant.
+      --  Generally, indefinite subtypes require a transient scope, since the
+      --  back end cannot generate temporaries, since this is not a valid type
+      --  for declaring an object. It might be possible to relax this in the
+      --  future, e.g. by declaring the maximum possible space for the type.
 
-      elsif Is_Record_Type (Typ)
-        and then Has_Discriminants (Typ)
-        and then not Is_Constrained (Typ)
-      then
+      elsif Is_Indefinite_Subtype (Typ) then
          return True;
 
       --  Functions returning tagged types may dispatch on result so their
@@ -5692,13 +5764,68 @@ package body Sem_Util is
       then
          return True;
 
-      --  Unconstrained array types are returned on the secondary stack
+      --  Record type
+
+      elsif Is_Record_Type (Typ) then
+
+         --  In GCC 2, discriminated records always require a transient
+         --  scope because the back end otherwise tries to allocate a
+         --  variable length temporary for the particular variant.
+
+         if Opt.GCC_Version = 2
+           and then Has_Discriminants (Typ)
+         then
+            return True;
+
+         --  For GCC 3, or for a non-discriminated record in GCC 2, we are
+         --  OK if none of the component types requires a transient scope.
+         --  Note that we already know that this is a definite type (i.e.
+         --  has discriminant defaults if it is a discriminated record).
+
+         else
+            declare
+               Comp : Entity_Id;
+            begin
+               Comp := First_Entity (Typ);
+               while Present (Comp) loop
+                  if Requires_Transient_Scope (Etype (Comp)) then
+                     return True;
+                  else
+                     Next_Entity (Comp);
+                  end if;
+               end loop;
+            end;
+
+            return False;
+         end if;
+
+      --  String literal types never require transient scope
+
+      elsif Ekind (Typ) = E_String_Literal_Subtype then
+         return False;
+
+      --  Array type. Note that we already know that this is a constrained
+      --  array, since unconstrained arrays will fail the indefinite test.
 
       elsif Is_Array_Type (Typ) then
-         return not Is_Constrained (Typ);
-      end if;
 
-      return False;
+         --  If component type requires a transient scope, the array does too
+
+         if Requires_Transient_Scope (Component_Type (Typ)) then
+            return True;
+
+         --  Otherwise, we only need a transient scope if the size is not
+         --  known at compile time.
+
+         else
+            return not Size_Known_At_Compile_Time (Typ);
+         end if;
+
+      --  All other cases do not require a transient scope
+
+      else
+         return False;
+      end if;
    end Requires_Transient_Scope;
 
    --------------------------
@@ -6219,15 +6346,15 @@ package body Sem_Util is
       --  declared at the library level to ensure that names such as
       --  X.all'access don't fail static accessibility checks.
 
-      --  Ada 0Y (AI-230): In case of anonymous access types that are
+      --  Ada 2005 (AI-230): In case of anonymous access types that are
       --  component_definition or discriminants of a nonlimited type,
       --  the level is the same as that of the enclosing component type.
 
       Btyp := Base_Type (Typ);
       if Ekind (Btyp) in Access_Kind then
          if Ekind (Btyp) = E_Anonymous_Access_Type
-           and then not Is_Array_Type (Scope (Btyp))      --  Ada 0Y (AI-230)
-           and then Ekind (Scope (Btyp)) /= E_Record_Type --  Ada 0Y (AI-230)
+           and then not Is_Array_Type (Scope (Btyp))      -- Ada 2005 (AI-230)
+           and then Ekind (Scope (Btyp)) /= E_Record_Type -- Ada 2005 (AI-230)
          then
             return Scope_Depth (Standard_Standard);
          end if;
@@ -6555,7 +6682,7 @@ package body Sem_Util is
                  ("found function name, possibly missing Access attribute!",
                    Expr);
 
-         --  catch common error: a prefix or infix operator which is not
+         --  Catch common error: a prefix or infix operator which is not
          --  directly visible because the type isn't.
 
          elsif Nkind (Expr) in N_Op

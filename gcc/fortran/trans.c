@@ -146,6 +146,16 @@ gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
 {
   tree tmp;
 
+#ifdef ENABLE_CHECKING
+  /* Make sure that the types of the rhs and the lhs are the same
+     for scalar assignments.  We should probably have something
+     similar for aggregates, but right now removing that check just
+     breaks everything.  */
+  if (TREE_TYPE (rhs) != TREE_TYPE (lhs)
+      && !AGGREGATE_TYPE_P (TREE_TYPE (lhs)))
+    abort ();
+#endif
+
   tmp = fold (build_v (MODIFY_EXPR, lhs, rhs));
   gfc_add_expr_to_block (pblock, tmp);
 }
@@ -215,7 +225,10 @@ gfc_finish_block (stmtblock_t * stmtblock)
   tree expr;
   tree block;
 
-  expr = rationalize_compound_expr (stmtblock->head);
+  expr = stmtblock->head;
+  if (!expr)
+    expr = build_empty_stmt ();
+
   stmtblock->head = NULL_TREE;
 
   if (stmtblock->has_scope)
@@ -303,7 +316,7 @@ gfc_build_array_ref (tree base, tree offset)
   if (DECL_P (base))
     TREE_ADDRESSABLE (base) = 1;
 
-  return build (ARRAY_REF, type, base, offset);
+  return build (ARRAY_REF, type, base, offset, NULL_TREE, NULL_TREE);
 }
 
 
@@ -387,10 +400,23 @@ gfc_add_expr_to_block (stmtblock_t * block, tree expr)
   if (expr == NULL_TREE || IS_EMPTY_STMT (expr))
     return;
 
-  expr = fold (expr);
+  if (TREE_CODE (expr) != STATEMENT_LIST)
+    expr = fold (expr);
+
   if (block->head)
-    block->head = build_v (COMPOUND_EXPR, block->head, expr);
+    {
+      if (TREE_CODE (block->head) != STATEMENT_LIST)
+	{
+	  tree tmp;
+
+	  tmp = block->head;
+	  block->head = NULL_TREE;
+	  append_to_statement_list (tmp, &block->head);
+	}
+      append_to_statement_list (expr, &block->head);
+    }
   else
+    /* Don't bother creating a list if we only have a single statement.  */
     block->head = expr;
 }
 
@@ -592,7 +618,11 @@ gfc_trans_code (gfc_code * code)
 
       if (res != NULL_TREE && ! IS_EMPTY_STMT (res))
 	{
-	  annotate_with_locus (res, input_location);
+	  if (TREE_CODE (res) == STATEMENT_LIST)
+	    annotate_all_with_locus (&res, input_location);
+	  else
+	    annotate_with_locus (res, input_location);
+
 	  /* Add the new statemment to the block.  */
 	  gfc_add_expr_to_block (&block, res);
 	}

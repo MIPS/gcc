@@ -190,6 +190,7 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       /* APPLE LOCAL AltiVec */
       struct cpp_callbacks *cb = cpp_get_callbacks (pfile);
 
+      /* Define the AltiVec syntactic elements.  */
       builtin_define ("__ALTIVEC__");
       builtin_define ("__VEC__=10206");
 

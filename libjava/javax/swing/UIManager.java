@@ -1,5 +1,5 @@
 /* UIManager.java -- 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -54,15 +54,22 @@ public class UIManager implements Serializable
   {
     String name, clazz;
 	
-    LookAndFeelInfo(String name, 
-                    String clazz)
+    public LookAndFeelInfo(String name, 
+			   String clazz)
     {
       this.name  = name;
       this.clazz = clazz;
     }
 
-    String getName()      { return name;  }
-    String getClassName() { return clazz; }
+    public String getName()
+    {
+      return name;
+    }
+    
+    public String getClassName()
+    {
+      return clazz;
+    }
   }
 
   private static final long serialVersionUID = -5547433830339189365L;
@@ -178,8 +185,7 @@ public class UIManager implements Serializable
    */
   public static Dimension getDimension(Object key)
   {
-    System.out.println("UIManager.getDim");
-    return new Dimension(200,100);
+    return (Dimension) getLookAndFeel().getDefaults().get(key);
   }
 
   /**
@@ -188,7 +194,7 @@ public class UIManager implements Serializable
    *
    * @param key an Object that specifies the font. Typically,
    *        this is a String such as
-   *        <code>&quot;TitledBorder.font&quot;</code>.
+   *        <code>TitledBorder.font</code>.
    */
   public static Font getFont(Object key)
   {
@@ -247,7 +253,7 @@ public class UIManager implements Serializable
   }
 
   public static ComponentUI getUI(JComponent target)
-    // Returns the L&F object that renders the target component. 
+    // Returns the Look and Feel object that renders the target component. 
   {
     ComponentUI ui = getDefaults().getUI(target);
     //System.out.println("GET-UI-> " + ui + ", for " + target);

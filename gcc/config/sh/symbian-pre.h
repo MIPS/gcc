@@ -27,10 +27,17 @@
 /* Default to using the Renesas ABI.  */
 #define TARGET_ABI_DEFAULT	RENESAS_BIT
 
-#define SUBTARGET_CPP_SPEC ""
+/* Support the __declspec keyword by turning them into attributes.
+   We currently only support: naked, dllimport, and dllexport.
+   Note that the current way we do this may result in a collision with
+   predefined attributes later on.  This can be solved by using one attribute,
+   say __declspec__, and passing args to it.  The problem with that approach
+   is that args are not accumulated: each new appearance would clobber any
+   existing args.  */
+#define SUBTARGET_CPP_SPEC "-D__declspec(x)=__attribute__((x))"
 
 /* Get tree.c to declare merge_dllimport_decl_attributes().  */
-#define TARGET_DLLIMPORT_DECL_ATTRIBUTES 1
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES
 
 /* The Symbian OS currently does not support exception handling.  */
 #define SUBTARGET_CC1PLUS_SPEC "-fno-exceptions"

@@ -838,7 +838,6 @@ attr_copy_rtx (rtx orig)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -2218,7 +2217,6 @@ encode_units_mask (rtx x)
       return attr_rtx (CONST_STRING, attr_printf (MAX_DIGITS, "%d", j));
 
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -4174,7 +4172,6 @@ clear_struct_flag (rtx x)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -4571,9 +4568,14 @@ write_test_expr (rtx exp, int flags)
   switch (code)
     {
     /* Binary operators.  */
+    case GEU: case GTU:
+    case LEU: case LTU:
+      printf ("(unsigned) ");
+      /* Fall through.  */
+
     case EQ: case NE:
-    case GE: case GT: case GEU: case GTU:
-    case LE: case LT: case LEU: case LTU:
+    case GE: case GT:
+    case LE: case LT:
       comparison_operator = 1;
 
     case PLUS:   case MINUS:  case MULT:     case DIV:      case MOD:
@@ -5519,6 +5521,11 @@ write_eligible_delay (const char *kind)
   printf ("\n");
   printf ("  if (slot >= %d)\n", max_slots);
   printf ("    abort ();\n");
+  printf ("\n");
+  /* Allow dbr_schedule to pass labels, etc.  This can happen if try_split
+     converts a compound instruction into a loop.  */
+  printf ("  if (!INSN_P (candidate_insn))\n");
+  printf ("    return 0;\n");
   printf ("\n");
 
   /* If more than one delay type, find out which type the delay insn is.  */

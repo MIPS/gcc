@@ -1,5 +1,6 @@
 /* Main parser.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, 
+   Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -66,7 +67,7 @@ match_word (const char *str, match (*subr) (void), locus * old_locus)
 
   if (m != MATCH_YES)
     {
-      gfc_set_locus (old_locus);
+      gfc_current_locus = *old_locus;
       reject_statement ();
     }
 
@@ -101,7 +102,7 @@ decode_statement (void)
   if (gfc_match_eos () == MATCH_YES)
     return ST_NONE;
 
-  old_locus = *gfc_current_locus ();
+  old_locus = gfc_current_locus;
 
   /* Try matching a data declaration or function declaration. The
       input "REALFUNCTIONA(N)" can mean several things in different
@@ -118,7 +119,7 @@ decode_statement (void)
 	reject_statement ();
 
       gfc_undo_symbols ();
-      gfc_set_locus (&old_locus);
+      gfc_current_locus = old_locus;
     }
 
   /* Match statements whose error messages are meant to be overwritten
@@ -136,7 +137,7 @@ decode_statement (void)
   if (gfc_match_subroutine () == MATCH_YES)
     return ST_SUBROUTINE;
   gfc_undo_symbols ();
-  gfc_set_locus (&old_locus);
+  gfc_current_locus = old_locus;
 
   /* Check for the IF, DO, SELECT, WHERE and FORALL statements, which
      might begin with a block label.  The match functions for these
@@ -146,17 +147,17 @@ decode_statement (void)
   if (gfc_match_if (&st) == MATCH_YES)
     return st;
   gfc_undo_symbols ();
-  gfc_set_locus (&old_locus);
+  gfc_current_locus = old_locus;
 
   if (gfc_match_where (&st) == MATCH_YES)
     return st;
   gfc_undo_symbols ();
-  gfc_set_locus (&old_locus);
+  gfc_current_locus = old_locus;
 
   if (gfc_match_forall (&st) == MATCH_YES)
     return st;
   gfc_undo_symbols ();
-  gfc_set_locus (&old_locus);
+  gfc_current_locus = old_locus;
 
   match (NULL, gfc_match_do, ST_DO);
   match (NULL, gfc_match_select, ST_SELECT_CASE);
@@ -206,7 +207,7 @@ decode_statement (void)
       if (gfc_match_end (&st) == MATCH_YES)
 	return st;
 
-      match ("entry", gfc_match_entry, ST_ENTRY);
+      match ("entry% ", gfc_match_entry, ST_ENTRY);
       match ("equivalence", gfc_match_equivalence, ST_EQUIVALENCE);
       match ("external", gfc_match_external, ST_ATTR_DECL);
       break;
@@ -229,7 +230,7 @@ decode_statement (void)
       break;
 
     case 'm':
-      match ("module% procedure", gfc_match_modproc, ST_MODULE_PROC);
+      match ("module% procedure% ", gfc_match_modproc, ST_MODULE_PROC);
       match ("module", gfc_match_module, ST_MODULE);
       break;
 
@@ -273,7 +274,7 @@ decode_statement (void)
       break;
 
     case 'u':
-      match ("use", gfc_match_use, ST_USE);
+      match ("use% ", gfc_match_use, ST_USE);
       break;
 
     case 'w':
@@ -327,7 +328,7 @@ next_free (void)
 	}
       else
 	{
-	  label_locus = *gfc_current_locus ();
+	  label_locus = gfc_current_locus;
 
 	  if (gfc_statement_label->value == 0)
 	    {
@@ -394,7 +395,7 @@ next_fixed (void)
 	case '8':
 	case '9':
 	  label = label * 10 + c - '0';
-	  label_locus = *gfc_current_locus ();
+	  label_locus = gfc_current_locus;
 	  digit_flag = 1;
 	  break;
 
@@ -440,14 +441,14 @@ next_fixed (void)
 
   do
     {
-      loc = *gfc_current_locus ();
+      loc = gfc_current_locus;
       c = gfc_next_char_literal (0);
     }
   while (gfc_is_whitespace (c));
 
   if (c == '!')
     goto blank_line;
-  gfc_set_locus (&loc);
+  gfc_current_locus = loc;
 
   if (gfc_match_eos () == MATCH_YES)
     goto blank_line;
@@ -550,6 +551,7 @@ push_state (gfc_state_data * p, gfc_compile_state new_state, gfc_symbol * sym)
   p->previous = gfc_state_stack;
   p->sym = sym;
   p->head = p->tail = NULL;
+  p->do_variable = NULL;
 
   gfc_state_stack = p;
 }
@@ -606,7 +608,7 @@ add_statement (void)
   p = gfc_get_code ();
   *p = new_st;
 
-  p->loc = *gfc_current_locus ();
+  p->loc = gfc_current_locus;
 
   if (gfc_state_stack->head == NULL)
     gfc_state_stack->head = p;
@@ -1018,7 +1020,6 @@ accept_statement (gfc_statement st)
       break;
 
     case ST_IMPLICIT:
-      gfc_set_implicit ();
       break;
 
     case ST_FUNCTION:
@@ -1237,7 +1238,7 @@ verify_st_order (st_state * p, gfc_statement st)
     }
 
   /* All is well, record the statement in case we need it next time.  */
-  p->where = *gfc_current_locus ();
+  p->where = gfc_current_locus;
   p->last_statement = st;
   return SUCCESS;
 
@@ -1811,7 +1812,7 @@ parse_if_block (void)
 	    }
 
 	  seen_else = 1;
-	  else_locus = *gfc_current_locus ();
+	  else_locus = gfc_current_locus;
 
 	  d = new_level (gfc_state_stack->head);
 	  d->op = EXEC_IF;
@@ -1911,6 +1912,28 @@ parse_select_block (void)
 }
 
 
+/* Given a symbol, make sure it is not an iteration variable for a DO
+   statement.  This subroutine is called when the symbol is seen in a
+   context that causes it to become redefined.  If the symbol is an
+   iterator, we generate an error message and return nonzero.  */
+
+int 
+gfc_check_do_variable (gfc_symtree *st)
+{
+  gfc_state_data *s;
+
+  for (s=gfc_state_stack; s; s = s->previous)
+    if (s->do_variable == st)
+      {
+	gfc_error_now("Variable '%s' at %C cannot be redefined inside "
+		      "loop beginning at %L", st->name, &s->head->loc);
+	return 1;
+      }
+
+  return 0;
+}
+  
+
 /* Checks to see if the current statement label closes an enddo.
    Returns 0 if not, 1 if closes an ENDDO correctly, or 2 (and issues
    an error) if it incorrectly closes an ENDDO.  */
@@ -1965,13 +1988,21 @@ parse_do_block (void)
   gfc_statement st;
   gfc_code *top;
   gfc_state_data s;
+  gfc_symtree *stree;
 
   s.ext.end_do_label = new_st.label;
+
+  if (new_st.ext.iterator != NULL)
+    stree = new_st.ext.iterator->var->symtree;
+  else
+    stree = NULL;
 
   accept_statement (ST_DO);
 
   top = gfc_state_stack->tail;
   push_state (&s, COMP_DO, gfc_new_block);
+
+  s.do_variable = stree;
 
   top->block = new_level (top);
   top->block->op = EXEC_DO;
@@ -2116,7 +2147,9 @@ gfc_fixup_sibling_symbols (gfc_symbol * sym, gfc_namespace * siblings)
         continue;
 
       old_sym = st->n.sym;
-      if (old_sym->attr.flavor == FL_PROCEDURE && old_sym->ns == ns
+      if ((old_sym->attr.flavor == FL_PROCEDURE
+	   || old_sym->ts.type == BT_UNKNOWN)
+	  && old_sym->ns == ns
           && ! old_sym->attr.contained)
         {
           /* Replace it with the symbol from the parent namespace.  */
@@ -2199,6 +2232,7 @@ parse_contained (int module)
           /* Mark this as a contained function, so it isn't replaced
              by other module functions.  */
           sym->attr.contained = 1;
+	  sym->attr.referenced = 1;
 
           /* Fix up any sibling functions that refer to this one.  */
           gfc_fixup_sibling_symbols (sym, gfc_current_ns);
@@ -2319,12 +2353,79 @@ done:
 }
 
 
+/* Come here to complain about a global symbol already in use as
+   something else.  */
+
+static void
+global_used (gfc_gsymbol *sym, locus *where)
+{
+  const char *name;
+
+  if (where == NULL)
+    where = &gfc_current_locus;
+
+  switch(sym->type)
+    {
+    case GSYM_PROGRAM:
+      name = "PROGRAM";
+      break;
+    case GSYM_FUNCTION:
+      name = "FUNCTION";
+      break;
+    case GSYM_SUBROUTINE:
+      name = "SUBROUTINE";
+      break;
+    case GSYM_COMMON:
+      name = "COMMON";
+      break;
+    case GSYM_BLOCK_DATA:
+      name = "BLOCK DATA";
+      break;
+    case GSYM_MODULE:
+      name = "MODULE";
+      break;
+    default:
+      gfc_internal_error ("gfc_gsymbol_type(): Bad type");
+      name = NULL;
+    }
+
+  gfc_error("Global name '%s' at %L is already being used as a %s at %L",
+           gfc_new_block->name, where, name, &sym->where);
+}
+
+
 /* Parse a block data program unit.  */
 
 static void
 parse_block_data (void)
 {
   gfc_statement st;
+  static locus blank_locus;
+  static int blank_block=0;
+  gfc_gsymbol *s;
+
+  if (gfc_new_block == NULL)
+    {
+      if (blank_block)
+       gfc_error ("Blank BLOCK DATA at %C conflicts with "
+                  "prior BLOCK DATA at %L", &blank_locus);
+      else
+       {
+         blank_block = 1;
+         blank_locus = gfc_current_locus;
+       }
+    }
+  else
+    {
+      s = gfc_get_gsymbol (gfc_new_block->name);
+      if (s->type != GSYM_UNKNOWN)
+       global_used(s, NULL);
+      else
+       {
+         s->type = GSYM_BLOCK_DATA;
+         s->where = gfc_current_locus;
+       }
+    }
 
   st = parse_spec (ST_NONE);
 
@@ -2344,6 +2445,16 @@ static void
 parse_module (void)
 {
   gfc_statement st;
+  gfc_gsymbol *s;
+
+  s = gfc_get_gsymbol (gfc_new_block->name);
+  if (s->type != GSYM_UNKNOWN)
+    global_used(s, NULL);
+  else
+    {
+      s->type = GSYM_MODULE;
+      s->where = gfc_current_locus;
+    }
 
   st = parse_spec (ST_NONE);
 
@@ -2372,6 +2483,46 @@ loop:
 }
 
 
+/* Add a procedure name to the global symbol table.  */
+
+static void
+add_global_procedure (int sub)
+{
+  gfc_gsymbol *s;
+
+  s = gfc_get_gsymbol(gfc_new_block->name);
+
+  if (s->type != GSYM_UNKNOWN)
+    global_used(s, NULL);
+  else
+    {
+      s->type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
+      s->where = gfc_current_locus;
+    }
+}
+
+
+/* Add a program to the global symbol table.  */
+
+static void
+add_global_program (void)
+{
+  gfc_gsymbol *s;
+
+  if (gfc_new_block == NULL)
+    return;
+  s = gfc_get_gsymbol (gfc_new_block->name);
+
+  if (s->type != GSYM_UNKNOWN)
+    global_used(s, NULL);
+  else
+    {
+      s->type = GSYM_PROGRAM;
+      s->where = gfc_current_locus;
+    }
+}
+
+
 /* Top level parser.  */
 
 try
@@ -2386,6 +2537,7 @@ gfc_parse_file (void)
   top.sym = NULL;
   top.previous = NULL;
   top.head = top.tail = NULL;
+  top.do_variable = NULL;
 
   gfc_state_stack = &top;
 
@@ -2411,20 +2563,23 @@ loop:
       if (seen_program)
 	goto duplicate_main;
       seen_program = 1;
-      prog_locus = *gfc_current_locus ();
+      prog_locus = gfc_current_locus;
 
       push_state (&s, COMP_PROGRAM, gfc_new_block);
       accept_statement (st);
+      add_global_program ();
       parse_progunit (ST_NONE);
       break;
 
     case ST_SUBROUTINE:
+      add_global_procedure (1);
       push_state (&s, COMP_SUBROUTINE, gfc_new_block);
       accept_statement (st);
       parse_progunit (ST_NONE);
       break;
 
     case ST_FUNCTION:
+      add_global_procedure (0);
       push_state (&s, COMP_FUNCTION, gfc_new_block);
       accept_statement (st);
       parse_progunit (ST_NONE);
@@ -2449,7 +2604,7 @@ loop:
       if (seen_program)
 	goto duplicate_main;
       seen_program = 1;
-      prog_locus = *gfc_current_locus ();
+      prog_locus = gfc_current_locus;
 
       push_state (&s, COMP_PROGRAM, gfc_new_block);
       parse_progunit (st);

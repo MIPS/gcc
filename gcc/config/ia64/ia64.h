@@ -1319,22 +1319,6 @@ enum reg_class
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
  ia64_function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
 
-/* A C expression that indicates when an argument must be passed by reference.
-   If nonzero for an argument, a copy of that argument is made in memory and a
-   pointer to the argument is passed instead of the argument itself.  The
-   pointer is passed in whatever way is appropriate for passing a pointer to
-   that type.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  ia64_function_arg_pass_by_reference (&CUM, MODE, TYPE, NAMED)
-
-/* Nonzero if we do not know how to pass TYPE solely in registers.  */
-
-#define MUST_PASS_IN_STACK(MODE, TYPE) \
-  ((TYPE) != 0							\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
-       || TREE_ADDRESSABLE (TYPE)))
-
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the type
    `int' suffices and can hold the number of bytes of argument so far.  */
@@ -1401,10 +1385,6 @@ do {									\
 #define FUNCTION_ARG_REGNO_P(REGNO) \
 (((REGNO) >= AR_ARG_FIRST && (REGNO) < (AR_ARG_FIRST + MAX_ARGUMENT_SLOTS)) \
  || ((REGNO) >= FR_ARG_FIRST && (REGNO) < (FR_ARG_FIRST + MAX_ARGUMENT_SLOTS)))
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  ia64_va_arg (valist, type)
 
 /* How Scalar Function Values are Returned */
 
@@ -1556,15 +1536,6 @@ do {									\
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, STATIC_CHAIN) \
   ia64_initialize_trampoline((ADDR), (FNADDR), (STATIC_CHAIN))
-
-/* Implicit Calls to Library Routines */
-
-/* Define this macro if GCC should generate calls to the System V (and ANSI
-   C) library functions `memcpy' and `memset' rather than the BSD functions
-   `bcopy' and `bzero'.  */
-
-#define TARGET_MEM_FUNCTIONS
-
 
 /* Addressing Modes */
 
@@ -2291,8 +2262,7 @@ do {									\
 
 extern int ia64_final_schedule;
 
-#define IA64_UNWIND_INFO	1
-#define IA64_UNWIND_EMIT(f,i)	process_for_unwind_directive (f,i)
+#define TARGET_UNWIND_INFO	1
 
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 15 : INVALID_REGNUM)
 

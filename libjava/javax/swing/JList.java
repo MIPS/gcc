@@ -39,7 +39,9 @@ package javax.swing;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.ComponentOrientation;
 import java.awt.Dimension;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.util.Vector;
 import javax.accessibility.Accessible;
@@ -108,24 +110,24 @@ public class JList extends JComponent implements Accessible, Scrollable
 
   /** 
    * Constant value used in "layoutOrientation" property. This value means
-   * that cells are laid out in multiple columns "newspaper style",
-   * filling horizontally first, then vertically. 
-   */
-  public static int HORIZONTAL_WRAP = 1;
-
-  /** 
-   * Constant value used in "layoutOrientation" property. This value means
    * that cells are laid out in a single vertical column. This is the default. 
    */
-  public static int VERTICAL = 2;
+  public static final int VERTICAL = 0;
 
   /** 
    * Constant value used in "layoutOrientation" property. This value means
    * that cells are laid out in multiple columns "newspaper style", filling
    * vertically first, then horizontally. 
    */
-  public static int VERTICAL_WRAP = 3;
+  public static final int VERTICAL_WRAP = 1;
   
+  /** 
+   * Constant value used in "layoutOrientation" property. This value means
+   * that cells are laid out in multiple columns "newspaper style",
+   * filling horizontally first, then vertically. 
+   */
+  public static final int HORIZONTAL_WRAP = 2;
+
   /** Fired in a PropertyChangeEvent when the "cellRenderer" property changes. */
   public static final String CELL_RENDERER_PROPERTY_CHANGED = "cellRenderer";
 
@@ -532,6 +534,19 @@ public class JList extends JComponent implements Accessible, Scrollable
   }
 
   /**
+   * For each element <code>a[i]</code> of the provided array
+   * <code>a</code>, calls {@link #setSelectedIndex} on <code>a[i]</code>.
+   *
+   * @see #setSelectionMode
+   * @see #selectionModel
+   */
+  public void setSelectedIndices(int [] a)
+  {
+    for (int i = 0; i < a.length; ++i)
+      setSelectedIndex(a[i]);
+  }
+
+  /**
    * Returns the minimum index of an element in the list which is currently
    * selected.
    *
@@ -543,6 +558,78 @@ public class JList extends JComponent implements Accessible, Scrollable
   public int getSelectedIndex()
   {
     return selectionModel.getMinSelectionIndex();
+  }
+
+  /**
+   * Returns <code>true</code> if the model's selection is empty, otherwise
+   * <code>false</code>. 
+   *
+   * @return The return value of {@link ListSelectionModel#isSelectionEmpty}
+   */
+  public boolean isSelectionEmpty()
+  {
+    return selectionModel.isSelectionEmpty();
+  }
+
+  /**
+   * Returns the list index of the upper left or upper right corner of the
+   * {@link #visibleRect} property, depending on the {@link
+   * #componentOrientation} property.
+   *
+   * @return The index of the first visible list cell, or <code>-1</code>
+   * if none is visible.
+   */
+  public int getFirstVisibleIndex()
+  {
+    ComponentOrientation or = getComponentOrientation();
+    Rectangle r = getVisibleRect();
+    if (or == ComponentOrientation.RIGHT_TO_LEFT)
+      r.translate((int) r.getWidth(), 0);
+    return getUI().locationToIndex(this, r.getLocation());      
+  }
+
+  /**
+   * Returns the list index of the lower right or lower left corner of the
+   * {@link #visibleRect} property, depending on the {@link
+   * #componentOrientation} property.
+   *
+   * @return The index of the first visible list cell, or <code>-1</code>
+   * if none is visible.
+   */
+  public int getLastVisibleIndex()
+  {
+    ComponentOrientation or = getComponentOrientation();
+    Rectangle r = getVisibleRect();
+    r.translate(0, (int) r.getHeight());
+    if (or == ComponentOrientation.LEFT_TO_RIGHT)
+      r.translate((int) r.getWidth(), 0);
+    return getUI().locationToIndex(this, r.getLocation());      
+  }
+
+  /**
+   * Returns the indices of values in the {@link #model} property which are
+   * selected.
+   *
+   * @return An array of model indices, each of which is selected according
+   * to the {@link #selection} property
+   */
+  public int[] getSelectedIndices()
+  {
+    int lo, hi, n, i, j;
+    if (selectionModel.isSelectionEmpty())
+      return new int[0];
+    lo = selectionModel.getMinSelectionIndex();
+    hi = selectionModel.getMaxSelectionIndex();
+    n = 0;
+    for (i = lo; i < hi; ++i)
+      if (selectionModel.isSelectedIndex(i))
+        n++;
+    int [] v = new int[n];
+    j = 0;
+    for (i = lo; i < hi; ++i)
+      if (selectionModel.isSelectedIndex(i))
+        v[j++] = i;
+    return v;
   }
 
   /**
@@ -568,6 +655,8 @@ public class JList extends JComponent implements Accessible, Scrollable
    *
    * @return The first selected element, or <code>null</code> if no element
    * is selected.
+   *
+   * @see getSelectedValues
    */
   public Object getSelectedValue()
   {
@@ -575,6 +664,23 @@ public class JList extends JComponent implements Accessible, Scrollable
     if (index == -1)
       return null;
     return getModel().getElementAt(index);
+  }
+
+  /**
+   * Returns all the values in the list's {@link #model} property which
+   * are selected, according to the list's {@link #selectionModel} property.
+   *
+   * @return An array containing all the selected values
+   *
+   * @see getSelectedValue
+   */
+  public Object[] getSelectedValues()
+  {
+    int [] idx = getSelectedIndices();
+    Object [] v = new Object[idx.length];
+    for (int i = 0; i < idx.length; ++i)
+      v[i] = getModel().getElementAt(i);
+    return v;
   }
 
   /**
@@ -620,6 +726,44 @@ public class JList extends JComponent implements Accessible, Scrollable
     Color old = selectionForeground;
     selectionForeground = c;
     firePropertyChange(SELECTION_FOREGROUND_PROPERTY_CHANGED, old, c);
+  }
+
+  /**
+   * Sets the selection to cover only the specified value, if it
+   * exists in the model. 
+   *
+   * @param obj The object to select
+   * @param scroll Whether to scroll the list to make the newly selected
+   * value visible
+   *
+   * @see #ensureIndexIsVisible
+   */
+
+  public void setSelectedValue(Object obj, boolean scroll)
+  {
+    for (int i = 0; i < model.getSize(); ++i)
+      {
+        if (model.getElementAt(i).equals(obj))
+          {
+            setSelectedIndex(i);
+            if (scroll)
+              ensureIndexIsVisible(i);
+            break;
+          }
+      }
+  }
+
+  /**
+   * Scrolls this list to make the specified cell visible. This
+   * only works if the list is contained within a viewport.
+   *
+   * @param i The list index to make visible
+   *
+   * @see JComponent#scrollRectToVisible
+   */
+  public void ensureIndexIsVisible(int i)
+  {
+    scrollRectToVisible(getUI().getCellBounds(this, i, i));
   }
 
   /**
@@ -720,6 +864,8 @@ public class JList extends JComponent implements Accessible, Scrollable
     if (model != null)
       model.addListDataListener(listListener);
     firePropertyChange(MODEL_PROPERTY_CHANGED, old, m);
+    revalidate();
+    repaint();
   }
 
 
@@ -744,6 +890,8 @@ public class JList extends JComponent implements Accessible, Scrollable
     if (selectionModel != null)
       selectionModel.addListSelectionListener(listListener);
     firePropertyChange(SELECTION_MODEL_PROPERTY_CHANGED, old, l);
+    revalidate();
+    repaint();
   }
 
   /**
@@ -842,11 +990,11 @@ public class JList extends JComponent implements Accessible, Scrollable
    * {@link Scrollable} interface, which interacts with {@link
    * ScrollPaneLayout} and {@link Viewport} to define scrollable objects.
    *
-   * @return The preferred size, or <code>null</code>
+   * @return The preferred size
    */
   public Dimension getPreferredScrollableViewportSize()
   {
-    return null;
+    return getPreferredSize();
   }
 
   /**
@@ -875,6 +1023,71 @@ public class JList extends JComponent implements Accessible, Scrollable
   public int getScrollableUnitIncrement(Rectangle visibleRect,
                                         int orientation, int direction)
   {
+    ListUI lui = this.getUI();
+    if (orientation == SwingConstants.VERTICAL)
+      {
+        if (direction > 0)
+          {
+            // Scrolling down
+            Point bottomLeft = new Point(visibleRect.x,
+                                         visibleRect.y + visibleRect.height);
+            int curIdx = lui.locationToIndex(this, bottomLeft);
+            Rectangle curBounds = lui.getCellBounds(this, curIdx, curIdx);
+            if (curBounds.y + curBounds.height == bottomLeft.y)
+              {
+                // we are at the exact bottom of the current cell, so we 
+                // are being asked to scroll to the end of the next one
+                if (curIdx + 1 < model.getSize())
+                  {
+                    // there *is* a next item in the list
+                    Rectangle nxtBounds = lui.getCellBounds(this, curIdx + 1, curIdx + 1);
+                    return nxtBounds.height;
+                  }
+                else
+                  {
+                    // no next item, no advance possible
+                    return 0;
+                  }
+              }
+            else
+              {
+                // we are part way through an existing cell, so we are being
+                // asked to scroll to the bottom of it
+                return (curBounds.y + curBounds.height) - bottomLeft.y;
+              }		      
+          }
+        else
+          {
+            // scrolling up
+            Point topLeft = new Point(visibleRect.x, visibleRect.y);
+            int curIdx = lui.locationToIndex(this, topLeft);
+            Rectangle curBounds = lui.getCellBounds(this, curIdx, curIdx);
+            if (curBounds.y == topLeft.y)
+              {
+                // we are at the exact top of the current cell, so we 
+                // are being asked to scroll to the top of the previous one
+                if (curIdx > 0)
+                  {
+                    // there *is* a previous item in the list
+                    Rectangle nxtBounds = lui.getCellBounds(this, curIdx - 1, curIdx - 1);
+                    return -nxtBounds.height;
+                  }
+                else
+                  {
+                    // no previous item, no advance possible
+                    return 0;
+                  }
+              }
+            else
+              {
+                // we are part way through an existing cell, so we are being
+                // asked to scroll to the top of it
+                return curBounds.y - topLeft.y;
+              }		      
+          }
+      }
+
+    // FIXME: handle horizontal scrolling (also wrapping?)
     return 1;
   }
 
@@ -904,7 +1117,10 @@ public class JList extends JComponent implements Accessible, Scrollable
   public int getScrollableBlockIncrement(Rectangle visibleRect,
                                          int orientation, int direction)
   {
-    return 1;
+      if (orientation == VERTICAL)
+	  return visibleRect.height * direction;
+      else
+	  return visibleRect.width * direction;
   }
 
   /**

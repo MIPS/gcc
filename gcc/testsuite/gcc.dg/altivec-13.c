@@ -1,5 +1,6 @@
 /* { dg-do compile { target powerpc*-*-* } } */
-/* { dg-options "-faltivec" } */
+/* { dg-xfail-if "" { "powerpc-ibm-aix*" } { "-maltivec" } { "" } } */
+/* { dg-options "-maltivec" } */
 /* Author: Ziemowit Laski  <zlaski@apple.com>  */
 
 /* This test case exercises intrinsic/argument combinations that,

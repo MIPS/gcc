@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -423,7 +423,7 @@ gfc_match_null (gfc_expr ** result)
     return MATCH_ERROR;
 
   e = gfc_get_expr ();
-  e->where = *gfc_current_locus ();
+  e->where = gfc_current_locus;
   e->expr_type = EXPR_NULL;
   e->ts.type = BT_UNKNOWN;
 
@@ -459,7 +459,7 @@ variable_decl (void)
   if (m != MATCH_YES)
     goto cleanup;
 
-  var_locus = *gfc_current_locus ();
+  var_locus = gfc_current_locus;
 
   /* Now we could see the optional array spec. or character length.  */
   m = gfc_match_array_spec (&as);
@@ -659,7 +659,7 @@ gfc_match_kind_spec (gfc_typespec * ts)
   m = MATCH_NO;
   e = NULL;
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   if (gfc_match_char ('(') == MATCH_NO)
     return MATCH_NO;
@@ -711,7 +711,7 @@ gfc_match_kind_spec (gfc_typespec * ts)
 
 no_match:
   gfc_free_expr (e);
-  gfc_set_locus (&where);
+  gfc_current_locus = where;
   return m;
 }
 
@@ -874,16 +874,17 @@ done:
    to the matched specification.  This is necessary for FUNCTION and
    IMPLICIT statements.
 
-   If kind_flag is nonzero, then we check for the optional kind
-   specification.  Not doing so is needed for matching an IMPLICIT
+   If implicit_flag is nonzero, then we don't check for the optional 
+   kind specification.  Not doing so is needed for matching an IMPLICIT
    statement correctly.  */
 
-match
-gfc_match_type_spec (gfc_typespec * ts, int kind_flag)
+static match
+match_type_spec (gfc_typespec * ts, int implicit_flag)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
+  int c;
 
   gfc_clear_ts (ts);
 
@@ -897,7 +898,10 @@ gfc_match_type_spec (gfc_typespec * ts, int kind_flag)
   if (gfc_match (" character") == MATCH_YES)
     {
       ts->type = BT_CHARACTER;
-      return match_char_spec (ts);
+      if (implicit_flag == 0)
+	return match_char_spec (ts);
+      else
+	return MATCH_YES;
     }
 
   if (gfc_match (" real") == MATCH_YES)
@@ -959,8 +963,16 @@ gfc_match_type_spec (gfc_typespec * ts, int kind_flag)
 get_kind:
   /* For all types except double, derived and character, look for an
      optional kind specifier.  MATCH_NO is actually OK at this point.  */
-  if (kind_flag == 0)
+  if (implicit_flag == 1)
     return MATCH_YES;
+
+  if (gfc_current_form == FORM_FREE)
+    {
+      c = gfc_peek_char();
+      if (!gfc_is_whitespace(c) && c != '*' && c != '('
+         && c != ':' && c != ',')
+       return MATCH_NO;
+    }
 
   m = gfc_match_kind_spec (ts);
   if (m == MATCH_NO && ts->type != BT_CHARACTER)
@@ -970,6 +982,225 @@ get_kind:
     m = MATCH_YES;		/* No kind specifier found.  */
 
   return m;
+}
+
+
+/* Match an IMPLICIT NONE statement.  Actually, this statement is
+   already matched in parse.c, or we would not end up here in the
+   first place.  So the only thing we need to check, is if there is
+   trailing garbage.  If not, the match is successful.  */
+
+match
+gfc_match_implicit_none (void)
+{
+
+  return (gfc_match_eos () == MATCH_YES) ? MATCH_YES : MATCH_NO;
+}
+
+
+/* Match the letter range(s) of an IMPLICIT statement.  */
+
+static match
+match_implicit_range (void)
+{
+  int c, c1, c2, inner;
+  locus cur_loc;
+
+  cur_loc = gfc_current_locus;
+
+  gfc_gobble_whitespace ();
+  c = gfc_next_char ();
+  if (c != '(')
+    {
+      gfc_error ("Missing character range in IMPLICIT at %C");
+      goto bad;
+    }
+
+  inner = 1;
+  while (inner)
+    {
+      gfc_gobble_whitespace ();
+      c1 = gfc_next_char ();
+      if (!ISALPHA (c1))
+	goto bad;
+
+      gfc_gobble_whitespace ();
+      c = gfc_next_char ();
+
+      switch (c)
+	{
+	case ')':
+	  inner = 0;		/* Fall through */
+
+	case ',':
+	  c2 = c1;
+	  break;
+
+	case '-':
+	  gfc_gobble_whitespace ();
+	  c2 = gfc_next_char ();
+	  if (!ISALPHA (c2))
+	    goto bad;
+
+	  gfc_gobble_whitespace ();
+	  c = gfc_next_char ();
+
+	  if ((c != ',') && (c != ')'))
+	    goto bad;
+	  if (c == ')')
+	    inner = 0;
+
+	  break;
+
+	default:
+	  goto bad;
+	}
+
+      if (c1 > c2)
+	{
+	  gfc_error ("Letters must be in alphabetic order in "
+		     "IMPLICIT statement at %C");
+	  goto bad;
+	}
+
+      /* See if we can add the newly matched range to the pending
+         implicits from this IMPLICIT statement.  We do not check for
+         conflicts with whatever earlier IMPLICIT statements may have
+         set.  This is done when we've successfully finished matching
+         the current one.  */
+      if (gfc_add_new_implicit_range (c1, c2) != SUCCESS)
+	goto bad;
+    }
+
+  return MATCH_YES;
+
+bad:
+  gfc_syntax_error (ST_IMPLICIT);
+
+  gfc_current_locus = cur_loc;
+  return MATCH_ERROR;
+}
+
+
+/* Match an IMPLICIT statement, storing the types for
+   gfc_set_implicit() if the statement is accepted by the parser.
+   There is a strange looking, but legal syntactic construction
+   possible.  It looks like:
+
+     IMPLICIT INTEGER (a-b) (c-d)
+
+   This is legal if "a-b" is a constant expression that happens to
+   equal one of the legal kinds for integers.  The real problem
+   happens with an implicit specification that looks like:
+
+     IMPLICIT INTEGER (a-b)
+
+   In this case, a typespec matcher that is "greedy" (as most of the
+   matchers are) gobbles the character range as a kindspec, leaving
+   nothing left.  We therefore have to go a bit more slowly in the
+   matching process by inhibiting the kindspec checking during
+   typespec matching and checking for a kind later.  */
+
+match
+gfc_match_implicit (void)
+{
+  gfc_typespec ts;
+  locus cur_loc;
+  int c;
+  match m;
+
+  /* We don't allow empty implicit statements.  */
+  if (gfc_match_eos () == MATCH_YES)
+    {
+      gfc_error ("Empty IMPLICIT statement at %C");
+      return MATCH_ERROR;
+    }
+
+  do
+    {
+      /* First cleanup.  */
+      gfc_clear_new_implicit ();
+
+      /* A basic type is mandatory here.  */
+      m = match_type_spec (&ts, 1);
+      if (m == MATCH_ERROR)
+	goto error;
+      if (m == MATCH_NO)
+	goto syntax;
+
+      cur_loc = gfc_current_locus;
+      m = match_implicit_range ();
+
+      if (m == MATCH_YES)
+	{
+	  /* We may have <TYPE> (<RANGE>).  */
+	  gfc_gobble_whitespace ();
+	  c = gfc_next_char ();
+	  if ((c == '\n') || (c == ','))
+	    {
+	      /* Check for CHARACTER with no length parameter.  */
+	      if (ts.type == BT_CHARACTER && !ts.cl)
+		{
+		  ts.kind = gfc_default_character_kind ();
+		  ts.cl = gfc_get_charlen ();
+		  ts.cl->next = gfc_current_ns->cl_list;
+		  gfc_current_ns->cl_list = ts.cl;
+		  ts.cl->length = gfc_int_expr (1);
+		}
+
+	      /* Record the Successful match.  */
+	      if (gfc_merge_new_implicit (&ts) != SUCCESS)
+		return MATCH_ERROR;
+	      continue;
+	    }
+
+	  gfc_current_locus = cur_loc;
+	}
+
+      /* Discard the (incorrectly) matched range.  */
+      gfc_clear_new_implicit ();
+
+      /* Last chance -- check <TYPE> <SELECTOR> (<RANGE>).  */
+      if (ts.type == BT_CHARACTER)
+	m = match_char_spec (&ts);
+      else
+	{
+	  m = gfc_match_kind_spec (&ts);
+	  if (m == MATCH_NO)
+	    {
+	      m = gfc_match_old_kind_spec (&ts);
+	      if (m == MATCH_ERROR)
+		goto error;
+	      if (m == MATCH_NO)
+		goto syntax;
+	    }
+	}
+      if (m == MATCH_ERROR)
+	goto error;
+
+      m = match_implicit_range ();
+      if (m == MATCH_ERROR)
+	goto error;
+      if (m == MATCH_NO)
+	goto syntax;
+
+      gfc_gobble_whitespace ();
+      c = gfc_next_char ();
+      if ((c != '\n') && (c != ','))
+	goto syntax;
+
+      if (gfc_merge_new_implicit (&ts) != SUCCESS)
+	return MATCH_ERROR;
+    }
+  while (c == ',');
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (ST_IMPLICIT);
+
+error:
+  return MATCH_ERROR;
 }
 
 
@@ -1028,7 +1259,7 @@ match_attr_spec (void)
   try t;
 
   gfc_clear_attr (&current_attr);
-  start = *gfc_current_locus ();
+  start = gfc_current_locus;
 
   current_as = NULL;
   colon_seen = 0;
@@ -1044,7 +1275,7 @@ match_attr_spec (void)
 	break;
 
       seen[d]++;
-      seen_at[d] = *gfc_current_locus ();
+      seen_at[d] = gfc_current_locus;
 
       if (d == DECL_DIMENSION)
 	{
@@ -1218,7 +1449,7 @@ match_attr_spec (void)
   return MATCH_YES;
 
 cleanup:
-  gfc_set_locus (&start);
+  gfc_current_locus = start;
   gfc_free_array_spec (current_as);
   current_as = NULL;
   return m;
@@ -1233,7 +1464,7 @@ gfc_match_data_decl (void)
   gfc_symbol *sym;
   match m;
 
-  m = gfc_match_type_spec (&current_ts, 1);
+  m = match_type_spec (&current_ts, 0);
   if (m != MATCH_YES)
     return m;
 
@@ -1323,7 +1554,7 @@ match_prefix (gfc_typespec * ts)
 
 loop:
   if (!seen_type && ts != NULL
-      && gfc_match_type_spec (ts, 1) == MATCH_YES
+      && match_type_spec (ts, 0) == MATCH_YES
       && gfc_match_space () == MATCH_YES)
     {
 
@@ -1558,18 +1789,18 @@ gfc_match_function_decl (void)
 
   gfc_clear_ts (&current_ts);
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
 
   m = match_prefix (&current_ts);
   if (m != MATCH_YES)
     {
-      gfc_set_locus (&old_loc);
+      gfc_current_locus = old_loc;
       return m;
     }
 
   if (gfc_match ("function% %n", name) != MATCH_YES)
     {
-      gfc_set_locus (&old_loc);
+      gfc_current_locus = old_loc;
       return MATCH_NO;
     }
 
@@ -1630,7 +1861,7 @@ gfc_match_function_decl (void)
   return MATCH_YES;
 
 cleanup:
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return m;
 }
 
@@ -1776,6 +2007,22 @@ gfc_match_subroutine (void)
 }
 
 
+/* Return nonzero if we're currenly compiling a contained procedure.  */
+
+static int
+contained_procedure (void)
+{
+  gfc_state_data *s;
+
+  for (s=gfc_state_stack; s; s=s->previous)
+    if ((s->state == COMP_SUBROUTINE || s->state == COMP_FUNCTION)
+       && s->previous != NULL
+       && s->previous->state == COMP_CONTAINS)
+      return 1;
+
+  return 0;
+}
+
 /* Match any of the various end-block statements.  Returns the type of
    END to the caller.  The END INTERFACE, END IF, END DO and END
    SELECT statements cannot be replaced by a single END statement.  */
@@ -1788,9 +2035,10 @@ gfc_match_end (gfc_statement * st)
   locus old_loc;
   const char *block_name;
   const char *target;
+  int eos_ok;
   match m;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
   if (gfc_match ("end") != MATCH_YES)
     return MATCH_NO;
 
@@ -1811,61 +2059,73 @@ gfc_match_end (gfc_statement * st)
     case COMP_PROGRAM:
       *st = ST_END_PROGRAM;
       target = " program";
+      eos_ok = 1;
       break;
 
     case COMP_SUBROUTINE:
       *st = ST_END_SUBROUTINE;
       target = " subroutine";
+      eos_ok = !contained_procedure ();
       break;
 
     case COMP_FUNCTION:
       *st = ST_END_FUNCTION;
       target = " function";
+      eos_ok = !contained_procedure ();
       break;
 
     case COMP_BLOCK_DATA:
       *st = ST_END_BLOCK_DATA;
       target = " block data";
+      eos_ok = 1;
       break;
 
     case COMP_MODULE:
       *st = ST_END_MODULE;
       target = " module";
+      eos_ok = 1;
       break;
 
     case COMP_INTERFACE:
       *st = ST_END_INTERFACE;
       target = " interface";
+      eos_ok = 0;
       break;
 
     case COMP_DERIVED:
       *st = ST_END_TYPE;
       target = " type";
+      eos_ok = 0;
       break;
 
     case COMP_IF:
       *st = ST_ENDIF;
       target = " if";
+      eos_ok = 0;
       break;
 
     case COMP_DO:
       *st = ST_ENDDO;
       target = " do";
+      eos_ok = 0;
       break;
 
     case COMP_SELECT:
       *st = ST_END_SELECT;
       target = " select";
+      eos_ok = 0;
       break;
 
     case COMP_FORALL:
       *st = ST_END_FORALL;
       target = " forall";
+      eos_ok = 0;
       break;
 
     case COMP_WHERE:
       *st = ST_END_WHERE;
       target = " where";
+      eos_ok = 0;
       break;
 
     default:
@@ -1875,12 +2135,9 @@ gfc_match_end (gfc_statement * st)
 
   if (gfc_match_eos () == MATCH_YES)
     {
-
-      if (*st == ST_ENDIF || *st == ST_ENDDO || *st == ST_END_SELECT
-	  || *st == ST_END_INTERFACE || *st == ST_END_FORALL
-	  || *st == ST_END_WHERE)
+      if (!eos_ok)
 	{
-
+	  /* We would have required END [something]  */
 	  gfc_error ("%s statement expected at %C",
 		     gfc_ascii_statement (*st));
 	  goto cleanup;
@@ -1943,7 +2200,7 @@ syntax:
   gfc_syntax_error (*st);
 
 cleanup:
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return MATCH_ERROR;
 }
 
@@ -1971,7 +2228,7 @@ attr_decl1 (void)
   if (find_special (name, &sym))
     return MATCH_ERROR;
 
-  var_locus = *gfc_current_locus ();
+  var_locus = gfc_current_locus;
 
   /* Deal with possible array specification for certain attributes.  */
   if (current_attr.dimension
@@ -2392,6 +2649,8 @@ gfc_match_parameter (void)
 match
 gfc_match_save (void)
 {
+  char n[GFC_MAX_SYMBOL_LEN+1];
+  gfc_common_head *c;
   gfc_symbol *sym;
   match m;
 
@@ -2423,7 +2682,7 @@ gfc_match_save (void)
       switch (m)
 	{
 	case MATCH_YES:
-	  if (gfc_add_save (&sym->attr, gfc_current_locus ()) == FAILURE)
+	  if (gfc_add_save (&sym->attr, &gfc_current_locus) == FAILURE)
 	    return MATCH_ERROR;
 	  goto next_item;
 
@@ -2434,14 +2693,15 @@ gfc_match_save (void)
 	  return MATCH_ERROR;
 	}
 
-      m = gfc_match (" / %s /", &sym);
+      m = gfc_match (" / %n /", &n);
       if (m == MATCH_ERROR)
 	return MATCH_ERROR;
       if (m == MATCH_NO)
 	goto syntax;
 
-      if (gfc_add_saved_common (&sym->attr, NULL) == FAILURE)
-	return MATCH_ERROR;
+      c = gfc_get_common (n, 0);
+      c->saved = 1;
+
       gfc_current_ns->seen_save = 1;
 
     next_item:

@@ -98,7 +98,6 @@ int size_directive_output;
 
 tree last_assemble_variable_decl;
 
-/* APPLE LOCAL begin hot/cold partitioning  */
 /* The following global variable indicates if the section label for the
    "cold" section of code has been output yet to the assembler.  The
    label is useful when running gdb.  This is part of the optimization that
@@ -107,6 +106,7 @@ tree last_assemble_variable_decl;
 
 bool unlikely_section_label_printed = false;
 
+/* APPLE LOCAL begin hot/cold partitioning  */
 /* The following global variable indicates the label name to be put at
    the start of the first cold section within each function, when
    partitioning basic blocks into hot and cold sections.  */
@@ -150,11 +150,11 @@ static void globalize_decl (tree);
 static void maybe_assemble_visibility (tree);
 static int in_named_entry_eq (const void *, const void *);
 static hashval_t in_named_entry_hash (const void *);
+#ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_BSS
 static void asm_output_bss (FILE *, tree, const char *,
 			    unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT);
 #endif
-#ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_ALIGNED_BSS
 static void asm_output_aligned_bss (FILE *, tree, const char *,
 				    unsigned HOST_WIDE_INT, int)
@@ -220,18 +220,17 @@ text_section (void)
   if (in_section != in_text)
     {
       in_section = in_text;
-      /* APPLE LOCAL hot/cold partitioning  */
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
       ASM_OUTPUT_ALIGN (asm_out_file, 2);
     }
 }
 
-/* APPLE LOCAL begin hot/cold partitioning  */
 /* Tell assembler to switch to unlikely-to-be-executed text section.  */
 
 void
 unlikely_text_section (void)
 {
+  /* APPLE LOCAL begin hot/cold partitioning  */
   const char *name;
   int len;
 
@@ -272,8 +271,8 @@ unlikely_text_section (void)
 	  unlikely_section_label_printed = true;
 	}
     }
+  /* APPLE LOCAL end hot/cold partitioning  */
 }
-/* APPLE LOCAL end hot/cold partitioning  */
 
 /* Tell assembler to switch to data section.  */
 
@@ -473,9 +472,9 @@ named_section (tree decl, const char *name, int reloc)
 	     ((strlen (UNLIKELY_EXECUTED_TEXT_SECTION_NAME) + 1) * sizeof (char));
       strcpy (unlikely_text_section_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
     }
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   flags = (* targetm.section_type_flags) (decl, name, reloc);
+  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* Sanity check user variables for flag changes.  Non-user
      section flag changes will abort in named_section_flags.
@@ -583,15 +582,16 @@ asm_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 void
 function_section (tree decl)
 {
-  /* APPLE LOCAL begin hot/cold partitioning  */
   if (scan_ahead_for_unlikely_executed_note (get_insns()))
     unlikely_text_section ();
-  else if (decl != NULL_TREE
-	   && DECL_SECTION_NAME (decl) != NULL_TREE)
-    named_section (decl, (char *) 0, 0);
   else
-    text_section (); 
-  /* APPLE LOCAL end hot/cold partitioning  */
+    {
+      if (decl != NULL_TREE
+	  && DECL_SECTION_NAME (decl) != NULL_TREE)
+	named_section (decl, (char *) 0, 0);
+      else
+	text_section (); 
+    }
 }
 
 /* Switch to section for variable DECL.  RELOC is the same as the
@@ -951,7 +951,7 @@ make_decl_rtl (tree decl, const char *asmspec)
 void
 make_var_volatile (tree var)
 {
-  if (GET_CODE (DECL_RTL (var)) != MEM)
+  if (!MEM_P (DECL_RTL (var)))
     abort ();
 
   MEM_VOLATILE_P (DECL_RTL (var)) = 1;
@@ -1114,7 +1114,7 @@ notice_global_symbol (tree decl)
 	      || (DECL_COMMON (decl)
 		  && (DECL_INITIAL (decl) == 0
 		      || DECL_INITIAL (decl) == error_mark_node))))
-      || GET_CODE (DECL_RTL (decl)) != MEM)
+      || !MEM_P (DECL_RTL (decl)))
     return;
 
   /* We win when global object is found, but it is useful to know about weak
@@ -1216,12 +1216,14 @@ assemble_start_function (tree decl, const char *fnname)
   ASM_OUTPUT_LABEL (asm_out_file, fnname);
 #endif /* ASM_DECLARE_FUNCTION_NAME */
 
+  /* APPLE LOCAL begin hot/cold partitioning */
   if (in_unlikely_text_section ()
       && !unlikely_section_label_printed)
     {
       ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_label);
       unlikely_section_label_printed = true;
     }
+  /* APPLE LOCAL end hot/cold partitioning */
 }
 
 /* Output assembler code associated with defining the size of the
@@ -1252,10 +1254,8 @@ assemble_zeros (unsigned HOST_WIDE_INT size)
 #ifdef ASM_NO_SKIP_IN_TEXT
   /* The `space' pseudo in the text section outputs nop insns rather than 0s,
      so we must output 0s explicitly in the text section.  */
-  /* APPLE LOCAL begin hot/cold partitioning  */
   if ((ASM_NO_SKIP_IN_TEXT && in_text_section ())
       || (ASM_NO_SKIP_IN_TEXT && in_unlikely_text_section ()))
-  /* APPLE LOCAL end hot/cold partitioning  */
     {
       unsigned HOST_WIDE_INT i;
       for (i = 0; i < size; i++)
@@ -1453,7 +1453,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     return;
 
   /* Do nothing for global register variables.  */
-  if (DECL_RTL_SET_P (decl) && GET_CODE (DECL_RTL (decl)) == REG)
+  if (DECL_RTL_SET_P (decl) && REG_P (DECL_RTL (decl)))
     {
       TREE_ASM_WRITTEN (decl) = 1;
       return;
@@ -1642,9 +1642,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   /* APPLE LOCAL end zerofill 20020218 --turly  */
 
   /* dbxout.c needs to know this.  */
-  /* APPLE LOCAL begin hot/cold partitioning  */
   if (in_text_section () || in_unlikely_text_section ())
-  /* APPLE LOCAL end hot/cold partitioning  */
     DECL_IN_TEXT_SECTION (decl) = 1;
 
   /* Output the alignment of this data.  */
@@ -1665,7 +1663,9 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   if (!dont_output_data)
     {
-      if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
+      if (DECL_INITIAL (decl)
+	  && DECL_INITIAL (decl) != error_mark_node
+	  && !initializer_zerop (DECL_INITIAL (decl)))
 	/* Output the actual data.  */
 	output_constant (DECL_INITIAL (decl),
 			 tree_low_cst (DECL_SIZE_UNIT (decl), 1),
@@ -1754,7 +1754,7 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
     {
       rtx rtl = DECL_RTL (decl);
 
-      if (GET_CODE (rtl) == MEM && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
+      if (MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
 	  && !SYMBOL_REF_USED (XEXP (rtl, 0))
 	  && !incorporeal_function_p (decl))
 	{
@@ -2141,7 +2141,7 @@ decode_addr_const (tree exp, struct addr_const *value)
       abort ();
     }
 
-  if (GET_CODE (x) != MEM)
+  if (!MEM_P (x))
     abort ();
   x = XEXP (x, 0);
 
@@ -2540,7 +2540,7 @@ build_constant_desc (tree exp)
     desc->value = copy_constant (exp);
   /* APPLE LOCAL end fwritable strings  */
 
-  /* Propagate marked-ness to copied constant. */
+  /* Propagate marked-ness to copied constant.  */
   if (flag_mudflap && mf_marked_p (exp))
     mf_mark (desc->value);
 
@@ -2624,7 +2624,7 @@ maybe_output_constant_def_contents (struct constant_descriptor_tree *desc,
     /* Already output; don't do it again.  */
     return;
 
-  /* APPLE LOCAL fwritable strings  */
+  /* APPLE LOCAL begin fwritable strings  */
   /* The only constants that cannot safely be deferred, assuming the
      context allows it, are strings under flag_writable_strings.  */
   if (defer && (TREE_CODE (exp) != STRING_CST || !flag_writable_strings))
@@ -3141,7 +3141,7 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc)
     case LABEL_REF:
       tmp = XEXP (x, 0);
       if (INSN_DELETED_P (tmp)
-	  || (GET_CODE (tmp) == NOTE
+	  || (NOTE_P (tmp)
 	      && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_DELETED))
 	{
 	  abort ();
@@ -4156,7 +4156,7 @@ mark_weak (tree decl)
   DECL_WEAK (decl) = 1;
 
   if (DECL_RTL_SET_P (decl)
-      && GET_CODE (DECL_RTL (decl)) == MEM
+      && MEM_P (DECL_RTL (decl))
       && XEXP (DECL_RTL (decl), 0)
       && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
     SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
@@ -4756,7 +4756,11 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       if (DECL_INITIAL (decl) == NULL
-	  || DECL_INITIAL (decl) == error_mark_node)
+	  || DECL_INITIAL (decl) == error_mark_node
+	  || (flag_zero_initialized_in_bss
+	      /* Leave constant zeroes in .rodata so they can be shared.  */
+	      && !TREE_READONLY (decl)
+	      && initializer_zerop (DECL_INITIAL (decl))))
 	ret = SECCAT_BSS;
       else if (! TREE_READONLY (decl)
 	       || TREE_SIDE_EFFECTS (decl)
@@ -4798,7 +4802,11 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
   /* There are no read-only thread-local sections.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
     {
-      if (ret == SECCAT_BSS)
+      /* Note that this would be *just* SECCAT_BSS, except that there's
+	 no concept of a read-only thread-local-data section.  */
+      if (ret == SECCAT_BSS
+	  || (flag_zero_initialized_in_bss
+	      && initializer_zerop (DECL_INITIAL (decl))))
 	ret = SECCAT_TBSS;
       else
 	ret = SECCAT_TDATA;
@@ -5038,7 +5046,7 @@ default_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
   int flags;
 
   /* Careful not to prod global register variables.  */
-  if (GET_CODE (rtl) != MEM)
+  if (!MEM_P (rtl))
     return;
   symbol = XEXP (rtl, 0);
   if (GET_CODE (symbol) != SYMBOL_REF)
@@ -5141,7 +5149,7 @@ default_globalize_label (FILE * stream, const char *name)
 
 /* Default function to output a label for unwind information.  The
    default is to do nothing.  A target that needs nonlocal labels for
-   unwind information must provide its own function to do this. */
+   unwind information must provide its own function to do this.  */
 void
 default_emit_unwind_label (FILE * stream ATTRIBUTE_UNUSED,
 			   tree decl ATTRIBUTE_UNUSED,

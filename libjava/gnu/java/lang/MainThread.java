@@ -39,8 +39,7 @@ exception statement from your version. */
 
 package gnu.java.lang;
 
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
+import java.util.jar.*;
 
 /**
  * MainThread is a Thread which uses the main() method of some class.
@@ -64,7 +63,7 @@ final class MainThread extends Thread
   // Private data.
   private Class klass;
   private String klass_name;
-  private String[] args;
+  private Object args;
   private boolean is_jar;
 
   public MainThread(Class k, String[] args)

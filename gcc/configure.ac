@@ -211,6 +211,12 @@ else
   AC_MSG_RESULT(no)
 fi
 
+# With demangler in GNU ld
+AC_ARG_WITH(demangler-in-ld,
+[  --with-demangler-in-ld  try to use demangler in GNU ld.],
+demangler_in_ld="$with_demangler_in_ld",
+demangler_in_ld=no)
+
 # ----------------------
 # Find default assembler
 # ----------------------
@@ -378,8 +384,8 @@ AC_ARG_ENABLE(checking,
 [  --enable-checking[=LIST]
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
-			  Categories are: misc,tree,rtl,rtlflag,gc,gcac,fold;
-			  default is misc,tree,gc,rtlflag],
+			  Categories are: fold,gc,gcac,misc,rtlflag,rtl,
+			  tree,valgrind; default is gc,misc,rtlflag,tree],
 [ac_checking=
 ac_tree_checking=
 ac_rtl_checking=
@@ -397,13 +403,13 @@ no)	;;
 	for check
 	do
 		case $check in
-		misc)	ac_checking=1 ;;
-		tree)	ac_tree_checking=1 ;;
-		rtlflag)	ac_rtlflag_checking=1 ;;
-		rtl)	ac_rtl_checking=1 ;;
+		fold)	ac_fold_checking=1 ;;
 		gc)	ac_gc_checking=1 ;;
 		gcac)	ac_gc_always_collect=1 ;;
-		fold)	ac_fold_checking=1 ;;
+		misc)	ac_checking=1 ;;
+		rtlflag)	ac_rtlflag_checking=1 ;;
+		rtl)	ac_rtl_checking=1 ;;
+		tree)	ac_tree_checking=1 ;;
 		valgrind)	ac_checking_valgrind=1 ;;
 		*)	AC_MSG_ERROR(unknown check category $check) ;;
 		esac
@@ -425,8 +431,12 @@ if test x$ac_tree_checking != x ; then
   AC_DEFINE(ENABLE_TREE_CHECKING, 1,
 [Define if you want all operations on trees (the basic data
    structure of the front ends) to be checked for dynamic type safety
-   at runtime.  This is moderately expensive.])
+   at runtime.  This is moderately expensive.  The tree browser debugging
+   routines will also be enabled by this option.
+   ])
+  TREEBROWSER=tree-browser.o
 fi
+AC_SUBST(TREEBROWSER)
 if test x$ac_rtl_checking != x ; then
   AC_DEFINE(ENABLE_RTL_CHECKING, 1,
 [Define if you want all operations on RTL (the basic data structure
@@ -509,6 +519,15 @@ fi
 AC_SUBST(valgrind_path_defines)
 AC_SUBST(valgrind_command)
 
+AC_ARG_ENABLE(mapped-location,
+[  --enable-mapped-location   location_t is fileline integer cookie],,
+enable_mapped_location=no)
+
+if test "$enable_mapped_location" = yes ; then
+  AC_DEFINE(USE_MAPPED_LOCATION, 1,
+[Define if location_t is fileline integer cookie.])
+fi
+
 # Enable code coverage collection
 AC_ARG_ENABLE(coverage,
 [  --enable-coverage[=LEVEL]
@@ -542,14 +561,6 @@ if test x$enable_gather_detailed_mem_stats = xyes ; then
   AC_DEFINE(GATHER_STATISTICS, 1,
         [Define to enable detailed memory allocation stats gathering.])
 fi
-
-AC_ARG_ENABLE(tree-browser,
-[  --enable-tree-browser   enable the tree browsing routines for debugging], [],
-[enable_tree_browser=no])
-if test x$enable_tree_browser = xyes ; then
-  TREEBROWSER=tree-browser.o
-fi
-AC_SUBST(TREEBROWSER)
 
 # -------------------------------
 # Miscenalleous configure options
@@ -715,15 +726,28 @@ AC_PROG_MAKE_SET
 
 # Find some useful tools
 AC_PROG_AWK
-# We need awk to run opts.sh (to create options.c and options.h).
+# We need awk to create options.c and options.h.
 # Bail out if it's missing.
 case ${AWK} in
   "") AC_MSG_ERROR([can't build without awk, bailing out]) ;;
 esac
 
-gcc_AC_PROG_LN
 gcc_AC_PROG_LN_S
+ACX_PROG_LN($LN_S)
 AC_PROG_RANLIB
+case "${host}" in
+*-*-darwin*)
+  # By default, the Darwin ranlib will not treat common symbols as
+  # definitions when  building the archive table of contents.  Other 
+  # ranlibs do that; pass an option to the Darwin ranlib that makes
+  # it behave similarly.
+  ranlib_flags="-c" 
+  ;;
+*)
+  ranlib_flags=""
+esac
+AC_SUBST(ranlib_flags)
+     
 gcc_AC_PROG_INSTALL
 
 # APPLE LOCAL Mach time
@@ -784,6 +808,21 @@ else
   AC_CHECK_PROG(BISON, bison, bison, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing bison)
 fi
 
+# NM
+if test x${build} = x${host} && test -f $srcdir/../binutils/nm.c; then
+  NM='$(objdir)/../binutils/nm-new'
+else
+  AC_CHECK_PROG(NM, nm, nm, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing nm)
+fi
+
+# AR
+if test x${build} = x${host} && test -f $srcdir/../binutils/ar.c; then
+  AR='$(objdir)/../binutils/ar'
+else
+  AC_CHECK_PROG(AR, ar, ar, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing ar)
+fi
+
+
 # --------------------
 # Checks for C headers
 # --------------------
@@ -808,7 +847,6 @@ AC_PROG_CPP_WERROR
 
 AC_HEADER_STDC
 AC_HEADER_TIME
-ACX_HEADER_STDBOOL
 ACX_HEADER_STRING
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \
@@ -978,7 +1016,7 @@ CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
 gcc_AC_CHECK_DECLS(getenv atol sbrk abort atof getcwd getwd \
 	strsignal putc_unlocked fputs_unlocked fwrite_unlocked \
         fprintf_unlocked strstr errno snprintf vasprintf \
-	malloc realloc calloc free basename getopt clock, , ,[
+	malloc realloc calloc free basename getopt clock getpagesize, , ,[
 #include "ansidecl.h"
 #include "system.h"])
 
@@ -2440,6 +2478,26 @@ fi
 
 # Target-specific assembler checks.
 
+if test x"$demangler_in_ld" = xyes; then
+  AC_MSG_CHECKING(linker --demangle support)
+  gcc_cv_ld_demangle=no
+  if test $in_tree_ld = yes; then
+    if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 14 -o "$gcc_cv_gld_major_version" -gt 2; then \
+      gcc_cv_ld_demangle=yes
+    fi
+  elif test x$gcc_cv_ld != x -a x"$gnu_ld" = xyes; then
+    # Check if the GNU linker supports --demangle option
+    if $gcc_cv_ld --help 2>/dev/null | grep no-demangle > /dev/null; then
+      gcc_cv_ld_demangle=yes
+    fi
+  fi
+  if test x"$gcc_cv_ld_demangle" = xyes; then
+    AC_DEFINE(HAVE_LD_DEMANGLE, 1,
+[Define if your linker supports --demangle option.])
+  fi
+  AC_MSG_RESULT($gcc_cv_ld_demangle)
+fi
+
 case "$target" in
   # All TARGET_ABI_OSF targets.
   alpha*-*-osf* | alpha*-*-linux* | alpha*-*-*bsd*)
@@ -2534,7 +2592,7 @@ foo:
 	or %g1, %lo(ab) + 12, %g1
 	or %g1, %lo(ab + 12), %g1],
       [if test x$gcc_cv_objdump != x \
-       && %gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
+       && $gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
           | grep ' 82106000 82106000' > /dev/null 2>&1; then
 	 gcc_cv_as_offsetable_lo10=yes
        fi],

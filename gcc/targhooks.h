@@ -35,3 +35,12 @@ extern bool default_skip_vec_args (tree, int, int*);
 /* APPLE LOCAL end Altivec */
 
 extern bool hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS *);
+extern tree default_cxx_guard_type (void);
+extern tree default_cxx_get_cookie_size (tree);
+
+extern bool hook_pass_by_reference_false
+  (CUMULATIVE_ARGS *, enum machine_mode mode, tree, bool);
+extern bool hook_pass_by_reference_must_pass_in_stack
+  (CUMULATIVE_ARGS *, enum machine_mode mode, tree, bool);
+
+extern void default_unwind_emit (FILE *, rtx);

@@ -63,7 +63,7 @@ extern char arm_arch_name[];
 							\
 	/* Add a define for interworking.		\
 	   Needed when building libgcc.a.  */		\
-	if (TARGET_INTERWORK)				\
+	if (arm_cpp_interwork)				\
 	  builtin_define ("__THUMB_INTERWORK__");	\
 							\
 	builtin_assert ("cpu=arm");			\
@@ -76,6 +76,8 @@ extern char arm_arch_name[];
 	  builtin_define ("__XSCALE__");		\
 	if (arm_arch_iwmmxt)				\
 	  builtin_define ("__IWMMXT__");		\
+	if (TARGET_AAPCS_BASED)				\
+	  builtin_define ("__ARM_EABI__");		\
     } while (0)
 
 /* The various ARM cores.  */
@@ -490,6 +492,9 @@ extern int arm_arch3m;
 /* Nonzero if this chip supports the ARM Architecture 4 extensions.  */
 extern int arm_arch4;
 
+/* Nonzero if this chip supports the ARM Architecture 4T extensions.  */
+extern int arm_arch4t;
+
 /* Nonzero if this chip supports the ARM Architecture 5 extensions.  */
 extern int arm_arch5;
 
@@ -523,6 +528,13 @@ extern int arm_tune_xscale;
 /* Nonzero if this chip is an ARM6 or an ARM7.  */
 extern int arm_is_6_or_7;
 
+/* Nonzero if we should define __THUMB_INTERWORK__ in the
+   preprocessor.  
+   XXX This is a bit of a hack, it's intended to help work around
+   problems in GLD which doesn't understand that armv5t code is
+   interworking clean.  */
+extern int arm_cpp_interwork;
+
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT  (ARM_FLAG_APCS_FRAME)
 #endif
@@ -530,9 +542,6 @@ extern int arm_is_6_or_7;
 /* The frame pointer register used in gcc has nothing to do with debugging;
    that is controlled by the APCS-FRAME option.  */
 #define CAN_DEBUG_WITHOUT_FP
-
-#undef  TARGET_MEM_FUNCTIONS
-#define TARGET_MEM_FUNCTIONS 1
 
 #define OVERRIDE_OPTIONS  arm_override_options ()
 
@@ -1322,7 +1331,7 @@ enum reg_class
    : NO_REGS)
 
 #define THUMB_SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X)		\
-  ((CLASS) != LO_REGS				 			\
+  ((CLASS) != LO_REGS && (CLASS) != BASE_REGS				\
    ? ((true_regnum (X) == -1 ? LO_REGS					\
        : (true_regnum (X) + HARD_REGNO_NREGS (0, MODE) > 8) ? LO_REGS	\
        : NO_REGS)) 							\
@@ -1382,14 +1391,13 @@ enum reg_class
 	  HOST_WIDE_INT val = INTVAL (XEXP (X, 1));			   \
 	  HOST_WIDE_INT low, high;					   \
 									   \
-	  if (MODE == DImode || (TARGET_SOFT_FLOAT && TARGET_FPA	   \
-		                 && MODE == DFmode))			   \
+	  if (MODE == DImode || (MODE == DFmode && TARGET_SOFT_FLOAT))	   \
 	    low = ((val & 0xf) ^ 0x8) - 0x8;				   \
 	  else if (TARGET_MAVERICK && TARGET_HARD_FLOAT)		   \
 	    /* Need to be careful, -256 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xff) : -((-val) & 0xff);		   \
 	  else if (MODE == SImode					   \
-		   || (MODE == SFmode && TARGET_SOFT_FLOAT && TARGET_FPA)  \
+		   || (MODE == SFmode && TARGET_SOFT_FLOAT)		   \
 		   || ((MODE == HImode || MODE == QImode) && ! arm_arch4)) \
 	    /* Need to be careful, -4096 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xfff) : -((-val) & 0xfff);		   \
@@ -1692,14 +1700,6 @@ typedef struct
    && (CUM).can_split)						\
    ?   NUM_ARG_REGS - (CUM).nregs : 0)
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  arm_function_arg_pass_by_reference (&CUM, MODE, TYPE, NAMED)
-
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.
@@ -1732,10 +1732,6 @@ typedef struct
    (IN_RANGE ((REGNO), 0, 3)		\
     || (TARGET_IWMMXT_ABI		\
 	&& IN_RANGE ((REGNO), FIRST_IWMMXT_REGNUM, FIRST_IWMMXT_REGNUM + 9)))
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  arm_va_arg (valist, type)
 
 
 /* If your target environment doesn't prefix user functions with an

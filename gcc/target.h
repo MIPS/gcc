@@ -44,11 +44,16 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    to gradually reduce the amount of conditional compilation that is
    scattered throughout GCC.  */
 
+#ifndef GCC_TARGET_H
+#define GCC_TARGET_H
+
 #include "tm.h"
 /* APPLE LOCAL AV if-conversion --dpatel  */
 #include "tree.h"
 /* APPLE LOCAL AV vmul_uch --haifa  */
 #include "tree-flow.h"
+#include "insn-modes.h"
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -81,8 +86,11 @@ struct gcc_target
        target requires such labels.  Second argument is the decl the
        unwind info is associated with, third is a boolean: true if
        this is for exception handling, fourth is a boolean: true if
-       this is only a placeholder for an omitted FDE. */
+       this is only a placeholder for an omitted FDE.  */
     void (* unwind_label) (FILE *, tree, int, int);
+
+    /* Emit any directives required to unwind this instruction.  */
+    void (* unwind_emit) (FILE *, rtx);
 
     /* Output an internal label.  */
     void (* internal_label) (FILE *, const char *, unsigned long);
@@ -232,7 +240,7 @@ struct gcc_target
     rtx (* dfa_post_cycle_insn) (void);
     /* The following member value is a pointer to a function returning value
        which defines how many insns in queue `ready' will we try for
-       multi-pass scheduling.  if the member value is nonzero and the
+       multi-pass scheduling.  If the member value is nonzero and the
        function returns positive value, the DFA based scheduler will make
        multi-pass scheduling for the first cycle.  In other words, we will
        try to choose ready insn which permits to start maximum number of
@@ -257,18 +265,6 @@ struct gcc_target
        the previous insn has been issued and the current processor
        cycle.  */
     int (* dfa_new_cycle) (FILE *, int, rtx, int, int, int *);
-    /* The values of the following members are pointers to functions
-       used to improve the first cycle multipass scheduling by
-       inserting nop insns.  dfa_scheduler_bubble gives a function
-       returning a nop insn with given index.  The indexes start with
-       zero.  The function should return NULL if there are no more nop
-       insns with indexes greater than given index.  To initialize the
-       nop insn the function given by member
-       init_dfa_scheduler_bubbles is used.  The default values of the
-       members result in not inserting nop insns during the multipass
-       scheduling.  */
-    void (* init_dfa_bubbles) (void);
-    rtx (* dfa_bubble) (int);
     /* The following member value is a pointer to a function called
        by the insn scheduler.  It should return true if there exists a
        dependence which is considered costly by the target, between 
@@ -517,6 +513,9 @@ struct gcc_target
   /* APPLE LOCAL end AV if-conversion --dpatel  */
   /* APPLE LOCAL end AV misaligned --haifa  */
 
+  tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
+				 tree *post_p);
+
   /* Validity-checking routines for PCH files, target-specific.
      get_pch_validity returns a pointer to the data to be stored,
      and stores the size in its argument.  pch_valid_p gets the same
@@ -547,6 +546,13 @@ struct gcc_target
     rtx (*struct_value_rtx) (tree fndecl, int incoming);
     bool (*return_in_memory) (tree type, tree fndecl);
     bool (*return_in_msb) (tree type);
+
+    /* Return true if a parameter must be passed by reference.  TYPE may
+       be null if this is a libcall.  CA may be null if this query is
+       from __builtin_va_arg.  */
+    bool (*pass_by_reference) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+			       tree type, bool named_arg);
+
     rtx (*expand_builtin_saveregs) (void);
     /* Returns pretend_argument_size.  */
     void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
@@ -564,7 +570,29 @@ struct gcc_target
     /* APPLE LOCAL begin Altivec */
     bool (*skip_vec_args) (tree, int, int*);
     /* APPLE LOCAL end Altivec */
+
+    /* Return true if type T, mode MODE, may not be passed in registers,
+       but must be passed on the stack.  */
+    /* ??? This predicate should be applied strictly after pass-by-reference.
+       Need audit to verify that this is the case.  */
+    bool (* must_pass_in_stack) (enum machine_mode mode, tree t);
   } calls;
+
+  /* Functions specific to the C++ frontend.  */
+  struct cxx {
+    /* Return the integer type used for guard variables.  */
+    tree (*guard_type) (void);
+    /* Return true if only the low bit of the guard should be tested.  */
+    bool (*guard_mask_bit) (void);
+    /* Returns the size of the array cookie for an array of type.  */
+    tree (*get_cookie_size) (tree);
+    /* Returns true if the element size should be stored in the
+       array cookie.  */
+    bool (*cookie_has_size) (void);
+    /* Allows backends to perform additional processing when
+       deciding if a class should be exported or imported.  */
+    int (*import_export_class) (tree, int);
+  } cxx;
 
   /* Leave the boolean fields at the end.  */
 
@@ -603,7 +631,20 @@ struct gcc_target
   bool cast_expr_as_vector_init;
   /* APPLE LOCAL end AltiVec */
   
+  /* True if #pragma redefine_extname is to be supported.  */
+  bool handle_pragma_redefine_extname;
+
+  /* True if #pragma extern_prefix is to be supported.  */
+  bool handle_pragma_extern_prefix;
+
+  /* True if the RTL prologue and epilogue should be expanded after all
+     passes that modify the instructions (and not merely reorder them)
+     have been run.  */
+  bool late_rtl_prologue_epilogue;
+
   /* Leave the boolean fields at the end.  */
 };
 
 extern struct gcc_target targetm;
+
+#endif /* GCC_TARGET_H */

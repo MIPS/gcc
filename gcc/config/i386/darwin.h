@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
     {                                           \
       builtin_define ("__i386__");              \
       builtin_define ("__LITTLE_ENDIAN__");     \
+      /* APPLE LOCAL remove __MACH__ and __APPLE__, defined in gcc/config/darwin.h */\
       /* APPLE LOCAL constant cfstrings */	\
       SUBTARGET_OS_CPP_BUILTINS ();		\
     }                                           \
@@ -137,6 +138,13 @@ Boston, MA 02111-1307, USA.  */
 /* Define the syntax of pseudo-ops, labels and comments.  */
 
 #define LPREFIX "L"
+
+/* These are used by -fbranch-probabilities */
+#define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
+#define NORMAL_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
+                              "__TEXT,__unlikely,regular,pure_instructions"
+#define SECTION_FORMAT_STRING ".section %s\n\t.align 2\n" 
 
 /* Assembler pseudos to introduce constants of various size.  */
 

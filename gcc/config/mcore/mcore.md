@@ -41,15 +41,17 @@
 ;; calculations and the literal table placement into the assembler,
 ;; where their interactions can be managed in a single place.
 
-; All MCORE instructions are two bytes long.
+;; All MCORE instructions are two bytes long.
 
 (define_attr "length" "" (const_int 2))
 
-;; (define_function_unit {name} {num-units} {n-users} {test}
-;;                       {ready-delay} {issue-delay} [{conflict-list}])
-				      
-
-(define_function_unit "memory" 1 1 (eq_attr "type" "load") 2 0)
+;; Scheduling.  We only model a simple load latency.
+(define_insn_reservation "any_insn" 1
+			 (eq_attr "type" "!load")
+			 "nothing")
+(define_insn_reservation "memory" 2
+			 (eq_attr "type" "load")
+			 "nothing")
 
 ;; -------------------------------------------------------------------------
 ;; Test and bit test
@@ -2844,7 +2846,7 @@
 ;; Block move - adapted from m88k.md
 ;; ------------------------------------------------------------------------
 
-(define_expand "movstrsi"
+(define_expand "movmemsi"
   [(parallel [(set (mem:BLK (match_operand:BLK 0 "" ""))
 		   (mem:BLK (match_operand:BLK 1 "" "")))
 	      (use (match_operand:SI 2 "general_operand" ""))

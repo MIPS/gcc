@@ -1,3 +1,4 @@
+/* APPLE LOCAL file If-conversion for vectorizer */
 /* If-conversion for vectorizer.
    Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by Devang Patel <dpatel@apple.com>
@@ -53,13 +54,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "cfgloop.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
-#include "tree-dg.h"
 #include "target.h"
+
+/* APPLE LOCAL begin MERGE PROBLEM tree-if-conv.c needs rewriting */
+#if (0)
 
 /* local function prototypes */
 static tree tree_if_convert_stmt (tree, tree, block_stmt_iterator *);
@@ -1035,3 +1037,10 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
   return true;
 }
 
+#endif
+bool
+tree_if_conversion (struct loop *loop __attribute__ ((__unused__)), bool for_vectorizer __attribute__ ((__unused__))) {
+  error("calling tree_if_conversion");
+  return false;
+}
+/* APPLE LOCAL END MERGE PROBLEM */

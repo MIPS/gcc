@@ -160,6 +160,8 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
       // e.g. in the inset area.
       if (index != -1 && tabPane.isEnabledAt(index))
 	tabPane.setSelectedIndex(index);
+      tabPane.layout();
+      tabPane.repaint();
     }
   }
 
@@ -223,10 +225,11 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
         {
 	  Component visible = getVisibleComponent();
 	  Insets insets = getContentBorderInsets(tabPane.getTabPlacement());
-	  visible.setBounds(contentRect.x + insets.left,
-	                    contentRect.y + insets.top,
-	                    contentRect.width - insets.left - insets.right,
-	                    contentRect.height - insets.top - insets.bottom);
+	  if (visible != null)
+	    visible.setBounds(contentRect.x + insets.left,
+	                      contentRect.y + insets.top,
+	                      contentRect.width - insets.left - insets.right,
+	                      contentRect.height - insets.top - insets.bottom);
         }
     }
 
@@ -1084,7 +1087,7 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
 
 	  // we want to cover that entire space so that borders that run under
 	  // the tab area don't show up when we move the viewport around.
-	  panel.setBounds(0, 0, w + p.x, h + p.y);
+	  panel.setSize(w + p.x, h + p.y);
         }
       viewport.setViewPosition(findPointForIndex(currentScrollLocation));
     }
@@ -1153,31 +1156,6 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
    */
   private class ScrollingViewport extends JViewport implements UIResource
   {
-    /**
-     * This method is temporary until the viewport layouts are  implemented.
-     * Need it because the flow layout it  currently moves our panel around.
-     *
-     * @param g The graphics object to paint with.
-     */
-    public void paint(Graphics g)
-    {
-      // FIXME: Remove this as well.
-      int tabC = tabPane.getTabCount() - 1;
-      if (tabC + 1 > 0)
-        {
-	  int w = Math.max(rects[tabC].width + rects[tabC].x, tabAreaRect.width);
-	  int h = Math.max(rects[tabC].height, tabAreaRect.height);
-	  Point p = findPointForIndex(currentScrollLocation);
-
-	  // we want to cover that entire space so that borders that run under
-	  // the tab area don't show up when we move the viewport around.
-	  panel.setBounds(0, 0, w + p.x, h + p.y);
-        }
-
-      // FIXME: Remove when ViewportLayout is done.
-      setViewPosition(findPointForIndex(currentScrollLocation));
-      super.paint(g);
-    }
   }
 
   /**
@@ -1510,6 +1488,7 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
     tabPane.setFont(defaults.getFont("TabbedPane.font"));
     tabPane.setForeground(defaults.getColor("TabbedPane.foreground"));
     tabPane.setBackground(defaults.getColor("TabbedPane.background"));
+    tabPane.setOpaque(true);
 
     highlight = defaults.getColor("TabbedPane.highlight");
     lightHighlight = defaults.getColor("TabbedPane.lightHighlight");
@@ -1790,7 +1769,7 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
     // FIXME: Paint little folding corner and jagged edge clipped tab.
     if (icon != null)
       paintIcon(g, tabPlacement, tabIndex, icon, iconRect, isSelected);
-    if (title == null || ! title.equals(""))
+    if (title != null && ! title.equals(""))
       paintText(g, tabPlacement, tabPane.getFont(), fm, tabIndex, title,
                 textRect, isSelected);
   }
@@ -1996,7 +1975,7 @@ public class BasicTabbedPaneUI extends TabbedPaneUI implements SwingConstants
                                 int x, int y, int w, int h, boolean isSelected)
   {
     Color saved = g.getColor();
-
+    
     if (! isSelected || tabPlacement != SwingConstants.TOP)
       {
 	g.setColor(shadow);

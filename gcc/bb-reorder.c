@@ -168,7 +168,6 @@ static bool better_edge_p (basic_block, edge, int, int, int, int, edge);
 static void connect_traces (int, struct trace *);
 static bool copy_bb_p (basic_block, int);
 static int get_uncond_jump_length (void);
-/* APPLE LOCAL begin hot/cold partitioning  */
 static bool push_to_next_round_p (basic_block, int, int, int, gcov_type);
 static void add_unlikely_executed_notes (void);
 static void find_rarely_executed_basic_blocks_and_crossing_edges (edge *, 
@@ -194,12 +193,14 @@ static bool
 push_to_next_round_p (basic_block bb, int round, int number_of_rounds,
 		      int exec_th, gcov_type count_th)
 {
+  /* APPLE LOCAL begin hot/cold partitioning  */
   bool next_round_is_last;
   bool there_exists_another_round;
   bool block_not_hot_enough;
 
   there_exists_another_round = round < number_of_rounds - 1;
 
+  /* APPLE LOCAL hot/cold partitioning */
   next_round_is_last = round + 1 == number_of_rounds - 1;
 
   block_not_hot_enough = (bb->frequency < exec_th 
@@ -216,9 +217,8 @@ push_to_next_round_p (basic_block bb, int round, int number_of_rounds,
     return true;
   else 
     return false;
+  /* APPLE LOCAL end hot/cold partitioning */
 }
-/* APPLE LOCAL end hot/cold partitioning  */
-
 
 /* Find the traces for Software Trace Cache.  Chain each trace through
    RBI()->next.  Store the number of traces to N_TRACES and description of
@@ -228,20 +228,9 @@ static void
 find_traces (int *n_traces, struct trace *traces)
 {
   int i;
+  int number_of_rounds;
   edge e;
   fibheap_t heap;
-  /* APPLE LOCAL begin hot/cold partitioning  */
-  int number_of_rounds;
-  
-  /* Add one extra round of trace collection when partitioning hot/cold
-     basic blocks into separate sections.  The last round is for all the
-     cold blocks (and ONLY the cold blocks).  */
-
-  number_of_rounds = N_ROUNDS - 1;
-  if (flag_reorder_blocks_and_partition)
-    number_of_rounds = N_ROUNDS;
-
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* Add one extra round of trace collection when partitioning hot/cold
      basic blocks into separate sections.  The last round is for all the
@@ -259,7 +248,7 @@ find_traces (int *n_traces, struct trace *traces)
     {
       bbd[e->dest->index].heap = heap;
       bbd[e->dest->index].node = fibheap_insert (heap, bb_to_key (e->dest),
-						 e->dest);
+						    e->dest);
       if (e->dest->frequency > max_entry_frequency)
 	max_entry_frequency = e->dest->frequency;
       if (e->dest->count > max_entry_count)
@@ -279,12 +268,10 @@ find_traces (int *n_traces, struct trace *traces)
       else
 	count_threshold = max_entry_count / 1000 * exec_threshold[i];
 
-      /* APPLE LOCAL begin hot/cold partitioning  */
       find_traces_1_round (REG_BR_PROB_BASE * branch_threshold[i] / 1000,
 			   max_entry_frequency * exec_threshold[i] / 1000,
 			   count_threshold, traces, n_traces, i, &heap,
 			   number_of_rounds);
-      /* APPLE LOCAL end hot/cold partitioning  */
     }
   fibheap_delete (heap);
 
@@ -819,6 +806,7 @@ bb_to_key (basic_block bb)
   int priority = 0;
 
   /* Do not start in probably never executed blocks.  */
+
   if (bb->partition == COLD_PARTITION || probably_never_executed_bb_p (bb))
     return BB_FREQ_MAX;
 
@@ -881,18 +869,6 @@ better_edge_p (basic_block bb, edge e, int prob, int freq, int best_prob,
     is_better_edge = true;
   else
     is_better_edge = false;
-  
-  /* APPLE LOCAL begin hot/cold partitioning  */
-  /* If we are doing hot/cold partitioning, make sure that we always favor
-     non-crossing edges over crossing edges.  */
-
-  if (!is_better_edge
-      && flag_reorder_blocks_and_partition 
-      && cur_best_edge 
-      && cur_best_edge->crossing_edge
-      && !e->crossing_edge)
-    is_better_edge = true;
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   /* If we are doing hot/cold partitioning, make sure that we always favor
      non-crossing edges over crossing edges.  */
@@ -913,15 +889,13 @@ static void
 connect_traces (int n_traces, struct trace *traces)
 {
   int i;
+  int unconnected_hot_trace_count = 0;
+  bool cold_connected = true;
   bool *connected;
+  bool *cold_traces;
   int last_trace;
   int freq_threshold;
   gcov_type count_threshold;
-  /* APPLE LOCAL begin hot/cold partitioning  */
-  int unconnected_hot_trace_count = 0;
-  bool cold_connected = true;
-  bool *cold_traces;
-  /* APPLE LOCAL end hot/cold partitioning  */
 
   freq_threshold = max_entry_frequency * DUPLICATION_THRESHOLD / 1000;
   if (max_entry_count < INT_MAX / 1000)
@@ -1263,7 +1237,6 @@ get_uncond_jump_length (void)
   return length;
 }
 
-/* APPLE LOCAL begin hot/cold partitioning  */
 static void
 add_unlikely_executed_notes (void)
 {
@@ -1284,6 +1257,7 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
 						      int *max_idx)
 {
   basic_block bb;
+  /* APPLE LOCAL hot/cold partitioning */
   bool has_hot_blocks = false;
   edge e;
   int i;
@@ -1295,12 +1269,15 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
       if (probably_never_executed_bb_p (bb))
 	bb->partition = COLD_PARTITION;
       else
+	/* APPLE LOCAL begin hot/cold partitioning */
 	{
 	  bb->partition = HOT_PARTITION;
 	  has_hot_blocks = true;
 	}
+	/* APPLE LOCAL end hot/cold partitioning */
     }
 
+  /* APPLE LOCAL begin hot/cold partitioning */
   /* Since all "hot" basic blocks will eventually be scheduled before all
      cold basic blocks, make *sure* the real function entry block is in
      the hot partition.  */
@@ -1339,6 +1316,7 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
 	  }
 
     }
+  /* APPLE LOCAL end hot/cold partitioning */
   *n_crossing_edges = i;
 }
 
@@ -1358,8 +1336,8 @@ mark_bb_for_unlikely_executed_section (basic_block bb)
   
   for (cur_insn = BB_HEAD (bb); cur_insn != NEXT_INSN (BB_END (bb)); 
        cur_insn = NEXT_INSN (cur_insn))
-    if (GET_CODE (cur_insn) != NOTE
-	&& GET_CODE (cur_insn) != CODE_LABEL)
+    if (!NOTE_P (cur_insn)
+	&& !LABEL_P (cur_insn))
       {
 	insert_insn = cur_insn;
 	break;
@@ -1383,7 +1361,7 @@ mark_bb_for_unlikely_executed_section (basic_block bb)
 
 /* If any destination of a crossing edge does not have a label, add label;
    Convert any fall-through crossing edges (for blocks that do not contain
-   a jump) to unconditional jumps.   */
+   a jump) to unconditional jumps.  */
 
 static void 
 add_labels_and_missing_jumps (edge *crossing_edges, int n_crossing_edges)
@@ -1412,7 +1390,7 @@ add_labels_and_missing_jumps (edge *crossing_edges, int n_crossing_edges)
 	      
  	      if (src && (src != ENTRY_BLOCK_PTR)) 
  		{
-		  if (GET_CODE (BB_END (src)) != JUMP_INSN)
+		  if (!JUMP_P (BB_END (src)))
  		    /* bb just falls through.  */
  		    {
  		      /* make sure there's only one successor */
@@ -1524,7 +1502,7 @@ fix_up_fall_thru_edges (void)
 		      && cur_bb->rbi->next == cond_jump->dest)
  		    {
  		      /* Find label in fall_thru block. We've already added
- 		         any missing labels, so there must be one. */
+ 		         any missing labels, so there must be one.  */
  		      
  		      fall_thru_label = block_label (fall_thru->dest);
 
@@ -1606,16 +1584,16 @@ find_jump_block (basic_block jump_dest)
 	
 	/* Check each predecessor to see if it has a label, and contains
 	   only one executable instruction, which is an unconditional jump.
-	   If so, we can use it.   */
+	   If so, we can use it.  */
 	
-	if (GET_CODE (BB_HEAD (src)) == CODE_LABEL)
+	if (LABEL_P (BB_HEAD (src)))
 	  for (insn = BB_HEAD (src); 
 	       !INSN_P (insn) && insn != NEXT_INSN (BB_END (src));
 	       insn = NEXT_INSN (insn))
 	    {
 	      if (INSN_P (insn)
 		  && insn == BB_END (src)
-		  && GET_CODE (insn) == JUMP_INSN
+		  && JUMP_P (insn)
 		  && !any_condjump_p (insn))
 		{
 		  source_bb = src;
@@ -1815,7 +1793,7 @@ fix_crossing_unconditional_branches (void)
       /* Check to see if bb ends in a crossing (unconditional) jump.  At
          this point, no crossing jumps should be conditional.  */
 
-      if (GET_CODE (last_insn) == JUMP_INSN
+      if (JUMP_P (last_insn)
 	  && succ->crossing_edge)
 	{
 	  rtx label2, table;
@@ -1855,7 +1833,7 @@ fix_crossing_unconditional_branches (void)
 		   cur_insn = NEXT_INSN (cur_insn))
 		{
 		  BLOCK_FOR_INSN (cur_insn) = cur_bb;
-		  if (GET_CODE (cur_insn) == JUMP_INSN)
+		  if (JUMP_P (cur_insn))
 		    jump_insn = cur_insn;
 		}
 	      
@@ -1885,7 +1863,7 @@ add_reg_crossing_jump_notes (void)
   FOR_EACH_BB (bb)
     for (e = bb->succ; e; e = e->succ_next)
       if (e->crossing_edge
-	  && GET_CODE (BB_END (e->src)) == JUMP_INSN)
+	  && JUMP_P (BB_END (e->src)))
 	REG_NOTES (BB_END (e->src)) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP, 
 							 NULL_RTX, 
 						         REG_NOTES (BB_END 
@@ -1937,7 +1915,8 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
      thru dest).  */
   
   fix_up_fall_thru_edges ();
-  
+
+  /* APPLE LOCAL begin hot/cold partitioning */
   /* Only do the parts necessary for writing separate sections if
      the target architecture has the ability to write separate sections
      (i.e. it has named sections).  Otherwise, the hot/cold partitioning
@@ -1947,6 +1926,7 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
 
   if (targetm.have_named_sections)
     {
+  /* APPLE LOCAL end hot/cold partitioning */
       /* If the architecture does not have conditional branches that can
 	 span all of memory, convert crossing conditional branches into
 	 crossing unconditional branches.  */
@@ -1963,14 +1943,14 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
       if (!HAS_LONG_UNCOND_BRANCH)
 	{
 	  fix_crossing_unconditional_branches ();
+	  /* APPLE LOCAL hot/cold partitioning */
 	  reg_scan (get_insns(), max_reg_num (), 1);
+	/* APPLE LOCAL hot/cold partitioning */
 	}
-      
-      add_reg_crossing_jump_notes ();
     }
-}
 
-/* APPLE LOCAL end hot/cold partitioning  */
+  add_reg_crossing_jump_notes ();
+}
 
 /* Reorder basic blocks.  The main entry point to this file.  */
 
@@ -2029,6 +2009,7 @@ reorder_basic_blocks (void)
 
   timevar_pop (TV_REORDER_BLOCKS);
 }
+
 /* This function is the main 'entrance' for the optimization that
    partitions hot and cold basic blocks into separate sections of the
    .o file (to improve performance and cache locality).  Ideally it

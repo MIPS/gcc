@@ -67,7 +67,7 @@ with System.Soft_Links;
 --  Note that we do not use System.Tasking.Initialization directly since
 --  this is a higher level package that we shouldn't depend on. For example
 --  when using the restricted run time, it is replaced by
---  System.Tasking.Restricted.Initialization
+--  System.Tasking.Restricted.Stages.
 
 with System.OS_Primitives;
 --  used for Delay_Modes
@@ -400,7 +400,6 @@ package body System.Task_Primitives.Operations is
 
    procedure Initialize_Lock (L : access RTS_Lock; Level : Lock_Level) is
       pragma Unreferenced (Level);
-
    begin
       InitializeCriticalSection (CRITICAL_SECTION (L.all)'Unrestricted_Access);
    end Initialize_Lock;
@@ -661,7 +660,6 @@ package body System.Task_Primitives.Operations is
 
    procedure Wakeup (T : Task_Id; Reason : System.Tasking.Task_States) is
       pragma Unreferenced (Reason);
-
    begin
       Cond_Signal (T.Common.LL.CV'Access);
    end Wakeup;
@@ -848,28 +846,17 @@ package body System.Task_Primitives.Operations is
       hTask          : HANDLE;
       TaskId         : aliased DWORD;
       pTaskParameter : System.OS_Interface.PVOID;
-      dwStackSize    : DWORD;
       Result         : DWORD;
       Entry_Point    : PTHREAD_START_ROUTINE;
 
    begin
       pTaskParameter := To_Address (T);
 
-      if Stack_Size = Unspecified_Size then
-         dwStackSize := DWORD (Default_Stack_Size);
-
-      elsif Stack_Size < Minimum_Stack_Size then
-         dwStackSize := DWORD (Minimum_Stack_Size);
-
-      else
-         dwStackSize := DWORD (Stack_Size);
-      end if;
-
       Entry_Point := To_PTHREAD_START_ROUTINE (Wrapper);
 
       hTask := CreateThread
          (null,
-          dwStackSize,
+          DWORD (Adjust_Storage_Size (Stack_Size)),
           Entry_Point,
           pTaskParameter,
           DWORD (Create_Suspended),
@@ -961,7 +948,7 @@ package body System.Task_Primitives.Operations is
    ----------------
 
    procedure Abort_Task (T : Task_Id) is
-   pragma Unreferenced (T);
+      pragma Unreferenced (T);
    begin
       null;
    end Abort_Task;
@@ -1055,7 +1042,6 @@ package body System.Task_Primitives.Operations is
 
    function Check_Exit (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
-
    begin
       return True;
    end Check_Exit;
@@ -1066,7 +1052,6 @@ package body System.Task_Primitives.Operations is
 
    function Check_No_Locks (Self_ID : ST.Task_Id) return Boolean is
       pragma Unreferenced (Self_ID);
-
    begin
       return True;
    end Check_No_Locks;

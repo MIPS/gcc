@@ -1,3 +1,24 @@
+/* Lambda matrix interface.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Contributed by Daniel Berlin <dberlin@dberlin.org>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
+
 #ifndef LAMBDA_H
 #define LAMBDA_H
 
@@ -76,6 +97,7 @@ typedef struct
 
 lambda_loopnest lambda_loopnest_new (int, int);
 lambda_loopnest lambda_loopnest_transform (lambda_loopnest, lambda_trans_matrix);
+bool lambda_transform_legal_p (lambda_trans_matrix, int, varray_type, varray_type);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
 #define lambda_loop_new() (lambda_loop) ggc_alloc_cleared (sizeof (struct lambda_loop_s))
@@ -113,10 +135,10 @@ void lambda_matrix_project_to_null (lambda_matrix, int, int, int,
 void print_lambda_matrix (FILE *, lambda_matrix, int, int);
 
 lambda_trans_matrix lambda_trans_matrix_new (int, int);
-bool lambda_trans_matrix_is_nonsingular (lambda_trans_matrix);
-bool lambda_trans_matrix_is_fullrank (lambda_trans_matrix);
+bool lambda_trans_matrix_nonsingular_p (lambda_trans_matrix);
+bool lambda_trans_matrix_fullrank_p (lambda_trans_matrix);
 int lambda_trans_matrix_rank (lambda_trans_matrix);
-lambda_trans_matrix lambda_trans_matrix_base (lambda_trans_matrix);
+lambda_trans_matrix lambda_trans_matrix_basis (lambda_trans_matrix);
 lambda_trans_matrix lambda_trans_matrix_padding (lambda_trans_matrix);
 lambda_trans_matrix lambda_trans_matrix_inverse (lambda_trans_matrix);
 void print_lambda_trans_matrix (FILE *, lambda_trans_matrix);

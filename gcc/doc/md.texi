@@ -2776,10 +2776,11 @@ not use @code{(cc0)}.  Doing so would confuse the optimizer since it
 would no longer be clear which @code{set} operations were comparisons.
 The @samp{cmp@var{m}} patterns should be used instead.
 
-@cindex @code{movstr@var{m}} instruction pattern
-@item @samp{movstr@var{m}}
-Block move instruction.  The addresses of the destination and source
-strings are the first two operands, and both are in mode @code{Pmode}.
+@cindex @code{movmem@var{m}} instruction pattern
+@item @samp{movmem@var{m}}
+Block move instruction.  The destination and source blocks of memory
+are the first two operands, and both are @code{mem:BLK}s with an
+address in mode @code{Pmode}.
 
 The number of bytes to move is the third operand, in mode @var{m}.
 Usually, you specify @code{word_mode} for @var{m}.  However, if you can
@@ -2794,34 +2795,43 @@ destination, in the form of a @code{const_int} rtx.  Thus, if the
 compiler knows that both source and destination are word-aligned,
 it may provide the value 4 for this operand.
 
-Descriptions of multiple @code{movstr@var{m}} patterns can only be
+Descriptions of multiple @code{movmem@var{m}} patterns can only be
 beneficial if the patterns for smaller modes have fewer restrictions
 on their first, second and fourth operands.  Note that the mode @var{m}
-in @code{movstr@var{m}} does not impose any restriction on the mode of
+in @code{movmem@var{m}} does not impose any restriction on the mode of
 individually moved data units in the block.
 
 These patterns need not give special consideration to the possibility
 that the source and destination strings might overlap.
 
-@cindex @code{clrstr@var{m}} instruction pattern
-@item @samp{clrstr@var{m}}
-Block clear instruction.  The addresses of the destination string is the
-first operand, in mode @code{Pmode}.  The number of bytes to clear is
-the second operand, in mode @var{m}.  See @samp{movstr@var{m}} for
-a discussion of the choice of mode.
+@cindex @code{movstr} instruction pattern
+@item @samp{movstr}
+String copy instruction, with @code{stpcpy} semantics.  Operand 0 is
+an output operand in mode @code{Pmode}.  The addresses of the
+destination and source strings are operands 1 and 2, and both are
+@code{mem:BLK}s with addresses in mode @code{Pmode}.  The execution of
+the expansion of this pattern should store in operand 0 the address in
+which the @code{NUL} terminator was stored in the destination string.
+
+@cindex @code{clrmem@var{m}} instruction pattern
+@item @samp{clrmem@var{m}}
+Block clear instruction.  The destination string is the first operand,
+given as a @code{mem:BLK} whose address is in mode @code{Pmode}.  The
+number of bytes to clear is the second operand, in mode @var{m}.  See
+@samp{movmem@var{m}} for a discussion of the choice of mode.
 
 The third operand is the known alignment of the destination, in the form
 of a @code{const_int} rtx.  Thus, if the compiler knows that the
 destination is word-aligned, it may provide the value 4 for this
 operand.
 
-The use for multiple @code{clrstr@var{m}} is as for @code{movstr@var{m}}.
+The use for multiple @code{clrmem@var{m}} is as for @code{movmem@var{m}}.
 
 @cindex @code{cmpstr@var{m}} instruction pattern
 @item @samp{cmpstr@var{m}}
 String compare instruction, with five operands.  Operand 0 is the output;
 it has mode @var{m}.  The remaining four operands are like the operands
-of @samp{movstr@var{m}}.  The two memory blocks specified are compared
+of @samp{movmem@var{m}}.  The two memory blocks specified are compared
 byte by byte in lexicographic order starting at the beginning of each
 string.  The instruction is not allowed to prefetch more than one byte
 at a time since either string may end in the first byte and reading past
@@ -4877,7 +4887,7 @@ specified for an attribute, the following are defined:
 A @samp{#define} is written for the symbol @samp{HAVE_ATTR_@var{name}}.
 
 @item
-An enumeral class is defined for @samp{attr_@var{name}} with
+An enumerated class is defined for @samp{attr_@var{name}} with
 elements of the form @samp{@var{upper-name}_@var{upper-value}} where
 the attribute name and value are first converted to uppercase.
 
@@ -5526,10 +5536,15 @@ instruction scheduler has to have an adequate description of the
 processor parallelism (or @dfn{pipeline description}).  Currently GCC
 provides two alternative ways to describe processor parallelism,
 both described below.  The first method is outlined in the next section;
-it was once the only method provided by GCC, and thus is used in a number
-of exiting ports.  The second, and preferred method, specifies functional
-unit reservations for groups of instructions with the aid of @dfn{regular
-expressions}.  This is called the @dfn{automaton based description}.
+it specifies functional unit reservations for groups of instructions
+with the aid of @dfn{regular expressions}.  This is called the
+@dfn{automaton based description}.  The second method is called the
+@dfn{old pipeline description}.  This method specifies usage of
+function units for classes of insns.  This description is not as
+powerful or accurate as the automaton based description, because it
+is impossible to model instructions that use more than one function
+unit.  The second method is deprecated; new ports should use the
+automaton based description.
 
 The GCC instruction scheduler uses a @dfn{pipeline hazard recognizer} to
 figure out the possibility of the instruction issue by the processor
@@ -5541,20 +5556,6 @@ state automaton (@acronym{DFA}) and therefore faster than one
 generated from the old description.  Furthermore, its speed is not dependent
 on processor complexity.  The instruction issue is possible if there is
 a transition from one automaton state to another one.
-
-You can use either model to describe processor pipeline
-characteristics or even mix them.  You could use the old description
-for some processor submodels and the @acronym{DFA}-based one for other
-processor submodels.
-
-In general, using the automaton based description is preferred.  Its
-model is richer and makes it possible to more accurately describe
-pipeline characteristics of processors, which results in improved
-code quality (although sometimes only marginally).  It will also be
-used as an infrastructure to implement sophisticated and practical
-instruction scheduling which will try many instruction sequences to
-choose the best one.
-
 
 @menu
 * Old pipeline description:: Specifying information for insn scheduling.
@@ -5568,6 +5569,8 @@ choose the best one.
 @subsubsection Specifying Function Units
 @cindex old pipeline description
 @cindex function units, for scheduling
+
+@emph{Note:}The old pipeline description is deprecated.
 
 On most @acronym{RISC} machines, there are instructions whose results
 are not available for a specific number of cycles.  Common cases are
@@ -5678,13 +5681,14 @@ single or double precision, but not both, the following could be specified:
 
 @strong{Note:} The scheduler attempts to avoid function unit conflicts
 and uses all the specifications in the @code{define_function_unit}
-expression.  It has recently come to our attention that these
+expression.  It has recently been discovered that these
 specifications may not allow modeling of some of the newer
 ``superscalar'' processors that have insns using multiple pipelined
 units.  These insns will cause a potential conflict for the second unit
 used during their execution and there is no way of representing that
-conflict.  We welcome any examples of how function unit conflicts work
-in such processors and suggestions for their representation.
+conflict.  Any examples of how function unit conflicts work
+in such processors and suggestions for their representation would be
+welcomed.
 
 @end ifset
 @ifset INTERNALS

@@ -29,7 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    variables.  In that case the created optimization possibilities are likely
    to pay up.
 
-   Additionally in case we detect that it is benefitial to unroll the
+   Additionally in case we detect that it is beneficial to unroll the
    loop completely, we do it right here to expose the optimization
    possibilities to the following passes.  */
 
@@ -49,7 +49,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "ggc.h"
-#include "tree-fold-const.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 #include "params.h"
@@ -99,7 +98,7 @@ estimate_loop_size (struct loop *loop)
 {
   basic_block *body = get_loop_body (loop);
   block_stmt_iterator bsi;
-  unsigned size = 0, i;
+  unsigned size = 1, i;
 
   for (i = 0; i < loop->num_nodes; i++)
     for (bsi = bsi_start (body[i]); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -179,28 +178,21 @@ try_unroll_loop_completely (struct loops *loops, struct loop *loop,
 /* Adds a canonical induction variable to LOOP if suitable.  LOOPS is the loops
    tree.  CREATE_IV is true if we may create a new iv.  COMPLETELY_UNROLL is
    true if we should do complete unrolling even if it may cause the code
-   growth.  */
+   growth.  If TRY_EVAL is true, we try to determine the number of iterations
+   of a loop by direct evaluation.  */
 
 static void
 canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
-				       bool create_iv, bool completely_unroll)
+				       bool create_iv, bool completely_unroll,
+				       bool try_eval)
 {
   edge exit = NULL;
   tree niter;
 
-  /* ??? Why is this needed?  I.e. from where comes the invalid info?  */
-  loop->nb_iterations = NULL;
-
   niter = number_of_iterations_in_loop (loop);
-
   if (TREE_CODE (niter) == INTEGER_CST)
     {
-#ifdef ENABLE_CHECKING
-      tree nit;
-      edge ex;
-#endif
-
-      exit = loop_exit_edge (loop, 0);
+      exit = loop->exit_edges[0];
       if (!just_once_each_iteration_p (loop, exit->src))
 	return;
 
@@ -210,20 +202,12 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
       niter = fold (build (PLUS_EXPR, TREE_TYPE (niter), niter,
 			   convert (TREE_TYPE (niter),
 				    integer_minus_one_node)));
-
-#ifdef ENABLE_CHECKING
-      nit = find_loop_niter_by_eval (loop, &ex);
-
-      if (ex == exit
-	  && TREE_CODE (nit) == INTEGER_CST
-	  && !operand_equal_p (niter, convert (TREE_TYPE (niter), nit), 0))
-	abort ();
-#endif
     }
-  else
+  else if (try_eval)
     niter = find_loop_niter_by_eval (loop, &exit);
 
-  if (TREE_CODE (niter) != INTEGER_CST)
+  if (chrec_contains_undetermined (niter)
+      || TREE_CODE (niter) != INTEGER_CST)
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -248,15 +232,30 @@ canonicalize_induction_variables (struct loops *loops)
 {
   unsigned i;
   struct loop *loop;
-  bool create_ivs = flag_unroll_loops || flag_branch_on_count_reg;
-  bool completely_unroll_loops = flag_unroll_loops;
+  
+  for (i = 1; i < loops->num; i++)
+    {
+      loop = loops->parray[i];
+
+      if (loop)
+	canonicalize_loop_induction_variables (loops, loop, true, false, true);
+    }
+}
+
+/* Unroll LOOPS completely if they iterate just few times.  */
+
+void
+tree_unroll_loops_completely (struct loops *loops)
+{
+  unsigned i;
+  struct loop *loop;
 
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
 
       if (loop)
-	canonicalize_loop_induction_variables (loops, loop, create_ivs,
-					       completely_unroll_loops);
+	canonicalize_loop_induction_variables (loops, loop, false, true,
+					       !flag_ivcanon);
     }
 }

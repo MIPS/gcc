@@ -45,12 +45,6 @@ enum processor_type
   PROCESSOR_8000
 };
 
-/* For -mschedule= option.  */
-extern const char *pa_cpu_string;
-extern enum processor_type pa_cpu;
-
-#define pa_cpu_attr ((enum attr_cpu)pa_cpu)
-
 /* Which architecture to generate code for.  */
 
 enum architecture_type
@@ -65,6 +59,15 @@ struct rtx_def;
 /* For -march= option.  */
 extern const char *pa_arch_string;
 extern enum architecture_type pa_arch;
+
+/* For -mfixed-range= option.  */
+extern const char *pa_fixed_range_string;
+
+/* For -mschedule= option.  */
+extern const char *pa_cpu_string;
+extern enum processor_type pa_cpu;
+
+#define pa_cpu_attr ((enum attr_cpu)pa_cpu)
 
 /* Print subsidiary information on the compiler version in use.  */
 
@@ -306,10 +309,13 @@ extern int target_flags;
 
 #define TARGET_OPTIONS							\
 {									\
-  { "schedule=",		&pa_cpu_string,				\
-    N_("Specify CPU for scheduling purposes"), 0},			\
   { "arch=",			&pa_arch_string,			\
-    N_("Specify architecture for code generation.  Values are 1.0, 1.1, and 2.0.  2.0 requires gas snapshot 19990413 or later."), 0}\
+    N_("Specify PA-RISC architecture for code generation.  "		\
+       "Values are 1.0, 1.1 and 2.0."), 0},				\
+  { "fixed-range=",		&pa_fixed_range_string,			\
+    N_("Specify range of registers to make fixed"), 0},			\
+  { "schedule=",		&pa_cpu_string,				\
+    N_("Specify CPU for scheduling purposes"), 0}			\
 }
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
@@ -500,9 +506,6 @@ do {								\
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 1
 
-/* Generate calls to memcpy, memcmp and memset.  */
-#define TARGET_MEM_FUNCTIONS
-
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
@@ -536,10 +539,10 @@ do {								\
   do {(VAR) = - compute_frame_size (get_frame_size (), 0);} while (0)
 
 /* Base register for access to arguments of the function.  */
-#define ARG_POINTER_REGNUM 3
+#define ARG_POINTER_REGNUM (TARGET_64BIT ? 29 : 3)
 
 /* Register in which static-chain is passed to a function.  */
-#define STATIC_CHAIN_REGNUM 29
+#define STATIC_CHAIN_REGNUM (TARGET_64BIT ? 31 : 29)
 
 /* Register used to address the offset table for position-independent
    data references.  */
@@ -872,19 +875,26 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
   the standard parameter passing conventions on the RS6000.  That's why
   you'll see lots of similar code in rs6000.h.  */
 
+/* If defined, a C expression which determines whether, and in which
+   direction, to pad out an argument with extra space.  */
 #define FUNCTION_ARG_PADDING(MODE, TYPE) function_arg_padding ((MODE), (TYPE))
+
+/* Specify padding for the last element of a block move between registers
+   and memory.
+
+   The 64-bit runtime specifies that objects need to be left justified
+   (i.e., the normal justification for a big endian target).  The 32-bit
+   runtime specifies right justification for objects smaller than 64 bits.
+   We use a DImode register in the parallel for 5 to 7 byte structures
+   so that there is only one element.  This allows the object to be
+   correctly padded.  */
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) (TARGET_64BIT ? upward : downward)
 
 /* Do not expect to understand this without reading it several times.  I'm
    tempted to try and simply it, but I worry about breaking something.  */
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, NAMED)
-
-/* Nonzero if we do not know how to pass TYPE solely in registers.  */
-#define MUST_PASS_IN_STACK(MODE,TYPE) \
-  ((TYPE) != 0							\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
-       || TREE_ADDRESSABLE (TYPE)))
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
@@ -909,27 +919,7 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
     : GET_MODE_SIZE(MODE) <= UNITS_PER_WORD)				\
    ? PARM_BOUNDARY : MAX_PARM_BOUNDARY)
 
-/* In the 32-bit runtime, arguments larger than eight bytes are passed
-   by invisible reference.  As a GCC extension, we also pass anything
-   with a zero or variable size by reference.
-
-   The 64-bit runtime does not describe passing any types by invisible
-   reference.  The internals of GCC can't currently handle passing
-   empty structures, and zero or variable length arrays when they are
-   not passed entirely on the stack or by reference.  Thus, as a GCC
-   extension, we pass these types by reference.  The HP compiler doesn't
-   support these types, so hopefully there shouldn't be any compatibility
-   issues.  This may have to be revisited when HP releases a C99 compiler
-   or updates the ABI.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
-  (TARGET_64BIT								\
-   ? ((TYPE) && int_size_in_bytes (TYPE) <= 0)				\
-   : (((TYPE) && (int_size_in_bytes (TYPE) > 8				\
-		  || int_size_in_bytes (TYPE) <= 0))			\
-      || ((MODE) && GET_MODE_SIZE (MODE) > 8)))
- 
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 		\
-  FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED)
+#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 1
 
 
 extern GTY(()) rtx hppa_compare_op0;
@@ -1143,11 +1133,6 @@ extern int may_call_alloca;
 
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   hppa_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  hppa_va_arg (valist, type)
 
 /* Addressing modes, and classification of registers for them. 
 
@@ -1284,7 +1269,7 @@ extern int may_call_alloca;
 
    `S' is the constant 31.
 
-   `T' is for fp loads and stores.
+   `T' is for floating-point loads and stores.
 
    `U' is the constant 63.  */
 
@@ -1307,17 +1292,20 @@ extern int may_call_alloca;
       (GET_CODE (OP) == MEM						\
        && !IS_LO_SUM_DLT_ADDR_P (XEXP (OP, 0))				\
        && !IS_INDEX_ADDR_P (XEXP (OP, 0))				\
-       /* Using DFmode forces only short displacements			\
-	  to be recognized as valid in reg+d addresses. 		\
-	  However, this is not necessary for PA2.0 since		\
-	  it has long FP loads/stores.					\
+       /* Floating-point loads and stores are used to load		\
+	  integer values as well as floating-point values.		\
+	  They don't have the same set of REG+D address modes		\
+	  as integer loads and stores.  PA 1.x supports only		\
+	  short displacements.  PA 2.0 supports long displacements	\
+	  but the base register needs to be aligned.			\
 									\
-	  FIXME: the ELF32 linker clobbers the LSB of			\
-	  the FP register number in {fldw,fstw} insns.			\
-	  Thus, we only allow long FP loads/stores on			\
-	  TARGET_64BIT.  */						\
-       && memory_address_p ((TARGET_PA_20 && !TARGET_ELF32		\
-			     ? GET_MODE (OP)				\
+	  The checks in GO_IF_LEGITIMATE_ADDRESS for SFmode and		\
+	  DFmode test the validity of an address for use in a		\
+	  floating point load or store.  So, we use SFmode/DFmode	\
+	  to see if the address is valid for a floating-point		\
+	  load/store operation.  */					\
+       && memory_address_p ((GET_MODE_SIZE (GET_MODE (OP)) == 4		\
+			     ? SFmode					\
 			     : DFmode),					\
 			    XEXP (OP, 0)))				\
    : ((C) == 'S' ?							\
@@ -1467,13 +1455,32 @@ extern int may_call_alloca;
       if (base								\
 	  && GET_CODE (index) == CONST_INT				\
 	  && ((INT_14_BITS (index)					\
-	       && (TARGET_SOFT_FLOAT					\
-		   || (TARGET_PA_20					\
-		       && ((MODE == SFmode				\
-			    && (INTVAL (index) % 4) == 0)		\
-			   || (MODE == DFmode				\
-			       && (INTVAL (index) % 8) == 0)))		\
-		   || ((MODE) != SFmode && (MODE) != DFmode)))		\
+	       && (((MODE) != DImode					\
+		    && (MODE) != SFmode					\
+		    && (MODE) != DFmode)				\
+		   /* The base register for DImode loads and stores	\
+		      with long displacements must be aligned because	\
+		      the lower three bits in the displacement are	\
+		      assumed to be zero.  */				\
+		   || ((MODE) == DImode					\
+		       && (!TARGET_64BIT				\
+			   || (INTVAL (index) % 8) == 0))		\
+		   /* Similarly, the base register for SFmode/DFmode	\
+		      loads and stores with long displacements must	\
+		      be aligned.					\
+									\
+		      FIXME: the ELF32 linker clobbers the LSB of	\
+		      the FP register number in PA 2.0 floating-point	\
+		      insns with long displacements.  This is because	\
+		      R_PARISC_DPREL14WR and other relocations like	\
+		      it are not supported.  For now, we reject long	\
+		      displacements on this target.  */			\
+		   || (((MODE) == SFmode || (MODE) == DFmode)		\
+		       && (TARGET_SOFT_FLOAT				\
+			   || (TARGET_PA_20				\
+			       && !TARGET_ELF32				\
+			       && (INTVAL (index)			\
+				   % GET_MODE_SIZE (MODE)) == 0)))))	\
 	       || INT_5_BITS (index)))					\
 	goto ADDR;							\
       if (!TARGET_DISABLE_INDEXING					\
@@ -1588,6 +1595,11 @@ do { 									\
 	newoffset = (offset & ~mask) + mask + 1;			\
       else								\
 	newoffset = offset & ~mask;					\
+									\
+      /* Ensure that long displacements are aligned.  */		\
+      if (!VAL_5_BITS_P (newoffset)					\
+	  && GET_MODE_CLASS (MODE) == MODE_FLOAT)			\
+	newoffset &= ~(GET_MODE_SIZE (MODE) -1);			\
 									\
       if (newoffset != 0 && VAL_14_BITS_P (newoffset))			\
 	{								\
@@ -1996,6 +2008,7 @@ do { 									\
 				       CONST_DOUBLE}},			\
   {"move_dest_operand", {SUBREG, REG, MEM}},				\
   {"move_src_operand", {SUBREG, REG, CONST_INT, MEM}},			\
+  {"prefetch_operand", {MEM}},						\
   {"reg_or_cint_move_operand", {SUBREG, REG, CONST_INT}},		\
   {"pic_label_operand", {LABEL_REF, CONST}},				\
   {"fp_reg_operand", {REG}},						\

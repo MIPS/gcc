@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 /* Pragmas.  */
 
 #define BAD(msgid) do { warning (msgid); return; } while (0)
+/* APPLE LOCAL Macintosh alignment 2002-1-22 --ff */
 #define BAD2(msgid, arg) do { warning (msgid, arg); return; } while (0)
 
 static bool using_frameworks = false;

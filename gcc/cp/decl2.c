@@ -38,7 +38,6 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
-#include "lex.h"
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
@@ -119,32 +118,15 @@ tree static_dtors;
    TYPE_UNQUALIFIED will be an extension.  */
 
 int
-grok_method_quals (tree ctype, tree function, tree quals)
+grok_method_quals (tree ctype, tree function, cp_cv_quals quals)
 {
   tree fntype = TREE_TYPE (function);
   tree raises = TYPE_RAISES_EXCEPTIONS (fntype);
   int type_quals = TYPE_UNQUALIFIED;
-  int dup_quals = TYPE_UNQUALIFIED;
   int this_quals = TYPE_UNQUALIFIED;
 
-  do
-    {
-      int tq = cp_type_qual_from_rid (TREE_VALUE (quals));
-      
-      if ((type_quals | this_quals) & tq)
-	dup_quals |= tq;
-      else if (tq & TYPE_QUAL_RESTRICT)
-        this_quals |= tq;
-      else
-	type_quals |= tq;
-      quals = TREE_CHAIN (quals);
-    } 
-  while (quals);
-
-  if (dup_quals != TYPE_UNQUALIFIED)
-    error ("duplicate type qualifiers in %s declaration",
-	      TREE_CODE (function) == FUNCTION_DECL 
-	      ? "member function" : "type");
+  type_quals = quals & ~TYPE_QUAL_RESTRICT;
+  this_quals = quals & TYPE_QUAL_RESTRICT;
 
   ctype = cp_build_qualified_type (ctype, type_quals);
   fntype = build_method_type_directly (ctype, TREE_TYPE (fntype),
@@ -156,27 +138,6 @@ grok_method_quals (tree ctype, tree function, tree quals)
 
   TREE_TYPE (function) = fntype;
   return this_quals;
-}
-
-/* A subroutine of the parser, to handle a component list.  */
-
-void
-grok_x_components (tree specs)
-{
-  tree t;
-
-  specs = strip_attrs (specs);
-
-  check_tag_decl (specs);
-  t = groktypename (build_tree_list (specs, NULL_TREE)); 
-
-  /* The only case where we need to do anything additional here is an
-     anonymous union field, e.g.: `struct S { union { int i; }; };'.  */
-  if (t == NULL_TREE || !ANON_AGGR_TYPE_P (t))
-    return;
-
-  fixup_anonymous_aggr (t);
-  finish_member_declaration (build_decl (FIELD_DECL, NULL_TREE, t)); 
 }
 
 /* Build a PARM_DECL with NAME and TYPE, and set DECL_ARG_TYPE
@@ -304,10 +265,11 @@ maybe_retrofit_in_chrg (tree fn)
    QUALS are the qualifiers for the this pointer.  */
 
 void
-grokclassfn (tree ctype, tree function, enum overload_flags flags, tree quals)
+grokclassfn (tree ctype, tree function, enum overload_flags flags, 
+	     cp_cv_quals quals)
 {
   tree fn_name = DECL_NAME (function);
-  int this_quals = TYPE_UNQUALIFIED;
+  cp_cv_quals this_quals = TYPE_UNQUALIFIED;
 
   /* Even within an `extern "C"' block, members get C++ linkage.  See
      [dcl.link] for details.  */
@@ -369,7 +331,8 @@ grok_array_decl (tree array_expr, tree index_exp)
     {
       if (type_dependent_expression_p (array_expr)
 	  || type_dependent_expression_p (index_exp))
-	return build_min_nt (ARRAY_REF, array_expr, index_exp);
+	return build_min_nt (ARRAY_REF, array_expr, index_exp,
+			     NULL_TREE, NULL_TREE);
       array_expr = build_non_dependent_expr (array_expr);
       index_exp = build_non_dependent_expr (index_exp);
     }
@@ -426,8 +389,8 @@ grok_array_decl (tree array_expr, tree index_exp)
       expr = build_array_ref (array_expr, index_exp);
     }
   if (processing_template_decl && expr != error_mark_node)
-    return build_min_non_dep (ARRAY_REF, expr,
-			      orig_array_expr, orig_index_exp);
+    return build_min_non_dep (ARRAY_REF, expr, orig_array_expr, orig_index_exp,
+			      NULL_TREE, NULL_TREE);
   return expr;
 }
 
@@ -451,6 +414,7 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
       t = build_min (DELETE_EXPR, void_type_node, exp, size);
       DELETE_EXPR_USE_GLOBAL (t) = use_global_delete;
       DELETE_EXPR_USE_VEC (t) = doing_vec;
+      TREE_SIDE_EFFECTS (t) = 1;
       return t;
     }
 
@@ -666,14 +630,14 @@ check_classfn (tree ctype, tree function, tree template_parms)
 
   if (ix >= 0)
     {
-      tree methods = CLASSTYPE_METHOD_VEC (ctype);
+      VEC(tree) *methods = CLASSTYPE_METHOD_VEC (ctype);
       tree fndecls, fndecl = 0;
       bool is_conv_op;
       bool pop_p;
       const char *format = NULL;
       
       pop_p = push_scope (ctype);
-      for (fndecls = TREE_VEC_ELT (methods, ix);
+      for (fndecls = VEC_index (tree, methods, ix);
 	   fndecls; fndecls = OVL_NEXT (fndecls))
 	{
 	  tree p1, p2;
@@ -721,7 +685,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 
       if (is_conv_op)
 	ix = CLASSTYPE_FIRST_CONVERSION_SLOT;
-      fndecls = TREE_VEC_ELT (methods, ix);
+      fndecls = VEC_index (tree, methods, ix);
       while (fndecls)
 	{
 	  fndecl = OVL_CURRENT (fndecls);
@@ -729,10 +693,9 @@ check_classfn (tree ctype, tree function, tree template_parms)
 
 	  if (!fndecls && is_conv_op)
 	    {
-	      if (TREE_VEC_LENGTH (methods) > ix)
+	      if (VEC_length (tree, methods) > (size_t) ++ix)
 		{
-		  ix++;
-		  fndecls = TREE_VEC_ELT (methods, ix);
+		  fndecls = VEC_index (tree, methods, ix);
 		  if (!DECL_CONV_FN_P (OVL_CURRENT (fndecls)))
 		    {
 		      fndecls = NULL_TREE;
@@ -762,7 +725,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
      case we'll only confuse ourselves when the function is declared
      properly within the class.  */
   if (COMPLETE_TYPE_P (ctype))
-    add_method (ctype, function, /*error_p=*/1);
+    add_method (ctype, function);
   return NULL_TREE;
 }
 
@@ -839,23 +802,28 @@ finish_static_data_member_decl (tree decl, tree init, tree asmspec_tree,
    CHANGES TO CODE IN `start_method'.  */
 
 tree
-grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
+grokfield (const cp_declarator *declarator, 
+	   cp_decl_specifier_seq *declspecs, 
+	   tree init, tree asmspec_tree,
            tree attrlist)
 {
   tree value;
   const char *asmspec = 0;
   int flags = LOOKUP_ONLYCONVERTING;
 
-  if (declspecs == NULL_TREE
-      && TREE_CODE (declarator) == SCOPE_REF
-      && TREE_CODE (TREE_OPERAND (declarator, 1)) == IDENTIFIER_NODE)
+  if (!declspecs->any_specifiers_p
+      && declarator->kind == cdk_id
+      && TREE_CODE (declarator->u.id.name) == SCOPE_REF
+      && (TREE_CODE (TREE_OPERAND (declarator->u.id.name, 1)) 
+	  == IDENTIFIER_NODE))
     {
       /* Access declaration */
-      if (! IS_AGGR_TYPE_CODE (TREE_CODE (TREE_OPERAND (declarator, 0))))
+      if (! IS_AGGR_TYPE_CODE (TREE_CODE 
+			       (TREE_OPERAND (declarator->u.id.name, 0))))
 	;
-      else if (TREE_COMPLEXITY (declarator) == current_class_depth)
+      else if (TREE_COMPLEXITY (declarator->u.id.name) == current_class_depth)
 	pop_nested_class ();
-      return do_class_using_decl (declarator);
+      return do_class_using_decl (declarator->u.id.name);
     }
 
   if (init
@@ -1020,7 +988,8 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
    WIDTH is non-NULL for bit fields only, and is an INTEGER_CST node.  */
 
 tree
-grokbitfield (tree declarator, tree declspecs, tree width)
+grokbitfield (const cp_declarator *declarator, 
+	      cp_decl_specifier_seq *declspecs, tree width)
 {
   tree value = grokdeclarator (declarator, declspecs, BITFIELD, 0, NULL);
 
@@ -1141,21 +1110,6 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));
 }
 
-/* Defer the compilation of the FN until the end of compilation.  */
-
-void
-defer_fn (tree fn)
-{
-  if (DECL_DEFERRED_FN (fn))
-    return;
-  DECL_DEFERRED_FN (fn) = 1;
-  DECL_DEFER_OUTPUT (fn) = 1;
-  if (!deferred_fns)
-    VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
-
-  VARRAY_PUSH_TREE (deferred_fns, fn);
-}
-
 /* Walks through the namespace- or function-scope anonymous union OBJECT,
    building appropriate ALIAS_DECLs.  Returns one of the fields for use in
    the mangled name.  */
@@ -1195,7 +1149,8 @@ build_anon_union_vars (tree object)
 	cp_pedwarn_at ("protected member `%#D' in anonymous union", field);
 
       if (processing_template_decl)
-	ref = build_min_nt (COMPONENT_REF, object, DECL_NAME (field));
+	ref = build_min_nt (COMPONENT_REF, object,
+			    DECL_NAME (field), NULL_TREE);
       else
 	ref = build_class_member_access_expr (object, field, NULL_TREE,
 					      false);
@@ -1262,7 +1217,7 @@ finish_anon_union (tree anon_union_decl)
   pushdecl (anon_union_decl);
   if (building_stmt_tree ()
       && at_function_scope_p ())
-    add_decl_stmt (anon_union_decl);
+    add_decl_expr (anon_union_decl);
   else if (!processing_template_decl)
     rest_of_decl_compilation (anon_union_decl, NULL,
 			      toplevel_bindings_p (), at_eof);
@@ -1427,7 +1382,7 @@ comdat_linkage (tree decl)
    linkonce sections, so that they will be merged with implicit
    instantiations; otherwise we get duplicate symbol errors.  
    For Darwin we do not want explicit instantiations to be 
-   linkonce. */
+   linkonce.  */
 
 void
 maybe_make_one_only (tree decl)
@@ -1446,7 +1401,7 @@ maybe_make_one_only (tree decl)
      to for variables so that cp_finish_decl will update their linkage,
      because their DECL_INITIAL may not have been set properly yet.  */
 
-  if (TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
+  if (!TARGET_WEAK_NOT_IN_ARCHIVE_TOC
       || (! DECL_EXPLICIT_INSTANTIATION (decl)
 	  && ! DECL_TEMPLATE_SPECIALIZATION (decl)))
     {
@@ -1551,7 +1506,14 @@ import_export_class (tree ctype)
       && TYPE_POLYMORPHIC_P (ctype))
     {
       tree method = CLASSTYPE_KEY_METHOD (ctype);
-      if (method)
+
+      /* If weak symbol support is not available, then we must be
+	 careful not to emit the vtable when the key function is
+	 inline.  An inline function can be defined in multiple
+	 translation units.  If we were to emit the vtable in each
+	 translation unit containing a definition, we would get
+	 multiple definition errors at link-time.  */
+      if (method && (flag_weak || ! DECL_DECLARED_INLINE_P (method)))
 	import_export = (DECL_REALLY_EXTERN (method) ? -1 : 1);
     }
 
@@ -1559,6 +1521,10 @@ import_export_class (tree ctype)
   if (import_export == -1)
     import_export = 0;
 #endif
+
+  /* Allow backends the chance to overrule the decision.  */
+  if (targetm.cxx.import_export_class)
+    import_export = targetm.cxx.import_export_class (ctype, import_export);
 
   if (import_export)
     {
@@ -1587,6 +1553,7 @@ maybe_emit_vtables (tree ctype)
   tree vtbl;
   tree primary_vtbl;
   bool needed = false;
+  bool weaken_vtables;
 
   /* If the vtables for this class have already been emitted there is
      nothing more to do.  */
@@ -1598,12 +1565,14 @@ maybe_emit_vtables (tree ctype)
     return false;
 
   import_export_class (ctype);
-  import_export_vtable (primary_vtbl, ctype, 1);
 
   /* See if any of the vtables are needed.  */
   for (vtbl = CLASSTYPE_VTABLES (ctype); vtbl; vtbl = TREE_CHAIN (vtbl))
-    if (!DECL_EXTERNAL (vtbl) && DECL_NEEDED_P (vtbl))
-      break;
+    {
+      import_export_vtable (vtbl, ctype, 1);
+      if (!DECL_EXTERNAL (vtbl) && DECL_NEEDED_P (vtbl))
+	break;
+    }
   if (!vtbl)
     {
       /* If the references to this class' vtables are optimized away,
@@ -1617,6 +1586,30 @@ maybe_emit_vtables (tree ctype)
   else if (TREE_PUBLIC (vtbl) && !DECL_COMDAT (vtbl))
     needed = true;
   
+  /* Determine whether to make vtables weak.  The ABI requires that we
+      do so.  There are two cases in which we have to violate the ABI
+      specification: targets where we don't have weak symbols
+      (obviously), and targets where weak symbols don't appear in
+      static archives' tables of contents.  On such targets, avoiding
+      undefined symbol link errors requires that we only make a symbol
+      weak if we know that it will be emitted everywhere it's needed.
+      So on such targets we don't make vtables weak in the common case
+      where we're emitting a vtable of a nontemplate class in the 
+      translation unit containing the definition of a noninline key
+      method. */
+  if (flag_weak && !TARGET_WEAK_NOT_IN_ARCHIVE_TOC)
+    weaken_vtables = true;
+  else if (flag_weak)
+    {
+      if (CLASSTYPE_USE_TEMPLATE (ctype))
+ 	weaken_vtables = CLASSTYPE_IMPLICIT_INSTANTIATION (ctype);
+      else
+ 	weaken_vtables = !CLASSTYPE_KEY_METHOD (ctype)
+ 	  || DECL_DECLARED_INLINE_P (CLASSTYPE_KEY_METHOD (ctype));
+    }
+  else
+    weaken_vtables = false;
+
   /* The ABI requires that we emit all of the vtables if we emit any
      of them.  */
   for (vtbl = CLASSTYPE_VTABLES (ctype); vtbl; vtbl = TREE_CHAIN (vtbl))
@@ -1662,8 +1655,8 @@ maybe_emit_vtables (tree ctype)
 	  DECL_IGNORED_P (vtbl) = 1;
 	}
 
-      /* Always make vtables weak.  */
-      if (flag_weak)
+      /* Always make vtables weak.  Or at least almost always; see above. */
+      if (weaken_vtables)
 	comdat_linkage (vtbl);
 
       rest_of_decl_compilation (vtbl, NULL, 1, 1);
@@ -1742,9 +1735,7 @@ import_export_decl (tree decl)
 	comdat_linkage (decl);
     }
   else
-    {
       comdat_linkage (decl);
-    }
 
   DECL_INTERFACE_KNOWN (decl) = 1;
 }
@@ -1837,7 +1828,7 @@ get_guard (tree decl)
 
       /* We use a type that is big enough to contain a mutex as well
 	 as an integer counter.  */
-      guard_type = long_long_integer_type_node;
+      guard_type = targetm.cxx.guard_type ();
       guard = build_decl (VAR_DECL, sname, guard_type);
       
       /* The guard should have the same linkage as what it guards.  */
@@ -1861,15 +1852,18 @@ get_guard (tree decl)
 static tree
 get_guard_bits (tree guard)
 {
-  /* We only set the first byte of the guard, in order to leave room
-     for a mutex in the high-order bits.  */
-  guard = build1 (ADDR_EXPR, 
-		  build_pointer_type (TREE_TYPE (guard)),
-		  guard);
-  guard = build1 (NOP_EXPR, 
-		  build_pointer_type (char_type_node), 
-		  guard);
-  guard = build1 (INDIRECT_REF, char_type_node, guard);
+  if (!targetm.cxx.guard_mask_bit ())
+    {
+      /* We only set the first byte of the guard, in order to leave room
+	 for a mutex in the high-order bits.  */
+      guard = build1 (ADDR_EXPR, 
+		      build_pointer_type (TREE_TYPE (guard)),
+		      guard);
+      guard = build1 (NOP_EXPR, 
+		      build_pointer_type (char_type_node), 
+		      guard);
+      guard = build1 (INDIRECT_REF, char_type_node, guard);
+    }
 
   return guard;
 }
@@ -1884,6 +1878,16 @@ get_guard_cond (tree guard)
 
   /* Check to see if the GUARD is zero.  */
   guard = get_guard_bits (guard);
+
+  /* Mask off all but the low bit.  */
+  if (targetm.cxx.guard_mask_bit ())
+    {
+      guard_value = integer_one_node;
+      if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
+	guard_value = convert (TREE_TYPE (guard), guard_value);
+	guard = cp_build_binary_op (BIT_AND_EXPR, guard, guard_value);
+    }
+
   guard_value = integer_zero_node;
   if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
     guard_value = convert (TREE_TYPE (guard), guard_value);
@@ -1912,8 +1916,8 @@ set_guard (tree guard)
 static tree
 start_objects (int method_type, int initp)
 {
-  tree fnname;
   tree body;
+  tree fndecl;
   char type[10];
 
   /* Make ctor or dtor function.  METHOD_TYPE may be 'I' or 'D'.  */
@@ -1933,12 +1937,11 @@ start_objects (int method_type, int initp)
   else
     sprintf (type, "%c", method_type);
 
-  fnname = get_file_function_name_long (type);
-
-  start_function (void_list_node,
-		  make_call_declarator (fnname, void_list_node, NULL_TREE,
-					NULL_TREE),
-		  NULL_TREE, SF_DEFAULT);
+  fndecl = build_lang_decl (FUNCTION_DECL, 
+			    get_file_function_name_long (type),
+			    build_function_type (void_type_node,
+						 void_list_node));
+  start_preparsed_function (fndecl, /*attrs=*/NULL_TREE, SF_PRE_PARSED);
 
   /* It can be a static function as long as collect2 does not have
      to scan the object file to find its ctor/dtor routine.  */
@@ -1962,14 +1965,14 @@ start_objects (int method_type, int initp)
 #endif
   /* APPLE LOCAL end static structors in __StaticInit section */
 
-  body = begin_compound_stmt (/*has_no_scope=*/false);
+  body = begin_compound_stmt (BCS_FN_BODY);
 
   /* We cannot allow these functions to be elided, even if they do not
      have external linkage.  And, there's no point in deferring
      compilation of thes functions; they're all going to have to be
      out anyhow.  */
-  current_function_cannot_inline
-    = "static constructors and destructors cannot be inlined";
+  DECL_INLINE (current_function_decl) = 0;
+  DECL_UNINLINABLE (current_function_decl) = 1;
 
   return body;
 }
@@ -2121,18 +2124,17 @@ start_static_storage_duration_function (unsigned count)
        
      It is static because we only need to call this function from the
      various constructor and destructor functions for this module.  */
-  start_function (/*specs=*/NULL_TREE, 
-		  ssdf_decl,
-		  /*attrs=*/NULL_TREE,
-		  SF_PRE_PARSED);
+  start_preparsed_function (ssdf_decl,
+			    /*attrs=*/NULL_TREE,
+			    SF_PRE_PARSED);
 
   /* Set up the scope of the outermost block in the function.  */
-  body = begin_compound_stmt (/*has_no_scope=*/false);
+  body = begin_compound_stmt (BCS_FN_BODY);
 
   /* This function must not be deferred because we are depending on
      its compilation to tell us what is TREE_SYMBOL_REFERENCED.  */
-  current_function_cannot_inline 
-    = "static storage duration functions cannot be inlined";
+  DECL_INLINE (ssdf_decl) = 0;
+  DECL_UNINLINABLE (ssdf_decl) = 1;
 
   return body;
 }
@@ -2307,7 +2309,7 @@ static void
 finish_static_initialization_or_destruction (tree guard_if_stmt)
 {
   finish_then_clause (guard_if_stmt);
-  finish_if_stmt ();
+  finish_if_stmt (guard_if_stmt);
 
   /* Now that we're done with DECL we don't need to pretend to be a
      member of its class any longer.  */
@@ -2451,7 +2453,11 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
   size_t i;
 
   input_location = *locus;
+#ifdef USE_MAPPED_LOCATION
+  /* ??? */
+#else
   locus->line++;
+#endif
   
   /* We use `I' to indicate initialization and `D' to indicate
      destruction.  */
@@ -2593,9 +2599,13 @@ finish_file (void)
   if (dbg_dir)
     c_common_write_context ();
 
+#ifdef USE_MAPPED_LOCATION
+  /* FIXME - huh? */
+#else
   /* Otherwise, GDB can get confused, because in only knows
      about source for LINENO-1 lines.  */
   input_line -= 1;
+#endif
 
   interface_unknown = 1;
   interface_only = 0;
@@ -2751,12 +2761,19 @@ finish_file (void)
 	     instantiations, etc.  */
 	  reconsider = true;
 	  ssdf_count++;
+#ifdef USE_MAPPED_LOCATION
+	  /* ??? */
+#else
 	  locus.line++;
+#endif
 	}
       
       for (i = 0; i < deferred_fns_used; ++i)
 	{
 	  tree decl = VARRAY_TREE (deferred_fns, i);
+
+	  if (! DECL_DECLARED_INLINE_P (decl) || ! TREE_USED (decl))
+	    abort ();
 
 	  /* Does it need synthesizing?  */
 	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
@@ -2774,19 +2791,8 @@ finish_file (void)
 	      reconsider = true;
 	    }
 
-	  /* If the function has no body, avoid calling
-	     import_export_decl.  On a system without weak symbols,
-	     calling import_export_decl will make an inline template
-	     instantiation "static", which will result in errors about
-	     the use of undefined functions if there is no body for
-	     the function.  In fact, all the functions in this list
-	     *should* have a body.  */
 	  if (!DECL_SAVED_TREE (decl))
-	    {
-	      if (! DECL_DECLARED_INLINE_P (decl) || ! TREE_USED (decl))
-		abort ();
-	      continue;
-	    }
+	    continue;
 
 	  import_export_decl (decl);
 
@@ -2874,12 +2880,11 @@ finish_file (void)
     {
       tree decl = VARRAY_TREE (deferred_fns, i);
 
-      if (TREE_USED (decl) && DECL_DECLARED_INLINE_P (decl)
-	  && !(TREE_ASM_WRITTEN (decl) || DECL_SAVED_TREE (decl)
-	       /* An explicit instantiation can be used to specify
-	          that the body is in another unit. It will have
-	          already verified there was a definition.  */
-	       || DECL_EXPLICIT_INSTANTIATION (decl)))
+      if (!TREE_ASM_WRITTEN (decl) && !DECL_SAVED_TREE (decl)
+	  /* An explicit instantiation can be used to specify
+	     that the body is in another unit. It will have
+	     already verified there was a definition.  */
+	  && !DECL_EXPLICIT_INSTANTIATION (decl))
 	{
 	  cp_warning_at ("inline function `%D' used but never defined", decl);
 	  /* This symbol is effectively an "extern" declaration now.
@@ -3053,8 +3058,17 @@ mark_used (tree decl)
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl)
       && !TREE_ASM_WRITTEN (decl))
     /* Remember it, so we can check it was defined.  */
-    defer_fn (decl);
-
+    {
+      if (DECL_DEFERRED_FN (decl))
+	return;
+      DECL_DEFERRED_FN (decl) = 1;
+      DECL_DEFER_OUTPUT (decl) = 1;
+      if (!deferred_fns)
+	VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
+      
+      VARRAY_PUSH_TREE (deferred_fns, decl);
+    }
+  
   assemble_external (decl);
 
   /* Is it a synthesized method that needs to be synthesized?  */
@@ -3114,7 +3128,7 @@ mark_used (tree decl)
 		  information.  */
 	       || cp_function_chain->can_throw);
 
-      instantiate_decl (decl, defer);
+      instantiate_decl (decl, defer, /*undefined_ok=*/0);
     }
 }
 

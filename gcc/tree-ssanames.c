@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "varray.h"
 #include "ggc.h"
+#include "tree-flow.h"
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
@@ -57,8 +58,8 @@ Boston, MA 02111-1307, USA.  */
    a very well defined lifetime.  If someone wants to experiment with that
    this is the place to try it.  */
    
-/* Next SSA version number to be allocated.  */
-unsigned int highest_ssa_version;
+/* Array of all SSA_NAMEs used in the function.  */
+varray_type ssa_names;
                                                                                 
 /* Free list of SSA_NAMEs.  This list is wiped at the end of each function
    after we leave SSA form.  */
@@ -78,7 +79,13 @@ unsigned int ssa_name_nodes_created;
 void
 init_ssanames (void)
 {
-  highest_ssa_version = UNUSED_NAME_VERSION + 1;
+  VARRAY_TREE_INIT (ssa_names, 50, "ssa_names table");
+
+  /* Version 0 is special, so reserve the first slot in the table.  Though
+     currently unused, we may use version 0 in alias analysis as part of
+     the heuristics used to group aliases when the alias sets are too
+     large.  */
+  VARRAY_PUSH_TREE (ssa_names, NULL_TREE);
   free_ssanames = NULL;
 }
 
@@ -143,7 +150,8 @@ make_ssa_name (tree var, tree stmt)
   else
     {
       t = make_node (SSA_NAME);
-      SSA_NAME_VERSION (t) = highest_ssa_version++;
+      SSA_NAME_VERSION (t) = num_ssa_names;
+      VARRAY_PUSH_TREE (ssa_names, t);
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_created++;
 #endif
@@ -152,9 +160,11 @@ make_ssa_name (tree var, tree stmt)
   TREE_TYPE (t) = TREE_TYPE (var);
   SSA_NAME_VAR (t) = var;
   SSA_NAME_DEF_STMT (t) = stmt;
+  SSA_NAME_PTR_INFO (t) = NULL;
 
   return t;
 }
+
 
 /* We no longer need the SSA_NAME expression VAR, release it so that
    it may be reused. 
@@ -183,6 +193,31 @@ release_ssa_name (tree var)
       TREE_CHAIN (var) = free_ssanames;
       free_ssanames = var;
     }
+}
+
+/* Creates a duplicate of a ssa name NAME defined in statement STMT.  */
+
+tree
+duplicate_ssa_name (tree name, tree stmt)
+{
+  tree new_name = make_ssa_name (SSA_NAME_VAR (name), stmt);
+  struct ptr_info_def *old_ptr_info = SSA_NAME_PTR_INFO (name);
+  struct ptr_info_def *new_ptr_info;
+
+  if (!old_ptr_info)
+    return new_name;
+
+  new_ptr_info = ggc_alloc (sizeof (struct ptr_info_def));
+  *new_ptr_info = *old_ptr_info;
+
+  if (old_ptr_info->pt_vars)
+    {
+      new_ptr_info->pt_vars = BITMAP_GGC_ALLOC ();
+      bitmap_copy (new_ptr_info->pt_vars, old_ptr_info->pt_vars);
+    }
+
+  SSA_NAME_PTR_INFO (new_name) = new_ptr_info;
+  return new_name;
 }
 
 #include "gt-tree-ssanames.h"

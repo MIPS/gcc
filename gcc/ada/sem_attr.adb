@@ -250,7 +250,8 @@ package body Sem_Attr is
       --  two attribute expressions are present
 
       procedure Legal_Formal_Attribute;
-      --  Common processing for attributes Definite, and Has_Discriminants
+      --  Common processing for attributes Definite, Has_Access_Values,
+      --  and Has_Discriminants
 
       procedure Check_Integer_Type;
       --  Verify that prefix of attribute N is an integer type
@@ -671,12 +672,8 @@ package body Sem_Attr is
             --  object, and that the expression, if present, is static
             --  and within the range of the dimensions of the type.
 
-            if Is_Array_Type (P_Type) then
-               Index := First_Index (P_Base_Type);
-
-            else pragma Assert (Is_Access_Type (P_Type));
-               Index := First_Index (Base_Type (Designated_Type (P_Type)));
-            end if;
+            pragma Assert (Is_Array_Type (P_Type));
+            Index := First_Index (P_Base_Type);
 
             if No (E1) then
 
@@ -722,6 +719,7 @@ package body Sem_Attr is
          --  Normal case of array type or subtype
 
          Check_Either_E0_Or_E1;
+         Check_Dereference;
 
          if Is_Array_Type (P_Type) then
             if not Is_Constrained (P_Type)
@@ -740,25 +738,17 @@ package body Sem_Attr is
 
             D := Number_Dimensions (P_Type);
 
-         elsif Is_Access_Type (P_Type)
-           and then Is_Array_Type (Designated_Type (P_Type))
-         then
-            if Is_Entity_Name (P) and then Is_Type (Entity (P)) then
-               Error_Attr ("prefix of % attribute cannot be access type", P);
-            end if;
-
-            D := Number_Dimensions (Designated_Type (P_Type));
-
-            --  If there is an implicit dereference, then we must freeze
-            --  the designated type of the access type, since the type of
-            --  the referenced array is this type (see AI95-00106).
-
-            Freeze_Before (N, Designated_Type (P_Type));
-
          else
             if Is_Private_Type (P_Type) then
                Error_Attr
                  ("prefix for % attribute may not be private type", P);
+
+            elsif Is_Access_Type (P_Type)
+              and then Is_Array_Type (Designated_Type (P_Type))
+              and then Is_Entity_Name (P)
+              and then Is_Type (Entity (P))
+            then
+               Error_Attr ("prefix of % attribute cannot be access type", P);
 
             elsif Attr_Id = Attribute_First
                     or else
@@ -873,7 +863,15 @@ package body Sem_Attr is
          --  Case of an expression
 
          Resolve (P);
+
          if Is_Access_Type (P_Type) then
+
+            --  If there is an implicit dereference, then we must freeze
+            --  the designated type of the access type, since the type of
+            --  the referenced array is this type (see AI95-00106).
+
+            Freeze_Before (N, Designated_Type (P_Type));
+
             Rewrite (P,
               Make_Explicit_Dereference (Sloc (P),
                 Prefix => Relocate_Node (P)));
@@ -1524,7 +1522,7 @@ package body Sem_Attr is
 
       if Comes_From_Source (N) then
          if not Attribute_83 (Attr_Id) then
-            if Ada_83 and then Comes_From_Source (N) then
+            if Ada_Version = Ada_83 and then Comes_From_Source (N) then
                Error_Msg_Name_1 := Aname;
                Error_Msg_N ("(Ada 83) attribute% is not standard?", N);
             end if;
@@ -1861,6 +1859,7 @@ package body Sem_Attr is
 
          --  If the prefix is a selected component whose prefix is of an
          --  access type, then introduce an explicit dereference.
+         --  ??? Could we reuse Check_Dereference here?
 
          if Nkind (Pref) = N_Selected_Component
            and then Is_Access_Type (Ptyp)
@@ -1920,7 +1919,7 @@ package body Sem_Attr is
          Find_Type (P);
          Typ := Entity (P);
 
-         if Ada_95
+         if Ada_Version >= Ada_95
            and then not Is_Scalar_Type (Typ)
            and then not Is_Generic_Type (Typ)
          then
@@ -2605,6 +2604,15 @@ package body Sem_Attr is
          Resolve (E1, P_Base_Type);
 
       -----------------------
+      -- Has_Access_Values --
+      -----------------------
+
+      when Attribute_Has_Access_Values =>
+         Check_Type;
+         Check_E0;
+         Set_Etype (N, Standard_Boolean);
+
+      -----------------------
       -- Has_Discriminants --
       -----------------------
 
@@ -2644,7 +2652,7 @@ package body Sem_Attr is
          Check_Scalar_Type;
 
          if Is_Real_Type (P_Type) then
-            if Ada_83 and then Comes_From_Source (N) then
+            if Ada_Version = Ada_83 and then Comes_From_Source (N) then
                Error_Msg_Name_1 := Aname;
                Error_Msg_N
                  ("(Ada 83) % attribute not allowed for real types", N);
@@ -3150,7 +3158,7 @@ package body Sem_Attr is
       when Attribute_Range =>
          Check_Array_Or_Scalar_Type;
 
-         if Ada_83
+         if Ada_Version = Ada_83
            and then Is_Scalar_Type (P_Type)
            and then Comes_From_Source (N)
          then
@@ -3805,11 +3813,14 @@ package body Sem_Attr is
    --  one attribute expression, and the check succeeds, we want to be able
    --  to proceed securely assuming that an expression is in fact present.
 
+   --  Note: we set the attribute analyzed in this case to prevent any
+   --  attempt at reanalysis which could generate spurious error msgs.
+
    exception
       when Bad_Attribute =>
+         Set_Analyzed (N);
          Set_Etype (N, Any_Type);
          return;
-
    end Analyze_Attribute;
 
    --------------------
@@ -4433,6 +4444,8 @@ package body Sem_Attr is
 
       elsif (Id = Attribute_Definite
                or else
+             Id = Attribute_Has_Access_Values
+               or else
              Id = Attribute_Has_Discriminants
                or else
              Id = Attribute_Type_Class
@@ -4540,10 +4553,13 @@ package body Sem_Attr is
       --  In addition Component_Size is possibly foldable, even though it
       --  can never be static.
 
-      --  Definite, Has_Discriminants, Type_Class and Unconstrained_Array are
-      --  again exceptions, because they apply as well to unconstrained types.
+      --  Definite, Has_Access_Values, Has_Discriminants, Type_Class, and
+      --  Unconstrained_Array are again exceptions, because they apply as
+      --  well to unconstrained types.
 
       elsif Id = Attribute_Definite
+              or else
+            Id = Attribute_Has_Access_Values
               or else
             Id = Attribute_Has_Discriminants
               or else
@@ -4573,7 +4589,7 @@ package body Sem_Attr is
          --  Again we compute the variable Static for easy reference later
          --  (note that no array attributes are static in Ada 83).
 
-         Static := Ada_95;
+         Static := Ada_Version >= Ada_95;
 
          declare
             N : Node_Id;
@@ -4945,6 +4961,15 @@ package body Sem_Attr is
       when Attribute_Fraction =>
          Fold_Ureal (N,
            Eval_Fat.Fraction (P_Root_Type, Expr_Value_R (E1)), Static);
+
+      -----------------------
+      -- Has_Access_Values --
+      -----------------------
+
+      when Attribute_Has_Access_Values =>
+         Rewrite (N, New_Occurrence_Of
+           (Boolean_Literals (Has_Access_Values (P_Root_Type)), Loc));
+         Analyze_And_Resolve (N, Standard_Boolean);
 
       -----------------------
       -- Has_Discriminants --
@@ -6624,16 +6649,16 @@ package body Sem_Attr is
               and then (Ekind (Btyp) = E_General_Access_Type
                           or else Ekind (Btyp) = E_Anonymous_Access_Type)
             then
-               --  Ada 0Y (AI-230): Check the accessibility of anonymous access
-               --  types in record and array components. For a component defini
-               --  tion the level is the same of the enclosing composite type.
+               --  Ada 2005 (AI-230): Check the accessibility of anonymous
+               --  access types in record and array components. For a
+               --  component definition the level is the same of the
+               --  enclosing composite type.
 
-               if Extensions_Allowed
+               if Ada_Version >= Ada_05
                  and then Ekind (Btyp) = E_Anonymous_Access_Type
                  and then (Is_Array_Type (Scope (Btyp))
                              or else Ekind (Scope (Btyp)) = E_Record_Type)
-                 and then Object_Access_Level (P)
-                            > Type_Access_Level (Btyp)
+                 and then Object_Access_Level (P) > Type_Access_Level (Btyp)
                then
                   --  In an instance, this is a runtime check, but one we
                   --  know will fail, so generate an appropriate warning.

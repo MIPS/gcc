@@ -122,8 +122,6 @@ static tree resolve_expression_name (tree, tree *);
 static tree maybe_create_class_interface_decl (tree, tree, tree, tree);
 static int check_class_interface_creation (int, int, tree, tree, tree, tree);
 static tree patch_method_invocation (tree, tree, tree, int, int *, tree *);
-static int breakdown_qualified (tree *, tree *, tree);
-static int in_same_package (tree, tree);
 static tree resolve_and_layout (tree, tree);
 static tree qualify_and_find (tree, tree, tree);
 static tree resolve_no_layout (tree, tree);
@@ -296,7 +294,6 @@ static int pop_current_osb (struct parser_ctxt *);
 
 static tree maybe_make_nested_class_name (tree);
 static int make_nested_class_name (tree);
-static void set_nested_class_simple_name_value (tree, int);
 static void link_nested_class_to_enclosing (void);
 static tree resolve_inner_class (htab_t, tree, tree *, tree *, tree);
 static tree find_as_inner_class (tree, tree, tree);
@@ -323,7 +320,7 @@ static int outer_field_expanded_access_p (tree, tree *,
 static tree outer_field_access_fix (tree, tree, tree);
 static tree build_incomplete_class_ref (int, tree);
 static tree patch_incomplete_class_ref (tree);
-static tree create_anonymous_class (int, tree);
+static tree create_anonymous_class (tree);
 static void patch_anonymous_class (tree, tree, tree);
 static void add_inner_class_fields (tree, tree);
 
@@ -2037,7 +2034,7 @@ class_instance_creation_expression:
 
 anonymous_class_creation:
 	NEW_TK class_type OP_TK argument_list CP_TK
-		{ create_anonymous_class ($1.location, $2); }
+		{ create_anonymous_class ($2); }
         class_body
 		{
 		  tree id = build_wfl_node (DECL_NAME (GET_CPC ()));
@@ -2070,7 +2067,7 @@ anonymous_class_creation:
 
 		}
 |	NEW_TK class_type OP_TK CP_TK
-		{ create_anonymous_class ($1.location, $2); }
+		{ create_anonymous_class ($2); }
         class_body
 		{
 		  tree id = build_wfl_node (DECL_NAME (GET_CPC ()));
@@ -2768,11 +2765,7 @@ java_parser_context_restore_global (void)
   current_class = ctxp->class_type;
   input_filename = ctxp->filename;
   if (wfl_operator)
-    {
-      tree s;
-      BUILD_FILENAME_IDENTIFIER_NODE (s, input_filename);
-      EXPR_WFL_FILENAME_NODE (wfl_operator) = s;
-    }
+    EXPR_WFL_FILENAME_NODE (wfl_operator) = get_identifier (input_filename);
   current_function_decl = ctxp->function_decl;
   ctxp->saved_data = 0;
   if (ctxp->saved_data_ctx)
@@ -3694,19 +3687,6 @@ find_as_inner_class_do (tree qual, tree enclosing)
   return (!qual && enclosing ? enclosing : NULL_TREE);
 }
 
-/* Reach all inner classes and tie their unqualified name to a
-   DECL. */
-
-static void
-set_nested_class_simple_name_value (tree outer, int set)
-{
-  tree l;
-
-  for (l = DECL_INNER_CLASS_LIST (outer); l; l = TREE_CHAIN (l))
-    IDENTIFIER_GLOBAL_VALUE (TREE_VALUE (l)) = (set ?
-						TREE_PURPOSE (l) : NULL_TREE);
-}
-
 static void
 link_nested_class_to_enclosing (void)
 {
@@ -3866,6 +3846,13 @@ create_interface (int flags, tree id, tree super)
   /* Create a new decl if DECL is NULL, otherwise fix it */
   decl = maybe_create_class_interface_decl (decl, raw_name, q_name, id);
 
+  /* Interfaces are always abstract. */
+  flags |= ACC_ABSTRACT;
+
+  /* Inner interfaces are always static.  */
+  if (INNER_CLASS_DECL_P (decl))
+    flags |= ACC_STATIC;
+
   /* Set super info and mark the class a complete */
   set_super_info (ACC_INTERFACE | flags, TREE_TYPE (decl),
 		  object_type_node, ctxp->interface_number);
@@ -3898,10 +3885,10 @@ patch_anonymous_class (tree type_decl, tree class_decl, tree wfl)
       if (parser_check_super_interface (type_decl, class_decl, wfl))
 	return;
 
-      s_binfo = TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (class)), 0);
-      length = TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (class))+1;
-      TYPE_BINFO_BASETYPES (class) = make_tree_vec (length);
-      TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (class)), 0) = s_binfo;
+      s_binfo = TREE_VEC_ELT (BINFO_BASE_BINFOS (TYPE_BINFO (class)), 0);
+      length = TREE_VEC_LENGTH (BINFO_BASE_BINFOS (TYPE_BINFO (class)))+1;
+      BINFO_BASE_BINFOS (TYPE_BINFO (class)) = make_tree_vec (length);
+      TREE_VEC_ELT (BINFO_BASE_BINFOS (TYPE_BINFO (class)), 0) = s_binfo;
       /* And add the interface */
       parser_add_interface (class_decl, type_decl, wfl);
     }
@@ -3910,12 +3897,15 @@ patch_anonymous_class (tree type_decl, tree class_decl, tree wfl)
     {
       if (parser_check_super (type_decl, class_decl, wfl))
 	return;
-      BINFO_TYPE (TREE_VEC_ELT (BINFO_BASETYPES (binfo), 0)) = type;
+      BINFO_TYPE (TREE_VEC_ELT (BINFO_BASE_BINFOS (binfo), 0)) = type;
     }
 }
 
+/* Create an anonymous class which extends/implements TYPE_NAME, and return
+   its decl.  */
+
 static tree
-create_anonymous_class (int location, tree type_name)
+create_anonymous_class (tree type_name)
 {
   char buffer [80];
   tree super = NULL_TREE, itf = NULL_TREE;
@@ -3924,7 +3914,7 @@ create_anonymous_class (int location, tree type_name)
   /* The unqualified name of the anonymous class. It's just a number. */
   sprintf (buffer, "%d", anonymous_class_counter++);
   id = build_wfl_node (get_identifier (buffer));
-  EXPR_WFL_LINECOL (id) = location;
+  EXPR_WFL_LINECOL (id) = EXPR_WFL_LINECOL (type_name);
 
   /* We know about the type to extend/implement. We go ahead */
   if ((type_decl = IDENTIFIER_CLASS_VALUE (EXPR_WFL_NODE (type_name))))
@@ -4007,10 +3997,10 @@ create_class (int flags, tree id, tree super, tree interfaces)
   /* If SUPER exists, use it, otherwise use Object */
   if (super)
     {
-      /* Can't extend java.lang.Object */
+      /* java.lang.Object can't extend anything.  */
       if (TREE_TYPE (IDENTIFIER_CLASS_VALUE (class_id)) == object_type_node)
 	{
-	  parse_error_context (id, "Can't extend `java.lang.Object'");
+	  parse_error_context (id, "`java.lang.Object' can't extend anything");
 	  return NULL_TREE;
 	}
 
@@ -4044,7 +4034,7 @@ create_class (int flags, tree id, tree super, tree interfaces)
 
   /* Add the private this$<n> field, Replicate final locals still in
      scope as private final fields mangled like val$<local_name>.
-     This doesn't not occur for top level (static) inner classes. */
+     This does not occur for top level (static) inner classes. */
   if (PURE_INNER_CLASS_DECL_P (decl))
     add_inner_class_fields (decl, current_function_decl);
 
@@ -5021,7 +5011,6 @@ method_declarator (tree id, tree list)
 
 static int
 unresolved_type_p (tree wfl, tree *returned)
-
 {
   if (TREE_CODE (wfl) == EXPR_WITH_FILE_LOCATION)
     {
@@ -5201,12 +5190,9 @@ register_incomplete_type (int kind, tree wfl, tree decl, tree ptr)
   JDEP_MISC (new) = NULL_TREE;
   /* For some dependencies, set the enclosing class of the current
      class to be the enclosing context */
-  if ((kind == JDEP_INTERFACE  || kind == JDEP_ANONYMOUS)
+  if ((kind == JDEP_INTERFACE || kind == JDEP_ANONYMOUS || kind == JDEP_SUPER)
       && GET_ENCLOSING_CPC ())
     JDEP_ENCLOSING (new) = TREE_VALUE (GET_ENCLOSING_CPC ());
-  else if (kind == JDEP_SUPER)
-    JDEP_ENCLOSING (new) = (GET_ENCLOSING_CPC () ?
-			    TREE_VALUE (GET_ENCLOSING_CPC ()) : NULL_TREE);
   else
     JDEP_ENCLOSING (new) = GET_CPC ();
   JDEP_GET_PATCH (new) = (tree *)NULL;
@@ -5227,7 +5213,7 @@ register_incomplete_type (int kind, tree wfl, tree decl, tree ptr)
 static tree
 check_inner_circular_reference (tree source, tree target)
 {
-  tree basetype_vec = TYPE_BINFO_BASETYPES (source);
+  tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (source));
   tree ctx, cl;
   int i;
 
@@ -5273,7 +5259,7 @@ check_inner_circular_reference (tree source, tree target)
 static tree
 check_circular_reference (tree type)
 {
-  tree basetype_vec = TYPE_BINFO_BASETYPES (type);
+  tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (type));
   int i;
 
   if (!basetype_vec)
@@ -5406,8 +5392,9 @@ craft_constructor (tree class_decl, tree args)
 {
   tree class_type = TREE_TYPE (class_decl);
   tree parm = NULL_TREE;
-  int flags = (get_access_flags_from_decl (class_decl) & ACC_PUBLIC ?
-	       ACC_PUBLIC : 0);
+  /* Inherit access flags for the constructor from its enclosing class. */
+  int valid_ctor_flags = ACC_PUBLIC | ACC_PROTECTED | ACC_PRIVATE;
+  int flags = (get_access_flags_from_decl (class_decl) & valid_ctor_flags);
   int i = 0, artificial = 0;
   tree decl, ctor_name;
   char buffer [80];
@@ -5526,7 +5513,7 @@ jdep_resolve_class (jdep *dep)
 
   if (!decl)
     complete_class_report_errors (dep);
-  else if (PURE_INNER_CLASS_DECL_P (decl))
+  else if (INNER_CLASS_DECL_P (decl))
     {
       tree inner = TREE_TYPE (decl);
       if (! CLASS_LOADED_P (inner))
@@ -5582,7 +5569,7 @@ java_complete_class (void)
 	      /* Simply patch super */
 	      if (parser_check_super (decl, JDEP_DECL (dep), JDEP_WFL (dep)))
 		continue;
-	      BINFO_TYPE (TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO
+	      BINFO_TYPE (TREE_VEC_ELT (BINFO_BASE_BINFOS (TYPE_BINFO
 	        (TREE_TYPE (JDEP_DECL (dep)))), 0)) = TREE_TYPE (decl);
 	      break;
 
@@ -5755,7 +5742,7 @@ do_resolve_class (tree enclosing, tree class_type, tree decl, tree cl)
 	 class and then treat Id as a member type.  If we can't find Q
 	 as a class then we fall through.  */
       tree q, left, left_type, right;
-      if (breakdown_qualified (&left, &right, TYPE_NAME (class_type)) == 0)
+      if (split_qualified_name (&left, &right, TYPE_NAME (class_type)) == 0)
 	{
 	  BUILD_PTR_FROM_NAME (left_type, left);
 	  q = do_resolve_class (enclosing, left_type, decl, cl);
@@ -5810,8 +5797,7 @@ do_resolve_class (tree enclosing, tree class_type, tree decl, tree cl)
   /* 2- And check for the type in the current compilation unit */
   if ((new_class_decl = IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type))))
     {
-      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)) &&
-	  !CLASS_FROM_SOURCE_P (TREE_TYPE (new_class_decl)))
+      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)))
 	load_class (TYPE_NAME (class_type), 0);
       return IDENTIFIER_CLASS_VALUE (TYPE_NAME (class_type));
     }
@@ -5905,9 +5891,8 @@ qualify_and_find (tree class_type, tree package, tree name)
     load_class (new_qualified, 0);
   if ((new_class_decl = IDENTIFIER_CLASS_VALUE (new_qualified)))
     {
-      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)) &&
-	  !CLASS_FROM_SOURCE_P (TREE_TYPE (new_class_decl)))
-	load_class (new_qualified, 0);
+      if (!CLASS_LOADED_P (TREE_TYPE (new_class_decl)))
+	load_class (TREE_TYPE (new_class_decl), 0);
       TYPE_NAME (class_type) = new_qualified;
       return IDENTIFIER_CLASS_VALUE (new_qualified);
     }
@@ -6213,7 +6198,7 @@ check_abstract_method_definitions (int do_interface, tree class_decl,
     {
       /* Check for implemented interfaces. */
       int i;
-      tree vector = TYPE_BINFO_BASETYPES (type);
+      tree vector = BINFO_BASE_BINFOS (TYPE_BINFO (type));
       for (i = 1; ok && vector && i < TREE_VEC_LENGTH (vector); i++)
 	{
 	  tree super = BINFO_TYPE (TREE_VEC_ELT (vector, i));
@@ -6245,7 +6230,7 @@ java_check_abstract_method_definitions (tree class_decl)
   } while (super != object_type_node);
 
   /* Check for implemented interfaces. */
-  vector = TYPE_BINFO_BASETYPES (class);
+  vector = BINFO_BASE_BINFOS (TYPE_BINFO (class));
   for (i = 1; i < TREE_VEC_LENGTH (vector); i++)
     {
       super = BINFO_TYPE (TREE_VEC_ELT (vector, i));
@@ -6520,7 +6505,7 @@ check_interface_throws_clauses (tree check_class_decl, tree class_decl)
 	    load_class (class_decl, 1);
 	}
 
-      bases = TYPE_BINFO_BASETYPES (class_decl);
+      bases = BINFO_BASE_BINFOS (TYPE_BINFO (class_decl));
       iface_len = TREE_VEC_LENGTH (bases) - 1;
       for (i = iface_len; i > 0; --i)
 	{
@@ -6652,7 +6637,7 @@ java_check_abstract_methods (tree interface_decl)
     }
 
   /* 4- Inherited methods can't differ by their returned types */
-  if (!(basetype_vec = TYPE_BINFO_BASETYPES (interface)))
+  if (!(basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (interface))))
     return;
   n = TREE_VEC_LENGTH (basetype_vec);
   for (i = 0; i < n; i++)
@@ -6692,7 +6677,8 @@ static tree
 lookup_java_interface_method2 (tree class, tree method_decl)
 {
   int i, n;
-  tree basetype_vec = TYPE_BINFO_BASETYPES (class), to_return;
+  tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (class));
+  tree to_return;
 
   if (!basetype_vec)
     return NULL_TREE;
@@ -6836,7 +6822,7 @@ process_imports (void)
 	     inner class.  The only way for us to know is to try again
 	     after having dropped a qualifier. If we can't break it further,
 	     we have an error. */
-	  if (breakdown_qualified (&left, NULL, to_be_found))
+	  if (split_qualified_name (&left, NULL, to_be_found))
 	    break;
 
 	  to_be_found = left;
@@ -7058,8 +7044,7 @@ find_in_imports_on_demand (tree enclosing_type, tree class_type)
       access_check = -1;
       /* If there is no DECL set for the class or if the class isn't
 	 loaded and not seen in source yet, then load */
-      if (!decl || (!CLASS_LOADED_P (TREE_TYPE (decl))
-		    && !CLASS_FROM_SOURCE_P (TREE_TYPE (decl))))
+      if (!decl || ! CLASS_LOADED_P (TREE_TYPE (decl)))
 	{
 	  load_class (node, 0);
 	  decl = IDENTIFIER_CLASS_VALUE (node);
@@ -7271,7 +7256,7 @@ check_pkg_class_access (tree class_name, tree cl, bool verbose, tree this_decl)
       /* Access to a private class within the same package is
          allowed. */
       tree l, r;
-      breakdown_qualified (&l, &r, class_name);
+      split_qualified_name (&l, &r, class_name);
       if (!QUALIFIED_P (class_name) && !ctxp->package)
 	/* Both in the empty package. */
         return 0;
@@ -7374,6 +7359,13 @@ declare_local_variables (int modifier, tree type, tree vlist)
       /* Don't try to use an INIT statement when an error was found */
       if (init && java_error_count)
 	init = NULL_TREE;
+
+      /* Remember it if this is an initialized-upon-declaration final
+         variable.  */
+      if (init && final_p)
+        {
+          DECL_LOCAL_FINAL_IUD (decl) = 1;
+        }
 
       /* Add the initialization function to the current function's code */
       if (init)
@@ -7567,7 +7559,10 @@ add_stmt_to_block (tree b, tree type, tree stmt)
   return c;
 }
 
-void java_layout_seen_class_methods (void)
+/* Lays out the methods for the classes seen so far.  */
+
+void
+java_layout_seen_class_methods (void)
 {
   tree previous_list = all_class_list;
   tree end = NULL_TREE;
@@ -7577,7 +7572,17 @@ void java_layout_seen_class_methods (void)
     {
       for (current = previous_list;
 	   current != end; current = TREE_CHAIN (current))
-	layout_class_methods (TREE_TYPE (TREE_VALUE (current)));
+        {
+          tree cls = TREE_TYPE (TREE_VALUE (current));
+
+          if (! CLASS_LOADED_P (cls))
+            load_class (cls, 0);
+
+          layout_class_methods (cls);
+        }
+
+      /* Note that new classes might have been added while laying out
+         methods, changing the value of all_class_list.  */
 
       if (previous_list != all_class_list)
 	{
@@ -7692,8 +7697,6 @@ java_complete_expand_class (tree outer)
 {
   tree inner_list;
 
-  set_nested_class_simple_name_value (outer, 1); /* Set */
-
   /* We need to go after all inner classes and start expanding them,
      starting with most nested ones. We have to do that because nested
      classes might add functions to outer classes */
@@ -7703,7 +7706,6 @@ java_complete_expand_class (tree outer)
     java_complete_expand_class (TREE_PURPOSE (inner_list));
 
   java_complete_expand_methods (outer);
-  set_nested_class_simple_name_value (outer, 0); /* Reset */
 }
 
 /* Expand methods registered in CLASS_DECL. The general idea is that
@@ -7740,21 +7742,9 @@ java_complete_expand_methods (tree class_decl)
   /* Now do the constructors */
   for (decl = first_decl ; !java_error_count && decl; decl = TREE_CHAIN (decl))
     {
-      int no_body;
-
       if (!DECL_CONSTRUCTOR_P (decl))
 	continue;
-
-      no_body = !DECL_FUNCTION_BODY (decl);
-      /* Don't generate debug info on line zero when expanding a
-	 generated constructor. */
-      if (no_body)
-	restore_line_number_status (1);
-
       java_complete_expand_method (decl);
-
-      if (no_body)
-	restore_line_number_status (0);
     }
 
   /* First, do the ordinary methods. */
@@ -9030,9 +9020,7 @@ java_expand_classes (void)
 		{
 		  if (DECL_CONSTRUCTOR_P (d))
 		    {
-		      restore_line_number_status (1);
 		      java_complete_expand_method (d);
-		      restore_line_number_status (0);
 		      break;	/* There is only one constructor. */
 		    }
 		}
@@ -9054,11 +9042,7 @@ java_expand_classes (void)
 	  for (d = TYPE_METHODS (current_class); d; d = TREE_CHAIN (d))
 	    {
 	      if (DECL_RESULT (d) == NULL_TREE)
-		{
-		  restore_line_number_status (1);
-		  java_complete_expand_method (d);
-		  restore_line_number_status (0);
-		}
+		java_complete_expand_method (d);
 	    }
 	}
     }
@@ -9087,9 +9071,7 @@ java_expand_classes (void)
 		      if (DECL_RESULT (d) == NULL_TREE)
 			{
 			  something_changed = 1;
-			  restore_line_number_status (1);
 			  java_complete_expand_method (d);
-			  restore_line_number_status (0);
 			}
 		    }
 		}
@@ -9234,7 +9216,7 @@ static tree
 make_qualified_name (tree left, tree right, int location)
 {
 #ifdef USE_COMPONENT_REF
-  tree node = build (COMPONENT_REF, NULL_TREE, left, right);
+  tree node = build (COMPONENT_REF, NULL_TREE, left, right, NULL_TREE);
   EXPR_WFL_LINECOL (node) = location;
   return node;
 #else
@@ -9959,7 +9941,7 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 
 	      /* Check on accessibility here */
 	      if (not_accessible_p (current_class, field_decl,
-				    DECL_CONTEXT (field_decl), from_super))
+				    *type_found, from_super))
  		return not_accessible_field_error (qual_wfl,field_decl);    
 	      check_deprecation (qual_wfl, field_decl);
 
@@ -10045,10 +10027,13 @@ static int
 not_accessible_p (tree reference, tree member, tree where, int from_super)
 {
   int access_flag = get_access_flags_from_decl (member);
-
-  /* Inner classes are processed by check_inner_class_access */
-  if (INNER_CLASS_TYPE_P (reference))
-    return 0;
+  bool is_static = false;
+ 
+  if (TREE_CODE (member) == FIELD_DECL ||
+      TREE_CODE (member) == VAR_DECL)
+    is_static = FIELD_STATIC (member);
+  else
+    is_static = METHOD_STATIC (member);
 
   /* Access always granted for members declared public */
   if (access_flag & ACC_PUBLIC)
@@ -10067,26 +10052,34 @@ not_accessible_p (tree reference, tree member, tree where, int from_super)
       if (from_super)
 	return 0;
 
-      /* If where is active, access was made through a
-	 qualifier. Access is granted if the type of the qualifier is
-	 or is a sublass of the type the access made from (6.6.2.1.)  */
-      if (where && !inherits_from_p (reference, where))
-	return 1;
-
-      /* Otherwise, access is granted if occurring from the class where
-	 member is declared or a subclass of it. Find the right
-	 context to perform the check */
-      if (PURE_INNER_CLASS_TYPE_P (reference))
+      /* If WHERE is active, access was made through a qualifier. For 
+         non-static members, access is granted if the type of the qualifier 
+	 is or is a sublass of the type the access is made from (6.6.2.1.)  */
+      if (where && !is_static)
         {
-          while (INNER_CLASS_TYPE_P (reference))
+	  while (reference)
             {
-              if (inherits_from_p (reference, DECL_CONTEXT (member)))
-                return 0;
-              reference = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (reference)));
-            }
+	      if (inherits_from_p (where, reference))
+	        return 0;
+	      if (PURE_INNER_CLASS_TYPE_P (reference))
+		reference = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (reference)));
+	      else
+	        break;
+	    }
+	  return 1;
+	}
+
+      /* Otherwise, access is granted if occurring from within the class
+         where member is declared, or a subclass of it.  */
+      while (reference)
+        {
+          if (inherits_from_p (reference, DECL_CONTEXT (member)))
+            return 0;
+	  if (PURE_INNER_CLASS_TYPE_P (reference))
+            reference = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (reference)));
+	  else
+	    break;
         }
-      if (inherits_from_p (reference, DECL_CONTEXT (member)))
-	return 0;
       return 1;
     }
 
@@ -10095,9 +10088,8 @@ not_accessible_p (tree reference, tree member, tree where, int from_super)
      it for innerclasses too. */
   if (access_flag & ACC_PRIVATE)
     {
-      if (reference == DECL_CONTEXT (member))
-	return 0;
-      if (enclosing_context_p (reference, DECL_CONTEXT (member)))
+      if (reference == DECL_CONTEXT (member) ||
+          common_enclosing_context_p (DECL_CONTEXT (member), reference))
 	return 0;
       return 1;
     }
@@ -10190,7 +10182,7 @@ class_in_current_package (tree class)
     return 1;
 
   /* Compare the left part of the name of CLASS with the package name */
-  breakdown_qualified (&left, NULL, DECL_NAME (TYPE_NAME (class)));
+  split_qualified_name (&left, NULL, DECL_NAME (TYPE_NAME (class)));
   if (ctxp->package == left)
     {
       cicp_cache = class;
@@ -10504,8 +10496,6 @@ patch_method_invocation (tree patch, tree primary, tree where, int from_super,
 	IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class)));
       const char *const what = (DECL_CONSTRUCTOR_P (list)
 				? "constructor" : "method");
-      /* FIXME: WFL yields the wrong message here but I don't know
-	 what else to use.  */
       parse_error_context (wfl,
 			   "Can't access %s %s `%s.%s' from `%s'",
 			   access, what, klass, fct_name, refklass);
@@ -11011,7 +11001,7 @@ find_applicable_accessible_methods_list (int lc, tree class, tree name,
   search_not_done++;
   *htab_find_slot (searched_classes, class, INSERT) = class;
 
-  if (!CLASS_LOADED_P (class) && !CLASS_FROM_SOURCE_P (class))
+  if (!CLASS_LOADED_P (class))
     {
       load_class (class, 1);
       safe_layout_class (class);
@@ -11022,7 +11012,7 @@ find_applicable_accessible_methods_list (int lc, tree class, tree name,
       && CLASS_INTERFACE (TYPE_NAME (class)))
     {
       int i, n;
-      tree basetype_vec = TYPE_BINFO_BASETYPES (class);
+      tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (class));
       search_applicable_methods_list (lc, TYPE_METHODS (class),
 				      name, arglist, &list, &all_list);
       n = TREE_VEC_LENGTH (basetype_vec);
@@ -11055,7 +11045,7 @@ find_applicable_accessible_methods_list (int lc, tree class, tree name,
       /* We must search all interfaces of this class */
       if (!lc)
       {
-	tree basetype_vec = TYPE_BINFO_BASETYPES (class);
+	tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (class));
 	int n = TREE_VEC_LENGTH (basetype_vec), i;
 	for (i = 1; i < n; i++)
 	  {
@@ -11340,60 +11330,6 @@ qualify_ambiguous_name (tree id)
     RESOLVE_TYPE_NAME_P (id) = 1;
   else if (RESOLVE_PACKAGE_NAME_P (qual_wfl))
     RESOLVE_PACKAGE_NAME_P (id) = 1;
-}
-
-static int
-breakdown_qualified (tree *left, tree *right, tree source)
-{
-  char *p, *base;
-  int l = IDENTIFIER_LENGTH (source);
-
-  base = alloca (l + 1);
-  memcpy (base, IDENTIFIER_POINTER (source), l + 1);
-
-  /* Breakdown NAME into REMAINDER . IDENTIFIER.  */
-  p = base + l - 1;
-  while (*p != '.' && p != base)
-    p--;
-
-  /* We didn't find a '.'. Return an error.  */
-  if (p == base)
-    return 1;
-
-  *p = '\0';
-  if (right)
-    *right = get_identifier (p+1);
-  *left = get_identifier (base);
-
-  return 0;
-}
-
-/* Return TRUE if two classes are from the same package. */
-
-static int
-in_same_package (tree name1, tree name2)
-{
-  tree tmp;
-  tree pkg1;
-  tree pkg2;
-
-  if (TREE_CODE (name1) == TYPE_DECL)
-    name1 = DECL_NAME (name1);
-  if (TREE_CODE (name2) == TYPE_DECL)
-    name2 = DECL_NAME (name2);
-
-  if (QUALIFIED_P (name1) != QUALIFIED_P (name2))
-    /* One in empty package. */
-    return 0;
-
-  if (QUALIFIED_P (name1) == 0 && QUALIFIED_P (name2) == 0)
-    /* Both in empty package. */
-    return 1;
-
-  breakdown_qualified (&pkg1, &tmp, name1);
-  breakdown_qualified (&pkg2, &tmp, name2);
-
-  return (pkg1 == pkg2);
 }
 
 /* Patch tree nodes in a function body. When a BLOCK is found, push
@@ -12225,8 +12161,8 @@ complete_function_arguments (tree node)
 	  flag = 1;
 	  continue;
 	}
-      /* If have a string literal that we haven't transformed yet or a
-	 crafted string buffer, as a result of use of the the String
+      /* If we have a string literal that we haven't transformed yet or a
+	 crafted string buffer, as a result of the use of the String
 	 `+' operator. Build `parm.toString()' and expand it. */
       if ((temp = patch_string (parm)))
 	parm = temp;
@@ -12255,7 +12191,6 @@ build_debugable_stmt (int location, tree stmt)
 
 static tree
 build_expr_block (tree body, tree decls)
-
 {
   tree node = make_node (BLOCK);
   BLOCK_EXPR_DECLS (node) = decls;
@@ -12396,6 +12331,10 @@ build_super_invocation (tree mdecl)
   else
     {
       tree super_wfl = build_wfl_node (super_identifier_node);
+      /* This is called after parsing is done, so the parser context
+         won't be accurate. Set location info from current_class decl. */
+      tree class_wfl = lookup_cl (TYPE_NAME (current_class));
+      EXPR_WFL_LINECOL (super_wfl) = EXPR_WFL_LINECOL (class_wfl);
       tree a = NULL_TREE, t;
       /* If we're dealing with an anonymous class, pass the arguments
          of the crafted constructor along. */
@@ -13975,7 +13914,7 @@ build_incomplete_class_ref (int location, tree class_name)
 	  /* We want the generated inner class inside the outermost class. */
 	  GET_CPC_LIST() = cpc;
 	  t = build_wfl_node (DECL_NAME (TYPE_NAME (object_type_node)));
-	  inner = create_anonymous_class (0, t);
+	  inner = create_anonymous_class (t);
 	  target_class = TREE_TYPE (inner);
 	  end_class_declaration (1);
 	  GET_CPC_LIST() = cpc_list;
@@ -14333,7 +14272,7 @@ build_null_of_type (tree type)
 static tree
 build_array_ref (int location, tree array, tree index)
 {
-  tree node = build (ARRAY_REF, NULL_TREE, array, index);
+  tree node = build (ARRAY_REF, NULL_TREE, array, index, NULL_TREE, NULL_TREE);
   EXPR_WFL_LINECOL (node) = location;
   return node;
 }

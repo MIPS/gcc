@@ -57,7 +57,7 @@ const char *machopic_non_lazy_ptr_name (const char*);
 /* APPLE LOCAL begin constant cfstrings */
 enum darwin_builtins
 {
-  DARWIN_BUILTIN_MIN = (int)TARGET_BUILTIN_MAX,
+  DARWIN_BUILTIN_MIN = (int)END_BUILTINS,
 
   DARWIN_BUILTIN_CFSTRINGMAKECONSTANTSTRING,
   DARWIN_BUILTIN_MAX
@@ -343,9 +343,10 @@ machopic_non_lazy_ptr_list_entry (const char *name, int create_p)
       }
     else
       {
-	buffer[bufferlen] = '_';
-	memcpy (buffer + bufferlen +1, name, namelen+1);
-        bufferlen += namelen +1;
+	strcpy (buffer + bufferlen, user_label_prefix);
+	bufferlen += strlen (user_label_prefix);
+	memcpy (buffer + bufferlen, name, namelen+1);
+        bufferlen += namelen;
       }
 
     memcpy (buffer + bufferlen, "$non_lazy_ptr", strlen("$non_lazy_ptr")+1);
@@ -437,9 +438,10 @@ machopic_stub_list_entry (const char *name)
       }
     else
       {
-	buffer[bufferlen] = '_';
-	memcpy (buffer + bufferlen +1, name, namelen+1);
-        bufferlen += namelen +1;
+	strcpy (buffer + bufferlen, user_label_prefix);
+	bufferlen += strlen (user_label_prefix);
+	memcpy (buffer + bufferlen, name, namelen+1);
+        bufferlen += namelen;
       }
 
     if (needs_quotes)
@@ -566,10 +568,10 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	    SYMBOL_REF_WEAK_IMPORT (orig);
 
       ptr_ref = gen_rtx_SYMBOL_REF (Pmode,
-		    IDENTIFIER_POINTER (TREE_PURPOSE (sym)));
+				    machopic_non_lazy_ptr_name (name));
 
-/* APPLE LOCAL Radar 3699721 --pinskia */
       SYMBOL_REF_DECL (ptr_ref) = SYMBOL_REF_DECL (orig);
+
       ptr_ref = gen_rtx_MEM (Pmode, ptr_ref);
       RTX_UNCHANGING_P (ptr_ref) = 1;
 
@@ -653,15 +655,16 @@ machopic_indirect_call_target (rtx target)
 
       if (!machopic_name_defined_p (name))
 	{
-	  /* APPLE LOCAL weak import */
+	  const char *stub_name = machopic_stub_name (name);
+	  /* APPLE LOCAL begin weak import */
 	  tree stub = machopic_stub_list_entry (name);
 	  tree decl = SYMBOL_REF_DECL (XEXP (target, 0));
 	  IDENTIFIER_WEAK_IMPORT (TREE_PURPOSE (stub)) = 
 	    IDENTIFIER_WEAK_IMPORT (TREE_VALUE (stub)) =
 	      SYMBOL_REF_WEAK_IMPORT (XEXP (target, 0));
+	  /* APPLE LOCAL end weak import */
 
-	  XEXP (target, 0) = gen_rtx_SYMBOL_REF (mode, 
-		IDENTIFIER_POINTER (TREE_PURPOSE (stub)));
+	  XEXP (target, 0) = gen_rtx_SYMBOL_REF (mode, stub_name);
 	  SYMBOL_REF_DECL (XEXP (target, 0)) = decl;
 	  RTX_UNCHANGING_P (target) = 1;
 	}
@@ -1025,13 +1028,13 @@ machopic_finish (FILE *asm_out_file)
       else if (sym_name[0] == '-' || sym_name[0] == '+')
 	strcpy (sym, sym_name);
       else
-	sym[0] = '_', strcpy (sym + 1, sym_name);
+	sprintf (sym, "%s%s", user_label_prefix, sym_name);
 
       stub = alloca (strlen (stub_name) + 2);
       if (stub_name[0] == '*' || stub_name[0] == '&')
 	strcpy (stub, stub_name + 1);
       else
-	stub[0] = '_', strcpy (stub + 1, stub_name);
+	sprintf (stub, "%s%s", user_label_prefix, stub_name);
 
       /* APPLE LOCAL weak import */
       if ( IDENTIFIER_WEAK_IMPORT (TREE_VALUE (temp)))
@@ -1903,10 +1906,10 @@ darwin_init_cfstring_builtins (void)
   pccfstring_ftype_pcchar
     = build_function_type_list (pccfstring_type_node,
 				pcchar_type_node, NULL_TREE);
-  builtin_function ("__builtin___CFStringMakeConstantString",
-		    pccfstring_ftype_pcchar,
-		    DARWIN_BUILTIN_CFSTRINGMAKECONSTANTSTRING,
-		    BUILT_IN_NORMAL, NULL, NULL_TREE);
+  lang_hooks.builtin_function ("__builtin___CFStringMakeConstantString",
+			       pccfstring_ftype_pcchar,
+			       DARWIN_BUILTIN_CFSTRINGMAKECONSTANTSTRING,
+			       BUILT_IN_NORMAL, NULL, NULL_TREE);
 
   /* extern int __CFConstantStringClassReference[];  */
   cfstring_class_reference
@@ -1990,7 +1993,11 @@ darwin_build_constant_cfstring (tree str)
   struct cfstring_descriptor *desc, key;
   void **loc;
 
-  if (!str || TREE_CODE (str) != STRING_CST)
+  if (!(str &&
+	((TREE_CODE (str) == STRING_CST) ||
+	 (((TREE_CODE (str) == NOP_EXPR)) &&
+	  TREE_OPERAND (str, 0) &&
+	  (TREE_CODE (TREE_OPERAND (str, 0)) == STRING_CST)))))
     {
       error ("CFString literal expression is not constant");
       return error_mark_node;

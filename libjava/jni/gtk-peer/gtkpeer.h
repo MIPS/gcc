@@ -361,8 +361,8 @@ struct graphics
 #define VK_ALT_GRAPH 65406
 #define VK_UNDEFINED 0
 
-#define AWT_FOCUS_LOST 1004
-#define AWT_FOCUS_GAINED 1005
+#define AWT_FOCUS_GAINED 1004
+#define AWT_FOCUS_LOST 1005
 
 #define AWT_WINDOW_OPENED 200
 #define AWT_WINDOW_CLOSING 201
@@ -385,6 +385,35 @@ struct graphics
 #define AWT_STYLE_BOLD   1
 #define AWT_STYLE_ITALIC 2
 
+/* From java.awt.SystemColor */
+#define AWT_DESKTOP                  0
+#define AWT_ACTIVE_CAPTION           1
+#define AWT_ACTIVE_CAPTION_TEXT      2
+#define AWT_ACTIVE_CAPTION_BORDER    3
+#define AWT_INACTIVE_CAPTION         4
+#define AWT_INACTIVE_CAPTION_TEXT    5
+#define AWT_INACTIVE_CAPTION_BORDER  6
+#define AWT_WINDOW                   7
+#define AWT_WINDOW_BORDER            8
+#define AWT_WINDOW_TEXT              9
+#define AWT_MENU                    10
+#define AWT_MENU_TEXT               11
+#define AWT_TEXT                    12
+#define AWT_TEXT_TEXT               13
+#define AWT_TEXT_HIGHLIGHT          14
+#define AWT_TEXT_HIGHLIGHT_TEXT     15
+#define AWT_TEXT_INACTIVE_TEXT      16
+#define AWT_CONTROL                 17
+#define AWT_CONTROL_TEXT            18
+#define AWT_CONTROL_HIGHLIGHT       19
+#define AWT_CONTROL_LT_HIGHLIGHT    20
+#define AWT_CONTROL_SHADOW          21
+#define AWT_CONTROL_DK_SHADOW       22
+#define AWT_SCROLLBAR               23
+#define AWT_INFO                    24
+#define AWT_INFO_TEXT               25
+#define AWT_NUM_COLORS              26
+
 extern jmethodID setBoundsCallbackID;
 
 extern jmethodID postActionEventID;
@@ -405,6 +434,8 @@ extern jmethodID syncAttrsID;
 extern jclass gdkColor;
 extern jmethodID gdkColorID;
 extern JNIEnv *gdk_env;
+
+extern double dpi_conversion_factor;
 
 extern GtkWindowGroup *global_gtk_window_group;
 

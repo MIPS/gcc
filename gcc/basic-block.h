@@ -142,6 +142,9 @@ struct edge_def GTY((chain_next ("%h.pred_next")))
   /* Auxiliary info specific to a pass.  */
   PTR GTY ((skip (""))) aux;
 
+  /* Location of any goto implicit in the edge, during tree-ssa.  */
+  source_locus goto_locus;
+
   int flags;			/* see EDGE_* below  */
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
@@ -174,22 +177,6 @@ typedef struct edge_def *edge;
 #define EDGE_ALL_FLAGS		8191
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
-
-/* Returns the block at the beginning of the edge.  */
-
-static inline struct basic_block_def *
-edge_source (edge e)
-{
-  return e->src;
-}
-
-/* Returns the block at the end of the edge.  */
-
-static inline struct basic_block_def *
-edge_destination (edge e)
-{
-  return e->dest;
-}
 
 /* Counter summary from the last set of coverage counts read by
    profile.c.  */
@@ -384,7 +371,6 @@ extern regset regs_live_at_setjmp;
 /* Special labels found during CFG build.  */
 
 extern GTY(()) rtx label_value_list;
-extern GTY(()) rtx tail_recursion_label_list;
 
 extern struct obstack flow_obstack;
 
@@ -432,6 +418,7 @@ extern void commit_edge_insertions (void);
 extern void commit_edge_insertions_watch_calls (void);
 
 extern void remove_fake_edges (void);
+extern void remove_fake_exit_edges (void);
 extern void add_noreturn_fake_exit_edges (void);
 extern void connect_infinite_loops_to_exit (void);
 extern edge unchecked_make_edge (basic_block, basic_block, int);
@@ -571,16 +558,15 @@ enum update_life_extent
 #define CLEANUP_CROSSJUMP	2	/* Do crossjumping.  */
 #define CLEANUP_POST_REGSTACK	4	/* We run after reg-stack and need
 					   to care REG_DEAD notes.  */
-#define CLEANUP_PRE_SIBCALL	8	/* Do not get confused by code hidden
-					   inside call_placeholders..  */
-#define CLEANUP_PRE_LOOP	16	/* Take care to preserve syntactic loop
+#define CLEANUP_PRE_LOOP	8	/* Take care to preserve syntactic loop
 					   notes.  */
-#define CLEANUP_UPDATE_LIFE	32	/* Keep life information up to date.  */
-#define CLEANUP_THREADING	64	/* Do jump threading.  */
-#define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
+#define CLEANUP_UPDATE_LIFE	16	/* Keep life information up to date.  */
+#define CLEANUP_THREADING	32	/* Do jump threading.  */
+#define CLEANUP_NO_INSN_DEL	64	/* Do not try to delete trivially dead
 					   insns.  */
-#define CLEANUP_CFGLAYOUT	256	/* Do cleanup in cfglayout mode.  */
-#define CLEANUP_LOG_LINKS	512	/* Update log links.  */
+#define CLEANUP_CFGLAYOUT	128	/* Do cleanup in cfglayout mode.  */
+#define CLEANUP_LOG_LINKS	256	/* Update log links.  */
+
 extern void life_analysis (FILE *, int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
@@ -645,6 +631,7 @@ extern void find_sub_basic_blocks (basic_block);
 extern void find_many_sub_basic_blocks (sbitmap);
 extern void rtl_make_eh_edge (sbitmap *, basic_block, rtx);
 extern bool can_fallthru (basic_block, basic_block);
+extern bool could_fall_through (basic_block, basic_block);
 extern void flow_nodes_print (const char *, const sbitmap, FILE *);
 extern void flow_edge_list_print (const char *, const edge *, int, FILE *);
 extern void alloc_aux_for_block (basic_block, int);

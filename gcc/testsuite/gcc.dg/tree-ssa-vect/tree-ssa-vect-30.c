@@ -1,10 +1,10 @@
-/* APPLE LOCAL file AV --haifa  */
 /* { dg-do run { target powerpc*-*-* } } */
+/* { dg-do run { target i?86-*-* x86_64-*-* } } */
 /* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
 
 #include <stdarg.h>
-#include <signal.h>
+#include "tree-vect.h"
 
 #define N 16
 
@@ -16,7 +16,7 @@ int main1 (int n)
 {
   int i=0;
 
-  /* Vectorized: unknown loop bound).  */
+  /* Vectorized: unknown loop bound.  */
   while (n--) {
     a[i] = b[i];
     i++;
@@ -35,15 +35,16 @@ int main1 (int n)
 int main2 (unsigned int n)
 {
   int i=0;
+  int nn = n;
 
-  /* Vectorized: unknown loop bound).  */
+  /* Vectorized: unknown loop bound.  */
   while (n--) {
     c[i] = b[i];
     i++;
   }
 
   /* check results:  */
-  for (i = 0; i < n; i++)
+  for (i = 0; i < nn; i++)
     {
       if (c[i] != b[i])
         abort ();
@@ -52,22 +53,13 @@ int main2 (unsigned int n)
   return 0;
 }
 
-void
-sig_ill_handler (int sig)
-{   
-    exit(0);
-}
-
 int main (void)
 { 
-  /* Exit on systems without altivec.  */
-  signal (SIGILL, sig_ill_handler);
-  /* Altivec instruction, 'vor %v0,%v0,%v0'.  */
-  asm volatile (".long 0x10000484");
-  signal (SIGILL, SIG_DFL);
+  check_vect ();
   
-  return main1 (N);
-  return main2 (N);
+  main1 (N);
+  main2 (N);
+  return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { xfail *-*-* } } } */

@@ -26,6 +26,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "cpplib.h"
 #include "getopt.h"
 
+/* APPLE LOCAL begin CW asm blocks -sshebs */
+/* Dummies needed because we use them from cpplib, yuck.  */
+int flag_cw_asm_blocks;
+int cw_asm_state;
+int cw_asm_in_operands;
+/* APPLE LOCAL end CW asm blocks -sshebs */
+
 const char *progname;
 const char *vpath;
 

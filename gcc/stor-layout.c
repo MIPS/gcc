@@ -66,17 +66,11 @@ static void place_union_field (record_layout_info, tree);
 static int excess_unit_span (HOST_WIDE_INT, HOST_WIDE_INT, HOST_WIDE_INT,
 			     HOST_WIDE_INT, tree);
 #endif
-static void force_type_save_exprs_1 (tree);
 extern void debug_rli (record_layout_info);
 
 /* SAVE_EXPRs for sizes of types and decls, waiting to be expanded.  */
 
 static GTY(()) tree pending_sizes;
-
-/* Nonzero means cannot safely call expand_expr now,
-   so put variable sizes onto `pending_sizes' instead.  */
-
-int immediate_size_expand;
 
 /* Show that REFERENCE_TYPES are internal and should be Pmode.  Called only
    by front end.  */
@@ -102,11 +96,6 @@ tree
 get_pending_sizes (void)
 {
   tree chain = pending_sizes;
-  tree t;
-
-  /* Put each SAVE_EXPR into the current function.  */
-  for (t = chain; t; t = TREE_CHAIN (t))
-    SAVE_EXPR_CONTEXT (TREE_VALUE (t)) = current_function_decl;
 
   pending_sizes = 0;
   return chain;
@@ -165,10 +154,8 @@ variable_size (tree size)
      not wish to do that here; the array-size is the same in both
      places.  */
   save = skip_simple_arithmetic (size);
-  if (TREE_CODE (save) == SAVE_EXPR)
-    SAVE_EXPR_PERSISTENT_P (save) = 1;
 
-  if (!immediate_size_expand && cfun && cfun->x_dont_save_pending_sizes_p)
+  if (cfun && cfun->x_dont_save_pending_sizes_p)
     /* The front-end doesn't want us to keep a list of the expressions
        that determine sizes for variable size objects.  Trust it.  */
     return size;
@@ -183,66 +170,9 @@ variable_size (tree size)
       return size_one_node;
     }
 
-  if (immediate_size_expand)
-    expand_expr (save, const0_rtx, VOIDmode, 0);
-  else
-    put_pending_size (save);
+  put_pending_size (save);
 
   return size;
-}
-
-/* Given a type T, force elaboration of any SAVE_EXPRs used in the definition
-   of that type.  */
-
-void
-force_type_save_exprs (tree t)
-{
-  tree field;
-
-  switch (TREE_CODE (t))
-    {
-    case ERROR_MARK:
-      return;
-
-    case ARRAY_TYPE:
-    case SET_TYPE:
-    case VECTOR_TYPE:
-      /* It's probably overly-conservative to force elaboration of bounds and
-	 also the sizes, but it's better to be safe than sorry.  */
-      force_type_save_exprs_1 (TYPE_MIN_VALUE (TYPE_DOMAIN (t)));
-      force_type_save_exprs_1 (TYPE_MAX_VALUE (TYPE_DOMAIN (t)));
-      break;
-
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      for (field = TYPE_FIELDS (t); field; field = TREE_CHAIN (field))
-	if (TREE_CODE (field) == FIELD_DECL)
-	  {
-	    force_type_save_exprs (TREE_TYPE (field));
-	    force_type_save_exprs_1 (DECL_FIELD_OFFSET (field));
-	  }
-      break;
-
-    default:
-      break;
-    }
-
-  force_type_save_exprs_1 (TYPE_SIZE (t));
-  force_type_save_exprs_1 (TYPE_SIZE_UNIT (t));
-}
-
-/* Utility routine of above, to verify that SIZE has been elaborated and
-   do so it it is a SAVE_EXPR and has not been.  */
-
-static void
-force_type_save_exprs_1 (tree size)
-{
-  if (size
-      && (size = skip_simple_arithmetic (size))
-      && TREE_CODE (size) == SAVE_EXPR
-      && !SAVE_EXPR_RTL (size))
-    expand_expr (size, NULL_RTX, VOIDmode, 0);
 }
 
 #ifndef MAX_FIXED_MODE_SIZE
@@ -353,9 +283,24 @@ get_mode_alignment (enum machine_mode mode)
 tree
 round_up (tree value, int divisor)
 {
-  tree arg = size_int_type (divisor, TREE_TYPE (value));
+  tree t;
 
-  return size_binop (MULT_EXPR, size_binop (CEIL_DIV_EXPR, value, arg), arg);
+  /* If divisor is a power of two, simplify this to bit manipulation.  */
+  if (divisor == (divisor & -divisor))
+    {
+      t = size_int_type (divisor - 1, TREE_TYPE (value));
+      value = size_binop (PLUS_EXPR, value, t);
+      t = size_int_type (-divisor, TREE_TYPE (value));
+      value = size_binop (BIT_AND_EXPR, value, t);
+    }
+  else
+    {
+      t = size_int_type (divisor, TREE_TYPE (value));
+      value = size_binop (CEIL_DIV_EXPR, value, t);
+      value = size_binop (MULT_EXPR, value, t);
+    }
+
+  return value;
 }
 
 /* Likewise, but round down.  */
@@ -363,9 +308,22 @@ round_up (tree value, int divisor)
 tree
 round_down (tree value, int divisor)
 {
-  tree arg = size_int_type (divisor, TREE_TYPE (value));
+  tree t;
 
-  return size_binop (MULT_EXPR, size_binop (FLOOR_DIV_EXPR, value, arg), arg);
+  /* If divisor is a power of two, simplify this to bit manipulation.  */
+  if (divisor == (divisor & -divisor))
+    {
+      t = size_int_type (-divisor, TREE_TYPE (value));
+      value = size_binop (BIT_AND_EXPR, value, t);
+    }
+  else
+    {
+      t = size_int_type (divisor, TREE_TYPE (value));
+      value = size_binop (FLOOR_DIV_EXPR, value, t);
+      value = size_binop (MULT_EXPR, value, t);
+    }
+
+  return value;
 }
 
 /* Subroutine of layout_decl: Force alignment required for the data type.
@@ -1190,7 +1148,6 @@ place_field (record_layout_info rli, tree field)
 		rli->prev_field = NULL;
 	    }
 
-	  rli->offset_align = tree_low_cst (TYPE_SIZE (type), 0);
 	  normalize_rli (rli);
         }
 

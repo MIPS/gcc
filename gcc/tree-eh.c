@@ -37,8 +37,15 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "ggc.h"
 
-/* HACK */
-extern int using_eh_for_cleanups_p;
+
+/* Nonzero if we are using EH to handle cleanups.  */
+static int using_eh_for_cleanups_p = 0;
+
+void
+using_eh_for_cleanups (void)
+{
+  using_eh_for_cleanups_p = 1;
+}
 
 /* Misc functions used in this file.  */
 
@@ -119,7 +126,27 @@ add_stmt_to_eh_region (tree t, int num)
     abort ();
   *slot = n;
 }
-  
+
+bool
+remove_stmt_from_eh_region (tree t)
+{
+  struct throw_stmt_node dummy;
+  void **slot;
+
+  if (!throw_stmt_table)
+    return false;
+
+  dummy.stmt = t;
+  slot = htab_find_slot (throw_stmt_table, &dummy, NO_INSERT);
+  if (slot)
+    {
+      htab_clear_slot (throw_stmt_table, slot);
+      return true;
+    }
+  else
+    return false;
+}
+
 int
 lookup_stmt_eh_region (tree t)
 {
@@ -531,7 +558,7 @@ verify_norecord_switch_expr (struct leh_state *state, tree switch_expr)
 /* Redirect a RETURN_EXPR pointed to by STMT_P to FINLAB.  Place in CONT_P
    whatever is needed to finish the return.  If MOD is non-null, insert it
    before the new branch.  RETURN_VALUE_P is a cache containing a temporary
-   variable to be used in manipulating the value returned from the function. */
+   variable to be used in manipulating the value returned from the function.  */
 
 static void
 do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
@@ -1200,8 +1227,10 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   replace_goto_queue (tf);
   last_case_index += nlabels;
 
-  /* Make sure that we have a default label, as one is required.  */
+  /* Make sure that the last case is the default label, as one is required.
+     Then sort the labels, which is also required in GIMPLE.  */
   CASE_LOW (last_case) = NULL;
+  sort_case_labels (case_label_vec);
 
   /* Need to link switch_stmt after running replace_goto_queue due
      to not wanting to process the same goto stmts twice.  */
@@ -1244,9 +1273,9 @@ decide_copy_try_finally (int ndests, tree finally)
 
   /* ??? These numbers are completely made up so far.  */
   if (optimize > 1)
-    return f_estimate < 100 || f_estimate * 2 < sw_estimate;
+    return f_estimate < 100 || f_estimate < sw_estimate * 2;
   else
-    return f_estimate < 40 || f_estimate * 3 < sw_estimate * 2;
+    return f_estimate < 40 || f_estimate * 2 < sw_estimate * 3;
 }
 
 /* A subroutine of lower_eh_constructs_1.  Lower a TRY_FINALLY_EXPR nodes
@@ -1530,14 +1559,17 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
       /* Look for things that can throw exceptions, and record them.  */
       if (state->cur_region && tree_could_throw_p (t))
 	{
+	  tree op;
+
 	  record_stmt_eh_region (state->cur_region, t);
 	  note_eh_region_may_contain_throw (state->cur_region);
 
 	  /* ??? For the benefit of calls.c, converting all this to rtl, 
 	     we need to record the call expression, not just the outer
 	     modify statement.  */
-	  if (TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
-	    record_stmt_eh_region (state->cur_region, TREE_OPERAND (t, 1));
+	  op = get_call_expr_in (t);
+	  if (op)
+	    record_stmt_eh_region (state->cur_region, op);
 	}
       break;
 
@@ -1598,7 +1630,8 @@ lower_eh_constructs (void)
   tree *tp = &DECL_SAVED_TREE (current_function_decl);
 
   finally_tree = htab_create (31, struct_ptr_hash, struct_ptr_eq, free);
-  throw_stmt_table = htab_create_ggc (31, struct_ptr_hash, struct_ptr_eq, free);
+  throw_stmt_table = htab_create_ggc (31, struct_ptr_hash, struct_ptr_eq,
+				      ggc_free);
 
   collect_finally_tree (*tp, NULL);
 
@@ -1668,26 +1701,73 @@ make_eh_edges (tree stmt)
 
 
 
-/* Return true if the expr can trap, as in dereferencing an
-   invalid pointer location.  */
+/* Return true if the expr can trap, as in dereferencing an invalid pointer
+   location or floating point arithmetic.  C.f. the rtl version, may_trap_p.
+   This routine expects only GIMPLE lhs or rhs input.  */
 
 bool
 tree_could_trap_p (tree expr)
 {
   enum tree_code code = TREE_CODE (expr);
-  tree t;
+  bool honor_nans = false;
+  bool honor_snans = false;
+  bool fp_operation = false;
+  bool honor_trapv = false;
+  tree t, base, idx;
 
+  if (TREE_CODE_CLASS (code) == '<'
+      || TREE_CODE_CLASS (code) == '1'
+      || TREE_CODE_CLASS (code) == '2')
+    {
+      t = TREE_TYPE (expr);
+      fp_operation = FLOAT_TYPE_P (t);
+      if (fp_operation)
+	{
+	  honor_nans = flag_trapping_math && !flag_finite_math_only;
+	  honor_snans = flag_signaling_nans != 0;
+	}
+      else if (INTEGRAL_TYPE_P (t) && TYPE_TRAP_SIGNED (t))
+	honor_trapv = true;
+    }
+
+ restart:
   switch (code)
     {
-    case ARRAY_REF:
     case COMPONENT_REF:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case BIT_FIELD_REF:
-      t = get_base_address (expr);
-      return !t || TREE_CODE (t) == INDIRECT_REF;
+    case WITH_SIZE_EXPR:
+      expr = TREE_OPERAND (expr, 0);
+      code = TREE_CODE (expr);
+      goto restart;
+
+    case ARRAY_RANGE_REF:
+      /* Let us be conservative here for now.  We might be checking bounds of
+	 the access similarly to the case below.  */
+      if (!TREE_THIS_NOTRAP (expr))
+	return true;
+
+      base = TREE_OPERAND (expr, 0);
+      return tree_could_trap_p (base);
+
+    case ARRAY_REF:
+      base = TREE_OPERAND (expr, 0);
+      idx = TREE_OPERAND (expr, 1);
+      if (tree_could_trap_p (base))
+	return true;
+
+      if (TREE_THIS_NOTRAP (expr))
+	return false;
+
+      return !in_array_bounds_p (expr);
 
     case INDIRECT_REF:
+      return !TREE_THIS_NOTRAP (expr);
+
+    case ASM_EXPR:
+      return TREE_THIS_VOLATILE (expr);
+
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
@@ -1697,15 +1777,68 @@ tree_could_trap_p (tree expr)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case TRUNC_MOD_EXPR:
-      return true;
+    case RDIV_EXPR:
+      if (honor_snans || honor_trapv)
+	return true;
+      if (fp_operation && flag_trapping_math)
+	return true;
+      t = TREE_OPERAND (expr, 1);
+      if (!TREE_CONSTANT (t) || integer_zerop (t))
+        return true;
+      return false;
+
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case LTGT_EXPR:
+      /* Some floating point comparisons may trap.  */
+      return honor_nans;
+
+    case EQ_EXPR:
+    case NE_EXPR:
+    case UNORDERED_EXPR:
+    case ORDERED_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+      return honor_snans;
+
+    case CONVERT_EXPR:
+    case FIX_TRUNC_EXPR:
+    case FIX_CEIL_EXPR:
+    case FIX_FLOOR_EXPR:
+    case FIX_ROUND_EXPR:
+      /* Conversion of floating point might trap.  */
+      return honor_nans;
+
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+    case CONJ_EXPR:
+      /* These operations don't trap with floating point.  */
+      if (honor_trapv)
+	return true;
+      return false;
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+      /* Any floating arithmetic may trap.  */
+      if (fp_operation && flag_trapping_math)
+	return true;
+      if (honor_trapv)
+	return true;
+      return false;
 
     default:
-      break;
+      /* Any floating arithmetic may trap.  */
+      if (fp_operation && flag_trapping_math)
+	return true;
+      return false;
     }
-
-  return false;
 }
-
 
 bool
 tree_could_throw_p (tree t)
@@ -1714,24 +1847,18 @@ tree_could_throw_p (tree t)
     return false;
   if (TREE_CODE (t) == MODIFY_EXPR)
     {
-      tree sub = TREE_OPERAND (t, 1);
-      if (TREE_CODE (sub) == CALL_EXPR)
-	t = sub;
-      else
-	{
-	  if (flag_non_call_exceptions)
-	    {
-	      if (tree_could_trap_p (sub))
-		return true;
-	      return tree_could_trap_p (TREE_OPERAND (t, 0));
-	    }
-	  return false;
-	}
+      if (flag_non_call_exceptions
+	  && tree_could_trap_p (TREE_OPERAND (t, 0)))
+	return true;
+      t = TREE_OPERAND (t, 1);
     }
 
+  if (TREE_CODE (t) == WITH_SIZE_EXPR)
+    t = TREE_OPERAND (t, 0);
   if (TREE_CODE (t) == CALL_EXPR)
     return (call_expr_flags (t) & ECF_NOTHROW) == 0;
-
+  if (flag_non_call_exceptions)
+    return tree_could_trap_p (t);
   return false;
 }
 
@@ -1751,6 +1878,15 @@ tree_can_throw_external (tree stmt)
   if (region_nr < 0)
     return false;
   return can_throw_external_1 (region_nr);
+}
+
+bool
+maybe_clean_eh_stmt (tree stmt)
+{
+  if (!tree_could_throw_p (stmt))
+    if (remove_stmt_from_eh_region (stmt))
+      return true;
+  return false;
 }
 
 #include "gt-tree-eh.h"

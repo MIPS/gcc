@@ -36,7 +36,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
-#include "tree-fold-const.h"
 #include "expr.h"
 #include "optabs.h"
 #include "tree-chrec.h"
@@ -54,11 +53,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    TODO: Determine reuse vectors/matrix and use it to determine optimal
    transform matrix for locality purposes.
-   TODO: Add dependence matrix collection and approriate matrix
-   calculations so we can determine if a given transformation matrix
-   is legal for a loop. 
-   TODO: Completion of partial transforms.
-*/
+   TODO: Completion of partial transforms.  */
 
 /* Perform a set of linear transforms on LOOPS.  */
 
@@ -66,34 +61,88 @@ void
 linear_transform_loops (struct loops *loops)
 {
   unsigned int i;  
+  unsigned int depth = 0;
+  unsigned int j;
+  varray_type classic_dist;
+  varray_type classic_dir;
+  varray_type datarefs;
+  varray_type dependence_relations;
+
   for (i = 1; i < loops->num; i++)
     {
       struct loop *loop_nest = loops->parray[i];
+      struct loop *temp;
       varray_type oldivs;
       varray_type invariants;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
-
+      bool problem = false;
+      /* If it's not a loop nest, we don't want it.
+         We also don't handle sibling loops properly, 
+         which are loops of the following form:
+         for (i = 0; i < 50; i++)
+           {
+             for (j = 0; j < 50; j++)
+               {
+	        ...
+               }
+           for (j = 0; j < 50; j++)
+               {
+                ...
+               }
+           } */
       if (!loop_nest->inner)
 	continue;
-      flow_loop_scan (loop_nest, LOOP_ALL);
-      flow_loop_scan (loop_nest->inner, LOOP_ALL);
-#if 0
-      if (loop_nest->num_pre_header_edges != 1 
-	  || loop_nest->inner->num_pre_header_edges != 1)
-	  continue;
-#endif 
-      before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs, &invariants);
-      if (!before)
-	continue;
-      if (dump_file)
+      for (temp = loop_nest; temp; temp = temp->inner)
 	{
-	  fprintf (dump_file, "Before:\n");
-	  print_lambda_loopnest (dump_file, before, 'i');
+	  flow_loop_scan (temp, LOOP_ALL);
+	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
+	  if (temp->next || temp->num_exits != 1)
+	    {
+	      problem = true;
+	      break;
+	    }
+	  depth ++;
 	}
-      trans = lambda_trans_matrix_new (LN_DEPTH (before), LN_DEPTH (before));
+      if (problem)
+	continue;
+
+      /* Analyze data references and dependence relations using scev.  */      
+ 
+      VARRAY_GENERIC_PTR_INIT (classic_dist, 10, "classic_dist");
+      VARRAY_GENERIC_PTR_INIT (classic_dir, 10, "classic_dir");
+      VARRAY_GENERIC_PTR_INIT (datarefs, 10, "datarefs");
+      VARRAY_GENERIC_PTR_INIT (dependence_relations, 10,
+			       "dependence_relations");
+      
+  
+      compute_data_dependences_for_loop (depth, loop_nest,
+					 &datarefs, &dependence_relations, 
+					 &classic_dist, &classic_dir);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  for (j = 0; j < VARRAY_ACTIVE_SIZE (classic_dist); j++)
+	    {
+	      fprintf (dump_file, "DISTANCE_V (");
+	      print_lambda_vector (dump_file, 
+				   VARRAY_GENERIC_PTR (classic_dist, j),
+				   depth);
+	      fprintf (dump_file, ")\n");
+	    }
+	  for (j = 0; j < VARRAY_ACTIVE_SIZE (classic_dir); j++)
+	    {
+	      fprintf (dump_file, "DIRECTION_V (");
+	      print_lambda_vector (dump_file, 
+				   VARRAY_GENERIC_PTR (classic_dir, j),
+				   depth);
+	      fprintf (dump_file, ")\n");
+	    }
+	  fprintf (dump_file, "\n\n");
+	}
+      /* Build the transformation matrix.  */
+      trans = lambda_trans_matrix_new (depth, depth);
 #if 1
-      lambda_matrix_id (LTM_MATRIX (trans), LN_DEPTH (before));
+      lambda_matrix_id (LTM_MATRIX (trans), depth);
 #else
       /* This is a 2x2 interchange matrix.  */
       LTM_MATRIX (trans)[0][0] = 0;
@@ -101,6 +150,23 @@ linear_transform_loops (struct loops *loops)
       LTM_MATRIX (trans)[1][0] = 1;
       LTM_MATRIX (trans)[1][1] = 0;
 #endif
+      /* Check whether the transformation is legal.  */
+      if (!lambda_transform_legal_p (trans, depth, classic_dir, classic_dist))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Can't transform loop, transform is illegal:\n");
+	  continue;
+	}
+      before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs, &invariants);
+      if (!before)
+	continue;
+            
+      if (dump_file)
+	{
+	  fprintf (dump_file, "Before:\n");
+	  print_lambda_loopnest (dump_file, before, 'i');
+	}
+  
       after = lambda_loopnest_transform (before, trans);
       if (dump_file)
 	{

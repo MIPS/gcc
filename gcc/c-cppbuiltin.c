@@ -23,6 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "version.h"
 #include "flags.h"
 #include "real.h"
 #include "c-common.h"
@@ -35,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "../libcpp/include/cpplib.h"
 #include "../libcpp/internal.h"
 /* APPLE LOCAL end pascal strings */
+#include "target.h"
 
 #ifndef TARGET_OS_CPP_BUILTINS
 # define TARGET_OS_CPP_BUILTINS()
@@ -437,6 +439,13 @@ c_cpp_builtins (cpp_reader *pfile)
   /* Make the choice of ObjC runtime visible to source code.  */
   if (c_dialect_objc () && flag_next_runtime)
     cpp_define (pfile, "__NEXT_RUNTIME__");
+
+  /* Show the availability of some target pragmas.  */
+  if (flag_mudflap || targetm.handle_pragma_redefine_extname)
+    cpp_define (pfile, "__PRAGMA_REDEFINE_EXTNAME");
+
+  if (targetm.handle_pragma_extern_prefix)
+    cpp_define (pfile, "__PRAGMA_EXTERN_PREFIX");
 
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */

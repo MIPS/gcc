@@ -136,8 +136,7 @@ const char * const reg_note_name[] =
   "REG_VALUE_PROFILE", "REG_NOALIAS", "REG_SAVE_AREA", "REG_BR_PRED",
   "REG_FRAME_RELATED_EXPR", "REG_EH_CONTEXT", "REG_EH_REGION",
   "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
-  "REG_NON_LOCAL_GOTO", "REG_CROSSING_JUMP", "REG_SETJMP", "REG_ALWAYS_RETURN",
-  "REG_VTABLE_REF"
+  "REG_NON_LOCAL_GOTO", "REG_CROSSING_JUMP", "REG_SETJMP", "REG_ALWAYS_RETURN"
 };
 
 
@@ -214,7 +213,6 @@ copy_rtx (rtx orig)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -224,7 +222,6 @@ copy_rtx (rtx orig)
     case CC0:
     case SCRATCH:
       /* SCRATCH must be shared because they represent distinct values.  */
-    case ADDRESSOF:
       return orig;
     case CLOBBER:
       if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)

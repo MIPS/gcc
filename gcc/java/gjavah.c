@@ -35,6 +35,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "jcf.h"
 #include "tree.h"
+#include "version.h"
 #include "javaop.h"
 #include "java-tree.h"
 #include "java-opcodes.h"
@@ -718,11 +719,10 @@ print_field_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
 
   fputs ("  ", out);
   if ((flags & ACC_STATIC))
-    fputs ("static ", out);
-
-  if ((flags & ACC_FINAL))
     {
-      if (current_field_value > 0)
+      fputs ("static ", out);
+
+      if ((flags & ACC_FINAL) && current_field_value > 0)
 	{
 	  char buffer[25];
 	  int done = 1;

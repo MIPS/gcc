@@ -19,6 +19,13 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef GCC_CFGLOOP_H
+#define GCC_CFGLOOP_H
+
+#include "basic-block.h"
+/* For rtx_code.  */
+#include "rtl.h"
+
 /* Structure to hold decision about unrolling/peeling.  */
 enum lpt_dec
 {
@@ -170,9 +177,10 @@ struct loop
   int exit_count;
 
   /* The probable number of times the loop is executed at runtime.
-     This is either an INTERVAL_CHREC or an INTEGER_CST.  Don't access
-     this field directly: number_of_iterations_in_loop computes and
-     caches the computed information in this field.  */
+     This is an INTEGER_CST or an expression containing symbolic
+     names.  Don't access this field directly:
+     number_of_iterations_in_loop computes and caches the computed
+     information in this field.  */
   tree nb_iterations;
 
   /* Upper bound on number of iterations of a loop.  */
@@ -225,6 +233,10 @@ struct loops
   /* State of loops.  */
   int state;
 };
+
+/* The loop tree currently optimized.  */
+
+extern struct loops *current_loops;
 
 /* Flags for loop discovery.  */
 
@@ -419,8 +431,8 @@ simple_loop_desc (struct loop *loop)
 
 /* Register pressure estimation for induction variable optimizations & loop
    invariant motion.  */
-extern void init_set_costs (void);
 extern unsigned global_cost_for_size (unsigned, unsigned, unsigned);
+extern void init_set_costs (void);
 
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init (FILE *);
@@ -440,104 +452,4 @@ extern void unroll_and_peel_loops (struct loops *, int);
 extern void doloop_optimize_loops (struct loops *);
 extern void move_loop_invariants (struct loops *);
 
-static inline struct loop *loop_from_num (struct loops *, unsigned);
-static inline struct loop *outer_loop (struct loop *);
-static inline struct loop *inner_loop (struct loop *);
-static inline struct loop *next_loop (struct loop *);
-static inline unsigned loop_num (struct loop *);
-static inline unsigned loop_depth (struct loop *);
-static inline basic_block loop_header (struct loop *);
-static inline tree loop_nb_iterations (struct loop *);
-static inline unsigned loop_num_exits (struct loop *);
-static inline edge *loop_exit_edges (struct loop *);
-static inline edge loop_exit_edge (struct loop *, unsigned);
-
-static inline struct loop *
-loop_from_num (struct loops *loops, 
-	       unsigned num)
-{
-  return loops->parray[num];
-}
-
-/* Returns the outer loop.  */
-
-static inline struct loop *
-outer_loop (struct loop *loop)
-{
-  return loop->outer;
-}
-
-/* Returns the inner loop.  */
-
-static inline struct loop *
-inner_loop (struct loop *loop)
-{
-  return loop->inner;
-}
-
-/* Returns the next loop.  */
-
-static inline struct loop *
-next_loop (struct loop *loop)
-{
-  return loop->next;
-}
-
-/* Returns the number of a loop.  */
-
-static inline unsigned
-loop_num (struct loop *loop)
-{
-  return loop->num;
-}
-
-/* Returns the depth of a loop.  */
-
-static inline unsigned
-loop_depth (struct loop *loop)
-{
-  return loop->depth;
-}
-
-/* Returns the header basic block of the loop.  */
-
-static inline basic_block
-loop_header (struct loop *loop)
-{
-  return loop->header;
-}
-
-/* Returns the number of iterations in the loop.  Use
-   number_of_iterations_in_loop () instead of accessing directly this
-   field.  */
-
-static inline tree
-loop_nb_iterations (struct loop *loop)
-{
-  return loop->nb_iterations;
-}
-
-/* Returns the number of exit edges of the loop.  */
-
-static inline unsigned
-loop_num_exits (struct loop *loop)
-{
-  return loop->num_exits;
-}
-
-/* Returns the exit edges of the loop.  */
-
-static inline edge *
-loop_exit_edges (struct loop *loop)
-{
-  return loop->exit_edges;
-}
-
-/* Returns the n-th exit edge of the loop.  */
-
-static inline edge 
-loop_exit_edge (struct loop *loop, unsigned n)
-{
-  return loop->exit_edges[n];
-}
-
+#endif /* GCC_CFGLOOP_H */

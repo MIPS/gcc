@@ -259,13 +259,13 @@ copy_insn_p (rtx insn, rtx *source, rtx *target)
      coalescing (the check for this is in remember_move() below).  */
   while (GET_CODE (d) == STRICT_LOW_PART)
     d = XEXP (d, 0);
-  if (GET_CODE (d) != REG
-      && (GET_CODE (d) != SUBREG || GET_CODE (SUBREG_REG (d)) != REG))
+  if (!REG_P (d)
+      && (GET_CODE (d) != SUBREG || !REG_P (SUBREG_REG (d))))
     return 0;
   while (GET_CODE (s) == STRICT_LOW_PART)
     s = XEXP (s, 0);
-  if (GET_CODE (s) != REG
-      && (GET_CODE (s) != SUBREG || GET_CODE (SUBREG_REG (s)) != REG))
+  if (!REG_P (s)
+      && (GET_CODE (s) != SUBREG || !REG_P (SUBREG_REG (s))))
     return 0;
 
   s_regno = (unsigned) REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s);
@@ -563,7 +563,7 @@ remember_move (rtx insn)
 	 Those would be difficult to coalesce (we would need to implement
 	 handling of all the subwebs in the allocator, including that such
 	 subwebs could be source and target of coalescing).  */
-      if (GET_CODE (s) == REG && GET_CODE (d) == REG)
+      if (REG_P (s) && REG_P (d))
 	{
 	  struct move *m = ra_calloc (sizeof (struct move));
 	  struct move_list *ml;
@@ -711,7 +711,7 @@ live_out_1 (struct df *df ATTRIBUTE_UNUSED, struct curr_use *use, rtx insn)
 
       /* We want to access the root webpart.  */
       wp = find_web_part (wp);
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	wp->crosses_call = 1;
       else if (copy_insn_p (insn, &s, NULL))
 	source_regno = REGNO (GET_CODE (s) == SUBREG ? SUBREG_REG (s) : s);
@@ -1045,7 +1045,7 @@ livethrough_conflicts_bb (basic_block bb)
 	    bitmap_set_bit (all_defs, DF_REF_ID (info.defs[n]));
 	  if (TEST_BIT (insns_with_deaths, INSN_UID (insn)))
 	    deaths++;
-	  if (GET_CODE (insn) == CALL_INSN)
+	  if (CALL_P (insn))
 	    contains_call = 1;
 	}
       if (insn == BB_END (bb))
@@ -1054,7 +1054,9 @@ livethrough_conflicts_bb (basic_block bb)
 
   /* And now, if we have found anything, make all live_through
      uses conflict with all defs, and update their other members.  */
-  if (deaths > 0 || bitmap_first_set_bit (all_defs) >= 0)
+  if (deaths > 0
+      || contains_call
+      || bitmap_first_set_bit (all_defs) >= 0)
     EXECUTE_IF_SET_IN_BITMAP (info->live_throughout, first, use_id,
       {
         struct web_part *wp = &web_parts[df->def_id + use_id];
@@ -1204,7 +1206,7 @@ prune_hardregs_for_mode (HARD_REG_SET *s, enum machine_mode mode)
 static void
 init_one_web_common (struct web *web, rtx reg)
 {
-  if (GET_CODE (reg) != REG)
+  if (!REG_P (reg))
     abort ();
   /* web->id isn't initialized here.  */
   web->regno = REGNO (reg);
@@ -2301,7 +2303,7 @@ remember_web_was_spilled (struct web *web)
 			reg_class_contents[reg_alternate_class (web->regno)]);
     }
   else
-/* APPLE LOCAL ? */
+/* APPLE LOCAL begin Dale vaguely remembers this. */
 #ifdef TARGET_POWERPC
     COPY_HARD_REG_SET (web->usable_regs,
 		       reg_class_contents[(int) NON_SPECIAL_REGS]);
@@ -2309,6 +2311,7 @@ remember_web_was_spilled (struct web *web)
     COPY_HARD_REG_SET (web->usable_regs,
 		       reg_class_contents[(int) GENERAL_REGS]);
 #endif
+/* APPLE LOCAL end Dale vaguely remembers this. */
   AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
   prune_hardregs_for_mode (&web->usable_regs, PSEUDO_REGNO_MODE (web->regno));
 #ifdef CANNOT_CHANGE_MODE_CLASS
@@ -2482,7 +2485,7 @@ contains_pseudo (rtx x)
   int i;
   if (GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     {
       if (REGNO (x) >= FIRST_PSEUDO_REGISTER)
         return 1;
@@ -2601,7 +2604,7 @@ detect_remat_webs (void)
 		  we created them ourself.  They might not have set their
 		  unchanging flag set, but nevertheless they are stable across
 		  the livetime in question.  */
-	       || (GET_CODE (src) == MEM
+	       || (MEM_P (src)
 		   && INSN_UID (insn) >= orig_max_uid
 		   && memref_is_stack_slot (src)))
 	      /* And we must be able to construct an insn without
@@ -2680,7 +2683,7 @@ detect_webs_set_in_cond_jump (void)
 {
   basic_block bb;
   FOR_EACH_BB (bb)
-    if (GET_CODE (BB_END (bb)) == JUMP_INSN)
+    if (JUMP_P (BB_END (bb)))
       {
 	struct df_link *link;
 	for (link = DF_INSN_DEFS (df, BB_END (bb)); link; link = link->next)
@@ -2812,7 +2815,7 @@ handle_asm_insn (struct df *df, rtx insn)
     for (i = 0; i < XVECLEN (pat, 0); i++)
       {
 	rtx t = XVECEXP (pat, 0, i);
-	if (GET_CODE (t) == CLOBBER && GET_CODE (XEXP (t, 0)) == REG
+	if (GET_CODE (t) == CLOBBER && REG_P (XEXP (t, 0))
 	    && REGNO (XEXP (t, 0)) < FIRST_PSEUDO_REGISTER)
 	  SET_HARD_REG_BIT (clobbered, REGNO (XEXP (t, 0)));
       }
@@ -2837,7 +2840,7 @@ handle_asm_insn (struct df *df, rtx insn)
 	     || GET_CODE (reg) == SIGN_EXTRACT
 	     || GET_CODE (reg) == STRICT_LOW_PART)
 	reg = XEXP (reg, 0);
-      if (GET_CODE (reg) != REG || REGNO (reg) < FIRST_PSEUDO_REGISTER)
+      if (!REG_P (reg) || REGNO (reg) < FIRST_PSEUDO_REGISTER)
 	continue;
 
       /* Search the web corresponding to this operand.  We depend on

@@ -46,11 +46,16 @@ struct lower_data
 {
   /* Block the current statement belongs to.  */
   tree block;
+
+  /* A TREE_LIST of label and return statements to be moved to the end
+     of the function.  */
+  tree return_statements;
 };
 
 static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
+static void lower_return_expr (tree_stmt_iterator *, struct lower_data *);
 static bool expand_var_p (tree);
 
 /* Lowers the body of current_function_decl.  */
@@ -62,6 +67,7 @@ lower_function_body (void)
   tree *body_p = &DECL_SAVED_TREE (current_function_decl);
   tree bind = *body_p;
   tree_stmt_iterator i;
+  tree t, x;
 
   if (TREE_CODE (bind) != BIND_EXPR)
     abort ();
@@ -71,10 +77,45 @@ lower_function_body (void)
   BLOCK_CHAIN (data.block) = NULL_TREE;
   TREE_ASM_WRITTEN (data.block) = 1;
 
+  data.return_statements = NULL_TREE;
+
   *body_p = alloc_stmt_list ();
   i = tsi_start (*body_p);
   tsi_link_after (&i, bind, TSI_NEW_STMT);
   lower_bind_expr (&i, &data);
+
+  i = tsi_last (*body_p);
+
+  /* If the function falls off the end, we need a null return statement.
+     If we've already got one in the return_statements list, we don't
+     need to do anything special.  Otherwise build one by hand.  */
+  if (block_may_fallthru (*body_p)
+      && (data.return_statements == NULL
+          || TREE_OPERAND (TREE_VALUE (data.return_statements), 0) != NULL))
+    {
+      x = build (RETURN_EXPR, void_type_node, NULL);
+      SET_EXPR_LOCATION (x, cfun->function_end_locus);
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
+    }
+
+  /* If we lowered any return statements, emit the representative
+     at the end of the function.  */
+  for (t = data.return_statements ; t ; t = TREE_CHAIN (t))
+    {
+      x = build (LABEL_EXPR, void_type_node, TREE_PURPOSE (t));
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
+
+      /* Remove the line number from the representative return statement.
+	 It now fills in for many such returns.  Failure to remove this
+	 will result in incorrect results for coverage analysis.  */
+      x = TREE_VALUE (t);
+#ifdef USE_MAPPED_LOCATION
+      SET_EXPR_LOCATION (x, UNKNOWN_LOCATION);
+#else
+      SET_EXPR_LOCUS (x, NULL);
+#endif
+      tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
+    }
 
   if (data.block != DECL_INITIAL (current_function_decl))
     abort ();
@@ -82,10 +123,6 @@ lower_function_body (void)
     = blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
 
   clear_block_marks (data.block);
-
-  /* Avoid producing notes for blocks.  */
-  cfun->dont_emit_block_notes = 1;
-  reset_block_changes ();
 }
 
 struct tree_opt_pass pass_lower_cf = 
@@ -136,6 +173,9 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case COND_EXPR:
       lower_cond_expr (tsi, data);
       return;
+    case RETURN_EXPR:
+      lower_return_expr (tsi, data);
+      return;
 
     case TRY_FINALLY_EXPR:
     case TRY_CATCH_EXPR:
@@ -151,12 +191,10 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
       
     case NOP_EXPR:
     case ASM_EXPR:
-    case RETURN_EXPR:
     case MODIFY_EXPR:
     case CALL_EXPR:
     case GOTO_EXPR:
     case LABEL_EXPR:
-    case VA_ARG_EXPR:
     case SWITCH_EXPR:
       break;
 
@@ -367,6 +405,43 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
   tsi_next (tsi);
 }
+
+static void
+lower_return_expr (tree_stmt_iterator *tsi, struct lower_data *data)
+{
+  tree stmt = tsi_stmt (*tsi);
+  tree value, t, label;
+
+  /* Extract the value being returned.  */
+  value = TREE_OPERAND (stmt, 0);
+  if (value && TREE_CODE (value) == MODIFY_EXPR)
+    value = TREE_OPERAND (value, 1);
+
+  /* Match this up with an existing return statement that's been created.  */
+  for (t = data->return_statements; t ; t = TREE_CHAIN (t))
+    {
+      tree tvalue = TREE_OPERAND (TREE_VALUE (t), 0);
+      if (tvalue && TREE_CODE (tvalue) == MODIFY_EXPR)
+	tvalue = TREE_OPERAND (tvalue, 1);
+
+      if (value == tvalue)
+	{
+	  label = TREE_PURPOSE (t);
+	  goto found;
+	}
+    }
+
+  /* Not found.  Create a new label and record the return statement.  */
+  label = create_artificial_label ();
+  data->return_statements = tree_cons (label, stmt, data->return_statements);
+
+  /* Generate a goto statement and remove the return statement.  */
+ found:
+  t = build (GOTO_EXPR, void_type_node, label);
+  SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
+  tsi_link_before (tsi, t, TSI_SAME_STMT);
+  tsi_delink (tsi);
+}
 
 
 /* Record the variables in VARS.  */
@@ -400,15 +475,12 @@ expand_var_p (tree var)
   if (TREE_CODE (var) != VAR_DECL)
     return true;
 
-  ann = var_ann (var);
-
   /* Remove all unused, unaliased temporaries.  Also remove unused, unaliased
      local variables during highly optimizing compilations.  */
   ann = var_ann (var);
   if (ann
       && ! ann->may_aliases
       && ! ann->used
-      && ! ann->has_hidden_use
       && ! TREE_ADDRESSABLE (var)
       && ! TREE_THIS_VOLATILE (var)
       && (DECL_ARTIFICIAL (var) || optimize >= 2))
@@ -468,5 +540,3 @@ struct tree_opt_pass pass_remove_useless_vars =
   0,					/* todo_flags_start */
   TODO_dump_func			/* todo_flags_finish */
 };
-
-

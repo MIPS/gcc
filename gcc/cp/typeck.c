@@ -24,11 +24,7 @@ Boston, MA 02111-1307, USA.  */
 /* This file is part of the C++ front end.
    It contains routines to build C++ expressions given their operands,
    including computing the types of the result, C and C++ specific error
-   checks, and some optimization.
-
-   There are also routines to build RETURN_STMT nodes and CASE_STMT nodes,
-   and to process initializations in declarations (since they work
-   like a strange sort of assignment).  */
+   checks, and some optimization.  */
 
 #include "config.h"
 #include "system.h"
@@ -54,7 +50,6 @@ static int comp_ptr_ttypes_const (tree, tree);
 static bool comp_except_types (tree, tree, bool);
 static bool comp_array_types (tree, tree, bool);
 static tree common_base_type (tree, tree);
-static tree lookup_anon_field (tree, tree);
 static tree pointer_diff (tree, tree, tree);
 static tree get_delta_difference (tree, tree, int);
 static void casts_away_constness_r (tree *, tree *);
@@ -1027,7 +1022,7 @@ comptypes (tree t1, tree t2, int strict)
       if (!comptypes (TYPE_OFFSET_BASETYPE (t1), TYPE_OFFSET_BASETYPE (t2),
 		      strict & ~COMPARE_REDECLARATION))
 	return false;
-      /* Fall through. */
+      /* Fall through.  */
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
@@ -1149,10 +1144,11 @@ common_base_type (tree tt1, tree tt2)
 
   /* Otherwise, try to find a unique baseclass of TT1
      that is shared by TT2, and follow that down.  */
-  for (i = CLASSTYPE_N_BASECLASSES (tt1)-1; i >= 0; i--)
+  for (i = BINFO_N_BASE_BINFOS (TYPE_BINFO (tt1))-1; i >= 0; i--)
     {
-      tree basetype = TYPE_BINFO_BASETYPE (tt1, i);
+      tree basetype = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (tt1), i));
       tree trial = common_base_type (basetype, tt2);
+      
       if (trial)
 	{
 	  if (trial == error_mark_node)
@@ -1165,10 +1161,11 @@ common_base_type (tree tt1, tree tt2)
     }
 
   /* Same for TT2.  */
-  for (i = CLASSTYPE_N_BASECLASSES (tt2)-1; i >= 0; i--)
+  for (i = BINFO_N_BASE_BINFOS (TYPE_BINFO (tt2))-1; i >= 0; i--)
     {
-      tree basetype = TYPE_BINFO_BASETYPE (tt2, i);
+      tree basetype = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (tt2), i));
       tree trial = common_base_type (tt1, basetype);
+      
       if (trial)
 	{
 	  if (trial == error_mark_node)
@@ -1294,6 +1291,33 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
 }
   
 
+/* EXPR is being used in a context that is not a function call.
+   Enforce:
+
+     [expr.ref] 
+
+     The expression can be used only as the left-hand operand of a
+     member function call.  
+
+     [expr.mptr.operator]
+
+     If the result of .* or ->* is a function, then that result can be
+     used only as the operand for the function call operator ().  
+
+   by issuing an error message if appropriate.  Returns true iff EXPR
+   violates these rules.  */
+
+bool
+invalid_nonstatic_memfn_p (tree expr)
+{
+  if (TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE)
+    {
+      error ("invalid use of non-static member function");
+      return true;
+    }
+  return false;
+}
+
 /* Perform the conversions in [expr] that apply when an lvalue appears
    in an rvalue context: the lvalue-to-rvalue, array-to-pointer, and
    function-to-pointer conversions.
@@ -1346,11 +1370,8 @@ decay_conversion (tree exp)
       error ("void value not ignored as it ought to be");
       return error_mark_node;
     }
-  if (code == METHOD_TYPE)
-    {
-      error ("invalid use of non-static member function");
-      return error_mark_node;
-    }
+  if (invalid_nonstatic_memfn_p (exp))
+    return error_mark_node;
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
     return build_unary_op (ADDR_EXPR, exp, 0);
   if (code == ARRAY_TYPE)
@@ -1518,7 +1539,7 @@ rationalize_conditional_expr (enum tree_code code, tree t)
    anonymous unions can nest, we must also search all anonymous unions
    that are directly reachable.  */
 
-static tree
+tree
 lookup_anon_field (tree t, tree type)
 {
   tree field;
@@ -1735,7 +1756,8 @@ build_class_member_access_expr (tree object, tree member,
 	  member_type = cp_build_qualified_type (member_type, type_quals);
 	}
 
-      result = fold (build (COMPONENT_REF, member_type, object, member));
+      result = fold (build (COMPONENT_REF, member_type, object, member,
+			    NULL_TREE));
 
       /* Mark the expression const or volatile, as appropriate.  Even
 	 though we've dealt with the type above, we still have to mark the
@@ -1762,7 +1784,7 @@ build_class_member_access_expr (tree object, tree member,
 	type = unknown_type_node;
       /* Note that we do not convert OBJECT to the BASELINK_BINFO
 	 base.  That will happen when the function is called.  */
-      result = build (COMPONENT_REF, type, object, member);
+      result = build (COMPONENT_REF, type, object, member, NULL_TREE);
     }
   else if (TREE_CODE (member) == CONST_DECL)
     {
@@ -1861,7 +1883,7 @@ finish_class_member_access_expr (tree object, tree name)
 	  || (TREE_CODE (name) == SCOPE_REF
 	      && TYPE_P (TREE_OPERAND (name, 0))
 	      && dependent_type_p (TREE_OPERAND (name, 0))))
-	return build_min_nt (COMPONENT_REF, object, name);
+	return build_min_nt (COMPONENT_REF, object, name, NULL_TREE);
       object = build_non_dependent_expr (object);
     }
   
@@ -1988,7 +2010,7 @@ finish_class_member_access_expr (tree object, tree name)
 					 /*preserve_reference=*/false);
   if (processing_template_decl && expr != error_mark_node)
     return build_min_non_dep (COMPONENT_REF, expr,
-			      orig_object, orig_name);
+			      orig_object, orig_name, NULL_TREE);
   return expr;
 }
 
@@ -2018,7 +2040,7 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
 			  /*want_type=*/false);
   member_type = cp_build_qualified_type (TREE_TYPE (member),
 					 cp_type_quals (ptrmem_type));
-  return fold (build (COMPONENT_REF, member_type, ptrmem, member));
+  return fold (build (COMPONENT_REF, member_type, ptrmem, member, NULL_TREE));
 }
 
 /* Given an expression PTR for a pointer, return an expression
@@ -2234,7 +2256,7 @@ build_array_ref (tree array, tree idx)
 	}
 
       type = TREE_TYPE (TREE_TYPE (array));
-      rval = build (ARRAY_REF, type, array, idx);
+      rval = build (ARRAY_REF, type, array, idx, NULL_TREE, NULL_TREE);
       /* Array ref is const/volatile if the array elements are
 	 or if the array is..  */
       TREE_READONLY (rval)
@@ -2447,7 +2469,6 @@ build_function_call (tree function, tree params)
 {
   tree fntype, fndecl;
   tree coerced_params;
-  tree result;
   tree name = NULL_TREE;
   int is_method;
   tree original = function;
@@ -2520,26 +2541,12 @@ build_function_call (tree function, tree params)
   if (coerced_params == error_mark_node)
     return error_mark_node;
 
-  /* Check for errors in format strings.  */
+  /* Check for errors in format strings and inappropriately
+     null parameters.  */
 
-  if (warn_format)
-    check_function_format (NULL, TYPE_ATTRIBUTES (fntype), coerced_params);
+  check_function_arguments (TYPE_ATTRIBUTES (fntype), coerced_params);
 
-  /* Recognize certain built-in functions so we can make tree-codes
-     other than CALL_EXPR.  We do this when it enables fold-const.c
-     to do something useful.  */
-
-  if (TREE_CODE (function) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (function, 0)) == FUNCTION_DECL
-      && DECL_BUILT_IN (TREE_OPERAND (function, 0)))
-    {
-      result = expand_tree_builtin (TREE_OPERAND (function, 0),
-				    params, coerced_params);
-      if (result)
-	return result;
-    }
-
-  return build_cxx_call (function, params, coerced_params);
+  return build_cxx_call (function, coerced_params);
 }
 
 /* Convert the actual parameter expressions in the list VALUES
@@ -4272,7 +4279,8 @@ unary_complex_lvalue (enum tree_code code, tree arg)
 	      return error_mark_node;
 	    }
 
-	  type = build_ptrmem_type (DECL_FIELD_CONTEXT (t), TREE_TYPE (t));
+	  type = build_ptrmem_type (context_for_name_lookup (t), 
+				    TREE_TYPE (t));
 	  t = make_ptrmem_cst (type, TREE_OPERAND (arg, 1));
 	  return t;
 	}
@@ -4352,12 +4360,10 @@ cxx_mark_addressable (tree exp)
 	  warning ("address requested for `%D', which is declared `register'",
 		      x);
 	TREE_ADDRESSABLE (x) = 1;
-	put_var_into_stack (x, /*rescan=*/true);
 	return true;
 
       case FUNCTION_DECL:
 	TREE_ADDRESSABLE (x) = 1;
-	TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (x)) = 1;
 	return true;
 
       case CONSTRUCTOR:
@@ -4585,7 +4591,17 @@ build_static_cast (tree type, tree expr)
      t.  */
   result = perform_direct_initialization_if_possible (type, expr);
   if (result)
-    return convert_from_reference (result);
+    {
+      result = convert_from_reference (result);
+      /* [expr.static.cast]
+
+         If T is a reference type, the result is an lvalue; otherwise,
+	 the result is an rvalue.  */
+      if (TREE_CODE (type) != REFERENCE_TYPE
+	  && real_lvalue_p (result))
+	result = build1 (NON_LVALUE_EXPR, TREE_TYPE (result), result);
+      return result;
+    }
   
   /* [expr.static.cast]
 
@@ -4795,7 +4811,7 @@ build_reinterpret_cast (tree type, tree expr)
   if (TREE_CODE (type) == INTEGER_TYPE
       && TREE_CODE (intype) == POINTER_TYPE
       && TYPE_PRECISION (type) > TYPE_PRECISION (intype)
-      && TREE_UNSIGNED (type))
+      && TYPE_UNSIGNED (type))
     expr = cp_convert (c_common_type_for_size (POINTER_SIZE, 1), expr);
   /* APPLE LOCAL end don't sign-extend pointers cast to integers */
       
@@ -5010,7 +5026,7 @@ build_c_cast (tree type, tree expr)
       if (TREE_CODE (type) == INTEGER_TYPE
 	  && TREE_CODE (otype) == POINTER_TYPE
 	  && TYPE_PRECISION (type) > TYPE_PRECISION (otype)
-	  && TREE_UNSIGNED (type))
+	  && TYPE_UNSIGNED (type))
         value = convert_force (c_common_type_for_size (POINTER_SIZE, 1),
                                value,
                                CONV_C_CAST);
@@ -5160,8 +5176,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	{
 	  result = build_special_member_call (lhs, complete_ctor_identifier,
 					      build_tree_list (NULL_TREE, rhs),
-					      TYPE_BINFO (lhstype), 
-					      LOOKUP_NORMAL);
+					      lhstype, LOOKUP_NORMAL);
 	  if (result == NULL_TREE)
 	    return error_mark_node;
 	  return result;
@@ -5979,63 +5994,6 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
   return convert_for_assignment (type, rhs, errtype, fndecl, parmnum);
 }
 
-/* Expand an ASM statement with operands, handling output operands
-   that are not variables or INDIRECT_REFS by transforming such
-   cases into cases that expand_asm_operands can handle.
-
-   Arguments are same as for expand_asm_operands.
-
-   We don't do default conversions on all inputs, because it can screw
-   up operands that are expected to be in memory.  */
-
-void
-c_expand_asm_operands (tree string, tree outputs, tree inputs, tree clobbers,
-		       int vol, location_t locus)
-{
-  int noutputs = list_length (outputs);
-  int i;
-  /* o[I] is the place that output number I should be written.  */
-  tree *o = alloca (noutputs * sizeof (tree));
-  tree tail;
-
-  /* Record the contents of OUTPUTS before it is modified.  */
-  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
-    o[i] = TREE_VALUE (tail);
-
-  /* Generate the ASM_OPERANDS insn;
-     store into the TREE_VALUEs of OUTPUTS some trees for
-     where the values were actually stored.  */
-  expand_asm_operands (string, outputs, inputs, clobbers, vol, locus);
-
-  /* Copy all the intermediate outputs into the specified outputs.  */
-  for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
-    {
-      if (o[i] != TREE_VALUE (tail))
-	{
-	  expand_expr (build_modify_expr (o[i], NOP_EXPR, TREE_VALUE (tail)),
-		       const0_rtx, VOIDmode, EXPAND_NORMAL);
-	  free_temp_slots ();
-
-	  /* Restore the original value so that it's correct the next
-	     time we expand this function.  */
-	  TREE_VALUE (tail) = o[i];
-	}
-      /* Detect modification of read-only values.
-	 (Otherwise done by build_modify_expr.)  */
-      else
-	{
-	  tree type = TREE_TYPE (o[i]);
-	  if (type != error_mark_node
-	      && (CP_TYPE_CONST_P (type)
-		  || (CLASS_TYPE_P (type) && C_TYPE_FIELDS_READONLY (type))))
-	    readonly_error (o[i], "modification by `asm'", 1);
-	}
-    }
-
-  /* Those MODIFY_EXPRs could do autoincrements.  */
-  emit_queue ();
-}
-
 /* If RETVAL is the address of, or a reference to, a local variable or
    temporary give an appropriate warning.  */
 
@@ -6195,9 +6153,29 @@ check_return_expr (tree retval)
 
   /* Effective C++ rule 15.  See also start_function.  */
   if (warn_ecpp
-      && DECL_NAME (current_function_decl) == ansi_assopname(NOP_EXPR)
-      && retval != current_class_ref)
-    warning ("`operator=' should return a reference to `*this'");
+      && DECL_NAME (current_function_decl) == ansi_assopname(NOP_EXPR))
+    {
+      bool warn = true;
+
+      /* The function return type must be a reference to the current
+	class.  */
+      if (TREE_CODE (valtype) == REFERENCE_TYPE
+	  && same_type_ignoring_top_level_qualifiers_p
+	      (TREE_TYPE (valtype), TREE_TYPE (current_class_ref)))
+	{
+	  /* Returning '*this' is obviously OK.  */
+	  if (retval == current_class_ref)
+	    warn = false;
+	  /* If we are calling a function whose return type is the same of
+	     the current class reference, it is ok.  */
+	  else if (TREE_CODE (retval) == INDIRECT_REF
+		   && TREE_CODE (TREE_OPERAND (retval, 0)) == CALL_EXPR)
+	    warn = false;
+	}
+
+      if (warn)
+	warning ("`operator=' should return a reference to `*this'");
+    }
 
   /* The fabled Named Return Value optimization, as per [class.copy]/15:
 
@@ -6216,7 +6194,7 @@ check_return_expr (tree retval)
      returned expression uses the chosen variable somehow.  And people expect
      this restriction, anyway.  (jason 2000-11-19)
 
-     See finish_function and finalize_nrv for the rest of this optimization. */
+     See finish_function and finalize_nrv for the rest of this optimization.  */
 
   if (fn_returns_value_p && flag_elide_constructors)
     {

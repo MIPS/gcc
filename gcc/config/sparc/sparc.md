@@ -27,7 +27,7 @@
 (define_constants
   [(UNSPEC_MOVE_PIC		0)
    (UNSPEC_UPDATE_RETURN	1)
-   (UNSPEC_GET_PC		2)
+   (UNSPEC_LOAD_PCREL_SYM	2)
    (UNSPEC_MOVE_PIC_LABEL	5)
    (UNSPEC_SETH44		6)
    (UNSPEC_SETM44		7)
@@ -51,9 +51,9 @@
   [(UNSPECV_BLOCKAGE		0)
    (UNSPECV_FLUSHW		1)
    (UNSPECV_GOTO		2)
-   (UNSPECV_GOTO_V9		3)
    (UNSPECV_FLUSH		4)
    (UNSPECV_SETJMP		5)
+   (UNSPECV_SAVEW		6)
   ])
 
 ;; The upper 32 fp regs on the v9 can't hold SFmode values.  To deal with this
@@ -87,18 +87,11 @@
 	 (symbol_ref "TARGET_SPARCLET") (const_string "sparclet")]
 	(const_string "v7"))))
 
-;; Architecture size.
-(define_attr "arch" "arch32bit,arch64bit"
- (const
-  (cond [(symbol_ref "TARGET_ARCH64") (const_string "arch64bit")]
-	(const_string "arch32bit"))))
-
 ;; Insn type.
-
 (define_attr "type"
   "ialu,compare,shift,
    load,sload,store,
-   uncond_branch,branch,call,sibcall,call_no_delay_slot,
+   uncond_branch,branch,call,sibcall,call_no_delay_slot,return,
    imul,idiv,
    fpload,fpstore,
    fp,fpmove,
@@ -109,27 +102,47 @@
    fga,fgm_pack,fgm_mul,fgm_pdist,fgm_cmp,
    cmove,
    ialuX,
-   multi,flushw,iflush,trap"
+   multi,savew,flushw,iflush,trap"
   (const_string "ialu"))
 
-;; true if branch/call has empty delay slot and will emit a nop in it
+;; True if branch/call has empty delay slot and will emit a nop in it
 (define_attr "empty_delay_slot" "false,true"
   (symbol_ref "empty_delay_slot (insn)"))
 
-(define_attr "branch_type" "none,icc,fcc,reg" (const_string "none"))
+(define_attr "branch_type" "none,icc,fcc,reg"
+  (const_string "none"))
 
 (define_attr "pic" "false,true"
   (symbol_ref "flag_pic != 0"))
 
-(define_attr "current_function_calls_alloca" "false,true"
+(define_attr "calls_alloca" "false,true"
   (symbol_ref "current_function_calls_alloca != 0"))
 
+(define_attr "calls_eh_return" "false,true"
+   (symbol_ref "current_function_calls_eh_return !=0 "))
+   
+(define_attr "leaf_function" "false,true"
+  (symbol_ref "current_function_uses_only_leaf_regs != 0"))
+
+(define_attr "delayed_branch" "false,true"
+  (symbol_ref "flag_delayed_branch != 0"))
+
 ;; Length (in # of insns).
+;; Beware that setting a length greater or equal to 3 for conditional branches
+;; has a side-effect (see output_cbranch and output_v9branch).
 (define_attr "length" ""
-  (cond [(eq_attr "type" "uncond_branch,call,sibcall")
+  (cond [(eq_attr "type" "uncond_branch,call")
 	   (if_then_else (eq_attr "empty_delay_slot" "true")
 	     (const_int 2)
 	     (const_int 1))
+	 (eq_attr "type" "sibcall")
+	   (if_then_else (eq_attr "leaf_function" "true")
+	     (if_then_else (eq_attr "empty_delay_slot" "true")
+	       (const_int 3)
+	       (const_int 2))
+	     (if_then_else (eq_attr "empty_delay_slot" "true")
+	       (const_int 2)
+	       (const_int 1)))
 	 (eq_attr "branch_type" "icc")
 	   (if_then_else (match_operand 0 "noov_compare64_op" "")
 	     (if_then_else (lt (pc) (match_dup 1))
@@ -193,17 +206,18 @@
 	 ] (const_int 1)))
 
 ;; FP precision.
-(define_attr "fptype" "single,double" (const_string "single"))
+(define_attr "fptype" "single,double"
+  (const_string "single"))
 
 ;; UltraSPARC-III integer load type.
-(define_attr "us3load_type" "2cycle,3cycle" (const_string "2cycle"))
+(define_attr "us3load_type" "2cycle,3cycle"
+  (const_string "2cycle"))
 
 (define_asm_attributes
   [(set_attr "length" "2")
    (set_attr "type" "multi")])
 
 ;; Attributes for instruction and branch scheduling
-
 (define_attr "tls_call_delay" "false,true"
   (symbol_ref "tls_call_delay (insn)"))
 
@@ -219,19 +233,13 @@
 		      (const_string "true")
 		      (const_string "false"))))
 
-(define_delay (eq_attr "type" "call")
-  [(eq_attr "in_call_delay" "true") (nil) (nil)])
-
 (define_attr "eligible_for_sibcall_delay" "false,true"
   (symbol_ref "eligible_for_sibcall_delay (insn)"))
 
-(define_delay (eq_attr "type" "sibcall")
-  [(eq_attr "eligible_for_sibcall_delay" "true") (nil) (nil)])
+(define_attr "eligible_for_return_delay" "false,true"
+  (symbol_ref "eligible_for_return_delay (insn)"))
 
-(define_attr "leaf_function" "false,true"
-  (const (symbol_ref "current_function_uses_only_leaf_regs")))
-
-;; ??? Should implement the notion of predelay slots for floating point
+;; ??? !v9: Should implement the notion of predelay slots for floating-point
 ;; branches.  This would allow us to remove the nop always inserted before
 ;; a floating point branch.
 
@@ -261,6 +269,12 @@
 		(const_string "true")
 		(const_string "false")))
 
+(define_delay (eq_attr "type" "call")
+  [(eq_attr "in_call_delay" "true") (nil) (nil)])
+
+(define_delay (eq_attr "type" "sibcall")
+  [(eq_attr "eligible_for_sibcall_delay" "true") (nil) (nil)])
+
 (define_delay (eq_attr "type" "branch")
   [(eq_attr "in_branch_delay" "true")
    (nil) (eq_attr "in_annul_branch_delay" "true")])
@@ -268,7 +282,10 @@
 (define_delay (eq_attr "type" "uncond_branch")
   [(eq_attr "in_uncond_branch_delay" "true")
    (nil) (nil)])
-   
+
+(define_delay (eq_attr "type" "return")
+  [(eq_attr "eligible_for_return_delay" "true") (nil) (nil)])
+
 ;; Include SPARC DFA schedulers
 
 (include "cypress.md")
@@ -299,10 +316,13 @@
 
 (define_expand "cmpsi"
   [(set (reg:CC 100)
-	(compare:CC (match_operand:SI 0 "register_operand" "")
+	(compare:CC (match_operand:SI 0 "compare_operand" "")
 		    (match_operand:SI 1 "arith_operand" "")))]
   ""
 {
+  if (GET_CODE (operands[0]) == ZERO_EXTRACT && operands[1] != const0_rtx)
+    operands[0] = force_reg (SImode, operands[0]);
+
   sparc_compare_op0 = operands[0];
   sparc_compare_op1 = operands[1];
   DONE;
@@ -310,10 +330,13 @@
 
 (define_expand "cmpdi"
   [(set (reg:CCX 100)
-	(compare:CCX (match_operand:DI 0 "register_operand" "")
+	(compare:CCX (match_operand:DI 0 "compare_operand" "")
 		     (match_operand:DI 1 "arith_double_operand" "")))]
   "TARGET_ARCH64"
 {
+  if (GET_CODE (operands[0]) == ZERO_EXTRACT && operands[1] != const0_rtx)
+    operands[0] = force_reg (DImode, operands[0]);
+
   sparc_compare_op0 = operands[0];
   sparc_compare_op1 = operands[1];
   DONE;
@@ -1654,17 +1677,27 @@
   [(set_attr "type" "branch")
    (set_attr "branch_type" "reg")])
 
-;; Load program counter insns.
+;; Load in operand 0 the (absolute) address of operand 1, which is a symbolic
+;; value subject to a PC-relative relocation.  Operand 2 is a helper function
+;; that adds the PC value at the call point to operand 0.
 
-(define_insn "get_pc"
-  [(clobber (reg:SI 15))
-   (set (match_operand 0 "register_operand" "=r")
-	(unspec [(match_operand 1 "" "") (match_operand 2 "" "")] UNSPEC_GET_PC))]
-  "flag_pic && REGNO (operands[0]) == 23"
-  "sethi\t%%hi(%a1-4), %0\n\tcall\t%a2\n\tadd\t%0, %%lo(%a1+4), %0"
-  [(set_attr "type" "multi")
-   (set_attr "length" "3")])
-
+(define_insn "load_pcrel_sym"
+  [(set (match_operand 0 "register_operand" "=r")
+	(unspec [(match_operand 1 "symbolic_operand" "")
+		 (match_operand 2 "call_operand_address" "")] UNSPEC_LOAD_PCREL_SYM))
+   (clobber (reg:SI 15))]
+  ""
+{
+  if (flag_delayed_branch)
+    return "sethi\t%%hi(%a1-4), %0\n\tcall\t%a2\n\t add\t%0, %%lo(%a1+4), %0";
+  else
+    return "sethi\t%%hi(%a1-8), %0\n\tadd\t%0, %%lo(%a1-4), %0\n\tcall\t%a2\n\t nop";
+}
+  [(set (attr "type") (const_string "multi"))
+   (set (attr "length")
+	(if_then_else (eq_attr "delayed_branch" "true")
+		      (const_int 3)
+		      (const_int 4)))])
 
 ;; Move instructions
 
@@ -6920,8 +6953,6 @@
 		   (match_operand:SI 2 "arith_operand" "rI")))]
   ""
 {
-  if (operands[2] == const1_rtx)
-    return "add\t%1, %1, %0";
   if (GET_CODE (operands[2]) == CONST_INT)
     operands[2] = GEN_INT (INTVAL (operands[2]) & 0x1f);
   return "sll\t%1, %2, %0";
@@ -6951,8 +6982,6 @@
 		   (match_operand:SI 2 "arith_operand" "rI")))]
   "TARGET_ARCH64"
 {
-  if (operands[2] == const1_rtx)
-    return "add\t%1, %1, %0";
   if (GET_CODE (operands[2]) == CONST_INT)
     operands[2] = GEN_INT (INTVAL (operands[2]) & 0x3f);
   return "sllx\t%1, %2, %0";
@@ -6968,7 +6997,7 @@
 		   (match_operand:SI 2 "arith_operand" "rI,rI,rI")))
    (clobber (match_scratch:SI 3 "=X,X,&h"))]
   "TARGET_V8PLUS"
-  { return sparc_v8plus_shift (operands, insn, "sllx"); }
+  "* return output_v8plus_shift (operands, insn, \"sllx\");"
   [(set_attr "type" "multi")
    (set_attr "length" "5,5,6")])
 
@@ -7085,7 +7114,7 @@
 		     (match_operand:SI 2 "arith_operand" "rI,rI,rI")))
    (clobber (match_scratch:SI 3 "=X,X,&h"))]
   "TARGET_V8PLUS"
-  { return sparc_v8plus_shift (operands, insn, "srax"); }
+  "* return output_v8plus_shift (operands, insn, \"srax\");"
   [(set_attr "type" "multi")
    (set_attr "length" "5,5,6")])
 
@@ -7174,7 +7203,7 @@
 		     (match_operand:SI 2 "arith_operand" "rI,rI,rI")))
    (clobber (match_scratch:SI 3 "=X,X,&h"))]
   "TARGET_V8PLUS"
-  { return sparc_v8plus_shift (operands, insn, "srlx"); }
+  "* return output_v8plus_shift (operands, insn, \"srlx\");"
   [(set_attr "type" "multi")
    (set_attr "length" "5,5,6")])
 
@@ -7249,27 +7278,10 @@
   [(set_attr "type" "shift")])
 
 ;; Unconditional and other jump instructions
-;; On the SPARC, by setting the annul bit on an unconditional branch, the
-;; following insn is never executed.  This saves us a nop.  Dbx does not
-;; handle such branches though, so we only use them when optimizing.
 (define_insn "jump"
   [(set (pc) (label_ref (match_operand 0 "" "")))]
   ""
-{
-  /* TurboSPARC is reported to have problems with
-     with
-	foo: b,a foo
-     i.e. an empty loop with the annul bit set.  The workaround is to use 
-        foo: b foo; nop
-     instead.  */
-
-  if (! TARGET_V9 && flag_delayed_branch
-      && (INSN_ADDRESSES (INSN_UID (operands[0]))
-	  == INSN_ADDRESSES (INSN_UID (insn))))
-    return "b\t%l0%#";
-  else
-    return TARGET_V9 ? "ba%*,pt\t%%xcc, %l0%(" : "b%*\t%l0%(";
-}
+  "* return output_ubranch (operands[0], 0, insn);"
   [(set_attr "type" "uncond_branch")])
 
 (define_expand "tablejump"
@@ -7425,7 +7437,7 @@
    (clobber (reg:SI 15))]
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) > 0"
-  "call\t%a0, %1\n\tnop\n\tunimp\t%2"
+  "call\t%a0, %1\n\t nop\n\tunimp\t%2"
   [(set_attr "type" "call_no_delay_slot")
    (set_attr "length" "3")])
 
@@ -7438,7 +7450,7 @@
    (clobber (reg:SI 15))]
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) > 0"
-  "call\t%a0, %1\n\tnop\n\tunimp\t%2"
+  "call\t%a0, %1\n\t nop\n\tunimp\t%2"
   [(set_attr "type" "call_no_delay_slot")
    (set_attr "length" "3")])
 
@@ -7451,7 +7463,7 @@
    (clobber (reg:SI 15))]
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0"
-  "call\t%a0, %1\n\tnop\n\tnop"
+  "call\t%a0, %1\n\t nop\n\tnop"
   [(set_attr "type" "call_no_delay_slot")
    (set_attr "length" "3")])
 
@@ -7464,7 +7476,7 @@
    (clobber (reg:SI 15))]
   ;;- Do not use operand 1 for most machines.
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0"
-  "call\t%a0, %1\n\tnop\n\tnop"
+  "call\t%a0, %1\n\t nop\n\tnop"
   [(set_attr "type" "call_no_delay_slot")
    (set_attr "length" "3")])
 
@@ -7613,9 +7625,87 @@
   [(set_attr "type" "sibcall")])
 
 (define_expand "sibcall_epilogue"
+  [(return)]
+  ""
+{
+  sparc_expand_epilogue ();
+  DONE;
+})
+
+(define_expand "prologue"
   [(const_int 0)]
   ""
-  "DONE;")
+{
+  sparc_expand_prologue ();
+  DONE;
+})
+
+(define_expand "save_register_window"
+  [(use (match_operand 0 "arith_operand" ""))]
+  ""
+{
+  rtvec vec;
+
+  vec = gen_rtvec (2,
+		   gen_rtx_SET (VOIDmode,
+				stack_pointer_rtx,
+				gen_rtx_PLUS (Pmode,
+					      hard_frame_pointer_rtx,
+					      operands[0])),
+		   gen_rtx_UNSPEC_VOLATILE (VOIDmode,
+					    gen_rtvec (1, const0_rtx),
+					    UNSPECV_SAVEW));
+
+  emit_insn (gen_rtx_PARALLEL (VOIDmode, vec));
+  DONE;
+})
+
+(define_insn "*save_register_windowsi"
+  [(set (reg:SI 14) (plus:SI (reg:SI 30)
+			     (match_operand:SI 0 "arith_operand" "rI")))
+   (unspec_volatile [(const_int 0)] UNSPECV_SAVEW)]
+  "! TARGET_ARCH64"
+  "save\t%%sp, %0, %%sp"
+  [(set_attr "type" "savew")])
+
+(define_insn "*save_register_windowdi"
+  [(set (reg:DI 14) (plus:DI (reg:DI 30)
+			     (match_operand:DI 0 "arith_operand" "rI")))
+   (unspec_volatile [(const_int 0)] UNSPECV_SAVEW)]
+  "TARGET_ARCH64"
+  "save\t%%sp, %0, %%sp"
+  [(set_attr "type" "savew")])
+
+(define_expand "epilogue"
+  [(return)]
+  ""
+{
+  sparc_expand_epilogue ();
+})
+
+(define_insn "*return_internal"
+  [(return)]
+  ""
+  "* return output_return (insn);"
+  [(set_attr "type" "return")
+   (set (attr "length")
+	(cond [(eq_attr "leaf_function" "true")
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+			       (const_int 2)
+			       (const_int 1))
+	       (eq_attr "calls_eh_return" "true")
+		 (if_then_else (eq_attr "delayed_branch" "true")
+			       (if_then_else (eq_attr "isa" "v9")
+					     (const_int 2)
+					     (const_int 3))
+			       (if_then_else (eq_attr "isa" "v9")
+					     (const_int 3)
+					     (const_int 4)))
+	       (eq_attr "empty_delay_slot" "true")
+		 (if_then_else (eq_attr "delayed_branch" "true")
+			       (const_int 2)
+			       (const_int 3))
+	      ] (const_int 1)))])
 
 ;; UNSPEC_VOLATILE is considered to use and clobber all hard registers and
 ;; all of memory.  This blocks insns from being moved across this point.
@@ -7674,9 +7764,17 @@
   [(unspec:SI [(match_operand:SI 0 "register_operand" "r")
 	       (match_operand:SI 1 "register_operand" "r")] UNSPEC_UPDATE_RETURN)]
   "! TARGET_ARCH64"
-  "cmp\t%1, 0\;be,a\t.+8\;add\t%0, 4, %0"
-  [(set_attr "type" "multi")
-   (set_attr "length" "3")])
+{
+  if (flag_delayed_branch)
+    return "cmp\t%1, 0\n\tbe,a\t.+8\n\t add\t%0, 4, %0";
+  else
+    return "cmp\t%1, 0\n\tbne\t.+12\n\t nop\n\tadd\t%0, 4, %0";
+}
+  [(set (attr "type") (const_string "multi"))
+   (set (attr "length")
+	(if_then_else (eq_attr "delayed_branch" "true")
+		      (const_int 3)
+		      (const_int 4)))])
 
 (define_insn "nop"
   [(const_int 0)]
@@ -7707,9 +7805,6 @@
    (match_operand:SI 3 "" "")]
   ""
 {
-#if 0
-  rtx chain = operands[0];
-#endif
   rtx lab = operands[1];
   rtx stack = operands[2];
   rtx fp = operands[3];
@@ -7735,27 +7830,10 @@
      and reload the appropriate value into %fp.  */
   emit_move_insn (hard_frame_pointer_rtx, stack);
 
-  /* USE of frame_pointer_rtx added for consistency; not clear if
-     really needed.  */
-  /*emit_insn (gen_rtx_USE (VOIDmode, frame_pointer_rtx));*/
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
-
-#if 0
-  /* Return, restoring reg window and jumping to goto handler.  */
-  if (TARGET_V9 && GET_CODE (chain) == CONST_INT
-      && ! (INTVAL (chain) & ~(HOST_WIDE_INT)0xffffffff))
-    {
-      emit_jump_insn (gen_goto_handler_and_restore_v9 (labreg,
-						       static_chain_rtx,
-						       chain));
-      emit_barrier ();
-      DONE;
-    }
-  /* Put in the static chain register the nonlocal label address.  */
-  emit_move_insn (static_chain_rtx, chain);
-#endif
-
   emit_insn (gen_rtx_USE (VOIDmode, static_chain_rtx));
+
+  /* ??? The V9-specific version was disabled in rev 1.65.  */
   emit_jump_insn (gen_goto_handler_and_restore (labreg));
   emit_barrier ();
   DONE;
@@ -7771,31 +7849,17 @@
 (define_insn "goto_handler_and_restore"
   [(unspec_volatile [(match_operand 0 "register_operand" "=r")] UNSPECV_GOTO)]
   "GET_MODE (operands[0]) == Pmode"
-  "jmp\t%0+0\n\trestore"
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-;;(define_insn "goto_handler_and_restore_v9"
-;;  [(unspec_volatile [(match_operand:SI 0 "register_operand" "=r,r")
-;;		     (match_operand:SI 1 "register_operand" "=r,r")
-;;		     (match_operand:SI 2 "const_int_operand" "I,n")] UNSPECV_GOTO_V9)]
-;;  "TARGET_V9 && ! TARGET_ARCH64"
-;;  "@
-;;   return\t%0+0\n\tmov\t%2, %Y1
-;;   sethi\t%%hi(%2), %1\n\treturn\t%0+0\n\tor\t%Y1, %%lo(%2), %Y1"
-;;  [(set_attr "type" "multi")
-;;   (set_attr "length" "2,3")])
-;;
-;;(define_insn "*goto_handler_and_restore_v9_sp64"
-;;  [(unspec_volatile [(match_operand:DI 0 "register_operand" "=r,r")
-;;		     (match_operand:DI 1 "register_operand" "=r,r")
-;;		     (match_operand:SI 2 "const_int_operand" "I,n")] UNSPECV_GOTO_V9)]
-;;  "TARGET_V9 && TARGET_ARCH64"
-;;  "@
-;;   return\t%0+0\n\tmov\t%2, %Y1
-;;   sethi\t%%hi(%2), %1\n\treturn\t%0+0\n\tor\t%Y1, %%lo(%2), %Y1"
-;;  [(set_attr "type" "multi")
-;;   (set_attr "length" "2,3")])
+{
+  if (flag_delayed_branch)
+    return "jmp\t%0\n\t restore";
+  else
+    return "mov\t%0,%%g1\n\trestore\n\tjmp\t%%g1\n\t nop";
+}
+  [(set (attr "type") (const_string "multi"))
+   (set (attr "length")
+	(if_then_else (eq_attr "delayed_branch" "true")
+		      (const_int 2)
+		      (const_int 4)))])
 
 ;; For __builtin_setjmp we need to flush register windows iff the function
 ;; calls alloca as well, because otherwise the register window might be
@@ -7831,7 +7895,7 @@
 }
   [(set_attr "type" "multi")
    (set (attr "length")
-        (cond [(eq_attr "current_function_calls_alloca" "false")
+        (cond [(eq_attr "calls_alloca" "false")
                  (const_int 0)
                (eq_attr "isa" "!v9")
                  (const_int 1)
@@ -8080,166 +8144,6 @@
 		   (compare:CCX (match_dup 1) (const_int 0)))])]
   "")
 
-;; Return peepholes.  These are generated by sparc_function_epilogue
-;; who then immediately calls final_scan_insn.
-
-(define_insn "*return_qi"
-  [(set (match_operand:QI 0 "restore_operand" "")
-	(match_operand:QI 1 "arith_operand" "rI"))
-   (return)]
-  "sparc_emitting_epilogue"
-{
-  if (sparc_skip_caller_unimp)
-    return "jmp\t%%i7+12\n\trestore %%g0, %1, %Y0";
-  else if (TARGET_V9 && (GET_CODE (operands[1]) == CONST_INT
-			 || IN_OR_GLOBAL_P (operands[1])))
-    return "return\t%%i7+8\n\tmov\t%Y1, %Y0";
-  else
-    return "ret\n\trestore %%g0, %1, %Y0";
-}
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_hi"
-  [(set (match_operand:HI 0 "restore_operand" "")
-	(match_operand:HI 1 "arith_operand" "rI"))
-   (return)]
-  "sparc_emitting_epilogue"
-{
-  if (sparc_skip_caller_unimp)
-    return "jmp\t%%i7+12\n\trestore %%g0, %1, %Y0";
-  else if (TARGET_V9 && (GET_CODE (operands[1]) == CONST_INT
-			 || IN_OR_GLOBAL_P (operands[1])))
-    return "return\t%%i7+8\n\tmov\t%Y1, %Y0";
-  else
-    return "ret\;restore %%g0, %1, %Y0";
-}
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_si"
-  [(set (match_operand:SI 0 "restore_operand" "")
-	(match_operand:SI 1 "arith_operand" "rI"))
-   (return)]
-  "sparc_emitting_epilogue"
-{
-  if (sparc_skip_caller_unimp)
-    return "jmp\t%%i7+12\n\trestore %%g0, %1, %Y0";
-  else if (TARGET_V9 && (GET_CODE (operands[1]) == CONST_INT
-			 || IN_OR_GLOBAL_P (operands[1])))
-    return "return\t%%i7+8\n\tmov\t%Y1, %Y0";
-  else
-    return "ret\;restore %%g0, %1, %Y0";
-}
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_sf_no_fpu"
-  [(set (match_operand:SF 0 "restore_operand" "=r")
-	(match_operand:SF 1 "register_operand" "r"))
-   (return)]
-  "sparc_emitting_epilogue"
-{
-  if (sparc_skip_caller_unimp)
-    return "jmp\t%%i7+12\n\trestore %%g0, %1, %Y0";
-  else if (TARGET_V9 && IN_OR_GLOBAL_P (operands[1]))
-    return "return\t%%i7+8\n\tmov\t%Y1, %Y0";
-  else
-    return "ret\;restore %%g0, %1, %Y0";
-}
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_df_no_fpu"
-  [(set (match_operand:DF 0 "restore_operand" "=r")
-	(match_operand:DF 1 "register_operand" "r"))
-   (return)]
-  "sparc_emitting_epilogue && TARGET_ARCH64"
-{
-  if (IN_OR_GLOBAL_P (operands[1]))
-    return "return\t%%i7+8\n\tmov\t%Y1, %Y0";
-  else
-    return "ret\;restore %%g0, %1, %Y0";
-}
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_addsi"
-  [(set (match_operand:SI 0 "restore_operand" "")
-	(plus:SI (match_operand:SI 1 "register_operand" "r")
-		 (match_operand:SI 2 "arith_operand" "rI")))
-   (return)]
-  "sparc_emitting_epilogue"
-{
-  if (sparc_skip_caller_unimp)
-    return "jmp\t%%i7+12\n\trestore %r1, %2, %Y0";
-  /* If operands are global or in registers, can use return */
-  else if (TARGET_V9 && IN_OR_GLOBAL_P (operands[1])
-	   && (GET_CODE (operands[2]) == CONST_INT
-	       || IN_OR_GLOBAL_P (operands[2])))
-    return "return\t%%i7+8\n\tadd\t%Y1, %Y2, %Y0";
-  else
-    return "ret\;restore %r1, %2, %Y0";
-}
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_losum_si"
-  [(set (match_operand:SI 0 "restore_operand" "")
-	(lo_sum:SI (match_operand:SI 1 "register_operand" "r")
-		   (match_operand:SI 2 "immediate_operand" "in")))
-   (return)]
-  "sparc_emitting_epilogue && ! TARGET_CM_MEDMID"
-{
-  if (sparc_skip_caller_unimp)
-    return "jmp\t%%i7+12\n\trestore %r1, %%lo(%a2), %Y0";
-  /* If operands are global or in registers, can use return */
-  else if (TARGET_V9 && IN_OR_GLOBAL_P (operands[1]))
-    return "return\t%%i7+8\n\tor\t%Y1, %%lo(%a2), %Y0";
-  else
-    return "ret\;restore %r1, %%lo(%a2), %Y0";
-}
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_di"
-  [(set (match_operand:DI 0 "restore_operand" "")
-	(match_operand:DI 1 "arith_double_operand" "rHI"))
-   (return)]
-  "sparc_emitting_epilogue && TARGET_ARCH64"
-  "ret\;restore %%g0, %1, %Y0"
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_adddi"
-  [(set (match_operand:DI 0 "restore_operand" "")
-	(plus:DI (match_operand:DI 1 "arith_operand" "%r")
-		 (match_operand:DI 2 "arith_double_operand" "rHI")))
-   (return)]
-  "sparc_emitting_epilogue && TARGET_ARCH64"
-  "ret\;restore %r1, %2, %Y0"
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_losum_di"
-  [(set (match_operand:DI 0 "restore_operand" "")
-	(lo_sum:DI (match_operand:DI 1 "arith_operand" "%r")
-		   (match_operand:DI 2 "immediate_operand" "in")))
-   (return)]
-  "sparc_emitting_epilogue && TARGET_ARCH64 && ! TARGET_CM_MEDMID"
-  "ret\;restore %r1, %%lo(%a2), %Y0"
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
-(define_insn "*return_sf"
-  [(set (reg:SF 32)
-	(match_operand:SF 0 "register_operand" "f"))
-   (return)]
-  "sparc_emitting_epilogue"
-  "ret\;fmovs\t%0, %%f0"
-  [(set_attr "type" "multi")
-   (set_attr "length" "2")])
-
 ;; ??? UltraSPARC-III note: A memory operation loading into the floating point register
 ;; ??? file, if it hits the prefetch cache, has a chance to dual-issue with other memory
 ;; ??? operations.  With DFA we might be able to model this, but it requires a lot of
@@ -8310,14 +8214,6 @@
   return prefetch_instr [read_or_write][locality == 0 ? 0 : 1];
 }
   [(set_attr "type" "load")])
-
-(define_expand "prologue"
-  [(const_int 1)]
-  "flag_pic && current_function_uses_pic_offset_table"
-{
-  load_pic_register ();
-  DONE;
-})
 
 (define_insn "trap"
   [(trap_if (const_int 1) (const_int 5))]

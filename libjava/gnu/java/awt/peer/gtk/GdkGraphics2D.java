@@ -823,13 +823,13 @@ public class GdkGraphics2D extends Graphics2D
 
   public void setClip (int x, int y, int width, int height)
   {
-    clip = new Rectangle2D.Double ((double)x, (double)y, 
-                                   (double)width, (double)height);
-    setClip(clip);
+    setClip(new Rectangle2D.Double ((double)x, (double)y, 
+                                    (double)width, (double)height));
   }
   
   public void setClip (Shape s)
   {
+    clip = s;
     if (s != null)
       {
         cairoNewPath ();
@@ -1260,7 +1260,18 @@ public class GdkGraphics2D extends Graphics2D
 
   public void setComposite(Composite comp)
   {
-    throw new java.lang.UnsupportedOperationException ();
+    if (comp instanceof AlphaComposite)
+      {
+        AlphaComposite a = (AlphaComposite) comp;
+        cairoSetOperator(a.getRule());
+        Color c = getColor();
+        setColor(new Color(c.getRed(),
+                           c.getGreen(),
+                           c.getBlue(),
+                           (int) (a.getAlpha() * ((float) c.getAlpha()))));
+      }
+    else
+      throw new java.lang.UnsupportedOperationException ();
   }
 
   public void setRenderingHint(RenderingHints.Key hintKey,

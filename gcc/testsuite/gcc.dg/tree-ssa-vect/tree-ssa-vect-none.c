@@ -1,6 +1,6 @@
-/* { dg-do compile { target powerpc*-*-* i?86-*-* } } */
+/* { dg-do compile { target powerpc*-*-* i?86-*-* x86_64-*-* } } */
 /* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
 
 #define N 16
 
@@ -187,5 +187,5 @@ foo (int n)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized " 3 "vect"} } */
-/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 2 "vect"} } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"} } */
+/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 3 "vect"} } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */

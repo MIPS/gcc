@@ -177,7 +177,7 @@ maybe_thunk_body (tree fn)
 
       /* Start processing the function.  */
       push_to_top_level ();
-      start_function (NULL_TREE, clone, NULL_TREE, SF_PRE_PARSED);
+      start_preparsed_function (clone, NULL_TREE, SF_PRE_PARSED);
 
       /* Walk parameter lists together, creating parameter list for call to original function.  */
       for (parmno = 0,
@@ -251,6 +251,7 @@ maybe_clone_body (tree fn)
 
   /* We know that any clones immediately follow FN in the TYPE_METHODS
      list.  */
+  push_to_top_level ();
   for (clone = TREE_CHAIN (fn);
        clone && DECL_CLONED_FUNCTION_P (clone);
        clone = TREE_CHAIN (clone))
@@ -315,8 +316,7 @@ maybe_clone_body (tree fn)
    /* APPLE LOCAL end structor thunks */
 
       /* Start processing the function.  */
-      push_to_top_level ();
-      start_function (NULL_TREE, clone, NULL_TREE, SF_PRE_PARSED);
+      start_preparsed_function (clone, NULL_TREE, SF_PRE_PARSED);
 
       /* Remap the parameters.  */
       decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
@@ -382,8 +382,8 @@ maybe_clone_body (tree fn)
       finish_function (0);
       BLOCK_ABSTRACT_ORIGIN (DECL_INITIAL (clone)) = DECL_INITIAL (fn);
       expand_or_defer_fn (clone);
-      pop_from_top_level ();
     }
+  pop_from_top_level ();
 
   /* We don't need to process the original function any further.  */
   return 1;

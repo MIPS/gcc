@@ -44,7 +44,7 @@ struct spec_function
 
 /* This defines which multi-letter switches take arguments.  */
 
-/* APPLE LOCAL Symbol Separation */
+/* APPLE LOCAL begin Symbol Separation */
 /* Add save-repository in the list. */
 #define DEFAULT_WORD_SWITCH_TAKES_ARG(STR)		\
  (!strcmp (STR, "Tdata") || !strcmp (STR, "Ttext")	\
@@ -56,7 +56,7 @@ struct spec_function
   || !strcmp (STR, "-param") || !strcmp (STR, "specs") \
   || !strcmp (STR, "save-repository") \
   || !strcmp (STR, "MF") || !strcmp (STR, "MT") || !strcmp (STR, "MQ"))
-
+/* APPLE LOCAL end Symbol Separation */
 
 /* These are exported by gcc.c.  */
 extern int do_spec (const char *);

@@ -51,12 +51,14 @@ static void maybe_print_line (source_location);
 /* Callback routines for the parser.   Most of these are active only
    in specific modes.  */
 static void cb_line_change (cpp_reader *, const cpp_token *, int);
-static void cb_define (cpp_reader *, fileline, cpp_hashnode *);
-static void cb_undef (cpp_reader *, fileline, cpp_hashnode *);
-static void cb_include (cpp_reader *, fileline, const unsigned char *,
+static void cb_define (cpp_reader *, source_location, cpp_hashnode *);
+static void cb_undef (cpp_reader *, source_location, cpp_hashnode *);
+static void cb_include (cpp_reader *, source_location, const unsigned char *,
 			const char *, int);
-static void cb_ident (cpp_reader *, fileline, const cpp_string *);
-static void cb_def_pragma (cpp_reader *, fileline);
+static void cb_ident (cpp_reader *, source_location, const cpp_string *);
+static void cb_def_pragma (cpp_reader *, source_location);
+static void cb_read_pch (cpp_reader *pfile, const char *name,
+			 int fd, const char *orig_name);
 
 /* Preprocess and output.  */
 void
@@ -105,6 +107,12 @@ init_pp_output (FILE *out_stream)
 
   if (flag_dump_includes)
     cb->include  = cb_include;
+
+  if (flag_pch_preprocess)
+    {
+      cb->valid_pch = c_common_valid_pch;
+      cb->read_pch = cb_read_pch;
+    }
 
   if (flag_dump_macros == 'N' || flag_dump_macros == 'D')
     {
@@ -292,7 +300,7 @@ cb_line_change (cpp_reader *pfile, const cpp_token *token,
 }
 
 static void
-cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED, fileline line,
+cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED, source_location line,
 	  const cpp_string *str)
 {
   maybe_print_line (line);
@@ -301,7 +309,7 @@ cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED, fileline line,
 }
 
 static void
-cb_define (cpp_reader *pfile, fileline line, cpp_hashnode *node)
+cb_define (cpp_reader *pfile, source_location line, cpp_hashnode *node)
 {
   maybe_print_line (line);
   fputs ("#define ", print.outf);
@@ -393,7 +401,7 @@ pp_file_change (const struct line_map *map)
 
 /* Copy a #pragma directive to the preprocessed output.  */
 static void
-cb_def_pragma (cpp_reader *pfile, fileline line)
+cb_def_pragma (cpp_reader *pfile, source_location line)
 {
   maybe_print_line (line);
   fputs ("#pragma ", print.outf);
@@ -415,4 +423,18 @@ dump_macro (cpp_reader *pfile, cpp_hashnode *node, void *v ATTRIBUTE_UNUSED)
     }
 
   return 1;
+}
+
+/* Load in the PCH file NAME, open on FD.  It was originally searched for
+   by ORIG_NAME.  Also, print out a #include command so that the PCH
+   file can be loaded when the preprocessed output is compiled.  */
+
+static void
+cb_read_pch (cpp_reader *pfile, const char *name,
+	     int fd, const char *orig_name ATTRIBUTE_UNUSED)
+{
+  c_common_read_pch (pfile, name, fd, orig_name);
+  
+  fprintf (print.outf, "#pragma GCC pch_preprocess \"%s\"\n", name);
+  print.src_line++;
 }

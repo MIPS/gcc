@@ -279,12 +279,6 @@ gnatbind$(exeext): ada/b_gnatb.o $(CONFIG_H) $(GNATBIND_OBJS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ ada/b_gnatb.o $(GNATBIND_OBJS) \
 	     $(LIBS) $(SYSLIBS)
 
-install-rts-zfp: force
-	$(MAKE) -C ada  $(FLAGS_TO_PASS) install-rts RTS_NAME=zfp
-
-install-rts-ravenscar: force
-	$(MAKE) -C ada  $(FLAGS_TO_PASS) install-rts RTS_NAME=ravenscar
-
 # use cross-gcc
 gnat-cross: force
 	make $(GNAT1_ADA_OBJS) CC="gcc -B../stage1/" CFLAGS="-S -gnatp" \
@@ -386,9 +380,13 @@ ada/doctools/xgnatugn$(build_exeext): ada/xgnatugn.adb
 	$(CP) $^ ada/doctools
 	cd ada/doctools && gnatmake -q xgnatugn
 
-doc/gnat_ugn_unw.texi : ada/doctools/xgnatugn$(build_exeext) \
-	$(srcdir)/ada/gnat_ugn.texi $(srcdir)/ada/ug_words
-	ada/doctools/xgnatugn unw $(srcdir)/ada/gnat_ugn.texi $(srcdir)/ada/ug_words doc/gnat_ugn_unw.texi
+# Note that gnat_ugn_unw.texi does not depend on xgnatugn 
+# being built so we can distribute a pregenerated gnat_ugn_unw.info
+
+doc/gnat_ugn_unw.texi: $(srcdir)/ada/gnat_ugn.texi $(srcdir)/ada/ug_words
+	$(MAKE) ada/doctools/xgnatugn$(build_exeext)
+	ada/doctools/xgnatugn unw $(srcdir)/ada/gnat_ugn.texi \
+	   $(srcdir)/ada/ug_words doc/gnat_ugn_unw.texi
 
 doc/gnat_ugn_unw.info: doc/gnat_ugn_unw.texi \
    $(docdir)/include/fdl.texi $(docdir)/include/gcc-common.texi
@@ -413,7 +411,7 @@ doc/gnat-style.info: ada/gnat-style.texi $(docdir)/include/fdl.texi
             -I$(srcdir)/ada -o $@ $<; \
 	else true; fi
 
-ADA_INFOFILES = doc/gnat_ugn_unw.info \
+ADA_INFOFILES = doc/gnat_ugn_unw.info doc/gnat_ugn_unw.texi \
                 doc/gnat_rm.info doc/gnat-style.info
 
 ada.info: $(ADA_INFOFILES)

@@ -101,9 +101,9 @@ public class BasicMenuBarUI extends MenuBarUI
   }
 
   /**
-   * Creates ChangeListener
+   * DOCUMENT ME!
    *
-   * @return The ChangeListener
+   * @return DOCUMENT ME!
    */
   protected ChangeListener createChangeListener()
   {
@@ -112,7 +112,7 @@ public class BasicMenuBarUI extends MenuBarUI
 
   /**
    * Creates ContainerListener() to listen for ContainerEvents
-   * fired by JMenuBar.
+   * fired by JMenuBar
    *
    * @return The ContainerListener
    */
@@ -242,7 +242,7 @@ public class BasicMenuBarUI extends MenuBarUI
   }
 
   /**
-   * Unregisters all the listeners that this UI delegate was using.
+   * DOCUMENT ME!
    */
   protected void uninstallListeners()
   {
@@ -273,8 +273,7 @@ public class BasicMenuBarUI extends MenuBarUI
   }
 
   /**
-   * This class handles ContainerEvents fired by JMenuBar. It revalidates
-   * and repaints menu bar whenever menu is added or removed from it.
+   * This class handles ContainerEvents fired by JMenuBar
    */
   protected class ContainerHandler implements ContainerListener
   {
@@ -285,19 +284,17 @@ public class BasicMenuBarUI extends MenuBarUI
      */
     public void componentAdded(ContainerEvent e)
     {
-      menuBar.revalidate();
-      menuBar.repaint();
+      System.out.println("BasicMenuBar...componentAdded.. listener");
     }
 
     /**
-     * This method is called whenever menu is removed from the menu bar.
+     * This method is called whenever menu is removed from the menu bar
      *
      * @param e The ContainerEvent.
      */
     public void componentRemoved(ContainerEvent e)
     {
-      menuBar.revalidate();
-      menuBar.repaint();
+      System.out.println("BasicMenuBar...componentRemoved.. listener");
     }
   }
 
@@ -315,8 +312,6 @@ public class BasicMenuBarUI extends MenuBarUI
     public void propertyChange(PropertyChangeEvent e)
     {
       if (e.getPropertyName().equals(JMenuBar.BORDER_PAINTED_CHANGED_PROPERTY))
-	menuBar.repaint();
-      if (e.getPropertyName().equals(JMenuBar.MARGIN_CHANGED_PROPERTY))
 	menuBar.repaint();
     }
   }

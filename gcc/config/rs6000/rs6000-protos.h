@@ -101,6 +101,7 @@ extern int includes_lshift_p (rtx, rtx);
 extern int includes_rshift_p (rtx, rtx);
 extern int includes_rldic_lshift_p (rtx, rtx);
 extern int includes_rldicr_lshift_p (rtx, rtx);
+extern int insvdi_rshift_rlwimi_p (rtx, rtx, rtx);
 extern int registers_ok_for_quad_peep (rtx, rtx);
 extern int mems_ok_for_quad_peep (rtx, rtx);
 extern bool gpr_or_gpr_p (rtx, rtx);
@@ -158,9 +159,6 @@ extern struct rtx_def *function_arg (CUMULATIVE_ARGS *,
 					     enum machine_mode, tree, int);
 extern int function_arg_partial_nregs (CUMULATIVE_ARGS *,
 					       enum machine_mode, tree, int);
-extern int function_arg_pass_by_reference (CUMULATIVE_ARGS *,
-						   enum machine_mode,
-						   tree, int);
 extern rtx rs6000_function_value (tree, tree);
 extern rtx rs6000_libcall_value (enum machine_mode);
 extern struct rtx_def *rs6000_va_arg (tree, tree);
@@ -222,9 +220,7 @@ extern struct cpp_hashnode *rs6000_macro_to_expand (struct cpp_reader *,
 /* APPLE LOCAL end AltiVec */
 
 #if TARGET_MACHO
-void add_compiler_stub PARAMS ((tree, tree, int));
-void output_compiler_stub PARAMS ((void));
-extern char* output_call PARAMS ((rtx, rtx *, int, int));
+char *output_call (rtx, rtx *, int, int);
 #endif
 
 extern bool rs6000_hard_regno_mode_ok_p[][FIRST_PSEUDO_REGISTER];

@@ -23,6 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_C_TREE_H
 
 #include "c-common.h"
+#include "diagnostic.h"
 
 /* struct lang_identifier is private to c-decl.c, but langhooks.c needs to
    know how big it is.  This is sanity-checked in c-decl.c.  */
@@ -93,18 +94,14 @@ struct lang_type GTY(())
 /* For a FUNCTION_DECL, nonzero if it was an implicit declaration.  */
 #define C_DECL_IMPLICIT(EXP) DECL_LANG_FLAG_2 (EXP)
 
-/* For any decl, nonzero if it is bound in the externals scope and
-   pop_scope mustn't chain it into any higher block.  */
-#define C_DECL_IN_EXTERNAL_SCOPE(EXP) DECL_LANG_FLAG_3 (EXP)
-
 /* For FUNCTION_DECLs, evaluates true if the decl is built-in but has
    been declared.  */
-#define C_DECL_DECLARED_BUILTIN(EXP) DECL_LANG_FLAG_4 (EXP)
+#define C_DECL_DECLARED_BUILTIN(EXP) DECL_LANG_FLAG_3 (EXP)
 
 /* Record whether a decl was declared register.  This is strictly a
    front-end flag, whereas DECL_REGISTER is used for code generation;
    they may differ for structures with volatile fields.  */
-#define C_DECL_REGISTER(EXP) DECL_LANG_FLAG_5 (EXP)
+#define C_DECL_REGISTER(EXP) DECL_LANG_FLAG_4 (EXP)
 
 /* Nonzero for a decl which either doesn't exist or isn't a prototype.
    N.B. Could be simplified if all built-in decls had complete prototypes
@@ -117,7 +114,7 @@ struct lang_type GTY(())
 /* For FUNCTION_TYPE, a hidden list of types of arguments.  The same as
    TYPE_ARG_TYPES for functions with prototypes, but created for functions
    without prototypes.  */
-#define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_BINFO (NODE)
+#define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_LANG_SLOT_1 (NODE)
 
 /* Save and restore the variables in this file and elsewhere
    that keep track of the progress of compilation of the current function.
@@ -126,13 +123,14 @@ struct lang_type GTY(())
 struct language_function GTY(())
 {
   struct c_language_function base;
+  tree x_break_label;
+  tree x_cont_label;
+  struct c_switch * GTY((skip)) x_switch_stack;
   int returns_value;
   int returns_null;
   int returns_abnormally;
   int warn_about_return_type;
   int extern_inline;
-  int x_in_iteration_stmt;
-  int x_in_case_stmt;
 };
 
 
@@ -143,11 +141,10 @@ extern void c_parse_init (void);
 extern void gen_aux_info_record (tree, int, int, int);
 
 /* in c-decl.c */
-extern int c_in_iteration_stmt;
-extern int c_in_case_stmt;
+extern tree c_break_label;
+extern tree c_cont_label;
 
 extern int global_bindings_p (void);
-extern tree getdecls (void);
 extern void push_scope (void);
 extern tree pop_scope (void);
 extern void insert_block (tree);
@@ -183,6 +180,8 @@ extern void c_pop_function_context (struct function *);
 extern void push_parm_decl (tree);
 extern tree pushdecl_top_level (tree);
 extern tree set_array_declarator_type (tree, tree, int);
+extern tree builtin_function (const char *, tree, int, enum built_in_class,
+			      const char *, tree);
 extern void shadow_tag (tree);
 extern void shadow_tag_warned (tree, int);
 extern tree start_enum (tree);
@@ -191,9 +190,7 @@ extern tree start_decl (tree, tree, int, tree);
 extern tree start_struct (enum tree_code, tree);
 extern void store_parm_decls (void);
 extern tree xref_tag (enum tree_code, tree);
-extern tree c_begin_compound_stmt (void);
 extern int c_expand_decl (tree);
-extern void c_static_assembler_name (tree);
 extern tree make_pointer_declarator (tree, tree);
 
 /* in c-objc-common.c */
@@ -204,9 +201,9 @@ extern bool c_objc_common_init (void);
 extern void finish_file (void);
 extern bool c_missing_noreturn_ok_p (tree);
 extern tree c_objc_common_truthvalue_conversion (tree expr);
-extern void c_objc_common_finish_file (void);
 extern int defer_fn (tree);
 extern bool c_warn_unused_global_decl (tree);
+extern void c_initialize_diagnostics (diagnostic_context *);
 
 #define c_build_type_variant(TYPE, CONST_P, VOLATILE_P)		  \
   c_build_qualified_type ((TYPE),				  \
@@ -226,25 +223,21 @@ extern int  c_dmp_tree3				PARAMS ((FILE *, tree, int));
 /* APPLE LOCAL end new tree dump */
 
 /* in c-typeck.c */
-
-/* For use with comptypes.  */
-enum {
-  COMPARE_STRICT = 0
-};
+extern struct c_switch *c_switch_stack;
 
 extern tree require_complete_type (tree);
 extern int same_translation_unit_p (tree, tree);
-extern int comptypes (tree, tree, int);
+extern int comptypes (tree, tree);
 extern tree c_size_in_bytes (tree);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (tree, tree);
 extern tree c_type_promotes_to (tree);
+extern tree composite_type (tree, tree);
 extern tree build_component_ref (tree, tree);
 extern tree build_indirect_ref (tree, const char *);
 extern tree build_array_ref (tree, tree);
 extern tree build_external_ref (tree, int);
 extern tree parser_build_binary_op (enum tree_code, tree, tree);
-extern int c_tree_expr_nonnegative_p (tree);
 extern void readonly_error (tree, const char *);
 extern tree build_conditional_expr (tree, tree, tree);
 extern tree build_compound_expr (tree);
@@ -266,11 +259,24 @@ extern tree build_compound_literal (tree, tree);
 extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern tree c_start_case (tree);
-extern void c_finish_case (void);
+extern void c_finish_case (tree);
 extern tree build_asm_expr (tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
 extern tree c_convert_parm_for_inlining (tree, tree, tree, int);
 extern int c_types_compatible_p (tree, tree);
+extern tree c_begin_compound_stmt (bool);
+extern tree c_end_compound_stmt (tree, bool);
+extern void c_finish_if_stmt (location_t, tree, tree, tree, bool);
+extern void c_finish_loop (location_t, tree, tree, tree, tree, tree, bool);
+extern tree c_begin_stmt_expr (void);
+extern tree c_finish_stmt_expr (tree);
+extern tree c_process_expr_stmt (tree);
+extern tree c_finish_expr_stmt (tree);
+extern tree c_finish_return (tree);
+extern tree c_finish_bc_stmt (tree *, bool);
+extern tree c_finish_goto_label (tree);
+extern tree c_finish_goto_ptr (tree);
+extern tree build_offsetof (tree, tree);
 
 /* APPLE LOCAL begin CW asm blocks */
 extern tree get_structure_offset (tree, tree);
@@ -301,14 +307,14 @@ extern int system_header_p;
 
 extern bool c_override_global_bindings_to_false;
 
+/* True means we've initialized exception handling.  */
+extern bool c_eh_initialized_p;
+
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
 extern void *get_current_scope (void);
 extern void objc_mark_locals_volatile (void *);
 extern void c_write_global_declarations (void);
-
-extern GTY(()) tree static_ctors;
-extern GTY(()) tree static_dtors;
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

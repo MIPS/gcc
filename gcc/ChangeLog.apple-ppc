@@ -61,6 +61,17 @@
 
 	* doc/extend.texi, doc/invoke.texi: Document.
 
+2004-08-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_split_multireg_move): Just abort
+	if trying to *store* to a non-offsettable address.
+	* config/rs6000/rs6000.md (movtf_internal): Don't move GPRs to
+	a nonoffsettable address.
+	(movdi_internal32): Don't move GPRs to a nonoffsettable address.
+	Clean up.
+	(movti_string): Don't move GPRs to a nonoffsettable address.
+	(movti_ppc64): Don't move GPRs to a nonoffsettable address.  Clean up.
+
 2004-08-01  Devang Patel  <dpatel@apple.com>
 
          Re-implement -fwritable-strings support. 
@@ -95,6 +106,28 @@
 	* c-decl.c (grokdeclarator): Don't call warn_long_double.
 	* c-opts.c (c_common_handle_option): Remove case for OPT_Wlong_double.
 	* doc/invoke.texi: Don't document -Wlong-double.
+
+2004-07-30  Geoffrey Keating  <geoffk@apple.com>
+	    Fariborz Jahanian <fjahanian@apple.com>
+
+	* config/rs6000/rs6000.c (legitimate_lo_sum_address_p): Permit
+	non-offsettable addresses even for DImode.
+	(rs6000_split_multireg_move): Cope with non-offsettable addresses
+	being moved into multiple GPRs.
+
+	* config/rs6000/rs6000.c (RS6000_DEFAULT_LONG_DOUBLE_SIZE): Default
+	to 64.
+	(rs6000_override_options): Use RS6000_DEFAULT_LONG_DOUBLE_SIZE.
+	* config/rs6000/darwin.h (RS6000_DEFAULT_LONG_DOUBLE_SIZE): Define
+	to 128.
+	* config/rs6000/darwin-ldouble.c (isless): New macro.
+	(inf): New macro.
+	(nonfinite): New macro.
+	(FPKINF): Delete.
+	(_xlqadd): Completely rewrite.
+	(_xlqmul): Correct overflow handling.
+	(_xlqdiv): Correct overflow handling.
+	* config/rs6000/darwin-ldouble-format: New file.
 
 2004-07-30  Matt Austern  <austern@apple.com>
 
@@ -897,6 +930,13 @@
 	* config/rs6000/rs6000.c (rs6000_stack_info):  Restore an
 	optimization lost in merge.
 
+2004-05-11  Ziemowit Laski  <zlaski@apple.com>
+
+	* gcc.c (process_command): Do not define __CONSTANT_CFSTRINGS__,
+	since config/darwin.h already does this.
+	(do_spec_1): Emit "-mconstant-cfstrings" instead of
+	"-fconstant-cfstrings".
+
 2004-05-11  Devang Patel  <dpatel@apple.com>
 
 	* gcc.c (optiom_map): Remove -precomp-trustfile support.
@@ -994,6 +1034,11 @@
 	* targhooks.h (default_skip_vec_args): Declaration.
 	* config/rs6000/rs6000.c (skip_vec_args): New definition.
 		
+2004-04-28  Stuart Hastings  <stuart@apple.com>
+	
+	* config/rs6000/rs6000.c (macho_branch_islands): Fix sprintf arguments.
+	* config/rs6000/rs6000.md (output_call): Fix arguments.
+
 2004-04-27  Devang Patel  <dpatel@apple.com>
 
 	* config/darwin.h (LINK_COMMAND_SPEC): Use darwin_arch_ld_spec.

@@ -645,7 +645,7 @@ proper position among the other output files.  */
 }} %{fmudflap|fmudflapth: --wrap=main}"
 #endif
 #ifndef MFLIB_SPEC
-#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{static:%(link_gcc_c_sequence) -lmudflap}} %{fmudflapth: -export-dynamic -lmudflapth -lpthread %{static:%(link_gcc_c_sequence) -lmudflapth}} "
+#define MFLIB_SPEC "%{fmudflap|fmudflapth: -export-dynamic}" 
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
@@ -829,7 +829,8 @@ static const char *cpp_unique_options =
    in turn cause preprocessor symbols to be defined specially.  */
 static const char *cpp_options =
 "%(cpp_unique_options) %1 %{m*} %{std*} %{ansi} %{W*&pedantic*} %{w} %{f*}\
- %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*} %{undef}";
+ %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*} %{undef}\
+ %{save-temps:-fpch-preprocess}";
 
 /* This contains cpp options which are not passed when the preprocessor
    output will be used by another program.  */
@@ -846,6 +847,7 @@ static const char *cc1_options =
  %{fastf:-O3}\
  %{fastcp:-O3}"
 /* APPLE LOCAL end -fast */
+/* APPLE LOCAL Symbol Separation */
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %{fsave-repository*:-gfull}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
@@ -951,9 +953,9 @@ struct compiler
   const char *cpp_spec;         /* If non-NULL, substitute this spec
 				   for `%C', rather than the usual
 				   cpp_spec.  */
-  const int combinable;          /* If non-zero, compiler can deal with
+  const int combinable;          /* If nonzero, compiler can deal with
 				    multiple source files at once (IMA).  */
-  const int needs_preprocessing; /* If non-zero, source files need to
+  const int needs_preprocessing; /* If nonzero, source files need to
 				    be run through a preprocessor.  */
 };
 
@@ -1516,6 +1518,13 @@ static const char *gcc_libexec_prefix;
 
 /* Default prefixes to attach to command names.  */
 
+#ifndef STANDARD_STARTFILE_PREFIX_1
+#define STANDARD_STARTFILE_PREFIX_1 "/lib/"
+#endif
+#ifndef STANDARD_STARTFILE_PREFIX_2
+#define STANDARD_STARTFILE_PREFIX_2 "/usr/lib/"
+#endif
+ 
 #ifdef CROSS_COMPILE  /* Don't use these prefixes for a cross compiler.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
@@ -1541,8 +1550,10 @@ static const char *md_exec_prefix = MD_EXEC_PREFIX;
 static const char *md_startfile_prefix = MD_STARTFILE_PREFIX;
 static const char *md_startfile_prefix_1 = MD_STARTFILE_PREFIX_1;
 static const char *const standard_startfile_prefix = STANDARD_STARTFILE_PREFIX;
-static const char *const standard_startfile_prefix_1 = "/lib/";
-static const char *const standard_startfile_prefix_2 = "/usr/lib/";
+static const char *const standard_startfile_prefix_1
+  = STANDARD_STARTFILE_PREFIX_1;
+static const char *const standard_startfile_prefix_2
+  = STANDARD_STARTFILE_PREFIX_2;
 
 static const char *const tooldir_base_prefix = TOOLDIR_BASE_PREFIX;
 static const char *tooldir_prefix;
@@ -1596,9 +1607,10 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("cpp_debug_options",	&cpp_debug_options),
   INIT_STATIC_SPEC ("cpp_unique_options",	&cpp_unique_options),
   INIT_STATIC_SPEC ("trad_capable_cpp",		&trad_capable_cpp),
-  INIT_STATIC_SPEC ("pch",	                &pch),
-  /* APPLE LOCAL Symbol Separation */
+  /* APPLE LOCAL begin Symbol Separation */
+  INIT_STATIC_SPEC ("pch",                &pch),
   INIT_STATIC_SPEC ("dbg_ss",	                &dbg_ss),
+  /* APPLE LOCAL end Symbol Separation */
   INIT_STATIC_SPEC ("cc1",			&cc1_spec),
   INIT_STATIC_SPEC ("cc1_options",		&cc1_options),
   INIT_STATIC_SPEC ("cc1plus",			&cc1plus_spec),
@@ -3110,14 +3122,14 @@ int n_infiles;
 
 static bool combine_inputs;
 
-/* True if input files are assembly files. (.s or .S extension)  */
-static bool assembly_input;
+/* APPLE LOCAL begin IMA variables */
 
 /* True if "-traditional-cpp" appears on commandline.  */
 static int traditional_cpp_flag = 0;
 
 /* True if "-E" appears on commandline.  */
 static int capital_e_flag = 0;
+/* APPLE LOCAL end */
 
 /* This counts the number of libraries added by lang_specific_driver, so that
    we can tell if there were any user supplied any files or libraries.  */
@@ -6714,10 +6726,14 @@ main (int argc, const char **argv)
 		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
 	}
 
-      add_sysrooted_prefix (&startfile_prefixes, standard_startfile_prefix_1,
-			    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
-      add_sysrooted_prefix (&startfile_prefixes, standard_startfile_prefix_2,
-			    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+      if (*standard_startfile_prefix_1)
+ 	add_sysrooted_prefix (&startfile_prefixes,
+			      standard_startfile_prefix_1, "BINUTILS",
+			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+      if (*standard_startfile_prefix_2)
+	add_sysrooted_prefix (&startfile_prefixes,
+			      standard_startfile_prefix_2, "BINUTILS",
+			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
 #if 0 /* Can cause surprises, and one can use -B./ instead.  */
       add_prefix (&startfile_prefixes, "./", NULL,
 		  PREFIX_PRIORITY_LAST, 1, NULL, 0);
@@ -6909,7 +6925,7 @@ main (int argc, const char **argv)
       else
 	{
 	  /* Since there is no compiler for this input file, assume it is a
-	     linker file. */
+	     linker file.  */
 	  explicit_link_files[i] = 1;
 	  infiles[i].incompiler = NULL;
 	}
@@ -7028,7 +7044,7 @@ main (int argc, const char **argv)
              above. However
              1) If -E is used with assembly input file then continue.
              2) If inputs are not combined then continue.  */
-	  else if (!capital_e_flag || assembly_input || !combine_inputs)
+	  else if (!capital_e_flag || !combine_inputs)
 	  /* APPLE LOCAL end IMA */
 	    {
 	      value = do_spec (input_file_compiler->spec);
@@ -7098,7 +7114,7 @@ main (int argc, const char **argv)
 
       value = do_spec (link_command_spec);
       if (value < 0)
-        error_count = 1;
+     error_count = 1;
 
       linker_was_run = (tmp != execution_count);
     }

@@ -618,8 +618,7 @@ public class BasicSliderUI extends SliderUI
 	insetCache = slider.getInsets();
 	leftToRightCache = ! slider.getInverted();
 
-	scrollTimer = new Timer();
-	scrollTimer.setDelay(200);
+	scrollTimer = new Timer(200, null);
 	scrollTimer.setRepeats(true);
 
 	installDefaults(slider);
@@ -681,6 +680,7 @@ public class BasicSliderUI extends SliderUI
     highlightColor = defaults.getColor("Slider.highlight");
     focusColor = defaults.getColor("Slider.focus");
     slider.setBorder(defaults.getBorder("Slider.border"));
+    slider.setOpaque(true);
 
     thumbHeight = defaults.getInt("Slider.thumbHeight");
     thumbWidth = defaults.getInt("Slider.thumbWidth");

@@ -87,6 +87,7 @@ public class JButton extends AbstractButton implements Accessible
     protected  void configurePropertiesFromAction(Action a)
     {
 	//Factory method which sets the AbstractButton's properties according to values from the Action instance. 
+	super.configurePropertiesFromAction(a);
     }
     
     public AccessibleContext getAccessibleContext()
@@ -97,7 +98,8 @@ public class JButton extends AbstractButton implements Accessible
   
     public String getUIClassID()
     {
-	//Returns a string that specifies the name of the L&F class that renders this component.  
+	//Returns a string that specifies the name of the Look and Feel
+	//class that renders this component.  
 	return "ButtonUI";
     }
   

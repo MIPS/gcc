@@ -68,21 +68,26 @@ struct tree_opt_pass
 
 /* Pass properties.  */
 #define PROP_gimple_any		(1 << 0)	/* entire gimple grammar */
-#define PROP_gimple_lcf		(1 << 1)	/* lowered control flow */
-#define PROP_gimple_leh		(1 << 2)	/* lowered eh */
+#define PROP_gimple_lcf		(1 << 1)	 /* lowered control flow */
+#define PROP_gimple_leh		(1 << 2)	           /* lowered eh */
 #define PROP_cfg		(1 << 3)
 #define PROP_referenced_vars	(1 << 4)
 #define PROP_pta		(1 << 5)
 #define PROP_ssa		(1 << 6)
 #define PROP_no_crit_edges      (1 << 7)
-#define PROP_scev               (1 << 8)
+#define PROP_rtl		(1 << 8)
+
+#define PROP_trees \
+  (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh)
+
 /* To-do flags.  */
 #define TODO_dump_func		(1 << 0)	/* pass doesn't dump itself */
-#define TODO_rename_vars	(1 << 1)	/* rewrite new vars to ssa */
-#define TODO_ggc_collect	(1 << 2)	/* run the collector */
-#define TODO_verify_ssa		(1 << 3)
-#define TODO_verify_flow	(1 << 4)
-#define TODO_verify_stmts	(1 << 5)
+#define TODO_rename_vars	(1 << 1)	 /* rewrite new vars to ssa */
+#define TODO_write_loop_closed	(1 << 2)	/* rewrite into loop-closed-ssa */
+#define TODO_ggc_collect	(1 << 3)	/* run the collector */
+#define TODO_verify_ssa		(1 << 4)
+#define TODO_verify_flow	(1 << 5)
+#define TODO_verify_stmts	(1 << 6)
 
 #define TODO_verify_all \
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
@@ -102,17 +107,20 @@ extern struct tree_opt_pass pass_sra;
 extern struct tree_opt_pass pass_tail_recursion;
 extern struct tree_opt_pass pass_tail_calls;
 extern struct tree_opt_pass pass_loop;
-extern struct tree_opt_pass pass_scev;
-extern struct tree_opt_pass pass_scev_init;
-extern struct tree_opt_pass pass_scev_anal;
-extern struct tree_opt_pass pass_scev_depend;
-extern struct tree_opt_pass pass_scev_linear_transform;
-extern struct tree_opt_pass pass_scev_iv_canon;
-extern struct tree_opt_pass pass_scev_elim_checks;
-extern struct tree_opt_pass pass_scev_vectorize;
-extern struct tree_opt_pass pass_scev_done;
-extern struct tree_opt_pass pass_ddg;
-extern struct tree_opt_pass pass_delete_ddg;
+extern struct tree_opt_pass pass_loop_init;
+extern struct tree_opt_pass pass_loop_test;
+extern struct tree_opt_pass pass_lim;
+extern struct tree_opt_pass pass_unswitch;
+extern struct tree_opt_pass pass_iv_canon;
+extern struct tree_opt_pass pass_record_bounds;
+extern struct tree_opt_pass pass_mark_maybe_inf_loops;
+extern struct tree_opt_pass pass_elim_checks;
+extern struct tree_opt_pass pass_vectorize;
+extern struct tree_opt_pass pass_complete_unroll;
+extern struct tree_opt_pass pass_linear_transform;
+extern struct tree_opt_pass pass_iv_optimize;
+extern struct tree_opt_pass pass_loop_prefetch;
+extern struct tree_opt_pass pass_loop_done;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;
 extern struct tree_opt_pass pass_build_ssa;
@@ -133,10 +141,12 @@ extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
 extern struct tree_opt_pass pass_redundant_phi;
 extern struct tree_opt_pass pass_dse;
-extern struct tree_opt_pass pass_return;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_remove_useless_vars;
 extern struct tree_opt_pass pass_rename_ssa_copies;
+extern struct tree_opt_pass pass_expand;
+extern struct tree_opt_pass pass_rest_of_compilation;
+extern struct tree_opt_pass pass_fre;
 
 
 #endif /* GCC_TREE_PASS_H */

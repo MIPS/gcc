@@ -303,6 +303,10 @@ extern char *getenv (const char *);
 extern int getopt (int, char * const *, const char *);
 #endif
 
+#if defined(HAVE_DECL_GETPAGESIZE) && !HAVE_DECL_GETPAGESIZE
+extern long getpagesize (void);
+#endif
+
 #if defined (HAVE_DECL_GETWD) && !HAVE_DECL_GETWD
 extern char *getwd (char *);
 #endif
@@ -371,13 +375,6 @@ extern int snprintf (char *, size_t, const char *, ...);
 #define HAVE_DESIGNATED_INITIALIZERS \
   ((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L))
 #endif
-
-/* 1 if we have _Bool.  */
-#ifndef HAVE__BOOL
-# define HAVE__BOOL \
-   ((GCC_VERSION >= 3000) || (__STDC_VERSION__ >= 199901L))
-#endif
-
 
 #if HAVE_SYS_STAT_H
 # include <sys/stat.h>
@@ -485,14 +482,6 @@ extern int snprintf (char *, size_t, const char *, ...);
 #define ENUM_BITFIELD(TYPE) unsigned int
 #endif
 
-/* We only use bool bitfields with gcc3.  Some supposedly C99
-   compilers don't handle them correctly.  */
-#if (GCC_VERSION >= 3000)
-#define BOOL_BITFIELD _Bool
-#else
-#define BOOL_BITFIELD unsigned int
-#endif
-
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER)	((size_t) &((TYPE *) 0)->MEMBER)
 #endif
@@ -511,28 +500,26 @@ extern int snprintf (char *, size_t, const char *, ...);
 #define __builtin_expect(a, b) (a)
 #endif
 
-/* Provide some sort of boolean type.  We use stdbool.h if it's
-  available.  This must be after all inclusion of system headers,
-  as some of them will mess us up.  */
+/* Provide a fake boolean type.  We make no attempt to use the
+   C99 _Bool, as it may not be available in the bootstrap compiler,
+   and even if it is, it is liable to be buggy.  
+   This must be after all inclusion of system headers, as some of
+   them will mess us up.  */
 #undef bool
 #undef true
 #undef false
 #undef TRUE
 #undef FALSE
 
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# if !HAVE__BOOL
-typedef char _Bool;
-# endif
-# define bool _Bool
-# define true 1
-# define false 0
-#endif
+#define bool unsigned char
+#define true 1
+#define false 0
 
 #define TRUE true
 #define FALSE false
+
+/* Some compilers do not allow the use of unsigned char in bitfields.  */
+#define BOOL_BITFIELD unsigned int
 
 /* As the last action in this file, we poison the identifiers that
    shouldn't be used.  Note, luckily gcc-3.0's token-based integrated
@@ -596,7 +583,9 @@ typedef char _Bool;
 	STRUCT_VALUE_INCOMING STRICT_ARGUMENT_NAMING			\
 	PROMOTE_FUNCTION_RETURN PROMOTE_PROTOTYPES STRUCT_VALUE_REGNUM	\
 	SETUP_INCOMING_VARARGS EXPAND_BUILTIN_SAVEREGS			\
-	DEFAULT_SHORT_ENUMS SPLIT_COMPLEX_ARGS MD_ASM_CLOBBERS
+	DEFAULT_SHORT_ENUMS SPLIT_COMPLEX_ARGS MD_ASM_CLOBBERS		\
+	HANDLE_PRAGMA_REDEFINE_EXTNAME HANDLE_PRAGMA_EXTERN_PREFIX	\
+	MUST_PASS_IN_STACK FUNCTION_ARG_PASS_BY_REFERENCE
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -633,11 +622,16 @@ typedef char _Bool;
 	TRADITIONAL_PIPELINE_INTERFACE DFA_PIPELINE_INTERFACE		   \
 	DBX_OUTPUT_STANDARD_TYPES BUILTIN_SETJMP_FRAME_VALUE		   \
 	SUNOS4_SHARED_LIBRARIES PROMOTE_FOR_CALL_ONLY			   \
-	SPACE_AFTER_L_OPTION NO_RECURSIVE_FUNCTION_CSE
+	SPACE_AFTER_L_OPTION NO_RECURSIVE_FUNCTION_CSE			   \
+	DEFAULT_MAIN_RETURN TARGET_MEM_FUNCTIONS EXPAND_BUILTIN_VA_ARG
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
-	LANG_HOOKS_MARK_TREE LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
+	LANG_HOOKS_MARK_TREE LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES \
+	LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS \
+	LANG_HOOKS_PUSHLEVEL LANG_HOOKS_SET_BLOCK \
+	LANG_HOOKS_MAYBE_BUILD_CLEANUP LANG_HOOKS_UPDATE_DECL_AFTER_SAVING \
+	LANG_HOOKS_POPLEVEL
 
 /* Libiberty macros that are no longer used in GCC.  */
 #undef ANSI_PROTOTYPES

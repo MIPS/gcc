@@ -129,6 +129,7 @@ add_friend (tree type, tree decl, bool complain)
   tree typedecl;
   tree list;
   tree name;
+  tree ctx;
 
   if (decl == error_mark_node)
     return;
@@ -163,8 +164,9 @@ add_friend (tree type, tree decl, bool complain)
       list = TREE_CHAIN (list);
     }
 
-  if (DECL_CLASS_SCOPE_P (decl))
-    perform_or_defer_access_check (TYPE_BINFO (DECL_CONTEXT (decl)), decl);
+  ctx = DECL_CONTEXT (decl);
+  if (ctx && CLASS_TYPE_P (ctx) && !uses_template_parms (ctx))
+    perform_or_defer_access_check (TYPE_BINFO (ctx), decl);
 
   maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 
@@ -321,7 +323,8 @@ make_friend_class (tree type, tree friend_type, bool complain)
 
 tree
 do_friend (tree ctype, tree declarator, tree decl,
-	   tree attrlist, enum overload_flags flags, tree quals,
+	   tree attrlist, enum overload_flags flags, 
+	   cp_cv_quals quals,
 	   int funcdef_flag)
 {
   /* Every decl that gets here is a friend of something.  */

@@ -349,7 +349,7 @@ is_cfg_nonregular (void)
 	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
 
 	    if (note
-		&& ! (GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
+		&& ! (JUMP_P (NEXT_INSN (insn))
 		      && find_reg_note (NEXT_INSN (insn), REG_LABEL,
 					XEXP (note, 0))))
 	      return 1;
@@ -1135,6 +1135,9 @@ compute_trg_info (int trg)
   int check_block, update_idx;
   int i, j, k, fst_edge, nxt_edge;
 
+  el.nr_members = 0;
+  el.first_member = 0;
+
   /* Define some of the fields for the target bb as well.  */
   sp = candidate_table + trg;
   sp->is_valid = 1;
@@ -1305,7 +1308,7 @@ check_live_1 (int src, rtx x)
       return 0;
     }
 
-  if (GET_CODE (reg) != REG)
+  if (!REG_P (reg))
     return 1;
 
   regno = REGNO (reg);
@@ -1382,7 +1385,7 @@ update_live_1 (int src, rtx x)
       return;
     }
 
-  if (GET_CODE (reg) != REG)
+  if (!REG_P (reg))
     return;
 
   /* Global registers are always live, so the code below does not apply
@@ -1500,7 +1503,7 @@ find_conditional_protection (rtx insn, int load_insn_bb)
 	  && IS_REACHABLE (INSN_BB (next), load_insn_bb)
 	  && load_insn_bb != INSN_BB (next)
 	  && GET_MODE (link) == VOIDmode
-	  && (GET_CODE (next) == JUMP_INSN
+	  && (JUMP_P (next)
 	      || find_conditional_protection (next, load_insn_bb)))
 	return 1;
     }
@@ -1532,7 +1535,7 @@ is_conditionally_protected (rtx load_insn, int bb_src, int bb_trg)
 
       /* Must be a DEF-USE dependence upon non-branch.  */
       if (GET_MODE (link) != VOIDmode
-	  || GET_CODE (insn1) == JUMP_INSN)
+	  || JUMP_P (insn1))
 	continue;
 
       /* Must exist a path: region-entry -> ... -> bb_trg -> ... load_insn.  */
@@ -1812,7 +1815,7 @@ init_ready_list (struct ready_list *ready)
 static int
 can_schedule_ready_p (rtx insn)
 {
-  if (GET_CODE (insn) == JUMP_INSN)
+  if (JUMP_P (insn))
     last_was_jump = 1;
 
   /* An interblock motion?  */
@@ -2042,9 +2045,9 @@ add_branch_dependences (rtx head, rtx tail)
 
   insn = tail;
   last = 0;
-  while (GET_CODE (insn) == CALL_INSN
-	 || GET_CODE (insn) == JUMP_INSN
-	 || (GET_CODE (insn) == INSN
+  while (CALL_P (insn)
+	 || JUMP_P (insn)
+	 || (NONJUMP_INSN_P (insn)
 	     && (GET_CODE (PATTERN (insn)) == USE
 		 || GET_CODE (PATTERN (insn)) == CLOBBER
 		 || can_throw_internal (insn)
@@ -2053,9 +2056,9 @@ add_branch_dependences (rtx head, rtx tail)
 #endif
 		 || (!reload_completed
 		     && sets_likely_spilled (PATTERN (insn)))))
-	 || GET_CODE (insn) == NOTE)
+	 || NOTE_P (insn))
     {
-      if (GET_CODE (insn) != NOTE)
+      if (!NOTE_P (insn))
 	{
 	  if (last != 0 && !find_insn_list (insn, LOG_LINKS (last)))
 	    {
@@ -2315,14 +2318,18 @@ debug_dependencies (void)
 		{
 		  int n;
 		  fprintf (sched_dump, ";;   %6d ", INSN_UID (insn));
-		  if (GET_CODE (insn) == NOTE)
+		  if (NOTE_P (insn))
 		    {
 		      n = NOTE_LINE_NUMBER (insn);
 		      if (n < 0)
 			fprintf (sched_dump, "%s\n", GET_NOTE_INSN_NAME (n));
 		      else
-			fprintf (sched_dump, "line %d, file %s\n", n,
-				 NOTE_SOURCE_FILE (insn));
+			{
+			  expanded_location xloc;
+			  NOTE_EXPANDED_LOCATION (xloc, insn);
+			  fprintf (sched_dump, "line %d, file %s\n",
+				   xloc.line, xloc.file);
+			}
 		    }
 		  else
 		    fprintf (sched_dump, " {%s}\n", GET_RTX_NAME (GET_CODE (insn)));

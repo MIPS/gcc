@@ -1,4 +1,5 @@
 /* { dg-do run { target powerpc*-*-* } } */
+/* { dg-xfail-if "" { "powerpc-ibm-aix*" } { "-maltivec" } { "" } } */
 /* { dg-options "-maltivec -Wall" } */
 
 /* This test checks if AltiVec builtins accept const-qualified

@@ -84,30 +84,40 @@ typedef struct _stmt_vec_info {
 
     /* Target hook that vetorizer target-specific computation idioms.  */
     tree (* vect_target_hook_for_pattern) (tree, tree, tree, edge, 
-		block_stmt_iterator *);
+					   block_stmt_iterator *);
   } v; 
   /* APPLE LOCAL end AV vmul_uch --haifa  */
 
-  /* Relevant only for array accesses;
-     A GIMPLE stmt is expected to have at most 1 array access.  */
+  /* The vectorized version of the stmt.  */
+  tree vectorized_stmt;
 
+
+  /** The following is relevant only for stmts that contain a non-scalar
+     data-ref (array/pointer/struct access). A GIMPLE stmt is expected to have 
+     at most one such data-ref.  **/
+
+  /* Information about the data-ref (access function, etc).  */
   struct data_reference *data_ref_info;
+
+  /* Aliasing information.  */
+  tree memtag;
 } *stmt_vec_info;
 
 /* Access Functions.  */
-#define STMT_VINFO_TYPE(S)       	(S)->type
-#define STMT_VINFO_STMT(S)       	(S)->stmt
-#define STMT_VINFO_LOOP(S)       	(S)->loop
-#define STMT_VINFO_RELEVANT_P(S) 	(S)->relevant
+#define STMT_VINFO_TYPE(S)       (S)->type
+#define STMT_VINFO_STMT(S)       (S)->stmt
+#define STMT_VINFO_LOOP(S)       (S)->loop
+#define STMT_VINFO_RELEVANT_P(S) (S)->relevant
 /* APPLE LOCAL begin AV vmul_uch --haifa  */
-#define STMT_VINFO_IN_PATTERN_P(S)	(S)->part_of_pattern
-#define STMT_VINFO_VEC_HOOK(S)  	(S)->v.vect_target_hook_for_pattern
-#define STMT_VINFO_RELATED_STMT(S)	(S)->related_stmt
+#define STMT_VINFO_IN_PATTERN_P(S)(S)->part_of_pattern
+#define STMT_VINFO_VEC_HOOK(S)  (S)->v.vect_target_hook_for_pattern
+#define STMT_VINFO_RELATED_STMT(S)(S)->related_stmt
 /* APPLE LOCAL end AV vmul_uch --haifa  */
-#define STMT_VINFO_VECTYPE(S)    	(S)->vectype
+#define STMT_VINFO_VECTYPE(S)    (S)->vectype
 /* APPLE LOCAL AV vmul_uch --haifa  */
-#define STMT_VINFO_VEC_STMT(S)   	(S)->v.vectorized_stmt
-#define STMT_VINFO_DATA_REF(S)   	(S)->data_ref_info
+#define STMT_VINFO_VEC_STMT(S)   (S)->v.vectorized_stmt
+#define STMT_VINFO_DATA_REF(S)   (S)->data_ref_info
+#define STMT_VINFO_MEMTAG(S)     (S)->memtag
 
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);

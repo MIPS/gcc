@@ -61,8 +61,10 @@ extern void c_lex_prepend (const struct cpp_token *, int);
 /* APPLE LOCAL end AltiVec */
 extern int c_lex_with_flags (tree *, unsigned char *);
 
-/* If true, then lex strings into the execution character set.  
-   Otherwise, lex strings into the host character set.  */
-extern bool c_lex_string_translate;
+/* If 1, then lex strings into the execution character set.  
+   If 0, lex strings into the host character set.
+   If -1, lex both, and chain them together, such that the former
+   is the TREE_CHAIN of the latter.  */
+extern int c_lex_string_translate;
 
 #endif /* GCC_C_PRAGMA_H */

@@ -38,9 +38,8 @@ static HOST_WIDE_INT cxx_get_alias_set (tree);
 static bool cxx_warn_unused_global_decl (tree);
 static tree cp_expr_size (tree);
 static size_t cp_tree_size (enum tree_code);
-static bool cp_var_mod_type_p (tree);
+static bool cp_var_mod_type_p (tree, tree);
 static int cxx_types_compatible_p (tree, tree);
-static int cp_expand_decl (tree);
 static void cxx_initialize_diagnostics (diagnostic_context *);
 
 #undef LANG_HOOKS_NAME
@@ -53,7 +52,9 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_FINISH cxx_finish
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK pop_everything
+/* APPLE LOCAL begin Objective-C++ */
 #undef LANG_HOOKS_FINISH_FILE
+/* APPLE LOCAL end Objective-C++ */
 #define LANG_HOOKS_FINISH_FILE finish_file
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
@@ -74,15 +75,11 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR cxx_expand_expr
 #undef LANG_HOOKS_EXPAND_DECL
-#define LANG_HOOKS_EXPAND_DECL cp_expand_decl
-#undef LANG_HOOKS_SAFE_FROM_P
-#define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
+#define LANG_HOOKS_EXPAND_DECL c_expand_decl
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL cxx_dup_lang_specific_decl
-#undef LANG_HOOKS_MAYBE_BUILD_CLEANUP
-#define LANG_HOOKS_MAYBE_BUILD_CLEANUP cxx_maybe_build_cleanup
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
 #undef LANG_HOOKS_UNSAFE_FOR_REEVAL
@@ -105,16 +102,10 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
-#undef LANG_HOOKS_PUSHLEVEL
-#define LANG_HOOKS_PUSHLEVEL lhd_do_nothing_i
-#undef LANG_HOOKS_POPLEVEL
-#define LANG_HOOKS_POPLEVEL lhd_do_nothing_iii_return_null_tree
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
-#undef LANG_HOOKS_UPDATE_DECL_AFTER_SAVING
-#define LANG_HOOKS_UPDATE_DECL_AFTER_SAVING cp_update_decl_after_saving
 
 
 #undef LANG_HOOKS_FUNCTION_INIT
@@ -141,15 +132,9 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS
 #define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
   cp_add_pending_fn_decls
-#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
-#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  cp_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
-#undef LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING
-#define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
-  cp_copy_res_decl_for_inlining
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
@@ -204,6 +189,9 @@ static void objcplus_init_options                   PARAMS ((void));
 #define LANG_HOOKS_INIT_OPTIONS objcplus_init_options
 #endif /* OBJCPLUS */
 /* APPLE LOCAL end Objective-C++ */
+
+#undef LANG_HOOKS_FOLD_OBJ_TYPE_REF
+#define LANG_HOOKS_FOLD_OBJ_TYPE_REF cp_fold_obj_type_ref
 
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -310,6 +298,7 @@ objcplus_init_options (void)
   cxx_init_options ();
 }
 #endif
+/* APPLE LOCAL end */
 
 /* Langhook for expr_size: Tell the backend that the value of an expression
    of non-POD class type does not include any tail padding; a derived class
@@ -339,35 +328,6 @@ cp_expr_size (tree exp)
     return lhd_expr_size (exp);
 }
 
-/* Expand DECL if it declares an entity not handled by the
-   common code.  */
-
-static int
-cp_expand_decl (tree decl)
-{
-  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
-    {
-      /* Let the back-end know about this variable.  */
-      if (!anon_aggr_type_p (TREE_TYPE (decl)))
-	emit_local_var (decl);
-      else
-	expand_anon_union_decl (decl, NULL_TREE, 
-				DECL_ANON_UNION_ELEMS (decl));
-    }
-  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
-    make_rtl_for_local_static (decl);
-  else
-    return 0;
-
-  return 1;
-}
-
-int
-cp_tree_chain_matters_p (tree t)
-{
-  return cp_is_overload_p (t) || c_tree_chain_matters_p (t);
-}
-
 /* Langhook for tree_size: determine size of our 'x' and 'c' nodes.  */
 static size_t
 cp_tree_size (enum tree_code code)
@@ -386,25 +346,41 @@ cp_tree_size (enum tree_code code)
 }
 
 /* Returns true if T is a variably modified type, in the sense of C99.
+   FN is as passed to variably_modified_p.
    This routine needs only check cases that cannot be handled by the
-   language-independent logic in tree-inline.c.  */
+   language-independent logic in tree.c.  */
 
 static bool
-cp_var_mod_type_p (tree type)
+cp_var_mod_type_p (tree type, tree fn)
 {
   /* If TYPE is a pointer-to-member, it is variably modified if either
      the class or the member are variably modified.  */
   if (TYPE_PTR_TO_MEMBER_P (type))
-    return (variably_modified_type_p (TYPE_PTRMEM_CLASS_TYPE (type))
-	    || variably_modified_type_p (TYPE_PTRMEM_POINTED_TO_TYPE (type)));
+    return (variably_modified_type_p (TYPE_PTRMEM_CLASS_TYPE (type), fn)
+	    || variably_modified_type_p (TYPE_PTRMEM_POINTED_TO_TYPE (type),
+					 fn));
 
   /* All other types are not variably modified.  */
   return false;
 }
 
+/* This compares two types for equivalence ("compatible" in C-based languages).
+   This routine should only return 1 if it is sure.  It should not be used
+   in contexts where erroneously returning 0 causes problems.  */
+
 static int cxx_types_compatible_p (tree x, tree y)
 {
-  return same_type_ignoring_top_level_qualifiers_p (x, y);
+  if (same_type_ignoring_top_level_qualifiers_p (x, y))
+    return 1;
+
+  /* Once we get to the middle-end, references and pointers are
+     interchangeable.  FIXME should we try to replace all references with
+     pointers?  */
+  if (POINTER_TYPE_P (x) && POINTER_TYPE_P (y)
+      && same_type_p (TREE_TYPE (x), TREE_TYPE (y)))
+    return 1;
+
+  return 0;
 }
 
 /* Construct a C++-aware pretty-printer for CONTEXT.  It is assumed
@@ -422,7 +398,7 @@ cxx_initialize_diagnostics (diagnostic_context *context)
   free (base);
 }
 
-/* APPLE LOCAL Objective-C++ */
+/* APPLE LOCAL begin Objective-C++ */
 /* Include the GC roots here instead of in cp/decl.c, so we can
    conditionalize on OBJCPLUS.  */
 #include "decl.h"
@@ -451,4 +427,11 @@ push_file_scope (void)
 void
 pop_file_scope (void)
 {
+}
+
+/* c-pragma.c needs to query whether a decl has extern "C" linkage.  */
+bool
+has_c_linkage (tree decl)
+{
+  return DECL_EXTERN_C_P (decl);
 }

@@ -222,6 +222,7 @@ simple_set_p (rtx lhs, rtx rhs)
     case PLUS:
     case MINUS:
     case MULT:
+    case ASHIFT:
       op0 = XEXP (rhs, 0);
       op1 = XEXP (rhs, 1);
 
@@ -236,6 +237,10 @@ simple_set_p (rtx lhs, rtx rhs)
       if (GET_CODE (rhs) == MULT
 	  && !CONSTANT_P (op0)
 	  && !CONSTANT_P (op1))
+	return false;
+
+      if (GET_CODE (rhs) == ASHIFT
+	  && CONSTANT_P (op0))
 	return false;
 
       return true;
@@ -584,6 +589,31 @@ iv_mult (struct rtx_iv *iv, rtx mby)
     {
       iv->delta = simplify_gen_binary (MULT, mode, iv->delta, mby);
       iv->mult = simplify_gen_binary (MULT, mode, iv->mult, mby);
+    }
+
+  return true;
+}
+
+/* Evaluates shift of IV by constant CST.  */
+
+static bool
+iv_shift (struct rtx_iv *iv, rtx mby)
+{
+  enum machine_mode mode = iv->extend_mode;
+
+  if (GET_MODE (mby) != VOIDmode
+      && GET_MODE (mby) != mode)
+    return false;
+
+  if (iv->extend == NIL)
+    {
+      iv->base = simplify_gen_binary (ASHIFT, mode, iv->base, mby);
+      iv->step = simplify_gen_binary (ASHIFT, mode, iv->step, mby);
+    }
+  else
+    {
+      iv->delta = simplify_gen_binary (ASHIFT, mode, iv->delta, mby);
+      iv->mult = simplify_gen_binary (ASHIFT, mode, iv->mult, mby);
     }
 
   return true;
@@ -1032,7 +1062,14 @@ iv_analyze (rtx insn, rtx def, struct rtx_iv *iv)
 	      mby = tmp;
 	    }
 	  break;
-	    
+
+	case ASHIFT:
+	  if (CONSTANT_P (XEXP (rhs, 0)))
+	    abort ();
+	  op0 = XEXP (rhs, 0);
+	  mby = XEXP (rhs, 1);
+	  break;
+
 	default:
 	  abort ();
 	}
@@ -1085,6 +1122,11 @@ iv_analyze (rtx insn, rtx def, struct rtx_iv *iv)
 
     case MULT:
       if (!iv_mult (&iv0, mby))
+	goto end;
+      break;
+
+    case ASHIFT:
+      if (!iv_shift (&iv0, mby))
 	goto end;
       break;
 
@@ -1321,7 +1363,7 @@ simplify_using_assignment (rtx insn, rtx *expr, regset altered)
   if (set)
     {
       lhs = SET_DEST (set);
-      if (GET_CODE (lhs) != REG
+      if (!REG_P (lhs)
 	  || altered_reg_used (&lhs, altered))
 	ret = true;
     }
@@ -1329,7 +1371,7 @@ simplify_using_assignment (rtx insn, rtx *expr, regset altered)
     ret = true;
 
   note_stores (PATTERN (insn), mark_altered, altered);
-  if (GET_CODE (insn) == CALL_INSN)
+  if (CALL_P (insn))
     {
       int i;
 
@@ -1925,6 +1967,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
   unsigned HOST_WIDEST_INT s, size, d, inv;
   HOST_WIDEST_INT up, down, inc;
   int was_sharp = false;
+  rtx old_niter;
 
   /* The meaning of these assumptions is this:
      if !assumptions
@@ -2324,6 +2367,8 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
       desc->niter_expr = delta;
     }
 
+  old_niter = desc->niter_expr;
+
   simplify_using_initial_values (loop, AND, &desc->assumptions);
   if (desc->assumptions
       && XEXP (desc->assumptions, 0) == const0_rtx)
@@ -2366,8 +2411,19 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
       desc->const_iter = true;
       desc->niter_max = desc->niter = val & GET_MODE_MASK (desc->mode);
     }
-  else if (!desc->niter_max)
-    desc->niter_max = determine_max_iter (desc);
+  else
+    {
+      if (!desc->niter_max)
+	desc->niter_max = determine_max_iter (desc);
+
+      /* simplify_using_initial_values does a copy propagation on the registers
+	 in the expression for the number of iterations.  This prolongs life
+	 ranges of registers and increases register pressure, and usually
+	 brings no gain (and if it happens to do, the cse pass will take care
+	 of it anyway).  So prevent this behavior, unless it enabled us to
+	 derive that the number of iterations is a constant.  */
+      desc->niter_expr = old_niter;
+    }
 
   return;
 

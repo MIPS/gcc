@@ -39,13 +39,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define OBJECT_FORMAT_MACHO
 
-/* Suppress g++ attempt to link in the math library automatically.
-   (Some Darwin versions have a libm, but they seem to cause problems
-   for C++ executables.) This needs to be -lmx for Darwin 7.0 and
-   above.  */
-#ifndef MATH_LIBRARY
+/* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
-#endif
 
 /* We have atexit.  */
 
@@ -363,6 +358,7 @@ do {					\
      %{client_name*:%e-client_name not allowed with -dynamiclib} \
      %{compatibility_version*} \
      %{current_version*} \
+     %{Zforce_cpusubtype_ALL:%e-force_cpusubtype_ALL not allowed with -dynamiclib} \
      %{Zforce_flat_namespace:%e-force_flat_namespace not allowed with -dynamiclib} \
      %{Zinstall_name*:-install_name %*} \
      %{keep_private_externs:%e-keep_private_externs not allowed with -dynamiclib} \
@@ -402,9 +398,10 @@ do {					\
    %{dylinker} %{Mach} " 
 
 
-/* Machine dependent libraries.  */
+/* Machine dependent libraries but do not redefine it if we already on 7.0 and
+   above as it needs to link with libmx also.  */
 
-#undef	LIB_SPEC
+#ifndef	LIB_SPEC
 #define LIB_SPEC "%{!static:-lSystem}"
 
 /* APPLE LOCAL begin Handle static/shared libgcc correctly (radar 3554191, 3127145) */
@@ -416,6 +413,7 @@ do {					\
 	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	   \
 			       %{!shared-libgcc:-lgcc -lgcc_eh}}}"
 /* APPLE LOCAL end Handle static/shared libgcc correctly (radar 3554191, 3127145) */
+#endif
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 
@@ -501,11 +499,10 @@ do { text_section ();							\
 #undef USE_COMMON_FOR_ONE_ONLY
 #define USE_COMMON_FOR_ONE_ONLY 0
 
-/* The Darwin linker doesn't like explicit template instantiations to be
-   coalesced, because it doesn't want coalesced symbols to appear in
+/* The Darwin linker doesn't want coalesced symbols to appear in
    a static archive's table of contents. */
-#undef TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
-#define TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY 0
+#undef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
+#define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 1
 
 /* We make exception information linkonce. */
 #undef TARGET_USES_WEAK_UNWIND_INFO
@@ -652,7 +649,7 @@ do { text_section ();							\
 	 fprintf (FILE, "\"%s\"", xname);				\
 	 /* APPLE LOCAL end Objective-C++  */				\
        else								     \
-         fprintf (FILE, "_%s", xname);					     \
+         asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)
 
 /* Output before executable code.  */
@@ -1081,10 +1078,6 @@ enum machopic_addr_class {
 /* APPLE LOCAL OS pragma hook */
 #define REGISTER_OS_PRAGMAS(PFILE)			\
   do {								\
-    c_register_pragma (0, "mark", darwin_pragma_ignore);	\
-    c_register_pragma (0, "options", darwin_pragma_options);	\
-    c_register_pragma (0, "segment", darwin_pragma_ignore);	\
-    c_register_pragma (0, "unused", darwin_pragma_unused);	\
     /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */  \
     cpp_register_pragma (PFILE, 0, "pack", darwin_pragma_pack);  \
     /* APPLE LOCAL end Macintosh alignment 2002-1-22 --ff */  \
@@ -1243,5 +1236,4 @@ void add_framework_path (char *);
 #endif
 
 #define WINT_TYPE "int"
-
 #endif /* CONFIG_DARWIN_H */

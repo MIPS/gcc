@@ -1892,9 +1892,9 @@ gfc_simplify_bound (gfc_expr * array, gfc_expr * dim, int upper)
   
   i = mpz_get_si (dim->value.integer);
   if (upper) 
-    return as->upper[i-1];
+    return gfc_copy_expr (as->upper[i-1]);
   else
-    return as->lower[i-1];
+    return gfc_copy_expr (as->lower[i-1]);
 }
 
 
@@ -2035,7 +2035,6 @@ gfc_simplify_log (gfc_expr * x)
       mpf_init (xr);
       mpf_init (xi);
 
-      mpf_div (xr, x->value.complex.i, x->value.complex.r);
       arctangent2 (&x->value.complex.i, &x->value.complex.r,
 	&result->value.complex.i);
 

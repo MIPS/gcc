@@ -51,6 +51,7 @@
 #include "target.h"
 #include "target-def.h"
 #include "debug.h"
+#include "langhooks.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -117,7 +118,6 @@ static void thumb_output_function_prologue (FILE *, HOST_WIDE_INT);
 static int arm_comp_type_attributes (tree, tree);
 static void arm_set_default_type_attributes (tree);
 static int arm_adjust_cost (rtx, rtx, rtx, int);
-static int arm_use_dfa_pipeline_interface (void);
 static int count_insns_for_constant (HOST_WIDE_INT, int);
 static int arm_get_strip_length (int);
 static bool arm_function_ok_for_sibcall (tree, tree);
@@ -158,9 +158,16 @@ static void aof_file_end (void);
 static rtx arm_struct_value_rtx (tree, int);
 static void arm_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int *, int);
+static bool arm_pass_by_reference (CUMULATIVE_ARGS *,
+				   enum machine_mode, tree, bool);
 static bool arm_promote_prototypes (tree);
 static bool arm_default_short_enums (void);
 static bool arm_align_anon_bitfield (void);
+
+static tree arm_cxx_guard_type (void);
+static bool arm_cxx_guard_mask_bit (void);
+static tree arm_get_cookie_size (tree);
+static bool arm_cookie_has_size (void);
 
 
 /* Initialize the GCC target structure.  */
@@ -208,7 +215,7 @@ static bool arm_align_anon_bitfield (void);
 #define TARGET_SCHED_ADJUST_COST arm_adjust_cost
 
 #undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE arm_use_dfa_pipeline_interface
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 
 #undef TARGET_ENCODE_SECTION_INFO
 #ifdef ARM_PE
@@ -251,6 +258,8 @@ static bool arm_align_anon_bitfield (void);
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES arm_promote_prototypes
+#undef TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE arm_pass_by_reference
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX arm_struct_value_rtx
@@ -263,6 +272,18 @@ static bool arm_align_anon_bitfield (void);
 
 #undef TARGET_ALIGN_ANON_BITFIELD
 #define TARGET_ALIGN_ANON_BITFIELD arm_align_anon_bitfield
+
+#undef TARGET_CXX_GUARD_TYPE
+#define TARGET_CXX_GUARD_TYPE arm_cxx_guard_type
+
+#undef TARGET_CXX_GUARD_MASK_BIT
+#define TARGET_CXX_GUARD_MASK_BIT arm_cxx_guard_mask_bit
+
+#undef TARGET_CXX_GET_COOKIE_SIZE
+#define TARGET_CXX_GET_COOKIE_SIZE arm_get_cookie_size
+
+#undef TARGET_CXX_COOKIE_HAS_SIZE
+#define TARGET_CXX_COOKIE_HAS_SIZE arm_cookie_has_size
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -366,6 +387,9 @@ int arm_arch3m = 0;
 /* Nonzero if this chip supports the ARM Architecture 4 extensions.  */
 int arm_arch4 = 0;
 
+/* Nonzero if this chip supports the ARM Architecture 4t extensions.  */
+int arm_arch4t = 0;
+
 /* Nonzero if this chip supports the ARM Architecture 5 extensions.  */
 int arm_arch5 = 0;
 
@@ -398,6 +422,13 @@ int arm_is_6_or_7 = 0;
 
 /* Nonzero if generating Thumb instructions.  */
 int thumb_code = 0;
+
+/* Nonzero if we should define __THUMB_INTERWORK__ in the
+   preprocessor.  
+   XXX This is a bit of a hack, it's intended to help work around
+   problems in GLD which doesn't understand that armv5t code is
+   interworking clean.  */
+int arm_cpp_interwork = 0;
 
 /* In case of a PRE_INC, POST_INC, PRE_DEC, POST_DEC memory reference, we
    must report the mode of the memory reference from PRINT_OPERAND to
@@ -802,6 +833,7 @@ arm_override_options (void)
   /* Initialize boolean versions of the flags, for use in the arm.md file.  */
   arm_arch3m = (insn_flags & FL_ARCH3M) != 0;
   arm_arch4 = (insn_flags & FL_ARCH4) != 0;
+  arm_arch4t = arm_arch4 & ((insn_flags & FL_THUMB) != 0);
   arm_arch5 = (insn_flags & FL_ARCH5) != 0;
   arm_arch5e = (insn_flags & FL_ARCH5E) != 0;
   arm_arch6 = (insn_flags & FL_ARCH6) != 0;
@@ -815,6 +847,17 @@ arm_override_options (void)
 		    && !(tune_flags & FL_ARCH4))) != 0;
   arm_tune_xscale = (tune_flags & FL_XSCALE) != 0;
   arm_arch_iwmmxt = (insn_flags & FL_IWMMXT) != 0;
+
+  /* V5 code we generate is completely interworking capable, so we turn off
+     TARGET_INTERWORK here to avoid many tests later on.  */
+
+  /* XXX However, we must pass the right pre-processor defines to CPP
+     or GLD can get confused.  This is a hack.  */
+  if (TARGET_INTERWORK)
+    arm_cpp_interwork = 1;
+
+  if (arm_arch5)
+    target_flags &= ~ARM_FLAG_INTERWORK;
 
   if (target_abi_name)
     {
@@ -1085,7 +1128,7 @@ arm_compute_func_type (void)
      register values that will never be needed again.  This optimization
      was added to speed up context switching in a kernel application.  */
   if (optimize > 0
-      && current_function_nothrow
+      && TREE_NOTHROW (current_function_decl)
       && TREE_THIS_VOLATILE (current_function_decl))
     type |= ARM_FT_VOLATILE;
   
@@ -2358,50 +2401,12 @@ arm_function_arg (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
 /* Variable sized types are passed by reference.  This is a GCC
    extension to the ARM ABI.  */
 
-int
-arm_function_arg_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-				    enum machine_mode mode ATTRIBUTE_UNUSED,
-				    tree type, int named ATTRIBUTE_UNUSED)
+static bool
+arm_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+		       enum machine_mode mode ATTRIBUTE_UNUSED,
+		       tree type, bool named ATTRIBUTE_UNUSED)
 {
   return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
-}
-
-/* Implement va_arg.  */
-
-rtx
-arm_va_arg (tree valist, tree type)
-{
-  int align;
-
-  /* Variable sized types are passed by reference.  */
-  if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-    {
-      rtx addr = std_expand_builtin_va_arg (valist, build_pointer_type (type));
-      return gen_rtx_MEM (ptr_mode, force_reg (Pmode, addr));
-    }
-
-  align = FUNCTION_ARG_BOUNDARY (TYPE_MODE (type), type);
-  if (align > PARM_BOUNDARY)
-    {
-      tree mask;
-      tree t;
-
-      /* Maintain 64-bit alignment of the valist pointer by
-	 constructing:   valist = ((valist + (8 - 1)) & -8).  */
-      mask = build_int_2 (- (align / BITS_PER_UNIT), -1);
-      t = build_int_2 ((align / BITS_PER_UNIT) - 1, 0);
-      t = build (PLUS_EXPR,    TREE_TYPE (valist), valist, t);
-      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, mask);
-      t = build (MODIFY_EXPR,  TREE_TYPE (valist), valist, t);
-      TREE_SIDE_EFFECTS (t) = 1;
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-      /* This is to stop the combine pass optimizing
-	 away the alignment adjustment.  */
-      mark_reg_pointer (arg_pointer_rtx, PARM_BOUNDARY);
-    }
-
-  return std_expand_builtin_va_arg (valist, type);
 }
 
 /* Encode the current state of the #pragma [no_]long_calls.  */
@@ -3072,7 +3077,7 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, RTX_CODE outer,
 	  if (TARGET_LDRD)
 	    return val > -256 && val < 256;
 	  else
-	    return val == 4 || val == -4 || val == -8;
+	    return val > -4096 && val < 4092;
 	}
 
       return TARGET_LDRD && arm_address_register_rtx_p (index, strict_p);
@@ -3524,7 +3529,6 @@ thumb_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
       /* XXX guess.  */
       return 8;
 
-    case ADDRESSOF:
     case MEM:
       /* XXX another guess.  */
       /* Memory costs quite a lot for the first word, but subsequent words
@@ -4102,12 +4106,6 @@ static int
 arm_address_cost (rtx x)
 {
   return TARGET_ARM ? arm_arm_address_cost (x) : arm_thumb_address_cost (x);
-}
-
-static int
-arm_use_dfa_pipeline_interface (void)
-{
-  return true;
 }
 
 static int
@@ -5906,7 +5904,7 @@ arm_gen_store_multiple (int base_regno, int count, rtx to, int up,
 }
 
 int
-arm_gen_movstrqi (rtx *operands)
+arm_gen_movmemqi (rtx *operands)
 {
   HOST_WIDE_INT in_words_to_go, out_words_to_go, last_bytes;
   int i;
@@ -8000,8 +7998,10 @@ vfp_emit_fstmx (int base_reg, int count)
 const char *
 output_call (rtx *operands)
 {
-  /* Handle calls to lr using ip (which may be clobbered in subr anyway).  */
+  if (arm_arch5)
+    abort ();		/* Patterns should call blx <reg> directly.  */
 
+  /* Handle calls to lr using ip (which may be clobbered in subr anyway).  */
   if (REGNO (operands[0]) == LR_REGNUM)
     {
       operands[0] = gen_rtx_REG (SImode, IP_REGNUM);
@@ -8010,7 +8010,7 @@ output_call (rtx *operands)
   
   output_asm_insn ("mov%?\t%|lr, %|pc", operands);
   
-  if (TARGET_INTERWORK)
+  if (TARGET_INTERWORK || arm_arch4t)
     output_asm_insn ("bx%?\t%0", operands);
   else
     output_asm_insn ("mov%?\t%|pc, %0", operands);
@@ -8022,7 +8022,7 @@ output_call (rtx *operands)
 const char *
 output_call_mem (rtx *operands)
 {
-  if (TARGET_INTERWORK)
+  if (TARGET_INTERWORK && !arm_arch5)
     {
       output_asm_insn ("ldr%?\t%|ip, %0", operands);
       output_asm_insn ("mov%?\t%|lr, %|pc", operands);
@@ -8034,8 +8034,16 @@ output_call_mem (rtx *operands)
 	 first instruction.  It's safe to use IP as the target of the
 	 load since the call will kill it anyway.  */
       output_asm_insn ("ldr%?\t%|ip, %0", operands);
-      output_asm_insn ("mov%?\t%|lr, %|pc", operands);
-      output_asm_insn ("mov%?\t%|pc, %|ip", operands);
+      if (arm_arch5)
+	output_asm_insn ("blx%?%|ip", operands);
+      else
+	{
+	  output_asm_insn ("mov%?\t%|lr, %|pc", operands);
+	  if (arm_arch4t)
+	    output_asm_insn ("bx%?\t%|ip", operands);
+	  else
+	    output_asm_insn ("mov%?\t%|pc, %|ip", operands);
+	}
     }
   else
     {
@@ -9261,9 +9269,8 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 	  break;
 
 	default:
-	  /* ARMv5 implementations always provide BX, so interworking
-	     is the default.  */
-	  if ((insn_flags & FL_ARCH5) != 0)
+	  /* Use bx if it's available.  */
+	  if (arm_arch5 || arm_arch4t)
 	    sprintf (instr, "bx%s\t%%|lr", conditional);	    
 	  else
 	    sprintf (instr, "mov%s\t%%|pc, %%|lr", conditional);
@@ -9704,18 +9711,14 @@ arm_output_epilogue (rtx sibling)
 	}
     }
 
-  if (! really_return
-    || (ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
-	&& current_function_pretend_args_size == 0
-	&& saved_regs_mask & (1 << PC_REGNUM)))
+  /* We may have already restored PC directly from the stack.  */
+  if (!really_return || saved_regs_mask & (1 << PC_REGNUM))
     return "";
 
   /* Generate the return instruction.  */
   switch ((int) ARM_FUNC_TYPE (func_type))
     {
     case ARM_FT_EXCEPTION_HANDLER:
-      /* Even in 26-bit mode we do a mov (rather than a movs)
-	 because we don't have the PSR bits set in the address.  */
       asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, EXCEPTION_LR_REGNUM);
       break;
 
@@ -9733,17 +9736,8 @@ arm_output_epilogue (rtx sibling)
       break;
 
     default:
-      if (frame_pointer_needed)
-	/* If we used the frame pointer then the return address
-	   will have been loaded off the stack directly into the
-	   PC, so there is no need to issue a MOV instruction
-	   here.  */
-	;
-      else if (current_function_pretend_args_size == 0
-	       && (saved_regs_mask & (1 << LR_REGNUM)))
-	/* Similarly we may have been able to load LR into the PC
-	   even if we did not create a stack frame.  */
-	;
+      if (arm_arch5 || arm_arch4t)
+	asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
       else
 	asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, LR_REGNUM);
       break;
@@ -9960,6 +9954,18 @@ emit_sfm (int base_reg, int count)
 }
 
 
+/* Return true if the current function needs to save/restore LR.  */
+
+static bool
+thumb_force_lr_save (void)
+{
+  return !cfun->machine->lr_save_eliminated
+	 && (!leaf_function_p ()
+	     || thumb_far_jump_used_p ()
+	     || regs_ever_live [LR_REGNUM]);
+}
+
+
 /* Compute the distance from register FROM to register TO.
    These can be the arg pointer (26), the soft frame pointer (25),
    the stack pointer (13) or the hard frame pointer (11).
@@ -10095,8 +10101,7 @@ arm_get_frame_offsets (void)
       for (reg = 0; reg <= LAST_LO_REGNUM; reg ++)
 	if (THUMB_REG_PUSHED_P (reg))
 	  count_regs ++;
-      if (count_regs || ! leaf_function_p ()
-	  || thumb_far_jump_used_p ())
+      if (count_regs || thumb_force_lr_save ())
 	saved += 4 * (count_regs + 1);
       if (TARGET_BACKTRACE)
 	{
@@ -11239,6 +11244,16 @@ arm_final_prescan_insn (rtx insn)
 	      break;
 
 	    case CALL_INSN:
+	      /* The AAPCS says that conditional calls should not be
+		 used since they make interworking inefficient (the
+		 linker can't transform BL<cond> into BLX).  That's
+		 only a problem if the machine has BLX.  */
+	      if (arm_arch5)
+		{
+		  fail = TRUE;
+		  break;
+		}
+
 	      /* Succeed if the following insn is the target label, or
 		 if the following two insns are a barrier and the
 		 target label.  */
@@ -11577,7 +11592,8 @@ arm_debugger_arg_offset (int value, rtx addr)
   do									\
     {									\
       if ((MASK) & insn_flags)						\
-        builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD, NULL, NULL_TREE);	\
+        lang_hooks.builtin_function ((NAME), (TYPE), (CODE),		\
+				     BUILT_IN_MD, NULL, NULL_TREE);	\
     }									\
   while (0)
 
@@ -12916,7 +12932,6 @@ thumb_unexpanded_epilogue (void)
   int regno;
   int live_regs_mask = 0;
   int high_regs_pushed = 0;
-  int leaf_function = leaf_function_p ();
   int had_to_push_lr;
   rtx eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
 
@@ -13011,8 +13026,7 @@ thumb_unexpanded_epilogue (void)
 	}
     }
 
-  had_to_push_lr = (live_regs_mask || !leaf_function
-		    || thumb_far_jump_used_p ());
+  had_to_push_lr = (live_regs_mask || thumb_force_lr_save ());
   
   if (TARGET_BACKTRACE
       && ((live_regs_mask & 0xFF) == 0)
@@ -13109,6 +13123,12 @@ arm_init_expanders (void)
 {
   /* Arrange to initialize and mark the machine per-function status.  */
   init_machine_status = arm_init_machine_status;
+
+  /* This is to stop the combine pass optimizing away the alignment
+     adjustment of va_arg.  */
+  /* ??? It is claimed that this should not be necessary.  */
+  if (cfun)
+    mark_reg_pointer (arg_pointer_rtx, PARM_BOUNDARY);
 }
 
 
@@ -13172,6 +13192,7 @@ thumb_expand_prologue (void)
   HOST_WIDE_INT amount;
   arm_stack_offsets *offsets;
   unsigned long func_type;
+  int regno;
 
   func_type = arm_current_func_type ();
   
@@ -13205,7 +13226,6 @@ thumb_expand_prologue (void)
 	}
       else
 	{
-	  int regno;
 	  rtx reg;
 
 	  /* The stack decrement is too big for an immediate value in a single
@@ -13290,6 +13310,21 @@ thumb_expand_prologue (void)
   
   if (current_function_profile || TARGET_NO_SCHED_PRO)
     emit_insn (gen_blockage ());
+
+  cfun->machine->lr_save_eliminated = !thumb_force_lr_save ();
+  for (regno = 0; regno <= LAST_LO_REGNUM; regno++)
+    {
+      if (THUMB_REG_PUSHED_P (regno))
+        {
+          cfun->machine->lr_save_eliminated = 0;
+          break;
+        }
+    }
+
+  /* If the link register is being kept alive, with the return address in it,
+     then make sure that it does not get reused by the ce2 pass.  */
+  if (cfun->machine->lr_save_eliminated)
+    emit_insn (gen_prologue_use (gen_rtx_REG (SImode, LR_REGNUM)));
 }
 
 void
@@ -13424,7 +13459,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
     if (THUMB_REG_PUSHED_P (regno))
       live_regs_mask |= 1 << regno;
 
-  if (live_regs_mask || !leaf_function_p () || thumb_far_jump_used_p ())
+  if (live_regs_mask || thumb_force_lr_save ())
     live_regs_mask |= 1 << LR_REGNUM;
 
   if (TARGET_BACKTRACE)
@@ -13763,7 +13798,7 @@ thumb_output_move_mem_multiple (int n, rtx *operands)
 
 /* Routines for generating rtl.  */
 void
-thumb_expand_movstrqi (rtx *operands)
+thumb_expand_movmemqi (rtx *operands)
 {
   rtx out = copy_to_mode_reg (SImode, XEXP (operands[0], 0));
   rtx in  = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
@@ -14495,6 +14530,49 @@ arm_default_short_enums (void)
 
 static bool
 arm_align_anon_bitfield (void)
+{
+  return TARGET_AAPCS_BASED;
+}
+
+
+/* The generic C++ ABI says 64-bit (long long).  The EABI says 32-bit.  */
+
+static tree
+arm_cxx_guard_type (void)
+{
+  return TARGET_AAPCS_BASED ? integer_type_node : long_long_integer_type_node;
+}
+
+
+/* The EABI says test the least significan bit of a guard variable.  */
+
+static bool
+arm_cxx_guard_mask_bit (void)
+{
+  return TARGET_AAPCS_BASED;
+}
+
+
+/* The EABI specifies that all array cookies are 8 bytes long.  */
+
+static tree
+arm_get_cookie_size (tree type)
+{
+  tree size;
+
+  if (!TARGET_AAPCS_BASED)
+    return default_cxx_get_cookie_size (type);
+
+  size = build_int_2 (8, 0);
+  TREE_TYPE (size) = sizetype;
+  return size;
+}
+
+
+/* The EABI says that array cookies should also contain the element size.  */
+
+static bool
+arm_cookie_has_size (void)
 {
   return TARGET_AAPCS_BASED;
 }

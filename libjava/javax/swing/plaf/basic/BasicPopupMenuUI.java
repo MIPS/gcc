@@ -40,20 +40,15 @@ package javax.swing.plaf.basic;
 import java.awt.AWTKeyStroke;
 import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
-import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.Stroke;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
@@ -93,21 +88,13 @@ import javax.swing.plaf.PopupMenuUI;
 
 
 /**
- * UI Delegate for JPopupMenu
+ * DOCUMENT ME!
  */
 public class BasicPopupMenuUI extends PopupMenuUI
 {
-  /* popupMenu for which this UI delegate is for*/
   protected JPopupMenu popupMenu;
-
-  /* MouseInputListener listens to mouse events */
   private static transient MouseInputListener mouseInputListener;
-
-  /* PopupMenuListener listens to popup menu events fired by JPopupMenu*/
   private transient PopupMenuListener popupMenuListener;
-
-  /* ComponentListener listening to popupMenu's invoker. */
-  private TopWindowListener topWindowListener;
 
   /**
    * Creates a new BasicPopupMenuUI object.
@@ -116,16 +103,14 @@ public class BasicPopupMenuUI extends PopupMenuUI
   {
     popupMenuListener = new PopupMenuHandler();
     mouseInputListener = new MouseInputHandler();
-    topWindowListener = new TopWindowListener();
   }
 
   /**
-   * Factory method to create a BasicPopupMenuUI for the given {@link
-   * JComponent}, which should be a {@link JMenuItem}.
+   * DOCUMENT ME!
    *
-   * @param x The {@link JComponent} a UI is being created for.
+   * @param x DOCUMENT ME!
    *
-   * @return A BasicPopupMenuUI for the {@link JComponent}.
+   * @return DOCUMENT ME!
    */
   public static ComponentUI createUI(JComponent x)
   {
@@ -133,11 +118,9 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * Installs and initializes all fields for this UI delegate. Any properties
-   * of the UI that need to be initialized and/or set to defaults will be
-   * done now. It will also install any listeners necessary.
+   * DOCUMENT ME!
    *
-   * @param c The {@link JComponent} that is having this UI installed.
+   * @param c DOCUMENT ME!
    */
   public void installUI(JComponent c)
   {
@@ -145,15 +128,14 @@ public class BasicPopupMenuUI extends PopupMenuUI
     popupMenu = (JPopupMenu) c;
     popupMenu.setLayout(new GridBagLayout());
     popupMenu.setBorderPainted(true);
-    JPopupMenu.setDefaultLightWeightPopupEnabled(true);
+    popupMenu.setDefaultLightWeightPopupEnabled(true);
 
     installDefaults();
     installListeners();
   }
 
   /**
-   * This method installs the defaults that are defined in  the Basic look and
-   * feel for this {@link JPopupMenu}.
+   * DOCUMENT ME!
    */
   public void installDefaults()
   {
@@ -166,7 +148,7 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * This method installs the listeners for the {@link JMenuItem}.
+   * DOCUMENT ME!
    */
   protected void installListeners()
   {
@@ -176,19 +158,16 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * This method installs the keyboard actions for this {@link JPopupMenu}.
+   * DOCUMENT ME!
    */
   protected void installKeyboardActions()
   {
-    // FIXME: Need to implement
   }
 
   /**
-   * Performs the opposite of installUI. Any properties or resources that need
-   * to be cleaned up will be done now. It will also uninstall any listeners
-   * it has. In addition, any properties of this UI will be nulled.
+   * DOCUMENT ME!
    *
-   * @param c The {@link JComponent} that is having this UI uninstalled.
+   * @param c DOCUMENT ME!
    */
   public void uninstallUI(JComponent c)
   {
@@ -198,8 +177,7 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * This method uninstalls the defaults and sets any objects created during
-   * install to null
+   * DOCUMENT ME!
    */
   protected void uninstallDefaults()
   {
@@ -210,29 +188,25 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * Unregisters all the listeners that this UI delegate was using.
+   * DOCUMENT ME!
    */
   protected void uninstallListeners()
   {
-    popupMenu.removeMouseListener(mouseInputListener);
-    popupMenu.removeMouseMotionListener(mouseInputListener);
-    popupMenu.removePopupMenuListener(popupMenuListener);
   }
 
   /**
-   * Uninstalls any keyboard actions.
+   * DOCUMENT ME!
    */
   protected void uninstallKeyboardActions()
   {
-    // FIXME: Need to implement
   }
 
   /**
-  * This method returns the minimum size of the JPopupMenu.
+   * DOCUMENT ME!
    *
-  * @param c The JComponent to find a size for.
+   * @param c DOCUMENT ME!
    *
-  * @return The minimum size.
+   * @return DOCUMENT ME!
    */
   public Dimension getMinimumSize(JComponent c)
   {
@@ -240,11 +214,11 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * This method returns the preferred size of the JPopupMenu.
+   * DOCUMENT ME!
    *
-   * @param c The JComponent to find a size for.
+   * @param c DOCUMENT ME!
    *
-   * @return The preferred size.
+   * @return DOCUMENT ME!
    */
   public Dimension getPreferredSize(JComponent c)
   {
@@ -252,11 +226,11 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * This method returns the minimum size of the JPopupMenu.
+   * DOCUMENT ME!
    *
-   * @param c The JComponent to find a size for.
+   * @param c DOCUMENT ME!
    *
-   * @return The minimum size.
+   * @return DOCUMENT ME!
    */
   public Dimension getMaximumSize(JComponent c)
   {
@@ -264,13 +238,11 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * Return true if given mouse event is a platform popup trigger,
-   * and false otherwise
+   * DOCUMENT ME!
    *
-   * @param e MouseEvent that is to be checked for popup trigger event
+   * @param e DOCUMENT ME!
    *
-   * @return true if given mouse event is a platform popup trigger,
-   * and false otherwise
+   * @return DOCUMENT ME!
    */
   public boolean isPopupTrigger(MouseEvent e)
   {
@@ -278,153 +250,102 @@ public class BasicPopupMenuUI extends PopupMenuUI
   }
 
   /**
-   * This listener handles PopupMenuEvents fired by JPopupMenu
+   * DOCUMENT ME!
    */
-  private class PopupMenuHandler implements PopupMenuListener
+  protected class PopupMenuHandler implements PopupMenuListener
   {
     /**
-     * This method is invoked when JPopupMenu is cancelled.
+     * DOCUMENT ME!
      *
-     * @param event the PopupMenuEvent
+     * @param event DOCUMENT ME!
      */
     public void popupMenuCanceled(PopupMenuEvent event)
     {
-      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
-      manager.clearSelectedPath();
     }
 
     /**
-     * This method is invoked when JPopupMenu becomes invisible
+     * DOCUMENT ME!
      *
-     * @param event the PopupMenuEvent
+     * @param event DOCUMENT ME!
      */
     public void popupMenuWillBecomeInvisible(PopupMenuEvent event)
     {
-      // remove listener that listens to component events fired 
-      // by the top - level window that this popup belongs to.
-      Component invoker = popupMenu.getInvoker();
-
-      Container rootContainer = (Container) SwingUtilities.getRoot(invoker);
-      rootContainer.removeComponentListener(topWindowListener);
     }
 
     /**
-     * This method is invoked when JPopupMenu becomes visible
+     * DOCUMENT ME!
      *
-     * @param event the PopupMenuEvent
+     * @param event DOCUMENT ME!
      */
     public void popupMenuWillBecomeVisible(PopupMenuEvent event)
     {
-      // Adds topWindowListener to top-level window to listener to 
-      // ComponentEvents fired by it. We need to cancel this popup menu
-      // if topWindow to which this popup belongs was resized or moved.
-      Component invoker = popupMenu.getInvoker();
-      Container rootContainer = (Container) SwingUtilities.getRoot(invoker);
-      rootContainer.addComponentListener(topWindowListener);
-
-      // if this popup menu is a free floating popup menu,
-      // then by default its first element should be always selected when
-      // this popup menu becomes visible. 
-      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
-
-      if (manager.getSelectedPath().length == 0)
-        {
-	  // Set selected path to point to the first item in the popup menu
-	  MenuElement[] path = new MenuElement[2];
-	  path[0] = popupMenu;
-	  Component[] comps = popupMenu.getComponents();
-	  if (comps.length != 0 && comps[0] instanceof MenuElement)
-	    path[1] = (MenuElement) comps[0];
-	  manager.setSelectedPath(path);
-        }
     }
   }
 
   /**
-   * ComponentListener that listens to Component Events fired by the
-   * top - level window to which popup menu belongs. If top-level
-   * window was resized, moved or hidded then popup menu will
-   * be hidded and selected path of current menu hierarchy will be set
-   * to null.
-   *
+   * DOCUMENT ME!
    */
-  private class TopWindowListener implements ComponentListener
+  protected class MouseInputHandler implements MouseInputListener
   {
     /**
-     * This method is invoked when top-level window is resized.
-     * This method closes current menu hierarchy.
+     * DOCUMENT ME!
      *
-     * @param e The ComponentEvent
+     * @param e DOCUMENT ME!
      */
-    public void componentResized(ComponentEvent e)
-    {
-      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
-      manager.clearSelectedPath();
-    }
-
-    /**
-     * This method is invoked when top-level window is moved.
-     * This method closes current menu hierarchy.
-     *
-     * @param e The ComponentEvent
-     */
-    public void componentMoved(ComponentEvent e)
-    {
-      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
-      manager.clearSelectedPath();
-    }
-
-    /**
-     * This method is invoked when top-level window is shown
-     * This method does nothing by default.
-     *
-     * @param e The ComponentEvent
-     */
-    public void componentShown(ComponentEvent e)
-    {
-      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
-      manager.clearSelectedPath();
-    }
-
-    /**
-     * This method is invoked when top-level window is hidden
-     * This method closes current menu hierarchy.
-     *
-     * @param e The ComponentEvent
-     */
-    public void componentHidden(ComponentEvent e)
-    {
-      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
-      manager.clearSelectedPath();
-    }
-  }
-
-  private class MouseInputHandler implements MouseInputListener
-  {
     public void mouseClicked(MouseEvent e)
     {
     }
 
+    /**
+     * DOCUMENT ME!
+     *
+     * @param e DOCUMENT ME!
+     */
     public void mouseDragged(MouseEvent e)
     {
     }
 
+    /**
+     * DOCUMENT ME!
+     *
+     * @param e DOCUMENT ME!
+     */
     public void mouseEntered(MouseEvent e)
     {
     }
 
+    /**
+     * DOCUMENT ME!
+     *
+     * @param e DOCUMENT ME!
+     */
     public void mouseExited(MouseEvent e)
     {
     }
 
+    /**
+     * DOCUMENT ME!
+     *
+     * @param e DOCUMENT ME!
+     */
     public void mouseMoved(MouseEvent e)
     {
     }
 
+    /**
+     * DOCUMENT ME!
+     *
+     * @param e DOCUMENT ME!
+     */
     public void mousePressed(MouseEvent e)
     {
     }
 
+    /**
+     * DOCUMENT ME!
+     *
+     * @param e DOCUMENT ME!
+     */
     public void mouseReleased(MouseEvent e)
     {
     }

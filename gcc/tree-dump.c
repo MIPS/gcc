@@ -251,13 +251,13 @@ dequeue_and_dump (dump_info_p di)
   if (dni->binfo_p)
     {
       unsigned ix;
-      tree bases = BINFO_BASETYPES (t);
+      tree bases = BINFO_BASE_BINFOS (t);
       unsigned n_bases = bases ? TREE_VEC_LENGTH (bases): 0;
-      tree accesses = BINFO_BASEACCESSES (t);
+      tree accesses = BINFO_BASE_ACCESSES (t);
 
       dump_child ("type", BINFO_TYPE (t));
 
-      if (TREE_VIA_VIRTUAL (t))
+      if (BINFO_VIRTUAL_P (t))
 	dump_string (di, "virt");
 
       dump_int (di, "bases", n_bases);
@@ -315,6 +315,7 @@ dequeue_and_dump (dump_info_p di)
     }
   else if (DECL_P (t))
     {
+      expanded_location xloc;
       /* All declarations have names.  */
       if (DECL_NAME (t))
 	dump_child ("name", DECL_NAME (t));
@@ -325,18 +326,19 @@ dequeue_and_dump (dump_info_p di)
       queue_and_dump_type (di, t);
       dump_child ("scpe", DECL_CONTEXT (t));
       /* And a source position.  */
-      if (DECL_SOURCE_FILE (t))
+      xloc = expand_location (DECL_SOURCE_LOCATION (t));
+      if (xloc.file)
 	{
-	  const char *filename = strrchr (DECL_SOURCE_FILE (t), '/');
+	  const char *filename = strrchr (xloc.file, '/');
 	  if (!filename)
-	    filename = DECL_SOURCE_FILE (t);
+	    filename = xloc.file;
 	  else
 	    /* Skip the slash.  */
 	    ++filename;
 
 	  dump_maybe_newline (di);
 	  fprintf (di->stream, "srcp: %s:%-6d ", filename,
-		   DECL_SOURCE_LINE (t));
+		   xloc.line);
 	  di->column += 6 + strlen (filename) + 8;
 	}
       /* And any declaration can be compiler-generated.  */
@@ -528,6 +530,8 @@ dequeue_and_dump (dump_info_p di)
     case INDIRECT_REF:
     case CLEANUP_POINT_EXPR:
     case SAVE_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
       /* These nodes are unary, but do not have code class `1'.  */
       dump_child ("op 0", TREE_OPERAND (t, 0));
       break;
@@ -536,9 +540,7 @@ dequeue_and_dump (dump_info_p di)
     case TRUTH_ORIF_EXPR:
     case INIT_EXPR:
     case MODIFY_EXPR:
-    case COMPONENT_REF:
     case COMPOUND_EXPR:
-    case ARRAY_REF:
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
@@ -546,6 +548,20 @@ dequeue_and_dump (dump_info_p di)
       /* These nodes are binary, but do not have code class `2'.  */
       dump_child ("op 0", TREE_OPERAND (t, 0));
       dump_child ("op 1", TREE_OPERAND (t, 1));
+      break;
+
+    case COMPONENT_REF:
+      dump_child ("op 0", TREE_OPERAND (t, 0));
+      dump_child ("op 1", TREE_OPERAND (t, 1));
+      dump_child ("op 2", TREE_OPERAND (t, 2));
+      break;
+
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+      dump_child ("op 0", TREE_OPERAND (t, 0));
+      dump_child ("op 1", TREE_OPERAND (t, 1));
+      dump_child ("op 2", TREE_OPERAND (t, 2));
+      dump_child ("op 3", TREE_OPERAND (t, 3));
       break;
 
     case COND_EXPR:
@@ -617,6 +633,7 @@ dump_node (tree t, int flags, FILE *stream)
   dump_queue_p dq;
   dump_queue_p next_dq;
 
+/* APPLE LOCAL begin MERGE FIXME */
 #if 0
   /* MERGE FIX ME */
   /* APPLE LOCAL begin new tree dump  --ilr */
@@ -627,6 +644,7 @@ dump_node (tree t, int flags, FILE *stream)
       return;
   /* APPLE LOCAL end new tree dump  --ilr */
 #endif
+/* APPLE LOCAL end MERGE FIXME */
 
   /* Initialize the dump-information structure.  */
   di.stream = stream;
