@@ -1,3 +1,8 @@
+2003-11-24  Paul Brook  <paul@nowt.org>
+
+	PR fortran/13154
+	* gfortran.fortran-torture/compile/module_common.f90: New test.
+
 2003-11-18  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.dg/tree-ssa/tailcall-1.c: New.

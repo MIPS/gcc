@@ -1663,7 +1663,7 @@ gfc_create_module_variable (gfc_symbol * sym)
     }
 
   /* Only output variables.  */
-  if (sym->attr.flavor != FL_VARIABLE)
+  if (sym->attr.flavor != FL_VARIABLE || sym->attr.common)
     return;
 
   /* Don't generate variables from other modules.  */

@@ -1,5 +1,10 @@
 2003-11-24  Paul Brook  <paul@nowt.org>
 
+	PR fortran/13154
+	* trans-decl.c (gfc_greate_module_variable): Skip COMMON blocks.
+
+2003-11-24  Paul Brook  <paul@nowt.org>
+
 	* expr.c (simplify_const_ref): Return SUCCESS for things we don't
 	handle.
 	* resolve.c (gfc_resolve_expr): Resolve contents before rank/shape.
