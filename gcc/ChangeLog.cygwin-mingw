@@ -1,3 +1,7 @@
+2002-07-31  Graham Stott  <graham.stott@btinternet.com>
+
+	* config/i386/i386.md ("femms"): Add "memory" attr "none".
+
 2002-07-12  Christopher Faylor  <cgf@redhat.com>
 
 	* config/i386/cygwin.h (CPP_SPEC): Fix include/w32api search behavior
@@ -76,7 +80,7 @@
 	__gthr_win32_* extern implementations if #defined
 	__GTHREAD_HIDE_WIN32API.
 	* config/i386/t-mingw32 (LIB2FUNCS_EXTRA): Set to
-	$(srcdir)/config/i386/gthr-win32.c 
+	$(srcdir)/config/i386/gthr-win32.c
 	* config/i386/gthr-win32.c: New implementation file.
 	(__gthr_win32_once, __gthr_win32_key_create,
 	__gthr_win32_key_delete, __gthr_win32_getspecific,
@@ -91,7 +95,7 @@
 
 2002-05-22  Danny Smith  <dannysmith@users.sourceforge.net>
 
-	Backport fixes from 3.2 branch.  
+	Backport fixes from 3.2 branch.
 	Tue Apr 23 11:48:53 CEST 2002  Jan HUbicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_clrstr): Fix pasto.
@@ -115,7 +119,7 @@
 	* config.gcc(i[34567]86-*-mingw32*): Add crtbegin.o and
 	crtend.o as extra parts
 	* crtstuff.c : Add support for __MINGW32__ and __CYGWIN__.
-	* libgcc2.c (L__main): Don't compile for mingw32. 
+	* libgcc2.c (L__main): Don't compile for mingw32.
 
 2002-05-07  Donn Terry  <donnte@microsoft.com>
 
@@ -160,14 +164,14 @@
 	int".
 
 2002-03-03  Danny Smith  <dannysmith@users.sourceforge.net>
- 
+
  	* gthr-win32.h (__GTHREAD_MUTEX_INIT_DEFAULT): Define.
 
 2002-02-01  Danny Smith  <dannysmith@users.sourceforge.net>
- 
+
  	* config/i386/mingw32.h (LIBGCC_SPEC): Add libmingwex.a.
 
-2001-11-05  Eric Kohl  <ekohl@rz-online.de> 
+2001-11-05  Eric Kohl  <ekohl@rz-online.de>
 
 	*config/i386/cygwin.h (CPP_SPEC): Add fastcall attributes.
 	(I386_PE_STRIP_ENCODING): Return length of internal fastcall
@@ -194,7 +198,7 @@
 	stdcall suffix.
 	(i386_pe_encode_section_info): Calls gen_fastcall_suffix() if
 	a symbol has a fastcall attribute.
-	
+
 	* doc/extend.texi: Added documentation of fastcall attribute.
 
 2001-11-05  Danny Smith  <danny_r_smith_2001@yahoo.com.nz>
@@ -212,7 +216,7 @@
 
 	* gcc.c (canon_filename): New function for converting '/' to
 	'\\' if __MINGW32__.
-	(execute): Use it when passing filenames to pexecute. 
+	(execute): Use it when passing filenames to pexecute.
 	* config/i386/xm-mingw32.h (DIR_SEPARATOR): Make '/' the
 	default.
 
@@ -229,8 +233,8 @@
 	(i386_pe_mark_dllimport): Likewise.
 	(i386_pe_dllexport_p): Make static.
 	(i386_pe_dllimport_p): Likewise.
-	(i386_pe_mark_dllexport): Make static. Implement override rules 
-	and handle illegal dllimports/exports. 
+	(i386_pe_mark_dllexport): Make static. Implement override rules
+	and handle illegal dllimports/exports.
 	(i386_pe_mark_dllimport): Likewise. Don't import C++ methods
 	and vtables.
 
@@ -238,4 +242,4 @@
 
 	* ginclude/stdarg.h: Use RC_INVOKED guard for x86-win32 targets.
 	* ginclude/stddef.h: Likewise.
-	* ginclude/varargs.h: Likewise. Replace WINNT macro with __WIN32__. 
+	* ginclude/varargs.h: Likewise. Replace WINNT macro with __WIN32__.
