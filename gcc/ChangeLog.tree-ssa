@@ -1,3 +1,43 @@
+2003-02-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (struct alias_tags, alias_tags, num_alias_tags):
+	Remove.  Update all users.
+	(struct alias_set_d): New.
+	(alias_sets): New file local variable.
+	(compute_alias_sets): New function.
+	(compute_may_aliases): Call it when not doing points-to analysis.
+	(register_alias_set): New function.
+	(find_alias_for): New function.
+	(may_alias_p): Declare static.
+	Don't assume that VAR may not be aliased if it's a non-addressable
+	_DECL.
+	If VAR and PTR are aggregate types, check if they can have a field
+	that points to the other one.
+	(find_may_aliases_for): Move handling of global memory aliasing ...
+	(add_may_alias): ... here.
+	Also accept the base symbols for the variable and its alias.
+	(register_new_alias): Remove.  Update all users.
+	(find_alias_tag): Remove.  Update all users.
+	(find_vars_r): Update VAR after re-writing *TP when sharing
+	INDIRECT_REF nodes.
+	* tree-flow.h (may_alias_p): Remove declaration.
+
+	* tree-ssa.c (rewrite_into_ssa): Include referenced variables in
+	default debug dumps.
+
+	Support for VLAs.
+
+	* tree-dfa.c (find_vla_decls): New function.
+	(compute_may_aliases): Call it.
+	(find_vla_decls_r): New function.
+	(dump_variable): Show whether the variable is used in a VLA
+	declaration.
+	* tree-flow-inline.h (is_vla_decl): New function.
+	(set_vla_decl): New function.
+	* tree-flow.h (struct var_ann_d): Add bitfield 'is_vla_decl'.
+	* tree-ssa-dce.c (need_to_preserve_store): Return true if SYM is
+	used inside a VLA declaration.
+
 2003-02-05  Andrew MacLeod  <amacleod@redhat.com>
 
 	* Makefile.in : Include new file tree-iterator.h in tree-simple.h

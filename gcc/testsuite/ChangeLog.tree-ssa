@@ -1,3 +1,8 @@
+2003-02-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/compile/20001226-1.c: Remove deliberate syntax
+	error.
+
 2003-02-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* lib/c-torture.exp (TORTURE_OPTIONS): Add -ftree-dce.

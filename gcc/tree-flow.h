@@ -55,6 +55,10 @@ struct var_ann_d GTY(())
   /* Nonzero if this variable may alias global memory.  */
   unsigned may_alias_global_mem : 1;
 
+  /* Nonzero if this variable is used to declare a VLA (see
+     find_vla_decl_r).  */
+  unsigned is_vla_decl : 1;
+
   /* An INDIRECT_REF expression representing all the dereferences of this
      pointer.  Used to store aliasing information for pointer dereferences
      (see add_stmt_operand and find_vars_r).  */
@@ -184,6 +188,8 @@ static inline varray_type use_ops		PARAMS ((tree));
 static inline tree *def_op			PARAMS ((tree));
 static inline varray_type immediate_uses	PARAMS ((tree));
 static inline varray_type reaching_defs		PARAMS ((tree));
+static inline bool is_vla_decl			PARAMS ((tree));
+static inline void set_vla_decl			PARAMS ((tree));
 
 
 /*---------------------------------------------------------------------------
@@ -335,8 +341,6 @@ extern void debug_immediate_uses_for	PARAMS ((tree));
 extern void remove_decl			PARAMS ((tree));
 extern tree *find_decl_location		PARAMS ((tree, tree));
 extern void compute_may_aliases		PARAMS ((void));
-extern bool may_alias_p			PARAMS ((tree, tree, HOST_WIDE_INT,
-						 tree, tree, HOST_WIDE_INT));
 extern void compute_reached_uses	PARAMS ((int));
 extern void compute_immediate_uses	PARAMS ((int));
 extern void compute_reaching_defs	PARAMS ((int));

@@ -240,6 +240,10 @@ need_to_preserve_store (var)
   if (may_alias_global_mem_p (sym))
     return true;
 
+  /* If SYM is used to declare VLAs, we need to preserve it.  */
+  if (is_vla_decl (sym))
+    return true;
+
   return false;
 }
 

@@ -102,6 +102,24 @@ indirect_ref (var)
   return ann ? ann->indirect_ref : NULL_TREE;
 }
 
+static inline bool
+is_vla_decl (var)
+     tree var;
+{
+  var_ann_t ann = var_ann (var);
+  return ann ? ann->is_vla_decl : false;
+}
+
+static inline void
+set_vla_decl (var)
+     tree var;
+{
+  var_ann_t ann = var_ann (var);
+  if (ann == NULL)
+    ann = create_var_ann (var);
+  ann->is_vla_decl = 1;
+}
+
 static inline int
 get_lineno (expr)
      tree expr;
