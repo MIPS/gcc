@@ -1195,26 +1195,43 @@ __mf_adapt_cache ()
   uintptr_t new_mask;
   uintptr_t shifted;
   unsigned char new_shift;
-  unsigned num_buckets;
+  double cache_utilization;
+  unsigned i;
 
   memset (&s, 0, sizeof (s));
-  __mf_tree_analyze (__mf_object_root, & s);
-  assert (s.obj_count > 0);
-  assert (s.live_obj_count > 0);
-  assert (s.total_weight > 0.0);
+  if (__mf_object_root)
+    __mf_tree_analyze (__mf_object_root, & s);
+
+  /* Maybe we're dealing with funny aging/adaptation parameters, or an
+     empty tree.  Just leave the cache alone in such cases, rather
+     than risk dying by division-by-zero.  */
+  if (! (s.obj_count > 0) && (s.live_obj_count > 0) && (s.total_weight > 0.0))
+    return;
+
   avg_weight = s.total_weight / s.live_obj_count;
   weighted_avg_size = (uintptr_t) (s.weighted_size / s.total_weight);
   avg_size = (uintptr_t) (s.total_size / s.obj_count);
   if (avg_size == 0) avg_size = 1;
 
-  /* Find a good new cache size. */
-  num_buckets = 1.5 * s.obj_count * (weighted_avg_size / avg_size);
-  for (new_mask=0xff;
-       new_mask < LOOKUP_CACHE_SIZE_MAX;
-       new_mask = new_mask * 2 + 1)
-    if (num_buckets < new_mask+1)
-      break;
+  /* Count number of used buckets.  */
+  cache_utilization = 0.0;
+  for (i = 0; i < (1 + __mf_lc_mask); i++)
+    if (__mf_lookup_cache[i].low != 0 || __mf_lookup_cache[i].high != 0)
+      cache_utilization += 1.0;
+  cache_utilization /= (1 + __mf_lc_mask);
+  if (cache_utilization < 0.5)
+    new_mask = __mf_lc_mask >> 1;
+  else if (cache_utilization > 0.7)
+    new_mask = (__mf_lc_mask << 1) | 1;
+  else
+    new_mask = __mf_lc_mask;
+  
+  new_mask |= 0x3ff; /* impose a practical minimum */
   new_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
+
+#if 0 /* giving up on heuristics? */
+  new_mask = __mf_lc_mask;
+#endif
 
   /* Find a good new shift amount.  Make it big enough that the
      popular objects take up 1-2 "cache lines".  The 24 in the
@@ -1227,11 +1244,11 @@ __mf_adapt_cache ()
       break;
     
   VERBOSE_TRACE ("mf: adapt cache %u/%u/%u/%.0f/%.0f => "
-		 "%.0f/%lu/%lu => "
+		 "%.0f/%lu/%lu/%.0f%% => "
 		 "%08lx/%u\n",
 		 s.obj_count, s.live_obj_count, s.total_size,
 		 s.total_weight, s.weighted_size,
-		 avg_weight, weighted_avg_size, avg_size,
+		 avg_weight, weighted_avg_size, avg_size, (cache_utilization*100.0),
 		 new_mask, new_shift);
 
   /* We should reinitialize cache if its parameters have changed.  */

@@ -1,3 +1,12 @@
+2002-10-16  Frank Ch. Eigler  <fche@redhat.com>
+
+	* test/fail19-frag.c, pass24-frag.c, pass-stratcliff.c: New tests.
+	* Makefile.am: Run them.  Install mf-runtime.h.
+	* Makefile.in: Regenerated.
+	* mf-hooks.c: Add some markers for more missing functions.
+	* mf-runtime.c (__mf_adapt_cache): Experiment with a utilization-based
+	statistic to tune tune cache size (mask).
+
 2002-10-01  Frank Ch. Eigler  <fche@redhat.com>
 
 	* test/pass23-frag.c: New test for bit_field_ref expressions.

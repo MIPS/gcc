@@ -844,7 +844,10 @@ WRAPPER(char *, rindex, const char *s, int c)
 }
 #endif
 
-/* *printf,*scanf */
+/* XXX:  stpcpy, memccpy */
+
+
+/* XXX: *printf,*scanf */
 
 
 
