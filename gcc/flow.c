@@ -357,11 +357,11 @@ static int libcall_dead_p		PARAMS ((struct propagate_block_info *,
 static void mark_set_regs		PARAMS ((struct propagate_block_info *,
 						 rtx, rtx));
 static void mark_set_1			PARAMS ((struct propagate_block_info *,
-						 enum rtx_code, rtx, rtx, rtx));
-static int mark_set_reg			PARAMS ((struct propagate_block_info *,
 						 enum rtx_code, rtx, rtx,
-						 int *, int *));
+						 rtx, int));
 #ifdef HAVE_conditional_execution
+static int mark_regno_cond_dead		PARAMS ((struct propagate_block_info *,
+						 int, rtx));
 static void free_reg_cond_life_info	PARAMS ((splay_tree_value));
 static int flush_reg_cond_reg_1		PARAMS ((splay_tree_node, void *));
 static void flush_reg_cond_reg		PARAMS ((struct propagate_block_info *,
@@ -3439,17 +3439,16 @@ propagate_one_insn (pbi, insn)
 	       note = XEXP (note, 1))
 	    if (GET_CODE (XEXP (note, 0)) == CLOBBER)
 	      mark_set_1 (pbi, CLOBBER, XEXP (XEXP (note, 0), 0),
-			  cond, insn);
+			  cond, insn, pbi->flags);
 
 	  /* Calls change all call-used and global registers.  */
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (call_used_regs[i] && ! global_regs[i]
 		&& ! fixed_regs[i])
 	      {
-		int dummy;
-		mark_set_reg (pbi, CLOBBER,
-			      gen_rtx_REG (reg_raw_mode[i], i),
-			      cond, &dummy, &dummy);
+		/* We do not want REG_UNUSED notes for these registers.  */
+		mark_set_1 (pbi, CLOBBER, gen_rtx_REG (reg_raw_mode[i], i),
+			    cond, insn, pbi->flags & ~PROP_DEATH_NOTES);
 	      }
 	}
 
@@ -4006,7 +4005,7 @@ mark_set_regs (pbi, x, insn)
     {
     case SET:
     case CLOBBER:
-      mark_set_1 (pbi, GET_CODE (x), SET_DEST (x), cond, insn);
+      mark_set_1 (pbi, GET_CODE (x), SET_DEST (x), cond, insn, pbi->flags); 
       return;
 
     case COND_EXEC:
@@ -4034,7 +4033,8 @@ mark_set_regs (pbi, x, insn)
 
 	      case SET:
 	      case CLOBBER:
-		mark_set_1 (pbi, GET_CODE (sub), SET_DEST (sub), cond, insn);
+		mark_set_1 (pbi, GET_CODE (sub), SET_DEST (sub), cond,
+			    insn, pbi->flags);
 		break;
 
 	      default:
@@ -4052,14 +4052,15 @@ mark_set_regs (pbi, x, insn)
 /* Process a single SET rtx, X.  */
 
 static void
-mark_set_1 (pbi, code, reg, cond, insn)
+mark_set_1 (pbi, code, reg, cond, insn, flags)
      struct propagate_block_info *pbi;
      enum rtx_code code;
      rtx reg, cond, insn;
+     int flags;
 {
-  register int regno = -1;
-  int flags = pbi->flags;
+  register int regno_first, regno_last;
   int not_dead;
+  int i;
 
   /* Some targets place small structures in registers for
      return values of functions.  We have to detect this
@@ -4067,10 +4068,8 @@ mark_set_1 (pbi, code, reg, cond, insn)
   if (GET_CODE (reg) == PARALLEL
       && GET_MODE (reg) == BLKmode)
     {
-      register int i;
-
       for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
-	mark_set_1 (pbi, code, XVECEXP (reg, 0, i), cond, insn);
+	mark_set_1 (pbi, code, XVECEXP (reg, 0, i), cond, insn, flags);
       return;
     }
 
@@ -4079,11 +4078,13 @@ mark_set_1 (pbi, code, reg, cond, insn)
      is now dead.  Of course, if it was dead after it's unused now.  */
 
   not_dead = 0;
+  regno_last = regno_first = -1;
   switch (GET_CODE (reg))
     {
     case ZERO_EXTRACT:
     case SIGN_EXTRACT:
     case STRICT_LOW_PART:
+      /* ??? Assumes STRICT_LOW_PART not used on multi-word registers.  */
       do
 	reg = XEXP (reg, 0);
       while (GET_CODE (reg) == SUBREG
@@ -4091,18 +4092,60 @@ mark_set_1 (pbi, code, reg, cond, insn)
 	     || GET_CODE (reg) == SIGN_EXTRACT
 	     || GET_CODE (reg) == STRICT_LOW_PART);
       not_dead = REGNO_REG_SET_P (pbi->reg_live, REGNO (reg));
+      /* FALLTHRU */
+
+    case REG:
+      regno_last = regno_first = REGNO (reg);
+      if (regno_first < FIRST_PSEUDO_REGISTER)
+	regno_last += HARD_REGNO_NREGS (regno_first, GET_MODE (reg)) - 1;
       break;
 
     case SUBREG:
-      /* If the number of words in the subreg is less than the number
-	 of words in the full register, we have a well-defined partial
-	 set.  Otherwise the high bits are undefined.  */
-      if (((GET_MODE_SIZE (GET_MODE (reg))
-            + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-          < ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (reg)))
-              + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
-        not_dead = REGNO_REG_SET_P (pbi->reg_live, REGNO (SUBREG_REG (reg)));
-      reg = SUBREG_REG (reg);
+      if (GET_CODE (SUBREG_REG (reg)) == REG)
+	{
+	  enum machine_mode outer_mode = GET_MODE (reg);
+	  enum machine_mode inner_mode = GET_MODE (SUBREG_REG (reg));
+
+	  /* Identify the range of registers affected.  This is moderately
+	     tricky for hard registers.  See alter_subreg.  */
+
+	  regno_last = regno_first = REGNO (SUBREG_REG (reg));
+	  if (regno_first < FIRST_PSEUDO_REGISTER)
+	    {
+#ifdef ALTER_HARD_SUBREG
+	      regno_first = ALTER_HARD_SUBREG (outer_mode, SUBREG_WORD (reg),
+					       inner_mode, regno_first);
+#else
+	      regno_first += SUBREG_WORD (reg);
+#endif
+	      regno_last = (regno_first
+			    + HARD_REGNO_NREGS (regno_first, outer_mode) - 1);
+
+	      /* Since we've just adjusted the register number ranges, make
+		 sure REG matches.  Otherwise some_was_live will be clear
+		 when it shouldn't have been, and we'll create incorrect
+		 REG_UNUSED notes.  */
+	      reg = gen_rtx_REG (outer_mode, regno_first);
+	    }
+	  else
+	    {
+	      /* If the number of words in the subreg is less than the number
+		 of words in the full register, we have a well-defined partial
+		 set.  Otherwise the high bits are undefined.
+
+		 This is only really applicable to pseudos, since we just took
+		 care of multi-word hard registers.  */
+	      if (((GET_MODE_SIZE (outer_mode)
+		    + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+		  < ((GET_MODE_SIZE (inner_mode)
+		      + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+		not_dead = REGNO_REG_SET_P (pbi->reg_live, regno_first);
+
+	      reg = SUBREG_REG (reg);
+	    }
+	}
+      else
+	reg = SUBREG_REG (reg);
       break;
 
     default:
@@ -4158,23 +4201,49 @@ mark_set_1 (pbi, code, reg, cond, insn)
     }
 
   if (GET_CODE (reg) == REG
-      && (regno = REGNO (reg),
-	  ! (regno == FRAME_POINTER_REGNUM
-	     && (! reload_completed || frame_pointer_needed)))
+      && ! (regno_first == FRAME_POINTER_REGNUM
+	    && (! reload_completed || frame_pointer_needed))
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-      && ! (regno == HARD_FRAME_POINTER_REGNUM
+      && ! (regno_first == HARD_FRAME_POINTER_REGNUM
 	    && (! reload_completed || frame_pointer_needed))
 #endif
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-      && ! (regno == ARG_POINTER_REGNUM && fixed_regs[regno])
+      && ! (regno_first == ARG_POINTER_REGNUM && fixed_regs[regno_first])
 #endif
       )
     {
       int some_was_live, some_was_dead;
 
-      /* Perform the pbi datastructure update.  */
-      if (! mark_set_reg (pbi, code, reg, cond, &some_was_live, &some_was_dead))
-	not_dead = 1;
+      some_was_live = some_was_dead = 0;
+      for (i = regno_first; i <= regno_last; ++i)
+	{
+	  int needed_regno = REGNO_REG_SET_P (pbi->reg_live, i);
+	  if (pbi->local_set)
+	    SET_REGNO_REG_SET (pbi->local_set, i);
+	  if (code != CLOBBER)
+	    SET_REGNO_REG_SET (pbi->new_set, i);
+
+	  some_was_live |= needed_regno;
+	  some_was_dead |= ! needed_regno;
+	}
+
+      /* Mark the register as being dead.  */
+      if (some_was_live
+	  /* The stack pointer is never dead.  Well, not strictly true,
+	     but it's very difficult to tell from here.  Hopefully
+	     combine_stack_adjustments will fix up the most egregious
+	     errors.  */
+	  && regno_first != STACK_POINTER_REGNUM)
+	{
+	  for (i = regno_first; i <= regno_last; ++i)
+	    {
+#ifdef HAVE_conditional_execution
+	      if (! mark_regno_cond_dead (pbi, i, cond))
+		not_dead = 1;
+#endif
+	      CLEAR_REGNO_REG_SET (pbi->reg_live, i);
+	    }
+	}
 
       /* Additional data to record if this is the final pass.  */
       if (flags & (PROP_LOG_LINKS | PROP_REG_INFO
@@ -4185,56 +4254,43 @@ mark_set_1 (pbi, code, reg, cond, insn)
 
 	  y = NULL_RTX;
 	  if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
-	    y = pbi->reg_next_use[regno];
-
-	  /* If this is a hard reg, record this function uses the reg.  */
-
-	  if (regno < FIRST_PSEUDO_REGISTER)
 	    {
-	      register int i;
-	      int endregno = regno + HARD_REGNO_NREGS (regno, GET_MODE (reg));
+	      y = pbi->reg_next_use[regno_first];
 
-	      if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
-	        for (i = regno; i < endregno; i++)
-		  {
-		    /* The next use is no longer "next", since a store
-		       intervenes.  */
-		    pbi->reg_next_use[i] = 0;
-		  }
-
-	      if (flags & PROP_REG_INFO)
-	        for (i = regno; i < endregno; i++)
-		  {
-		    regs_ever_live[i] = 1;
-		    REG_N_SETS (i)++;
-		  }
+	      /* The next use is no longer next, since a store intervenes.  */
+	      for (i = regno_first; i <= regno_last; i++)
+		pbi->reg_next_use[i] = 0;
 	    }
-	  else
+
+	  if (flags & PROP_REG_INFO)
 	    {
-	      /* The next use is no longer "next", since a store
-		 intervenes.  */
-	      if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
-	        pbi->reg_next_use[regno] = 0;
-
-	      /* Keep track of which basic blocks each reg appears in.  */
-
-	      if (flags & PROP_REG_INFO)
+	      for (i = regno_first; i <= regno_last; i++)
 		{
-	          if (REG_BASIC_BLOCK (regno) == REG_BLOCK_UNKNOWN)
-		    REG_BASIC_BLOCK (regno) = blocknum;
-	          else if (REG_BASIC_BLOCK (regno) != blocknum)
-		    REG_BASIC_BLOCK (regno) = REG_BLOCK_GLOBAL;
-
-	          /* Count (weighted) references, stores, etc.  This counts a
+		  /* Count (weighted) references, stores, etc.  This counts a
 		     register twice if it is modified, but that is correct.  */
-	          REG_N_SETS (regno)++;
-	          REG_N_REFS (regno) += pbi->bb->loop_depth + 1;
-		  
+	          REG_N_SETS (i) += 1;
+	          REG_N_REFS (i) += pbi->bb->loop_depth + 1;
+
 	          /* The insns where a reg is live are normally counted
 		     elsewhere, but we want the count to include the insn
 		     where the reg is set, and the normal counting mechanism
 		     would not count it.  */
-	          REG_LIVE_LENGTH (regno)++;
+	          REG_LIVE_LENGTH (i) += 1;
+		}
+
+	      /* If this is a hard reg, record this function uses the reg.  */
+	      if (regno_first < FIRST_PSEUDO_REGISTER)
+		{
+		  for (i = regno_first; i <= regno_last; i++)
+		    regs_ever_live[i] = 1;
+		}
+	      else
+		{
+		  /* Keep track of which basic blocks each reg appears in.  */
+	          if (REG_BASIC_BLOCK (regno_first) == REG_BLOCK_UNKNOWN)
+		    REG_BASIC_BLOCK (regno_first) = blocknum;
+	          else if (REG_BASIC_BLOCK (regno_first) != blocknum)
+		    REG_BASIC_BLOCK (regno_first) = REG_BLOCK_GLOBAL;
 		}
 	    }
 
@@ -4252,7 +4308,7 @@ mark_set_1 (pbi, code, reg, cond, insn)
 		     even if reload can make what appear to be valid
 		     assignments later.  */
 		  if (y && (BLOCK_NUM (y) == blocknum)
-		      && (regno >= FIRST_PSEUDO_REGISTER
+		      && (regno_first >= FIRST_PSEUDO_REGISTER
 			  || asm_noperands (PATTERN (y)) < 0))
 		    LOG_LINKS (y) = alloc_INSN_LIST (insn, LOG_LINKS (y));
 		}
@@ -4262,7 +4318,7 @@ mark_set_1 (pbi, code, reg, cond, insn)
 	  else if (! some_was_live)
 	    {
 	      if (flags & PROP_REG_INFO)
-		REG_N_DEATHS (REGNO (reg))++;
+		REG_N_DEATHS (regno_first)++;
 
 	      if (flags & PROP_DEATH_NOTES)
 		{
@@ -4285,16 +4341,12 @@ mark_set_1 (pbi, code, reg, cond, insn)
 		     for those parts that were not needed.  This case should
 		     be rare.  */
 
-		  int i;
-
-		  for (i = HARD_REGNO_NREGS (regno, GET_MODE (reg)) - 1;
-		       i >= 0; i--)
-		    if (! REGNO_REG_SET_P (pbi->reg_live, regno + i))
+		  for (i = regno_first; i <= regno_last; ++i)
+		    if (! REGNO_REG_SET_P (pbi->reg_live, i))
 		      REG_NOTES (insn)
-			= (alloc_EXPR_LIST
-			   (REG_UNUSED,
-			    gen_rtx_REG (reg_raw_mode[regno + i], regno + i),
-			    REG_NOTES (insn)));
+			= alloc_EXPR_LIST (REG_UNUSED,
+					   gen_rtx_REG (reg_raw_mode[i], i),
+					   REG_NOTES (insn));
 		}
 	    }
 	}
@@ -4302,7 +4354,8 @@ mark_set_1 (pbi, code, reg, cond, insn)
   else if (GET_CODE (reg) == REG)
     {
       if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
-	pbi->reg_next_use[regno] = 0;
+	for (i = regno_first; i <= regno_last; ++i)
+	  pbi->reg_next_use[i] = 0;
     }
 
   /* If this is the last pass and this is a SCRATCH, show it will be dying
@@ -4314,139 +4367,85 @@ mark_set_1 (pbi, code, reg, cond, insn)
 	  = alloc_EXPR_LIST (REG_UNUSED, reg, REG_NOTES (insn));
     }
 }
-
-/* Update data structures for a (possibly conditional) store into REG.
-   Return true if REG is now unconditionally dead.  */
+
+#ifdef HAVE_conditional_execution
+/* Mark REGNO conditionally dead.  Return true if the register is
+   now unconditionally dead.  */
 
 static int
-mark_set_reg (pbi, code, reg, cond, p_some_was_live, p_some_was_dead)
+mark_regno_cond_dead (pbi, regno, cond)
      struct propagate_block_info *pbi;
-     enum rtx_code code;
-     rtx reg;
-     rtx cond ATTRIBUTE_UNUSED;
-     int *p_some_was_live, *p_some_was_dead;
+     int regno;
+     rtx cond;
 {
-  int regno = REGNO (reg);
-  int some_was_live = REGNO_REG_SET_P (pbi->reg_live, regno);
-  int some_was_dead = ! some_was_live;
+  /* If this is a store to a predicate register, the value of the
+     predicate is changing, we don't know that the predicate as seen
+     before is the same as that seen after.  Flush all dependant
+     conditions from reg_cond_dead.  This will make all such
+     conditionally live registers unconditionally live.  */
+  if (REGNO_REG_SET_P (pbi->reg_cond_reg, regno))
+    flush_reg_cond_reg (pbi, regno);
 
-  /* Mark it as a significant register for this basic block.  */
-  if (pbi->local_set)
-    SET_REGNO_REG_SET (pbi->local_set, regno);
-  /* If this was not from a clobber, mark it as set for this insn.  */
-  if (code != CLOBBER)
-    SET_REGNO_REG_SET (pbi->new_set, regno);
-
-  /* A hard reg in a wide mode may really be multiple registers.
-     If so, mark all of them just like the first.  */
-  if (regno < FIRST_PSEUDO_REGISTER)
+  /* If this is an unconditional store, remove any conditional
+     life that may have existed.  */
+  if (cond == NULL_RTX)
+    splay_tree_remove (pbi->reg_cond_dead, regno);
+  else
     {
-      int n = HARD_REGNO_NREGS (regno, GET_MODE (reg));
-      while (--n > 0)
+      splay_tree_node node;
+      struct reg_cond_life_info *rcli;
+      rtx ncond;
+
+      /* Otherwise this is a conditional set.  Record that fact.
+	 It may have been conditionally used, or there may be a
+	 subsequent set with a complimentary condition.  */
+
+      node = splay_tree_lookup (pbi->reg_cond_dead, regno);
+      if (node == NULL)
 	{
-	  int regno_n = regno + n;
-	  int needed_regno = REGNO_REG_SET_P (pbi->reg_live, regno_n);
-	  if (pbi->local_set)
-	    SET_REGNO_REG_SET (pbi->local_set, regno_n);
-	  if (code != CLOBBER)
-	    SET_REGNO_REG_SET (pbi->new_set, regno);
+	  /* The register was unconditionally live previously.
+	     Record the current condition as the condition under
+	     which it is dead.  */
+	  rcli = (struct reg_cond_life_info *)
+	    xmalloc (sizeof (*rcli));
+	  rcli->condition = alloc_EXPR_LIST (0, cond, NULL_RTX);
+	  splay_tree_insert (pbi->reg_cond_dead, regno,
+			     (splay_tree_value) rcli);
 
-	  some_was_live |= needed_regno;
-	  some_was_dead |= ! needed_regno;
+	  SET_REGNO_REG_SET (pbi->reg_cond_reg,
+			     REGNO (XEXP (cond, 0)));
+
+	  /* Not unconditionaly dead.  */
+	  return 0;
 	}
-    }
-
-  *p_some_was_live = some_was_live;
-  *p_some_was_dead = some_was_dead;
-
-  /* The stack pointer is never dead.  Well, not strictly true, but it's
-     very difficult to tell from here.  Hopefully combine_stack_adjustments
-     will fix up the most egregious errors.  */
-  if (regno == STACK_POINTER_REGNUM)
-    return 0;
-
-#ifdef HAVE_conditional_execution
-  if (some_was_live)
-    {
-      /* If this is a store to a predicate register, the value of the
-	 predicate is changing, we don't know that the predicate as seen
-	 before is the same as that seen after.  Flush all dependant
-	 conditions from reg_cond_dead.  This will make all such
-	 conditionally live registers unconditionally live.  */
-      if (REGNO_REG_SET_P (pbi->reg_cond_reg, regno))
-	flush_reg_cond_reg (pbi, regno);
-
-      /* If this is an unconditional store, remove any conditional
-	 life that may have existed.  */
-      if (cond == NULL_RTX)
-	splay_tree_remove (pbi->reg_cond_dead, regno);
       else
 	{
-	  splay_tree_node node;
-	  struct reg_cond_life_info *rcli;
-	  rtx ncond;
+	  /* The register was conditionally live previously. 
+	     Add the new condition to the old.  */
+	  rcli = (struct reg_cond_life_info *) node->value;
+	  ncond = rcli->condition;
+	  ncond = ior_reg_cond (ncond, cond);
 
-	  /* Otherwise this is a conditional set.  Record that fact.
-	     It may have been conditionally used, or there may be a
-	     subsequent set with a complimentary condition.  */
-
-	  node = splay_tree_lookup (pbi->reg_cond_dead, regno);
-	  if (node == NULL)
+	  /* If the register is now unconditionally dead,
+	     remove the entry in the splay_tree.  */
+	  if (ncond == const1_rtx)
+	    splay_tree_remove (pbi->reg_cond_dead, regno);
+	  else
 	    {
-	      /* The register was unconditionally live previously.
-		 Record the current condition as the condition under
-		 which it is dead.  */
-	      rcli = (struct reg_cond_life_info *) xmalloc (sizeof (*rcli));
-	      rcli->condition = alloc_EXPR_LIST (0, cond, NULL_RTX);
-	      splay_tree_insert (pbi->reg_cond_dead, regno,
-				 (splay_tree_value) rcli);
+	      rcli->condition = ncond;
 
-	      SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
+	      SET_REGNO_REG_SET (pbi->reg_cond_reg,
+				 REGNO (XEXP (cond, 0)));
 
 	      /* Not unconditionaly dead.  */
 	      return 0;
 	    }
-	  else
-	    {
-	      /* The register was conditionally live previously. 
-		 Add the new condition to the old.  */
-	      rcli = (struct reg_cond_life_info *) node->value;
-	      ncond = rcli->condition;
-	      ncond = ior_reg_cond (ncond, cond);
-
-	      /* If the register is now unconditionally dead, remove the
-		 entry in the splay_tree.  */
-	      if (ncond == const1_rtx)
-		splay_tree_remove (pbi->reg_cond_dead, regno);
-	      else
-		{
-		  rcli->condition = ncond;
-
-		  SET_REGNO_REG_SET (pbi->reg_cond_reg,
-				     REGNO (XEXP (cond, 0)));
-
-		  /* Not unconditionaly dead.  */
-		  return 0;
-		}
-	    }
 	}
     }
-#endif
 
-  /* Mark it as dead before this insn.  */
-  CLEAR_REGNO_REG_SET (pbi->reg_live, regno);
-  if (regno < FIRST_PSEUDO_REGISTER)
-    {
-      int n = HARD_REGNO_NREGS (regno, GET_MODE (reg));
-      while (--n > 0)
-	CLEAR_REGNO_REG_SET (pbi->reg_live, regno + n);
-    }
-
-  /* Unconditionally dead.  */
   return 1;
 }
-
-#ifdef HAVE_conditional_execution
+
 /* Called from splay_tree_delete for pbi->reg_cond_life.  */
 
 static void

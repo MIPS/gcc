@@ -1,3 +1,12 @@
+2000-04-23  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (propagate_one_insn): Call mark_set_1, not mark_set_reg.
+	(mark_set_1): New argument `flags'.  Update all callers.  Alter
+	hard subregs.  Merge most of mark_set_reg back in.  Reorg and 
+	simplify flags testing.
+	(mark_set_reg): Remove.
+	(mark_regno_cond_dead): Broken out from mark_set_reg.
+
 2000-04-22  Richard Henderson  <rth@cygnus.com>
 
 	* basic-block.h (propagate_block): Declare.
