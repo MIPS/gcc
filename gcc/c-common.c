@@ -4665,7 +4665,7 @@ cb_exit_fragment (reader, fragment)
       if (currently_nested)
 	{
 	  if (warn_fragment_invalidation)
-	    warning ("invalidating cached fragment in %s because inside declaration", st->name);
+	    inform ("invalidating cached fragment because it is inside a declaration");
 	  st->valid = 0;
 	}
       else

@@ -6,8 +6,9 @@
 	dependency on builtins_c_fragment.
 
 	* c-common.c (cb_enter_fragment):  Set input_location.
-	Use 'inform' instead of 'warning' on fragment reuse and invalidation.
 	Remove some bogus messages, and improve text for others.
+	Use 'inform' instead of 'warning' on fragment reuse and invalidation.
+	(cb_exit_fragment):  Likewise.
 
 2003-11-05  Per Bothner  <pbothner@apple.com>
 
