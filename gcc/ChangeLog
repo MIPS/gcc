@@ -1,5 +1,10 @@
 2003-08-15  Per Bothner  <pbothner@apple.com>
 
+	* objc/objc-act.c (init_objc):  Inline into objc_init.
+	(objc_init):  Renamed to init_objc_eachsrc.
+	* objc/objc-lang.c (LANG_HOOKS_INIT):  Update accordingly.
+	* objc/objc-act.h:  Update prototype.
+
 	* objc/lang-specs.h: Handle -server flag.
 	* objc/objc-lang.c (LANG_HOOKS_INIT_ONCE):  New definition.
 

@@ -118,7 +118,6 @@ char *util_firstobj;
 
 /* Used by compile_file.  */
 
-static void init_objc				PARAMS ((void));
 static void finish_objc				PARAMS ((void));
 
 /* Code generation.  */
@@ -433,9 +432,9 @@ generate_struct_by_value_array ()
 }
 
 bool
-objc_init ()
+init_objc_eachsrc ()
 {
-  if (c_objc_common_init () == false)
+  if (init_c_objc_common_eachsrc () == false)
     return false;
 
   /* Force the line number back to 0; check_newline will have
@@ -475,7 +474,12 @@ objc_init ()
 
   objc_ellipsis_node = make_node (ERROR_MARK);
 
-  init_objc ();
+  gcc_obstack_init (&util_obstack);
+  util_firstobj = (char *) obstack_finish (&util_obstack);
+
+  errbuf = xmalloc (BUFSIZE);
+  hash_init ();
+  synth_module_prologue ();
 
   if (print_struct_values)
     generate_struct_by_value_array ();
@@ -8179,17 +8183,6 @@ objc_printable_name (decl, kind)
      int kind ATTRIBUTE_UNUSED;
 {
   return objc_demangle (IDENTIFIER_POINTER (DECL_NAME (decl)));
-}
-
-static void
-init_objc ()
-{
-  gcc_obstack_init (&util_obstack);
-  util_firstobj = (char *) obstack_finish (&util_obstack);
-
-  errbuf = xmalloc (BUFSIZE);
-  hash_init ();
-  synth_module_prologue ();
 }
 
 static void
