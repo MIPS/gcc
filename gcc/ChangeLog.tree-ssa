@@ -1,3 +1,7 @@
+2003-06-26  Jason Merrill  <jason@redhat.com>
+
+	* tree-simple.c (is_gimple_stmt): Complete.
+
 2003-06-24  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (remove_useless_stmts_and_vars): On the first
@@ -555,25 +559,24 @@
 	* tree-alias-common (ptr_may_alias_var): Cleanup determination of
 	global vars and whatnot.
 	
-
 2003-06-02  Diego Novillo  <dnovillo@redhat.com>
 
-        * Makefile.in (tree-ssa.o, tree-cfg.o): Add dependency on cfgloop.h
-        (tree-optimize.o): Remove dependency on cfgloop.h.
-        * basic-block.h (struct basic_block_def): Fix documentation for
-        field 'loop_father'.
-        * tree-dfa.c (add_referenced_var): Fix type of element
-        pushed into aliased_objects_alias_set.
-        * tree-optimize.c: Don't include cfgloop.h
-        (optimize_function_tree): Move code to initialize loop optimizer...
-        * tree-cfg.c (build_tree_cfg): ... here.
-        * tree-ssa.c: Include cfgloop.h.
-        (loops): New file local variable.
-        (rewrite_into_ssa): Initialize/finalize loop optimizer.
-        (rewrite_stmt): Call var_is_live when processing redundant
-        assignments to the same LHS.
-        (var_is_live): Add heuristic to discover overlapping definitions in
-        loops that do not have PHI nodes for VAR at the loop header.
+	* Makefile.in (tree-ssa.o, tree-cfg.o): Add dependency on cfgloop.h
+	(tree-optimize.o): Remove dependency on cfgloop.h.
+	* basic-block.h (struct basic_block_def): Fix documentation for
+	field 'loop_father'.
+	* tree-dfa.c (add_referenced_var): Fix type of element
+	pushed into aliased_objects_alias_set.
+	* tree-optimize.c: Don't include cfgloop.h
+	(optimize_function_tree): Move code to initialize loop optimizer...
+	* tree-cfg.c (build_tree_cfg): ... here.
+	* tree-ssa.c: Include cfgloop.h.
+	(loops): New file local variable.
+	(rewrite_into_ssa): Initialize/finalize loop optimizer.
+	(rewrite_stmt): Call var_is_live when processing redundant
+	assignments to the same LHS.
+	(var_is_live): Add heuristic to discover overlapping definitions in
+	loops that do not have PHI nodes for VAR at the loop header.
 
 2003-06-02  Jason Merrill  <jason@redhat.com>
 

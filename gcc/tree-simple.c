@@ -603,6 +603,9 @@ is_gimple_const (t)
 	  || TREE_CODE (t) == VECTOR_CST);
 }
 
+/* Return nonzero if T looks like a valid GIMPLE statement.  Note that it
+   doesn't recurse to verify that everything is fully simplified.  */
+
 int
 is_gimple_stmt (tree t)
 {
@@ -630,18 +633,43 @@ is_gimple_stmt (tree t)
 
     default:
       /* Not an expression?!?  */
-      abort ();
+      return 0;
     }
 
   switch (code)
     {
+    case BIND_EXPR:
+    case COND_EXPR:
+      /* These are only valid if they're void.  */
+      return VOID_TYPE_P (TREE_TYPE (t));
+
+    case LOOP_EXPR:
+    case SWITCH_EXPR:
+    case GOTO_EXPR:
+    case RETURN_EXPR:
+    case LABEL_EXPR:
+    case CASE_LABEL_EXPR:
+    case TRY_CATCH_EXPR:
+    case TRY_FINALLY_EXPR:
+    case EH_FILTER_EXPR:
+    case CATCH_EXPR:
+    case ASM_EXPR:
+      /* These are always void.  */
+      return 1;
+
+    case VA_ARG_EXPR:
+      /* FIXME this should be lowered.  */
+      return 1;
+
+    case COMPOUND_EXPR:
+      /* FIXME should we work harder to make COMPOUND_EXPRs void?  */
     case CALL_EXPR:
     case MODIFY_EXPR:
+      /* These are valid regardless of their type.  */
       return 1;
 
     default:
-      /* FIXME enumerate the acceptable codes and change this to 0.  */
-      return 1;
+      return 0;
     }
 }
 
