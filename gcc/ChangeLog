@@ -27,8 +27,8 @@
 	
 2002-02-21  Vladimir Makarov  <vmakarov@redhat.com>
 
-	* genautomata.c (add_excls): Check that cpu units in the sets
-	belong the same automaton.
+	* genautomata.c (add_excls, add_presence_absence): Check that
+        cpu units in the sets belong the same automaton.
 
 	* rtl.def (EXCLUSION_SET, PRESENCE_SET, ABSENCE_SET): Add comment
 	about that cpu units in the sets belong the same automaton.
