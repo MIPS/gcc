@@ -256,7 +256,9 @@ REALLY_SET_LIB_PATH = \
 FLAGS_FOR_TARGET = @FLAGS_FOR_TARGET@
 CC_FOR_TARGET = @CC_FOR_TARGET@
 CXX_FOR_TARGET = @CXX_FOR_TARGET@
+RAW_CXX_FOR_TARGET = @RAW_CXX_FOR_TARGET@
 CXX_FOR_TARGET_FOR_RECURSIVE_MAKE = @CXX_FOR_TARGET_FOR_RECURSIVE_MAKE@
+RAW_CXX_FOR_TARGET_FOR_RECURSIVE_MAKE = @RAW_CXX_FOR_TARGET_FOR_RECURSIVE_MAKE@
 GCJ_FOR_TARGET = @GCJ_FOR_TARGET@
 
 # If GCC_FOR_TARGET is not overriden on the command line, then this
@@ -439,7 +441,8 @@ BASE_FLAGS_TO_PASS = \
 # so we pass these variables down unchanged.  They must not contain
 # single nor double quotes.
 RECURSE_FLAGS = \
-	CXX_FOR_TARGET='$(CXX_FOR_TARGET_FOR_RECURSIVE_MAKE)'
+	CXX_FOR_TARGET='$(CXX_FOR_TARGET_FOR_RECURSIVE_MAKE)' \
+	RAW_CXX_FOR_TARGET='$(RAW_CXX_FOR_TARGET_FOR_RECURSIVE_MAKE)' \
 
 # Flags to pass down to most sub-makes, in which we're building with
 # the host environment.
@@ -981,8 +984,13 @@ configure-target-[+module+]:
 	    AR="$(AR_FOR_TARGET)"; export AR; \
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
-	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
-	    CXX="$(CXX_FOR_TARGET)"; export CXX; \
+	    CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \[+ 
+	IF raw_cxx +]
+	    CXX_FOR_TARGET="$(RAW_CXX_FOR_TARGET)"; export CXX_FOR_TARGET; \
+	    CXX="$(RAW_CXX_FOR_TARGET)"; export CXX; \[+ 
+	ELSE normal_cxx +]
+	    CXX="$(CXX_FOR_TARGET)"; export CXX; \[+ 
+	ENDIF raw_cxx +]
 	    CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	    GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
 	    DLLTOOL="$(DLLTOOL_FOR_TARGET)"; export DLLTOOL; \
@@ -1056,7 +1064,11 @@ all-target-[+module+]:
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/[+module+]; \
-	    $(MAKE) $(TARGET_FLAGS_TO_PASS) all)
+	    $(MAKE) $(TARGET_FLAGS_TO_PASS) [+
+	       IF raw_cxx 
+	         +] 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)' [+ 
+	       ENDIF raw_cxx 
+	    +] all)
 [+ IF no_check +]
 # Dummy target for uncheckable module.
 .PHONY: check-target-[+module+]
@@ -1069,7 +1081,11 @@ check-target-[+module+]:
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/[+module+]; \
-	    $(MAKE) $(TARGET_FLAGS_TO_PASS) check)
+	    $(MAKE) $(TARGET_FLAGS_TO_PASS) [+
+	       IF raw_cxx 
+	         +] 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)' [+ 
+	       ENDIF raw_cxx 
+	    +] check)
 [+ ENDIF no_check +]
 [+ IF no_install +]
 .PHONY: install-target-[+module+] maybe-install-target-[+module+]

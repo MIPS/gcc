@@ -1,3 +1,12 @@
+2002-11-22  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Introduce RAW_CXX_FOR_TARGET and simplify embedded
+	shell code in CXX_FOR_TARGET
+	* Makefile.def: Introduce raw_cxx.
+	* Makefile.tpl: Use raw_cxx to select between CXX_FOR_TARGET and
+	RAW_CXX_FOR_TARGET.
+	* Makefile.in: Regenerate.
+
 2002-11-21  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.tpl: Remove unnecessary ifs.

@@ -1570,7 +1570,8 @@ case $GCJ_FOR_TARGET in
 esac
 
 # Don't use libstdc++-v3's flags to configure/build itself.
-libstdcxx_flags='`case $$dir in libstdc++-v3 | libjava) ;; *) test ! -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags || $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags --build-includes;; esac` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
+libstdcxx_flags='`test ! -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags || $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/testsuite_flags --build-includes` -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
+raw_libstdcxx_flags=' -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs'
 
 if test "x${CXX_FOR_TARGET+set}" = xset; then
   :
@@ -1578,17 +1579,28 @@ elif test -d ${srcdir}/gcc; then
   # We add -shared-libgcc to CXX_FOR_TARGET whenever we use xgcc instead
   # of g++ for linking C++ or Java, because g++ has -shared-libgcc by
   # default whereas gcc does not.
-  CXX_FOR_TARGET='$$r/gcc/`case $$dir in libstdc++-v3 | libjava) echo xgcc -shared-libgcc ;; *) echo g++ ;; esac` -B$$r/gcc/ -nostdinc++ '$libstdcxx_flags
+  # RAW_CXX_FOR_TARGET is for linking C++ or java; CXX_FOR_TARGET is for
+  # all other cases.
+  CXX_FOR_TARGET='$$r/gcc/g++ -B$$r/gcc/ -nostdinc++ '$libstdcxx_flags
+  RAW_CXX_FOR_TARGET='$$r/gcc/xgcc -shared-libgcc -B$$r/gcc/ -nostdinc++ '$raw_libstdcxx_flags
 elif test "$host" = "$target"; then
   CXX_FOR_TARGET='$(CXX)'
+  RAW_CXX_FOR_TARGET=${CXX_FOR_TARGET}
 else
   CXX_FOR_TARGET=`echo c++ | sed -e 's/x/x/' ${program_transform_name}`
+  RAW_CXX_FOR_TARGET=${CXX_FOR_TARGET}
 fi
 case $CXX_FOR_TARGET in
 *' $(FLAGS_FOR_TARGET)') ;;
 *) CXX_FOR_TARGET=$CXX_FOR_TARGET' $(FLAGS_FOR_TARGET)' ;;
 esac
+case $RAW_CXX_FOR_TARGET in
+*' $(FLAGS_FOR_TARGET)') ;;
+*) RAW_CXX_FOR_TARGET=$RAW_CXX_FOR_TARGET' $(FLAGS_FOR_TARGET)' ;;
+esac
+
 qCXX_FOR_TARGET=`echo "$CXX_FOR_TARGET" | sed 's,[&%],\\\&,g'`
+qRAW_CXX_FOR_TARGET=`echo "$RAW_CXX_FOR_TARGET" | sed 's,[&%],\\\&,g'`
 
 # We want to defer the evaluation of `cmd`s and shell variables in
 # CXX_FOR_TARGET when recursing in the top-level Makefile, such as for
@@ -1597,6 +1609,7 @@ qCXX_FOR_TARGET=`echo "$CXX_FOR_TARGET" | sed 's,[&%],\\\&,g'`
 # can be expanded by the nested make as shell variables, not as make
 # macros.
 qqCXX_FOR_TARGET=`echo "$qCXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
+qqRAW_CXX_FOR_TARGET=`echo "$qCXX_FOR_TARGET" | sed -e 's,[$][$],$$$$,g'`
 
 sedtemp=sed.$$
 cat >$sedtemp <<EOF
@@ -1616,7 +1629,9 @@ s%@FLAGS_FOR_TARGET@%${FLAGS_FOR_TARGET}%
 s%@CC_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${CC_FOR_TARGET}%
 s%@GCJ_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${GCJ_FOR_TARGET}%
 s%@CXX_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${qCXX_FOR_TARGET}%
+s%@RAW_CXX_FOR_TARGET@%\$(STAGE_CC_WRAPPER) ${qRAW_CXX_FOR_TARGET}%
 s%@CXX_FOR_TARGET_FOR_RECURSIVE_MAKE@%\$(STAGE_CC_WRAPPER) ${qqCXX_FOR_TARGET}%
+s%@RAW_CXX_FOR_TARGET_FOR_RECURSIVE_MAKE@%\$(STAGE_CC_WRAPPER) ${qqRAW_CXX_FOR_TARGET}%
 s%@target_subdir@%${target_subdir}%
 s%@build_subdir@%${build_subdir}%
 s%@build_configargs@%${buildargs}%
