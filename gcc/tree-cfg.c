@@ -544,7 +544,7 @@ create_bb_ann (bb)
 {
   bb_ann ann = (bb_ann) ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
-  VARRAY_GENERIC_PTR_INIT (ann->refs, 10, "bb_refs");
+  ann->refs = create_ref_list ();
   bb->aux = (void *) ann;
 }
 
@@ -559,9 +559,7 @@ remove_bb_ann (bb)
   if (ann)
     {
       ann->parent = NULL;
-      /* There is no need to delete the arrays in each of the reference.
-	 That is done by delete_ssa().  */
-      ann->refs = NULL;
+      delete_ref_list (ann->refs);
     }
   bb->aux = NULL;
 }
@@ -1191,8 +1189,8 @@ block_invalidates_loop (bb, loop)
      basic_block bb;
      struct loop *loop;
 {
-  size_t i;
-  varray_type refs;
+  varref ref;
+  struct ref_list_node *tmp;
 
   /* Valid loops cannot contain a return statement.  */
   if (TREE_CODE (bb->end_tree) == RETURN_STMT)
@@ -1205,10 +1203,8 @@ block_invalidates_loop (bb, loop)
     return 1;
 
   /* If the node contains a non-pure function call, mark it invalid.  */
-  refs = BB_REFS (bb);
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (refs); i++)
+  FOR_EACH_REF (ref, tmp, BB_REFS (bb))
     {
-      varref ref = VARRAY_GENERIC_PTR (refs, i);
       tree fcall = VARREF_SYM (ref);
 
       if (TREE_CODE (fcall) == FUNCTION_DECL

@@ -108,6 +108,22 @@ struct exprphi
 #define EXPRPHI_PROCESSED(r) (r)->ephi.processed
 #define EXPRPHI_WILLBEAVAIL(r) (EXPRPHI_CANBEAVAIL ((r)) && !EXPRPHI_LATER ((r)))
 
+/* Doubly linked list of variable references.  */
+
+struct ref_list_node
+{
+  union varref_def *ref;
+  struct ref_list_node *prev;
+  struct ref_list_node *next;
+};
+struct ref_list_priv
+{
+  struct ref_list_node *first;
+  struct ref_list_node *last;
+};
+typedef struct ref_list_priv *ref_list;
+
+
 /* Variable definitions.  */
 
 struct vardef
@@ -115,13 +131,13 @@ struct vardef
   struct treeref_common common;
 
   /* Immediate uses for this definition.  */
-  varray_type imm_uses;
+  ref_list imm_uses;
 
   /* Saved definition chain.  */
   union varref_def *save_chain;
 
   /* Uses reached by this definition.  */
-  varray_type ruses;
+  ref_list ruses;
 
   /* Visited mark.  Used when computing reaching definitions.  */
   union varref_def *marked;
@@ -154,7 +170,7 @@ struct varuse
   union varref_def *chain;
 
   /* Definitions reaching this use.  */
-  varray_type rdefs;
+  ref_list rdefs;
 };
 
 #define VARUSE_CHAIN(r) (r)->use.chain
@@ -231,7 +247,7 @@ struct tree_ann_def
   basic_block bb;
 
   /* For _DECL trees, list of references made to this variable.  */
-  varray_type refs;
+  ref_list refs;
 
   /* Most recent definition for this symbol.  Used when placing FUD
      chains.  */
@@ -275,13 +291,30 @@ union header_blocks
   basic_block do_cond_bb;
 };
 
+ref_list create_ref_list (void);
+void empty_ref_list (ref_list);
+void delete_ref_list (ref_list);
+void add_ref_to_list_end (ref_list, varref);
+void add_ref_to_list_begin (ref_list, varref);
+void remove_ref_from_list (ref_list, varref);
+
+#define FOR_REF_BETWEEN(REF, TMP, FROM, TO, DIR)		\
+  if (FROM) \
+  for (TMP = FROM, REF = TMP->ref;  TMP != TO; TMP = TMP->DIR, REF = (TMP ? TMP->ref : NULL))
+
+#define FOR_EACH_REF(REF, TMP, LIST)				\
+  FOR_REF_BETWEEN (REF, TMP, LIST->first, LIST->last->next, next)
+
+#define FOR_EACH_REF_REV(REF, TMP, LIST)			\
+  FOR_REF_BETWEEN (REF, TMP, LIST->last, LIST->first->prev, prev)
+
 struct bb_ann_def
 {
   /* Control flow parent.  */
   basic_block parent;
 
   /* List of references made in this block.  */
-  varray_type refs;
+  ref_list refs;
 
   /* Address into the tree preceeding bb->head_tree that contains a pointer
      to bb->head_tree.  Used when we need to insert statements before the
@@ -383,8 +416,11 @@ extern varref create_ref PARAMS ((tree, enum treeref_type,
 				  basic_block, tree, tree));
 extern void debug_varref PARAMS ((varref));
 extern void dump_varref PARAMS ((FILE *, const char *, varref, int, int));
-extern void debug_varref_list PARAMS ((varray_type));
-extern void dump_varref_list PARAMS ((FILE *, const char *, varray_type, int,
+extern void debug_varref_list PARAMS ((ref_list));
+extern void debug_varref_array PARAMS ((varray_type));
+extern void dump_varref_list PARAMS ((FILE *, const char *, ref_list, int,
+                                      int));
+extern void dump_varref_array PARAMS ((FILE *, const char *, varray_type, int,
                                       int));
 extern int function_may_recurse_p PARAMS ((void));
 extern void get_fcalls PARAMS ((varray_type *, unsigned));

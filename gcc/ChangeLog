@@ -1,3 +1,20 @@
+2002-07-09  Daniel Berlin  <dberlin@dberlin.org>
+
+	s/varrays of refs/ref_list of refs/g
+
+	* tree-flow.h: Add ref_list structure.  
+	Add prototypes for ref_list functions.
+ 	(FOR_EACH_REF, FOR_EACH_REF_REV): New macros to iterate through 
+	ref lists.
+	* tree-cfg.c, tree-ssa.c, tree-ssa-pre.c: Update all uses.
+
+	* tree-dfa.c (create_ref_list): New function.
+	(delete_ref_list): Ditto.
+	(empty_ref_list): Ditto.
+	(add_ref_to_list_end): Ditto.
+	(add_ref_to_list_begin): Ditto.
+	(remove_ref_from_list): Ditto.
+
 2002-07-06  Andreas Jaeger  <aj@suse.de>
 
 	* toplev.c (set_fast_math_flags): Don't use ISO C style function

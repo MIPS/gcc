@@ -172,8 +172,8 @@ compute_idfs (dfs, stmt)
      tree stmt;
 {
   fibheap_t worklist;
-  sbitmap inworklist = sbitmap_alloc (n_basic_blocks);
-  sbitmap idf = sbitmap_alloc (n_basic_blocks);
+  sbitmap inworklist = sbitmap_alloc (last_basic_block);
+  sbitmap idf = sbitmap_alloc (last_basic_block);
   size_t i;
   basic_block block;
   worklist = fibheap_new (); 
@@ -314,12 +314,12 @@ static inline varref
 find_def_for_stmt (stmt)
      tree stmt;
 {
-  size_t i;
-  varray_type treerefs;
-  treerefs = TREE_REFS (stmt);
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (treerefs); i++)
+
+  struct ref_list_node *tmp;
+  varref ref;
+
+  FOR_EACH_REF (ref, tmp, TREE_REFS (stmt))
     {
-      varref ref = VARRAY_GENERIC_PTR (treerefs, i);
       if (VARREF_TYPE (ref) == VARDEF)
         return ref;
     }
@@ -334,9 +334,10 @@ find_varref_for_var (ei, real, var)
      tree real;
      tree var;
 {
-  size_t i;
-  varray_type treerefs;
+  struct ref_list_node *tmp;
+  varref ref;
   size_t realnum;
+
 
   /* Find the realstmt for the real. */
   for (realnum = 0; realnum < VARRAY_ACTIVE_SIZE (ei->reals); realnum++)
@@ -348,10 +349,8 @@ find_varref_for_var (ei, real, var)
     abort();
 
   /* Now look for the use of var in that statement. */
-  treerefs = TREE_REFS (VARRAY_TREE (ei->realstmts, realnum));
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (treerefs); i++)
+  FOR_EACH_REF (ref, tmp, TREE_REFS (VARRAY_TREE (ei->realstmts, realnum)))
     {
-      varref ref = VARRAY_GENERIC_PTR (treerefs, i);
       if (VARREF_TYPE (ref) != VARUSE
           || VARREF_EXPR (ref) != real)
         continue;
@@ -370,21 +369,20 @@ defs_y_dom_x ( y, x)
      varref y;
      varref x;
 {
-  size_t i,j;
-  varray_type treerefs;
+  size_t i;
   
-  treerefs = TREE_REFS (EXPRREF_STMT (y));
 
   /* It's a binary or unary expression, so it has only two operands at
      most. */
 
   for (i =  0; i < 2; i++)
     {
+      varref ref;
+      struct ref_list_node *tmp;
       if (!TREE_OPERAND (EXPRREF_EXPR (y), i))
         continue;
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (treerefs) ; j++)
+      FOR_EACH_REF (ref, tmp, TREE_REFS (EXPRREF_STMT (y)))
         {
-          varref ref = VARRAY_GENERIC_PTR (treerefs, j);
           /* Find the ref for this operand. */
           if (VARREF_TYPE (ref) != VARUSE
               || VARREF_EXPR (ref) != EXPRREF_EXPR (y))
@@ -409,13 +407,12 @@ defs_match_p (ei, t1, t2)
      tree t1;
      tree t2;
 {
-  size_t i;
   varref use1;
   varref use2;
-  varray_type refs1 =  TREE_REFS (t1);
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (refs1); i++)
+  struct ref_list_node *tmp;
+
+  FOR_EACH_REF (use1, tmp, TREE_REFS (t1))
     {
-      use1 = VARRAY_GENERIC_PTR (refs1, i);
       if (VARREF_TYPE (use1) != VARUSE || 
                       (TREE_CODE (VARREF_EXPR (use1)) != TREE_CODE (t2)))
         continue;
@@ -596,22 +593,20 @@ phi_opnd_from_res (Z, j, b)
      basic_block b;
 {
   varray_type Q;
-  varray_type Zrefs;
-  size_t i;
+  varref v;
+  size_t i = 0;
+  struct ref_list_node *tmp;
 
   VARRAY_GENERIC_PTR_INIT (Q, 1, "Temp ops");
-  Zrefs = TREE_REFS (EXPRREF_STMT (Z));
 
   /* b <- block containing phi that defines Z.
      Q <- copy of Z */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (Zrefs); i++)
-    VARRAY_PUSH_GENERIC_PTR (Q, VARRAY_GENERIC_PTR (Zrefs, i));
+  FOR_EACH_REF (v, tmp, TREE_REFS (EXPRREF_STMT (Z)))
+    VARRAY_PUSH_GENERIC_PTR (Q, v);
 
   /* For each variable v in Z */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (Zrefs); i++)
+  FOR_EACH_REF (v, tmp, TREE_REFS (EXPRREF_STMT (Z)))
     {
-      varref v = VARRAY_GENERIC_PTR (Zrefs, i);
-      
       /* If v is defined by phi in b */
       if (VARREF_TYPE (v) == VARUSE
           && VARREF_TYPE (VARUSE_CHAIN (v)) == VARPHI)
@@ -630,6 +625,7 @@ phi_opnd_from_res (Z, j, b)
                || VARREF_TYPE (v) == VARPHI
                || EXPRREF_TYPE (v) == EXPRUSE)
 	VARRAY_GENERIC_PTR (Q, i) = NULL;
+    i++;
     }
   return Q;
 }
@@ -691,7 +687,6 @@ rename_2 (ei, rename2_set)
               size_t k;
               varray_type Y;
               varref X;
-              varray_type Xops; 
 	      
 	      /* j <- index of w in f
    		 Y <- phi_operand_from_res (Z, j)
@@ -709,13 +704,13 @@ rename_2 (ei, rename2_set)
 	      if (EXPRREF_TYPE (X) == EXPRUSE)
                 {
                   bool match = true;
-		  
+		  varref op1;
+		  struct ref_list_node *tmp2;
 		  /* if (all corresponding variables in Y and X have
 		     the same SSA version) */
-                  Xops = TREE_REFS (EXPRREF_STMT (X));
-                  for (k = 0; k < VARRAY_ACTIVE_SIZE (Xops); k++)
+		  k = 0;
+		  FOR_EACH_REF (op1, tmp2, TREE_REFS (EXPRREF_STMT (X)))
                     {
-                      varref op1 = VARRAY_GENERIC_PTR (Xops, k);
                       varref op2;
                       if (VARREF_TYPE (op1) != VARUSE)
                         continue;
@@ -731,6 +726,7 @@ rename_2 (ei, rename2_set)
                           match = false;
                           break;
                         }
+		    k++;
                     }
                   if (!match)
                     {		
@@ -1113,24 +1109,23 @@ set_replacement (ei, g, replacing_def)
      varref g;
      varref replacing_def;
 {
-  int i;
-
-  for (i = 0; i < n_basic_blocks; i++)
+  basic_block bb1;
+  FOR_EACH_BB (bb1)
     {
-      int j;
       size_t k;
-      varref f = phi_at_block (ei, BASIC_BLOCK (i));
+      basic_block bb2;
+      varref f = phi_at_block (ei, bb1);
       if (f == NULL || !EXPRPHI_WILLBEAVAIL (f) || f == g)
 	continue;
-      for (j = 0; j < n_basic_blocks; j++)
+      FOR_EACH_BB (bb2)
 	{
-	  varref operand = phi_operand (f, BASIC_BLOCK (j));
+	  varref operand = phi_operand (f, bb2);
 	  if (operand && EXPRUSE_DEF (operand) == g)
 	    {
 	      if (EXPRPHI_EXTRANEOUS (f))
 		set_replacement (ei, f, replacing_def);
 	      else
-		phi_operand (f, BASIC_BLOCK (j)) = replacing_def;
+		phi_operand (f, bb2) = replacing_def;
 	    }
 	}
       for (k = 0; k < VARRAY_ACTIVE_SIZE (ei->erefs); k++)
@@ -1318,10 +1313,10 @@ expr_phi_insertion (dfs, ei)
      sbitmap *dfs;
      struct expr_info *ei;
 {
-  size_t i,j;
-  dfphis = sbitmap_alloc (n_basic_blocks);
+  size_t i;
+  dfphis = sbitmap_alloc (last_basic_block);
   sbitmap_zero (dfphis);
-  varphis = sbitmap_vector_alloc (2, n_basic_blocks);
+  varphis = sbitmap_vector_alloc (2, last_basic_block);
   sbitmap_vector_zero (varphis, 2);  
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->reals); i++)
@@ -1334,13 +1329,11 @@ expr_phi_insertion (dfs, ei)
 	  || (TREE_OPERAND (real, 1) 
 	      && is_simple_id (TREE_OPERAND (real, 1))))
         {
-          varray_type treerefs;
           varref ref;
+	  struct ref_list_node *tmp;
           int varcount = 0;
-          treerefs = TREE_REFS (VARRAY_TREE (ei->realstmts, i));
-          for (j = 0; j < VARRAY_ACTIVE_SIZE (treerefs); j++)
+	  FOR_EACH_REF (ref, tmp, TREE_REFS (VARRAY_TREE (ei->realstmts, i)))
             {
-              ref = VARRAY_GENERIC_PTR (treerefs, j);
               if (VARREF_TYPE (ref) != VARUSE 
                   || VARREF_EXPR (ref) != real)
                 continue;
@@ -1701,7 +1694,7 @@ pre_part_1_trav (slot, data)
       fprintf (dump_file, "Occurrences for expression ");
       print_c_tree (dump_file, ei->expr);
       fprintf (dump_file, "\n");
-      dump_varref_list (dump_file, "", ei->refs, 0, 1);
+      dump_varref_array (dump_file, "", ei->refs, 0, 1);
     }
   down_safety (ei);
   will_be_avail (ei);
@@ -1710,7 +1703,7 @@ pre_part_1_trav (slot, data)
       fprintf (dump_file, "ExprPhi's for expression ");
       print_c_tree (dump_file, ei->expr);
       fprintf (dump_file, "\n");
-      dump_varref_list (dump_file, "", ei->phis, 0, 1);
+      dump_varref_array (dump_file, "", ei->phis, 0, 1);
     }
   {
     varref def = NULL;
@@ -1745,7 +1738,7 @@ tree_perform_ssapre ()
     /* First, we need to find our candidate expressions. */
   varray_type bexprs;
   htab_t seen = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
-  int i;
+  basic_block bb;
   size_t j, k;
   VARRAY_GENERIC_PTR_INIT (bexprs, 1, "bexprs");
   /* Debugging dump before SSA PRE */
@@ -1763,23 +1756,24 @@ tree_perform_ssapre ()
   
   /* Compute immediate dominators.  */
   pre_idom = calculate_dominance_info (CDI_DOMINATORS);
-  domchildren = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-  sbitmap_vector_zero (domchildren, n_basic_blocks);
+  domchildren = sbitmap_vector_alloc (last_basic_block, last_basic_block);
+  sbitmap_vector_zero (domchildren, last_basic_block);
   compute_domchildren (pre_idom, domchildren);
   /* Compute dominance frontiers.  */
-  pre_dfs = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
-  sbitmap_vector_zero (pre_dfs, n_basic_blocks);
+  pre_dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
+  sbitmap_vector_zero (pre_dfs, last_basic_block);
   compute_dominance_frontiers (pre_dfs, pre_idom);
 
-  pre_preorder = xmalloc (n_basic_blocks * sizeof (int));
+  pre_preorder = xmalloc (last_basic_block * sizeof (int));
   flow_preorder_transversal_compute (pre_preorder);
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {    
-      varray_type bbrefs = BB_REFS (BASIC_BLOCK (i));
+      varref ref;
+      struct ref_list_node *tmp;
+
       htab_empty (seen);
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (bbrefs); j++)
+      FOR_EACH_REF (ref, tmp, BB_REFS (bb))
 	{
-	  varref ref = VARRAY_GENERIC_PTR (bbrefs, j);
 	  tree expr = VARREF_EXPR (ref);
 	  tree stmt = VARREF_STMT (ref);
 	  if (VARREF_TYPE (ref) != VARUSE)
@@ -1819,7 +1813,7 @@ tree_perform_ssapre ()
 		  VARRAY_TREE_INIT (slot->reals, 1, "Real occurrences");
 		  VARRAY_TREE_INIT (slot->realstmts, 1, 
 				    "Real occurrence statements");
-		  VARRAY_GENERIC_PTR_INIT (slot->phis, n_basic_blocks, 
+		  VARRAY_GENERIC_PTR_INIT (slot->phis, last_basic_block, 
 					   "EPHIs");
 		  VARRAY_GENERIC_PTR_INIT (slot->erefs, 1, "EREFs");
 		  VARRAY_GENERIC_PTR_INIT (slot->refs, 1, "REFs");

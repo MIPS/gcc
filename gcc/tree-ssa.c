@@ -156,17 +156,17 @@ insert_phi_terms (dfs)
      blocks of each definition block.  */
   for (i = 0; i < NREF_SYMBOLS; i++)
     {
-      size_t j;
+
       tree sym = REF_SYMBOL (i);
-      varray_type refs = TREE_REFS (sym);
+      struct ref_list_node *tmp;
+      varref ref;
 
       /* Symbols in referenced_symbols must have at least 1 reference.  */
-      if (refs == NULL)
+      if (TREE_REFS (sym)->first == NULL)
 	abort ();
 
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
+      FOR_EACH_REF (ref, tmp, TREE_REFS (sym))
 	{
-	  varref ref = VARRAY_GENERIC_PTR (refs, j);
 	  basic_block bb = VARREF_BB (ref);
 
 	  /* Ignore ghost definitions in ENTRY_BLOCK_PTR.  */
@@ -247,11 +247,11 @@ search_fud_chains (bb, idom)
      basic_block bb;
      dominance_info idom;
 {
-  varray_type bb_refs;
+
   edge e;
-  int i;
-  size_t r, nrefs;
   basic_block child_bb;
+  struct ref_list_node *tmp;
+  varref ref;
 
   /* for each variable use or def or phi-term R in BB do
          let SYM be the variable referenced at R
@@ -262,12 +262,10 @@ search_fud_chains (bb, idom)
              CurrDef(SYM) = R
          endif
      endfor  */
-  bb_refs = BB_REFS (bb);
-  nrefs = (bb_refs) ? VARRAY_ACTIVE_SIZE (bb_refs) : 0;
-  for (r = 0; r < nrefs; r++)
+  if (BB_REFS (bb))
+    FOR_EACH_REF (ref, tmp, BB_REFS (bb))
     {
       varref currdef;
-      varref ref = VARRAY_GENERIC_PTR (bb_refs, r);
       tree sym = VARREF_SYM (ref);
 
       /* Retrieve the current definition for the variable.  */
@@ -284,7 +282,7 @@ search_fud_chains (bb, idom)
 	     If this use (ref) has a current definition (currdef), add
 	     'ref' to the list of uses immediately reached by 'currdef'.  */
 	  if (currdef)
-	    VARRAY_PUSH_GENERIC_PTR (VARDEF_IMM_USES (currdef), ref);
+	    add_ref_to_list_end (VARDEF_IMM_USES (currdef), ref);
 	}
       else if (VARREF_TYPE (ref) == VARDEF || VARREF_TYPE (ref) == VARPHI)
 	{
@@ -305,19 +303,19 @@ search_fud_chains (bb, idom)
      endfor  */
   for (e = bb->succ; e; e = e->succ_next)
     {
-      varray_type y_refs;
+      
       basic_block y;
+      varref phi;
 
       y = e->dest;
-      y_refs = BB_REFS (y);
-      if (y_refs == NULL)
+      if (BB_REFS (y) == NULL)
 	continue;
 
-      for (r = 0; r < VARRAY_ACTIVE_SIZE (y_refs); r++)
+      FOR_EACH_REF (phi, tmp, BB_REFS (y))
 	{
 	  tree sym;
 	  varref currdef;
-	  varref phi = VARRAY_GENERIC_PTR (y_refs, r);
+	
 
 	  if (VARREF_TYPE (phi) != VARPHI)
 	    continue;
@@ -350,9 +348,8 @@ search_fud_chains (bb, idom)
              CurrDef(SYM) = SaveChain(R)
          endif
      endfor  */
-  for (i = nrefs - 1; i >= 0; i--)
+  FOR_EACH_REF_REV (ref, tmp, BB_REFS (bb))
     {
-      varref ref = VARRAY_GENERIC_PTR (bb_refs, i);
 
       if (VARREF_TYPE (ref) == VARDEF || VARREF_TYPE (ref) == VARPHI)
 	{
@@ -378,7 +375,7 @@ delete_ssa ()
   size_t i;
 
   for (i = 0; i < NREF_SYMBOLS; i++)
-    delete_refs (TREE_REFS (REF_SYMBOL (i)));
+    delete_ref_list (TREE_REFS (REF_SYMBOL (i)));
 }
 
 /* Deallocate memory associated with an array of references.  */
@@ -398,13 +395,13 @@ delete_refs (refs)
 
       if (VARREF_TYPE (ref) == VARDEF)
 	{
-	  VARDEF_IMM_USES (ref) = NULL;
-	  VARDEF_RUSES (ref) = NULL;
+	  delete_ref_list (VARDEF_IMM_USES (ref));
+	  delete_ref_list (VARDEF_RUSES (ref));
 	  VARDEF_PHI_CHAIN (ref) = NULL;
 	  VARDEF_PHI_CHAIN_BB (ref) = NULL;
 	}
       else if (VARREF_TYPE (ref) == VARUSE)
-	VARUSE_RDEFS (ref) = NULL;
+	delete_ref_list (VARUSE_RDEFS (ref));
       else if (VARREF_TYPE (ref) == EXPRPHI)
 	{
 	  BITMAP_XFREE (EXPRPHI_PROCESSED (ref));
@@ -422,23 +419,22 @@ delete_refs (refs)
 void
 tree_compute_rdefs ()
 {
-  size_t i, j;
+  size_t i;
 
   /* Initialize reaching definition and reached uses information for every
      reference in the function.  */
   for (i = 0; i < NREF_SYMBOLS; i++)
     {
       tree sym = REF_SYMBOL (i);
-      varray_type refs = TREE_REFS (sym);
+      varref r;
+      struct ref_list_node *tmp;
 
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
+      FOR_EACH_REF (r, tmp, TREE_REFS (sym))
 	{
-	  varref r = VARRAY_GENERIC_PTR (refs, j);
-
 	  if (VARREF_TYPE (r) == VARUSE)
-	    VARRAY_POP_ALL (VARUSE_RDEFS (r));
+	    empty_ref_list (VARUSE_RDEFS (r));
 	  else if (VARREF_TYPE (r) == VARDEF)
-	    VARRAY_POP_ALL (VARDEF_RUSES (r));
+	    empty_ref_list (VARDEF_RUSES (r));
 	}
     }
 
@@ -447,12 +443,11 @@ tree_compute_rdefs ()
   for (i = 0; i < NREF_SYMBOLS; i++)
     {
       tree sym = REF_SYMBOL (i);
-      varray_type refs = TREE_REFS (sym);
+      varref u;
+      struct ref_list_node *tmp;
 
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
+      FOR_EACH_REF (u, tmp, TREE_REFS (sym))
 	{
-	  varref u = VARRAY_GENERIC_PTR (refs, j);
-
 	  if (VARREF_TYPE (u) == VARUSE)
 	    follow_chain (VARUSE_CHAIN (u), u);
 	}
@@ -474,16 +469,15 @@ tree_compute_rdefs ()
       for (i = 0; i < NREF_SYMBOLS; i++)
 	{
 	  tree sym = REF_SYMBOL (i);
-	  varray_type refs = TREE_REFS (sym);
+	  struct ref_list_node *tmp;
+	  varref u;
 	  
 	  fprintf (dump_file, "Symbol: ");
 	  print_node_brief (dump_file, "", sym, 0);
 	  fprintf (dump_file, "\n");
 
-	  for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
+	  FOR_EACH_REF (u, tmp, TREE_REFS (sym))
 	    {
-	      varref u = VARRAY_GENERIC_PTR (refs, j);
-
 	      if (VARREF_TYPE (u) == VARUSE)
 		{
 		  dump_varref (dump_file, "", u, 4, 0);
@@ -512,9 +506,9 @@ analyze_rdefs ()
 
   for (i = 0; i < NREF_SYMBOLS; i++)
     {
-      size_t j;
       tree sym = REF_SYMBOL (i);
-      varray_type refs = TREE_REFS (sym);
+      struct ref_list_node *tmp;
+      varref use;
 
       /* Uninitialized warning messages are only given for local variables
 	 with auto declarations.  */
@@ -527,12 +521,11 @@ analyze_rdefs ()
       /* For each use of SYM, if the use is reached by SYM's ghost
 	 definition, then the symbol may have been used uninitialized in
 	 the function.  */
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
+      FOR_EACH_REF (use, tmp, TREE_REFS (sym))
 	{
-	  size_t k;
 	  int found_ghost;
-	  varray_type rdefs;
-	  varref use = VARRAY_GENERIC_PTR (refs, j);
+	  varref def;
+	  struct ref_list_node *tmp2;
 
 	  if (VARREF_TYPE (use) != VARUSE)
 	    continue;
@@ -540,11 +533,8 @@ analyze_rdefs ()
 	  /* Check all the reaching definitions looking for the ghost
 	     definition.  */
 	  found_ghost = 0;
-	  rdefs = VARUSE_RDEFS (use);
-	  for (k = 0; k < VARRAY_ACTIVE_SIZE (rdefs); k++)
+	  FOR_EACH_REF (def, tmp2, VARUSE_RDEFS (use))
 	    {
-	      varref def = VARRAY_GENERIC_PTR (rdefs, k);
-
 	      if (IS_GHOST_DEF (def))
 		found_ghost = 1;
 	    }
@@ -556,7 +546,7 @@ analyze_rdefs ()
 	  if (found_ghost)
 	    {
 	      prep_stmt (VARREF_STMT (use));
-	      if (VARRAY_ACTIVE_SIZE (rdefs) == 1)
+	      if (VARUSE_RDEFS (use)->last == VARUSE_RDEFS (use)->first)
 		warning ("`%s' is used uninitialized at this point",
 		         IDENTIFIER_POINTER (DECL_NAME (sym)));
 	      else
@@ -595,8 +585,9 @@ follow_chain (d, u)
      U.  Similarly, add U to the list of reached uses of D.  */
   if (VARREF_TYPE (d) == VARDEF && VARREF_SYM (d) == VARREF_SYM (u))
     {
-      VARRAY_PUSH_GENERIC_PTR (VARUSE_RDEFS (u), d);
-      VARRAY_PUSH_GENERIC_PTR (VARDEF_RUSES (d), u);
+      add_ref_to_list_end (VARUSE_RDEFS (u), d);
+      add_ref_to_list_end (VARDEF_RUSES (d), u);
+
     }
 
     /* If D is a PHI term, recursively follow each of its arguments.  */
@@ -622,24 +613,21 @@ is_upward_exposed (sym, bb_set, exclude_init_decl)
      sbitmap bb_set;
      int exclude_init_decl;
 {
-  size_t i;
-  varray_type refs = TREE_REFS (sym);
+  struct ref_list_node *tmp;
+  varref r;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (refs); i++)
+  FOR_EACH_REF (r, tmp, TREE_REFS (sym))
     {
-      varref r = VARRAY_GENERIC_PTR (refs, i);
-
       /* If this is a use of symbol in one of the basic blocks we are
 	 interested in, check its reaching definitions.  */
       if (VARREF_TYPE (r) == VARUSE
 	  && TEST_BIT (bb_set, VARREF_BB (r)->index))
 	{
-	  size_t j;
-	  varray_type rdefs = VARUSE_RDEFS (r);
+	  varref def;
+	  struct ref_list_node *tmp2;
 
-	  for (j = 0; j < VARRAY_ACTIVE_SIZE (rdefs); j++)
+	  FOR_EACH_REF (def, tmp2, VARUSE_RDEFS (r))
 	    {
-	      varref def = VARRAY_GENERIC_PTR (rdefs, j);
 	      basic_block def_bb = VARREF_BB (def);
 
 	      if (IS_GHOST_DEF (def)

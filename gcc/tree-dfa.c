@@ -437,7 +437,121 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
     }
 }
 
+/* Create and return an empty list of references.  */
 
+ref_list
+create_ref_list (void)
+{
+  ref_list list = xmalloc (sizeof (struct ref_list_priv));
+  list->first = list->last = NULL;
+  return list;
+}
+
+/* Free the nodes in LIST, but keep the empty list around.  
+   (IE empty the list).  */
+void 
+empty_ref_list (list)
+     ref_list list;
+{
+  struct ref_list_node *node;
+
+  for (node = list->first; node; )
+    {
+      struct ref_list_node *tmp;
+      tmp = node;
+      node = node->next;
+      free (tmp);
+    }
+  list->first = list->last = NULL;
+}
+
+/* Delete LIST, including the list itself.
+   (IE destroy the list).  */
+void
+delete_ref_list (list)
+     ref_list list;
+{
+  struct ref_list_node *node;
+
+  for (node = list->first; node; )
+    {
+      struct ref_list_node *tmp;
+      tmp = node;
+      node = node->next;
+      free (tmp);
+    }
+  free (list);
+}
+
+/* Remove REF from LIST.  */
+
+void 
+remove_ref_from_list (list, ref)
+     ref_list list;
+     varref ref;
+{
+  struct ref_list_node *tmp;
+  if (!list || !list->first || !list->last)
+    return;
+  for (tmp = list->first; tmp; tmp = tmp->next)
+    {
+      if (tmp->ref == ref)
+	{
+	  if (tmp == list->first)
+	    list->first = tmp->next;
+	  if (tmp == list->last)
+	    list->last = tmp->prev;
+	  if (tmp->next)
+	    tmp->next->prev = tmp->prev;
+	  if (tmp->prev)
+	    tmp->prev->next = tmp->next;
+	  free (tmp);
+	  return;
+	}
+    }
+}
+
+/* Add REF to the beginning of LIST.  */
+
+void
+add_ref_to_list_begin (list, ref)
+     ref_list list;
+     varref ref;
+{
+  struct ref_list_node *node = xmalloc (sizeof (struct ref_list_node));
+  node->ref = ref;
+  if (list->first == NULL)
+    {
+      node->prev = node->next = NULL;
+      list->first = list->last = node;
+      return;
+    }
+  node->prev = NULL;
+  node->next = list->first;
+  list->first->prev = node;
+  list->first = node;
+}
+
+/* Add REF to the end of LIST.  */
+
+void
+add_ref_to_list_end (list, ref)
+     ref_list list;
+     varref ref;
+{
+  struct ref_list_node *node = xmalloc (sizeof (struct ref_list_node));
+  node->ref = ref;
+  if (list->first == NULL)
+    {
+      node->prev = node->next = NULL;
+      list->first = list->last = node;
+      return;
+    }
+  node->prev = list->last;
+  node->next = NULL;
+  list->last->next = node;
+  list->last = node;
+}
 
 /* Create references and associations to symbols and basic blocks.  */
 
@@ -474,8 +588,8 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
   /* Create containers according to the type of reference.  */
   if (ref_type == VARDEF || ref_type == VARPHI)
     {
-      VARRAY_GENERIC_PTR_INIT (VARDEF_IMM_USES (ref), 3, "imm_uses");
-      VARRAY_GENERIC_PTR_INIT (VARDEF_RUSES (ref), 5, "ruses");
+      VARDEF_IMM_USES (ref) = create_ref_list ();
+      VARDEF_RUSES (ref) = create_ref_list ();
       if (ref_type == VARPHI)
 	{
 	  VARRAY_GENERIC_PTR_INIT (VARDEF_PHI_CHAIN (ref), 3, "phi_chain");
@@ -483,7 +597,7 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
 	}
     }
   else if (ref_type == VARUSE)
-    VARRAY_GENERIC_PTR_INIT (VARUSE_RDEFS (ref), 3, "rdefs");
+    VARUSE_RDEFS (ref) = create_ref_list ();
   else if (ref_type == EXPRPHI)
     {
       VARRAY_GENERIC_PTR_INIT (EXPRPHI_PHI_CHAIN (ref), 
@@ -500,29 +614,24 @@ create_ref (sym, ref_type, bb, parent_stmt, parent_expr)
       add_ref_symbol (sym);
       
       /* Add this reference to the list of references for the symbol.  */
-      VARRAY_PUSH_GENERIC_PTR (get_tree_ann (sym)->refs, ref);
+      add_ref_to_list_end (get_tree_ann (sym)->refs, ref);
       
       /* Add this reference to the list of references for the containing
 	 statement.  */
       if (parent_stmt)
-	VARRAY_PUSH_GENERIC_PTR (get_tree_ann (parent_stmt)->refs, ref);
-    }
-  /* Add this reference to the list of references for the basic block.  */
-  VARRAY_PUSH_GENERIC_PTR (get_bb_ann (bb)->refs, ref);
+	add_ref_to_list_end (get_tree_ann (parent_stmt)->refs, ref);
 
+    }
+
+  /* Add this reference to the list of references for the basic
+     block. */
   /* Make sure that PHI terms are added at the beginning of the list,
      otherwise FUD chaining will fail to link local uses to the PHI
      term in this basic block.  */
   if (ref_type == VARPHI || ref_type == EXPRPHI)
-    {
-      varray_type refs = BB_REFS (bb);
-      char *src = refs->data.c;
-      char *dest = refs->data.c + sizeof (ref);
-      size_t n = (refs->elements_used - 1) * sizeof (ref);
-
-      memmove (dest, src, n);
-      VARRAY_GENERIC_PTR (refs, 0) = ref;
-    }
+    add_ref_to_list_begin (get_bb_ann (bb)->refs, ref);
+  else
+    add_ref_to_list_end (get_bb_ann (bb)->refs, ref);
 
   return ref;
 }
@@ -572,7 +681,7 @@ create_tree_ann (t)
 {
   tree_ann ann = (tree_ann) ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
-  VARRAY_GENERIC_PTR_INIT (ann->refs, 10, "symbol_refs");
+  ann->refs = create_ref_list ();
   t->common.aux = (void *) ann;
 }
 
@@ -594,12 +703,11 @@ function_may_recurse_p ()
      function is not recursive.  */
   FOR_EACH_BB (bb)
     {
-      size_t j;
-      varray_type refs = BB_REFS (bb);
+      struct ref_list_node *tmp;
+      varref ref;
 
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
+      FOR_EACH_REF (ref, tmp, BB_REFS (bb))
 	{
-	  varref ref = VARRAY_GENERIC_PTR (refs, j);
 	  tree fcall = VARREF_SYM (ref);
 
 	  if (fcall == current_function_decl
@@ -632,12 +740,10 @@ get_fcalls (fcalls_p, which)
 
   FOR_EACH_BB (bb)
     {
-      size_t j;
-      varray_type refs = BB_REFS (bb);
-
-      for (j = 0; j < VARRAY_ACTIVE_SIZE (refs); j++)
+      struct ref_list_node *tmp;
+      varref ref;
+      FOR_EACH_REF (ref, tmp, BB_REFS (bb))
 	{
-	  varref ref = VARRAY_GENERIC_PTR (refs, j);
 	  tree fcall = VARREF_SYM (ref);
 
 	  if (TREE_CODE (fcall) == FUNCTION_DECL)
@@ -671,7 +777,9 @@ find_declaration (decl)
   /* Start with the first reference of DECL and walk the flowgraph
      backwards looking for a node with the scope block declaring the
      original variable.  */
-  first_ref = VARRAY_GENERIC_PTR (TREE_REFS (decl), 0);
+  if (!TREE_REFS (decl) || !TREE_REFS (decl)->first)
+    return NULL;
+  first_ref = TREE_REFS (decl)->first->ref;
   t = VARREF_STMT (first_ref);
   FOR_BB_BETWEEN (bb, BB_FOR_STMT (t), ENTRY_BLOCK_PTR->next_bb, prev_bb)
     {
@@ -751,7 +859,7 @@ dump_varref (outf, prefix, ref, indent, details)
       if (VARREF_TYPE (ref) == VARPHI && VARDEF_PHI_CHAIN (ref))
 	{
 	  fputs (" phi-args:\n", outf);
-	  dump_varref_list (outf, prefix, VARDEF_PHI_CHAIN (ref), indent + 4, 0);
+	  dump_varref_array (outf, prefix, VARDEF_PHI_CHAIN (ref), indent + 4, 0);
 	}
       else if (VARREF_TYPE (ref) == EXPRPHI && EXPRPHI_PHI_CHAIN (ref))
 	{
@@ -760,7 +868,7 @@ dump_varref (outf, prefix, ref, indent, details)
 		     EXPRREF_CLASS (ref), EXPRPHI_DOWNSAFE (ref), 
 		     EXPRPHI_CANBEAVAIL (ref), EXPRPHI_LATER (ref));
 	  fputs (" exprphi-args:\n", outf);
-	  dump_varref_list (outf, prefix, EXPRPHI_PHI_CHAIN (ref), indent + 4, 1);
+	  dump_varref_array (outf, prefix, EXPRPHI_PHI_CHAIN (ref), indent + 4, 1);
 	}	
       else if (VARREF_TYPE (ref) == VARDEF && VARDEF_IMM_USES (ref))
 	{
@@ -813,6 +921,30 @@ void
 dump_varref_list (outf, prefix, reflist, indent, details)
      FILE *outf;
      const char *prefix;
+     ref_list reflist;
+     int indent;
+     int details;
+{
+  struct ref_list_node *tmp;
+  varref ref;
+  if (reflist == NULL)
+    return;
+  FOR_EACH_REF (ref, tmp, reflist)
+      dump_varref (outf, prefix, ref, 
+		   indent, details);
+}
+
+
+
+/*  Display a list of variable references on stream OUTF. PREFIX is a
+    string that is prefixed to every line of output, and INDENT is the
+    amount of left margin to leave.  If DETAILS is nonzero, the output is
+    more verbose.  */
+
+void
+dump_varref_array (outf, prefix, reflist, indent, details)
+     FILE *outf;
+     const char *prefix;
      varray_type reflist;
      int indent;
      int details;
@@ -833,7 +965,17 @@ dump_varref_list (outf, prefix, reflist, indent, details)
 
 void
 debug_varref_list (reflist)
-     varray_type reflist;
+     ref_list reflist;
 {
   dump_varref_list (stderr, "", reflist, 0, 1);
+}
+
+
+/* Dump REFLIST on stderr.  */
+
+void
+debug_varref_array (reflist)
+    varray_type reflist;
+{
+  dump_varref_array (stderr, "", reflist, 0, 1);
 }
