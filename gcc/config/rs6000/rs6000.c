@@ -411,8 +411,7 @@ static int rs6000_get_some_local_dynamic_name_1 PARAMS ((rtx *, void *));
 static unsigned long rs6000_arg_size PARAMS ((enum machine_mode, tree));
 static rtx rs6000_spe_function_arg PARAMS ((CUMULATIVE_ARGS *,
 					    enum machine_mode, tree));
-static rtx rs6000_mixed_function_arg PARAMS ((CUMULATIVE_ARGS *,
-					      enum machine_mode, tree, int));
+static rtx rs6000_mixed_function_arg PARAMS ((enum machine_mode, tree, int));
 static void rs6000_move_block_from_reg PARAMS ((int, rtx, int));
 static rtx rs6000_complex_function_value PARAMS ((enum machine_mode));
 static bool is_ev64_opaque_type PARAMS ((tree));
@@ -1658,7 +1657,7 @@ easy_fp_constant (op, mode)
     abort ();
 }
 
-/* Returns the constant for the splat instrunction, if exists.  */
+/* Returns the constant for the splat instruction, if exists.  */
 
 static int
 easy_vector_splat_const (int cst, enum machine_mode mode)
@@ -4377,128 +4376,49 @@ rs6000_spe_function_arg (cum, mode, type)
 /* Determine where to place an argument in 64-bit mode with 32-bit ABI.  */
 
 static rtx
-rs6000_mixed_function_arg (cum, mode, type, align_words)
-     CUMULATIVE_ARGS *cum;
+rs6000_mixed_function_arg (mode, type, align_words)
      enum machine_mode mode;
      tree type;
      int align_words;
 {
-  if (mode == DFmode)
-    {
-      /* -mpowerpc64 with 32bit ABI splits up a DFmode argument
-	 in vararg list into zero, one or two GPRs */
-      if (align_words >= GP_ARG_NUM_REG)
-	return gen_rtx_PARALLEL (DFmode,
-		 gen_rtvec (2,
-			    gen_rtx_EXPR_LIST (VOIDmode,
-					       NULL_RTX, const0_rtx),
-			    gen_rtx_EXPR_LIST (VOIDmode,
-					       gen_rtx_REG (mode,
-							    cum->fregno),
-					       const0_rtx)));
-      else if (align_words + rs6000_arg_size (mode, type)
-	       > GP_ARG_NUM_REG)
-	/* If this is partially on the stack, then we only
-	   include the portion actually in registers here.  */
-	return gen_rtx_PARALLEL (DFmode,
-		 gen_rtvec (2,
-			    gen_rtx_EXPR_LIST (VOIDmode,
-					       gen_rtx_REG (SImode,
-							    GP_ARG_MIN_REG
-							    + align_words),
-					       const0_rtx),
-			    gen_rtx_EXPR_LIST (VOIDmode,
-					       gen_rtx_REG (mode,
-							    cum->fregno),
-					       const0_rtx)));
+  int n_units;
+  int i, k;
+  rtx rvec[GP_ARG_NUM_REG + 1];
 
-      /* split a DFmode arg into two GPRs */
-      return gen_rtx_PARALLEL (DFmode,
-	       gen_rtvec (3,
-			  gen_rtx_EXPR_LIST (VOIDmode,
-					     gen_rtx_REG (SImode,
-							  GP_ARG_MIN_REG
-							  + align_words),
-					     const0_rtx),
-			  gen_rtx_EXPR_LIST (VOIDmode,
-					     gen_rtx_REG (SImode,
-							  GP_ARG_MIN_REG
-							  + align_words + 1),
-					     GEN_INT (4)),
-			  gen_rtx_EXPR_LIST (VOIDmode,
-					     gen_rtx_REG (mode, cum->fregno),
-					     const0_rtx)));
+  if (align_words >= GP_ARG_NUM_REG)
+    return NULL_RTX;
+
+  n_units = rs6000_arg_size (mode, type);
+
+  /* Optimize the simple case where the arg fits in one gpr.  */
+  if (n_units <= 1)
+    return gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+
+  k = 0;
+  if (align_words + n_units > GP_ARG_NUM_REG)
+    /* Not all of the arg fits in gprs.  Say that it goes in memory too,
+       using a magic NULL_RTX component.
+       FIXME: This is not strictly correct.  Only some of the arg
+       belongs in memory, not all of it.  However, there isn't any way
+       to do this currently, apart from building rtx descriptions for
+       the pieces of memory we want stored.  Due to bugs in the generic
+       code we can't use the normal function_arg_partial_nregs scheme
+       with the PARALLEL arg description we emit here.
+       In any case, the code to store the whole arg to memory is often
+       more efficient than code to store pieces, and we know that space
+       is available in the right place for the whole arg.  */
+    rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
+
+  i = 0;
+  do
+    {
+      rtx r = gen_rtx_REG (SImode, GP_ARG_MIN_REG + align_words);
+      rtx off = GEN_INT (i++ * 4);
+      rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, r, off);
     }
-  /* -mpowerpc64 with 32bit ABI splits up a DImode argument into one
-     or two GPRs */
-  else if (mode == DImode)
-    {
-      if (align_words < GP_ARG_NUM_REG - 1)
-	return gen_rtx_PARALLEL (DImode,
-		 gen_rtvec (2,
-			    gen_rtx_EXPR_LIST (VOIDmode,
-					       gen_rtx_REG (SImode,
-							    GP_ARG_MIN_REG
-							    + align_words),
-					       const0_rtx),
-			    gen_rtx_EXPR_LIST (VOIDmode,
-					       gen_rtx_REG (SImode,
-							    GP_ARG_MIN_REG
-							    + align_words + 1),
-					       GEN_INT (4))));
-      else if (align_words == GP_ARG_NUM_REG - 1)
-	  return gen_rtx_PARALLEL (DImode,
-		   gen_rtvec (2,
-			      gen_rtx_EXPR_LIST (VOIDmode,
-						 NULL_RTX, const0_rtx),
-			      gen_rtx_EXPR_LIST (VOIDmode,
-						 gen_rtx_REG (SImode,
-							      GP_ARG_MIN_REG
-							      + align_words),
-						 const0_rtx)));
-    }
-  else if (ALTIVEC_VECTOR_MODE (mode) && align_words == GP_ARG_NUM_REG - 2)
-    {
-      /* Varargs vector regs must be saved in R9-R10.  */
-      return gen_rtx_PARALLEL (mode,
-	   		       gen_rtvec (3,
-			         gen_rtx_EXPR_LIST (VOIDmode,
-						     NULL_RTX, const0_rtx),
-			         gen_rtx_EXPR_LIST (VOIDmode,
-						    gen_rtx_REG (SImode,
-							         GP_ARG_MIN_REG
-							         + align_words),
-						    const0_rtx),
-			         gen_rtx_EXPR_LIST (VOIDmode,
-						    gen_rtx_REG (SImode,
-							         GP_ARG_MIN_REG
-							         + align_words + 1),
-						    GEN_INT (4))));
-    }
-  else if ((mode == BLKmode || ALTIVEC_VECTOR_MODE (mode))
-           && align_words <= (GP_ARG_NUM_REG - 1))
-    {
-      /* AltiVec vector regs are saved in R5-R8. */
-      int k;
-      int size = int_size_in_bytes (type);
-      int no_units = ((size - 1) / 4) + 1;
-      int max_no_words = GP_ARG_NUM_REG - align_words;
-      int rtlvec_len = no_units < max_no_words ? no_units : max_no_words;
-      rtx *rtlvec = (rtx *) alloca (rtlvec_len * sizeof (rtx));
+  while (++align_words < GP_ARG_NUM_REG && --n_units != 0);
 
-      memset ((char *) rtlvec, 0, rtlvec_len * sizeof (rtx));
-
-      for (k=0; k < rtlvec_len; k++)
-	rtlvec[k] = gen_rtx_EXPR_LIST (VOIDmode,
-				       gen_rtx_REG (SImode,
-						    GP_ARG_MIN_REG
-						    + align_words + k),
-				       k == 0 ? const0_rtx : GEN_INT (k*4));
-
-      return gen_rtx_PARALLEL (mode, gen_rtvec_v (k, rtlvec));
-  }
-
-  return NULL_RTX;
+  return gen_rtx_PARALLEL (mode, gen_rtvec_v (k, rvec));
 }
 
 /* Determine where to put an argument to a function.
@@ -4596,8 +4516,8 @@ function_arg (cum, mode, type, named)
 	{
 	  /* Vector parameters to varargs functions under AIX or Darwin
 	     get passed in memory and possibly also in GPRs.  */
-	  int align, align_words;
-	  enum machine_mode part_mode = mode;
+	  int align, align_words, n_words;
+	  enum machine_mode part_mode;
 
 	  /* Vector parameters must be 16-byte aligned.  This places them at
 	     2 mod 4 in terms of words in 32-bit mode, since the parameter
@@ -4614,20 +4534,19 @@ function_arg (cum, mode, type, named)
 	  if (align_words >= GP_ARG_NUM_REG)
 	    return NULL_RTX;
 
+	  if (TARGET_32BIT && TARGET_POWERPC64)
+	    return rs6000_mixed_function_arg (mode, type, align_words);
+
 	  /* The vector value goes in GPRs.  Only the part of the
 	     value in GPRs is reported here.  */
-	  if (align_words + CLASS_MAX_NREGS (mode, GENERAL_REGS)
-	      > GP_ARG_NUM_REG)
+	  part_mode = mode;
+	  n_words = rs6000_arg_size (mode, type);
+	  if (align_words + n_words > GP_ARG_NUM_REG)
 	    /* Fortunately, there are only two possibilities, the value
 	       is either wholly in GPRs or half in GPRs and half not.  */
 	    part_mode = DImode;
 
-	  if (TARGET_32BIT
-	      && (TARGET_POWERPC64 || (align_words == GP_ARG_NUM_REG - 2)))
-	    return rs6000_mixed_function_arg (cum, part_mode, type,
-					      align_words);
-	  else
-	    return gen_rtx_REG (part_mode, GP_ARG_MIN_REG + align_words);
+	  return gen_rtx_REG (part_mode, GP_ARG_MIN_REG + align_words);
 	}
     }
   else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode))
@@ -4654,10 +4573,13 @@ function_arg (cum, mode, type, named)
 	    gregno += (1 - gregno) & 1;
 
 	  /* Multi-reg args are not split between registers and stack.  */
-	  if (gregno + n_words - 1 <= GP_ARG_MAX_REG)
-	    return gen_rtx_REG (mode, gregno);
-	  else
+	  if (gregno + n_words - 1 > GP_ARG_MAX_REG)
 	    return NULL_RTX;
+
+	  if (TARGET_32BIT && TARGET_POWERPC64)
+	    return rs6000_mixed_function_arg (mode, type,
+					      gregno - GP_ARG_MIN_REG);
+	  return gen_rtx_REG (mode, gregno);
 	}
     }
   else
@@ -4667,26 +4589,23 @@ function_arg (cum, mode, type, named)
 
       if (USE_FP_FOR_ARG_P (cum, mode, type))
 	{
-	  rtx fpr[5];
-	  rtx *r;
+	  rtx rvec[GP_ARG_NUM_REG + 1];
+	  rtx r;
+	  int k;
 	  bool needs_psave;
 	  enum machine_mode fmode = mode;
-	  int i, n = 0;
 	  unsigned long n_fpreg = (GET_MODE_SIZE (mode) + 7) >> 3;
-	  unsigned long off;
 
 	  if (cum->fregno + n_fpreg > FP_ARG_MAX_REG + 1)
 	    {
-	      /* Long double split over regs and memory.
-		 Describe fpreg part. */
-	      if (fmode == TFmode)
-		fmode = DFmode;
-	      do
-		fpr[n + 1] = gen_rtx_REG (fmode, cum->fregno + n);
-	      while (++n <= FP_ARG_MAX_REG - cum->fregno);
+	      /* Currently, we only ever need one reg here because complex
+		 doubles are split.  */
+	      if (cum->fregno != FP_ARG_MAX_REG || fmode != TFmode)
+		abort ();
+
+	      /* Long double split over regs and memory.  */
+	      fmode = DFmode;
 	    }
-	  else
-	    fpr[++n] = gen_rtx_REG (mode, cum->fregno);
 
 	  /* Do we also need to pass this arg in the parameter save
 	     area?  */
@@ -4697,44 +4616,55 @@ function_arg (cum, mode, type, named)
 				 && align_words >= GP_ARG_NUM_REG)));
 
 	  if (!needs_psave && mode == fmode)
-	    return fpr[1];
+	    return gen_rtx_REG (fmode, cum->fregno);
 
-          if (TARGET_32BIT && TARGET_POWERPC64
-              && mode == DFmode && cum->stdarg)
-            return rs6000_mixed_function_arg (cum, mode, type, align_words);
-
-	  /* Describe where all the pieces go.  */
-	  r = fpr + 1;
-	  for (i = 0, off = 0; i < n; i++, off += GET_MODE_SIZE (fmode))
-	    r[i] = gen_rtx_EXPR_LIST (VOIDmode, r[i], GEN_INT (off));
-
+	  k = 0;
 	  if (needs_psave)
 	    {
-	      /* Now describe the part that goes in gprs or the stack.
+	      /* Describe the part that goes in gprs or the stack.
 		 This piece must come first, before the fprs.  */
-	      rtx reg = NULL_RTX;
 	      if (align_words < GP_ARG_NUM_REG)
 		{
 		  unsigned long n_words = rs6000_arg_size (mode, type);
-		  enum machine_mode rmode = mode;
 
-		  if (align_words + n_words > GP_ARG_NUM_REG)
-		    /* If this is partially on the stack, then we only
-		       include the portion actually in registers here.  */
-		    rmode = Pmode;
-		  reg = gen_rtx_REG (rmode, GP_ARG_MIN_REG + align_words);
+		  if (align_words + n_words > GP_ARG_NUM_REG
+		      || (TARGET_32BIT && TARGET_POWERPC64))
+		    {
+		      /* If this is partially on the stack, then we only
+			 include the portion actually in registers here.  */
+		      enum machine_mode rmode = TARGET_32BIT ? SImode : DImode;
+		      rtx off;
+		      do
+			{
+			  r = gen_rtx_REG (rmode,
+					   GP_ARG_MIN_REG + align_words);
+			  off = GEN_INT (k * GET_MODE_SIZE (rmode));
+			  rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, r, off);
+			}
+		      while (++align_words < GP_ARG_NUM_REG && --n_words != 0);
+		    }
+		  else
+		    {
+		      /* The whole arg fits in gprs.  */
+		      r = gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+		      rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, r, const0_rtx);
+		    }
 		}
-	      *--r = gen_rtx_EXPR_LIST (VOIDmode, reg, const0_rtx);
-	      ++n;
+	      else
+		/* It's entirely in memory.  */
+		rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
 	    }
 
-	  return gen_rtx_PARALLEL (mode, gen_rtvec_v (n, r));
+	  /* Describe where this piece goes in the fprs.  */
+	  r = gen_rtx_REG (fmode, cum->fregno);
+	  rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, r, const0_rtx);
+
+	  return gen_rtx_PARALLEL (mode, gen_rtvec_v (k, rvec));
 	}
       else if (align_words < GP_ARG_NUM_REG)
 	{
-	  if (TARGET_32BIT && TARGET_POWERPC64
-	      && (mode == DImode || mode == BLKmode))
-	    return rs6000_mixed_function_arg (cum, mode, type, align_words);
+	  if (TARGET_32BIT && TARGET_POWERPC64)
+	    return rs6000_mixed_function_arg (mode, type, align_words);
 
 	  return gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
 	}
@@ -4743,9 +4673,11 @@ function_arg (cum, mode, type, named)
     }
 }
 
-/* For an arg passed partly in registers and partly in memory,
-   this is the number of registers used.
-   For args passed entirely in registers or entirely in memory, zero.  */
+/* For an arg passed partly in registers and partly in memory, this is
+   the number of registers used.  For args passed entirely in registers
+   or entirely in memory, zero.  When an arg is described by a PARALLEL,
+   perhaps using more than one register type, this function returns the
+   number of registers used by the first element of the PARALLEL.  */
 
 int
 function_arg_partial_nregs (cum, mode, type, named)
@@ -4755,6 +4687,9 @@ function_arg_partial_nregs (cum, mode, type, named)
      int named ATTRIBUTE_UNUSED;
 {
   int ret = 0;
+  int align;
+  int parm_offset;
+  int align_words;
 
   if (DEFAULT_ABI == ABI_V4)
     return 0;
@@ -4763,17 +4698,29 @@ function_arg_partial_nregs (cum, mode, type, named)
       && cum->nargs_prototype >= 0)
     return 0;
 
-  if (USE_FP_FOR_ARG_P (cum, mode, type))
+  align = function_arg_boundary (mode, type) / PARM_BOUNDARY - 1;
+  parm_offset = TARGET_32BIT ? 2 : 0;
+  align_words = cum->words + ((parm_offset - cum->words) & align);
+
+  if (USE_FP_FOR_ARG_P (cum, mode, type)
+      /* If we are passing this arg in gprs as well, then this function
+	 should return the number of gprs (or memory) partially passed,
+	 *not* the number of fprs.  */
+      && !(type
+	   && (cum->nargs_prototype <= 0
+	       || (DEFAULT_ABI == ABI_AIX
+		   && TARGET_XL_CALL
+		   && align_words >= GP_ARG_NUM_REG))))
     {
       if (cum->fregno + ((GET_MODE_SIZE (mode) + 7) >> 3) > FP_ARG_MAX_REG + 1)
-	ret = FP_ARG_MAX_REG - cum->fregno;
+	ret = FP_ARG_MAX_REG + 1 - cum->fregno;
       else if (cum->nargs_prototype >= 0)
 	return 0;
     }
 
-  if (cum->words < GP_ARG_NUM_REG
-      && GP_ARG_NUM_REG < cum->words + rs6000_arg_size (mode, type))
-    ret = GP_ARG_NUM_REG - cum->words;
+  if (align_words < GP_ARG_NUM_REG
+      && GP_ARG_NUM_REG < align_words + rs6000_arg_size (mode, type))
+    ret = GP_ARG_NUM_REG - align_words;
 
   if (ret != 0 && TARGET_DEBUG_ARG)
     fprintf (stderr, "function_arg_partial_nregs: %d\n", ret);
