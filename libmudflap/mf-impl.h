@@ -50,41 +50,41 @@ enum __mf_state
 struct __mf_options
 {
   /* Emit a trace message for each call. */
-  int trace_mf_calls;
+  unsigned trace_mf_calls;
 
   /* Collect and emit statistics. */
-  int collect_stats;
+  unsigned collect_stats;
 
   /* Execute internal checking code */
-  int internal_checking;
+  unsigned internal_checking;
 
   /* Print list of leaked heap objects on shutdown. */
-  int print_leaks;       
+  unsigned print_leaks;       
 
   /* Print verbose description of violations. */
-  int verbose_violations;
+  unsigned verbose_violations;
 
   /* Emit internal tracing message. */
-  int verbose_trace;
+  unsigned verbose_trace;
 
   /* Perform occasional tree-rotations to optimize lookups. */
-  int optimize_object_tree;
+  unsigned optimize_object_tree;
 
   /* Support multiple threads. */
-  int multi_threaded;
+  unsigned multi_threaded;
 
   /* Maintain a queue of this many deferred free()s, 
      to trap use of freed memory. */
-  int free_queue_length;
+  unsigned free_queue_length;
 
   /* Maintain a history of this many past unregistered objects. */
-  int persistent_count;
+  unsigned persistent_count;
 
   /* Pad allocated extents by this many bytes on either side. */
-  int crumple_zone;
+  unsigned crumple_zone;
 
   /* Maintain this many stack frames for contexts. */
-  int backtrace;
+  unsigned backtrace;
 
   /* Major operation mode */
 
@@ -110,9 +110,9 @@ struct __mf_options
   violation_mode;
 
   /* Violation heuristics selection. */
-  int heur_stack_bound; /* allow current stack region */
-  int heur_proc_map;  /* allow & cache /proc/self/map regions.  */
-  int heur_start_end; /* allow & cache _start .. _end */
+  unsigned heur_stack_bound; /* allow current stack region */
+  unsigned heur_proc_map;  /* allow & cache /proc/self/map regions.  */
+  unsigned heur_start_end; /* allow & cache _start .. _end */
 };
 
 
@@ -231,21 +231,25 @@ ret __real_ ## fname (__VA_ARGS__)                    \
     __attribute__ (( alias  (#fname)  ));             \
 ret fname (__VA_ARGS__)
 #define DECLARE(ty, fname, ...)                       \
- typedef ty (*__mf_fn_ ## fname) (__VA_ARGS__);
+ typedef ty (*__mf_fn_ ## fname) (__VA_ARGS__)
 #define CALL_REAL(fname, ...)                         \
   ({ if (UNLIKELY(!__mf_dynamic.dyn_ ## fname))       \
      __mf_resolve_dynamics ();                        \
   ((__mf_fn_ ## fname)(__mf_dynamic.dyn_ ## fname))   \
                       (__VA_ARGS__);})
+#define CALL_WRAP(fname, ...)                         \
+  (__wrap_ ## fname (__VA_ARGS__))
 
 #else /* not PIC --> static library */
 
 #define WRAPPER(ret, fname, ...)            \
 ret __wrap_ ## fname (__VA_ARGS__)
 #define DECLARE(ty, fname, ...)             \
- extern ty __real_ ## fname (__VA_ARGS__);
+ extern ty __real_ ## fname (__VA_ARGS__)
 #define CALL_REAL(fname, ...)               \
  __real_ ## fname (__VA_ARGS__)
+#define CALL_WRAP(fname, ...)               \
+ __wrap_ ## fname (__VA_ARGS__)
 
 #endif /* PIC */
 

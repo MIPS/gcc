@@ -231,7 +231,7 @@ __mf_usage ()
 	case set_option:
 	  fprintf (stderr, "-%-23.23s %s", opt->name, opt->description);
 	  if (default_p)
-	    fprintf (stderr, " [default]\n", opt->value);
+	    fprintf (stderr, " [default]\n");
 	  else
 	    fprintf (stderr, "\n");
 	  break;
@@ -518,8 +518,8 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
   struct __mf_cache old_entry = *entry;
 
   BEGIN_RECURSION_PROTECT;
-  TRACE ("mf: check p=%p s=%lu "
-	 "location=`%s'\n", (void *)ptr, sz, location);
+  TRACE ("mf: check p=%08lx s=%lu "
+	 "location=`%s'\n", ptr, sz, location);
   
   switch (__mf_opts.mudflap_mode)
     {
@@ -609,7 +609,7 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
   DECLARE (void *, calloc, size_t c, size_t n);
 
   __mf_object_tree_t *new_obj;
-  new_obj = CALL_REAL(calloc, 1, sizeof(__mf_object_tree_t));
+  new_obj = CALL_REAL (calloc, 1, sizeof(__mf_object_tree_t));
   new_obj->data.low = low;
   new_obj->data.high = high;
   new_obj->data.type = type;
@@ -657,7 +657,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 {
   /* if (UNLIKELY (!(__mf_state == active || __mf_state == starting))) return; */
 
-  TRACE ("mf: register p=%p s=%lu t=%d n='%s'\n", (void *)ptr, sz, 
+  TRACE ("mf: register p=%08lx s=%lu t=%d n='%s'\n", ptr, sz, 
 	type, name ? name : "");
 
   switch (__mf_opts.mudflap_mode)
@@ -680,7 +680,6 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
     case mode_check:
       {
 	__mf_object_tree_t *ovr_obj[1];
-	__mf_object_tree_t *new_obj;
 	unsigned num_overlapping_objs;
 	uintptr_t low = ptr;
 	uintptr_t high = CLAMPSZ (ptr, sz);
@@ -704,13 +703,13 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		ovr_obj[0]->data.high == high)
 	      {
 		/* do nothing */
-		VERBOSE_TRACE ("mf: duplicate static reg %p\n", (void *)low);
+		VERBOSE_TRACE ("mf: duplicate static reg %08lx\n", low);
 		END_RECURSION_PROTECT;
 		return;
 	      }
 	    else if (type == __MF_TYPE_GUESS)
 	      {
-		int i;
+		unsigned i;
 		int all_guesses = 1;
 
 		for (i = 0; i < num_overlapping_objs; ++i)
@@ -729,19 +728,19 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		   little HEAPie was added second.  */
 		if (all_guesses)
 		  {
-		    VERBOSE_TRACE ("mf: replacing %d existing guess%s at %p "
-				   "with %p - %p\n", 
+		    VERBOSE_TRACE ("mf: replacing %d existing guess%s at %08lx "
+				   "with %08lx - %08lx\n", 
 			   num_overlapping_objs,
 			   (num_overlapping_objs > 1 ? "es" : ""),
-			   (void *)low,
-			   (void *)low, (void *)high);
+			   low,
+			   low, high);
 
 		    for (i = 0; i < num_overlapping_objs; ++i)
 		      {
 			DECLARE (void, free, void *ptr);
 			__mf_remove_old_object (ovr_obj[i]);
-			CALL_REAL(free, ovr_obj[i]->data.alloc_backtrace);
-			CALL_REAL(free, ovr_obj[i]);
+			CALL_REAL (free, ovr_obj[i]->data.alloc_backtrace);
+			CALL_REAL (free, ovr_obj[i]);
 		      }
 
 		    __mf_insert_new_object (low, high, __MF_TYPE_GUESS, 
@@ -749,15 +748,15 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		  } 
 		else 
 		  {
-		    VERBOSE_TRACE ("mf: preserving %d regions at %p\n", 
-				   num_overlapping_objs, (void *)low);
+		    VERBOSE_TRACE ("mf: preserving %d regions at %08lx\n", 
+				   num_overlapping_objs, low);
 		  }		
 		END_RECURSION_PROTECT;
 		return;
 	      }
 	    else
 	      {
-		int i;
+		unsigned i;
 		for (i = 0; i < num_overlapping_objs; ++i)
 		  {
 		    if (ovr_obj[i]->data.type == __MF_TYPE_GUESS)
@@ -781,7 +780,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 			guess2_low = CLAMPADD (high, (1 + __mf_opts.crumple_zone));
 			guess2_high = ovr_obj[i]->data.high;
 
-			VERBOSE_TRACE ("mf: splitting guess region %p-%p\n", 
+			VERBOSE_TRACE ("mf: splitting guess region %08lx-%08lx\n", 
 				       guess1_low, guess2_high);
 		    
 			/* NB: split regions may disappear if low > high. */
@@ -848,7 +847,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
   DECLARE (void, free, void *ptr);
   BEGIN_RECURSION_PROTECT;
 
-  TRACE ("mf: unregister p=%p s=%lu\n", (void *)ptr, sz);
+  TRACE ("mf: unregister p=%08lx s=%lu\n", ptr, sz);
 
   switch (__mf_opts.mudflap_mode)
     { 
@@ -868,7 +867,6 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 
     case mode_check:
       {
-	static unsigned recursion = 0;
 	__mf_object_tree_t *old_obj = NULL;
 	__mf_object_tree_t *del_obj = NULL;  /* Object to actually delete. */
 	__mf_object_tree_t *objs[1] = {NULL};
@@ -881,12 +879,12 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 
 	{
 	  /* do not unregister guessed regions */
-	  int i;
+	  unsigned i;
 	  for (i = 0; i < num_overlapping_objs; ++i)
 	    {
 	      if (objs[i]->data.type == __MF_TYPE_GUESS)
 		{
-		  VERBOSE_TRACE ("mf: ignored guess unreg %p\n", objs[i]->data.low);
+		  VERBOSE_TRACE ("mf: ignored guess unreg %08lx\n", objs[i]->data.low);
 		  END_RECURSION_PROTECT;
 		  return;
 		}
@@ -905,7 +903,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	
 	old_obj = objs[0];
 
-	VERBOSE_TRACE ("mf: removing %p-%p\n", old_obj->data.low, old_obj->data.high); 
+	VERBOSE_TRACE ("mf: removing %08lx-%08lx\n",
+		       old_obj->data.low, old_obj->data.high); 
 
 	__mf_remove_old_object (old_obj);
 	
@@ -1323,7 +1322,7 @@ __mf_describe_object (__mf_object_t *obj)
 
   if (__mf_opts.backtrace > 0)
   {
-    int i;
+    unsigned i;
     for (i=0; i<obj->alloc_backtrace_size; i++)
       fprintf (stderr, "      %s\n", obj->alloc_backtrace[i]);
   }
@@ -1337,7 +1336,7 @@ __mf_describe_object (__mf_object_t *obj)
 
 	  if (__mf_opts.backtrace > 0)
 	  {
-	    int i;
+	    unsigned i;
 	    for (i=0; i<obj->dealloc_backtrace_size; i++)
 	      fprintf (stderr, "      %s\n", obj->dealloc_backtrace[i]);
 	  }
@@ -1432,7 +1431,10 @@ __mf_report ()
     }
   if (__mf_opts.print_leaks && (__mf_opts.mudflap_mode == mode_check))
     {
-      unsigned l = __mf_report_leaks (__mf_object_root);
+      unsigned l;
+      /* Free up any remaining alloca()'d blocks.  */
+      (void) CALL_WRAP (alloca, 0); /* XXX: doesn't work in shared mode. */
+      l = __mf_report_leaks (__mf_object_root);
       fprintf (stderr, "number of leaked objects: %u\n", l);
     }
 }
@@ -1448,8 +1450,10 @@ __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
   unsigned remaining_size;
   unsigned omitted_size = 0;
   unsigned i;
+  DECLARE (void, free, void *ptr);
+  DECLARE (void *, calloc, size_t c, size_t n);
 
-  pc_array = alloca (pc_array_size * sizeof (void *));
+  pc_array = CALL_REAL (calloc, pc_array_size, sizeof (void *));
   pc_array_size = backtrace (pc_array, pc_array_size);
 
   /* We want to trim the first few levels of the stack traceback,
@@ -1470,6 +1474,8 @@ __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
   remaining_size = pc_array_size - omitted_size;
 
   *symbols = backtrace_symbols (pc_array + omitted_size, remaining_size);
+  CALL_REAL (free, pc_array);
+
   return remaining_size;
 }
 
@@ -1486,7 +1492,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
   DECLARE(void, free, void *ptr);
   BEGIN_RECURSION_PROTECT;
 
-  TRACE ("mf: violation pc=%p location=%s type=%d ptr=%p size=%lu\n", pc, 
+  TRACE ("mf: violation pc=%08lx location=%s type=%d ptr=%08lx size=%lu\n", pc, 
 	 (location != NULL ? location : ""), type, ptr, sz);
 
   if (__mf_opts.collect_stats)

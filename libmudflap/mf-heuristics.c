@@ -50,7 +50,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
     {
       uintptr_t stack_top_guess = (uintptr_t)__builtin_frame_address(0);
 
-      VERBOSE_TRACE ("mf: stack estimated as %p-%p\n", 
+      VERBOSE_TRACE ("mf: stack estimated as %08lx-%08lx\n", 
 		     stack_top_guess, stack_segment_base);
 
       if (ptr_high <= stack_segment_base &&
@@ -84,8 +84,8 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 		  if ((uintptr_t) low <= ptr &&
 		      (uintptr_t) high >= ptr_high)
 		    {
-		      VERBOSE_TRACE ("mf: registering region %p-%p given %s\n",
-				     low, high, buf);
+		      VERBOSE_TRACE ("mf: registering region %08lx-%08lx given %s\n",
+				     (uintptr_t) low, (uintptr_t) high, buf);
 		      
 		      /* XXX: bad hack; permit __mf_register to do its job.  */
 		      __mf_state = active;

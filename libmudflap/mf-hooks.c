@@ -1,4 +1,5 @@
 /* {{{ Copyright */
+
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
@@ -14,6 +15,7 @@ XXX: libgcc license?
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <execinfo.h>
 #include <assert.h>
@@ -199,9 +201,11 @@ WRAPPER(void, free, void *buf)
 	  base -= __mf_opts.crumple_zone;
 	  if (__mf_opts.trace_mf_calls)
 	    {
-	      fprintf (stderr, "mf: freeing deferred pointer #%d %p = %p - %d\n", 
-		       __mf_opts.free_queue_length, base, 
-		       free_queue [free_ptr], __mf_opts.crumple_zone);
+	      VERBOSE_TRACE ("mf: freeing deferred pointer #%d %08lx = %08lx - %u\n", 
+			     __mf_opts.free_queue_length, 
+			     (uintptr_t) base,
+			     (uintptr_t) free_queue [free_ptr],
+			     __mf_opts.crumple_zone);
 	    }
 	  CALL_REAL(free, base);
 	}
@@ -215,8 +219,10 @@ WRAPPER(void, free, void *buf)
       base -= __mf_opts.crumple_zone;
       if (__mf_opts.trace_mf_calls)
 	{
-	  fprintf (stderr, "mf: freeing pointer %p = %p - %d\n", base, 
-		   buf, __mf_opts.crumple_zone);
+	  VERBOSE_TRACE ("mf: freeing pointer %08lx = %08lx - %u\n",
+			 (uintptr_t) base, 
+			 (uintptr_t) buf, 
+			 __mf_opts.crumple_zone);
 	}
       CALL_REAL(free, base);
     }
@@ -283,8 +289,77 @@ WRAPPER(int , munmap, void *start, size_t length)
 
   __mf_state = old_state;
   __mf_unregister ((uintptr_t)start, length);
+  return result;
 }
 #endif
+
+
+/* This wrapper is a little different, as it's implemented in terms
+   of the wrapped malloc/free functions. */
+#ifdef WRAP_alloca
+WRAPPER(void *, alloca, size_t c)
+{
+  DECLARE (void *, malloc, size_t);
+  DECLARE (void, free, void *);
+
+  /* This struct, a linked list, tracks alloca'd objects.  The newest
+     object is at the head of the list.  If we detect that we've
+     popped a few levels of stack, then the listed objects are freed
+     as needed.  NB: The tracking struct is allocated with
+     real_malloc; the user data with wrap_malloc.
+  */
+  struct alloca_tracking { void *ptr; void *stack; struct alloca_tracking* next; };
+  static struct alloca_tracking *alloca_history = NULL;
+
+  void *stack = __builtin_frame_address (0);
+  char *result;
+  struct alloca_tracking *track;
+
+  TRACE_IN;
+  VERBOSE_TRACE ("mf: alloca stack level %08lx\n", (uintptr_t) stack);
+
+  /* Free any previously alloca'd blocks that belong to deeper-nested functions,
+     which must therefore have exited by now.  */
+#define INNER_THAN < /* for x86 */
+  while (alloca_history &&
+	 ((uintptr_t) stack INNER_THAN (uintptr_t) alloca_history->stack))
+    {
+      struct alloca_tracking *next = alloca_history->next;
+      CALL_WRAP (free, alloca_history->ptr);
+      CALL_REAL (free, alloca_history);
+      alloca_history = next;
+    }
+
+  /* Allocate new block.  */
+  result = NULL;
+  if (LIKELY (c > 0)) /* alloca(0) causes no allocation.  */
+    {
+      track = (struct alloca_tracking *) CALL_REAL (malloc, 
+						    sizeof (struct alloca_tracking));
+      if (LIKELY (track != NULL))
+	{
+	  result = (char *) CALL_WRAP (malloc, c);
+	  if (UNLIKELY (result == NULL))
+	    {
+	      CALL_REAL (free, track);
+	      /* Too bad.  XXX: What about errno?  */
+	    }
+	  else
+	    {
+	      track->ptr = result;
+	      track->stack = stack;
+	      track->next = alloca_history;
+	      alloca_history = track;
+	    }
+	}
+    }
+  
+  TRACE_OUT;
+  return result;
+}
+#endif
+
+
 
 /* }}} */
 /* {{{ str*,mem*,b* */
@@ -356,16 +431,16 @@ WRAPPER(void *, memrchr, const void *s, int c, size_t n)
 #ifdef WRAP_strcpy
 WRAPPER(char *, strcpy, char *dest, const char *src)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(char *, strcpy, char *dest, const char *src);
-  int n;
+  size_t n;
 
   /* nb: just because strlen(src) == n doesn't mean (src + n) or (src + n +
      1) are valid pointers. the allocated object might have size < n.
      check anyways. */
 
   BEGIN_PROTECT(char *, strcpy, dest, src); 
-  TRACE("mf: strcpy %p -> %p\n", src, dest);
+  TRACE("mf: strcpy %08lx -> %08lx\n", (uintptr_t) src, (uintptr_t) dest);
   n = CALL_REAL(strlen, src);
   MF_VALIDATE_EXTENT(src, CLAMPADD(n, 1), "strcpy src"); 
   MF_VALIDATE_EXTENT(dest, CLAMPADD(n, 1), "strcpy dest");
@@ -376,12 +451,12 @@ WRAPPER(char *, strcpy, char *dest, const char *src)
 #ifdef WRAP_strncpy
 WRAPPER(char *, strncpy, char *dest, const char *src, size_t n)
 {
-  DECLARE(int, strnlen, const char *s, size_t n);
+  DECLARE(size_t, strnlen, const char *s, size_t n);
   DECLARE(char *, strncpy, char *dest, const char *src, size_t n);
-  int len;
+  size_t len;
 
   BEGIN_PROTECT(char *, strncpy, dest, src, n);
-  TRACE("mf: strncpy %d chars %p -> %p\n", n, src, dest);
+  TRACE("mf: strncpy %08lx -> %08lx\n", (uintptr_t) src, (uintptr_t) dest);
   len = CALL_REAL(strnlen, src, n);
   MF_VALIDATE_EXTENT(src, len, "strncpy src");
   MF_VALIDATE_EXTENT(dest, len, "strncpy dest"); /* nb: strNcpy */
@@ -392,10 +467,10 @@ WRAPPER(char *, strncpy, char *dest, const char *src, size_t n)
 #ifdef WRAP_strcat
 WRAPPER(char *, strcat, char *dest, const char *src)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(char *, strcat, char *dest, const char *src);
-  int dest_sz;
-  int src_sz;
+  size_t dest_sz;
+  size_t src_sz;
 
   BEGIN_PROTECT(char *, strcat, dest, src);
   dest_sz = CALL_REAL(strlen, dest);
@@ -430,10 +505,10 @@ WRAPPER(char *, strncat, char *dest, const char *src, size_t n)
   this same logic applies to further uses of strnlen later down in this
   file. */
 
-  DECLARE(int, strnlen, const char *s, size_t n);
+  DECLARE(size_t, strnlen, const char *s, size_t n);
   DECLARE(char *, strncat, char *dest, const char *src, size_t n);
-  int src_sz;
-  int dest_sz;
+  size_t src_sz;
+  size_t dest_sz;
 
   BEGIN_PROTECT(char *, strncat, dest, src, n);
   src_sz = CALL_REAL(strnlen, src, n);
@@ -448,10 +523,10 @@ WRAPPER(char *, strncat, char *dest, const char *src, size_t n)
 #ifdef WRAP_strcmp
 WRAPPER(int, strcmp, const char *s1, const char *s2)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(int, strcmp, const char *s1, const char *s2);
-  int s1_sz;
-  int s2_sz;
+  size_t s1_sz;
+  size_t s2_sz;
 
   BEGIN_PROTECT(int, strcmp, s1, s2);
   s1_sz = CALL_REAL(strlen, s1);
@@ -465,10 +540,10 @@ WRAPPER(int, strcmp, const char *s1, const char *s2)
 #ifdef WRAP_strcasecmp
 WRAPPER(int, strcasecmp, const char *s1, const char *s2)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(int, strcasecmp, const char *s1, const char *s2);
-  int s1_sz;
-  int s2_sz;
+  size_t s1_sz;
+  size_t s2_sz;
 
   BEGIN_PROTECT(int, strcasecmp, s1, s2);
   s1_sz = CALL_REAL(strlen, s1);
@@ -482,10 +557,10 @@ WRAPPER(int, strcasecmp, const char *s1, const char *s2)
 #ifdef WRAP_strncmp
 WRAPPER(int, strncmp, const char *s1, const char *s2, size_t n)
 {
-  DECLARE(int, strnlen, const char *s, size_t n);
+  DECLARE(size_t, strnlen, const char *s, size_t n);
   DECLARE(int, strncmp, const char *s1, const char *s2, size_t n);
-  int s1_sz;
-  int s2_sz;
+  size_t s1_sz;
+  size_t s2_sz;
 
   BEGIN_PROTECT(int, strncmp, s1, s2, n);
   s1_sz = CALL_REAL(strnlen, s1, n);
@@ -499,10 +574,10 @@ WRAPPER(int, strncmp, const char *s1, const char *s2, size_t n)
 #ifdef WRAP_strncasecmp
 WRAPPER(int, strncasecmp, const char *s1, const char *s2, size_t n)
 {
-  DECLARE(int, strnlen, const char *s, size_t n);
+  DECLARE(size_t, strnlen, const char *s, size_t n);
   DECLARE(int, strncasecmp, const char *s1, const char *s2, size_t n);
-  int s1_sz;
-  int s2_sz;
+  size_t s1_sz;
+  size_t s2_sz;
 
   BEGIN_PROTECT(int, strncasecmp, s1, s2, n);
   s1_sz = CALL_REAL(strnlen, s1, n);
@@ -516,11 +591,11 @@ WRAPPER(int, strncasecmp, const char *s1, const char *s2, size_t n)
 #ifdef WRAP_strdup
 WRAPPER(char *, strdup, const char *s)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(char *, strdup, const char *s);
   DECLARE(void *, malloc, size_t sz);
   DECLARE(void *, memcpy, void *dest, const void *src, size_t n);
-  int n;
+  size_t n;
 
   BEGIN_PROTECT(char *, strdup, s);
   n = CALL_REAL(strlen, s);
@@ -553,11 +628,11 @@ WRAPPER(char *, strdup, const char *s)
 #ifdef WRAP_strndup
 WRAPPER(char *, strndup, const char *s, size_t n)
 {
-  DECLARE(int, strnlen, const char *s, size_t n);
+  DECLARE(size_t, strnlen, const char *s, size_t n);
   DECLARE(char *, strndup, const char *s, size_t n);
   DECLARE(void *, malloc, size_t sz);
   DECLARE(void *, memcpy, void *dest, const void *src, size_t n);
-  int sz;
+  size_t sz;
 
   BEGIN_PROTECT(char *, strndup, s, n);
   sz = CALL_REAL(strnlen, s, n);
@@ -591,9 +666,9 @@ WRAPPER(char *, strndup, const char *s, size_t n)
 #ifdef WRAP_strchr
 WRAPPER(char *, strchr, const char *s, int c)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(char *, strchr, const char *s, int c);
-  int n;
+  size_t n;
 
   BEGIN_PROTECT(char *, strchr, s, c);
   n = CALL_REAL(strlen, s);
@@ -605,9 +680,9 @@ WRAPPER(char *, strchr, const char *s, int c)
 #ifdef WRAP_strrchr
 WRAPPER(char *, strrchr, const char *s, int c)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(char *, strrchr, const char *s, int c);
-  int n;
+  size_t n;
 
   BEGIN_PROTECT(char *, strrchr, s, c);
   n = CALL_REAL(strlen, s);
@@ -619,10 +694,10 @@ WRAPPER(char *, strrchr, const char *s, int c)
 #ifdef WRAP_strstr
 WRAPPER(char *, strstr, const char *haystack, const char *needle)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(char *, strstr, const char *haystack, const char *needle);
-  int haystack_sz;
-  int needle_sz;
+  size_t haystack_sz;
+  size_t needle_sz;
 
   BEGIN_PROTECT(char *, strstr, haystack, needle);
   haystack_sz = CALL_REAL(strlen, haystack);
@@ -649,11 +724,11 @@ WRAPPER(void *, memmem,
 #endif
 
 #ifdef WRAP_strlen
-WRAPPER(int, strlen, const char *s)
+WRAPPER(size_t, strlen, const char *s)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
 
-  BEGIN_PROTECT(int, strlen, s);
+  BEGIN_PROTECT(size_t, strlen, s);
   result = CALL_REAL(strlen, s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(result, 1), "strlen region");
   __mf_state = old_state;
@@ -663,11 +738,11 @@ WRAPPER(int, strlen, const char *s)
 #endif
 
 #ifdef WRAP_strnlen
-WRAPPER(int, strnlen, const char *s, size_t n)
+WRAPPER(size_t, strnlen, const char *s, size_t n)
 {
-  DECLARE(int, strnlen, const char *s, size_t n);
+  DECLARE(size_t, strnlen, const char *s, size_t n);
 
-  BEGIN_PROTECT(int, strnlen, s, n);
+  BEGIN_PROTECT(size_t, strnlen, s, n);
   result = CALL_REAL(strnlen, s, n);
   MF_VALIDATE_EXTENT(s, result, "strnlen region");
   __mf_state = old_state;
@@ -734,9 +809,9 @@ WRAPPER(int, bcmp, const void *s1, const void *s2, size_t n)
 #ifdef WRAP_index
 WRAPPER(char *, index, const char *s, int c)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(char *, index, const char *s, int c);
-  int n;
+  size_t n;
 
   BEGIN_PROTECT(char *, index, s, c);
   n = CALL_REAL(strlen, s);
@@ -748,9 +823,9 @@ WRAPPER(char *, index, const char *s, int c)
 #ifdef WRAP_rindex
 WRAPPER(char *, rindex, const char *s, int c)
 {
-  DECLARE(int, strlen, const char *s);
+  DECLARE(size_t, strlen, const char *s);
   DECLARE(char *, rindex, const char *s, int c);
-  int n;
+  size_t n;
 
   BEGIN_PROTECT(char *, rindex, s, c);
   n = CALL_REAL(strlen, s);

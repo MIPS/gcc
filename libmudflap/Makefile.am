@@ -42,10 +42,8 @@ $(TESTS): $(lib_LTLIBRARIES)
 # Cross compiler and multilib support.
 lib_LTLIBRARIES = libmudflap.la
 
-# Compile flags that should be constant throughout the build, both for
-# SUBDIRS and for libmudflap in general.
 CFLAGS = -O2 -g -freorder-blocks
-WARN_CFLAGS = $(WERROR) -fdiagnostics-show-location=once
+AM_CFLAGS = -fno-builtin -fno-builtin-alloca -ansi -Wall -D__NO_STRING_INLINES
 
 # Use common includes from acinclude.m4/LIBMUDFLAP_EXPORT_INCLUDES
 LIBMUDFLAP_INCLUDES =
@@ -93,9 +91,11 @@ HOOKOBJS = \
  rindex-hook.lo \
  dlopen-hook.lo \
  mmap-hook.lo \
- munmap-hook.lo
+ munmap-hook.lo \
+ alloca-hook.lo
 
 
+.NOTPARALLEL:
 $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
 	set -e; \
 	for i in $(HOOKOBJS); do \

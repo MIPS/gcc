@@ -558,7 +558,7 @@ proper position among the other output files.  */
  --wrap=strdup --wrap=strndup --wrap=strchr --wrap=strrchr\
  --wrap=strstr --wrap=memmem --wrap=strlen --wrap=strnlen\
  --wrap=bzero --wrap=bcopy --wrap=bcmp --wrap=index --wrap=rindex\
- --wrap=dlopen --wrap=mmap --wrap=munmap\
+ --wrap=dlopen --wrap=mmap --wrap=munmap --wrap=alloca\
 }}"
 #endif
 #ifndef MFLIB_SPEC

@@ -1,3 +1,23 @@
+2002-09-03  Frank Ch. Eigler  <fche@redhat.com>
+
+	alloca support:
+	* Makefile.am (AM_CFLAGS): New definition of needed settings.
+	(HOOKOBJS): Add alloca-hook.o.
+	* mf-hooks.c (alloca): New function to implement alloca in libiberty
+	style.
+	* mf-runtime.c (__mf_report): Call alloca(0) to flush remaining blocks.
+	(__mf_backtrace): Reimplement without using alloca.
+	* Makefile.in: Regenerated.
+
+	cleanup:
+	* mf-hooks.c: Use VERBOSE_TRACE throughout instead of fprintf(stderr).
+	Correct signedness bugs in length-tracking variables.
+	* mf-impl.h: Make options unsigned.
+	(CALL_WRAP): New macro to parallel CALL_REAL().
+	(DECLARE): Remove erroneous ";" at end.
+	* mf-runtime.c, mf-hooks.c, mf-heuristics.c: Replace remaining %p
+	formatting specs with %08lx.  Correct several compiler warnings.
+
 2002-08-28  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-runtime.c (__mf_violation): Try harder to locate nearby objects.

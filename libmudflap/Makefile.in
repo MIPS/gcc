@@ -94,10 +94,8 @@ TESTS = test/fail1.x test/fail10.x test/fail11.x test/fail12.x				 test/fail13.x
 # Cross compiler and multilib support.
 lib_LTLIBRARIES = libmudflap.la
 
-# Compile flags that should be constant throughout the build, both for
-# SUBDIRS and for libmudflap in general.
 CFLAGS = -O2 -g -freorder-blocks
-WARN_CFLAGS = $(WERROR) -fdiagnostics-show-location=once
+AM_CFLAGS = -fno-builtin -fno-builtin-alloca -ansi -Wall -D__NO_STRING_INLINES
 
 # Use common includes from acinclude.m4/LIBMUDFLAP_EXPORT_INCLUDES
 LIBMUDFLAP_INCLUDES = 
@@ -106,7 +104,7 @@ TOPLEVEL_INCLUDES =
 libmudflap_la_SOURCES =  	mf-runtime.c 	mf-heuristics.c
 
 
-HOOKOBJS =   malloc-hook.lo  free-hook.lo  calloc-hook.lo  realloc-hook.lo  memcpy-hook.lo  memmove-hook.lo  memset-hook.lo  memcmp-hook.lo  memchr-hook.lo  memrchr-hook.lo  strcpy-hook.lo  strncpy-hook.lo  strcat-hook.lo  strncat-hook.lo  strcmp-hook.lo  strcasecmp-hook.lo  strncmp-hook.lo  strncasecmp-hook.lo  strdup-hook.lo  strndup-hook.lo  strchr-hook.lo  strrchr-hook.lo  strstr-hook.lo  memmem-hook.lo  strlen-hook.lo  strnlen-hook.lo  bzero-hook.lo  bcopy-hook.lo  bcmp-hook.lo  index-hook.lo  rindex-hook.lo  dlopen-hook.lo  mmap-hook.lo  munmap-hook.lo
+HOOKOBJS =   malloc-hook.lo  free-hook.lo  calloc-hook.lo  realloc-hook.lo  memcpy-hook.lo  memmove-hook.lo  memset-hook.lo  memcmp-hook.lo  memchr-hook.lo  memrchr-hook.lo  strcpy-hook.lo  strncpy-hook.lo  strcat-hook.lo  strncat-hook.lo  strcmp-hook.lo  strcasecmp-hook.lo  strncmp-hook.lo  strncasecmp-hook.lo  strdup-hook.lo  strndup-hook.lo  strchr-hook.lo  strrchr-hook.lo  strstr-hook.lo  memmem-hook.lo  strlen-hook.lo  strnlen-hook.lo  bzero-hook.lo  bcopy-hook.lo  bcmp-hook.lo  index-hook.lo  rindex-hook.lo  dlopen-hook.lo  mmap-hook.lo  munmap-hook.lo  alloca-hook.lo
 
 
 libmudflap_la_LDFLAGS = 
@@ -463,6 +461,7 @@ mf-runtime.o: mf-runtime.h mf-impl.h
 mf-hooks.o: mf-runtime.h mf-impl.h
 mf-heuristics.o: mf-runtime.h mf-impl.h
 
+.NOTPARALLEL:
 $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
 	set -e; \
 	for i in $(HOOKOBJS); do \
