@@ -1,3 +1,10 @@
+2005-02-09  Tom Tromey  <tromey@redhat.com>
+
+	* tree.cc (visit_for): Wrap body in a LOOP_EXPR.
+
+	* abi.cc (build_method_call): Wrap object in NOP_EXPR before
+	finding "vtable" field.
+
 2005-02-08  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (visit_for): Use LABEL_EXPRs as statements.  Set

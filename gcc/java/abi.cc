@@ -94,7 +94,8 @@ cxx_abi::build_method_call (tree_builtins *builtins,
       obj = builtins->check_reference (obj);
 
       // Find the vtable by looking for the 'vtable' field.
-      tree dtable = build1 (INDIRECT_REF, type_object, obj);
+      tree dtable = build1 (INDIRECT_REF, type_object,
+			    build1 (NOP_EXPR, type_object_ptr, obj));
       dtable = build3 (COMPONENT_REF, type_dtable_ptr,
 		       dtable,
 		       builtins->find_decl (type_object, "vtable"),

@@ -556,35 +556,44 @@ tree_generator::visit_for (model_for *fstmt,
   save_tree saver (current_block, make_node (BLOCK));
   BLOCK_SUPERCONTEXT (current_block) = saver.get ();
 
-  tree body_tree = alloc_stmt_list ();
-  tree_stmt_iterator out = tsi_start (body_tree);
+  tree result = alloc_stmt_list ();
+  tree_stmt_iterator result_out = tsi_start (result);
 
   if (init)
     {
       init->visit (this);
-      tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
+      tsi_link_after (&result_out, current, TSI_CONTINUE_LINKING);
     }
+
+  // The body of the loop, including the condition and the update.
+  tree body_tree = alloc_stmt_list ();
+  tree_stmt_iterator body_out = tsi_start (body_tree);
   if (cond)
     {
       cond->visit (this);
-      tsi_link_after (&out, build1 (EXIT_EXPR, void_type_node,
-				    build1 (TRUTH_NOT_EXPR,
-					    type_jboolean,
-					    current)),
+      tsi_link_after (&body_out, build1 (EXIT_EXPR, void_type_node,
+					 build1 (TRUTH_NOT_EXPR,
+						 type_jboolean,
+						 current)),
 		      TSI_CONTINUE_LINKING);
     }
   body->visit (this);
-  tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
+  tsi_link_after (&body_out, current, TSI_CONTINUE_LINKING);
 
-  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, update_tree),
+  tsi_link_after (&body_out, build1 (LABEL_EXPR, void_type_node, update_tree),
 		  TSI_CONTINUE_LINKING);
   if (update)
     {
       update->visit (this);
-      tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
+      tsi_link_after (&body_out, current, TSI_CONTINUE_LINKING);
     }
 
-  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, done_tree),
+  // Now wrap the body in a loop and link it into the outer statement
+  // list.
+  body_tree = build1 (LOOP_EXPR, void_type_node, body_tree);
+  tsi_link_after (&result_out, body_tree, TSI_CONTINUE_LINKING);
+
+  tsi_link_after (&result_out, build1 (LABEL_EXPR, void_type_node, done_tree),
 		  TSI_CONTINUE_LINKING);
 
   current = build3 (BIND_EXPR, void_type_node,
