@@ -1,6 +1,7 @@
 /* Definitions for parsing and type checking for the GNU compiler for
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -60,9 +61,11 @@ struct JCF;
       RESOLVE_PACKAGE_NAME_P (in EXPR_WITH_FILE_LOCATION)
       SWITCH_HAS_DEFAULT (in SWITCH_EXPR)
       ZIP_FILE_P (in TREE_LIST in current_file_list)
+      HAS_FINALIZER (in RECORD_TYPE)
    4: IS_A_COMMAND_LINE_FILENAME_P (in IDENTIFIER_NODE)
       RESOLVE_TYPE_NAME_P (in EXPR_WITH_FILE_LOCATION)
       CALL_USING_SUPER (in CALL_EXPR)
+      IS_ARRAY_LENGTH_ACCESS (in INDIRECT_REF)
    5: HAS_BEEN_ALREADY_PARSED_P (in IDENTIFIER_NODE)
       IS_BREAK_STMT_P (in EXPR_WITH_FILE_LOCATION)
       IS_CRAFTED_STRING_BUFFER_P (in CALL_EXPR)
@@ -92,6 +95,7 @@ struct JCF;
    3: METHOD_FINAL (in FUNCTION_DECL)
       FIELD_FINAL (in FIELD_DECL)
       CLASS_FINAL (in TYPE_DECL)
+      DECL_FINAL (in any decl)
    4: METHOD_SYNCHRONIZED (in FUNCTION_DECL).
       LABEL_IN_SUBR (in LABEL_DECL)
       CLASS_INTERFACE (in TYPE_DECL)
@@ -138,6 +142,18 @@ extern int compiling_from_source;
 /* List of all class filenames seen so far.  */
 #define all_class_filename java_global_trees [JTI_ALL_CLASS_FILENAME]
 
+/* List of virtual method decls called in this translation unit, used to 
+   generate virtual method offset symbol table. */
+#define otable_methods java_global_trees [JTI_OTABLE_METHODS]
+
+/* The virtual method offset table. This is emitted as uninitialized data of 
+   the required length, and filled out at run time during class linking. */
+#define otable_decl java_global_trees [JTI_OTABLE_DECL]
+
+/* The virtual method offset symbol table. Used by the runtime to fill out the
+   otable. */
+#define otable_syms_decl java_global_trees [JTI_OTABLE_SYMS_DECL]
+
 extern int flag_emit_class_files;
 
 extern int flag_filelist_file;
@@ -163,6 +179,9 @@ extern int flag_emit_xref;
 /* When doing xrefs, tell when not to fold.   */
 extern int do_not_fold;
 
+/* Resource name.  */
+extern char * resource_name;
+
 /* Turned to 1 if -Wall was encountered. See lang.c for their meanings.  */
 extern int flag_wall;
 extern int flag_redundant;
@@ -185,6 +204,17 @@ extern int flag_hash_synchronization;
 
 /* When non zero, generate checks for references to NULL.  */
 extern int flag_check_references;
+
+/* Used through STATIC_CLASS_INIT_OPT_P to check whether static
+   initialization optimization should be performed.  */
+extern int flag_optimize_sci;
+
+/* When non zero, use offset tables for virtual method calls
+   in order to improve binary compatibility. */
+extern int flag_indirect_dispatch;
+
+/* When zero, don't generate runtime array store checks. */
+extern int flag_store_check;
 
 /* Encoding used for source files.  */
 extern const char *current_encoding;
@@ -247,9 +277,12 @@ enum java_tree_index
   JTI_STRING_TYPE_NODE,
   JTI_STRING_PTR_TYPE_NODE,
   JTI_THROWABLE_TYPE_NODE,
+  JTI_EXCEPTION_TYPE_NODE,
   JTI_RUNTIME_EXCEPTION_TYPE_NODE,
   JTI_ERROR_EXCEPTION_TYPE_NODE,
   JTI_RAWDATA_PTR_TYPE_NODE,
+  JTI_CLASS_NOT_FOUND_TYPE_NODE,
+  JTI_NO_CLASS_DEF_FOUND_TYPE_NODE,
 
   JTI_BYTE_ARRAY_TYPE_NODE,
   JTI_SHORT_ARRAY_TYPE_NODE,
@@ -274,9 +307,10 @@ enum java_tree_index
   JTI_INIT_IDENTIFIER_NODE,      
   JTI_CLINIT_IDENTIFIER_NODE,      
   JTI_FINIT_IDENTIFIER_NODE,      
-  JTI_FINIT_LEG_IDENTIFIER_NODE,  
+  JTI_INSTINIT_IDENTIFIER_NODE,
   JTI_VOID_SIGNATURE_NODE,       
   JTI_LENGTH_IDENTIFIER_NODE,  
+  JTI_FINALIZE_IDENTIFIER_NODE,
   JTI_THIS_IDENTIFIER_NODE,  
   JTI_SUPER_IDENTIFIER_NODE,  
   JTI_CONTINUE_IDENTIFIER_NODE,  
@@ -316,11 +350,17 @@ enum java_tree_index
   JTI_LINENUMBERS_TYPE,
   JTI_METHOD_TYPE_NODE,
   JTI_METHOD_PTR_TYPE_NODE,
+  JTI_OTABLE_TYPE,
+  JTI_OTABLE_PTR_TYPE,
+  JTI_METHOD_SYMBOL_TYPE,
+  JTI_METHOD_SYMBOLS_ARRAY_TYPE,
+  JTI_METHOD_SYMBOLS_ARRAY_PTR_TYPE,
 
   JTI_END_PARAMS_NODE,
 
   JTI_THROW_NODE,
   JTI_ALLOC_OBJECT_NODE,
+  JTI_ALLOC_NO_FINALIZER_NODE,
   JTI_SOFT_INSTANCEOF_NODE,
   JTI_SOFT_CHECKCAST_NODE,
   JTI_SOFT_INITCLASS_NODE,
@@ -353,6 +393,12 @@ enum java_tree_index
   JTI_CURRENT_CLASS,
   JTI_ALL_CLASS_LIST,
   JTI_ALL_CLASS_FILENAME,
+
+  JTI_OTABLE_METHODS,
+  JTI_OTABLE_DECL,
+  JTI_OTABLE_SYMS_DECL,
+
+  JTI_PREDEF_FILENAMES,
 
   JTI_MAX
 };
@@ -404,12 +450,18 @@ extern tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_STRING_PTR_TYPE_NODE]
 #define throwable_type_node \
   java_global_trees[JTI_THROWABLE_TYPE_NODE]
+#define exception_type_node \
+  java_global_trees[JTI_EXCEPTION_TYPE_NODE]
 #define runtime_exception_type_node \
   java_global_trees[JTI_RUNTIME_EXCEPTION_TYPE_NODE]
 #define error_exception_type_node \
   java_global_trees[JTI_ERROR_EXCEPTION_TYPE_NODE]
 #define rawdata_ptr_type_node \
   java_global_trees[JTI_RAWDATA_PTR_TYPE_NODE]
+#define class_not_found_type_node \
+  java_global_trees[JTI_CLASS_NOT_FOUND_TYPE_NODE]
+#define no_class_def_found_type_node \
+  java_global_trees[JTI_NO_CLASS_DEF_FOUND_TYPE_NODE]
 
 #define byte_array_type_node \
   java_global_trees[JTI_BYTE_ARRAY_TYPE_NODE]
@@ -457,12 +509,15 @@ extern tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_CLINIT_IDENTIFIER_NODE]      /* "<clinit>" */
 #define finit_identifier_node \
   java_global_trees[JTI_FINIT_IDENTIFIER_NODE]      /* "finit$" */
-#define finit_leg_identifier_node \
-  java_global_trees[JTI_FINIT_LEG_IDENTIFIER_NODE]  /* "$finit$" */
+/* FIXME "instinit$" and "finit$" should be merged  */
+#define instinit_identifier_node \
+  java_global_trees[JTI_INSTINIT_IDENTIFIER_NODE]  /* "instinit$" */
 #define void_signature_node \
   java_global_trees[JTI_VOID_SIGNATURE_NODE]       /* "()V" */
 #define length_identifier_node \
   java_global_trees[JTI_LENGTH_IDENTIFIER_NODE]  /* "length" */
+#define finalize_identifier_node \
+  java_global_trees[JTI_FINALIZE_IDENTIFIER_NODE]  /* "finalize" */
 #define this_identifier_node \
   java_global_trees[JTI_THIS_IDENTIFIER_NODE]  /* "this" */
 #define super_identifier_node \
@@ -538,6 +593,16 @@ extern tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_METHOD_TYPE_NODE]
 #define method_ptr_type_node \
   java_global_trees[JTI_METHOD_PTR_TYPE_NODE]
+#define otable_type \
+  java_global_trees[JTI_OTABLE_TYPE]
+#define otable_ptr_type \
+  java_global_trees[JTI_OTABLE_PTR_TYPE]
+#define method_symbol_type \
+  java_global_trees[JTI_METHOD_SYMBOL_TYPE]
+#define method_symbols_array_type \
+  java_global_trees[JTI_METHOD_SYMBOLS_ARRAY_TYPE]
+#define method_symbols_array_ptr_type \
+  java_global_trees[JTI_METHOD_SYMBOLS_ARRAY_PTR_TYPE]
 
 #define end_params_node \
   java_global_trees[JTI_END_PARAMS_NODE]
@@ -547,6 +612,8 @@ extern tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_THROW_NODE]
 #define alloc_object_node \
   java_global_trees[JTI_ALLOC_OBJECT_NODE]
+#define alloc_no_finalizer_node \
+  java_global_trees[JTI_ALLOC_NO_FINALIZER_NODE]
 #define soft_instanceof_node \
   java_global_trees[JTI_SOFT_INSTANCEOF_NODE]
 #define soft_checkcast_node \
@@ -594,8 +661,8 @@ extern tree java_global_trees[JTI_MAX];
 #define nativecode_ptr_array_type_node \
   java_global_trees[JTI_NATIVECODE_PTR_ARRAY_TYPE_NODE]
 
-#define PREDEF_FILENAMES_SIZE 7
-extern tree predef_filenames[PREDEF_FILENAMES_SIZE];
+#define predef_filenames \
+  java_global_trees[JTI_PREDEF_FILENAMES]
 
 #define nativecode_ptr_type_node ptr_type_node
 
@@ -622,7 +689,7 @@ struct lang_identifier
 };
 
 /* Macros for access to language-specific slots in an identifier.  */
-/* UNless specifide, each of these slots contains a DECL node or null.  */
+/* Unless specified, each of these slots contains a DECL node or null.  */
 
 /* This represents the value which the identifier has in the
    file-scope namespace.  */
@@ -704,6 +771,19 @@ struct lang_identifier
    class has been initialized in this function, and FALSE otherwise.  */
 #define DECL_FUNCTION_INIT_TEST_TABLE(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->init_test_table)
+/* If LOCAL_CLASS_INITIALIZATION_FLAG_P(decl), give class it initializes. */
+#define DECL_FUNCTION_INIT_TEST_CLASS(DECL) \
+  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(DECL))->slot_chain)
+/* For each static function decl, itc contains a hash table whose
+   entries are keyed on class named that are definitively initialized
+   in DECL.  */
+#define DECL_FUNCTION_INITIALIZED_CLASS_TABLE(DECL) \
+  (DECL_LANG_SPECIFIC(DECL)->ict)
+/* A list of all the static method calls in the method DECL (if optimizing).
+   Actually each TREE_VALUE points to a COMPONT_EXPR that wraps the
+   invoation so we can later patch it. */
+#define DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND(DECL) \
+  (DECL_LANG_SPECIFIC(DECL)->smic)
 /* The Number of Artificial Parameters (NAP) DECL contains. this$<n>
    is excluded, because sometimes created as a parameter before the
    function decl exists. */
@@ -711,10 +791,10 @@ struct lang_identifier
 /* True if DECL is a synthetic ctor.  */
 #define DECL_FUNCTION_SYNTHETIC_CTOR(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->synthetic_ctor)
-/* True if DECL initializes all its finals */
-#define DECL_FUNCTION_ALL_FINAL_INITIALIZED(DECL) \
-  (DECL_LANG_SPECIFIC(DECL)->init_final)
 #define DECL_FIXED_CONSTRUCTOR_P(DECL) (DECL_LANG_SPECIFIC(DECL)->fixed_ctor)
+
+/* A constructor that calls this. */
+#define DECL_INIT_CALLS_THIS(DECL) (DECL_LANG_SPECIFIC(DECL)->init_calls_this)
 
 /* True when DECL aliases an outer context local variable.  */
 #define FIELD_LOCAL_ALIAS(DECL) DECL_LANG_FLAG_6 (DECL)
@@ -795,31 +875,27 @@ struct lang_identifier
 /* Safely tests whether FIELD_INNER_ACCESS exists or not. */
 #define FIELD_INNER_ACCESS_P(DECL) \
   DECL_LANG_SPECIFIC (DECL) && FIELD_INNER_ACCESS (DECL)
-/* True if a final variable was initialized upon its declaration. */
+/* True if a final variable was initialized upon its declaration,
+   or (if a field) in an initializer.  Set after definite assignment. */
 #define DECL_FIELD_FINAL_IUD(NODE) \
   (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->final_iud)
-/* Set to true if a final variable is seen locally initialized on a
-   ctor. */
-#define DECL_FIELD_FINAL_LIIC(NODE) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->final_liic)
-/* Set to true if an initialization error was already found with this
-   final variable. */
-#define DECL_FIELD_FINAL_IERR(NODE) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->final_ierr)
 /* The original WFL of a final variable. */
 #define DECL_FIELD_FINAL_WFL(NODE) \
   (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->wfl)
-/* True if NODE is a local final (as opposed to a final variable.)
-   This macro accesses the flag to read or set it. */
-#define LOCAL_FINAL(NODE) \
-  (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->local_final)
-/* True if NODE is a local final. */
-#define LOCAL_FINAL_P(NODE) (DECL_LANG_SPECIFIC (NODE) && LOCAL_FINAL (NODE))
-/* True if NODE is a final variable */
+/* True if NODE is a local variable final. */
+#define LOCAL_FINAL_P(NODE) (DECL_LANG_SPECIFIC (NODE) && DECL_FINAL (NODE))
+/* True if NODE is a final field. */
 #define FINAL_VARIABLE_P(NODE) (FIELD_FINAL (NODE) && !FIELD_STATIC (NODE))
-/* True if NODE is a class final variable */
+/* True if NODE is a class final field. */
 #define CLASS_FINAL_VARIABLE_P(NODE) \
   (FIELD_FINAL (NODE) && FIELD_STATIC (NODE))
+/* True if NODE is a class initialization flag. This macro accesses
+   the flag to read or set it.  */
+#define LOCAL_CLASS_INITIALIZATION_FLAG(NODE) \
+    (((struct lang_decl_var*)DECL_LANG_SPECIFIC(NODE))->cif)
+/* True if NODE is a class initialization flag. */
+#define LOCAL_CLASS_INITIALIZATION_FLAG_P(NODE) \
+    (DECL_LANG_SPECIFIC (NODE) && LOCAL_CLASS_INITIALIZATION_FLAG(NODE))
 /* Create a DECL_LANG_SPECIFIC if necessary. */
 #define MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC(T)			\
   if (DECL_LANG_SPECIFIC (T) == NULL)				\
@@ -838,8 +914,9 @@ struct lang_identifier
 
 /* For a local VAR_DECL, holds the index into a words bitstring that
    specifies if this decl is definitively assigned.
-   A DECL_BIT_INDEX of -1 means we no longer care. */
-#define DECL_BIT_INDEX(DECL) (DECL_CHECK (DECL)->decl.u2.i)
+   The value -1 means the variable has been definitely assigned (and not
+   definitely unassigned).  The value -2 means we already reported an error. */
+#define DECL_BIT_INDEX(DECL) (DECL_CHECK (DECL)->decl.pointer_alias_set)
 
 /* DECL_LANG_SPECIFIC for FUNCTION_DECLs. */
 struct lang_decl
@@ -858,13 +935,17 @@ struct lang_decl
 				   list of other constructor it calls */
   struct hash_table init_test_table;
 				/* Class initialization test variables  */
+  struct hash_table ict;	/* Initialized (static) Class Table */
+  tree smic;			/* Static method invocation compound */
   tree inner_access;		/* The identifier of the access method
 				   used for invocation from inner classes */
   int nap;			/* Number of artificial parameters */
-  int native : 1;		/* Nonzero if this is a native method  */
-  int synthetic_ctor : 1;	/* Nonzero if this is a synthetic ctor */
-  int init_final : 1;		/* Nonzero all finals are initialized */
-  int fixed_ctor : 1;
+  unsigned int native : 1;	/* Nonzero if this is a native method  */
+  unsigned int synthetic_ctor : 1; /* Nonzero if this is a synthetic ctor */
+  unsigned int init_final : 1;	/* Nonzero all finals are initialized */
+  unsigned int fixed_ctor : 1;
+  unsigned int init_calls_this : 1;
+  unsigned int strictfp : 1;
 };
 
 /* init_test_table hash table entry structure.  */
@@ -884,10 +965,8 @@ struct lang_decl_var
   tree slot_chain;
   tree am;			/* Access method for this field (1.1) */
   tree wfl;			/* Original wfl */
-  int final_iud : 1;		/* Final initialized upon declaration */
-  int final_liic : 1;		/* Final locally initialized in ctors */
-  int final_ierr : 1;		/* Initialization error already detected */
-  int local_final : 1;		/* True if the decl is a local final */
+  unsigned int final_iud : 1;	/* Final initialized upon declaration */
+  unsigned int cif : 1;		/* True: decl is a class initialization flag */
 };
 
 /* Macro to access fields in `struct lang_type'.  */
@@ -911,9 +990,11 @@ struct lang_decl_var
    for non primitive types when compiling to bytecode. */
 #define TYPE_DOT_CLASS(T)        (TYPE_LANG_SPECIFIC(T)->dot_class)
 #define TYPE_PACKAGE_LIST(T)     (TYPE_LANG_SPECIFIC(T)->package_list)
+#define TYPE_IMPORT_LIST(T)      (TYPE_LANG_SPECIFIC(T)->import_list)
+#define TYPE_IMPORT_DEMAND_LIST(T) (TYPE_LANG_SPECIFIC(T)->import_demand_list)
 #define TYPE_PRIVATE_INNER_CLASS(T) (TYPE_LANG_SPECIFIC(T)->pic)
 #define TYPE_PROTECTED_INNER_CLASS(T) (TYPE_LANG_SPECIFIC(T)->poic)
-#define TYPE_HAS_FINAL_VARIABLE(T) (TYPE_LANG_SPECIFIC(T)->afv)
+#define TYPE_STRICTFP(T) (TYPE_LANG_SPECIFIC(T)->strictfp)
 
 struct lang_type
 {
@@ -921,7 +1002,7 @@ struct lang_type
   struct JCF *jcf;
   struct CPool *cpool;
   tree cpool_data_ref;		/* Cached */
-  tree finit_stmt_list;		/* List of statements $finit$ will use */
+  tree finit_stmt_list;		/* List of statements finit$ will use */
   tree clinit_stmt_list;	/* List of statements <clinit> will use  */
   tree ii_block;		/* Instance initializer block */
   tree dot_class;		/* The decl of the `class$' function that
@@ -929,9 +1010,11 @@ struct lang_type
 				   compiling to bytecode to implement
 				   <non_primitive_type>.class */
   tree package_list;		/* List of package names, progressive */
+  tree import_list;		/* Imported types, in the CU of this class */
+  tree import_demand_list;	/* Imported types, in the CU of this class */
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */
-  unsigned afv:1;		/* Has final variables */
+  unsigned strictfp:1;		/* `strictfp' class.  */
 };
 
 #ifdef JAVA_USE_HANDLES
@@ -953,6 +1036,16 @@ struct lang_type
 #define JCF_u4 unsigned long
 #define JCF_u2 unsigned short
 
+extern void java_set_yydebug PARAMS ((int));
+extern void java_parse_file PARAMS ((void));
+extern void java_mark_tree PARAMS ((tree));
+extern bool java_mark_addressable PARAMS ((tree));
+extern tree java_type_for_mode PARAMS ((enum machine_mode, int));
+extern tree java_type_for_size PARAMS ((unsigned int, int));
+extern tree java_unsigned_type PARAMS ((tree));
+extern tree java_signed_type PARAMS ((tree));
+extern tree java_signed_or_unsigned_type PARAMS ((int, tree));
+extern tree java_truthvalue_conversion PARAMS ((tree));
 extern void add_assume_compiled PARAMS ((const char *, int));
 extern tree lookup_class PARAMS ((tree));
 extern tree lookup_java_constructor PARAMS ((tree, tree));
@@ -981,11 +1074,22 @@ extern tree build_dtable_decl PARAMS ((tree));
 extern tree build_internal_class_name PARAMS ((tree));
 extern tree build_constants_constructor PARAMS ((void));
 extern tree build_ref_from_constant_pool PARAMS ((int));
+extern void compile_resource_file PARAMS ((char *, const char *));
 extern tree build_utf8_ref PARAMS ((tree));
 extern tree ident_subst PARAMS ((const char*, int,
 				const char*, int, int, const char*));
 extern tree identifier_subst PARAMS ((const tree,
 				     const char *, int, int, const char *));
+extern int global_bindings_p			PARAMS ((void));
+extern int kept_level_p				PARAMS ((void));
+extern tree getdecls				PARAMS ((void));
+extern void pushlevel				PARAMS ((int));
+extern tree poplevel				PARAMS ((int,int, int));
+extern void insert_block			PARAMS ((tree));
+extern void set_block				PARAMS ((tree));
+extern tree pushdecl				PARAMS ((tree));
+extern void java_init_decl_processing PARAMS ((void));
+extern void java_dup_lang_specific_decl PARAMS ((tree));
 extern tree build_java_signature PARAMS ((tree));
 extern tree build_java_argument_signature PARAMS ((tree));
 extern void set_java_signature PARAMS ((tree, tree));
@@ -1007,6 +1111,9 @@ extern HOST_WIDE_INT java_array_type_length PARAMS ((tree));
 extern int read_class PARAMS ((tree));
 extern void load_class PARAMS ((tree, int));
 
+extern tree check_for_builtin PARAMS ((tree, tree));
+extern void initialize_builtins PARAMS ((void));
+
 extern tree lookup_name PARAMS ((tree));
 extern tree build_known_method_ref PARAMS ((tree, tree, tree, tree, tree));
 extern tree build_class_init PARAMS ((tree, tree));
@@ -1020,6 +1127,7 @@ extern tree build_java_binop PARAMS ((enum tree_code, tree, tree, tree));
 extern tree build_java_soft_divmod PARAMS ((enum tree_code, tree, tree, tree));
 extern tree binary_numeric_promotion PARAMS ((tree, tree, tree *, tree *));
 extern tree build_java_arrayaccess PARAMS ((tree, tree, tree));
+extern tree build_java_arraystore_check PARAMS ((tree, tree));
 extern tree build_newarray PARAMS ((int, tree));
 extern tree build_anewarray PARAMS ((tree, tree));
 extern tree build_new_array PARAMS ((tree, tree));
@@ -1033,7 +1141,6 @@ extern tree create_label_decl PARAMS ((tree));
 extern void push_labeled_block PARAMS ((tree));
 extern tree prepare_eh_table_type PARAMS ((tree));
 extern tree build_exception_object_ref PARAMS ((tree));
-extern void java_set_exception_lang_code PARAMS ((void));
 extern tree generate_name PARAMS ((void));
 extern void pop_labeled_block PARAMS ((void));
 extern const char *lang_printable_name PARAMS ((tree, int));
@@ -1053,15 +1160,15 @@ extern void make_class_data PARAMS ((tree));
 extern void register_class PARAMS ((void));
 extern int alloc_name_constant PARAMS ((int, tree));
 extern void emit_register_classes PARAMS ((void));
+extern void emit_offset_symbol_table PARAMS ((void));
 extern void lang_init_source PARAMS ((int));
 extern void write_classfile PARAMS ((tree));
 extern char *print_int_node PARAMS ((tree));
 extern void parse_error_context PARAMS ((tree cl, const char *, ...))
   ATTRIBUTE_PRINTF_2;
-extern tree build_primtype_type_ref PARAMS ((const char *));
 extern void finish_class PARAMS ((void));
 extern void java_layout_seen_class_methods PARAMS ((void));
-extern void check_for_initialization PARAMS ((tree));
+extern void check_for_initialization PARAMS ((tree, tree));
 
 extern tree pushdecl_top_level PARAMS ((tree));
 extern int alloc_class_constant PARAMS ((tree));
@@ -1126,9 +1233,12 @@ extern void java_debug_context PARAMS ((void));
 extern void safe_layout_class PARAMS ((tree));
 
 extern tree get_boehm_type_descriptor PARAMS ((tree));
+extern bool class_has_finalize_method PARAMS ((tree));
 extern unsigned long java_hash_hash_tree_node PARAMS ((hash_table_key));
 extern bool java_hash_compare_tree_node PARAMS ((hash_table_key, 
 						    hash_table_key));
+extern bool attach_initialized_static_class PARAMS ((struct hash_entry *,
+						     PTR));
 extern void java_check_methods PARAMS ((tree));
 extern void init_jcf_parse PARAMS((void));
 extern void init_src_parse PARAMS((void));
@@ -1141,12 +1251,15 @@ extern tree java_mangle_vtable PARAMS ((struct obstack *, tree));
 extern const char *lang_printable_name_wls PARAMS ((tree, int));
 extern void append_gpp_mangled_name PARAMS ((const char *, int));
 
-/* We use ARGS_SIZE_RTX to indicate that gcc/expr.h has been included
-   to declare `enum expand_modifier'. */
-#if defined (TREE_CODE) && defined(RTX_CODE) && defined (HAVE_MACHINE_MODES) && defined (ARGS_SIZE_RTX)
-struct rtx_def * java_lang_expand_expr PARAMS ((tree, rtx, enum machine_mode,
-					       enum expand_modifier)); 
-#endif /* TREE_CODE && RTX_CODE && HAVE_MACHINE_MODES && ARGS_SIZE_RTX */
+extern void add_predefined_file PARAMS ((tree));
+extern int predefined_filename_p PARAMS ((tree));
+
+#if defined(RTX_CODE) && defined (HAVE_MACHINE_MODES)
+struct rtx_def * java_expand_expr PARAMS ((tree, rtx, enum machine_mode,
+					   int)); 
+#endif
+
+#define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
 /* Access flags etc for a method (a FUNCTION_DECL): */
 
@@ -1154,11 +1267,12 @@ struct rtx_def * java_lang_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 #define METHOD_PRIVATE(DECL) TREE_PRIVATE (DECL)
 #define METHOD_PROTECTED(DECL) TREE_PROTECTED (DECL)
 #define METHOD_STATIC(DECL) DECL_LANG_FLAG_2 (DECL)
-#define METHOD_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
+#define METHOD_FINAL(DECL) DECL_FINAL (DECL)
 #define METHOD_SYNCHRONIZED(DECL) DECL_LANG_FLAG_4 (DECL)
 #define METHOD_NATIVE(DECL) (DECL_LANG_SPECIFIC(DECL)->native)
 #define METHOD_ABSTRACT(DECL) DECL_LANG_FLAG_5 (DECL)
 #define METHOD_TRANSIENT(DECL) DECL_LANG_FLAG_6 (DECL)
+#define METHOD_STRICTFP(DECL) (DECL_LANG_SPECIFIC (DECL)->strictfp)
 
 #define JAVA_FILE_P(NODE) TREE_LANG_FLAG_2 (NODE)
 #define CLASS_FILE_P(NODE) TREE_LANG_FLAG_3 (NODE)
@@ -1171,18 +1285,15 @@ struct rtx_def * java_lang_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 #define DECL_INIT_P(DECL)   (ID_INIT_P (DECL_NAME (DECL)))
 #define DECL_FINIT_P(DECL)  (ID_FINIT_P (DECL_NAME (DECL)))
 #define DECL_CLINIT_P(DECL) (ID_CLINIT_P (DECL_NAME (DECL)))
+#define DECL_INSTINIT_P(DECL) (ID_INSTINIT_P (DECL_NAME (DECL)))
 
 /* Predicates on method identifiers. Kept close to other macros using
    them  */
 #define ID_INIT_P(ID)   ((ID) == init_identifier_node)
-/* Match ID to either `$finit$' or `finit$', so that `$finit$'
-   continues to be recognized as an equivalent to `finit$' which is
-   now the prefered name used for the field initialization special
-   method.  */
-#define ID_FINIT_P(ID)  ((ID) == finit_identifier_node \
-			 || (ID) == finit_leg_identifier_node)
+#define ID_FINIT_P(ID)  ((ID) == finit_identifier_node)
 #define ID_CLINIT_P(ID) ((ID) == clinit_identifier_node)
 #define ID_CLASSDOLLAR_P(ID) ((ID) == classdollar_identifier_node)
+#define ID_INSTINIT_P(ID) ((ID) == instinit_identifier_node)
 
 /* Access flags etc for a variable/field (a FIELD_DECL): */
 
@@ -1190,20 +1301,21 @@ struct rtx_def * java_lang_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 #define FIELD_PROTECTED(DECL) TREE_PROTECTED (DECL)
 #define FIELD_PUBLIC(DECL) DECL_LANG_FLAG_1 (DECL)
 #define FIELD_STATIC(DECL) TREE_STATIC (DECL)
-#define FIELD_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
+#define FIELD_FINAL(DECL) DECL_FINAL (DECL)
 #define FIELD_VOLATILE(DECL) DECL_LANG_FLAG_4 (DECL)
 #define FIELD_TRANSIENT(DECL) DECL_LANG_FLAG_5 (DECL)
 
 /* Access flags etc for a class (a TYPE_DECL): */
 
 #define CLASS_PUBLIC(DECL) DECL_LANG_FLAG_1 (DECL)
-#define CLASS_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
+#define CLASS_FINAL(DECL) DECL_FINAL (DECL)
 #define CLASS_INTERFACE(DECL) DECL_LANG_FLAG_4 (DECL)
 #define CLASS_ABSTRACT(DECL) DECL_LANG_FLAG_5 (DECL)
 #define CLASS_SUPER(DECL) DECL_LANG_FLAG_6 (DECL)
 #define CLASS_STATIC(DECL) DECL_LANG_FLAG_7 (DECL)
 #define CLASS_PRIVATE(DECL) (TYPE_PRIVATE_INNER_CLASS (TREE_TYPE (DECL)))
 #define CLASS_PROTECTED(DECL) (TYPE_PROTECTED_INNER_CLASS (TREE_TYPE (DECL)))
+#define CLASS_STRICTFP(DECL) (TYPE_STRICTFP (TREE_TYPE (DECL)))
 
 /* @deprecated marker flag on methods, fields and classes */
 
@@ -1235,7 +1347,7 @@ extern char *instruction_bits;
 #define BCODE_JUMP_TARGET 2
 
 /* True iff there is a return to this location.
-   (I.e. the preceedng instruction was a call.) */
+   (I.e. the preceding instruction was a call.) */
 #define BCODE_RETURN_TARGET 4
 
 /* True iff this is the start of an exception handler. */
@@ -1301,6 +1413,9 @@ extern tree *type_map;
 /* True iff TYPE is a Java array type. */
 #define TYPE_ARRAY_P(TYPE) TYPE_LANG_FLAG_1 (TYPE)
 
+/* True for an INDIRECT_REF created from a 'ARRAY.length' operation. */
+#define IS_ARRAY_LENGTH_ACCESS(NODE) TREE_LANG_FLAG_4 (NODE)
+
 /* If FUNCTION_TYPE or METHOD_TYPE: cache for build_java_argument_signature. */
 #define TYPE_ARGUMENT_SIGNATURE(TYPE) TYPE_VFIELD(TYPE)
 
@@ -1327,16 +1442,16 @@ extern tree *type_map;
   TYPE_LANG_FLAG_5 (TYPE)
 
 /* True if class TYPE is currently being laid out. Helps in detection
-   of inheritance cycle occuring as a side effect of performing the
+   of inheritance cycle occurring as a side effect of performing the
    layout of a class.  */
 #define CLASS_BEING_LAIDOUT(TYPE) TYPE_LANG_FLAG_6 (TYPE)
 
 /* True if class TYPE is currently being laid out. Helps in detection
-   of inheritance cycle occuring as a side effect of performing the
+   of inheritance cycle occurring as a side effect of performing the
    layout of a class.  */
 #define CLASS_BEING_LAIDOUT(TYPE) TYPE_LANG_FLAG_6 (TYPE)
 
-/* True if class TYPE has a field initializer $finit$ function */
+/* True if class TYPE has a field initializer finit$ function */
 #define CLASS_HAS_FINIT_P(TYPE) TYPE_FINIT_STMT_LIST (TYPE)
 
 /* True if identifier ID was seen while processing a single type import stmt */
@@ -1374,6 +1489,10 @@ extern tree *type_map;
 /* True if EXPR (a TREE_TYPE denoting a class type) has its methods
    already checked (for redifitions, etc, see java_check_regular_methods.) */
 #define CLASS_METHOD_CHECKED_P(EXPR) TREE_LANG_FLAG_2 (EXPR)
+
+/* True if TYPE (a TREE_TYPE denoting a class type) was found to
+   feature a finalizer method. */
+#define HAS_FINALIZER_P(EXPR) TREE_LANG_FLAG_3 (EXPR)
 
 /* True if EXPR (a WFL in that case) resolves into an expression name */
 #define RESOLVE_EXPRESSION_NAME_P(WFL) TREE_LANG_FLAG_0 (WFL)
@@ -1559,7 +1678,11 @@ extern tree *type_map;
   (inherits_from_p ((TYPE), runtime_exception_type_node)	\
    || inherits_from_p ((TYPE), error_exception_type_node))
 
-extern int java_error_count;					\
+/* True when we can perform static class initialization optimization */
+#define STATIC_CLASS_INIT_OPT_P() \
+  (flag_optimize_sci && (optimize >= 2) && ! flag_emit_class_files)
+
+extern int java_error_count;
 
 /* Make the current function where this macro is invoked report error
    messages and and return, if any */

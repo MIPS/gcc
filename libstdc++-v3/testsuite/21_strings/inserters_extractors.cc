@@ -30,7 +30,7 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
 bool test01(void)
 {
@@ -155,7 +155,7 @@ void test04(int size)
 {
   bool test = true;
   std::string str(size, 's');
-  int expected_size = (2 * (size + sizeof(char)));
+  int expected_size = 2 * (size + 1);
   std::ostringstream oss(str);
   
   // sanity checks

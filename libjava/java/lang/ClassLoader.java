@@ -34,7 +34,6 @@ import java.util.Stack;
 
 public abstract class ClassLoader
 {
-  static private ClassLoader system;
   private ClassLoader parent;
   private HashMap definedPackages = new HashMap();
 
@@ -46,9 +45,7 @@ public abstract class ClassLoader
 
   public static ClassLoader getSystemClassLoader ()
   {
-    if (system == null)
-      system = gnu.gcj.runtime.VMClassLoader.instance;
-    return system;
+    return gnu.gcj.runtime.VMClassLoader.instance;
   }
 
   /**
@@ -120,7 +117,7 @@ public abstract class ClassLoader
 	  if (parent != null)
 	    return parent.loadClass (name, link);
 	  else
-	    c = system.findClass (name);
+	    c = gnu.gcj.runtime.VMClassLoader.instance.findClass (name);
 	} catch (ClassNotFoundException ex) {
 	  /* ignore, we'll try findClass */;
 	}
@@ -199,6 +196,7 @@ public abstract class ClassLoader
   }
 
   protected final Class defineClass(String name, byte[] data, int off, int len)
+    throws ClassFormatError
   {
     return defineClass (name, data, off, len, defaultProtectionDomain);
   }
@@ -256,7 +254,7 @@ public abstract class ClassLoader
 
       return defineClass0 (name, data, off, len, protectionDomain);
 
-    } catch (ClassFormatError x) {
+    } catch (LinkageError x) {
       throw x;		// rethrow
 
     } catch (java.lang.VirtualMachineError x) {
@@ -464,7 +462,7 @@ public abstract class ClassLoader
   protected final Class findSystemClass(String name) 
     throws java.lang.ClassNotFoundException
   {
-    return getSystemClassLoader ().loadClass (name);
+    return gnu.gcj.runtime.VMClassLoader.instance.loadClass (name);
   }
 
   /*

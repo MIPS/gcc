@@ -1,5 +1,5 @@
 /* Write out a Java(TM) class file.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -57,7 +57,7 @@ char *jcf_write_base_directory = NULL;
 /* Add a 1-byte instruction/operand I to bytecode.data,
    assuming space has already been RESERVE'd. */
 
-#define OP1(I) (state->last_bc = *state->bytecode.ptr++ = (I), CHECK_OP(state))
+#define OP1(I) (*state->bytecode.ptr++ = (I), CHECK_OP(state))
 
 /* Like OP1, but I is a 2-byte big endian integer. */
 
@@ -105,14 +105,14 @@ struct chunk
    to the beginning of the block.
 
    If (pc < 0), the jcf_block is not an actual block (i.e. it has no
-   assocated code yet), but it is an undefined label.
+   associated code yet), but it is an undefined label.
 */
 
 struct jcf_block
 {
   /* For blocks that that are defined, the next block (in pc order).
      For blocks that are not-yet-defined the end label of a LABELED_BLOCK_EXPR
-     or a cleanup expression (from a WITH_CLEANUP_EXPR),
+     or a cleanup expression (from a TRY_FINALLY_EXPR),
      this is the next (outer) such end label, in a stack headed by
      labeled_blocks in jcf_partial. */
   struct jcf_block *next;
@@ -275,8 +275,6 @@ struct jcf_partial
 
   /* Information about the current switch statement. */
   struct jcf_switch_state *sw_state;
-
-  enum java_opcode last_bc;	/* The last emitted bytecode */
 };
 
 static void generate_bytecode_insns PARAMS ((tree, int, struct jcf_partial *));
@@ -687,6 +685,8 @@ get_access_flags (decl)
       if (ANONYMOUS_CLASS_P (TREE_TYPE (decl))
 	  || LOCAL_CLASS_P (TREE_TYPE (decl)))
 	flags |= ACC_PRIVATE;
+      if (CLASS_STRICTFP (decl))
+	flags |= ACC_STRICT;
     }
   else
     abort ();
@@ -701,6 +701,8 @@ get_access_flags (decl)
 	flags |= ACC_SYNCHRONIZED;
       if (METHOD_ABSTRACT (decl))
 	flags |= ACC_ABSTRACT;
+      if (METHOD_STRICTFP (decl))
+	flags |= ACC_STRICT;
     }
   if (isfield)
     {
@@ -1350,7 +1352,7 @@ generate_bytecode_conditional (exp, true_label, false_label,
     abort ();
 }
 
-/* Call pending cleanups i.e. those for surrounding CLEANUP_POINT_EXPRs
+/* Call pending cleanups i.e. those for surrounding TRY_FINALLY_EXPRs.
    but only as far out as LIMIT (since we are about to jump to the
    emit label that is LIMIT). */
 
@@ -1442,7 +1444,7 @@ generate_bytecode_insns (exp, target, state)
      int target;
      struct jcf_partial *state;
 {
-  tree type;
+  tree type, arg;
   enum java_opcode jopcode;
   int op;
   HOST_WIDE_INT value;
@@ -1483,9 +1485,13 @@ generate_bytecode_insns (exp, target, state)
 	    }
 	}
       break;
-      case COMPOUND_EXPR:	
+    case COMPOUND_EXPR:	
       generate_bytecode_insns (TREE_OPERAND (exp, 0), IGNORE_TARGET, state);
-      generate_bytecode_insns (TREE_OPERAND (exp, 1), target, state);
+      /* Normally the first operand to a COMPOUND_EXPR must complete
+	 normally.  However, in the special case of a do-while
+	 statement this is not necessarily the case.  */
+      if (CAN_COMPLETE_NORMALLY (TREE_OPERAND (exp, 0)))
+	generate_bytecode_insns (TREE_OPERAND (exp, 1), target, state);
       break;
     case EXPR_WITH_FILE_LOCATION:
       {
@@ -1685,8 +1691,8 @@ generate_bytecode_insns (exp, target, state)
 	   1.  the switch_expression (the value used to select the correct case);
 	   2.  the switch_body;
 	   3.  the switch_instruction (the tableswitch/loopupswitch instruction.).
-	   After code generation, we will re-order then in the order 1, 3, 2.
-	   This is to avoid an extra GOTOs. */
+	   After code generation, we will re-order them in the order 1, 3, 2.
+	   This is to avoid any extra GOTOs. */
 	struct jcf_switch_state sw_state;
 	struct jcf_block *expression_last; /* Last block of the switch_expression. */
 	struct jcf_block *body_last; /* Last block of the switch_body. */
@@ -1701,7 +1707,9 @@ generate_bytecode_insns (exp, target, state)
 	sw_state.default_label = NULL;
 	generate_bytecode_insns (TREE_OPERAND (exp, 0), STACK_TARGET, state);
 	expression_last = state->last_block;
-	body_block = get_jcf_label_here (state);  /* Force a new block here. */
+	/* Force a new block here.  */
+	body_block = gen_jcf_label (state);
+	define_jcf_label (body_block, state);
 	generate_bytecode_insns (TREE_OPERAND (exp, 1), IGNORE_TARGET, state);
 	body_last = state->last_block;
 
@@ -1720,6 +1728,7 @@ generate_bytecode_insns (exp, target, state)
 	    else
 	      {
 		push_int_const (sw_state.cases->offset, state);
+		NOTE_PUSH (1);
 		emit_if (sw_state.cases->label,
 			 OPCODE_if_icmpeq, OPCODE_if_icmpne, state);
 	      }
@@ -1756,7 +1765,8 @@ generate_bytecode_insns (exp, target, state)
 		    gap_start--;
 		  }
 		relocs[gap_start++] = reloc;
-		/* Note we don't check for duplicates.  FIXME! */
+		/* Note we don't check for duplicates.  This is
+		   handled by the parser.  */
 	      }
 
 	    if (2 * sw_state.num_cases
@@ -1878,7 +1888,8 @@ generate_bytecode_insns (exp, target, state)
 	  {
 	    struct jcf_block *head_label = get_jcf_label_here (state);
 	    generate_bytecode_insns (body, IGNORE_TARGET, state);
-	    emit_goto (head_label, state);
+	    if (CAN_COMPLETE_NORMALLY (body))
+	      emit_goto (head_label, state);
 	  }
       }
       break;
@@ -1908,6 +1919,7 @@ generate_bytecode_insns (exp, target, state)
     case POSTINCREMENT_EXPR: value =  1; post_op = 1;  goto increment;
     increment:
 
+      arg = TREE_OPERAND (exp, 1);
       exp = TREE_OPERAND (exp, 0);
       type = TREE_TYPE (exp);
       size = TYPE_IS_WIDE (type) ? 2 : 1;
@@ -1960,12 +1972,10 @@ generate_bytecode_insns (exp, target, state)
       /* Stack, if ARRAY_REF:  ..., [result, ] array, index, oldvalue. */
       /* Stack, if COMPONENT_REF:  ..., [result, ] objectref, oldvalue. */
       /* Stack, otherwise:  ..., [result, ] oldvalue. */
-      if (size == 1)
-	push_int_const (value, state);
-      else
-	push_long_const (value, (HOST_WIDE_INT)(value >= 0 ? 0 : -1), state);
-      NOTE_PUSH (size);
-      emit_binop (OPCODE_iadd + adjust_typed_op (type, 3), type, state);
+      generate_bytecode_insns (arg, STACK_TARGET, state);
+      emit_binop ((value >= 0 ? OPCODE_iadd : OPCODE_isub)
+		  + adjust_typed_op (type, 3),
+		  type, state);
       if (target != IGNORE_TARGET && ! post_op)
 	emit_dup (size, offset, state);
       /* Stack, if ARRAY_REF:  ..., [result, ] array, index, newvalue. */
@@ -2033,6 +2043,61 @@ generate_bytecode_insns (exp, target, state)
 	  }
 	else
 	  offset = 0;
+
+	/* If the rhs is a binary expression and the left operand is
+	   `==' to the lhs then we have an OP= expression.  In this
+	   case we must do some special processing.  */
+	if (TREE_CODE_CLASS (TREE_CODE (rhs)) == '2'
+	    && lhs == TREE_OPERAND (rhs, 0))
+	  {
+	    if (TREE_CODE (lhs) == COMPONENT_REF)
+	      {
+		tree field = TREE_OPERAND (lhs, 1);
+		if (! FIELD_STATIC (field))
+		  {
+		    /* Duplicate the object reference so we can get
+		       the field.  */
+		    emit_dup (TYPE_IS_WIDE (field) ? 2 : 1, 0, state);
+		    NOTE_POP (1);
+		  }
+		field_op (field, (FIELD_STATIC (field)
+				  ? OPCODE_getstatic
+				  : OPCODE_getfield),
+			  state);
+
+		NOTE_PUSH (TYPE_IS_WIDE (TREE_TYPE (field)) ? 2 : 1);
+	      }
+	    else if (TREE_CODE (lhs) == VAR_DECL
+		     || TREE_CODE (lhs) == PARM_DECL)
+	      {
+		if (FIELD_STATIC (lhs))
+		  {
+		    field_op (lhs, OPCODE_getstatic, state);
+		    NOTE_PUSH (TYPE_IS_WIDE (TREE_TYPE (lhs)) ? 2 : 1);
+		  }
+		else
+		  emit_load (lhs, state);
+	      }
+	    else if (TREE_CODE (lhs) == ARRAY_REF)
+	      {
+		/* Duplicate the array and index, which are on the
+		   stack, so that we can load the old value.  */
+		emit_dup (2, 0, state);
+		NOTE_POP (2);
+		jopcode = OPCODE_iaload + adjust_typed_op (TREE_TYPE (lhs), 7);
+		RESERVE (1);
+		OP1 (jopcode);
+		NOTE_PUSH (TYPE_IS_WIDE (TREE_TYPE (lhs)) ? 2 : 1);
+	      }
+	    else
+	      abort ();
+
+	    /* This function correctly handles the case where the LHS
+	       of a binary expression is NULL_TREE.  */
+	    rhs = build (TREE_CODE (rhs), TREE_TYPE (rhs),
+			 NULL_TREE, TREE_OPERAND (rhs, 1));
+	  }
+
 	generate_bytecode_insns (rhs, STACK_TARGET, state);
 	if (target != IGNORE_TARGET)
 	  emit_dup (TYPE_IS_WIDE (type) ? 2 : 1 , offset, state);
@@ -2111,7 +2176,11 @@ generate_bytecode_insns (exp, target, state)
 	}
       else
 	{
-	  generate_bytecode_insns (arg0, target, state);
+	  /* ARG0 will be NULL_TREE if we're handling an `OP='
+	     expression.  In this case the stack already holds the
+	     LHS.  See the MODIFY_EXPR case.  */
+	  if (arg0 != NULL_TREE)
+	    generate_bytecode_insns (arg0, target, state);
 	  if (jopcode >= OPCODE_lshl && jopcode <= OPCODE_lushr)
 	    arg1 = convert (int_type_node, arg1);
 	  generate_bytecode_insns (arg1, target, state);
@@ -2165,16 +2234,7 @@ generate_bytecode_insns (exp, target, state)
 	tree src = TREE_OPERAND (exp, 0);
 	tree src_type = TREE_TYPE (src);
 	tree dst_type = TREE_TYPE (exp);
-	/* Detect the situation of compiling an empty synchronized
-	   block.  A nop should be emitted in order to produce
-	   verifiable bytecode. */
-	if (exp == empty_stmt_node
-	    && state->last_bc == OPCODE_monitorenter
-	    && state->labeled_blocks
-	    && state->labeled_blocks->pc == PENDING_CLEANUP_PC)
-	  OP1 (OPCODE_nop);
-	else
-	  generate_bytecode_insns (TREE_OPERAND (exp, 0), target, state);
+	generate_bytecode_insns (TREE_OPERAND (exp, 0), target, state);
 	if (target == IGNORE_TARGET || src_type == dst_type)
 	  break;
 	if (TREE_CODE (dst_type) == POINTER_TYPE)
@@ -2228,78 +2288,6 @@ generate_bytecode_insns (exp, target, state)
       }
       break;
 
-    case CLEANUP_POINT_EXPR:
-      {
-	struct jcf_block *save_labeled_blocks = state->labeled_blocks;
-	int can_complete = CAN_COMPLETE_NORMALLY (TREE_OPERAND (exp, 0));
-	generate_bytecode_insns (TREE_OPERAND (exp, 0), IGNORE_TARGET, state);
-	if (target != IGNORE_TARGET)
-	  abort ();
-	while (state->labeled_blocks != save_labeled_blocks)
-	  {
-	    struct jcf_block *finished_label = NULL;
-	    tree return_link;
-	    tree exception_type = build_pointer_type (throwable_type_node);
-	    tree exception_decl = build_decl (VAR_DECL, NULL_TREE,
-					      exception_type);
-	    struct jcf_block *end_label = get_jcf_label_here (state);
-	    struct jcf_block *label = state->labeled_blocks;
-	    struct jcf_handler *handler;
-	    tree cleanup = label->u.labeled_block;
-	    state->labeled_blocks = label->next;
-	    state->num_finalizers--;
-	    if (can_complete)
-	      {
-		finished_label = gen_jcf_label (state);
-		emit_jsr (label, state);
-		emit_goto (finished_label, state);
-		if (! CAN_COMPLETE_NORMALLY (cleanup))
-		  can_complete = 0;
-	      }
-	    handler = alloc_handler (label->v.start_label, end_label, state);
-	    handler->type = NULL_TREE;
-	    localvar_alloc (exception_decl, state);
-	    NOTE_PUSH (1);
-            emit_store (exception_decl, state);
-	    emit_jsr (label, state);
-	    emit_load (exception_decl, state);
-	    RESERVE (1);
-	    OP1 (OPCODE_athrow);
-	    NOTE_POP (1);
-
-	    /* The finally block. */
-	    return_link = build_decl (VAR_DECL, NULL_TREE,
-				      return_address_type_node);
-	    define_jcf_label (label, state);
-	    NOTE_PUSH (1);
-	    localvar_alloc (return_link, state);
-	    emit_store (return_link, state);
-	    generate_bytecode_insns (cleanup, IGNORE_TARGET, state);
-	    maybe_wide (OPCODE_ret, DECL_LOCAL_INDEX (return_link), state);
-	    localvar_free (return_link, state);
-	    localvar_free (exception_decl, state);
-	    if (finished_label != NULL)
-	      define_jcf_label (finished_label, state);
-	  }
-      }
-      break;
-
-    case WITH_CLEANUP_EXPR:
-      {
-	struct jcf_block *label;
-	generate_bytecode_insns (TREE_OPERAND (exp, 0), IGNORE_TARGET, state);
-	label = gen_jcf_label (state);
-	label->pc = PENDING_CLEANUP_PC;
-	label->next = state->labeled_blocks;
-	state->labeled_blocks = label;
-	state->num_finalizers++;
-	label->u.labeled_block = TREE_OPERAND (exp, 1);
-	label->v.start_label = get_jcf_label_here (state);
-	if (target != IGNORE_TARGET)
-	  abort ();
-      }
-      break;
-
     case TRY_EXPR:
       {
 	tree try_clause = TREE_OPERAND (exp, 0);
@@ -2319,7 +2307,8 @@ generate_bytecode_insns (exp, target, state)
 	  {
 	    tree catch_clause = TREE_OPERAND (clause, 0);
 	    tree exception_decl = BLOCK_EXPR_DECLS (catch_clause);
-	    struct jcf_handler *handler = alloc_handler (start_label, end_label, state);
+	    struct jcf_handler *handler = alloc_handler (start_label,
+							 end_label, state);
 	    if (exception_decl == NULL_TREE)
 	      handler->type = NULL_TREE;
 	    else
@@ -2332,10 +2321,11 @@ generate_bytecode_insns (exp, target, state)
 	define_jcf_label (finished_label, state);
       }
       break;
+
     case TRY_FINALLY_EXPR:
       {
-	struct jcf_block *finished_label,
-	  *finally_label, *start_label, *end_label;
+	struct jcf_block *finished_label = NULL;
+	struct jcf_block *finally_label, *start_label, *end_label;
 	struct jcf_handler *handler;
 	tree try_block = TREE_OPERAND (exp, 0);
 	tree finally = TREE_OPERAND (exp, 1);
@@ -2345,15 +2335,26 @@ generate_bytecode_insns (exp, target, state)
 
 	finally_label = gen_jcf_label (state);
 	start_label = get_jcf_label_here (state);
-	finally_label->pc = PENDING_CLEANUP_PC;
-	finally_label->next = state->labeled_blocks;
-	state->labeled_blocks = finally_label;
-	state->num_finalizers++;
+	/* If the `finally' clause can complete normally, we emit it
+	   as a subroutine and let the other clauses call it via
+	   `jsr'.  If it can't complete normally, then we simply emit
+	   `goto's directly to it.  */
+	if (CAN_COMPLETE_NORMALLY (finally))
+	  {
+	    finally_label->pc = PENDING_CLEANUP_PC;
+	    finally_label->next = state->labeled_blocks;
+	    state->labeled_blocks = finally_label;
+	    state->num_finalizers++;
+	  }
 
 	generate_bytecode_insns (try_block, target, state);
-	if (state->labeled_blocks != finally_label)
-	  abort();
-	state->labeled_blocks = finally_label->next;
+
+	if (CAN_COMPLETE_NORMALLY (finally))
+	  {
+	    if (state->labeled_blocks != finally_label)
+	      abort();
+	    state->labeled_blocks = finally_label->next;
+	  }
 	end_label = get_jcf_label_here (state);
 
 	if (end_label == start_label)
@@ -2364,43 +2365,75 @@ generate_bytecode_insns (exp, target, state)
 	    break;
 	  }
 
-	return_link = build_decl (VAR_DECL, NULL_TREE,
-				  return_address_type_node);
-	finished_label = gen_jcf_label (state);
-
+	if (CAN_COMPLETE_NORMALLY (finally))
+	  {
+	    return_link = build_decl (VAR_DECL, NULL_TREE,
+				      return_address_type_node);
+	    finished_label = gen_jcf_label (state);
+	  }
 
 	if (CAN_COMPLETE_NORMALLY (try_block))
 	  {
-	    emit_jsr (finally_label, state);
-	    emit_goto (finished_label, state);
+	    if (CAN_COMPLETE_NORMALLY (finally))
+	      {
+		emit_jsr (finally_label, state);
+		emit_goto (finished_label, state);
+	      }
+	    else
+	      emit_goto (finally_label, state);
 	  }
 
-	/* Handle exceptions. */
+	/* Handle exceptions.  */
 
 	exception_type = build_pointer_type (throwable_type_node);
-	exception_decl = build_decl (VAR_DECL, NULL_TREE, exception_type);
-	localvar_alloc (return_link, state);
+	if (CAN_COMPLETE_NORMALLY (finally))
+	  {
+	    /* We're going to generate a subroutine, so we'll need to
+	       save and restore the exception around the `jsr'.  */ 
+	    exception_decl = build_decl (VAR_DECL, NULL_TREE, exception_type);
+	    localvar_alloc (return_link, state);
+	  }
 	handler = alloc_handler (start_label, end_label, state);
 	handler->type = NULL_TREE;
-	localvar_alloc (exception_decl, state);
-	NOTE_PUSH (1);
-	emit_store (exception_decl, state);
-	emit_jsr (finally_label, state);
-	emit_load (exception_decl, state);
-	RESERVE (1);
-	OP1 (OPCODE_athrow);
-	NOTE_POP (1);
+	if (CAN_COMPLETE_NORMALLY (finally))
+	  {
+	    localvar_alloc (exception_decl, state);
+	    NOTE_PUSH (1);
+	    emit_store (exception_decl, state);
+	    emit_jsr (finally_label, state);
+	    emit_load (exception_decl, state);
+	    RESERVE (1);
+	    OP1 (OPCODE_athrow);
+	    NOTE_POP (1);
+	  }
+	else
+	  {
+	    /* We're not generating a subroutine.  In this case we can
+	       simply have the exception handler pop the exception and
+	       then fall through to the `finally' block.  */
+	    NOTE_PUSH (1);
+	    emit_pop (1, state);
+	    NOTE_POP (1);
+	  }
 
-	/* The finally block.  First save return PC into return_link. */
+	/* The finally block.  If we're generating a subroutine, first
+	   save return PC into return_link.  Otherwise, just generate
+	   the code for the `finally' block.  */
 	define_jcf_label (finally_label, state);
-	NOTE_PUSH (1);
-	emit_store (return_link, state);
+	if (CAN_COMPLETE_NORMALLY (finally))
+	  {
+	    NOTE_PUSH (1);
+	    emit_store (return_link, state);
+	  }
 
 	generate_bytecode_insns (finally, IGNORE_TARGET, state);
-	maybe_wide (OPCODE_ret, DECL_LOCAL_INDEX (return_link), state);
-	localvar_free (exception_decl, state);
-	localvar_free (return_link, state);
-	define_jcf_label (finished_label, state);
+	if (CAN_COMPLETE_NORMALLY (finally))
+	  {
+	    maybe_wide (OPCODE_ret, DECL_LOCAL_INDEX (return_link), state);
+	    localvar_free (exception_decl, state);
+	    localvar_free (return_link, state);
+	    define_jcf_label (finished_label, state);
+	  }
       }
       break;
     case THROW_EXPR:
@@ -2691,7 +2724,7 @@ perform_relocations (state)
 	  /* new_ptr and old_ptr point into the old and new buffers,
 	     respectively.  (If no relocations cause the buffer to
 	     grow, the buffer will be the same buffer, and new_ptr==old_ptr.)
-	     The bytes at higher adress have been copied and relocations
+	     The bytes at higher address have been copied and relocations
 	     handled; those at lower addresses remain to process. */
 
 	  /* Lower old index of piece to be copied with no relocation.
@@ -2885,7 +2918,10 @@ generate_classfile (clas, state)
 			      build_java_signature (TREE_TYPE (part)));
       PUT2(i);
       have_value = DECL_INITIAL (part) != NULL_TREE 
-	&& FIELD_STATIC (part) && CONSTANT_VALUE_P (DECL_INITIAL (part));
+	&& FIELD_STATIC (part) && CONSTANT_VALUE_P (DECL_INITIAL (part))
+	&& FIELD_FINAL (part)
+	&& (JPRIMITIVE_TYPE_P (TREE_TYPE (part))
+	    || TREE_TYPE (part) == string_ptr_type_node);
       if (have_value)
 	attr_count++;
 
@@ -2897,6 +2933,8 @@ generate_classfile (clas, state)
 	{
 	  tree init = DECL_INITIAL (part);
 	  static tree ConstantValue_node = NULL_TREE;
+	  if (TREE_TYPE (part) != TREE_TYPE (init))
+	    fatal_error ("field initializer type mismatch");
 	  ptr = append_chunk (NULL, 8, state);
 	  if (ConstantValue_node == NULL_TREE)
 	    ConstantValue_node = get_identifier ("ConstantValue");
@@ -2935,7 +2973,8 @@ generate_classfile (clas, state)
       i = (body != NULL_TREE) + (DECL_FUNCTION_THROWS (part) != NULL_TREE);
 
       /* Make room for the Synthetic attribute (of zero length.)  */
-      if (DECL_FINIT_P (part) 
+      if (DECL_FINIT_P (part)
+	  || DECL_INSTINIT_P (part)
 	  || OUTER_FIELD_ACCESS_IDENTIFIER_P (DECL_NAME (part))
 	  || TYPE_DOT_CLASS (clas) == part)
 	{
@@ -3331,14 +3370,14 @@ write_classfile (clas)
     {
       FILE *stream = fopen (class_file_name, "wb");
       if (stream == NULL)
-	fatal_io_error ("can't to open %s", class_file_name);
+	fatal_io_error ("can't open %s for writing", class_file_name);
 
       jcf_dependency_add_target (class_file_name);
       init_jcf_state (state, work);
       chunks = generate_classfile (clas, state);
       write_chunks (stream, chunks);
       if (fclose (stream))
-	fatal_io_error ("can't close %s", class_file_name);
+	fatal_io_error ("error closing %s", class_file_name);
       free (class_file_name);
     }
   release_jcf_state (state);

@@ -1,22 +1,22 @@
 /* Generic sibling call optimization support
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,6 +31,12 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "output.h"
 #include "except.h"
+#include "tree.h"
+
+/* In case alternate_exit_block contains copy from pseudo, to return value,
+   record the pseudo here.  In such case the pseudo must be set to function
+   return in the sibcall sequence.  */
+static rtx return_value_pseudo;
 
 static int identify_call_return_value	PARAMS ((rtx, rtx *, rtx *));
 static rtx skip_copy_to_return_value	PARAMS ((rtx));
@@ -151,6 +157,14 @@ skip_copy_to_return_value (orig_insn)
   set = single_set (insn);
   if (! set)
     return orig_insn;
+
+  if (return_value_pseudo)
+    {
+      if (SET_DEST (set) == return_value_pseudo
+	  && SET_SRC (set) == softret)
+	return insn;
+      return orig_insn;
+    }
 
   /* The destination must be the same as the called function's return
      value to ensure that any return value is put in the same place by the
@@ -323,6 +337,7 @@ call_ends_block_p (insn, end)
      rtx insn;
      rtx end;
 {
+  rtx new_insn;
   /* END might be a note, so get the last nonnote insn of the block.  */
   end = next_nonnote_insn (PREV_INSN (end));
 
@@ -333,7 +348,15 @@ call_ends_block_p (insn, end)
   /* Skip over copying from the call's return value pseudo into
      this function's hard return register and if that's the end
      of the block, we're OK.  */
-  insn = skip_copy_to_return_value (insn);
+  new_insn = skip_copy_to_return_value (insn);
+
+  /* In case we return value in pseudo, we must set the pseudo to
+     return value of called function, otherwise we are returning
+     something else.  */
+  if (return_value_pseudo && insn == new_insn)
+    return 0;
+  insn = new_insn;
+
   if (insn == end)
     return 1;
 
@@ -387,7 +410,7 @@ uses_addressof (x)
   if (code == MEM)
     return 0;
 
-  /* Scan all subexpressions. */
+  /* Scan all subexpressions.  */
   fmt = GET_RTX_FORMAT (code);
   for (i = 0; i < GET_RTX_LENGTH (code); i++, fmt++)
     {
@@ -407,7 +430,7 @@ uses_addressof (x)
 }
 
 /* Scan the sequence of insns in SEQ to see if any have an ADDRESSOF
-   rtl expression or current_function_internal_arg_pointer occurences
+   rtl expression or current_function_internal_arg_pointer occurrences
    not enclosed within a MEM.  If an ADDRESSOF expression or
    current_function_internal_arg_pointer is found, return nonzero, otherwise
    return zero.
@@ -497,7 +520,7 @@ purge_mem_unchanging_flag (x)
       return;
     }
 
-  /* Scan all subexpressions. */
+  /* Scan all subexpressions.  */
   fmt = GET_RTX_FORMAT (code);
   for (i = 0; i < GET_RTX_LENGTH (code); i++, fmt++)
     {
@@ -524,7 +547,7 @@ replace_call_placeholder (insn, use)
   else if (use == sibcall_use_normal)
     emit_insns_before (XEXP (PATTERN (insn), 0), insn);
   else
-    abort();
+    abort ();
 
   /* Turn off LABEL_PRESERVE_P for the tail recursion label if it
      exists.  We only had to set it long enough to keep the jump
@@ -532,10 +555,8 @@ replace_call_placeholder (insn, use)
   if (XEXP (PATTERN (insn), 3))
     LABEL_PRESERVE_P (XEXP (PATTERN (insn), 3)) = 0;
   
-  /* "Delete" the placeholder insn. */
-  PUT_CODE (insn, NOTE);
-  NOTE_SOURCE_FILE (insn) = 0;
-  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+  /* "Delete" the placeholder insn.  */
+  remove_insn (insn);
 }
 
 /* Given a (possibly empty) set of potential sibling or tail recursion call
@@ -552,7 +573,7 @@ optimize_sibling_and_tail_recursive_calls ()
 {
   rtx insn, insns;
   basic_block alternate_exit = EXIT_BLOCK_PTR;
-  int current_function_uses_addressof;
+  bool no_sibcalls_this_function = false;
   int successful_sibling_call = 0;
   int replaced_call_placeholder = 0;
   edge e;
@@ -569,11 +590,19 @@ optimize_sibling_and_tail_recursive_calls ()
   /* We need cfg information to determine which blocks are succeeded
      only by the epilogue.  */
   find_basic_blocks (insns, max_reg_num (), 0);
-  cleanup_cfg (CLEANUP_PRE_SIBCALL);
+  cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_PRE_LOOP);
 
   /* If there are no basic blocks, then there is nothing to do.  */
   if (n_basic_blocks == 0)
     return;
+
+  /* If we are using sjlj exceptions, we may need to add a call to 
+     _Unwind_SjLj_Unregister at exit of the function.  Which means
+     that we cannot do any sibcall transformations.  */
+  if (USING_SJLJ_EXCEPTIONS && current_function_has_exception_handlers ())
+    no_sibcalls_this_function = true;
+
+  return_value_pseudo = NULL_RTX;
 
   /* Find the exit block.
 
@@ -595,6 +624,7 @@ optimize_sibling_and_tail_recursive_calls ()
 	   insn;
 	   insn = NEXT_INSN (insn))
 	{
+	  rtx set;
 	  /* This should only happen once, at the start of this block.  */
 	  if (GET_CODE (insn) == CODE_LABEL)
 	    continue;
@@ -606,6 +636,18 @@ optimize_sibling_and_tail_recursive_calls ()
 	      && GET_CODE (PATTERN (insn)) == USE)
 	    continue;
 
+	  /* Exit block also may contain copy from pseudo containing
+	     return value to hard register.  */
+	  if (GET_CODE (insn) == INSN
+	      && (set = single_set (insn))
+	      && SET_DEST (set) == current_function_return_rtx
+	      && REG_P (SET_SRC (set))
+	      && !return_value_pseudo)
+	    {
+	      return_value_pseudo = SET_SRC (set);
+	      continue;
+	    }
+
 	  break;
 	}
 
@@ -614,11 +656,13 @@ optimize_sibling_and_tail_recursive_calls ()
 	 valid alternate exit block.  */
       if (insn == NULL)
 	alternate_exit = e->src;
+      else
+	return_value_pseudo = NULL;
     }
 
   /* If the function uses ADDRESSOF, we can't (easily) determine
      at this point if the value will end up on the stack.  */
-  current_function_uses_addressof = sequence_uses_addressof (insns);
+  no_sibcalls_this_function |= sequence_uses_addressof (insns);
 
   /* Walk the insn chain and find any CALL_PLACEHOLDER insns.  We need to
      select one of the insn sequences attached to each CALL_PLACEHOLDER.
@@ -648,11 +692,10 @@ optimize_sibling_and_tail_recursive_calls ()
 
 	  /* See if there are any reasons we can't perform either sibling or
 	     tail call optimizations.  We must be careful with stack slots
-	     which are live at potential optimization sites.  ??? The first
-	     test is overly conservative and should be replaced.  */
-	  if (frame_offset
-	      /* Can't take address of local var if used by recursive call.  */
-	      || current_function_uses_addressof
+	     which are live at potential optimization sites.  */
+	  if (no_sibcalls_this_function
+	      /* ??? Overly conservative.  */
+	      || frame_offset
 	      /* Any function that calls setjmp might have longjmp called from
 		 any called function.  ??? We really should represent this
 		 properly in the CFG so that this needn't be special cased.  */
@@ -665,7 +708,7 @@ optimize_sibling_and_tail_recursive_calls ()
 	      || (call_block->succ->dest != EXIT_BLOCK_PTR
 		  && call_block->succ->dest != alternate_exit)
 	      /* If this call doesn't end the block, there are operations at
-		 the end of the block which we must execute after returning. */
+		 the end of the block which we must execute after returning.  */
 	      || ! call_ends_block_p (insn, call_block->end))
 	    sibcall = 0, tailrecursion = 0;
 
@@ -688,6 +731,7 @@ optimize_sibling_and_tail_recursive_calls ()
   if (successful_sibling_call)
     {
       rtx insn;
+      tree arg;
 
       /* A sibling call sequence invalidates any REG_EQUIV notes made for
 	 this function's incoming arguments. 
@@ -709,13 +753,18 @@ optimize_sibling_and_tail_recursive_calls ()
 	 we actually write into.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
-	  if (GET_CODE (insn) == NOTE)
-	    {
-	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
-		break;
-	    }
-	  else if (INSN_P (insn))
+	  if (INSN_P (insn))
 	    purge_mem_unchanging_flag (PATTERN (insn));
+	}
+
+      /* Similarly, invalidate RTX_UNCHANGING_P for any incoming
+	 arguments passed in registers. */
+      for (arg = DECL_ARGUMENTS (current_function_decl); 
+	   arg; 
+	   arg = TREE_CHAIN (arg))
+	{
+	  if (REG_P (DECL_RTL (arg)))
+	    RTX_UNCHANGING_P (DECL_RTL (arg)) = false;
 	}
     }
 

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  HP-UX 68010 version.  */
 
-/* See m68k.h.  0 means 68000 without 68881 and no bitfields.   */
+/* See m68k.h.  0 means 68000 without 68881 and no bitfields.  */
 #define	TARGET_DEFAULT 0
 
 #include "m68k/hp320.h"
@@ -19,16 +19,14 @@
 #ifdef HPUX_ASM
 
 #define CPP_SPEC "-D__HPUX_ASM__ %{m68881: -D__HAVE_68881__}\
-%{m68020: -Dmc68020}%{mc68020: -Dmc68020}\
-%{!traditional:-D_INCLUDE__STDC__}"
+%{m68020: -Dmc68020}%{mc68020: -Dmc68020} -D_INCLUDE__STDC__"
 
 #define ASM_SPEC "%{!m68020:%{!mc68020:+X}}"
 
 #else	/* not HPUX_ASM */
 
 #define CPP_SPEC "%{m68881: -D__HAVE_68881__}\
-%{m68020: -Dmc68020}%{mc68020: -Dmc68020}\
-%{!traditional:-D_INCLUDE__STDC__}"
+%{m68020: -Dmc68020}%{mc68020: -Dmc68020} -D_INCLUDE__STDC__"
 
 #define ASM_SPEC \
  "%{m68000:-mc68000}%{mc68000:-mc68000}%{!mc68000:%{!m68000:-mc68020}}"

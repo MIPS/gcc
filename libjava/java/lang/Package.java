@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 package java.lang;
 
@@ -39,12 +50,12 @@ import java.util.StringTokenizer;
  * <a href="http://java.sun.com/products/jdk/1.3/docs/guide/versioning/spec/VersioningSpecification.html">Product Versioning Specification</a>.
  * It also allows packages to be sealed with respect to the originating URL.
  * <p>
- * The most usefull method is the <code>isCompatibleWith()</code> method that
+ * The most useful method is the <code>isCompatibleWith()</code> method that
  * compares a desired version of a specification with the version of the
  * specification as implemented by a package. A package is considered
  * compatible with another version if the version of the specification is
  * equal or higher then the requested version. Version numbers are represented
- * as strings of positive numbers seperated by dots (e.g. "1.2.0").
+ * as strings of positive numbers separated by dots (e.g. "1.2.0").
  * The first number is called the major number, the second the minor,
  * the third the micro, etc. A version is considered higher then another
  * version if it has a bigger major number then the another version or when

@@ -1,5 +1,6 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -36,6 +37,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "parse.h"
 #include "ggc.h"
 #include "debug.h"
+#include "assert.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -94,9 +96,9 @@ static void parse_zip_file_entries PARAMS ((void));
 static void process_zip_dir PARAMS ((FILE *));
 static void parse_source_file_1 PARAMS ((tree, FILE *));
 static void parse_source_file_2 PARAMS ((void));
+static void parse_source_file_3 PARAMS ((void));
 static void parse_class_file PARAMS ((void));
 static void set_source_filename PARAMS ((JCF *, int));
-static int predefined_filename_p PARAMS ((tree));
 static void ggc_mark_jcf PARAMS ((void**));
 static void jcf_parse PARAMS ((struct JCF*));
 static void load_inner_classes PARAMS ((tree));
@@ -261,14 +263,7 @@ parse_signature (jcf, sig_index)
 }
 
 void
-init_lex ()
-{
-  /* Make identifier nodes long enough for the language-specific slots.  */
-  set_identifier_size (sizeof (struct lang_identifier));
-}
-
-void
-set_yydebug (value)
+java_set_yydebug (value)
      int value;
 {
   yydebug = value;
@@ -312,13 +307,7 @@ get_constant (jcf, index)
       {
 	jint num = JPOOL_INT(jcf, index);
 	REAL_VALUE_TYPE d;
-#ifdef REAL_ARITHMETIC
 	d = REAL_VALUE_FROM_TARGET_SINGLE (num);
-#else
-	union { float f;  jint i; } u;
-	u.i = num;
-	d = u.f;
-#endif
 	value = build_real (float_type_node, d);
 	break;
       }
@@ -331,7 +320,15 @@ get_constant (jcf, index)
 	lshift_double (num[0], 0, 32, 64, &lo, &hi, 0);
 	num[0] = JPOOL_INT (jcf, index+1);
 	add_double (lo, hi, num[0], 0, &lo, &hi);
-	if (FLOAT_WORDS_BIG_ENDIAN)
+
+	/* Since ereal_from_double expects an array of HOST_WIDE_INT
+	   in the target's format, we swap the elements for big endian
+	   targets, unless HOST_WIDE_INT is sufficiently large to
+	   contain a target double, in which case the 2nd element
+	   is ignored.
+
+	   FIXME: Is this always right for cross targets? */
+	if (FLOAT_WORDS_BIG_ENDIAN && sizeof(num[0]) < 8)
 	  {
 	    num[0] = hi;
 	    num[1] = lo;
@@ -341,16 +338,7 @@ get_constant (jcf, index)
 	    num[0] = lo;
 	    num[1] = hi;
 	  }
-#ifdef REAL_ARITHMETIC
 	d = REAL_VALUE_FROM_TARGET_DOUBLE (num);
-#else
-	{
-	  union { double d;  jint i[2]; } u;
-	  u.i[0] = (jint) num[0];
-	  u.i[1] = (jint) num[1];
-	  d = u.d;
-	}
-#endif
 	value = build_real (double_type_node, d);
 	break;
       }
@@ -360,16 +348,12 @@ get_constant (jcf, index)
 	tree name = get_name_constant (jcf, JPOOL_USHORT1 (jcf, index));
 	const char *utf8_ptr = IDENTIFIER_POINTER (name);
 	int utf8_len = IDENTIFIER_LENGTH (name);
-	unsigned char *str_ptr;
-	unsigned char *str;
 	const unsigned char *utf8;
-	int i, str_len;
+	int i;
 
-	/* Count the number of Unicode characters in the string,
-	   while checking for a malformed Utf8 string. */
+	/* Check for a malformed Utf8 string.  */
 	utf8 = (const unsigned char *) utf8_ptr;
 	i = utf8_len;
-	str_len = 0;
 	while (i > 0)
 	  {
 	    int char_len = UT8_CHAR_LENGTH (*utf8);
@@ -378,48 +362,10 @@ get_constant (jcf, index)
 
 	    utf8 += char_len;
 	    i -= char_len;
-	    str_len++;
 	  }
 
-	/* Allocate a scratch buffer, convert the string to UCS2, and copy it
-	   into the new space.  */
-	str_ptr = (unsigned char *) alloca (2 * str_len);
-	str = str_ptr;
-	utf8 = (const unsigned char *)utf8_ptr;
-
-	for (i = 0; i < str_len; i++)
-	  {
-	    int char_value;
-	    int char_len = UT8_CHAR_LENGTH (*utf8);
-	    switch (char_len)
-	      {
-	      case 1:
-		char_value = *utf8++;
-		break;
-	      case 2:
-		char_value = *utf8++ & 0x1F;
-		char_value = (char_value << 6) | (*utf8++ & 0x3F);
-		break;
-	      case 3:
-		char_value = *utf8++ & 0x0F;
-		char_value = (char_value << 6) | (*utf8++ & 0x3F);
-		char_value = (char_value << 6) | (*utf8++ & 0x3F);
-		break;
-	      default:
-		goto bad;
-	      }
-	    if (BYTES_BIG_ENDIAN)
-	      {
-		*str++ = char_value >> 8;
-		*str++ = char_value & 0xFF;
-	      }
-	    else
-	      {
-		*str++ = char_value & 0xFF;
-		*str++ = char_value >> 8;
-	      }
-	  }
-	value = build_string (str - str_ptr, str_ptr);
+	/* Allocate a new string value.  */
+	value = build_string (utf8_len, utf8_ptr);
 	TREE_TYPE (value) = build_pointer_type (string_type_node);
       }
       break;
@@ -605,6 +551,7 @@ read_class (name)
 	    fatal_io_error ("can't reopen %s", input_filename);
 	  parse_source_file_1 (file, finput);
 	  parse_source_file_2 ();
+	  parse_source_file_3 ();
 	  if (fclose (finput))
 	    fatal_io_error ("can't close %s", input_filename);
 	}
@@ -650,7 +597,8 @@ load_class (class_or_name, verbose)
      tree class_or_name;
      int verbose;
 {
-  tree name;
+  tree name, saved;
+  int class_loaded;
 
   /* class_or_name can be the name of the class we want to load */
   if (TREE_CODE (class_or_name) == IDENTIFIER_NODE)
@@ -663,8 +611,31 @@ load_class (class_or_name, verbose)
   else
     name = DECL_NAME (TYPE_NAME (class_or_name));
 
-  if (read_class (name) == 0 && verbose)
-    error ("Cannot find file for class %s.", IDENTIFIER_POINTER (name));
+  saved = name;
+  while (1)
+    {
+      char *separator;
+
+      if ((class_loaded = read_class (name)))
+	break;
+
+      /* We failed loading name. Now consider that we might be looking
+	 for a inner class. */
+      if ((separator = strrchr (IDENTIFIER_POINTER (name), '$'))
+	  || (separator = strrchr (IDENTIFIER_POINTER (name), '.')))
+	{
+	  int c = *separator;
+	  *separator = '\0';
+	  name = get_identifier (IDENTIFIER_POINTER (name));
+	  *separator = c;
+	}
+      /* Otherwise, we failed, we bail. */
+      else
+	break;
+    }
+
+  if (!class_loaded && verbose)
+    error ("cannot find file for class %s", IDENTIFIER_POINTER (saved));
 }
 
 /* Parse the .class file JCF. */
@@ -732,7 +703,7 @@ jcf_parse (jcf)
 	 -fforce-classes-archive-check was specified. */
       if (!jcf->right_zip
 	  && (!flag_emit_class_files || flag_force_classes_archive_check))
-	fatal_error ("The `java.lang.Object' that was found in `%s' didn't have the special zero-length `gnu.gcj.gcj-compiled' attribute. This generally means that your classpath is incorrect set. Use `info gcj \"Input Options\"' to see the info page describing how to set the classpath.", jcf->filename);
+	fatal_error ("the `java.lang.Object' that was found in `%s' didn't have the special zero-length `gnu.gcj.gcj-compiled' attribute.  This generally means that your classpath is incorrectly set.  Use `info gcj \"Input Options\"' to see the info page describing how to set the classpath", jcf->filename);
     }
   else
     all_class_list = tree_cons (NULL_TREE,
@@ -767,7 +738,7 @@ init_outgoing_cpool ()
 static void
 parse_class_file ()
 {
-  tree method;
+  tree method, field;
   const char *save_input_filename = input_filename;
   int save_lineno = lineno;
 
@@ -782,8 +753,13 @@ parse_class_file ()
      compiling from class files.  */
   always_initialize_class_p = 1;
 
-  for ( method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
-	method != NULL_TREE; method = TREE_CHAIN (method))
+  for (field = TYPE_FIELDS (CLASS_TO_HANDLE_TYPE (current_class));
+       field != NULL_TREE; field = TREE_CHAIN (field))
+    if (FIELD_STATIC (field))
+      DECL_EXTERNAL (field) = 0;
+
+  for (method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
+       method != NULL_TREE; method = TREE_CHAIN (method))
     {
       JCF *jcf = current_jcf;
 
@@ -816,6 +792,7 @@ parse_class_file ()
 
       if (DECL_CODE_OFFSET (method) == 0)
 	{
+	  current_function_decl = method;
 	  error ("missing Code attribute");
 	  continue;
 	}
@@ -884,13 +861,11 @@ parse_source_file_1 (file, finput)
   /* There's no point in trying to find the current encoding unless we
      are going to do something intelligent with it -- hence the test
      for iconv.  */
-#ifdef HAVE_ICONV
-#ifdef HAVE_NL_LANGINFO
+#if defined (HAVE_LOCALE_H) && defined (HAVE_ICONV) && defined (HAVE_NL_LANGINFO)
   setlocale (LC_CTYPE, "");
   if (current_encoding == NULL)
     current_encoding = nl_langinfo (CODESET);
-#endif /* HAVE_NL_LANGINFO */
-#endif /* HAVE_ICONV */
+#endif 
   if (current_encoding == NULL || *current_encoding == '\0')
     current_encoding = DEFAULT_ENCODING;
 
@@ -910,6 +885,12 @@ parse_source_file_2 ()
   int save_error_count = java_error_count;
   java_complete_class ();	    /* Parse unsatisfied class decl. */
   java_parse_abort_on_error ();
+}
+
+static void
+parse_source_file_3 ()
+{
+  int save_error_count = java_error_count;
   java_check_circular_reference (); /* Check on circular references */
   java_parse_abort_on_error ();
   java_fix_constructors ();	    /* Fix the constructors */
@@ -917,19 +898,29 @@ parse_source_file_2 ()
   java_reorder_fields ();	    /* Reorder the fields */
 }
 
-static int
-predefined_filename_p (node)
-     tree node;
+void
+add_predefined_file (name)
+     tree name;
 {
-  int i;
-  for (i = 0; i < PREDEF_FILENAMES_SIZE; i++)
-    if (predef_filenames [i] == node)
-      return 1;
-  return 0;
+  predef_filenames = tree_cons (NULL_TREE, name, predef_filenames);
 }
 
 int
-yyparse ()
+predefined_filename_p (node)
+     tree node;
+{
+  tree iter;
+
+  for (iter = predef_filenames; iter != NULL_TREE; iter = TREE_CHAIN (iter))
+    {
+      if (TREE_VALUE (iter) == node)
+	return 1;
+    }
+  return 0;
+}
+
+void
+java_parse_file ()
 {
   int filename_count = 0;
   char *list, *next;
@@ -1041,7 +1032,7 @@ yyparse ()
 	    {
 	      const char *saved_input_filename = input_filename;
 	      input_filename = value;
-	      warning ("source file seen twice on command line and will be compiled only once.");
+	      warning ("source file seen twice on command line and will be compiled only once");
 	      input_filename = saved_input_filename;
 	    }
 	  else
@@ -1059,12 +1050,25 @@ yyparse ()
   if (filename_count == 0)
     warning ("no input file specified");
 
+  if (resource_name)
+    {
+      const char *resource_filename;
+      
+      /* Only one resource file may be compiled at a time.  */
+      assert (TREE_CHAIN (current_file_list) == NULL);
+
+      resource_filename = IDENTIFIER_POINTER (TREE_VALUE (current_file_list));
+      compile_resource_file (resource_name, resource_filename);
+
+      return;
+    }
+
   current_jcf = main_jcf;
   current_file_list = nreverse (current_file_list);
   for (node = current_file_list; node; node = TREE_CHAIN (node))
     {
       unsigned char magic_string[4];
-      uint32 magic;
+      uint32 magic = 0;
       tree name = TREE_VALUE (node);
 
       /* Skip already parsed files */
@@ -1086,11 +1090,11 @@ yyparse ()
       input_filename = IDENTIFIER_POINTER (name);
 
       /* Figure what kind of file we're dealing with */
-      if (fread (magic_string, 1, 4, finput) != 4)
-	fatal_io_error ("Premature end of input file %s", 
-			IDENTIFIER_POINTER (name));
-      fseek (finput, 0L, SEEK_SET);
-      magic = GET_u4 (magic_string);
+      if (fread (magic_string, 1, 4, finput) == 4)
+	{
+	  fseek (finput, 0L, SEEK_SET);
+	  magic = GET_u4 (magic_string);
+	}
       if (magic == 0xcafebabe)
 	{
 	  CLASS_FILE_P (node) = 1;
@@ -1136,6 +1140,13 @@ yyparse ()
       input_filename = ctxp->filename;
       parse_source_file_2 ();
     }
+
+  for (ctxp = ctxp_for_generation; ctxp; ctxp = ctxp->next)
+    {
+      input_filename = ctxp->filename;
+      parse_source_file_3 ();
+    }
+
   for (node = current_file_list; node; node = TREE_CHAIN (node))
     {
       input_filename = IDENTIFIER_POINTER (TREE_VALUE (node));
@@ -1153,8 +1164,11 @@ yyparse ()
 
   java_expand_classes ();
   if (!java_report_errors () && !flag_syntax_only)
-    emit_register_classes ();
-  return 0;
+    {
+      emit_register_classes ();
+      if (flag_indirect_dispatch)
+	emit_offset_symbol_table ();
+    }
 }
 
 /* Process all class entries found in the zip file.  */
@@ -1221,7 +1235,7 @@ process_zip_dir (FILE *finput)
       class_name_in_zip_dir = ZIPDIR_FILENAME (zdir);
 
       /* We choose to not to process entries with a zero size or entries
-	 not bearing the .class extention.  */
+	 not bearing the .class extension.  */
       if (!zdir->size || !zdir->filename_offset ||
 	  strncmp (&class_name_in_zip_dir[zdir->filename_length-6], 
 		   ".class", 6))
@@ -1266,7 +1280,7 @@ void
 init_jcf_parse ()
 {
   /* Register roots with the garbage collector.  */
-  ggc_add_tree_root (parse_roots, sizeof (parse_roots) / sizeof(tree));
+  ggc_add_tree_root (parse_roots, ARRAY_SIZE (parse_roots));
 
   ggc_add_root (&current_jcf, 1, sizeof (JCF), (void (*)(void *))ggc_mark_jcf);
 

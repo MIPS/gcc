@@ -1,5 +1,5 @@
 /* Definitions for PA_RISC with ELF-32 format
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,7 +18,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Turn off various SOM crap we don't want. */
+/* Turn off various SOM crap we don't want.  */
 #undef TARGET_ELF32
 #define TARGET_ELF32 1
 

@@ -1,5 +1,5 @@
 /* Do-nothing debug hooks for GCC.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -20,7 +20,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 
 /* The do-nothing debug hooks.  */
-struct gcc_debug_hooks do_nothing_debug_hooks =
+const struct gcc_debug_hooks do_nothing_debug_hooks =
 {
   debug_nothing_charstar,
   debug_nothing_charstar,
@@ -54,20 +54,20 @@ debug_nothing_void ()
 
 void
 debug_nothing_tree (decl)
-     union tree_node *decl ATTRIBUTE_UNUSED;
+     tree decl ATTRIBUTE_UNUSED;
 {
 }
 
 bool
 debug_true_tree (block)
-     union tree_node *block ATTRIBUTE_UNUSED;
+     tree block ATTRIBUTE_UNUSED;
 {
   return true;
 }
 
 void
 debug_nothing_rtx (insn)
-     struct rtx_def *insn ATTRIBUTE_UNUSED;
+     rtx insn ATTRIBUTE_UNUSED;
 {
 }
 

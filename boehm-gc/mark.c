@@ -264,7 +264,7 @@ static void alloc_mark_stack();
 GC_bool GC_mark_some(cold_gc_frame)
 ptr_t cold_gc_frame;
 {
-#ifdef MSWIN32
+#if defined(MSWIN32) && !defined(__GNUC__)
   /* Windows 98 appears to asynchronously create and remove writable	*/
   /* memory mappings, for reasons we haven't yet understood.  Since	*/
   /* we look for writable regions to determine the root set, we may	*/
@@ -274,7 +274,7 @@ ptr_t cold_gc_frame;
   /* Note that this code should never generate an incremental GC write	*/
   /* fault.								*/
   __try {
-#endif
+#endif /* defined(MSWIN32) && !defined(__GNUC__) */
     switch(GC_mark_state) {
     	case MS_NONE:
     	    return(FALSE);
@@ -395,7 +395,7 @@ ptr_t cold_gc_frame;
     	    ABORT("GC_mark_some: bad state");
     	    return(FALSE);
     }
-#ifdef MSWIN32
+#if defined(MSWIN32) && !defined(__GNUC__)
   } __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ?
 	    EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
 #   ifdef CONDPRINT
@@ -410,7 +410,7 @@ ptr_t cold_gc_frame;
     scan_ptr = 0;
     return FALSE;
   }
-#endif /* MSWIN32 */
+#endif /* defined(MSWIN32) && !defined(__GNUC__) */
 }
 
 
@@ -427,21 +427,22 @@ GC_bool GC_mark_stack_empty()
 #endif
 
 /* Given a pointer to someplace other than a small object page or the	*/
-/* first page of a large object, return a pointer either to the		*/
-/* start of the large object or NIL.					*/
-/* In the latter case black list the address current.			*/
-/* Returns NIL without black listing if current points to a block	*/
-/* with IGNORE_OFF_PAGE set.						*/
+/* first page of a large object, either:				*/
+/*	- return a pointer to somewhere in the first page of the large	*/
+/*	  object, if current points to a large object.			*/
+/*	  In this case *hhdr is replaced with a pointer to the header	*/
+/*	  for the large object.						*/
+/*	- just return current if it does not point to a large object.	*/
 /*ARGSUSED*/
 # ifdef PRINT_BLACK_LIST
-  ptr_t GC_find_start(current, hhdr, source)
-  word source;
+  ptr_t GC_find_start(current, hhdr, new_hdr_p, source)
+  ptr_t source;
 # else
-  ptr_t GC_find_start(current, hhdr)
+  ptr_t GC_find_start(current, hhdr, new_hdr_p)
 # define source 0
 # endif
 register ptr_t current;
-register hdr * hhdr;
+register hdr *hhdr, **new_hdr_p;
 {
     if (GC_all_interior_pointers) {
 	if (hhdr != 0) {
@@ -457,17 +458,15 @@ register hdr * hhdr;
 	    if ((word *)orig - (word *)current
 	         >= (ptrdiff_t)(hhdr->hb_sz)) {
 	        /* Pointer past the end of the block */
-	        GC_ADD_TO_BLACK_LIST_NORMAL((word)orig, source);
-	        return(0);
+	        return(orig);
 	    }
+	    *new_hdr_p = hhdr;
 	    return(current);
 	} else {
-	    GC_ADD_TO_BLACK_LIST_NORMAL((word)current, source);
-	    return(0);
+	    return(current);
         }
     } else {
-        GC_ADD_TO_BLACK_LIST_NORMAL((word)current, source);
-        return(0);
+        return(current);
     }
 #   undef source
 }
@@ -547,13 +546,13 @@ mse * mark_stack_limit;
           /* Large length.					        */
           /* Process part of the range to avoid pushing too much on the	*/
           /* stack.							*/
+	  GC_ASSERT(descr < GC_greatest_plausible_heap_addr
+			    - GC_least_plausible_heap_addr);
 #	  ifdef PARALLEL_MARK
 #	    define SHARE_BYTES 2048
 	    if (descr > SHARE_BYTES && GC_parallel
 		&& mark_stack_top < mark_stack_limit - 1) {
 	      int new_size = (descr/2) & ~(sizeof(word)-1);
-	      GC_ASSERT(descr < GC_greatest_plausible_heap_addr
-			        - GC_least_plausible_heap_addr);
 	      mark_stack_top -> mse_start = current_p;
 	      mark_stack_top -> mse_descr = new_size + sizeof(word);
 					/* makes sure we handle 	*/
@@ -839,7 +838,7 @@ long GC_markers = 2;		/* Normally changed by thread-library-	*/
 				/* -specific code.			*/
 
 /* Mark using the local mark stack until the global mark stack is empty	*/
-/* and ther are no active workers.  Update GC_first_nonempty to reflect	*/
+/* and there are no active workers. Update GC_first_nonempty to reflect	*/
 /* progress.								*/
 /* Caller does not hold mark lock.					*/
 /* Caller has already incremented GC_helper_count.  We decrement it,	*/
@@ -919,7 +918,7 @@ void GC_mark_local(mse *local_mark_stack, int id)
 		    return;
 		}
 		/* else there's something on the stack again, or	*/
-		/* another help may push something.			*/
+		/* another helper may push something.			*/
 		GC_active_count++;
 	        GC_ASSERT(GC_active_count > 0);
 		GC_release_mark_lock();
@@ -951,8 +950,10 @@ void GC_do_parallel_mark()
 
     GC_acquire_mark_lock();
     GC_ASSERT(I_HOLD_LOCK());
-    GC_ASSERT(!GC_help_wanted);
-    GC_ASSERT(GC_active_count == 0);
+    /* This could be a GC_ASSERT, but it seems safer to keep it on	*/
+    /* all the time, especially since it's cheap.			*/
+    if (GC_help_wanted || GC_active_count != 0 || GC_helper_count != 0)
+	ABORT("Tried to start parallel mark in bad state");
 #   ifdef PRINTSTATS
 	GC_printf1("Starting marking for mark phase number %lu\n",
 		   (unsigned long)GC_mark_no);
@@ -1375,11 +1376,11 @@ ptr_t cold_gc_frame;
 	return;
     }
 #   ifdef STACK_GROWS_DOWN
-	GC_push_all_eager(bottom, cold_gc_frame);
 	GC_push_all(cold_gc_frame - sizeof(ptr_t), top);
+	GC_push_all_eager(bottom, cold_gc_frame);
 #   else /* STACK_GROWS_UP */
-	GC_push_all_eager(cold_gc_frame, top);
 	GC_push_all(bottom, cold_gc_frame + sizeof(ptr_t));
+	GC_push_all_eager(cold_gc_frame, top);
 #   endif /* STACK_GROWS_UP */
   } else {
     GC_push_all_eager(bottom, top);

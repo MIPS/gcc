@@ -1,5 +1,5 @@
 /* target.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 2002 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -71,6 +71,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "proj.h"
 #include "glimits.h"
 #include "target.h"
+#include "diagnostic.h"
 #include "bad.h"
 #include "info.h"
 #include "lex.h"
@@ -1447,12 +1448,8 @@ ffetarget_integerhex (ffetargetIntegerDefault *val, ffelexToken integer)
   bad_digit = FALSE;
   while (c != '\0')
     {
-      if ((c >= 'A') && (c <= 'F'))
-	c = c - 'A' + 10;
-      else if ((c >= 'a') && (c <= 'f'))
-	c = c - 'a' + 10;
-      else if ((c >= '0') && (c <= '9'))
-	c -= '0';
+      if (hex_p (c))
+	c = hex_value (c);
       else
 	{
 	  bad_digit = TRUE;
@@ -2194,7 +2191,7 @@ ffetarget_print_hex (FILE *f, ffetargetTypeless value)
 {
   char *p;
   char digits[sizeof (value) * CHAR_BIT / 4 + 1];
-  static char hexdigits[16] = "0123456789ABCDEF";
+  static const char hexdigits[16] = "0123456789ABCDEF";
 
   if (f == NULL)
     f = dmpout;
@@ -2482,12 +2479,8 @@ ffetarget_typeless_hex (ffetargetTypeless *xvalue, ffelexToken token)
       new_value <<= 4;
       if ((new_value >> 4) != value)
 	overflow = TRUE;
-      if (ISDIGIT (c))
-	new_value += c - '0';
-      else if ((c >= 'A') && (c <= 'F'))
-	new_value += c - 'A' + 10;
-      else if ((c >= 'a') && (c <= 'f'))
-	new_value += c - 'a' + 10;
+      if (hex_p (c))
+	new_value += hex_value (c);
       else
 	bad_digit = TRUE;
       value = new_value;
@@ -2527,6 +2520,47 @@ ffetarget_verify_character1 (mallocPool pool, ffetargetCharacter1 val)
 void *
 ffetarget_memcpy_ (void *dst, void *src, size_t len)
 {
+#ifdef CROSS_COMPILE
+  int host_words_big_endian =
+#ifndef HOST_WORDS_BIG_ENDIAN
+    0
+#else
+    HOST_WORDS_BIG_ENDIAN
+#endif
+    ;
+
+  int host_bytes_big_endian =
+#ifndef HOST_BYTES_BIG_ENDIAN
+    0
+#else
+    HOST_BYTES_BIG_ENDIAN
+#endif
+    ;
+
+  int host_bits_big_endian =
+#ifndef HOST_BITS_BIG_ENDIAN
+    0
+#else
+    HOST_BITS_BIG_ENDIAN
+#endif
+    ;
+
+  /* This is just hands thrown up in the air over bits coming through this
+     function representing a number being memcpy:d as-is from host to
+     target.  We can't generally adjust endianness here since we don't
+     know whether it's an integer or floating point number; they're passed
+     differently.  Better to not emit code at all than to emit wrong code.
+     We will get some false hits because some data coming through here
+     seems to be just character vectors, but often enough it's numbers,
+     for instance in g77.f-torture/execute/980628-[4-6].f and alpha2.f.
+     Still, we compile *some* code.  FIXME: Rewrite handling of numbers.  */
+  if (!WORDS_BIG_ENDIAN != !host_words_big_endian
+      || !BYTES_BIG_ENDIAN != !host_bytes_big_endian
+      || !BITS_BIG_ENDIAN != !host_bits_big_endian)
+    sorry ("data initializer on host with different endianness");
+
+#endif /* CROSS_COMPILE */
+
   return (void *) memcpy (dst, src, len);
 }
 

@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,15 +33,22 @@
   
 // Information as gleaned from DJGPP <ctype.h>
 
-  ctype<char>::ctype(const mask* __table = 0, bool __del = false, 
-	size_t __refs = 0) 
-    : __ctype_abstract_base<char>(__refs), 
-      _M_del(__table != 0 && __del), 
-      _M_toupper(__dj_ctype_toupper), 
-      _M_tolower(__dj_ctype_tolower),
-      _M_ctable(NULL), 
-      _M_table(__table == 0 ? __dj_ctype_flags : __table) 
-    { }
+  const ctype_base::mask*
+  ctype<char>::classic_table() throw()
+  { return 0; }
+
+  ctype<char>::ctype(__c_locale, const mask* __table, bool __del, 
+		     size_t __refs) 
+  : __ctype_abstract_base<char>(__refs), _M_del(__table != 0 && __del), 
+  _M_toupper(__dj_ctype_toupper), _M_tolower(__dj_ctype_tolower),
+  _M_table(__table ? __table : __dj_ctype_flags)  
+  { }
+
+  ctype<char>::ctype(const mask* __table, bool __del, size_t __refs) 
+  : __ctype_abstract_base<char>(__refs), _M_del(__table != 0 && __del), 
+  _M_toupper(__dj_ctype_toupper), _M_tolower(__dj_ctype_tolower),
+  _M_table(__table ? __table : __dj_ctype_flags)  
+  { }
 
   char
   ctype<char>::do_toupper(char __c) const

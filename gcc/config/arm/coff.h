@@ -21,8 +21,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "semi.h"
-#include "aout.h"
 
 /* Note - it is important that this definition matches the one in tcoff.h */
 #undef  USER_LABEL_PREFIX
@@ -74,7 +72,9 @@ Boston, MA 02111-1307, USA.  */
 /* Define this macro if jump tables (for `tablejump' insns) should be
    output in the text section, along with the assembler instructions.
    Otherwise, the readonly data section is used.  */
-#define JUMP_TABLES_IN_TEXT_SECTION 1
+/* We put ARM jump tables in the text section, because it makes the code
+   more efficient, but for Thumb it's better to put them out of band.  */
+#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_ARM)
 
 #undef  READONLY_DATA_SECTION
 #define READONLY_DATA_SECTION	rdata_section
@@ -89,7 +89,7 @@ Boston, MA 02111-1307, USA.  */
    given time.  */
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS SUBTARGET_EXTRA_SECTIONS in_rdata, in_ctors, in_dtors
+#define EXTRA_SECTIONS SUBTARGET_EXTRA_SECTIONS in_rdata
 
 #define SUBTARGET_EXTRA_SECTIONS
 
@@ -98,8 +98,6 @@ Boston, MA 02111-1307, USA.  */
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS \
   RDATA_SECTION_FUNCTION	\
-  CTORS_SECTION_FUNCTION	\
-  DTORS_SECTION_FUNCTION	\
   SUBTARGET_EXTRA_SECTION_FUNCTIONS
 
 #define SUBTARGET_EXTRA_SECTION_FUNCTIONS
@@ -114,58 +112,8 @@ rdata_section ()						\
       in_section = in_rdata;					\
     }								\
 }
-
-#define CTORS_SECTION_FUNCTION \
-void								\
-ctors_section ()						\
-{								\
-  if (in_section != in_ctors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);	\
-      in_section = in_ctors;					\
-    }								\
-}
-
-#define DTORS_SECTION_FUNCTION \
-void								\
-dtors_section ()						\
-{								\
-  if (in_section != in_dtors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);	\
-      in_section = in_dtors;					\
-    }								\
-}
 
 /* Support the ctors/dtors sections for g++.  */
-
-#define INT_ASM_OP "\t.word\t"
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(STREAM, NAME)	\
-  do						\
-    {						\
-      ctors_section ();				\
-      fprintf (STREAM, "%s", INT_ASM_OP);	\
-      assemble_name (STREAM, NAME);		\
-      fprintf (STREAM, "\n");			\
-    }						\
-  while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(STREAM, NAME)	\
-  do						\
-    {						\
-      dtors_section ();				\
-      fprintf (STREAM, "%s", INT_ASM_OP);	\
-      assemble_name (STREAM, NAME);		\
-      fprintf (STREAM, "\n");			\
-    }						\
-  while (0)
 
 /* __CTOR_LIST__ and __DTOR_LIST__ must be defined by the linker script.  */
 #define CTOR_LISTS_DEFINED_EXTERNALLY
@@ -176,3 +124,5 @@ dtors_section ()						\
 /* The ARM development system defines __main.  */
 #define NAME__MAIN  "__gccmain"
 #define SYMBOL__MAIN __gccmain
+
+#define SUPPORTS_INIT_PRIORITY 0

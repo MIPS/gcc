@@ -55,8 +55,9 @@ static pthread_cond_t daemon_cond;
 static int non_daemon_count;
 
 // The signal to use when interrupting a thread.
-#ifdef LINUX_THREADS
+#if defined(LINUX_THREADS) || defined(FREEBSD_THREADS)
   // LinuxThreads (prior to glibc 2.1) usurps both SIGUSR1 and SIGUSR2.
+  // GC on FreeBSD uses both SIGUSR1 and SIGUSR2.
 #  define INTR SIGHUP
 #else /* LINUX_THREADS */
 #  define INTR SIGUSR2
@@ -160,7 +161,7 @@ _Jv_CondWait (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu,
   mu->owner = self;
   mu->count = count;
 
-  // If we were interrupted, or if a timeout occured, remove ourself from
+  // If we were interrupted, or if a timeout occurred, remove ourself from
   // the cv wait list now. (If we were notified normally, notify() will have
   // already taken care of this)
   if (r == ETIMEDOUT || interrupted)
@@ -263,7 +264,7 @@ _Jv_ThreadInterrupt (_Jv_Thread_t *data)
   data->thread_obj->interrupt_flag = true;
 
   // Interrupt blocking system calls using a signal.
-//  pthread_kill (data->thread, INTR);
+  pthread_kill (data->thread, INTR);
   
   pthread_cond_signal (&data->wait_cond);
   
@@ -437,18 +438,17 @@ _Jv_ThreadWait (void)
 
 #if defined(SLOW_PTHREAD_SELF)
 
+#include "sysdep/locks.h"
+
 // Support for pthread_self() lookup cache.
-
 volatile self_cache_entry _Jv_self_cache[SELF_CACHE_SIZE];
-
 
 _Jv_ThreadId_t
 _Jv_ThreadSelf_out_of_line(volatile self_cache_entry *sce, size_t high_sp_bits)
 {
   pthread_t self = pthread_self();
-  // The ordering between the following writes matters.
-  // On Alpha, we probably need a memory barrier in the middle.
   sce -> high_sp_bits = high_sp_bits;
+  write_barrier();
   sce -> self = self;
   return self;
 }

@@ -1,5 +1,5 @@
 /* Definitions for DEC Alpha/AXP running FreeBSD using the ELF format
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
    Contributed by David E. O'Brien <obrien@FreeBSD.org> and BSDi.
 
 This file is part of GNU CC.
@@ -16,7 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 
 /* Provide a CPP_SPEC appropriate for FreeBSD/alpha.  Besides the dealing with
@@ -31,7 +32,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
   %{mieee-with-inexact:-D_IEEE_FP -D_IEEE_FP_INEXACT}"
 
 #undef  LINK_SPEC
-#define LINK_SPEC "-m elf64alpha %{G*} %{relax:-relax}			\
+#define LINK_SPEC "%{G*} %{relax:-relax}				\
   %{p:%e`-p' not supported; use `-pg' and gprof(1)}			\
   %{Wl,*:%*}								\
   %{assert*} %{R*} %{rpath*} %{defsym*}					\
@@ -78,14 +79,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TARGET_DEFAULT (MASK_FP | MASK_FPREGS | MASK_GAS)
 
 #undef HAS_INIT_SECTION
-
-/* Output assembler code to FILE to increment profiler label # LABELNO
-   for profiling a function entry.  Under FreeBSD/Alpha, the assembler does
-   nothing special with -pg. */
-
-#undef  FUNCTION_PROFILER
-#define FUNCTION_PROFILER(FILE, LABELNO)				\
-	fputs ("\tjsr $28,_mcount\n", (FILE))
 
 /* Show that we need a GP when profiling.  */
 #undef  TARGET_PROFILING_NEEDS_GP

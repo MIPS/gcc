@@ -1,6 +1,6 @@
 // resolve.cc - Code for linking and resolving classes and pool entries.
 
-/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001 , 2002 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -31,6 +31,8 @@ details.  */
 #include <java/lang/ClassNotFoundException.h>
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
+
+using namespace gcj;
 
 void
 _Jv_ResolveField (_Jv_Field *field, java::lang::ClassLoader *loader)
@@ -64,9 +66,6 @@ _Jv_BuildResolvedMethod (_Jv_Method*,
 			 jboolean,
 			 jint);
 
-
-// We need to know the name of a constructor.
-static _Jv_Utf8Const *init_name = _Jv_makeUtf8Const ("<init>", 6);
 
 static void throw_incompatible_class_change_error (jstring msg)
 {
@@ -579,7 +578,7 @@ _Jv_PrepareClass(jclass klass)
 
   // set the instance size for the class
   clz->size_in_bytes = instance_size;
-    
+
   // allocate static memory
   if (static_size != 0)
     {
@@ -629,6 +628,7 @@ _Jv_PrepareClass(jclass klass)
       else if (imeth != 0)		// it could be abstract
 	{
 	  _Jv_InterpMethod *im = reinterpret_cast<_Jv_InterpMethod *> (imeth);
+	  _Jv_VerifyMethod (im);
 	  clz->methods[i].ncode = im->ncode ();
 	}
     }
@@ -696,9 +696,7 @@ _Jv_PrepareClass(jclass klass)
   clz->vtable_method_count = vtable_count;
 
   /* allocate vtable structure */
-  _Jv_VTable *vtable = (_Jv_VTable*) 
-    _Jv_AllocBytes (sizeof (_Jv_VTable) 
-			   + (sizeof (void*) * (vtable_count)));
+  _Jv_VTable *vtable = _Jv_VTable::new_vtable (vtable_count);
   vtable->clas = clz;
   vtable->gc_descr = _Jv_BuildGCDescr(clz);
 
@@ -712,9 +710,8 @@ _Jv_PrepareClass(jclass klass)
 
     /* copy super class' vtable entries. */
     if (effective_superclass && effective_superclass->vtable)
-      memcpy ((void*)&vtable->method[0],
-	      (void*)&effective_superclass->vtable->method[0],
-	      sizeof (void*) * effective_superclass->vtable_method_count);
+      for (int i = 0; i < effective_superclass->vtable_method_count; ++i)
+	vtable->set_method (i, effective_superclass->vtable->get_method (i));
   }
 
   /* now, install our own vtable entries, reprise... */
@@ -735,9 +732,9 @@ _Jv_PrepareClass(jclass klass)
 	    throw_internal_error ("vtable problem...");
 
 	  if (clz->interpreted_methods[i] == 0)
-	    vtable->method[index] = (void*)&_Jv_abstractMethodError;
+	    vtable->set_method(index, (void*)&_Jv_abstractMethodError);
 	  else
-	    vtable->method[index] = this_meth->ncode;
+	    vtable->set_method(index, this_meth->ncode);
 	}
     }
 
@@ -962,9 +959,9 @@ get_ffi_type_from_signature (unsigned char* ptr)
  * function is non-static, then one is added to the number of elements
  * found in the signature */
 
-static int 
-count_arguments (_Jv_Utf8Const *signature,
-		 jboolean staticp)
+int 
+_Jv_count_arguments (_Jv_Utf8Const *signature,
+		     jboolean staticp)
 {
   unsigned char *ptr = (unsigned char*) signature->data;
   int arg_count = staticp ? 0 : 1;
@@ -1052,7 +1049,7 @@ init_cif (_Jv_Utf8Const* signature,
 #endif
 
 /* we put this one here, and not in interpret.cc because it
- * calls the utility routines count_arguments 
+ * calls the utility routines _Jv_count_arguments 
  * which are static to this module.  The following struct defines the
  * layout we use for the stubs, it's only used in the ncode method. */
 
@@ -1073,7 +1070,7 @@ _Jv_InterpMethod::ncode ()
     return self->ncode;
 
   jboolean staticp = (self->accflags & Modifier::STATIC) != 0;
-  int arg_count = count_arguments (self->signature, staticp);
+  int arg_count = _Jv_count_arguments (self->signature, staticp);
 
   ncode_closure *closure =
     (ncode_closure*)_Jv_AllocBytes (sizeof (ncode_closure)
@@ -1123,7 +1120,7 @@ _Jv_JNIMethod::ncode ()
     return self->ncode;
 
   jboolean staticp = (self->accflags & Modifier::STATIC) != 0;
-  int arg_count = count_arguments (self->signature, staticp);
+  int arg_count = _Jv_count_arguments (self->signature, staticp);
 
   ncode_closure *closure =
     (ncode_closure*)_Jv_AllocBytes (sizeof (ncode_closure)
@@ -1184,7 +1181,7 @@ _Jv_BuildResolvedMethod (_Jv_Method* method,
 			 jboolean staticp,
 			 jint vtable_index)
 {
-  int arg_count = count_arguments (method->signature, staticp);
+  int arg_count = _Jv_count_arguments (method->signature, staticp);
 
   _Jv_ResolvedMethod* result = (_Jv_ResolvedMethod*)
     _Jv_AllocBytes (sizeof (_Jv_ResolvedMethod)

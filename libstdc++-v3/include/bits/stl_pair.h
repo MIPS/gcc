@@ -54,12 +54,12 @@
  */
 
 /** @file stl_pair.h
- *  This is an internal header file, included by other STL headers.  You
- *  should not attempt to use it directly.
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_PAIR_H
-#define __SGI_STL_INTERNAL_PAIR_H
+#ifndef __GLIBCPP_INTERNAL_PAIR_H
+#define __GLIBCPP_INTERNAL_PAIR_H
 
 namespace std
 {
@@ -95,7 +95,7 @@ inline bool operator==(const pair<_T1, _T2>& __x, const pair<_T1, _T2>& __y)
   return __x.first == __y.first && __x.second == __y.second; 
 }
 
-/// ...put link to onlinedocs here...
+/// http://gcc.gnu.org/onlinedocs/libstdc++/20_util/howto.html#pairlt
 template <class _T1, class _T2>
 inline bool operator<(const pair<_T1, _T2>& __x, const pair<_T1, _T2>& __y)
 { 
@@ -134,8 +134,9 @@ inline bool operator>=(const pair<_T1, _T2>& __x, const pair<_T1, _T2>& __y) {
  *  @return   A newly-constructed pair<> object of the appropriate type.
  *
  *  The standard requires that the objects be passed by reference-to-const,
- *  but LWG issue #181 says they should be passed by const value.
- */
+ *  but LWG issue #181 says they should be passed by const value.  We follow
+ *  the LWG by default.
+*/
 template <class _T1, class _T2>
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 //181.  make_pair() unintended behavior
@@ -149,7 +150,7 @@ inline pair<_T1, _T2> make_pair(const _T1& __x, const _T2& __y)
 
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_PAIR_H */
+#endif /* __GLIBCPP_INTERNAL_PAIR_H */
 
 // Local Variables:
 // mode:C++

@@ -1,23 +1,23 @@
 /* Analyze RTL for C-Compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
@@ -25,12 +25,16 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "insn-config.h"
+#include "recog.h"
+#include "tm_p.h"
+#include "flags.h"
 
 /* Forward declarations */
+static int global_reg_mentioned_p_1 PARAMS ((rtx *, void *));
 static void set_of_1		PARAMS ((rtx, rtx, void *));
 static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
 static int computed_jump_p_1	PARAMS ((rtx));
-static int operand_preference	PARAMS ((rtx));
 static void parms_set 		PARAMS ((rtx, rtx, void *));
 
 /* Bit flags that specify the machine subtype we are compiling for.
@@ -48,9 +52,9 @@ int
 rtx_unstable_p (x)
      rtx x;
 {
-  register RTX_CODE code = GET_CODE (x);
-  register int i;
-  register const char *fmt;
+  RTX_CODE code = GET_CODE (x);
+  int i;
+  const char *fmt;
 
   switch (code)
     {
@@ -64,6 +68,7 @@ rtx_unstable_p (x)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
       return 0;
@@ -124,9 +129,9 @@ rtx_varies_p (x, for_alias)
      rtx x;
      int for_alias;
 {
-  register RTX_CODE code = GET_CODE (x);
-  register int i;
-  register const char *fmt;
+  RTX_CODE code = GET_CODE (x);
+  int i;
+  const char *fmt;
 
   switch (code)
     {
@@ -139,6 +144,7 @@ rtx_varies_p (x, for_alias)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
       return 0;
@@ -203,9 +209,9 @@ rtx_varies_p (x, for_alias)
 
 int
 rtx_addr_can_trap_p (x)
-     register rtx x;
+     rtx x;
 {
-  register enum rtx_code code = GET_CODE (x);
+  enum rtx_code code = GET_CODE (x);
 
   switch (code)
     {
@@ -270,9 +276,9 @@ rtx_addr_varies_p (x, for_alias)
      rtx x;
      int for_alias;
 {
-  register enum rtx_code code;
-  register int i;
-  register const char *fmt;
+  enum rtx_code code;
+  int i;
+  const char *fmt;
 
   if (x == 0)
     return 0;
@@ -301,7 +307,7 @@ rtx_addr_varies_p (x, for_alias)
 /* Return the value of the integer term in X, if one is apparent;
    otherwise return 0.
    Only obvious integer terms are detected.
-   This is used in cse.c with the `related_value' field.*/
+   This is used in cse.c with the `related_value' field.  */
 
 HOST_WIDE_INT
 get_integer_term (x)
@@ -339,6 +345,222 @@ get_related_value (x)
   return 0;
 }
 
+/* Given a tablejump insn INSN, return the RTL expression for the offset
+   into the jump table.  If the offset cannot be determined, then return
+   NULL_RTX.
+
+   If EARLIEST is non-zero, it is a pointer to a place where the earliest
+   insn used in locating the offset was found.  */
+
+rtx
+get_jump_table_offset (insn, earliest)
+     rtx insn;
+     rtx *earliest;
+{
+  rtx label;
+  rtx table;
+  rtx set;
+  rtx old_insn;
+  rtx x;
+  rtx old_x;
+  rtx y;
+  rtx old_y;
+  int i;
+
+  if (GET_CODE (insn) != JUMP_INSN
+      || ! (label = JUMP_LABEL (insn))
+      || ! (table = NEXT_INSN (label))
+      || GET_CODE (table) != JUMP_INSN
+      || (GET_CODE (PATTERN (table)) != ADDR_VEC
+	  && GET_CODE (PATTERN (table)) != ADDR_DIFF_VEC)
+      || ! (set = single_set (insn)))
+    return NULL_RTX;
+
+  x = SET_SRC (set);
+
+  /* Some targets (eg, ARM) emit a tablejump that also
+     contains the out-of-range target.  */
+  if (GET_CODE (x) == IF_THEN_ELSE
+      && GET_CODE (XEXP (x, 2)) == LABEL_REF)
+    x = XEXP (x, 1);
+
+  /* Search backwards and locate the expression stored in X.  */
+  for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+       old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+    ;
+
+  /* If X is an expression using a relative address then strip
+     off the addition / subtraction of PC, PIC_OFFSET_TABLE_REGNUM,
+     or the jump table label.  */
+  if (GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC
+      && (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS))
+    {
+      for (i = 0; i < 2; i++)
+	{
+	  old_insn = insn;
+	  y = XEXP (x, i);
+
+	  if (y == pc_rtx || y == pic_offset_table_rtx)
+	    break;
+
+	  for (old_y = NULL_RTX; GET_CODE (y) == REG && y != old_y;
+	       old_y = y, y = find_last_value (y, &old_insn, NULL_RTX, 0))
+	    ;
+
+	  if ((GET_CODE (y) == LABEL_REF && XEXP (y, 0) == label))
+	    break;
+	}
+
+      if (i >= 2)
+	return NULL_RTX;
+
+      x = XEXP (x, 1 - i);
+
+      for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+	   old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+	;
+    }
+
+  /* Strip off any sign or zero extension.  */
+  if (GET_CODE (x) == SIGN_EXTEND || GET_CODE (x) == ZERO_EXTEND)
+    {
+      x = XEXP (x, 0);
+
+      for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+	   old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+	;
+    }
+
+  /* If X isn't a MEM then this isn't a tablejump we understand.  */
+  if (GET_CODE (x) != MEM)
+    return NULL_RTX;
+
+  /* Strip off the MEM.  */
+  x = XEXP (x, 0);
+
+  for (old_x = NULL_RTX; GET_CODE (x) == REG && x != old_x;
+       old_x = x, x = find_last_value (x, &insn, NULL_RTX, 0))
+    ;
+
+  /* If X isn't a PLUS than this isn't a tablejump we understand.  */
+  if (GET_CODE (x) != PLUS)
+    return NULL_RTX;
+
+  /* At this point we should have an expression representing the jump table
+     plus an offset.  Examine each operand in order to determine which one
+     represents the jump table.  Knowing that tells us that the other operand
+     must represent the offset.  */
+  for (i = 0; i < 2; i++)
+    {
+      old_insn = insn;
+      y = XEXP (x, i);
+
+      for (old_y = NULL_RTX; GET_CODE (y) == REG && y != old_y;
+	   old_y = y, y = find_last_value (y, &old_insn, NULL_RTX, 0))
+	;
+
+      if ((GET_CODE (y) == CONST || GET_CODE (y) == LABEL_REF)
+	  && reg_mentioned_p (label, y))
+	break;
+    }
+
+  if (i >= 2)
+    return NULL_RTX;
+
+  x = XEXP (x, 1 - i);
+
+  /* Strip off the addition / subtraction of PIC_OFFSET_TABLE_REGNUM.  */
+  if (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS)
+    for (i = 0; i < 2; i++)
+      if (XEXP (x, i) == pic_offset_table_rtx)
+	{
+	  x = XEXP (x, 1 - i);
+	  break;
+	}
+
+  if (earliest)
+    *earliest = insn;
+
+  /* Return the RTL expression representing the offset.  */
+  return x;
+}
+
+/* A subroutine of global_reg_mentioned_p, returns 1 if *LOC mentions
+   a global register.  */
+
+static int
+global_reg_mentioned_p_1 (loc, data)
+     rtx *loc;
+     void *data ATTRIBUTE_UNUSED;
+{
+  int regno;
+  rtx x = *loc;
+
+  if (! x)
+    return 0;
+
+  switch (GET_CODE (x))
+    {
+    case SUBREG:
+      if (GET_CODE (SUBREG_REG (x)) == REG)
+	{
+	  if (REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER
+	      && global_regs[subreg_regno (x)])
+	    return 1;
+	  return 0;
+	}
+      break;
+
+    case REG:
+      regno = REGNO (x);
+      if (regno < FIRST_PSEUDO_REGISTER && global_regs[regno])
+	return 1;
+      return 0;
+
+    case SCRATCH:
+    case PC:
+    case CC0:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST:
+    case LABEL_REF:
+      return 0;
+
+    case CALL:
+      /* A non-constant call might use a global register.  */
+      return 1;
+
+    default:
+      break;
+    }
+
+  return 0;
+}
+
+/* Returns non-zero if X mentions a global register.  */
+
+int
+global_reg_mentioned_p (x)
+     rtx x;
+{
+
+  if (INSN_P (x))
+    {
+      if (GET_CODE (x) == CALL_INSN)
+	{
+	  if (! CONST_OR_PURE_CALL_P (x))
+	    return 1;
+	  x = CALL_INSN_FUNCTION_USAGE (x);
+	  if (x == 0)
+	    return 0;
+        }
+      else
+        x = PATTERN (x);
+    }
+
+  return for_each_rtx (&x, global_reg_mentioned_p_1, NULL);
+}
+
 /* Return the number of places FIND appears within X.  If COUNT_DEST is
    zero, we do not count occurrences inside the destination of a SET.  */
 
@@ -362,6 +584,7 @@ count_occurrences (x, find, count_dest)
     case REG:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -408,11 +631,11 @@ count_occurrences (x, find, count_dest)
 
 int
 reg_mentioned_p (reg, in)
-     register rtx reg, in;
+     rtx reg, in;
 {
-  register const char *fmt;
-  register int i;
-  register enum rtx_code code;
+  const char *fmt;
+  int i;
+  enum rtx_code code;
 
   if (in == 0)
     return 0;
@@ -440,7 +663,8 @@ reg_mentioned_p (reg, in)
 
     case CONST_INT:
       return GET_CODE (reg) == CONST_INT && INTVAL (in) == INTVAL (reg);
-      
+
+    case CONST_VECTOR:
     case CONST_DOUBLE:
       /* These are kept unique for a given value.  */
       return 0;
@@ -458,7 +682,7 @@ reg_mentioned_p (reg, in)
     {
       if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = XVECLEN (in, i) - 1; j >= 0; j--)
 	    if (reg_mentioned_p (reg, XVECEXP (in, i, j)))
 	      return 1;
@@ -477,7 +701,7 @@ int
 no_labels_between_p (beg, end)
      rtx beg, end;
 {
-  register rtx p;
+  rtx p;
   if (beg == end)
     return 0;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
@@ -493,7 +717,7 @@ int
 no_jumps_between_p (beg, end)
      rtx beg, end;
 {
-  register rtx p;
+  rtx p;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
     if (GET_CODE (p) == JUMP_INSN)
       return 0;
@@ -507,7 +731,7 @@ int
 reg_used_between_p (reg, from_insn, to_insn)
      rtx reg, from_insn, to_insn;
 {
-  register rtx insn;
+  rtx insn;
 
   if (from_insn == to_insn)
     return 0;
@@ -569,6 +793,9 @@ reg_referenced_p (x, body)
     case TRAP_IF:
       return reg_overlap_mentioned_p (x, TRAP_CONDITION (body));
 
+    case PREFETCH:
+      return reg_overlap_mentioned_p (x, XEXP (body, 0));
+
     case UNSPEC:
     case UNSPEC_VOLATILE:
       for (i = XVECLEN (body, 0) - 1; i >= 0; i--)
@@ -606,7 +833,7 @@ int
 reg_referenced_between_p (reg, from_insn, to_insn)
      rtx reg, from_insn, to_insn;
 {
-  register rtx insn;
+  rtx insn;
 
   if (from_insn == to_insn)
     return 0;
@@ -627,7 +854,7 @@ int
 reg_set_between_p (reg, from_insn, to_insn)
      rtx reg, from_insn, to_insn;
 {
-  register rtx insn;
+  rtx insn;
 
   if (from_insn == to_insn)
     return 0;
@@ -686,6 +913,7 @@ regs_set_between_p (x, start, end)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -732,6 +960,7 @@ modified_between_p (x, start, end)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -787,6 +1016,7 @@ modified_in_p (x, insn)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -884,7 +1114,7 @@ set_of_1 (x, pat, data1)
 }
 
 /* Give an INSN, return a SET or CLOBBER expression that does modify PAT
-   (eighter directly or via STRICT_LOW_PART and similar modifiers).  */
+   (either directly or via STRICT_LOW_PART and similar modifiers).  */
 rtx
 set_of (pat, insn)
      rtx pat, insn;
@@ -923,7 +1153,7 @@ single_set_2 (insn, pat)
 	      /* We can consider insns having multiple sets, where all
 		 but one are dead as single set insns.  In common case
 		 only single set is present in the pattern so we want
-		 to avoid checking for REG_UNUSED notes unless neccesary.
+		 to avoid checking for REG_UNUSED notes unless necessary.
 
 		 When we reach set first time, we just expect this is
 		 the single set we are looking for and only when more
@@ -1036,6 +1266,11 @@ noop_move_p (insn)
 
   /* Insns carrying these notes are useful later on.  */
   if (find_reg_note (insn, REG_EQUAL, NULL_RTX))
+    return 0;
+
+  /* For now treat an insn with a REG_RETVAL note as a
+     a special insn which should not be considered a no-op.  */
+  if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
     return 0;
 
   if (GET_CODE (pat) == SET && set_noop_p (pat))
@@ -1219,7 +1454,7 @@ refers_to_regno_p (regno, endregno, x, loc)
 	}
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = XVECLEN (x, i) - 1; j >=0; j--)
 	    if (loc != &XVECEXP (x, i, j)
 		&& refers_to_regno_p (regno, endregno, XVECEXP (x, i, j), loc))
@@ -1262,7 +1497,7 @@ reg_overlap_mentioned_p (x, in)
     do_reg:
       endregno = regno + (regno < FIRST_PSEUDO_REGISTER
 			  ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
-      return refers_to_regno_p (regno, endregno, in, (rtx*)0);
+      return refers_to_regno_p (regno, endregno, in, (rtx*) 0);
 
     case MEM:
       {
@@ -1365,7 +1600,7 @@ reg_set_last (x, insn)
      
 void
 note_stores (x, fun, data)
-     register rtx x;
+     rtx x;
      void (*fun) PARAMS ((rtx, rtx, void *));
      void *data;
 {
@@ -1376,7 +1611,7 @@ note_stores (x, fun, data)
 
   if (GET_CODE (x) == SET || GET_CODE (x) == CLOBBER)
     {
-      register rtx dest = SET_DEST (x);
+      rtx dest = SET_DEST (x);
 
       while ((GET_CODE (dest) == SUBREG
 	      && (GET_CODE (SUBREG_REG (dest)) != REG
@@ -1449,6 +1684,10 @@ note_uses (pbody, fun, data)
 
     case TRAP_IF:
       (*fun) (&TRAP_CONDITION (body), data);
+      return;
+
+    case PREFETCH:
+      (*fun) (&XEXP (body, 0), data);
       return;
 
     case UNSPEC:
@@ -1583,7 +1822,7 @@ dead_or_set_regno_p (insn, test_regno)
     }
   else if (GET_CODE (pattern) == PARALLEL)
     {
-      register int i;
+      int i;
 
       for (i = XVECLEN (pattern, 0) - 1; i >= 0; i--)
 	{
@@ -1628,7 +1867,7 @@ find_reg_note (insn, kind, datum)
      enum reg_note kind;
      rtx datum;
 {
-  register rtx link;
+  rtx link;
 
   /* Ignore anything that is not an INSN, JUMP_INSN or CALL_INSN.  */
   if (! INSN_P (insn))
@@ -1652,7 +1891,7 @@ find_regno_note (insn, kind, regno)
      enum reg_note kind;
      unsigned int regno;
 {
-  register rtx link;
+  rtx link;
 
   /* Ignore anything that is not an INSN, JUMP_INSN or CALL_INSN.  */
   if (! INSN_P (insn))
@@ -1705,17 +1944,17 @@ find_reg_fusage (insn, code, datum)
     return 0;
 
   if (! datum)
-    abort();
+    abort ();
 
   if (GET_CODE (datum) != REG)
     {
-      register rtx link;
+      rtx link;
 
       for (link = CALL_INSN_FUNCTION_USAGE (insn);
            link;
 	   link = XEXP (link, 1))
         if (GET_CODE (XEXP (link, 0)) == code
-	    && rtx_equal_p (datum, SET_DEST (XEXP (link, 0))))
+	    && rtx_equal_p (datum, XEXP (XEXP (link, 0), 0)))
           return 1;
     }
   else
@@ -1749,7 +1988,7 @@ find_regno_fusage (insn, code, regno)
      enum rtx_code code;
      unsigned int regno;
 {
-  register rtx link;
+  rtx link;
 
   /* CALL_INSN_FUNCTION_USAGE information cannot contain references
      to pseudo registers, so don't bother checking.  */
@@ -1772,15 +2011,40 @@ find_regno_fusage (insn, code, regno)
 
   return 0;
 }
+
+/* Return true if INSN is a call to a pure function.  */
+
+int
+pure_call_p (insn)
+     rtx insn;
+{
+  rtx link;
+
+  if (GET_CODE (insn) != CALL_INSN || ! CONST_OR_PURE_CALL_P (insn))
+    return 0;
+
+  /* Look for the note that differentiates const and pure functions.  */
+  for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
+    {
+      rtx u, m;
+
+      if (GET_CODE (u = XEXP (link, 0)) == USE
+	  && GET_CODE (m = XEXP (u, 0)) == MEM && GET_MODE (m) == BLKmode
+	  && GET_CODE (XEXP (m, 0)) == SCRATCH)
+	return 1;
+    }
+
+  return 0;
+}
 
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
 
 void
 remove_note (insn, note)
-     register rtx insn;
-     register rtx note;
+     rtx insn;
+     rtx note;
 {
-  register rtx link;
+  rtx link;
 
   if (note == NULL_RTX)
     return;
@@ -1799,6 +2063,24 @@ remove_note (insn, note)
       }
 
   abort ();
+}
+
+/* Search LISTP (an EXPR_LIST) for an entry whose first operand is NODE and
+   return 1 if it is found.  A simple equality test is used to determine if
+   NODE matches.  */
+
+int
+in_expr_list_p (listp, node)
+     rtx listp;
+     rtx node;
+{
+  rtx x;
+
+  for (x = listp; x; x = XEXP (x, 1))
+    if (node == XEXP (x, 0))
+      return 1;
+
+  return 0;
 }
 
 /* Search LISTP (an EXPR_LIST) for an entry whose first operand is NODE and
@@ -1841,7 +2123,7 @@ int
 volatile_insn_p (x)
      rtx x;
 {
-  register RTX_CODE code;
+  RTX_CODE code;
 
   code = GET_CODE (x);
   switch (code)
@@ -1851,6 +2133,7 @@ volatile_insn_p (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case REG:
@@ -1878,8 +2161,8 @@ volatile_insn_p (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register const char *fmt = GET_RTX_FORMAT (code);
-    register int i;
+    const char *fmt = GET_RTX_FORMAT (code);
+    int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
@@ -1890,7 +2173,7 @@ volatile_insn_p (x)
 	  }
 	else if (fmt[i] == 'E')
 	  {
-	    register int j;
+	    int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
 	      if (volatile_insn_p (XVECEXP (x, i, j)))
 		return 1;
@@ -1907,7 +2190,7 @@ int
 volatile_refs_p (x)
      rtx x;
 {
-  register RTX_CODE code;
+  RTX_CODE code;
 
   code = GET_CODE (x);
   switch (code)
@@ -1917,6 +2200,7 @@ volatile_refs_p (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case REG:
@@ -1944,8 +2228,8 @@ volatile_refs_p (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register const char *fmt = GET_RTX_FORMAT (code);
-    register int i;
+    const char *fmt = GET_RTX_FORMAT (code);
+    int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
@@ -1956,7 +2240,7 @@ volatile_refs_p (x)
 	  }
 	else if (fmt[i] == 'E')
 	  {
-	    register int j;
+	    int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
 	      if (volatile_refs_p (XVECEXP (x, i, j)))
 		return 1;
@@ -1973,7 +2257,7 @@ int
 side_effects_p (x)
      rtx x;
 {
-  register RTX_CODE code;
+  RTX_CODE code;
 
   code = GET_CODE (x);
   switch (code)
@@ -1983,6 +2267,7 @@ side_effects_p (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CC0:
     case PC:
     case REG:
@@ -2021,8 +2306,8 @@ side_effects_p (x)
   /* Recursively scan the operands of this expression.  */
 
   {
-    register const char *fmt = GET_RTX_FORMAT (code);
-    register int i;
+    const char *fmt = GET_RTX_FORMAT (code);
+    int i;
     
     for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
       {
@@ -2033,7 +2318,7 @@ side_effects_p (x)
 	  }
 	else if (fmt[i] == 'E')
 	  {
-	    register int j;
+	    int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
 	      if (side_effects_p (XVECEXP (x, i, j)))
 		return 1;
@@ -2061,6 +2346,7 @@ may_trap_p (x)
       /* Handle these cases quickly.  */
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST:
@@ -2088,7 +2374,8 @@ may_trap_p (x)
     case UDIV:
     case UMOD:
       if (! CONSTANT_P (XEXP (x, 1))
-	  || GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+	  || (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT
+	      && flag_trapping_math))
 	return 1;
       /* This was const0_rtx, but by not using that,
 	 we can link this file into other programs.  */
@@ -2107,6 +2394,8 @@ may_trap_p (x)
     case LT:
     case COMPARE:
       /* Some floating point comparisons may trap.  */
+      if (!flag_trapping_math)
+	break;
       /* ??? There is no machine independent way to check for tests that trap
 	 when COMPARE is used, though many targets do make this distinction.
 	 For instance, sparc uses CCFPE for compares which generate exceptions
@@ -2127,7 +2416,8 @@ may_trap_p (x)
 
     default:
       /* Any floating arithmetic may trap.  */
-      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT
+	  && flag_trapping_math)
 	return 1;
     }
 
@@ -2141,7 +2431,7 @@ may_trap_p (x)
 	}
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    if (may_trap_p (XVECEXP (x, i, j)))
 	      return 1;
@@ -2157,9 +2447,9 @@ int
 inequality_comparisons_p (x)
      rtx x;
 {
-  register const char *fmt;
-  register int len, i;
-  register enum rtx_code code = GET_CODE (x);
+  const char *fmt;
+  int len, i;
+  enum rtx_code code = GET_CODE (x);
 
   switch (code)
     {
@@ -2169,6 +2459,7 @@ inequality_comparisons_p (x)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case LABEL_REF:
     case SYMBOL_REF:
@@ -2200,7 +2491,7 @@ inequality_comparisons_p (x)
 	}
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (inequality_comparisons_p (XVECEXP (x, i, j)))
 	      return 1;
@@ -2220,11 +2511,11 @@ rtx
 replace_rtx (x, from, to)
      rtx x, from, to;
 {
-  register int i, j;
-  register const char *fmt;
+  int i, j;
+  const char *fmt;
 
   /* The following prevents loops occurrence when we change MEM in
-     CONST_DOUBLE onto the same CONST_DOUBLE. */
+     CONST_DOUBLE onto the same CONST_DOUBLE.  */
   if (x != 0 && GET_CODE (x) == CONST_DOUBLE)
     return x;
 
@@ -2234,6 +2525,40 @@ replace_rtx (x, from, to)
   /* Allow this function to make replacements in EXPR_LISTs.  */
   if (x == 0)
     return 0;
+
+  if (GET_CODE (x) == SUBREG)
+    {
+      rtx new = replace_rtx (SUBREG_REG (x), from, to);
+
+      if (GET_CODE (new) == CONST_INT)
+	{
+	  x = simplify_subreg (GET_MODE (x), new,
+			       GET_MODE (SUBREG_REG (x)),
+			       SUBREG_BYTE (x));
+	  if (! x)
+	    abort ();
+	}
+      else
+	SUBREG_REG (x) = new;
+
+      return x;
+    }
+  else if (GET_CODE (x) == ZERO_EXTEND)
+    {
+      rtx new = replace_rtx (XEXP (x, 0), from, to);
+
+      if (GET_CODE (new) == CONST_INT)
+	{
+	  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
+					new, GET_MODE (XEXP (x, 0)));
+	  if (! x)
+	    abort ();
+	}
+      else
+	XEXP (x, 0) = new;
+
+      return x;
+    }
 
   fmt = GET_RTX_FORMAT (GET_CODE (x));
   for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
@@ -2267,9 +2592,9 @@ replace_regs (x, reg_map, nregs, replace_dest)
      unsigned int nregs;
      int replace_dest;
 {
-  register enum rtx_code code;
-  register int i;
-  register const char *fmt;
+  enum rtx_code code;
+  int i;
+  const char *fmt;
 
   if (x == 0)
     return x;
@@ -2282,6 +2607,7 @@ replace_regs (x, reg_map, nregs, replace_dest)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2342,7 +2668,7 @@ replace_regs (x, reg_map, nregs, replace_dest)
 	XEXP (x, i) = replace_regs (XEXP (x, i), reg_map, nregs, replace_dest);
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    XVECEXP (x, i, j) = replace_regs (XVECEXP (x, i, j), reg_map,
 					      nregs, replace_dest);
@@ -2372,6 +2698,7 @@ computed_jump_p_1 (x)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case REG:
       return 1;
@@ -2528,7 +2855,7 @@ regno_use_in (regno, x)
      unsigned int regno;
      rtx x;
 {
-  register const char *fmt;
+  const char *fmt;
   int i, j;
   rtx tem;
 
@@ -2558,8 +2885,8 @@ regno_use_in (regno, x)
    We use negative values to indicate a preference for the first operand
    and positive values for the second operand.  */
 
-static int
-operand_preference (op)
+int
+commutative_operand_precedence (op)
      rtx op;
 {
   /* Constants always come the second operand.  Prefer "nice" constants.  */
@@ -2590,14 +2917,15 @@ operand_preference (op)
   return 0;
 }
 
-/* Return 1 iff it is neccesary to swap operands of commutative operation
+/* Return 1 iff it is necessary to swap operands of commutative operation
    in order to canonicalize expression.  */
 
 int
 swap_commutative_operands_p (x, y)
      rtx x, y;
 {
-  return operand_preference (x) < operand_preference (y);
+  return (commutative_operand_precedence (x)
+	  < commutative_operand_precedence (y));
 }
 
 /* Return 1 if X is an autoincrement side effect and the register is
@@ -2728,14 +3056,55 @@ loc_mentioned_in_p (loc, in)
   return 0;
 }
 
+/* Given a subreg X, return the bit offset where the subreg begins
+   (counting from the least significant bit of the reg).  */
+
+unsigned int
+subreg_lsb (x)
+     rtx x;
+{
+  enum machine_mode inner_mode = GET_MODE (SUBREG_REG (x));
+  enum machine_mode mode = GET_MODE (x);
+  unsigned int bitpos;
+  unsigned int byte;
+  unsigned int word;
+
+  /* A paradoxical subreg begins at bit position 0.  */
+  if (GET_MODE_BITSIZE (mode) > GET_MODE_BITSIZE (inner_mode))
+    return 0;
+
+  if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
+    /* If the subreg crosses a word boundary ensure that
+       it also begins and ends on a word boundary.  */
+    if ((SUBREG_BYTE (x) % UNITS_PER_WORD
+	 + GET_MODE_SIZE (mode)) > UNITS_PER_WORD
+	&& (SUBREG_BYTE (x) % UNITS_PER_WORD
+	    || GET_MODE_SIZE (mode) % UNITS_PER_WORD))
+	abort ();
+
+  if (WORDS_BIG_ENDIAN)
+    word = (GET_MODE_SIZE (inner_mode)
+	    - (SUBREG_BYTE (x) + GET_MODE_SIZE (mode))) / UNITS_PER_WORD;
+  else
+    word = SUBREG_BYTE (x) / UNITS_PER_WORD;
+  bitpos = word * BITS_PER_WORD;
+
+  if (BYTES_BIG_ENDIAN)
+    byte = (GET_MODE_SIZE (inner_mode)
+	    - (SUBREG_BYTE (x) + GET_MODE_SIZE (mode))) % UNITS_PER_WORD;
+  else
+    byte = SUBREG_BYTE (x) % UNITS_PER_WORD;
+  bitpos += byte * BITS_PER_UNIT;
+
+  return bitpos;
+}
+
 /* This function returns the regno offset of a subreg expression.
    xregno - A regno of an inner hard subreg_reg (or what will become one).
    xmode  - The mode of xregno.
    offset - The byte offset.
    ymode  - The mode of a top level SUBREG (or what may become one).
-   RETURN - The regno offset which would be used.  
-   This function can be overridden by defining SUBREG_REGNO_OFFSET,
-   taking the same parameters.  */
+   RETURN - The regno offset which would be used.  */
 unsigned int
 subreg_regno_offset (xregno, xmode, offset, ymode)
      unsigned int xregno;
@@ -2743,15 +3112,10 @@ subreg_regno_offset (xregno, xmode, offset, ymode)
      unsigned int offset;
      enum machine_mode ymode;
 {
-  unsigned ret;
   int nregs_xmode, nregs_ymode;
   int mode_multiple, nregs_multiple;
   int y_offset;
 
-/* Check for an override, and use it instead.  */
-#ifdef SUBREG_REGNO_OFFSET
-  ret = SUBREG_REGNO_OFFSET (xregno, xmode, offset, ymode)
-#else
   if (xregno >= FIRST_PSEUDO_REGISTER)
     abort ();
 
@@ -2767,13 +3131,10 @@ subreg_regno_offset (xregno, xmode, offset, ymode)
 
   y_offset = offset / GET_MODE_SIZE (ymode);
   nregs_multiple =  nregs_xmode / nregs_ymode;
-  ret = (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
-#endif
-
-  return ret;
+  return (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
 }
 
-/* Return the final regno that a subreg expression refers to. */
+/* Return the final regno that a subreg expression refers to.  */
 unsigned int 
 subreg_regno (x)
      rtx x;
@@ -2853,7 +3214,7 @@ find_first_parameter_load (call_insn, boundary)
 
       /* Our caller needs either ensure that we will find all sets
          (in case code has not been optimized yet), or take care
-         for possible labels in a way by setting boundary to preceeding
+         for possible labels in a way by setting boundary to preceding
          CODE_LABEL.  */
       if (GET_CODE (before) == CODE_LABEL)
 	{
@@ -2862,7 +3223,41 @@ find_first_parameter_load (call_insn, boundary)
 	  break;
 	}
 
-      note_stores (INSN_P (before) ? PATTERN (before) : before, parms_set, &parm);
+      if (INSN_P (before))
+        note_stores (PATTERN (before), parms_set, &parm);
     }
   return before;
+}
+
+/* Return true if we should avoid inserting code between INSN and preceeding
+   call instruction.  */
+
+bool
+keep_with_call_p (insn)
+     rtx insn;
+{
+  rtx set;
+
+  if (INSN_P (insn) && (set = single_set (insn)) != NULL)
+    {
+      if (GET_CODE (SET_DEST (set)) == REG
+	  && fixed_regs[REGNO (SET_DEST (set))]
+	  && general_operand (SET_SRC (set), VOIDmode))
+	return true;
+      if (GET_CODE (SET_SRC (set)) == REG
+	  && FUNCTION_VALUE_REGNO_P (REGNO (SET_SRC (set)))
+	  && GET_CODE (SET_DEST (set)) == REG
+	  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER)
+	return true;
+      /* There may be a stack pop just after the call and before the store
+	 of the return register.  Search for the actual store when deciding
+	 if we can break or not.  */
+      if (SET_DEST (set) == stack_pointer_rtx)
+	{
+	  rtx i2 = next_nonnote_insn (insn);
+	  if (i2 && keep_with_call_p (i2))
+	    return true;
+	}
+    }
+  return false;
 }

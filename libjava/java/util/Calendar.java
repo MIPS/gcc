@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.util;
@@ -445,7 +456,7 @@ public abstract class Calendar implements Serializable, Cloneable
   }
 
   /**
-   * Gets the set of locales for which a Calendar is availiable.
+   * Gets the set of locales for which a Calendar is available.
    * @exception MissingResourceException if locale data couldn't be found.
    * @return the set of locales.
    */
@@ -549,8 +560,6 @@ public abstract class Calendar implements Serializable, Cloneable
    */
   public final void set(int field, int value)
   {
-    if (!areFieldsSet)
-      computeFields();
     isTimeSet = false;
     fields[field] = value;
     isSet[field] = true;
@@ -573,7 +582,6 @@ public abstract class Calendar implements Serializable, Cloneable
 	isSet[HOUR] = false;
 	break;
       case HOUR:
-	isSet[AM_PM] = false;
 	isSet[HOUR_OF_DAY] = false;
 	break;
       }
@@ -587,8 +595,6 @@ public abstract class Calendar implements Serializable, Cloneable
    */
   public final void set(int year, int month, int date)
   {
-    if (!areFieldsSet)
-      computeFields();
     isTimeSet = false;
     fields[YEAR] = year;
     fields[MONTH] = month;
@@ -687,7 +693,7 @@ public abstract class Calendar implements Serializable, Cloneable
    * Compares the given calendar with this.  
    * @param o the object to that we should compare.
    * @return true, if the given object is a calendar, that represents
-   * the same time (but doesn't neccessary have the same fields).
+   * the same time (but doesn't necessary have the same fields).
    */
   public boolean equals(Object o)
   {
@@ -897,7 +903,7 @@ public abstract class Calendar implements Serializable, Cloneable
 
   /**
    * Gets the actual minimum value that is allowed for the specified field.
-   * This value is dependant on the values of the other fields.
+   * This value is dependent on the values of the other fields.
    * @param field the time field. One of the time field constants.
    * @return the actual minimum value.
    * @since jdk1.2
@@ -907,7 +913,7 @@ public abstract class Calendar implements Serializable, Cloneable
 
   /**
    * Gets the actual maximum value that is allowed for the specified field.
-   * This value is dependant on the values of the other fields.
+   * This value is dependent on the values of the other fields.
    * @param field the time field. One of the time field constants.
    * @return the actual maximum value.  
    * @since jdk1.2

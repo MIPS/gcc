@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -27,13 +27,12 @@ Boston, MA 02111-1307, USA.  */
    collect has a chance to see them, so scan the object files directly.  */
 #define COLLECT_EXPORT_LIST
 
+/* Handle #pragma weak and #pragma pack.  */
+#define HANDLE_SYSV_PRAGMA
+
 /* This is the only version of nm that collect2 can work with.  */
 #define REAL_NM_FILE_NAME "/usr/ucb/nm"
 
-/* AIX does not have any init/fini or ctor/dtor sections, so create
-    static constructors and destructors as normal functions.  */
-/* #define ASM_OUTPUT_CONSTRUCTOR(file, name) */
-/* #define ASM_OUTPUT_DESTRUCTOR(file, name) */
 #define USER_LABEL_PREFIX  ""
 /* Don't turn -B into -L if the argument specifies a relative file name.  */
 #define RELATIVE_PREFIX_NOT_LINKDIR
@@ -119,7 +118,7 @@ Boston, MA 02111-1307, USA.  */
     || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
    && TYPE_FIELDS (STRUCT) != 0				\
    && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), BIGGEST_ALIGNMENT) \
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 
@@ -150,8 +149,13 @@ Boston, MA 02111-1307, USA.  */
 /* Define cutoff for using external functions to save floating point.  */
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) == 62 || (FIRST_REG) == 63)
 
-/* Optabs entries for the int->float routines, using the standard
-   AIX names.  */
+/* Optabs entries for the int->float routines and quad FP operations
+   using the standard AIX names.  */
+#define ADDTF3_LIBCALL "_xlqadd"
+#define DIVTF3_LIBCALL "_xlqdiv"
+#define MULTF3_LIBCALL "_xlqmul"
+#define SUBTF3_LIBCALL "_xlqsub"
+
 #define INIT_TARGET_OPTABS						\
   do {									\
     if (! TARGET_POWER2 && ! TARGET_POWERPC && TARGET_HARD_FLOAT)	\
@@ -159,12 +163,24 @@ Boston, MA 02111-1307, USA.  */
 	fixdfsi_libfunc = init_one_libfunc (RS6000_ITRUNC);		\
 	fixunsdfsi_libfunc = init_one_libfunc (RS6000_UITRUNC);		\
       }									\
+    if (TARGET_HARD_FLOAT)						\
+      {									\
+	add_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (ADDTF3_LIBCALL);				\
+	sub_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (SUBTF3_LIBCALL);				\
+	smul_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (MULTF3_LIBCALL);				\
+	sdiv_optab->handlers[(int) TFmode].libfunc			\
+	  = init_one_libfunc (DIVTF3_LIBCALL);				\
+      }									\
   } while (0)
 
 /* AIX always has a TOC.  */
 #define TARGET_NO_TOC		0
 #define	TARGET_TOC		1
 
+#define FIXED_R2 1
 /* AIX allows r13 to be used.  */
 #define FIXED_R13 0
 
@@ -176,3 +192,6 @@ Boston, MA 02111-1307, USA.  */
 #define SETUP_FRAME_ADDRESSES() rs6000_aix_emit_builtin_unwind_init ()
 
 #define PROFILE_HOOK(LABEL)   output_profile_hook (LABEL)
+
+/* Print subsidiary information on the compiler version in use.  */
+#define TARGET_VERSION ;

@@ -38,14 +38,16 @@
 # - define the names for selecting the language in LANGUAGES.
 
 # Actual names to use when installing a native compiler.
-CXX_INSTALL_NAME = `t='$(program_transform_name)'; echo c++ | sed $$t`
-GXX_INSTALL_NAME = `t='$(program_transform_name)'; echo g++ | sed $$t`
-DEMANGLER_INSTALL_NAME = `t='$(program_transform_name)'; echo c++filt | sed $$t`
+CXX_INSTALL_NAME = `echo c++|sed '$(program_transform_name)'`
+GXX_INSTALL_NAME = `echo g++|sed '$(program_transform_name)'`
+DEMANGLER_INSTALL_NAME = `echo c++filt|sed '$(program_transform_name)'`
+CXX_TARGET_INSTALL_NAME = $(target_alias)-`echo c++|sed '$(program_transform_name)'`
+GXX_TARGET_INSTALL_NAME = $(target_alias)-`echo g++|sed '$(program_transform_name)'`
 
 # Actual names to use when installing a cross-compiler.
-CXX_CROSS_NAME = `t='$(program_transform_cross_name)'; echo c++ | sed $$t`
-GXX_CROSS_NAME = `t='$(program_transform_cross_name)'; echo g++ | sed $$t`
-DEMANGLER_CROSS_NAME = `t='$(program_transform_cross_name)'; echo c++filt | sed $$t`
+CXX_CROSS_NAME = `echo c++|sed '$(program_transform_cross_name)'`
+GXX_CROSS_NAME = `echo g++|sed '$(program_transform_cross_name)'`
+DEMANGLER_CROSS_NAME = `echo c++filt|sed '$(program_transform_cross_name)'`
 
 # The name to use for the demangler program.
 DEMANGLER_PROG = c++filt$(exeext)
@@ -66,7 +68,7 @@ g++spec.o: $(srcdir)/cp/g++spec.c $(SYSTEM_H) $(GCC_H) $(CONFIG_H)
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
 		$(INCLUDES) $(srcdir)/cp/g++spec.c)
 
-$(INTL_TARGETS): $(srcdir)/cp/parse.c
+po-generated: $(srcdir)/cp/parse.c
 
 # Create the compiler driver for g++.
 GXX_OBJS = gcc.o g++spec.o intl.o prefix.o version.o 
@@ -93,14 +95,15 @@ $(DEMANGLER_PROG): cxxmain.o underscore.o $(LIBDEPS)
 
 # The compiler itself.
 # Shared with C front end:
-CXX_C_OBJS = c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o c-dump.o $(CXX_TARGET_OBJS)
+CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
+ $(CXX_TARGET_OBJS)
 
 # Language-specific object files.
-CXX_OBJS = cp/call.o cp/decl.o cp/errfn.o cp/expr.o cp/pt.o cp/typeck2.o \
+CXX_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \
  cp/class.o cp/decl2.o cp/error.o cp/lex.o cp/parse.o cp/ptree.o cp/rtti.o \
  cp/spew.o cp/typeck.o cp/cvt.o cp/except.o cp/friend.o cp/init.o cp/method.o \
- cp/search.o cp/semantics.o cp/tree.o cp/xref.o cp/repo.o cp/dump.o \
- cp/optimize.o cp/mangle.o
+ cp/search.o cp/semantics.o cp/tree.o cp/repo.o cp/dump.o \
+ cp/optimize.o cp/mangle.o cp/cp-lang.o
 
 # Use loose warnings for this front end.
 cp-warn =
@@ -115,11 +118,18 @@ $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
 	gperf -o -C -E -k '1-6,$$' -j1 -D -N 'libc_name_p' \
 		$(srcdir)/cp/cfns.gperf > $(srcdir)/cp/cfns.h
 
-$(srcdir)/cp/parse.h $(srcdir)/cp/parse.c: $(srcdir)/cp/parse.y
+$(srcdir)/cp/parse.h: $(srcdir)/cp/parse.c
+$(srcdir)/cp/parse.c: $(srcdir)/cp/parse.y
 	@echo "Expect 33 shift/reduce conflicts and 58 reduce/reduce conflicts."
-	cd $(srcdir)/cp; $(BISON) $(BISONFLAGS) -d -o p$$$$.c parse.y ; \
-	grep '^#define[ 	]*YYEMPTY' p$$$$.c >> p$$$$.h ; \
-	mv -f p$$$$.c parse.c ; mv -f p$$$$.h parse.h
+	cd $(srcdir)/cp && \
+	if $(BISON) $(BISONFLAGS) -d -o p$$$$.c parse.y; then \
+	  grep '^#define[ 	]*YYEMPTY' p$$$$.c >> p$$$$.h ; \
+	  test -f p$$$$.output && mv -f p$$$$.output parse.output ; \
+	  mv -f p$$$$.c parse.c ; mv -f p$$$$.h parse.h ; \
+	else \
+	  rm -f p$$$$.* ; \
+	  false ; \
+	fi
 
 #
 # Build hooks:
@@ -131,6 +141,7 @@ c++.rest.encap: $(DEMANGLER_PROG)
 
 c++.info: 
 c++.dvi:
+c++.generated-manpages:
 
 #
 # Install hooks:
@@ -161,10 +172,10 @@ c++.install-common: installdirs
 	    chmod a+x $(bindir)/$(GXX_INSTALL_NAME)$(exeext); \
 	    rm -f $(bindir)/$(CXX_INSTALL_NAME)$(exeext); \
 	    $(LN) $(bindir)/$(GXX_INSTALL_NAME)$(exeext) $(bindir)/$(CXX_INSTALL_NAME)$(exeext); \
-	    rm -f $(bindir)/$(target_alias)-g++$(exeext); \
-	    $(LN) $(bindir)/$(GXX_INSTALL_NAME)$(exeext) $(bindir)/$(target_alias)-g++$(exeext); \
-	    rm -f $(bindir)/$(target_alias)-c++$(exeext); \
-	    $(LN) $(bindir)/$(CXX_INSTALL_NAME)$(exeext) $(bindir)/$(target_alias)-c++$(exeext); \
+	    rm -f $(bindir)/$(GXX_TARGET_INSTALL_NAME)$(exeext); \
+	    $(LN) $(bindir)/$(GXX_INSTALL_NAME)$(exeext) $(bindir)/$(GXX_TARGET_INSTALL_NAME)$(exeext); \
+	    rm -f $(bindir)/$(CXX_TARGET_INSTALL_NAME)$(exeext); \
+	    $(LN) $(bindir)/$(CXX_INSTALL_NAME)$(exeext) $(bindir)/$(CXX_TARGET_INSTALL_NAME)$(exeext); \
 	  fi ; \
 	  if [ x$(DEMANGLER_PROG) != x ] && [ -x "$(DEMANGLER_PROG)" ]; then \
 	    if [ -f g++-cross$(exeext) ] ; then \
@@ -184,13 +195,13 @@ c++.install-info:
 c++.install-man: installdirs $(srcdir)/cp/g++.1
 	-if [ -f cc1plus$(exeext) ] ; then \
 	  if [ -f g++-cross$(exeext) ] ; then \
-	    rm -f $(man1dir)/$(GXX_CROSS_NAME)$(manext); \
-	    $(INSTALL_DATA) $(srcdir)/cp/g++.1 $(man1dir)/$(GXX_CROSS_NAME)$(manext); \
-	    chmod a-x $(man1dir)/$(GXX_CROSS_NAME)$(manext); \
+	    rm -f $(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
+	    $(INSTALL_DATA) $(srcdir)/cp/g++.1 $(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
+	    chmod a-x $(man1dir)/$(GXX_CROSS_NAME)$(man1ext); \
 	  else \
-	    rm -f $(man1dir)/$(GXX_INSTALL_NAME)$(manext); \
-	    $(INSTALL_DATA) $(srcdir)/cp/g++.1 $(man1dir)/$(GXX_INSTALL_NAME)$(manext); \
-	    chmod a-x $(man1dir)/$(GXX_INSTALL_NAME)$(manext); \
+	    rm -f $(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
+	    $(INSTALL_DATA) $(srcdir)/cp/g++.1 $(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
+	    chmod a-x $(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
 	  fi; \
 	else true; fi
 
@@ -201,8 +212,8 @@ c++.uninstall:
 	-rm -rf $(bindir)/$(GXX_CROSS_NAME)$(exeext)
 	-rm -rf $(bindir)/$(DEMANGLER_INSTALL_NAME)$(exeext)
 	-rm -rf $(bindir)/$(DEMANGLER_CROSS_NAME)$(exeext)
-	-rm -rf $(man1dir)/$(GXX_INSTALL_NAME)$(manext)
-	-rm -rf $(man1dir)/$(GXX_CROSS_NAME)$(manext)
+	-rm -rf $(man1dir)/$(GXX_INSTALL_NAME)$(man1ext)
+	-rm -rf $(man1dir)/$(GXX_CROSS_NAME)$(man1ext)
 #
 # Clean hooks:
 # A lot of the ancillary files are deleted by the main makefile.
@@ -240,16 +251,18 @@ cp/spew.o: cp/spew.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h toplev.h
 cp/lex.o: cp/lex.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h c-pragma.h \
   toplev.h output.h mbchar.h $(GGC_H) input.h diagnostic.h cp/operators.def \
   $(TM_P_H)
+cp/cp-lang.o: cp/cp-lang.c $(CXX_TREE_H) toplev.h langhooks.h langhooks-def.h \
+  c-common.h
 cp/decl.o: cp/decl.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h stack.h \
   output.h $(EXPR_H) except.h toplev.h hash.h $(GGC_H) $(RTL_H) \
-  cp/operators.def $(TM_P_H)
+  cp/operators.def $(TM_P_H) tree-inline.h diagnostic.h c-pragma.h
 cp/decl2.o: cp/decl2.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h $(EXPR_H) \
   output.h except.h toplev.h $(GGC_H) $(RTL_H)
 cp/typeck2.o: cp/typeck2.c $(CXX_TREE_H) flags.h toplev.h output.h $(TM_P_H) \
    diagnostic.h
 cp/typeck.o: cp/typeck.c $(CXX_TREE_H) flags.h $(RTL_H) $(EXPR_H) toplev.h \
    diagnostic.h
-cp/class.o: cp/class.c $(CXX_TREE_H) flags.h toplev.h $(RTL_H)
+cp/class.o: cp/class.c $(CXX_TREE_H) flags.h toplev.h $(RTL_H) $(TARGET_H)
 cp/call.o: cp/call.c $(CXX_TREE_H) flags.h toplev.h $(RTL_H) $(EXPR_H) \
      $(GGC_H) diagnostic.h
 cp/friend.o: cp/friend.c $(CXX_TREE_H) flags.h $(RTL_H) toplev.h $(EXPR_H)
@@ -260,24 +273,24 @@ cp/method.o: cp/method.c $(CXX_TREE_H) toplev.h $(GGC_H) $(RTL_H) $(EXPR_H) \
 cp/cvt.o: cp/cvt.c $(CXX_TREE_H) cp/decl.h flags.h toplev.h convert.h
 cp/search.o: cp/search.c $(CXX_TREE_H) stack.h flags.h toplev.h $(RTL_H)
 cp/tree.o: cp/tree.c $(CXX_TREE_H) flags.h toplev.h $(GGC_H) $(RTL_H) \
-  insn-config.h integrate.h
+  insn-config.h integrate.h tree-inline.h
 cp/ptree.o: cp/ptree.c $(CXX_TREE_H) $(SYSTEM_H)
 cp/rtti.o: cp/rtti.c $(CXX_TREE_H) flags.h toplev.h
 cp/except.o: cp/except.c $(CXX_TREE_H) flags.h $(RTL_H) except.h toplev.h \
-  cp/cfns.h $(EXPR_H) cp/decl.h $(OBSTACK_H)
+  cp/cfns.h $(EXPR_H) libfuncs.h tree-inline.h
 cp/expr.o: cp/expr.c $(CXX_TREE_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
   except.h $(TM_P_H)
-cp/xref.o: cp/xref.c $(CXX_TREE_H) input.h toplev.h
 cp/pt.o: cp/pt.c $(CXX_TREE_H) cp/decl.h cp/parse.h cp/lex.h toplev.h \
-  $(GGC_H) $(RTL_H) except.h
-cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h
-cp/errfn.o: cp/errfn.c $(CXX_TREE_H) toplev.h
+  $(GGC_H) $(RTL_H) except.h tree-inline.h
+cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h flags.h real.h \
+  langhooks-def.h
 cp/repo.o: cp/repo.c $(CXX_TREE_H) toplev.h $(GGC_H) diagnostic.h
 cp/semantics.o: cp/semantics.c $(CXX_TREE_H) cp/lex.h except.h toplev.h \
-  flags.h $(GGC_H) debug.h output.h $(RTL_H) $(TIMEVAR_H) $(EXPR_H)
-cp/dump.o: cp/dump.c $(CXX_TREE_H) c-dump.h
+  flags.h $(GGC_H) debug.h output.h $(RTL_H) $(TIMEVAR_H) $(EXPR_H) \
+  tree-inline.h
+cp/dump.o: cp/dump.c $(CXX_TREE_H) tree-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) rtl.h integrate.h insn-config.h \
-  input.h $(PARAMS_H) debug.h
+  input.h $(PARAMS_H) debug.h tree-inline.h
 cp/mangle.o: cp/mangle.c $(CXX_TREE_H) toplev.h
 
 cp/parse.o: cp/parse.c $(CXX_TREE_H) flags.h cp/lex.h except.h output.h \

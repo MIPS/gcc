@@ -1,21 +1,21 @@
 /* Dead-code elimination pass for the GNU compiler.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Jeffrey D. Oldham <oldham@codesourcery.com>.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to the Free
+along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
@@ -341,7 +341,7 @@ note_inherently_necessary_set (dest, set, data)
      rtx dest;
      void *data;
 {
-  int *inherently_necessary_set_p = (int *)data;
+  int *inherently_necessary_set_p = (int *) data;
 
   while (GET_CODE (dest) == SUBREG
 	 || GET_CODE (dest) == STRICT_LOW_PART
@@ -373,6 +373,7 @@ find_inherently_necessary (x)
       {  
       case CALL_INSN:
       case BARRIER:
+      case PREFETCH:
 	return !0;
       case CODE_LABEL:
       case NOTE:
@@ -395,7 +396,7 @@ find_inherently_necessary (x)
 	}
       default:
 	/* Found an impossible insn type.  */
-	abort();
+	abort ();
 	break;
       }
 }
@@ -468,7 +469,6 @@ static void
 delete_insn_bb (insn)
      rtx insn;
 {
-  basic_block bb;
   if (!insn)
     abort ();
 
@@ -480,20 +480,6 @@ delete_insn_bb (insn)
   if (! INSN_P (insn))
     return;
 
-  bb = BLOCK_FOR_INSN (insn);
-  if (!bb)
-    abort ();
-  if (bb->head == bb->end)
-    {
-      /* Delete the insn by converting it to a note.  */
-      PUT_CODE (insn, NOTE);
-      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-      return;
-    }
-  else if (insn == bb->head)
-    bb->head = NEXT_INSN (insn);
-  else if (insn == bb->end)
-    bb->end = PREV_INSN (insn);
   delete_insn (insn);
 }
 
@@ -535,7 +521,7 @@ ssa_eliminate_dead_code ()
   for (i = 0; i < n_basic_blocks; ++i)
     if (pdom[i] == INVALID_BLOCK)
       pdom[i] = EXIT_BLOCK;
-  el = create_edge_list();
+  el = create_edge_list ();
   find_all_control_dependences (el, pdom, cdbte);
 
   /* Find inherently necessary instructions.  */
@@ -707,7 +693,7 @@ ssa_eliminate_dead_code ()
 
 	/* Create an edge from this block to the post dominator.  
 	   What about the PHI nodes at the target?  */
-	make_edge (NULL, bb, pdom_bb, 0);
+	make_edge (bb, pdom_bb, 0);
 
 	/* Third, transform this insn into an unconditional
 	   jump to the label for the immediate postdominator.  */

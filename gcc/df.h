@@ -3,23 +3,22 @@
    Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
-
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #define DF_RD		 1	/* Reaching definitions.  */
 #define DF_RU		 2	/* Reaching uses.  */
@@ -31,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #define DF_RU_CHAIN    128	/* Reg-use chain.  */
 #define DF_ALL	       255
 #define DF_HARD_REGS  1024
+#define DF_EQUIV_NOTES 2048	/* Mark uses present in EQUIV/EQUAL notes.  */
 
 enum df_ref_type {DF_REF_REG_DEF, DF_REF_REG_USE, DF_REF_REG_MEM_LOAD,
 		  DF_REF_REG_MEM_STORE};
@@ -48,17 +48,21 @@ struct df_link
   struct ref *ref;
 };
 
+enum df_ref_flags
+  {
+    DF_REF_READ_WRITE = 1
+  };
 
 /* Define a register reference structure.  */
 struct ref
 {
   rtx reg;			/* The register referenced.  */
-  basic_block bb;		/* BB containing ref.  */
   rtx insn;			/* Insn containing ref.  */
   rtx *loc;			/* Loc is the location of the reg.  */
   struct df_link *chain;	/* Head of def-use or use-def chain.  */
   enum df_ref_type type;	/* Type of ref.  */
   int id;			/* Ref index.  */
+  enum df_ref_flags flags;	/* Various flags.  */
 };
 
 
@@ -68,7 +72,7 @@ struct insn_info
   struct df_link *defs;		/* Head of insn-def chain.  */
   struct df_link *uses;		/* Head of insn-use chain.  */
   /* ???? The following luid field should be considerd private so that
-     we can change it on the fly to accomodate new insns?  */
+     we can change it on the fly to accommodate new insns?  */
   int luid;			/* Logical UID.  */
 #if 0
   rtx insn;			/* Backpointer to the insn.  */
@@ -91,15 +95,15 @@ struct reg_info
 struct bb_info
 {
   /* Reaching def bitmaps have def_id elements.  */
-  sbitmap rd_kill;
-  sbitmap rd_gen;
-  sbitmap rd_in;
-  sbitmap rd_out;
+  bitmap rd_kill;
+  bitmap rd_gen;
+  bitmap rd_in;
+  bitmap rd_out;
   /* Reaching use bitmaps have use_id elements.  */
-  sbitmap ru_kill;
-  sbitmap ru_gen;
-  sbitmap ru_in;
-  sbitmap ru_out;
+  bitmap ru_kill;
+  bitmap ru_gen;
+  bitmap ru_in;
+  bitmap ru_out;
   /* Live variable bitmaps have n_regs elements.  */
   bitmap lr_def;
   bitmap lr_use;
@@ -135,11 +139,15 @@ struct df
   bitmap insns_modified;	/* Insns that (may) have changed.  */
   bitmap bbs_modified;		/* Blocks that (may) have changed.  */
   bitmap all_blocks;		/* All blocks in CFG.  */
-  /* The bitmap vector of dominators or NULL if not computed. 
+  /* The sbitmap vector of dominators or NULL if not computed. 
      Ideally, this should be a pointer to a CFG object.  */
-  bitmap *dom;
-  int * dfs_order;
-  int * rc_order;
+  sbitmap *dom;
+  int * dfs_order; /* DFS order -> block number */
+  int * rc_order; /* reverse completion order -> block number */
+  int * rts_order; /* reverse top sort order -> block number */
+  int * inverse_rc_map; /* block number -> reverse completion order */
+  int * inverse_dfs_map; /* block number -> DFS order */
+  int * inverse_rts_map; /* block number -> reverse top-sort order */
 };
 
 
@@ -166,13 +174,14 @@ struct df_map
 #define DF_REF_REG(REF) ((REF)->reg)
 #define DF_REF_LOC(REF) ((REF)->loc)
 #endif
-#define DF_REF_BB(REF) ((REF)->bb)
-#define DF_REF_BBNO(REF) ((REF)->bb->index)
+#define DF_REF_BB(REF) (BLOCK_FOR_INSN ((REF)->insn))
+#define DF_REF_BBNO(REF) (BLOCK_FOR_INSN ((REF)->insn)->index)
 #define DF_REF_INSN(REF) ((REF)->insn)
 #define DF_REF_INSN_UID(REF) (INSN_UID ((REF)->insn))
 #define DF_REF_TYPE(REF) ((REF)->type)
 #define DF_REF_CHAIN(REF) ((REF)->chain)
 #define DF_REF_ID(REF) ((REF)->id)
+#define DF_REF_FLAGS(REF) ((REF)->flags)
 
 /* Macros to determine the reference type.  */
 
@@ -295,3 +304,33 @@ extern void debug_df_ref PARAMS ((struct ref *));
 extern void debug_df_chain PARAMS ((struct df_link *));
 extern void df_insn_debug PARAMS ((struct df *, rtx, FILE *));
 extern void df_insn_debug_regno PARAMS ((struct df *, rtx, FILE *));
+/* Meet over any path (UNION) or meet over all paths (INTERSECTION) */
+enum df_confluence_op
+  {
+    UNION,
+    INTERSECTION
+  };
+/* Dataflow direction */
+enum df_flow_dir
+  {
+    FORWARD,
+    BACKWARD
+  };
+
+typedef void (*transfer_function_sbitmap) PARAMS ((int, int *, sbitmap, sbitmap, 
+					   sbitmap, sbitmap, void *));
+typedef void (*transfer_function_bitmap) PARAMS ((int, int *, bitmap, bitmap,
+					  bitmap, bitmap, void *));
+
+extern void iterative_dataflow_sbitmap PARAMS ((sbitmap *, sbitmap *, 
+						sbitmap *, sbitmap *, 
+						bitmap, enum df_flow_dir, 
+						enum df_confluence_op, 
+						transfer_function_sbitmap, 
+						int *, void *));
+extern void iterative_dataflow_bitmap PARAMS ((bitmap *, bitmap *, bitmap *, 
+					       bitmap *, bitmap, 
+					       enum df_flow_dir, 
+					       enum df_confluence_op, 
+					       transfer_function_bitmap, 
+					       int *, void *));

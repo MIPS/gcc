@@ -1,3 +1,262 @@
+2002-04-09  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h (DATAEND): Update comment example
+	to match reality.
+
+2002-04-08  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h (DATAEND): Clarify comment.
+
+2002-04-08  Hans Boehm  <Hans_Boehm@hp.com>
+	
+	* include/private/gc_priv.h (WARN macro): Add "GC warning:" prefix.
+	(GC_large_alloc_warn_interval, GC_large_alloc_warn_suppressed):
+	declare.
+	* allchblk.c (GC_allchblk_nth): Change text and support reduced
+	frequency for blacklist warning message.
+	* misc.c (GC_large_alloc_warn_interval,
+	GC_large_alloc_warn_suppressed): define.
+	(GC_init_inner): Check GC_NO_BLACKLIST_WARNING and 
+	GC_LARGE_ALLOC_WARN_INTERVAL environment variables.
+	* doc/README.environment (GC_NO_BLACKLIST_WARNING): Deprecate.
+	(GC_LARGE_ALLOC_WARN_INTERVAL): Add documentation.
+
+	* dyn_load.c (_DYNAMIC): Move declaration to file scope.
+
+2002-04-04  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h: Add support for an unmapped
+	memory hole between the end of the initialized data segment
+	and the start of the BSS on FreeBSD/i386.
+
+2002-03-30  Krister Walfridsson  <cato@df.lth.se>
+
+	* include/private/gcconfig.h: define DYNAMIC_LOADING for ELF
+        NetBSD/i386.
+
+2002-03-29  Hans Boehm  <Hans_Boehm@hp.com>
+
+	* linux_threads.c (return_free_lists): Clear fl[i] unconditionally.
+	(GC_local_gcj_malloc): Add assertion.
+	(start_mark_threads): Fix abort message.
+	* mark.c (GC_mark_from): Generalize assertion.
+	* reclaim.c (GC_clear_fl_links): New function.
+	(GC_start_reclaim): Must clear some freelist links.
+	* include/private/specific.h, specific.c: Add assertions.
+	Safer definition for INVALID_QTID, quick_thread_id.  Fix/add comments.
+	Rearrange tse fields.
+
+2002-03-27  Richard Henderson  <rth@redhat.com>
+
+	* os_dep.c (GC_init_linux_data_start): Fix references to
+	__data_start and _end.
+
+2002-03-25  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h: Change all likely references
+	to linker script synthesized symbols to use this idiom:
+	extern int etext[]; etext
+
+2002-03-25  Jeff Sturm  <jsturm@one-point.com>
+
+	* linux_threads.c (GC_get_nprocs): Close file descriptor.
+
+2002-03-21  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h: Add unified test for FreeBSD.
+	Support FreeBSD/alpha.
+	* os_dep.c: Do not include <machine/trap.h> unless available.
+	(GC_freebsd_stack_base): Fix types.
+
+2002-03-17  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: Make a convenience library.
+	* Makefile.in: Rebuilt.
+
+2002-03-15  Anthony Green  <green@redhat.com>
+
+	* misc.c (GC_init_inner): Initialize GC_write_cs before use.
+	* configure.in: Disable use of getenv for win32 targets (some of
+	which have broken implementations).
+	* configure: Rebuilt.
+
+2002-03-12  Adam Megacz  <adam@xwt.org>
+
+        * dyn_load.c: Renamed GC_win32s to GC_no_win32_dlls.
+        * misc.c: Renamed GC_is_win32s() to GC_no_win32_dlls
+        * os_dep.c: Renamed GC_win32s to GC_no_win32_dlls and
+        statically initialized it to TRUE if compiling with GCC.
+        * win32_threads.c (thread_start): We no longer use SEH if
+        compiling with GCC.
+        * mark.c (GC_mark_some): We no longer use SEH if
+        compiling with GCC.
+	
+2002-03-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* include/gc_priv.h: Define ALIGN_DOUBLE on 32 bit targets if GCJ 
+	support is enabled, for hash synchronization.
+
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* Makefile.am: Added win32_threads.c to sources list.
+	* win32_threads.c: Added two */'s which I had neglected.
+
+2002-02-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: Re-add SUBDIRS parameter which was lost in merge.
+	* Makefile.in: Rebuilt.
+
+2002-02-13  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* dbg_mlc.c (GC_debug_generic_malloc): Removed.
+	
+	* sparc_mach_dep.S: Rename from sparc_mach_dep.s as it is a 
+	preprocessor file.
+	* mips_sgi_mach_dep.S: Likewise.
+	* Makefile.am: Update for above changes.
+	* Makefile.in: Rebuilt.
+
+2002-02-12  Richard Henderson  <rth@redhat.com>
+
+	* configure.in: Re-apply 2001-06-26 configure change.
+	* configure: Rebuild.
+
+2002-02-12  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Imported GC 6.1 Alpha 3.
+
+	* sparc_mach_dep.S: Delete incorrectly named file.
+
+2001-02-11  Adam Megacz <adam@xwt.org
+
+	* configure.in: support for win32, saner
+	cross-compile options
+
+2001-02-08  Anthony Green  <green@redhat.com>
+
+	* include/private/gcconfig.h: Add XSCALE NOSYS support for bare
+	  board embedded targets.
+	* os_dep.c: Avoid signal handling code for NOSYS/ECOS targets.
+	  Use GC_get_stack_base for NOSYS/ECOS targets.  Clean up some
+	  redundant uses of ECOS.
+	* misc.c: Use NOSYS where ECOS is being used.
+	  Don't define GC_write twice for ECOS systems.
+	  (GC_write): New function for NOSYS targets.
+
+2002-02-06  Adam Megacz <adam@xwt.org>
+
+	* boehm-gc/include/gc.h: (GC_CreateThread) This function is
+	now exposed on all Win32 platforms.
+	* boehm-gc/win32_threads.c: (GC_CreateThread) This now
+	compiles on Win32; it invokes CreateThread() if GC is built
+	as a DLL; otherwise it registers the thread.
+	* boehm-gc/misc.c (GC_init): Initialize GC_allocate_ml in case
+	libgcjgc was not built as a DLL.
+
+2002-02-01  Adam Megacz <adam@xwt.org>
+
+	* boehm-gc on win32 now automatically detects if it is being built
+	as a DLL; see http://gcc.gnu.org/ml/java/2001-12/msg00240.html
+	
+2002-01-25  David Edelsohn  <edelsohn@gnu.org>
+
+	* include/gc.h (GC_INIT): Add DATASTART and DATAEND roots on AIX.
+	* include/private/gcconfig.h (RS6000): Add 64-bit AIX support.
+	Define USE_GENERIC_PUSH_REGS.  Use AIX _data and _end symbols for
+	DATASTART and DATAEND roots.
+	* rs6000_mach_dep.s: Add function descriptor and traceback table.
+
+2001-12-16  Jeff Sturm  <jsturm@one-point.com>
+
+	* dyn_load.c: Define ElfW (if needed) for all targets,
+	not just GNU/Linux.
+	(GC_FirstDLOpenedLinkMap): Use it.
+	(GC_register_dynamic_libraries_dl): Use it.
+	* include/private/gcconfig.h: Define CPP_WORDSZ, ELF_CLASS
+	for sparcv9.
+
+2001-12-16  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR other/3725
+	* configure.in: Add AC_SUBST(target_alias). 
+	* configure: Regenerated.
+
+2001-11-26  Loren J. Rittle  <ljrittle@acm.org>
+
+	* linux_threads.c (WRAP_FUNC(pthread_join)): Remove special
+	case for GC_FREEBSD_THREADS.
+	* configure.in (*-*-freebsd*): Clarify warning.
+	* configure: Rebuilt.
+
+2001-10-23  Loren J. Rittle  <ljrittle@acm.org>
+	    Andreas Tobler <toa@pop.agri.ch>
+
+	* include/private/solaris_threads.h: Update to use GC_SOLARIS_THREADS.
+
+2001-10-22  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* linux_threads.c (GC_init_parallel): Do not declare as a static
+	constructor.
+	* include/gc.h (GC_init): Declare here. Add description.
+	* include/private/gc_priv.h (GC_init): Remove declaration.
+
+2001-10-16  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/gc_pthread_redirects.h: Generalize test to use GC_PTHREADS.
+	* linux_threads.c (WRAP_FUNC(pthread_join)): Conditionalized on
+	GC_FREEBSD_THREADS, handle strange interaction between system
+	pthread implementation and boehm-gc signal-handler architecture.
+	* tests/test.c (main): Conditionalized on GC_FREEBSD_THREADS,
+	set stack.
+	* include/private/gcconfig.h (configuration keyed off FREEBSD):
+	Define SIG_SUSPEND, SIG_THR_RESTART.  Do not define
+	MPROTECT_VDB when GC_FREEBSD_THREADS is defined.
+
+2001-10-16  Loren J. Rittle  <ljrittle@acm.org>
+
+	* Makefile.am (test.o): Find tests/test.c in $(srcdir).
+	* Makefile.in: Rebuilt.
+
+2001-10-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am, acinclude.m4, configure.in: Imported GC 6.1 Alpha 1 and
+	merged local changes.
+
+2001-09-26  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* solaris_threads.c (MAX_ORIG_STACK_SIZE) [I386]: Provide special
+	Solaris 2/Intel definition.
+	
+	* configure.in (i?86-*-solaris2.[89]*): Define
+	SOLARIS25_PROC_VDB_BUG_FIXED.
+	* include/private/gcconfig.h [I386 && SUNOS5]: Use it.
+	* configure: Regenerate.
+
+	* include/private/gcconfig.h [I386 && SUNOS5] (DATASTART): Use _etext.
+	(DATAEND): Define using _end.
+
+2001-09-11  Per Bothner  <per@bothner.com>
+
+	* include/Makefile.am:  New file.  It defines include_HEADERS.
+	* Makefile.am (SUBDIRS):  New macro, set to include.
+	* configure.in (AC_OUTPUT):  Add include/Makefile.
+
+2001-08-20  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in: Always ask gcc for threads package.
+
+2001-08-17  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.am, acinclude.m4, configure.in: Imported GC 6.0 and
+	merged local changes.
+
+2001-08-02  David Billinghurst <David.Billinghurst>
+
+	* configure: Rebuilt.
+	* configure.in:  POSIX threads on cygwin does not link with
+	-lpthreads.
+
 2001-07-03  Tom Tromey  <tromey@redhat.com>
 
 	Fix for PR bootstrap/3281:

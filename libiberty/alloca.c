@@ -21,6 +21,27 @@
    allocating any.  It is a good idea to use alloca(0) in
    your main control loop, etc. to force garbage collection.  */
 
+/*
+
+@deftypefn Replacement void* alloca (size_t @var{size})
+
+This function allocates memory which will be automatically reclaimed
+after the procedure exits.  The @libib{} implementation does not free
+the memory immediately but will do so eventually during subsequent
+calls to this function.  Memory is allocated using @code{xmalloc} under
+normal circumstances.
+
+The header file @file{alloca-conf.h} can be used in conjunction with the
+GNU Autoconf test @code{AC_FUNC_ALLOCA} to test for and properly make
+available this function.  The @code{AC_FUNC_ALLOCA} test requires that
+client code use a block of preprocessor code to be safe (see the Autoconf
+manual for more); this header incorporates that logic and more, including
+the possibility of a GCC built-in function.
+
+@end deftypefn
+
+*/
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -33,6 +54,12 @@
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
+
+/* These variables are used by the ASTRDUP implementation that relies
+   on C_alloca.  */
+const char *libiberty_optr;
+char *libiberty_nptr;
+unsigned long libiberty_len;
 
 /* If your stack is a linked list of frames, you have to
    provide an "address metric" ADDRESS_FUNCTION macro.  */
@@ -122,6 +149,8 @@ static header *last_alloca_header = NULL;	/* -> last alloca header.  */
    was supposed to be taken from the current stack frame of the
    caller, but that method cannot be made to work for some
    implementations of C, for example under Gould's UTX/32.  */
+
+/* @undocumented C_alloca */
 
 PTR
 C_alloca (size)

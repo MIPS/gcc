@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for Intel x86 CPU running NeXTSTEP
-   Copyright (C) 1993, 1995, 1996, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 1996, 1999, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -17,9 +17,6 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-#include "i386/gas.h"
-#include "nextstep.h"
 
 /* By default, target has a 80387, with IEEE FP.  */
 
@@ -41,54 +38,6 @@ Boston, MA 02111-1307, USA.  */
 #define VALUE_REGNO(MODE) \
   ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode	\
    ? FIRST_FLOAT_REG : 0)
-
-/* 1 if N is a possible register number for a function value. */
-
-#undef	FUNCTION_VALUE_REGNO_P
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == 0 || (N)== FIRST_FLOAT_REG)
-
-#ifdef REAL_VALUE_TO_TARGET_LONG_DOUBLE
-#undef	ASM_OUTPUT_LONG_DOUBLE
-#define ASM_OUTPUT_LONG_DOUBLE(FILE,VALUE)				\
-  do {									\
-    long hex[3];							\
-    REAL_VALUE_TO_TARGET_LONG_DOUBLE (VALUE, hex);			\
-    if (sizeof (int) == sizeof (long))					\
-      fprintf (FILE, "\t.long 0x%x\n\t.long 0x%x\n\t.long 0x%x\n",	\
-		hex[0], hex[1], hex[2]);				\
-    else								\
-      fprintf (FILE, "\t.long 0x%lx\n\t.long 0x%lx\n\t.long 0x%lx\n",	\
-		hex[0], hex[1], hex[2]);				\
-  } while (0)
-#endif
-
-#ifdef REAL_VALUE_TO_TARGET_DOUBLE
-#undef	ASM_OUTPUT_DOUBLE
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)					\
-  do {									\
-    long hex[2];							\
-    REAL_VALUE_TO_TARGET_DOUBLE (VALUE, hex);				\
-    if (sizeof (int) == sizeof (long))					\
-      fprintf (FILE, "\t.long 0x%x\n\t.long 0x%x\n", hex[0], hex[1]);	\
-    else								\
-      fprintf (FILE, "\t.long 0x%lx\n\t.long 0x%lx\n", hex[0], hex[1]);	\
-  } while (0)
-#endif
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#ifdef REAL_VALUE_TO_TARGET_SINGLE
-#undef	ASM_OUTPUT_FLOAT
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)					\
-  do {									\
-    long hex;								\
-    REAL_VALUE_TO_TARGET_SINGLE (VALUE, hex);				\
-    if (sizeof (int) == sizeof (long))					\
-      fprintf (FILE, "\t.long 0x%x\n", hex);				\
-    else								\
-      fprintf (FILE, "\t.long 0x%lx\n", hex);				\
-  } while (0)
-#endif
 
 /* A C statement or statements which output an assembler instruction
    opcode to the stdio stream STREAM.  The macro-operand PTR is a
@@ -122,12 +71,12 @@ Boston, MA 02111-1307, USA.  */
    count is in %cl.  Some assemblers require %cl as an argument;
    some don't.
 
-   GAS requires the %cl argument, so override unx386.h. */
+   GAS requires the %cl argument, so override unx386.h.  */
 
 #undef	SHIFT_DOUBLE_OMITS_COUNT
 #define SHIFT_DOUBLE_OMITS_COUNT 0
 
-/* Print opcodes the way that GAS expects them. */
+/* Print opcodes the way that GAS expects them.  */
 #define GAS_MNEMONICS 1
 
 /* Names to predefine in the preprocessor for this target machine.  */
@@ -136,7 +85,7 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_PREDEFINES "-DNeXT -Dunix -D__MACH__ -D__LITTLE_ENDIAN__ \
   -D__ARCHITECTURE__=\"i386\" -Asystem=unix -Asystem=mach"
 
-/* This accounts for the return pc and saved fp on the i386. */
+/* This accounts for the return pc and saved fp on the i386.  */
 
 #define OBJC_FORWARDING_STACK_OFFSET 8
 #define OBJC_FORWARDING_MIN_OFFSET 8
@@ -148,7 +97,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(BUF,PREFIX,NUMBER)	\
-    sprintf ((BUF), "*%s%d", (PREFIX), (NUMBER))
+    sprintf ((BUF), "*%s%ld", (PREFIX), (long)(NUMBER))
 
 #undef ASM_OUTPUT_INTERNAL_LABEL
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\

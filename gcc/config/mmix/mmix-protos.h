@@ -125,7 +125,6 @@ extern void mmix_print_operand PARAMS ((FILE *, rtx, int));
 extern void mmix_print_operand_address PARAMS ((FILE *, rtx));
 extern int mmix_valid_comparison PARAMS ((RTX_CODE, enum machine_mode, rtx));
 extern rtx mmix_gen_compare_reg PARAMS ((enum rtx_code, rtx, rtx));
-extern void mmix_machine_dependent_reorg PARAMS ((rtx));
 #endif /* RTX_CODE */
 
 extern int mmix_asm_preferred_eh_data_format PARAMS ((int, int));

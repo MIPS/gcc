@@ -1,6 +1,6 @@
 # Top level makefile fragment for the GNU compiler for the Java(TM)
 # language.
-#   Copyright (C) 1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+#   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 #This file is part of GNU CC.
 
@@ -42,10 +42,11 @@
 # - define the names for selecting the language in LANGUAGES.
 
 # Actual names to use when installing a native compiler.
-JAVA_INSTALL_NAME = `t='$(program_transform_name)'; echo gcj | sed $$t`
+JAVA_INSTALL_NAME = `echo gcj|sed '$(program_transform_name)'`
+JAVA_TARGET_INSTALL_NAME = $(target_alias)-`echo gcj|sed '$(program_transform_name)'`
 
 # Actual names to use when installing a cross-compiler.
-JAVA_CROSS_NAME = `t='$(program_transform_cross_name)'; echo gcj | sed $$t`
+JAVA_CROSS_NAME = `echo gcj|sed '$(program_transform_cross_name)'`
 
 GCJ = gcj
 
@@ -53,7 +54,7 @@ GCJ = gcj
 java: jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) \
       gcjh$(exeext) jv-scan$(exeext) jcf-dump$(exeext)
 
-# Define the name of target independant tools to be installed in $(bindir)
+# Define the name of target independent tools to be installed in $(bindir)
 # Names are subject to changes
 JAVA_TARGET_INDEPENDENT_BIN_TOOLS = gcjh jv-scan jcf-dump
 
@@ -64,7 +65,7 @@ jvspec.o: $(srcdir)/java/jvspec.c $(SYSTEM_H) $(GCC_H) $(CONFIG_H)
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
-		$(INCLUDES) $(srcdir)/java/jvspec.c)
+		$(INCLUDES) $(srcdir)/java/jvspec.c $(OUTPUT_OPTION))
 
 # Create the compiler driver for $(GCJ).
 $(GCJ)$(exeext): gcc.o jvspec.o version.o \
@@ -77,7 +78,7 @@ $(GCJ)-cross$(exeext): $(GCJ)$(exeext)
 	-rm -f $(GCJ)-cross$(exeext)
 	cp $(GCJ)$(exeext) $(GCJ)-cross$(exeext)
 
-$(INTL_TARGETS): $(srcdir)/java/parse.c $(srcdir)/java/parse-scan.c
+po-generated: $(srcdir)/java/parse.c $(srcdir)/java/parse-scan.c
 
 $(srcdir)/java/parse.c: $(srcdir)/java/parse.y
 	$(BISON) -t --name-prefix=java_ $(BISONFLAGS) \
@@ -90,7 +91,7 @@ $(srcdir)/java/parse-scan.c:  $(srcdir)/java/parse-scan.y
 
 $(srcdir)/java/keyword.h: $(srcdir)/java/keyword.gperf
 	(cd $(srcdir)/java || exit 1; \
-	gperf -L C -F ', 0' -p -t -j1 -i 1 -g -o -N java_keyword -k1,4,$$ \
+	gperf -L C -C -F ', 0' -p -t -j1 -i 1 -g -o -N java_keyword -k1,4,$$ \
 		keyword.gperf > k$$$$.h || { \
 	echo "Please update gperf from ftp://ftp.gnu.org/pub/gnu/gperf/" >&2; \
 	rm -f k$$$$.h; \
@@ -101,7 +102,7 @@ $(srcdir)/java/keyword.h: $(srcdir)/java/keyword.gperf
 JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
   java/constants.o java/lang.o java/typeck.o java/except.o java/verify.o \
   java/zextract.o java/jcf-io.o java/jcf-parse.o java/mangle.o \
-  java/mangle_name.o \
+  java/mangle_name.o java/builtins.o \
   java/jcf-write.o java/buffer.o java/check-init.o java/jcf-depend.o \
   java/jcf-path.o java/xref.o java/boehm.o mkdeps.o
 
@@ -149,6 +150,10 @@ java.rest.encap:
 
 java.info: $(srcdir)/java/gcj.info
 java.dvi: java/gcj.dvi
+java.generated-manpages: $(srcdir)/java/gcj.1 $(srcdir)/java/gcjh.1 \
+	$(srcdir)/java/jv-scan.1 $(srcdir)/java/jcf-dump.1 \
+	$(srcdir)/java/gij.1 $(srcdir)/java/jv-convert.1 \
+	$(srcdir)/java/rmic.1 $(srcdir)/java/rmiregistry.1
 
 # Install hooks:
 # jc1, gcj, jvgenmain, and gcjh are installed elsewhere as part
@@ -167,13 +172,16 @@ java.install-common: installdirs
 	    rm -f $(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
 	    $(INSTALL_PROGRAM) $(GCJ)$(exeext) $(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
 	    chmod a+x $(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
+	    rm -f $(bindir)/$(JAVA_TARGET_INSTALL_NAME)$(exeext); \
+	    $(LN) $(bindir)/$(JAVA_INSTALL_NAME)$(exeext) $(bindir)/$(JAVA_TARGET_INSTALL_NAME)$(exeext); \
 	  fi ; \
 	fi ; \
         for tool in $(JAVA_TARGET_INDEPENDENT_BIN_TOOLS); do \
+	  tool_transformed_name=`echo $$tool|sed '$(program_transform_name)'`; \
           if [ -f $$tool$(exeext) ]; then \
-	    rm -f $(bindir)/$$tool$(exeext); \
-	    $(INSTALL_PROGRAM) $$tool$(exeext) $(bindir)/$$tool$(exeext); \
-	    chmod a+x $(bindir)/$$tool$(exeext); \
+	    rm -f $(bindir)/$$tool_transformed_name$(exeext); \
+	    $(INSTALL_PROGRAM) $$tool$(exeext) $(bindir)/$$tool_transformed_name$(exeext); \
+	    chmod a+x $(bindir)/$$tool_transformed_name$(exeext); \
           fi ; \
        done
 
@@ -182,6 +190,13 @@ java.install-man:
 java.uninstall:
 	-rm -rf $(bindir)/$(JAVA_INSTALL_NAME)$(exeext)
 	-rm -rf $(bindir)/$(JAVA_CROSS_NAME)$(exeext)
+	-rm -rf $(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext)
+	-rm -rf $(man1dir)/$(JAVA_CROSS_NAME)$(man1ext)
+	-rm -rf $(man1dir)/gcjh$(man1ext)
+	-rm -rf $(man1dir)/jv-scan$(man1ext)
+	-rm -rf $(man1dir)/jcf-dump$(man1ext)
+	-rm -rf $(man1dir)/gij$(man1ext)
+	-rm -rf $(man1dir)/jv-convert$(man1ext)
 
 java.install-info: installdirs
 	if [ -f jc1$(exeext) ] ; then \
@@ -215,6 +230,12 @@ java.distclean:
 java.extraclean:
 java.maintainer-clean:
 	-rm -f java/parse.c java/parse-scan.c java/parse.output java/y.tab.c
+	-rm -f $(srcdir)/java/gcj.1 $(srcdir)/java/gcjh.1
+	-rm -f $(srcdir)/java/jv-scan.1 $(srcdir)/java/jcf-dump.1
+	-rm -f $(srcdir)/java/gij.1
+	-rm -f $(srcdir)/java/jv-convert.1
+	-rm -f $(srcdir)/java/rmic.1
+	-rm -f $(srcdir)/java/rmiregistry.1
 #
 # Stage hooks:
 # The main makefile has already created stage?/java.
@@ -242,17 +263,20 @@ java/gjavah.o: $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) java/gjavah.c \
 java/boehm.o: java/boehm.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(JAVA_TREE_H) \
   java/parse.h toplev.h
 java/buffer.o: java/buffer.c $(CONFIG_H) java/buffer.h $(SYSTEM_H) toplev.h
+java/builtins.o: java/builtins.c $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) \
+  $(GGC_H) flags.h builtin-types.def langhooks.h
 java/check-init.o: java/check-init.c $(CONFIG_H) \
   $(JAVA_TREE_H) $(SYSTEM_H) toplev.h
 java/class.o: java/class.c $(CONFIG_H) $(JAVA_TREE_H) $(RTL_H) java/jcf.h \
-  java/parse.h toplev.h $(SYSTEM_H) output.h $(GGC_H)
+  java/parse.h toplev.h $(SYSTEM_H) output.h $(GGC_H) $(TARGET_H) function.h
 java/constants.o: java/constants.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
   toplev.h $(SYSTEM_H) $(GGC_H)
-java/decl.o: java/decl.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
-  toplev.h $(SYSTEM_H) function.h gcc.h
+java/decl.o: java/decl.c $(CONFIG_H) $(JAVA_TREE_H) $(RTL_H) java/jcf.h \
+  toplev.h flags.h $(SYSTEM_H) function.h expr.h libfuncs.h except.h \
+  java/java-except.h $(GGC_H)
 java/except.o: java/except.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h real.h \
   $(RTL_H) java/javaop.h java/java-opcodes.h except.h java/java-except.h \
-  toplev.h $(SYSTEM_H) function.h
+  toplev.h $(SYSTEM_H) function.h 
 java/expr.o: java/expr.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h real.h \
   $(RTL_H) $(EXPR_H) java/javaop.h java/java-opcodes.h except.h \
   java/java-except.h java/java-except.h java/parse.h toplev.h \
@@ -267,7 +291,8 @@ java/jcf-write.o: java/jcf-write.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
 java/jv-scan.o: java/jv-scan.c $(CONFIG_H) $(SYSTEM_H) version.h
 java/jvgenmain.o: java/jvgenmain.c $(CONFIG_H) $(JAVA_TREE_H) $(SYSTEM_H)
 java/lang.o: java/lang.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h input.h \
-  toplev.h $(SYSTEM_H) $(RTL_H) $(EXPR_H) diagnostic.h
+  toplev.h $(SYSTEM_H) $(RTL_H) $(EXPR_H) diagnostic.h langhooks.h \
+  langhooks-def.h
 java/mangle.o: java/mangle.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) $(SYSTEM_H) \
   toplev.h $(GGC_H)
 java/mangle_name.o: java/mangle_name.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) \
@@ -305,3 +330,94 @@ java/gcj.dvi: $(srcdir)/java/gcj.texi $(srcdir)/doc/include/fdl.texi \
 	 $(srcdir)/doc/include/gpl.texi
 	s=`cd $(srcdir); pwd`; export s; \
 	cd java && $(TEXI2DVI) -I $$s/doc/include $$s/java/gcj.texi
+
+$(srcdir)/java/gcj.1: $(srcdir)/java/gcj.texi
+	-$(TEXI2POD) -D gcj < $(srcdir)/java/gcj.texi > java/gcj.pod
+	($(POD2MAN) --section=1 java/gcj.pod > java/gcj.1.T$$$$ && \
+		mv -f java/gcj.1.T$$$$ $(srcdir)/java/gcj.1) || \
+		(rm -f java/gcj.1.T$$$$ && exit 1)
+	rm -f java/gcj.pod
+
+$(srcdir)/java/gcjh.1: $(srcdir)/java/gcj.texi
+	-$(TEXI2POD) -D gcjh < $(srcdir)/java/gcj.texi > java/gcjh.pod
+	($(POD2MAN) --section=1 java/gcjh.pod > java/gcjh.1.T$$$$ && \
+		mv -f java/gcjh.1.T$$$$ $(srcdir)/java/gcjh.1) || \
+		(rm -f java/gcjh.1.T$$$$ && exit 1)
+	rm -f java/gcjh.pod
+
+$(srcdir)/java/jv-scan.1: $(srcdir)/java/gcj.texi
+	-$(TEXI2POD) -D jv-scan < $(srcdir)/java/gcj.texi > java/jv-scan.pod
+	($(POD2MAN) --section=1 java/jv-scan.pod > java/jv-scan.1.T$$$$ && \
+		mv -f java/jv-scan.1.T$$$$ $(srcdir)/java/jv-scan.1) || \
+		(rm -f java/jv-scan.1.T$$$$ && exit 1)
+	rm -f java/jv-scan.pod
+
+$(srcdir)/java/jcf-dump.1: $(srcdir)/java/gcj.texi
+	-$(TEXI2POD) -D jcf-dump < $(srcdir)/java/gcj.texi > java/jcf-dump.pod
+	($(POD2MAN) --section=1 java/jcf-dump.pod > java/jcf-dump.1.T$$$$ && \
+		mv -f java/jcf-dump.1.T$$$$ $(srcdir)/java/jcf-dump.1) || \
+		(rm -f java/jcf-dump.1.T$$$$ && exit 1)
+	rm -f java/jcf-dump.pod
+
+$(srcdir)/java/gij.1: $(srcdir)/java/gcj.texi
+	-$(TEXI2POD) -D gij < $(srcdir)/java/gcj.texi > java/gij.pod
+	($(POD2MAN) --section=1 java/gij.pod > java/gij.1.T$$$$ && \
+		mv -f java/gij.1.T$$$$ $(srcdir)/java/gij.1) || \
+		(rm -f java/gij.1.T$$$$ && exit 1)
+	rm -f java/gij.pod
+
+$(srcdir)/java/jv-convert.1: $(srcdir)/java/gcj.texi
+	-$(TEXI2POD) -D jv-convert < $(srcdir)/java/gcj.texi > java/jv-convert.pod
+	($(POD2MAN) --section=1 java/jv-convert.pod > java/jv-convert.1.T$$$$ && \
+		mv -f java/jv-convert.1.T$$$$ $(srcdir)/java/jv-convert.1) || \
+		(rm -f java/jv-convert.1.T$$$$ && exit 1)
+	rm -f java/jv-convert.pod
+
+$(srcdir)/java/rmic.1: $(srcdir)/java/gcj.texi
+	-$(TEXI2POD) -D rmic < $(srcdir)/java/gcj.texi > java/rmic.pod
+	($(POD2MAN) --section=1 java/rmic.pod > java/rmic.1.T$$$$ && \
+		mv -f java/rmic.1.T$$$$ $(srcdir)/java/rmic.1) || \
+		(rm -f java/rmic.1.T$$$$ && exit 1)
+	rm -f java/rmic.pod
+
+$(srcdir)/java/rmiregistry.1: $(srcdir)/java/gcj.texi
+	-$(TEXI2POD) -D rmiregistry < $(srcdir)/java/gcj.texi > java/rmiregistry.pod
+	($(POD2MAN) --section=1 java/rmiregistry.pod > java/rmiregistry.1.T$$$$ && \
+		mv -f java/rmiregistry.1.T$$$$ $(srcdir)/java/rmiregistry.1) || \
+		(rm -f java/rmiregistry.1.T$$$$ && exit 1)
+	rm -f java/rmiregistry.pod
+
+# Install the man pages.
+java.install-man: installdirs $(GENERATED_JAVA_MANPAGES)
+	-if [ -f $(GCJ)$(exeext) ]; then \
+	  if [ -f $(GCJ)-cross$(exeext) ]; then \
+	    rm -f $(man1dir)/$(JAVA_CROSS_NAME)$(man1ext); \
+	    $(INSTALL_DATA) $(srcdir)/java/gcj.1 $(man1dir)/$(JAVA_CROSS_NAME)$(man1ext); \
+	    chmod a-x $(man1dir)/$(JAVA_CROSS_NAME)$(man1ext); \
+	  else \
+	    rm -f $(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
+	    $(INSTALL_DATA) $(srcdir)/java/gcj.1 $(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
+	    chmod a-x $(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext); \
+	  fi ; \
+	fi
+	-rm -f $(man1dir)/gcjh$(man1ext)
+	-$(INSTALL_DATA) $(srcdir)/java/gcjh.1 $(man1dir)/gcjh$(man1ext)
+	-chmod a-x $(man1dir)/gcjh$(man1ext)
+	-rm -f $(man1dir)/jv-scan$(man1ext)
+	-$(INSTALL_DATA) $(srcdir)/java/jv-scan.1 $(man1dir)/jv-scan$(man1ext)
+	-chmod a-x $(man1dir)/jv-scan$(man1ext)
+	-rm -f $(man1dir)/jcf-dump$(man1ext)
+	-$(INSTALL_DATA) $(srcdir)/java/jcf-dump.1 $(man1dir)/jcf-dump$(man1ext)
+	-chmod a-x $(man1dir)/jcf-dump$(man1ext)
+	-rm -f $(man1dir)/gij$(man1ext)
+	-$(INSTALL_DATA) $(srcdir)/java/gij.1 $(man1dir)/gij$(man1ext)
+	-chmod a-x $(man1dir)/gij$(man1ext)
+	-rm -f $(man1dir)/jv-convert$(man1ext)
+	-$(INSTALL_DATA) $(srcdir)/java/jv-convert.1 $(man1dir)/jv-convert$(man1ext)
+	-chmod a-x $(man1dir)/jv-convert$(man1ext)
+	-rm -f $(man1dir)/rmic$(man1ext)
+	-$(INSTALL_DATA) $(srcdir)/java/rmic.1 $(man1dir)/rmic$(man1ext)
+	-chmod a-x $(man1dir)/rmic$(man1ext)
+	-rm -f $(man1dir)/rmiregistry$(man1ext)
+	-$(INSTALL_DATA) $(srcdir)/java/rmiregistry.1 $(man1dir)/rmiregistry$(man1ext)
+	-chmod a-x $(man1dir)/rmiregistry$(man1ext)

@@ -1,5 +1,6 @@
 /*
   jartool.c - main functions for fastjar utility
+  Copyright (C) 2002 Free Software Foundation
   Copyright (C) 1999, 2000, 2001  Bryan Burns
   
   This program is free software; you can redistribute it and/or
@@ -17,9 +18,38 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-/* $Id: jartool.c,v 1.6 2001/07/04 18:33:53 tromey Exp $
+/*
+   Revision 1.10  2002/01/03 04:57:56  rodrigc
+   2001-01-02  Craig Rodrigues  <rodrigc@gcc.gnu.org>
 
-   $Log: jartool.c,v $
+           PR bootstrap/5117
+           * configure.in (AC_CHECK_HEADERS): Check for stdlib.h.
+           * Makefile.am: Move grepjar to bin_PROGRAMS.
+           * config.h.in: Regenerated.
+           * Makefile.in: Regenerated.
+           * aclocal.m4: Regenerated.
+           * jargrep.c: Eliminate some signed/unsigned and default
+           uninitialized warnings. Use HAVE_STDLIB_H instead of
+           STDC_HEADERS macro.
+           * jartool.c: Likewise.
+           * compress.c: Likewise.
+
+   Revision 1.9  2001/10/12 00:49:42  bryce
+           * jatool.c (extract_jar): Account for null termination when
+   	determining whether to expand "filename".
+
+   Revision 1.8  2001/08/29 01:35:31  apbianco
+   2001-08-28  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+   	* jartool.c (add_to_jar): Return 1 if `stat' initialy failed.
+   	Fixes PR java/3949.
+
+   (http://gcc.gnu.org/ml/gcc-patches/2001-08/msg01641.html)
+
+   Revision 1.7  2001/08/27 23:09:37  tromey
+   	* jartool.c (jarfile): Remove length limitation.
+   	(main): Use jt_strdup when initializing jarfile.
+
    Revision 1.6  2001/07/04 18:33:53  tromey
    	Modified from patch by Julian Hall <jules@acris.co.uk>:
    	* jartool.c (errno): Conditionally declare.
@@ -164,7 +194,7 @@
 
 #include <zlib.h>
 
-#ifdef STDC_HEADERS
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
 
@@ -201,6 +231,8 @@
 #include <time.h>
 #endif
 
+#include <getopt.h>
+
 #include "jartool.h"
 #include "zipfile.h"
 #include "dostime.h"
@@ -218,8 +250,6 @@
 
 #endif
 
-static char version_string[] = VERSION;
-
 #ifndef errno
 extern int errno;
 #endif
@@ -229,6 +259,8 @@ extern int errno;
 #endif
 
 void usage(const char*);
+void help(const char *);
+void version(void);
 void add_entry(struct zipentry *);
 void init_headers(void);
 
@@ -242,6 +274,7 @@ int make_manifest(int, const char*);
 static void init_args(char **, int);
 static char *get_next_arg (void);
 static char *jt_strdup (char*);
+static void expand_options (int *argcp, char ***argvp);
 
 /* global variables */
 ub1 file_header[30];
@@ -249,7 +282,7 @@ ub1 data_descriptor[16];
 int do_compress;
 int seekable;
 int verbose;
-char jarfile[256];
+char *jarfile;
 
 /* If non zero, then don't recurse in directory. Instead, add the
    directory entry and relie on an explicit list of files to populate
@@ -265,19 +298,37 @@ zipentry *ziptail; /* tail of the linked list */
 
 int number_of_entries; /* number of entries in the linked list */
 
+/* This is used to mark options with no short value.  */
+#define LONG_OPT(Num)  ((Num) + 128)
+
+#define OPT_HELP     LONG_OPT (0)
+
+/* This holds all options.  */
+#define OPTION_STRING "-ctxuvVf:m:C:0ME@"
+
+static const struct option options[] =
+{
+  { "help", no_argument, NULL, OPT_HELP },
+  { "version", no_argument, NULL, 'V' },
+  { NULL, no_argument, NULL, 0 }
+};
+
 int main(int argc, char **argv){
 
-  char mfile[256];
+  char *mfile = NULL;
   
   int action = ACTION_NONE;
   int manifest = TRUE;
-  int manifest_file = FALSE;
-  int file = FALSE;
-  int file_first = FALSE;
+  int opt;
   
-  int i, j;
+  int j;
   int jarfd = -1;
   
+  /* These are used to collect file names and `-C' options for the
+     second pass through the command line.  */
+  int new_argc;
+  char **new_argv;
+
   do_compress = TRUE;
   verbose = FALSE;
   
@@ -290,8 +341,20 @@ int main(int argc, char **argv){
   
   j = strlen(argv[1]);
   
-  for(i = 0; i < j; i++){
-    switch(argv[1][i]){
+  new_argc = 0;
+  new_argv = (char **) malloc (argc * sizeof (char *));
+
+  expand_options (&argc, &argv);
+  while ((opt = getopt_long (argc, argv, OPTION_STRING,
+			     options, NULL)) != -1) {
+    switch(opt){
+    case 'C':
+      new_argv[new_argc++] = (char *) "-C";
+      /* ... fall through ... */
+    case 1:
+      /* File name or unparsed option, due to RETURN_IN_ORDER.  */
+      new_argv[new_argc++] = optarg;
+      break;
     case 'c':
       action = ACTION_CREATE;
       break;
@@ -308,17 +371,13 @@ int main(int argc, char **argv){
       verbose = TRUE;
       break;
     case 'V':
-      printf("%s\n", version_string);
+      version();
       exit(0);
     case 'f':
-      file = TRUE;
-      if(!manifest_file)
-        file_first = TRUE;
-      else
-        file_first = FALSE;
+      jarfile = optarg;
       break;
     case 'm':
-      manifest_file = TRUE;
+      mfile = optarg;
       break;
     case '0':
       do_compress = FALSE;
@@ -326,8 +385,11 @@ int main(int argc, char **argv){
     case 'M':
       manifest = FALSE;
       break;
-    case '-':
+
+    case OPT_HELP:
+      help(argv[0]);
       break;
+
     /* The following options aren't supported by the original jar tool. */
     case 'E':
       use_explicit_list_only = TRUE;
@@ -336,14 +398,24 @@ int main(int argc, char **argv){
       read_names_from_stdin = TRUE;
       break;
     default:
-      fprintf(stderr, "Illegal option: %c\n", argv[1][i]);
       usage(argv[0]);
     }
   }
 
+  /* We might have seen `--'.  In this case we want to make sure that
+     all following options are handled as file names.  */
+  while (optind < argc)
+    new_argv[new_argc++] = argv[optind++];
+  new_argv[new_argc] = NULL;
+
   if(action == ACTION_NONE){
     fprintf(stderr, "One of options -{ctxu} must be specified.\n");
     usage(argv[0]);
+  }
+
+  if(action == ACTION_UPDATE){
+    fprintf(stderr, "%s: `-u' mode unimplemented.\n", argv[0]);
+    exit(1);
   }
 
   /* Verify unsupported combinations and warn of the use of non
@@ -358,32 +430,9 @@ int main(int argc, char **argv){
       usage(argv[0]);
   }
 
-  i = 2;
-
-  /* get the jarfile and manifest file (if any) */
-  if(file && file_first){
-    if(i >= argc)
-      usage(argv[0]);
-
-    strncpy(jarfile, argv[i++], 256);
-  }
-  if(manifest_file){
-    if(i >= argc)
-      usage(argv[0]);
-
-    strncpy(mfile, argv[i++], 256);
-  }
-
-  if(file && !file_first){
-    if(i >= argc)
-      usage(argv[0]);
-
-    strncpy(jarfile, argv[i++], 256);
-  }
-
   /* create the jarfile */
   if(action == ACTION_CREATE){
-    if(file){
+    if(jarfile){
       jarfd = open(jarfile, O_CREAT | O_BINARY | O_WRONLY | O_TRUNC,
 		   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
@@ -409,7 +458,7 @@ int main(int argc, char **argv){
     }
   } else if(action == ACTION_LIST || action == ACTION_EXTRACT){
 
-    if(file){
+    if(jarfile){
       jarfd = open(jarfile, O_RDONLY | O_BINARY);
 
       if(jarfd < 0){
@@ -431,7 +480,7 @@ int main(int argc, char **argv){
     const char *arg;
     init_headers();
 
-   if((action == ACTION_UPDATE) && file) {
+   if((action == ACTION_UPDATE) && jarfile) {
       if((jarfd = open(jarfile, O_RDWR | O_BINARY)) < 0) {
 	fprintf(stderr, "Error opening %s for reading!\n", jarfile);
         perror(jarfile);
@@ -444,12 +493,12 @@ int main(int argc, char **argv){
   
 
     /* Add the META-INF/ directory and the manifest */
-    if(manifest && manifest_file)
+    if(manifest && mfile)
       make_manifest(jarfd, mfile);
     else if(manifest)
       make_manifest(jarfd, NULL);
     
-    init_args (argv, i);
+    init_args (new_argv, 0);
     /* now we add the files to the archive */
     while ((arg = get_next_arg ())){
 
@@ -479,9 +528,9 @@ int main(int argc, char **argv){
       fprintf(stderr, "Error closing jar archive!\n");
     }
   } else if(action == ACTION_LIST){
-    list_jar(jarfd, &argv[i], (argc - i));
+    list_jar(jarfd, &new_argv[0], new_argc);
   } else if(action == ACTION_EXTRACT){
-    extract_jar(jarfd, &argv[i], (argc - i));
+    extract_jar(jarfd, &new_argv[0], new_argc);
   }
   
   exit(0);
@@ -799,6 +848,7 @@ int add_to_jar(int fd, const char *new_dir, const char *file){
   
   if(stat_return == -1){
     perror(file);
+    return 1;
   } else if(S_ISDIR(statbuf.st_mode)){
     char *fullname;
     char *t_ptr;
@@ -1297,7 +1347,7 @@ int extract_jar(int fd, char **files, int file_num){
 #endif
     }
 
-    if(filename_len < fnlen){
+    if(filename_len < fnlen + 1){
       if(filename != NULL)
         free(filename);
       
@@ -1431,7 +1481,7 @@ int extract_jar(int fd, char **files, int file_num){
 
       ze.crc = crc32(ze.crc, NULL, 0); /* initialize the crc */
 
-      while(out_a < csize){
+      while(out_a < (int)csize){
         rdamt = (in_a > RDSZ ? RDSZ : in_a);
         if(pb_read(&pbf, rd_buff, rdamt) != rdamt){
           perror("read");
@@ -1574,7 +1624,7 @@ int list_jar(int fd, char **files, int file_num){
 
     /*   printf("Central header offset = %d\n", tmp); */
 
-    if(lseek(fd, tmp, SEEK_SET) != tmp){
+    if(lseek(fd, tmp, SEEK_SET) != (int)tmp){
       perror("lseek");
       exit(1);
     }
@@ -1813,26 +1863,47 @@ int consume(pb_file *pbf, int amt){
 }
 
 void usage(const char *filename){
-  fprintf(stderr, "\
+  fprintf(stderr, "Try `%s --help' for more information.\n", filename);
+  exit (1);
+}
+
+void version ()
+{
+  printf("jar (%s) %s\n\n", PACKAGE, VERSION);
+  printf("Copyright 1999, 2000, 2001  Bryan Burns\n");
+  printf("Copyright 2002 Free Software Foundation\n");
+  printf("\
+This is free software; see the source for copying conditions.  There is NO\n\
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
+  exit (0);
+}
+
+void help(const char *filename)
+{
+  printf("\
 Usage: %s {ctxuV}[vfm0ME@] [jar-file] [manifest-file] [-C dir] files ...\n\
-Options\n\
- -c  create new archive\n\
- -t  list table of contents for archive\n\
- -x  extract named (or all) files from archive\n\
+\n\
+Store many files together in a single `jar' file.\n\
+\n\
+  -c              create new archive\n\
+  -t              list table of contents for archive\n\
+  -x              extract named (or all) files from archive\n\
+  -u              update existing archive\n\
 ", filename);
-  fprintf(stderr, "\
- -u  update existing archive\n\
- -V  display version information\n\
- -v  generate verbose output on standard output\n\
- -f  specify archive file name\n\
- -m  include manifest information from specified manifest file\n\
- -0  store only; use no ZIP compression\n\
- -M  Do not create a manifest file for the entries\n\
- -C  change to the specified directory and include the following file\n\
- -E  don't include the files found in a directory\n\
- -@  Read names from stdin\n\
+  printf("\n\
+  -@              read names from stdin\n\
+  -0              store only; use no ZIP compression\n\
+  -C DIR FILE     change to the specified directory and include\n\
+                  the following file\n\
+  -E              don't include the files found in a directory\n\
+  -f FILE         specify archive file name\n\
+  --help          print this help, then exit\n\
+  -m FILE         include manifest information from specified manifest file\n\
+  -M              Do not create a manifest file for the entries\n\
+  -v              generate verbose output on standard output\n\
+  -V, --version   display version information\n\
 ");
-  fprintf(stderr, "\
+  printf("\n\
 If any file is a directory then it is processed recursively.\n\
 The manifest file name and the archive file name needs to be specified\n\
 in the same order the 'm' and 'f' flags are specified.\n\
@@ -1844,7 +1915,7 @@ Example 2: use an existing manifest file 'mymanifest' and archive all the\n\
      jar cvfm classes.jar mymanifest -C foo/ .\n\
 ");
 
-  exit(1);
+  exit(0);
 }
 
 static char *
@@ -1856,4 +1927,71 @@ jt_strdup(s)
     return (char*)0;
   strcpy(result, s);
   return result;
+}
+
+/* Convert "tar-style" first argument to a form expected by getopt.
+   This idea and the code comes from GNU tar.  This can allocate a new
+   argument vector.  This might leak some memory, but we don't care.  */
+static void
+expand_options (int *argcp, char ***argvp)
+{
+  int argc = *argcp;
+  char **argv = *argvp;
+
+  /* Accept arguments with a leading "-" (eg "-cvf"), but don't do expansion 
+     if a long argument (like "--help") is detected. */
+  if (argc > 1 && argv[1][1] != '-')
+    {
+      char buf[3];
+      char **new_argv;
+      int new_argc;
+      int args_to_expand;
+      char *p;
+      char **in, **out;
+
+      buf[0] = '-';
+      buf[2] = '\0';
+
+      args_to_expand = strlen (argv[1]);
+      if (argv[1][0] == '-')
+        --args_to_expand;
+        
+      new_argc = argc - 1 + args_to_expand;
+      new_argv = (char **) malloc (new_argc * sizeof (char *));
+      in = argv;
+      out = new_argv;
+
+      *out++ = *in++;
+      p = *in++;
+      if (*p == '-')
+        p++;
+      while (*p != '\0')
+	{
+	  char *opt;
+	  buf[1] = *p;
+	  *out++ = jt_strdup (buf);
+	  /* If the option takes an argument, move the next argument
+	     to just after this option.  */
+	  opt = strchr (OPTION_STRING, *p);
+	  if (opt && opt[1] == ':')
+	    {
+	      if (in < argv + argc)
+		*out++ = *in++;
+	      else
+		{
+		  fprintf(stderr, "%s: option `%s' requires an argument.\n",
+			  argv[0], buf);
+		  usage(argv[0]);
+		}
+	    }
+	  ++p;
+	}
+
+      /* Copy remaining options.  */
+      while (in < argv + argc)
+	*out++ = *in++;
+
+      *argcp = new_argc;
+      *argvp = new_argv;
+    }
 }

@@ -1,5 +1,5 @@
-/* Definitions for Intel 386 running system V, using dbx-in-coff encapsulation.
-   Copyright (C) 1992, 1995 Free Software Foundation, Inc.
+/* Definitions for Intel 385 running system V, using dbx-in-coff encapsulation.
+   Copyright (C) 1992, 1995, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,8 +18,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "i386/svr3gas.h"
-
 /* We do not want to output SDB debugging information.  */
 
 #undef SDB_DEBUGGING_INFO
@@ -33,7 +31,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(BUF,PREFIX,NUMBER)	\
-    sprintf ((BUF), "*.%s%d", (PREFIX), (NUMBER))
+    sprintf ((BUF), "*.%s%ld", (PREFIX), (long)(NUMBER))
 
 /* With the current gas, .align N aligns to an N-byte boundary.
    This is done to be compatible with the system assembler.

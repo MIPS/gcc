@@ -1,7 +1,7 @@
 /* Definitions for Intel 386 running Interactive Unix System V,
    using dbx-in-coff encapsulation.
    Specifically, this is for recent versions that support POSIX.
-   Copyright (C) 1992, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1995, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -20,15 +20,13 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Mostly it's like AT&T Unix System V with dbx-in-coff. */
-
-#include "i386/svr3dbx.h"
+/* Mostly it's like AT&T Unix System V with dbx-in-coff.  */
 
 /* But with a few changes.  */
 #undef ENDFILE_SPEC
 #include "i386/isc.h"
 
-/* Overridden defines for ifile usage. */
+/* Overridden defines for ifile usage.  */
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \

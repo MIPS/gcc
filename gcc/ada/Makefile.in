@@ -82,9 +82,6 @@ T_CFLAGS =
 X_CPPFLAGS =
 T_CPPFLAGS =
 
-X_ADA_CFLAGS =
-T_ADA_CFLAGS =
-
 X_ADAFLAGS =
 T_ADAFLAGS =
 
@@ -129,11 +126,8 @@ GNATLIBFLAGS = -gnatpg
 GNATLIBCFLAGS = -g -O2
 GNATLIBCFLAGS_FOR_C = $(GNATLIBCFLAGS) $(TARGET_LIBGCC2_CFLAGS) -fexceptions \
 	-DIN_RTS
-ALL_ADA_CFLAGS = $(X_ADA_CFLAGS) $(T_ADA_CFLAGS) $(ADA_CFLAGS)
-ALL_ADAFLAGS = $(CFLAGS) $(ALL_ADA_CFLAGS) $(X_ADAFLAGS) $(T_ADAFLAGS) \
-	$(ADAFLAGS)
-MOST_ADAFLAGS = $(CFLAGS) $(ALL_ADA_CFLAGS) $(X_ADAFLAGS) $(T_ADAFLAGS) \
-	$(SOME_ADAFLAGS)
+ALL_ADAFLAGS = $(CFLAGS) $(ADA_CFLAGS) $(ADAFLAGS)
+MOST_ADAFLAGS = $(CFLAGS) $(ADA_CFLAGS) $(SOME_ADAFLAGS)
 THREAD_KIND = native
 THREADSLIB =
 GMEM_LIB =
@@ -282,7 +276,7 @@ ADA_INCLUDES_FOR_SUBDIR = -I. -I$(fsrcdir)
 
 # Always use -I$(srcdir)/config when compiling.
 .c.o:
-	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $<
+	$(CC) -c $(ALL_CFLAGS) $(ADA_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $<
 .adb.o:
 	$(ADAC) -c $(ALL_ADAFLAGS) $(ADA_INCLUDES) $<
 .ads.o:
@@ -2146,42 +2140,6 @@ nmake.ads :  sinfo.ads nmake.adt xnmake.adb
 	$(CP) $^ bldtools
 	(cd bldtools; gnatmake -q xnmake ; ./xnmake -s ../nmake.ads )
 
-# We remove the generated .texi files to force regeneration.
-doctools/xgnatug : xgnatug.adb
-	-$(MKDIR) doctools
-	$(CP) $^ doctools
-	(cd doctools ; gnatmake -q xgnatug)
-	-rm gnat_ug_*.texi
-
-# We cannot list the dependency on the xgnatug binary here because we
-# have to (a) use the VPATH feature, and (b) include the target flag.
-gnat_ug_vms.texi : gnat_ug.texi ug_words
-	doctools/xgnatug vms $^
-
-gnat_ug_wnt.texi : gnat_ug.texi ug_words
-	doctools/xgnatug wnt $^
-
-gnat_ug_unx.texi : gnat_ug.texi ug_words
-	doctools/xgnatug unx $^
-
-gnat_ug_vxw.texi : gnat_ug.texi ug_words
-	doctools/xgnatug vxworks $^
-
-%.info : %.texi
-	$(MAKEINFO) -I $(srcdir)/../doc/include -o $@ $<
-
-%.dvi : %.texi
-	$(TEXI2DVI) -I $(srcdir)/../doc/include $<
-
-# List the dependency on the xgnatug binary explicitly (see above).
-doc : doctools/xgnatug \
-	gnat_ug_vms.info gnat_ug_wnt.info gnat_ug_unx.info gnat_ug_vxw.info \
-	gnat_rm.info gnat-style.info
-
-dvi : doctools/xgnatug \
-	gnat_ug_vms.dvi gnat_ug_wnt.dvi gnat_ug_unx.dvi gnat_ug_vxw.dvi \
-	gnat_rm.dvi gnat-style.dvi
-
 update-sources : treeprs.ads einfo.h sinfo.h nmake.adb nmake.ads
 	$(CP) $^ $(srcdir)
 
@@ -2299,21 +2257,21 @@ mkdir.o   : mkdir.c
 sysdep.o  : sysdep.c
 
 cio.o     : cio.c 
-	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) $(RT_FLAGS) \
+	$(CC) -c $(ALL_CFLAGS) $(ADA_CFLAGS) $(RT_FLAGS) \
 	         $(ALL_CPPFLAGS) $(INCLUDES) $< 
 
 init.o    : init.c ada.h types.h raise.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) $(RT_FLAGS) \
+	$(CC) -c $(ALL_CFLAGS) $(ADA_CFLAGS) $(RT_FLAGS) \
 	         $(ALL_CPPFLAGS) $(INCLUDES) $< 
 
 raise.o   : raise.c raise.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) $(RT_FLAGS) \
+	$(CC) -c $(ALL_CFLAGS) $(ADA_CFLAGS) $(RT_FLAGS) \
 		 $(ALL_CPPFLAGS) $(INCLUDES) $< 
 
 # Need to keep the frame pointer in this file to pop the stack properly on
 # some targets.
 tracebak.o  : tracebak.c
-	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	$(CC) -c $(ALL_CFLAGS) $(ADA_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	      -fno-omit-frame-pointer $< 
 
 cuintp.o : cuintp.c $(CONFIG_H) $(TREE_H) ada.h types.h uintp.h atree.h \
@@ -2353,7 +2311,7 @@ utils2.o : utils2.c $(CONFIG_H) $(TREE_H) $(srcdir)/../flags.h ada.h types.h \
 # Rule to compile prefix.o for the run-time.
 
 prefix.o : $(srcdir)/../prefix.c
-	$(CC) -c $(ALL_CFLAGS) $(ALL_ADA_CFLAGS) $(RT_FLAGS) \
+	$(CC) -c $(ALL_CFLAGS) $(ADA_CFLAGS) $(RT_FLAGS) \
 	      $(ALL_CPPFLAGS) $(INCLUDES) -I$(srcdir)/../.. -I../.. \
 	      -DPREFIX=\"$(prefix)\" $< 
 

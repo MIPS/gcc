@@ -18,12 +18,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "gofast.h"
-
-/* US Software GOFAST library support.  */
-#define INIT_SUBTARGET_OPTABS INIT_GOFAST_OPTABS
-
 #include "mips/mips.h"
+#include "mips/abi64.h"
 
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
@@ -49,7 +45,7 @@ Boston, MA 02111-1307, USA.  */
    specified as the number of bits.
 
    Try to use function `asm_output_aligned_bss' defined in file
-   `varasm.c' when defining this macro. */
+   `varasm.c' when defining this macro.  */
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
 do {								\
   ASM_GLOBALIZE_LABEL (FILE, NAME);				\
@@ -84,8 +80,10 @@ do {								\
 	size_directive_output = 1;				\
 	fprintf (FILE, "%s", SIZE_ASM_OP);			\
 	assemble_name (FILE, NAME);				\
-	fprintf (FILE, ",%d\n",					\
+	fprintf (FILE, ",");					\
+	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,			\
 		 int_size_in_bytes (TREE_TYPE (DECL)));		\
+	fprintf (FILE, "\n");					\
       }								\
     mips_declare_object (FILE, NAME, "", ":\n", 0);		\
   } while (0)
@@ -97,15 +95,13 @@ do {								\
 /* A list of other sections which the compiler might be "in" at any
    given time.  */
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_sbss, in_rdata, in_ctors, in_dtors
- 
+#define EXTRA_SECTIONS in_sdata, in_sbss, in_rdata
+
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS                                         \
   SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP) \
   SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(rdata_section, in_rdata, RDATA_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(ctors_section, in_ctors, CTORS_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(dtors_section, in_dtors, DTORS_SECTION_ASM_OP)
+  SECTION_FUNCTION_TEMPLATE(rdata_section, in_rdata, RDATA_SECTION_ASM_OP)
 
 #define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)			\
 void FN ()							\
@@ -116,29 +112,6 @@ void FN ()							\
       in_section = ENUM;					\
     }								\
 }
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)			  \
-  do {								  \
-    ctors_section ();						  \
-    fprintf (FILE, "\t%s\t", TARGET_LONG64 ? ".dword" : ".word"); \
-    assemble_name (FILE, NAME);					  \
-    fprintf (FILE, "\n");					  \
-  } while (0)
-
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)			  \
-  do {								  \
-    dtors_section ();						  \
-    fprintf (FILE, "\t%s\t", TARGET_LONG64 ? ".dword" : ".word"); \
-    assemble_name (FILE, NAME);					  \
-    fprintf (FILE, "\n");					  \
-  } while (0)
 
 #undef TARGET_VERSION
 #if TARGET_ENDIAN_DEFAULT == 0
@@ -153,7 +126,7 @@ void FN ()							\
 /* Required to keep collect2.c happy */
 #undef OBJECT_FORMAT_COFF
 
-/* If we don't set MASK_ABICALLS, we can't default to PIC. */
+/* If we don't set MASK_ABICALLS, we can't default to PIC.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_ABICALLS|MASK_GAS)
 
@@ -248,6 +221,9 @@ void FN ()							\
 %{!fno-PIC:%{!fno-pic:-KPIC}} \
 %{fno-PIC:-non_shared} %{fno-pic:-non_shared}"
 
+#undef SUBTARGET_ASM_DEBUGGING_SPEC
+#define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
+
 /* The MIPS assembler has different syntax for .set. We set it to
    .dummy to trap any errors.  */
 #undef SET_ASM_OP
@@ -306,3 +282,14 @@ void FN ()							\
 /* Tell function_prologue in mips.c that we have already output the .ent/.end
    pseudo-ops.  */
 #define FUNCTION_NAME_ALREADY_DECLARED
+
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)       		\
+  (flag_pic								\
+    ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4\
+   : DW_EH_PE_absptr)
+
+/* The glibc _mcount stub will save $v0 for us.  Don't mess with saving
+   it, since ASM_OUTPUT_REG_PUSH/ASM_OUTPUT_REG_POP do not work in the
+   presence of $gp-relative calls.  */
+#undef ASM_OUTPUT_REG_PUSH
+#undef ASM_OUTPUT_REG_POP

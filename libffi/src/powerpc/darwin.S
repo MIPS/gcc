@@ -3,7 +3,7 @@
    
    PowerPC Assembly glue.
 
-   $Id: darwin.S,v 1.1 2001/10/09 05:32:15 bryce Exp $
+   $Id: darwin.S,v 1.2 2002/01/18 16:22:34 dje Exp $
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the

@@ -1,23 +1,23 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* This is the pathetic reminder of old fame of the jump-optimization pass
    of the compiler.  Now it contains basically set of utility function to
@@ -69,7 +69,6 @@ static void invert_exp_1		PARAMS ((rtx));
 static int invert_exp			PARAMS ((rtx));
 static int returnjump_p_1	        PARAMS ((rtx *, void *));
 static void delete_prior_computation    PARAMS ((rtx, rtx));
-static void mark_modified_reg		PARAMS ((rtx, rtx, void *));
 
 /* Alternate entry into the jump optimizer.  This entry point only rebuilds
    the JUMP_LABEL field in jumping insns and REG_LABEL notes in non-jumping
@@ -78,7 +77,7 @@ void
 rebuild_jump_labels (f)
      rtx f;
 {
-  register rtx insn;
+  rtx insn;
   int max_uid = 0;
 
   max_uid = init_label_info (f) + 1;
@@ -90,13 +89,6 @@ rebuild_jump_labels (f)
      count doesn't drop to zero.  */
 
   for (insn = forced_labels; insn; insn = XEXP (insn, 1))
-    if (GET_CODE (XEXP (insn, 0)) == CODE_LABEL)
-      LABEL_NUSES (XEXP (insn, 0))++;
-
-  /* Keep track of labels used for marking handlers for exception
-     regions; they cannot usually be deleted.  */
-
-  for (insn = exception_handler_labels; insn; insn = XEXP (insn, 1))
     if (GET_CODE (XEXP (insn, 0)) == CODE_LABEL)
       LABEL_NUSES (XEXP (insn, 0))++;
 }
@@ -131,7 +123,7 @@ void
 copy_loop_headers (f)
      rtx f;
 {
-  register rtx insn, next;
+  rtx insn, next;
   /* Now iterate optimizing jumps until nothing changes over one pass.  */
   for (insn = f; insn; insn = next)
     {
@@ -182,7 +174,7 @@ purge_line_number_notes (f)
 		&& NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last_note)
 		&& NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last_note))
 	      {
-		delete_insn (insn);
+		delete_related_insns (insn);
 		continue;
 	      }
 
@@ -529,7 +521,7 @@ duplicate_loop_exit_test (loop_start)
   /* Mark the exit code as the virtual top of the converted loop.  */
   emit_note_before (NOTE_INSN_LOOP_VTOP, exitcode);
 
-  delete_insn (next_nonnote_insn (loop_start));
+  delete_related_insns (next_nonnote_insn (loop_start));
 
   /* Clean up.  */
   if (reg_map)
@@ -539,19 +531,25 @@ duplicate_loop_exit_test (loop_start)
 }
 
 /* Move all block-beg, block-end, loop-beg, loop-cont, loop-vtop, loop-end,
-   notes between START and END out before START.  Assume that END is not
-   such a note.  START may be such a note.  Returns the value of the new
-   starting insn, which may be different if the original start was such a
-   note.  */
+   notes between START and END out before START.  START and END may be such
+   notes.  Returns the values of the new starting and ending insns, which
+   may be different if the original ones were such notes.
+   Return true if there were only such notes and no real instructions.  */
 
-rtx
-squeeze_notes (start, end)
-     rtx start, end;
+bool
+squeeze_notes (startp, endp)
+     rtx* startp;
+     rtx* endp;
 {
+  rtx start = *startp;
+  rtx end = *endp;
+
   rtx insn;
   rtx next;
+  rtx last = NULL;
+  rtx past_end = NEXT_INSN (end);
 
-  for (insn = start; insn != end; insn = next)
+  for (insn = start; insn != past_end; insn = next)
     {
       next = NEXT_INSN (insn);
       if (GET_CODE (insn) == NOTE
@@ -575,9 +573,19 @@ squeeze_notes (start, end)
 	      PREV_INSN (next) = prev;
 	    }
 	}
+      else
+	last = insn;
     }
 
-  return start;
+  /* There were no real instructions.  */
+  if (start == past_end)
+    return true;
+
+  end = last;
+
+  *startp = start;
+  *endp = end;
+  return false;
 }
 
 /* Return the label before INSN, or put a new label there.  */
@@ -653,46 +661,41 @@ reversed_comparison_code_parts (code, arg0, arg1, insn)
       && REVERSIBLE_CC_MODE (mode))
     {
 #ifdef REVERSE_CONDITION
-	   return REVERSE_CONDITION (code, mode);
+      return REVERSE_CONDITION (code, mode);
 #endif
-	   return reverse_condition (code);
-	}
+      return reverse_condition (code);
+    }
 #endif
 
   /* Try a few special cases based on the comparison code.  */
   switch (code)
     {
-      case GEU:
-      case GTU:
-      case LEU:
-      case LTU:
-      case NE:
-      case EQ:
-        /* It is always safe to reverse EQ and NE, even for the floating
-	   point.  Similary the unsigned comparisons are never used for
-	   floating point so we can reverse them in the default way.  */
-	return reverse_condition (code);
-      case ORDERED:
-      case UNORDERED:
-      case LTGT:
-      case UNEQ:
-	/* In case we already see unordered comparison, we can be sure to
-	   be dealing with floating point so we don't need any more tests.  */
-	return reverse_condition_maybe_unordered (code);
-      case UNLT:
-      case UNLE:
-      case UNGT:
-      case UNGE:
-	/* We don't have safe way to reverse these yet.  */
-	return UNKNOWN;
-      default:
-	break;
+    case GEU:
+    case GTU:
+    case LEU:
+    case LTU:
+    case NE:
+    case EQ:
+      /* It is always safe to reverse EQ and NE, even for the floating
+	 point.  Similary the unsigned comparisons are never used for
+	 floating point so we can reverse them in the default way.  */
+      return reverse_condition (code);
+    case ORDERED:
+    case UNORDERED:
+    case LTGT:
+    case UNEQ:
+      /* In case we already see unordered comparison, we can be sure to
+	 be dealing with floating point so we don't need any more tests.  */
+      return reverse_condition_maybe_unordered (code);
+    case UNLT:
+    case UNLE:
+    case UNGT:
+    case UNGE:
+      /* We don't have safe way to reverse these yet.  */
+      return UNKNOWN;
+    default:
+      break;
     }
-
-  /* In case we give up IEEE compatibility, all comparisons are reversible.  */
-  if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-      || flag_unsafe_math_optimizations)
-    return reverse_condition (code);
 
   if (GET_MODE_CLASS (mode) == MODE_CC
 #ifdef HAVE_cc0
@@ -727,7 +730,7 @@ reversed_comparison_code_parts (code, arg0, arg1, insn)
 		    mode = GET_MODE (XEXP (comparison, 1));
 		  break;
 		}
-	      /* We can get past reg-reg moves.  This may be usefull for model
+	      /* We can get past reg-reg moves.  This may be useful for model
 	         of i387 comparisons that first move flag registers around.  */
 	      if (REG_P (src))
 		{
@@ -742,11 +745,12 @@ reversed_comparison_code_parts (code, arg0, arg1, insn)
 	}
     }
 
-  /* An integer condition.  */
+  /* Test for an integer condition, or a floating-point comparison
+     in which NaNs can be ignored.  */
   if (GET_CODE (arg0) == CONST_INT
       || (GET_MODE (arg0) != VOIDmode
 	  && GET_MODE_CLASS (mode) != MODE_CC
-	  && ! FLOAT_MODE_P (mode)))
+	  && !HONOR_NANS (mode)))
     return reverse_condition (code);
 
   return UNKNOWN;
@@ -825,10 +829,6 @@ enum rtx_code
 reverse_condition_maybe_unordered (code)
      enum rtx_code code;
 {
-  /* Non-IEEE formats don't have unordered conditions.  */
-  if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT)
-    return reverse_condition (code);
-
   switch (code)
     {
     case EQ:
@@ -1079,7 +1079,7 @@ int
 condjump_p (insn)
      rtx insn;
 {
-  register rtx x = PATTERN (insn);
+  rtx x = PATTERN (insn);
 
   if (GET_CODE (x) != SET
       || GET_CODE (SET_DEST (x)) != PC)
@@ -1110,7 +1110,7 @@ int
 condjump_in_parallel_p (insn)
      rtx insn;
 {
-  register rtx x = PATTERN (insn);
+  rtx x = PATTERN (insn);
 
   if (GET_CODE (x) != PARALLEL)
     return 0;
@@ -1228,7 +1228,9 @@ returnjump_p_1 (loc, data)
      void *data ATTRIBUTE_UNUSED;
 {
   rtx x = *loc;
-  return x && GET_CODE (x) == RETURN;
+
+  return x && (GET_CODE (x) == RETURN
+	       || (GET_CODE (x) == SET && SET_IS_RETURN_P (x)));
 }
 
 int
@@ -1265,6 +1267,23 @@ onlyjump_p (insn)
 
 #ifdef HAVE_cc0
 
+/* Return non-zero if X is an RTX that only sets the condition codes
+   and has no side effects.  */
+
+int
+only_sets_cc0_p (x)
+     rtx x;
+{
+
+  if (! x)
+    return 0;
+
+  if (INSN_P (x))
+    x = PATTERN (x);
+
+  return sets_cc0_p (x) == 1 && ! side_effects_p (x);
+}
+
 /* Return 1 if X is an RTX that does nothing but set the condition codes
    and CLOBBER or USE registers.
    Return -1 if X does explicitly set the condition codes,
@@ -1272,8 +1291,15 @@ onlyjump_p (insn)
 
 int
 sets_cc0_p (x)
-     rtx x ATTRIBUTE_UNUSED;
+     rtx x;
 {
+
+  if (! x)
+    return 0;
+
+  if (INSN_P (x))
+    x = PATTERN (x);
+
   if (GET_CODE (x) == SET && SET_DEST (x) == cc0_rtx)
     return 1;
   if (GET_CODE (x) == PARALLEL)
@@ -1308,10 +1334,10 @@ rtx
 follow_jumps (label)
      rtx label;
 {
-  register rtx insn;
-  register rtx next;
-  register rtx value = label;
-  register int depth;
+  rtx insn;
+  rtx next;
+  rtx value = label;
+  int depth;
 
   for (depth = 0;
        (depth < 10
@@ -1370,13 +1396,13 @@ follow_jumps (label)
 
 void
 mark_jump_label (x, insn, in_mem)
-     register rtx x;
+     rtx x;
      rtx insn;
      int in_mem;
 {
-  register RTX_CODE code = GET_CODE (x);
-  register int i;
-  register const char *fmt;
+  RTX_CODE code = GET_CODE (x);
+  int i;
+  const char *fmt;
 
   switch (code)
     {
@@ -1466,7 +1492,7 @@ mark_jump_label (x, insn, in_mem)
 	mark_jump_label (XEXP (x, i), insn, in_mem);
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    mark_jump_label (XVECEXP (x, i, j), insn, in_mem);
 	}
@@ -1481,7 +1507,7 @@ void
 delete_jump (insn)
      rtx insn;
 {
-  register rtx set = single_set (insn);
+  rtx set = single_set (insn);
 
   if (set && GET_CODE (SET_DEST (set)) == PC)
     delete_computation (insn);
@@ -1671,24 +1697,24 @@ delete_computation (insn)
       delete_prior_computation (note, insn);
     }
 
-  delete_insn (insn);
+  delete_related_insns (insn);
 }
 
-/* Delete insn INSN from the chain of insns and update label ref counts.
-   May delete some following insns as a consequence; may even delete
-   a label elsewhere and insns that follow it.
+/* Delete insn INSN from the chain of insns and update label ref counts
+   and delete insns now unreachable. 
 
-   Returns the first insn after INSN that was not deleted.  */
+   Returns the first insn after INSN that was not deleted. 
+
+   Usage of this instruction is deprecated.  Use delete_insn instead and
+   subsequent cfg_cleanup pass to delete unreachable code if needed.  */
 
 rtx
-delete_insn (insn)
-     register rtx insn;
+delete_related_insns (insn)
+     rtx insn;
 {
-  register rtx next = NEXT_INSN (insn);
-  register rtx prev = PREV_INSN (insn);
-  register int was_code_label = (GET_CODE (insn) == CODE_LABEL);
-  register int dont_really_delete = 0;
+  int was_code_label = (GET_CODE (insn) == CODE_LABEL);
   rtx note;
+  rtx next = NEXT_INSN (insn), prev = PREV_INSN (insn);
 
   while (next && INSN_DELETED_P (next))
     next = NEXT_INSN (next);
@@ -1697,58 +1723,13 @@ delete_insn (insn)
   if (INSN_DELETED_P (insn))
     return next;
 
-  if (was_code_label)
-    remove_node_from_expr_list (insn, &nonlocal_goto_handler_labels);
-
-  /* Don't delete user-declared labels.  When optimizing, convert them
-     to special NOTEs instead.  When not optimizing, leave them alone.  */
-  if (was_code_label && LABEL_NAME (insn) != 0)
-    {
-      if (optimize)
-	{
-	  const char *name = LABEL_NAME (insn);
-	  PUT_CODE (insn, NOTE);
-	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED_LABEL;
-	  NOTE_SOURCE_FILE (insn) = name;
-	}
-
-      dont_really_delete = 1;
-    }
-  else
-    /* Mark this insn as deleted.  */
-    INSN_DELETED_P (insn) = 1;
+  delete_insn (insn);
 
   /* If instruction is followed by a barrier,
      delete the barrier too.  */
 
   if (next != 0 && GET_CODE (next) == BARRIER)
-    {
-      INSN_DELETED_P (next) = 1;
-      next = NEXT_INSN (next);
-    }
-
-  /* Patch out INSN (and the barrier if any) */
-
-  if (! dont_really_delete)
-    {
-      if (prev)
-	{
-	  NEXT_INSN (prev) = next;
-	  if (GET_CODE (prev) == INSN && GET_CODE (PATTERN (prev)) == SEQUENCE)
-	    NEXT_INSN (XVECEXP (PATTERN (prev), 0,
-				XVECLEN (PATTERN (prev), 0) - 1)) = next;
-	}
-
-      if (next)
-	{
-	  PREV_INSN (next) = prev;
-	  if (GET_CODE (next) == INSN && GET_CODE (PATTERN (next)) == SEQUENCE)
-	    PREV_INSN (XVECEXP (PATTERN (next), 0, 0)) = prev;
-	}
-
-      if (prev && NEXT_INSN (prev) == 0)
-	set_last_insn (prev);
-    }
+    delete_insn (next);
 
   /* If deleting a jump, decrement the count of the label,
      and delete the label if it is now unused.  */
@@ -1757,12 +1738,12 @@ delete_insn (insn)
     {
       rtx lab = JUMP_LABEL (insn), lab_next;
 
-      if (--LABEL_NUSES (lab) == 0)
+      if (LABEL_NUSES (lab) == 0)
 	{
 	  /* This can delete NEXT or PREV,
 	     either directly if NEXT is JUMP_LABEL (INSN),
 	     or indirectly through more levels of jumps.  */
-	  delete_insn (lab);
+	  delete_related_insns (lab);
 
 	  /* I feel a little doubtful about this loop,
 	     but I see no clean and sure alternative way
@@ -1778,10 +1759,10 @@ delete_insn (insn)
 		   || GET_CODE (PATTERN (lab_next)) == ADDR_DIFF_VEC))
 	{
 	  /* If we're deleting the tablejump, delete the dispatch table.
-	     We may not be able to kill the label immediately preceeding
+	     We may not be able to kill the label immediately preceding
 	     just yet, as it might be referenced in code leading up to
 	     the tablejump.  */
-	  delete_insn (lab_next);
+	  delete_related_insns (lab_next);
 	}
     }
 
@@ -1796,8 +1777,8 @@ delete_insn (insn)
       int len = XVECLEN (pat, diff_vec_p);
 
       for (i = 0; i < len; i++)
-	if (--LABEL_NUSES (XEXP (XVECEXP (pat, diff_vec_p, i), 0)) == 0)
-	  delete_insn (XEXP (XVECEXP (pat, diff_vec_p, i), 0));
+	if (LABEL_NUSES (XEXP (XVECEXP (pat, diff_vec_p, i), 0)) == 0)
+	  delete_related_insns (XEXP (XVECEXP (pat, diff_vec_p, i), 0));
       while (next && INSN_DELETED_P (next))
 	next = NEXT_INSN (next);
       return next;
@@ -1809,8 +1790,8 @@ delete_insn (insn)
       if (REG_NOTE_KIND (note) == REG_LABEL
 	  /* This could also be a NOTE_INSN_DELETED_LABEL note.  */
 	  && GET_CODE (XEXP (note, 0)) == CODE_LABEL)
-	if (--LABEL_NUSES (XEXP (note, 0)) == 0)
-	  delete_insn (XEXP (note, 0));
+	if (LABEL_NUSES (XEXP (note, 0)) == 0)
+	  delete_related_insns (XEXP (note, 0));
 
   while (prev && (INSN_DELETED_P (prev) || GET_CODE (prev) == NOTE))
     prev = PREV_INSN (prev);
@@ -1824,13 +1805,13 @@ delete_insn (insn)
       && GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
       && (GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_VEC
 	  || GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_DIFF_VEC))
-    next = delete_insn (NEXT_INSN (insn));
+    next = delete_related_insns (NEXT_INSN (insn));
 
   /* If INSN was a label, delete insns following it if now unreachable.  */
 
   if (was_code_label && prev && GET_CODE (prev) == BARRIER)
     {
-      register RTX_CODE code;
+      RTX_CODE code;
       while (next != 0
 	     && (GET_RTX_CLASS (code = GET_CODE (next)) == 'i'
 		 || code == NOTE || code == BARRIER
@@ -1847,7 +1828,7 @@ delete_insn (insn)
 	       deletion of unreachable code, after a different label.
 	       As long as the value from this recursive call is correct,
 	       this invocation functions correctly.  */
-	    next = delete_insn (next);
+	    next = delete_related_insns (next);
 	}
     }
 
@@ -1873,14 +1854,14 @@ next_nondeleted_insn (insn)
 
 void
 delete_for_peephole (from, to)
-     register rtx from, to;
+     rtx from, to;
 {
-  register rtx insn = from;
+  rtx insn = from;
 
   while (1)
     {
-      register rtx next = NEXT_INSN (insn);
-      register rtx prev = PREV_INSN (insn);
+      rtx next = NEXT_INSN (insn);
+      rtx prev = PREV_INSN (insn);
 
       if (GET_CODE (insn) != NOTE)
 	{
@@ -1917,13 +1898,12 @@ delete_for_peephole (from, to)
    so it's possible to get spurious warnings from this.  */
 
 void
-never_reached_warning (avoided_insn)
-     rtx avoided_insn;
+never_reached_warning (avoided_insn, finish)
+     rtx avoided_insn, finish;
 {
   rtx insn;
   rtx a_line_note = NULL;
-  int two_avoided_lines = 0;
-  int contains_insn = 0;
+  int two_avoided_lines = 0, contains_insn = 0, reached_end = 0;
 
   if (! warn_notreached)
     return;
@@ -1933,10 +1913,11 @@ never_reached_warning (avoided_insn)
 
   for (insn = avoided_insn; insn != NULL; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (finish == NULL && GET_CODE (insn) == CODE_LABEL)
 	break;
-      else if (GET_CODE (insn) == NOTE		/* A line number note?  */
-	       && NOTE_LINE_NUMBER (insn) >= 0)
+
+      if (GET_CODE (insn) == NOTE		/* A line number note?  */
+	  && NOTE_LINE_NUMBER (insn) >= 0)
 	{
 	  if (a_line_note == NULL)
 	    a_line_note = insn;
@@ -1945,7 +1926,14 @@ never_reached_warning (avoided_insn)
 				  != NOTE_LINE_NUMBER (insn));
 	}
       else if (INSN_P (insn))
-	contains_insn = 1;
+	{
+	  if (reached_end)
+	    break;
+	  contains_insn = 1;
+	}
+
+      if (insn == finish)
+	reached_end = 1;
     }
   if (two_avoided_lines && contains_insn)
     warning_with_file_and_line (NOTE_SOURCE_FILE (a_line_note),
@@ -1962,10 +1950,10 @@ redirect_exp_1 (loc, olabel, nlabel, insn)
      rtx olabel, nlabel;
      rtx insn;
 {
-  register rtx x = *loc;
-  register RTX_CODE code = GET_CODE (x);
-  register int i;
-  register const char *fmt;
+  rtx x = *loc;
+  RTX_CODE code = GET_CODE (x);
+  int i;
+  const char *fmt;
 
   if (code == LABEL_REF)
     {
@@ -2005,7 +1993,7 @@ redirect_exp_1 (loc, olabel, nlabel, insn)
 	redirect_exp_1 (&XEXP (x, i), olabel, nlabel, insn);
       else if (fmt[i] == 'E')
 	{
-	  register int j;
+	  int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    redirect_exp_1 (&XVECEXP (x, i, j), olabel, nlabel, insn);
 	}
@@ -2068,7 +2056,7 @@ redirect_jump (jump, nlabel, delete_unused)
      rtx jump, nlabel;
      int delete_unused;
 {
-  register rtx olabel = JUMP_LABEL (jump);
+  rtx olabel = JUMP_LABEL (jump);
 
   if (nlabel == olabel)
     return 1;
@@ -2088,8 +2076,10 @@ redirect_jump (jump, nlabel, delete_unused)
       && NOTE_LINE_NUMBER (NEXT_INSN (olabel)) == NOTE_INSN_FUNCTION_END)
     emit_note_after (NOTE_INSN_FUNCTION_END, nlabel);
 
-  if (olabel && --LABEL_NUSES (olabel) == 0 && delete_unused)
-    delete_insn (olabel);
+  if (olabel && --LABEL_NUSES (olabel) == 0 && delete_unused
+      /* Undefined labels will remain outside the insn stream.  */
+      && INSN_UID (olabel))
+    delete_related_insns (olabel);
 
   return 1;
 }
@@ -2101,7 +2091,7 @@ static void
 invert_exp_1 (insn)
      rtx insn;
 {
-  register RTX_CODE code;
+  RTX_CODE code;
   rtx x = pc_set (insn);
 
   if (!x)
@@ -2112,8 +2102,8 @@ invert_exp_1 (insn)
 
   if (code == IF_THEN_ELSE)
     {
-      register rtx comp = XEXP (x, 0);
-      register rtx tem;
+      rtx comp = XEXP (x, 0);
+      rtx tem;
       enum rtx_code reversed_code;
 
       /* We can do this in two ways:  The preferable way, which can only
@@ -2224,9 +2214,9 @@ int
 rtx_renumbered_equal_p (x, y)
      rtx x, y;
 {
-  register int i;
-  register RTX_CODE code = GET_CODE (x);
-  register const char *fmt;
+  int i;
+  RTX_CODE code = GET_CODE (x);
+  const char *fmt;
 
   if (x == y)
     return 1;
@@ -2355,7 +2345,7 @@ rtx_renumbered_equal_p (x, y)
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
-      register int j;
+      int j;
       switch (fmt[i])
 	{
 	case 'w':
@@ -2429,470 +2419,4 @@ true_regnum (x)
 					   SUBREG_BYTE (x), GET_MODE (x));
     }
   return -1;
-}
-
-/* Optimize code of the form:
-
-	for (x = a[i]; x; ...)
-	  ...
-	for (x = a[i]; x; ...)
-	  ...
-      foo:
-
-   Loop optimize will change the above code into
-
-	if (x = a[i])
-	  for (;;)
-	     { ...; if (! (x = ...)) break; }
-	if (x = a[i])
-	  for (;;)
-	     { ...; if (! (x = ...)) break; }
-      foo:
-
-   In general, if the first test fails, the program can branch
-   directly to `foo' and skip the second try which is doomed to fail.
-   We run this after loop optimization and before flow analysis.  */
-
-/* When comparing the insn patterns, we track the fact that different
-   pseudo-register numbers may have been used in each computation.
-   The following array stores an equivalence -- same_regs[I] == J means
-   that pseudo register I was used in the first set of tests in a context
-   where J was used in the second set.  We also count the number of such
-   pending equivalences.  If nonzero, the expressions really aren't the
-   same.  */
-
-static int *same_regs;
-
-static int num_same_regs;
-
-/* Track any registers modified between the target of the first jump and
-   the second jump.  They never compare equal.  */
-
-static char *modified_regs;
-
-/* Record if memory was modified.  */
-
-static int modified_mem;
-
-/* Called via note_stores on each insn between the target of the first
-   branch and the second branch.  It marks any changed registers.  */
-
-static void
-mark_modified_reg (dest, x, data)
-     rtx dest;
-     rtx x;
-     void *data ATTRIBUTE_UNUSED;
-{
-  int regno;
-  unsigned int i;
-
-  if (GET_CODE (dest) == SUBREG)
-    dest = SUBREG_REG (dest);
-
-  if (GET_CODE (dest) == MEM)
-    modified_mem = 1;
-
-  if (GET_CODE (dest) != REG)
-    return;
-
-  regno = REGNO (dest);
-  if (regno >= FIRST_PSEUDO_REGISTER)
-    modified_regs[regno] = 1;
-  /* Don't consider a hard condition code register as modified,
-     if it is only being set.  thread_jumps will check if it is set
-     to the same value.  */
-  else if (GET_MODE_CLASS (GET_MODE (dest)) != MODE_CC
-	   || GET_CODE (x) != SET
-	   || ! rtx_equal_p (dest, SET_DEST (x))
-	   || HARD_REGNO_NREGS (regno, GET_MODE (dest)) != 1)
-    for (i = 0; i < HARD_REGNO_NREGS (regno, GET_MODE (dest)); i++)
-      modified_regs[regno + i] = 1;
-}
-
-/* F is the first insn in the chain of insns.  */
-
-void
-thread_jumps (f, max_reg, flag_before_loop)
-     rtx f;
-     int max_reg;
-     int flag_before_loop;
-{
-  /* Basic algorithm is to find a conditional branch,
-     the label it may branch to, and the branch after
-     that label.  If the two branches test the same condition,
-     walk back from both branch paths until the insn patterns
-     differ, or code labels are hit.  If we make it back to
-     the target of the first branch, then we know that the first branch
-     will either always succeed or always fail depending on the relative
-     senses of the two branches.  So adjust the first branch accordingly
-     in this case.  */
-
-  rtx label, b1, b2, t1, t2;
-  enum rtx_code code1, code2;
-  rtx b1op0, b1op1, b2op0, b2op1;
-  int changed = 1;
-  int i;
-  int *all_reset;
-  enum rtx_code reversed_code1, reversed_code2;
-
-  /* Allocate register tables and quick-reset table.  */
-  modified_regs = (char *) xmalloc (max_reg * sizeof (char));
-  same_regs = (int *) xmalloc (max_reg * sizeof (int));
-  all_reset = (int *) xmalloc (max_reg * sizeof (int));
-  for (i = 0; i < max_reg; i++)
-    all_reset[i] = -1;
-
-  while (changed)
-    {
-      changed = 0;
-
-      for (b1 = f; b1; b1 = NEXT_INSN (b1))
-	{
-	  rtx set;
-	  rtx set2;
-
-	  /* Get to a candidate branch insn.  */
-	  if (GET_CODE (b1) != JUMP_INSN
-	      || ! any_condjump_p (b1) || JUMP_LABEL (b1) == 0)
-	    continue;
-
-	  memset (modified_regs, 0, max_reg * sizeof (char));
-	  modified_mem = 0;
-
-	  memcpy (same_regs, all_reset, max_reg * sizeof (int));
-	  num_same_regs = 0;
-
-	  label = JUMP_LABEL (b1);
-
-	  /* Look for a branch after the target.  Record any registers and
-	     memory modified between the target and the branch.  Stop when we
-	     get to a label since we can't know what was changed there.  */
-	  for (b2 = NEXT_INSN (label); b2; b2 = NEXT_INSN (b2))
-	    {
-	      if (GET_CODE (b2) == CODE_LABEL)
-		break;
-
-	      else if (GET_CODE (b2) == JUMP_INSN)
-		{
-		  /* If this is an unconditional jump and is the only use of
-		     its target label, we can follow it.  */
-		  if (any_uncondjump_p (b2)
-		      && onlyjump_p (b2)
-		      && JUMP_LABEL (b2) != 0
-		      && LABEL_NUSES (JUMP_LABEL (b2)) == 1)
-		    {
-		      b2 = JUMP_LABEL (b2);
-		      continue;
-		    }
-		  else
-		    break;
-		}
-
-	      if (GET_CODE (b2) != CALL_INSN && GET_CODE (b2) != INSN)
-		continue;
-
-	      if (GET_CODE (b2) == CALL_INSN)
-		{
-		  modified_mem = 1;
-		  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-		    if (call_used_regs[i] && ! fixed_regs[i]
-			&& i != STACK_POINTER_REGNUM
-			&& i != FRAME_POINTER_REGNUM
-			&& i != HARD_FRAME_POINTER_REGNUM
-			&& i != ARG_POINTER_REGNUM)
-		      modified_regs[i] = 1;
-		}
-
-	      note_stores (PATTERN (b2), mark_modified_reg, NULL);
-	    }
-
-	  /* Check the next candidate branch insn from the label
-	     of the first.  */
-	  if (b2 == 0
-	      || GET_CODE (b2) != JUMP_INSN
-	      || b2 == b1
-	      || !any_condjump_p (b2)
-	      || !onlyjump_p (b2))
-	    continue;
-	  set = pc_set (b1);
-	  set2 = pc_set (b2);
-
-	  /* Get the comparison codes and operands, reversing the
-	     codes if appropriate.  If we don't have comparison codes,
-	     we can't do anything.  */
-	  b1op0 = XEXP (XEXP (SET_SRC (set), 0), 0);
-	  b1op1 = XEXP (XEXP (SET_SRC (set), 0), 1);
-	  code1 = GET_CODE (XEXP (SET_SRC (set), 0));
-	  reversed_code1 = code1;
-	  if (XEXP (SET_SRC (set), 1) == pc_rtx)
-	    code1 = reversed_comparison_code (XEXP (SET_SRC (set), 0), b1);
-	  else
-	    reversed_code1 = reversed_comparison_code (XEXP (SET_SRC (set), 0), b1);
-
-	  b2op0 = XEXP (XEXP (SET_SRC (set2), 0), 0);
-	  b2op1 = XEXP (XEXP (SET_SRC (set2), 0), 1);
-	  code2 = GET_CODE (XEXP (SET_SRC (set2), 0));
-	  reversed_code2 = code2;
-	  if (XEXP (SET_SRC (set2), 1) == pc_rtx)
-	    code2 = reversed_comparison_code (XEXP (SET_SRC (set2), 0), b2);
-	  else
-	    reversed_code2 = reversed_comparison_code (XEXP (SET_SRC (set2), 0), b2);
-
-	  /* If they test the same things and knowing that B1 branches
-	     tells us whether or not B2 branches, check if we
-	     can thread the branch.  */
-	  if (rtx_equal_for_thread_p (b1op0, b2op0, b2)
-	      && rtx_equal_for_thread_p (b1op1, b2op1, b2)
-	      && (comparison_dominates_p (code1, code2)
-		  || comparison_dominates_p (code1, reversed_code2)))
-
-	    {
-	      t1 = prev_nonnote_insn (b1);
-	      t2 = prev_nonnote_insn (b2);
-
-	      while (t1 != 0 && t2 != 0)
-		{
-		  if (t2 == label)
-		    {
-		      /* We have reached the target of the first branch.
-		         If there are no pending register equivalents,
-			 we know that this branch will either always
-			 succeed (if the senses of the two branches are
-			 the same) or always fail (if not).  */
-		      rtx new_label;
-
-		      if (num_same_regs != 0)
-			break;
-
-		      if (comparison_dominates_p (code1, code2))
-			new_label = JUMP_LABEL (b2);
-		      else
-			new_label = get_label_after (b2);
-
-		      if (JUMP_LABEL (b1) != new_label)
-			{
-			  rtx prev = PREV_INSN (new_label);
-
-			  if (flag_before_loop
-			      && GET_CODE (prev) == NOTE
-			      && NOTE_LINE_NUMBER (prev) == NOTE_INSN_LOOP_BEG)
-			    {
-			      /* Don't thread to the loop label.  If a loop
-				 label is reused, loop optimization will
-				 be disabled for that loop.  */
-			      new_label = gen_label_rtx ();
-			      emit_label_after (new_label, PREV_INSN (prev));
-			    }
-			  changed |= redirect_jump (b1, new_label, 1);
-			}
-		      break;
-		    }
-
-		  /* If either of these is not a normal insn (it might be
-		     a JUMP_INSN, CALL_INSN, or CODE_LABEL) we fail.  (NOTEs
-		     have already been skipped above.)  Similarly, fail
-		     if the insns are different.  */
-		  if (GET_CODE (t1) != INSN || GET_CODE (t2) != INSN
-		      || recog_memoized (t1) != recog_memoized (t2)
-		      || ! rtx_equal_for_thread_p (PATTERN (t1),
-						   PATTERN (t2), t2))
-		    break;
-
-		  t1 = prev_nonnote_insn (t1);
-		  t2 = prev_nonnote_insn (t2);
-		}
-	    }
-	}
-    }
-
-  /* Clean up.  */
-  free (modified_regs);
-  free (same_regs);
-  free (all_reset);
-}
-
-/* This is like RTX_EQUAL_P except that it knows about our handling of
-   possibly equivalent registers and knows to consider volatile and
-   modified objects as not equal.
-
-   YINSN is the insn containing Y.  */
-
-int
-rtx_equal_for_thread_p (x, y, yinsn)
-     rtx x, y;
-     rtx yinsn;
-{
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
-
-  code = GET_CODE (x);
-  /* Rtx's of different codes cannot be equal.  */
-  if (code != GET_CODE (y))
-    return 0;
-
-  /* (MULT:SI x y) and (MULT:HI x y) are NOT equivalent.
-     (REG:SI x) and (REG:HI x) are NOT equivalent.  */
-
-  if (GET_MODE (x) != GET_MODE (y))
-    return 0;
-
-  /* For floating-point, consider everything unequal.  This is a bit
-     pessimistic, but this pass would only rarely do anything for FP
-     anyway.  */
-  if (TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT
-      && FLOAT_MODE_P (GET_MODE (x)) && ! flag_unsafe_math_optimizations)
-    return 0;
-
-  /* For commutative operations, the RTX match if the operand match in any
-     order.  Also handle the simple binary and unary cases without a loop.  */
-  if (code == EQ || code == NE || GET_RTX_CLASS (code) == 'c')
-    return ((rtx_equal_for_thread_p (XEXP (x, 0), XEXP (y, 0), yinsn)
-	     && rtx_equal_for_thread_p (XEXP (x, 1), XEXP (y, 1), yinsn))
-	    || (rtx_equal_for_thread_p (XEXP (x, 0), XEXP (y, 1), yinsn)
-		&& rtx_equal_for_thread_p (XEXP (x, 1), XEXP (y, 0), yinsn)));
-  else if (GET_RTX_CLASS (code) == '<' || GET_RTX_CLASS (code) == '2')
-    return (rtx_equal_for_thread_p (XEXP (x, 0), XEXP (y, 0), yinsn)
-	    && rtx_equal_for_thread_p (XEXP (x, 1), XEXP (y, 1), yinsn));
-  else if (GET_RTX_CLASS (code) == '1')
-    return rtx_equal_for_thread_p (XEXP (x, 0), XEXP (y, 0), yinsn);
-
-  /* Handle special-cases first.  */
-  switch (code)
-    {
-    case REG:
-      if (REGNO (x) == REGNO (y) && ! modified_regs[REGNO (x)])
-        return 1;
-
-      /* If neither is user variable or hard register, check for possible
-	 equivalence.  */
-      if (REG_USERVAR_P (x) || REG_USERVAR_P (y)
-	  || REGNO (x) < FIRST_PSEUDO_REGISTER
-	  || REGNO (y) < FIRST_PSEUDO_REGISTER)
-	return 0;
-
-      if (same_regs[REGNO (x)] == -1)
-	{
-	  same_regs[REGNO (x)] = REGNO (y);
-	  num_same_regs++;
-
-	  /* If this is the first time we are seeing a register on the `Y'
-	     side, see if it is the last use.  If not, we can't thread the
-	     jump, so mark it as not equivalent.  */
-	  if (REGNO_LAST_UID (REGNO (y)) != INSN_UID (yinsn))
-	    return 0;
-
-	  return 1;
-	}
-      else
-	return (same_regs[REGNO (x)] == (int) REGNO (y));
-
-      break;
-
-    case MEM:
-      /* If memory modified or either volatile, not equivalent.
-	 Else, check address.  */
-      if (modified_mem || MEM_VOLATILE_P (x) || MEM_VOLATILE_P (y))
-	return 0;
-
-      return rtx_equal_for_thread_p (XEXP (x, 0), XEXP (y, 0), yinsn);
-
-    case ASM_INPUT:
-      if (MEM_VOLATILE_P (x) || MEM_VOLATILE_P (y))
-	return 0;
-
-      break;
-
-    case SET:
-      /* Cancel a pending `same_regs' if setting equivalenced registers.
-	 Then process source.  */
-      if (GET_CODE (SET_DEST (x)) == REG
-          && GET_CODE (SET_DEST (y)) == REG)
-	{
-	  if (same_regs[REGNO (SET_DEST (x))] == (int) REGNO (SET_DEST (y)))
-	    {
-	      same_regs[REGNO (SET_DEST (x))] = -1;
-	      num_same_regs--;
-	    }
-	  else if (REGNO (SET_DEST (x)) != REGNO (SET_DEST (y)))
-	    return 0;
-	}
-      else
-	{
-	  if (rtx_equal_for_thread_p (SET_DEST (x), SET_DEST (y), yinsn) == 0)
-	    return 0;
-	}
-
-      return rtx_equal_for_thread_p (SET_SRC (x), SET_SRC (y), yinsn);
-
-    case LABEL_REF:
-      return XEXP (x, 0) == XEXP (y, 0);
-
-    case SYMBOL_REF:
-      return XSTR (x, 0) == XSTR (y, 0);
-
-    default:
-      break;
-    }
-
-  if (x == y)
-    return 1;
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      switch (fmt[i])
-	{
-	case 'w':
-	  if (XWINT (x, i) != XWINT (y, i))
-	    return 0;
-	  break;
-
-	case 'n':
-	case 'i':
-	  if (XINT (x, i) != XINT (y, i))
-	    return 0;
-	  break;
-
-	case 'V':
-	case 'E':
-	  /* Two vectors must have the same length.  */
-	  if (XVECLEN (x, i) != XVECLEN (y, i))
-	    return 0;
-
-	  /* And the corresponding elements must match.  */
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    if (rtx_equal_for_thread_p (XVECEXP (x, i, j),
-					XVECEXP (y, i, j), yinsn) == 0)
-	      return 0;
-	  break;
-
-	case 'e':
-	  if (rtx_equal_for_thread_p (XEXP (x, i), XEXP (y, i), yinsn) == 0)
-	    return 0;
-	  break;
-
-	case 'S':
-	case 's':
-	  if (strcmp (XSTR (x, i), XSTR (y, i)))
-	    return 0;
-	  break;
-
-	case 'u':
-	  /* These are just backpointers, so they don't matter.  */
-	  break;
-
-	case '0':
-	case 't':
-	  break;
-
-	  /* It is believed that rtx's at this level will never
-	     contain anything but integers and other rtx's,
-	     except for within LABEL_REFs and SYMBOL_REFs.  */
-	default:
-	  abort ();
-	}
-    }
-  return 1;
 }

@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997-1999, 2000 Cygnus Solutions
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,22 +34,33 @@
   
 // Information as gleaned from /usr/include/ctype.h
   
+  const ctype_base::mask* 
+  ctype<char>::classic_table() throw()
+  { return __ctype_mask; }
+
+  ctype<char>::ctype(__c_locale, const mask* __table, bool __del, 
+		     size_t __refs)
+  : __ctype_abstract_base<char>(__refs), _M_del(__table != 0 && __del), 
+  _M_toupper(__trans_upper), _M_tolower(__trans_lower),
+  _M_table(__table ? __table : classic_table()) 
+  { }
+
   ctype<char>::ctype(const mask* __table, bool __del, size_t __refs)
-    : __ctype_abstract_base<char>(__refs), _M_del(__table != 0 && __del), 
-      _M_toupper(__trans_upper), _M_tolower(__trans_lower),
-      _M_ctable(__ctype_mask), _M_table(__table == 0 ? _M_ctable: __table) 
-    { }
+  : __ctype_abstract_base<char>(__refs), _M_del(__table != 0 && __del), 
+  _M_toupper(__trans_upper), _M_tolower(__trans_lower),
+  _M_table(__table == 0 ? __table : classic_table()) 
+  { }
 
   char
   ctype<char>::do_toupper(char __c) const
-  { return _M_toupper[(int) __c]; }
+  { return _M_toupper[static_cast<unsigned char>(__c)]; }
 
   const char*
   ctype<char>::do_toupper(char* __low, const char* __high) const
   {
     while (__low < __high)
       {
-	*__low = _M_toupper[(int) *__low];
+	*__low = _M_toupper[static_cast<unsigned char>(*__low)];
 	++__low;
       }
     return __high;
@@ -56,17 +68,15 @@
 
   char
   ctype<char>::do_tolower(char __c) const
-  { return _M_tolower[(int) __c]; }
+  { return _M_tolower[static_cast<unsigned char>(__c)]; }
 
   const char* 
   ctype<char>::do_tolower(char* __low, const char* __high) const
   {
     while (__low < __high)
       {
-	*__low = _M_tolower[(int) *__low];
+	*__low = _M_tolower[static_cast<unsigned char>(*__low)];
 	++__low;
       }
     return __high;
   }
-
-

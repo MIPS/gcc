@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for picoJava
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -110,10 +110,6 @@ extern int target_flags;
 
 /* Target machine storage layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN  0
@@ -133,22 +129,10 @@ extern int target_flags;
 #define LIBGCC2_WORDS_BIG_ENDIAN 1
 #endif
 
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT  8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD  32
 #define MAX_BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD  4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE  32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY   32
@@ -746,7 +730,7 @@ struct pj_args
 
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)                             \
 {                                                                             \
-  static int off[4] = { 1, 0, 4, 3 };                                         \
+  static const int off[4] = { 1, 0, 4, 3 };                                   \
   int i;                                                                      \
                                                                               \
   /* Move the FNADDR and CXT into the instruction stream. Do this byte        \
@@ -892,12 +876,6 @@ struct pj_args
 
 #define CASE_VECTOR_PC_RELATIVE 1
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR  FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR  TRUNC_DIV_EXPR
-
 /* 'char' is signed by default.  */
 #define DEFAULT_SIGNED_CHAR  1
 
@@ -937,11 +915,6 @@ struct pj_args
 /* Define if loading short immediate values into registers sign extends.  */
 
 #define SHORT_IMMEDIATES_SIGN_EXTEND
-
-/* Define this if zero-extension is slow (more than one real
-   instruction).  */
-
-/* #define SLOW_ZERO_EXTEND  */
 
 /* Nonzero if access to memory by bytes is no faster than for words.  */
 #define SLOW_BYTE_ACCESS 1
@@ -1049,7 +1022,6 @@ struct pj_args
   fprintf (FILE,"\t! %s\n", TARGET_LITTLE_ENDIAN ? ".little" : ".big");      \
   fprintf (FILE,"\t.align 4\n");
 
-#define ASM_LONG ".long"
 #define ASM_APP_ON              ""
 #define ASM_APP_OFF             ""
 #define FILE_ASM_OP             "\t.file\n"
@@ -1162,10 +1134,12 @@ do { fputs (current_function_varargs || current_function_stdarg         \
 #define LOCAL_LABEL_PREFIX "."
 
 /* Make an internal label into a string.  */
+#undef  ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(STRING, PREFIX, NUM) \
   sprintf ((STRING), "*%s%s%ld", LOCAL_LABEL_PREFIX, (PREFIX), (long)(NUM))
 
 /* Output an internal label definition.  */
+#undef  ASM_OUTPUT_INTERNAL_LABEL
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM) \
   asm_fprintf ((FILE), "%L%s%d:\n", (PREFIX), (NUM))
 
@@ -1183,43 +1157,10 @@ do { fputs (current_function_varargs || current_function_stdarg         \
 
 /* Output various types of constants.  */
 
-/* This is how to output an assembler line defining a `double'.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)                   \
-do { char dstr[30];                                     \
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);    \
-     fprintf ((FILE), "\t.double %s\n", dstr);          \
-   } while (0)
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)                    \
-do { char dstr[30];                                     \
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);    \
-     fprintf ((FILE), "\t.float %s\n", dstr);           \
-   } while (0)
-
-#define ASM_OUTPUT_INT(STREAM, EXP)             \
-  (fprintf ((STREAM), "\t.long\t"),             \
-   output_addr_const ((STREAM), (EXP)),         \
-   fputc ('\n', (STREAM)))
-
-#define ASM_OUTPUT_SHORT(STREAM, EXP)   \
-  (fprintf ((STREAM), "\t.short\t"),    \
-   output_addr_const ((STREAM), (EXP)), \
-   fputc ('\n', (STREAM)))
-
-#define ASM_OUTPUT_CHAR(STREAM, EXP)            \
-  (fprintf ((STREAM), "\t.byte\t"),             \
-   output_addr_const ((STREAM), (EXP)),         \
-   fputc ('\n', (STREAM)))
-
-#define ASM_OUTPUT_BYTE(STREAM, VALUE)          \
-  fprintf ((STREAM), "\t.byte\t%d\n", (VALUE))  
-
 /* This is how to output an assembler line
    that says to advance the location counter by SIZE bytes.  */
 
+#undef  ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE) \
   fprintf ((FILE), "\t.space %d\n", (SIZE))
 
@@ -1285,7 +1226,7 @@ do { char dstr[30];                                     \
 #define CAN_DEBUG_WITHOUT_FP 
 
 /* How to renumber registers for dbx and gdb.  */
-extern short pj_debugreg_renumber_vec[];
+extern short pj_debugreg_renumber_vec[FIRST_PSEUDO_REGISTER];
 
 #define DBX_REGISTER_NUMBER(REG) (pj_debugreg_renumber_vec[REG])
 
@@ -1295,7 +1236,6 @@ extern short pj_debugreg_renumber_vec[];
 #undef  PREFERRED_DEBUGGING_TYPE 
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 #define DWARF2_UNWIND_INFO 1
-#define DWARF_LINE_MIN_INSTR_LENGTH 1
 
 
 /* varargs and stdarg builtins.  */

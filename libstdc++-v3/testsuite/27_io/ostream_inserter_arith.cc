@@ -1,7 +1,7 @@
 // 1999-11-15 Kevin Ediger  <kediger@licor.com>
 // test the floating point inserters (facet num_put)
 
-// Copyright (C) 1999 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -20,12 +20,14 @@
 // USA.
 
 #include <cstdio> // for sprintf
+#include <cmath> // for abs
+#include <cfloat> // for DBL_EPSILON
 #include <iostream>
 #include <iomanip>
 #include <locale>
 #include <sstream>
 #include <limits>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
 using namespace std;
 
@@ -63,13 +65,13 @@ static bool F=false;
 static _TestCase testcases[] =
 {
 #if _GLIBCPP_USE_WCHAR_T
-  // standard output (no formatting applied)
+  // standard output (no formatting applied) 1-4
   { 1.2, 6,0,'.',' ', F,F,F,F,F,F,F,F, "1.2",L"1.2" },
   { 54, 6,0,'.',' ', F,F,F,F,F,F,F,F, "54",L"54" },
   { -.012, 6,0,'.',' ', F,F,F,F,F,F,F,F, "-0.012",L"-0.012" },
   { -.00000012, 6,0,'.',' ', F,F,F,F,F,F,F,F, "-1.2e-07",L"-1.2e-07" },
     
-  // fixed formatting
+  // fixed formatting 5-11
   { 10.2345, 0,0,'.',' ', T,F,F,F,F,F,F,F, "10",L"10" },
   { 10.2345, 0,0,'.',' ', T,F,F,T,F,F,F,F, "10.",L"10." },
   { 10.2345, 1,0,'.',' ', T,F,F,F,F,F,F,F, "10.2",L"10.2" },
@@ -78,7 +80,7 @@ static _TestCase testcases[] =
   { -10.2345, 6,0,'.',' ', T,F,F,F,F,F,F,F, "-10.234500",L"-10.234500" },
   { -10.2345, 6,0,',',' ', T,F,F,F,F,F,F,F, "-10,234500",L"-10,234500" },
 
-  // fixed formatting with width
+  // fixed formatting with width 12-22
   { 10.2345, 4,5,'.',' ', T,F,F,F,F,F,F,F, "10.2345",L"10.2345" },
   { 10.2345, 4,6,'.',' ', T,F,F,F,F,F,F,F, "10.2345",L"10.2345" },
   { 10.2345, 4,7,'.',' ', T,F,F,F,F,F,F,F, "10.2345",L"10.2345" },
@@ -91,7 +93,7 @@ static _TestCase testcases[] =
   { -10.2345, 4,10,'.','A', T,F,F,F,F,T,F,F, "-AA10.2345",L"-AA10.2345" },
   { 10.2345, 4,10,'.','#', T,F,T,F,F,T,F,F, "+##10.2345",L"+##10.2345" },
 
-  // scientific formatting
+  // scientific formatting 23-29
   { 1.23e+12, 1,0,'.',' ', F,T,F,F,F,F,F,F, "1.2e+12",L"1.2e+12" },
   { 1.23e+12, 1,0,'.',' ', F,T,F,F,T,F,F,F, "1.2E+12",L"1.2E+12" },
   { 1.23e+12, 2,0,'.',' ', F,T,F,F,F,F,F,F, "1.23e+12",L"1.23e+12" },
@@ -207,7 +209,7 @@ test01()
         apply_formatting(tc, os);
         os << tc.val;
 #ifdef TEST_NUMPUT_VERBOSE
-        cout << "result: " << os.str() << endl;
+        cout << j << "result 1: " << os.str() << endl;
 #endif
         VERIFY( os && os.str() == tc.result );
       }
@@ -220,7 +222,7 @@ test01()
         apply_formatting(tc, os);
         os << (long double)tc.val;
 #ifdef TEST_NUMPUT_VERBOSE
-        cout << "result: " << os.str() << endl;
+        cout << j << "result 2: " << os.str() << endl;
 #endif
         VERIFY( os && os.str() == tc.result );
       }
@@ -272,7 +274,54 @@ test02()
 #endif
   VERIFY(os && os.str() == largebuf);
 
+  // Make sure we can output a long float in fixed format
+  // without seg-faulting (libstdc++/4402)
+  double val2 = 3.5e230;
+
+  ostringstream os2;
+  os2.precision(3);
+  os2.setf(ios::fixed);
+  os2 << val2;
+
+  sprintf(largebuf, "%.*f", 3, val2);
+#ifdef TEST_NUMPUT_VERBOSE
+  cout << "expect: " << largebuf << endl;
+  cout << "result: " << os2.str() << endl;
+#endif
+  VERIFY(os2 && os2.str() == largebuf);
+
+  // Check it can be done in a locale with grouping on.
+  locale loc2("de_DE");
+  os2.imbue(loc2);
+  os2 << fixed << setprecision(3) << val2 << endl;
+  os2 << endl;
+  os2 << fixed << setprecision(1) << val2 << endl;
+
   return 0;
+}
+
+template<typename T>
+bool
+test03_check(T n)
+{
+  stringbuf strbuf;
+  ostream o(&strbuf);
+  const char *expect;
+  bool test = true;
+
+  if (numeric_limits<T>::digits + 1 == 16)
+    expect = "177777 ffff";
+  else if (numeric_limits<T>::digits + 1 == 32)
+    expect = "37777777777 ffffffff";
+  else if (numeric_limits<T>::digits + 1 == 64)
+    expect = "1777777777777777777777 ffffffffffffffff";
+  else
+    expect = "wow, you've got some big numbers here";
+
+  o << oct << n << ' ' << hex << n;
+  VERIFY ( strbuf.str() == expect );
+
+  return test;
 }
 
 int 
@@ -283,28 +332,43 @@ test03()
   long l = -1;
   bool test = true;
 
-  const string str_blank;
-  string str_tmp;
-  stringbuf strbuf;
-  ostream o(&strbuf);
+  test &= test03_check (s);
+  test &= test03_check (i);
+  test &= test03_check (l);
 
-  o << oct << s << ' ' << hex << s; 
-  VERIFY( strbuf.str() == "177777 ffff" ); // Assuming 2byte-shorts
-  strbuf.str(str_blank);
+  return 0;
+}
 
-  o << oct << i << ' ' << hex << i; 
-  VERIFY( strbuf.str() == "37777777777 ffffffff" );
-  strbuf.str(str_blank);
+// libstdc++/3655
+int
+test04()
+{
+  stringbuf strbuf1, strbuf2;
+  ostream o1(&strbuf1), o2(&strbuf2);
+  bool test = true;
 
-  o << oct << l << ' ' << hex << l; 
-  VERIFY( strbuf.str() == "37777777777 ffffffff" );
-  strbuf.str(str_blank);
-
-  o << showpos << hex << showbase << 11;
-  VERIFY( strbuf.str() == "0xb" );
+  o1 << hex << showbase << setw(6) << internal << 0xff;
+  VERIFY( strbuf1.str() == "0x  ff" );
   
-  VERIFY(test);
-  
+  // ... vs internal-adjusted const char*-type objects
+  o2 << hex << showbase << setw(6) << internal << "0xff";
+  VERIFY( strbuf2.str() == "  0xff" );
+
+  return 0;
+}
+
+int
+test05()
+{
+  double pi = 3.14159265358979323846;
+  ostringstream ostr;
+  ostr.precision(20);
+  ostr << pi;
+  string sval = ostr.str();
+  istringstream istr (sval);
+  double d;
+  istr >> d;
+  VERIFY (abs(pi-d)/pi < DBL_EPSILON);
   return 0;
 }
 
@@ -313,6 +377,9 @@ main()
 {
   test01();
   test02();
+  test03();
+  test04();
+  test05();
 #ifdef TEST_NUMPUT_VERBOSE
   cout << "Test passed!" << endl;
 #endif

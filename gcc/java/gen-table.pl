@@ -1,6 +1,6 @@
 #! /usr/bin/perl
 
-#    Copyright (C) 2000 Free Software Foundation
+#    Copyright (C) 2000, 2001 Free Software Foundation
 
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -19,6 +19,14 @@
 
 # gen-table.pl - Generate tables for gcj from Unicode data.
 # Usage: perl gen-table.pl DATA-FILE
+#
+# You can find the Unicode data file here:
+#   ftp://www.unicode.org/Public/3.0-Update1/UnicodeData-3.0.1.txt
+# Please update this URL when this program is used with a more
+# recent version of the table.  Note that this table cannot be
+# distributed with gcc.
+# This program should not be re-run indiscriminately.  Care must be
+# taken that what it generates is in sync with the Java specification.
 
 # Names of fields in Unicode data table.
 $CODE = 0;
@@ -76,6 +84,7 @@ while (<INPUT>)
     }
 
     $code = hex ($fields[$CODE]);
+    last if $code > 0xffff;
     if ($code > $last_code + 1)
     {
 	# Found a gap.
@@ -191,11 +200,11 @@ sub print_tables
 
     for ($count = 0; $count <= $last; $count += 256)
     {
-	$row[$count / 256] = &print_row ($count, '(char *) ', 'char', 1,
+	$row[$count / 256] = &print_row ($count, '(char *) ', 'const char', 1,
 					 'page');
     }
 
-    print OUT "static char *type_table[256] = {\n";
+    print OUT "static const char *const type_table[256] = {\n";
     for ($count = 0; $count <= $last; $count += 256)
     {
 	print OUT ",\n" if $count > 0;

@@ -1,3 +1,99 @@
+2002-03-22  Zack Weinberg  <zack@codesourcery.com>
+
+	* grant.c: Always use REAL_VALUE_TO_DECIMAL; don't test
+	REAL_IS_NOT_DOUBLE.
+
+2002-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* decl.c (chill_tree_code_type, chill_tree_code_length,
+	chill_tree_code_name): Delete.
+	(tree_code_type, tree_code_length, tree_code_name): Define.
+	(init_decl_processing): Don't try to copy into the various
+	tree_code arrays.
+
+2002-02-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* ch-tree.h, decl.c: Delete traditional-mode-related code
+	copied from the C front end but not used, or used only to
+	permit the compiler to link.
+
+2002-01-11  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR other/5299
+	* decl.c (layout_enum): Fix spelling mistake of "than".
+	* inout.c (check_text_length): Same.
+
+2001-12-20  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* config-lang.in (diff_excludes): Remove.
+
+2001-12-15  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* expr.c: Use "built-in" spelling in messages.
+
+2001-12-15  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* decl.c, parse.c, typeck.c: Use American spelling in messages.
+
+2001-12-10  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* chill.texi: Don't condition menus on @ifinfo.
+
+2001-12-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.in: Don't set ALL.  Delete @cross_defines@,
+	@cross_overrides@, @build_overrides@ stanzas.  INTERNAL_CFLAGS
+	is now @CROSS@ -DIN_GCC; update comment.
+
+2001-12-03  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* actions.c: Remove leading capital from diagnostic messages, as
+	per GNU coding standards.
+	* decl.c: Similarly.
+	* expr.c: Similarly.
+	* inout.c: Similarly.
+	* lang.c: Similarly.
+	* loop.c: Similarly.
+	* nloop.c: Similarly.
+	* parse.c: Similarly.
+	* satisfy.c: Similarly.
+	* tasking.c: Similarly.
+	* tree.c: Similarly.
+	* typeck.c: Similarly.
+
+2001-11-29  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* Make-lang.in (CHILL.generated-manpages): New dummy target.
+
+2001-10-31  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* ChangeLog, actions.c, ch-tree.def, decl.c, except.c, inout.c,
+	tasking.c, typeck.c: Fix spelling errors.
+
+2001-10-29  Zack Weinberg  <zack@codesourcery.com>
+
+	* convert.c, inout.c, loop.c, nloop.c, tasking.c, timing.c,
+	typeck.c: Use /* */ for all commentary, not #if 0 ... #endif.
+	Change the nested comments this creates to // notation.
+	Un-double apostrophes.
+
+Sat Sep 22 09:15:08 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* Make-lang.in (cc1chill): Add attribs.o.
+
+2001-08-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* tree.c (TYPE_HASH): Moved to ../tree.h.
+
+2001-08-11  Zack Weinberg  <zackw@panix.com>
+
+	* lex.c: Don't include setjmp.h.
+
+2001-08-09  Richard Henderson  <rth@redhat.com>
+
+	* grant.c (chill_finish_compile): Use target hooks instead of
+	assemble_constructor.
+
 2001-08-06  Richard Henderson  <rth@redhat.com>
 
 	* grant.c (chill_finish_compile): Pass a symbol_ref and priority
@@ -840,7 +936,7 @@ Wed Oct  7 12:19:21 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 Thu Oct  1 10:43:45 1998  Nick Clifton  <nickc@cygnus.com>
 
-	* lex.c: Replace occurances of HANDLE_SYSV_PRAGMA with
+	* lex.c: Replace occurrences of HANDLE_SYSV_PRAGMA with
 	HANDLE_GENERIC_PRAGMAS.
 	(handle_generic_pragma): New function: Parse generic pragmas.
 
@@ -1096,7 +1192,7 @@ Sat Sep  5 23:49:50 1998  Jeffrey A Law  (law@cygnus.com)
 
 Sat Sep  5 22:25:51 1998  Richard Henderson  <rth@cygnus.com>
 
-	* Makefile.in: Update dependancies for top-level gcc files that moved.
+	* Makefile.in: Update dependencies for top-level gcc files that moved.
 
 Sat Sep  5 02:21:08 1998  Jeffrey A Law  (law@cygnus.com)
 
@@ -1372,7 +1468,7 @@ Thu Feb 19 17:33:06 1998  Dave Brolley  <brolley@cygnus.com>
 
 Wed Feb 18 23:48:57 1998  Richard Henderson  <rth@cygnus.com>
 
-	* Make-lang.in (cc1chill): Kill lingering bc-opcode.h dependancy.
+	* Make-lang.in (cc1chill): Kill lingering bc-opcode.h dependency.
 
 Wed Feb 18 17:35:05 1998  Dave Brolley  <brolley@cygnus.com>
 
@@ -2019,7 +2115,7 @@ Wed Oct  4 05:14:00 1995  Wilfried Moser  <moser@rtl.cygnus.com>
 
 	* grant.c (print_integer_selective): In case of a RANGE of
 	a SET mode, try to find and grant the parent mode.
-	(grant_seized_identifier): Dont write it out, if the identifier
+	(grant_seized_identifier): Don't write it out, if the identifier
 	doesn't have a seize file (it may come from a SPEC MODULE
 	defined in the compilation unit).
 
@@ -2301,7 +2397,7 @@ Mon Jun 19 06:01:42 1995  Wilfried Moser  <moser@rtl.cygnus.com>
 
 	* grant.c (write_spec_module): If not GRANT ALL specified,
 	write only this identifiers to grant file which are
-	neccessary to form a prober grant file. This will shorten
+	necessary to form a prober grant file. This will shorten
 	grant files and speed up compilation.
 	(decode_constant_selective, decode_mode_selective,
 	get_type_selective, decode_decl_selective,
@@ -8464,7 +8560,7 @@ Fri Aug 13 16:36:36 1993  Per Bothner  (bothner@kalessin.cygnus.com)
 	* ch-parse.y (optprogendname, optname):  Rename to opt_end_label.
 	* ch-parse.y:  Add support for compound name strings, but defer
 	using all over teh place, due to parser ambiguities.
-	Howver, do use defining_occurrence where appropriate.
+	However, do use defining_occurrence where appropriate.
 	* ch-parse.y:  Re-write syntax and semantics of GRANT and SEIZE
 	statements to support Blue Book functionality.  Neato!
 
@@ -10502,7 +10598,7 @@ Fri Apr  2 21:55:14 1993  Per Bothner  (bothner@rtl.cygnus.com)
 	Now, a grantfile is a spec module and contains all the
 	top-level declarations of the granting module, not just
 	those that are granted.  It also contains explicit grant
-	statments naming those declared names that are granted.
+	statements naming those declared names that are granted.
 	It also has seize statements and use_seize_file directives
 	to correctly handle transitive dependencies.
 
@@ -11205,7 +11301,7 @@ Fri Jan 29 17:18:22 1993  Per Bothner  (bothner@rtl.cygnus.com)
 
 	* Makefile.in (install-libchill, install-librmt):  Removed.
 	* ch-actions.c (build_chill_exception_decl):  Change decl
-	to initialized char array, rather than unitialized common.
+	to initialized char array, rather than uninitialized common.
 	(Simplifies extracting string name of exception.)
 	* ch-actions.c:  Adjust interface to cause_exception accordingly.
 	* ch-typeck.c (build_chill_array_ref):  Cause rangefail if

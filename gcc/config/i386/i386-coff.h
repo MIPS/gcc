@@ -1,7 +1,7 @@
 /* Definitions for "naked" Intel 386 using coff object format files
    and coff debugging info.
 
-   Copyright (C) 1994, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1994, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -21,8 +21,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#include "i386/gas.h"
-#include "dbxcoff.h"
+#define TARGET_VERSION fprintf (stderr, " (80386, COFF BSD syntax)"); 
 
 /* Specify predefined symbols in preprocessor.  */
 
@@ -37,65 +36,39 @@ Boston, MA 02111-1307, USA.  */
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
 
-/* Support the ctors and dtors sections for g++.  */
+/* Switch into a generic section.  */
+#define TARGET_ASM_NAMED_SECTION  default_coff_asm_named_section
 
-#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"x\""
-#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"x\""
+/* Prefix for internally generated assembler labels.  If we aren't using
+   underscores, we are using prefix `.'s to identify labels that should
+   be ignored, as in `i386/gas.h' --karl@cs.umb.edu  */
 
-/* A list of other sections which the compiler might be "in" at any
-   given time.  */
+#undef  LPREFIX
+#define LPREFIX ".L"
 
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_ctors, in_dtors
+/* The prefix to add to user-visible assembler symbols.  */
 
-/* A list of extra section function definitions.  */
+#undef  USER_LABEL_PREFIX
+#define USER_LABEL_PREFIX ""
 
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS						\
-  CTORS_SECTION_FUNCTION						\
-  DTORS_SECTION_FUNCTION
+/* If user-symbols don't have underscores,
+   then it must take more than `L' to identify
+   a label that should be ignored.  */
 
-#define CTORS_SECTION_FUNCTION						\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
-}
+/* This is how to store into the string BUF
+   the symbol_ref name of an internal numbered label where
+   PREFIX is the class of label and NUM is the number within the class.
+   This is suitable for output with `assemble_name'.  */
 
-#define DTORS_SECTION_FUNCTION						\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}
+#undef  ASM_GENERATE_INTERNAL_LABEL
+#define ASM_GENERATE_INTERNAL_LABEL(BUF,PREFIX,NUMBER)	\
+  sprintf ((BUF), ".%s%ld", (PREFIX), (long)(NUMBER))
 
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    ctors_section ();							\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n");						\
-  } while (0)
+/* This is how to output an internal numbered label where
+   PREFIX is the class of label and NUM is the number within the class.  */
 
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    dtors_section ();                   				\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
+#undef  ASM_OUTPUT_INTERNAL_LABEL
+#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
+  fprintf (FILE, ".%s%d:\n", PREFIX, NUM)
 
 /* end of i386-coff.h */

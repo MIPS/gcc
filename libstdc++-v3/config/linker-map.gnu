@@ -36,9 +36,7 @@ GLIBCPP_3.1 {
       std::__timepunct*;
       std::__numeric_limits_base*;
       std::_S_bit_count;
-      std::_S_first_one;
-      std::__default_alloc_template*;
-      std::__malloc_alloc_template*
+      std::_S_first_one
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -102,7 +100,6 @@ CXXABI_1 {
   global:
     __cxa_*;
     __gxx_personality_v0;
-    __gxx_personality_sj0;
     __dynamic_cast;
 
     # __gnu_cxx::_verbose_terminate_handler()

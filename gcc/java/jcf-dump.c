@@ -1,7 +1,7 @@
 /* Program to dump out a Java(TM) .class file.
    Functionally similar to Sun's javap.
 
-   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -363,8 +363,12 @@ DEFUN (print_access_flags, (stream, flags, context),
   if (flags & ACC_PUBLIC) fprintf (stream, " public");
   if (flags & ACC_PRIVATE) fprintf (stream, " private");
   if (flags & ACC_PROTECTED) fprintf (stream, " protected");
+  if (flags & ACC_ABSTRACT) fprintf (stream, " abstract");
   if (flags & ACC_STATIC) fprintf (stream, " static");
   if (flags & ACC_FINAL) fprintf (stream, " final");
+  if (flags & ACC_TRANSIENT) fprintf (stream, " transient");
+  if (flags & ACC_VOLATILE) fprintf (stream, " volatile");
+  if (flags & ACC_NATIVE) fprintf (stream, " native");
   if (flags & ACC_SYNCHRONIZED)
     {
       if (context == 'c')
@@ -372,11 +376,8 @@ DEFUN (print_access_flags, (stream, flags, context),
       else
 	fprintf (stream, " synchronized");
     }
-  if (flags & ACC_VOLATILE) fprintf (stream, " volatile");
-  if (flags & ACC_TRANSIENT) fprintf (stream, " transient");
-  if (flags & ACC_NATIVE) fprintf (stream, " native");
   if (flags & ACC_INTERFACE) fprintf (stream, " interface");
-  if (flags & ACC_ABSTRACT) fprintf (stream, " abstract");
+  if (flags & ACC_STRICT) fprintf (stream, " strictfp");
 }
 
 
@@ -504,7 +505,7 @@ DEFUN(print_constant, (out, jcf, index, verbosity),
     case CONSTANT_Float:
       {
 	jfloat fnum = JPOOL_FLOAT (jcf, index);
-	fprintf (out, "%s%.10g", verbosity > 1 ? "Float " : "", (double) fnum);
+	fprintf (out, "%s%.10g", verbosity > 0 ? "Float " : "", (double) fnum);
 	if (verbosity > 1)
 	  fprintf (out, ", bits = 0x%08lx", (long) (* (int32 *) &fnum));
 	break;
@@ -512,7 +513,7 @@ DEFUN(print_constant, (out, jcf, index, verbosity),
     case CONSTANT_Double:
       {
 	jdouble dnum = JPOOL_DOUBLE (jcf, index);
-	fprintf (out, "%s%.20g", verbosity > 1 ? "Double " : "", dnum);
+	fprintf (out, "%s%.20g", verbosity > 0 ? "Double " : "", dnum);
 	if (verbosity > 1)
 	  {
 	    int32 hi, lo;
@@ -772,22 +773,24 @@ DEFUN(process_class, (jcf),
 /* This is used to mark options with no short value.  */
 #define LONG_OPT(Num)  ((Num) + 128)
 
-#define OPT_classpath LONG_OPT (0)
-#define OPT_CLASSPATH LONG_OPT (1)
-#define OPT_HELP      LONG_OPT (2)
-#define OPT_VERSION   LONG_OPT (3)
-#define OPT_JAVAP     LONG_OPT (4)
+#define OPT_classpath     LONG_OPT (0)
+#define OPT_CLASSPATH     OPT_classpath
+#define OPT_bootclasspath LONG_OPT (1)
+#define OPT_HELP          LONG_OPT (2)
+#define OPT_VERSION       LONG_OPT (3)
+#define OPT_JAVAP         LONG_OPT (4)
 
-static struct option options[] =
+static const struct option options[] =
 {
-  { "classpath", required_argument, NULL, OPT_classpath },
-  { "CLASSPATH", required_argument, NULL, OPT_CLASSPATH },
-  { "help",      no_argument,       NULL, OPT_HELP },
-  { "verbose",   no_argument,       NULL, 'v' },
-  { "version",   no_argument,       NULL, OPT_VERSION },
-  { "javap",     no_argument,       NULL, OPT_JAVAP },
-  { "print-main", no_argument,      &flag_print_main, 1 },
-  { NULL,        no_argument,       NULL, 0 }
+  { "classpath",     required_argument, NULL, OPT_classpath },
+  { "bootclasspath", required_argument, NULL, OPT_bootclasspath },
+  { "CLASSPATH",     required_argument, NULL, OPT_CLASSPATH },
+  { "help",          no_argument,       NULL, OPT_HELP },
+  { "verbose",       no_argument,       NULL, 'v' },
+  { "version",       no_argument,       NULL, OPT_VERSION },
+  { "javap",         no_argument,       NULL, OPT_JAVAP },
+  { "print-main",    no_argument,      &flag_print_main, 1 },
+  { NULL,            no_argument,       NULL, 0 }
 };
 
 static void
@@ -806,8 +809,8 @@ help ()
   printf ("  --javap                 Generate output in `javap' format\n");
   printf ("\n");
   printf ("  --classpath PATH        Set path to find .class files\n");
-  printf ("  --CLASSPATH PATH        Set path to find .class files\n");
   printf ("  -IDIR                   Append directory to class path\n");
+  printf ("  --bootclasspath PATH    Override built-in class path\n");
   printf ("  -o FILE                 Set output file name\n");
   printf ("\n");
   printf ("  --help                  Print this help, then exit\n");
@@ -822,8 +825,8 @@ help ()
 static void
 version ()
 {
-  printf ("jcf-dump (%s)\n\n", version_string);
-  printf ("Copyright (C) 2001 Free Software Foundation, Inc.\n");
+  printf ("jcf-dump (GCC) %s\n\n", version_string);
+  printf ("Copyright (C) 2002 Free Software Foundation, Inc.\n");
   printf ("This is free software; see the source for copying conditions.  There is NO\n");
   printf ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n");
   exit (0);
@@ -874,8 +877,8 @@ DEFUN(main, (argc, argv),
 	  jcf_path_classpath_arg (optarg);
 	  break;
 
-	case OPT_CLASSPATH:
-	  jcf_path_CLASSPATH_arg (optarg);
+	case OPT_bootclasspath:
+	  jcf_path_bootclasspath_arg (optarg);
 	  break;
 
 	case OPT_HELP:
@@ -889,6 +892,7 @@ DEFUN(main, (argc, argv),
 	case OPT_JAVAP:
 	  flag_javap_compatible++;
 	  flag_print_constant_pool = 0;
+	  flag_print_attributes = 0;
 	  break;
 
 	default:
@@ -902,7 +906,7 @@ DEFUN(main, (argc, argv),
       usage ();
     }
 
-  jcf_path_seal ();
+  jcf_path_seal (verbose);
 
   if (flag_print_main)
     {
@@ -1201,10 +1205,10 @@ DEFUN(disassemble_method, (jcf, byte_ops, len),
 
 #define SPECIAL_IINC(OPERAND_TYPE) \
   i = saw_wide ? IMMEDIATE_u2 : IMMEDIATE_u1; \
-  fprintf (out, " %ld", (long) i); \
-  INT_temp = saw_wide ? IMMEDIATE_s2 : IMMEDIATE_s1; \
+  fprintf (out, " %d", i); \
+  i = saw_wide ? IMMEDIATE_s2 : IMMEDIATE_s1; \
   saw_wide = 0; \
-  fprintf (out, " %ld", (long) INT_temp)
+  fprintf (out, " %d", i)
 
 #define SPECIAL_WIDE(OPERAND_TYPE) \
   saw_wide = 1;

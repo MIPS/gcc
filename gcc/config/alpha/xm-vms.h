@@ -19,62 +19,30 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* If compiling with DECC, need to fix problem with <stdio.h>
-   which defines a macro called FILE_TYPE that breaks "tree.h".
-   Fortunately it uses #ifndef to suppress multiple inclusions.
-   Three possible cases:
-        1) <stdio.h> has already been included -- ours will be no-op;
-        2) <stdio.h> will be included after us -- "theirs" will be no-op;
-        3) <stdio.h> isn't needed -- including it here shouldn't hurt.
-   In all three cases, the problem macro will be removed here.  */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#ifdef __DECC
-#undef FILE_TYPE
-#endif
-
 #define HOST_WIDE_INT long long
 #define HOST_BITS_PER_WIDE_INT 64
-
-#undef SUCCESS_EXIT_CODE
-#define SUCCESS_EXIT_CODE 1
-#undef FATAL_EXIT_CODE
-#define FATAL_EXIT_CODE (44 | 0x10000000)  /* Abort, and no DCL message.  */
 
 /* A couple of conditionals for execution machine are controlled here.  */
 #ifndef VMS
 #define VMS
 #endif
 
-#define GCC_INCLUDE_DIR ""
-/* Specify the list of include file directories.  */
-#define INCLUDE_DEFAULTS		\
-{					\
-  { "GNU_GXX_INCLUDE:", "G++", 1, 1 },	\
-  { "GNU_CC_INCLUDE:", "GCC", 0, 0 },	\
-  { ".", 0, 0, 1 },			\
-  { 0, 0, 0, 0 }			\
-}
-
 /* Define a local equivalent (sort of) for unlink */
 #define unlink remove
 
-#define HAVE_VPRINTF
-#define HAVE_PUTENV
-#define HAVE_STRERROR
-#define HAVE_ATOLL
+/* Causes exit() to be redefined to __posix_exit() and
+   Posix compatible failure and success codes to be used */
+#define _POSIX_EXIT 1
 
-#define HAVE_FCNTL_H 1
-#define HAVE_STDLIB_H 1
-#define HAVE_UNISTD_H 1
-#define HAVE_STRING_H 1
-#define HAVE_LIMITS_H 1
-#define HAVE_STDDEF_H 1
-#define HAVE_TIME_H 1
+/* Open files in stream mode if not otherwise explicitly specified */
+#define __UNIX_FOPEN 1
+
+/* Write to stdout using fputc to avoid record terminators in pipes */
+#define __UNIX_FWRITE 1
+
 #define STDC_HEADERS 1
-#define HAVE_STRINGIZE 1
 
 #define HOST_EXECUTABLE_SUFFIX ".exe"
 #define HOST_OBJECT_SUFFIX ".obj"
+
+#define DUMPFILE_FORMAT "_%02d_"

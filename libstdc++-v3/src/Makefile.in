@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -65,47 +65,74 @@ target_triplet = @target@
 AR = @AR@
 AS = @AS@
 ATOMICITY_INC_SRCDIR = @ATOMICITY_INC_SRCDIR@
+AWK = @AWK@
 BASIC_FILE_H = @BASIC_FILE_H@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
+CATALOGS = @CATALOGS@
+CATOBJEXT = @CATOBJEXT@
 CC = @CC@
 CCODECVT_C = @CCODECVT_C@
+CCODECVT_H = @CCODECVT_H@
 CLOCALE_H = @CLOCALE_H@
+CMESSAGES_H = @CMESSAGES_H@
 CPP = @CPP@
+CPU_LIMITS_INC_SRCDIR = @CPU_LIMITS_INC_SRCDIR@
 CSHADOW_FLAGS = @CSHADOW_FLAGS@
 CSTDIO_H = @CSTDIO_H@
 CXXCPP = @CXXCPP@
 C_INCLUDE_DIR = @C_INCLUDE_DIR@
+DATADIRNAME = @DATADIRNAME@
 DEBUG_FLAGS = @DEBUG_FLAGS@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
 EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
+GENCAT = @GENCAT@
+GLIBC21 = @GLIBC21@
 GLIBCPP_IS_CROSS_COMPILING = @GLIBCPP_IS_CROSS_COMPILING@
+GMOFILES = @GMOFILES@
+GMSGFMT = @GMSGFMT@
+INSTOBJEXT = @INSTOBJEXT@
+INTLBISON = @INTLBISON@
+INTLLIBS = @INTLLIBS@
+INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LIBICONV = @LIBICONV@
 LIBMATHOBJS = @LIBMATHOBJS@
-LIBSTRINGOBJS = @LIBSTRINGOBJS@
 LIBSUPCXX_PICFLAGS = @LIBSUPCXX_PICFLAGS@
 LIBTOOL = @LIBTOOL@
+LIBUNWIND_FLAG = @LIBUNWIND_FLAG@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+MSGFMT = @MSGFMT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OPT_LDFLAGS = @OPT_LDFLAGS@
 OS_INC_SRCDIR = @OS_INC_SRCDIR@
 PACKAGE = @PACKAGE@
+POFILES = @POFILES@
+POSUB = @POSUB@
 RANLIB = @RANLIB@
 SECTION_FLAGS = @SECTION_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
 STRIP = @STRIP@
-USE_COMPLEX_LONG_DOUBLE = @USE_COMPLEX_LONG_DOUBLE@
+USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
+USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 WARN_FLAGS = @WARN_FLAGS@
 WERROR = @WERROR@
+check_msgfmt = @check_msgfmt@
 enable_shared = @enable_shared@
 enable_static = @enable_static@
 glibcpp_CXX = @glibcpp_CXX@
+glibcpp_MOFILES = @glibcpp_MOFILES@
+glibcpp_POFILES = @glibcpp_POFILES@
 glibcpp_basedir = @glibcpp_basedir@
 glibcpp_builddir = @glibcpp_builddir@
+glibcpp_localedir = @glibcpp_localedir@
 glibcpp_prefixdir = @glibcpp_prefixdir@
 glibcpp_srcdir = @glibcpp_srcdir@
 glibcpp_thread_h = @glibcpp_thread_h@
@@ -114,6 +141,8 @@ glibcpp_toolexeclibdir = @glibcpp_toolexeclibdir@
 gxx_include_dir = @gxx_include_dir@
 ifGNUmake = @ifGNUmake@
 libio_la = @libio_la@
+libtool_VERSION = @libtool_VERSION@
+release_VERSION = @release_VERSION@
 toplevel_srcdir = @toplevel_srcdir@
 
 AUTOMAKE_OPTIONS = 1.3 gnits
@@ -158,14 +187,17 @@ INCLUDES = \
 
 
 sources = \
-	basic_file.cc bitset.cc c++locale.cc cmath.cc codecvt.cc \
-	complex_io.cc functexcept.cc globals.cc ios.cc limitsMEMBERS.cc \
-	locale.cc locale-inst.cc localename.cc misc-inst.cc stdexcept.cc \
-	stl-inst.cc string-inst.cc strstream.cc valarray-inst.cc \
-	wstring-inst.cc
+	globals.cc limits.cc \
+	basic_file.cc complex_io.cc ios.cc strstream.cc \
+	cmath.cc bitset.cc \
+	functexcept.cc stdexcept.cc vterminate.cc \
+	c++locale.cc locale.cc localename.cc codecvt.cc \
+	collate.cc ctype.cc messages.cc monetary.cc numeric.cc time.cc \
+	concept-inst.cc locale-inst.cc misc-inst.cc stl-inst.cc \
+	string-inst.cc wstring-inst.cc valarray-inst.cc  ext-inst.cc
 
 
-VPATH = $(top_srcdir):$(top_srcdir)/src
+VPATH = $(top_srcdir)/src:$(top_srcdir)
 
 libstdc___la_SOURCES = $(sources)
 
@@ -173,10 +205,15 @@ libstdc___la_LIBADD = \
 	../libmath/libmath.la @libio_la@ \
 	../libsupc++/libsupc++convenience.la
 
+@GLIBCPP_BUILD_VERSIONED_SHLIB_TRUE@version_arg = @GLIBCPP_BUILD_VERSIONED_SHLIB_TRUE@-Wl,--version-script=linker.map
+@GLIBCPP_BUILD_VERSIONED_SHLIB_FALSE@version_arg = 
 
-libstdc___la_LDFLAGS = -version-info 3:0:0 -lm
+libstdc___la_LDFLAGS = \
+	-version-info @libtool_VERSION@ ${version_arg} \
+	-lm @LIBUNWIND_FLAG@ 
 
-libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD)
+
+libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD) linker.map
 
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.
@@ -187,10 +224,6 @@ GLIBCPP_INCLUDE_DIR = @glibcpp_builddir@/include
 # set this option because CONFIG_CXXFLAGS has to be after
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion call for it. (ie, --enable-debug)
-#
-# The no-implicit-templates flag will generate unresolved references to
-# the concept-checking symbols.  So we must disable the checks while
-# actually building the library.
 AM_CXXFLAGS = \
 	-fno-implicit-templates \
 	$(LIBSUPCXX_CXXFLAGS) \
@@ -239,11 +272,12 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I..
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-libstdc___la_OBJECTS =  basic_file.lo bitset.lo c++locale.lo cmath.lo \
-codecvt.lo complex_io.lo functexcept.lo globals.lo ios.lo \
-limitsMEMBERS.lo locale.lo locale-inst.lo localename.lo misc-inst.lo \
-stdexcept.lo stl-inst.lo string-inst.lo strstream.lo valarray-inst.lo \
-wstring-inst.lo
+libstdc___la_OBJECTS =  globals.lo limits.lo basic_file.lo complex_io.lo \
+ios.lo strstream.lo cmath.lo bitset.lo functexcept.lo stdexcept.lo \
+vterminate.lo c++locale.lo locale.lo localename.lo codecvt.lo \
+collate.lo ctype.lo messages.lo monetary.lo numeric.lo time.lo \
+concept-inst.lo locale-inst.lo misc-inst.lo stl-inst.lo string-inst.lo \
+wstring-inst.lo valarray-inst.lo ext-inst.lo
 CXXFLAGS = @CXXFLAGS@
 CXXCOMPILE = $(CXX) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
@@ -470,9 +504,17 @@ installdirs mostlyclean-generic distclean-generic clean-generic \
 maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 strstream.lo: strstream.cc
-	$(LTCXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
+	$(LTCXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -Wno-deprecated -c $<
 strstream.o: strstream.cc
-	$(CXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
+	$(CXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -Wno-deprecated -c $<
+
+# Use special rules for the concept-checking instantiations so that all
+# the generated template functions are also instantiated.  Force the checks
+# to be on so that the instantiations are actually seen.
+concept-inst.lo: concept-inst.cc
+	$(LTCXXCOMPILE) -D_GLIBCPP_CONCEPT_CHECKS -fimplicit-templates -c $<
+concept-inst.o: concept-inst.cc
+	$(CXXCOMPILE) -D_GLIBCPP_CONCEPT_CHECKS -fimplicit-templates -c $<
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

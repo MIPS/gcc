@@ -1,6 +1,6 @@
 // Functions for Exception Support for Java.
 
-/* Copyright (C) 1998, 1999, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -11,18 +11,26 @@ details.  */
 #include <config.h>
 
 #include <stddef.h>
-#include <cstdlib>
+#include <stdlib.h>
 
 #include <java/lang/Class.h>
 #include <java/lang/NullPointerException.h>
 #include <gcj/cni.h>
 #include <jvm.h>
 
+// unwind-pe.h uses std::abort(), but sometimes we compile libjava
+// without libstdc++-v3. The following hack forces it to use
+// stdlib.h's abort().
+namespace std
+{
+  static __attribute__ ((__noreturn__)) void
+  abort ()
+  {
+    ::abort ();
+  }
+}
 #include "unwind.h"
 
-#include <gc.h>
-
-
 struct alignment_test_struct
 {
   char space;
@@ -73,9 +81,8 @@ get_exception_header_from_ue (_Unwind_Exception *exc)
 extern "C" void
 _Jv_Throw (jthrowable value)
 {
-  /* FIXME: Use the proper API to the collector.  */
   java_exception_header *xh
-    = static_cast<java_exception_header *>(GC_malloc (sizeof (*xh)));
+    = static_cast<java_exception_header *>(_Jv_AllocRawObj (sizeof (*xh)));
 
   if (value == NULL)
     value = new java::lang::NullPointerException ();
@@ -100,7 +107,7 @@ _Jv_Throw (jthrowable value)
      recover.  As is the way of such things, almost certainly we will have
      crashed before now, rather than actually being able to diagnose the
      problem.  */
-  std::abort ();
+  abort();
 }
 
 
@@ -120,7 +127,7 @@ static const unsigned char *
 parse_lsda_header (_Unwind_Context *context, const unsigned char *p,
 		   lsda_header_info *info)
 {
-  _Unwind_Ptr tmp;
+  _Unwind_Word tmp;
   unsigned char lpstart_encoding;
 
   info->Start = (context ? _Unwind_GetRegionStart (context) : 0);
@@ -236,7 +243,7 @@ PERSONALITY_FUNCTION (int version,
     return _URC_CONTINUE_UNWIND;
   else
     {
-      _Unwind_Ptr cs_lp, cs_action;
+      _Unwind_Word cs_lp, cs_action;
       do
 	{
 	  p = read_uleb128 (p, &cs_lp);
@@ -255,7 +262,8 @@ PERSONALITY_FUNCTION (int version,
   // Search the call-site table for the action associated with this IP.
   while (p < info.action_table)
     {
-      _Unwind_Ptr cs_start, cs_len, cs_lp, cs_action;
+      _Unwind_Ptr cs_start, cs_len, cs_lp;
+      _Unwind_Word cs_action;
 
       // Note that all call-site encodings are "absolute" displacements.
       p = read_encoded_value (0, info.call_site_encoding, p, &cs_start);
@@ -301,15 +309,13 @@ PERSONALITY_FUNCTION (int version,
   else
     {
       // Otherwise we have a catch handler.
-      signed long ar_filter, ar_disp;
+      _Unwind_Sword ar_filter, ar_disp;
 
       while (1)
 	{
-	  _Unwind_Ptr tmp;
-
 	  p = action_record;
-	  p = read_sleb128 (p, &tmp); ar_filter = tmp;
-	  read_sleb128 (p, &tmp); ar_disp = tmp;
+	  p = read_sleb128 (p, &ar_filter);
+	  read_sleb128 (p, &ar_disp);
 
 	  if (ar_filter == 0)
 	    {
@@ -348,7 +354,7 @@ PERSONALITY_FUNCTION (int version,
 	      // ??? Perhaps better to make them an index into a table
 	      // of null-terminated strings instead of playing games
 	      // with Utf8Const+1 as above.
-	      std::abort ();
+	      abort ();
 	    }
 
 	  if (ar_disp == 0)

@@ -22,7 +22,13 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Supposedly the same as vanilla sparc svr4, except for the stuff below: */
-#include "sparc/sysv4.h"
+
+/* Solaris 2 (at least as of 2.5.1) uses a 32-bit wchar_t.  */
+#undef WCHAR_TYPE
+#define WCHAR_TYPE "long int"
+
+#undef WCHAR_TYPE_SIZE
+#define WCHAR_TYPE_SIZE 32
 
 /* Solaris 2 uses a wint_t different from the default. This is required
    by the SCD 2.4.1, p. 6-83, Figure 6-66.  */
@@ -30,11 +36,13 @@ Boston, MA 02111-1307, USA.  */
 #define	WINT_TYPE "long int"
 
 #undef	WINT_TYPE_SIZE
-#define	WINT_TYPE_SIZE BITS_PER_WORD
+#define	WINT_TYPE_SIZE 32
+
+#define HANDLE_PRAGMA_REDEFINE_EXTNAME 1
 
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES \
-"-Dsparc -Dsun -Dunix -D__svr4__ -D__SVR4 \
+"-Dsparc -Dsun -Dunix -D__svr4__ -D__SVR4 -D__PRAGMA_REDEFINE_EXTNAME \
 -Asystem=unix -Asystem=svr4"
 
 #undef CPP_SUBTARGET_SPEC
@@ -53,7 +61,7 @@ Boston, MA 02111-1307, USA.  */
 "
 
 /* The sun bundled assembler doesn't accept -Yd, (and neither does gas).
-   It's safe to pass -s always, even if -g is not used. */
+   It's safe to pass -s always, even if -g is not used.  */
 #undef ASM_SPEC
 #define ASM_SPEC "\
 %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Wa,*:%*} -s \
@@ -79,29 +87,25 @@ Boston, MA 02111-1307, USA.  */
 "
 
 /* However it appears that Solaris 2.0 uses the same reg numbering as
-   the old BSD-style system did. */
+   the old BSD-style system did.  */
 
 #undef DBX_REGISTER_NUMBER
 /* Same as sparc.h */
 #define DBX_REGISTER_NUMBER(REGNO) \
-  (TARGET_FLAT && REGNO == FRAME_POINTER_REGNUM ? 31 : REGNO)
+  (TARGET_FLAT && (REGNO) == HARD_FRAME_POINTER_REGNUM ? 31 : REGNO)
 
 /* We use stabs-in-elf for debugging, because that is what the native
    toolchain uses.  */
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-/* The Solaris 2 assembler uses .skip, not .zero, so put this back. */
+/* The Solaris 2 assembler uses .skip, not .zero, so put this back.  */
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.skip %u\n", (SIZE))
 
-/* Use .uahalf/.uaword so packed structure members don't generate
-   assembler errors when using the native assembler.  */
-#undef ASM_SHORT
-#define ASM_SHORT ".uahalf"
-#undef ASM_LONG
-#define ASM_LONG ".uaword"
+#undef  LOCAL_LABEL_PREFIX
+#define LOCAL_LABEL_PREFIX  "."
 
 /* This is how to output a definition of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
@@ -139,9 +143,7 @@ Boston, MA 02111-1307, USA.  */
                             %{!pg:crt1.o%s}}}} \
 			crti.o%s \
 			%{ansi:values-Xc.o%s} \
-			%{!ansi: \
-			 %{traditional:values-Xt.o%s} \
-			 %{!traditional:values-Xa.o%s}} \
+			%{!ansi:values-Xa.o%s} \
 			crtbegin.o%s"
 
 /* ??? Note: in order for -compat-bsd to work fully,
@@ -158,7 +160,9 @@ Boston, MA 02111-1307, USA.  */
        %{p|pg:-ldl} -lc}}"
 
 #undef  ENDFILE_SPEC
-#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
+#define ENDFILE_SPEC \
+  "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
+   crtend.o%s crtn.o%s"
 
 /* This should be the same as in svr4.h, except with -R added.  */
 #undef LINK_SPEC
@@ -192,10 +196,21 @@ Boston, MA 02111-1307, USA.  */
    || (CHAR) == 'h' \
    || (CHAR) == 'x' \
    || (CHAR) == 'z')
+
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.
+
+   Some Solaris dynamic linkers don't handle unaligned section relative
+   relocs properly, so force them to be aligned.  */
+#ifndef HAVE_AS_SPARC_UA_PCREL
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)		\
+  ((flag_pic || GLOBAL) ? DW_EH_PE_aligned : DW_EH_PE_absptr)
+#endif
 
 /* ??? This does not work in SunOS 4.x, so it is not enabled in sparc.h.
    Instead, it is enabled here, because it does work under Solaris.  */
-/* Define for support of TFmode long double and REAL_ARITHMETIC.
+/* Define for support of TFmode long double.
    Sparc ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
 
@@ -224,28 +239,7 @@ Boston, MA 02111-1307, USA.  */
 /* Solaris allows 64 bit out and global registers in 32 bit mode.
    sparc_override_options will disable V8+ if not generating V9 code.  */
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_EPILOGUE + MASK_FPU + MASK_V8PLUS + MASK_LONG_DOUBLE_128)
-
-#if TARGET_ARCH32
-/* Override MACHINE_STATE_{SAVE,RESTORE} because we have special
-   traps available which can get and set the condition codes
-   reliably.  */
-#undef MACHINE_STATE_SAVE
-#define MACHINE_STATE_SAVE(ID)				\
-  unsigned long int ms_flags, ms_saveret;		\
-  asm volatile("ta	0x20\n\t"			\
-	       "mov	%%g1, %0\n\t"			\
-	       "mov	%%g2, %1\n\t"			\
-	       : "=r" (ms_flags), "=r" (ms_saveret));
-
-#undef MACHINE_STATE_RESTORE
-#define MACHINE_STATE_RESTORE(ID)			\
-  asm volatile("mov	%0, %%g1\n\t"			\
-	       "mov	%1, %%g2\n\t"			\
-	       "ta	0x21\n\t"			\
-	       : /* no outputs */			\
-	       : "r" (ms_flags), "r" (ms_saveret));
-#endif /* sparc32 */
+#define TARGET_DEFAULT (MASK_FPU + MASK_V8PLUS + MASK_LONG_DOUBLE_128)
 
 /*
  * Attempt to turn on access permissions for the stack.
@@ -258,6 +252,14 @@ Boston, MA 02111-1307, USA.  */
  * query it.
  *
  */
+
+/* This declares mprotect (used in TRANSFER_FROM_TRAMPOLINE) for
+   libgcc2.c.  */
+/* We don't want to include this because sys/mman.h is not present on
+   some non-Solaris configurations that use sol2.h.  */
+#if 0 /* def L_trampoline */
+#include <sys/mman.h>
+#endif
 
 #define TRANSFER_FROM_TRAMPOLINE					\
 static int need_enable_exec_stack;					\

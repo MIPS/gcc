@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, Mitsubishi M32R cpu.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -23,9 +23,6 @@ Boston, MA 02111-1307, USA.  */
 - longlong.h?
 */
 
-/* ??? Create elf.h and have svr4.h include it.  */
-#include "svr4.h"
-
 #undef SWITCH_TAKES_ARG
 #undef WORD_SWITCH_TAKES_ARG
 #undef HANDLE_SYSV_PRAGMA
@@ -43,6 +40,58 @@ Boston, MA 02111-1307, USA.  */
 #undef ENDFILE_SPEC
 #undef SUBTARGET_SWITCHES
 
+
+/* M32R/X overrides.  */
+/* Print subsidiary information on the compiler version in use.  */
+#define TARGET_VERSION fprintf (stderr, " (m32r/x)");
+
+/* Additional flags for the preprocessor.  */
+#define CPP_CPU_SPEC "%{m32rx:-D__M32RX__} %{m32r:-U__M32RX__}"
+
+/* Assembler switches.  */
+#define ASM_CPU_SPEC \
+"%{m32r} %{m32rx} %{!O0: %{O*: -O}} --no-warn-explicit-parallel-conflicts"
+
+/* Use m32rx specific crt0/crtinit/crtfini files.  */
+#define STARTFILE_CPU_SPEC "%{!shared:crt0.o%s} %{m32rx:m32rx/crtinit.o%s} %{!m32rx:crtinit.o%s}"
+#define ENDFILE_CPU_SPEC "-lgloss %{m32rx:m32rx/crtfini.o%s} %{!m32rx:crtfini.o%s}"
+
+/* Extra machine dependent switches.  */
+#define SUBTARGET_SWITCHES							\
+    { "32rx",			TARGET_M32RX_MASK, "Compile for the m32rx" },	\
+    { "32r",			-TARGET_M32RX_MASK, "" },
+
+/* Define this macro as a C expression for the initializer of an array of
+   strings to tell the driver program which options are defaults for this
+   target and thus do not need to be handled specially when using
+   `MULTILIB_OPTIONS'.  */
+#define SUBTARGET_MULTILIB_DEFAULTS , "m32r"
+
+/* Number of additional registers the subtarget defines.  */
+#define SUBTARGET_NUM_REGISTERS 1
+
+/* 1 for registers that cannot be allocated.  */
+#define SUBTARGET_FIXED_REGISTERS , 1
+
+/* 1 for registers that are not available across function calls.  */
+#define SUBTARGET_CALL_USED_REGISTERS , 1
+
+/* Order to allocate model specific registers.  */
+#define SUBTARGET_REG_ALLOC_ORDER , 19
+
+/* Registers which are accumulators.  */
+#define SUBTARGET_REG_CLASS_ACCUM 0x80000
+
+/* All registers added.  */
+#define SUBTARGET_REG_CLASS_ALL SUBTARGET_REG_CLASS_ACCUM
+
+/* Additional accumulator registers.  */
+#define SUBTARGET_ACCUM_P(REGNO) ((REGNO) == 19)
+
+/* Define additional register names.  */
+#define SUBTARGET_REGISTER_NAMES , "a1"
+/* end M32R/X overrides.  */
+
 /* Print subsidiary information on the compiler version in use.  */
 #ifndef	TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (m32r)")
@@ -154,8 +203,8 @@ extern int target_flags;
 #define TARGET_ALIGN_LOOPS 	(target_flags & TARGET_ALIGN_LOOPS_MASK)
 
 /* Change issue rate.  */
-#define TARGET_ISSUE_RATE_MASK	(1 << 3)
-#define TARGET_ISSUE_RATE	(target_flags & TARGET_ISSUE_RATE_MASK)
+#define TARGET_LOW_ISSUE_RATE_MASK	(1 << 3)
+#define TARGET_LOW_ISSUE_RATE	(target_flags & TARGET_LOW_ISSUE_RATE_MASK)
 
 /* Change branch cost */
 #define TARGET_BRANCH_COST_MASK	(1 << 4)
@@ -163,6 +212,12 @@ extern int target_flags;
 
 /* Target machine to compile for.  */
 #define TARGET_M32R 		1
+
+/* Support extended instruction set.  */
+#define TARGET_M32RX_MASK       (1 << 5)
+#define TARGET_M32RX            (target_flags & TARGET_M32RX_MASK)
+#undef  TARGET_M32R
+#define TARGET_M32R             (! TARGET_M32RX)
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,
@@ -187,9 +242,9 @@ extern int target_flags;
     { "align-loops",		TARGET_ALIGN_LOOPS_MASK, 		\
 	N_("Align all loops to 32 byte boundary") },			\
     { "no-align-loops",		-TARGET_ALIGN_LOOPS_MASK, "" },		\
-    { "issue-rate=1",		TARGET_ISSUE_RATE_MASK, 		\
+    { "issue-rate=1",		TARGET_LOW_ISSUE_RATE_MASK, 		\
 	N_("Only issue one instruction per cycle") },			\
-    { "issue-rate=2",		-TARGET_ISSUE_RATE_MASK, "" },		\
+    { "issue-rate=2",		-TARGET_LOW_ISSUE_RATE_MASK, "" },	\
     { "branch-cost=1",		TARGET_BRANCH_COST_MASK, 		\
 	N_("Prefer branches over conditional execution") },		\
     { "branch-cost=2",		-TARGET_BRANCH_COST_MASK, "" },		\
@@ -366,10 +421,6 @@ extern enum m32r_sdata m32r_sdata;
 
 /* Target machine storage layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 1
@@ -386,15 +437,6 @@ extern enum m32r_sdata m32r_sdata;
    which will be used only when compiling libgcc2.c.  Typically the
    value will be set based on preprocessor defines.  */
 /*#define LIBGCC2_WORDS_BIG_ENDIAN 1*/
-
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
@@ -419,10 +461,6 @@ extern enum m32r_sdata m32r_sdata;
    If defined, FUNCTION_VALUE must perform the same promotions done by
    PROMOTE_MODE.  */
 /*#define PROMOTE_FUNCTION_RETURN*/
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -516,7 +554,7 @@ extern enum m32r_sdata m32r_sdata;
    16    - arg pointer
    17    - carry flag
    18	 - accumulator
-
+   19    - accumulator 1 in the m32r/x
    By default, the extension registers are not available.  */
 
 #ifndef SUBTARGET_FIXED_REGISTERS
@@ -596,7 +634,7 @@ extern enum m32r_sdata m32r_sdata;
 ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
-extern unsigned int m32r_hard_regno_mode_ok[];
+extern const unsigned int m32r_hard_regno_mode_ok[FIRST_PSEUDO_REGISTER];
 extern unsigned int m32r_mode_class[];
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
 ((m32r_hard_regno_mode_ok[REGNO] & m32r_mode_class[MODE]) != 0)
@@ -1333,7 +1371,7 @@ do { \
  && RTX_OK_FOR_BASE_P (XEXP (X, 0)))
 
 /* Local to this file.  */
-/* Is this a increment/decrement and store operation.  */
+/* Is this an increment/decrement and store operation.  */
 #define STORE_PREINC_PREDEC_P(MODE, X)					\
 (((MODE) == SImode || (MODE) == SFmode)					\
  && (GET_CODE (X) == PRE_INC || GET_CODE (X) == PRE_DEC)		\
@@ -1473,59 +1511,6 @@ do {									\
    register.  */
 #define NO_RECURSIVE_FUNCTION_CSE
 
-/* A C statement (sans semicolon) to update the integer variable COST based on
-   the relationship between INSN that is dependent on DEP_INSN through the
-   dependence LINK.  The default is to make no adjustment to COST.  This can be
-   used for example to specify to the scheduler that an output- or
-   anti-dependence does not incur the same cost as a data-dependence.  */
-
-#define ADJUST_COST(INSN,LINK,DEP_INSN,COST) \
-  (COST) = m32r_adjust_cost (INSN, LINK, DEP_INSN, COST)
-
-/* A C statement (sans semicolon) to update the integer scheduling
-   priority `INSN_PRIORITY(INSN)'.  Reduce the priority to execute
-   the INSN earlier, increase the priority to execute INSN later.
-   Do not define this macro if you do not need to adjust the
-   scheduling priorities of insns.  */
-#define ADJUST_PRIORITY(INSN) \
-  INSN_PRIORITY (INSN) = m32r_adjust_priority (INSN, INSN_PRIORITY (INSN))
-
-/* Macro to determine whether the Haifa scheduler is used.  */
-#ifdef HAIFA
-#define HAIFA_P 1
-#else
-#define HAIFA_P 0
-#endif
-
-/* Indicate how many instructions can be issued at the same time.
-   This is sort of a lie.  The m32r can issue only 1 long insn at
-   once, but it can issue 2 short insns.  The default therefore is
-   set at 2, but this can be overridden by the command line option
-   -missue-rate=1 */
-#define ISSUE_RATE ((TARGET_ISSUE_RATE) ? 1 : 2)
-
-/* If we have a machine that can issue a variable # of instructions
-   per cycle, indicate how many more instructions can be issued
-   after the current one.  */
-#define MD_SCHED_VARIABLE_ISSUE(STREAM, VERBOSE, INSN, HOW_MANY)	\
-(HOW_MANY) = m32r_sched_variable_issue (STREAM, VERBOSE, INSN, HOW_MANY)
-
-/* Whether we are on an odd word boundary while scheduling.  */
-extern int m32r_sched_odd_word_p;
-
-/* Hook to run before scheduling a block of insns.  */
-#define MD_SCHED_INIT(STREAM, VERBOSE, MAX_READY) \
-  m32r_sched_init (STREAM, VERBOSE)
-
-/* Hook to reorder the list of ready instructions.  */
-#define MD_SCHED_REORDER(STREAM, VERBOSE, READY, N_READY, CLOCK, CIM) 	\
-  do									\
-    {									\
-      m32r_sched_reorder (STREAM, VERBOSE, READY, N_READY);		\
-      CIM = issue_rate;							\
-    }									\
-  while (0)
-
 /* When the `length' insn attribute is used, this macro specifies the
    value to be assigned to the address of the first insn in a
    function.  If not specified, 0 is used.  */
@@ -1548,7 +1533,7 @@ extern int m32r_sched_odd_word_p;
    `in_text' and `in_data'.  You need not define this macro
    on a system with no other sections (that GCC needs to use).  */
 #undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_sbss, in_const, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_sdata, in_sbss, in_const
 
 /* One or more functions to be defined in "varasm.c".  These
    functions should do jobs analogous to those of `text_section' and
@@ -1557,8 +1542,6 @@ extern int m32r_sched_odd_word_p;
 #undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS	\
   CONST_SECTION_FUNCTION	\
-  CTORS_SECTION_FUNCTION	\
-  DTORS_SECTION_FUNCTION	\
   SDATA_SECTION_FUNCTION	\
   SBSS_SECTION_FUNCTION
 
@@ -1589,7 +1572,8 @@ sbss_section ()								\
    or a constant of some sort.  RELOC indicates whether the initial value
    of EXP requires link-time relocations.  */
 #undef  SELECT_SECTION
-#define SELECT_SECTION(EXP, RELOC) m32r_select_section ((EXP), (RELOC))
+#define SELECT_SECTION(EXP, RELOC, ALIGN) \
+  m32r_select_section ((EXP), (RELOC))
 
 /* A C statement or statements to switch to the appropriate section for
    output of RTX in mode MODE.  You can assume that RTX
@@ -1646,7 +1630,7 @@ sbss_section ()								\
  || MEDIUM_NAME_P (SYMBOL_NAME) \
  || LARGE_NAME_P (SYMBOL_NAME))
 
-#define ENCODE_SECTION_INFO(DECL) m32r_encode_section_info (DECL)
+#define ENCODE_SECTION_INFO(DECL, FIRST) m32r_encode_section_info (DECL, FIRST)
 
 /* Decode SYM_NAME and store the real name part in VAR, sans
    the characters that encode section info.  Define this macro if
@@ -1717,67 +1701,6 @@ do {							\
 /* Output to assembler file text saying following lines
    no longer contain unusual constructs.  */
 #define ASM_APP_OFF ""
-
-/* This is how to output an assembler line defining a `char' constant.  */
-#define ASM_OUTPUT_CHAR(FILE, VALUE)		\
-  do						\
-    {						\
-      fprintf (FILE, "\t.byte\t");		\
-      output_addr_const (FILE, (VALUE));	\
-      fprintf (FILE, "\n");			\
-    }						\
-  while (0)
-
-/* This is how to output an assembler line defining a `short' constant.  */
-#define ASM_OUTPUT_SHORT(FILE, VALUE)		\
-  do						\
-    {						\
-      fprintf (FILE, "\t.hword\t");		\
-      output_addr_const (FILE, (VALUE));	\
-      fprintf (FILE, "\n");			\
-    }						\
-  while (0)
-
-/* This is how to output an assembler line defining an `int' constant.
-   We also handle symbol output here.  */
-#define ASM_OUTPUT_INT(FILE, VALUE)		\
-  do						\
-    {						\
-      fprintf (FILE, "\t.word\t");		\
-      output_addr_const (FILE, (VALUE));	\
-      fprintf (FILE, "\n");			\
-    }						\
-  while (0)
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)			\
-  do							\
-    {							\
-      long t;						\
-      char str[30];					\
-      REAL_VALUE_TO_TARGET_SINGLE ((VALUE), t);		\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);	\
-      fprintf (FILE, "\t.word\t0x%lx %s %s\n",		\
-	       t, ASM_COMMENT_START, str);		\
-    }							\
-  while (0)
-
-/* This is how to output an assembler line defining a `double' constant.  */
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)				\
-  do								\
-    {								\
-      long t[2];						\
-      char str[30];						\
-      REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), t);			\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", str);		\
-      fprintf (FILE, "\t.word\t0x%lx %s %s\n\t.word\t0x%lx\n",	\
-	       t[0], ASM_COMMENT_START, str, t[1]);		\
-    }								\
-  while (0)
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE, VALUE)				\
-  fprintf (FILE, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
@@ -1883,7 +1806,7 @@ do {							\
 
 /* A C expression which evaluates to true if CODE is a valid
    punctuation character for use in the `PRINT_OPERAND' macro.  */
-extern char m32r_punct_chars[];
+extern char m32r_punct_chars[256];
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   m32r_punct_chars[(unsigned char) (CHAR)]
 
@@ -2022,9 +1945,6 @@ extern char m32r_punct_chars[];
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-/* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
 /* Turn off splitting of long stabs.  */
 #define DBX_CONTIN_LENGTH 0
 
@@ -2052,12 +1972,6 @@ extern char m32r_punct_chars[];
    be the code that says which one of the two operations is implicitly
    done, NIL if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
-
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
@@ -2108,6 +2022,7 @@ enum m32r_function_type
    matched by the predicate.  The list should have a trailing comma.  */
 
 #define PREDICATE_CODES							\
+{ "reg_or_zero_operand",        { REG, SUBREG, CONST_INT }},            \
 { "conditional_move_operand",	{ REG, SUBREG, CONST_INT }},		\
 { "carry_compare_operand",	{ EQ, NE }},				\
 { "eqne_comparison_operator",	{ EQ, NE }},				\

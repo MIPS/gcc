@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.lang.ref;
@@ -64,8 +75,21 @@ public abstract class Reference
   /**
    * The underlying object.  This field is handled in a special way by
    * the garbage collection.
+   * GCJ LOCAL:
+   * This is a RawData because it must be disguised from the GC.
+   * END GCJ LOCAL
    */
-  Object referent;
+  gnu.gcj.RawData referent;
+
+  /**
+   * This is like REFERENT but is not scanned by the GC.  We keep a
+   * copy around so that we can see when clear() has been called.
+   * GCJ LOCAL:
+   * This field doesn't exist in Classpath; we use it to detect
+   * clearing.
+   * END GCJ LOCAL
+   */
+  gnu.gcj.RawData copy;
 
   /**
    * The queue this reference is registered on. This is null, if this
@@ -97,7 +121,7 @@ public abstract class Reference
    */
   Reference(Object ref)
   {
-    referent = ref;
+    create (ref);
   }
 
   /**
@@ -112,9 +136,14 @@ public abstract class Reference
   {
     if (q == null)
       throw new NullPointerException();
-    referent = ref;
     queue = q;
+    create (ref);
   }
+
+  /**
+   * Notifies the VM that a new Reference has been created.
+   */
+  private native void create (Object o);
 
   /**
    * Returns the object, this reference refers to.
@@ -138,6 +167,7 @@ public abstract class Reference
   public void clear()
   {
     referent = null;
+    copy = null;
   }
 
   /**

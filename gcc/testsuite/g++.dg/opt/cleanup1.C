@@ -1,7 +1,6 @@
 // PR middle-end/6247
 // This testcase was miscompiled on IA-32 because a single stack slot
 // was used for 2 different variables at the same time.
-// The function H::h1 was miscompiled.
 // { dg-do run }
 // { dg-options "-O2" }
 
@@ -131,7 +130,7 @@ C C::c1 (const char *x, int y)
   return z;
 }
 
-C::C () : c (__null)
+C::C ()
 {
 }
 

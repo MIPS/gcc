@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  System/370 version.
-   Copyright (C) 1989, 1993, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1989, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Jan Stein (jan@cd.chalmers.se).
    Modified for OS/390 LanguageEnvironment C by Dave Pitts (dpitts@cozx.com)
@@ -86,21 +86,9 @@ extern int mvs_function_name_length;
 
 #define WORDS_BIG_ENDIAN 1
 
-/* Number of bits in an addressable storage unit.  */
-
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.  */
-
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.  See also the macro `Pmode' defined below.  */
-
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
 
@@ -295,7 +283,7 @@ extern int mvs_function_name_length;
 
 /* Mark external references.  */
 
-#define ENCODE_SECTION_INFO(decl)  					\
+#define ENCODE_SECTION_INFO(decl, first)  				\
   if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)) 			\
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 
@@ -629,16 +617,16 @@ enum reg_class
 
 #define TRAMPOLINE_TEMPLATE(FILE)					\
 {									\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x05E0));				\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x5800 | STATIC_CHAIN_REGNUM << 4)); \
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0xE00A));				\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x58F0)); 				\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0xE00E));				\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x07FF));				\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);					\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);					\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);					\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);					\
+  assemble_aligned_integer (2, GEN_INT (0x05E0));			\
+  assemble_aligned_integer (2, GEN_INT (0x5800 | STATIC_CHAIN_REGNUM << 4)); \
+  assemble_aligned_integer (2, GEN_INT (0xE00A));			\
+  assemble_aligned_integer (2, GEN_INT (0x58F0)); 			\
+  assemble_aligned_integer (2, GEN_INT (0xE00E));			\
+  assemble_aligned_integer (2, GEN_INT (0x07FF));			\
+  assemble_aligned_integer (2, const0_rtx);				\
+  assemble_aligned_integer (2, const0_rtx);				\
+  assemble_aligned_integer (2, const0_rtx);				\
+  assemble_aligned_integer (2, const0_rtx);				\
 }
 
 /* Length in units of the trampoline for entering a nested function.  */
@@ -861,10 +849,6 @@ enum reg_class
 
 /* #define CASE_VECTOR_PC_RELATIVE */
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
 /* Define this if fixuns_trunc is the same as fix_trunc.  */
 
 #define FIXUNS_TRUNC_LIKE_FIX_TRUNC
@@ -873,18 +857,10 @@ enum reg_class
 
 #define DEFAULT_SIGNED_CHAR 0
 
-/* This is the kind of divide that is easiest to do in the general case.  */
-
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Max number of bytes we can move from memory to memory in one reasonably
    fast instruction.  */
 
 #define MOVE_MAX 256
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-
-#define SLOW_ZERO_EXTEND 1
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 
@@ -1009,7 +985,7 @@ enum reg_class
 	      case MULT:  /* case UMULT: */ case DIV:      case UDIV: 	\
               /* and, or and xor set the cc's the wrong way !! */	\
 	      case AND:   case IOR:    case XOR:  			\
-              /* some shifts set the CC some don't. */			\
+              /* some shifts set the CC some don't.  */			\
               case ASHIFT: 	 case ASHIFTRT:  			\
                  do {} while (0);					\
               default:							\
@@ -1069,9 +1045,6 @@ enum reg_class
   "8",  "9", "10", "11", "12", "13", "14", "15",			\
   "0",  "2",  "4",  "6"							\
 }
-
-/* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO)  (REGNO)
 
 #define ASM_FILE_START(FILE)						\
 { fputs ("\tRMODE\tANY\n", FILE);					\
@@ -1143,7 +1116,7 @@ enum reg_class
 
 /* Generate case label.  For HLASM we can change to the data CSECT
    and put the vectors out of the code body. The assembler just
-   concatenates CSECTs with the same name. */
+   concatenates CSECTs with the same name.  */
 
 #define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, TABLE)			\
   fprintf (FILE, "\tDS\t0F\n");                                         \
@@ -1186,47 +1159,6 @@ enum reg_class
   fprintf (FILE, "\tL\t%s,%d(13)\n\tLA\t13,4(13)\n",			\
      reg_names[REGNO], STACK_POINTER_OFFSET)
 
-/* This is how to output an assembler line defining a `double' constant.  */
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)					\
-  fprintf (FILE, "\tDC\tD'%.18G'\n", (VALUE))
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)					\
-  fprintf (FILE, "\tDC\tE'%.9G'\n", (VALUE))
-
-/* This outputs an integer, if not a CONST_INT must be address constant.  */
-
-#define ASM_OUTPUT_INT(FILE, EXP)					\
-{ 									\
-  if (GET_CODE (EXP) == CONST_INT)					\
-    {									\
-      fprintf (FILE, "\tDC\tF'");					\
-      output_addr_const (FILE, EXP);					\
-      fprintf (FILE, "'\n");						\
-    }									\
-  else									\
-    {									\
-      fprintf (FILE, "\tDC\tA(");					\
-      output_addr_const (FILE, EXP);					\
-      fprintf (FILE, ")\n");						\
-    }									\
-}
-
-/* This outputs a short integer.  */
-
-#define ASM_OUTPUT_SHORT(FILE, EXP)					\
-{									\
-  fprintf (FILE, "\tDC\tX'%04X'\n", INTVAL(EXP) & 0xFFFF);		\
-}
-
-/* This outputs a byte sized integer.  */
-
-#define ASM_OUTPUT_CHAR(FILE, EXP)					\
-  fprintf (FILE, "\tDC\tX'%02X'\n", INTVAL (EXP) )
-
-#define ASM_OUTPUT_BYTE(FILE, VALUE)					\
-  fprintf (FILE, "\tDC\tX'%02X'\n", VALUE)
-
 /* This outputs a text string.  The string are chopped up to fit into
    an 80 byte record.  Also, control and special characters, interpreted
    by the IBM assembler, are output numerically.  */
@@ -1235,11 +1167,11 @@ enum reg_class
 
 #define ASM_OUTPUT_ASCII(FILE, PTR, LEN)				\
 {									\
-  int i, j;								\
-  int c;								\
-  for (j = 0, i = 0; i < LEN; j++, i++)					\
+  size_t i, limit = (LEN);						\
+  int j;								\
+  for (j = 0, i = 0; i < limit; j++, i++)				\
     {									\
-      c = PTR[i];							\
+      int c = (PTR)[i];							\
       if (ISCNTRL (c) || c == '&')					\
 	{								\
 	  if (j % MVS_ASCII_TEXT_LENGTH != 0 )				\
@@ -1342,7 +1274,7 @@ enum reg_class
 
 /* Print operand XV (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
-   For `%' followed by punctuation, CODE is the punctuation and XV is null. */
+   For `%' followed by punctuation, CODE is the punctuation and XV is null.  */
 
 #define PRINT_OPERAND(FILE, XV, CODE)					\
 {									\
@@ -1442,21 +1374,26 @@ enum reg_class
 	  }								\
 	else								\
 	  { 								\
-            /* hack alert -- this prints wildly incorrect values */	\
-            /* when run in cross-compiler mode. See ELF section  */	\
-            /* for suggested fix */					\
-	    union { double d; int i[2]; } u;				\
-	    u.i[0] = CONST_DOUBLE_LOW (XV);				\
-	    u.i[1] = CONST_DOUBLE_HIGH (XV);				\
+            char buf[50];						\
+            REAL_VALUE_TYPE rval;					\
+            REAL_VALUE_FROM_CONST_DOUBLE(rval, XV);			\
+            REAL_VALUE_TO_DECIMAL (rval, HOST_WIDE_INT_PRINT_DEC, buf);	\
 	    if (GET_MODE (XV) == SFmode)				\
 	      {								\
 		mvs_page_lit += 4;					\
-		fprintf (FILE, "=E'%.9G'", u.d);			\
+		fprintf (FILE, "=E'%s'", buf);				\
 	      }								\
 	    else							\
+	    if (GET_MODE (XV) == DFmode)				\
 	      {								\
 		mvs_page_lit += 8;					\
-		fprintf (FILE, "=D'%.18G'", u.d);			\
+		fprintf (FILE, "=D'%s'", buf);				\
+	      }								\
+	    else /* VOIDmode !?!? strange but true ...  */		\
+	      {								\
+		mvs_page_lit += 8;					\
+		fprintf (FILE, "=XL8'%08X%08X'", 			\
+			CONST_DOUBLE_HIGH (XV), CONST_DOUBLE_LOW (XV));	\
 	      }								\
 	  }								\
 	break;								\
@@ -1629,12 +1566,9 @@ enum reg_class
   "f0",  "f2",  "f4",  "f6"						\
 }
 
-/* How to renumber registers for dbx and gdb.  */
-#define DBX_REGISTER_NUMBER(REGNO)  (REGNO)
-
 /* Print operand XV (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
-   For `%' followed by punctuation, CODE is the punctuation and XV is null. */
+   For `%' followed by punctuation, CODE is the punctuation and XV is null.  */
 
 #define PRINT_OPERAND(FILE, XV, CODE)					\
 {									\
@@ -1749,7 +1683,7 @@ enum reg_class
 		mvs_page_lit += 8;					\
 		fprintf (FILE, "=D'%s'", buf);				\
 	      }								\
-	    else /* VOIDmode !?!? strange but true ... */		\
+	    else /* VOIDmode !?!? strange but true ...  */		\
 	      {								\
 		mvs_page_lit += 8;					\
 		fprintf (FILE, "=XL8'%08X%08X'", 			\
@@ -1904,50 +1838,7 @@ abort(); \
 #undef ASM_OUTPUT_EXTERNAL
 
 #define ASM_DOUBLE "\t.double"     
-#define ASM_LONG "\t.long"
-#define ASM_SHORT "\t.short"
-#define ASM_BYTE "\t.byte"
 
-/* Argument to the flt pt. macros is a REAL_VALUE_TYPE which 
-   may or may not be a float/double, depending on whther we
-   are running in cross-compiler mode.  */
-/* This is how to output an assembler line defining a `double' constant.  */
-#define ASM_OUTPUT_DOUBLE(FILE, RVAL) {					\
-  char buf[50];								\
-  REAL_VALUE_TO_DECIMAL (RVAL,  HOST_WIDE_INT_PRINT_DOUBLE_HEX, buf);	\
-  fprintf (FILE, "\tDC\tD'%s'\n", buf);					\
-}
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, RVAL) {					\
-  char buf[50];								\
-  REAL_VALUE_TO_DECIMAL (RVAL,  HOST_WIDE_INT_PRINT_DEC, buf);		\
-  fprintf (FILE, "\tDC\tE'%s'\n", buf); 				\
-}
-
-
-/* This is how to output an assembler line defining an `int' constant.  */
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "%s ", ASM_LONG),              \
-  output_addr_const (FILE,(VALUE)),             \
-  putc('\n',FILE))
-
-/* Likewise for `char' and `short' constants.  */
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "%s ", ASM_SHORT),             \
-  output_addr_const (FILE,(VALUE)),             \
-  putc('\n',FILE))
-
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "%s", ASM_BYTE_OP),            \
-  output_addr_const (FILE, (VALUE)),            \
-  putc ('\n', FILE))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf ((FILE), "%s0x%x\n", ASM_BYTE_OP, (VALUE))
- 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 #define ASM_OUTPUT_LABEL(FILE,NAME)     \
@@ -1957,7 +1848,7 @@ abort(); \
 
 /* Generate internal label.  Since we can branch here from off page, we
    must reload the base register.  Note that internal labels are generated
-   for loops, goto's and case labels.   */
+   for loops, goto's and case labels.  */
 #undef ASM_OUTPUT_INTERNAL_LABEL
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM) 			\
 {									\
@@ -1999,7 +1890,7 @@ abort(); \
    count is in %cl.  Some assemblers require %cl as an argument;
    some don't.
 
-   GAS requires the %cl argument, so override i386/unix.h. */
+   GAS requires the %cl argument, so override i386/unix.h.  */
 
 #undef SHIFT_DOUBLE_OMITS_COUNT
 #define SHIFT_DOUBLE_OMITS_COUNT 0

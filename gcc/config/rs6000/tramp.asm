@@ -33,7 +33,7 @@
  *    the executable file might be covered by the GNU General Public License.
  */ 
 
-/* Set up trampolines. */
+/* Set up trampolines.  */
 
 	.file	"tramp.asm"
 	.section ".text"
@@ -104,6 +104,6 @@ FUNC_START(__trampoline_setup)
 	blr
 
 .Labort:
-	bl	FUNC_NAME(abort)
+	bl	JUMP_TARGET(abort)
 FUNC_END(__trampoline_setup)
 

@@ -1,5 +1,5 @@
 /* Configuration for an OpenBSD i386 target.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,14 +18,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* This is tested by i386gas.h.  */
-#define YES_UNDERSCORES
 
-#include <i386/gstabs.h>
-
-/* Get generic OpenBSD definitions.  */
-#define OBSD_OLD_GAS
-#include <openbsd.h>
+#define TARGET_VERSION fprintf (stderr, " (OpenBSD/i386)");
 
 /* This goes away when the math-emulator is fixed */
 #undef TARGET_SUBTARGET_DEFAULT
@@ -58,24 +52,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_APP_OFF
 #define ASM_APP_OFF "#NO_APP\n"
-
-/* The following macros were originally stolen from i386v4.h.
-   These have to be defined to get PIC code correct.  */
-
-/* Assembler format: dispatch tables.  */
-
-/* How to output an element of a case-vector that is relative.
-   This is only used for PIC code.  See comments by the `casesi' insn in
-   i386.md for an explanation of the expression this outputs.  */
-#undef ASM_OUTPUT_ADDR_DIFF_ELT
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-  fprintf (FILE, "\t.long _GLOBAL_OFFSET_TABLE_+[.-%s%d]\n", LPREFIX, VALUE)
-
-/* Assembler format: sections.  */
-
-/* Indicate when jump tables go in the text section.  This is
-   necessary when compiling PIC code.  */
-#define JUMP_TABLES_IN_TEXT_SECTION  (flag_pic)
 
 /* Stack & calling: aggregate returns.  */
 

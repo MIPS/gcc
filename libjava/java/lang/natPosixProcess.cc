@@ -1,6 +1,6 @@
 // natPosixProcess.cc - Native side of POSIX process code.
 
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -49,27 +49,6 @@ java::lang::ConcreteProcess::destroy (void)
 }
 
 jint
-java::lang::ConcreteProcess::exitValue (void)
-{
-  if (! hasExited)
-    {
-      int wstat;
-      pid_t r = waitpid ((pid_t) pid, &wstat, WNOHANG);
-      if (r == -1)
-	{
-	  jstring x = JvNewStringLatin1 (strerror (errno));
-	  throw new IllegalThreadStateException (x);
-	}
-
-      hasExited = true;
-      // Just use the raw status.  FIXME: what is right?
-      status = wstat;
-    }
-
-  return status;
-}
-
-jint
 java::lang::ConcreteProcess::waitFor (void)
 {
   if (! hasExited)
@@ -77,15 +56,21 @@ java::lang::ConcreteProcess::waitFor (void)
       int wstat;
       int r = waitpid ((pid_t) pid, &wstat, 0);
 
-      if (r != -1)
+      if (r == -1)
+        {
+	  if (java::lang::Thread::interrupted())
+	    throw new InterruptedException (JvNewStringLatin1 (strerror
+	      (errno)));
+	}
+      else
 	{
 	  hasExited = true;
-	  // Just use the raw status.  FIXME: what is right?
-	  status = wstat;
-	}
 
-      if (java::lang::Thread::interrupted())
-	throw new InterruptedException (JvNewStringLatin1 ("wait interrupted"));
+	  if (WIFEXITED (wstat))
+	    status = WEXITSTATUS (wstat);
+	  else
+	    status = -1;
+	}
     }
 
   return status;
@@ -118,36 +103,15 @@ cleanup (char **args, char **env)
     }
 }
 
+// This makes our error handling a bit simpler and it lets us avoid
+// thread bugs where we close a possibly-reopened file descriptor for
+// a second time.
 static void
-fail (int error_value, char **args, char **env,
-      int *one = NULL, int *two = NULL,
-      int *three = NULL, int *four = NULL,
-      java::lang::Throwable *t = NULL)
+myclose (int &fd)
 {
-  cleanup (args, env);
-  if (one != NULL)
-    {
-      close (one[0]);
-      close (one[1]);
-    }
-  if (two != NULL)
-    {
-      close (two[0]);
-      close (two[1]);
-    }
-  if (three != NULL)
-    {
-      close (three[0]);
-      close (three[1]);
-    }
-  if (four != NULL)
-    {
-      close (four[0]);
-      close (four[1]);
-    }
-  if (t == NULL)
-    t = new java::io::IOException (JvNewStringLatin1 (strerror (error_value)));
-  throw t;
+  if (fd != -1)
+    close (fd);
+  fd = -1;
 }
 
 void
@@ -158,21 +122,34 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
 
   hasExited = false;
 
-  if (! progarray)
-    throw new NullPointerException;
-
-  // Transform arrays to native form.
-  char **args = (char **) _Jv_Malloc ((progarray->length + 1)
-				      * sizeof (char *));
+  // Initialize all locals here to make cleanup simpler.
+  char **args = NULL;
   char **env = NULL;
-
-  // Initialize so we can gracefully recover.
-  jstring *elts = elements (progarray);
-  for (int i = 0; i <= progarray->length; ++i)
-    args[i] = NULL;
+  int inp[2], outp[2], errp[2], msgp[2];
+  inp[0] = -1;
+  inp[1] = -1;
+  outp[0] = -1;
+  outp[1] = -1;
+  errp[0] = -1;
+  errp[1] = -1;
+  msgp[0] = -1;
+  msgp[1] = -1;
+  java::lang::Throwable *exc = NULL;
+  errorStream = NULL;
+  inputStream = NULL;
+  outputStream = NULL;
 
   try
     {
+      // Transform arrays to native form.
+      args = (char **) _Jv_Malloc ((progarray->length + 1)
+				   * sizeof (char *));
+
+      // Initialize so we can gracefully recover.
+      jstring *elts = elements (progarray);
+      for (int i = 0; i <= progarray->length; ++i)
+	args[i] = NULL;
+
       for (int i = 0; i < progarray->length; ++i)
 	args[i] = new_string (elts[i]);
       args[progarray->length] = NULL;
@@ -190,103 +167,151 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
 	    env[i] = new_string (elts[i]);
 	  env[envp->length] = NULL;
 	}
-    }
-  catch (java::lang::OutOfMemoryError *oome)
-    {
-      fail (0, args, env, NULL, NULL, NULL, NULL, oome);
-      throw oome;
-    }
 
-  // Create pipes for I/O.  MSGP is for communicating exec() status.
-  int inp[2], outp[2], errp[2], msgp[2];
+      // Create pipes for I/O.  MSGP is for communicating exec()
+      // status.
+      if (pipe (inp) || pipe (outp) || pipe (errp) || pipe (msgp)
+	  || fcntl (msgp[1], F_SETFD, FD_CLOEXEC))
+	throw new IOException (JvNewStringLatin1 (strerror (errno)));
 
-  if (pipe (inp))
-    fail (errno, args, env);
-  if (pipe (outp))
-    fail (errno, args, env, inp);
-  if (pipe (errp))
-    fail (errno, args, env, inp, outp);
-  if (pipe (msgp))
-    fail (errno, args, env, inp, outp, errp);
-  if (fcntl (msgp[1], F_SETFD, FD_CLOEXEC))
-    fail (errno, args, env, inp, outp, errp, msgp);
-
-  // We create the streams before forking.  Otherwise if we had an
-  // error while creating the streams we would have run the child with
-  // no way to communicate with it.
-  try
-    {
+      // We create the streams before forking.  Otherwise if we had an
+      // error while creating the streams we would have run the child
+      // with no way to communicate with it.
       errorStream = new FileInputStream (new FileDescriptor (errp[0]));
       inputStream = new FileInputStream (new FileDescriptor (inp[0]));
       outputStream = new FileOutputStream (new FileDescriptor (outp[1]));
-    }
-  catch (java::lang::Throwable *t)
-    {
-      fail (0, args, env, inp, outp, errp, msgp, t);
-    }
 
-  // We don't use vfork() because that would cause the local
-  // environment to be set by the child.
-  if ((pid = (jlong) fork ()) == -1)
-    fail (errno, args, env, inp, outp, errp, msgp);
+      // We don't use vfork() because that would cause the local
+      // environment to be set by the child.
+      if ((pid = (jlong) fork ()) == -1)
+	throw new IOException (JvNewStringLatin1 (strerror (errno)));
 
-  if (pid == 0)
-    {
-      // Child process, so remap descriptors and exec.
+      if (pid == 0)
+	{
+	  // Child process, so remap descriptors and exec.
 
-      if (envp)
-        {
-	  // preserve PATH unless specified explicitly
-	  char *path_val = getenv ("PATH");
-	  environ = env;
-	  if (getenv ("PATH") == NULL)
+	  if (envp)
 	    {
-	      char *path_env = (char *) _Jv_Malloc (strlen (path_val) + 5 + 1);
-	      strcpy (path_env, "PATH=");
-	      strcat (path_env, path_val);
-	      putenv (path_env);
+	      // Preserve PATH and LD_LIBRARY_PATH unless specified
+	      // explicitly.
+	      char *path_val = getenv ("PATH");
+	      char *ld_path_val = getenv ("LD_LIBRARY_PATH");
+	      environ = env;
+	      if (getenv ("PATH") == NULL)
+		{
+		  char *path_env = (char *) _Jv_Malloc (strlen (path_val)
+							+ 5 + 1);
+		  strcpy (path_env, "PATH=");
+		  strcat (path_env, path_val);
+		  putenv (path_env);
+		}
+	      if (getenv ("LD_LIBRARY_PATH") == NULL)
+		{
+		  char *ld_path_env
+		    = (char *) _Jv_Malloc (strlen (ld_path_val) + 16 + 1);
+		  strcpy (ld_path_env, "LD_LIBRARY_PATH=");
+		  strcat (ld_path_env, ld_path_val);
+		  putenv (ld_path_env);
+		}
 	    }
+
+	  // We ignore errors from dup2 because they should never occur.
+	  dup2 (outp[0], 0);
+	  dup2 (inp[1], 1);
+	  dup2 (errp[1], 2);
+
+	  // Use close and not myclose -- we're in the child, and we
+	  // aren't worried about the possible race condition.
+	  close (inp[0]);
+	  close (inp[1]);
+	  close (errp[0]);
+	  close (errp[1]);
+	  close (outp[0]);
+	  close (outp[1]);
+	  close (msgp[0]);
+
+	  execvp (args[0], args);
+
+	  // Send the parent notification that the exec failed.
+	  char c = errno;
+	  write (msgp[1], &c, 1);
+	  _exit (127);
 	}
-	
-      // We ignore errors from dup2 because they should never occur.
-      dup2 (outp[0], 0);
-      dup2 (inp[1], 1);
-      dup2 (errp[1], 2);
 
-      close (inp[0]);
-      close (inp[1]);
-      close (errp[0]);
-      close (errp[1]);
-      close (outp[0]);
-      close (outp[1]);
-      close (msgp[0]);
+      // Parent.  Close extra file descriptors and mark ours as
+      // close-on-exec.
+      myclose (outp[0]);
+      myclose (inp[1]);
+      myclose (errp[1]);
+      myclose (msgp[1]);
 
-      execvp (args[0], args);
+      char c;
+      int r = read (msgp[0], &c, 1);
+      if (r == -1)
+	throw new IOException (JvNewStringLatin1 (strerror (errno)));
+      else if (r != 0)
+	throw new IOException (JvNewStringLatin1 (strerror (c)));
+    }
+  catch (java::lang::Throwable *thrown)
+    {
+      // Do some cleanup we only do on failure.  If a stream object
+      // has been created, we must close the stream itself (to avoid
+      // duplicate closes when the stream object is collected).
+      // Otherwise we simply close the underlying file descriptor.
+      // We ignore errors here as they are uninteresting.
 
-      // Send the parent notification that the exec failed.
-      char c = errno;
-      write (msgp[1], &c, 1);
-      _exit (127);
+      try
+	{
+	  if (inputStream != NULL)
+	    inputStream->close ();
+	  else
+	    myclose (inp[0]);
+	}
+      catch (java::lang::Throwable *ignore)
+	{
+	}
+
+      try
+	{
+	  if (outputStream != NULL)
+	    outputStream->close ();
+	  else
+	    myclose (outp[1]);
+	}
+      catch (java::lang::Throwable *ignore)
+	{
+	}
+
+      try
+	{
+	  if (errorStream != NULL)
+	    errorStream->close ();
+	  else
+	    myclose (errp[0]);
+	}
+      catch (java::lang::Throwable *ignore)
+	{
+	}
+
+      // These are potentially duplicate, but it doesn't matter due to
+      // the use of myclose.
+      myclose (outp[0]);
+      myclose (inp[1]);
+      myclose (errp[1]);
+      myclose (msgp[1]);
+
+      exc = thrown;
     }
 
-  // Parent.  Close extra file descriptors and mark ours as
-  // close-on-exec.
-  close (outp[0]);
-  close (inp[1]);
-  close (errp[1]);
-  close (msgp[1]);
-
-  char c;
-  int r = read (msgp[0], &c, 1);
-  if (r == -1)
-    fail (errno, args, env, inp, outp, errp, msgp);
-  else if (r != 0)
-    fail (c, args, env, inp, outp, errp, msgp);
-
-  close (msgp[0]);
+  myclose (msgp[0]);
   cleanup (args, env);
 
-  fcntl (outp[1], F_SETFD, 1);
-  fcntl (inp[0], F_SETFD, 1);
-  fcntl (errp[0], F_SETFD, 1);
+  if (exc != NULL)
+    throw exc;
+  else
+    {
+      fcntl (outp[1], F_SETFD, FD_CLOEXEC);
+      fcntl (inp[0], F_SETFD, FD_CLOEXEC);
+      fcntl (errp[0], F_SETFD, FD_CLOEXEC);
+    }
 }

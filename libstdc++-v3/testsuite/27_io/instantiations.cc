@@ -1,4 +1,4 @@
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -35,7 +35,6 @@ void
 test01()
 {
   using namespace std;
-  bool test = true;
   string x ("   this is text");
   istringstream  sin (x);
   ostringstream  sout;
@@ -48,7 +47,7 @@ test01()
       >> setprecision(5)
       >> setw(20)
       >> ws;
-  VERIFY(sin.good());
+  VERIFY(sin);
 
   sout << resetiosflags(ios_base::dec)
        << setiosflags(ios_base::dec)
@@ -57,7 +56,7 @@ test01()
        << setprecision(5)
        << setw(20)
        << ends << flush << endl;
-  VERIFY(sout.good());
+  VERIFY(sout);
 }
 
 

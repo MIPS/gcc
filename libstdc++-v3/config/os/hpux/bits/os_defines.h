@@ -27,18 +27,43 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-
 #ifndef _GLIBCPP_OS_DEFINES
-#  define _GLIBCPP_OS_DEFINES
+#define _GLIBCPP_OS_DEFINES
 
-
-/* System-specific #define, typedefs, corrections, etc, go here.  This
-   file will come before all others. */
+// System-specific #define, typedefs, corrections, etc, go here.  This
+// file will come before all others.
 
 #define __off_t off_t
 #define __off64_t off64_t
 #define __ssize_t ssize_t
 
+#define __glibcpp_wchar_t_is_signed false
+
+/* HP-UX, for reasons unknown choose to use a different name for
+   the string to [unsigned] long long conversion routines.
+
+   Furthermore, instead of having the prototypes in stdlib.h like
+   everyone else, they put them into a non-standard header
+   <inttypes.h>.  Ugh.
+
+   <inttypes.h> defines a variety of things, some of which we 
+   probably do not want.  So we don't want to include it here.
+
+   Luckily we can just declare strtoll and strtoull with the
+   __asm extension which effectively renames calls at the
+   source level without namespace pollution.
+
+   Also note that the compiler defines _INCLUDE_LONGLONG for C++
+   unconditionally, which makes intmax_t and uintmax_t long long
+   types.
+
+   We also force _GLIBCPP_USE_LONG_LONG here so that we don't have
+   to bastardize configure to deal with this sillyness.  */
+namespace std {
+  __extension__ extern "C" long long strtoll (const char *, char **, int)
+    __asm  ("__strtoll");
+  __extension__ extern "C" unsigned long long strtoull (const char *, char **, int)
+    __asm  ("__strtoull");
+}
+#define _GLIBCPP_USE_LONG_LONG 1
 #endif
-
-

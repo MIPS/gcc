@@ -1,6 +1,6 @@
 // nonstandard construct and destroy functions -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,8 +53,9 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_construct.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
 #ifndef _CPP_BITS_STL_CONSTRUCT_H
@@ -66,10 +67,10 @@
 namespace std
 {
   /**
-   * Invoke an allocated object's constructor with an initializer.
-   *
-   * This function is not part of the C++ standard but is used internally
-   * within the library.
+   * @if maint
+   * Constructs an object in existing memory by invoking an allocated
+   * object's constructor with an initializer.
+   * @endif
    */
   template <class _T1, class _T2>
     inline void
@@ -77,10 +78,10 @@ namespace std
     { new (static_cast<void*>(__p)) _T1(__value); }
   
   /**
-   * Invoke an allocated object's constructor without an initializer.
-   *
-   * This function is not part of the C++ standard but is used internally
-   * within the library.
+   * @if maint
+   * Constructs an object in existing memory by invoking an allocated
+   * object's default constructor (no initializers).
+   * @endif
    */
   template <class _T1>
     inline void
@@ -88,9 +89,11 @@ namespace std
     { new (static_cast<void*>(__p)) _T1(); }
 
   /**
+   * @if maint
    * Destroy a range of objects with nontrivial destructors.  
    *
    * This is a helper function used only by _Destroy().
+   * @endif
    */
   template <class _ForwardIterator>
     inline void
@@ -98,11 +101,13 @@ namespace std
     { for ( ; __first != __last; ++__first) _Destroy(&*__first); }
 
   /**
+   * @if maint
    * Destroy a range of objects with trivial destructors.  Since the destructors
    * are trivial, there's nothing to do and hopefully this function will be
    * entirely optimized away.
    *
    * This is a helper function used only by _Destroy().
+   * @endif
    */
   template <class _ForwardIterator> 
     inline void
@@ -110,10 +115,9 @@ namespace std
     { }
 
   /**
+   * @if maint
    * Destroy the object pointed to by a pointer type.
-   *
-   * This function is not part of the C++ standard but is used internally
-   * within the library.
+   * @endif
    */
   template <class _Tp>
     inline void
@@ -121,12 +125,11 @@ namespace std
     { __pointer->~_Tp(); }
   
   /**
+   * @if maint
    * Destroy a range of objects.  If the value_type of the object has
    * a trivial destructor, the compiler should optimize all of this
    * away, otherwise the objects' destructors must be invoked.
-   *
-   * This function is not part of the C++ standard but is used internally
-   * within the library.
+   * @endif
    */
   template <class _ForwardIterator>
     inline void
@@ -143,6 +146,3 @@ namespace std
 
 #endif /* _CPP_BITS_STL_CONSTRUCT_H */
 
-// Local Variables:
-// mode:C++
-// End:

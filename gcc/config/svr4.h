@@ -1,7 +1,7 @@
 /* Operating system specific defines to be used when targeting GCC for some
    generic System V Release 4 system.
    Copyright (C) 1991, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000 Free Software Foundation, Inc.
+   2000, 2001 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
 This file is part of GNU CC.
@@ -21,29 +21,22 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
-   To use this file, make up a file with a name like:
+   To use this file, make up a line like that in config.gcc:
 
-	?????svr4.h
+	tm_file="$tm_file elfos.h svr4.h MACHINE/svr4.h"
 
-   where ????? is replaced by the name of the basic hardware that you
-   are targeting for.  Then, in the file ?????svr4.h, put something
-   like:
-
-	#include "?????.h"
-	#include "svr4.h"
-
-   followed by any really system-specific defines (or overrides of
-   defines) which you find that you need.  For example, CPP_PREDEFINES
-   is defined here with only the defined -Dunix and -DSVR4.  You should
-   probably override that in your target-specific ?????svr4.h file
-   with a set of defines that includes these, but also contains an
-   appropriate define for the type of hardware that you are targeting.
+   where MACHINE is replaced by the name of the basic hardware that you
+   are targeting for.  Then, in the file MACHINE/svr4.h, put any really
+   system-specific defines (or overrides of defines) which you find that
+   you need.  For example, CPP_PREDEFINES is defined here with only the
+   defined -Dunix and -DSVR4.  You should probably override that in your
+   target-specific MACHINE/svr4.h file with a set of defines that
+   includes these, but also contains an appropriate define for the type
+   of hardware that you are targeting.
 */
 
 /* Define a symbol indicating that we are using svr4.h.  */
 #define USING_SVR4_H
-
-#include "elfos.h"
 
 /* Cpp, assembler, linker, library, and startfile spec's.  */
 
@@ -141,16 +134,16 @@ Boston, MA 02111-1307, USA.
    support here for as many of the other svr4 linker options as seems
    reasonable, given that some of them conflict with options for other
    svr4 tools (e.g. the assembler).  In particular, we do support the
-   -z*, -V, -b, -t, -Qy, -Qn, and -YP* options here, and the -e*,
-   -l*, -o*, -r, -s, -u*, and -L* options are directly supported
-   by gcc.c itself.  We don't directly support the -m (generate load
-   map) option because that conflicts with the -m (run m4) option of
-   the svr4 assembler.  We also don't directly support the svr4 linker's
-   -I* or -M* options because these conflict with existing GCC options.
-   We do however allow passing arbitrary options to the svr4 linker
-   via the -Wl, option.  We don't support the svr4 linker's -a option
-   at all because it is totally useless and because it conflicts with
-   GCC's own -a option.
+   -z*, -V, -b, -t, -Qy, -Qn, and -YP* options here, and the -e*, -l*,
+   -o*, -r, -s, -u*, and -L* options are directly supported by gcc.c
+   itself.  We don't directly support the -m (generate load map)
+   option because that conflicts with the -m (run m4) option of the
+   svr4 assembler.  We also don't directly support the svr4 linker's
+   -I* or -M* options because these conflict with existing GCC
+   options.  We do however allow passing arbitrary options to the svr4
+   linker via the -Wl, option, in gcc.c.  We don't support the svr4
+   linker's -a option at all because it is totally useless and because
+   it conflicts with GCC's own -a option.
 
    Note that gcc doesn't allow a space to follow -Y in a -YP,* option.
 
@@ -160,7 +153,7 @@ Boston, MA 02111-1307, USA.
 #undef	LINK_SPEC
 #ifdef CROSS_COMPILE
 #define LINK_SPEC "%{h*} %{v:-V} \
-		   %{b} %{Wl,*:%*} \
+		   %{b} \
 		   %{static:-dn -Bstatic} \
 		   %{shared:-G -dy -z text} \
 		   %{symbolic:-Bsymbolic -G -dy -z text} \
@@ -169,7 +162,7 @@ Boston, MA 02111-1307, USA.
 		   %{Qy:} %{!Qn:-Qy}"
 #else
 #define LINK_SPEC "%{h*} %{v:-V} \
-		   %{b} %{Wl,*:%*} \
+		   %{b} \
 		   %{static:-dn -Bstatic} \
 		   %{shared:-G -dy -z text} \
 		   %{symbolic:-Bsymbolic -G -dy -z text} \
@@ -180,16 +173,15 @@ Boston, MA 02111-1307, USA.
 		   %{Qy:} %{!Qn:-Qy}"
 #endif
 
-/* Gcc automatically adds in one of the files /usr/ccs/lib/values-Xc.o,
-   /usr/ccs/lib/values-Xa.o, or /usr/ccs/lib/values-Xt.o for each final
-   link step (depending upon the other gcc options selected, such as
-   -traditional and -ansi).  These files each contain one (initialized)
-   copy of a special variable called `_lib_version'.  Each one of these
-   files has `_lib_version' initialized to a different (enum) value.
-   The SVR4 library routines query the value of `_lib_version' at run
-   to decide how they should behave.  Specifically, they decide (based
-   upon the value of `_lib_version') if they will act in a strictly ANSI
-   conforming manner or not.  */
+/* Gcc automatically adds in one of the files /usr/ccs/lib/values-Xc.o
+   or /usr/ccs/lib/values-Xa.o for each final link step (depending
+   upon the other gcc options selected, such as -ansi).  These files
+   each contain one (initialized) copy of a special variable called
+   `_lib_version'.  Each one of these files has `_lib_version' initialized
+   to a different (enum) value.  The SVR4 library routines query the
+   value of `_lib_version' at run to decide how they should behave.
+   Specifically, they decide (based upon the value of `_lib_version')
+   if they will act in a strictly ANSI conforming manner or not.  */
 
 #undef	STARTFILE_SPEC
 #define STARTFILE_SPEC "%{!shared: \
@@ -197,9 +189,7 @@ Boston, MA 02111-1307, USA.
 			  %{pg:gcrt1.o%s}%{!pg:%{p:mcrt1.o%s}%{!p:crt1.o%s}}}}\
 			%{pg:gcrti.o%s}%{!pg:crti.o%s} \
 			%{ansi:values-Xc.o%s} \
-			%{!ansi: \
-			 %{traditional:values-Xt.o%s} \
-			 %{!traditional:values-Xa.o%s}} \
+			%{!ansi:values-Xa.o%s} \
  			crtbegin.o%s"
 
 /* Allow #sccs in preprocessor.  */

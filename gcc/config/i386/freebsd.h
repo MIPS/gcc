@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running FreeBSD with ELF format
-   Copyright (C) 1996, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
    Adapted from GNU/Linux version by John Polstra.
@@ -22,7 +22,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#undef TARGET_VERSION
+
 #define TARGET_VERSION fprintf (stderr, " (i386 FreeBSD/ELF)");
 
 /* Override the default comment-starter of "/".  */
@@ -37,17 +37,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef SET_ASM_OP
 #define SET_ASM_OP	"\t.set\t"
-
-/* This is how to output an element of a case-vector that is relative.
-   This is only used for PIC code.  See comments by the `casesi' insn in
-   i386.md for an explanation of the expression this outputs. */
-#undef ASM_OUTPUT_ADDR_DIFF_ELT
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-  fprintf ((FILE), "\t.long _GLOBAL_OFFSET_TABLE_+[.-%s%d]\n", LPREFIX, VALUE)
-
-/* Indicate that jump tables go in the text section.  This is
-   necessary when compiling PIC code.  */
-#define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(n) \
@@ -81,7 +70,7 @@ Boston, MA 02111-1307, USA.  */
 /* Provide a STARTFILE_SPEC appropriate for FreeBSD.  Here we add
    the magical crtbegin.o file (see crtstuff.c) which provides part 
 	of the support for getting C++ file-scope static object constructed 
-	before entering `main'. */
+	before entering `main'.  */
    
 #undef	STARTFILE_SPEC
 #define STARTFILE_SPEC \
@@ -116,7 +105,7 @@ Boston, MA 02111-1307, USA.  */
    done.  */
 
 #undef	LINK_SPEC
-#define LINK_SPEC "-m elf_i386 \
+#define LINK_SPEC "\
   %{Wl,*:%*} \
   %{v:-V} \
   %{assert*} %{R*} %{rpath*} %{defsym*} \

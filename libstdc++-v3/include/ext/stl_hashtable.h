@@ -1,6 +1,6 @@
 // Hashtable implementation used by containers -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,8 +53,10 @@
  *
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file ext/stl_hashtable.h
+ *  This file is a GNU extension to the Standard C++ Library (possibly
+ *  containing extensions from the HP/SGI STL subset).  You should only
+ *  include this header if you are using GCC 3 or later.
  */
 
 #ifndef __SGI_STL_INTERNAL_HASHTABLE_H
@@ -66,15 +68,24 @@
 #include <bits/stl_algobase.h>
 #include <bits/stl_alloc.h>
 #include <bits/stl_construct.h>
-#include <bits/stl_tempbuf.h>
 #include <bits/stl_algo.h>
 #include <bits/stl_uninitialized.h>
 #include <bits/stl_function.h>
 #include <bits/stl_vector.h>
 #include <ext/stl_hash_fun.h>
 
-namespace std
+namespace __gnu_cxx
 {
+using std::size_t;
+using std::ptrdiff_t;
+using std::forward_iterator_tag;
+using std::input_iterator_tag;
+using std::_Alloc_traits;
+using std::_Construct;
+using std::_Destroy;
+using std::distance;
+using std::vector;
+using std::pair;
 
 template <class _Val>
 struct _Hashtable_node
@@ -84,7 +95,7 @@ struct _Hashtable_node
 };  
 
 template <class _Val, class _Key, class _HashFcn,
-          class _ExtractKey, class _EqualKey, class _Alloc = alloc>
+          class _ExtractKey, class _EqualKey, class _Alloc = std::__alloc>
 class hashtable;
 
 template <class _Val, class _Key, class _HashFcn,
@@ -187,7 +198,7 @@ inline unsigned long __stl_next_prime(unsigned long __n)
 {
   const unsigned long* __first = __stl_prime_list;
   const unsigned long* __last = __stl_prime_list + (int)__stl_num_primes;
-  const unsigned long* pos = lower_bound(__first, __last, __n);
+  const unsigned long* pos = std::lower_bound(__first, __last, __n);
   return pos == __last ? *(__last - 1) : *pos;
 }
 
@@ -411,8 +422,7 @@ public:
   void insert_unique(_ForwardIterator __f, _ForwardIterator __l,
                      forward_iterator_tag)
   {
-    size_type __n = 0;
-    distance(__f, __l, __n);
+    size_type __n = distance(__f, __l);
     resize(_M_num_elements + __n);
     for ( ; __n > 0; --__n, ++__f)
       insert_unique_noresize(*__f);
@@ -422,8 +432,7 @@ public:
   void insert_equal(_ForwardIterator __f, _ForwardIterator __l,
                     forward_iterator_tag)
   {
-    size_type __n = 0;
-    distance(__f, __l, __n);
+    size_type __n = distance(__f, __l);
     resize(_M_num_elements + __n);
     for ( ; __n > 0; --__n, ++__f)
       insert_equal_noresize(*__f);
@@ -516,11 +525,15 @@ private:
   {
     _Node* __n = _M_get_node();
     __n->_M_next = 0;
-    __STL_TRY {
+    try {
       _Construct(&__n->_M_val, __obj);
       return __n;
     }
-    __STL_UNWIND(_M_put_node(__n));
+    catch(...)
+      {
+	_M_put_node(__n);
+	__throw_exception_again;
+      }
   }
   
   void _M_delete_node(_Node* __n)
@@ -849,7 +862,7 @@ void hashtable<_Val,_Key,_HF,_Ex,_Eq,_All>
     if (__n > __old_n) {
       vector<_Node*, _All> __tmp(__n, (_Node*)(0),
                                  _M_buckets.get_allocator());
-      __STL_TRY {
+      try {
         for (size_type __bucket = 0; __bucket < __old_n; ++__bucket) {
           _Node* __first = _M_buckets[__bucket];
           while (__first) {
@@ -862,7 +875,6 @@ void hashtable<_Val,_Key,_HF,_Ex,_Eq,_All>
         }
         _M_buckets.swap(__tmp);
       }
-#         ifdef __STL_USE_EXCEPTIONS
       catch(...) {
         for (size_type __bucket = 0; __bucket < __tmp.size(); ++__bucket) {
           while (__tmp[__bucket]) {
@@ -871,9 +883,8 @@ void hashtable<_Val,_Key,_HF,_Ex,_Eq,_All>
             __tmp[__bucket] = __next;
           }
         }
-        throw;
+        __throw_exception_again;
       }
-#         endif /* __STL_USE_EXCEPTIONS */
     }
   }
 }
@@ -937,7 +948,7 @@ void hashtable<_Val,_Key,_HF,_Ex,_Eq,_All>
   _M_buckets.clear();
   _M_buckets.reserve(__ht._M_buckets.size());
   _M_buckets.insert(_M_buckets.end(), __ht._M_buckets.size(), (_Node*) 0);
-  __STL_TRY {
+  try {
     for (size_type __i = 0; __i < __ht._M_buckets.size(); ++__i) {
       const _Node* __cur = __ht._M_buckets[__i];
       if (__cur) {
@@ -954,10 +965,14 @@ void hashtable<_Val,_Key,_HF,_Ex,_Eq,_All>
     }
     _M_num_elements = __ht._M_num_elements;
   }
-  __STL_UNWIND(clear());
+  catch(...)
+    {
+      clear();
+      __throw_exception_again;
+    }
 }
 
-} // namespace std
+} // namespace __gnu_cxx
 
 #endif /* __SGI_STL_INTERNAL_HASHTABLE_H */
 

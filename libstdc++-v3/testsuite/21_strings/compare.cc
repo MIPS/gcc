@@ -1,6 +1,6 @@
 // 980930 bkoz work with libstdc++v3
 
-// Copyright (C) 1998-1999 Free Software Foundation, Inc.
+// Copyright (C) 1998, 1999 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,7 +31,7 @@
 // things would be sorted in a dictionary.
 
 #include <string>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
 enum want_value {lt=0, z=1, gt=2};
 

@@ -18,17 +18,29 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 package java.math;
 
 import java.math.BigInteger;
 
-public class BigDecimal extends Number implements Comparable {
+public class BigDecimal extends Number implements Comparable
+{
   private BigInteger intVal;
   private int scale;
   private static final long serialVersionUID = 6108874887143696463L;
@@ -63,16 +75,119 @@ public class BigDecimal extends Number implements Comparable {
 
   public BigDecimal (double num) throws NumberFormatException 
   {
-    this (Double.toString (num));
+    if (Double.isInfinite (num) || Double.isNaN (num))
+      throw new NumberFormatException ("invalid argument: " + num);
+    // Note we can't convert NUM to a String and then use the
+    // String-based constructor.  The BigDecimal documentation makes
+    // it clear that the two constructors work differently.
+
+    final int mantissaBits = 52;
+    final int exponentBits = 11;
+    final long mantMask = (1L << mantissaBits) - 1;
+    final long expMask = (1L << exponentBits) - 1;
+
+    long bits = Double.doubleToLongBits (num);
+    long mantissa = bits & mantMask;
+    long exponent = (bits >>> mantissaBits) & expMask;
+    boolean denormal = exponent == 0;
+    // Correct the exponent for the bias.
+    exponent -= denormal ? 1022 : 1023;
+    // Now correct the exponent to account for the bits to the right
+    // of the decimal.
+    exponent -= mantissaBits;
+    // Ordinary numbers have an implied leading `1' bit.
+    if (! denormal)
+      mantissa |= (1L << mantissaBits);
+
+    // Shave off factors of 10.
+    while (exponent < 0 && (mantissa & 1) == 0)
+      {
+	++exponent;
+	mantissa >>= 1;
+      }
+
+    intVal = BigInteger.valueOf (bits < 0 ? - mantissa : mantissa);
+    if (exponent < 0)
+      {
+	// We have MANTISSA * 2 ^ (EXPONENT).
+	// Since (1/2)^N == 5^N * 10^-N we can easily convert this
+	// into a power of 10.
+	scale = (int) (- exponent);
+	BigInteger mult = BigInteger.valueOf (5).pow (scale);
+	intVal = intVal.multiply (mult);
+      }
+    else
+      {
+	intVal = intVal.shiftLeft ((int) exponent);
+	scale = 0;
+      }
   }
 
   public BigDecimal (String num) throws NumberFormatException 
   {
-    int point = num.indexOf('.');
-    this.intVal = new BigInteger (point == -1 ? num :
-			       num.substring (0, point) + 
-			       num.substring (point + 1));
-    scale = num.length() - (point == -1 ? num.length () : point + 1);
+    int len = num.length();
+    int start = 0, point = 0;
+    int dot = -1;
+    boolean negative = false;
+    if (num.charAt(0) == '+')
+      {
+	++start;
+	++point;
+      }
+    else if (num.charAt(0) == '-')
+      {
+	++start;
+	++point;
+	negative = true;
+      }
+
+    while (point < len)
+      {
+	char c = num.charAt (point);
+	if (c == '.')
+	  {
+	    if (dot >= 0)
+	      throw new NumberFormatException ("multiple `.'s in number");
+	    dot = point;
+	  }
+	else if (c == 'e' || c == 'E')
+	  break;
+	else if (Character.digit (c, 10) < 0)
+	  throw new NumberFormatException ("unrecognized character: " + c);
+	++point;
+      }
+
+    String val;
+    if (dot >= 0)
+      {
+	val = num.substring (start, dot) + num.substring (dot + 1, point);
+	scale = point - 1 - dot;
+      }
+    else
+      {
+	val = num.substring (start, point);
+	scale = 0;
+      }
+    if (val.length () == 0)
+      throw new NumberFormatException ("no digits seen");
+
+    if (negative)
+      val = "-" + val;
+    intVal = new BigInteger (val);
+
+    // Now parse exponent.
+    if (point < len)
+      {
+	int exp = Integer.parseInt (num.substring (point + 1));
+	exp -= scale;
+	if (exp > 0)
+	  {
+	    intVal = intVal.multiply (BigInteger.valueOf (10).pow (exp));
+	    scale = 0;
+	  }
+	else
+	  scale = - exp;
+      }
   }
 
   public static BigDecimal valueOf (long val) 
@@ -338,7 +453,6 @@ public class BigDecimal extends Number implements Comparable {
       intVal.divide (BigInteger.valueOf (10).pow (scale));
   }
 
-
   public int intValue () 
   {
     return toBigInteger ().intValue ();

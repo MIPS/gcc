@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  VAX version.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -25,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define CPP_PREDEFINES "-Dvax -D__vax__ -Dunix -Asystem=unix -Asystem=bsd -Acpu=vax -Amachine=vax"
 
-/* Use -J option for long branch support with Unix assembler. */
+/* Use -J option for long branch support with Unix assembler.  */
 
 #define ASM_SPEC "-J"
 
@@ -89,10 +89,6 @@ extern int target_flags;
 
 /* Target machine storage layout */
 
-/* Define for software floating point emulation of VAX format
-   when cross compiling from a non-VAX host. */
-/* #define REAL_ARITHMETIC */
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
    This is not true on the VAX.  */
@@ -107,21 +103,8 @@ extern int target_flags;
 /* This is not true on the VAX.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -255,7 +238,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define GENERAL_REGS ALL_REGS
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
  {"NO_REGS", "ALL_REGS" }
@@ -333,10 +316,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
-
-/* Define this if longjmp restores from saved registers
-   rather than from what setjmp saved.  */
-#define LONGJMP_RESTORE_FROM_STACK
 
 /* Define this if the nominal address of the stack frame
    is at the high-address end of the local variables;
@@ -504,14 +483,14 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
      movl $STATIC,r0   (store the functions static chain)
      jmp  *$FUNCTION   (jump to function code at address FUNCTION)  */
 
-#define TRAMPOLINE_TEMPLATE(FILE)			\
-{							\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);			\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x8fd0));		\
-  ASM_OUTPUT_INT (FILE, const0_rtx);			\
-  ASM_OUTPUT_BYTE  (FILE, 0x50 + STATIC_CHAIN_REGNUM);	\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x9f17));		\
-  ASM_OUTPUT_INT (FILE, const0_rtx);			\
+#define TRAMPOLINE_TEMPLATE(FILE)					\
+{									\
+  assemble_aligned_integer (2, const0_rtx);				\
+  assemble_aligned_integer (2, GEN_INT (0x8fd0));			\
+  assemble_aligned_integer (4, const0_rtx);				\
+  assemble_aligned_integer (1, GEN_INT (0x50 + STATIC_CHAIN_REGNUM));	\
+  assemble_aligned_integer (2, GEN_INT (0x9f17));			\
+  assemble_aligned_integer (4, const0_rtx);				\
 }
 
 /* Length in units of the trampoline for entering a nested function.  */
@@ -695,14 +674,14 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
       && GET_CODE (xfoob) == REG && REG_OK_FOR_BASE_P (xfoob))		\
     goto ADDR; }
 
-/* 1 if PROD is either a reg times size of mode MODE
-   or just a reg, if MODE is just one byte.
+/* 1 if PROD is either a reg times size of mode MODE and MODE is less
+   than or equal 8 bytes, or just a reg if MODE is one byte.
    This macro's expansion uses the temporary variables xfoo0 and xfoo1
    that must be declared in the surrounding context.  */
 #define INDEX_TERM_P(PROD, MODE)   \
 (GET_MODE_SIZE (MODE) == 1						\
  ? (GET_CODE (PROD) == REG && REG_OK_FOR_BASE_P (PROD))			\
- : (GET_CODE (PROD) == MULT						\
+ : (GET_CODE (PROD) == MULT && GET_MODE_SIZE (MODE) <= 8		\
     &&									\
     (xfoo0 = XEXP (PROD, 0), xfoo1 = XEXP (PROD, 1),			\
      ((((GET_CODE (xfoo0) == CONST_INT					\
@@ -794,19 +773,13 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
-   Do not define this if the table should contain absolute addresses. */
+   Do not define this if the table should contain absolute addresses.  */
 #define CASE_VECTOR_PC_RELATIVE 1
 
 /* Define this if the case instruction drops through after the table
    when the index is out of range.  Don't define it if the case insn
    jumps to the default label instead.  */
 #define CASE_DROPS_THROUGH
-
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
@@ -818,9 +791,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
 #define MOVE_MAX 8
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-/* #define SLOW_ZERO_EXTEND */
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0
@@ -1055,11 +1025,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define DBX_DEBUGGING_INFO
 
-/* How to renumber registers for dbx and gdb.
-   VAX needs no change in the numeration.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
 /* Do not break .stabs pseudos into continuations.  */
 
 #define DBX_CONTIN_LENGTH 0
@@ -1093,7 +1058,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 #define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
   do { fputs (".globl ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX "_"
 
@@ -1110,47 +1075,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%d", PREFIX, NUM)
-
-/* This is how to output an assembler line defining a `double' constant.
-   It is .dfloat or .gfloat, depending.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-do { char dstr[30];							\
-     REAL_VALUE_TO_DECIMAL (VALUE, "%.20e", dstr);			\
-     fprintf (FILE, "\t.%cfloat 0%c%s\n", ASM_DOUBLE_CHAR, 		\
-					  ASM_DOUBLE_CHAR, dstr);	\
-   } while (0);
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)  \
-  do { char dstr[30];						\
-       REAL_VALUE_TO_DECIMAL (VALUE, "%.20e", dstr);		\
-       fprintf (FILE, "\t.float 0f%s\n", dstr); } while (0);
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\t.word "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */

@@ -41,7 +41,7 @@ namespace std
     void
     numpunct<char>::_M_initialize_numpunct(__c_locale __cloc)
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
 	  _M_decimal_point = '.';
@@ -65,17 +65,13 @@ namespace std
       // _M_falsename = __nl_langinfo_l(NOSTR, __cloc);
       _M_falsename = "false";
     }
- 
-  template<> 
-    numpunct<char>::~numpunct()
-    { }
-   
+      
 #ifdef _GLIBCPP_USE_WCHAR_T
   template<> 
     void
     numpunct<wchar_t>::_M_initialize_numpunct(__c_locale __cloc)
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
 	  _M_decimal_point = L'.';
@@ -98,9 +94,5 @@ namespace std
       // _M_falsename = __nl_langinfo_l(NOSTR, __cloc);
       _M_falsename = L"false";
     }
-
-  template<> 
-    numpunct<wchar_t>::~numpunct()
-    { }
- #endif
+#endif
 }

@@ -1,5 +1,5 @@
 /* java.util.GregorianCalendar
-   Copyright (C) 1998, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.util;
@@ -111,9 +122,7 @@ public class GregorianCalendar extends Calendar
     super(zone, locale);
     ResourceBundle rb = ResourceBundle.getBundle(bundleName, locale);
     gregorianCutover = ((Date) rb.getObject("gregorianCutOver")).getTime();
-    time = System.currentTimeMillis();
-    isTimeSet = true;
-    areFieldsSet = false;
+    setTimeInMillis(System.currentTimeMillis());
   }
 
   /**
@@ -177,7 +186,7 @@ public class GregorianCalendar extends Calendar
    * Gets the date of the switch from Julian dates to Gregorian dates.
    * @return the date of the change.
    */
-  public final Date getGregorianChange(Date date)
+  public final Date getGregorianChange()
   {
     return new Date(gregorianCutover);
   }
@@ -218,7 +227,7 @@ public class GregorianCalendar extends Calendar
    * Get the linear time in milliseconds since the epoch.  If you
    * specify a nonpositive year it is interpreted as BC as
    * following: 0 is 1 BC, -1 is 2 BC and so on.  The date is
-   * interpreted as gregorian if the change occured before that date.
+   * interpreted as gregorian if the change occurred before that date.
    *
    * @param year the year of the date.
    * @param dayOfYear the day of year of the date; 1 based.
@@ -373,9 +382,17 @@ public class GregorianCalendar extends Calendar
       year = 1 - year;
 
     int[] daysOfYear = getDayOfYear(year);
-    int hour = isSet[HOUR_OF_DAY] ? fields[HOUR_OF_DAY]
-      : (isSet[HOUR] && isSet[AM_PM]
-	 ? fields[AM_PM] * 12 + (fields[HOUR] % 12) : 0);
+
+    int hour = 0;
+    if (isSet[HOUR_OF_DAY])
+      hour = fields[HOUR_OF_DAY];
+    else if (isSet[HOUR])
+      {
+	hour = fields[HOUR];
+        if (isSet[AM_PM] && fields[AM_PM] == PM)
+	  hour += 12;
+      }
+
     int minute = isSet[MINUTE] ? fields[MINUTE] : 0;
     int second = isSet[SECOND] ? fields[SECOND] : 0;
     int millis = isSet[MILLISECOND] ? fields[MILLISECOND] : 0;
@@ -621,7 +638,7 @@ public class GregorianCalendar extends Calendar
    * Compares the given calender with this.  
    * @param o the object to that we should compare.
    * @return true, if the given object is a calendar, that represents
-   * the same time (but doesn't neccessary have the same fields).
+   * the same time (but doesn't necessary have the same fields).
    * @XXX Should we check if time zones, locale, cutover etc. are equal?
    */
   public boolean equals(Object o)
@@ -900,11 +917,11 @@ public class GregorianCalendar extends Calendar
   }
 
   private static final int[] minimums =
-      { BC,       1,  1,  0, 1,  1,   1,   SUNDAY, 1, 
+      { BC,       1,  0,  0, 1,  1,   1,   SUNDAY, 1, 
         AM,  1,  0,  1,  1,   1, -(12*60*60*1000),               0 };
 
   private static final int[] maximums =
-      { AD, 5000000, 12, 53, 5, 31, 366, SATURDAY, 5, 
+      { AD, 5000000, 11, 53, 5, 31, 366, SATURDAY, 5, 
         PM, 12, 23, 59, 59, 999, +(12*60*60*1000), (12*60*60*1000) };
 
   /**
@@ -967,7 +984,7 @@ public class GregorianCalendar extends Calendar
 
   /**
    * Gets the actual minimum value that is allowed for the specified field.
-   * This value is dependant on the values of the other fields.  Note that
+   * This value is dependent on the values of the other fields.  Note that
    * this calls <code>complete()</code> if not enough fields are set.  This
    * can have ugly side effects.
    * @param field the time field. One of the time field constants.
@@ -995,7 +1012,7 @@ public class GregorianCalendar extends Calendar
 
   /**
    * Gets the actual maximum value that is allowed for the specified field.
-   * This value is dependant on the values of the other fields.  Note that
+   * This value is dependent on the values of the other fields.  Note that
    * this calls <code>complete()</code> if not enough fields are set.  This
    * can have ugly side effects.
    * @param field the time field. One of the time field constants.

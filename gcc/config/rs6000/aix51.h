@@ -40,22 +40,22 @@ Boston, MA 02111-1307, USA.  */
    The macro SUBTARGET_OVERRIDE_OPTIONS is provided for subtargets, to
    get control.  */
 
-#define NON_POWERPC_MASKS (MASK_POWER | MASK_POWER2 | MASK_STRING)
+#define NON_POWERPC_MASKS (MASK_POWER | MASK_POWER2)
 #define SUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
   if (TARGET_64BIT && (target_flags & NON_POWERPC_MASKS))		\
     {									\
       target_flags &= ~NON_POWERPC_MASKS;				\
-      warning ("-maix64 and POWER architecture are incompatible.");	\
+      warning ("-maix64 and POWER architecture are incompatible");	\
     }									\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
       target_flags |= MASK_POWERPC64;					\
-      warning ("-maix64 requires PowerPC64 architecture remain enabled."); \
+      warning ("-maix64 requires PowerPC64 architecture remain enabled"); \
     }									\
   if (TARGET_POWERPC64 && ! TARGET_64BIT)				\
     {									\
-      error ("-maix64 required: 64-bit computation with 32-bit addressing not yet supported."); \
+      error ("-maix64 required: 64-bit computation with 32-bit addressing not yet supported"); \
     }									\
 } while (0);
 
@@ -202,10 +202,6 @@ do {									\
        %{pthread:%{pg:gcrt0_r%O%s}%{!pg:%{p:mcrt0_r%O%s}%{!p:crt0_r%O%s}}}\
        %{!pthread:%{pg:gcrt0%O%s}%{!pg:%{p:mcrt0%O%s}%{!p:crt0%O%s}}}}}}"
 
-/* Since there are separate multilibs for pthreads, determine the
-   thread model based on the command-line arguments.  */
-#define THREAD_MODEL_SPEC "%{pthread:posix}%{!pthread:single}"
-
 /* AIX V5 typedefs ptrdiff_t as "long" while earlier releases used "int".  */
 
 #undef PTRDIFF_TYPE
@@ -213,10 +209,13 @@ do {									\
 
 /* __WCHAR_TYPE__ is dynamic, so do not define it statically.  */
 #define NO_BUILTIN_WCHAR_TYPE
-#undef WCHAR_TYPE
-#undef WCHAR_TYPE_SIZE
+
+/* Type used for wchar_t, as a string used in a declaration.  */
+#undef  WCHAR_TYPE
+#define WCHAR_TYPE (!TARGET_64BIT ? "short unsigned int" : "unsigned int")
 
 /* Width of wchar_t in bits.  */
+#undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE (!TARGET_64BIT ? 16 : 32)
 #define MAX_WCHAR_TYPE_SIZE 32
 

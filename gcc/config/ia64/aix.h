@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64/AIX version.
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Timothy Wall (twall@cygnus.com)
 
 This file is part of GNU CC.
@@ -20,7 +20,12 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* AIX5 (aka Monterey): a mix of AIX and UnixWare.  
-   This file is loosely based on ia64/linux.h. */
+   This file is loosely based on ia64/linux.h.  */
+
+/* This macro is a C statement to print on `stderr' a string describing the
+   particular machine description choice.  */
+
+#define TARGET_VERSION fprintf (stderr, " (IA-64) AIX");
 
 #undef ASM_APP_ON
 #define ASM_APP_ON "#APP\n"
@@ -29,9 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_APP_OFF "#NO_APP\n"
 
 #define SET_ASM_OP	"\t.set\t"
-
-/*#undef PREFERRED_DEBUGGING_TYPE*/
-/*#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG*/
 
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
@@ -49,7 +51,7 @@ Boston, MA 02111-1307, USA.  */
 /* Provide a STARTFILE_SPEC appropriate for AIX.  Here we add
    the crti C++ startup files file which provide part of the support
    for getting C++ file-scope static object constructed before entering
-   `main'. */ 
+   `main'.  */ 
    
 #undef	STARTFILE_SPEC
 #define STARTFILE_SPEC \
@@ -61,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Provide a ENDFILE_SPEC appropriate for AIX.  Here we tack on
    the crtn file which provides termination of the support for getting C++
-   file-scope static object constructed before entering `main'. */
+   file-scope static object constructed before entering `main'.  */
 
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s"
@@ -73,7 +75,7 @@ Boston, MA 02111-1307, USA.  */
    CPP.  It can also specify how to translate options you give to GNU CC into
    options for GNU CC to pass to the CPP.  */
 
-/* If -ansi, we need to define _ANSI_C_SOURCE to get the right headers. */
+/* If -ansi, we need to define _ANSI_C_SOURCE to get the right headers.  */
 #undef CPP_SPEC
 #define CPP_SPEC "\
 %{mcpu=itanium:-D__itanium__} %{mbig-endian:-D__BIG_ENDIAN__} \
@@ -85,10 +87,11 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "\
 -D__ia64 -D__ia64__ -D_AIX -D_AIX64 -D_LONGLONG -Dunix \
--D__LP64__ -D__ELF__ -Asystem=unix -Asystem=aix -Acpu=ia64 -Amachine=ia64 \
+-D_LP64 -D__LP64__ -D__ELF__ \
+-Asystem=unix -Asystem=aix -Acpu=ia64 -Amachine=ia64 \
 -D__64BIT__ -D_LONG_LONG -D_IA64 -D__int128=__size128_t"
 
-/* The GNU C++ standard library requires that these macros be defined. */
+/* The GNU C++ standard library requires that these macros be defined.  */
 #undef CPLUSPLUS_CPP_SPEC
 #define CPLUSPLUS_CPP_SPEC                      \
   "-D_XOPEN_SOURCE=500                          \
@@ -102,7 +105,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_SPEC
 #define ASM_SPEC "-x %{mconstant-gp} %{mauto-pic}"
 
-/* Define this for shared library support. */
+/* Define this for shared library support.  */
 
 #undef LINK_SPEC
 #define LINK_SPEC "\
@@ -133,7 +136,7 @@ Boston, MA 02111-1307, USA.  */
 do {							\
 } while (0)
 
-/* Tell the linker where to find the crt*.o files. */
+/* Tell the linker where to find the crt*.o files.  */
 
 #ifndef CROSS_COMPILE
 #undef STANDARD_STARTFILE_PREFIX
@@ -150,7 +153,7 @@ do {							\
    the initial value of DECL requires link-time relocations.  */
 
 #undef SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC)					\
+#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
 {									\
   if (TREE_CODE (DECL) == STRING_CST)					\
     {									\
@@ -184,7 +187,7 @@ do {							\
 
 extern unsigned int ia64_section_threshold;
 #undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX)					\
+#define SELECT_RTX_SECTION(MODE, RTX, ALIGN)				\
 {									\
   if (GET_MODE_SIZE (MODE) > 0						\
       && GET_MODE_SIZE (MODE) <= ia64_section_threshold)		\
@@ -204,7 +207,7 @@ extern unsigned int ia64_section_threshold;
       const char *name;						\
       char *string;						\
       const char *prefix;					\
-      static const char *prefixes[/*4*/3][2] =			\
+      static const char *const prefixes[/*4*/3][2] =		\
       {								\
 	{ ".text.",   ".gnu.linkonce.t." },			\
 	{ ".rodata.", ".gnu.linkonce.r." },			\
@@ -238,18 +241,13 @@ extern unsigned int ia64_section_threshold;
     }								\
   while (0)
 
-/* Override ia64/sysv4.h setting with that used by AIX5. */
+/* Override ia64/sysv4.h setting with that used by AIX5.  */
 #undef WCHAR_TYPE
 #ifdef __64BIT__
 #define WCHAR_TYPE "unsigned int"
 #else
 #define WCHAR_TYPE "unsigned short"
 #endif
-
-/* Have to get rid of the system's definition so that we can use gcc's
-   instead. */
-#include <sys/machine.h>
-#undef REG_SIZE
 
 /* Define the `__builtin_va_list' type for AIX.  Use char* b/c that's what the
    system headers expect.  */

@@ -1,4 +1,6 @@
 // Build don't link:
+#include <stdlib.h>
+
 class A {
 public:
   void z();

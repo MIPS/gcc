@@ -2,11 +2,14 @@
    running Solaris 2 using the system linker.  */
 
 #ifdef AS_SPARC64_FLAG
-
-#define SPARC_BI_ARCH
-
+#include "sparc/biarch64.h"
 #endif
 
+#include "sparc/sparc.h"
+#include "dbxelf.h"
+#include "elfos.h"
+#include "svr4.h"
+#include "sparc/sysv4.h"
 #include "sparc/sol2.h"
 
 #ifdef AS_SPARC64_FLAG
@@ -24,7 +27,7 @@
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
   (MASK_V9 + MASK_PTR64 + MASK_64BIT /* + MASK_HARD_QUAD */ + \
-   MASK_STACK_BIAS + MASK_EPILOGUE + MASK_FPU + MASK_LONG_DOUBLE_128)
+   MASK_STACK_BIAS + MASK_FPU + MASK_LONG_DOUBLE_128)
 #endif
 
 /* The default code model.  */
@@ -55,7 +58,7 @@
 #endif
 
 /* The sun bundled assembler doesn't accept -Yd, (and neither does gas).
-   It's safe to pass -s always, even if -g is not used. */
+   It's safe to pass -s always, even if -g is not used.  */
 #undef ASM_SPEC
 #define ASM_SPEC "\
 %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Wa,*:%*} -s \
@@ -98,15 +101,11 @@
 
 #define STARTFILE_SPEC32 "\
 %{ansi:values-Xc.o%s} \
-%{!ansi: \
- %{traditional:values-Xt.o%s} \
- %{!traditional:values-Xa.o%s}}"
+%{!ansi:values-Xa.o%s}"
 
 #define STARTFILE_SPEC64 "\
 %{ansi:/usr/lib/sparcv9/values-Xc.o%s} \
-%{!ansi: \
- %{traditional:/usr/lib/sparcv9/values-Xt.o%s} \
- %{!traditional:/usr/lib/sparcv9/values-Xa.o%s}}"
+%{!ansi:/usr/lib/sparcv9/values-Xa.o%s}"
  
 #ifdef SPARC_BI_ARCH
 
@@ -328,33 +327,5 @@
 #define MD_STARTFILE_PREFIX "/usr/lib/sparcv9/"
  
 #endif /* ! SPARC_BI_ARCH */
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    ctors_section ();							\
-    if (TARGET_ARCH64)							\
-      fprintf (FILE, "\t%s\t ", ASM_LONGLONG);				\
-    else								\
-      fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    dtors_section ();                   				\
-    if (TARGET_ARCH64)							\
-      fprintf (FILE, "\t%s\t ", ASM_LONGLONG);				\
-    else								\
-      fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } while (0)
 
 #endif

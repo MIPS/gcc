@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for the pdp-11
-   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000, 2001
+   Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
@@ -131,7 +131,6 @@ extern int target_flags;
 
 
 /* TYPE SIZES */
-#define CHAR_TYPE_SIZE		8
 #define SHORT_TYPE_SIZE		16
 #define INT_TYPE_SIZE		(TARGET_INT16 ? 16 : 32)
 #define LONG_TYPE_SIZE		32
@@ -165,16 +164,6 @@ extern int target_flags;
 /* Define this if most significant word of a multiword number is numbered.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-/*  This is a machine with 16-bit registers */
-#define BITS_PER_WORD 16
-
 /* Width of a word, in units (bytes). 
 
    UNITS OR BYTES - seems like units */
@@ -183,10 +172,6 @@ extern int target_flags;
 /* Maximum sized of reasonable data type 
    DImode or Dfmode ...*/
 #define MAX_FIXED_MODE_SIZE 64	
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 16
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
 #define POINTER_BOUNDARY 16
@@ -879,12 +864,6 @@ extern int may_call_alloca;
    Do not define this if the table should contain absolute addresses. */
 /* #define CASE_VECTOR_PC_RELATIVE 1 */
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -893,9 +872,6 @@ extern int may_call_alloca;
 */
 
 #define MOVE_MAX 2
-
-/* Zero extension is faster if the target is known to be zero */
-/* #define SLOW_ZERO_EXTEND */
 
 /* Nonzero if access to memory by byte is slow and undesirable. -
 */
@@ -1059,10 +1035,6 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 {"r0", "r1", "r2", "r3", "r4", "r5", "sp", "pc",     \
  "ac0", "ac1", "ac2", "ac3", "ac4", "ac5" }
 
-/* How to renumber registers for dbx and gdb.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 
@@ -1092,35 +1064,6 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s_%d", PREFIX, NUM)
-
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-  fprintf (FILE, "\tdouble %.20e\n", (VALUE))
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)  \
-  fprintf (FILE, "\tfloat %.12e\n", (VALUE))
-
-/* Likewise for `short' and `char' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, TARGET_UNIX_ASM ? "\t" : "\t.word "),	\
-  output_addr_const_pdp11 (FILE, (VALUE)),		\
-  fprintf (FILE, " /*short*/\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const_pdp11 (FILE, (VALUE)),		\
-  fprintf (FILE, " /* char */\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.
-   This won't actually be used since we define ASM_OUTPUT_CHAR.
-*/
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte %o\n", (VALUE))
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
   output_ascii (FILE, P, SIZE)
@@ -1197,9 +1140,11 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
   else if (GET_CODE (X) == MEM)						\
     output_address (XEXP (X, 0));					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) != SImode)	\
-    { union { double d; int i[2]; } u;					\
-      u.i[0] = CONST_DOUBLE_LOW (X); u.i[1] = CONST_DOUBLE_HIGH (X);	\
-      fprintf (FILE, "#%.20e", u.d); }					\
+    { REAL_VALUE_TYPE r;						\
+      char buf[30];							\
+      REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
+      REAL_VALUE_TO_DECIMAL (r, "%.20e", buf);				\
+      fprintf (FILE, "#%s", buf); }					\
   else { putc ('$', FILE); output_addr_const_pdp11 (FILE, X); }}
 
 /* Print a memory address as an operand to reference that memory location.  */
@@ -1232,14 +1177,14 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
   if (TARGET_SPLIT)			\
     abort();				\
 					\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x9400+STATIC_CHAIN_REGNUM)); \
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);				\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT(0x0058));			\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);				\
+  assemble_aligned_integer (2, GEN_INT (0x9400+STATIC_CHAIN_REGNUM));	\
+  assemble_aligned_integer (2, const0_rtx);				\
+  assemble_aligned_integer (2, GEN_INT(0x0058));			\
+  assemble_aligned_integer (2, const0_rtx);				\
 }
 
 #define TRAMPOLINE_SIZE 8
-#define TRAMPOLINE_ALIGN 16
+#define TRAMPOLINE_ALIGNMENT 16
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.

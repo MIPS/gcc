@@ -307,89 +307,7 @@ _Jv_MonitorExit (jobject obj)
 #include <unistd.h>	// for usleep, sysconf.
 #include <sched.h>	// for sched_yield.
 #include <gcj/javaprims.h>
-
-typedef size_t obj_addr_t;	/* Integer type big enough for object	*/
-				/* address.				*/
-
-// The following should move to some standard place. Linux-threads
-// already defines roughly these, as do more recent versions of boehm-gc.
-// The problem is that neither exports them.
-
-#if defined(__GNUC__) && defined(__i386__)
-  // Atomically replace *addr by new_val if it was initially equal to old.
-  // Return true if the comparison succeeded.
-  // Assumed to have acquire semantics, i.e. later memory operations
-  // cannot execute before the compare_and_swap finishes.
-  inline static bool
-  compare_and_swap(volatile obj_addr_t *addr,
-		  				obj_addr_t old,
-						obj_addr_t new_val) 
-  {
-    char result;
-    __asm__ __volatile__("lock; cmpxchgl %2, %0; setz %1"
-	    	: "=m"(*(addr)), "=q"(result)
-		: "r" (new_val), "0"(*(addr)), "a"(old) : "memory");
-    return (bool) result;
-  }
-
-  // Set *addr to new_val with release semantics, i.e. making sure
-  // that prior loads and stores complete before this
-  // assignment.
-  // On X86, the hardware shouldn't reorder reads and writes,
-  // so we just have to convince gcc not to do it either.
-  inline static void
-  release_set(volatile obj_addr_t *addr, obj_addr_t new_val)
-  {
-    __asm__ __volatile__(" " : : : "memory");
-    *(addr) = new_val;
-  }
-
-  // Compare_and_swap with release semantics instead of acquire semantics.
-  // On many architecture, the operation makes both guarantees, so the
-  // implementation can be the same.
-  inline static bool
-  compare_and_swap_release(volatile obj_addr_t *addr,
-		  				       obj_addr_t old,
-						       obj_addr_t new_val)
-  {
-    return compare_and_swap(addr, old, new_val);
-  }
-#endif
-
-#if defined(__GNUC__) && defined(__ia64__) && SIZEOF_VOID_P == 8
-  inline static bool
-  compare_and_swap(volatile obj_addr_t *addr,
-	 				        obj_addr_t old,
-						obj_addr_t new_val) 
-  {
-    unsigned long oldval;
-    __asm__ __volatile__("mov ar.ccv=%4 ;; cmpxchg8.acq %0=%1,%2,ar.ccv"
-		: "=r"(oldval), "=m"(*addr)
-		: "r"(new_val), "1"(*addr), "r"(old) : "memory");
-    return (oldval == old);
-  }
-
-  // The fact that *addr is volatile should cause the compiler to
-  // automatically generate an st8.rel.
-  inline static void
-  release_set(volatile obj_addr_t *addr, obj_addr_t new_val)
-  {
-    __asm__ __volatile__(" " : : : "memory");
-    *(addr) = new_val;
-  }
-
-  inline static bool
-  compare_and_swap_release(volatile obj_addr_t *addr,
-	 				               obj_addr_t old,
-						       obj_addr_t new_val) 
-  {
-    unsigned long oldval;
-    __asm__ __volatile__("mov ar.ccv=%4 ;; cmpxchg8.rel %0=%1,%2,ar.ccv"
-		: "=r"(oldval), "=m"(*addr)
-		: "r"(new_val), "1"(*addr), "r"(old) : "memory");
-    return (oldval == old);
-  }
-#endif
+#include <sysdep/locks.h>
 
 // Try to determine whether we are on a multiprocessor, i.e. whether
 // spinning may be profitable.
@@ -398,8 +316,12 @@ typedef size_t obj_addr_t;	/* Integer type big enough for object	*/
 static bool
 is_mp()
 {
+#ifdef _SC_NPROCESSORS_ONLN
   long nprocs = sysconf(_SC_NPROCESSORS_ONLN);
   return (nprocs > 1);
+#else
+  return false;
+#endif
 }
 
 // A call to keep_live(p) forces p to be accessible to the GC
@@ -409,7 +331,6 @@ keep_live(obj_addr_t p)
 {
     __asm__ __volatile__("" : : "rm"(p) : "memory");
 }
-
 
 // Each hash table entry holds a single preallocated "lightweight" lock.
 // In addition, it holds a chain of "heavyweight" locks.  Lightweight
@@ -424,15 +345,20 @@ keep_live(obj_addr_t p)
 struct heavy_lock {
   void * reserved_for_gc;
   struct heavy_lock *next;	// Hash chain link.
-				// The only field traced by GC.
+				// Traced by GC.
+  void * old_client_data;	// The only other field traced by GC.
+  GC_finalization_proc old_finalization_proc;
   obj_addr_t address;		// Object to which this lock corresponds.
 				// Should not be traced by GC.
+  				// Cleared as heavy_lock is destroyed.
+  				// Together with the rest of the hevy lock
+  				// chain, this is protected by the lock
+  				// bit in the hash table entry to which
+  				// the chain is attached.
   _Jv_SyncInfo si;
   // The remaining fields save prior finalization info for
   // the object, which we needed to replace in order to arrange
   // for cleanup of the lock structure.
-  GC_finalization_proc old_finalization_proc;
-  void * old_client_data;
 };
 
 #ifdef LOCK_DEBUG
@@ -447,11 +373,11 @@ print_hl_list(heavy_lock *hl)
 
 #if defined (_Jv_HaveCondDestroy) || defined (_Jv_HaveMutexDestroy)
 // If we have to run a destructor for a sync_info member, then this
-// function is registered as a finalizer for the sync_info.
-static void
-heavy_lock_finalization_proc (jobject obj)
+// function could be registered as a finalizer for the sync_info.
+// In fact, we now only invoke it explicitly.
+static inline void
+heavy_lock_finalization_proc (heavy_lock *hl)
 {
-  heavy_lock *hl = (heavy_lock *) obj;
 #if defined (_Jv_HaveCondDestroy)
   _Jv_CondDestroy (&hl->si.condition);
 #endif
@@ -525,18 +451,33 @@ struct hash_entry {
   				// by lockbit for he.  Locks may
   				// remain allocated here even if HEAVY
   				// is not set and heavy_count is 0.
-  				// If a lightweight and hevyweight lock
+  				// If a lightweight and heavyweight lock
   				// correspond to the same address, the
   				// lightweight lock is the right one.
 };
 
 #ifndef JV_SYNC_TABLE_SZ
-# define JV_SYNC_TABLE_SZ 1024
+# define JV_SYNC_TABLE_SZ 2048
 #endif
 
 hash_entry light_locks[JV_SYNC_TABLE_SZ];
 
 #define JV_SYNC_HASH(p) (((long)p ^ ((long)p >> 10)) % JV_SYNC_TABLE_SZ)
+
+// Note that the light_locks table is scanned conservatively by the
+// collector.  It is essential the the heavy_locks field is scanned.
+// Currently the address field may or may not cause the associated object
+// to be retained, depending on whether flag bits are set.
+// This means that we can conceivable get an unexpected deadlock if
+// 1) Object at address A is locked.
+// 2) The client drops A without unlocking it.
+// 3) Flag bits in the address entry are set, so the collector reclaims
+//    the object at A.
+// 4) A is reallocated, and an attempt is made to lock the result.
+// This could be fixed by scanning light_locks in a more customized
+// manner that ignores the flag bits.  But it can only happen with hand
+// generated semi-illegal .class files, and then it doesn't present a
+// security hole.
 
 #ifdef LOCK_DEBUG
   void print_he(hash_entry *he)
@@ -551,6 +492,8 @@ hash_entry light_locks[JV_SYNC_TABLE_SZ];
   }
 #endif /* LOCK_DEBUG */
 
+static bool mp = false; // Known multiprocesssor.
+
 // Wait for roughly 2^n units, touching as little memory as possible.
 static void
 spin(unsigned n)
@@ -562,7 +505,6 @@ spin(unsigned n)
   const unsigned MAX_SLEEP_USECS = 200000;
   static unsigned spin_limit = 0;
   static unsigned yield_limit = YIELDS;
-  static bool mp = false;
   static bool spin_initialized = false;
 
   if (!spin_initialized)
@@ -633,9 +575,29 @@ heavy_lock_obj_finalization_proc (void *obj, void *cd)
 {
   heavy_lock *hl = (heavy_lock *)cd;
   obj_addr_t addr = (obj_addr_t)obj;
-  GC_finalization_proc old_finalization_proc = hl -> old_finalization_proc;
-  void * old_client_data = hl -> old_client_data;
+  hash_entry *he = light_locks + JV_SYNC_HASH(addr);
+  obj_addr_t he_address = (he -> address & ~LOCKED);
 
+  // Acquire lock bit immediately.  It's possible that the hl was already
+  // destroyed while we were waiting for the finalizer to run.  If it
+  // was, the address field was set to zero.  The address filed access is
+  // protected by the lock bit to ensure that we do this exactly once.
+  // The lock bit also protects updates to the objects finalizer.
+  while (!compare_and_swap(&(he -> address), he_address, he_address|LOCKED ))
+    {
+      // Hash table entry is currently locked.  We can't safely 
+      // touch the list of heavy locks.  
+      wait_unlocked(he);
+      he_address = (he -> address & ~LOCKED);
+    }
+  if (0 == hl -> address)
+    {
+      // remove_all_heavy destroyed hl, and took care of the real finalizer.
+      release_set(&(he -> address), he_address);
+      return;
+    }
+  assert(hl -> address == addr);
+  GC_finalization_proc old_finalization_proc = hl -> old_finalization_proc;
   if (old_finalization_proc != 0)
     {
       // We still need to run a real finalizer.  In an idealized
@@ -644,11 +606,16 @@ heavy_lock_obj_finalization_proc (void *obj, void *cd)
       // ourselves as the only finalizer, and simply run the real one.
       // Thus we don't clean up the lock yet, but we're likely to do so
       // on the next GC cycle.
+      // It's OK if remove_all_heavy actually destroys the heavy lock,
+      // since we've updated old_finalization_proc, and thus the user's
+      // finalizer won't be rerun.
+      void * old_client_data = hl -> old_client_data;
       hl -> old_finalization_proc = 0;
       hl -> old_client_data = 0;
 #     ifdef HAVE_BOEHM_GC
         GC_REGISTER_FINALIZER_NO_ORDER(obj, heavy_lock_obj_finalization_proc, cd, 0, 0);
 #     endif
+      release_set(&(he -> address), he_address);
       old_finalization_proc(obj, old_client_data);
     }
   else
@@ -656,24 +623,87 @@ heavy_lock_obj_finalization_proc (void *obj, void *cd)
       // The object is really dead, although it's conceivable that
       // some thread may still be in the process of releasing the
       // heavy lock.  Unlink it and, if necessary, register a finalizer
-      // to distroy sync_info.
-      hash_entry *he = light_locks + JV_SYNC_HASH(addr);
-      obj_addr_t address = (he -> address & ~LOCKED);
-      while (!compare_and_swap(&(he -> address), address, address | LOCKED ))
-	{
-	  // Hash table entry is currently locked.  We can't safely touch
-	  // touch the list of heavy locks.  
-	  wait_unlocked(he);
-	  address = (he -> address & ~LOCKED);
-	}
-      unlink_heavy(addr, light_locks + JV_SYNC_HASH(addr));
-      release_set(&(he -> address), address);
+      // to destroy sync_info.
+      unlink_heavy(addr, he);
+      hl -> address = 0; 	// Don't destroy it again.
+      release_set(&(he -> address), he_address);
 #     if defined (_Jv_HaveCondDestroy) || defined (_Jv_HaveMutexDestroy)
-        // Register a finalizer, yet again.
-          hl->si.init = true;
-          _Jv_RegisterFinalizer (hl, heavy_lock_finalization_proc);
+        // Make sure lock is not held and then destroy condvar and mutex.
+        _Jv_MutexLock(&(hl->si.mutex));
+        _Jv_MutexUnlock(&(hl->si.mutex));
+        heavy_lock_finalization_proc (hl);
 #     endif
     }
+}
+
+// We hold the lock on he, and heavy_count is 0.
+// Release the lock by replacing the address with new_address_val.
+// Remove all heavy locks on the list.  Note that the only possible way
+// in which a lock may still be in use is if it's in the process of
+// being unlocked.
+static void
+remove_all_heavy (hash_entry *he, obj_addr_t new_address_val)
+{
+  assert(he -> heavy_count == 0);
+  assert(he -> address & LOCKED);
+  heavy_lock *hl = he -> heavy_locks;
+  he -> heavy_locks = 0;
+  // We would really like to release the lock bit here.  Unfortunately, that
+  // Creates a race between or finalizer removal, and the potential
+  // reinstallation of a new finalizer as a new heavy lock is created.
+  // This may need to be revisited.
+  for(; 0 != hl; hl = hl->next)
+    {
+      obj_addr_t obj = hl -> address;
+      assert(0 != obj);	// If this was previously finalized, it should no
+      			// longer appear on our list.
+      hl -> address = 0; // Finalization proc might still see it after we
+      			 // finish.
+      GC_finalization_proc old_finalization_proc = hl -> old_finalization_proc;
+      void * old_client_data = hl -> old_client_data;
+#     ifdef HAVE_BOEHM_GC
+	// Remove our finalization procedure.
+        // Reregister the clients if applicable.
+          GC_REGISTER_FINALIZER_NO_ORDER((GC_PTR)obj, old_finalization_proc,
+			  		 old_client_data, 0, 0);
+      	  // Note that our old finalization procedure may have been
+          // previously determined to be runnable, and may still run.
+      	  // FIXME - direct dependency on boehm GC.
+#     endif
+#     if defined (_Jv_HaveCondDestroy) || defined (_Jv_HaveMutexDestroy)
+        // Wait for a possible lock holder to finish unlocking it.
+        // This is only an issue if we have to explicitly destroy the mutex
+        // or possibly if we have to destroy a condition variable that is
+        // still being notified.
+          _Jv_MutexLock(&(hl->si.mutex));
+          _Jv_MutexUnlock(&(hl->si.mutex));
+          heavy_lock_finalization_proc (hl);
+#     endif
+    }
+  release_set(&(he -> address), new_address_val);
+}
+
+// We hold the lock on he and heavy_count is 0.
+// We release it by replacing the address field with new_address_val.
+// Remove all heavy locks on the list if the list is sufficiently long.
+// This is called periodically to avoid very long lists of heavy locks.
+// This seems to otherwise become an issue with SPECjbb, for example.
+static inline void
+maybe_remove_all_heavy (hash_entry *he, obj_addr_t new_address_val)
+{
+  static const int max_len = 5;
+  heavy_lock *hl = he -> heavy_locks;
+
+  for (int i = 0; i < max_len; ++i)
+    {
+      if (0 == hl) 
+	{
+  	  release_set(&(he -> address), new_address_val);
+	  return;
+	}
+      hl = hl -> next;
+    }
+  remove_all_heavy(he, new_address_val);
 }
 
 // Allocate a new heavy lock for addr, returning its address.
@@ -682,10 +712,13 @@ heavy_lock_obj_finalization_proc (void *obj, void *cd)
 // We register a finalizer for addr, which is responsible for
 // removing the heavy lock when addr goes away, in addition
 // to the responsibilities of any prior finalizer.
+// This unfortunately holds the lock bit for the hash entry while it
+// allocates two objects (on for the finalizer).
+// It would be nice to avoid that somehow ...
 static heavy_lock *
 alloc_heavy(obj_addr_t addr, hash_entry *he)
 {
-  heavy_lock * hl = (heavy_lock *) _Jv_AllocTraceOne(sizeof (heavy_lock));
+  heavy_lock * hl = (heavy_lock *) _Jv_AllocTraceTwo(sizeof (heavy_lock));
   
   hl -> address = addr;
   _Jv_MutexInit (&(hl -> si.mutex));
@@ -728,6 +761,14 @@ _Jv_MonitorEnter (jobject obj)
   unsigned count;
   const unsigned N_SPINS = 18;
 
+  // We need to somehow check that addr is not NULL on the fast path.
+  // A very predictable
+  // branch on a register value is probably cheaper than dereferencing addr.
+  // We could also permanently lock the NULL entry in the hash table.
+  // But it's not clear that's cheaper either.
+  if (__builtin_expect(!addr, false))
+    throw new java::lang::NullPointerException;
+   
   assert(!(addr & FLAGS));
 retry:
   if (__builtin_expect(compare_and_swap(&(he -> address),
@@ -870,10 +911,11 @@ retry:
   // Unfortunately, it turns out we always need to read the address
   // first.  Even if we are going to update it with compare_and_swap,
   // we need to reset light_thr_id, and that's not safe unless we know
-  // know that we hold the lock.
+  // that we hold the lock.
   address = he -> address;
   // First the (relatively) fast cases:
   if (__builtin_expect(light_thr_id == self, true))
+    // Above must fail if addr == 0 .
     {
       count = he -> light_count;
       if (__builtin_expect((address & ~HEAVY) == addr, true))
@@ -904,6 +946,8 @@ retry:
     }
   else
     {
+      if (__builtin_expect(!addr, false))
+	throw new java::lang::NullPointerException;
       if ((address & ~(HEAVY | REQUEST_CONVERSION)) == addr)
 	{
 #	  ifdef LOCK_DEBUG
@@ -992,15 +1036,38 @@ retry:
   count = he -> heavy_count;
   assert(count > 0);
   --count;
-  if (0 == count) address &= ~HEAVY;
   he -> heavy_count = count;
-  release_set(&(he -> address), address);
+  if (0 == count)
+    {
+      const unsigned test_freq = 16;  // Power of 2
+      static volatile unsigned counter = 0;
+      unsigned my_counter = counter;
+
+      counter = my_counter + 1;
+      if (my_counter%test_freq == 0)
+	{
+	  // Randomize the interval length a bit.
+	    counter = my_counter + (my_counter >> 4) % (test_freq/2);
+	  // Unlock mutex first, to avoid self-deadlock, or worse.
+          _Jv_MutexUnlock(&(hl->si.mutex));
+	  maybe_remove_all_heavy(he, address &~HEAVY);
     				// release lock bit, preserving
 				// REQUEST_CONVERSION
     				// and object address.
-  _Jv_MutexUnlock(&(hl->si.mutex));
+	}
+      else
+        {
+          release_set(&(he -> address), address &~HEAVY);
+          _Jv_MutexUnlock(&(hl->si.mutex));
   			// Unlock after releasing the lock bit, so that
   			// we don't switch to another thread prematurely.
+	}
+    } 
+  else
+    {
+      release_set(&(he -> address), address);
+      _Jv_MutexUnlock(&(hl->si.mutex));
+    }
   keep_live(addr);
 }     
 

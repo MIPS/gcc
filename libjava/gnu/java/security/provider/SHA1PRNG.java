@@ -1,5 +1,5 @@
 /* SHA1PRNG.java --- Secure Random SPI SHA1PRNG
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -18,23 +18,33 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package gnu.java.security.provider;
 
 import java.util.Random;
-// import java.security.SecureRandomSpi;
+import java.security.SecureRandomSpi;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.io.Serializable;
 
-// public class SHA1PRNG extends SecureRandomSpi implements Serializable
-public class SHA1PRNG implements Serializable
+public class SHA1PRNG extends SecureRandomSpi implements Serializable
 {
   MessageDigest digest;
   byte seed[];
@@ -74,29 +84,26 @@ public class SHA1PRNG implements Serializable
 
   public void engineNextBytes(byte[] bytes)
   {
+    int loc = 0;
+    while (loc < bytes.length)
+      {
+	int copy = Math.min (bytes.length - loc, 20 - datapos);
 
-    if( bytes.length < (20 - datapos) ) {
-      System.arraycopy( bytes, 0, data, datapos, bytes.length);
-      datapos += bytes.length;
-      return;
-    }
-
-    int i, blen = bytes.length, bpos = 0;
-    byte digestdata[];
-    while( bpos < blen ) {
-      i = 20 - datapos;
-      System.arraycopy( bytes, bpos, data, datapos, i);
-      bpos += i;
-      datapos += i;
-      if( datapos >= 20) {
-	//System.out.println( (0 + 20) + "\n" + (20 + 20) );
-	System.arraycopy( seed, 0, data, 20, 20);
-	digestdata = digest.digest( data );
-	System.arraycopy( digestdata, 0, data, 0, 20);
-	datapos = 0;
+	if (copy > 0)
+	  {
+	    System.arraycopy (data, datapos, bytes, loc, copy);
+	    datapos += copy;
+	    loc += copy;
+	  }
+	else
+	  {
+	    // No data ready for copying, so refill our buffer.
+	    System.arraycopy( seed, 0, data, 20, 20);
+	    byte[] digestdata = digest.digest( data );
+	    System.arraycopy( digestdata, 0, data, 0, 20);
+	    datapos = 0;
+	  }
       }
-    }
-
   }
 
   public byte[] engineGenerateSeed(int numBytes)

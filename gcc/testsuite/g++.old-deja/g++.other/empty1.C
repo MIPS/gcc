@@ -1,4 +1,8 @@
 // Origin: Mark Mitchell <mark@codesourcery.com>
+// This test case checks that the return value optimization works for
+// empty classes.
+
+// PR c++/5995
 
 extern "C" void abort();
 extern "C" int printf (const char *, ...);

@@ -31,6 +31,8 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "regs.h"
 #include "tree.h"
+#include "expr.h"
+#include "hard-reg-set.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -39,6 +41,11 @@ static void we32k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void we32k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.half\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE we32k_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -62,7 +69,6 @@ we32k_output_function_prologue (file, size)
 {
   register int nregs_to_save;
   register int regno;
-  extern char call_used_regs[];
 
   nregs_to_save = 0;
   for (regno = 8; regno > 2; regno--)
@@ -80,7 +86,7 @@ we32k_output_function_prologue (file, size)
    The function epilogue should not depend on the current stack
    pointer!  It should use the frame pointer only.  This is mandatory
    because of alloca; we also take advantage of it to omit stack
-   adjustments before returning. */
+   adjustments before returning.  */
 
 static void
 we32k_output_function_epilogue (file, size)
@@ -89,7 +95,6 @@ we32k_output_function_epilogue (file, size)
 {
   register int nregs_to_restore;
   register int regno;
-  extern char call_used_regs[];
 
   nregs_to_restore = 0;
   for (regno = 8; regno > 2; regno--)

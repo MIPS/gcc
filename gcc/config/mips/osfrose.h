@@ -39,8 +39,7 @@ Boston, MA 02111-1307, USA.  */
 %{!mlong64:-D__PTRDIFF_TYPE__=int}"
 
 #define SUBTARGET_CPP_SPEC "\
-%{.S:	%{!ansi:%{!traditional:%{!traditional-cpp:%{!ftraditional: -traditional}}}}} \
-%{.s:	%{!ansi:%{!traditional:%{!traditional-cpp:%{!ftraditional: -traditional}}}}}"
+%{.S:	%{!ansi:%{!traditional-cpp: -traditional}}}"
 
 /* ??? This assumes that GNU as is always used with GNU ld, and MIPS as is
    always used with MIPS ld.  */
@@ -56,7 +55,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Define this macro meaning that `gcc' should find the library
    `libgcc.a' by hand, rather than passing the argument `-lgcc' to
-   tell the linker to do the search. */
+   tell the linker to do the search.  */
 
 #define LINK_LIBGCC_SPECIAL 1
 

@@ -1,6 +1,6 @@
 /* Part of CPP library.  (include file handling)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -32,6 +32,26 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 # include <sys/mman.h>
 # ifndef MMAP_THRESHOLD
 #  define MMAP_THRESHOLD 3 /* Minimum page count to mmap the file.  */
+# endif
+# if MMAP_THRESHOLD
+#  define TEST_THRESHOLD(size, pagesize) \
+     (size / pagesize >= MMAP_THRESHOLD && (size % pagesize) != 0)
+   /* Use mmap if the file is big enough to be worth it (controlled
+      by MMAP_THRESHOLD) and if we can safely count on there being
+      at least one readable NUL byte after the end of the file's
+      contents.  This is true for all tested operating systems when
+      the file size is not an exact multiple of the page size.  */
+#  ifndef __CYGWIN__
+#   define SHOULD_MMAP(size, pagesize) TEST_THRESHOLD (size, pagesize)
+#  else
+#   define WIN32_LEAN_AND_MEAN
+#   include <windows.h>
+    /* Cygwin can't correctly emulate mmap under Windows 9x style systems so
+       disallow use of mmap on those systems.  Windows 9x does not zero fill
+       memory at EOF and beyond, as required.  */
+#   define SHOULD_MMAP(size, pagesize) ((GetVersion() & 0x80000000) \
+    					? 0 : TEST_THRESHOLD (size, pagesize))
+#  endif
 # endif
 
 #else  /* No MMAP_FILE */
@@ -73,6 +93,15 @@ struct include_file
   unsigned char mapped;		/* file buffer is mmapped */
 };
 
+/* Variable length record files on VMS will have a stat size that includes
+   record control characters that won't be included in the read size.  */
+#ifdef VMS
+# define FAB_C_VAR 2 /* variable length records (see Starlet fabdef.h) */
+# define STAT_SIZE_TOO_BIG(ST) ((ST).st_fab_rfm == FAB_C_VAR)
+#else
+# define STAT_SIZE_TOO_BIG(ST) 0
+#endif
+
 /* The cmacro works like this: If it's NULL, the file is to be
    included again.  If it's NEVER_REREAD, the file is never to be
    included again.  Otherwise it is a macro hashnode, and the file is
@@ -95,7 +124,7 @@ static struct include_file *
 				   enum include_type));
 static struct include_file *open_file PARAMS ((cpp_reader *, const char *));
 static int read_include_file	PARAMS ((cpp_reader *, struct include_file *));
-static void stack_include_file	PARAMS ((cpp_reader *, struct include_file *));
+static bool stack_include_file	PARAMS ((cpp_reader *, struct include_file *));
 static void purge_cache 	PARAMS ((struct include_file *));
 static void destroy_node	PARAMS ((splay_tree_value));
 static int report_missing_guard		PARAMS ((splay_tree_node, void *));
@@ -203,7 +232,6 @@ _cpp_fake_include (pfile, fname)
 
    Returns an include_file structure with an open file descriptor on
    success, or NULL on failure.  */
-
 static struct include_file *
 open_file (pfile, filename)
      cpp_reader *pfile;
@@ -248,96 +276,83 @@ open_file (pfile, filename)
 
   if (file->fd != -1 && fstat (file->fd, &file->st) == 0)
     {
+      if (!S_ISDIR (file->st.st_mode))
+	return file;
+
       /* If it's a directory, we return null and continue the search
 	 as the file we're looking for may appear elsewhere in the
 	 search path.  */
-      if (S_ISDIR (file->st.st_mode))
-	errno = ENOENT;
-      else
-	{
-	  /* Mark a regular, zero-length file never-reread now.  */
-	  if (S_ISREG (file->st.st_mode) && file->st.st_size == 0)
-	    {
-	      _cpp_never_reread (file);
-	      close (file->fd);
-	      file->fd = -1;
-	    }
-
-	  return file;
-	}
+      errno = ENOENT;
+      close (file->fd);
+      file->fd = -1;
     }
 
-  /* Don't issue an error message if the file doesn't exist.  */
   file->err_no = errno;
-  if (errno != ENOENT && errno != ENOTDIR)
-    cpp_error_from_errno (pfile, file->name);
-
   return 0;
 }
 
-/* Place the file referenced by INC into a new buffer on PFILE's
-   stack.  If there are errors, or the file should not be re-included,
-   a null (zero-length) buffer is pushed.  */
-
-static void
+/* Place the file referenced by INC into a new buffer on the buffer
+   stack, unless there are errors, or the file is not re-included
+   because of e.g. multiple-include guards.  Returns true if a buffer
+   is stacked.  */
+static bool
 stack_include_file (pfile, inc)
      cpp_reader *pfile;
      struct include_file *inc;
 {
-  size_t len = 0;
   cpp_buffer *fp;
-  int sysp, deps_sysp;
+  int sysp;
+  const char *filename;
 
-  /* We'll try removing deps_sysp after the release of 3.0.  */
-  deps_sysp = pfile->system_include_depth != 0;
-  sysp = MAX ((pfile->buffer ? pfile->buffer->sysp : 0),
+  if (DO_NOT_REREAD (inc))
+    return false;
+
+  sysp = MAX ((pfile->map ? pfile->map->sysp : 0),
 	      (inc->foundhere ? inc->foundhere->sysp : 0));
 
   /* For -M, add the file to the dependencies on its first inclusion.  */
-  if (CPP_OPTION (pfile, print_deps) > deps_sysp && !inc->include_count)
+  if (CPP_OPTION (pfile, print_deps) > sysp && !inc->include_count)
     deps_add_dep (pfile->deps, inc->name);
 
   /* Not in cache?  */
-  if (! DO_NOT_REREAD (inc) && ! inc->buffer)
+  if (! inc->buffer)
     {
-      /* If an error occurs, do not try to read this file again.  */
       if (read_include_file (pfile, inc))
+	{
+	  /* If an error occurs, do not try to read this file again.  */
+	  _cpp_never_reread (inc);
+	  return false;
+	}
+      /* Mark a regular, zero-length file never-reread.  We read it,
+	 NUL-terminate it, and stack it once, so preprocessing a main
+	 file of zero length does not raise an error.  */
+      if (S_ISREG (inc->st.st_mode) && inc->st.st_size == 0)
 	_cpp_never_reread (inc);
       close (inc->fd);
       inc->fd = -1;
     }
 
-  if (! DO_NOT_REREAD (inc))
-    {
-      len = inc->st.st_size;
-      if (pfile->buffer)
-	{
-	  /* We don't want MI guard advice for the main file.  */
-	  inc->include_count++;
-
-	  /* Handle -H option.  */
-	  if (CPP_OPTION (pfile, print_include_names))
-	    {
-	      for (fp = pfile->buffer; fp; fp = fp->prev)
-		putc ('.', stderr);
-	      fprintf (stderr, " %s\n", inc->name);
-	    }
-	}
-    }
+  if (pfile->buffer)
+    /* We don't want MI guard advice for the main file.  */
+    inc->include_count++;
 
   /* Push a buffer.  */
-  fp = cpp_push_buffer (pfile, inc->buffer, len, BUF_FILE, inc->name, 0);
+  fp = cpp_push_buffer (pfile, inc->buffer, inc->st.st_size,
+			/* from_stage3 */ CPP_OPTION (pfile, preprocessed), 0);
   fp->inc = inc;
   fp->inc->refcnt++;
-  fp->sysp = sysp;
 
   /* Initialise controlling macro state.  */
   pfile->mi_valid = true;
   pfile->mi_cmacro = 0;
-  pfile->include_depth++;
 
   /* Generate the call back.  */
-  _cpp_do_file_change (pfile, LC_ENTER, 1);
+  filename = inc->name;
+  if (*filename == '\0')
+    filename = "<stdin>";
+  _cpp_do_file_change (pfile, LC_ENTER, filename, 1, sysp);
+
+  return true;
 }
 
 /* Read the file referenced by INC into the file cache.
@@ -354,7 +369,6 @@ stack_include_file (pfile, inc)
    and block devices.
 
    FIXME: Flush file cache and try again if we run out of memory.  */
-
 static int
 read_include_file (pfile, inc)
      cpp_reader *pfile;
@@ -388,7 +402,7 @@ read_include_file (pfile, inc)
       if (pagesize == -1)
 	pagesize = getpagesize ();
 
-      if (size / pagesize >= MMAP_THRESHOLD)
+      if (SHOULD_MMAP (size, pagesize))
 	{
 	  buf = (U_CHAR *) mmap (0, size, PROT_READ, MAP_PRIVATE, inc->fd, 0);
 	  if (buf == (U_CHAR *)-1)
@@ -398,7 +412,7 @@ read_include_file (pfile, inc)
       else
 #endif
 	{
-	  buf = (U_CHAR *) xmalloc (size);
+	  buf = (U_CHAR *) xmalloc (size + 1);
 	  offset = 0;
 	  while (offset < size)
 	    {
@@ -407,11 +421,18 @@ read_include_file (pfile, inc)
 		goto perror_fail;
 	      if (count == 0)
 		{
-		  cpp_warning (pfile, "%s is shorter than expected", inc->name);
+		  if (!STAT_SIZE_TOO_BIG (inc->st))
+		    cpp_warning
+		      (pfile, "%s is shorter than expected", inc->name);
+		  size = offset;
+		  buf = xrealloc (buf, size + 1);
+		  inc->st.st_size = size;
 		  break;
 		}
 	      offset += count;
 	    }
+	  /* The lexer requires that the buffer be NUL-terminated.  */
+	  buf[size] = '\0';
 	}
     }
   else if (S_ISBLK (inc->st.st_mode))
@@ -426,19 +447,25 @@ read_include_file (pfile, inc)
 	 bigger than the majority of C source files.  */
       size = 8 * 1024;
 
-      buf = (U_CHAR *) xmalloc (size);
+      buf = (U_CHAR *) xmalloc (size + 1);
       offset = 0;
       while ((count = read (inc->fd, buf + offset, size - offset)) > 0)
 	{
 	  offset += count;
 	  if (offset == size)
-	    buf = xrealloc (buf, (size *= 2));
+	    {
+	      size *= 2;
+	      buf = xrealloc (buf, size + 1);
+	    }
 	}
       if (count < 0)
 	goto perror_fail;
 
-      if (offset < size)
-	buf = xrealloc (buf, offset);
+      if (offset + 1 < size)
+	buf = xrealloc (buf, offset + 1);
+
+      /* The lexer requires that the buffer be NUL-terminated.  */
+      buf[offset] = '\0';
       inc->st.st_size = offset;
     }
 
@@ -451,6 +478,7 @@ read_include_file (pfile, inc)
   return 1;
 }
 
+/* Drop INC's buffer from memory, if we are unlikely to need it again.  */
 static void
 purge_cache (inc)
      struct include_file *inc;
@@ -508,8 +536,7 @@ cpp_included (pfile, fname)
    un-openable), in which case an error code will be in errno.  If
    there is no include path to use it returns NO_INCLUDE_PATH,
    otherwise an include_file structure.  If this request originates
-   from a #include_next directive, set INCLUDE_NEXT to true.  */
-
+   from a directive of TYPE #include_next, set INCLUDE_NEXT to true.  */
 static struct include_file *
 find_include_file (pfile, header, type)
      cpp_reader *pfile;
@@ -536,7 +563,7 @@ find_include_file (pfile, header, type)
 
   if (path == NULL)
     {
-      cpp_error (pfile, "No include path in which to find %s", fname);
+      cpp_error (pfile, "no include path in which to find %s", fname);
       return NO_INCLUDE_PATH;
     }
 
@@ -544,9 +571,14 @@ find_include_file (pfile, header, type)
   name = (char *) alloca (strlen (fname) + pfile->max_include_len + 2);
   for (; path; path = path->next)
     {
-      memcpy (name, path->name, path->len);
-      name[path->len] = '/';
-      strcpy (&name[path->len + 1], fname);
+      int len = path->len;
+      memcpy (name, path->name, len);
+      /* Don't turn / into // or // into ///; // may be a namespace
+	 escape.  */
+      if (name[len-1] == '/')
+	len--;
+      name[len] = '/';
+      strcpy (&name[len + 1], fname);
       if (CPP_OPTION (pfile, remap))
 	n = remap_filename (pfile, name, path);
       else
@@ -576,9 +608,8 @@ cpp_make_system_header (pfile, syshdr, externc)
   /* 1 = system header, 2 = system header to be treated as C.  */
   if (syshdr)
     flags = 1 + (externc != 0);
-  pfile->buffer->sysp = flags;
-  _cpp_do_file_change (pfile, LC_RENAME,
-		       SOURCE_LINE (pfile->map, pfile->line));
+  _cpp_do_file_change (pfile, LC_RENAME, pfile->map->to_file,
+		       SOURCE_LINE (pfile->map, pfile->line), flags);
 }
 
 /* Report on all files that might benefit from a multiple include guard.
@@ -592,6 +623,7 @@ _cpp_report_missing_guards (pfile)
 		      (PTR) &banner);
 }
 
+/* Callback function for splay_tree_foreach().  */
 static int
 report_missing_guard (n, b)
      splay_tree_node n;
@@ -613,16 +645,16 @@ report_missing_guard (n, b)
   return 0;
 }
 
-/* Create a dependency, or issue an error message as appropriate.   */
+/* Create a dependency for file FNAME, or issue an error message as
+   appropriate.  ANGLE_BRACKETS is non-zero if the file was bracketed
+   like <..>.  */
 static void
 handle_missing_header (pfile, fname, angle_brackets)
      cpp_reader *pfile;
      const char *fname;
      int angle_brackets;
 {
-  /* We will try making the RHS pfile->buffer->sysp after 3.0.  */
-  int print_dep = CPP_PRINT_DEPS(pfile) > (angle_brackets
-					   || pfile->system_include_depth);
+  int print_dep = CPP_PRINT_DEPS(pfile) > (angle_brackets || pfile->map->sysp);
 
   if (CPP_OPTION (pfile, print_deps_missing_files) && print_dep)
     {
@@ -653,7 +685,7 @@ handle_missing_header (pfile, fname, angle_brackets)
      we can still produce correct output.  Otherwise, we can't produce
      correct output, because there may be dependencies we need inside
      the missing file, and we don't know what directory this missing
-     file exists in.  FIXME: Use a future cpp_diagnotic_with_errno ()
+     file exists in.  FIXME: Use a future cpp_diagnostic_with_errno ()
      for both of these cases.  */
   else if (CPP_PRINT_DEPS (pfile) && ! print_dep)
     cpp_warning (pfile, "%s: %s", fname, xstrerror (errno));
@@ -661,13 +693,16 @@ handle_missing_header (pfile, fname, angle_brackets)
     cpp_error_from_errno (pfile, fname);
 }
 
-/* Returns non-zero if a buffer was stacked.  */
-int
+/* Handles #include-family directives (distinguished by TYPE),
+   including HEADER, and the command line -imacros and -include.
+   Returns true if a buffer was stacked.  */
+bool
 _cpp_execute_include (pfile, header, type)
      cpp_reader *pfile;
      const cpp_token *header;
      enum include_type type;
 {
+  bool stacked = false;
   struct include_file *inc = find_include_file (pfile, header, type);
 
   if (inc == 0)
@@ -675,19 +710,13 @@ _cpp_execute_include (pfile, header, type)
 			   header->type == CPP_HEADER_NAME);
   else if (inc != NO_INCLUDE_PATH)
     {
-      if (header->type == CPP_HEADER_NAME)
-	pfile->system_include_depth++;
-
-      pfile->buffer->return_to_line = SOURCE_LINE (pfile->map, pfile->line);
-      stack_include_file (pfile, inc);
+      stacked = stack_include_file (pfile, inc);
 
       if (type == IT_IMPORT)
 	_cpp_never_reread (inc);
-
-      return 1;
     }
 
-  return 0;
+  return stacked;
 }
 
 /* Locate HEADER, and determine whether it is newer than the current
@@ -713,9 +742,10 @@ _cpp_compare_file_date (pfile, header)
 }
 
 
-/* Push an input buffer and load it up with the contents of FNAME.
-   If FNAME is "", read standard input.  */
-int
+/* Push an input buffer and load it up with the contents of FNAME.  If
+   FNAME is "", read standard input.  Return true if a buffer was
+   stacked.  */
+bool
 _cpp_read_file (pfile, fname)
      cpp_reader *pfile;
      const char *fname;
@@ -725,26 +755,20 @@ _cpp_read_file (pfile, fname)
   if (f == NULL)
     {
       cpp_error_from_errno (pfile, fname);
-      return 0;
+      return false;
     }
 
-  stack_include_file (pfile, f);
-  return 1;
+  return stack_include_file (pfile, f);
 }
 
-/* Do appropriate cleanup when a file buffer is popped off the input
-   stack.  */
-void
-_cpp_pop_file_buffer (pfile, buf)
+/* Do appropriate cleanup when a file INC's buffer is popped off the
+   input stack.  Push the next -include file, if any remain.  */
+bool
+_cpp_pop_file_buffer (pfile, inc)
      cpp_reader *pfile;
-     cpp_buffer *buf;
+     struct include_file *inc;
 {
-  struct include_file *inc = buf->inc;
-
-  if (pfile->system_include_depth)
-    pfile->system_include_depth--;
-  if (pfile->include_depth)
-    pfile->include_depth--;
+  bool pushed = false;
 
   /* Record the inclusion-preventing macro, which could be NULL
      meaning no controlling macro.  */
@@ -757,6 +781,18 @@ _cpp_pop_file_buffer (pfile, buf)
   inc->refcnt--;
   if (inc->refcnt == 0 && DO_NOT_REREAD (inc))
     purge_cache (inc);
+
+  /* Don't generate a callback for popping the main file.  */
+  if (pfile->buffer)
+    {
+      _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
+
+      /* Finally, push the next -included file, if any.  */
+      if (!pfile->buffer->prev)
+	pushed = _cpp_push_next_buffer (pfile);
+    }
+
+  return pushed;
 }
 
 /* Returns the first place in the include chain to start searching for
@@ -790,8 +826,7 @@ search_from (pfile, type)
       if (dlen)
 	{
 	  /* We don't guarantee NAME is null-terminated.  This saves
-	     allocating and freeing memory, and duplicating it when faking
-	     buffers in cpp_push_buffer.  Drop a trailing '/'.  */
+	     allocating and freeing memory.  Drop a trailing '/'.  */
 	  buffer->dir.name = buffer->inc->name;
 	  if (dlen > 1)
 	    dlen--;
@@ -808,7 +843,7 @@ search_from (pfile, type)
 
       buffer->dir.len = dlen;
       buffer->dir.next = CPP_OPTION (pfile, quote_include);
-      buffer->dir.sysp = buffer->sysp;
+      buffer->dir.sysp = pfile->map->sysp;
     }
 
   return &buffer->dir;
@@ -821,7 +856,6 @@ search_from (pfile, type)
    such as DOS.  The format of the file name map file is just a series
    of lines with two tokens on each line.  The first token is the name
    to map, and the second token is the actual name to use.  */
-
 struct file_name_map
 {
   struct file_name_map *map_next;
@@ -832,8 +866,7 @@ struct file_name_map
 #define FILE_NAME_MAP_FILE "header.gcc"
 
 /* Read a space delimited string of unlimited length from a stdio
-   file.  */
-
+   file F.  */
 static char *
 read_filename_string (ch, f)
      int ch;
@@ -864,7 +897,6 @@ read_filename_string (ch, f)
 }
 
 /* This structure holds a linked list of file name maps, one per directory.  */
-
 struct file_name_map_list
 {
   struct file_name_map_list *map_list_next;
@@ -873,13 +905,12 @@ struct file_name_map_list
 };
 
 /* Read the file name map file for DIRNAME.  */
-
 static struct file_name_map *
 read_name_map (pfile, dirname)
      cpp_reader *pfile;
      const char *dirname;
 {
-  register struct file_name_map_list *map_list_ptr;
+  struct file_name_map_list *map_list_ptr;
   char *name;
   FILE *f;
 
@@ -1049,7 +1080,6 @@ remove_component_p (path)
    Guarantees no trailing slashes.  All transforms reduce the length
    of the string.  Returns PATH.  errno is 0 if no error occurred;
    nonzero if an error occurred when using stat () or lstat ().  */
-
 char *
 _cpp_simplify_pathname (path)
     char *path;

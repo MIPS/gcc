@@ -19,6 +19,9 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#undef  TARGET_VERSION
+#define TARGET_VERSION fprintf (stderr, " (Darwin/PowerPC)");
+
 /* The "Darwin ABI" is mostly like AIX, but with some key differences.  */
 
 #define DEFAULT_ABI ABI_DARWIN
@@ -32,29 +35,33 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_TOC 0
 #define TARGET_NO_TOC 1
 
-#define CPP_PREDEFINES "-D__ppc__ -D__NATURAL_ALIGNMENT__ -D__MACH__ -D__BIG_ENDIAN__ -D__APPLE__"
+/* Handle #pragma weak and #pragma pack.  */
+#define HANDLE_SYSV_PRAGMA
+
+/* The Darwin ABI always includes AltiVec, can't be (validly) turned
+   off.  */
+
+#define SUBTARGET_OVERRIDE_OPTIONS  \
+  rs6000_altivec_abi = 1;
+
+#define CPP_PREDEFINES "-D__ppc__ -D__POWERPC__ -D__NATURAL_ALIGNMENT__ -D__MACH__ -D__BIG_ENDIAN__ -D__APPLE__"
 
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
 #define CC1_SPEC "%{!static:-fPIC}"
 
+/* Make both r2 and r3 available for allocation.  */
+#define FIXED_R2 0
 #define FIXED_R13 0
-
-#undef  TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_POWERPC | MASK_MULTIPLE | MASK_NEW_MNEMONICS \
-  | MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC)
 
 /* Base register for access to local variables of the function.  */
 
 #undef  FRAME_POINTER_REGNUM
 #define FRAME_POINTER_REGNUM 30
 
-#undef  PIC_OFFSET_TABLE_REGNUM
-#define PIC_OFFSET_TABLE_REGNUM 31
-
-#undef STACK_BOUNDARY
-#define STACK_BOUNDARY 128
+#undef  RS6000_PIC_OFFSET_TABLE_REGNUM
+#define RS6000_PIC_OFFSET_TABLE_REGNUM 31
 
 /* Pad the outgoing args area to 16 bytes instead of the usual 8.  */
 
@@ -130,6 +137,11 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.space %d\n", SIZE)
 
+/* Override the standard rs6000 definition.  */
+
+#undef ASM_COMMENT_START
+#define ASM_COMMENT_START ";"
+
 /* FP save and restore routines.  */
 #define	SAVE_FP_PREFIX "._savef"
 #define SAVE_FP_SUFFIX ""
@@ -144,9 +156,28 @@ Boston, MA 02111-1307, USA.  */
 
 #define RS6000_MCOUNT "*mcount"
 
+/* Default processor: a G4.  */
+
+#undef PROCESSOR_DEFAULT
+#define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
+
+/* Default target flag settings.  Despite the fact that STMW/LMW
+   serializes, it's still a big codesize win to use them.  Use FSEL by
+   default as well.  */
+
+#undef  TARGET_DEFAULT
+#define TARGET_DEFAULT (MASK_POWERPC | MASK_MULTIPLE | MASK_NEW_MNEMONICS \
+                      | MASK_PPC_GFXOPT)
+
 /* Since Darwin doesn't do TOCs, stub this out.  */
 
 #define ASM_OUTPUT_SPECIAL_POOL_ENTRY_P(X, MODE)  0
+
+/* Unlike most other PowerPC targets, chars are signed, for
+   consistency with other Darwin architectures.  */
+
+#undef DEFAULT_SIGNED_CHAR
+#define DEFAULT_SIGNED_CHAR (1)
 
 /* Given an rtx X being reloaded into a reg required to be      
    in class CLASS, return the class of reg to actually use.     
@@ -189,8 +220,16 @@ Boston, MA 02111-1307, USA.  */
     || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
    && TYPE_FIELDS (STRUCT) != 0				\
    && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), BIGGEST_ALIGNMENT) \
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
+   : (TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE) \
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)           \
    : MAX ((COMPUTED), (SPECIFIED)))
+
 /* XXX: Darwin supports neither .quad, or .llong, but it also doesn't
-   support 64 bit powerpc either, so this just keeps things happy. */
+   support 64 bit powerpc either, so this just keeps things happy.  */
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
+
+/* Get HOST_WIDE_INT and CONST_INT to be 32 bits, for compile time
+   space/speed.  */
+#undef MAX_LONG_TYPE_SIZE
+#define MAX_LONG_TYPE_SIZE 32

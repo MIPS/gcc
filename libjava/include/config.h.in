@@ -13,6 +13,16 @@
 /* Define if you have <alloca.h> and it should be used (not on Ultrix).  */
 #undef HAVE_ALLOCA_H
 
+/* Define if you have <sys/wait.h> that is POSIX.1 compatible.  */
+#undef HAVE_SYS_WAIT_H
+
+/* Define if your struct tm has tm_zone.  */
+#undef HAVE_TM_ZONE
+
+/* Define if you don't have tm_zone but do have the external array
+   tzname.  */
+#undef HAVE_TZNAME
+
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
    automatically deduced at run-time.
@@ -25,6 +35,9 @@
 /* Define if you have the ANSI C header files.  */
 #undef STDC_HEADERS
 
+/* Define if your <sys/time.h> declares struct tm.  */
+#undef TM_IN_SYS_TIME
+
 /* Define if the X Window System is missing or not being used.  */
 #undef X_DISPLAY_MISSING
 
@@ -33,9 +46,6 @@
 
 /* Define if using POSIX threads that have the mutexattr functions.  */
 #undef HAVE_PTHREAD_MUTEXATTR_INIT
-
-/* Define this if you prefer size over speed for java.lang.Character.  */
-#undef COMPACT_CHARACTER
 
 /* Define if you have memcpy.  */
 #undef HAVE_MEMCPY
@@ -83,6 +93,9 @@
 /* Define if struct ip_mreq is defined in netinet/in.h.  */
 #undef HAVE_STRUCT_IP_MREQ
 
+/* Define if struct ipv6_mreq is defined in netinet/in.h.  */
+#undef HAVE_STRUCT_IPV6_MREQ
+
 /* Define it socklen_t typedef is in sys/socket.h.  */
 #undef HAVE_SOCKLEN_T
 
@@ -104,8 +117,9 @@
 /* Define if global `timezone' exists.  */
 #undef HAVE_TIMEZONE
 
-/* Define to version of GCJ in use.  */
-#undef GCJVERSION
+/* Define if if the synchronization code should try to avoid pthread_self 
+   calls by caching thread IDs in a hashtable.  */
+#undef SLOW_PTHREAD_SELF
 
 /* Define if you have the appropriate function.  */
 #undef HAVE_ACCESS
@@ -138,6 +152,9 @@
    getenv("GCJ_PROPERTIES").  */
 #undef DISABLE_GETENV_PROPERTIES
 
+/* Define if we should ignore arguments to main().  */
+#undef DISABLE_MAIN_ARGS
+
 /* Define if you have /proc/self/exe */
 #undef HAVE_PROC_SELF_EXE
 
@@ -145,7 +162,6 @@
 /* Define if you have dladdr() */
 #undef HAVE_DLADDR
 
- 
 /* Define if getuid() and friends are missing.  */
 #undef NO_GETUID
 
@@ -157,9 +173,6 @@
 
 /* Define if you are using JVMPI.  */
 #undef ENABLE_JVMPI
-
-/* The number of bytes in a void *.  */
-#undef SIZEOF_VOID_P
 
 /* Define if you have the access function.  */
 #undef HAVE_ACCESS
@@ -206,9 +219,6 @@
 /* Define if you have the gmtime_r function.  */
 #undef HAVE_GMTIME_R
 
-/* Define if you have the iconv function.  */
-#undef HAVE_ICONV
-
 /* Define if you have the inet_addr function.  */
 #undef HAVE_INET_ADDR
 
@@ -241,6 +251,9 @@
 
 /* Define if you have the open function.  */
 #undef HAVE_OPEN
+
+/* Define if you have the opendir function.  */
+#undef HAVE_OPENDIR
 
 /* Define if you have the pipe function.  */
 #undef HAVE_PIPE
@@ -377,9 +390,36 @@
 /* Required define if using POSIX threads */
 #undef _POSIX_PTHREAD_SEMANTICS
 
+/* Define if hash synchronization is in use */
+#undef JV_HASH_SYNCHRONIZATION
+
+/* Define if you have the iconv() function. */
+#undef HAVE_ICONV
+
+/* Define as const if the declaration of iconv() needs const. */
+#undef ICONV_CONST
+
+/* Define if your <locale.h> file defines LC_MESSAGES. */
+#undef HAVE_LC_MESSAGES
+
 /* Required define if using POSIX threads */
 #undef _REENTRANT
 
 /* Define if struct hostent_data is defined in netdb.h */
 #undef HAVE_STRUCT_HOSTENT_DATA
+
+/* Define if dlopen is available */
+#undef HAVE_DLOPEN
+
+/* The number of bytes in type void * */
+#undef SIZEOF_VOID_P
+
+/* Short GCJ version ID */
+#undef GCJVERSION
+
+/* Define if <inttypes.h> is available */
+#undef HAVE_INTTYPES_H
+
+/* Define if <inttypes.h> is available */
+#undef JV_HAVE_INTTYPES_H
 

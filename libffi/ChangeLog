@@ -1,3 +1,117 @@
+2002-04-08  Hans Boehm  <Hans_Boehm@hp.com>
+
+	* src/java_raw_api.c (ffi_java_raw_size): Handle FFI_TYPE_DOUBLE
+	correctly.
+	* src/ia64/unix.S: Add unwind information. Fix comments.
+	Save sp in a way that's compatible with unwind info.
+	(ffi_call_unix): Correctly restore sp in all cases.
+	* src/ia64/ffi.c: Add, fix comments.
+
+2002-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/sparc/v8.S: Make .eh_frame dependent on target word size.
+
+2002-04-06  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* configure.in (alpha*-*-netbsd*): Add target.
+	* configure: Regenerate.
+
+2002-04-04  Jeff Sturm  <jsturm@one-point.com>
+
+	* src/sparc/v8.S: Add unwind info.
+	* src/sparc/v9.S: Likewise.
+
+2002-03-30  Krister Walfridsson  <cato@df.lth.se>
+
+	* configure.in: Enable i*86-*-netbsdelf*.
+	* configure: Rebuilt.
+	
+2002-03-29  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR other/2620
+	* src/mips/n32.s: Delete
+	* src/mips/o32.s: Delete
+
+2002-03-21  Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.in: Enable alpha*-*-freebsd*.
+	* configure: Rebuilt.
+
+2002-03-17  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: libfficonvenience -> libffi_convenience.
+	* Makefile.in: Rebuilt.
+	
+	* Makefile.am: Define ffitest_OBJECTS.
+	* Makefile.in: Rebuilt.
+
+2002-03-07  Andreas Tobler  <toa@pop.agri.ch>
+	    David Edelsohn  <edelsohn@gnu.org>
+
+	* Makefile.am (EXTRA_DIST): Add Darwin and AIX closure files.
+	(TARGET_SRC_POWERPC_AIX): Add aix_closure.S.
+	(TARGET_SRC_POWERPC_DARWIN): Add darwin_closure.S.
+	* Makefile.in: Regenerate.
+	* include/ffi.h.in: Add AIX and Darwin closure definitions.
+	* src/powerpc/ffi_darwin.c (ffi_prep_closure): New function.
+	(flush_icache, flush_range): New functions.
+	(ffi_closure_helper_DARWIN): New function.
+	* src/powerpc/aix_closure.S: New file.
+	* src/powerpc/darwin_closure.S: New file.
+	
+2002-02-24  Jeff Sturm  <jsturm@one-point.com>
+
+	* include/ffi.h.in: Add typedef for ffi_arg.
+	* src/ffitest.c (main): Declare rint with ffi_arg.
+ 
+2002-02-21  Andreas Tobler  <toa@pop.agri.ch>
+
+	* src/powerpc/ffi_darwin.c (ffi_prep_args): Skip appropriate
+	number of GPRs for floating-point arguments.
+
+2002-01-31  Anthony Green  <green@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.in: Replace CHECK_SIZEOF and endian tests with
+	cross-compiler friendly macros.
+	* aclocal.m4 (AC_COMPILE_CHECK_SIZEOF, AC_C_BIGENDIAN_CROSS): New
+	macros.
+
+2002-01-18  David Edelsohn  <edelsohn@gnu.org>
+
+	* src/powerpc/darwin.S (_ffi_call_AIX): New.
+	* src/powerpc/aix.S (ffi_call_DARWIN): New.
+
+2002-01-17  David Edelsohn  <edelsohn@gnu.org>
+
+	* Makefile.am (EXTRA_DIST): Add Darwin and AIX files.
+	(TARGET_SRC_POWERPC_AIX): New.
+	(POWERPC_AIX): New stanza.
+	* Makefile.in: Regenerate.
+	* configure.in: Add AIX case.
+	* configure: Regenerate.
+	* include/ffi.h.in (ffi_abi): Add FFI_AIX.
+	* src/powerpc/ffi_darwin.c (ffi_status): Use "long" to scale frame
+	size.  Fix "long double" support.
+	(ffi_call): Add FFI_AIX case.
+	* src/powerpc/aix.S: New.
+
+2001-10-09  John Hornkvist  <john@toastedmarshmallow.com>
+
+	Implement Darwin PowerPC ABI.
+	* configure.in: Handle powerpc-*-darwin*.
+	* Makefile.am: Set source files for POWERPC_DARWIN.
+	* configure: Rebuilt.
+	* Makefile.in: Rebuilt.
+	* include/ffi.h.in: Define FFI_DARWIN and FFI_DEFAULT_ABI for
+	POWERPC_DARWIN.
+	* src/powerpc/darwin.S: New file.
+	* src/powerpc/ffi_darwin.c: New file.
+
+2001-10-07  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* src/x86/ffi.c: Fix spelling error of "separate" as "seperate".
+
 2001-07-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* src/x86/sysv.S: Avoid gas-only .balign directive.

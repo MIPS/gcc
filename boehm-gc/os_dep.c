@@ -63,11 +63,11 @@
 /* Blatantly OS dependent routines, except for those that are related 	*/
 /* to dynamic loading.							*/
 
-# if !defined(THREADS) && !defined(STACKBOTTOM) && defined(HEURISTIC2)
+# if defined(HEURISTIC2) || defined(SEARCH_FOR_DATA_START)
 #   define NEED_FIND_LIMIT
 # endif
 
-# if defined(IRIX_THREADS) || defined(HPUX_THREADS)
+# if !defined(STACKBOTTOM) && defined(HEURISTIC2)
 #   define NEED_FIND_LIMIT
 # endif
 
@@ -75,13 +75,8 @@
 #   define NEED_FIND_LIMIT
 # endif
 
-# if (defined(SVR4) || defined(AUX) || defined(DGUX)) && !defined(PCR)
-#   define NEED_FIND_LIMIT
-# endif
-
-# if defined(LINUX) && \
-     (defined(POWERPC) || defined(SPARC) || defined(ALPHA) || defined(IA64) \
-      || defined(MIPS))
+# if (defined(SVR4) || defined(AUX) || defined(DGUX) \
+      || (defined(LINUX) && defined(SPARC))) && !defined(PCR)
 #   define NEED_FIND_LIMIT
 # endif
 
@@ -89,7 +84,7 @@
 #   include <setjmp.h>
 #endif
 
-#ifdef FREEBSD
+#if defined(FREEBSD) && defined(I386)
 #  include <machine/trap.h>
 #endif
 
@@ -123,8 +118,10 @@
 # include <fcntl.h>
 #endif
 
-#ifdef SUNOS5SIGS
-# include <sys/siginfo.h>
+#if defined(SUNOS5SIGS) || defined (HURD) || defined(LINUX)
+# ifdef SUNOS5SIGS
+#  include <sys/siginfo.h>
+# endif
 # undef setjmp
 # undef longjmp
 # define setjmp(env) sigsetjmp(env, 1)
@@ -158,11 +155,11 @@
 
 # ifdef LINUX
 #   pragma weak __data_start
-    extern int __data_start;
+    extern int __data_start[];
 #   pragma weak data_start
-    extern int data_start;
+    extern int data_start[];
 # endif /* LINUX */
-  extern int _end;
+  extern int _end[];
 
   ptr_t GC_data_start;
 
@@ -172,16 +169,16 @@
 
 #   ifdef LINUX
       /* Try the easy approaches first:	*/
-      if (&__data_start != 0) {
-	  GC_data_start = (ptr_t)(&__data_start);
+      if (__data_start != 0) {
+	  GC_data_start = (ptr_t)__data_start;
 	  return;
       }
-      if (&data_start != 0) {
-	  GC_data_start = (ptr_t)(&data_start);
+      if (data_start != 0) {
+	  GC_data_start = (ptr_t)data_start;
 	  return;
       }
 #   endif /* LINUX */
-    GC_data_start = GC_find_limit((ptr_t)(&_end), FALSE);
+    GC_data_start = GC_find_limit((ptr_t)_end, FALSE);
   }
 #endif
 
@@ -218,7 +215,7 @@ static void *tiny_sbrk(ptrdiff_t increment)
 #define sbrk tiny_sbrk
 # endif /* ECOS */
 
-#if defined(NETBSD) && defined(__ELF__)
+#if (defined(NETBSD) || defined(OPENBSD)) && defined(__ELF__)
   ptr_t GC_data_start;
 
   void GC_init_netbsd_elf()
@@ -336,9 +333,10 @@ void GC_enable_signals(void)
 
 #  if !defined(PCR) && !defined(AMIGA) && !defined(MSWIN32) \
       && !defined(MSWINCE) \
-      && !defined(MACOS) && !defined(DJGPP) && !defined(DOS4GW)
+      && !defined(MACOS) && !defined(DJGPP) && !defined(DOS4GW) \
+      && !defined(NOSYS) && !defined(ECOS)
 
-#   if defined(sigmask) && !defined(UTS4)
+#   if defined(sigmask) && !defined(UTS4) && !defined(HURD)
 	/* Use the traditional BSD interface */
 #	define SIGSET_T int
 #	define SIG_DEL(set, signal) (set) &= ~(sigmask(signal))
@@ -527,9 +525,9 @@ ptr_t GC_get_stack_base()
 	typedef void (*handler)();
 #   endif
 
-#   if defined(SUNOS5SIGS) || defined(IRIX5) || defined(OSF1)
+#   if defined(SUNOS5SIGS) || defined(IRIX5) || defined(OSF1) || defined(HURD)
 	static struct sigaction old_segv_act;
-#	if defined(_sigargs) || defined(HPUX) /* !Irix6.x */
+#	if defined(_sigargs) /* !Irix6.x */ || defined(HPUX) || defined(HURD)
 	    static struct sigaction old_bus_act;
 #	endif
 #   else
@@ -543,12 +541,16 @@ ptr_t GC_get_stack_base()
       handler h;
 #   endif
     {
-# ifndef ECOS
-#	if defined(SUNOS5SIGS) || defined(IRIX5) || defined(OSF1)
+#     if defined(SUNOS5SIGS) || defined(IRIX5)  \
+        || defined(OSF1) || defined(HURD)
 	  struct sigaction	act;
 
 	  act.sa_handler	= h;
-          act.sa_flags          = SA_RESTART | SA_NODEFER;
+#	  ifdef SUNOS5SIGS
+            act.sa_flags          = SA_RESTART | SA_NODEFER;
+#         else
+            act.sa_flags          = SA_RESTART;
+#	  endif
           /* The presence of SA_NODEFER represents yet another gross    */
           /* hack.  Under Solaris 2.3, siglongjmp doesn't appear to     */
           /* interact correctly with -lthread.  We hide the confusion   */
@@ -556,7 +558,7 @@ ptr_t GC_get_stack_base()
           /* signal mask.                                               */
 
 	  (void) sigemptyset(&act.sa_mask);
-#	  ifdef IRIX_THREADS
+#	  ifdef GC_IRIX_THREADS
 		/* Older versions have a bug related to retrieving and	*/
 		/* and setting a handler at the same time.		*/
 	        (void) sigaction(SIGSEGV, 0, &old_segv_act);
@@ -564,20 +566,19 @@ ptr_t GC_get_stack_base()
 #	  else
 	        (void) sigaction(SIGSEGV, &act, &old_segv_act);
 #		if defined(IRIX5) && defined(_sigargs) /* Irix 5.x, not 6.x */ \
-		   || defined(HPUX)
+		   || defined(HPUX) || defined(HURD)
 		    /* Under Irix 5.x or HP/UX, we may get SIGBUS.	*/
 		    /* Pthreads doesn't exist under Irix 5.x, so we	*/
 		    /* don't have to worry in the threads case.		*/
 		    (void) sigaction(SIGBUS, &act, &old_bus_act);
 #		endif
-#	  endif	/* IRIX_THREADS */
+#	  endif	/* GC_IRIX_THREADS */
 #	else
     	  old_segv_handler = signal(SIGSEGV, h);
 #	  ifdef SIGBUS
 	    old_bus_handler = signal(SIGBUS, h);
 #	  endif
 #	endif
-# endif /* ECOS */
     }
 # endif /* NEED_FIND_LIMIT || UNIX_LIKE */
 
@@ -600,20 +601,19 @@ ptr_t GC_get_stack_base()
     
     void GC_reset_fault_handler()
     {
-# ifndef ECOS
-#       if defined(SUNOS5SIGS) || defined(IRIX5) || defined(OSF1)
-	  (void) sigaction(SIGSEGV, &old_segv_act, 0);
-#	  if defined(IRIX5) && defined(_sigargs) /* Irix 5.x, not 6.x */ \
-	     || defined(HPUX)
-	      (void) sigaction(SIGBUS, &old_bus_act, 0);
-#	  endif
-#       else
-  	  (void) signal(SIGSEGV, old_segv_handler);
-#	  ifdef SIGBUS
-	    (void) signal(SIGBUS, old_bus_handler);
-#	  endif
-#       endif
-# endif /* ECOS */
+#     if defined(SUNOS5SIGS) || defined(IRIX5) \
+	 || defined(OSF1) || defined(HURD)
+	(void) sigaction(SIGSEGV, &old_segv_act, 0);
+#	if defined(IRIX5) && defined(_sigargs) /* Irix 5.x, not 6.x */ \
+	   || defined(HPUX) || defined(HURD)
+	    (void) sigaction(SIGBUS, &old_bus_act, 0);
+#	endif
+#      else
+	(void) signal(SIGSEGV, old_segv_handler);
+#	ifdef SIGBUS
+	  (void) signal(SIGBUS, old_bus_handler);
+#	endif
+#     endif
     }
 
     /* Return the first nonaddressible location > p (up) or 	*/
@@ -622,39 +622,41 @@ ptr_t GC_get_stack_base()
     ptr_t p;
     GC_bool up;
     {
-# ifndef ECOS
-        static VOLATILE ptr_t result;
-    		/* Needs to be static, since otherwise it may not be	*/
-    		/* preserved across the longjmp.  Can safely be 	*/
-    		/* static since it's only called once, with the		*/
-    		/* allocation lock held.				*/
+      static VOLATILE ptr_t result;
+  		/* Needs to be static, since otherwise it may not be	*/
+  		/* preserved across the longjmp.  Can safely be 	*/
+  		/* static since it's only called once, with the		*/
+  		/* allocation lock held.				*/
 
 
-	GC_setup_temporary_fault_handler();
-	if (setjmp(GC_jmp_buf) == 0) {
-	    result = (ptr_t)(((word)(p))
-			      & ~(MIN_PAGE_SIZE-1));
-	    for (;;) {
- 	        if (up) {
-		    result += MIN_PAGE_SIZE;
- 	        } else {
-		    result -= MIN_PAGE_SIZE;
- 	        }
-		GC_noop1((word)(*result));
-	    }
-	}
-	GC_reset_fault_handler();
- 	if (!up) {
+      GC_setup_temporary_fault_handler();
+      if (setjmp(GC_jmp_buf) == 0) {
+	result = (ptr_t)(((word)(p))
+			 & ~(MIN_PAGE_SIZE-1));
+	for (;;) {
+	  if (up) {
 	    result += MIN_PAGE_SIZE;
- 	}
-	return(result);
-# else /* ECOS */
-	abort();
-# endif /* ECOS */
+	  } else {
+	    result -= MIN_PAGE_SIZE;
+	  }
+	  GC_noop1((word)(*result));
+	}
+      }
+      GC_reset_fault_handler();
+      if (!up) {
+	result += MIN_PAGE_SIZE;
+      }
+      return(result);
     }
 # endif
 
-# ifndef ECOS
+# if defined(ECOS) || defined(NOSYS)
+ptr_t GC_get_stack_base()
+{
+  return STACKBOTTOM;
+}
+
+#else
 
 #ifdef LINUX_STACKBOTTOM
 
@@ -673,7 +675,12 @@ ptr_t GC_get_stack_base()
 
     ptr_t GC_get_register_stack_base(void)
     {
-      if (0 != &__libc_ia64_register_backing_store_base) {
+      if (0 != &__libc_ia64_register_backing_store_base
+	  && 0 != __libc_ia64_register_backing_store_base) {
+	/* Glibc 2.2.4 has a bug such that for dynamically linked	*/
+	/* executables __libc_ia64_register_backing_store_base is 	*/
+	/* defined but ininitialized during constructor calls.  	*/
+	/* Hence we check for both nonzero address and value.		*/
 	return __libc_ia64_register_backing_store_base;
       } else {
 	word result = (word)GC_stackbottom - BACKING_STORE_DISPLACEMENT;
@@ -740,14 +747,14 @@ ptr_t GC_get_stack_base()
 
   ptr_t GC_freebsd_stack_base(void)
   {
-    int nm[2] = { CTL_KERN, KERN_USRSTACK}, base, len, r;
-    
-    len = sizeof(int);
-    r = sysctl(nm, 2, &base, &len, NULL, 0);
+    int nm[2] = {CTL_KERN, KERN_USRSTACK};
+    ptr_t base;
+    size_t len = sizeof(ptr_t);
+    int r = sysctl(nm, 2, &base, &len, NULL, 0);
     
     if (r) ABORT("Error getting stack base");
 
-    return (ptr_t)base;
+    return base;
   }
 
 #endif /* FREEBSD_STACKBOTTOM */
@@ -807,7 +814,7 @@ ptr_t GC_get_stack_base()
     	return(result);
 #   endif /* STACKBOTTOM */
 }
-# endif /* ECOS */
+# endif /* NOSYS ECOS */
 
 # endif /* ! AMIGA, !OS 2, ! MS Windows, !BEOS */
 
@@ -921,19 +928,17 @@ void GC_register_data_segments()
   /* all real work is done by GC_register_dynamic_libraries.  Under	*/
   /* win32s, we cannot find the data segments associated with dll's.	*/
   /* We rgister the main data segment here.				*/
-  GC_bool GC_win32s = FALSE;	/* We're running under win32s.	*/
-  
-  GC_bool GC_is_win32s()
-  {
-      DWORD v = GetVersion();
-      
-      /* Check that this is not NT, and Windows major version <= 3	*/
-      return ((v & 0x80000000) && (v & 0xff) <= 3);
-  }
+#  ifdef __GCC__
+  GC_bool GC_no_win32_dlls = TRUE;	 /* GCC can't do SEH, so we can't use VirtualQuery */
+#  else
+  GC_bool GC_no_win32_dlls = FALSE;	 
+#  endif
   
   void GC_init_win32()
   {
-      GC_win32s = GC_is_win32s();
+    /* if we're running under win32s, assume that no DLLs will be loaded */
+    DWORD v = GetVersion();
+    GC_no_win32_dlls |= ((v & 0x80000000) && (v & 0xff) <= 3);
   }
 
   /* Return the smallest address a such that VirtualQuery		*/
@@ -1001,7 +1006,7 @@ void GC_register_data_segments()
       char * base;
       char * limit, * new_limit;
     
-      if (!GC_win32s) return;
+      if (!GC_no_win32_dlls) return;
       p = base = limit = GC_least_described_address(static_root);
       while (p < GC_sysinfo.lpMaximumApplicationAddress) {
         result = VirtualQuery(p, &buf, sizeof(buf));
@@ -1083,7 +1088,7 @@ void GC_register_data_segments()
 {
 #   if !defined(PCR) && !defined(SRC_M3) && !defined(NEXT) && !defined(MACOS) \
        && !defined(MACOSX)
-#     if defined(REDIRECT_MALLOC) && defined(SOLARIS_THREADS)
+#     if defined(REDIRECT_MALLOC) && defined(GC_SOLARIS_THREADS)
 	/* As of Solaris 2.3, the Solaris threads implementation	*/
 	/* allocates the data structure for the initial thread with	*/
 	/* sbrk at process startup.  It needs to be scanned, so that	*/
@@ -1094,6 +1099,9 @@ void GC_register_data_segments()
 	GC_add_roots_inner(DATASTART, (char *)sbrk(0), FALSE);
 #     else
 	GC_add_roots_inner(DATASTART, (char *)(DATAEND), FALSE);
+#       if defined(DATASTART2)
+         GC_add_roots_inner(DATASTART2, (char *)(DATAEND2), FALSE);
+#       endif
 #     endif
 #   endif
 #   if !defined(PCR) && (defined(NEXT) || defined(MACOSX))
@@ -1292,8 +1300,14 @@ void * os2_alloc(size_t bytes)
 SYSTEM_INFO GC_sysinfo;
 # endif
 
-
 # ifdef MSWIN32
+
+# ifdef USE_GLOBAL_ALLOC
+#   define GLOBAL_ALLOC_TEST 1
+# else
+#   define GLOBAL_ALLOC_TEST GC_no_win32_dlls
+# endif
+
 word GC_n_heap_bases = 0;
 
 ptr_t GC_win32_get_mem(bytes)
@@ -1301,7 +1315,7 @@ word bytes;
 {
     ptr_t result;
 
-    if (GC_win32s) {
+    if (GLOBAL_ALLOC_TEST) {
     	/* VirtualAlloc doesn't like PAGE_EXECUTE_READWRITE.	*/
     	/* There are also unconfirmed rumors of other		*/
     	/* problems, so we dodge the issue.			*/
@@ -1322,7 +1336,7 @@ word bytes;
 
 void GC_win32_free_heap ()
 {
-    if (GC_win32s) {
+    if (GC_no_win32_dlls) {
  	while (GC_n_heap_bases > 0) {
  	    GlobalFree (GC_heap_bases[--GC_n_heap_bases]);
  	    GC_heap_bases[GC_n_heap_bases] = 0;
@@ -1644,9 +1658,8 @@ void GC_default_push_other_roots GC_PROTO((void))
 
 # endif /* SRC_M3 */
 
-# if defined(SOLARIS_THREADS) || defined(WIN32_THREADS) \
-     || defined(IRIX_THREADS) || defined(LINUX_THREADS) \
-     || defined(HPUX_THREADS)
+# if defined(GC_SOLARIS_THREADS) || defined(GC_PTHREADS) || \
+     defined(GC_WIN32_THREADS)
 
 extern void GC_push_all_stacks();
 
@@ -1655,11 +1668,11 @@ void GC_default_push_other_roots GC_PROTO((void))
     GC_push_all_stacks();
 }
 
-# endif /* SOLARIS_THREADS || ... */
+# endif /* GC_SOLARIS_THREADS || GC_PTHREADS */
 
 void (*GC_push_other_roots) GC_PROTO((void)) = GC_default_push_other_roots;
 
-#endif
+#endif /* THREADS */
 
 /*
  * Routines for accessing dirty  bits on virtual pages.
@@ -1736,11 +1749,18 @@ word n;
 {
 }
 
-/* A call hints that h is about to be written.	*/
-/* May speed up some dirty bit implementations.	*/
+/* A call that:						*/
+/* I) hints that [h, h+nblocks) is about to be written.	*/
+/* II) guarantees that protection is removed.		*/
+/* (I) may speed up some dirty bit implementations.	*/
+/* (II) may be essential if we need to ensure that	*/
+/* pointer-free system call buffers in the heap are 	*/
+/* not protected.					*/
 /*ARGSUSED*/
-void GC_write_hint(h)
+void GC_remove_protection(h, nblocks, is_ptrfree)
 struct hblk *h;
+word nblocks;
+GC_bool is_ptrfree;
 {
 }
 
@@ -1808,7 +1828,8 @@ struct hblk *h;
 #if defined(SUNOS4) || defined(FREEBSD)
     typedef void (* SIG_PF)();
 #endif
-#if defined(SUNOS5SIGS) || defined(OSF1) || defined(LINUX) || defined(MACOSX)
+#if defined(SUNOS5SIGS) || defined(OSF1) || defined(LINUX) \
+    || defined(MACOSX) || defined(HURD)
 # ifdef __STDC__
     typedef void (* SIG_PF)(int);
 # else
@@ -1826,7 +1847,7 @@ struct hblk *h;
 #   define SIG_DFL (SIG_PF) (-1)
 #endif
 
-#if defined(IRIX5) || defined(OSF1)
+#if defined(IRIX5) || defined(OSF1) || defined(HURD)
     typedef void (* REAL_SIG_PF)(int, int, struct sigcontext *);
 #endif
 #if defined(SUNOS5SIGS)
@@ -1842,12 +1863,16 @@ struct hblk *h;
 # endif
 #endif
 #if defined(LINUX)
-#   include <linux/version.h>
-#   if (LINUX_VERSION_CODE >= 0x20100) && !defined(M68K) || defined(ALPHA) || defined(IA64)
+#   if __GLIBC__ > 2 || __GLIBC__ == 2 && __GLIBC_MINOR__ >= 2
       typedef struct sigcontext s_c;
-#   else
-      typedef struct sigcontext_struct s_c;
-#   endif
+#   else  /* glibc < 2.2 */
+#     include <linux/version.h>
+#     if (LINUX_VERSION_CODE >= 0x20100) && !defined(M68K) || defined(ALPHA)
+        typedef struct sigcontext s_c;
+#     else
+        typedef struct sigcontext_struct s_c;
+#     endif
+#   endif  /* glibc < 2.2 */
 #   if defined(ALPHA) || defined(M68K)
       typedef void (* REAL_SIG_PF)(int, int, s_c *);
 #   else
@@ -2013,7 +2038,7 @@ SIG_PF GC_old_segv_handler;	/* Also old MSWIN32 ACCESS_VIOLATION filter */
 #ifdef GC_TEST_AND_SET_DEFINED
   static VOLATILE unsigned int fault_handler_lock = 0;
   void async_set_pht_entry_from_index(VOLATILE page_hash_table db, int index) {
-    while (GC_test_and_set(&fault_handler_lock));
+    while (GC_test_and_set(&fault_handler_lock)) {}
     /* Could also revert to set_pht_entry_from_index_safe if initial	*/
     /* GC_test_and_set fails.						*/
     set_pht_entry_from_index(db, index);
@@ -2067,15 +2092,20 @@ SIG_PF GC_old_segv_handler;	/* Also old MSWIN32 ACCESS_VIOLATION filter */
 #     define CODE_OK (code == BUS_PAGE_FAULT)
 #   endif
 # endif
-# if defined(IRIX5) || defined(OSF1)
+# if defined(IRIX5) || defined(OSF1) || defined(HURD)
 #   include <errno.h>
     void GC_write_fault_handler(int sig, int code, struct sigcontext *scp)
-#   define SIG_OK (sig == SIGSEGV)
 #   ifdef OSF1
+#     define SIG_OK (sig == SIGSEGV)
 #     define CODE_OK (code == 2 /* experimentally determined */)
 #   endif
 #   ifdef IRIX5
+#     define SIG_OK (sig == SIGSEGV)
 #     define CODE_OK (code == EACCES)
+#   endif
+#   ifdef HURD
+#     define SIG_OK (sig == SIGBUS || sig == SIGSEGV) 	
+#     define CODE_OK  TRUE
 #   endif
 # endif
 # if defined(LINUX)
@@ -2131,6 +2161,9 @@ SIG_PF GC_old_segv_handler;	/* Also old MSWIN32 ACCESS_VIOLATION filter */
 # endif
 {
     register unsigned i;
+#   if defined(HURD) 
+	char *addr = (char *) code;
+#   endif
 #   ifdef IRIX5
 	char * addr = (char *) (size_t) (scp -> sc_badvaddr);
 #   endif
@@ -2254,7 +2287,7 @@ SIG_PF GC_old_segv_handler;	/* Also old MSWIN32 ACCESS_VIOLATION filter */
 #		    endif
 		    return;
 #		endif
-#		if defined (IRIX5) || defined(OSF1)
+#		if defined (IRIX5) || defined(OSF1) || defined(HURD)
 		    (*(REAL_SIG_PF)old_handler) (sig, code, scp);
 		    return;
 #		endif
@@ -2266,13 +2299,24 @@ SIG_PF GC_old_segv_handler;	/* Also old MSWIN32 ACCESS_VIOLATION filter */
 #		endif
             }
         }
+        UNPROTECT(h, GC_page_size);
+	/* We need to make sure that no collection occurs between	*/
+	/* the UNPROTECT and the setting of the dirty bit.  Otherwise	*/
+	/* a write by a third thread might go unnoticed.  Reversing	*/
+	/* the order is just as bad, since we would end up unprotecting	*/
+	/* a page in a GC cycle during which it's not marked.		*/
+	/* Currently we do this by disabling the thread stopping	*/
+	/* signals while this handler is running.  An alternative might	*/
+	/* be to record the fact that we're about to unprotect, or	*/
+	/* have just unprotected a page in the GC's thread structure,	*/
+	/* and then to have the thread stopping code set the dirty	*/
+	/* flag, if necessary.						*/
         for (i = 0; i < divHBLKSZ(GC_page_size); i++) {
             register int index = PHT_HASH(h+i);
             
             async_set_pht_entry_from_index(GC_dirty_pages, index);
         }
-        UNPROTECT(h, GC_page_size);
-#	if defined(OSF1) || defined(LINUX)
+#	if defined(OSF1)
 	    /* These reset the signal handler each time by default. */
 	    signal(SIGSEGV, (SIG_PF) GC_write_fault_handler);
 #	endif
@@ -2294,43 +2338,56 @@ SIG_PF GC_old_segv_handler;	/* Also old MSWIN32 ACCESS_VIOLATION filter */
 
 /*
  * We hold the allocation lock.  We expect block h to be written
- * shortly.
+ * shortly.  Ensure that all pages cvontaining any part of the n hblks
+ * starting at h are no longer protected.  If is_ptrfree is false,
+ * also ensure that they will subsequently appear to be dirty.
  */
-void GC_write_hint(h)
+void GC_remove_protection(h, nblocks, is_ptrfree)
 struct hblk *h;
+word nblocks;
+GC_bool is_ptrfree;
 {
-    register struct hblk * h_trunc;
-    register unsigned i;
-    register GC_bool found_clean;
+    struct hblk * h_trunc;  /* Truncated to page boundary */
+    struct hblk * h_end;    /* Page boundary following block end */
+    struct hblk * current;
+    GC_bool found_clean;
     
     if (!GC_dirty_maintained) return;
     h_trunc = (struct hblk *)((word)h & ~(GC_page_size-1));
+    h_end = (struct hblk *)(((word)(h + nblocks) + GC_page_size-1)
+	                    & ~(GC_page_size-1));
     found_clean = FALSE;
-    for (i = 0; i < divHBLKSZ(GC_page_size); i++) {
-        register int index = PHT_HASH(h_trunc+i);
+    for (current = h_trunc; current < h_end; ++current) {
+        int index = PHT_HASH(current);
             
-        if (!get_pht_entry_from_index(GC_dirty_pages, index)) {
-            found_clean = TRUE;
+        if (!is_ptrfree || current < h || current >= h + nblocks) {
             async_set_pht_entry_from_index(GC_dirty_pages, index);
         }
     }
-    if (found_clean) {
-    	UNPROTECT(h_trunc, GC_page_size);
-    }
+    UNPROTECT(h_trunc, (ptr_t)h_end - (ptr_t)h_trunc);
 }
 
 void GC_dirty_init()
 {
-#   if defined(SUNOS5SIGS) || defined(IRIX5) /* || defined(OSF1) */
+#   if defined(SUNOS5SIGS) || defined(IRIX5) || defined(LINUX) || \
+       defined(OSF1) || defined(HURD)
       struct sigaction	act, oldact;
-#     ifdef IRIX5
+      /* We should probably specify SA_SIGINFO for Linux, and handle 	*/
+      /* the different architectures more uniformly.			*/
+#     if defined(IRIX5) || defined(LINUX) || defined(OSF1) || defined(HURD)
     	act.sa_flags	= SA_RESTART;
-        act.sa_handler  = GC_write_fault_handler;
+        act.sa_handler  = (SIG_PF)GC_write_fault_handler;
 #     else
     	act.sa_flags	= SA_RESTART | SA_SIGINFO;
         act.sa_sigaction = GC_write_fault_handler;
 #     endif
       (void)sigemptyset(&act.sa_mask);
+#     ifdef SIG_SUSPEND
+        /* Arrange to postpone SIG_SUSPEND while we're in a write fault	*/
+        /* handler.  This effectively makes the handler atomic w.r.t.	*/
+        /* stopping the world for GC.					*/
+        (void)sigaddset(&act.sa_mask, SIG_SUSPEND);
+#     endif /* SIG_SUSPEND */
 #    endif
 #   if defined(MACOSX)
       struct sigaction act, oldact;
@@ -2359,7 +2416,7 @@ void GC_dirty_init()
 #	endif
       }
 #   endif
-#   if defined(OSF1) || defined(SUNOS4) || defined(LINUX)
+#   if defined(SUNOS4)
       GC_old_segv_handler = signal(SIGSEGV, (SIG_PF)GC_write_fault_handler);
       if (GC_old_segv_handler == SIG_IGN) {
         GC_err_printf0("Previously ignored segmentation violation!?");
@@ -2371,18 +2428,20 @@ void GC_dirty_init()
 #	endif
       }
 #   endif
-#   if defined(SUNOS5SIGS) || defined(IRIX5)
-#     if defined(IRIX_THREADS)
+#   if defined(SUNOS5SIGS) || defined(IRIX5) || defined(LINUX) \
+       || defined(OSF1) || defined(HURD)
+      /* SUNOS5SIGS includes HPUX */
+#     if defined(GC_IRIX_THREADS)
       	sigaction(SIGSEGV, 0, &oldact);
       	sigaction(SIGSEGV, &act, 0);
 #     else
       	sigaction(SIGSEGV, &act, &oldact);
 #     endif
-#     if defined(_sigargs)
+#     if defined(_sigargs) || defined(HURD)
 	/* This is Irix 5.x, not 6.x.  Irix 5.x does not have	*/
 	/* sa_sigaction.					*/
 	GC_old_segv_handler = oldact.sa_handler;
-#     else /* Irix 6.x or SUNOS5SIGS */
+#     else /* Irix 6.x or SUNOS5SIGS or LINUX */
         if (oldact.sa_flags & SA_SIGINFO) {
           GC_old_segv_handler = (SIG_PF)(oldact.sa_sigaction);
         } else {
@@ -2399,7 +2458,7 @@ void GC_dirty_init()
 #       endif
       }
 #   endif
-#   if defined(MACOSX) || defined(HPUX)
+#   if defined(MACOSX) || defined(HPUX) || defined(LINUX) || defined(HURD)
       sigaction(SIGBUS, &act, &oldact);
       GC_old_bus_handler = oldact.sa_handler;
       if (GC_old_bus_handler == SIG_IGN) {
@@ -2411,7 +2470,7 @@ void GC_dirty_init()
 	  GC_err_printf0("Replaced other SIGBUS handler\n");
 #       endif
       }
-#   endif /* MACOS || HPUX */
+#   endif /* MACOS || HPUX || LINUX */
 #   if defined(MSWIN32)
       GC_old_segv_handler = SetUnhandledExceptionFilter(GC_write_fault_handler);
       if (GC_old_segv_handler != NULL) {
@@ -2424,18 +2483,77 @@ void GC_dirty_init()
 #   endif
 }
 
+int GC_incremental_protection_needs()
+{
+    if (GC_page_size == HBLKSIZE) {
+	return GC_PROTECTS_POINTER_HEAP;
+    } else {
+	return GC_PROTECTS_POINTER_HEAP | GC_PROTECTS_PTRFREE_HEAP;
+    }
+}
 
+#define HAVE_INCREMENTAL_PROTECTION_NEEDS
 
+#define IS_PTRFREE(hhdr) ((hhdr)->hb_descr == 0)
+
+#define PAGE_ALIGNED(x) !((word)(x) & (GC_page_size - 1))
 void GC_protect_heap()
 {
     ptr_t start;
     word len;
+    struct hblk * current;
+    struct hblk * current_start;  /* Start of block to be protected. */
+    struct hblk * limit;
     unsigned i;
-    
+    GC_bool protect_all = 
+	  (0 != (GC_incremental_protection_needs() & GC_PROTECTS_PTRFREE_HEAP));
     for (i = 0; i < GC_n_heap_sects; i++) {
         start = GC_heap_sects[i].hs_start;
         len = GC_heap_sects[i].hs_bytes;
-        PROTECT(start, len);
+	if (protect_all) {
+          PROTECT(start, len);
+	} else {
+	  GC_ASSERT(PAGE_ALIGNED(len))
+	  GC_ASSERT(PAGE_ALIGNED(start))
+	  current_start = current = (struct hblk *)start;
+	  limit = (struct hblk *)(start + len);
+	  while (current < limit) {
+            hdr * hhdr;
+	    word nhblks;
+	    GC_bool is_ptrfree;
+
+	    GC_ASSERT(PAGE_ALIGNED(current));
+	    GET_HDR(current, hhdr);
+	    if (IS_FORWARDING_ADDR_OR_NIL(hhdr)) {
+	      /* This can happen only if we're at the beginning of a 	*/
+	      /* heap segment, and a block spans heap segments.		*/
+	      /* We will handle that block as part of the preceding	*/
+	      /* segment.						*/
+	      GC_ASSERT(current_start == current);
+	      current_start = ++current;
+	      continue;
+	    }
+	    if (HBLK_IS_FREE(hhdr)) {
+	      GC_ASSERT(PAGE_ALIGNED(hhdr -> hb_sz));
+	      nhblks = divHBLKSZ(hhdr -> hb_sz);
+	      is_ptrfree = TRUE;	/* dirty on alloc */
+	    } else {
+	      nhblks = OBJ_SZ_TO_BLOCKS(hhdr -> hb_sz);
+	      is_ptrfree = IS_PTRFREE(hhdr);
+	    }
+	    if (is_ptrfree) {
+	      if (current_start < current) {
+		PROTECT(current_start, (ptr_t)current - (ptr_t)current_start);
+	      }
+	      current_start = (current += nhblks);
+	    } else {
+	      current += nhblks;
+	    }
+	  } 
+	  if (current_start < current) {
+	    PROTECT(current_start, (ptr_t)current - (ptr_t)current_start);
+	  }
+	}
     }
 }
 
@@ -2492,7 +2610,7 @@ word len;
     register struct hblk *h;
     ptr_t obj_start;
     
-    if (!GC_incremental) return;
+    if (!GC_dirty_maintained) return;
     obj_start = GC_base(addr);
     if (obj_start == 0) return;
     if (GC_base(addr + len - 1) != obj_start) {
@@ -2510,11 +2628,15 @@ word len;
     	      ((ptr_t)end_block - (ptr_t)start_block) + HBLKSIZE);
 }
 
-#if !defined(MSWIN32) && !defined(MSWINCE) && !defined(LINUX_THREADS) \
+#if !defined(MSWIN32) && !defined(MSWINCE) && !defined(THREADS) \
     && !defined(GC_USE_LD_WRAP)
-/* Replacement for UNIX system call.	 */
-/* Other calls that write to the heap	 */
-/* should be handled similarly.		 */
+/* Replacement for UNIX system call.					 */
+/* Other calls that write to the heap should be handled similarly.	 */
+/* Note that this doesn't work well for blocking reads:  It will hold	 */
+/* tha allocation lock for the entur duration of the call. Multithreaded */
+/* clients should really ensure that it won't block, either by setting 	 */
+/* the descriptor nonblocking, or by calling select or poll first, to	 */
+/* make sure that input is available.					 */
 # if defined(__STDC__) && !defined(SUNOS4)
 #   include <unistd.h>
 #   include <sys/uio.h>
@@ -2534,7 +2656,7 @@ word len;
     
     GC_begin_syscall();
     GC_unprotect_range(buf, (word)nbyte);
-#   if defined(IRIX5) || defined(LINUX_THREADS)
+#   if defined(IRIX5) || defined(GC_LINUX_THREADS)
 	/* Indirect system call may not always be easily available.	*/
 	/* We could call _read, but that would interfere with the	*/
 	/* libpthread interception of read.				*/
@@ -2548,17 +2670,21 @@ word len;
 	    result = readv(fd, &iov, 1);
 	}
 #   else
+#     if defined(HURD)	
+	result = __read(fd, buf, nbyte);
+#     else
  	/* The two zero args at the end of this list are because one
  	   IA-64 syscall() implementation actually requires six args
  	   to be passed, even though they aren't always used. */
      	result = syscall(SYS_read, fd, buf, nbyte, 0, 0);
+#     endif /* !HURD */
 #   endif
     GC_end_syscall();
     return(result);
 }
-#endif /* !MSWIN32 && !MSWINCE && !LINUX_THREADS */
+#endif /* !MSWIN32 && !MSWINCE && !GC_LINUX_THREADS */
 
-#ifdef GC_USE_LD_WRAP
+#if defined(GC_USE_LD_WRAP) && !defined(THREADS)
     /* We use the GNU ld call wrapping facility.			*/
     /* This requires that the linker be invoked with "--wrap read".	*/
     /* This can be done by passing -Wl,"--wrap read" to gcc.		*/
@@ -2629,7 +2755,7 @@ word n;
 word GC_proc_buf_size = INITIAL_BUF_SZ;
 char *GC_proc_buf;
 
-#ifdef SOLARIS_THREADS
+#ifdef GC_SOLARIS_THREADS
 /* We don't have exact sp values for threads.  So we count on	*/
 /* occasionally declaring stack pages to be fresh.  Thus we 	*/
 /* need a real implementation of GC_is_fresh.  We can't clear	*/
@@ -2684,7 +2810,7 @@ void GC_dirty_init()
     	ABORT("/proc ioctl failed");
     }
     GC_proc_buf = GC_scratch_alloc(GC_proc_buf_size);
-#   ifdef SOLARIS_THREADS
+#   ifdef GC_SOLARIS_THREADS
 	GC_fresh_pages = (struct hblk **)
 	  GC_scratch_alloc(MAX_FRESH_PAGES * sizeof (struct hblk *));
 	if (GC_fresh_pages == 0) {
@@ -2697,12 +2823,14 @@ void GC_dirty_init()
 
 /* Ignore write hints. They don't help us here.	*/
 /*ARGSUSED*/
-void GC_write_hint(h)
+void GC_remove_protection(h, nblocks, is_ptrfree)
 struct hblk *h;
+word nblocks;
+GC_bool is_ptrfree;
 {
 }
 
-#ifdef SOLARIS_THREADS
+#ifdef GC_SOLARIS_THREADS
 #   define READ(fd,buf,nbytes) syscall(SYS_read, fd, buf, nbytes)
 #else
 #   define READ(fd,buf,nbytes) read(fd, buf, nbytes)
@@ -2741,7 +2869,7 @@ int dummy;
                 /* Punt:	*/
         	memset(GC_grungy_pages, 0xff, sizeof (page_hash_table));
 		memset(GC_written_pages, 0xff, sizeof(page_hash_table));
-#		ifdef SOLARIS_THREADS
+#		ifdef GC_SOLARIS_THREADS
 		    BZERO(GC_fresh_pages,
 		    	  MAX_FRESH_PAGES * sizeof (struct hblk *)); 
 #		endif
@@ -2771,7 +2899,7 @@ int dummy;
 	                register word index = PHT_HASH(h);
 	                
 	                set_pht_entry_from_index(GC_grungy_pages, index);
-#			ifdef SOLARIS_THREADS
+#			ifdef GC_SOLARIS_THREADS
 			  {
 			    register int slot = FRESH_PAGE_SLOT(h);
 			    
@@ -2789,7 +2917,7 @@ int dummy;
 	}
     /* Update GC_written_pages. */
         GC_or_pages(GC_written_pages, GC_grungy_pages);
-#   ifdef SOLARIS_THREADS
+#   ifdef GC_SOLARIS_THREADS
       /* Make sure that old stacks are considered completely clean	*/
       /* unless written again.						*/
 	GC_old_stacks_are_fresh();
@@ -2805,7 +2933,7 @@ struct hblk *h;
     register GC_bool result;
     
     result = get_pht_entry_from_index(GC_grungy_pages, index);
-#   ifdef SOLARIS_THREADS
+#   ifdef GC_SOLARIS_THREADS
 	if (result && PAGE_IS_FRESH(h)) result = FALSE;
 	/* This happens only if page was declared fresh since	*/
 	/* the read_dirty call, e.g. because it's in an unused  */
@@ -2823,7 +2951,7 @@ struct hblk *h;
     register GC_bool result;
     
     result = get_pht_entry_from_index(GC_written_pages, index);
-#   ifdef SOLARIS_THREADS
+#   ifdef GC_SOLARIS_THREADS
 	if (result && PAGE_IS_FRESH(h)) result = FALSE;
 #   endif
     return(result);
@@ -2837,7 +2965,7 @@ word n;
 
     register word index;
     
-#   ifdef SOLARIS_THREADS
+#   ifdef GC_SOLARIS_THREADS
       register word i;
       
       if (GC_fresh_pages != 0) {
@@ -2906,14 +3034,23 @@ struct hblk *h;
 }
 
 /*ARGSUSED*/
-void GC_write_hint(h)
+void GC_remove_protection(h, nblocks, is_ptrfree)
 struct hblk *h;
+word nblocks;
+GC_bool is_ptrfree;
 {
-    PCR_VD_WriteProtectDisable(h, HBLKSIZE);
-    PCR_VD_WriteProtectEnable(h, HBLKSIZE);
+    PCR_VD_WriteProtectDisable(h, nblocks*HBLKSIZE);
+    PCR_VD_WriteProtectEnable(h, nblocks*HBLKSIZE);
 }
 
 # endif /* PCR_VDB */
+
+# ifndef HAVE_INCREMENTAL_PROTECTION_NEEDS
+  int GC_incremental_protection_needs()
+  {
+    return GC_PROTECTS_NONE;
+  }
+# endif /* !HAVE_INCREMENTAL_PROTECTION_NEEDS */
 
 /*
  * Call stack save code for debugging.
@@ -2924,6 +3061,8 @@ struct hblk *h;
 /* long as the frame pointer is explicitly stored.  In the case of gcc,	*/
 /* compiler flags (e.g. -fomit-frame-pointer) determine whether it is.	*/
 #if defined(I386) && defined(LINUX) && defined(SAVE_CALL_CHAIN)
+#   include <features.h>
+
     struct frame {
 	struct frame *fr_savfp;
 	long	fr_savpc;
@@ -2933,6 +3072,8 @@ struct hblk *h;
 
 #if defined(SPARC)
 #  if defined(LINUX)
+#    include <features.h>
+
      struct frame {
 	long	fr_local[8];
 	long	fr_arg[6];
@@ -2967,6 +3108,35 @@ struct hblk *h;
 #ifdef SAVE_CALL_CHAIN
 /* Fill in the pc and argument information for up to NFRAMES of my	*/
 /* callers.  Ignore my frame and my callers frame.			*/
+
+#ifdef LINUX
+# include <features.h>
+# if __GLIBC__ == 2 && __GLIBC_MINOR__ >= 1 || __GLIBC__ > 2
+#   define HAVE_BUILTIN_BACKTRACE
+# endif
+#endif
+
+#if NARGS == 0 && NFRAMES % 2 == 0 /* No padding */ \
+    && defined(HAVE_BUILTIN_BACKTRACE)
+
+#include <execinfo.h>
+
+void GC_save_callers (info) 
+struct callinfo info[NFRAMES];
+{
+  void * tmp_info[NFRAMES + 1];
+  int npcs, i;
+# define IGNORE_FRAMES 1
+  
+  /* We retrieve NFRAMES+1 pc values, but discard the first, since it	*/
+  /* points to our own frame.						*/
+  GC_ASSERT(sizeof(struct callinfo) == sizeof(void *));
+  npcs = backtrace((void **)tmp_info, NFRAMES + IGNORE_FRAMES);
+  BCOPY(tmp_info+IGNORE_FRAMES, info, (npcs - IGNORE_FRAMES) * sizeof(void *));
+  for (i = npcs - IGNORE_FRAMES; i < NFRAMES; ++i) info[i].ci_pc = 0;
+}
+
+#else /* No builtin backtrace; do it ourselves */
 
 #if (defined(OPENBSD) || defined(NETBSD)) && defined(SPARC)
 #  define FR_SAVFP fr_fp
@@ -3005,12 +3175,16 @@ struct callinfo info[NFRAMES];
       register int i;
       
       info[nframes].ci_pc = fp->FR_SAVPC;
-      for (i = 0; i < NARGS; i++) {
-	info[nframes].ci_arg[i] = ~(fp->fr_arg[i]);
-      }
+#     if NARGS > 0
+        for (i = 0; i < NARGS; i++) {
+	  info[nframes].ci_arg[i] = ~(fp->fr_arg[i]);
+        }
+#     endif /* NARGS > 0 */
   }
   if (nframes < NFRAMES) info[nframes].ci_pc = 0;
 }
+
+#endif /* No builtin backtrace */
 
 #endif /* SAVE_CALL_CHAIN */
 

@@ -386,7 +386,7 @@
     }
   else if (GET_CODE (operands[1]) == CONST && ! flag_pic)
     {
-	/* Must contain symbols so we don`t know how big it is. In
+	/* Must contain symbols so we don't know how big it is. In
 	 * that case addr might lead to overflow. For PIC symbolic
 	 * address loads always have to be done with addr.
 	 */
@@ -2046,7 +2046,7 @@
 }")
 
 ;;; Index insns.  These are about the same speed as multiply-add counterparts.
-;;; but slower then using power-of-2 shifts if we can use them
+;;; but slower than using power-of-2 shifts if we can use them
 ;
 ;;; See note 1
 ;(define_insn ""

@@ -17,10 +17,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA. */
+Boston, MA 02111-1307, USA.  */
 
 /* Most of this is the same as for cygwin, except for changing some
    specs.  */
+
+/* Mingw GCC, unlike Cygwin's, must be relocatable. This macro must 
+   be defined before any other files are included.  */
+#ifndef WIN32_NO_ABSOLUTE_INST_DIRS
+#define WIN32_NO_ABSOLUTE_INST_DIRS 1
+#endif
 
 #include "i386/cygwin.h"
 
@@ -28,17 +34,17 @@ Boston, MA 02111-1307, USA. */
 
 /* Please keep changes to CPP_PREDEFINES in sync with i386/crtdll. The
    only difference between the two should be __MSVCRT__ needed to 
-   distinguish MSVC from CRTDLL runtime in mingw headers. */
+   distinguish MSVC from CRTDLL runtime in mingw headers.  */
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D_WIN32 -DWIN32 \
-  -D__MINGW32__=0.2 -D__MSVCRT__ -DWINNT -D_X86_=1 \
+#define CPP_PREDEFINES "-D_WIN32 -D__WIN32 -D__WIN32__ -DWIN32 \
+  -D__MINGW32__ -D__MSVCRT__ -DWINNT -D_X86_=1 \
   -Asystem=winnt"
 
 /* Specific a different directory for the standard include files.  */
 #undef STANDARD_INCLUDE_DIR
-#define STANDARD_INCLUDE_DIR "/usr/local/i386-mingw32/include"
-
-#define STANDARD_INCLUDE_COMPONENT "MINGW32"
+#define STANDARD_INCLUDE_DIR "/usr/local/mingw32/include"
+#undef STANDARD_INCLUDE_COMPONENT
+#define STANDARD_INCLUDE_COMPONENT "MINGW"
 
 #undef CPP_SPEC
 #define CPP_SPEC \
@@ -74,11 +80,13 @@ Boston, MA 02111-1307, USA. */
 #define STARTFILE_SPEC "%{shared|mdll:dllcrt2%O%s} \
   %{!shared:%{!mdll:crt2%O%s}} %{pg:gcrt2%O%s}"
 
-/* MS runtime does not need a separate math library. */
+/* MS runtime does not need a separate math library.  */
+#undef MATH_LIBRARY
 #define MATH_LIBRARY ""
 
-/* Output STRING, a string representing a filename, to FILE.  We canonicalize
-   it to be in MS-DOS format.  */
+/* Output STRING, a string representing a filename, to FILE.
+   We canonicalize it to be in MS-DOS format.  */
+#undef OUTPUT_QUOTED_STRING
 #define OUTPUT_QUOTED_STRING(FILE, STRING) \
 do {						\
   char c;					\
@@ -102,3 +110,6 @@ do {						\
    Cygwin profiling code is written. Once "fixed", we can remove this.  */
 #undef SUBTARGET_PROLOGUE
 
+/* Define as short unsigned for compatability with MS runtime.  */
+#undef WINT_TYPE
+#define WINT_TYPE "short unsigned int"

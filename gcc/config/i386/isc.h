@@ -1,8 +1,13 @@
 /* Assembler-independent definitions for an Intel 386 running
-   Interactive Unix System V. Specifically, this is for recent versions
-   that support POSIX.  */
+   Interactive Unix System V.  Specifically, this is for recent versions
+   that support POSIX;
+   for version 2.0.2, use configuration option i386-sysv instead.
+   (But set TARGET_DEFAULT to (MASK_80307 | MASK_FLOAT_RETURNS)
+   if you do that, if you don't have a real 80387.)  */
 
-/* Use crt1.o, not crt0.o, as a startup file, and crtn.o as a closing file. */
+/* Mostly it's like AT&T Unix System V.  */
+
+/* Use crt1.o, not crt0.o, as a startup file, and crtn.o as a closing file.  */
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \
   "%{!shlib:%{posix:%{pg:mcrtp1.o%s}%{!pg:%{p:mcrtp1.o%s}%{!p:crtp1.o%s}}}\
@@ -33,7 +38,7 @@
    the standard calling sequence in which the called function pops the
    extra arg.  */
 /* caller has to pop the extra argument passed to functions that return
-   structures. */
+   structures.  */
 
 #undef RETURN_POPS_ARGS
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE)   \
@@ -56,7 +61,7 @@
 
    ISC's software emulation of a 387 fails to handle the `fucomp'
    opcode.  fucomp is only used when generating IEEE compliant code.
-   So don't make TARGET_IEEE_FP default for ISC. */
+   So don't make TARGET_IEEE_FP default for ISC.  */
 
 #undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_FLOAT_RETURNS)
@@ -74,8 +79,8 @@
 #undef ASM_FILE_START
 #define ASM_FILE_START(FILE)				\
   do {							\
-    int len = strlen (main_input_filename);		\
-    char *na = main_input_filename + len;		\
+    const int len = strlen (main_input_filename);	\
+    const char *na = main_input_filename + len;		\
     char shorter[15];					\
     /* NA gets MAIN_INPUT_FILENAME sans directory names.  */\
     while (na > main_input_filename)			\
@@ -92,5 +97,5 @@
   } while (0)
 
 /* Work around assembler forward label references generated in exception
-   handling code. */
+   handling code.  */
 #define DWARF2_UNWIND_INFO 0

@@ -221,14 +221,6 @@ _Jv_ThreadCurrent (void)
 // to threads.
 
 
-#ifdef __i386__
-
-#define SLOW_PTHREAD_SELF
-	// Add a cache for pthread_self() if we don't have the thread
-	// pointer in a register.
-
-#endif  /* __i386__ */
-
 #ifdef __ia64__
 
 typedef size_t _Jv_ThreadId_t;
@@ -250,7 +242,32 @@ _Jv_ThreadSelf (void)
 
 #endif /* __ia64__ */
 
+#ifdef __alpha__
+
+#ifdef __FreeBSD__
+#include <machine/pal.h>
+#define PAL_rduniq PAL_rdunique
+#else
+#include <asm/pal.h>
+#endif
+
+typedef unsigned long _Jv_ThreadId_t;
+
+inline _Jv_ThreadId_t
+_Jv_ThreadSelf (void)
+{
+  register unsigned long id __asm__("$0");
+  __asm__ ("call_pal %1" : "=r"(id) : "i"(PAL_rduniq));
+  return id;
+}
+
+#define JV_SELF_DEFINED
+
+#endif /* __alpha__ */
+
 #if defined(SLOW_PTHREAD_SELF)
+
+#include "sysdep/locks.h"
 
 typedef pthread_t _Jv_ThreadId_t;
 
@@ -303,7 +320,7 @@ _Jv_ThreadSelf (void)
   unsigned h = SC_INDEX(sp);
   volatile self_cache_entry *sce = _Jv_self_cache + h;
   pthread_t candidate_self = sce -> self;  // Read must precede following one.
-  // Read barrier goes here, if needed.
+  read_barrier();
   if (sce -> high_sp_bits == sp >> LOG_THREAD_SPACING)
     {
       // The sce -> self value we read must be valid.  An intervening

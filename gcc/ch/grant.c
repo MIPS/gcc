@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tasking.h"
 #include "toplev.h"
 #include "output.h"
+#include "target.h"
 
 #define APPEND(X,Y) X = append (X, Y)
 #define PREPEND(X,Y) X = prepend (X, Y);
@@ -1850,11 +1851,7 @@ decode_constant (init)
       return result;
 
     case REAL_CST:
-#ifndef REAL_IS_NOT_DOUBLE
-      sprintf (wrk, "%.20g", TREE_REAL_CST (val));
-#else
       REAL_VALUE_TO_DECIMAL (TREE_REAL_CST (val), "%.20g", wrk);
-#endif
       APPEND (result, wrk);
       return result;
 
@@ -2821,7 +2818,7 @@ really_grant_this (decl, granted_decls)
     }
 
   /* this nerver should happen */
-  error_with_decl (decl, "function \"really_grant_this\" called for `%s'.");
+  error_with_decl (decl, "function \"really_grant_this\" called for `%s'");
   return 1;
 }
 
@@ -3046,12 +3043,9 @@ chill_finish_compile ()
 
       finish_chill_function ();
 
-      if (pass == 2)
-	{
-	  assemble_constructor (XEXP (DECL_RTL (chill_init_function), 0),
-				DEFAULT_INIT_PRIORITY);
-	  globalize_decl (chill_init_function);
-	}
+      if (pass == 2 && targetm.have_ctors_dtors)
+	(* targetm.asm_out.constructor)
+	  (XEXP (DECL_RTL (chill_init_function), 0), DEFAULT_INIT_PRIORITY);
 
       /* ready now to link decls onto this list in pass 2. */
       module_init_list = NULL_TREE;

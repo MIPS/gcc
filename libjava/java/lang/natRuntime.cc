@@ -1,6 +1,6 @@
 // natRuntime.cc - Implementation of native side of Runtime class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -18,6 +18,7 @@ details.  */
 #include <java/lang/UnknownError.h>
 #include <java/lang/UnsatisfiedLinkError.h>
 #include <gnu/gcj/runtime/FileDeleter.h>
+#include <gnu/gcj/runtime/FinalizerThread.h>
 
 #include <jni.h>
 
@@ -137,8 +138,15 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
 #endif
   jsize total = JvGetStringUTFRegion (path, 0, path->length(), &buf[offset]);
   buf[offset + total] = '\0';
+  lt_dlhandle h;
   // FIXME: make sure path is absolute.
-  lt_dlhandle h = do_search ? lt_dlopenext (buf) : lt_dlopen (buf);
+  {
+    // Synchronize on java.lang.Class. This is to protect the class chain from
+    // concurrent modification by class registration calls which may be run
+    // during the dlopen().
+    JvSynchronize sync (&java::lang::Class::class$);
+    h = do_search ? lt_dlopenext (buf) : lt_dlopen (buf);
+  }
   if (h == NULL)
     {
       const char *msg = lt_dlerror ();
@@ -159,7 +167,8 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
 	  return;
 	}
       jint vers = ((jint (*) (JavaVM *, void *)) onload) (vm, NULL);
-      if (vers != JNI_VERSION_1_1 && vers != JNI_VERSION_1_2)
+      if (vers != JNI_VERSION_1_1 && vers != JNI_VERSION_1_2
+	  && vers != JNI_VERSION_1_4)
 	{
 	  // FIXME: unload the library.
 	  throw new UnsatisfiedLinkError (JvNewStringLatin1 ("unrecognized version from JNI_OnLoad"));
@@ -208,7 +217,7 @@ java::lang::Runtime::init (void)
 void
 java::lang::Runtime::runFinalization (void)
 {
-  _Jv_RunFinalizers ();
+  gnu::gcj::runtime::FinalizerThread::finalizerReady ();
 }
 
 jlong

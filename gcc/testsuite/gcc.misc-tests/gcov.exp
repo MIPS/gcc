@@ -1,4 +1,4 @@
-#   Copyright (C) 1997 Free Software Foundation, Inc.
+#   Copyright (C) 1997, 2001 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 
 # Load support procs.
 load_lib gcc-dg.exp
+load_lib gcov.exp
 
 global GCC_UNDER_TEST
 
@@ -26,55 +27,6 @@ if { ![is_remote host] && [string match "*/*" [lindex $GCC_UNDER_TEST 0]] } {
     set GCOV [file dirname [lindex $GCC_UNDER_TEST 0]]/gcov
 } else {
     set GCOV gcov
-}
-
-# Proc to delete the working files created by the compiler for gcov.
-
-proc clean-gcov { testcase } {
-    set basename [file tail $testcase]
-    set base [file rootname $basename]
-    remote_file host delete $base.bb $base.bbg $base.da $basename.gcov
-}
-
-# Called by dg-final to run gcov and analyze the results.
-
-proc run-gcov { testcase } {
-    global GCOV
-
-    verbose "Running $GCOV $testcase" 2
-    set testcase [remote_download host $testcase];
-    set result [remote_exec host $GCOV $testcase];
-    if { [lindex $result 0] != 0 } {
-	fail "gcov failed: [lindex $result 1]"
-	clean-gcov $testcase
-	return
-    }
-
-    remote_upload host $testcase.gcov $testcase.gcov;
-    set output [grep $testcase.gcov ".*count\\(\[0-9\]+\\)" line]
-    #send_user "output:$output\n"
-    set failed 0
-    foreach line $output {
-	verbose "Processing count line: $line" 3
-	#send_user "line:$line\n"
-	if [regexp "(\[0-9\]+) *(\[0-9\]+).*count\\((\[0-9\]+)\\)" "$line" all n is shouldbe] {
-	    #send_user "n $n:is $is:shouldbe $shouldbe\n"
-	    if { $is == "" } {
-		fail "$testcase:$n:no data available for this line"
-		incr failed
-	    } elseif { $is != $shouldbe } {
-		fail "$testcase:$n:is $is:should be $shouldbe"
-		incr failed
-	    }
-	} else {
-	    fail "$testcase: can't parse $line (in wrong place?)"
-	    incr failed
-	}
-    }
-    clean-gcov $testcase
-    if !$failed {
-	pass "gcov $testcase"
-    }
 }
 
 # Initialize harness.

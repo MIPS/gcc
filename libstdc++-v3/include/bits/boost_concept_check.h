@@ -7,10 +7,17 @@
 //
 
 // GCC Note:  based on version 1.12.0 of the Boost library.
+
+/** @file boost_concept_check.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _GLIBCPP_BOOST_CONCEPT_CHECK
 #define _GLIBCPP_BOOST_CONCEPT_CHECK 1
 
 #pragma GCC system_header
+#include <cstddef>                // for ptrdiff_t, used next
 #include <bits/stl_iterator_base_types.h>    // for traits and tags
 #include <utility>                           // for pair<>
 
@@ -20,8 +27,11 @@ namespace __gnu_cxx
 
 #define _IsUnused __attribute__ ((__unused__))
 
+// When the C-C code is in use, we would like this function to do as little
+// as possible at runtime, use as few resources as possible, and hopefully
+// be elided out of existence... hmmm.
 template <class _Concept>
-void __function_requires()
+inline void __function_requires()
 {
   void (_Concept::*__x)() _IsUnused = &_Concept::__constraints;
 }
@@ -87,11 +97,9 @@ struct _Aux_require_same<_Tp,_Tp> { typedef _Tp _Type; };
   template <> struct _IntegerConcept<unsigned int> { void __constraints() {} };
   template <> struct _IntegerConcept<long> { void __constraints() {} };
   template <> struct _IntegerConcept<unsigned long> { void __constraints() {} };
-#ifdef _GLIBCPP_USE_LONG_LONG
   template <> struct _IntegerConcept<long long> { void __constraints() {} };
   template <> struct _IntegerConcept<unsigned long long>
                                                 { void __constraints() {} };
-#endif
 
   template <class _Tp>
   struct _SignedIntegerConcept {
@@ -102,9 +110,7 @@ struct _Aux_require_same<_Tp,_Tp> { typedef _Tp _Type; };
   template <> struct _SignedIntegerConcept<short> { void __constraints() {} };
   template <> struct _SignedIntegerConcept<int> { void __constraints() {} };
   template <> struct _SignedIntegerConcept<long> { void __constraints() {} };
-#ifdef _GLIBCPP_USE_LONG_LONG
   template <> struct _SignedIntegerConcept<long long> { void __constraints(){}};
-#endif
 
   template <class _Tp>
   struct _UnsignedIntegerConcept {
@@ -118,10 +124,8 @@ struct _Aux_require_same<_Tp,_Tp> { typedef _Tp _Type; };
     { void __constraints() {} };
   template <> struct _UnsignedIntegerConcept<unsigned long>
     { void __constraints() {} };
-#ifdef _GLIBCPP_USE_LONG_LONG
   template <> struct _UnsignedIntegerConcept<unsigned long long>
     { void __constraints() {} };
-#endif
 
   //===========================================================================
   // Basic Concepts
@@ -384,7 +388,7 @@ struct _Aux_require_same<_Tp,_Tp> { typedef _Tp _Type; };
       __function_requires< _DefaultConstructibleConcept<_Tp> >();
       __function_requires< _AssignableConcept<_Tp> >();
       __function_requires< _EqualityComparableConcept<_Tp> >();
-      typedef typename std::iterator_traits<_Tp>::value_type _V;
+//      typedef typename std::iterator_traits<_Tp>::value_type _V;
       (void)*__i;                       // require dereference operator
     }
     _Tp __i;
@@ -407,7 +411,7 @@ struct _Aux_require_same<_Tp,_Tp> { typedef _Tp _Type; };
       __function_requires< _TrivialIteratorConcept<_Tp> >();
       // require iterator_traits typedef's
       typedef typename std::iterator_traits<_Tp>::difference_type _D;
-      __function_requires< _SignedIntegerConcept<_D> >();
+//      __function_requires< _SignedIntegerConcept<_D> >();
       typedef typename std::iterator_traits<_Tp>::reference _R;
       typedef typename std::iterator_traits<_Tp>::pointer _Pt;
       typedef typename std::iterator_traits<_Tp>::iterator_category _Cat;

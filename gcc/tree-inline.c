@@ -668,7 +668,6 @@ inlinable_function_p (fn, id)
      inline_data *id;
 {
   int inlinable;
-  int currfn_insns;
 
   /* If we've already decided this function shouldn't be inlined,
      there's no need to check again.  */
@@ -677,9 +676,6 @@ inlinable_function_p (fn, id)
 
   /* Assume it is not inlinable.  */
   inlinable = 0;
-       
-  /* The number of instructions (estimated) of current function.  */
-  currfn_insns = DECL_NUM_STMTS (fn) * INSNS_PER_STMT;
 
   /* If we're not inlining things, then nothing is inlinable.  */
   if (! flag_inline_trees)
@@ -693,10 +689,10 @@ inlinable_function_p (fn, id)
   else if (! DECL_INLINE (fn))
     ;
   /* We can't inline functions that are too big.  Only allow a single
-     function to be of MAX_INLINE_INSNS_SINGLE size.  Make special 
-     allowance for extern inline functions, though.  */
+     function to eat up half of our budget.  Make special allowance
+     for extern inline functions, though.  */
   else if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
-	   && currfn_insns > MAX_INLINE_INSNS_SINGLE)
+	   && DECL_NUM_STMTS (fn) * INSNS_PER_STMT > MAX_INLINE_INSNS / 2)
     ;
   /* All is well.  We can inline this function.  Traditionally, GCC
      has refused to inline functions using alloca, or functions whose
@@ -708,31 +704,15 @@ inlinable_function_p (fn, id)
   /* Squirrel away the result so that we don't have to check again.  */
   DECL_UNINLINABLE (fn) = ! inlinable;
 
-  /* In case we don't disregard the inlining limits and we basically
-     can inline this function, investigate further.  */
+  /* Even if this function is not itself too big to inline, it might
+     be that we've done so much inlining already that we don't want to
+     risk too much inlining any more and thus halve the acceptable
+     size.  */
   if (! (*lang_hooks.tree_inlining.disregard_inline_limits) (fn)
-      && inlinable)
-    { 
-      int sum_insns = (id ? id->inlined_stmts : 0) * INSNS_PER_STMT
-		     + currfn_insns;
-      /* In the extreme case that we have exceeded the recursive inlining
-         limit by a huge factor (128), we just say no. Should not happen
-         in real life.  */
-      if (sum_insns > MAX_INLINE_INSNS * 128)
-	 inlinable = 0;
-      /* If we did not hit the extreme limit, we use a linear function
-         with slope -1/MAX_INLINE_SLOPE to exceedingly decrease the
-         allowable size. We always allow a size of MIN_INLINE_INSNS
-         though.  */
-      else if ((sum_insns > MAX_INLINE_INSNS)
-	       && (currfn_insns > MIN_INLINE_INSNS))
-        {
-	  int max_curr = MAX_INLINE_INSNS_SINGLE
-			- (sum_insns - MAX_INLINE_INSNS) / MAX_INLINE_SLOPE;
-	  if (currfn_insns > max_curr)
-	    inlinable = 0;
-	}
-    }
+      && ((DECL_NUM_STMTS (fn) + (id ? id->inlined_stmts : 0)) * INSNS_PER_STMT
+	  > MAX_INLINE_INSNS)
+      && DECL_NUM_STMTS (fn) * INSNS_PER_STMT > MAX_INLINE_INSNS / 4)
+    inlinable = 0;
 
   if (inlinable && (*lang_hooks.tree_inlining.cannot_inline_tree_fn) (&fn))
     inlinable = 0;
@@ -874,8 +854,6 @@ expand_call_inline (tp, walk_subtrees, data)
      type of the statement expression is the return type of the
      function call.  */
   expr = build1 (STMT_EXPR, TREE_TYPE (TREE_TYPE (fn)), NULL_TREE);
-  /* There is no scope associated with the statement-expression.  */
-  STMT_EXPR_NO_SCOPE (expr) = 1;
 
   /* Local declarations will be replaced by their equivalents in this
      map.  */
@@ -988,8 +966,7 @@ expand_call_inline (tp, walk_subtrees, data)
 
   /* Our function now has more statements than it did before.  */
   DECL_NUM_STMTS (VARRAY_TREE (id->fns, 0)) += DECL_NUM_STMTS (fn);
-  /* For accounting, subtract one for the saved call/ret.  */
-  id->inlined_stmts += DECL_NUM_STMTS (fn) - 1;
+  id->inlined_stmts += DECL_NUM_STMTS (fn);
 
   /* Recurse into the body of the just inlined function.  */
   expand_calls_inline (inlined_body, id);

@@ -42,15 +42,6 @@ Boston, MA 02111-1307, USA.  */
 #define MAX_OFILE_ALIGNMENT (32768 * 8)
 #endif
 
-#undef  ENDFILE_SPEC
-#define ENDFILE_SPEC "crtend.o%s"
-
-#undef	STARTFILE_SPEC
-#define STARTFILE_SPEC "%{!shared: \
-			 %{!symbolic: \
-			  %{pg:gcrt0.o%s}%{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}\
-			crtbegin.o%s"
-
 /* Use periods rather than dollar signs in special g++ assembler names.  */
 
 #define NO_DOLLAR_IN_LABEL
@@ -79,15 +70,12 @@ Boston, MA 02111-1307, USA.  */
 #define DWARF2_DEBUGGING_INFO 1
 #endif
 
-/* Also allow them to support STABS debugging.  */
-
-#include "dbxelf.h"
-
-/* The GNU tools operate better with stabs.  Since we don't have
-   any native tools to be compatible with, default to stabs.  */
+/* The GNU tools operate better with dwarf2, and it is required by some
+   psABI's.  Since we don't have any native tools to be compatible with,
+   default to dwarf2.  */
 
 #ifndef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 #endif
 
 /* All SVR4 targets use the ELF object file format.  */
@@ -100,9 +88,6 @@ Boston, MA 02111-1307, USA.  */
   fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
 #define IDENT_ASM_OP "\t.ident\t"
-
-#undef  ASM_BYTE_OP
-#define ASM_BYTE_OP	"\t.byte\t"
 
 #undef  SET_ASM_OP
 #define SET_ASM_OP	"\t.set\t"
@@ -134,11 +119,11 @@ Boston, MA 02111-1307, USA.  */
    with a period is not put into the linker symbol table by the assembler.  */
 
 #undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-  do							\
-    {							\
-      fprintf (FILE, ".%s%d:\n", PREFIX, NUM);		\
-    }							\
+#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)		\
+  do								\
+    {								\
+      fprintf (FILE, ".%s%u:\n", PREFIX, (unsigned) (NUM));	\
+    }								\
   while (0)
 
 /* This is how to store into the string LABEL
@@ -165,6 +150,7 @@ Boston, MA 02111-1307, USA.  */
    make sure that the location counter for the .rodata section gets pro-
    perly re-aligned prior to the actual beginning of the jump table.  */
 
+#undef ALIGN_ASM_OP
 #define ALIGN_ASM_OP "\t.align\t"
 
 #ifndef ASM_OUTPUT_BEFORE_CASE_LABEL
@@ -223,18 +209,6 @@ Boston, MA 02111-1307, USA.  */
     }								\
   while (0)
 
-/* This is the pseudo-op used to generate a reference to a specific
-   symbol in some section.  It is only used in machine-specific
-   configuration files, typically only in ASM_OUTPUT_CONSTRUCTOR and
-   ASM_OUTPUT_DESTRUCTOR.  This is the same for all known svr4
-   assemblers, except those in targets that don't use 32-bit pointers.
-   Those should override INT_ASM_OP.  Yes, the name of the macro is
-   misleading.  */
-
-#ifndef INT_ASM_OP
-#define INT_ASM_OP		"\t.long\t"
-#endif
-
 /* This is the pseudo-op used to generate a contiguous sequence of byte
    values from a double-quoted string WITHOUT HAVING A TERMINATING NUL
    AUTOMATICALLY APPENDED.  This is the same for most svr4 assemblers.  */
@@ -254,24 +228,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define CONST_SECTION_ASM_OP	"\t.section\t.rodata"
 
-/* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
-
-   Note that we want to give these sections the SHF_WRITE attribute
-   because these sections will actually contain data (i.e. tables of
-   addresses of functions in the current root executable or shared library
-   file) and, in the case of a shared library, the relocatable addresses
-   will have to be properly resolved/relocated (and then written into) by
-   the dynamic linker when it actually attaches the given shared library
-   to the executing process.  (Note that on SVR4, you may wish to use the
-   `-z text' option to the ELF linker, when building a shared library, as
-   an additional check that you are doing everything right.  But if you do
-   use the `-z text' option when building a shared library, you will get
-   errors unless the .ctors and .dtors sections are marked as writable
-   via the SHF_WRITE attribute.)  */
-
-#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"aw\""
-#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"aw\""
-
 /* On svr4, we *do* have support for the .init and .fini sections, and we
    can put stuff in there to be executed before and after `main'.  We let
    crtstuff.c and other files know this by defining the following symbols.
@@ -281,13 +237,23 @@ Boston, MA 02111-1307, USA.  */
 #define INIT_SECTION_ASM_OP	"\t.section\t.init"
 #define FINI_SECTION_ASM_OP	"\t.section\t.fini"
 
+#ifdef HAVE_GAS_SUBSECTION_ORDERING
+
+#define ASM_SECTION_START_OP	"\t.subsection\t-1"
+
+/* Output assembly directive to move to the beginning of current section.  */
+#define ASM_OUTPUT_SECTION_START(FILE)	\
+  fprintf ((FILE), "%s\n", ASM_SECTION_START_OP)
+
+#endif
+
 /* A default list of other sections which we might be "in" at any given
    time.  For targets that use additional sections (e.g. .tdesc) you
    should override this definition in the target-specific file which
    includes this file.  */
 
 #undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_const
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
@@ -295,9 +261,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS		\
-  CONST_SECTION_FUNCTION		\
-  CTORS_SECTION_FUNCTION		\
-  DTORS_SECTION_FUNCTION
+  CONST_SECTION_FUNCTION
 
 #define READONLY_DATA_SECTION() const_section ()
 
@@ -314,28 +278,6 @@ const_section ()						\
     }								\
 }
 
-#define CTORS_SECTION_FUNCTION					\
-void								\
-ctors_section ()						\
-{								\
-  if (in_section != in_ctors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);	\
-      in_section = in_ctors;					\
-    }								\
-}
-
-#define DTORS_SECTION_FUNCTION					\
-void								\
-dtors_section ()						\
-{								\
-  if (in_section != in_dtors)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);	\
-      in_section = in_dtors;					\
-    }								\
-}
-
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
 
 #define UNIQUE_SECTION(DECL, RELOC)				\
@@ -346,7 +288,7 @@ dtors_section ()						\
       const char *name;						\
       char *string;						\
       const char *prefix;					\
-      static const char *prefixes[4][2] =			\
+      static const char *const prefixes[4][2] =			\
       {								\
 	{ ".text.",   ".gnu.linkonce.t." },			\
 	{ ".rodata.", ".gnu.linkonce.r." },			\
@@ -377,72 +319,86 @@ dtors_section ()						\
     }								\
   while (0)
      
-/* A C statement (sans semicolon) to output an
-   element in the table of global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE, NAME)			\
-  do								\
-    {								\
-      ctors_section ();						\
-      fprintf (FILE, "%s", INT_ASM_OP);				\
-      assemble_name (FILE, NAME);				\
-      fprintf (FILE, "\n");					\
-    }								\
-  while (0)
-
-/* A C statement (sans semicolon) to output an
-   element in the table of global destructors.  */
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       			\
-  do								\
-    {								\
-      dtors_section ();                   			\
-      fprintf (FILE, "%s", INT_ASM_OP);				\
-      assemble_name (FILE, NAME);              			\
-      fprintf (FILE, "\n");					\
-    }								\
-  while (0)
-
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
 /* A C statement or statements to switch to the appropriate
    section for output of RTX in mode MODE.  RTX is some kind
    of constant in RTL.  The argument MODE is redundant except
-   in the case of a `const_int' rtx.  Currently, these always
-   go into the const section.  */
+   in the case of a `const_int' rtx.
+   If assembler supports SHF_MERGE sections, put it into
+   a .rodata.cstN section where N is size of the constant,
+   otherwise into const section.  */
 
 #undef  SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX) const_section ()
+#define SELECT_RTX_SECTION(MODE, RTX, ALIGN)	\
+  mergeable_constant_section ((MODE), (ALIGN), 0)
 
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
    or a constant of some sort.  RELOC indicates whether forming
-   the initial value of DECL requires link-time relocations.  */
+   the initial value of DECL requires link-time relocations.  
+ 
+   To optimize loading of shared programs, define following subsections
+   of data section by attaching:
+
+   .rel
+     Section with this string in name contains data that do have
+     relocations, so they get grouped together and dynamic linker
+     will visit fewer pages in memory.
+   .ro
+     Marks data read only otherwise.  This is useful with prelinking
+     as most of relocations won't be dynamically linked and thus
+     stay read only.
+   .local
+     Marks data containing relocations only to local objects.  These
+     relocation will get fully resolved by prelinking.
+ */
 
 #undef SELECT_SECTION
-#define SELECT_SECTION(DECL, RELOC)				\
+#define SELECT_SECTION(DECL, RELOC, ALIGN)			\
 {								\
   if (TREE_CODE (DECL) == STRING_CST)				\
     {								\
       if (! flag_writable_strings)				\
-	const_section ();					\
+	mergeable_string_section ((DECL), (ALIGN), 0);		\
       else							\
 	data_section ();					\
     }								\
   else if (TREE_CODE (DECL) == VAR_DECL)			\
     {								\
-      if ((flag_pic && RELOC)					\
-	  || !TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)	\
+      if (!TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)	\
 	  || !DECL_INITIAL (DECL)				\
 	  || (DECL_INITIAL (DECL) != error_mark_node		\
 	      && !TREE_CONSTANT (DECL_INITIAL (DECL))))		\
-	data_section ();					\
-      else							\
+	{							\
+	  if (flag_pic && ((RELOC) & 2))			\
+	    named_section (NULL_TREE, ".data.rel", RELOC);	\
+	  else if (flag_pic && (RELOC))				\
+	    named_section (NULL_TREE, ".data.rel.local", RELOC);\
+	  else							\
+	    data_section ();					\
+	}							\
+      else if (flag_pic && ((RELOC) & 2))			\
+	named_section (NULL_TREE, ".data.rel.ro", RELOC);	\
+      else if (flag_pic && (RELOC))				\
+	named_section (NULL_TREE, ".data.rel.ro.local", RELOC);	\
+      else if (flag_merge_constants < 2)			\
+	/* C and C++ don't allow different variables to share	\
+	   the same location.  -fmerge-all-constants allows	\
+	   even that (at the expense of not conforming).  */	\
 	const_section ();					\
+      else if (TREE_CODE (DECL_INITIAL (DECL)) == STRING_CST)	\
+	mergeable_string_section (DECL_INITIAL (DECL), (ALIGN),	\
+				  0);				\
+      else							\
+	mergeable_constant_section (DECL_MODE (DECL), (ALIGN),	\
+				    0);				\
     }								\
   else if (TREE_CODE (DECL) == CONSTRUCTOR)			\
     {								\
       if ((flag_pic && RELOC)					\
-	  || !TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)	\
+	  || TREE_SIDE_EFFECTS (DECL)				\
 	  || ! TREE_CONSTANT (DECL))				\
 	data_section ();					\
       else							\

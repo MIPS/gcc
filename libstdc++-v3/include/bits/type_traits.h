@@ -41,6 +41,11 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
+/** @file type_traits.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_BITS_TYPE_TRAITS_H
 #define _CPP_BITS_TYPE_TRAITS_H 1
 
@@ -82,10 +87,8 @@ template <class _Tp> inline void copy(_Tp* __source,_Tp* __destination,int __n) 
 }
 */
 
-
-template <bool _Truth> struct _Bool {};
-typedef _Bool<true>  __true_type;
-typedef _Bool<false> __false_type;
+struct __true_type {};
+struct __false_type {};
 
 template <class _Tp>
 struct __type_traits { 
@@ -205,8 +208,6 @@ template<> struct __type_traits<unsigned long> {
    typedef __true_type    is_POD_type;
 };
 
-#ifdef _GLIBCPP_USE_LONG_LONG
-
 template<> struct __type_traits<long long> {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
@@ -222,8 +223,6 @@ template<> struct __type_traits<unsigned long long> {
    typedef __true_type    has_trivial_destructor;
    typedef __true_type    is_POD_type;
 };
-
-#endif /* _GLIBCPP_USE_LONG_LONG */
 
 template<> struct __type_traits<float> {
    typedef __true_type    has_trivial_default_constructor;
@@ -310,8 +309,6 @@ template<> struct _Is_integer<unsigned long> {
   typedef __true_type _Integral;
 };
 
-#ifdef _GLIBCPP_USE_LONG_LONG
-
 template<> struct _Is_integer<long long> {
   typedef __true_type _Integral;
 };
@@ -320,16 +317,15 @@ template<> struct _Is_integer<unsigned long long> {
   typedef __true_type _Integral;
 };
 
-#endif /* _GLIBCPP_USE_LONG_LONG */
-
 template<typename _Tp> struct _Is_normal_iterator {
    typedef __false_type _Normal;
 };
 
 // Forward declaration hack, should really include this from somewhere.
-namespace std {
-   template<typename _Iterator, typename _Container> class __normal_iterator;
-};
+namespace std 
+{
+  template<typename _Iterator, typename _Container> class __normal_iterator;
+}
 
 template<typename _Iterator, typename _Container>
 struct _Is_normal_iterator< std::__normal_iterator<_Iterator, _Container> > {

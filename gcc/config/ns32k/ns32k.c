@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+#include "toplev.h"
 
 #ifdef OSF_OS
 int ns32k_num_files = 0;
@@ -46,9 +47,9 @@ int ns32k_num_files = 0;
    initialized in time. Also this is more convenient as an array of ints.
    We know that HARD_REG_SET fits in an unsigned int */
 
-unsigned int ns32k_reg_class_contents[N_REG_CLASSES][1] = REG_CLASS_CONTENTS;
+const unsigned int ns32k_reg_class_contents[N_REG_CLASSES][1] = REG_CLASS_CONTENTS;
 
-enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
+const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
 {
   GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
   GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
@@ -59,18 +60,27 @@ enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
   FRAME_POINTER_REG, STACK_POINTER_REG
 };
 
-const char *const ns32k_out_reg_names[] = OUTPUT_REGISTER_NAMES;
+static const char *const ns32k_out_reg_names[] = OUTPUT_REGISTER_NAMES;
 
 static rtx gen_indexed_expr PARAMS ((rtx, rtx, rtx));
 static const char *singlemove_string PARAMS ((rtx *));
 static void move_tail PARAMS ((rtx[], int, int));
-static int ns32k_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+static tree ns32k_handle_fntype_attribute PARAMS ((tree *, tree, tree, int, bool *));
+const struct attribute_spec ns32k_attribute_table[];
 static void ns32k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ns32k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Initialize the GCC target structure.  */
-#undef TARGET_VALID_TYPE_ATTRIBUTE
-#define TARGET_VALID_TYPE_ATTRIBUTE ns32k_valid_type_attribute_p
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE ns32k_attribute_table
+
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+
+#ifdef ENCORE_ASM
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.double\t"
+#endif
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE ns32k_output_function_prologue
@@ -135,7 +145,6 @@ ns32k_output_function_prologue (file, size)
   register int regno, g_regs_used = 0;
   int used_regs_buf[8], *bufp = used_regs_buf;
   int used_fregs_buf[17], *fbufp = used_fregs_buf;
-  extern char call_used_regs[];
 
   for (regno = R0_REGNUM; regno < F0_REGNUM; regno++)
     if (regs_ever_live[regno]
@@ -223,7 +232,6 @@ ns32k_output_function_prologue (file, size)
   register int regno, g_regs_used = 0;
   int used_regs_buf[8], *bufp = used_regs_buf;
   int used_fregs_buf[8], *fbufp = used_fregs_buf;
-  extern char call_used_regs[];
 
   for (regno = 0; regno < 8; regno++)
     if (regs_ever_live[regno]
@@ -317,7 +325,6 @@ ns32k_output_function_epilogue (file, size)
   register int regno, g_regs_used = 0, f_regs_used = 0;
   int used_regs_buf[8], *bufp = used_regs_buf;
   int used_fregs_buf[17], *fbufp = used_fregs_buf;
-  extern char call_used_regs[];
 
   if (flag_pic && current_function_uses_pic_offset_table)
     fprintf (file, "\tlprd sb,tos\n");
@@ -394,7 +401,6 @@ ns32k_output_function_epilogue (file, size)
   register int regno, g_regs_used = 0, f_regs_used = 0;
   int used_regs_buf[8], *bufp = used_regs_buf;
   int used_fregs_buf[8], *fbufp = used_fregs_buf;
-  extern char call_used_regs[];
 
   *fbufp++ = -2;
   for (regno = 8; regno < 16; regno++)
@@ -1008,32 +1014,39 @@ symbolic_reference_mentioned_p (op)
   return 0;
 }
 
-/* Return nonzero if IDENTIFIER with arguments ARGS is a valid machine specific
-   attribute for TYPE.  The attributes in ATTRIBUTES have previously been
-   assigned to TYPE.  */
+/* Table of machine-specific attributes.  */
 
-static int
-ns32k_valid_type_attribute_p (type, attributes, identifier, args)
-     tree type;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier;
-     tree args;
+const struct attribute_spec ns32k_attribute_table[] =
 {
-  if (TREE_CODE (type) != FUNCTION_TYPE
-      && TREE_CODE (type) != FIELD_DECL
-      && TREE_CODE (type) != TYPE_DECL)
-    return 0;
-
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
   /* Stdcall attribute says callee is responsible for popping arguments
      if they are not variable.  */
-  if (is_attribute_p ("stdcall", identifier))
-    return (args == NULL_TREE);
-
+  { "stdcall", 0, 0, false, true,  true,  ns32k_handle_fntype_attribute },
   /* Cdecl attribute says the callee is a normal C declaration */
-  if (is_attribute_p ("cdecl", identifier))
-    return (args == NULL_TREE);
+  { "cdecl",   0, 0, false, true,  true,  ns32k_handle_fntype_attribute },
+  { NULL,      0, 0, false, false, false, NULL }
+};
 
-  return 0;
+/* Handle an attribute requiring a FUNCTION_TYPE, FIELD_DECL or TYPE_DECL;
+   arguments as in struct attribute_spec.handler.  */
+static tree
+ns32k_handle_fntype_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) != FUNCTION_TYPE
+      && TREE_CODE (*node) != FIELD_DECL
+      && TREE_CODE (*node) != TYPE_DECL)
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
 }
 
 
@@ -1106,40 +1119,36 @@ print_operand (file, x, code)
     }
   else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) != VOIDmode)
     {
+      REAL_VALUE_TYPE r;
+
+      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+      PUT_IMMEDIATE_PREFIX (file);
       if (GET_MODE (x) == DFmode)
 	{ 
-	  union { double d; int i[2]; } u;
-	  u.i[0] = CONST_DOUBLE_LOW (x); u.i[1] = CONST_DOUBLE_HIGH (x);
-	  PUT_IMMEDIATE_PREFIX (file);
 #ifdef SEQUENT_ASM
 	  /* Sequent likes its floating point constants as integers */
-	  fprintf (file, "0Dx%08x%08x", u.i[1], u.i[0]);
+	  fprintf (file, "0Dx%08x%08x",
+		   CONST_DOUBLE_HIGH (x), CONST_DOUBLE_LOW (x));
 #else
+	  char s[30];
+	  REAL_VALUE_TO_DECIMAL (r, "%.20e", s);
 #ifdef ENCORE_ASM
-	  fprintf (file, "0f%.20e", u.d); 
+	  fprintf (file, "0f%s", s);
 #else
-	  fprintf (file, "0d%.20e", u.d); 
+	  fprintf (file, "0d%s", s);
 #endif
 #endif
 	}
       else
-	{ 
-	  union { double d; int i[2]; } u;
-	  u.i[0] = CONST_DOUBLE_LOW (x); u.i[1] = CONST_DOUBLE_HIGH (x);
-	  PUT_IMMEDIATE_PREFIX (file);
+	{
 #ifdef SEQUENT_ASM
-	  /* We have no way of winning if we can't get the bits
-	     for a sequent floating point number.  */
-#if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-	  abort ();
-#endif
-	  {
-	    union { float f; long l; } uu;
-	    uu.f = u.d;
-	    fprintf (file, "0Fx%08x", uu.l);
-	  }
+	  long l;
+	  REAL_VALUE_TO_TARGET_SINGLE (r, l);
+	  fprintf (file, "0Fx%08lx", l);
 #else
-	  fprintf (file, "0f%.20e", u.d); 
+	  char s[30];
+	  REAL_VALUE_TO_DECIMAL (r, "%.20e", s);
+	  fprintf (file, "0f%s", s);
 #endif
 	}
     }
@@ -1186,7 +1195,7 @@ print_operand_address (file, addr)
      register FILE *file;
      register rtx addr;
 {
-  static char scales[] = { 'b', 'w', 'd', 0, 'q', };
+  static const char scales[] = { 'b', 'w', 'd', 0, 'q', };
   rtx offset, base, indexexp, tmp;
   int scale;
   extern int flag_pic;

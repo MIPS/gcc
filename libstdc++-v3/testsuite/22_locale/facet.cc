@@ -25,7 +25,7 @@
 #include <stdexcept>
 #include <string>
 #include <iterator>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
 // 1 a class if a facet if it is publicly derived from another facet
 typedef std::istreambuf_iterator<char>		input_iterator;
@@ -159,7 +159,7 @@ public:
 };
 
 
-// 2 or if it is a class deerived from locale:;facet and containing a
+// 2 or if it is a class derived from locale:;facet and containing a
 // publicly-accessible declaration as follows:
 class gnu_facet: public std::locale::facet
 {

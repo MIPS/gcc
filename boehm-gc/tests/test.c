@@ -14,10 +14,13 @@
  */
 /* An incomplete test for the garbage collector.  		*/
 /* Some more obscure entry points are not tested at all.	*/
+/* This must be compiled with the same flags used to build the 	*/
+/* GC.  It uses GC internals to allow more precise results	*/
+/* checking for some of the tests.				*/
 
 # undef GC_BUILD
 
-#ifdef DBG_HDRS_ALL
+#if defined(DBG_HDRS_ALL) || defined(MAKE_BACK_GRAPH)
 #  define GC_DEBUG
 #endif
 
@@ -56,16 +59,16 @@
 #   define GC_printf1 printf
 # endif
 
-# ifdef SOLARIS_THREADS
+# if defined(GC_SOLARIS_THREADS) && !defined(GC_SOLARIS_PTHREADS)
 #   include <thread.h>
 #   include <synch.h>
 # endif
 
-# if defined(IRIX_THREADS) || defined(LINUX_THREADS) || defined(HPUX_THREADS)
+# if defined(GC_PTHREADS)
 #   include <pthread.h>
 # endif
 
-# ifdef WIN32_THREADS
+# ifdef GC_WIN32_THREADS
 #   ifndef MSWINCE
 #     include <process.h>
 #     define GC_CreateThread(a,b,c,d,e,f) ((HANDLE) _beginthreadex(a,b,c,d,e,f))
@@ -238,8 +241,8 @@ sexpr y;
 
 #ifdef GC_GCJ_SUPPORT
 
-#include "private/dbg_mlc.h"
-#include "private/gc_pmark.h"
+#include "gc_mark.h"
+#include "private/dbg_mlc.h"  /* For USR_PTR_FROM_BASE */
 #include "gc_gcj.h"
 
 /* The following struct emulates the vtable in gcj.	*/
@@ -267,16 +270,12 @@ struct GC_ms_entry * fake_gcj_mark_proc(word * addr,
 	addr = (word *)USR_PTR_FROM_BASE(addr);
     }
     x = (sexpr)(addr + 1); /* Skip the vtable pointer. */
-    /* We could just call PUSH_CONTENTS directly here.  But any real	*/
-    /* real client would try to filter out the obvious misses.		*/
-    if (0 != x -> sexpr_cdr) {
-	PUSH_CONTENTS((ptr_t)(x -> sexpr_cdr), mark_stack_ptr,
-			      mark_stack_limit, &(x -> sexpr_cdr), exit1);
-    }
-    if ((ptr_t)(x -> sexpr_car) > (ptr_t) GC_least_plausible_heap_addr) {
-	PUSH_CONTENTS((ptr_t)(x -> sexpr_car), mark_stack_ptr,
-			      mark_stack_limit, &(x -> sexpr_car), exit2);
-    }
+    mark_stack_ptr = GC_MARK_AND_PUSH(
+			      (GC_PTR)(x -> sexpr_cdr), mark_stack_ptr,
+			      mark_stack_limit, (GC_PTR *)&(x -> sexpr_cdr));
+    mark_stack_ptr = GC_MARK_AND_PUSH(
+			      (GC_PTR)(x -> sexpr_car), mark_stack_ptr,
+			      mark_stack_limit, (GC_PTR *)&(x -> sexpr_car));
     return(mark_stack_ptr);
 }
 
@@ -448,7 +447,7 @@ struct {
  */
 #ifdef THREADS
 
-# ifdef WIN32_THREADS
+# ifdef GC_WIN32_THREADS
     unsigned __stdcall tiny_reverse_test(void * arg)
 # else
     void * tiny_reverse_test(void * arg)
@@ -458,8 +457,7 @@ struct {
     return 0;
 }
 
-# if defined(IRIX_THREADS) || defined(LINUX_THREADS) \
-     || defined(SOLARIS_PTHREADS) || defined(HPUX_THREADS)
+# if defined(GC_PTHREADS)
     void fork_a_thread()
     {
       pthread_t t;
@@ -476,7 +474,7 @@ struct {
       }
     }
 
-# elif defined(WIN32_THREADS)
+# elif defined(GC_WIN32_THREADS)
     void fork_a_thread()
     {
   	unsigned thread_id;
@@ -494,7 +492,7 @@ struct {
     	}
     }
 
-/* # elif defined(SOLARIS_THREADS) */
+/* # elif defined(GC_SOLARIS_THREADS) */
 
 # else
 
@@ -650,15 +648,15 @@ VOLATILE int dropped_something = 0;
 # ifdef PCR
      PCR_ThCrSec_EnterSys();
 # endif
-# ifdef SOLARIS_THREADS
+# if defined(GC_SOLARIS_THREADS) && !defined(GC_SOLARIS_PTHREADS)
     static mutex_t incr_lock;
     mutex_lock(&incr_lock);
 # endif
-# if  defined(IRIX_THREADS) || defined(LINUX_THREADS) || defined(HPUX_THREADS)
+# if  defined(GC_PTHREADS)
     static pthread_mutex_t incr_lock = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_lock(&incr_lock);
 # endif
-# ifdef WIN32_THREADS
+# ifdef GC_WIN32_THREADS
     EnterCriticalSection(&incr_cs);
 # endif
   if ((int)(GC_word)client_data != t -> level) {
@@ -669,13 +667,13 @@ VOLATILE int dropped_something = 0;
 # ifdef PCR
     PCR_ThCrSec_ExitSys();
 # endif
-# ifdef SOLARIS_THREADS
+# if defined(GC_SOLARIS_THREADS) && !defined(GC_SOLARIS_PTHREADS)
     mutex_unlock(&incr_lock);
 # endif
-# if defined(IRIX_THREADS) || defined(LINUX_THREADS) || defined(HPUX_THREADS)
+# if defined(GC_PTHREADS)
     pthread_mutex_unlock(&incr_lock);
 # endif
-# ifdef WIN32_THREADS
+# ifdef GC_WIN32_THREADS
     LeaveCriticalSection(&incr_cs);
 # endif
 }
@@ -703,6 +701,13 @@ int n;
 #   endif
     
     collectable_count++;
+#   ifdef THREAD_LOCAL_ALLOC
+       /* Minimally exercise thread local allocation */
+       {
+         char * result = (char *)GC_LOCAL_MALLOC_ATOMIC(17);
+	 memset(result, 'a', 17);
+       }
+#   endif /* THREAD_LOCAL_ALLOC */
 #   if defined(MACOS)
 	/* get around static data limitations. */
 	if (!live_indicators)
@@ -734,16 +739,15 @@ int n;
 #	  ifdef PCR
  	    PCR_ThCrSec_EnterSys();
 #	  endif
-#	  ifdef SOLARIS_THREADS
+#	  if defined(GC_SOLARIS_THREADS) && !defined(GC_SOLARIS_PTHREADS)
 	    static mutex_t incr_lock;
 	    mutex_lock(&incr_lock);
 #	  endif
-#         if defined(IRIX_THREADS) || defined(LINUX_THREADS) \
-	     || defined(HPUX_THREADS)
+#         if defined(GC_PTHREADS)
             static pthread_mutex_t incr_lock = PTHREAD_MUTEX_INITIALIZER;
             pthread_mutex_lock(&incr_lock);
 #         endif
-#         ifdef WIN32_THREADS
+#         ifdef GC_WIN32_THREADS
             EnterCriticalSection(&incr_cs);
 #         endif
 		/* Losing a count here causes erroneous report of failure. */
@@ -752,14 +756,13 @@ int n;
 #	  ifdef PCR
  	    PCR_ThCrSec_ExitSys();
 #	  endif
-#	  ifdef SOLARIS_THREADS
+#	  if defined(GC_SOLARIS_THREADS) && !defined(GC_SOLARIS_PTHREADS)
 	    mutex_unlock(&incr_lock);
 #	  endif
-#	  if defined(IRIX_THREADS) || defined(LINUX_THREADS) \
-	     || defined(HPUX_THREADS)
+#	  if defined(GC_PTHREADS)
 	    pthread_mutex_unlock(&incr_lock);
 #	  endif
-#         ifdef WIN32_THREADS
+#         ifdef GC_WIN32_THREADS
             LeaveCriticalSection(&incr_cs);
 #         endif
 	}
@@ -819,7 +822,7 @@ int n;
     chktree(t -> rchild, n-1);
 }
 
-# if defined(SOLARIS_THREADS) && !defined(_SOLARIS_PTHREADS)
+# if defined(GC_SOLARIS_THREADS) && !defined(GC_SOLARIS_PTHREADS)
 thread_key_t fl_key;
 
 void * alloc8bytes()
@@ -860,9 +863,7 @@ void * alloc8bytes()
 
 #else
 
-# if defined(GC_SOLARIS_PTHREADS) || defined(GC_IRIX_THREADS) \
-     || defined(GC_LINUX_THREADS) || defined(GC_HPUX_THREADS) \
-     || defined(GC_SOLARIS_THREADS)
+# if defined(GC_PTHREADS)
 pthread_key_t fl_key;
 
 void * alloc8bytes()
@@ -1313,9 +1314,8 @@ void SetMinimumStack(long minSize)
 
 
 #if !defined(PCR) && !defined(GC_SOLARIS_THREADS) \
-    && !defined(GC_WIN32_THREADS) \
-    && !defined(GC_IRIX_THREADS) && !defined(GC_LINUX_THREADS) \
-    && !defined(GC_HPUX_THREADS) || defined(LINT)
+    && !defined(GC_WIN32_THREADS) && !defined(GC_PTHREADS) \
+    || defined(LINT)
 #if defined(MSWIN32) && !defined(__MINGW32__)
   int APIENTRY WinMain(HINSTANCE instance, HINSTANCE prev, LPTSTR cmd, int n)
 #else
@@ -1340,7 +1340,7 @@ void SetMinimumStack(long minSize)
 #   endif
     GC_INIT();	/* Only needed if gc is dynamic library.	*/
     (void) GC_set_warn_proc(warn_proc);
-#   if defined(MPROTECT_VDB) || defined(PROC_VDB)
+#   if (defined(MPROTECT_VDB) || defined(PROC_VDB)) && !defined(MAKE_BACK_GRAPH)
       GC_enable_incremental();
       (void) GC_printf0("Switched to incremental mode\n");
 #     if defined(MPROTECT_VDB)
@@ -1551,8 +1551,7 @@ test()
 }
 #endif
 
-#if defined(GC_SOLARIS_THREADS) || defined(GC_IRIX_THREADS) \
- || defined(GC_HPUX_THREADS) || defined(GC_LINUX_THREADS)
+#if defined(GC_SOLARIS_THREADS) || defined(GC_PTHREADS)
 void * thr_run_one_test(void * arg)
 {
     run_one_test();
@@ -1563,7 +1562,7 @@ void * thr_run_one_test(void * arg)
 #  define GC_free GC_debug_free
 #endif
 
-#ifdef GC_SOLARIS_THREADS
+#if defined(GC_SOLARIS_THREADS) && !defined(GC_SOLARIS_PTHREADS)
 main()
 {
     thread_t th1;
@@ -1572,7 +1571,9 @@ main()
 
     n_tests = 0;
     GC_INIT();	/* Only needed if gc is dynamic library.	*/
-    GC_enable_incremental();
+#   ifndef MAKE_BACK_GRAPH
+      GC_enable_incremental();
+#   endif
     (void) GC_set_warn_proc(warn_proc);
     if (thr_keycreate(&fl_key, GC_free) != 0) {
         (void)GC_printf1("Key creation failed %lu\n", (unsigned long)code);
@@ -1600,6 +1601,11 @@ main()
     return(0);
 }
 #else /* pthreads */
+
+#ifndef GC_PTHREADS
+  --> bad news
+#endif
+
 main()
 {
     pthread_t th1;
@@ -1612,12 +1618,19 @@ main()
 	/* Since the initial cant always grow later.	*/
 	*((volatile char *)&code - 1024*1024) = 0;      /* Require 1 Mb */
 #   endif /* GC_IRIX_THREADS */
+#   if defined(GC_HPUX_THREADS)
+	/* Default stack size is too small, especially with the 64 bit ABI */
+	/* Increase it.							   */
+	if (pthread_default_stacksize_np(1024*1024, 0) != 0) {
+          (void)GC_printf0("pthread_default_stacksize_np failed.\n");
+	}
+#   endif	/* GC_HPUX_THREADS */
     pthread_attr_init(&attr);
-#   if defined(GC_IRIX_THREADS) || defined(GC_HPUX_THREADS)
+#   if defined(GC_IRIX_THREADS) || defined(GC_FREEBSD_THREADS)
     	pthread_attr_setstacksize(&attr, 1000000);
 #   endif
     n_tests = 0;
-#   if  defined(MPROTECT_VDB) && !defined(PARALLEL_MARK) &&!defined(REDIRECT_MALLOC)
+#   if  defined(MPROTECT_VDB) && !defined(PARALLEL_MARK) &&!defined(REDIRECT_MALLOC) && !defined(MAKE_BACK_GRAPH)
     	GC_enable_incremental();
         (void) GC_printf0("Switched to incremental mode\n");
 	(void) GC_printf0("Emulating dirty bits with mprotect/signals\n");
@@ -1650,5 +1663,5 @@ main()
     GC_printf1("Completed %d collections\n", GC_gc_no);
     return(0);
 }
-#endif /* pthreads */
-#endif /* SOLARIS_THREADS || IRIX_THREADS || LINUX_THREADS || HPUX_THREADS */
+#endif /* GC_PTHREADS */
+#endif /* GC_SOLARIS_THREADS || GC_PTHREADS */

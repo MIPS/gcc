@@ -1,3 +1,63 @@
+2002-04-09  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR objc/6107
+	* objc/objc-api.h (struct objc_protocol_list): Change type of
+	member count from int to size_t.
+
+2002-02-11  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR libobjc/4039
+	* aclocal.m4: Replace with version copied from libstdc++-v3.
+	* configure.in: Update for changes to aclocal and Makefile.
+	* configure: Regenerate.
+	* Makefile.in: Correct install of multilibs and shared libs, use
+	INSTALL_DATA for include files.
+
+Mon Dec 17 17:02:12 2001  Nicola Pero  <nicola@brainstorm.co.uk>
+
+	* init.c (__objc_exec_class): Fixed bug in the loop on unclaimed
+	categories - when an unclaimed category was found, the loop was
+	doing two steps forward instead of one, so that in certain cases
+	it was failing to properly load all the categories.  (Reported
+	with fix by Alexander Malmberg <alexander@malmberg.org>).
+
+2001-11-14  Aldy Hernandez  <aldyh@redhat.com>
+
+        * encoding.c: Add target_flags.
+
+2001-11-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	 * objc/objc-api.h (_C_VECTOR): New.
+
+	 * encoding.c (VECTOR_TYPE): New.
+
+Mon Oct 29 21:29:21 2001  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* class.c: Rewritten the class table to use optimized, lock-free
+        lookup.  This more than doubles the speed of class method
+        invocations.  (class_table_setup), (class_table_insert),
+        (class_table_replace), (class_table_get_safe),
+        (class_table_next), (class_table_print),
+        (class_table_print_histogram): New functions.
+        (__objc_init_class_tables): Use class_table_setup.
+        (__objc_add_class_to_hash): Use class_table_get_safe and
+        class_table_insert.  (objc_lookup_class), (objc_get_class): Do not
+        assert the existence of the table; do not lock the runtime; use
+        class_table_get_safe.  (objc_next_class): Use class_table_next.
+        (__objc_resolve_class_links): Use class_table_next.
+        (class_pose_as): Use class_table_replace.
+
+2001-09-10  Ovidiu Predescu  <ovidiu@cup.hp.com>
+
+	* gc.c: Removed the DEBUG declaration.
+
+Wed Jul 18 12:48:56 2001  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* thr.c (objc_mutex_lock): Invoke __objc_thread_id directly,
+	rather than through objc_thread_id, to save a function call.
+	(objc_mutex_trylock, objc_mutex_unlock, objc_condition_wait):
+	Ditto.
+
 Mon Jul 16 12:15:00 2001  Nicola Pero  <n.pero@mi.flashnet.it>
 
 	* objc/objc-api.h (object_is_class): Fixed - buggy code was trying

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for Intel 860.
-   Copyright (C) 1989, 1991, 1993, 1995, 1996, 1997, 1998, 1999, 2000
-   Free Software Foundation, Inc.
+   Copyright (C) 1989, 1991, 1993, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
    Hacked substantially by Ron Guilmette (rfg@monkeys.com) to cater to
    the whims of the System V Release 4 assembler.
 
@@ -82,21 +82,8 @@ extern int target_flags;
    justify the trouble of changing this assumption.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -126,7 +113,7 @@ extern int target_flags;
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 1
 
-/* If bit field type is int, dont let it cross an int,
+/* If bit field type is int, don't let it cross an int,
    and give entire struct the alignment of an int.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
@@ -614,11 +601,11 @@ struct cumulative_args { int ints, floats; };
      or #BOTTOM_OF_STATIC,r29,r29  */
 #define TRAMPOLINE_TEMPLATE(FILE)					\
 {									\
-  ASM_OUTPUT_INT (FILE, GEN_INT (0xec1f0000));	\
-  ASM_OUTPUT_INT (FILE, GEN_INT (0xe7ff0000));	\
-  ASM_OUTPUT_INT (FILE, GEN_INT (0xec1d0000));	\
-  ASM_OUTPUT_INT (FILE, GEN_INT (0x4000f800));	\
-  ASM_OUTPUT_INT (FILE, GEN_INT (0xe7bd0000));	\
+  assemble_aligned_integer (UNITS_PER_WORD, GEN_INT (0xec1f0000));	\
+  assemble_aligned_integer (UNITS_PER_WORD, GEN_INT (0xe7ff0000));	\
+  assemble_aligned_integer (UNITS_PER_WORD, GEN_INT (0xec1d0000));	\
+  assemble_aligned_integer (UNITS_PER_WORD, GEN_INT (0x4000f800));	\
+  assemble_aligned_integer (UNITS_PER_WORD, GEN_INT (0xe7bd0000));	\
 }
 
 /* Length in units of the trampoline for entering a nested function.  */
@@ -844,12 +831,6 @@ struct cumulative_args { int ints, floats; };
    Do not define this if the table should contain absolute addresses. */
 /* #define CASE_VECTOR_PC_RELATIVE 1 */
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Must pass floats to libgcc functions as doubles.  */
 #define LIBGCC_NEEDS_DOUBLE 1
 
@@ -975,9 +956,6 @@ struct cumulative_args { int ints, floats; };
 
 /* Assembler pseudos to introduce constants of various size.  */
 
-#define ASM_BYTE_OP "\t.byte\t"
-#define ASM_SHORT "\t.short"
-#define ASM_LONG "\t.long"
 #define ASM_DOUBLE "\t.double"
 
 /* Output at beginning of assembler file.  */
@@ -1023,10 +1001,6 @@ struct cumulative_args { int ints, floats; };
  "f10", "f11", "f12", "f13", "f14", "f15", "f16", "f17", "f18", "f19",	\
  "f20", "f21", "f22", "f23", "f24", "f25", "f26", "f27", "f28", "f29",	\
  "f30", "f31" }
-
-/* How to renumber registers for dbx and gdb.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
@@ -1078,40 +1052,6 @@ do { ASM_OUTPUT_ALIGN ((FILE), 2);					\
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*.%s%d", PREFIX, NUM)
-
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-  fprintf (FILE, "\t.double %.20e\n", (VALUE))
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)  \
-  fprintf (FILE, "\t.float %.12e\n", (VALUE))
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\t.short "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
 /* This is how to output code to push a register on the stack.
    It need not be very fast code.  */

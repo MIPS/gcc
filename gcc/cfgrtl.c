@@ -713,7 +713,7 @@ try_redirect_by_replacing_jump (e, target)
   basic_block src = e->src;
   rtx insn = src->end, kill_from;
   edge tmp;
-  rtx set, table;
+  rtx set;
   int fallthru = 0;
 
   /* Verify that all targets will be TARGET.  */
@@ -722,12 +722,6 @@ try_redirect_by_replacing_jump (e, target)
       break;
 
   if (tmp || !onlyjump_p (insn))
-    return false;
-  if (reload_completed && JUMP_LABEL (insn)
-      && (table = NEXT_INSN (JUMP_LABEL (insn))) != NULL_RTX
-      && GET_CODE (table) == JUMP_INSN
-      && (GET_CODE (PATTERN (table)) == ADDR_VEC
-	  || GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC))
     return false;
 
   /* Avoid removing branch with side effects.  */
@@ -1110,9 +1104,8 @@ tidy_fallthru_edge (e, b, c)
      So search through a sequence of barriers, labels, and notes for
      the head of block C and assert that we really do fall through.  */
 
-  for (q = NEXT_INSN (b->end); q != c->head; q = NEXT_INSN (q))
-    if (INSN_P (q))
-      return;
+  if (next_real_insn (b->end) != next_real_insn (PREV_INSN (c->head)))
+    return;
 
   /* Remove what will soon cease being the jump insn from the source block.
      If block B consisted only of this single jump, turn it into a deleted
@@ -1875,12 +1868,12 @@ verify_flow_info ()
 	  edge_checksum[e->dest->index + 2] += (size_t) e;
 	}
 
-      if (n_eh && GET_CODE (PATTERN (bb->end)) != RESX
+      /*if (n_eh && GET_CODE (PATTERN (bb->end)) != RESX
 	  && !find_reg_note (bb->end, REG_EH_REGION, NULL_RTX))
 	{
 	  error ("Missing REG_EH_REGION note in the end of bb %i", bb->index);
 	  err = 1;
-	}
+	}*/
       if (n_branch
 	  && (GET_CODE (bb->end) != JUMP_INSN
 	      || (n_branch > 1 && (any_uncondjump_p (bb->end)

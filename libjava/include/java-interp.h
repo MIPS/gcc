@@ -33,16 +33,13 @@ _Jv_IsInterpretedClass (jclass c)
 
 struct _Jv_ResolvedMethod;
 
-bool _Jv_VerifyFieldSignature (_Jv_Utf8Const*sig);
-bool _Jv_VerifyMethodSignature (_Jv_Utf8Const*sig);
-bool _Jv_VerifyClassName (unsigned char* ptr, _Jv_ushort length);
-bool _Jv_VerifyClassName (_Jv_Utf8Const *name);
-bool _Jv_VerifyIdentifier (_Jv_Utf8Const *);
-bool _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2);
 void _Jv_DefineClass (jclass, jbyteArray, jint, jint);
 
 void _Jv_InitField (jobject, jclass, int);
 void * _Jv_AllocMethodInvocation (jsize size);
+int  _Jv_count_arguments (_Jv_Utf8Const *signature,
+			  jboolean staticp = true);
+void _Jv_VerifyMethod (_Jv_InterpMethod *method);
 
 /* FIXME: this should really be defined in some more generic place */
 #define ROUND(V, A) (((((unsigned) (V))-1) | ((A)-1))+1)
@@ -54,7 +51,8 @@ class _Jv_InterpClass;
 class _Jv_InterpMethod;
 class _Jv_InterpMethodInvocation;
 
-class _Jv_InterpException {
+class _Jv_InterpException
+{
   int  start_pc;
   int  end_pc;
   int  handler_pc;
@@ -62,6 +60,7 @@ class _Jv_InterpException {
 
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethod;
+  friend class _Jv_BytecodeVerifier;
 };
 
 // Base class for method representations.  Subclasses are interpreted
@@ -133,6 +132,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
 
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethodInvocation;
+  friend class _Jv_BytecodeVerifier;
 
   friend void _Jv_PrepareClass(jclass);
 };

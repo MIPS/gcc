@@ -88,7 +88,7 @@ Boston, MA 02111-1307, USA.  */
    addressed.  Under VMS there is some brain damage in the linker that requires
    us to do this.  */
 
-#define ENCODE_SECTION_INFO(decl)  				\
+#define ENCODE_SECTION_INFO(decl, FIRST)  			\
   if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl)) 		\
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1; 
 
@@ -218,7 +218,7 @@ const_section ()					\
    Since this macro is used in a number of places, we must also be able
    to decide where to place string constants.  */
 
-#define SELECT_SECTION(T,RELOC)						\
+#define SELECT_SECTION(T,RELOC,ALIGN)					\
 {									\
   if (TREE_CODE (T) == VAR_DECL)					\
     {									\
@@ -248,27 +248,8 @@ const_section ()					\
    that are needed to tell the startup code which constructors need to
    be run.  */
 
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-{									\
-  fprintf ((FILE),".globl $$PsectAttributes_NOOVR$$__gxx_init_1\n"); 	\
-  data_section();							\
-  fprintf ((FILE),"$$PsectAttributes_NOOVR$$__gxx_init_1:\n\t.long\t"); \
-  assemble_name ((FILE), (NAME));					\
-  fputc ('\n', (FILE));							\
-}
-
-/* This is used by a hook in varasm.c to write the assembler directives
-   that are needed to tell the startup code which destructors need to
-   be run.  */
-
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)				\
-{									\
-  fprintf ((FILE),".globl $$PsectAttributes_NOOVR$$__gxx_clean_1\n"); 	\
-  data_section();							\
-  fprintf ((FILE),"$$PsectAttributes_NOOVR$$__gxx_clean_1:\n\t.long\t");\
-  assemble_name ((FILE), (NAME));					\
-  fputc ('\n', (FILE));							\
-}
+#define TARGET_ASM_CONSTRUCTOR  vms_asm_out_constructor
+#define TARGET_ASM_DESTRUCTOR   vms_asm_out_destructor
 
 /* The following definitions are used in libgcc2.c with the __main
    function.  The _SHR symbol is used when the sharable image library

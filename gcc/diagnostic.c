@@ -1,23 +1,23 @@
 /* Language-independent diagnostic subroutines for the GNU C compiler
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* This file implements the language independent aspect of diagnostic
@@ -27,17 +27,15 @@ Boston, MA 02111-1307, USA.  */
 #undef FLOAT /* This is for hpux. They should change hpux.  */
 #undef FFS  /* Some systems define this in param.h.  */
 #include "system.h"
-
 #include "tree.h"
-#include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "input.h"
-#include "insn-attr.h"
-#include "insn-config.h"
 #include "toplev.h"
 #include "intl.h"
 #include "diagnostic.h"
+#include "langhooks.h"
+#include "langhooks-def.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free  free
@@ -58,7 +56,7 @@ Boston, MA 02111-1307, USA.  */
 #define diagnostic_args output_buffer_ptr_to_format_args (diagnostic_buffer)
 #define diagnostic_msg output_buffer_text_cursor (diagnostic_buffer)
 
-/* Prototypes. */
+/* Prototypes.  */
 static void diagnostic_finish PARAMS ((output_buffer *));
 static void output_do_verbatim PARAMS ((output_buffer *,
                                         const char *, va_list *));
@@ -73,8 +71,6 @@ static char *build_message_string PARAMS ((const char *, ...))
 static void output_do_printf PARAMS ((output_buffer *, const char *))
      ATTRIBUTE_PRINTF (2, 0);
 static void format_with_decl PARAMS ((output_buffer *, tree));
-static void file_and_line_for_asm PARAMS ((rtx, const char **, int *));
-static void diagnostic_for_asm PARAMS ((rtx, const char *, va_list *, int));
 static void diagnostic_for_decl PARAMS ((tree, const char *, va_list *, int));
 static void set_real_maximum_length PARAMS ((output_buffer *));
 
@@ -117,12 +113,6 @@ static tree last_error_function = NULL;
 
 /* Used to detect when input_file_stack has changed since last described.  */
 static int last_error_tick;
-
-/* Called by report_error_function to print out function name.
-   Default may be overridden by language front-ends.  */
-
-void (*print_error_function) PARAMS ((diagnostic_context *, const char *))
-     = default_print_error_function;
 
 /* Prevent recursion into the error handler.  */
 static int diagnostic_lock;
@@ -181,7 +171,7 @@ diagnostic_initialize (context)
   diagnostic_finalizer (context) = default_diagnostic_finalizer;
 }
 
-/* Returns true if BUFFER is in line-wrappind mode.  */
+/* Returns true if BUFFER is in line-wrapping mode.  */
 
 int
 output_is_line_wrapping (buffer)
@@ -208,7 +198,7 @@ set_real_maximum_length (buffer)
 {
   /* If we're told not to wrap lines then do the obvious thing.  In case
    we'll emit prefix only once per diagnostic message, it is appropriate
-  not to increase unncessarily the line-length cut-off.  */
+  not to increase unnecessarily the line-length cut-off.  */
   if (! output_is_line_wrapping (buffer)
       || diagnostic_prefixing_rule (buffer) == DIAGNOSTICS_SHOW_PREFIX_ONCE
       || diagnostic_prefixing_rule (buffer) == DIAGNOSTICS_SHOW_PREFIX_NEVER)
@@ -553,7 +543,7 @@ wrap_text (buffer, start, end)
   
   while (start != end)
     {
-      /* Dump anything bodered by whitespaces.  */ 
+      /* Dump anything bordered by whitespaces.  */ 
       {
         const char *p = start;
         while (p != end && *p != ' ' && *p != '\n')
@@ -728,7 +718,7 @@ output_format (buffer)
             if (*++output_buffer_text_cursor (buffer) != '*')
               abort ();
             else if (*++output_buffer_text_cursor (buffer) != 's')
-              abort();
+              abort ();
             n = va_arg (output_buffer_format_args (buffer), int);
             s = va_arg (output_buffer_format_args (buffer), const char *);
             output_append (buffer, s, s + n);
@@ -758,26 +748,19 @@ vbuild_message_string (msg, ap)
 }
 
 /*  Return a malloc'd string containing MSG formatted a la
-    printf.  The caller is reponsible for freeing the memory.  */
+    printf.  The caller is responsible for freeing the memory.  */
 
 static char *
 build_message_string VPARAMS ((const char *msg, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *msg;
-#endif
-  va_list ap;
   char *str;
 
-  VA_START (ap, msg);
-
-#ifndef ANSI_PROTOTYPES
-  msg = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msg);
+  VA_FIXEDARG (ap, const char *, msg);
 
   str = vbuild_message_string (msg, ap);
 
-  va_end (ap);
+  VA_CLOSE (ap);
 
   return str;
 }
@@ -836,23 +819,17 @@ output_do_printf (buffer, msg)
 void
 output_printf VPARAMS ((struct output_buffer *buffer, const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  struct output_buffer *buffer;
-  const char *msgid;
-#endif
-  va_list ap;
   va_list *old_args;
 
-  VA_START (ap, msgid);
-#ifndef ANSI_PROTOTYPES
-  buffer = va_arg (ap, output_buffer *);
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, output_buffer *, buffer);
+  VA_FIXEDARG (ap, const char *, msgid);
+
   old_args = output_buffer_ptr_to_format_args (buffer);
   output_buffer_ptr_to_format_args (buffer) = &ap;
   output_do_printf (buffer, _(msgid));
   output_buffer_ptr_to_format_args (buffer) = old_args;
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* Print a message relevant to the given DECL.  */
@@ -885,9 +862,9 @@ format_with_decl (buffer, decl)
   
   if (*p == '%')		/* Print the name.  */
     {
-      const char *n = (DECL_NAME (decl)
-		 ? (*decl_printable_name) (decl, 2)
-		 : _("((anonymous))"));
+      const char *const n = (DECL_NAME (decl)
+			     ? (*lang_hooks.decl_printable_name) (decl, 2)
+			     : _("((anonymous))"));
       output_add_string (buffer, n);
       while (*p)
 	{
@@ -904,61 +881,6 @@ format_with_decl (buffer, decl)
     }
 }
 
-/* Figure file and line of the given INSN.  */
-
-static void
-file_and_line_for_asm (insn, pfile, pline)
-     rtx insn;
-     const char **pfile;
-     int *pline;
-{
-  rtx body = PATTERN (insn);
-  rtx asmop;
-
-  /* Find the (or one of the) ASM_OPERANDS in the insn.  */
-  if (GET_CODE (body) == SET && GET_CODE (SET_SRC (body)) == ASM_OPERANDS)
-    asmop = SET_SRC (body);
-  else if (GET_CODE (body) == ASM_OPERANDS)
-    asmop = body;
-  else if (GET_CODE (body) == PARALLEL
-	   && GET_CODE (XVECEXP (body, 0, 0)) == SET)
-    asmop = SET_SRC (XVECEXP (body, 0, 0));
-  else if (GET_CODE (body) == PARALLEL
-	   && GET_CODE (XVECEXP (body, 0, 0)) == ASM_OPERANDS)
-    asmop = XVECEXP (body, 0, 0);
-  else
-    asmop = NULL;
-
-  if (asmop)
-    {
-      *pfile = ASM_OPERANDS_SOURCE_FILE (asmop);
-      *pline = ASM_OPERANDS_SOURCE_LINE (asmop);
-    }
-  else
-    {
-      *pfile = input_filename;
-      *pline = lineno;
-    }
-}
-
-/* Report a diagnostic MESSAGE (an errror or a WARNING) at the line number
-   of the insn INSN.  This is used only when INSN is an `asm' with operands,
-   and each ASM_OPERANDS records its own source file and line.  */
-
-static void
-diagnostic_for_asm (insn, msg, args_ptr, warn)
-     rtx insn;
-     const char *msg;
-     va_list *args_ptr;
-     int warn;
-{
-  diagnostic_context dc;
-
-  set_diagnostic_context (&dc, msg, args_ptr, NULL, 0, warn);
-  file_and_line_for_asm (insn, &diagnostic_file_location (&dc),
-                         &diagnostic_line_location (&dc));
-  report_diagnostic (&dc);
-}
 
 /* Report a diagnostic MESSAGE at the declaration DECL.
    MSG is a format string which uses %s to substitute the declaration
@@ -986,7 +908,7 @@ diagnostic_for_decl (decl, msgid, args_ptr, warn)
       output_buffer_ptr_to_format_args (diagnostic_buffer) = args_ptr;
       output_buffer_text_cursor (diagnostic_buffer) = _(msgid);
       format_with_decl (diagnostic_buffer, decl);
-      diagnostic_finish ((output_buffer *)global_dc);
+      diagnostic_finish ((output_buffer *) global_dc);
       output_destroy_prefix (diagnostic_buffer);
   
       output_buffer_state (diagnostic_buffer) = os;
@@ -1027,21 +949,12 @@ count_error (warningp)
 void
 fnotice VPARAMS ((FILE *file, const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  FILE *file;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (ap, FILE *);
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, FILE *, file);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   vfprintf (file, _(msgid), ap);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 
@@ -1051,26 +964,20 @@ fnotice VPARAMS ((FILE *file, const char *msgid, ...))
 void
 fatal_io_error VPARAMS ((const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
   output_state os;
 
-  os = output_buffer_state (diagnostic_buffer);
-  VA_START (ap, msgid);
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
 
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
+  os = output_buffer_state (diagnostic_buffer);
 
   output_printf (diagnostic_buffer, "%s: %s: ", progname, xstrerror (errno));
   output_buffer_ptr_to_format_args (diagnostic_buffer) = &ap;
   output_buffer_text_cursor (diagnostic_buffer) = _(msgid);
   output_format (diagnostic_buffer);
-  diagnostic_finish ((output_buffer *)global_dc);
+  diagnostic_finish ((output_buffer *) global_dc);
   output_buffer_state (diagnostic_buffer) = os;
-  va_end (ap);
+  VA_CLOSE (ap);
   exit (FATAL_EXIT_CODE);
 }
 
@@ -1079,22 +986,15 @@ fatal_io_error VPARAMS ((const char *msgid, ...))
 void
 pedwarn VPARAMS ((const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
   diagnostic_context dc;
 
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   set_diagnostic_context
     (&dc, msgid, &ap, input_filename, lineno, !flag_pedantic_errors);
   report_diagnostic (&dc);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* Issue a pedantic waring about DECL.  */
@@ -1102,18 +1002,10 @@ pedwarn VPARAMS ((const char *msgid, ...))
 void
 pedwarn_with_decl VPARAMS ((tree decl, const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  tree decl;
-  const char *msgid;
-#endif
-  va_list ap;
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, tree, decl);
+  VA_FIXEDARG (ap, const char *, msgid);
 
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  decl = va_arg (ap, tree);
-  msgid = va_arg (ap, const char *);
-#endif
   /* We don't want -pedantic-errors to cause the compilation to fail from
      "errors" in system header files.  Sometimes fixincludes can't fix what's
      broken (eg: unsigned char bitfields - fixing it may change the alignment
@@ -1122,34 +1014,25 @@ pedwarn_with_decl VPARAMS ((tree decl, const char *msgid, ...))
      warning either, it's just unnecessary noise.  */
   if (!DECL_IN_SYSTEM_HEADER (decl))
     diagnostic_for_decl (decl, msgid, &ap, !flag_pedantic_errors);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
-/* Same as above but within the context FILE and LINE. */
+/* Same as above but within the context FILE and LINE.  */
 
 void
 pedwarn_with_file_and_line VPARAMS ((const char *file, int line,
 				     const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *file;
-  int line;
-  const char *msgid;
-#endif
-  va_list ap;
   diagnostic_context dc;
 
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (ap, const char *);
-  line = va_arg (ap, int);
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, file);
+  VA_FIXEDARG (ap, int, line);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   set_diagnostic_context (&dc, msgid, &ap, file, line, !flag_pedantic_errors);
   report_diagnostic (&dc);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* Just apologize with MSGID.  */
@@ -1157,28 +1040,23 @@ pedwarn_with_file_and_line VPARAMS ((const char *file, int line,
 void
 sorry VPARAMS ((const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
   output_state os;
 
-  os = output_buffer_state (diagnostic_buffer);
-  VA_START (ap, msgid);
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
 
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
   ++sorrycount;
+  os = output_buffer_state (diagnostic_buffer);
+
   output_set_prefix
     (diagnostic_buffer, context_as_prefix (input_filename, lineno, 0));
   output_printf (diagnostic_buffer, "sorry, not implemented: ");
   output_buffer_ptr_to_format_args (diagnostic_buffer) = &ap;
   output_buffer_text_cursor (diagnostic_buffer) = _(msgid);
   output_format (diagnostic_buffer);
-  diagnostic_finish ((output_buffer *)global_dc);
+  diagnostic_finish ((output_buffer *) global_dc);
   output_buffer_state (diagnostic_buffer) = os;
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* Called when the start of a function definition is parsed,
@@ -1193,7 +1071,7 @@ announce_function (decl)
       if (rtl_dump_and_exit)
 	verbatim ("%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
       else
-        verbatim (" %s", (*decl_printable_name) (decl, 2));
+        verbatim (" %s", (*lang_hooks.decl_printable_name) (decl, 2));
       fflush (stderr);
       output_needs_newline (diagnostic_buffer) = 1;
       record_last_error_function ();
@@ -1204,7 +1082,7 @@ announce_function (decl)
    an error.  */
 
 void
-default_print_error_function (context, file)
+lhd_print_error_function (context, file)
      diagnostic_context *context;
      const char *file;
 {
@@ -1214,25 +1092,25 @@ default_print_error_function (context, file)
       output_state os;
 
       os = output_buffer_state (context);
-      output_set_prefix ((output_buffer *)context, prefix);
+      output_set_prefix ((output_buffer *) context, prefix);
       
       if (current_function_decl == NULL)
-          output_add_string ((output_buffer *)context, _("At top level:"));
+          output_add_string ((output_buffer *) context, _("At top level:"));
       else
 	{
 	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
             output_printf
-              ((output_buffer *)context, "In member function `%s':",
-               (*decl_printable_name) (current_function_decl, 2));
+              ((output_buffer *) context, "In member function `%s':",
+               (*lang_hooks.decl_printable_name) (current_function_decl, 2));
 	  else
             output_printf
-              ((output_buffer *)context, "In function `%s':",
-               (*decl_printable_name) (current_function_decl, 2));
+              ((output_buffer *) context, "In function `%s':",
+               (*lang_hooks.decl_printable_name) (current_function_decl, 2));
 	}
-      output_add_newline ((output_buffer *)context);
+      output_add_newline ((output_buffer *) context);
 
       record_last_error_function ();
-      output_buffer_to_stream ((output_buffer *)context);
+      output_buffer_to_stream ((output_buffer *) context);
       output_buffer_state (context) = os;
       free ((char*) prefix);
     }
@@ -1246,96 +1124,52 @@ void
 report_error_function (file)
   const char *file ATTRIBUTE_UNUSED;
 {
-  report_problematic_module ((output_buffer *)global_dc);
-  (*print_error_function) (global_dc, input_filename);
+  report_problematic_module ((output_buffer *) global_dc);
+  (*lang_hooks.print_error_function) (global_dc, input_filename);
 }
 
 void
 error_with_file_and_line VPARAMS ((const char *file, int line,
 				   const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *file;
-  int line;
-  const char *msgid;
-#endif
-  va_list ap;
   diagnostic_context dc;
 
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (ap, const char *);
-  line = va_arg (ap, int);
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, file);
+  VA_FIXEDARG (ap, int, line);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   set_diagnostic_context (&dc, msgid, &ap, file, line, /* warn = */ 0);
   report_diagnostic (&dc);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 void
 error_with_decl VPARAMS ((tree decl, const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  tree decl;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  decl = va_arg (ap, tree);
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, tree, decl);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   diagnostic_for_decl (decl, msgid, &ap, /* warn = */ 0);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
-void
-error_for_asm VPARAMS ((rtx insn, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  rtx insn;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  insn = va_arg (ap, rtx);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  diagnostic_for_asm (insn, msgid, &ap, /* warn = */ 0);
-  va_end (ap);
-}
 
 /* Report an error message.  The arguments are like that of printf.  */
 
 void
 error VPARAMS ((const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
   diagnostic_context dc;
 
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   set_diagnostic_context
     (&dc, msgid, &ap, input_filename, lineno, /* warn = */ 0);
   report_diagnostic (&dc);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* Likewise, except that the compilation is terminated after printing the
@@ -1344,22 +1178,15 @@ error VPARAMS ((const char *msgid, ...))
 void
 fatal_error VPARAMS ((const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
   diagnostic_context dc;
 
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   set_diagnostic_context
     (&dc, msgid, &ap, input_filename, lineno, /* warn = */ 0);
   report_diagnostic (&dc);
-  va_end (ap);
+  VA_CLOSE (ap);
 
   fnotice (stderr, "compilation terminated.\n");
   exit (FATAL_EXIT_CODE);
@@ -1382,24 +1209,22 @@ set_internal_error_function (f)
 void
 internal_error VPARAMS ((const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
   diagnostic_context dc;
 
-  VA_START (ap, msgid);
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
 
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
+  if (diagnostic_lock)
+    error_recursion ();
 
+#ifndef ENABLE_CHECKING
   if (errorcount > 0 || sorrycount > 0)
     {
       fnotice (stderr, "%s:%d: confused by earlier errors, bailing out\n",
 	       input_filename, lineno);
       exit (FATAL_EXIT_CODE);
     }
+#endif
 
   if (internal_error_function != 0)
     (*internal_error_function) (_(msgid), &ap);
@@ -1407,7 +1232,7 @@ internal_error VPARAMS ((const char *msgid, ...))
   set_diagnostic_context
     (&dc, msgid, &ap, input_filename, lineno, /* warn = */0);
   report_diagnostic (&dc);
-  va_end (ap);
+  VA_CLOSE (ap);
 
   fnotice (stderr,
 "Please submit a full bug report,\n\
@@ -1417,121 +1242,44 @@ See %s for instructions.\n", GCCBUGURL);
 }
 
 void
-_fatal_insn (msgid, insn, file, line, function)
-     const char *msgid;
-     rtx insn;
-     const char *file;
-     int line;
-     const char *function;
-{
-  error ("%s", _(msgid));
-
-  /* The above incremented error_count, but isn't an error that we want to
-     count, so reset it here.  */
-  errorcount--;
-
-  debug_rtx (insn);
-  fancy_abort (file, line, function);
-}
-
-void
-_fatal_insn_not_found (insn, file, line, function)
-     rtx insn;
-     const char *file;
-     int line;
-     const char *function;
-{
-  if (INSN_CODE (insn) < 0)
-    _fatal_insn ("Unrecognizable insn:", insn, file, line, function);
-  else
-    _fatal_insn ("Insn does not satisfy its constraints:",
-		insn, file, line, function);
-}
-
-void
 warning_with_file_and_line VPARAMS ((const char *file, int line,
 				     const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *file;
-  int line;
-  const char *msgid;
-#endif
-  va_list ap;
   diagnostic_context dc;
 
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (ap, const char *);
-  line = va_arg (ap, int);
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, file);
+  VA_FIXEDARG (ap, int, line);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   set_diagnostic_context (&dc, msgid, &ap, file, line, /* warn = */ 1);
   report_diagnostic (&dc);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 void
 warning_with_decl VPARAMS ((tree decl, const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  tree decl;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  decl = va_arg (ap, tree);
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, tree, decl);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   diagnostic_for_decl (decl, msgid, &ap, /* warn = */ 1);
-  va_end (ap);
-}
-
-void
-warning_for_asm VPARAMS ((rtx insn, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  rtx insn;
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  insn = va_arg (ap, rtx);
-  msgid = va_arg (ap, const char *);
-#endif
-
-  diagnostic_for_asm (insn, msgid, &ap, /* warn = */ 1);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 void
 warning VPARAMS ((const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
   diagnostic_context dc;
 
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
 
   set_diagnostic_context
     (&dc, msgid, &ap, input_filename, lineno, /* warn = */ 1);
   report_diagnostic (&dc);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* Flush diagnostic_buffer content on stderr.  */
@@ -1546,7 +1294,7 @@ diagnostic_finish (buffer)
   fflush (output_buffer_attached_stream (buffer));
 }
 
-/* Helper subroutine of output_verbatim and verbatim. Do the approriate
+/* Helper subroutine of output_verbatim and verbatim. Do the appropriate
    settings needed by BUFFER for a verbatim formatting.  */
 
 static void
@@ -1572,19 +1320,12 @@ output_do_verbatim (buffer, msgid, args_ptr)
 void
 output_verbatim VPARAMS ((output_buffer *buffer, const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  output_buffer *buffer;
-  const char *msgid;
-#endif
-  va_list ap;
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, output_buffer *, buffer);
+  VA_FIXEDARG (ap, const char *, msgid);
 
-  VA_START (ap, msgid);
-#ifndef ANSI_PROTOTYPES
-  buffer = va_arg (ap, output_buffer *);
-  msg = va_arg (ap, const char *);
-#endif
   output_do_verbatim (buffer, msgid, &ap);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* Same as above but use diagnostic_buffer.  */
@@ -1592,18 +1333,12 @@ output_verbatim VPARAMS ((output_buffer *buffer, const char *msgid, ...))
 void
 verbatim VPARAMS ((const char *msgid, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
+  VA_OPEN (ap, msgid);
+  VA_FIXEDARG (ap, const char *, msgid);
 
-  VA_START (ap, msgid);
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
   output_do_verbatim (diagnostic_buffer, msgid, &ap);
   output_buffer_to_stream (diagnostic_buffer);
-  va_end (ap);
+  VA_CLOSE (ap);
 }
 
 /* Report a diagnostic message (an error or a warning) as specified by
@@ -1629,7 +1364,7 @@ report_diagnostic (dc)
       (*diagnostic_starter (dc)) (diagnostic_buffer, dc);
       output_format (diagnostic_buffer);
       (*diagnostic_finalizer (dc)) (diagnostic_buffer, dc);
-      diagnostic_finish ((output_buffer *)global_dc);
+      diagnostic_finish ((output_buffer *) global_dc);
       output_buffer_state (diagnostic_buffer) = os;
     }
 
@@ -1645,7 +1380,7 @@ static void
 error_recursion ()
 {
   if (diagnostic_lock < 3)
-    diagnostic_finish ((output_buffer *)global_dc);
+    diagnostic_finish ((output_buffer *) global_dc);
 
   fnotice (stderr,
 	   "Internal compiler error: Error reporting routines re-entered.\n");
@@ -1782,4 +1517,42 @@ default_diagnostic_finalizer (buffer, dc)
      diagnostic_context *dc __attribute__((__unused__));
 {
   output_destroy_prefix (buffer);
+}
+
+void 
+warn_deprecated_use (node)
+     tree node;
+{
+  if (node == 0 || !warn_deprecated_decl)
+    return;
+
+  if (DECL_P (node))
+    warning ("`%s' is deprecated (declared at %s:%d)",
+	     IDENTIFIER_POINTER (DECL_NAME (node)),
+	     DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
+  else if (TYPE_P (node))
+    {
+      const char *what = NULL;
+      tree decl = TYPE_STUB_DECL (node);
+
+      if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
+	what = IDENTIFIER_POINTER (TYPE_NAME (node));
+      else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
+	       && DECL_NAME (TYPE_NAME (node)))
+	what = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node)));
+	
+      if (what)
+	{
+	  if (decl)
+	    warning ("`%s' is deprecated (declared at %s:%d)", what,
+		     DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+	  else
+	    warning ("`%s' is deprecated", what);
+	}
+      else if (decl)
+	warning ("type is deprecated (declared at %s:%d)",
+		 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+      else
+	warning ("type is deprecated");
+    }
 }

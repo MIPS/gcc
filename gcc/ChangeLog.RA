@@ -1,3 +1,7 @@
+2002-05-03  Michael Matz  <matz@suse.de>
+
+	merged with HEAD (tag ra-merge-initial)
+
 Wed Apr 24 00:37:50 2002  Denis Chertykov  <denisc@overta.ru>
 
 	* pre-reload.h (df2ra): Variable declaration removed.

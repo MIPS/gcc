@@ -2,26 +2,25 @@
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include <setjmp.h>
 
 #include "rtl.h"
 #include "tm_p.h"
@@ -60,7 +59,6 @@ static cselib_val *new_cselib_val	PARAMS ((unsigned int,
 static void add_mem_for_addr		PARAMS ((cselib_val *, cselib_val *,
 						 rtx));
 static cselib_val *cselib_lookup_mem	PARAMS ((rtx, int));
-static rtx cselib_subst_to_values	PARAMS ((rtx));
 static void cselib_invalidate_regno	PARAMS ((unsigned int,
 						 enum machine_mode));
 static int cselib_mem_conflict_p	PARAMS ((rtx, rtx));
@@ -595,6 +593,22 @@ hash_rtx (x, mode, create)
 		 + (unsigned) CONST_DOUBLE_HIGH (x));
       return hash ? hash : (unsigned int) CONST_DOUBLE;
 
+    case CONST_VECTOR:
+      {
+	int units;
+	rtx elt;
+
+	units = CONST_VECTOR_NUNITS (x);
+
+	for (i = 0; i < units; ++i)
+	  {
+	    elt = CONST_VECTOR_ELT (x, i);
+	    hash += hash_rtx (elt, GET_MODE (elt), 0);
+	  }
+
+	return hash;
+      }
+
       /* Assume there is only one rtx object for any given label.  */
     case LABEL_REF:
       hash
@@ -765,7 +779,7 @@ cselib_lookup_mem (x, create)
    X isn't actually modified; if modifications are needed, new rtl is
    allocated.  However, the return value can share rtl with X.  */
 
-static rtx
+rtx
 cselib_subst_to_values (x)
      rtx x;
 {
@@ -788,15 +802,27 @@ cselib_subst_to_values (x)
     case MEM:
       e = cselib_lookup_mem (x, 0);
       if (! e)
-	abort ();
+	{
+	  /* This happens for autoincrements.  Assign a value that doesn't
+	     match any other.  */
+	  e = new_cselib_val (++next_unknown_value, GET_MODE (x));
+	}
       return e->u.val_rtx;
 
-      /* CONST_DOUBLEs must be special-cased here so that we won't try to
-	 look up the CONST_DOUBLE_MEM inside.  */
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST_INT:
       return x;
 
+    case POST_INC:
+    case PRE_INC:
+    case POST_DEC:
+    case PRE_DEC:
+    case POST_MODIFY:
+    case PRE_MODIFY:
+      e = new_cselib_val (++next_unknown_value, GET_MODE (x));
+      return e->u.val_rtx;
+      
     default:
       break;
     }
@@ -1000,6 +1026,7 @@ cselib_mem_conflict_p (mem_base, val)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
       return 0;
@@ -1179,8 +1206,15 @@ cselib_record_sets (insn)
   int i;
   struct set sets[MAX_SETS];
   rtx body = PATTERN (insn);
+  rtx cond = 0;
 
   body = PATTERN (insn);
+  if (GET_CODE (body) == COND_EXEC)
+    {
+      cond = COND_EXEC_TEST (body);
+      body = COND_EXEC_CODE (body);
+    }
+
   /* Find all sets.  */
   if (GET_CODE (body) == SET)
     {
@@ -1219,7 +1253,10 @@ cselib_record_sets (insn)
       /* We don't know how to record anything but REG or MEM.  */
       if (GET_CODE (dest) == REG || GET_CODE (dest) == MEM)
         {
-	  sets[i].src_elt = cselib_lookup (sets[i].src, GET_MODE (dest), 1);
+	  rtx src = sets[i].src;
+	  if (cond)
+	    src = gen_rtx_IF_THEN_ELSE (GET_MODE (src), cond, src, dest);
+	  sets[i].src_elt = cselib_lookup (src, GET_MODE (dest), 1);
 	  if (GET_CODE (dest) == MEM)
 	    sets[i].dest_addr_elt = cselib_lookup (XEXP (dest, 0), Pmode, 1);
 	  else
@@ -1254,7 +1291,7 @@ cselib_process_insn (insn)
 
   /* Forget everything at a CODE_LABEL, a volatile asm, or a setjmp.  */
   if (GET_CODE (insn) == CODE_LABEL
-      || (GET_CODE (insn) == CALL
+      || (GET_CODE (insn) == CALL_INSN
 	  && find_reg_note (insn, REG_SETJMP, NULL))
       || (GET_CODE (insn) == INSN
 	  && GET_CODE (PATTERN (insn)) == ASM_OPERANDS

@@ -1,5 +1,5 @@
 /* Definitions of target machine for Mitsubishi D30V.
-   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
    This file is part of GNU CC.
@@ -38,9 +38,11 @@
 #include "except.h"
 #include "function.h"
 #include "toplev.h"
+#include "integrate.h"
 #include "ggc.h"
 #include "target.h"
 #include "target-def.h"
+#include "langhooks.h"
 
 static void d30v_print_operand_memory_reference PARAMS ((FILE *, rtx));
 static void d30v_build_long_insn PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT,
@@ -51,6 +53,8 @@ static void d30v_mark_machine_status PARAMS ((struct function *));
 static void d30v_free_machine_status PARAMS ((struct function *));
 static void d30v_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void d30v_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static int d30v_adjust_cost PARAMS ((rtx, rtx, rtx, int));
+static int d30v_issue_rate PARAMS ((void));
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
@@ -82,10 +86,19 @@ enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 enum reg_class reg_class_from_letter[256];
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE d30v_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE d30v_output_function_epilogue
+#undef TARGET_SCHED_ADJUST_COST
+#define TARGET_SCHED_ADJUST_COST d30v_adjust_cost
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE d30v_issue_rate
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -194,7 +207,7 @@ override_options ()
 	    if (ok_p
 		&& (hard_regno_mode_ok[(int)mode1][regno]
 		    != hard_regno_mode_ok[(int)mode2][regno]))
-	      error ("Bad modes_tieable_p for register %s, mode1 %s, mode2 %s",
+	      error ("bad modes_tieable_p for register %s, mode1 %s, mode2 %s",
 		     reg_names[regno], GET_MODE_NAME (mode1),
 		     GET_MODE_NAME (mode2));
 	}
@@ -241,7 +254,7 @@ override_options ()
 
 #if 0
       {
-	static char *names[] = REG_CLASS_NAMES;
+	static const char *const names[] = REG_CLASS_NAMES;
 	fprintf (stderr, "Register %s class is %s, can hold modes", reg_names[regno], names[class]);
 	for (mode1 = VOIDmode;
 	     (int)mode1 < NUM_MACHINE_MODES;
@@ -1702,7 +1715,7 @@ d30v_stack_info ()
   /* Zero all fields */
   info = zero_info;
 
-  if (profile_flag)
+  if (current_function_profile)
     regs_ever_live[GPR_LINK] = 1;
 
   /* Determine if this is a stdarg function */
@@ -1946,7 +1959,7 @@ d30v_function_arg_boundary (mode, type)
 {
   int size = ((mode == BLKmode && type)
 	      ? int_size_in_bytes (type)
-	      : GET_MODE_SIZE (mode));
+	      : (int) GET_MODE_SIZE (mode));
 
   return (size > UNITS_PER_WORD) ? 2*UNITS_PER_WORD : UNITS_PER_WORD;
 }
@@ -1991,7 +2004,7 @@ d30v_function_arg (cum, mode, type, named, incoming)
 {
   int size = ((mode == BLKmode && type)
 	      ? int_size_in_bytes (type)
-	      : GET_MODE_SIZE (mode));
+	      : (int) GET_MODE_SIZE (mode));
   int adjust = (size > UNITS_PER_WORD && (*cum & 1) != 0);
   rtx ret;
 
@@ -2040,7 +2053,7 @@ d30v_function_arg_partial_nregs (cum, mode, type, named)
 {
   int bytes = ((mode == BLKmode)
 	       ? int_size_in_bytes (type)
-	       : GET_MODE_SIZE (mode));
+	       : (int) GET_MODE_SIZE (mode));
   int words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
   int adjust = (bytes > UNITS_PER_WORD && (*cum & 1) != 0);
   int arg_num = *cum + adjust;
@@ -2103,7 +2116,7 @@ d30v_function_arg_advance (cum, mode, type, named)
 {
   int bytes = ((mode == BLKmode)
 	       ? int_size_in_bytes (type)
-	       : GET_MODE_SIZE (mode));
+	       : (int) GET_MODE_SIZE (mode));
   int words = D30V_ALIGN (bytes, UNITS_PER_WORD) / UNITS_PER_WORD;
   int adjust = (bytes > UNITS_PER_WORD && (*cum & 1) != 0);
 
@@ -2190,7 +2203,7 @@ d30v_build_va_list ()
   tree f_arg_ptr, f_arg_num, record, type_decl;
   tree int_type_node;
 
-  record = make_lang_type (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
   type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
   int_type_node = make_signed_type (INT_TYPE_SIZE);
 
@@ -2283,7 +2296,7 @@ d30v_expand_builtin_va_arg(valist, type)
 		 build_int_2 (1, 0));
 
       emit_cmp_and_jump_insns (expand_expr (t, NULL_RTX, QImode, EXPAND_NORMAL),
-			       GEN_INT (0), EQ, const1_rtx, QImode, 1, 1,
+			       GEN_INT (0), EQ, const1_rtx, QImode, 1,
 			       lab_false);
 
       t = build (POSTINCREMENT_EXPR, TREE_TYPE (arg_num), arg_num,
@@ -2455,7 +2468,7 @@ d30v_output_function_epilogue (stream, size)
 
 
 /* Called after register allocation to add any instructions needed for
-   the epilogue.  Using a epilogue insn is favored compared to putting
+   the epilogue.  Using an epilogue insn is favored compared to putting
    all of the instructions in output_function_prologue(), since it
    allows the scheduler to intermix instructions with the saves of the
    caller saved registers.  In some cases, it might be necessary to
@@ -2661,7 +2674,7 @@ d30v_print_operand_address (stream, x)
       return;
     }
 
-  fatal_insn ("Bad insn to d30v_print_operand_address:", x);
+  fatal_insn ("bad insn to d30v_print_operand_address:", x);
 }
 
 
@@ -2678,7 +2691,7 @@ d30v_print_operand_memory_reference (stream, x)
   switch (GET_CODE (x))
     {
     default:
-      fatal_insn ("Bad insn to d30v_print_operand_memory_reference:", x);
+      fatal_insn ("bad insn to d30v_print_operand_memory_reference:", x);
       break;
 
     case SUBREG:
@@ -2713,7 +2726,7 @@ d30v_print_operand_memory_reference (stream, x)
 
   else
     {
-      char *suffix = "";
+      const char *suffix = "";
       int offset0  = 0;
 
       if (GET_CODE (x0) == SUBREG)
@@ -2739,7 +2752,7 @@ d30v_print_operand_memory_reference (stream, x)
       if (GET_CODE (x0) == REG && GPR_P (REGNO (x0)))
 	fprintf (stream, "%s%s", reg_names[REGNO (x0) + offset0], suffix);
       else
-	fatal_insn ("Bad insn to d30v_print_operand_memory_reference:", x);
+	fatal_insn ("bad insn to d30v_print_operand_memory_reference:", x);
     }
 
   fputs (",", stream);
@@ -2760,7 +2773,7 @@ d30v_print_operand_memory_reference (stream, x)
 					 GET_MODE (x1));
 	  x1 = SUBREG_REG (x1);
 	  if (GET_CODE (x1) != REG)
-	    fatal_insn ("Bad insn to d30v_print_operand_memory_reference:", x);
+	    fatal_insn ("bad insn to d30v_print_operand_memory_reference:", x);
 
 	  /* fall through */
 	case REG:
@@ -2778,7 +2791,7 @@ d30v_print_operand_memory_reference (stream, x)
 	  break;
 
 	default:
-	  fatal_insn ("Bad insn to d30v_print_operand_memory_reference:", x);
+	  fatal_insn ("bad insn to d30v_print_operand_memory_reference:", x);
 	}
     }
 
@@ -2846,7 +2859,7 @@ d30v_print_operand (stream, x, letter)
 
     case 'f':	/* Print a SF floating constant as an int */
       if (GET_CODE (x) != CONST_DOUBLE)
-	fatal_insn ("Bad insn to d30v_print_operand, 'f' modifier:", x);
+	fatal_insn ("bad insn to d30v_print_operand, 'f' modifier:", x);
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
       REAL_VALUE_TO_TARGET_SINGLE (rv, num);
@@ -2855,14 +2868,14 @@ d30v_print_operand (stream, x, letter)
 
     case 'A':	/* Print accumulator number without an `a' in front of it.  */
       if (GET_CODE (x) != REG || !ACCUM_P (REGNO (x)))
-	fatal_insn ("Bad insn to d30v_print_operand, 'A' modifier:", x);
+	fatal_insn ("bad insn to d30v_print_operand, 'A' modifier:", x);
 
       putc ('0' + REGNO (x) - ACCUM_FIRST, stream);
       break;
 
     case 'M':	/* Print a memory reference for ld/st */
       if (GET_CODE (x) != MEM)
-	fatal_insn ("Bad insn to d30v_print_operand, 'M' modifier:", x);
+	fatal_insn ("bad insn to d30v_print_operand, 'M' modifier:", x);
 
       d30v_print_operand_memory_reference (stream, XEXP (x, 0));
       break;
@@ -2916,7 +2929,7 @@ d30v_print_operand (stream, x, letter)
 	fputs ((letter == 'T') ? "tnz" : "tzr", stream);
 
       else
-	fatal_insn ("Bad insn to print_operand, 'F' or 'T' modifier:", x);
+	fatal_insn ("bad insn to print_operand, 'F' or 'T' modifier:", x);
       break;
 
     case 'B':	/* emit offset single bit to change */
@@ -2927,14 +2940,14 @@ d30v_print_operand (stream, x, letter)
 	fprintf (stream, "%d", 31 - log);
 
       else
-	fatal_insn ("Bad insn to print_operand, 'B' modifier:", x);
+	fatal_insn ("bad insn to print_operand, 'B' modifier:", x);
       break;
 
     case 'E':	/* Print u if this is zero extend, nothing if sign extend. */
       if (GET_CODE (x) == ZERO_EXTEND)
 	putc ('u', stream);
       else if (GET_CODE (x) != SIGN_EXTEND)
-	fatal_insn ("Bad insn to print_operand, 'E' modifier:", x);
+	fatal_insn ("bad insn to print_operand, 'E' modifier:", x);
       break;
 
     case 'R':	/* Return appropriate cmp instruction for relational test.  */
@@ -2952,7 +2965,7 @@ d30v_print_operand (stream, x, letter)
 	case GEU: fputs ("cmpuge", stream); break;
 
 	default:
-	  fatal_insn ("Bad insn to print_operand, 'R' modifier:", x);
+	  fatal_insn ("bad insn to print_operand, 'R' modifier:", x);
 	}
       break;
 
@@ -2961,7 +2974,7 @@ d30v_print_operand (stream, x, letter)
 	fprintf (stream, "%d", (int) (32 - INTVAL (x)));
 
       else
-	fatal_insn ("Bad insn to print_operand, 's' modifier:", x);
+	fatal_insn ("bad insn to print_operand, 's' modifier:", x);
       break;
 
     case 'S':	/* Subtract 32.  */
@@ -2969,7 +2982,7 @@ d30v_print_operand (stream, x, letter)
 	fprintf (stream, "%d", (int)(INTVAL (x) - 32));
 
       else
-	fatal_insn ("Bad insn to print_operand, 's' modifier:", x);
+	fatal_insn ("bad insn to print_operand, 's' modifier:", x);
       break;
 
 
@@ -2998,7 +3011,7 @@ d30v_print_operand (stream, x, letter)
 	d30v_print_operand_address (stream, x);
 
       else
-	fatal_insn ("Bad insn in d30v_print_operand, 0 case", x);
+	fatal_insn ("bad insn in d30v_print_operand, 0 case", x);
 
       return;
 
@@ -3006,7 +3019,7 @@ d30v_print_operand (stream, x, letter)
       {
 	char buf[80];
 
-	sprintf (buf, "Invalid asm template character '%%%c'", letter);
+	sprintf (buf, "invalid asm template character '%%%c'", letter);
 	fatal_insn (buf, x);
       }
     }
@@ -3360,7 +3373,7 @@ d30v_emit_comparison (test_int, result, arg1, arg2)
 /* Return appropriate code to move 2 words.  Since DImode registers must start
    on even register numbers, there is no possibility of overlap.  */
 
-char *
+const char *
 d30v_move_2words (operands, insn)
      rtx operands[];
      rtx insn;
@@ -3397,7 +3410,7 @@ d30v_move_2words (operands, insn)
 	   && GPR_P (REGNO (operands[1])))
     return "st2w %1,%M0";
 
-  fatal_insn ("Bad call to d30v_move_2words", insn);
+  fatal_insn ("bad call to d30v_move_2words", insn);
 }
 
 
@@ -3490,7 +3503,7 @@ d30v_machine_dependent_reorg (insn)
 /* For the d30v, try to insure that the source operands for a load/store are
    set 2 cycles before the memory reference.  */
 
-int
+static int
 d30v_adjust_cost (insn, link, dep_insn, cost)
      rtx insn;
      rtx link ATTRIBUTE_UNUSED;
@@ -3511,11 +3524,20 @@ d30v_adjust_cost (insn, link, dep_insn, cost)
 	  || (GET_CODE (mem = SET_DEST (set_insn)) == MEM
 	      && reg_mentioned_p (reg, XEXP (mem, 0))))
 	{
-	  return cost + ((HAIFA_P) ? 2 : 4);
+	  return cost + 2;
 	}
     }
 
   return cost;
+}
+
+/* Function which returns the number of insns that can be
+   scheduled in the same machine cycle.  This must be constant
+   over an entire compilation.  The default is 1.  */
+static int
+d30v_issue_rate ()
+{
+  return 2;
 }
 
 

@@ -1,6 +1,6 @@
 // 2001-06-03 pme
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,17 +21,16 @@
 // 23.3.5.2 bitset members
 
 #include <bitset>
-#include <debug_assert.h>
+#include <stdexcept>
+#include <testsuite_hooks.h>
 
-bool test01(void)
+void 
+test01(void)
 {
   bool test = true;
   const size_t n1 = 5;
 
-// the other 22 member functions should be in here too...
-
-
-  // test()
+  // the other 22 member functions should be in here too...
   try {
     std::bitset<n1> five_bits;
     bool unused = five_bits.test(n1);   // should throw
@@ -43,17 +42,19 @@ bool test01(void)
   catch(...) {
     VERIFY( false );
   }
-  
+  VERIFY( test );
+}
 
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-  return test;
+// libstdc++/6124
+void test02()
+{
+  std::bitset<1> bs;
+  bs.count();
 }
 
 int main()
 {
   test01();
-
+  test02();
   return 0;
 }

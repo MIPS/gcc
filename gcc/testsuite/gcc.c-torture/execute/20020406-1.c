@@ -2,7 +2,6 @@
 // PR c/5120
 
 extern void * malloc (__SIZE_TYPE__);
-extern void * calloc (__SIZE_TYPE__, __SIZE_TYPE__);
 
 typedef unsigned int FFelem;
 
@@ -32,7 +31,7 @@ DUPFF DUPFFnew(const int maxdeg)
 {
   DUPFF ans = (DUPFF)malloc(sizeof(struct DUPFFstruct));
   ans->coeffs = 0;
-  if (maxdeg >= 0) ans->coeffs = (FFelem*)calloc(maxdeg+1,sizeof(FFelem));
+  if (maxdeg >= 0) ans->coeffs = (FFelem*)malloc((maxdeg+1)*sizeof(FFelem));
   ans->maxdeg = maxdeg;
   ans->deg = -1;
   return ans;

@@ -1,6 +1,6 @@
 // Thread.java - Thread class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -109,8 +109,6 @@ public class Thread implements Runnable
 
   public final native void resume ();
 
-  // This method exists only to avoid a warning from the C++ compiler.
-  private static final native void run_ (Object obj);
   private final native void finish_ ();
 
   // Check the thread's interrupted status. If clear_flag is true, the 
@@ -195,7 +193,7 @@ public class Thread implements Runnable
 
   public static native void sleep (long timeout, int nanos)
     throws InterruptedException;
-  public synchronized native void start ();
+  public native void start ();
 
   public final void stop ()
   {
@@ -204,7 +202,7 @@ public class Thread implements Runnable
     stop (null);
   }
 
-  public final synchronized native void stop (Throwable e);
+  public final native void stop (Throwable e);
   public final native void suspend ();
 
   private final native void initialize_native ();
@@ -249,6 +247,7 @@ public class Thread implements Runnable
 	int pri = current.getPriority();
 	priority = (gmax < pri ? gmax : pri);
 	context_class_loader = current.context_class_loader;
+	InheritableThreadLocal.newChildThread(this);
       }
     else
       {

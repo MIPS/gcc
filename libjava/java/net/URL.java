@@ -1,6 +1,6 @@
 // URL.java - A Uniform Resource Locator.
 
-/* Copyright (C) 1999, 2000  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -76,7 +76,7 @@ public final class URL implements Serializable
       this.handler = setURLStreamHandler(protocol);
 
     if (this.handler == null)
-      throw new MalformedURLException("Handler for protocol not found");
+      throw new MalformedURLException("Protocol handler not found: " + protocol);
 
     this.host = host;
 
@@ -175,7 +175,7 @@ public final class URL implements Serializable
       this.handler = setURLStreamHandler(protocol);
 
     if (this.handler == null)
-      throw new MalformedURLException("Handler for protocol not found");
+      throw new MalformedURLException("Protocol handler not found: " + protocol);
 
     // JDK 1.2 doc for parseURL specifically states that any '#' ref
     // is to be excluded by passing the 'limit' as the indexOf the '#'
@@ -217,6 +217,12 @@ public final class URL implements Serializable
   public String getFile()
   {
     return file;
+  }
+
+  public String getPath()
+  {
+    int quest = file.indexOf('?');
+    return quest < 0 ? file : file.substring(0, quest);
   }
 
   public String getHost()
@@ -274,16 +280,7 @@ public final class URL implements Serializable
 
   public boolean sameFile(URL other)
   {
-    // This comparison is very conservative.  It assumes that any
-    // field can be null.
-    return (other != null 
-	    && port == other.port
-	    && ((protocol == null && other.protocol == null)
-		|| (protocol != null && protocol.equals(other.protocol)))
-	    && ((host == null && other.host == null)
-		|| (host != null && host.equals(other.host)))
-	    && ((file == null && other.file == null)
-		|| (file != null && file.equals(other.file))));
+    return handler.sameFile(this, other);
   }
 
   protected void set(String protocol, String host, int port, String file,
@@ -339,6 +336,10 @@ public final class URL implements Serializable
     // If a non-default factory has been set, use it to find the protocol.
     if (factory != null)
       handler = factory.createURLStreamHandler(protocol);
+    else if (protocol.equals ("core"))
+      {
+ 	handler = new gnu.gcj.protocol.core.Handler ();
+      }
     else if (protocol.equals ("file"))
       {
 	// This is an interesting case.  It's tempting to think that we

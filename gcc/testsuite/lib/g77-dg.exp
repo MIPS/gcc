@@ -18,6 +18,7 @@ load_lib dg.exp
 load_lib file-format.exp
 load_lib target-supports.exp
 load_lib scanasm.exp
+load_lib prune.exp
 
 if ![info exists TORTURE_OPTIONS] {
     # It is theoretically beneficial to group all of the O2/O3 options together,
@@ -70,7 +71,7 @@ proc g77-dg-test { prog do_what extra_tool_flags } {
 	}
 	"link" {
 	    set compile_type "executable"
-	    set output_file "a.out"
+	    set output_file "[file rootname [file tail $prog]].exe"
 	    # The following line is needed for targets like the i960 where
 	    # the default output file is b.out.  Sigh.
 	}
@@ -79,7 +80,7 @@ proc g77-dg-test { prog do_what extra_tool_flags } {
 	    # FIXME: "./" is to cope with "." not being in $PATH.
 	    # Should this be handled elsewhere?
 	    # YES.
-	    set output_file "./a.out"
+	    set output_file "./[file rootname [file tail $prog]].exe"
 	    # This is the only place where we care if an executable was
 	    # created or not.  If it was, dg.exp will try to run it.
 	    remote_file build delete $output_file;
@@ -96,11 +97,16 @@ proc g77-dg-test { prog do_what extra_tool_flags } {
 
     set comp_output [g77_target_compile "$prog" "$output_file" "$compile_type" $options];
 
+    # Put the error message on the same line as the line number
+    # Remove the line of source code with the error and
+    # the "     ^" that points to error
+    regsub -all "\n\[^\n\]*\n *\\^\n" $comp_output "" comp_output 
+
     return [list $comp_output $output_file]
 }
 
 proc g77-dg-prune { system text } {
-    set text [prune_g77_output $text]
+    set text [prune_gcc_output $text]
 
     # If we see "region xxx is full" then the testcase is too big for ram.
     # This is tricky to deal with in a large testsuite like c-torture so

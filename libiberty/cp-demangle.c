@@ -1,5 +1,5 @@
 /* Demangler for IA64 / g++ V3 ABI.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Alex Samuel <samuel@codesourcery.com>. 
 
    This file is part of GNU CC.
@@ -8,6 +8,15 @@
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2 of the License, or
    (at your option) any later version.
+
+   In addition to the permissions in the GNU General Public License, the
+   Free Software Foundation gives you unlimited permission to link the
+   compiled version of this file into combinations with other programs,
+   and to distribute those combinations without any restriction coming
+   from the use of this file.  (The General Public License restrictions
+   do apply in other respects; for example, they cover modification of
+   the file, and distribution when not linked into a combined
+   executable.)
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -938,10 +947,8 @@ static status_t demangle_discriminator
   PARAMS ((demangling_t, int));
 static status_t cp_demangle
   PARAMS ((const char *, dyn_string_t, int));
-#ifdef IN_LIBGCC2
 static status_t cp_demangle_type
   PARAMS ((const char*, dyn_string_t));
-#endif
 
 /* When passed to demangle_bare_function_type, indicates that the
    function's return type is not encoded before its parameter types.  */
@@ -1557,11 +1564,11 @@ demangle_operator_name (dm, short_name, num_args)
   struct operator_code
   {
     /* The mangled code for this operator.  */
-    const char *code;
+    const char *const code;
     /* The source name of this operator.  */
-    const char *name;
+    const char *const name;
     /* The number of arguments this operator takes.  */
-    int num_args;
+    const int num_args;
   };
 
   static const struct operator_code operators[] = 
@@ -1842,11 +1849,27 @@ demangle_special_name (dm)
 
   if (peek == 'G')
     {
-      /* A guard variable name.  Consume the G.  */
+      /* Consume the G.  */
       advance_char (dm);
-      RETURN_IF_ERROR (demangle_char (dm, 'V'));
-      RETURN_IF_ERROR (result_add (dm, "guard variable for "));
-      RETURN_IF_ERROR (demangle_name (dm, &unused));
+      switch (peek_char (dm))
+	{
+	case 'V':
+	  /* A guard variable name.  */
+	  advance_char (dm);
+	  RETURN_IF_ERROR (result_add (dm, "guard variable for "));
+	  RETURN_IF_ERROR (demangle_name (dm, &unused));
+	  break;
+
+	case 'R':
+	  /* A reference temporary.  */
+	  advance_char (dm);
+	  RETURN_IF_ERROR (result_add (dm, "reference temporary for "));
+	  RETURN_IF_ERROR (demangle_name (dm, &unused));
+	  break;
+	  
+	default:
+	  return "Unrecognized <special-name>.";
+	}
     }
   else if (peek == 'T')
     {
@@ -3517,14 +3540,13 @@ cp_demangle (name, result, style)
    dyn_string_t.  On success, returns STATUS_OK.  On failiure, returns
    an error message, and the contents of RESULT are unchanged.  */
 
-#ifdef IN_LIBGCC2
 static status_t
 cp_demangle_type (type_name, result)
      const char* type_name;
      dyn_string_t result;
 {
   status_t status;
-  demangling_t dm = demangling_new (type_name);
+  demangling_t dm = demangling_new (type_name, DMGL_GNU_V3);
   
   if (dm == NULL)
     return STATUS_ALLOCATION_FAILED;
@@ -3555,6 +3577,7 @@ cp_demangle_type (type_name, result)
   return status;
 }
 
+#if defined(IN_LIBGCC2) || defined(IN_GLIBCPP_V3)
 extern char *__cxa_demangle PARAMS ((const char *, char *, size_t *, int *));
 
 /* ia64 ABI-mandated entry point in the C++ runtime library for performing
@@ -3662,7 +3685,7 @@ __cxa_demangle (mangled_name, output_buffer, length, status)
     }
 }
 
-#else /* !IN_LIBGCC2 */
+#else /* ! (IN_LIBGCC2 || IN_GLIBCPP_V3) */
 
 /* Variant entry point for integration with the existing cplus-dem
    demangler.  Attempts to demangle MANGLED.  If the demangling
@@ -3671,20 +3694,35 @@ __cxa_demangle (mangled_name, output_buffer, length, status)
    If the demangling failes, returns NULL.  */
 
 char *
-cplus_demangle_v3 (mangled)
+cplus_demangle_v3 (mangled, options)
      const char* mangled;
+     int options;
 {
   dyn_string_t demangled;
   status_t status;
+  int type = !!(options & DMGL_TYPES);
 
-  /* If this isn't a mangled name, don't pretend to demangle it.  */
-  if (strncmp (mangled, "_Z", 2) != 0)
-    return NULL;
+  if (mangled[0] == '_' && mangled[1] == 'Z')
+    /* It is not a type.  */
+    type = 0;
+  else
+    {
+      /* It is a type. Stop if we don't want to demangle types. */
+      if (!type)
+	return NULL;
+    }
+
+  flag_verbose = !!(options & DMGL_VERBOSE);
 
   /* Create a dyn_string to hold the demangled name.  */
   demangled = dyn_string_new (0);
   /* Attempt the demangling.  */
-  status = cp_demangle ((char *) mangled, demangled, 0);
+  if (!type)
+    /* Appears to be a function or variable name.  */
+    status = cp_demangle (mangled, demangled, 0);
+  else
+    /* Try to demangle it as the name of a type.  */
+    status = cp_demangle_type (mangled, demangled);
 
   if (STATUS_NO_ERROR (status))
     /* Demangling succeeded.  */
@@ -3808,11 +3846,15 @@ java_demangle_v3 (mangled)
 
   free (cplus_demangled);
   
-  return_value = dyn_string_release (demangled);
+  if (demangled)
+    return_value = dyn_string_release (demangled);
+  else
+    return_value = NULL;
+
   return return_value;
 }
 
-#endif /* IN_LIBGCC2 */
+#endif /* IN_LIBGCC2 || IN_GLIBCPP_V3 */
 
 
 /* Demangle NAME in the G++ V3 ABI demangling style, and return either
@@ -3852,6 +3894,7 @@ demangle_v3_with_details (name)
 }
 
 
+#ifndef IN_GLIBCPP_V3
 /* Return non-zero iff NAME is the mangled form of a constructor name
    in the G++ V3 ABI demangling style.  Specifically, return:
    - '1' if NAME is a complete object constructor,
@@ -3894,6 +3937,7 @@ is_gnu_v3_mangled_dtor (name)
   else
     return 0;
 }
+#endif /* IN_GLIBCPP_V3 */
 
 
 #ifdef STANDALONE_DEMANGLER
@@ -3929,7 +3973,7 @@ print_usage (fp, exit_value)
 }
 
 /* Option specification for getopt_long.  */
-static struct option long_options[] = 
+static const struct option long_options[] = 
 {
   { "help",    no_argument, NULL, 'h' },
   { "strict",  no_argument, NULL, 's' },

@@ -1,6 +1,6 @@
 // deque implementation -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,75 +53,66 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_deque.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
 #include <bits/concept_check.h>
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_iterator_base_funcs.h>
 
-#ifndef __SGI_STL_INTERNAL_DEQUE_H
-#define __SGI_STL_INTERNAL_DEQUE_H
-
-/* Class invariants:
- *  For any nonsingular iterator i:
- *    i.node is the address of an element in the map array.  The
- *      contents of i.node is a pointer to the beginning of a node.
- *    i.first == *(i.node) 
- *    i.last  == i.first + node_size
- *    i.cur is a pointer in the range [i.first, i.last).  NOTE:
- *      the implication of this is that i.cur is always a dereferenceable
- *      pointer, even if i is a past-the-end iterator.
- *  Start and Finish are always nonsingular iterators.  NOTE: this means
- *    that an empty deque must have one node, and that a deque
- *    with N elements, where N is the buffer size, must have two nodes.
- *  For every node other than start.node and finish.node, every element
- *    in the node is an initialized object.  If start.node == finish.node,
- *    then [start.cur, finish.cur) are initialized objects, and
- *    the elements outside that range are uninitialized storage.  Otherwise,
- *    [start.cur, start.last) and [finish.first, finish.cur) are initialized
- *    objects, and [start.first, start.cur) and [finish.cur, finish.last)
- *    are uninitialized storage.
- *  [map, map + map_size) is a valid, non-empty range.  
- *  [start.node, finish.node] is a valid range contained within 
- *    [map, map + map_size).  
- *  A pointer in the range [map, map + map_size) points to an allocated node
- *    if and only if the pointer is in the range [start.node, finish.node].
- */
+#ifndef __GLIBCPP_INTERNAL_DEQUE_H
+#define __GLIBCPP_INTERNAL_DEQUE_H
 
 
-/*
- * In previous versions of deque, there was an extra template 
- * parameter so users could control the node size.  This extension
- * turns out to violate the C++ standard (it can be detected using
- * template template parameters), and it has been removed.
- */
-
+// Since this entire file is within namespace std, there's no reason to
+// waste two spaces along the left column.  Thus the leading indentation is
+// slightly violated from here on.
 namespace std
 { 
 
-// Note: this function is simply a kludge to work around several compilers'
-//  bugs in handling constant expressions.
-inline size_t __deque_buf_size(size_t __size) {
-  return __size < 512 ? size_t(512 / __size) : size_t(1);
-}
+/**
+ *  @if maint
+ *  @brief This function controls the size of memory nodes.
+ *  @param  size  The size of an element.
+ *  @return   The number (not bytesize) of elements per node.
+ *
+ *  This function started off as a compiler kludge from SGI, but seems to
+ *  be a useful wrapper around a repeated constant expression.
+ *  @endif
+*/
+inline size_t 
+__deque_buf_size(size_t __size) 
+{ return __size < 512 ? size_t(512 / __size) : size_t(1); }
 
+
+/// A deque::iterator.
+/**
+ *  Quite a bit of intelligence here.  Much of the functionality of deque is
+ *  actually passed off to this class.  A deque holds two of these internally,
+ *  marking its valid range.  Access to elements is done as offsets of either
+ *  of those two, relying on operator overloading in this class.
+ *
+ *  @if maint
+ *  All the functions are op overloads except for _M_set_node.
+ *  @endif
+*/
 template <class _Tp, class _Ref, class _Ptr>
-struct _Deque_iterator {
+struct _Deque_iterator
+{
   typedef _Deque_iterator<_Tp, _Tp&, _Tp*>             iterator;
   typedef _Deque_iterator<_Tp, const _Tp&, const _Tp*> const_iterator;
   static size_t _S_buffer_size() { return __deque_buf_size(sizeof(_Tp)); }
 
   typedef random_access_iterator_tag iterator_category;
-  typedef _Tp value_type;
-  typedef _Ptr pointer;
-  typedef _Ref reference;
-  typedef size_t size_type;
-  typedef ptrdiff_t difference_type;
-  typedef _Tp** _Map_pointer;
-
-  typedef _Deque_iterator _Self;
+  typedef _Tp                        value_type;
+  typedef _Ptr                       pointer;
+  typedef _Ref                       reference;
+  typedef size_t                     size_type;
+  typedef ptrdiff_t                  difference_type;
+  typedef _Tp**                      _Map_pointer;
+  typedef _Deque_iterator            _Self;
 
   _Tp* _M_cur;
   _Tp* _M_first;
@@ -213,6 +204,12 @@ struct _Deque_iterator {
   bool operator<=(const _Self& __x) const { return !(__x < *this); }
   bool operator>=(const _Self& __x) const { return !(*this < __x); }
 
+  /** @if maint
+   *  Prepares to traverse new_node.  Sets everything except _M_cur, which
+   *  should therefore be set by the caller immediately afterwards, based on
+   *  _M_first and _M_last.
+   *  @endif
+  */
   void _M_set_node(_Map_pointer __new_node) {
     _M_node = __new_node;
     _M_first = *__new_node;
@@ -228,15 +225,20 @@ operator+(ptrdiff_t __n, const _Deque_iterator<_Tp, _Ref, _Ptr>& __x)
 }
 
 
-// Deque base class.  It has two purposes.  First, its constructor
-//  and destructor allocate (but don't initialize) storage.  This makes
-//  exception safety easier.  Second, the base class encapsulates all of
-//  the differences between SGI-style allocators and standard-conforming
-//  allocators.
-
-// Base class for ordinary allocators.
+/// @if maint Primary default version.  @endif
+/**
+ *  @if maint
+ *  Deque base class.  It has two purposes.  First, its constructor
+ *  and destructor allocate (but don't initialize) storage.  This makes
+ *  exception safety easier.  Second, the base class encapsulates all of
+ *  the differences between SGI-style allocators and standard-conforming
+ *  allocators.  There are two versions:  this ordinary one, and the
+ *  space-saving specialization for instanceless allocators.
+ *  @endif
+*/
 template <class _Tp, class _Alloc, bool __is_static>
-class _Deque_alloc_base {
+class _Deque_alloc_base
+{
 public:
   typedef typename _Alloc_traits<_Tp,_Alloc>::allocator_type allocator_type;
   allocator_type get_allocator() const { return _M_node_allocator; }
@@ -268,7 +270,7 @@ protected:
   size_t _M_map_size;
 };
 
-// Specialization for instanceless allocators.
+/// @if maint Specialization for instanceless allocators.  @endif
 template <class _Tp, class _Alloc>
 class _Deque_alloc_base<_Tp, _Alloc, true>
 {
@@ -297,6 +299,17 @@ protected:
   size_t _M_map_size;
 };
 
+
+/**
+ *  @if maint
+ *  Deque base class.  Using _Alloc_traits in the instantiation of the parent
+ *  class provides the compile-time dispatching mentioned in the parent's docs.
+ *  This class provides the unified face for deque's allocation.
+ *
+ *  Nothing in this class ever constructs or destroys an actual Tp element.
+ *  (Deque handles that itself.)  Only/All memory management is performed here.
+ *  @endif
+*/
 template <class _Tp, class _Alloc>
 class _Deque_base
   : public _Deque_alloc_base<_Tp,_Alloc,
@@ -306,7 +319,7 @@ public:
   typedef _Deque_alloc_base<_Tp,_Alloc,
                              _Alloc_traits<_Tp, _Alloc>::_S_instanceless>
           _Base;
-  typedef typename _Base::allocator_type allocator_type;
+  typedef typename _Base::allocator_type             allocator_type;
   typedef _Deque_iterator<_Tp,_Tp&,_Tp*>             iterator;
   typedef _Deque_iterator<_Tp,const _Tp&,const _Tp*> const_iterator;
 
@@ -328,16 +341,25 @@ protected:
   iterator _M_finish;
 };
 
-// Non-inline member functions from _Deque_base.
 
 template <class _Tp, class _Alloc>
-_Deque_base<_Tp,_Alloc>::~_Deque_base() {
+_Deque_base<_Tp,_Alloc>::~_Deque_base()
+{
   if (_M_map) {
     _M_destroy_nodes(_M_start._M_node, _M_finish._M_node + 1);
     _M_deallocate_map(_M_map, _M_map_size);
   }
 }
 
+/**
+ *  @if maint
+ *  @brief Layout storage.
+ *  @param  num_elements  The count of T's for which to allocate space at first.
+ *  @return   Nothing.
+ *
+ *  The initial underlying memory layout is a bit complicated...
+ *  @endif
+*/
 template <class _Tp, class _Alloc>
 void
 _Deque_base<_Tp,_Alloc>::_M_initialize_map(size_t __num_elements)
@@ -351,11 +373,16 @@ _Deque_base<_Tp,_Alloc>::_M_initialize_map(size_t __num_elements)
   _Tp** __nstart = _M_map + (_M_map_size - __num_nodes) / 2;
   _Tp** __nfinish = __nstart + __num_nodes;
     
-  __STL_TRY {
-    _M_create_nodes(__nstart, __nfinish);
-  }
-  __STL_UNWIND((_M_deallocate_map(_M_map, _M_map_size), 
-                _M_map = 0, _M_map_size = 0));
+  try 
+    { _M_create_nodes(__nstart, __nfinish); }
+  catch(...)
+    {
+      _M_deallocate_map(_M_map, _M_map_size);
+      _M_map = 0;
+      _M_map_size = 0;
+      __throw_exception_again;
+    }
+  
   _M_start._M_set_node(__nstart);
   _M_finish._M_set_node(__nfinish - 1);
   _M_start._M_cur = _M_start._M_first;
@@ -367,11 +394,15 @@ template <class _Tp, class _Alloc>
 void _Deque_base<_Tp,_Alloc>::_M_create_nodes(_Tp** __nstart, _Tp** __nfinish)
 {
   _Tp** __cur;
-  __STL_TRY {
+  try {
     for (__cur = __nstart; __cur < __nfinish; ++__cur)
       *__cur = _M_allocate_node();
   }
-  __STL_UNWIND(_M_destroy_nodes(__nstart, __cur));
+  catch(...)
+    { 
+      _M_destroy_nodes(__nstart, __cur);
+      __throw_exception_again; 
+    }
 }
 
 template <class _Tp, class _Alloc>
@@ -382,37 +413,116 @@ _Deque_base<_Tp,_Alloc>::_M_destroy_nodes(_Tp** __nstart, _Tp** __nfinish)
     _M_deallocate_node(*__n);
 }
 
-template <class _Tp, class _Alloc = allocator<_Tp> >
-class deque : protected _Deque_base<_Tp, _Alloc> {
 
+/**
+ *  @ingroup Containers
+ *  @ingroup Sequences
+ *
+ *  Meets the requirements of a <a href="tables.html#65">container</a>, a
+ *  <a href="tables.html#66">reversible container</a>, and a
+ *  <a href="tables.html#67">sequence</a>, including the
+ *  <a href="tables.html#68">optional sequence requirements</a>.
+ *
+ *  Placeholder:  see http://www.sgi.com/tech/stl/Deque.html for now.
+ *
+ *  In previous HP/SGI versions of deque, there was an extra template parameter
+ *  so users could control the node size.  This extension turned out to violate
+ *  the C++ standard (it can be detected using template template parameters),
+ *  and it was removed.
+ *
+ *  @if maint
+ *  Here's how a deque<Tp> manages memory.  Each deque has 4 members:
+ *  
+ *  - Tp**        _M_map
+ *  - size_t      _M_map_size
+ *  - iterator    _M_start, _M_finish
+ *  
+ *  map_size is at least 8.  map is an array of map_size pointers-to-"nodes".
+ *  
+ *  A "node" has no specific type name as such, but it is referred to as
+ *  "node" in this file.  It is a simple array-of-Tp.  If Tp is very large,
+ *  there will be one Tp element per node (i.e., an "array" of one).
+ *  For non-huge Tp's, node size is inversely related to Tp size:  the
+ *  larger the Tp, the fewer Tp's will fit in a node.  The goal here is to
+ *  keep the total size of a node relatively small and constant over different
+ *  Tp's, to improve allocator efficiency.
+ *  
+ *  **** As I write this, the nodes are /not/ allocated using the high-speed
+ *  memory pool.  There are 20 hours left in the year; perhaps I can fix
+ *  this before 2002.
+ *  
+ *  Not every pointer in the map array will point to a node.  If the initial
+ *  number of elements in the deque is small, the /middle/ map pointers will
+ *  be valid, and the ones at the edges will be unused.  This same situation
+ *  will arise as the map grows:  available map pointers, if any, will be on
+ *  the ends.  As new nodes are created, only a subset of the map's pointers
+ *  need to be copied "outward".
+ *
+ *  Class invariants:
+ * - For any nonsingular iterator i:
+ *    - i.node points to a member of the map array.  (Yes, you read that
+ *      correctly:  i.node does not actually point to a node.)  The member of
+ *      the map array is what actually points to the node.
+ *    - i.first == *(i.node)    (This points to the node (first Tp element).)
+ *    - i.last  == i.first + node_size
+ *    - i.cur is a pointer in the range [i.first, i.last).  NOTE:
+ *      the implication of this is that i.cur is always a dereferenceable
+ *      pointer, even if i is a past-the-end iterator.
+ * - Start and Finish are always nonsingular iterators.  NOTE: this means that
+ *   an empty deque must have one node, a deque with <N elements (where N is
+ *   the node buffer size) must have one node, a deque with N through (2N-1)
+ *   elements must have two nodes, etc.
+ * - For every node other than start.node and finish.node, every element in the
+ *   node is an initialized object.  If start.node == finish.node, then
+ *   [start.cur, finish.cur) are initialized objects, and the elements outside
+ *   that range are uninitialized storage.  Otherwise, [start.cur, start.last)
+ *   and [finish.first, finish.cur) are initialized objects, and [start.first,
+ *   start.cur) and [finish.cur, finish.last) are uninitialized storage.
+ * - [map, map + map_size) is a valid, non-empty range.  
+ * - [start.node, finish.node] is a valid range contained within 
+ *   [map, map + map_size).  
+ * - A pointer in the range [map, map + map_size) points to an allocated node
+ *   if and only if the pointer is in the range [start.node, finish.node].
+ *
+ *  Here's the magic:  nothing in deque is "aware" of the discontiguous storage!
+ *
+ *  The memory setup and layout occurs in the parent, _Base, and the iterator
+ *  class is entirely responsible for "leaping" from one node to the next.  All
+ *  the implementation routines for deque itself work only through the start
+ *  and finish iterators.  This keeps the routines simple and sane, and we can
+ *  use other standard algorithms as well.
+ *  @endif
+*/
+template <class _Tp, class _Alloc = allocator<_Tp> >
+class deque : protected _Deque_base<_Tp, _Alloc>
+{
   // concept requirements
-  __glibcpp_class_requires(_Tp, _SGIAssignableConcept);
+  __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
 
   typedef _Deque_base<_Tp, _Alloc> _Base;
-public:                         // Basic types
-  typedef _Tp value_type;
-  typedef value_type* pointer;
-  typedef const value_type* const_pointer;
-  typedef value_type& reference;
-  typedef const value_type& const_reference;
-  typedef size_t size_type;
-  typedef ptrdiff_t difference_type;
+
+public:
+  typedef _Tp                                value_type;
+  typedef value_type*                        pointer;
+  typedef const value_type*                  const_pointer;
+  typedef value_type&                        reference;
+  typedef const value_type&                  const_reference;
+  typedef size_t                             size_type;
+  typedef ptrdiff_t                          difference_type;
 
   typedef typename _Base::allocator_type allocator_type;
   allocator_type get_allocator() const { return _Base::get_allocator(); }
 
-public:                         // Iterators
-  typedef typename _Base::iterator       iterator;
-  typedef typename _Base::const_iterator const_iterator;
+  typedef typename _Base::iterator           iterator;
+  typedef typename _Base::const_iterator     const_iterator;
+  typedef reverse_iterator<const_iterator>   const_reverse_iterator;
+  typedef reverse_iterator<iterator>         reverse_iterator;
 
-  typedef reverse_iterator<const_iterator> const_reverse_iterator;
-  typedef reverse_iterator<iterator> reverse_iterator;
-
-protected:                      // Internal typedefs
+protected:
   typedef pointer* _Map_pointer;
   static size_t _S_buffer_size() { return __deque_buf_size(sizeof(_Tp)); }
 
-protected:
+  // Functions controlling memory layout, and nothing else.
   using _Base::_M_initialize_map;
   using _Base::_M_create_nodes;
   using _Base::_M_destroy_nodes;
@@ -421,6 +531,12 @@ protected:
   using _Base::_M_allocate_map;
   using _Base::_M_deallocate_map;
 
+  /** @if maint
+   *  A total of four data members accumulated down the heirarchy.  If the
+   *  _Alloc type requires separate instances, then two of them will also be
+   *  included in each deque.
+   *  @endif
+  */
   using _Base::_M_map;
   using _Base::_M_map_size;
   using _Base::_M_start;
@@ -586,8 +702,7 @@ private:                        // helper functions for assign()
   template <class _ForwardIterator>
   void _M_assign_aux(_ForwardIterator __first, _ForwardIterator __last,
                      forward_iterator_tag) {
-    size_type __len = 0;
-    distance(__first, __last, __len);
+    size_type __len = distance(__first, __last);
     if (__len > size()) {
       _ForwardIterator __mid = __first;
       advance(__mid, size());
@@ -850,20 +965,27 @@ void deque<_Tp, _Alloc>::_M_fill_insert(iterator __pos,
 {
   if (__pos._M_cur == _M_start._M_cur) {
     iterator __new_start = _M_reserve_elements_at_front(__n);
-    __STL_TRY {
+    try {
       uninitialized_fill(__new_start, _M_start, __x);
       _M_start = __new_start;
     }
-    __STL_UNWIND(_M_destroy_nodes(__new_start._M_node, _M_start._M_node));
+    catch(...)
+      {
+	_M_destroy_nodes(__new_start._M_node, _M_start._M_node);
+	__throw_exception_again;
+      }
   }
   else if (__pos._M_cur == _M_finish._M_cur) {
     iterator __new_finish = _M_reserve_elements_at_back(__n);
-    __STL_TRY {
+    try {
       uninitialized_fill(_M_finish, __new_finish, __x);
       _M_finish = __new_finish;
     }
-    __STL_UNWIND(_M_destroy_nodes(_M_finish._M_node + 1, 
-                                  __new_finish._M_node + 1));    
+    catch(...)
+      {
+	_M_destroy_nodes(_M_finish._M_node + 1, __new_finish._M_node + 1);    
+	__throw_exception_again;
+      }
   }
   else 
     _M_insert_aux(__pos, __n, __x);
@@ -884,7 +1006,7 @@ deque<_Tp,_Alloc>::erase(iterator __first, iterator __last)
       copy_backward(_M_start, __first, __last);
       iterator __new_start = _M_start + __n;
       _Destroy(_M_start, __new_start);
-      _M_destroy_nodes(__new_start._M_node, _M_start._M_node);
+      _M_destroy_nodes(_M_start._M_node, __new_start._M_node);
       _M_start = __new_start;
     }
     else {
@@ -919,30 +1041,61 @@ void deque<_Tp,_Alloc>::clear()
   _M_finish = _M_start;
 }
 
-// Precondition: _M_start and _M_finish have already been initialized,
-// but none of the deque's elements have yet been constructed.
+/**
+ *  @if maint
+ *  @brief Fills the deque with copies of value.
+ *  @param  value  Initial value.
+ *  @return   Nothing.
+ *  @pre _M_start and _M_finish have already been initialized, but none of the
+ *       deque's elements have yet been constructed.
+ *
+ *  This function is called only when the user provides an explicit size (with
+ *  or without an explicit exemplar value).
+ *  @endif
+*/
 template <class _Tp, class _Alloc>
-void deque<_Tp,_Alloc>::_M_fill_initialize(const value_type& __value) {
+void deque<_Tp,_Alloc>::_M_fill_initialize(const value_type& __value)
+{
   _Map_pointer __cur;
-  __STL_TRY {
+  try {
     for (__cur = _M_start._M_node; __cur < _M_finish._M_node; ++__cur)
       uninitialized_fill(*__cur, *__cur + _S_buffer_size(), __value);
     uninitialized_fill(_M_finish._M_first, _M_finish._M_cur, __value);
   }
-  __STL_UNWIND(_Destroy(_M_start, iterator(*__cur, __cur)));
+  catch(...)
+    {
+      _Destroy(_M_start, iterator(*__cur, __cur));
+      __throw_exception_again;
+    }
 }
 
+/** @{
+ *  @if maint
+ *  @brief Fills the deque with whatever is in [first,last).
+ *  @param  first  An input iterator.
+ *  @param  last  An input iterator.
+ *  @return   Nothing.
+ *
+ *  If the iterators are actually forward iterators (or better), then the
+ *  memory layout can be done all at once.  Else we move forward using
+ *  push_back on each value from the iterator.
+ *  @endif
+*/
 template <class _Tp, class _Alloc> template <class _InputIterator>
 void deque<_Tp,_Alloc>::_M_range_initialize(_InputIterator __first,
                                             _InputIterator __last,
                                             input_iterator_tag)
 {
   _M_initialize_map(0);
-  __STL_TRY {
+  try {
     for ( ; __first != __last; ++__first)
       push_back(*__first);
   }
-  __STL_UNWIND(clear());
+  catch(...)
+    {
+      clear();
+      __throw_exception_again;
+    }
 }
 
 template <class _Tp, class _Alloc> template <class _ForwardIterator>
@@ -950,12 +1103,11 @@ void deque<_Tp,_Alloc>::_M_range_initialize(_ForwardIterator __first,
                                             _ForwardIterator __last,
                                             forward_iterator_tag)
 {
-  size_type __n = 0;
-  distance(__first, __last, __n);
+  size_type __n = distance(__first, __last);
   _M_initialize_map(__n);
 
   _Map_pointer __cur_node;
-  __STL_TRY {
+  try {
     for (__cur_node = _M_start._M_node; 
          __cur_node < _M_finish._M_node; 
          ++__cur_node) {
@@ -966,8 +1118,13 @@ void deque<_Tp,_Alloc>::_M_range_initialize(_ForwardIterator __first,
     }
     uninitialized_copy(__first, __last, _M_finish._M_first);
   }
-  __STL_UNWIND(_Destroy(_M_start, iterator(*__cur_node, __cur_node)));
+  catch(...)
+    {
+      _Destroy(_M_start, iterator(*__cur_node, __cur_node));
+      __throw_exception_again;
+    }
 }
+/** @} */
 
 // Called only if _M_finish._M_cur == _M_finish._M_last - 1.
 template <class _Tp, class _Alloc>
@@ -977,12 +1134,16 @@ deque<_Tp,_Alloc>::_M_push_back_aux(const value_type& __t)
   value_type __t_copy = __t;
   _M_reserve_map_at_back();
   *(_M_finish._M_node + 1) = _M_allocate_node();
-  __STL_TRY {
+  try {
     _Construct(_M_finish._M_cur, __t_copy);
     _M_finish._M_set_node(_M_finish._M_node + 1);
     _M_finish._M_cur = _M_finish._M_first;
   }
-  __STL_UNWIND(_M_deallocate_node(*(_M_finish._M_node + 1)));
+  catch(...)
+    {
+      _M_deallocate_node(*(_M_finish._M_node + 1));
+      __throw_exception_again;
+    }
 }
 
 // Called only if _M_finish._M_cur == _M_finish._M_last - 1.
@@ -992,12 +1153,16 @@ deque<_Tp,_Alloc>::_M_push_back_aux()
 {
   _M_reserve_map_at_back();
   *(_M_finish._M_node + 1) = _M_allocate_node();
-  __STL_TRY {
+  try {
     _Construct(_M_finish._M_cur);
     _M_finish._M_set_node(_M_finish._M_node + 1);
     _M_finish._M_cur = _M_finish._M_first;
   }
-  __STL_UNWIND(_M_deallocate_node(*(_M_finish._M_node + 1)));
+  catch(...)
+    {
+      _M_deallocate_node(*(_M_finish._M_node + 1));
+      __throw_exception_again;
+    }
 }
 
 // Called only if _M_start._M_cur == _M_start._M_first.
@@ -1008,12 +1173,17 @@ deque<_Tp,_Alloc>::_M_push_front_aux(const value_type& __t)
   value_type __t_copy = __t;
   _M_reserve_map_at_front();
   *(_M_start._M_node - 1) = _M_allocate_node();
-  __STL_TRY {
+  try {
     _M_start._M_set_node(_M_start._M_node - 1);
     _M_start._M_cur = _M_start._M_last - 1;
     _Construct(_M_start._M_cur, __t_copy);
   }
-  __STL_UNWIND((++_M_start, _M_deallocate_node(*(_M_start._M_node - 1))));
+  catch(...)
+    {
+      ++_M_start;
+      _M_deallocate_node(*(_M_start._M_node - 1));
+      __throw_exception_again;
+    }
 } 
 
 // Called only if _M_start._M_cur == _M_start._M_first.
@@ -1023,12 +1193,17 @@ deque<_Tp,_Alloc>::_M_push_front_aux()
 {
   _M_reserve_map_at_front();
   *(_M_start._M_node - 1) = _M_allocate_node();
-  __STL_TRY {
+  try {
     _M_start._M_set_node(_M_start._M_node - 1);
     _M_start._M_cur = _M_start._M_last - 1;
     _Construct(_M_start._M_cur);
   }
-  __STL_UNWIND((++_M_start, _M_deallocate_node(*(_M_start._M_node - 1))));
+  catch(...)
+    {
+      ++_M_start;
+      _M_deallocate_node(*(_M_start._M_node - 1));
+      __throw_exception_again;
+    }
 } 
 
 // Called only if _M_finish._M_cur == _M_finish._M_first.
@@ -1067,24 +1242,30 @@ void
 deque<_Tp,_Alloc>::insert(iterator __pos,
                           _ForwardIterator __first, _ForwardIterator __last,
                           forward_iterator_tag) {
-  size_type __n = 0;
-  distance(__first, __last, __n);
+  size_type __n = distance(__first, __last);
   if (__pos._M_cur == _M_start._M_cur) {
     iterator __new_start = _M_reserve_elements_at_front(__n);
-    __STL_TRY {
+    try {
       uninitialized_copy(__first, __last, __new_start);
       _M_start = __new_start;
     }
-    __STL_UNWIND(_M_destroy_nodes(__new_start._M_node, _M_start._M_node));
+    catch(...)
+      {
+	_M_destroy_nodes(__new_start._M_node, _M_start._M_node);
+	__throw_exception_again;
+      }
   }
   else if (__pos._M_cur == _M_finish._M_cur) {
     iterator __new_finish = _M_reserve_elements_at_back(__n);
-    __STL_TRY {
+    try {
       uninitialized_copy(__first, __last, _M_finish);
       _M_finish = __new_finish;
     }
-    __STL_UNWIND(_M_destroy_nodes(_M_finish._M_node + 1, 
-                                  __new_finish._M_node + 1));
+    catch(...)
+      {
+	_M_destroy_nodes(_M_finish._M_node + 1, __new_finish._M_node + 1);
+	__throw_exception_again;
+      }
   }
   else
     _M_insert_aux(__pos, __first, __last, __n);
@@ -1161,7 +1342,7 @@ void deque<_Tp,_Alloc>::_M_insert_aux(iterator __pos,
     iterator __new_start = _M_reserve_elements_at_front(__n);
     iterator __old_start = _M_start;
     __pos = _M_start + __elems_before;
-    __STL_TRY {
+    try {
       if (__elems_before >= difference_type(__n)) {
         iterator __start_n = _M_start + difference_type(__n);
         uninitialized_copy(_M_start, __start_n, __new_start);
@@ -1176,7 +1357,11 @@ void deque<_Tp,_Alloc>::_M_insert_aux(iterator __pos,
         fill(__old_start, __pos, __x_copy);
       }
     }
-    __STL_UNWIND(_M_destroy_nodes(__new_start._M_node, _M_start._M_node));
+    catch(...)
+      { 
+	_M_destroy_nodes(__new_start._M_node, _M_start._M_node);
+	__throw_exception_again;
+      }
   }
   else {
     iterator __new_finish = _M_reserve_elements_at_back(__n);
@@ -1184,7 +1369,7 @@ void deque<_Tp,_Alloc>::_M_insert_aux(iterator __pos,
     const difference_type __elems_after = 
       difference_type(__length) - __elems_before;
     __pos = _M_finish - __elems_after;
-    __STL_TRY {
+    try {
       if (__elems_after > difference_type(__n)) {
         iterator __finish_n = _M_finish - difference_type(__n);
         uninitialized_copy(__finish_n, _M_finish, _M_finish);
@@ -1199,8 +1384,11 @@ void deque<_Tp,_Alloc>::_M_insert_aux(iterator __pos,
         fill(__pos, __old_finish, __x_copy);
       }
     }
-    __STL_UNWIND(_M_destroy_nodes(_M_finish._M_node + 1, 
-                                  __new_finish._M_node + 1));
+    catch(...)
+      { 
+	_M_destroy_nodes(_M_finish._M_node + 1, __new_finish._M_node + 1);
+	__throw_exception_again;
+      }
   }
 }
 
@@ -1216,7 +1404,7 @@ void deque<_Tp,_Alloc>::_M_insert_aux(iterator __pos,
     iterator __new_start = _M_reserve_elements_at_front(__n);
     iterator __old_start = _M_start;
     __pos = _M_start + __elemsbefore;
-    __STL_TRY {
+    try {
       if (__elemsbefore >= difference_type(__n)) {
         iterator __start_n = _M_start + difference_type(__n); 
         uninitialized_copy(_M_start, __start_n, __new_start);
@@ -1233,7 +1421,11 @@ void deque<_Tp,_Alloc>::_M_insert_aux(iterator __pos,
         copy(__mid, __last, __old_start);
       }
     }
-    __STL_UNWIND(_M_destroy_nodes(__new_start._M_node, _M_start._M_node));
+    catch(...)
+      {
+	_M_destroy_nodes(__new_start._M_node, _M_start._M_node);
+	__throw_exception_again;
+      }
   }
   else {
     iterator __new_finish = _M_reserve_elements_at_back(__n);
@@ -1241,7 +1433,7 @@ void deque<_Tp,_Alloc>::_M_insert_aux(iterator __pos,
     const difference_type __elemsafter = 
       difference_type(__length) - __elemsbefore;
     __pos = _M_finish - __elemsafter;
-    __STL_TRY {
+    try {
       if (__elemsafter > difference_type(__n)) {
         iterator __finish_n = _M_finish - difference_type(__n);
         uninitialized_copy(__finish_n, _M_finish, _M_finish);
@@ -1257,8 +1449,11 @@ void deque<_Tp,_Alloc>::_M_insert_aux(iterator __pos,
         copy(__first, __mid, __pos);
       }
     }
-    __STL_UNWIND(_M_destroy_nodes(_M_finish._M_node + 1, 
-                                  __new_finish._M_node + 1));
+    catch(...)
+      {
+	_M_destroy_nodes(_M_finish._M_node + 1, __new_finish._M_node + 1);
+	__throw_exception_again;
+      }
   }
 }
 
@@ -1269,17 +1464,15 @@ void deque<_Tp,_Alloc>::_M_new_elements_at_front(size_type __new_elems)
       = (__new_elems + _S_buffer_size() - 1) / _S_buffer_size();
   _M_reserve_map_at_front(__new_nodes);
   size_type __i;
-  __STL_TRY {
+  try {
     for (__i = 1; __i <= __new_nodes; ++__i)
       *(_M_start._M_node - __i) = _M_allocate_node();
   }
-#       ifdef __STL_USE_EXCEPTIONS
   catch(...) {
     for (size_type __j = 1; __j < __i; ++__j)
       _M_deallocate_node(*(_M_start._M_node - __j));      
-    throw;
+    __throw_exception_again;
   }
-#       endif /* __STL_USE_EXCEPTIONS */
 }
 
 template <class _Tp, class _Alloc>
@@ -1289,17 +1482,15 @@ void deque<_Tp,_Alloc>::_M_new_elements_at_back(size_type __new_elems)
       = (__new_elems + _S_buffer_size() - 1) / _S_buffer_size();
   _M_reserve_map_at_back(__new_nodes);
   size_type __i;
-  __STL_TRY {
+  try {
     for (__i = 1; __i <= __new_nodes; ++__i)
       *(_M_finish._M_node + __i) = _M_allocate_node();
   }
-#       ifdef __STL_USE_EXCEPTIONS
   catch(...) {
     for (size_type __j = 1; __j < __i; ++__j)
       _M_deallocate_node(*(_M_finish._M_node + __j));      
-    throw;
+    __throw_exception_again;
   }
-#       endif /* __STL_USE_EXCEPTIONS */
 }
 
 template <class _Tp, class _Alloc>
@@ -1384,8 +1575,5 @@ inline void swap(deque<_Tp,_Alloc>& __x, deque<_Tp,_Alloc>& __y) {
 
 } // namespace std 
   
-#endif /* __SGI_STL_INTERNAL_DEQUE_H */
+#endif /* __GLIBCPP_INTERNAL_DEQUE_H */
 
-// Local Variables:
-// mode:C++
-// End:

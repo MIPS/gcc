@@ -43,8 +43,28 @@ void test01()
   typedef test_iterator::container_type container_type;
 }
 
+// Make sure iterator can be instantiated.
+template class std::front_insert_iterator<std::list<int> >;
+
+void test02()
+{
+  typedef std::front_insert_iterator<std::list<int> > iterator_type;
+  std::list<int> li;
+  iterator_type it = std::front_inserter(li);
+}
+
+// Check data member 'container' accessible.
+class test_dm : public std::front_insert_iterator<std::list<int> >
+{
+  container_type l;
+  container_type* p;
+public:
+  test_dm(): std::front_insert_iterator<std::list<int> >(l), p(container) { }
+};
+
 int main() 
 { 
   test01();
+  test02();
   return 0;
 }

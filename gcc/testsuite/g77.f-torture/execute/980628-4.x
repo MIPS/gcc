@@ -2,8 +2,7 @@
 # below, with a "sorry" message.
 
 if { [ishost "i\[34567\]86-*-*"] } {
-    if { [istarget "mmix-knuth-mmixware"]
-	 || [istarget "powerpc-*-*"] } {
+    if { [istarget "mmix-knuth-mmixware"] } {
 	set torture_compile_xfail [istarget]
     }
 }

@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "recog.h"
 #include "expr.h"
+#include "optabs.h"
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h"
@@ -52,6 +53,8 @@ Boston, MA 02111-1307, USA.  */
 				|| regs_ever_live[16] || regs_ever_live[17]))
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1028,7 +1031,7 @@ function_arg_partial_nregs (cum, mode, type, named)
 }
 
 /* Output a tst insn.  */
-char *
+const char *
 output_tst (operand, insn)
      rtx operand, insn;
 {

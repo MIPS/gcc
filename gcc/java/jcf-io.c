@@ -242,6 +242,7 @@ DEFUN(open_class, (filename, jcf, stream, dep_name),
       jcf->read_ptr = NULL;
       jcf->read_end = NULL;
       jcf->read_state = stream;
+      jcf->filename = filename;
       jcf->filbuf = jcf_filbuf_from_stdio;
     }
   else
@@ -406,7 +407,7 @@ DEFUN(find_class, (classname, classname_length, jcf, source_ok),
   if (! java && ! class && java_buf.st_mtime > class_buf.st_mtime)
     {
       if (flag_newer)
-	warning ("Source file for class `%s' is newer than its matching class file. Source file `%s' used instead", classname, java_buffer);
+	warning ("source file for class `%s' is newer than its matching class file.  Source file `%s' used instead", classname, java_buffer);
       class = -1;
     }
 
@@ -556,7 +557,9 @@ DEFUN(jcf_print_utf8_replace, (stream, str, length, in_char, out_char),
 
 /* Check that all the cross-references in the constant pool are
    valid.  Returns 0 on success.
-   Otherwise, returns the index of the (first) invalid entry. */
+   Otherwise, returns the index of the (first) invalid entry.
+   Only checks internal consistency, but does not check that
+   any classes, fields, or methods are valid.*/
 
 int
 DEFUN(verify_constant_pool, (jcf),
@@ -622,7 +625,7 @@ DEFUN(format_uint, (buffer, value, base),
   /* Note this code does not pretend to be optimized. */
   do {
     int digit = value % base;
-    static char digit_chars[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+    static const char digit_chars[] = "0123456789abcdefghijklmnopqrstuvwxyz";
     *--buf_ptr = digit_chars[digit];
     value /= base;
   } while (value != 0);

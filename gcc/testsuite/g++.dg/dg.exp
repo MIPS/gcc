@@ -28,9 +28,16 @@ if ![info exists DEFAULT_CXXFLAGS] then {
 # Initialize `dg'.
 dg-init
 
+# Gather a list of all tests, with the exception of those in directories
+# that are handled specially.
+set all [lsort [find $srcdir/$subdir *.C]]
+set tests [prune [prune [prune [prune $all $srcdir/$subdir/special/*] \
+                               $srcdir/$subdir/debug/*] \
+                        $srcdir/$subdir/gcov/*] \
+                 $srcdir/$subdir/bprob/*]
+
 # Main loop.
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.\[CS\]]] \
-	"" $DEFAULT_CXXFLAGS
+dg-runtest $tests "" $DEFAULT_CXXFLAGS
 
 # All done.
 dg-finish

@@ -1,23 +1,23 @@
 /* Various declarations for language-independent diagnostics subroutines.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #ifndef GCC_DIAGNOSTIC_H
 #define GCC_DIAGNOSTIC_H
@@ -55,13 +55,13 @@ typedef enum
 
 /* The type of front-end specific hook that formats trees into an
    output_buffer.  A language specific printer returns a truth value if
-   everything goes well. */
+   everything goes well.  */
 typedef int (*printer_fn) PARAMS ((output_buffer *));
 
 /* This data structure encapsulates an output_buffer's state.  */
 typedef struct
 {
-  /* The prefix for each new line.   */
+  /* The prefix for each new line.  */
   const char *prefix;
 
   /* The real upper bound of number of characters per line, taking into
@@ -69,7 +69,7 @@ typedef struct
   int maximum_length;
 
   /* The ideal upper bound of number of characters per line, as suggested
-     by front-end. */  
+     by front-end.  */  
   int ideal_maximum_length;
 
   /* Indentation count.  */
@@ -132,7 +132,7 @@ struct output_buffer
 
 /* Current state of the diagnostic_context' output_buffer.  This macro
    accepts both `diagnostic_context *' and `output_buffer *'.  */
-#define output_buffer_state(BUFFER) ((output_buffer *)BUFFER)->state
+#define output_buffer_state(BUFFER) ((output_buffer *)(BUFFER))->state
 
 /* The stream attached to the output_buffer, where the formatted
    diagnostics will ultimately go.  Works only on `output_buffer *'.  */
@@ -145,7 +145,7 @@ struct output_buffer
 /* The rest of the `variable argument list' not yet processed.
    This macro works on both `output_state *' and `output_buffer *'.  */
 #define output_buffer_format_args(BUFFER) \
-   *(((output_state *)BUFFER)->format_args)
+   *(((output_state *)(BUFFER))->format_args)
 
 /* In line-wrapping mode, whether we should start a new line.  */
 #define output_needs_newline(BUFFER) (BUFFER)->state.need_newline_p
@@ -191,7 +191,7 @@ struct diagnostic_context
   */
   void (*begin_diagnostic) PARAMS ((output_buffer *, diagnostic_context *));
 
-  /* This function is called after the diagnostic message is printed.   */
+  /* This function is called after the diagnostic message is printed.  */
   void (*end_diagnostic) PARAMS ((output_buffer *, diagnostic_context *));
 
   /* Hook for front-end extensions.  */
@@ -221,22 +221,22 @@ struct diagnostic_context
    displayed.  */
 #define diagnostic_finalizer(DC) (DC)->end_diagnostic
 
-/* Extention hook for client.  */
+/* Extension hook for client.  */
 #define diagnostic_auxiliary_data(DC) (DC)->x_data
 
 /* Client supplied function used to decode formats.  Can operate on both
  `output_buffer *' and `diagnostic_context *'.  */
-#define diagnostic_format_decoder(DC) ((output_buffer *)DC)->format_decoder
+#define diagnostic_format_decoder(DC) ((output_buffer *)(DC))->format_decoder
 
 /* Prefixing rule used in formatting a diagnostic message.  Accepts both
    `output_buffer *' and `diagnostic_context *'.  */
 #define diagnostic_prefixing_rule(DC) \
-   ((output_buffer *)DC)->state.prefixing_rule
+   ((output_buffer *)(DC))->state.prefixing_rule
 
 /* Maximum characters per line in automatic line wrapping mode.
-   Zero means don't wrap lines. */
+   Zero means don't wrap lines.  */
 #define diagnostic_line_cutoff(DC) \
-   ((output_buffer *)DC)->state.ideal_maximum_length
+   ((output_buffer *)(DC))->state.ideal_maximum_length
 
 /* This diagnostic context is used by front-ends that directly output
    diagnostic messages without going through `error', `warning',
@@ -248,7 +248,7 @@ extern output_buffer *diagnostic_buffer;
 
 /* The total count of a KIND of diagnostics meitted so far.  */
 #define diagnostic_kind_count(DC, DK) \
-   ((output_buffer *)DC)->state.diagnostic_count[(int) DK]
+   ((output_buffer *)(DC))->state.diagnostic_count[(int) (DK)]
 
 /* The number of errors that have been issued so far.  Ideally, these
    would take an output_buffer as an argument.  */
@@ -309,13 +309,5 @@ extern void record_last_error_module	PARAMS ((void));
 extern int error_function_changed	PARAMS ((void));
 extern void record_last_error_function	PARAMS ((void));
 extern void report_problematic_module	PARAMS ((output_buffer *));     
-
-/* Called by report_error_function to print out function name.
- * Default may be overridden by language front-ends.  */
-extern void (*print_error_function) PARAMS ((diagnostic_context *,
-                                             const char *));
-
-extern void default_print_error_function PARAMS ((diagnostic_context *,
-                                                  const char *));
 
 #endif /* ! GCC_DIAGNOSTIC_H */

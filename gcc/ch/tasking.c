@@ -167,7 +167,7 @@ generate_tasking_code_variable (name, tasking_code_ptr, quasi_flag)
       /* check for value should be assigned is out of range */
       if (TREE_INT_CST_LOW (*tasking_code_ptr) >
 	  TREE_INT_CST_LOW (TYPE_MAX_VALUE (chill_taskingcode_type_node)))
-	  error ("Tasking code %ld out of range for `%s'.",
+	  error ("tasking code %ld out of range for `%s'",
 		 (long) TREE_INT_CST_LOW (*tasking_code_ptr),
 		 IDENTIFIER_POINTER (name));
     }
@@ -215,7 +215,7 @@ decl_tasking_code_variable (name, tasking_code_ptr, quasi_flag)
       /* check for value should be assigned is out of range */
       if (TREE_INT_CST_LOW (*tasking_code_ptr) >
 	  TREE_INT_CST_LOW (TYPE_MAX_VALUE (chill_taskingcode_type_node)))
-	  error ("Tasking code %ld out of range for `%s'.",
+	  error ("tasking code %ld out of range for `%s'",
 		 (long) TREE_INT_CST_LOW (*tasking_code_ptr),
 		 IDENTIFIER_POINTER (name));
     }
@@ -281,7 +281,7 @@ make_process_struct (name, processparlist)
 	    {
 	      for (field = parnamelist; field != NULL_TREE;
 		   field = TREE_CHAIN (field))
-	        error ("invalid attribute for argument `%s' (only IN or LOC allowed).",
+	        error ("invalid attribute for argument `%s' (only IN or LOC allowed)",
 		       IDENTIFIER_POINTER (TREE_VALUE (field)));
 	    }
 	}
@@ -551,7 +551,7 @@ build_start_process (process_name, copynum,
       else if (TREE_CODE (process_decl) != FUNCTION_DECL
 	  || ! CH_DECL_PROCESS (process_decl))
 	{
-	  error ("You may only START a process, not a proc");
+	  error ("you may only START a process, not a proc");
 	  process_decl = NULL_TREE;
 	}
       else if (DECL_EXTERNAL (process_decl))
@@ -587,7 +587,7 @@ build_start_process (process_name, copynum,
       if (optset == NULL_TREE) ;
       else if (!CH_REFERABLE (optset))
 	{
-	  error ("SET expression not a location.");
+	  error ("SET expression not a location");
 	  optset = NULL_TREE;
 	}
       else if (!CH_IS_INSTANCE_MODE (TREE_TYPE (optset)))
@@ -1004,7 +1004,7 @@ build_gen_code (decl)
     result = (tree)(DECL_TASKING_CODE_DECL (decl));
   else
     {
-      error ("GEN_CODE argument must be a process or signal name.");
+      error ("GEN_CODE argument must be a process or signal name");
       return error_mark_node;
     }
   CH_DERIVED_FLAG (result) = 1;
@@ -1136,7 +1136,7 @@ build_queue_length (buf_ev)
                       tree_cons (NULL_TREE, arg2, NULL_TREE)));
     }
 
-  error ("QUEUE_LENGTH argument must be a BUFFER/EVENT location.");
+  error ("QUEUE_LENGTH argument must be a BUFFER/EVENT location");
   return error_mark_node;
 }
 
@@ -1218,19 +1218,19 @@ build_instance_type ()
   pointer_to_instance = build_chill_pointer_type (instance_type_node);
 }
 
-#if 0
+/*
  *
  * The tasking message descriptor looks like this C structure:
  *
  * typedef struct
  *   {
- *     short *sc;                 /* ptr to code integer */
- *     int    data_len;           /* length of signal/buffer data msg */
- *     void  *data;               /* ptr to signal/buffer data */
+ *     short *sc;                 // ptr to code integer
+ *     int    data_len;           // length of signal/buffer data msg
+ *     void  *data;               // ptr to signal/buffer data
  *   } SignalDescr;
  *
  *
-#endif
+ */
 
 static void
 build_tasking_message_type ()
@@ -1395,7 +1395,7 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
 	  /* issue a warning in case of -Wall */
 	  if (extra_warnings)
 	    {
-	      warning ("Signal sent without priority");
+	      warning ("signal sent without priority");
 	      warning (" and no default priority was set.");
 	      warning (" PRIORITY defaulted to 0");
 	    }
@@ -1433,7 +1433,7 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
                           tree_cons (NULL_TREE, copy_number, NULL_TREE)));
 	  /* as our system doesn't allow that and Z.200 specifies it,
 	     we issue a warning */
-	  warning ("SEND to ANY copy of process `%s'.", IDENTIFIER_POINTER (process_name));
+	  warning ("SEND to ANY copy of process `%s'", IDENTIFIER_POINTER (process_name));
         }
     }
   else if (! CH_IS_INSTANCE_MODE (TREE_TYPE (optsendto)))
@@ -1486,7 +1486,7 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
 		  tree_cons (NULL_TREE, linenumber, NULL_TREE)))))))));
 }
 
-#if 0
+/*
  * The following code builds a RECEIVE CASE action, which actually
  * has 2 different functionalities:
  *
@@ -1512,16 +1512,16 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
  *        STOP;
  *      ESAC;
  *
- * Because we don''t know until we get to the ESAC how
+ * Because we don't know until we get to the ESAC how
  * many signals need processing, we generate the following
  * C-equivalent code:
  *
- * /* define the codes for the signals */
+ * // define the codes for the signals
  * static short __tmp_advance_code;
  * static short __tmp_terminate_code;
  * static short __tmp_sig1_code;
  *
- * /* define the types of the signals */
+ * // define the types of the signals
  * typedef struct
  *  {
  *     char fld0;
@@ -1536,7 +1536,7 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
  * static short count;
  * static char char_code;
  *
- * {               /* start a new symbol context */
+ * {               // start a new symbol context
  *   int    number_of_sigs;
  *   short *sig_code [];
  *   void  *sigdatabuf;
@@ -1554,22 +1554,22 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
  *                                 &instance_loc);
  *   if (sigcode == __tmp_advance_code)
  *     {
- *       /* code for advance alternative's action_statement_list */
+ *       // code for advance alternative's action_statement_list
  *       count++;
  *     }
  *   else if (sigcode == __tmp_terminate_code)
  *     {
- *        /* copy signal's data to where they belong,
- *           with range-check, if enabled */
+ *        // copy signal's data to where they belong,
+ *           with range-check, if enabled
  *        char_code = ((__tmp_terminate_struct *)sigdatabuf)->fld0;
  *
- *       /* code for terminate alternative's action_statement_list */
+ *       // code for terminate alternative's action_statement_list
  *        __send_signal (sig1 ..... );
  *        goto __workloop_end;
  *     }
  *   else
  *     {
- *        /* code here for the ELSE action_statement_list */
+ *        // code here for the ELSE action_statement_list
  *        __stop_process ();
  *     }
  *   goto __rc_done;
@@ -1586,7 +1586,7 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
  *   goto __rcdoit;
  *
  * __rc_done: ;
- * }               /* end the new symbol context */
+ * }               // end the new symbol context
  * __workloop_end: ;
  *
  *
@@ -1612,7 +1612,7 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
  *          STOP;
  *      ESAC;
  *
- * Because we don''t know until we get to the ESAC how
+ * Because we don't know until we get to the ESAC how
  * many buffers need processing, we generate the following
  * C-equivalent code:
  *
@@ -1630,7 +1630,7 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
  * static short count;
  *
  * workloop:
- * {                     /* start a new symbol context */
+ * {                     // start a new symbol context
  *   int     number_of_sigs;
  *   void   *sig_code [];
  *   void   *sigdatabuf;
@@ -1684,10 +1684,10 @@ expand_send_signal (sigmsgbuffer, optroutinginfo, optsendto,
  *   goto __rcdoit;
  *
  *  __rc_done;
- * }          /* end of symbol context */
+ * }          // end of symbol context
  * __workloop_end:
  *
-#endif
+ */
 
 struct rc_state_type
 {
@@ -1721,7 +1721,7 @@ build_receive_case_if_generated()
 {
   if (!current_rc_state)
     {
-      error ("internal error: RECEIVE CASE stack invalid.");
+      error ("internal error: RECEIVE CASE stack invalid");
       abort ();
     }
   return current_rc_state->if_generated;
@@ -1953,13 +1953,13 @@ build_receive_buffer_case_label (buffer, loclist)
 
   if (! CH_REFERABLE (buffer))
     {
-      error ("BUFFER in RECEIVE CASE alternative must be a location.");
+      error ("BUFFER in RECEIVE CASE alternative must be a location");
       return error_mark_node;
     }
 
   if (TREE_CHAIN (loclist) != NULL_TREE)
     {
-      error ("buffer receive alternative requires only 1 defining occurence.");
+      error ("buffer receive alternative requires only 1 defining occurrence");
       return error_mark_node;
     }
 
@@ -1969,7 +1969,7 @@ build_receive_buffer_case_label (buffer, loclist)
 
       /* here we change the mode of rc_state->sig_code to
 	 REF ARRAY (0:65535) REF __tmp_DESCR_type.
-	 This is neccesary, cause we cannot evaluate the buffer twice
+	 This is necessary, cause we cannot evaluate the buffer twice
 	 (once here where we compare against the address of the buffer
 	 and second in build_receive_buffer_case_end, where we use the
 	 address build the descriptor, which gets passed to __wait_buffer).
@@ -2040,13 +2040,13 @@ build_receive_buffer_case_label (buffer, loclist)
     had_errors = 1;
   else if (! CH_COMPATIBLE (var, buftype))
     {
-      error ("incompatible modes in receive buffer alternative.");
+      error ("incompatible modes in receive buffer alternative");
       had_errors = 1;
     }
 
   if (! CH_LOCATION_P (var))
     {
-      error ("defining occurence in receive buffer alternative must be a location.");
+      error ("defining occurrence in receive buffer alternative must be a location");
       had_errors = 1;
     }
 
@@ -2083,13 +2083,13 @@ build_receive_case_label (signame, loclist)
     {
       if (loclist == NULL_TREE)
 	{
-	  error ("buffer receive alternative without `IN location'.");
+	  error ("buffer receive alternative without `IN location'");
 	  return error_mark_node;
 	}
       return build_receive_buffer_case_label (signame, loclist);
     }
 
-  error ("RECEIVE CASE alternative must specify a SIGNAL name or BUFFER location.");
+  error ("RECEIVE CASE alternative must specify a SIGNAL name or BUFFER location");
   return error_mark_node;
 }
 
@@ -2097,7 +2097,7 @@ build_receive_case_label (signame, loclist)
  * LABEL_CNT is the case-label counter passed from build_receive_case_start.
  * ELSE_CLAUSE defines if the RECEIVE CASE action had an ELSE(1) or not(0).
  * BUF_LIST is a tree-list of tree-lists, where TREE_VALUE defines the 
- * BUFFER location and TREE_PURPOSE defines the defining occurence.
+ * BUFFER location and TREE_PURPOSE defines the defining occurrence.
  */
 static void
 build_receive_buffer_case_end (buf_list, else_clause)
@@ -2366,7 +2366,7 @@ void expand_continue_event (evloc)
 
   if (! CH_REFERABLE (evloc) || ! CH_IS_EVENT_MODE (TREE_TYPE (evloc)))
     {
-      error ("CONTINUE requires an event location.");
+      error ("CONTINUE requires an event location");
       return;
     }
 
@@ -2381,7 +2381,7 @@ void expand_continue_event (evloc)
           tree_cons (NULL_TREE, linenumber, NULL_TREE)))));
 }
 
-#if 0
+/*
  * The following code builds a DELAY CASE statement,
  * which looks like this in CHILL:
  *
@@ -2394,12 +2394,12 @@ void expand_continue_event (evloc)
  *      (ev2, ev3): count2 +:= 1;
  *    ESAC; 
  *
- * Because we don''t know until we get to the ESAC how
+ * Because we don't know until we get to the ESAC how
  * many events need processing, we generate the following
  * C-equivalent code:
  *
  *
- * {               /* start a new symbol context */
+ * {               // start a new symbol context
  *   typedef struct
  *   {
  *      void           *p;
@@ -2419,12 +2419,12 @@ void expand_continue_event (evloc)
  *                                    linenumber);
  *   if (whatevent == &ev1)
  *     {
- *       /* code for ev1 alternative's action_statement_list */
+ *       // code for ev1 alternative's action_statement_list
  *       count1 += 1;
  *     }
  *   else if (whatevent == &ev2 || whatevent == &ev3)
  *     {
- *       /* code for ev2 and ev3 alternative's action_statement_list */
+ *       // code for ev2 and ev3 alternative's action_statement_list
  *       count2 += 1;
  *     }
  *   goto __dl_done;
@@ -2440,9 +2440,9 @@ void expand_continue_event (evloc)
  *
  * __dl_done: 
  *   ;
- * }               /* end the new symbol context */
+ * }               // end the new symbol context
  *
-#endif
+ */
 
 struct dl_state_type
 {
@@ -2500,7 +2500,7 @@ build_delay_case_start (optset, optpriority)
     optpriority = integer_zero_node;
   else if (TREE_CODE (TREE_TYPE (optpriority)) != INTEGER_TYPE)
     {
-      error ("PRIORITY must be of integer type.");
+      error ("PRIORITY must be of integer type");
       optpriority = integer_zero_node;
     }
 
@@ -2578,7 +2578,7 @@ build_delay_case_label (eventlist, if_or_elseif)
 	temp1 = null_pointer_node;
       else if (! CH_IS_EVENT_MODE (TREE_TYPE (event)) || ! CH_REFERABLE (event))
 	{
-	  error ("delay alternative must be an EVENT location.");
+	  error ("delay alternative must be an EVENT location");
 	  temp1 = null_pointer_node;
 	}
       else
@@ -2708,7 +2708,7 @@ gen_dldoit:
   free(dl_state);
 }
 
-#if 0
+/*
  * The following code builds a simple delay statement,
  * which looks like this in CHILL:
  *
@@ -2729,16 +2729,15 @@ gen_dldoit:
  *
  * static short __tmp_ev1_code;
  * 
- * {  /* start a new symbol context */
+ * {  // start a new symbol context
  *
  *   Descr __delay_array[1] = { { ev1, 5 } };
  *
  *   __delay_event (1, &__delay_array, 7, NULL,
  *		    filename, linenumber);
  *
- * } /* end of symbol scope */
+ * } // end of symbol scope
  */
-#endif
 void
 build_delay_action (event, optpriority)
 	tree event, optpriority;
@@ -2754,7 +2753,7 @@ build_delay_action (event, optpriority)
     had_errors = 1;
   else if (! CH_IS_EVENT_MODE (TREE_TYPE (event)) || ! CH_REFERABLE (event))
     {
-      error ("DELAY action requires an event location.");
+      error ("DELAY action requires an event location");
       had_errors = 1;
     }
 
@@ -2765,7 +2764,7 @@ build_delay_action (event, optpriority)
 	return;
       if (TREE_CODE (TREE_TYPE (optpriority)) != INTEGER_TYPE)
 	{
-	  error ("PRIORITY in DELAY action must be of integer type.");
+	  error ("PRIORITY in DELAY action must be of integer type");
 	  return;
 	}
     }
@@ -2775,7 +2774,7 @@ build_delay_action (event, optpriority)
       if (extra_warnings)
 	{
 	  warning ("DELAY action without priority.");
-	  warning (" PRIORITY defaulted to 0.");
+	  warning (" PRIORITY defaulted to 0");
 	}
       optpriority = integer_zero_node;
     }
@@ -2865,7 +2864,7 @@ expand_send_buffer (buffer, value, optpriority, optwith, optto)
     {
       if (! CH_IS_BUFFER_MODE (TREE_TYPE (buffer)) || ! CH_REFERABLE (buffer))
 	{
-	  error ("send buffer action requires a BUFFER location.");
+	  error ("send buffer action requires a BUFFER location");
 	  had_errors = 1;
 	}
       else
@@ -2882,7 +2881,7 @@ expand_send_buffer (buffer, value, optpriority, optwith, optto)
     {
       if (TREE_CHAIN (value) != NULL_TREE)
 	{
-	  error ("there must be only 1 value for send buffer action.");
+	  error ("there must be only 1 value for send buffer action");
 	  had_errors = 1;
 	}
       else
@@ -2903,13 +2902,13 @@ expand_send_buffer (buffer, value, optpriority, optwith, optto)
 		  value = convert (TREE_TYPE (buffer_mode_decl), value);
 		  if (value == NULL_TREE || TREE_CODE (value) == ERROR_MARK)
 		    {
-		      error ("convert failed for send buffer action.");
+		      error ("convert failed for send buffer action");
 		      had_errors = 1;
 		    }
 		}
 	      else
 		{
-		  error ("incompatible modes in send buffer action.");
+		  error ("incompatible modes in send buffer action");
 		  had_errors = 1;
 		}
 	    }
@@ -2924,9 +2923,9 @@ expand_send_buffer (buffer, value, optpriority, optwith, optto)
 	  /* issue a warning in case of -Wall */
 	  if (extra_warnings)
 	    {
-	      warning ("Buffer sent without priority");
+	      warning ("buffer sent without priority");
 	      warning (" and no default priority was set.");
-	      warning (" PRIORITY defaulted to 0.");
+	      warning (" PRIORITY defaulted to 0");
 	    }
 	  optpriority = integer_zero_node;
 	}
@@ -2937,18 +2936,18 @@ expand_send_buffer (buffer, value, optpriority, optwith, optto)
     had_errors = 1;
   else if (TREE_CODE (TREE_TYPE (optpriority)) != INTEGER_TYPE)
     {
-      error ("PRIORITY must be of integer type.");
+      error ("PRIORITY must be of integer type");
       had_errors = 1;
     }
 
   if (optwith != NULL_TREE)
     {
-      error ("WITH not allowed for send buffer action.");
+      error ("WITH not allowed for send buffer action");
       had_errors = 1;
     }
   if (optto != NULL_TREE)
     {
-      error ("TO not allowed for send buffer action.");
+      error ("TO not allowed for send buffer action");
       had_errors = 1;
     }
   if (had_errors)

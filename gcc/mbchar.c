@@ -1,22 +1,22 @@
 /* Multibyte Character Functions.
    Copyright (C) 1998 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* Note regarding cross compilation:
 
@@ -51,7 +51,7 @@ typedef enum {COPYA, COPYJ, COPYJ2, MAKE_A, MAKE_J, NOOP,
    Thus, maximum returned length is:
      2 (switch to JIS) + 2 (JIS characters) + 2 (switch back to ASCII) = 6.  */
 
-static JIS_STATE JIS_state_table[JIS_S_NUM][JIS_C_NUM] = {
+static const JIS_STATE JIS_state_table[JIS_S_NUM][JIS_C_NUM] = {
 /*            ESCAPE DOLLAR   BRACKET   AT     B      J     NUL JIS_CHAR OTH*/
 /*ASCII*/   { A_ESC, ASCII,   ASCII,    ASCII, ASCII, ASCII, ASCII,ASCII,ASCII},
 /*A_ESC*/   { ASCII, A_ESC_DL,ASCII,    ASCII, ASCII, ASCII, ASCII,ASCII,ASCII},
@@ -65,7 +65,7 @@ static JIS_STATE JIS_state_table[JIS_S_NUM][JIS_C_NUM] = {
 /*J2_ESC_BR*/{INV,   INV,     INV,      INV,   ASCII, ASCII, INV,  INV,  INV },
 };
 
-static JIS_ACTION JIS_action_table[JIS_S_NUM][JIS_C_NUM] = {
+static const JIS_ACTION JIS_action_table[JIS_S_NUM][JIS_C_NUM] = {
 /*            ESCAPE DOLLAR BRACKET AT     B       J      NUL  JIS_CHAR OTH */
 /*ASCII */   {NOOP,  COPYA, COPYA, COPYA,  COPYA,  COPYA, EMPTY, COPYA, COPYA},
 /*A_ESC */   {COPYA, NOOP,  COPYA, COPYA,  COPYA,  COPYA, COPYA, COPYA, COPYA},
@@ -184,7 +184,7 @@ local_mbtowc (pwc, s, n)
       if (s == NULL)
 	{
 	  save_state = ASCII;
-	  /* State-dependent. */
+	  /* State-dependent.  */
 	  return 1;
 	}
 
@@ -283,7 +283,7 @@ local_mbtowc (pwc, s, n)
   return 1;
 #else
 
-  /* This must be the "C" locale or unknown locale. */
+  /* This must be the "C" locale or unknown locale.  */
   return mbtowc (pwc, s, n);
 #endif
 }

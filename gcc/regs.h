@@ -2,46 +2,32 @@
    Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "varray.h"
 
 #define REG_BYTES(R) mode_size[(int) GET_MODE (R)]
 
-/* Get the number of consecutive hard regs required to hold the REG or
-   SUBREG rtx R.
-   When something may be an explicit hard reg, REG_SIZE is the only
-   valid way to get this value.  You cannot get it from the regno.
-
-   A target may override this definition, the case where you would do
-   this is where there are registers which are smaller than WORD_SIZE
-   such as the SFmode registers on sparc64.  */
-
-#ifndef REG_SIZE
-#define REG_SIZE(R) \
-  ((mode_size[(int) GET_MODE (R)] + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-#endif
-
 /* When you only have the mode of a pseudo register before it has a hard
    register chosen for it, this reports the size of each hard register
-   a pseudo in such a mode would get allocated to.  Like REG_SIZE, a
-   target may override this.  */
+   a pseudo in such a mode would get allocated to.  A target may
+   override this.  */
 
 #ifndef REGMODE_NATURAL_SIZE
 #define REGMODE_NATURAL_SIZE(MODE)	UNITS_PER_WORD
@@ -242,5 +228,3 @@ extern int caller_save_needed;
 
 /* Allocate reg_n_info tables */
 extern void allocate_reg_info PARAMS ((size_t, int, int));
-
-unsigned int reg_spill_cost PARAMS ((int));

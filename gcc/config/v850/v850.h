@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler. NEC V850 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GNU CC.
@@ -21,8 +22,6 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef GCC_V850_H
 #define GCC_V850_H
-
-#include "svr4.h"	/* Automatically does #undef CPP_PREDEFINES */
 
 /* These are defiend in svr4.h but we want to override them.  */
 #undef ASM_FINAL_SPEC
@@ -159,24 +158,6 @@ enum small_memory_type {
 
 extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
 
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable.  The
-   variable, type `char *', is set to the variable part of the given
-   option if the fixed part matches.  The actual option name is made
-   by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-          extern char *m88k_short_data;
-          #define TARGET_OPTIONS \
-           { { "short-data-", &m88k_short_data } } */
-
 #define TARGET_OPTIONS							\
 {									\
   { "tda=",	&small_memory[ (int)SMALL_MEMORY_TDA ].value,		\
@@ -247,21 +228,8 @@ extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
    This is not true on the NEC V850.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD		32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD		4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 		32
 
 /* Define this macro if it is advisable to hold scalars in registers
    in a wider mode than that declared by the program.  In such cases,
@@ -1032,9 +1000,6 @@ do {									\
    than accessing full words.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Define this if zero-extension is slow (more than one real instruction).  */
-#define SLOW_ZERO_EXTEND 
-
 /* According expr.c, a value of around 6 should minimize code size, and
    for the V850 series, that's our primary concern.  */
 #define MOVE_RATIO 6
@@ -1056,8 +1021,8 @@ typedef enum
    `in_text' and `in_data'.  You need not define this macro on a
    system with no other sections (that GCC needs to use).  */
 #undef	EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_tdata, in_sdata, in_zdata, in_const, in_ctors, \
-in_dtors, in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
+#define EXTRA_SECTIONS in_tdata, in_sdata, in_zdata, in_const, \
+ in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
 
 /* One or more functions to be defined in `varasm.c'.  These
    functions should do jobs analogous to those of `text_section' and
@@ -1068,8 +1033,6 @@ in_dtors, in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
 /* This could be done a lot more cleanly using ANSI C ... */
 #define EXTRA_SECTION_FUNCTIONS						\
 CONST_SECTION_FUNCTION							\
-CTORS_SECTION_FUNCTION							\
-DTORS_SECTION_FUNCTION							\
 									\
 void									\
 sdata_section ()							\
@@ -1166,7 +1129,7 @@ zbss_section ()								\
    Do not define this macro if you put all read-only variables and
    constants in the read-only data section (usually the text section).  */
 #undef  SELECT_SECTION
-#define SELECT_SECTION(EXP, RELOC)					\
+#define SELECT_SECTION(EXP, RELOC, ALIGN)				\
 do {									\
   if (TREE_CODE (EXP) == VAR_DECL)					\
     {									\
@@ -1229,7 +1192,7 @@ do {									\
 
    Do not define this macro if you put all constants in the read-only
    data section.  */
-/* #define SELECT_RTX_SECTION(MODE, RTX) */
+/* #define SELECT_RTX_SECTION(MODE, RTX, ALIGN) */
 
 /* Output at beginning/end of assembler file.  */
 #undef ASM_FILE_START
@@ -1250,45 +1213,17 @@ do {									\
 #undef  USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an assembler line defining a `double' constant.
-   It is .double or .float, depending.  */
+/* When assemble_integer is used to emit the offsets for a switch
+   table it can encounter (TRUNCATE:HI (MINUS:SI (LABEL_REF:SI) (LABEL_REF:SI))).
+   output_addr_const will normally barf at this, but it is OK to omit
+   the truncate and just emit the difference of the two labels.  The
+   .hword directive will automatically handle the truncation for us.  */
 
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)			\
-do { char dstr[30];					\
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-     fprintf (FILE, "\t.double %s\n", dstr);		\
-   } while (0)
-
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)			\
-do { char dstr[30];					\
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-     fprintf (FILE, "\t.float %s\n", dstr);		\
-   } while (0)
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE, VALUE)		\
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE, VALUE)		\
-( fprintf (FILE, "\t.hword "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)		\
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE, VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
+#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)		\
+  if (GET_CODE (x) == TRUNCATE)				\
+    output_addr_const (FILE, XEXP (X, 0));		\
+  else							\
+    goto FAIL;
 
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.  */
@@ -1338,7 +1273,7 @@ do { char dstr[30];					\
 #undef ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE, NAME)           \
   do {                                            \
-  char* real_name;                                \
+  const char* real_name;                          \
   STRIP_NAME_ENCODING (real_name, (NAME));        \
   asm_fprintf (FILE, "%U%s", real_name);          \
   } while (0)
@@ -1421,12 +1356,6 @@ do { char dstr[30];					\
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-#define DBX_REGISTER_NUMBER(REGNO) REGNO
-
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
-
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (TARGET_BIG_SWITCH ? SImode : HImode)
@@ -1456,15 +1385,9 @@ do { char dstr[30];					\
 /* Byte and short loads sign extend the value to a word.  */
 #define LOAD_EXTEND_OP(MODE) SIGN_EXTEND
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
 /* This flag, if defined, says the same insns that convert to a signed fixnum
    also convert validly to an unsigned one.  */
 #define FIXUNS_TRUNC_LIKE_FIX_TRUNC
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
@@ -1493,7 +1416,6 @@ do { char dstr[30];					\
 
 /* Tell compiler we want to support GHS pragmas */
 #define REGISTER_TARGET_PRAGMAS(PFILE) do {				  \
-  cpp_register_pragma_space (PFILE, "ghs");				  \
   cpp_register_pragma (PFILE, "ghs", "interrupt", ghs_pragma_interrupt);  \
   cpp_register_pragma (PFILE, "ghs", "section",   ghs_pragma_section);    \
   cpp_register_pragma (PFILE, "ghs", "starttda",  ghs_pragma_starttda);   \
@@ -1569,10 +1491,10 @@ extern union tree_node * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_K
 
 #define EP_REGNUM 30	/* ep register number */
 
-#define ENCODE_SECTION_INFO(DECL)				\
+#define ENCODE_SECTION_INFO(DECL, FIRST)			\
   do								\
     {								\
-      if (TREE_CODE (DECL) == VAR_DECL				\
+      if ((FIRST) && TREE_CODE (DECL) == VAR_DECL		\
           && (TREE_STATIC (DECL) || DECL_EXTERNAL (DECL)))	\
 	v850_encode_data_area (DECL);				\
     }								\

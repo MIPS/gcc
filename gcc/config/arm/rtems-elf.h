@@ -1,5 +1,5 @@
 /* Definitions for RTEMS based ARM systems using ELF
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002 Free Software Foundation, Inc.
  
 This file is part of GNU CC.
  
@@ -23,15 +23,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define HAS_INIT_SECTION
 
-#include "unknown-elf.h"
-
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-Darm -Darm_elf -Drtems -D__rtems__ -D__ELF__ \
-   -Asystem(rtems) -Acpu(arm) -Amachine(arm)"
+#define CPP_PREDEFINES "-D__rtems__ -D__ELF__ -Asystem=rtems"
 
-/*#undef INVOKE_main*/
-
-/* Get machine-independent configuration parameters for RTEMS.  */
-#include <rtems.h>
-
+#undef INVOKE_main
 

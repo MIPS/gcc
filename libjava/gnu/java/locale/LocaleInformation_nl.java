@@ -1,5 +1,5 @@
 /* LocaleInformation_nl.java -- Dutch locale data
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package gnu.java.locale;
@@ -50,38 +61,8 @@ public class LocaleInformation_nl extends ListResourceBundle
   * This is the same rule as used in the English locale.
   */
 private static final String collation_rules = 
-  "-<0,1<2<3<4<5<6<7<8<9A,a<b,B<c,C<d,D<e,E<f,F<g,G<h,H<i,I<j,J<j,K" +
+  "<0<1<2<3<4<5<6<7<8<9<A,a<b,B<c,C<d,D<e,E<f,F<g,G<h,H<i,I<j,J<k,K" +
   "<l,L<m,M<n,N<o,O<p,P<q,Q<r,R<s,S<t,T<u,U<v,V<w,W<x,X<y,Y,z<Z";
-
-/*
- * For the followings lists, strings that are subsets of other break strings
- * must be listed first.  For example, if "\r" and "\r\n" are sequences,
- * the "\r" must be first or it will never be used.
- */
-
-/**
-  * This is the list of word separator characters used by 
-  * java.text.BreakIterator 
-  * <p>
-  * This is the same list as used in the English local
-  */
-private static final String[] word_breaks = { " ", "\t", "\r\n", "\n" }; 
-
-/**
-  * This is the list of sentence break sequences used by 
-  * java.text.BreakIterator
-  * <p>
-  * This is the same list as used in the English local
-  */
-private static final String[] sentence_breaks = { ". " };
-
-/**
-  * This is the list of potential line break locations.
-  * <p>
-  * This is the same list as used in the English local
-  */
-private static final String[] line_breaks = { "\t", "-", "\r\n", 
-  "\n", ".  ", ". ", ".",  "?  ", "? ", "?",  "!  ", "! ", "!", ", ", " " };
 
 /**
   * This is the list of months, fully spelled out
@@ -281,10 +262,6 @@ private static final Object[][] contents =
 {
   // For RuleBasedCollator
   { "collation_rules", collation_rules },
-  // For BreakIterator
-  { "word_breaks", word_breaks },
-  { "sentence_breaks", sentence_breaks },
-  { "line_breaks", line_breaks },
   // For SimpleDateFormat/DateFormatSymbols
   { "months", months },
   { "shortMonths", shortMonths },

@@ -1,6 +1,6 @@
 // 1999-10-11 bkoz
 
-// Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,7 +33,7 @@
 #include <streambuf>
 #include <string>
 #include <ostream>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
 class testbuf : public std::streambuf
 {
@@ -197,6 +197,8 @@ template<typename charT, typename traits = std::char_traits<charT> >
   class basic_nullbuf : public std::basic_streambuf<charT, traits>
   {
   protected:
+    typedef typename
+      std::basic_streambuf<charT, traits>::int_type int_type;
     virtual int_type 
     overflow(int_type c) 
     {  return traits::not_eof(c); }
@@ -327,15 +329,40 @@ void test05()
 }
 
 // test06
-// XXX this should work, doesn't due to compiler limitations.
-#if 0
 namespace gnu 
 {
   class something_derived;
 }
 
 class gnu::something_derived : std::streambuf { };
-#endif
+
+// libstdc++/3599
+class testbuf2 : public std::streambuf
+{
+public:
+  typedef std::streambuf::traits_type traits_type;
+
+  testbuf2() : std::streambuf() { }
+ 
+protected:
+  int_type 
+  overflow(int_type c = traits_type::eof()) 
+  { return traits_type::not_eof(0); }
+};
+
+void
+test07()
+{
+  bool test = true;
+  testbuf2 ob;
+  std::ostream out(&ob); 
+
+  out << "gasp";
+  VERIFY(out.good());
+
+  out << std::endl;
+  VERIFY(out.good());
+}
 
 int main() 
 {
@@ -345,5 +372,7 @@ int main()
 
   test04();
   test05();
+
+  test07();
   return 0;
 }

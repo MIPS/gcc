@@ -1,5 +1,5 @@
-/* Definitions of target machine for GNU compiler. 
-   Hitachi H8/300 version generating coff 
+/* Definitions of target machine for GNU compiler.
+   Hitachi H8/300 version generating coff
    Copyright (C) 2000 Free SoftwareFoundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
@@ -26,37 +26,40 @@ Boston, MA 02111-1307, USA.  */
 
 /* Declarations for functions used in insn-output.c.  */
 #ifdef RTX_CODE
-extern const char *emit_a_shift PARAMS ((rtx, rtx *));
-extern const char *emit_a_rotate PARAMS ((int, rtx *));
-extern const char *output_adds_subs PARAMS ((rtx *));
-extern const char *output_simode_bld PARAMS ((int, int, rtx[]));
+extern const char *output_a_shift PARAMS ((rtx *));
+extern unsigned int compute_a_shift_length PARAMS ((rtx, rtx *));
+extern const char *emit_a_rotate PARAMS ((enum rtx_code, rtx *));
+extern const char *output_simode_bld PARAMS ((int, rtx[]));
 extern void print_operand_address PARAMS ((FILE *, rtx));
-extern const char *byte_reg PARAMS ((rtx, int));
-extern int const_costs PARAMS ((rtx, enum rtx_code));
+extern int const_costs PARAMS ((rtx, enum rtx_code, enum rtx_code));
 extern void print_operand PARAMS ((FILE *, rtx, int));
 extern void final_prescan_insn PARAMS ((rtx, rtx *, int));
 extern int do_movsi PARAMS ((rtx[]));
 extern void notice_update_cc PARAMS ((rtx, rtx));
+extern const char *output_logical_op PARAMS ((enum machine_mode, rtx *));
+extern unsigned int compute_logical_op_length PARAMS ((enum machine_mode,
+						       rtx *));
+extern int compute_logical_op_cc PARAMS ((enum machine_mode, rtx *));
 extern int expand_a_shift PARAMS ((enum machine_mode, int, rtx[]));
-extern int expand_a_rotate PARAMS ((int, rtx[]));
+extern int expand_a_rotate PARAMS ((enum rtx_code, rtx[]));
 extern int fix_bit_operand PARAMS ((rtx *, int, enum rtx_code));
 extern int h8300_adjust_insn_length PARAMS ((rtx, int));
 extern void split_adds_subs PARAMS ((enum machine_mode, rtx[]));
 
 extern int general_operand_src PARAMS ((rtx, enum machine_mode));
 extern int general_operand_dst PARAMS ((rtx, enum machine_mode));
-extern int general_operand_dst_push PARAMS ((rtx, enum machine_mode mode));
 extern int o_operand PARAMS ((rtx, enum machine_mode));
-extern int p_operand PARAMS ((rtx, enum machine_mode));
 extern int call_insn_operand PARAMS ((rtx, enum machine_mode));
 extern int two_insn_adds_subs_operand PARAMS ((rtx, enum machine_mode));
 extern int small_call_insn_operand PARAMS ((rtx, enum machine_mode));
 extern int jump_address_operand PARAMS ((rtx, enum machine_mode));
 extern int bit_operand PARAMS ((rtx, enum machine_mode));
 extern int bit_memory_operand PARAMS ((rtx, enum machine_mode));
-extern int eq_operator PARAMS ((rtx, enum machine_mode));
 extern int bit_operator PARAMS ((rtx, enum machine_mode));
 extern int nshift_operator PARAMS ((rtx, enum machine_mode));
+
+/* Used in builtins.c */
+extern rtx h8300_return_addr_rtx PARAMS ((int, rtx));
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE

@@ -1,24 +1,24 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #ifndef GCC_DEFAULTS_H
 #define GCC_DEFAULTS_H
@@ -62,7 +62,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef ASM_OUTPUT_ADDR_VEC_ELT
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
-do { fprintf (FILE, "\t%s\t", ASM_LONG);				\
+do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
      ASM_OUTPUT_INTERNAL_LABEL (FILE, "L", (VALUE));			\
      fputc ('\n', FILE);						\
    } while (0)
@@ -91,7 +91,7 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 									      \
       for (i = 0; i < thissize; i++)					      \
 	{								      \
-	  register int c = p[i];					      \
+	  int c = p[i];			   				      \
 	  if (c == '\"' || c == '\\')					      \
 	    putc ('\\', asm_out_file);					      \
 	  if (ISPRINT(c))						      \
@@ -158,7 +158,7 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 
 /* This determines whether or not we support weak symbols.  */
 #ifndef SUPPORTS_WEAK
-#ifdef ASM_WEAKEN_LABEL
+#if defined (ASM_WEAKEN_LABEL) || defined (ASM_WEAKEN_DECL)
 #define SUPPORTS_WEAK 1
 #else
 #define SUPPORTS_WEAK 0
@@ -209,11 +209,20 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 #define DWARF2_UNWIND_INFO 1
 #endif
 
-/* If we have named section, and we're using crtstuff to run ctors,
-   then use named sections for registering eh frame information.  */
-#if defined (TARGET_ASM_NAMED_SECTION) && defined (ASM_OUTPUT_CONSTRUCTOR)
+/* If we have named sections, and we're using crtstuff to run ctors,
+   use them for registering eh frame information.  */
+#if defined (TARGET_ASM_NAMED_SECTION) && !defined(EH_FRAME_IN_DATA_SECTION)
 #ifndef EH_FRAME_SECTION_NAME
 #define EH_FRAME_SECTION_NAME ".eh_frame"
+#endif
+#endif
+
+/* If we have named section and we support weak symbols, then use the
+   .jcr section for recording java classes which need to be registered
+   at program start-up time.  */
+#if defined (TARGET_ASM_NAMED_SECTION) && SUPPORTS_WEAK
+#ifndef JCR_SECTION_NAME
+#define JCR_SECTION_NAME ".jcr"
 #endif
 #endif
 
@@ -261,9 +270,24 @@ do {								\
 #define DWARF_FRAME_REGISTERS FIRST_PSEUDO_REGISTER
 #endif
 
+/* How to renumber registers for dbx and gdb.  If not defined, assume
+   no renumbering is necessary.  */
+
+#ifndef DBX_REGISTER_NUMBER
+#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
+#endif
+
 /* Default sizes for base C types.  If the sizes are different for
    your target, you should override these values by defining the
    appropriate symbols in your tm.h file.  */
+
+#ifndef BITS_PER_UNIT
+#define BITS_PER_UNIT 8
+#endif
+
+#ifndef BITS_PER_WORD
+#define BITS_PER_WORD (BITS_PER_UNIT * UNITS_PER_WORD)
+#endif
 
 #ifndef CHAR_TYPE_SIZE
 #define CHAR_TYPE_SIZE BITS_PER_UNIT
@@ -305,6 +329,11 @@ do {								\
 #define LONG_DOUBLE_TYPE_SIZE (BITS_PER_WORD * 2)
 #endif
 
+/* Width in bits of a pointer.  Mind the value of the macro `Pmode'.  */
+#ifndef POINTER_SIZE
+#define POINTER_SIZE BITS_PER_WORD
+#endif
+
 #ifndef BUILD_VA_LIST_TYPE
 #define BUILD_VA_LIST_TYPE(X) ((X) = ptr_type_node)
 #endif
@@ -343,6 +372,22 @@ do {								\
 #endif
 #endif
 
+/* If PREFERRED_STACK_BOUNDARY is not defined, set it to STACK_BOUNDARY.
+   STACK_BOUNDARY is required.  */
+#ifndef PREFERRED_STACK_BOUNDARY
+#define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
+#endif
+
+/* By default, the C++ compiler will use function addresses in the
+   vtable entries.  Setting this non-zero tells the compiler to use
+   function descriptors instead.  The value of this macro says how
+   many words wide the descriptor is (normally 2).  It is assumed 
+   that the address of a function descriptor may be treated as a
+   pointer to a function.  */
+#ifndef TARGET_VTABLE_USES_DESCRIPTORS
+#define TARGET_VTABLE_USES_DESCRIPTORS 0
+#endif
+
 /* Select a format to encode pointers in exception handling data.  We
    prefer those that result in fewer dynamic relocations.  Assume no
    special support here and encode direct references.  */
@@ -366,6 +411,97 @@ do {								\
 
 #ifndef TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
 #define TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER true
+#endif
+
+#ifndef DEFAULT_GDB_EXTENSIONS
+#define DEFAULT_GDB_EXTENSIONS 1
+#endif
+
+/* If more than one debugging type is supported, you must define
+   PREFERRED_DEBUGGING_TYPE to choose a format in a system-dependent way.
+
+   This is one long line cause VAXC can't handle a \-newline.  */
+#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) + defined (DWARF_DEBUGGING_INFO) + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO) + defined (VMS_DEBUGGING_INFO))
+#ifndef PREFERRED_DEBUGGING_TYPE
+You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
+#endif /* no PREFERRED_DEBUGGING_TYPE */
+#else /* Only one debugging format supported.  Define PREFERRED_DEBUGGING_TYPE
+	 so other code needn't care.  */
+#ifdef DBX_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#endif
+#ifdef SDB_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
+#endif
+#ifdef DWARF_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DWARF_DEBUG
+#endif
+#ifdef DWARF2_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
+#endif
+#ifdef VMS_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE VMS_AND_DWARF2_DEBUG
+#endif
+#ifdef XCOFF_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE XCOFF_DEBUG
+#endif
+#endif /* More than one debugger format enabled.  */
+
+/* If still not defined, must have been because no debugging formats
+   are supported.  */
+#ifndef PREFERRED_DEBUGGING_TYPE
+#define PREFERRED_DEBUGGING_TYPE NO_DEBUG
+#endif
+
+/* This is set to 1 if BYTES_BIG_ENDIAN is defined but the target uses a
+   little-endian method of passing and returning structures in registers.
+   On the HP-UX IA64 and PA64 platforms structures are aligned differently
+   then integral values and setting this value to 1 will allow for the
+   special handling of structure arguments and return values in regs.  */
+
+#ifndef FUNCTION_ARG_REG_LITTLE_ENDIAN
+#define FUNCTION_ARG_REG_LITTLE_ENDIAN 0
+#endif
+
+/* Determine the register class for registers suitable to be the base
+   address register in a MEM.  Allow the choice to be dependent upon
+   the mode of the memory access.  */
+#ifndef MODE_BASE_REG_CLASS
+#define MODE_BASE_REG_CLASS(MODE) BASE_REG_CLASS
+#endif
+
+#ifndef LARGEST_EXPONENT_IS_NORMAL
+#define LARGEST_EXPONENT_IS_NORMAL(SIZE) 0
+#endif
+
+#ifndef ROUND_TOWARDS_ZERO
+#define ROUND_TOWARDS_ZERO 0
+#endif
+
+#ifndef MODE_HAS_NANS
+#define MODE_HAS_NANS(MODE)					\
+  (FLOAT_MODE_P (MODE)						\
+   && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
+   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
+#endif
+
+#ifndef MODE_HAS_INFINITIES
+#define MODE_HAS_INFINITIES(MODE)				\
+  (FLOAT_MODE_P (MODE)						\
+   && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
+   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
+#endif
+
+#ifndef MODE_HAS_SIGNED_ZEROS
+#define MODE_HAS_SIGNED_ZEROS(MODE) \
+  (FLOAT_MODE_P (MODE) && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
+#endif
+
+#ifndef MODE_HAS_SIGN_DEPENDENT_ROUNDING
+#define MODE_HAS_SIGN_DEPENDENT_ROUNDING(MODE)			\
+  (FLOAT_MODE_P (MODE)						\
+   && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
+   && !ROUND_TOWARDS_ZERO)
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

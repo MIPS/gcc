@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Intel 860
-   Copyright (C) 1989, 1991, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1989, 1991, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Derived from sparc.c.
 
@@ -466,7 +466,7 @@ load_operand (op, mode)
   return (memory_operand (op, mode) || indexed_operand (op, mode));
 }
 
-/* Return truth value of whether OP is a integer which fits the
+/* Return truth value of whether OP is an integer which fits the
    range constraining immediate operands in add/subtract insns.  */
 
 int
@@ -477,7 +477,7 @@ small_int (op, mode)
   return (GET_CODE (op) == CONST_INT && SMALL_INT (op));
 }
 
-/* Return truth value of whether OP is a integer which fits the
+/* Return truth value of whether OP is an integer which fits the
    range constraining immediate operands in logic insns.  */
 
 int
@@ -1470,7 +1470,7 @@ output_delayed_branch (template, operands, insn)
       for (i = 0; i < insn_data[insn_code_number].n_operands; i++)
 	{
 	  if (GET_CODE (recog_data.operand[i]) == SUBREG)
-	    recog_data.operand[i] = alter_subreg (recog_data.operand[i]);
+	    alter_subreg (&recog_data.operand[i]);
 	}
 
       insn_extract (delay_insn);
@@ -1511,7 +1511,7 @@ output_delay_insn (delay_insn)
   for (i = 0; i < insn_data[insn_code_number].n_operands; i++)
     {
       if (GET_CODE (recog_data.operand[i]) == SUBREG)
-	recog_data.operand[i] = alter_subreg (recog_data.operand[i]);
+	alter_subreg (&recog_data.operand[i]);
     }
 
   if (! constrain_operands (1))
@@ -1549,17 +1549,14 @@ sfmode_constant_to_ulong (x)
      rtx x;
 {
   REAL_VALUE_TYPE d;
-  union { float f; unsigned long i; } u2;
+  unsigned long l;
 
   if (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != SFmode)
     abort ();
 
-#if TARGET_FLOAT_FORMAT != HOST_FLOAT_FORMAT
- error IEEE emulation needed
-#endif
   REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-  u2.f = d;
-  return u2.i;
+  REAL_VALUE_TO_TARGET_SINGLE (d, l);
+  return l;
 }
 
 /* This function generates the assembly code for function entry.
@@ -1661,9 +1658,7 @@ sfmode_constant_to_ulong (x)
 #define STACK_ALIGNMENT	16
 #endif
 
-extern char call_used_regs[];
-
-char *current_function_original_name;
+const char *current_function_original_name;
 
 static int must_preserve_r1;
 static unsigned must_preserve_bytes;
@@ -2003,6 +1998,9 @@ i860_output_function_epilogue (asm_file, local_bytes)
   register unsigned mask;
   unsigned intflags=0;
   register TDESC_flags *flags = (TDESC_flags *) &intflags;
+#ifdef	OUTPUT_TDESC	/* Output an ABI-compliant TDESC entry */
+  const char *long_op = integer_asm_op (4, TRUE);
+#endif
 
   flags->version = 4;
   flags->reg_packing = 1;
@@ -2092,23 +2090,23 @@ i860_output_function_epilogue (asm_file, local_bytes)
   }
   assemble_name(asm_file,current_function_original_name);
   fputs(".TDESC:\n", asm_file);
-  fprintf(asm_file, "%s 0x%0x\n", ASM_LONG, intflags);
-  fprintf(asm_file, "%s %d\n", ASM_LONG,
+  fprintf(asm_file, "%s 0x%0x\n", long_op, intflags);
+  fprintf(asm_file, "%s %d\n", long_op,
 	int_restored ? must_preserve_bytes : 0);
   if (flags->version > 1) {
-    fprintf(asm_file, "%s %d\n", ASM_LONG,
+    fprintf(asm_file, "%s %d\n", long_op,
 	(restored_so_far == int_restored) ? 0 : must_preserve_bytes +
 	  (4 * int_restored));
     if (flags->version > 2) {
-      fprintf(asm_file, "%s %d\n", ASM_LONG, frame_upper_bytes);
+      fprintf(asm_file, "%s %d\n", long_op, frame_upper_bytes);
       if (flags->version > 3)
-	fprintf(asm_file, "%s %d\n", ASM_LONG, frame_lower_bytes);
+	fprintf(asm_file, "%s %d\n", long_op, frame_lower_bytes);
     }
   }
   tdesc_section();
-  fprintf(asm_file, "%s ", ASM_LONG);
+  fprintf(asm_file, "%s ", long_op);
   assemble_name(asm_file, current_function_original_name);
-  fprintf(asm_file, "\n%s ", ASM_LONG);
+  fprintf(asm_file, "\n%s ", long_op);
   assemble_name(asm_file, current_function_original_name);
   fputs(".TDESC\n", asm_file);
   text_section();
@@ -2312,7 +2310,7 @@ i860_va_arg (valist, type)
       emit_cmp_and_jump_insns (expand_expr (field, NULL_RTX, 0, 0),
 			       GEN_INT (nparm - incr), GT, const0_rtx,
 			       TYPE_MODE (TREE_TYPE (field)),
-			       TREE_UNSIGNED (field), 0, lab_false);
+			       TREE_UNSIGNED (field), lab_false);
 
       t = fold (build (POSTINCREMENT_EXPR, TREE_TYPE (field), field,
 		       build_int_2 (incr, 0)));

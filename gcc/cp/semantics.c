@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions. 
 
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
 
@@ -28,6 +28,7 @@
 #include "system.h"
 #include "tree.h"
 #include "cp-tree.h"
+#include "tree-inline.h"
 #include "except.h"
 #include "lex.h"
 #include "toplev.h"
@@ -50,14 +51,11 @@
 
 static tree maybe_convert_cond PARAMS ((tree));
 static tree simplify_aggr_init_exprs_r PARAMS ((tree *, int *, void *));
-static tree nullify_returns_r PARAMS ((tree *, int *, void *));
 static void deferred_type_access_control PARAMS ((void));
 static void emit_associated_thunks PARAMS ((tree));
 static void genrtl_try_block PARAMS ((tree));
 static void genrtl_eh_spec_block PARAMS ((tree));
 static void genrtl_handler PARAMS ((tree));
-static void genrtl_ctor_stmt PARAMS ((tree));
-static void genrtl_subobject PARAMS ((tree));
 static void genrtl_named_return_value PARAMS ((void));
 static void cp_expand_stmt PARAMS ((tree));
 static void genrtl_start_function PARAMS ((tree));
@@ -66,19 +64,19 @@ static tree clear_decl_rtl PARAMS ((tree *, int *, void *));
 
 /* Finish processing the COND, the SUBSTMT condition for STMT.  */
 
-#define FINISH_COND(cond, stmt, substmt) 		\
+#define FINISH_COND(COND, STMT, SUBSTMT) 		\
   do {							\
-    if (last_tree != stmt)				\
+    if (last_tree != (STMT))				\
       {							\
-        RECHAIN_STMTS (stmt, substmt);	                \
-        if (!processing_template_decl)                  \
-          {                                             \
-	    cond = build_tree_list (substmt, cond);     \
-	    substmt = cond;                             \
-          }                                             \
+        RECHAIN_STMTS (STMT, SUBSTMT);			\
+        if (!processing_template_decl)			\
+          {						\
+	    (COND) = build_tree_list (SUBSTMT, COND);	\
+	    (SUBSTMT) = (COND);				\
+          }						\
       }							\
     else						\
-      substmt = cond;					\
+      (SUBSTMT) = (COND);				\
   } while (0)
 
 /* Returns non-zero if the current statement is a full expression,
@@ -390,17 +388,7 @@ finish_return_stmt (expr)
     expr = check_return_expr (expr);
   if (!processing_template_decl)
     {
-      if (DECL_CONSTRUCTOR_P (current_function_decl) && ctor_label)
-	{
-	  /* Even returns without a value in a constructor must return
-	     `this'.  We accomplish this by sending all returns in a
-	     constructor to the CTOR_LABEL; finish_function emits code to
-	     return a value there.  When we finally generate the real
-	     return statement, CTOR_LABEL is no longer set, and we fall
-	     through into the normal return-processing code below.  */
-	  return finish_goto_stmt (ctor_label);
-	}
-      else if (DECL_DESTRUCTOR_P (current_function_decl))
+      if (DECL_DESTRUCTOR_P (current_function_decl))
 	{
 	  /* Similarly, all destructors must run destructors for
 	     base-classes before returning.  So, all returns in a
@@ -510,7 +498,7 @@ tree
 begin_switch_stmt ()
 {
   tree r;
-  r = build_stmt (SWITCH_STMT, NULL_TREE, NULL_TREE);
+  r = build_stmt (SWITCH_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
   add_stmt (r);
   do_pushlevel ();
   return r;
@@ -523,9 +511,9 @@ finish_switch_cond (cond, switch_stmt)
      tree cond;
      tree switch_stmt;
 {
+  tree orig_type = NULL;
   if (!processing_template_decl)
     {
-      tree type;
       tree index;
 
       /* Convert the condition to an integer or enumeration type.  */
@@ -535,23 +523,27 @@ finish_switch_cond (cond, switch_stmt)
 	  error ("switch quantity not an integer");
 	  cond = error_mark_node;
 	}
+      orig_type = TREE_TYPE (cond);
       if (cond != error_mark_node)
 	{
 	  cond = default_conversion (cond);
 	  cond = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (cond), cond));
 	}
 
-      type = TREE_TYPE (cond);
-      index = get_unwidened (cond, NULL_TREE);
-      /* We can't strip a conversion from a signed type to an unsigned,
-	 because if we did, int_fits_type_p would do the wrong thing
-	 when checking case values for being in range,
-	 and it's too hard to do the right thing.  */
-      if (TREE_UNSIGNED (TREE_TYPE (cond))
-	  == TREE_UNSIGNED (TREE_TYPE (index)))
-	cond = index;
+      if (cond != error_mark_node)
+	{
+	  index = get_unwidened (cond, NULL_TREE);
+	  /* We can't strip a conversion from a signed type to an unsigned,
+	     because if we did, int_fits_type_p would do the wrong thing
+	     when checking case values for being in range,
+	     and it's too hard to do the right thing.  */
+	  if (TREE_UNSIGNED (TREE_TYPE (cond))
+	      == TREE_UNSIGNED (TREE_TYPE (index)))
+	    cond = index;
+	}
     }
   FINISH_COND (cond, switch_stmt, SWITCH_COND (switch_stmt));
+  SWITCH_TYPE (switch_stmt) = orig_type;
   push_switch (switch_stmt);
 }
 
@@ -590,7 +582,6 @@ genrtl_try_block (t)
 
       if (FN_TRY_BLOCK_P (t))
 	{
-	  end_protect_partials ();
 	  expand_start_all_catch ();
 	  in_function_try_handler = 1;
 	  expand_stmt (TRY_HANDLERS (t));
@@ -678,7 +669,7 @@ finish_cleanup (cleanup, try_block)
 
 void
 finish_function_try_block (try_block)
-     tree try_block; 
+     tree try_block;
 {
   if (TREE_CHAIN (try_block) 
       && TREE_CODE (TREE_CHAIN (try_block)) == CTOR_INITIALIZER)
@@ -784,21 +775,6 @@ finish_handler (handler)
   RECHAIN_STMTS (handler, HANDLER_BODY (handler));
 }
 
-/* Generate the RTL for T, which is a CTOR_STMT. */
-
-static void
-genrtl_ctor_stmt (t)
-     tree t;
-{
-  if (CTOR_BEGIN_P (t))
-    begin_protect_partials ();
-  else
-    /* After this point, any exceptions will cause the
-       destructor to be executed, so we no longer need to worry
-       about destroying the various subobjects ourselves.  */
-    end_protect_partials ();
-}
-
 /* Begin a compound-statement.  If HAS_NO_SCOPE is non-zero, the
    compound-statement does not define a scope.  Returns a new
    COMPOUND_STMT if appropriate.  */
@@ -889,7 +865,7 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
   if (cv_qualifier != NULL_TREE
       && cv_qualifier != ridpointers[(int) RID_VOLATILE])
     {
-      cp_warning ("%s qualifier ignored on asm",
+      warning ("%s qualifier ignored on asm",
 		  IDENTIFIER_POINTER (cv_qualifier));
       cv_qualifier = NULL_TREE;
     }
@@ -911,7 +887,7 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 	     resolve the overloading.  */
 	  if (TREE_TYPE (converted_operand) == unknown_type_node)
 	    {
-	      cp_error ("type of asm operand `%E' could not be determined", 
+	      error ("type of asm operand `%E' could not be determined", 
 			TREE_VALUE (t));
 	      converted_operand = error_mark_node;
 	    }
@@ -929,7 +905,7 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 	  const char *constraint;
 	  tree operand;
 
-	  constraint = TREE_STRING_POINTER (TREE_PURPOSE (t));
+	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
 	  operand = TREE_VALUE (output_operands);
 
 	  if (!parse_output_constraint (&constraint,
@@ -951,7 +927,7 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 	     DECL_RTL for the OPERAND -- which we don't have at this
 	     point.  */
 	  if (!allows_reg && DECL_P (operand))
-	    mark_addressable (operand);
+	    cxx_mark_addressable (operand);
 	}
     }
 
@@ -983,27 +959,6 @@ finish_label_decl (name)
   add_decl_stmt (decl);
 }
 
-/* Generate the RTL for a SUBOBJECT. */
-
-static void 
-genrtl_subobject (cleanup)
-     tree cleanup;
-{
-  add_partial_entry (cleanup);
-}
-
-/* We're in a constructor, and have just constructed a a subobject of
-   *THIS.  CLEANUP is code to run if an exception is thrown before the
-   end of the current function is reached.   */
-
-void 
-finish_subobject (cleanup)
-     tree cleanup;
-{
-  tree r = build_stmt (SUBOBJECT, cleanup);
-  add_stmt (r);
-}
-
 /* When DECL goes out of scope, make sure that CLEANUP is executed.  */
 
 void 
@@ -1012,6 +967,17 @@ finish_decl_cleanup (decl, cleanup)
      tree cleanup;
 {
   add_stmt (build_stmt (CLEANUP_STMT, decl, cleanup));
+}
+
+/* If the current scope exits with an exception, run CLEANUP.  */
+
+void
+finish_eh_cleanup (cleanup)
+     tree cleanup;
+{
+  tree r = build_stmt (CLEANUP_STMT, NULL_TREE, cleanup);
+  CLEANUP_EH_ONLY (r) = 1;
+  add_stmt (r);
 }
 
 /* Generate the RTL for a RETURN_INIT. */
@@ -1062,7 +1028,7 @@ finish_named_return_value (return_id, init)
 	DECL_NAME (decl) = return_id;
       else
 	{
-	  cp_error ("return identifier `%D' already in place", return_id);
+	  error ("return identifier `%D' already in place", return_id);
 	  return;
 	}
     }
@@ -1127,7 +1093,7 @@ finish_mem_initializers (init_list)
 	  /* We're running through the initializers from right to left
 	     as we process them here.  So, if we see a data member
 	     initializer after we see a base initializer, that
-	     actually means that the base initializer preceeded the
+	     actually means that the base initializer preceded the
 	     data member initializer.  */
 	  if (warn_reorder && last_base_warned_about != base_init_list)
 	    {
@@ -1137,7 +1103,7 @@ finish_mem_initializers (init_list)
 		   base != last_base_warned_about; 
 		   base = TREE_CHAIN (base))
 		{
-		  cp_warning ("base initializer for `%T'",
+		  warning ("base initializer for `%T'",
 			      TREE_PURPOSE (base));
 		  warning ("   will be re-ordered to precede member initializations");
 		}
@@ -1152,87 +1118,11 @@ finish_mem_initializers (init_list)
 	}
     }
 
-  setup_vtbl_ptr (member_init_list, base_init_list);
-}
-
-/* Cache the value of this class's main virtual function table pointer
-   in a register variable.  This will save one indirection if a
-   more than one virtual function call is made this function.  */
-
-void
-setup_vtbl_ptr (member_init_list, base_init_list)
-     tree member_init_list;
-     tree base_init_list;
-{
-  my_friendly_assert (doing_semantic_analysis_p (), 19990919);
-
-  /* If we've already done this, there's no need to do it again.  */
-  if (vtbls_set_up_p)
-    return;
-
-  if (DECL_CONSTRUCTOR_P (current_function_decl))
-    {
-      if (processing_template_decl)
-	add_stmt (build_min_nt
-		  (CTOR_INITIALIZER,
-		   member_init_list, base_init_list));
-      else
-	{
-	  tree ctor_stmt;
-
-	  /* Mark the beginning of the constructor.  */
-	  ctor_stmt = build_stmt (CTOR_STMT);
-	  CTOR_BEGIN_P (ctor_stmt) = 1;
-	  add_stmt (ctor_stmt);
-	  
-	  /* And actually initialize the base-classes and members.  */
-	  emit_base_init (member_init_list, base_init_list);
-	}
-    }
-  else if (DECL_DESTRUCTOR_P (current_function_decl)
-	   && !processing_template_decl)
-    {
-      tree if_stmt;
-      tree compound_stmt;
-
-      /* If the dtor is empty, and we know there is not any possible
-	 way we could use any vtable entries, before they are possibly
-	 set by a base class dtor, we don't have to setup the vtables,
-	 as we know that any base class dtor will set up any vtables
-	 it needs.  We avoid MI, because one base class dtor can do a
-	 virtual dispatch to an overridden function that would need to
-	 have a non-related vtable set up, we cannot avoid setting up
-	 vtables in that case.  We could change this to see if there
-	 is just one vtable.  */
-      if_stmt = begin_if_stmt ();
-
-      /* If it is not safe to avoid setting up the vtables, then
-	 someone will change the condition to be boolean_true_node.  
-         (Actually, for now, we do not have code to set the condition
-	 appropriately, so we just assume that we always need to
-	 initialize the vtables.)  */
-      finish_if_stmt_cond (boolean_true_node, if_stmt);
-      current_vcalls_possible_p = &IF_COND (if_stmt);
-
-      compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
-
-      /* Make all virtual function table pointers in non-virtual base
-	 classes point to CURRENT_CLASS_TYPE's virtual function
-	 tables.  */
-      initialize_vtbl_ptrs (current_class_ptr);
-
-      finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
-      finish_then_clause (if_stmt);
-      finish_if_stmt ();
-    }
-
-  /* Always keep the BLOCK node associated with the outermost pair of
-     curly braces of a function.  These are needed for correct
-     operation of dwarfout.c.  */
-  keep_next_level (1);
-
-  /* The virtual function tables are set up now.  */
-  vtbls_set_up_p = 1;
+  if (processing_template_decl)
+    add_stmt (build_min_nt (CTOR_INITIALIZER,
+			    member_init_list, base_init_list));
+  else
+    emit_base_init (member_init_list, base_init_list);
 }
 
 /* Returns the stack of SCOPE_STMTs for the current function.  */
@@ -1250,7 +1140,7 @@ finish_parenthesized_expr (expr)
      tree expr;
 {
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expr))))
-    /* This inhibits warnings in truthvalue_conversion.  */
+    /* This inhibits warnings in c_common_truthvalue_conversion.  */
     C_SET_EXP_ORIGINAL_CODE (expr, ERROR_MARK); 
 
   if (TREE_CODE (expr) == OFFSET_REF)
@@ -1449,7 +1339,7 @@ finish_object_call_expr (fn, object, args)
 	fn = DECL_NAME (fn);
       else
 	{
-	  cp_error ("calling type `%T' like a method", fn);
+	  error ("calling type `%T' like a method", fn);
 	  return error_mark_node;
 	}
     }
@@ -1485,13 +1375,13 @@ finish_pseudo_destructor_call_expr (object, scope, destructor)
     return build_min_nt (PSEUDO_DTOR_EXPR, object, scope, destructor);
 
   if (scope && scope != destructor)
-    cp_error ("destructor specifier `%T::~%T()' must have matching names", 
+    error ("destructor specifier `%T::~%T()' must have matching names", 
 	      scope, destructor);
 
   if ((scope == NULL_TREE || IDENTIFIER_GLOBAL_VALUE (destructor))
       && (TREE_CODE (TREE_TYPE (object)) !=
 	  TREE_CODE (TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (destructor)))))
-    cp_error ("`%E' is not of type `%T'", object, destructor);
+    error ("`%E' is not of type `%T'", object, destructor);
 
   return cp_convert (void_type_node, object);
 }
@@ -1585,32 +1475,13 @@ decl_type_access_control (decl)
      added to type_lookups after typed_declspecs saved the copy that
      ended up in current_type_lookups.  */
   type_lookups = current_type_lookups;
-  
-  current_type_lookups = NULL_TREE;
 }
-
-/* Record the lookups, if we're doing deferred access control.  */
 
 void
 save_type_access_control (lookups)
      tree lookups;
 {
-  if (type_lookups != error_mark_node)
-    {
-      my_friendly_assert (!current_type_lookups, 20010301);
-      current_type_lookups = lookups;
-    }
-  else
-    my_friendly_assert (!lookups || lookups == error_mark_node, 20010301);
-}
-
-/* Set things up so that the next deferred access control will succeed.
-   This is needed for friend declarations see grokdeclarator for details.  */
-
-void
-skip_type_access_control ()
-{
-  type_lookups = NULL_TREE;
+  current_type_lookups = lookups;
 }
 
 /* Reset the deferred access control.  */
@@ -1756,13 +1627,16 @@ tree
 begin_class_definition (t)
      tree t;
 {
+  if (t == error_mark_node)
+    return error_mark_node;
+
   /* Check the bases are accessible. */
   decl_type_access_control (TYPE_NAME (t));
   reset_type_access_control ();
   
   if (processing_template_parmlist)
     {
-      cp_error ("definition of `%#T' inside template parameter list", t);
+      error ("definition of `%#T' inside template parameter list", t);
       return error_mark_node;
     }
 
@@ -1778,7 +1652,7 @@ begin_class_definition (t)
      This is erroneous.  */
   else if (TREE_CODE (t) == TYPENAME_TYPE)
     {
-      cp_error ("invalid definition of qualified type `%T'", t);
+      error ("invalid definition of qualified type `%T'", t);
       t = error_mark_node;
     }
 
@@ -1965,6 +1839,9 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
      int semi;
      int pop_scope_p;
 {
+  if (t == error_mark_node)
+    return error_mark_node;
+
   /* finish_struct nukes this anyway; if finish_exception does too,
      then it can go.  */
   if (semi)
@@ -1972,8 +1849,8 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
 
   /* If we got any attributes in class_head, xref_tag will stick them in
      TREE_TYPE of the type.  Grab them now.  */
-  attributes = chainon (TREE_TYPE (t), attributes);
-  TREE_TYPE (t) = NULL_TREE;
+  attributes = chainon (TYPE_ATTRIBUTES (t), attributes);
+  TYPE_ATTRIBUTES (t) = NULL_TREE;
 
   if (TREE_CODE (t) == ENUMERAL_TYPE)
     ;
@@ -1988,8 +1865,6 @@ finish_class_definition (t, attributes, semi, pop_scope_p)
     check_for_missing_semicolon (t); 
   if (pop_scope_p)
     pop_scope (CP_DECL_CONTEXT (TYPE_MAIN_DECL (t)));
-  if (current_function_decl)
-    type_lookups = error_mark_node;
   if (current_scope () == current_function_decl)
     do_pending_defargs ();
 
@@ -2048,7 +1923,7 @@ finish_member_class_template (types)
   return NULL_TREE;
 }
 
-/* Finish processsing a complete template declaration.  The PARMS are
+/* Finish processing a complete template declaration.  The PARMS are
    the template parameters.  */
 
 void
@@ -2114,7 +1989,7 @@ enter_scope_of (sr)
 /* Finish processing a BASE_CLASS with the indicated ACCESS_SPECIFIER.
    Return a TREE_LIST containing the ACCESS_SPECIFIER and the
    BASE_CLASS, or NULL_TREE if an error occurred.  The
-   ACCESSS_SPECIFIER is one of
+   ACCESS_SPECIFIER is one of
    access_{default,public,protected_private}[_virtual]_node.*/
 
 tree 
@@ -2124,13 +1999,18 @@ finish_base_specifier (access_specifier, base_class)
 {
   tree result;
 
-  if (! is_aggr_type (base_class, 1))
+  if (base_class == error_mark_node)
+    {
+      error ("invalid base-class specification");
+      result = NULL_TREE;
+    }
+  else if (! is_aggr_type (base_class, 1))
     result = NULL_TREE;
   else
     {
-      if (CP_TYPE_QUALS (base_class) != 0)
+      if (cp_type_quals (base_class) != 0)
         {
-          cp_error ("base class `%T' has cv qualifiers", base_class);
+          error ("base class `%T' has cv qualifiers", base_class);
           base_class = TYPE_MAIN_VARIANT (base_class);
         }
       result = build_tree_list (access_specifier, base_class);
@@ -2163,8 +2043,11 @@ check_multiple_declarators ()
   if (PROCESSING_REAL_TEMPLATE_DECL_P () 
       || processing_explicit_instantiation
       || processing_specialization)
-    cp_error ("multiple declarators in template declaration");
+    error ("multiple declarators in template declaration");
 }
+
+/* Implement the __typeof keyword: Return the type of EXPR, suitable for
+   use as a type-specifier.  */
 
 tree
 finish_typeof (expr)
@@ -2186,6 +2069,31 @@ finish_typeof (expr)
   return TREE_TYPE (expr);
 }
 
+/* Compute the value of the `sizeof' operator.  */
+
+tree
+finish_sizeof (t)
+     tree t;
+{
+  if (processing_template_decl)
+    return build_min_nt (SIZEOF_EXPR, t);
+
+  return TYPE_P (t) ? c_sizeof (t) : expr_sizeof (t);
+}
+
+/* Implement the __alignof keyword: Return the minimum required
+   alignment of T, measured in bytes.  */
+
+tree
+finish_alignof (t)
+     tree t;
+{
+  if (processing_template_decl)
+    return build_min_nt (ALIGNOF_EXPR, t);
+
+  return TYPE_P (t) ? c_alignof (t) : c_alignof_expr (t);
+}
+
 /* Generate RTL for the statement T, and its substatements, and any
    other statements at its nesting level.  */
 
@@ -2195,18 +2103,6 @@ cp_expand_stmt (t)
 {
   switch (TREE_CODE (t))
     {
-    case CLEANUP_STMT:
-      if (CLEANUP_DECL (t)
-	  && CLEANUP_DECL (t) == current_function_return_value)
-	/* Don't destroy the chosen named return value.  */;
-      else
-	genrtl_decl_cleanup (CLEANUP_DECL (t), CLEANUP_EXPR (t));
-      break;
-
-    case CTOR_STMT:
-      genrtl_ctor_stmt (t);
-      break;
-
     case TRY_BLOCK:
       genrtl_try_block (t);
       break;
@@ -2219,10 +2115,6 @@ cp_expand_stmt (t)
       genrtl_handler (t);
       break;
 
-    case SUBOBJECT:
-      genrtl_subobject (SUBOBJECT_CLEANUP (t));
-      break;
-
     case RETURN_INIT:
       genrtl_named_return_value ();
       break;
@@ -2231,7 +2123,7 @@ cp_expand_stmt (t)
       break;
     
     default:
-      my_friendly_abort (19990810);
+      abort ();
       break;
     }
 }
@@ -2277,7 +2169,7 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
     {
       /* Replace the first argument with the address of the third
 	 argument to the AGGR_INIT_EXPR.  */
-      mark_addressable (slot);
+      cxx_mark_addressable (slot);
       args = tree_cons (NULL_TREE, 
 			build1 (ADDR_EXPR, 
 				build_pointer_type (TREE_TYPE (slot)),
@@ -2299,7 +2191,8 @@ simplify_aggr_init_exprs_r (tp, walk_subtrees, data)
       int old_ac = flag_access_control;
 
       flag_access_control = 0;
-      call_expr = build_aggr_init (slot, call_expr, LOOKUP_ONLYCONVERTING);
+      call_expr = build_aggr_init (slot, call_expr,
+				   DIRECT_BIND | LOOKUP_ONLYCONVERTING);
       flag_access_control = old_ac;
       copy_from_buffer_p = 1;
     }
@@ -2420,12 +2313,10 @@ expand_body (fn)
      to decide whether to write it out or not.  */
   if (/* We have to generate RTL if it's not an inline function.  */
       (DECL_INLINE (fn) || DECL_COMDAT (fn))
-      /* Or if we have to keep all inline functions anyhow.  */
+      /* Or if we have to emit code for inline functions anyhow.  */
       && !flag_keep_inline_functions
       /* Or if we actually have a reference to the function.  */
-      && !DECL_NEEDED_P (fn)
-      /* Or if this is a nested function.  */
-      && !decl_function_context (fn))
+      && !DECL_NEEDED_P (fn))
     {
       /* Set DECL_EXTERNAL so that assemble_external will be called as
 	 necessary.  We'll clear it again in finish_file.  */
@@ -2437,7 +2328,7 @@ expand_body (fn)
       /* Remember this function.  In finish_file we'll decide if
 	 we actually need to write this function out.  */
       defer_fn (fn);
-      /* Let the back-end know that this funtion exists.  */
+      /* Let the back-end know that this function exists.  */
       (*debug_hooks->deferred_inline_function) (fn);
       return;
     }
@@ -2447,8 +2338,13 @@ expand_body (fn)
   if (DECL_DECLARED_INLINE_P (fn))
     import_export_decl (fn);
 
-  /* Emit any thunks that should be emitted at the same time as FN.  */
-  emit_associated_thunks (fn);
+  /* If FN is external, then there's no point in generating RTL for
+     it.  This situation can arise with an inline function under
+     `-fexternal-templates'; we instantiate the function, even though
+     we're not planning on emitting it, in case we get a chance to
+     inline it.  */
+  if (DECL_EXTERNAL (fn))
+    return;
 
   timevar_push (TV_INTEGRATION);
 
@@ -2502,22 +2398,32 @@ expand_body (fn)
   extract_interface_info ();
 
   timevar_pop (TV_EXPAND);
+
+  /* Emit any thunks that should be emitted at the same time as FN.  */
+  emit_associated_thunks (fn);
 }
 
-/* Helper function for walk_tree, used by genrtl_start_function to override
-   all the RETURN_STMTs for the named return value optimization.  */
+/* Helper function for walk_tree, used by finish_function to override all
+   the RETURN_STMTs and pertinent CLEANUP_STMTs for the named return
+   value optimization.  */
 
-static tree
+tree
 nullify_returns_r (tp, walk_subtrees, data)
      tree *tp;
      int *walk_subtrees;
-     void *data ATTRIBUTE_UNUSED;
+     void *data;
 {
-  /* No need to walk into types.  */
+  tree nrv = (tree) data;
+
+  /* No need to walk into types.  There wouldn't be any need to walk into
+     non-statements, except that we have to consider STMT_EXPRs.  */
   if (TYPE_P (*tp))
     *walk_subtrees = 0;
   else if (TREE_CODE (*tp) == RETURN_STMT)
-    RETURN_NULLIFIED_P (*tp) = 1;
+    RETURN_EXPR (*tp) = NULL_TREE;
+  else if (TREE_CODE (*tp) == CLEANUP_STMT
+	   && CLEANUP_DECL (*tp) == nrv)
+    CLEANUP_EH_ONLY (*tp) = 1;
 
   /* Keep iterating.  */
   return NULL_TREE;
@@ -2529,8 +2435,6 @@ static void
 genrtl_start_function (fn)
      tree fn;
 {
-  tree parm;
-
   /* Tell everybody what function we're processing.  */
   current_function_decl = fn;
   /* Get the RTL machinery going for this function.  */
@@ -2566,56 +2470,28 @@ genrtl_start_function (fn)
       if (!current_function_cannot_inline)
 	current_function_cannot_inline = cp_function_chain->cannot_inline;
 
-      /* We don't need the saved data anymore.  */
-      free (DECL_SAVED_FUNCTION_DATA (fn));
-      DECL_SAVED_FUNCTION_DATA (fn) = NULL;
+      /* We don't need the saved data anymore.  Unless this is an inline
+         function; we need the named return value info for
+         cp_copy_res_decl_for_inlining.  */
+      if (! DECL_INLINE (fn))
+	{
+	  free (DECL_SAVED_FUNCTION_DATA (fn));
+	  DECL_SAVED_FUNCTION_DATA (fn) = NULL;
+	}
     }
-
-  /* Tell the cross-reference machinery that we're defining this
-     function.  */
-  GNU_xref_function (fn, DECL_ARGUMENTS (fn));
 
   /* Keep track of how many functions we're presently expanding.  */
   ++function_depth;
 
   /* Create a binding level for the parameters.  */
-  expand_start_bindings (2);
-  /* Clear out any previously saved instructions for this function, in
-     case it was defined more than once.  */
-  DECL_SAVED_INSNS (fn) = NULL;
-  /* Go through the PARM_DECLs for this function to see if any need
-     cleanups.  */
-  for (parm = DECL_ARGUMENTS (fn); parm; parm = TREE_CHAIN (parm))
-    if (TREE_TYPE (parm) != error_mark_node
-	&& TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (parm)))
-      {
-	expand_function_start (fn, /*parms_have_cleanups=*/1);
-	break;
-      }
-  if (!parm)
-    expand_function_start (fn, /*parms_have_cleanups=*/0);
+  expand_function_start (fn, /*parms_have_cleanups=*/0);
   /* If this function is `main'.  */
   if (DECL_MAIN_P (fn))
     expand_main_function ();
-  /* Create a binding contour which can be used to catch
-     cleanup-generated temporaries.  */
-  expand_start_bindings (2);
 
-  /* Set up the named return value optimization, if we can.  */
-  if (current_function_return_value
-      && current_function_return_value != error_mark_node)
-    {
-      tree r = current_function_return_value;
-      /* This is only worth doing for fns that return in memory--and
-	 simpler, since we don't have to worry about promoted modes.  */
-      if (aggregate_value_p (TREE_TYPE (TREE_TYPE (fn))))
-	{
-	  COPY_DECL_RTL (DECL_RESULT (fn), r);
-	  DECL_ALIGN (r) = DECL_ALIGN (DECL_RESULT (fn));
-	  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-					nullify_returns_r, NULL_TREE);
-	}
-    }
+  /* Give our named return value the same RTL as our RESULT_DECL.  */
+  if (current_function_return_value)
+    COPY_DECL_RTL (DECL_RESULT (fn), current_function_return_value);
 }
 
 /* Finish generating the RTL for FN.  */
@@ -2624,7 +2500,7 @@ static void
 genrtl_finish_function (fn)
      tree fn;
 {
-  tree no_return_label = NULL_TREE;
+  tree t;
 
 #if 0
   if (write_symbols != NO_DEBUG)
@@ -2652,59 +2528,10 @@ genrtl_finish_function (fn)
   /* Clean house because we will need to reorder insns here.  */
   do_pending_stack_adjust ();
 
-  if (!dtor_label && !DECL_CONSTRUCTOR_P (fn)
-      && return_label != NULL_RTX
-      && ! DECL_NAME (DECL_RESULT (current_function_decl)))
-    no_return_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-
-  /* If this function is supposed to return a value, ensure that
-     we do not fall into the cleanups by mistake.  The end of our
-     function will look like this:
-
-     user code (may have return stmt somewhere)
-     goto no_return_label
-     cleanup_label:
-     cleanups
-     goto return_label
-     no_return_label:
-     NOTE_INSN_FUNCTION_END
-     return_label:
-     things for return
-
-     If the user omits a return stmt in the USER CODE section, we
-     will have a control path which reaches NOTE_INSN_FUNCTION_END.
-     Otherwise, we won't.  */
-  if (no_return_label)
-    {
-      DECL_CONTEXT (no_return_label) = fn;
-      DECL_INITIAL (no_return_label) = error_mark_node;
-      DECL_SOURCE_FILE (no_return_label) = input_filename;
-      DECL_SOURCE_LINE (no_return_label) = lineno;
-      expand_goto (no_return_label);
-    }
-
-  if (cleanup_label)
-    {
-      /* Remove the binding contour which is used to catch
-	 cleanup-generated temporaries.  */
-      expand_end_bindings (0, 0, 0);
-      poplevel (0, 0, 0);
-
-      /* Emit label at beginning of cleanup code for parameters.  */
-      emit_label (cleanup_label);
-    }
-
-  /* Finish building code that will trigger warnings if users forget
-     to make their functions return values.  */
-  if (return_label)
+  /* If we have a named return value, we need to force a return so that
+     the return register is USEd.  */
+  if (DECL_NAME (DECL_RESULT (fn)))
     emit_jump (return_label);
-  if (no_return_label)
-    {
-      /* We don't need to call `expand_*_return' here because we don't
-	 need any cleanups here--this path of code is only for error
-	 checking purposes.  */
-      expand_label (no_return_label);
-    }
 
   /* We hard-wired immediate_size_expand to zero in start_function.
      Expand_function_end will decrement this variable.  So, we set the
@@ -2713,7 +2540,7 @@ genrtl_finish_function (fn)
   immediate_size_expand = 1;
 
   /* Generate rtl for function exit.  */
-  expand_function_end (input_filename, lineno, 1);
+  expand_function_end (input_filename, lineno, 0);
 
   /* If this is a nested function (like a template instantiation that
      we're compiling in the midst of compiling something else), push a
@@ -2734,16 +2561,6 @@ genrtl_finish_function (fn)
   /* Undo the call to ggc_push_context above.  */
   if (function_depth > 1)
     ggc_pop_context ();
-
-  if (DECL_SAVED_INSNS (fn) && ! TREE_ASM_WRITTEN (fn))
-    {
-      /* Set DECL_EXTERNAL so that assemble_external will be called as
-	 necessary.  We'll clear it again in finish_file.  */
-      if (! DECL_EXTERNAL (fn))
-	DECL_NOT_REALLY_EXTERN (fn) = 1;
-      DECL_EXTERNAL (fn) = 1;
-      defer_fn (fn);
-    }
 
 #if 0
   /* Keep this code around in case we later want to control debug info
@@ -2767,32 +2584,30 @@ genrtl_finish_function (fn)
 
   --function_depth;
 
-  /* If we don't need the RTL for this function anymore, stop pointing
-     to it.  That's especially important for LABEL_DECLs, since you
-     can reach all the instructions in the function from the
-     CODE_LABEL stored in the DECL_RTL for the LABEL_DECL.  */
-  if (!DECL_SAVED_INSNS (fn))
+  /* In C++, we should never be saving RTL for the function.  */
+  my_friendly_assert (!DECL_SAVED_INSNS (fn), 20010903);
+
+  /* Since we don't need the RTL for this function anymore, stop
+     pointing to it.  That's especially important for LABEL_DECLs,
+     since you can reach all the instructions in the function from the
+     CODE_LABEL stored in the DECL_RTL for the LABEL_DECL.  Walk the
+     BLOCK-tree, clearing DECL_RTL for LABEL_DECLs and non-static
+     local variables.  */
+  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
+				clear_decl_rtl,
+				NULL);
+
+  /* Clear out the RTL for the arguments.  */
+  for (t = DECL_ARGUMENTS (fn); t; t = TREE_CHAIN (t))
     {
-      tree t;
-
-      /* Walk the BLOCK-tree, clearing DECL_RTL for LABEL_DECLs and
-	 non-static local variables.  */
-      walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
-				    clear_decl_rtl,
-				    NULL);
-
-      /* Clear out the RTL for the arguments.  */
-      for (t = DECL_ARGUMENTS (fn); t; t = TREE_CHAIN (t))
-	{
-	  SET_DECL_RTL (t, NULL_RTX);
-	  DECL_INCOMING_RTL (t) = NULL_RTX;
-	}
-
-      if (!(flag_inline_trees && DECL_INLINE (fn)))
-	/* DECL_INITIAL must remain nonzero so we know this was an
-	   actual function definition.  */
-	DECL_INITIAL (fn) = error_mark_node;
+      SET_DECL_RTL (t, NULL_RTX);
+      DECL_INCOMING_RTL (t) = NULL_RTX;
     }
+
+  if (!(flag_inline_trees && DECL_INLINE (fn)))
+    /* DECL_INITIAL must remain nonzero so we know this was an
+       actual function definition.  */
+    DECL_INITIAL (fn) = error_mark_node;
   
   /* Let the error reporting routines know that we're outside a
      function.  For a nested function, this value is used in

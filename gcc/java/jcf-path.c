@@ -1,6 +1,6 @@
 /* Handle CLASSPATH, -classpath, and path searching.
 
-   Copyright (C) 1998, 1999, 2000  Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -71,8 +71,9 @@ static void add_path PARAMS ((struct entry **, const char *, int));
 
    built-in system directory (only libgcj.jar)
    CLASSPATH environment variable
-   -CLASSPATH overrides CLASSPATH
-   -classpath option - overrides CLASSPATH, -CLASSPATH, and built-in
+   -classpath option overrides $CLASSPATH
+   -CLASSPATH option is a synonym for -classpath (for compatibility)
+   -bootclasspath overrides built-in
    -I prepends path to list
 
    We implement this by keeping several path lists, and then simply
@@ -84,11 +85,8 @@ static struct entry *include_dirs;
 /* This holds the CLASSPATH environment variable.  */
 static struct entry *classpath_env;
 
-/* This holds the -CLASSPATH command-line option.  */
-static struct entry *classpath_u;
-
 /* This holds the -classpath command-line option.  */
-static struct entry *classpath_l;
+static struct entry *classpath_user;
 
 /* This holds the default directories.  Some of these will have the
    "system" flag set.  */
@@ -222,6 +220,8 @@ add_path (entp, cp, is_system)
     }
 }
 
+static int init_done = 0;
+
 /* Initialize the path module.  */
 void
 jcf_path_init ()
@@ -231,7 +231,9 @@ jcf_path_init ()
   struct stat stat_b;
   int found = 0, len;
 
-  add_entry (&sys_dirs, ".", 0);
+  if (init_done)
+    return;
+  init_done = 1;
 
   sep[0] = DIR_SEPARATOR;
   sep[1] = '\0';
@@ -284,22 +286,25 @@ jcf_path_init ()
   add_path (&classpath_env, cp, 0);
 }
 
-/* Call this when -classpath is seen on the command line.  */
+/* Call this when -classpath is seen on the command line.
+   This overrides only the $CLASSPATH environment variable.
+ */
 void
 jcf_path_classpath_arg (path)
      const char *path;
 {
-  free_entry (&classpath_l);
-  add_path (&classpath_l, path, 0);
+  free_entry (&classpath_user);
+  add_path (&classpath_user, path, 0);
 }
 
-/* Call this when -CLASSPATH is seen on the command line.  */
+/* Call this when -bootclasspath is seen on the command line.
+ */
 void
-jcf_path_CLASSPATH_arg (path)
+jcf_path_bootclasspath_arg (path)
      const char *path;
 {
-  free_entry (&classpath_u);
-  add_path (&classpath_u, path, 0);
+  free_entry (&sys_dirs);
+  add_path (&sys_dirs, path, 1);
 }
 
 /* Call this when -I is seen on the command line.  */
@@ -311,46 +316,53 @@ jcf_path_include_arg (path)
 }
 
 /* We `seal' the path by linking everything into one big list.  Then
-   we provide a way to iterate through the sealed list.  */
+   we provide a way to iterate through the sealed list.  If PRINT is
+   true then we print the final class path to stderr.  */
 void
-jcf_path_seal ()
+jcf_path_seal (print)
+     int print;
 {
-  int do_system = 1;
   struct entry *secondary;
 
   sealed = include_dirs;
   include_dirs = NULL;
 
-  if (classpath_l)
+  if (classpath_user)
     {
-      secondary = classpath_l;
-      classpath_l = NULL;
-      do_system = 0;
-    }
-  else if (classpath_u)
-    {
-      secondary = classpath_u;
-      classpath_u = NULL;
+      secondary = classpath_user;
+      classpath_user = NULL;
     }
   else
     {
+      if (! classpath_env)
+	add_entry (&classpath_env, ".", 0);
+
       secondary = classpath_env;
       classpath_env = NULL;
     }
 
-  free_entry (&classpath_l);
-  free_entry (&classpath_u);
+
+  free_entry (&classpath_user);
   free_entry (&classpath_env);
 
   append_entry (&sealed, secondary);
+  append_entry (&sealed, sys_dirs);
+  sys_dirs = NULL;
 
-  if (do_system)
+  if (print)
     {
-      append_entry (&sealed, sys_dirs);
-      sys_dirs = NULL;
+      struct entry *ent;
+      fprintf (stderr, "Class path starts here:\n");
+      for (ent = sealed; ent; ent = ent->next)
+	{
+	  fprintf (stderr, "    %s", ent->name);
+	  if ((ent->flags & FLAG_SYSTEM))
+	    fprintf (stderr, " (system)");
+	  if ((ent->flags & FLAG_ZIP))
+	    fprintf (stderr, " (zip)");
+	  fprintf (stderr, "\n");
+	}
     }
-  else
-    free_entry (&sys_dirs);
 }
 
 void *

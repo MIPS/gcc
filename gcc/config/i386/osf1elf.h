@@ -1,9 +1,8 @@
 /* OSF/1 1.3 now is compitable with SVR4, so include sysv4.h, and
    put difference here.
-   Copyright (C) 2000 Free Software Foundation, Inc. */
+   Copyright (C) 2000 Free Software Foundation, Inc.  */
 
 #include <stdio.h>
-#include "i386/sysv4.h"	/* Base i386 target machine definitions */
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386 OSF/1)");
@@ -23,7 +22,7 @@
 #define CPP_SPEC "\
 %(cpp_cpu) \
 %{fpic: -D__SHARED__} %{fPIC: %{!fpic: -D__SHARED__}} \
-%{.S:	%{!ansi:%{!traditional:%{!traditional-cpp:%{!ftraditional: -traditional}}}}} \
+%{.S:	%{!ansi:%{!traditional-cpp: -traditional}}} \
 %{.S:	-D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY}} \
 %{.cc:	-D__LANGUAGE_C_PLUS_PLUS} \
 %{.cxx:	-D__LANGUAGE_C_PLUS_PLUS} \
@@ -146,7 +145,7 @@
    The details of how the address should be passed to `mcount' are determined
    by your operating system environment, not by GNU CC.  To figure them out,
    compile a small program for profiling using the system's installed C
-   compiler and look at the assembler code that results. */
+   compiler and look at the assembler code that results.  */
 
 #undef  FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)				\
@@ -154,9 +153,9 @@ do									\
   {									\
     if (!OSF_PROFILE_BEFORE_PROLOGUE)					\
       {									\
-	char *prefix = "";			\
-	char *lprefix = LPREFIX;					\
-	int labelno = LABELNO;					\
+	const char *const prefix = "";					\
+	const char *const lprefix = LPREFIX;				\
+	int labelno = LABELNO;						\
 									\
 	/* Note that OSF/rose blew it in terms of calling mcount,	\
 	   since OSF/rose prepends a leading underscore, but mcount's	\
@@ -206,9 +205,3 @@ do									\
       }									\
   }									\
 while (0)
-
-#if defined (CROSS_COMPILE) && defined (HOST_BITS_PER_INT) && defined (HOST_BITS_PER_LONG) && defined (HOST_BITS_PER_LONGLONG)
-#if (HOST_BITS_PER_INT==32) && (HOST_BITS_PER_LONG==64) && (HOST_BITS_PER_LONGLONG==64)
-#define REAL_ARITHMETIC
-#endif
-#endif

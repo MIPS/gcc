@@ -21,7 +21,10 @@
 // 22.2.3.2 Template class numpunct_byname
 
 #include <locale>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
+
+// XXX This test is not working for non-glibc locale models.
+// { dg-do run { xfail *-*-* } }
 
 void test01()
 {
@@ -36,9 +39,12 @@ void test01()
   locale loc_de("de_DE");
   str = loc_de.name();
 
+  locale loc_c = locale::classic();
+
   VERIFY( loc_de != loc_byname );
 
   // cache the numpunct facets
+  const numpunct<char>& nump_c = use_facet<numpunct<char> >(loc_c); 
   const numpunct<char>& nump_byname = use_facet<numpunct<char> >(loc_byname); 
   const numpunct<char>& nump_de = use_facet<numpunct<char> >(loc_de); 
 
@@ -60,11 +66,32 @@ void test01()
   VERIFY( g1 == g2 );
   VERIFY( t1 == t2 );
   VERIFY( f1 == f2 );
+
+  // ...and don't match "C"
+  char dp3 = nump_c.decimal_point();
+  VERIFY( dp1 != dp3 );
 }
+
+void test02()
+{
+  using namespace std;
+  
+  bool test = true;
+
+  locale loc_it("it_IT");
+
+  const numpunct<char>& nump_it = use_facet<numpunct<char> >(loc_it); 
+
+  string g = nump_it.grouping();
+
+  VERIFY( g == "" );
+}
+
 
 int main()
 {
   test01();
+  test02();
 
   return 0;
 }

@@ -1,5 +1,5 @@
 /* java.util.Properties
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 
 package java.util;
@@ -61,7 +72,8 @@ import java.io.*;
  * of <code>get/put</code>.
  *
  * @see PropertyResourceBundle
- * @author Jochen Hoenicke */
+ * @author Jochen Hoenicke
+ */
 public class Properties extends Hashtable
 {
   /**
@@ -124,12 +136,13 @@ public class Properties extends Hashtable
    * </pre>
    *
    * @param in the input stream
-   * @exception IOException if an error occured when reading
+   * @exception IOException if an error occurred when reading
    * from the input.  */
   public void load(InputStream inStream) throws IOException
   {
+    // The spec says that the file must be encoded using ISO-8859-1.
     BufferedReader reader =
-      new BufferedReader(new InputStreamReader(inStream));
+      new BufferedReader(new InputStreamReader(inStream, "ISO-8859-1"));
     String line;
     
     while ((line = reader.readLine()) != null)
@@ -145,7 +158,7 @@ public class Properties extends Hashtable
 	if (pos == line.length() || c == '#' || c == '!')
 	  continue;
 
-	// The characaters up to the next Whitespace, ':', or '='
+	// The characters up to the next Whitespace, ':', or '='
 	// describe the key.  But look for escape sequences.
 	StringBuffer key = new StringBuffer();
 	while (pos < line.length()
@@ -183,6 +196,7 @@ public class Properties extends Hashtable
 			    char uni = (char) Integer.parseInt
 			      (line.substring(pos, pos + 4), 16);
 			    key.append(uni);
+			    pos += 4;
 			  }	// else throw exception?
 			break;
 		      default:
@@ -245,6 +259,7 @@ public class Properties extends Hashtable
 			    char uni = (char) Integer.parseInt
 			      (line.substring(pos, pos + 4), 16);
 			    element.append(uni);
+			    pos += 4;
 			  }	// else throw exception?
 			break;
 		      default:
@@ -302,7 +317,9 @@ public class Properties extends Hashtable
    */
   public void store(OutputStream out, String header) throws IOException
   {
-    PrintWriter writer = new PrintWriter(out);
+    // The spec says that the file must be encoded using ISO-8859-1.
+    PrintWriter writer
+      = new PrintWriter(new OutputStreamWriter (out, "ISO-8859-1"));
     if (header != null)
       writer.println("#" + header);
     writer.println("#" + new Date().toString());

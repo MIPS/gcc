@@ -3,20 +3,23 @@ C      (ANSI X3.9-1978 Section 13.5.9.1)
 C
 C Origin: David Billinghurst <David.Billinghurst@riotinto.com>
 C
-C { dg-do run }
-
+C Scratch files aren't implemented for mmixware: stubs will fail at run time.
+C { dg-do run { xfail mmix-knuth-mmixware } }
       integer i,j
-      character*10 buf
 
-      write(buf,'(A)') '1  -1'
+      open(unit=10,status='SCRATCH')
+      write(10,'(A)') '1'
+      write(10,'(A)') ' '
+      write(10,'(A)') '   -1'
 
-      read(buf,'(I1)') i
+      rewind(10)
+
+      read(10,'(I1)') i
       if ( i.ne.1 ) call abort()
-
-      read(buf,'(X,I1)') i
+      read(10,'(I1)') i
       if ( i.ne.0 ) call abort()
-
-      read(buf,'(X,I1,X,I2)') i,j
-      if ( i.ne.0 .and. j.ne.-1 ) call abort()
+      read(10,'(I2,X,I2)') i,j
+      if ( i.ne.0 ) call abort()
+      if ( j.ne.-1 ) call abort()
 
       end

@@ -1,22 +1,22 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000,2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Original framework by Daniel Berlin <dan@cgsoftware.com>
    Fleshed out and major cleanups by Jeff Law <law@redhat.com>
    
-This file is part of GNU CC.
+This file is part of GCC.
    
-GNU CC is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
    
-GNU CC is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to the Free
+along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
@@ -237,7 +237,7 @@ defs_to_varying (insn)
     }
 }
 
-/* Go through the expression, call the approriate evaluation routines
+/* Go through the expression, call the appropriate evaluation routines
    to attempt cprop */
 static void
 visit_expression (insn, block)
@@ -245,6 +245,30 @@ visit_expression (insn, block)
      basic_block block;
 {
   rtx src, dest, set;
+
+
+  /* Ugh.  CALL_INSNs may end a basic block and have multiple edges
+     leading out from them.
+
+     Mark all the outgoing edges as executable, then fall into the
+     normal processing below.  */
+  if (GET_CODE (insn) == CALL_INSN && block->end == insn)
+    {
+      edge curredge;
+
+      for (curredge = block->succ; curredge;
+	   curredge = curredge->succ_next)
+	{
+	  int index = EIE (curredge->src, curredge->dest);
+
+	  if (TEST_BIT (executable_edges, index))
+	    continue;
+
+	  SET_BIT (executable_edges, index);
+	  edge_info[index] = flow_edges;
+	  flow_edges = curredge;
+	}
+    }
 
   set = single_set (insn);
   if (! set)
@@ -450,7 +474,13 @@ visit_expression (insn, block)
 		  defs_to_undefined (insn);
 		  break;
 		}
-		
+
+	      /* Determine the mode for the operation before we simplify
+		 our arguments to constants.  */
+	      mode = GET_MODE (src0);
+	      if (mode == VOIDmode)
+		mode = GET_MODE (src1);
+
 	      /* Simplify source operands to whatever known values they
 		 may have.  */
 	      if (GET_CODE (src0) == REG
@@ -463,10 +493,6 @@ visit_expression (insn, block)
 
 	      /* See if the simplifier can determine if this operation
 		 computes a constant value.  */
-	      mode = GET_MODE (src0);
-	      if (mode == VOIDmode)
-		mode = GET_MODE (src1);
-
 	      simplified = simplify_relational_operation (GET_CODE (src),
 							  mode, src0, src1);
 	      break;
@@ -476,6 +502,7 @@ visit_expression (insn, block)
 	  case '1':
 	    {
 	      rtx src0 = XEXP (src, 0);
+	      enum machine_mode mode0 = GET_MODE (src0);
 
 	      /* If the operand is undefined, then the result is undefined.  */
 	      if (GET_CODE (src0) == REG
@@ -496,7 +523,7 @@ visit_expression (insn, block)
 	      simplified = simplify_unary_operation (GET_CODE (src),
 						     GET_MODE (src),
 						     src0,
-						     GET_MODE (src0));
+						     mode0);
 	      break;
 	    }
 
@@ -597,7 +624,7 @@ visit_expression (insn, block)
 /* Iterate over the FLOW_EDGES work list.  Simulate the target block
    for each edge.  */
 static void
-examine_flow_edges (void)
+examine_flow_edges ()
 {
   while (flow_edges != NULL)
     {
@@ -646,7 +673,7 @@ examine_flow_edges (void)
 	  /* If we haven't looked at the next block, and it has a
 	     single successor, add it onto the worklist.  This is because
 	     if we only have one successor, we know it gets executed,
-	     so we don't have to wait for cprop to tell us. */
+	     so we don't have to wait for cprop to tell us.  */
 	  if (succ_edge != NULL
 	      && succ_edge->succ_next == NULL
 	      && !TEST_BIT (executable_edges,
@@ -839,8 +866,13 @@ ssa_ccp_substitute_constants ()
 	  /* Do not try to simplify PHI nodes down to a constant load.
 	     That will be done later as we translate out of SSA.  Also,
 	     doing that here could violate the rule that all PHI nodes
-	     are consecutive at the start of the basic block.  */
-	  if (! PHI_NODE_P (def))
+	     are consecutive at the start of the basic block.
+
+	     Don't do anything to nodes that were already sets to
+	     constants.	 */
+	  if (! PHI_NODE_P (def)
+	      && ! ((GET_CODE (def) == INSN
+		     && GET_CODE (SET_SRC (set)) == CONST_INT)))
 	    {
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file,
@@ -909,10 +941,7 @@ ssa_ccp_df_delete_unreachable_insns ()
     {
       basic_block b = BASIC_BLOCK (i);
 
-      if (b->aux != NULL)
-	/* This block was found.  Tidy up the mark.  */
-	b->aux = NULL;
-      else
+      if (!(b->flags & BB_REACHABLE))
 	{
 	  rtx start = b->head;
 	  rtx end = b->end;
@@ -952,7 +981,7 @@ ssa_ccp_df_delete_unreachable_insns ()
    operate on so that it can be called for sub-graphs.  */
 
 void
-ssa_const_prop (void)
+ssa_const_prop ()
 {
   unsigned int i;
   edge curredge;
@@ -1054,6 +1083,9 @@ ssa_const_prop (void)
   sbitmap_free (executable_blocks);
   executable_blocks = NULL;
 
+  sbitmap_free (ssa_edges);
+  ssa_edges = NULL;
+  
   free_edge_list (edges);
   edges = NULL;
 
@@ -1070,7 +1102,7 @@ mark_references (current_rtx, data)
      void *data;
 {
   rtx x = *current_rtx;
-  sbitmap worklist = (sbitmap)data;
+  sbitmap worklist = (sbitmap) data;
 
   if (x == NULL_RTX)
     return 0;
@@ -1181,35 +1213,13 @@ ssa_fast_dce (df)
 	     deleted.  */
 	  df_insn_delete (df, BLOCK_FOR_INSN (def), def);
 
-	  if (PHI_NODE_P (def))
-	    {
-	      if (def == BLOCK_FOR_INSN (def)->head
-		  && def == BLOCK_FOR_INSN (def)->end)
-		{
-		  /* Delete it.  */
-		  PUT_CODE (def, NOTE);
-		  NOTE_LINE_NUMBER (def) = NOTE_INSN_DELETED;
-		}
-	      else if (def == BLOCK_FOR_INSN (def)->head)
-	        {
-		  BLOCK_FOR_INSN (def)->head = NEXT_INSN (def);
-		  flow_delete_insn (def);
-		}
-	      else if (def == BLOCK_FOR_INSN (def)->end)
-		{
-		  BLOCK_FOR_INSN (def)->end = PREV_INSN (def);
-		  flow_delete_insn (def);
-		}
-	      else
-		flow_delete_insn (def);
-	    }
-	  else
-	    {
-	      flow_delete_insn (def);
-	    }
 	  VARRAY_RTX (ssa_definition, reg) = NULL;
 	}
     }
 
   sbitmap_free (worklist);
+
+  /* Update the use-def chains in the df_analyzer as needed.  */
+  df_analyse (df_analyzer, 0,
+              DF_RD_CHAIN | DF_RU_CHAIN | DF_REG_INFO | DF_HARD_REGS);
 }

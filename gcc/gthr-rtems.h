@@ -1,24 +1,24 @@
 /* RTEMS threads compatibily routines for libgcc2 and libobjc.
    by: Rosimildo da Silva( rdasilva@connecttel.com ) */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1999, 2000, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* As a special exception, if you link this library with other files,
    some of which are compiled with GCC, to produce an executable,
@@ -30,6 +30,9 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_GTHR_RTEMS_H
 #define GCC_GTHR_RTEMS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define __GTHREADS 1
 
@@ -61,6 +64,13 @@ extern int rtems_gxx_mutex_lock (__gthread_mutex_t *mutex);
 extern int rtems_gxx_mutex_trylock (__gthread_mutex_t *mutex);
 extern int rtems_gxx_mutex_unlock (__gthread_mutex_t *mutex);
 
+
+/* RTEMS threading is always active */
+static inline int
+__gthread_active_p (void)
+{
+  return 1;
+}
 
 /* Wrapper calls */
 static inline int
@@ -116,5 +126,9 @@ __gthread_mutex_unlock (__gthread_mutex_t *mutex)
 {
     return rtems_gxx_mutex_unlock( mutex );
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ! GCC_GTHR_RTEMS_H */

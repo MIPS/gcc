@@ -53,14 +53,11 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "symbol.h"
 #include "target.h"
 #include "where.h"
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 #include "flags.h"
 #include "toplev.h"
-#endif
 
 /* Externals defined here. */
 
-int flag_traditional;		/* Shouldn't need this (C front end only)! */
 bool ffe_is_do_internal_checks_ = FALSE;
 bool ffe_is_90_ = FFETARGET_defaultIS_90;
 bool ffe_is_automatic_ = FFETARGET_defaultIS_AUTOMATIC;
@@ -80,7 +77,6 @@ bool ffe_is_globals_ = TRUE;
 bool ffe_is_init_local_zero_ = FFETARGET_defaultIS_INIT_LOCAL_ZERO;
 bool ffe_is_mainprog_;		/* TRUE if current prog unit known to be
 				   main. */
-bool ffe_is_null_version_ = FALSE;
 bool ffe_is_onetrip_ = FALSE;
 bool ffe_is_silent_ = TRUE;
 bool ffe_is_typeless_boz_ = FALSE;
@@ -175,8 +171,6 @@ ffe_decode_option (argc, argv)
 	  ffe_set_is_version (TRUE);
 	  ffe_set_is_do_internal_checks (TRUE);
 	}
-      else if (strcmp (&opt[2], "null-version") == 0)
-	ffe_set_is_null_version (TRUE);
       else if (strcmp (&opt[2], "f66") == 0)
 	{
 	  ffe_set_is_onetrip (TRUE);
@@ -225,7 +219,10 @@ ffe_decode_option (argc, argv)
       else if (strcmp (&opt[2], "no-free-form") == 0)
 	ffe_set_is_free_form (FALSE);
       else if (strcmp (&opt[2], "fixed-form") == 0)
-	ffe_set_is_free_form (FALSE);
+	{
+	  ffe_set_is_free_form (FALSE);
+	  return -1;
+	}
       else if (strcmp (&opt[2], "no-fixed-form") == 0)
 	ffe_set_is_free_form (TRUE);
       else if (strcmp (&opt[2], "pedantic") == 0)

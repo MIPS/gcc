@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "obstack.h"
 #include "insn-config.h"
+#include "optabs.h"
 #include "flags.h"
 #include "function.h"
 #include "expr.h"

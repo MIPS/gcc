@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for HPs running
    HPUX using the 64bit runtime model.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -41,15 +41,21 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef CROSS_COMPILE
 #undef MD_EXEC_PREFIX
-#define MD_EXEC_PREFIX "/opt/langtools/bin"
+#define MD_EXEC_PREFIX "/usr/ccs/bin"
 #endif
 
-/* Under hpux11 the normal location of the various *crt*.o files is the
-   /usr/ccs/lib directory.  */
+/* Under hpux11 the normal location of the various pa20_64 *crt*.o files
+   is the /usr/ccs/lib/pa20_64 directory.  Some files may also be in the
+   /opt/langtools/lib/pa20_64 directory.  */
 
 #ifndef CROSS_COMPILE
 #undef MD_STARTFILE_PREFIX
-#define MD_STARTFILE_PREFIX "/opt/langtools/lib/pa20_64/"
+#define MD_STARTFILE_PREFIX "/usr/ccs/lib/pa20_64/"
+#endif
+
+#ifndef CROSS_COMPILE
+#undef MD_STARTFILE_PREFIX_1
+#define MD_STARTFILE_PREFIX_1 "/opt/langtools/lib/pa20_64/"
 #endif
 
 /* hpux11 has the new HP assembler.  It's still lousy, but it's a whole lot
@@ -101,34 +107,32 @@ do {  \
 
 #define CONST_SECTION_ASM_OP	"\t.section\t.rodata"
 
-/* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
-
-   Note that we want to give these sections the SHF_WRITE attribute
-   because these sections will actually contain data (i.e. tables of
-   addresses of functions in the current root executable or shared library
-   file) and, in the case of a shared library, the relocatable addresses
-   will have to be properly resolved/relocated (and then written into) by
-   the dynamic linker when it actually attaches the given shared library
-   to the executing process.  (Note that on SVR4, you may wish to use the
-   `-z text' option to the ELF linker, when building a shared library, as
-   an additional check that you are doing everything right.  But if you do
-   use the `-z text' option when building a shared library, you will get
-   errors unless the .ctors and .dtors sections are marked as writable
-   via the SHF_WRITE attribute.)  */
-
-#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"aw\""
-#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"aw\""
-
 /* On svr4, we *do* have support for the .init and .fini sections, and we
    can put stuff in there to be executed before and after `main'.  We let
    crtstuff.c and other files know this by defining the following symbols.
    The definitions say how to change sections to the .init and .fini
    sections.  This is the same for all known svr4 assemblers.  */
 
-/* ??? For the time being, we aren't using init sections. */
+/* For the time being, we aren't using init sections.  `P' relocations
+   are currently used for function references.  However, P relocations are
+   treated as data references and data references are bound by dld.sl
+   immediately at program startup.  This causes an abort due to undefined
+   weak symbols in crtbegin.o (e.g., __register_frame_info).  Possibly
+   Q relocations might avoid this problem but the GNU assembler doesn't
+   support them.  */
 #if 0
 #define INIT_SECTION_ASM_OP	"\t.section\t.init"
 #define FINI_SECTION_ASM_OP	"\t.section\t.fini"
+#else
+#define EH_FRAME_IN_DATA_SECTION 1
+
+#undef ENDFILE_SPEC
+#define ENDFILE_SPEC ""
+
+#undef STARTFILE_SPEC
+#define STARTFILE_SPEC "%{!shared: \
+			 %{!symbolic: \
+			  %{pg:gcrt0.o%s}%{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}}}"
 #endif
 
 /* A default list of other sections which we might be "in" at any given
@@ -137,7 +141,7 @@ do {  \
    includes this file.  */
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_const
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
@@ -145,9 +149,8 @@ do {  \
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
-  CTORS_SECTION_FUNCTION						\
-  DTORS_SECTION_FUNCTION
+  CONST_SECTION_FUNCTION
+
 
 #define READONLY_DATA_SECTION() const_section ()
 
@@ -164,28 +167,6 @@ const_section ()							\
     }									\
 }
 
-#define CTORS_SECTION_FUNCTION						\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
-}
-
-#define DTORS_SECTION_FUNCTION						\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}
-
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
@@ -193,9 +174,9 @@ dtors_section ()							\
 #define UNIQUE_SECTION(DECL,RELOC)				\
 do {								\
   int len;							\
-  char *name, *string, *prefix;					\
-								\
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));	\
+  char *string;							\
+  const char *prefix,						\
+    *const name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));\
 								\
   if (! DECL_ONE_ONLY (DECL))					\
     {								\
@@ -220,31 +201,6 @@ do {								\
 								\
   DECL_SECTION_NAME (DECL) = build_string (len, string);	\
 } while (0)
-
-#define INT_ASM_OP "\t.dword\t"
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    ctors_section ();							\
-    fprintf (FILE, "%sP%%", INT_ASM_OP);				\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    dtors_section ();                   				\
-    fprintf (FILE, "%sP%%", INT_ASM_OP);				\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } while (0)
-
-/* ??? For the time being, we aren't using .ctors/.dtors sections. */
-#undef ASM_OUTPUT_DESTRUCTOR
-#undef ASM_OUTPUT_CONSTRUCTOR
 
 /* Define the strings used for the special svr4 .type and .size directives.
    These strings generally do not vary from one system running svr4 to

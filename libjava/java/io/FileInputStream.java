@@ -1,4 +1,4 @@
-/* Copyright (C) 1998, 1999  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -88,6 +88,8 @@ public class FileInputStream extends InputStream
 
   public long skip(long n) throws IOException
   {
-    return fd.seek(n, FileDescriptor.CUR);
+    long startPos = fd.getFilePointer();
+    long endPos = fd.seek(n, FileDescriptor.CUR, true);
+    return endPos - startPos;
   }
 }

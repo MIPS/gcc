@@ -25,7 +25,6 @@
 #include <iostream>
 
 // { dg-do compile }
-// { dg-excess-errors "" }
 
 // libstdc++/86: map & set iterator comparisons are not type-safe
 void test01()
@@ -40,10 +39,10 @@ void test01()
   std::map<unsigned, int>::iterator itr(mapByIndex.begin());
 
   // NB: notice, it's not mapByIndex!!
-  test &= itr != mapByName.end(); // { dg-error "match" "" { xfail *-*-* } }
-  test &= itr == mapByName.end(); // { dg-error "match" "" { xfail *-*-* } }
+  test &= itr != mapByName.end(); // { dg-error "no" } 
+  test &= itr == mapByName.end(); // { dg-error "no" } 
 }
-
+ 
 // http://gcc.gnu.org/ml/libstdc++/2000-11/msg00093.html
 void test02()
 {

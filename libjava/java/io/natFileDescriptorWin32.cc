@@ -1,6 +1,6 @@
 // natFileDescriptorWin32.cc - Native part of FileDescriptor class.
 
-/* Copyright (C) 1998, 1999, 2000  Red Hat, Inc.
+/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation, Inc.
 
    This file is part of libgcj.
 
@@ -17,6 +17,7 @@ details.  */
 #include <string.h>
 
 #include <windows.h>
+#undef STRICT
 
 #include <gcj/cni.h>
 #include <jvm.h>
@@ -30,6 +31,17 @@ details.  */
 #include <java/lang/String.h>
 #include <java/lang/Thread.h>
 #include <java/io/FileNotFoundException.h>
+
+// FIXME: casting a FILE (pointer) to a jint will not work on Win64 --
+//        we should be using gnu.gcj.RawData's.
+
+void
+java::io::FileDescriptor::init(void)
+{
+  in = new java::io::FileDescriptor((jint)(GetStdHandle (STD_INPUT_HANDLE)));
+  out = new java::io::FileDescriptor((jint)(GetStdHandle (STD_OUTPUT_HANDLE)));
+  err = new java::io::FileDescriptor((jint)(GetStdHandle (STD_ERROR_HANDLE)));
+}
 
 static char *
 winerr (void)
@@ -171,15 +183,19 @@ java::io::FileDescriptor::close (void)
 }
 
 jint
-java::io::FileDescriptor::seek (jlong pos, jint whence)
+java::io::FileDescriptor::seek (jlong pos, jint whence, jboolean eof_trunc)
 {
   JvAssert (whence == SET || whence == CUR);
 
   jlong len = length();
   jlong here = getFilePointer();
 
-  if ((whence == SET && pos > len) || (whence == CUR && here + pos > len))
-    throw new EOFException;
+  if (eof_trunc
+      && ((whence == SET && pos > len) || (whence == CUR && here + pos > len)))
+    {
+      whence = SET;
+      pos = len;
+    }
 
   LONG high = pos >> 32;
   DWORD low = SetFilePointer ((HANDLE)fd, (DWORD)(0xffffffff & pos), &high, whence == SET ? FILE_BEGIN : FILE_CURRENT);
@@ -239,6 +255,7 @@ java::io::FileDescriptor::read(jbyteArray buffer, jint offset, jint count)
   if (! ReadFile((HANDLE)fd, bytes, count, &read, NULL))
     throw new IOException (JvNewStringLatin1 (winerr ()));
 
+  if (read == 0) return -1;
   return (jint)read;
 }
 

@@ -150,7 +150,6 @@ Boston, MA 02111-1307, USA.  */
   %{mcypress:-mcpu=cypress} \
   %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
   %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
-  %{m32:%{m64:%emay not use both -m32 and -m64}} \
   %{m64: \
     -mptr64 -mstack-bias -mno-v8plus -mlong-double-128 \
     %{!mcpu*: \
@@ -169,7 +168,6 @@ Boston, MA 02111-1307, USA.  */
   %{mcypress:-mcpu=cypress} \
   %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
   %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
-  %{m32:%{m64:%emay not use both -m32 and -m64}} \
   %{m32: \
     -mptr32 -mno-stack-bias \
     %{!mlong-double-128:-mlong-double-64} \

@@ -1,6 +1,6 @@
 // natSystem.cc - Native code implementing System class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001 , 2002 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -14,7 +14,7 @@ details.  */
 #include <string.h>
 #include <stdlib.h>
 
-#include "posix.h"
+#include "platform.h"
 
 #ifdef HAVE_PWD_H
 #include <pwd.h>
@@ -158,9 +158,7 @@ java::lang::System::arraycopy (jobject src, jint src_offset,
 jlong
 java::lang::System::currentTimeMillis (void)
 {
-  struct timeval tv;
-  _Jv_gettimeofday (&tv);
-  return (jlong) tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  return _Jv_platform_gettimeofday ();
 }
 
 jint
@@ -242,8 +240,9 @@ java::lang::System::getSystemTimeZone (void)
 {
   struct tm *tim;
   time_t current_time;
-  char **tzinfo, *tzid;
   long tzoffset;
+  const char *tz1, *tz2;
+  char *tzid;
 
   current_time = time(0);
 
@@ -259,34 +258,30 @@ java::lang::System::getSystemTimeZone (void)
   // is available, esp. if tzname is valid.
   // Richard Earnshaw <rearnsha@arm.com> has suggested using difftime to
   // calculate between gmtime and localtime (and accounting for possible
-  // daylight savings time) as an alternative.  Also note that this same
-  // issue exists in java/util/natGregorianCalendar.cc.
+  // daylight savings time) as an alternative.
   tzoffset = 0L;
 #endif
-  tzinfo = tzname;
+
+#ifdef HAVE_TM_ZONE
+  tz1 = tim->tm_zone;
+  tz2 = "";
+#elif defined (HAVE_TZNAME)
+  tz1 = tzname[0];
+  tz2 = strcmp (tzname[0], tzname[1]) ? tzname[1] : "";
+#else
+  // Some targets have no concept of timezones.
+  tz1 = "???";
+  tz2 = tz1;
+#endif
 
   if ((tzoffset % 3600) == 0)
     tzoffset = tzoffset / 3600;
 
-  if (!strcmp(tzinfo[0], tzinfo[1]))  
-    {
-      tzid = (char*) _Jv_Malloc (strlen(tzinfo[0]) + 6);
-      if (!tzid)
-        return NULL;
-
-      sprintf(tzid, "%s%ld", tzinfo[0], tzoffset);
-    }
-  else
-    {
-      tzid = (char*) _Jv_Malloc (strlen(tzinfo[0]) + strlen(tzinfo[1]) + 6);
-      if (!tzid)
-        return NULL;
-
-      sprintf(tzid, "%s%ld%s", tzinfo[0], tzoffset, tzinfo[1]);
-    }
-
+  tzid = (char*) _Jv_Malloc (strlen(tz1) + strlen(tz2) + 6);
+  sprintf(tzid, "%s%ld%s", tz1, tzoffset, tz2);
   jstring retval = JvNewStringUTF (tzid);
   _Jv_Free (tzid);
+
   return retval;
 }
 
@@ -306,19 +301,29 @@ java::lang::System::init_properties (void)
 
   // A mixture of the Java Product Versioning Specification
   // (introduced in 1.2), and earlier versioning properties.
-  SET ("java.version", VERSION);
-  SET ("java.vendor", "Free Software Foundation");
+  SET ("java.version", GCJVERSION);
+  SET ("java.vendor", "Free Software Foundation, Inc.");
   SET ("java.vendor.url", "http://gcc.gnu.org/java/");
-  SET ("java.class.version", GCJVERSION);
-  SET ("java.vm.specification.version", "1.1");
+  SET ("java.class.version", "46.0");
+  SET ("java.vm.specification.version", "1.0");
   SET ("java.vm.specification.name", "Java(tm) Virtual Machine Specification");
   SET ("java.vm.specification.vendor", "Sun Microsystems Inc.");
-  SET ("java.vm.version", GCJVERSION);
-  SET ("java.vm.vendor", "Free Software Foundation");
-  SET ("java.vm.name", "libgcj");
-  SET ("java.specification.version", "1.1");
-  SET ("java.specification.name", "Java(tm) Language Specification");
+  SET ("java.vm.version", __VERSION__);
+  SET ("java.vm.vendor", "Free Software Foundation, Inc.");
+  SET ("java.vm.name", "GNU libgcj");
+  SET ("java.specification.version", "1.3");
+  SET ("java.specification.name", "Java(tm) Platform API Specification");
   SET ("java.specification.vendor", "Sun Microsystems Inc.");
+
+  char value[100];
+#define NAME "GNU libgcj "
+  strcpy (value, NAME);
+  strncpy (value + sizeof (NAME) - 1, __VERSION__,
+	   sizeof(value) - sizeof(NAME));
+  value[sizeof (value) - 1] = '\0';
+  jstring version = JvNewStringLatin1 (value);
+  newprops->put (JvNewStringLatin1 ("java.fullversion"), version);
+  newprops->put (JvNewStringLatin1 ("java.vm.info"), version);
 
   // This definition is rather arbitrary: we choose $(prefix).  In
   // part we do this because most people specify only --prefix and
@@ -327,22 +332,6 @@ java::lang::System::init_properties (void)
   SET ("java.home", PREFIX);
   
   SET ("file.encoding", default_file_encoding);
-
-#ifdef WIN32
-  SET ("file.separator", "\\");
-  SET ("path.separator", ";");
-  SET ("line.separator", "\r\n");
-  SET ("java.io.tmpdir", "C:\\temp");
-#else
-  // Unix.
-  SET ("file.separator", "/");
-  SET ("path.separator", ":");
-  SET ("line.separator", "\n");
-  char *tmpdir = ::getenv("TMPDIR");
-  if (! tmpdir)
-    tmpdir = "/tmp";
-  SET ("java.io.tmpdir", tmpdir);
-#endif
 
 #ifdef HAVE_UNAME
   struct utsname u;
@@ -419,8 +408,14 @@ java::lang::System::init_properties (void)
 #endif /* HAVE_GETCWD */
 
   // Set user locale properties based on setlocale()
-#ifdef HAVE_SETLOCALE
-  char *locale = setlocale (LC_ALL, "");
+#if defined (HAVE_SETLOCALE) && defined (HAVE_LC_MESSAGES)
+  // We let the user choose the locale.  However, since Java differs
+  // from POSIX, we arbitrarily pick LC_MESSAGES as determining the
+  // Java locale.  We can't use LC_ALL because it might return a full
+  // list of all the settings.  If we don't have LC_MESSAGES then we
+  // just default to `en_US'.
+  setlocale (LC_ALL, "");
+  char *locale = setlocale (LC_MESSAGES, "");
   if (locale && strlen (locale) >= 2)
     {
       char buf[3];
@@ -438,9 +433,10 @@ java::lang::System::init_properties (void)
         }
     }
   else
-#endif /* HAVE_SETLOCALE */
+#endif /* HAVE_SETLOCALE and HAVE_LC_MESSAGES */
     {
       SET ("user.language", "en");
+      SET ("user.region", "US");
     }  
 
   // Set the "user.timezone" property.
@@ -462,6 +458,7 @@ java::lang::System::init_properties (void)
     }
 
   // Set the system properties from the user's environment.
+#ifndef DISABLE_GETENV_PROPERTIES
   if (_Jv_Environment_Properties)
     {
       size_t i = 0;
@@ -473,6 +470,7 @@ java::lang::System::init_properties (void)
 	  i++;
 	}
     }
+#endif
 
   if (_Jv_Jar_Class_Path)
     newprops->put(JvNewStringLatin1 ("java.class.path"),
@@ -501,6 +499,10 @@ java::lang::System::init_properties (void)
       newprops->put(JvNewStringLatin1 ("java.class.path"),
 		      sb->toString ());
     }
+
+  // Allow platform specific settings and overrides.
+  _Jv_platform_initProperties (newprops);
+
   // Finally, set the field. This ensures that concurrent getProperty() 
   // calls will return initialized values without requiring them to be 
   // synchronized in the common case.

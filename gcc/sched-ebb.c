@@ -4,21 +4,21 @@
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to the Free
-the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include "config.h"
@@ -36,6 +36,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"
 #include "toplev.h"
 #include "recog.h"
+#include "cfglayout.h"
 #include "sched-int.h"
 
 /* The number of insns to be scheduled in total.  */
@@ -193,7 +194,7 @@ static struct sched_info ebb_sched_info =
 
   NULL, NULL,
   NULL, NULL,
-  0
+  0, 1
 };
 
 /* Schedule a single extended basic block, defined by the boundaries HEAD
@@ -285,6 +286,8 @@ schedule_ebbs (dump_file)
   if (n_basic_blocks == 0)
     return;
 
+  scope_to_insns_initialize ();
+
   sched_init (dump_file);
 
   current_sched_info = &ebb_sched_info;
@@ -352,6 +355,8 @@ schedule_ebbs (dump_file)
 
   if (write_symbols != NO_DEBUG)
     rm_redundant_line_notes ();
+
+  scope_to_insns_finalize ();
 
   sched_finish ();
 }

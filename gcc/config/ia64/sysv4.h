@@ -4,11 +4,11 @@
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
+/* Stabs does not work properly for 64-bit targets.  */
+#undef DBX_DEBUGGING_INFO
+
 /* Various pseudo-ops for which the Intel assembler uses non-standard
    definitions.  */
-
-#undef ASM_BYTE_OP
-#define ASM_BYTE_OP "\tdata1\t"
 
 #undef STRING_ASM_OP
 #define STRING_ASM_OP "\tstringz\t"
@@ -54,28 +54,19 @@ do {									\
    we have to scan it for a non-label character and insert the # there.  */
 
 #undef ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(STREAM, NAME) 				\
-  do									\
-    {									\
-      const char *real_name;						\
-      const char *name_end;						\
-									\
-      STRIP_NAME_ENCODING (real_name, NAME);				\
-      name_end = strchr (real_name, '+');				\
-									\
-      fputs (user_label_prefix, STREAM);				\
-      if (name_end)							\
-	fwrite (real_name, name_end - real_name, 1, STREAM);		\
-      else								\
-	fputs (real_name, STREAM);					\
-									\
-      if (ia64_asm_output_label)					\
-	fputc ('#', STREAM);						\
-									\
-      if (name_end)							\
-	fputs (name_end, STREAM);					\
-    }									\
-  while (0)
+#define ASM_OUTPUT_LABELREF(STREAM, NAME)	\
+do {						\
+  const char *name_ = NAME;			\
+  if (*name_ == SDATA_NAME_FLAG_CHAR)		\
+    name_++;					\
+  if (*name_ == '*')				\
+    name_++;					\
+  else						\
+    fputs (user_label_prefix, STREAM);		\
+  fputs (name_, STREAM);			\
+  if (!ia64_asm_output_label)			\
+    fputc ('#', STREAM);			\
+} while (0)
 
 /* Intel assembler requires both flags and type if declaring a non-predefined
    section.  */
@@ -83,46 +74,6 @@ do {									\
 #define INIT_SECTION_ASM_OP	"\t.section\t.init,\"ax\",\"progbits\""
 #undef FINI_SECTION_ASM_OP
 #define FINI_SECTION_ASM_OP	"\t.section\t.fini,\"ax\",\"progbits\""
-#undef CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP	"\t.section\t.ctors,\"aw\",\"progbits\""
-#undef DTORS_SECTION_ASM_OP
-#define DTORS_SECTION_ASM_OP	"\t.section\t.dtors,\"aw\",\"progbits\""
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global constructors.  */
-/* Must override this to get @fptr relocation.  */
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-  do {									\
-    ctors_section ();							\
-    if (TARGET_NO_PIC || TARGET_AUTO_PIC)				\
-      fputs ("\tdata8\t ", FILE);					\
-    else								\
-      fputs ("\tdata8\t @fptr(", FILE);					\
-    assemble_name (FILE, NAME);						\
-    if (TARGET_NO_PIC || TARGET_AUTO_PIC)				\
-      fputs ("\n", FILE);						\
-    else								\
-      fputs (")\n", FILE);						\
-  } while (0)
-
-/* A C statement (sans semicolon) to output an element in the table of
-   global destructors.  */
-/* Must override this to get @fptr relocation.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
-  do {									\
-    dtors_section ();                   				\
-    if (TARGET_NO_PIC || TARGET_AUTO_PIC)				\
-      fputs ("\tdata8\t ", FILE);					\
-    else								\
-      fputs ("\tdata8\t @fptr(", FILE);					\
-    assemble_name (FILE, NAME);              				\
-    if (TARGET_NO_PIC || TARGET_AUTO_PIC)				\
-      fputs ("\n", FILE);						\
-    else								\
-      fputs (")\n", FILE);						\
-  } while (0)
 
 /* svr4.h undefines this, so we need to define it here.  */
 #define DBX_REGISTER_NUMBER(REGNO) \
@@ -184,20 +135,15 @@ do {									\
   emit_safe_across_calls (STREAM);					\
 } while (0)
 
-/* Case label alignment is handled by ADDR_VEC_ALIGN now.  */
-
-#undef ASM_OUTPUT_BEFORE_CASE_LABEL
-#define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE,PREFIX,NUM,TABLE)
-
 /* We override svr4.h so that we can support the sdata section.  */
 
 #undef SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC)					\
+#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
 {									\
   if (TREE_CODE (DECL) == STRING_CST)					\
     {									\
       if (! flag_writable_strings)					\
-	const_section ();						\
+	mergeable_string_section ((DECL), (ALIGN), 0);			\
       else								\
 	data_section ();						\
     }									\
@@ -206,13 +152,20 @@ do {									\
       if (XSTR (XEXP (DECL_RTL (DECL), 0), 0)[0]			\
 	  == SDATA_NAME_FLAG_CHAR)					\
         sdata_section ();						\
-      /* ??? We need the extra ! RELOC check, because the default is to \
+      /* ??? We need the extra RELOC check, because the default is to	\
 	 only check RELOC if flag_pic is set, and we don't set flag_pic \
 	 (yet?).  */							\
-      else if (DECL_READONLY_SECTION (DECL, RELOC) && ! (RELOC))	\
-	const_section ();						\
-      else								\
+      else if (!DECL_READONLY_SECTION (DECL, RELOC) || (RELOC))		\
 	data_section ();						\
+      else if (flag_merge_constants < 2)				\
+	/* C and C++ don't allow different variables to share		\
+	   the same location.  -fmerge-all-constants allows		\
+	   even that (at the expense of not conforming).  */		\
+	const_section ();						\
+      else if (TREE_CODE (DECL_INITIAL (DECL)) == STRING_CST)		\
+	mergeable_string_section (DECL_INITIAL (DECL), (ALIGN), 0);	\
+      else								\
+	mergeable_constant_section (DECL_MODE (DECL), (ALIGN), 0);	\
     }									\
   /* This could be a CONSTRUCTOR containing ADDR_EXPR of a VAR_DECL,	\
      in which case we can't put it in a shared library rodata.  */	\
@@ -226,7 +179,7 @@ do {									\
 
 extern unsigned int ia64_section_threshold;
 #undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX)					\
+#define SELECT_RTX_SECTION(MODE, RTX, ALIGN)				\
 {									\
   if (GET_MODE_SIZE (MODE) > 0						\
       && GET_MODE_SIZE (MODE) <= ia64_section_threshold)		\
@@ -234,17 +187,15 @@ extern unsigned int ia64_section_threshold;
   else if (flag_pic && symbolic_operand ((RTX), (MODE)))		\
     data_section ();							\
   else									\
-    const_section ();							\
+    mergeable_constant_section ((MODE), (ALIGN), 0);			\
 }
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_ctors, in_dtors, in_sdata, in_sbss
+#define EXTRA_SECTIONS in_const, in_sdata, in_sbss
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
   CONST_SECTION_FUNCTION						\
-  CTORS_SECTION_FUNCTION						\
-  DTORS_SECTION_FUNCTION						\
   SDATA_SECTION_FUNCTION						\
   SBSS_SECTION_FUNCTION
 

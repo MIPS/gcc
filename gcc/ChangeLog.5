@@ -1054,7 +1054,7 @@ Mon Jun 18 17:27:24 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	(unroll_loop): Drop prediction notes on preconditioning.
 	* predict.def (PRED_LOOP_PRECONDITIONG, PRED_LOOP_CONDITION):
 	New; add comments on the others.
-	* Makefile.in: (unroll.o): Add dependancy on predict.h.
+	* Makefile.in: (unroll.o): Add dependency on predict.h.
 	* loop.c (strength_reduce): Fix branch prediction.
 
 Mon Jun 18 17:26:56 CEST 2001  Jan Hubicka  <jh@suse.cz>
@@ -1363,7 +1363,7 @@ Tue Jun 12 12:20:12 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	(strength_reduce): Drop branch prediction note in case
 	number of iterations is known.
 	* predict.def (PRED_LOOP_ITERATIONS): new.
-	* Makefile.in (loop.o): Add dependancy on predict.h
+	* Makefile.in (loop.o): Add dependency on predict.h
 
 2001-06-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
@@ -1684,7 +1684,7 @@ Sun Jun 10 00:35:37 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	* jump.c: Include predict.h
 	(duplicate_loop_exit_test): Drop branch prediction notes.
 	(invert_jump): Use invert_br_probabilities.
-	* Makefile.in: Add dependancy on predict.h for jump and predict pass.
+	* Makefile.in: Add dependency on predict.h for jump and predict pass.
 	* ifcvt.c (dead_or_predicable): Use invert_br_probabilities.
 	* combine.c (distribute_notes): Handle BR_PRED.
 
@@ -2325,7 +2325,7 @@ Sat Jun  2 12:23:51 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	(and?i splitters): Use ext_register_operands.
 	(test?i peep2): Remove ignored constraints.
 	* i386.c (ext_register_operand): Check that operand is
-	eighter pseudo or hard or 'Q' register.
+	either pseudo or hard or 'Q' register.
 
 Sat Jun  2 06:53:50 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
@@ -3324,7 +3324,7 @@ Sat May 19 09:40:45 2001  Denis Chertykov  <denisc@overta.ru>
 Fri May 18 22:42:04 CEST 2001  Jan Hubicka  <jh@suse.cz>
 
 	* combine.c (combine_simplify_rtx): Clear op0_mode if simplification
-	suceeded.
+	succeeded.
 
 Fri May 18 07:26:34 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
@@ -6180,7 +6180,7 @@ Tue Apr 10 17:45:50 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(next_ls_expr): Next expression in the list.
 	(simple_mem): Check if expression qualifies for ld/st expression list.
 	(invalidate_any_buried_refs): Remove from expression list if its
-	used in some other way we dont understand.
+	used in some other way we don't understand.
 	(compute_ld_motion_mems): Find all potential enhanced load motion
 	expression.
 	(trim_ld_motion_mems): Remove any expressions which are invalid.
@@ -6191,7 +6191,7 @@ Tue Apr 10 17:45:50 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(store_ops_ok): Verfies registers expressions are valid in a block.
 	(find_moveable_store): Look for moveable stores in a pattern.
 	(compute_store_table): Find stores in a function worth moving, maybe.
-	(load_kills_store): Check dependance of a load and store.
+	(load_kills_store): Check dependence of a load and store.
 	(find_loads): Find any loads in a pattern.
 	(store_killed_in_insn): Check if a store is killed in an insn.
 	(store_killed_after): Check is store killed after an insn in a block.
@@ -9315,7 +9315,7 @@ Fri Mar  2 11:59:43 CET 2001  Jan Hubicka  <jh@suse.cz>
 	null terminated.  Use the new search_from member variable
 	of cpp_buffer.
 	(_cpp_compare_file_date): Similarly.
-	(search_from): New function, similiar to actual_directory.
+	(search_from): New function, similar to actual_directory.
 	(actual_directory): Delete.
 	(remap_filename): Update.  loc->name may not be null terminated.
 	(struct file_name_list): Rename search_path.  Update.
@@ -10383,7 +10383,7 @@ Wed Feb 14 10:08:26 CET 2001  Jan Hubicka  <jh@suse.cz>
 	    DJ Delorie  <dj@redhat.com>
 
 	* jump.c (jump_optimize_1): When we delete a conditional jump
-	preceeding a non-conditional jump to effectively the same place,
+	preceding a non-conditional jump to effectively the same place,
 	make sure that the combined jump skips any clobber insns between
 	the two labels.
 
@@ -12210,7 +12210,7 @@ Tue Jan 16 17:20:43 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* config/i386/i386.c (asm_output_function_prefix): Remove.
 	(ix86_asm_file_end): New.
 	(load_pic_register): Generate pic_label_name into a
-	staticly allocated buffer.
+	statically allocated buffer.
 	* config/i386/i386-protos.h: Update.
 	* config/i386/i386.h (ASM_OUTPUT_FUNCTION_PREFIX): Remove.
 	(ASM_FILE_END): New.
@@ -12298,7 +12298,7 @@ Tue Jan 16 17:20:43 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 2001-01-14  Ralf Baechle <ralf@gnu.org>
 
 	* config/mips/linux.h (SUBTARGET_CPP_SPEC): Default ABI is 32; change
-	SUBTARGET_CPP_SPEC apropriatly.
+	SUBTARGET_CPP_SPEC appropriately.
 
 2001-01-12  Mark Mitchell  <mark@codesourcery.com>
 
@@ -12771,7 +12771,7 @@ Fri Jan 12 00:04:00 MET 2001  Jan Hubicka  <jh@suse.cz>
 	* i386.c (ix86_comparison_operator, fcmov_comparison_operator,
 	put_condition_code): Convert fp comparison codes to integer
 	before handling.
-	(ix86_expand_fp_compare): Postnote the fp comparison code converison
+	(ix86_expand_fp_compare): Postnote the fp comparison code conversion
 	to final.
 
 	* i386.c (unsigned_comparison, no_comparison_operator): Kill.
@@ -13931,7 +13931,7 @@ Fri Jan  5 16:29:49 MET 2001  Jan Hubicka  <jh@suse.cz>
 2001-01-05  Alexandre Oliva  <aoliva@redhat.com>
 
 	* config/sh/sh.md (prget, prset): New insn types.
-	(return delay slot): Dont' allow prset.
+	(return delay slot): Don't allow prset.
 	(call, sfunc delay slot): Don't allow prget.
 	(movsi_i, movsi_ie, movsi_i_lowpart): Create separate alternatives
 	for prset and prget.
@@ -14214,7 +14214,7 @@ Wed Jan  3 08:53:50 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* c-common.h (ASM_INPUT_P): New.
 	* c-parse.in (asm): Set it when needed.
 	* c-semantics.c (genrtl_asm_stmt): Test it instead of the
-	existance of an operand.
+	existence of an operand.
 
 Tue Jan  2 20:27:07 MET 2001  Jan Hubicka  <jh@suse.cz>
 

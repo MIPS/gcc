@@ -164,10 +164,13 @@ namespace std
     }
 
   void
-  locale::facet::_S_create_c_locale(__c_locale& __cloc, const char* __s, 
-				    __c_locale __old)
+  locale::facet::_S_create_c_locale(__c_locale& __cloc, const char* __s)
   {
-    __cloc = __newlocale(1 << LC_ALL, __s, __old);
+    // XXX
+    // Perhaps locale::categories could be made equivalent to LC_*_MASK ?
+    // _M_c_locale = __newlocale(1 << LC_ALL, __s, 0);
+    // _M_c_locale = __newlocale(locale::all, __s, 0);
+    __cloc = __newlocale(1 << LC_ALL, __s, 0);
     if (!__cloc)
       {
 	// This named locale is not supported by the underlying OS.

@@ -1,22 +1,22 @@
 /* Exception handling and frame unwind runtime interface routines. -*- C -*-
    Copyright (C) 2001 Free Software Foundation, Inc.
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   along with GCC; see the file COPYING.  If not, write to the Free
+   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+   02111-1307, USA.  */
 
 /* This is derived from the C++ ABI for IA-64.  Where we diverge
    for cross-architecture compatibility are noted with "@@@".  
@@ -47,7 +47,7 @@ _Unwind_RaiseException_Phase2(struct _Unwind_Exception *exc,
 		       ? _UA_HANDLER_FRAME : 0);
 
       if (code != _URC_NO_REASON)
-	/* Some error encountered.  Ususally the unwinder doesn't
+	/* Some error encountered.  Usually the unwinder doesn't
 	   diagnose these and merely crashes.  */
 	return _URC_FATAL_PHASE2_ERROR;
 
@@ -72,7 +72,6 @@ _Unwind_RaiseException_Phase2(struct _Unwind_Exception *exc,
   return code;
 }
 
-
 /* Raise an exception, passing along the given exception object.  */
 
 _Unwind_Reason_Code
@@ -81,6 +80,7 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
   struct _Unwind_Context this_context, cur_context;
   _Unwind_Reason_Code code;
 
+  /* Set up this_context to describe the current stack frame.  */
   uw_init_context (&this_context);
   cur_context = this_context;
 
@@ -90,6 +90,8 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
     {
       _Unwind_FrameState fs;
 
+      /* Set up fs to describe the FDE for the caller of cur_context.  The
+	 first time through the loop, that means __cxa_throw.  */
       code = uw_frame_state_for (&cur_context, &fs);
 
       if (code == _URC_END_OF_STACK)
@@ -112,6 +114,7 @@ _Unwind_RaiseException(struct _Unwind_Exception *exc)
 	    return _URC_FATAL_PHASE1_ERROR;
 	}
 
+      /* Update cur_context to describe the same frame as fs.  */
       uw_update_context (&cur_context, &fs);
     }
 
@@ -142,14 +145,19 @@ _Unwind_ForcedUnwind_Phase2(struct _Unwind_Exception *exc,
   while (1)
     {
       _Unwind_FrameState fs;
+      int action;
 
+      /* Set up fs to describe the FDE for the caller of cur_context.  */
       code = uw_frame_state_for (context, &fs);
       if (code != _URC_NO_REASON && code != _URC_END_OF_STACK)
 	return _URC_FATAL_PHASE2_ERROR;
 
       /* Unwind successful.  */
-      stop_code = (*stop) (1, _UA_FORCE_UNWIND | _UA_CLEANUP_PHASE,
-			   exc->exception_class, exc, context, stop_argument);
+      action = _UA_FORCE_UNWIND | _UA_CLEANUP_PHASE;
+      if (code == _URC_END_OF_STACK)
+	action |= _UA_END_OF_STACK;
+      stop_code = (*stop) (1, action, exc->exception_class, exc,
+			   context, stop_argument);
       if (stop_code != _URC_NO_REASON)
 	return _URC_FATAL_PHASE2_ERROR;
 
@@ -168,6 +176,7 @@ _Unwind_ForcedUnwind_Phase2(struct _Unwind_Exception *exc,
 	    return _URC_FATAL_PHASE2_ERROR;
 	}
 
+      /* Update cur_context to describe the same frame as fs.  */
       uw_update_context (context, &fs);
     }
 

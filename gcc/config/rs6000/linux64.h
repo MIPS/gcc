@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit powerpc linux.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -24,11 +24,43 @@ Boston, MA 02111-1307, USA.  */
 #undef  DEFAULT_ABI
 #define DEFAULT_ABI ABI_AIX
 
-#undef  TARGET_AIX
+#undef TARGET_AIX
 #define TARGET_AIX 1
 
-#undef  TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_POWERPC | MASK_POWERPC64 | MASK_64BIT | MASK_NEW_MNEMONICS)
+#undef TARGET_DEFAULT
+#define TARGET_DEFAULT \
+  (MASK_POWERPC | MASK_POWERPC64 | MASK_64BIT | MASK_NEW_MNEMONICS)
+
+#undef  CPP_DEFAULT_SPEC
+#define CPP_DEFAULT_SPEC "-D_ARCH_PPC64"
+
+#undef  ASM_DEFAULT_SPEC
+#define ASM_DEFAULT_SPEC "-mppc64"
+
+/* 64-bit PowerPC Linux always has a TOC.  */
+#undef  TARGET_NO_TOC
+#define TARGET_NO_TOC		0
+#undef  TARGET_TOC
+#define	TARGET_TOC		1
+
+/* We use glibc _mcount for profiling.  */
+#define NO_PROFILE_COUNTERS 1
+#undef  PROFILE_BEFORE_PROLOGUE
+
+/* Define this for kernel profiling, which just saves LR then calls
+   _mcount without worrying about arg saves.  The idea is to change
+   the function prologue as little as possible as it isn't easy to
+   account for arg save/restore code added just for _mcount.  */
+/* #define PROFILE_KERNEL 1 */
+#if PROFILE_KERNEL
+#define PROFILE_BEFORE_PROLOGUE 1
+#undef  PROFILE_HOOK
+#else
+#define PROFILE_HOOK(LABEL) output_profile_hook (LABEL)
+#endif
+
+/* We don't need to generate entries in .fixup.  */
+#undef RELOCATABLE_NEEDS_FIXUP
 
 #define USER_LABEL_PREFIX  ""
 
@@ -41,28 +73,19 @@ Boston, MA 02111-1307, USA.  */
 
 /* AIX increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
+#undef ROUND_TYPE_ALIGN
 #define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
   ((TREE_CODE (STRUCT) == RECORD_TYPE			\
     || TREE_CODE (STRUCT) == UNION_TYPE			\
     || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
    && TYPE_FIELDS (STRUCT) != 0				\
    && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), BIGGEST_ALIGNMENT) \
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* Indicate that jump tables go in the text section.  */
 #undef  JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 1
-
-/* Define cutoff for using external functions to save floating point.  */
-#undef  FP_SAVE_INLINE
-#define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) == 62 || (FIRST_REG) == 63)
-
-/* 64-bit PowerPC Linux always has a TOC.  */
-#undef  TARGET_NO_TOC
-#define TARGET_NO_TOC		0
-#undef  TARGET_TOC
-#define	TARGET_TOC		1
 
 /* 64-bit PowerPC Linux always has GPR13 fixed.  */
 #define FIXED_R13		1
@@ -74,22 +97,20 @@ Boston, MA 02111-1307, USA.  */
    So we have to squirrel it away with this.  */
 #define SETUP_FRAME_ADDRESSES() rs6000_aix_emit_builtin_unwind_init ()
 
-#define PROFILE_HOOK(LABEL)   output_profile_hook (LABEL)
-
-/* Don't assume anything about the header files. */
+/* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
-#undef CPP_PREDEFINES
+#undef  CPP_PREDEFINES
 #define CPP_PREDEFINES \
  "-D_PPC_ -D__PPC__ -D_PPC64_ -D__PPC64__ -D__powerpc__ -D__powerpc64__ \
   -D_PIC_ -D__PIC__ -D_BIG_ENDIAN -D__BIG_ENDIAN__ -D__ELF__ \
   -D__LONG_MAX__=9223372036854775807L \
   -Acpu=powerpc64 -Amachine=powerpc64"
 
-#undef	CPP_OS_DEFAULT_SPEC
+#undef  CPP_OS_DEFAULT_SPEC
 #define CPP_OS_DEFAULT_SPEC "%(cpp_os_linux)"
 
 /* The GNU C++ standard library currently requires _GNU_SOURCE being
@@ -101,10 +122,10 @@ Boston, MA 02111-1307, USA.  */
 #undef  LINK_SHLIB_SPEC
 #define LINK_SHLIB_SPEC "%{shared:-shared} %{!shared: %{static:-static}}"
 
-#undef	LIB_DEFAULT_SPEC
+#undef  LIB_DEFAULT_SPEC
 #define LIB_DEFAULT_SPEC "%(lib_linux)"
 
-#undef	STARTFILE_DEFAULT_SPEC
+#undef  STARTFILE_DEFAULT_SPEC
 #define STARTFILE_DEFAULT_SPEC "%(startfile_linux)"
 
 #undef	ENDFILE_DEFAULT_SPEC
@@ -117,15 +138,35 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
 #undef  LINK_OS_LINUX_SPEC
+#ifndef CROSS_COMPILE
 #define LINK_OS_LINUX_SPEC "-m elf64ppc %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}}}"
+  %{!dynamic-linker:-dynamic-linker /lib64/ld.so.1}}}"
+#else
+#define LINK_OS_LINUX_SPEC "-m elf64ppc %{!shared: %{!static: \
+  %{rdynamic:-export-dynamic} \
+  %{!dynamic-linker:-dynamic-linker ld.so.1}}}"
+#endif
+
+#ifndef CROSS_COMPILE
+#undef  STARTFILE_LINUX_SPEC
+#define STARTFILE_LINUX_SPEC "\
+%{!shared: %{pg:/usr/lib64/gcrt1.o%s} %{!pg:%{p:/usr/lib64/gcrt1.o%s} \
+  %{!p:/usr/lib64/crt1.o%s}}} /usr/lib64/crti.o%s \
+%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
+#endif
+
+#ifndef CROSS_COMPILE
+#undef  ENDFILE_LINUX_SPEC
+#define ENDFILE_LINUX_SPEC "\
+%{!shared:crtend.o%s} %{shared:crtendS.o%s} /usr/lib64/crtn.o%s"
+#endif
 
 #undef  TOC_SECTION_ASM_OP
 #define TOC_SECTION_ASM_OP "\t.section\t\".toc\",\"aw\""
 
 #undef  MINIMAL_TOC_SECTION_ASM_OP
-#define MINIMAL_TOC_SECTION_ASM_OP "\t.section\t\".toc1\",\"aw\"\n\t.align 3"
+#define MINIMAL_TOC_SECTION_ASM_OP "\t.section\t\".toc1\",\"aw\""
 
 #undef  TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (PowerPC64 GNU/Linux)");
@@ -155,7 +196,7 @@ Boston, MA 02111-1307, USA.  */
 #define RS6000_CALL_GLUE "nop"
 
 #undef  RS6000_MCOUNT
-#define RS6000_MCOUNT ".__mcount"
+#define RS6000_MCOUNT "_mcount"
 
 /* FP save and restore routines.  */
 #undef  SAVE_FP_PREFIX
@@ -169,25 +210,26 @@ Boston, MA 02111-1307, USA.  */
 
 /* Dwarf2 debugging.  */
 #undef  PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE  DWARF2_DEBUG
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
-/* This macro gets just the user-specified name
-   out of the string in a SYMBOL_REF.  Discard
-   a leading * or @.  */
-#define	STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
-do {									\
-  const char *_name = SYMBOL_NAME;					\
-  while (*_name == '*' || *_name == '@')				\
-    _name++;								\
-  (VAR) = _name;							\
-} while (0)
+/* If we are referencing a function that is static or is known to be
+   in this file, make the SYMBOL_REF special.  We can use this to indicate
+   that we can branch to this function without emitting a no-op after the
+   call.  Do not set this flag if the function is weakly defined.  */
+
+#undef  ENCODE_SECTION_INFO
+#define ENCODE_SECTION_INFO(DECL, FIRST)			\
+  if (TREE_CODE (DECL) == FUNCTION_DECL				\
+      && (TREE_ASM_WRITTEN (DECL) || ! TREE_PUBLIC (DECL))	\
+      && ! DECL_WEAK (DECL))					\
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 
 /* Override elfos.h definition.  */
-#undef	ASM_OUTPUT_LABELREF
-#define	ASM_OUTPUT_LABELREF(FILE,NAME)		\
+#undef  ASM_OUTPUT_LABELREF
+#define ASM_OUTPUT_LABELREF(FILE,NAME)		\
 do {						\
   const char *_name = NAME;			\
   if (*_name == '@')				\
@@ -201,52 +243,45 @@ do {						\
 
 #undef  ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
-  do {									\
-    if (TARGET_RELOCATABLE && (get_pool_size () != 0 || profile_flag)	\
-	&& uses_TOC())							\
-      {									\
-	char buf[256];							\
-									\
-	ASM_OUTPUT_INTERNAL_LABEL (FILE, "LCL", rs6000_pic_labelno);	\
-									\
-	ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);			\
-	fputs ("\t.quad ", FILE);					\
-	assemble_name (FILE, buf);					\
-	putc ('-', FILE);						\
-	ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);	\
-	assemble_name (FILE, buf);					\
-	putc ('\n', FILE);						\
-      }									\
-									\
-    fprintf (FILE, "%s", TYPE_ASM_OP);					\
-    assemble_name (FILE, NAME);						\
-    putc (',', FILE);							\
-    fprintf (FILE, TYPE_OPERAND_FMT, "function");			\
-    putc ('\n', FILE);							\
-    ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));			\
-									\
-    if (DEFAULT_ABI == ABI_AIX)						\
-      {									\
-	const char *desc_name, *orig_name;				\
-									\
-        STRIP_NAME_ENCODING (orig_name, NAME);				\
-        desc_name = orig_name;						\
-	while (*desc_name == '.')					\
-	  desc_name++;							\
-									\
-	if (TREE_PUBLIC (DECL))						\
-	  fprintf (FILE, "\t.globl %s\n", desc_name);			\
-									\
-	fputs ("\t.section\t\".opd\",\"aw\"\n", FILE);			\
-	fprintf (FILE, "%s:\n", desc_name);				\
-	fprintf (FILE, "\t.quad %s\n", orig_name);			\
-	fputs ("\t.quad .TOC.@tocbase\n", FILE);			\
-	if (DEFAULT_ABI == ABI_AIX)					\
-	  fputs ("\t.quad 0\n", FILE);					\
-	fprintf (FILE, "\t.previous\n");				\
-      }									\
-    ASM_OUTPUT_LABEL (FILE, NAME);					\
-  } while (0)
+  do									\
+    {									\
+      fputs ("\t.section\t\".opd\",\"aw\"\n\t.align 3\n", (FILE));	\
+      ASM_OUTPUT_LABEL ((FILE), (NAME));				\
+      fputs (DOUBLE_INT_ASM_OP, (FILE));				\
+      putc ('.', (FILE));						\
+      assemble_name ((FILE), (NAME));					\
+      fputs (",.TOC.@tocbase,0\n\t.previous\n\t.size\t", (FILE));	\
+      assemble_name ((FILE), (NAME));					\
+      fputs (",24\n\t.type\t.", (FILE));				\
+      assemble_name ((FILE), (NAME));					\
+      fputs (",@function\n", (FILE));					\
+      if (TREE_PUBLIC (DECL) && ! DECL_WEAK (DECL))			\
+        {								\
+	  fputs ("\t.globl\t.", (FILE));				\
+	  assemble_name ((FILE), (NAME));				\
+	  putc ('\n', (FILE));						\
+        }								\
+      ASM_DECLARE_RESULT ((FILE), DECL_RESULT (DECL));			\
+      putc ('.', (FILE));						\
+      ASM_OUTPUT_LABEL ((FILE), (NAME));				\
+    }									\
+  while (0)
+
+/* This is how to declare the size of a function.  */
+#undef	ASM_DECLARE_FUNCTION_SIZE
+#define	ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)			\
+  do									\
+    {									\
+      if (!flag_inhibit_size_directive)					\
+	{								\
+	  fputs ("\t.size\t.", (FILE));					\
+	  assemble_name ((FILE), (FNAME));				\
+	  fputs (",.-.", (FILE));					\
+	  assemble_name ((FILE), (FNAME));				\
+	  putc ('\n', (FILE));						\
+	}								\
+    }									\
+  while (0)
 
 /* Return non-zero if this entry is to be written into the constant
    pool in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF
@@ -273,29 +308,3 @@ do {						\
 	       || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT		\
 		   && ! TARGET_NO_FP_IN_TOC)))))
 
-/* This is how to output an assembler line defining an `int'
-   constant.  */
-#undef  ASM_OUTPUT_INT
-#define ASM_OUTPUT_INT(FILE, VALUE)            \
-  do                                           \
-    {                                          \
-      fputs ("\t.long ", (FILE));              \
-      output_addr_const ((FILE), (VALUE));     \
-      putc ('\n', (FILE));                     \
-    }                                          \
-  while (0)
-
-/* This is how to output an assembler line defining a `double int'
-   constant.  */
-#undef  ASM_OUTPUT_DOUBLE_INT
-#define ASM_OUTPUT_DOUBLE_INT(FILE, VALUE)     \
-  do                                           \
-    {                                          \
-      fputs (DOUBLE_INT_ASM_OP, (FILE));       \
-      output_addr_const ((FILE), (VALUE));     \
-      putc ('\n', (FILE));                     \
-    }                                          \
-  while (0)
-
-#undef  ASM_DEFAULT_SPEC
-#define	ASM_DEFAULT_SPEC "-mppc64"

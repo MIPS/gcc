@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running SCO Unix System V 3.2 Version 5.
-   Copyright (C) 1992, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2002
    Free Software Foundation, Inc.
    Contributed by Kean Johnston (hug@netcom.com)
 
@@ -20,10 +20,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "i386/i386.h"	/* Base i386 target definitions */
-#include "i386/att.h"	/* Use AT&T i386 assembler syntax */
-
-#undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386, SCO OpenServer 5 Syntax)");
 
 #undef LPREFIX
@@ -34,9 +30,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASCII_DATA_ASM_OP
 #define ASCII_DATA_ASM_OP		"\t.ascii\t"
-
-#undef ASM_BYTE_OP
-#define ASM_BYTE_OP			"\t.byte\t"
 
 #undef IDENT_ASM_OP
 #define IDENT_ASM_OP			"\t.ident\t"
@@ -50,14 +43,13 @@ Boston, MA 02111-1307, USA.  */
 #undef LOCAL_ASM_OP
 #define LOCAL_ASM_OP			"\t.local\t"
 
-#undef INT_ASM_OP
-#define INT_ASM_OP			"\t.long\t"
-
 #undef ASM_SHORT
 #define ASM_SHORT			"\t.value\t"
 
 #undef ASM_LONG
 #define ASM_LONG			"\t.long\t"
+
+#undef ASM_QUAD
 
 #undef TYPE_ASM_OP
 #define TYPE_ASM_OP			"\t.type\t"
@@ -99,7 +91,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef INIT_SECTION_ASM_OP
 #define INIT_SECTION_ASM_OP_ELF		"\t.section\t.init"
-/* Rename these for COFF becuase crt1.o will try to run them. */
+/* Rename these for COFF because crt1.o will try to run them.  */
 #define INIT_SECTION_ASM_OP_COFF	"\t.section\t.ctor ,\"x\""
 #define INIT_SECTION_ASM_OP	\
   ((TARGET_ELF) ? INIT_SECTION_ASM_OP_ELF : INIT_SECTION_ASM_OP_COFF)
@@ -229,18 +221,9 @@ do {									 \
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)			\
 do {									\
   if (TARGET_ELF)							\
-    sprintf (LABEL, "*.%s%d", (PREFIX), (NUM));				\
+    sprintf (LABEL, "*.%s%ld", (PREFIX), (long)(NUM));			\
   else									\
-    sprintf (LABEL, ".%s%d", (PREFIX), (NUM));				\
-} while (0)
-
-#undef ASM_OUTPUT_ADDR_DIFF_ELT
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-do {									\
-  if (TARGET_ELF)							\
-    fprintf (FILE, "%s_GLOBAL_OFFSET_TABLE_+[.-%s%d]\n", ASM_LONG, LPREFIX, VALUE); \
-  else									\
-    fprintf (FILE, "%s%s%d-%s%d\n", ASM_LONG, LPREFIX,VALUE,LPREFIX,REL); \
+    sprintf (LABEL, ".%s%ld", (PREFIX), (long)(NUM));			\
 } while (0)
 
 #undef ASM_OUTPUT_ALIGNED_COMMON
@@ -345,7 +328,7 @@ do {									\
 	    }								\
 	  for (p = _ascii_bytes; p < limit && *p != '\0'; p++)		\
 	    continue;							\
-	  if (p < limit && (p - _ascii_bytes) <= STRING_LIMIT)		\
+	  if (p < limit && (p - _ascii_bytes) <= (long) STRING_LIMIT)	\
 	    {								\
 	      if (bytes_in_chunk > 0)					\
 		{							\
@@ -358,7 +341,7 @@ do {									\
 	  else								\
 	    {								\
 	      if (bytes_in_chunk == 0)					\
-		fprintf ((FILE), "%s", ASM_BYTE_OP);			\
+		fputs ("\t.byte\t", (FILE));				\
 	      else							\
 		fputc (',', (FILE));					\
 	      fprintf ((FILE), "0x%02x", *_ascii_bytes);		\
@@ -371,7 +354,7 @@ do {									\
 
 /* Must use data section for relocatable constants when pic.  */
 #undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE,RTX)					\
+#define SELECT_RTX_SECTION(MODE,RTX,ALIGN)				\
 {									\
   if (TARGET_ELF) {							\
     if (flag_pic && symbolic_operand (RTX, VOIDmode))			\
@@ -390,38 +373,6 @@ do {									\
   ASM_OUTPUT_INTERNAL_LABEL((FILE),(PREFIX),(NUM));			\
 } while (0)
 
-
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
-do {									\
-  if (TARGET_ELF) {							\
-     ctors_section ();							\
-     fprintf (FILE, "%s", INT_ASM_OP);					\
-     assemble_name (FILE, NAME);					\
-     fprintf (FILE, "\n");						\
-  } else {								\
-    init_section ();							\
-    fprintf (FILE, "\tpushl $");					\
-    assemble_name (FILE, NAME);						\
-    fprintf (FILE, "\n"); }						\
-  } while (0)
-
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)				\
-do {									\
-  if (TARGET_ELF) {							\
-    dtors_section ();                   				\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n");						\
-  } else {								\
-    fini_section ();                   					\
-    fprintf (FILE, "%s", INT_ASM_OP);					\
-    assemble_name (FILE, NAME);              				\
-    fprintf (FILE, "\n"); }						\
-  } while (0)
-
-
 #undef ASM_OUTPUT_IDENT
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
   fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
@@ -438,7 +389,7 @@ do {									\
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
   fprintf (FILE, ".%s%d:\n", PREFIX, NUM)
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 
 #undef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX ""
@@ -447,11 +398,10 @@ do {									\
  * We rename 'gcc_except_table' to the shorter name in preparation
  * for the day when we're ready to do DWARF2 eh unwinding under COFF.
  */
-#define EXCEPTION_SECTION()		named_section (NULL, ".gccexc", 1)
+/* #define EXCEPTION_SECTION()		named_section (NULL, ".gccexc", 1) */
 
 /* Switch into a generic section.  */
-#undef TARGET_ASM_NAMED_SECTION
-#define TARGET_ASM_NAMED_SECTION  sco_asm_named_section
+#define TARGET_ASM_NAMED_SECTION default_elf_asm_named_section 
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE) \
@@ -508,15 +458,13 @@ do {									\
   ((TARGET_ELF) ? DWARF2_DEBUG: SDB_DEBUG)
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_init, in_fini, in_ctors, in_dtors
+#define EXTRA_SECTIONS in_const, in_init, in_fini
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
   CONST_SECTION_FUNCTION						\
   INIT_SECTION_FUNCTION							\
-  FINI_SECTION_FUNCTION							\
-  CTORS_SECTION_FUNCTION						\
-  DTORS_SECTION_FUNCTION
+  FINI_SECTION_FUNCTION
 
 #undef CONST_SECTION_FUNCTION
 #define CONST_SECTION_FUNCTION						\
@@ -556,37 +504,10 @@ init_section ()								\
     }									\
 }
 
-#undef CTORS_SECTION_FUNCTION
-#define CTORS_SECTION_FUNCTION						\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
-}
-
-#undef DTORS_SECTION_FUNCTION
-#define DTORS_SECTION_FUNCTION						\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}
-
 #undef SUBTARGET_FRAME_POINTER_REQUIRED
 #define SUBTARGET_FRAME_POINTER_REQUIRED				\
   ((TARGET_ELF) ? 0 : 							\
    (current_function_calls_setjmp || current_function_calls_longjmp))
-
-#undef JUMP_TABLES_IN_TEXT_SECTION
-#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_ELF && flag_pic)
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX						\
@@ -620,7 +541,7 @@ dtors_section ()							\
    : 0))
 
 #undef SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC)					\
+#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
 {									\
   if (TARGET_ELF && flag_pic && RELOC)					\
      data_section ();							\
@@ -726,7 +647,7 @@ dtors_section ()							\
 
 #if USE_GAS
   /* Leave ASM_SPEC undefined so we pick up the master copy from gcc.c 
-   * Undef MD_EXEC_PREFIX becuase we don't know where GAS is, but it's not
+   * Undef MD_EXEC_PREFIX because we don't know where GAS is, but it's not
    * likely in /usr/ccs/bin/ 
    */
 #undef MD_EXEC_PREFIX 
@@ -751,13 +672,11 @@ dtors_section ()							\
     %{pg:gcrt.o%s}%{!pg:%{p:mcrt1.o%s}%{!p:crt1.o%s}}}} \
   %{ansi:values-Xc.o%s} \
   %{!ansi: \
-   %{traditional:values-Xt.o%s} \
-    %{!traditional: \
-     %{Xa:values-Xa.o%s} \
-      %{!Xa:%{Xc:values-Xc.o%s} \
-       %{!Xc:%{Xk:values-Xk.o%s} \
-        %{!Xk:%{Xt:values-Xt.o%s} \
-         %{!Xt:values-Xa.o%s}}}}}} \
+   %{Xa:values-Xa.o%s} \
+    %{!Xa:%{Xc:values-Xc.o%s} \
+     %{!Xc:%{Xk:values-Xk.o%s} \
+      %{!Xk:%{Xt:values-Xt.o%s} \
+       %{!Xt:values-Xa.o%s}}}}} \
   %{mcoff:crtbeginS.o%s} %{!mcoff:crtbegin.o%s}"
 
 #undef ENDFILE_SPEC
@@ -794,7 +713,6 @@ dtors_section ()							\
                       -DM_BITFIELDS -DM_SYS5 -DM_SYSV -DM_INTERNAT -DM_SYSIII \
                       -DM_WORDSWAP}}}} \
   %{scointl:-DM_INTERNAT -D_M_INTERNAT} \
-  %{traditional:-D_KR -D_SVID -D_NO_PROTOTYPE} \
   %{!mcoff:-D_SCO_ELF} \
   %{mcoff:-D_M_COFF -D_SCO_COFF} \
   %{!mcoff:%{fpic:-D__PIC__ -D__pic__} \
@@ -803,8 +721,7 @@ dtors_section ()							\
   %{!Xa:%{Xc:-D_SCO_C_DIALECT=3} \
    %{!Xc:%{Xk:-D_SCO_C_DIALECT=4} \
     %{!Xk:%{Xt:-D_SCO_C_DIALECT=2} \
-     %{!Xt:-D_SCO_C_DIALECT=1}}}} \
-  %{traditional:-traditional -D_KR -D_NO_PROTOTYPE}"
+     %{!Xt:-D_SCO_C_DIALECT=1}}}}"
 
 #undef LINK_SPEC
 #define LINK_SPEC \
@@ -823,7 +740,7 @@ dtors_section ()							\
   %{G:-G} %{!mcoff:%{Qn:} %{!Qy:-Qn}}"
 
 /* The SCO COFF linker gets confused on the difference between "-ofoo"
-   and "-o foo".   So we just always force a single space. */
+   and "-o foo".   So we just always force a single space.  */
 
 #define SWITCHES_NEED_SPACES "o"
 
@@ -839,7 +756,6 @@ dtors_section ()							\
  "%{!shared:-lgcc}"
 
 #define MASK_COFF     		010000000000	/* Mask for elf generation */
-#define TARGET_COFF             (target_flags & MASK_COFF)
 #define TARGET_ELF              (1) /* (!(target_flags & MASK_COFF)) */
 
 #undef SUBTARGET_SWITCHES
@@ -849,7 +765,7 @@ dtors_section ()							\
 #define NO_DOLLAR_IN_LABEL
 
 /* Implicit library calls should use memcpy, not bcopy, etc.  They are 
-   faster on OpenServer libraries. */
+   faster on OpenServer libraries.  */
 
 #define TARGET_MEM_FUNCTIONS
 
@@ -918,7 +834,7 @@ do {									\
   do {									\
     if ((SIZE) == 4 && ((ENCODING) & 0x70) == DW_EH_PE_datarel)		\
       {									\
-        fputs (UNALIGNED_INT_ASM_OP, FILE);				\
+        fputs (ASM_LONG, FILE);						\
         assemble_name (FILE, XSTR (ADDR, 0));				\
 	fputs (((ENCODING) & DW_EH_PE_indirect ? "@GOT" : "@GOTOFF"), FILE); \
         goto DONE;							\

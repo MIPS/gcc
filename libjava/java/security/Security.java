@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 package java.security;
 import java.io.File;
@@ -44,41 +55,47 @@ import java.util.Properties;
 public final class Security extends Object
 {
   private static Vector providers = new Vector();
-  private static int providerCount = 0;
   private static Properties secprops;
 
   static
   {
-    loadProviders();
+    loadProviders(System.getProperty("java.vm.name"));
+    loadProviders("classpath");
   }
 
-  private static void loadProviders()
+  // This class can't be instantiated.
+  private Security ()
   {
-    String separator = System.getProperty("file.separator");
-    String secfilestr = System.getProperty("java.home") +
-      separator + "lib" + separator + "security" + separator +
-      "classpath.security";
+  }
 
-    providerCount = 0;
+  private static void loadProviders(String vendor)
+  {
+    if (vendor == null)
+      return;
+
+    String separator = System.getProperty("file.separator");
+    String secfilestr = (System.getProperty("java.home") +
+			 separator + "lib" +
+			 separator + "security" +
+			 separator + vendor + ".security");
+
     try
       {
-	File secFile = new File(secfilestr);
-	FileInputStream fin = new FileInputStream(secFile);
+	FileInputStream fin = new FileInputStream(secfilestr);
 	secprops = new Properties();
 	secprops.load(fin);
 
 	int i = 1;
 	String name;
-	StringBuffer pname = new StringBuffer("security.provider.");
 
-	while ((name = secprops.getProperty(pname.append(i).toString())) !=
+	while ((name = secprops.getProperty("security.provider." + i++)) !=
 	       null)
 	  {
 	    Exception exception = null;
+
 	    try
 	      {
 		providers.addElement(Class.forName(name).newInstance());
-		providerCount++;
 		i++;
 	      }
 	    catch (ClassNotFoundException x)
@@ -151,7 +168,8 @@ public final class Security extends Object
     if (sm != null)
       sm.checkSecurityAccess("insertProvider." + provider.getName());
 
-    for (int i = 0; i < providerCount; i++)
+    int max = providers.size ();
+    for (int i = 0; i < max; i++)
       {
 	if (((Provider) providers.elementAt(i)).getName() ==
 	    provider.getName())
@@ -159,12 +177,11 @@ public final class Security extends Object
       }
 
     if (position < 0)
-        position = 0;
-    if (position > providerCount)
-      position = providerCount;
+      position = 0;
+    if (position > max)
+      position = max;
 
     providers.insertElementAt(provider, position);
-    providerCount++;
 
     return position;
   }
@@ -188,22 +205,7 @@ public final class Security extends Object
    */
   public static int addProvider(Provider provider)
   {
-    SecurityManager sm = System.getSecurityManager();
-
-    if (sm != null)
-      sm.checkSecurityAccess("insertProvider." + provider.getName());
-
-    for (int i = 0; i < providerCount; i++)
-      {
-	if (((Provider) providers.elementAt(i)).getName() ==
-	    provider.getName())
-	  return -1;
-      }
-
-    providers.addElement(provider);
-    providerCount++;
-
-    return providerCount - 1;
+    return insertProviderAt (provider, providers.size ());
   }
 
   /**
@@ -227,19 +229,15 @@ public final class Security extends Object
       sm.checkSecurityAccess("removeProvider." + name);
 
     Provider p = null;
-    for (int i = 0; i < providerCount; i++)
+    int max = providers.size ();
+    for (int i = 0; i < max; i++)
       {
 	if (((Provider) providers.elementAt(i)).getName() == name)
 	  {
-	    p = (Provider) providers.elementAt(i);
+	    providers.remove(i);
 	    break;
 	  }
       }
-
-    if (p != null)
-      if (providers.removeElement(p))
-	  providerCount--;
-
   }
 
   /**
@@ -250,9 +248,8 @@ public final class Security extends Object
    */
   public static Provider[] getProviders()
   {
-    Provider array[] = new Provider[providerCount];
-    for (int i = 0; i < providerCount; i++)
-      array[i] = (Provider) providers.elementAt(i);
+    Provider array[] = new Provider[providers.size ()];
+    providers.copyInto (array);
     return array;
   }
 
@@ -267,7 +264,8 @@ public final class Security extends Object
   public static Provider getProvider(String name)
   {
     Provider p = null;
-    for (int i = 0; i < providerCount; i++)
+    int max = providers.size ();
+    for (int i = 0; i < max; i++)
       {
 	p = (Provider) providers.elementAt(i);
 	if (p.getName() == name)

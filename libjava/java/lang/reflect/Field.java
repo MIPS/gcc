@@ -1,4 +1,4 @@
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -31,6 +31,12 @@ public final class Field extends AccessibleObject implements Member
 
   // Offset in bytes from the start of declaringClass's fields array.
   private int offset;
+
+  // This is instantiated by Class sometimes, but it uses C++ and
+  // avoids the Java protection check.
+  Field ()
+  {
+  }
 
   public boolean equals (Object fld)
     {
@@ -138,7 +144,7 @@ public final class Field extends AccessibleObject implements Member
   private native double getDouble (Class caller, Object obj)
     throws IllegalArgumentException, IllegalAccessException;
 
-  public native Object get (Class caller, Object obj)
+  private native Object get (Class caller, Object obj)
     throws IllegalArgumentException, IllegalAccessException;
 
   public void setByte (Object obj, byte b)
@@ -189,28 +195,28 @@ public final class Field extends AccessibleObject implements Member
     setBoolean(null, obj, b);
   }
 
-  public native void setByte (Class caller, Object obj, byte b)
+  private native void setByte (Class caller, Object obj, byte b)
     throws IllegalArgumentException, IllegalAccessException;
 
-  public native void setShort (Class caller, Object obj, short s)
+  private native void setShort (Class caller, Object obj, short s)
     throws IllegalArgumentException, IllegalAccessException;
 
-  public native void setInt (Class caller, Object obj, int i)
+  private native void setInt (Class caller, Object obj, int i)
     throws IllegalArgumentException, IllegalAccessException;
 
-  public native void setLong (Class caller, Object obj, long l)
+  private native void setLong (Class caller, Object obj, long l)
     throws IllegalArgumentException, IllegalAccessException;
 
-  public native void setFloat (Class caller, Object obj, float f)
+  private native void setFloat (Class caller, Object obj, float f)
     throws IllegalArgumentException, IllegalAccessException;
 
-  public native void setDouble (Class caller, Object obj, double d)
+  private native void setDouble (Class caller, Object obj, double d)
     throws IllegalArgumentException, IllegalAccessException;
 
-  public native void setChar (Class caller, Object obj, char c)
+  private native void setChar (Class caller, Object obj, char c)
     throws IllegalArgumentException, IllegalAccessException;
 
-  public native void setBoolean (Class caller, Object obj, boolean b)
+  private native void setBoolean (Class caller, Object obj, boolean b)
     throws IllegalArgumentException, IllegalAccessException;
 
   private native void set (Class caller, Object obj, Object val, Class type)
@@ -222,7 +228,7 @@ public final class Field extends AccessibleObject implements Member
     set(null, object, value);
   }
 
-  public void set (Class caller, Object object, Object value)
+  private void set (Class caller, Object object, Object value)
     throws IllegalArgumentException, IllegalAccessException
   {
     Class type = getType();
@@ -257,9 +263,9 @@ public final class Field extends AccessibleObject implements Member
 	Modifier.toString(mods, sbuf);
 	sbuf.append(' ');
       }
-    sbuf.append(getType().getName());
+    Method.appendClassName (sbuf, getType ());
     sbuf.append(' ');
-    sbuf.append(getDeclaringClass().getName());
+    Method.appendClassName (sbuf, getDeclaringClass());
     sbuf.append('.');
     sbuf.append(getName());
     return sbuf.toString();

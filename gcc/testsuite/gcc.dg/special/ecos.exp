@@ -94,16 +94,34 @@ switch [check_alias_available "$srcdir/$subdir/alias-1.c"] {
 dg-finish
 
 ###########
-# wkali-1.c
+# alias-2.c
 ###########
 
 dg-init
-switch [check_alias_available "$srcdir/$subdir/wkali-1.c"] {
-    yes     { dg-runtest "$srcdir/$subdir/wkali-1.c" "" "" }
-    no      { unsupported "wkali-1.c" }
-    default { fail "wkali-1.c" }
+switch [check_alias_available "$srcdir/$subdir/alias-2.c"] {
+    yes     { dg-runtest "$srcdir/$subdir/alias-2.c" "" "" }
+    no      { unsupported "alias-2.c" }
+    default { fail "alias-2.c" }
 }
 dg-finish
+
+###########
+# wkali-1.c
+###########
+
+if { [ check_weak_available ] == 1 } {
+    dg-init
+    switch [check_alias_available "$srcdir/$subdir/wkali-1.c"] {
+        yes     { dg-runtest "$srcdir/$subdir/wkali-1.c" "" "" }
+        no      { unsupported "wkali-1.c" }
+        default { fail "wkali-1.c" }
+    }
+    dg-finish
+} elseif { [ check_weak_available ] == 0 } {
+    unsupported "wkali-1.c"
+} else {
+    unresolved "wkali-1.c"
+}
 
 ###########
 # wkali-2.c
@@ -118,7 +136,7 @@ if { [ check_weak_available ] == 1 } {
         set lines [gcc_target_compile "$srcdir/$subdir/wkali-2b.c" "wkali-2b.o" object ""]
         if [string match "*only weak aliases*" $lines] then {
 	    xfail "wkali-2b.o"
-	    file delete $srcdir/$subdir/a.out
+	    file delete $srcdir/$subdir/wkali-2.exe
         } elseif ![string match "" $lines] then {
             fail "wkali-2b.o"
         } else {
@@ -139,7 +157,11 @@ if { [ check_weak_available ] == 1 } {
 
 set ld_output [ remote_exec host "[ find_ld ]" "--help" ]
 
-if { [ string first "--gc-sections" $ld_output ] >= 0 } {
+# AIX gld supports garbage collection. But AIX gcc does not support 
+# -ffunction-sections or -fdata-sections.
+if { [ string first "--gc-sections" $ld_output ] >= 0 
+     && ! [istarget rs6000-*-aix*]
+     && ! [istarget powerpc*-*-aix*] } {
 
     dg-init
     if [isnative] {

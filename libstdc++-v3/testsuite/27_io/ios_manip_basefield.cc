@@ -1,6 +1,6 @@
 // 981027 ncm work with libstdc++v3
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,11 +27,10 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#include <iostream>
 #include <sstream>
 #include <locale>
 #include <iomanip>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 			
 struct MyNP : std::numpunct<char>
 {
@@ -39,37 +38,70 @@ struct MyNP : std::numpunct<char>
   char   do_thousands_sep() const;
 };
 
-std::string MyNP::do_grouping() const { static std::string s("\3"); return s; }
+std::string MyNP::do_grouping() const { std::string s("\3"); return s; }
 char   MyNP::do_thousands_sep() const { return ' '; }
 
 int
 test01()
 {
-  std::cout.imbue(std::locale(std::locale(), new MyNP));
-  std::cout << std::oct << std::showbase;
-  std::cout << -0123456l << std::endl;
+  bool test = true;
 
-  std::cout << ":" << std::setw(11);
-  std::cout << -01234567l << ":" << std::endl;
+  const char lit[] = "0123 456\n: 01 234 567:\n:0123 456   :\n"
+                     ":    012 345:\n:     01 234:\n:0726 746 425:\n"
+                     ":04 553 207 :\n:   0361 100:\n:       0173:\n"
+                     "0x12 345 678\n|0x000012 345 678|\n|0x12 345 6780000|\n"
+                     "|00000x12 345 678|\n|0x000012 345 678|\n";
 
-  std::cout << ":" << std::setw(11) << std::left;
-  std::cout << -0123456l << ":" << std::endl;
+  std::ostringstream oss;
+  oss.imbue(std::locale(std::locale(), new MyNP));
 
-  std::cout << ":" << std::setw(11) << std::right;
-  std::cout << -012345l << ":" << std::endl;
+  // Octals
+  oss << std::oct << std::showbase;
+  oss << 0123456l << std::endl;
 
-  std::cout << ":" << std::setw(11) << std::internal;
-  std::cout << -01234l << ":" << std::endl;
+  oss << ":" << std::setw(11);
+  oss << 01234567l << ":" << std::endl;
 
-  std::cout << std::hex;
-  std::cout << std::setfill('0');
-  std::cout << std::internal;
-  std::cout << std::showbase;
-  std::cout << std::setw(16);
-  std::cout << 0x12345678l << std::endl;
-#ifdef DEBUG_ASSERT
-  assert (std::cout.good());
-#endif
+  oss << ":" << std::setw(11) << std::left;
+  oss << 0123456l << ":" << std::endl;
+
+  oss << ":" << std::setw(11) << std::right;
+  oss << 012345l << ":" << std::endl;
+
+  oss << ":" << std::setw(11) << std::internal;
+  oss << 01234l << ":" << std::endl;
+
+  oss << ":" << std::setw(11);
+  oss << 123456789l << ":" << std::endl;
+
+  oss << ":" << std::setw(11) << std::left;
+  oss << 1234567l << ":" << std::endl;
+
+  oss << ":" << std::setw(11) << std::right;
+  oss << 123456l << ":" << std::endl;
+
+  oss << ":" << std::setw(11) << std::internal;
+  oss << 123l << ":" << std::endl;
+
+  // Hexadecimals
+  oss << std::hex << std::setfill('0');
+  oss << 0x12345678l << std::endl;
+
+  oss << "|" << std::setw(16);
+  oss << 0x12345678l << "|" << std::endl;
+
+  oss << "|" << std::setw(16) << std::left;
+  oss << 0x12345678l << "|" << std::endl;
+
+  oss << "|" << std::setw(16) << std::right;
+  oss << 0x12345678l << "|" << std::endl;
+
+  oss << "|" << std::setw(16) << std::internal;
+  oss << 0x12345678l << "|" << std::endl;
+
+  VERIFY( oss.good() );
+  VERIFY( oss.str() == lit );
+
   return 0;
 }
 
@@ -94,24 +126,32 @@ test02()
   VERIFY( strbuf.str() == "cisco " ); 
   strbuf.str(str_blank);
 
-#ifdef DEBUG_ASSERT
-  assert (test);
-#endif
+  VERIFY( test );
   return 0;
 }
 
 int 
-main() {
+main() 
+{
   test01();
+  test02();
   return 0;
 }
 
 // Projected output:
 /*
--0 123 456
-:-01 234 567:
-:-0 123 456 :
-:   -012 345:
-:-    01 234:
-0x000012 345 678
+0123 456
+: 01 234 567:
+:0123 456   :
+:    012 345:
+:     01 234:
+:0726 746 425:
+:04 553 207 :
+:   0361 100:
+:       0173:
+0x12 345 678
+|0x000012 345 678|
+|0x12 345 6780000|
+|00000x12 345 678|
+|0x000012 345 678|
 */

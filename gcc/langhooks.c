@@ -39,27 +39,11 @@ lhd_do_nothing ()
 {
 }
 
-/* Do nothing (tree).  */
+/* Do nothing.  */
 
 void
 lhd_do_nothing_t (t)
      tree t ATTRIBUTE_UNUSED;
-{
-}
-
-/* Do nothing (int).  */
-
-void
-lhd_do_nothing_i (i)
-     int i ATTRIBUTE_UNUSED;
-{
-}
-
-/* Do nothing (function).  */
-
-void
-lhd_do_nothing_f (f)
-     struct function *f ATTRIBUTE_UNUSED;
 {
 }
 
@@ -148,6 +132,16 @@ lhd_warn_unused_global_decl (decl)
   return true;
 }
 
+/* Called when -dy is given on the command line.  */
+
+void
+lhd_set_yydebug (value)
+     int value;
+{
+  if (value)
+    fprintf (stderr, "warning: no yacc/bison-generated output to debug!\n");
+}
+
 /* Set the DECL_ASSEMBLER_NAME for DECL.  */
 void
 lhd_set_decl_assembler_name (decl)
@@ -182,25 +176,6 @@ lhd_clear_binding_stack ()
 {
   while (! (*lang_hooks.decls.global_bindings_p) ())
     poplevel (0, 0, 0);
-}
-
-/* Type promotion for variable arguments.  */
-tree
-lhd_type_promotes_to (type)
-     tree type ATTRIBUTE_UNUSED;
-{
-  abort ();
-}
-
-/* Invalid use of an incomplete type.  */
-void
-lhd_incomplete_type_error (value, type)
-     tree value ATTRIBUTE_UNUSED, type;
-{
-  if (TREE_CODE (type) == ERROR_MARK)
-    return;
-
-  abort ();
 }
 
 /* Provide a default routine for alias sets that always returns -1.  This

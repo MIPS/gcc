@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
 This file is part of GNU CC.
@@ -23,23 +23,6 @@ Boston, MA 02111-1307, USA.  */
 /* Names to predefine in the preprocessor for this target machine. */
 
 #define CPP_PREDEFINES "-DAVR"
-/* Define this to be a string constant containing `-D' options to
-   define the predefined macros that identify this machine and system.
-   These macros will be predefined unless the `-ansi' option is
-   specified.
-
-   In addition, a parallel set of macros are predefined, whose names
-   are made by appending `__' at the beginning and at the end.  These
-   `__' macros are permitted by the ANSI standard, so they are
-   predefined regardless of whether `-ansi' is specified.
-
-   For example, on the Sun, one can use the following value:
-
-   "-Dmc68000 -Dsun -Dunix"
-
-   The result is to define the macros `__mc68000__', `__sun__' and
-   `__unix__' unconditionally, and the macros `mc68000', `sun' and
-   `unix' provided `-ansi' is not specified.  */
 
 
 /* This declaration should be present. */
@@ -71,25 +54,6 @@ extern int target_flags;
 #define TARGET_RTL_DUMP		(target_flags & MASK_RTL_DUMP)
 #define TARGET_ALL_DEBUG 	(target_flags & MASK_ALL_DEBUG)
 
-/* `TARGET_...'
-   This series of macros is to allow compiler command arguments to
-   enable or disable the use of optional features of the target
-   machine.  For example, one machine description serves both the
-   68000 and the 68020; a command argument tells the compiler whether
-   it should use 68020-only instructions or not.  This command
-   argument works by means of a macro `TARGET_68020' that tests a bit
-   in `target_flags'.
-
-   Define a macro `TARGET_FEATURENAME' for each such option.  Its
-   definition should test a bit in `target_flags'; for example:
-
-   #define TARGET_68020 (target_flags & 1)
-
-   One place where these macros are used is in the
-   condition-expressions of instruction patterns.  Note how
-   `TARGET_68020' appears frequently in the 68000 machine description
-   file, `m68k.md'.  Another place they are used is in the
-   definitions of the other macros in the `MACHINE.h' file.  */
 
 
 
@@ -110,27 +74,6 @@ extern int target_flags;
     N_("Output instruction sizes to the asm file") },			\
   { "deb", MASK_ALL_DEBUG, NULL },					\
   { "", 0, NULL } }
-/* This macro defines names of command options to set and clear bits
-   in `target_flags'.  Its definition is an initializer with a
-   subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   option name, and a number, which contains the bits to set in
-   `target_flags'.  A negative number says to clear bits instead; the
-   negative of the number is which bits to clear.  The actual option
-   name is made by appending `-m' to the specified name.
-
-   One of the subgroupings should have a null string.  The number in
-   this grouping is the default value for `target_flags'.  Any target
-   options act starting with that value.
-
-   Here is an example which defines `-m68000' and `-m68020' with
-   opposite meanings, and picks the latter as the default:
-
-   #define TARGET_SWITCHES \
-   { { "68020", 1},      \
-   { "68000", -1},     \
-   { "", 1}}  */
 
 extern const char *avr_init_stack;
 extern const char *avr_mcu_name;
@@ -143,23 +86,6 @@ extern int avr_enhanced_p;
 #define TARGET_OPTIONS {						      \
  { "init-stack=", &avr_init_stack, N_("Specify the initial stack address") }, \
  { "mcu=", &avr_mcu_name, N_("Specify the MCU name") } }
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable.  The
-   variable, type `char *', is set to the variable part of the given
-   option if the fixed part matches.  The actual option name is made
-   by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-   extern char *m88k_short_data;
-   #define TARGET_OPTIONS \
-   { { "short-data-", &m88k_short_data } }  */
 
 #define TARGET_VERSION fprintf (stderr, " (GNU assembler syntax)");
 /* This macro is a C statement to print on `stderr' a string
@@ -199,13 +125,6 @@ extern int avr_enhanced_p;
 /* Define this if most significant word of a multiword number is the lowest
    numbered.  */
 #define WORDS_BIG_ENDIAN 0
-
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';  */
-#define BITS_PER_WORD 8
 
 #ifdef IN_LIBGCC2
 /* This is to get correct SI and DI modes in libgcc2.c (32 and 64 bits).  */
@@ -270,12 +189,6 @@ extern int avr_enhanced_p;
    words.  If you want to support GNU Ada on your machine, the value
    of macro must be at least 64.  */
 
-
-#define  CHAR_TYPE_SIZE 8
-/* A C expression for the size in bits of the type `char' on the
-   target machine.  If you don't define this, the default is one
-   quarter of a word.  (If this would be less than one storage unit,
-   it is rounded up to one unit.)  */
 
 #define FLOAT_TYPE_SIZE 32
 /* A C expression for the size in bits of the type `float' on the
@@ -613,8 +526,8 @@ enum reg_class {
   {(3 << REG_X)|(3 << REG_Y)|(3 << REG_Z)|(3 << REG_W)|(0xff << 16),	\
      0x00000000},	/* LD_REGS, r16 - r31 */			\
   {0x0000ffff,0x00000000}, 	/* NO_LD_REGS  r0 - r15 */              \
-  {0xffffffffu,0x00000000},	/* GENERAL_REGS, r0 - r31 */		\
-  {0xffffffffu,0x00000003}	/* ALL_REGS */				\
+  {0xffffffff,0x00000000},	/* GENERAL_REGS, r0 - r31 */		\
+  {0xffffffff,0x00000003}	/* ALL_REGS */				\
 }
 /* An initializer containing the contents of the register classes, as
    integers which are bit masks.  The Nth integer specifies the
@@ -791,7 +704,7 @@ enum reg_class {
    class of registers.  In that case, secondary reload registers are
    not needed and would not be helpful.  Instead, a stack location
    must be used to perform the copy and the `movM' pattern should use
-   memory as a intermediate storage.  This case often occurs between
+   memory as an intermediate storage.  This case often occurs between
    floating-point and general registers.  */
 
 /* `SECONDARY_MEMORY_NEEDED (CLASS1, CLASS2, M)'
@@ -1110,7 +1023,7 @@ enum reg_class {
    FUNDECL is a C variable whose value is a tree node that describes
    the function in question.  Normally it is a node of type
    `FUNCTION_DECL' that describes the declaration of the function.
-   From this you can obtain the DECL_MACHINE_ATTRIBUTES of the
+   From this you can obtain the DECL_ATTRIBUTES of the
    function.
 
    FUNTYPE is a C variable whose value is a tree node that describes
@@ -1797,18 +1710,6 @@ do {									    \
    subsequent accesses occur to other fields in the same word of the
    structure, but to different bytes.
 
-   `SLOW_ZERO_EXTEND'
-   Define this macro if zero-extension (of a `char' or `short' to an
-   `int') can be done faster if the destination is a register that is
-   known to be zero.
-
-   If you define this macro, you must have instruction patterns that
-   recognize RTL structures like this:
-
-   (set (strict_low_part (subreg:QI (reg:SI ...) 0)) ...)
-
-   and likewise for `HImode'.
-
    `SLOW_UNALIGNED_ACCESS'
    Define this macro to be the value 1 if unaligned accesses have a
    cost many times greater than aligned accesses, for example if they
@@ -1842,23 +1743,7 @@ do {									    \
 #define NO_RECURSIVE_FUNCTION_CSE
 /* Define this macro if it is as good or better for a function to call
    itself with an explicit address than to call an address kept in a
-   register.
-
-   `ADJUST_COST (INSN, LINK, DEP_INSN, COST)'
-   A C statement (sans semicolon) to update the integer variable COST
-   based on the relationship between INSN that is dependent on
-   DEP_INSN through the dependence LINK.  The default is to make no
-   adjustment to COST.  This can be used for example to specify to
-   the scheduler that an output- or anti-dependence does not incur
-   the same cost as a data-dependence.
-
-   `ADJUST_PRIORITY (INSN)'
-   A C statement (sans semicolon) to update the integer scheduling
-   priority `INSN_PRIORITY(INSN)'.  Reduce the priority to execute
-   the INSN earlier, increase the priority to execute INSN later.
-   Do not define this macro if you do not need to adjust the
-   scheduling priorities of insns.  */
-
+   register.  */
 
 #define TEXT_SECTION_ASM_OP "\t.text"
 /* A C expression whose value is a string containing the assembler
@@ -1906,7 +1791,7 @@ progmem_section (void)							      \
    If these items should be placed in the text section, this macro
    should not be defined.  */
 
-/* `SELECT_SECTION (EXP, RELOC)'
+/* `SELECT_SECTION (EXP, RELOC, ALIGN)'
    A C statement or statements to switch to the appropriate section
    for output of EXP.  You can assume that EXP is either a `VAR_DECL'
    node or a constant of some sort.  RELOC indicates whether the
@@ -1917,7 +1802,7 @@ progmem_section (void)							      \
    Do not define this macro if you put all read-only variables and
    constants in the read-only data section (usually the text section).  */
 
-/* `SELECT_RTX_SECTION (MODE, RTX)'
+/* `SELECT_RTX_SECTION (MODE, RTX, ALIGN)'
    A C statement or statements to switch to the appropriate section
    for output of RTX in mode MODE.  You can assume that RTX is some
    kind of constant in RTL.  The argument MODE is redundant except in
@@ -1935,7 +1820,7 @@ progmem_section (void)							      \
    This macro is irrelevant if there is no separate readonly data
    section.  */
 
-#define ENCODE_SECTION_INFO(DECL)  encode_section_info(DECL)
+#define ENCODE_SECTION_INFO(DECL, FIRST)  encode_section_info(DECL, FIRST)
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or function
    named by the symbol (such as what section it is in).
@@ -2024,55 +1909,6 @@ progmem_section (void)							      \
    sending.  The statement is executed only when compiling an
    Objective C program.  */
 
-
-
-#define ASM_OUTPUT_DOUBLE(STREAM, VALUE) fprintf (STREAM, "no double float %.20e\n", VALUE)
-#define ASM_OUTPUT_FLOAT(STREAM, VALUE) asm_output_float (STREAM, VALUE)
-/* `ASM_OUTPUT_LONG_DOUBLE (STREAM, VALUE)'
-   `ASM_OUTPUT_THREE_QUARTER_FLOAT (STREAM, VALUE)'
-   `ASM_OUTPUT_SHORT_FLOAT (STREAM, VALUE)'
-   `ASM_OUTPUT_BYTE_FLOAT (STREAM, VALUE)'
-   A C statement to output to the stdio stream STREAM an assembler
-   instruction to assemble a floating-point constant of `TFmode',
-   `DFmode', `SFmode', `TQFmode', `HFmode', or `QFmode',
-   respectively, whose value is VALUE.  VALUE will be a C expression
-   of type `REAL_VALUE_TYPE'.  Macros such as
-   `REAL_VALUE_TO_TARGET_DOUBLE' are useful for writing these
-   definitions.  */
-
-
-#define ASM_OUTPUT_INT(FILE, VALUE)			\
- ( fprintf (FILE, "\t.long "),				\
-   output_addr_const (FILE, (VALUE)),			\
-   fputs ("\n", FILE))
-
- /* Likewise for `short' and `char' constants.   */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE) asm_output_short(FILE,VALUE)
-#define ASM_OUTPUT_CHAR(FILE,VALUE) asm_output_char(FILE,VALUE)
-
-/* `ASM_OUTPUT_QUADRUPLE_INT (STREAM, EXP)'
-   A C statement to output to the stdio stream STREAM an assembler
-   instruction to assemble an integer of 16, 8, 4, 2 or 1 bytes,
-   respectively, whose value is VALUE.  The argument EXP will be an
-   RTL expression which represents a constant value.  Use
-   `output_addr_const (STREAM, EXP)' to output this value as an
-   assembler expression.
-
-   For sizes larger than `UNITS_PER_WORD', if the action of a macro
-   would be identical to repeatedly calling the macro corresponding to
-   a size of `UNITS_PER_WORD', once for each word, you need not define
-   the macro.  */
-
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE) asm_output_byte (FILE,VALUE)
-/* A C statement to output to the stdio stream STREAM an assembler
-   instruction to assemble a single byte containing the number VALUE.  */
-
-#define ASM_BYTE_OP "\t.byte "
-/* A C string constant giving the pseudo-op to use for a sequence of
-   single-byte constants.  If this macro is not defined, the default
-   is `"\t.byte\t"'.  */
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)	 gas_output_ascii (FILE,P,SIZE)
 /* `ASM_OUTPUT_ASCII (STREAM, PTR, LEN)'
@@ -2603,8 +2439,8 @@ sprintf (STRING, "*.%s%d", PREFIX, NUM)
    If this macro is not defined, nothing special is output at the end
    of the jump-table.  */
 
-#define ASM_OUTPUT_SKIP(STREAM, n)		\
-fprintf (STREAM, "\t.skip %d,0\n", n)
+#define ASM_OUTPUT_SKIP(STREAM, N)		\
+fprintf (STREAM, "\t.skip %d,0\n", N)
 /* A C statement to output to the stdio stream STREAM an assembler
    instruction to advance the location counter by NBYTES bytes.
    Those bytes should be zero when loaded.  NBYTES will be a C
@@ -2634,15 +2470,6 @@ extern int avr_case_values_threshold;
    mode smaller than a word are always performed on the entire
    register.  Most RISC machines have this property and most CISC
    machines do not.  */
-
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-/* An alias for a tree code that is the easiest kind of division to
-   compile code for in the general case.  It may be `TRUNC_DIV_EXPR',
-   `FLOOR_DIV_EXPR', `CEIL_DIV_EXPR' or `ROUND_DIV_EXPR'.  These four
-   division operators differ in how they round the result to an
-   integer.  `EASY_DIV_EXPR' is used when it is permissible to use
-   any of those kinds of division and the choice should be made on
-   the basis of efficiency.  */
 
 #define MOVE_MAX 4
 /* The maximum number of bytes that a single instruction can move
@@ -2723,7 +2550,7 @@ extern int avr_case_values_threshold;
    the most combinations to be found.  */
 
 #define TRAMPOLINE_TEMPLATE(FILE) \
-  internal_error ("Trampolines not supported\n")
+  internal_error ("trampolines not supported")
 
 /* Length in units of the trampoline for entering a nested function.  */
 
@@ -2800,13 +2627,21 @@ extern int avr_case_values_threshold;
 %{mmcu=avr3:%(cpp_avr3)} \
 %{mmcu=atmega603:%(cpp_avr3) -D__AVR_ATmega603__} \
 %{mmcu=atmega103:%(cpp_avr3) -D__AVR_ATmega103__} \
+%{mmcu=at43usb320:%(cpp_avr3) -D__AVR_AT43USB320__} \
+%{mmcu=at76c711: %(cpp_avr3) -D__AVR_AT76C711__} \
 %{mmcu=avr4:%(cpp_avr4)} \
+%{mmcu=atmega8:  %(cpp_avr4) -D__AVR_ATmega8__} \
 %{mmcu=atmega83: %(cpp_avr4) -D__AVR_ATmega83__} \
 %{mmcu=atmega85: %(cpp_avr4) -D__AVR_ATmega85__} \
 %{mmcu=avr5:%(cpp_avr5)} \
+%{mmcu=atmega16: %(cpp_avr5) -D__AVR_ATmega16__} \
 %{mmcu=atmega161:%(cpp_avr5) -D__AVR_ATmega161__} \
 %{mmcu=atmega163:%(cpp_avr5) -D__AVR_ATmega163__} \
 %{mmcu=atmega32: %(cpp_avr5) -D__AVR_ATmega32__} \
+%{mmcu=atmega323:%(cpp_avr5) -D__AVR_ATmega323__} \
+%{mmcu=atmega64: %(cpp_avr5) -D__AVR_ATmega64__} \
+%{mmcu=atmega128:%(cpp_avr5) -D__AVR_ATmega128__} \
+%{mmcu=at43usb355:%(cpp_avr5) -D__AVR_AT43USB355__} \
 %{mmcu=at94k:    %(cpp_avr5) -D__AVR_AT94K__} \
 %{mmcu=avr1:%(cpp_avr1)} \
 %{mmcu=at90s1200:%(cpp_avr1) -D__AVR_AT90S1200__} \
@@ -2840,16 +2675,7 @@ extern int avr_case_values_threshold;
 
    This should be defined if `PTRDIFF_TYPE' depends on target
    dependent flags which are not accessible to the preprocessor.
-   Otherwise, it should not be defined.
-
-   `SIGNED_CHAR_SPEC'
-   A C string constant that tells the GNU CC driver program options to
-   pass to CPP.  By default, this macro is defined to pass the option
-   `-D__CHAR_UNSIGNED__' to CPP if `char' will be treated as
-   `unsigned char' by `cc1'.
-
-   Do not define this macro unless you need to override the default
-   definition.  */
+   Otherwise, it should not be defined.  */
 
 #define CC1_SPEC "%{profile:-p}"
 /* A C string constant that tells the GNU CC driver program options to
@@ -2878,10 +2704,18 @@ extern int avr_case_values_threshold;
 %{!mmcu*:-m avr85xx} \
 %{mmcu=atmega603:-m avrmega603} \
 %{mmcu=atmega103:-m avrmega103} \
+%{mmcu=at43usb320:-m avr3} \
+%{mmcu=at76c711:-m avr3} \
+%{mmcu=atmega16:-m avrmega161} \
 %{mmcu=atmega161:-m avrmega161} \
 %{mmcu=atmega163:-m avrmega161} \
 %{mmcu=atmega32:-m avr5} \
+%{mmcu=atmega323:-m avr5} \
+%{mmcu=atmega64:-m avr5} \
+%{mmcu=atmega128:-m avr5} \
+%{mmcu=at43usb355:-m avr5} \
 %{mmcu=at94k:-m avr5} \
+%{mmcu=atmega8:-m avr4} \
 %{mmcu=atmega83:-m avr4} \
 %{mmcu=atmega85:-m avr4} \
 %{mmcu=at90s1200|mmcu=attiny1*:-m avr1200} \
@@ -2958,11 +2792,19 @@ extern int avr_case_values_threshold;
 %{mmcu=at90s8535:crts8535.o%s} \
 %{mmcu=atmega103|mmcu=avr3:crtm103.o%s} \
 %{mmcu=atmega603:crtm603.o%s} \
+%{mmcu=at43usb320:crt43320.o%s} \
+%{mmcu=at76c711:crt76711.o%s } \
+%{mmcu=atmega8:crtm8.o%s} \
 %{mmcu=atmega83|mmcu=avr4:crtm83.o%s} \
 %{mmcu=atmega85:crtm85.o%s} \
+%{mmcu=atmega16:crtm16.o%s} \
 %{mmcu=atmega161|mmcu=avr5:crtm161.o%s} \
 %{mmcu=atmega163:crtm163.o%s} \
 %{mmcu=atmega32:crtm32.o%s} \
+%{mmcu=atmega323:crtm323.o%s} \
+%{mmcu=atmega64:crtm64.o%s} \
+%{mmcu=atmega128:crtm128.o%s} \
+%{mmcu=at43usb355:crt43355.o%s} \
 %{mmcu=at94k:crtat94k.o%s}"
 
 #define CPP_AVR1_SPEC "-D__AVR_ARCH__=1 -D__AVR_ASM_ONLY__ "
@@ -3073,13 +2915,7 @@ extern struct rtx_def *ldi_reg_rtx;
 
 #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
-
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
-
-#define DBX_REGISTER_NUMBER(r) (r)
 
 /* Get the standard ELF stabs definitions.  */
 #include "dbxelf.h"

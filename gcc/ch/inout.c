@@ -1466,7 +1466,7 @@ access_dynamic (access)
   return integer_zero_node;
 }
 
-#if 0
+/*
    returns a structure like
    STRUCT (data STRUCT (flags ULONG,
                         reclength ULONG,
@@ -1480,7 +1480,7 @@ access_dynamic (access)
    TYPE_DECL __recordmode recordmode ? recordmode : void_type_node
    TYPE_DECL __indexmode  indexmode  ? indexmode  : void_type_node
    CONST_DECL __dynamic   dynamic ? integer_one_node : integer_zero_node
-#endif
+*/
 
 static tree
 build_access_part ()
@@ -1547,7 +1547,7 @@ build_access_mode (indexmode, recordmode, dynamic)
   return type;
 }
 
-#if 0
+/*
   returns a structure like:
   STRUCT (txt STRUCT (flags ULONG,
                       text_record PTR,
@@ -1567,7 +1567,7 @@ build_access_mode (indexmode, recordmode, dynamic)
   TYPE_DECL __indexmode indexmode ? indexmode : void_type_node
   CONST_DECL __text_length
   CONST_DECL __dynamic  dynamic ? integer_one_node : integer_zero_node
-#endif
+*/
 tree
 build_text_mode (textlength, indexmode, dynamic)
      tree textlength;
@@ -1652,7 +1652,7 @@ check_text_length (length)
     }
   if (compare_int_csts (LE_EXPR, length, integer_zero_node))
     {
-      error ("text length must be greater then 0");
+      error ("text length must be greater than 0");
       return integer_one_node;
     }
   return length;
@@ -2028,7 +2028,7 @@ build_chill_modify (assoc, list)
       attr = TREE_VALUE (TREE_CHAIN (list));
       break;
     default:
-      error ("Too many arguments in call to MODIFY");
+      error ("too many arguments in call to MODIFY");
       had_errors = 1;
       break;
     }
@@ -2542,7 +2542,7 @@ build_chill_readrecord (access, optionals)
       /* we must have an index */
       if (!len)
 	{
-	  error ("Too few arguments in call to `readrecord'");
+	  error ("too few arguments in call to `readrecord'");
 	  return error_mark_node;
 	}
       index = TREE_VALUE (optionals);
@@ -2613,7 +2613,7 @@ build_chill_writerecord (access, optionals)
   len = list_length (optionals);
   if (indexmode != void_type_node && len != 2)
     {
-      error ("Too few arguments in call to `writerecord'");
+      error ("too few arguments in call to `writerecord'");
       return error_mark_node;
     }
   if (indexmode != void_type_node)
@@ -3138,7 +3138,7 @@ process_io_list (exprlist, iolist_addr, iolist_length, iolist_rtx, do_read,
 			enumname = "__IO_LongRangeLoc";
 		      break;
 		    default:
-		      error ("Cannot process %d bits integer for READTEXT argument %d.",
+		      error ("cannot process %d bits integer for READTEXT argument %d",
 			     type_size, idxcnt + 1 + argoffset);
 		      continue;
 		    }
@@ -3184,7 +3184,7 @@ process_io_list (exprlist, iolist_addr, iolist_length, iolist_rtx, do_read,
 			enumname = "__IO_LongLoc";
 		      break;
 		    default:
-		      error ("Cannot process %d bits integer for READTEXT argument %d.",
+		      error ("cannot process %d bits integer for READTEXT argument %d",
 			     type_size, idxcnt + 1 + argoffset);
 		      continue;
 		    }
@@ -3259,7 +3259,7 @@ process_io_list (exprlist, iolist_addr, iolist_length, iolist_rtx, do_read,
 			  goto try_long;
 			}
 		    }
-		  error ("Cannot process %d bits integer WRITETEXT argument %d.",
+		  error ("cannot process %d bits integer WRITETEXT argument %d",
 			 type_size, idxcnt + 1 + argoffset);
 		  continue;
 		}
@@ -3722,7 +3722,7 @@ process_io_list (exprlist, iolist_addr, iolist_length, iolist_rtx, do_read,
       else
 	{
 	  /* datatype is not yet implemented, issue a warning */
-	  error ("cannot process mode of argument %d for %sTEXT.", idxcnt + 1 + argoffset,
+	  error ("cannot process mode of argument %d for %sTEXT", idxcnt + 1 + argoffset,
 		 do_read ? "READ" : "WRITE");
 	  enumname = "__IO_UNUSED";
 	}
@@ -4358,7 +4358,7 @@ build_chill_writetext (text_arg, exprlist)
 	    }
 	  if (exprlist == NULL_TREE)
 	    {
-	      error ("Too few arguments in call to `writetext'");
+	      error ("too few arguments in call to `writetext'");
 	      return error_mark_node;
 	    }
 	  format_str = TREE_VALUE (exprlist);
@@ -4506,7 +4506,7 @@ build_chill_readtext (text_arg, exprlist)
 	    }
 	  if (exprlist == NULL_TREE)
 	    {
-	      error ("Too few arguments in call to `readtext'");
+	      error ("too few arguments in call to `readtext'");
 	      return error_mark_node;
 	    }
 	  format_str = TREE_VALUE (exprlist);
@@ -4577,7 +4577,7 @@ build_chill_readtext (text_arg, exprlist)
   return build1 (CONVERT_EXPR, void_type_node, integer_zero_node);
 }
 
-/* this function build all neccesary enum-tables used for
+/* this function build all necessary enum-tables used for
    WRITETEXT or READTEXT of an enum */
 
 void build_enum_tables ()

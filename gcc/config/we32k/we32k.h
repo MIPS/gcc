@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  AT&T we32000 version.
-   Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000
-   Free Software Foundation, Inc.
+   Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
    Contributed by John Wehle (john@feith1.uucp)
 
 This file is part of GNU CC.
@@ -50,7 +50,7 @@ extern int target_flags;
 /* target machine storage layout */
 
 /* Define this if most significant bit is lowest numbered
-   in instructions that operate on numbered bit-fields. */
+   in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 0
 
 /* Define this if most significant byte of a word is the lowest numbered.  */
@@ -62,21 +62,8 @@ extern int target_flags;
    since there are no machine instructions for them.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a we32000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -117,11 +104,11 @@ extern int target_flags;
    The hardware registers are assigned numbers for the compiler
    from 0 to just below FIRST_PSEUDO_REGISTER.
    All registers that the compiler knows about must be given numbers,
-   even those that are not normally considered general registers. */
+   even those that are not normally considered general registers.  */
 #define FIRST_PSEUDO_REGISTER 16
 
 /* 1 for registers that have pervasive standard uses
-   and are not available for the register allocator. */
+   and are not available for the register allocator.  */
 #define FIXED_REGISTERS  \
  {0, 0, 0, 0, 0, 0, 0, 0, \
   0, 1, 1, 1, 1, 1, 1, 1, }
@@ -145,11 +132,11 @@ extern int target_flags;
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
    This is ordinarily the length in words of a value of mode MODE
-   but can be less for certain modes in special long registers. */
+   but can be less for certain modes in special long registers.  */
 #define HARD_REGNO_NREGS(REGNO, MODE)   \
   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* Value is 1 if hard register REGNO can hold a value of machine-mode MODE. */
+/* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) 1
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
@@ -186,7 +173,7 @@ extern int target_flags;
    is passed to a function.  */
 #define STRUCT_VALUE_REGNUM 2
 
-/* Order in which to allocate registers. */
+/* Order in which to allocate registers.  */
 #define REG_ALLOC_ORDER  \
  {0, 1, 8, 7, 6, 5, 4, 3}
 
@@ -215,7 +202,7 @@ enum reg_class { NO_REGS, GENERAL_REGS,
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
  { "NO_REGS", "GENERAL_REGS", "ALL_REGS" }
@@ -249,7 +236,7 @@ enum reg_class { NO_REGS, GENERAL_REGS,
    machine description; we zorch the constraint letters that aren't
    appropriate for a specific target.  This allows us to guarantee
    that a specific kind of register will not be used for a given target
-   without fiddling with the register classes above. */
+   without fiddling with the register classes above.  */
 
 #define REG_CLASS_FROM_LETTER(C) \
   ((C) == 'r' ? GENERAL_REGS : NO_REGS)
@@ -258,7 +245,7 @@ enum reg_class { NO_REGS, GENERAL_REGS,
    can be used to stand for particular ranges of immediate operands.
    This macro defines what the ranges are.
    C is the letter, and VALUE is a constant value.
-   Return 1 if VALUE is in the range specified by C. */
+   Return 1 if VALUE is in the range specified by C.  */
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)  0
 
@@ -270,7 +257,7 @@ enum reg_class { NO_REGS, GENERAL_REGS,
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
    In general this is just CLASS; but on some machines
-   in some cases it is preferable to use a more restrictive class. */
+   in some cases it is preferable to use a more restrictive class.  */
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)  (CLASS)
 
@@ -298,7 +285,7 @@ enum reg_class { NO_REGS, GENERAL_REGS,
 #define STARTING_FRAME_OFFSET 0
 
 /* If we generate an insn to push BYTES bytes,
-   this says how many the stack pointer really advances by. */
+   this says how many the stack pointer really advances by.  */
 #define PUSH_ROUNDING(BYTES) (((BYTES) + 3) & ~3)
 
 /* Offset of first parameter from the argument pointer register value.  */
@@ -308,7 +295,7 @@ enum reg_class { NO_REGS, GENERAL_REGS,
    pops the arguments described by the number-of-args field in the call.
    FUNDECL is the declaration node of the function (as a tree),
    FUNTYPE is the data type of the function (as a tree),
-   or for a library call it is an identifier node for the subroutine name. */
+   or for a library call it is an identifier node for the subroutine name.  */
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) (SIZE)
 
@@ -439,15 +426,15 @@ enum reg_class { NO_REGS, GENERAL_REGS,
      mov #STATIC,%r8
      jmp #FUNCTION */
 
-#define TRAMPOLINE_TEMPLATE(FILE)		\
-{						\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x844f));	\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);		\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);		\
-  ASM_OUTPUT_CHAR  (FILE, GEN_INT (0x48));	\
-  ASM_OUTPUT_SHORT (FILE, GEN_INT (0x247f));	\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);		\
-  ASM_OUTPUT_SHORT (FILE, const0_rtx);		\
+#define TRAMPOLINE_TEMPLATE(FILE)			\
+{							\
+  assemble_aligned_integer (2, GEN_INT (0x844f));	\
+  assemble_aligned_integer (2, const0_rtx);		\
+  assemble_aligned_integer (2, const0_rtx);		\
+  assemble_aligned_integer (1, GEN_INT (0x48));		\
+  assemble_aligned_integer (2, GEN_INT (0x247f));	\
+  assemble_aligned_integer (2, const0_rtx);		\
+  assemble_aligned_integer (2, const0_rtx);		\
 }
 
 /* Length in units of the trampoline for entering a nested function.  */
@@ -542,7 +529,7 @@ enum reg_class { NO_REGS, GENERAL_REGS,
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
    that is a valid memory address for an instruction.
    The MODE argument is the machine mode for the MEM expression
-   that wants to use this address. */
+   that wants to use this address.  */
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)			\
 { register rtx Addr = X;						\
@@ -573,12 +560,12 @@ enum reg_class { NO_REGS, GENERAL_REGS,
    GO_IF_LEGITIMATE_ADDRESS.
 
    It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output. */
+   opportunities to optimize the output.  */
 
 #define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)   { }
 
 /* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for. */
+   has an effect that depends on the machine mode it is used for.  */
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)	{ }
 
@@ -589,14 +576,8 @@ enum reg_class { NO_REGS, GENERAL_REGS,
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
-   Do not define this if the table should contain absolute addresses. */
+   Do not define this if the table should contain absolute addresses.  */
 /* #define CASE_VECTOR_PC_RELATIVE 1 */
-
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
@@ -605,14 +586,11 @@ enum reg_class { NO_REGS, GENERAL_REGS,
    in one reasonably fast instruction.  */
 #define MOVE_MAX 4
 
-/* Define this if zero-extension is slow (more than one real instruction).  */
-/* #define SLOW_ZERO_EXTEND */
-
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
-   few bits. */
+   few bits.  */
 #define SHIFT_COUNT_TRUNCATED 1
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
@@ -697,7 +675,7 @@ enum reg_class { NO_REGS, GENERAL_REGS,
 /* Read-only data goes in the data section because
    AT&T's assembler doesn't guarantee the proper alignment
    of data in the text section even if an align statement
-   is used. */
+   is used.  */
 
 #define READONLY_DATA_SECTION() data_section()
 
@@ -707,10 +685,6 @@ enum reg_class { NO_REGS, GENERAL_REGS,
 #define REGISTER_NAMES \
 {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",	\
  "r8", "fp", "ap", "psw", "sp", "pcbp", "isp", "pc"	}
-
-/* How to renumber registers for dbx and gdb. */
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 /* Output SDB debugging info in response to the -g option.  */
 
@@ -732,7 +706,7 @@ enum reg_class { NO_REGS, GENERAL_REGS,
     fputs ("\n", FILE);			\
   } while (0)
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX ""
 
@@ -759,70 +733,11 @@ enum reg_class { NO_REGS, GENERAL_REGS,
     ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM);	\
   } while (0)
 
-/* Assembler pseudo to introduce byte constants.  */
-
-#define ASM_BYTE_OP "\t.byte\t"
-
-/* This is how to output an assembler line defining a `double' constant.  */
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-/* AT&T's assembler can't handle floating constants written as floating.
-   However, when cross-compiling, always use that in case format differs.  */
-
-#ifdef CROSS_COMPILE
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)	\
-  fprintf (FILE, "\t.double 0r%.20g\n", (VALUE))
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)	\
-  fprintf (FILE, "\t.float 0r%.10g\n", (VALUE))
-
-#else
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)	\
-do { union { double d; long l[2];} tem;				\
-     tem.d = (VALUE);						\
-     fprintf (FILE, "\t.word 0x%lx, 0x%lx\n", tem.l[0], tem.l[1]);\
-   } while (0)
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)	\
-do { union { float f; long l;} tem;				\
-     tem.f = (VALUE);						\
-     fprintf (FILE, "\t.word 0x%lx\n", tem.l);			\
-   } while (0)
-
-#endif /* not CROSS_COMPILE */
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "\t.word "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\t.half "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
-
 #define ASM_OUTPUT_ASCII(FILE,PTR,LEN)  \
 do {							\
   const unsigned char *s;				\
-  int i;						\
-  for (i = 0, s = (const unsigned char *)(PTR); i < (LEN); s++, i++)	\
+  size_t i, limit = (LEN);				\
+  for (i = 0, s = (const unsigned char *)(PTR); i < limit; s++, i++)	\
     {							\
       if ((i % 8) == 0)					\
 	fprintf ((FILE),"%s\t.byte\t",(i?"\n":""));	\
@@ -843,7 +758,7 @@ do {							\
 #define ASM_OUTPUT_REG_POP(FILE,REGNO)	\
   fprintf (FILE, "\tPOPW %s\n", reg_names[REGNO])
 
-/* This is how to output an element of a case-vector that is absolute. */
+/* This is how to output an element of a case-vector that is absolute.  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
   fprintf (FILE, "\t.word .L%d\n", VALUE)
@@ -921,7 +836,7 @@ do {							\
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
-   For `%' followed by punctuation, CODE is the punctuation and X is null. */
+   For `%' followed by punctuation, CODE is the punctuation and X is null.  */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE) 0
 
@@ -932,13 +847,12 @@ do {							\
     output_address (XEXP (X, 0));					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == SFmode)	\
          {								\
-         union { double d; long l[2]; } dtem;				\
-         union { float f; long l; } ftem;				\
+	   REAL_VALUE_TYPE r;						\
+	   long l;							\
 									\
-         dtem.l[0] = CONST_DOUBLE_LOW (X);				\
-         dtem.l[1] = CONST_DOUBLE_HIGH (X);				\
-         ftem.f = dtem.d;						\
-         fprintf(FILE, "&0x%lx", ftem.l);				\
+	   REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
+	   REAL_VALUE_TO_TARGET_SINGLE (r, l);				\
+	   fprintf (FILE, "&0x%lx", l);					\
          }								\
   else { putc ('&', FILE); output_addr_const (FILE, X); }}
 

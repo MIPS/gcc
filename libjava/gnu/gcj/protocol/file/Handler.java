@@ -32,8 +32,11 @@ public class Handler extends URLStreamHandler
   {
     // If a hostname is set, then we need to switch protocols to ftp
     // in order to transfer this from the remote host.
-    if (! url.getHost().equals(""))
+    String host = url.getHost();
+    if ((host != null) && (! host.equals("")))
       {
+        throw new IOException("ftp protocol handler not yet implemented.");
+        /*
 	// Reset the protocol (and implicitly the handler) for this URL.
 	// Then have the URL attempt the connection again, as it will
 	// get the changed handler the next time around.
@@ -42,6 +45,7 @@ public class Handler extends URLStreamHandler
 	// Until the ftp protocol handler is written, this will cause
 	// a NullPointerException.
 	return url.openConnection();
+	*/
       }
 
     return new Connection(url);

@@ -1,29 +1,35 @@
 /* RTL reader for GNU C Compiler.
-   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "hconfig.h"
 #include "system.h"
 #include "rtl.h"
 #include "obstack.h"
 #include "hashtab.h"
+
+#ifndef ISDIGIT
+#include <ctype.h>
+#define ISDIGIT isdigit
+#define ISSPACE isspace
+#endif
 
 #define	obstack_chunk_alloc	xmalloc
 #define	obstack_chunk_free	free
@@ -41,6 +47,7 @@ static void read_escape		PARAMS ((struct obstack *, FILE *));
 static unsigned def_hash PARAMS ((const void *));
 static int def_name_eq_p PARAMS ((const void *, const void *));
 static void read_constants PARAMS ((FILE *infile, char *tmp_char));
+static void validate_const_int PARAMS ((FILE *, const char *));
 
 /* Subroutines of read_rtx.  */
 
@@ -53,28 +60,20 @@ const char *read_rtx_filename = "<unknown>";
 static void
 fatal_with_file_and_line VPARAMS ((FILE *infile, const char *msg, ...))
 {
-#ifndef ANSI_PROTOTYPES
-  FILE *infile;
-  const char *msg;
-#endif
-  va_list ap;
   char context[64];
   size_t i;
   int c;
 
-  VA_START (ap, msg);
-
-#ifndef ANSI_PROTOTYPES
-  infile = va_arg (ap, FILE *);
-  msg = va_arg (ap, const char *);
-#endif
+  VA_OPEN (ap, msg);
+  VA_FIXEDARG (ap, FILE *, infile);
+  VA_FIXEDARG (ap, const char *, msg);
 
   fprintf (stderr, "%s:%d: ", read_rtx_filename, read_rtx_lineno);
   vfprintf (stderr, msg, ap);
   putc ('\n', stderr);
 
   /* Gather some following context.  */
-  for (i = 0; i < sizeof(context)-1; ++i)
+  for (i = 0; i < sizeof (context)-1; ++i)
     {
       c = getc (infile);
       if (c == EOF)
@@ -88,7 +87,7 @@ fatal_with_file_and_line VPARAMS ((FILE *infile, const char *msg, ...))
   fprintf (stderr, "%s:%d: following context is `%s'\n",
 	   read_rtx_filename, read_rtx_lineno, context);
 
-  va_end (ap);
+  VA_CLOSE (ap);
   exit (1);
 }
 
@@ -113,7 +112,8 @@ int
 read_skip_spaces (infile)
      FILE *infile;
 {
-  register int c;
+  int c;
+
   while (1)
     {
       c = getc (infile);
@@ -135,7 +135,7 @@ read_skip_spaces (infile)
 
 	case '/':
 	  {
-	    register int prevc;
+	    int prevc;
 	    c = getc (infile);
 	    if (c != '*')
 	      fatal_expected_char (infile, '*', c);
@@ -166,15 +166,15 @@ read_name (str, infile)
      char *str;
      FILE *infile;
 {
-  register char *p;
-  register int c;
+  char *p;
+  int c;
 
-  c = read_skip_spaces(infile);
+  c = read_skip_spaces (infile);
 
   p = str;
   while (1)
     {
-      if (c == ' ' || c == '\n' || c == '\t' || c == '\f')
+      if (c == ' ' || c == '\n' || c == '\t' || c == '\f' || c == '\r')
 	break;
       if (c == ':' || c == ')' || c == ']' || c == '"' || c == '/'
 	  || c == '(' || c == '[')
@@ -220,6 +220,7 @@ read_escape (ob, infile)
      FILE *infile;
 {
   int c = getc (infile);
+
   switch (c)
     {
       /* Backslash-newline is replaced by nothing, as in C.  */
@@ -274,6 +275,7 @@ read_quoted_string (ob, infile)
      FILE *infile;
 {
   int c;
+
   while (1)
     {
       c = getc (infile); /* Read the string  */
@@ -374,13 +376,13 @@ read_string (ob, infile, star_if_braced)
    not provide one.  */
 #if HOST_BITS_PER_WIDE_INT > HOST_BITS_PER_LONG && !defined(HAVE_ATOLL) && !defined(HAVE_ATOQ)
 HOST_WIDE_INT
-atoll(p)
+atoll (p)
     const char *p;
 {
   int neg = 0;
   HOST_WIDE_INT tmp_wide;
 
-  while (ISSPACE(*p))
+  while (ISSPACE (*p))
     p++;
   if (*p == '-')
     neg = 1, p++;
@@ -388,13 +390,13 @@ atoll(p)
     p++;
 
   tmp_wide = 0;
-  while (ISDIGIT(*p))
+  while (ISDIGIT (*p))
     {
       HOST_WIDE_INT new_wide = tmp_wide*10 + (*p - '0');
       if (new_wide < tmp_wide)
 	{
 	  /* Return INT_MAX equiv on overflow.  */
-	  tmp_wide = (~(unsigned HOST_WIDE_INT)0) >> 1;
+	  tmp_wide = (~(unsigned HOST_WIDE_INT) 0) >> 1;
 	  break;
 	}
       tmp_wide = new_wide;
@@ -413,7 +415,7 @@ def_hash (def)
      const void *def;
 {
   unsigned result, i;
-  const char *string = ((const struct md_constant *)def)->name;
+  const char *string = ((const struct md_constant *) def)->name;
 
   for (result = i = 0;*string++ != '\0'; i++)
     result += ((unsigned char) *string << (i % CHAR_BIT));
@@ -425,8 +427,8 @@ static int
 def_name_eq_p (def1, def2)
      const void *def1, *def2;
 {
-  return ! strcmp (((const struct md_constant *)def1)->name,
-		   ((const struct md_constant *)def2)->name);
+  return ! strcmp (((const struct md_constant *) def1)->name,
+		   ((const struct md_constant *) def2)->name);
 }
 
 /* INFILE is a FILE pointer to read text from.  TMP_CHAR is a buffer suitable
@@ -499,6 +501,28 @@ traverse_md_constants (callback, info)
     htab_traverse (md_constants, callback, info);
 }
 
+static void
+validate_const_int (infile, string)
+     FILE *infile;
+     const char *string;
+{
+  const char *cp;
+  int valid = 1;
+
+  cp = string;
+  while (*cp && ISSPACE (*cp))
+    cp++;
+  if (*cp == '-' || *cp == '+')
+    cp++;
+  if (*cp == 0)
+    valid = 0;
+  for (; *cp; cp++)
+    if (! ISDIGIT (*cp))
+      valid = 0;
+  if (!valid)
+    fatal_with_file_and_line (infile, "invalid decimal constant \"%s\"\n", string);
+}
+
 /* Read an rtx in printed representation from INFILE
    and return an actual rtx in core constructed accordingly.
    read_rtx is not used in the compiler proper, but rather in
@@ -508,15 +532,15 @@ rtx
 read_rtx (infile)
      FILE *infile;
 {
-  register int i, j;
+  int i, j;
   RTX_CODE tmp_code;
-  register const char *format_ptr;
+  const char *format_ptr;
   /* tmp_char is a buffer used for reading decimal integers
      and names of rtx types and machine modes.
      Therefore, 256 must be enough.  */
   char tmp_char[256];
   rtx return_rtx;
-  register int c;
+  int c;
   int tmp_int;
   HOST_WIDE_INT tmp_wide;
 
@@ -704,6 +728,7 @@ again:
 
       case 'w':
 	read_name (tmp_char, infile);
+	validate_const_int (infile, tmp_char);
 #if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
 	tmp_wide = atoi (tmp_char);
 #else
@@ -725,6 +750,7 @@ again:
       case 'i':
       case 'n':
 	read_name (tmp_char, infile);
+	validate_const_int (infile, tmp_char);
 	tmp_int = atoi (tmp_char);
 	XINT (return_rtx, i) = tmp_int;
 	break;

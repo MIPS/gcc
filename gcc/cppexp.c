@@ -1,6 +1,6 @@
 /* Parse C expressions for cpplib.
-   Copyright (C) 1987, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation.
+   Copyright (C) 1987, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation.
    Contributed by Per Bothner, 1994.
 
 This program is free software; you can redistribute it and/or modify it
@@ -36,7 +36,7 @@ static HOST_WIDEST_INT right_shift PARAMS ((cpp_reader *, HOST_WIDEST_INT,
 					    unsigned HOST_WIDEST_INT));
 static struct op parse_number PARAMS ((cpp_reader *, const cpp_token *));
 static struct op parse_defined PARAMS ((cpp_reader *));
-static struct op lex PARAMS ((cpp_reader *, int, cpp_token *));
+static struct op lex PARAMS ((cpp_reader *, int));
 static const unsigned char *op_as_text PARAMS ((cpp_reader *, enum cpp_ttype));
 
 struct op
@@ -63,32 +63,30 @@ struct op
 
 struct suffix
 {
-  unsigned char s[4];
-  unsigned char u;
-  unsigned char l;
+  const unsigned char s[4];
+  const unsigned char u;
+  const unsigned char l;
 };
 
-const struct suffix vsuf_1[] = {
+static const struct suffix vsuf_1[] = {
   { "u", 1, 0 }, { "U", 1, 0 },
   { "l", 0, 1 }, { "L", 0, 1 }
 };
 
-const struct suffix vsuf_2[] = {
+static const struct suffix vsuf_2[] = {
   { "ul", 1, 1 }, { "UL", 1, 1 }, { "uL", 1, 1 }, { "Ul", 1, 1 },
   { "lu", 1, 1 }, { "LU", 1, 1 }, { "Lu", 1, 1 }, { "lU", 1, 1 },
   { "ll", 0, 2 }, { "LL", 0, 2 }
 };
 
-const struct suffix vsuf_3[] = {
+static const struct suffix vsuf_3[] = {
   { "ull", 1, 2 }, { "ULL", 1, 2 }, { "uLL", 1, 2 }, { "Ull", 1, 2 },
   { "llu", 1, 2 }, { "LLU", 1, 2 }, { "LLu", 1, 2 }, { "llU", 1, 2 }
 };
-#define Nsuff(tab) (sizeof tab / sizeof (struct suffix))
 
-/* Parse and convert an integer for #if.  Accepts decimal, hex, or
-   octal with or without size suffixes.  Returned op is CPP_ERROR on
-   error, otherwise it is a CPP_NUMBER.  */
-
+/* Parse and convert what is presumably an integer in TOK.  Accepts
+   decimal, hex, or octal with or without size suffixes.  Returned op
+   is CPP_ERROR on error, otherwise it is a CPP_NUMBER.  */
 static struct op
 parse_number (pfile, tok)
      cpp_reader *pfile;
@@ -129,14 +127,9 @@ parse_number (pfile, tok)
     {
       c = *p;
 
-      if (c >= '0' && c <= '9')
-	digit = c - '0';
-      /* We believe that in all live character sets, a-f are
-	 consecutive, and so are A-F.  */
-      else if (base == 16 && c >= 'a' && c <= 'f')
-	digit = c - 'a' + 10;
-      else if (base == 16 && c >= 'A' && c <= 'F')
-	digit = c - 'A' + 10;
+      if (ISDIGIT (c)
+	  || (base == 16 && ISXDIGIT (c)))
+	digit = hex_value (c);
       else
 	break;
 
@@ -163,9 +156,9 @@ parse_number (pfile, tok)
 	 See the suffix tables, above.  */
       switch (end - p)
 	{
-	case 1: sufftab = vsuf_1; nsuff = Nsuff(vsuf_1); break;
-	case 2: sufftab = vsuf_2; nsuff = Nsuff(vsuf_2); break;
-	case 3: sufftab = vsuf_3; nsuff = Nsuff(vsuf_3); break;
+	case 1: sufftab = vsuf_1; nsuff = ARRAY_SIZE (vsuf_1); break;
+	case 2: sufftab = vsuf_2; nsuff = ARRAY_SIZE (vsuf_2); break;
+	case 3: sufftab = vsuf_3; nsuff = ARRAY_SIZE (vsuf_3); break;
 	default: goto invalid_suffix;
 	}
 
@@ -211,50 +204,48 @@ parse_number (pfile, tok)
   return op;
 }
 
+/* Handle meeting "defined" in a preprocessor expression.  */
 static struct op
 parse_defined (pfile)
      cpp_reader *pfile;
 {
   int paren = 0;
   cpp_hashnode *node = 0;
-  cpp_token token;
+  const cpp_token *token;
   struct op op;
+  cpp_context *initial_context = pfile->context;
 
   /* Don't expand macros.  */
   pfile->state.prevent_expansion++;
 
-  cpp_get_token (pfile, &token);
-  if (token.type == CPP_OPEN_PAREN)
+  token = cpp_get_token (pfile);
+  if (token->type == CPP_OPEN_PAREN)
     {
       paren = 1;
-      cpp_get_token (pfile, &token);
+      token = cpp_get_token (pfile);
     }
 
-  if (token.type == CPP_NAME)
+  if (token->type == CPP_NAME)
     {
-      node = token.val.node;
-      if (paren)
+      node = token->val.node;
+      if (paren && cpp_get_token (pfile)->type != CPP_CLOSE_PAREN)
 	{
-	  cpp_get_token (pfile, &token);
-	  if (token.type != CPP_CLOSE_PAREN)
-	    {
-	      cpp_error (pfile, "missing ')' after \"defined\"");
-	      node = 0;
-	    }
+	  cpp_error (pfile, "missing ')' after \"defined\"");
+	  node = 0;
 	}
     }
   else
     {
       cpp_error (pfile, "operator \"defined\" requires an identifier");
-      if (token.flags & NAMED_OP)
+      if (token->flags & NAMED_OP)
 	{
 	  cpp_token op;
 
 	  op.flags = 0;
-	  op.type = token.type;
+	  op.type = token->type;
 	  cpp_error (pfile,
 		     "(\"%s\" is an alternative token for \"%s\" in C++)",
-		     cpp_token_as_text (pfile, &token),
+		     cpp_token_as_text (pfile, token),
 		     cpp_token_as_text (pfile, &op));
 	}
     }
@@ -263,6 +254,9 @@ parse_defined (pfile)
     op.op = CPP_ERROR;
   else
     {
+      if (pfile->context != initial_context)
+	cpp_warning (pfile, "this use of \"defined\" may not be portable");
+
       op.value = node->type == NT_MACRO;
       op.unsignedp = 0;
       op.op = CPP_NUMBER;
@@ -280,16 +274,13 @@ parse_defined (pfile)
    (an interpreted preprocessing number or character constant, or the
    result of the "defined" or "#" operators), CPP_ERROR on error,
    CPP_EOF, or the type of an operator token.  */
-
 static struct op
-lex (pfile, skip_evaluation, token)
+lex (pfile, skip_evaluation)
      cpp_reader *pfile;
      int skip_evaluation;
-     cpp_token *token;
 {
   struct op op;
-
-  cpp_get_token (pfile, token);
+  const cpp_token *token = cpp_get_token (pfile);
 
   switch (token->type)
     {
@@ -301,10 +292,12 @@ lex (pfile, skip_evaluation, token)
       {
 	unsigned int chars_seen;
 
-	/* This is always a signed type.  */
-	op.unsignedp = 0;
+	if (token->type == CPP_CHAR)
+	  op.unsignedp = 0;
+	else
+	  op.unsignedp = WCHAR_UNSIGNED;
 	op.op = CPP_NUMBER;
-	op.value = cpp_interpret_charconst (pfile, token, 1, 0, &chars_seen);
+	op.value = cpp_interpret_charconst (pfile, token, 1, &chars_seen);
 	return op;
       }
 
@@ -320,12 +313,7 @@ lex (pfile, skip_evaluation, token)
 
     case CPP_NAME:
       if (token->val.node == pfile->spec_nodes.n_defined)
-	{
-	  if (pfile->context->prev && CPP_PEDANTIC (pfile))
-	    cpp_pedwarn (pfile, "\"defined\" operator appears during macro expansion");
-
-	  return parse_defined (pfile);
-	}
+	return parse_defined (pfile);
       else if (CPP_OPTION (pfile, cplusplus)
 	       && (token->val.node == pfile->spec_nodes.n_true
 		   || token->val.node == pfile->spec_nodes.n_false))
@@ -384,6 +372,7 @@ lex (pfile, skip_evaluation, token)
   return op;
 }
 
+/* Warn if appropriate on overflow.  */
 static void
 integer_overflow (pfile)
      cpp_reader *pfile;
@@ -392,6 +381,8 @@ integer_overflow (pfile)
     cpp_pedwarn (pfile, "integer overflow in preprocessor expression");
 }
 
+/* Handle shifting A left by B bits.  UNSIGNEDP is non-zero if A is
+   unsigned.  */
 static HOST_WIDEST_INT
 left_shift (pfile, a, unsignedp, b)
      cpp_reader *pfile;
@@ -416,6 +407,8 @@ left_shift (pfile, a, unsignedp, b)
     }
 }
 
+/* Handle shifting A right by B bits.  UNSIGNEDP is non-zero if A is
+   unsigned.  */
 static HOST_WIDEST_INT
 right_shift (pfile, a, unsignedp, b)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
@@ -464,8 +457,8 @@ be handled with operator-specific code.  */
 #define FLAG_BITS  8
 #define FLAG_MASK ((1 << FLAG_BITS) - 1)
 #define PRIO_SHIFT (FLAG_BITS + 1)
-#define EXTRACT_PRIO(cnst) (cnst >> FLAG_BITS)
-#define EXTRACT_FLAGS(cnst) (cnst & FLAG_MASK)
+#define EXTRACT_PRIO(CNST) ((CNST) >> FLAG_BITS)
+#define EXTRACT_FLAGS(CNST) ((CNST) & FLAG_MASK)
 
 /* Flags.  */
 #define HAVE_VALUE     (1 << 0)
@@ -559,7 +552,6 @@ op_to_prio[] =
 
 /* Parse and evaluate a C expression, reading from PFILE.
    Returns the truth value of the expression.  */
-
 int
 _cpp_parse_expr (pfile)
      cpp_reader *pfile;
@@ -578,8 +570,7 @@ _cpp_parse_expr (pfile)
   struct op init_stack[INIT_STACK_SIZE];
   struct op *stack = init_stack;
   struct op *limit = stack + INIT_STACK_SIZE;
-  cpp_token token;
-  register struct op *top = stack + 1;
+  struct op *top = stack + 1;
   int skip_evaluation = 0;
   int result;
   unsigned int lex_count, saw_leading_not;
@@ -603,7 +594,7 @@ _cpp_parse_expr (pfile)
       struct op op;
 
       /* Read a token */
-      op = lex (pfile, skip_evaluation, &token);
+      op = lex (pfile, skip_evaluation);
       lex_count++;
 
       /* If the token is an operand, push its value and get next
@@ -826,13 +817,13 @@ _cpp_parse_expr (pfile)
 	{
 	  if (top->flags & HAVE_VALUE)
 	    SYNTAX_ERROR2 ("missing binary operator before '%s'",
-			   op_as_text (pfile, top->op));
+			   op_as_text (pfile, op.op));
 	}
       else
 	{
 	  if (!(top->flags & HAVE_VALUE))
 	    SYNTAX_ERROR2 ("operator '%s' has no left operand",
-			   op_as_text (pfile, top->op));
+			   op_as_text (pfile, op.op));
 	}
 
       /* Check for and handle stack overflow.  */
@@ -883,6 +874,7 @@ _cpp_parse_expr (pfile)
   return result;
 }
 
+/* Output OP as text for diagnostics.  */
 static const unsigned char *
 op_as_text (pfile, op)
      cpp_reader *pfile;

@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for Intel 80x86 running DG/ux
-   Copyright (C) 1993, 1995, 1996, 1997, 1998, 2000
+   Copyright (C) 1993, 1995, 1996, 1997, 1998, 2000, 2001
    Free Software Foundation, Inc.
    Currently maintained by gcc@dg-rtp.dg.com.
 
@@ -24,10 +24,8 @@ Boston, MA 02111-1307, USA.  */
    few hacks
 */
 
-#include "i386/sysv4.h"
-
 #ifndef VERSION_INFO2
-#define VERSION_INFO2   "$Revision: 1.12 $"
+#define VERSION_INFO2   "$Revision: 1.17 $"
 #endif
 
 #ifndef VERSION_STRING
@@ -80,13 +78,18 @@ Boston, MA 02111-1307, USA.  */
 #undef  DBX_DEBUGGING_INFO
 #define DBX_DEBUGGING_INFO
 
+#undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF_DEBUG
 
-/* Override svr[34].h.  */
+/* Override svr[34].h.  Switch to the data section so that the coffsem
+   symbol isn't in the text section.  */
 #undef	ASM_FILE_START
 #define ASM_FILE_START(FILE) \
-  output_file_start (FILE, f_options, ARRAY_SIZE (f_options), \
-		     W_options, ARRAY_SIZE (W_options))
+  do { \
+    output_file_directive (FILE, main_input_filename); \
+    fprintf (FILE, "\t.version\t\"01.01\"\n"); \
+    data_section (); \
+  } while (0)
 
 /* ix86 abi specified type for wchar_t */
 
@@ -154,18 +157,17 @@ Boston, MA 02111-1307, USA.  */
    -Asystem=unix -Asystem=svr4"
 
    /*
-     If not -ansi, -traditional, or restricting include files to one
+     If not -ansi, or restricting include files to one
      specific source target, specify full DG/UX features.
    */
 #undef	CPP_SPEC
-#define	CPP_SPEC "%(cpp_cpu) %{!ansi:%{!traditional:-D__OPEN_NAMESPACE__}}"
+#define	CPP_SPEC "%(cpp_cpu) %{!ansi:-D__OPEN_NAMESPACE__}"
 
 /* Assembler support (legends for mxdb).  */
 #undef	ASM_SPEC
 #define ASM_SPEC "\
 %{mno-legend:%{mstandard:-Wc,off}}\
-%{g:%{!mno-legend:-Wc,-fix-bb,-s\"%i\"\
-%{traditional:,-lc}%{!traditional:,-lansi-c}\
+%{g:%{!mno-legend:-Wc,-fix-bb,-s\"%i\",-lansi-c\
 %{mstandard:,-keep-std}\
 %{mexternal-legend:,-external}}}"
 
@@ -202,8 +204,7 @@ Boston, MA 02111-1307, USA.  */
 			 %{pg:gcrti.o%s}%{!pg:crti.o%s} 		\
 			 crtbegin.o%s 					\
 			 %{ansi:values-Xc.o%s} 				\
-			 %{!ansi:%{traditional:values-Xt.o%s} 		\
-			         %{!traditional:values-Xa.o%s}}"
+			 %{!ansi:values-Xa.o%s}"
 
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend.o%s %{pg:gcrtn.o}%{!pg:crtn.o%s}"
@@ -217,8 +218,7 @@ Boston, MA 02111-1307, USA.  */
 		       %{pg:gcrti.o%s}%{!pg:/lib/crti.o%s}	     \
 			crtbegin.o%s 					\
 			%{ansi:/lib/values-Xc.o%s} 			\
-			%{!ansi:%{traditional:/lib/values-Xt.o%s} 	\
-			        %{!traditional:/lib/values-Xa.o%s}}"
+			%{!ansi:/lib/values-Xa.o%s}"
 
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend.o%s %{pg:gcrtn.o}%{!pg:/lib/crtn.o}"
@@ -232,7 +232,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Must use data section for relocatable constants when pic.  */
 #undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE,RTX)            \
+#define SELECT_RTX_SECTION(MODE,RTX,ALIGN)      \
 {                                               \
   if (flag_pic && symbolic_operand (RTX, VOIDmode)) \
     data_section ();                            \

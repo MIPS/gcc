@@ -1,4 +1,4 @@
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,11 +28,10 @@
 #include <bits/functexcept.h>
 #include <cstdlib>
 #include <exception>
+#include <stdexcept>
 #include <new>
 #include <typeinfo>
-#include <stdexcept>
 #include <ios>
-#include <string>
 
 namespace std 
 {
@@ -110,43 +109,43 @@ namespace std
   { abort(); }
 
   void
-  __throw_logic_error(const char* __s)
+  __throw_logic_error(const char*)
   { abort(); }
 
   void
-  __throw_domain_error(const char* __s)
+  __throw_domain_error(const char*)
   { abort(); }
 
   void
-  __throw_invalid_argument(const char* __s)
+  __throw_invalid_argument(const char*)
   { abort(); }
 
   void
-  __throw_length_error(const char* __s)
+  __throw_length_error(const char*)
   { abort(); }
 
   void
-  __throw_out_of_range(const char* __s)
+  __throw_out_of_range(const char*)
   { abort(); }
 
   void
-  __throw_runtime_error(const char* __s)
+  __throw_runtime_error(const char*)
   { abort(); }
 
   void
-  __throw_range_error(const char* __s)
+  __throw_range_error(const char*)
   { abort(); }
 
   void
-  __throw_overflow_error(const char* __s)
+  __throw_overflow_error(const char*)
   { abort(); }
 
   void
-  __throw_underflow_error(const char* __s)
+  __throw_underflow_error(const char*)
   { abort(); }
 
   void
-  __throw_ios_failure(const char* __s)
+  __throw_ios_failure(const char*)
   { abort(); }
 #endif //__EXCEPTIONS
 }

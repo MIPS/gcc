@@ -2,22 +2,22 @@
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* Output dbx-format symbol table data.
@@ -83,7 +83,9 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "ggc.h"
 #include "debug.h"
+#include "function.h"
 #include "target.h"
+#include "langhooks.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -148,7 +150,9 @@ static int have_used_extensions = 0;
 /* Number for the next N_SOL filename stabs label.  The number 0 is reserved
    for the N_SO filename stabs label.  */
 
+#if defined (DBX_DEBUGGING_INFO) && !defined (DBX_OUTPUT_SOURCE_FILENAME)
 static int source_label_number = 1;
+#endif
 
 #ifdef DEBUG_SYMS_TEXT
 #define FORCE_TEXT text_section ();
@@ -289,9 +293,6 @@ static void dbxout_init			PARAMS ((const char *));
 static void dbxout_finish		PARAMS ((const char *));
 static void dbxout_start_source_file	PARAMS ((unsigned, const char *));
 static void dbxout_end_source_file	PARAMS ((unsigned));
-static void dbxout_source_line		PARAMS ((unsigned int, const char *));
-static void dbxout_source_file		PARAMS ((FILE *, const char *));
-static void dbxout_function_end		PARAMS ((void));
 static void dbxout_typedefs		PARAMS ((tree));
 static void dbxout_type_index		PARAMS ((tree));
 #if DBX_CONTIN_LENGTH > 0
@@ -312,17 +313,20 @@ static void dbxout_symbol_name		PARAMS ((tree, const char *, int));
 static void dbxout_prepare_symbol	PARAMS ((tree));
 static void dbxout_finish_symbol	PARAMS ((tree));
 static void dbxout_block		PARAMS ((tree, int, tree));
-static void dbxout_begin_function	PARAMS ((tree));
 static void dbxout_global_decl		PARAMS ((tree));
 
 /* The debug hooks structure.  */
 #if defined (DBX_DEBUGGING_INFO)
 
+static void dbxout_source_line		PARAMS ((unsigned int, const char *));
+static void dbxout_source_file		PARAMS ((FILE *, const char *));
+static void dbxout_function_end		PARAMS ((void));
+static void dbxout_begin_function	PARAMS ((tree));
 static void dbxout_begin_block		PARAMS ((unsigned, unsigned));
 static void dbxout_end_block		PARAMS ((unsigned, unsigned));
 static void dbxout_function_decl	PARAMS ((tree));
 
-struct gcc_debug_hooks dbx_debug_hooks =
+const struct gcc_debug_hooks dbx_debug_hooks =
 {
   dbxout_init,
   dbxout_finish,
@@ -352,7 +356,7 @@ struct gcc_debug_hooks dbx_debug_hooks =
 #endif /* DBX_DEBUGGING_INFO  */
 
 #if defined (XCOFF_DEBUGGING_INFO)
-struct gcc_debug_hooks xcoff_debug_hooks =
+const struct gcc_debug_hooks xcoff_debug_hooks =
 {
   dbxout_init,
   dbxout_finish,
@@ -377,6 +381,7 @@ struct gcc_debug_hooks xcoff_debug_hooks =
 };
 #endif /* XCOFF_DEBUGGING_INFO  */
 
+#if defined (DBX_DEBUGGING_INFO)
 static void
 dbxout_function_end ()
 {
@@ -397,6 +402,7 @@ dbxout_function_end ()
   assemble_name (asmfile, XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));
   fprintf (asmfile, "\n");
 }
+#endif /* DBX_DEBUGGING_INFO */
 
 /* At the beginning of compilation, start writing the symbol table.
    Initialize `typevec' and output the standard data types of C.  */
@@ -406,7 +412,7 @@ dbxout_init (input_file_name)
      const char *input_file_name;
 {
   char ltext_label_name[100];
-  tree syms = getdecls ();
+  tree syms = (*lang_hooks.decls.getdecls) ();
 
   asmfile = asm_out_file;
 
@@ -433,7 +439,9 @@ dbxout_init (input_file_name)
 #else /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
 	  fprintf (asmfile, "%s", ASM_STABS_OP);
 	  output_quoted_string (asmfile, cwd);
-	  fprintf (asmfile, ",%d,0,0,%s\n", N_SO, &ltext_label_name[1]);
+	  fprintf (asmfile, ",%d,0,0,", N_SO);
+	  assemble_name (asmfile, ltext_label_name);
+	  fputc ('\n', asmfile);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_DIRECTORY */
 	}
     }
@@ -448,8 +456,9 @@ dbxout_init (input_file_name)
   /* Used to put `Ltext:' before the reference, but that loses on sun 4.  */
   fprintf (asmfile, "%s", ASM_STABS_OP);
   output_quoted_string (asmfile, input_file_name);
-  fprintf (asmfile, ",%d,0,0,%s\n", 
-	   N_SO, &ltext_label_name[1]);
+  fprintf (asmfile, ",%d,0,0,", N_SO);
+  assemble_name (asmfile, ltext_label_name);
+  fputc ('\n', asmfile);
   text_section ();
   ASM_OUTPUT_INTERNAL_LABEL (asmfile, "Ltext", 0);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_FILENAME */
@@ -552,6 +561,7 @@ dbxout_end_source_file (line)
 #endif
 }
 
+#if defined (DBX_DEBUGGING_INFO)
 /* Output debugging info to FILE to switch to sourcefile FILENAME.  */
 
 static void
@@ -559,18 +569,20 @@ dbxout_source_file (file, filename)
      FILE *file;
      const char *filename;
 {
-  char ltext_label_name[100];
-
   if (filename && (lastfile == 0 || strcmp (filename, lastfile)))
     {
 #ifdef DBX_OUTPUT_SOURCE_FILENAME
       DBX_OUTPUT_SOURCE_FILENAME (file, filename);
 #else
+      char ltext_label_name[100];
+
       ASM_GENERATE_INTERNAL_LABEL (ltext_label_name, "Ltext",
 				   source_label_number);
       fprintf (file, "%s", ASM_STABS_OP);
       output_quoted_string (file, filename);
-      fprintf (file, ",%d,0,0,%s\n", N_SOL, &ltext_label_name[1]);
+      fprintf (asmfile, ",%d,0,0,", N_SOL);
+      assemble_name (asmfile, ltext_label_name);
+      fputc ('\n', asmfile);
       if (current_function_decl != NULL_TREE
 	  && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
 	; /* Don't change section amid function.  */
@@ -599,8 +611,6 @@ dbxout_source_line (lineno, filename)
   fprintf (asmfile, "%s%d,0,%d\n", ASM_STABD_OP, N_SLINE, lineno);
 #endif
 }
-
-#if defined (DBX_DEBUGGING_INFO)
 
 /* Describe the beginning of an internal block within a function.  */
 
@@ -855,15 +865,15 @@ dbxout_type_method_1 (decl, debug_name)
 
 static void
 dbxout_type_methods (type)
-     register tree type;
+     tree type;
 {
   /* C++: put out the method names and their parameter lists */
   tree methods = TYPE_METHODS (type);
   tree type_encoding;
-  register tree fndecl;
-  register tree last;
+  tree fndecl;
+  tree last;
   char formatted_type_identifier_length[16];
-  register int type_identifier_length;
+  int type_identifier_length;
 
   if (methods == NULL_TREE)
     return;
@@ -1032,7 +1042,8 @@ dbxout_type (type, full)
      tree type;
      int full;
 {
-  register tree tem;
+  tree tem;
+  tree main_variant;
   static int anonymous_type_number = 0;
 
   if (TREE_CODE (type) == VECTOR_TYPE)
@@ -1045,23 +1056,23 @@ dbxout_type (type, full)
     type = integer_type_node;
   else
     {
-      /* Try to find the "main variant" with the same name but not const
-	 or volatile.  (Since stabs does not distinguish const and volatile,
-	 there is no need to make them separate types.  But types with
-	 different names are usefully distinguished.) */
-	 
-      for (tem = TYPE_MAIN_VARIANT (type); tem; tem = TYPE_NEXT_VARIANT (tem))
-	if (!TYPE_READONLY (tem) && !TYPE_VOLATILE (tem)
-	    && TYPE_NAME (tem) == TYPE_NAME (type))
-	  {
-	    type = tem;
-	    break;
-	  }
       if (TYPE_NAME (type)
 	  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 	  && TYPE_DECL_SUPPRESS_DEBUG (TYPE_NAME (type)))
 	full = 0;
     }
+
+  /* Try to find the "main variant" with the same name.  */
+  if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+      && DECL_ORIGINAL_TYPE (TYPE_NAME (type)))
+    main_variant = TREE_TYPE (TYPE_NAME (type));
+  else
+    main_variant = TYPE_MAIN_VARIANT (type);
+
+  /* If we are not using extensions, stabs does not distinguish const and
+     volatile, so there is no need to make them separate types.  */
+  if (!use_gnu_debug_info_extensions)
+    type = main_variant;
 
   if (TYPE_SYMTAB_ADDRESS (type) == 0)
     {
@@ -1152,12 +1163,30 @@ dbxout_type (type, full)
 
   typevec[TYPE_SYMTAB_ADDRESS (type)].status = TYPE_DEFINED;
 
-  if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-      && DECL_ORIGINAL_TYPE (TYPE_NAME (type)))
-    { 
+  /* If this type is a variant of some other, hand off.  Types with
+     different names are usefully distinguished.  We only distinguish
+     cv-qualified types if we're using extensions.  */
+  if (TYPE_READONLY (type) > TYPE_READONLY (main_variant))
+    {
+      putc ('k', asmfile);
+      CHARS (1);
+      dbxout_type (build_type_variant (type, 0, TYPE_VOLATILE (type)), 0);
+      return;
+    }
+  else if (TYPE_VOLATILE (type) > TYPE_VOLATILE (main_variant))
+    {
+      putc ('B', asmfile);
+      CHARS (1);
+      dbxout_type (build_type_variant (type, TYPE_READONLY (type), 0), 0);
+      return;
+    }
+  else if (main_variant != TYPE_MAIN_VARIANT (type))
+    {
+      /* 'type' is a typedef; output the type it refers to.  */
       dbxout_type (DECL_ORIGINAL_TYPE (TYPE_NAME (type)), 0);
       return;
     }
+  /* else continue.  */
 
   switch (TREE_CODE (type))
     {
@@ -1487,8 +1516,15 @@ dbxout_type (type, full)
 		putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
 		putc (TREE_VIA_PUBLIC (child) ? '2' : '0', asmfile);
 		CHARS (2);
-		print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
-				* BITS_PER_UNIT);
+		if (TREE_VIA_VIRTUAL (child) && strcmp (lang_hooks.name, "GNU C++") == 0)
+		  /* For a virtual base, print the (negative) offset within
+		     the vtable where we must look to find the necessary
+		     adjustment.  */
+		  print_wide_int (tree_low_cst (BINFO_VPTR_FIELD (child), 0)
+				  * BITS_PER_UNIT);
+		else
+		  print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
+				  * BITS_PER_UNIT);
 		putc (',', asmfile);
 		CHARS (1);
 		dbxout_type (BINFO_TYPE (child), 0);
@@ -1759,7 +1795,7 @@ print_wide_int (c)
 
 static void
 dbxout_type_name (type)
-     register tree type;
+     tree type;
 {
   tree t;
   if (TYPE_NAME (type) == 0)
@@ -2102,7 +2138,7 @@ dbxout_symbol_location (decl, type, suffix, home)
 	  if (REGNO (value) >= FIRST_PSEUDO_REGISTER)
 	    return 0;
 	}
-      home = alter_subreg (home);
+      home = alter_subreg (&home);
     }
   if (GET_CODE (home) == REG)
     {
@@ -2143,7 +2179,7 @@ dbxout_symbol_location (decl, type, suffix, home)
 	     we rely on the fact that error_mark_node initializers always
 	     end up in bss for C++ and never end up in bss for C.  */
 	  if (DECL_INITIAL (decl) == 0
-	      || (!strcmp (lang_identify (), "cplusplus")
+	      || (!strcmp (lang_hooks.name, "GNU C++")
 		  && DECL_INITIAL (decl) == error_mark_node))
 	    current_sym_code = N_LCSYM;
 	  else if (DECL_IN_TEXT_SECTION (decl))
@@ -2152,6 +2188,21 @@ dbxout_symbol_location (decl, type, suffix, home)
 	    current_sym_code = DBX_STATIC_CONST_VAR_CODE;
 	  else
 	    {
+	      /* Some ports can transform a symbol ref into a label ref,
+		 because the symbol ref is too far away and has to be
+		 dumped into a constant pool.  Alternatively, the symbol
+		 in the constant pool might be referenced by a different
+		 symbol.  */
+	      if (GET_CODE (current_sym_addr) == SYMBOL_REF
+		  && CONSTANT_POOL_ADDRESS_P (current_sym_addr))
+		{
+		  rtx tmp = get_pool_constant (current_sym_addr);
+
+		  if (GET_CODE (tmp) == SYMBOL_REF
+		      || GET_CODE (tmp) == LABEL_REF)
+		    current_sym_addr = tmp;
+		}
+  
 	      /* Ultrix `as' seems to need this.  */
 #ifdef DBX_STATIC_STAB_DATA_SECTION
 	      data_section ();
@@ -2187,6 +2238,8 @@ dbxout_symbol_location (decl, type, suffix, home)
 	{
 	  letter = 'r';
 	  current_sym_code = N_RSYM;
+	  if (REGNO (XEXP (home, 0)) >= FIRST_PSEUDO_REGISTER)
+	    return 0;
 	  current_sym_value = DBX_REGISTER_NUMBER (REGNO (XEXP (home, 0)));
 	}
       else
@@ -2450,7 +2503,7 @@ dbxout_parms (parms)
 	       passing a float to an unprototyped function, gcc will store a
 	       double on the stack, but if we emit a stab saying the type is a
 	       float, then gdb will only read in a single value, and this will
-	       produce an erropneous value.  */
+	       produce an erroneous value.  */
  	    dbxout_type (DECL_ARG_TYPE (parms), 0);
 	    current_sym_value = DEBUGGER_ARG_OFFSET (current_sym_value, addr);
 	    dbxout_finish_symbol (parms);
@@ -2566,7 +2619,7 @@ dbxout_parms (parms)
 	       living on the stack.  DECL_RTL looks like
 	       (MEM (MEM (PLUS (REG ...) (CONST_INT ...)))) or it
 	       could look like (MEM (MEM (REG))).  */
-	    const char *decl_name = (DECL_NAME (parms)
+	    const char *const decl_name = (DECL_NAME (parms)
 				     ? IDENTIFIER_POINTER (DECL_NAME (parms))
 				     : "(anon)");
            if (GET_CODE (XEXP (XEXP (DECL_RTL (parms), 0), 0)) == REG)
@@ -2578,6 +2631,10 @@ dbxout_parms (parms)
 	      
 	    FORCE_TEXT;
 	    fprintf (asmfile, "%s\"%s:v", ASM_STABS_OP, decl_name);
+
+	    current_sym_value
+	      = DEBUGGER_ARG_OFFSET (current_sym_value,
+				     XEXP (XEXP (DECL_RTL (parms), 0), 0));
 	    dbxout_type (TREE_TYPE (parms), 0);
 	    dbxout_finish_symbol (parms);
 	  }
@@ -2712,7 +2769,7 @@ dbxout_args (args)
 
 static void
 dbxout_block (block, depth, args)
-     register tree block;
+     tree block;
      int depth;
      tree args;
 {
@@ -2737,7 +2794,7 @@ dbxout_block (block, depth, args)
 	  did_output = 1;
 #else
 	  /* In dbx format, the syms of a block come before the N_LBRAC.
-	     If nothing is output, we don't need the N_LBRAC, either. */
+	     If nothing is output, we don't need the N_LBRAC, either.  */
 	  did_output = 0;
 	  if (debug_info_level != DINFO_LEVEL_TERSE || depth == 0)
 	    did_output = dbxout_syms (BLOCK_VARS (block));
@@ -2824,6 +2881,7 @@ dbxout_block (block, depth, args)
    Usually this follows the function's code,
    but on some systems, it comes before.  */
 
+#if defined (DBX_DEBUGGING_INFO)
 static void
 dbxout_begin_function (decl)
      tree decl;
@@ -2833,5 +2891,6 @@ dbxout_begin_function (decl)
   if (DECL_NAME (DECL_RESULT (decl)) != 0)
     dbxout_symbol (DECL_RESULT (decl), 1);
 }
+#endif /* DBX_DEBUGGING_INFO */
 
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */

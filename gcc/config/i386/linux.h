@@ -1,5 +1,6 @@
 /* Definitions for Intel 386 running Linux-based GNU systems with ELF format.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
 
@@ -28,11 +29,10 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_FILE_START(FILE)						\
   do {									\
 	output_file_directive (FILE, main_input_filename);		\
-	if (target_flags & MASK_INTEL_SYNTAX)				\
+	if (ix86_asm_dialect == ASM_INTEL)				\
 	  fputs ("\t.intel_syntax\n", FILE);				\
   } while (0)
 
-#undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386 Linux/ELF)");
 
 /* The svr4 ABI for the i386 says that records and unions are returned
@@ -42,17 +42,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START "#"
-
-/* This is how to output an element of a case-vector that is relative.
-   This is only used for PIC code.  See comments by the `casesi' insn in
-   i386.md for an explanation of the expression this outputs. */
-#undef ASM_OUTPUT_ADDR_DIFF_ELT
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-  fprintf (FILE, "\t.long _GLOBAL_OFFSET_TABLE_+[.-%s%d]\n", LPREFIX, VALUE)
-
-/* Indicate that jump tables go in the text section.  This is
-   necessary when compiling PIC code.  */
-#define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(n) \
@@ -121,7 +110,7 @@ Boston, MA 02111-1307, USA.  */
    When the -shared link option is used a final link is not being
    done.  */
 
-/* If ELF is the default format, we should not use /lib/elf. */
+/* If ELF is the default format, we should not use /lib/elf.  */
 
 #undef	LINK_SPEC
 #ifdef USE_GNULIBC_1
@@ -178,20 +167,20 @@ Boston, MA 02111-1307, USA.  */
 
 #if defined(__PIC__) && defined (USE_GNULIBC_1)
 /* This is a kludge. The i386 GNU/Linux dynamic linker needs ___brk_addr,
-   __environ and atexit (). We have to make sure they are in the .dynsym
-   section. We accomplish it by making a dummy call here. This
-   code is never reached.  */
-         
-#define CRT_END_INIT_DUMMY		\
-  do					\
-    {					\
-      extern void *___brk_addr;		\
-      extern char **__environ;		\
-					\
-      ___brk_addr = __environ;		\
-      atexit (0);			\
-    }					\
-  while (0)
+   __environ and atexit.  We have to make sure they are in the .dynsym
+   section.  We do this by forcing the assembler to create undefined 
+   references to these symbols in the object file.  */
+#undef CRT_CALL_STATIC_FUNCTION
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
+   asm (SECTION_OP "\n\t"				\
+	"call " USER_LABEL_PREFIX #FUNC "\n"		\
+	TEXT_SECTION_ASM_OP "\n\t"			\
+	".extern ___brk_addr\n\t"			\
+	".type ___brk_addr,@object\n\t"			\
+	".extern __environ\n\t"				\
+	".type __environ,@object\n\t"			\
+	".extern atexit\n\t"				\
+	".type atexit,@function");
 #endif
 
 /* Handle special EH pointer encodings.  Absolute, pc-relative, and
@@ -200,7 +189,7 @@ Boston, MA 02111-1307, USA.  */
   do {									\
     if ((SIZE) == 4 && ((ENCODING) & 0x70) == DW_EH_PE_datarel)		\
       {									\
-        fputs (UNALIGNED_INT_ASM_OP, FILE);				\
+        fputs (ASM_LONG, FILE);			\
         assemble_name (FILE, XSTR (ADDR, 0));				\
 	fputs (((ENCODING) & DW_EH_PE_indirect ? "@GOT" : "@GOTOFF"), FILE); \
         goto DONE;							\

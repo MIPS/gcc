@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 #
 # Written by Jeffrey Wheat (cassidy@cygnus.com)
 #
@@ -31,15 +31,20 @@ if $tracelevel then {
     strace $tracelevel
 }
 
-if [target_info exists ieee_multilib_flags] {
-    set additional_flags [target_info ieee_multilib_flags];
-} else {
-    set additional_flags "";
-}
+set additional_flags "";
 
-# We must use -ffloat-store to ensure that excess precision on some machines
-# does not cause problems
-lappend additional_flags "-ffloat-store"
+# We must use -ffloat-store/-mieee to ensure that excess precision on some
+# machines does not cause problems
+if [istarget "i\[34567\]86-*-*"] then {
+  lappend additional_flags "-ffloat-store"
+}
+if [istarget "m68k-*-*"] then {
+  lappend additional_flags "-ffloat-store"
+}
+if { [istarget "alpha*-*-*"] 
+     || [istarget "sh*-*-*"] } then {
+  lappend additional_flags "-mieee"
+}
 
 # load support procs
 load_lib c-torture.exp

@@ -62,7 +62,7 @@ static FILE *out;
 static char prefix[32];
 static char postfix[32];
 static char storage[32];
-static const char *xspaces[]
+static const char *const xspaces[]
 =
 {
   "",				/* 0 */
@@ -367,7 +367,7 @@ main (int argc, char **argv)
 
       /* Make new name object to store name and its keyword. */
 
-      newname = (name) really_call_malloc (sizeof (*newname));
+      newname = (name) xmalloc (sizeof (*newname));
       newname->namelen = strlen (buf);
       newname->kwlen = strlen (kwname);
       total_length = newname->kwlen + fixlengths;

@@ -47,10 +47,20 @@ const char *const sectname[4] =
 {"Init", "Normal", "Konst", "Static"};
 
 static int which_bit PARAMS ((int));
+static bool assemble_integer_1750a PARAMS ((rtx, unsigned int, int));
 static void output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP "\tdata\t"
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\tdatal\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP NULL
+#undef TARGET_ASM_INTEGER
+#define TARGET_ASM_INTEGER assemble_integer_1750a
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -117,7 +127,7 @@ output_function_prologue (file, size)
    The function epilogue should not depend on the current stack
    pointer!  It should use the frame pointer only.  This is mandatory
    because of alloca; we also take advantage of it to omit stack
-   adjustments before returning. */
+   adjustments before returning.  */
 
 static void
 output_function_epilogue (file, size)
@@ -157,7 +167,7 @@ notice_update_cc (exp)
       /* Jumps do not alter the cc's.  */
       if (SET_DEST (exp) == pc_rtx)
 	return;
-      /* Moving a register or constant into memory doesn't alter the cc's. */
+      /* Moving a register or constant into memory doesn't alter the cc's.  */
       if (GET_CODE (SET_DEST (exp)) == MEM
 	  && (src_code == REG || src_code == CONST_INT))
 	return;
@@ -182,7 +192,7 @@ notice_update_cc (exp)
 	  cc_status.value1 = SET_SRC (exp);
 	  return;
 	}
-      /* Anything else will set cc_status. */
+      /* Anything else will set cc_status.  */
       cc_status.flags = CC_NO_OVERFLOW;
       cc_status.value1 = SET_SRC (exp);
       cc_status.value2 = SET_DEST (exp);
@@ -229,44 +239,6 @@ function_arg (cum, mode, type, named)
     return (rtx) 0;
 }
 
-
-double
-get_double (x)
-     rtx x;
-{
-  union
-    {
-      double d;
-      long i[2];
-    }
-  du;
-
-  du.i[0] = CONST_DOUBLE_LOW (x);
-  du.i[1] = CONST_DOUBLE_HIGH (x);
-  return du.d;
-}
-
-char *
-float_label (code, value)
-     int code;
-     double value;
-{
-  static char label[32];
-  char *p;
-
-  label[0] = code;
-  p = label + 1;
-  sprintf (p, "%f", value);
-  while (*p)
-    {
-      *p = (*p == '+') ? 'p' :
-	(*p == '-') ? 'm' : *p;
-      p++;
-    }
-  return xstrdup (label);
-}
-
-
 const char *
 movcnt_regno_adjust (op)
      rtx *op;
@@ -304,7 +276,7 @@ mod_regno_adjust (instr, op)
      rtx *op;
 {
   static char outstr[40];
-  const char *r = (!strncmp (instr, "dvr", 3) ? "r" : "");
+  const char *const r = (!strncmp (instr, "dvr", 3) ? "r" : "");
   int modregno_gcc = REGNO (op[3]), modregno_1750 = REGNO (op[0]) + 1;
 
   if (modregno_gcc == modregno_1750
@@ -578,59 +550,15 @@ print_operand (file, x, letter)
       break;
 
     case CONST_DOUBLE:
-/*    {
-	double value = get_double (x);
-	char fltstr[32];
-	sprintf (fltstr, "%f", value);
+      {
+	REAL_VALUE_TYPE r;
+	char buf[30];
 
-	if (letter == 'D' || letter == 'E')
-	  {
-	    int i, found = 0;
-	    for (i = 0; i <= datalbl_ndx; i++)
-	      if (strcmp (fltstr, datalbl[i].value) == 0)
-		{
-		  found = 1;
-		  break;
-		}
-	    if (!found)
-	      {
-		strcpy (datalbl[i = ++datalbl_ndx].value, fltstr);
-		datalbl[i].name = float_label (letter, value);
-		datalbl[i].size = (letter == 'E') ? 3 : 2;
-		check_section (Konst);
-		fprintf (file, "K%s \tdata%s %s ;p_o\n", datalbl[i].name,
-			(letter == 'E' ? "ef" : "f"), fltstr);
-		check_section (Normal);
-	      }
-	  }
-	else if (letter == 'F' || letter == 'G')
-	  {
-	    int i, found = 0;
-	    for (i = 0; i <= datalbl_ndx; i++)
-	      if (strcmp (fltstr, datalbl[i].value) == 0)
-		{
-		  found = 1;
-		  break;
-		}
-	    if (!found)
-	      {
-		fprintf (stderr,
-		   "float value %f not found upon label reference\n", value);
-		strcpy (datalbl[i = ++datalbl_ndx].value, fltstr);
-		datalbl[i].name = float_label (letter, value);
-		datalbl[i].size = (letter == 'G') ? 3 : 2;
-		check_section (Konst);
-		fprintf (file, "K%s \tdata%s %s ;p_o\n", datalbl[i].name,
-			(letter == 'G' ? "ef" : "f"), fltstr);
-		check_section (Normal);
-	      }
-	    fprintf (file, "%s ;P_O 'F'", datalbl[i].name);
-	  }
-	else
-	  fprintf (file, " %s  ;P_O cst_dbl ", fltstr);
+	REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+	REAL_VALUE_TO_DECIMAL (r, "%f", buf);
+
+	fputs (buf, file);
       }
- */
-      fprintf (file, "%f", get_double (x));
       break;
 
     case CONST_INT:
@@ -652,7 +580,7 @@ print_operand (file, x, letter)
 
     case CALL:
       fprintf (file, "CALL nargs=");
-      fprintf (file, HOST_PTR_PRINTF, XEXP (x, 1));
+      fprintf (file, HOST_PTR_PRINTF, (PTR) XEXP (x, 1));
       fprintf (file, ", func is either '%s' or '%s'",
 	       XSTR (XEXP (XEXP (x, 0), 1), 0), XSTR (XEXP (x, 0), 1));
       break;
@@ -807,6 +735,25 @@ print_operand_address (file, addr)
   addr_inc = 0;
 }
 
+/* Target hook for assembling integer objects.  The 1750a version needs to
+   keep track of how many bytes have been written.  */
+
+static bool
+assemble_integer_1750a (x, size, aligned_p)
+     rtx x;
+     unsigned int size;
+     int aligned_p;
+{
+  if (default_assemble_integer (x, size, aligned_p))
+    {
+      if (label_pending)
+	label_pending = 0;
+      datalbl[datalbl_ndx].size += size;
+      return true;
+    }
+  return false;
+}
+
 
 /*
  *  Return non zero if the LS 16 bits of the given value has just one bit set,
@@ -841,4 +788,145 @@ which_bit (x)
   return b;
 }
 
+
+/* Convert a REAL_VALUE_TYPE to the target float format:
 
+        MSB                             LSB MSB            LSB
+        ------------------------------------------------------
+        |S|                 Mantissa       |  Exponent       |
+        ------------------------------------------------------
+         0 1                             23 24             31
+
+*/
+
+long
+real_value_to_target_single(in)
+     REAL_VALUE_TYPE in;
+{
+  union {
+    double d;
+    struct {
+#if HOST_WORDS_BIG_ENDIAN
+        unsigned int negative:1;
+        unsigned int exponent:11;
+        unsigned int mantissa0:20;
+        unsigned int mantissa1:32;
+#else
+        unsigned int mantissa1:32;
+        unsigned int mantissa0:20;
+        unsigned int exponent:11;
+        unsigned int negative:1;
+#endif
+    } s;
+  } ieee;
+
+  unsigned int mant;
+  int exp;
+
+  if (HOST_FLOAT_FORMAT != IEEE_FLOAT_FORMAT)
+    abort ();
+
+  ieee.d = in;
+
+  /* Don't bother with NaN, Inf, 0 special cases, since they'll be handled
+     by the over/underflow code below.  */
+  exp = ieee.s.exponent - 0x3ff;
+  mant = 1 << 23 | ieee.s.mantissa0 << 3 | ieee.s.mantissa1 >> 29;
+
+  /* The sign is actually part of the mantessa.  Since we're comming from
+     IEEE we know that either bit 23 is set or we have a zero.  */
+  if (! ieee.s.negative)
+    {
+      mant >>= 1;
+      exp += 1;
+    }
+
+  /* Check for overflow.  Crop to FLT_MAX.  */
+  if (exp > 127)
+    {
+      exp = 127;
+      mant = (ieee.s.negative ? 0xffffff : 0x7fffff);
+    }
+  /* Underflow to zero.  */
+  else if (exp < -128)
+    {
+      exp = 0;
+      mant = 0;
+    }
+
+  return mant << 8 | (exp & 0xff);
+}
+
+/* Convert a REAL_VALUE_TYPE to the target 1750a extended float format:
+
+        ----------------------------------------------------
+        | |      Mantissa       |        |   Mantissa      |
+        |S|         MS          |Exponent|      LS         |
+        ----------------------------------------------------
+         0 1                  23 24    31 32             47
+
+*/
+
+void
+real_value_to_target_double(in, out)
+     REAL_VALUE_TYPE in;
+     long out[];
+{
+  union {
+    double d;
+    struct {
+#if HOST_WORDS_BIG_ENDIAN
+        unsigned int negative:1;
+        unsigned int exponent:11;
+        unsigned int mantissa0:20;
+        unsigned int mantissa1:32;
+#else
+        unsigned int mantissa1:32;
+        unsigned int mantissa0:20;
+        unsigned int exponent:11;
+        unsigned int negative:1;
+#endif
+    } s;
+  } ieee;
+
+  unsigned int mant_h24, mant_l16;
+  int exp;
+
+  if (HOST_FLOAT_FORMAT != IEEE_FLOAT_FORMAT)
+    abort ();
+
+  ieee.d = in;
+
+  /* Don't bother with NaN, Inf, 0 special cases, since they'll be handled
+     by the over/underflow code below.  */
+  exp = ieee.s.exponent - 0x3ff;
+  mant_h24 = 1 << 23 | ieee.s.mantissa0 << 3 | ieee.s.mantissa1 >> 29;
+  mant_l16 = (ieee.s.mantissa1 >> 13) & 0xffff;
+
+  /* The sign is actually part of the mantessa.  Since we're comming from
+     IEEE we know that either bit 23 is set or we have a zero.  */
+  if (! ieee.s.negative)
+    {
+      mant_l16 = mant_l16 >> 1 | (mant_h24 & 1) << 15;
+      mant_h24 >>= 1;
+      exp += 1;
+    }
+
+  /* Check for overflow.  Crop to DBL_MAX.  */
+  if (exp > 127)
+    {
+      exp = 127;
+      mant_h24 = (ieee.s.negative ? 0xffffff : 0x7fffff);
+      mant_l16 = 0xffff;
+    }
+  /* Underflow to zero.  */
+  else if (exp < -128)
+    {
+      exp = 0;
+      mant_h24 = 0;
+      mant_l16 = 0;
+    }
+
+  out[0] = mant_h24 << 8 | (exp & 0xff);
+  out[1] = mant_l16;
+}

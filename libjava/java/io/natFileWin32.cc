@@ -1,6 +1,6 @@
-// natFileWin32.cc - Native part of File class for Win32.
+// natFileWin32.cc - Native part of File class.
 
-/* Copyright (C) 1998, 1999, 2001  Red Hat, Inc.
+/* Copyright (C) 1998, 1999  Red Hat, Inc.
 
    This file is part of libgcj.
 
@@ -14,6 +14,7 @@ details.  */
 #include <string.h>
 
 #include <windows.h>
+#undef STRICT
 
 #include <gcj/cni.h>
 #include <jvm.h>
@@ -22,13 +23,17 @@ details.  */
 #include <java/util/Vector.h>
 #include <java/lang/String.h>
 #include <java/io/FilenameFilter.h>
+#include <java/io/FileFilter.h>
 #include <java/lang/System.h>
 
 jboolean
-java::io::File::access (jint query)
+java::io::File::_access (jint query)
 {
+  jstring canon = getCanonicalPath();
+  if (! canon)
+    return false;
   char buf[MAX_PATH];
-  jsize total = JvGetStringUTFRegion (path, 0, path->length(), buf);
+  jsize total = JvGetStringUTFRegion (canon, 0, canon->length(), buf);
   // FIXME?
   buf[total] = '\0';
 
@@ -46,14 +51,15 @@ java::io::File::access (jint query)
 }
 
 jboolean
-java::io::File::stat (jint query)
+java::io::File::_stat (jint query)
 {
+  jstring canon = getCanonicalPath();
+  if (! canon)
+    return false;
   char buf[MAX_PATH];
-  jsize total = JvGetStringUTFRegion (path, 0, path->length(), buf);
+  jsize total = JvGetStringUTFRegion (canon, 0, canon->length(), buf);
   // FIXME?
   buf[total] = '\0';
-
-  // FIXME: Need to handle ISHIDDEN query.
 
   JvAssert (query == DIRECTORY || query == ISFILE);
 
@@ -70,8 +76,11 @@ java::io::File::stat (jint query)
 jlong
 java::io::File::attr (jint query)
 {
+  jstring canon = getCanonicalPath();
+  if (! canon)
+    return false;
   char buf[MAX_PATH];
-  jsize total = JvGetStringUTFRegion (path, 0, path->length(), buf);
+  jsize total = JvGetStringUTFRegion (canon, 0, canon->length(), buf);
   // FIXME?
   buf[total] = '\0';
 
@@ -100,7 +109,7 @@ java::io::File::getCanonicalPath (void)
 
   LPTSTR unused;
   if(!GetFullPathName(buf, MAX_PATH, buf2, &unused))
-    throw new IOException (JvNewStringLatin1 ("GetFullPathName failed"));
+    _Jv_Throw (new IOException (JvNewStringLatin1 ("GetFullPathName failed")));
 
   // FIXME: what encoding to assume for file names?  This affects many
   // calls.
@@ -123,13 +132,19 @@ java::io::File::isAbsolute (void)
 	  && (path->charAt(2) == '/' || path->charAt(2) == '\\'));
 }
 
-jstringArray
+void java::io::File::init_native() { }
+
+
+jobjectArray
 java::io::File::performList (java::io::FilenameFilter *filter, 
 			     java::io::FileFilter *fileFilter, 
-			     java::lang::Class *result_type)
+			     java::lang::Class *clazz)
 {
+  jstring canon = getCanonicalPath();
+  if (! canon)
+    return NULL;
   char buf[MAX_PATH];
-  jsize total = JvGetStringUTFRegion (path, 0, path->length(), buf);
+  jsize total = JvGetStringUTFRegion (canon, 0, canon->length(), buf);
   // FIXME?
   strcpy(&buf[total], "\\*.*");
 
@@ -138,7 +153,7 @@ java::io::File::performList (java::io::FilenameFilter *filter,
   if (handle == INVALID_HANDLE_VALUE)
     return NULL;
 
-  java::util::ArrayList *list = new java::util::ArrayList ();
+  java::util::Vector *vec = new java::util::Vector ();
 
   do
     {
@@ -146,20 +161,14 @@ java::io::File::performList (java::io::FilenameFilter *filter,
         {
           jstring name = JvNewStringUTF (data.cFileName);
 
-	  if (filter && ! filter->accept(this, name))
-	    continue;
+          if (filter && !filter->accept(this, name)) continue;
+          if (clazz == &java::io::File::class$) {
+              java::io::File *file = new java::io::File (this, name);
+              if (fileFilter && !fileFilter->accept(file)) continue;
+          }
+          vec->addElement (name);
 
-	  if (result_type == &java::io::File::class$)
-            {
-	      java::io::File *file = new java::io::File (this, name);
-	      if (fileFilter && ! fileFilter->accept(file))
-		continue;
-
-	      list->add(file);
-	    }
-	  else
-	    list->add(name);
-	}
+        }
     }
   while (FindNextFile (handle, &data));
 
@@ -168,10 +177,16 @@ java::io::File::performList (java::io::FilenameFilter *filter,
 
   FindClose (handle);
 
-  jobjectArray ret = JvNewObjectArray (vec->size(), path->getClass(), NULL);
+  jobjectArray ret = JvNewObjectArray (vec->size(), canon->getClass(), NULL);
   vec->copyInto (ret);
-  return reinterpret_cast<jstringArray> (ret);
+  if (clazz == &java::io::File::class$) {
+      jobject *ret_elements = elements(ret);
+      for(int i=0; i<ret->length; i++)
+          ret_elements[i] = new File((jstring)(ret_elements[i]));
+  }
+  return ret;
 }
+
 
 jboolean
 java::io::File::performMkdir (void)
@@ -182,20 +197,6 @@ java::io::File::performMkdir (void)
   buf[total] = '\0';
 
   return (CreateDirectory(buf, NULL)) ? true : false;
-}
-
-jboolean
-java::io::File::performSetReadOnly (void)
-{
-  // PLEASE IMPLEMENT ME
-  return false;
-}
-
-JArray< ::java::io::File *>*
-java::io::File::performListRoots ()
-{
-  // PLEASE IMPLEMENT ME
-  return NULL;
 }
 
 jboolean
@@ -214,24 +215,11 @@ java::io::File::performRenameTo (File *dest)
 }
 
 jboolean
-java::io::File::performSetLastModified (jlong time)
-{
-  // PLEASE IMPLEMENT ME
-  return false;
-}
-
-jboolean
-java::io::File::performCreate (void)
-{
-  // PLEASE IMPLEMENT ME
-  return false;
-}
-
-jboolean
 java::io::File::performDelete ()
 {
+  jstring canon = getCanonicalPath();
   char buf[MAX_PATH];
-  jsize total = JvGetStringUTFRegion(path, 0, path->length(), buf);
+  jsize total = JvGetStringUTFRegion(canon, 0, canon->length(), buf);
   // FIXME?
   buf[total] = '\0';
 
@@ -245,9 +233,7 @@ java::io::File::performDelete ()
     return (DeleteFile (buf)) ? true : false;
 }
 
-void
-java::io::File::init_native ()
-{
-  maxPathLen = MAX_PATH;
-  caseSensitive = false;
-}
+jboolean java::io::File::performCreate (void) { JvFail("unimplemented\n"); }
+jboolean java::io::File::performSetReadOnly() { JvFail("unimplemented"); }
+jboolean java::io::File::performSetLastModified(jlong time) { JvFail("unimplemented"); }
+JArray<java::io::File*>* java::io::File::performListRoots() { JvFail("unimplemented"); }

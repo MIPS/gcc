@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  Clipper version.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Holger Teutsch (holger@hotbso.rhein-main.de)
 
 This file is part of GNU CC.
@@ -69,21 +69,8 @@ extern int target_flags;
 
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -337,10 +324,6 @@ enum reg_class { NO_REGS, GENERAL_REGS, FLOAT_REGS, ALL_REGS, LIM_REG_CLASSES};
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
-
-/* Define this if longjmp restores from saved registers
-   rather than from what setjmp saved.  */
-/* #define LONGJMP_RESTORE_FROM_STACK */
 
 /* Define this if the nominal address of the stack frame
    is at the high-address end of the local variables;
@@ -780,12 +763,6 @@ do									      \
    done, NIL if none.  */
 #define LOAD_EXTEND_OP(MODE) SIGN_EXTEND
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -805,9 +782,6 @@ do									      \
    block move require much reload work. */
 
 #define MOVE_RATIO 20
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-/* #define SLOW_ZERO_EXTEND */
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0
@@ -967,12 +941,6 @@ do									      \
  "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", \
  "f9", "f10", "f11", "f12", "f13", "f14", "f15" }
 
-/* How to renumber registers for dbx and gdb.
-   Clipper needs no change in the numeration.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
-
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 
@@ -985,30 +953,6 @@ do									      \
 #define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
   do { fputs (".globl ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
 
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\t.word "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
-
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */
 
@@ -1020,7 +964,7 @@ do									      \
    It need not be very fast code.  */
 
 #define ASM_OUTPUT_REG_POP(FILE,REGNO)  \
-  fprintf (FILE, "\t%s  (sp),%s\n\t\addq  $8,sp\n",	\
+  fprintf (FILE, "\t%s  (sp),%s\n\taddq  $8,sp\n",	\
 	   (REGNO) < 16 ? "loadw" : "loadd", reg_names[REGNO])
 /* This is how to output an element of a case-vector that is absolute */
 

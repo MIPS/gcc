@@ -1,7 +1,7 @@
 // 981015 bkoz
 // i,o,stringstream usage
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,7 +31,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
 // 01: sanity checks for strings, stringbufs
 std::string 

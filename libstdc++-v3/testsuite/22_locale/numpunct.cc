@@ -18,7 +18,9 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// 22.2.3 the numeric punctuation facet
+// 22.2.3  The numeric punctuation facet
+
+// { dg-do compile }
 
 #include <locale>
 

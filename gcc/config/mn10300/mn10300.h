@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Matsushita MN10300 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
@@ -21,7 +21,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "svr4.h"
 
 #undef ASM_SPEC
 #undef ASM_FINAL_SPEC
@@ -91,21 +90,8 @@ extern int target_flags;
    This is not true on the Matsushita MN10300.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD		32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD		4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 		32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY		32
@@ -340,10 +326,10 @@ enum reg_class {
 
 #ifndef REG_OK_STRICT
 # define REGNO_IN_RANGE_P(regno,min,max) \
-  (((regno) >= (min) && (regno) <= (max)) || (regno) >= FIRST_PSEUDO_REGISTER)
+  (IN_RANGE ((regno), (min), (max)) || (regno) >= FIRST_PSEUDO_REGISTER)
 #else
 # define REGNO_IN_RANGE_P(regno,min,max) \
-  (((regno) >= (min) && (regno) <= (max)) \
+  (IN_RANGE ((regno), (min), (max)) \
    || (reg_renumber \
        && reg_renumber[(regno)] >= (min) && reg_renumber[(regno)] <= (max)))
 #endif
@@ -902,46 +888,6 @@ struct cum_arg {int nbytes; };
 
 #define ASM_APP_OFF "#NO_APP\n"
 
-/* This is how to output an assembler line defining a `double' constant.
-   It is .dfloat or .gfloat, depending.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)			\
-do { char dstr[30];					\
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-     fprintf (FILE, "\t.double %s\n", dstr);		\
-   } while (0)
-
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)			\
-do { char dstr[30];					\
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-     fprintf (FILE, "\t.float %s\n", dstr);		\
-   } while (0)
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE, VALUE)		\
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE, VALUE)		\
-( fprintf (FILE, "\t.hword "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)		\
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE, VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
-
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.
    Try to use asm_output_bss to implement this macro.  */
@@ -1040,8 +986,6 @@ do { char dstr[30];					\
 
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
 
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
-
 /* GDB always assumes the current function's frame begins at the value
    of the stack pointer upon entry to the current function.  Accessing
    local variables and parameters passed on the stack is done using the
@@ -1065,10 +1009,6 @@ do { char dstr[30];					\
     + (frame_pointer_needed \
        ? 0 : -initial_offset (ARG_POINTER_REGNUM, STACK_POINTER_REGNUM)))
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
-
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
@@ -1079,15 +1019,9 @@ do { char dstr[30];					\
 
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
 /* This flag, if defined, says the same insns that convert to a signed fixnum
    also convert validly to an unsigned one.  */
 #define FIXUNS_TRUNC_LIKE_FIX_TRUNC
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */

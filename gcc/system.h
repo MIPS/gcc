@@ -1,23 +1,23 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #ifndef GCC_SYSTEM_H
@@ -28,7 +28,7 @@ Boston, MA 02111-1307, USA.  */
    not under control of the preprocessor.  */
 #define GCCBUGURL "<URL:http://www.gnu.org/software/gcc/bugs.html>"
 
-/* We must include stdarg.h/varargs.h before stdio.h. */
+/* We must include stdarg.h/varargs.h before stdio.h.  */
 #ifdef ANSI_PROTOTYPES
 #include <stdarg.h>
 #else
@@ -55,28 +55,53 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 /* The compiler is not a multi-threaded application and therefore we
-   do not have to use the locking functions.
+   do not have to use the locking functions.  In fact, using the locking
+   functions can cause the compiler to be significantly slower under
+   I/O bound conditions (such as -g -O0 on very large source files).
 
-   HAVE_DECL_PUTC_UNLOCKED actually indicates whether or not the IO
+   HAVE_DECL_PUTC_UNLOCKED actually indicates whether or not the stdio
    code is multi-thread safe by default.  If it is set to 0, then do
    not worry about using the _unlocked functions.
    
-   fputs_unlocked is an extension and needs to be prototyped specially.  */
+   fputs_unlocked, fwrite_unlocked, and fprintf_unlocked are
+   extensions and need to be prototyped by hand (since we do not
+   define _GNU_SOURCE).  */
 
-#if defined HAVE_PUTC_UNLOCKED && (defined (HAVE_DECL_PUTC_UNLOCKED) && HAVE_DECL_PUTC_UNLOCKED)
-# undef putc
-# define putc(C, Stream) putc_unlocked (C, Stream)
-#endif
-#if defined HAVE_FPUTC_UNLOCKED && (defined (HAVE_DECL_PUTC_UNLOCKED) && HAVE_DECL_PUTC_UNLOCKED)
-# undef fputc
-# define fputc(C, Stream) fputc_unlocked (C, Stream)
-#endif
-#if defined HAVE_FPUTS_UNLOCKED && (defined (HAVE_DECL_PUTC_UNLOCKED) && HAVE_DECL_PUTC_UNLOCKED)
-# undef fputs
-# define fputs(String, Stream) fputs_unlocked (String, Stream)
-# if defined (HAVE_DECL_FPUTS_UNLOCKED) && !HAVE_DECL_FPUTS_UNLOCKED
-extern int fputs_unlocked PARAMS ((const char *, FILE *));
+#if defined HAVE_DECL_PUTC_UNLOCKED && HAVE_DECL_PUTC_UNLOCKED
+
+# ifdef HAVE_PUTC_UNLOCKED
+#  undef putc
+#  define putc(C, Stream) putc_unlocked (C, Stream)
 # endif
+# ifdef HAVE_FPUTC_UNLOCKED
+#  undef fputc
+#  define fputc(C, Stream) fputc_unlocked (C, Stream)
+# endif
+
+# ifdef HAVE_FPUTS_UNLOCKED
+#  undef fputs
+#  define fputs(String, Stream) fputs_unlocked (String, Stream)
+#  if defined (HAVE_DECL_FPUTS_UNLOCKED) && !HAVE_DECL_FPUTS_UNLOCKED
+extern int fputs_unlocked PARAMS ((const char *, FILE *));
+#  endif
+# endif
+# ifdef HAVE_FWRITE_UNLOCKED
+#  undef fwrite
+#  define fwrite(Ptr, Size, N, Stream) fwrite_unlocked (Ptr, Size, N, Stream)
+#  if defined (HAVE_DECL_FWRITE_UNLOCKED) && !HAVE_DECL_FWRITE_UNLOCKED
+extern int fwrite_unlocked PARAMS ((const PTR, size_t, size_t, FILE *));
+#  endif
+# endif
+# ifdef HAVE_FPRINTF_UNLOCKED
+#  undef fprintf
+/* We can't use a function-like macro here because we don't know if
+   we have varargs macros.  */
+#  define fprintf fprintf_unlocked
+#  if defined (HAVE_DECL_FPRINTF_UNLOCKED) && !HAVE_DECL_FPRINTF_UNLOCKED
+extern int fprintf_unlocked PARAMS ((FILE *, const char *, ...));
+#  endif
+# endif
+
 #endif
 
 /* There are an extraordinary number of issues with <ctype.h>.
@@ -134,6 +159,8 @@ extern int errno;
 
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
+/* We use this identifier later and it appears in some vendor param.h's.  */
+# undef PREFETCH
 #endif
 
 #if HAVE_LIMITS_H
@@ -142,6 +169,16 @@ extern int errno;
 
 /* Get definitions of HOST_WIDE_INT and HOST_WIDEST_INT.  */
 #include "hwint.h"
+
+/* A macro to determine whether a VALUE lies inclusively within a
+   certain range without evaluating the VALUE more than once.  This
+   macro won't warn if the VALUE is unsigned and the LOWER bound is
+   zero, as it would e.g. with "VALUE >= 0 && ...".  Note the LOWER
+   bound *is* evaluated twice, and LOWER must not be greater than
+   UPPER.  However the bounds themselves can be either positive or
+   negative.  */
+#define IN_RANGE(VALUE, LOWER, UPPER) \
+  ((unsigned HOST_WIDE_INT) ((VALUE) - (LOWER)) <= ((UPPER) - (LOWER)))
 
 /* Infrastructure for defining missing _MAX and _MIN macros.  Note that
    macros defined with these cannot be used in #if.  */
@@ -288,7 +325,7 @@ extern PTR realloc PARAMS ((PTR, size_t));
 #endif
 
 /* If the system doesn't provide strsignal, we get it defined in
-   libiberty but no declaration is supplied. */
+   libiberty but no declaration is supplied.  */
 #ifndef HAVE_STRSIGNAL
 # ifndef strsignal
 extern const char *strsignal PARAMS ((int));
@@ -318,7 +355,7 @@ extern int setrlimit PARAMS ((int, const struct rlimit *));
 #endif
 
 /* HAVE_VOLATILE only refers to the stage1 compiler.  We also check
-   __STDC__ and assume gcc sets it and has volatile in stage >=2. */
+   __STDC__ and assume gcc sets it and has volatile in stage >=2.  */
 #if !defined(HAVE_VOLATILE) && !defined(__STDC__) && !defined(volatile)
 #define volatile
 #endif
@@ -403,7 +440,7 @@ extern void abort PARAMS ((void));
 # define STDERR_FILENO  2
 #endif
 
-/* Some systems have mkdir that takes a single argument. */
+/* Some systems have mkdir that takes a single argument.  */
 #ifdef MKDIR_TAKES_ONE_ARG
 # define mkdir(a,b) mkdir(a)
 #endif
@@ -449,7 +486,7 @@ extern void abort PARAMS ((void));
   (IS_DIR_SEPARATOR ((STR)[0]) || (STR)[0] == '$')
 #endif
 
-/* Get libiberty declarations. */
+/* Get libiberty declarations.  */
 #include "libiberty.h"
 #include "symcat.h"
 
@@ -470,12 +507,12 @@ extern void abort PARAMS ((void));
 #endif
 
 #ifndef offsetof
-#define offsetof(TYPE, MEMBER)	((size_t) &((TYPE *)0)->MEMBER)
+#define offsetof(TYPE, MEMBER)	((size_t) &((TYPE *) 0)->MEMBER)
 #endif
 
 /* Traditional C cannot initialize union members of structs.  Provide
    a macro which expands appropriately to handle it.  This only works
-   if you intend to initalize the union member to zero since it relies
+   if you intend to initialize the union member to zero since it relies
    on default initialization to zero in the traditional C case.  */
 #ifdef __STDC__
 #define UNION_INIT_ZERO , {0}
@@ -490,9 +527,16 @@ extern void abort PARAMS ((void));
 #endif /* ! __FUNCTION__ */
 #endif
 
+/* __builtin_expect(A, B) evaluates to A, but notifies the compiler that
+   the most likely value of A is B.  This feature was added at some point
+   between 2.95 and 3.0.  Let's use 3.0 as the lower bound for now.  */
+#if (GCC_VERSION < 3000)
+#define __builtin_expect(a, b) (a)
+#endif
+
 /* Provide some sort of boolean type.  We use stdbool.h if it's
-  available.  This is dead last because various system headers might
-  mess us up.  */
+  available.  This must be after all inclusion of system headers,
+  as some of them will mess us up.  */
 #undef bool
 #undef true
 #undef false
@@ -540,6 +584,30 @@ typedef char _Bool;
 #undef calloc
 #undef strdup
  #pragma GCC poison malloc realloc calloc strdup
+
+/* Old target macros that have moved to the target hooks structure.  */
+ #pragma GCC poison ASM_OPEN_PAREN ASM_CLOSE_PAREN			\
+	FUNCTION_PROLOGUE FUNCTION_EPILOGUE				\
+	FUNCTION_END_PROLOGUE FUNCTION_BEGIN_EPILOGUE			\
+	DECL_MACHINE_ATTRIBUTES COMP_TYPE_ATTRIBUTES INSERT_ATTRIBUTES	\
+	VALID_MACHINE_DECL_ATTRIBUTE VALID_MACHINE_TYPE_ATTRIBUTE	\
+	SET_DEFAULT_TYPE_ATTRIBUTES SET_DEFAULT_DECL_ATTRIBUTES		\
+	MERGE_MACHINE_TYPE_ATTRIBUTES MERGE_MACHINE_DECL_ATTRIBUTES	\
+	MD_INIT_BUILTINS MD_EXPAND_BUILTIN ASM_OUTPUT_CONSTRUCTOR	\
+	ASM_OUTPUT_DESTRUCTOR SIGNED_CHAR_SPEC
+
+/* And other obsolete target macros, or macros that used to be in target
+   headers and were not used, and may be obsolete or may never have
+   been used.  */
+ #pragma GCC poison INT_ASM_OP ASM_OUTPUT_EH_REGION_BEG			   \
+	ASM_OUTPUT_EH_REGION_END ASM_OUTPUT_LABELREF_AS_INT		   \
+	DOESNT_NEED_UNWINDER EH_TABLE_LOOKUP OBJC_SELECTORS_WITHOUT_LABELS \
+	OMIT_EH_TABLE EASY_DIV_EXPR IMPLICIT_FIX_EXPR			   \
+	LONGJMP_RESTORE_FROM_STACK MAX_INT_TYPE_SIZE ASM_IDENTIFY_GCC	   \
+	STDC_VALUE TRAMPOLINE_ALIGN ASM_IDENTIFY_GCC_AFTER_SOURCE	   \
+	SLOW_ZERO_EXTEND SUBREG_REGNO_OFFSET DWARF_LINE_MIN_INSTR_LENGTH   \
+	TRADITIONAL_RETURN_FLOAT
+
 #endif /* IN_GCC */
 
 /* Note: not all uses of the `index' token (e.g. variable names and

@@ -183,7 +183,7 @@ incomplete_type_error (value, type)
    then UNSIGNEDP selects between signed and unsigned types.  */
 
 tree
-type_for_mode (mode, unsignedp)
+java_type_for_mode (mode, unsignedp)
      enum machine_mode mode;
      int unsignedp;
 {
@@ -207,7 +207,7 @@ type_for_mode (mode, unsignedp)
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
 tree
-type_for_size (bits, unsignedp)
+java_type_for_size (bits, unsignedp)
      unsigned bits;
      int unsignedp;
 {
@@ -226,7 +226,7 @@ type_for_size (bits, unsignedp)
    signed according to UNSIGNEDP.  */
 
 tree
-signed_or_unsigned_type (unsignedp, type)
+java_signed_or_unsigned_type (unsignedp, type)
      int unsignedp;
      tree type;
 {
@@ -246,28 +246,27 @@ signed_or_unsigned_type (unsignedp, type)
 /* Return a signed type the same as TYPE in other respects.  */
 
 tree
-signed_type (type)
+java_signed_type (type)
      tree type;
 {
-  return signed_or_unsigned_type (0, type);
+  return java_signed_or_unsigned_type (0, type);
 }
 
 /* Return an unsigned type the same as TYPE in other respects.  */
 
 tree
-unsigned_type (type)
+java_unsigned_type (type)
      tree type;
 {
-  return signed_or_unsigned_type (1, type);
-
+  return java_signed_or_unsigned_type (1, type);
 }
 
 /* Mark EXP saying that we need to be able to take the
    address of it; it should not be allocated in a register.
-   Value is 1 if successful.  */
+   Value is true if successful.  */
 
-int
-mark_addressable (exp)
+bool
+java_mark_addressable (exp)
      tree exp;
 {
   register tree x = exp;
@@ -289,12 +288,12 @@ mark_addressable (exp)
 	break;
 
       case COND_EXPR:
-	return mark_addressable (TREE_OPERAND (x, 1))
-	  & mark_addressable (TREE_OPERAND (x, 2));
+	return java_mark_addressable (TREE_OPERAND (x, 1))
+	  && java_mark_addressable (TREE_OPERAND (x, 2));
 
       case CONSTRUCTOR:
 	TREE_ADDRESSABLE (x) = 1;
-	return 1;
+	return true;
 
       case INDIRECT_REF:
 	/* We sometimes add a cast *(TYPE*)&FOO to handle type and mode
@@ -310,7 +309,7 @@ mark_addressable (exp)
 	    x = TREE_OPERAND (x, 0);
 	    break;
 	  }
-	return 1;
+	return true;
 
       case VAR_DECL:
       case CONST_DECL:
@@ -324,7 +323,7 @@ mark_addressable (exp)
 #endif
 	/* drops through */
       default:
-	return 1;
+	return true;
     }
 }
 
@@ -353,9 +352,12 @@ java_array_type_length (array_type)
   if (arfld != NULL_TREE)
     {
       tree index_type = TYPE_DOMAIN (TREE_TYPE (arfld));
-      tree high = TYPE_MAX_VALUE (index_type);
-      if (TREE_CODE (high) == INTEGER_CST)
-	return TREE_INT_CST_LOW (high) + 1;
+      if (index_type != NULL_TREE)
+	{
+	  tree high = TYPE_MAX_VALUE (index_type);
+	  if (TREE_CODE (high) == INTEGER_CST)
+	    return TREE_INT_CST_LOW (high) + 1;
+	}
     }
   return -1;
 }
@@ -370,9 +372,15 @@ build_prim_array_type (element_type, length)
      tree element_type;
      HOST_WIDE_INT length;
 {
-  tree max_index = build_int_2 (length - 1, (0 == length ? -1 : 0));
-  TREE_TYPE (max_index) = sizetype;
-  return build_array_type (element_type, build_index_type (max_index));
+  tree index = NULL;
+
+  if (length != -1)
+    {
+      tree max_index = build_int_2 (length - 1, (0 == length ? -1 : 0));
+      TREE_TYPE (max_index) = sizetype;
+      index = build_index_type (max_index);
+    }
+  return build_array_type (element_type, index);
 }
 
 /* Return a Java array type with a given ELEMENT_TYPE and LENGTH.
@@ -579,6 +587,8 @@ get_type_from_signature (tree signature)
     }
   return type;
 }
+
+/* Ignore signature and always return null.  Used by has_method. */
 
 static tree
 build_null_signature (type)

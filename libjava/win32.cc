@@ -76,29 +76,26 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
   SET ("file.separator", "\\");
   SET ("path.separator", ";");
   SET ("line.separator", "\r\n");
+  SET ("java.io.tmpdir", GetTempPath ());
 
   // Use GetCurrentDirectory to set 'user.dir'.
   DWORD buflen = MAX_PATH;
-  char *buffer = (char *) _Jv_MallocUnchecked (buflen);
+  char* buffer = (char *) malloc (buflen);
   if (buffer != NULL)
     {
       if (GetCurrentDirectory (buflen, buffer))
-	SET ("user.dir", buffer);
-
-      if (GetTempPath (buflen, buffer))
-	SET ("java.io.tmpdir", buffer);
-
-      _Jv_Free (buffer);
+          SET ("user.dir", buffer);
+      free (buffer);
     }
   
   // Use GetUserName to set 'user.name'.
   buflen = 257;  // UNLEN + 1
-  buffer = (char *) _Jv_MallocUnchecked (buflen);
+  buffer = (char *) malloc (buflen);
   if (buffer != NULL)
     {
       if (GetUserName (buffer, &buflen))
         SET ("user.name", buffer);
-      _Jv_Free (buffer);
+      free (buffer);
     }
 
   // According to the api documentation for 'GetWindowsDirectory()', the 
@@ -106,23 +103,23 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
   // directory or a default directory.  On the 3 windows machines I checked
   // only 1 had it set.  If it's not set, JDK1.3.1 seems to set it to
   // the windows directory, so we'll do the same.
-  char *userHome = NULL;
-  if ((userHome = ::getenv ("HOMEPATH")) == NULL )
+  char* userHome = NULL;
+  if ((userHome = ::getenv( "HOMEPATH" )) == NULL )
     {
       // Check HOME since it's what I use.
-      if ((userHome = ::getenv ("HOME")) == NULL )
+      if ((userHome = ::getenv( "HOME" )) == NULL )
         {
           // Not found - use the windows directory like JDK1.3.1 does.
-          char *winHome = (char *) _Jv_MallocUnchecked (MAX_PATH);
-          if (winHome != NULL)
+          char* winHome = (char *)malloc (MAX_PATH);
+          if ( winHome != NULL )
             {
               if (GetWindowsDirectory (winHome, MAX_PATH))
-		SET ("user.home", winHome);
-              _Jv_Free (winHome);
+                  SET ("user.home", winHome);
+              free (winHome);
             }
         }
      }
-  if (userHome != NULL)
+  if( userHome != NULL )
     SET ("user.home", userHome);
 
   // Get and set some OS info.
@@ -131,13 +128,12 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
   osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
   if (GetVersionEx (&osvi))
     {
-      char *buffer = (char *) _Jv_MallocUnchecked (30);
+      char *buffer = (char *) malloc (30);
       if (buffer != NULL)
         {
-          sprintf (buffer, "%d.%d", (int) osvi.dwMajorVersion,
-		   (int) osvi.dwMinorVersion);
+          sprintf (buffer, "%d.%d", (int)osvi.dwMajorVersion, (int)osvi.dwMinorVersion);
           SET ("os.version", buffer);
-          _Jv_Free (buffer);
+          free (buffer);
         }
 
       switch (osvi.dwPlatformId)
@@ -173,7 +169,7 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
   // Set the OS architecture.
   SYSTEM_INFO si;
   GetSystemInfo (&si);
-  switch (si.dwProcessorType)
+  switch( si.dwProcessorType )
     {
       case PROCESSOR_INTEL_386:
         SET ("os.arch", "i386");
@@ -196,24 +192,3 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
     }
 }
 
-/* Store up to SIZE return address of the current program state in
-   ARRAY and return the exact number of values stored.  */
-int
-backtrace (void **__array, int __size)
-{
-  register void *_ebp __asm__ ("ebp");
-  register void *_esp __asm__ ("esp");
-  unsigned int *rfp;
-
-  int i=0;
-  for (rfp = *(unsigned int**)_ebp;
-       rfp && i < __size;
-       rfp = *(unsigned int **)rfp)
-    {
-      int diff = *rfp - (unsigned int)rfp;
-      if ((void*)rfp < _esp || diff > 4 * 1024 || diff < 0) break;
-
-    __array[i++] = (void*)(rfp[1]-4);
-  }
-  return i;
-}

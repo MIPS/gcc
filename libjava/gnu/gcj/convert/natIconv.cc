@@ -90,10 +90,13 @@ gnu::gcj::convert::Input_iconv::read (jcharArray outbuffer,
 
   if (r == (size_t) -1)
     {
-      // Incomplete character.
-      if (errno == EINVAL)
-	return 0;
-      throw new java::io::CharConversionException ();
+      // If we see EINVAL then there is an incomplete sequence at the
+      // end of the input buffer.  If we see E2BIG then we ran out of
+      // space in the output buffer.  However, in both these cases
+      // some conversion might have taken place.  So we fall through
+      // to the normal case.
+      if (errno != EINVAL && errno != E2BIG)
+	throw new java::io::CharConversionException ();
     }
 
   if (iconv_byte_swap)
@@ -112,6 +115,24 @@ gnu::gcj::convert::Input_iconv::read (jcharArray outbuffer,
   return (old_out - outavail) / sizeof (jchar);
 #else /* HAVE_ICONV */
   return -1;
+#endif /* HAVE_ICONV */
+}
+
+void
+gnu::gcj::convert::Input_iconv::done ()
+{
+#ifdef HAVE_ICONV
+  // 50 bytes should be enough for any reset sequence.
+  size_t avail = 50;
+  char tmp[avail];
+  char *p = tmp;
+  // Calling iconv() with a NULL INBUF pointer will cause iconv() to
+  // switch to its initial state.  We don't care about the output that
+  // might be generated in that situation.
+  iconv_adapter (iconv, (iconv_t) handle, NULL, NULL, &p, &avail);
+  BytesToUnicode::done ();
+#else /* HAVE_ICONV */
+  // If no iconv, do nothing
 #endif /* HAVE_ICONV */
 }
 
@@ -192,7 +213,7 @@ gnu::gcj::convert::Output_iconv::write (jcharArray inbuffer,
       size_t r = iconv_adapter (iconv, (iconv_t) handle,
 				&inbuf, &inavail,
 				&outbuf, &outavail);
-      if (r == -1 && inavail == loop_old_in)
+      if (r == (size_t) -1 && inavail == loop_old_in)
 	{
 	  inavail -= 2;
 	  if (inavail == 0)
@@ -250,4 +271,22 @@ gnu::gcj::convert::IOConverter::iconv_init (void)
     }
 #endif /* HAVE_ICONV */
   return result;
+}
+
+void
+gnu::gcj::convert::Output_iconv::done ()
+{
+#ifdef HAVE_ICONV
+  // 50 bytes should be enough for any reset sequence.
+  size_t avail = 50;
+  char tmp[avail];
+  char *p = tmp;
+  // Calling iconv() with a NULL INBUF pointer will cause iconv() to
+  // switch to its initial state.  We don't care about the output that
+  // might be generated in that situation.
+  iconv_adapter (iconv, (iconv_t) handle, NULL, NULL, &p, &avail);
+  UnicodeToBytes::done ();
+#else /* HAVE_ICONV */
+  // If no iconv, do nothing
+#endif /* HAVE_ICONV */
 }

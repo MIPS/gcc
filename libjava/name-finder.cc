@@ -1,6 +1,6 @@
 // name-finder.cc - Convert addresses to names
 
-/* Copyright (C) 2000  Red Hat Inc
+/* Copyright (C) 2000, 2002  Free Software Foundation, Inc
 
    This file is part of libgcj.
 
@@ -61,6 +61,13 @@ _Jv_name_finder::_Jv_name_finder (char *executable)
 #if defined (HAVE_PIPE) && defined (HAVE_FORK) && defined (HAVE_EXECVP)
   error = 0;
 
+  // Initialize file descriptors so that shutdown works properly.
+  f_pipe[0] = -1;
+  f_pipe[1] = -1;
+  b_pipe[0] = -1;
+  b_pipe[1] = -1;
+  b_pipe_fd = NULL;
+
   char *argv[6];
   {
     int arg = 0;
@@ -93,8 +100,12 @@ _Jv_name_finder::_Jv_name_finder (char *executable)
       _exit (127);
     }
 
+  // Close child end of pipes.  Set local descriptors to -1 so we
+  // don't try to close the fd again.
   close (f_pipe [0]);
+  f_pipe[0] = -1;
   close (b_pipe [1]);
+  b_pipe[1] = -1;
 
   if (pid < 0)
     {
@@ -104,6 +115,12 @@ _Jv_name_finder::_Jv_name_finder (char *executable)
 
   b_pipe_fd = fdopen (b_pipe[0], "r");
   error |= !b_pipe_fd;
+
+  if (! error)
+    {
+      // Don't try to close the fd twice.
+      b_pipe[0] = -1;
+    }
 #endif
 }
 
@@ -112,7 +129,8 @@ _Jv_name_finder::_Jv_name_finder (char *executable)
 void
 _Jv_name_finder::toHex (void *p)
 {
-  unsigned long long n = (unsigned long long)p;
+  typedef unsigned word_t __attribute ((mode (word)));
+  word_t n = (word_t) p;
   int digits = sizeof (void *) * 2;
 
   strcpy (hex, "0x");
@@ -145,11 +163,15 @@ _Jv_name_finder::lookup (void *p)
     
     if (dladdr (p, &dl_info))
       {
-	strncpy (file_name, dl_info.dli_fname, sizeof file_name);
-	strncpy (method_name, dl_info.dli_sname, sizeof method_name);
+        if (dl_info.dli_fname)
+	  strncpy (file_name, dl_info.dli_fname, sizeof file_name);
+	if (dl_info.dli_sname)
+	  strncpy (method_name, dl_info.dli_sname, sizeof method_name);
        
        /* Don't trust dladdr() if the address is from the main program. */
-       if (_Jv_argv == NULL || strcmp (file_name, _Jv_argv[0]) != 0)
+       if (dl_info.dli_fname != NULL
+           && dl_info.dli_sname != NULL
+	   && (_Jv_argv == NULL || strcmp (file_name, _Jv_argv[0]) != 0))
          return true;
       }
   }

@@ -5,22 +5,22 @@
    1999, 2000 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@segfault.us.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -39,7 +39,7 @@ typedef enum formals_style_enum formals_style;
 
 static const char *data_type;
 
-static char *affix_data_type		PARAMS ((const char *));
+static char *affix_data_type		PARAMS ((const char *)) ATTRIBUTE_MALLOC;
 static const char *gen_formal_list_for_type PARAMS ((tree, formals_style));
 static int   deserves_ellipsis		PARAMS ((tree));
 static const char *gen_formal_list_for_func_def PARAMS ((tree, formals_style));
@@ -64,13 +64,11 @@ static char *
 affix_data_type (param)
      const char *param;
 {
-  char *type_or_decl = (char *) alloca (strlen (param) + 1);
+  char *const type_or_decl = ASTRDUP (param);
   char *p = type_or_decl;
   char *qualifiers_then_data_type;
   char saved;
 
-  strcpy (type_or_decl, param);
-  
   /* Skip as many leading const's or volatile's as there are.  */
 
   for (;;)
@@ -98,7 +96,8 @@ affix_data_type (param)
   *p = '\0';
   qualifiers_then_data_type = concat (type_or_decl, data_type, NULL);
   *p = saved;
-  return concat (qualifiers_then_data_type, " ", p, NULL);
+  return reconcat (qualifiers_then_data_type,
+		   qualifiers_then_data_type, " ", p, NULL);
 }
 
 /* Given a tree node which represents some "function type", generate the

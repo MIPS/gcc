@@ -2,22 +2,22 @@
    Copyright (C) 1991, 1994, 1996, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "hconfig.h"
@@ -145,19 +145,19 @@ write_units (num_units, multiplicity, simultaneity,
   printf ("#define INSN_SCHEDULING\n\n");
   printf ("extern int result_ready_cost PARAMS ((rtx));\n");
   printf ("extern int function_units_used PARAMS ((rtx));\n\n");
-  printf ("extern struct function_unit_desc\n");
+  printf ("extern const struct function_unit_desc\n");
   printf ("{\n");
-  printf ("  const char *name;\n");
-  printf ("  int bitmask;\n");
-  printf ("  int multiplicity;\n");
-  printf ("  int simultaneity;\n");
-  printf ("  int default_cost;\n");
-  printf ("  int max_issue_delay;\n");
-  printf ("  int (*ready_cost_function) PARAMS ((rtx));\n");
-  printf ("  int (*conflict_cost_function) PARAMS ((rtx, rtx));\n");
-  printf ("  int max_blockage;\n");
-  printf ("  unsigned int (*blockage_range_function) PARAMS ((rtx));\n");
-  printf ("  int (*blockage_function) PARAMS ((rtx, rtx));\n");
+  printf ("  const char *const name;\n");
+  printf ("  const int bitmask;\n");
+  printf ("  const int multiplicity;\n");
+  printf ("  const int simultaneity;\n");
+  printf ("  const int default_cost;\n");
+  printf ("  const int max_issue_delay;\n");
+  printf ("  int (*const ready_cost_function) PARAMS ((rtx));\n");
+  printf ("  int (*const conflict_cost_function) PARAMS ((rtx, rtx));\n");
+  printf ("  const int max_blockage;\n");
+  printf ("  unsigned int (*const blockage_range_function) PARAMS ((rtx));\n");
+  printf ("  int (*const blockage_function) PARAMS ((rtx, rtx));\n");
   printf ("} function_units[];\n\n");
   printf ("#define FUNCTION_UNITS_SIZE %d\n", num_units);
   printf ("#define MIN_MULTIPLICITY %d\n", multiplicity->min);
@@ -208,9 +208,9 @@ main (argc, argv)
   progname = "genattr";
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   puts ("/* Generated automatically by the program `genattr'");
@@ -297,7 +297,7 @@ main (argc, argv)
 	    }
 	  else if (unit->multiplicity != multiplicity
 		   || unit->simultaneity != simultaneity)
-	    fatal ("Differing specifications given for `%s' function unit.",
+	    fatal ("Differing specifications given for `%s' function unit",
 		   unit->name);
 
 	  extend_range (&unit->ready_cost, ready_cost, ready_cost);

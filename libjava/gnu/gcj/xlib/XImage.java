@@ -141,7 +141,7 @@ public class XImage
   protected native void finalize();
 
   boolean ownsData = false;
-  RawData structure = 0;
+  RawData structure = null;
 
   public final native int getWidth();
   public final native int getHeight();
@@ -188,6 +188,9 @@ public class XImage
       {
       case ZPIXMAP_FORMAT:
 	format = "ZPixmapFormat";
+	break;
+      default:
+	format = "unknown";
       }
     
     String imageByteOrder;
@@ -198,6 +201,9 @@ public class XImage
 	break;
       case MOST_SIGNIFICANT_B_FIRST_ORDER:
 	imageByteOrder = "mostSignificantByteFirst";
+	break;
+      default:
+	imageByteOrder = "unknwon";
       }
     
     String bitmapBitOrder;
@@ -208,6 +214,9 @@ public class XImage
 	break;
       case MOST_SIGNIFICANT_B_FIRST_ORDER:
 	bitmapBitOrder = "mostSignificantBitFirst";
+	break;
+      default:
+	bitmapBitOrder = "unknown";
       }
     
     return getClass().getName() + "[" + format +

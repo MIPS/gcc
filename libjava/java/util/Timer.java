@@ -18,11 +18,22 @@ along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
 
-As a special exception, if you link this library with other files to
-produce an executable, this library does not by itself cause the
-resulting executable to be covered by the GNU General Public License.
-This exception does not however invalidate any other reasons why the
-executable file might be covered by the GNU General Public License. */
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
 
 package java.util;
 
@@ -39,8 +50,8 @@ package java.util;
  * scheduling guarantees more or less that the task will be executed at a
  * specific time, but if there is ever a delay in execution then the period
  * between successive executions will be shorter. The first method of
- * repeated scheduling is prefered for repeated tasks in response to user
- * interaction, the second method of repeated scheduling is prefered for tasks
+ * repeated scheduling is preferred for repeated tasks in response to user
+ * interaction, the second method of repeated scheduling is preferred for tasks
  * that act like alarms.
  * <p>
  * The Timer keeps a binary heap as a task priority queue which means that
@@ -65,7 +76,7 @@ public class Timer
     /** Default size of this queue */
     private final int DEFAULT_SIZE = 32;
 
-    /** Wheter to return null when there is nothing in the queue */
+    /** Whether to return null when there is nothing in the queue */
     private boolean nullOnEmpty;
 
     /**
@@ -282,6 +293,7 @@ public class Timer
     public synchronized void stop()
     {
       this.heap = null;
+      this.elements = 0;
       this.notify();
     }
 
@@ -337,7 +349,7 @@ public class Timer
 		}
 	    }
 
-	  // Calculate next time and possibly re-enqueue
+	  // Calculate next time and possibly re-enqueue.
 	  if (task.scheduled >= 0)
 	    {
 	      if (task.fixed)
@@ -348,7 +360,15 @@ public class Timer
 		{
 		  task.scheduled = task.period + System.currentTimeMillis();
 		}
-	      queue.enqueue(task);
+
+	      try
+	        {
+	          queue.enqueue(task);
+		}
+	      catch (IllegalStateException ise)
+	        {
+		  // Ignore. Apparently the Timer queue has been stopped.
+		}
 	    }
 	}
     }
@@ -375,7 +395,7 @@ public class Timer
   private boolean canceled;
 
   /**
-   * Creates a new Timer with a non deamon Thread as Scheduler, with normal
+   * Creates a new Timer with a non daemon Thread as Scheduler, with normal
    * priority and a default name.
    */
   public Timer()
@@ -384,7 +404,7 @@ public class Timer
   }
 
   /**
-   * Creates a new Timer with a deamon Thread as scheduler if deamon is true,
+   * Creates a new Timer with a daemon Thread as scheduler if daemon is true,
    * with normal priority and a default name.
    */
   public Timer(boolean daemon)
@@ -393,7 +413,7 @@ public class Timer
   }
 
   /**
-   * Creates a new Timer with a deamon Thread as scheduler if deamon is true,
+   * Creates a new Timer with a daemon Thread as scheduler if daemon is true,
    * with the priority given and a default name.
    */
   private Timer(boolean daemon, int priority)
@@ -402,7 +422,7 @@ public class Timer
   }
 
   /**
-   * Creates a new Timer with a deamon Thread as scheduler if deamon is true,
+   * Creates a new Timer with a daemon Thread as scheduler if daemon is true,
    * with the priority and name given.E
    */
   private Timer(boolean daemon, int priority, String name)

@@ -2,22 +2,22 @@
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1997,
    1998 Free Software Foundation, Inc.
 
-This file is part of GNU C.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* These routines are somewhat language-independent utility function
@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "convert.h"
 #include "toplev.h"
+#include "langhooks.h"
 
 /* Convert EXPR to some pointer or reference type TYPE.
 
@@ -61,7 +62,8 @@ convert_to_pointer (type, expr)
 
       return
 	convert_to_pointer (type,
-			    convert (type_for_size (POINTER_SIZE, 0), expr));
+			    convert ((*lang_hooks.types.type_for_size)
+				     (POINTER_SIZE, 0), expr));
 
     default:
       error ("cannot convert to a pointer type");
@@ -138,8 +140,8 @@ convert_to_integer (type, expr)
       if (integer_zerop (expr))
 	expr = integer_zero_node;
       else
-	expr = fold (build1 (CONVERT_EXPR,
-			     type_for_size (POINTER_SIZE, 0), expr));
+	expr = fold (build1 (CONVERT_EXPR, (*lang_hooks.types.type_for_size)
+			     (POINTER_SIZE, 0), expr));
 
       return convert_to_integer (type, expr);
 
@@ -189,8 +191,8 @@ convert_to_integer (type, expr)
       else if (TREE_CODE (type) == ENUMERAL_TYPE
 	       || outprec != GET_MODE_BITSIZE (TYPE_MODE (type)))
 	return build1 (NOP_EXPR, type,
-		       convert (type_for_mode (TYPE_MODE (type),
-					       TREE_UNSIGNED (type)),
+		       convert ((*lang_hooks.types.type_for_mode)
+				(TYPE_MODE (type), TREE_UNSIGNED (type)),
 				expr));
 
       /* Here detect when we can distribute the truncation down past some
@@ -295,13 +297,13 @@ convert_to_integer (type, expr)
 	      {
 		/* Do the arithmetic in type TYPEX,
 		   then convert result to TYPE.  */
-		register tree typex = type;
+		tree typex = type;
 
 		/* Can't do arithmetic in enumeral types
 		   so use an integer type that will hold the values.  */
 		if (TREE_CODE (typex) == ENUMERAL_TYPE)
-		  typex = type_for_size (TYPE_PRECISION (typex),
-					 TREE_UNSIGNED (typex));
+		  typex = (*lang_hooks.types.type_for_size)
+		    (TYPE_PRECISION (typex), TREE_UNSIGNED (typex));
 
 		/* But now perhaps TYPEX is as wide as INPREC.
 		   In that case, do nothing special here.
@@ -314,10 +316,12 @@ convert_to_integer (type, expr)
 		       unsigned then can safely do the work as unsigned.
 		       And we may need to do it as unsigned
 		       if we truncate to the original size.  */
-		    typex = ((TREE_UNSIGNED (TREE_TYPE (expr))
-			      || (TREE_UNSIGNED (TREE_TYPE (arg0))
-				  && TREE_UNSIGNED (TREE_TYPE (arg1))))
-			     ? unsigned_type (typex) : signed_type (typex));
+		    if (TREE_UNSIGNED (TREE_TYPE (expr))
+			|| (TREE_UNSIGNED (TREE_TYPE (arg0))
+			    && TREE_UNSIGNED (TREE_TYPE (arg1))))
+		      typex = (*lang_hooks.types.unsigned_type) (typex);
+		    else
+		      typex = (*lang_hooks.types.signed_type) (typex);
 		    return convert (type,
 				    fold (build (ex_form, typex,
 						 convert (typex, arg0),
@@ -333,13 +337,13 @@ convert_to_integer (type, expr)
 	  /* This is not correct for ABS_EXPR,
 	     since we must test the sign before truncation.  */
 	  {
-	    register tree typex = type;
+	    tree typex = type;
 
 	    /* Can't do arithmetic in enumeral types
 	       so use an integer type that will hold the values.  */
 	    if (TREE_CODE (typex) == ENUMERAL_TYPE)
-	      typex = type_for_size (TYPE_PRECISION (typex),
-				     TREE_UNSIGNED (typex));
+	      typex = (*lang_hooks.types.type_for_size)
+		(TYPE_PRECISION (typex), TREE_UNSIGNED (typex));
 
 	    /* But now perhaps TYPEX is as wide as INPREC.
 	       In that case, do nothing special here.
@@ -348,8 +352,10 @@ convert_to_integer (type, expr)
 	      {
 		/* Don't do unsigned arithmetic where signed was wanted,
 		   or vice versa.  */
-		typex = (TREE_UNSIGNED (TREE_TYPE (expr))
-			 ? unsigned_type (typex) : signed_type (typex));
+		if (TREE_UNSIGNED (TREE_TYPE (expr)))
+		  typex = (*lang_hooks.types.unsigned_type) (typex);
+		else
+		  typex = (*lang_hooks.types.signed_type) (typex);
 		return convert (type,
 				fold (build1 (ex_form, typex,
 					      convert (typex,

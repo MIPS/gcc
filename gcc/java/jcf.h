@@ -1,6 +1,6 @@
 /* Utility macros to read Java(TM) .class files and byte codes.
 
-   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -207,6 +207,7 @@ typedef struct JCF {
 #define ACC_NATIVE 0x0100
 #define ACC_INTERFACE 0x0200
 #define ACC_ABSTRACT 0x0400
+#define ACC_STRICT 0x0800
 
 #define ACC_VISIBILITY (ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED)
 
@@ -233,7 +234,7 @@ extern int jcf_unexpected_eof PARAMS ((JCF*, int)) ATTRIBUTE_NORETURN;
 /* Extract a character from a Java-style Utf8 string.
  * PTR points to the current character.
  * LIMIT points to the end of the Utf8 string.
- * PTR is incremented to point after the character thta gets returns.
+ * PTR is incremented to point after the character that gets returned.
  * On an error, -1 is returned. */
 #define UTF8_GET(PTR, LIMIT) \
   ((PTR) >= (LIMIT) ? -1 \
@@ -271,9 +272,9 @@ extern void jcf_dependency_print_dummies PARAMS ((void));
 /* Declarations for path handling code.  */
 extern void jcf_path_init PARAMS ((void));
 extern void jcf_path_classpath_arg PARAMS ((const char *));
-extern void jcf_path_CLASSPATH_arg PARAMS ((const char *));
+extern void jcf_path_bootclasspath_arg PARAMS ((const char *));
 extern void jcf_path_include_arg PARAMS ((const char *));
-extern void jcf_path_seal PARAMS ((void));
+extern void jcf_path_seal PARAMS ((int));
 extern void *jcf_path_start PARAMS ((void));
 extern void *jcf_path_next PARAMS ((void *));
 extern char *jcf_path_name PARAMS ((void *));

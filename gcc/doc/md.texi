@@ -1,4 +1,4 @@
-@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 2000, 2001
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001, 2002
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -38,6 +38,7 @@ See the next chapter for information on the C header file.
 * Expander Definitions::Generating a sequence of several RTL insns
                           for a standard operation.
 * Insn Splitting::      Splitting Instructions into Multiple Instructions.
+* Including Patterns::      Including Patterns in Machine Descriptions.
 * Peephole Definitions::Defining machine-specific peephole optimizations.
 * Insn Attributes::     Specifying the value of attributes for generated insns.
 * Conditional Execution::Generating @code{define_insn} patterns for
@@ -184,10 +185,10 @@ Here is an actual example of an instruction pattern, for the 68000/68020.
         (match_operand:SI 0 "general_operand" "rm"))]
   ""
   "*
-@{ 
+@{
   if (TARGET_68020 || ! ADDRESS_REG_P (operands[0]))
     return \"tstl %0\";
-  return \"cmpl #0,%0\"; 
+  return \"cmpl #0,%0\";
 @}")
 @end example
 
@@ -199,10 +200,10 @@ This can also be written using braced strings:
   [(set (cc0)
         (match_operand:SI 0 "general_operand" "rm"))]
   ""
-@{ 
+@{
   if (TARGET_68020 || ! ADDRESS_REG_P (operands[0]))
     return "tstl %0";
-  return "cmpl #0,%0"; 
+  return "cmpl #0,%0";
 @})
 @end example
 
@@ -448,8 +449,6 @@ those listed in the @code{match_parallel}.
 A typical use of @code{match_parallel} is to match load and store
 multiple expressions, which can contain a variable number of elements
 in a @code{parallel}.  For example,
-@c the following is *still* going over.  need to change the code.
-@c also need to work on grouping of this example.  --mew 1feb93
 
 @smallexample
 (define_insn ""
@@ -463,7 +462,7 @@ in a @code{parallel}.  For example,
 @end smallexample
 
 This example comes from @file{a29k.md}.  The function
-@code{load_multiple_operations} is defined in @file{a29k.c} and checks
+@code{load_multiple_operation} is defined in @file{a29k.c} and checks
 that subsequent elements in the @code{parallel} are the same as the
 @code{set} in the pattern, except that they are referencing subsequent
 registers and memory locations.
@@ -702,8 +701,8 @@ as follows, having the output control string start with a @samp{@@}:
 @end ifset
 
 @c Most of this node appears by itself (in a different place) even
-@c when the INTERNALS flag is clear.  Passages that require the full
-@c manual's context are conditionalized to appear only in the full manual.
+@c when the INTERNALS flag is clear.  Passages that require the internals
+@c manual's context are conditionalized to appear only in the internals manual.
 @ifset INTERNALS
 @node Constraints
 @section Operand Constraints
@@ -895,6 +894,13 @@ Any operand whatsoever is allowed.
 An operand that matches the specified operand number is allowed.  If a
 digit is used together with letters within the same alternative, the
 digit should come last.
+
+This number is allowed to be more than a single digit.  If multiple
+digits are encountered consecutavely, they are interpreted as a single
+decimal integer.  There is scant chance for ambiguity, since to-date
+it has never been desirable that @samp{10} be interpreted as matching
+either operand 1 @emph{or} operand 0.  Should this be desired, one
+can use multiple alternatives instead.
 
 @cindex matching constraint
 @cindex constraint, matching
@@ -1255,13 +1261,13 @@ Says that all following characters, up to the next comma, are to be
 ignored as a constraint.  They are significant only for choosing
 register preferences.
 
-@ifset INTERNALS
 @cindex @samp{*} in constraint
 @item *
 Says that the following character should be ignored when choosing
 register preferences.  @samp{*} has no effect on the meaning of the
 constraint as a constraint, and no effect on reloading.
 
+@ifset INTERNALS
 Here is an example: the 68000 has an instruction to sign-extend a
 halfword in a data register, and can also sign-extend a value by
 copying it into an address register.  While either kind of register is
@@ -1295,12 +1301,12 @@ general-purpose registers respectively; @pxref{Simple Constraints}), and
 @samp{I}, usually the letter indicating the most common
 immediate-constant format.
 
-For each machine architecture, the @file{config/@var{machine}.h} file
-defines additional constraints.  These constraints are used by the
-compiler itself for instruction generation, as well as for @code{asm}
-statements; therefore, some of the constraints are not particularly
-interesting for @code{asm}.  The constraints are defined through these
-macros:
+For each machine architecture, the
+@file{config/@var{machine}/@var{machine}.h} file defines additional
+constraints.  These constraints are used by the compiler itself for
+instruction generation, as well as for @code{asm} statements; therefore,
+some of the constraints are not particularly interesting for @code{asm}.
+The constraints are defined through these macros:
 
 @table @code
 @item REG_CLASS_FROM_LETTER
@@ -1853,6 +1859,17 @@ Zero
 32-bit constant with the low 12 bits clear (a constant that can be
 loaded with the @code{sethi} instruction)
 
+@item L
+A constant in the range supported by @code{movcc} instructions
+
+@item M
+A constant in the range supported by @code{movrcc} instructions
+
+@item N
+Same as @samp{K}, except that it verifies that bits that are not in the
+lower 32-bits range are all zero.  Must be used instead of @samp{K} for
+modes wider than @code{SImode}
+
 @item G
 Floating-point zero
 
@@ -1879,6 +1896,9 @@ Memory address aligned to an 8-byte boundary
 
 @item U
 Even register
+
+@item W
+Memory address for @samp{e} constraint registers.
 
 @end table
 
@@ -1963,6 +1983,130 @@ Direct memory reference
 Symbolic address
 
 @end table
+
+@item S/390 and zSeries---@file{s390.h}
+@table @code
+@item a
+Address register (general purpose register except r0)
+
+@item d
+Data register (arbitrary general purpose register)
+
+@item f
+Floating-point register
+
+@item I
+Unsigned 8-bit constant (0--255)
+
+@item J
+Unsigned 12-bit constant (0--4095)
+
+@item K
+Signed 16-bit constant (@minus{}32768--32767)
+
+@item L
+Unsigned 16-bit constant (0--65535)
+
+@item Q
+Memory reference without index register
+
+@item S
+Symbolic constant suitable for use with the @code{larl} instruction
+
+@end table
+
+@item Xstormy16---@file{stormy16.h}
+@table @code
+@item a
+Register r0.
+
+@item b
+Register r1.
+
+@item c
+Register r2.
+
+@item d
+Register r8.
+
+@item e
+Registers r0 through r7.
+
+@item t
+Registers r0 and r1.
+
+@item y
+The carry register.
+
+@item z
+Registers r8 and r9.
+
+@item I
+A constant between 0 and 3 inclusive.
+
+@item J
+A constant that has exactly one bit set.
+
+@item K
+A constant that has exactly one bit clear.
+
+@item L
+A constant between 0 and 255 inclusive.
+
+@item M
+A constant between @minus{}255 and 0 inclusive.
+
+@item N
+A constant between @minus{}3 and 0 inclusive.
+
+@item O
+A constant between 1 and 4 inclusive.
+
+@item P
+A constant between @minus{}4 and @minus{}1 inclusive.
+
+@item Q
+A memory reference that is a stack push.
+
+@item R
+A memory reference that is a stack pop.
+
+@item S
+A memory reference that refers to an constant address of known value.
+
+@item T
+The register indicated by Rx (not implemented yet).
+
+@item U
+A constant that is not between 2 and 15 inclusive.
+
+@end table
+
+@item Xtensa---@file{xtensa.h}
+@table @code
+@item a
+General-purpose 32-bit register
+
+@item b
+One-bit boolean register
+
+@item A
+MAC16 40-bit accumulator register
+
+@item I
+Signed 12-bit integer constant, for use in MOVI instructions
+
+@item J
+Signed 8-bit integer constant, for use in ADDI instructions
+
+@item K
+Integer constant valid for BccI instructions
+
+@item L
+Unsigned constant valid for BccUI instructions
+
+@end table
+
 @end table
 
 @ifset INTERNALS
@@ -1987,7 +2131,9 @@ This instruction pattern moves data with that machine mode from operand
 If operand 0 is a @code{subreg} with mode @var{m} of a register whose
 own mode is wider than @var{m}, the effect of this instruction is
 to store the specified value in the part of the register that corresponds
-to mode @var{m}.  The effect on the rest of the register is undefined.
+to mode @var{m}.  Bits outside of @var{m}, but which are within the
+same target word as the @code{subreg} are undefined.  Bits which are
+outside the target word are left unchanged.
 
 This class of patterns is special in several ways.  First of all, each
 of these names up to and including full word size @emph{must} be defined,
@@ -2036,9 +2182,8 @@ machines explicit memory references will get optional reloads.
 If a scratch register is required to move an object to or from memory,
 it can be allocated using @code{gen_reg_rtx} prior to life analysis.
 
-If there are cases needing
-scratch registers after reload, you must define
-@code{SECONDARY_INPUT_RELOAD_CLASS} and perhaps also
+If there are cases which need scratch registers during or after reload,
+you must define @code{SECONDARY_INPUT_RELOAD_CLASS} and/or
 @code{SECONDARY_OUTPUT_RELOAD_CLASS} to detect them, and provide
 patterns @samp{reload_in@var{m}} or @samp{reload_out@var{m}} to handle
 them.  @xref{Register Classes}.
@@ -2075,6 +2220,17 @@ Like @samp{mov@var{m}}, but used when a scratch register is required to
 move between operand 0 and operand 1.  Operand 2 describes the scratch
 register.  See the discussion of the @code{SECONDARY_RELOAD_CLASS}
 macro in @pxref{Register Classes}.
+
+There are special restrictions on the form of the @code{match_operand}s
+used in these patterns.  First, only the predicate for the reload
+operand is examined, i.e., @code{reload_in} examines operand 1, but not
+the predicates for operand 0 or 2.  Second, there may be only one
+alternative in the constraints.  Third, only a single register class
+letter may be used for the constraint; subsequent constraint letters
+are ignored.  As a special exception, an empty constraint string
+matches the @code{ALL_REGS} register class.  This may relieve ports
+of the burden of defining an @code{ALL_REGS} constraint letter just
+for these patterns.
 
 @cindex @code{movstrict@var{m}} instruction pattern
 @item @samp{movstrict@var{m}}
@@ -2113,6 +2269,14 @@ Similar to @samp{load_multiple}, but store several consecutive registers
 into consecutive memory locations.  Operand 0 is the first of the
 consecutive memory locations, operand 1 is the first register, and
 operand 2 is a constant: the number of consecutive registers.
+
+@cindex @code{push@var{m}} instruction pattern
+@item @samp{push@var{m}}
+Output an push instruction.  Operand 0 is value to push.  Used only when
+@code{PUSH_ROUNDING} is defined.  For historical reason, this pattern may be
+missing and in such case an @code{mov} expander is used instead, with a
+@code{MEM} expression forming the push operation.  The @code{mov} expander
+method is deprecated.
 
 @cindex @code{add@var{m}3} instruction pattern
 @item @samp{add@var{m}3}
@@ -2521,11 +2685,11 @@ insn.
 @cindex @code{call_value_pop} instruction pattern
 @item @samp{call_pop}, @samp{call_value_pop}
 Similar to @samp{call} and @samp{call_value}, except used if defined and
-if @code{RETURN_POPS_ARGS} is non-zero.  They should emit a @code{parallel}
+if @code{RETURN_POPS_ARGS} is nonzero.  They should emit a @code{parallel}
 that contains both the function call and a @code{set} to indicate the
 adjustment made to the frame pointer.
 
-For machines where @code{RETURN_POPS_ARGS} can be non-zero, the use of these
+For machines where @code{RETURN_POPS_ARGS} can be nonzero, the use of these
 patterns increases the number of functions for which the frame pointer
 can be eliminated, if desired.
 
@@ -2560,7 +2724,7 @@ to save any registers or allocate stack space.
 @findex reload_completed
 @findex leaf_function_p
 For such machines, the condition specified in this pattern should only
-be true when @code{reload_completed} is non-zero and the function's
+be true when @code{reload_completed} is nonzero and the function's
 epilogue would only be a single instruction.  For machines with register
 windows, the routine @code{leaf_function_p} may be used to determine if
 a register window push is required.
@@ -2659,9 +2823,9 @@ that the jump optimizer will not delete the table as unreachable code.
 @cindex @code{decrement_and_branch_until_zero} instruction pattern
 @item @samp{decrement_and_branch_until_zero}
 Conditional branch instruction that decrements a register and
-jumps if the register is non-zero.  Operand 0 is the register to
+jumps if the register is nonzero.  Operand 0 is the register to
 decrement and test; operand 1 is the label to jump to if the
-register is non-zero.  @xref{Looping Patterns}.
+register is nonzero.  @xref{Looping Patterns}.
 
 This optional instruction pattern is only used by the combiner,
 typically for loops reversed by the loop optimizer when strength
@@ -2670,13 +2834,13 @@ reduction is enabled.
 @cindex @code{doloop_end} instruction pattern
 @item @samp{doloop_end}
 Conditional branch instruction that decrements a register and jumps if
-the register is non-zero.  This instruction takes five operands: Operand
+the register is nonzero.  This instruction takes five operands: Operand
 0 is the register to decrement and test; operand 1 is the number of loop
 iterations as a @code{const_int} or @code{const0_rtx} if this cannot be
 determined until run-time; operand 2 is the actual or estimated maximum
 number of iterations as a @code{const_int}; operand 3 is the number of
 enclosed loops as a @code{const_int} (an innermost loop has a value of
-1); operand 4 is the label to jump to if the register is non-zero.
+1); operand 4 is the label to jump to if the register is nonzero.
 @xref{Looping Patterns}.
 
 This optional instruction pattern should be defined for machines with
@@ -2690,8 +2854,8 @@ too large for this instruction, make it fail.
 @cindex @code{doloop_begin} instruction pattern
 @item @samp{doloop_begin}
 Companion instruction to @code{doloop_end} required for machines that
-need to perform some initialisation, such as loading special registers
-used by a low-overhead looping instruction.  If initialisation insns do
+need to perform some initialization, such as loading special registers
+used by a low-overhead looping instruction.  If initialization insns do
 not always need to be emitted, use a @code{define_expand}
 (@pxref{Expander Definitions}) and make it fail.
 
@@ -2896,8 +3060,8 @@ the function should return.  This will normally need to copied by the
 pattern to some special register or memory location.
 
 This pattern only needs to be defined if call frame exception handling
-is to be used, and simple moves to @code{EH_RETURN_STACKADJ_RTX} and
-@code{EH_RETURN_HANDLER_RTX} are not sufficient.
+is to be used, and simple moves involving @code{EH_RETURN_STACKADJ_RTX}
+and @code{EH_RETURN_HANDLER_RTX} are not sufficient.
 
 @cindex @code{prologue} instruction pattern
 @anchor{prologue instruction pattern}
@@ -2915,7 +3079,7 @@ instruction scheduling.
 @cindex @code{epilogue} instruction pattern
 @anchor{epilogue instruction pattern}
 @item @samp{epilogue}
-This pattern, if defined, emits RTL for exit from a function.  The function
+This pattern emits RTL for exit from a function.  The function
 exit is responsible for deallocating the stack frame, restoring callee saved
 registers and emitting the return instruction.
 
@@ -2956,6 +3120,22 @@ A typical @code{conditional_trap} pattern looks like
   ""
   "@dots{}")
 @end smallexample
+
+@cindex @code{prefetch} instruction pattern
+@item @samp{prefetch}
+
+This pattern, if defined, emits code for a non-faulting data prefetch
+instruction.  Operand 0 is the address of the memory to prefetch.  Operand 1
+is a constant 1 if the prefetch is preparing for a write to the memory
+address, or a constant 0 otherwise.  Operand 2 is the expected degree of
+temporal locality of the data and is a value between 0 and 3, inclusive; 0
+means that the data has no temporal locality, so it need not be left in the
+cache after the access; 3 means that the data has a high degree of temporal
+locality and should be left in all levels of cache possible;  1 and 2 mean,
+respectively, a low or moderate degree of temporal locality.
+
+Targets that do not support write prefetches or locality hints can ignore
+the values of operands 1 and 2.
 
 @cindex @code{cycle_display} instruction pattern
 @item @samp{cycle_display}
@@ -3080,7 +3260,7 @@ A comparison insn sets the condition code, recording the results of both
 signed and unsigned comparison of the given operands.  A separate branch
 insn tests the condition code and branches or not according its value.
 The branch insns come in distinct signed and unsigned flavors.  Many
-common machines, such as the Vax, the 68000 and the 32000, work this
+common machines, such as the VAX, the 68000 and the 32000, work this
 way.
 
 Some machines have distinct signed and unsigned compare instructions, and
@@ -3200,9 +3380,9 @@ iterations.  This avoids the need for fetching and executing a
 @samp{dbra}-like instruction and avoids pipeline stalls associated with
 the jump.
 
-GCC has three special named patterns to support low overhead looping,
-@samp{decrement_and_branch_until_zero}, @samp{doloop_begin}, and
-@samp{doloop_end}.  The first pattern,
+GCC has three special named patterns to support low overhead looping.
+They are @samp{decrement_and_branch_until_zero}, @samp{doloop_begin},
+and @samp{doloop_end}.  The first pattern,
 @samp{decrement_and_branch_until_zero}, is not emitted during RTL
 generation but may be emitted during the instruction combination phase.
 This requires the assistance of the loop optimizer, using information
@@ -3257,13 +3437,13 @@ pattern will not be matched by the combiner.
 @end smallexample
 
 The other two special looping patterns, @samp{doloop_begin} and
-@samp{doloop_end}, are emitted by the loop optimiser for certain
+@samp{doloop_end}, are emitted by the loop optimizer for certain
 well-behaved loops with a finite number of loop iterations using
 information collected during strength reduction.
 
 The @samp{doloop_end} pattern describes the actual looping instruction
 (or the implicit looping operation) and the @samp{doloop_begin} pattern
-is an optional companion pattern that can be used for initialisation
+is an optional companion pattern that can be used for initialization
 needed for some low-overhead looping instructions.
 
 Note that some machines require the actual looping instruction to be
@@ -3686,10 +3866,10 @@ Patterns are matched against @var{insn-pattern} in two different
 circumstances.  If an insn needs to be split for delay slot scheduling
 or insn scheduling, the insn is already known to be valid, which means
 that it must have been matched by some @code{define_insn} and, if
-@code{reload_completed} is non-zero, is known to satisfy the constraints
+@code{reload_completed} is nonzero, is known to satisfy the constraints
 of that @code{define_insn}.  In that case, the new insn patterns must
 also be insns that are matched by some @code{define_insn} and, if
-@code{reload_completed} is non-zero, must also satisfy the constraints
+@code{reload_completed} is nonzero, must also satisfy the constraints
 of those definitions.
 
 As an example of this usage of @code{define_split}, consider the following
@@ -3786,6 +3966,23 @@ insns that don't.  Instead, write two separate @code{define_split}
 definitions, one for the insns that are valid and one for the insns that
 are not valid.
 
+The splitter is allowed to split jump instructions into sequence of
+jumps or create new jumps in while splitting non-jump instructions.  As
+the central flowgraph and branch prediction information needs to be updated,
+several restriction apply.
+
+Splitting of jump instruction into sequence that over by another jump
+instruction is always valid, as compiler expect identical behavior of new
+jump.  When new sequence contains multiple jump instructions or new labels,
+more assistance is needed.  Splitter is required to create only unconditional
+jumps, or simple conditional jump instructions.  Additionally it must attach a
+@code{REG_BR_PROB} note to each conditional jump. An global variable
+@code{split_branch_probability} hold the probability of original branch in case
+it was an simple conditional jump, @minus{}1 otherwise.  To simplify
+recomputing of edge frequencies, new sequence is required to have only
+forward jumps to the newly created labels.
+
+@findex define_insn_and_split
 For the common case where the pattern of a define_split exactly matches the
 pattern of a define_insn, use @code{define_insn_and_split}.  It looks like
 this:
@@ -3821,7 +4018,8 @@ from i386.md:
   "TARGET_ZERO_EXTEND_WITH_AND && !optimize_size"
   "#"
   "&& reload_completed"
-  [(parallel [(set (match_dup 0) (and:SI (match_dup 0) (const_int 65535)))
+  [(parallel [(set (match_dup 0)
+                   (and:SI (match_dup 0) (const_int 65535)))
 	      (clobber (reg:CC 17))])]
   ""
   [(set_attr "type" "alu1")])
@@ -3835,6 +4033,80 @@ The @code{define_insn_and_split} construction provides exactly the same
 functionality as two separate @code{define_insn} and @code{define_split}
 patterns.  It exists for compactness, and as a maintenance tool to prevent
 having to ensure the two patterns' templates match.
+
+@node Including Patterns
+@section Including Patterns in Machine Descriptions.
+@cindex insn includes
+
+@findex include
+The @code{include} pattern tells the compiler tools where to
+look for patterns that are in files other than in the file
+@file{.md}. This is used only at build time and there is no preprocessing allowed.
+
+It looks like:
+
+@smallexample
+
+(include
+  @var{pathname})
+@end smallexample
+
+For example:
+
+@smallexample
+
+(include "filestuff")
+
+@end smallexample
+
+Where @var{pathname} is a string that specifies the the location of the file,
+specifies the include file to be in @file{gcc/config/target/filestuff}. The
+directory @file{gcc/config/target} is regarded as the default directory.
+
+
+Machine descriptions may be split up into smaller more manageable subsections
+and placed into subdirectories.
+
+By specifying:
+
+@smallexample
+
+(include "BOGUS/filestuff")
+
+@end smallexample
+
+the include file is specified to be in @file{gcc/config/@var{target}/BOGUS/filestuff}.
+
+Specifying an absolute path for the include file such as;
+@smallexample
+
+(include "/u2/BOGUS/filestuff")
+
+@end smallexample
+is permitted but is not encouraged.
+
+@subsection RTL Generation Tool Options for Directory Search
+@cindex directory options .md
+@cindex options, directory search
+@cindex search options
+
+The @option{-I@var{dir}} option specifies directories to search for machine descriptions.
+For example:
+
+@smallexample
+
+genrecog -I/p1/abc/proc1 -I/p2/abcd/pro2 target.md
+
+@end smallexample
+
+
+Add the directory @var{dir} to the head of the list of directories to be
+searched for header files.  This can be used to override a system machine definition
+file, substituting your own version, since these directories are
+searched before the default machine description file directories.  If you use more than
+one @option{-I} option, the directories are scanned in left-to-right
+order; the standard default directory come after.
+
 
 @node Peephole Definitions
 @section Machine-Specific Peephole Optimizers
@@ -4283,7 +4555,7 @@ expression is that of the @var{default} expression.
 @table @code
 @cindex @code{const_int} and attribute tests
 @item (const_int @var{i})
-This test is true if @var{i} is non-zero and false otherwise.
+This test is true if @var{i} is nonzero and false otherwise.
 
 @cindex @code{not} and attributes
 @cindex @code{ior} and attributes
@@ -4298,7 +4570,7 @@ These tests are true if the indicated logical function is true.
 This test is true if operand @var{n} of the insn whose attribute value
 is being determined has mode @var{m} (this part of the test is ignored
 if @var{m} is @code{VOIDmode}) and the function specified by the string
-@var{pred} returns a non-zero value when passed operand @var{n} and mode
+@var{pred} returns a nonzero value when passed operand @var{n} and mode
 @var{m} (this part of the test is ignored if @var{pred} is the null
 string).
 
@@ -4682,9 +4954,10 @@ as follows:
    return (get_attr_length (insn) == 4
            ? "b %l0" : "l r15,=a(%l0); br r15");
 @}
-  [(set (attr "length") (if_then_else (lt (match_dup 0) (const_int 4096))
-                                      (const_int 4)
-                                      (const_int 6)))])
+  [(set (attr "length")
+        (if_then_else (lt (match_dup 0) (const_int 4096))
+                      (const_int 4)
+                      (const_int 6)))])
 @end smallexample
 
 @node Constant Attributes
@@ -4909,7 +5182,6 @@ units.  These insns will cause a potential conflict for the second unit
 used during their execution and there is no way of representing that
 conflict.  We welcome any examples of how function unit conflicts work
 in such processors and suggestions for their representation.
-@end ifset
 
 @node Conditional Execution
 @section Conditional Execution
@@ -5042,3 +5314,4 @@ You could write:
 
 The constants that are defined with a define_constant are also output
 in the insn-codes.h header file as #defines.
+@end ifset

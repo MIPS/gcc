@@ -1,4 +1,4 @@
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -14,14 +14,24 @@ details.  */
 #ifndef __GCJ_JNI_H__
 #define __GCJ_JNI_H__
 
+#include <gcj/libgcj-config.h>
+
+/* We include <stdio.h> for compatibility with Sun's <jni.h>.  */
+#include <stdio.h>
+
 #include <stdarg.h>
 #define _Jv_va_list va_list
 
-#ifdef __cplusplus
+#ifdef __GCJ_JNI_IMPL__
 
-/* This is wrong, because it pollutes the name-space too much! */
+/* If __GCJ_JNI_IMPL__ is defined, then we assume that we're building
+   libgcj itself, and we include headers which taint the namespace
+   more than is acceptable for the ordinary JNI user.  */
 #include <gcj/javaprims.h>
 #include <gcj/array.h>
+#include <gnu/gcj/runtime/JNIWeakRef.h>
+
+typedef gnu::gcj::runtime::JNIWeakRef *jweak;
 
 typedef struct _Jv_JNIEnv JNIEnv;
 typedef struct _Jv_JavaVM JavaVM;
@@ -29,8 +39,12 @@ typedef struct _Jv_JavaVM JavaVM;
 #define JNI_TRUE true
 #define JNI_FALSE false
 
-#else /* __cplusplus */
+#else /* __GCJ_JNI_IMPL__ */
 
+# ifdef __GNUC__
+
+/* If we're using gcc, we can use a platform-independent scheme to get
+   the right integer types.  */
 typedef int    jbyte  __attribute__((__mode__(__QI__)));
 typedef int    jshort __attribute__((__mode__(__HI__)));
 typedef int    jint   __attribute__((__mode__(__SI__)));
@@ -41,11 +55,85 @@ typedef float  jfloat;
 typedef double jdouble;
 typedef jint jsize;
 
+# else /* __GNUC__ */
+
+#  ifdef JV_HAVE_INTTYPES_H
+
+/* If <inttypes.h> is available, we use it.  */
+
+#   include <inttypes.h>
+
+typedef int8_t jbyte;
+typedef int16_t jshort;
+typedef int32_t jint;
+typedef int64_t jlong;
+typedef float jfloat;
+typedef double jdouble;
+typedef jint jsize;
+typedef int8_t jboolean;
+typedef uint16_t jchar;
+
+#  else /* JV_HAVE_INTTYPES_H */
+
+/* For now, we require either gcc or <inttypes.h>.  If we did more
+   work at configure time we could get around this, but right now it
+   doesn't seem worth it.  */
+#   error jni.h not ported to this platform
+
+#  endif /* JV_HAVE_INTTYPES_H */
+
+# endif /* __GNUC__ */
+
+# ifdef __cplusplus
+
+/* Define dummy classes and then define the JNI types as pointers.  */
+struct __jobject {};
+struct __jclass : __jobject {};
+struct __jstring : __jobject {};
+struct __jthrowable : __jobject {};
+struct __jweak : __jobject {};
+struct __jarray : __jobject {};
+struct __jobjectArray : __jarray {};
+struct __jbyteArray : __jarray {};
+struct __jshortArray : __jarray {};
+struct __jintArray : __jarray {};
+struct __jlongArray : __jarray {};
+struct __jbooleanArray : __jarray {};
+struct __jcharArray : __jarray {};
+struct __jfloatArray : __jarray {};
+struct __jdoubleArray : __jarray {};
+
+typedef __jobject *jobject;
+typedef __jclass *jclass;
+typedef __jstring *jstring;
+typedef __jthrowable *jthrowable;
+typedef __jweak *jweak;
+typedef __jarray *jarray;
+typedef __jobjectArray *jobjectArray;
+typedef __jbyteArray *jbyteArray;
+typedef __jshortArray *jshortArray;
+typedef __jintArray *jintArray;
+typedef __jlongArray *jlongArray;
+typedef __jbooleanArray *jbooleanArray;
+typedef __jcharArray *jcharArray;
+typedef __jfloatArray *jfloatArray;
+typedef __jdoubleArray *jdoubleArray;
+
+#define JNI_TRUE true
+#define JNI_FALSE false
+
+typedef struct _Jv_JNIEnv JNIEnv;
+typedef struct _Jv_JavaVM JavaVM;
+
+# else /* __cplusplus */
+
+/* For C, simply define the class types as generic pointers.  */
 typedef void *jobject;
 typedef jobject jclass;
 typedef jobject jstring;
-typedef jobject jarray;
 typedef jobject jthrowable;
+typedef jobject jweak;
+typedef jobject jarray;
 typedef jobject jobjectArray;
 typedef jobject jbyteArray;
 typedef jobject jshortArray;
@@ -56,24 +144,24 @@ typedef jobject jcharArray;
 typedef jobject jfloatArray;
 typedef jobject jdoubleArray;
 
-/* Dummy defines.  */
-typedef void *jfieldID;
-typedef void *jmethodID;
+#define JNI_TRUE  1
+#define JNI_FALSE 0
 
 typedef const struct JNINativeInterface *JNIEnv;
 typedef const struct JNIInvokeInterface *JavaVM;
 
-#define JNI_TRUE  1
-#define JNI_FALSE 0
+# endif /* __cplusplus */
 
-#endif /* __cplusplus */
+/* Dummy defines.  */
+typedef void *jfieldID;
+typedef void *jmethodID;
 
-/* FIXME: this is wrong.  */
-typedef jobject jweak;
+#endif /* __GCJ_JNI_IMPL__ */
 
 /* Version numbers.  */
 #define JNI_VERSION_1_1 0x00010001
 #define JNI_VERSION_1_2 0x00010002
+#define JNI_VERSION_1_4 0x00010004
 
 /* Used when releasing array elements.  */
 #define JNI_COMMIT 1
@@ -84,6 +172,12 @@ typedef jobject jweak;
 #define JNI_ERR          -1
 #define JNI_EDETACHED    -2
 #define JNI_EVERSION     -3
+
+/* Linkage and calling conventions.  This will need updating when we
+   support Windows DLLs.  */
+#define JNIIMPORT
+#define JNIEXPORT
+#define JNICALL
 
 #ifdef __cplusplus
 extern "C"
@@ -167,7 +261,7 @@ struct JNINativeInterface
 
   jobject  (*NewGlobalRef)                 (JNIEnv *, jobject);
   void     (*DeleteGlobalRef)              (JNIEnv *, jobject);
-  void     (*DeleteLocalRef)               (JNIEnv *, jobject);;
+  void     (*DeleteLocalRef)               (JNIEnv *, jobject);
   jboolean (*IsSameObject)                 (JNIEnv *, jobject, jobject);
 
   jobject  (*NewLocalRef)		   (JNIEnv *, jobject);
@@ -436,7 +530,7 @@ struct JNINativeInterface
 					    jfieldID, jdouble);
 
   jstring  (*NewString)                    (JNIEnv *, const jchar *, jsize);
-  jint     (*GetStringLength)              (JNIEnv *, jstring);
+  jsize    (*GetStringLength)              (JNIEnv *, jstring);
   const jchar * (*GetStringChars)          (JNIEnv *, jstring, jboolean *);
   void     (*ReleaseStringChars)           (JNIEnv *, jstring, const jchar *);
   jstring  (*NewStringUTF)                 (JNIEnv *, const char *);
@@ -548,6 +642,10 @@ struct JNINativeInterface
   void   (*DeleteWeakGlobalRef)            (JNIEnv *, jweak);
 
   jboolean	(*ExceptionCheck)	   (JNIEnv *);
+
+  jobject (*NewDirectByteBuffer)           (JNIEnv *, void *, jlong);
+  void *  (*GetDirectBufferAddress)        (JNIEnv *, jobject);
+  jlong   (*GetDirectBufferCapacity)       (JNIEnv *, jobject);
 };
 
 #ifdef __cplusplus
@@ -558,7 +656,7 @@ public:
   /* The method table.  */
   struct JNINativeInterface *p;
 
-  /* FIXME: this is really ugly.  */
+  /* This is ugly, but we must live with it.  */
 #ifndef __GCJ_JNI_IMPL__
 private:
 #endif
@@ -1429,6 +1527,15 @@ public:
 
   jboolean ExceptionCheck ()
   { return p->ExceptionCheck (this); }
+
+  jobject NewDirectByteBuffer (void *addr, jlong capacity)
+  { return p->NewDirectByteBuffer (this, addr, capacity); }
+
+  void *GetDirectBufferAddress (jobject buf)
+  { return p->GetDirectBufferAddress (this, buf); }
+
+  jlong GetDirectBufferCapacity (jobject buf)
+  { return p->GetDirectBufferCapacity (this, buf); }
 };
 #endif /* __cplusplus */
 
@@ -1446,6 +1553,7 @@ struct JNIInvokeInterface
   jint (*AttachCurrentThread)   (JavaVM *, void **, void *);
   jint (*DetachCurrentThread)   (JavaVM *);
   jint (*GetEnv)                (JavaVM *, void **, jint);
+  jint (*AttachCurrentThreadAsDaemon) (JavaVM *, void **, void *);
 };
 
 #ifdef __cplusplus
@@ -1470,6 +1578,9 @@ public:
 
   jint GetEnv (void **penv, jint version)
   { return functions->GetEnv (this, penv, version); }
+
+  jint AttachCurrentThreadAsDaemon (void **penv, void *args)
+  { return functions->AttachCurrentThreadAsDaemon (this, penv, args); }
 };
 #endif /* __cplusplus */
 

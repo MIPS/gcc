@@ -1,6 +1,7 @@
 ## Makefile for the src subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -20,8 +21,6 @@
 ## with this library; see the file COPYING.  If not, write to the Free
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
-
-## $Id: Makefile.am,v 1.90 2001/07/13 16:47:55 pme Exp $
 
 AUTOMAKE_OPTIONS = 1.3 gnits
 MAINT_CHARSET = latin1
@@ -62,14 +61,16 @@ INCLUDES = \
 	$(TOPLEVEL_INCLUDES)
 
 sources = \
-	basic_file.cc bitset.cc c++locale.cc cmath.cc codecvt.cc \
-	complex_io.cc functexcept.cc globals.cc ios.cc limitsMEMBERS.cc \
-	locale.cc locale-inst.cc localename.cc misc-inst.cc stdexcept.cc \
-	stl-inst.cc string-inst.cc strstream.cc valarray-inst.cc \
-	wstring-inst.cc
+	globals.cc limits.cc \
+	basic_file.cc complex_io.cc ios.cc strstream.cc \
+	cmath.cc bitset.cc \
+	functexcept.cc stdexcept.cc vterminate.cc \
+	c++locale.cc locale.cc localename.cc codecvt.cc \
+	collate.cc ctype.cc messages.cc monetary.cc numeric.cc time.cc \
+	concept-inst.cc locale-inst.cc misc-inst.cc stl-inst.cc \
+	string-inst.cc wstring-inst.cc valarray-inst.cc  ext-inst.cc
 
-
-VPATH = $(top_srcdir):$(top_srcdir)/src
+VPATH = $(top_srcdir)/src:$(top_srcdir)
 
 libstdc___la_SOURCES = $(sources)
 
@@ -77,18 +78,33 @@ libstdc___la_LIBADD = \
 	../libmath/libmath.la @libio_la@ \
 	../libsupc++/libsupc++convenience.la
 
-libstdc___la_LDFLAGS = -version-info 3:0:0 -lm
+if GLIBCPP_BUILD_VERSIONED_SHLIB
+version_arg=-Wl,--version-script=linker.map
+else
+version_arg=
+endif
 
-libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD)
+libstdc___la_LDFLAGS = \
+	-version-info @libtool_VERSION@ ${version_arg} \
+	-lm @LIBUNWIND_FLAG@ 
 
+libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD) linker.map
 
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.
 GLIBCPP_INCLUDE_DIR=@glibcpp_builddir@/include
 strstream.lo: strstream.cc
-	$(LTCXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
+	$(LTCXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -Wno-deprecated -c $<
 strstream.o: strstream.cc
-	$(CXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -c $<
+	$(CXXCOMPILE) -I$(GLIBCPP_INCLUDE_DIR)/backward -Wno-deprecated -c $<
+
+# Use special rules for the concept-checking instantiations so that all
+# the generated template functions are also instantiated.  Force the checks
+# to be on so that the instantiations are actually seen.
+concept-inst.lo: concept-inst.cc
+	$(LTCXXCOMPILE) -D_GLIBCPP_CONCEPT_CHECKS -fimplicit-templates -c $<
+concept-inst.o: concept-inst.cc
+	$(CXXCOMPILE) -D_GLIBCPP_CONCEPT_CHECKS -fimplicit-templates -c $<
 
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
@@ -96,10 +112,6 @@ strstream.o: strstream.cc
 # set this option because CONFIG_CXXFLAGS has to be after
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion call for it. (ie, --enable-debug)
-#
-# The no-implicit-templates flag will generate unresolved references to
-# the concept-checking symbols.  So we must disable the checks while
-# actually building the library.
 AM_CXXFLAGS = \
 	-fno-implicit-templates \
 	$(LIBSUPCXX_CXXFLAGS) \

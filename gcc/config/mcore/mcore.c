@@ -15,7 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -61,7 +62,7 @@ rtx arch_compare_op1;
 
 /* Provides the class number of the smallest class containing
    reg number.  */
-int regno_reg_class[FIRST_PSEUDO_REGISTER] =
+const int regno_reg_class[FIRST_PSEUDO_REGISTER] =
 {
   GENERAL_REGS,	ONLYR1_REGS,  LRW_REGS,	    LRW_REGS,
   LRW_REGS,	LRW_REGS,     LRW_REGS,	    LRW_REGS,
@@ -72,7 +73,7 @@ int regno_reg_class[FIRST_PSEUDO_REGISTER] =
 
 /* Provide reg_class from a letter such as appears in the machine
    description.  */
-enum reg_class reg_class_from_letter[] =
+const enum reg_class reg_class_from_letter[] =
 {
   /* a */ LRW_REGS, /* b */ ONLYR1_REGS, /* c */ C_REGS,  /* d */ NO_REGS,
   /* e */ NO_REGS, /* f */ NO_REGS, /* g */ NO_REGS, /* h */ NO_REGS,
@@ -130,11 +131,12 @@ static void       mcore_mark_dllexport         PARAMS ((tree));
 static void       mcore_mark_dllimport         PARAMS ((tree));
 static int        mcore_dllexport_p            PARAMS ((tree));
 static int        mcore_dllimport_p            PARAMS ((tree));
-static int        mcore_valid_decl_attribute   PARAMS ((tree, tree,
-							tree, tree));
+const struct attribute_spec mcore_attribute_table[];
+static tree       mcore_handle_naked_attribute PARAMS ((tree *, tree, tree, int, bool *));
+#ifdef OBJECT_FORMAT_ELF
 static void	  mcore_asm_named_section      PARAMS ((const char *,
-							unsigned int,
 							unsigned int));
+#endif
 
 /* Initialize the GCC target structure.  */
 #ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -142,8 +144,15 @@ static void	  mcore_asm_named_section      PARAMS ((const char *,
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
 #endif
 
-#undef TARGET_VALID_DECL_ATTRIBUTE
-#define TARGET_VALID_DECL_ATTRIBUTE mcore_valid_decl_attribute
+#ifdef OBJECT_FORMAT_ELF
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP "\t.short\t"
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP "\t.long\t"
+#endif
+
+#undef TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE mcore_attribute_table
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -717,7 +726,7 @@ try_constant_tricks (value, x, y)
 	    }
 	}
       
-      bit = 0x80000000UL;
+      bit = 0x80000000L;
       
       for (i = 0; i <= 31; i++)
 	{
@@ -884,13 +893,13 @@ int
 mcore_byte_offset (mask)
      unsigned int mask;
 {
-  if (mask == 0x00ffffffUL)
+  if (mask == 0x00ffffffL)
     return 0;
-  else if (mask == 0xff00ffffUL)
+  else if (mask == 0xff00ffffL)
     return 1;
-  else if (mask == 0xffff00ffUL)
+  else if (mask == 0xffff00ffL)
     return 2;
-  else if (mask == 0xffffff00UL)
+  else if (mask == 0xffffff00L)
     return 3;
 
   return -1;
@@ -904,7 +913,7 @@ mcore_halfword_offset (mask)
 {
   if (mask == 0x0000ffffL)
     return 0;
-  else if (mask == 0xffff0000UL)
+  else if (mask == 0xffff0000L)
     return 1;
 
   return -1;
@@ -971,7 +980,7 @@ const char *
 mcore_output_cmov (operands, cmp_t, test)
      rtx operands[];
      int cmp_t;
-     char * test;
+     const char * test;
 {
   int load_value;
   int adjust_value;
@@ -1878,7 +1887,7 @@ mcore_store_multiple_operation (op, mode)
    known constants.  DEST and SRC are registers.  OFFSET is the known
    starting point for the output pattern.  */
 
-static enum machine_mode mode_from_align[] =
+static const enum machine_mode mode_from_align[] =
 {
   VOIDmode, QImode, HImode, VOIDmode, SImode,
   VOIDmode, VOIDmode, VOIDmode, DImode
@@ -2616,70 +2625,6 @@ mcore_output_jump_label_table ()
   return "";
 }
 
-#if 0 /* XXX temporarily suppressed until I have time to look at what this code does.  */
-
-/* We need these below.  They use information stored in tables to figure out
-   what values are in what registers, etc.  This is okay, since these tables
-   are valid at the time mcore_dependent_simplify_rtx() is invoked.  Don't
-   use them anywhere else.  BRC  */
-
-extern unsigned HOST_WIDE_INT nonzero_bits PARAMS ((rtx, enum machine_mode));
-extern int num_sign_bit_copies PARAMS ((Rtx, enum machine_mode));
-
-/* Do machine dependent simplifications: see simplify_rtx() in combine.c.
-   GENERAL_SIMPLIFY controls whether general machine independent 
-   simplifications should be tried after machine dependent ones.  Thus,
-   we can filter out certain simplifications and keep the simplify_rtx()
-   from changing things that we just simplified in a machine dependent
-   fashion.  This is experimental.  BRC  */
-rtx
-mcore_dependent_simplify_rtx (x, int_op0_mode, last, in_dest, general_simplify)
-     rtx x;
-     int int_op0_mode;
-     int last;
-     int in_dest;
-     int * general_simplify;
-{
-  enum machine_mode mode = GET_MODE (x);
-  enum rtx_code code = GET_CODE (x);
-
-  /* Always simplify unless explicitly asked not to.  */
-  * general_simplify = 1;
-
-  if (code == IF_THEN_ELSE)
-    {
-      int i;
-      rtx cond = XEXP(x, 0);
-      rtx true_rtx = XEXP(x, 1);
-      rtx false_rtx = XEXP(x, 2);
-      enum rtx_code true_code = GET_CODE (cond);
-
-      /* On the mcore, when doing -mcmov-one, we don't want to simplify:
-
-	 (if_then_else (ne A 0) C1 0)
-
-         if it would be turned into a shift by simplify_if_then_else().
-         instead, leave it alone so that it will collapse into a conditional
-         move.  besides, at least for the mcore, doing this simplification does
-         not typically help.  see combine.c, line 4217.  BRC  */
-
-      if (true_code == NE && XEXP (cond, 1) == const0_rtx
-	  && false_rtx == const0_rtx && GET_CODE (true_rtx) == CONST_INT
-	  && ((1 == nonzero_bits (XEXP (cond, 0), mode)
-	       && (i = exact_log2 (INTVAL (true_rtx))) >= 0)
-	      || ((num_sign_bit_copies (XEXP (cond, 0), mode)
-	           == GET_MODE_BITSIZE (mode))
-		  && (i = exact_log2 (- INTVAL (true_rtx))) >= 0)))
-	{
-	  *general_simplify = 0; 
-	  return x;
-	}
-    }
-
-  return x;
-}
-#endif
-
 /* Check whether insn is a candidate for a conditional.  */
 
 static cond_type
@@ -2772,7 +2717,10 @@ emit_new_cond_insn (insn, cond)
       src = SET_SRC (pat);
     }
   else
-    dst = JUMP_LABEL (insn);
+    {
+      dst = JUMP_LABEL (insn);
+      src = NULL_RTX;
+    }
 
   switch (num)
     {
@@ -3132,7 +3080,7 @@ mcore_override_options ()
 	  || (mcore_stack_increment == 0
 	      && (mcore_stack_increment_string[0] != '0'
 		  || mcore_stack_increment_string[1] != 0)))
-	error ("Invalid option `-mstack-increment=%s'",
+	error ("invalid option `-mstack-increment=%s'",
 	       mcore_stack_increment_string);	
     }
   
@@ -3452,7 +3400,7 @@ mcore_dllexport_p (decl)
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
 
-  return lookup_attribute ("dllexport", DECL_MACHINE_ATTRIBUTES (decl)) != 0;
+  return lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl)) != 0;
 }
 
 static int
@@ -3463,13 +3411,14 @@ mcore_dllimport_p (decl)
       && TREE_CODE (decl) != FUNCTION_DECL)
     return 0;
 
-  return lookup_attribute ("dllimport", DECL_MACHINE_ATTRIBUTES (decl)) != 0;
+  return lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl)) != 0;
 }
 
 /* Cover function to implement ENCODE_SECTION_INFO.  */
 void
-mcore_encode_section_info (decl)
+mcore_encode_section_info (decl, first)
      tree decl;
+     int first ATTRIBUTE_UNUSED;
 {
   /* This bit is copied from arm.h.  */
   if (optimize > 0
@@ -3514,24 +3463,27 @@ mcore_encode_section_info (decl)
    dllexport - for exporting a function/variable that will live in a dll
    dllimport - for importing a function/variable from a dll
    naked     - do not create a function prologue/epilogue.  */
-static int
-mcore_valid_decl_attribute (decl, attributes, attr, args)
-     tree decl;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree attr;
-     tree args;
+
+const struct attribute_spec mcore_attribute_table[] =
 {
-  if (args != NULL_TREE)
-    return 0;
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "dllexport", 0, 0, true,  false, false, NULL },
+  { "dllimport", 0, 0, true,  false, false, NULL },
+  { "naked",     0, 0, true,  false, false, mcore_handle_naked_attribute },
+  { NULL,        0, 0, false, false, false, NULL }
+};
 
-  if (is_attribute_p ("dllexport", attr))
-    return 1;
-
-  if (is_attribute_p ("dllimport", attr))
-    return 1;
-  
-  if (is_attribute_p ("naked", attr) &&
-      TREE_CODE (decl) == FUNCTION_DECL)
+/* Handle a "naked" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+mcore_handle_naked_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
     {
       /* PR14310 - don't complain about lack of return statement
 	 in naked functions.  The solution here is a gross hack
@@ -3548,11 +3500,15 @@ mcore_valid_decl_attribute (decl, attributes, attr, args)
 	}
       else if (saved_warn_return_type_count)
 	saved_warn_return_type_count = 2;
-      
-      return 1;
+    }
+  else
+    {
+      warning ("`%s' attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
-  return 0;
+  return NULL_TREE;
 }
 
 /* Cover function for UNIQUE_SECTION.  */
@@ -3563,7 +3519,7 @@ mcore_unique_section (decl, reloc)
      int reloc ATTRIBUTE_UNUSED;
 {
   int len;
-  char * name;
+  const char * name;
   char * string;
   const char * prefix;
 
@@ -3577,7 +3533,7 @@ mcore_unique_section (decl, reloc)
      (everything from the $ on is stripped).  */
   if (TREE_CODE (decl) == FUNCTION_DECL)
     prefix = ".text$";
-  /* For compatability with EPOC, we ignore the fact that the
+  /* For compatibility with EPOC, we ignore the fact that the
      section might have relocs against it.  */
   else if (DECL_READONLY_SECTION (decl, 0))
     prefix = ".rdata$";
@@ -3595,14 +3551,15 @@ mcore_unique_section (decl, reloc)
 int
 mcore_naked_function_p ()
 {
-  return lookup_attribute ("naked", DECL_MACHINE_ATTRIBUTES (current_function_decl)) != NULL_TREE;
+  return lookup_attribute ("naked", DECL_ATTRIBUTES (current_function_decl)) != NULL_TREE;
 }
 
+#ifdef OBJECT_FORMAT_ELF
 static void
-mcore_asm_named_section (name, flags, align)
+mcore_asm_named_section (name, flags)
      const char *name;
      unsigned int flags ATTRIBUTE_UNUSED;
-     unsigned int align ATTRIBUTE_UNUSED;
 {
   fprintf (asm_out_file, "\t.section %s\n", name);
 }
+#endif /* OBJECT_FORMAT_ELF */

@@ -1,4 +1,7 @@
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// ostream classes -*- C++ -*-
+
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,7 +32,9 @@
 // ISO C++ 14882: 27.6.2  Output streams
 //
 
-#include <bits/std_locale.h>
+#pragma GCC system_header
+
+#include <locale>
 
 namespace std 
 {
@@ -97,6 +102,38 @@ namespace std
 	{ 
 	  try 
 	    { __pf(*this); }
+	  catch(exception& __fail)
+	    {
+	      // 27.6.2.5.1 Common requirements.
+	      // Turn this on without causing an ios::failure to be thrown.
+	      this->setstate(ios_base::badbit);
+	      if ((this->exceptions() & ios_base::badbit) != 0)
+		__throw_exception_again;
+	    }
+	}
+      return *this;
+    }
+
+  template<typename _CharT, typename _Traits>
+    basic_ostream<_CharT, _Traits>& 
+    basic_ostream<_CharT, _Traits>::operator<<(__streambuf_type* __sbin)
+    {
+      sentry __cerb(*this);
+      if (__cerb)
+	{
+	  try
+	    {
+	      streamsize __xtrct = 0;
+	      if (__sbin)
+		{
+		  __streambuf_type* __sbout = this->rdbuf();
+		  __xtrct = __copy_streambufs(*this, __sbin, __sbout);
+		}
+	      else
+		this->setstate(ios_base::badbit);
+	      if (!__xtrct)
+		this->setstate(ios_base::failbit);
+	    }
 	  catch(exception& __fail)
 	    {
 	      // 27.6.2.5.1 Common requirements.
@@ -337,20 +374,6 @@ namespace std
     }
 
   template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>& 
-    basic_ostream<_CharT, _Traits>::operator<<(__streambuf_type* __sbin)
-    {
-      streamsize __xtrct = 0;
-      __streambuf_type* __sbout = this->rdbuf();
-      sentry __cerb(*this);
-      if (__sbin && __cerb)
-	__xtrct = __copy_streambufs(*this, __sbin, __sbout);
-      if (!__sbin || !__xtrct)
-	this->setstate(ios_base::failbit);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>&
     basic_ostream<_CharT, _Traits>::put(char_type __c)
     { 
@@ -358,7 +381,7 @@ namespace std
       if (__cerb) 
 	{
 	  int_type __put = rdbuf()->sputc(__c); 
-	  if (__put != traits_type::to_int_type(__c))
+	  if (traits_type::eq_int_type(__put, traits_type::eof()))
 	    this->setstate(ios_base::badbit);
 	}
       return *this;
@@ -396,9 +419,7 @@ namespace std
     basic_ostream<_CharT, _Traits>::tellp()
     {
       pos_type __ret = pos_type(-1);
-      bool __testok = this->fail() != true;
-      
-      if (__testok)
+      if (!this->fail())
 	__ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::out);
       return __ret;
     }
@@ -408,9 +429,7 @@ namespace std
     basic_ostream<_CharT, _Traits>&
     basic_ostream<_CharT, _Traits>::seekp(pos_type __pos)
     {
-      bool __testok = this->fail() != true;
-      
-      if (__testok)
+      if (!this->fail())
 	{
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
@@ -418,7 +437,7 @@ namespace std
 
 // 129. Need error indication from seekp() and seekg()
 	  if (__err == pos_type(off_type(-1)))
-	    this->setstate(failbit);
+	    this->setstate(ios_base::failbit);
 #endif
 	}
       return *this;
@@ -429,9 +448,7 @@ namespace std
     basic_ostream<_CharT, _Traits>::
     seekp(off_type __off, ios_base::seekdir __d)
     {
-      bool __testok = this->fail() != true;
-      
-      if (__testok)
+      if (!this->fail())
 	{
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
@@ -440,100 +457,13 @@ namespace std
 
 // 129. Need error indication from seekp() and seekg()
 	  if (__err == pos_type(off_type(-1)))
-	    this->setstate(failbit);
-	}
+	    this->setstate(ios_base::failbit);
 #endif
+	}
       return *this;
     }
 
-  // 27.6.2.5.4 Character inserters
-
-  // Construct correctly padded string, as per 22.2.2.2.2
-  // Similar in theory to __pad_numeric, from num_put, but it doesn't
-  // use _S_fill: perhaps it should.
-  // Assumes 
-  // __newlen > __oldlen
-  // __news is allocated for __newlen size
-  template<typename _CharT, typename _Traits>
-    void
-    __pad_char(basic_ios<_CharT, _Traits>& __ios, 
-	       _CharT* __news, const _CharT* __olds,
-	       const streamsize __newlen, const streamsize __oldlen)
-    {
-      typedef _CharT	char_type;
-      typedef _Traits	traits_type;
-      typedef typename traits_type::int_type int_type;
-      
-      int_type __plen = static_cast<size_t>(__newlen - __oldlen); 
-      char_type* __pads = static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __plen));
-      traits_type::assign(__pads, __plen, __ios.fill()); 
-
-      char_type* __beg;
-      char_type* __end;
-      size_t __mod = 0;
-      size_t __beglen; //either __plen or __oldlen
-      ios_base::fmtflags __fmt = __ios.flags() & ios_base::adjustfield;
-
-      if (__fmt == ios_base::left)
-	{
-	  // Padding last.
-	  __beg = const_cast<char_type*>(__olds);
-	  __beglen = __oldlen;
-	  __end = __pads;
-	}
-      else if (__fmt == ios_base::internal)
-	{
-	  // Pad after the sign, if there is one.
-	  // Pad after 0[xX], if there is one.
-	  // Who came up with these rules, anyway? Jeeze.
-	  typedef _Format_cache<_CharT> __cache_type;
-	  __cache_type const* __fmt = __cache_type::_S_get(__ios);
-	  const char_type* __minus = traits_type::find(__olds, __oldlen, 
-						       __fmt->_S_minus);
-	  const char_type* __plus = traits_type::find(__olds, __oldlen, 
-						      __fmt->_S_plus);
-	  bool __testsign = __minus || __plus;
-	  bool __testhex = __olds[0] == '0' 
-	    		   && (__olds[1] == 'x' || __olds[1] == 'X');
-
-	  if (__testhex)
-	    {
-	      __news[0] = __olds[0]; 
-	      __news[1] = __olds[1];
-	      __mod += 2;
-	      __beg = const_cast<char_type*>(__olds + __mod);
-	      __beglen = __oldlen - __mod;
-	      __end = __pads;
-	    }
-	  else if (__testsign)
-	    {
-	      __mod += __plen;
-	      const char_type* __sign = __minus ? __minus + 1: __plus + 1;
-	      __beg = const_cast<char_type*>(__olds);
-	      __beglen = __sign - __olds;
-	      __end = const_cast<char_type*>(__sign + __plen);
-	      traits_type::copy(__news + __beglen, __pads, __plen);
-	    }
-	  else
-	    {
-	      // Padding first.
-	      __beg = __pads;
-	      __beglen = __plen;
-	      __end = const_cast<char_type*>(__olds);
-	    }
-	}
-      else
-	{
-	  // Padding first.
-	  __beg = __pads;
-	  __beglen = __plen;
-	  __end = const_cast<char_type*>(__olds);
-	}
-
-      traits_type::copy(__news, __beg, __beglen);
-      traits_type::copy(__news + __beglen, __end, __newlen - __beglen - __mod);
-    }
-
+  // 27.6.2.5.4 Character inserters.
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>&
     operator<<(basic_ostream<_CharT, _Traits>& __out, _CharT __c)
@@ -545,12 +475,12 @@ namespace std
 	  try 
 	    {
 	      streamsize __w = __out.width();
-	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __w));
+	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * (__w + 1)));
 	      __pads[0] = __c;
 	      streamsize __len = 1;
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, &__c, __w, __len);
+		  __pad(__out, __out.fill(), __pads, &__c, __w, __len, false);
 		  __len = __w;
 		}
 	      __out.write(__pads, __len);
@@ -568,7 +498,7 @@ namespace std
       return __out;
     }
   
-  // Specialization
+  // Specializations.
   template <class _Traits> 
     basic_ostream<char, _Traits>&
     operator<<(basic_ostream<char, _Traits>& __out, char __c)
@@ -585,7 +515,7 @@ namespace std
 	      streamsize __len = 1;
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, &__c, __w, __len);
+		  __pad(__out, __out.fill(), __pads, &__c, __w, __len, false);
 		  __len = __w;
 		}
 	      __out.write(__pads, __len);
@@ -618,7 +548,7 @@ namespace std
 	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, __s, __w, __len);
+		  __pad(__out, __out.fill(), __pads, __s, __w, __len, false);
 		  __s = __pads;
 		  __len = __w;
 		}
@@ -644,6 +574,7 @@ namespace std
       typedef basic_ostream<_CharT, _Traits> __ostream_type;
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 167.  Improper use of traits_type::length()
+// Note that this is only in 'Review' status.
       typedef char_traits<char>		     __ctraits_type;
 #endif
       typename __ostream_type::sentry __cerb(__out);
@@ -663,7 +594,7 @@ namespace std
 	      
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, __ws, __w, __len);
+		  __pad(__out, __out.fill(), __pads, __ws, __w, __len, false);
 		  __str = __pads;
 		  __len = __w;
 		}
@@ -682,7 +613,7 @@ namespace std
       return __out;
     }
 
-  // Partial specializationss
+  // Partial specializations.
   template<class _Traits>
     basic_ostream<char, _Traits>&
     operator<<(basic_ostream<char, _Traits>& __out, const char* __s)
@@ -698,7 +629,7 @@ namespace std
 	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
 	      if (__w > __len)
 		{
-		  __pad_char(__out, __pads, __s, __w, __len);
+		  __pad(__out, __out.fill(), __pads, __s, __w, __len, false);
 		  __s = __pads;
 		  __len = __w;
 		}
@@ -736,7 +667,7 @@ namespace std
 #endif
 	  if (__w > __len)
 	    {
-	      __pad_char(__out, __pads, __s, __w, __len);
+	      __pad(__out, __out.fill(), __pads, __s, __w, __len, false);
 	      __s = __pads;
 	      __len = __w;
 	    }
@@ -747,9 +678,27 @@ namespace std
 	}
       return __out;
     }
-} // namespace std
- 
-// Local Variables:
-// mode:C++
-// End:
 
+  // Inhibit implicit instantiations for required instantiations,
+  // which are defined via explicit instantiations elsewhere.  
+  // NB:  This syntax is a GNU extension.
+  extern template class basic_ostream<char>;
+  extern template ostream& endl(ostream&);
+  extern template ostream& ends(ostream&);
+  extern template ostream& flush(ostream&);
+  extern template ostream& operator<<(ostream&, char);
+  extern template ostream& operator<<(ostream&, unsigned char);
+  extern template ostream& operator<<(ostream&, signed char);
+  extern template ostream& operator<<(ostream&, const char*);
+  extern template ostream& operator<<(ostream&, const unsigned char*);
+  extern template ostream& operator<<(ostream&, const signed char*);
+
+  extern template class basic_ostream<wchar_t>;
+  extern template wostream& endl(wostream&);
+  extern template wostream& ends(wostream&);
+  extern template wostream& flush(wostream&);
+  extern template wostream& operator<<(wostream&, wchar_t);
+  extern template wostream& operator<<(wostream&, char);
+  extern template wostream& operator<<(wostream&, const wchar_t*);
+  extern template wostream& operator<<(wostream&, const char*);
+} // namespace std

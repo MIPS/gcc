@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Matsushita MN10200 series
-   Copyright (C) 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
@@ -21,7 +21,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "svr4.h"
 
 /* Get rid of svr4.h stuff we don't want/need.  */
 #undef ASM_SPEC
@@ -82,19 +81,9 @@ extern int target_flags;
    This is not true on the Matsushita MN10200.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.
-
-   This is a white lie.  Registers are really 24bits, but most operations
+/* This is a white lie.  Registers are really 24bits, but most operations
    only operate on 16 bits.   GCC chokes badly if we set this to a value
    that is not a power of two.  */
-#define BITS_PER_WORD		16
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD		2
 
@@ -281,7 +270,7 @@ enum reg_class {
    || (reg_renumber[regno] > 3 && reg_renumber[regno] < FIRST_PSEUDO_REGISTER))
 
 #define REGNO_OK_FOR_INDEX_P(regno) \
-  (((regno) >= 0 && regno < 4)	\
+  (IN_RANGE ((regno), 0, 3) \
    || (reg_renumber[regno] >= 0 && reg_renumber[regno] < 4))
 
 
@@ -429,7 +418,7 @@ enum reg_class {
 #undef SIZE_TYPE
 #undef PTRDIFF_TYPE
 #define SIZE_TYPE "long unsigned int"
-#define PTRDIFF_TYPE "long unsigned int"
+#define PTRDIFF_TYPE "long int"
 
 /* Note sizeof (WCHAR_TYPE) must be equal to the value of WCHAR_TYPE_SIZE!  */
 #undef WCHAR_TYPE
@@ -640,7 +629,7 @@ struct cum_arg { int nbytes; };
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_INDEX_P(X)  \
-  (((REGNO (X) >= 0 && REGNO(X) <= 3) || REGNO (X) >= FIRST_PSEUDO_REGISTER))
+  (IN_RANGE (REGNO (X), 0, 3) || REGNO (X) >= FIRST_PSEUDO_REGISTER)
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) \
@@ -818,46 +807,6 @@ struct cum_arg { int nbytes; };
 
 #define ASM_APP_OFF "#NO_APP\n"
 
-/* This is how to output an assembler line defining a `double' constant.
-   It is .dfloat or .gfloat, depending.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE, VALUE)			\
-do { char dstr[30];					\
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-     fprintf (FILE, "\t.double %s\n", dstr);		\
-   } while (0)
-
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE, VALUE)			\
-do { char dstr[30];					\
-     REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-     fprintf (FILE, "\t.float %s\n", dstr);		\
-   } while (0)
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE, VALUE)		\
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE, VALUE)		\
-( fprintf (FILE, "\t.hword "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE, VALUE)		\
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#define ASM_OUTPUT_BYTE(FILE, VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
-
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.
    Try to use asm_output_bss to implement this macro.  */
@@ -945,8 +894,6 @@ do { char dstr[30];					\
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-#define DBX_REGISTER_NUMBER(REGNO) REGNO
-
 /* GDB always assumes the current function's frame begins at the value
    of the stack pointer upon entry to the current function.  Accessing
    local variables and parameters passed on the stack is done using the
@@ -968,10 +915,6 @@ do { char dstr[30];					\
   ((GET_CODE (X) == PLUS ? OFFSET : 0) \
     + (frame_pointer_needed ? 0 : -total_frame_size ()))
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
-
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
@@ -992,15 +935,9 @@ do { char dstr[30];					\
    fast and more compact code.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
 /* This flag, if defined, says the same insns that convert to a signed fixnum
    also convert validly to an unsigned one.  */
 #define FIXUNS_TRUNC_LIKE_FIX_TRUNC
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */

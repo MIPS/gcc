@@ -1,6 +1,6 @@
 // name-finder.h - Convert addresses to names
 
-/* Copyright (C) 2000  Red Hat Inc
+/* Copyright (C) 2000, 2002  Free Software Foundation, Inc
 
    This file is part of libgcj.
 
@@ -17,7 +17,10 @@ details.  */
 #include <jvm.h>
 
 #include <sys/types.h>
+
+#ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
+#endif
 
 #include <string.h>
 #include <stdio.h>
@@ -37,12 +40,19 @@ public:
   ~_Jv_name_finder ()
     {
 #if defined (HAVE_PIPE) && defined (HAVE_FORK)
-      close (f_pipe[1]);
-      fclose (b_pipe_fd);
+      myclose (f_pipe[0]);
+      myclose (f_pipe[1]);
+      myclose (b_pipe[0]);
+      myclose (b_pipe[1]);
+      if (b_pipe_fd != NULL)
+	fclose (b_pipe_fd);
 
-      int wstat;
-      // We don't care about errors here.
-      waitpid (pid, &wstat, 0);
+      if (pid >= 0)
+	{
+	  int wstat;
+	  // We don't care about errors here.
+	  waitpid (pid, &wstat, 0);
+	}
 #endif
     }
 
@@ -69,5 +79,13 @@ private:
   int f_pipe[2], b_pipe[2];
   FILE *b_pipe_fd;
   int error;
+
+  // Close a descriptor only if it has not been closed.
+  void myclose (int fd)
+  {
+    if (fd != -1)
+      close (fd);
+  }
+
 #endif
 };

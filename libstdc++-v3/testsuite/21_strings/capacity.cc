@@ -22,18 +22,18 @@
 
 #include <string>
 #include <cstdio>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
 template<typename T>
   struct A { };
 
 template<typename T>
   bool
-  operator==(const A<T>& a, const A<T>& b) { }
+  operator==(const A<T>& a, const A<T>& b) { return true; }
 
 template<typename T>
   bool
-  operator<(const A<T>& a, const A<T>& b) { }
+  operator<(const A<T>& a, const A<T>& b) { return true; }
 
 struct B { };
 
@@ -169,9 +169,44 @@ bool test01()
   return test;
 }
 
+// libstdc++/4548
+// http://gcc.gnu.org/ml/libstdc++/2001-11/msg00150.html
+bool test02()
+{
+  bool test = true;
+
+  std::string str01 = "twelve chars";
+  // str01 becomes shared
+  std::string str02 = str01;
+  str01.reserve(1);
+  VERIFY( str01.capacity() == 12 );
+
+#ifdef DEBUG_ASSERT
+  assert(test);
+#endif
+
+  return test;
+}
+
+#if !__GXX_WEAK__
+// Explicitly instantiate for systems with no COMDAT or weak support.
+template 
+  std::basic_string< A<B> >::size_type 
+  std::basic_string< A<B> >::_Rep::_S_max_size;
+
+template 
+  A<B>
+  std::basic_string< A<B> >::_Rep::_S_terminal;
+#endif
+
 int main()
 {
   test01();
+  test02();
 
   return 0;
 }
+
+
+
+

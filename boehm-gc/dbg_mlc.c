@@ -26,7 +26,7 @@ GC_API void GC_register_finalizer_no_order
 /* Check whether object with base pointer p has debugging info	*/ 
 /* p is assumed to point to a legitimate object in our part	*/
 /* of the heap.							*/
-/* This excludes the check as to whether tha back pointer is 	*/
+/* This excludes the check as to whether the back pointer is 	*/
 /* odd, which is added by the GC_HAS_DEBUG_INFO macro.		*/
 /* Note that if DBG_HDRS_ALL is set, uncollectable objects	*/
 /* on free lists may not have debug information set.  Thus it's	*/
@@ -40,7 +40,7 @@ ptr_t p;
     register word sz = GC_size((ptr_t) ohdr);
     
     if (HBLKPTR((ptr_t)ohdr) != HBLKPTR((ptr_t)body)
-        || sz < sizeof (oh)) {
+        || sz < DEBUG_BYTES + EXTRA_BYTES) {
         return(FALSE);
     }
     if (ohdr -> oh_sz == sz) {
@@ -233,7 +233,7 @@ ptr_t p;
 ptr_t GC_store_debug_info(p, sz, string, integer)
 register ptr_t p;	/* base pointer */
 word sz; 	/* bytes */
-char * string;
+GC_CONST char * string;
 word integer;
 {
     register word * result = (word *)((oh *)p + 1);
@@ -246,13 +246,16 @@ word integer;
 #   ifdef KEEP_BACK_PTRS
       ((oh *)p) -> oh_back_ptr = HIDE_BACK_PTR(NOT_MARKED);
 #   endif
+#   ifdef MAKE_BACK_GRAPH
+      ((oh *)p) -> oh_bg_ptr = HIDE_BACK_PTR((ptr_t)0);
+#   endif
     ((oh *)p) -> oh_string = string;
     ((oh *)p) -> oh_int = integer;
 #   ifndef SHORT_DBG_HDRS
       ((oh *)p) -> oh_sz = sz;
       ((oh *)p) -> oh_sf = START_FLAG ^ (word)result;
       ((word *)p)[BYTES_TO_WORDS(GC_size(p))-1] =
-         result[ROUNDED_UP_WORDS(sz)] = END_FLAG ^ (word)result;
+         result[SIMPLE_ROUNDED_UP_WORDS(sz)] = END_FLAG ^ (word)result;
 #   endif
     UNLOCK();
     return((ptr_t)result);
@@ -273,7 +276,10 @@ word integer;
     /* But that's expensive.  And this way things should only appear	*/
     /* inconsistent while we're in the handler.				*/
 #   ifdef KEEP_BACK_PTRS
-      ((oh *)p) -> oh_back_ptr = 0;
+      ((oh *)p) -> oh_back_ptr = HIDE_BACK_PTR(NOT_MARKED);
+#   endif
+#   ifdef MAKE_BACK_GRAPH
+      ((oh *)p) -> oh_bg_ptr = HIDE_BACK_PTR((ptr_t)0);
 #   endif
     ((oh *)p) -> oh_string = string;
     ((oh *)p) -> oh_int = integer;
@@ -281,7 +287,7 @@ word integer;
       ((oh *)p) -> oh_sz = sz;
       ((oh *)p) -> oh_sf = START_FLAG ^ (word)result;
       ((word *)p)[BYTES_TO_WORDS(GC_size(p))-1] =
-         result[ROUNDED_UP_WORDS(sz)] = END_FLAG ^ (word)result;
+         result[SIMPLE_ROUNDED_UP_WORDS(sz)] = END_FLAG ^ (word)result;
 #   endif
     return((ptr_t)result);
 }
@@ -305,9 +311,9 @@ register oh * ohdr;
     if (((word *)ohdr)[BYTES_TO_WORDS(gc_sz)-1] != (END_FLAG ^ (word)body)) {
         return((ptr_t)((word *)ohdr + BYTES_TO_WORDS(gc_sz)-1));
     }
-    if (((word *)body)[ROUNDED_UP_WORDS(ohdr -> oh_sz)]
+    if (((word *)body)[SIMPLE_ROUNDED_UP_WORDS(ohdr -> oh_sz)]
         != (END_FLAG ^ (word)body)) {
-        return((ptr_t)((word *)body + ROUNDED_UP_WORDS(ohdr -> oh_sz)));
+        return((ptr_t)((word *)body + SIMPLE_ROUNDED_UP_WORDS(ohdr -> oh_sz)));
     }
     return(0);
 }
@@ -408,35 +414,6 @@ void GC_start_debugging()
 # endif
 {
     GC_PTR result = GC_malloc(lb + DEBUG_BYTES);
-    
-    if (result == 0) {
-        GC_err_printf1("GC_debug_malloc(%ld) returning NIL (",
-        	       (unsigned long) lb);
-        GC_err_puts(s);
-        GC_err_printf1(":%ld)\n", (unsigned long)i);
-        return(0);
-    }
-    if (!GC_debugging_started) {
-    	GC_start_debugging();
-    }
-    ADD_CALL_CHAIN(result, ra);
-    return (GC_store_debug_info(result, (word)lb, s, (word)i));
-}
-
-# ifdef __STDC__
-    GC_PTR GC_debug_generic_malloc(size_t lb, int k, GC_EXTRA_PARAMS)
-# else
-    GC_PTR GC_debug_malloc(lb, k, s, i)
-    size_t lb;
-    int k;
-    char * s;
-    int i;
-#   ifdef GC_ADD_CALLER
-	--> GC_ADD_CALLER not implemented for K&R C
-#   endif
-# endif
-{
-    GC_PTR result = GC_generic_malloc(lb + DEBUG_BYTES, k);
     
     if (result == 0) {
         GC_err_printf1("GC_debug_malloc(%ld) returning NIL (",
@@ -890,6 +867,28 @@ struct closure {
     (*(cl -> cl_fn))((GC_PTR)((char *)obj + sizeof(oh)), cl -> cl_data);
 } 
 
+/* Set ofn and ocd to reflect the values we got back.	*/
+static void store_old (obj, my_old_fn, my_old_cd, ofn, ocd)
+GC_PTR obj;
+GC_finalization_proc my_old_fn;
+struct closure * my_old_cd;
+GC_finalization_proc *ofn;
+GC_PTR *ocd;
+{
+    if (0 != my_old_fn) {
+      if (my_old_fn != GC_debug_invoke_finalizer) {
+        GC_err_printf1("Debuggable object at 0x%lx had non-debug finalizer.\n",
+		       obj);
+        /* This should probably be fatal. */
+      } else {
+        if (ofn) *ofn = my_old_cd -> cl_fn;
+        if (ocd) *ocd = my_old_cd -> cl_data;
+      }
+    } else {
+      if (ofn) *ofn = 0;
+      if (ocd) *ocd = 0;
+    }
+}
 
 # ifdef __STDC__
     void GC_debug_register_finalizer(GC_PTR obj, GC_finalization_proc fn,
@@ -904,14 +903,21 @@ struct closure {
     GC_PTR *ocd;
 # endif
 {
+    GC_finalization_proc my_old_fn;
+    GC_PTR my_old_cd;
     ptr_t base = GC_base(obj);
     if (0 == base || (ptr_t)obj - base != sizeof(oh)) {
         GC_err_printf1(
 	    "GC_register_finalizer called with non-base-pointer 0x%lx\n",
 	    obj);
     }
-    GC_register_finalizer(base, GC_debug_invoke_finalizer,
-    			  GC_make_closure(fn,cd), ofn, ocd);
+    if (0 == fn) {
+      GC_register_finalizer(base, 0, 0, &my_old_fn, &my_old_cd);
+    } else {
+      GC_register_finalizer(base, GC_debug_invoke_finalizer,
+    			    GC_make_closure(fn,cd), &my_old_fn, &my_old_cd);
+    }
+    store_old(obj, my_old_fn, (struct closure *)my_old_cd, ofn, ocd);
 }
 
 # ifdef __STDC__
@@ -929,14 +935,22 @@ struct closure {
     GC_PTR *ocd;
 # endif
 {
+    GC_finalization_proc my_old_fn;
+    GC_PTR my_old_cd;
     ptr_t base = GC_base(obj);
     if (0 == base || (ptr_t)obj - base != sizeof(oh)) {
         GC_err_printf1(
 	  "GC_register_finalizer_no_order called with non-base-pointer 0x%lx\n",
 	  obj);
     }
-    GC_register_finalizer_no_order(base, GC_debug_invoke_finalizer,
-     			  	      GC_make_closure(fn,cd), ofn, ocd);
+    if (0 == fn) {
+      GC_register_finalizer_no_order(base, 0, 0, &my_old_fn, &my_old_cd);
+    } else {
+      GC_register_finalizer_no_order(base, GC_debug_invoke_finalizer,
+    			    	     GC_make_closure(fn,cd), &my_old_fn,
+				     &my_old_cd);
+    }
+    store_old(obj, my_old_fn, (struct closure *)my_old_cd, ofn, ocd);
  }
 
 # ifdef __STDC__
@@ -954,25 +968,39 @@ struct closure {
     GC_PTR *ocd;
 # endif
 {
+    GC_finalization_proc my_old_fn;
+    GC_PTR my_old_cd;
     ptr_t base = GC_base(obj);
     if (0 == base || (ptr_t)obj - base != sizeof(oh)) {
         GC_err_printf1(
 	    "GC_register_finalizer_ignore_self called with non-base-pointer 0x%lx\n",
 	    obj);
     }
-    GC_register_finalizer_ignore_self(base, GC_debug_invoke_finalizer,
-    			  	      GC_make_closure(fn,cd), ofn, ocd);
+    if (0 == fn) {
+      GC_register_finalizer_ignore_self(base, 0, 0, &my_old_fn, &my_old_cd);
+    } else {
+      GC_register_finalizer_ignore_self(base, GC_debug_invoke_finalizer,
+    			    	     GC_make_closure(fn,cd), &my_old_fn,
+				     &my_old_cd);
+    }
+    store_old(obj, my_old_fn, (struct closure *)my_old_cd, ofn, ocd);
 }
+
+#ifdef GC_ADD_CALLER
+# define RA GC_RETURN_ADDR,
+#else
+# define RA
+#endif
 
 GC_PTR GC_debug_malloc_replacement(lb)
 size_t lb;
 {
-    return GC_debug_malloc(lb, "unknown", 0);
+    return GC_debug_malloc(lb, RA "unknown", 0);
 }
 
 GC_PTR GC_debug_realloc_replacement(p, lb)
 GC_PTR p;
 size_t lb;
 {
-    return GC_debug_realloc(p, lb, "unknown", 0);
+    return GC_debug_realloc(p, lb, RA "unknown", 0);
 }

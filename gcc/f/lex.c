@@ -1,5 +1,6 @@
 /* Implementation of Fortran lexer
-   Copyright (C) 1995, 1996, 1997, 1998, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -27,13 +28,11 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "malloc.h"
 #include "src.h"
 #include "debug.h"
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 #include "flags.h"
 #include "input.h"
 #include "toplev.h"
 #include "output.h"
 #include "ggc.h"
-#endif
 
 static void ffelex_append_to_token_ (char c);
 static int ffelex_backslash_ (int c, ffewhereColumnNumber col);
@@ -45,10 +44,8 @@ static void ffelex_bad_2_ (ffebad errnum, ffewhereLineNumber ln0,
 static void ffelex_bad_here_ (int num, ffewhereLineNumber ln0,
 			      ffewhereColumnNumber cn0);
 static void ffelex_finish_statement_ (void);
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 static int ffelex_get_directive_line_ (char **text, FILE *finput);
 static int ffelex_hash_ (FILE *f);
-#endif
 static ffewhereColumnNumber ffelex_image_char_ (int c,
 						ffewhereColumnNumber col);
 static void ffelex_include_ (void);
@@ -249,8 +246,6 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
      hollerith constants.  */
 
 #define wide_flag 0
-#define warn_traditional 0
-#define flag_traditional 0
 
   switch (state)
     {
@@ -271,17 +266,6 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
       switch (c)
 	{
 	case 'x':
-	  if (warn_traditional)
-	    {
-	      ffebad_start_msg_lex ("The meaning of `\\x' (at %0) varies with -traditional",
-				    FFEBAD_severityWARNING);
-	      ffelex_bad_here_ (0, line, column);
-	      ffebad_finish ();
-	    }
-
-	  if (flag_traditional)
-	    return c;
-
 	  code = 0;
 	  count = 0;
 	  nonnull = 0;
@@ -321,23 +305,9 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
 	  return TARGET_BS;
 
 	case 'a':
-	  if (warn_traditional)
-	    {
-	      ffebad_start_msg_lex ("The meaning of `\\a' (at %0) varies with -traditional",
-				    FFEBAD_severityWARNING);
-	      ffelex_bad_here_ (0, line, column);
-	      ffebad_finish ();
-	    }
-
-	  if (flag_traditional)
-	    return c;
 	  return TARGET_BELL;
 
 	case 'v':
-#if 0 /* Vertical tab is present in common usage compilers.  */
-	  if (flag_traditional)
-	    return c;
-#endif
 	  return TARGET_VT;
 
 	case 'e':
@@ -352,7 +322,8 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
 
 	      m[0] = c;
 	      m[1] = '\0';
-	      ffebad_start_msg_lex ("Non-ANSI-C-standard escape sequence `\\%A' at %0",
+	      /* xgettext:no-c-format */
+	      ffebad_start_msg_lex ("Non-ISO-C-standard escape sequence `\\%A' at %0",
 				    FFEBAD_severityPEDANTIC);
 	      ffelex_bad_here_ (0, line, column);
 	      ffebad_string (m);
@@ -370,6 +341,7 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
 
 	      m[0] = c;
 	      m[1] = '\0';
+	      /* xgettext:no-c-format */
 	      ffebad_start_msg_lex ("Unknown escape sequence `\\%A' at %0",
 				    FFEBAD_severityPEDANTIC);
 	      ffelex_bad_here_ (0, line, column);
@@ -378,6 +350,7 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
 	    }
 	  else if (c == EOF)
 	    {
+	      /* xgettext:no-c-format */
 	      ffebad_start_msg_lex ("Unterminated escape sequence `\\' at %0",
 				    FFEBAD_severityPEDANTIC);
 	      ffelex_bad_here_ (0, line, column);
@@ -388,6 +361,7 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
 	      char m[20];
 
 	      sprintf (&m[0], "%x", c);
+	      /* xgettext:no-c-format */
 	      ffebad_start_msg_lex ("Unknown escape sequence `\\' followed by char code 0x%A at %0",
 				    FFEBAD_severityPEDANTIC);
 	      ffelex_bad_here_ (0, line, column);
@@ -398,17 +372,9 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
       return c;
 
     case 2:
-      if ((c >= 'a' && c <= 'f')
-	  || (c >= 'A' && c <= 'F')
-	  || (c >= '0' && c <= '9'))
+      if (ISXDIGIT (c))
 	{
-	  code *= 16;
-	  if (c >= 'a' && c <= 'f')
-	    code += c - 'a' + 10;
-	  if (c >= 'A' && c <= 'F')
-	    code += c - 'A' + 10;
-	  if (c >= '0' && c <= '9')
-	    code += c - '0';
+	  code = (code * 16) + hex_value (c);
 	  if (code != 0 || count != 0)
 	    {
 	      if (count == 0)
@@ -423,6 +389,7 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
 
       if (! nonnull)
 	{
+	  /* xgettext:no-c-format */
 	  ffebad_start_msg_lex ("\\x used at %0 with no following hex digits",
 				FFEBAD_severityFATAL);
 	  ffelex_bad_here_ (0, line, column);
@@ -436,6 +403,7 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
 		   && ((1 << (TYPE_PRECISION (integer_type_node) - (count - 1) * 4))
 		       <= (int) firstdig)))
 	{
+	  /* xgettext:no-c-format */
 	  ffebad_start_msg_lex ("Hex escape at %0 out of range",
 				FFEBAD_severityPEDANTIC);
 	  ffelex_bad_here_ (0, line, column);
@@ -469,6 +437,7 @@ ffelex_backslash_ (int c, ffewhereColumnNumber col)
       && TYPE_PRECISION (char_type_node) < HOST_BITS_PER_INT
       && code >= (1 << TYPE_PRECISION (char_type_node)))
     {
+      /* xgettext:no-c-format */
       ffebad_start_msg_lex ("Escape sequence at %0 out of range for character",
 			    FFEBAD_severityFATAL);
       ffelex_bad_here_ (0, line, column);
@@ -561,7 +530,6 @@ ffelex_bad_here_ (int n, ffewhereLineNumber ln0,
   ffewhere_column_kill (wc0);
 }
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 static int
 ffelex_getc_ (FILE *finput)
 {
@@ -578,8 +546,6 @@ ffelex_getc_ (FILE *finput)
   return getc (finput);
 }
 
-#endif
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 static int
 ffelex_cfebackslash_ (int *use_d, int *d, FILE *finput)
 {
@@ -594,33 +560,19 @@ ffelex_cfebackslash_ (int *use_d, int *d, FILE *finput)
   switch (c)
     {
     case 'x':
-      if (warn_traditional)
-	warning ("the meaning of `\\x' varies with -traditional");
-
-      if (flag_traditional)
-	return c;
-
       code = 0;
       count = 0;
       nonnull = 0;
       while (1)
 	{
 	  c = getc (finput);
-	  if (!(c >= 'a' && c <= 'f')
-	      && !(c >= 'A' && c <= 'F')
-	      && !(c >= '0' && c <= '9'))
+	  if (! ISXDIGIT (c))
 	    {
 	      *use_d = 1;
 	      *d = c;
 	      break;
 	    }
-	  code *= 16;
-	  if (c >= 'a' && c <= 'f')
-	    code += c - 'a' + 10;
-	  if (c >= 'A' && c <= 'F')
-	    code += c - 'A' + 10;
-	  if (c >= '0' && c <= '9')
-	    code += c - '0';
+	  code = (code * 16) + hex_value (c);
 	  if (code != 0 || count != 0)
 	    {
 	      if (count == 0)
@@ -685,18 +637,9 @@ ffelex_cfebackslash_ (int *use_d, int *d, FILE *finput)
       return TARGET_BS;
 
     case 'a':
-      if (warn_traditional)
-	warning ("the meaning of `\\a' varies with -traditional");
-
-      if (flag_traditional)
-	return c;
       return TARGET_BELL;
 
     case 'v':
-#if 0 /* Vertical tab is present in common usage compilers.  */
-      if (flag_traditional)
-	return c;
-#endif
       return TARGET_VT;
 
     case 'e':
@@ -715,7 +658,7 @@ ffelex_cfebackslash_ (int *use_d, int *d, FILE *finput)
       /* `\%' is used to prevent SCCS from getting confused.  */
     case '%':
       if (pedantic)
-	pedwarn ("non-ANSI escape sequence `\\%c'", c);
+	pedwarn ("non-ISO escape sequence `\\%c'", c);
       return c;
     }
   if (c >= 040 && c < 0177)
@@ -725,10 +668,8 @@ ffelex_cfebackslash_ (int *use_d, int *d, FILE *finput)
   return c;
 }
 
-#endif
 /* A miniature version of the C front-end lexer.  */
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 static int
 ffelex_cfelex_ (ffelexToken *xtoken, FILE *finput, int c)
 {
@@ -800,7 +741,7 @@ ffelex_cfelex_ (ffelexToken *xtoken, FILE *finput, int c)
 
 	    case EOF:
 	    case '\n':
-	      error ("Badly formed directive -- no closing quote");
+	      error ("badly formed directive -- no closing quote");
 	      done = TRUE;
 	      break;
 
@@ -845,9 +786,7 @@ ffelex_cfelex_ (ffelexToken *xtoken, FILE *finput, int c)
   *xtoken = token;
   return c;
 }
-#endif
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 static void
 ffelex_file_pop_ (const char *input_filename)
 {
@@ -868,8 +807,6 @@ ffelex_file_pop_ (const char *input_filename)
     input_file_stack->name = input_filename;
 }
 
-#endif
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 static void
 ffelex_file_push_ (int old_lineno, const char *input_filename)
 {
@@ -889,7 +826,6 @@ ffelex_file_push_ (int old_lineno, const char *input_filename)
   if (input_file_stack)
     input_file_stack->name = input_filename;
 }
-#endif
 
 /* Prepare to finish a statement-in-progress by sending the current
    token, if any, then setting up EOS as the current token with the
@@ -980,7 +916,6 @@ ffelex_finish_statement_ ()
 
 /* Copied from gcc/c-common.c get_directive_line.  */
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 static int
 ffelex_get_directive_line_ (char **text, FILE *finput)
 {
@@ -1026,7 +961,7 @@ ffelex_get_directive_line_ (char **text, FILE *finput)
 	  || c == EOF)
 	{
 	  if (looking_for != 0)
-	    error ("Bad directive -- missing close-quote");
+	    error ("bad directive -- missing close-quote");
 
 	  *p++ = '\0';
 	  *text = directive_buffer;
@@ -1052,7 +987,6 @@ ffelex_get_directive_line_ (char **text, FILE *finput)
       char_escaped = (c == '\\' && ! char_escaped);
     }
 }
-#endif
 
 /* Handle # directives that make it through (or are generated by) the
    preprocessor.  As much as reasonably possible, emulate the behavior
@@ -1062,8 +996,6 @@ ffelex_get_directive_line_ (char **text, FILE *finput)
    locations of some things.
 
    Returns the next character unhandled, which is always newline or EOF.  */
-
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 
 #if defined HANDLE_PRAGMA
 /* Local versions of these macros, that can be passed as function pointers.  */
@@ -1097,7 +1029,7 @@ ffelex_hash_ (FILE *finput)
      it and ignore it; otherwise, ignore the line, with an error
      if the word isn't `pragma', `ident', `define', or `undef'.  */
 
-  if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
+  if (ISALPHA(c))
     {
       if (c == 'p')
 	{
@@ -1117,7 +1049,7 @@ ffelex_hash_ (FILE *finput)
 		 ISSPACE() may evaluate its argument more than once!  */
 	      while (((c = getc (finput)), ISSPACE(c)))
 		continue;
-	      
+
 	      do
 		{
 		  * buff ++ = c;
@@ -1127,7 +1059,7 @@ ffelex_hash_ (FILE *finput)
 		     && buff < buffer + 128);
 
 	      pragma_ungetc (c);
-		
+
 	      * -- buff = 0;
 #ifdef HANDLE_PRAGMA
 	      if (HANDLE_PRAGMA (pragma_getc, pragma_ungetc, buffer))
@@ -1350,7 +1282,7 @@ ffelex_hash_ (FILE *finput)
 	    {
 	      lineno = 1;
 	      input_filename = old_input_filename;
-	      error ("Use `#line ...' instead of `# ...' in first line");
+	      error ("use `#line ...' instead of `# ...' in first line");
 	    }
 
 	  if (num == 1)
@@ -1394,7 +1326,7 @@ ffelex_hash_ (FILE *finput)
 	{
 	  lineno = 1;
 	  input_filename = old_input_filename;
-	  error ("Use `#line ...' instead of `# ...' in first line");
+	  error ("use `#line ...' instead of `# ...' in first line");
 	}
       if (c == '\n' || c == EOF)
 	{
@@ -1414,7 +1346,6 @@ ffelex_hash_ (FILE *finput)
     ;
   return c;
 }
-#endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
 
 /* "Image" a character onto the card image, return incremented column number.
 
@@ -1497,6 +1428,7 @@ ffelex_image_char_ (int c, ffewhereColumnNumber column)
 	  ffelex_bad_line_ = TRUE;
 	  strcpy (&ffelex_card_image_[column], "[\\0]");
 	  ffelex_card_length_ = column + 4;
+	  /* xgettext:no-c-format */
 	  ffebad_start_msg_lex ("Null character at %0 -- line ignored",
 				FFEBAD_severityFATAL);
 	  ffelex_bad_here_ (0, ffelex_linecount_current_, column + 1);
@@ -1538,10 +1470,8 @@ ffelex_include_ ()
   ffewhereLineNumber linecount_current = ffelex_linecount_current_;
   ffewhereLineNumber linecount_offset
     = ffewhere_line_filelinenum (current_wl);
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
   int old_lineno = lineno;
   const char *old_input_filename = input_filename;
-#endif
 
   if (card_length != 0)
     {
@@ -1559,18 +1489,14 @@ ffelex_include_ ()
 
   ffewhere_file_set (include_wherefile, TRUE, 0);
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
   ffelex_file_push_ (old_lineno, ffewhere_file_name (include_wherefile));
-#endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
 
   if (ffelex_include_free_form_)
     ffelex_file_free (include_wherefile, include_file);
   else
     ffelex_file_fixed (include_wherefile, include_file);
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
   ffelex_file_pop_ (ffewhere_file_name (current_wf));
-#endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
 
   ffewhere_file_set (current_wf, TRUE, linecount_offset);
 
@@ -1586,10 +1512,8 @@ ffelex_include_ ()
     }
   ffelex_card_image_[card_length] = '\0';
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
   input_filename = old_input_filename;
   lineno = old_lineno;
-#endif
   ffelex_linecount_current_ = linecount_current;
   ffelex_current_wf_ = current_wf;
   ffelex_final_nontab_column_ = final_nontab_column;
@@ -1647,9 +1571,7 @@ ffelex_next_line_ ()
 {
   ffelex_linecount_current_ = ffelex_linecount_next_;
   ++ffelex_linecount_next_;
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
   ++lineno;
-#endif
 }
 
 static void
@@ -1742,7 +1664,7 @@ ffelex_token_new_ ()
 static const char *
 ffelex_type_string_ (ffelexType type)
 {
-  static const char *types[] = {
+  static const char *const types[] = {
     "FFELEX_typeNONE",
     "FFELEX_typeCOMMENT",
     "FFELEX_typeEOS",
@@ -1865,10 +1787,8 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
 
   assert (ffelex_handler_ != NULL);
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
   lineno = 0;
   input_filename = ffewhere_file_name (wf);
-#endif
   ffelex_current_wf_ = wf;
   disallow_continuation_line = TRUE;
   ignore_disallowed_continuation = FALSE;
@@ -1878,22 +1798,6 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
   ffelex_current_wl_ = ffewhere_line_unknown ();
   ffelex_current_wc_ = ffewhere_column_unknown ();
   latest_char_in_file = '\n';
-
-  if (ffe_is_null_version ())
-    {
-      /* Just substitute a "program" directly here.  */
-
-      char line[] = "      call g77__fvers;call g77__ivers;call g77__uvers;end";
-      char *p;
-
-      column = 0;
-      for (p = &line[0]; *p != '\0'; ++p)
-	column = ffelex_image_char_ (*p, column);
-
-      c = EOF;
-
-      goto have_line;		/* :::::::::::::::::::: */
-    }
 
   goto first_line;		/* :::::::::::::::::::: */
 
@@ -1957,10 +1861,8 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
 	  while ((c != '\n') && (c != EOF))
 	    c = getc (f);
 	}
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
       else if (lextype == FFELEX_typeHASH)
 	c = ffelex_hash_ (f);
-#endif
       else if (lextype == FFELEX_typeSLASH)
 	{
 	  /* SIDE-EFFECT ABOVE HAS HAPPENED. */
@@ -2042,8 +1944,6 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
 
       column = ffelex_final_nontab_column_;
     }
-
- have_line:			/* :::::::::::::::::::: */
 
   ffelex_card_image_[column] = '\0';
   ffelex_card_length_ = column;
@@ -3077,10 +2977,8 @@ ffelex_file_free (ffewhereFile wf, FILE *f)
 
   assert (ffelex_handler_ != NULL);
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
   lineno = 0;
   input_filename = ffewhere_file_name (wf);
-#endif
   ffelex_current_wf_ = wf;
   continuation_line = FALSE;
   ffelex_token_->type = FFELEX_typeNONE;
@@ -3118,14 +3016,7 @@ ffelex_file_free (ffewhereFile wf, FILE *f)
 	 || (c == '#'))
     {
       if (c == '#')
-	{
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
-	  c = ffelex_hash_ (f);
-#else
-	  /* Don't skip over # line after all.  */
-	  break;
-#endif
-	}
+	c = ffelex_hash_ (f);
 
      comment_line:		/* :::::::::::::::::::: */
 
@@ -3968,17 +3859,16 @@ ffelex_file_free (ffewhereFile wf, FILE *f)
 
 /* See the code in com.c that calls this to understand why.  */
 
-#if FFECOM_targetCURRENT == FFECOM_targetGCC
 void
 ffelex_hash_kludge (FILE *finput)
 {
   /* If you change this constant string, you have to change whatever
      code might thus be affected by it in terms of having to use
      ffelex_getc_() instead of getc() in the lexers and _hash_.  */
-  static char match[] = "# 1 \"";
+  static const char match[] = "# 1 \"";
   static int kludge[ARRAY_SIZE (match) + 1];
   int c;
-  char *p;
+  const char *p;
   int *q;
 
   /* Read chars as long as they match the target string.
@@ -4005,7 +3895,6 @@ ffelex_hash_kludge (FILE *finput)
     }
 }
 
-#endif
 void
 ffelex_init_1 ()
 {

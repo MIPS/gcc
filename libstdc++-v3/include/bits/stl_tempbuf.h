@@ -1,6 +1,6 @@
 // Temporary buffer implementation -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,60 +53,35 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/* NOTE: This is an internal header file, included by other STL headers.
- *   You should not attempt to use it directly.
+/** @file stl_tempbuf.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_TEMPBUF_H
-#define __SGI_STL_INTERNAL_TEMPBUF_H
+#ifndef __GLIBCPP_INTERNAL_TEMPBUF_H
+#define __GLIBCPP_INTERNAL_TEMPBUF_H
 
 namespace std
 {
 
-template <class _Tp>
-pair<_Tp*, ptrdiff_t> 
-__get_temporary_buffer(ptrdiff_t __len, _Tp*)
-{
-  if (__len > ptrdiff_t(INT_MAX / sizeof(_Tp)))
-    __len = INT_MAX / sizeof(_Tp);
-
-  while (__len > 0) {
-    _Tp* __tmp = (_Tp*) malloc((size_t)__len * sizeof(_Tp));
-    if (__tmp != 0)
-      return pair<_Tp*, ptrdiff_t>(__tmp, __len);
-    __len /= 2;
-  }
-
-  return pair<_Tp*, ptrdiff_t>((_Tp*)0, 0);
-}
-
-template <class _Tp>
-inline pair<_Tp*, ptrdiff_t> get_temporary_buffer(ptrdiff_t __len) {
-  return __get_temporary_buffer(__len, (_Tp*) 0);
-}
-
-// This overload is not required by the standard; it is an extension.
-// It is supported for backward compatibility with the HP STL, and
-// because not all compilers support the language feature (explicit
-// function template arguments) that is required for the standard
-// version of get_temporary_buffer.
-template <class _Tp>
-inline pair<_Tp*, ptrdiff_t> get_temporary_buffer(ptrdiff_t __len, _Tp*) {
-  return __get_temporary_buffer(__len, (_Tp*) 0);
-}
-
-template <class _Tp>
-void return_temporary_buffer(_Tp* __p) {
-  free(__p);
-}
-
+/**
+ *  @if maint
+ *  This class is used in two places:  stl_algo.h and ext/memory, where it
+ *  is wrapped as the temporary_buffer class.  See temporary_buffer docs for
+ *  more notes.
+ *  @endif
+*/
 template <class _ForwardIterator, class _Tp>
-class _Temporary_buffer {
-private:
+  class _Temporary_buffer
+{
+  // concept requirements
+  __glibcpp_class_requires(_ForwardIterator, _ForwardIteratorConcept)
+
   ptrdiff_t  _M_original_len;
   ptrdiff_t  _M_len;
   _Tp*       _M_buffer;
 
+  // this is basically get_temporary_buffer() all over again
   void _M_allocate_buffer() {
     _M_original_len = _M_len;
     _M_buffer = 0;
@@ -128,9 +103,13 @@ private:
   }
 
 public:
+  /// As per Table mumble.
   ptrdiff_t size() const { return _M_len; }
+  /// Returns the size requested by the constructor; may be >size().
   ptrdiff_t requested_size() const { return _M_original_len; }
+  /// As per Table mumble.
   _Tp* begin() { return _M_buffer; }
+  /// As per Table mumble.
   _Tp* end() { return _M_buffer + _M_len; }
 
   _Temporary_buffer(_ForwardIterator __first, _ForwardIterator __last) {
@@ -138,14 +117,19 @@ public:
     typedef typename __type_traits<_Tp>::has_trivial_default_constructor
             _Trivial;
 
-    __STL_TRY {
-      _M_len = 0;
-      distance(__first, __last, _M_len);
+    try {
+      _M_len = distance(__first, __last);
       _M_allocate_buffer();
       if (_M_len > 0)
         _M_initialize_buffer(*__first, _Trivial());
     }
-    __STL_UNWIND(free(_M_buffer); _M_buffer = 0; _M_len = 0);
+    catch(...)
+      { 
+	free(_M_buffer); 
+	_M_buffer = 0; 
+	_M_len = 0;
+	__throw_exception_again; 
+      }
   }
  
   ~_Temporary_buffer() {  
@@ -158,24 +142,8 @@ private:
   _Temporary_buffer(const _Temporary_buffer&) {}
   void operator=(const _Temporary_buffer&) {}
 };
-
-// Class temporary_buffer is not part of the standard.  It is an extension.
-
-template <class _ForwardIterator, 
-          class _Tp 
-                    = typename iterator_traits<_ForwardIterator>::value_type
-         >
-struct temporary_buffer : public _Temporary_buffer<_ForwardIterator, _Tp>
-{
-  temporary_buffer(_ForwardIterator __first, _ForwardIterator __last)
-    : _Temporary_buffer<_ForwardIterator, _Tp>(__first, __last) {}
-  ~temporary_buffer() {}
-};
     
 } // namespace std
 
-#endif /* __SGI_STL_INTERNAL_TEMPBUF_H */
+#endif /* __GLIBCPP_INTERNAL_TEMPBUF_H */
 
-// Local Variables:
-// mode:C++
-// End:

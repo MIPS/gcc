@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 #
 # Written by Jeffrey Wheat (cassidy@cygnus.com)
 #
@@ -35,7 +35,7 @@ load_lib c-torture.exp
 # This loop will run c-torture on any *.c file found in this directory.
 # If a *.c has a corresponding *.exp file, then the test is skipped as
 # as the *.exp will drive the test itself.  It is done this way so that
-# generic tests do not need a seperate .exp for it.  Only the tests that 
+# generic tests do not need a separate .exp for it.  Only the tests that 
 # require unique options need their own .exp file.
 #
 

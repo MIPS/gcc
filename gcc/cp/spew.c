@@ -1,6 +1,6 @@
 /* Type Analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked... nay, bludgeoned... by Mark Eichin (eichin@cygnus.com)
 
 This file is part of GNU CC.
@@ -113,22 +113,20 @@ static SPEW_INLINE void consume_token PARAMS ((void));
 static SPEW_INLINE int read_process_identifier PARAMS ((YYSTYPE *));
 
 static SPEW_INLINE void feed_input PARAMS ((struct unparsed_text *));
-static SPEW_INLINE void end_input PARAMS ((void));
 static SPEW_INLINE void snarf_block PARAMS ((const char *, int));
 static tree snarf_defarg PARAMS ((void));
 static int frob_id PARAMS ((int, int, tree *));
 
 /* The list of inline functions being held off until we reach the end of
    the current class declaration.  */
-struct unparsed_text *pending_inlines;
-struct unparsed_text *pending_inlines_tail;
+static struct unparsed_text *pending_inlines;
+static struct unparsed_text *pending_inlines_tail;
 
 /* The list of previously-deferred inline functions currently being parsed.
    This exists solely to be a GC root.  */
-struct unparsed_text *processing_these_inlines;
+static struct unparsed_text *processing_these_inlines;
 
 static void begin_parsing_inclass_inline PARAMS ((struct unparsed_text *));
-static void mark_pending_inlines PARAMS ((PTR));
 
 #ifdef SPEW_DEBUG
 int spew_debug = 0;
@@ -174,7 +172,7 @@ static tree defarg_parm;    /* current default parameter */
 static tree defarg_depfns;  /* list of unprocessed fns met during current fn. */
 static tree defarg_fnsdone; /* list of fns with circular defargs */
 
-/* Initialize obstacks. Called once, from init_parse.  */
+/* Initialize obstacks. Called once, from cxx_init.  */
 
 void
 init_spew ()
@@ -223,28 +221,20 @@ read_process_identifier (pyylval)
 	case RID_NOT_EQ: pyylval->code = NE_EXPR;	return EQCOMPARE;
 
 	default:
-	  if (C_RID_YYCODE (id) == TYPESPEC)
-	    GNU_xref_ref (current_function_decl, IDENTIFIER_POINTER (id));
-
 	  pyylval->ttype = ridpointers[C_RID_CODE (id)];
 	  return C_RID_YYCODE (id);
 	}
     }
-
-  GNU_xref_ref (current_function_decl, IDENTIFIER_POINTER (id));
 
   /* Make sure that user does not collide with our internal naming
      scheme.  This is not necessary if '.' is used to remove them from
      the user's namespace, but is if '$' or double underscores are.  */
 
 #if !defined(JOINER) || JOINER == '$'
-  if (THIS_NAME_P (id)
-      || VPTR_NAME_P (id)
-      || DESTRUCTOR_NAME_P (id)
+  if (VPTR_NAME_P (id)
       || VTABLE_NAME_P (id)
       || TEMP_NAME_P (id)
-      || ANON_AGGRNAME_P (id)
-      || ANON_PARMNAME_P (id))
+      || ANON_AGGRNAME_P (id))
      warning (
 "identifier name `%s' conflicts with GNU C++ internal naming strategy",
 	      IDENTIFIER_POINTER (id));
@@ -265,8 +255,8 @@ read_token (t)
 
   switch (last_token)
     {
-#define YYCHAR(yy)	t->yychar = yy;	break;
-#define YYCODE(c)	t->yylval.code = c;
+#define YYCHAR(YY)	t->yychar = (YY); break;
+#define YYCODE(C)	t->yylval.code = (C);
 
     case CPP_EQ:				YYCHAR('=');
     case CPP_NOT:				YYCHAR('!');
@@ -358,7 +348,7 @@ read_token (t)
   return t->yychar;
 }
 
-static SPEW_INLINE void
+static void
 feed_input (input)
      struct unparsed_text *input;
 {
@@ -397,7 +387,7 @@ feed_input (input)
   feed = f;
 }
 
-static SPEW_INLINE void
+void
 end_input ()
 {
   struct feed *f = feed;
@@ -420,7 +410,7 @@ end_input ()
 }
 
 /* GC callback to mark memory pointed to by the pending inline queue.  */
-static void
+void
 mark_pending_inlines (pi)
      PTR pi;
 {
@@ -679,7 +669,7 @@ do_aggr ()
       nth_token (1)->yychar = IDENTIFIER_DEFN;
       break;
     default:
-      my_friendly_abort (102);
+      abort ();
     }
 }  
 
@@ -921,7 +911,7 @@ frob_id (yyc, peek, idp)
             lastiddecl = trrr;
             break;
           default:
-            my_friendly_abort (20000907);
+            abort ();
         }
     }
   else
@@ -954,8 +944,11 @@ begin_parsing_inclass_inline (pi)
   tree context;
 
   /* Record that we are processing the chain of inlines starting at
-     PI in a special GC root.  */
-  processing_these_inlines = pi;
+     PI for GC.  */
+  if (cfun)
+    cp_function_chain->unparsed_inlines = pi;
+  else
+    processing_these_inlines = pi;
 
   ggc_collect ();
 
@@ -1029,7 +1022,10 @@ process_next_inline (i)
     begin_parsing_inclass_inline (i);
   else
     {
-      processing_these_inlines = 0;
+      if (cfun)
+	cp_function_chain->unparsed_inlines = 0;
+      else
+	processing_these_inlines = 0;
       extract_interface_info ();
     }
 }
@@ -1356,7 +1352,7 @@ do_pending_defargs ()
         {
           /* This function's default args depend on unprocessed default args
              of defarg_fns. We will need to reprocess this function, and
-             check for circular dependancies.  */
+             check for circular dependencies.  */
           tree a, b;
           
           for (a = defarg_depfns, b = TREE_PURPOSE (current); a && b; 
@@ -1436,7 +1432,7 @@ replace_defarg (arg, init)
     {
       if (! processing_template_decl
           && ! can_convert_arg (TREE_VALUE (arg), TREE_TYPE (init), init))
-        cp_pedwarn ("invalid type `%T' for default argument to `%T'",
+        pedwarn ("invalid type `%T' for default argument to `%T'",
   	    	    TREE_TYPE (init), TREE_VALUE (arg));
       if (!defarg_depfns)
         TREE_PURPOSE (arg) = init;
@@ -1469,7 +1465,7 @@ debug_yychar (yy)
 
 #endif
 
-#define NAME(type) cpp_type2name (type)
+#define NAME(TYPE) cpp_type2name (TYPE)
 
 void
 yyerror (msgid)
@@ -1482,7 +1478,7 @@ yyerror (msgid)
   else if (last_token == CPP_CHAR || last_token == CPP_WCHAR)
     {
       unsigned int val = TREE_INT_CST_LOW (yylval.ttype);
-      const char *ell = (last_token == CPP_CHAR) ? "" : "L";
+      const char *const ell = (last_token == CPP_CHAR) ? "" : "L";
       if (val <= UCHAR_MAX && ISGRAPH (val))
 	error ("%s before %s'%c'", string, ell, val);
       else

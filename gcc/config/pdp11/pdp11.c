@@ -34,6 +34,8 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "recog.h"
 #include "tree.h"
+#include "expr.h"
+#include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -51,11 +53,21 @@ int current_first_parm_offset;
 /* rtx cc0_reg_rtx; - no longer needed? */
 
 static rtx find_addr_reg PARAMS ((rtx)); 
-static const char *singlemove_string PARAMS ((rtx *)); 
+static const char *singlemove_string PARAMS ((rtx *));
+static bool pdp11_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void pdp11_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void pdp11_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP NULL
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP NULL
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP NULL
+#undef TARGET_ASM_INTEGER
+#define TARGET_ASM_INTEGER pdp11_assemble_integer
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE pdp11_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -388,10 +400,11 @@ output_move_double (operands)
 
   if (REG_P (operands[1]))
     optype1 = REGOP;
-  else if (CONSTANT_P (operands[1]))
+  else if (CONSTANT_P (operands[1])
 #if 0
-	   || GET_CODE (operands[1]) == CONST_DOUBLE)
+	   || GET_CODE (operands[1]) == CONST_DOUBLE
 #endif
+	   )
     optype1 = CNSTOP;
   else if (offsettable_memref_p (operands[1]))
     optype1 = OFFSOP;
@@ -608,11 +621,10 @@ output_move_quad (operands)
       {
 	  if (GET_CODE(operands[1]) == CONST_DOUBLE)
 	  {
-	      union { double d; int i[2]; } u;
-	      u.i[0] = CONST_DOUBLE_LOW (operands[1]); 
-	      u.i[1] = CONST_DOUBLE_HIGH (operands[1]); 
-	      
-	      if (u.d == 0.0)
+	      REAL_VALUE_TYPE r;
+	      REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
+
+	      if (REAL_VALUES_EQUAL (r, dconst0))
 		  return "{clrd|clrf} %0";
 	  }
 	      
@@ -942,9 +954,37 @@ print_operand_address (file, addr)
     }
 }
 
+/* Target hook to assemble integer objects.  We need to use the
+   pdp-specific version of output_addr_const.  */
+
+static bool
+pdp11_assemble_integer (x, size, aligned_p)
+     rtx x;
+     unsigned int size;
+     int aligned_p;
+{
+  if (aligned_p)
+    switch (size)
+      {
+      case 1:
+	fprintf (asm_out_file, "\t.byte\t");
+	output_addr_const_pdp11 (asm_out_file, x);
+	fprintf (asm_out_file, " /* char */\n");
+	return true;
+
+      case 2:
+	fprintf (asm_out_file, TARGET_UNIX_ASM ? "\t" : "\t.word\t");
+	output_addr_const_pdp11 (asm_out_file, x);
+	fprintf (asm_out_file, " /* short */\n");
+	return true;
+      }
+  return default_assemble_integer (x, size, aligned_p);
+}
+
+
 /* register move costs, indexed by regs */
 
-static int move_costs[N_REG_CLASSES][N_REG_CLASSES] = 
+static const int move_costs[N_REG_CLASSES][N_REG_CLASSES] = 
 {
              /* NO  MUL  GEN  LFPU  NLFPU FPU ALL */
 

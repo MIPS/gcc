@@ -20,6 +20,11 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* This macro is a C statement to print on `stderr' a string describing the
+   particular machine description choice.  */
+
+#define TARGET_VERSION fprintf (stderr, " (IA-64) HP-UX");
+
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "\
   -D__IA64__ -D__ia64 -D__ia64__ -D__hpux -D__hpux__ -Dhpux -Dunix \
@@ -35,7 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_SPEC
 #define CPP_SPEC "\
   %{mcpu=itanium:-D__itanium__} \
-  %{mlp64:-D__LP64__ -D__LONG_MAX__=9223372036854775807L} \
+  %{mlp64:-D__LP64__ -D_LP64 -D__LONG_MAX__=9223372036854775807L} \
   %{!ansi:%{!std=c*:%{!std=i*: -D_HPUX_SOURCE -D__STDC_EXT__}}} \
   -D__fpreg=long\\ double \
   -D__float80=long\\ double \
@@ -90,3 +95,30 @@ Boston, MA 02111-1307, USA.  */
 
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_BIG_ENDIAN)
+
+/* This needs to be set to force structure arguments with a single
+   field to be treated as structures and not as the type of their
+   field.  Without this a structure with a single char will be
+   returned just like a char variable and that is wrong on HP-UX
+   IA64.  TARGET_STRUCT_ARG_REG_LITTLE_ENDIAN triggers the special
+   structure handling, this macro simply ensures that single field
+   structures are always treated like structures.  */
+
+#define MEMBER_TYPE_FORCES_BLK(FIELD) 1
+
+/* Override the setting of FUNCTION_ARG_REG_LITTLE_ENDIAN in
+   defaults.h.  Setting this to true means that we are not passing
+   structures in registers in the "normal" big-endian way.  See
+   See section 8.5 of the "Itanium Software Conventions and Runtime
+   Architecture", specifically Table 8-1 and the explanation of Byte 0
+   alignment and LSB alignment and a description of how structures
+   are passed.  */
+
+#define FUNCTION_ARG_REG_LITTLE_ENDIAN 1
+
+#undef FUNCTION_ARG_PADDING
+#define FUNCTION_ARG_PADDING(MODE, TYPE) \
+	ia64_hpux_function_arg_padding ((MODE), (TYPE))
+
+#undef PAD_VARARGS_DOWN
+#define PAD_VARARGS_DOWN (!AGGREGATE_TYPE_P (type))

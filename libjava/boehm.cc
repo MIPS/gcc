@@ -26,41 +26,22 @@ details.  */
 
 extern "C"
 {
-#include <private/gc_priv.h>
 #include <private/gc_pmark.h>
 #include <gc_gcj.h>
+
+#ifdef THREAD_LOCAL_ALLOC
+# define GC_REDIRECT_TO_LOCAL
+# include <gc_local_alloc.h>
+#endif
 
   // These aren't declared in any Boehm GC header.
   void GC_finalize_all (void);
   ptr_t GC_debug_generic_malloc (size_t size, int k, GC_EXTRA_PARAMS);
 };
 
-// FIXME: this should probably be defined in some GC header.
-#ifdef GC_DEBUG
-#  define GC_GENERIC_MALLOC(Size, Type) \
-    GC_debug_generic_malloc (Size, Type, GC_EXTRAS)
-#else
-#  define GC_GENERIC_MALLOC(Size, Type) GC_generic_malloc (Size, Type)
-#endif
-
 // We must check for plausibility ourselves.
 #define MAYBE_MARK(Obj, Top, Limit, Source, Exit)  \
-      if ((ptr_t) (Obj) >= GC_least_plausible_heap_addr \
-	  && (ptr_t) (Obj) <= GC_greatest_plausible_heap_addr) \
-        PUSH_CONTENTS (Obj, Top, Limit, Source, Exit)
-
-
-
-// Nonzero if this module has been initialized.
-static int initialized = 0;
-
-#if 0
-// `kind' index used when allocating Java objects.
-static int obj_kind_x;
-
-// Freelist used for Java objects.
-static ptr_t *obj_free_list;
-#endif /* 0 */
+	Top=GC_MARK_AND_PUSH((GC_PTR)Obj, Top, Limit, (GC_PTR *)Source)
 
 // `kind' index used when allocating Java arrays.
 static int array_kind_x;
@@ -312,7 +293,7 @@ _Jv_MarkArray (void *addr, void *msp, void *msl, void * /*env*/)
 # endif
   // Mark the object's class.
   p = (ptr_t) klass;
-  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, obj, o2label);
+  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, &(dt -> clas), o2label);
 
   for (int i = 0; i < JvGetArrayLength (array); ++i)
     {
@@ -324,9 +305,8 @@ _Jv_MarkArray (void *addr, void *msp, void *msl, void * /*env*/)
   return mark_stack_ptr;
 }
 
-// Return GC descriptor for interpreted class
-#ifdef INTERPRETER
-
+// Generate a GC marking descriptor for a class.
+//
 // We assume that the gcj mark proc has index 0.  This is a dubious assumption,
 // since another one could be registered first.  But the compiler also
 // knows this, so in that case everything else will break, too.
@@ -337,7 +317,6 @@ _Jv_BuildGCDescr(jclass)
   /* FIXME: We should really look at the class and build the descriptor. */
   return (void *)(GCJ_DEFAULT_DESCR);
 }
-#endif
 
 // Allocate some space that is known to be pointer-free.
 void *
@@ -374,10 +353,18 @@ _Jv_AllocArray (jsize size, jclass klass)
   if (size < min_heap_addr) 
     obj = GC_MALLOC(size);
   else 
-    obj = GC_GENERIC_MALLOC (size, array_kind_x);
+    obj = GC_generic_malloc (size, array_kind_x);
 #endif
   *((_Jv_VTable **) obj) = klass->vtable;
   return obj;
+}
+
+/* Allocate space for a new non-Java object, which does not have the usual 
+   Java object header but may contain pointers to other GC'ed objects. */
+void *
+_Jv_AllocRawObj (jsize size)
+{
+  return (void *) GC_MALLOC (size);
 }
 
 static void
@@ -469,19 +456,9 @@ void
 _Jv_InitGC (void)
 {
   int proc;
-  DCL_LOCK_STATE;
 
-  DISABLE_SIGNALS ();
-  LOCK ();
-
-  if (initialized)
-    {
-      UNLOCK ();
-      ENABLE_SIGNALS ();
-      return;
-    }
-  initialized = 1;
-  UNLOCK ();
+  // Ignore pointers that do not point to the start of an object.
+  GC_all_interior_pointers = 0;
 
   // Configure the collector to use the bitmap marking descriptors that we
   // stash in the class vtable.
@@ -491,7 +468,6 @@ _Jv_InitGC (void)
   // instead of returning 0.  This is cheaper than checking on allocation.
   GC_oom_fn = handle_out_of_memory;
 
-  LOCK ();
   GC_java_finalization = 1;
 
   // We use a different mark procedure for object arrays. This code 
@@ -513,9 +489,6 @@ _Jv_InitGC (void)
   GC_obj_kinds[array_kind_x].ok_init = TRUE;
 
   _Jv_MutexInit (&disable_gc_mutex);
-
-  UNLOCK ();
-  ENABLE_SIGNALS ();
 }
 
 #ifdef JV_HASH_SYNCHRONIZATION
@@ -528,7 +501,7 @@ static _Jv_VTable trace_one_vtable = {
     (void *)(2 * sizeof(void *)),
 			// descriptor; scan 2 words incl. vtable ptr.
 			// Least significant bits must be zero to
-			// identify this as a lenght descriptor
+			// identify this as a length descriptor
     {0}			// First method
 };
 
@@ -538,64 +511,42 @@ _Jv_AllocTraceOne (jsize size /* includes vtable slot */)
   return GC_GCJ_MALLOC (size, &trace_one_vtable);
 }
 
+// Ditto for two words.
+// the first field (beyond the fake vtable pointer) to be traced.
+// Eventually this should probably be generalized.
+
+static _Jv_VTable trace_two_vtable =
+{
+  0, 			// class pointer
+  (void *)(3 * sizeof(void *)),
+			// descriptor; scan 3 words incl. vtable ptr.
+  {0}			// First method
+};
+
+void *
+_Jv_AllocTraceTwo (jsize size /* includes vtable slot */) 
+{
+  return GC_GCJ_MALLOC (size, &trace_two_vtable);
+}
+
 #endif /* JV_HASH_SYNCHRONIZATION */
 
-#if 0
 void
-_Jv_InitGC (void)
+_Jv_GCInitializeFinalizers (void (*notifier) (void))
 {
-  int proc;
-  DCL_LOCK_STATE;
-
-  DISABLE_SIGNALS ();
-  LOCK ();
-
-  if (initialized)
-   {
-     UNLOCK ();
-     ENABLE_SIGNALS ();
-     return;
-   }
-  initialized = 1;
-
-  GC_java_finalization = 1;
-
-  // Set up state for marking and allocation of Java objects.
-  obj_free_list = (ptr_t *) GC_generic_malloc_inner ((MAXOBJSZ + 1)
-						     * sizeof (ptr_t),
-						     PTRFREE);
-  memset (obj_free_list, 0, (MAXOBJSZ + 1) * sizeof (ptr_t));
-
-  proc = GC_n_mark_procs++;
-  GC_mark_procs[proc] = (GC_mark_proc) _Jv_MarkObj;
-
-  obj_kind_x = GC_n_kinds++;
-  GC_obj_kinds[obj_kind_x].ok_freelist = obj_free_list;
-  GC_obj_kinds[obj_kind_x].ok_reclaim_list = 0;
-  GC_obj_kinds[obj_kind_x].ok_descriptor = GC_MAKE_PROC (proc, 0);
-  GC_obj_kinds[obj_kind_x].ok_relocate_descr = FALSE;
-  GC_obj_kinds[obj_kind_x].ok_init = TRUE;
-
-  // Set up state for marking and allocation of arrays of Java
-  // objects.
-  array_free_list = (ptr_t *) GC_generic_malloc_inner ((MAXOBJSZ + 1)
-						       * sizeof (ptr_t),
-						       PTRFREE);
-  memset (array_free_list, 0, (MAXOBJSZ + 1) * sizeof (ptr_t));
-
-  proc = GC_n_mark_procs++;
-  GC_mark_procs[proc] = (GC_mark_proc) _Jv_MarkArray;
-
-  array_kind_x = GC_n_kinds++;
-  GC_obj_kinds[array_kind_x].ok_freelist = array_free_list;
-  GC_obj_kinds[array_kind_x].ok_reclaim_list = 0;
-  GC_obj_kinds[array_kind_x].ok_descriptor = GC_MAKE_PROC (proc, 0);
-  GC_obj_kinds[array_kind_x].ok_relocate_descr = FALSE;
-  GC_obj_kinds[array_kind_x].ok_init = TRUE;
-
-  _Jv_MutexInit (&disable_gc_mutex);
-
-  UNLOCK ();
-  ENABLE_SIGNALS ();
+  GC_finalize_on_demand = 1;
+  GC_finalizer_notifier = notifier;
 }
-#endif /* 0 */
+
+void
+_Jv_GCRegisterDisappearingLink (jobject *objp)
+{
+  GC_general_register_disappearing_link ((GC_PTR *) objp, (GC_PTR) *objp);
+}
+
+jboolean
+_Jv_GCCanReclaimSoftReference (jobject)
+{
+  // For now, always reclaim soft references.  FIXME.
+  return true;
+}

@@ -19,7 +19,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Function prototypes that cannot exist in v850.h due to dependency
-   compilcations.  */
+   complications.  */
 #define Mmode enum machine_mode
 
 extern void   sbss_section			PARAMS ((void));
@@ -31,11 +31,10 @@ extern int    m32r_first_insn_address		PARAMS ((void));
 extern void   m32r_expand_prologue		PARAMS ((void));
 extern void   m32r_finalize_pic			PARAMS ((void));
 extern void   m32r_asm_file_start		PARAMS ((FILE *));
-extern void   m32r_sched_init 			PARAMS ((FILE *, int));
 extern int    direct_return 			PARAMS ((void));
 #ifdef TREE_CODE
 extern void   m32r_select_section		PARAMS ((tree, int));
-extern void   m32r_encode_section_info		PARAMS ((tree));
+extern void   m32r_encode_section_info		PARAMS ((tree, int));
 extern enum m32r_function_type m32r_compute_function_type PARAMS ((tree));
 extern void   m32r_select_section 		PARAMS ((tree, int));
 
@@ -60,10 +59,6 @@ extern void   m32r_expand_block_move 		PARAMS ((rtx *));
 extern void   m32r_print_operand		PARAMS ((FILE *, rtx, int));
 extern void   m32r_print_operand_address	PARAMS ((FILE *, rtx));
 extern int    m32r_address_cost 		PARAMS ((rtx));
-extern int    m32r_adjust_cost 			PARAMS ((rtx, rtx, rtx, int));
-extern int    m32r_adjust_priority 		PARAMS ((rtx, int));
-extern void   m32r_sched_reorder 		PARAMS ((FILE *, int, rtx *, int));
-extern int    m32r_sched_variable_issue 	PARAMS ((FILE *, int, rtx, int));
 extern int    m32r_not_same_reg 		PARAMS ((rtx, rtx));
 
 #ifdef HAVE_MACHINE_MODES
@@ -95,6 +90,8 @@ extern int    m32r_block_immediate_operand 	PARAMS ((rtx, Mmode));
 extern int    extend_operand			PARAMS ((rtx, Mmode));
 extern int    reg_or_eq_int16_operand		PARAMS ((rtx, Mmode));
 extern int    int8_operand			PARAMS ((rtx, Mmode));
+extern int    reg_or_zero_operand               PARAMS ((rtx, Mmode));
+
 #endif /* HAVE_MACHINE_MODES */
 
 #ifdef TREE_CODE

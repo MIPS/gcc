@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for VAX.
-   Copyright (C) 1987, 1994, 1995, 1997, 1998, 1999, 2000
+   Copyright (C) 1987, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -37,9 +37,17 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 
+static int follows_p PARAMS ((rtx, rtx));
 static void vax_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+#if VMS_TARGET
+static void vms_asm_out_constructor PARAMS ((rtx, int));
+static void vms_asm_out_destructor PARAMS ((rtx, int));
+#endif
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE vax_output_function_prologue
 
@@ -61,7 +69,6 @@ vax_output_function_prologue (file, size)
 {
   register int regno;
   register int mask = 0;
-  extern char call_used_regs[];
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (regs_ever_live[regno] && !call_used_regs[regno])
@@ -367,10 +374,8 @@ vax_float_literal(c)
     register rtx c;
 {
   register enum machine_mode mode;
-#if HOST_FLOAT_FORMAT == VAX_FLOAT_FORMAT
+  REAL_VALUE_TYPE r, s;
   int i;
-  union {double d; int i[2];} val;
-#endif
 
   if (GET_CODE (c) != CONST_DOUBLE)
     return 0;
@@ -382,15 +387,20 @@ vax_float_literal(c)
       || c == const_tiny_rtx[(int) mode][2])
     return 1;
 
-#if HOST_FLOAT_FORMAT == VAX_FLOAT_FORMAT
+  REAL_VALUE_FROM_CONST_DOUBLE (r, c);
 
-  val.i[0] = CONST_DOUBLE_LOW (c);
-  val.i[1] = CONST_DOUBLE_HIGH (c);
+  for (i = 0; i < 7; i++)
+    {
+      int x = 1 << i;
+      REAL_VALUE_FROM_INT (s, x, 0, mode);
 
-  for (i = 0; i < 7; i ++)
-    if (val.d == 1 << i || val.d == 1 / (1 << i))
-      return 1;
-#endif
+      if (REAL_VALUES_EQUAL (r, s))
+	return 1;
+      if (!exact_real_inverse (mode, &s))
+	abort ();
+      if (REAL_VALUES_EQUAL (r, s))
+	return 1;
+    }
   return 0;
 }
 
@@ -469,7 +479,7 @@ vax_address_cost (addr)
       goto restart;
     }
   /* Indexing and register+offset can both be used (except on a VAX 2)
-     without increasing execution time over either one alone. */
+     without increasing execution time over either one alone.  */
   if (reg && indexed && offset)
     return reg + indir + offset + predec;
   return reg + indexed + indir + offset + predec;
@@ -514,10 +524,12 @@ vax_rtx_cost (x)
 	  c = 10;		/* 3-4 on VAX 9000, 20-28 on VAX 2 */
 	  break;
 	default:
-	  break;
+	  return MAX_COST;	/* Mode is not supported.  */
 	}
       break;
     case UDIV:
+      if (mode != SImode)
+	return MAX_COST;	/* Mode is not supported.  */
       c = 17;
       break;
     case DIV:
@@ -533,6 +545,8 @@ vax_rtx_cost (x)
       c = 23;
       break;
     case UMOD:
+      if (mode != SImode)
+	return MAX_COST;	/* Mode is not supported.  */
       c = 29;
       break;
     case FLOAT:
@@ -569,7 +583,7 @@ vax_rtx_cost (x)
       c = 3;
       break;
     case AND:
-      /* AND is special because the first operand is complemented. */
+      /* AND is special because the first operand is complemented.  */
       c = 3;
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
@@ -738,7 +752,7 @@ check_float_value (mode, d, overflow)
 }
 
 #if VMS_TARGET
-/* Additional support code for VMS target. */
+/* Additional support code for VMS target.  */
 
 /* Linked list of all externals that are to be emitted when optimizing
    for the global pointer if they haven't been declared by the end of
@@ -833,11 +847,34 @@ vms_flush_pending_externals (file)
       fprintf (file, ",%d\n", p->size);
     }
 }
+
+static void
+vms_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  fprintf (asm_out_file,".globl $$PsectAttributes_NOOVR$$__gxx_init_1\n");
+  data_section();
+  fprintf (asm_out_file,"$$PsectAttributes_NOOVR$$__gxx_init_1:\n\t.long\t");
+  assemble_name (asm_out_file, XSTR (symbol, 0));
+  fputc ('\n', asm_out_file);
+}
+
+static void
+vms_asm_out_destructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  fprintf (asm_out_file,".globl $$PsectAttributes_NOOVR$$__gxx_clean_1\n");
+  data_section();
+  fprintf (asm_out_file,"$$PsectAttributes_NOOVR$$__gxx_clean_1:\n\t.long\t");
+  assemble_name (asm_out_file, XSTR (symbol, 0));
+  fputc ('\n', asm_out_file);
+}
 #endif /* VMS_TARGET */
 
-#ifdef VMS
-/* Additional support code for VMS host. */
-
+/* Additional support code for VMS host.  */
+/* ??? This should really be in libiberty; vax.c is a target file.  */
 #ifdef QSORT_WORKAROUND
   /*
 	Do not use VAXCRTL's qsort() due to a severe bug:  once you've
@@ -845,7 +882,7 @@ vms_flush_pending_externals (file)
 	and is longword aligned, you cannot safely sort anything which
 	is either not a multiple of 4 in size or not longword aligned.
 	A static "move-by-longword" optimization flag inside qsort() is
-	never reset.  This is known of affect VMS V4.6 through VMS V5.5-1,
+	never reset.  This is known to affect VMS V4.6 through VMS V5.5-1,
 	and was finally fixed in VMS V5.5-2.
 
 	In this work-around an insertion sort is used for simplicity.
@@ -920,4 +957,37 @@ not_qsort (array, count, size, compare)
 }
 #endif /* QSORT_WORKAROUND */
 
-#endif /* VMS */
+/* Return 1 if insn A follows B.  */
+
+static int
+follows_p (a, b)
+     rtx a, b;
+{
+  register rtx p;
+
+  for (p = a; p != b; p = NEXT_INSN (p))
+    if (! p)
+      return 1;
+
+  return 0;
+}
+
+/* Returns 1 if we know operand OP was 0 before INSN.  */
+
+int
+reg_was_0_p (insn, op)
+     rtx insn, op;
+{
+  rtx link;
+
+  return ((link = find_reg_note (insn, REG_WAS_0, 0))
+	  /* Make sure the insn that stored the 0 is still present
+	     and doesn't follow INSN in the insn sequence.  */
+	  && ! INSN_DELETED_P (XEXP (link, 0))
+	  && GET_CODE (XEXP (link, 0)) != NOTE
+	  && ! follows_p (XEXP (link, 0), insn)
+	  /* Make sure cross jumping didn't happen here.  */
+	  && no_labels_between_p (XEXP (link, 0), insn)
+	  /* Make sure the reg hasn't been clobbered.  */
+	  && ! reg_set_between_p (op, XEXP (link, 0), insn));
+}

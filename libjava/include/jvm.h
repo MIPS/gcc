@@ -11,6 +11,12 @@ details.  */
 #ifndef __JAVA_JVM_H__
 #define __JAVA_JVM_H__
 
+// Define this before including jni.h.
+// jni.h is included by jvmpi.h, which might be included.  We define
+// this unconditionally because it is convenient and it lets other
+// files include jni.h without difficulty.
+#define __GCJ_JNI_IMPL__
+
 #include <gcj/javaprims.h>
 
 #include <java-assert.h>
@@ -27,10 +33,43 @@ details.  */
 /* Structure of the virtual table.  */
 struct _Jv_VTable
 {
+#ifdef __ia64__
+  typedef struct { void *pc, *gp; } vtable_elt;
+#else
+  typedef void *vtable_elt;
+#endif
   jclass clas;
   void *gc_descr;
-  void *method[1];
-  void *get_finalizer() { return method[0]; }
+
+  // This must be last, as derived classes "extend" this by
+  // adding new data members.
+  vtable_elt method[1];
+
+#ifdef __ia64__
+  void *get_method(int i) { return &method[i]; }
+  void set_method(int i, void *fptr) { method[i] = *(vtable_elt *)fptr; }
+  void *get_finalizer()
+  {
+    // We know that get_finalizer is only used for checking whether
+    // this object needs to have a finalizer registered.  So it is
+    // safe to simply return just the PC component of the vtable
+    // slot.
+    return ((vtable_elt *)(get_method(0)))->pc;
+  }
+#else
+  void *get_method(int i) { return method[i]; }
+  void set_method(int i, void *fptr) { method[i] = fptr; }
+  void *get_finalizer() { return get_method(0); }
+#endif
+
+  static size_t vtable_elt_size() { return sizeof(vtable_elt); }
+
+  // Given a method index, return byte offset from the vtable pointer.
+  static jint idx_to_offset (int index)
+  {
+    return (2 * sizeof (void *)) + (index * vtable_elt_size ());
+  }
+  static _Jv_VTable *new_vtable (int count);
 };
 
 // Number of virtual methods on object.  FIXME: it sucks that we have
@@ -38,12 +77,9 @@ struct _Jv_VTable
 #define NUM_OBJECT_METHODS 5
 
 // This structure is the type of an array's vtable.
-struct _Jv_ArrayVTable
+struct _Jv_ArrayVTable : public _Jv_VTable
 {
-  jclass clas;
-  void *gc_descr;
-  void *method[NUM_OBJECT_METHODS];
-  void *get_finalizer() { return method[0]; }
+  vtable_elt extra_method[NUM_OBJECT_METHODS - 1];
 };
 
 union _Jv_word
@@ -102,6 +138,18 @@ extern jboolean _Jv_equaln (_Jv_Utf8Const *, jstring, jint);
 // FIXME: remove this define.
 #define StringClass java::lang::String::class$
 
+namespace gcj
+{
+  /* Some constants used during lookup of special class methods.  */
+  extern _Jv_Utf8Const *void_signature; /* "()V" */
+  extern _Jv_Utf8Const *clinit_name;    /* "<clinit>" */
+  extern _Jv_Utf8Const *init_name;      /* "<init>" */
+  extern _Jv_Utf8Const *finit_name;     /* "finit$", */
+  
+  /* Set to true by _Jv_CreateJavaVM. */
+  extern bool runtimeInitialized;
+};
+
 /* Type of pointer used as finalizer.  */
 typedef void _Jv_FinalizerFunc (jobject);
 
@@ -114,24 +162,30 @@ void *_Jv_AllocPtrFreeObj (jsize size, jclass cl) __attribute__((__malloc__));
 void *_Jv_AllocArray (jsize size, jclass cl) __attribute__((__malloc__));
 /* Allocate space that is known to be pointer-free.  */
 void *_Jv_AllocBytes (jsize size) __attribute__((__malloc__));
+/* Allocate space for a new non-Java object, which does not have the usual 
+   Java object header but may contain pointers to other GC'ed objects.  */
+void *_Jv_AllocRawObj (jsize size) __attribute__((__malloc__));
 /* Explicitly throw an out-of-memory exception.	*/
 void _Jv_ThrowNoMemory() __attribute__((__noreturn__));
 /* Allocate an object with a single pointer.  The first word is reserved
    for the GC, and the second word is the traced pointer.  */
 void *_Jv_AllocTraceOne (jsize size /* incl. reserved slot */);
+/* Ditto, but for two traced pointers.			   */
+void *_Jv_AllocTraceTwo (jsize size /* incl. reserved slot */);
 /* Initialize the GC.  */
 void _Jv_InitGC (void);
 /* Register a finalizer.  */
 void _Jv_RegisterFinalizer (void *object, _Jv_FinalizerFunc *method);
 /* Compute the GC descriptor for a class */
-#ifdef INTERPRETER
 void * _Jv_BuildGCDescr(jclass);
-#endif
 
 /* Allocate some unscanned, unmoveable memory.  Return NULL if out of
    memory.  */
 void *_Jv_MallocUnchecked (jsize size) __attribute__((__malloc__));
 
+/* Initialize finalizers.  The argument is a function to be called
+   when a finalizer is ready to be run.  */
+void _Jv_GCInitializeFinalizers (void (*notifier) (void));
 /* Run finalizers for objects ready to be finalized..  */
 void _Jv_RunFinalizers (void);
 /* Run all finalizers.  Should be called only before exit.  */
@@ -141,6 +195,13 @@ void _Jv_RunGC (void);
 /* Disable and enable GC.  */
 void _Jv_DisableGC (void);
 void _Jv_EnableGC (void);
+/* Register a disappearing link.  This is a field F which should be
+   cleared when *F is found to be inaccessible.  This is used in the
+   implementation of java.lang.ref.Reference.  */
+void _Jv_GCRegisterDisappearingLink (jobject *objp);
+/* Return true if OBJECT should be reclaimed.  This is used to
+   implement soft references.  */
+jboolean _Jv_GCCanReclaimSoftReference (jobject obj);
 
 /* Return approximation of total size of heap.  */
 long _Jv_GCTotalMemory (void);
@@ -166,7 +227,20 @@ void _Jv_SetInitialHeapSize (const char *arg);
 void _Jv_SetMaximumHeapSize (const char *arg);
 
 extern "C" void JvRunMain (jclass klass, int argc, const char **argv);
-void _Jv_RunMain (const char* name, int argc, const char **argv, bool is_jar);
+void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, 
+		  bool is_jar);
+
+// Delayed until after _Jv_AllocBytes is declared.
+//
+// Note that we allocate this as unscanned memory -- the vtables
+// are handled specially by the GC.
+
+inline _Jv_VTable *
+_Jv_VTable::new_vtable (int count)
+{
+  size_t size = sizeof(_Jv_VTable) + (count - 1) * vtable_elt_size ();
+  return (_Jv_VTable *) _Jv_AllocBytes (size);
+}
 
 // This function is used to determine the hash code of an object.
 inline jint
@@ -223,6 +297,7 @@ extern "C" void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface,
 extern "C" void _Jv_CheckArrayStore (jobject array, jobject obj);
 extern "C" void _Jv_RegisterClass (jclass klass);
 extern "C" void _Jv_RegisterClasses (jclass *classes);
+extern "C" void _Jv_RegisterResource (void *vptr);
 extern void _Jv_UnregisterClass (_Jv_Utf8Const*, java::lang::ClassLoader*);
 extern void _Jv_ResolveField (_Jv_Field *, java::lang::ClassLoader*);
 
@@ -276,9 +351,18 @@ _Jv_JNIEnv *_Jv_GetCurrentJNIEnv ();
 void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *);
 
 struct _Jv_JavaVM;
-_Jv_JavaVM *_Jv_GetJavaVM ();
+_Jv_JavaVM *_Jv_GetJavaVM (); 
+
+// Some verification functions from defineclass.cc.
+bool _Jv_VerifyFieldSignature (_Jv_Utf8Const*sig);
+bool _Jv_VerifyMethodSignature (_Jv_Utf8Const*sig);
+bool _Jv_VerifyClassName (unsigned char* ptr, _Jv_ushort length);
+bool _Jv_VerifyClassName (_Jv_Utf8Const *name);
+bool _Jv_VerifyIdentifier (_Jv_Utf8Const *);
+bool _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2);
 
 #ifdef ENABLE_JVMPI
+
 #include "jvmpi.h"
 
 extern void (*_Jv_JVMPI_Notify_OBJECT_ALLOC) (JVMPI_Event *event);

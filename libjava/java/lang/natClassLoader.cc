@@ -1,6 +1,6 @@
 // natClassLoader.cc - Implementation of java.lang.ClassLoader native methods.
 
-/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -33,8 +33,11 @@ details.  */
 #include <java/lang/ClassNotFoundException.h>
 #include <java/lang/ClassCircularityError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/VirtualMachineError.h>
+#include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/lang/Runtime.h>
+#include <java/lang/StringBuffer.h>
 #include <java/io/Serializable.h>
 #include <java/lang/Cloneable.h>
 
@@ -58,6 +61,7 @@ java::lang::ClassLoader::defineClass0 (jstring name,
 #ifdef INTERPRETER
   jclass klass;
   klass = (jclass) JvAllocObject (&ClassClass, sizeof (_Jv_InterpClass));
+  _Jv_InitNewClassFields (klass);
 
   // synchronize on the class, so that it is not
   // attempted initialized until we're done loading.
@@ -173,6 +177,14 @@ java::lang::ClassLoader::markClassErrorState0 (java::lang::Class *klass)
   klass->notifyAll ();
 }
 
+jclass
+java::lang::VMClassLoader::getPrimitiveClass (jchar type)
+{
+  char sig[2];
+  sig[0] = (char) type;
+  sig[1] = '\0';
+  return _Jv_FindClassFromSignature (sig, NULL);
+}
 
 // This is the findClass() implementation for the System classloader. It is 
 // the only native method in VMClassLoader, so we define it here.
@@ -184,13 +196,15 @@ gnu::gcj::runtime::VMClassLoader::findClass (jstring name)
 
   if (! klass)
     {
-      // Turn `gnu.pkg.quux' into `gnu-pkg-quux'.  Then search for a
-      // module named (eg, on Linux) `gnu-pkg-quux.so', followed by
-      // `gnu-pkg.so' and `gnu.so'.  If loading one of these causes
-      // the class to appear in the cache, then use it.
-      jstring so_base_name = name->replace ('.', '-');
+      // Turn `gnu.pkg.quux' into `lib-gnu-pkg-quux'.  Then search for
+      // a module named (eg, on Linux) `lib-gnu-pkg-quux.so', followed
+      // by `lib-gnu-pkg.so' and `lib-gnu.so'.  If loading one of
+      // these causes the class to appear in the cache, then use it.
+      java::lang::StringBuffer *sb = new java::lang::StringBuffer (JvNewStringLatin1("lib-"));
+      jstring so_base_name = (sb->append (name)->toString ())->replace ('.', '-');
 
-      while (! klass && so_base_name && so_base_name->length() > 0)
+      // Compare against `3' because that is the length of "lib".
+      while (! klass && so_base_name && so_base_name->length() > 3)
 	{
 	  using namespace ::java::lang;
 	  Runtime *rt = Runtime::getRuntime();
@@ -221,7 +235,6 @@ java::lang::ClassLoader::findLoadedClass (jstring name)
 {
   return _Jv_FindClassInCache (_Jv_makeUtf8Const (name), this);
 }
-
 
 /** This function does class-preparation for compiled classes.  
     NOTE: It contains replicated functionality from
@@ -280,12 +293,10 @@ _Jv_PrepareCompiledClass (jclass klass)
       for (int n = JvNumStaticFields (klass); n > 0; --n)
 	{
 	  int mod = f->getModifiers ();
-	  // Maybe the compiler should mark these with
-	  // _Jv_FIELD_CONSTANT_VALUE?  For now we just know that this
-	  // only happens for constant strings.
+	  // If we have a static String field with a non-null initial
+	  // value, we know it points to a Utf8Const.
 	  if (f->getClass () == &StringClass
-	      && java::lang::reflect::Modifier::isStatic (mod)
-	      && java::lang::reflect::Modifier::isFinal (mod))
+	      && java::lang::reflect::Modifier::isStatic (mod))
 	    {
 	      jstring *strp = (jstring *) f->u.addr;
 	      if (*strp)
@@ -296,6 +307,12 @@ _Jv_PrepareCompiledClass (jclass klass)
 #ifdef INTERPRETER
     }
 #endif /* INTERPRETER */
+
+  if (klass->vtable == NULL)
+    _Jv_MakeVTable(klass);
+
+  if (klass->otable != NULL && klass->otable->state == 0)
+    _Jv_LinkOffsetTable(klass);
 
   klass->notifyAll ();
 }
@@ -416,30 +433,18 @@ _Jv_RegisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
 }
 
 // This function is called many times during startup, before main() is
-// run.  We do our runtime initialization here the very first time we
-// are called.  At that point in time we know for certain we are
-// running single-threaded, so we don't need to lock when modifying
-// `init'.  CLASSES is NULL-terminated.
+// run.  At that point in time we know for certain we are running 
+// single-threaded, so we don't need to lock when adding classes to the 
+// class chain.  At all other times, the caller should synchronize on
+// Class::class$.
 void
 _Jv_RegisterClasses (jclass *classes)
 {
-  static bool init = false;
-
-  if (! init)
-    {
-      init = true;
-      _Jv_InitThreads ();
-      _Jv_InitGC ();
-      _Jv_InitializeSyncMutex ();
-    }
-
-  JvSynchronize sync (&ClassClass);
   for (; *classes; ++classes)
     {
       jclass klass = *classes;
-      jint hash = HASH_UTF (klass->name);
-      klass->next = loaded_classes[hash];
-      loaded_classes[hash] = klass;
+
+      (*_Jv_RegisterClassHook) (klass);
 
       // registering a compiled class causes
       // it to be immediately "prepared".  
@@ -447,6 +452,50 @@ _Jv_RegisterClasses (jclass *classes)
 	klass->state = JV_STATE_COMPILED;
     }
 }
+
+void
+_Jv_RegisterClassHookDefault (jclass klass)
+{
+  jint hash = HASH_UTF (klass->name);
+
+  jclass check_class = loaded_classes[hash];
+
+  // If the class is already registered, don't re-register it.
+  while (check_class != NULL)
+    {
+      if (check_class == klass)
+	{
+	  // If you get this, it means you have the same class in two
+	  // different libraries.
+#define TEXT "Duplicate class registration: "
+	  // We size-limit MESSAGE so that you can't trash the stack.
+	  char message[200];
+	  strcpy (message, TEXT);
+	  strncpy (message + sizeof (TEXT) - 1, klass->name->data,
+		   sizeof (message) - sizeof (TEXT));
+	  message[sizeof (message) - 1] = '\0';
+	  if (! gcj::runtimeInitialized)
+	    JvFail (message);
+	  else
+	    {
+	      java::lang::String *str = JvNewStringLatin1 (message);
+	      throw new java::lang::VirtualMachineError (str);
+	    }
+	}
+
+      check_class = check_class->next;
+    }
+
+  klass->next = loaded_classes[hash];
+  loaded_classes[hash] = klass;
+}
+
+// A pointer to a function that actually registers a class.
+// Normally _Jv_RegisterClassHookDefault, but could be some other function
+// that registers the class in e.g. a ClassLoader-local table.
+// Should synchronize on Class:class$ while setting/restore this variable.
+
+void (*_Jv_RegisterClassHook) (jclass cl) = _Jv_RegisterClassHookDefault;
 
 void
 _Jv_RegisterClass (jclass klass)
@@ -479,12 +528,8 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 	}
       else 
 	{
-	  java::lang::ClassLoader *sys = java::lang::ClassLoader::system;
-	  if (sys == NULL)
-	    {
-	      _Jv_InitClass (&ClassLoaderClass);
-	      sys = java::lang::ClassLoader::getSystemClassLoader ();
-	    }
+	  java::lang::ClassLoader *sys
+	    = java::lang::ClassLoader::getSystemClassLoader ();
 
 	  // Load using the bootstrap loader jvmspec 5.3.1.
 	  klass = sys->loadClass (sname, false); 
@@ -504,16 +549,13 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
   return klass;
 }
 
-jclass
-_Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
-	      java::lang::ClassLoader *loader)
+void
+_Jv_InitNewClassFields (jclass ret)
 {
-  jclass ret = (jclass) JvAllocObject (&ClassClass);
-
   ret->next = NULL;
-  ret->name = name;
+  ret->name = NULL;
   ret->accflags = 0;
-  ret->superclass = superclass;
+  ret->superclass = NULL;
   ret->constants.size = 0;
   ret->constants.tags = NULL;
   ret->constants.data = NULL;
@@ -526,7 +568,7 @@ _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
   ret->static_field_count = 0;
   ret->vtable = NULL;
   ret->interfaces = NULL;
-  ret->loader = loader;
+  ret->loader = NULL;
   ret->interface_count = 0;
   ret->state = JV_STATE_NOTHING;
   ret->thread = NULL;
@@ -534,6 +576,17 @@ _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
   ret->ancestors = NULL;
   ret->idt = NULL;
   ret->arrayclass = NULL;
+}
+
+jclass
+_Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
+	      java::lang::ClassLoader *loader)
+{
+  jclass ret = (jclass) JvAllocObject (&ClassClass);
+  _Jv_InitNewClassFields (ret);
+  ret->name = name;
+  ret->superclass = superclass;
+  ret->loader = loader;
 
   _Jv_RegisterClass (ret);
 
@@ -561,7 +614,11 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
     return;
 
   if (element->isPrimitive())
-    len = 3;
+    {
+      if (element == JvPrimClass (void))
+	throw new java::lang::ClassNotFoundException ();
+      len = 3;
+    }
   else
     len = element->name->length + 5;
 
@@ -597,20 +654,17 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   JvAssert (ObjectClass.vtable_method_count == NUM_OBJECT_METHODS);
   int dm_count = ObjectClass.vtable_method_count;
 
-  // Create a new vtable by copying Object's vtable (except the
-  // class pointer, of course).  Note that we allocate this as
-  // unscanned memory -- the vtables are handled specially by the
-  // GC.
-  int size = (sizeof (_Jv_VTable) + ((dm_count - 1) * sizeof (void *)));
+  // Create a new vtable by copying Object's vtable.
   _Jv_VTable *vtable;
   if (array_vtable)
     vtable = array_vtable;
   else
-    vtable = (_Jv_VTable *) _Jv_AllocBytes (size);
+    vtable = _Jv_VTable::new_vtable (dm_count);
   vtable->clas = array_class;
-  memcpy (vtable->method, ObjectClass.vtable->method,
-	  dm_count * sizeof (void *));
   vtable->gc_descr = ObjectClass.vtable->gc_descr;
+  for (int i = 0; i < dm_count; ++i)
+    vtable->set_method (i, ObjectClass.vtable->get_method (i));
+
   array_class->vtable = vtable;
   array_class->vtable_method_count = ObjectClass.vtable_method_count;
 
@@ -623,7 +677,7 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   array_class->interface_count = sizeof interfaces / sizeof interfaces[0];
 
   // Since all array classes have the same interface dispatch table, we can 
-  // cache one and reuse it. It is not neccessary to synchronize this.
+  // cache one and reuse it. It is not necessary to synchronize this.
   if (!array_idt)
     {
       _Jv_PrepareConstantTimeTables (array_class);

@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+#include "debug.h"
 
 /* Needed for use_return_insn.  */
 #include "flags.h"
@@ -46,7 +47,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Index into this array by (register number >> 3) to find the
    smallest class which contains that register.  */
-enum reg_class regno_reg_class[]
+const enum reg_class regno_reg_class[]
   = { DATA_REGS, ADDR_REGS, FP_REGS,
       LO_FPA_REGS, LO_FPA_REGS, FPA_REGS, FPA_REGS };
 
@@ -60,23 +61,25 @@ static rtx find_addr_reg PARAMS ((rtx));
 static const char *singlemove_string PARAMS ((rtx *));
 static void m68k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void m68k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-static void m68k_coff_asm_named_section PARAMS ((const char *, unsigned int,
-						 unsigned int));
+static void m68k_coff_asm_named_section PARAMS ((const char *, unsigned int));
+#ifdef CTOR_LIST_BEGIN
+static void m68k_svr3_asm_out_constructor PARAMS ((rtx, int));
+#endif
 
 
 /* Alignment to use for loops and jumps */
-/* Specify power of two alignment used for loops. */
+/* Specify power of two alignment used for loops.  */
 const char *m68k_align_loops_string;
-/* Specify power of two alignment used for non-loop jumps. */
+/* Specify power of two alignment used for non-loop jumps.  */
 const char *m68k_align_jumps_string;
-/* Specify power of two alignment used for functions. */
+/* Specify power of two alignment used for functions.  */
 const char *m68k_align_funcs_string;
 
-/* Specify power of two alignment used for loops. */
+/* Specify power of two alignment used for loops.  */
 int m68k_align_loops;
-/* Specify power of two alignment used for non-loop jumps. */
+/* Specify power of two alignment used for non-loop jumps.  */
 int m68k_align_jumps;
-/* Specify power of two alignment used for functions. */
+/* Specify power of two alignment used for functions.  */
 int m68k_align_funcs;
 
 /* Nonzero if the last compare/test insn had FP operands.  The
@@ -85,6 +88,35 @@ int m68k_align_funcs;
 int m68k_last_compare_had_fp_operands;
 
 /* Initialize the GCC target structure.  */
+
+#if INT_OP_GROUP == INT_OP_DOT_WORD
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+#endif
+
+#if INT_OP_GROUP == INT_OP_NO_DOT
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP "\tbyte\t"
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\tshort\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\tlong\t"
+#endif
+
+#if INT_OP_GROUP == INT_OP_DC
+#undef TARGET_ASM_BYTE_OP
+#define TARGET_ASM_BYTE_OP "\tdc.b\t"
+#undef TARGET_ASM_ALIGNED_HI_OP
+#define TARGET_ASM_ALIGNED_HI_OP "\tdc.w\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\tdc.l\t"
+#endif
+
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP TARGET_ASM_ALIGNED_HI_OP
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP TARGET_ASM_ALIGNED_SI_OP
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE m68k_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -165,7 +197,6 @@ m68k_output_function_prologue (stream, size)
 {
   register int regno;
   register int mask = 0;
-  extern char call_used_regs[];
   HOST_WIDE_INT fsize = ((size) + 3) & -4;
 
   /* unos stack probe */
@@ -225,7 +256,6 @@ m68k_output_function_prologue (stream, size)
   register int regno;
   register int mask = 0;
   int num_saved_regs = 0, first = 1;
-  extern char call_used_regs[];
   HOST_WIDE_INT fsize = ((size) + 3) & -4;
 
   if (frame_pointer_needed)
@@ -287,7 +317,7 @@ m68k_output_function_prologue (stream, size)
 
       int i;
 
-      /* Undo the work from above. */
+      /* Undo the work from above.  */
       for (i = 0; i< 16; i++)
         if (mask & (1 << i))
           fprintf (stream, "\tmove.l %s,-(sp)\n", reg_names[15 - i]);
@@ -329,7 +359,6 @@ m68k_output_function_prologue (stream, size)
 {
   register int regno;
   register int mask = 0;
-  extern char call_used_regs[];
   HOST_WIDE_INT fsize = ((size) + 3) & -4;
 
   if (frame_pointer_needed)
@@ -382,7 +411,6 @@ m68k_output_function_prologue (stream, size)
   register int regno;
   register int mask = 0;
   int num_saved_regs = 0;
-  extern char call_used_regs[];
   HOST_WIDE_INT fsize = (size + 3) & -4;
   HOST_WIDE_INT cfa_offset = INCOMING_FRAME_SP_OFFSET;
   HOST_WIDE_INT cfa_store_offset = cfa_offset;
@@ -467,7 +495,7 @@ m68k_output_function_prologue (stream, size)
 	    {
 	      if (!TARGET_5200)
 		{
-		  /* asm_fprintf() cannot handle %. */
+		  /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 		  asm_fprintf (stream, "\tsubq.w %0I%d,%Rsp\n", fsize + 4);
 #else
@@ -476,7 +504,7 @@ m68k_output_function_prologue (stream, size)
 		}
 	      else
 		{
-		  /* asm_fprintf() cannot handle %. */
+		  /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 		  asm_fprintf (stream, "\tsubq.l %0I%d,%Rsp\n", fsize + 4);
 #else
@@ -487,8 +515,8 @@ m68k_output_function_prologue (stream, size)
 	  else if (fsize + 4 <= 16 && TARGET_CPU32)
 	    {
 	      /* On the CPU32 it is faster to use two subqw instructions to
-		 subtract a small integer (8 < N <= 16) to a register. */
-	      /* asm_fprintf() cannot handle %. */
+		 subtract a small integer (8 < N <= 16) to a register.  */
+	      /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	      asm_fprintf (stream, "\tsubq.w %0I8,%Rsp\n\tsubq.w %0I%d,%Rsp\n",
 			   fsize + 4 - 8);
@@ -502,7 +530,7 @@ m68k_output_function_prologue (stream, size)
 	  if (TARGET_68040)
 	    {
 	      /* Adding negative number is faster on the 68040.  */
-	      /* asm_fprintf() cannot handle %. */
+	      /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	      asm_fprintf (stream, "\tadd.w %0I%d,%Rsp\n", - (fsize + 4));
 #else
@@ -520,7 +548,7 @@ m68k_output_function_prologue (stream, size)
 	}
       else
 	{
-	/* asm_fprintf() cannot handle %. */
+	/* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\tadd.l %0I%d,%Rsp\n", - (fsize + 4));
 #else
@@ -646,7 +674,7 @@ m68k_output_function_prologue (stream, size)
 
       int i;
 
-      /* Undo the work from above. */
+      /* Undo the work from above.  */
       for (i = 0; i< 16; i++)
         if (mask & (1 << i))
 	  {
@@ -785,7 +813,6 @@ m68k_output_function_epilogue (stream, size)
   register int mask, fmask;
   register int nregs;
   HOST_WIDE_INT offset, foffset, fpoffset;
-  extern char call_used_regs[];
   HOST_WIDE_INT fsize = ((size) + 3) & -4;
   int big = 0;
 
@@ -898,7 +925,6 @@ m68k_output_function_epilogue (stream, size)
   register int mask, fmask;
   register int nregs;
   HOST_WIDE_INT offset, foffset, fpoffset, first = 1;
-  extern char call_used_regs[];
   HOST_WIDE_INT fsize = ((size) + 3) & -4;
   int big = 0;
   rtx insn = get_last_insn ();
@@ -948,11 +974,11 @@ m68k_output_function_epilogue (stream, size)
       /* Restore each separately in the same order moveml does.
          Using two movel instructions instead of a single moveml
          is about 15% faster for the 68020 and 68030 at no expense
-         in code size. */
+         in code size.  */
 
       int i;
 
-      /* Undo the work from above. */
+      /* Undo the work from above.  */
       for (i = 0; i< 16; i++)
         if (mask & (1 << i))
           {
@@ -1069,7 +1095,6 @@ m68k_output_function_epilogue (stream, size)
   register int mask, fmask;
   register int nregs;
   HOST_WIDE_INT offset, foffset;
-  extern char call_used_regs[];
   HOST_WIDE_INT fsize = ((size) + 3) & -4;
   int big = 0;
 
@@ -1165,7 +1190,6 @@ m68k_output_function_epilogue (stream, size)
   register int mask, fmask;
   register int nregs;
   HOST_WIDE_INT offset, foffset, fpoffset;
-  extern char call_used_regs[];
   HOST_WIDE_INT fsize = (size + 3) & -4;
   int big = 0;
   rtx insn = get_last_insn ();
@@ -1181,13 +1205,6 @@ m68k_output_function_epilogue (stream, size)
       asm_fprintf (stream, "\tnop\n");
       return;
     }
-
-#ifdef FUNCTION_BLOCK_PROFILER_EXIT
-  if (profile_block_flag == 2)
-    {
-      FUNCTION_BLOCK_PROFILER_EXIT (stream);
-    }
-#endif
 
 #ifdef FUNCTION_EXTRA_EPILOGUE
   FUNCTION_EXTRA_EPILOGUE (stream, size);
@@ -1227,7 +1244,7 @@ m68k_output_function_epilogue (stream, size)
   offset = foffset + nregs * 4;
   /* FIXME : leaf_function_p below is too strong.
      What we really need to know there is if there could be pending
-     stack adjustment needed at that point. */
+     stack adjustment needed at that point.  */
   restore_from_sp = ! frame_pointer_needed
 	     || (! current_function_calls_alloca && leaf_function_p ());
   if (offset + fsize >= 0x8000
@@ -1246,11 +1263,11 @@ m68k_output_function_epilogue (stream, size)
       /* Restore each separately in the same order moveml does.
          Using two movel instructions instead of a single moveml
          is about 15% faster for the 68020 and 68030 at no expense
-         in code size. */
+         in code size.  */
 
       int i;
 
-      /* Undo the work from above. */
+      /* Undo the work from above.  */
       for (i = 0; i< 16; i++)
         if (mask & (1 << i))
           {
@@ -1437,8 +1454,8 @@ m68k_output_function_epilogue (stream, size)
       else if (fsize + 4 <= 16 && TARGET_CPU32)
 	{
 	  /* On the CPU32 it is faster to use two addqw instructions to
-	     add a small integer (8 < N <= 16) to a register. */
-	  /* asm_fprintf() cannot handle %. */
+	     add a small integer (8 < N <= 16) to a register.  */
+	  /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\taddq.w %0I8,%Rsp\n\taddq.w %0I%d,%Rsp\n",
 		       fsize + 4 - 8);
@@ -1453,7 +1470,7 @@ m68k_output_function_epilogue (stream, size)
 	{
 	  if (TARGET_68040)
 	    { 
-	      /* asm_fprintf() cannot handle %. */
+	      /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	      asm_fprintf (stream, "\tadd.w %0I%d,%Rsp\n", fsize + 4);
 #else
@@ -1471,7 +1488,7 @@ m68k_output_function_epilogue (stream, size)
 	}
       else
 	{
-	/* asm_fprintf() cannot handle %. */
+	/* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	  asm_fprintf (stream, "\tadd.l %0I%d,%Rsp\n", fsize + 4);
 #else
@@ -1632,7 +1649,7 @@ output_dbcc_and_branch (operands)
     }
 
   /* If the decrement is to be done in SImode, then we have
-     to compensate for the fact that dbcc decrements in HImode. */
+     to compensate for the fact that dbcc decrements in HImode.  */
   switch (GET_MODE (operands[0]))
     {
       case SImode:
@@ -1661,7 +1678,7 @@ output_scc_di(op, operand1, operand2, dest)
   rtx loperands[7];
   enum rtx_code op_code = GET_CODE (op);
 
-  /* This does not produce a usefull cc.  */
+  /* This does not produce a useful cc.  */
   CC_STATUS_INIT;
 
   /* The m68k cmp.l instruction requires operand1 to be a reg as used
@@ -1912,7 +1929,7 @@ symbolic_operand (op, mode)
     }
 }
 
-/* Check for sign_extend or zero_extend.  Used for bit-count operands. */
+/* Check for sign_extend or zero_extend.  Used for bit-count operands.  */
 
 int
 extend_operator(x, mode)
@@ -2040,12 +2057,12 @@ const_method (constant)
   if (USE_MOVQ (i))
     return MOVQ;
 
-  /* The Coldfire doesn't have byte or word operations. */
+  /* The Coldfire doesn't have byte or word operations.  */
   /* FIXME: This may not be useful for the m68060 either */
   if (!TARGET_5200) 
     {
       /* if -256 < N < 256 but N is not in range for a moveq
-	 N^ff will be, so use moveq #N^ff, dreg; not.b dreg. */
+	 N^ff will be, so use moveq #N^ff, dreg; not.b dreg.  */
       if (USE_MOVQ (i ^ 0xff))
 	return NOTB;
       /* Likewise, try with not.w */
@@ -2619,7 +2636,7 @@ compadr:
 	  if (addreg0 || addreg1)
 	    abort ();
 
-	  /* Only the middle reg conflicts; simply put it last. */
+	  /* Only the middle reg conflicts; simply put it last.  */
 	  output_asm_insn (singlemove_string (operands), operands);
 	  output_asm_insn (singlemove_string (latehalf), latehalf);
 	  output_asm_insn (singlemove_string (middlehalf), middlehalf);
@@ -2805,7 +2822,7 @@ output_addsi3 (operands)
 	}
       /* On the CPU32 it is faster to use two addql instructions to
 	 add a small integer (8 < N <= 16) to a register.
-	 Likewise for subql. */
+	 Likewise for subql.  */
       if (TARGET_CPU32 && REG_P (operands[0]))
 	{
 	  if (INTVAL (operands[2]) > 8
@@ -2942,7 +2959,7 @@ notice_update_cc (exp, insn)
 	/* (SET r1 (ZERO_EXTEND r2)) on this machine
 	   ends with a move insn moving r2 in r2's mode.
 	   Thus, the cc's are set for r2.
-	   This can set N bit spuriously. */
+	   This can set N bit spuriously.  */
 	cc_status.flags |= CC_NOT_NEGATIVE; 
 
       default:
@@ -3032,7 +3049,7 @@ output_move_const_single (operands)
    The value, anded with 0xff, gives the code to use in fmovecr
    to get the desired constant.  */
 
-/* This code has been fixed for cross-compilation. */
+/* This code has been fixed for cross-compilation.  */
   
 static int inited_68881_table = 0;
 
@@ -3046,7 +3063,7 @@ static const char *const strings_68881[7] = {
   "1e16"
   };
 
-int codes_68881[7] = {
+static const int codes_68881[7] = {
   0x0f,
   0x32,
   0x33,
@@ -3059,7 +3076,7 @@ int codes_68881[7] = {
 REAL_VALUE_TYPE values_68881[7];
 
 /* Set up values_68881 array by converting the decimal values
-   strings_68881 to binary.   */
+   strings_68881 to binary.  */
 
 void
 init_68881_table ()
@@ -3091,16 +3108,9 @@ standard_68881_constant_p (x)
 #endif
 
   /* fmovecr must be emulated on the 68040 and 68060, so it shouldn't be
-     used at all on those chips. */
+     used at all on those chips.  */
   if (TARGET_68040 || TARGET_68060)
     return 0;
-
-#ifndef REAL_ARITHMETIC
-#if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-  if (! flag_pretend_float)
-    return 0;
-#endif
-#endif
 
   if (! inited_68881_table)
     init_68881_table ();
@@ -3136,13 +3146,6 @@ floating_exact_log2 (x)
   REAL_VALUE_TYPE r, r1;
   int i;
 
-#ifndef REAL_ARITHMETIC
-#if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-  if (! flag_pretend_float)
-    return 0;
-#endif
-#endif
-
   REAL_VALUE_FROM_CONST_DOUBLE (r, x);
 
   if (REAL_VALUES_LESS (r, dconst0))
@@ -3164,7 +3167,7 @@ floating_exact_log2 (x)
 /* Return nonzero if X, a CONST_DOUBLE, has a value that we can get
    from the Sun FPA's constant RAM.
    The value returned, anded with 0x1ff, gives the code to use in fpmove
-   to get the desired constant. */
+   to get the desired constant.  */
 
 static int inited_FPA_table = 0;
 
@@ -3213,7 +3216,7 @@ static const char *const strings_FPA[38] = {
 };
 
 
-int codes_FPA[38] = {
+static const int codes_FPA[38] = {
 /* small rationals */
   0x200,
   0xe,
@@ -3259,9 +3262,10 @@ int codes_FPA[38] = {
 
 REAL_VALUE_TYPE values_FPA[38];
 
-/* This code has been fixed for cross-compilation. */
+/* This code has been fixed for cross-compilation.  */
 
-void
+static void init_FPA_table PARAMS ((void));
+static void
 init_FPA_table ()
 {
   enum machine_mode mode;
@@ -3286,13 +3290,6 @@ standard_sun_fpa_constant_p (x)
 {
   REAL_VALUE_TYPE r;
   int i;
-
-#ifndef REAL_ARITHMETIC
-#if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-  if (! flag_pretend_float)
-    return 0;
-#endif
-#endif
 
   if (! inited_FPA_table)
     init_FPA_table ();
@@ -3831,7 +3828,7 @@ print_operand_address (file, addr)
 	  {
 #ifdef MOTOROLA
 #ifdef SGS
-	    /* Many SGS assemblers croak on size specifiers for constants. */
+	    /* Many SGS assemblers croak on size specifiers for constants.  */
 	    fprintf (file, "%d", (int) INTVAL (addr));
 #else
 	    fprintf (file, "%d.w", (int) INTVAL (addr));
@@ -4214,10 +4211,9 @@ output_xorsi3 (operands)
 /* Output assembly to switch to section NAME with attribute FLAGS.  */
 
 static void
-m68k_coff_asm_named_section (name, flags, align)
+m68k_coff_asm_named_section (name, flags)
      const char *name;
      unsigned int flags;
-     unsigned int align ATTRIBUTE_UNUSED;
 {
   char flagchar;
 
@@ -4228,3 +4224,19 @@ m68k_coff_asm_named_section (name, flags, align)
 
   fprintf (asm_out_file, "\t.section\t%s,\"%c\"\n", name, flagchar);
 }
+
+#ifdef CTOR_LIST_BEGIN
+static void
+m68k_svr3_asm_out_constructor (symbol, priority)
+     rtx symbol;
+     int priority ATTRIBUTE_UNUSED;
+{
+  rtx xop[2];
+
+  xop[1] = symbol;
+  xop[0] = gen_rtx_MEM (SImode, gen_rtx_PRE_DEC (SImode, stack_pointer_rtx));
+
+  init_section ();
+  output_asm_insn (output_move_simode (xop), xop);
+}
+#endif

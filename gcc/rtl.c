@@ -1,23 +1,23 @@
 /* RTL utility routines.
-   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -30,30 +30,28 @@ Boston, MA 02111-1307, USA.  */
 /* Calculate the format for CONST_DOUBLE.  This depends on the relative
    widths of HOST_WIDE_INT and REAL_VALUE_TYPE.
 
-   We need to go out to e0wwwww, since REAL_ARITHMETIC assumes 16-bits
-   per element in REAL_VALUE_TYPE.
+   We need to go out to 0wwwww, since real.c assumes 16 bits per element
+   in REAL_VALUE_TYPE.
 
    This is duplicated in gengenrtl.c.
 
    A number of places assume that there are always at least two 'w'
    slots in a CONST_DOUBLE, so we provide them even if one would suffice.  */
 
-#ifdef REAL_ARITHMETIC
-# if MAX_LONG_DOUBLE_TYPE_SIZE == 96
-#  define REAL_WIDTH	\
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 96
+# define REAL_WIDTH	\
      (11*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-# else
-#  if MAX_LONG_DOUBLE_TYPE_SIZE == 128
-#   define REAL_WIDTH	\
+#else
+# if MAX_LONG_DOUBLE_TYPE_SIZE == 128
+#  define REAL_WIDTH	\
       (19*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-#  else
-#   if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-#    define REAL_WIDTH	\
+# else
+#  if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
+#   define REAL_WIDTH	\
        (7*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-#   endif
 #  endif
 # endif
-#endif /* REAL_ARITHMETIC */
+#endif
 
 #ifndef REAL_WIDTH
 # if HOST_BITS_PER_WIDE_INT*2 >= MAX_LONG_DOUBLE_TYPE_SIZE
@@ -70,19 +68,19 @@ Boston, MA 02111-1307, USA.  */
 #endif /* REAL_WIDTH */
 
 #if REAL_WIDTH == 1
-# define CONST_DOUBLE_FORMAT	"e0ww"
+# define CONST_DOUBLE_FORMAT	"0ww"
 #else
 # if REAL_WIDTH == 2
-#  define CONST_DOUBLE_FORMAT	"e0ww"
+#  define CONST_DOUBLE_FORMAT	"0ww"
 # else
 #  if REAL_WIDTH == 3
-#   define CONST_DOUBLE_FORMAT	"e0www"
+#   define CONST_DOUBLE_FORMAT	"0www"
 #  else
 #   if REAL_WIDTH == 4
-#    define CONST_DOUBLE_FORMAT	"e0wwww"
+#    define CONST_DOUBLE_FORMAT	"0wwww"
 #   else
 #    if REAL_WIDTH == 5
-#     define CONST_DOUBLE_FORMAT	"e0wwwww"
+#     define CONST_DOUBLE_FORMAT	"0wwwww"
 #    else
 #     define CONST_DOUBLE_FORMAT	/* nothing - will cause syntax error */
 #    endif
@@ -96,7 +94,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   sizeof FORMAT - 1 ,
 
-const int rtx_length[NUM_RTX_CODE + 1] = {
+const unsigned char rtx_length[NUM_RTX_CODE] = {
 #include "rtl.def"
 };
 
@@ -106,7 +104,7 @@ const int rtx_length[NUM_RTX_CODE + 1] = {
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
 
-const char * const rtx_name[] = {
+const char * const rtx_name[NUM_RTX_CODE] = {
 #include "rtl.def"		/* rtl expressions are documented here */
 };
 
@@ -115,9 +113,9 @@ const char * const rtx_name[] = {
 /* Indexed by machine mode, gives the name of that machine mode.
    This name does not include the letters "mode".  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  NAME,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  NAME,
 
-const char * const mode_name[] = {
+const char * const mode_name[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -125,9 +123,9 @@ const char * const mode_name[] = {
 
 /* Indexed by machine mode, gives the class mode for GET_MODE_CLASS.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  CLASS,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  CLASS,
 
-const enum mode_class mode_class[] = {
+const enum mode_class mode_class[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -136,9 +134,9 @@ const enum mode_class mode_class[] = {
 /* Indexed by machine mode, gives the length of the mode, in bits.
    GET_MODE_BITSIZE uses this.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  BITSIZE,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  BITSIZE,
 
-const unsigned int mode_bitsize[] = {
+const unsigned short mode_bitsize[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -147,9 +145,9 @@ const unsigned int mode_bitsize[] = {
 /* Indexed by machine mode, gives the length of the mode, in bytes.
    GET_MODE_SIZE uses this.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  SIZE,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  SIZE,
 
-const unsigned int mode_size[] = {
+const unsigned char mode_size[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -158,9 +156,9 @@ const unsigned int mode_size[] = {
 /* Indexed by machine mode, gives the length of the mode's subunit.
    GET_MODE_UNIT_SIZE uses this.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  UNIT,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  UNIT,
 
-const unsigned int mode_unit_size[] = {
+const unsigned char mode_unit_size[NUM_MACHINE_MODES] = {
 #include "machmode.def"		/* machine modes are documented here */
 };
 
@@ -170,21 +168,32 @@ const unsigned int mode_unit_size[] = {
    (QI -> HI -> SI -> DI, etc.)  Widening multiply instructions
    use this.  */
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  \
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  \
   (unsigned char) WIDER,
 
-const unsigned char mode_wider_mode[] = {
+const unsigned char mode_wider_mode[NUM_MACHINE_MODES] = {
 #include "machmode.def"		/* machine modes are documented here */
 };
 
 #undef DEF_MACHMODE
 
-#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  \
-  ((BITSIZE) >= HOST_BITS_PER_WIDE_INT) ? ~(unsigned HOST_WIDE_INT)0 : ((unsigned HOST_WIDE_INT) 1 << (BITSIZE)) - 1,
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER)  \
+  ((BITSIZE) >= HOST_BITS_PER_WIDE_INT) ? ~(unsigned HOST_WIDE_INT) 0 : ((unsigned HOST_WIDE_INT) 1 << (BITSIZE)) - 1,
 
 /* Indexed by machine mode, gives mask of significant bits in mode.  */
 
-const unsigned HOST_WIDE_INT mode_mask_array[] = {
+const unsigned HOST_WIDE_INT mode_mask_array[NUM_MACHINE_MODES] = {
+#include "machmode.def"
+};
+
+#undef DEF_MACHMODE
+
+#define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER, INNER) INNER,
+
+/* Indexed by machine mode, gives the mode of the inner elements in a
+   vector type.  */
+
+const enum machine_mode inner_mode_array[NUM_MACHINE_MODES] = {
 #include "machmode.def"
 };
 
@@ -214,7 +223,7 @@ const enum machine_mode class_narrowest_mode[(int) MAX_MODE_CLASS] = {
    rtx's of that code.  The sequence is a C string in which
    each character describes one operand.  */
 
-const char * const rtx_format[] = {
+const char * const rtx_format[NUM_RTX_CODE] = {
   /* "*" undefined.
          can cause a warning message
      "0" field is unused (or used in a phase-dependent manner)
@@ -239,7 +248,7 @@ const char * const rtx_format[] = {
      "u" a pointer to another insn
          prints the uid of the insn.
      "b" is a pointer to a bitmap header.
-     "t" is a tree pointer. */
+     "t" is a tree pointer.  */
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   FORMAT ,
 #include "rtl.def"		/* rtl expressions are defined here */
@@ -249,7 +258,7 @@ const char * const rtx_format[] = {
 /* Indexed by rtx code, gives a character representing the "class" of
    that rtx code.  See rtl.def for documentation on the defined classes.  */
 
-const char rtx_class[] = {
+const char rtx_class[NUM_RTX_CODE] = {
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   CLASS,
 #include "rtl.def"		/* rtl expressions are defined here */
 #undef DEF_RTL_EXPR
@@ -263,7 +272,7 @@ const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
   "NOTE_INSN_BLOCK_BEG", "NOTE_INSN_BLOCK_END",
   "NOTE_INSN_LOOP_BEG", "NOTE_INSN_LOOP_END",
   "NOTE_INSN_LOOP_CONT", "NOTE_INSN_LOOP_VTOP",
-  "NOTE_INSN_FUNCTION_END",
+  "NOTE_INSN_LOOP_END_TOP_COND", "NOTE_INSN_FUNCTION_END",
   "NOTE_INSN_PROLOGUE_END", "NOTE_INSN_EPILOGUE_BEG",
   "NOTE_INSN_DELETED_LABEL", "NOTE_INSN_FUNCTION_BEG",
   "NOTE_INSN_EH_REGION_BEG", "NOTE_INSN_EH_REGION_END",
@@ -280,8 +289,9 @@ const char * const reg_note_name[] =
   "REG_LABEL", "REG_DEP_ANTI", "REG_DEP_OUTPUT", "REG_BR_PROB",
   "REG_EXEC_COUNT", "REG_NOALIAS", "REG_SAVE_AREA", "REG_BR_PRED",
   "REG_FRAME_RELATED_EXPR", "REG_EH_CONTEXT", "REG_EH_REGION",
-  "REG_EH_RETHROW", "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
-  "REG_NON_LOCAL_GOTO", "REG_SETJMP"
+  "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
+  "REG_NON_LOCAL_GOTO", "REG_SETJMP", "REG_ALWAYS_RETURN",
+  "REG_VTABLE_REF"
 };
 
 
@@ -330,12 +340,12 @@ rtx_alloc (code)
 
 rtx
 copy_rtx (orig)
-     register rtx orig;
+     rtx orig;
 {
-  register rtx copy;
-  register int i, j;
-  register RTX_CODE code;
-  register const char *format_ptr;
+  rtx copy;
+  int i, j;
+  RTX_CODE code;
+  const char *format_ptr;
 
   code = GET_CODE (orig);
 
@@ -345,6 +355,7 @@ copy_rtx (orig)
     case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -430,113 +441,15 @@ copy_rtx (orig)
   return copy;
 }
 
-/* Similar to `copy_rtx' except that if MAY_SHARE is present, it is
-   placed in the result directly, rather than being copied.  */
-
-rtx
-copy_most_rtx (orig, may_share)
-     register rtx orig;
-     register rtx may_share;
-{
-  register rtx copy;
-  register int i, j;
-  register RTX_CODE code;
-  register const char *format_ptr;
-
-  if (orig == may_share)
-    return orig;
-
-  code = GET_CODE (orig);
-
-  switch (code)
-    {
-    case REG:
-    case QUEUED:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case SYMBOL_REF:
-    case CODE_LABEL:
-    case PC:
-    case CC0:
-      return orig;
-    default:
-      break;
-    }
-
-  copy = rtx_alloc (code);
-  PUT_MODE (copy, GET_MODE (orig));
-  copy->in_struct = orig->in_struct;
-  copy->volatil = orig->volatil;
-  copy->unchanging = orig->unchanging;
-  copy->integrated = orig->integrated;
-  copy->frame_related = orig->frame_related;
-
-  format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
-
-  for (i = 0; i < GET_RTX_LENGTH (GET_CODE (copy)); i++)
-    {
-      switch (*format_ptr++)
-	{
-	case 'e':
-	  XEXP (copy, i) = XEXP (orig, i);
-	  if (XEXP (orig, i) != NULL && XEXP (orig, i) != may_share)
-	    XEXP (copy, i) = copy_most_rtx (XEXP (orig, i), may_share);
-	  break;
-
-	case 'u':
-	  XEXP (copy, i) = XEXP (orig, i);
-	  break;
-
-	case 'E':
-	case 'V':
-	  XVEC (copy, i) = XVEC (orig, i);
-	  if (XVEC (orig, i) != NULL)
-	    {
-	      XVEC (copy, i) = rtvec_alloc (XVECLEN (orig, i));
-	      for (j = 0; j < XVECLEN (copy, i); j++)
-		XVECEXP (copy, i, j)
-		  = copy_most_rtx (XVECEXP (orig, i, j), may_share);
-	    }
-	  break;
-
-	case 'w':
-	  XWINT (copy, i) = XWINT (orig, i);
-	  break;
-
-	case 'n':
-	case 'i':
-	  XINT (copy, i) = XINT (orig, i);
-	  break;
-
-	case 't':
-	  XTREE (copy, i) = XTREE (orig, i);
-	  break;
-
-	case 's':
-	case 'S':
-	  XSTR (copy, i) = XSTR (orig, i);
-	  break;
-
-	case '0':
-	  /* Copy this through the wide int field; that's safest. */
-	  X0WINT (copy, i) = X0WINT (orig, i);
-	  break;
-
-	default:
-	  abort ();
-	}
-    }
-  return copy;
-}
-
 /* Create a new copy of an rtx.  Only copy just one level.  */
+
 rtx
 shallow_copy_rtx (orig)
      rtx orig;
 {
-  register int i;
-  register RTX_CODE code = GET_CODE (orig);
-  register rtx copy = rtx_alloc (code);
+  int i;
+  RTX_CODE code = GET_CODE (orig);
+  rtx copy = rtx_alloc (code);
 
   PUT_MODE (copy, GET_MODE (orig));
   copy->in_struct = orig->in_struct;
@@ -549,6 +462,29 @@ shallow_copy_rtx (orig)
     copy->fld[i] = orig->fld[i];
 
   return copy;
+}
+
+/* Return the alignment of MODE. This will be bounded by 1 and
+   BIGGEST_ALIGNMENT.  */
+
+unsigned int
+get_mode_alignment (mode)
+     enum machine_mode mode;
+{
+  unsigned int alignment;
+
+  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
+      || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
+    alignment = GET_MODE_UNIT_SIZE (mode);
+  else
+    alignment = GET_MODE_SIZE (mode);
+  
+  /* Extract the LSB of the size.  */
+  alignment = alignment & -alignment;
+  alignment *= BITS_PER_UNIT;
+
+  alignment = MIN (BIGGEST_ALIGNMENT, MAX (1, alignment));
+  return alignment;
 }
 
 /* This is 1 until after the rtl generation pass.  */
@@ -564,10 +500,10 @@ int
 rtx_equal_p (x, y)
      rtx x, y;
 {
-  register int i;
-  register int j;
-  register enum rtx_code code;
-  register const char *fmt;
+  int i;
+  int j;
+  enum rtx_code code;
+  const char *fmt;
 
   if (x == y)
     return 1;
@@ -589,10 +525,11 @@ rtx_equal_p (x, y)
   switch (code)
     {
     case REG:
-      /* Until rtl generation is complete, don't consider a reference to the
-	 return register of the current function the same as the return from a
-	 called function.  This eases the job of function integration.  Once the
-	 distinction is no longer needed, they can be considered equivalent.  */
+      /* Until rtl generation is complete, don't consider a reference
+	 to the return register of the current function the same as
+	 the return from a called function.  This eases the job of
+	 function integration.  Once the distinction is no longer
+	 needed, they can be considered equivalent.  */
       return (REGNO (x) == REGNO (y)
 	      && (! rtx_equal_function_value_matters
 		  || REG_FUNCTION_VALUE_P (x) == REG_FUNCTION_VALUE_P (y)));
@@ -606,6 +543,7 @@ rtx_equal_p (x, y)
     case SCRATCH:
     case CONST_DOUBLE:
     case CONST_INT:
+    case CONST_VECTOR:
       return 0;
 
     default:
@@ -650,7 +588,9 @@ rtx_equal_p (x, y)
 
 	case 'S':
 	case 's':
-	  if (strcmp (XSTR (x, i), XSTR (y, i)))
+	  if ((XSTR (x, i) || XSTR (y, i))
+	      && (! XSTR (x, i) || ! XSTR (y, i)
+		  || strcmp (XSTR (x, i), XSTR (y, i))))
 	    return 0;
 	  break;
 

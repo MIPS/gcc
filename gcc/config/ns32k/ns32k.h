@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  NS32000 version.
    Copyright (C) 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001 Free Software Foundation, Inc.
+   2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -113,8 +113,8 @@ extern int target_flags;
     { "sb", -32,							\
       N_("Register sb is zero. Use for absolute addressing")},		\
     { "nosb", 32, N_("Do not use register sb")},			\
-    { "bitfield", -64, N_("Do not use bitfield instructions")},		\
-    { "nobitfield", 64, N_("Use bitfield instructions")},		\
+    { "bitfield", -64, N_("Do not use bit-field instructions")},	\
+    { "nobitfield", 64, N_("Use bit-field instructions")},		\
     { "himem", 128, N_("Generate code for high memory")},		\
     { "nohimem", -128, N_("Generate code for low memory")},		\
     { "32381", 256, N_("32381 fpu")},					\
@@ -196,21 +196,8 @@ while (0)
    numbered. This is not true on the ns32k.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 32000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -236,7 +223,7 @@ while (0)
    crossing a page boundary cause unpredictable results.  */
 #define STRICT_ALIGNMENT 1
 
-/* If bit field type is int, dont let it cross an int,
+/* If bit field type is int, don't let it cross an int,
    and give entire struct the alignment of an int.  */
 /* Required on the 386 since it doesn't have a full set of bitfield insns.
    (There is no signed extv insn.)  */
@@ -736,8 +723,8 @@ operands on the 32k are stored).  */
   fprintf (FILE, "\tjump " );						\
   PUT_ABSOLUTE_PREFIX (FILE);						\
   fprintf (FILE, "__trampoline\n" );					\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
-  ASM_OUTPUT_INT (FILE, const0_rtx);					\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
+  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);		\
 }
 
 /* Length in units of the trampoline for entering a nested function.  */
@@ -855,7 +842,7 @@ __transfer_from_trampoline ()		\
    because registers of CLASS are needed for spill registers.
 
    The default definition won't do because class LONG_FLOAT_REG0 has two
-   registers which are always acessed as a pair */
+   registers which are always accessed as a pair */
 
 #define CLASS_LIKELY_SPILLED_P(CLASS) \
   (reg_class_size[(int) (CLASS)] == 1 || (CLASS) == LONG_FLOAT_REG0)
@@ -1067,7 +1054,7 @@ __transfer_from_trampoline ()		\
    symbol or a code symbol. These symbols are referenced via pc
    and not via sb. */
 
-#define ENCODE_SECTION_INFO(DECL) \
+#define ENCODE_SECTION_INFO(DECL, FIRST)				\
 do									\
   {									\
     extern int flag_pic;						\
@@ -1103,12 +1090,6 @@ while (0)
    Do not define this if the table should contain absolute addresses. */
 #define CASE_VECTOR_PC_RELATIVE 1
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR TRUNC_DIV_EXPR
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -1121,9 +1102,6 @@ while (0)
    
    We have a smart movstrsi insn */
 #define MOVE_RATIO 0
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-/* #define SLOW_ZERO_EXTEND */
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 0
@@ -1283,40 +1261,6 @@ while (0)
 
 /* Output of Data */
 
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-  fprintf (FILE, "\t.double 0d%.20e\n", (VALUE))
-
-/* This is how to output an assembler line defining a `float' constant.  */
-
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)  \
-  fprintf (FILE, "\t.float 0f%.20e\n", (VALUE))
-
-/* This is how to output an assembler line defining an `int' constant.  */
-
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "\t.long "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\t.word "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\t.byte "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
-
 /* This is how to output an assembler line defining an external/static
    address which is not in tree format (for collect.c).  */
 
@@ -1440,9 +1384,8 @@ do {									\
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address(FILE, ADDR)
 
-extern unsigned int ns32k_reg_class_contents[N_REG_CLASSES][1];
-extern const char *const ns32k_out_reg_names[];
-extern enum reg_class regclass_map[];		/* smallest class containing REGNO */
+extern const unsigned int ns32k_reg_class_contents[N_REG_CLASSES][1];
+extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smallest class containing REGNO */
 
 /*
 Local variables:

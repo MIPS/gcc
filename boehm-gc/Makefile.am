@@ -6,6 +6,8 @@
 
 AUTOMAKE_OPTIONS = cygnus
 
+SUBDIRS = include
+
 # Multilib support variables.
 MULTISRCTOP =
 MULTIBUILDTOP =
@@ -23,13 +25,25 @@ toolexecdir = $(exec_prefix)/$(target_alias)
 toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
 endif
 
-toolexeclib_LTLIBRARIES = $(target_all)
-EXTRA_LTLIBRARIES = libgcjgc.la
-libgcjgc_la_SOURCES = allchblk.c alloc.c blacklst.c checksums.c dbg_mlc.c \
+toolexeclib_LTLIBRARIES = libgcjgc.la
+noinst_LTLIBRARIES = libgcjgc_convenience.la
+
+GC_SOURCES = allchblk.c alloc.c blacklst.c checksums.c dbg_mlc.c \
 dyn_load.c finalize.c gc_dlopen.c gcj_mlc.c headers.c irix_threads.c \
 linux_threads.c malloc.c mallocx.c mark.c mark_rts.c misc.c new_hblk.c \
 obj_map.c os_dep.c pcr_interface.c ptr_chck.c real_malloc.c reclaim.c \
-solaris_pthreads.c solaris_threads.c specific.c stubborn.c typd_mlc.c
+solaris_pthreads.c solaris_threads.c specific.c stubborn.c typd_mlc.c \
+backgraph.c win32_threads.c
+
+EXTRA_GC_SOURCES = alpha_mach_dep.s \
+mips_sgi_mach_dep.S mips_ultrix_mach_dep.s powerpc_macosx_mach_dep.s \
+rs6000_mach_dep.s sparc_mach_dep.S sparc_netbsd_mach_dep.s \
+sparc_sunos4_mach_dep.s ia64_save_regs_in_stack.s
+
+libgcjgc_la_SOURCES = $(GC_SOURCES)
+libgcjgc_convenience_la_SOURCES = $(GC_SOURCES)
+EXTRA_libgcjgc_la_SOURCES = $(EXTRA_GC_SOURCES)
+EXTRA_libgcjgc_convenience_la_SOURCES = $(EXTRA_GC_SOURCES)
 
 # Include THREADLIBS here to ensure that the correct versions of
 # linuxthread semaphore functions get linked:
@@ -37,19 +51,19 @@ libgcjgc_la_LIBADD = @addobjs@ $(THREADLIBS)
 libgcjgc_la_DEPENDENCIES = @addobjs@
 libgcjgc_la_LDFLAGS = -version-info 1:1:0 -rpath $(toolexeclibdir)
 
-EXTRA_libgcjgc_la_SOURCES = alpha_mach_dep.s hpux_test_and_clear.s \
-mips_sgi_mach_dep.s mips_ultrix_mach_dep.s powerpc_macosx_mach_dep.s \
-rs6000_mach_dep.s sparc_mach_dep.s sparc_netbsd_mach_dep.s \
-sparc_sunos4_mach_dep.s
+libgcjgc_convenience_la_LIBADD = @addobjs@
+libgcjgc_convenience_la_DEPENDENCIES = @addobjs@
 
-AM_CXXFLAGS = @BOEHM_GC_CFLAGS@
-AM_CFLAGS = @BOEHM_GC_CFLAGS@
+AM_CXXFLAGS = @GC_CFLAGS@
+AM_CFLAGS = @GC_CFLAGS@
 
 check_PROGRAMS = gctest
 # The following hack produces a warning from automake, but we need it in order 
 # to build a file from a subdirectory. FIXME.
 test.o:	tests/test.c
-	$(COMPILE) -c $<
+	$(COMPILE) -c $(srcdir)/tests/test.c
+# 	Using $< in the above seems to fail with the HP/UX on Itanium make.
+
 gctest_OBJECTS = test.o
 gctest_LDADD = ./libgcjgc.la $(THREADLIBS) $(EXTRA_TEST_LIBS)
 gctest_LDFLAGS = -shared-libgcc
@@ -71,10 +85,10 @@ include/private/gc_hdrs.h include/gc.h include/gc_gcj.h include/gc_mark.h
 ## CFLAGS, not those passed in from the top level make.
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) \
-	$(AM_CFLAGS) $(MY_CFLAGS) $(BOEHM_GC_CFLAGS) 
+	$(AM_CFLAGS) $(MY_CFLAGS) $(GC_CFLAGS) 
 LINK = $(LIBTOOL) --mode=link $(CC) $(AM_CFLAGS) $(MY_CFLAGS) $(LDFLAGS) -o $@
 
-AM_CFLAGS = @BOEHM_GC_CFLAGS@
+AM_CFLAGS = @GC_CFLAGS@
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and

@@ -2,33 +2,34 @@
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997
    1998, 1999, 2000 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
 
 #include "rtl.h"
-#include "expr.h"
 #include "tree.h"
+#include "expr.h"
 #include "input.h"
 #include "output.h"
 #include "c-lex.h"
 #include "c-tree.h"
+#include "c-common.h"
 #include "flags.h"
 #include "timevar.h"
 #include "cpplib.h"
@@ -54,11 +55,11 @@ Boston, MA 02111-1307, USA.  */
 #define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ((ENV_VALUE) = getenv (ENV_NAME))
 #endif
 
-/* The input filename as understood by CPP, where "" represents stdin.  */
-static const char *cpp_filename;
-
 /* The current line map.  */
-static struct line_map *map;
+static const struct line_map *map;
+
+/* The line used to refresh the lineno global variable after each token.  */
+static unsigned int src_lineno;
 
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
@@ -83,15 +84,16 @@ int c_header_level;	 /* depth in C headers - C++ only */
 /* Nonzero tells yylex to ignore \ in string constants.  */
 static int ignore_escape_flag;
 
-static void parse_float		PARAMS ((PTR));
 static tree lex_number		PARAMS ((const char *, unsigned int));
-static tree lex_string		PARAMS ((const char *, unsigned int, int));
+static tree lex_string		PARAMS ((const unsigned char *, unsigned int,
+					 int));
 static tree lex_charconst	PARAMS ((const cpp_token *));
 static void update_header_times	PARAMS ((const char *));
 static int dump_one_header	PARAMS ((splay_tree_node, void *));
+static void cb_line_change     PARAMS ((cpp_reader *, const cpp_token *, int));
 static void cb_ident		PARAMS ((cpp_reader *, unsigned int,
 					 const cpp_string *));
-static void cb_file_change    PARAMS ((cpp_reader *, const cpp_file_change *));
+static void cb_file_change    PARAMS ((cpp_reader *, const struct line_map *));
 static void cb_def_pragma	PARAMS ((cpp_reader *, unsigned int));
 static void cb_define		PARAMS ((cpp_reader *, unsigned int,
 					 cpp_hashnode *));
@@ -105,7 +107,7 @@ init_c_lex (filename)
   struct cpp_callbacks *cb;
   struct c_fileinfo *toplevel;
 
-  /* Set up filename timing.  Must happen before cpp_start_read.  */
+  /* Set up filename timing.  Must happen before cpp_read_main_file.  */
   file_info_tree = splay_tree_new ((splay_tree_compare_fn)strcmp,
 				   0,
 				   (splay_tree_delete_value_fn)free);
@@ -125,40 +127,41 @@ init_c_lex (filename)
 
   cb = cpp_get_callbacks (parse_in);
 
+  cb->line_change = cb_line_change;
   cb->ident = cb_ident;
   cb->file_change = cb_file_change;
   cb->def_pragma = cb_def_pragma;
 
   /* Set the debug callbacks if we can use them.  */
   if (debug_info_level == DINFO_LEVEL_VERBOSE
-      && (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG))
+      && (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG
+          || write_symbols == VMS_AND_DWARF2_DEBUG))
     {
       cb->define = cb_define;
       cb->undef = cb_undef;
     }
 
-
-  if (filename == 0 || !strcmp (filename, "-"))
-    filename = "stdin", cpp_filename = "";
-  else
-    cpp_filename = filename;
-
   /* Start it at 0.  */
   lineno = 0;
 
-  return filename;
+  if (filename == NULL || !strcmp (filename, "-"))
+    filename = "";
+
+  return cpp_read_main_file (parse_in, filename, ident_hash);
 }
 
 /* A thin wrapper around the real parser that initializes the 
-   integrated preprocessor after debug output has been initialized.  */
+   integrated preprocessor after debug output has been initialized.
+   Also, make sure the start_source_file debug hook gets called for
+   the primary source file.  */
 
-int
-yyparse()
+void
+c_common_parse_file ()
 {
-  if (! cpp_start_read (parse_in, cpp_filename))
-    return 1;			/* cpplib has emitted an error.  */
+  (*debug_hooks->start_source_file) (lineno, input_filename);
+  cpp_finish_options (parse_in);
 
-  return yyparse_1();
+  yyparse ();
 }
 
 struct c_fileinfo *
@@ -237,34 +240,48 @@ cb_ident (pfile, line, str)
   if (! flag_no_ident)
     {
       /* Convert escapes in the string.  */
-      tree value = lex_string ((const char *)str->text, str->len, 0);
+      tree value = lex_string (str->text, str->len, 0);
       ASM_OUTPUT_IDENT (asm_out_file, TREE_STRING_POINTER (value));
     }
 #endif
 }
 
+/* Called at the start of every non-empty line.  TOKEN is the first
+   lexed token on the line.  Used for diagnostic line numbers.  */
 static void
-cb_file_change (pfile, fc)
+cb_line_change (pfile, token, parsing_args)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
-     const cpp_file_change *fc;
+     const cpp_token *token;
+     int parsing_args ATTRIBUTE_UNUSED;
 {
+  src_lineno = SOURCE_LINE (map, token->line);
+}
 
-  if (fc->reason == LC_ENTER)
+static void
+cb_file_change (pfile, new_map)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     const struct line_map *new_map;
+{
+  unsigned int to_line = SOURCE_LINE (new_map, new_map->to_line);
+
+  if (new_map->reason == LC_ENTER)
     {
       /* Don't stack the main buffer on the input stack;
 	 we already did in compile_file.  */
-      if (MAIN_FILE_P (fc->map))
-	main_input_filename = fc->map->to_file;
+      if (map == NULL)
+	main_input_filename = new_map->to_file;
       else
 	{
-	  lineno = SOURCE_LINE (fc->map - 1, fc->line - 1);
-	  push_srcloc (fc->map->to_file, 1);
+          int included_at = SOURCE_LINE (new_map - 1, new_map->from_line - 1);
+
+	  lineno = included_at;
+	  push_srcloc (new_map->to_file, 1);
 	  input_file_stack->indent_level = indent_level;
-	  (*debug_hooks->start_source_file) (lineno, fc->map->to_file);
+	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
 	    ++c_header_level;
-	  else if (fc->externc)
+	  else if (new_map->sysp == 2)
 	    {
 	      c_header_level = 1;
 	      ++pending_lang_change;
@@ -272,42 +289,36 @@ cb_file_change (pfile, fc)
 #endif
 	}
     }
-  else if (fc->reason == LC_LEAVE)
+  else if (new_map->reason == LC_LEAVE)
     {
-      /* Popping out of a file.  */
-      if (input_file_stack->next)
-	{
-	  unsigned int from_line = SOURCE_LINE (fc->map - 1, fc->line - 1);
 #ifndef NO_IMPLICIT_EXTERN_C
-	  if (c_header_level && --c_header_level == 0)
-	    {
-	      if (fc->externc)
-		warning ("badly nested C headers from preprocessor");
-	      --pending_lang_change;
-	    }
+      if (c_header_level && --c_header_level == 0)
+	{
+	  if (new_map->sysp == 2)
+	    warning ("badly nested C headers from preprocessor");
+	  --pending_lang_change;
+	}
 #endif
 #if 0
-	  if (indent_level != input_file_stack->indent_level)
-	    {
-	      warning_with_file_and_line
-		(input_filename, lineno,
-		 "This file contains more '%c's than '%c's.",
-		 indent_level > input_file_stack->indent_level ? '{' : '}',
-		 indent_level > input_file_stack->indent_level ? '}' : '{');
-	    }
-#endif
-	  pop_srcloc ();
-	  (*debug_hooks->end_source_file) (from_line);
+      if (indent_level != input_file_stack->indent_level)
+	{
+	  warning_with_file_and_line
+	    (input_filename, lineno,
+	     "this file contains more '%c's than '%c's",
+	     indent_level > input_file_stack->indent_level ? '{' : '}',
+	     indent_level > input_file_stack->indent_level ? '}' : '{');
 	}
-      else
-	error ("leaving more files than we entered");
+#endif
+      pop_srcloc ();
+      
+      (*debug_hooks->end_source_file) (to_line);
     }
 
-  update_header_times (fc->map->to_file);
-  map = fc->map;
-  in_system_header = fc->sysp != 0;
-  input_filename = map->to_file;
-  lineno = SOURCE_LINE (map, fc->line);
+  update_header_times (new_map->to_file);
+  in_system_header = new_map->sysp != 0;
+  input_filename = new_map->to_file;
+  lineno = to_line;
+  map = new_map;
 
   /* Hook for C++.  */
   extract_interface_info ();
@@ -324,13 +335,13 @@ cb_def_pragma (pfile, line)
   if (warn_unknown_pragmas > in_system_header)
     {
       const unsigned char *space, *name = 0;
-      cpp_token s;
+      const cpp_token *s;
 
-      cpp_get_token (pfile, &s);
-      space = cpp_token_as_text (pfile, &s);
-      cpp_get_token (pfile, &s);
-      if (s.type == CPP_NAME)
-	name = cpp_token_as_text (pfile, &s);
+      s = cpp_get_token (pfile);
+      space = cpp_token_as_text (pfile, s);
+      s = cpp_get_token (pfile);
+      if (s->type == CPP_NAME)
+	name = cpp_token_as_text (pfile, s);
 
       lineno = SOURCE_LINE (map, line);
       if (name)
@@ -674,10 +685,10 @@ utf8_extend_token (c)
 #if 0
 struct try_type
 {
-  tree *node_var;
-  char unsigned_flag;
-  char long_flag;
-  char long_long_flag;
+  tree *const node_var;
+  const char unsigned_flag;
+  const char long_flag;
+  const char long_long_flag;
 };
 
 struct try_type type_sequence[] =
@@ -691,116 +702,55 @@ struct try_type type_sequence[] =
 };
 #endif /* 0 */
 
-struct pf_args
-{
-  /* Input */
-  const char *str;
-  int fflag;
-  int lflag;
-  int base;
-  /* Output */
-  int conversion_errno;
-  REAL_VALUE_TYPE value;
-  tree type;
-};
- 
-static void
-parse_float (data)
-  PTR data;
-{
-  struct pf_args * args = (struct pf_args *) data;
-  const char *typename;
-
-  args->conversion_errno = 0;
-  args->type = double_type_node;
-  typename = "double";
-
-  /* The second argument, machine_mode, of REAL_VALUE_ATOF
-     tells the desired precision of the binary result
-     of decimal-to-binary conversion.  */
-
-  if (args->fflag)
-    {
-      if (args->lflag)
-	error ("both 'f' and 'l' suffixes on floating constant");
-
-      args->type = float_type_node;
-      typename = "float";
-    }
-  else if (args->lflag)
-    {
-      args->type = long_double_type_node;
-      typename = "long double";
-    }
-  else if (flag_single_precision_constant)
-    {
-      args->type = float_type_node;
-      typename = "float";
-    }
-
-  errno = 0;
-  if (args->base == 16)
-    args->value = REAL_VALUE_HTOF (args->str, TYPE_MODE (args->type));
-  else
-    args->value = REAL_VALUE_ATOF (args->str, TYPE_MODE (args->type));
-
-  args->conversion_errno = errno;
-  /* A diagnostic is required here by some ISO C testsuites.
-     This is not pedwarn, because some people don't want
-     an error for this.  */
-  if (REAL_VALUE_ISINF (args->value) && pedantic)
-    warning ("floating point number exceeds range of '%s'", typename);
-}
- 
 int
 c_lex (value)
      tree *value;
 {
-  cpp_token tok;
-  enum cpp_ttype type;
+  const cpp_token *tok;
 
   retry:
   timevar_push (TV_CPP);
-  cpp_get_token (parse_in, &tok);
+  do
+    tok = cpp_get_token (parse_in);
+  while (tok->type == CPP_PADDING);
   timevar_pop (TV_CPP);
 
   /* The C++ front end does horrible things with the current line
      number.  To ensure an accurate line number, we must reset it
      every time we return a token.  */
-  lineno = SOURCE_LINE (map, cpp_get_line (parse_in)->line);
+  lineno = src_lineno;
 
   *value = NULL_TREE;
-  type = tok.type;
-  switch (type)
+  switch (tok->type)
     {
     case CPP_OPEN_BRACE:  indent_level++;  break;
     case CPP_CLOSE_BRACE: indent_level--;  break;
 
-    /* Issue this error here, where we can get at tok.val.c.  */
+    /* Issue this error here, where we can get at tok->val.c.  */
     case CPP_OTHER:
-      if (ISGRAPH (tok.val.c))
-	error ("stray '%c' in program", tok.val.c);
+      if (ISGRAPH (tok->val.c))
+	error ("stray '%c' in program", tok->val.c);
       else
-	error ("stray '\\%o' in program", tok.val.c);
+	error ("stray '\\%o' in program", tok->val.c);
       goto retry;
       
     case CPP_NAME:
-      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok.val.node));
+      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node));
       break;
 
     case CPP_NUMBER:
-      *value = lex_number ((const char *)tok.val.str.text, tok.val.str.len);
+      *value = lex_number ((const char *)tok->val.str.text, tok->val.str.len);
       break;
 
     case CPP_CHAR:
     case CPP_WCHAR:
-      *value = lex_charconst (&tok);
+      *value = lex_charconst (tok);
       break;
 
     case CPP_STRING:
     case CPP_WSTRING:
-      *value = lex_string ((const char *)tok.val.str.text,
-			   tok.val.str.len, tok.type == CPP_WSTRING);
+      *value = lex_string (tok->val.str.text, tok->val.str.len,
+			   tok->type == CPP_WSTRING);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -812,7 +762,7 @@ c_lex (value)
     default: break;
     }
 
-  return type;
+  return tok->type;
 }
 
 #define ERROR(msgid) do { error(msgid); goto syntax_error; } while(0)
@@ -899,9 +849,10 @@ lex_number (str, len)
 	  /* It is not a decimal point.
 	     It should be a digit (perhaps a hex digit).  */
 
-	  if (ISDIGIT (c))
+	  if (ISDIGIT (c)
+	      || (base == 16 && ISXDIGIT (c)))
 	    {
-	      n = c - '0';
+	      n = hex_value (c);
 	    }
 	  else if (base <= 10 && (c == 'e' || c == 'E'))
 	    {
@@ -913,14 +864,6 @@ lex_number (str, len)
 	    {
 	      floatflag = AFTER_EXPON;
 	      break;   /* start of exponent */
-	    }
-	  else if (base == 16 && c >= 'a' && c <= 'f')
-	    {
-	      n = c - 'a' + 10;
-	    }
-	  else if (base == 16 && c >= 'A' && c <= 'F')
-	    {
-	      n = c - 'A' + 10;
 	    }
 	  else
 	    {
@@ -969,13 +912,10 @@ lex_number (str, len)
   if (floatflag != NOT_FLOAT)
     {
       tree type;
-      int imag, fflag, lflag, conversion_errno;
+      const char *typename;
+      int imag, fflag, lflag;
       REAL_VALUE_TYPE real;
-      struct pf_args args;
       char *copy;
-
-      if (base == 16 && pedantic && !flag_isoc99)
-	pedwarn ("floating constant may not be in radix 16");
 
       if (base == 16 && floatflag != AFTER_EXPON)
 	ERROR ("hexadecimal floating constant has no exponent");
@@ -1041,34 +981,45 @@ lex_number (str, len)
 	    ERROR ("invalid suffix on floating constant");
 	  }
 
-      /* Setup input for parse_float() */
-      args.str = copy;
-      args.fflag = fflag;
-      args.lflag = lflag;
-      args.base = base;
-
-      /* Convert string to a double, checking for overflow.  */
-      if (do_float_handler (parse_float, (PTR) &args))
+      type = double_type_node;
+      typename = "double";
+	
+      if (fflag)
 	{
-	  /* Receive output from parse_float() */
-	  real = args.value;
-	}
-      else
-	  /* We got an exception from parse_float() */
-	  ERROR ("floating constant out of range");
+	  if (lflag)
+	    ERROR ("both 'f' and 'l' suffixes on floating constant");
 
-      /* Receive output from parse_float() */
-      conversion_errno = args.conversion_errno;
-      type = args.type;
-	    
-#ifdef ERANGE
-      /* ERANGE is also reported for underflow,
-	 so test the value to distinguish overflow from that.  */
-      if (conversion_errno == ERANGE && !flag_traditional && pedantic
-	  && (REAL_VALUES_LESS (dconst1, real)
-	      || REAL_VALUES_LESS (real, dconstm1)))
+	  type = float_type_node;
+	  typename = "float";
+	}
+      else if (lflag)
+	{
+	  type = long_double_type_node;
+	  typename = "long double";
+	}
+      else if (flag_single_precision_constant)
+	{
+	  type = float_type_node;
+	  typename = "float";
+	}
+
+      /* Warn about this only after we know we're not issuing an error.  */
+      if (base == 16 && pedantic && !flag_isoc99)
+	pedwarn ("hexadecimal floating constants are only valid in C99");
+
+      /* The second argument, machine_mode, of REAL_VALUE_ATOF
+	 tells the desired precision of the binary result
+	 of decimal-to-binary conversion.  */
+      if (base == 16)
+	real = REAL_VALUE_HTOF (copy, TYPE_MODE (type));
+      else
+	real = REAL_VALUE_ATOF (copy, TYPE_MODE (type));
+
+      /* A diagnostic is required here by some ISO C testsuites.
+	 This is not pedwarn, because some people don't want
+	 an error for this.  */
+      if (REAL_VALUE_ISINF (real) && pedantic)
 	warning ("floating point number exceeds range of 'double'");
-#endif
 
       /* Create a node with determined type and value.  */
       if (imag)
@@ -1079,7 +1030,7 @@ lex_number (str, len)
     }
   else
     {
-      tree trad_type, ansi_type, type;
+      tree trad_type, type;
       HOST_WIDE_INT high, low;
       int spec_unsigned = 0;
       int spec_long = 0;
@@ -1088,7 +1039,7 @@ lex_number (str, len)
       int suffix_lu = 0;
       int warn = 0, i;
 
-      trad_type = ansi_type = type = NULL_TREE;
+      trad_type = type = NULL_TREE;
       while (p < str + len)
 	{
 	  c = *p++;
@@ -1160,11 +1111,9 @@ lex_number (str, len)
       TREE_TYPE (value) = long_long_unsigned_type_node;
 
       /* If warn_traditional, calculate both the ISO type and the
-	 traditional type, then see if they disagree.
-	 Otherwise, calculate only the type for the dialect in use.  */
-      if (warn_traditional || flag_traditional)
+	 traditional type, then see if they disagree.  */
+      if (warn_traditional)
 	{
-	  /* Calculate the traditional type.  */
 	  /* Traditionally, any constant is signed; but if unsigned is
 	     specified explicitly, obey that.  Use the smallest size
 	     with the right number of bits, except for one special
@@ -1194,50 +1143,46 @@ lex_number (str, len)
 			 ? widest_unsigned_literal_type_node
 			 : widest_integer_literal_type_node);
 	}
-      if (warn_traditional || ! flag_traditional)
-	{
-	  /* Calculate the ISO type.  */
-	  if (! spec_long && ! spec_unsigned
-	      && int_fits_type_p (value, integer_type_node))
-	    ansi_type = integer_type_node;
-	  else if (! spec_long && (base != 10 || spec_unsigned)
-		   && int_fits_type_p (value, unsigned_type_node))
-	    ansi_type = unsigned_type_node;
-	  else if (! spec_unsigned && !spec_long_long
-		   && int_fits_type_p (value, long_integer_type_node))
-	    ansi_type = long_integer_type_node;
-	  else if (! spec_long_long
-		   && int_fits_type_p (value, long_unsigned_type_node))
-	    ansi_type = long_unsigned_type_node;
-	  else if (! spec_unsigned
-		   && int_fits_type_p (value, long_long_integer_type_node))
-	    ansi_type = long_long_integer_type_node;
-	  else if (int_fits_type_p (value, long_long_unsigned_type_node))
-	    ansi_type = long_long_unsigned_type_node;
-	  else if (! spec_unsigned
-		   && int_fits_type_p (value, widest_integer_literal_type_node))
-	    ansi_type = widest_integer_literal_type_node;
-	  else
-	    ansi_type = widest_unsigned_literal_type_node;
-	}
-
-      type = flag_traditional ? trad_type : ansi_type;
+	
+	/* Calculate the ISO type.  */
+	if (! spec_long && ! spec_unsigned
+	    && int_fits_type_p (value, integer_type_node))
+	  type = integer_type_node;
+	else if (! spec_long && (base != 10 || spec_unsigned)
+		 && int_fits_type_p (value, unsigned_type_node))
+	  type = unsigned_type_node;
+	else if (! spec_unsigned && !spec_long_long
+		 && int_fits_type_p (value, long_integer_type_node))
+	  type = long_integer_type_node;
+	else if (! spec_long_long
+		 && int_fits_type_p (value, long_unsigned_type_node))
+	  type = long_unsigned_type_node;
+	else if (! spec_unsigned
+		 && int_fits_type_p (value, long_long_integer_type_node))
+	  type = long_long_integer_type_node;
+	else if (int_fits_type_p (value, long_long_unsigned_type_node))
+	  type = long_long_unsigned_type_node;
+	else if (! spec_unsigned
+		 && int_fits_type_p (value, widest_integer_literal_type_node))
+	  type = widest_integer_literal_type_node;
+	else
+	  type = widest_unsigned_literal_type_node;
 
       /* We assume that constants specified in a non-decimal
 	 base are bit patterns, and that the programmer really
 	 meant what they wrote.  */
       if (warn_traditional && !in_system_header
-	  && base == 10 && trad_type != ansi_type)
+	  && base == 10 && trad_type != type)
 	{
-	  if (TYPE_PRECISION (trad_type) != TYPE_PRECISION (ansi_type))
-	    warning ("width of integer constant changes with -traditional");
-	  else if (TREE_UNSIGNED (trad_type) != TREE_UNSIGNED (ansi_type))
-	    warning ("integer constant is unsigned in ISO C, signed with -traditional");
+	  if (TYPE_PRECISION (trad_type) != TYPE_PRECISION (type))
+	    warning ("width of integer constant is different in traditional C");
+	  else if (TREE_UNSIGNED (trad_type) != TREE_UNSIGNED (type))
+	    warning ("integer constant is unsigned in ISO C, signed in traditional C");
 	  else
-	    warning ("width of integer constant may change on other systems with -traditional");
+	    warning ("width of integer constant may change on other systems in traditional C");
 	}
 
-      if (pedantic && !flag_traditional && (flag_isoc99 || !spec_long_long)
+      if (pedantic && (flag_isoc99 || !spec_long_long)
 	  && !warn
 	  && ((flag_isoc99
 	       ? TYPE_PRECISION (long_long_integer_type_node)
@@ -1247,9 +1192,9 @@ lex_number (str, len)
 	  pedwarn ("integer constant larger than the maximum value of %s",
 		   (flag_isoc99
 		    ? (TREE_UNSIGNED (type)
-		       ? "an unsigned long long int"
-		       : "a long long int")
-		    : "an unsigned long int"));
+		       ? _("an unsigned long long int")
+		       : _("a long long int"))
+		    : _("an unsigned long int")));
 	}
 
       if (base == 10 && ! spec_unsigned && TREE_UNSIGNED (type))
@@ -1263,15 +1208,6 @@ lex_number (str, len)
 				   convert (integer_type_node, value));
 	  else
 	    ERROR ("complex integer constant is too wide for 'complex int'");
-	}
-      else if (flag_traditional && !int_fits_type_p (value, type))
-	/* The traditional constant 0x80000000 is signed
-	   but doesn't fit in the range of int.
-	   This will change it to -0x80000000, which does fit.  */
-	{
-	  TREE_TYPE (value) = unsigned_type (type);
-	  value = convert (type, value);
-	  TREE_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (value) = 0;
 	}
       else
 	TREE_TYPE (value) = type;
@@ -1296,14 +1232,14 @@ lex_number (str, len)
 
 static tree
 lex_string (str, len, wide)
-     const char *str;
+     const unsigned char *str;
      unsigned int len;
      int wide;
 {
   tree value;
   char *buf = alloca ((len + 1) * (wide ? WCHAR_BYTES : 1));
   char *q = buf;
-  const char *p = str, *limit = str + len;
+  const unsigned char *p = str, *limit = str + len;
   unsigned int c;
   unsigned width = wide ? WCHAR_TYPE_SIZE
 			: TYPE_PRECISION (char_type_node);
@@ -1319,10 +1255,10 @@ lex_string (str, len, wide)
       wchar_t wc;
       int char_len;
 
-      char_len = local_mbtowc (&wc, p, limit - p);
+      char_len = local_mbtowc (&wc, (const char *) p, limit - p);
       if (char_len == -1)
 	{
-	  warning ("Ignoring invalid multibyte character");
+	  warning ("ignoring invalid multibyte character");
 	  char_len = 1;
 	  c = *p++;
 	}
@@ -1343,9 +1279,7 @@ lex_string (str, len, wide)
 	    mask = ((unsigned int) 1 << width) - 1;
 	  else
 	    mask = ~0;
-	  c = cpp_parse_escape (parse_in, (const unsigned char **) &p,
-				(const unsigned char *) limit,
-				mask, flag_traditional);
+	  c = cpp_parse_escape (parse_in, &p, limit, mask);
 	}
 	
       /* Add this single character into the buffer either as a wchar_t
@@ -1408,7 +1342,7 @@ lex_charconst (token)
   unsigned int chars_seen;
  
   result = cpp_interpret_charconst (parse_in, token, warn_multichar,
- 				    flag_traditional, &chars_seen);
+ 				    &chars_seen);
   if (token->type == CPP_WCHAR)
     {
       value = build_int_2 (result, 0);

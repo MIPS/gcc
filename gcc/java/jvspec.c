@@ -1,6 +1,6 @@
- /* Specific flags and argument handling of the front-end of the 
+/* Specific flags and argument handling of the front-end of the 
    GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -42,8 +42,11 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #define ZIP_FILE_ARG	(1<<5)
 /* True if this arg is @FILE - where FILE contains a list of filenames. */
 #define INDIRECT_FILE_ARG (1<<6)
+/* True if this arg is a resource file.  */
+#define RESOURCE_FILE_ARG (1<<7)
 
 static char *find_spec_file	PARAMS ((const char *));
+static int verify_class_name    PARAMS ((const char *));
 
 static const char *main_class_name = NULL;
 int lang_specific_extra_outfiles = 0;
@@ -51,7 +54,7 @@ int lang_specific_extra_outfiles = 0;
 /* True if we should add -shared-libgcc to the command-line.  */
 int shared_libgcc = 1;
 
-const char jvgenmain_spec[] =
+static const char jvgenmain_spec[] =
   "jvgenmain %{D*} %b %{!pipe:%u.i} |\n\
    cc1 %{!pipe:%U.i} %1 \
 		   %{!Q:-quiet} -dumpbase %b.c %{d*} %{m*} %{a*}\
@@ -59,17 +62,20 @@ const char jvgenmain_spec[] =
 		   %{v:-version} %{pg:-p} %{p}\
 		   %{<fbounds-check} %{<fno-bounds-check}\
 		   %{<fassume-compiled} %{<fno-assume-compiled}\
+                   %{<fcompile-resource*}\
 		   %{<femit-class-file} %{<femit-class-files} %{<fencoding*}\
 		   %{<fuse-boehm-gc} %{<fhash-synchronization} %{<fjni}\
-		   %{<fclasspath*} %{<fCLASSPATH*} %{<foutput-class-dir}\
+		   %{<findirect-dispatch} \
+		   %{<fno-store-check} %{<foutput-class-dir}\
+		   %{<fclasspath*} %{<fCLASSPATH*} %{<fbootclasspath*}\
 		   %{<fuse-divide-subroutine} %{<fno-use-divide-subroutine}\
 		   %{<fcheck-references} %{<fno-check-references}\
 		   %{<ffilelist-file}\
 		   %{f*} -fdollars-in-identifiers\
 		   %{aux-info*}\
 		   %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
-		   %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%U.s}} |\n\
-              %{!S:as %a %Y -o %d%w%u%O %{!pipe:%U.s} %A\n }";
+		   %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
+              %{!S:as %a %Y -o %d%w%u%O %{!pipe:%g.s} %A\n }";
 
 /* Return full path name of spec file if it is in DIR, or NULL if
    not.  */
@@ -92,6 +98,45 @@ find_spec_file (dir)
     return spec;
   free (spec);
   return NULL;
+}
+
+/* FIXME: these should come from lex.h.  */
+#define JAVA_START_CHAR_P(c) (c < 128 && (ISIDST (c) || c == '$'))
+#define JAVA_PART_CHAR_P(c) (c < 128					      \
+			     && (ISIDNUM (c)				      \
+				 || c == '$'				      \
+				 || (c >= 0x00 && c <= 0x08)		      \
+				 || (c >= 0x0e && c <= 0x1b)		      \
+				 || c == 0x7f))
+
+/* Verify that NAME is a valid Java class name that might contain
+   `main'.  Return 0 on failure.  */
+static int
+verify_class_name (name)
+     const char *name;
+{
+  /* FIXME: what encoding do we use for command-line arguments?  For
+     now we assume plain ASCII, which of course is wrong.  */
+  while (*name)
+    {
+      int ch = *name++;
+      if (ch < 0 || ! JAVA_START_CHAR_P (ch))
+	return 0;
+      while (*name)
+	{
+	  ch = *name++;
+	  if (ch < 0)
+	    return 0;
+	  /* We found a break between class names.  Next character
+	     must be an identifier start again.  */
+	  if (ch == '.')
+	    break;
+	  if (! JAVA_PART_CHAR_P (ch))
+	    return 0;
+	}
+    }
+
+  return 1;
 }
 
 void
@@ -164,7 +209,8 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   int saw_libgcj ATTRIBUTE_UNUSED = 0;
 #endif
 
-  /* Saw -C or -o option, respectively. */
+  /* Saw -R, -C or -o options, respectively. */
+  int saw_R = 0;
   int saw_C = 0;
   int saw_o = 0;
 
@@ -256,6 +302,16 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      library = 0;
 	      will_link = 0;
 	    }
+	  else if (strcmp (argv[i], "-R") == 0)
+	    {
+	      saw_R = 1;
+	      quote = argv[i];
+	      want_spec_file = 0;
+	      if (library != 0)
+		added -= 2;
+	      library = 0;
+	      will_link = 0;
+	    }
 	  else if (argv[i][1] == 'D')
 	    saw_D = 1;
 	  else if (argv[i][1] == 'g')
@@ -273,6 +329,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      quote = argv[i];
 	    }
 	  else if (strcmp(argv[i], "-classpath") == 0
+		   || strcmp(argv[i], "-bootclasspath") == 0
 		   || strcmp(argv[i], "-CLASSPATH") == 0)
 	    {
 	      quote = argv[i];
@@ -324,6 +381,13 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      continue;
 	    }
 
+	  if (saw_R)
+	    {
+	      args[i] |= RESOURCE_FILE_ARG;
+	      last_input_index = i;
+	      added += 2;  /* for -xjava and -xnone */
+	    }
+
 	  if (argv[i][0] == '@')
 	    {
 	      args[i] |= INDIRECT_FILE_ARG;
@@ -361,13 +425,21 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   if (saw_D && ! main_class_name)
     fatal ("can't specify `-D' without `--main'\n");
 
+  if (main_class_name && ! verify_class_name (main_class_name))
+    fatal ("`%s' is not a valid class name", main_class_name);
+
   num_args = argc + added;
+  if (saw_R)
+    {
+      if (! saw_o)
+	fatal ("-R requires -o");
+    }
   if (saw_C)
     {
       num_args += 3;
       if (class_files_count + zip_files_count > 0)
 	{
-	  error ("Warning: already-compiled .class files ignored with -C"); 
+	  error ("warning: already-compiled .class files ignored with -C"); 
 	  num_args -= class_files_count + zip_files_count;
 	  class_files_count = 0;
 	  zip_files_count = 0;
@@ -434,7 +506,24 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
       if ((args[i] & PARAM_ARG) || i == 0)
 	continue;
 
+      if ((args[i] & RESOURCE_FILE_ARG) != 0)
+	{
+	  arglist[j++] = "-xjava";
+	  arglist[j++] = argv[i];
+	  arglist[j] = "-xnone";
+	}
+
+      if (strcmp (argv[i], "-R") == 0)
+	{
+	  arglist[j] = concat ("-fcompile-resource=",
+			       *argv[i+1] == '/' ? "" : "/",
+			       argv[i+1], NULL);
+	  i++;
+	  continue;
+	}
+
       if (strcmp (argv[i], "-classpath") == 0
+	  || strcmp (argv[i], "-bootclasspath") == 0
 	  || strcmp (argv[i], "-CLASSPATH") == 0)
 	{
 	  arglist[j] = concat ("-f", argv[i]+1, "=", argv[i+1], NULL);

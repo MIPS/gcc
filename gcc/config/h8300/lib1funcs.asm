@@ -1,7 +1,7 @@
 ;; libgcc routines for the Hitachi H8/300 CPU.
 ;; Contributed by Steve Chamberlain <sac@cygnus.com>
 
-/* Copyright (C) 1994, 2000 Free Software Foundation, Inc.
+/* Copyright (C) 1994, 2000, 2001 Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -251,7 +251,7 @@ ___umodhi3:
 ; q low 8 bits of quot
 ; P preserve
 
-; The h8 only has a 16/8 bit divide, so we look at the incoming and
+; The H8/300 only has a 16/8 bit divide, so we look at the incoming and
 ; see how to partition up the expression.
 
 	.global	___udivhi3
@@ -502,10 +502,10 @@ reti:
 	POPP	S2P
 	rts	
 
-	; takes A0/A1 numerator (A0P for 300h)
-	; A2/A3 denominator (A1P for 300h)
-	; returns A0/A1 quotient (A0P for 300h)
-	; S0/S1 remainder (S0P for 300h)
+	; takes A0/A1 numerator (A0P for 300H)
+	; A2/A3 denominator (A1P for 300H)
+	; returns A0/A1 quotient (A0P for 300H)
+	; S0/S1 remainder (S0P for 300H)
 	; trashes S2
 
 #ifdef __H8300__
@@ -634,7 +634,7 @@ setone:
 #ifdef L_mulhi3
 
 ;; HImode multiply.
-; The h8 only has an 8*8->16 multiply.
+; The H8/300 only has an 8*8->16 multiply.
 ; The answer is the same as:
 ; 
 ; product = (srca.l * srcb.l) + ((srca.h * srcb.l) + (srcb.h * srca.l)) * 256
@@ -764,3 +764,31 @@ _done:
 
 #endif
 #endif /* L_mulsi3 */
+#ifdef L_fixunssfsi_asm
+/* For the h8300 we use asm to save some bytes, to
+   allow more programs to fit into the tiny address
+   space.  For the H8/300H and H8S, the C version is good enough.  */
+#ifdef __H8300__
+/* We still treat NANs different than libgcc2.c, but then, the
+   behaviour is undefined anyways.  */
+	.global	___fixunssfsi
+___fixunssfsi:
+	cmp.b #0x47,r0h
+	bge Large_num
+	jmp     @___fixsfsi
+Large_num:
+	bhi L_huge_num
+	xor.b #0x80,A0L
+	bmi L_shift8
+L_huge_num:
+	mov.w #65535,A0
+	mov.w A0,A1
+	rts
+L_shift8:
+	mov.b A0L,A0H
+	mov.b A1H,A0L
+	mov.b A1L,A1H
+	mov.b #0,A1L
+	rts
+#endif
+#endif /* L_fixunssfsi_asm */

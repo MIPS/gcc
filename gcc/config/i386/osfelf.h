@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Intel 386 (OSF/1 with ELF) version.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -19,8 +19,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "config/i386/osfrose.h"
-
 #undef	CPP_PREDEFINES
 #define CPP_PREDEFINES "-DOSF -DOSF1 -Dunix -Asystem=xpg4"
 
@@ -30,7 +28,7 @@ Boston, MA 02111-1307, USA.  */
 %{!mrose: -D__ELF__ %{fpic: -D__SHARED__}} \
 %{mno-underscores: -D__NO_UNDERSCORES__} \
 %{!mrose: %{!munderscores: -D__NO_UNDERSCORES__}} \
-%{.S:	%{!ansi:%{!traditional:%{!traditional-cpp:%{!ftraditional: -traditional}}}}} \
+%{.S:	%{!ansi:%{!traditional-cpp: -traditional}}} \
 %{.S:	-D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY}} \
 %{.cc:	-D__LANGUAGE_C_PLUS_PLUS} \
 %{.cxx:	-D__LANGUAGE_C_PLUS_PLUS} \
@@ -68,7 +66,6 @@ Boston, MA 02111-1307, USA.  */
 			%{!noshrlib: %{!pic-none: -dy}}}}}}}}"
 
 #undef TARGET_VERSION_INTERNAL
-#undef TARGET_VERSION
 
 #undef	I386_VERSION
 #define I386_VERSION " 80386, ELF objects"

@@ -1,6 +1,6 @@
 // FileDescriptor.java - Open file or device
 
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -24,13 +24,19 @@ package java.io;
 // if need be.
 public final class FileDescriptor
 {
-  public static final FileDescriptor in = new FileDescriptor (0);
-  public static final FileDescriptor out = new FileDescriptor (1);
-  public static final FileDescriptor err = new FileDescriptor (2);
+
+  public static final FileDescriptor in = null;
+  public static final FileDescriptor out = null;
+  public static final FileDescriptor err = null;
+
+  private static native void init();
+  static
+  {
+    init();
+  }
 
   public native void sync () throws SyncFailedException;
   public native boolean valid ();
-
 
   // These are mode values for open().
   static final int READ   = 1;
@@ -43,6 +49,11 @@ public final class FileDescriptor
   static final int SET = 0;
   static final int CUR = 1;
 
+  // This constructor is specified to create an invalid descriptor.
+  public FileDescriptor ()
+  {
+  }
+
   // Open a file.  MODE is a combination of the above mode flags.
   FileDescriptor (String path, int mode) throws FileNotFoundException
   {
@@ -54,7 +65,11 @@ public final class FileDescriptor
   native void write (byte[] b, int offset, int len)
     throws IOException, NullPointerException, IndexOutOfBoundsException;
   native void close () throws IOException;
-  native int seek (long pos, int whence) throws IOException;
+  // EOF_TRUNC is true if a request to seek past the end of file
+  // should actually stop at the end of file.  If false, then a seek
+  // past the end is ok (and if a subsequent write occurs the file
+  // will grow).
+  native int seek (long pos, int whence, boolean eof_trunc) throws IOException;
   native long length () throws IOException;
   native long getFilePointer () throws IOException;
   native int read () throws IOException;

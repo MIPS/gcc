@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for some generic XCOFF file format
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -21,10 +21,6 @@ Boston, MA 02111-1307, USA.  */
 
 
 #define TARGET_OBJECT_FORMAT OBJECT_XCOFF
-
-/* The AIX linker will discard static constructors in object files before
-   collect has a chance to see them, so scan the object files directly.  */
-#define COLLECT_EXPORT_LIST
 
 /* The RS/6000 uses the XCOFF format.  */
 #define XCOFF_DEBUGGING_INFO
@@ -144,7 +140,7 @@ toc_section ()						\
    On the RS/6000, we have a special section for all variables except those
    that are static.  */
 
-#define SELECT_SECTION(EXP,RELOC)			\
+#define SELECT_SECTION(EXP,RELOC,ALIGN)			\
 {							\
   if ((TREE_CODE (EXP) == STRING_CST			\
        && ! flag_writable_strings)			\
@@ -199,7 +195,7 @@ toc_section ()						\
    However, if this is being placed in the TOC it must be output as a
    toc entry.  */
 
-#define SELECT_RTX_SECTION(MODE, X)			\
+#define SELECT_RTX_SECTION(MODE, X, ALIGN)		\
 { if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (X, MODE))	\
     toc_section ();					\
   else							\
@@ -209,9 +205,9 @@ toc_section ()						\
 /* If we are referencing a function that is static or is known to be
    in this file, make the SYMBOL_REF special.  We can use this to indicate
    that we can branch to this function without emitting a no-op after the
-   call.  Do not set this flag if the function is weakly defined. */
+   call.  Do not set this flag if the function is weakly defined.  */
 
-#define ENCODE_SECTION_INFO(DECL)			\
+#define ENCODE_SECTION_INFO(DECL, FIRST)		\
   if (TREE_CODE (DECL) == FUNCTION_DECL			\
       && !TREE_PUBLIC (DECL)				\
       && !DECL_WEAK (DECL))				\
@@ -224,11 +220,14 @@ toc_section ()						\
 #define RESTORE_FP_SUFFIX ""
 
 /* Function name to call to do profiling.  */
+#undef RS6000_MCOUNT
 #define RS6000_MCOUNT ".__mcount"
 
 /* Function names to call to do floating point truncation.  */
 
+#undef RS6000_ITRUNC
 #define RS6000_ITRUNC "__itrunc"
+#undef RS6000_UITRUNC
 #define RS6000_UITRUNC "__uitrunc"
 
 /* This outputs NAME to FILE up to the first null or '['.  */
@@ -342,9 +341,12 @@ toc_section ()						\
     SYMBOL_REF_FLAG (sym_ref) = 1;				\
   if (TREE_PUBLIC (DECL))					\
     {								\
-      fputs ("\t.globl .", FILE);				\
-      RS6000_OUTPUT_BASENAME (FILE, NAME);			\
-      putc ('\n', FILE);					\
+      if (!RS6000_WEAK || !DECL_WEAK (decl))			\
+	{							\
+	  fputs ("\t.globl .", FILE);				\
+	  RS6000_OUTPUT_BASENAME (FILE, NAME);			\
+	  putc ('\n', FILE);					\
+	}							\
     }								\
   else								\
     {								\
@@ -376,6 +378,7 @@ toc_section ()						\
 
 /* This says how to output an external.  */
 
+#undef ASM_OUTPUT_EXTERNAL
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
 { rtx _symref = XEXP (DECL_RTL (DECL), 0);	\
   if ((TREE_CODE (DECL) == VAR_DECL		\
@@ -393,7 +396,7 @@ toc_section ()						\
    PREFIX is the class of label and NUM is the number within the class.  */
 
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s..%d:\n", PREFIX, NUM)
+  fprintf (FILE, "%s..%u:\n", (PREFIX), (unsigned) (NUM))
 
 /* This is how to output an internal label prefix.  rs6000.c uses this
    when generating traceback tables.  */
@@ -403,7 +406,7 @@ toc_section ()						\
 
 /* This is how to output a label for a jump table.  Arguments are the same as
    for ASM_OUTPUT_INTERNAL_LABEL, except the insn for the jump table is
-   passed. */
+   passed.  */
 
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLEINSN)	\
 { ASM_OUTPUT_ALIGN (FILE, 2); ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM); }
@@ -414,7 +417,7 @@ toc_section ()						\
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*%s..%ld", (PREFIX), (long)(NUM))
+  sprintf (LABEL, "*%s..%u", (PREFIX), (unsigned) (NUM))
 
 /* This is how to output an assembler line to define N characters starting
    at P to FILE.  */
@@ -430,16 +433,13 @@ toc_section ()						\
    to define a global common symbol.  */
 
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGNMENT)	\
-  do { fputs (".comm ", (FILE));			\
+  do { fputs ("\t.comm ", (FILE));			\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
        if ( (SIZE) > 4)					\
          fprintf ((FILE), ",%d,3\n", (SIZE));		\
        else						\
 	 fprintf ((FILE), ",%d\n", (SIZE));		\
   } while (0)
-
-/* Used by definition of ASM_OUTPUT_DOUBLE_INT */
-#define DOUBLE_INT_ASM_OP "\t.llong "
 
 /* This says how to output an assembler line
    to define a local common symbol.
@@ -448,23 +448,17 @@ toc_section ()						\
    for 64-bit mode.  */
 
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
-  do { fputs (".lcomm ", (FILE));			\
+  do { fputs ("\t.lcomm ", (FILE));			\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
        fprintf ((FILE), ",%d,%s\n", (TARGET_32BIT ? (SIZE) : (ROUNDED)), \
 		xcoff_bss_section_name);		\
      } while (0)
 
 /* This is how we tell the assembler that two symbols have the same value.  */
+#define SET_ASM_OP "\t.set "
 
-#define SET_ASM_OP "\t.set\t"
-
-/* These are various definitions for DWARF output.  They could just
-   use '.long' or '.word', but that aligns to a 4-byte boundary which
-   is not what is required.  So we define a million macros...  */
-
-#define UNALIGNED_SHORT_ASM_OP		"\t.vbyte\t2,"
-#define UNALIGNED_INT_ASM_OP		"\t.vbyte\t4,"
-#define UNALIGNED_DOUBLE_INT_ASM_OP	"\t.vbyte\t8,"
+/* Used by rs6000_assemble_integer, among others.  */
+#define DOUBLE_INT_ASM_OP "\t.llong\t"
 
 /* Output before instructions.  */
 #define TEXT_SECTION_ASM_OP "\t.csect .text[PR]"
@@ -483,7 +477,7 @@ toc_section ()						\
     if (TREE_CODE (DECL) == FUNCTION_DECL) {		\
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL)); \
       len = strlen (name) + 5;				\
-      string = alloca (len) + 1;			\
+      string = alloca (len + 1);			\
       sprintf (string, ".%s[PR]", name);		\
       DECL_SECTION_NAME (DECL) = build_string (len, string); \
     }							\
@@ -492,8 +486,11 @@ toc_section ()						\
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  xcoff_asm_named_section
 
-/* Define the name of the section to use for the exception tables.
-   TODO: test and see if we can use read_only_data_section, if so,
-   remove this.  */
+/* Define the name of the section to use for the EH language specific
+   data areas (.gcc_except_table on most other systems).  */
+#define TARGET_ASM_EXCEPTION_SECTION data_section
 
-#define EXCEPTION_SECTION data_section
+/* Define to prevent DWARF2 unwind info in the data section rather
+   than in the .eh_frame section.  We do this because the AIX linker
+   would otherwise garbage collect these sections.  */
+#define EH_FRAME_IN_DATA_SECTION 1

@@ -26,8 +26,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #ifndef GCC_JAVA_LEX_H
 #define GCC_JAVA_LEX_H
 
-#include <setjmp.h>		/* set_float_handler argument uses it */
-
 /* Extern global variables declarations  */
 extern FILE *finput;
 extern int   lineno;
@@ -172,7 +170,6 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
 
 #define DCONST0 0
 #define REAL_VALUE_TYPE int
-#define SET_FLOAT_HANDLER(H)
 #define GET_IDENTIFIER(S) xstrdup ((S))
 #define REAL_VALUE_ATOF(LIT,MODE) 0
 #define REAL_VALUE_ISINF(VALUE)   0
@@ -192,8 +189,6 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
 
 #else
 
-extern void set_float_handler PARAMS ((jmp_buf));
-#define SET_FLOAT_HANDLER(H) set_float_handler ((H))
 #define DCONST0 dconst0
 #define GET_IDENTIFIER(S) get_identifier ((S))
 #define SET_REAL_VALUE_ATOF(TARGET,SOURCE) (TARGET) = (SOURCE)
@@ -255,33 +250,25 @@ extern void set_float_handler PARAMS ((jmp_buf));
 #define RANGE(c, l, h)           (((c) >= l && (c) <= h))
 #define JAVA_WHITE_SPACE_P(c) (c == ' ' || c == '\t' || c == '\f')
 #define JAVA_START_CHAR_P(c) ((c < 128					      \
-			       && (RANGE (c, 'A', 'Z')			      \
-				   || RANGE (c, 'a', 'z')		      \
-				   || c == '_'				      \
-				   || c == '$'))			      \
+			       && (ISIDST (c) || c == '$'))		      \
                               || (c >= 128 && java_start_char_p (c)))
 #define JAVA_PART_CHAR_P(c) ((c < 128					      \
-			       && (RANGE (c, 'A', 'Z')			      \
-				   || RANGE (c, 'a', 'z')		      \
-				   || RANGE (c, '0', '9')		      \
-				   || c == '_'				      \
+			       && (ISIDNUM (c)				      \
 				   || c == '$'				      \
 				   || c == 0x0000			      \
 				   || RANGE (c, 0x01, 0x08)		      \
 				   || RANGE (c, 0x0e, 0x1b)		      \
 				   || c == 0x7f))			      \
                               || (c >= 128 && java_part_char_p (c)))
-#define JAVA_ASCII_DIGIT(c)    RANGE (c, '0', '9')
+#define JAVA_ASCII_DIGIT(c)    ISDIGIT (c)
 #define JAVA_ASCII_OCTDIGIT(c) RANGE (c, '0', '7')
-#define JAVA_ASCII_HEXDIGIT(c) (RANGE (c, '0', '9') || 	\
-				RANGE (c, 'a', 'f') ||	\
-				RANGE (c, 'A', 'F'))
+#define JAVA_ASCII_HEXDIGIT(c) ISXDIGIT (c)
 #define JAVA_ASCII_FPCHAR(c)   (RANGE (c, 'd', 'f') || RANGE (c, 'D', 'F') || \
 				c == '.' || JAVA_ASCII_DIGIT (c))
 #define JAVA_FP_SUFFIX(c)      (c == 'D' || c == 'd' || c == 'f' || c == 'F')
 #define JAVA_FP_EXP(c)         (c == 'E' || c == 'F')
 #define JAVA_FP_PM(c)          (c == '-' || c == '+')
-#define JAVA_ASCII_LETTER(c)   (RANGE (c, 'a', 'z') || RANGE (c, 'A', 'Z'))
+#define JAVA_ASCII_LETTER(c)   ISALPHA (c)
 
 /* Constants  */
 #define JAVA_READ_BUFFER 256

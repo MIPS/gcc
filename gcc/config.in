@@ -1,7 +1,14 @@
 /* config.in.  Generated automatically from configure.in by autoheader 2.13.  */
 
+/* Define if using alloca.c.  */
+#undef C_ALLOCA
+
 /* Define to empty if the keyword does not work.  */
 #undef const
+
+/* Define to one of _getb67, GETB67, getb67 for Cray-2 and Cray-YMP systems.
+   This function is required for alloca.c support on those systems.  */
+#undef CRAY_STACKSEG_END
 
 /* Define to the type of elements in the array set by `getgroups'.
    Usually this is either `int' or `gid_t'.  */
@@ -10,8 +17,11 @@
 /* Define to `int' if <sys/types.h> doesn't define.  */
 #undef gid_t
 
-/* Define if you don't have vprintf but do have _doprnt.  */
-#undef HAVE_DOPRNT
+/* Define if you have alloca, as a function or macro.  */
+#undef HAVE_ALLOCA
+
+/* Define if you have <alloca.h> and it should be used (not on Ultrix).  */
+#undef HAVE_ALLOCA_H
 
 /* Define if you have the ANSI # stringizing operator in cpp. */
 #undef HAVE_STRINGIZE
@@ -21,9 +31,6 @@
 
 /* Define if you have <vfork.h>.  */
 #undef HAVE_VFORK_H
-
-/* Define if you have the vprintf function.  */
-#undef HAVE_VPRINTF
 
 /* Define as __inline if that's what the C compiler calls it.  */
 #undef inline
@@ -40,6 +47,15 @@
 /* Define to `unsigned' if <sys/types.h> doesn't define.  */
 #undef size_t
 
+/* If using the C implementation of alloca, define if you know the
+   direction of stack growth for your system; otherwise it will be
+   automatically deduced at run-time.
+ STACK_DIRECTION > 0 => grows toward higher addresses
+ STACK_DIRECTION < 0 => grows toward lower addresses
+ STACK_DIRECTION = 0 => direction of growth unknown
+ */
+#undef STACK_DIRECTION
+
 /* Define if you have the ANSI C header files.  */
 #undef STDC_HEADERS
 
@@ -52,23 +68,8 @@
 /* Define vfork as fork if vfork does not work.  */
 #undef vfork
 
-/* Define to 1 if NLS is requested.  */
-#undef ENABLE_NLS
-
-/* Define as 1 if you have catgets and don't want to use GNU gettext.  */
-#undef HAVE_CATGETS
-
-/* Define as 1 if you have gettext and don't want to use GNU gettext.  */
-#undef HAVE_GETTEXT
-
-/* Define if your locale.h file contains LC_MESSAGES.  */
-#undef HAVE_LC_MESSAGES
-
-/* Define as 1 if you have the stpcpy function.  */
-#undef HAVE_STPCPY
-
 /* Define if your assembler supports specifying the maximum number
-   of bytes to skip when using the GAS .p2align command. */
+   of bytes to skip when using the GAS .p2align command.  */
 #undef HAVE_GAS_MAX_SKIP_P2ALIGN
 
 /* Define if your assembler supports .balign and .p2align.  */
@@ -79,6 +80,9 @@
 
 /* Define to `int' if <sys/types.h> doesn't define.  */
 #undef ssize_t
+
+/* Define if cpp should also search $prefix/include.  */
+#undef PREFIX_INCLUDE_DIR
 
 /* Define if you have the __argz_count function.  */
 #undef HAVE___ARGZ_COUNT
@@ -95,14 +99,23 @@
 /* Define if you have the atoq function.  */
 #undef HAVE_ATOQ
 
-/* Define if you have the bsearch function.  */
-#undef HAVE_BSEARCH
-
 /* Define if you have the clock function.  */
 #undef HAVE_CLOCK
 
 /* Define if you have the dcgettext function.  */
 #undef HAVE_DCGETTEXT
+
+/* Define if you have the dup2 function.  */
+#undef HAVE_DUP2
+
+/* Define if you have the feof_unlocked function.  */
+#undef HAVE_FEOF_UNLOCKED
+
+/* Define if you have the fgets_unlocked function.  */
+#undef HAVE_FGETS_UNLOCKED
+
+/* Define if you have the fprintf_unlocked function.  */
+#undef HAVE_FPRINTF_UNLOCKED
 
 /* Define if you have the fputc_unlocked function.  */
 #undef HAVE_FPUTC_UNLOCKED
@@ -110,8 +123,20 @@
 /* Define if you have the fputs_unlocked function.  */
 #undef HAVE_FPUTS_UNLOCKED
 
+/* Define if you have the fwrite_unlocked function.  */
+#undef HAVE_FWRITE_UNLOCKED
+
 /* Define if you have the getcwd function.  */
 #undef HAVE_GETCWD
+
+/* Define if you have the getegid function.  */
+#undef HAVE_GETEGID
+
+/* Define if you have the geteuid function.  */
+#undef HAVE_GETEUID
+
+/* Define if you have the getgid function.  */
+#undef HAVE_GETGID
 
 /* Define if you have the getpagesize function.  */
 #undef HAVE_GETPAGESIZE
@@ -122,11 +147,8 @@
 /* Define if you have the getrusage function.  */
 #undef HAVE_GETRUSAGE
 
-/* Define if you have the gettimeofday function.  */
-#undef HAVE_GETTIMEOFDAY
-
-/* Define if you have the isascii function.  */
-#undef HAVE_ISASCII
+/* Define if you have the getuid function.  */
+#undef HAVE_GETUID
 
 /* Define if you have the kill function.  */
 #undef HAVE_KILL
@@ -134,14 +156,14 @@
 /* Define if you have the lstat function.  */
 #undef HAVE_LSTAT
 
+/* Define if you have the mempcpy function.  */
+#undef HAVE_MEMPCPY
+
 /* Define if you have the munmap function.  */
 #undef HAVE_MUNMAP
 
 /* Define if you have the nl_langinfo function.  */
 #undef HAVE_NL_LANGINFO
-
-/* Define if you have the popen function.  */
-#undef HAVE_POPEN
 
 /* Define if you have the putc_unlocked function.  */
 #undef HAVE_PUTC_UNLOCKED
@@ -170,14 +192,8 @@
 /* Define if you have the strdup function.  */
 #undef HAVE_STRDUP
 
-/* Define if you have the strrchr function.  */
-#undef HAVE_STRRCHR
-
 /* Define if you have the strsignal function.  */
 #undef HAVE_STRSIGNAL
-
-/* Define if you have the strstr function.  */
-#undef HAVE_STRSTR
 
 /* Define if you have the strtoul function.  */
 #undef HAVE_STRTOUL
@@ -187,6 +203,9 @@
 
 /* Define if you have the times function.  */
 #undef HAVE_TIMES
+
+/* Define if you have the tsearch function.  */
+#undef HAVE_TSEARCH
 
 /* Define if you have the <argz.h> header file.  */
 #undef HAVE_ARGZ_H
@@ -247,9 +266,6 @@
 
 /* Define if you have the <unistd.h> header file.  */
 #undef HAVE_UNISTD_H
-
-/* Define if you have the i library (-li).  */
-#undef HAVE_LIBI
 
 /* Define to enable the use of a default linker. */
 #undef DEFAULT_LINKER
@@ -396,10 +412,13 @@
 #undef HAVE_DECL_FPUTS_UNLOCKED
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
-#undef HAVE_DECL_STRSTR
+#undef HAVE_DECL_FWRITE_UNLOCKED
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
-#undef HAVE_DECL_ENVIRON
+#undef HAVE_DECL_FPRINTF_UNLOCKED
+
+/* Define to 1 if we found this declaration otherwise define to 0. */
+#undef HAVE_DECL_STRSTR
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_ERRNO
@@ -446,11 +465,31 @@
 /* Define if host mkdir takes a single argument. */
 #undef MKDIR_TAKES_ONE_ARG
 
-/* Define to the name of the distribution. */
-#undef PACKAGE
+/* Define if you have the iconv() function. */
+#undef HAVE_ICONV
 
-/* Define to the version of the distribution. */
-#undef VERSION
+/* Define as const if the declaration of iconv() needs const. */
+#undef ICONV_CONST
+
+/* Define if you have <langinfo.h> and nl_langinfo(CODESET). */
+#undef HAVE_LANGINFO_CODESET
+
+/* Define if your <locale.h> file defines LC_MESSAGES. */
+#undef HAVE_LC_MESSAGES
+
+/* Define to 1 if translation of program messages to the user's native language
+   is requested. */
+#undef ENABLE_NLS
+
+/* Define if you have the <libintl.h> header file. */
+#undef HAVE_LIBINTL_H
+
+/* Define if the GNU gettext() function is already present or preinstalled. */
+#undef HAVE_GETTEXT
+
+/* Define to use the libintl included with this package instead of any
+   version in the system libraries. */
+#undef USE_INCLUDED_LIBINTL
 
 /* Define to 1 if installation paths should be looked up in Windows32
    Registry. Ignored on non windows32 hosts. */
@@ -475,11 +514,23 @@
 /* Define if your assembler mis-optimizes .eh_frame data. */
 #undef USE_AS_TRADITIONAL_FORMAT
 
+/* Define if your assembler supports marking sections with SHF_MERGE flag. */
+#undef HAVE_GAS_SHF_MERGE
+
+/* Define if your assembler supports explicit relocations. */
+#undef HAVE_AS_EXPLICIT_RELOCS
+
 /* Define if your assembler supports .register. */
 #undef HAVE_AS_REGISTER_PSEUDO_OP
 
 /* Define if your assembler supports -relax option. */
 #undef HAVE_AS_RELAX_OPTION
+
+/* Define if your assembler and linker support unaligned PC relative relocs. */
+#undef HAVE_AS_SPARC_UA_PCREL
+
+/* Define if your assembler and linker support unaligned PC relative relocs against hidden symbols. */
+#undef HAVE_AS_SPARC_UA_PCREL_HIDDEN
 
 /* Define if the assembler supports 64bit sparc. */
 #undef AS_SPARC64_FLAG
@@ -487,9 +538,21 @@
 /* Define if your assembler supports offsetable %lo(). */
 #undef HAVE_AS_OFFSETABLE_LO10
 
+/* Define true if the assembler supports '.long foo@GOTOFF'. */
+#undef HAVE_AS_GOTOFF_IN_DATA
+
 /* Define if your assembler supports dwarf2 .file/.loc directives,
-   and preserves file table indicies exactly as given. */
+   and preserves file table indices exactly as given. */
 #undef HAVE_AS_DWARF2_DEBUG_LINE
+
+/* Define if your assembler supports the --gdwarf2 option. */
+#undef HAVE_AS_GDWARF2_DEBUG_FLAG
+
+/* Define if your assembler supports the --gstabs option. */
+#undef HAVE_AS_GSTABS_DEBUG_FLAG
+
+/* Define if your linker supports --eh-frame-hdr option. */
+#undef HAVE_LD_EH_FRAME_HDR
 
 /* Define 0/1 to force the choice for exception handling model. */
 #undef CONFIG_SJLJ_EXCEPTIONS

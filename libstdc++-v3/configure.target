@@ -13,7 +13,6 @@
 #   target                The configuration target
 #   target_cpu            The configuration target CPU
 #   target_os             The configuration target OS
-#   target_optspace       --enable-target-optspace ("yes", "no", "")
 
 # It possibly modifies the following shell variables:
 #   cpu_include_dir        CPU-specific include directory, relative to srcdir
@@ -22,13 +21,15 @@
 
 # Set any CPU dependent compiler flags.
 # THIS TABLE IS SORTED.  KEEP IT THAT WAY.
-
 case "${target_cpu}" in
   alpha*)
     cpu_include_dir="config/cpu/alpha"
     ;;
   arm*)
     cpu_include_dir="config/cpu/arm"
+    ;;
+  cris)
+    cpu_include_dir="config/cpu/cris"
     ;;
   ia64)
     cpu_include_dir="config/cpu/ia64"
@@ -39,14 +40,23 @@ case "${target_cpu}" in
   i486 | i586 | i686 | i786)
     cpu_include_dir="config/cpu/i486"
     ;;
+  m68k | m680[246]0)
+    cpu_include_dir="config/cpu/m68k"
+    ;;
   powerpc | rs6000)
     cpu_include_dir="config/cpu/powerpc"
+    ;;
+  s390 | s390x)
+    cpu_include_dir="config/cpu/s390"
     ;;
   sparc64 | ultrasparc)
     cpu_include_dir="config/cpu/sparc/sparc64"
     ;;
   sparc*)
     cpu_include_dir="config/cpu/sparc/sparc32"
+    ;;
+  x86_64*)
+    cpu_include_dir="config/cpu/x86-64"
     ;;
   *)
     cpu_include_dir="config/cpu/generic"
@@ -56,10 +66,10 @@ esac
 
 # Set any OS dependent compiler flags.
 # THIS TABLE IS SORTED.  KEEP IT THAT WAY.
-
 case "${target_os}" in
   aix4.[3456789]* | aix[56789]*)
     os_include_dir="config/os/aix"
+    OPT_LDFLAGS="-Wl,-G"
     ;;
   bsd* | freebsd* )
     os_include_dir="config/os/bsd/freebsd"
@@ -80,6 +90,9 @@ case "${target_os}" in
   irix6.5)
     os_include_dir="config/os/irix/irix6.5"
     ;;
+  mingw32*)
+    os_include_dir="config/os/mingw32"
+    ;;
   netbsd*)
     os_include_dir="config/os/bsd/netbsd"
     ;;
@@ -92,7 +105,7 @@ case "${target_os}" in
   solaris2.7* | solaris2.8*)
     os_include_dir="config/os/solaris/solaris2.7"
     ;;
-  hpux)
+  hpux*)
     os_include_dir="config/os/hpux"
     ;;
   *)
@@ -101,9 +114,8 @@ case "${target_os}" in
 esac
 
 
-# Set any flags dependant on the full target triplet.
+# Set any flags dependent on the full target triplet.
 # THIS TABLE IS SORTED.  KEEP IT THAT WAY.
-
 case "${target}" in
    *-*-aix[456789]*)
      # We set os_include_dir to config/os/aix only on AIX 4.3 and
@@ -120,5 +132,44 @@ case "${target}" in
      ;;
    *)
      ATOMICITYH=$cpu_include_dir
+     ;;
+esac
+
+# Set CPULIMITSH to the directory where the configuration-dependent
+# cpu_limits.h can be found.
+# THIS TABLE IS SORTED.  KEEP IT THAT WAY.
+case "${target}" in
+   *-*-hpux*)
+     CPULIMITSH=config/os/hpux
+     ;;
+   alpha*-*-*osf5*)
+     CPULIMITSH=config/os/osf/osf5.0
+     ;;
+   alpha*-*-*)
+     CPULIMITSH=config/cpu/alpha
+     ;;
+   cris-*-*)
+     CPULIMITSH=config/cpu/cris
+     ;;
+   ia64-*-*)
+     CPULIMITSH=config/cpu/ia64
+     ;;
+   i?86-*-*)
+     CPULIMITSH=config/cpu/i386
+     ;;
+   m68k-*-* | m680[246]0-*-*)
+     CPULIMITSH=config/cpu/m68k
+     ;;
+   powerpc-*-*)
+     CPULIMITSH=config/cpu/powerpc
+     ;;
+   s390-*-* | s390x-*-*)
+     CPULIMITSH=config/cpu/s390
+     ;;
+   x86_64-*-*)
+     CPULIMITSH=config/cpu/x86-64
+     ;;
+   *)
+     CPULIMITSH=config/cpu/generic
      ;;
 esac

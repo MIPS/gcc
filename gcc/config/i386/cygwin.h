@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -18,72 +18,69 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA. */
-
-#define YES_UNDERSCORES
+Boston, MA 02111-1307, USA.  */
 
 #define DBX_DEBUGGING_INFO 
 #define SDB_DEBUGGING_INFO 
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
+#define TARGET_VERSION fprintf (stderr, " (x86 Cygwin)"); 
 #define TARGET_EXECUTABLE_SUFFIX ".exe"
 
 #include <stdio.h>
+#include "i386/i386.h"
+#include "i386/unix.h"
+#include "i386/bsd.h"
 #include "i386/gas.h"
 #include "dbxcoff.h"
 
-/* Augment TARGET_SWITCHES with the cygwin/no-cygwin options. */
-#define MASK_WIN32 0x40000000 /* Use -lming32 interface */
-#define MASK_CYGWIN  0x20000000 /* Use -lcygwin interface */
-#define MASK_WINDOWS 0x10000000 /* Use windows interface */
-#define MASK_DLL     0x08000000 /* Use dll interface    */
-#define MASK_NOP_FUN_DLLIMPORT 0x20000 /* Ignore dllimport for functions */
+/* Masks for subtarget switches used by other files.  */
+#define MASK_NOP_FUN_DLLIMPORT 0x08000000 /* Ignore dllimport for functions */
 
-#define TARGET_WIN32             (target_flags & MASK_WIN32)
-#define TARGET_CYGWIN            (target_flags & MASK_CYGWIN)
-#define TARGET_WINDOWS           (target_flags & MASK_WINDOWS)
-#define TARGET_DLL               (target_flags & MASK_DLL)
+/* Used in winnt.c.  */
 #define TARGET_NOP_FUN_DLLIMPORT (target_flags & MASK_NOP_FUN_DLLIMPORT)
 
 #undef  SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES \
-{ "cygwin",		  MASK_CYGWIN,					\
-  N_("Use the Cygwin interface") },					\
-{ "no-cygwin",		  MASK_WIN32,					\
-  N_("Use the Mingw32 interface") },					\
-{ "windows",		  MASK_WINDOWS, N_("Create GUI application") },	\
-{ "no-win32",		  -MASK_WIN32, N_("Don't set Windows defines") },\
-{ "win32",		  0, N_("Set Windows defines") },		\
-{ "console",		  -MASK_WINDOWS,				\
-  N_("Create console application") }, 					\
-{ "dll",		  MASK_DLL, N_("Generate code for a DLL") },	\
-{ "nop-fun-dllimport",	  MASK_NOP_FUN_DLLIMPORT,			\
-  N_("Ignore dllimport for functions") }, 				\
-{ "no-nop-fun-dllimport", -MASK_NOP_FUN_DLLIMPORT, "" }, \
+{ "cygwin",		  0, N_("Use the Cygwin interface") },	\
+{ "no-cygwin",		  0, N_("Use the Mingw32 interface") },	\
+{ "windows",		  0, N_("Create GUI application") },	\
+{ "no-win32",		  0, N_("Don't set Windows defines") },	\
+{ "win32",		  0, N_("Set Windows defines") },	\
+{ "console",		  0, N_("Create console application") },\
+{ "dll",		  0, N_("Generate code for a DLL") },	\
+{ "nop-fun-dllimport",	  MASK_NOP_FUN_DLLIMPORT,		\
+  N_("Ignore dllimport for functions") }, 			\
+{ "no-nop-fun-dllimport", -MASK_NOP_FUN_DLLIMPORT, "" },	\
 { "threads",		  0, N_("Use Mingw-specific thread support") },
 
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES "-D_X86_=1 -Asystem=winnt"
 
 #ifdef CROSS_COMPILE
-#define CYGWIN_INCLUDES "-idirafter " CYGWIN_CROSS_DIR "/include"
-#define W32API_INC "-idirafter " CYGWIN_CROSS_DIR "/include/w32api"
+#define CYGWIN_INCLUDES "%{!nostdinc:-idirafter " CYGWIN_CROSS_DIR "/include}"
+#define W32API_INC "%{!nostdinc:-idirafter " CYGWIN_CROSS_DIR "/include/w32api}"
 #define W32API_LIB "-L" CYGWIN_CROSS_DIR "/lib/w32api/"
 #define CYGWIN_LIB CYGWIN_CROSS_DIR "/lib"
 #define MINGW_LIBS "-L" CYGWIN_CROSS_DIR "/lib/mingw"
-#define MINGW_INCLUDES "-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++-3 "\
+#define MINGW_INCLUDES "%{!nostdinc:-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++-3 "\
 		       "-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++ "\
-		       "-idirafter " CYGWIN_CROSS_DIR "/include/mingw"
+		       "-idirafter " CYGWIN_CROSS_DIR "/include/mingw}"
 #else
-#define CYGWIN_INCLUDES "-isystem /usr/local/include -idirafter /usr/include"
-#define W32API_INC "-idirafter /usr/include/w32api"
-#define W32API_LIB "-L/usr/lib/w32api/"
+#define CYGWIN_INCLUDES "%{!nostdinc:-isystem /usr/local/include "\
+		           "-idirafter " CYGWIN_CROSS_DIR "/include "\
+		           "-idirafter /usr/include}"
+#define W32API_INC "%{!nostdinc:"\
+		      "-idirafter " CYGWIN_CROSS_DIR "/include/w32api "\
+		      "-idirafter /usr/include/w32api}"
+#define W32API_LIB "-L" CYGWIN_CROSS_DIR "/lib/w32api/ -L/usr/lib/w32api/"
 #define CYGWIN_LIB "/usr/lib"
 #define MINGW_LIBS "-L/usr/local/lib/mingw -L/usr/lib/mingw"
-#define MINGW_INCLUDES "-isystem /usr/include/mingw/g++-3 "\
+#define MINGW_INCLUDES "%{!nostdinc:-isystem /usr/include/mingw/g++-3 "\
 		       "-isystem /usr/include/mingw/g++ "\
-		       "-isystem /usr/local/include/mingw" \
-		       "-idirafter /usr/include/mingw"
+		       "-isystem /usr/local/include/mingw "\
+		       "-idirafter " CYGWIN_CROSS_DIR "/include/mingw "\
+		       "-idirafter /usr/include/mingw}"
 #endif
 
 /* Get tree.c to declare a target-specific specialization of
@@ -109,23 +106,23 @@ Boston, MA 02111-1307, USA. */
   %{mno-win32:%{mno-cygwin: %emno-cygwin and mno-win32 are not compatible}} \
   %{mno-cygwin:-D__MSVCRT__ -D__MINGW32__ %{mthreads:-D_MT} "\
     MINGW_INCLUDES "} \
-  %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ -Dunix -D__unix__ -D__unix "\
+  %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ %{!ansi:-Dunix} -D__unix__ -D__unix "\
     CYGWIN_INCLUDES "}\
-  %{mwin32|mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ -DWINNT}\
+  %{mwin32|mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ %{!ansi:-DWINNT}}\
   %{!mno-win32:" W32API_INC "}\
 "
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "\
-  %{shared|mdll: %{mno-cygwin:" MINGW_LIBS " mingw/dllcrt2%O%s}}\
-  %{!shared: %{!mdll: %{!mno-cygwin:crt0%O%s} %{mno-cygwin:" MINGW_LIBS " mingw/crt2%O%s}\
+  %{shared|mdll: %{mno-cygwin:" MINGW_LIBS " dllcrt2%O%s}}\
+  %{!shared: %{!mdll: %{!mno-cygwin:crt0%O%s} %{mno-cygwin:" MINGW_LIBS " crt2%O%s}\
   %{pg:gcrt0%O%s}}}\
 "
 
 /* Normally, -lgcc is not needed since everything in it is in the DLL, but we
    want to allow things to be added to it when installing new versions of
    GCC without making a new CYGWIN.DLL, so we leave it.  Profiling is handled
-   by calling the init function from the prologue. */
+   by calling the init function from the prologue.  */
 
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC "%{mno-cygwin: %{mthreads:-lmingwthrd} -lmingw32} -lgcc %{mno-cygwin:-lmoldname -lmsvcrt}"
@@ -184,53 +181,14 @@ Boston, MA 02111-1307, USA. */
 
 union tree_node;
 #define TREE union tree_node *
-
-/* Used to implement dllexport overriding dllimport semantics.  It's also used
-   to handle vtables - the first pass won't do anything because
-   DECL_CONTEXT (DECL) will be 0 so i386_pe_dll{ex,im}port_p will return 0.
-   It's also used to handle dllimport override semantics.  */
-#if 0
-#define REDO_SECTION_INFO_P(DECL) \
-  ((DECL_MACHINE_ATTRIBUTES (DECL) != NULL_TREE) \
-   || (TREE_CODE (DECL) == VAR_DECL && DECL_VIRTUAL_P (DECL)))
-#else
-#define REDO_SECTION_INFO_P(DECL) 1
-#endif
-
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_ctor, in_dtor, in_drectve
+#define EXTRA_SECTIONS in_drectve
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
-  CTOR_SECTION_FUNCTION						\
-  DTOR_SECTION_FUNCTION						\
   DRECTVE_SECTION_FUNCTION					\
   SWITCH_TO_SECTION_FUNCTION
-
-#define CTOR_SECTION_FUNCTION					\
-void								\
-ctor_section ()							\
-{								\
-  if (in_section != in_ctor)					\
-    {								\
-      fprintf (asm_out_file, "\t.section .ctor\n");		\
-      in_section = in_ctor;					\
-    }								\
-}
-void ctor_section PARAMS ((void));
-
-#define DTOR_SECTION_FUNCTION					\
-void								\
-dtor_section ()							\
-{								\
-  if (in_section != in_dtor)					\
-    {								\
-      fprintf (asm_out_file, "\t.section .dtor\n");		\
-      in_section = in_dtor;					\
-    }								\
-}
-void dtor_section PARAMS ((void));
 
 #define DRECTVE_SECTION_FUNCTION \
 void									\
@@ -262,31 +220,13 @@ switch_to_section (section, decl) 				\
       case in_text: text_section (); break; 			\
       case in_data: data_section (); break; 			\
       case in_named: named_section (decl, NULL, 0); break; 	\
-      case in_ctor: ctor_section (); break; 			\
-      case in_dtor: dtor_section (); break; 			\
       case in_drectve: drectve_section (); break; 		\
       default: abort (); break; 				\
     } 								\
 }
 
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)	\
-  do {						\
-    ctor_section ();				\
-    fputs (ASM_LONG, FILE);			\
-    assemble_name (FILE, NAME);			\
-    fprintf (FILE, "\n");			\
-  } while (0)
-
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       	\
-  do {						\
-    dtor_section ();                   		\
-    fputs (ASM_LONG, FILE);			\
-    assemble_name (FILE, NAME);			\
-    fprintf (FILE, "\n");			\
-  } while (0)
-
 /* Don't allow flag_pic to propagate since gas may produce invalid code
-   otherwise. */
+   otherwise.  */
 
 #undef  SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS					\
@@ -316,16 +256,17 @@ do {									\
    section and we need to set DECL_SECTION_NAME so we do that here.
    Note that we can be called twice on the same decl.  */
 
-extern void i386_pe_encode_section_info PARAMS ((TREE));
+extern void i386_pe_encode_section_info PARAMS ((TREE, int));
 
-#ifdef ENCODE_SECTION_INFO
 #undef ENCODE_SECTION_INFO
-#endif
-#define ENCODE_SECTION_INFO(DECL) i386_pe_encode_section_info (DECL)
+#define ENCODE_SECTION_INFO(DECL, FIRST) \
+  i386_pe_encode_section_info (DECL, FIRST)
 
 /* Utility used only in this file.  */
 #define I386_PE_STRIP_ENCODING(SYM_NAME) \
-  ((SYM_NAME) + ((SYM_NAME)[0] == '@' ? 3 : 0))
+  ((SYM_NAME) + ((SYM_NAME)[0] == '@' \
+		  ? ((SYM_NAME)[3] == '*' ? 4 : 3) : 0) \
+	      + ((SYM_NAME)[0] == '*' ? 1 : 0))
 
 /* This macro gets just the user-specified name
    out of the string in a SYMBOL_REF.  Discard
@@ -382,7 +323,7 @@ do {							\
 
 
 /* Emit code to check the stack when allocating more that 4000
-   bytes in one go. */
+   bytes in one go.  */
 
 #define CHECK_STACK_LIMIT 4000
 
@@ -447,7 +388,7 @@ extern void i386_pe_unique_section PARAMS ((TREE, int));
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN) \
   i386_pe_declare_function_type (FILE, XSTR (FUN, 0), 1)
 
-/* This says out to put a global symbol in the BSS section. */
+/* This says out to put a global symbol in the BSS section.  */
 #undef ASM_OUTPUT_ALIGNED_BSS
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss ((FILE), (DECL), (NAME), (SIZE), (ALIGN))
@@ -460,11 +401,16 @@ extern void i386_pe_unique_section PARAMS ((TREE, int));
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START " #"
 
-/* Don't assume anything about the header files. */
+/* DWARF2 Unwinding doesn't work with exception handling yet.  To make
+   it work, we need to build a libgcc_s.dll, and dcrt0.o should be
+   changed to call __register_frame_info/__deregister_frame_info.  */
+#define DWARF2_UNWIND_INFO 0
+
+/* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
 #define SUBTARGET_PROLOGUE						\
-  if (profile_flag 							\
+  if (current_function_profile						\
       && MAIN_NAME_P (DECL_NAME (current_function_decl)))		\
      {									\
       emit_call_insn (gen_rtx (CALL, VOIDmode, 				\
@@ -490,9 +436,13 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #undef	BIGGEST_ALIGNMENT
 #define BIGGEST_ALIGNMENT 128
 
+/* Native complier aligns internal doubles in structures on dword boundaries.  */
+#undef	BIGGEST_FIELD_ALIGNMENT
+#define BIGGEST_FIELD_ALIGNMENT 64
+
 /* A bitfield declared as `int' forces `int' alignment for the struct.  */
-#undef PCC_BITFIELDS_TYPE_MATTERS
-#define PCC_BITFIELDS_TYPE_MATTERS 1
+#undef PCC_BITFIELD_TYPE_MATTERS
+#define PCC_BITFIELD_TYPE_MATTERS 1
 #define GROUP_BITFIELDS_BY_ALIGN TYPE_NATIVE(rec)
 
 
@@ -501,6 +451,9 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #define SET_ASM_OP "\t.set\t"
 #endif
 
+/* Override GCC's relative pathname lookup (ie., relocatability) unless
+   otherwise told by other subtargets.  */
+#ifndef WIN32_NO_ABSOLUTE_INST_DIRS
 #undef MD_STARTFILE_PREFIX
 #define MD_STARTFILE_PREFIX     "/usr/lib/"
 
@@ -513,7 +466,8 @@ extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 #undef SYSTEM_INCLUDE_DIR
 #undef STANDARD_INCLUDE_DIR
 #define STANDARD_INCLUDE_DIR 0
-#endif
+#endif /* not CROSS_COMPILE */
+#endif /* not WIN32_NO_ABSOLUTE_INST_DIRS */
 
 #undef TREE
 

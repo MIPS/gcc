@@ -1,6 +1,6 @@
 // 2001-06-21  Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,8 +43,29 @@ void test01()
   typedef test_iterator::container_type container_type;
 }
 
+
+// Make sure iterator can be instantiated.
+template class std::back_insert_iterator<std::list<int> >;
+
+void test02()
+{
+  typedef std::back_insert_iterator<std::list<int> > iterator_type;
+  std::list<int> li;
+  iterator_type it = std::back_inserter(li);
+}
+
+// Check data member 'container' accessible.
+class test_dm : public std::back_insert_iterator<std::list<int> >
+{
+  container_type l;
+  container_type* p;
+public:
+  test_dm():  std::back_insert_iterator<std::list<int> >(l), p(container) { }
+};
+
 int main() 
 { 
   test01();
+  test02();
   return 0;
 }

@@ -42,13 +42,6 @@ AC_SUBST(COMPPATH)
 dnl The -no-testsuite modules omit the test subdir.
 AM_CONDITIONAL(TESTSUBDIR, test -d $srcdir/testsuite)
 
-dnl See whether the user prefers size or speed for Character.
-dnl The default is size.
-AC_ARG_ENABLE(fast-character,
-[  --enable-fast-character prefer speed over size for Character],
-# Nothing
-, AC_DEFINE(COMPACT_CHARACTER))
-
 dnl Should the runtime set system properties by examining the 
 dnl environment variable GCJ_PROPERTIES?
 AC_ARG_ENABLE(getenv-properties,
@@ -63,6 +56,14 @@ if test "$enable_getenv_properties" = no; then
    AC_DEFINE(DISABLE_GETENV_PROPERTIES)
 fi
 
+dnl Whether we should use arguments to main()
+if test -z "$enable_main_args"; then
+   enable_main_args=${enable_main_args_default-yes}
+fi
+if test "$enable_main_args" = no; then
+   AC_DEFINE(DISABLE_MAIN_ARGS)
+fi
+
 
 dnl Should we use hashtable-based synchronization?
 dnl Currently works only for Linux X86/ia64
@@ -73,6 +74,12 @@ AC_ARG_ENABLE(hash-synchronization,
 
 if test -z "$enable_hash_synchronization"; then
    enable_hash_synchronization=$enable_hash_synchronization_default
+fi
+
+dnl configure.host sets slow_pthread_self if the synchronization code should 
+dnl try to avoid pthread_self calls by caching thread IDs in a hashtable.
+if test "${slow_pthread_self}" = "yes"; then
+  AC_DEFINE(SLOW_PTHREAD_SELF)
 fi
 
 
@@ -169,8 +176,8 @@ LIBFFI=
 LIBFFIINCS=
 if test "$with_libffi" != no; then
    AC_DEFINE(USE_LIBFFI)
-   LIBFFI=../libffi/libfficonvenience.la
-   LIBFFIINCS="-I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include"
+   LIBFFI=../libffi/libffi_convenience.la
+   LIBFFIINCS='-I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include'
 fi
 AC_SUBST(LIBFFI)
 AC_SUBST(LIBFFIINCS)
@@ -187,23 +194,36 @@ dnl If the target is an eCos system, use the appropriate eCos
 dnl I/O routines.
 dnl FIXME: this should not be a local option but a global target
 dnl system; at present there is no eCos target.
-TARGET_ECOS="no"
+TARGET_ECOS=${PROCESS-"no"}
 AC_ARG_WITH(ecos,
 [  --with-ecos             enable runtime eCos target support],
 TARGET_ECOS="$with_ecos"
 )
 
+PLATFORMOBJS=
 case "$TARGET_ECOS" in
-   no)
-      FILE_DESCRIPTOR=natFileDescriptorPosix.cc
-      PROCESS=${PROCESS-Posix}
+   no) case "$host" in
+      *mingw*)
+            PLATFORM=Win32
+            PLATFORMOBJS=win32.lo
+	    PLATFORMH=win32.h
+      ;;
+      *)
+            PLATFORM=Posix
+            PLATFORMOBJS=posix.lo
+	    PLATFORMH=posix.h
+      ;;
+      esac
       ;;
    *)
-      FILE_DESCRIPTOR=natFileDescriptorEcos.cc
-      PROCESS=Ecos
+      PLATFORM=Ecos
       AC_DEFINE(ECOS)
+      PLATFORMOBJS=posix.lo
+      PLATFORMH=posix.h
       ;;
 esac
+AC_SUBST(PLATFORMOBJS)
+AC_LINK_FILES(include/$PLATFORMH, include/platform.h)
 
 AC_EGREP_HEADER(uint32_t, stdint.h, AC_DEFINE(HAVE_INT32_DEFINED))
 AC_EGREP_HEADER(uint32_t, inttypes.h, AC_DEFINE(HAVE_INT32_DEFINED))
@@ -221,14 +241,22 @@ dnl to create the link will fail.
 test -d java || mkdir java
 test -d java/io || mkdir java/io
 test -d gnu || mkdir gnu
-AC_LINK_FILES(java/io/$FILE_DESCRIPTOR, java/io/natFileDescriptor.cc)
+AC_LINK_FILES(java/io/natFile${FILE-${PLATFORM}}.cc, java/io/natFile.cc)
+AC_LINK_FILES(java/io/natFileDescriptor${FILE-${PLATFORM}}.cc, java/io/natFileDescriptor.cc)
 
 dnl Likewise for ConcreteProcess.java and natConcreteProcess.cc.
 test -d java/lang || mkdir java/lang
-AC_LINK_FILES(java/lang/${PROCESS}Process.java, java/lang/ConcreteProcess.java)
-AC_LINK_FILES(java/lang/nat${PROCESS}Process.cc, java/lang/natConcreteProcess.cc)
+AC_LINK_FILES(java/lang/${PLATFORM}Process.java, java/lang/ConcreteProcess.java)
+AC_LINK_FILES(java/lang/nat${PLATFORM}Process.cc, java/lang/natConcreteProcess.cc)
 
-SYSTEMSPEC=
+case "${host}" in
+    *mingw*)
+      SYSTEMSPEC="-lgdi32 -lwsock32 -lws2_32"
+    ;;
+    *)
+      SYSTEMSPEC=
+    ;;
+esac
 AC_SUBST(SYSTEMSPEC)
 
 LIBGCJTESTSPEC="-L`pwd`/.libs -rpath `pwd`/.libs"
@@ -262,14 +290,11 @@ GCTESTSPEC=
 case "$GC" in
  boehm)
     AC_MSG_RESULT(boehm)
-    GCDEPS='$(top_builddir)/../boehm-gc/libgcjgc.la'
-    # We include the path to the boehm-gc build directory.
-    # See Makefile.am to understand why.
-    GCLIBS="$GCDEPS -L\$(here)/../boehm-gc/$libsubdir"
+    GCLIBS=../boehm-gc/libgcjgc_convenience.la
     GCINCS='-I$(top_srcdir)/../boehm-gc/include'
-    GCSPEC='-lgcjgc'
     JC1GCSPEC='-fuse-boehm-gc'
     GCTESTSPEC="-L`pwd`/../boehm-gc/.libs -rpath `pwd`/../boehm-gc/.libs"
+
     dnl We also want to pick up some cpp flags required when including
     dnl boehm-config.h.  Yuck.
     GCINCS="$GCINCS `cat ../boehm-gc/boehm-cflags`"
@@ -313,7 +338,9 @@ case "$THREADS" in
 	;;
     esac
     ;;
- decosf1 | irix | mach | os2 | solaris | win32 | dce | vxworks)
+ win32)
+    ;;
+ decosf1 | irix | mach | os2 | solaris | dce | vxworks)
     AC_MSG_ERROR(thread package $THREADS not yet supported)
     ;;
  *)
@@ -321,6 +348,7 @@ case "$THREADS" in
     ;;
 esac
 
+THREADLDFLAGS=
 THREADLIBS=
 THREADINCS=
 THREADDEPS=
@@ -329,8 +357,36 @@ THREADH=
 THREADSPEC=
 case "$THREADS" in
  posix)
-    THREADLIBS=-lpthread
-    THREADSPEC=-lpthread
+    case "$host" in
+     *-*-cygwin*)
+	# Don't set THREADLIBS here.  Cygwin doesn't have -lpthread.
+	;;
+changequote(<<,>>)   
+     *-*-freebsd[1234]*)
+changequote([,])   
+	# Before FreeBSD 5, it didn't have -lpthread (or any library which
+	# merely adds pthread_* functions) but it does have a -pthread switch
+	# which is required at link-time to select -lc_r *instead* of -lc.
+	THREADLDFLAGS=-pthread
+	# Don't set THREADSPEC here as might be expected since -pthread is
+	# not processed when found within a spec file, it must come from
+	# the command line.  For now, the user must provide the -pthread
+	# switch to link code compiled with gcj.  In future, consider adding
+	# support for weak references to pthread_* functions ala gthr.h API.
+	THREADSPEC='%{!pthread: %eUnder this configuration, the user must provide -pthread when linking.}'
+	;;
+     *-*-freebsd*)
+	# FreeBSD 5 implements a model much closer to other modern UNIX
+	# which support threads.  However, it still does not support
+	# -lpthread.
+	THREADLDFLAGS=-pthread
+	THREADSPEC=-lc_r
+	;;
+     *)
+	THREADLIBS=-lpthread
+	THREADSPEC=-lpthread
+	;;
+    esac
     THREADOBJS=posix-threads.lo
     THREADH=posix-threads.h
     # MIT pthreads doesn't seem to have the mutexattr functions.
@@ -346,6 +402,11 @@ case "$THREADS" in
     AC_DEFINE(_POSIX_PTHREAD_SEMANTICS, 1, [Required define if using POSIX threads])
     ;;
 
+ win32)
+    THREADOBJS=win32-threads.lo
+    THREADH=win32-threads.h
+    ;;
+
  none)
     THREADOBJS=no-threads.lo
     THREADH=no-threads.h
@@ -357,12 +418,15 @@ AC_SUBST(THREADINCS)
 AC_SUBST(THREADDEPS)
 AC_SUBST(THREADOBJS)
 AC_SUBST(THREADSPEC)
+AC_SUBST(THREADLDFLAGS)
+
+AC_LINK_FILES(sysdep/$sysdeps_dir, sysdep)
 
 HASH_SYNC_SPEC=
 # Hash synchronization is only useful with posix threads right now.
 if test "$enable_hash_synchronization" = yes && test "$THREADS" = "posix"; then
    HASH_SYNC_SPEC=-fhash-synchronization
-   AC_DEFINE(JV_HASH_SYNCHRONIZATION)
+   AC_DEFINE(JV_HASH_SYNCHRONIZATION, 1, [Define if hash synchronization is in use])
 fi
 AC_SUBST(HASH_SYNC_SPEC)
 
@@ -376,6 +440,15 @@ NATIVE=yes
 # We're in the tree with gcc, and need to include some of its headers.
 GCC_UNWIND_INCLUDE='-I$(libgcj_basedir)/../gcc'
 
+# Figure out where generated headers like libgcj-config.h get installed.
+changequote(,)dnl
+gcc_version_trigger=${srcdir}/../gcc/version.c
+gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([^\"]*\)\".*/\1/'`
+gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
+tool_include_dir='$(libdir)/gcc-lib/$(target_alias)/'${gcc_version}/include
+changequote([,])dnl
+AC_SUBST(tool_include_dir)
+
 if test -n "${with_cross_host}"; then
    # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
    # may not work correctly, because the compiler may not be able to
@@ -386,6 +459,7 @@ if test -n "${with_cross_host}"; then
    AC_DEFINE(HAVE_MEMMOVE)
    AC_DEFINE(HAVE_MEMCPY)
    AC_DEFINE(HAVE_STRERROR)
+   AC_DEFINE(HAVE_TIME)
    AC_DEFINE(HAVE_GMTIME_R)
    AC_DEFINE(HAVE_LOCALTIME_R)
    dnl This is only for POSIX threads.
@@ -396,9 +470,6 @@ if test -n "${with_cross_host}"; then
    dnl Assume we do not have getuid and friends.
    AC_DEFINE(NO_GETUID)
 
-   ZLIBSPEC=-lzgcj
-   ZLIBTESTSPEC="-L`pwd`/../zlib/.libs -rpath `pwd`/../zlib/.libs"
-
    # If Canadian cross, then don't pick up tools from the build
    # directory.
    if test x"$build" != x"$with_cross_host" && x"$build" != x"$target"; then
@@ -408,10 +479,10 @@ if test -n "${with_cross_host}"; then
    fi
    NATIVE=no
 else
-   AC_CHECK_FUNCS(strerror ioctl select fstat open fsync sleep)
+   AC_CHECK_FUNCS(strerror ioctl select fstat open fsync sleep opendir)
    AC_CHECK_FUNCS(gmtime_r localtime_r readdir_r getpwuid_r getcwd)
    AC_CHECK_FUNCS(access stat mkdir rename rmdir unlink realpath utime chmod)
-   AC_CHECK_FUNCS(iconv nl_langinfo setlocale)
+   AC_CHECK_FUNCS(nl_langinfo setlocale)
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
    AC_CHECK_FUNCS(inet_pton uname inet_ntoa)
    AC_CHECK_FUNCS(backtrace fork execvp pipe sigaction)
@@ -420,6 +491,10 @@ else
      AC_DEFINE(HAVE_DLADDR)])
    AC_CHECK_FILES(/proc/self/exe, [
      AC_DEFINE(HAVE_PROC_SELF_EXE)])
+
+   AM_ICONV
+   AM_LC_MESSAGES
+   AC_STRUCT_TIMEZONE
 
    AC_CHECK_FUNCS(gethostbyname_r, [
      AC_DEFINE(HAVE_GETHOSTBYNAME_R)
@@ -470,13 +545,19 @@ else
      fi
    ])
 
+   # FIXME: libjava source code expects to find a prototype for
+   # gethostbyaddr_r in netdb.h.  The outer check ensures that
+   # HAVE_GETHOSTBYADDR_R will not be defined if the prototype fails
+   # to exist where expected.  (The root issue: AC_CHECK_FUNCS assumes C
+   # linkage check is enough, yet C++ code requires proper prototypes.)
+   AC_EGREP_HEADER(gethostbyaddr_r, netdb.h, [
    AC_CHECK_FUNCS(gethostbyaddr_r, [
      AC_DEFINE(HAVE_GETHOSTBYADDR_R)
      # There are two different kinds of gethostbyaddr_r.
      # We look for the one that returns `int'.
      # Hopefully this check is robust enough.
      AC_EGREP_HEADER(int.*gethostbyaddr_r, netdb.h, [
-       AC_DEFINE(GETHOSTBYADDR_R_RETURNS_INT)])])
+       AC_DEFINE(GETHOSTBYADDR_R_RETURNS_INT)])])])
 
    AC_CHECK_FUNCS(gethostname, [
      AC_DEFINE(HAVE_GETHOSTNAME)
@@ -531,6 +612,9 @@ else
       AC_MSG_ERROR([memcpy is required])
    fi
 
+   AC_CHECK_LIB(dl, dlopen, [
+       AC_DEFINE(HAVE_DLOPEN, 1, [Define if dlopen is available])])
+
    # Some library-finding code we stole from Tcl.
    #--------------------------------------------------------------------
    #	Check for the existence of the -lsocket and -lnsl libraries.
@@ -582,10 +666,7 @@ else
    SYSTEMSPEC="$SYSTEMSPEC $gcj_cv_lib_sockets"
 
    if test "$with_system_zlib" = yes; then
-      AC_CHECK_LIB(z, deflate, ZLIBSPEC=-lz, ZLIBSPEC=-lzgcj)
-   else
-      ZLIBSPEC=-lzgcj
-      ZLIBTESTSPEC="-L`pwd`/../zlib/.libs -rpath `pwd`/../zlib/.libs"
+      AC_CHECK_LIB(z, deflate, ZLIBSPEC=-lz, ZLIBSPEC=)
    fi
 
    # On Solaris, and maybe other architectures, the Boehm collector
@@ -639,25 +720,25 @@ LT_AC_PROG_GCJ
 
 CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 
-dnl FIXME: cross compilation
-AC_CHECK_SIZEOF(void *)
+AC_COMPILE_CHECK_SIZEOF(void *)
 
 ZLIBS=
-ZDEPS=
+SYS_ZLIBS=
 ZINCS=
-if test "x$ZLIBSPEC" = "x-lzgcj"; then
-   # We include the path to the zlib build directory.
-   # See Makefile.am to understand why.
-   ZDEPS='$(top_builddir)/../zlib/libzgcj.la'
-   ZLIBS="$ZDEPS -L\$(here)/../zlib/$libsubdir"
+
+if test -z "$ZLIBSPEC"; then
+   # Use zlib from the GCC tree.
    ZINCS='-I$(top_srcdir)/../zlib'
+   ZLIBS=../zlib/libzgcj_convenience.la
 else
-   ZLIBS="$ZLIBSPEC"
+   # System's zlib.
+   SYS_ZLIBS="$ZLIBSPEC"
 fi
 AC_SUBST(ZLIBS)
-AC_SUBST(ZDEPS)
+AC_SUBST(SYS_ZLIBS)
 AC_SUBST(ZINCS)
 AC_SUBST(DIVIDESPEC)
+AC_SUBST(CHECKREFSPEC)
 AC_SUBST(EXCEPTIONSPEC)
 
 AM_CONDITIONAL(CANADIAN, test "$CANADIAN" = yes)
@@ -667,14 +748,15 @@ AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
 AM_CONDITIONAL(NEEDS_DATA_START, test "$NEEDS_DATA_START" = yes && test "$NATIVE" = yes)
 AC_SUBST(GCC_UNWIND_INCLUDE)
 
+AC_SUBST(AM_RUNTESTFLAGS)
+
 # Determine gcj version number.
 changequote(<<,>>)
-gcjvers="`$GCJ -v 2>&1 | sed -n 's/^.*version \([^ ]*\).*$/\1/p'`"
+gcjversion=`$GCJ -v 2>&1 | sed -n 's/^.*version \([^ ]*\).*$/\1/p'`
 changequote([,])
-AC_DEFINE_UNQUOTED(GCJVERSION, "$gcjvers")
+GCJVERSION=$gcjversion
 AC_SUBST(GCJVERSION)
-
-AC_SUBST(AM_RUNTESTFLAGS)
+AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
 
 dnl Work around a g++ bug.  Reported to gcc-bugs@gcc.gnu.org on Jan 22, 2000.
 AC_MSG_CHECKING([for g++ -ffloat-store bug])
@@ -689,10 +771,15 @@ CFLAGS="$save_CFLAGS"
 dnl We check for sys/filio.h because Solaris 2.5 defines FIONREAD there.
 dnl On that system, sys/ioctl.h will not include sys/filio.h unless
 dnl BSD_COMP is defined; just including sys/filio.h is simpler.
-AC_CHECK_HEADERS(unistd.h bstring.h sys/time.h sys/types.h fcntl.h sys/ioctl.h sys/filio.h sys/stat.h sys/select.h sys/socket.h netinet/in.h arpa/inet.h netdb.h pwd.h sys/config.h inttypes.h stdint.h langinfo.h locale.h)
+AC_CHECK_HEADERS(unistd.h bstring.h sys/time.h sys/types.h fcntl.h sys/ioctl.h sys/filio.h sys/stat.h sys/select.h sys/socket.h netinet/in.h arpa/inet.h netdb.h pwd.h sys/config.h stdint.h langinfo.h locale.h)
 dnl We avoid AC_HEADER_DIRENT since we really only care about dirent.h
 dnl for now.  If you change this, you also must update natFile.cc.
 AC_CHECK_HEADERS(dirent.h)
+AC_CHECK_HEADERS(inttypes.h, [
+    AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
+    AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
+])
+AC_HEADER_SYS_WAIT
 
 AC_CHECK_TYPE([ssize_t], [int])
 
@@ -715,6 +802,12 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [struct ip_mreq mreq;],
    AC_MSG_RESULT(yes)],
   [AC_MSG_RESULT(no)])
 
+AC_MSG_CHECKING([whether struct ipv6_mreq is in netinet/in.h])
+AC_TRY_COMPILE([#include <netinet/in.h>], [struct ipv6_mreq mreq6;],
+  [AC_DEFINE(HAVE_STRUCT_IPV6_MREQ)
+   AC_MSG_RESULT(yes)],
+  [AC_MSG_RESULT(no)])
+
 AC_MSG_CHECKING([whether struct sockaddr_in6 is in netinet/in.h])
 AC_TRY_COMPILE([#include <netinet/in.h>], [struct sockaddr_in6 addr6;],
   [AC_DEFINE(HAVE_INET6)
@@ -722,7 +815,8 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [struct sockaddr_in6 addr6;],
   [AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING([for socklen_t in sys/socket.h])
-AC_TRY_COMPILE([#include <sys/types.h>
+AC_TRY_COMPILE([#define _POSIX_PII_SOCKET
+#include <sys/types.h>
 #include <sys/socket.h>], [socklen_t x = 5;],
   [AC_DEFINE(HAVE_SOCKLEN_T)
    AC_MSG_RESULT(yes)],
@@ -759,11 +853,17 @@ case "${host}" in
 #    SYSDEP_SOURCES=sysdep/ia64.c
 #    test -d sysdep || mkdir sysdep
 #    ;;
+ ia64-*-linux*)
+    SIGNAL_HANDLER=include/dwarf2-signal.h
+    ;;
  powerpc-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
  alpha*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
+    ;;
+ *mingw*)
+    SIGNAL_HANDLER=include/win32-signal.h
     ;;
  *)
     SIGNAL_HANDLER=include/default-signal.h
@@ -808,6 +908,11 @@ for peer in $peerlibs ; do
     gtk)
       # Nothing, yet...
       ;;
+    no)
+      use_xlib_awt=
+      use_gtk_awt=
+      break
+      ;;
     *)
       echo "*** unrecognised argument \"${peer}\" for --enable-java-awt" 1>&2
       exit 1
@@ -836,17 +941,19 @@ esac
 # builddir for the .java files.
 h=`pwd`
 : > deps.mk
-( (cd $srcdir && find . -name '*.java' -print) ;
-  find . -name '*.java' -print) | \
+( (cd $srcdir && find . \( -name '*.java' -o -name '*.cc' \) -print) ;
+  find . \( -name '*.java' -o -name '*.cc' \) -print) | \
    fgrep -v testsuite | \
-   sed -e 's/\.java/.d/' | \
+   sed -e 's/\.java/.d/'\;'s/\.cc/.d/' | \
    while read f; do
       echo "include $f" >> deps.mk
       test -f $f || {
 changequote(<<,>>)
 	 d=`echo $f | sed -e 's,/[^/]*$,,'`
 changequote([,])
-	 $libgcj_basedir/../mkinstalldirs $d
+	 if test ! -d $d; then
+	   $libgcj_basedir/../mkinstalldirs $d
+	 fi;
 	 echo > $f
       }
    done

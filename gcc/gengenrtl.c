@@ -1,22 +1,22 @@
 /* Generate code to allocate RTL structures.
    Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "hconfig.h"
@@ -31,30 +31,28 @@ Boston, MA 02111-1307, USA.  */
 /* Calculate the format for CONST_DOUBLE.  This depends on the relative
    widths of HOST_WIDE_INT and REAL_VALUE_TYPE.
 
-   We need to go out to e0wwwww, since REAL_ARITHMETIC assumes 16-bits
-   per element in REAL_VALUE_TYPE.
+   We need to go out to e0wwwww, since real.c assumes 16 bits per element
+   in REAL_VALUE_TYPE.
 
    This is duplicated in rtl.c.
 
    A number of places assume that there are always at least two 'w'
    slots in a CONST_DOUBLE, so we provide them even if one would suffice.  */
 
-#ifdef REAL_ARITHMETIC
-# if MAX_LONG_DOUBLE_TYPE_SIZE == 96
-#  define REAL_WIDTH	\
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 96
+# define REAL_WIDTH	\
      (11*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
+#else
+# if MAX_LONG_DOUBLE_TYPE_SIZE == 128
+#  define REAL_WIDTH	\
+     (19*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
 # else
-#  if MAX_LONG_DOUBLE_TYPE_SIZE == 128
+#  if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
 #   define REAL_WIDTH	\
-      (19*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-#  else
-#   if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-#    define REAL_WIDTH	\
       (7*8 + HOST_BITS_PER_WIDE_INT)/HOST_BITS_PER_WIDE_INT
-#   endif
 #  endif
 # endif
-#endif /* REAL_ARITHMETIC */
+#endif
 
 #ifndef REAL_WIDTH
 # if HOST_BITS_PER_WIDE_INT*2 >= MAX_LONG_DOUBLE_TYPE_SIZE
@@ -71,19 +69,19 @@ Boston, MA 02111-1307, USA.  */
 #endif /* REAL_WIDTH */
 
 #if REAL_WIDTH == 1
-# define CONST_DOUBLE_FORMAT	"e0ww"
+# define CONST_DOUBLE_FORMAT	"0ww"
 #else
 # if REAL_WIDTH == 2
-#  define CONST_DOUBLE_FORMAT	"e0ww"
+#  define CONST_DOUBLE_FORMAT	"0ww"
 # else
 #  if REAL_WIDTH == 3
-#   define CONST_DOUBLE_FORMAT	"e0www"
+#   define CONST_DOUBLE_FORMAT	"0www"
 #  else
 #   if REAL_WIDTH == 4
-#    define CONST_DOUBLE_FORMAT	"e0wwww"
+#    define CONST_DOUBLE_FORMAT	"0wwww"
 #   else
 #    if REAL_WIDTH == 5
-#     define CONST_DOUBLE_FORMAT	"e0wwwww"
+#     define CONST_DOUBLE_FORMAT	"0wwwww"
 #    else
 #     define CONST_DOUBLE_FORMAT /* nothing - will cause syntax error */
 #    endif
@@ -95,17 +93,17 @@ Boston, MA 02111-1307, USA.  */
 
 struct rtx_definition 
 {
-  const char *enumname, *name, *format;
+  const char *const enumname, *const name, *const format;
 };
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { STRINGX(ENUM), NAME, FORMAT },
 
-struct rtx_definition defs[] = 
+static const struct rtx_definition defs[] = 
 {  
 #include "rtl.def"		/* rtl expressions are documented here */
 };
 
-const char *formats[NUM_RTX_CODE];
+static const char *formats[NUM_RTX_CODE];
 
 static const char *type_from_format	PARAMS ((int));
 static const char *accessor_from_format	PARAMS ((int));
@@ -212,7 +210,7 @@ special_rtx (idx)
 	  || strcmp (defs[idx].enumname, "MEM") == 0);
 }
 
-/* Place a list of all format specifiers we use into the array FORMAT. */
+/* Place a list of all format specifiers we use into the array FORMAT.  */
 
 static void
 find_formats ()
@@ -389,24 +387,6 @@ gencode ()
   for (fmt = formats; *fmt != 0; fmt++)
     gendef (*fmt);
 }
-
-#if defined(USE_C_ALLOCA)
-PTR
-xmalloc (nbytes)
-  size_t nbytes;
-{
-  register PTR tmp = (PTR) really_call_malloc (nbytes);
-
-  if (!tmp)
-    {
-      fprintf (stderr, "can't allocate %d bytes (out of virtual memory)\n",
-	       nbytes);
-      exit (FATAL_EXIT_CODE);
-    }
-
-  return tmp;
-}
-#endif /* USE_C_ALLOCA */
 
 /* This is the main program.  We accept only one argument, "-h", which
    says we are writing the genrtl.h file.  Otherwise we are writing the

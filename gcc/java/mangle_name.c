@@ -72,8 +72,7 @@ append_gpp_mangled_name (name, len)
 /* Assuming (NAME, LEN) is a Utf8-encoded string, emit the string
    appropriately mangled (with Unicode escapes) to MANGLE_OBSTACK.
    Characters needing an escape are encoded `__UNN_' to `__UNNNN_', in
-   which case `__U' will be mangled `__U_'. `$' is mangled `$' or
-   __U24_ according to NO_DOLLAR_IN_LABEL.  */
+   which case `__U' will be mangled `__U_'.  */
 
 static void
 append_unicode_mangled_name (name, len)
@@ -87,12 +86,7 @@ append_unicode_mangled_name (name, len)
     {
       int ch = UTF8_GET(ptr, limit);
 
-      if ((ch >= '0' && ch <= '9')
-#ifndef NO_DOLLAR_IN_LABEL
-	  || ch == '$'
-#endif
-	  || (ch >= 'a' && ch <= 'z')
-	  || (ch >= 'A' && ch <= 'Z' && ch != 'U'))
+      if ((ISALNUM (ch) && ch != 'U') || ch == '$')
 	obstack_1grow (mangle_obstack, ch);
       /* Everything else needs encoding */
       else
@@ -149,12 +143,7 @@ unicode_mangling_length (name, len)
 
       if (ch < 0)
 	error ("internal error - invalid Utf8 name");
-      if ((ch >= '0' && ch <= '9')
-#ifndef NO_DOLLAR_IN_LABEL
-	  || ch == '$'
-#endif
-	  || (ch >= 'a' && ch <= 'z')
-	  || (ch >= 'A' && ch <= 'Z' && ch != 'U'))
+      if ((ISALNUM (ch) && ch != 'U') || ch == '$')
 	num_chars++;
       /* Everything else needs encoding */
       else

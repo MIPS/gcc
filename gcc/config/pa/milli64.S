@@ -1,8 +1,8 @@
-/* 64-bit millicode, original author Hewlett-Packard
+/* 32 and 64-bit millicode, original author Hewlett-Packard
    adapted for gcc by Paul Bame <bame@debian.org>
-   and Alan Modra <alan@linuxcare.com.au>
+   and Alan Modra <alan@linuxcare.com.au>.
 
-   Copyright 2001 Free Software Foundation, Inc.
+   Copyright 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GNU CC and is released under the terms of
    of the GNU General Public License as published by the Free Software
@@ -194,6 +194,30 @@ mrp_slot:	.equ	-20     /* "current RP" slot (replacing "r31_slot") */
 #define LREF(sym)	 CAT(L$,sym)
 #endif
 
+#ifdef L_dyncall
+	SUBSPA_MILLI
+	ATTR_DATA
+GSYM($$dyncall)
+	.export $$dyncall,millicode
+	.proc
+	.callinfo	millicode
+	.entry
+	bb,>=,n %r22,30,LREF(1)		; branch if not plabel address
+	depi	0,31,2,%r22		; clear the two least significant bits
+	ldw	4(%r22),%r19		; load new LTP value
+	ldw	0(%r22),%r22		; load address of target
+LSYM(1)
+#ifdef LINUX
+	bv	%r0(%r22)		; branch to the real target
+#else
+	ldsid	(%sr0,%r22),%r1		; get the "space ident" selected by r22
+	mtsp	%r1,%sr0		; move that space identifier into sr0
+	be	0(%sr0,%r22)		; branch to the real target
+#endif
+	stw	%r2,-24(%r30)		; save return address into frame marker
+	.exit
+	.procend
+#endif
 
 #ifdef L_divI
 /* ROUTINES:	$$divI, $$divoI
@@ -388,8 +412,8 @@ LSYM(small_divisor)
 #if defined(pa64)
 /*  Clear the upper 32 bits of the arg1 register.  We are working with	*/
 /*  small divisors (and 32 bit integers)   We must not be mislead  */
-/*  by "1" bits left in the upper 32 bits. */
-	depd r0,31,32,arg1
+/*  by "1" bits left in the upper 32 bits.  */
+	depd %r0,31,32,%r25
 #endif
 	blr,n	arg1,r0
 	nop
@@ -604,7 +628,7 @@ LSYM(special_divisor)
 /* Clear the upper 32 bits of the arg1 register.  We are working with
    small divisors (and 32 bit unsigned integers)   We must not be mislead
    by "1" bits left in the upper 32 bits.  */
-	depd r0,31,32,arg1
+	depd %r0,31,32,%r25
 #endif
 	comib,>	0,arg1,LREF(big_divisor)
 	nop
@@ -1765,7 +1789,7 @@ LSYM(l4)
 	sub,>		0,a1,t0		/* otherwise negate both and */
 	combt,<=,n	a0,t0,LREF(l2)	/*  swap back if |a0|<|a1| */
 	sub		0,a0,a1
-	movb,tr,n	t0,a0,LREF(l2)	/* 10th inst. */
+	movb,tr,n	t0,a0,LREF(l2)	/* 10th inst.  */
 
 LSYM(l0)	r__r_t0				/* add in this partial product */
 LSYM(l1)	a0__256a0			/* a0 <<= 8 ****************** */
@@ -1773,7 +1797,7 @@ LSYM(l2)	zdep		a1,30,8,t0	/* t0 = (a1&0xff)<<1 ********* */
 LSYM(l3)	blr		t0,0		/* case on these 8 bits ****** */
 		extru		a1,23,24,a1	/* a1 >>= 8 ****************** */
 
-/*16 insts before this. */
+/*16 insts before this.  */
 /*			  a0 <<= 8 ************************** */
 LSYM(x0)	a1_ne_0_b_l2	! a0__256a0	! MILLIRETN	! nop
 LSYM(x1)	a1_ne_0_b_l1	! r__r_a0	! MILLIRETN	! nop
@@ -2031,7 +2055,7 @@ LSYM(x252)	t0__64a0	! t0__t0ma0	! b_e_shift	! r__r_4t0
 LSYM(x253)	t0__64a0	! t0__t0ma0	! b_e_t0	! t0__4t0_a0
 LSYM(x254)	t0__128a0	! t0__t0ma0	! b_e_shift	! r__r_2t0
 LSYM(x255)	t0__256a0	! a1_ne_0_b_l0	! t0__t0ma0	! b_n_ret_t0
-/*1040 insts before this. */
+/*1040 insts before this.  */
 LSYM(ret_t0)	MILLIRET
 LSYM(e_t0)	r__r_t0
 LSYM(e_shift)	a1_ne_0_b_l2

@@ -31,6 +31,24 @@ Boston, MA 02111-1307, USA.  */
 #undef SELECT_RTX_SECTION
 #include "svr3.h"
 
+#undef INT_OP_GROUP
+#define INT_OP_GROUP INT_OP_DC
+
+/* We use collect2 instead of ctors_section constructors.  */
+#undef INIT_SECTION_ASM_OP
+#undef FINI_SECTION_ASM_OP
+#undef DTORS_SECTION_ASM_OP
+#undef DO_GLOBAL_CTORS_BODY
+
+/* Remove handling for a separate constant data section.  We put
+   constant data in text_section, which is the default.  */
+#undef SELECT_SECTION
+#undef SELECT_RTX_SECTION
+#undef EXTRA_SECTIONS
+#undef EXTRA_SECTION_FUNCTIONS
+#undef CONST_SECTION_ASM_OP
+#undef READONLY_DATA_SECTION
+
 #define DPX2
 
 /* See m68k.h.  7 means 68020 with 68881.
@@ -84,45 +102,20 @@ Boston, MA 02111-1307, USA.  */
 /* The native assembler doesn't support fmovecr.  */
 #define NO_ASM_FMOVECR
 
-#undef EXTRA_SECTIONS
-#undef EXTRA_SECTION_FUNCTIONS
-#undef READONLY_DATA_SECTION
-#define READONLY_DATA_SECTION data_section
-#undef SELECT_SECTION
-#undef SELECT_RTX_SECTION
-#define fini_section() while (0)
-
-#undef CTORS_SECTION_ASM_OP
-#define CTORS_SECTION_ASM_OP "\tsection 15"
-#undef DTORS_SECTION_ASM_OP
-#define DTORS_SECTION_ASM_OP "\tsection 15"
-#undef INIT_SECTION_ASM_OP
-#define BSS_SECTION_ASM_OP     "\tsection 14"
 #undef TEXT_SECTION_ASM_OP
-#define TEXT_SECTION_ASM_OP    "\tsection 10"
+#define TEXT_SECTION_ASM_OP	"\tsection 10"
 #undef DATA_SECTION_ASM_OP
-#define DATA_SECTION_ASM_OP  "\tsection 15"
+#define DATA_SECTION_ASM_OP	"\tsection 15"
+#define BSS_SECTION_ASM_OP	"\tsection 14"
 
 
 /* Don't try using XFmode.  */
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE 64
 
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC 
-
 #undef ASM_OUTPUT_SOURCE_FILENAME
 #define ASM_OUTPUT_SOURCE_FILENAME(FILE, NA)	\
   do { fprintf ((FILE), "\t.file\t'%s'\n", (NA)); } while (0)
-
-/* Assembler pseudos to introduce constants of various size.  */
-
-#undef ASM_BYTE_OP
-#define ASM_BYTE_OP "\tdc.b\t"
-#undef ASM_LONG
-#define ASM_LONG "\tdc.l"
 
 /* 
  * we don't seem to support any of:
@@ -271,68 +264,6 @@ Boston, MA 02111-1307, USA.  */
     }                                                   \
 }
 
-/* This is how to output a `long double' extended real constant. */
-#undef ASM_OUTPUT_LONG_DOUBLE 
-#define ASM_OUTPUT_LONG_DOUBLE(FILE,VALUE)  				\
-do { long l[3];								\
-     REAL_VALUE_TO_TARGET_LONG_DOUBLE (VALUE, l);			\
-     if (sizeof (int) == sizeof (long))					\
-       fprintf (FILE, "\tdc.l $%x,$%x,$%x\n", l[0], l[1], l[2]);	\
-     else								\
-       fprintf (FILE, "\tdc.l $%lx,$%lx,$%lx\n", l[0], l[1], l[2]);	\
-   } while (0)
-
-#undef ASM_OUTPUT_DOUBLE
-#if 0
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-  do { char dstr[30];						\
-       REAL_VALUE_TO_DECIMAL (VALUE, "%.20g", dstr);		\
-       fprintf (FILE, "\tdc.d %s\n", dstr);	        	\
-     } while (0)
-#endif
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-do { long l[2];								\
-     REAL_VALUE_TO_TARGET_DOUBLE (VALUE, l);			        \
-     fprintf (FILE, "\tdc.l $%x,$%x\n", l[0], l[1]);            	\
-   } while (0)
-
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#undef ASM_OUTPUT_FLOAT
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)  \
-do { long l;						\
-     REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);		\
-     if (sizeof (int) == sizeof (long))			\
-       fprintf (FILE, "\tdc.l $%x\n", l);		\
-     else						\
-       fprintf (FILE, "\tdc.l $%lx\n", l);		\
-   } while (0)
-
-/* This is how to output an assembler line defining an `int' constant.  */
-#undef ASM_OUTPUT_INT 
-#define ASM_OUTPUT_INT(FILE,VALUE)  \
-( fprintf (FILE, "\tdc.l "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* Likewise for `char' and `short' constants.  */
-#undef ASM_OUTPUT_SHORT
-#define ASM_OUTPUT_SHORT(FILE,VALUE)  \
-( fprintf (FILE, "\tdc.w "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-#undef ASM_OUTPUT_CHAR
-#define ASM_OUTPUT_CHAR(FILE,VALUE)  \
-( fprintf (FILE, "\tdc.b "),			\
-  output_addr_const (FILE, (VALUE)),		\
-  fprintf (FILE, "\n"))
-
-/* This is how to output an assembler line for a numeric constant byte.  */
-#undef ASM_OUTPUT_BYTE
-#define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\tdc.b $%x\n", (VALUE))
-
 /* This is how to output an element of a case-vector that is absolute.
    (The 68000 does not use such vectors,
    but we must define this macro anyway.)  */
@@ -346,7 +277,7 @@ do { long l;						\
   asm_fprintf (FILE, "\tdc.w %LL%d-%LL%d\n", VALUE, REL)
 
 /* Currently, JUMP_TABLES_IN_TEXT_SECTION must be defined in order to
-   keep switch tables in the text section. */
+   keep switch tables in the text section.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
 /* Output a float value (represented as a C double) as an immediate operand.
@@ -365,7 +296,7 @@ do { long l;						\
           long l;						\
           REAL_VALUE_TO_TARGET_SINGLE (VALUE, l);		\
           if (sizeof (int) == sizeof (long))			\
-            asm_fprintf ((FILE), "%I$%x", l);			\
+            asm_fprintf ((FILE), "%I$%x", (int) l);		\
           else							\
             asm_fprintf ((FILE), "%I$%lx", l);			\
         }							\

@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running system V.
-   Copyright (C) 1988, 1996, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1996, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,17 +18,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-
-#include "i386/i386.h"
-
-/* Use default settings for system V.3.  */
-
-#include "svr3.h"
-
-/* Use the ATT assembler syntax.
-   This overrides at least one macro (USER_LABEL_PREFIX) from svr3.h.  */
-
-#include "i386/att.h"
+#define TARGET_VERSION fprintf (stderr, " (80386, ATT syntax)"); 
 
 /* Use crt1.o as a startup file and crtn.o as a closing file.  */
 
@@ -102,10 +92,7 @@ Boston, MA 02111-1307, USA.  */
 
    The __CTORS_LIST__ goes in the .init section.  Define CTOR_LIST_BEGIN
    and CTOR_LIST_END to contribute to the .init section an instruction to
-   push a word containing 0 (or some equivalent of that).
-
-   ASM_OUTPUT_CONSTRUCTOR should be defined to push the address of the
-   constructor.  */
+   push a word containing 0 (or some equivalent of that).  */
 
 #undef INIT_SECTION_ASM_OP
 #define INIT_SECTION_ASM_OP     "\t.section .init,\"x\""
@@ -115,10 +102,4 @@ Boston, MA 02111-1307, USA.  */
   asm ("pushl $0")
 #define CTOR_LIST_END CTOR_LIST_BEGIN
 
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)	\
-  do {						\
-    init_section ();				\
-    fprintf (FILE, "\tpushl $");		\
-    assemble_name (FILE, NAME);			\
-    fprintf (FILE, "\n");			\
-  } while (0)
+#define TARGET_ASM_CONSTRUCTOR  ix86_svr3_asm_out_constructor

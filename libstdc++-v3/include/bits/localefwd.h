@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,30 +32,36 @@
 // ISO C++ 14882: 22.1  Locales
 //
 
+/** @file localefwd.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 #ifndef _CPP_BITS_LOCCORE_H
 #define _CPP_BITS_LOCCORE_H	1
 
 #pragma GCC system_header
 
 #include <bits/c++config.h>
-#include <bits/c++locale.h>     // Defines __c_locale.
-#include <bits/std_climits.h>	// For CHAR_BIT
-#include <bits/std_string.h> 	// For string
-#include <bits/std_cctype.h>	// For isspace, etc.
+#include <bits/c++locale.h>     // Defines __c_locale, config-specific includes
+#include <climits>		// For CHAR_BIT
+#include <cctype>		// For isspace, etc.
+#include <string> 		// For string.
+#include <vector>		// For vector.
 #include <bits/functexcept.h>
+
+#include <bits/atomicity.h>
 
 namespace std
 {
   // NB: Don't instantiate required wchar_t facets if no wchar_t support.
 #ifdef _GLIBCPP_USE_WCHAR_T
-# define  _GLIBCPP_NUM_FACETS 26
+# define  _GLIBCPP_NUM_FACETS 28
 #else
-# define  _GLIBCPP_NUM_FACETS 13
+# define  _GLIBCPP_NUM_FACETS 14
 #endif
 
   // 22.1.1 Locale
-  template<typename _Tp, typename _Alloc> 
-    class vector;
   class locale;
 
   // 22.1.3 Convenience interfaces
@@ -124,6 +131,7 @@ namespace std
   // NB: Specialized for char and wchar_t in locale_facets.h.
 
   class codecvt_base;
+  class __enc_traits;
   template<typename _InternT, typename _ExternT, typename _StateT>
     class codecvt;
   template<> class codecvt<char, char, mbstate_t>;
@@ -233,7 +241,7 @@ namespace std
 
     template<typename _Facet>
       locale  
-      combine(const locale& __other);
+      combine(const locale& __other) const;
 
     // Locale operations:
     string 
@@ -276,7 +284,10 @@ namespace std
 
     static inline void  
     _S_initialize()
-    { if (!_S_classic) classic();  }
+    { 
+      if (!_S_classic) 
+	classic();  
+    }
 
     static category  
     _S_normalize_category(category);
@@ -286,7 +297,7 @@ namespace std
   };
 
 
-  // locale implementation object
+  // Implementation object for locale 
   class locale::_Impl
   {
   public:
@@ -307,10 +318,9 @@ namespace std
 
   private:
     // Data Members.
-    size_t 				_M_references;
-    __vec_facet* 			_M_facets;
+    _Atomic_word			_M_references;
+    __vec_facet 			_M_facets;
     string 				_M_names[_S_num_categories];
-    __c_locale				_M_c_locale;
     static const locale::id* const 	_S_id_ctype[];
     static const locale::id* const 	_S_id_numeric[];
     static const locale::id* const 	_S_id_collate[];
@@ -321,12 +331,12 @@ namespace std
 
     inline void 
     _M_add_reference() throw()
-    { ++_M_references; }  // XXX MT
+    { __atomic_add(&_M_references, 1); }
 
     inline void 
     _M_remove_reference() throw()
     {
-      if (--_M_references == 0)  // XXX MT
+      if (__exchange_and_add(&_M_references, -1) == 1)
 	{
 	  try 
 	    { delete this; } 
@@ -339,7 +349,7 @@ namespace std
     _Impl(string __name, size_t);
    ~_Impl() throw();
 
-    bool
+    inline bool
     _M_check_same_name()
     {
       bool __ret = true;
@@ -347,6 +357,7 @@ namespace std
 	__ret &= _M_names[i] == _M_names[i + 1];
       return __ret;
     }
+
     void 
     _M_replace_categories(const _Impl*, category);
 
@@ -379,33 +390,42 @@ namespace std
   {
     friend class locale;
     friend class locale::_Impl;
+    friend class __enc_traits;
+
+  private:
+    _Atomic_word _M_references;
 
   protected:
+    // Contains data from the underlying "C" library for default "C"
+    // or "POSIX" locale.
+    static __c_locale		     _S_c_locale;
+    
     explicit 
     facet(size_t __refs = 0) throw();
 
     virtual 
-    ~facet() { };
+    ~facet();
 
     static void
     _S_create_c_locale(__c_locale& __cloc, const char* __s);
+
+    static __c_locale
+    _S_clone_c_locale(__c_locale& __cloc);
 
     static void
     _S_destroy_c_locale(__c_locale& __cloc);
 
   private:
-    size_t _M_references;
-
     void 
     _M_add_reference() throw();
 
     void 
     _M_remove_reference() throw();
 
-    facet(const facet&);  // not defined
+    facet(const facet&);  // Not defined.
 
     void 
-    operator=(const facet&);  // not defined
+    operator=(const facet&);  // Not defined.
   };
 
 
@@ -425,10 +445,10 @@ namespace std
     // NB: There is no accessor for _M_index because it may be used
     // before the constructor is run; the effect of calling a member
     // function (even an inline) would be undefined.
-    mutable size_t 	_M_index;
+    mutable size_t 		_M_index;
 
     // Last id number assigned
-    static size_t 	_S_highwater;   
+    static _Atomic_word 	_S_highwater;   
 
     void 
     operator=(const id&);  // not defined
@@ -438,8 +458,7 @@ namespace std
   public:
     // NB: This class is always a static data member, and thus can be
     // counted on to be zero-initialized.
-    // XXX id() : _M_index(0) { }
-    id() { }
+    id();
   };
 
   template<typename _Facet>

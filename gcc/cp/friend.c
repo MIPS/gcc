@@ -152,7 +152,7 @@ add_friend (type, decl)
 	    {
 	      if (decl == TREE_VALUE (friends))
 		{
-		  cp_warning ("`%D' is already a friend of class `%T'",
+		  warning ("`%D' is already a friend of class `%T'",
 			      decl, type);
 		  cp_warning_at ("previous friend declaration of `%D'",
 				 TREE_VALUE (friends));
@@ -194,7 +194,7 @@ make_friend_class (type, friend_type)
 
   if (! IS_AGGR_TYPE (friend_type))
     {
-      cp_error ("invalid type `%T' declared `friend'", friend_type);
+      error ("invalid type `%T' declared `friend'", friend_type);
       return;
     }
 
@@ -206,7 +206,7 @@ make_friend_class (type, friend_type)
 	 
 	 Friend declarations shall not declare partial
 	 specializations.  */
-      cp_error ("partial specialization `%T' declared `friend'",
+      error ("partial specialization `%T' declared `friend'",
 		friend_type);
       return;
     }
@@ -218,7 +218,7 @@ make_friend_class (type, friend_type)
     is_template_friend = 1;
   else if (same_type_p (type, friend_type))
     {
-      cp_pedwarn ("class `%T' is implicitly friends with itself",
+      pedwarn ("class `%T' is implicitly friends with itself",
 	          type);
       return;
     }
@@ -236,23 +236,21 @@ make_friend_class (type, friend_type)
   else if (TREE_CODE (friend_type) == TYPENAME_TYPE)
     {
       /* template <class T> friend typename S<T>::X; */
-      cp_error ("typename type `%#T' declared `friend'", friend_type);
+      error ("typename type `%#T' declared `friend'", friend_type);
       return;
     }
   else if (TREE_CODE (friend_type) == TEMPLATE_TYPE_PARM)
     {
       /* template <class T> friend class T; */
-      cp_error ("template parameter type `%T' declared `friend'", friend_type);
+      error ("template parameter type `%T' declared `friend'", friend_type);
       return;
     }
   else if (!CLASSTYPE_TEMPLATE_INFO (friend_type))
     {
       /* template <class T> friend class A; where A is not a template */
-      cp_error ("`%#T' is not a template", friend_type);
+      error ("`%#T' is not a template", friend_type);
       return;
     }
-
-  GNU_xref_hier (type, friend_type, 0, 0, 1);
 
   if (is_template_friend)
     friend_type = CLASSTYPE_TI_TEMPLATE (friend_type);
@@ -265,7 +263,7 @@ make_friend_class (type, friend_type)
 	      same_type_p (TREE_VALUE (classes), friend_type)))
     classes = TREE_CHAIN (classes);
   if (classes) 
-    cp_warning ("`%T' is already a friend of `%T'",
+    warning ("`%T' is already a friend of `%T'",
 		TREE_VALUE (classes), type);
   else
     {
@@ -309,7 +307,6 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
      int funcdef_flag;
 {
   int is_friend_template = 0;
-  tree prefix_attributes, attributes;
 
   /* Every decl that gets here is a friend of something.  */
   DECL_FRIEND_P (decl) = 1;
@@ -324,7 +321,7 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
     }
 
   if (TREE_CODE (decl) != FUNCTION_DECL)
-    my_friendly_abort (990513);
+    abort ();
 
   is_friend_template = PROCESSING_REAL_TEMPLATE_DECL_P ();
 
@@ -362,7 +359,7 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
 	    add_friend (current_class_type, decl);
 	}
       else
-	cp_error ("member `%D' declared as friend before type `%T' defined",
+	error ("member `%D' declared as friend before type `%T' defined",
 		  decl, ctype);
     }
   /* A global friend.
@@ -417,10 +414,10 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
 	  if (warn)
 	    {
 	      static int explained;
-	      cp_warning ("friend declaration `%#D' declares a non-template function", decl);
+	      warning ("friend declaration `%#D' declares a non-template function", decl);
 	      if (! explained)
 		{
-		  warning ("(if this is not what you intended, make sure the function template has already been declared and add <> after the function name here) -Wno-non-template-friend disables this warning.");
+		  warning ("(if this is not what you intended, make sure the function template has already been declared and add <> after the function name here) -Wno-non-template-friend disables this warning");
 		  explained = 1;
 		}
 	    }
@@ -435,19 +432,8 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
      handle them in start_decl_1, but since this is a friend decl start_decl_1
      never gets to see it.  */
 
-  if (attrlist)
-    {
-      attributes = TREE_PURPOSE (attrlist);
-      prefix_attributes = TREE_VALUE (attrlist);
-    }
-  else
-    {
-      attributes = NULL_TREE;
-      prefix_attributes = NULL_TREE;
-    } 
-
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
-  cplus_decl_attributes (&decl, attributes, prefix_attributes, 0);
+  cplus_decl_attributes (&decl, attrlist, 0);
 
   return decl;
 }

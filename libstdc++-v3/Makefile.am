@@ -1,6 +1,7 @@
 ## Makefile for the toplevel directory of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997,1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -24,7 +25,7 @@
 AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
-SUBDIRS = include libio libmath libsupc++ src testsuite
+SUBDIRS = include libio libmath libsupc++ src po testsuite 
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 
@@ -35,29 +36,34 @@ mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 # compile time, execution time, and binary size.
 check-script: $(top_builddir)/mkcheck
 	-(chmod + $(top_builddir)/mkcheck; \
-	  test -d testsuite || (mkdir testsuite; chmod u+w testsuite); \
 	  cd testsuite; \
 	  @glibcpp_builddir@/mkcheck 0)
 
 check-script-install: $(top_builddir)/mkcheck
 	-(chmod + $(top_builddir)/mkcheck; \
-	  test -d testsuite || (mkdir testsuite; chmod u+w testsuite); \
 	  cd testsuite; \
 	  @glibcpp_builddir@/mkcheck 1)
 
-# These two rules might seem messy, but are hella worth it.
+# These rules are messy, but are hella worth it.
 doxygen:
 	-(srcdir=`cd ${top_srcdir}; pwd`; \
-	  outdir=`pwd`; \
+	  builddir=`pwd`; \
 	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
-	            --mode=user $${srcdir} $${outdir})
+	            --mode=user $${srcdir} $${builddir})
 
 doxygen-maint:
 	-(srcdir=`cd ${top_srcdir}; pwd`; \
-	  outdir=`pwd`; \
-	  ${srcdir}/docs/doxygen/run_doxygen --mode=maint $${srcdir} $${outdir})
+	  builddir=`pwd`; \
+	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
+	            --mode=maint $${srcdir} $${builddir})
 
-.PHONY: doxygen doxygen-maint
+doxygen-man:
+	-(srcdir=`cd ${top_srcdir}; pwd`; \
+	  builddir=`pwd`; \
+	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
+	            --mode=man $${srcdir} $${builddir})
+
+.PHONY: doxygen doxygen-maint doxygen-man
 
 # Multilib support.
 MAKEOVERRIDES=
@@ -139,5 +145,3 @@ AM_MAKEFLAGS = \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
 	"DESTDIR=$(DESTDIR)" \
 	"WERROR=$(WERROR)" 
-
-

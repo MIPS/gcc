@@ -40,9 +40,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define STARTFILE_SPEC "%{pg:gcrt0.o%s}%{!pg:%{p:mcrt0.o%s}%{!p:crt1.o%s}}\
 	%{ansi:/svr4/usr/ccs/lib/values-Xc.o%s} \
-                          %{!ansi: \
-                           %{traditional:/svr4/usr/ccs/lib/values-Xt.o%s} \
-                           %{!traditional:/svr4/usr/ccs/lib/values-Xa.o%s}}"
+        %{!ansi:/svr4/usr/ccs/lib/values-Xa.o%s}"
 
 #define MACHINE_TYPE "RISC-OS System V.4 Mips"
 
@@ -77,8 +75,8 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_ASCII(FILE,PTR,LEN)			\
 do {							\
   const unsigned char *s;				\
-  int i;						\
-  for (i = 0, s = (const unsigned char *)(PTR); i < (LEN); s++, i++) \
+  size_t i, limit = (LEN);				\
+  for (i = 0, s = (const unsigned char *)(PTR); i < limit; s++, i++) \
     {							\
       if ((i % 8) == 0)					\
 	fputs ("\n\t.byte\t", (FILE));			\

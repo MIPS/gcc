@@ -86,7 +86,7 @@ Boston, MA 02111-1307, USA.  */
 #define NEED_PROBE (-2048)
 #endif
 
-/* use memcpy, memset instead of bcopy, etc. */
+/* use memcpy, memset instead of bcopy, etc.  */
 
 #define TARGET_MEM_FUNCTIONS
 
@@ -155,15 +155,6 @@ Boston, MA 02111-1307, USA.  */
 #undef IMMEDIATE_PREFIX
 #define IMMEDIATE_PREFIX "$"
 
-/* This is how to output an assembler line defining a `double' constant.  */
-
-#undef ASM_OUTPUT_DOUBLE
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)  \
-do { long l[2];						\
-     REAL_VALUE_TO_TARGET_DOUBLE (VALUE, l);		\
-     fprintf (FILE, "\t.long 0x%x, 0x%x\n", l[0], l[1]);	\
-   } while (0)
-
 /*unos has no .skip :-( */
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)	 	\
@@ -196,9 +187,9 @@ do { long l[2];						\
 
 #undef  ASM_OUTPUT_ASCII
 #define  ASM_OUTPUT_ASCII(FILE, P , SIZE)				\
-do {  int i;								\
+do {  size_t i, limit = (SIZE);						\
 	  fprintf ((FILE), "\t.ascii \"");				\
-	  for (i = 0; i < (SIZE); i++)					\
+	  for (i = 0; i < limit; i++)					\
 	    {								\
 	      register int c = (P)[i];					\
 	      if (i != 0 && (i / 200) * 200 == i)			\
@@ -258,7 +249,7 @@ do {  int i;								\
        or print pair of registers as rx:ry.
    'y' for a FPA insn (print pair of registers as rx:ry).  This also outputs
        CONST_DOUBLE's as SunFPA constant RAM registers if
-       possible, so it should not be used except for the SunFPA. */
+       possible, so it should not be used except for the SunFPA.  */
 
 #undef PRINT_OPERAND_PUNCT_VALID_P
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
@@ -300,7 +291,7 @@ do {  int i;								\
 	ASM_OUTPUT_FLOAT_OPERAND (CODE, FILE, r);			\
       else								\
         { REAL_VALUE_TO_TARGET_SINGLE (r, l);				\
-          fprintf (FILE, "$0x%x", l); } }				\
+          fprintf (FILE, "$0x%lx", l); } }				\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == DFmode)	\
     { REAL_VALUE_TYPE r;						\
       REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
@@ -457,7 +448,7 @@ do {  int i;								\
 #define ASM_OUTPUT_SOURCE_LINE(FILE, LINENO)	\
   fprintf (FILE, "\t; ln\t%d\n",			\
 	   (sdb_begin_function_line		\
-	    ? last_linenum - sdb_begin_function_line : 1))
+	    ? (LINENO) - sdb_begin_function_line : 1))
 
 /* Must put address in  %a0 , not  %d0 . -- LGM, 7/15/88 */
 /* UNOS ?? */

@@ -1,6 +1,6 @@
 // 2001-06-05 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,8 +30,9 @@
 // 27.4.2.1.6 class ios_base::init
 
 #include <fstream>
+#include <sstream>
 #include <iostream>
-#include <debug_assert.h>
+#include <testsuite_hooks.h>
 
 class gnu_filebuf: public std::filebuf
 {
@@ -81,8 +82,154 @@ void test01()
   VERIFY( k1 == initial );
 }
 
+// Non-required instantiations don't have the required facets inbued,
+// by default, into the locale object.
+// See 27.4.4.1
+class gnu_ios: public std::basic_ios<char> { };
+
+void test02() 
+{
+  bool test = true;
+
+  // 01: Doesn't call basic_ios::init, which uses ctype<char_type>..
+  // This should be unambiguously correct.
+  try
+    {
+      gnu_ios gios;
+    }
+  catch(...)
+    { 
+      test = false; 
+    }
+
+  // 02: Calls basic_ios::init, which may call ctype<char_type>...
+  try
+    {
+      std::basic_string<unsigned short>        	str;
+      std::basic_ostringstream<unsigned short> 	oss(str);
+      
+      // Try each member functions for unformatted io.
+      // put
+      oss.put(324);
+
+      // write
+      const unsigned short us[4] = {1246, 433, 520, 0};
+      oss.write(us, 4);
+
+      // flush
+      oss.flush();
+    }
+  catch(const std::bad_cast& obj)
+    {
+      // Should be able to do the above without calling fill() and
+      // forcing a call to widen...
+      test = false;
+    }
+  catch(...)
+    {
+      test = false;
+    }
+  VERIFY( test );
+}
+
+// libstdc++/3983
+void test03()
+{
+  using namespace std;
+  bool test = true;
+
+  // input streams
+  basic_istringstream<unsigned char> iss_uc;
+  unsigned char arr[6] = { 'a', 'b', 'c', 'd', 'e' };
+
+  // Sentry uses locale info, so have to try one formatted input.
+  try 
+    { 
+      int i;
+      iss_uc >> i;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+  
+  try 
+    { 
+      iss_uc >> arr;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+  
+  try 
+    { 
+      iss_uc >> ws;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+ 
+  try 
+    { 
+      basic_string<unsigned char> s_uc(arr);
+      iss_uc >> s_uc;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+
+  // output streams
+  basic_ostringstream<unsigned char> oss_uc;
+
+  try 
+    { 
+      bool b = true;
+      oss_uc << b;
+    }
+  catch (bad_cast& obj)
+    { }
+  catch (exception& obj)
+    { test = false; }
+   
+  VERIFY( test );
+}
+
+// libstdc++/5268
+int test04()
+{
+  std::stringbuf b1;
+  std::cout.rdbuf( &b1 );
+  std::cout << "hello\n";
+  return 0;
+}
+
+#if !__GXX_WEAK__
+// Explicitly instantiate for systems with no COMDAT or weak support.
+template 
+  std::basic_string<unsigned short>::size_type 
+  std::basic_string<unsigned short>::_Rep::_S_max_size;
+
+template 
+  unsigned short
+  std::basic_string<unsigned short>::_Rep::_S_terminal;
+
+template 
+  std::basic_string<unsigned char>::size_type 
+  std::basic_string<unsigned char>::_Rep::_S_max_size;
+
+template 
+  unsigned char
+  std::basic_string<unsigned char>::_Rep::_S_terminal;
+#endif
+
 int main()
 {
   test01();
+  test02();
+  test03();
+  test04();
   return 0;
 }

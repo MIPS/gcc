@@ -1,5 +1,5 @@
 /* -----------------------------------------------------------------*-C-*-
-   libffi @VERSION@ - Copyright (c) 1996-1999  Cygnus Solutions
+   libffi @VERSION@ - Copyright (c) 1996-2002  Cygnus Solutions
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -233,6 +233,18 @@ typedef enum ffi_abi {
   FFI_DEFAULT_ABI = FFI_GCC_SYSV,
 #endif
 
+#ifdef POWERPC_AIX
+  FFI_AIX,
+  FFI_DARWIN,
+  FFI_DEFAULT_ABI = FFI_AIX,
+#endif
+
+#ifdef POWERPC_DARWIN
+  FFI_AIX,
+  FFI_DARWIN,
+  FFI_DEFAULT_ABI = FFI_DARWIN,
+#endif
+
   /* ---- ARM  --------------------- */
 #ifdef ARM
   FFI_SYSV,
@@ -294,6 +306,16 @@ typedef struct {
 #endif
 
 } ffi_cif;
+
+#if SIZEOF_ARG == 4
+typedef UINT32 ffi_arg;
+#else
+#if SIZEOF_ARG == 8
+typedef UINT64 ffi_arg;
+#else
+-- unsupported configuration
+#endif
+#endif
 
 /* ---- Definitions for the raw API -------------------------------------- */
 
@@ -390,10 +412,32 @@ struct ffi_ia64_trampoline_struct {
 #define FFI_TRAMPOLINE_SIZE 40
 #define FFI_NATIVE_RAW_API 0
 
+#elif defined(POWERPC_DARWIN)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 40
+#define FFI_NATIVE_RAW_API 0
+
+#elif defined(POWERPC_AIX)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 24 /* see struct below */ 
+#define FFI_NATIVE_RAW_API 0
+
 #else 
 
 #define FFI_CLOSURES 0
 #define FFI_NATIVE_RAW_API 0
+
+#endif
+
+#if defined(POWERPC_DARWIN) || defined(POWERPC_AIX)
+
+struct ffi_aix_trampoline_struct {
+    void * code_pointer;	/* Pointer to ffi_closure_ASM */
+    void * toc;			/* TOC */
+    void * static_chain;	/* Pointer to closure */
+};
 
 #endif
 

@@ -1,24 +1,24 @@
 /* String pool for GCC.
    Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU CC is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to the Free
+along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-/* String text, identifer text and identifier node allocator.  Strings
+/* String text, identifier text and identifier node allocator.  Strings
    allocated by ggc_alloc_string are stored in an obstack which is
    never shrunk.  Identifiers are uniquely stored in a hash table.
 
@@ -32,7 +32,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tree.h"
 #include "hashtable.h"
-#include "toplev.h"
 
 /* The "" allocated string.  */
 const char empty_string[] = "";
@@ -86,7 +85,7 @@ ggc_alloc_string (contents, length)
 
   if (length == 0)
     return empty_string;
-  if (length == 1 && contents[0] >= '0' && contents[0] <= '9')
+  if (length == 1 && ISDIGIT (contents[0]))
     return digit_string (contents[0] - '0');
 
   obstack_grow0 (&string_stack, contents, length);
@@ -109,6 +108,22 @@ get_identifier (text)
   return HT_IDENT_TO_GCC_IDENT (ht_node);
 }
 
+/* Identical to get_identifier, except that the length is assumed
+   known.  */
+   
+tree
+get_identifier_with_length (text, length)
+     const char *text;
+     unsigned int length;
+{
+  hashnode ht_node = ht_lookup (ident_hash,
+				(const unsigned char *) text,
+				length, HT_ALLOC);
+
+  /* ht_node can't be NULL here.  */
+  return HT_IDENT_TO_GCC_IDENT (ht_node);
+}
+
 /* If an identifier with the name TEXT (a null-terminated string) has
    previously been referred to, return that node; otherwise return
    NULL_TREE.  */
@@ -125,19 +140,6 @@ maybe_get_identifier (text)
     return HT_IDENT_TO_GCC_IDENT (ht_node);
 
   return NULL_TREE;
-}
-
-/* Record the size of an identifier node for the language in use.
-   SIZE is the total size in bytes.
-   This is called by the language-specific files.  This must be
-   called before allocating any identifiers.  */
-
-void
-set_identifier_size (size)
-     int size;
-{
-  tree_code_length[(int) IDENTIFIER_NODE]
-    = (size - sizeof (struct tree_common)) / sizeof (tree);
 }
 
 /* Report some basic statistics about the string pool.  */

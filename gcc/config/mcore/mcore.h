@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for Motorola M*CORE Processor.
-   Copyright (C) 1993, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -16,7 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 #ifndef GCC_MCORE_H
 #define GCC_MCORE_H
@@ -65,7 +66,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 %{!mbig-endian: -D__MCORELE__}						\
 %{!m210: -D__M340__}							\
 "
-/* If -m4align is ever re-enabled then add this line to the defintion of CPP_SPEC
+/* If -m4align is ever re-enabled then add this line to the definition of CPP_SPEC
    %{!m4align:-D__MCORE_ALIGN_8__} %{m4align:-D__MCORE__ALIGN_4__} */
 
 /* We don't have a -lg library, so don't put it in the list.  */
@@ -124,7 +125,7 @@ extern int target_flags;
 { {"hardlit", 	            HARDLIT_BIT,				\
      N_("Inline constants if it can be done in 2 insns or less") },	\
   {"no-hardlit",          - HARDLIT_BIT,				\
-     N_("inline constants if it only takes 1 instruction") },		\
+     N_("Inline constants if it only takes 1 instruction") },		\
   {"4align",              - ALIGN8_BIT,					\
      N_("Set maximum alignment to 4") },				\
   {"8align",	            ALIGN8_BIT,					\
@@ -138,7 +139,7 @@ extern int target_flags;
   {"no-relax-immediates", - RELAX_IMM_BIT,				\
      N_("Do not arbitary sized immediates in bit operations") },	\
   {"wide-bitfields",        W_FIELD_BIT,				\
-     N_("Always treat bitfield as int-sized") },			\
+     N_("Always treat bit-field as int-sized") },			\
   {"no-wide-bitfields",   - W_FIELD_BIT,				\
      "" },								\
   {"4byte-functions",       OVERALIGN_FUNC_BIT,				\
@@ -177,9 +178,10 @@ extern const char * mcore_stack_increment_string;
      N_("Maximum amount for a single stack increment operation")}	\
 }
 
-/* The MCore ABI says that bitfields are unsigned by default. */
-/* The EPOC C++ environment does not support exceptions.  */
-#define CC1_SPEC "-funsigned-bitfields %{!DIN_GCC:-fno-rtti} %{!DIN_GCC:-fno-exceptions}"
+#ifndef CC1_SPEC
+/* The MCore ABI says that bitfields are unsigned by default.  */
+#define CC1_SPEC "-funsigned-bitfields"
+#endif
 
 /* What options are we going to default to specific settings when
    -O* happens; the user can subsequently override these settings.
@@ -213,10 +215,6 @@ extern const char * mcore_stack_increment_string;
 
 /* Target machine storage Layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 #define PROMOTE_MODE(MODE,UNSIGNEDP,TYPE)  	\
   if (GET_MODE_CLASS (MODE) == MODE_INT         \
       && GET_MODE_SIZE (MODE) < UNITS_PER_WORD) \
@@ -246,22 +244,10 @@ extern const char * mcore_stack_increment_string;
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
 #endif
 
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT  8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD  32
 #define MAX_BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD	4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE  32
 
 /* A C expression for the size in bits of the type `long long' on the
    target machine.  If you don't define this, the default is two
@@ -355,7 +341,7 @@ extern int mcore_stack_increment;
 #define LK_REG	15	/* overloaded on general register */
 #define AP_REG  16	/* fake arg pointer register */
 /* RBE: mcore.md depends on CC_REG being set to 17 */
-#define CC_REG	17	/* cant name it C_REG */
+#define CC_REG	17	/* can't name it C_REG */
 #define FP_REG  18	/* fake frame pointer register */
 
 /* Specify the registers used for certain standard purposes.
@@ -529,7 +515,7 @@ enum reg_class
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-extern int regno_reg_class[];
+extern const int regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) regno_reg_class[REGNO]
 
 /* When defined, the compiler allows registers explicitly used in the
@@ -543,10 +529,10 @@ extern int regno_reg_class[];
 
 /* Get reg_class from a letter such as appears in the machine 
    description.  */
-extern enum reg_class reg_class_from_letter[];
+extern const enum reg_class reg_class_from_letter[];
 
 #define REG_CLASS_FROM_LETTER(C) \
-   ( (C) >= 'a' && (C) <= 'z' ? reg_class_from_letter[(C) - 'a'] : NO_REGS )
+   ( ISLOWER (C) ? reg_class_from_letter[(C) - 'a'] : NO_REGS )
 
 /* The letters I, J, K, L, M, N, O, and P in a register constraint string
    can be used to stand for particular ranges of immediate operands.
@@ -825,8 +811,8 @@ extern enum reg_class reg_class_from_letter[];
 /* Length in units of the trampoline for entering a nested function.  */
 #define TRAMPOLINE_SIZE  12
 
-/* Alignment required for a trampoline in units.  */
-#define TRAMPOLINE_ALIGN  4
+/* Alignment required for a trampoline in bits.  */
+#define TRAMPOLINE_ALIGNMENT  32
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
@@ -967,12 +953,6 @@ extern enum reg_class reg_class_from_letter[];
    Do not define this if the table should contain absolute addresses.  */
 /* #define CASE_VECTOR_PC_RELATIVE */
 
-/* Specify the tree operation to be used to convert reals to integers.  */
-#define IMPLICIT_FIX_EXPR  FIX_ROUND_EXPR
-
-/* This is the kind of divide that is easiest to do in the general case.  */
-#define EASY_DIV_EXPR  TRUNC_DIV_EXPR
-
 /* 'char' is signed by default.  */
 #define DEFAULT_SIGNED_CHAR  0
 
@@ -1080,38 +1060,12 @@ extern enum reg_class reg_class_from_letter[];
 #define DATA_SECTION_ASM_OP  "\t.data"
 
 #undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_ctors, in_dtors, SUBTARGET_EXTRA_SECTIONS
+#define EXTRA_SECTIONS SUBTARGET_EXTRA_SECTIONS
 
 #undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS			\
-  CTORS_SECTION_FUNCTION			\
-  DTORS_SECTION_FUNCTION			\
   SUBTARGET_EXTRA_SECTION_FUNCTIONS		\
   SWITCH_SECTION_FUNCTION
-
-#ifndef CTORS_SECTION_FUNCTION
-#define CTORS_SECTION_FUNCTION						\
-void									\
-ctors_section ()							\
-{									\
-  if (in_section != in_ctors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);		\
-      in_section = in_ctors;						\
-    }									\
-}
-
-#define DTORS_SECTION_FUNCTION						\
-void									\
-dtors_section ()							\
-{									\
-  if (in_section != in_dtors)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);		\
-      in_section = in_dtors;						\
-    }									\
-}
-#endif
 
 /* Switch to SECTION (an `enum in_section').
 
@@ -1120,7 +1074,8 @@ dtors_section ()							\
    ASM_DECLARE_OBJECT_NAME and then switch back to the original section
    afterwards.  */
 #define SWITCH_SECTION_FUNCTION					\
-void								\
+static void switch_to_section PARAMS ((enum in_section, tree));	\
+static void							\
 switch_to_section (section, decl)				\
      enum in_section section;					\
      tree decl;							\
@@ -1130,14 +1085,13 @@ switch_to_section (section, decl)				\
       case in_text: text_section (); break;			\
       case in_data: data_section (); break;			\
       case in_named: named_section (decl, NULL, 0); break;	\
-      case in_ctors: ctors_section (); break;			\
-      case in_dtors: dtors_section (); break;			\
       SUBTARGET_SWITCH_SECTIONS      				\
       default: abort (); break;					\
     }								\
 }
 
 /* Switch into a generic section.  */
+#undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION  mcore_asm_named_section
 
 /* This is how to output an insn to push a register on the stack.
@@ -1161,9 +1115,6 @@ switch_to_section (section, decl)				\
 	   (STACK_BOUNDARY / BITS_PER_UNIT))
 
   
-/* DBX register number for a given compiler register number.  */
-#define DBX_REGISTER_NUMBER(REGNO)  (REGNO)
-
 /* Output a label definition.  */
 #define ASM_OUTPUT_LABEL(FILE,NAME)  \
   do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
@@ -1197,8 +1148,6 @@ switch_to_section (section, decl)				\
 
 #undef  UNIQUE_SECTION
 #define UNIQUE_SECTION(DECL, RELOC) mcore_unique_section (DECL, RELOC)
-
-#define REDO_SECTION_INFO_P(DECL) 1
 
 #define MULTIPLE_SYMBOL_SPACES 1
 
@@ -1272,45 +1221,6 @@ extern long mcore_current_compilation_timestamp;
     fprintf (STREAM, "\t.long\t.L%d\n", VALUE)
 
 /* Output various types of constants.  */
-
-/* This is how to output an assembler line defining a `double'.  */
-#define ASM_OUTPUT_DOUBLE(FILE,VALUE)			\
-  do							\
-    {							\
-      char dstr[30];					\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-      fprintf (FILE, "\t.double %s\n", dstr);		\
-    }							\
-  while (0)
-
-
-/* This is how to output an assembler line defining a `float' constant.  */
-#define ASM_OUTPUT_FLOAT(FILE,VALUE)			\
-  do							\
-    {							\
-      char dstr[30];					\
-      REAL_VALUE_TO_DECIMAL ((VALUE), "%.20e", dstr);	\
-      fprintf (FILE, "\t.float %s\n", dstr);		\
-    }							\
-  while (0)
-
-#define ASM_OUTPUT_INT(STREAM, EXP)  	\
-  (fprintf (STREAM, "\t.long\t"),      	\
-   output_addr_const (STREAM, (EXP)),  	\
-   fputc ('\n', STREAM))		
-
-#define ASM_OUTPUT_SHORT(STREAM, EXP)  \
-  (fprintf (STREAM, "\t.short\t"),     \
-   output_addr_const (STREAM, (EXP)),  \
-   fputc ('\n', STREAM))		
-
-#define ASM_OUTPUT_CHAR(STREAM, EXP)  	\
-  (fprintf (STREAM, "\t.byte\t"),      	\
-   output_addr_const (STREAM, (EXP)),  	\
-   fputc ('\n', STREAM))
-
-#define ASM_OUTPUT_BYTE(STREAM, VALUE)  	\
-  fprintf (STREAM, "\t.byte\t%d\n", VALUE)  	\
 
 /* This is how to output an assembler line
    that says to advance the location counter by SIZE bytes.  */
@@ -1391,7 +1301,8 @@ extern long mcore_current_compilation_timestamp;
 /* We must mark dll symbols specially.  Definitions of dllexport'd objects
    install some info in the .drective (PE) or .exports (ELF) sections.   */
 #undef  ENCODE_SECTION_INFO
-#define ENCODE_SECTION_INFO(DECL) mcore_encode_section_info (DECL)
+#define ENCODE_SECTION_INFO(DECL, FIRST) \
+  mcore_encode_section_info (DECL, FIRST)
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
@@ -1407,10 +1318,6 @@ extern long mcore_current_compilation_timestamp;
 /* This is to handle loads from the constant pool.  */
 #define MACHINE_DEPENDENT_REORG(X) mcore_dependent_reorg (X)
 
-/* This handles MCore dependent rtl simplifications.  */
-#define MACHINE_DEPENDENT_SIMPLIFY(X,M,L,I,S) \
-  mcore_dependent_simplify_rtx (X, M, L, I, S)
-     
 #define PREDICATE_CODES							\
   { "mcore_arith_reg_operand",		{ REG, SUBREG }},		\
   { "mcore_general_movsrc_operand",	{ MEM, CONST_INT, REG, SUBREG }},\
