@@ -1637,6 +1637,13 @@ struct tree_type GTY(())
   (! DECL_CONTEXT (EXP)						\
    || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
 
+/* In case of a duplicate decl, chain to the most recent one. */
+#define DECL_NEWEST_DUPLICATE(NODE) do { \
+   tree next; \
+   while ((next = TREE_CHAIN (NODE)) != NULL_TREE \
+	   && DECL_NAME (next) == DECL_NAME (NODE)) \
+     NODE = next; } while (0)
+
 /* Enumerate visibility settings.  */
 
 enum symbol_visibility

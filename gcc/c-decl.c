@@ -1849,40 +1849,44 @@ pushdecl (tree x)
 		 IDENTIFIER_POINTER (name));
 
       old = lookup_name_current_level (name);
-      if (old && duplicate_decls (x, old, 0, false))
+      if (old)
 	{
-	  /* For PARM_DECLs, old may be a forward declaration.
-	     If so, we want to remove it from its old location
-	     (in the variables chain) and rechain it in the
-	     location given by the new declaration.  */
-	  if (TREE_CODE (x) == PARM_DECL)
+	  DECL_NEWEST_DUPLICATE (old);
+	  if (duplicate_decls (x, old, 0, false))
 	    {
-	      tree *p;
-	      for (p = &scope->names; *p; p = &TREE_CHAIN (*p))
-		if (*p == old)
-		  {
-		    *p = TREE_CHAIN (old);
-		    SCOPE_LIST_APPEND (scope, parms, old);
-		    break;
-		  }
-	      return old;
-	    }
+	      /* For PARM_DECLs, old may be a forward declaration.
+		 If so, we want to remove it from its old location
+		 (in the variables chain) and rechain it in the
+		 location given by the new declaration.  */
+	      if (TREE_CODE (x) == PARM_DECL)
+		{
+		  tree *p;
+		  for (p = &scope->names; *p; p = &TREE_CHAIN (*p))
+		    if (*p == old)
+		      {
+			*p = TREE_CHAIN (old);
+			SCOPE_LIST_APPEND (scope, parms, old);
+			break;
+		      }
+		  return old;
+		}
 
-	  if (track_declarations && scope == global_scope)
-	    {
-	      SET_DECL_FRAGMENT (x, current_c_fragment);
-	      note_fragment_binding_1 (x);
-	      register_decl_dependency (old);
+	      if (track_declarations && scope == global_scope)
+		{
+		  SET_DECL_FRAGMENT (x, current_c_fragment);
+		  note_fragment_binding_1 (x);
+		  register_decl_dependency (old);
+		}
+	      IDENTIFIER_SYMBOL_VALUE (name) = x;
+	      /* Link new decl immediately after old one. */
+	      TREE_CHAIN (x) = TREE_CHAIN (old);
+	      TREE_CHAIN (old) = x;
+	      if (scope->names_last == old)
+		scope->names_last = x;
+	      return x;
 	    }
-	  IDENTIFIER_SYMBOL_VALUE (name) = x;
-	  /* Link new decl immediately after old one. */
-	  TREE_CHAIN (x) = TREE_CHAIN (old);
-	  TREE_CHAIN (old) = x;
-	  if (scope->names_last == old)
-	    scope->names_last = x;
-	  return x;
 	}
-      if (DECL_EXTERNAL (x) || scope == global_scope)
+      else if (DECL_EXTERNAL (x) || scope == global_scope)
 	{
 	  /* Find and check against a previous, not-in-scope, external
 	     decl for this identifier.  (C99 6.2.7p2: All declarations

@@ -4494,7 +4494,13 @@ get_callee_fndecl (tree call)
      that `f' is being called.  */
   if (TREE_CODE (addr) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (addr, 0)) == FUNCTION_DECL)
-    return TREE_OPERAND (addr, 0);
+    {
+      tree decl = TREE_OPERAND (addr, 0);
+      /* If there are multiple declarations chained together
+	 pick the most recent one. See pushdecl in c-decl.c. */
+      DECL_NEWEST_DUPLICATE(decl);
+      return decl;
+    }
   
   /* We couldn't figure out what was being called.  Maybe the front
      end has some idea.  */

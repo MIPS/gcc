@@ -750,6 +750,8 @@ make_decl_rtl (tree decl, const char *asmspec)
   int reg_number;
   rtx x;
 
+  DECL_NEWEST_DUPLICATE (decl);
+
   /* Check that we are not being given an automatic variable.  */
   /* A weak alias has TREE_PUBLIC set but not the other bits.  */
   if (TREE_CODE (decl) == PARM_DECL
@@ -1350,6 +1352,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   unsigned int align;
   int reloc = 0;
   rtx decl_rtl;
+
+  DECL_NEWEST_DUPLICATE (decl);
 
   if (lang_hooks.decls.prepare_assemble_variable)
     (*lang_hooks.decls.prepare_assemble_variable) (decl);
@@ -4284,9 +4288,6 @@ merge_weak (tree newdecl, tree olddecl)
 	     globalize_decl to remove the entry; in that case, we do
 	     not need to do anything.  */
 	}
-
-      /* Make the OLDDECL weak; it's OLDDECL that we'll be keeping.  */
-      mark_weak (olddecl);
     }
   else
     /* OLDDECL was weak, but NEWDECL was not explicitly marked as

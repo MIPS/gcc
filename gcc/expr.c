@@ -6406,6 +6406,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 
     case FUNCTION_DECL:
     case RESULT_DECL:
+      DECL_NEWEST_DUPLICATE (exp);
       if (DECL_RTL (exp) == 0)
 	abort ();
 

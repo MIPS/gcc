@@ -1,3 +1,12 @@
+2003-12-13  Per Bothner  <pbothner@apple.com>
+
+	* tree.h (DECL_NEWEST_DUPLICATE):  New macro.
+	* tree.c (get_callee_fndecl):  Use DECL_NEWEST_DUPLICATE.
+	* expr.c (expand_expr):  Likewise.
+	* varasm.c (make_decl_rtl, assemble_variable):  Likewise.
+	(merge_weak):  Don't call mark_weak on olddecl.
+	* c-decl.c (pushdecl):  Call DECL_NEWEST_DUPLICATE on old decl.
+
 2003-12-12  Per Bothner  <pbothner@apple.com>
 
 	* function.c (init_function_once):  Don't reset funcdef_no.
