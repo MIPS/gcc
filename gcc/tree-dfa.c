@@ -2571,10 +2571,10 @@ find_hidden_use_vars (block)
   return 0;
 }
 
-/* Callback for walk_tree used by find_hidden_use_vars to analyze each array
-   in a lexical block.  For each array type, it walks its TYPE_SIZE and
-   TYPE_SIZE_UNIT trees looking for VAR_DECLs.  Those VAR_DECLs will be
-   marked as having a hidden use.  */
+/* Callback for walk_tree used by find_hidden_use_vars to analyze each 
+   variable in a lexical block.  If the variable's size has a variable
+   size, then mark all objects needed to compute the variable's size
+   as having hidden uses.  */
 
 static tree
 find_hidden_use_vars_r (tp, walk_subtrees, data)
@@ -2584,12 +2584,24 @@ find_hidden_use_vars_r (tp, walk_subtrees, data)
 {
   int *inside_vla = (int *) data;
 
-  if (TREE_CODE (*tp) == ARRAY_TYPE)
+  /* We need to look for hidden uses due to VLAs in variable
+     definitions.  We originally used to look for these hidden
+     uses in the variable's type, but that's unreliable if the
+     type's size contains a SAVE_EXPR for a different function
+     context than the variable is used within.  */
+  if (SSA_DECL_P (*tp)
+      && ((DECL_SIZE (*tp)
+	   && ! really_constant_p (DECL_SIZE (*tp)))
+	  || (DECL_SIZE_UNIT (*tp)
+	      && ! really_constant_p (DECL_SIZE_UNIT (*tp)))))
     {
+      int save = *inside_vla;
+
       *inside_vla = 1;
-      walk_tree (&TYPE_SIZE (*tp), find_hidden_use_vars_r, inside_vla, NULL);
-      walk_tree (&TYPE_SIZE_UNIT (*tp), find_hidden_use_vars_r,
+      walk_tree (&DECL_SIZE (*tp), find_hidden_use_vars_r, inside_vla, NULL);
+      walk_tree (&DECL_SIZE_UNIT (*tp), find_hidden_use_vars_r,
 		 inside_vla, NULL);
+      *inside_vla = save;
     }
   else if (*inside_vla && SSA_DECL_P (*tp))
     set_has_hidden_use (*tp);

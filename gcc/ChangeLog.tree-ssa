@@ -1,3 +1,10 @@
+2003-05-07  Jeff Law  <law@redhat.com>
+
+	* tree-dfa.c (find_hidden_use_vars): Look at the size of
+	VAR_DECLs, not the size of ARRAY_TYPES.  Also make sure
+	to reset *inside_vla to its original value when done
+	processing any particular VAR_DECL.
+
 2003-05-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (simplify_if_stmt): Warn if
