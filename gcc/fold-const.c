@@ -1950,12 +1950,7 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 	return 1;
 
       /* For commutative ops, allow the other order.  */
-      return ((TREE_CODE (arg0) == PLUS_EXPR || TREE_CODE (arg0) == MULT_EXPR
-	       || TREE_CODE (arg0) == MIN_EXPR || TREE_CODE (arg0) == MAX_EXPR
-	       || TREE_CODE (arg0) == BIT_IOR_EXPR
-	       || TREE_CODE (arg0) == BIT_XOR_EXPR
-	       || TREE_CODE (arg0) == BIT_AND_EXPR
-	       || TREE_CODE (arg0) == NE_EXPR || TREE_CODE (arg0) == EQ_EXPR)
+      return (commutative_tree_code (TREE_CODE (arg0))
 	      && operand_equal_p (TREE_OPERAND (arg0, 0),
 				  TREE_OPERAND (arg1, 1), 0)
 	      && operand_equal_p (TREE_OPERAND (arg0, 1),
@@ -5088,9 +5083,7 @@ fold (tree expr)
 
   /* If this is a commutative operation, and ARG0 is a constant, move it
      to ARG1 to reduce the number of tests below.  */
-  if ((code == PLUS_EXPR || code == MULT_EXPR || code == MIN_EXPR
-       || code == MAX_EXPR || code == BIT_IOR_EXPR || code == BIT_XOR_EXPR
-       || code == BIT_AND_EXPR)
+  if (commutative_tree_code (code)
       && ((TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) != INTEGER_CST)
 	  || (TREE_CODE (arg0) == REAL_CST && TREE_CODE (arg1) != REAL_CST)))
     {
@@ -8854,9 +8847,7 @@ nondestructive_fold_binary_to_constant (enum tree_code code, tree type,
 
   /* If this is a commutative operation, and ARG0 is a constant, move it
      to ARG1 to reduce the number of tests below.  */
-  if ((code == PLUS_EXPR || code == MULT_EXPR || code == MIN_EXPR
-       || code == MAX_EXPR || code == BIT_IOR_EXPR || code == BIT_XOR_EXPR
-       || code == BIT_AND_EXPR)
+  if (commutative_tree_code (code)
       && (TREE_CODE (op0) == INTEGER_CST || TREE_CODE (op0) == REAL_CST))
     {
       tem = op0;

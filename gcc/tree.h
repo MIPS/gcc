@@ -3064,6 +3064,8 @@ extern void set_decl_assembler_name (tree);
 extern int type_num_arguments (tree);
 extern tree lhd_unsave_expr_now (tree);
 extern bool is_essa_node (tree);
+extern bool associative_tree_code (enum tree_code);
+extern bool commutative_tree_code (enum tree_code);
 
 
 /* In stmt.c */

@@ -3475,6 +3475,39 @@ compare_tree_int (tree t, unsigned HOST_WIDE_INT u)
     return 1;
 }
 
+/* Return true if CODE represents an associative tree code.  Otherwise
+   return false.  */
+bool
+associative_tree_code (enum tree_code code)
+{
+  return (code == BIT_IOR_EXPR
+	  || code == BIT_AND_EXPR
+	  || code == BIT_XOR_EXPR
+	  || code == PLUS_EXPR
+	  || code == MINUS_EXPR
+	  || code == MULT_EXPR
+	  || code == LSHIFT_EXPR
+	  || code == RSHIFT_EXPR
+	  || code == MIN_EXPR
+	  || code == MAX_EXPR);
+}
+
+/* Return true if CODE represents an commutative tree code.  Otherwise
+   return false.  */
+bool
+commutative_tree_code (enum tree_code code)
+{
+  return (code == PLUS_EXPR
+	  || code == MULT_EXPR
+	  || code == MIN_EXPR
+	  || code == MAX_EXPR
+	  || code == BIT_IOR_EXPR
+	  || code == BIT_XOR_EXPR
+	  || code == BIT_AND_EXPR
+	  || code == NE_EXPR
+	  || code == EQ_EXPR);
+}
+
 /* Generate a hash value for an expression.  This can be used iteratively
    by passing a previous result as the "val" argument.
 
@@ -3540,9 +3573,7 @@ iterative_hash_expr (tree t, hashval_t val)
 	  val = iterative_hash_expr (TREE_OPERAND (t, 0), val);
 	}
 
-      if (code == PLUS_EXPR || code == MULT_EXPR || code == MIN_EXPR
-	  || code == MAX_EXPR || code == BIT_IOR_EXPR || code == BIT_XOR_EXPR
-	  || code == BIT_AND_EXPR || code == NE_EXPR || code == EQ_EXPR)
+      if (commutative_tree_code (code))
 	{
 	  /* It's a commutative expression.  We want to hash it the same
 	     however it appears.  We do this by first hashing both operands
