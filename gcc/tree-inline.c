@@ -1165,6 +1165,10 @@ expand_call_inline (tp, walk_subtrees, data)
   if (!fn)
     return NULL_TREE;
 
+  /* Turn forward declarations into real ones.  */
+  if (flag_unit_at_time)
+    fn = cgraph_node (fn)->decl;
+
   /* If fn is a declaration of a function in a nested scope that was
      globally declared inline, we don't set its DECL_INITIAL.
      However, we can't blindly follow DECL_ABSTRACT_ORIGIN because the
