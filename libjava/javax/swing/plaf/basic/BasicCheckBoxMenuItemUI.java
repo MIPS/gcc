@@ -50,28 +50,55 @@ import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
 
 
+/**
+ * DOCUMENT ME!
+ *
+ * @author $author$
+ * @version $Revision$
+ */
 public class BasicCheckBoxMenuItemUI extends BasicMenuItemUI
 {
-  public static ComponentUI createUI(final JComponent c)
+  /**
+   * DOCUMENT ME!
+   *
+   * @param c DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
+  public static ComponentUI createUI (final JComponent c)
   {
     return new BasicCheckBoxMenuItemUI();
   }
 
-  protected String getPropertyPrefix()
+  /**
+   * DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
+  protected String getPropertyPrefix ()
   {
     return null; // TODO
   }
 
-  protected void installDefaults()
+  /**
+   * DOCUMENT ME!
+   */
+  protected void installDefaults ()
   {
-    super.installDefaults();
+    super.installDefaults ();
 
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-    checkIcon = defaults.getIcon("CheckBoxMenuItem.checkIcon");
+    UIDefaults defaults = UIManager.getLookAndFeelDefaults ();
+    checkIcon = defaults.getIcon ("CheckBoxMenuItem.checkIcon");
   }
 
-  void processMouseEvent(JMenuItem item, MouseEvent e, MenuElement[] path,
-                         MenuSelectionManager manager)
-  {
-  }
+  /**
+   * DOCUMENT ME!
+   *
+   * @param item DOCUMENT ME!
+   * @param e DOCUMENT ME!
+   * @param path DOCUMENT ME!
+   * @param manager DOCUMENT ME!
+   */
+  void processMouseEvent (JMenuItem item, MouseEvent e, MenuElement[] path,
+                          MenuSelectionManager manager) {}
 }

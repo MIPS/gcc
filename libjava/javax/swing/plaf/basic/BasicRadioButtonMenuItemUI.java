@@ -38,41 +38,67 @@ exception statement from your version. */
 package javax.swing.plaf.basic;
 
 import java.awt.event.MouseEvent;
+
 import javax.swing.AbstractButton;
 import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
-import javax.swing.UIDefaults;
-import javax.swing.UIManager;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
-
+import javax.swing.UIDefaults;
+import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
 
 
+/**
+ * DOCUMENT ME!
+ *
+ * @author $author$
+ * @version $Revision$
+ */
 public class BasicRadioButtonMenuItemUI extends BasicMenuItemUI
 {
-
-  public BasicRadioButtonMenuItemUI()
-  {    
+  /**
+   * Creates a new BasicRadioButtonMenuItemUI object.
+   */
+  public BasicRadioButtonMenuItemUI ()
+  {
     super();
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-    checkIcon = defaults.getIcon("RadioButtonMenuItem.checkIcon");
+    UIDefaults defaults = UIManager.getLookAndFeelDefaults ();
+    checkIcon = defaults.getIcon ("RadioButtonMenuItem.checkIcon");
   }
 
-  public static ComponentUI createUI(JComponent b)
+  /**
+   * DOCUMENT ME!
+   *
+   * @param b DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
+  public static ComponentUI createUI (JComponent b)
   {
     return new BasicRadioButtonMenuItemUI();
   }
 
-  protected String getPropertyPrefix()
+  /**
+   * DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
+  protected String getPropertyPrefix ()
   {
     return null;
     // TODO
   }
 
-  void processMouseEvent(JMenuItem item, MouseEvent e, MenuElement[] path,
-                         MenuSelectionManager manager)
-  {
-  }
+  /**
+   * DOCUMENT ME!
+   *
+   * @param item DOCUMENT ME!
+   * @param e DOCUMENT ME!
+   * @param path DOCUMENT ME!
+   * @param manager DOCUMENT ME!
+   */
+  void processMouseEvent (JMenuItem item, MouseEvent e, MenuElement[] path,
+                          MenuSelectionManager manager) {}
 }

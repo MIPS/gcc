@@ -1,3 +1,13 @@
+2004-04-26  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/JCheckBoxMenuItem.java: 
+	Fixed style and removed unnecessary comments.
+	* javax/swing/JMenuItem.java: Ditto.
+	* javax/swing/JRadioButtonMenuItem.java: Ditto.
+	* javax/swing/plaf/basic/BasicCheckBoxMenuItemUI.java: Ditto.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java: Ditto.
+	* javax/swing/plaf/basic/BasicRadioButtonMenuItemUI.java: Ditto.
+
 2004-04-23  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu_java_awt_peer_gtk_GtkWindowPeer.c: Change FIXME comment to

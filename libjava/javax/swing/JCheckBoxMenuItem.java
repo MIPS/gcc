@@ -1,4 +1,4 @@
-/* JCheckBoxMenuItem.java --
+/* JCheckBoxMenuItem.java -- 
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -45,129 +45,206 @@ import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
 
 
+/**
+ * DOCUMENT ME!
+ *
+ * @author $author$
+ * @version $Revision$
+ */
 public class JCheckBoxMenuItem extends JMenuItem implements SwingConstants,
                                                             Accessible
 {
-  //-------------------------------------------------------------
-  // Variables --------------------------------------------------
-  //-------------------------------------------------------------
   private static final String uiClassID = "CheckBoxMenuItemUI";
   private boolean state;
   private Object[] selectedObjects;
 
-  //-------------------------------------------------------------
-  // Initialization ---------------------------------------------
-  //-------------------------------------------------------------
-  public JCheckBoxMenuItem()
+  /**
+   * Creates a new JCheckBoxMenuItem object.
+   */
+  public JCheckBoxMenuItem ()
   {
     this(null, null);
-  } // JCheckBoxMenuItem()
+  }
 
-  public JCheckBoxMenuItem(Icon icon)
+  /**
+   * Creates a new JCheckBoxMenuItem object.
+   *
+   * @param icon DOCUMENT ME!
+   */
+  public JCheckBoxMenuItem (Icon icon)
   {
     this(null, icon);
-  } // JCheckBoxMenuItem()
+  }
 
-  public JCheckBoxMenuItem(String text)
+  /**
+   * Creates a new JCheckBoxMenuItem object.
+   *
+   * @param text DOCUMENT ME!
+   */
+  public JCheckBoxMenuItem (String text)
   {
     this(text, null);
-  } // JCheckBoxMenuItem()
+  }
 
-  public JCheckBoxMenuItem(Action action)
+  /**
+   * Creates a new JCheckBoxMenuItem object.
+   *
+   * @param action DOCUMENT ME!
+   */
+  public JCheckBoxMenuItem (Action action)
   {
     this();
-    setAction(action);
-  } // JCheckBoxMenuItem()
+    setAction (action);
+  }
 
-  public JCheckBoxMenuItem(String text, Icon icon)
+  /**
+   * Creates a new JCheckBoxMenuItem object.
+   *
+   * @param text DOCUMENT ME!
+   * @param icon DOCUMENT ME!
+   */
+  public JCheckBoxMenuItem (String text, Icon icon)
   {
     this(text, icon, false);
-  } // JCheckBoxMenuItem()
+  }
 
-  public JCheckBoxMenuItem(String text, boolean state)
+  /**
+   * Creates a new JCheckBoxMenuItem object.
+   *
+   * @param text DOCUMENT ME!
+   * @param state DOCUMENT ME!
+   */
+  public JCheckBoxMenuItem (String text, boolean state)
   {
     this(text, null, state);
-  } // JCheckBoxMenuItem()
+  }
 
-  public JCheckBoxMenuItem(String text, Icon icon, boolean state)
+  /**
+   * Creates a new JCheckBoxMenuItem object.
+   *
+   * @param text DOCUMENT ME!
+   * @param icon DOCUMENT ME!
+   * @param state DOCUMENT ME!
+   */
+  public JCheckBoxMenuItem (String text, Icon icon, boolean state)
   {
     super(text, icon);
-    setModel(new JToggleButton.ToggleButtonModel());
+    setModel (new JToggleButton.ToggleButtonModel());
     this.state = state;
-  } // JCheckBoxMenuItem()
+  }
 
-  //-------------------------------------------------------------
-  // Methods ----------------------------------------------------
-  //-------------------------------------------------------------
-  private void writeObject(ObjectOutputStream stream) throws IOException
+  /**
+   * DOCUMENT ME!
+   *
+   * @param stream DOCUMENT ME!
+   *
+   * @throws IOException DOCUMENT ME!
+   */
+  private void writeObject (ObjectOutputStream stream)
+                     throws IOException
   {
     // TODO
-  } // writeObject()
+  }
 
-  public String getUIClassID()
+  /**
+   * DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
+  public String getUIClassID ()
   {
     return uiClassID;
-  } // getUIClassID()
+  }
 
-  public boolean getState()
+  /**
+   * DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
+  public boolean getState ()
   {
     return state;
-  } // getState()
+  }
 
-  public synchronized void setState(boolean state)
+  /**
+   * DOCUMENT ME!
+   *
+   * @param state DOCUMENT ME!
+   */
+  public synchronized void setState (boolean state)
   {
     this.state = state;
-  } // setState()
+  }
 
-  public Object[] getSelectedObjects()
+  /**
+   * DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
+  public Object[] getSelectedObjects ()
   {
     return selectedObjects;
-  } // getSelectedObjects()
+  }
 
-  public void requestFocus()
+  /**
+   * DOCUMENT ME!
+   */
+  public void requestFocus ()
   {
     // TODO
-  } // requestFocus()
+  }
 
-  protected String paramString()
+  /**
+   * DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
+  protected String paramString ()
   {
     return "JCheckBoxMenuItem";
-  } // paramString()
+  }
 
-  public AccessibleContext getAccessibleContext()
+  /**
+   * DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
+  public AccessibleContext getAccessibleContext ()
   {
     if (accessibleContext == null)
-      {
-        accessibleContext = new AccessibleJCheckBoxMenuItem(this);
-      }
+      accessibleContext = new AccessibleJCheckBoxMenuItem(this);
 
     return accessibleContext;
-  } // getAccessibleContext()
+  }
 
-  //-------------------------------------------------------------
-  // Classes ----------------------------------------------------
-  //-------------------------------------------------------------
+  /**
+   * DOCUMENT ME!
+   *
+   * @author $author$
+   * @version $Revision$
+   */
   protected class AccessibleJCheckBoxMenuItem extends AccessibleJMenuItem
   {
-    //-------------------------------------------------------------
-    // Variables --------------------------------------------------
-    //-------------------------------------------------------------
-    //-------------------------------------------------------------
-    // Initialization ---------------------------------------------
-    //-------------------------------------------------------------
-    protected AccessibleJCheckBoxMenuItem(JCheckBoxMenuItem component)
+    /**
+     * Creates a new AccessibleJCheckBoxMenuItem object.
+     *
+     * @param component DOCUMENT ME!
+     */
+    protected AccessibleJCheckBoxMenuItem (JCheckBoxMenuItem component)
     {
       super(component);
 
       // TODO
-    } // AccessibleJCheckBoxMenuItem()
+    }
 
-    //-------------------------------------------------------------
-    // Methods ----------------------------------------------------
-    //-------------------------------------------------------------
-    public AccessibleRole getAccessibleRole()
+    /**
+     * DOCUMENT ME!
+     *
+     * @return $returnType$ DOCUMENT ME!
+     */
+    public AccessibleRole getAccessibleRole ()
     {
       return AccessibleRole.CHECK_BOX;
-    } // getAccessibleRole()
-  } // AccessibleJCheckBoxMenuItem
-} // JCheckBoxMenuItem
+    }
+  }
+}
