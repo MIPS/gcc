@@ -35,6 +35,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #  define TARGET_ESC 033
 #endif
 
+/* When removal of CPP_PREDEFINES is complete, TARGET_CPU_CPP_BULITINS
+   can also be removed from here.  */
+#ifndef TARGET_OS_CPP_BUILTINS
+# define TARGET_OS_CPP_BUILTINS()
+#endif
+#ifndef TARGET_CPU_CPP_BUILTINS
+# define TARGET_CPU_CPP_BUILTINS()
+#endif
+#ifndef CPP_PREDEFINES
+# define CPP_PREDEFINES ""
+#endif
+
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable or function named NAME.
    LABELNO is an integer which is different for each call.  */
@@ -226,28 +238,6 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 #endif
 #endif
 
-/* If we have no definition for UNIQUE_SECTION, but do have the 
-   ability to generate arbitrary sections, construct something
-   reasonable.  */
-#ifndef UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC)				\
-do {								\
-  int len;							\
-  const char *name;						\
-  char *string;							\
-								\
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (DECL));	\
-  /* Strip off any encoding in name.  */			\
-  STRIP_NAME_ENCODING (name, name);				\
-								\
-  len = strlen (name) + 1;					\
-  string = alloca (len + 1);					\
-  sprintf (string, ".%s", name);				\
-								\
-  DECL_SECTION_NAME (DECL) = build_string (len, string);	\
-} while (0)
-#endif
-
 /* By default, we generate a label at the beginning and end of the
    text section, and compute the size of the text section by
    subtracting the two.  However, on some platforms that doesn't 
@@ -293,6 +283,11 @@ do {								\
 #define CHAR_TYPE_SIZE BITS_PER_UNIT
 #endif
 
+#ifndef BOOL_TYPE_SIZE
+/* `bool' has size and alignment `1', on almost all platforms.  */
+#define BOOL_TYPE_SIZE CHAR_TYPE_SIZE
+#endif
+
 #ifndef SHORT_TYPE_SIZE
 #define SHORT_TYPE_SIZE (BITS_PER_UNIT * MIN ((UNITS_PER_WORD + 1) / 2, 2))
 #endif
@@ -311,10 +306,6 @@ do {								\
 
 #ifndef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE INT_TYPE_SIZE
-#endif
-
-#ifndef WCHAR_UNSIGNED
-#define WCHAR_UNSIGNED 0
 #endif
 
 #ifndef FLOAT_TYPE_SIZE
@@ -502,6 +493,14 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
   (FLOAT_MODE_P (MODE)						\
    && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
    && !ROUND_TOWARDS_ZERO)
+#endif
+
+#ifndef HOT_TEXT_SECTION_NAME
+#define HOT_TEXT_SECTION_NAME "text.hot"
+#endif
+
+#ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME "text.unlikely"
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

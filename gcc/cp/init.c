@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -77,10 +77,6 @@ begin_init_stmts (stmt_expr_p, compound_stmt_p)
   
   if (building_stmt_tree ())
     *compound_stmt_p = begin_compound_stmt (/*has_no_scope=*/1);
-  /*
-  else 
-    *compound_stmt_p = genrtl_begin_compound_stmt (has_no_scope=1);
-  */
 }
 
 /* Finish out the statement-expression begun by the previous call to
@@ -96,7 +92,10 @@ finish_init_stmts (stmt_expr, compound_stmt)
     finish_compound_stmt (/*has_no_scope=*/1, compound_stmt);
   
   if (building_stmt_tree ())
-    stmt_expr = finish_stmt_expr (stmt_expr);
+    {
+      stmt_expr = finish_stmt_expr (stmt_expr);
+      STMT_EXPR_NO_SCOPE (stmt_expr) = true;
+    }
   else
     stmt_expr = finish_global_stmt_expr (stmt_expr);
   
@@ -157,33 +156,20 @@ initialize_vtbl_ptrs (addr)
 	    dfs_marked_real_bases_queue_p, type);
 }
 
-/* [dcl.init]:
+/* Types containing pointers to data members cannot be
+   zero-initialized with zeros, because the NULL value for such
+   pointers is -1.
 
-  To default-initialize an object of type T means:
+   TYPE is a type that requires such zero initialization.  The
+   returned value is the initializer.  */
 
-  --if T is a non-POD class type (clause _class_), the default construc-
-    tor  for  T is called (and the initialization is ill-formed if T has
-    no accessible default constructor);
-
-  --if T is an array type, each element is default-initialized;
-
-  --otherwise, the storage for the object is zero-initialized.
-
-  A program that calls for default-initialization of an entity of refer-
-  ence type is ill-formed.  */
-
-static tree
-build_default_init (type)
+tree
+build_forced_zero_init (type)
      tree type;
 {
-  tree init = NULL_TREE;
+  tree init = NULL;
 
-  if (TYPE_NEEDS_CONSTRUCTING (type))
-    /* Other code will handle running the default constructor.  We can't do
-       anything with a CONSTRUCTOR for arrays here, as that would imply
-       copy-initialization.  */
-    return NULL_TREE;
-  else if (AGGREGATE_TYPE_P (type) && !TYPE_PTRMEMFUNC_P (type))
+  if (AGGREGATE_TYPE_P (type) && !TYPE_PTRMEMFUNC_P (type))
     {
       /* This is a default initialization of an aggregate, but not one of
 	 non-POD class type.  We cleverly notice that the initialization
@@ -204,7 +190,36 @@ build_default_init (type)
     }
 
   init = digest_init (type, init, 0);
+
   return init;
+}
+
+/* [dcl.init]:
+
+  To default-initialize an object of type T means:
+
+  --if T is a non-POD class type (clause _class_), the default construc-
+    tor  for  T is called (and the initialization is ill-formed if T has
+    no accessible default constructor);
+
+  --if T is an array type, each element is default-initialized;
+
+  --otherwise, the storage for the object is zero-initialized.
+
+  A program that calls for default-initialization of an entity of refer-
+  ence type is ill-formed.  */
+
+static tree
+build_default_init (type)
+     tree type;
+{
+  if (TYPE_NEEDS_CONSTRUCTING (type))
+    /* Other code will handle running the default constructor.  We can't do
+       anything with a CONSTRUCTOR for arrays here, as that would imply
+       copy-initialization.  */
+    return NULL_TREE;
+
+  return build_forced_zero_init (type);
 }
 
 /* Subroutine of emit_base_init.  */
@@ -3095,11 +3110,18 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
   if (TREE_CODE (type) == POINTER_TYPE)
     {
       type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
-      if (!VOID_TYPE_P (type) && !complete_type_or_else (type, addr))
-	return error_mark_node;
       if (TREE_CODE (type) == ARRAY_TYPE)
 	goto handle_array;
-      if (! IS_AGGR_TYPE (type))
+
+      if (VOID_TYPE_P (type)
+	  /* We don't want to warn about delete of void*, only other
+	     incomplete types.  Deleting other incomplete types
+	     invokes undefined behavior, but it is not ill-formed, so
+	     compile to something that would even do The Right Thing
+	     (TM) should the type have a trivial dtor and no delete
+	     operator.  */
+	  || !complete_type_or_diagnostic (type, addr, 1)
+	  || !IS_AGGR_TYPE (type))
 	{
 	  /* Call the builtin operator delete.  */
 	  return build_builtin_delete_call (addr);

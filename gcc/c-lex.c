@@ -40,13 +40,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "splay-tree.h"
 #include "debug.h"
 
-/* MULTIBYTE_CHARS support only works for native compilers.
-   ??? Ideally what we want is to model widechar support after
-   the current floating point support.  */
-#ifdef CROSS_COMPILE
-#undef MULTIBYTE_CHARS
-#endif
-
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
 #include <locale.h>
@@ -64,9 +57,6 @@ static unsigned int src_lineno;
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
 static splay_tree file_info_tree;
-
-/* Cause the `yydebug' variable to be defined.  */
-#define YYDEBUG 1
 
 /* File used for outputting assembler code.  */
 extern FILE *asm_out_file;
@@ -156,12 +146,20 @@ init_c_lex (filename)
    the primary source file.  */
 
 void
-c_common_parse_file ()
+c_common_parse_file (set_yydebug)
+     int set_yydebug ATTRIBUTE_UNUSED;
 {
+#if YYDEBUG != 0
+  yydebug = set_yydebug;
+#else
+  warning ("YYDEBUG not defined");
+#endif
+
   (*debug_hooks->start_source_file) (lineno, input_filename);
   cpp_finish_options (parse_in);
 
   yyparse ();
+  free_parser_stacks ();
 }
 
 struct c_fileinfo *
@@ -226,9 +224,6 @@ dump_time_statistics ()
 
   splay_tree_foreach (file_info_tree, dump_one_header, 0);
 }
-
-/* Not yet handled: #pragma, #define, #undef.
-   No need to deal with linemarkers under normal conditions.  */
 
 static void
 cb_ident (pfile, line, str)
@@ -1240,9 +1235,7 @@ lex_string (str, len, wide)
   char *buf = alloca ((len + 1) * (wide ? WCHAR_BYTES : 1));
   char *q = buf;
   const unsigned char *p = str, *limit = str + len;
-  unsigned int c;
-  unsigned width = wide ? WCHAR_TYPE_SIZE
-			: TYPE_PRECISION (char_type_node);
+  cppchar_t c;
 
 #ifdef MULTIBYTE_CHARS
   /* Reset multibyte conversion state.  */
@@ -1272,18 +1265,10 @@ lex_string (str, len, wide)
 #endif
 
       if (c == '\\' && !ignore_escape_flag)
-	{
-	  unsigned int mask;
-
-	  if (width < HOST_BITS_PER_INT)
-	    mask = ((unsigned int) 1 << width) - 1;
-	  else
-	    mask = ~0;
-	  c = cpp_parse_escape (parse_in, &p, limit, mask);
-	}
+	c = cpp_parse_escape (parse_in, &p, limit, wide);
 	
-      /* Add this single character into the buffer either as a wchar_t
-	 or as a single byte.  */
+      /* Add this single character into the buffer either as a wchar_t,
+	 a multibyte sequence, or as a single byte.  */
       if (wide)
 	{
 	  unsigned charwidth = TYPE_PRECISION (char_type_node);
@@ -1304,6 +1289,16 @@ lex_string (str, len, wide)
 	    }
 	  q += WCHAR_BYTES;
 	}
+#ifdef MULTIBYTE_CHARS
+      else if (char_len > 1)
+	{
+	  /* We're dealing with a multibyte character. */
+	  for ( ; char_len >0; --char_len)
+	    {
+	      *q++ = *(p - char_len);
+	    }
+	}
+#endif
       else
 	{
 	  *q++ = c;
@@ -1337,31 +1332,31 @@ static tree
 lex_charconst (token)
      const cpp_token *token;
 {
-  HOST_WIDE_INT result;
-  tree value;
+  cppchar_t result;
+  tree type, value;
   unsigned int chars_seen;
+  int unsignedp;
  
-  result = cpp_interpret_charconst (parse_in, token, warn_multichar,
- 				    &chars_seen);
-  if (token->type == CPP_WCHAR)
-    {
-      value = build_int_2 (result, 0);
-      TREE_TYPE (value) = wchar_type_node;
-    }
+  result = cpp_interpret_charconst (parse_in, token,
+ 				    &chars_seen, &unsignedp);
+
+  /* Cast to cppchar_signed_t to get correct sign-extension of RESULT
+     before possibly widening to HOST_WIDE_INT for build_int_2.  */
+  if (unsignedp || (cppchar_signed_t) result >= 0)
+    value = build_int_2 (result, 0);
   else
-    {
-      if (result < 0)
- 	value = build_int_2 (result, -1);
-      else
- 	value = build_int_2 (result, 0);
- 
-      /* In C, a character constant has type 'int'.
- 	 In C++ 'char', but multi-char charconsts have type 'int'.  */
-      if (c_language == clk_cplusplus && chars_seen <= 1)
- 	TREE_TYPE (value) = char_type_node;
-      else
- 	TREE_TYPE (value) = integer_type_node;
-    }
- 
+    value = build_int_2 ((cppchar_signed_t) result, -1);
+
+  if (token->type == CPP_WCHAR)
+    type = wchar_type_node;
+  /* In C, a character constant has type 'int'.
+     In C++ 'char', but multi-char charconsts have type 'int'.  */
+  else if ((c_language == clk_c || c_language == clk_objective_c)
+	   || chars_seen > 1)
+    type = integer_type_node;
+  else
+    type = char_type_node;
+
+  TREE_TYPE (value) = type;
   return value;
 }

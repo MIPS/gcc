@@ -157,13 +157,15 @@ complete_type (type)
 }
 
 /* Like complete_type, but issue an error if the TYPE cannot be
-   completed.  VALUE is used for informative diagnostics.
+   completed.  VALUE is used for informative diagnostics.  WARN_ONLY
+   will cause a warning message to be printed, instead of an error.
    Returns NULL_TREE if the type cannot be made complete.  */
 
 tree
-complete_type_or_else (type, value)
+complete_type_or_diagnostic (type, value, warn_only)
      tree type;
      tree value;
+     int warn_only;
 {
   type = complete_type (type);
   if (type == error_mark_node)
@@ -171,7 +173,7 @@ complete_type_or_else (type, value)
     return NULL_TREE;
   else if (!COMPLETE_TYPE_P (type))
     {
-      incomplete_type_error (value, type);
+      cxx_incomplete_type_diagnostic (value, type, warn_only);
       return NULL_TREE;
     }
   else
@@ -381,6 +383,10 @@ type_after_usual_arithmetic_conversions (t1, t2)
   else if (TYPE_PRECISION (t2) > TYPE_PRECISION (t1))
     return build_type_attribute_variant (t2, attributes);
 
+  /* The types are the same; no need to do anything fancy.  */
+  if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
+    return build_type_attribute_variant (t1, attributes);
+
   if (code1 != REAL_TYPE)
     {
       /* If one is a sizetype, use it so size_binop doesn't blow up.  */
@@ -442,9 +448,17 @@ type_after_usual_arithmetic_conversions (t1, t2)
 	  || same_type_p (TYPE_MAIN_VARIANT (t2), double_type_node))
 	return build_type_attribute_variant (double_type_node,
 					     attributes);
-      else 
+      if (same_type_p (TYPE_MAIN_VARIANT (t1), float_type_node)
+	  || same_type_p (TYPE_MAIN_VARIANT (t2), float_type_node))
 	return build_type_attribute_variant (float_type_node,
 					     attributes);
+      
+      /* Two floating-point types whose TYPE_MAIN_VARIANTs are none of
+         the standard C++ floating-point types.  Logic earlier in this
+         function has already eliminated the possibility that
+         TYPE_PRECISION (t2) != TYPE_PRECISION (t1), so there's no
+         compelling reason to choose one or the other.  */
+      return build_type_attribute_variant (t1, attributes);
     }
 }
 
@@ -580,12 +594,14 @@ merge_types (t1, t2)
       /* For two pointers, do this recursively on the target type.  */
       {
 	tree target = merge_types (TREE_TYPE (t1), TREE_TYPE (t2));
+	int quals = cp_type_quals (t1);
 
 	if (code1 == POINTER_TYPE)
 	  t1 = build_pointer_type (target);
 	else
 	  t1 = build_reference_type (target);
 	t1 = build_type_attribute_variant (t1, attributes);
+	t1 = cp_build_qualified_type (t1, quals);
 
 	if (TREE_CODE (target) == METHOD_TYPE)
 	  t1 = build_ptrmemfunc_type (t1);
@@ -1554,7 +1570,7 @@ expr_sizeof (e)
     }
   else if (type_unknown_p (e))
     {
-      incomplete_type_error (e, TREE_TYPE (e));
+      cxx_incomplete_type_error (e, TREE_TYPE (e));
       return c_sizeof (char_type_node);
     }
   /* It's illegal to say `sizeof (X::i)' for `i' a non-static data
@@ -1636,7 +1652,7 @@ decay_conversion (exp)
 
   if (type_unknown_p (exp))
     {
-      incomplete_type_error (exp, TREE_TYPE (exp));
+      cxx_incomplete_type_error (exp, TREE_TYPE (exp));
       return error_mark_node;
     }
   
@@ -2807,7 +2823,14 @@ build_x_function_call (function, params, decl)
 }
 
 /* Resolve a pointer to member function.  INSTANCE is the object
-   instance to use, if the member points to a virtual member.  */
+   instance to use, if the member points to a virtual member.
+
+   This used to avoid checking for virtual functions if basetype
+   has no virtual functions, according to an earlier ANSI draft.
+   With the final ISO C++ rules, such an optimization is
+   incorrect: A pointer to a derived member can be static_cast
+   to pointer-to-base-member, as long as the dynamic object
+   later has the right member. */
 
 tree
 get_member_function_from_ptrfunc (instance_ptrptr, function)
@@ -2819,20 +2842,26 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 
   if (TYPE_PTRMEMFUNC_P (TREE_TYPE (function)))
     {
-      tree fntype, idx, e1, delta, delta2, e2, e3, vtbl;
-      tree instance, basetype;
+      tree idx, delta, e1, e2, e3, vtbl, basetype;
+      tree fntype = TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (function));
 
       tree instance_ptr = *instance_ptrptr;
-
-      if (instance_ptr == error_mark_node
-	  && TREE_CODE (function) == PTRMEM_CST)
+      if (instance_ptr == error_mark_node)
 	{
-	  /* Extracting the function address from a pmf is only
-	     allowed with -Wno-pmf-conversions. It only works for
-	     pmf constants. */
-	  e1 = build_addr_func (PTRMEM_CST_MEMBER (function));
-	  e1 = convert (TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (function)), e1);
-	  return e1;
+	  if (TREE_CODE (function) == PTRMEM_CST)
+	    {
+	      /* Extracting the function address from a pmf is only
+		 allowed with -Wno-pmf-conversions. It only works for
+		 pmf constants. */
+	      e1 = build_addr_func (PTRMEM_CST_MEMBER (function));
+	      e1 = convert (fntype, e1);
+	      return e1;
+	    }
+	  else
+	    {
+	      error ("object missing in use of `%E'", function);
+	      return error_mark_node;
+	    }
 	}
 
       if (TREE_SIDE_EFFECTS (instance_ptr))
@@ -2841,70 +2870,50 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
       if (TREE_SIDE_EFFECTS (function))
 	function = save_expr (function);
 
-      fntype = TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (function));
-      basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (fntype));
-
-      /* Convert down to the right base, before using the instance. */
-      instance = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)), basetype,
-			      ba_check, NULL);
-      instance = build_base_path (PLUS_EXPR, instance_ptr, instance, 1);
-      if (instance == error_mark_node && instance_ptr != error_mark_node)
-	return instance;
-
+      /* Start by extracting all the information from the PMF itself.  */
       e3 = PFN_FROM_PTRMEMFUNC (function);
-      
-      vtbl = build1 (NOP_EXPR, build_pointer_type (ptr_type_node), instance);
-      TREE_CONSTANT (vtbl) = TREE_CONSTANT (instance);
-      
-      delta = cp_convert (ptrdiff_type_node,
-			  build_component_ref (function, delta_identifier,
-					       NULL_TREE, 0));
-
-      /* This used to avoid checking for virtual functions if basetype
-	 has no virtual functions, according to an earlier ANSI draft.
-	 With the final ISO C++ rules, such an optimization is
-	 incorrect: A pointer to a derived member can be static_cast
-	 to pointer-to-base-member, as long as the dynamic object
-	 later has the right member. */
-
-      /* Promoting idx before saving it improves performance on RISC
-	 targets.  Without promoting, the first compare used
-	 load-with-sign-extend, while the second used normal load then
-	 shift to sign-extend.  An optimizer flaw, perhaps, but it's
-	 easier to make this change.  */
-      idx = cp_build_binary_op (TRUNC_DIV_EXPR, 
-				build1 (NOP_EXPR, vtable_index_type, e3),
-				TYPE_SIZE_UNIT (vtable_entry_type));
+      delta = build_component_ref (function, delta_identifier, NULL_TREE, 0);
+      idx = build1 (NOP_EXPR, vtable_index_type, e3);
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
 	case ptrmemfunc_vbit_in_pfn:
-	  e1 = cp_build_binary_op (BIT_AND_EXPR,
-				   build1 (NOP_EXPR, vtable_index_type, e3),
-				   integer_one_node);
+	  e1 = cp_build_binary_op (BIT_AND_EXPR, idx, integer_one_node);
+	  idx = cp_build_binary_op (MINUS_EXPR, idx, integer_one_node);
 	  break;
 
 	case ptrmemfunc_vbit_in_delta:
-	  e1 = cp_build_binary_op (BIT_AND_EXPR,
-				   delta, integer_one_node);
-	  delta = cp_build_binary_op (RSHIFT_EXPR,
-				      build1 (NOP_EXPR, vtable_index_type,
-					      delta),
-				      integer_one_node);
+	  e1 = cp_build_binary_op (BIT_AND_EXPR, delta, integer_one_node);
+	  delta = cp_build_binary_op (RSHIFT_EXPR, delta, integer_one_node);
 	  break;
 
 	default:
 	  abort ();
 	}
 
-      /* DELTA2 is the amount by which to adjust the `this' pointer
-	 to find the vtbl.  */
-      delta2 = delta;
-      vtbl = build
-	(PLUS_EXPR,
-	 build_pointer_type (build_pointer_type (vtable_entry_type)),
-	 vtbl, cp_convert (ptrdiff_type_node, delta2));
+      /* Convert down to the right base before using the instance.  First
+         use the type... */
+      basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (fntype));
+      basetype = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)),
+			      basetype, ba_check, NULL);
+      instance_ptr = build_base_path (PLUS_EXPR, instance_ptr, basetype, 1);
+      if (instance_ptr == error_mark_node)
+	return error_mark_node;
+      /* ...and then the delta in the PMF.  */
+      instance_ptr = build (PLUS_EXPR, TREE_TYPE (instance_ptr),
+			    instance_ptr, delta);
+
+      /* Hand back the adjusted 'this' argument to our caller.  */
+      *instance_ptrptr = instance_ptr;
+
+      /* Next extract the vtable pointer from the object.  */
+      vtbl = build1 (NOP_EXPR, build_pointer_type (vtbl_ptr_type_node),
+		     instance_ptr);
       vtbl = build_indirect_ref (vtbl, NULL);
-      e2 = build_array_ref (vtbl, idx);
+
+      /* Finally, extract the function pointer from the vtable.  */
+      e2 = fold (build (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, idx));
+      e2 = build_indirect_ref (e2, NULL);
+      TREE_CONSTANT (e2) = 1;
 
       /* When using function descriptors, the address of the
 	 vtable entry is treated as a function pointer.  */
@@ -2920,14 +2929,6 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
       if (TREE_CODE (instance_ptr) == SAVE_EXPR)
 	e1 = build (COMPOUND_EXPR, TREE_TYPE (e1),
 		    instance_ptr, e1);
-
-      *instance_ptrptr = build (PLUS_EXPR, TREE_TYPE (instance_ptr),
-				instance_ptr, delta);
-
-      if (instance_ptr == error_mark_node
-	  && TREE_CODE (e1) != ADDR_EXPR
-	  && TREE_CODE (TREE_OPERAND (e1, 0)) != FUNCTION_DECL)
-	error ("object missing in `%E'", function);
 
       function = e1;
     }
@@ -5654,15 +5655,16 @@ build_modify_expr (lhs, modifycode, rhs)
     {
       int from_array;
       
-      if (!same_or_base_type_p (lhstype, TREE_TYPE (rhs)))
+      if (!same_or_base_type_p (TYPE_MAIN_VARIANT (lhstype),
+				TYPE_MAIN_VARIANT (TREE_TYPE (rhs))))
 	{
 	  error ("incompatible types in assignment of `%T' to `%T'",
-		    TREE_TYPE (rhs), lhstype);
+		 TREE_TYPE (rhs), lhstype);
 	  return error_mark_node;
 	}
 
       /* Allow array assignment in compiler-generated code.  */
-      if (pedantic && ! DECL_ARTIFICIAL (current_function_decl))
+      if (! DECL_ARTIFICIAL (current_function_decl))
 	pedwarn ("ISO C++ forbids assignment of arrays");
 
       from_array = TREE_CODE (TREE_TYPE (newrhs)) == ARRAY_TYPE

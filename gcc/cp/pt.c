@@ -4831,16 +4831,27 @@ tsubst_friend_class (friend_tmpl, args)
 {
   tree friend_type;
   tree tmpl;
+  tree context;
+
+  context = DECL_CONTEXT (friend_tmpl);
+
+  if (context)
+    {
+      if (TREE_CODE (context) == NAMESPACE_DECL)
+	push_nested_namespace (context);
+      else
+	push_nested_class (context, 2);
+    }
 
   /* First, we look for a class template.  */
   tmpl = lookup_name (DECL_NAME (friend_tmpl), /*prefer_type=*/0); 
-  
+
   /* But, if we don't find one, it might be because we're in a
      situation like this:
 
        template <class T>
        struct S {
-         template <class U>
+	 template <class U>
 	 friend struct S;
        };
 
@@ -4860,12 +4871,15 @@ tsubst_friend_class (friend_tmpl, args)
 	 of course.  We only need the innermost template parameters
 	 because that is all that redeclare_class_template will look
 	 at.  */
-      tree parms 
-	= tsubst_template_parms (DECL_TEMPLATE_PARMS (friend_tmpl),
-				 args, tf_error | tf_warning);
-      if (!parms)
-        return error_mark_node;
-      redeclare_class_template (TREE_TYPE (tmpl), parms);
+      if (TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (friend_tmpl))
+	  > TMPL_ARGS_DEPTH (args))
+	{
+	  tree parms;
+	  parms = tsubst_template_parms (DECL_TEMPLATE_PARMS (friend_tmpl),
+					 args, tf_error | tf_warning);
+	  redeclare_class_template (TREE_TYPE (tmpl), parms);
+	}
+
       friend_type = TREE_TYPE (tmpl);
     }
   else
@@ -4885,6 +4899,14 @@ tsubst_friend_class (friend_tmpl, args)
 
       /* Inject this template into the global scope.  */
       friend_type = TREE_TYPE (pushdecl_top_level (tmpl));
+    }
+
+  if (context) 
+    {
+      if (TREE_CODE (context) == NAMESPACE_DECL)
+	pop_nested_namespace (context);
+      else
+	pop_nested_class ();
     }
 
   return friend_type;
@@ -6810,7 +6832,7 @@ tsubst (t, args, complain, in_decl)
 	    if (!COMPLETE_TYPE_P (ctx))
 	      {
 		if (complain & tf_error)
-		  incomplete_type_error (NULL_TREE, ctx);
+		  cxx_incomplete_type_error (NULL_TREE, ctx);
 		return error_mark_node;
 	      }
 	  }
@@ -7519,12 +7541,13 @@ tsubst_expr (t, args, complain, in_decl)
 
     case ASM_STMT:
       prep_stmt (t);
-      finish_asm_stmt (ASM_CV_QUAL (t),
-		       tsubst_expr (ASM_STRING (t), args, complain, in_decl),
-		       tsubst_expr (ASM_OUTPUTS (t), args, complain, in_decl),
-		       tsubst_expr (ASM_INPUTS (t), args, complain, in_decl), 
-		       tsubst_expr (ASM_CLOBBERS (t), args, complain,
-				    in_decl));
+      tmp = finish_asm_stmt
+	(ASM_CV_QUAL (t),
+	 tsubst_expr (ASM_STRING (t), args, complain, in_decl),
+	 tsubst_expr (ASM_OUTPUTS (t), args, complain, in_decl),
+	 tsubst_expr (ASM_INPUTS (t), args, complain, in_decl), 
+	 tsubst_expr (ASM_CLOBBERS (t), args, complain, in_decl));
+      ASM_INPUT_P (tmp) = ASM_INPUT_P (t);
       break;
 
     case TRY_BLOCK:
@@ -8284,29 +8307,12 @@ static int
 verify_class_unification (targs, parms, args)
      tree targs, parms, args;
 {
-  int i;
-  int nparms = TREE_VEC_LENGTH (parms);
-  tree new_parms = tsubst (parms, add_outermost_template_args (args, targs),
-  			   tf_none, NULL_TREE);
-  if (new_parms == error_mark_node)
+  parms = tsubst (parms, add_outermost_template_args (args, targs),
+  		  tf_none, NULL_TREE);
+  if (parms == error_mark_node)
     return 1;
 
-  args = INNERMOST_TEMPLATE_ARGS (args);
-
-  for (i = 0; i < nparms; i++)
-    {
-      tree parm = TREE_VEC_ELT (new_parms, i);
-      tree arg = TREE_VEC_ELT (args, i);
-
-      /* In case we are deducing from a function argument of a function
-	 templates, some parameters may not be deduced yet.  So we
-	 make sure that only fully substituted elements of PARM are
-	 compared below.  */
-
-      if (!uses_template_parms (parm) && !template_args_equal (parm, arg))
-	return 1;
-    }
-  return 0;
+  return !comp_template_args (parms, INNERMOST_TEMPLATE_ARGS (args));
 }
 
 /* PARM is a template class (perhaps with unbound template
@@ -8789,8 +8795,12 @@ unify (tparms, targs, parm, arg, strict)
 	 deduced from an array bound may be of any integral type. 
 	 The non-type parameter might use already deduced type parameters.  */
       tparm = tsubst (TREE_TYPE (parm), targs, 0, NULL_TREE);
-      if (same_type_p (TREE_TYPE (arg), tparm))
-	  /* OK */;
+      if (!TREE_TYPE (arg))
+	/* Template-parameter dependent expression.  Just accept it for now.
+	   It will later be processed in convert_template_argument.  */
+	;
+      else if (same_type_p (TREE_TYPE (arg), tparm))
+	/* OK */;
       else if ((strict & UNIFY_ALLOW_INTEGER)
 	       && (TREE_CODE (tparm) == INTEGER_TYPE
 		   || TREE_CODE (tparm) == BOOLEAN_TYPE))
@@ -9514,12 +9524,16 @@ do_decl_instantiation (declspecs, declarator, storage)
 
   if (DECL_TEMPLATE_SPECIALIZATION (result))
     {
-      /* [temp.spec]
+      /* DR 259 [temp.spec].
 
-	 No program shall both explicitly instantiate and explicitly
-	 specialize a template.  */
-      pedwarn ("explicit instantiation of `%#D' after", result);
-      cp_pedwarn_at ("explicit specialization here", result);
+	 Both an explicit instantiation and a declaration of an explicit
+	 specialization shall not appear in a program unless the explicit
+	 instantiation follows a declaration of the explicit specialization.
+
+	 For a given set of template parameters, if an explicit
+	 instantiation of a template appears after a declaration of an
+	 explicit specialization for that template, the explicit
+	 instantiation has no effect.  */
       return;
     }
   else if (DECL_EXPLICIT_INSTANTIATION (result))
@@ -9649,15 +9663,16 @@ do_type_instantiation (t, storage, complain)
 
   if (CLASSTYPE_TEMPLATE_SPECIALIZATION (t))
     {
-      /* [temp.spec]
+      /* DR 259 [temp.spec].
 
-	 No program shall both explicitly instantiate and explicitly
-	 specialize a template.  */
-      if (complain & tf_error)
-	{
-	  error ("explicit instantiation of `%#T' after", t);
-	  cp_error_at ("explicit specialization here", t);
-	}
+	 Both an explicit instantiation and a declaration of an explicit
+	 specialization shall not appear in a program unless the explicit
+	 instantiation follows a declaration of the explicit specialization.
+
+	 For a given set of template parameters, if an explicit
+	 instantiation of a template appears after a declaration of an
+	 explicit specialization for that template, the explicit
+	 instantiation has no effect.  */
       return;
     }
   else if (CLASSTYPE_EXPLICIT_INSTANTIATION (t))

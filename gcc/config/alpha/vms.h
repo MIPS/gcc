@@ -29,17 +29,17 @@ Boston, MA 02111-1307, USA.  */
 
 #define NO_EXTERNAL_INDIRECT_ADDRESS
 
-#include "alpha/alpha.h"
-
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES \
-"-D__ALPHA -Dvms -DVMS -D__vms__ -D__VMS__ -Asystem=vms"
-
-#undef CPP_SUBTARGET_SPEC
-#define CPP_SUBTARGET_SPEC "\
-%{mfloat-ieee:-D__IEEE_FLOAT} \
-%{mfloat-vax:-D__G_FLOAT} \
-%{!mfloat-vax:-D__IEEE_FLOAT}"
+#define TARGET_OS_CPP_BUILTINS()		\
+    do {					\
+	builtin_define_std ("vms");		\
+	builtin_define_std ("VMS");		\
+	builtin_define ("__ALPHA");		\
+	builtin_assert ("system=vms");		\
+	if (TARGET_FLOAT_VAX)			\
+	  builtin_define ("__G_FLOAT");		\
+	else					\
+	  builtin_define ("__IEEE_FLOAT");	\
+    } while (0)
 
 /* By default, allow $ to be part of an identifier.  */
 #define DOLLARS_IN_IDENTIFIERS 2
@@ -261,25 +261,16 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
 }
 
 #define LINK_SECTION_ASM_OP "\t.link"
-#define READONLY_SECTION_ASM_OP "\t.rdata"
+#define READONLY_DATA_SECTION_ASM_OP "\t.rdata"
 #define LITERALS_SECTION_ASM_OP "\t.literals"
 #define CTORS_SECTION_ASM_OP "\t.ctors"
 #define DTORS_SECTION_ASM_OP "\t.dtors"
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS	in_link, in_rdata, in_literals
+#define EXTRA_SECTIONS	in_link, in_literals
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
-void								\
-readonly_section ()						\
-{								\
-  if (in_section != in_rdata)				\
-    {								\
-      fprintf (asm_out_file, "%s\n", READONLY_SECTION_ASM_OP);	\
-      in_section = in_rdata;				\
-    }								\
-}								\
 void								\
 link_section ()							\
 {								\
@@ -299,7 +290,6 @@ literals_section ()						\
     }								\
 }
 
-extern void readonly_section	PARAMS ((void));
 extern void link_section	PARAMS ((void));
 extern void literals_section	PARAMS ((void));
 
@@ -309,9 +299,6 @@ extern void literals_section	PARAMS ((void));
 #undef ASM_OUTPUT_ADDR_VEC_ELT
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
   fprintf (FILE, "\t.quad $L%d\n", (VALUE))
-
-#undef READONLY_DATA_SECTION
-#define READONLY_DATA_SECTION readonly_section
 
 #define ASM_FILE_END(FILE) alpha_write_linkage (FILE);
 
@@ -519,14 +506,17 @@ do {									\
 #define NAME__MAIN "__gccmain"
 #define SYMBOL__MAIN __gccmain
 
-/* Specify the list of include file directories.  */
-#define INCLUDE_DEFAULTS		\
-{					\
-  { "/gnu_gxx_include", 0, 1, 1 },	\
-  { "/gnu_cc_include", 0, 0, 0 },	\
-  { "/gnu/include", 0, 0, 0 },	        \
-  { 0, 0, 0, 0 }			\
-}
-
 #define MD_EXEC_PREFIX "/gnu/lib/gcc-lib/"
 #define MD_STARTFILE_PREFIX "/gnu/lib/gcc-lib/"
+
+/* Specify the list of include file directories.  */
+#define INCLUDE_DEFAULTS		   \
+{					   \
+  { "/gnu/lib/gcc-lib/include", 0, 0, 0 }, \
+  { "/gnu_gxx_include", 0, 1, 1 },	   \
+  { "/gnu_cc_include", 0, 0, 0 },	   \
+  { "/gnu/include", 0, 0, 0 },	           \
+  { 0, 0, 0, 0 }			   \
+}
+
+#define LONGLONG_STANDALONE 1

@@ -56,8 +56,6 @@ extern int code_for_indirect_jump_scratch;
 %{m4-single:-D__SH4_SINGLE__} \
 %{m4-nofpu:-D__sh3__ -D__SH4_NOFPU__} \
 %{m4:-D__SH4__} \
-%{m1|m2|m3*|m4*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{m5*:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
 %{!m1:%{!m2:%{!m3*:%{!m4*:%{!m5*:%(cpp_default_cpu_spec)}}}}} \
 %{mhitachi:-D__HITACHI__} \
 %(subtarget_cpp_spec) \
@@ -72,8 +70,7 @@ extern int code_for_indirect_jump_scratch;
 #endif
 
 #ifndef CPP_DEFAULT_CPU_SPEC
-#define CPP_DEFAULT_CPU_SPEC \
-  "-D__sh1__ -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int"
+#define CPP_DEFAULT_CPU_SPEC "-D__sh1__"
 #endif
 
 
@@ -898,7 +895,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 
 /* Register to hold the addressing base for position independent
    code access to data items.  */
-#define PIC_OFFSET_TABLE_REGNUM	PIC_REG
+#define PIC_OFFSET_TABLE_REGNUM	(flag_pic ? PIC_REG : INVALID_REGNUM)
 
 #define GOT_SYMBOL_NAME "*_GLOBAL_OFFSET_TABLE_"
 
@@ -973,7 +970,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define RETURN_IN_MEMORY(TYPE) \
   (TARGET_SH5 \
    ? ((TYPE_MODE (TYPE) == BLKmode \
-       ? int_size_in_bytes (TYPE) \
+       ? (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) \
        : GET_MODE_SIZE (TYPE_MODE (TYPE))) > 8) \
    : (TYPE_MODE (TYPE) == BLKmode \
       || TARGET_HITACHI && TREE_CODE (TYPE) == RECORD_TYPE))
@@ -2509,20 +2506,14 @@ while (0)
 /* 'char' is signed by default.  */
 #define DEFAULT_SIGNED_CHAR  1
 
-/* We -Define SIZE_TYPE in CPP_SPEC.  */
-#define NO_BUILTIN_SIZE_TYPE 1
-
 /* The type of size_t unsigned int.  */
 #define SIZE_TYPE (TARGET_SH5 ? "long unsigned int" : "unsigned int")
-
-#define NO_BUILTIN_PTRDIFF_TYPE 1
 
 #undef  PTRDIFF_TYPE
 #define PTRDIFF_TYPE (TARGET_SH5 ? "long int" : "int")
 
 #define WCHAR_TYPE "short unsigned int"
 #define WCHAR_TYPE_SIZE 16
-#define WCHAR_UNSIGNED 1
 
 #define SH_ELF_WCHAR_TYPE "long int"
 
@@ -2675,41 +2666,6 @@ while (0)
 
 
 /* Position Independent Code.  */
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or function
-   named by the symbol (such as what section it is in).
-
-   On SH, if using PIC, mark a SYMBOL_REF for a non-global symbol
-   so that we may access it using GOTOFF instead of GOT.  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)			\
-do								\
-  {								\
-    if (!(FIRST))						\
-      break;							\
-    if (flag_pic)						\
-      {								\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
-		   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));	\
-								\
-	SYMBOL_REF_FLAG (XEXP (rtl, 0)) =			\
-	  (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'		\
-	   || ! TREE_PUBLIC (DECL));				\
-      }								\
-    if (TARGET_SH5)						\
-      {								\
-	rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'	\
-		   ? TREE_CST_RTL (DECL)			\
-		   : TREE_CODE (DECL) != VAR_DECL		\
-		   ? NULL_RTX					\
- 		   : DECL_RTL (DECL));				\
-								\
-        if (rtl && GET_CODE (rtl) == MEM			\
- 	    && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)		\
-	  XEXP (rtl, 0) = gen_datalabel_ref (XEXP (rtl, 0));	\
-      }								\
-  }								\
-while (0)
 
 /* The prefix used to mark SYMBOL_REFs that refer to data symbols.  */
 #define SH_DATALABEL_ENCODING "#"
@@ -2725,9 +2681,6 @@ while (0)
 #define STRIP_DATALABEL_ENCODING(VAR, SYM_NAME) \
   (VAR) = (SYM_NAME) + (DATALABEL_SYMNAME_P (SYM_NAME) \
 			? strlen (SH_DATALABEL_ENCODING) : 0)
-#define STRIP_NAME_ENCODING(VAR, SYM_NAME) \
-  STRIP_DATALABEL_ENCODING((VAR), (SYM_NAME)), \
-  (VAR) += (*(VAR) == '*')
 
 /* We can't directly access anything that contains a symbol,
    nor can we indirect via the constant pool.  */

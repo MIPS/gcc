@@ -197,9 +197,14 @@ static void sh_insert_attributes PARAMS ((tree, tree *));
 static void sh_asm_named_section PARAMS ((const char *, unsigned int));
 #endif
 static int sh_adjust_cost PARAMS ((rtx, rtx, rtx, int));
-static bool sh_cannot_modify_jumps_p PARAMS ((void));
+static int sh_use_dfa_interface PARAMS ((void));
+static int sh_issue_rate PARAMS ((void));
 
+static bool sh_cannot_modify_jumps_p PARAMS ((void));
 static bool sh_ms_bitfield_layout_p PARAMS ((tree));
+
+static void sh_encode_section_info PARAMS ((tree, int));
+static const char *sh_strip_name_encoding PARAMS ((const char *));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -226,11 +231,22 @@ static bool sh_ms_bitfield_layout_p PARAMS ((tree));
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST sh_adjust_cost
 
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE \
+				sh_use_dfa_interface
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE sh_issue_rate
+
 #undef TARGET_CANNOT_MODIFY_JUMPS_P
 #define TARGET_CANNOT_MODIFY_JUMPS_P sh_cannot_modify_jumps_p
 
 #undef TARGET_MS_BITFIELD_LAYOUT_P
 #define TARGET_MS_BITFIELD_LAYOUT_P sh_ms_bitfield_layout_p
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO sh_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING sh_strip_name_encoding
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2507,9 +2523,16 @@ broken_move (insn)
 		&& GET_CODE (SET_SRC (pat)) == CONST_DOUBLE
 		&& (fp_zero_operand (SET_SRC (pat))
 		    || fp_one_operand (SET_SRC (pat)))
-		/* ??? If this is a -m4 or -m4-single compilation, we don't
-		   know the current setting of fpscr, so disable fldi.  */
-		&& (! TARGET_SH4 || TARGET_FMOVD)
+		/* ??? If this is a -m4 or -m4-single compilation, in general
+		   we don't know the current setting of fpscr, so disable fldi.
+		   There is an exception if this was a register-register move
+		   before reload - and hence it was ascertained that we have
+		   single precision setting - and in a post-reload optimization
+		   we changed this to do a constant load.  In that case
+		   we don't have an r0 clobber, hence we must use fldi.  */
+		&& (! TARGET_SH4 || TARGET_FMOVD
+		    || (GET_CODE (XEXP (XVECEXP (PATTERN (insn), 0, 2), 0))
+			== SCRATCH))
 		&& GET_CODE (SET_DEST (pat)) == REG
 		&& FP_REGISTER_P (REGNO (SET_DEST (pat))))
 	  && (GET_CODE (SET_SRC (pat)) != CONST_INT
@@ -4344,10 +4367,11 @@ calc_live_regs (count_ptr, live_regs_mask)
 	  break;
 	}
   pr_initial = has_hard_reg_initial_val (Pmode,
-					 TARGET_SH5 ? PR_MEDIA_REG : PR_REG);
+					 TARGET_SHMEDIA
+					 ? PR_MEDIA_REG : PR_REG);
   pr_live = (pr_initial
-	     ? REGNO (pr_initial) != (TARGET_SH5 ? PR_MEDIA_REG : PR_REG)
-	     : regs_ever_live[TARGET_SH5 ? PR_MEDIA_REG : PR_REG]);
+	     ? REGNO (pr_initial) != (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
+	     : regs_ever_live[TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG]);
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
   if (TARGET_SHCOMPACT
@@ -4357,7 +4381,7 @@ calc_live_regs (count_ptr, live_regs_mask)
     pr_live = 1;
   for (count = 0, reg = FIRST_PSEUDO_REGISTER - 1; reg >= 0; reg--)
     {
-      if (reg == (TARGET_SH5 ? PR_MEDIA_REG : PR_REG)
+      if (reg == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
 	  ? pr_live
 	  : (interrupt_handler && ! pragma_trapa)
 	  ? (/* Need to save all the regs ever live.  */
@@ -5073,6 +5097,15 @@ sh_builtin_saveregs ()
   if (TARGET_SHMEDIA)
     regbuf = gen_rtx_MEM (BLKmode,
 			  gen_rtx_REG (Pmode, ARG_POINTER_REGNUM));
+  else if (n_floatregs & 1)
+    {
+      rtx addr;
+
+      regbuf = assign_stack_local (BLKmode, bufsize + UNITS_PER_WORD, 0);
+      addr = copy_to_mode_reg (Pmode, XEXP (regbuf, 0));
+      emit_insn (gen_iorsi3 (addr, addr, GEN_INT (UNITS_PER_WORD)));
+      regbuf = change_address (regbuf, BLKmode, addr);
+    }
   else
     regbuf = assign_stack_local (BLKmode, bufsize, 0);
   alias_set = get_varargs_alias_set ();
@@ -5285,10 +5318,15 @@ sh_va_arg (valist, type)
   HOST_WIDE_INT size, rsize;
   tree tmp, pptr_type_node;
   rtx addr_rtx, r;
+  rtx result;
+  int pass_by_ref = MUST_PASS_IN_STACK (TYPE_MODE (type), type);
 
   size = int_size_in_bytes (type);
   rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
   pptr_type_node = build_pointer_type (ptr_type_node);
+
+  if (pass_by_ref)
+    type = build_pointer_type (type);
 
   if (! TARGET_SH5 && (TARGET_SH3E || TARGET_SH4) && ! TARGET_HITACHI)
     {
@@ -5331,13 +5369,19 @@ sh_va_arg (valist, type)
 
       if (pass_as_float)
 	{
+	  int first_floatreg
+	    = current_function_args_info.arg_count[(int) SH_ARG_FLOAT];
+	  int n_floatregs = MAX (0, NPARM_REGS (SFmode) - first_floatreg);
+
 	  emit_cmp_and_jump_insns (expand_expr (next_fp, NULL_RTX, Pmode,
 						EXPAND_NORMAL),
 				   expand_expr (next_fp_limit, NULL_RTX,
 						Pmode, EXPAND_NORMAL),
 				   GE, const1_rtx, Pmode, 1, lab_false);
 
-	  if (TYPE_ALIGN (type) > BITS_PER_WORD)
+	  if (TYPE_ALIGN (type) > BITS_PER_WORD
+	      || (((TREE_CODE (type) == REAL_TYPE && size == 8) || size == 16)
+		  && (n_floatregs & 1)))
 	    {
 	      tmp = build (BIT_AND_EXPR, ptr_type_node, next_fp,
 			   build_int_2 (UNITS_PER_WORD, 0));
@@ -5403,7 +5447,19 @@ sh_va_arg (valist, type)
   /* ??? In va-sh.h, there had been code to make values larger than
      size 8 indirect.  This does not match the FUNCTION_ARG macros.  */
 
-  return std_expand_builtin_va_arg (valist, type);
+  result = std_expand_builtin_va_arg (valist, type);
+  if (pass_by_ref)
+    {
+#ifdef POINTERS_EXTEND_UNSIGNED
+      if (GET_MODE (addr) != Pmode)
+	addr = convert_memory_address (Pmode, result);
+#endif
+      result = gen_rtx_MEM (ptr_mode, force_reg (Pmode, result));
+      set_mem_alias_set (result, get_varargs_alias_set ());
+    }
+  /* ??? expand_builtin_va_arg will also set the alias set of the dereferenced
+     argument to the varargs alias set.  */
+  return result;
 }
 
 /* Define the offset between two registers, one to be eliminated, and
@@ -6698,7 +6754,30 @@ sh_adjust_cost (insn, link, dep_insn, cost)
 int
 sh_pr_n_sets ()
 {
-  return REG_N_SETS (TARGET_SH5 ? PR_MEDIA_REG : PR_REG);
+  return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
+}
+
+/* This Function Returns non zero if DFA based scheduler
+   interface is to be used.At present supported only for
+   SH4.  */
+static int
+sh_use_dfa_interface()
+{
+        if (TARGET_SH4)
+                return 1;
+        else
+                return 0;
+}
+
+/* This function returns "2" that signifies dual issue 
+   for SH4 processor.To be used by DFA pipeline description.  */
+static int
+sh_issue_rate()
+{
+	if(TARGET_SH4)
+		return 2;
+	else
+		return 1;
 }
 
 /* SHmedia requires registers for branches, so we can't generate new
@@ -6714,4 +6793,42 @@ sh_ms_bitfield_layout_p (record_type)
      tree record_type ATTRIBUTE_UNUSED;
 {
   return TARGET_SH5;
+}
+
+/* If using PIC, mark a SYMBOL_REF for a non-global symbol so that we
+   may access it using GOTOFF instead of GOT.  */
+
+static void
+sh_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  rtx rtl, symbol;
+
+  if (DECL_P (decl))
+    rtl = DECL_RTL (decl);
+  else
+    rtl = TREE_CST_RTL (decl);
+  if (GET_CODE (rtl) != MEM)
+    return;
+  symbol = XEXP (rtl, 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return;
+
+  if (flag_pic)
+    SYMBOL_REF_FLAG (symbol) = (*targetm.binds_local_p) (decl);
+
+  if (TARGET_SH5 && first && TREE_CODE (decl) != FUNCTION_DECL)
+    XEXP (rtl, 0) = gen_datalabel_ref (symbol);
+}
+
+/* Undo the effects of the above.  */
+
+static const char *
+sh_strip_name_encoding (str)
+     const char *str;
+{
+  STRIP_DATALABEL_ENCODING (str, str);
+  str += *str == '*';
+  return str;
 }

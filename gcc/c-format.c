@@ -27,7 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "intl.h"
 #include "diagnostic.h"
-
+#include "langhooks.h"
 
 /* Command line options and their associated flags.  */
 
@@ -43,6 +43,10 @@ int warn_format_y2k;
 /* Warn about excess arguments to formats.  */
 
 int warn_format_extra_args;
+
+/* Warn about zero-length formats.  */
+
+int warn_format_zero_length;
 
 /* Warn about non-literal format arguments.  */
 
@@ -61,6 +65,7 @@ set_Wformat (setting)
   warn_format = setting;
   warn_format_y2k = setting;
   warn_format_extra_args = setting;
+  warn_format_zero_length = setting;
   if (setting != 1)
     {
       warn_format_nonliteral = setting;
@@ -1361,8 +1366,9 @@ check_format_info (status, info, params)
       && res.number_other == 0 && warn_format_extra_args)
     status_warning (status, "unused arguments in $-style format");
   if (res.number_empty > 0 && res.number_non_literal == 0
-      && res.number_other == 0)
-    status_warning (status, "zero-length format string");
+      && res.number_other == 0 && warn_format_zero_length)
+    status_warning (status, "zero-length %s format string",
+		    format_types[info->format_type].name);
 
   if (res.number_wide > 0)
     status_warning (status, "format is a wide character string");
@@ -1751,11 +1757,6 @@ check_format_info_main (status, res, info, format_chars, format_length,
 	      /* "...a field width...may be indicated by an asterisk.
 		 In this case, an int argument supplies the field width..."  */
 	      ++format_chars;
-	      if (params == 0)
-		{
-		  status_warning (status, "too few arguments for format");
-		  return;
-		}
 	      if (has_operand_number != 0)
 		{
 		  int opnum;
@@ -1775,6 +1776,11 @@ check_format_info_main (status, res, info, format_chars, format_length,
 		}
 	      if (info->first_arg_num != 0)
 		{
+		  if (params == 0)
+		    {
+		      status_warning (status, "too few arguments for format");
+		      return;
+		    }
 		  cur_param = TREE_VALUE (params);
 		  if (has_operand_number <= 0)
 		    {
@@ -2258,7 +2264,6 @@ check_format_types (status, types)
       tree cur_type;
       tree orig_cur_type;
       tree wanted_type;
-      tree promoted_type;
       int arg_num;
       int i;
       int char_type_flag;
@@ -2277,11 +2282,7 @@ check_format_types (status, types)
 	abort ();
 
       if (types->pointer_count == 0)
-	{
-	  promoted_type = simple_type_promotes_to (wanted_type);
-	  if (promoted_type != NULL_TREE)
-	    wanted_type = promoted_type;
-	}
+	wanted_type = (*lang_hooks.types.type_promotes_to) (wanted_type);
 
       STRIP_NOPS (cur_param);
 

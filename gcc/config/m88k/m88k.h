@@ -1041,22 +1041,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 /* Maximum length in instructions of the code output by FUNCTION_PROFILER.  */
 #define FUNCTION_PROFILER_LENGTH (5+3+1+5)
 
-/* Output assembler code to FILE to initialize basic-block profiling for
-   the current module.  LABELNO is unique to each instance.  */
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO) \
-  output_function_block_profiler (FILE, LABELNO)
-
-/* Maximum length in instructions of the code output by
-   FUNCTION_BLOCK_PROFILER.  */
-#define FUNCTION_BLOCK_PROFILER_LENGTH (3+5+2+5)
-
-/* Output assembler code to FILE to increment the count associated with
-   the basic block number BLOCKNO.  */
-#define BLOCK_PROFILER(FILE, BLOCKNO) output_block_profiler (FILE, BLOCKNO)
-
-/* Maximum length in instructions of the code output by BLOCK_PROFILER.  */
-#define BLOCK_PROFILER_LENGTH 4
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
@@ -1619,7 +1603,7 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 
 /* Allow pseudo-ops to be overridden.  Override these in svr[34].h.  */
 #undef	ASCII_DATA_ASM_OP
-#undef	CONST_SECTION_ASM_OP
+#undef	READONLY_DATA_SECTION_ASM_OP
 #undef	CTORS_SECTION_ASM_OP
 #undef	DTORS_SECTION_ASM_OP
 #undef  TARGET_ASM_NAMED_SECTION
@@ -1638,7 +1622,7 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define DATA_SECTION_ASM_OP	"\tdata"
 
 /* Other sections.  */
-#define CONST_SECTION_ASM_OP (TARGET_SVR4			\
+#define READONLY_DATA_SECTION_ASM_OP (TARGET_SVR4		\
 			      ? "\tsection\t .rodata,\"a\""	\
 			      : "\tsection\t .rodata,\"x\"")
 #define TDESC_SECTION_ASM_OP (TARGET_SVR4			\
@@ -2295,32 +2279,24 @@ do {									 \
    and so follows DECLARE_ASM_NAME.  Note that strings go in text
    rather than const.  Override svr[34].h.  */
 
-#undef	USE_CONST_SECTION
 #undef	EXTRA_SECTIONS
-
-#define USE_CONST_SECTION DECLARE_ASM_NAME
 
 #if defined(USING_SVR4_H)
 
-#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata
+#define EXTRA_SECTIONS in_tdesc, in_sdata
 #define INIT_SECTION_FUNCTION
 #define FINI_SECTION_FUNCTION
 
 #else
 #if defined(USING_SVR3_H)
 
-#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata, in_init, in_fini
+#define EXTRA_SECTIONS in_tdesc, in_sdata, in_init, in_fini
 
 #else /* luna or other not based on svr[34].h.  */
 
+#undef READONLY_DATA_SECTION_ASM_OP
 #undef INIT_SECTION_ASM_OP
-#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  text_section();							\
-}
+#define EXTRA_SECTIONS in_tdesc, in_sdata
 #define INIT_SECTION_FUNCTION
 #define FINI_SECTION_FUNCTION
 
@@ -2329,8 +2305,6 @@ const_section ()							\
 
 #undef	EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
-									\
 void									\
 tdesc_section ()							\
 {									\
@@ -2354,75 +2328,12 @@ sdata_section ()							\
   INIT_SECTION_FUNCTION							\
   FINI_SECTION_FUNCTION
 
-/* A C statement or statements to switch to the appropriate
-   section for output of DECL.  DECL is either a `VAR_DECL' node
-   or a constant of some sort.  RELOC indicates whether forming
-   the initial value of DECL requires link-time relocations.
-
-   For strings, the section is selected before the segment info is encoded.  */
-#undef	SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
-{									\
-  if (TREE_CODE (DECL) == STRING_CST)					\
-    {									\
-      if (! flag_writable_strings)					\
-	const_section ();						\
-      else if ( TREE_STRING_LENGTH (DECL) <= m88k_gp_threshold)		\
-	sdata_section ();						\
-      else								\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE (DECL) == VAR_DECL)				\
-    {									\
-      if (SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)))			\
-	sdata_section ();						\
-      else if ((flag_pic && RELOC)					\
-	       || !TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)	\
-	       || !DECL_INITIAL (DECL)					\
-	       || (DECL_INITIAL (DECL) != error_mark_node		\
-		   && !TREE_CONSTANT (DECL_INITIAL (DECL))))		\
-	data_section ();						\
-      else								\
-	const_section ();						\
-    }									\
-  else									\
-    const_section ();							\
-}
+#define TARGET_ASM_SELECT_SECTION  m88k_select_section
 
 /* Jump tables consist of branch instructions and should be output in
    the text section.  When we use a table of addresses, we explicitly
    change to the readonly data section.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
-
-/* Define this macro if references to a symbol must be treated differently
-   depending on something about the variable or function named by the
-   symbol (such as what section it is in).
-
-   The macro definition, if any, is executed immediately after the rtl for
-   DECL has been created and stored in `DECL_RTL (DECL)'.  The value of the
-   rtl will be a `mem' whose address is a `symbol_ref'.
-
-   For the m88k, determine if the item should go in the global pool.  */
-#define ENCODE_SECTION_INFO(DECL, FIRST)				\
-  do {									\
-    if (m88k_gp_threshold > 0)						\
-    {									\
-      if (TREE_CODE (DECL) == VAR_DECL)					\
-	{								\
-	  if (!TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL))	\
-	    {								\
-	      int size = int_size_in_bytes (TREE_TYPE (DECL));		\
-									\
-	      if (size > 0 && size <= m88k_gp_threshold)		\
-		SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
-	    }								\
-	}								\
-      else if (TREE_CODE (DECL) == STRING_CST				\
-	       && flag_writable_strings					\
-	       && TREE_STRING_LENGTH (DECL) <= m88k_gp_threshold)	\
-	SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (DECL), 0)) = 1;		\
-    }									\
-  } while (0)
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

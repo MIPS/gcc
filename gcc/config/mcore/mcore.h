@@ -254,9 +254,6 @@ extern const char * mcore_stack_increment_string;
    words.  */
 #define LONG_LONG_TYPE_SIZE 64
 
-/* the size of the boolean type -- in C++; */
-#define	BOOL_TYPE_SIZE	8
-
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY  	32
 
@@ -1122,8 +1119,8 @@ switch_to_section (section, decl)				\
 /* Output a reference to a label.  */
 #undef  ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(STREAM, NAME)  \
-  fprintf (STREAM, "%s%s", USER_LABEL_PREFIX, MCORE_STRIP_NAME_ENCODING (NAME))
-
+  fprintf (STREAM, "%s%s", USER_LABEL_PREFIX, \
+	   (* targetm.strip_name_encoding) (NAME))
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -1135,19 +1132,6 @@ switch_to_section (section, decl)				\
 #ifndef ASM_DECLARE_RESULT
 #define ASM_DECLARE_RESULT(FILE, RESULT)
 #endif
-
-/* Strip export encoding from a function name.  */
-#define MCORE_STRIP_NAME_ENCODING(SYM_NAME) \
-  ((SYM_NAME) + ((SYM_NAME)[0] == '@' ? 3 : 0))
-
-/* Strip any text from SYM_NAME added by ENCODE_SECTION_INFO and store
-   the result in VAR.  */
-#undef  STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR, SYM_NAME) \
-  (VAR) = MCORE_STRIP_NAME_ENCODING (SYM_NAME)
-
-#undef  UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL, RELOC) mcore_unique_section (DECL, RELOC)
 
 #define MULTIPLE_SYMBOL_SPACES 1
 
@@ -1297,12 +1281,6 @@ extern long mcore_current_compilation_timestamp;
       fprintf ((FILE), ",%d,%d\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
     }									\
   while (0)
-
-/* We must mark dll symbols specially.  Definitions of dllexport'd objects
-   install some info in the .drective (PE) or .exports (ELF) sections.   */
-#undef  ENCODE_SECTION_INFO
-#define ENCODE_SECTION_INFO(DECL, FIRST) \
-  mcore_encode_section_info (DECL, FIRST)
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

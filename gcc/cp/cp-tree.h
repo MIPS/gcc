@@ -1021,12 +1021,6 @@ extern int interface_only, interface_unknown;
 
 extern int flag_elide_constructors;
 
-/* Nonzero means enable obscure standard features and disable GNU
-   extensions that might cause standard-compliant code to be
-   miscompiled.  */
-
-extern int flag_ansi;
-
 /* Nonzero means that member functions defined in class scope are
    inline by default.  */
 
@@ -1246,6 +1240,8 @@ struct lang_type
   unsigned is_partial_instantiation : 1;
   unsigned java_interface : 1;
 
+  unsigned non_zero_init : 1;
+
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
      so, make sure to copy it in instantiate_class_template!  */
@@ -1253,7 +1249,7 @@ struct lang_type
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 8;
+  unsigned dummy : 7;
 
   int vsize;
 
@@ -1507,8 +1503,13 @@ struct lang_type
 #define CLASSTYPE_HAS_MUTABLE(NODE) (TYPE_LANG_SPECIFIC (NODE)->has_mutable)
 #define TYPE_HAS_MUTABLE_P(NODE) (cp_has_mutable_p (NODE))
 
-/*  Nonzero means that this class type is a non-POD class.  */
+/* Nonzero means that this class type is a non-POD class.  */
 #define CLASSTYPE_NON_POD_P(NODE) (TYPE_LANG_SPECIFIC (NODE)->non_pod_class)
+
+/* Nonzero means that this class contains pod types whose default
+   initialization is not a zero initialization (namely, pointers to
+   data members).  */
+#define CLASSTYPE_NON_ZERO_INIT_P(NODE) (TYPE_LANG_SPECIFIC (NODE)->non_zero_init)
 
 /* Nonzero if this class is "nearly empty", i.e., contains only a
    virtual function table pointer.  */
@@ -3111,9 +3112,6 @@ extern int flag_ms_extensions;
    type signature of any virtual function in the base class.  */
 extern int warn_overloaded_virtual;
 
-/* Nonzero means warn about use of multicharacter literals.  */
-extern int warn_multichar;
-
 /* Set by add_implicitly_declared_members() to keep those members from
    being flagged as deprecated or reported as using deprecated
    types.  */
@@ -3578,7 +3576,7 @@ extern int enforce_access                       PARAMS ((tree, tree));
 extern tree convert_default_arg                 PARAMS ((tree, tree, tree, int));
 extern tree convert_arg_to_ellipsis             PARAMS ((tree));
 extern tree build_x_va_arg                      PARAMS ((tree, tree));
-extern tree convert_type_from_ellipsis          PARAMS ((tree));
+extern tree cxx_type_promotes_to		PARAMS ((tree));
 extern int is_properly_derived_from             PARAMS ((tree, tree));
 extern tree initialize_reference                PARAMS ((tree, tree));
 extern tree strip_top_quals                     PARAMS ((tree));
@@ -3615,7 +3613,6 @@ extern void cxx_print_type			PARAMS ((FILE *, tree, int));
 extern void cxx_print_identifier		PARAMS ((FILE *, tree, int));
 extern void cxx_print_error_function	PARAMS ((struct diagnostic_context *,
 						 const char *));
-extern void cxx_set_yydebug			PARAMS ((int));
 extern void build_self_reference		PARAMS ((void));
 extern int same_signature_p			PARAMS ((tree, tree));
 extern void warn_hidden				PARAMS ((tree));
@@ -3658,6 +3655,9 @@ extern void cxx_init_decl_processing		PARAMS ((void));
 extern void cxx_mark_tree			PARAMS ((tree));
 extern void cxx_insert_default_attributes	PARAMS ((tree));
 extern bool cxx_mark_addressable		PARAMS ((tree));
+extern void cxx_push_function_context		PARAMS ((struct function *));
+extern void cxx_pop_function_context		PARAMS ((struct function *));
+extern void cxx_mark_function_context		PARAMS ((struct function *));
 extern int toplevel_bindings_p			PARAMS ((void));
 extern int namespace_bindings_p			PARAMS ((void));
 extern void keep_next_level			PARAMS ((int));
@@ -3919,6 +3919,7 @@ extern tree build_init				PARAMS ((tree, tree, int));
 extern int is_aggr_type				PARAMS ((tree, int));
 extern tree get_aggr_from_typedef		PARAMS ((tree, int));
 extern tree get_type_value			PARAMS ((tree));
+extern tree build_forced_zero_init		PARAMS ((tree));
 extern tree build_member_call			PARAMS ((tree, tree, tree));
 extern tree build_offset_ref			PARAMS ((tree, tree));
 extern tree resolve_offset_ref			PARAMS ((tree));
@@ -4096,6 +4097,7 @@ extern tree lookup_conversions			PARAMS ((tree));
 extern tree binfo_for_vtable			PARAMS ((tree));
 extern tree binfo_from_vbase			PARAMS ((tree));
 extern tree look_for_overrides_here		PARAMS ((tree, tree));
+extern int check_final_overrider		PARAMS ((tree, tree));
 extern tree dfs_walk                            PARAMS ((tree,
 						       tree (*) (tree, void *),
 						       tree (*) (tree, void *),
@@ -4236,6 +4238,7 @@ extern tree cxx_unsave_expr_now		PARAMS ((tree));
 extern tree cxx_maybe_build_cleanup		PARAMS ((tree));
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
+extern int zero_init_p				PARAMS ((tree));
 extern tree canonical_type_variant              PARAMS ((tree));
 extern void unshare_base_binfos			PARAMS ((tree));
 extern int member_p				PARAMS ((tree));
@@ -4284,7 +4287,7 @@ extern void debug_binfo				PARAMS ((tree));
 extern tree build_dummy_object			PARAMS ((tree));
 extern tree maybe_dummy_object			PARAMS ((tree, tree *));
 extern int is_dummy_object			PARAMS ((tree));
-extern const struct attribute_spec cp_attribute_table[];
+extern const struct attribute_spec cxx_attribute_table[];
 extern tree make_ptrmem_cst                     PARAMS ((tree, tree));
 extern tree cp_build_qualified_type_real        PARAMS ((tree, int, tsubst_flags_t));
 #define cp_build_qualified_type(TYPE, QUALS) \
@@ -4314,7 +4317,8 @@ extern tree condition_conversion		PARAMS ((tree));
 extern tree target_type				PARAMS ((tree));
 extern tree require_complete_type		PARAMS ((tree));
 extern tree complete_type			PARAMS ((tree));
-extern tree complete_type_or_else               PARAMS ((tree, tree));
+extern tree complete_type_or_diagnostic         PARAMS ((tree, tree, int));
+#define complete_type_or_else(T,V) (complete_type_or_diagnostic ((T), (V), 0))
 extern int type_unknown_p			PARAMS ((tree));
 extern tree commonparms				PARAMS ((tree, tree));
 extern tree original_type			PARAMS ((tree));
@@ -4373,6 +4377,11 @@ extern tree check_return_expr                   PARAMS ((tree));
   build_binary_op(code, arg1, arg2, 1)
 
 /* in typeck2.c */
+extern void cxx_incomplete_type_diagnostic	PARAMS ((tree, tree, int));
+#undef cxx_incomplete_type_error
+extern void cxx_incomplete_type_error		PARAMS ((tree, tree));
+#define cxx_incomplete_type_error(V,T) \
+  (cxx_incomplete_type_diagnostic ((V), (T), 0))
 extern tree error_not_base_type			PARAMS ((tree, tree));
 extern tree binfo_or_else			PARAMS ((tree, tree));
 extern void readonly_error			PARAMS ((tree, const char *, int));
@@ -4381,6 +4390,7 @@ extern int abstract_virtuals_error		PARAMS ((tree, tree));
 #define my_friendly_assert(EXP, N) (void) \
  (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
 
+extern tree force_store_init_value		PARAMS ((tree, tree));
 extern tree store_init_value			PARAMS ((tree, tree));
 extern tree digest_init				PARAMS ((tree, tree, tree *));
 extern tree build_scoped_ref			PARAMS ((tree, tree, tree *));

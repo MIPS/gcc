@@ -472,7 +472,7 @@ dump_type (t, flags)
     case TYPEOF_TYPE:
       output_add_string (scratch_buffer, "__typeof (");
       dump_expr (TYPE_FIELDS (t), flags & ~TFF_EXPR_IN_PARENS);
-      print_left_paren (scratch_buffer);
+      print_right_paren (scratch_buffer);
       break;
 
     default:
@@ -2382,10 +2382,10 @@ cxx_print_error_function (context, file)
   output_state os;
 
   lhd_print_error_function (context, file);
-  os = output_buffer_state (context);
+  os = diagnostic_state (context);
   output_set_prefix ((output_buffer *)context, file);
   maybe_print_instantiation_context ((output_buffer *)context);
-  output_buffer_state (context) = os;
+  diagnostic_state (context) = os;
 }
 
 static void

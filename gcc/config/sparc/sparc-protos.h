@@ -74,6 +74,9 @@ extern enum machine_mode select_cc_mode PARAMS ((enum rtx_code, rtx, rtx));
 extern rtx gen_compare_reg PARAMS ((enum rtx_code code, rtx, rtx));
 extern void sparc_emit_float_lib_cmp PARAMS ((rtx, rtx, enum rtx_code));
 extern void sparc_emit_floatunsdi PARAMS ((rtx [2]));
+extern void emit_tfmode_binop PARAMS ((enum rtx_code, rtx *));
+extern void emit_tfmode_unop PARAMS ((enum rtx_code, rtx *));
+extern void emit_tfmode_cvt PARAMS ((enum rtx_code, rtx *));
 /* This function handles all v9 scc insns */
 extern int gen_v9_scc PARAMS ((enum rtx_code, rtx *));
 extern void sparc_initialize_trampoline PARAMS ((rtx, rtx, rtx));
@@ -117,7 +120,8 @@ extern char *sparc_v8plus_shift PARAMS ((rtx *, rtx, const char *));
    32 bits of REG are 0 before INSN.  */   
 extern int sparc_check_64 PARAMS ((rtx, rtx));
 extern rtx gen_df_reg PARAMS ((rtx, int));
-extern int sparc_extra_constraint_check PARAMS ((rtx, char, int));
+extern int sparc_extra_constraint_check PARAMS ((rtx, int, int));
+extern int sparc_rtx_costs PARAMS ((rtx, enum rtx_code, enum rtx_code));
 #endif /* RTX_CODE */
 
 #endif /* __SPARC_PROTOS_H__ */

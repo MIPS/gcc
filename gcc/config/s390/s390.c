@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "recog.h"
 #include "expr.h"
+#include "reload.h"
 #include "toplev.h"
 #include "basic-block.h"
 #include "integrate.h"
@@ -49,6 +50,9 @@ Boston, MA 02111-1307, USA.  */
 static bool s390_assemble_integer PARAMS ((rtx, unsigned int, int));
 static int s390_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int s390_adjust_priority PARAMS ((rtx, int));
+static void s390_select_rtx_section PARAMS ((enum machine_mode, rtx, 
+					     unsigned HOST_WIDE_INT));
+static void s390_encode_section_info PARAMS ((tree, int));
 
 #undef  TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
@@ -69,11 +73,17 @@ static int s390_adjust_priority PARAMS ((rtx, int));
 #undef  TARGET_ASM_CLOSE_PAREN
 #define TARGET_ASM_CLOSE_PAREN ""
 
+#undef	TARGET_ASM_SELECT_RTX_SECTION
+#define	TARGET_ASM_SELECT_RTX_SECTION  s390_select_rtx_section
+
 #undef  TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST s390_adjust_cost
 
 #undef  TARGET_SCHED_ADJUST_PRIORITY
 #define TARGET_SCHED_ADJUST_PRIORITY s390_adjust_priority
+
+#undef	TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO s390_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1189,15 +1199,21 @@ s390_expand_plus_operand (target, src, scratch_in)
   if (GET_CODE (src) != PLUS || GET_MODE (src) != Pmode)
     abort ();
 
-  sum1 = XEXP (src, 0);
-  sum2 = XEXP (src, 1);
+  /* Check if any of the two operands is already scheduled
+     for replacement by reload.  This can happen e.g. when
+     float registers occur in an address.  */
+  sum1 = find_replacement (&XEXP (src, 0));
+  sum2 = find_replacement (&XEXP (src, 1));
 
   /* If one of the two operands is equal to the target,
-     make it the first one.  */
-  if (rtx_equal_p (target, sum2))
+     make it the first one.  If one is a constant, make
+     it the second one.  */
+  if (rtx_equal_p (target, sum2)
+      || GET_CODE (sum1) == CONST_INT)
     {
-      sum2 = XEXP (src, 0);
-      sum1 = XEXP (src, 1);
+      rtx tem = sum2;
+      sum2 = sum1;
+      sum1 = tem;
     }
 
   /* If the first operand is not an address register,
@@ -1210,8 +1226,11 @@ s390_expand_plus_operand (target, src, scratch_in)
 
   /* Likewise for the second operand.  However, take
      care not to clobber the target if we already used
-     it for the first operand.  Use the scratch instead.  */
-  if (true_regnum (sum2) < 1 || true_regnum (sum2) > 15)
+     it for the first operand.  Use the scratch instead.
+     Also, allow an immediate offset if it is in range.  */
+  if ((true_regnum (sum2) < 1 || true_regnum (sum2) > 15)
+      && !(GET_CODE (sum2) == CONST_INT
+           && INTVAL (sum2) >= 0 && INTVAL (sum2) < 4096))
     {
       if (!rtx_equal_p (target, sum1))
         {
@@ -1701,6 +1720,7 @@ legitimize_pic_address (orig, reg)
                         {
                           int even = INTVAL (op1) - 1;
                           op0 = gen_rtx_PLUS (Pmode, op0, GEN_INT (even));
+			  op0 = gen_rtx_CONST (Pmode, op0);
                           op1 = GEN_INT (1);
                         }
 
@@ -1861,6 +1881,43 @@ legitimize_address (x, oldx, mode)
   return x;
 }
 
+/* In the name of slightly smaller debug output, and to cater to
+   general assembler losage, recognize various UNSPEC sequences
+   and turn them back into a direct symbol reference.  */
+
+rtx
+s390_simplify_dwarf_addr (orig_x)
+     rtx orig_x;
+{
+  rtx x = orig_x, y;
+
+  if (GET_CODE (x) != MEM)
+    return orig_x;
+
+  x = XEXP (x, 0);
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST
+      && GET_CODE (XEXP (x, 0)) == REG
+      && REGNO (XEXP (x, 0)) == PIC_OFFSET_TABLE_REGNUM)
+    {
+      y = XEXP (XEXP (x, 1), 0);
+      if (GET_CODE (y) == UNSPEC
+	  && XINT (y, 1) == 110)
+	return XVECEXP (y, 0, 0);
+      return orig_x;
+    }
+
+  if (GET_CODE (x) == CONST)
+    {
+      y = XEXP (x, 0);
+      if (GET_CODE (y) == UNSPEC
+	  && XINT (y, 1) == 111)
+	return XVECEXP (y, 0, 0);
+      return orig_x;
+    }
+
+  return orig_x;      
+}
 
 /* Output symbolic constant X in assembler syntax to 
    stdio stream FILE.  */
@@ -3207,6 +3264,14 @@ s390_emit_epilogue ()
 	   i <= frame.last_save_gpr;
 	   i++)
 	{
+	  /* These registers are special and need to be 
+	     restored in any case.  */
+	  if (i == STACK_POINTER_REGNUM 
+              || i == RETURN_REGNUM
+              || i == BASE_REGISTER 
+              || (flag_pic && i == PIC_OFFSET_TABLE_REGNUM))
+	    continue;
+
 	  if (global_regs[i])
 	    {
 	      addr = plus_constant (frame_pointer, 
@@ -3858,3 +3923,39 @@ s390_function_profiler (file, labelno)
     }
 }
 
+/* Select section for constant in constant pool.  In 32-bit mode,
+   constants go in the function section; in 64-bit mode in .rodata.  */
+
+static void
+s390_select_rtx_section (mode, x, align)
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     rtx x ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (TARGET_64BIT)
+    readonly_data_section ();
+  else
+    function_section (current_function_decl);
+}
+
+/* If using PIC, mark a SYMBOL_REF for a non-global symbol so that we
+   may access it directly in the GOT.  */
+
+static void
+s390_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (flag_pic)
+    {
+      rtx rtl = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
+		 ? TREE_CST_RTL (decl) : DECL_RTL (decl));
+
+      if (GET_CODE (rtl) == MEM)
+	{
+	  SYMBOL_REF_FLAG (XEXP (rtl, 0))
+	    = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
+	       || ! TREE_PUBLIC (decl));
+	}
+    }
+}

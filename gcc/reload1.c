@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "toplev.h"
 #include "except.h"
+#include "tree.h"
 
 /* This file contains the reload pass of the compiler, which is
    run after register allocation has been done.  It checks that
@@ -1159,9 +1160,9 @@ reload (first, global)
 	    {
 	      rtx reg = regno_reg_rtx[i];
 
+	      REG_USERVAR_P (reg) = 0;
 	      PUT_CODE (reg, MEM);
 	      XEXP (reg, 0) = addr;
-	      REG_USERVAR_P (reg) = 0;
 	      if (reg_equiv_memory_loc[i])
 		MEM_COPY_ATTRIBUTES (reg, reg_equiv_memory_loc[i]);
 	      else
@@ -2067,10 +2068,19 @@ alter_reg (i, from_reg)
 	 memory.  If this is a shared MEM, make a copy.  */
       if (REGNO_DECL (i))
 	{
-	  if (from_reg != -1 && spill_stack_slot[from_reg] == x)
-	    x = copy_rtx (x);
+	  rtx decl = DECL_RTL_IF_SET (REGNO_DECL (i));
 
-	  set_mem_expr (x, REGNO_DECL (i));
+	  /* We can do this only for the DECLs home pseudo, not for
+	     any copies of it, since otherwise when the stack slot
+	     is reused, nonoverlapping_memrefs_p might think they
+	     cannot overlap.  */
+	  if (decl && GET_CODE (decl) == REG && REGNO (decl) == (unsigned) i)
+	    {
+	      if (from_reg != -1 && spill_stack_slot[from_reg] == x)
+		x = copy_rtx (x);
+
+	      set_mem_expr (x, REGNO_DECL (i));
+	    }
 	}
 
       /* Save the stack slot for later.  */
@@ -4088,23 +4098,21 @@ forget_old_reloads_1 (x, ignored, data)
 {
   unsigned int regno;
   unsigned int nr;
-  int offset = 0;
 
   /* note_stores does give us subregs of hard regs,
      subreg_regno_offset will abort if it is not a hard reg.  */
   while (GET_CODE (x) == SUBREG)
     {
-      offset += subreg_regno_offset (REGNO (SUBREG_REG (x)),
-				     GET_MODE (SUBREG_REG (x)),
-				     SUBREG_BYTE (x),
-				     GET_MODE (x));
+      /* We ignore the subreg offset when calculating the regno,
+	 because we are using the entire underlying hard register
+	 below.  */
       x = SUBREG_REG (x);
     }
 
   if (GET_CODE (x) != REG)
     return;
 
-  regno = REGNO (x) + offset;
+  regno = REGNO (x);
 
   if (regno >= FIRST_PSEUDO_REGISTER)
     nr = 1;
@@ -5736,8 +5744,8 @@ choose_reload_regs (chain)
 
 	      /* If we found an equivalent reg, say no code need be generated
 		 to load it, and use it as our reload reg.  */
-	      if (equiv != 0 
-		  && (regno != HARD_FRAME_POINTER_REGNUM 
+	      if (equiv != 0
+		  && (regno != HARD_FRAME_POINTER_REGNUM
 		      || !frame_pointer_needed))
 		{
 		  int nr = HARD_REGNO_NREGS (regno, rld[r].mode);
@@ -6601,7 +6609,7 @@ emit_input_reload_insns (chain, rl, old, j)
   /* End this sequence.  */
   *where = get_insns ();
   end_sequence ();
-				 
+
   /* Update reload_override_in so that delete_address_reloads_1
      can see the actual register usage.  */
   if (oldequiv_reg)
@@ -8069,7 +8077,8 @@ reload_cse_simplify (insn)
       if (!count && reload_cse_noop_set_p (body))
 	{
 	  rtx value = SET_DEST (body);
-	  if (! REG_FUNCTION_VALUE_P (SET_DEST (body)))
+	  if (REG_P (value)
+	      && ! REG_FUNCTION_VALUE_P (value))
 	    value = 0;
 	  reload_cse_delete_noop_set (insn, value);
 	  return;
@@ -8212,7 +8221,7 @@ reload_cse_simplify_set (set, insn)
 #ifdef LOAD_EXTEND_OP
   /* When replacing a memory with a register, we need to honor assumptions
      that combine made wrt the contents of sign bits.  We'll do this by
-     generating an extend instruction instead of a reg->reg copy.  Thus 
+     generating an extend instruction instead of a reg->reg copy.  Thus
      the destination must be a register that we can widen.  */
   if (GET_CODE (src) == MEM
       && GET_MODE_BITSIZE (GET_MODE (src)) < BITS_PER_WORD
@@ -9377,7 +9386,7 @@ move2add_note_store (dst, set, data)
 	  reg_set_luid[regno] = move2add_last_label_luid + 1;
 	  reg_mode[regno] = mode;
 	  return;
-	  
+
 	default:
 	invalidate:
 	  /* Invalidate the contents of the register.  */
@@ -9463,7 +9472,7 @@ copy_eh_notes (insn, x)
       for (; x != 0; x = NEXT_INSN (x))
 	{
 	  if (may_trap_p (PATTERN (x)))
-	    REG_NOTES (x) 
+	    REG_NOTES (x)
 	      = gen_rtx_EXPR_LIST (REG_EH_REGION, XEXP (eh_note, 0),
 				   REG_NOTES (x));
 	}
@@ -9474,7 +9483,7 @@ copy_eh_notes (insn, x)
    abnormal calls moving basic block end, but in fact it wants to emit
    them on the edge.  Looks for abnormal call edges, find backward the
    proper call and fix the damage.
- 
+
    Similar handle instructions throwing exceptions internally.  */
 void
 fixup_abnormal_edges ()

@@ -153,7 +153,7 @@ when optimising a loop, only certain registers are of interest.
 Perhaps there should be a bitmap argument to df_analyse to specify
  which registers should be analysed?   */
 
-#define HANDLE_SUBREG 
+#define HANDLE_SUBREG
 
 #include "config.h"
 #include "system.h"
@@ -295,16 +295,16 @@ static void df_chain_dump PARAMS((struct df_link *, FILE *file));
 static void df_chain_dump_regno PARAMS((struct df_link *, FILE *file));
 static void df_regno_debug PARAMS ((struct df *, unsigned int, FILE *));
 static void df_ref_debug PARAMS ((struct df *, struct ref *, FILE *));
-static void df_rd_transfer_function PARAMS ((int, int *, bitmap, bitmap, 
+static void df_rd_transfer_function PARAMS ((int, int *, bitmap, bitmap,
 					     bitmap, bitmap, void *));
-static void df_ru_transfer_function PARAMS ((int, int *, bitmap, bitmap, 
+static void df_ru_transfer_function PARAMS ((int, int *, bitmap, bitmap,
 					     bitmap, bitmap, void *));
-static void df_lr_transfer_function PARAMS ((int, int *, bitmap, bitmap, 
+static void df_lr_transfer_function PARAMS ((int, int *, bitmap, bitmap,
 					     bitmap, bitmap, void *));
-static void hybrid_search_bitmap PARAMS ((basic_block, bitmap *, bitmap *, 
-					  bitmap *, bitmap *, enum df_flow_dir, 
-					  enum df_confluence_op, 
-					  transfer_function_bitmap, 
+static void hybrid_search_bitmap PARAMS ((basic_block, bitmap *, bitmap *,
+					  bitmap *, bitmap *, enum df_flow_dir,
+					  enum df_confluence_op,
+					  transfer_function_bitmap,
 					  sbitmap, sbitmap, void *));
 static void hybrid_search_sbitmap PARAMS ((basic_block, sbitmap *, sbitmap *,
 					   sbitmap *, sbitmap *, enum df_flow_dir,
@@ -883,7 +883,7 @@ df_ref_record (df, reg, loc, insn, ref_type, ref_flags)
      XXX Is that true?  We could also use the global word_mode variable.  */
   if (GET_CODE (reg) == SUBREG
       && (GET_MODE_SIZE (GET_MODE (reg)) < GET_MODE_SIZE (word_mode)
-          || GET_MODE_SIZE (GET_MODE (reg))
+	  || GET_MODE_SIZE (GET_MODE (reg))
 	       >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (reg)))))
     {
       loc = &SUBREG_REG (reg);
@@ -967,7 +967,7 @@ df_def_record_1 (df, x, bb, insn)
   /* May be, we should flag the use of strict_low_part somehow.  Might be
      handy for the reg allocator.  */
   while (GET_CODE (dst) == STRICT_LOW_PART
-         || GET_CODE (dst) == ZERO_EXTRACT
+	 || GET_CODE (dst) == ZERO_EXTRACT
 	 || GET_CODE (dst) == SIGN_EXTRACT
 	 || read_modify_subreg_p (dst))
     {
@@ -982,9 +982,9 @@ df_def_record_1 (df, x, bb, insn)
       dst = *loc;
       flags |= DF_REF_READ_WRITE;
     }
-  
+
     if (GET_CODE (dst) == REG
-        || (GET_CODE (dst) == SUBREG && GET_CODE (SUBREG_REG (dst)) == REG))
+	|| (GET_CODE (dst) == SUBREG && GET_CODE (SUBREG_REG (dst)) == REG))
       df_ref_record (df, dst, loc, insn, DF_REF_REG_DEF, flags);
 }
 
@@ -1101,7 +1101,7 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 	    case PC:
 	      break;
 	    case MEM:
-	      df_uses_record (df, &XEXP (dst, 0), 
+	      df_uses_record (df, &XEXP (dst, 0),
 			      DF_REF_REG_MEM_STORE,
 			      bb, insn, 0);
 	      break;
@@ -1146,7 +1146,7 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 	   For now, just mark any regs we can find in ASM_OPERANDS as
 	   used.  */
 
-        /* For all ASM_OPERANDS, we must traverse the vector of input operands.
+	/* For all ASM_OPERANDS, we must traverse the vector of input operands.
 	   We can not just fall through here since then we would be confused
 	   by the ASM_INPUT rtx inside ASM_OPERANDS, which do not indicate
 	   traditional asms unlike their normal usage.  */
@@ -1264,7 +1264,7 @@ df_insn_refs_record (df, bb, insn)
 		  {
 		    x = df_reg_use_gen (i);
 		    df_uses_record (df, &SET_DEST (x),
- 				    DF_REF_REG_USE, bb, insn, 0);
+				    DF_REF_REG_USE, bb, insn, 0);
 		  }
 	    }
 	}
@@ -1694,7 +1694,7 @@ df_bb_rd_local_compute (df, bb)
 	  bitmap_set_bit (bb_info->rd_gen, DF_REF_ID (def));
 	}
     }
-  
+
   bb_info->rd_valid = 1;
 }
 
@@ -1724,7 +1724,7 @@ df_bb_ru_local_compute (df, bb)
   /* This is much more tricky than computing reaching defs.  With
      reaching defs, defs get killed by other defs.  With upwards
      exposed uses, these get killed by defs with the same regno.  */
-  
+
   struct bb_info *bb_info = DF_BB_INFO (df, bb);
   rtx insn;
 
@@ -2036,7 +2036,7 @@ df_analyse_1 (df, blocks, flags, update)
   df->inverse_dfs_map = xmalloc (sizeof(int) * n_basic_blocks);
   df->inverse_rc_map = xmalloc (sizeof(int) * n_basic_blocks);
   df->inverse_rts_map = xmalloc (sizeof(int) * n_basic_blocks);
-  
+
   flow_depth_first_order_compute (df->dfs_order, df->rc_order);
   flow_reverse_top_sort_order_compute (df->rts_order);
   for (i = 0; i < n_basic_blocks; i ++)
@@ -2062,7 +2062,7 @@ df_analyse_1 (df, blocks, flags, update)
 	    gen[i] = DF_BB_INFO (df, BASIC_BLOCK (i))->rd_gen;
 	    kill[i] = DF_BB_INFO (df, BASIC_BLOCK (i))->rd_kill;
 	  }
-	iterative_dataflow_bitmap (in, out, gen, kill, df->all_blocks, 
+	iterative_dataflow_bitmap (in, out, gen, kill, df->all_blocks,
 				   FORWARD, UNION, df_rd_transfer_function,
 				   df->inverse_rc_map, NULL);
 	free (in);
@@ -2099,7 +2099,7 @@ df_analyse_1 (df, blocks, flags, update)
 	    gen[i] = DF_BB_INFO (df, BASIC_BLOCK (i))->ru_gen;
 	    kill[i] = DF_BB_INFO (df, BASIC_BLOCK (i))->ru_kill;
 	  }
-	iterative_dataflow_bitmap (in, out, gen, kill, df->all_blocks, 
+	iterative_dataflow_bitmap (in, out, gen, kill, df->all_blocks,
 				   BACKWARD, UNION, df_ru_transfer_function,
 				   df->inverse_rts_map, NULL);
 	free (in);
@@ -2125,7 +2125,7 @@ df_analyse_1 (df, blocks, flags, update)
   if (aflags & DF_LR)
     {
       /* Compute the sets of defs and uses of live variables.  */
-      df_lr_local_compute (df, df->flags & DF_LR ? blocks : df->all_blocks);      
+      df_lr_local_compute (df, df->flags & DF_LR ? blocks : df->all_blocks);
       {
 	int i;
 	bitmap *in = xmalloc (sizeof (bitmap) * n_basic_blocks);
@@ -2139,7 +2139,7 @@ df_analyse_1 (df, blocks, flags, update)
 	    use[i] = DF_BB_INFO (df, BASIC_BLOCK (i))->lr_use;
 	    def[i] = DF_BB_INFO (df, BASIC_BLOCK (i))->lr_def;
 	  }
-	iterative_dataflow_bitmap (in, out, use, def, df->all_blocks, 
+	iterative_dataflow_bitmap (in, out, use, def, df->all_blocks,
 				   BACKWARD, UNION, df_lr_transfer_function,
 				   df->inverse_rts_map, NULL);
 	free (in);
@@ -3282,9 +3282,9 @@ df_chain_dump_regno (link, file)
   for (; link; link = link->next)
     {
       fprintf (file, "%c%d(%d) ",
-               DF_REF_REG_DEF_P (link->ref) ? 'd' : 'u',
-               DF_REF_ID (link->ref),
-               DF_REF_REGNO (link->ref));
+	       DF_REF_REG_DEF_P (link->ref) ? 'd' : 'u',
+	       DF_REF_ID (link->ref),
+	       DF_REF_REGNO (link->ref));
     }
   fprintf (file, "}");
 }
@@ -3514,7 +3514,7 @@ df_insn_debug_regno (df, insn, file)
     bbi = -1;
 
   fprintf (file, "insn %d bb %d luid %d defs ",
-           uid, bbi, DF_INSN_LUID (df, insn));
+	   uid, bbi, DF_INSN_LUID (df, insn));
   df_chain_dump_regno (df->insns[uid].defs, file);
   fprintf (file, " uses ");
   df_chain_dump_regno (df->insns[uid].uses, file);
@@ -3617,9 +3617,9 @@ debug_df_chain (link)
 
 /* Hybrid search algorithm from "Implementation Techniques for
    Efficient Data-Flow Analysis of Large Programs".  */
-static void 
-hybrid_search_bitmap (block, in, out, gen, kill, dir, 
-		      conf_op, transfun, visited, pending, 
+static void
+hybrid_search_bitmap (block, in, out, gen, kill, dir,
+		      conf_op, transfun, visited, pending,
 		      data)
      basic_block block;
      bitmap *in, *out, *gen, *kill;
@@ -3656,7 +3656,7 @@ hybrid_search_bitmap (block, in, out, gen, kill, dir,
 		}
 	    }
 	}
-      else 
+      else
 	{
 	  /* Calculate <conf_op> of successor ins */
 	  bitmap_zero(out[i]);
@@ -3665,7 +3665,7 @@ hybrid_search_bitmap (block, in, out, gen, kill, dir,
 	      if (e->dest == EXIT_BLOCK_PTR)
 		continue;
 	      switch (conf_op)
-		{	
+		{
 		case UNION:
 		  bitmap_a_or_b (out[i], out[i], in[e->dest->index]);
 		  break;
@@ -3674,7 +3674,7 @@ hybrid_search_bitmap (block, in, out, gen, kill, dir,
 		  break;
 		}
 	    }
-	}      
+	}
       /* Common part */
       (*transfun)(i, &changed, in[i], out[i], gen[i], kill[i], data);
       RESET_BIT (pending, i);
@@ -3707,8 +3707,8 @@ hybrid_search_bitmap (block, in, out, gen, kill, dir,
 	  if (e->dest == EXIT_BLOCK_PTR || e->dest->index == i)
 	    continue;
 	  if (!TEST_BIT (visited, e->dest->index))
-	    hybrid_search_bitmap (e->dest, in, out, gen, kill, dir, 
-				  conf_op, transfun, visited, pending, 
+	    hybrid_search_bitmap (e->dest, in, out, gen, kill, dir,
+				  conf_op, transfun, visited, pending,
 				  data);
 	}
     }
@@ -3719,8 +3719,8 @@ hybrid_search_bitmap (block, in, out, gen, kill, dir,
 	  if (e->src == ENTRY_BLOCK_PTR || e->src->index == i)
 	    continue;
 	  if (!TEST_BIT (visited, e->src->index))
-	    hybrid_search_bitmap (e->src, in, out, gen, kill, dir, 
-				  conf_op, transfun, visited, pending, 
+	    hybrid_search_bitmap (e->src, in, out, gen, kill, dir,
+				  conf_op, transfun, visited, pending,
 				  data);
 	}
     }
@@ -3728,8 +3728,8 @@ hybrid_search_bitmap (block, in, out, gen, kill, dir,
 
 
 /* Hybrid search for sbitmaps, rather than bitmaps.  */
-static void 
-hybrid_search_sbitmap (block, in, out, gen, kill, dir, 
+static void
+hybrid_search_sbitmap (block, in, out, gen, kill, dir,
 		       conf_op, transfun, visited, pending,
 		       data)
      basic_block block;
@@ -3767,7 +3767,7 @@ hybrid_search_sbitmap (block, in, out, gen, kill, dir,
 		}
 	    }
 	}
-      else 
+      else
 	{
 	  /* Calculate <conf_op> of successor ins */
 	  sbitmap_zero(out[i]);
@@ -3776,7 +3776,7 @@ hybrid_search_sbitmap (block, in, out, gen, kill, dir,
 	      if (e->dest == EXIT_BLOCK_PTR)
 		continue;
 	      switch (conf_op)
-		{	
+		{
 		case UNION:
 		  sbitmap_a_or_b (out[i], out[i], in[e->dest->index]);
 		  break;
@@ -3785,7 +3785,7 @@ hybrid_search_sbitmap (block, in, out, gen, kill, dir,
 		  break;
 		}
 	    }
-	}      
+	}
       /* Common part */
       (*transfun)(i, &changed, in[i], out[i], gen[i], kill[i], data);
       RESET_BIT (pending, i);
@@ -3818,8 +3818,8 @@ hybrid_search_sbitmap (block, in, out, gen, kill, dir,
 	  if (e->dest == EXIT_BLOCK_PTR || e->dest->index == i)
 	    continue;
 	  if (!TEST_BIT (visited, e->dest->index))
-	    hybrid_search_sbitmap (e->dest, in, out, gen, kill, dir, 
-				   conf_op, transfun, visited, pending, 
+	    hybrid_search_sbitmap (e->dest, in, out, gen, kill, dir,
+				   conf_op, transfun, visited, pending,
 				   data);
 	}
     }
@@ -3830,8 +3830,8 @@ hybrid_search_sbitmap (block, in, out, gen, kill, dir,
 	  if (e->src == ENTRY_BLOCK_PTR || e->src->index == i)
 	    continue;
 	  if (!TEST_BIT (visited, e->src->index))
-	    hybrid_search_sbitmap (e->src, in, out, gen, kill, dir, 
-				   conf_op, transfun, visited, pending, 
+	    hybrid_search_sbitmap (e->src, in, out, gen, kill, dir,
+				   conf_op, transfun, visited, pending,
 				   data);
 	}
     }
@@ -3849,20 +3849,20 @@ hybrid_search_sbitmap (block, in, out, gen, kill, dir,
    transfun = Transfer function.
    order = Order to iterate in. (Should map block numbers -> order)
    data = Whatever you want.  It's passed to the transfer function.
-   
+
    This function will perform iterative bitvector dataflow, producing
    the in and out sets.  Even if you only want to perform it for a
    small number of blocks, the vectors for in and out must be large
    enough for *all* blocks, because changing one block might affect
    others.  However, it'll only put what you say to analyze on the
    initial worklist.
-   
+
    For forward problems, you probably want to pass in a mapping of
    block number to rc_order (like df->inverse_rc_map).
 */
 void
-iterative_dataflow_sbitmap (in, out, gen, kill, blocks, 
-			    dir, conf_op, transfun, order, data)     
+iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
+			    dir, conf_op, transfun, order, data)
      sbitmap *in, *out, *gen, *kill;
      bitmap blocks;
      enum df_flow_dir dir;
@@ -3882,7 +3882,7 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
   worklist = fibheap_new ();
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
   {
-    fibheap_insert (worklist, order[i], (void *) (size_t) i); 
+    fibheap_insert (worklist, order[i], (void *) (size_t) i);
     SET_BIT (pending, i);
     if (dir == FORWARD)
       sbitmap_copy (out[i], gen[i]);
@@ -3896,7 +3896,7 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
 	  i = (size_t) fibheap_extract_min (worklist);
 	  bb = BASIC_BLOCK (i);
 	  if (!TEST_BIT (visited, bb->index))
-	    hybrid_search_sbitmap (bb, in, out, gen, kill, dir, 
+	    hybrid_search_sbitmap (bb, in, out, gen, kill, dir,
 				   conf_op, transfun, visited, pending, data);
 	}
       if (sbitmap_first_set_bit (pending) != -1)
@@ -3910,7 +3910,7 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
       else
 	{
 	  break;
-	}      
+	}
     }
   sbitmap_free (pending);
   sbitmap_free (visited);
@@ -3920,8 +3920,8 @@ iterative_dataflow_sbitmap (in, out, gen, kill, blocks,
 /* Exactly the same as iterative_dataflow_sbitmap, except it works on
    bitmaps instead */
 void
-iterative_dataflow_bitmap (in, out, gen, kill, blocks, 
-			   dir, conf_op, transfun, order, data)     
+iterative_dataflow_bitmap (in, out, gen, kill, blocks,
+			   dir, conf_op, transfun, order, data)
      bitmap *in, *out, *gen, *kill;
      bitmap blocks;
      enum df_flow_dir dir;
@@ -3955,7 +3955,7 @@ iterative_dataflow_bitmap (in, out, gen, kill, blocks,
 	  i = (size_t) fibheap_extract_min (worklist);
 	  bb = BASIC_BLOCK (i);
 	  if (!TEST_BIT (visited, bb->index))
-	    hybrid_search_bitmap (bb, in, out, gen, kill, dir, 
+	    hybrid_search_bitmap (bb, in, out, gen, kill, dir,
 				  conf_op, transfun, visited, pending, data);
 	}
       if (sbitmap_first_set_bit (pending) != -1)
@@ -3969,9 +3969,9 @@ iterative_dataflow_bitmap (in, out, gen, kill, blocks,
       else
 	{
 	  break;
-	}     
+	}
     }
   sbitmap_free (pending);
   sbitmap_free (visited);
-  fibheap_delete (worklist);  
+  fibheap_delete (worklist);
 }

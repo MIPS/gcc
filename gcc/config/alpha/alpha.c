@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001 Free Software Foundation, Inc. 
+   2000, 2001, 2002 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -115,6 +115,12 @@ int alpha_this_gpdisp_sequence_number;
 /* Declarations of static functions.  */
 static bool decl_in_text_section
   PARAMS ((tree));
+static bool alpha_in_small_data_p
+  PARAMS ((tree));
+static void alpha_encode_section_info
+  PARAMS ((tree, int));
+static const char *alpha_strip_name_encoding
+  PARAMS ((const char *));
 static int some_small_symbolic_operand_1
   PARAMS ((rtx *, void *));
 static int split_small_symbolic_operand_1
@@ -157,8 +163,15 @@ static int alpha_adjust_cost
   PARAMS ((rtx, rtx, rtx, int));
 static int alpha_issue_rate
   PARAMS ((void));
-static int alpha_variable_issue
-  PARAMS ((FILE *, int, rtx, int));
+static int alpha_use_dfa_pipeline_interface
+  PARAMS ((void));
+static int alpha_multipass_dfa_lookahead
+  PARAMS ((void));
+
+#ifdef OBJECT_FORMAT_ELF
+static void alpha_elf_select_rtx_section
+  PARAMS ((enum machine_mode, rtx, unsigned HOST_WIDE_INT));
+#endif
 
 #if TARGET_ABI_UNICOSMK
 static void alpha_init_machine_status
@@ -197,15 +210,25 @@ static void vms_asm_out_destructor PARAMS ((rtx, int));
 # define TARGET_SECTION_TYPE_FLAGS vms_section_type_flags
 #endif
 
+#undef TARGET_IN_SMALL_DATA_P
+#define TARGET_IN_SMALL_DATA_P alpha_in_small_data_p
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO alpha_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING alpha_strip_name_encoding
+
 #if TARGET_ABI_UNICOSMK
 static void unicosmk_asm_named_section PARAMS ((const char *, unsigned int));
 static void unicosmk_insert_attributes PARAMS ((tree, tree *));
 static unsigned int unicosmk_section_type_flags PARAMS ((tree, const char *, 
 							 int));
+static void unicosmk_unique_section PARAMS ((tree, int));
 # undef TARGET_INSERT_ATTRIBUTES
 # define TARGET_INSERT_ATTRIBUTES unicosmk_insert_attributes
 # undef TARGET_SECTION_TYPE_FLAGS
 # define TARGET_SECTION_TYPE_FLAGS unicosmk_section_type_flags
+# undef TARGET_ASM_UNIQUE_SECTION
+# define TARGET_ASM_UNIQUE_SECTION unicosmk_unique_section
 #endif
 
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -224,6 +247,11 @@ static unsigned int unicosmk_section_type_flags PARAMS ((tree, const char *,
 #define TARGET_ASM_UNALIGNED_DI_OP "\t.align 0\n\t.quad\t"
 #endif
 
+#ifdef OBJECT_FORMAT_ELF
+#undef	TARGET_ASM_SELECT_RTX_SECTION
+#define	TARGET_ASM_SELECT_RTX_SECTION  alpha_elf_select_rtx_section
+#endif
+
 #undef TARGET_ASM_FUNCTION_END_PROLOGUE
 #define TARGET_ASM_FUNCTION_END_PROLOGUE alpha_output_function_end_prologue
 
@@ -231,8 +259,12 @@ static unsigned int unicosmk_section_type_flags PARAMS ((tree, const char *,
 #define TARGET_SCHED_ADJUST_COST alpha_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE alpha_issue_rate
-#undef TARGET_SCHED_VARIABLE_ISSUE
-#define TARGET_SCHED_VARIABLE_ISSUE alpha_variable_issue
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE \
+  alpha_use_dfa_pipeline_interface
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
+  alpha_multipass_dfa_lookahead
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -926,7 +958,7 @@ local_symbol_p (op)
      unrecognizable insns.  */
 
   return (CONSTANT_POOL_ADDRESS_P (op)
-	  /* If @, then ENCODE_SECTION_INFO sez it's local.  */
+	  /* If @, then alpha_encode_section_info sez it's local.  */
 	  || str[0] == '@'
 	  /* If *$, then ASM_GENERATE_INTERNAL_LABEL sez it's local.  */
 	  || (str[0] == '*' && str[1] == '$'));
@@ -1546,6 +1578,32 @@ decl_in_text_section (decl)
 		    && DECL_ONE_ONLY (decl))));
 }
 
+/* Return true if EXP should be placed in the small data section.  */
+
+static bool
+alpha_in_small_data_p (exp)
+     tree exp;
+{
+  if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
+    {
+      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+      if (strcmp (section, ".sdata") == 0
+	  || strcmp (section, ".sbss") == 0)
+	return true;
+    }
+  else
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
+
+      /* If this is an incomplete type with size 0, then we can't put it
+	 in sdata because it might be too big when completed.  */
+      if (size > 0 && size <= g_switch_value)
+	return true;
+    }
+
+  return false;
+}
+
 /* If we are referencing a function that is static, make the SYMBOL_REF
    special.  We use this to see indicate we can branch to this function
    without setting PV or restoring GP. 
@@ -1554,14 +1612,24 @@ decl_in_text_section (decl)
    to the name.  If in addition the variable is to go in .sdata/.sbss,
    then add "@s" instead.  */
 
-void
+static void
 alpha_encode_section_info (decl, first)
      tree decl;
      int first ATTRIBUTE_UNUSED;
 {
   const char *symbol_str;
   bool is_local, is_small;
+  rtx rtl, symbol;
 
+  rtl = DECL_P (decl) ? DECL_RTL (decl) : TREE_CST_RTL (decl);
+
+  /* Careful not to prod global register variables.  */
+  if (GET_CODE (rtl) != MEM)
+    return;
+  symbol = XEXP (rtl, 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return;
+    
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       /* We mark public functions once they are emitted; otherwise we
@@ -1574,7 +1642,7 @@ alpha_encode_section_info (decl, first)
       if (! decl_in_text_section (decl))
 	return;
 
-      SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+      SYMBOL_REF_FLAG (symbol) = 1;
       return;
     }
 
@@ -1582,75 +1650,17 @@ alpha_encode_section_info (decl, first)
   if (! TARGET_EXPLICIT_RELOCS)
     return;
 
-  /* Careful not to prod global register variables.  */
-  if (TREE_CODE (decl) != VAR_DECL
-      || GET_CODE (DECL_RTL (decl)) != MEM
-      || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
-    return;
-    
-  symbol_str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  symbol_str = XSTR (symbol, 0);
 
   /* A variable is considered "local" if it is defined in this module.  */
-
-  /* Local binding occurs for any non-default visibility.  */
-  if (MODULE_LOCAL_P (decl))
-    is_local = true;
-  /* Otherwise, variables defined outside this object may not be local.  */
-  else if (DECL_EXTERNAL (decl))
-    is_local = false;
-  /* Linkonce and weak data is never local.  */
-  else if (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
-    is_local = false;
-  /* Static variables are always local.  */
-  else if (! TREE_PUBLIC (decl))
-    is_local = true;
-  /* If PIC, then assume that any global name can be overridden by
-     symbols resolved from other modules.  */
-  else if (flag_pic)
-    is_local = false;
-  /* Uninitialized COMMON variable may be unified with symbols
-     resolved from other modules.  */
-  else if (DECL_COMMON (decl)
-	   && (DECL_INITIAL (decl) == NULL
-	       || DECL_INITIAL (decl) == error_mark_node))
-    is_local = false;
-  /* Otherwise we're left with initialized (or non-common) global data
-     which is of necessity defined locally.  */
-  else
-    is_local = true;
+  is_local = (*targetm.binds_local_p) (decl);
 
   /* Determine if DECL will wind up in .sdata/.sbss.  */
-
-  is_small = false;
-  if (DECL_SECTION_NAME (decl))
-    {
-      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
-      if (strcmp (section, ".sdata") == 0
-	  || strcmp (section, ".sbss") == 0)
-	is_small = true;
-    }
-  else
-    {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
-
-      /* If the variable has already been defined in the output file, then it
-	 is too late to put it in sdata if it wasn't put there in the first
-	 place.  The test is here rather than above, because if it is already
-	 in sdata, then it can stay there.  */
-
-      if (TREE_ASM_WRITTEN (decl))
-	;
-
-      /* If this is an incomplete type with size 0, then we can't put it in
-	 sdata because it might be too big when completed.  */
-      else if (size > 0 && size <= g_switch_value)
-	is_small = true;
-    }
+  is_small = alpha_in_small_data_p (decl);
 
   /* Finally, encode this into the symbol string.  */
   if (is_local)
     {
-      const char *string;
       char *newstr;
       size_t len;
 
@@ -1668,11 +1678,27 @@ alpha_encode_section_info (decl, first)
       newstr[1] = (is_small ? 's' : 'v');
       memcpy (newstr + 2, symbol_str, len);
 	  
-      string = ggc_alloc_string (newstr, len + 2 - 1);
-      XSTR (XEXP (DECL_RTL (decl), 0), 0) = string;
+      XSTR (symbol, 0) = ggc_alloc_string (newstr, len + 2 - 1);
     }
   else if (symbol_str[0] == '@')
-    abort ();
+    {
+      /* We're hosed.  This can happen when the user adds a weak
+	 attribute after rtl generation.  They should have gotten
+	 a warning about unspecified behaviour from varasm.c.  */
+    }
+}
+
+/* Undo the effects of the above.  */
+
+static const char *
+alpha_strip_name_encoding (str)
+     const char *str;
+{
+  if (str[0] == '@')
+    str += 2;
+  if (str[0] == '*')
+    str++;
+  return str;
 }
 
 /* legitimate_address_p recognizes an RTL expression that is a valid
@@ -4822,15 +4848,13 @@ alpha_adjust_cost (insn, link, dep_insn, cost)
      rtx dep_insn;
      int cost;
 {
-  rtx set, set_src;
   enum attr_type insn_type, dep_insn_type;
 
   /* If the dependence is an anti-dependence, there is no cost.  For an
      output dependence, there is sometimes a cost, but it doesn't seem
      worth handling those few cases.  */
-
   if (REG_NOTE_KIND (link) != 0)
-    return 0;
+    return cost;
 
   /* If we can't recognize the insns, we can't really do anything.  */
   if (recog_memoized (insn) < 0 || recog_memoized (dep_insn) < 0)
@@ -4845,122 +4869,13 @@ alpha_adjust_cost (insn, link, dep_insn, cost)
       || dep_insn_type == TYPE_LDSYM)
     cost += alpha_memory_latency-1;
 
-  switch (alpha_cpu)
-    {
-    case PROCESSOR_EV4:
-      /* On EV4, if INSN is a store insn and DEP_INSN is setting the data
-	 being stored, we can sometimes lower the cost.  */
+  /* Everything else handled in DFA bypasses now.  */
 
-      if ((insn_type == TYPE_IST || insn_type == TYPE_FST)
-	  && (set = single_set (dep_insn)) != 0
-	  && GET_CODE (PATTERN (insn)) == SET
-	  && rtx_equal_p (SET_DEST (set), SET_SRC (PATTERN (insn))))
-	{
-	  switch (dep_insn_type)
-	    {
-	    case TYPE_ILD:
-	    case TYPE_FLD:
-	      /* No savings here.  */
-	      return cost;
-
-	    case TYPE_IMUL:
-	      /* In these cases, we save one cycle.  */
-	      return cost - 1;
-
-	    default:
-	      /* In all other cases, we save two cycles.  */
-	      return MAX (0, cost - 2);
-	    }
-	}
-
-      /* Another case that needs adjustment is an arithmetic or logical
-	 operation.  It's cost is usually one cycle, but we default it to
-	 two in the MD file.  The only case that it is actually two is
-	 for the address in loads, stores, and jumps.  */
-
-      if (dep_insn_type == TYPE_IADD || dep_insn_type == TYPE_ILOG)
-	{
-	  switch (insn_type)
-	    {
-	    case TYPE_ILD:
-	    case TYPE_IST:
-	    case TYPE_FLD:
-	    case TYPE_FST:
-	    case TYPE_JSR:
-	      return cost;
-	    default:
-	      return 1;
-	    }
-	}
-
-      /* The final case is when a compare feeds into an integer branch;
-	 the cost is only one cycle in that case.  */
-
-      if (dep_insn_type == TYPE_ICMP && insn_type == TYPE_IBR)
-	return 1;
-      break;
-
-    case PROCESSOR_EV5:
-      /* And the lord DEC saith:  "A special bypass provides an effective
-	 latency of 0 cycles for an ICMP or ILOG insn producing the test
-	 operand of an IBR or ICMOV insn." */
-
-      if ((dep_insn_type == TYPE_ICMP || dep_insn_type == TYPE_ILOG)
-	  && (set = single_set (dep_insn)) != 0)
-	{
-	  /* A branch only has one input.  This must be it.  */
-	  if (insn_type == TYPE_IBR)
-	    return 0;
-	  /* A conditional move has three, make sure it is the test.  */
-	  if (insn_type == TYPE_ICMOV
-	      && GET_CODE (set_src = PATTERN (insn)) == SET
-	      && GET_CODE (set_src = SET_SRC (set_src)) == IF_THEN_ELSE
-	      && rtx_equal_p (SET_DEST (set), XEXP (set_src, 0)))
-	    return 0;
-	}
-
-      /* "The multiplier is unable to receive data from IEU bypass paths.
-	 The instruction issues at the expected time, but its latency is
-	 increased by the time it takes for the input data to become
-	 available to the multiplier" -- which happens in pipeline stage
-	 six, when results are comitted to the register file.  */
-
-      if (insn_type == TYPE_IMUL)
-	{
-	  switch (dep_insn_type)
-	    {
-	    /* These insns produce their results in pipeline stage five.  */
-	    case TYPE_ILD:
-	    case TYPE_ICMOV:
-	    case TYPE_IMUL:
-	    case TYPE_MVI:
-	      return cost + 1;
-
-	    /* Other integer insns produce results in pipeline stage four.  */
-	    default:
-	      return cost + 2;
-	    }
-	}
-      break;
-
-    case PROCESSOR_EV6:
-      /* There is additional latency to move the result of (most) FP 
-         operations anywhere but the FP register file.  */
-
-      if ((insn_type == TYPE_FST || insn_type == TYPE_FTOI)
-	  && (dep_insn_type == TYPE_FADD ||
-	      dep_insn_type == TYPE_FMUL ||
-	      dep_insn_type == TYPE_FCMOV))
-        return cost + 2;
-
-      break;
-    }
-
-  /* Otherwise, return the default cost.  */
   return cost;
 }
 
-/* Function to initialize the issue rate used by the scheduler.  */
+/* The number of instructions that can be issued per cycle.  */
+
 static int
 alpha_issue_rate ()
 {
@@ -4968,18 +4883,24 @@ alpha_issue_rate ()
 }
 
 static int
-alpha_variable_issue (dump, verbose, insn, cim)
-     FILE *dump ATTRIBUTE_UNUSED;
-     int verbose ATTRIBUTE_UNUSED;
-     rtx insn;
-     int cim;
+alpha_use_dfa_pipeline_interface ()
 {
-    if (recog_memoized (insn) < 0 || get_attr_type (insn) == TYPE_MULTI)
-      return 0;
-
-    return cim - 1;
+  return true;
 }
 
+/* How many alternative schedules to try.  This should be as wide as the
+   scheduling freedom in the DFA, but no wider.  Making this value too
+   large results extra work for the scheduler.
+
+   For EV4, loads can be issued to either IB0 or IB1, thus we have 2
+   alternative schedules.  For EV5, we can choose between E0/E1 and
+   FA/FM.  For EV6, an arithmatic insn can be issued to U0/U1/L0/L1.  */
+
+static int
+alpha_multipass_dfa_lookahead ()
+{
+  return (alpha_cpu == PROCESSOR_EV6 ? 4 : 2);
+}
 
 /* Register global variables and machine-specific functions with the
    garbage collector.  */
@@ -6702,15 +6623,14 @@ alpha_start_function (file, fnname, decl)
     }
 
 #if TARGET_ABI_OPEN_VMS
-  /* Ifdef'ed cause readonly_section and link_section are only
-     available then.  */
-  readonly_section ();
+  /* Ifdef'ed cause link_section are only available then.  */
+  readonly_data_section ();
   fprintf (file, "\t.align 3\n");
   assemble_name (file, fnname); fputs ("..na:\n", file);
   fputs ("\t.ascii \"", file);
   assemble_name (file, fnname);
   fputs ("\\0\"\n", file);
-      
+
   link_section ();
   fprintf (file, "\t.align 3\n");
   fputs ("\t.name ", file);
@@ -8158,6 +8078,26 @@ check_float_value (mode, d, overflow)
   return 0;
 }
 
+#ifdef OBJECT_FORMAT_ELF
+
+/* Switch to the section to which we should output X.  The only thing
+   special we do here is to honor small data.  */
+
+static void
+alpha_elf_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  if (TARGET_SMALL_DATA && GET_MODE_SIZE (mode) <= g_switch_value)
+    /* ??? Consider using mergable sdata sections.  */
+    sdata_section ();
+  else
+    default_elf_select_rtx_section (mode, x, align);
+}
+
+#endif /* OBJECT_FORMAT_ELF */
+
 #if TARGET_ABI_OPEN_VMS
 
 /* Return the VMS argument type corresponding to MODE.  */
@@ -8341,7 +8281,7 @@ alpha_write_linkage (stream)
 {
   if (alpha_links)
     {
-      readonly_section ();
+      readonly_data_section ();
       fprintf (stream, "\t.align 3\n");
       splay_tree_foreach (alpha_links, alpha_write_one_linkage, stream);
     }
@@ -8640,7 +8580,7 @@ unicosmk_section_type_flags (decl, name, reloc)
 /* Generate a section name for decl and associate it with the
    declaration.  */
 
-void
+static void
 unicosmk_unique_section (decl, reloc)
       tree decl;
       int reloc ATTRIBUTE_UNUSED;
@@ -8652,7 +8592,7 @@ unicosmk_unique_section (decl, reloc)
     abort ();
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  STRIP_NAME_ENCODING (name, name);
+  name = alpha_strip_name_encoding (name);
   len = strlen (name);
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -8720,7 +8660,7 @@ unicosmk_insert_attributes (decl, attr_ptr)
 {
   if (DECL_P (decl)
       && (TREE_PUBLIC (decl) || TREE_CODE (decl) == FUNCTION_DECL))
-    UNIQUE_SECTION (decl, 0);
+    unicosmk_unique_section (decl, 0);
 }
 
 /* Output an alignment directive. We have to use the macro 'gcc@code@align'
@@ -8883,8 +8823,7 @@ unicosmk_ssib_name ()
   x = XEXP (x, 0);
   if (GET_CODE (x) != SYMBOL_REF)
     abort ();
-  fnname = XSTR (x, 0);
-  STRIP_NAME_ENCODING (fnname, fnname);
+  fnname = alpha_strip_name_encoding (XSTR (x, 0));
 
   len = strlen (fnname);
   if (len + SSIB_PREFIX_LEN > 255)
@@ -9059,7 +8998,7 @@ unicosmk_output_externs (file)
       /* We have to strip the encoding and possibly remove user_label_prefix 
 	 from the identifier in order to handle -fleading-underscore and
 	 explicit asm names correctly (cf. gcc.dg/asm-names-1.c).  */
-      STRIP_NAME_ENCODING (real_name, p->name);
+      real_name = alpha_strip_name_encoding (p->name);
       if (len && p->name[0] == '*'
 	  && !memcmp (real_name, user_label_prefix, len))
 	real_name += len;

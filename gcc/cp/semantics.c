@@ -203,6 +203,7 @@ finish_expr_stmt (expr)
      tree expr;
 {
   tree r = NULL_TREE;
+  tree expr_type = NULL_TREE;;
 
   if (expr != NULL_TREE)
     {
@@ -213,6 +214,9 @@ finish_expr_stmt (expr)
 	      || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE))
 	expr = default_conversion (expr);
       
+      /* Remember the type of the expression.  */
+      expr_type = TREE_TYPE (expr);
+
       if (stmts_are_full_exprs_p ())
 	expr = convert_to_void (expr, "statement");
       
@@ -223,7 +227,7 @@ finish_expr_stmt (expr)
 
   /* This was an expression-statement, so we save the type of the
      expression.  */
-  last_expr_type = expr ? TREE_TYPE (expr) : NULL_TREE;
+  last_expr_type = expr_type;
 
   return r;
 }
@@ -859,9 +863,6 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
   tree r;
   tree t;
 
-  if (TREE_CHAIN (string))
-    string = combine_strings (string);
-
   if (cv_qualifier != NULL_TREE
       && cv_qualifier != ridpointers[(int) RID_VOLATILE])
     {
@@ -1182,7 +1183,7 @@ begin_global_stmt_expr ()
 
   keep_next_level (1);
   
-  return (last_tree != NULL_TREE) ? last_tree : expand_start_stmt_expr(); 
+  return last_tree ? last_tree : expand_start_stmt_expr(/*has_scope=*/1); 
 }
 
 /* Finish the STMT_EXPR last begun with begin_global_stmt_expr.  */

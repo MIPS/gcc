@@ -19,7 +19,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* So we can conditionalize small amounts of code in pa.c or pa.md.  */
-#define OBJ_SOM
+#undef TARGET_SOM
+#define TARGET_SOM 1
 
 /* We do not use BINCL stabs in SOM.
    ??? If it does not hurt, we probably should to avoid useless divergence
@@ -130,8 +131,7 @@ do {								\
    that the section name will have a "." prefix.  */
 #define ASM_OUTPUT_FUNCTION_PREFIX(FILE, NAME) \
   {									\
-    const char *name;							\
-    STRIP_NAME_ENCODING (name, NAME);					\
+    const char *name = (*targetm.strip_name_encoding) (NAME);		\
     if (TARGET_GAS && in_section == in_text) 				\
       fputs ("\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,CODE_ONLY\n", FILE); \
     else if (TARGET_GAS)						\
@@ -249,7 +249,34 @@ do {  \
 /* Supposedly the assembler rejects the command if there is no tab!  */
 #define READONLY_DATA_ASM_OP "\t.SPACE $TEXT$\n\t.SUBSPA $LIT$\n"
 
-#define READONLY_DATA_SECTION readonly_data
+#define EXTRA_SECTIONS in_readonly_data
+
+#define EXTRA_SECTION_FUNCTIONS						\
+extern void readonly_data PARAMS ((void));				\
+void									\
+readonly_data ()							\
+{									\
+  if (in_section != in_readonly_data)					\
+    {									\
+      in_section = in_readonly_data;					\
+      fprintf (asm_out_file, "%s\n", READONLY_DATA_ASM_OP);		\
+    }									\
+}
+
+/* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
+   which reference data within the $TEXT$ space (for example constant
+   strings in the $LIT$ subspace).
+
+   The assemblers (GAS and HP as) both have problems with handling
+   the difference of two symbols which is the other correct way to
+   reference constant data during PIC code generation.
+
+   So, there's no way to reference constant data which is in the
+   $TEXT$ space during PIC generation.  Instead place all constant
+   data into the $PRIVATE$ subspace (this reduces sharing, but it
+   works correctly).  */
+
+#define READONLY_DATA_SECTION (flag_pic ? data_section : readonly_data)
 
 /* Output before writable data.  */
 
@@ -266,38 +293,6 @@ do {  \
 
    So, we force exception information into the data section.  */
 #define TARGET_ASM_EXCEPTION_SECTION data_section
-
-/* Define the .bss section for ASM_OUTPUT_LOCAL to use.  */
-
-#define EXTRA_SECTIONS in_readonly_data
-
-/* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
-   which reference data within the $TEXT$ space (for example constant
-   strings in the $LIT$ subspace).
-
-   The assemblers (GAS and HP as) both have problems with handling
-   the difference of two symbols which is the other correct way to
-   reference constant data during PIC code generation.
-
-   So, there's no way to reference constant data which is in the
-   $TEXT$ space during PIC generation.  Instead place all constant
-   data into the $PRIVATE$ subspace (this reduces sharing, but it
-   works correctly).  */
-
-#define EXTRA_SECTION_FUNCTIONS						\
-extern void readonly_data PARAMS ((void));				\
-void									\
-readonly_data ()							\
-{									\
-  if (in_section != in_readonly_data)					\
-    {									\
-      if (flag_pic)							\
-	fprintf (asm_out_file, "%s\n", DATA_SECTION_ASM_OP);		\
-      else								\
-	fprintf (asm_out_file, "%s\n", READONLY_DATA_ASM_OP);		\
-      in_section = in_readonly_data;					\
-    }									\
-}
 
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.
@@ -326,7 +321,7 @@ readonly_data ()							\
    "imported", even library calls. They look a bit different, so
    here's this macro.
 
-   Also note not all libcall names are passed to ENCODE_SECTION_INFO
+   Also note not all libcall names are passed to pa_encode_section_info
    (__main for example).  To make sure all libcall names have section
    info recorded in them, we do it here.  We must also ensure that
    we don't import a libcall that has been previously exported since
@@ -339,7 +334,7 @@ readonly_data ()							\
        if (!function_label_operand (RTL, VOIDmode))			\
 	 hppa_encode_label (RTL);					\
 									\
-       STRIP_NAME_ENCODING (name, XSTR ((RTL), 0));			\
+       name = (*targetm.strip_name_encoding) (XSTR ((RTL), 0));		\
        id = maybe_get_identifier (name);				\
        if (! id || ! TREE_SYMBOL_REFERENCED (id))			\
 	 {								\

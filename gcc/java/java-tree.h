@@ -43,6 +43,7 @@ struct JCF;
    0: IS_A_SINGLE_IMPORT_CLASSFILE_NAME_P (in IDENTIFIER_NODE)
       RESOLVE_EXPRESSION_NAME_P (in EXPR_WITH_FILE_LOCATION)
       FOR_LOOP_P (in LOOP_EXPR)
+      SUPPRESS_UNREACHABLE_ERROR (for other _EXPR nodes)
       ANONYMOUS_CLASS_P (in RECORD_TYPE)
       ARG_FINAL_P (in TREE_LIST)
    1: CLASS_HAS_SUPER_FLAG (in TREE_VEC).
@@ -1036,8 +1037,7 @@ struct lang_type
 #define JCF_u4 unsigned long
 #define JCF_u2 unsigned short
 
-extern void java_set_yydebug PARAMS ((int));
-extern void java_parse_file PARAMS ((void));
+extern void java_parse_file PARAMS ((int));
 extern void java_mark_tree PARAMS ((tree));
 extern bool java_mark_addressable PARAMS ((tree));
 extern tree java_type_for_mode PARAMS ((enum machine_mode, int));
@@ -1343,20 +1343,14 @@ extern char *instruction_bits;
 /* True iff the byte is the start of an instruction. */
 #define BCODE_INSTRUCTION_START 1
 
-/* True iff there is a jump to this location. */
+/* True iff there is a jump or a return to this location. */
 #define BCODE_JUMP_TARGET 2
-
-/* True iff there is a return to this location.
-   (I.e. the preceding instruction was a call.) */
-#define BCODE_RETURN_TARGET 4
 
 /* True iff this is the start of an exception handler. */
 #define BCODE_EXCEPTION_TARGET 16
 
 /* True iff there is a jump to this location (and it needs a label). */
-#define BCODE_TARGET \
-  (BCODE_JUMP_TARGET|BCODE_RETURN_TARGET \
-   | BCODE_EXCEPTION_TARGET)
+#define BCODE_TARGET (BCODE_JUMP_TARGET| BCODE_EXCEPTION_TARGET)
 
 /* True iff there is an entry in the linenumber table for this location. */
 #define BCODE_HAS_LINENUMBER 32
@@ -1446,11 +1440,6 @@ extern tree *type_map;
    layout of a class.  */
 #define CLASS_BEING_LAIDOUT(TYPE) TYPE_LANG_FLAG_6 (TYPE)
 
-/* True if class TYPE is currently being laid out. Helps in detection
-   of inheritance cycle occurring as a side effect of performing the
-   layout of a class.  */
-#define CLASS_BEING_LAIDOUT(TYPE) TYPE_LANG_FLAG_6 (TYPE)
-
 /* True if class TYPE has a field initializer finit$ function */
 #define CLASS_HAS_FINIT_P(TYPE) TYPE_FINIT_STMT_LIST (TYPE)
 
@@ -1509,6 +1498,12 @@ extern tree *type_map;
 /* True if NODE (a TREE_LIST) hold a pair of argument name/type
    declared with the final modifier */
 #define ARG_FINAL_P(NODE) TREE_LANG_FLAG_0 (NODE)
+
+/* True if NODE (some kind of EXPR, but not a WFL) should not give an
+   error if it is found to be unreachable.  This can only be applied
+   to those EXPRs which can be used as the update expression of a
+   `for' loop.  In particular it can't be set on a LOOP_EXPR.  */
+#define SUPPRESS_UNREACHABLE_ERROR(NODE) TREE_LANG_FLAG_0 (NODE)
 
 /* True if EXPR (a WFL in that case) resolves into a package name */
 #define RESOLVE_PACKAGE_NAME_P(WFL) TREE_LANG_FLAG_3 (WFL)

@@ -49,16 +49,50 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 
+static int hppa_use_dfa_pipeline_interface PARAMS ((void));
+
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hppa_use_dfa_pipeline_interface
+
+static int
+hppa_use_dfa_pipeline_interface ()
+{
+  return 1;
+}
+
+/* Return nonzero if there is a bypass for the output of 
+   OUT_INSN and the fp store IN_INSN.  */
+int
+hppa_fpstore_bypass_p (out_insn, in_insn)
+     rtx out_insn, in_insn;
+{
+  enum machine_mode store_mode;
+  enum machine_mode other_mode;
+  rtx set;
+
+  if (recog_memoized (in_insn) < 0
+      || get_attr_type (in_insn) != TYPE_FPSTORE
+      || recog_memoized (out_insn) < 0)
+    return 0;
+
+  store_mode = GET_MODE (SET_SRC (PATTERN (in_insn)));
+
+  set = single_set (out_insn);
+  if (!set)
+    return 0;
+
+  other_mode = GET_MODE (SET_SRC (set));
+
+  return (GET_MODE_SIZE (store_mode) == GET_MODE_SIZE (other_mode));
+}
+  
+
 #ifndef DO_FRAME_NOTES
 #ifdef INCOMING_RETURN_ADDR_RTX
 #define DO_FRAME_NOTES 1
 #else
 #define DO_FRAME_NOTES 0
 #endif
-#endif
-
-#ifndef FUNC_BEGIN_PROLOG_LABEL
-#define FUNC_BEGIN_PROLOG_LABEL        "LFBP"
 #endif
 
 static inline rtx force_mode PARAMS ((enum machine_mode, rtx));
@@ -80,6 +114,10 @@ static void pa_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static int pa_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int pa_adjust_priority PARAMS ((rtx, int));
 static int pa_issue_rate PARAMS ((void));
+static void pa_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void pa_encode_section_info PARAMS ((tree, int));
+static const char *pa_strip_name_encoding PARAMS ((const char *));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -102,11 +140,6 @@ const char *pa_arch_string;
 /* Counts for the number of callee-saved general and floating point
    registers which were saved by the current function's prologue.  */
 static int gr_saved, fr_saved;
-
-/* The number of the current function for which profile information
-   is to be collected.  These numbers are used to create unique label
-   id's for labels emitted at the beginning of profiled functions.  */
-static unsigned int current_function_number = 0;
 
 static rtx find_addr_reg PARAMS ((rtx));
 
@@ -154,12 +187,17 @@ int n_deferred_plabels = 0;
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE pa_issue_rate
 
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO pa_encode_section_info
+#undef TARGET_STRIP_NAME_ENCODING
+#define TARGET_STRIP_NAME_ENCODING pa_strip_name_encoding
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 void
 override_options ()
 {
-  /* Default to 7100LC scheduling.  */
+  /* Default to 8000 scheduling.  */
   if (pa_cpu_string && ! strcmp (pa_cpu_string, "7100"))
     {
       pa_cpu_string = "7100";
@@ -170,8 +208,7 @@ override_options ()
       pa_cpu_string = "700";
       pa_cpu = PROCESSOR_700;
     }
-  else if (pa_cpu_string == NULL
-         || ! strcmp (pa_cpu_string, "7100LC"))
+  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7100LC"))
     {
       pa_cpu_string = "7100LC";
       pa_cpu = PROCESSOR_7100LC;
@@ -181,14 +218,20 @@ override_options ()
       pa_cpu_string = "7200";
       pa_cpu = PROCESSOR_7200;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "8000"))
+  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7300"))
+    {
+      pa_cpu_string = "7300";
+      pa_cpu = PROCESSOR_7300;
+    }
+  else if (pa_cpu_string == NULL
+	   || ! strcmp (pa_cpu_string, "8000"))
     {
       pa_cpu_string = "8000";
       pa_cpu = PROCESSOR_8000;
     }
   else
     {
-      warning ("unknown -mschedule= option (%s).\nValid options are 700, 7100, 7100LC, 7200, and 8000\n", pa_cpu_string);
+      warning ("unknown -mschedule= option (%s).\nValid options are 700, 7100, 7100LC, 7200, 7300, and 8000\n", pa_cpu_string);
     }
 
   /* Set the instruction set architecture.  */
@@ -215,6 +258,14 @@ override_options ()
     {
       warning ("unknown -march= option (%s).\nValid options are 1.0, 1.1, and 2.0\n", pa_arch_string);
     }
+
+  /* Unconditional branches in the delay slot are not compatible with dwarf2
+     call frame information.  There is no benefit in using this optimization
+     on PA8000 and later processors.  */
+  if (pa_cpu >= PROCESSOR_8000
+      || (! USING_SJLJ_EXCEPTIONS && flag_exceptions)
+      || flag_unwind_tables)
+    target_flags &= ~MASK_JUMP_IN_DELAY;
 
   if (flag_pic && TARGET_PORTABLE_RUNTIME)
     {
@@ -1784,8 +1835,9 @@ reloc_needed (exp)
   return reloc;
 }
 
-/* Does operand (which is a symbolic_operand) live in text space? If
-   so SYMBOL_REF_FLAG, which is set by ENCODE_SECTION_INFO, will be true.  */
+/* Does operand (which is a symbolic_operand) live in text space?
+   If so, SYMBOL_REF_FLAG, which is set by pa_encode_section_info,
+   will be true.  */
 
 int
 read_only_operand (operand, mode)
@@ -3119,19 +3171,11 @@ pa_output_function_prologue (file, size)
 
   fputs ("\n\t.ENTRY\n", file);
 
-  /* When profiling, we need a local label at the beginning of the
-     prologue because GAS can't handle the difference of a global symbol
-     and a local symbol.  */
-  if (current_function_profile)
-    {
-      ASM_OUTPUT_INTERNAL_LABEL (file, FUNC_BEGIN_PROLOG_LABEL,
-				 current_function_number);
-      current_function_number++;
-    }
-
-  /* If we're using GAS and not using the portable runtime model, then
-     we don't need to accumulate the total number of code bytes.  */
-  if (TARGET_GAS && ! TARGET_PORTABLE_RUNTIME)
+  /* If we're using GAS and SOM, and not using the portable runtime model,
+     then we don't need to accumulate the total number of code bytes.  */
+  if ((TARGET_GAS && TARGET_SOM && ! TARGET_PORTABLE_RUNTIME)
+      /* FIXME: we can't handle long calls for TARGET_64BIT.  */
+      || TARGET_64BIT)
     total_code_bytes = 0;
   else if (INSN_ADDRESSES_SET_P ())
     {
@@ -3679,13 +3723,13 @@ hppa_pic_save_rtx ()
 
 void
 hppa_profile_hook (label_no)
-     int label_no ATTRIBUTE_UNUSED;
+     int label_no;
 {
   rtx begin_label_rtx, call_insn;
   char begin_label_name[16];
 
   ASM_GENERATE_INTERNAL_LABEL (begin_label_name, FUNC_BEGIN_PROLOG_LABEL,
-			       current_function_number);
+			       label_no);
   begin_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (begin_label_name));
 
   if (TARGET_64BIT)
@@ -3703,24 +3747,7 @@ hppa_profile_hook (label_no)
     ASM_GENERATE_INTERNAL_LABEL (count_label_name, "LP", label_no);
     count_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (count_label_name));
 
-    if (flag_pic)
-      {
-	rtx tmpreg;
-
-	current_function_uses_pic_offset_table = 1;
-	tmpreg = gen_rtx_REG (Pmode, 1);
-	emit_move_insn (tmpreg,
-			gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
-				      gen_rtx_HIGH (Pmode, count_label_rtx)));
-	addr = gen_rtx_MEM (Pmode,
-			    gen_rtx_LO_SUM (Pmode, tmpreg, count_label_rtx));
-      }
-    else
-      {
-	rtx tmpreg = gen_rtx_REG (Pmode, 1);
-	emit_move_insn (tmpreg, gen_rtx_HIGH (Pmode, count_label_rtx));
-	addr = gen_rtx_LO_SUM (Pmode, tmpreg, count_label_rtx);
-      }
+    addr = force_reg (Pmode, count_label_rtx);
     r24 = gen_rtx_REG (Pmode, 24);
     emit_move_insn (r24, addr);
 
@@ -3908,8 +3935,9 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 {
   enum attr_type attr_type;
 
-  /* Don't adjust costs for a pa8000 chip.  */
-  if (pa_cpu >= PROCESSOR_8000)
+  /* Don't adjust costs for a pa8000 chip, also do not adjust any
+     true dependencies as they are described with bypasses now.  */
+  if (pa_cpu >= PROCESSOR_8000 || REG_NOTE_KIND (link) == 0)
     return cost;
 
   if (! recog_memoized (insn))
@@ -3917,60 +3945,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 
   attr_type = get_attr_type (insn);
 
-  if (REG_NOTE_KIND (link) == 0)
-    {
-      /* Data dependency; DEP_INSN writes a register that INSN reads some
-	 cycles later.  */
-
-      if (attr_type == TYPE_FPSTORE)
-	{
-	  rtx pat = PATTERN (insn);
-	  rtx dep_pat = PATTERN (dep_insn);
-	  if (GET_CODE (pat) == PARALLEL)
-	    {
-	      /* This happens for the fstXs,mb patterns.  */
-	      pat = XVECEXP (pat, 0, 0);
-	    }
-	  if (GET_CODE (pat) != SET || GET_CODE (dep_pat) != SET)
-	    /* If this happens, we have to extend this to schedule
-	       optimally.  Return 0 for now.  */
-	  return 0;
-
-	  if (rtx_equal_p (SET_DEST (dep_pat), SET_SRC (pat)))
-	    {
-	      if (! recog_memoized (dep_insn))
-		return 0;
-	      /* DEP_INSN is writing its result to the register
-		 being stored in the fpstore INSN.  */
-	      switch (get_attr_type (dep_insn))
-		{
-		case TYPE_FPLOAD:
-		  /* This cost 3 cycles, not 2 as the md says for the
-		     700 and 7100.  */
-		  return cost + 1;
-
-		case TYPE_FPALU:
-		case TYPE_FPMULSGL:
-		case TYPE_FPMULDBL:
-		case TYPE_FPDIVSGL:
-		case TYPE_FPDIVDBL:
-		case TYPE_FPSQRTSGL:
-		case TYPE_FPSQRTDBL:
-		  /* In these important cases, we save one cycle compared to
-		     when flop instruction feed each other.  */
-		  return cost - 1;
-
-		default:
-		  return cost;
-		}
-	    }
-	}
-
-      /* For other data dependencies, the default cost specified in the
-	 md is correct.  */
-      return cost;
-    }
-  else if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
+  if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
     {
       /* Anti dependency; DEP_INSN reads a register that INSN writes some
 	 cycles later.  */
@@ -4006,7 +3981,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     preceding arithmetic operation has finished if
 		     the target of the fpload is any of the sources
 		     (or destination) of the arithmetic operation.  */
-		  return cost - 1;
+		  return insn_default_latency (dep_insn) - 1;
 
 		default:
 		  return 0;
@@ -4041,7 +4016,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     preceding divide or sqrt operation has finished if
 		     the target of the ALU flop is any of the sources
 		     (or destination) of the divide or sqrt operation.  */
-		  return cost - 2;
+		  return insn_default_latency (dep_insn) - 2;
 
 		default:
 		  return 0;
@@ -4086,8 +4061,12 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		  /* A fpload can't be issued until one cycle before a
 		     preceding arithmetic operation has finished if
 		     the target of the fpload is the destination of the
-		     arithmetic operation.  */
-		  return cost - 1;
+		     arithmetic operation. 
+
+		     Exception: For PA7100LC, PA7200 and PA7300, the cost
+		     is 3 cycles, unless they bundle together.   We also
+		     pay the penalty if the second insn is a fpload.  */
+		  return insn_default_latency (dep_insn) - 1;
 
 		default:
 		  return 0;
@@ -4122,7 +4101,7 @@ pa_adjust_cost (insn, link, dep_insn, cost)
 		     preceding divide or sqrt operation has finished if
 		     the target of the ALU flop is also the target of
 		     the divide or sqrt operation.  */
-		  return cost - 2;
+		  return insn_default_latency (dep_insn) - 2;
 
 		default:
 		  return 0;
@@ -4182,6 +4161,7 @@ pa_issue_rate ()
     case PROCESSOR_7100:	return 2;
     case PROCESSOR_7100LC:	return 2;
     case PROCESSOR_7200:	return 2;
+    case PROCESSOR_7300:	return 2;
     case PROCESSOR_8000:	return 4;
 
     default:
@@ -4740,7 +4720,7 @@ output_deferred_plabels (file)
     {
       ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (deferred_plabels[i].internal_label));
       assemble_integer (gen_rtx_SYMBOL_REF (Pmode, deferred_plabels[i].name),
-			4, 32, 1);
+			TARGET_64BIT ? 8 : 4, TARGET_64BIT ? 64 : 32, 1);
     }
 }
 
@@ -5458,14 +5438,24 @@ output_cbranch (operands, nullify, length, negated, insn)
 	  xoperands[1] = operands[1];
 	  xoperands[2] = operands[2];
 	  xoperands[3] = operands[3];
-	  xoperands[4] = gen_label_rtx ();
+	  if (TARGET_SOM || ! TARGET_GAS)
+	    xoperands[4] = gen_label_rtx ();
 
-	  output_asm_insn ("{bl|b,l} .+8,%%r1\n\taddil L'%l0-%l4,%%r1",
-			   xoperands);
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
-				     CODE_LABEL_NUMBER (xoperands[4]));
-	  output_asm_insn ("ldo R'%l0-%l4(%%r1),%%r1\n\tbv %%r0(%%r1)",
-			   xoperands);
+	  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+	  if (TARGET_SOM || ! TARGET_GAS)
+	    {
+	      output_asm_insn ("addil L'%l0-%l4,%%r1", xoperands);
+	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+					 CODE_LABEL_NUMBER (xoperands[4]));
+	      output_asm_insn ("ldo R'%l0-%l4(%%r1),%%r1", xoperands);
+	    }
+	  else
+	    {
+	      output_asm_insn ("addil L'%l0-$PIC_pcrel$0+4,%%r1", xoperands);
+	      output_asm_insn ("ldo R'%l0-$PIC_pcrel$0+8(%%r1),%%r1",
+			       xoperands);
+	    }
+	  output_asm_insn ("bv %%r0(%%r1)", xoperands);
 	}
 
 	/* Now restore the value of %r1 in the delay slot.  We're not
@@ -6003,6 +5993,8 @@ output_millicode_call (insn, call_dest)
   rtx insn;
   rtx call_dest;
 {
+  int attr_length = get_attr_length (insn);
+  int seq_length = dbr_sequence_length ();
   int distance;
   rtx xoperands[4];
   rtx seq_insn;
@@ -6011,12 +6003,15 @@ output_millicode_call (insn, call_dest)
 
   /* Handle common case -- empty delay slot or no jump in the delay slot,
      and we're sure that the branch will reach the beginning of the $CODE$
-     subspace.  */
-  if ((dbr_sequence_length () == 0
-       && (get_attr_length (insn) == 8 || get_attr_length (insn) == 28))
-      || (dbr_sequence_length () != 0
+     subspace.  The within reach form of the $$sh_func_adrs call has
+     a length of 28 and attribute type of multi.  This length is the
+     same as the maximum length of an out of reach PIC call to $$div.  */
+  if ((seq_length == 0
+       && (attr_length == 8
+	   || (attr_length == 28 && get_attr_type (insn) == TYPE_MULTI)))
+      || (seq_length != 0
 	  && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN
-	  && get_attr_length (insn) == 4))
+	  && attr_length == 4))
     {
       xoperands[0] = call_dest;
       output_asm_insn ("{bl|b,l} %0,%3%#", xoperands);
@@ -6024,12 +6019,12 @@ output_millicode_call (insn, call_dest)
     }
 
   /* This call may not reach the beginning of the $CODE$ subspace.  */
-  if (get_attr_length (insn) > 4)
+  if (attr_length > 8)
     {
       int delay_insn_deleted = 0;
 
       /* We need to emit an inline long-call branch.  */
-      if (dbr_sequence_length () != 0
+      if (seq_length != 0
 	  && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN)
 	{
 	  /* A non-jump insn in the delay slot.  By definition we can
@@ -6047,15 +6042,26 @@ output_millicode_call (insn, call_dest)
       if (flag_pic)
 	{
 	  xoperands[0] = call_dest;
-	  xoperands[1] = gen_label_rtx ();
+	  if (TARGET_SOM || ! TARGET_GAS)
+	    xoperands[1] = gen_label_rtx ();
+
 	  /* Get our address + 8 into %r1.  */
 	  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
 
-	  /* Add %r1 to the offset of our target from the next insn.  */
-	  output_asm_insn ("addil L%%%0-%1,%%r1", xoperands);
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
-				     CODE_LABEL_NUMBER (xoperands[1]));
-	  output_asm_insn ("ldo R%%%0-%1(%%r1),%%r1", xoperands);
+	  if (TARGET_SOM || ! TARGET_GAS)
+	    {
+	      /* Add %r1 to the offset of our target from the next insn.  */
+	      output_asm_insn ("addil L%%%0-%1,%%r1", xoperands);
+	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+					 CODE_LABEL_NUMBER (xoperands[1]));
+	      output_asm_insn ("ldo R%%%0-%1(%%r1),%%r1", xoperands);
+	    }
+	  else
+	    {
+	      output_asm_insn ("addil L%%%0-$PIC_pcrel$0+4,%%r1", xoperands);
+	      output_asm_insn ("ldo R%%%0-$PIC_pcrel$0+8(%%r1),%%r1",
+			       xoperands);
+	    }
 
 	  /* Get the return address into %r31.  */
 	  output_asm_insn ("blr 0,%3", xoperands);
@@ -6097,8 +6103,7 @@ output_millicode_call (insn, call_dest)
 	}
 
       /* If we had a jump in the call's delay slot, output it now.  */
-      if (dbr_sequence_length () != 0
-	  && !delay_insn_deleted)
+      if (seq_length != 0 && !delay_insn_deleted)
 	{
 	  xoperands[0] = XEXP (PATTERN (NEXT_INSN (insn)), 1);
 	  output_asm_insn ("b,n %0", xoperands);
@@ -6160,6 +6165,8 @@ output_call (insn, call_dest, sibcall)
   rtx call_dest;
   int sibcall;
 {
+  int attr_length = get_attr_length (insn);
+  int seq_length = dbr_sequence_length ();
   int distance;
   rtx xoperands[4];
   rtx seq_insn;
@@ -6167,11 +6174,10 @@ output_call (insn, call_dest, sibcall)
   /* Handle common case -- empty delay slot or no jump in the delay slot,
      and we're sure that the branch will reach the beginning of the $CODE$
      subspace.  */
-  if ((dbr_sequence_length () == 0
-       && get_attr_length (insn) == 12)
-      || (dbr_sequence_length () != 0
+  if ((seq_length == 0 && attr_length == 12)
+      || (seq_length != 0
 	  && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN
-	  && get_attr_length (insn) == 8))
+	  && attr_length == 8))
     {
       xoperands[0] = call_dest;
       xoperands[1] = gen_rtx_REG (word_mode, sibcall ? 0 : 2);
@@ -6180,7 +6186,7 @@ output_call (insn, call_dest, sibcall)
     }
 
   /* This call may not reach the beginning of the $CODE$ subspace.  */
-  if (get_attr_length (insn) > 12)
+  if (attr_length > 12)
     {
       int delay_insn_deleted = 0;
       rtx xoperands[2];
@@ -6193,7 +6199,7 @@ output_call (insn, call_dest, sibcall)
 	 and FP registers.  Also, we need move any delay slot insn
 	 out of the delay slot.  And finally, we can't rely on the linker
 	 being able to fix the call to $$dyncall!  -- Yuk!.  */
-      if (dbr_sequence_length () != 0
+      if (seq_length != 0
 	  && GET_CODE (NEXT_INSN (insn)) != JUMP_INSN)
 	{
 	  /* A non-jump insn in the delay slot.  By definition we can
@@ -6282,7 +6288,7 @@ output_call (insn, call_dest, sibcall)
 
 	      /* Gross.  We have just implicitly taken the address of this
 		 function, mark it as such.  */
-	      STRIP_NAME_ENCODING (real_name, name);
+	      real_name = (*targetm.strip_name_encoding) (name);
 	      TREE_SYMBOL_REFERENCED (get_identifier (real_name)) = 1;
 	    }
 
@@ -6293,7 +6299,8 @@ output_call (insn, call_dest, sibcall)
 	  if (flag_pic)
 	    {
 	      xoperands[0] = deferred_plabels[i].internal_label;
-	      xoperands[1] = gen_label_rtx ();
+	      if (TARGET_SOM || ! TARGET_GAS)
+		xoperands[1] = gen_label_rtx ();
 
 	      output_asm_insn ("addil LT%%%0,%%r19", xoperands);
 	      output_asm_insn ("ldw RT%%%0(%%r1),%%r22", xoperands);
@@ -6302,11 +6309,21 @@ output_call (insn, call_dest, sibcall)
 	      /* Get our address + 8 into %r1.  */
 	      output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
 
-	      /* Add %r1 to the offset of dyncall from the next insn.  */
-	      output_asm_insn ("addil L%%$$dyncall-%1,%%r1", xoperands);
-	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
-					 CODE_LABEL_NUMBER (xoperands[1]));
-	      output_asm_insn ("ldo R%%$$dyncall-%1(%%r1),%%r1", xoperands);
+	      if (TARGET_SOM || ! TARGET_GAS)
+		{
+		  /* Add %r1 to the offset of dyncall from the next insn.  */
+		  output_asm_insn ("addil L%%$$dyncall-%1,%%r1", xoperands);
+		  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+					     CODE_LABEL_NUMBER (xoperands[1]));
+		  output_asm_insn ("ldo R%%$$dyncall-%1(%%r1),%%r1", xoperands);
+	        }
+	      else
+		{
+		  output_asm_insn ("addil L%%$$dyncall-$PIC_pcrel$0+4,%%r1",
+				   xoperands);
+		  output_asm_insn ("ldo R%%$$dyncall-$PIC_pcrel$0+8(%%r1),%%r1",
+				   xoperands);
+		}
 
 	      /* Get the return address into %r31.  */
 	      output_asm_insn ("blr %%r0,%%r31", xoperands);
@@ -6355,8 +6372,7 @@ output_call (insn, call_dest, sibcall)
 	}
 
       /* If we had a jump in the call's delay slot, output it now.  */
-      if (dbr_sequence_length () != 0
-	  && !delay_insn_deleted)
+      if (seq_length != 0 && !delay_insn_deleted)
 	{
 	  xoperands[0] = XEXP (PATTERN (NEXT_INSN (insn)), 1);
 	  output_asm_insn ("b,n %0", xoperands);
@@ -6379,17 +6395,13 @@ output_call (insn, call_dest, sibcall)
   distance = INSN_ADDRESSES (INSN_UID (JUMP_LABEL (NEXT_INSN (insn))))
 	       - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8;
 
-  /* If the branch was too far away, emit a normal call followed
-     by a nop, followed by the unconditional branch.  We also don't
-     adjust %r2 when generating dwarf2 frame or unwind info since
-     the adjustment confuses the dwarf2 output.
-
-     If the branch is close, then adjust %r2 from within the
-     call's delay slot.  */
+  /* If the branch is too far away, emit a normal call followed
+     by a nop, followed by the unconditional branch.  If the branch
+     is close, then adjust %r2 in the call's delay slot.  */
 
   xoperands[0] = call_dest;
   xoperands[1] = XEXP (PATTERN (NEXT_INSN (insn)), 1);
-  if (DO_FRAME_NOTES || ! VAL_14_BITS_P (distance))
+  if (! VAL_14_BITS_P (distance))
     output_asm_insn ("{bl|b,l} %0,%%r2\n\tnop\n\tb,n %1", xoperands);
   else
     {
@@ -6430,6 +6442,34 @@ hppa_encode_label (sym)
   strcpy (p, str);
 
   XSTR (sym, 0) = ggc_alloc_string (newstr, len);
+}
+
+static void
+pa_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  if (first && TEXT_SPACE_P (decl))
+    {
+      rtx rtl;
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  || TREE_CODE (decl) == VAR_DECL)
+	rtl = DECL_RTL (decl);
+      else
+	rtl = TREE_CST_RTL (decl);
+      SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	hppa_encode_label (XEXP (DECL_RTL (decl), 0));
+    }
+}
+
+/* This is sort of inverse to pa_encode_section_info.  */
+
+static const char *
+pa_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (*str == '*' || *str == '@');
 }
 
 int
@@ -6765,22 +6805,20 @@ output_parallel_addb (operands, length)
     }
 }
 
-/* Return nonzero if INSN (a jump insn) immediately follows a call to
-   a named function.  This is used to discourage creating parallel movb/addb
-   insns since a jump which immediately follows a call can execute in the
-   delay slot of the call.
-
-   It is also used to avoid filling the delay slot of a jump which
-   immediately follows a call since the jump can usually be eliminated
-   completely by modifying RP in the delay slot of the call.  */
+/* Return nonzero if INSN (a jump insn) immediately follows a call
+   to a named function.  This is used to avoid filling the delay slot
+   of the jump since it can usually be eliminated by modifying RP in
+   the delay slot of the call.  */
 
 int
 following_call (insn)
      rtx insn;
 {
-  /* We do not parallel movb,addb or place jumps into call delay slots when
-     optimizing for the PA8000.  */
-  if (pa_cpu != PROCESSOR_8000)
+  /* We do not place jumps into call delay slots when optimizing for the
+     PA8000 processor or when generating dwarf2 call frame information.  */
+  if (pa_cpu >= PROCESSOR_8000
+      || (! USING_SJLJ_EXCEPTIONS && flag_exceptions)
+      || flag_unwind_tables)
     return 0;
 
   /* Find the previous real insn, skipping NOTEs.  */
@@ -7227,7 +7265,7 @@ pa_can_combine_p (new, anchor, floater, reversed, dest, src1, src2)
   INSN_CODE (new) = -1;
   insn_code_number = recog_memoized (new);
   if (insn_code_number < 0
-      || !constrain_operands (1))
+      || (extract_insn (new), ! constrain_operands (1)))
     return 0;
 
   if (reversed)
@@ -7565,4 +7603,31 @@ pa_add_gc_roots ()
   ggc_add_rtx_root (&hppa_compare_op1, 1);
   ggc_add_root (&deferred_plabels, 1, sizeof (&deferred_plabels),
 		&mark_deferred_plabels);
+}
+
+/* On hpux10, the linker will give an error if we have a reference
+   in the read-only data section to a symbol defined in a shared
+   library.  Therefore, expressions that might require a reloc can
+   not be placed in the read-only data section.  */
+
+static void
+pa_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (exp) == VAR_DECL
+      && TREE_READONLY (exp)
+      && !TREE_THIS_VOLATILE (exp)
+      && DECL_INITIAL (exp)
+      && (DECL_INITIAL (exp) == error_mark_node
+          || TREE_CONSTANT (DECL_INITIAL (exp)))
+      && !reloc)
+    readonly_data_section ();
+  else if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c'
+	   && !(TREE_CODE (exp) == STRING_CST && flag_writable_strings)
+	   && !reloc)
+    readonly_data_section ();
+  else
+    data_section ();
 }

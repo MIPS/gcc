@@ -32,3 +32,19 @@ hook_void_bool_false ()
 {
   return false;
 }
+
+/* Generic hook that takes (tree) and returns false.  */
+bool
+hook_tree_bool_false (a)
+     tree a ATTRIBUTE_UNUSED;
+{
+  return false;
+}
+
+/* Generic hook that takes (tree, int) and does nothing.  */
+void
+hook_tree_int_void (a, b)
+     tree a ATTRIBUTE_UNUSED;
+     int b ATTRIBUTE_UNUSED;
+{
+}

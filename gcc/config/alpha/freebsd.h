@@ -24,14 +24,20 @@ Boston, MA 02111-1307, USA.  */
    the GCC option `-posix', and PIC issues as on all FreeBSD platforms, we must
    deal with the Alpha's FP issues.  */
 
-#undef  CPP_SPEC
-#define CPP_SPEC "%(cpp_cpu)						\
-  %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__}		\
-  %{posix:-D_POSIX_SOURCE}						\
-  %{mieee:-D_IEEE_FP}							\
-  %{mieee-with-inexact:-D_IEEE_FP -D_IEEE_FP_INEXACT}"
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      if (flag_pic)				\
+	{					\
+	  builtin_define ("__PIC__");		\
+	  builtin_define ("__pic__");		\
+	}					\
+    }
+  while (0)
 
-#undef  LINK_SPEC
+#undef  CPP_SPEC
+#define CPP_SPEC "%(cpp_subtarget) %{posix:-D_POSIX_SOURCE}"
+
 #define LINK_SPEC "%{G*} %{relax:-relax}				\
   %{p:%e`-p' not supported; use `-pg' and gprof(1)}			\
   %{Wl,*:%*}								\
@@ -44,16 +50,6 @@ Boston, MA 02111-1307, USA.  */
       %{!dynamic-linker:-dynamic-linker /usr/libexec/ld-elf.so.1}}	\
     %{static:-Bstatic}}"
 
-/* Provide an ASM_SPEC appropriate for a FreeBSD/Alpha target.  This differs
-   from the generic FreeBSD ASM_SPEC in that no special handling of PIC is
-   necessary on the Alpha.  */
-/* Per Richard Henderson <rth@cygnus.com>, it is better to use the `.arch'
-   directive in the assembly file.  alpha/elf.h gives us this in
-   "ASM_FILE_START".
-#undef  ASM_SPEC
-#define ASM_SPEC " %| %{mcpu=*:-m%*}"
-*/
-
 
 /************************[  Target stuff  ]***********************************/
 
@@ -64,19 +60,16 @@ Boston, MA 02111-1307, USA.  */
 /* alpha.h gets this wrong for FreeBSD.  We use the GCC defaults instead.  */
 #undef WCHAR_TYPE
 
-#undef  WCHAR_UNSIGNED
-#define WCHAR_UNSIGNED 0
-
 #undef  WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE 32
+#define WCHAR_TYPE_SIZE	32
 
 #undef  TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (FreeBSD/alpha ELF)");
 
-#define TARGET_ELF		1
+#define TARGET_ELF	1
 
 #undef  TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_FP | MASK_FPREGS | MASK_GAS)
+#define TARGET_DEFAULT	(MASK_FP | MASK_FPREGS | MASK_GAS)
 
 #undef HAS_INIT_SECTION
 
@@ -89,3 +82,9 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  DBX_CONTIN_CHAR
 #define DBX_CONTIN_CHAR	'?'
+
+/* Don't default to pcc-struct-return, we want to retain compatibility with
+   older FreeBSD releases AND pcc-struct-return may not be reentrant.  */
+
+#undef  DEFAULT_PCC_STRUCT_RETURN
+#define DEFAULT_PCC_STRUCT_RETURN 0

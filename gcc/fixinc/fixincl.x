@@ -5,7 +5,7 @@
  * files which are fixed to work correctly with ANSI C and placed in a
  * directory that GNU C will search.
  *
- * This file contains 141 fixup descriptions.
+ * This file contains 145 fixup descriptions.
  *
  * See README for more information.
  *
@@ -3728,6 +3728,51 @@ static const char* apzSolaris_Stdio_TagPatch[] = { "sed",
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
  *
+ *  Description of Solaris_Widec fix
+ */
+tSCC zSolaris_WidecName[] =
+     "solaris_widec";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zSolaris_WidecList[] =
+  "|widec.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+tSCC* apzSolaris_WidecMachs[] = {
+        "*-*-solaris2.[0-5]*",
+        (const char*)NULL };
+
+/*
+ *  content selection pattern - do fix if pattern found
+ */
+tSCC zSolaris_WidecSelect0[] =
+       "#include <euc.h>";
+
+/*
+ *  content bypass pattern - skip fix if pattern found
+ */
+tSCC zSolaris_WidecBypass0[] =
+       "include.*wchar\\.h";
+
+#define    SOLARIS_WIDEC_TEST_CT  2
+static tTestDesc aSolaris_WidecTests[] = {
+  { TT_NEGREP,   zSolaris_WidecBypass0, (regex_t*)NULL },
+  { TT_EGREP,    zSolaris_WidecSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Solaris_Widec
+ */
+static const char* apzSolaris_WidecPatch[] = {
+    "format",
+    "%0\n\
+#include <wchar.h>",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
  *  Description of Statsswtch fix
  */
 tSCC zStatsswtchName[] =
@@ -5368,6 +5413,97 @@ typedef void (*__gcc_VOIDFUNCPTR) ();\n\
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
  *
+ *  Description of Windiss_Math1 fix
+ */
+tSCC zWindiss_Math1Name[] =
+     "windiss_math1";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zWindiss_Math1List[] =
+  "|math.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+tSCC* apzWindiss_Math1Machs[] = {
+        "*-*-windiss",
+        (const char*)NULL };
+#define WINDISS_MATH1_TEST_CT  0
+#define aWindiss_Math1Tests   (tTestDesc*)NULL
+
+/*
+ *  Fix Command Arguments for Windiss_Math1
+ */
+static const char* apzWindiss_Math1Patch[] = { "sed",
+    "-e", "s|inline long double cosl.*|#ifndef __GNUC__|",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
+ *  Description of Windiss_Math2 fix
+ */
+tSCC zWindiss_Math2Name[] =
+     "windiss_math2";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zWindiss_Math2List[] =
+  "|math.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+tSCC* apzWindiss_Math2Machs[] = {
+        "*-*-windiss",
+        (const char*)NULL };
+#define WINDISS_MATH2_TEST_CT  0
+#define aWindiss_Math2Tests   (tTestDesc*)NULL
+
+/*
+ *  Fix Command Arguments for Windiss_Math2
+ */
+static const char* apzWindiss_Math2Patch[] = { "sed",
+    "-e", "s|/\\* long double declarations \\*/|#endif /* __GNUC__ */|",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
+ *  Description of Windiss_Valist fix
+ */
+tSCC zWindiss_ValistName[] =
+     "windiss_valist";
+
+/*
+ *  File name selection pattern
+ */
+#define zWindiss_ValistList (char*)NULL
+/*
+ *  Machine/OS name selection pattern
+ */
+tSCC* apzWindiss_ValistMachs[] = {
+        "*-*-windiss",
+        (const char*)NULL };
+
+/*
+ *  content selection pattern - do fix if pattern found
+ */
+tSCC zWindiss_ValistSelect0[] =
+       "(#include.*)diab/va_list.h";
+
+#define    WINDISS_VALIST_TEST_CT  1
+static tTestDesc aWindiss_ValistTests[] = {
+  { TT_EGREP,    zWindiss_ValistSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Windiss_Valist
+ */
+static const char* apzWindiss_ValistPatch[] = { "sed",
+    "-e", "s|diab/va_list.h|stdarg.h|",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
  *  Description of X11_Class fix
  */
 tSCC zX11_ClassName[] =
@@ -5536,9 +5672,9 @@ static const char* apzX11_SprintfPatch[] = {
  *
  *  List of all fixes
  */
-#define REGEX_COUNT          149
+#define REGEX_COUNT          152
 #define MACH_LIST_SIZE_LIMIT 279
-#define FIX_COUNT            141
+#define FIX_COUNT            145
 
 /*
  *  Enumerate the fixes
@@ -5638,6 +5774,7 @@ typedef enum {
     SCO_UTIME_FIXIDX,
     SOLARIS_MUTEX_INIT_FIXIDX,
     SOLARIS_STDIO_TAG_FIXIDX,
+    SOLARIS_WIDEC_FIXIDX,
     STATSSWTCH_FIXIDX,
     STDIO_STDARG_H_FIXIDX,
     STDIO_VA_LIST_FIXIDX,
@@ -5681,6 +5818,9 @@ typedef enum {
     VXWORKS_NEEDS_VXTYPES_FIXIDX,
     VXWORKS_NEEDS_VXWORKS_FIXIDX,
     VXWORKS_TIME_FIXIDX,
+    WINDISS_MATH1_FIXIDX,
+    WINDISS_MATH2_FIXIDX,
+    WINDISS_VALIST_FIXIDX,
     X11_CLASS_FIXIDX,
     X11_CLASS_USAGE_FIXIDX,
     X11_NEW_FIXIDX,
@@ -6158,6 +6298,11 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      SOLARIS_STDIO_TAG_TEST_CT, FD_MACH_ONLY,
      aSolaris_Stdio_TagTests,   apzSolaris_Stdio_TagPatch, 0 },
 
+  {  zSolaris_WidecName,    zSolaris_WidecList,
+     apzSolaris_WidecMachs,
+     SOLARIS_WIDEC_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aSolaris_WidecTests,   apzSolaris_WidecPatch, 0 },
+
   {  zStatsswtchName,    zStatsswtchList,
      apzStatsswtchMachs,
      STATSSWTCH_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
@@ -6372,6 +6517,21 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      apzVxworks_TimeMachs,
      VXWORKS_TIME_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aVxworks_TimeTests,   apzVxworks_TimePatch, 0 },
+
+  {  zWindiss_Math1Name,    zWindiss_Math1List,
+     apzWindiss_Math1Machs,
+     WINDISS_MATH1_TEST_CT, FD_MACH_ONLY,
+     aWindiss_Math1Tests,   apzWindiss_Math1Patch, 0 },
+
+  {  zWindiss_Math2Name,    zWindiss_Math2List,
+     apzWindiss_Math2Machs,
+     WINDISS_MATH2_TEST_CT, FD_MACH_ONLY,
+     aWindiss_Math2Tests,   apzWindiss_Math2Patch, 0 },
+
+  {  zWindiss_ValistName,    zWindiss_ValistList,
+     apzWindiss_ValistMachs,
+     WINDISS_VALIST_TEST_CT, FD_MACH_ONLY,
+     aWindiss_ValistTests,   apzWindiss_ValistPatch, 0 },
 
   {  zX11_ClassName,    zX11_ClassList,
      apzX11_ClassMachs,

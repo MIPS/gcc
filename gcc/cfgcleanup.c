@@ -74,7 +74,6 @@ static int flow_find_cross_jump		PARAMS ((int, basic_block, basic_block,
 						 rtx *, rtx *));
 static bool insns_match_p		PARAMS ((int, rtx, rtx));
 
-static bool delete_unreachable_blocks	PARAMS ((void));
 static bool label_is_jump_target_p	PARAMS ((rtx, rtx));
 static bool tail_recursion_label_p	PARAMS ((rtx));
 static void merge_blocks_move_predecessor_nojumps PARAMS ((basic_block,
@@ -724,6 +723,9 @@ merge_blocks_move_predecessor_nojumps (a, b)
   a->index = b->index;
   b->index = index;
 
+  unlink_block (a);
+  link_block (a, b->prev_bb);
+
   /* Now blocks A and B are contiguous.  Merge them.  */
   merge_blocks_nomove (a, b);
 }
@@ -775,12 +777,12 @@ merge_blocks_move_successor_nojumps (a, b)
   /* Restore the real end of b.  */
   b->end = real_b_end;
 
-  /* Now blocks A and B are contiguous.  Merge them.  */
-  merge_blocks_nomove (a, b);
-
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "Moved block %d after %d and merged.\n",
 	     b->index, a->index);
+
+  /* Now blocks A and B are contiguous.  Merge them.  */
+  merge_blocks_nomove (a, b);
 }
 
 /* Attempt to merge basic blocks that are potentially non-adjacent.
@@ -1212,8 +1214,8 @@ outgoing_edges_match (mode, bb1, bb2)
 	 roughly similar.  */
       if (match
 	  && !optimize_size
-	  && bb1->frequency > BB_FREQ_MAX / 1000
-	  && bb2->frequency > BB_FREQ_MAX / 1000)
+	  && maybe_hot_bb_p (bb1)
+	  && maybe_hot_bb_p (bb2))
 	{
 	  int prob2;
 
@@ -1684,7 +1686,7 @@ try_optimize_cfg (mode)
 		     /* If the jump insn has side effects,
 			we can't kill the edge.  */
 		     && (GET_CODE (b->end) != JUMP_INSN
-			 || onlyjump_p (b->end))
+			 || simplejump_p (b->end))
 		     && merge_blocks (s, b, c, mode))
 		changed_here = true;
 
@@ -1748,7 +1750,7 @@ try_optimize_cfg (mode)
 
 /* Delete all unreachable basic blocks.  */
 
-static bool
+bool
 delete_unreachable_blocks ()
 {
   int i, j;
@@ -1829,7 +1831,6 @@ cleanup_cfg (mode)
 
   /* Kill the data we won't maintain.  */
   free_EXPR_LIST_list (&label_value_list);
-  free_EXPR_LIST_list (&tail_recursion_label_list);
   timevar_pop (TV_CLEANUP_CFG);
 
   return changed;

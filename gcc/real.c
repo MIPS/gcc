@@ -165,8 +165,7 @@ unknown arithmetic type
 #define EMUSHORT_SIZE HOST_BITS_PER_LONG
 #define EMULONG_SIZE (2 * HOST_BITS_PER_LONG)
 #else
-/*  You will have to modify this program to have a smaller unit size.  */
-#define EMU_NON_COMPILE
+  #error "You will have to modify this program to have a smaller unit size."
 #endif
 #endif
 #endif
@@ -199,92 +198,55 @@ typedef unsigned int UHItype __attribute__ ((mode (HI)));
 #if HOST_BITS_PER_LONGLONG >= EMULONG_SIZE
 #define EMULONG long long int
 #else
-/*  You will have to modify this program to have a smaller unit size.  */
-#define EMU_NON_COMPILE
+  #error "You will have to modify this program to have a smaller unit size."
 #endif
 #endif
 #endif
 #endif
 
-
-/* The host interface doesn't work if no 16-bit size exists.  */
 #if EMUSHORT_SIZE != 16
-#define EMU_NON_COMPILE
+  #error "The host interface doesn't work if no 16-bit size exists."
 #endif
 
-/* OK to continue compilation.  */
-#ifndef EMU_NON_COMPILE
+/* Calculate the size of the generic "e" type.  This always has
+   identical in-memory size to REAL_VALUE_TYPE.  The sizes are supposed
+   to be the same as well, but when REAL_VALUE_TYPE_SIZE is not evenly
+   divisible by HOST_BITS_PER_WIDE_INT we have some padding in
+   REAL_VALUE_TYPE.
+   There are only two supported sizes: ten and six 16-bit words (160
+   or 96 bits).  */
+
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 128 && !INTEL_EXTENDED_IEEE_FORMAT
+/* TFmode */
+# define NE 10
+# define MAXDECEXP 4932
+# define MINDECEXP -4977
+#else
+# define NE 6
+# define MAXDECEXP 4932
+# define MINDECEXP -4956
+#endif
+
+/* Fail compilation if 2*NE is not the appropriate size.
+   If HOST_BITS_PER_WIDE_INT is 64, we're going to have padding
+   at the end of the array, because neither 96 nor 160 is
+   evenly divisible by 64.  */
+struct compile_test_dummy {
+  char twice_NE_must_equal_sizeof_REAL_VALUE_TYPE
+  [(sizeof (REAL_VALUE_TYPE) >= 2*NE) ? 1 : -1];
+};
 
 /* Construct macros to translate between REAL_VALUE_TYPE and e type.
    In GET_REAL and PUT_REAL, r and e are pointers.
    A REAL_VALUE_TYPE is guaranteed to occupy contiguous locations
    in memory, with no holes.  */
-
-#if MAX_LONG_DOUBLE_TYPE_SIZE == 96 || \
-    ((INTEL_EXTENDED_IEEE_FORMAT != 0) && MAX_LONG_DOUBLE_TYPE_SIZE == 128)
-/* Number of 16 bit words in external e type format */
-# define NE 6
-# define MAXDECEXP 4932
-# define MINDECEXP -4956
-# define GET_REAL(r,e)  memcpy ((e), (r), 2*NE)
-# define PUT_REAL(e,r)						\
-	do {							\
-	  memcpy ((r), (e), 2*NE);				\
-	  if (2*NE < sizeof (*r))				\
-	    memset ((char *) (r) + 2*NE, 0, sizeof (*r) - 2*NE);	\
-	} while (0)
-# else /* no XFmode */
-#  if MAX_LONG_DOUBLE_TYPE_SIZE == 128
-#   define NE 10
-#   define MAXDECEXP 4932
-#   define MINDECEXP -4977
-#   define GET_REAL(r,e) memcpy ((e), (r), 2*NE)
-#   define PUT_REAL(e,r)					\
-	do {							\
-	  memcpy ((r), (e), 2*NE);				\
-	  if (2*NE < sizeof (*r))				\
-	    memset ((char *) (r) + 2*NE, 0, sizeof (*r) - 2*NE);	\
-	} while (0)
-#else
-#define NE 6
-#define MAXDECEXP 4932
-#define MINDECEXP -4956
-/* Emulator uses target format internally
-   but host stores it in host endian-ness.  */
-
-#define GET_REAL(r,e)							\
-do {									\
-     if (HOST_FLOAT_WORDS_BIG_ENDIAN == REAL_WORDS_BIG_ENDIAN)		\
-       e53toe ((const UEMUSHORT *) (r), (e));				\
-     else								\
-       {								\
-	 UEMUSHORT w[4];					\
-         memcpy (&w[3], ((const EMUSHORT *) r), sizeof (EMUSHORT));	\
-         memcpy (&w[2], ((const EMUSHORT *) r) + 1, sizeof (EMUSHORT));	\
-         memcpy (&w[1], ((const EMUSHORT *) r) + 2, sizeof (EMUSHORT));	\
-         memcpy (&w[0], ((const EMUSHORT *) r) + 3, sizeof (EMUSHORT));	\
-	 e53toe (w, (e));						\
-       }								\
-   } while (0)
-
-#define PUT_REAL(e,r)							\
-do {									\
-     if (HOST_FLOAT_WORDS_BIG_ENDIAN == REAL_WORDS_BIG_ENDIAN)		\
-       etoe53 ((e), (UEMUSHORT *) (r));				\
-     else								\
-       {								\
-	 UEMUSHORT w[4];					\
-	 etoe53 ((e), w);						\
-         memcpy (((EMUSHORT *) r), &w[3], sizeof (EMUSHORT));		\
-         memcpy (((EMUSHORT *) r) + 1, &w[2], sizeof (EMUSHORT));	\
-         memcpy (((EMUSHORT *) r) + 2, &w[1], sizeof (EMUSHORT));	\
-         memcpy (((EMUSHORT *) r) + 3, &w[0], sizeof (EMUSHORT));	\
-       }								\
-   } while (0)
-
-#endif /* not TFmode */
-#endif /* not XFmode */
-
+#define GET_REAL(r, e)  memcpy ((e), (r), 2*NE)
+#define PUT_REAL(e, r)						\
+  do {								\
+    memcpy (r, e, 2*NE);					\
+    if (2*NE < sizeof (*r))					\
+      memset ((char *) (r) + 2*NE, 0, sizeof (*r) - 2*NE);	\
+  } while (0)
 
 /* Number of 16 bit words in internal format */
 #define NI (NE+3)
@@ -1104,6 +1066,22 @@ real_value_truncate (mode, arg)
   return (r);
 }
 
+/* Return true if ARG can be represented exactly in MODE.  */
+
+bool
+exact_real_truncate (mode, arg)
+     enum machine_mode mode;
+     REAL_VALUE_TYPE *arg;
+{
+  REAL_VALUE_TYPE trunc;
+
+  if (target_isnan (*arg))
+    return false;
+
+  trunc = real_value_truncate (mode, *arg);
+  return ereal_cmp (*arg, trunc) == 0;
+}
+
 /* Try to change R into its exact multiplicative inverse in machine mode
    MODE.  Return nonzero function value if successful.  */
 
@@ -1639,7 +1617,7 @@ eisnan (x)
   for (i = 0; i < NE - 1; i++)
     {
       if (*x++ != 0)
-        return (1);
+	return (1);
     }
 #endif
 
@@ -4359,13 +4337,13 @@ eifrac (x, i, frac)
 	*i = -(*i);
     }
   else
-      {
-        /* shift not more than 16 bits */
-          eshift (xi, k);
-        *i = (HOST_WIDE_INT) xi[M] & 0xffff;
-        if (xi[0])
-	  *i = -(*i);
-      }
+    {
+      /* shift not more than 16 bits */
+      eshift (xi, k);
+      *i = (HOST_WIDE_INT) xi[M] & 0xffff;
+      if (xi[0])
+	*i = -(*i);
+    }
   xi[0] = 0;
   xi[E] = EXONE - 1;
   xi[M] = 0;
@@ -5042,12 +5020,9 @@ etoasc (x, string, ndigs)
 	}
     }
  doexp:
-  /*
-     if (expon >= 0)
-     sprintf (ss, "e+%d", expon);
-     else
-     sprintf (ss, "e%d", expon);
-     */
+  /* Strip trailing zeros, but leave at least one.  */
+  while (ss[-1] == '0' && ss[-2] != '.')
+    --ss;
   sprintf (ss, "e%d", expon);
  bxit:
   rndprc = rndsav;
@@ -6062,11 +6037,11 @@ c4xtoe (d, e, mode)
 
       y[M+1] = dn[1];
       if (mode != QFmode)	/* There are only 2 words in QFmode.  */
-        {
+	{
 	  y[M+2] = dn[2];	/* Fill in the rest of our mantissa.  */
 	  y[M+3] = dn[3];
 	  size = 4;
-        }
+	}
       else
 	size = 2;
       eshift (y, -8);
@@ -6075,7 +6050,7 @@ c4xtoe (d, e, mode)
 
       carry = 1;	/* Initially add 1 for the two's complement.  */
       for (i=size + M; i > M; i--)
-        {
+	{
 	  if (carry && (y[i] == 0x0000))
 	    /* We overflowed into the next word, carry is the same.  */
 	    y[i] = carry ? 0x0000 : 0xffff;
@@ -6085,14 +6060,14 @@ c4xtoe (d, e, mode)
 	      y[i] = ((~y[i]) + carry) & 0xffff;
 	      carry = 0;
 	    }
-        }
+	}
 
       if (carry)
-        {
+	{
 	  eshift (y, -1);
 	  y[M+1] |= 0x8000;
 	  r++;
-         }
+	}
        y[1] = r + EXONE;
     }
   else
@@ -6164,10 +6139,10 @@ toc4x (x, y, mode)
       *y++ = 0x8000;
       *y++ = 0x0000;
       if (mode != QFmode)
-        {
-          *y++ = 0x0000;
-          *y++ = 0x0000;
-        }
+	{
+	  *y++ = 0x0000;
+	  *y++ = 0x0000;
+	}
       return;
     }
 
@@ -6685,7 +6660,7 @@ etoudi (x, i)
     }
   else
     {
-        /* shift not more than 16 bits */
+      /* shift not more than 16 bits */
       eshift (xi, k);
 
 noshift:
@@ -6767,7 +6742,7 @@ etodi (x, i)
     }
   else
     {
-        /* shift not more than 16 bits */
+      /* shift not more than 16 bits */
       eshift (xi, k);
 
       if (WORDS_BIG_ENDIAN)
@@ -6918,7 +6893,6 @@ esqrt (x, y)
   emovo (sq, y);
 }
 #endif
-#endif /* EMU_NON_COMPILE not defined */
 
 /* Return the binary precision of the significand for a given
    floating point mode.  The mode can hold an integer value

@@ -20,24 +20,72 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()			\
+  do							\
+    {							\
+	builtin_define ("__alpha");			\
+	builtin_define ("__alpha__");			\
+	builtin_assert ("cpu=alpha");			\
+	builtin_assert ("machine=alpha");		\
+	if (TARGET_CIX)					\
+	  {						\
+	    builtin_define ("__alpha_cix__");		\
+	    builtin_assert ("cpu=cix");			\
+	  }						\
+	if (TARGET_FIX)					\
+	  {						\
+	    builtin_define ("__alpha_fix__");		\
+	    builtin_assert ("cpu=fix");			\
+	  }						\
+	if (TARGET_BWX)					\
+	  {						\
+	    builtin_define ("__alpha_bwx__");		\
+	    builtin_assert ("cpu=bwx");			\
+	  }						\
+	if (TARGET_MAX)					\
+	  {						\
+	    builtin_define ("__alpha_max__");		\
+	    builtin_assert ("cpu=max");			\
+	  }						\
+	if (TARGET_CPU_EV6)				\
+	  {						\
+	    builtin_define ("__alpha_ev6__");		\
+	    builtin_assert ("cpu=ev6");			\
+	  }						\
+	else if (TARGET_CPU_EV5)			\
+	  {						\
+	    builtin_define ("__alpha_ev5__");		\
+	    builtin_assert ("cpu=ev5");			\
+	  }						\
+	else	/* Presumably ev4.  */			\
+	  {						\
+	    builtin_define ("__alpha_ev4__");		\
+	    builtin_assert ("cpu=ev4");			\
+	  }						\
+	if (TARGET_IEEE || TARGET_IEEE_WITH_INEXACT)	\
+	  builtin_define ("__IEEE_FP");			\
+	if (TARGET_IEEE_WITH_INEXACT)			\
+	  builtin_define ("__IEEE_FP_INEXACT");		\
+							\
+	/* Macros dependent on the C dialect.  */	\
+	if (preprocessing_asm_p ())			\
+	  builtin_define_std ("LANGUAGE_ASSEMBLY");	\
+        else if (c_language == clk_c)			\
+	  builtin_define_std ("LANGUAGE_C");		\
+	else if (c_language == clk_cplusplus)		\
+	  {						\
+	    builtin_define ("__LANGUAGE_C_PLUS_PLUS");	\
+	    builtin_define ("__LANGUAGE_C_PLUS_PLUS__");\
+	  }						\
+	else if (c_language == clk_objective_c)		\
+	  {						\
+	    builtin_define ("__LANGUAGE_OBJECTIVE_C");	\
+	    builtin_define ("__LANGUAGE_OBJECTIVE_C__");\
+	  }						\
+} while (0)
 
-/* For C++ we need to ensure that __LANGUAGE_C_PLUS_PLUS is defined independent
-   of the source file extension.  */
-#define CPLUSPLUS_CPP_SPEC "\
--D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus \
-%(cpp) \
-"
-
-/* Write out the correct language type definition for the header files.  
-   Unless we have assembler language, write out the symbols for C.  */
-#define CPP_SPEC "\
-%{!undef:\
-%{.S:-D__LANGUAGE_ASSEMBLY__ -D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY }}\
-%{.m:-D__LANGUAGE_OBJECTIVE_C__ -D__LANGUAGE_OBJECTIVE_C }\
-%{!.S:%{!.cc:%{!.cxx:%{!.cpp:%{!.cp:%{!.c++:%{!.C:%{!.m:-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C }}}}}}}}}\
-%{mieee:-D_IEEE_FP }\
-%{mieee-with-inexact:-D_IEEE_FP -D_IEEE_FP_INEXACT }}\
-%(cpp_cpu) %(cpp_subtarget)"
+#define CPP_SPEC "%(cpp_subtarget)"
 
 #ifndef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC ""
@@ -285,65 +333,6 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
    N_("Tune expected memory latency")},			\
 }
 
-/* Attempt to describe CPU characteristics to the preprocessor.  */
-
-/* Corresponding to amask...  */
-#define CPP_AM_BWX_SPEC	"-D__alpha_bwx__ -Acpu=bwx"
-#define CPP_AM_MAX_SPEC	"-D__alpha_max__ -Acpu=max"
-#define CPP_AM_FIX_SPEC	"-D__alpha_fix__ -Acpu=fix"
-#define CPP_AM_CIX_SPEC	"-D__alpha_cix__ -Acpu=cix"
-
-/* Corresponding to implver...  */
-#define CPP_IM_EV4_SPEC	"-D__alpha_ev4__ -Acpu=ev4"
-#define CPP_IM_EV5_SPEC	"-D__alpha_ev5__ -Acpu=ev5"
-#define CPP_IM_EV6_SPEC	"-D__alpha_ev6__ -Acpu=ev6"
-
-/* Common combinations.  */
-#define CPP_CPU_EV4_SPEC	"%(cpp_im_ev4)"
-#define CPP_CPU_EV5_SPEC	"%(cpp_im_ev5)"
-#define CPP_CPU_EV56_SPEC	"%(cpp_im_ev5) %(cpp_am_bwx)"
-#define CPP_CPU_PCA56_SPEC	"%(cpp_im_ev5) %(cpp_am_bwx) %(cpp_am_max)"
-#define CPP_CPU_EV6_SPEC \
-  "%(cpp_im_ev6) %(cpp_am_bwx) %(cpp_am_max) %(cpp_am_fix)"
-#define CPP_CPU_EV67_SPEC \
-  "%(cpp_im_ev6) %(cpp_am_bwx) %(cpp_am_max) %(cpp_am_fix) %(cpp_am_cix)"
-
-#ifndef CPP_CPU_DEFAULT_SPEC
-# if TARGET_CPU_DEFAULT & MASK_CPU_EV6
-#  if TARGET_CPU_DEFAULT & MASK_CIX
-#    define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV67_SPEC
-#  else
-#    define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV6_SPEC
-#  endif
-# else
-#  if TARGET_CPU_DEFAULT & MASK_CPU_EV5
-#   if TARGET_CPU_DEFAULT & MASK_MAX
-#    define CPP_CPU_DEFAULT_SPEC	CPP_CPU_PCA56_SPEC
-#   else
-#    if TARGET_CPU_DEFAULT & MASK_BWX
-#     define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV56_SPEC
-#    else
-#     define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV5_SPEC
-#    endif
-#   endif
-#  else
-#   define CPP_CPU_DEFAULT_SPEC		CPP_CPU_EV4_SPEC
-#  endif
-# endif
-#endif /* CPP_CPU_DEFAULT_SPEC */
-
-#ifndef CPP_CPU_SPEC
-#define CPP_CPU_SPEC "\
-%{!undef:-Acpu=alpha -Amachine=alpha -D__alpha -D__alpha__ \
-%{mcpu=ev4|mcpu=21064:%(cpp_cpu_ev4) }\
-%{mcpu=ev5|mcpu=21164:%(cpp_cpu_ev5) }\
-%{mcpu=ev56|mcpu=21164a:%(cpp_cpu_ev56) }\
-%{mcpu=pca56|mcpu=21164pc|mcpu=21164PC:%(cpp_cpu_pca56) }\
-%{mcpu=ev6|mcpu=21264:%(cpp_cpu_ev6) }\
-%{mcpu=ev67|mcpu=21264a:%(cpp_cpu_ev67) }\
-%{!mcpu*:%(cpp_cpu_default) }}"
-#endif
-
 /* This macro defines names of additional specifications to put in the
    specs that can be used in various specifications like CC1_SPEC.  Its
    definition is an initializer with a subgrouping for each command option.
@@ -359,21 +348,6 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 #endif
 
 #define EXTRA_SPECS				\
-  { "cpp_am_bwx", CPP_AM_BWX_SPEC },		\
-  { "cpp_am_max", CPP_AM_MAX_SPEC },		\
-  { "cpp_am_fix", CPP_AM_FIX_SPEC },		\
-  { "cpp_am_cix", CPP_AM_CIX_SPEC },		\
-  { "cpp_im_ev4", CPP_IM_EV4_SPEC },		\
-  { "cpp_im_ev5", CPP_IM_EV5_SPEC },		\
-  { "cpp_im_ev6", CPP_IM_EV6_SPEC },		\
-  { "cpp_cpu_ev4", CPP_CPU_EV4_SPEC },		\
-  { "cpp_cpu_ev5", CPP_CPU_EV5_SPEC },		\
-  { "cpp_cpu_ev56", CPP_CPU_EV56_SPEC },	\
-  { "cpp_cpu_pca56", CPP_CPU_PCA56_SPEC },	\
-  { "cpp_cpu_ev6", CPP_CPU_EV6_SPEC },		\
-  { "cpp_cpu_ev67", CPP_CPU_EV67_SPEC },	\
-  { "cpp_cpu_default", CPP_CPU_DEFAULT_SPEC },	\
-  { "cpp_cpu", CPP_CPU_SPEC },			\
   { "cpp_subtarget", CPP_SUBTARGET_SPEC },	\
   SUBTARGET_EXTRA_SPECS
 
@@ -1212,42 +1186,6 @@ extern struct alpha_compare alpha_compare;
 
 #define FUNCTION_PROFILER(FILE, LABELNO)
 
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.
-   This assumes that __bb_init_func doesn't garble a1-a5.  */
-
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO)			\
-    do {							\
-	ASM_OUTPUT_REG_PUSH (FILE, 16);				\
-	fputs ("\tlda $16,$PBX32\n", (FILE));			\
-	fputs ("\tldq $26,0($16)\n", (FILE));			\
-	fputs ("\tbne $26,1f\n", (FILE));			\
-	fputs ("\tlda $27,__bb_init_func\n", (FILE));		\
-	fputs ("\tjsr $26,($27),__bb_init_func\n", (FILE));	\
-	fputs ("\tldgp $29,0($26)\n", (FILE));			\
-	fputs ("1:\n", (FILE));					\
-	ASM_OUTPUT_REG_POP (FILE, 16);				\
-    } while (0);
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  */
-
-#define BLOCK_PROFILER(FILE, BLOCKNO)				\
-    do {							\
-	int blockn = (BLOCKNO);					\
-	fputs ("\tsubq $30,16,$30\n", (FILE));			\
-	fputs ("\tstq $26,0($30)\n", (FILE));			\
-	fputs ("\tstq $27,8($30)\n", (FILE));			\
-	fputs ("\tlda $26,$PBX34\n", (FILE));			\
-	fprintf ((FILE), "\tldq $27,%d($26)\n", 8*blockn);	\
-	fputs ("\taddq $27,1,$27\n", (FILE));			\
-	fprintf ((FILE), "\tstq $27,%d($26)\n", 8*blockn);	\
-	fputs ("\tldq $26,0($30)\n", (FILE));			\
-	fputs ("\tldq $27,8($30)\n", (FILE));			\
-	fputs ("\taddq $30,16,$30\n", (FILE));			\
-    } while (0)
-
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
@@ -1753,52 +1691,6 @@ do {									     \
 /* Output before writable data.  */
 
 #define DATA_SECTION_ASM_OP "\t.data"
-
-/* Define an extra section for read-only data, a routine to enter it, and
-   indicate that it is for read-only data.
-
-   The first time we enter the readonly data section for a file, we write
-   eight bytes of zero.  This works around a bug in DEC's assembler in
-   some versions of OSF/1 V3.x.  */
-
-#define EXTRA_SECTIONS	readonly_data
-
-#define EXTRA_SECTION_FUNCTIONS					\
-void								\
-literal_section ()						\
-{								\
-  if (in_section != readonly_data)				\
-    {								\
-      static int firsttime = 1;				        \
-								\
-      fprintf (asm_out_file, "%s\n", READONLY_DATA_SECTION_ASM_OP); \
-      if (firsttime)						\
-	{							\
-	  firsttime = 0;				        \
-	  assemble_aligned_integer (8, const0_rtx);		\
-	}							\
-								\
-      in_section = readonly_data;				\
-    }								\
-}								\
-
-#define READONLY_DATA_SECTION	literal_section
-
-/* Define this macro if references to a symbol must be treated differently
-   depending on something about the variable or function named by the symbol
-   (such as what section it is in).  */
-
-#define ENCODE_SECTION_INFO(DECL, FIRST)  \
-  alpha_encode_section_info (DECL, FIRST)
-
-#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)	\
-do {						\
-  (VAR) = (SYMBOL_NAME);			\
-  if ((VAR)[0] == '@')				\
-    (VAR) += 2;					\
-  if ((VAR)[0] == '*')				\
-    (VAR)++;					\
-} while (0)
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */

@@ -49,7 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #define MMIX_HIMULT_REGNUM 258
 #define MMIX_REMAINDER_REGNUM 260
 #define MMIX_ARG_POINTER_REGNUM 261
-#define MMIX_LAST_REGISTER_FILE_REGNUM 31
+#define MMIX_LAST_STACK_REGISTER_REGNUM 31
 
 /* Four registers; "ideally, these registers should be call-clobbered", so
    just grab a bunch of the common clobbered registers.  FIXME: Last
@@ -91,6 +91,7 @@ extern struct rtx_def *mmix_compare_op1;
 struct machine_function
  {
    int has_landing_pad;
+   int highest_saved_stack_register;
  };
 
 /* For these target macros, there is no generic documentation here.  You
@@ -904,41 +905,7 @@ typedef struct { int regs; int lib; int now_varargs; } CUMULATIVE_ARGS;
 #define DATA_SECTION_ASM_OP \
  mmix_data_section_asm_op ()
 
-/* Stuff copied from elfos.h.  */
-#define EXTRA_SECTIONS in_const
-
-#define EXTRA_SECTION_FUNCTIONS		\
-  CONST_SECTION_FUNCTION
-
-#define READONLY_DATA_SECTION() const_section ()
-
-#define CONST_SECTION_ASM_OP	"\t.section\t.rodata"
-
-#define CONST_SECTION_FUNCTION					\
-void								\
-const_section ()						\
-{								\
-  if (in_section != in_const)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);	\
-      in_section = in_const;					\
-    }								\
-}
-
-#undef  SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) const_section ()
-
-#define SELECT_SECTION(DECL, RELOC, ALIGN) \
- mmix_select_section (DECL, RELOC, ALIGN)
-
-#define ENCODE_SECTION_INFO(DECL, FIRST) \
- mmix_encode_section_info (DECL, FIRST)
-
-#define STRIP_NAME_ENCODING(VAR, SYM_NAME) \
- (VAR) = mmix_strip_name_encoding (SYM_NAME)
-
-#define UNIQUE_SECTION(DECL, RELOC) \
-  mmix_unique_section (decl, reloc)
+#define READONLY_DATA_SECTION_ASM_OP	"\t.section\t.rodata"
 
 /* Node: PIC */
 /* (empty) */
@@ -1196,7 +1163,6 @@ const_section ()						\
 
 #define FUNCTION_MODE QImode
 
-/* When in due time we *will* have some specific headers.  */
 #define NO_IMPLICIT_EXTERN_C
 
 #define HANDLE_SYSV_PRAGMA
@@ -1205,6 +1171,10 @@ const_section ()						\
 #define DOLLARS_IN_IDENTIFIERS 0
 #define NO_DOLLAR_IN_LABEL
 #define NO_DOT_IN_LABEL
+
+/* Calculate the highest used supposed saved stack register.  */
+#define MACHINE_DEPENDENT_REORG(INSN) \
+ mmix_machine_dependent_reorg (INSN)
 
 #endif /* GCC_MMIX_H */
 /*

@@ -1202,17 +1202,6 @@ extern struct dsp16xx_frame_info current_frame_info;
 #define FUNCTION_PROFILER(FILE, LABELNO)        \
   internal_error ("profiling not implemented yet")
 
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.  */
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO)  \
-  internal_error ("profiling not implemented yet")
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  */
-#define BLOCK_PROFILER(FILE, BLOCKNO)	        \
-  internal_error ("profiling not implemented yet")
-
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
@@ -1548,8 +1537,7 @@ extern struct dsp16xx_frame_info current_frame_info;
 
 /* Output before constants and strings */
 #define DEFAULT_CONST_SEG_NAME  ".const"
-#define READONLY_SECTION_ASM_OP rsect_const
-#define READONLY_DATA_SECTION   const_section
+#define READONLY_DATA_SECTION_ASM_OP rsect_const
 
 /* Output before writable data.  */
 #define DEFAULT_DATA_SEG_NAME ".data"
@@ -1561,22 +1549,6 @@ extern struct dsp16xx_frame_info current_frame_info;
 /* We will default to using 1610 if the user doesn't
    specify it.  */
 #define DEFAULT_CHIP_NAME "1610"
-
-/* A list of names for sections other than the standard ones, which are
-   'in_text' and 'in_data' (and .bss if BSS_SECTION_ASM_OP is defined).  */
-#define EXTRA_SECTIONS in_const
-
-#define EXTRA_SECTION_FUNCTIONS  \
-extern void const_section PARAMS ((void));                         \
-void                                                               \
-const_section ()                                                   \
-{                                                                  \
-    if (in_section != in_const)                                    \
-    {                                                              \
-        fprintf (asm_out_file, "%s\n", READONLY_SECTION_ASM_OP);   \
-	in_section = in_const;                                     \
-    }                                                              \
-}
 
 /* THE OVERALL FRAMEWORK OF AN ASSEMBLER FILE */
 

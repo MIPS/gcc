@@ -665,6 +665,9 @@ static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
    of the GCC driver can correctly drive older tool chains with the
    appropriate -B options.  */
 
+/* When cpplib handles traditional preprocessing, get rid of this, and
+   call cc1 (or cc1obj in objc/lang-specs.h) from the main specs so
+   that we default the front end language better.  */
 static const char *trad_capable_cpp =
 "%{traditional|ftraditional|traditional-cpp:tradcpp0}\
  %{!traditional:%{!ftraditional:%{!traditional-cpp:cc1 -E}}}";
@@ -679,29 +682,21 @@ static const char *cpp_unique_options =
  %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
- %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
- %{fno-inline|O0|!O*:-D__NO_INLINE__} %{ffast-math:-D__FAST_MATH__}\
- %{fshort-wchar:-U__WCHAR_TYPE__ -D__WCHAR_TYPE__=short\\ unsigned\\ int}\
- %{ffreestanding:-D__STDC_HOSTED__=0} %{fno-hosted:-D__STDC_HOSTED__=0}\
- %{!ffreestanding:%{!fno-hosted:-D__STDC_HOSTED__=1}} %{remap}\
- %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
    only when preprocessing only to avoid duplication.  */
 static const char *cpp_options =
-"%(cpp_unique_options) %{std*} %{d*} %{W*&pedantic*} %{w}\
- %{fshow-column} %{fno-show-column}\
- %{fsigned-char&funsigned-char}\
- %{fleading-underscore} %{fno-leading-underscore}\
- %{fno-operator-names} %{ftabstop=*}";
+"%(cpp_unique_options) %{std*} %{d*} %{W*&pedantic*} %{w} %{m*} %{f*}\
+ %{O*} %{undef}";
 
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
  %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
- %{v:-version} %{pg:-p} %{p} %{f*}\
+ %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
@@ -745,8 +740,7 @@ static struct user_specs *user_specs_head, *user_specs_tail;
   ((CHAR) == 'D' || (CHAR) == 'U' || (CHAR) == 'o' \
    || (CHAR) == 'e' || (CHAR) == 'T' || (CHAR) == 'u' \
    || (CHAR) == 'I' || (CHAR) == 'm' || (CHAR) == 'x' \
-   || (CHAR) == 'L' || (CHAR) == 'A' || (CHAR) == 'V' \
-   || (CHAR) == 'B' || (CHAR) == 'b')
+   || (CHAR) == 'L' || (CHAR) == 'A' || (CHAR) == 'B' || (CHAR) == 'b')
 
 #ifndef SWITCH_TAKES_ARG
 #define SWITCH_TAKES_ARG(CHAR) DEFAULT_SWITCH_TAKES_ARG(CHAR)
@@ -825,7 +819,6 @@ static const struct compiler default_compilers[] =
   {".F", "#Fortran", 0}, {".FOR", "#Fortran", 0}, {".FPP", "#Fortran", 0},
   {".r", "#Ratfor", 0},
   {".p", "#Pascal", 0}, {".pas", "#Pascal", 0},
-  {".ch", "#Chill", 0}, {".chi", "#Chill", 0},
   {".java", "#Java", 0}, {".class", "#Java", 0},
   {".zip", "#Java", 0}, {".jar", "#Java", 0},
   /* Next come the entries for C.  */
@@ -833,23 +826,23 @@ static const struct compiler default_compilers[] =
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
-     "%{E|M|MM:%(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)}\
+     "%{E|M|MM:%(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)}\
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
 	  %{save-temps|traditional-cpp:%(trad_capable_cpp) \
-		-lang-c %{ansi:-std=c89} %(cpp_options) %b.i \n\
+		%{ansi:-std=c89} %(cpp_options) %b.i \n\
 		    cc1 -fpreprocessed %b.i %(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:\
-		cc1 -lang-c %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}\
+		cc1 %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
-    %(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)", 0},
+    %(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)", 0},
   {".h", "@c-header", 0},
   {"@c-header",
    "%{!E:%ecompilation of header file requested} \
-    %(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)", 0},
+    %(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)", 0},
   {".i", "@cpp-output", 0},
   {"@cpp-output",
    "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) %{!fsyntax-only:%(invoke_as)}}}}", 0},
@@ -967,6 +960,7 @@ static const struct option_map option_map[] =
    {"--profile", "-p", 0},
    {"--profile-blocks", "-a", 0},
    {"--quiet", "-q", 0},
+   {"--resource", "-fcompile-resource=", "aj"},
    {"--save-temps", "-save-temps", 0},
    {"--shared", "-shared", 0},
    {"--silent", "-q", 0},
@@ -1185,7 +1179,7 @@ translate_options (argcp, argvp)
 	    nskip += SWITCH_TAKES_ARG (c) - (p[1] != 0);
 	  else if (WORD_SWITCH_TAKES_ARG (p))
 	    nskip += WORD_SWITCH_TAKES_ARG (p);
-	  else if ((c == 'B' || c == 'b' || c == 'V' || c == 'x')
+	  else if ((c == 'B' || c == 'b' || c == 'x')
 		   && p[1] == 0)
 	    nskip += 1;
 	  else if (! strcmp (p, "Xlinker"))
@@ -1863,8 +1857,9 @@ read_specs (filename, main_p)
 	    {
 	      int name_len;
 	      struct spec_list *sl;
+	      struct spec_list *newsl;
 
-	      /* Get original name */
+	      /* Get original name.  */
 	      p1 += sizeof "%rename";
 	      while (*p1 == ' ' || *p1 == '\t')
 		p1++;
@@ -1909,6 +1904,11 @@ read_specs (filename, main_p)
 
 	      if (strcmp (p1, p2) == 0)
 		continue;
+
+	      for (newsl = specs; newsl; newsl = newsl->next)
+		if (strcmp (newsl->name, p2) == 0)
+		  fatal ("%s: attempt to rename spec '%s' to already defined spec '%s'",
+		    filename, p1, p2);
 
 	      if (verbose_flag)
 		{
@@ -3600,48 +3600,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      verbose_flag++;
 	      break;
 
-	    case 'V':
-	      n_switches++;
-	      if (p[1] == 0 && i + 1 == argc)
-		fatal ("argument to `-V' is missing");
-	      if (p[1] == 0)
-		spec_version = argv[++i];
-	      else
-		spec_version = p + 1;
-	      compiler_version = spec_version;
-	      warn_std_ptr = &warn_std;
-
-	      /* Validate the version number.  Use the same checks
-		 done when inserting it into a spec.
-
-		 The format of the version string is
-		 ([^0-9]*-)?[0-9]+[.][0-9]+([.][0-9]+)?([- ].*)?  */
-	      {
-		const char *v = compiler_version;
-
-		/* Ignore leading non-digits.  i.e. "foo-" in "foo-2.7.2".  */
-		while (! ISDIGIT (*v))
-		  v++;
-
-		if (v > compiler_version && v[-1] != '-')
-		  fatal ("invalid version number format");
-
-		/* Set V after the first period.  */
-		while (ISDIGIT (*v))
-		  v++;
-
-		if (*v != '.')
-		  fatal ("invalid version number format");
-
-		v++;
-		while (ISDIGIT (*v))
-		  v++;
-
-		if (*v != 0 && *v != ' ' && *v != '.' && *v != '-')
-		  fatal ("invalid version number format");
-	      }
-	      break;
-
 	    case 'S':
 	    case 'c':
 	      if (p[1] == 0)
@@ -3999,7 +3957,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  else
 	    {
 	      char ch = switches[n_switches].part1[0];
-	      if (ch == 'V' || ch == 'b' || ch == 'B')
+	      if (ch == 'b' || ch == 'B')
 		switches[n_switches].validated = 1;
 	    }
 	  n_switches++;

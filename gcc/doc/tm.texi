@@ -49,6 +49,7 @@ through the macros defined in the @file{.h} file.
 * Floating Point::      Handling floating point for cross-compilers.
 * Mode Switching::      Insertion of mode-switching instructions.
 * Target Attributes::   Defining target-specific uses of @code{__attribute__}.
+* MIPS Coprocessors::   MIPS coprocessor support and how to customize it.
 * Misc::                Everything else.
 @end menu
 
@@ -175,46 +176,6 @@ Do not define this macro if it does not need to do anything.
 This macro is just like @code{CPP_SPEC}, but is used for C++, rather
 than C@.  If you do not define this macro, then the value of
 @code{CPP_SPEC} (if any) will be used instead.
-
-@findex NO_BUILTIN_SIZE_TYPE
-@item NO_BUILTIN_SIZE_TYPE
-If this macro is defined, the preprocessor will not define the built-in macro
-@code{__SIZE_TYPE__}.  The macro @code{__SIZE_TYPE__} must then be defined
-by @code{CPP_SPEC} instead.
-
-This should be defined if @code{SIZE_TYPE} depends on target dependent flags
-which are not accessible to the preprocessor.  Otherwise, it should not
-be defined.
-
-@findex NO_BUILTIN_PTRDIFF_TYPE
-@item NO_BUILTIN_PTRDIFF_TYPE
-If this macro is defined, the preprocessor will not define the built-in macro
-@code{__PTRDIFF_TYPE__}.  The macro @code{__PTRDIFF_TYPE__} must then be
-defined by @code{CPP_SPEC} instead.
-
-This should be defined if @code{PTRDIFF_TYPE} depends on target dependent flags
-which are not accessible to the preprocessor.  Otherwise, it should not
-be defined.
-
-@findex NO_BUILTIN_WCHAR_TYPE
-@item NO_BUILTIN_WCHAR_TYPE
-If this macro is defined, the preprocessor will not define the built-in macro
-@code{__WCHAR_TYPE__}.  The macro @code{__WCHAR_TYPE__} must then be
-defined by @code{CPP_SPEC} instead.
-
-This should be defined if @code{WCHAR_TYPE} depends on target dependent flags
-which are not accessible to the preprocessor.  Otherwise, it should not
-be defined.
-
-@findex NO_BUILTIN_WINT_TYPE
-@item NO_BUILTIN_WINT_TYPE
-If this macro is defined, the preprocessor will not define the built-in macro
-@code{__WINT_TYPE__}.  The macro @code{__WINT_TYPE__} must then be
-defined by @code{CPP_SPEC} instead.
-
-This should be defined if @code{WINT_TYPE} depends on target dependent flags
-which are not accessible to the preprocessor.  Otherwise, it should not
-be defined.
 
 @findex CC1_SPEC
 @item CC1_SPEC
@@ -622,6 +583,50 @@ The macro @code{STANDARD_STARTFILE_PREFIX}.
 Here are run-time target specifications.
 
 @table @code
+@findex TARGET_CPU_CPP_BUILTINS
+@item TARGET_CPU_CPP_BUILTINS()
+This function-like macro expands to a block of code that defines
+built-in preprocessor macros and assertions for the target cpu, using
+the functions @code{builtin_macro}, @code{builtin_macro_std} and
+@code{builtin_assert} declared in @file{c-lex.h}.  When the front end
+calls this macro it provides a trailing semicolon, and since it has
+finished command line option processing your code can use those
+results freely.
+
+@code{builtin_assert} takes a string in the form you pass to the
+command-line option @option{-A}, such as @code{cpu=mips}, and creates
+the assertion.  @code{builtin_macro} takes a string in the form
+accepted by option @option{-D} and unconditionally defines the macro.
+
+@code{builtin_macro_std} takes a string representing the name of an
+object-like macro.  If it doesn't lie in the user's namespace,
+@code{builtin_macro_std} defines it unconditionally.  Otherwise, it
+defines a version with two leading underscores, and another version
+with two leading and trailing underscores, and defines the original
+only if an ISO standard was not requested on the command line.  For
+example, passing @code{unix} defines @code{__unix}, @code{__unix__}
+and possibly @code{unix}; passing @code{_mips} defines @code{__mips},
+@code{__mips__} and possibly @code{_mips}, and passing @code{_ABI64}
+defines only @code{_ABI64}.
+
+You can also test for the C dialect being compiled.  The variable
+@code{c_language} is set to one of @code{clk_c}, @code{clk_cplusplus}
+or @code{clk_objective_c}.  Note that if we are preprocessing
+assembler, this variable will be @code{clk_c} but the function-like
+macro @code{preprocessing_asm_p()} will return true, so you might want
+to check for that first.
+
+With @code{TARGET_OS_CPP_BUILTINS} this macro obsoletes the
+@code{CPP_PREDEFINES} target macro.
+
+@findex TARGET_OS_CPP_BUILTINS
+@item TARGET_OS_CPP_BUILTINS()
+Similarly to @code{TARGET_CPU_CPP_BUILTINS} but this macro is optional
+and is used for the target operating system instead.
+
+With @code{TARGET_CPU_CPP_BUILTINS} this macro obsoletes the
+@code{CPP_PREDEFINES} target macro.
+
 @findex CPP_PREDEFINES
 @item CPP_PREDEFINES
 Define this to be a string constant containing @option{-D} options to
@@ -1503,19 +1508,11 @@ A C expression for the size in bits of the type @code{char} on the
 target machine.  If you don't define this, the default is
 @code{BITS_PER_UNIT}.
 
-@findex MAX_CHAR_TYPE_SIZE
-@item MAX_CHAR_TYPE_SIZE
-Maximum number for the size in bits of the type @code{char} on the
-target machine.  If this is undefined, the default is
-@code{CHAR_TYPE_SIZE}.  Otherwise, it is the constant value that is the
-largest value that @code{CHAR_TYPE_SIZE} can have at run-time.  This is
-used in @code{cpp}.
-
 @findex BOOL_TYPE_SIZE
 @item BOOL_TYPE_SIZE
-A C expression for the size in bits of the C++ type @code{bool} on the
-target machine.  If you don't define this, the default is
-@code{CHAR_TYPE_SIZE}.
+A C expression for the size in bits of the C++ type @code{bool} and
+C99 type @code{_Bool} on the target machine.  If you don't define
+this, and you probably shouldn't, the default is @code{CHAR_TYPE_SIZE}.
 
 @findex FLOAT_TYPE_SIZE
 @item FLOAT_TYPE_SIZE
@@ -4777,11 +4774,11 @@ sums that are not marked with  @code{const}.  It assumes that a naked
 naked constant sums as illegitimate addresses, so that none of them will
 be given to @code{PRINT_OPERAND_ADDRESS}.
 
-@cindex @code{ENCODE_SECTION_INFO} and address validation
+@cindex @code{TARGET_ENCODE_SECTION_INFO} and address validation
 On some machines, whether a symbolic address is legitimate depends on
 the section that the address refers to.  On these machines, define the
-macro @code{ENCODE_SECTION_INFO} to store the information into the
-@code{symbol_ref}, and then check for it here.  When you see a
+target hook @code{TARGET_ENCODE_SECTION_INFO} to store the information
+into the @code{symbol_ref}, and then check for it here.  When you see a
 @code{const}, you will have to look inside it to find the
 @code{symbol_ref} in order to determine the section.  @xref{Assembler
 Format}.
@@ -4791,8 +4788,8 @@ The best way to modify the name string is by adding text to the
 beginning, with suitable punctuation to prevent any ambiguity.  Allocate
 the new name in @code{saveable_obstack}.  You will have to modify
 @code{ASM_OUTPUT_LABELREF} to remove and decode the added text and
-output the name accordingly, and define @code{STRIP_NAME_ENCODING} to
-access the original name string.
+output the name accordingly, and define @code{TARGET_STRIP_NAME_ENCODING}
+to access the original name string.
 
 You can check the information stored here into the @code{symbol_ref} in
 the definitions of the macros @code{GO_IF_LEGITIMATE_ADDRESS} and
@@ -5400,11 +5397,19 @@ hooks for this purpose.  It is usually enough to define just a few of
 them: try the first ones in this list first.
 
 @deftypefn {Target Hook} int TARGET_SCHED_ISSUE_RATE (void)
-This hook returns the maximum number of instructions that can ever issue
-at the same time on the target machine.  The default is one.  This value
-must be constant over the entire compilation.  If you need it to vary
-depending on what the instructions are, you must use
+This hook returns the maximum number of instructions that can ever
+issue at the same time on the target machine.  The default is one.
+Although the insn scheduler can define itself the possibility of issue
+an insn on the same cycle, the value can serve as an additional
+constraint to issue insns on the same simulated processor cycle (see
+hooks @samp{TARGET_SCHED_REORDER} and @samp{TARGET_SCHED_REORDER2}).
+This value must be constant over the entire compilation.  If you need
+it to vary depending on what the instructions are, you must use
 @samp{TARGET_SCHED_VARIABLE_ISSUE}.
+
+You could use the value of macro @samp{MAX_DFA_ISSUE_RATE} to return
+the value of the hook @samp{TARGET_SCHED_ISSUE_RATE} for the automaton
+based pipeline interface.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_VARIABLE_ISSUE (FILE *@var{file}, int @var{verbose}, rtx @var{insn}, int @var{more})
@@ -5420,12 +5425,18 @@ instruction that was scheduled.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_ADJUST_COST (rtx @var{insn}, rtx @var{link}, rtx @var{dep_insn}, int @var{cost})
-This function corrects the value of @var{cost} based on the relationship
-between @var{insn} and @var{dep_insn} through the dependence @var{link}.
-It should return the new value.  The default is to make no adjustment to
-@var{cost}.  This can be used for example to specify to the scheduler
+This function corrects the value of @var{cost} based on the
+relationship between @var{insn} and @var{dep_insn} through the
+dependence @var{link}.  It should return the new value.  The default
+is to make no adjustment to @var{cost}.  This can be used for example
+to specify to the scheduler using the traditional pipeline description
 that an output- or anti-dependence does not incur the same cost as a
-data-dependence.
+data-dependence.  If the scheduler using the automaton based pipeline
+description, the cost of anti-dependence is zero and the cost of
+output-dependence is maximum of one and the difference of latency
+times of the first and the second insns.  If these values are not
+acceptable, you could use the hook to modify them too.  See also
+@pxref{Automaton pipeline description}.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_ADJUST_PRIORITY (rtx @var{insn}, int @var{priority})
@@ -5483,13 +5494,139 @@ to.  @var{verbose} is the verbose level provided by
 @option{-fsched-verbose-@var{n}}.
 @end deftypefn
 
-@deftypefn {Target Hook} rtx TARGET_SCHED_CYCLE_DISPLAY (int @var{clock}, rtx @var{last})
-This hook is called in verbose mode only, at the beginning of each pass
-over a basic block.  It should insert an insn into the chain after
-@var{last}, which has no effect, but records the value @var{clock} in
-RTL dumps and assembly output.  Define this hook only if you need this
-level of detail about what the scheduler is doing.
+@deftypefn {Target Hook} int TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE (void)
+This hook is called many times during insn scheduling.  If the hook
+returns nonzero, the automaton based pipeline description is used for
+insn scheduling.  Otherwise the traditional pipeline description is
+used.  The default is usage of the traditional pipeline description.
+
+You should also remember that to simplify the insn scheduler sources
+an empty traditional pipeline description interface is generated even
+if there is no a traditional pipeline description in the @file{.md}
+file.  The same is true for the automaton based pipeline description.
+That means that you should be accurate in defining the hook.
 @end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_DFA_PRE_CYCLE_INSN (void)
+The hook returns an RTL insn.  The automaton state used in the
+pipeline hazard recognizer is changed as if the insn were scheduled
+when the new simulated processor cycle starts.  Usage of the hook may
+simplify the automaton pipeline description for some @acronym{VLIW}
+processors.  If the hook is defined, it is used only for the automaton
+based pipeline description.  The default is not to change the state
+when the new simulated processor cycle starts.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN (void)
+The hook can be used to initialize data used by the previous hook.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_DFA_POST_CYCLE_INSN (void)
+The hook is analogous to @samp{TARGET_SCHED_DFA_PRE_CYCLE_INSN} but used
+to changed the state as if the insn were scheduled when the new
+simulated processor cycle finishes.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN (void)
+The hook is analogous to @samp{TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN} but
+used to initialize data used by the previous hook.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD (void)
+This hook controls better choosing an insn from the ready insn queue
+for the @acronym{DFA}-based insn scheduler.  Usually the scheduler
+chooses the first insn from the queue.  If the hook returns a positive
+value, an additional scheduler code tries all permutations of
+@samp{TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD ()}
+subsequent ready insns to choose an insn whose issue will result in
+maximal number of issued insns on the same cycle.  For the
+@acronym{VLIW} processor, the code could actually solve the problem of
+packing simple insns into the @acronym{VLIW} insn.  Of course, if the
+rules of @acronym{VLIW} packing are described in the automaton.
+
+This code also could be used for superscalar @acronym{RISC}
+processors.  Let us consider a superscalar @acronym{RISC} processor
+with 3 pipelines.  Some insns can be executed in pipelines @var{A} or
+@var{B}, some insns can be executed only in pipelines @var{B} or
+@var{C}, and one insn can be executed in pipeline @var{B}.  The
+processor may issue the 1st insn into @var{A} and the 2nd one into
+@var{B}.  In this case, the 3rd insn will wait for freeing @var{B}
+until the next cycle.  If the scheduler issues the 3rd insn the first,
+the processor could issue all 3 insns per cycle.
+
+Actually this code demonstrates advantages of the automaton based
+pipeline hazard recognizer.  We try quickly and easy many insn
+schedules to choose the best one.
+
+The default is no multipass scheduling.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_INIT_DFA_BUBBLES (void)
+The @acronym{DFA}-based scheduler could take the insertion of nop
+operations for better insn scheduling into account.  It can be done
+only if the multi-pass insn scheduling works (see hook
+@samp{TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD}).
+
+Let us consider a @acronym{VLIW} processor insn with 3 slots.  Each
+insn can be placed only in one of the three slots.  We have 3 ready
+insns @var{A}, @var{B}, and @var{C}.  @var{A} and @var{C} can be
+placed only in the 1st slot, @var{B} can be placed only in the 3rd
+slot.  We described the automaton which does not permit empty slot
+gaps between insns (usually such description is simpler).  Without
+this code the scheduler would place each insn in 3 separate
+@acronym{VLIW} insns.  If the scheduler places a nop insn into the 2nd
+slot, it could place the 3 insns into 2 @acronym{VLIW} insns.  What is
+the nop insn is returned by hook @samp{TARGET_SCHED_DFA_BUBBLE}.  Hook
+@samp{TARGET_SCHED_INIT_DFA_BUBBLES} can be used to initialize or
+create the nop insns.
+
+You should remember that the scheduler does not insert the nop insns.
+It is not wise because of the following optimizations.  The scheduler
+only considers such possibility to improve the result schedule.  The
+nop insns should be inserted lately, e.g. on the final phase.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_SCHED_DFA_BUBBLE (int @var{index})
+This hook @samp{FIRST_CYCLE_MULTIPASS_SCHEDULING} is used to insert
+nop operations for better insn scheduling when @acronym{DFA}-based
+scheduler makes multipass insn scheduling (see also description of
+hook @samp{TARGET_SCHED_INIT_DFA_BUBBLES}).  This hook
+returns a nop insn with given @var{index}.  The indexes start with
+zero.  The hook should return @code{NULL} if there are no more nop
+insns with indexes greater than given index.
+@end deftypefn
+
+Macros in the following table are generated by the program
+@file{genattr} and can be useful for writing the hooks.
+
+@table @code
+@findex TRADITIONAL_PIPELINE_INTERFACE
+@item TRADITIONAL_PIPELINE_INTERFACE
+The macro definition is generated if there is a traditional pipeline
+description in @file{.md} file. You should also remember that to
+simplify the insn scheduler sources an empty traditional pipeline
+description interface is generated even if there is no a traditional
+pipeline description in the @file{.md} file.  The macro can be used to
+distinguish the two types of the traditional interface.
+
+@findex DFA_PIPELINE_INTERFACE
+@item DFA_PIPELINE_INTERFACE
+The macro definition is generated if there is an automaton pipeline
+description in @file{.md} file.  You should also remember that to
+simplify the insn scheduler sources an empty automaton pipeline
+description interface is generated even if there is no an automaton
+pipeline description in the @file{.md} file.  The macro can be used to
+distinguish the two types of the automaton interface.
+
+@findex MAX_DFA_ISSUE_RATE
+@item MAX_DFA_ISSUE_RATE
+The macro definition is generated in the automaton based pipeline
+description interface.  Its value is calculated from the automaton
+based pipeline description and is equal to maximal number of all insns
+described in constructions @samp{define_insn_reservation} which can be
+issued on the same processor cycle.
+
+@end table
 
 @node Sections
 @section Dividing the Output into Sections (Texts, Data, @dots{})
@@ -5521,11 +5658,38 @@ Normally this is not needed, as simply defining @code{TEXT_SECTION_ASM_OP}
 is enough.  The MIPS port uses this to sort all functions after all data
 declarations.
 
+@findex HOT_TEXT_SECTION_NAME
+@item HOT_TEXT_SECTION_NAME
+If defined, a C string constant for the name of the section containing most
+frequently executed functions of the program.  If not defined, GCC will provide
+a default definition if the target supports named sections.
+
+@findex UNLIKELY_EXECUTED_TEXT_SECTION_NAME
+@item UNLIKELY_EXECUTED_TEXT_SECTION_NAME
+If defined, a C string constant for the name of the section containing unlikely
+executed functions in the program.
+
 @findex DATA_SECTION_ASM_OP
 @item DATA_SECTION_ASM_OP
 A C expression whose value is a string, including spacing, containing the
 assembler operation to identify the following data as writable initialized
 data.  Normally @code{"\t.data"} is right.
+
+@findex READONLY_DATA_SECTION_ASM_OP
+@item READONLY_DATA_SECTION_ASM_OP
+A C expression whose value is a string, including spacing, containing the
+assembler operation to identify the following data as read-only initialized
+data.
+
+@findex READONLY_DATA_SECTION
+@item READONLY_DATA_SECTION
+A macro naming a function to call to switch to the proper section for
+read-only data.  The default is to use @code{READONLY_DATA_SECTION_ASM_OP}
+if defined, else fall back to @code{text_section}.
+
+The most common definition will be @code{data_section}, if the target
+does not have a special read-only data section, and does not put data
+in the text section.
 
 @findex SHARED_SECTION_ASM_OP
 @item SHARED_SECTION_ASM_OP
@@ -5600,44 +5764,6 @@ functions should do jobs analogous to those of @code{text_section} and
 @code{data_section}, for your additional sections.  Do not define this
 macro if you do not define @code{EXTRA_SECTIONS}.
 
-@findex READONLY_DATA_SECTION
-@item READONLY_DATA_SECTION
-On most machines, read-only variables, constants, and jump tables are
-placed in the text section.  If this is not the case on your machine,
-this macro should be defined to be the name of a function (either
-@code{data_section} or a function defined in @code{EXTRA_SECTIONS}) that
-switches to the section to be used for read-only items.
-
-If these items should be placed in the text section, this macro should
-not be defined.
-
-@findex SELECT_SECTION
-@item SELECT_SECTION (@var{exp}, @var{reloc}, @var{align})
-A C statement or statements to switch to the appropriate section for
-output of @var{exp}.  You can assume that @var{exp} is either a
-@code{VAR_DECL} node or a constant of some sort.  @var{reloc}
-indicates whether the initial value of @var{exp} requires link-time
-relocations.  Bit 1 is set when variable contains local relocations
-only, while bit 2 is set for global relocations.
-Select the section by calling @code{text_section} or one
-of the alternatives for other sections.  @var{align} is the constant
-alignment in bits.
-
-Do not define this macro if you put all read-only variables and
-constants in the read-only data section (usually the text section).
-
-@findex SELECT_RTX_SECTION
-@item SELECT_RTX_SECTION (@var{mode}, @var{rtx}, @var{align})
-A C statement or statements to switch to the appropriate section for
-output of @var{rtx} in mode @var{mode}.  You can assume that @var{rtx}
-is some kind of constant in RTL@.  The argument @var{mode} is redundant
-except in the case of a @code{const_int} rtx.  Select the section by
-calling @code{text_section} or one of the alternatives for other
-sections.  @var{align} is the constant alignment in bits.
-
-Do not define this macro if you put all constants in the read-only
-data section.
-
 @findex JUMP_TABLES_IN_TEXT_SECTION
 @item JUMP_TABLES_IN_TEXT_SECTION
 Define this macro to be an expression with a nonzero value if jump
@@ -5646,50 +5772,93 @@ section, along with the assembler instructions.  Otherwise, the
 readonly data section is used.
 
 This macro is irrelevant if there is no separate readonly data section.
+@end table
 
-@findex ENCODE_SECTION_INFO
-@item ENCODE_SECTION_INFO (@var{decl}, @var{new_decl_p})
-Define this macro if references to a symbol or a constant must be
+@deftypefn {Target Hook} void TARGET_ASM_SELECT_SECTION (tree @var{exp}, int @var{reloc}, unsigned HOST_WIDE_INT @var{align})
+Switches to the appropriate section for output of @var{exp}.  You can
+assume that @var{exp} is either a @code{VAR_DECL} node or a constant of
+some sort.  @var{reloc} indicates whether the initial value of @var{exp}
+requires link-time relocations.  Bit 0 is set when variable contains
+local relocations only, while bit 1 is set for global relocations.
+Select the section by calling @code{data_section} or one of the
+alternatives for other sections.  @var{align} is the constant alignment
+in bits.
+
+The default version of this function takes care of putting read-only
+variables in @code{readonly_data_section}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_ASM_UNIQUE_SECTION (tree @var{decl}, int @var{reloc})
+Build up a unique section name, expressed as a @code{STRING_CST} node,
+and assign it to @samp{DECL_SECTION_NAME (@var{decl})}.
+As with @code{TARGET_ASM_SELECT_SECTION}, @var{reloc} indicates whether
+the initial value of @var{exp} requires link-time relocations.
+
+The default version of this function appends the symbol name to the
+ELF section name that would normally be used for the symbol.  For
+example, the function @code{foo} would be placed in @code{.text.foo}.
+Whatever the actual target object format, this is often good enough.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_ASM_SELECT_RTX_SECTION (enum machine_mode @var{mode}, rtx @var{x}, unsigned HOST_WIDE_INT @var{align})
+Switches to the appropriate section for output of constant pool entry
+@var{x} in @var{mode}.  You can assume that @var{x} is some kind of
+constant in RTL@.  The argument @var{mode} is redundant except in the
+case of a @code{const_int} rtx.  Select the section by calling
+@code{readonly_data_section} or one of the alternatives for other
+sections.  @var{align} is the constant alignment in bits.
+
+The default version of this function takes care of putting symbolic
+constants in @code{flag_pic} mode in @code{data_section} and everything
+else in @code{readonly_data_section}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_ENCODE_SECTION_INFO (tree @var{decl}, int @var{new_decl_p})
+Define this hook if references to a symbol or a constant must be
 treated differently depending on something about the variable or
 function named by the symbol (such as what section it is in).
 
-The macro definition, if any, is executed under two circumstances.  One
-is immediately after the rtl for @var{decl} that represents a variable
-or a function has been created and stored in @code{DECL_RTL(@var{decl})}.
-The value of the rtl will be a @code{mem} whose address is a @code{symbol_ref}.
-The other is immediately after the rtl for @var{decl} that represents a
-constant has been created and stored in @code{TREE_CST_RTL (@var{decl})}.
-The macro is called once for each distinct constant in a source file.
+The hook is executed under two circumstances.  One is immediately after
+the rtl for @var{decl} that represents a variable or a function has been
+created and stored in @code{DECL_RTL(@var{decl})}.  The value of the rtl
+will be a @code{mem} whose address is a @code{symbol_ref}.  The other is
+immediately after the rtl for @var{decl} that represents a constant has
+been created and stored in @code{TREE_CST_RTL (@var{decl})}.  The macro
+is called once for each distinct constant in a source file.
 
-The @var{new_decl_p} argument will be true if this is the first time that
-@code{ENCODE_SECTION_INFO} has been invoked on this decl.  It will
+The @var{new_decl_p} argument will be true if this is the first time
+that @code{ENCODE_SECTION_INFO} has been invoked on this decl.  It will
 be false for subsequent invocations, which will happen for duplicate
 declarations.  Whether or not anything must be done for the duplicate
-declaration depends on whether @code{ENCODE_SECTION_INFO} examines
-@code{DECL_ATTRIBUTES}.
+declaration depends on whether the hook examines @code{DECL_ATTRIBUTES}.
 
-@cindex @code{SYMBOL_REF_FLAG}, in @code{ENCODE_SECTION_INFO}
-The usual thing for this macro to do is to record a flag in the
+@cindex @code{SYMBOL_REF_FLAG}, in @code{TARGET_ENCODE_SECTION_INFO}
+The usual thing for this hook to do is to record a flag in the
 @code{symbol_ref} (such as @code{SYMBOL_REF_FLAG}) or to store a
 modified name string in the @code{symbol_ref} (if one bit is not
 enough information).
+@end deftypefn
 
-@findex STRIP_NAME_ENCODING
-@item STRIP_NAME_ENCODING (@var{var}, @var{sym_name})
-Decode @var{sym_name} and store the real name part in @var{var}, sans
-the characters that encode section info.  Define this macro if
-@code{ENCODE_SECTION_INFO} alters the symbol's name string.
+@deftypefn {Target Hook} const char *TARGET_STRIP_NAME_ENCODING (const char *name)
+Decode @var{name} and return the real name part, sans
+the characters that @code{TARGET_ENCODE_SECTION_INFO}
+may have added.
+@end deftypefn
 
-@findex UNIQUE_SECTION
-@item UNIQUE_SECTION (@var{decl}, @var{reloc})
-A C statement to build up a unique section name, expressed as a
-@code{STRING_CST} node, and assign it to @samp{DECL_SECTION_NAME (@var{decl})}.
-@var{reloc} indicates whether the initial value of @var{exp} requires
-link-time relocations.  If you do not define this macro, GCC will use
-the symbol name prefixed by @samp{.} as the section name.  Note - this
-macro can now be called for uninitialized data items as well as
-initialized data and functions.
-@end table
+@deftypefn {Target Hook} bool TARGET_IN_SMALL_DATA_P (tree @var{exp})
+Returns true if @var{exp} should be placed into a ``small data'' section.
+The default version of this hook always returns false.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_BINDS_LOCAL_P (tree @var{exp})
+Returns true if @var{exp} names an object for which name resolution
+rules must resolve to the current ``module'' (dynamic shared library
+or executable image).
+
+The default version of this hook implements the name resolution rules
+for ELF, which has a looser model of global name binding than other
+currently supported object file formats.
+@end deftypefn
 
 @node PIC
 @section Position Independent Code
@@ -6369,7 +6538,7 @@ A C statement (sans semicolon) to output a reference to
 @code{SYMBOL_REF} @var{sym}.  If not defined, @code{assemble_name}
 will be used to output the name of the symbol.  This macro may be used
 to modify the way a symbol is referenced depending on information
-encoded by @code{ENCODE_SECTION_INFO}.
+encoded by @code{TARGET_ENCODE_SECTION_INFO}.
 
 @findex ASM_OUTPUT_LABEL_REF
 @item ASM_OUTPUT_LABEL_REF (@var{stream}, @var{buf})
@@ -6925,10 +7094,10 @@ A C compound statement to output to stdio stream @var{stream} the
 assembler syntax for an instruction operand that is a memory reference
 whose address is @var{x}.  @var{x} is an RTL expression.
 
-@cindex @code{ENCODE_SECTION_INFO} usage
+@cindex @code{TARGET_ENCODE_SECTION_INFO} usage
 On some machines, the syntax for a symbolic address depends on the
-section that the address refers to.  On these machines, define the macro
-@code{ENCODE_SECTION_INFO} to store the information into the
+section that the address refers to.  On these machines, define the hook
+@code{TARGET_ENCODE_SECTION_INFO} to store the information into the
 @code{symbol_ref}, and then check for it here.  @xref{Assembler Format}.
 
 @findex DBR_OUTPUT_SEQEND
@@ -8038,6 +8207,50 @@ into the current function, despite its having target-specific
 attributes, @code{false} otherwise.  By default, if a function has a
 target specific attribute attached to it, it will not be inlined.
 @end deftypefn
+
+@node MIPS Coprocessors
+@section Defining coprocessor specifics for MIPS targets.
+@cindex MIPS coprocessor-definition macros
+
+The MIPS specification allows MIPS implementations to have as many as 4
+coprocessors, each with as many as 32 private registers.  gcc supports
+accessing these registers and transferring values between the registers
+and memory using asm-ized variables.  For example:
+
+@smallexample
+  register unsigned int cp0count asm ("c0r1");
+  unsigned int d;
+
+  d = cp0count + 3;
+@end smallexample
+
+(``c0r1'' is the default name of register 1 in coprocessor 0; alternate
+names may be added as described below, or the default names may be
+overridden entirely in @code{SUBTARGET_CONDITIONAL_REGISTER_USAGE}.)
+
+Coprocessor registers are assumed to be epilogue-used; sets to them will
+be preserved even if it does not appear that the register is used again
+later in the function.
+
+Another note: according to the MIPS spec, coprocessor 1 (if present) is
+the FPU.  One accesses COP1 registers through standard mips
+floating-point support; they are not included in this mechanism.
+
+There is one macro used in defining the MIPS coprocessor interface which
+you may want to override in subtargets; it is described below.
+
+@table @code
+
+@item ALL_COP_ADDITIONAL_REGISTER_NAMES
+@findex ALL_COP_ADDITIONAL_REGISTER_NAMES
+A comma-separated list (with leading comma) of pairs describing the
+alternate names of coprocessor registers.  The format of each entry should be
+@smallexample
+@{ @var{alternatename}, @var{register_number}@}
+@end smallexample
+Default: empty.
+
+@end table
 
 @node Misc
 @section Miscellaneous Parameters

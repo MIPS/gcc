@@ -31,7 +31,7 @@ Boston, MA 02111-1307, USA.  */
 /* CPP defines used for 64 bit code.  */
 #undef CPP_SUBTARGET_SPEC64
 #define CPP_SUBTARGET_SPEC64 \
-  "-D__sparc64__ -D__arch64__ -D__sparc_v9__ %{posix:-D_POSIX_SOURCE}"
+  "-D__sparc64__ -D__sparc_v9__ -D_LP64 %{posix:-D_POSIX_SOURCE}"
 
 /* CPP defines used for 32 bit code.  */
 #undef CPP_SUBTARGET_SPEC32
@@ -150,6 +150,7 @@ Boston, MA 02111-1307, USA.  */
   %{mcypress:-mcpu=cypress} \
   %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
   %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
+  %{m32:%{m64:%emay not use both -m32 and -m64}} \
   %{m64: \
     -mptr64 -mstack-bias -mno-v8plus -mlong-double-128 \
     %{!mcpu*: \
@@ -168,6 +169,7 @@ Boston, MA 02111-1307, USA.  */
   %{mcypress:-mcpu=cypress} \
   %{msparclite:-mcpu=sparclite} %{mf930:-mcpu=f930} %{mf934:-mcpu=f934} \
   %{mv8:-mcpu=v8} %{msupersparc:-mcpu=supersparc} \
+  %{m32:%{m64:%emay not use both -m32 and -m64}} \
   %{m32: \
     -mptr32 -mno-stack-bias \
     %{!mlong-double-128:-mlong-double-64} \
@@ -276,10 +278,6 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_SUBTARGET_SPEC \
   "%{!m32:%(cpp_subtarget_spec64)}%{m32:%(cpp_subtarget_spec32)}"
 #endif
-
-/* Restore this from sparc/sparc.h, netbsd.h changes it.  */
-#undef CPP_SPEC
-#define CPP_SPEC "%(cpp_cpu) %(cpp_arch) %(cpp_endian) %(cpp_subtarget)"
 
 /* Name the port. */
 #undef TARGET_NAME

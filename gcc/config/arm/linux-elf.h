@@ -1,5 +1,5 @@
 /* Definitions for ARM running Linux-based GNU systems using ELF
-   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001 
+   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001, 2002 
    Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org>
 
@@ -41,6 +41,10 @@ Boston, MA 02111-1307, USA.  */
 	{ "marm", "mlittle-endian", "mhard-float", "mapcs-32", "mno-thumb-interwork" }
 
 #define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"
+
+/* The GNU C++ standard library requires that these macros be defined.  */
+#undef CPLUSPLUS_CPP_SPEC
+#define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
 
 /* Now we define the strings used to build the spec file.  */
 #define LIB_SPEC \
@@ -85,10 +89,15 @@ Boston, MA 02111-1307, USA.  */
    %{mbig-endian:-EB}" \
    SUBTARGET_EXTRA_LINK_SPEC
 
-#undef  CPP_PREDEFINES
-#define CPP_PREDEFINES \
-"-Dunix -Dlinux -D__ELF__ \
--Asystem=unix -Asystem=posix"
+#define TARGET_OS_CPP_BUILTINS()		\
+    do {					\
+	builtin_define_std ("unix");		\
+	builtin_define_std ("linux");		\
+	builtin_define ("__gnu_linux__");	\
+	builtin_define ("__ELF__");		\
+	builtin_assert ("system=unix");		\
+	builtin_assert ("system=posix");	\
+    } while (0)
 
 /* Allow #sccs in preprocessor.  */
 #define SCCS_DIRECTIVE

@@ -1,3 +1,176 @@
+2002-05-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* gjavah.c (throwable_p): Do not free the name of the class after
+	passing it to find_class.
+	* java-tree.h (CLASS_BEING_LAIDOUT): Remove duplicate definition.
+	* jcf-io.c (dirent.h): Include it.
+	(fnmatch.h): Likewise.
+	(compare_path): New function.
+	(java_or_class_file): Likewise.
+	(memoized_dirlist_entry): New type.
+	(memoized_dirlist_lookup_eq): New function.
+	(memoized_dirlists): New variable.
+	(caching_stat): New function.
+	(memoized_class_lookup_eq): New function.
+	(memoized_class_lookups): Likewise.
+	(find_class): Use memoized_class_lookups and caching_stat.
+	* jcf.h (JCF_USE_SCANDIR): Define.
+	* parse.y (java_expand_classes): Write the class files in reverse
+	order.
+	
+2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Make-lang.in: Allow for PWDCMD to override hardcoded pwd.
+
+2002-05-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* jcf-write.c (write_classfile): Unlink the temporary file if it
+	cannot be renamed.  Use concat to build up the name of the
+	temporary file.
+
+2002-05-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* jcf-write.c (write_classfile): Write the file to a 
+	temporary file and then rename it.
+
+2002-05-07  Tom Tromey  <tromey@redhat.com>
+
+	* gjavah.c (throwable_p): Use xstrdup, not strdup.
+
+	Fix for PR java/1200:
+	* gjavah.c (throwable_p): New function.
+	(decode_signature_piece): Use it.  A `WeakReference' isn't the
+	same as a `jweak'.
+	Include hashtab.h.
+	(gcjh_streq): New function.
+
+2002-05-07  Andreas Jaeger  <aj@suse.de>
+
+        * parse.y (finish_for_loop): Fix if statement.
+
+2002-05-06  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/5941:
+	* parse.y (finish_for_loop): Set SUPPRESS_UNREACHABLE_ERROR for
+	loop update expression.
+	(java_complete_lhs): Use SUPPRESS_UNREACHABLE_ERROR.
+	* java-tree.h (SUPPRESS_UNREACHABLE_ERROR): New macro.
+
+2002-05-04  Mark Wielaard  <mark@klomp.org>
+
+	For PR java/6519:
+	* parse.y (build_string_concatenation): Return just op1 only when op2
+	is null and op1 is a STRING_CST, otherwise always construct a
+	StringBuffer.
+
+2002-04-27  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6382:
+	* parse.y (string_convert_int_cst): New function.
+	(merge_string_cste): Use it.
+
+2002-04-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* java-tree.h (java_parse_file): Update.
+	(java_set_yydebug): Remove.
+	* jcf-parse.c (yydebug): Remove.
+	(java_set_yydebug): Die.
+	(java_parse_file): Update.
+	* lang.c (LANG_HOOKS_SET_YYDEBUG): Remove.
+
+2002-04-24  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6425:
+	* parse.y (qualify_ambiguous_name) [case CALL_EXPR]: Always choose
+	EXPR_WFL_QUALIFICATION of qual_wfl.
+
+2002-04-23  Per Bothner  <per@bothner.com>
+
+	* expr.c (PRE_JSR):  Call NOTE_LABEL for return address.
+	* java-tree.h (BCODE_RETURN_TARGET):  Removed - never set.
+	(BCODE_TARGET):  Remove BCODE_RETURN_TARGET.
+
+2002-04-23  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6314:
+	* jvspec.c (lang_specific_driver): Use --resource, not -R.  Also
+	recognize `-fcompile-resource='.
+	* gcj.texi (Invoking gcj): Use --resource, not -R.  Expanded text
+	a bit.
+
+2002-04-22  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* jcf-parse.c: (yyparse): Don't prepend "./" to relative
+	paths. Fixes PR java/2791.
+
+2002-04-19  Andrew Haley  <aph@redhat.com>
+
+        * jcf-write.c (push_long_const): lo, hi: New variables.
+        Use rshift_double to extract the high part of a 64-bit long.
+        Use WORD_TO_INT to extract the low part.
+
+        * jcf-parse.c (get_constant): CONSTANT_Integer: Use an unsigned
+        HOST_WIDE_INT for num.  Use JPOOL_UINT to get it.
+        CONSTANT_Double: Use JPOOL_UINT to get both halve of a double.
+
+2002-04-18  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* typeck.c (incomplete_type_error): Remove.
+
+2002-04-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* class.c (make_class_data): Set DECL_ALIGN on static class data,
+	for hash synchronization.
+	* expr.c (java_expand_expr): Set DECL_ALIGN on static array objects.
+	* decl.c (java_init_decl_processing): Don't set TYPE_ALIGN for
+	class_type_node.
+
+2002-04-16  Mark Wielaard  <mark@klomp.org>
+
+	* jcf-write.c (generate_bytecode_insns): Only write const_0 if not
+	negative zero.
+
+2002-04-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Fix for PR java/6294:
+	* parse.h (INNER_INTERFACE_MODIFIERS): Allow ACC_PRIVATE for inner
+	interfaces.
+
+2002-04-15  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Fix for PR java/6085:
+	* parse.y (patch_method_invocation): Always use build_access_to_thisn
+	to get enclosing "this" argument for inner-class constructor
+	invocation. Pass correct arguments to build_access_to_thisn.
+
+2002-04-10  Andreas Jaeger  <aj@suse.de>
+
+	* gcj.texi (Input Options): Fix extdirs patch.
+
+2002-04-10  Anthony Green  <green@redhat.com>
+
+	* jcf-path.c (jcf_path_init) : Clean up local extdirs declaration.
+
+2002-04-09  Anthony Green  <green@redhat.com>
+
+	* gcj.texi (Input Options): Add --extdirs documentation.
+	* jcf-dump.c (OPT_extdirs): New macro.
+	(options): Add extdirs option.
+	(help): Describe --extdirs.
+	(main): Handle OPT_extdirs.
+	* gjavah.c (OPT_extdirs): New macro.
+	(options): Add extdirs option.
+	(help): Describe --extdirs.
+	(main): Handle OPT_extdirs.
+	* jcf-path.c (jcf_path_init): Add extdirs support.
+	(jcf_path_extdirs_arg): New function.
+	(extensions): New variable to hold extensions path entries.
+	* jvspec.c: Remove -fextdirs= when compiling main().
+	* lang.c (java_decode_option): Handle -fextdirs=.
+	* jcf.h (jcf_path_extdirs_arg): Declare new function.
+	* Make-lang.in: Compile jcf-path with version info for use in
+	identifying the appropriate libgcj.jar.
+
 2002-04-08  Tom Tromey  <tromey@redhat.com>
 
 	For PR libgcj/5303:
@@ -109,7 +282,7 @@ Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	Fix for PR java/5993:
 	* parse.y (resolve_package): Return the decl if resolution was
-	successful. Don't special case "java.lang" and "java.lang.reflect" 
+	successful. Don't special case "java.lang" and "java.lang.reflect"
 	packages. Set type_name to the merged identifier.
 	(resolved_qualified_expression_name): Print error using "name" if
 	resolve_package returns NULL_TREE.
@@ -187,7 +360,7 @@ Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-03-20  Nic Ferrier  <nferrier@tapsellferrier.co.uk>
 
-       	* gcj.texi: @code{gcj} becomes @command{gcj}.
+	* gcj.texi: @code{gcj} becomes @command{gcj}.
 	@code{gcc} becomes @command{gcc}.
 	GcjRaw changed to gnu.gcc.RawData.
 
@@ -281,9 +454,9 @@ Thu Mar 28 13:22:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	Fix for PR java/5812.
 	* expr.c (build_java_jsr):  Take pc arguments, and do lookup_label
-	gere instead of in JSR macro.  Likewise with load_type_state call.
+	here instead of in JSR macro.  Likewise with load_type_state call.
 	Do the latter on if the return_pc has been verified (the jsr returns).
-	(JSR):  No just call build_java_jsr.
+	(JSR):  Now just call build_java_jsr.
 
 2002-03-07  Jeff Sturm  <jsturm@one-point.com>
 

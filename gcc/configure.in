@@ -187,15 +187,17 @@ AC_ARG_ENABLE(checking,
 [  --enable-checking[=LIST]
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
-			  Categories are: misc,tree,rtl,gc,gcac; default
-			  is misc,tree,gc],
+			  Categories are: misc,tree,rtl,rtlflag,gc,gcac;
+			  default is misc,tree,gc,rtlflag],
 [ac_checking=
 ac_tree_checking=
 ac_rtl_checking=
+ac_rtlflag_checking=
 ac_gc_checking=
 ac_gc_always_collect=
 case "${enableval}" in
-yes)	ac_checking=1 ; ac_tree_checking=1 ; ac_gc_checking=1 ;;
+yes)	ac_checking=1 ; ac_tree_checking=1 ; ac_gc_checking=1 ;
+	ac_rtlflag_checking=1 ;;
 no)	;;
 *)	IFS="${IFS= 	}"; ac_save_IFS="$IFS"; IFS="$IFS,"
 	set fnord $enableval; shift
@@ -205,6 +207,7 @@ no)	;;
 		case $check in
 		misc)	ac_checking=1 ;;
 		tree)	ac_tree_checking=1 ;;
+		rtlflag)	ac_rtlflag_checking=1 ;;
 		rtl)	ac_rtl_checking=1 ;;
 		gc)	ac_gc_checking=1 ;;
 		gcac)	ac_gc_always_collect=1 ;;
@@ -215,7 +218,7 @@ no)	;;
 esac
 ], 
 # Enable some checks by default for development versions of GCC
-[ac_checking=1; ac_tree_checking=1; ac_gc_checking=1;])
+[ac_checking=1; ac_tree_checking=1; ac_gc_checking=1; ac_rtlflag_checking=1;])
 if test x$ac_checking != x ; then
   AC_DEFINE(ENABLE_CHECKING, 1,
 [Define if you want more run-time sanity checks.  This one gets a grab
@@ -232,6 +235,12 @@ if test x$ac_rtl_checking != x ; then
 [Define if you want all operations on RTL (the basic data structure
    of the optimizer and back end) to be checked for dynamic type safety
    at runtime.  This is quite expensive.])
+fi
+if test x$ac_rtlflag_checking != x ; then
+  AC_DEFINE(ENABLE_RTL_FLAG_CHECKING, 1,
+[Define if you want RTL flag accesses to be checked against the RTL
+   codes that are supported for each access macro.  This is relatively
+   cheap.])
 fi
 if test x$ac_gc_checking != x ; then
   AC_DEFINE(ENABLE_GC_CHECKING, 1,
@@ -605,7 +614,8 @@ dnl gcc_AC_C_ENUM_BF_UNSIGNED
 
 AC_CHECK_FUNCS(times clock dup2 kill getrlimit setrlimit atoll atoq \
 	sysconf strsignal putc_unlocked fputc_unlocked fputs_unlocked \
-	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo lstat)
+	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo lstat \
+        scandir alphasort)
 
 AC_CHECK_TYPE(ssize_t, int)
 
@@ -999,9 +1009,9 @@ fi
 esac
 
 # Get an absolute path to the GCC top-level source directory
-holddir=`pwd`
+holddir=`${PWDCMD-pwd}`
 cd $srcdir
-topdir=`pwd`
+topdir=`${PWDCMD-pwd}`
 cd $holddir
 
 # Conditionalize the makefile for this host machine.
@@ -1219,6 +1229,7 @@ changequote([,])dnl
 changequote(,)dnl
 	gcc_cv_gas_major_version=`expr "$gcc_cv_gas_version" : "VERSION=\([0-9]*\)"`
 	gcc_cv_gas_minor_version=`expr "$gcc_cv_gas_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
+	gcc_cv_gas_patch_version=`expr "$gcc_cv_gas_version" : "VERSION=[0-9]*\.[0-9]*\.\([0-9]*\)"`
 changequote([,])dnl
 fi
 
@@ -1501,7 +1512,13 @@ AC_MSG_RESULT($gcc_cv_as_weak)
 AC_MSG_CHECKING(assembler hidden support)
 gcc_cv_as_hidden=no
 if test x$gcc_cv_gas_major_version != x -a x$gcc_cv_gas_minor_version != x; then
-  if test "$gcc_cv_gas_major_version" -eq 2 -a "$gcc_cv_gas_minor_version" -ge 10 -o "$gcc_cv_gas_major_version" -gt 2 && grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
+  if test "$gcc_cv_gas_major_version" -eq 2	\
+	  -a "$gcc_cv_gas_minor_version" -eq 12	\
+	  -a "$gcc_cv_gas_patch_version" -ge 1	\
+	  -o "$gcc_cv_gas_major_version" -eq 2	\
+	  -a "$gcc_cv_gas_minor_version" -gt 12	\
+	  -o "$gcc_cv_gas_major_version" -gt 2	\
+    && grep 'obj_format = elf' ../gas/Makefile > /dev/null; then
     gcc_cv_as_hidden="yes"
   fi
 elif test x$gcc_cv_as != x; then
@@ -1512,6 +1529,19 @@ elif test x$gcc_cv_as != x; then
 		gcc_cv_as_hidden="yes"
 	fi
 	rm -f conftest.s conftest.o conftest.nm1 conftest.nm2
+
+ 	# GNU LD versions before 2.12.1 have buggy support for STV_HIDDEN.
+	# This is irritatingly difficult to feature test for.  Look for 
+	# the date string after the version number.
+	ld_ver=`$gcc_cv_ld --version 2>/dev/null | head -1`
+	if echo "$ld_ver" | grep GNU > /dev/null; then
+changequote(,)dnl
+		ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,;p'`
+changequote([,])dnl
+		if test 0"$ld_date" -lt 20020404; then
+			gcc_cv_as_hidden="no"
+		fi
+	fi
 fi
 if test x"$gcc_cv_as_hidden" = xyes; then
 	AC_DEFINE(HAVE_GAS_HIDDEN, 1,
@@ -1793,43 +1823,6 @@ EOF
 	AC_DEFINE(HAVE_AS_SPARC_UA_PCREL_HIDDEN, 1,
 		[Define if your assembler and linker support unaligned PC relative relocs against hidden symbols.])
     fi
-
-    case "$tm_file" in
-    *64*)
-	AC_CACHE_CHECK([for 64 bit support in assembler ($gcc_cv_as)],
-	    gcc_cv_as_flags64, [
-		if test -n "$gcc_cv_as"; then
-		    echo ".xword foo" > conftest.s
-		    gcc_cv_as_flags64=no
-		    for flag in "-xarch=v9" "-64 -Av9"; do
-			if $gcc_cv_as $flag -o conftest.o conftest.s \
-			    > /dev/null 2>&1; then
-			    gcc_cv_as_flags64=$flag
-			    break
-			fi
-		    done
-		    rm -f conftest.s conftest.o
-		else
-		    if test "$gas" = yes; then
-			gcc_cv_as_flags64="-64 -Av9"
-		    else
-			gcc_cv_as_flags64="-xarch=v9"
-		    fi
-		fi
-	])
-	if test "x$gcc_cv_as_flags64" = xno; then
-changequote(, )
-	    tmake_file=`echo " $tmake_file " | sed -e 's, sparc/t-sol2-64 , ,' -e 's,^ ,,' -e 's, $,,'`
-	    dep_tmake_file=`echo " $dep_tmake_file " | sed -e 's, [^ ]*/config/sparc/t-sol2-64 , ,' -e 's,^ ,,' -e 's, $,,'`
-changequote([, ])
-	else
-	    AC_DEFINE_UNQUOTED(AS_SPARC64_FLAG, "$gcc_cv_as_flags64",
-			[Define if the assembler supports 64bit sparc.])
-	fi
-	;;
-    *) gcc_cv_as_flags64=${gcc_cv_as_flags64-no}
-	;;
-    esac
 
     if test "x$gcc_cv_as_flags64" != xno; then
 	AC_CACHE_CHECK([for assembler offsetable %lo() support],
@@ -2391,7 +2384,7 @@ fi)
 AC_SUBST(slibdir)
 
 # Nothing to do for FLOAT_H, float_format already handled.
-objdir=`pwd`
+objdir=`${PWDCMD-pwd}`
 AC_SUBST(objdir)
 
 # Process the language and host/target makefile fragments.
@@ -2512,7 +2505,7 @@ esac
 if test "$symbolic_link" = "ln -s"; then
  for d in .. ${subdirs} fixinc ; do
    if test $d != ..; then
-	STARTDIR=`pwd`
+	STARTDIR=`${PWDCMD-pwd}`
 	cd $d
 	for t in stage1 stage2 stage3 stage4 include
 	do

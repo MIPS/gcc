@@ -74,6 +74,12 @@ int rs6000_long_double_type_size;
 /* Whether -mabi=altivec has appeared */
 int rs6000_altivec_abi;
 
+/* Whether VRSAVE instructions should be generated.  */
+int rs6000_altivec_vrsave;
+
+/* String from -mvrsave= option.  */
+const char *rs6000_altivec_vrsave_string;
+
 /* Set to non-zero once AIX common-mode calls have been defined.  */
 static int common_mode_defined;
 
@@ -118,6 +124,13 @@ char toc_label_name[10];
 /* Alias set for saves and restores from the rs6000 stack.  */
 static int rs6000_sr_alias_set;
 
+/* Call distance, overridden by -mlongcall and #pragma longcall(1).
+   The only place that looks at this is rs6000_set_default_type_attributes;
+   everywhere else should rely on the presence or absence of a longcall
+   attribute on the function declaration.  */
+int rs6000_default_long_calls;
+const char *rs6000_longcall_switch;
+
 static void rs6000_add_gc_roots PARAMS ((void));
 static int num_insns_constant_wide PARAMS ((HOST_WIDE_INT));
 static rtx expand_block_move_mem PARAMS ((enum machine_mode, rtx, rtx));
@@ -140,6 +153,7 @@ static bool rs6000_assemble_integer PARAMS ((rtx, unsigned int, int));
 static int rs6000_ra_ever_killed PARAMS ((void));
 static tree rs6000_handle_longcall_attribute PARAMS ((tree *, tree, tree, int, bool *));
 const struct attribute_spec rs6000_attribute_table[];
+static void rs6000_set_default_type_attributes PARAMS ((tree));
 static void rs6000_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void rs6000_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static rtx rs6000_emit_set_long_const PARAMS ((rtx,
@@ -149,10 +163,25 @@ static unsigned int rs6000_elf_section_type_flags PARAMS ((tree, const char *,
 							   int));
 static void rs6000_elf_asm_out_constructor PARAMS ((rtx, int));
 static void rs6000_elf_asm_out_destructor PARAMS ((rtx, int));
+static void rs6000_elf_select_section PARAMS ((tree, int,
+						 unsigned HOST_WIDE_INT));
+static void rs6000_elf_unique_section PARAMS ((tree, int));
+static void rs6000_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						   unsigned HOST_WIDE_INT));
+static void rs6000_elf_encode_section_info PARAMS ((tree, int));
+static const char *rs6000_elf_strip_name_encoding PARAMS ((const char *));
 #endif
 #ifdef OBJECT_FORMAT_COFF
 static void xcoff_asm_named_section PARAMS ((const char *, unsigned int));
+static void rs6000_xcoff_select_section PARAMS ((tree, int,
+						 unsigned HOST_WIDE_INT));
+static void rs6000_xcoff_unique_section PARAMS ((tree, int));
+static void rs6000_xcoff_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						     unsigned HOST_WIDE_INT));
+static const char * rs6000_xcoff_strip_name_encoding PARAMS ((const char *));
 #endif
+static void rs6000_xcoff_encode_section_info PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
 static int rs6000_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int rs6000_adjust_priority PARAMS ((rtx, int));
 static int rs6000_issue_rate PARAMS ((void));
@@ -168,6 +197,7 @@ static rtx altivec_expand_predicate_builtin PARAMS ((enum insn_code, const char 
 static rtx altivec_expand_ternop_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_stv_builtin PARAMS ((enum insn_code, tree));
 static void rs6000_parse_abi_options PARAMS ((void));
+static void rs6000_parse_vrsave_option PARAMS ((void));
 static int first_altivec_reg_to_save PARAMS ((void));
 static unsigned int compute_vrsave_mask PARAMS ((void));
 static void is_altivec_return_reg PARAMS ((rtx, void *));
@@ -228,6 +258,8 @@ static const char alt_reg_names[][8] =
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE rs6000_attribute_table
+#undef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
+#define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES rs6000_set_default_type_attributes
 
 #undef TARGET_ASM_ALIGNED_DI_OP
 #define TARGET_ASM_ALIGNED_DI_OP DOUBLE_INT_ASM_OP
@@ -483,11 +515,13 @@ rs6000_override_options (default_cpu)
 	}
     }
 
-  if (flag_pic && DEFAULT_ABI == ABI_AIX && extra_warnings)
+  if (flag_pic != 0 && DEFAULT_ABI == ABI_AIX)
     {
-      warning ("-f%s ignored (all code is position independent)",
-	       (flag_pic > 1) ? "PIC" : "pic");
       flag_pic = 0;
+
+      if (extra_warnings)
+	warning ("-f%s ignored (all code is position independent)",
+		 (flag_pic > 1) ? "PIC" : "pic");
     }
 
 #ifdef XCOFF_DEBUGGING_INFO
@@ -534,6 +568,25 @@ rs6000_override_options (default_cpu)
   /* Handle -mabi= options.  */
   rs6000_parse_abi_options ();
 
+  /* Handle -mvrsave= option.  */
+  rs6000_parse_vrsave_option ();
+
+  /* Handle -m(no-)longcall option.  This is a bit of a cheap hack,
+     using TARGET_OPTIONS to handle a toggle switch, but we're out of
+     bits in target_flags so TARGET_SWITCHES cannot be used.
+     Assumption here is that rs6000_longcall_switch points into the
+     text of the complete option, rather than being a copy, so we can
+     scan back for the presence or absence of the no- modifier.  */
+  if (rs6000_longcall_switch)
+    {
+      const char *base = rs6000_longcall_switch;
+      while (base[-1] != 'm') base--;
+
+      if (*rs6000_longcall_switch != '\0')
+	error ("invalid option `%s'", base);
+      rs6000_default_long_calls = (base[0] != 'n');
+    }
+
 #ifdef TARGET_REGNAMES
   /* If the user desires alternate register names, copy in the
      alternate names now.  */
@@ -579,6 +632,21 @@ rs6000_override_options (default_cpu)
   /* Arrange to save and restore machine status around nested functions.  */
   init_machine_status = rs6000_init_machine_status;
   free_machine_status = rs6000_free_machine_status;
+}
+
+/* Handle -mvrsave= options.  */
+static void
+rs6000_parse_vrsave_option ()
+{
+  /* Generate VRSAVE instructions by default.  */
+  if (rs6000_altivec_vrsave_string == 0
+      || ! strcmp (rs6000_altivec_vrsave_string, "yes"))
+    rs6000_altivec_vrsave = 1;
+  else if (! strcmp (rs6000_altivec_vrsave_string, "no"))
+    rs6000_altivec_vrsave = 0;
+  else
+    error ("unknown -mvrsave= option specified: '%s'",
+	   rs6000_altivec_vrsave_string);
 }
 
 /* Handle -mabi= options.  */
@@ -648,19 +716,6 @@ rs6000_file_start (file, default_cpu)
       if (*start == '\0')
 	putc ('\n', file);
     }
-}
-
-
-/* Create a CONST_DOUBLE from a string.  */
-
-struct rtx_def *
-rs6000_float_const (string, mode)
-     const char *string;
-     enum machine_mode mode;
-{
-  REAL_VALUE_TYPE value;
-  value = REAL_VALUE_ATOF (string, mode);
-  return immed_real_const_1 (value, mode);
 }
 
 /* Return non-zero if this function is known to have a null epilogue.  */
@@ -1219,18 +1274,24 @@ easy_vector_constant (op)
 	 with CONST0_RTX for the current mode, but let's be safe
 	 instead.  */
 
-      if (GET_CODE (elt) == CONST_INT && INTVAL (elt) != 0)
-	return 0;
-
-      if (GET_CODE (elt) == CONST_DOUBLE
-	       && (CONST_DOUBLE_LOW (elt) != 0
-		   || CONST_DOUBLE_HIGH (elt) != 0))
-	return 0;
+      switch (GET_CODE (elt))
+	{
+	case CONST_INT:
+	  if (INTVAL (elt) != 0)
+	    return 0;
+	  break;
+	case CONST_DOUBLE:
+	  if (CONST_DOUBLE_LOW (elt) != 0 || CONST_DOUBLE_HIGH (elt) != 0)
+	    return 0;
+	  break;
+	default:
+	  return 0;
+	}
     }
 
   /* We could probably generate a few other constants trivially, but
      gcc doesn't generate them yet.  FIXME later.  */
-  return 0;
+  return 1;
 }
 
 /* Return 1 if the operand is the constant 0.  This works for scalars
@@ -1552,9 +1613,21 @@ lwa_operand (op, mode)
 	    || INTVAL (XEXP (XEXP (inner, 0), 1)) % 4 == 0));
 }
 
+/* Return 1 if the operand, used inside a MEM, is a SYMBOL_REF.  */
+
+int
+symbol_ref_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (mode != VOIDmode && GET_MODE (op) != mode)
+    return 0;
+
+  return (GET_CODE (op) == SYMBOL_REF);
+}
+
 /* Return 1 if the operand, used inside a MEM, is a valid first argument
-   to CALL.  This is a SYMBOL_REF or a pseudo-register, which will be
-   forced to lr.  */
+   to CALL.  This is a SYMBOL_REF, a pseudo-register, LR or CTR.  */
 
 int
 call_operand (op, mode)
@@ -1565,7 +1638,10 @@ call_operand (op, mode)
     return 0;
 
   return (GET_CODE (op) == SYMBOL_REF
-	  || (GET_CODE (op) == REG && REGNO (op) >= FIRST_PSEUDO_REGISTER));
+	  || (GET_CODE (op) == REG
+	      && (REGNO (op) == LINK_REGISTER_REGNUM
+		  || REGNO (op) == COUNT_REGISTER_REGNUM
+		  || REGNO (op) >= FIRST_PSEUDO_REGISTER)));
 }
 
 /* Return 1 if the operand is a SYMBOL_REF for a function known to be in
@@ -2000,6 +2076,7 @@ rs6000_legitimate_address (mode, x, reg_ok_strict)
   if (LEGITIMATE_INDIRECT_ADDRESS_P (x, reg_ok_strict))
     return 1;
   if ((GET_CODE (x) == PRE_INC || GET_CODE (x) == PRE_DEC)
+      && !ALTIVEC_VECTOR_MODE (mode)
       && TARGET_UPDATE
       && LEGITIMATE_INDIRECT_ADDRESS_P (XEXP (x, 0), reg_ok_strict))
     return 1;
@@ -2238,7 +2315,7 @@ rs6000_emit_move (dest, source, mode)
 
   /* Handle the case where reload calls us with an invalid address;
      and the case of CONSTANT_P_RTX.  */
-  if (!VECTOR_MODE_P (mode)
+  if (!ALTIVEC_VECTOR_MODE (mode)
       && (! general_operand (operands[1], mode)
 	  || ! nonimmediate_operand (operands[0], mode)
 	  || GET_CODE (operands[1]) == CONSTANT_P_RTX))
@@ -2492,8 +2569,10 @@ init_cumulative_args (cum, fntype, libname, incoming)
 
   cum->orig_nargs = cum->nargs_prototype;
 
-  /* Check for longcall's */
-  if (fntype && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype)))
+  /* Check for a longcall attribute.  */
+  if (fntype
+      && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype))
+      && !lookup_attribute ("shortcall", TYPE_ATTRIBUTES (fntype)))
     cum->call_cookie = CALL_LONG;
 
   if (TARGET_DEBUG_ARG)
@@ -3146,8 +3225,8 @@ rs6000_va_arg (valist, type)
   lab_over = gen_label_rtx ();
   addr_rtx = gen_reg_rtx (Pmode);
 
-  /*  Vectors never go in registers.  */
-  if (TREE_CODE (type) != VECTOR_TYPE)
+  /*  AltiVec vectors never go in registers.  */
+  if (!TARGET_ALTIVEC || TREE_CODE (type) != VECTOR_TYPE)
     {
       TREE_THIS_VOLATILE (reg) = 1;
       emit_cmp_and_jump_insns
@@ -3201,7 +3280,8 @@ rs6000_va_arg (valist, type)
      All AltiVec vectors go in the overflow area.  So in the AltiVec
      case we need to get the vectors from the overflow area, but
      remember where the GPRs and FPRs are.  */
-  if (n_reg > 1 && TREE_CODE (type) != VECTOR_TYPE)
+  if (n_reg > 1 && (TREE_CODE (type) != VECTOR_TYPE
+		    || !TARGET_ALTIVEC))
     {
       t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
       TREE_SIDE_EFFECTS (t) = 1;
@@ -3215,8 +3295,8 @@ rs6000_va_arg (valist, type)
     {
       int align;
 
-      /* Vectors are 16 byte aligned.  */
-      if (TREE_CODE (type) == VECTOR_TYPE)
+      /* AltiVec vectors are 16 byte aligned.  */
+      if (TARGET_ALTIVEC && TREE_CODE (type) == VECTOR_TYPE)
 	align = 15;
       else
 	align = 7;
@@ -3344,11 +3424,11 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vctuxs, "__builtin_altivec_vctuxs", ALTIVEC_BUILTIN_VCTUXS },
   { MASK_ALTIVEC, CODE_FOR_umaxv16qi3, "__builtin_altivec_vmaxub", ALTIVEC_BUILTIN_VMAXUB },
   { MASK_ALTIVEC, CODE_FOR_smaxv16qi3, "__builtin_altivec_vmaxsb", ALTIVEC_BUILTIN_VMAXSB },
-  { MASK_ALTIVEC, CODE_FOR_uminv8hi3, "__builtin_altivec_vmaxuh", ALTIVEC_BUILTIN_VMAXUH },
-  { MASK_ALTIVEC, CODE_FOR_sminv8hi3, "__builtin_altivec_vmaxsh", ALTIVEC_BUILTIN_VMAXSH },
-  { MASK_ALTIVEC, CODE_FOR_uminv4si3, "__builtin_altivec_vmaxuw", ALTIVEC_BUILTIN_VMAXUW },
-  { MASK_ALTIVEC, CODE_FOR_sminv4si3, "__builtin_altivec_vmaxsw", ALTIVEC_BUILTIN_VMAXSW },
-  { MASK_ALTIVEC, CODE_FOR_sminv4sf3, "__builtin_altivec_vmaxfp", ALTIVEC_BUILTIN_VMAXFP },
+  { MASK_ALTIVEC, CODE_FOR_umaxv8hi3, "__builtin_altivec_vmaxuh", ALTIVEC_BUILTIN_VMAXUH },
+  { MASK_ALTIVEC, CODE_FOR_smaxv8hi3, "__builtin_altivec_vmaxsh", ALTIVEC_BUILTIN_VMAXSH },
+  { MASK_ALTIVEC, CODE_FOR_umaxv4si3, "__builtin_altivec_vmaxuw", ALTIVEC_BUILTIN_VMAXUW },
+  { MASK_ALTIVEC, CODE_FOR_smaxv4si3, "__builtin_altivec_vmaxsw", ALTIVEC_BUILTIN_VMAXSW },
+  { MASK_ALTIVEC, CODE_FOR_smaxv4sf3, "__builtin_altivec_vmaxfp", ALTIVEC_BUILTIN_VMAXFP },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmrghb, "__builtin_altivec_vmrghb", ALTIVEC_BUILTIN_VMRGHB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmrghh, "__builtin_altivec_vmrghh", ALTIVEC_BUILTIN_VMRGHH },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmrghw, "__builtin_altivec_vmrghw", ALTIVEC_BUILTIN_VMRGHW },
@@ -3502,6 +3582,24 @@ altivec_expand_unop_builtin (icode, arglist, target)
   if (arg0 == error_mark_node)
     return NULL_RTX;
 
+  switch (icode)
+    {
+      /* Only allow 5-bit *signed* literals.  */
+    case CODE_FOR_altivec_vspltisb:
+    case CODE_FOR_altivec_vspltish:
+    case CODE_FOR_altivec_vspltisw:
+      if (GET_CODE (op0) != CONST_INT
+	  || INTVAL (op0) > 0x1f
+	  || INTVAL (op0) < -0x1f)
+	{
+	  error ("argument 1 must be a 5-bit signed literal");
+	  return NULL_RTX;
+	}
+      break;
+    default:
+      break;
+    }
+
   if (target == 0
       || GET_MODE (target) != tmode
       || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
@@ -3571,6 +3669,27 @@ altivec_expand_binop_builtin (icode, arglist, target)
   /* If we got invalid arguments bail out before generating bad rtl.  */
   if (arg0 == error_mark_node || arg1 == error_mark_node)
     return NULL_RTX;
+
+  switch (icode)
+    {
+      /* Only allow 5-bit unsigned literals.  */
+    case CODE_FOR_altivec_vcfux:
+    case CODE_FOR_altivec_vcfsx:
+    case CODE_FOR_altivec_vctsxs:
+    case CODE_FOR_altivec_vctuxs:
+    case CODE_FOR_altivec_vspltb:
+    case CODE_FOR_altivec_vsplth:
+    case CODE_FOR_altivec_vspltw:
+      if (TREE_CODE (arg1) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg1) & ~0x1f)
+	{
+	  error ("argument 2 must be a 5-bit unsigned literal");
+	  return NULL_RTX;
+	}
+      break;
+    default:
+      break;
+    }
 
   if (target == 0
       || GET_MODE (target) != tmode
@@ -3729,6 +3848,24 @@ altivec_expand_ternop_builtin (icode, arglist, target)
       || arg1 == error_mark_node
       || arg2 == error_mark_node)
     return NULL_RTX;
+
+  switch (icode)
+    {
+      /* Only allow 4-bit unsigned literals.  */
+    case CODE_FOR_altivec_vsldoi_4sf:
+    case CODE_FOR_altivec_vsldoi_4si:
+    case CODE_FOR_altivec_vsldoi_8hi:
+    case CODE_FOR_altivec_vsldoi_16qi:
+      if (TREE_CODE (arg2) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg2) & ~0xf)
+	{
+	  error ("argument 3 must be a 4-bit unsigned literal");
+	  return NULL_RTX;
+	}
+      break;
+    default:
+      break;
+    }
 
   if (target == 0
       || GET_MODE (target) != tmode
@@ -3985,6 +4122,13 @@ altivec_expand_builtin (exp, target)
       if (arg0 == error_mark_node)
 	return NULL_RTX;
 
+      if (TREE_CODE (arg0) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg0) & ~0x3)
+	{
+	  error ("argument to dss must be a 2-bit unsigned literal");
+	  return NULL_RTX;
+	}
+
       if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
 
@@ -4013,16 +4157,17 @@ altivec_expand_builtin (exp, target)
 	    || arg2 == error_mark_node)
 	  return NULL_RTX;
 
+      if (TREE_CODE (arg2) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg2) & ~0x3)
+	{
+	  error ("argument to `%s' must be a 2-bit unsigned literal", d->name);
+	  return NULL_RTX;
+	}
+
 	if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
 	  op0 = copy_to_mode_reg (mode0, op0);
 	if (! (*insn_data[d->icode].operand[1].predicate) (op1, mode1))
 	  op1 = copy_to_mode_reg (mode1, op1);
-
-	if (GET_CODE (op2) != CONST_INT || INTVAL (op2) > 3)
-	  {
-	    error ("argument 3 of `%s' must be a 2-bit literal", d->name);
-	    return NULL_RTX;
-	  }
 
 	pat = GEN_FCN (d->icode) (op0, op1, op2);
 	if (pat != 0)
@@ -7224,8 +7369,17 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
   rtx op0 = rs6000_compare_op0;
   rtx op1 = rs6000_compare_op1;
   REAL_VALUE_TYPE c1;
-  enum machine_mode mode = GET_MODE (op0);
+  enum machine_mode compare_mode = GET_MODE (op0);
+  enum machine_mode result_mode = GET_MODE (dest);
   rtx temp;
+
+  /* These modes should always match. */
+  if (GET_MODE (op1) != compare_mode)
+    return 0;
+  if (GET_MODE (true_cond) != result_mode)
+    return 0;
+  if (GET_MODE (false_cond) != result_mode)
+    return 0;
 
   /* First, work out if the hardware can do this at all, or
      if it's too slow...  */
@@ -7269,11 +7423,11 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
   /* At this point we know we can use fsel.  */
 
   /* Reduce the comparison to a comparison against zero.  */
-  temp = gen_reg_rtx (mode);
+  temp = gen_reg_rtx (compare_mode);
   emit_insn (gen_rtx_SET (VOIDmode, temp,
-			  gen_rtx_MINUS (mode, op0, op1)));
+			  gen_rtx_MINUS (compare_mode, op0, op1)));
   op0 = temp;
-  op1 = CONST0_RTX (mode);
+  op1 = CONST0_RTX (compare_mode);
 
   /* If we don't care about NaNs we can reduce some of the comparisons
      down to faster ones.  */
@@ -7303,52 +7457,52 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
       break;
 
     case LE:
-      temp = gen_reg_rtx (mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
+      temp = gen_reg_rtx (compare_mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
       op0 = temp;
       break;
 
     case ORDERED:
-      temp = gen_reg_rtx (mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_ABS (mode, op0)));
+      temp = gen_reg_rtx (compare_mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_ABS (compare_mode, op0)));
       op0 = temp;
       break;
 
     case EQ:
-      temp = gen_reg_rtx (mode);
+      temp = gen_reg_rtx (compare_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp, 
-			      gen_rtx_NEG (mode,
-					   gen_rtx_ABS (mode, op0))));
+			      gen_rtx_NEG (compare_mode,
+					   gen_rtx_ABS (compare_mode, op0))));
       op0 = temp;
       break;
 
     case UNGE:
-      temp = gen_reg_rtx (mode);
+      temp = gen_reg_rtx (result_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp,
-			      gen_rtx_IF_THEN_ELSE (mode, 
+			      gen_rtx_IF_THEN_ELSE (result_mode,
 						    gen_rtx_GE (VOIDmode,
 								op0, op1),
 						    true_cond, false_cond)));
       false_cond = temp;
       true_cond = false_cond;
 
-      temp = gen_reg_rtx (mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
+      temp = gen_reg_rtx (compare_mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
       op0 = temp;
       break;
 
     case GT:
-      temp = gen_reg_rtx (mode);
+      temp = gen_reg_rtx (result_mode);
       emit_insn (gen_rtx_SET (VOIDmode, temp,
-			      gen_rtx_IF_THEN_ELSE (mode, 
+			      gen_rtx_IF_THEN_ELSE (result_mode, 
 						    gen_rtx_GE (VOIDmode,
 								op0, op1),
 						    true_cond, false_cond)));
       true_cond = temp;
       false_cond = true_cond;
 
-      temp = gen_reg_rtx (mode);
-      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
+      temp = gen_reg_rtx (compare_mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (compare_mode, op0)));
       op0 = temp;
       break;
 
@@ -7357,7 +7511,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
     }
 
   emit_insn (gen_rtx_SET (VOIDmode, dest,
-			  gen_rtx_IF_THEN_ELSE (GET_MODE (dest),
+			  gen_rtx_IF_THEN_ELSE (result_mode,
 						gen_rtx_GE (VOIDmode,
 							    op0, op1),
 						true_cond, false_cond)));
@@ -7738,7 +7892,7 @@ rs6000_stack_info ()
   info_ptr->parm_size    = RS6000_ALIGN (current_function_outgoing_args_size,
 					 8);
 
-  if (TARGET_ALTIVEC_ABI)
+  if (TARGET_ALTIVEC_ABI && TARGET_ALTIVEC_VRSAVE)
     {
       info_ptr->vrsave_mask = compute_vrsave_mask ();
       info_ptr->vrsave_size  = info_ptr->vrsave_mask ? 4 : 0;
@@ -9003,13 +9157,24 @@ rs6000_output_function_prologue (file, size)
   if (! HAVE_prologue)
     {
       start_sequence ();
-      
+
       /* A NOTE_INSN_DELETED is supposed to be at the start and end of
 	 the "toplevel" insn chain.  */
       emit_note (0, NOTE_INSN_DELETED);
       rs6000_emit_prologue ();
       emit_note (0, NOTE_INSN_DELETED);
-      
+
+      /* Expand INSN_ADDRESSES so final() doesn't crash. */
+      {
+	rtx insn;
+	unsigned addr = 0;
+	for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
+	  {
+	    INSN_ADDRESSES_NEW (insn, addr);
+	    addr += 4;
+	  }
+      }
+
       if (TARGET_DEBUG_STACK)
 	debug_rtx_list (get_insns (), 100);
       final (get_insns (), file, FALSE, FALSE);
@@ -9397,6 +9562,17 @@ rs6000_output_function_epilogue (file, size)
 	  rs6000_emit_epilogue (FALSE);
 	  emit_note (0, NOTE_INSN_DELETED);
 
+	  /* Expand INSN_ADDRESSES so final() doesn't crash. */
+	  {
+	    rtx insn;
+	    unsigned addr = 0;
+	    for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
+	      {
+		INSN_ADDRESSES_NEW (insn, addr);
+		addr += 4;
+	      }
+	  }
+
 	  if (TARGET_DEBUG_STACK)
 	    debug_rtx_list (get_insns (), 100);
 	  final (get_insns (), file, FALSE, FALSE);
@@ -9732,8 +9908,11 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
   fname = XSTR (XEXP (DECL_RTL (function), 0), 0);
 
   if (current_file_function_operand (XEXP (DECL_RTL (function), 0), VOIDmode)
-      && ! lookup_attribute ("longcall",
-			     TYPE_ATTRIBUTES (TREE_TYPE (function))))
+      && (! lookup_attribute ("longcall",
+			      TYPE_ATTRIBUTES (TREE_TYPE (function)))
+	  || lookup_attribute ("shortcall",
+			       TYPE_ATTRIBUTES (TREE_TYPE (function)))))
+
     {
       fprintf (file, "\tb %s", prefix);
       assemble_name (file, fname);
@@ -9868,9 +10047,7 @@ rs6000_hash_constant (k)
   if (GET_CODE (k) == LABEL_REF)
     return result * 1231 + X0INT (XEXP (k, 0), 3);
 
-  if (GET_CODE (k) == CONST_DOUBLE)
-    fidx = 1;
-  else if (GET_CODE (k) == CODE_LABEL)
+  if (GET_CODE (k) == CODE_LABEL)
     fidx = 3;
   else
     fidx = 0;
@@ -9936,29 +10113,7 @@ toc_hash_eq (h1, h2)
       != ((const struct toc_hash_struct *) h2)->key_mode)
     return 0;
 
-  /* Gotcha:  One of these const_doubles will be in memory.
-     The other may be on the constant-pool chain.
-     So rtx_equal_p will think they are different...  */
-  if (r1 == r2)
-    return 1;
-  if (GET_CODE (r1) != GET_CODE (r2)
-      || GET_MODE (r1) != GET_MODE (r2))
-    return 0;
-  if (GET_CODE (r1) == CONST_DOUBLE)
-    {
-      int format_len = strlen (GET_RTX_FORMAT (CONST_DOUBLE));
-      int i;
-      for (i = 1; i < format_len; i++)
-	if (XWINT (r1, i) != XWINT (r2, i))
-	  return 0;
-      
-      return 1;
-    }
-  else if (GET_CODE (r1) == LABEL_REF)
-    return (CODE_LABEL_NUMBER (XEXP (r1, 0)) 
-	    == CODE_LABEL_NUMBER (XEXP (r2, 0)));
-  else
-    return rtx_equal_p (r1, r2);
+  return rtx_equal_p (r1, r2);
 }
 
 /* Mark the hash table-entry HASH_ENTRY.  */
@@ -10233,7 +10388,7 @@ output_toc (file, x, labelno, mode)
   else
     abort ();
 
-  STRIP_NAME_ENCODING (real_name, name);
+  real_name = (*targetm.strip_name_encoding) (name);
   if (TARGET_MINIMAL_TOC)
     fputs (TARGET_32BIT ? "\t.long " : DOUBLE_INT_ASM_OP, file);
   else
@@ -10404,10 +10559,8 @@ output_profile_hook (labelno)
       const char *label_name;
       rtx fun;
 
-      labelno += 1;
-
       ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
-      STRIP_NAME_ENCODING (label_name, ggc_strdup (buf));
+      label_name = (*targetm.strip_name_encoding) (ggc_strdup (buf));
       fun = gen_rtx_SYMBOL_REF (Pmode, label_name);
 
       emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 1,
@@ -10715,12 +10868,13 @@ rs6000_initialize_trampoline (addr, fnaddr, cxt)
 const struct attribute_spec rs6000_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "longcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
-  { NULL,       0, 0, false, false, false, NULL }
+  { "longcall",  0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
+  { "shortcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
+  { NULL,        0, 0, false, false, false, NULL }
 };
 
-/* Handle a "longcall" attribute; arguments as in struct
-   attribute_spec.handler.  */
+/* Handle a "longcall" or "shortcall" attribute; arguments as in
+   struct attribute_spec.handler.  */
 
 static tree
 rs6000_handle_longcall_attribute (node, name, args, flags, no_add_attrs)
@@ -10740,6 +10894,20 @@ rs6000_handle_longcall_attribute (node, name, args, flags, no_add_attrs)
     }
 
   return NULL_TREE;
+}
+
+/* Set longcall attributes on all functions declared when
+   rs6000_default_long_calls is true.  */
+static void
+rs6000_set_default_type_attributes (type)
+     tree type;
+{
+  if (rs6000_default_long_calls
+      && (TREE_CODE (type) == FUNCTION_TYPE
+	  || TREE_CODE (type) == METHOD_TYPE))
+    TYPE_ATTRIBUTES (type) = tree_cons (get_identifier ("longcall"),
+					NULL_TREE,
+					TYPE_ATTRIBUTES (type));
 }
 
 /* Return a reference suitable for calling a function with the
@@ -10770,6 +10938,8 @@ rs6000_longcall_ref (call_ref)
 }
 
 
+#ifdef USING_ELFOS_H
+
 /* A C statement or statements to switch to the appropriate section
    for output of RTX in mode MODE.  You can assume that RTX is some
    kind of constant in RTL.  The argument MODE is redundant except in
@@ -10779,22 +10949,16 @@ rs6000_longcall_ref (call_ref)
    Do not define this macro if you put all constants in the read-only
    data section.  */
 
-#ifdef USING_ELFOS_H
-
-void
-rs6000_select_rtx_section (mode, x)
+static void
+rs6000_elf_select_rtx_section (mode, x, align)
      enum machine_mode mode;
      rtx x;
+     unsigned HOST_WIDE_INT align;
 {
   if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (x, mode))
     toc_section ();
-  else if (flag_pic
-	   && (GET_CODE (x) == SYMBOL_REF
-	       || GET_CODE (x) == LABEL_REF
-	       || GET_CODE (x) == CONST))
-    data_section ();
   else
-    const_section ();
+    default_elf_select_rtx_section (mode, x, align);
 }
 
 /* A C statement or statements to switch to the appropriate
@@ -10802,16 +10966,17 @@ rs6000_select_rtx_section (mode, x)
    or a constant of some sort.  RELOC indicates whether forming
    the initial value of DECL requires link-time relocations.  */
 
-void
-rs6000_select_section (decl, reloc)
+static void
+rs6000_elf_select_section (decl, reloc, align)
      tree decl;
      int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
 {
   int size = int_size_in_bytes (TREE_TYPE (decl));
   int needs_sdata;
   int readonly;
   static void (* const sec_funcs[4]) PARAMS ((void)) = {
-    &const_section,
+    &readonly_data_section,
     &sdata2_section,
     &data_section,
     &sdata_section
@@ -10851,8 +11016,8 @@ rs6000_select_section (decl, reloc)
    macro can now be called for uninitialized data items as well as
    initialised data and functions.  */
 
-void
-rs6000_unique_section (decl, reloc)
+static void
+rs6000_elf_unique_section (decl, reloc)
      tree decl;
      int reloc;
 {
@@ -10913,7 +11078,8 @@ rs6000_unique_section (decl, reloc)
 	}
     }
 
-  STRIP_NAME_ENCODING (name, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  name = (*targetm.strip_name_encoding) (name);
   prefix = prefixes[sec][DECL_ONE_ONLY (decl)];
   len    = strlen (name) + strlen (prefix);
   string = alloca (len + 1);
@@ -10932,8 +11098,8 @@ rs6000_unique_section (decl, reloc)
    the function descriptor name.  This saves a lot of overriding code
    to read the prefixes.  */
 
-void
-rs6000_encode_section_info (decl, first)
+static void
+rs6000_elf_encode_section_info (decl, first)
      tree decl;
      int first;
 {
@@ -11003,6 +11169,15 @@ rs6000_encode_section_info (decl, first)
 	  XSTR (sym_ref, 0) = ggc_alloc_string (str, len + 1);
 	}
     }
+}
+
+static const char *
+rs6000_elf_strip_name_encoding (str)
+     const char *str;
+{
+  while (*str == '*' || *str == '@')
+    str++;
+  return str;
 }
 
 #endif /* USING_ELFOS_H */
@@ -11270,7 +11445,7 @@ machopic_output_stub (file, symb, stub)
   static int label = 0;
 
   /* Lose our funky encoding stuff so it doesn't contaminate the stub.  */
-  STRIP_NAME_ENCODING (symb, symb);
+  symb = (*targetm.strip_name_encoding) (symb);
 
   label += 1;
 
@@ -11476,4 +11651,100 @@ xcoff_asm_named_section (name, flags)
 {
   fprintf (asm_out_file, "\t.csect %s\n", name);
 }
-#endif
+
+static void
+rs6000_xcoff_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if ((TREE_CODE (exp) == STRING_CST
+       && ! flag_writable_strings)
+      || (TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
+	  && TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp)
+	  && DECL_INITIAL (exp)
+	  && (DECL_INITIAL (exp) == error_mark_node
+	      || TREE_CONSTANT (DECL_INITIAL (exp)))
+	  && ! (reloc)))
+    {
+      if (TREE_PUBLIC (exp))
+        read_only_data_section ();
+      else
+        read_only_private_data_section ();
+    }
+  else
+    {
+      if (TREE_PUBLIC (exp))
+        data_section ();
+      else
+        private_data_section ();
+    }
+}
+
+static void
+rs6000_xcoff_unique_section (decl, reloc)
+     tree decl;
+     int reloc ATTRIBUTE_UNUSED;
+{
+  const char *name;
+  char *string;
+  size_t len;
+
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      len = strlen (name) + 5;
+      string = alloca (len + 1);
+      sprintf (string, ".%s[PR]", name);
+      DECL_SECTION_NAME (decl) = build_string (len, string);
+    }
+}
+
+/* Select section for constant in constant pool.
+
+   On RS/6000, all constants are in the private read-only data area.
+   However, if this is being placed in the TOC it must be output as a
+   toc entry.  */
+
+static void
+rs6000_xcoff_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (x, mode))
+    toc_section ();
+  else
+    read_only_private_data_section ();
+}
+
+/* Remove any trailing [DS] or the like from the symbol name.  */
+
+static const char *
+rs6000_xcoff_strip_name_encoding (name)
+     const char *name;
+{
+  size_t len;
+  if (*name == '*')
+    name++;
+  len = strlen (name);
+  if (name[len - 1] == ']')
+    return ggc_alloc_string (name, len - 4);
+  else
+    return name;
+}
+
+#endif /* OBJECT_FORMAT_COFF */
+
+/* Note that this is also used for ELF64.  */
+
+static void
+rs6000_xcoff_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && (TREE_ASM_WRITTEN (decl) || ! TREE_PUBLIC (decl))
+      && ! DECL_WEAK (decl))
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}

@@ -1,5 +1,5 @@
 /* Simple bitmaps.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -457,7 +457,7 @@ sbitmap_intersection_of_succs (dst, src, bb)
   for (e = b->succ; e != 0; e = e->succ_next)
     {
       if (e->dest == EXIT_BLOCK_PTR)
-        continue;
+	continue;
 
       sbitmap_copy (dst, src[e->dest->index]);
       break;
@@ -497,7 +497,7 @@ sbitmap_intersection_of_preds (dst, src, bb)
   for (e = b->pred; e != 0; e = e->pred_next)
     {
       if (e->src == ENTRY_BLOCK_PTR)
-        continue;
+	continue;
 
       sbitmap_copy (dst, src[e->src->index]);
       break;
@@ -537,7 +537,7 @@ sbitmap_union_of_succs (dst, src, bb)
   for (e = b->succ; e != 0; e = e->succ_next)
     {
       if (e->dest == EXIT_BLOCK_PTR)
-        continue;
+	continue;
 
       sbitmap_copy (dst, src[e->dest->index]);
       break;
@@ -577,7 +577,7 @@ sbitmap_union_of_preds (dst, src, bb)
   for (e = b->pred; e != 0; e = e->pred_next)
     {
       if (e->src== ENTRY_BLOCK_PTR)
-        continue;
+	continue;
 
       sbitmap_copy (dst, src[e->src->index]);
       break;
@@ -593,7 +593,7 @@ sbitmap_union_of_preds (dst, src, bb)
 
 	if (e->src == ENTRY_BLOCK_PTR)
 	  continue;
-	
+
 	p = src[e->src->index]->elms;
 	r = dst->elms;
 	for (i = 0; i < set_size; i++)

@@ -77,17 +77,13 @@ Boston, MA 02111-1307, USA.  */
 #define DWARF2_UNWIND_INFO	\
   ((TARGET_ELF) ? 1 : 0 )  
 
-#undef CONST_SECTION_ASM_OP
-#define CONST_SECTION_ASM_OP_COFF	"\t.section\t.rodata, \"x\""
-#define CONST_SECTION_ASM_OP_ELF	"\t.section\t.rodata"
-#define CONST_SECTION_ASM_OP	\
-  ((TARGET_ELF) ? CONST_SECTION_ASM_OP_ELF : CONST_SECTION_ASM_OP_COFF)
-
-#undef USE_CONST_SECTION
-#define USE_CONST_SECTION_ELF		1
-#define USE_CONST_SECTION_COFF		0
-#define USE_CONST_SECTION	\
- ((TARGET_ELF) ? USE_CONST_SECTION_ELF : USE_CONST_SECTION_COFF)
+#undef READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP_COFF	"\t.section\t.rodata, \"x\""
+#define READONLY_DATA_SECTION_ASM_OP_ELF	"\t.section\t.rodata"
+#define READONLY_DATA_SECTION_ASM_OP		\
+  ((TARGET_ELF)					\
+   ? READONLY_DATA_SECTION_ASM_OP_ELF		\
+   : READONLY_DATA_SECTION_ASM_OP_COFF)
 
 #undef INIT_SECTION_ASM_OP
 #define INIT_SECTION_ASM_OP_ELF		"\t.section\t.init"
@@ -352,19 +348,6 @@ do {									\
         fprintf ((FILE), "\n");						\
 } while (0) 
 
-/* Must use data section for relocatable constants when pic.  */
-#undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE,RTX,ALIGN)				\
-{									\
-  if (TARGET_ELF) {							\
-    if (flag_pic && symbolic_operand (RTX, VOIDmode))			\
-      data_section ();							\
-    else								\
-      const_section ();							\
-  } else								\
-    readonly_data_section();						\
-}
-
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,JUMPTABLE)		\
 do {									\
@@ -458,27 +441,12 @@ do {									\
   ((TARGET_ELF) ? DWARF2_DEBUG: SDB_DEBUG)
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_init, in_fini
+#define EXTRA_SECTIONS in_init, in_fini
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
   INIT_SECTION_FUNCTION							\
   FINI_SECTION_FUNCTION
-
-#undef CONST_SECTION_FUNCTION
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  if (!USE_CONST_SECTION)						\
-    text_section();							\
-  else if (in_section != in_const)					\
-    {									\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);		\
-      in_section = in_const;						\
-    }									\
-}
 
 #undef FINI_SECTION_FUNCTION
 #define FINI_SECTION_FUNCTION						\
@@ -540,28 +508,9 @@ init_section ()								\
 	      == void_type_node))) ? (SIZE)				\
    : 0))
 
-#undef SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
-{									\
-  if (TARGET_ELF && flag_pic && RELOC)					\
-     data_section ();							\
-  else if (TREE_CODE (DECL) == STRING_CST)				\
-    {									\
-      if (! flag_writable_strings)					\
-	const_section ();						\
-      else								\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE (DECL) == VAR_DECL)				\
-    {									\
-      if (! DECL_READONLY_SECTION (DECL, RELOC)) 			\
-	data_section ();						\
-      else								\
-	const_section ();						\
-    }									\
-  else									\
-    const_section ();							\
-}
+/* ??? Ignore coff.  */
+#undef	TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION  default_elf_select_section
 
 #undef SWITCH_TAKES_ARG
 #define SWITCH_TAKES_ARG(CHAR) 						\

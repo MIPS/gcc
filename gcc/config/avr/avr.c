@@ -47,6 +47,7 @@
 static int    avr_naked_function_p PARAMS ((tree));
 static int    interrupt_function_p PARAMS ((tree));
 static int    signal_function_p    PARAMS ((tree));
+static int    avr_regs_to_save     PARAMS ((HARD_REG_SET *));
 static int    sequent_regs_live    PARAMS ((void));
 static const char * ptrreg_to_str  PARAMS ((int));
 static const char * cond_string    PARAMS ((enum rtx_code));
@@ -56,7 +57,6 @@ static int    out_set_stack_ptr    PARAMS ((FILE *, int, int));
 static RTX_CODE compare_condition  PARAMS ((rtx insn));
 static int    compare_sign_p       PARAMS ((rtx insn));
 static int    reg_was_0            PARAMS ((rtx insn, rtx op));
-static int    io_address_p         PARAMS ((rtx x, int size));
 void          debug_hard_reg_set   PARAMS ((HARD_REG_SET set));
 static tree   avr_handle_progmem_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree   avr_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
@@ -64,6 +64,8 @@ const struct attribute_spec avr_attribute_table[];
 static bool   avr_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void   avr_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void   avr_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void   avr_unique_section PARAMS ((tree, int));
+static void   avr_encode_section_info PARAMS ((tree, int));
 
 /* Allocate registers from r25 to r8 for parameters for function calls */
 #define FIRST_CUM_REG 26
@@ -138,9 +140,10 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "avr2",      AVR2 },
   { "at90s2313", AVR2 },
   { "at90s2323", AVR2 },
-  { "attiny22",  AVR2 },
   { "at90s2333", AVR2 },
   { "at90s2343", AVR2 },
+  { "attiny22",  AVR2 },
+  { "attiny26",  AVR2 },
   { "at90s4414", AVR2 },
   { "at90s4433", AVR2 },
   { "at90s4434", AVR2 },
@@ -152,22 +155,24 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega103", AVR3 },
   { "atmega603", AVR3 },
   { "at43usb320", AVR3 },
+  { "at43usb355", AVR3 },
   { "at76c711",  AVR3 },
     /* Enhanced, <= 8K.  */
   { "avr4",      AVR4 },
   { "atmega8",   AVR4 },
   { "atmega83",  AVR4 },
   { "atmega85",  AVR4 },
+  { "atmega8515", AVR4 },
     /* Enhanced, > 8K.  */
   { "avr5",      AVR5 },
   { "atmega16",  AVR5 },
   { "atmega161", AVR5 },
+  { "atmega162", AVR5 },
   { "atmega163", AVR5 },
   { "atmega32",  AVR5 },
   { "atmega323", AVR5 },
   { "atmega64",  AVR5 },
   { "atmega128", AVR5 },
-  { "at43usb355", AVR5 },
   { "at94k",     AVR5 },
     /* Assembler only.  */
   { "avr1",      AVR1 },
@@ -194,6 +199,10 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ASM_FUNCTION_EPILOGUE avr_output_function_epilogue
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE avr_attribute_table
+#undef TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION avr_unique_section
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO avr_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -358,6 +367,42 @@ signal_function_p (func)
   return a != NULL_TREE;
 }
 
+/* Return the number of hard registers to push/pop in the prologue/epilogue
+   of the current function, and optionally store these registers in SET.  */
+
+static int
+avr_regs_to_save (set)
+     HARD_REG_SET *set;
+{
+  int reg, count;
+  int int_or_sig_p = (interrupt_function_p (current_function_decl)
+		      || signal_function_p (current_function_decl));
+  int leaf_func_p = leaf_function_p ();
+
+  if (set)
+    CLEAR_HARD_REG_SET (*set);
+  count = 0;
+  for (reg = 0; reg < 32; reg++)
+    {
+      /* Do not push/pop __tmp_reg__, __zero_reg__, as well as
+	 any global register variables.  */
+      if (fixed_regs[reg])
+	continue;
+
+      if ((int_or_sig_p && !leaf_func_p && call_used_regs[reg])
+	  || (regs_ever_live[reg]
+	      && (int_or_sig_p || !call_used_regs[reg])
+	      && !(frame_pointer_needed
+		   && (reg == REG_Y || reg == (REG_Y+1)))))
+	{
+	  if (set)
+	    SET_HARD_REG_BIT (*set, reg);
+	  count++;
+	}
+    }
+  return count;
+}
+
 /* Compute offset between arg_pointer and frame_pointer */
 
 int
@@ -365,31 +410,15 @@ initial_elimination_offset (from, to)
      int from;
      int to;
 {
-  int reg;
   if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
     return 0;
   else
     {
-      int interrupt_func_p = interrupt_function_p (current_function_decl);
-      int signal_func_p = signal_function_p (current_function_decl);
-      int leaf_func_p = leaf_function_p ();
-      int offset= frame_pointer_needed ? 2 : 0;
+      int offset = frame_pointer_needed ? 2 : 0;
 
-      for (reg = 0; reg < 32; ++reg)
-	{
-	  if ((!leaf_func_p && (call_used_regs[reg]
-				&& (interrupt_func_p || signal_func_p)))
-	      || (regs_ever_live[reg]
-		  && (!call_used_regs[reg] || interrupt_func_p || signal_func_p)
-		  && ! (frame_pointer_needed
-			&& (reg == REG_Y || reg == (REG_Y+1)))))
-	    {
-	      ++offset;
-	    }
-	}
+      offset += avr_regs_to_save (NULL);
       return get_frame_size () + 2 + 1 + offset;
     }
-  return 0;
 }
 
 /* This function checks sequence of live registers */
@@ -564,7 +593,6 @@ avr_output_function_prologue (file, size)
   int reg;
   int interrupt_func_p;
   int signal_func_p;
-  int leaf_func_p;
   int main_p;
   int live_seq;
   int minimize;
@@ -577,7 +605,6 @@ avr_output_function_prologue (file, size)
 
   interrupt_func_p = interrupt_function_p (current_function_decl);
   signal_func_p = signal_function_p (current_function_decl);
-  leaf_func_p = leaf_function_p ();
   main_p = MAIN_NAME_P (DECL_NAME (current_function_decl));
   live_seq = sequent_regs_live ();
   minimize = (TARGET_CALL_PROLOGUES
@@ -593,7 +620,7 @@ avr_output_function_prologue (file, size)
       fprintf (file,"\tsei\n");
       ++prologue_size;
     }
-  if (interrupt_func_p | signal_func_p)
+  if (interrupt_func_p || signal_func_p)
     {
       fprintf (file, "\t"
                AS1 (push,__zero_reg__)   CR_TAB
@@ -642,20 +669,14 @@ avr_output_function_prologue (file, size)
     }
   else
     {
+      HARD_REG_SET set;
+
+      prologue_size += avr_regs_to_save (&set);
       for (reg = 0; reg < 32; ++reg)
 	{
-	  if ((!leaf_func_p
-	       && (call_used_regs[reg]
-		   && (interrupt_func_p || signal_func_p)
-		   && !(reg == TMP_REGNO || reg == ZERO_REGNO)))
-	      || (regs_ever_live[reg]
-		  && (!call_used_regs[reg]
-		      || interrupt_func_p || signal_func_p)
-		  && ! (frame_pointer_needed
-			&& (reg == REG_Y || reg == (REG_Y+1)))))
+	  if (TEST_HARD_REG_BIT (set, reg))
 	    {
 	      fprintf (file, "\t" AS1 (push,%s) "\n", avr_regnames[reg]);
-	      ++prologue_size;
 	    }
 	}
       if (frame_pointer_needed)
@@ -701,7 +722,6 @@ avr_output_function_epilogue (file, size)
   int reg;
   int interrupt_func_p;
   int signal_func_p;
-  int leaf_func_p;
   int main_p;
   int function_size;
   int live_seq;
@@ -715,7 +735,6 @@ avr_output_function_epilogue (file, size)
 
   interrupt_func_p = interrupt_function_p (current_function_decl);
   signal_func_p = signal_function_p (current_function_decl);
-  leaf_func_p = leaf_function_p ();
   main_p = MAIN_NAME_P (DECL_NAME (current_function_decl));
   function_size = (INSN_ADDRESSES (INSN_UID (get_last_insn ()))
 		   - INSN_ADDRESSES (INSN_UID (get_insns ())));
@@ -761,6 +780,8 @@ avr_output_function_epilogue (file, size)
     }
   else
     {
+      HARD_REG_SET set;
+
       if (frame_pointer_needed)
 	{
 	  if (size)
@@ -768,7 +789,7 @@ avr_output_function_epilogue (file, size)
 	      fputs ("\t", file);
 	      epilogue_size += out_adj_frame_ptr (file, -size);
 
-	      if (interrupt_func_p | signal_func_p)
+	      if (interrupt_func_p || signal_func_p)
 		{
 		  epilogue_size += out_set_stack_ptr (file, -1, 0);
 		}
@@ -783,24 +804,16 @@ avr_output_function_epilogue (file, size)
 	  epilogue_size += 2;
 	}
 
+      epilogue_size += avr_regs_to_save (&set);
       for (reg = 31; reg >= 0; --reg)
 	{
-	  if ((!leaf_func_p
-	       && (call_used_regs[reg]
-		   && (interrupt_func_p || signal_func_p)
-		   && !(reg == TMP_REGNO || reg == ZERO_REGNO)))
-	      || (regs_ever_live[reg]
-		  && (!call_used_regs[reg]
-		      || interrupt_func_p || signal_func_p)
-		  && ! (frame_pointer_needed
-			&& (reg == REG_Y || reg == (REG_Y+1)))))
+	  if (TEST_HARD_REG_BIT (set, reg))
 	    {
 	      fprintf (file, "\t" AS1 (pop,%s) "\n", avr_regnames[reg]);
-	      ++epilogue_size;
 	    }
 	}
-      
-      if (interrupt_func_p | signal_func_p)
+
+      if (interrupt_func_p || signal_func_p)
 	{
 	  fprintf (file, "\t"
 		   AS1 (pop,__tmp_reg__)      CR_TAB
@@ -1001,7 +1014,8 @@ print_operand_address (file, addr)
 
     default:
       if (CONSTANT_ADDRESS_P (addr)
-	  && (SYMBOL_REF_FLAG (addr) || GET_CODE (addr) == LABEL_REF))
+	  && ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_FLAG (addr))
+	      || GET_CODE (addr) == LABEL_REF))
 	{
 	  fprintf (file, "pm(");
 	  output_addr_const (file,addr);
@@ -1802,7 +1816,7 @@ out_movqi_r_mr (insn, op, l)
   
   if (CONSTANT_ADDRESS_P (x))
     {
-      if (io_address_p (x, 1))
+      if (avr_io_address_p (x, 1))
 	{
 	  *l = 1;
 	  return AS2 (in,%0,%1-0x20);
@@ -1971,7 +1985,7 @@ out_movhi_r_mr (insn, op, l)
     }
   else if (CONSTANT_ADDRESS_P (base))
     {
-      if (io_address_p (base, 2))
+      if (avr_io_address_p (base, 2))
 	{
 	  *l = 2;
 	  return (AS2 (in,%A0,%A1-0x20) CR_TAB
@@ -2514,7 +2528,7 @@ out_movqi_mr_r (insn, op, l)
   
   if (CONSTANT_ADDRESS_P (x))
     {
-      if (io_address_p (x, 1))
+      if (avr_io_address_p (x, 1))
 	{
 	  *l = 1;
 	  return AS2 (out,%0-0x20,%1);
@@ -2592,7 +2606,7 @@ out_movhi_mr_r (insn, op, l)
     l = &tmp;
   if (CONSTANT_ADDRESS_P (base))
     {
-      if (io_address_p (base, 2))
+      if (avr_io_address_p (base, 2))
 	{
 	  *l = 2;
 	  return (AS2 (out,%B0-0x20,%B1) CR_TAB
@@ -4495,17 +4509,17 @@ avr_assemble_integer (x, size, aligned_p)
 
 /* Sets section name for declaration DECL */
   
-void
-unique_section (decl, reloc)
+static void
+avr_unique_section (decl, reloc)
      tree decl;
      int reloc ATTRIBUTE_UNUSED;
 {
   int len;
   const char *name, *prefix;
   char *string;
+
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  /* Strip off any encoding in name.  */
-  STRIP_NAME_ENCODING (name, name);
+  name = (* targetm.strip_name_encoding) (name);
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
@@ -4738,10 +4752,10 @@ avr_progmem_p (decl)
   return 0;
 }
 
-/* Encode section information about tree DECL */
+/* Encode section information about tree DECL.  */
   
-void
-encode_section_info (decl, first)
+static void
+avr_encode_section_info (decl, first)
      tree decl;
      int first;
 {
@@ -4756,7 +4770,7 @@ encode_section_info (decl, first)
       DECL_SECTION_NAME (decl) = build_string (strlen (dsec), dsec);
       TREE_READONLY (decl) = 1;
     }
-}   
+}
 
 /* Outputs to the stdio stream FILE some
    appropriate text to go at the start of an assembler file.  */
@@ -4927,7 +4941,7 @@ avr_address_cost (x)
     return 18;
   if (CONSTANT_ADDRESS_P (x))
     {
-      if (io_address_p (x, 1))
+      if (avr_io_address_p (x, 1))
 	return 2;
       return 4;
     }
@@ -5053,11 +5067,11 @@ machine_dependent_reorg (first_insn)
 		  rtx pat = PATTERN (next);
 		  rtx src = SET_SRC (pat);
 		  rtx t = XEXP (src,0);
+		  enum machine_mode mode = GET_MODE (XEXP (pattern, 0));
 
-		  if (avr_simplify_comparision_p (GET_MODE (XEXP (pattern,0)),
-						  GET_CODE (t), x))
+		  if (avr_simplify_comparision_p (mode, GET_CODE (t), x))
 		    {
-		      XEXP (pattern,1) = GEN_INT (INTVAL (x)+1);
+		      XEXP (pattern, 1) = gen_int_mode (INTVAL (x) + 1, mode);
 		      PUT_CODE (t, avr_normalize_condition (GET_CODE (t)));
 		      INSN_CODE (next) = -1;
 		      INSN_CODE (insn) = -1;
@@ -5246,10 +5260,11 @@ reg_was_0 (insn, op)
 }
 
 /* Returns 1 if X is a valid address for an I/O register of size SIZE
-   (1 or 2).  Used for lds/sts -> in/out optimization.  */
+   (1 or 2).  Used for lds/sts -> in/out optimization.  Add 0x20 to SIZE
+   to check for the lower half of I/O space (for cbi/sbi/sbic/sbis).  */
 
-static int
-io_address_p (x, size)
+int
+avr_io_address_p (x, size)
      rtx x;
      int size;
 {

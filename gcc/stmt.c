@@ -54,6 +54,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "predict.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -204,7 +205,7 @@ struct nesting
 	  struct label_chain *label_chain;
 	  /* Number of function calls seen, as of start of this block.  */
 	  int n_function_calls;
-	  /* Nonzero if this is associated with a EH region.  */
+	  /* Nonzero if this is associated with an EH region.  */
 	  int exception_region;
 	  /* The saved target_temp_slot_level from our outer block.
 	     We may reset target_temp_slot_level to be the level of
@@ -414,6 +415,7 @@ static tree resolve_operand_names	PARAMS ((tree, tree, tree,
 						 const char **));
 static char *resolve_operand_name_1	PARAMS ((char *, tree, tree));
 static void expand_null_return_1	PARAMS ((rtx));
+static enum br_predictor return_prediction PARAMS ((rtx));
 static void expand_value_return		PARAMS ((rtx));
 static int tail_recursion_args		PARAMS ((tree, tree));
 static void expand_cleanups		PARAMS ((tree, tree, int, int));
@@ -494,7 +496,7 @@ mark_block_nesting (n)
       ggc_mark_tree (n->data.block.cleanups);
       ggc_mark_tree (n->data.block.outer_cleanups);
 
-      for (l = n->data.block.label_chain; l != NULL; l = l->next) 
+      for (l = n->data.block.label_chain; l != NULL; l = l->next)
 	{
 	  ggc_mark (l);
 	  ggc_mark_tree (l->label);
@@ -846,7 +848,7 @@ expand_goto (label)
 	  emit_indirect_jump (handler_slot);
 	}
 
-      /* Search backwards to the jump insn and mark it as a 
+      /* Search backwards to the jump insn and mark it as a
 	 non-local goto.  */
       for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
 	{
@@ -1045,8 +1047,8 @@ expand_fixup (tree_label, rtl_label, last_insn)
 	 as a placeholder.  */
 
       {
-        rtx original_before_jump
-          = last_insn ? last_insn : get_last_insn ();
+	rtx original_before_jump
+	  = last_insn ? last_insn : get_last_insn ();
 	rtx start;
 	rtx end;
 	tree block;
@@ -1064,17 +1066,17 @@ expand_fixup (tree_label, rtl_label, last_insn)
 	      = block;
 	  }
 
-        start_sequence ();
-        start = emit_note (NULL, NOTE_INSN_BLOCK_BEG);
+	start_sequence ();
+	start = emit_note (NULL, NOTE_INSN_BLOCK_BEG);
 	if (cfun->x_whole_function_mode_p)
 	  NOTE_BLOCK (start) = block;
 	fixup->before_jump = emit_note (NULL, NOTE_INSN_DELETED);
 	end = emit_note (NULL, NOTE_INSN_BLOCK_END);
 	if (cfun->x_whole_function_mode_p)
 	  NOTE_BLOCK (end) = block;
-        fixup->context = block;
-        end_sequence ();
-        emit_insns_after (start, original_before_jump);
+	fixup->context = block;
+	end_sequence ();
+	emit_insns_after (start, original_before_jump);
       }
 
       fixup->block_start_count = current_block_start_count;
@@ -1380,7 +1382,7 @@ parse_output_constraint (constraint_p, operand_num, ninputs, noutputs,
       case '=':
 	error ("operand constraint contains incorrectly positioned '+' or '='");
 	return false;
-	
+
       case '%':
 	if (operand_num + 1 == ninputs + noutputs)
 	  {
@@ -1417,7 +1419,7 @@ parse_output_constraint (constraint_p, operand_num, ninputs, noutputs,
 	*allows_reg = true;
 	*allows_mem = true;
 	break;
-	
+
       case 'p': case 'r':
 	*allows_reg = true;
 	break;
@@ -1573,7 +1575,7 @@ parse_input_constraint (constraint_p, input_num, ninputs, noutputs, ninout,
    OUTPUTS is a list of output arguments (lvalues); INPUTS a list of inputs.
    Each output or input has an expression in the TREE_VALUE and
    and a tree list in TREE_PURPOSE which in turn contains a constraint
-   name in TREE_VALUE (or NULL_TREE) and a constraint string 
+   name in TREE_VALUE (or NULL_TREE) and a constraint string
    in TREE_PURPOSE.
    CLOBBERS is a list of STRING_CST nodes each naming a hard register
    that is clobbered by this insn.
@@ -1750,7 +1752,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	  if ((! allows_mem && GET_CODE (output_rtx[i]) == MEM)
 	      || GET_CODE (output_rtx[i]) == CONCAT)
 	    {
-    	      real_output_rtx[i] = protect_from_queue (output_rtx[i], 1);
+	      real_output_rtx[i] = protect_from_queue (output_rtx[i], 1);
 	      output_rtx[i] = gen_reg_rtx (GET_MODE (output_rtx[i]));
 	      if (is_inout)
 		emit_move_insn (output_rtx[i], real_output_rtx[i]);
@@ -1779,7 +1781,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
   body = gen_rtx_ASM_OPERANDS ((noutputs == 0 ? VOIDmode
 				: GET_MODE (output_rtx[0])),
-			       TREE_STRING_POINTER (string), 
+			       TREE_STRING_POINTER (string),
 			       empty_string, 0, argvec, constraintvec,
 			       filename, line);
 
@@ -2034,7 +2036,7 @@ check_unique_operand_names (outputs, inputs)
 	continue;
 
       for (j = TREE_CHAIN (i); j ; j = TREE_CHAIN (j))
-	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
 	  goto failure;
     }
 
@@ -2045,10 +2047,10 @@ check_unique_operand_names (outputs, inputs)
 	continue;
 
       for (j = TREE_CHAIN (i); j ; j = TREE_CHAIN (j))
-	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
 	  goto failure;
       for (j = outputs; j ; j = TREE_CHAIN (j))
-	if (i_name == TREE_PURPOSE (TREE_PURPOSE (j)))
+	if (simple_cst_equal (i_name, TREE_PURPOSE (TREE_PURPOSE (j))))
 	  goto failure;
     }
 
@@ -2056,7 +2058,7 @@ check_unique_operand_names (outputs, inputs)
 
  failure:
   error ("duplicate asm operand name '%s'",
-	 IDENTIFIER_POINTER (TREE_PURPOSE (TREE_PURPOSE (i))));
+	 TREE_STRING_POINTER (TREE_PURPOSE (TREE_PURPOSE (i))));
   return false;
 }
 
@@ -2125,7 +2127,7 @@ resolve_operand_names (string, outputs, inputs, pconstraints)
 
 /* A subroutine of resolve_operand_names.  P points to the '[' for a
    potential named operand of the form [<name>].  In place, replace
-   the name and brackets with a number.  Return a pointer to the 
+   the name and brackets with a number.  Return a pointer to the
    balance of the string after substitution.  */
 
 static char *
@@ -2150,20 +2152,20 @@ resolve_operand_name_1 (p, outputs, inputs)
   /* Resolve the name to a number.  */
   for (op = 0, t = outputs; t ; t = TREE_CHAIN (t), op++)
     {
-      tree id = TREE_PURPOSE (TREE_PURPOSE (t));
-      if (id)
+      tree name = TREE_PURPOSE (TREE_PURPOSE (t));
+      if (name)
 	{
-	  const char *c = IDENTIFIER_POINTER (id);
+	  const char *c = TREE_STRING_POINTER (name);
 	  if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
 	    goto found;
 	}
     }
   for (t = inputs; t ; t = TREE_CHAIN (t), op++)
     {
-      tree id = TREE_PURPOSE (TREE_PURPOSE (t));
-      if (id)
+      tree name = TREE_PURPOSE (TREE_PURPOSE (t));
+      if (name)
 	{
-	  const char *c = IDENTIFIER_POINTER (id);
+	  const char *c = TREE_STRING_POINTER (name);
 	  if (strncmp (c, p + 1, len) == 0 && c[len] == '\0')
 	    goto found;
 	}
@@ -2405,12 +2407,16 @@ clear_last_expr ()
   last_expr_type = 0;
 }
 
-/* Begin a statement which will return a value.
-   Return the RTL_EXPR for this statement expr.
-   The caller must save that value and pass it to expand_end_stmt_expr.  */
+/* Begin a statement-expression, i.e., a series of statements which
+   may return a value.  Return the RTL_EXPR for this statement expr.
+   The caller must save that value and pass it to
+   expand_end_stmt_expr.  If HAS_SCOPE is nonzero, temporaries created
+   in the statement-expression are deallocated at the end of the
+   expression.  */
 
 tree
-expand_start_stmt_expr ()
+expand_start_stmt_expr (has_scope)
+     int has_scope;
 {
   tree t;
 
@@ -2418,7 +2424,10 @@ expand_start_stmt_expr ()
      so that rtl_expr_chain doesn't become garbage.  */
   t = make_node (RTL_EXPR);
   do_pending_stack_adjust ();
-  start_sequence_for_rtl_expr (t);
+  if (has_scope)
+    start_sequence_for_rtl_expr (t);
+  else
+    start_sequence ();
   NO_DEFER_POP;
   expr_stmts_for_value++;
   last_expr_value = NULL_RTX;
@@ -2688,7 +2697,7 @@ expand_end_loop ()
      the end of the entry condtional.  Without this, our lexical scan
      can't tell the difference between an entry conditional and a
      body conditional that exits the loop.  Mistaking the two means
-     that we can misplace the NOTE_INSN_LOOP_CONT note, which can 
+     that we can misplace the NOTE_INSN_LOOP_CONT note, which can
      screw up loop unrolling.
 
      Things will be oh so much better when loop optimization is done
@@ -2729,7 +2738,7 @@ expand_end_loop ()
 
 	/* Likewise for debug scopes.  In this case we'll either (1) move
 	   all of the notes if they are properly nested or (2) leave the
-	   notes alone and only rotate the loop at high optimization 
+	   notes alone and only rotate the loop at high optimization
 	   levels when we expect to scrog debug info.  */
 	else if (NOTE_LINE_NUMBER (etc_note) == NOTE_INSN_BLOCK_BEG)
 	  debug_blocks++;
@@ -2817,6 +2826,11 @@ int
 expand_continue_loop (whichloop)
      struct nesting *whichloop;
 {
+  /* Emit information for branch prediction.  */
+  rtx note;
+
+  note = emit_note (NULL, NOTE_INSN_PREDICTION);
+  NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_CONTINUE, IS_TAKEN);
   last_expr_type = 0;
   if (whichloop == 0)
     whichloop = loop_stack;
@@ -2876,7 +2890,7 @@ expand_exit_loop_if_false (whichloop, cond)
 }
 
 /* Like expand_exit_loop_if_false except also emit a note marking
-   the end of the conditional.  Should only be used immediately 
+   the end of the conditional.  Should only be used immediately
    after expand_loop_start.  */
 
 int
@@ -2958,7 +2972,9 @@ expand_exit_something ()
 void
 expand_null_return ()
 {
-  rtx last_insn = get_last_insn ();
+  rtx last_insn;
+
+  last_insn = get_last_insn ();
 
   /* If this function was declared to return a value, but we
      didn't, clobber the return registers so that they are not
@@ -2968,14 +2984,58 @@ expand_null_return ()
   expand_null_return_1 (last_insn);
 }
 
+/* Try to guess whether the value of return means error code.  */
+static enum br_predictor
+return_prediction (val)
+     rtx val;
+{
+  /* Different heuristics for pointers and scalars.  */
+  if (POINTER_TYPE_P (TREE_TYPE (DECL_RESULT (current_function_decl))))
+    {
+      /* NULL is usually not returned.  */
+      if (val == const0_rtx)
+	return PRED_NULL_RETURN;
+    }
+  else
+    {
+      /* Negative return values are often used to indicate
+         errors.  */
+      if (GET_CODE (val) == CONST_INT
+	  && INTVAL (val) < 0)
+	return PRED_NEGATIVE_RETURN;
+      /* Constant return values are also usually erors,
+         zero/one often mean booleans so exclude them from the
+	 heuristics.  */
+      if (CONSTANT_P (val)
+	  && (val != const0_rtx && val != const1_rtx))
+	return PRED_CONST_RETURN;
+    }
+  return PRED_NO_PREDICTION;
+}
+
 /* Generate RTL to return from the current function, with value VAL.  */
 
 static void
 expand_value_return (val)
      rtx val;
 {
-  rtx last_insn = get_last_insn ();
-  rtx return_reg = DECL_RTL (DECL_RESULT (current_function_decl));
+  rtx last_insn;
+  rtx return_reg;
+  enum br_predictor pred;
+
+  if ((pred = return_prediction (val)) != PRED_NO_PREDICTION)
+    {
+      /* Emit information for branch prediction.  */
+      rtx note;
+
+      note = emit_note (NULL, NOTE_INSN_PREDICTION);
+
+      NOTE_PREDICTION (note) = NOTE_PREDICT (pred, NOT_TAKEN);
+
+    }
+
+  last_insn = get_last_insn ();
+  return_reg = DECL_RTL (DECL_RESULT (current_function_decl));
 
   /* Copy the value to the return location
      unless it's already there.  */
@@ -3054,7 +3114,7 @@ expand_return (retval)
       /* Treat this like a return of no value from a function that
 	 returns a value.  */
       expand_null_return ();
-      return; 
+      return;
     }
   else if (TREE_CODE (retval) == RESULT_DECL)
     retval_rhs = retval;
@@ -5163,7 +5223,7 @@ check_for_full_enumeration_handling (type)
 
       /* The time complexity of this code is normally O(N), where
 	 N being the number of members in the enumerated type.
-	 However, if type is a ENUMERAL_TYPE whose values do not
+	 However, if type is an ENUMERAL_TYPE whose values do not
 	 increase monotonically, O(N*log(N)) time may be needed.  */
 
       mark_seen_cases (type, cases_seen, size, sparseness);
@@ -5191,7 +5251,7 @@ check_for_full_enumeration_handling (type)
 	   chain && !tree_int_cst_equal (n->low, TREE_VALUE (chain));
 	   chain = TREE_CHAIN (chain))
 	;
-      
+
       if (!chain)
 	{
 	  if (TYPE_NAME (type) == 0)
@@ -5211,7 +5271,7 @@ check_for_full_enumeration_handling (type)
 	       chain && !tree_int_cst_equal (n->high, TREE_VALUE (chain));
 	       chain = TREE_CHAIN (chain))
 	    ;
-	  
+
 	  if (!chain)
 	    {
 	      if (TYPE_NAME (type) == 0)
@@ -5231,11 +5291,11 @@ check_for_full_enumeration_handling (type)
 
 /* Free CN, and its children.  */
 
-static void 
+static void
 free_case_nodes (cn)
      case_node_ptr cn;
 {
-  if (cn) 
+  if (cn)
     {
       free_case_nodes (cn->left);
       free_case_nodes (cn->right);
@@ -5477,21 +5537,21 @@ expand_end_case_type (orig_index, orig_type)
 	    {
 	      index_type = thiscase->data.case_stmt.nominal_type;
 
-              /* Index jumptables from zero for suitable values of
+	      /* Index jumptables from zero for suitable values of
                  minval to avoid a subtraction.  */
-              if (! optimize_size
-                  && compare_tree_int (minval, 0) > 0
-                  && compare_tree_int (minval, 3) < 0)
-                {
-                  minval = integer_zero_node;
-                  range = maxval;
-                }
+	      if (! optimize_size
+		  && compare_tree_int (minval, 0) > 0
+		  && compare_tree_int (minval, 3) < 0)
+		{
+		  minval = integer_zero_node;
+		  range = maxval;
+		}
 
 	      if (! try_tablejump (index_type, index_expr, minval, range,
 				   table_label, default_label))
 		abort ();
 	    }
-	  
+
 	  /* Get table of labels to jump to, in order of case index.  */
 
 	  ncases = tree_low_cst (range, 0) + 1;
@@ -5504,11 +5564,11 @@ expand_end_case_type (orig_index, orig_type)
 		 value since that should fit in a HOST_WIDE_INT while the
 		 actual values may not.  */
 	      HOST_WIDE_INT i_low
-		= tree_low_cst (fold (build (MINUS_EXPR, index_type, 
-                                             n->low, minval)), 1);
+		= tree_low_cst (fold (build (MINUS_EXPR, index_type,
+					     n->low, minval)), 1);
 	      HOST_WIDE_INT i_high
-		= tree_low_cst (fold (build (MINUS_EXPR, index_type, 
-                                             n->high, minval)), 1);
+		= tree_low_cst (fold (build (MINUS_EXPR, index_type,
+					     n->high, minval)), 1);
 	      HOST_WIDE_INT i;
 
 	      for (i = i_low; i <= i_high; i ++)
@@ -6340,7 +6400,7 @@ emit_case_nodes (index, node, default_label, index_type)
 	      new_bound = expand_expr (fold (build (MINUS_EXPR, type,
 						    high, low)),
 				       NULL_RTX, mode, 0);
-				
+
 	      emit_cmp_and_jump_insns (new_index, new_bound, GT, NULL_RTX,
 				       mode, 1, default_label);
 	    }

@@ -2469,7 +2469,7 @@ expand_call (exp, target, ignore)
 	 != RETURN_POPS_ARGS (current_function_decl,
 			      TREE_TYPE (current_function_decl),
 			      current_function_args_size))
-  try_tail_call = 0;
+    try_tail_call = 0;
 
   if (try_tail_call || try_tail_recursion)
     {
@@ -2709,6 +2709,12 @@ expand_call (exp, target, ignore)
       if (pass == 0)
 	{
 	  argblock = virtual_incoming_args_rtx;
+	  argblock
+#ifdef STACK_GROWS_DOWNWARD
+	    = plus_constant (argblock, current_function_pretend_args_size);
+#else
+	    = plus_constant (argblock, -current_function_pretend_args_size);
+#endif
 	  stored_args_map = sbitmap_alloc (args_size.constant);
 	  sbitmap_zero (stored_args_map);
 	}

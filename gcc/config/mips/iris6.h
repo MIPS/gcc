@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler.  Iris version 6.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -44,8 +45,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* wchar_t is defined differently with and without -mabi=64.  */
 
-#define NO_BUILTIN_WCHAR_TYPE
-
 #undef WCHAR_TYPE
 #define WCHAR_TYPE (Pmode == DImode ? "int" : "long int")
 
@@ -53,8 +52,6 @@ Boston, MA 02111-1307, USA.  */
 #define WCHAR_TYPE_SIZE 32
 
 /* Same for wint_t.  */
-
-#define NO_BUILTIN_WINT_TYPE
 
 #undef WINT_TYPE
 #define WINT_TYPE (Pmode == DImode ? "int" : "long int")
@@ -78,15 +75,6 @@ Boston, MA 02111-1307, USA.  */
   -D_LONGLONG -D_SVR4_SOURCE -D_MODERN_C -D__DSO__ \
   -Asystem=unix -Asystem=svr4 -Acpu=mips -Amachine=sgi"
 
-#undef SUBTARGET_CPP_SIZE_SPEC
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=32|mabi=n32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int \
--D__WCHAR_TYPE__=long\\ int -D__WINT_TYPE__=long\\ int} \
-%{mabi=64: -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int \
--D__WCHAR_TYPE__=int -D__WINT_TYPE__=int} \
-%{!mabi*: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int \
--D__WCHAR_TYPE__=long\\ int -D__WINT_TYPE__=long\\ int}"
-
 /* We must make -mips3 do what -mlong64 used to do.  */
 /* ??? If no mipsX option given, but a mabi=X option is, then should set
    _MIPS_ISA based on the mabi=X option.  */
@@ -94,7 +82,6 @@ Boston, MA 02111-1307, USA.  */
    _MIPS_SIM based on the mipsX option.  */
 /* ??? Same for _MIPS_SZINT.  */
 /* ??? Same for _MIPS_SZPTR.  */
-/* ??? Same for __SIZE_TYPE and __PTRDIFF_TYPE.  */
 #undef SUBTARGET_CPP_SPEC
 #define SUBTARGET_CPP_SPEC "\
 %{!ansi:-D__EXTENSIONS__ -D_SGI_SOURCE} \
@@ -123,6 +110,18 @@ Boston, MA 02111-1307, USA.  */
 %{mabi=n32: -D__mips64} \
 %{mabi=64: -D__mips64} \
 %{!mabi*: -D__mips64}"
+
+/* The GNU C++ standard library requires that __EXTENSIONS__ and
+   _SGI_SOURCE be defined on at least irix6.2 and probably all irix6
+   prior to 6.5.  They normally get defined in SUBTARGET_CPP_SPEC if
+   !ansi, for g++ we want them regardless.  We don't need this on
+   irix6.5 itself, but it shouldn't hurt other than the namespace
+   pollution.  */
+#undef CPLUSPLUS_CPP_SPEC
+#define CPLUSPLUS_CPP_SPEC "\
+-D__LANGUAGE_C_PLUS_PLUS -D_LANGUAGE_C_PLUS_PLUS \
+%{ansi:-D__EXTENSIONS__ -D_SGI_SOURCE} %(cpp) \
+"
 
 /* Irix 6 uses DWARF-2.  */
 #define DWARF2_DEBUGGING_INFO
@@ -251,8 +250,14 @@ Boston, MA 02111-1307, USA.  */
    do_global_* functions instead of running collect2.  */
 
 #define BSS_SECTION_ASM_OP	"\t.section\t.bss"
-#define CONST_SECTION_ASM_OP_32	"\t.rdata"
-#define CONST_SECTION_ASM_OP_64	"\t.section\t.rodata"
+
+#undef READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP_32	"\t.rdata"
+#define READONLY_DATA_SECTION_ASM_OP_64	"\t.section\t.rodata"
+#define READONLY_DATA_SECTION_ASM_OP		\
+  (mips_abi != ABI_32 && mips_abi != ABI_O64	\
+   ? READONLY_DATA_SECTION_ASM_OP_64		\
+   : READONLY_DATA_SECTION_ASM_OP_32)
 
 /* A default list of other sections which we might be "in" at any given
    time.  For targets that use additional sections (e.g. .tdesc) you
@@ -260,13 +265,11 @@ Boston, MA 02111-1307, USA.  */
    includes this file.  */
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_rdata, in_const
+#define EXTRA_SECTIONS in_sdata
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
    definition in the target-specific file which includes this file.  */
-
-/* ??? rdata_section is now same as svr4 const_section.  */
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
@@ -280,19 +283,6 @@ sdata_section ()							\
     }									\
 }									\
 									\
-void									\
-rdata_section ()							\
-{									\
-  if (in_section != in_rdata)						\
-    {									\
-      if (mips_abi != ABI_32 && mips_abi != ABI_O64)			\
-	fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP_64);	\
-      else								\
-	fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP_32);	\
-      in_section = in_rdata;						\
-    }									\
-}									\
-									\
 const char *								\
 current_section_name ()							\
 {									\
@@ -303,8 +293,7 @@ current_section_name ()							\
     case in_data:	return ".data";					\
     case in_sdata:	return ".sdata";				\
     case in_bss:	return ".bss";					\
-    case in_rdata:							\
-    case in_const:							\
+    case in_readonly_data:						\
       if (mips_abi != ABI_32 && mips_abi != ABI_O64)			\
 	return ".rodata";						\
       else								\
@@ -325,8 +314,7 @@ current_section_flags ()						\
     case in_data:	return SECTION_WRITE;				\
     case in_sdata:	return SECTION_WRITE | SECTION_SMALL;		\
     case in_bss:	return SECTION_WRITE | SECTION_BSS;		\
-    case in_rdata:							\
-    case in_const:	return 0;					\
+    case in_readonly_data: return 0;					\
     case in_named:	return get_named_section_flags (in_named_name);	\
     }									\
   abort ();								\

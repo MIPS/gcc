@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Windows NT.
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 
 const char *
 gen_stdcall_suffix (decl)
-  tree decl;
+     tree decl;
 {
   int total = 0;
   /* ??? This probably should use XSTR (XEXP (DECL_RTL (decl), 0), 0) instead
@@ -65,6 +65,26 @@ gen_stdcall_suffix (decl)
   return IDENTIFIER_POINTER (get_identifier (newsym));
 }
 
+void
+i386_interix_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  if (flag_pic)
+    {
+      rtx rtl = (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
+		 ? TREE_CST_RTL (decl) : DECL_RTL (decl));
+      SYMBOL_REF_FLAG (XEXP (rtl, 0))
+	= (TREE_CODE_CLASS (TREE_CODE (decl)) != 'd'
+	   || ! TREE_PUBLIC (decl));
+    }
+  if (first && TREE_CODE (decl) == FUNCTION_DECL)
+    if (lookup_attribute ("stdcall",
+			  TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+      XEXP (DECL_RTL (decl), 0) =
+	gen_rtx (SYMBOL_REF, Pmode, gen_stdcall_suffix (decl));
+}
+
 #if 0	
 /* Turn this back on when the linker is updated to handle grouped
    .data$ sections correctly. See corresponding note in i386/interix.h. 
@@ -82,8 +102,7 @@ i386_pe_unique_section (decl, reloc)
   char *string,*prefix;
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  /* Strip off any encoding in fnname.  */
-  STRIP_NAME_ENCODING (name, name);
+  name = (* targetm.strip_name_encoding) (name);
 
   /* The object is put in, for example, section .text$foo.
      The linker will then ultimately place them in .text
@@ -93,15 +112,8 @@ i386_pe_unique_section (decl, reloc)
      without a .rdata section.  */
   if (TREE_CODE (decl) == FUNCTION_DECL)
     prefix = ".text$";
-/* else if (DECL_INITIAL (decl) == 0
-	   || DECL_INITIAL (decl) == error_mark_node)
-    prefix = ".bss"; */
   else if (DECL_READONLY_SECTION (decl, reloc))
-#ifdef READONLY_DATA_SECTION
     prefix = ".rdata$";
-#else
-    prefix = ".text$";
-#endif
   else
     prefix = ".data$";
   len = strlen (name) + strlen (prefix);

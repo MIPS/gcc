@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for SPARC running Solaris 2
-   Copyright 1992, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001 Free Software Foundation, Inc.
+   Copyright 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@netcom.com).
    Additional changes by David V. Henkel-Wallace (gumby@cygnus.com).
 
@@ -71,17 +71,21 @@ Boston, MA 02111-1307, USA.  */
 
 /* This is here rather than in sparc.h because it's not known what
    other assemblers will accept.  */
+
 #if TARGET_CPU_DEFAULT == TARGET_CPU_v9
 #undef ASM_CPU_DEFAULT_SPEC
 #define ASM_CPU_DEFAULT_SPEC "-xarch=v8plus"
 #endif
+
 #if TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc
 #undef ASM_CPU_DEFAULT_SPEC
 #define ASM_CPU_DEFAULT_SPEC "-xarch=v8plusa"
 #endif
+
 #undef ASM_CPU_SPEC
 #define ASM_CPU_SPEC "\
 %{mcpu=v8plus:-xarch=v8plus} \
+%{mcpu=v9:-xarch=v8plus} \
 %{mcpu=ultrasparc:-xarch=v8plusa} \
 %{!mcpu*:%(asm_cpu_default)} \
 "
@@ -89,12 +93,12 @@ Boston, MA 02111-1307, USA.  */
 /* However it appears that Solaris 2.0 uses the same reg numbering as
    the old BSD-style system did.  */
 
-#undef DBX_REGISTER_NUMBER
 /* Same as sparc.h */
+#undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(REGNO) \
   (TARGET_FLAT && (REGNO) == HARD_FRAME_POINTER_REGNUM ? 31 : REGNO)
 
-/* We use stabs-in-elf for debugging, because that is what the native
+/* We use stabs-in-elf by default, because that is what the native
    toolchain uses.  */
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
@@ -224,6 +228,12 @@ Boston, MA 02111-1307, USA.  */
 #define UDIVDI3_LIBCALL "__udiv64"
 #define MODDI3_LIBCALL "__rem64"
 #define UMODDI3_LIBCALL "__urem64"
+
+/* Solaris's _Qp_* library routine implementation clobbers the output
+   memory before the inputs are fully consumed.  */
+
+#undef TARGET_BUGGY_QP_LIB
+#define TARGET_BUGGY_QP_LIB	1
 
 #undef INIT_SUBTARGET_OPTABS
 #define INIT_SUBTARGET_OPTABS						\

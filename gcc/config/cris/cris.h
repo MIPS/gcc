@@ -67,6 +67,7 @@ Boston, MA 02111-1307, USA.  */
 #define CRIS_PLT_GOTOFFSET_SUFFIX ":PLTG"
 #define CRIS_PLT_PCOFFSET_SUFFIX ":PLT"
 
+/* If you tweak this, don't forget to check cris_expand_builtin_va_arg.  */
 #define CRIS_FUNCTION_ARG_SIZE(MODE, TYPE)	\
   ((MODE) != BLKmode ? GET_MODE_SIZE (MODE)	\
    : (unsigned) int_size_in_bytes (TYPE))
@@ -440,7 +441,7 @@ extern int target_flags;
    gcc-cris they are using.  Please use some flavor of "R<number>" for
    the version (no need for major.minor versions, I believe).  */
 #define TARGET_VERSION \
- fprintf (stderr, " [Axis CRIS release R36a%s]", CRIS_SUBTARGET_VERSION)
+ fprintf (stderr, " [Axis CRIS%s]", CRIS_SUBTARGET_VERSION)
 
 /* For the cris-*-elf subtarget.  */
 #define CRIS_SUBTARGET_VERSION " - generic ELF"
@@ -936,7 +937,8 @@ enum reg_class {NO_REGS, ALL_REGS, LIM_REG_CLASSES};
   ? 1 : 0)
 
 /* Structs may be passed by value, but they must not be more than 8
-   bytes long.  */
+   bytes long.  If you tweak this, don't forget to adjust
+   cris_expand_builtin_va_arg.  */
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
  (MUST_PASS_IN_STACK (MODE, TYPE)					\
   || CRIS_FUNCTION_ARG_SIZE (MODE, TYPE) > 8)				\
@@ -1439,10 +1441,6 @@ struct cum_args {int regs;};
 
 /* The jump table is immediately connected to the preceding insn.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
-
-/* We need to code in PIC-specific flags into SYMBOL_REF_FLAG.  */
-
-#define ENCODE_SECTION_INFO(EXP, FIRST) cris_encode_section_info (EXP, FIRST)
 
 /* We pull a little trick to register the _fini function with atexit,
    after (presumably) registering the eh frame info, since we don't handle

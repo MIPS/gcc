@@ -1,5 +1,5 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -278,7 +278,7 @@ machopic_non_lazy_ptr_name (name)
 	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
     }
 
-  STRIP_NAME_ENCODING (name, name);
+  name = darwin_strip_name_encoding (name);
 
   /* Try again, but comparing names this time.  */
   for (temp = machopic_non_lazy_pointers;
@@ -288,7 +288,7 @@ machopic_non_lazy_ptr_name (name)
       if (TREE_VALUE (temp))
 	{
 	  temp_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
-	  STRIP_NAME_ENCODING (temp_name, temp_name);
+	  temp_name = darwin_strip_name_encoding (temp_name);
 	  if (strcmp (name, temp_name) == 0)
 	    return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
 	}
@@ -360,7 +360,7 @@ machopic_stub_name (name)
 	return IDENTIFIER_POINTER (TREE_PURPOSE (temp));
     }
 
-  STRIP_NAME_ENCODING (name, name);
+  name = darwin_strip_name_encoding (name);
 
   {
     char *buffer;
@@ -414,7 +414,8 @@ machopic_validate_stub_or_non_lazy_ptr (name, validate_stub)
           TREE_USED (temp) = 1;
 	  if (TREE_CODE (TREE_VALUE (temp)) == IDENTIFIER_NODE)
 	    TREE_SYMBOL_REFERENCED (TREE_VALUE (temp)) = 1;
-	  STRIP_NAME_ENCODING (real_name, IDENTIFIER_POINTER (TREE_VALUE (temp)));
+	  real_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+	  real_name = darwin_strip_name_encoding (real_name);
 	  id2 = maybe_get_identifier (real_name);
 	  if (id2)
 	    TREE_SYMBOL_REFERENCED (id2) = 1;
@@ -846,7 +847,7 @@ machopic_finish (asm_out_file)
       if (sym_name[0] == '!' && sym_name[1] == 'T')
 	continue;
 
-      STRIP_NAME_ENCODING (sym_name, sym_name);
+      sym_name = darwin_strip_name_encoding (sym_name);
 
       sym = alloca (strlen (sym_name) + 2);
       if (sym_name[0] == '*' || sym_name[0] == '&')
@@ -1015,6 +1016,15 @@ darwin_encode_section_info (decl, first)
     update_stubs (XSTR (sym_ref, 0));
 }
 
+/* Undo the effects of the above.  */
+
+const char *
+darwin_strip_name_encoding (str)
+     const char *str;
+{
+  return str[0] == '!' ? str + 4 : str;
+}
+
 /* Scan the list of non-lazy pointers and update any recorded names whose
    stripped name matches the argument.  */
 
@@ -1025,7 +1035,7 @@ update_non_lazy_ptrs (name)
   const char *name1, *name2;
   tree temp;
 
-  STRIP_NAME_ENCODING (name1, name);
+  name1 = darwin_strip_name_encoding (name);
 
   for (temp = machopic_non_lazy_pointers;
        temp != NULL_TREE; 
@@ -1035,7 +1045,7 @@ update_non_lazy_ptrs (name)
 
       if (*sym_name == '!')
 	{
-	  STRIP_NAME_ENCODING (name2, sym_name);
+	  name2 = darwin_strip_name_encoding (sym_name);
 	  if (strcmp (name1, name2) == 0)
 	    {
 	      IDENTIFIER_POINTER (TREE_VALUE (temp)) = name;
@@ -1089,7 +1099,7 @@ update_stubs (name)
   const char *name1, *name2;
   tree temp;
 
-  STRIP_NAME_ENCODING (name1, name);
+  name1 = darwin_strip_name_encoding (name);
 
   for (temp = machopic_stubs;
        temp != NULL_TREE; 
@@ -1099,7 +1109,7 @@ update_stubs (name)
 
       if (*sym_name == '!')
 	{
-	  STRIP_NAME_ENCODING (name2, sym_name);
+	  name2 = darwin_strip_name_encoding (sym_name);
 	  if (strcmp (name1, name2) == 0)
 	    {
 	      IDENTIFIER_POINTER (TREE_VALUE (temp)) = name;
@@ -1107,6 +1117,153 @@ update_stubs (name)
 	    }
 	}
     }
+}
+
+void
+machopic_select_section (exp, reloc, align)
+     tree exp;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (exp) == STRING_CST)
+    {
+      if (flag_writable_strings)
+	data_section ();
+      else if (TREE_STRING_LENGTH (exp) !=
+	       strlen (TREE_STRING_POINTER (exp)) + 1)
+	readonly_data_section ();
+      else
+	cstring_section ();
+    }
+  else if (TREE_CODE (exp) == INTEGER_CST
+	   || TREE_CODE (exp) == REAL_CST)
+    {
+      tree size = TYPE_SIZE (TREE_TYPE (exp));
+
+      if (TREE_CODE (size) == INTEGER_CST &&
+	  TREE_INT_CST_LOW (size) == 4 &&
+	  TREE_INT_CST_HIGH (size) == 0)
+	literal4_section ();
+      else if (TREE_CODE (size) == INTEGER_CST &&
+	       TREE_INT_CST_LOW (size) == 8 &&
+	       TREE_INT_CST_HIGH (size) == 0)
+	literal8_section ();
+      else
+	readonly_data_section ();
+    }
+  else if (TREE_CODE (exp) == CONSTRUCTOR
+	   && TREE_TYPE (exp)
+	   && TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
+	   && TYPE_NAME (TREE_TYPE (exp)))
+    {
+      tree name = TYPE_NAME (TREE_TYPE (exp));
+      if (TREE_CODE (name) == TYPE_DECL)
+	name = DECL_NAME (name);
+      if (!strcmp (IDENTIFIER_POINTER (name), "NSConstantString"))
+	objc_constant_string_object_section ();
+      else if (!strcmp (IDENTIFIER_POINTER (name), "NXConstantString"))
+	objc_string_object_section ();
+      else if (TREE_READONLY (exp) || TREE_CONSTANT (exp))
+	{
+	  if (TREE_SIDE_EFFECTS (exp) || flag_pic && reloc)
+	    const_data_section ();
+	  else
+	    readonly_data_section ();
+	}
+      else
+	data_section ();
+    }
+  else if (TREE_CODE (exp) == VAR_DECL &&
+	   DECL_NAME (exp) &&
+	   TREE_CODE (DECL_NAME (exp)) == IDENTIFIER_NODE &&
+	   IDENTIFIER_POINTER (DECL_NAME (exp)) &&
+	   !strncmp (IDENTIFIER_POINTER (DECL_NAME (exp)), "_OBJC_", 6))
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_NAME (exp));
+
+      if (!strncmp (name, "_OBJC_CLASS_METHODS_", 20))
+	objc_cls_meth_section ();
+      else if (!strncmp (name, "_OBJC_INSTANCE_METHODS_", 23))
+	objc_inst_meth_section ();
+      else if (!strncmp (name, "_OBJC_CATEGORY_CLASS_METHODS_", 20))
+	objc_cat_cls_meth_section ();
+      else if (!strncmp (name, "_OBJC_CATEGORY_INSTANCE_METHODS_", 23))
+	objc_cat_inst_meth_section ();
+      else if (!strncmp (name, "_OBJC_CLASS_VARIABLES_", 22))
+	objc_class_vars_section ();
+      else if (!strncmp (name, "_OBJC_INSTANCE_VARIABLES_", 25))
+	objc_instance_vars_section ();
+      else if (!strncmp (name, "_OBJC_CLASS_PROTOCOLS_", 22))
+	objc_cat_cls_meth_section ();
+      else if (!strncmp (name, "_OBJC_CLASS_NAME_", 17))
+	objc_class_names_section ();
+      else if (!strncmp (name, "_OBJC_METH_VAR_NAME_", 20))
+	objc_meth_var_names_section ();
+      else if (!strncmp (name, "_OBJC_METH_VAR_TYPE_", 20))
+	objc_meth_var_types_section ();
+      else if (!strncmp (name, "_OBJC_CLASS_REFERENCES", 22))
+	objc_cls_refs_section ();
+      else if (!strncmp (name, "_OBJC_CLASS_", 12))
+	objc_class_section ();
+      else if (!strncmp (name, "_OBJC_METACLASS_", 16))
+	objc_meta_class_section ();
+      else if (!strncmp (name, "_OBJC_CATEGORY_", 15))
+	objc_category_section ();
+      else if (!strncmp (name, "_OBJC_SELECTOR_REFERENCES", 25))
+	objc_selector_refs_section ();
+      else if (!strncmp (name, "_OBJC_SELECTOR_FIXUP", 20))
+	objc_selector_fixup_section ();
+      else if (!strncmp (name, "_OBJC_SYMBOLS", 13))
+	objc_symbols_section ();
+      else if (!strncmp (name, "_OBJC_MODULES", 13))
+	objc_module_info_section ();
+      else if (!strncmp (name, "_OBJC_PROTOCOL_INSTANCE_METHODS_", 32))
+	objc_cat_inst_meth_section ();
+      else if (!strncmp (name, "_OBJC_PROTOCOL_CLASS_METHODS_", 29))
+	objc_cat_cls_meth_section ();
+      else if (!strncmp (name, "_OBJC_PROTOCOL_REFS_", 20))
+	objc_cat_cls_meth_section ();
+      else if (!strncmp (name, "_OBJC_PROTOCOL_", 15))
+	objc_protocol_section ();
+      else if ((TREE_READONLY (exp) || TREE_CONSTANT (exp))
+	       && !TREE_SIDE_EFFECTS (exp))
+	{
+	  if (flag_pic && reloc)
+	    const_data_section ();
+	  else
+	    readonly_data_section ();
+	}
+      else
+	data_section ();
+    }
+  else if (TREE_READONLY (exp) || TREE_CONSTANT (exp))
+    {
+      if (TREE_SIDE_EFFECTS (exp) || flag_pic && reloc)
+	const_data_section ();
+      else
+	readonly_data_section ();
+    }
+  else
+    data_section ();
+}
+
+/* This can be called with address expressions as "rtx".
+   They must go in "const". */
+
+void
+machopic_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (GET_MODE_SIZE (mode) == 8)
+    literal8_section ();
+  else if (GET_MODE_SIZE (mode) == 4
+	   && (GET_CODE (x) == CONST_INT
+	       || GET_CODE (x) == CONST_DOUBLE))
+    literal4_section ();
+  else
+    const_section ();
 }
 
 void

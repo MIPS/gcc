@@ -364,6 +364,9 @@ struct function
   /* Highest label number in current function.  */
   int inl_max_label_num;
 
+  /* Profile label number.  */
+  int profile_label_no;
+
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
@@ -434,6 +437,9 @@ struct function
      generated.  */
   unsigned int instrument_entry_exit : 1;
 
+  /* Nonzero if arc profiling should be done for the function.  */
+  unsigned int arc_profile : 1;
+
   /* Nonzero if profiling code should be generated.  */
   unsigned int profile : 1;
 
@@ -475,6 +481,19 @@ struct function
 
   /* Nonzero if code to initialize arg_pointer_save_area has been emited.  */
   unsigned int arg_pointer_save_area_init : 1;
+
+  /* How commonly executed the function is.  Initialized during branch
+     probabilities pass.  */
+  enum function_frequency {
+    /* This function most likely won't be executed at all.
+       (set only when profile feedback is available).  */
+    FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
+    /* The default value.  */
+    FUNCTION_FREQUENCY_NORMAL,
+    /* Optimize this function hard
+       (set only when profile feedback is available).  */
+    FUNCTION_FREQUENCY_HOT
+  } function_frequency;
 };
 
 /* The function currently being compiled.  */
@@ -508,6 +527,7 @@ extern int virtuals_instantiated;
 #define current_function_return_rtx (cfun->return_rtx)
 #define current_function_instrument_entry_exit (cfun->instrument_entry_exit)
 #define current_function_profile (cfun->profile)
+#define current_function_profile_label_no (cfun->profile_label_no)
 #define current_function_limit_stack (cfun->limit_stack)
 #define current_function_uses_pic_offset_table (cfun->uses_pic_offset_table)
 #define current_function_uses_const_pool (cfun->uses_const_pool)
@@ -573,13 +593,6 @@ extern void (*free_machine_status)	PARAMS ((struct function *));
    data items in the target specific, per-function data structure
    that will need garbage collection.  */
 extern void (*mark_machine_status)	PARAMS ((struct function *));
-
-/* Likewise, but for language-specific data.  */
-extern void (*init_lang_status)         PARAMS ((struct function *));
-extern void (*mark_lang_status)		PARAMS ((struct function *));
-extern void (*save_lang_status)		PARAMS ((struct function *));
-extern void (*restore_lang_status)	PARAMS ((struct function *));
-extern void (*free_lang_status)         PARAMS ((struct function *));
 
 /* Save and restore status information for a nested function.  */
 extern void restore_emit_status		PARAMS ((struct function *));

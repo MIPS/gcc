@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for MIPS
    Copyright (C) 1989, 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -90,6 +90,10 @@ struct mips_arg_info;
 static enum internal_test map_test_to_internal_test	PARAMS ((enum rtx_code));
 static int mips16_simple_memory_operand		PARAMS ((rtx, rtx,
 							enum machine_mode));
+int coprocessor_operand 			PARAMS ((rtx,
+							enum machine_mode));
+int coprocessor2_operand 			PARAMS ((rtx,
+							enum machine_mode));
 static int m16_check_op				PARAMS ((rtx, int, int, int));
 static void block_move_loop			PARAMS ((rtx, rtx,
 							 unsigned int,
@@ -100,15 +104,13 @@ static void mips_arg_info		PARAMS ((const CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int,
 						 struct mips_arg_info *));
-static rtx mips_add_large_offset_to_sp		PARAMS ((HOST_WIDE_INT,
-							 FILE *));
+static rtx mips_add_large_offset_to_sp		PARAMS ((HOST_WIDE_INT));
 static void mips_annotate_frame_insn		PARAMS ((rtx, rtx));
 static rtx mips_frame_set			PARAMS ((enum machine_mode,
 							 int, int));
 static void mips_emit_frame_related_store	PARAMS ((rtx, rtx,
 							 HOST_WIDE_INT));
-static void save_restore_insns			PARAMS ((int, rtx,
-							long, FILE *));
+static void save_restore_insns			PARAMS ((int, rtx, long));
 static void mips16_output_gp_offset		PARAMS ((FILE *, rtx));
 static void mips16_fp_args			PARAMS ((FILE *, int, int));
 static void build_mips16_function_stub		PARAMS ((FILE *));
@@ -139,10 +141,18 @@ static hashval_t iris_section_align_entry_hash	PARAMS ((const PTR));
 static int iris6_section_align_1		PARAMS ((void **, void *));
 #endif
 static int mips_adjust_cost			PARAMS ((rtx, rtx, rtx, int));
+static int mips_issue_rate			PARAMS ((void));
 
 static void mips_init_machine_status		PARAMS ((struct function *));
 static void mips_free_machine_status		PARAMS ((struct function *));
 static void mips_mark_machine_status		PARAMS ((struct function *));
+static void mips_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT))
+	ATTRIBUTE_UNUSED;
+static void mips_unique_section			PARAMS ((tree, int))
+	ATTRIBUTE_UNUSED;
+static void mips_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					     unsigned HOST_WIDE_INT));
+static void mips_encode_section_info		PARAMS ((tree, int));
 
 struct machine_function {
   /* Pseudo-reg holding the address of the current function when
@@ -383,13 +393,25 @@ char mips_reg_names[][8] =
  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
  "hi",   "lo",   "accum","$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",
- "$fcc5","$fcc6","$fcc7","$rap"
+ "$fcc5","$fcc6","$fcc7","$rap", "",     "",     "",     "",
+ "$c0r0", "$c0r1", "$c0r2", "$c0r3", "$c0r4", "$c0r5", "$c0r6", "$c0r7",
+ "$c0r8", "$c0r9", "$c0r10","$c0r11","$c0r12","$c0r13","$c0r14","$c0r15",
+ "$c0r16","$c0r17","$c0r18","$c0r19","$c0r20","$c0r21","$c0r22","$c0r23",
+ "$c0r24","$c0r25","$c0r26","$c0r27","$c0r28","$c0r29","$c0r30","$c0r31",
+ "$c2r0", "$c2r1", "$c2r2", "$c2r3", "$c2r4", "$c2r5", "$c2r6", "$c2r7",
+ "$c2r8", "$c2r9", "$c2r10","$c2r11","$c2r12","$c2r13","$c2r14","$c2r15",
+ "$c2r16","$c2r17","$c2r18","$c2r19","$c2r20","$c2r21","$c2r22","$c2r23",
+ "$c2r24","$c2r25","$c2r26","$c2r27","$c2r28","$c2r29","$c2r30","$c2r31",
+ "$c3r0", "$c3r1", "$c3r2", "$c3r3", "$c3r4", "$c3r5", "$c3r6", "$c3r7",
+ "$c3r8", "$c3r9", "$c3r10","$c3r11","$c3r12","$c3r13","$c3r14","$c3r15",
+ "$c3r16","$c3r17","$c3r18","$c3r19","$c3r20","$c3r21","$c3r22","$c3r23",
+ "$c3r24","$c3r25","$c3r26","$c3r27","$c3r28","$c3r29","$c3r30","$c3r31"
 };
 
 /* Mips software names for the registers, used to overwrite the
    mips_reg_names array.  */
 
-static const char mips_sw_reg_names[][8] =
+char mips_sw_reg_names[][8] =
 {
   "$zero","$at",  "$v0",  "$v1",  "$a0",  "$a1",  "$a2",  "$a3",
   "$t0",  "$t1",  "$t2",  "$t3",  "$t4",  "$t5",  "$t6",  "$t7",
@@ -400,7 +422,19 @@ static const char mips_sw_reg_names[][8] =
   "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
   "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
   "hi",   "lo",   "accum","$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",
-  "$fcc5","$fcc6","$fcc7","$rap"
+  "$fcc5","$fcc6","$fcc7","$rap", "",     "",     "",     "",
+  "$c0r0", "$c0r1", "$c0r2", "$c0r3", "$c0r4", "$c0r5", "$c0r6", "$c0r7",
+  "$c0r8", "$c0r9", "$c0r10","$c0r11","$c0r12","$c0r13","$c0r14","$c0r15",
+  "$c0r16","$c0r17","$c0r18","$c0r19","$c0r20","$c0r21","$c0r22","$c0r23",
+  "$c0r24","$c0r25","$c0r26","$c0r27","$c0r28","$c0r29","$c0r30","$c0r31",
+  "$c2r0", "$c2r1", "$c2r2", "$c2r3", "$c2r4", "$c2r5", "$c2r6", "$c2r7",
+  "$c2r8", "$c2r9", "$c2r10","$c2r11","$c2r12","$c2r13","$c2r14","$c2r15",
+  "$c2r16","$c2r17","$c2r18","$c2r19","$c2r20","$c2r21","$c2r22","$c2r23",
+  "$c2r24","$c2r25","$c2r26","$c2r27","$c2r28","$c2r29","$c2r30","$c2r31",
+  "$c3r0", "$c3r1", "$c3r2", "$c3r3", "$c3r4", "$c3r5", "$c3r6", "$c3r7",
+  "$c3r8", "$c3r9", "$c3r10","$c3r11","$c3r12","$c3r13","$c3r14","$c3r15",
+  "$c3r16","$c3r17","$c3r18","$c3r19","$c3r20","$c3r21","$c3r22","$c3r23",
+  "$c3r24","$c3r25","$c3r26","$c3r27","$c3r28","$c3r29","$c3r30","$c3r31"
 };
 
 /* Map hard register number to register class */
@@ -424,7 +458,32 @@ const enum reg_class mips_regno_to_class[] =
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   HI_REG,	LO_REG,		HILO_REG,	ST_REGS,
   ST_REGS,	ST_REGS,	ST_REGS,	ST_REGS,
-  ST_REGS,	ST_REGS,	ST_REGS,	GR_REGS
+  ST_REGS,	ST_REGS,	ST_REGS,	GR_REGS,
+  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP0_REGS,	COP0_REGS,	COP0_REGS,	COP0_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP2_REGS,	COP2_REGS,	COP2_REGS,	COP2_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS,
+  COP3_REGS,	COP3_REGS,	COP3_REGS,	COP3_REGS
 };
 
 /* Map register constraint character to register class.  */
@@ -515,9 +574,16 @@ enum reg_class mips_char_to_class[256] =
 #define TARGET_ASM_FUNCTION_PROLOGUE mips_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE mips_output_function_epilogue
+#undef TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION mips_select_rtx_section
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST mips_adjust_cost
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE mips_issue_rate
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1284,6 +1350,29 @@ consttable_operand (op, mode)
   return CONSTANT_P (op);
 }
 
+/* Coprocessor operand; return true if rtx is a REG and refers to a
+   coprocessor.  */
+
+int
+coprocessor_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (op) == REG
+	  && COP0_REG_FIRST <= REGNO (op)
+	  && REGNO (op) <= COP3_REG_LAST);
+}
+
+int
+coprocessor2_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (op) == REG
+	  && COP2_REG_FIRST <= REGNO (op)
+	  && REGNO (op) <= COP2_REG_LAST);
+}
+
 /* Return nonzero if we split the address into high and low parts.  */
 
 /* ??? We should also handle reg+array somewhere.  We get four
@@ -1900,7 +1989,7 @@ embedded_pic_fnaddr_reg ()
     }
 
   return cfun->machine->embedded_pic_fnaddr_rtx;
-}  
+}
 
 /* Return RTL for the offset from the current function to the argument.
    X is the symbol whose offset from the current function we want.  */
@@ -1995,7 +2084,13 @@ mips_move_1word (operands, insn, unsignedp)
 		  delay = DELAY_LOAD;
 		  if (FP_REG_P (regno1))
 		    ret = "mfc1\t%0,%1";
+		  else if (ALL_COP_REG_P (regno1))
+		    {
+		      static char retval[] = "mfc_\t%0,%1";
 
+		      retval[3] = COPNUM_AS_CHAR_FROM_REGNUM (regno1);
+		      ret = retval;
+		    }
 		  else if (regno1 == FPSW_REGNUM && ! ISA_HAS_8CC)
 		    ret = "cfc1\t%0,$31";
 		}
@@ -2029,6 +2124,21 @@ mips_move_1word (operands, insn, unsignedp)
 		{
 		  delay = DELAY_LOAD;
 		  ret = "ctc1\t%0,$31";
+		}
+	    }
+	  else if (ALL_COP_REG_P (regno0))
+	    {
+	      if (GP_REG_P (regno1))
+		{
+		  static char retval[] = "mtc_\t%1,%0";
+		  char cop = COPNUM_AS_CHAR_FROM_REGNUM (regno0);
+
+		  if (cop == '0')
+		    abort_with_insn (insn,
+				     "mtc0 not supported; it disturbs virtual address translation");
+		  delay = DELAY_LOAD;
+		  retval[3] = cop;
+		  ret = retval;
 		}
 	    }
 	}
@@ -2068,6 +2178,19 @@ mips_move_1word (operands, insn, unsignedp)
 
 	  else if (FP_REG_P (regno0) && (mode == SImode || mode == SFmode))
 	    ret = "l.s\t%0,%1";
+
+	  else if (ALL_COP_REG_P (regno0))
+	    {
+	      static char retval[] = "lwc_\t%0,%1";
+	      char cop = COPNUM_AS_CHAR_FROM_REGNUM (regno0);
+
+	      if (cop == '0')
+		abort_with_insn (insn,
+				 "loads from memory to COP0 are illegal");
+	      delay = DELAY_LOAD;
+	      retval[3] = cop;
+	      ret = retval;
+	    }
 
 	  if (ret != (char *)0 && MEM_VOLATILE_P (op1))
 	    {
@@ -2267,6 +2390,13 @@ mips_move_1word (operands, insn, unsignedp)
 
 	  else if (FP_REG_P (regno1) && (mode == SImode || mode == SFmode))
 	    ret = "s.s\t%1,%0";
+	  else if (ALL_COP_REG_P (regno1))
+	    {
+	      static char retval[] = "swc_\t%1,%0";
+
+	      retval[3] = COPNUM_AS_CHAR_FROM_REGNUM (regno1);
+	      ret = retval;
+	    }
 	}
 
       else if (code1 == CONST_INT && INTVAL (op1) == 0)
@@ -2453,7 +2583,28 @@ mips_move_2words (operands, insn)
 	      else
 		ret = "mfhi\t%M0\n\tmflo\t%L0";
 	    }
+	  else if (GP_REG_P (regno0) && ALL_COP_REG_P (regno1)
+		   && TARGET_64BIT)
+	    {
+	      static char retval[] = "dmfc_\t%0,%1";
 
+	      delay = DELAY_LOAD;
+	      retval[4] = COPNUM_AS_CHAR_FROM_REGNUM (regno1);
+	      ret = retval;
+	    }
+	  else if (ALL_COP_REG_P (regno0) && GP_REG_P (regno1)
+		   && TARGET_64BIT)
+	    {
+	      static char retval[] = "dmtc_\t%1,%0";
+	      char cop = COPNUM_AS_CHAR_FROM_REGNUM (regno0);
+
+	      if (cop == '0')
+		abort_with_insn (insn,
+				 "dmtc0 not supported; it disturbs virtual address translation");
+	      delay = DELAY_LOAD;
+	      retval[4] = cop;
+	      ret = retval;
+	    }
 	  else if (TARGET_64BIT)
 	    ret = "move\t%0,%1";
 
@@ -2634,6 +2785,19 @@ mips_move_2words (operands, insn)
 	  if (FP_REG_P (regno0))
 	    ret = "l.d\t%0,%1";
 
+	  else if (ALL_COP_REG_P (regno0) && TARGET_64BIT)
+	    {
+	      static char retval[] = "ldc_\t%0,%1";
+	      char cop = COPNUM_AS_CHAR_FROM_REGNUM (regno0);
+
+	      if (cop == '0')
+		abort_with_insn (insn,
+				 "loads from memory to COP0 are illegal");
+	      delay = DELAY_LOAD;
+	      retval[3] = cop;
+	      ret = retval;
+	    }
+
 	  else if (TARGET_64BIT)
 	    {
 
@@ -2727,6 +2891,13 @@ mips_move_2words (operands, insn)
 	  if (FP_REG_P (regno1))
 	    ret = "s.d\t%1,%0";
 
+	  else if (ALL_COP_REG_P (regno1) && TARGET_64BIT)
+	    {
+	      static char retval[] = "sdc_\t%1,%0";
+
+	      retval[3] = COPNUM_AS_CHAR_FROM_REGNUM (regno1);
+	      ret = retval;
+	    }
 	  else if (TARGET_64BIT)
 	    {
 
@@ -4860,7 +5031,7 @@ override_options ()
 	{
 	  if (! ISA_HAS_64BIT_REGS)
 	    mips_abi = ABI_32;
-	  else
+	  else if (mips_abi != ABI_N32)
 	    mips_abi = ABI_64;
 	}
     }
@@ -5172,6 +5343,9 @@ override_options ()
   mips_char_to_class['b'] = ALL_REGS;
   mips_char_to_class['y'] = GR_REGS;
   mips_char_to_class['z'] = ST_REGS;
+  mips_char_to_class['B'] = COP0_REGS;
+  mips_char_to_class['C'] = COP2_REGS;
+  mips_char_to_class['D'] = COP3_REGS;
 
   /* Set up array to map GCC register number to debug register number.
      Ignore the special purpose register numbers.  */
@@ -5237,6 +5411,8 @@ override_options ()
 			|| (regno == MD_REG_FIRST
 			    && size == 2 * UNITS_PER_WORD)));
 
+	  else if (ALL_COP_REG_P (regno))
+	    temp = (class == MODE_INT && size <= UNITS_PER_WORD);
 	  else
 	    temp = 0;
 
@@ -5723,12 +5899,7 @@ print_operand (file, op, letter)
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is ADDR.  ADDR is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on
-   the section that the address refers to.  On these machines,
-   define the macro `ENCODE_SECTION_INFO' to store the information
-   into the `symbol_ref', and then check for it here.  */
+   reference whose address is ADDR.  ADDR is an RTL expression.  */
 
 void
 print_operand_address (file, addr)
@@ -5870,6 +6041,7 @@ mips_output_external (file, decl, name)
 
   if (TARGET_GP_OPT
       && TREE_CODE (decl) != FUNCTION_DECL
+      && !DECL_COMDAT (decl)
       && (len = int_size_in_bytes (TREE_TYPE (decl))) > 0
       && ((section_name = DECL_SECTION_NAME (decl)) == NULL
 	  || strcmp (TREE_STRING_POINTER (section_name), ".sbss") == 0
@@ -6552,40 +6724,23 @@ compute_frame_size (size)
 #define BITSET_P(VALUE,BIT) (((VALUE) & (1L << (BIT))) != 0)
 
 /* Emit instructions to load the value (SP + OFFSET) into MIPS_TEMP2_REGNUM
-   and return an rtl expression for the register.  Write the assembly
-   instructions directly to FILE if it is not null, otherwise emit them as
-   rtl.
+   and return an rtl expression for the register.
 
    This function is a subroutine of save_restore_insns.  It is used when
    OFFSET is too large to add in a single instruction.  */
 
 static rtx
-mips_add_large_offset_to_sp (offset, file)
+mips_add_large_offset_to_sp (offset)
      HOST_WIDE_INT offset;
-     FILE *file;
 {
   rtx reg = gen_rtx_REG (Pmode, MIPS_TEMP2_REGNUM);
-  if (file == 0)
-    {
-      rtx offset_rtx = GEN_INT (offset);
+  rtx offset_rtx = GEN_INT (offset);
 
-      emit_move_insn (reg, offset_rtx);
-      if (Pmode == DImode)
-	emit_insn (gen_adddi3 (reg, reg, stack_pointer_rtx));
-      else
-	emit_insn (gen_addsi3 (reg, reg, stack_pointer_rtx));
-    }
+  emit_move_insn (reg, offset_rtx);
+  if (Pmode == DImode)
+    emit_insn (gen_adddi3 (reg, reg, stack_pointer_rtx));
   else
-    {
-      fprintf (file, "\tli\t%s,0x%.08lx\t# ",
-	       reg_names[MIPS_TEMP2_REGNUM], (long) offset);
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, offset);
-      fprintf (file, "\n\t%s\t%s,%s,%s\n",
-	       Pmode == DImode ? "daddu" : "addu",
-	       reg_names[MIPS_TEMP2_REGNUM],
-	       reg_names[MIPS_TEMP2_REGNUM],
-	       reg_names[STACK_POINTER_REGNUM]);
-    }
+    emit_insn (gen_addsi3 (reg, reg, stack_pointer_rtx));
   return reg;
 }
 
@@ -6651,11 +6806,10 @@ mips_emit_frame_related_store (mem, reg, offset)
 }
 
 static void
-save_restore_insns (store_p, large_reg, large_offset, file)
+save_restore_insns (store_p, large_reg, large_offset)
      int store_p;	/* true if this is prologue */
      rtx large_reg;	/* register holding large offset constant or NULL */
      long large_offset;	/* large constant offset value */
-     FILE *file;	/* file to write instructions instead of making RTL */
 {
   long mask = current_frame_info.mask;
   long fmask = current_frame_info.fmask;
@@ -6719,26 +6873,17 @@ save_restore_insns (store_p, large_reg, large_offset, file)
 	{
 	  base_reg_rtx = gen_rtx_REG (Pmode, MIPS_TEMP2_REGNUM);
 	  base_offset = large_offset;
-	  if (file == 0)
-	    {
-	      if (Pmode == DImode)
-		insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
-					      stack_pointer_rtx));
-	      else
-		insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
-					      stack_pointer_rtx));
-	    }
+	  if (Pmode == DImode)
+	    insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
+					  stack_pointer_rtx));
 	  else
-	    fprintf (file, "\t%s\t%s,%s,%s\n",
-		     Pmode == DImode ? "daddu" : "addu",
-		     reg_names[MIPS_TEMP2_REGNUM],
-		     reg_names[REGNO (large_reg)],
-		     reg_names[STACK_POINTER_REGNUM]);
+	    insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
+					  stack_pointer_rtx));
 	}
       else
 	{
 	  base_offset = gp_offset;
-	  base_reg_rtx = mips_add_large_offset_to_sp (base_offset, file);
+	  base_reg_rtx = mips_add_large_offset_to_sp (base_offset);
 	}
 
       /* When we restore the registers in MIPS16 mode, then if we are
@@ -6755,99 +6900,57 @@ save_restore_insns (store_p, large_reg, large_offset, file)
 	base_offset += current_function_outgoing_args_size;
 
       for (regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
-	if (BITSET_P (mask, regno - GP_REG_FIRST))
-	  {
-	    if (file == 0)
-	      {
-		rtx reg_rtx;
-		rtx mem_rtx
-		  = gen_rtx (MEM, gpr_mode,
-			     gen_rtx (PLUS, Pmode, base_reg_rtx,
-				      GEN_INT (gp_offset - base_offset)));
+	{
+	  if (BITSET_P (mask, regno - GP_REG_FIRST))
+	    {
+	      rtx reg_rtx;
+	      rtx mem_rtx
+		= gen_rtx (MEM, gpr_mode,
+			   gen_rtx (PLUS, Pmode, base_reg_rtx,
+				    GEN_INT (gp_offset - base_offset)));
 
-		if (! current_function_calls_eh_return)
-		  RTX_UNCHANGING_P (mem_rtx) = 1;
+	      if (! current_function_calls_eh_return)
+		RTX_UNCHANGING_P (mem_rtx) = 1;
 
-		/* The mips16 does not have an instruction to load
-                   $31, so we load $7 instead, and work things out
-                   in mips_expand_epilogue.  */
-		if (TARGET_MIPS16 && ! store_p && regno == GP_REG_FIRST + 31)
-		  reg_rtx = gen_rtx (REG, gpr_mode, GP_REG_FIRST + 7);
-		/* The mips16 sometimes needs to save $18.  */
-		else if (TARGET_MIPS16
-			 && regno != GP_REG_FIRST + 31
-			 && ! M16_REG_P (regno))
-		  {
-		    if (! store_p)
-		      reg_rtx = gen_rtx (REG, gpr_mode, 6);
-		    else
-		      {
-			reg_rtx = gen_rtx (REG, gpr_mode, 3);
-			emit_move_insn (reg_rtx,
-					gen_rtx (REG, gpr_mode, regno));
-		      }
-		  }
-		else
-		  reg_rtx = gen_rtx (REG, gpr_mode, regno);
+	      /* The mips16 does not have an instruction to load
+		 $31, so we load $7 instead, and work things out
+		 in mips_expand_epilogue.  */
+	      if (TARGET_MIPS16 && ! store_p && regno == GP_REG_FIRST + 31)
+		reg_rtx = gen_rtx (REG, gpr_mode, GP_REG_FIRST + 7);
+	      /* The mips16 sometimes needs to save $18.  */
+	      else if (TARGET_MIPS16
+		       && regno != GP_REG_FIRST + 31
+		       && ! M16_REG_P (regno))
+		{
+		  if (! store_p)
+		    reg_rtx = gen_rtx (REG, gpr_mode, 6);
+		  else
+		    {
+		      reg_rtx = gen_rtx (REG, gpr_mode, 3);
+		      emit_move_insn (reg_rtx,
+				      gen_rtx (REG, gpr_mode, regno));
+		    }
+		}
+	      else
+		reg_rtx = gen_rtx (REG, gpr_mode, regno);
 
-		if (store_p)
-		  mips_emit_frame_related_store (mem_rtx, reg_rtx, gp_offset);
-		else
-		  {
-		    emit_move_insn (reg_rtx, mem_rtx);
-		    if (TARGET_MIPS16
-			&& regno != GP_REG_FIRST + 31
-			&& ! M16_REG_P (regno))
-		      emit_move_insn (gen_rtx (REG, gpr_mode, regno),
-				      reg_rtx);
-		  }
-	      }
-	    else
-	      {
-		int r = regno;
-
-		/* The mips16 does not have an instruction to
-		   load $31, so we load $7 instead, and work
-		   things out in the caller.  */
-		if (TARGET_MIPS16 && ! store_p && r == GP_REG_FIRST + 31)
-		  r = GP_REG_FIRST + 7;
-		/* The mips16 sometimes needs to save $18.  */
-		if (TARGET_MIPS16
-		    && regno != GP_REG_FIRST + 31
-		    && ! M16_REG_P (regno))
-		  {
-		    if (! store_p)
-		      r = GP_REG_FIRST + 6;
-		    else
-		      {
-			r = GP_REG_FIRST + 3;
-			fprintf (file, "\tmove\t%s,%s\n",
-				 reg_names[r], reg_names[regno]);
-		      }
-		  }
-		fprintf (file, "\t%s\t%s,",
-			 (TARGET_64BIT
-			  ? (store_p) ? "sd" : "ld"
-			  : (store_p) ? "sw" : "lw"),
-			 reg_names[r]);
-		fprintf (file, HOST_WIDE_INT_PRINT_DEC,
-			 gp_offset - base_offset);
-		fprintf (file, "(%s)\n", reg_names[REGNO(base_reg_rtx)]);
-		if (! store_p
-		    && TARGET_MIPS16
-		    && regno != GP_REG_FIRST + 31
-		    && ! M16_REG_P (regno))
-		  fprintf (file, "\tmove\t%s,%s\n",
-			   reg_names[regno], reg_names[r]);
-	      }
+	      if (store_p)
+		mips_emit_frame_related_store (mem_rtx, reg_rtx, gp_offset);
+	      else
+		{
+		  emit_move_insn (reg_rtx, mem_rtx);
+		  if (TARGET_MIPS16
+		      && regno != GP_REG_FIRST + 31
+		      && ! M16_REG_P (regno))
+		    emit_move_insn (gen_rtx (REG, gpr_mode, regno),
+				    reg_rtx);
+		}
+	    }
+	  /* If the restore is being supressed, still take into account
+	     the offset at which it is stored.  */
+	  if (BITSET_P (real_mask, regno - GP_REG_FIRST))
 	    gp_offset -= GET_MODE_SIZE (gpr_mode);
-	  }
-        /* If the restore is being supressed, still take into account
-	   the offset at which it is stored.  */
- 	else if (BITSET_P (real_mask, regno - GP_REG_FIRST))
- 	  {
-	    gp_offset -= GET_MODE_SIZE (gpr_mode);
-	  }
+	}
     }
   else
     base_reg_rtx = 0, base_offset  = 0;
@@ -6879,27 +6982,17 @@ save_restore_insns (store_p, large_reg, large_offset, file)
 	{
 	  base_reg_rtx = gen_rtx_REG (Pmode, MIPS_TEMP2_REGNUM);
 	  base_offset = large_offset;
-	  if (file == 0)
-	    {
-	      if (Pmode == DImode)
-		insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
-					      stack_pointer_rtx));
-	      else
-		insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
-					      stack_pointer_rtx));
-	    }
-
+	  if (Pmode == DImode)
+	    insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
+					  stack_pointer_rtx));
 	  else
-	    fprintf (file, "\t%s\t%s,%s,%s\n",
-		     Pmode == DImode ? "daddu" : "addu",
-		     reg_names[MIPS_TEMP2_REGNUM],
-		     reg_names[REGNO (large_reg)],
-		     reg_names[STACK_POINTER_REGNUM]);
+	    insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
+					  stack_pointer_rtx));
 	}
       else
 	{
 	  base_offset = fp_offset;
-	  base_reg_rtx = mips_add_large_offset_to_sp (fp_offset, file);
+	  base_reg_rtx = mips_add_large_offset_to_sp (fp_offset);
 	}
 
       /* This loop must iterate over the same space as its companion in
@@ -6909,34 +7002,19 @@ save_restore_insns (store_p, large_reg, large_offset, file)
 	   regno -= FP_INC)
 	if (BITSET_P (fmask, regno - FP_REG_FIRST))
 	  {
-	    if (file == 0)
-	      {
-		enum machine_mode sz
-		  = TARGET_SINGLE_FLOAT ? SFmode : DFmode;
-		rtx reg_rtx = gen_rtx (REG, sz, regno);
-		rtx mem_rtx = gen_rtx (MEM, sz,
-				       gen_rtx (PLUS, Pmode, base_reg_rtx,
-						GEN_INT (fp_offset
-							 - base_offset)));
-		if (! current_function_calls_eh_return)
-		  RTX_UNCHANGING_P (mem_rtx) = 1;
+	    enum machine_mode sz = TARGET_SINGLE_FLOAT ? SFmode : DFmode;
+	    rtx reg_rtx = gen_rtx (REG, sz, regno);
+	    rtx mem_rtx = gen_rtx (MEM, sz,
+				   gen_rtx (PLUS, Pmode, base_reg_rtx,
+					    GEN_INT (fp_offset
+						     - base_offset)));
+	    if (! current_function_calls_eh_return)
+	      RTX_UNCHANGING_P (mem_rtx) = 1;
 
-		if (store_p)
-		  mips_emit_frame_related_store (mem_rtx, reg_rtx, fp_offset);
-		else
-		  emit_move_insn (reg_rtx, mem_rtx);
-	      }
+	    if (store_p)
+	      mips_emit_frame_related_store (mem_rtx, reg_rtx, fp_offset);
 	    else
-	      {
-		fprintf (file, "\t%s\t%s,",
-			 (TARGET_SINGLE_FLOAT
-			  ? (store_p ? "s.s" : "l.s")
-			  : (store_p ? "s.d" : "l.d")),
-			 reg_names[regno]);
-		fprintf (file, HOST_WIDE_INT_PRINT_DEC,
-			 fp_offset - base_offset);
-		fprintf (file, "(%s)\n", reg_names[REGNO(base_reg_rtx)]);
-	      }
+	      emit_move_insn (reg_rtx, mem_rtx);
 
 	    fp_offset -= UNITS_PER_FPVALUE;
 	  }
@@ -7426,7 +7504,7 @@ mips_expand_prologue ()
 	}
 
       if (! mips_entry)
-	save_restore_insns (1, tmp_rtx, tsize, (FILE *)0);
+	save_restore_insns (1, tmp_rtx, tsize);
       else if (reg_18_save != NULL_RTX)
 	emit_insn (reg_18_save);
 
@@ -7695,7 +7773,7 @@ mips_expand_epilogue ()
 		   & (1L << (PIC_OFFSET_TABLE_REGNUM - GP_REG_FIRST))))
 	emit_insn (gen_blockage ());
 
-      save_restore_insns (0, tmp_rtx, orig_tsize, (FILE *)0);
+      save_restore_insns (0, tmp_rtx, orig_tsize);
 
       /* In mips16 mode with a large frame, we adjust the stack
          pointer before restoring the registers.  In this case, we
@@ -7820,10 +7898,11 @@ symbolic_expression_p (x)
 /* Choose the section to use for the constant rtx expression X that has
    mode MODE.  */
 
-void
-mips_select_rtx_section (mode, x)
+static void
+mips_select_rtx_section (mode, x, align)
      enum machine_mode mode;
-     rtx x ATTRIBUTE_UNUSED;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
 {
   if (TARGET_MIPS16)
     {
@@ -7836,26 +7915,26 @@ mips_select_rtx_section (mode, x)
     {
       /* For embedded applications, always put constants in read-only data,
 	 in order to reduce RAM usage.  */
-      READONLY_DATA_SECTION ();
+      mergeable_constant_section (mode, align, 0);
     }
   else
     {
       /* For hosted applications, always put constants in small data if
 	 possible, as this gives the best performance.  */
+      /* ??? Consider using mergable small data sections.  */
 
       if (GET_MODE_SIZE (mode) <= (unsigned) mips_section_threshold
 	  && mips_section_threshold > 0)
 	SMALL_DATA_SECTION ();
       else if (flag_pic && symbolic_expression_p (x))
-	/* Any expression involving a SYMBOL_REF might need a run-time
-	   relocation.  (The symbol might be defined in a shared
-	   library loaded at an unexpected base address.)  So, we must
-	   put such expressions in the data segment (which is
-	   writable), rather than the text segment (which is
-	   read-only).  */
-	data_section ();
+	{
+	  if (targetm.have_named_sections)
+	    named_section (NULL_TREE, ".data.rel.ro", 3);
+	  else
+	    data_section ();
+	}
       else
-	READONLY_DATA_SECTION ();
+	mergeable_constant_section (mode, align, 0);
     }
 }
 
@@ -7863,18 +7942,22 @@ mips_select_rtx_section (mode, x)
    any relocatable expression.
 
    Some of the logic used here needs to be replicated in
-   ENCODE_SECTION_INFO in mips.h so that references to these symbols
-   are done correctly.  Specifically, at least all symbols assigned
-   here to rom (.text and/or .rodata) must not be referenced via
-   ENCODE_SECTION_INFO with %gprel, as the rom might be too far away.
+   mips_encode_section_info so that references to these symbols are
+   done correctly.  Specifically, at least all symbols assigned here
+   to rom (.text and/or .rodata) must not be referenced via
+   mips_encode_section_info with %gprel, as the rom might be too far
+   away.
 
    If you need to make a change here, you probably should check
-   ENCODE_SECTION_INFO to see if it needs a similar change.  */
+   mips_encode_section_info to see if it needs a similar change.
 
-void
-mips_select_section (decl, reloc)
+   ??? This would be fixed by implementing targetm.is_small_data_p.  */
+
+static void
+mips_select_section (decl, reloc, align)
      tree decl;
      int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
 {
   int size = int_size_in_bytes (TREE_TYPE (decl));
 
@@ -7901,7 +7984,7 @@ mips_select_section (decl, reloc)
 	       && (TREE_CODE (decl) != STRING_CST
 		   || !flag_writable_strings)))
 	  && ! (flag_pic && reloc))
-	READONLY_DATA_SECTION ();
+	readonly_data_section ();
       else if (size > 0 && size <= mips_section_threshold)
 	SMALL_DATA_SECTION ();
       else
@@ -7924,9 +8007,119 @@ mips_select_section (decl, reloc)
 		    && (TREE_CODE (decl) != STRING_CST
 			|| !flag_writable_strings)))
 	       && ! (flag_pic && reloc))
-	READONLY_DATA_SECTION ();
+	readonly_data_section ();
       else
 	data_section ();
+    }
+}
+
+/* When optimizing for the $gp pointer, SYMBOL_REF_FLAG is set for all
+   small objects.
+
+   When generating embedded PIC code, SYMBOL_REF_FLAG is set for
+   symbols which are not in the .text section.
+
+   When generating mips16 code, SYMBOL_REF_FLAG is set for string
+   constants which are put in the .text section.  We also record the
+   total length of all such strings; this total is used to decide
+   whether we need to split the constant table, and need not be
+   precisely correct.
+
+   When not mips16 code nor embedded PIC, if a symbol is in a
+   gp addresable section, SYMBOL_REF_FLAG is set prevent gcc from
+   splitting the reference so that gas can generate a gp relative
+   reference.
+
+   When TARGET_EMBEDDED_DATA is set, we assume that all const
+   variables will be stored in ROM, which is too far from %gp to use
+   %gprel addressing.  Note that (1) we include "extern const"
+   variables in this, which mips_select_section doesn't, and (2) we
+   can't always tell if they're really const (they might be const C++
+   objects with non-const constructors), so we err on the side of
+   caution and won't use %gprel anyway (otherwise we'd have to defer
+   this decision to the linker/loader).  The handling of extern consts
+   is why the DECL_INITIAL macros differ from mips_select_section.  */
+
+static void
+mips_encode_section_info (decl, first)
+     tree decl;
+     int first;
+{
+  if (TARGET_MIPS16)
+    {
+      if (first && TREE_CODE (decl) == STRING_CST
+	  && ! flag_writable_strings
+	  /* If this string is from a function, and the function will
+	     go in a gnu linkonce section, then we can't directly
+	     access the string.  This gets an assembler error
+	     "unsupported PC relative reference to different section".
+	     If we modify SELECT_SECTION to put it in function_section
+	     instead of text_section, it still fails because
+	     DECL_SECTION_NAME isn't set until assemble_start_function.
+	     If we fix that, it still fails because strings are shared
+	     among multiple functions, and we have cross section
+	     references again.  We force it to work by putting string
+	     addresses in the constant pool and indirecting.  */
+	  && (! current_function_decl
+	      || ! DECL_ONE_ONLY (current_function_decl)))
+	{
+	  SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (decl), 0)) = 1;
+	  mips_string_length += TREE_STRING_LENGTH (decl);
+	}
+    }
+
+  if (TARGET_EMBEDDED_DATA
+      && (TREE_CODE (decl) == VAR_DECL
+	  && TREE_READONLY (decl) && !TREE_SIDE_EFFECTS (decl))
+      && (!DECL_INITIAL (decl)
+	  || TREE_CONSTANT (DECL_INITIAL (decl))))
+    {
+      SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 0;
+    }
+
+  else if (TARGET_EMBEDDED_PIC)
+    {
+      if (TREE_CODE (decl) == VAR_DECL)
+	SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+      else if (TREE_CODE (decl) == FUNCTION_DECL)
+	SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 0;
+      else if (TREE_CODE (decl) == STRING_CST
+	       && ! flag_writable_strings)
+	SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (decl), 0)) = 0;
+      else
+	SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (decl), 0)) = 1;
+    }
+
+  else if (TREE_CODE (decl) == VAR_DECL
+	   && DECL_SECTION_NAME (decl) != NULL_TREE
+	   && (0 == strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+			    ".sdata")
+	       || 0 == strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+			       ".sbss")))
+    {
+      SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+    }
+
+  /* We can not perform GP optimizations on variables which are in
+       specific sections, except for .sdata and .sbss which are
+       handled above.  */
+  else if (TARGET_GP_OPT && TREE_CODE (decl) == VAR_DECL
+	   && DECL_SECTION_NAME (decl) == NULL_TREE
+	   && ! (TARGET_MIPS16 && TREE_PUBLIC (decl)
+		 && (DECL_COMMON (decl)
+		     || DECL_ONE_ONLY (decl)
+		     || DECL_WEAK (decl))))
+    {
+      int size = int_size_in_bytes (TREE_TYPE (decl));
+
+      if (size > 0 && size <= mips_section_threshold)
+	SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+    }
+
+  else if (HALF_PIC_P ())
+    {
+      if (first)
+	HALF_PIC_ENCODE (decl);
     }
 }
 
@@ -8214,6 +8407,20 @@ mips_secondary_reload_class (class, mode, x, in_p)
     }
 
   return NO_REGS;
+}
+
+/* This function returns the maximum number of consecutive registers
+   needed to represent mode MODE in registers of class CLASS.  */
+
+int
+mips_class_max_nregs (class, mode)
+     enum reg_class class;
+     enum machine_mode mode;
+{
+  if (class == FP_REGS)
+    return FP_INC;
+  else
+    return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
 
 /* For each mips16 function which refers to GP relative symbols, we
@@ -9529,6 +9736,106 @@ highpart_shift_operator (x, mode)
 	  || code == ROTATE);
 }
 
+/* Return a number assessing the cost of moving a register in class
+   FROM to class TO.  The classes are expressed using the enumeration
+   values such as `GENERAL_REGS'.  A value of 2 is the default; other
+   values are interpreted relative to that.
+
+   It is not required that the cost always equal 2 when FROM is the
+   same as TO; on some machines it is expensive to move between
+   registers if they are not general registers.
+
+   If reload sees an insn consisting of a single `set' between two
+   hard registers, and if `REGISTER_MOVE_COST' applied to their
+   classes returns a value of 2, reload does not check to ensure that
+   the constraints of the insn are met.  Setting a cost of other than
+   2 will allow reload to verify that the constraints are met.  You
+   should do this if the `movM' pattern's constraints do not allow
+   such copying.
+
+   ??? We make make the cost of moving from HI/LO/HILO/MD into general
+   registers the same as for one of moving general registers to
+   HI/LO/HILO/MD for TARGET_MIPS16 in order to prevent allocating a
+   pseudo to HI/LO/HILO/MD.  This might hurt optimizations though, it
+   isn't clear if it is wise.  And it might not work in all cases.  We
+   could solve the DImode LO reg problem by using a multiply, just
+   like reload_{in,out}si.  We could solve the SImode/HImode HI reg
+   problem by using divide instructions.  divu puts the remainder in
+   the HI reg, so doing a divide by -1 will move the value in the HI
+   reg for all values except -1.  We could handle that case by using a
+   signed divide, e.g.  -1 / 2 (or maybe 1 / -2?).  We'd have to emit
+   a compare/branch to test the input value to see which instruction
+   we need to use.  This gets pretty messy, but it is feasible.  */
+
+int
+mips_register_move_cost (mode, to, from)
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum reg_class to, from;
+{
+  if (from == M16_REGS && GR_REG_CLASS_P (to))
+    return 2;
+  else if (from == M16_NA_REGS && GR_REG_CLASS_P (to))
+    return 2;
+  else if (GR_REG_CLASS_P (from))
+    {
+      if (to == M16_REGS)
+	return 2;
+      else if (to == M16_NA_REGS)
+	return 2;
+      else if (GR_REG_CLASS_P (to))
+	{
+	  if (TARGET_MIPS16)
+	    return 4;
+	  else
+	    return 2;
+	}
+      else if (to == FP_REGS)
+	return 4;
+      else if (to == HI_REG || to == LO_REG || to == MD_REGS
+	       || to == HILO_REG)
+	{
+	  if (TARGET_MIPS16)
+	    return 12;
+	  else
+	    return 6;
+	}
+      else if (COP_REG_CLASS_P (to))
+	{
+	  return 5;
+	}
+    }  /* GR_REG_CLASS_P (from) */
+  else if (from == FP_REGS)
+    {
+      if (GR_REG_CLASS_P (to))
+	return 4;
+      else if (to == FP_REGS)
+	return 2;
+      else if (to == ST_REGS)
+	return 8;
+    }  /* from == FP_REGS */
+  else if (from == HI_REG || from == LO_REG || from == MD_REGS
+	   || from == HILO_REG)
+    {
+      if (GR_REG_CLASS_P (to))
+	{
+	  if (TARGET_MIPS16)
+	    return 12;
+	  else
+	    return 6;
+	}
+    }  /* from == HI_REG, etc. */
+  else if (from == ST_REGS && GR_REG_CLASS_P (to))
+    return 4;
+  else if (COP_REG_CLASS_P (from))
+    {
+      return 5;
+    }  /* COP_REG_CLASS_P (from) */
+
+  /* fallthru */
+
+  return 12;
+}
+
 /* Return the length of INSN.  LENGTH is the initial length computed by
    attributes in the machine-description file.  */
 
@@ -9841,14 +10148,26 @@ mips_parse_cpu (cpu_string)
   const char *p = cpu_string;
   int seen_v = 0;
   enum processor_type cpu;
+  int warn_upper_case = 0;
 
   /* We need to cope with the various "vr" prefixes for the NEC 4300
      and 4100 processors.  */
   if (*p == 'v' || *p == 'V')
-    seen_v = 1, p++;
+    {
+      if (*p == 'V')
+	warn_upper_case = 1;
+      seen_v = 1, p++;
+    }
 
   if (*p == 'r' || *p == 'R')
-    p++;
+    {
+      if (*p == 'R')
+	warn_upper_case = 1;
+      p++;
+    }
+
+  if (warn_upper_case)
+    warning ("the cpu name must be lower case");
 
   /* Since there is no difference between a R2000 and R3000 in
      terms of the scheduler, we collapse them into just an R3000.  */
@@ -9947,9 +10266,10 @@ mips_adjust_cost (insn, link, dep, cost)
   return cost;
 }
 
-/* Cover function for UNIQUE_SECTION.  */
+/* ??? This could be replaced with the default elf version if
+   TARGET_IS_SMALL_DATA_P is set properly.  */
 
-void
+static void
 mips_unique_section (decl, reloc)
      tree decl;
      int reloc;
@@ -9965,6 +10285,7 @@ mips_unique_section (decl, reloc)
   };
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  name = (* targetm.strip_name_encoding) (name);
   size = int_size_in_bytes (TREE_TYPE (decl));
 
   /* Determine the base section we are interested in:
@@ -10047,7 +10368,24 @@ mips_return_in_memory (type)
 	    || (int_size_in_bytes (type) == -1));
 }
 
+static int
+mips_issue_rate ()
+{
+  int rate;
 
+  switch (mips_tune)
+    {
+    case PROCESSOR_R3000:
+      rate = 1;
+      break;
+
+    default:
+      rate = 1;
+      break;
+    }
+
+  return rate;
+}
 
 
 #ifdef TARGET_IRIX6

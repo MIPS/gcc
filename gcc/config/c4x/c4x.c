@@ -193,6 +193,7 @@ const struct attribute_spec c4x_attribute_table[];
 static void c4x_insert_attributes PARAMS ((tree, tree *));
 static void c4x_asm_named_section PARAMS ((const char *, unsigned int));
 static int c4x_adjust_cost PARAMS ((rtx, rtx, rtx, int));
+static void c4x_encode_section_info PARAMS ((tree, int));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -216,6 +217,9 @@ static int c4x_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST c4x_adjust_cost
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO c4x_encode_section_info
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -307,7 +311,7 @@ c4x_override_options ()
     target_flags &= ~C3X_FLAG;
 
   /* Convert foo / 8.0 into foo * 0.125, etc.  */
-  set_fast_math_flags();
+  set_fast_math_flags (1);
 
   /* We should phase out the following at some stage.
      This provides compatibility with the old -mno-aliases option.  */
@@ -1478,7 +1482,8 @@ c4x_emit_libcall_mulhi (libcall, code, mode, operands)
 
 /* Set the SYMBOL_REF_FLAG for a function decl.  However, wo do not
    yet use this info.  */
-void
+
+static void
 c4x_encode_section_info (decl, first)
      tree decl;
      int first ATTRIBUTE_UNUSED;

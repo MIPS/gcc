@@ -315,7 +315,8 @@ java/jcf-io.o: java/jcf-io.c $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H)
 # jcf-path.o needs a -D.
 java/jcf-path.o: java/jcf-path.c $(CONFIG_H) $(SYSTEM_H) java/jcf.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
-	  -DLIBGCJ_ZIP_FILE='"$(prefix)/share/libgcj.jar"' \
+	  -DLIBGCJ_ZIP_FILE='"$(prefix)/share/java/libgcj-$(version).jar"' \
+	  -DDEFAULT_TARGET_VERSION=\"$(version)\" \
 	  $(srcdir)/java/jcf-path.c $(OUTPUT_OPTION)
 
 # Documentation
@@ -328,7 +329,7 @@ $(srcdir)/java/gcj.info: $(srcdir)/java/gcj.texi \
 
 java/gcj.dvi: $(srcdir)/java/gcj.texi $(srcdir)/doc/include/fdl.texi \
 	 $(srcdir)/doc/include/gpl.texi
-	s=`cd $(srcdir); pwd`; export s; \
+	s=`cd $(srcdir); ${PWD}`; export s; \
 	cd java && $(TEXI2DVI) -I $$s/doc/include $$s/java/gcj.texi
 
 $(srcdir)/java/gcj.1: $(srcdir)/java/gcj.texi

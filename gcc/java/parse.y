@@ -105,7 +105,6 @@ static void check_inner_class_access PARAMS ((tree, tree, tree));
 static int check_pkg_class_access PARAMS ((tree, tree, bool));
 static void register_package PARAMS ((tree));
 static tree resolve_package PARAMS ((tree, tree *, tree *));
-static tree lookup_package_type PARAMS ((const char *, int));
 static tree resolve_class PARAMS ((tree, tree, tree, tree));
 static void declare_local_variables PARAMS ((int, tree, tree));
 static void dump_java_tree PARAMS ((enum tree_dump_index, tree));
@@ -337,6 +336,8 @@ static tree maybe_build_class_init_for_field PARAMS ((tree, tree));
 static bool attach_init_test_initialization_flags PARAMS ((struct hash_entry *,
 							  PTR));
 static bool emit_test_initialization PARAMS ((struct hash_entry *, PTR));
+
+static char *string_convert_int_cst PARAMS ((tree));
 
 /* Number of error found so far. */
 int java_error_count; 
@@ -9047,10 +9048,30 @@ java_expand_classes ()
   for (cur_ctxp = ctxp_for_generation; cur_ctxp; cur_ctxp = cur_ctxp->next)
     {
       tree current;
+      tree reversed_class_list = NULL;
+
       ctxp = cur_ctxp;
-      for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
+
+      /* We write out the classes in reverse order.  This ensures that
+	 inner classes are written before their containing classes,
+	 which is important for parallel builds.  Otherwise, the
+	 class file for the outer class may be found, but the class
+	 file for the inner class may not be present.  In that
+	 situation, the compiler cannot fall back to the original
+	 source, having already read the outer class, so we must
+	 prevent that situation.  */
+      for (current = ctxp->class_list; 
+	   current; 
+	   current = TREE_CHAIN (current))
+	reversed_class_list
+	  = tree_cons (NULL_TREE, current, reversed_class_list);
+      ggc_add_tree_root (&reversed_class_list, 1);
+
+      for (current = reversed_class_list; 
+	   current; 
+	   current = TREE_CHAIN (current))
 	{
-	  current_class = TREE_TYPE (current);
+	  current_class = TREE_TYPE (TREE_VALUE (current));
 	  outgoing_cpool = TYPE_CPOOL (current_class);
 	  if (flag_emit_class_files)
 	    write_classfile (current_class);
@@ -9062,6 +9083,8 @@ java_expand_classes ()
 	      finish_class ();
 	    }
 	}
+
+      ggc_del_root (&reversed_class_list);
     }
 }
 
@@ -10466,27 +10489,15 @@ patch_method_invocation (patch, primary, where, from_super,
 
   /* This handles the situation where a constructor invocation needs
      to have an enclosing context passed as a second parameter (the
-     constructor is one of an inner class. We extract it from the
-     current function.  */
+     constructor is one of an inner class). */
   if ((is_super_init || 
        (TREE_CODE (patch) == CALL_EXPR && name == this_identifier_node))
       && PURE_INNER_CLASS_TYPE_P (DECL_CONTEXT (list)))
     {
-      tree enclosing_decl = DECL_CONTEXT (TYPE_NAME (current_class));
-      tree extra_arg;
-
-      if (ANONYMOUS_CLASS_P (current_class) || !DECL_CONTEXT (enclosing_decl))
-	{
-	  extra_arg = DECL_FUNCTION_BODY (current_function_decl);
-	  extra_arg = TREE_CHAIN (BLOCK_EXPR_DECLS (extra_arg));
-	}
-      else
-	{
-	  tree dest = TREE_TYPE (DECL_CONTEXT (enclosing_decl));
-	  extra_arg = 
-	    build_access_to_thisn (TREE_TYPE (enclosing_decl), dest, 0);
-	  extra_arg = java_complete_tree (extra_arg);
-	}
+      tree dest = TYPE_NAME (DECL_CONTEXT (list));
+      tree extra_arg = 
+	build_access_to_thisn (current_class, DECL_CONTEXT (dest), 0);
+      extra_arg = java_complete_tree (extra_arg);
       args = tree_cons (NULL_TREE, extra_arg, args);
     }
 
@@ -11232,7 +11243,9 @@ qualify_ambiguous_name (id)
       {
       case CALL_EXPR:
 	qual_wfl = TREE_OPERAND (qual_wfl, 0);
-	if (TREE_CODE (qual_wfl) != EXPR_WITH_FILE_LOCATION)
+	if (TREE_CODE (qual_wfl) != EXPR_WITH_FILE_LOCATION
+	    || (EXPR_WFL_QUALIFICATION (qual_wfl)
+		&& TREE_CODE (EXPR_WFL_QUALIFICATION (qual_wfl)) == TREE_LIST))
 	  {
 	    qual = EXPR_WFL_QUALIFICATION (qual_wfl);
 	    qual_wfl = QUAL_WFL (qual);
@@ -11851,7 +11864,17 @@ java_complete_lhs (node)
 	      if (TREE_CODE (nn) != EXIT_EXPR)
 		{
 		  SET_WFL_OPERATOR (wfl_operator, node, wfl_op2);
-		  parse_error_context (wfl_operator, "Unreachable statement");
+		  if (SUPPRESS_UNREACHABLE_ERROR (nn))
+		    {
+		      /* Perhaps this warning should have an
+			 associated flag.  The code being compiled is
+			 pedantically correct, but useless.  */
+		      parse_warning_context (wfl_operator,
+					     "Unreachable statement");
+		    }
+		  else
+		    parse_error_context (wfl_operator,
+					 "Unreachable statement");
 		}
 	    }
 	  TREE_OPERAND (node, 1) = java_complete_tree (TREE_OPERAND (node, 1));
@@ -12565,8 +12588,82 @@ build_assignment (op, op_location, lhs, rhs)
   return assignment;
 }
 
-/* Print an INTEGER_CST node in a static buffer, and return the buffer. */
+/* Print an INTEGER_CST node as decimal in a static buffer, and return
+   the buffer.  This is used only for string conversion.  */
+static char *
+string_convert_int_cst (node)
+     tree node;
+{
+  static char buffer[80];
 
+  unsigned HOST_WIDE_INT lo = TREE_INT_CST_LOW (node);
+  unsigned HOST_WIDE_INT hi = TREE_INT_CST_HIGH (node);
+  char *p = buffer + sizeof (buffer) - 1;
+  int neg = 0;
+
+  unsigned HOST_WIDE_INT hibit = (((unsigned HOST_WIDE_INT) 1)
+				  << (HOST_BITS_PER_WIDE_INT - 1));
+
+  *p-- = '\0';
+
+  /* If negative, note the fact and negate the value.  */
+  if ((hi & hibit))
+    {
+      lo = ~lo;
+      hi = ~hi;
+      if (++lo == 0)
+	++hi;
+      neg = 1;
+    }
+
+  /* Divide by 10 until there are no bits left.  */
+  while (hi || lo)
+    {
+      unsigned HOST_WIDE_INT acc = 0;
+      unsigned HOST_WIDE_INT outhi = 0, outlo = 0;
+      unsigned int i;
+
+      /* Use long division to compute the result and the remainder.  */
+      for (i = 0; i < 2 * HOST_BITS_PER_WIDE_INT; ++i)
+	{
+	  /* Shift a bit into accumulator.  */
+	  acc <<= 1;
+	  if ((hi & hibit))
+	    acc |= 1;
+
+	  /* Shift the value.  */
+	  hi <<= 1;
+	  if ((lo & hibit))
+	    hi |= 1;
+	  lo <<= 1;
+
+	  /* Shift the correct bit into the result.  */
+	  outhi <<= 1;
+	  if ((outlo & hibit))
+	    outhi |= 1;
+	  outlo <<= 1;
+	  if (acc >= 10)
+	    {
+	      acc -= 10;
+	      outlo |= 1;
+	    }
+	}
+
+      /* FIXME: ASCII assumption.  */
+      *p-- = '0' + acc;
+
+      hi = outhi;
+      lo = outlo;
+    }
+
+  if (neg)
+    *p-- = '-';
+
+  return p + 1;
+}
+
+/* Print an INTEGER_CST node in a static buffer, and return the
+   buffer.  This is used only for error handling.  */
 char *
 print_int_node (node)
     tree node;
@@ -13689,8 +13786,8 @@ merge_string_cste (op1, op2, after)
 	  string = ch;
 	}
       else
-	  string = print_int_node (op2);
-      
+	string = string_convert_int_cst (op2);
+
       return do_merge_string_cste (op1, string, strlen (string), after);
     }
   return NULL_TREE;
@@ -13769,8 +13866,8 @@ build_string_concatenation (op1, op2)
     op2 = patch_string_cst (op2);
 
   /* If either one of the constant is null and the other non null
-     operand is a String object, return it. */
-  if (JSTRING_TYPE_P (TREE_TYPE (op1)) && !op2)
+     operand is a String constant, return it. */
+  if ((TREE_CODE (op1) == STRING_CST) && !op2)
     return op1;
 
   /* If OP1 isn't already a StringBuffer, create and
@@ -14916,7 +15013,22 @@ finish_for_loop (location, condition, update, body)
   /* Put the condition and the loop body in place */
   tree loop = finish_loop_body (location, condition, body, 0);
   /* LOOP is the current loop which has been now popped of the loop
-     stack. Install the update block */
+     stack.  Mark the update block as reachable and install it.  We do
+     this because the (current interpretation of the) JLS requires
+     that the update expression be considered reachable even if the
+     for loop's body doesn't complete normally.  */
+  if (update != NULL_TREE && update != empty_stmt_node)
+    {
+      tree up2 = update;
+      if (TREE_CODE (up2) == EXPR_WITH_FILE_LOCATION)
+	up2 = EXPR_WFL_NODE (up2);
+      /* Try to detect constraint violations.  These would be
+	 programming errors somewhere.  */
+      if (! IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (up2)))
+	  || TREE_CODE (up2) == LOOP_EXPR)
+	abort ();
+      SUPPRESS_UNREACHABLE_ERROR (up2) = 1;
+    }
   LOOP_EXPR_BODY_UPDATE_BLOCK (LOOP_EXPR_BODY (loop)) = update;
   return loop;
 }

@@ -667,7 +667,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 
 #define TREE_BOUNDED(NODE) ((NODE)->common.bounded_flag)
 
-/* Nonzero in a IDENTIFIER_NODE if the use of the name is defined as a
+/* Nonzero in an IDENTIFIER_NODE if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
 
@@ -852,7 +852,7 @@ struct tree_vec
 #define LABELED_BLOCK_BODY(NODE) \
   TREE_OPERAND (LABELED_BLOCK_EXPR_CHECK (NODE), 1)
 
-/* In a EXIT_BLOCK_EXPR node.  */
+/* In an EXIT_BLOCK_EXPR node.  */
 #define EXIT_BLOCK_LABELED_BLOCK(NODE) \
   TREE_OPERAND (EXIT_BLOCK_EXPR_CHECK (NODE), 0)
 #define EXIT_BLOCK_RETURN(NODE) TREE_OPERAND (EXIT_BLOCK_EXPR_CHECK (NODE), 1)
@@ -860,7 +860,7 @@ struct tree_vec
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND (LOOP_EXPR_CHECK (NODE), 0)
 
-/* In a EXPR_WITH_FILE_LOCATION node.  */
+/* In an EXPR_WITH_FILE_LOCATION node.  */
 #define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
   (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
 #define EXPR_WFL_NODE(NODE) \
@@ -1324,7 +1324,7 @@ struct tree_type
    base.  The actual contents are language-dependent.  Under the old
    ABI, the C++ front-end uses a FIELD_DECL whose contents are a
    pointer to the virtual base; under the new ABI this field is
-   instead a INTEGER_CST giving an offset into the vtable where the
+   instead an INTEGER_CST giving an offset into the vtable where the
    offset to the virtual base can be found.  */
 #define BINFO_VPTR_FIELD(NODE) TREE_VEC_ELT (NODE, 5)
 
@@ -1928,6 +1928,7 @@ enum tree_index
   TI_UV4HI_TYPE,
   TI_UV2SI_TYPE,
   TI_UV2SF_TYPE,
+  TI_UV2DI_TYPE,
   TI_UV16QI_TYPE,
 
   TI_V4SF_TYPE,
@@ -1938,6 +1939,8 @@ enum tree_index
   TI_V4HI_TYPE,
   TI_V2SI_TYPE,
   TI_V2SF_TYPE,
+  TI_V2DF_TYPE,
+  TI_V2DI_TYPE,
   TI_V16QI_TYPE,
 
   TI_MAIN_IDENTIFIER,
@@ -2005,6 +2008,7 @@ extern tree global_trees[TI_MAX];
 #define unsigned_V8HI_type_node		global_trees[TI_UV8HI_TYPE]
 #define unsigned_V4HI_type_node		global_trees[TI_UV4HI_TYPE]
 #define unsigned_V2SI_type_node		global_trees[TI_UV2SI_TYPE]
+#define unsigned_V2DI_type_node		global_trees[TI_UV2DI_TYPE]
 
 #define V16QI_type_node			global_trees[TI_V16QI_TYPE]
 #define V4SF_type_node			global_trees[TI_V4SF_TYPE]
@@ -2014,6 +2018,8 @@ extern tree global_trees[TI_MAX];
 #define V4HI_type_node			global_trees[TI_V4HI_TYPE]
 #define V2SI_type_node			global_trees[TI_V2SI_TYPE]
 #define V2SF_type_node			global_trees[TI_V2SF_TYPE]
+#define V2DI_type_node			global_trees[TI_V2DI_TYPE]
+#define V2DF_type_node			global_trees[TI_V2DF_TYPE]
 #define V16SF_type_node			global_trees[TI_V16SF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
@@ -2074,9 +2080,7 @@ extern size_t tree_size			PARAMS ((tree));
 
 extern tree make_node			PARAMS ((enum tree_code));
 
-/* Make a copy of a node, with all the same contents except
-   for TREE_PERMANENT.  (The copy is permanent
-   iff nodes being made now are permanent.)  */
+/* Make a copy of a node, with all the same contents.  */
 
 extern tree copy_node			PARAMS ((tree));
 
@@ -2221,8 +2225,6 @@ struct attribute_spec
 				 int flags, bool *no_add_attrs));
 };
 
-extern const struct attribute_spec default_target_attribute_table[];
-
 /* Flags that may be passed in the third argument of decl_attributes, and
    to handler functions for attributes.  */
 enum attribute_flags
@@ -2257,6 +2259,8 @@ extern void default_set_default_type_attributes PARAMS ((tree));
 extern void default_insert_attributes PARAMS ((tree, tree *));
 extern bool default_function_attribute_inlinable_p PARAMS ((tree));
 extern bool default_ms_bitfield_layout_p PARAMS ((tree));
+struct cpp_reader;
+extern void default_register_cpp_builtins PARAMS ((struct cpp_reader *));
 
 /* Split a list of declspecs and attributes into two.  */
 
@@ -2700,7 +2704,7 @@ extern tree lhd_unsave_expr_now		PARAMS ((tree));
 
 extern int in_control_zone_p			PARAMS ((void));
 extern void expand_fixups			PARAMS ((rtx));
-extern tree expand_start_stmt_expr		PARAMS ((void));
+extern tree expand_start_stmt_expr		PARAMS ((int));
 extern tree expand_end_stmt_expr		PARAMS ((tree));
 extern void expand_expr_stmt			PARAMS ((tree));
 extern void expand_expr_stmt_value		PARAMS ((tree, int, int));
@@ -2799,11 +2803,6 @@ extern void rrotate_double	PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 extern int operand_equal_p	PARAMS ((tree, tree, int));
 extern tree invert_truthvalue	PARAMS ((tree));
 
-/* In builtins.c.  Given a type, apply default promotions wrt unnamed
-   function arguments and return the new type.  Return NULL_TREE if no
-   change.  Required by any language that supports variadic arguments.  */
-
-extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
 extern tree build_range_type PARAMS ((tree, tree, tree));
@@ -2823,9 +2822,6 @@ extern int really_constant_p		PARAMS ((tree));
 extern int int_fits_type_p		PARAMS ((tree, tree));
 extern int tree_log2			PARAMS ((tree));
 extern int tree_floor_log2		PARAMS ((tree));
-extern void preserve_data		PARAMS ((void));
-extern int object_permanent_p		PARAMS ((tree));
-extern int type_precision		PARAMS ((tree));
 extern int simple_cst_equal		PARAMS ((tree, tree));
 extern int compare_tree_int		PARAMS ((tree,
 						 unsigned HOST_WIDE_INT));
@@ -2930,22 +2926,6 @@ extern int setjmp_call_p		PARAMS ((tree));
    returned to be applied at a later stage (for example, to apply
    a decl attribute to the declaration rather than to its type).  */
 extern tree decl_attributes		PARAMS ((tree *, tree, int));
-
-/* The following function must be provided by front ends
-   using attribs.c.  */
-
-/* Table of machine-independent attributes for checking formats, if used.  */
-extern const struct attribute_spec *format_attribute_table;
-
-/* Table of machine-independent attributes for a particular language.  */
-extern const struct attribute_spec *lang_attribute_table;
-
-/* Flag saying whether common language attributes are to be supported.  */
-extern int lang_attribute_common;
-
-/* In front end.  */
-
-extern void incomplete_type_error	PARAMS ((tree, tree));
 
 /* In integrate.c */
 extern void save_for_inline		PARAMS ((tree));

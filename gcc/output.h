@@ -145,6 +145,7 @@ extern int regno_uninitialized		PARAMS ((unsigned int));
 extern int regno_clobbered_at_setjmp	PARAMS ((int));
 extern void find_basic_blocks		PARAMS ((rtx, int, FILE *));
 extern bool cleanup_cfg			PARAMS ((int));
+extern bool delete_unreachable_blocks	PARAMS ((void));
 extern void check_function_return_warnings PARAMS ((void));
 #endif
 
@@ -231,6 +232,8 @@ extern void mergeable_constant_section	PARAMS ((enum machine_mode,
 
 /* Declare DECL to be a weak symbol.  */
 extern void declare_weak		PARAMS ((tree));
+/* Merge weak status.  */
+extern void merge_weak			PARAMS ((tree, tree));
 #endif /* TREE_CODE */
 
 /* Emit any pending weak declarations.  */
@@ -353,11 +356,6 @@ extern void assemble_real		PARAMS ((REAL_VALUE_TYPE,
 						 unsigned));
 #endif
 #endif
-
-/* At the end of a function, forget the memory-constants
-   previously made for CONST_DOUBLEs.  Mark them as not on real_constant_chain.
-   Also clear out real_constant_chain and clear out all the chain-pointers.  */
-extern void clear_const_double_mem	PARAMS ((void));
 
 /* Start deferring output of subconstants.  */
 extern void defer_addressed_constants	PARAMS ((void));
@@ -484,17 +482,6 @@ extern rtx this_is_asm_operands;
 /* User label prefix in effect for this compilation.  */
 extern const char *user_label_prefix;
 
-/* This macro gets just the user-specified name
-   out of the string in a SYMBOL_REF.  On most machines,
-   we discard the * if any and that's all.  */
-#ifndef STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME) \
-  (VAR) = ((SYMBOL_NAME) + ((SYMBOL_NAME)[0] == '*'))
-#endif
-/* Assign unique numbers to labels generated for profiling.  */
-
-extern int profile_label_no;
-
 /* Default target function prologue and epilogue assembler output.  */
 extern void default_function_pro_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
@@ -547,6 +534,18 @@ extern void default_named_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							       int));
 extern void default_ctor_section_asm_out_constructor PARAMS ((struct rtx_def *,
 							      int));
+
+extern void default_select_section PARAMS ((tree, int,
+					    unsigned HOST_WIDE_INT));
+extern void default_elf_select_section PARAMS ((tree, int,
+						unsigned HOST_WIDE_INT));
+extern void default_unique_section PARAMS ((tree, int));
+extern void default_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						unsigned HOST_WIDE_INT));
+extern void default_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						    unsigned HOST_WIDE_INT));
+extern const char *default_strip_name_encoding PARAMS ((const char *));
+extern bool default_binds_local_p PARAMS ((tree));
 
 /* Emit data for vtable gc for GNU binutils.  */
 extern void assemble_vtable_entry PARAMS ((struct rtx_def *, HOST_WIDE_INT));
