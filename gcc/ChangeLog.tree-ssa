@@ -1,5 +1,10 @@
 2003-06-12  Jeff Law  <law@redhat.com>
 
+	* Makefile.in (gimplify.o): Depend on $(RTL_H).  Ugh.
+	* gimplify.c: Include "rtl.h".
+	(simplify_call_expr): Use call_expr_flags and check for ECF_CONST
+	rather than checking bits in the tree node directly.
+
 	* fold-const.c (operand_equal_p): CALL_EXPRs with side effects
 	are never equal.
 
