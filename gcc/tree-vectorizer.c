@@ -1433,8 +1433,9 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   DBG_VECT2 (fprintf (stderr, "vectorization_factor = %d, niters = %d\n",
    		      vectorization_factor,LOOP_VINFO_NITERS (loop_vinfo)));
 
-  if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) ||
-      LOOP_VINFO_NITERS (loop_vinfo) % vectorization_factor != 0)
+  if (vectorization_factor == 0
+      || !LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) 
+      || LOOP_VINFO_NITERS (loop_vinfo) % vectorization_factor != 0)
     {
       DBG_VECT (fprintf (stderr,
       		"loop bound unknown or doesn't divide by %d\n", 

@@ -1,3 +1,8 @@
+2004-01-03  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-vectorizer.c (vect_analyze_operations): Test vectorization_factor
+	before computing modulo.
+
 2004-01-02  Sebastian Pop  <s.pop@laposte.net>
 
 	* tree-vectorizer.c (vect_is_supportable_binop): Returns false instead
