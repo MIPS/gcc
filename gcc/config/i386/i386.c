@@ -15483,10 +15483,9 @@ min_insn_size (insn)
    window.  */
 
 static void
-ix86_avoid_jump_misspredicts (first)
-     rtx first;
+ix86_avoid_jump_misspredicts ()
 {
-  rtx insn, start = first;
+  rtx insn, start = get_insns ();
   int nbytes = 0, njumps = 0;
   int isjump = 0;
 
@@ -15500,7 +15499,7 @@ ix86_avoid_jump_misspredicts (first)
      ends on the offset 0.  Offset of INSN is then NBYTES - sizeof (INSN).
      We add p2align to 16byte window with maxskip 17 - NBYTES + sizeof (INSN).
      */
-  for (insn = first; insn; insn = NEXT_INSN (insn))
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
 
       nbytes += min_insn_size (insn);
