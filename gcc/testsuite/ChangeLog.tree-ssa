@@ -1,3 +1,8 @@
+2004-04-22  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14906
+	* gfortran.fortran-torture/execute/empty_format.f90: Add new test.
+
 2004-04-21  Ben Elliston  <bje@au.ibm.com>
 
 	PR middle-end/14730
