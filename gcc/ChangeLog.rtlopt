@@ -1,3 +1,18 @@
+Fri Nov 22 00:55:55 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* bb-reorder.c (make_reorder_chain): Deleted.
+	(make_reorder_chain_1): Deleted.
+	(find_traces): New function.
+	(mark_bb_visited): New function.
+	(find_traces_1_round): New function.
+	(copy_bb): New function.
+	(bb_to_key): New function.
+	(better_edge_p): New function.
+	(connect_traces): New function.
+	(copy_bb_p): New function.
+	(get_uncond_jump_length): New function.
+	(reorder_basic_blocks): Use new functions (Software Trace Cache)
+
 2002-11-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (vpt.o): New file.
