@@ -672,7 +672,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
   lambda_matrix A, B, A1, B1;
   lambda_vector a, a1;
   lambda_matrix invertedtrans;
-  int determinant, depth, invariants, size;
+  int depth, invariants, size;
   int i, j;
   lambda_loop loop;
   lambda_linear_expression expression;
@@ -787,8 +787,8 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
   invertedtrans = lambda_matrix_new (depth, depth);
 
   /* Compute the inverse of U.  */
-  determinant = lambda_matrix_inverse (LTM_MATRIX (trans),
-				       invertedtrans, depth);
+  lambda_matrix_inverse (LTM_MATRIX (trans),
+			 invertedtrans, depth);
 
   /* A = A1 inv(U).  */
   lambda_matrix_mult (A1, invertedtrans, A, size, depth, depth);
@@ -2320,14 +2320,14 @@ perfect_nestify (struct loops *loops,
       VEC_safe_push (tree, phis, PHI_RESULT (phi));
       VEC_safe_push (tree, phis, PHI_ARG_DEF (phi, 0));
     }
-  e = redirect_edge_and_branch (EDGE_SUCC (preheaderbb, 0), headerbb);
+  e = redirect_edge_and_branch (single_succ_edge (preheaderbb), headerbb);
 
   /* Remove the exit phis from the old basic block.  Make sure to set
      PHI_RESULT to null so it doesn't get released.  */
   while (phi_nodes (olddest) != NULL)
     {
       SET_PHI_RESULT (phi_nodes (olddest), NULL);
-      remove_phi_node (phi_nodes (olddest), NULL, olddest);
+      remove_phi_node (phi_nodes (olddest), NULL);
     }      
 
   /* and add them back to the new basic block.  */
@@ -2338,7 +2338,7 @@ perfect_nestify (struct loops *loops,
       def = VEC_pop (tree, phis);
       phiname = VEC_pop (tree, phis);      
       phi = create_phi_node (phiname, preheaderbb);
-      add_phi_arg (phi, def, EDGE_PRED (preheaderbb, 0));
+      add_phi_arg (phi, def, single_pred_edge (preheaderbb));
     }       
   flush_pending_stmts (e);
 
@@ -2440,8 +2440,6 @@ perfect_nestify (struct loops *loops,
     }
 
   free (bbs);
-  flow_loops_find (loops, LOOP_ALL);
-
   return perfect_nest_p (loop);
 }
 

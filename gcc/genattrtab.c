@@ -1,6 +1,6 @@
 /* Generate code from machine description to compute values of attributes.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -3506,7 +3506,7 @@ write_test_expr (rtx exp, int flags)
 
     /* A random C expression.  */
     case SYMBOL_REF:
-      printf ("%s", XSTR (exp, 0));
+      print_c_condition (XSTR (exp, 0));
       break;
 
     /* The address of the branch target.  */
@@ -4035,7 +4035,7 @@ write_attr_value (struct attr_desc *attr, rtx value)
       break;
 
     case SYMBOL_REF:
-      fputs (XSTR (value, 0), stdout);
+      print_c_condition (XSTR (value, 0));
       break;
 
     case ATTR:

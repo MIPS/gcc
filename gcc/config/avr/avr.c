@@ -48,6 +48,7 @@
 /* Maximal allowed offset for an address in the LD command */
 #define MAX_LD_OFFSET(MODE) (64 - (signed)GET_MODE_SIZE (MODE))
 
+static bool avr_handle_option (size_t, const char *, int);
 static int avr_naked_function_p (tree);
 static int interrupt_function_p (tree);
 static int signal_function_p (tree);
@@ -111,10 +112,10 @@ static int epilogue_size;
 static int jump_tables_size;
 
 /* Initial stack value specified by the `-minit-stack=' option */
-const char *avr_init_stack = "__stack";
+static const char *avr_init_stack = "__stack";
 
 /* Default MCU name */
-const char *avr_mcu_name = "avr2";
+static const char *avr_mcu_name = "avr2";
 
 /* Preprocessor macros to define depending on MCU type.  */
 const char *avr_base_arch_macro;
@@ -244,6 +245,8 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ATTRIBUTE_TABLE avr_attribute_table
 #undef TARGET_ASM_FUNCTION_RODATA_SECTION
 #define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION avr_handle_option
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES avr_insert_attributes
 #undef TARGET_SECTION_TYPE_FLAGS
@@ -263,6 +266,26 @@ int avr_case_values_threshold = 30000;
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+avr_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+{
+  switch (code)
+    {
+    case OPT_minit_stack_:
+      avr_init_stack = arg;
+      return true;
+
+    case OPT_mmcu_:
+      avr_mcu_name = arg;
+      return true;
+
+    default:
+      return true;
+    }
+}
+
 void
 avr_override_options (void)
 {
@@ -681,14 +704,12 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
     }
   else if (minimize && (frame_pointer_needed || live_seq > 6)) 
     {
-      const char *cfun_name = current_function_name ();
       fprintf (file, ("\t"
 		      AS1 (ldi, r26) ",lo8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB
 		      AS1 (ldi, r27) ",hi8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB), size, size);
 
-      fprintf (file, (AS2 (ldi, r30, pm_lo8(.L_%s_body)) CR_TAB
-		      AS2 (ldi, r31, pm_hi8(.L_%s_body)) CR_TAB),
-	       cfun_name, cfun_name);
+      fputs ((AS2 (ldi,r30,pm_lo8(1f)) CR_TAB
+	      AS2 (ldi,r31,pm_hi8(1f)) CR_TAB), file);
       
       prologue_size += 4;
       
@@ -704,7 +725,7 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 		   (18 - live_seq) * 2);
 	  ++prologue_size;
 	}
-      fprintf (file, ".L_%s_body:\n", cfun_name);
+      fputs ("1:\n", file);
     }
   else
     {
@@ -1120,6 +1141,16 @@ print_operand (FILE *file, rtx x, int code)
 
 	  print_operand (file, XEXP (addr, 1), 0);
 	}
+      else if (code == 'p' || code == 'r')
+        {
+          if (GET_CODE (addr) != POST_INC && GET_CODE (addr) != PRE_DEC)
+            fatal_insn ("bad address, not post_inc or pre_dec:", addr);
+          
+          if (code == 'p')
+            print_operand_address (file, XEXP (addr, 0));  /* X, Y, Z */
+          else
+            print_operand (file, XEXP (addr, 0), 0);  /* r26, r28, r30 */
+        }
       else if (GET_CODE (addr) == PLUS)
 	{
 	  print_operand_address (file, XEXP (addr,0));
@@ -1835,6 +1866,9 @@ out_movhi_r_mr (rtx insn, rtx op[], int *l)
   rtx base = XEXP (src, 0);
   int reg_dest = true_regnum (dest);
   int reg_base = true_regnum (base);
+  /* "volatile" forces reading low byte first, even if less efficient,
+     for correct operation with 16-bit I/O registers.  */
+  int mem_volatile_p = MEM_VOLATILE_P (src);
   int tmp;
 
   if (!l)
@@ -1927,6 +1961,25 @@ out_movhi_r_mr (rtx insn, rtx op[], int *l)
     {
       if (reg_overlap_mentioned_p (dest, XEXP (base, 0)))
 	fatal_insn ("incorrect insn:", insn);
+
+      if (mem_volatile_p)
+        {
+          if (REGNO (XEXP (base, 0)) == REG_X)
+            {
+              *l = 4;
+              return (AS2 (sbiw,r26,2)  CR_TAB
+                      AS2 (ld,%A0,X+)   CR_TAB
+                      AS2 (ld,%B0,X)    CR_TAB
+                      AS2 (sbiw,r26,1));
+            }
+          else
+            {
+              *l = 3;
+              return (AS2 (sbiw,%r1,2)   CR_TAB
+                      AS2 (ld,%A0,%p1)  CR_TAB
+                      AS2 (ldd,%B0,%p1+1));
+            }
+        }
 
       *l = 2;
       return (AS2 (ld,%B0,%1) CR_TAB
@@ -2508,7 +2561,11 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
   rtx base = XEXP (dest, 0);
   int reg_base = true_regnum (base);
   int reg_src = true_regnum (src);
+  /* "volatile" forces writing high byte first, even if less efficient,
+     for correct operation with 16-bit I/O registers.  */
+  int mem_volatile_p = MEM_VOLATILE_P (dest);
   int tmp;
+
   if (!l)
     l = &tmp;
   if (CONSTANT_ADDRESS_P (base))
@@ -2528,33 +2585,33 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
         {
           if (reg_src == REG_X)
             {
-	      /* "st X+,r26" is undefined */
-              if (reg_unused_after (insn, src))
+              /* "st X+,r26" and "st -X,r26" are undefined.  */
+              if (!mem_volatile_p && reg_unused_after (insn, src))
 		return *l=4, (AS2 (mov,__tmp_reg__,r27) CR_TAB
 			      AS2 (st,X,r26)            CR_TAB
 			      AS2 (adiw,r26,1)          CR_TAB
 			      AS2 (st,X,__tmp_reg__));
               else
 		return *l=5, (AS2 (mov,__tmp_reg__,r27) CR_TAB
-			      AS2 (st,X,r26)            CR_TAB
 			      AS2 (adiw,r26,1)          CR_TAB
 			      AS2 (st,X,__tmp_reg__)    CR_TAB
-			      AS2 (sbiw,r26,1));
+                              AS2 (sbiw,r26,1)          CR_TAB
+                              AS2 (st,X,r26));
             }
           else
             {
-              if (reg_unused_after (insn, base))
+              if (!mem_volatile_p && reg_unused_after (insn, base))
                 return *l=2, (AS2 (st,X+,%A1) CR_TAB
                               AS2 (st,X,%B1));
               else
-                return *l=3, (AS2 (st  ,X+,%A1) CR_TAB
-                              AS2 (st  ,X,%B1) CR_TAB
-                              AS2 (sbiw,r26,1));
+                return *l=3, (AS2 (adiw,r26,1) CR_TAB
+                              AS2 (st,X,%B1)   CR_TAB
+                              AS2 (st,-X,%A1));
             }
         }
       else
-        return  *l=2, (AS2 (st ,%0,%A1)    CR_TAB
-                       AS2 (std,%0+1,%B1));
+        return  *l=2, (AS2 (std,%0+1,%B1) CR_TAB
+                       AS2 (st,%0,%A1));
     }
   else if (GET_CODE (base) == PLUS)
     {
@@ -2567,14 +2624,14 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
 
 	  if (disp <= 63 + MAX_LD_OFFSET (GET_MODE (dest)))
 	    return *l = 4, (AS2 (adiw,r28,%o0-62) CR_TAB
-			    AS2 (std,Y+62,%A1)    CR_TAB
 			    AS2 (std,Y+63,%B1)    CR_TAB
+			    AS2 (std,Y+62,%A1)    CR_TAB
 			    AS2 (sbiw,r28,%o0-62));
 
 	  return *l = 6, (AS2 (subi,r28,lo8(-%o0)) CR_TAB
 			  AS2 (sbci,r29,hi8(-%o0)) CR_TAB
-			  AS2 (st,Y,%A1)           CR_TAB
 			  AS2 (std,Y+1,%B1)        CR_TAB
+			  AS2 (st,Y,%A1)           CR_TAB
 			  AS2 (subi,r28,lo8(%o0))  CR_TAB
 			  AS2 (sbci,r29,hi8(%o0)));
 	}
@@ -2582,31 +2639,53 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
 	{
 	  /* (X + d) = R */
 	  if (reg_src == REG_X)
-	    {
+            {
 	      *l = 7;
 	      return (AS2 (mov,__tmp_reg__,r26)  CR_TAB
 		      AS2 (mov,__zero_reg__,r27) CR_TAB
-		      AS2 (adiw,r26,%o0)         CR_TAB
-		      AS2 (st,X+,__tmp_reg__)    CR_TAB
+                      AS2 (adiw,r26,%o0+1)       CR_TAB
 		      AS2 (st,X,__zero_reg__)    CR_TAB
+		      AS2 (st,-X,__tmp_reg__)    CR_TAB
 		      AS1 (clr,__zero_reg__)     CR_TAB
-		      AS2 (sbiw,r26,%o0+1));
+                      AS2 (sbiw,r26,%o0));
 	    }
 	  *l = 4;
-	  return (AS2 (adiw,r26,%o0) CR_TAB
-		  AS2 (st,X+,%A1)    CR_TAB
-		  AS2 (st,X,%B1)     CR_TAB
-		  AS2 (sbiw,r26,%o0+1));
+          return (AS2 (adiw,r26,%o0+1) CR_TAB
+                  AS2 (st,X,%B1)       CR_TAB
+                  AS2 (st,-X,%A1)      CR_TAB
+                  AS2 (sbiw,r26,%o0));
 	}
-      return *l=2, (AS2 (std,%A0,%A1)    CR_TAB
-		    AS2 (std,%B0,%B1));
+      return *l=2, (AS2 (std,%B0,%B1)    CR_TAB
+                    AS2 (std,%A0,%A1));
     }
   else if (GET_CODE (base) == PRE_DEC) /* (--R) */
     return *l=2, (AS2 (st,%0,%B1) CR_TAB
 		  AS2 (st,%0,%A1));
   else if (GET_CODE (base) == POST_INC) /* (R++) */
-    return *l=2, (AS2 (st,%0,%A1)  CR_TAB
-		  AS2 (st,%0,%B1));
+    {
+      if (mem_volatile_p)
+        {
+          if (REGNO (XEXP (base, 0)) == REG_X)
+            {
+              *l = 4;
+              return (AS2 (adiw,r26,1)  CR_TAB
+                      AS2 (st,X,%B1)    CR_TAB
+                      AS2 (st,-X,%A1)   CR_TAB
+                      AS2 (adiw,r26,2));
+            }
+          else
+            {
+              *l = 3;
+              return (AS2 (std,%p0+1,%B1) CR_TAB
+                      AS2 (st,%p0,%A1)    CR_TAB
+                      AS2 (adiw,%r0,2));
+            }
+        }
+
+      *l = 2;
+      return (AS2 (st,%0,%A1)  CR_TAB
+            AS2 (st,%0,%B1));
+    }
   fatal_insn ("unknown move insn:",insn);
   return "";
 }

@@ -2117,7 +2117,6 @@ real_nan (REAL_VALUE_TYPE *r, const char *str, int quiet,
   else
     {
       int base = 10, d;
-      bool neg = false;
 
       memset (r, 0, sizeof (*r));
       r->cl = rvc_nan;
@@ -2127,7 +2126,7 @@ real_nan (REAL_VALUE_TYPE *r, const char *str, int quiet,
       while (ISSPACE (*str))
 	str++;
       if (*str == '-')
-	str++, neg = true;
+	str++;
       else if (*str == '+')
 	str++;
       if (*str == '0')
@@ -2652,6 +2651,7 @@ const struct real_format ieee_single_format =
     -125,
     128,
     31,
+    31,
     true,
     true,
     true,
@@ -2669,6 +2669,7 @@ const struct real_format mips_single_format =
     24,
     -125,
     128,
+    31,
     31,
     true,
     true,
@@ -2875,6 +2876,7 @@ const struct real_format ieee_double_format =
     -1021,
     1024,
     63,
+    63,
     true,
     true,
     true,
@@ -2892,6 +2894,7 @@ const struct real_format mips_double_format =
     53,
     -1021,
     1024,
+    63,
     63,
     true,
     true,
@@ -3222,6 +3225,7 @@ const struct real_format ieee_extended_motorola_format =
     -16382,
     16384,
     95,
+    95,
     true,
     true,
     true,
@@ -3240,6 +3244,7 @@ const struct real_format ieee_extended_intel_96_format =
     -16381,
     16384,
     79,
+    79,
     true,
     true,
     true,
@@ -3257,6 +3262,7 @@ const struct real_format ieee_extended_intel_128_format =
     64,
     -16381,
     16384,
+    79,
     79,
     true,
     true,
@@ -3277,6 +3283,7 @@ const struct real_format ieee_extended_intel_96_round_53_format =
     53,
     -16381,
     16384,
+    79,
     79,
     true,
     true,
@@ -3362,6 +3369,7 @@ const struct real_format ibm_extended_format =
     53,
     -1021 + 53,
     1024,
+    127,
     -1,
     true,
     true,
@@ -3380,6 +3388,7 @@ const struct real_format mips_extended_format =
     53,
     -1021 + 53,
     1024,
+    127,
     -1,
     true,
     true,
@@ -3647,6 +3656,7 @@ const struct real_format ieee_quad_format =
     -16381,
     16384,
     127,
+    127,
     true,
     true,
     true,
@@ -3664,6 +3674,7 @@ const struct real_format mips_quad_format =
     113,
     -16381,
     16384,
+    127,
     127,
     true,
     true,
@@ -3962,6 +3973,7 @@ const struct real_format vax_f_format =
     -127,
     127,
     15,
+    15,
     false,
     false,
     false,
@@ -3980,6 +3992,7 @@ const struct real_format vax_d_format =
     -127,
     127,
     15,
+    15,
     false,
     false,
     false,
@@ -3997,6 +4010,7 @@ const struct real_format vax_g_format =
     53,
     -1023,
     1023,
+    15,
     15,
     false,
     false,
@@ -4173,6 +4187,7 @@ const struct real_format i370_single_format =
     -64,
     63,
     31,
+    31,
     false,
     false,
     false, /* ??? The encoding does allow for "unnormals".  */
@@ -4189,6 +4204,7 @@ const struct real_format i370_double_format =
     14,
     14,
     -64,
+    63,
     63,
     63,
     false,
@@ -4398,6 +4414,7 @@ const struct real_format c4x_single_format =
     24,
     -126,
     128,
+    23,
     -1,
     false,
     false,
@@ -4416,6 +4433,7 @@ const struct real_format c4x_extended_format =
     32,
     -126,
     128,
+    31,
     -1,
     false,
     false,
@@ -4459,6 +4477,7 @@ const struct real_format real_internal_format =
     SIGNIFICAND_BITS - 2,
     -MAX_EXP,
     MAX_EXP,
+    -1,
     -1,
     true,
     true,

@@ -1,5 +1,5 @@
 /* Functions to analyze and validate GIMPLE trees.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -121,9 +121,6 @@ extern void gimplify_and_add (tree, tree *);
 /* Miscellaneous helpers.  */
 extern void gimple_add_tmp_var (tree);
 extern tree gimple_current_bind_expr (void);
-extern void gimple_push_bind_expr (tree);
-extern void gimple_pop_bind_expr (void);
-extern void unshare_all_trees (tree);
 extern tree voidify_wrapper_expr (tree, tree);
 extern tree gimple_build_eh_filter (tree, tree, tree);
 extern tree build_and_jump (tree *);

@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Motorola 68000 family.
    Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2003, 2004
+   2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -371,9 +371,13 @@ m68k_initial_elimination_offset (int from, int to)
 static bool
 m68k_save_reg (unsigned int regno, bool interrupt_handler)
 {
-  if (flag_pic && current_function_uses_pic_offset_table
-      && regno == PIC_OFFSET_TABLE_REGNUM)
-    return true;
+  if (flag_pic && regno == PIC_OFFSET_TABLE_REGNUM)
+    {
+      if (current_function_uses_pic_offset_table)
+	return true;
+      if (!current_function_is_leaf && TARGET_ID_SHARED_LIBRARY)
+	return true;
+    }
 
   if (current_function_calls_eh_return)
     {

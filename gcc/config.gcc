@@ -98,6 +98,8 @@
 #
 #  extra_programs	Like extra_passes, but these are used when linking.
 #
+#  extra_options	List of target-dependent .opt files.
+#
 #  c_target_objs	List of extra target-dependent objects that be
 #			linked into the C compiler only.
 #
@@ -151,6 +153,7 @@ extra_parts=
 extra_programs=
 extra_objs=
 extra_gcc_objs=
+extra_options=
 c_target_objs=
 cxx_target_objs=
 tm_defines=
@@ -317,6 +320,10 @@ extra_modes=
 if test -f ${srcdir}/config/${cpu_type}/${cpu_type}-modes.def
 then
 	extra_modes=${cpu_type}/${cpu_type}-modes.def
+fi
+if test -f ${srcdir}/config/${cpu_type}/${cpu_type}.opt
+then
+	extra_options="${extra_options} ${cpu_type}/${cpu_type}.opt"
 fi
 
 case ${target} in
@@ -857,7 +864,7 @@ hppa*64*-*-hpux11*)
 			 pa/pa64-regs.h pa/pa-hpux.h pa/pa-hpux11.h"
 	fi
 	case ${target} in
-	*-*-hpux11.11)
+	*-*-hpux11.[1-9]*)
 		tm_file="${tm_file} pa/pa-hpux1111.h pa/pa-64.h pa/pa64-hpux.h"
 		;;
 	*)
@@ -865,7 +872,7 @@ hppa*64*-*-hpux11*)
 		;;
 	esac
 	need_64bit_hwint=yes
-	tmake_file="pa/t-pa64 pa/t-pa-hpux"
+	tmake_file="pa/t-pa64 pa/t-pa-hpux pa/t-hpux-shlib"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	case x${enable_threads} in
 	xyes | xposix )
@@ -1054,12 +1061,12 @@ i[34567]86-*-solaris2*)
 		tmake_file="$tmake_file t-slibgcc-sld"
 	fi
 	case ${target} in
-	*-*-solaris2.[789] | *-*-solaris2.1[0-9])
+	*-*-solaris2.[789] | *-*-solaris2.1[0-9]*)
 		tm_file="$tm_file tm-dwarf2.h"
 		;;
 	esac
 	case ${target} in
-	*-*-solaris2.1[0-9])
+	*-*-solaris2.1[0-9]*)
 		tm_file="${tm_file} i386/x86-64.h i386/sol2-10.h"
 		tm_defines="${tm_defines} TARGET_BI_ARCH=1"
 		tmake_file="$tmake_file i386/t-sol2-10"
@@ -1220,6 +1227,7 @@ ia64*-*-hpux*)
 	use_collect2=no
 	c_target_objs="ia64-c.o"
 	cxx_target_objs="ia64-c.o"
+	extra_options="${extra_options} ia64/ilp32.opt"
 	# If we decide to run fixproto we should define FIXPROTO_DEFINES
 	# in ia64/t-hpux, and also fix the definition of putenv in
 	# sys-protos.h (const char not char).
@@ -1761,7 +1769,7 @@ sh-*-symbianelf* | sh[12346l]*-*-symbianelf* | \
 	tm_file="${tm_file} sh/elf.h"
 	case ${target} in
 	sh*-*-linux*)	tmake_file="${tmake_file} sh/t-linux"
-			tm_file="${tm_file} sh/linux.h" ;;
+			tm_file="${tm_file} linux.h sh/linux.h" ;;
 	sh*-*-kaos*)	tm_file="${tm_file} sh/embed-elf.h kaos.h sh/kaos-sh.h"
 			;;
 	sh*-*-netbsd*)	tm_file="${tm_file} netbsd.h netbsd-elf.h sh/netbsd-elf.h" ;;
@@ -1964,7 +1972,7 @@ sparc-*-solaris2*)
 			tm_file="${tm_file} sparc/sol26-sld.h"
 		fi
 		;;
-	*-*-solaris2.[789] | *-*-solaris2.1[0-9])
+	*-*-solaris2.[789] | *-*-solaris2.1[0-9]*)
 		tm_file="sparc/biarch64.h ${tm_file} sparc/sol2-bi.h tm-dwarf2.h"
 		if test x$gnu_ld = xyes; then
 			tm_file="${tm_file} sparc/sol2-gld-bi.h"
@@ -2313,24 +2321,24 @@ if test x$with_float = x; then
 	esac
 fi
 
-	# Similarly for --with-schedule.
-	if test x$with_schedule = x; then
-		case ${target} in
-		hppa1* | parisc1*)
-			# Override default PA8000 scheduling model.
-			with_schedule=7100LC
-			;;
-		esac
-	fi
+# Similarly for --with-schedule.
+if test x$with_schedule = x; then
+	case ${target} in
+	hppa1* | parisc1*)
+		# Override default PA8000 scheduling model.
+		with_schedule=7100LC
+		;;
+	esac
+fi
 
-	# Validate and mark as valid any --with options supported
-	# by this target.  In order to use a particular --with option
-	# you must list it in supported_defaults; validating the value
-	# is optional.  This case statement should set nothing besides
-	# supported_defaults.
+# Validate and mark as valid any --with options supported
+# by this target.  In order to use a particular --with option
+# you must list it in supported_defaults; validating the value
+# is optional.  This case statement should set nothing besides
+# supported_defaults.
 
-	supported_defaults=
-	case "${target}" in
+supported_defaults=
+case "${target}" in
 	alpha*-*-*)
 		supported_defaults="cpu tune"
 		for which in cpu tune; do
@@ -2538,13 +2546,12 @@ fi
 				eval $with_which=
 				;;
 			"" | common \
-			| power | power2 | power3 | power4 \
-			| powerpc | powerpc64 \
+			| power | power[2345] | powerpc | powerpc64 \
 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \
 			| 401 | 403 | 405 | 405fp | 440 | 440fp | 505 \
 			| 601 | 602 | 603 | 603e | ec603e | 604 \
 			| 604e | 620 | 630 | 740 | 750 | 7400 | 7450 \
-			| 8540 | 801 | 821 | 823 | 860 | 970 | G3 | G4 | G5)
+			| 854[08] | 801 | 821 | 823 | 860 | 970 | G3 | G4 | G5)
 				# OK
 				;;
 			*)
@@ -2643,11 +2650,11 @@ fi
 			;;
 		esac
 		;;
-	esac
+esac
 
-	# Set some miscellaneous flags for particular targets.
-	target_cpu_default2=
-	case ${target} in
+# Set some miscellaneous flags for particular targets.
+target_cpu_default2=
+case ${target} in
 	alpha*-*-*)
 		if test x$gas = xyes
 		then
@@ -2706,7 +2713,7 @@ fi
 	mips*-*-*)
 		if test x$gnu_ld = xyes
 		then
-			target_cpu_default2="MASK_SPLIT_ADDR"
+			target_cpu_default2="MASK_SPLIT_ADDRESSES"
 		fi
 		case ${target} in
 			mips*el-*-*)
@@ -2768,44 +2775,45 @@ fi
 			;;
 		esac
 		;;
-	esac
+esac
 
-	t=
-	all_defaults="abi cpu arch tune schedule float mode fpu divide"
-	for option in $all_defaults
-	do
-		eval "val=\$with_$option"
-		if test -n "$val"; then
-			case " $supported_defaults " in
-			*" $option "*)
-				;;
-			*)
-				echo "This target does not support --with-$option." 2>&1
-				exit 1
-				;;
-			esac
+t=
+all_defaults="abi cpu arch tune schedule float mode fpu divide"
+for option in $all_defaults
+do
+	eval "val=\$with_$option"
+	if test -n "$val"; then
+		case " $supported_defaults " in
+		*" $option "*)
+			;;
+		*)
+			echo "This target does not support --with-$option." 2>&1
+			exit 1
+			;;
+		esac
 
-			if test "x$t" = x
-			then
-				t="{ \"$option\", \"$val\" }"
-			else
-				t="${t}, { \"$option\", \"$val\" }"
-			fi
-		fi
-	done
-	if test "x$t" = x
-	then
-		configure_default_options="{ { NULL, NULL} }"
-	else
-		configure_default_options="{ ${t} }"
-	fi
-
-	if test "$target_cpu_default2" != ""
-	then
-		if test "$target_cpu_default" != ""
+		if test "x$t" = x
 		then
-			target_cpu_default="(${target_cpu_default}|${target_cpu_default2})"
+			t="{ \"$option\", \"$val\" }"
 		else
-			target_cpu_default=$target_cpu_default2
+			t="${t}, { \"$option\", \"$val\" }"
 		fi
 	fi
+done
+
+if test "x$t" = x
+then
+	configure_default_options="{ { NULL, NULL} }"
+else
+	configure_default_options="{ ${t} }"
+fi
+
+if test "$target_cpu_default2" != ""
+then
+	if test "$target_cpu_default" != ""
+	then
+		target_cpu_default="(${target_cpu_default}|${target_cpu_default2})"
+	else
+		target_cpu_default=$target_cpu_default2
+	fi
+fi

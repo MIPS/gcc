@@ -3331,7 +3331,7 @@ find_implicit_sets (void)
 	    dest = GET_CODE (cond) == EQ ? BRANCH_EDGE (bb)->dest
 					 : FALLTHRU_EDGE (bb)->dest;
 
-	    if (dest && EDGE_COUNT (dest->preds) == 1
+	    if (dest && single_pred_p (dest)
 		&& dest != EXIT_BLOCK_PTR)
 	      {
 		new = gen_rtx_SET (VOIDmode, XEXP (cond, 0),
@@ -3581,16 +3581,11 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    }
 	  else if (GET_CODE (new) == LABEL_REF)
 	    {
-	      edge_iterator ei2;
-
 	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
 	      /* Don't bypass edges containing instructions.  */
-	      FOR_EACH_EDGE (edest, ei2, bb->succs)
-		if (edest->dest == dest && edest->insns.r)
-		  {
-		    dest = NULL;
-		    break;
-		  }
+	      edest = find_edge (bb, dest);
+	      if (edest && edest->insns.r)
+		dest = NULL;
 	    }
 	  else
 	    dest = NULL;
@@ -3599,18 +3594,9 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	     branch.  We would end up emitting the instruction on "both"
 	     edges.  */
 
-	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc))))
-	    {
-	      edge e2;
-	      edge_iterator ei2;
-
-	      FOR_EACH_EDGE (e2, ei2, e->src->succs)
-		if (e2->dest == dest)
-		  {
-		    dest = NULL;
-		    break;
-		  }
-	    }
+	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc)))
+	      && find_edge (e->src, dest))
+	    dest = NULL;
 
 	  old_dest = e->dest;
 	  if (dest != NULL
@@ -3676,7 +3662,7 @@ bypass_conditional_jumps (void)
 		  EXIT_BLOCK_PTR, next_bb)
     {
       /* Check for more than one predecessor.  */
-      if (EDGE_COUNT (bb->preds) > 1)
+      if (!single_pred_p (bb))
 	{
 	  setcc = NULL_RTX;
 	  for (insn = BB_HEAD (bb);
@@ -3990,8 +3976,8 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 
   if (JUMP_P (insn)
       || (NONJUMP_INSN_P (insn)
-	  && (EDGE_COUNT (bb->succs) > 1
-	      || EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL)))
+	  && (!single_succ_p (bb)
+	      || single_succ_edge (bb)->flags & EDGE_ABNORMAL)))
     {
 #ifdef HAVE_cc0
       rtx note;
@@ -4032,7 +4018,8 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
   /* Likewise if the last insn is a call, as will happen in the presence
      of exception handling.  */
   else if (CALL_P (insn)
-	   && (EDGE_COUNT (bb->succs) > 1 || EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL))
+	   && (!single_succ_p (bb)
+	       || single_succ_edge (bb)->flags & EDGE_ABNORMAL))
     {
       /* Keeping in mind SMALL_REGISTER_CLASSES and parameters in registers,
 	 we search backward and place the instructions before the first
@@ -4130,7 +4117,7 @@ pre_edge_insert (struct edge_list *edge_list, struct expr **index_map)
 		    if (! occr->deleted_p)
 		      continue;
 
-		    /* Insert this expression on this edge if if it would
+		    /* Insert this expression on this edge if it would
 		       reach the deleted occurrence in BB.  */
 		    if (!TEST_BIT (inserted[e], j))
 		      {
@@ -5846,7 +5833,7 @@ find_loads (rtx x, rtx store_pattern, int after)
 
 /* Check if INSN kills the store pattern X (is aliased with it).
    AFTER is true if we are checking the case when store X occurs
-   after the insn.  Return true if it it does.  */
+   after the insn.  Return true if it does.  */
 
 static bool
 store_killed_in_insn (rtx x, rtx x_regs, rtx insn, int after)

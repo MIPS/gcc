@@ -398,14 +398,13 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
 static unsigned
 stmt_cost (tree stmt)
 {
-  tree lhs, rhs;
+  tree rhs;
   unsigned cost = 1;
 
   /* Always try to create possibilities for unswitching.  */
   if (TREE_CODE (stmt) == COND_EXPR)
     return LIM_EXPENSIVE;
 
-  lhs = TREE_OPERAND (stmt, 0);
   rhs = TREE_OPERAND (stmt, 1);
 
   /* Hoisting memory references out should almost surely be a win.  */
@@ -645,8 +644,8 @@ loop_commit_inserts (void)
     {
       bb = BASIC_BLOCK (i);
       add_bb_to_loop (bb,
-		      find_common_loop (EDGE_SUCC (bb, 0)->dest->loop_father,
-					EDGE_PRED (bb, 0)->src->loop_father));
+		      find_common_loop (single_pred (bb)->loop_father,
+					single_succ (bb)->loop_father));
     }
 }
 
@@ -728,7 +727,7 @@ move_computations (void)
       /* The rewrite of ssa names may cause violation of loop closed ssa
 	 form invariants.  TODO -- avoid these rewrites completely.
 	 Information in virtual phi nodes is sufficient for it.  */
-      rewrite_into_loop_closed_ssa ();
+      rewrite_into_loop_closed_ssa (NULL);
     }
 }
 
@@ -1148,13 +1147,40 @@ static bool
 is_call_clobbered_ref (tree ref)
 {
   tree base;
+  HOST_WIDE_INT offset, size;
+  subvar_t sv;
+  subvar_t svars;
+  tree sref = ref;
 
+  if (TREE_CODE (sref) == COMPONENT_REF
+      && (sref = okay_component_ref_for_subvars (sref, &offset, &size)))
+    {
+      svars = get_subvars_for_var (sref);
+      for (sv = svars; sv; sv = sv->next)
+	{
+	  if (overlap_subvar (offset, size, sv, NULL)
+	      && is_call_clobbered (sv->var))
+	    return true;
+	}
+    }
+	      
   base = get_base_address (ref);
   if (!base)
     return true;
 
   if (DECL_P (base))
-    return is_call_clobbered (base);
+    {
+      if (var_can_have_subvars (base)
+	  && (svars = get_subvars_for_var (base)))
+	{
+	  for (sv = svars; sv; sv = sv->next)
+	    if (is_call_clobbered (sv->var))
+	      return true;
+	  return false;
+	}
+      else
+	return is_call_clobbered (base);
+    }
 
   if (INDIRECT_REF_P (base))
     {

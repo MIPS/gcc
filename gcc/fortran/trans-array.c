@@ -99,43 +99,6 @@ static gfc_ss *gfc_walk_subexpr (gfc_ss *, gfc_expr *);
 static gfc_ss gfc_ss_terminator_var;
 gfc_ss * const gfc_ss_terminator = &gfc_ss_terminator_var;
 
-unsigned HOST_WIDE_INT gfc_stack_space_left;
-
-
-/* Returns true if a variable of specified size should go on the stack.  */
-
-int
-gfc_can_put_var_on_stack (tree size)
-{
-  unsigned HOST_WIDE_INT low;
-
-  if (!INTEGER_CST_P (size))
-    return 0;
-
-  if (gfc_option.flag_max_stack_var_size < 0)
-    return 1;
-
-  if (TREE_INT_CST_HIGH (size) != 0)
-    return 0;
-
-  low = TREE_INT_CST_LOW (size);
-  if (low > (unsigned HOST_WIDE_INT) gfc_option.flag_max_stack_var_size)
-    return 0;
-
-/* TODO: Set a per-function stack size limit.  */
-#if 0
-  /* We should be a bit more clever with array temps.  */
-  if (gfc_option.flag_max_function_vars_size >= 0)
-    {
-      if (low > gfc_stack_space_left)
-	return 0;
-
-      gfc_stack_space_left -= low;
-    }
-#endif
-
-  return 1;
-}
 
 static tree
 gfc_array_dataptr_type (tree desc)
@@ -428,7 +391,7 @@ gfc_trans_static_array_pointer (gfc_symbol * sym)
   gcc_assert (TREE_STATIC (sym->backend_decl));
   /* Just zero the data member.  */
   type = TREE_TYPE (sym->backend_decl);
-  DECL_INITIAL (sym->backend_decl) =gfc_build_null_descriptor (type);
+  DECL_INITIAL (sym->backend_decl) = gfc_build_null_descriptor (type);
 }
 
 
@@ -1033,7 +996,7 @@ get_array_ctor_var_strlen (gfc_expr * expr, tree * len)
       switch (ref->type)
 	{
 	case REF_ARRAY:
-	  /* Array references don't change teh sting length.  */
+	  /* Array references don't change the string length.  */
 	  break;
 
 	case COMPONENT_REF:
@@ -1271,7 +1234,7 @@ gfc_conv_ss_descriptor (stmtblock_t * block, gfc_ss * ss, int base)
       /* Also the data pointer.  */
       tmp = gfc_conv_array_data (se.expr);
       /* If this is a variable or address of a variable we use it directly.
-         Otherwise we must evaluate it now to to avoid break dependency
+         Otherwise we must evaluate it now to avoid breaking dependency
 	 analysis by pulling the expressions for elemental array indices
 	 inside the loop.  */
       if (!(DECL_P (tmp)
@@ -1563,7 +1526,7 @@ gfc_conv_array_index_offset (gfc_se * se, gfc_ss_info * info, int dim, int i,
 	  /* Scalarized dimension.  */
 	  gcc_assert (info && se->loop);
 
-          /* Multiply the loop variable by the stride and dela.  */
+          /* Multiply the loop variable by the stride and delta.  */
 	  index = se->loop->loopvar[i];
 	  index = fold (build2 (MULT_EXPR, gfc_array_index_type, index,
 				info->stride[i]));
@@ -3071,7 +3034,7 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
 
   gcc_assert (!sym->attr.use_assoc);
   gcc_assert (!TREE_STATIC (decl));
-  gcc_assert (!sym->module[0]);
+  gcc_assert (!sym->module);
 
   if (sym->ts.type == BT_CHARACTER
       && !INTEGER_CST_P (sym->ts.cl->backend_decl))
@@ -4194,18 +4157,18 @@ gfc_walk_op_expr (gfc_ss * ss, gfc_expr * expr)
   gfc_ss *head2;
   gfc_ss *newss;
 
-  head = gfc_walk_subexpr (ss, expr->op1);
-  if (expr->op2 == NULL)
+  head = gfc_walk_subexpr (ss, expr->value.op.op1);
+  if (expr->value.op.op2 == NULL)
     head2 = head;
   else
-    head2 = gfc_walk_subexpr (head, expr->op2);
+    head2 = gfc_walk_subexpr (head, expr->value.op.op2);
 
   /* All operands are scalar.  Pass back and let the caller deal with it.  */
   if (head2 == ss)
     return head2;
 
   /* All operands require scalarization.  */
-  if (head != ss && (expr->op2 == NULL || head2 != head))
+  if (head != ss && (expr->value.op.op2 == NULL || head2 != head))
     return head2;
 
   /* One of the operands needs scalarization, the other is scalar.
@@ -4223,7 +4186,7 @@ gfc_walk_op_expr (gfc_ss * ss, gfc_expr * expr)
       gcc_assert (head);
       newss->next = ss;
       head->next = newss;
-      newss->expr = expr->op1;
+      newss->expr = expr->value.op.op1;
     }
   else				/* head2 == head */
     {
@@ -4231,7 +4194,7 @@ gfc_walk_op_expr (gfc_ss * ss, gfc_expr * expr)
       /* Second operand is scalar.  */
       newss->next = head2;
       head2 = newss;
-      newss->expr = expr->op2;
+      newss->expr = expr->value.op.op2;
     }
 
   return head2;

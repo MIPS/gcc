@@ -495,9 +495,6 @@ static void move_ptes_to_front (int, int);
 void debug_print_page_list (int);
 static void push_depth (unsigned int);
 static void push_by_depth (page_entry *, unsigned long *);
-struct alloc_zone *rtl_zone = NULL;
-struct alloc_zone *tree_zone = NULL;
-struct alloc_zone *garbage_zone = NULL;
 
 /* Push an entry onto G.depth.  */
 
@@ -1048,15 +1045,6 @@ static unsigned char size_lookup[257] =
 void *
 ggc_alloc_typed_stat (enum gt_types_enum type ATTRIBUTE_UNUSED, size_t size
 		      MEM_STAT_DECL)
-{
-  return ggc_alloc_stat (size PASS_MEM_STAT);
-}
-
-/* Zone allocation function.  Does nothing special in this collector.  */
-
-void *
-ggc_alloc_zone_stat (size_t size, struct alloc_zone *zone ATTRIBUTE_UNUSED
-		     MEM_STAT_DECL)
 {
   return ggc_alloc_stat (size PASS_MEM_STAT);
 }
@@ -2119,7 +2107,8 @@ init_ggc_pch (void)
 
 void
 ggc_pch_count_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
-		      size_t size, bool is_string ATTRIBUTE_UNUSED)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED,
+		      enum gt_types_enum type ATTRIBUTE_UNUSED)
 {
   unsigned order;
 
@@ -2162,7 +2151,8 @@ ggc_pch_this_base (struct ggc_pch_data *d, void *base)
 
 char *
 ggc_pch_alloc_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
-		      size_t size, bool is_string ATTRIBUTE_UNUSED)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED,
+		      enum gt_types_enum type ATTRIBUTE_UNUSED)
 {
   unsigned order;
   char *result;
@@ -2218,8 +2208,7 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
       /* To speed small writes, we use a nulled-out array that's larger
          than most padding requests as the source for our null bytes.  This
          permits us to do the padding with fwrite() rather than fseek(), and
-         limits the chance the the OS may try to flush any outstanding
-         writes.  */
+         limits the chance the OS may try to flush any outstanding writes.  */
       if (padding <= sizeof(emptyBytes))
         {
           if (fwrite (emptyBytes, 1, padding, f) != padding)

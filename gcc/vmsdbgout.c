@@ -1,6 +1,6 @@
 /* Output VMS debug format symbol table information from GCC.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Douglas B. Rupp (rupp@gnat.com).
    Updated by Bernard W. Giroud (bgiroud@users.sourceforge.net).
 
@@ -427,15 +427,13 @@ addr_const_to_string (char *str, rtx x)
   char buf1[256];
   char buf2[256];
 
-restart:
+ restart:
   str[0] = '\0';
   switch (GET_CODE (x))
     {
     case PC:
-      if (flag_pic)
-	strcat (str, ",");
-      else
-	abort ();
+      gcc_assert (flag_pic);
+      strcat (str, ",");
       break;
 
     case SYMBOL_REF:

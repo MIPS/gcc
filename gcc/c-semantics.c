@@ -1,7 +1,8 @@
 /* This file contains the definitions and documentation for the common
    tree codes used in the GNU C and C++ compilers (see c-common.def
    for the standard codes).
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Written by Benjamin Chelf (chelf@codesourcery.com).
 
 This file is part of GCC.
@@ -164,7 +165,7 @@ build_stmt (enum tree_code code, ...)
   for (i = 0; i < length; i++)
     {
       tree t = va_arg (p, tree);
-      if (t && IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t))))
+      if (t && !TYPE_P (t))
         side_effects |= TREE_SIDE_EFFECTS (t);
       TREE_OPERAND (ret, i) = t;
     }

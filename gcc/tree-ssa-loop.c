@@ -1,5 +1,5 @@
 /* Loop optimizations over tree-ssa.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -59,7 +59,7 @@ tree_loop_optimizer_init (FILE *dump)
   rewrite_into_ssa (false);
   bitmap_clear (vars_to_rename);
 
-  rewrite_into_loop_closed_ssa ();
+  rewrite_into_loop_closed_ssa (NULL);
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa ();
 #endif
@@ -339,7 +339,7 @@ tree_complete_unroll (void)
 static bool
 gate_tree_complete_unroll (void)
 {
-  return flag_unroll_loops != 0;
+  return flag_peel_loops || flag_unroll_loops;
 }
 
 struct tree_opt_pass pass_complete_unroll =

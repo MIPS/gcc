@@ -122,6 +122,7 @@ objective-c		Stan Shebs		shebs@apple.com
 objective-c		Ovidiu Predescu		ovidiu@cup.hp.com
 objective-c		Ziemowit Laski		zlaski@apple.com
 treelang                Tim Josling             tej@melbpc.org.au
+treelang                James A. Morrison	phython@gcc.gnu.org
 
 			Various Maintainers
 
@@ -193,6 +194,7 @@ in changes outside of the parts of the compiler they maintain.
 
 Mark G. Adams                                   mark.g.adams@sympatico.ca
 Matt Austern                                    austern@apple.com
+David Ayers                                     d.ayers@inode.at
 Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
@@ -216,6 +218,7 @@ Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
+François-Xavier Coudert				coudert@clipper.ens.fr
 David Daney					ddaney@avtrex.com
 Bud Davis					bdavis9659@comcast.net
 Chris Demetriou					cgd@broadcom.com
@@ -270,7 +273,6 @@ Greg McGary					gkm@gnu.org
 Adam Megacz					adam@xwt.org
 Alan Modra					amodra@bigpond.net.au
 Catherine Moore					clm@redhat.com
-James A. Morrison				ja2morri@uwaterloo.ca
 Dorit Naishlos                                  dorit@il.ibm.com
 Adam Nemet					anemet@lnxw.com
 Dan Nicolaescu					dann@ics.uci.edu
@@ -296,7 +298,7 @@ Matthew Sachs					msachs@apple.com
 Alex Samuel					samuel@codesourcery.com
 Tobias Schlüter					tobias.schlueter@physik.uni-muenchen.de
 Andreas Schwab					schwab@suse.de
-Svein Seldal                                    svein.seldal@solidas.com
+Svein Seldal                                    svein@dev.seldal.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
@@ -308,6 +310,7 @@ Caroline Tice					ctice@apple.com
 Michael Tiemann					tiemann@redhat.com
 Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
+Feng Wang					fengwang@nudt.edu.cn
 John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Mark Wielaard					mark@gcc.gnu.org

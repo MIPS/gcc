@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -39,7 +39,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "flags.h"
-#include "xref.h"
 #include "ggc.h"
 #include "diagnostic.h"
 #include "tree-inline.h"
@@ -117,11 +116,6 @@ int compiling_from_source;
 
 const char *resource_name;
 
-/* When nonzero, we emit xref strings. Values of the flag for xref
-   backends are defined in xref_flag_table, xref.c.  */
-
-int flag_emit_xref = 0;
-
 /* When nonzero, -Wall was turned on.  */
 int flag_wall = 0;
 
@@ -140,7 +134,7 @@ int flag_deprecated = 1;
 int flag_verify_invocations = 0; 
 
 /* True if the new bytecode verifier should be used.  */
-int flag_new_verifier = 0;
+int flag_new_verifier = 1;
 
 /* When nonzero, print extra version information.  */
 static int v_flag = 0;

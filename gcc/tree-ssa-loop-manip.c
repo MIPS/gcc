@@ -258,30 +258,53 @@ find_uses_to_rename_stmt (tree stmt, bitmap *use_blocks, bitmap need_phis)
     find_uses_to_rename_use (bb, var, use_blocks, need_phis);
 }
 
-/* Marks names that are used outside of the loop they are defined in
-   for rewrite.  Records the set of blocks in that the ssa
-   names are defined to USE_BLOCKS and the ssa names themselves to
-   NEED_PHIS.  */
+/* Marks names that are used in BB and outside of the loop they are
+   defined in for rewrite.  Records the set of blocks in that the ssa
+   names are defined to USE_BLOCKS.  Record the SSA names that will
+   need exit PHIs in NEED_PHIS.  */
 
 static void
-find_uses_to_rename (bitmap *use_blocks, bitmap need_phis)
+find_uses_to_rename_bb (basic_block bb, bitmap *use_blocks, bitmap need_phis)
+{
+  block_stmt_iterator bsi;
+  edge e;
+  edge_iterator ei;
+  tree phi;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
+      find_uses_to_rename_use (bb, PHI_ARG_DEF_FROM_EDGE (phi, e),
+			       use_blocks, need_phis);
+ 
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    find_uses_to_rename_stmt (bsi_stmt (bsi), use_blocks, need_phis);
+}
+     
+/* Marks names that are used outside of the loop they are defined in
+   for rewrite.  Records the set of blocks in that the ssa
+   names are defined to USE_BLOCKS.  If CHANGED_BBS is not NULL,
+   scan only blocks in this set.  */
+
+static void
+find_uses_to_rename (bitmap changed_bbs, bitmap *use_blocks, bitmap need_phis)
 {
   basic_block bb;
-  block_stmt_iterator bsi;
-  tree phi;
-  unsigned i;
+  unsigned index;
+  bitmap_iterator bi;
 
-  FOR_EACH_BB (bb)
+  if (changed_bbs && !bitmap_empty_p (changed_bbs))
     {
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	if (is_gimple_reg (PHI_RESULT (phi)))
-	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	    find_uses_to_rename_use (EDGE_PRED (bb, i)->src,
-				     PHI_ARG_DEF (phi, i), use_blocks,
-				     need_phis);
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	find_uses_to_rename_stmt (bsi_stmt (bsi), use_blocks, need_phis);
+      EXECUTE_IF_SET_IN_BITMAP (changed_bbs, 0, index, bi)
+	{
+	  find_uses_to_rename_bb (BASIC_BLOCK (index), use_blocks, need_phis);
+	}
+    }
+  else
+    {
+      FOR_EACH_BB (bb)
+	{
+	  find_uses_to_rename_bb (bb, use_blocks, need_phis);
+	}
     }
 }
 
@@ -309,10 +332,13 @@ find_uses_to_rename (bitmap *use_blocks, bitmap need_phis)
 
       Looking from the outer loop with the normal SSA form, the first use of k
       is not well-behaved, while the second one is an induction variable with
-      base 99 and step 1.  */
+      base 99 and step 1.
+      
+      If CHANGED_BBS is not NULL, we look for uses outside loops only in
+      the basic blocks in this set.  */
 
 void
-rewrite_into_loop_closed_ssa (void)
+rewrite_into_loop_closed_ssa (bitmap changed_bbs)
 {
   bitmap loop_exits = get_loops_exits ();
   bitmap *use_blocks;
@@ -322,7 +348,7 @@ rewrite_into_loop_closed_ssa (void)
   use_blocks = xcalloc (old_num_ssa_names, sizeof (bitmap));
 
   /* Find the uses outside loops.  */
-  find_uses_to_rename (use_blocks, names_to_rename);
+  find_uses_to_rename (changed_bbs, use_blocks, names_to_rename);
 
   /* Add the phi nodes on exits of the loops for the names we need to
      rewrite.  */
@@ -409,7 +435,7 @@ split_loop_exit_edge (edge exit)
 
   for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
     {
-      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, EDGE_SUCC (bb, 0));
+      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, single_succ_edge (bb));
 
       name = USE_FROM_PTR (op_p);
 
@@ -473,10 +499,10 @@ ip_normal_pos (struct loop *loop)
   basic_block bb;
   edge exit;
 
-  if (EDGE_COUNT (loop->latch->preds) > 1)
+  if (!single_pred_p (loop->latch))
     return NULL;
 
-  bb = EDGE_PRED (loop->latch, 0)->src;
+  bb = single_pred (loop->latch);
   last = last_stmt (bb);
   if (TREE_CODE (last) != COND_EXPR)
     return NULL;
@@ -671,7 +697,7 @@ lv_adjust_loop_entry_edge (basic_block first_head,
 
   /* Adjust edges appropriately to connect new head with first head
      as well as second head.  */
-  e0 = EDGE_SUCC (new_head, 0);
+  e0 = single_succ_edge (new_head);
   e0->flags &= ~EDGE_FALLTHRU;
   e0->flags |= EDGE_FALSE_VALUE;
   e1 = make_edge (new_head, first_head, EDGE_TRUE_VALUE);
@@ -730,12 +756,12 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
   *condition_bb = lv_adjust_loop_entry_edge (first_head, second_head, entry, 
 					    cond_expr); 
 
-  latch_edge = EDGE_SUCC (loop->latch->rbi->copy, 0);
+  latch_edge = single_succ_edge (loop->latch->rbi->copy);
   
   extract_true_false_edges_from_block (*condition_bb, &true_edge, &false_edge);
   nloop = loopify (loops, 
 		   latch_edge,
-		   EDGE_PRED (loop->header->rbi->copy, 0),
+		   single_pred_edge (loop->header->rbi->copy),
 		   *condition_bb, true_edge, false_edge,
 		   false /* Do not redirect all edges.  */);
 
@@ -756,7 +782,7 @@ tree_ssa_loop_version (struct loops *loops, struct loop * loop,
       (*condition_bb)->flags |= BB_IRREDUCIBLE_LOOP;
       loop_preheader_edge (loop)->flags |= EDGE_IRREDUCIBLE_LOOP;
       loop_preheader_edge (nloop)->flags |= EDGE_IRREDUCIBLE_LOOP;
-      EDGE_PRED ((*condition_bb), 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      single_pred_edge ((*condition_bb))->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
 
   /* At this point condition_bb is loop predheader with two successors, 

@@ -45,6 +45,8 @@
    (UNSPEC_LOAD_GOT		24)
    (UNSPEC_GP			25)
    (UNSPEC_MFHILO		26)
+   (UNSPEC_TLS_LDM		27)
+   (UNSPEC_TLS_GET_TP		28)
 
    (UNSPEC_ADDRESS_FIRST	100)
 
@@ -3017,12 +3019,12 @@ beq\t%2,%.,1b\;\
 ;; We could use MEMs, but an unspec gives more optimization
 ;; opportunities.
 
-(define_insn "*load_got<mode>"
+(define_insn "load_got<mode>"
   [(set (match_operand:P 0 "register_operand" "=d")
 	(unspec:P [(match_operand:P 1 "register_operand" "d")
 		   (match_operand:P 2 "immediate_operand" "")]
 		  UNSPEC_LOAD_GOT))]
-  "TARGET_ABICALLS"
+  ""
   "<load>\t%0,%R2(%1)"
   [(set_attr "type" "load")
    (set_attr "mode" "<MODE>")
@@ -3729,14 +3731,39 @@ beq\t%2,%.,1b\;\
 ;;
 ;; We cope with this by making the mflo and mfhi patterns use both HI and LO.
 ;; Operand 1 is the register we want, operand 2 is the other one.
+;;
+;; When generating VR4120 or VR4130 code, we use macc{,hi} and
+;; dmacc{,hi} instead of mfhi and mflo.  This avoids both the normal
+;; MIPS III hi/lo hazards and the errata related to -mfix-vr4130.
 
-(define_insn "mfhilo_<mode>"
+(define_expand "mfhilo_<mode>"
+  [(set (match_operand:GPR 0 "register_operand")
+	(unspec:GPR [(match_operand:GPR 1 "register_operand")
+		     (match_operand:GPR 2 "register_operand")]
+		    UNSPEC_MFHILO))])
+
+(define_insn "*mfhilo_<mode>"
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
 	(unspec:GPR [(match_operand:GPR 1 "register_operand" "h,l")
 		     (match_operand:GPR 2 "register_operand" "l,h")]
 		    UNSPEC_MFHILO))]
-  ""
+  "!ISA_HAS_MACCHI"
   "mf%1\t%0"
+  [(set_attr "type" "mfhilo")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*mfhilo_<mode>_macc"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+	(unspec:GPR [(match_operand:GPR 1 "register_operand" "h,l")
+		     (match_operand:GPR 2 "register_operand" "l,h")]
+		    UNSPEC_MFHILO))]
+  "ISA_HAS_MACCHI"
+{
+  if (REGNO (operands[1]) == HI_REGNUM)
+    return "<d>macchi\t%0,%.,%.";
+  else
+    return "<d>macc\t%0,%.,%.";
+}
   [(set_attr "type" "mfhilo")
    (set_attr "mode" "<MODE>")])
 
@@ -5269,6 +5296,25 @@ beq\t%2,%.,1b\;\
   "reload_completed"
   [(match_dup 0)]
   { operands[0] = mips_rewrite_small_data (operands[0]); })
+
+; Thread-Local Storage
+
+; The TLS base pointer is acessed via "rdhwr $v1, $29".  No current
+; MIPS architecture defines this register, and no current
+; implementation provides it; instead, any OS which supports TLS is
+; expected to trap and emulate this instruction.  rdhwr is part of the
+; MIPS 32r2 specification, but we use it on any architecture because
+; we expect it to be emulated.  Use .set to force the assembler to
+; accept it.
+
+(define_insn "tls_get_tp_<mode>"
+  [(set (match_operand:P 0 "register_operand" "=v")
+	(unspec:P [(const_int 0)]
+		  UNSPEC_TLS_GET_TP))]
+  "HAVE_AS_TLS && !TARGET_MIPS16"
+  ".set\tpush\;.set\tmips32r2\t\;rdhwr\t%0,$29\;.set\tpop"
+  [(set_attr "type" "unknown")
+   (set_attr "mode" "<MODE>")])
 
 ; The MIPS Paired-Single Floating Point and MIPS-3D Instructions.
 

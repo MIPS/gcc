@@ -1287,6 +1287,7 @@ ccp_fold (tree stmt)
       if (NUM_USES (uses) != 0)
 	{
 	  tree *orig;
+	  tree fndecl, arglist;
 	  size_t i;
 
 	  /* Preserve the original values of every operand.  */
@@ -1296,7 +1297,9 @@ ccp_fold (tree stmt)
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt, NULL, const_val);
-	  retval = fold_builtin (rhs, false);
+	  fndecl = get_callee_fndecl (rhs);
+	  arglist = TREE_OPERAND (rhs, 1);
+	  retval = fold_builtin (fndecl, arglist, false);
 
 	  /* Restore operands to their original form.  */
 	  for (i = 0; i < NUM_USES (uses); i++)
@@ -1398,9 +1401,7 @@ visit_assignment (tree stmt, tree *output_p)
       val = evaluate_stmt (stmt);
 
   /* If the original LHS was a VIEW_CONVERT_EXPR, modify the constant
-     value to be a VIEW_CONVERT_EXPR of the old constant value.  This is
-     valid because a VIEW_CONVERT_EXPR is valid everywhere an operand of
-     aggregate type is valid.
+     value to be a VIEW_CONVERT_EXPR of the old constant value.
 
      ??? Also, if this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
@@ -1411,10 +1412,18 @@ visit_assignment (tree stmt, tree *output_p)
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
       {
-	val.value = build1 (VIEW_CONVERT_EXPR,
-			    TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
-			    val.value);
+	tree w = fold (build1 (VIEW_CONVERT_EXPR,
+			       TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
+			       val.value));
+
 	orig_lhs = TREE_OPERAND (orig_lhs, 1);
+	if (w && is_gimple_min_invariant (w))
+	  val.value = w;
+	else
+	  {
+	    val.lattice_val = VARYING;
+	    val.value = NULL;
+	  }
       }
 
     if (val.lattice_val == CONSTANT
@@ -2337,7 +2346,9 @@ ccp_fold_builtin (tree stmt, tree fn)
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
-  result = fold_builtin (fn, ignore);
+  callee = get_callee_fndecl (fn);
+  arglist = TREE_OPERAND (fn, 1);
+  result = fold_builtin (callee, arglist, ignore);
   if (result)
   {
     if (ignore)
@@ -2346,13 +2357,11 @@ ccp_fold_builtin (tree stmt, tree fn)
   }
 
   /* Ignore MD builtins.  */
-  callee = get_callee_fndecl (fn);
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
     return NULL_TREE;
 
   /* If the builtin could not be folded, and it has no argument list,
      we're done.  */
-  arglist = TREE_OPERAND (fn, 1);
   if (!arglist)
     return NULL_TREE;
 
@@ -2407,12 +2416,20 @@ ccp_fold_builtin (tree stmt, tree fn)
 
     case BUILT_IN_STRCPY:
       if (strlen_val[1] && is_gimple_val (strlen_val[1]))
-        result = fold_builtin_strcpy (fn, strlen_val[1]);
+	{
+	  tree fndecl = get_callee_fndecl (fn);
+	  tree arglist = TREE_OPERAND (fn, 1);
+	  result = fold_builtin_strcpy (fndecl, arglist, strlen_val[1]);
+	}
       break;
 
     case BUILT_IN_STRNCPY:
       if (strlen_val[1] && is_gimple_val (strlen_val[1]))
-	result = fold_builtin_strncpy (fn, strlen_val[1]);
+	{
+	  tree fndecl = get_callee_fndecl (fn);
+	  tree arglist = TREE_OPERAND (fn, 1);
+	  result = fold_builtin_strncpy (fndecl, arglist, strlen_val[1]);
+	}
       break;
 
     case BUILT_IN_FPUTS:

@@ -216,8 +216,8 @@ package body Sem_Ch4 is
      (E : Entity_Id;
       P : Node_Id);
    --  Called when P is the prefix of an implicit dereference, denoting an
-   --  object E. If in semantics only mode (-gnatc), record that is a
-   --  reference to E. Normally, such a reference is generated only when the
+   --  object E. If in semantics only mode (-gnatc or generic), record that is
+   --  a reference to E. Normally, such a reference is generated only when the
    --  implicit dereference is expanded into an explicit one. E may be empty,
    --  in which case this procedure does nothing.
 
@@ -1015,10 +1015,19 @@ package body Sem_Ch4 is
          end if;
 
       else
-         Op_Id  := Get_Name_Entity_Id (Name_Op_Concat);
+         Op_Id := Get_Name_Entity_Id (Name_Op_Concat);
          while Present (Op_Id) loop
             if Ekind (Op_Id) = E_Operator then
-               Find_Concatenation_Types (L, R, Op_Id, N);
+
+               --  Do not consider operators declared in dead code, they can
+               --  not be part of the resolution.
+
+               if Is_Eliminated (Op_Id) then
+                  null;
+               else
+                  Find_Concatenation_Types (L, R, Op_Id, N);
+               end if;
+
             else
                Analyze_User_Defined_Binary_Op (N, Op_Id);
             end if;
@@ -4422,8 +4431,9 @@ package body Sem_Ch4 is
       Ref : Node_Id;
 
    begin
-      if Operating_Mode = Check_Semantics and then Present (E) then
-
+      if Present (E)
+        and then (Operating_Mode = Check_Semantics or else not Expander_Active)
+      then
          --  We create a dummy reference to E to ensure that the reference
          --  is not considered as part of an assignment (an implicit
          --  dereference can never assign to its prefix). The Comes_From_Source
@@ -4795,7 +4805,6 @@ package body Sem_Ch4 is
          Set_Analyzed (Call_Node, False);
          Rewrite (Node_To_Replace, Call_Node);
          Analyze (Node_To_Replace);
-
       end Complete_Object_Operation;
 
       --------------------------------
@@ -4910,6 +4919,9 @@ package body Sem_Ch4 is
                      --  Allocate the node only once
 
                      if not Present (Call_Node_Case) then
+                        Analyze_Expression (Obj);
+                        Set_Analyzed       (Obj);
+
                         Transform_Object_Operation (
                           Call_Node       => Call_Node_Case,
                           First_Actual    => Obj,
@@ -5008,6 +5020,9 @@ package body Sem_Ch4 is
                   --  Allocate the node only once
 
                   if not Present (Call_Node_Case) then
+                     Analyze_Expression (Obj);
+                     Set_Analyzed       (Obj);
+
                      Transform_Object_Operation (
                        Call_Node       => Call_Node_Case,
                        First_Actual    => Obj,
@@ -5083,8 +5098,7 @@ package body Sem_Ch4 is
       if Is_Subprg_Call and then N = Name (Parent (N)) then
          Actual := First (Parameter_Associations (Parent (N)));
          while Present (Actual) loop
-            Analyze (Actual);
-            Check_Parameterless_Call (Actual);
+            Analyze_Expression (Actual);
             Next (Actual);
          end loop;
       end if;
@@ -5099,6 +5113,9 @@ package body Sem_Ch4 is
       else
          First_Actual := Obj;
       end if;
+
+      Analyze_Expression (First_Actual);
+      Set_Analyzed       (First_Actual);
 
       --  Build a subprogram call node
 

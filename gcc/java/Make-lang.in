@@ -106,7 +106,7 @@ JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
   java/zextract.o java/jcf-io.o java/win32-host.o java/jcf-parse.o java/mangle.o \
   java/mangle_name.o java/builtins.o java/resource.o \
   java/jcf-write.o java/buffer.o java/check-init.o java/jcf-depend.o \
-  java/jcf-path.o java/xref.o java/boehm.o java/java-gimplify.o
+  java/jcf-path.o java/boehm.o java/java-gimplify.o
 
 GCJH_OBJS = java/gjavah.o java/jcf-io.o java/jcf-depend.o java/jcf-path.o \
   java/win32-host.o java/zextract.o version.o errors.o ggc-none.o \
@@ -128,9 +128,6 @@ jvspec.o-warn = -Wno-error
 # Bison-1.75 output often yields (harmless) -Wtraditional warnings
 java/parse-scan.o-warn = -Wno-error
 java/parse.o-warn = -Wno-error
-
-# Use of non-standardized scandir
-java/jcf-io.o-warn = -Wno-error
 
 jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS)
 	rm -f $@
@@ -348,8 +345,6 @@ java/verify-glue.o: java/verify-glue.c $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) \
   coretypes.h $(TM_H) java/verify.h
 java/verify-impl.o: java/verify-impl.c $(CONFIG_H) java/verify.h $(SYSTEM_H) \
   coretypes.h  java/jcf.h $(JAVA_TREE_H)
-java/xref.o: java/xref.c java/xref.h $(CONFIG_H) $(JAVA_TREE_H) toplev.h \
-  $(SYSTEM_H) coretypes.h $(TM_H)
 java/zextract.o: java/zextract.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   java/zipfile.h
 java/java-gimplify.o: java/java-gimplify.c $(CONFIG_H) $(SYSTEM_H) \
@@ -375,8 +370,9 @@ java/jcf-path.o: java/jcf-path.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	  -DDEFAULT_TARGET_VERSION=\"$(version)\" \
 	  $(srcdir)/java/jcf-path.c $(OUTPUT_OPTION)
 
-TEXI_JAVA_FILES = java/gcj.texi $(docdir)/include/fdl.texi $(docdir)/include/gpl.texi \
-	 $(docdir)/include/gcc-common.texi
+TEXI_JAVA_FILES = java/gcj.texi $(docdir)/include/fdl.texi		\
+	 $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi   \
+	 gcc-vers.texi
 
 # Documentation
 doc/gcj.info: $(TEXI_JAVA_FILES)

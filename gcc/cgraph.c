@@ -96,6 +96,10 @@ The varpool data structure:
 #include "output.h"
 #include "intl.h"
 
+static void cgraph_node_remove_callers (struct cgraph_node *node);
+static inline void cgraph_edge_remove_caller (struct cgraph_edge *e);
+static inline void cgraph_edge_remove_callee (struct cgraph_edge *e);
+
 /* Hash table used to convert declarations into nodes.  */
 static GTY((param_is (struct cgraph_node))) htab_t cgraph_hash;
 
@@ -289,30 +293,55 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   edge->caller = caller;
   edge->callee = callee;
   edge->call_expr = call_expr;
+  edge->prev_caller = NULL;
   edge->next_caller = callee->callers;
+  if (callee->callers)
+    callee->callers->prev_caller = edge;
+  edge->prev_callee = NULL;
   edge->next_callee = caller->callees;
+  if (caller->callees)
+    caller->callees->prev_callee = edge;
   caller->callees = edge;
   callee->callers = edge;
   return edge;
 }
 
-/* Remove the edge E the cgraph.  */
+/* Remove the edge E from the list of the callers of the callee.  */
+
+static inline void
+cgraph_edge_remove_callee (struct cgraph_edge *e)
+{
+  if (e->prev_caller)
+    e->prev_caller->next_caller = e->next_caller;
+  if (e->next_caller)
+    e->next_caller->prev_caller = e->prev_caller;
+  if (!e->prev_caller)
+    e->callee->callers = e->next_caller;
+}
+
+/* Remove the edge E from the list of the callees of the caller.  */
+
+static inline void
+cgraph_edge_remove_caller (struct cgraph_edge *e)
+{
+  if (e->prev_callee)
+    e->prev_callee->next_callee = e->next_callee;
+  if (e->next_callee)
+    e->next_callee->prev_callee = e->prev_callee;
+  if (!e->prev_callee)
+    e->caller->callees = e->next_callee;
+}
+
+/* Remove the edge E in the cgraph.  */
 
 void
 cgraph_remove_edge (struct cgraph_edge *e)
 {
-  struct cgraph_edge **edge, **edge2;
+  /* Remove from callers list of the callee.  */
+  cgraph_edge_remove_callee (e);
 
-  for (edge = &e->callee->callers; *edge && *edge != e;
-       edge = &((*edge)->next_caller))
-    continue;
-  gcc_assert (*edge);
-  *edge = (*edge)->next_caller;
-  for (edge2 = &e->caller->callees; *edge2 && *edge2 != e;
-       edge2 = &(*edge2)->next_callee)
-    continue;
-  gcc_assert (*edge2);
-  *edge2 = (*edge2)->next_callee;
+  /* Remove from callees list of the callers.  */
+  cgraph_edge_remove_caller (e);
 }
 
 /* Redirect callee of E to N.  The function does not update underlying
@@ -321,16 +350,46 @@ cgraph_remove_edge (struct cgraph_edge *e)
 void
 cgraph_redirect_edge_callee (struct cgraph_edge *e, struct cgraph_node *n)
 {
-  struct cgraph_edge **edge;
+  /* Remove from callers list of the current callee.  */
+  cgraph_edge_remove_callee (e);
 
-  for (edge = &e->callee->callers; *edge && *edge != e;
-       edge = &((*edge)->next_caller))
-    continue;
-  gcc_assert (*edge);
-  *edge = (*edge)->next_caller;
-  e->callee = n;
+  /* Insert to callers list of the new callee.  */
+  e->prev_caller = NULL;
+  if (n->callers)
+    n->callers->prev_caller = e;
   e->next_caller = n->callers;
   n->callers = e;
+  e->callee = n;
+}
+
+/* Remove all callees from the node.  */
+
+void
+cgraph_node_remove_callees (struct cgraph_node *node)
+{
+  struct cgraph_edge *e;
+
+  /* It is sufficient to remove the edges from the lists of callers of
+     the callees.  The callee list of the node can be zapped with one
+     assignment.  */
+  for (e = node->callees; e; e = e->next_callee)
+    cgraph_edge_remove_callee (e);
+  node->callees = NULL;
+}
+
+/* Remove all callers from the node.  */
+
+static void
+cgraph_node_remove_callers (struct cgraph_node *node)
+{
+  struct cgraph_edge *e;
+
+  /* It is sufficient to remove the edges from the lists of callees of
+     the callers.  The caller list of the node can be zapped with one
+     assignment.  */
+  for (e = node->callers; e; e = e->next_caller)
+    cgraph_edge_remove_caller (e);
+  node->callers = NULL;
 }
 
 /* Remove the node from cgraph.  */
@@ -339,12 +398,10 @@ void
 cgraph_remove_node (struct cgraph_node *node)
 {
   void **slot;
-  bool check_dead = 1;
+  bool kill_body = false;
 
-  while (node->callers)
-    cgraph_remove_edge (node->callers);
-  while (node->callees)
-    cgraph_remove_edge (node->callees);
+  cgraph_node_remove_callers (node);
+  cgraph_node_remove_callees (node);
   while (node->nested)
     cgraph_remove_node (node->nested);
   if (node->origin)
@@ -365,44 +422,40 @@ cgraph_remove_node (struct cgraph_node *node)
   if (*slot == node)
     {
       if (node->next_clone)
+      {
 	*slot = node->next_clone;
+	node->next_clone->prev_clone = NULL;
+      }
       else
 	{
           htab_clear_slot (cgraph_hash, slot);
-	  if (!dump_enabled_p (TDI_tree_all))
-	    {
-              DECL_SAVED_TREE (node->decl) = NULL;
-	      DECL_STRUCT_FUNCTION (node->decl) = NULL;
-	    }
-	  check_dead = false;
+	  kill_body = true;
 	}
     }
   else
     {
-      struct cgraph_node *n;
-
-      for (n = *slot; n->next_clone != node; n = n->next_clone)
-	continue;
-      n->next_clone = node->next_clone;
+      node->prev_clone->next_clone = node->next_clone;
+      if (node->next_clone)
+        node->next_clone->prev_clone = node->prev_clone;
     }
 
-  /* Work out whether we still need a function body (either there is inline
-     clone or there is out of line function whose body is not written).  */
-  if (check_dead && flag_unit_at_a_time)
+  /* While all the clones are removed after being proceeded, the function 
+     itself is kept in the cgraph even after it is compiled.  Check whether
+     we are done with this body and reclaim it proactively if this is the case.
+     */
+  if (!kill_body && *slot)
     {
-      struct cgraph_node *n;
+      struct cgraph_node *n = *slot;
+      if (!n->next_clone && !n->global.inlined_to
+	  && (TREE_ASM_WRITTEN (n->decl) || DECL_EXTERNAL (n->decl)))
+	kill_body = true;
+    }
 
-      for (n = *slot; n; n = n->next_clone)
-	if (n->global.inlined_to
-	    || (!n->global.inlined_to
-		&& !TREE_ASM_WRITTEN (n->decl) && !DECL_EXTERNAL (n->decl)))
-	  break;
-      if (!n && !dump_enabled_p (TDI_tree_all))
-	{
-	  DECL_SAVED_TREE (node->decl) = NULL;
-	  DECL_STRUCT_FUNCTION (node->decl) = NULL;
-          DECL_INITIAL (node->decl) = error_mark_node;
-	}
+  if (kill_body && !dump_enabled_p (TDI_tree_all) && flag_unit_at_a_time)
+    {
+      DECL_SAVED_TREE (node->decl) = NULL;
+      DECL_STRUCT_FUNCTION (node->decl) = NULL;
+      DECL_INITIAL (node->decl) = error_mark_node;
     }
   cgraph_n_nodes--;
   /* Do not free the structure itself so the walk over chain can continue.  */
@@ -417,6 +470,7 @@ cgraph_mark_reachable_node (struct cgraph_node *node)
     {
       notice_global_symbol (node->decl);
       node->reachable = 1;
+      gcc_assert (!cgraph_global_info_ready);
 
       node->next_needed = cgraph_nodes_queue;
       cgraph_nodes_queue = node;
@@ -726,7 +780,10 @@ cgraph_clone_node (struct cgraph_node *n)
     cgraph_clone_edge (e, new, e->call_expr);
 
   new->next_clone = n->next_clone;
+  new->prev_clone = n;
   n->next_clone = new;
+  if (new->next_clone)
+    new->next_clone->prev_clone = new;
 
   return new;
 }

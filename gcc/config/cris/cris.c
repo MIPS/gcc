@@ -125,11 +125,7 @@ static bool cris_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
 static int cris_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				   tree, bool);
-
-/* The function cris_target_asm_function_epilogue puts the last insn to
-   output here.  It always fits; there won't be a symbol operand.  Used in
-   delay_slots_for_epilogue and function_epilogue.  */
-static char save_last[80];
+static tree cris_md_asm_clobbers (tree);
 
 /* This is the argument from the "-max-stack-stackframe=" option.  */
 const char *cris_max_stackframe_str;
@@ -201,6 +197,8 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #define TARGET_PASS_BY_REFERENCE cris_pass_by_reference
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES cris_arg_partial_bytes
+#undef TARGET_MD_ASM_CLOBBERS
+#define TARGET_MD_ASM_CLOBBERS cris_md_asm_clobbers
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -484,6 +482,9 @@ cris_conditional_register_usage (void)
   if (flag_pic)
     fixed_regs[PIC_OFFSET_TABLE_REGNUM]
       = call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;
+
+  if (TARGET_HAS_MUL_INSNS)
+    fixed_regs[CRIS_MOF_REGNUM] = 0;
 }
 
 /* Return current_function_uses_pic_offset_table.  For use in cris.md,
@@ -656,6 +657,10 @@ cris_fatal (char *arg)
   return 0;
 }
 
+/* This variable belongs to cris_target_asm_function_prologue but must
+   be located outside it for GTY reasons.  */
+static GTY(()) unsigned long cfa_label_num = 0;
+
 /* Textual function prologue.  */
 
 static void
@@ -670,7 +675,7 @@ cris_target_asm_function_prologue (FILE *file, HOST_WIDE_INT size)
   int framesize;
   int faked_args_size = 0;
   int cfa_write_offset = 0;
-  char *cfa_label = NULL;
+  static char cfa_label[30];
   int return_address_on_stack
     = regs_ever_live[CRIS_SRP_REGNUM]
     || cfun->machine->needs_return_address_on_stack != 0;
@@ -723,7 +728,8 @@ cris_target_asm_function_prologue (FILE *file, HOST_WIDE_INT size)
 	  cfa_offset += cris_initial_frame_pointer_offset ();
 	}
 
-      cfa_label = dwarf2out_cfi_label ();
+      ASM_GENERATE_INTERNAL_LABEL (cfa_label, "LCFIT",
+				   cfa_label_num++);
       dwarf2out_def_cfa (cfa_label, cfa_reg, cfa_offset);
 
       cfa_write_offset = - faked_args_size - 4;
@@ -921,6 +927,9 @@ cris_target_asm_function_prologue (FILE *file, HOST_WIDE_INT size)
 	     reg_names[PIC_OFFSET_TABLE_REGNUM],
 	     reg_names[PIC_OFFSET_TABLE_REGNUM]);
 
+  if (doing_dwarf)
+    ASM_OUTPUT_LABEL (file, cfa_label);
+
   if (TARGET_PDEBUG)
     fprintf (file,
 	     "; parm #%d @ %d; frame " HOST_WIDE_INT_PRINT_DEC
@@ -988,66 +997,7 @@ saved_regs_mentioned (rtx x)
   return 0;
 }
 
-/* Figure out if the insn may be put in the epilogue.  */
-
-int
-cris_eligible_for_epilogue_delay (rtx insn)
-{
-  /* First of all, it must be as slottable as for a delayed branch insn.  */
-  if (get_attr_slottable (insn) != SLOTTABLE_YES)
-    return 0;
-
-  /* It must not refer to the stack pointer (may be valid for some cases
-     that I can't think of).  */
-  if (reg_mentioned_p (stack_pointer_rtx, PATTERN (insn)))
-    return 0;
-
-  /* The frame pointer will be restored in the epilogue, before the
-     "ret", so it can't be referred to.  */
-  if (frame_pointer_needed
-      && reg_mentioned_p (frame_pointer_rtx, PATTERN (insn)))
-    return 0;
-
-  /* All saved regs are restored before the delayed insn.
-     This means that we cannot have any instructions that mention the
-     registers that are restored by the epilogue.  */
-  if (saved_regs_mentioned (PATTERN (insn)))
-    return 0;
-
-  /* It seems to be ok.  */
-  return 1;
-}
-
-/* Return the number of delay-slots in the epilogue: return 1 if it
-   contains "ret", else 0.  */
-
-int
-cris_delay_slots_for_epilogue (void)
-{
-  /* Check if we use a return insn, which we only do for leaf functions.
-     Else there is no slot to fill.  */
-  if (regs_ever_live[CRIS_SRP_REGNUM]
-      || cfun->machine->needs_return_address_on_stack != 0)
-    return 0;
-
-  /* By calling function_epilogue with the same parameters as from gcc
-     we can get info about if the epilogue can fill the delay-slot by itself.
-     If it is filled from the epilogue, then the corresponding string
-     is in save_last.
-      This depends on that the "size" argument to function_epilogue
-     always is get_frame_size.
-     FIXME:  Kludgy.  At least make it a separate function that is not
-     misnamed or abuses the stream parameter.  */
-  cris_target_asm_function_epilogue (NULL, get_frame_size ());
-
-  if (*save_last)
-    return 1;
-  return 0;
-}
-
-/* Textual function epilogue.  When file is NULL, it serves doubly as
-   a test for whether the epilogue can fill any "ret" delay-slots by
-   itself by storing the delay insn in save_last.  */
+/* Textual function epilogue.  */
 
 static void
 cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
@@ -1060,13 +1010,14 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
   int return_address_on_stack
     = regs_ever_live[CRIS_SRP_REGNUM]
     || cfun->machine->needs_return_address_on_stack != 0;
+  char save_last[80];
 
   save_last[0] = 0;
 
-  if (file && !TARGET_PROLOGUE_EPILOGUE)
+  if (!TARGET_PROLOGUE_EPILOGUE)
     return;
 
-  if (TARGET_PDEBUG && file)
+  if (TARGET_PDEBUG)
     fprintf (file, ";;\n");
 
   /* Align byte count of stack frame.  */
@@ -1086,7 +1037,7 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	  || (GET_CODE (insn) == JUMP_INSN
 	      && GET_CODE (PATTERN (insn)) == RETURN)))
     {
-      if (TARGET_PDEBUG && file)
+      if (TARGET_PDEBUG)
 	fprintf (file, ";;;;;\n");
       return;
     }
@@ -1142,17 +1093,16 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	  {
 	    /* There is an area for outgoing parameters located before
 	       the saved registers.  We have to adjust for that.  */
-	    if (file)
-	      fprintf (file, "\tAdd%s %d,$sp\n",
-		       ADDITIVE_SIZE_MODIFIER (argspace_offset),
-		       argspace_offset);
+	    fprintf (file, "\tAdd%s %d,$sp\n",
+		     ADDITIVE_SIZE_MODIFIER (argspace_offset),
+		     argspace_offset);
 
 	    /* Make sure we only do this once.  */
 	    argspace_offset = 0;
 	  }
 
 	/* Flush previous non-movem:ed registers.  */
-	if (*save_last && file)
+	if (*save_last)
 	  fprintf (file, save_last);
 	sprintf (save_last, "\tPop $%s\n", reg_names[regno]);
       }
@@ -1163,20 +1113,19 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	{
 	  /* Adjust for the outgoing parameters area, if that's not
 	     handled yet.  */
-	  if (*save_last && file)
+	  if (*save_last)
 	    {
 	      fprintf (file, save_last);
 	      *save_last = 0;
 	    }
 
-	  if (file)
-	    fprintf (file, "\tAdd%s %d,$sp\n",
-		     ADDITIVE_SIZE_MODIFIER (argspace_offset),
-		     argspace_offset);
+	  fprintf (file, "\tAdd%s %d,$sp\n",
+		   ADDITIVE_SIZE_MODIFIER (argspace_offset),
+		   argspace_offset);
 	  argspace_offset = 0;
 	}
       /* Flush previous non-movem:ed registers.  */
-      else if (*save_last && file)
+      else if (*save_last)
 	fprintf (file, save_last);
       sprintf (save_last, "\tmovem [$sp+],$%s\n", reg_names[last_movem_reg]);
     }
@@ -1184,12 +1133,11 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
   /* Restore frame pointer if necessary.  */
   if (frame_pointer_needed)
     {
-      if (*save_last && file)
+      if (*save_last)
 	fprintf (file, save_last);
 
-      if (file)
-	fprintf (file, "\tmove.d $%s,$sp\n",
-		 reg_names[FRAME_POINTER_REGNUM]);
+      fprintf (file, "\tmove.d $%s,$sp\n",
+	       reg_names[FRAME_POINTER_REGNUM]);
       sprintf (save_last, "\tPop $%s\n",
 	       reg_names[FRAME_POINTER_REGNUM]);
     }
@@ -1204,7 +1152,7 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
 
       if (size)
 	{
-	  if (*save_last && file)
+	  if (*save_last)
 	    fprintf (file, save_last);
 
 	  sprintf (save_last, "\tadd%s "HOST_WIDE_INT_PRINT_DEC",$sp\n",
@@ -1215,8 +1163,7 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	 it here.  */
       if (size > 63)
 	{
-	  if (file)
-	    fprintf (file, save_last);
+	  fprintf (file, save_last);
 	  *save_last = 0;
 	}
     }
@@ -1226,27 +1173,21 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
      just jump-return here.  */
   if (return_address_on_stack && pretend == 0)
     {
-      if (*save_last && file)
+      if (*save_last)
 	fprintf (file, save_last);
       *save_last = 0;
 
-      if (file)
+      if (current_function_calls_eh_return)
 	{
-	  if (current_function_calls_eh_return)
-	    {
-	      /* The installed EH-return address is in *this* frame, so we
-		 need to pop it before we return.  */
-	      fprintf (file, "\tpop $srp\n");
-	      fprintf (file, "\tret\n");
-	      fprintf (file, "\tadd.d $%s,$sp\n", reg_names[CRIS_STACKADJ_REG]);
-	    }
-	  else
-	    fprintf (file, "\tJump [$sp+]\n");
-
-	  /* Do a sanity check to avoid generating invalid code.  */
-	  if (current_function_epilogue_delay_list)
-	    internal_error ("allocated but unused delay list in epilogue");
+	  /* The installed EH-return address is in *this* frame, so we
+	     need to pop it before we return.  */
+	  fprintf (file, "\tpop $srp\n");
+	  fprintf (file, "\tret\n");
+	  fprintf (file, "\tadd.d $%s,$sp\n", reg_names[CRIS_STACKADJ_REG]);
 	}
+      else
+	fprintf (file, "\tJump [$sp+]\n");
+
       return;
     }
 
@@ -1265,47 +1206,28 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
       /* Since srp is stored on the way, we need to restore it first.  */
       if (return_address_on_stack)
 	{
-	  if (*save_last && file)
+	  if (*save_last)
 	    fprintf (file, save_last);
 	  *save_last = 0;
 
-	  if (file)
-	    fprintf (file, "\tpop $srp\n");
+	  fprintf (file, "\tpop $srp\n");
 	}
 
-      if (*save_last && file)
+      if (*save_last)
 	fprintf (file, save_last);
 
       sprintf (save_last, "\tadd%s %d,$sp\n",
 	       ADDITIVE_SIZE_MODIFIER (pretend), pretend);
     }
 
-  /* Here's where we have a delay-slot we need to fill.  */
-  if (file && current_function_epilogue_delay_list)
-    {
-      /* If gcc has allocated an insn for the epilogue delay slot, but
-	 things were arranged so we now thought we could do it
-	 ourselves, don't forget to flush that insn.  */
-      if (*save_last)
-	fprintf (file, save_last);
+  fprintf (file, "\tRet\n");
 
-      fprintf (file, "\tRet\n");
-
-      /* Output the delay-slot-insn the mandated way.  */
-      final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
-		       file, 1, -2, 1, NULL);
-    }
-  else if (file)
-    {
-      fprintf (file, "\tRet\n");
-
-      /* If the GCC did not do it, we have to use whatever insn we have,
-	 or a nop.  */
-      if (*save_last)
-	fprintf (file, save_last);
-      else
-	fprintf (file, "\tnOp\n");
-    }
+  /* If the GCC did not do it, we have to use whatever insn we have, or
+     a nop.  */
+  if (*save_last)
+    fprintf (file, save_last);
+  else
+    fprintf (file, "\tnOp\n");
 }
 
 /* The PRINT_OPERAND worker.  */
@@ -1538,6 +1460,16 @@ cris_print_operand (FILE *file, rtx x, int code)
       fprintf (file, INTVAL (operand) < 0 ? "adds.w" : "addq");
       return;
 
+    case 'd':
+      /* If this is a GOT symbol, print it as :GOT regardless of -fpic.  */
+      if (flag_pic && CONSTANT_P (operand) && cris_got_symbol (operand))
+	{
+	  cris_output_addr_const (file, operand);
+	  fprintf (file, ":GOT");
+	  return;
+	}
+      break;
+
     case 'D':
       /* When emitting an sub for the high part of a DImode constant, we
 	 want to use subq for 0 and subs.w for -1.  */
@@ -1572,7 +1504,9 @@ cris_print_operand (FILE *file, rtx x, int code)
   switch (GET_CODE (operand))
     {
     case REG:
-      if (REGNO (operand) > 15)
+      if (REGNO (operand) > 15
+	  && REGNO (operand) != CRIS_MOF_REGNUM
+	  && REGNO (operand) != CRIS_SRP_REGNUM)
 	internal_error ("internal error: bad register: %d", REGNO (operand));
       fprintf (file, "$%s", reg_names[REGNO (operand)]);
       return;
@@ -3123,6 +3057,16 @@ cris_arg_partial_bytes (CUMULATIVE_ARGS *ca, enum machine_mode mode,
     return 0;
 }
 
+/* Worker function for TARGET_MD_ASM_CLOBBERS.  */
+
+static tree
+cris_md_asm_clobbers (tree clobbers)
+{
+  return tree_cons (NULL_TREE,
+		    build_string (strlen (reg_names[CRIS_MOF_REGNUM]),
+				  reg_names[CRIS_MOF_REGNUM]),
+		    clobbers);
+}
 
 #if 0
 /* Various small functions to replace macros.  Only called from a

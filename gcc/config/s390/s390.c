@@ -2557,8 +2557,11 @@ s390_secondary_output_reload_class (enum reg_class class,
                     : (mode == DImode || mode == DFmode))
       && reg_classes_intersect_p (GENERAL_REGS, class)
       && GET_CODE (out) == MEM
-      && !offsettable_memref_p (out)
-      && !s_operand (out, VOIDmode))
+      && GET_CODE (XEXP (out, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (out, 0), 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (out, 0), 1)) == CONST_INT
+      && !DISP_IN_RANGE (INTVAL (XEXP (XEXP (out, 0), 1))
+			 + GET_MODE_SIZE (mode) - 1))
     return ADDR_REGS;
 
   if (reg_classes_intersect_p (CC_REGS, class))

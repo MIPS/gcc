@@ -4017,7 +4017,7 @@ iv_ca_delta_add (struct iv_use *use, struct cost_pair *old_cp,
 }
 
 /* Joins two lists of changes L1 and L2.  Destructive -- old lists
-   are rewritten.   */
+   are rewritten.  */
 
 static struct iv_ca_delta *
 iv_ca_delta_join (struct iv_ca_delta *l1, struct iv_ca_delta *l2)
@@ -4652,7 +4652,7 @@ remove_statement (tree stmt, bool including_defined_name)
 	  /* Prevent the ssa name defined by the statement from being removed.  */
 	  SET_PHI_RESULT (stmt, NULL);
 	}
-      remove_phi_node (stmt, NULL_TREE, bb_for_stmt (stmt));
+      remove_phi_node (stmt, NULL_TREE);
     }
   else
     {
@@ -4885,15 +4885,17 @@ rewrite_use_compare (struct ivopts_data *data,
   
   if (may_eliminate_iv (data, use, cand, &compare, &bound))
     {
+      tree var = var_at_stmt (data->current_loop, cand, use->stmt);
+      tree var_type = TREE_TYPE (var);
+
+      bound = fold_convert (var_type, bound);
       op = force_gimple_operand (unshare_expr (bound), &stmts,
 				 true, NULL_TREE);
 
       if (stmts)
 	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
-      *use->op_p = build2 (compare, boolean_type_node,
-			  var_at_stmt (data->current_loop,
-				       cand, use->stmt), op);
+      *use->op_p = build2 (compare, boolean_type_node, var, op);
       modify_stmt (use->stmt);
       return;
     }
@@ -4992,7 +4994,7 @@ compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
   block_stmt_iterator bsi;
   tree phi, stmt, def, next;
 
-  if (EDGE_COUNT (exit->dest->preds) > 1)
+  if (!single_pred_p (exit->dest))
     split_loop_exit_edge (exit);
 
   if (TREE_CODE (stmts) == STATEMENT_LIST)

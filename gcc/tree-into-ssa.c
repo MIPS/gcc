@@ -111,7 +111,7 @@ static htab_t def_blocks;
 static VEC(tree_on_heap) *block_defs_stack;
 
 /* Basic block vectors used in this file ought to be allocated in the heap.  */
-DEF_VEC_MALLOC_P(basic_block);
+DEF_VEC_MALLOC_P(int);
 
 /* Set of existing SSA names being replaced by update_ssa.  */
 static sbitmap old_ssa_names;
@@ -717,49 +717,49 @@ find_idf (bitmap def_blocks, bitmap *dfs)
 {
   bitmap_iterator bi;
   unsigned bb_index;
-  VEC(basic_block) *work_stack;
+  VEC(int) *work_stack;
   bitmap phi_insertion_points;
 
-  work_stack = VEC_alloc (basic_block, last_basic_block);
+  work_stack = VEC_alloc (int, n_basic_blocks);
   phi_insertion_points = BITMAP_ALLOC (NULL);
 
   /* Seed the work list with all the blocks in DEF_BLOCKS.  */
   EXECUTE_IF_SET_IN_BITMAP (def_blocks, 0, bb_index, bi)
-    VEC_safe_push (basic_block, work_stack, BASIC_BLOCK (bb_index));
+    /* We use VEC_quick_push here for speed.  This is safe because we
+       know that the number of definition blocks is no greater than
+       the number of basic blocks, which is the initial capacity of
+       WORK_STACK.  */
+    VEC_quick_push (int, work_stack, bb_index);
 
   /* Pop a block off the worklist, add every block that appears in
      the original block's DF that we have not already processed to
      the worklist.  Iterate until the worklist is empty.   Blocks
      which are added to the worklist are potential sites for
      PHI nodes.  */
-  while (VEC_length (basic_block, work_stack) > 0)
+  while (VEC_length (int, work_stack) > 0)
     {
-      basic_block bb = VEC_pop (basic_block, work_stack);
+      bb_index = VEC_pop (int, work_stack);
 
       /* Since the registration of NEW -> OLD name mappings is done
 	 separately from the call to update_ssa, when updating the SSA
 	 form, the basic blocks where new and/or old names are defined
 	 may have disappeared by CFG cleanup calls.  In this case,
-	 we may pull a NULL block from the work stack.  */
-      if (bb == NULL)
+	 we may pull a non-existing block from the work stack.  */
+      if (bb_index >= (unsigned) last_basic_block)
 	continue;
 
-      bb_index = bb->index;
-      
       EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index], phi_insertion_points,
-				      0, bb_index, bi)
+	                              0, bb_index, bi)
 	{
-	  bb = BASIC_BLOCK (bb_index);
-
 	  /* Use a safe push because if there is a definition of VAR
 	     in every basic block, then WORK_STACK may eventually have
 	     more than N_BASIC_BLOCK entries.  */
-	  VEC_safe_push (basic_block, work_stack, bb);
+	  VEC_safe_push (int, work_stack, bb_index);
 	  bitmap_set_bit (phi_insertion_points, bb_index);
 	}
     }
 
-  VEC_free (basic_block, work_stack);
+  VEC_free (int, work_stack);
 
   return phi_insertion_points;
 }
@@ -839,22 +839,26 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 			    0, bb_index, bi)
     {
       bb = BASIC_BLOCK (bb_index);
-      phi = create_phi_node (sym, bb);
 
-      /* If we are rewriting SSA names, also add PHI arguments.  */
-      if (update_p)
+      if (update_p && TREE_CODE (var) == SSA_NAME)
 	{
+	  /* If we are rewriting SSA names, create the LHS of the PHI
+	     node by duplicating VAR.  This is useful in the case of
+	     pointers, to also duplicate pointer attributes (alias
+	     information, in particular).  */
 	  edge_iterator ei;
+	  tree new_lhs;
+
+	  phi = create_phi_node (var, bb);
+	  new_lhs = duplicate_ssa_name (var, phi);
+	  SET_PHI_RESULT (phi, new_lhs);
+	  add_new_name_mapping (new_lhs, var);
+
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    add_phi_arg (phi, var, e);
-
-	  /* If updating the SSA form, mark the LHS of the new PHI
-	     node to be a replacement for VAR.  Uses of VAR downstream
-	     from this PHI node will be replaced with the new name
-	     created by it.  */
-	  if (update_p)
-	    add_new_name_mapping (PHI_RESULT (phi), var);
 	}
+      else
+	phi = create_phi_node (sym, bb);
 
       /* Mark this PHI node as interesting for the rename process.  */
       REGISTER_DEFS_IN_THIS_STMT (phi) = 1;
@@ -1077,14 +1081,12 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	      basic_block bb ATTRIBUTE_UNUSED,
 	      block_stmt_iterator si)
 {
-  stmt_ann_t ann;
   tree stmt;
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
 
   stmt = bsi_stmt (si);
-  ann = stmt_ann (stmt);
 
   /* If mark_def_sites decided that we don't need to rewrite this
      statement, ignore it.  */
@@ -1850,9 +1852,8 @@ mark_def_site_blocks (sbitmap interesting_blocks)
       those variables are removed from the flow graph so that they can
       be computed again.
 
-   2- Compute dominance frontier and immediate dominators, needed to
-      insert PHI nodes and rename the function in dominator tree
-      order.
+   2- Compute dominance frontier, needed to insert PHI nodes and
+      rename the function in dominator tree order.
 
    3- Find and mark all the blocks that define variables
       (mark_def_site_blocks).
@@ -1905,9 +1906,7 @@ rewrite_into_ssa (bool all)
 
   mark_def_site_blocks (interesting_blocks);
 
-  /* Initialize dominance frontier and immediate dominator bitmaps. 
-     Also count the number of predecessors for each block.  Doing so
-     can save significant time during PHI insertion for large graphs.  */
+  /* Initialize dominance frontier.  */
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     dfs[bb->index] = BITMAP_ALLOC (NULL);

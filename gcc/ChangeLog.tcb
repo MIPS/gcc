@@ -1,3 +1,11 @@
+2005-03-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (insert_phi_nodes_for): If updating an
+	existing name, call duplicate_ssa_name to create the LHS of 
+	new PHI nodes.
+	* tree-ssa-loop-manip.c (find_uses_to_rename): Also scan
+	the whole CFG if 'changed_bbs' is empty.
+
 2005-03-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-copy.c (may_propagate_copy): Disable code to

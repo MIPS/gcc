@@ -620,7 +620,7 @@ proper position among the other output files.  */
 #ifndef LIBGCC_SPEC
 #if defined(REAL_LIBGCC_SPEC)
 #define LIBGCC_SPEC REAL_LIBGCC_SPEC
-#elif defined(LINK_LIBGCC_SPECIAL) || defined(LINK_LIBGCC_SPECIAL_1)
+#elif defined(LINK_LIBGCC_SPECIAL_1)
 /* Have gcc do the search for libgcc.a.  */
 #define LIBGCC_SPEC "libgcc.a%s"
 #else
@@ -700,19 +700,14 @@ proper position among the other output files.  */
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
-    %{fprofile-arcs|fprofile-generate:-lgcov}\
+    %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
 
 #ifndef LINK_LIBGCC_SPEC
-# ifdef LINK_LIBGCC_SPECIAL
-/* Don't generate -L options for startfile prefix list.  */
-#  define LINK_LIBGCC_SPEC ""
-# else
-/* Do generate them.  */
-#  define LINK_LIBGCC_SPEC "%D"
-# endif
+/* Generate -L options for startfile prefix list.  */
+# define LINK_LIBGCC_SPEC "%D"
 #endif
 
 #ifndef STARTFILE_PREFIX_SPEC
@@ -801,7 +796,8 @@ static const char *cc1_options =
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
- %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}";
+ %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
+ %{coverage:-fprofile-arcs -ftest-coverage}";
 
 static const char *asm_options =
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";
@@ -1070,6 +1066,7 @@ static const struct option_map option_map[] =
    {"--for-assembler", "-Wa", "a"},
    {"--for-linker", "-Xlinker", "a"},
    {"--force-link", "-u", "a"},
+   {"--coverage", "-coverage", 0},
    {"--imacros", "-imacros", "a"},
    {"--include", "-include", "a"},
    {"--include-barrier", "-I-", 0},

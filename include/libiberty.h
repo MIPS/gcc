@@ -145,6 +145,15 @@ extern int fdmatch PARAMS ((int fd1, int fd2));
 
 extern char * getpwd PARAMS ((void));
 
+/* Get the current time.  */
+/* Prototypes vary from system to system, so we only provide a
+   prototype on systems where we know that we need it.  */
+#ifdef __MINGW32__
+/* Forward declaration to avoid #include <sys/time.h>.   */
+struct timeval;
+extern int gettimeofday PARAMS ((struct timeval *, void *)); 
+#endif
+
 /* Get the amount of time the process has run, in microseconds.  */
 
 extern long get_run_time PARAMS ((void));
@@ -162,6 +171,10 @@ extern char *choose_temp_base PARAMS ((void)) ATTRIBUTE_MALLOC;
 /* Return a temporary file name or NULL if unable to create one.  */
 
 extern char *make_temp_file PARAMS ((const char *)) ATTRIBUTE_MALLOC;
+
+/* Remove a link to a file unless it is special. */
+
+extern int unlink_if_ordinary PARAMS((const char *));
 
 /* Allocate memory filled with spaces.  Allocates using malloc.  */
 

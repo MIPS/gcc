@@ -1,5 +1,5 @@
 /* Loop unrolling and peeling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1043,11 +1043,11 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
 					  block_label (preheader), p, NULL_RTX);
 
-      swtch = loop_split_edge_with (EDGE_PRED (swtch, 0), branch_code);
+      swtch = loop_split_edge_with (single_pred_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
-      EDGE_SUCC (swtch, 0)->probability = REG_BR_PROB_BASE - p;
+      single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
-		     EDGE_SUCC (swtch, 0)->flags & EDGE_IRREDUCIBLE_LOOP);
+		     single_succ_edge (swtch)->flags & EDGE_IRREDUCIBLE_LOOP);
       e->probability = p;
     }
 
@@ -1060,11 +1060,11 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       branch_code = compare_and_jump_seq (copy_rtx (niter), const0_rtx, EQ,
 					  block_label (preheader), p, NULL_RTX);
 
-      swtch = loop_split_edge_with (EDGE_SUCC (swtch, 0), branch_code);
+      swtch = loop_split_edge_with (single_succ_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
-      EDGE_SUCC (swtch, 0)->probability = REG_BR_PROB_BASE - p;
+      single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
-		     EDGE_SUCC (swtch, 0)->flags & EDGE_IRREDUCIBLE_LOOP);
+		     single_succ_edge (swtch)->flags & EDGE_IRREDUCIBLE_LOOP);
       e->probability = p;
     }
 
@@ -1648,7 +1648,6 @@ analyze_insns_in_loop (struct loop *loop)
   PTR *slot1;
   PTR *slot2;
   edge *edges = get_loop_exit_edges (loop, &n_edges);
-  basic_block preheader;
   bool can_apply = false;
   
   iv_analysis_loop_init (loop);
@@ -1662,15 +1661,14 @@ analyze_insns_in_loop (struct loop *loop)
   /* Record the loop exit bb and loop preheader before the unrolling.  */
   if (!loop_preheader_edge (loop)->src)
     {
-      preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
+      loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
       opt_info->loop_preheader = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
     }
   else
     opt_info->loop_preheader = loop_preheader_edge (loop)->src;
   
   if (n_edges == 1
-      && !(edges[0]->flags & EDGE_COMPLEX)
-      && (edges[0]->flags & EDGE_LOOP_EXIT))
+      && !(edges[0]->flags & EDGE_COMPLEX))
     {
       opt_info->loop_exit = loop_split_edge_with (edges[0], NULL_RTX);
       can_apply = true;

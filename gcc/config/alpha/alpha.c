@@ -55,8 +55,11 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-gimple.h"
 
 /* Specify which cpu to schedule for.  */
+enum processor_type alpha_tune;
 
+/* Which cpu we're generating code for.  */
 enum processor_type alpha_cpu;
+
 static const char * const alpha_cpu_name[] =
 {
   "ev4", "ev5", "ev6"
@@ -80,13 +83,12 @@ int alpha_tls_size = 32;
 
 /* Strings decoded into the above options.  */
 
-const char *alpha_cpu_string;	/* -mcpu= */
-const char *alpha_tune_string;	/* -mtune= */
-const char *alpha_tp_string;	/* -mtrap-precision=[p|s|i] */
-const char *alpha_fprm_string;	/* -mfp-rounding-mode=[n|m|c|d] */
-const char *alpha_fptm_string;	/* -mfp-trap-mode=[n|u|su|sui] */
-const char *alpha_mlat_string;	/* -mmemory-latency= */
-const char *alpha_tls_size_string; /* -mtls-size=[16|32|64] */
+static const char *alpha_cpu_string;	/* -mcpu= */
+static const char *alpha_tune_string;	/* -mtune= */
+static const char *alpha_tp_string;	/* -mtrap-precision=[p|s|i] */
+static const char *alpha_fprm_string;	/* -mfp-rounding-mode=[n|m|c|d] */
+static const char *alpha_fptm_string;	/* -mfp-trap-mode=[n|u|su|sui] */
+static const char *alpha_mlat_string;	/* -mmemory-latency= */
 
 /* Save information from a "cmpxx" operation until the branch or scc is
    emitted.  */
@@ -218,35 +220,90 @@ static void unicosmk_gen_dsib (unsigned long *);
 static void unicosmk_output_ssib (FILE *, const char *);
 static int unicosmk_need_dex (rtx);
 
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+alpha_handle_option (size_t code, const char *arg, int value)
+{
+  switch (code)
+    {
+    case OPT_mfp_regs:
+      if (value == 0)
+	target_flags |= MASK_SOFT_FP;
+      break;
+
+    case OPT_mieee:
+    case OPT_mieee_with_inexact:
+      target_flags |= MASK_IEEE_CONFORMANT;
+      break;
+
+    case OPT_mcpu_:
+      alpha_cpu_string = arg;
+      break;
+
+    case OPT_mtune_:
+      alpha_tune_string = arg;
+      break;
+
+    case OPT_mfp_rounding_mode_:
+      alpha_fprm_string = arg;
+      break;
+
+    case OPT_mfp_trap_mode_:
+      alpha_fptm_string = arg;
+      break;
+
+    case OPT_mtrap_precision_:
+      alpha_tp_string = arg;
+      break;
+
+    case OPT_mmemory_latency_:
+      alpha_mlat_string = arg;
+      break;
+
+    case OPT_mtls_size_:
+      if (strcmp (arg, "16") == 0)
+	alpha_tls_size = 16;
+      else if (strcmp (arg, "32") == 0)
+	alpha_tls_size = 32;
+      else if (strcmp (arg, "64") == 0)
+	alpha_tls_size = 64;
+      else
+	error ("bad value %qs for -mtls-size switch", arg);
+      break;
+    }
+
+  return true;
+}
+
 /* Parse target option strings.  */
 
 void
 override_options (void)
 {
-  int i;
   static const struct cpu_table {
     const char *const name;
     const enum processor_type processor;
     const int flags;
   } cpu_table[] = {
-#define EV5_MASK (MASK_CPU_EV5)
-#define EV6_MASK (MASK_CPU_EV6|MASK_BWX|MASK_MAX|MASK_FIX)
     { "ev4",	PROCESSOR_EV4, 0 },
     { "ev45",	PROCESSOR_EV4, 0 },
     { "21064",	PROCESSOR_EV4, 0 },
-    { "ev5",	PROCESSOR_EV5, EV5_MASK },
-    { "21164",	PROCESSOR_EV5, EV5_MASK },
-    { "ev56",	PROCESSOR_EV5, EV5_MASK|MASK_BWX },
-    { "21164a",	PROCESSOR_EV5, EV5_MASK|MASK_BWX },
-    { "pca56",	PROCESSOR_EV5, EV5_MASK|MASK_BWX|MASK_MAX },
-    { "21164PC",PROCESSOR_EV5, EV5_MASK|MASK_BWX|MASK_MAX },
-    { "21164pc",PROCESSOR_EV5, EV5_MASK|MASK_BWX|MASK_MAX },
-    { "ev6",	PROCESSOR_EV6, EV6_MASK },
-    { "21264",	PROCESSOR_EV6, EV6_MASK },
-    { "ev67",	PROCESSOR_EV6, EV6_MASK|MASK_CIX },
-    { "21264a",	PROCESSOR_EV6, EV6_MASK|MASK_CIX },
+    { "ev5",	PROCESSOR_EV5, 0 },
+    { "21164",	PROCESSOR_EV5, 0 },
+    { "ev56",	PROCESSOR_EV5, MASK_BWX },
+    { "21164a",	PROCESSOR_EV5, MASK_BWX },
+    { "pca56",	PROCESSOR_EV5, MASK_BWX|MASK_MAX },
+    { "21164PC",PROCESSOR_EV5, MASK_BWX|MASK_MAX },
+    { "21164pc",PROCESSOR_EV5, MASK_BWX|MASK_MAX },
+    { "ev6",	PROCESSOR_EV6, MASK_BWX|MASK_MAX|MASK_FIX },
+    { "21264",	PROCESSOR_EV6, MASK_BWX|MASK_MAX|MASK_FIX },
+    { "ev67",	PROCESSOR_EV6, MASK_BWX|MASK_MAX|MASK_FIX|MASK_CIX },
+    { "21264a",	PROCESSOR_EV6, MASK_BWX|MASK_MAX|MASK_FIX|MASK_CIX },
     { 0, 0, 0 }
   };
+
+  int i;
 
   /* Unicos/Mk doesn't have shared libraries.  */
   if (TARGET_ABI_UNICOSMK && flag_pic)
@@ -335,30 +392,13 @@ override_options (void)
 	error ("bad value %qs for -mfp-trap-mode switch", alpha_fptm_string);
     }
 
-  if (alpha_tls_size_string)
-    {
-      if (strcmp (alpha_tls_size_string, "16") == 0)
-	alpha_tls_size = 16;
-      else if (strcmp (alpha_tls_size_string, "32") == 0)
-	alpha_tls_size = 32;
-      else if (strcmp (alpha_tls_size_string, "64") == 0)
-	alpha_tls_size = 64;
-      else
-	error ("bad value %qs for -mtls-size switch", alpha_tls_size_string);
-    }
-
-  alpha_cpu
-    = TARGET_CPU_DEFAULT & MASK_CPU_EV6 ? PROCESSOR_EV6
-      : (TARGET_CPU_DEFAULT & MASK_CPU_EV5 ? PROCESSOR_EV5 : PROCESSOR_EV4);
-
   if (alpha_cpu_string)
     {
       for (i = 0; cpu_table [i].name; i++)
 	if (! strcmp (alpha_cpu_string, cpu_table [i].name))
 	  {
-	    alpha_cpu = cpu_table [i].processor;
-	    target_flags &= ~ (MASK_BWX | MASK_MAX | MASK_FIX | MASK_CIX
-			       | MASK_CPU_EV5 | MASK_CPU_EV6);
+	    alpha_tune = alpha_cpu = cpu_table [i].processor;
+	    target_flags &= ~ (MASK_BWX | MASK_MAX | MASK_FIX | MASK_CIX);
 	    target_flags |= cpu_table [i].flags;
 	    break;
 	  }
@@ -371,7 +411,7 @@ override_options (void)
       for (i = 0; cpu_table [i].name; i++)
 	if (! strcmp (alpha_tune_string, cpu_table [i].name))
 	  {
-	    alpha_cpu = cpu_table [i].processor;
+	    alpha_tune = cpu_table [i].processor;
 	    break;
 	  }
       if (! cpu_table [i].name)
@@ -387,13 +427,13 @@ override_options (void)
     }
 
   if ((alpha_fptm == ALPHA_FPTM_SU || alpha_fptm == ALPHA_FPTM_SUI)
-      && alpha_tp != ALPHA_TP_INSN && ! TARGET_CPU_EV6)
+      && alpha_tp != ALPHA_TP_INSN && alpha_cpu != PROCESSOR_EV6)
     {
       warning ("fp software completion requires -mtrap-precision=i");
       alpha_tp = ALPHA_TP_INSN;
     }
 
-  if (TARGET_CPU_EV6)
+  if (alpha_cpu == PROCESSOR_EV6)
     {
       /* Except for EV6 pass 1 (not released), we always have precise
 	 arithmetic traps.  Which means we can do software completion
@@ -440,14 +480,14 @@ override_options (void)
 	};
 
 	lat = alpha_mlat_string[1] - '0';
-	if (lat <= 0 || lat > 3 || cache_latency[alpha_cpu][lat-1] == -1)
+	if (lat <= 0 || lat > 3 || cache_latency[alpha_tune][lat-1] == -1)
 	  {
 	    warning ("L%d cache latency unknown for %s",
-		     lat, alpha_cpu_name[alpha_cpu]);
+		     lat, alpha_cpu_name[alpha_tune]);
 	    lat = 3;
 	  }
 	else
-	  lat = cache_latency[alpha_cpu][lat-1];
+	  lat = cache_latency[alpha_tune][lat-1];
       }
     else if (! strcmp (alpha_mlat_string, "main"))
       {
@@ -1339,7 +1379,7 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
   if (optimize_size)
     cost_data = &alpha_rtx_cost_size;
   else
-    cost_data = &alpha_rtx_cost_data[alpha_cpu];
+    cost_data = &alpha_rtx_cost_data[alpha_tune];
 
   switch (code)
     {
@@ -2909,7 +2949,7 @@ alpha_split_conditional_move (enum rtx_code code, rtx dest, rtx cond,
       /* On EV6, we've got enough shifters to make non-arithmetic shifts
 	 viable over a longer latency cmove.  On EV5, the E0 slot is a
 	 scarce resource, and on EV4 shift has the same latency as a cmove.  */
-      && (diff <= 8 || alpha_cpu == PROCESSOR_EV6))
+      && (diff <= 8 || alpha_tune == PROCESSOR_EV6))
     {
       tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
       emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (subtarget), tmp));
@@ -4465,7 +4505,7 @@ alpha_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 static int
 alpha_issue_rate (void)
 {
-  return (alpha_cpu == PROCESSOR_EV4 ? 2 : 4);
+  return (alpha_tune == PROCESSOR_EV4 ? 2 : 4);
 }
 
 /* How many alternative schedules to try.  This should be as wide as the
@@ -4479,7 +4519,7 @@ alpha_issue_rate (void)
 static int
 alpha_multipass_dfa_lookahead (void)
 {
-  return (alpha_cpu == PROCESSOR_EV6 ? 4 : 2);
+  return (alpha_tune == PROCESSOR_EV6 ? 4 : 2);
 }
 
 /* Machine-specific function data.  */
@@ -5901,9 +5941,9 @@ static unsigned int const code_for_builtin[ALPHA_BUILTIN_max] = {
   CODE_FOR_builtin_unpkbw,
 
   /* TARGET_CIX */
-  CODE_FOR_builtin_cttz,
-  CODE_FOR_builtin_ctlz,
-  CODE_FOR_builtin_ctpop
+  CODE_FOR_ctzdi2,
+  CODE_FOR_clzdi2,
+  CODE_FOR_popcountdi2
 };
 
 struct alpha_builtin_def
@@ -5911,67 +5951,76 @@ struct alpha_builtin_def
   const char *name;
   enum alpha_builtin code;
   unsigned int target_mask;
+  bool is_const;
 };
 
 static struct alpha_builtin_def const zero_arg_builtins[] = {
-  { "__builtin_alpha_implver",	ALPHA_BUILTIN_IMPLVER,	0 },
-  { "__builtin_alpha_rpcc",	ALPHA_BUILTIN_RPCC,	0 }
+  { "__builtin_alpha_implver",	ALPHA_BUILTIN_IMPLVER,	0, true },
+  { "__builtin_alpha_rpcc",	ALPHA_BUILTIN_RPCC,	0, false }
 };
 
 static struct alpha_builtin_def const one_arg_builtins[] = {
-  { "__builtin_alpha_amask",	ALPHA_BUILTIN_AMASK,	0 },
-  { "__builtin_alpha_pklb",	ALPHA_BUILTIN_PKLB,	MASK_MAX },
-  { "__builtin_alpha_pkwb",	ALPHA_BUILTIN_PKWB,	MASK_MAX },
-  { "__builtin_alpha_unpkbl",	ALPHA_BUILTIN_UNPKBL,	MASK_MAX },
-  { "__builtin_alpha_unpkbw",	ALPHA_BUILTIN_UNPKBW,	MASK_MAX },
-  { "__builtin_alpha_cttz",	ALPHA_BUILTIN_CTTZ,	MASK_CIX },
-  { "__builtin_alpha_ctlz",	ALPHA_BUILTIN_CTLZ,	MASK_CIX },
-  { "__builtin_alpha_ctpop",	ALPHA_BUILTIN_CTPOP,	MASK_CIX }
+  { "__builtin_alpha_amask",	ALPHA_BUILTIN_AMASK,	0, true },
+  { "__builtin_alpha_pklb",	ALPHA_BUILTIN_PKLB,	MASK_MAX, true },
+  { "__builtin_alpha_pkwb",	ALPHA_BUILTIN_PKWB,	MASK_MAX, true },
+  { "__builtin_alpha_unpkbl",	ALPHA_BUILTIN_UNPKBL,	MASK_MAX, true },
+  { "__builtin_alpha_unpkbw",	ALPHA_BUILTIN_UNPKBW,	MASK_MAX, true },
+  { "__builtin_alpha_cttz",	ALPHA_BUILTIN_CTTZ,	MASK_CIX, true },
+  { "__builtin_alpha_ctlz",	ALPHA_BUILTIN_CTLZ,	MASK_CIX, true },
+  { "__builtin_alpha_ctpop",	ALPHA_BUILTIN_CTPOP,	MASK_CIX, true }
 };
 
 static struct alpha_builtin_def const two_arg_builtins[] = {
-  { "__builtin_alpha_cmpbge",	ALPHA_BUILTIN_CMPBGE,	0 },
-  { "__builtin_alpha_extbl",	ALPHA_BUILTIN_EXTBL,	0 },
-  { "__builtin_alpha_extwl",	ALPHA_BUILTIN_EXTWL,	0 },
-  { "__builtin_alpha_extll",	ALPHA_BUILTIN_EXTLL,	0 },
-  { "__builtin_alpha_extql",	ALPHA_BUILTIN_EXTQL,	0 },
-  { "__builtin_alpha_extwh",	ALPHA_BUILTIN_EXTWH,	0 },
-  { "__builtin_alpha_extlh",	ALPHA_BUILTIN_EXTLH,	0 },
-  { "__builtin_alpha_extqh",	ALPHA_BUILTIN_EXTQH,	0 },
-  { "__builtin_alpha_insbl",	ALPHA_BUILTIN_INSBL,	0 },
-  { "__builtin_alpha_inswl",	ALPHA_BUILTIN_INSWL,	0 },
-  { "__builtin_alpha_insll",	ALPHA_BUILTIN_INSLL,	0 },
-  { "__builtin_alpha_insql",	ALPHA_BUILTIN_INSQL,	0 },
-  { "__builtin_alpha_inswh",	ALPHA_BUILTIN_INSWH,	0 },
-  { "__builtin_alpha_inslh",	ALPHA_BUILTIN_INSLH,	0 },
-  { "__builtin_alpha_insqh",	ALPHA_BUILTIN_INSQH,	0 },
-  { "__builtin_alpha_mskbl",	ALPHA_BUILTIN_MSKBL,	0 },
-  { "__builtin_alpha_mskwl",	ALPHA_BUILTIN_MSKWL,	0 },
-  { "__builtin_alpha_mskll",	ALPHA_BUILTIN_MSKLL,	0 },
-  { "__builtin_alpha_mskql",	ALPHA_BUILTIN_MSKQL,	0 },
-  { "__builtin_alpha_mskwh",	ALPHA_BUILTIN_MSKWH,	0 },
-  { "__builtin_alpha_msklh",	ALPHA_BUILTIN_MSKLH,	0 },
-  { "__builtin_alpha_mskqh",	ALPHA_BUILTIN_MSKQH,	0 },
-  { "__builtin_alpha_umulh",	ALPHA_BUILTIN_UMULH,	0 },
-  { "__builtin_alpha_zap",	ALPHA_BUILTIN_ZAP,	0 },
-  { "__builtin_alpha_zapnot",	ALPHA_BUILTIN_ZAPNOT,	0 },
-  { "__builtin_alpha_minub8",	ALPHA_BUILTIN_MINUB8,	MASK_MAX },
-  { "__builtin_alpha_minsb8",	ALPHA_BUILTIN_MINSB8,	MASK_MAX },
-  { "__builtin_alpha_minuw4",	ALPHA_BUILTIN_MINUW4,	MASK_MAX },
-  { "__builtin_alpha_minsw4",	ALPHA_BUILTIN_MINSW4,	MASK_MAX },
-  { "__builtin_alpha_maxub8",	ALPHA_BUILTIN_MAXUB8,	MASK_MAX },
-  { "__builtin_alpha_maxsb8",	ALPHA_BUILTIN_MAXSB8,	MASK_MAX },
-  { "__builtin_alpha_maxuw4",	ALPHA_BUILTIN_MAXUW4,	MASK_MAX },
-  { "__builtin_alpha_maxsw4",	ALPHA_BUILTIN_MAXSW4,	MASK_MAX },
-  { "__builtin_alpha_perr",	ALPHA_BUILTIN_PERR,	MASK_MAX }
+  { "__builtin_alpha_cmpbge",	ALPHA_BUILTIN_CMPBGE,	0, true },
+  { "__builtin_alpha_extbl",	ALPHA_BUILTIN_EXTBL,	0, true },
+  { "__builtin_alpha_extwl",	ALPHA_BUILTIN_EXTWL,	0, true },
+  { "__builtin_alpha_extll",	ALPHA_BUILTIN_EXTLL,	0, true },
+  { "__builtin_alpha_extql",	ALPHA_BUILTIN_EXTQL,	0, true },
+  { "__builtin_alpha_extwh",	ALPHA_BUILTIN_EXTWH,	0, true },
+  { "__builtin_alpha_extlh",	ALPHA_BUILTIN_EXTLH,	0, true },
+  { "__builtin_alpha_extqh",	ALPHA_BUILTIN_EXTQH,	0, true },
+  { "__builtin_alpha_insbl",	ALPHA_BUILTIN_INSBL,	0, true },
+  { "__builtin_alpha_inswl",	ALPHA_BUILTIN_INSWL,	0, true },
+  { "__builtin_alpha_insll",	ALPHA_BUILTIN_INSLL,	0, true },
+  { "__builtin_alpha_insql",	ALPHA_BUILTIN_INSQL,	0, true },
+  { "__builtin_alpha_inswh",	ALPHA_BUILTIN_INSWH,	0, true },
+  { "__builtin_alpha_inslh",	ALPHA_BUILTIN_INSLH,	0, true },
+  { "__builtin_alpha_insqh",	ALPHA_BUILTIN_INSQH,	0, true },
+  { "__builtin_alpha_mskbl",	ALPHA_BUILTIN_MSKBL,	0, true },
+  { "__builtin_alpha_mskwl",	ALPHA_BUILTIN_MSKWL,	0, true },
+  { "__builtin_alpha_mskll",	ALPHA_BUILTIN_MSKLL,	0, true },
+  { "__builtin_alpha_mskql",	ALPHA_BUILTIN_MSKQL,	0, true },
+  { "__builtin_alpha_mskwh",	ALPHA_BUILTIN_MSKWH,	0, true },
+  { "__builtin_alpha_msklh",	ALPHA_BUILTIN_MSKLH,	0, true },
+  { "__builtin_alpha_mskqh",	ALPHA_BUILTIN_MSKQH,	0, true },
+  { "__builtin_alpha_umulh",	ALPHA_BUILTIN_UMULH,	0, true },
+  { "__builtin_alpha_zap",	ALPHA_BUILTIN_ZAP,	0, true },
+  { "__builtin_alpha_zapnot",	ALPHA_BUILTIN_ZAPNOT,	0, true },
+  { "__builtin_alpha_minub8",	ALPHA_BUILTIN_MINUB8,	MASK_MAX, true },
+  { "__builtin_alpha_minsb8",	ALPHA_BUILTIN_MINSB8,	MASK_MAX, true },
+  { "__builtin_alpha_minuw4",	ALPHA_BUILTIN_MINUW4,	MASK_MAX, true },
+  { "__builtin_alpha_minsw4",	ALPHA_BUILTIN_MINSW4,	MASK_MAX, true },
+  { "__builtin_alpha_maxub8",	ALPHA_BUILTIN_MAXUB8,	MASK_MAX, true },
+  { "__builtin_alpha_maxsb8",	ALPHA_BUILTIN_MAXSB8,	MASK_MAX, true },
+  { "__builtin_alpha_maxuw4",	ALPHA_BUILTIN_MAXUW4,	MASK_MAX, true },
+  { "__builtin_alpha_maxsw4",	ALPHA_BUILTIN_MAXSW4,	MASK_MAX, true },
+  { "__builtin_alpha_perr",	ALPHA_BUILTIN_PERR,	MASK_MAX, true }
 };
+
+static GTY(()) tree alpha_v8qi_u;
+static GTY(()) tree alpha_v8qi_s;
+static GTY(()) tree alpha_v4hi_u;
+static GTY(()) tree alpha_v4hi_s;
 
 static void
 alpha_init_builtins (void)
 {
   const struct alpha_builtin_def *p;
-  tree ftype;
+  tree ftype, attrs[2];
   size_t i;
+
+  attrs[0] = tree_cons (get_identifier ("nothrow"), NULL, NULL);
+  attrs[1] = tree_cons (get_identifier ("const"), NULL, attrs[0]);
 
   ftype = build_function_type (long_integer_type_node, void_list_node);
 
@@ -5979,7 +6028,7 @@ alpha_init_builtins (void)
   for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-				   NULL, NULL_TREE);
+				   NULL, attrs[p->is_const]);
 
   ftype = build_function_type_list (long_integer_type_node,
 				    long_integer_type_node, NULL_TREE);
@@ -5988,7 +6037,7 @@ alpha_init_builtins (void)
   for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-				   NULL, NULL_TREE);
+				   NULL, attrs[p->is_const]);
 
   ftype = build_function_type_list (long_integer_type_node,
 				    long_integer_type_node,
@@ -5998,17 +6047,22 @@ alpha_init_builtins (void)
   for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
     if ((target_flags & p->target_mask) == p->target_mask)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
-				   NULL, NULL_TREE);
+				   NULL, attrs[p->is_const]);
 
   ftype = build_function_type (ptr_type_node, void_list_node);
   lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
 			       ALPHA_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+			       NULL, attrs[0]);
 
   ftype = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
   lang_hooks.builtin_function ("__builtin_set_thread_pointer", ftype,
 			       ALPHA_BUILTIN_SET_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
+			       NULL, attrs[0]);
+
+  alpha_v8qi_u = build_vector_type (unsigned_intQI_type_node, 8);
+  alpha_v8qi_s = build_vector_type (intQI_type_node, 8);
+  alpha_v4hi_u = build_vector_type (unsigned_intHI_type_node, 4);
+  alpha_v4hi_s = build_vector_type (intHI_type_node, 4);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -6095,6 +6149,482 @@ alpha_expand_builtin (tree exp, rtx target,
     return target;
   else
     return const0_rtx;
+}
+
+
+/* Several bits below assume HWI >= 64 bits.  This should be enforced
+   by config.gcc.  */
+#if HOST_BITS_PER_WIDE_INT < 64
+# error "HOST_WIDE_INT too small"
+#endif
+
+/* Fold the builtin for the CMPBGE instruction.  This is a vector comparison
+   with an 8 bit output vector.  OPINT contains the integer operands; bit N
+   of OP_CONST is set if OPINT[N] is valid.  */
+
+static tree
+alpha_fold_builtin_cmpbge (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  if (op_const == 3)
+    {
+      int i, val;
+      for (i = 0, val = 0; i < 8; ++i)
+	{
+	  unsigned HOST_WIDE_INT c0 = (opint[0] >> (i * 8)) & 0xff;
+	  unsigned HOST_WIDE_INT c1 = (opint[1] >> (i * 8)) & 0xff;
+	  if (c0 >= c1)
+	    val |= 1 << i;
+	}
+      return build_int_cst (long_integer_type_node, val);
+    }
+  else if (op_const == 2 && opint[1] == 0)
+    return build_int_cst (long_integer_type_node, 0xff);
+  return NULL;
+}
+
+/* Fold the builtin for the ZAPNOT instruction.  This is essentially a 
+   specialized form of an AND operation.  Other byte manipulation instructions
+   are defined in terms of this instruction, so this is also used as a
+   subroutine for other builtins.
+
+   OP contains the tree operands; OPINT contains the extracted integer values.
+   Bit N of OP_CONST it set if OPINT[N] is valid.  OP may be null if only
+   OPINT may be considered.  */
+
+static tree
+alpha_fold_builtin_zapnot (tree *op, unsigned HOST_WIDE_INT opint[],
+			   long op_const)
+{
+  if (op_const & 2)
+    {
+      unsigned HOST_WIDE_INT mask = 0;
+      int i;
+
+      for (i = 0; i < 8; ++i)
+	if ((opint[1] >> i) & 1)
+	  mask |= (unsigned HOST_WIDE_INT)0xff << (i * 8);
+
+      if (op_const & 1)
+	return build_int_cst (long_integer_type_node, opint[0] & mask);
+
+      if (op)
+	return fold (build2 (BIT_AND_EXPR, long_integer_type_node, op[0],
+			     build_int_cst (long_integer_type_node, mask)));
+    }
+  else if ((op_const & 1) && opint[0] == 0)
+    return build_int_cst (long_integer_type_node, 0);
+  return NULL;
+}
+
+/* Fold the builtins for the EXT family of instructions.  */
+
+static tree
+alpha_fold_builtin_extxx (tree op[], unsigned HOST_WIDE_INT opint[],
+			  long op_const, unsigned HOST_WIDE_INT bytemask,
+			  bool is_high)
+{
+  long zap_const = 2;
+  tree *zap_op = NULL;
+
+  if (op_const & 2)
+    {
+      unsigned HOST_WIDE_INT loc;
+
+      loc = opint[1] & 7;
+      if (BYTES_BIG_ENDIAN)
+        loc ^= 7;
+      loc *= 8;
+
+      if (loc != 0)
+	{
+	  if (op_const & 1)
+	    {
+	      unsigned HOST_WIDE_INT temp = opint[0];
+	      if (is_high)
+		temp <<= loc;
+	      else
+		temp >>= loc;
+	      opint[0] = temp;
+	      zap_const = 3;
+	    }
+	}
+      else
+	zap_op = op;
+    }
+  
+  opint[1] = bytemask;
+  return alpha_fold_builtin_zapnot (zap_op, opint, zap_const);
+}
+
+/* Fold the builtins for the INS family of instructions.  */
+
+static tree
+alpha_fold_builtin_insxx (tree op[], unsigned HOST_WIDE_INT opint[],
+			  long op_const, unsigned HOST_WIDE_INT bytemask,
+			  bool is_high)
+{
+  if ((op_const & 1) && opint[0] == 0)
+    return build_int_cst (long_integer_type_node, 0);
+
+  if (op_const & 2)
+    {
+      unsigned HOST_WIDE_INT temp, loc, byteloc;
+      tree *zap_op = NULL;
+
+      loc = opint[1] & 7;
+      if (BYTES_BIG_ENDIAN)
+        loc ^= 7;
+      bytemask <<= loc;
+
+      temp = opint[0];
+      if (is_high)
+	{
+	  byteloc = (64 - (loc * 8)) & 0x3f;
+	  if (byteloc == 0)
+	    zap_op = op;
+	  else
+	    temp >>= byteloc;
+	  bytemask >>= 8;
+	}
+      else
+	{
+	  byteloc = loc * 8;
+	  if (byteloc == 0)
+	    zap_op = op;
+	  else
+	    temp <<= byteloc;
+	}
+
+      opint[0] = temp;
+      opint[1] = bytemask;
+      return alpha_fold_builtin_zapnot (zap_op, opint, op_const);
+    }
+
+  return NULL;
+}
+
+static tree
+alpha_fold_builtin_mskxx (tree op[], unsigned HOST_WIDE_INT opint[],
+			  long op_const, unsigned HOST_WIDE_INT bytemask,
+			  bool is_high)
+{
+  if (op_const & 2)
+    {
+      unsigned HOST_WIDE_INT loc;
+
+      loc = opint[1] & 7;
+      if (BYTES_BIG_ENDIAN)
+        loc ^= 7;
+      bytemask <<= loc;
+
+      if (is_high)
+	bytemask >>= 8;
+
+      opint[1] = bytemask ^ 0xff;
+    }
+
+  return alpha_fold_builtin_zapnot (op, opint, op_const);
+}
+
+static tree
+alpha_fold_builtin_umulh (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  switch (op_const)
+    {
+    case 3:
+      {
+	unsigned HOST_WIDE_INT l;
+	HOST_WIDE_INT h;
+
+	mul_double (opint[0], 0, opint[1], 0, &l, &h);
+
+#if HOST_BITS_PER_WIDE_INT > 64
+# error fixme
+#endif
+
+	return build_int_cst (long_integer_type_node, h);
+      }
+
+    case 1:
+      opint[1] = opint[0];
+      /* FALLTHRU */
+    case 2:
+      /* Note that (X*1) >> 64 == 0.  */
+      if (opint[1] == 0 || opint[1] == 1)
+	return build_int_cst (long_integer_type_node, 0);
+      break;
+    }
+  return NULL;
+}
+
+static tree
+alpha_fold_vector_minmax (enum tree_code code, tree op[], tree vtype)
+{
+  tree op0 = fold_convert (vtype, op[0]);
+  tree op1 = fold_convert (vtype, op[1]);
+  tree val = fold (build2 (code, vtype, op0, op1));
+  return fold_convert (long_integer_type_node, val);
+}
+
+static tree
+alpha_fold_builtin_perr (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  unsigned HOST_WIDE_INT temp = 0;
+  int i;
+
+  if (op_const != 3)
+    return NULL;
+
+  for (i = 0; i < 8; ++i)
+    {
+      unsigned HOST_WIDE_INT a = (opint[0] >> (i * 8)) & 0xff;
+      unsigned HOST_WIDE_INT b = (opint[1] >> (i * 8)) & 0xff;
+      if (a >= b)
+	temp += a - b;
+      else
+	temp += b - a;
+    }
+
+  return build_int_cst (long_integer_type_node, temp);
+}
+
+static tree
+alpha_fold_builtin_pklb (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  unsigned HOST_WIDE_INT temp;
+
+  if (op_const == 0)
+    return NULL;
+
+  temp = opint[0] & 0xff;
+  temp |= (opint[0] >> 24) & 0xff00;
+
+  return build_int_cst (long_integer_type_node, temp);
+}
+
+static tree
+alpha_fold_builtin_pkwb (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  unsigned HOST_WIDE_INT temp;
+
+  if (op_const == 0)
+    return NULL;
+
+  temp = opint[0] & 0xff;
+  temp |= (opint[0] >>  8) & 0xff00;
+  temp |= (opint[0] >> 16) & 0xff0000;
+  temp |= (opint[0] >> 24) & 0xff000000;
+
+  return build_int_cst (long_integer_type_node, temp);
+}
+
+static tree
+alpha_fold_builtin_unpkbl (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  unsigned HOST_WIDE_INT temp;
+
+  if (op_const == 0)
+    return NULL;
+
+  temp = opint[0] & 0xff;
+  temp |= (opint[0] & 0xff00) << 24;
+
+  return build_int_cst (long_integer_type_node, temp);
+}
+
+static tree
+alpha_fold_builtin_unpkbw (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  unsigned HOST_WIDE_INT temp;
+
+  if (op_const == 0)
+    return NULL;
+
+  temp = opint[0] & 0xff;
+  temp |= (opint[0] & 0x0000ff00) << 8;
+  temp |= (opint[0] & 0x00ff0000) << 16;
+  temp |= (opint[0] & 0xff000000) << 24;
+
+  return build_int_cst (long_integer_type_node, temp);
+}
+
+static tree
+alpha_fold_builtin_cttz (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  unsigned HOST_WIDE_INT temp;
+
+  if (op_const == 0)
+    return NULL;
+
+  if (opint[0] == 0)
+    temp = 64;
+  else
+    temp = exact_log2 (opint[0] & -opint[0]);
+
+  return build_int_cst (long_integer_type_node, temp);
+}
+
+static tree
+alpha_fold_builtin_ctlz (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  unsigned HOST_WIDE_INT temp;
+
+  if (op_const == 0)
+    return NULL;
+
+  if (opint[0] == 0)
+    temp = 64;
+  else
+    temp = 64 - floor_log2 (opint[0]) - 1;
+
+  return build_int_cst (long_integer_type_node, temp);
+}
+
+static tree
+alpha_fold_builtin_ctpop (unsigned HOST_WIDE_INT opint[], long op_const)
+{
+  unsigned HOST_WIDE_INT temp, op;
+
+  if (op_const == 0)
+    return NULL;
+
+  op = opint[0];
+  temp = 0;
+  while (op)
+    temp++, op &= op - 1;
+
+  return build_int_cst (long_integer_type_node, temp);
+}
+
+/* Fold one of our builtin functions.  */
+
+static tree
+alpha_fold_builtin (tree fndecl, tree arglist, bool ignore ATTRIBUTE_UNUSED)
+{
+  tree op[MAX_ARGS], t;
+  unsigned HOST_WIDE_INT opint[MAX_ARGS];
+  long op_const = 0, arity = 0;
+
+  for (t = arglist; t ; t = TREE_CHAIN (t), ++arity)
+    {
+      tree arg = TREE_VALUE (t);
+      if (arg == error_mark_node)
+	return NULL;
+      if (arity >= MAX_ARGS)
+	return NULL;
+
+      op[arity] = arg;
+      opint[arity] = 0;
+      if (TREE_CODE (arg) == INTEGER_CST)
+	{
+          op_const |= 1L << arity;
+	  opint[arity] = int_cst_value (arg);
+	}
+    }
+
+  switch (DECL_FUNCTION_CODE (fndecl))
+    {
+    case ALPHA_BUILTIN_CMPBGE:
+      return alpha_fold_builtin_cmpbge (opint, op_const);
+
+    case ALPHA_BUILTIN_EXTBL:
+      return alpha_fold_builtin_extxx (op, opint, op_const, 0x01, false);
+    case ALPHA_BUILTIN_EXTWL:
+      return alpha_fold_builtin_extxx (op, opint, op_const, 0x03, false);
+    case ALPHA_BUILTIN_EXTLL:
+      return alpha_fold_builtin_extxx (op, opint, op_const, 0x0f, false);
+    case ALPHA_BUILTIN_EXTQL:
+      return alpha_fold_builtin_extxx (op, opint, op_const, 0xff, false);
+    case ALPHA_BUILTIN_EXTWH:
+      return alpha_fold_builtin_extxx (op, opint, op_const, 0x03, true);
+    case ALPHA_BUILTIN_EXTLH:
+      return alpha_fold_builtin_extxx (op, opint, op_const, 0x0f, true);
+    case ALPHA_BUILTIN_EXTQH:
+      return alpha_fold_builtin_extxx (op, opint, op_const, 0xff, true);
+
+    case ALPHA_BUILTIN_INSBL:
+      return alpha_fold_builtin_insxx (op, opint, op_const, 0x01, false);
+    case ALPHA_BUILTIN_INSWL:
+      return alpha_fold_builtin_insxx (op, opint, op_const, 0x03, false);
+    case ALPHA_BUILTIN_INSLL:
+      return alpha_fold_builtin_insxx (op, opint, op_const, 0x0f, false);
+    case ALPHA_BUILTIN_INSQL:
+      return alpha_fold_builtin_insxx (op, opint, op_const, 0xff, false);
+    case ALPHA_BUILTIN_INSWH:
+      return alpha_fold_builtin_insxx (op, opint, op_const, 0x03, true);
+    case ALPHA_BUILTIN_INSLH:
+      return alpha_fold_builtin_insxx (op, opint, op_const, 0x0f, true);
+    case ALPHA_BUILTIN_INSQH:
+      return alpha_fold_builtin_insxx (op, opint, op_const, 0xff, true);
+
+    case ALPHA_BUILTIN_MSKBL:
+      return alpha_fold_builtin_mskxx (op, opint, op_const, 0x01, false);
+    case ALPHA_BUILTIN_MSKWL:
+      return alpha_fold_builtin_mskxx (op, opint, op_const, 0x03, false);
+    case ALPHA_BUILTIN_MSKLL:
+      return alpha_fold_builtin_mskxx (op, opint, op_const, 0x0f, false);
+    case ALPHA_BUILTIN_MSKQL:
+      return alpha_fold_builtin_mskxx (op, opint, op_const, 0xff, false);
+    case ALPHA_BUILTIN_MSKWH:
+      return alpha_fold_builtin_mskxx (op, opint, op_const, 0x03, true);
+    case ALPHA_BUILTIN_MSKLH:
+      return alpha_fold_builtin_mskxx (op, opint, op_const, 0x0f, true);
+    case ALPHA_BUILTIN_MSKQH:
+      return alpha_fold_builtin_mskxx (op, opint, op_const, 0xff, true);
+
+    case ALPHA_BUILTIN_UMULH:
+      return alpha_fold_builtin_umulh (opint, op_const);
+
+    case ALPHA_BUILTIN_ZAP:
+      opint[1] ^= 0xff;
+      /* FALLTHRU */
+    case ALPHA_BUILTIN_ZAPNOT:
+      return alpha_fold_builtin_zapnot (op, opint, op_const);
+
+    case ALPHA_BUILTIN_MINUB8:
+      return alpha_fold_vector_minmax (MIN_EXPR, op, alpha_v8qi_u);
+    case ALPHA_BUILTIN_MINSB8:
+      return alpha_fold_vector_minmax (MIN_EXPR, op, alpha_v8qi_s);
+    case ALPHA_BUILTIN_MINUW4:
+      return alpha_fold_vector_minmax (MIN_EXPR, op, alpha_v4hi_u);
+    case ALPHA_BUILTIN_MINSW4:
+      return alpha_fold_vector_minmax (MIN_EXPR, op, alpha_v4hi_s);
+    case ALPHA_BUILTIN_MAXUB8:
+      return alpha_fold_vector_minmax (MAX_EXPR, op, alpha_v8qi_u);
+    case ALPHA_BUILTIN_MAXSB8:
+      return alpha_fold_vector_minmax (MAX_EXPR, op, alpha_v8qi_s);
+    case ALPHA_BUILTIN_MAXUW4:
+      return alpha_fold_vector_minmax (MAX_EXPR, op, alpha_v4hi_u);
+    case ALPHA_BUILTIN_MAXSW4:
+      return alpha_fold_vector_minmax (MAX_EXPR, op, alpha_v4hi_s);
+
+    case ALPHA_BUILTIN_PERR:
+      return alpha_fold_builtin_perr (opint, op_const);
+    case ALPHA_BUILTIN_PKLB:
+      return alpha_fold_builtin_pklb (opint, op_const);
+    case ALPHA_BUILTIN_PKWB:
+      return alpha_fold_builtin_pkwb (opint, op_const);
+    case ALPHA_BUILTIN_UNPKBL:
+      return alpha_fold_builtin_unpkbl (opint, op_const);
+    case ALPHA_BUILTIN_UNPKBW:
+      return alpha_fold_builtin_unpkbw (opint, op_const);
+
+    case ALPHA_BUILTIN_CTTZ:
+      return alpha_fold_builtin_cttz (opint, op_const);
+    case ALPHA_BUILTIN_CTLZ:
+      return alpha_fold_builtin_ctlz (opint, op_const);
+    case ALPHA_BUILTIN_CTPOP:
+      return alpha_fold_builtin_ctpop (opint, op_const);
+
+    case ALPHA_BUILTIN_AMASK:
+    case ALPHA_BUILTIN_IMPLVER:
+    case ALPHA_BUILTIN_RPCC:
+    case ALPHA_BUILTIN_THREAD_POINTER:
+    case ALPHA_BUILTIN_SET_THREAD_POINTER:
+      /* None of these are foldable at compile-time.  */
+    default:
+      return NULL;
+    }
 }
 
 /* This page contains routines that are used to determine what the function
@@ -8283,9 +8813,9 @@ alpha_reorg (void)
       && alpha_tp != ALPHA_TP_INSN
       && flag_schedule_insns_after_reload)
     {
-      if (alpha_cpu == PROCESSOR_EV4)
+      if (alpha_tune == PROCESSOR_EV4)
 	alpha_align_insns (8, alphaev4_next_group, alphaev4_next_nop);
-      else if (alpha_cpu == PROCESSOR_EV5)
+      else if (alpha_tune == PROCESSOR_EV5)
 	alpha_align_insns (16, alphaev5_next_group, alphaev5_next_nop);
     }
 }
@@ -8318,12 +8848,22 @@ alpha_file_start (void)
   if (TARGET_EXPLICIT_RELOCS)
     fputs ("\t.set nomacro\n", asm_out_file);
   if (TARGET_SUPPORT_ARCH | TARGET_BWX | TARGET_MAX | TARGET_FIX | TARGET_CIX)
-    fprintf (asm_out_file,
-	     "\t.arch %s\n",
-	     TARGET_CPU_EV6 ? "ev6"
-	     : (TARGET_CPU_EV5
-		? (TARGET_MAX ? "pca56" : TARGET_BWX ? "ev56" : "ev5")
-		: "ev4"));
+    {
+      const char *arch;
+
+      if (alpha_cpu == PROCESSOR_EV6 || TARGET_FIX || TARGET_CIX)
+	arch = "ev6";
+      else if (TARGET_MAX)
+	arch = "pca56";
+      else if (TARGET_BWX)
+	arch = "ev56";
+      else if (alpha_cpu == PROCESSOR_EV5)
+	arch = "ev5";
+      else
+	arch = "ev4";
+
+      fprintf (asm_out_file, "\t.arch %s\n", arch);
+    }
 }
 #endif
 
@@ -9597,6 +10137,8 @@ alpha_init_libfuncs (void)
 #define TARGET_INIT_BUILTINS alpha_init_builtins
 #undef  TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN alpha_expand_builtin
+#undef  TARGET_FOLD_BUILTIN
+#define TARGET_FOLD_BUILTIN alpha_fold_builtin
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL alpha_function_ok_for_sibcall
@@ -9656,6 +10198,12 @@ alpha_init_libfuncs (void)
    for an example of how it can be violated in practice.  */
 #undef TARGET_RELAXED_ORDERING
 #define TARGET_RELAXED_ORDERING true
+
+#undef TARGET_DEFAULT_TARGET_FLAGS
+#define TARGET_DEFAULT_TARGET_FLAGS \
+  (TARGET_DEFAULT | TARGET_CPU_DEFAULT | TARGET_DEFAULT_EXPLICIT_RELOCS)
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION alpha_handle_option
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

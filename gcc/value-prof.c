@@ -360,7 +360,7 @@ rtl_find_values_to_profile (histogram_values *values)
 	  break;
 
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
     }
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
@@ -826,7 +826,7 @@ gen_mod_subtract (enum machine_mode mode, enum rtx_code operation,
 static bool
 mod_subtract_transform (rtx insn)
 {
-  rtx set, set_src, set_dest, op1, op2, value, histogram;
+  rtx set, set_src, set_dest, op1, op2, histogram;
   enum rtx_code code;
   enum machine_mode mode;
   gcov_type wrong_values, counts[2], count, all;
@@ -858,7 +858,6 @@ mod_subtract_transform (rtx insn)
     return false;
 
   histogram = XEXP (XEXP (histogram, 0), 1);
-  value = XEXP (histogram, 0);
   histogram = XEXP (histogram, 1);
 
   all = 0;
@@ -1032,21 +1031,20 @@ void
 rtl_register_value_prof_hooks (void)
 {
   value_prof_hooks = &rtl_value_prof_hooks;
-  if (ir_type ())
-    abort ();
+  gcc_assert (!ir_type ());
 }
 
 /* Tree-based versions are stubs for now.  */
 static void
 tree_find_values_to_profile (histogram_values *values ATTRIBUTE_UNUSED)
 {
-  abort ();
+  gcc_unreachable ();
 }
 
 static bool
 tree_value_profile_transformations (void)
 {
-  abort ();
+  gcc_unreachable ();
 }
 
 static struct value_prof_hooks tree_value_prof_hooks = {
@@ -1058,8 +1056,7 @@ void
 tree_register_value_prof_hooks (void)
 {
   value_prof_hooks = &tree_value_prof_hooks;
-  if (!ir_type ())
-    abort ();
+  gcc_assert (ir_type ());
 }
 
 /* IR-independent entry points.  */

@@ -33,7 +33,8 @@ VPATH = @glibcpp_srcdir@
 prefix = @prefix@
 exec_prefix = @exec_prefix@
 target_noncanonical = @target_noncanonical@
-gcc_version = @gcc_version@
+gcc_version := $(shell cat $(srcdir)/../gcc/BASE-VER)
+host_subdir = @host_subdir@
 top_srcdir = @top_srcdir@
 toplevel_srcdir = @toplevel_srcdir@
 toolexecdir = @toolexecdir@
@@ -71,9 +72,8 @@ RANLIB = @RANLIB@
 CC = @CC@
 CFLAGS = @CFLAGS@
 WARN_CFLAGS = -W -Wall -Wwrite-strings -Wstrict-prototypes
-GTHREAD_FLAGS=@GTHREAD_FLAGS@
 ALL_CFLAGS = -I. -I$(srcdir) $(CPPFLAGS) $(DEFS) $(CFLAGS) $(WARN_CFLAGS) \
-	$(GTHREAD_FLAGS) -DIN_GCC -DIN_TARGET_LIBS -fno-strict-aliasing
+	-DIN_GCC -DIN_TARGET_LIBS -fno-strict-aliasing
 
 # Libtool
 # The following strings describe the version of the obj-C library 
@@ -90,7 +90,8 @@ LIBTOOL_CLEAN   = $(LIBTOOL) --mode=clean
 #LIBTOOL_UNINSTALL = $(LIBTOOL) --mode=uninstall
 
 INCLUDES = -I$(srcdir)/objc  -I$(srcdir)/$(MULTISRCTOP)../gcc \
-  -I$(srcdir)/$(MULTISRCTOP)../gcc/config -I$(MULTIBUILDTOP)../../gcc \
+  -I$(srcdir)/$(MULTISRCTOP)../gcc/config \
+  -I$(MULTIBUILDTOP)../../$(host_subdir)/gcc \
   -I$(srcdir)/$(MULTISRCTOP)../include
 
 OBJC_GCFLAGS=-DOBJC_WITH_GC=1
@@ -145,13 +146,13 @@ OBJC_H = hash.h objc-list.h sarray.h objc.h objc-api.h \
 OBJS =    archive.lo class.lo encoding.lo gc.lo hash.lo init.lo linking.lo \
 	  misc.lo nil_method.lo NXConstStr.lo Object.lo objects.lo \
 	  Protocol.lo sarray.lo selector.lo sendmsg.lo thr.lo \
-	  $(OBJC_THREAD_FILE).lo exception.lo
+	  $(OBJC_THREAD_FILE).lo exception.lo hash_compat.lo
 
 OBJS_GC = archive_gc.lo class_gc.lo encoding_gc.lo gc_gc.lo hash_gc.lo \
 	  init_gc.lo linking_gc.lo misc_gc.lo nil_method_gc.lo \
 	  NXConstStr_gc.lo Object_gc.lo objects_gc.lo Protocol_gc.lo \
 	  sarray_gc.lo selector_gc.lo sendmsg_gc.lo thr_gc.lo \
-	  $(OBJC_THREAD_FILE)_gc.lo exception_gc.lo
+	  $(OBJC_THREAD_FILE)_gc.lo exception_gc.lo hash_compat_gc.lo
 
 runtime-info.h: 
 	echo "" > tmp-runtime.m
@@ -179,6 +180,10 @@ gc_gc.lo: gc.c
 		$(INCLUDES) $<
 
 hash_gc.lo: hash.c
+	$(LIBTOOL_COMPILE) $(CC) -c -o $@ $(ALL_CFLAGS) $(OBJC_GCFLAGS) \
+		$(INCLUDES) $<
+
+hash_compat_gc.lo: hash_compat.c
 	$(LIBTOOL_COMPILE) $(CC) -c -o $@ $(ALL_CFLAGS) $(OBJC_GCFLAGS) \
 		$(INCLUDES) $<
 

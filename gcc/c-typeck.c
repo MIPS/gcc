@@ -100,6 +100,8 @@ static void set_nonincremental_init (void);
 static void set_nonincremental_init_from_string (tree);
 static tree find_init_member (tree);
 static void readonly_error (tree, enum lvalue_use);
+static int lvalue_or_else (tree, enum lvalue_use);
+static int lvalue_p (tree);
 static void record_maybe_used_decl (tree);
 
 /* Do `exp = require_complete_type (exp);' to make sure exp
@@ -136,8 +138,7 @@ c_incomplete_type_error (tree value, tree type)
 
   if (value != 0 && (TREE_CODE (value) == VAR_DECL
 		     || TREE_CODE (value) == PARM_DECL))
-    error ("%qs has an incomplete type",
-	   IDENTIFIER_POINTER (DECL_NAME (value)));
+    error ("%qD has an incomplete type", value);
   else
     {
     retry:
@@ -180,12 +181,11 @@ c_incomplete_type_error (tree value, tree type)
 	}
 
       if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
-	error ("invalid use of undefined type %<%s %s%>",
-	       type_code_string, IDENTIFIER_POINTER (TYPE_NAME (type)));
+	error ("invalid use of undefined type %<%s %E%>",
+	       type_code_string, TYPE_NAME (type));
       else
 	/* If this type has a typedef-name, the TYPE_NAME is a TYPE_DECL.  */
-	error ("invalid use of incomplete typedef %qs",
-	       IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type))));
+	error ("invalid use of incomplete typedef %qD", TYPE_NAME (type));
     }
 }
 
@@ -1380,16 +1380,9 @@ default_conversion (tree exp)
       type = TREE_TYPE (exp);
     }
 
-  /* Strip NON_LVALUE_EXPRs and no-op conversions, since we aren't using as
-     an lvalue.
-
-     Do not use STRIP_NOPS here!  It will remove conversions from pointer
-     to integer and cause infinite recursion.  */
+  /* Strip no-op conversions.  */
   orig_exp = exp;
-  while (TREE_CODE (exp) == NON_LVALUE_EXPR
-	 || (TREE_CODE (exp) == NOP_EXPR
-	     && TREE_TYPE (TREE_OPERAND (exp, 0)) == TREE_TYPE (exp)))
-    exp = TREE_OPERAND (exp, 0);
+  STRIP_TYPE_NOPS (exp);
 
   if (TREE_NO_WARNING (orig_exp))
     TREE_NO_WARNING (exp) = 1;
@@ -1556,8 +1549,7 @@ build_component_ref (tree datum, tree component)
 
       if (!field)
 	{
-	  error ("%qT has no member named %qs", type,
-		 IDENTIFIER_POINTER (component));
+	  error ("%qT has no member named %qE", type, component);
 	  return error_mark_node;
 	}
 
@@ -1592,8 +1584,8 @@ build_component_ref (tree datum, tree component)
       return ref;
     }
   else if (code != ERROR_MARK)
-    error ("request for member %qs in something not a structure or union",
-	    IDENTIFIER_POINTER (component));
+    error ("request for member %qE in something not a structure or union",
+	   component);
 
   return error_mark_node;
 }
@@ -1787,9 +1779,10 @@ build_array_ref (tree array, tree index)
 }
 
 /* Build an external reference to identifier ID.  FUN indicates
-   whether this will be used for a function call.  */
+   whether this will be used for a function call.  LOC is the source
+   location of the identifier.  */
 tree
-build_external_ref (tree id, int fun)
+build_external_ref (tree id, int fun, location_t loc)
 {
   tree ref;
   tree decl = lookup_name (id);
@@ -1809,7 +1802,7 @@ build_external_ref (tree id, int fun)
     return error_mark_node;
   else
     {
-      undeclared_variable (id);
+      undeclared_variable (id, loc);
       return error_mark_node;
     }
 
@@ -2121,6 +2114,7 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
       tree val = TREE_VALUE (valtail);
       tree rname = function;
       int argnum = parmnum + 1;
+      const char *invalid_func_diag;
 
       if (type == void_type_node)
 	{
@@ -2134,11 +2128,7 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 	  argnum -= 2;
 	}
 
-      /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
-      /* Do not use STRIP_NOPS here!  We do not want an enumerator with value 0
-	 to convert automatically to a pointer.  */
-      if (TREE_CODE (val) == NON_LVALUE_EXPR)
-	val = TREE_OPERAND (val, 0);
+      STRIP_TYPE_NOPS (val);
 
       val = default_function_array_conversion (val);
 
@@ -2235,11 +2225,6 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 			/* Change in signedness doesn't matter
 			   if a constant value is unaffected.  */
 			;
-		      /* Likewise for a constant in a NOP_EXPR.  */
-		      else if (TREE_CODE (val) == NOP_EXPR
-			       && TREE_CODE (TREE_OPERAND (val, 0)) == INTEGER_CST
-			       && int_fits_type_p (TREE_OPERAND (val, 0), type))
-			;
 		      /* If the value is extended from a narrower
 			 unsigned type, it doesn't matter whether we
 			 pass it as signed or unsigned; the value
@@ -2272,6 +2257,12 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 	           < TYPE_PRECISION (double_type_node)))
 	/* Convert `float' to `double'.  */
 	result = tree_cons (NULL_TREE, convert (double_type_node, val), result);
+      else if ((invalid_func_diag = 
+	        targetm.calls.invalid_arg_for_unprototyped_fn (typelist, fundecl, val)))
+	{
+	  error (invalid_func_diag);
+	  return error_mark_node; 
+	}
       else
 	/* Convert `short' and `char' to full-size `int'.  */
 	result = tree_cons (NULL_TREE, default_conversion (val), result);
@@ -2753,7 +2744,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
    Lvalues can be assigned, unless their type has TYPE_READONLY.
    Lvalues can have their address taken, unless they have C_DECL_REGISTER.  */
 
-int
+static int
 lvalue_p (tree ref)
 {
   enum tree_code code = TREE_CODE (ref);
@@ -2803,20 +2794,36 @@ readonly_error (tree arg, enum lvalue_use use)
       if (TYPE_READONLY (TREE_TYPE (TREE_OPERAND (arg, 0))))
 	readonly_error (TREE_OPERAND (arg, 0), use);
       else
-	error (READONLY_MSG (N_("assignment of read-only member %qs"),
-			     N_("increment of read-only member %qs"),
-			     N_("decrement of read-only member %qs")),
-	       IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (arg, 1))));
+	error (READONLY_MSG (N_("assignment of read-only member %qD"),
+			     N_("increment of read-only member %qD"),
+			     N_("decrement of read-only member %qD")),
+	       TREE_OPERAND (arg, 1));
     }
   else if (TREE_CODE (arg) == VAR_DECL)
-    error (READONLY_MSG (N_("assignment of read-only variable %qs"),
-			 N_("increment of read-only variable %qs"),
-			 N_("decrement of read-only variable %qs")),
-	   IDENTIFIER_POINTER (DECL_NAME (arg)));
+    error (READONLY_MSG (N_("assignment of read-only variable %qD"),
+			 N_("increment of read-only variable %qD"),
+			 N_("decrement of read-only variable %qD")),
+	   arg);
   else
     error (READONLY_MSG (N_("assignment of read-only location"),
 			 N_("increment of read-only location"),
 			 N_("decrement of read-only location")));
+}
+
+
+/* Return nonzero if REF is an lvalue valid for this language;
+   otherwise, print an error message and return zero.  USE says
+   how the lvalue is being used and so selects the error message.  */
+
+static int
+lvalue_or_else (tree ref, enum lvalue_use use)
+{
+  int win = lvalue_p (ref);
+
+  if (!win)
+    lvalue_error (use);
+
+  return win;
 }
 
 /* Mark EXP saying that we need to be able to take the
@@ -3349,11 +3356,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (TREE_CODE (lhs) == ERROR_MARK || TREE_CODE (rhs) == ERROR_MARK)
     return error_mark_node;
 
-  /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
-  /* Do not use STRIP_NOPS here.  We do not want an enumerator
-     whose value is 0 to count as a null pointer constant.  */
-  if (TREE_CODE (rhs) == NON_LVALUE_EXPR)
-    rhs = TREE_OPERAND (rhs, 0);
+  STRIP_TYPE_NOPS (rhs);
 
   newrhs = rhs;
 
@@ -3487,11 +3490,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       }						\
   } while (0)
 
-  /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
-  /* Do not use STRIP_NOPS here.  We do not want an enumerator
-     whose value is 0 to count as a null pointer constant.  */
-  if (TREE_CODE (rhs) == NON_LVALUE_EXPR)
-    rhs = TREE_OPERAND (rhs, 0);
+  STRIP_TYPE_NOPS (rhs);
 
   if (TREE_CODE (TREE_TYPE (rhs)) == ARRAY_TYPE
       || TREE_CODE (TREE_TYPE (rhs)) == FUNCTION_TYPE)
@@ -3933,8 +3932,7 @@ store_init_value (tree decl, tree init)
     {
       tree inside_init = init;
 
-      if (TREE_CODE (init) == NON_LVALUE_EXPR)
-	inside_init = TREE_OPERAND (init, 0);
+      STRIP_TYPE_NOPS (inside_init);
       inside_init = fold (inside_init);
 
       if (TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
@@ -4154,11 +4152,7 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
       || TREE_TYPE (init) == error_mark_node)
     return error_mark_node;
 
-  /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
-  /* Do not use STRIP_NOPS here.  We do not want an enumerator
-     whose value is 0 to count as a null pointer constant.  */
-  if (TREE_CODE (init) == NON_LVALUE_EXPR)
-    inside_init = TREE_OPERAND (init, 0);
+  STRIP_TYPE_NOPS (inside_init);
 
   inside_init = fold (inside_init);
 
@@ -4504,7 +4498,7 @@ struct constructor_stack
   char designated;
 };
 
-struct constructor_stack *constructor_stack;
+static struct constructor_stack *constructor_stack;
 
 /* This stack represents designators from some range designator up to
    the last designator in the list.  */
@@ -4519,7 +4513,7 @@ struct constructor_range_stack
   tree fields;
 };
 
-struct constructor_range_stack *constructor_range_stack;
+static struct constructor_range_stack *constructor_range_stack;
 
 /* This stack records separate initializers that are nested.
    Nested initializers can't happen in ANSI C, but GNU C allows them
@@ -4540,7 +4534,7 @@ struct initializer_stack
   char require_constant_elements;
 };
 
-struct initializer_stack *initializer_stack;
+static struct initializer_stack *initializer_stack;
 
 /* Prepare to parse and output the initializer for variable DECL.  */
 
@@ -5200,21 +5194,6 @@ set_init_index (tree first, tree last)
       return;
     }
 
-  while ((TREE_CODE (first) == NOP_EXPR
-	  || TREE_CODE (first) == CONVERT_EXPR
-	  || TREE_CODE (first) == NON_LVALUE_EXPR)
-	 && (TYPE_MODE (TREE_TYPE (first))
-	     == TYPE_MODE (TREE_TYPE (TREE_OPERAND (first, 0)))))
-    first = TREE_OPERAND (first, 0);
-
-  if (last)
-    while ((TREE_CODE (last) == NOP_EXPR
-	    || TREE_CODE (last) == CONVERT_EXPR
-	    || TREE_CODE (last) == NON_LVALUE_EXPR)
-	   && (TYPE_MODE (TREE_TYPE (last))
-	       == TYPE_MODE (TREE_TYPE (TREE_OPERAND (last, 0)))))
-      last = TREE_OPERAND (last, 0);
-
   if (TREE_CODE (first) != INTEGER_CST)
     error_init ("nonconstant array index in initializer");
   else if (last != 0 && TREE_CODE (last) != INTEGER_CST)
@@ -5285,8 +5264,7 @@ set_init_label (tree fieldname)
     }
 
   if (tail == 0)
-    error ("unknown field %qs specified in initializer",
-	   IDENTIFIER_POINTER (fieldname));
+    error ("unknown field %qE specified in initializer", fieldname);
   else
     {
       constructor_fields = tail;

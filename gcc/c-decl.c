@@ -1689,6 +1689,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
       DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
       DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
+      DECL_IS_NOVOPS (newdecl) |= DECL_IS_NOVOPS (olddecl);
     }
 
   /* Merge the storage class information.  */
@@ -2312,26 +2313,26 @@ implicitly_declare (tree functionid)
    ID, including a reference to a builtin outside of function-call
    context.  Establish a binding of the identifier to error_mark_node
    in an appropriate scope, which will suppress further errors for the
-   same identifier.  */
+   same identifier.  The error message should be given location LOC.  */
 void
-undeclared_variable (tree id)
+undeclared_variable (tree id, location_t loc)
 {
   static bool already = false;
   struct c_scope *scope;
 
   if (current_function_decl == 0)
     {
-      error ("%qE undeclared here (not in a function)", id);
+      error ("%H%qE undeclared here (not in a function)", &loc, id);
       scope = current_scope;
     }
   else
     {
-      error ("%qE undeclared (first use in this function)", id);
+      error ("%H%qE undeclared (first use in this function)", &loc, id);
 
       if (!already)
 	{
-	  error ("(Each undeclared identifier is reported only once");
-	  error ("for each function it appears in.)");
+	  error ("%H(Each undeclared identifier is reported only once", &loc);
+	  error ("%Hfor each function it appears in.)", &loc);
 	  already = true;
 	}
 
@@ -2369,8 +2370,7 @@ lookup_label (tree name)
 
   if (current_function_decl == 0)
     {
-      error ("label %qs referenced outside of any function",
-	     IDENTIFIER_POINTER (name));
+      error ("label %qE referenced outside of any function", name);
       return 0;
     }
 
@@ -2412,7 +2412,7 @@ declare_label (tree name)
      at this scope */
   if (b && B_IN_CURRENT_SCOPE (b))
     {
-      error ("duplicate label declaration %qs", IDENTIFIER_POINTER (name));
+      error ("duplicate label declaration %qE", name);
       locate_old_decl (b->decl, error);
 
       /* Just use the previous declaration.  */
@@ -2470,8 +2470,7 @@ define_label (location_t location, tree name)
 
   if (warn_traditional && !in_system_header && lookup_name (name))
     warning ("%Htraditional C lacks a separate namespace for labels, "
-             "identifier %qs conflicts", &location,
-	     IDENTIFIER_POINTER (name));
+             "identifier %qE conflicts", &location, name);
 
   /* Mark label as having been defined.  */
   DECL_INITIAL (label) = error_mark_node;
@@ -2535,9 +2534,8 @@ void
 pending_xref_error (void)
 {
   if (pending_invalid_xref != 0)
-    error ("%H%qs defined as wrong kind of tag",
-           &pending_invalid_xref_location,
-           IDENTIFIER_POINTER (pending_invalid_xref));
+    error ("%H%qE defined as wrong kind of tag",
+           &pending_invalid_xref_location, pending_invalid_xref);
   pending_invalid_xref = 0;
 }
 
@@ -2577,11 +2575,9 @@ lookup_name_in_scope (tree name, struct c_scope *scope)
 void
 c_init_decl_processing (void)
 {
-  tree endlink;
-  tree ptr_ftype_void, ptr_ftype_ptr;
   location_t save_loc = input_location;
 
-  /* Adds some ggc roots, and reserved words for c-parse.in.  */
+  /* Initialize reserved words for parser.  */
   c_parse_init ();
 
   current_function_decl = 0;
@@ -2614,12 +2610,6 @@ c_init_decl_processing (void)
   /* Even in C99, which has a real boolean type.  */
   pushdecl (build_decl (TYPE_DECL, get_identifier ("_Bool"),
 			boolean_type_node));
-
-  endlink = void_list_node;
-  ptr_ftype_void = build_function_type (ptr_type_node, endlink);
-  ptr_ftype_ptr
-    = build_function_type (ptr_type_node,
-			   tree_cons (NULL_TREE, ptr_type_node, endlink));
 
   input_location = save_loc;
 
@@ -3647,12 +3637,10 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
   unsigned HOST_WIDE_INT w;
   const char *name = orig_name ? orig_name: _("<anonymous>");
 
-  /* Necessary?  */
-  STRIP_NOPS (*width);
-
   /* Detect and ignore out of range field width and process valid
      field widths.  */
-  if (TREE_CODE (*width) != INTEGER_CST)
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (*width))
+      || TREE_CODE (*width) != INTEGER_CST)
     {
       error ("bit-field %qs width not an integer constant", name);
       *width = integer_one_node;
@@ -4584,6 +4572,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 
 	decl = build_decl (VAR_DECL, declarator->u.id, type);
+	DECL_SOURCE_LOCATION (decl) = declarator->id_loc;
 	if (size_varies)
 	  C_DECL_VARIABLE_SIZE (decl) = 1;
 
@@ -5014,18 +5003,16 @@ start_struct (enum tree_code code, tree name)
       if (TYPE_SIZE (ref))
         {
 	  if (code == UNION_TYPE)
-	    error ("redefinition of %<union %s%>", IDENTIFIER_POINTER (name));
+	    error ("redefinition of %<union %E%>", name);
           else
-	    error ("redefinition of %<struct %s%>", IDENTIFIER_POINTER (name));
+	    error ("redefinition of %<struct %E%>", name);
 	}
       else if (C_TYPE_BEING_DEFINED (ref))
 	{
 	  if (code == UNION_TYPE)
-	    error ("nested redefinition of %<union %s%>",
-		   IDENTIFIER_POINTER (name));
+	    error ("nested redefinition of %<union %E%>", name);
           else
-	    error ("nested redefinition of %<struct %s%>",
-		   IDENTIFIER_POINTER (name));
+	    error ("nested redefinition of %<struct %E%>", name);
 	}
     }
   else
@@ -5460,14 +5447,14 @@ start_enum (tree name)
     }
 
   if (C_TYPE_BEING_DEFINED (enumtype))
-    error ("nested redefinition of %<enum %s%>", IDENTIFIER_POINTER (name));
+    error ("nested redefinition of %<enum %E%>", name);
 
   C_TYPE_BEING_DEFINED (enumtype) = 1;
 
   if (TYPE_VALUES (enumtype) != 0)
     {
       /* This enum is a named one that has been declared already.  */
-      error ("redeclaration of %<enum %s%>", IDENTIFIER_POINTER (name));
+      error ("redeclaration of %<enum %E%>", name);
 
       /* Completely replace its old definition.
 	 The old enumerators remain defined, however.  */
@@ -5634,17 +5621,14 @@ build_enumerator (tree name, tree value)
 
   /* Validate and default VALUE.  */
 
-  /* Remove no-op casts from the value.  */
-  if (value)
-    STRIP_TYPE_NOPS (value);
-
   if (value != 0)
     {
       /* Don't issue more errors for error_mark_node (i.e. an
 	 undeclared identifier) - just ignore the value expression.  */
       if (value == error_mark_node)
 	value = 0;
-      else if (TREE_CODE (value) != INTEGER_CST)
+      else if (!INTEGRAL_TYPE_P (TREE_TYPE (value))
+	       || TREE_CODE (value) != INTEGER_CST)
 	{
 	  error ("enumerator value for %qE is not an integer constant", name);
 	  value = 0;
@@ -6335,7 +6319,11 @@ finish_function (void)
 	      /* Hack.  We don't want the middle-end to warn that this
 		 return is unreachable, so put the statement on the
 		 special line 0.  */
+#ifdef USE_MAPPED_LOCATION
+	      SET_EXPR_LOCATION (stmt, UNKNOWN_LOCATION);
+#else
 	      annotate_with_file_line (stmt, input_filename, 0);
+#endif
 	    }
 	}
     }
@@ -6705,6 +6693,8 @@ build_id_declarator (tree ident)
   ret->kind = cdk_id;
   ret->declarator = 0;
   ret->u.id = ident;
+  /* Default value - may get reset to a more precise location. */
+  ret->id_loc = input_location;
   return ret;
 }
 
@@ -6746,6 +6736,8 @@ build_null_declspecs (void)
   ret->attrs = 0;
   ret->typespec_word = cts_none;
   ret->storage_class = csc_none;
+  ret->declspecs_seen_p = false;
+  ret->type_seen_p = false;
   ret->non_sc_seen_p = false;
   ret->typedef_p = false;
   ret->tag_defined_p = false;
@@ -6775,6 +6767,7 @@ declspecs_add_qual (struct c_declspecs *specs, tree qual)
   enum rid i;
   bool dupe = false;
   specs->non_sc_seen_p = true;
+  specs->declspecs_seen_p = true;
   gcc_assert (TREE_CODE (qual) == IDENTIFIER_NODE
 	      && C_IS_RESERVED_WORD (qual));
   i = C_RID_CODE (qual);
@@ -6796,7 +6789,7 @@ declspecs_add_qual (struct c_declspecs *specs, tree qual)
       gcc_unreachable ();
     }
   if (dupe && pedantic && !flag_isoc99)
-    pedwarn ("duplicate %qs", IDENTIFIER_POINTER (qual));
+    pedwarn ("duplicate %qE", qual);
   return specs;
 }
 
@@ -6808,6 +6801,8 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 {
   tree type = spec.spec;
   specs->non_sc_seen_p = true;
+  specs->declspecs_seen_p = true;
+  specs->type_seen_p = true;
   if (TREE_DEPRECATED (type))
     specs->deprecated_p = true;
 
@@ -6945,7 +6940,7 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	    }
 
 	  if (dupe)
-	    error ("duplicate %qs", IDENTIFIER_POINTER (type));
+	    error ("duplicate %qE", type);
 
 	  return specs;
 	}
@@ -7074,8 +7069,7 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
     {
       tree t = lookup_name (type);
       if (!t || TREE_CODE (t) != TYPE_DECL)
-	error ("%qs fails to be a typedef or built in type",
-	       IDENTIFIER_POINTER (type));
+	error ("%qE fails to be a typedef or built in type", type);
       else if (TREE_TYPE (t) == error_mark_node)
 	;
       else
@@ -7102,12 +7096,12 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
   enum rid i;
   enum c_storage_class n = csc_none;
   bool dupe = false;
+  specs->declspecs_seen_p = true;
   gcc_assert (TREE_CODE (scspec) == IDENTIFIER_NODE
 	      && C_IS_RESERVED_WORD (scspec));
   i = C_RID_CODE (scspec);
   if (extra_warnings && specs->non_sc_seen_p)
-    warning ("%qs is not at beginning of declaration",
-	     IDENTIFIER_POINTER (scspec));
+    warning ("%qE is not at beginning of declaration", scspec);
   switch (i)
     {
     case RID_INLINE:
@@ -7156,7 +7150,7 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
   if (n != csc_none && n == specs->storage_class)
     dupe = true;
   if (dupe)
-    error ("duplicate %qs", IDENTIFIER_POINTER (scspec));
+    error ("duplicate %qE", scspec);
   if (n != csc_none)
     {
       if (specs->storage_class != csc_none && n != specs->storage_class)
@@ -7168,8 +7162,7 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
 	  specs->storage_class = n;
 	  if (n != csc_extern && n != csc_static && specs->thread_p)
 	    {
-	      error ("%<__thread%> used with %qs",
-		     IDENTIFIER_POINTER (scspec));
+	      error ("%<__thread%> used with %qE", scspec);
 	      specs->thread_p = false;
 	    }
 	}
@@ -7184,6 +7177,7 @@ struct c_declspecs *
 declspecs_add_attrs (struct c_declspecs *specs, tree attrs)
 {
   specs->attrs = chainon (attrs, specs->attrs);
+  specs->declspecs_seen_p = true;
   return specs;
 }
 

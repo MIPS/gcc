@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for DEC Alpha on Tru64 5.
-   Copyright (C) 2000, 2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -20,7 +20,7 @@
 
 /* Tru64 5.1 uses IEEE QUAD format.  */
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT	MASK_FP | MASK_FPREGS | MASK_LONG_DOUBLE_128
+#define TARGET_DEFAULT	(MASK_FPREGS | MASK_LONG_DOUBLE_128)
 
 /* In Tru64 UNIX V5.1, Compaq introduced a new assembler
    (/usr/lib/cmplrs/cc/adu) which currently (versions between 3.04.29 and

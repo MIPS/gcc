@@ -112,7 +112,6 @@ static void handle_options (unsigned int, const char **, unsigned int);
 static void wrap_help (const char *help, const char *item, unsigned int);
 static void print_help (void);
 static void print_param_help (void);
-static void print_filtered_help (unsigned int flag);
 static unsigned int print_switch (const char *text, unsigned int indent);
 static void set_debug_level (enum debug_info_type type, int extended,
 			     const char *arg);
@@ -277,10 +276,12 @@ handle_option (const char **argv, unsigned int lang_mask)
 
   opt = argv[0];
 
-  /* Drop the "no-" from negative switches.  */
-  if ((opt[1] == 'W' || opt[1] == 'f')
+  opt_index = find_opt (opt + 1, lang_mask | CL_COMMON | CL_TARGET);
+  if (opt_index == cl_options_count
+      && (opt[1] == 'W' || opt[1] == 'f' || opt[1] == 'm')
       && opt[2] == 'n' && opt[3] == 'o' && opt[4] == '-')
     {
+      /* Drop the "no-" from negative switches.  */
       size_t len = strlen (opt) - 3;
 
       dup = xmalloc (len + 1);
@@ -289,11 +290,20 @@ handle_option (const char **argv, unsigned int lang_mask)
       memcpy (dup + 2, opt + 5, len - 2 + 1);
       opt = dup;
       value = 0;
+      opt_index = find_opt (opt + 1, lang_mask | CL_COMMON | CL_TARGET);
     }
 
-  opt_index = find_opt (opt + 1, lang_mask | CL_COMMON);
   if (opt_index == cl_options_count)
-    goto done;
+    {
+#if defined (TARGET_OPTIONS) || defined (TARGET_SWITCHES)
+      if (opt[1] == 'm')
+	{
+	  set_target_switch (argv[0] + 2);
+	  result = 1;
+	}
+#endif
+      goto done;
+    }
 
   option = &cl_options[opt_index];
 
@@ -335,7 +345,7 @@ handle_option (const char **argv, unsigned int lang_mask)
 
   /* Now we've swallowed any potential argument, complain if this
      is a switch for a different front end.  */
-  if (!(option->flags & (lang_mask | CL_COMMON)))
+  if (!(option->flags & (lang_mask | CL_COMMON | CL_TARGET)))
     {
       complain_wrong_lang (argv[0], option, lang_mask);
       goto done;
@@ -361,17 +371,26 @@ handle_option (const char **argv, unsigned int lang_mask)
     }
 
   if (option->flag_var)
-    {
-      if (option->has_set_value)
-	{
-	  if (value)
-	    *option->flag_var = option->set_value;
-	  else
-	    *option->flag_var = !option->set_value;
-	}
-      else
+    switch (option->var_cond)
+      {
+      case CLVC_BOOLEAN:
 	*option->flag_var = value;
-    }
+	break;
+
+      case CLVC_EQUAL:
+	*option->flag_var = value ? option->var_value : !option->var_value;
+	break;
+
+      case CLVC_BIT_CLEAR:
+      case CLVC_BIT_SET:
+	if ((value != 0) == (option->var_cond == CLVC_BIT_SET))
+	  *option->flag_var |= option->var_value;
+	else
+	  *option->flag_var &= ~option->var_value;
+	if (option->flag_var == &target_flags)
+	  target_flags_explicit |= option->var_value;
+	break;
+      }
   
   if (option->flags & lang_mask)
     if (lang_hooks.handle_option (opt_index, arg, value) == 0)
@@ -379,6 +398,10 @@ handle_option (const char **argv, unsigned int lang_mask)
 
   if (result && (option->flags & CL_COMMON))
     if (common_handle_option (opt_index, arg, value) == 0)
+      result = 0;
+
+  if (result && (option->flags & CL_TARGET))
+    if (!targetm.handle_option (opt_index, arg, value))
       result = 0;
 
  done:
@@ -502,6 +525,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_copyrename = 1;
       flag_tree_fre = 1;
       flag_tree_copy_prop = 1;
+      flag_tree_sink = 1;
+      flag_tree_salias = 1;
 
       if (!optimize_size)
 	{
@@ -593,7 +618,7 @@ decode_options (unsigned int argc, const char **argv)
 
   /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
      modify it.  */
-  target_flags = 0;
+  target_flags = targetm.default_target_flags;
   set_target_switch ("");
 
   /* Unwind tables are always present when a target has ABI-specified unwind
@@ -1004,10 +1029,6 @@ common_handle_option (size_t scode, const char *arg, int value)
       set_debug_level (XCOFF_DEBUG, code == OPT_gxcoff_, arg);
       break;
 
-    case OPT_m:
-      set_target_switch (arg);
-      break;
-
     case OPT_o:
       asm_file_name = arg;
       break;
@@ -1101,6 +1122,7 @@ set_fast_math_flags (int set)
     {
       flag_signaling_nans = 0;
       flag_rounding_math = 0;
+      flag_cx_limited_range = 1;
     }
 }
 
@@ -1224,7 +1246,7 @@ print_param_help (void)
 }
 
 /* Print help for a specific front-end, etc.  */
-static void
+void
 print_filtered_help (unsigned int flag)
 {
   unsigned int i, len, filter, indent = 0;
@@ -1232,7 +1254,7 @@ print_filtered_help (unsigned int flag)
   const char *help, *opt, *tab;
   static char *printed;
 
-  if (flag == CL_COMMON)
+  if (flag == CL_COMMON || flag == CL_TARGET)
     {
       filter = flag;
       if (!printed)
@@ -1378,4 +1400,28 @@ wrap_help (const char *help, const char *item, unsigned int item_width)
       remaining -= len;
     }
   while (remaining);
+}
+
+/* Return 1 if OPTION is enabled, 0 if it is disabled, or -1 if it isn't
+   a simple on-off switch.  */
+
+int
+option_enabled (const struct cl_option *option)
+{
+  if (option->flag_var)
+    switch (option->var_cond)
+      {
+      case CLVC_BOOLEAN:
+	return *option->flag_var != 0;
+
+      case CLVC_EQUAL:
+	return *option->flag_var == option->var_value;
+
+      case CLVC_BIT_CLEAR:
+	return (*option->flag_var & option->var_value) == 0;
+
+      case CLVC_BIT_SET:
+	return (*option->flag_var & option->var_value) != 0;
+      }
+  return -1;
 }

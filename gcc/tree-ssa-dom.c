@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "ggc.h"
 #include "basic-block.h"
+#include "cfgloop.h"
 #include "output.h"
 #include "errors.h"
 #include "expr.h"
@@ -183,7 +184,7 @@ static struct opt_stats_d opt_stats;
    of the form SSA_NAME COND CONST we create a new vrp_element to record
    how the condition affects the possible values SSA_NAME may have.
 
-   Each record contains the condition tested (COND), and the the range of
+   Each record contains the condition tested (COND), and the range of
    values the variable may legitimately have if COND is true.  Note the
    range of values may be a smaller range than COND specifies if we have
    recorded other ranges for this variable.  Each record also contains the
@@ -396,6 +397,7 @@ tree_ssa_dominator_optimize (void)
 {
   struct dom_walk_data walk_data;
   unsigned int i;
+  struct loops loops_info;
 
   memset (&opt_stats, 0, sizeof (opt_stats));
 
@@ -439,6 +441,17 @@ tree_ssa_dominator_optimize (void)
 
   calculate_dominance_info (CDI_DOMINATORS);
 
+  /* We need to know which edges exit loops so that we can
+     aggressively thread through loop headers to an exit
+     edge.  */
+  flow_loops_find (&loops_info);
+  mark_loop_exit_edges (&loops_info);
+  flow_loops_free (&loops_info);
+
+  /* Clean up the CFG so that any forwarder blocks created by loop
+     canonicalization are removed.  */
+  cleanup_tree_cfg ();
+
   /* If we prove certain blocks are unreachable, then we want to
      repeat the dominator optimization process as PHI nodes may
      have turned into copies which allows better propagation of
@@ -448,6 +461,10 @@ tree_ssa_dominator_optimize (void)
     {
       /* Optimize the dominator tree.  */
       cfg_altered = false;
+
+      /* We need accurate information regarding back edges in the CFG
+	 for jump threading.  */
+      mark_dfs_back_edges ();
 
       /* Recursively walk the dominator tree optimizing statements.  */
       walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
@@ -468,7 +485,7 @@ tree_ssa_dominator_optimize (void)
       free_all_edge_infos ();
 
       /* Thread jumps, creating duplicate blocks as needed.  */
-      cfg_altered = thread_through_all_blocks ();
+      cfg_altered |= thread_through_all_blocks ();
 
       /* Removal of statements may make some EH edges dead.  Purge
 	 such edges from the CFG as needed.  */
@@ -480,8 +497,25 @@ tree_ssa_dominator_optimize (void)
 	  bitmap_zero (need_eh_cleanup);
 	}
 
-      free_dominance_info (CDI_DOMINATORS);
-      cfg_altered = cleanup_tree_cfg ();
+      if (cfg_altered)
+        free_dominance_info (CDI_DOMINATORS);
+
+      cfg_altered |= cleanup_tree_cfg ();
+
+      if (rediscover_loops_after_threading)
+	{
+	  /* Rerun basic loop analysis to discover any newly
+	     created loops and update the set of exit edges.  */
+	  rediscover_loops_after_threading = false;
+	  flow_loops_find (&loops_info);
+	  mark_loop_exit_edges (&loops_info);
+	  flow_loops_free (&loops_info);
+
+	  /* Remove any forwarder blocks inserted by loop
+	     header canonicalization.  */
+	  cleanup_tree_cfg ();
+	}
+
       calculate_dominance_info (CDI_DOMINATORS);
 
       update_ssa (true);
@@ -720,7 +754,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
      arm will be taken.  */
   if (stmt
       && (TREE_CODE (stmt) == COND_EXPR
-	  || TREE_CODE (stmt) == SWITCH_EXPR))
+	  || TREE_CODE (stmt) == SWITCH_EXPR
+	  || TREE_CODE (stmt) == GOTO_EXPR))
     {
       tree cond, cached_lhs;
 
@@ -728,6 +763,8 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 expression in the hash tables.  */
       if (TREE_CODE (stmt) == COND_EXPR)
 	cond = COND_EXPR_COND (stmt);
+      else if (TREE_CODE (stmt) == GOTO_EXPR)
+	cond = GOTO_DESTINATION (stmt);
       else
 	cond = SWITCH_COND (stmt);
 
@@ -997,13 +1034,25 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
      the edge from BB through its successor.
 
      Do this before we remove entries from our equivalence tables.  */
-  if (EDGE_COUNT (bb->succs) == 1
-      && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
-      && (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (bb, 0)->dest) != bb
-	  || phi_nodes (EDGE_SUCC (bb, 0)->dest)))
+  if (single_succ_p (bb)
+      && (single_succ_edge (bb)->flags & EDGE_ABNORMAL) == 0
+      && (get_immediate_dominator (CDI_DOMINATORS, single_succ (bb)) != bb
+	  || phi_nodes (single_succ (bb))))
 	
     {
-      thread_across_edge (walk_data, EDGE_SUCC (bb, 0));
+      thread_across_edge (walk_data, single_succ_edge (bb));
+    }
+  else if ((last = last_stmt (bb))
+	   && TREE_CODE (last) == GOTO_EXPR
+	   && TREE_CODE (TREE_OPERAND (last, 0)) == SSA_NAME)
+    {
+      edge_iterator ei;
+      edge e;
+
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  thread_across_edge (walk_data, e);
+	}
     }
   else if ((last = last_stmt (bb))
 	   && TREE_CODE (last) == COND_EXPR
@@ -1441,7 +1490,7 @@ record_cond (tree cond, tree value)
 
 /* Build a new conditional using NEW_CODE, OP0 and OP1 and store
    the new conditional into *p, then store a boolean_true_node
-   into the the *(p + 1).  */
+   into *(p + 1).  */
    
 static void
 build_and_record_new_cond (enum tree_code new_code, tree op0, tree op1, tree *p)
@@ -1678,6 +1727,46 @@ unsafe_associative_fp_binop (tree exp)
            && FLOAT_TYPE_P (TREE_TYPE (exp)));
 }
 
+/* Returns true when STMT is a simple iv increment.  It detects the
+   following situation:
+   
+   i_1 = phi (..., i_2)
+   i_2 = i_1 +/- ...  */
+
+static bool
+simple_iv_increment_p (tree stmt)
+{
+  tree lhs, rhs, preinc, phi;
+  unsigned i;
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+
+  lhs = TREE_OPERAND (stmt, 0);
+  if (TREE_CODE (lhs) != SSA_NAME)
+    return false;
+
+  rhs = TREE_OPERAND (stmt, 1);
+
+  if (TREE_CODE (rhs) != PLUS_EXPR
+      && TREE_CODE (rhs) != MINUS_EXPR)
+    return false;
+
+  preinc = TREE_OPERAND (rhs, 0);
+  if (TREE_CODE (preinc) != SSA_NAME)
+    return false;
+
+  phi = SSA_NAME_DEF_STMT (preinc);
+  if (TREE_CODE (phi) != PHI_NODE)
+    return false;
+
+  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
+    if (PHI_ARG_DEF (phi, i) == lhs)
+      return true;
+
+  return false;
+}
+
 /* STMT is a MODIFY_EXPR for which we were unable to find RHS in the
    hash tables.  Try to simplify the RHS using whatever equivalences
    we may have recorded.
@@ -1730,6 +1819,11 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
     {
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
+
+      /* If the statement defines an induction variable, do not propagate
+	 its value, so that we do not create overlapping life ranges.  */
+      if (simple_iv_increment_p (rhs_def_stmt))
+	goto dont_fold_assoc;
 
       /* See if the RHS_DEF_STMT has the same form as our statement.  */
       if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR)
@@ -2598,7 +2692,10 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       || ! def
       || TREE_CODE (def) != SSA_NAME
       || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
-      || NUM_V_MAY_DEFS (v_may_defs) != 0)
+      || NUM_V_MAY_DEFS (v_may_defs) != 0
+      /* Do not record equivalences for increments of ivs.  This would create
+	 overlapping live ranges for a very questionable gain.  */
+      || simple_iv_increment_p (stmt))
     insert = false;
 
   /* Check if the expression has been computed before.  */

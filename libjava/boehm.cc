@@ -248,6 +248,9 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
 	  p = (GC_PTR) ic->interpreted_methods;
 	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 
+	  p = (GC_PTR) ic->source_file_name;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
+
 	  for (int i = 0; i < c->method_count; i++)
 	    {
 	      // The interpreter installs a heap-allocated trampoline
@@ -289,6 +292,8 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
 		    = (_Jv_InterpMethod *) ic->interpreted_methods[i];
 		  if (im)
 		    {
+                      p = (GC_PTR) im->line_table;
+                      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 		      p = (GC_PTR) im->prepared;
 		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 		    }

@@ -251,6 +251,10 @@ rest_of_decl_compilation (tree decl,
       debug_hooks->type_decl (decl, !top_level);
       timevar_pop (TV_SYMOUT);
     }
+
+  /* Let cgraph know about the existance of variables.  */
+  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
+    cgraph_varpool_node (decl);
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -571,6 +575,8 @@ rest_of_handle_partition_blocks (void)
 static void
 rest_of_handle_sms (void)
 {
+  sbitmap blocks;
+
   timevar_push (TV_SMS);
   open_dump_file (DFI_sms, current_function_decl);
 
@@ -583,10 +589,14 @@ rest_of_handle_sms (void)
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-				    (PROP_DEATH_NOTES
-				     | PROP_KILL_DEAD_CODE
-				     | PROP_SCAN_DEAD_CODE));
+  blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_ones (blocks);
+  update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
+		    (PROP_DEATH_NOTES
+		     | PROP_REG_INFO
+		     | PROP_KILL_DEAD_CODE
+		     | PROP_SCAN_DEAD_CODE));
+
   no_new_pseudos = 1;
 
   ggc_collect ();
@@ -781,7 +791,7 @@ rest_of_handle_branch_prob (void)
 
   /* Discover and record the loop depth at the head of each basic
      block.  The loop infrastructure does the real job for us.  */
-  flow_loops_find (&loops, LOOP_TREE);
+  flow_loops_find (&loops);
 
   if (dump_file)
     flow_loops_dump (&loops, dump_file, NULL, 0);

@@ -27,7 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "parse.h"
 
 
-/* This flag is set if a an old-style length selector is matched
+/* This flag is set if an old-style length selector is matched
    during a type-declaration statement.  */
 
 static int old_char_selector;
@@ -186,7 +186,7 @@ var_element (gfc_data_variable * new)
       return MATCH_ERROR;
     }
 
-#if 0 // TODO: Find out where to move this message
+#if 0 /* TODO: Find out where to move this message */
   if (sym->attr.in_common)
     /* See if sym is in the blank common block.  */
     for (t = &sym->ns->blank_common; t; t = t->common_next)

@@ -1353,8 +1353,8 @@ determine_specialization (tree template_id,
   /* Count the number of template headers specified for this
      specialization.  */
   header_count = 0;
-  for (b = current_binding_level;
-       b->kind == sk_template_parms || b->kind == sk_template_spec;
+  for (b = current_binding_level; 
+       b->kind == sk_template_parms;
        b = b->level_chain)
     ++header_count;
 
@@ -1423,6 +1423,14 @@ determine_specialization (tree template_id,
 	  if (header_count && header_count != template_count + 1)
 	    continue;
 
+	  /* Check that the number of template arguments at the
+	     innermost level for DECL is the same as for FN.  */
+	  if (current_binding_level->kind == sk_template_parms
+	      && !current_binding_level->explicit_spec_p
+	      && (TREE_VEC_LENGTH (DECL_INNERMOST_TEMPLATE_PARMS (fn))
+		  != TREE_VEC_LENGTH (TREE_VALUE (current_template_parms))))
+	    continue;
+ 
 	  /* See whether this function might be a specialization of this
 	     template.  */
 	  targs = get_bindings (fn, decl, explicit_targs);
@@ -3124,6 +3132,13 @@ push_template_decl_real (tree decl, int is_friend)
       tmpl = pushdecl_namespace_level (tmpl);
       if (tmpl == error_mark_node)
 	return error_mark_node;
+
+      /* Hide template friend classes that haven't been declared yet.  */
+      if (is_friend && TREE_CODE (decl) == TYPE_DECL)
+	{
+	  DECL_ANTICIPATED (tmpl) = 1;
+	  DECL_FRIEND_P (tmpl) = 1;
+	}
     }
 
   if (primary)
@@ -4574,7 +4589,7 @@ lookup_template_class (tree d1,
 
 	  /* A local class.  Make sure the decl gets registered properly.  */
 	  if (context == current_function_decl)
-	    pushtag (DECL_NAME (template), t, 0);
+	    pushtag (DECL_NAME (template), t, /*tag_scope=*/ts_current);
 	}
 
       /* If we called start_enum or pushtag above, this information
@@ -5624,7 +5639,7 @@ instantiate_class_template (tree type)
 		     tsubst_enum.  */
 		  if (name)
 		    SET_IDENTIFIER_TYPE_VALUE (name, newtag);
-		  pushtag (name, newtag, /*globalize=*/0);
+		  pushtag (name, newtag, /*tag_scope=*/ts_current);
 		}
 	    }
 	  else if (TREE_CODE (t) == FUNCTION_DECL 
@@ -5719,11 +5734,13 @@ instantiate_class_template (tree type)
 
 	      if (TREE_CODE (friend_type) == TEMPLATE_DECL)
 		{
+		  /* template <class T> friend class C;  */
 		  friend_type = tsubst_friend_class (friend_type, args);
 	  	  adjust_processing_template_decl = true;
 		}
 	      else if (TREE_CODE (friend_type) == UNBOUND_CLASS_TEMPLATE)
 		{
+		  /* template <class T> friend class C::D;  */
 		  friend_type = tsubst (friend_type, args,
 					tf_error | tf_warning, NULL_TREE);
 		  if (TREE_CODE (friend_type) == TEMPLATE_DECL)
@@ -5732,6 +5749,15 @@ instantiate_class_template (tree type)
 		}
 	      else if (TREE_CODE (friend_type) == TYPENAME_TYPE)
 		{
+		  /* This could be either
+
+		       friend class T::C;
+
+		     when dependent_type_p is false or
+
+		       template <class U> friend class T::C;
+
+		     otherwise.  */
 		  friend_type = tsubst (friend_type, args,
 					tf_error | tf_warning, NULL_TREE);
 		  /* Bump processing_template_decl for correct
@@ -5741,13 +5767,14 @@ instantiate_class_template (tree type)
 		    adjust_processing_template_decl = true;
 		  --processing_template_decl;
 		}
-	      else if (uses_template_parms (friend_type))
-		friend_type = tsubst (friend_type, args,
-				      tf_error | tf_warning, NULL_TREE);
-	      else if (CLASSTYPE_USE_TEMPLATE (friend_type))
-		friend_type = friend_type;
-	      else 
+	      else if (!CLASSTYPE_USE_TEMPLATE (friend_type)
+		       && hidden_name_p (TYPE_NAME (friend_type)))
 		{
+		  /* friend class C;
+
+		     where C hasn't been declared yet.  Let's lookup name
+		     from namespace scope directly, bypassing any name that
+		     come from dependent base class.  */
 		  tree ns = decl_namespace_context (TYPE_MAIN_DECL (friend_type));
 
 		  /* The call to xref_tag_from_type does injection for friend
@@ -5755,9 +5782,22 @@ instantiate_class_template (tree type)
 		  push_nested_namespace (ns);
 		  friend_type = 
 		    xref_tag_from_type (friend_type, NULL_TREE, 
-					/*tag_scope=*/ts_global);
+					/*tag_scope=*/ts_current);
 		  pop_nested_namespace (ns);
 		}
+	      else if (uses_template_parms (friend_type))
+		/* friend class C<T>;  */
+		friend_type = tsubst (friend_type, args,
+				      tf_error | tf_warning, NULL_TREE);
+	      /* Otherwise it's
+
+		   friend class C;
+
+		 where C is already declared or
+
+		   friend class C<int>;
+
+	         We don't have to do anything in these cases.  */
 
 	      if (adjust_processing_template_decl)
 		/* Trick make_friend_class into realizing that the friend
@@ -6468,6 +6508,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  SET_DECL_TEMPLATE_PARM_P (r);
 
 	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	type = type_decays_to (type);
 	TREE_TYPE (r) = type;
 	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 
@@ -11089,6 +11130,7 @@ regenerate_decl_from_template (tree decl, tree tmpl)
 	    DECL_NAME (decl_parm) = DECL_NAME (pattern_parm);
 	  parm_type = tsubst (TREE_TYPE (pattern_parm), args, tf_error,
 			      NULL_TREE);
+	  parm_type = type_decays_to (parm_type);
 	  if (!same_type_p (TREE_TYPE (decl_parm), parm_type))
 	    TREE_TYPE (decl_parm) = parm_type;
 	  decl_parm = TREE_CHAIN (decl_parm);
@@ -11929,119 +11971,132 @@ value_dependent_expression_p (tree expression)
     return false;
 
   /* A name declared with a dependent type.  */
-  if (TREE_CODE (expression) == IDENTIFIER_NODE
-      || (DECL_P (expression) 
-	  && type_dependent_expression_p (expression)))
+  if (DECL_P (expression) && type_dependent_expression_p (expression))
     return true;
-  /* A non-type template parameter.  */
-  if ((TREE_CODE (expression) == CONST_DECL
-       && DECL_TEMPLATE_PARM_P (expression))
-      || TREE_CODE (expression) == TEMPLATE_PARM_INDEX)
-    return true;
-  /* A constant with integral or enumeration type and is initialized 
-     with an expression that is value-dependent.  */
-  if (TREE_CODE (expression) == VAR_DECL
-      && DECL_INITIAL (expression)
-      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (expression))
-      && value_dependent_expression_p (DECL_INITIAL (expression)))
-    return true;
-  /* These expressions are value-dependent if the type to which the
-     cast occurs is dependent or the expression being casted is
-     value-dependent.  */
-  if (TREE_CODE (expression) == DYNAMIC_CAST_EXPR
-      || TREE_CODE (expression) == STATIC_CAST_EXPR
-      || TREE_CODE (expression) == CONST_CAST_EXPR
-      || TREE_CODE (expression) == REINTERPRET_CAST_EXPR
-      || TREE_CODE (expression) == CAST_EXPR)
+  
+  switch (TREE_CODE (expression))
     {
-      tree type = TREE_TYPE (expression);
-      if (dependent_type_p (type))
-	return true;
-      /* A functional cast has a list of operands.  */
-      expression = TREE_OPERAND (expression, 0);
-      if (!expression)
-	{
-	  /* If there are no operands, it must be an expression such
-	     as "int()". This should not happen for aggregate types
-	     because it would form non-constant expressions.  */
-	  gcc_assert (INTEGRAL_OR_ENUMERATION_TYPE_P (type));
+    case IDENTIFIER_NODE:
+      /* A name that has not been looked up -- must be dependent.  */
+      return true;
 
-	  return false;
-	}
-      if (TREE_CODE (expression) == TREE_LIST)
-	{
-	  do
-	    {
+    case TEMPLATE_PARM_INDEX:
+      /* A non-type template parm.  */
+      return true;
+
+    case CONST_DECL:
+      /* A non-type template parm.  */
+      if (DECL_TEMPLATE_PARM_P (expression))
+	return true;
+      return false;
+
+    case VAR_DECL:
+       /* A constant with integral or enumeration type and is initialized 
+     	  with an expression that is value-dependent.  */
+      if (DECL_INITIAL (expression)
+	  && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (expression))
+	  && value_dependent_expression_p (DECL_INITIAL (expression)))
+	return true;
+      return false;
+
+    case DYNAMIC_CAST_EXPR:
+    case STATIC_CAST_EXPR:
+    case CONST_CAST_EXPR:
+    case REINTERPRET_CAST_EXPR:
+    case CAST_EXPR:
+      /* These expressions are value-dependent if the type to which
+     	 the cast occurs is dependent or the expression being casted
+     	 is value-dependent.  */
+      {
+	tree type = TREE_TYPE (expression);
+	
+	if (dependent_type_p (type))
+	  return true;
+	
+	/* A functional cast has a list of operands.  */
+	expression = TREE_OPERAND (expression, 0);
+	if (!expression)
+	  {
+	    /* If there are no operands, it must be an expression such
+	       as "int()". This should not happen for aggregate types
+	       because it would form non-constant expressions.  */
+	    gcc_assert (INTEGRAL_OR_ENUMERATION_TYPE_P (type));
+	    
+	    return false;
+	  }
+	
+	if (TREE_CODE (expression) == TREE_LIST)
+	  {
+	    for (; expression; expression = TREE_CHAIN (expression))
 	      if (value_dependent_expression_p (TREE_VALUE (expression)))
 		return true;
-	      expression = TREE_CHAIN (expression);
-	    }
-	  while (expression);
-	  return false;
-	}
-      else
+	    return false;
+	  }
+	
 	return value_dependent_expression_p (expression);
-    }
-  /* A `sizeof' expression is value-dependent if the operand is
-     type-dependent.  */
-  if (TREE_CODE (expression) == SIZEOF_EXPR
-      || TREE_CODE (expression) == ALIGNOF_EXPR)
-    {
+      }
+      
+    case SIZEOF_EXPR:
+    case ALIGNOF_EXPR:
+      /* A `sizeof' expression is value-dependent if the operand is
+     	 type-dependent.  */
       expression = TREE_OPERAND (expression, 0);
       if (TYPE_P (expression))
 	return dependent_type_p (expression);
       return type_dependent_expression_p (expression);
-    }
-  if (TREE_CODE (expression) == SCOPE_REF)
-    return dependent_scope_ref_p (expression, value_dependent_expression_p);
-  if (TREE_CODE (expression) == COMPONENT_REF)
-    return (value_dependent_expression_p (TREE_OPERAND (expression, 0))
-	    || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
 
-  /* A CALL_EXPR is value-dependent if any argument is
-     value-dependent.  Why do we have to handle CALL_EXPRs in this
-     function at all?  First, some function calls, those for which
-     value_dependent_expression_p is true, man appear in constant
-     expressions.  Second, there appear to be bugs which result in
-     other CALL_EXPRs reaching this point. */
-  if (TREE_CODE (expression) == CALL_EXPR)
-    {
-      tree function = TREE_OPERAND (expression, 0);
-      tree args = TREE_OPERAND (expression, 1);
+    case SCOPE_REF:
+      return dependent_scope_ref_p (expression, value_dependent_expression_p);
 
-      if (value_dependent_expression_p (function))
-	return true;
-      else if (! args)
-	return false;
-      else if (TREE_CODE (args) == TREE_LIST)
-	{
-	  do
-	    {
+    case COMPONENT_REF:
+      return (value_dependent_expression_p (TREE_OPERAND (expression, 0))
+	      || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
+
+    case CALL_EXPR:
+      /* A CALL_EXPR is value-dependent if any argument is
+     	 value-dependent.  Why do we have to handle CALL_EXPRs in this
+     	 function at all?  First, some function calls, those for which
+     	 value_dependent_expression_p is true, man appear in constant
+     	 expressions.  Second, there appear to be bugs which result in
+     	 other CALL_EXPRs reaching this point. */
+      {
+	tree function = TREE_OPERAND (expression, 0);
+	tree args = TREE_OPERAND (expression, 1);
+	
+	if (value_dependent_expression_p (function))
+	  return true;
+	
+	if (! args)
+	  return false;
+	
+	if (TREE_CODE (args) == TREE_LIST)
+	  {
+	    for (; args; args = TREE_CHAIN (args))
 	      if (value_dependent_expression_p (TREE_VALUE (args)))
 		return true;
-	      args = TREE_CHAIN (args);
-	    }
-	  while (args);
-	  return false;
-	}
-      else
+	    return false;
+	  }
+	
 	return value_dependent_expression_p (args);
-    }
-  /* A constant expression is value-dependent if any subexpression is
-     value-dependent.  */
-  if (EXPR_P (expression))
-    {
+      }
+
+    default:
+      /* A constant expression is value-dependent if any subexpression is
+     	 value-dependent.  */
       switch (TREE_CODE_CLASS (TREE_CODE (expression)))
 	{
+	case tcc_reference:
 	case tcc_unary:
 	  return (value_dependent_expression_p 
 		  (TREE_OPERAND (expression, 0)));
+	  
 	case tcc_comparison:
 	case tcc_binary:
 	  return ((value_dependent_expression_p 
 		   (TREE_OPERAND (expression, 0)))
 		  || (value_dependent_expression_p 
 		      (TREE_OPERAND (expression, 1))));
+	  
 	case tcc_expression:
 	  {
 	    int i;
@@ -12056,16 +12111,12 @@ value_dependent_expression_p (tree expression)
 		return true;
 	    return false;
 	  }
-	case tcc_reference:
-	case tcc_statement:
-	  /* These cannot be value dependent.  */
-	  return false;
-
+	      
 	default:
-	  gcc_unreachable ();
+	  break;
 	}
     }
-
+  
   /* The expression is not value-dependent.  */
   return false;
 }
@@ -12376,7 +12427,8 @@ build_non_dependent_expr (tree expr)
   if (TREE_CODE (inner_expr) == OVERLOAD 
       || TREE_CODE (inner_expr) == FUNCTION_DECL
       || TREE_CODE (inner_expr) == TEMPLATE_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR)
+      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR
+      || TREE_CODE (inner_expr) == OFFSET_REF)
     return expr;
   /* There is no need to return a proxy for a variable.  */
   if (TREE_CODE (expr) == VAR_DECL)

@@ -53,15 +53,13 @@ Boston, MA 02111-1307, USA.  */
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
-  tree phi, next;
+  tree phi;
   tree list = NULL, *last = &list;
   tree src, dst, node;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (phi = phi_nodes (e->dest); phi; phi = next)
+  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
     {
-      next = PHI_CHAIN (phi);
-
       if (PHI_ARG_DEF (phi, e->dest_idx) == NULL_TREE)
 	continue;
 
@@ -785,11 +783,17 @@ delete_tree_ssa (void)
 bool
 tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
 {
+  if (inner_type == outer_type)
+    return true;
+
+  /* Changes in machine mode are never useless conversions.  */
+  if (TYPE_MODE (inner_type) != TYPE_MODE (outer_type))
+    return false;
+
   /* If the inner and outer types are effectively the same, then
      strip the type conversion and enter the equivalence into
      the table.  */
-  if (inner_type == outer_type
-     || (lang_hooks.types_compatible_p (inner_type, outer_type)))
+  if (lang_hooks.types_compatible_p (inner_type, outer_type))
     return true;
 
   /* If both types are pointers and the outer type is a (void *), then
@@ -800,7 +804,6 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      implement the ABI.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
-	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
 	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
@@ -810,7 +813,6 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      so strip conversions that just switch between them.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
-	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
 	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
            && lang_hooks.types_compatible_p (TREE_TYPE (inner_type),
@@ -826,7 +828,6 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
      mean that testing of precision is necessary.  */
   else if (INTEGRAL_TYPE_P (inner_type)
            && INTEGRAL_TYPE_P (outer_type)
-	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type)
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
     {

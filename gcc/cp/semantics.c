@@ -1523,6 +1523,9 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 {
   tree result = NULL_TREE;
 
+  if (error_operand_p (expr))
+    return error_mark_node;
+  
   if (expr)
     {
       if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
@@ -2122,16 +2125,7 @@ begin_class_definition (tree t)
   if (t == error_mark_node || ! IS_AGGR_TYPE (t))
     {
       t = make_aggr_type (RECORD_TYPE);
-      pushtag (make_anon_name (), t, 0);
-    }
-
-  /* If this type was already complete, and we see another definition,
-     that's an error.  */
-  if (COMPLETE_TYPE_P (t))
-    {
-      error ("redefinition of %q#T", t);
-      cp_error_at ("previous definition of %q#T", t);
-      return error_mark_node;
+      pushtag (make_anon_name (), t, /*tag_scope=*/ts_current);
     }
 
   /* Update the location of the decl.  */
@@ -2140,7 +2134,7 @@ begin_class_definition (tree t)
   if (TYPE_BEING_DEFINED (t))
     {
       t = make_aggr_type (TREE_CODE (t));
-      pushtag (TYPE_IDENTIFIER (t), t, 0);
+      pushtag (TYPE_IDENTIFIER (t), t, /*tag_scope=*/ts_current);
     }
   maybe_process_partial_specialization (t);
   pushclass (t);

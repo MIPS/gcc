@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002, 2004
+   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -42,7 +42,7 @@ Boston, MA 02111-1307, USA.  */
     } while (0)
 
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_FP|MASK_FPREGS|MASK_GAS)
+#define TARGET_DEFAULT (MASK_FPREGS|MASK_GAS)
 #undef TARGET_ABI_OPEN_VMS
 #define TARGET_ABI_OPEN_VMS 1
 

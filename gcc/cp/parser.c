@@ -380,8 +380,8 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
   static int is_extern_c = 0;
 
    /* Get a new token from the preprocessor.  */
-  token->type = c_lex_with_flags (&token->value, &token->flags);
-  token->location = input_location;
+  token->type
+    = c_lex_with_flags (&token->value, &token->location, &token->flags);
   token->in_system_header = in_system_header;
 
   /* On some systems, some header files are surrounded by an 
@@ -1995,7 +1995,8 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree scope, tree id)
 	   template <typename T> struct B : public A<T> { X x; };
 
 	 The user should have said "typename A<T>::X".  */
-      if (processing_template_decl && current_class_type)
+      if (processing_template_decl && current_class_type
+	  && TYPE_BINFO (current_class_type))
 	{
 	  tree b;
 
@@ -3860,18 +3861,22 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p)
 	bool template_p = false;
 	tree id;
 	tree type;
+	tree scope;
 
 	/* Consume the `typename' token.  */
 	cp_lexer_consume_token (parser->lexer);
 	/* Look for the optional `::' operator.  */
 	cp_parser_global_scope_opt (parser,
 				    /*current_scope_valid_p=*/false);
-	/* Look for the nested-name-specifier.  */
-	cp_parser_nested_name_specifier (parser,
-					 /*typename_keyword_p=*/true,
-					 /*check_dependency_p=*/true,
-					 /*type_p=*/true,
-					 /*is_declaration=*/true);
+	/* Look for the nested-name-specifier.  In case of error here,
+	   consume the trailing id to avoid subsequent error messages
+	   for usual cases.  */
+	scope = cp_parser_nested_name_specifier (parser,
+						 /*typename_keyword_p=*/true,
+						 /*check_dependency_p=*/true,
+						 /*type_p=*/true,
+						 /*is_declaration=*/true);
+
 	/* Look for the optional `template' keyword.  */
 	template_p = cp_parser_optional_template_keyword (parser);
 	/* We don't know whether we're looking at a template-id or an
@@ -3884,9 +3889,13 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p)
 	/* If that didn't work, try an identifier.  */
 	if (!cp_parser_parse_definitely (parser))
 	  id = cp_parser_identifier (parser);
+
+	/* Don't process id if nested name specifier is invalid.  */
+	if (scope == error_mark_node)
+	  return error_mark_node;
 	/* If we look up a template-id in a non-dependent qualifying
 	   scope, there's no need to create a dependent type.  */
-	if (TREE_CODE (id) == TYPE_DECL
+	else if (TREE_CODE (id) == TYPE_DECL
 	    && !dependent_type_p (parser->scope))
 	  type = TREE_TYPE (id);
 	/* Create a TYPENAME_TYPE to represent the type to which the
@@ -9580,7 +9589,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
    typedef-name:
      identifier
 
-   Returns a TYPE_DECL for the the type.  */
+   Returns a TYPE_DECL for the type.  */
 
 static tree
 cp_parser_type_name (cp_parser* parser)
@@ -11188,6 +11197,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 
 	  declarator = make_id_declarator (qualifying_scope, 
 					   unqualified_name);
+	  declarator->id_loc = token->location;
 	  if (unqualified_name)
 	    {
 	      tree class_type;
@@ -12842,9 +12852,17 @@ cp_parser_class_head (cp_parser* parser,
     CLASSTYPE_DECLARED_CLASS (type) = (class_key == class_type);
   cp_parser_check_class_key (class_key, type);
 
+  /* If this type was already complete, and we see another definition,
+     that's an error.  */
+  if (type != error_mark_node && COMPLETE_TYPE_P (type))
+    {
+      error ("redefinition of %q#T", type);
+      cp_error_at ("previous definition of %q#T", type);
+      type = error_mark_node;
+    }
+
   /* We will have entered the scope containing the class; the names of
-     base classes should be looked up in that context.  For example,
-     given:
+     base classes should be looked up in that context.  For example:
 
        struct A { struct B {}; struct C; };
        struct A::C : B {};
@@ -14325,7 +14343,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	     lookup_member, we must enter the scope here.  */
 	  if (dependent_p)
 	    pushed_scope = push_scope (parser->scope);
-	  /* If the PARSER->SCOPE is a a template specialization, it
+	  /* If the PARSER->SCOPE is a template specialization, it
 	     may be instantiated during name lookup.  In that case,
 	     errors may be issued.  Even if we rollback the current
 	     tentative parse, those errors are valid.  */
@@ -14373,10 +14391,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
     }
 
   /* If the lookup failed, let our caller know.  */
-  if (!decl
-      || decl == error_mark_node
-      || (TREE_CODE (decl) == FUNCTION_DECL
-	  && DECL_ANTICIPATED (decl)))
+  if (!decl || decl == error_mark_node)
     return error_mark_node;
 
   /* If it's a TREE_LIST, the result of the lookup was ambiguous.  */

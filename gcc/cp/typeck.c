@@ -59,22 +59,6 @@ static void maybe_warn_about_returning_address_of_local (tree);
 static tree lookup_destructor (tree, tree, tree);
 static tree convert_arguments (tree, tree, tree, int);
 
-/* Return the target type of TYPE, which means return T for:
-   T*, T&, T[], T (...), and otherwise, just T.  */
-
-tree
-target_type (tree type)
-{
-  type = non_reference (type);
-  while (TREE_CODE (type) == POINTER_TYPE
-	 || TREE_CODE (type) == ARRAY_TYPE
-	 || TREE_CODE (type) == FUNCTION_TYPE
-	 || TREE_CODE (type) == METHOD_TYPE
-	 || TYPE_PTRMEM_P (type))
-    type = TREE_TYPE (type);
-  return type;
-}
-
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)
    Returns the error_mark_node if the VALUE does not have
@@ -3530,23 +3514,6 @@ build_x_unary_op (enum tree_code code, tree xarg)
       if (type_dependent_expression_p (xarg))
 	return build_min_nt (code, xarg, NULL_TREE);
 
-      /* For non-dependent pointer-to-member, the SCOPE_REF will be
-	 processed during template substitution.  Just compute the
-	 right type here and build an ADDR_EXPR around it for
-	 diagnostics.  */
-      if (code == ADDR_EXPR && TREE_CODE (xarg) == SCOPE_REF)
-	{
-	  tree type;
-	  if (TREE_TYPE (xarg) == unknown_type_node)
-	    type = unknown_type_node;
-	  else if (TREE_CODE (TREE_TYPE (xarg)) == FUNCTION_TYPE)
-	    type = build_pointer_type (TREE_TYPE (xarg));
-	  else
-	    type = build_ptrmem_type (TREE_OPERAND (xarg, 0),
-				      TREE_TYPE (xarg));
-	  return build_min (code, type, xarg, NULL_TREE);
-	}
-
       xarg = build_non_dependent_expr (xarg);
     }
 
@@ -3610,13 +3577,13 @@ build_x_unary_op (enum tree_code code, tree xarg)
       else if (TREE_CODE (xarg) == TARGET_EXPR)
 	warning ("taking address of temporary");
       exp = build_unary_op (ADDR_EXPR, xarg, 0);
-      if (TREE_CODE (exp) == ADDR_EXPR)
-	PTRMEM_OK_P (exp) = ptrmem;
     }
 
   if (processing_template_decl && exp != error_mark_node)
-    return build_min_non_dep (code, exp, orig_expr,
-			      /*For {PRE,POST}{INC,DEC}REMENT_EXPR*/NULL_TREE);
+    exp = build_min_non_dep (code, exp, orig_expr,
+			     /*For {PRE,POST}{INC,DEC}REMENT_EXPR*/NULL_TREE);
+  if (TREE_CODE (exp) == ADDR_EXPR)
+    PTRMEM_OK_P (exp) = ptrmem;
   return exp;
 }
 
@@ -4056,6 +4023,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	 is an error.  */
       else if (TREE_CODE (argtype) != FUNCTION_TYPE
 	       && TREE_CODE (argtype) != METHOD_TYPE
+	       && TREE_CODE (arg) != OFFSET_REF
 	       && !lvalue_or_else (arg, lv_addressof))
 	return error_mark_node;
 
@@ -4070,7 +4038,11 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	       expression so we can just form an ADDR_EXPR with the
 	       correct type.  */
 	    || processing_template_decl)
-	  addr = build_address (arg);
+	  {
+	    addr = build_address (arg);
+	    if (TREE_CODE (arg) == OFFSET_REF)
+	      PTRMEM_OK_P (addr) = PTRMEM_OK_P (arg);
+	  }
 	else if (TREE_CODE (TREE_OPERAND (arg, 1)) == BASELINK)
 	  {
 	    tree fn = BASELINK_FUNCTIONS (TREE_OPERAND (arg, 1));
@@ -6409,6 +6381,18 @@ cp_apply_type_quals_to_decl (int type_quals, tree decl)
       return;
     }
 
+  /* Avoid setting TREE_READONLY incorrectly.  */
+  if (/* If the object has a constructor, the constructor may modify
+	 the object.  */
+      TYPE_NEEDS_CONSTRUCTING (type)
+      /* If the type isn't complete, we don't know yet if it will need
+	 constructing.  */
+      || !COMPLETE_TYPE_P (type) 
+      /* If the type has a mutable component, that component might be
+	 modified.  */
+      || TYPE_HAS_MUTABLE_P (type))
+    type_quals &= ~TYPE_QUAL_CONST;
+
   c_apply_type_quals_to_decl (type_quals, decl);
 }
 
@@ -6528,4 +6512,20 @@ non_reference (tree t)
   if (TREE_CODE (t) == REFERENCE_TYPE)
     t = TREE_TYPE (t);
   return t;
+}
+
+
+/* Return nonzero if REF is an lvalue valid for this language;
+   otherwise, print an error message and return zero.  USE says
+   how the lvalue is being used and so selects the error message.  */
+
+int
+lvalue_or_else (tree ref, enum lvalue_use use)
+{
+  int win = lvalue_p (ref);
+
+  if (!win)
+    lvalue_error (use);
+
+  return win;
 }

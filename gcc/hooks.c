@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -99,6 +99,14 @@ hook_bool_constcharptr_size_t_false (const char *a ATTRIBUTE_UNUSED,
 				     size_t b ATTRIBUTE_UNUSED)
 {
   return false;
+}
+
+bool
+hook_bool_size_t_constcharptr_int_true (size_t a ATTRIBUTE_UNUSED,
+					const char *b ATTRIBUTE_UNUSED,
+					int c ATTRIBUTE_UNUSED)
+{
+  return true;
 }
 
 bool
@@ -235,7 +243,8 @@ hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
 }
 
 tree
-hook_tree_tree_bool_null (tree t ATTRIBUTE_UNUSED, bool ignore ATTRIBUTE_UNUSED)
+hook_tree_tree_tree_bool_null (tree t0 ATTRIBUTE_UNUSED, tree t1 ATTRIBUTE_UNUSED,
+			       bool ignore ATTRIBUTE_UNUSED)
 {
   return NULL;
 }

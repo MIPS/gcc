@@ -3778,9 +3778,6 @@ static int is_tagged_type (tree);
 static const char *dwarf_tag_name (unsigned);
 static const char *dwarf_attr_name (unsigned);
 static const char *dwarf_form_name (unsigned);
-#if 0
-static const char *dwarf_type_encoding_name (unsigned);
-#endif
 static tree decl_ultimate_origin (tree);
 static tree block_ultimate_origin (tree);
 static tree decl_class_context (tree);
@@ -4117,7 +4114,7 @@ static char ranges_section_label[2 * MAX_ARTIFICIAL_LABEL_BYTES];
 #endif
 
 /* We allow a language front-end to designate a function that is to be
-   called to "demangle" any name before it it put into a DIE.  */
+   called to "demangle" any name before it is put into a DIE.  */
 
 static const char *(*demangle_name_func) (const char *);
 
@@ -4548,36 +4545,6 @@ dwarf_form_name (unsigned int form)
       return "DW_FORM_<unknown>";
     }
 }
-
-/* Convert a DWARF type code into its string name.  */
-
-#if 0
-static const char *
-dwarf_type_encoding_name (unsigned enc)
-{
-  switch (enc)
-    {
-    case DW_ATE_address:
-      return "DW_ATE_address";
-    case DW_ATE_boolean:
-      return "DW_ATE_boolean";
-    case DW_ATE_complex_float:
-      return "DW_ATE_complex_float";
-    case DW_ATE_float:
-      return "DW_ATE_float";
-    case DW_ATE_signed:
-      return "DW_ATE_signed";
-    case DW_ATE_signed_char:
-      return "DW_ATE_signed_char";
-    case DW_ATE_unsigned:
-      return "DW_ATE_unsigned";
-    case DW_ATE_unsigned_char:
-      return "DW_ATE_unsigned_char";
-    default:
-      return "DW_ATE_<unknown>";
-    }
-}
-#endif
 
 /* Determine the "ultimate origin" of a decl.  The decl may be an inlined
    instance of an inlined instance of a decl which is local to an inline
@@ -10497,8 +10464,12 @@ add_abstract_origin_attribute (dw_die_ref die, tree origin)
 
       if (TYPE_P (fn))
 	fn = TYPE_STUB_DECL (fn);
+      
+      /* TYPE_STUB_DECL may have given us a NULL, which decl_function_context
+	 won't like.  */
+      if (fn)	
+	fn = decl_function_context (fn);
 
-      fn = decl_function_context (fn);
       if (fn)
 	dwarf2out_abstract_function (fn);
     }
@@ -12553,6 +12524,12 @@ declare_in_namespace (tree thing, dw_die_ref context_die)
   if (debug_info_level <= DINFO_LEVEL_TERSE)
     return;
 
+  /* If this decl is from an inlined function, then don't try to emit it in its
+     namespace, as we will get confused.  It would have already been emitted
+     when the abstract instance of the inline function was emitted anyways.  */
+  if (DECL_P (thing) && DECL_ABSTRACT_ORIGIN (thing))
+    return;
+
   ns_context = setup_namespace_context (thing, context_die);
 
   if (ns_context != context_die)
@@ -13795,11 +13772,10 @@ dwarf2out_finish (const char *filename)
       output_ranges ();
     }
 
-  /* Have to end the primary source file.  */
+  /* Have to end the macro section.  */
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     {
       named_section_flags (DEBUG_MACINFO_SECTION, SECTION_DEBUG);
-      dw2_asm_output_data (1, DW_MACINFO_end_file, "End file");
       dw2_asm_output_data (1, 0, "End compilation unit");
     }
 

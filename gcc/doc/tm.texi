@@ -412,20 +412,10 @@ while the @file{config/rs6000/eabiaix.h} target file defines
 @end smallexample
 @end defmac
 
-@defmac LINK_LIBGCC_SPECIAL
-Define this macro if the driver program should find the library
-@file{libgcc.a} itself and should not pass @option{-L} options to the
-linker.  If you do not define this macro, the driver program will pass
-the argument @option{-lgcc} to tell the linker to do the search and will
-pass @option{-L} options to it.
-@end defmac
-
 @defmac LINK_LIBGCC_SPECIAL_1
 Define this macro if the driver program should find the library
 @file{libgcc.a}.  If you do not define this macro, the driver program will pass
 the argument @option{-lgcc} to tell the linker to do the search.
-This macro is similar to @code{LINK_LIBGCC_SPECIAL}, except that it does
-not affect @option{-L} options.
 @end defmac
 
 @defmac LINK_GCC_C_SEQUENCE_SPEC
@@ -731,8 +721,34 @@ it yourself.
 @end defmac
 
 @deftypevar {extern int} target_flags
-This declaration should be present.
+This variable is declared in @file{options.h}, which is included before
+any target-specific headers.
 @end deftypevar
+
+@deftypevar {Target Hook} int TARGET_DEFAULT_TARGET_FLAGS
+This variable specifies the initial value of @code{target_flags}.
+Its default setting is 0.
+
+If the target defines @code{TARGET_SWITCHES}, the null
+@code{TARGET_SWITCHES} entry will override this value.
+@end deftypevar
+
+@deftypefn {Target Hook} bool TARGET_HANDLE_OPTION (size_t @var{code}, const char *@var{arg}, int @var{value})
+This hook is called whenever the user specifies one of the
+target-specific options described by the @file{.opt} definition files
+(@pxref{Options}).  It has the opportunity to do some option-specific
+processing and should return true if the option is valid.  The default
+definition does nothing but return true.
+
+@var{code} specifies the @code{OPT_@var{name}} enumeration value
+associated with the selected option; @var{name} is just a rendering of
+the option name in which non-alphanumeric characters are replaced by
+underscores.  @var{arg} specifies the string argument and is null if
+no argument was given.  If the option is flagged as a @code{UInteger}
+(@pxref{Option properties}), @var{value} is the numeric value of the
+argument.  Otherwise @var{value} is 1 if the positive form of the
+option was used and 0 if the ``no-'' form was.
+@end deftypefn
 
 @cindex optional hardware or system features
 @cindex features, optional, in system conventions
@@ -802,6 +818,10 @@ with opposite meanings, and picks the latter as the default:
     @{ "", MASK_68020, "" @},          \
   @}
 @end smallexample
+
+This macro is being kept for compatibility with older backends.
+New targets should use option definition files instead.
+@xref{Back End}.
 @end defmac
 
 @defmac TARGET_OPTIONS
@@ -859,7 +879,7 @@ checking the state of the option (documentation is elided for brevity).
 
 @smallexample
 [chip.c]
-char *chip_alu = ""; /* Specify default here.  */
+char *chip_alu = ""; /* @r{Specify default here.}  */
 
 [chip.h]
 extern char *chip_alu;
@@ -871,6 +891,10 @@ extern char *chip_alu;
 #define TARGET_ALU1 (chip_alu[0] == '1')
 #define TARGET_ALU2 (chip_alu[0] == '2')
 @end smallexample
+
+This macro is being kept for compatibility with older backends.
+New targets should use option definition files instead.
+@xref{Back End}.
 @end defmac
 
 @defmac TARGET_VERSION
@@ -1643,6 +1667,36 @@ words.
 A C expression for the size in bits of the type @code{long double} on
 the target machine.  If you don't define this, the default is two
 words.
+@end defmac
+
+@defmac LIBGCC2_LONG_DOUBLE_TYPE_SIZE
+Define this macro if @code{LONG_DOUBLE_TYPE_SIZE} is not constant or
+if you want routines in @file{libgcc2.a} for a size other than
+@code{LONG_DOUBLE_TYPE_SIZE}.  If you don't define this, the
+default is @code{LONG_DOUBLE_TYPE_SIZE}.
+@end defmac
+
+@defmac LIBGCC2_HAS_DF_MODE
+Define this macro if neither @code{LIBGCC2_DOUBLE_TYPE_SIZE} nor 
+@code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is
+@code{DFmode} but you want @code{DFmode} routines in @file{libgcc2.a}
+anyway.  If you don't define this and either @code{LIBGCC2_DOUBLE_TYPE_SIZE}
+or @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is 64 then the default is 1,
+otherwise it is 0.
+@end defmac
+
+@defmac LIBGCC2_HAS_XF_MODE
+Define this macro if @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is not 
+@code{XFmode} but you want @code{XFmode} routines in @file{libgcc2.a}
+anyway.  If you don't define this and @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE}
+is 80 then the default is 1, otherwise it is 0.
+@end defmac
+
+@defmac LIBGCC2_HAS_TF_MODE
+Define this macro if @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE} is not 
+@code{TFmode} but you want @code{TFmode} routines in @file{libgcc2.a}
+anyway.  If you don't define this and @code{LIBGCC2_LONG_DOUBLE_TYPE_SIZE}
+is 128 then the default is 1, otherwise it is 0.
 @end defmac
 
 @defmac TARGET_FLT_EVAL_METHOD
@@ -9392,13 +9446,14 @@ ignored.  This function should return the result of the call to the
 built-in function.
 @end deftypefn
 
-@deftypefn {Target Hook} tree TARGET_FOLD_BUILTIN (tree @var{exp}, bool @var{ignore})
+@deftypefn {Target Hook} tree TARGET_FOLD_BUILTIN (tree @var{fndecl}, tree @var{arglist}, bool @var{ignore})
 
-Expand a call to a machine specific built-in function that was set up by
-@samp{TARGET_INIT_BUILTINS}.  @var{exp} is the expression for the
-function call; the result is another tree containing a simplified
-expression for the call's result.  If @var{ignore} is true the
-value will be ignored.
+Fold a call to a machine specific built-in function that was set up by
+@samp{TARGET_INIT_BUILTINS}.  @var{fndecl} is the declaration of the
+built-in function.  @var{arglist} is the list of arguments passed to
+the built-in function.  The result is another tree containing a
+simplified expression for the call's result.  If @var{ignore} is true
+the value will be ignored.
 @end deftypefn
 
 @defmac MD_CAN_REDIRECT_BRANCH (@var{branch1}, @var{branch2})
@@ -9565,6 +9620,12 @@ important, an explicit memory barrier must be used.  This is true of
 many recent processors which implement a policy of ``relaxed,''
 ``weak,'' or ``release'' memory consistency, such as Alpha, PowerPC,
 and ia64.  The default is @code{false}.
+@end deftypefn
+
+@deftypefn {Target Hook} const char *TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN (tree @var{typelist}, tree @var{funcdecl}, tree @var{val})
+If defined, this macro returns the diagnostic message when it is 
+illegal to pass argument @var{val} to function @var{funcdecl} 
+with prototype @var{typelist}.
 @end deftypefn
 
 @defmac TARGET_USE_JCR_SECTION

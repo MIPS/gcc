@@ -4,6 +4,9 @@ AUTOMAKE_OPTIONS = foreign subdir-objects
 
 ACLOCAL_AMFLAGS = -I . -I ../config
 
+# May be used by various substitution variables.
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
+
 ## Garbage collector conditionals.
 if USING_BOEHMGC
 BOEHMGC_SRC = boehm.cc
@@ -116,16 +119,25 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libgcj.pc
 
 jardir = $(datadir)/java
-jar_DATA = libgcj-@gcc_version@.jar
+jar_DATA = libgcj-$(gcc_version).jar
 
 ## FIXME: Using libdir violates GNU coding standards.
 secdir = $(libdir)/security
 ## Where to install default logging property file.
 propdir = $(libdir)
 
+## Where the standard .db file is found.
+dbexecdir = $(libdir)/gcj-$(gcc_version)
+## Name of the default .db.
+db_name = classmap.db
+
 ## For now, only on native systems.  FIXME.
 if NATIVE
 bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool
+
+## It is convenient to actually build and install the default database
+## when gcj-dbtool is available.
+dbexec_DATA = $(db_name)
 endif
 
 bin_SCRIPTS = addr2name.awk
@@ -171,7 +183,8 @@ AM_CXXFLAGS = \
 	-DPREFIX="\"$(prefix)\"" \
 	-DLIBDIR="\"$(libdir)\"" \
 	-DBOOT_CLASS_PATH="\"$(jardir)/$(jar_DATA)\"" \
-	-DJAVA_EXT_DIRS="\"$(jardir)/ext\""
+	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
+	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\""
 
 AM_GCJFLAGS = \
 	@LIBGCJ_JAVAFLAGS@ \
@@ -217,7 +230,7 @@ libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
 # convenience library suddenly invokes the --whole-archive path instead.
 # This allows the build to succeed for targets that allocate multiple got
 # subsections in the linker, such as Alpha and MIPS.
-libgcj0_convenience_la_SOURCES = prims.cc jni.cc exception.cc \
+libgcj0_convenience_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
 	$(nat_source_files) $(math_c_source_files) $(java_source_files) \
 	$(gnu_xml_source_files) $(built_java_source_files) \
@@ -245,10 +258,21 @@ libgcj_la_LIBADD = \
 	external/w3c_dom/libw3c_convenience.la \
 	libgcj0_convenience.la \
 	$(LIBFFI) $(ZLIBS) $(GCLIBS) $(propertyo_files)
-libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar \
+libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h \
-	$(libgcj_la_LIBADD)
+	$(LIBLTDL) $(libgcj_la_LIBADD)
 libgcj_la_LINK = $(LIBLINK)
+
+
+## The .db file.  This rule is only used for native builds, so it is
+## safe to invoke gcj-dbtool.
+$(db_name): gcj-dbtool
+## In case it exists already.
+	@rm -f $(db_name)
+## We don't actually care if it fails -- if it does, just make an
+## empty file.  This is simpler than trying to discover when mmap is
+## not available.
+	./gcj-dbtool -n $(db_name) || touch $(db_name)
 
 # Gtk/Cairo JNI sources.
 if GTK_CAIRO
@@ -299,10 +323,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
 jni/gtk-peer/gtk_jawt.c \
-jni/classpath/jcl.c \
-jni/classpath/jnilink.c	\
-jni/classpath/native_state.c \
-jni/classpath/primlib.c
+jni/classpath/native_state.c
 
 ## Java sources for Gtk peers.
 gtk_awt_peer_sources = \
@@ -448,10 +469,7 @@ $(gtk_awt_peer_sources) \
 $(gtk_c_source_files) \
 jni/gtk-peer/gthread-jni.h \
 jni/gtk-peer/gtkpeer.h \
-jni/classpath/jcl.h \
-jni/classpath/jnilink.h	\
-jni/classpath/native_state.h \
-jni/classpath/primlib.h
+jni/classpath/native_state.h
 
 lib_gnu_java_awt_peer_gtk_la_CFLAGS = \
 	-Ijniinclude -I$(srcdir)/jni/classpath \
@@ -459,7 +477,7 @@ lib_gnu_java_awt_peer_gtk_la_CFLAGS = \
 	$(X_CFLAGS) $(CAIRO_CFLAGS) $(PANGOFT2_CFLAGS)
 lib_gnu_java_awt_peer_gtk_la_GCJFLAGS = $(AM_GCJFLAGS) -fjni
 lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
-lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers) libgcj-@gcc_version@.jar libgcj.la libgcj.spec
+lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers) libgcj-$(gcc_version).jar libgcj.la libgcj.spec
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
@@ -467,7 +485,8 @@ lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
 
 libjawt_la_SOURCES = jawt.c
 libjawt_la_CFLAGS = -I$(srcdir)/jni/classpath $(PEDANTIC_CFLAGS) $(X_CFLAGS)
-libjawt_la_LIBADD = lib-gnu-java-awt-peer-gtk.la
+## See jv_convert_LDADD.
+libjawt_la_LIBADD = -L$(here)/.libs lib-gnu-java-awt-peer-gtk.la
 libjawt_la_LDFLAGS = \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
 	$(LIBGCJ_LD_SYMBOLIC)
@@ -476,7 +495,7 @@ libjawt_la_LINK = $(LIBLINK)
 lib_gnu_awt_xlib_la_SOURCES = \
 	$(xlib_java_source_files) \
 	$(xlib_nat_source_files)
-lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar libgcj.la libgcj.spec
+lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-$(gcc_version).jar libgcj.la libgcj.spec
 lib_gnu_awt_xlib_la_LIBADD = $(xlib_javao_files)
 ## We require libstdc++-v3 to be in the same build tree.
 lib_gnu_awt_xlib_la_CPPFLAGS = \
@@ -541,8 +560,8 @@ classes.stamp: $(all_java_class_files) $(all_property_files)
 
 endif
 
-libgcj-@gcc_version@.jar: classes.stamp
-	-@rm -f libgcj-@gcc_version@.jar
+libgcj-$(gcc_version).jar: classes.stamp
+	-@rm -f libgcj-$(gcc_version).jar
 ## Note that we explicitly want to include directory information.
 	(find java gnu javax org -type d -o -type f -name '*.class'; \
 ## Ugly code to avoid "echo -C".  Must separate each entry by a newline
@@ -565,7 +584,7 @@ libgcj-@gcc_version@.jar: classes.stamp
 	  $(ZIP) -ufM0E@ $@; \
 	done
 
-CLEANFILES = libgcj-@gcc_version@.jar classes.stamp
+CLEANFILES = libgcj-$(gcc_version).jar classes.stamp
 
 mostlyclean-local:
 ## Use libtool rm to remove each libtool object
@@ -588,19 +607,11 @@ clean-nat:
 
 SUFFIXES = .class .java .h .properties
 
-## Note: we omit StackTrace here, since it has an explicit rule a bit
-## later, and GNU make will warn in this case.
-$(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(xlib_javao_files): %.lo: %.java
+$(javao_files) $(xlib_javao_files): %.lo: %.java
 	$(LTGCJCOMPILE) -o $@ -c $<
 
 $(gtk_awt_peer_sources:.java=.lo) $(gnu_xml_source_files:.java=.lo): %.lo: %.java
 	$(LTGCJCOMPILE) -fjni -o $@ -c $<
-
-## A special case.  The sibcall optimization can change the number of
-## frames on the stack, and StackTrace makes assumptions about this
-## number.
-gnu/gcj/runtime/StackTrace.lo: gnu/gcj/runtime/StackTrace.java
-	$(LTGCJCOMPILE) -fno-optimize-sibling-calls -o $@ -c $<
 
 ## Pass the list of object files to libtool in a temporary file to
 ## avoid tripping platform command line length limits.
@@ -848,7 +859,7 @@ maintainer-check: libgcj.la
 
 ## This rule can be used to see if the headers are more or less
 ## correct.
-header-check: libgcj-@gcc_version@.jar $(nat_headers)
+header-check: libgcj-$(gcc_version).jar $(nat_headers)
 	rm -f htest.cc; \
 	for h in $(nat_headers); do \
 	  echo "#include \"$$h\"" >> htest.cc; \
@@ -857,7 +868,7 @@ header-check: libgcj-@gcc_version@.jar $(nat_headers)
 
 ## This rule can be used to see if all the .class files verify
 ## correctly.
-class-check: libgcj-@gcc_version@.jar
+class-check: libgcj-$(gcc_version).jar
 	@ok=0; find . -name '*.class' -print | fgrep -v testsuite | \
 	while read f; do \
 	  echo "$(GCJ_WITH_FLAGS) --syntax-only $$f"; \
@@ -2911,12 +2922,10 @@ gnu/gcj/io/SimpleSHSStream.java	\
 gnu/gcj/runtime/FileDeleter.java \
 gnu/gcj/runtime/FinalizerThread.java \
 gnu/gcj/runtime/JNIWeakRef.java \
-gnu/gcj/runtime/MethodRef.java \
 gnu/gcj/runtime/NameFinder.java \
 gnu/gcj/runtime/PersistentByteMap.java \
 gnu/gcj/runtime/SharedLibHelper.java \
 gnu/gcj/runtime/SharedLibLoader.java \
-gnu/gcj/runtime/StackTrace.java \
 gnu/gcj/runtime/StringBuffer.java \
 gnu/gcj/runtime/SystemClassLoader.java \
 gnu/gcj/runtime/VMClassLoader.java \
@@ -3130,6 +3139,7 @@ gnu/java/net/protocol/jar/Connection.java \
 gnu/java/net/protocol/jar/Handler.java \
 gnu/java/nio/ChannelInputStream.java \
 gnu/java/nio/ChannelOutputStream.java \
+gnu/java/nio/ChannelReader.java \
 gnu/java/nio/DatagramChannelImpl.java \
 gnu/java/nio/DatagramChannelSelectionKey.java \
 gnu/java/nio/FileLockImpl.java \
@@ -3675,9 +3685,7 @@ gnu/gcj/convert/natOutput_SJIS.cc \
 gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
 gnu/gcj/runtime/natFinalizerThread.cc \
-gnu/gcj/runtime/natNameFinder.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
-gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
 gnu/gcj/util/natDebug.cc \
@@ -3707,6 +3715,7 @@ java/lang/natSystem.cc \
 java/lang/natThread.cc \
 java/lang/natVMClassLoader.cc \
 java/lang/natVMSecurityManager.cc \
+java/lang/natVMThrowable.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
@@ -3860,7 +3869,7 @@ src.zip:
 sourcesdir = $(jardir)
 
 install-src.zip: src.zip
-	$(INSTALL_DATA) src.zip $(DESTDIR)$(sourcesdir)/src-@gcc_version@.zip
+	$(INSTALL_DATA) src.zip $(DESTDIR)$(sourcesdir)/src-$(gcc_version).zip
 
 
 ## ################################################################

@@ -277,9 +277,8 @@ linear_transform_loops (struct loops *loops)
       depth = 1;
       for (temp = loop_nest->inner; temp; temp = temp->inner)
 	{
-	  flow_loop_scan (temp, LOOP_ALL);
 	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if (temp->next || temp->num_exits != 1)
+	  if (temp->next || !temp->single_exit)
 	    {
 	      problem = true;
 	      break;
@@ -375,5 +374,5 @@ linear_transform_loops (struct loops *loops)
 
   free_df ();
   scev_reset ();
-  rewrite_into_loop_closed_ssa ();
+  rewrite_into_loop_closed_ssa (NULL);
 }

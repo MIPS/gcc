@@ -80,7 +80,23 @@ gfc_trans_label_here (gfc_code * code)
   return build1_v (LABEL_EXPR, gfc_get_label_decl (code->here));
 }
 
+
+/* Given a variable expression which has been ASSIGNed to, find the decl
+   containing the auxiliary variables.  For variables in common blocks this
+   is a field_decl.  */
+
+void
+gfc_conv_label_variable (gfc_se * se, gfc_expr * expr)
+{
+  gcc_assert (expr->symtree->n.sym->attr.assign == 1);
+  gfc_conv_expr (se, expr);
+  /* Deals with variable in common block. Get the field declaration.  */
+  if (TREE_CODE (se->expr) == COMPONENT_REF)
+    se->expr = TREE_OPERAND (se->expr, 1);
+}
+
 /* Translate a label assignment statement.  */
+
 tree
 gfc_trans_label_assign (gfc_code * code)
 {
@@ -95,7 +111,8 @@ gfc_trans_label_assign (gfc_code * code)
   /* Start a new block.  */
   gfc_init_se (&se, NULL);
   gfc_start_block (&se.pre);
-  gfc_conv_expr (&se, code->expr);
+  gfc_conv_label_variable (&se, code->expr);
+
   len = GFC_DECL_STRING_LEN (se.expr);
   addr = GFC_DECL_ASSIGN_ADDR (se.expr);
 
@@ -140,7 +157,7 @@ gfc_trans_goto (gfc_code * code)
   /* ASSIGNED GOTO.  */
   gfc_init_se (&se, NULL);
   gfc_start_block (&se.pre);
-  gfc_conv_expr (&se, code->expr);
+  gfc_conv_label_variable (&se, code->expr);
   assign_error =
     gfc_build_cstring_const ("Assigned label is not a target label");
   tmp = GFC_DECL_STRING_LEN (se.expr);

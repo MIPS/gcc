@@ -229,11 +229,11 @@ extern int target_flags;
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
-extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
+extern const int x86_use_bit_test, x86_cmove, x86_fisttp, x86_deep_branch;
 extern const int x86_branch_hints, x86_unroll_strlen;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
-extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
-extern const int x86_use_cltd, x86_read_modify_write;
+extern const int x86_use_loop, x86_use_himode_fiop, x86_use_simode_fiop;
+extern const int x86_use_mov0, x86_use_cltd, x86_read_modify_write;
 extern const int x86_read_modify, x86_split_long_moves;
 extern const int x86_promote_QImode, x86_single_stringop, x86_fast_prefix;
 extern const int x86_himode_math, x86_qimode_math, x86_promote_qi_regs;
@@ -258,6 +258,7 @@ extern int x86_prefetch_sse;
 /* For sane SSE instruction set generation we need fcomi instruction.  It is
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
+#define TARGET_FISTTP (x86_fisttp & (1 << ix86_arch))
 #define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & TUNEMASK)
 #define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & TUNEMASK)
 #define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & TUNEMASK)
@@ -265,7 +266,8 @@ extern int x86_prefetch_sse;
 #define TARGET_MOVX (x86_movx & TUNEMASK)
 #define TARGET_PARTIAL_REG_STALL (x86_partial_reg_stall & TUNEMASK)
 #define TARGET_USE_LOOP (x86_use_loop & TUNEMASK)
-#define TARGET_USE_FIOP (x86_use_fiop & TUNEMASK)
+#define TARGET_USE_HIMODE_FIOP (x86_use_himode_fiop & TUNEMASK)
+#define TARGET_USE_SIMODE_FIOP (x86_use_simode_fiop & TUNEMASK)
 #define TARGET_USE_MOV0 (x86_use_mov0 & TUNEMASK)
 #define TARGET_USE_CLTD (x86_use_cltd & TUNEMASK)
 #define TARGET_SPLIT_LONG_MOVES (x86_split_long_moves & TUNEMASK)

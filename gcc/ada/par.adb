@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -600,6 +600,17 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  Scan out a defining identifier. The parameter C controls the
       --  treatment of errors in case a reserved word is scanned. See the
       --  declaration of this type for details.
+
+      function P_Interface_Type_Definition
+        (Is_Synchronized : Boolean) return Node_Id;
+      --  Ada 2005 (AI-251): Parse the interface type definition part. The
+      --  parameter Is_Synchronized is True in case of task interfaces,
+      --  protected interfaces, and synchronized interfaces; it is used to
+      --  generate a record_definition node. In the rest of cases (limited
+      --  interfaces and interfaces) we generate a record_definition node if
+      --  the list of interfaces is empty; otherwise we generate a
+      --  derived_type_definition node (the first interface in this list is the
+      --  ancestor interface).
 
       function P_Null_Exclusion return Boolean;
       --  Ada 2005 (AI-231): Parse the null-excluding part. True indicates
@@ -1307,9 +1318,9 @@ begin
                end if;
             end;
 
-            --  Here if we are not skipping a file in multiple unit per file
-            --  mode. Parse the unit that we are interested in. Note that in
-            --  check syntax mode we are interested in all units in the file.
+         --  Here if we are not skipping a file in multiple unit per file
+         --  mode. Parse the unit that we are interested in. Note that in
+         --  check syntax mode we are interested in all units in the file.
 
          else
             declare
@@ -1344,25 +1355,38 @@ begin
 
                      Name := Uname (Uname'First .. Uname'Last - 2);
 
-                     if (Name = "ada"                    or else
-                         Name = "calendar"               or else
-                         Name = "interfaces"             or else
-                         Name = "system"                 or else
-                         Name = "machine_code"           or else
-                         Name = "unchecked_conversion"   or else
-                         Name = "unchecked_deallocation"
-                           or else (Name'Length > 4
-                                     and then
-                                       Name (Name'First .. Name'First + 3) =
-                                                                 "ada.")
-                           or else (Name'Length > 11
-                                     and then
-                                       Name (Name'First .. Name'First + 10) =
-                                                                 "interfaces.")
-                           or else (Name'Length > 7
-                                     and then
-                                       Name (Name'First .. Name'First + 6) =
-                                                                 "system."))
+                     if Name = "ada"                    or else
+                        Name = "calendar"               or else
+                        Name = "interfaces"             or else
+                        Name = "system"                 or else
+                        Name = "machine_code"           or else
+                        Name = "unchecked_conversion"   or else
+                        Name = "unchecked_deallocation"
+                     then
+                        Error_Msg
+                          ("language defined units may not be recompiled",
+                           Sloc (Unit (Comp_Unit_Node)));
+
+                     elsif Name'Length > 4
+                       and then
+                         Name (Name'First .. Name'First + 3) = "ada."
+                     then
+                        Error_Msg
+                          ("descendents of package Ada " &
+                             "may not be compiled",
+                           Sloc (Unit (Comp_Unit_Node)));
+
+                     elsif Name'Length > 11
+                       and then
+                         Name (Name'First .. Name'First + 10) = "interfaces."
+                     then
+                        Error_Msg
+                          ("descendents of package Interfaces " &
+                             "may not be compiled",
+                           Sloc (Unit (Comp_Unit_Node)));
+
+                     elsif Name'Length > 7
+                       and then Name (Name'First .. Name'First + 6) = "system."
                        and then Name /= "system.rpc"
                        and then
                          (Name'Length < 11
@@ -1370,7 +1394,8 @@ begin
                                                                  "system.rpc.")
                      then
                         Error_Msg
-                          ("language defined units may not be recompiled",
+                          ("descendents of package System " &
+                             "may not be compiled",
                            Sloc (Unit (Comp_Unit_Node)));
                      end if;
                   end;

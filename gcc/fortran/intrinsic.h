@@ -1,6 +1,7 @@
 /* Header file for intrinsics check, resolve and simplify function
    prototypes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -367,6 +368,6 @@ void gfc_resolve_unlink_sub (gfc_code *);
 
 #define MAX_INTRINSIC_ARGS 5
 
-extern char *gfc_current_intrinsic,
-  *gfc_current_intrinsic_arg[MAX_INTRINSIC_ARGS];
+extern const char *gfc_current_intrinsic;
+extern const char *gfc_current_intrinsic_arg[MAX_INTRINSIC_ARGS];
 extern locus *gfc_current_intrinsic_where;

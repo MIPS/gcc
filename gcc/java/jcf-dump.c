@@ -1,7 +1,7 @@
 /* Program to dump out a Java(TM) .class file.
    Functionally similar to Sun's javap.
 
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -341,6 +341,13 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
       if (flag_print_class_info)					    \
 	fputc ('\n', out);						    \
 }
+
+#define HANDLE_SOURCEDEBUGEXTENSION_ATTRIBUTE(LENGTH) \
+{ int i, n = (LENGTH), c = 0;					  \
+  COMMON_HANDLE_ATTRIBUTE(jcf, attribute_name, attribute_length); \
+  fputc ('\n', out); \
+  for (i = 0;  i < n;  i++) { c = JCF_readu(jcf); fputc(c, out); } \
+  if (c != '\r' && c != '\n') fputc('\n', out); }
 
 #define PROCESS_OTHER_ATTRIBUTE(JCF, INDEX, LENGTH) \
 { COMMON_HANDLE_ATTRIBUTE(JCF, INDEX, LENGTH); \

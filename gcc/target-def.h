@@ -1,5 +1,5 @@
 /* Default initializers for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -278,6 +278,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECTORIZE                                                \
   {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
 
+#define TARGET_DEFAULT_TARGET_FLAGS 0
+
+#define TARGET_HANDLE_OPTION hook_bool_size_t_constcharptr_int_true
+
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
 
@@ -292,7 +296,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
-#define TARGET_FOLD_BUILTIN hook_tree_tree_bool_null
+#define TARGET_FOLD_BUILTIN hook_tree_tree_tree_bool_null
 
 /* In varasm.c.  */
 #ifndef TARGET_SECTION_TYPE_FLAGS
@@ -356,6 +360,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ENCODE_SECTION_INFO default_encode_section_info
 #endif
 
+#ifndef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
+#define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN hook_invalid_arg_for_unprototyped_fn
+#endif
+
 #define TARGET_FIXED_CONDITION_CODE_REGS hook_bool_uintp_uintp_false
 
 #define TARGET_CC_MODES_COMPATIBLE default_cc_modes_compatible
@@ -416,7 +424,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SPLIT_COMPLEX_ARG,					\
    TARGET_MUST_PASS_IN_STACK,					\
    TARGET_CALLEE_COPIES,					\
-   TARGET_ARG_PARTIAL_BYTES					\
+   TARGET_ARG_PARTIAL_BYTES,					\
+   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN			\
    }
 
 
@@ -480,6 +489,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ASM_OUT,				\
   TARGET_SCHED,					\
   TARGET_VECTORIZE,				\
+  TARGET_DEFAULT_TARGET_FLAGS,			\
+  TARGET_HANDLE_OPTION,				\
   TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\

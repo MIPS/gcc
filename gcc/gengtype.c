@@ -367,7 +367,9 @@ enum insn_note {
   NOTE_INSN_MAX
 };
 
-static const char *const note_insn_name[NOTE_INSN_MAX] = {
+/* We must allocate one more entry here, as we use NOTE_INSN_MAX as the
+   default field for line number notes.  */
+static const char *const note_insn_name[NOTE_INSN_MAX+1] = {
 #define DEF_INSN_NOTE(NAME) #NAME,
 #include "insn-notes.def"
 #undef DEF_INSN_NOTE
@@ -1926,6 +1928,21 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
 	    }
 	  else
 	    oprintf (d->of, ", gt_%sa_%s", wtd->param_prefix, d->prev_val[0]);
+
+	  if (f->u.p->kind == TYPE_PARAM_STRUCT
+	      && f->u.p->u.s.line.file != NULL)
+	    {
+	      oprintf (d->of, ", gt_e_");
+	      output_mangled_typename (d->of, f);
+	    }
+	  else if (UNION_OR_STRUCT_P (f)
+		   && f->u.p->u.s.line.file != NULL)
+	    {
+	      oprintf (d->of, ", gt_ggc_e_");
+	      output_mangled_typename (d->of, f);
+	    }
+	  else
+	    oprintf (d->of, ", gt_types_enum_last");
 	}
       oprintf (d->of, ");\n");
       if (d->reorder_fn && wtd->reorder_note_routine)
@@ -2033,6 +2050,21 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	{
 	  oprintf (d.of, ", x, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
+
+	  if (orig_s->u.p->kind == TYPE_PARAM_STRUCT
+	      && orig_s->u.p->u.s.line.file != NULL)
+	    {
+	      oprintf (d.of, ", gt_e_");
+	      output_mangled_typename (d.of, orig_s);
+	    }
+	  else if (UNION_OR_STRUCT_P (orig_s)
+		   && orig_s->u.s.line.file != NULL)
+	    {
+	      oprintf (d.of, ", gt_ggc_e_");
+	      output_mangled_typename (d.of, orig_s);
+	    }
+	  else
+	    oprintf (d.of, ", gt_types_enum_last");
 	}
       oprintf (d.of, "))\n");
     }
@@ -2043,6 +2075,21 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	{
 	  oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
+
+	  if (orig_s->u.p->kind == TYPE_PARAM_STRUCT
+	      && orig_s->u.p->u.s.line.file != NULL)
+	    {
+	      oprintf (d.of, ", gt_e_");
+	      output_mangled_typename (d.of, orig_s);
+	    }
+	  else if (UNION_OR_STRUCT_P (orig_s)
+		   && orig_s->u.s.line.file != NULL)
+	    {
+	      oprintf (d.of, ", gt_ggc_e_");
+	      output_mangled_typename (d.of, orig_s);
+	    }
+	  else
+	    oprintf (d.of, ", gt_types_enum_last");
 	}
       oprintf (d.of, "))\n");
       oprintf (d.of, "   xlimit = (");
@@ -2068,6 +2115,21 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	    {
 	      oprintf (d.of, ", xprev, gt_%s_", wtd->param_prefix);
 	      output_mangled_typename (d.of, orig_s);
+
+	      if (orig_s->u.p->kind == TYPE_PARAM_STRUCT
+		  && orig_s->u.p->u.s.line.file != NULL)
+		{
+		  oprintf (d.of, ", gt_e_");
+		  output_mangled_typename (d.of, orig_s);
+		}
+	      else if (UNION_OR_STRUCT_P (orig_s)
+		       && orig_s->u.s.line.file != NULL)
+		{
+		  oprintf (d.of, ", gt_ggc_e_");
+		  output_mangled_typename (d.of, orig_s);
+		}
+	      else
+		oprintf (d.of, ", gt_types_enum_last");
 	    }
 	  oprintf (d.of, ");\n");
 	  oprintf (d.of, "      }\n");
