@@ -333,20 +333,7 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 	{
 	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-	  int j;
-
 	  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
-
-	  for (j = 0; j < PHI_NUM_ARGS (phi); j++)
-	    {
-	      tree arg = PHI_ARG_DEF (phi, j);
-
-	      if (TREE_CODE (arg) != SSA_NAME)
-		continue;
-
-	      arg = SSA_NAME_VAR (arg);
-	      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
-	    }
         }
 
       /* Any variables set by statements at the start of the block we
@@ -510,7 +497,6 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       bitmap_set_bit (vars_to_rename, i);
       var_ann (referenced_var (i))->out_of_ssa_tag = 0;
     }
-
 }
 
 /* Jump threading, redundancy elimination and const/copy propagation. 
@@ -942,10 +928,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
      
    AVAIL_EXPRS stores all the expressions made available in this block.
 
-   TRUE_EXPRS stores all expressions with a true value made in this block.
-
-   FALSE_EXPRS stores all expressions with a false value made in this block.
-
    CONST_AND_COPIES stores var/value pairs to restore at the end of this
    block.
 
@@ -961,10 +943,11 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
    block.  */
 
 static void
-dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
+dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 				     basic_block bb ATTRIBUTE_UNUSED,
-				     bool recycled)
+				     bool recycled ATTRIBUTE_UNUSED)
 {
+#ifdef ENABLE_CHECKING
   struct dom_walk_block_data *bd
     = (struct dom_walk_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
@@ -974,19 +957,20 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
      make sure we clear them before using them!  */
   if (recycled)
     {
-      if (bd->avail_exprs)
-	VARRAY_CLEAR (bd->avail_exprs);
-      if (bd->const_and_copies)
-	VARRAY_CLEAR (bd->const_and_copies);
-      if (bd->nonzero_vars)
-	VARRAY_CLEAR (bd->nonzero_vars);
-      if (bd->stmts_to_rescan)
-	VARRAY_CLEAR (bd->stmts_to_rescan);
-      if (bd->vrp_variables)
-	VARRAY_CLEAR (bd->vrp_variables);
-      if (bd->block_defs)
-	VARRAY_CLEAR (bd->block_defs);
+      if (bd->avail_exprs && VARRAY_ACTIVE_SIZE (bd->avail_exprs) > 0)
+	abort ();
+      if (bd->const_and_copies && VARRAY_ACTIVE_SIZE (bd->const_and_copies) > 0)
+	abort ();
+      if (bd->nonzero_vars && VARRAY_ACTIVE_SIZE (bd->nonzero_vars) > 0)
+	abort ();
+      if (bd->stmts_to_rescan && VARRAY_ACTIVE_SIZE (bd->stmts_to_rescan) > 0)
+	abort ();
+      if (bd->vrp_variables && VARRAY_ACTIVE_SIZE (bd->vrp_variables) > 0)
+	abort ();
+      if (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
+	abort ();
     }
+#endif
 }
 
 /* Initialize local stacks for this optimizer and record equivalences

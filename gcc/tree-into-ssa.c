@@ -456,10 +456,11 @@ insert_phi_nodes (bitmap *dfs)
    pushed into this stack so that we can restore it in Step 5.  */
 
 static void
-rewrite_initialize_block_local_data (struct dom_walk_data *walk_data,
+rewrite_initialize_block_local_data (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 				     basic_block bb ATTRIBUTE_UNUSED,
-				     bool recycled)
+				     bool recycled ATTRIBUTE_UNUSED)
 {
+#ifdef ENABLE_CHECKING
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
                                                                                 
@@ -467,8 +468,9 @@ rewrite_initialize_block_local_data (struct dom_walk_data *walk_data,
      not cleared, then we are re-using a previously allocated entry.  In
      that case, we can also re-use the underlying virtal arrays.  Just
      make sure we clear them before using them!  */
-  if (recycled && bd->block_defs)
-    VARRAY_CLEAR (bd->block_defs);
+  if (recycled && bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
+    abort ();
+#endif
 }
 
 
