@@ -1,3 +1,6 @@
+2004-06-08  Dale Johannesen  <dalej@apple.com>
+	* config/rs6000/t-darwin:  Remove duplicate fpsave.
+
 2004-06-08  Andrew Pinski  <pinskia@physics.uc.edu>
 	approved Dale Johannesen <dalej@apple.com>
 	Radar 3683113, PR 15881.
