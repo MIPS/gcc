@@ -102,6 +102,12 @@ int ia64_tls_size = 22;
 /* String used with the -mtls-size= option.  */
 const char *ia64_tls_size_string;
 
+/* Which cpu are we scheduling for.  */
+enum processor_type ia64_cpu;
+
+/* String used with the -mcpu= option.  */
+const char *ia64_cpu_string;
+
 /* Determines whether we run our final scheduling pass or not.  We always
    avoid the normal second scheduling pass.  */
 static int ia64_flag_schedule_insns2;
@@ -4208,6 +4214,20 @@ ia64_init_machine_status ()
 void
 ia64_override_options ()
 {
+  static struct pta
+    {
+      const char *const name;		/* processor name or nickname.  */
+      const enum processor_type processor;
+    }
+  const processor_alias_table[] =
+    {
+      {"itanium", PROCESSOR_ITANIUM},
+      {"itanium2", PROCESSOR_ITANIUM2},
+    };
+
+  int const pta_size = ARRAY_SIZE (processor_alias_table);
+  int i;
+
   if (TARGET_AUTO_PIC)
     target_flags |= MASK_CONST_GP;
 
@@ -4229,6 +4249,19 @@ ia64_override_options ()
       else
 	ia64_tls_size = tmp;
     }
+
+  if (!ia64_cpu_string)
+    ia64_cpu_string = "itanium";
+
+  for (i = 0; i < pta_size; i++)
+    if (! strcmp (ia64_cpu_string, processor_alias_table[i].name))
+      {
+	ia64_cpu = processor_alias_table[i].processor;
+	break;
+      }
+
+  if (i == pta_size)
+    error ("bad value (%s) for -mcpu= switch", ia64_cpu_string);
 
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
@@ -5430,12 +5463,13 @@ static int stop_before_p = 0;
 static int clocks_length;
 
 /* The following array element values are cycles on which the
-   corresponding insn will be issued. */
+   corresponding insn will be issued.  The array is used only for
+   Itanium1.  */
 
 static int *clocks;
 
 /* The following array element values are numbers of cycles should be
-   added to improve insn scheduling for MM_insns for Itanium1. */
+   added to improve insn scheduling for MM_insns for Itanium1.  */
 
 static int *add_cycles;
 
@@ -5700,7 +5734,7 @@ ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
      int *pn_ready;
      int clock_var;
 {
-  if (reload_completed && last_scheduled_insn)
+  if (ia64_cpu == PROCESSOR_ITANIUM && reload_completed && last_scheduled_insn)
     clocks [INSN_UID (last_scheduled_insn)] = clock_var;
   return ia64_dfa_sched_reorder (dump, sched_verbose, ready, pn_ready,
 				 clock_var, 1);
@@ -5795,7 +5829,7 @@ ia64_dfa_new_cycle (dump, verbose, insn, last_clock, clock, sort_p)
     }
   else if (reload_completed)
     setup_clocks_p = TRUE;
-  if (setup_clocks_p)
+  if (setup_clocks_p && ia64_cpu == PROCESSOR_ITANIUM)
     {
       enum attr_itanium_class c = ia64_safe_itanium_class (insn);
       
@@ -6530,69 +6564,73 @@ bundling (dump, verbose, prev_head_insn, tail)
 	    }
 	}
     }
-  /* Insert additional cycles for MM-insns: */
-  for (insn = get_next_important_insn (NEXT_INSN (prev_head_insn), tail);
-       insn != NULL_RTX;
-       insn = next_insn)
-    {
-      if (!INSN_P (insn)
-	  || ia64_safe_itanium_class (insn) == ITANIUM_CLASS_IGNORE
-	  || GET_CODE (PATTERN (insn)) == USE
-	  || GET_CODE (PATTERN (insn)) == CLOBBER)
-	abort ();
-      next_insn = get_next_important_insn (NEXT_INSN (insn), tail);
-      if (INSN_UID (insn) < clocks_length && add_cycles [INSN_UID (insn)])
-	{
-	  rtx last;
-	  int i, j, n;
-	  int pred_stop_p;
-
-	  last = prev_active_insn (insn);
-	  pred_stop_p = recog_memoized (last) == CODE_FOR_insn_group_barrier;
-	  if (pred_stop_p)
-	    last = prev_active_insn (last);
-	  n = 0;
-	  for (;; last = prev_active_insn (last))
-	    if (recog_memoized (last) == CODE_FOR_bundle_selector)
-	      {
-		template0 = XINT (XVECEXP (PATTERN (last), 0, 0), 0);
-		break;
-	      }
-	    else if (recog_memoized (last) != CODE_FOR_insn_group_barrier)
-	      n++;
-	  if ((pred_stop_p && n == 0) || n > 2)
-	    abort ();
-	  for (j = 3 - n; j > 0; j --)
-	    ia64_emit_insn_before (gen_nop (), insn);
-	  add_cycles [INSN_UID (insn)]--;
-	  if (!pred_stop_p || add_cycles [INSN_UID (insn)])
-	    ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
-	  if (pred_stop_p)
-	    add_cycles [INSN_UID (insn)]--;
-	  for (i = add_cycles [INSN_UID (insn)]; i > 0; i--)
-	    {
-	      /* Insert .MII bundle.  */
-	      ia64_emit_insn_before (gen_bundle_selector (GEN_INT (0)), insn);
-	      ia64_emit_insn_before (gen_nop (), insn);
-	      ia64_emit_insn_before (gen_nop (), insn);
-	      if (i > 1)
+  if (ia64_cpu == PROCESSOR_ITANIUM)
+    /* Insert additional cycles for MM-insns: */
+    for (insn = get_next_important_insn (NEXT_INSN (prev_head_insn), tail);
+	 insn != NULL_RTX;
+	 insn = next_insn)
+      {
+	if (!INSN_P (insn)
+	    || ia64_safe_itanium_class (insn) == ITANIUM_CLASS_IGNORE
+	    || GET_CODE (PATTERN (insn)) == USE
+	    || GET_CODE (PATTERN (insn)) == CLOBBER)
+	  abort ();
+	next_insn = get_next_important_insn (NEXT_INSN (insn), tail);
+	if (INSN_UID (insn) < clocks_length && add_cycles [INSN_UID (insn)])
+	  {
+	    rtx last;
+	    int i, j, n;
+	    int pred_stop_p;
+	    
+	    last = prev_active_insn (insn);
+	    pred_stop_p = recog_memoized (last) == CODE_FOR_insn_group_barrier;
+	    if (pred_stop_p)
+	      last = prev_active_insn (last);
+	    n = 0;
+	    for (;; last = prev_active_insn (last))
+	      if (recog_memoized (last) == CODE_FOR_bundle_selector)
 		{
-		  ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
-					 insn);
-		  i--;
+		  template0 = XINT (XVECEXP (PATTERN (last), 0, 0), 0);
+		  break;
 		}
+	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier)
+		n++;
+	    if ((pred_stop_p && n == 0) || n > 2)
+	      abort ();
+	    for (j = 3 - n; j > 0; j --)
 	      ia64_emit_insn_before (gen_nop (), insn);
+	    add_cycles [INSN_UID (insn)]--;
+	    if (!pred_stop_p || add_cycles [INSN_UID (insn)])
 	      ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
 				     insn);
-	    }
-	  ia64_emit_insn_before (gen_bundle_selector (GEN_INT (template0)),
-				 insn);
-	  for (j = n; j > 0; j --)
-	    ia64_emit_insn_before (gen_nop (), insn);
-	  if (pred_stop_p)
-	    ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)), insn);
-	}
-    }
+	    if (pred_stop_p)
+	      add_cycles [INSN_UID (insn)]--;
+	    for (i = add_cycles [INSN_UID (insn)]; i > 0; i--)
+	      {
+		/* Insert .MII bundle.  */
+		ia64_emit_insn_before (gen_bundle_selector (GEN_INT (0)),
+				       insn);
+		ia64_emit_insn_before (gen_nop (), insn);
+		ia64_emit_insn_before (gen_nop (), insn);
+		if (i > 1)
+		  {
+		    ia64_emit_insn_before
+		      (gen_insn_group_barrier (GEN_INT (3)), insn);
+		    i--;
+		  }
+		ia64_emit_insn_before (gen_nop (), insn);
+		ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
+				       insn);
+	      }
+	    ia64_emit_insn_before (gen_bundle_selector (GEN_INT (template0)),
+				   insn);
+	    for (j = n; j > 0; j --)
+	      ia64_emit_insn_before (gen_nop (), insn);
+	    if (pred_stop_p)
+	      ia64_emit_insn_before (gen_insn_group_barrier (GEN_INT (3)),
+				     insn);
+	  }
+      }
   free (index_to_bundle_states);
   finish_bundle_state_table ();
   bundling_p = 0;
@@ -6916,10 +6954,13 @@ ia64_reorg (insns)
       clocks_length = get_max_uid () + 1;
       stops_p = (char *) xmalloc (clocks_length);
       memset (stops_p, 0, clocks_length);
-      clocks = (int *) xmalloc (clocks_length * sizeof (int));
-      memset (clocks, 0, clocks_length * sizeof (int));
-      add_cycles = (int *) xmalloc (clocks_length * sizeof (int));
-      memset (add_cycles, 0, clocks_length * sizeof (int));
+      if (ia64_cpu == PROCESSOR_ITANIUM)
+	{
+	  clocks = (int *) xmalloc (clocks_length * sizeof (int));
+	  memset (clocks, 0, clocks_length * sizeof (int));
+	  add_cycles = (int *) xmalloc (clocks_length * sizeof (int));
+	  memset (add_cycles, 0, clocks_length * sizeof (int));
+	}
       pos_1 = get_cpu_unit_code ("1_1");
       pos_2 = get_cpu_unit_code ("1_2");
       pos_3 = get_cpu_unit_code ("1_3");
@@ -6949,8 +6990,11 @@ ia64_reorg (insns)
       
       schedule_ebbs (rtl_dump_file);
       finish_bundle_states ();
-      free (add_cycles);
-      free (clocks);
+      if (ia64_cpu == PROCESSOR_ITANIUM)
+	{
+	  free (add_cycles);
+	  free (clocks);
+	}
       free (stops_p);
       emit_insn_group_barriers (rtl_dump_file, insns);
 

@@ -205,12 +205,30 @@ extern int ia64_tls_size;
 
 extern const char *ia64_fixed_range_string;
 extern const char *ia64_tls_size_string;
+
+/* Which processor to schedule for. The cpu attribute defines a list
+   that mirrors this list, so changes to i64.md must be made at the
+   same time.  */
+
+enum processor_type
+{
+  PROCESSOR_ITANIUM,			/* Original Itanium. */
+  PROCESSOR_ITANIUM2,
+  PROCESSOR_max
+};
+
+extern enum processor_type ia64_cpu;
+
+extern const char *ia64_cpu_string;
+
 #define TARGET_OPTIONS \
 {									\
   { "fixed-range=", 	&ia64_fixed_range_string,			\
       N_("Specify range of registers to make fixed")},			\
   { "tls-size=",	&ia64_tls_size_string,				\
       N_("Specify bit size of immediate TLS offsets")},			\
+  { "cpu=",		&ia64_cpu_string,				\
+      N_("Schedule code for given CPU")},				\
 }
 
 /* Sometimes certain combinations of command options do not make sense on a

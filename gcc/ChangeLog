@@ -1,4 +1,22 @@
 2002-10-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/ia64/ia64.h (processor_type): New enumeration.
+	(ia64_cpu, ia64_cpu_string): New external declarations.
+	(TARGET_OPTIONS): Add option `cpu='.
+
+	* config/ia64/ia64.c (ia64_cpu, ia64_cpu_string): New global
+	variables.
+	(ia64_override_options): Set up `ia64_cpu'.
+	(ia64_sched_reorder2): Set up `clocks' only for Itanium.
+	(ia64_dfa_new_cycle): Set up `add_cycles' only for Itanium.
+	(bundling): Add nops for MM-insns only for Itanium.
+	(ia64_reorg): Allocate and free `clocks' and `add_cycles' only for
+	Itanium.
+
+	* config/ia64/ia64.md (cpu): New attribute.
+	(DFA description): Enable it only for Itanium.
+	
+2002-10-08  Vladimir Makarov  <vmakarov@redhat.com>
 	    Richard Henderson  <rth@redhat.com>
 
 	* config/ia64/ia64.h (MASK_TUNE_STOP_BITS): Rename it to
