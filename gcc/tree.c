@@ -48,8 +48,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 /* obstack.[ch] explicitly declined to prototype this.  */
 extern int _obstack_allocated_p PARAMS ((struct obstack *h, PTR obj));
 
@@ -4366,8 +4364,6 @@ dump_tree_statistics ()
   (*lang_hooks.print_statistics) ();
 }
 
-#define FILE_FUNCTION_PREFIX_LEN 9
-
 #define FILE_FUNCTION_FORMAT "_GLOBAL__%s_%s"
 
 /* Appends 6 random characters to TEMPLATE to (hopefully) avoid name

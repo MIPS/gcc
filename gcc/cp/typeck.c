@@ -1486,72 +1486,43 @@ comp_target_parms (parms1, parms2)
   return warn_contravariance ? -1 : 1;
 }
 
-/* Compute the value of the `sizeof' operator.  */
-
 tree
-c_sizeof (type)
+cxx_sizeof_or_alignof_type (type, op, complain)
      tree type;
+     enum tree_code op;
+     int complain;
 {
-  enum tree_code code = TREE_CODE (type);
-  tree size;
+  enum tree_code type_code;
+  tree value;
+  const char *op_name;
 
+  my_friendly_assert (op == SIZEOF_EXPR || op == ALIGNOF_EXPR, 20020720);
   if (processing_template_decl)
-    return build_min_nt (SIZEOF_EXPR, type);
+    return build_min_nt (op, type);
+  
+  op_name = operator_name_info[(int) op].name;
+  
+  if (TREE_CODE (type) == REFERENCE_TYPE)
+    type = TREE_TYPE (type);
+  type_code = TREE_CODE (type);
 
-  if (code == FUNCTION_TYPE)
+  if (type_code == METHOD_TYPE)
     {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids applying `sizeof' to a function type");
-      size = size_one_node;
+      if (complain && (pedantic || warn_pointer_arith))
+	pedwarn ("invalid application of `%s' to a member function", op_name);
+      value = size_one_node;
     }
-  else if (code == METHOD_TYPE)
+  else if (type_code == OFFSET_TYPE)
     {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids applying `sizeof' to a member function");
-      size = size_one_node;
+      if (complain)
+	error ("invalid application of `%s' to non-static member", op_name);
+      value = size_zero_node;
     }
-  else if (code == VOID_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("ISO C++ forbids applying `sizeof' to type `void' which is an incomplete type");
-      size = size_one_node;
-    }
-  else if (code == ERROR_MARK)
-    size = size_one_node;
   else
-    {
-      /* ARM $5.3.2: ``When applied to a reference, the result is the
-	 size of the referenced object.'' */
-      if (code == REFERENCE_TYPE)
-	type = TREE_TYPE (type);
+    value = c_sizeof_or_alignof_type (complete_type (type), op, complain);
 
-      if (code == OFFSET_TYPE)
-	{
-	  error ("`sizeof' applied to non-static member");
-	  size = size_zero_node;
-	}
-      else if (!COMPLETE_TYPE_P (complete_type (type)))
-	{
-	  error ("`sizeof' applied to incomplete type `%T'", type);
-	  size = size_zero_node;
-	}
-      else
-	/* Convert in case a char is more than one unit.  */
-	size = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
-			   size_int (TYPE_PRECISION (char_type_node)
-				     / BITS_PER_UNIT));
-    }
-
-  /* SIZE will have an integer type with TYPE_IS_SIZETYPE set.
-     TYPE_IS_SIZETYPE means that certain things (like overflow) will
-     never happen.  However, this node should really have type
-     `size_t', which is just a typedef for an ordinary integer type.  */
-  size = fold (build1 (NOP_EXPR, c_size_type_node, size));
-  my_friendly_assert (!TYPE_IS_SIZETYPE (TREE_TYPE (size)), 
-		      20001021);
-  return size;
+  return value;
 }
-
 
 tree
 expr_sizeof (e)
@@ -1582,44 +1553,9 @@ expr_sizeof (e)
   if (e == error_mark_node)
     return e;
 
-  return c_sizeof (TREE_TYPE (e));
+  return cxx_sizeof (TREE_TYPE (e));
 }
   
-tree
-c_sizeof_nowarn (type)
-     tree type;
-{
-  enum tree_code code = TREE_CODE (type);
-  tree size;
-
-  if (code == FUNCTION_TYPE
-      || code == METHOD_TYPE
-      || code == VOID_TYPE
-      || code == ERROR_MARK)
-    size = size_one_node;
-  else
-    {
-      if (code == REFERENCE_TYPE)
-	type = TREE_TYPE (type);
-
-      if (!COMPLETE_TYPE_P (type))
-	size = size_zero_node;
-      else
-	/* Convert in case a char is more than one unit.  */
-	size = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
-			   size_int (TYPE_PRECISION (char_type_node)
-				     / BITS_PER_UNIT));
-    }
-
-  /* SIZE will have an integer type with TYPE_IS_SIZETYPE set.
-     TYPE_IS_SIZETYPE means that certain things (like overflow) will
-     never happen.  However, this node should really have type
-     `size_t', which is just a typedef for an ordinary integer type.  */
-  size = fold (build1 (NOP_EXPR, c_size_type_node, size));
-  my_friendly_assert (!TYPE_IS_SIZETYPE (TREE_TYPE (size)), 
-		      20001021);
-  return size;
-}
 
 /* Perform the array-to-pointer and function-to-pointer conversions
    for EXP.  
@@ -3176,11 +3112,7 @@ convert_arguments (typelist, values, fndecl, flags)
 	      parmval = convert_for_initialization
 		(NULL_TREE, type, val, flags,
 		 "argument passing", fndecl, i);
-	      if (PROMOTE_PROTOTYPES
-		  && INTEGRAL_TYPE_P (type)
-		  && (TYPE_PRECISION (type)
-		      < TYPE_PRECISION (integer_type_node)))
-		parmval = default_conversion (parmval);
+	      parmval = convert_for_arg_passing (type, parmval);
 	    }
 
 	  if (parmval == error_mark_node)
@@ -4408,7 +4340,7 @@ build_unary_op (code, xarg, noconvert)
 			  ((code == PREINCREMENT_EXPR
 			    || code == POSTINCREMENT_EXPR)
 			   ? "increment" : "decrement"), argtype);
-	    inc = c_sizeof_nowarn (TREE_TYPE (argtype));
+	    inc = cxx_sizeof_nowarn (TREE_TYPE (argtype));
 	  }
 	else
 	  inc = integer_one_node;

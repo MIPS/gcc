@@ -2028,8 +2028,7 @@
 (define_insn "spe_evmra"
   [(set (match_operand:V2SI 0 "gpc_reg_operand" "=r")
         (match_operand:V2SI 1 "gpc_reg_operand" "r"))
-   (set (reg:V2SI SPE_ACC_REGNO)
-	(unspec:V2SI [(match_dup 1)] 726))]
+   (set (reg:V2SI SPE_ACC_REGNO) (match_dup 1))]
   "TARGET_SPE"
   "evmra %0,%1"
   [(set_attr "type" "veccomplex")

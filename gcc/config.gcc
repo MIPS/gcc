@@ -110,6 +110,8 @@
 #  cxx_target_objs	List of extra target-dependent objects that be
 #			linked into the C++ compiler only.
 #
+#  target_gtfiles       List of extra source files with type information.
+#
 #  build_xm_defines	List of macros to define when compiling for the
 #			build machine.
 #
@@ -278,7 +280,7 @@ mips*-*-*)
 	;;
 powerpc*-*-*)
 	cpu_type=rs6000
-	extra_headers="ppc-asm.h altivec.h"
+	extra_headers="ppc-asm.h altivec.h spe.h"
 	;;
 sparc*-*-*)
 	cpu_type=sparc
@@ -1989,7 +1991,7 @@ powerpc-*-darwin*)
 	tm_p_file="${tm_p_file} darwin-protos.h"
 	tmake_file=rs6000/t-darwin
 	extra_objs="darwin.o"
-	config_gtfiles="${config_gtfiles} \$(srcdir)/config/darwin.c"
+	target_gtfiles="\$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
 	# Darwin linker does collect2 functionality
@@ -2025,6 +2027,11 @@ powerpc-*-eabiaix*)
 	xm_defines=POSIX
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/eabiaix.h"
 	tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
+	;;
+powerpc-*-eabispe*)
+	xm_defines=POSIX
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/eabispe.h"
+	tmake_file="rs6000/t-ppcendian rs6000/t-ppccomm"
 	;;
 powerpc-*-eabisimaltivec*)
 	xm_defines=POSIX

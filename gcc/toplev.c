@@ -1,4 +1,3 @@
-
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
@@ -179,6 +178,11 @@ const char *dump_base_name;
    and set by `-m...' switches.  Must be defined in rtlanal.c.  */
 
 extern int target_flags;
+
+/* A mask of target_flags that includes bit X if X was set or cleared
+   on the command line.  */
+
+int target_flags_explicit;
 
 /* Debug hooks - dependent upon command line options.  */
 
@@ -573,9 +577,17 @@ int flag_unsafe_math_optimizations = 0;
 
 /* Zero means that floating-point math operations cannot generate a
    (user-visible) trap.  This is the case, for example, in nonstop
-   IEEE 754 arithmetic.  */
+   IEEE 754 arithmetic.  Trapping conditions include division by zero,
+   overflow, underflow, invalid and inexact, but does not include 
+   operations on signaling NaNs (see below).  */
 
 int flag_trapping_math = 1;
+
+/* Nonzero means disable transformations observable by signaling NaNs.
+   This option implies that any operation on a IEEE signaling NaN can
+   generate a (user-visible) trap.  */
+
+int flag_signaling_nans = 0;
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
@@ -1183,6 +1195,8 @@ static const lang_independent_options f_options[] =
    N_("Floating-point operations can trap") },
   {"unsafe-math-optimizations", &flag_unsafe_math_optimizations, 1,
    N_("Allow math optimizations that may violate IEEE or ANSI standards") },
+  {"signaling-nans", &flag_signaling_nans, 1,
+   N_("Disable optimizations observable by IEEE signaling NaNs") },
   {"bounded-pointers", &flag_bounded_pointers, 1,
    N_("Compile pointers as triples: value, base & end") },
   {"bounds-check", &flag_bounds_check, 1,
@@ -1225,7 +1239,7 @@ documented_lang_options[] =
      enabled by default.  */
 
   { "-ansi",
-    N_("Compile just for ISO C89") },
+    N_("Compile just for ISO C90") },
   { "-std= ",
     N_("Determine language standard") },
 
@@ -1591,6 +1605,8 @@ set_fast_math_flags (set)
   flag_trapping_math = !set;
   flag_unsafe_math_optimizations = set;
   flag_errno_math = !set;
+  if (set)
+    flag_signaling_nans = 0;
 }
 
 /* Return true iff flags are set as if -ffast-math.  */
@@ -2907,6 +2923,8 @@ rest_of_compilation (decl)
 
   if (optimize > 0 && flag_loop_optimize)
     {
+      int do_unroll, do_prefetch;
+
       timevar_push (TV_LOOP);
       delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
@@ -2914,12 +2932,15 @@ rest_of_compilation (decl)
       /* CFG is no longer maintained up-to-date.  */
       free_bb_for_insn ();
 
+      do_unroll = flag_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
+      do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
       if (flag_rerun_loop_opt)
 	{
 	  cleanup_barriers ();
 
 	  /* We only want to perform unrolling once.  */
-	  loop_optimize (insns, rtl_dump_file, LOOP_FIRST_PASS);
+	  loop_optimize (insns, rtl_dump_file, do_unroll);
+	  do_unroll = 0;
 
 	  /* The first call to loop_optimize makes some instructions
 	     trivially dead.  We delete those instructions now in the
@@ -2932,9 +2953,7 @@ rest_of_compilation (decl)
 	  reg_scan (insns, max_reg_num (), 1);
 	}
       cleanup_barriers ();
-      loop_optimize (insns, rtl_dump_file,
-		     (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT
-		     | (flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0));
+      loop_optimize (insns, rtl_dump_file, do_unroll | LOOP_BCT | do_prefetch);
 
       /* Loop can create trivially dead instructions.  */
       delete_trivially_dead_insns (insns, max_reg_num ());
@@ -2981,12 +3000,12 @@ rest_of_compilation (decl)
 	 block.  The loop infrastructure does the real job for us.  */
       flow_loops_find (&loops, LOOP_TREE);
 
+      if (rtl_dump_file)
+	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
+
       /* Estimate using heuristics if no profiling info is available.  */
       if (flag_guess_branch_prob)
 	estimate_probability (&loops);
-
-      if (rtl_dump_file)
-	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
 
       flow_loops_free (&loops);
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
@@ -4438,6 +4457,13 @@ set_target_switch (name)
 	  target_flags &= ~-target_switches[j].value;
 	else
 	  target_flags |= target_switches[j].value;
+	if (name[0] != 0)
+	  {
+	    if (target_switches[j].value < 0)
+	      target_flags_explicit |= -target_switches[j].value;
+	    else
+	      target_flags_explicit |= target_switches[j].value;
+	  }
 	valid_target_option = 1;
       }
 
@@ -5102,6 +5128,10 @@ process_options ()
   if (flag_function_sections && write_symbols != NO_DEBUG)
     warning ("-ffunction-sections may affect debugging on some targets");
 #endif
+
+    /* The presence of IEEE signaling NaNs, implies all math can trap.  */
+    if (flag_signaling_nans)
+      flag_trapping_math = 1;
 
   /* -ftree-ssa and -fdisable-simple cannot be used together because the
      tree SSA code can only use SIMPLE trees.  */

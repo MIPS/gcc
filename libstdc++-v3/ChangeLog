@@ -1,3 +1,85 @@
+2002-07-26  Phil Edwards  <pme@gcc.gnu.org>
+
+	* libsupc++/new (placement delete):  Remove unused paramater names.
+
+2002-07-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7216
+	* include/std/std_istream.h (basic_iostream): Add typedefs for
+	char_type, int_type, pos_type, off_type, and traits_type.
+	* testsuite/27_io/iostream.cc (test01): Add typedef tests.
+	* testsuite/27_io/istream.cc: Same.
+	* testsuite/27_io/ostream.cc: Same.
+	* testsuite/27_io/filebuf.cc: Same.
+	* testsuite/27_io/stringbuf.cc: Replace content, move to...
+	* testsuite/27_io/stringbuf_members.cc: ...here.	
+	* testsuite/27_io/streambuf.cc: Replace content, move to...
+	* testsuite/27_io/streambuf_members.cc: ...here.	
+	* testsuite/27_io/stringstream.cc: Replace content, move to...
+	* testsuite/27_io/stringstream_members.cc: ...here.
+	* testsuite/27_io/ios.cc: New file.
+	* testsuite/27_io/fstream.cc: New file.
+	* testsuite/27_io/ifstream.cc: New file.	
+	* testsuite/27_io/ofstream.cc: New file.		
+	* testsuite/27_io/istringstream.cc: New file.	
+	* testsuite/27_io/ostringstream.cc: New file.	
+	
+2002-07-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7220
+	* include/bits/istream.tcc (istream::ignore): Don't extract on
+	zero.
+	* testsuite/27_io/istream_unformatted.cc (test10): Add.
+	
+2002-07-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/ios_base_type.cc: Move to...
+	* testsuite/27_io/ios_base_types.cc: ...here.
+	
+2002-07-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7222
+	* src/locale.cc (locale::locale(const char*)): Use setlocale NULL.
+	* testsuite/22_locale/ctor_copy_dtor.cc (test02): New.
+	
+2002-07-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7230
+	* config/linker-map.gnu: Revert strstream patch from 2002-07-01.
+	* include/Makefile.am (backward_headers): Use strstream, not
+	strstream.h.
+	* include/Makefile.in: Regenerate.
+	* include/backward/strstream: Revert.
+	* include/backward/strstream.h: Remove.
+	* src/strstream.cc: Revert.
+	* testsuite/backward/strstream_members.cc: Change include.	
+
+2002-07-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7219
+	* include/bits/ios_base.h (ios_base::streampos): Add.
+	(ios_base::streamoff): Add.
+	* testsuite/27_io/ios_base_type.cc: New.
+	
+2002-07-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7286
+	* libsupc++/new: Add placement delete.
+	* testsuite/18_support/new_delete_placement.cc: New.
+
+	* docs/html/abi.txt: Fix typos.
+	
+2002-07-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/documentation.html: Remove libstdc++-v3.0.86 links,
+	confusing usage of "latest."
+	De-tangle contributor information from introductory notes.
+	Move abi.txt link placement, activate.
+	Re-organize.
+	Move chapter info into old FAQ format. 
+	* docs/html/organization.html: Removed, obsoleted by doxygen work.
+	* docs/html/abi.txt: Add notes on testing ABI changes.
+	
 2002-07-20  Phil Edwards  <pme@gcc.gnu.org>
 
 	* docs/html/abi.txt:  New file.

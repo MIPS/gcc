@@ -75,7 +75,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    must define both, or neither.  */
 #ifndef NAME__MAIN
 #define NAME__MAIN "__main"
-#define SYMBOL__MAIN __main
 #endif
 
 /* Round a value to the lowest integer less than it that is a multiple of
@@ -4423,6 +4422,15 @@ assign_parms (fndecl)
 	  )
 	{
 	  passed_type = nominal_type = build_pointer_type (passed_type);
+	  passed_pointer = 1;
+	  passed_mode = nominal_mode = Pmode;
+	}
+      /* See if the frontend wants to pass this by invisible reference.  */
+      else if (passed_type != nominal_type
+	       && POINTER_TYPE_P (passed_type)
+	       && TREE_TYPE (passed_type) == nominal_type)
+	{
+	  nominal_type = passed_type;
 	  passed_pointer = 1;
 	  passed_mode = nominal_mode = Pmode;
 	}

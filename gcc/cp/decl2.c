@@ -331,10 +331,6 @@ int flag_conserve_space;
 
 int flag_access_control = 1;
 
-/* Nonzero if we want to understand the operator names, i.e. 'bitand'.  */
-
-int flag_operator_names = 1;
-
 /* Nonzero if we want to check the return value of new and avoid calling
    constructors if it is a null pointer.  */
 
@@ -420,7 +416,6 @@ lang_f_options[] =
   {"implicit-templates", &flag_implicit_templates, 1},
   {"ms-extensions", &flag_ms_extensions, 1},
   {"nonansi-builtins", &flag_no_nonansi_builtin, 0},
-  {"operator-names", &flag_operator_names, 1},
   {"optional-diags", &flag_optional_diags, 1},
   {"permissive", &flag_permissive, 1},
   {"repo", &flag_use_repository, 1},
@@ -539,6 +534,8 @@ cxx_decode_option (argc, argv)
 	  warning ("-fname-mangling-version is no longer supported");
 	  return 1;
 	}
+      else if ((option_value = skip_leading_substring (p, "no-builtin-")))
+	disable_builtin_function (option_value);
       else if (dump_switch_p (p))
 	;
       else 
@@ -650,14 +647,6 @@ cxx_decode_option (argc, argv)
 	warn_nontemplate_friend = setting;
       else if (!strcmp (p, "deprecated"))
         warn_deprecated = setting;
-      else if (!strcmp (p, "comment"))
-	;			/* cpp handles this one.  */
-      else if (!strcmp (p, "comments"))
-	;			/* cpp handles this one.  */
-      else if (!strcmp (p, "trigraphs"))
-	;			/* cpp handles this one.  */
-      else if (!strcmp (p, "import"))
-	;			/* cpp handles this one.  */
       else if (!strcmp (p, "all"))
 	{
 	  warn_return_type = setting;
@@ -808,6 +797,19 @@ grok_x_components (specs)
   finish_member_declaration (build_decl (FIELD_DECL, NULL_TREE, t)); 
 }
 
+/* Build a PARM_DECL with NAME and TYPE, and set DECL_ARG_TYPE
+   appropriately.  */
+
+tree
+cp_build_parm_decl (name, type)
+     tree name;
+     tree type;
+{
+  tree parm = build_decl (PARM_DECL, name, type);
+  DECL_ARG_TYPE (parm) = type_passed_as (type);
+  return parm;
+}
+
 /* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
    indicated NAME.  */
 
@@ -816,14 +818,11 @@ build_artificial_parm (name, type)
      tree name;
      tree type;
 {
-  tree parm;
-
-  parm = build_decl (PARM_DECL, name, type);
+  tree parm = cp_build_parm_decl (name, type);
   DECL_ARTIFICIAL (parm) = 1;
   /* All our artificial parms are implicitly `const'; they cannot be
      assigned to.  */
   TREE_READONLY (parm) = 1;
-  DECL_ARG_TYPE (parm) = type;
   return parm;
 }
 
@@ -2866,16 +2865,13 @@ start_static_storage_duration_function ()
   VARRAY_PUSH_TREE (ssdf_decls, ssdf_decl);
 
   /* Create the argument list.  */
-  initialize_p_decl = build_decl (PARM_DECL,
-				  get_identifier (INITIALIZE_P_IDENTIFIER),
-				  integer_type_node);
+  initialize_p_decl = cp_build_parm_decl
+    (get_identifier (INITIALIZE_P_IDENTIFIER), integer_type_node);
   DECL_CONTEXT (initialize_p_decl) = ssdf_decl;
-  DECL_ARG_TYPE (initialize_p_decl) = integer_type_node;
   TREE_USED (initialize_p_decl) = 1;
-  priority_decl = build_decl (PARM_DECL, get_identifier (PRIORITY_IDENTIFIER),
-			      integer_type_node);
+  priority_decl = cp_build_parm_decl
+    (get_identifier (PRIORITY_IDENTIFIER), integer_type_node);
   DECL_CONTEXT (priority_decl) = ssdf_decl;
-  DECL_ARG_TYPE (priority_decl) = integer_type_node;
   TREE_USED (priority_decl) = 1;
 
   TREE_CHAIN (initialize_p_decl) = priority_decl;
@@ -3779,7 +3775,7 @@ build_expr_from_tree (t)
 	if (!TYPE_P (r))
 	  return TREE_CODE (t) == SIZEOF_EXPR ? expr_sizeof (r) : c_alignof_expr (r);
 	else
-	  return TREE_CODE (t) == SIZEOF_EXPR ? c_sizeof (r) : c_alignof (r);
+	  return cxx_sizeof_or_alignof_type (r, TREE_CODE (t), true);
       }
 
     case MODOP_EXPR:

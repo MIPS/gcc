@@ -23,6 +23,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_DEFAULTS_H
 #define GCC_DEFAULTS_H
 
+#ifndef GET_ENVIRONMENT
+#define GET_ENVIRONMENT(VALUE, NAME) do { (VALUE) = getenv (NAME); } while (0)
+#endif
+
+#define obstack_chunk_alloc xmalloc
+#define obstack_chunk_free free
+
 /* Define default standard character escape sequences.  */
 #ifndef TARGET_BELL
 #  define TARGET_BELL 007
@@ -159,6 +166,53 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
         ASM_OUTPUT_DEF (STREAM, NAME, VALUE);		\
     }							\
   while (0)
+#endif
+#endif
+
+/* How to emit a .type directive.  */
+#ifndef ASM_OUTPUT_TYPE_DIRECTIVE
+#if defined TYPE_ASM_OP && defined TYPE_OPERAND_FMT
+#define ASM_OUTPUT_TYPE_DIRECTIVE(STREAM, NAME, TYPE)	\
+  do							\
+    {							\
+      fputs (TYPE_ASM_OP, STREAM);			\
+      assemble_name (STREAM, NAME);			\
+      fputs (", ", STREAM);				\
+      fprintf (STREAM, TYPE_OPERAND_FMT, TYPE);		\
+      putc ('\n', STREAM);				\
+    }							\
+  while (0)
+#endif
+#endif
+
+/* How to emit a .size directive.  */
+#ifndef ASM_OUTPUT_SIZE_DIRECTIVE
+#ifdef SIZE_ASM_OP
+#define ASM_OUTPUT_SIZE_DIRECTIVE(STREAM, NAME, SIZE)	\
+  do							\
+    {							\
+      HOST_WIDE_INT size_ = (SIZE);			\
+      fputs (SIZE_ASM_OP, STREAM);			\
+      assemble_name (STREAM, NAME);			\
+      fputs (", ", STREAM);				\
+      fprintf (STREAM, HOST_WIDE_INT_PRINT_DEC, size_);	\
+      putc ('\n', STREAM);				\
+    }							\
+  while (0)
+
+#define ASM_OUTPUT_MEASURED_SIZE(STREAM, BEG, END)	\
+  do							\
+    {							\
+      fputs (SIZE_ASM_OP, STREAM);			\
+      assemble_name (STREAM, BEG);			\
+      fputs (", ", STREAM);				\
+      assemble_name (STREAM, END);			\
+      putc ('-', STREAM);				\
+      assemble_name (STREAM, BEG);			\
+      putc ('\n', STREAM);				\
+    }							\
+  while (0)
+
 #endif
 #endif
 

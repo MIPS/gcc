@@ -713,7 +713,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-format.o c-semantics.o \
-  c-objc-common.o libcpp.a $(C_TARGET_OBJS) \
+  c-objc-common.o c-dump.o libcpp.a $(C_TARGET_OBJS) \
   tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o c-pretty-print.o \
   c-simplify.o c-call-graph.o tree-simple.o simple-break-elim.o \
   simple-goto-elim.o tree-dchain.o tree-ssa-pre.o tree-alias-type.o \
@@ -1255,6 +1255,8 @@ c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
 	flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(PREDICT_H)
 
+c-dump.o : c-dump.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) tree-dump.h
+
 # Language-independent files.
 
 DRIVER_DEFINES = \
@@ -1440,7 +1442,7 @@ print-rtl.o : print-rtl.c $(GCONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 rtlanal.o : rtlanal.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) \
-   hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H) flags.h
+   hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H) real.h flags.h
 
 errors.o : errors.c $(GCONFIG_H) $(SYSTEM_H) errors.h
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
@@ -2080,9 +2082,17 @@ gengtype-yacc.o : gengtype-yacc.c gengtype.h $(HCONFIG_H) $(SYSTEM_H)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
 	  $(srcdir)/gengtype-yacc.c $(OUTPUT_OPTION)
 
+# The sed command works around a bug in flex-2.5.4.
 $(srcdir)/gengtype-lex.c : $(srcdir)/gengtype-lex.l
-	$(FLEX) $(FLEXFLAGS) -o$@ $(srcdir)/gengtype-lex.l \
-	 || ( rm -f $@ && false )
+	cd $(srcdir) && \
+	$(FLEX) $(FLEXFLAGS) -t -o$@ $(srcdir)/gengtype-lex.l | \
+	  sed 's/^\(char msg\[\];\)/yyconst \1/' > g-$$$$ ; \
+	if test $$? -eq 0 ; then \
+	  mv -f g-$$$$ gengtype-lex.c ; \
+	else \
+	  rm -f g-$$$$.* ; \
+	  false ; \
+	fi
 
 $(srcdir)/gengtype-yacc.c: $(srcdir)/gengtype-yacc.y
 	(cd $(srcdir) && \

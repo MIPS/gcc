@@ -1,3 +1,69 @@
+2002-07-26  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad/Wunused.c, gcc.dg/cpp/Wunused.c: Add test
+	for documented behaviour.
+
+2002-07-25  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020720-1.x: Skip this test on
+	several targets known to fail.
+
+2002-07-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/mips-args-[123].c: New tests.
+
+2002-07-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/ppc-spe.c: New.
+
+2002-07-24  Geoffrey Keating  <geoffk@redhat.com>
+
+	* g++.dg/other/ptrmem4.C: New testcase.
+
+2002-07-24  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/loop-2e.c: Rewrite for 64 bit and no mmap.
+	
+2002-07-24  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* g++.dg/ext/alignof1.C (main): Return 0 for success.
+
+2002-07-24  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/memset-3.c: New testcase.
+
+2002-07-24  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/trad/Wunused.c, gcc.dg/cpp/trad/Wunused.h,
+	gcc.dg/cpp/Wunused.c, gcc.dg/cpp/Wunused.h: New tests.
+
+2002-07-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/va-arg-15.x, va-arg-16.x, va-arg-17.x:
+	Delete.
+
+Tue Jul 23 21:02:43 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/compile/simd-4.c: New test.
+
+2002-07-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7347, c++/7348
+	* g++.dg/template/access4.C: New test.
+	* g++.dg/template/access5.C: New test.
+	* g++.old-deja/g++.pt/memtemp85.C: Fix access problem.
+	* g++.old-deja/g++.pt/memtemp86.C: Likewise.
+	* g++.old-deja/g++.pt/ttp58.C: Likewise.
+	* g++.old-deja/g++.pt/memtemp89.C: Remove XFAIL.
+
+2002-07-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gnu89-init-2.c: New test.
+
+2002-07-21  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* gcc.dg/c90-arraydecl-1.c: Change C89 too C90.
+
 2002-07-20  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.c-torture/execute/20020720-1.c: New testcase.

@@ -165,8 +165,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cselib.h"
 
 #include "obstack.h"
-#define obstack_chunk_alloc gmalloc
-#define obstack_chunk_free free
 
 /* Propagate flow information through back edges and thus enable PRE's
    moving loop invariant calculations out of loops.
@@ -179,7 +177,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    be done by loop.c, which has more heuristics for when to move invariants
    out of loops.  At some point we might need to move some of those
    heuristics into gcse.c.  */
-#define FOLLOW_BACK_EDGES 1
 
 /* We support GCSE via Partial Redundancy Elimination.  PRE optimizations
    are a superset of those done by GCSE.
@@ -971,14 +968,13 @@ grealloc (ptr, size)
   return xrealloc (ptr, size);
 }
 
-/* Cover function to obstack_alloc.
-   We don't need to record the bytes allocated here since
-   obstack_chunk_alloc is set to gmalloc.  */
+/* Cover function to obstack_alloc.  */
 
 static char *
 gcse_alloc (size)
      unsigned long size;
 {
+  bytes_used += size;
   return (char *) obstack_alloc (&gcse_obstack, size);
 }
 
@@ -1290,10 +1286,6 @@ compute_sets (f)
 }
 
 /* Hash table support.  */
-
-/* For each register, the cuid of the first/last insn in the block
-   that set it, or -1 if not set.  */
-#define NEVER_SET -1
 
 struct reg_avail_info
 {
@@ -3975,10 +3967,9 @@ try_replace_reg (from, to, insn)
   int success = 0;
   rtx set = single_set (insn);
 
-  if (reg_mentioned_p (from, PATTERN (insn)))
-    {
-      success = validate_replace_src (from, to, insn);
-    }
+  validate_replace_src_group (from, to, insn);
+  if (num_changes_pending () && apply_change_group ())
+    success = 1;
 
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
@@ -4312,9 +4303,18 @@ do_local_cprop (x, insn, alter_jumps)
       for (l = val->locs; l; l = l->next)
 	{
 	  rtx this_rtx = l->loc;
+	  rtx note;
+
 	  if (CONSTANT_P (this_rtx))
 	    newcnst = this_rtx;
-	  if (REG_P (this_rtx) && REGNO (this_rtx) >= FIRST_PSEUDO_REGISTER)
+	  if (REG_P (this_rtx) && REGNO (this_rtx) >= FIRST_PSEUDO_REGISTER
+	      /* Don't copy propagate if it has attached REG_EQUIV note.
+		 At this point this only function parameters should have
+		 REG_EQUIV notes and if the argument slot is used somewhere
+		 explicitly, it means address of parameter has been taken,
+		 so we should not extend the lifetime of the pseudo.  */
+	      && (!(note = find_reg_note (l->setting_insn, REG_EQUIV, NULL_RTX))
+		  || GET_CODE (XEXP (note, 0)) != MEM))
 	    newreg = this_rtx;
 	}
       if (newcnst && constprop_register (insn, x, newcnst, alter_jumps))

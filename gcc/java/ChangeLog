@@ -1,3 +1,17 @@
+2002-07-22  Tom Tromey  <tromey@redhat.com>
+
+	* lex.c (java_lex): Check for `e' or `E' after 0.
+
+2002-07-21  Richard Henderson  <rth@redhat.com>
+
+	* lang.c (java_unsafe_for_reeval): New.
+	(LANG_HOOKS_UNSAFE_FOR_REEVAL): New.
+
+2002-07-21  Neil Booth  <neil@daikokuya.co.uk>
+
+	* jcf-path.c (GET_ENV_PATH_LIST): Remove.
+	(jcf_path_init): Use GET_ENVIRONMENT.
+
 2002-07-10  Roger Sayle  <roger@eyesopen.com>
 	    Zack Weinberg <zack@codesourcery.com>
 

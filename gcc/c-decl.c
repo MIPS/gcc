@@ -457,16 +457,13 @@ c_decode_option (argc, argv)
   static const struct {
       /* The name of the option.  */
       const char *option;
-      /* If non-NULL, a flag variable to set to 0 or 1.  If NULL,
-         this means that cpp handles this option.  */
+      /* A pointer to a flag variable to set to 0 or 1.  */
       int *flag;
   } warn_options[] = {
     /* This list is in alphabetical order.  Keep it like that.  */
     { "bad-function-cast", &warn_bad_function_cast },
     { "cast-qual", &warn_cast_qual },
     { "char-subscripts", &warn_char_subscripts },
-    { "comment", NULL },
-    { "comments", NULL },
     { "conversion", &warn_conversion },
     { "div-by-zero", &warn_div_by_zero },
     { "float-equal", &warn_float_equal },
@@ -477,7 +474,6 @@ c_decode_option (argc, argv)
     { "format-y2k", &warn_format_y2k },
     { "implicit-function-declaration", &mesg_implicit_function_declaration },
     { "implicit-int", &warn_implicit_int },
-    { "import", NULL },
     { "long-long", &warn_long_long },
     { "main", &warn_main },
     { "missing-braces", &warn_missing_braces },
@@ -495,8 +491,6 @@ c_decode_option (argc, argv)
     { "sign-compare", &warn_sign_compare },
     { "strict-prototypes", &warn_strict_prototypes },
     { "traditional", &warn_traditional },
-    { "trigraphs", NULL },
-    { "undef", NULL },
     { "write-strings", &flag_const_strings }
   };
 
@@ -697,7 +691,6 @@ c_decode_option (argc, argv)
       size_t i;
       for (i = 0; i < ARRAY_SIZE (warn_options); i++)
 	if (strncmp (p, "-W", 2) == 0 
-	    && warn_options[i].flag
 	    && (strcmp (p+2, warn_options[i].option) == 0
 		|| (strncmp (p+2, "no-", 3) == 0
 		    && strcmp (p+5, warn_options[i].option) == 0)))
@@ -2976,10 +2969,6 @@ builtin_function (name, type, function_code, class, library_name, attrs)
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
 
-  /* The return builtins leave the current function.  */
-  if (function_code == BUILT_IN_RETURN || function_code == BUILT_IN_EH_RETURN)
-    TREE_THIS_VOLATILE (decl) = 1;
-
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
   if (name[0] != '_' || name[1] != '_')
@@ -3118,9 +3107,9 @@ build_array_declarator (expr, quals, static_p, vla_unspec_p)
   if (pedantic && !flag_isoc99)
     {
       if (static_p || quals != NULL_TREE)
-	pedwarn ("ISO C89 does not support `static' or type qualifiers in parameter array declarators");
+	pedwarn ("ISO C90 does not support `static' or type qualifiers in parameter array declarators");
       if (vla_unspec_p)
-	pedwarn ("ISO C89 does not support `[*]' array declarators");
+	pedwarn ("ISO C90 does not support `[*]' array declarators");
     }
   if (vla_unspec_p)
     warning ("GCC does not yet properly implement `[*]' array declarators");
@@ -3650,6 +3639,7 @@ build_compound_literal (type, init)
   DECL_CONTEXT (decl) = current_function_decl;
   TREE_USED (decl) = 1;
   TREE_TYPE (decl) = type;
+  TREE_READONLY (decl) = TREE_READONLY (type);
   store_init_value (decl, init);
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
@@ -3672,12 +3662,18 @@ build_compound_literal (type, init)
   if (TREE_STATIC (decl))
     {
       /* This decl needs a name for the assembler output.  We also need
-	 a unique suffix to be added to the name, for which DECL_CONTEXT
-	 must be set.  */
-      DECL_NAME (decl) = get_identifier ("__compound_literal");
-      DECL_CONTEXT (decl) = complit;
+	 a unique suffix to be added to the name.  */
+      char *name;
+      extern int var_labelno;
+
+      ASM_FORMAT_PRIVATE_NAME (name, "__compound_literal", var_labelno);
+      var_labelno++;
+      DECL_NAME (decl) = get_identifier (name);
+      DECL_DEFER_OUTPUT (decl) = 1;
+      DECL_COMDAT (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      pushdecl (decl);
       rest_of_decl_compilation (decl, NULL, 1, 0);
-      DECL_CONTEXT (decl) = NULL_TREE;
     }
 
   return complit;
@@ -3912,7 +3908,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		    {
 		      if (pedantic && !flag_isoc99 && ! in_system_header
 			  && warn_long_long)
-			pedwarn ("ISO C89 does not support `long long'");
+			pedwarn ("ISO C90 does not support `long long'");
 		      longlong = 1;
 		    }
 		}
@@ -4113,7 +4109,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
   if (specbits & 1 << (int) RID_COMPLEX)
     {
       if (pedantic && !flag_isoc99)
-	pedwarn ("ISO C89 does not support complex types");
+	pedwarn ("ISO C90 does not support complex types");
       /* If we just have "complex", it is equivalent to
 	 "complex double", but if any modifiers at all are specified it is
 	 the complex form of TYPE.  E.g, "complex short" is
@@ -4391,10 +4387,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		  if (!flag_isoc99 && pedantic)
 		    {
 		      if (TREE_CONSTANT (size))
-			pedwarn ("ISO C89 forbids array `%s' whose size can't be evaluated",
+			pedwarn ("ISO C90 forbids array `%s' whose size can't be evaluated",
 				 name);
 		      else
-			pedwarn ("ISO C89 forbids variable-size array `%s'",
+			pedwarn ("ISO C90 forbids variable-size array `%s'",
 				 name);
 		    }
 		}
@@ -4437,7 +4433,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  else if (decl_context == FIELD)
 	    {
 	      if (pedantic && !flag_isoc99 && !in_system_header)
-		pedwarn ("ISO C89 does not support flexible array members");
+		pedwarn ("ISO C90 does not support flexible array members");
 
 	      /* ISO C99 Flexible array members are effectively identical
 		 to GCC's zero-length array extension.  */

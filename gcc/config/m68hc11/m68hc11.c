@@ -660,7 +660,7 @@ go_if_legitimate_address_internal (operand, mode, strict)
      enum machine_mode mode;
      int strict;
 {
-  if (CONSTANT_ADDRESS_P (operand))
+  if (CONSTANT_ADDRESS_P (operand) && TARGET_M6812)
     {
       /* Reject the global variables if they are too wide.  This forces
          a load of their address in a register and generates smaller code.  */
@@ -4877,6 +4877,7 @@ m68hc11_z_replacement (insn)
 
       body = PATTERN (insn);
       if (GET_CODE (body) == SET || GET_CODE (body) == PARALLEL
+          || GET_CODE (body) == ASM_OPERANDS
 	  || GET_CODE (insn) == CALL_INSN || GET_CODE (insn) == JUMP_INSN)
 	{
           rtx note;

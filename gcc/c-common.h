@@ -93,11 +93,6 @@ enum rid
   /* casts */
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
 
-  /* alternate spellings */
-  RID_AND, RID_AND_EQ, RID_NOT, RID_NOT_EQ,
-  RID_OR,  RID_OR_EQ,  RID_XOR, RID_XOR_EQ,
-  RID_BITAND, RID_BITOR, RID_COMPL,
-
   /* Objective C */
   RID_ID,          RID_AT_ENCODE,    RID_AT_END,
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
@@ -548,12 +543,14 @@ extern tree c_common_signed_type		PARAMS ((tree));
 extern tree c_common_signed_or_unsigned_type	PARAMS ((int, tree));
 extern tree c_common_truthvalue_conversion	PARAMS ((tree));
 extern void c_apply_type_quals_to_decl		PARAMS ((int, tree));
-extern tree c_sizeof				PARAMS ((tree));
-extern tree c_alignof				PARAMS ((tree));
+extern tree c_sizeof_or_alignof_type	PARAMS ((tree, enum tree_code, int));
 extern tree c_alignof_expr			PARAMS ((tree));
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
 extern void binary_op_error			PARAMS ((enum tree_code));
+#define my_friendly_assert(EXP, N) (void) \
+ (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
+
 extern tree c_expand_expr_stmt			PARAMS ((tree));
 extern void c_expand_start_cond			PARAMS ((tree, int, tree));
 extern void c_finish_then                       PARAMS ((void));
@@ -573,6 +570,8 @@ extern void unsigned_conversion_warning		PARAMS ((tree, tree));
 /* Read the rest of the current #-directive line.  */
 extern char *get_directive_line			PARAMS ((void));
 #define GET_DIRECTIVE_LINE() get_directive_line ()
+#define c_sizeof(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 1)
+#define c_alignof(T) c_sizeof_or_alignof_type (T, ALIGNOF_EXPR, 1)
 
 /* Subroutine of build_binary_op, used for comparison operations.
    See if the operands have both been converted from subword integer types
@@ -907,5 +906,7 @@ struct c_fileinfo
 
 struct c_fileinfo *get_fileinfo			PARAMS ((const char *));
 extern void dump_time_statistics		PARAMS ((void));
+
+extern int c_dump_tree				PARAMS ((void *, tree));
 
 #endif /* ! GCC_C_COMMON_H */

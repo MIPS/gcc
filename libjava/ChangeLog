@@ -1,3 +1,60 @@
+2002-07-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/Authenticator.java: New version from Classpath.
+	* java/net/DatagramSocketImpl.java: New version from Classpath.
+
+2002-07-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure.host: Add powerpc64*-* entry.
+
+2002-07-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/natFileDescriptorPosix.cc: Don't include sys/socket.h or
+	fcntl.h.
+
+2002-07-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Runtime.java (loadLibrary): Pass `true' as search
+	argument to _load.
+
+2002-07-24  Tom Tromey  <tromey@redhat.com>
+            Tony Kimball <alk@pobox.com>
+
+	* java/io/natFileDescriptorWin32.cc (setLength): New method.
+	* java/io/natFileDescriptorPosix.cc (setLength): New method.
+	* java/io/RandomAccessFile.java (setLength): New method.
+	* java/io/natFileDescriptorEcos.cc (setLength): New method.
+	* java/io/FileDescriptor.java (setLength): New method.
+
+2002-07-24  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/reflect/natField.cc (setAddr): Check isAccessible().
+	* java/io/ObjectInputStream.java (setBooleanField): Before setting
+	field call setAccessible(true).
+	(setByteField): Likewise.
+	(setCharField): Likewise.
+	(setDoubleField): Likewise.
+	(setFloatField): Likewise.
+	(setIntField): Likewise.
+	(setLongField): Likewise.
+	(setShortField): Likewise.
+	(setObjectField): Likewise.
+
+2002-07-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/ObjectInputStream.java (readObject) [TC_ARRAY]: Don't
+	use toString() to format array element.
+
+2002-07-23  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/security/provider/MD5.java: Extends MessageDigest, not
+	MessageDigestSpi (fixes Classpath bug #783).
+
+2002-07-21  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/security/provider/Gnu.java: Reference all implementation
+	classes by using Class.getName().
+
 2002-07-19  Bo Thorsen  <bo@berlioz.suse.de>
 
 	* java/lang/ieeefp.h: Add x86-64 support.

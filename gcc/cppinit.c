@@ -29,12 +29,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "mkdeps.h"
 #include "cppdefault.h"
 
-/* Predefined symbols, built-in macros, and the default include path.  */
-
-#ifndef GET_ENV_PATH_LIST
-#define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
-#endif
-
 /* Windows does not natively support inodes, and neither does MSDOS.
    Cygwin's emulation can generate non-unique inodes, so don't use it.
    VMS has non-numeric inodes.  */
@@ -729,23 +723,23 @@ init_standard_includes (pfile)
      etc. specify an additional list of directories to be searched as
      if specified with -isystem, for the language indicated.  */
 
-  GET_ENV_PATH_LIST (path, "CPATH");
+  GET_ENVIRONMENT (path, "CPATH");
   if (path != 0 && *path != 0)
     path_include (pfile, path, BRACKET);
 
   switch ((CPP_OPTION (pfile, objc) << 1) + CPP_OPTION (pfile, cplusplus))
     {
     case 0:
-      GET_ENV_PATH_LIST (path, "C_INCLUDE_PATH");
+      GET_ENVIRONMENT (path, "C_INCLUDE_PATH");
       break;
     case 1:
-      GET_ENV_PATH_LIST (path, "CPLUS_INCLUDE_PATH");
+      GET_ENVIRONMENT (path, "CPLUS_INCLUDE_PATH");
       break;
     case 2:
-      GET_ENV_PATH_LIST (path, "OBJC_INCLUDE_PATH");
+      GET_ENVIRONMENT (path, "OBJC_INCLUDE_PATH");
       break;
     case 3:
-      GET_ENV_PATH_LIST (path, "OBJCPLUS_INCLUDE_PATH");
+      GET_ENVIRONMENT (path, "OBJCPLUS_INCLUDE_PATH");
       break;
     }
   if (path != 0 && *path != 0)
@@ -1015,6 +1009,8 @@ cpp_finish_options (pfile)
       _cpp_maybe_push_include_file (pfile);
     }
 
+  pfile->first_unused_line = pfile->line;
+
   free_chain (CPP_OPTION (pfile, pending)->imacros_head);
   free_chain (CPP_OPTION (pfile, pending)->directive_head);
 }
@@ -1087,6 +1083,10 @@ void
 cpp_finish (pfile)
      cpp_reader *pfile;
 {
+  /* Warn about unused macros before popping the final buffer.  */
+  if (CPP_OPTION (pfile, warn_unused_macros))
+    cpp_forall_identifiers (pfile, _cpp_warn_if_unused_macro, NULL);
+
   /* cpplex.c leaves the final buffer on the stack.  This it so that
      it returns an unending stream of CPP_EOFs to the client.  If we
      popped the buffer, we'd dereference a NULL buffer pointer and
@@ -1171,10 +1171,12 @@ new_pending_directive (pend, text, handler)
   DEF_OPT("Wno-traditional",          0,      OPT_Wno_traditional)            \
   DEF_OPT("Wno-trigraphs",            0,      OPT_Wno_trigraphs)              \
   DEF_OPT("Wno-undef",                0,      OPT_Wno_undef)                  \
+  DEF_OPT("Wno-unused-macros",        0,      OPT_Wno_unused_macros)          \
   DEF_OPT("Wsystem-headers",          0,      OPT_Wsystem_headers)            \
   DEF_OPT("Wtraditional",             0,      OPT_Wtraditional)               \
   DEF_OPT("Wtrigraphs",               0,      OPT_Wtrigraphs)                 \
   DEF_OPT("Wundef",                   0,      OPT_Wundef)                     \
+  DEF_OPT("Wunused-macros",           0,      OPT_Wunused_macros)             \
   DEF_OPT("d",                        no_arg, OPT_d)                          \
   DEF_OPT("fno-operator-names",       0,      OPT_fno_operator_names)         \
   DEF_OPT("fno-preprocessed",         0,      OPT_fno_preprocessed)           \
@@ -1696,6 +1698,13 @@ cpp_handle_option (pfile, argc, argv)
 	case OPT_Wno_comment:
 	case OPT_Wno_comments:
 	  CPP_OPTION (pfile, warn_comments) = 0;
+	  break;
+
+	case OPT_Wunused_macros:
+	  CPP_OPTION (pfile, warn_unused_macros) = 1;
+	  break;
+	case OPT_Wno_unused_macros:
+	  CPP_OPTION (pfile, warn_unused_macros) = 0;
 	  break;
 
 	case OPT_Wundef:

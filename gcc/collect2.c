@@ -57,10 +57,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "intl.h"
 #include "version.h"
-
-/* Obstack allocation and deallocation routines.  */
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 
 /* On certain systems, we have code that works by scanning the object file
    directly.  But this code uses system-specific header files and library
@@ -144,11 +140,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
-   give the same symbol without quotes for an alternative entry point.  You
-   must define both, or neither.  */
+   give the same symbol without quotes for an alternative entry point.  */
 #ifndef NAME__MAIN
 #define NAME__MAIN "__main"
-#define SYMBOL__MAIN __main
 #endif
 
 /* This must match tree.h.  */
@@ -245,10 +239,6 @@ int pexecute_pid;
 
 /* Defined in the automatically-generated underscore.c.  */
 extern int prepends_underscore;
-
-#ifndef GET_ENV_PATH_LIST
-#define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
-#endif
 
 /* Structure to hold all the directories in which to search for files to
    execute.  */
@@ -577,6 +567,15 @@ is_ctor_dtor (s)
   const char *orig_s = s;
 
   static const struct names special[] = {
+#ifndef NO_DOLLAR_IN_LABEL
+    { "GLOBAL__I$", sizeof ("GLOBAL__I$")-1, 1, 0 },
+    { "GLOBAL__D$", sizeof ("GLOBAL__D$")-1, 2, 0 },
+#else
+#ifndef NO_DOT_IN_LABEL
+    { "GLOBAL__I.", sizeof ("GLOBAL__I.")-1, 1, 0 },
+    { "GLOBAL__D.", sizeof ("GLOBAL__D.")-1, 2, 0 },
+#endif /* NO_DOT_IN_LABEL */
+#endif /* NO_DOLLAR_IN_LABEL */
     { "GLOBAL__I_", sizeof ("GLOBAL__I_")-1, 1, 0 },
     { "GLOBAL__D_", sizeof ("GLOBAL__D_")-1, 2, 0 },
     { "GLOBAL__F_", sizeof ("GLOBAL__F_")-1, 5, 0 },
@@ -753,7 +752,7 @@ prefix_from_env (env, pprefix)
      struct path_prefix *pprefix;
 {
   const char *p;
-  GET_ENV_PATH_LIST (p, env);
+  GET_ENVIRONMENT (p, env);
 
   if (p)
     prefix_from_string (p, pprefix);

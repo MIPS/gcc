@@ -2494,7 +2494,9 @@ build_new_1 (exp)
 	     constructor, that would fix the nesting problem and we could
 	     do away with this complexity.  But that would complicate other
 	     things; in particular, it would make it difficult to bail out
-	     if the allocation function returns null.  */
+	     if the allocation function returns null.  Er, no, it wouldn't;
+	     we just don't run the constructor.  The standard says it's
+	     unspecified whether or not the args are evaluated.  */
 
 	  if (cleanup)
 	    {
@@ -3177,7 +3179,7 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 	return void_zero_node;
 
       return build_op_delete_call
-	(DELETE_EXPR, addr, c_sizeof_nowarn (type),
+	(DELETE_EXPR, addr, cxx_sizeof_nowarn (type),
 	 LOOKUP_NORMAL | (use_global_delete * LOOKUP_GLOBAL),
 	 NULL_TREE);
     }
@@ -3212,7 +3214,7 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 	  /* Build the call.  */
 	  do_delete = build_op_delete_call (DELETE_EXPR,
 					    addr,
-					    c_sizeof_nowarn (type),
+					    cxx_sizeof_nowarn (type),
 					    LOOKUP_NORMAL,
 					    NULL_TREE);
 	  /* Call the complete object destructor.  */
@@ -3223,7 +3225,7 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 	{
 	  /* Make sure we have access to the member op delete, even though
 	     we'll actually be calling it from the destructor.  */
-	  build_op_delete_call (DELETE_EXPR, addr, c_sizeof_nowarn (type),
+	  build_op_delete_call (DELETE_EXPR, addr, cxx_sizeof_nowarn (type),
 				LOOKUP_NORMAL, NULL_TREE);
 	}
 

@@ -280,9 +280,6 @@ char *reload_firstobj;
    Used to quickly free all memory after processing one insn.  */
 static char *reload_insn_firstobj;
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* List of insn_chain instructions, one for every insn that reload needs to
    examine.  */
 struct insn_chain *reload_insn_chain;
@@ -9482,7 +9479,6 @@ fixup_abnormal_edges ()
 		     on the non-existant edge.  */
 		  if (GET_CODE (PATTERN (insn)) != USE)
 		    {
-		      rtx seq;
 		      /* We're not deleting it, we're moving it.  */
 		      INSN_DELETED_P (insn) = 0;
 		      PREV_INSN (insn) = NULL_RTX;

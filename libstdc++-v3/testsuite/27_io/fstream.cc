@@ -31,7 +31,6 @@
 // NB: This file is for testing basic_fstream with NO OTHER INCLUDES.
 
 #include <fstream>
-#include <testsuite_hooks.h>
 
 // { dg-do compile }
 
@@ -52,7 +51,6 @@ namespace test
   using namespace std;
   typedef short type_t;
   template class basic_fstream<type_t, char_traits<type_t> >;
-  template class basic_fstream<gnu_char, char_traits<gnu_char> >;
 } // test
 
 int main() 

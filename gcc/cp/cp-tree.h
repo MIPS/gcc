@@ -945,10 +945,6 @@ extern int flag_no_asm;
 
 extern int flag_no_gnu_keywords;
 
-/* Nonzero means recognize the named operators from C++98.  */
-
-extern int flag_operator_names;
-
 /* For environments where you can use GNU binutils (as, ld in particular).  */
 
 extern int flag_gnu_binutils;
@@ -3187,8 +3183,10 @@ typedef enum tsubst_flags_t {
   tf_ignore_bad_quals = 1 << 3, /* ignore bad cvr qualifiers */
   tf_keep_type_decl = 1 << 4,	/* retain typedef type decls
 				   (make_typename_type use) */
-  tf_ptrmem_ok = 1 << 5      /* pointers to member ok (internal
+  tf_ptrmem_ok = 1 << 5,     /* pointers to member ok (internal
 				instantiate_type use) */
+  tf_parsing = 1 << 6	     /* called from parser
+				(make_typename_type use) */
 } tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy. */
@@ -3364,7 +3362,6 @@ extern GTY(()) varray_type local_classes;
 #endif	/* NO_DOLLAR_IN_LABEL */
 
 #define THIS_NAME "this"
-#define FILE_FUNCTION_PREFIX_LEN 9
 #define CTOR_NAME "__ct"
 #define DTOR_NAME "__dt"
 
@@ -3682,6 +3679,9 @@ extern tree convert_default_arg                 PARAMS ((tree, tree, tree, int))
 extern tree convert_arg_to_ellipsis             PARAMS ((tree));
 extern tree build_x_va_arg                      PARAMS ((tree, tree));
 extern tree cxx_type_promotes_to		PARAMS ((tree));
+extern tree type_passed_as                      PARAMS ((tree));
+extern tree convert_for_arg_passing             PARAMS ((tree, tree));
+extern tree cp_convert_parm_for_inlining        PARAMS ((tree, tree, tree));
 extern int is_properly_derived_from             PARAMS ((tree, tree));
 extern tree initialize_reference                PARAMS ((tree, tree));
 extern tree strip_top_quals                     PARAMS ((tree));
@@ -3961,6 +3961,7 @@ extern void mark_used				PARAMS ((tree));
 extern tree handle_class_head			(enum tag_types, tree, tree, tree, int, int *);
 extern tree lookup_arg_dependent                PARAMS ((tree, tree, tree));
 extern void finish_static_data_member_decl      PARAMS ((tree, tree, tree, int));
+extern tree cp_build_parm_decl                  PARAMS ((tree, tree));
 extern tree build_artificial_parm               PARAMS ((tree, tree));
 extern tree get_guard                           PARAMS ((tree));
 extern tree get_guard_cond                      PARAMS ((tree));
@@ -4435,7 +4436,8 @@ extern int compparms				PARAMS ((tree, tree));
 extern int comp_cv_qualification                PARAMS ((tree, tree));
 extern int comp_cv_qual_signature               PARAMS ((tree, tree));
 extern tree expr_sizeof				PARAMS ((tree));
-extern tree c_sizeof_nowarn			PARAMS ((tree));
+extern tree cxx_sizeof_or_alignof_type    PARAMS ((tree, enum tree_code, int));
+#define cxx_sizeof_nowarn(T) cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false)
 extern tree inline_conversion			PARAMS ((tree));
 extern tree decay_conversion			PARAMS ((tree));
 extern tree build_object_ref			PARAMS ((tree, tree, tree));
@@ -4481,6 +4483,8 @@ extern tree merge_types				PARAMS ((tree, tree));
 extern tree check_return_expr                   PARAMS ((tree));
 #define cp_build_binary_op(code, arg1, arg2) \
   build_binary_op(code, arg1, arg2, 1)
+#define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)
+#define cxx_alignof(T) cxx_sizeof_or_alignof_type (T, ALIGNOF_EXPR, true)
 
 /* in typeck2.c */
 extern void cxx_incomplete_type_diagnostic	PARAMS ((tree, tree, int));
@@ -4492,9 +4496,6 @@ extern tree error_not_base_type			PARAMS ((tree, tree));
 extern tree binfo_or_else			PARAMS ((tree, tree));
 extern void readonly_error			PARAMS ((tree, const char *, int));
 extern int abstract_virtuals_error		PARAMS ((tree, tree));
-
-#define my_friendly_assert(EXP, N) (void) \
- (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
 
 extern tree force_store_init_value		PARAMS ((tree, tree));
 extern tree store_init_value			PARAMS ((tree, tree));
