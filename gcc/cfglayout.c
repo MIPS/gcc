@@ -47,7 +47,7 @@ static void change_scope		PARAMS ((rtx, tree, tree));
 
 void verify_insn_chain			PARAMS ((void));
 static void fixup_fallthru_exit_predecessor PARAMS ((void));
-static void cleanup_unconditional_jumps	PARAMS ((void));
+static void cleanup_unconditional_jumps	PARAMS ((struct loops *));
 
 /* Map insn uid to lexical block.  */
 static varray_type insn_scopes;
@@ -545,10 +545,12 @@ verify_insn_chain ()
 /* Remove any unconditional jumps and forwarder block creating fallthru
    edges instead.  During BB reordering fallthru edges are not required
    to target next basic block in the linear CFG layout, so the unconditional
-   jumps are not needed.  */
+   jumps are not needed.  If LOOPS is not null, also update loop structure &
+   dominators.  */
 
 static void
-cleanup_unconditional_jumps ()
+cleanup_unconditional_jumps (loops)
+     struct loops *loops;
 {
   int i;
   for (i = 0; i < n_basic_blocks; i++)
@@ -569,6 +571,24 @@ cleanup_unconditional_jumps ()
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file, "Removing forwarder BB %i\n",
 			 bb->index);
+
+	      if (loops)
+		{
+		  /* bb cannot be loop header, as it only has one entry
+		     edge.  It could be a loop latch.  */
+		  if (bb->loop_father->header == bb)
+		    abort ();
+
+		  if (bb->loop_father->latch == bb)
+		    bb->loop_father->latch = bb->pred->src;
+
+		  if (get_immediate_dominator
+		      (loops->cfg.dom, bb->succ->dest) == bb)
+		    set_immediate_dominator
+		      (loops->cfg.dom, bb->succ->dest, bb->pred->src);
+
+		  remove_bb_from_loops (bb);
+		}
 
 	      redirect_edge_succ (bb->pred, bb->succ->dest);
 	      flow_delete_block (bb);
@@ -681,11 +701,11 @@ cfg_layout_duplicate_bb (bb, e)
   rtx pre_head = NULL_RTX, end = NULL_RTX;
   edge s, n;
   basic_block new_bb;
-  gcov_type new_count = e->count;
+  gcov_type new_count = e ? e->count : 0;
 
   if (bb->count < new_count)
     new_count = bb->count;
-  if (!bb->pred || !bb->pred->pred_next)
+  if (!bb->pred)
     abort ();
 #ifdef ENABLE_CHECKING
   if (!cfg_layout_can_duplicate_bb_p (bb))
@@ -824,39 +844,46 @@ cfg_layout_duplicate_bb (bb, e)
     }
 
   new_bb->count = new_count;
-  new_bb->frequency = EDGE_FREQUENCY (e);
   bb->count -= new_count;
-  bb->frequency -= EDGE_FREQUENCY (e);
+
+  /* Avoid redirect_edge_and_branch from overactive optimizing.  */
+  new_bb->index = n_basic_blocks + 1;
+  if (e)
+   {
+     new_bb->frequency = EDGE_FREQUENCY (e);
+     bb->frequency -= EDGE_FREQUENCY (e);
+
+     if (e->flags & EDGE_FALLTHRU)
+       redirect_edge_succ (e, new_bb);
+     else
+       redirect_edge_and_branch (e, new_bb);
+   }
+  new_bb->index = n_basic_blocks - 1;
+
   if (bb->count < 0)
     bb->count = 0;
   if (bb->frequency < 0)
     bb->frequency = 0;
 
-  /* Avoid redirect_edge_and_branch from overactive optimizing.  */
-  new_bb->index = n_basic_blocks + 1;
-  if (e->flags & EDGE_FALLTHRU)
-    redirect_edge_succ (e, new_bb);
-  else
-    redirect_edge_and_branch (e, new_bb);
-  new_bb->index = n_basic_blocks - 1;
-
   alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
   RBI (new_bb)->eff_head = NEXT_INSN (last);
   RBI (new_bb)->eff_end = get_last_insn ();
   RBI (new_bb)->original = bb;
+  RBI (bb)->copy = new_bb;
   return new_bb;
 }
 
 /* Main entry point to this module - initialize the datastructures for
-   CFG layout changes.  */
+   CFG layout changes.  It keeps LOOPS up-to-date if not null.  */
 
 void
-cfg_layout_initialize ()
+cfg_layout_initialize (loops)
+     struct loops *loops;
 {
   /* Our algorithm depends on fact that there are now dead jumptables
      around the code.  */
   alloc_aux_for_blocks (sizeof (struct reorder_block_def));
-  cleanup_unconditional_jumps ();
+  cleanup_unconditional_jumps (loops);
   scope_to_insns_initialize ();
   record_effective_endpoints ();
 }

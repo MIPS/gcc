@@ -418,3 +418,11 @@ rtx loop_insn_hoist PARAMS((const struct loop *, rtx));
 
 /* Forward declarations for non-static functions declared in doloop.c.  */
 int doloop_optimize PARAMS ((const struct loop *));
+
+/* New loop optimizer.  */
+struct loops *loop_optimizer_init PARAMS ((FILE *));
+void loop_optimizer_finalize PARAMS ((struct loops *, FILE *));
+
+void unroll_loops PARAMS ((struct loops *));
+void peel_loops PARAMS ((struct loops *));
+void unswitch_loops PARAMS ((struct loops *));

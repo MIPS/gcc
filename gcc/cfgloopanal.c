@@ -25,23 +25,25 @@ for_each_insn_in_loop (loop, fun, data)
   int i;
   int val;
   int retval = 0;
+  basic_block *body;
 
-  for (i = 0; i < n_basic_blocks; i++)
-    if (TEST_BIT (loop->nodes, i))
-      {
-	basic_block bb = BASIC_BLOCK (i);
-	rtx insn;
+  body = get_loop_body (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      basic_block bb = body[i];
+      rtx insn;
 
-	for (insn = bb->head; insn != NEXT_INSN (bb->end);
-	     insn = NEXT_INSN (insn))
-	  {
-	    val = (*fun) (insn, data);
-	    if (val < 0)
-	      retval = val;
-	    else if (val)
-	      return val;
-	  }
-      }
+      for (insn = bb->head; insn != NEXT_INSN (bb->end);
+        insn = NEXT_INSN (insn))
+	{
+	  val = (*fun) (insn, data);
+	  if (val < 0)
+	    retval = val;
+	  else if (val)
+	    return val;
+	}
+    }
+  free (body);
   return retval;
 }
 
@@ -197,13 +199,13 @@ not_invariant_rtx (rtxp, data)
       /* In case some definition is inside loop, it must be exactly one,
          as otherwise the value depends on the way we reached the insn.  */
 
-      if (TEST_BIT (inv->loop->nodes, DF_REF_BBNO (def->ref)))
+      if (flow_bb_inside_loop_p (inv->loop, DF_REF_BB (def->ref)))
 	return (def->next != 0);
 
       /* Otherwise verify that all other defs are from outside loop.  */
 
       for (def = def->next; def; def = def->next)
-	if (TEST_BIT (inv->loop->nodes, DF_REF_BBNO (def->ref)))
+	if (flow_bb_inside_loop_p (inv->loop, DF_REF_BB (def->ref)))
 	  return 1;
 
       return 0;
@@ -392,7 +394,7 @@ void
 test_invariants (loops)
      struct loops *loops;
 {
-  if (loops->num)
+  if (loops->num > 1)
     {
       struct df *df = df_init ();
       int i;
@@ -404,9 +406,68 @@ test_invariants (loops)
 	df_dump (df, DF_UD_CHAIN, rtl_dump_file);
 #endif
 
-      for (i = 0; i < loops->num; i++)
-	free_loop_invariants (init_loop_invariants (&loops->array[i], df));
+      for (i = 1; i < loops->num; i++)
+	free_loop_invariants (init_loop_invariants (loops->parray[i], df));
 
       df_finish (df);
     }
 }
+
+/* Creates a pre-header for a LOOP.  Returns newly created block.  */
+basic_block
+create_preheader (loop, dom)
+     struct loop *loop;
+     sbitmap *dom;
+{
+  edge e, fallthru;
+  basic_block dummy;
+  basic_block jump, src;
+  struct loop *cloop = NULL;
+  int nentry = 0;
+  rtx insn;
+
+  for (e = loop->header->pred; e; e = e->pred_next)
+    {
+      if (e->src == loop->latch)
+	continue;
+      cloop = find_common_loop (cloop, e->src->loop_father);
+      nentry++;
+    }
+  if (!nentry)
+    abort ();
+  if (nentry == 1)
+    return NULL;
+
+  insn = PREV_INSN (first_insn_after_basic_block_note (loop->header));
+  fallthru = split_block (loop->header, insn);
+  dummy = fallthru->src;
+  if (loop->latch == loop->header)
+    loop->latch = fallthru->dest;
+  loop->header = fallthru->dest;
+  
+  /* Redirect edges. */
+  for (e = dummy->pred; e; e = e->pred_next)
+    {
+      src = e->src;
+      if (src == loop->latch)
+	break;
+    }
+  if (!e)
+    abort ();
+
+  dummy->frequency -= EDGE_FREQUENCY (e);
+  jump = redirect_edge_and_branch_force (e, loop->header);
+  if (jump)
+    {
+      set_immediate_dominator (dom, jump, src);
+      add_bb_to_loop (jump, loop);
+    }
+
+  /* Update structures.  */
+  set_immediate_dominator (dom, loop->header, dummy);
+  loop->header->loop_father = loop;
+  add_bb_to_loop (dummy, cloop);
+
+  return dummy;
+}
+

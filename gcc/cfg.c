@@ -94,6 +94,8 @@ struct basic_block_def entry_exit_blocks[2]
     NULL,			/* aux */
     ENTRY_BLOCK,		/* index */
     0,				/* loop_depth */
+    NULL,                       /* loop_father */
+    NULL,                       /* dominator */
     0,				/* count */
     0,				/* frequency */
     0				/* flags */
@@ -112,6 +114,8 @@ struct basic_block_def entry_exit_blocks[2]
     NULL,			/* aux */
     EXIT_BLOCK,			/* index */
     0,				/* loop_depth */
+    NULL,                       /* loop_father */
+    NULL,                       /* dominator */
     0,				/* count */
     0,				/* frequency */
     0				/* flags */
@@ -505,7 +509,7 @@ dump_flow_info (file)
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   for (i = 0; i < n_basic_blocks; i++)
     {
-      basic_block bb = BASIC_BLOCK (i);
+      basic_block bb = BASIC_BLOCK (i), dom_bb;
       edge e;
       int sum;
       gcov_type lsum;
@@ -515,6 +519,10 @@ dump_flow_info (file)
       fprintf (file, "loop_depth %d, count ", bb->loop_depth);
       fprintf (file, HOST_WIDEST_INT_PRINT_DEC, bb->count);
       fprintf (file, ", freq %i.\n", bb->frequency);
+
+      dom_bb = get_immediate_dominator (NULL, bb);
+      if (dom_bb)
+	fprintf (file, "Dominated by %d.\n", dom_bb->index);
 
       fprintf (file, "Predecessors: ");
       for (e = bb->pred; e; e = e->pred_next)
@@ -533,10 +541,10 @@ dump_flow_info (file)
       putc ('\n', file);
 
       /* Check the consistency of profile information.  We can't do that
-         in verify_flow_info, as the counts may get invalid for incompletely
-         solved graphs, later elliminating of conditionals or roundoff errors.
-         It is still practical to have them reported for debugging of simple
-         testcases.  */
+	 in verify_flow_info, as the counts may get invalid for incompletely
+	 solved graphs, later elliminating of conditionals or roundoff errors.
+	 It is still practical to have them reported for debugging of simple
+	 testcases.  */
       sum = 0;
       for (e = bb->succ; e; e = e->succ_next)
 	sum += e->probability;

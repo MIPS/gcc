@@ -607,7 +607,7 @@ reorder_basic_blocks ()
   if (n_basic_blocks <= 1)
     return;
 
-  cfg_layout_initialize ();
+  cfg_layout_initialize (NULL);
 
   copy_bb_p_visited_size = MAX (4 * n_basic_blocks / 3, 10);
   copy_bb_p_visited = xcalloc (copy_bb_p_visited_size, sizeof (unsigned int));

@@ -68,8 +68,8 @@ static bool predicted_by_p		 PARAMS ((basic_block,
 static void combine_predictions_for_insn PARAMS ((rtx, basic_block));
 static void dump_prediction		 PARAMS ((enum br_predictor, int,
 						  basic_block, int));
-static void estimate_loops_at_level	 PARAMS ((struct loop *loop));
-static void propagate_freq		 PARAMS ((basic_block));
+static void estimate_loops_at_level	 PARAMS ((struct loop *));
+static void propagate_freq		 PARAMS ((struct loop *));
 static void estimate_bb_frequencies	 PARAMS ((struct loops *));
 static void counts_to_freqs		 PARAMS ((void));
 static void process_note_predictions	 PARAMS ((basic_block, int *, int *,
@@ -78,6 +78,8 @@ static void process_note_prediction	 PARAMS ((basic_block, int *, int *,
                                                   sbitmap *, int, int));
 static bool last_basic_block_p           PARAMS ((basic_block));
 static void compute_function_frequency	 PARAMS ((void));
+
+void debug_profile_bbauxs		 PARAMS ((void));
 
 /* Information we hold about each branch predictor.
    Filled using information from predict.def.  */
@@ -409,50 +411,53 @@ estimate_probability (loops_info)
 
   /* Try to predict out blocks in a loop that are not part of a
      natural loop.  */
-  for (i = 0; i < loops_info->num; i++)
+  for (i = 1; i < loops_info->num; i++)
     {
+      basic_block bb, *bbs;
       int j;
       int exits;
-      struct loop *loop = &loops_info->array[i];
+      struct loop *loop = loops_info->parray[i];
 
       flow_loop_scan (loops_info, loop, LOOP_EXIT_EDGES);
       exits = loop->num_exits;
 
-      for (j = loop->first->index; j <= loop->last->index; ++j)
-	if (TEST_BIT (loop->nodes, j))
-	  {
-	    int header_found = 0;
-	    edge e;
+      bbs = get_loop_body (loop);
+      for (j = 0; j < loop->num_nodes; j++)
+	{
+	  int header_found = 0;
+	  edge e;
+
+	  bb = bbs[j];
 
 	  /* Bypass loop heuristics on continue statement.  These
-	       statements construct loops via "non-loop" constructs
-	       in the source language and are better to be handled
-	       separately.  */
-	    if (predicted_by_p (BASIC_BLOCK (j), PRED_CONTINUE))
-	      continue;
+	     statements construct loops via "non-loop" constructs
+	     in the source language and are better to be handled
+	     separately.  */
+	  if (predicted_by_p (bb, PRED_CONTINUE))
+	    continue;
 
-	    /* Loop branch heuristics - predict an edge back to a
-	       loop's head as taken.  */
-	    for (e = BASIC_BLOCK(j)->succ; e; e = e->succ_next)
-	      if (e->dest == loop->header
-		  && e->src == loop->latch)
-		{
-		  header_found = 1;
-		  predict_edge_def (e, PRED_LOOP_BRANCH, TAKEN);
-		}
+	  /* Loop branch heuristics - predict an edge back to a
+	     loop's head as taken.  */
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->dest == loop->header
+		&& e->src == loop->latch)
+	      {
+		header_found = 1;
+		predict_edge_def (e, PRED_LOOP_BRANCH, TAKEN);
+	      }
 
-	    /* Loop exit heuristics - predict an edge exiting the loop if the
-	       conditinal has no loop header successors as not taken.  */
-	    if (!header_found)
-	      for (e = BASIC_BLOCK(j)->succ; e; e = e->succ_next)
-		if (e->dest->index < 0
-		    || !TEST_BIT (loop->nodes, e->dest->index))
-		  predict_edge
-		    (e, PRED_LOOP_EXIT,
-		     (REG_BR_PROB_BASE
-		      - predictor_info [(int) PRED_LOOP_EXIT].hitrate)
-		     / exits);
-	  }
+	  /* Loop exit heuristics - predict an edge exiting the loop if the
+	     conditinal has no loop header successors as not taken.  */
+	  if (!header_found)
+	    for (e = bb->succ; e; e = e->succ_next)
+	      if (e->dest->index < 0
+		  || !flow_bb_inside_loop_p (loop, e->dest))
+		predict_edge
+		  (e, PRED_LOOP_EXIT,
+		   (REG_BR_PROB_BASE
+		    - predictor_info [(int) PRED_LOOP_EXIT].hitrate)
+		   / exits);
+	}
     }
 
   /* Attempt to predict conditional jumps using a number of heuristics.  */
@@ -639,8 +644,9 @@ expected_value_to_br_prob ()
 	case JUMP_INSN:
 	  /* Look for simple conditional branches.  If we haven't got an
 	     expected value yet, no point going further.  */
-	  if (GET_CODE (insn) != JUMP_INSN || ev == NULL_RTX
-	      || ! any_condjump_p (insn))
+	  if (GET_CODE (insn) != JUMP_INSN || ev == NULL_RTX)
+	    continue;
+	  if (! any_condjump_p (insn))
 	    continue;
 	  break;
 
@@ -896,14 +902,15 @@ typedef struct edge_info_def
 #define EDGE_INFO(E)	((edge_info) (E)->aux)
 
 /* Helper function for estimate_bb_frequencies.
-   Propagate the frequencies for loops headed by HEAD.  */
+   Propagate the frequencies for LOOP.  */
 
 static void
-propagate_freq (head)
-     basic_block head;
+propagate_freq (loop)
+     struct loop *loop;
 {
-  basic_block bb = head;
-  basic_block last = bb;
+  basic_block head = loop->header;
+  basic_block bb;
+  basic_block last;
   edge e;
   basic_block nextbb;
   int n;
@@ -912,7 +919,7 @@ propagate_freq (head)
      we need to visit first.  */
   for (n = 0; n < n_basic_blocks; n++)
     {
-      basic_block bb = BASIC_BLOCK (n);
+      bb = BASIC_BLOCK (n);
       if (BLOCK_INFO (bb)->tovisit)
 	{
 	  int count = 0;
@@ -930,7 +937,8 @@ propagate_freq (head)
     }
 
   BLOCK_INFO (head)->frequency = 1;
-  for (; bb; bb = nextbb)
+  last = head;
+  for (bb = head; bb; bb = nextbb)
     {
       volatile double cyclic_probability = 0, frequency = 0;
 
@@ -990,47 +998,45 @@ propagate_freq (head)
     }
 }
 
+/* Debug dump of our aux data.  */
+void
+debug_profile_bbauxs (void)
+  {
+    int i;
+    for (i = 0; i < n_basic_blocks; i++)
+      printf ("BB %d : freq %f tovis %d\n", i,
+              BLOCK_INFO(BASIC_BLOCK(i))->frequency,
+              BLOCK_INFO(BASIC_BLOCK(i))->tovisit);
+ }
+
 /* Estimate probabilities of loopback edges in loops at same nest level.  */
 
 static void
 estimate_loops_at_level (first_loop)
      struct loop *first_loop;
 {
-  struct loop *l, *loop = first_loop;
+  struct loop *loop;
 
   for (loop = first_loop; loop; loop = loop->next)
     {
-      int n;
       edge e;
+      basic_block *bbs;
+      int i;
 
       estimate_loops_at_level (loop->inner);
-
-      /* Find current loop back edge and mark it.  */
-      for (e = loop->latch->succ; e->dest != loop->header; e = e->succ_next)
-	;
-
-      EDGE_INFO (e)->back_edge = 1;
-
-      /* In case the loop header is shared, ensure that it is the last
-	 one sharing the same header, so we avoid redundant work.  */
-      if (loop->shared)
+      
+      if (loop->latch->succ)  /* Do not do this for dummy function loop.  */
 	{
-	  for (l = loop->next; l; l = l->next)
-	    if (l->header == loop->header)
-	      break;
+	  /* Find current loop back edge and mark it.  */
+	  for (e = loop->latch->succ; e->dest != loop->header; e = e->succ_next);
+	  EDGE_INFO (e)->back_edge = 1;
+       }
 
-	  if (l)
-	    continue;
-	}
-
-      /* Now merge all nodes of all loops with given header as not visited.  */
-      for (l = loop->shared ? first_loop : loop; l != loop->next; l = l->next)
-	if (loop->header == l->header)
-	  EXECUTE_IF_SET_IN_SBITMAP (l->nodes, 0, n,
-				     BLOCK_INFO (BASIC_BLOCK (n))->tovisit = 1
-				     );
-
-      propagate_freq (loop->header);
+      bbs = get_loop_body (loop);
+      for (i = 0; i < loop->num_nodes; i++)
+	BLOCK_INFO (bbs[i])->tovisit = 1;
+      free (bbs);
+      propagate_freq (loop);
     }
 }
 
@@ -1178,14 +1184,6 @@ estimate_bb_frequencies (loops)
   /* First compute probabilities locally for each loop from innermost
      to outermost to examine probabilities for back edges.  */
   estimate_loops_at_level (loops->tree_root);
-
-  /* Now fake loop around whole function to finalize probabilities.  */
-  for (i = 0; i < n_basic_blocks; i++)
-    BLOCK_INFO (BASIC_BLOCK (i))->tovisit = 1;
-
-  BLOCK_INFO (ENTRY_BLOCK_PTR)->tovisit = 1;
-  BLOCK_INFO (EXIT_BLOCK_PTR)->tovisit = 1;
-  propagate_freq (ENTRY_BLOCK_PTR);
 
   for (i = 0; i < n_basic_blocks; i++)
     if (BLOCK_INFO (BASIC_BLOCK (i))->frequency > freq_max)

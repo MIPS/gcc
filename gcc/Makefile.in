@@ -717,7 +717,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	\
  haifa-sched.o hash.o hashtable.o ifcvt.o insn-attrtab.o insn-emit.o	\
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	\
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o 	\
- loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	\
+ loop-new.o loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	\
  profile.o real.o recog.o reg-stack.o regclass.o regmove.o regrename.o	\
  reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	\
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	\
@@ -1370,7 +1370,7 @@ varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    output.h c-pragma.h toplev.h xcoffout.h debug.h $(GGC_H) $(TM_P_H) \
    $(HASHTAB_H) $(TARGET_H) langhooks.h
 function.o : function.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
-   function.h $(EXPR_H) libfuncs.h $(REGS_H) hard-reg-set.h gthr.h\
+   function.h $(EXPR_H) libfuncs.h $(REGS_H) hard-reg-set.h gthr.h $(BASIC_BLOCK_H)\
    insn-config.h $(RECOG_H) output.h toplev.h except.h hash.h $(GGC_H) $(TM_P_H)
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h function.h  \
    insn-config.h hard-reg-set.h $(EXPR_H) libfuncs.h except.h $(PREDICT_H)\
@@ -1479,6 +1479,10 @@ loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
    toplev.h varray.h except.h cselib.h $(OPTABS_H) $(TM_P_H)
+loop-new.o : loop-new.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
+   insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
+   real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
+   toplev.h varray.h except.h cselib.h $(TM_P_H) cfglayout.h
 doloop.o : doloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TM_P_H) toplev.h
 unroll.o : unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) insn-config.h function.h \
@@ -1567,15 +1571,15 @@ recog.o : recog.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) function.h $(BASIC_BLOCK_H) \
    $(INSN_ATTR_H) real.h toplev.h output.h reload.h $(TM_P_H)
 reg-stack.o : reg-stack.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) $(RECOG_H) \
    $(REGS_H) hard-reg-set.h flags.h insn-config.h toplev.h reload.h \
-   varray.h function.h $(TM_P_H)
+   varray.h function.h $(BASIC_BLOCK_H) $(TM_P_H)
 predict.o: predict.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
    $(RECOG_H) function.h except.h $(EXPR_H) $(TM_P_H) $(PREDICT_H) profile.h
 lists.o: lists.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) $(GGC_H)
 bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
-   $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h $(FIBHEAP_H)
+   $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h
 tracer.o : tracer.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
-   $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h flags.h $(FIBHEAP_H)
+   $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h flags.h
 cfglayout.o : cfglayout.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    insn-config.h $(BASIC_BLOCK_H) hard-reg-set.h output.h function.h \
    cfglayout.h

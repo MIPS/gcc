@@ -25,6 +25,8 @@ typedef struct reorder_block_def
   rtx eff_end;
   basic_block next;
   basic_block original;
+  /* Used by loop copying.  */
+  basic_block copy;
 
   /* These fields are used by bb-reorder/tracer passes.  */
   int visited;
@@ -33,7 +35,7 @@ typedef struct reorder_block_def
 
 #define RBI(BB)	((reorder_block_def) (BB)->aux)
 
-extern void cfg_layout_initialize	PARAMS ((void));
+extern void cfg_layout_initialize	PARAMS ((struct loops *));
 extern void cfg_layout_finalize		PARAMS ((void));
 extern bool cfg_layout_can_duplicate_bb_p PARAMS ((basic_block));
 extern basic_block cfg_layout_duplicate_bb PARAMS ((basic_block, edge));

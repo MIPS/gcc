@@ -209,6 +209,12 @@ typedef struct basic_block_def {
   /* The loop depth of this block.  */
   int loop_depth;
 
+  /* Outermost loop containing the block.  */
+  struct loop *loop_father;
+
+  /* Immediate dominator.  This is just a stupid temporary implementation.  */
+  struct basic_block_def *dominator;
+
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
 
@@ -225,6 +231,8 @@ typedef struct basic_block_def {
 #define BB_DIRTY		1
 #define BB_NEW			2
 #define BB_REACHABLE		4
+/* Used by dfs_enumerate_from; keep this one zero!  */
+#define BB_VISITED		8
 
 /* Number of basic blocks in the current function.  */
 
@@ -296,8 +304,10 @@ extern void free_basic_block_vars	PARAMS ((int));
 extern edge split_block			PARAMS ((basic_block, rtx));
 extern basic_block split_edge		PARAMS ((edge));
 extern void insert_insn_on_edge		PARAMS ((rtx, edge));
+
 extern void commit_edge_insertions	PARAMS ((void));
 extern void commit_edge_insertions_watch_calls	PARAMS ((void));
+
 extern void remove_fake_edges		PARAMS ((void));
 extern void add_noreturn_fake_exit_edges	PARAMS ((void));
 extern void connect_infinite_loops_to_exit	PARAMS ((void));
@@ -351,17 +361,6 @@ struct loop
   /* Number of edges along the pre_header extended basic block trace.  */
   int num_pre_header_edges;
 
-  /* The first block in the loop.  This is not necessarily the same as
-     the loop header.  */
-  basic_block first;
-
-  /* The last block in the loop.  This is not necessarily the same as
-     the loop latch.  */
-  basic_block last;
-
-  /* Bitmap of blocks contained within the loop.  */
-  sbitmap nodes;
-
   /* Number of blocks contained within the loop.  */
   int num_nodes;
 
@@ -377,11 +376,11 @@ struct loop
   /* Number of edges that exit the loop.  */
   int num_exits;
 
-  /* Bitmap of blocks that dominate all exits of the loop.  */
-  sbitmap exits_doms;
-
   /* The loop nesting depth.  */
   int depth;
+
+  /* Predecestors of the loop.  */
+  struct loop **pred;
 
   /* The height of the loop (enclosed loop levels) within the loop
      hierarchy tree.  */
@@ -396,8 +395,8 @@ struct loop
   /* Link to the next (sibling) loop.  */
   struct loop *next;
 
-  /* Non-zero if the loop shares a header with another loop.  */
-  int shared;
+  /* Loop that is copy of this loop.  */
+  struct loop *copy;
 
   /* Non-zero if the loop is invalid (e.g., contains setjmp.).  */
   int invalid;
@@ -407,6 +406,12 @@ struct loop
 
   /* The following are currently used by loop.c but they are likely to
      disappear as loop.c is converted to use the CFG.  */
+
+  /* First basic block of loop.  */
+  basic_block first;
+
+  /* Last basic block of loop.  */
+  basic_block last;
 
   /* Non-zero if the loop has a NOTE_INSN_LOOP_VTOP.  */
   rtx vtop;
@@ -464,6 +469,9 @@ struct loops
      will find the inner loops before their enclosing outer loops).  */
   struct loop *array;
 
+  /* In new loop.c, we store only pointers here.  */
+  struct loop **parray;
+
   /* Pointer to root of loop heirachy tree.  */
   struct loop *tree_root;
 
@@ -481,8 +489,6 @@ struct loops
     int *rc_order;
   } cfg;
 
-  /* Headers shared by multiple loops that should be merged.  */
-  sbitmap shared_headers;
 };
 
 struct loop_invariants
@@ -503,6 +509,7 @@ extern void flow_loop_dump PARAMS ((const struct loop *, FILE *,
 				    void (*)(const struct loop *,
 					     FILE *, int), int));
 extern int flow_loop_scan PARAMS ((struct loops *, struct loop *, int));
+extern void flow_loop_tree_node_add PARAMS ((struct loop *, struct loop *));
 
 /* This structure maintains an edge list vector.  */
 struct edge_list
@@ -598,8 +605,7 @@ enum update_life_extent
 #define LOOP_ENTRY_EDGES	4	/* Find entry edges.  */
 #define LOOP_EXIT_EDGES		8	/* Find exit edges.  */
 #define LOOP_EDGES		(LOOP_ENTRY_EDGES | LOOP_EXIT_EDGES)
-#define LOOP_EXITS_DOMS	       16	/* Find nodes that dom. all exits.  */
-#define LOOP_ALL	       31	/* All of the above  */
+#define LOOP_ALL	       15	/* All of the above  */
 
 extern void life_analysis	PARAMS ((rtx, FILE *, int));
 extern void update_life_info	PARAMS ((sbitmap, enum update_life_extent,
@@ -682,7 +688,19 @@ extern void free_aux_for_edges		PARAMS ((void));
    debugger, and it is declared extern so we don't get warnings about
    it being unused.  */
 extern void verify_flow_info		PARAMS ((void));
-extern int flow_loop_outside_edge_p	PARAMS ((const struct loop *, edge));
+
+extern bool flow_loop_outside_edge_p	PARAMS ((const struct loop *, edge));
+extern bool flow_bb_inside_loop_p PARAMS ((const struct loop *, basic_block));
+extern basic_block *get_loop_body PARAMS ((const struct loop *));
+extern int dfs_enumerate_from PARAMS ((basic_block, int,
+				       bool (*)(basic_block), basic_block *,
+				       int));
+
+extern void add_bb_to_loop PARAMS ((basic_block, struct loop *));
+extern void remove_bb_from_loops PARAMS ((basic_block));
+struct loop * find_common_loop PARAMS ((struct loop *, struct loop *));
+
+basic_block create_preheader PARAMS ((struct loop *, sbitmap *));
 
 typedef struct conflict_graph_def *conflict_graph;
 
@@ -727,6 +745,17 @@ enum cdi_direction
 
 extern void calculate_dominance_info	PARAMS ((int *, sbitmap *,
 						 enum cdi_direction));
+extern basic_block nearest_common_dominator	PARAMS ((sbitmap *,
+						 basic_block, basic_block));
+extern void set_immediate_dominator	PARAMS ((sbitmap *,
+						 basic_block, basic_block));
+extern basic_block get_immediate_dominator	PARAMS ((sbitmap *,
+						 basic_block));
+extern bool dominated_by_p	PARAMS ((sbitmap *, basic_block, basic_block));
+
+extern int get_dominated_by PARAMS ((sbitmap *, basic_block, basic_block **));
+
+extern void verify_dominators PARAMS ((void));
 
 /* In cfgloopanal.c */
 struct loop_invariants *init_loop_invariants PARAMS ((struct loop *, struct df *));

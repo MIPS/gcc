@@ -2936,7 +2936,7 @@ rest_of_compilation (decl)
 #endif
      }
 
-  /* Move constant computations out of loops.  */
+  /* Call old loop optimizer.  */
 
   if (optimize > 0)
     {
@@ -2947,8 +2947,6 @@ rest_of_compilation (decl)
       if (flag_rerun_loop_opt)
 	{
 	  cleanup_barriers ();
-
-	  /* We only want to perform unrolling once.  */
 
 	  rebuild_jump_labels (insns);
 	  loop_optimize (insns, rtl_dump_file, 0);
@@ -2974,6 +2972,7 @@ rest_of_compilation (decl)
 
       ggc_collect ();
     }
+
   /* Do control and data flow analysis; wrote some of the results to
      the dump file.  */
 
@@ -2984,7 +2983,7 @@ rest_of_compilation (decl)
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
 
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
+  cleanup_cfg (CLEANUP_EXPENSIVE
 	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* It may make more sense to mark constant functions after dead code is
@@ -3024,8 +3023,34 @@ rest_of_compilation (decl)
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
+
   if (optimize)
     flow_loops_free (&loops);
+
+  compute_bb_for_insn (get_max_uid ());
+
+  /* Perform loop optimalizations.  */
+  if (optimize > 0)
+    {
+      struct loops *loops;
+      timevar_push (TV_LOOP);
+      open_dump_file (DFI_loop, decl);
+
+      loops = loop_optimizer_init (rtl_dump_file);
+
+      if (loops)
+	{
+	  /* Here will go optimalizations.  */
+
+	  loop_optimizer_finalize (loops, rtl_dump_file);
+	}
+
+      close_dump_file (DFI_loop, print_rtl, insns);
+      timevar_pop (TV_LOOP);
+      
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      ggc_collect ();
+    }
 
   if (flag_tracer)
     {
@@ -3040,7 +3065,7 @@ rest_of_compilation (decl)
 	  web_main ();
 	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
 	}
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
+      cleanup_cfg (CLEANUP_EXPENSIVE
 		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
       close_dump_file (DFI_tracer, print_rtl_with_bb, insns);
       timevar_pop (TV_TRACER);

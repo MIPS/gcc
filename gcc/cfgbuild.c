@@ -626,7 +626,11 @@ find_basic_blocks (f, nregs, file)
 	 tag for reuse during create_basic_block, just in case some pass
 	 copies around basic block notes improperly.  */
       for (i = 0; i < n_basic_blocks; ++i)
-	BASIC_BLOCK (i)->aux = NULL;
+ 	{
+ 	  BASIC_BLOCK (i)->aux = NULL;
+ 	  BASIC_BLOCK (i)->global_live_at_start = NULL;
+ 	  BASIC_BLOCK (i)->global_live_at_end = NULL;
+ 	}
 
       VARRAY_FREE (basic_block_info);
     }
