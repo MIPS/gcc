@@ -674,13 +674,22 @@ make_goto_expr_edges (bb)
 	  && LABEL_EXPR_LABEL (target) == dest)
 	{
 	  make_edge (bb, target_bb, 0);
+
+	  /* FIXME.  This is stupid and unnecessary.  We should find
+	     out which labels can be the target of a nonlocal goto and make
+	     the abnormal edge from the blocks that call nested functions
+	     or setjmp.   */
+	  if (is_nonlocal_label_block (target_bb))
+	    make_edge (BASIC_BLOCK (0), target_bb, EDGE_ABNORMAL);
 	  break;
 	}
 
-      /* Computed GOTOs.  Make an edge to every label block.  */
+      /* Computed GOTOs.  Make an edge to every label block.  FIXME  it
+	 should be possible to trim down the number of labels we make the
+	 edges to.  See cfgbuild.c.  */
       else if (TREE_CODE (dest) != LABEL_DECL
 	       && TREE_CODE (target) == LABEL_EXPR)
-	make_edge (bb, target_bb, 0);
+	make_edge (bb, target_bb, EDGE_ABNORMAL);
     }
 }
 
@@ -858,8 +867,9 @@ is_nonlocal_label_block (bb)
     return false;
 
   /* FIXME  We don't compute nonlocal labels until RTL expansion.  This
-	    returns false positives.  */
-  return (TREE_CODE (t) == LABEL_EXPR && DECL_NAME (LABEL_EXPR_LABEL (t)));
+     will always return true.  This will likely break programs with nested
+     functions and nonlocal gotos.  */
+  return (TREE_CODE (t) == LABEL_EXPR && DECL_NONLOCAL (LABEL_EXPR_LABEL (t)));
 }
 
 
@@ -1619,7 +1629,7 @@ is_ctrl_stmt (t)
 }
 
 
-/* Return true if T alters the flow of control (i.e., T is GOTO,
+/* Return true if T alters the flow of control (e.g., T is GOTO,
    RETURN or a call to a non-returning function)  */
 
 bool

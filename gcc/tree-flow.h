@@ -489,13 +489,16 @@ typedef struct tree_ann_d *tree_ann;
 enum tree_flags
 {
   /* Expression tree should be folded.  */
-  TF_FOLDED		= 1 << 0,
+  TF_FOLDED			= 1 << 0,
 
   /* This _DECL node has already been referenced in this function.  */
-  TF_REFERENCED		= 1 << 1,
+  TF_REFERENCED			= 1 << 1,
 
   /* This expression is necessary (not dead code).  */
-  TF_NECESSARY		= 1 << 2
+  TF_NECESSARY			= 1 << 2,
+
+  /* This variable may alias global memory.  */
+  TF_MAY_ALIAS_GLOBAL_MEM	= 1 << 3
 };
 
 static inline tree_ann tree_annotation	PARAMS ((tree));
@@ -514,6 +517,7 @@ static inline tree create_indirect_ref	PARAMS ((tree));
 static inline tree alias_leader		PARAMS ((tree));
 static inline void set_alias_leader	PARAMS ((tree, tree));
 static inline bool is_aliased		PARAMS ((tree));
+static inline bool may_alias_global_mem_p PARAMS ((tree));
 static inline int get_lineno		PARAMS ((tree));
 static inline const char *get_filename	PARAMS ((tree));
 static inline bool is_exec_stmt		PARAMS ((tree));

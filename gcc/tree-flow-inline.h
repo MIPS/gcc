@@ -208,7 +208,8 @@ static inline tree
 alias_leader (var)
      tree var;
 {
-  return tree_annotation (var) ? tree_annotation (var)->alias_leader : NULL;
+  return tree_annotation (var) ? tree_annotation (var)->alias_leader
+                               : NULL_TREE;
 }
 
 static inline void
@@ -225,7 +226,14 @@ static inline bool
 is_aliased (var)
      tree var;
 {
-  return alias_leader (var) != NULL;
+  return alias_leader (var) != NULL_TREE;
+}
+
+static inline bool
+may_alias_global_mem_p (var)
+     tree var;
+{
+  return (tree_flags (var) & TF_MAY_ALIAS_GLOBAL_MEM) != 0;
 }
 
 static inline int

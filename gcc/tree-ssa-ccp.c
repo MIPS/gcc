@@ -130,8 +130,6 @@ void
 tree_ssa_ccp (fndecl)
      tree fndecl;
 {
-  tree fnbody = DECL_SAVED_TREE (fndecl);
-
   timevar_push (TV_TREE_CCP);
 
   initialize ();

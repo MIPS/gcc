@@ -956,7 +956,7 @@ get_base_symbol (t)
       return get_base_symbol (TREE_OPERAND (t, 0));
 
     default:
-      return NULL;
+      return NULL_TREE;
     }
 }
 

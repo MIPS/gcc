@@ -3269,6 +3269,7 @@ enum tree_dump_index
 #define TDF_STATS	(1 << 4)	/* dump various statistics about
 					   each pass */
 #define TDF_BLOCK	(1 << 5)	/* display basic block boundaries */
+#define TDF_ALIAS	(1 << 6)	/* display aliasing information */
 
 
 typedef struct dump_info *dump_info_p;

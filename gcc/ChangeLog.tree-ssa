@@ -1,3 +1,43 @@
+2002-12-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (make_goto_expr_edges): Temporary hack to prevent
+	removing blocks with nonlocal labels.
+	(is_nonlocal_label_block): Return true if DECL_NONLOCAL is set for
+	the label.
+
+	* tree-dfa.c (alias_leaders): New local array.
+	(num_alias_leaders): New local variable.
+	(find_alias_leader): New local function.
+	(may_access_global_mem): New local function.
+	(find_may_aliases_for): Call them.
+	(compute_may_aliases): Allocate and deallocate alias_leaders.
+	Show alias information if -fdump-tree-...-alias flag is given.
+	(may_alias_p): Return true if both variables are the same.
+	(find_refs_in_expr): Strip WFL and NOPs from the parent statement.
+	If a pointer relocation is due to a function call, assignment from
+	a global or a function argument, mark the pointer as a may-alias
+	for global storage.
+	(dump_referenced_vars): Reformat output.
+	(dump_variable): Likewise.
+
+	* tree-dump.c (dump_option_value_info): Add entry for TDF_ALIAS.
+	* tree.h (TDF_ALIAS): Define.
+	* doc/invoke.texi: Document new flag.
+
+	* tree-flow-inline.h (may_alias_global_mem_p): New function.
+	* tree-flow.h (enum tree_flags): Add value TF_MAY_ALIAS_GLOBAL_MEM.
+	(may_alias_global_mem_p): Declare.
+
+	* tree-simple.c (get_base_symbol): Return NULL_TREE, not NULL.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Remove unused variable.
+	* tree-ssa-dce.c (need_to_preserve_store): Call
+	decl_function_context instead of DECL_CONTEXT.
+	If the symbol may alias global memory, return nonzero.
+
+	* tree-ssa.c (dump_reaching_defs): Reformat output.
+	(set_currdef_for): Walk the alias leader chain, setting CURRDEF for
+	all the alias sets that may be affected by the definition.
+
 2002-12-06  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (may_alias_p): Fix global variables and points-to.

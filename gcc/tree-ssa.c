@@ -581,6 +581,7 @@ dump_reaching_defs (file)
       tree var = referenced_var (i);
       ref_list_iterator j;
 
+      fprintf (file, "Variable: ");
       dump_variable (file, var);
 
       for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
@@ -902,7 +903,7 @@ static inline tree_ref
 currdef_for (v)
      tree v;
 {
-  if (alias_leader (v))
+  if (is_aliased (v))
     v = alias_leader (v);
 
   return tree_annotation (v) ? tree_annotation (v)->currdef : NULL;
@@ -919,6 +920,7 @@ set_currdef_for (v, def)
      tree_ref def;
 {
   tree_ann ann;
+
 #if defined ENABLE_CHECKING
   if (TREE_CODE_CLASS (TREE_CODE (v)) != 'd'
       && TREE_CODE (v) != INDIRECT_REF)
@@ -928,9 +930,23 @@ set_currdef_for (v, def)
     abort ();
 #endif
 
-  if (alias_leader (v))
-    v = alias_leader (v);
-
   ann = tree_annotation (v) ? tree_annotation (v) : create_tree_ann (v);
   ann->currdef = def;
+
+  /* If V is aliased then CURRDEF also represents a definition for V's
+     alias leader.  Similarly, if V's alias leader has an alias leader of
+     its own, then CURRDEF represents a definition for it.  Therefore, we
+     walk the alias leader chain, which is guaranteed to be a cycle-free
+     graph (see tree-dfa.c:compute_may_aliases).  */
+  if (is_aliased (v))
+    {
+      v = alias_leader (v);
+      do
+	{
+	  ann = tree_annotation (v) ? tree_annotation (v) : create_tree_ann (v);
+	  ann->currdef = def;
+	  v = alias_leader (v);
+	}
+      while (v && v != alias_leader (v));
+    }
 }

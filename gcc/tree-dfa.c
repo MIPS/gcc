@@ -73,6 +73,8 @@ struct dfa_stats_d
   unsigned long num_ekills;
 };
 
+static tree *alias_leaders;
+static unsigned long num_alias_leaders;
 
 /* Data and functions shared with tree-ssa.c.  */
 struct dfa_counts_d dfa_counts;
@@ -96,6 +98,8 @@ static void count_ref_list_nodes	PARAMS ((struct dfa_stats_d *,
 static tree clobber_vars_r		PARAMS ((tree *, int *, void *));
 static void compute_may_aliases		PARAMS ((void));
 static void find_may_aliases_for	PARAMS ((tree));
+static tree find_alias_leader		PARAMS ((tree));
+static bool may_access_global_mem 	PARAMS ((tree));
 static size_t tree_ref_size		PARAMS ((enum tree_ref_type));
 static tree replace_ref_r		PARAMS ((tree *, int *, void *));
 static void remove_def			PARAMS ((tree_ref));
@@ -264,6 +268,9 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
   if (parent_stmt && TREE_NOT_GIMPLE (parent_stmt))
     return;
 
+  STRIP_WFL (parent_stmt);
+  STRIP_NOPS (parent_stmt);
+
   /* If we found a _DECL node, create a reference to it and return.  */
   if (code == VAR_DECL || code == PARM_DECL)
     {
@@ -280,6 +287,13 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
 
 	  create_ref (indirect_var (expr), V_DEF, TRM_RELOCATE, bb,
 		      parent_stmt_p, 1);
+
+	  /* If the relocation of 'p' is due to a function call, an
+	     assignment from a global or an assignment from an argument,
+	     then mark '*p' as an alias for global memory.  */
+	  if (TREE_CODE (parent_stmt) == MODIFY_EXPR
+	      && may_access_global_mem (TREE_OPERAND (parent_stmt, 1)))
+	    set_tree_flag (indirect_var (expr), TF_MAY_ALIAS_GLOBAL_MEM);
 	}
 
       return;
@@ -1576,6 +1590,7 @@ dump_referenced_vars (file, details)
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
+      fprintf (file, "Variable: ");
       dump_variable (file, var);
       dump_ref_list (file, "", tree_refs (var), 2, details);
       fprintf (file, "\n");
@@ -1601,17 +1616,18 @@ dump_variable (file, var)
      FILE *file;
      tree var;
 {
-  fprintf (file, "Variable: ");
   print_generic_expr (file, var, 0);
   
   if (alias_leader (var))
     {
       fprintf (file, ", alias leader: ");
       print_generic_expr (file, alias_leader (var), 0);
-      fprintf (file, "\n");
     }
-  else
-    fprintf (file, "\n");
+
+  if (may_alias_global_mem_p (var))
+    fprintf (file, ", may alias global memory");
+
+  fprintf (file, "\n");
 }
 
 
@@ -2006,6 +2022,12 @@ compute_may_aliases ()
       create_alias_vars ();
       timevar_pop (TV_TREE_PTA);
     }
+
+  num_alias_leaders = 0;
+  alias_leaders = (tree *) xmalloc (num_referenced_vars * sizeof (tree));
+  if (alias_leaders == NULL)
+    abort ();
+  memset ((void *) alias_leaders, 0, num_referenced_vars * sizeof (tree));
   
   for (i = 0; i < num_referenced_vars; i++)
     {
@@ -2017,6 +2039,34 @@ compute_may_aliases ()
     }
 
   timevar_pop (TV_TREE_MAY_ALIAS);
+
+  /* Debugging dumps.  */
+  if (tree_ssa_dump_file && tree_ssa_dump_flags & TDF_ALIAS)
+    {
+      unsigned long i, j;
+
+      fprintf (tree_ssa_dump_file, "\nAlias information for %s: %ld sets\n\n",
+	       get_name (current_function_decl), num_alias_leaders);
+
+      for (i = 0; i < num_alias_leaders; i++)
+	{
+	  fprintf (tree_ssa_dump_file, "Alias set #%ld:\n", i);
+	  fprintf (tree_ssa_dump_file, "  Leader: ");
+	  dump_variable (tree_ssa_dump_file, alias_leaders[i]);
+	  fprintf (tree_ssa_dump_file, "  Aliases: { ");
+	  for (j = 0; j < num_referenced_vars; j++)
+	    if (alias_leader (referenced_var (j)) == alias_leaders[i])
+	      {
+		print_generic_expr (tree_ssa_dump_file, referenced_var (j), 0);
+		fprintf (tree_ssa_dump_file, " ");
+	      }
+	  fprintf (tree_ssa_dump_file, "}\n\n");
+	}
+    }
+
+  free (alias_leaders);
+  alias_leaders = NULL;
+  num_alias_leaders = 0;
 }
 
 
@@ -2030,16 +2080,17 @@ may_alias_p (v1, v2)
   tree ptr, var, ptr_sym, var_sym;
   HOST_WIDE_INT ptr_alias_set, var_alias_set;
 
+  if (v1 == v2)
+    return true;
+
   /* One of the two variables needs to be an INDIRECT_REF or GLOBAL_VAR,
      otherwise they can't possibly alias each other.  */
-  if (TREE_CODE (v1) == INDIRECT_REF
-      || v1 == global_var)
+  if (TREE_CODE (v1) == INDIRECT_REF || v1 == global_var)
     {
       ptr = v1;
       var = v2;
     }
-  else if (TREE_CODE (v2) == INDIRECT_REF
-           || v2 == global_var)
+  else if (TREE_CODE (v2) == INDIRECT_REF || v2 == global_var)
     {
       ptr = v2;
       var = v1;
@@ -2078,85 +2129,134 @@ may_alias_p (v1, v2)
 	}
     }
 
-  /* Obvious reasons why PTR_SYM and VAR_SYM can't possibly alias
-     each other.  */
-  if (var_sym == ptr_sym
-      || DECL_ARTIFICIAL (var_sym)
-      /* Only check for addressability on non-pointers.  Even if VAR is 
-	 a non-addressable pointer, it may still alias with ptr.  */
-      || (DECL_P (var) && !TREE_ADDRESSABLE (var)))
+  /* VAR_DECLs that have not had their address taken cannot be aliased.  */
+  if (DECL_P (var) && !TREE_ADDRESSABLE (var))
     return false;
 
+  /* Compute type-based alias information.  If the alias sets don't
+     conflict then PTR cannot alias VAR.  */
   ptr_alias_set = get_alias_set (ptr);
   var_alias_set = get_alias_set (var);
   if (!alias_sets_conflict_p (ptr_alias_set, var_alias_set))
     return false;
 
+  /* If -ftree-points-to is given, check if PTR may point to VAR.  */
   if (flag_tree_points_to)
     if (!ptr_may_alias_var (ptr_sym, var_sym))
       return false;
-
 
   return true;
 }
 
 
-/* Find variables that INDIRECT_PTR (an INDIRECT_REF node) may be aliasing.  */
+/* Find variables that V1 may be aliasing.  For every variable V2 that V1
+   may alias, add V2 to one of the alias sets in the array ALIAS_LEADERS.
+
+   Each entry I in ALIAS_LEADERS represents a set of all the variables that
+   are aliased by ALIAS_LEADERS[I].  In the absence of points-to
+   information, the ALIAS_LEADERS array will tend to have few entries, and
+   each entry will likely alias many program variables.
+   
+   This will negatively impact optimizations because variable uses will be
+   reached by many definitions that can't really reach them.  See the
+   documentation in tree-ssa.c.  */
 
 static void
-find_may_aliases_for (indirect_ptr)
-     tree indirect_ptr;
+find_may_aliases_for (v1)
+     tree v1;
 {
   unsigned long i;
 
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (indirect_ptr) != INDIRECT_REF)
-    abort ();
-#endif
-
-  if (alias_leader (indirect_ptr) == NULL)
-    set_alias_leader (indirect_ptr, indirect_ptr);
+  if (may_access_global_mem (v1))
+    set_tree_flag (v1, TF_MAY_ALIAS_GLOBAL_MEM);
 
   for (i = 0; i < num_referenced_vars; i++)
     {
-      tree var = referenced_var (i);
+      tree v2 = referenced_var (i);
 
-      /* If INDIRECT_PTR may alias VAR, make INDIRECT_PTR the alias leader
-	 for VAR.  */
-      if (may_alias_p (indirect_ptr, var))
+      if (v1 == v2)
+	continue;
+
+      if (may_alias_p (v1, v2))
 	{
-	  /* Note that the alias leader of INDIRECT_PTR may not be
-	     INDIRECT_PTR if INDIRECT_PTR is in the alias set of some other
-	     pointer.  If the current alias leader for INDIRECT_PTR is not
-	     an alias for VAR, then INDIRECT_PTR must become its own alias
-	     leader.  This is to avoid the following problem:
+	  tree al = find_alias_leader (v2);
+	  if (al == NULL_TREE)
+	    al = alias_leaders [num_alias_leaders++] = v1;
 
-	     Assume that the following aliasing relations hold for
-	     variables V1, V2 and V3:
+	  set_alias_leader (v2, al);
 
-	     	V1 may-alias V2
-		V2 may-alias V3
-		V1 may-not-alias V3
-
-	     When processing V1 and V2 for the first time, this pass made
-	     V1 the alias leader for V2.  In the next iteration, it
-	     determines that V2 may alias V3 and so it sets V3's alias
-	     leader to be V1 (which is V2's alias leader).
-	     
-	     However, V1 and V3 do not alias each other, so making V1 the
-	     alias leader for V3 makes no sense.  In this case, we make V2
-	     the alias leader for itself and V3.  */
-	  if (alias_leader (indirect_ptr) != indirect_ptr
-	      && alias_leader (indirect_ptr) != var
-	      && !may_alias_p (alias_leader (indirect_ptr), var))
+	  /* If V2 may access global memory, mark both AL and V1 as aliases
+	     for global memory.  */
+	  if (may_access_global_mem (v2))
 	    {
-	      set_alias_leader (alias_leader (indirect_ptr), indirect_ptr);
-	      set_alias_leader (indirect_ptr, indirect_ptr);
+	      set_tree_flag (al, TF_MAY_ALIAS_GLOBAL_MEM);
+	      set_tree_flag (v1, TF_MAY_ALIAS_GLOBAL_MEM);
 	    }
-
-	  set_alias_leader (var, alias_leader (indirect_ptr));
 	}
     }
+}
+
+
+/* Traverse the ALIAS_LEADERS array looking for an alias leader that may
+   alias var.  If an alias leader AL is found, make AL be the alias leader
+   for VAR.  Otherwise return NULL_TREE so that the caller may create a new
+   entry in the ALIAS_LEADER array.  */
+
+static tree
+find_alias_leader (var)
+     tree var;
+{
+  unsigned long i;
+
+  for (i = 0; i < num_alias_leaders; i++)
+    if (may_alias_p (alias_leaders[i], var))
+      return alias_leaders[i];
+
+  return NULL_TREE;
+}
+
+
+/* Return true if EXPR may be a pointer to global memory.  */
+
+static bool
+may_access_global_mem (expr)
+     tree expr;
+{
+  char class;
+  tree sym;
+
+  if (expr == NULL_TREE)
+    return false;
+
+  /* Function arguments and global variables may reference global memory.  */
+  if ((sym = get_base_symbol (expr)) != NULL_TREE)
+    {
+      if (TREE_CODE (sym) == PARM_DECL
+	  || decl_function_context (sym) == NULL_TREE)
+	return true;
+    }
+
+  /* Otherwise, the expression must be of pointer type.  */
+  if (TREE_TYPE (expr) == NULL_TREE
+      || !POINTER_TYPE_P (TREE_TYPE (expr)))
+    return false;
+
+  /* Call expressions that return pointers may point to global memory.  */
+  if (TREE_CODE (expr) == CALL_EXPR)
+    return true;
+
+  /* Recursively check the expression's operands.  */
+  class = TREE_CODE_CLASS (TREE_CODE (expr));
+  if (IS_EXPR_CODE_CLASS (class) || class == 'r')
+    {
+      unsigned char i;
+
+      for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (expr)); i++)
+	if (may_access_global_mem (TREE_OPERAND (expr, i)))
+	  return true;
+    }
+
+  return false;
 }
 
 

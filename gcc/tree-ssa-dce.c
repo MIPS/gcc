@@ -186,17 +186,22 @@ need_to_preserve_store (sym)
     return 0;
 
   base_symbol = get_base_symbol (sym);
+
   /* File scope variables must be preserved.  */
-  if (DECL_CONTEXT (base_symbol) == NULL)
+  if (decl_function_context (base_symbol) == NULL)
     return 1;
   
   /* Stores through parameter pointers must be perserved.  */
-  if (TREE_CODE (sym) == INDIRECT_REF)
-      if (TREE_CODE (base_symbol) == PARM_DECL)
-	return 1;
+  if (TREE_CODE (sym) == INDIRECT_REF
+      && TREE_CODE (base_symbol) == PARM_DECL)
+    return 1;
 
   /* Static locals must be preserved as well.  */
   if (TREE_STATIC (base_symbol))
+    return 1;
+
+  /* If SYM may alias global memory, we also need to preserve the store.  */
+  if (may_alias_global_mem_p (sym))
     return 1;
 
   return 0;
@@ -279,12 +284,15 @@ find_useful_stmts ()
 			if (is_aliased (symbol))
 			  {
 			    for (x = 0; x < num_referenced_vars; x++)
-			      if (alias_leader (referenced_var (x)) == alias_leader (symbol)
-				  && need_to_preserve_store (referenced_var (x)))
-				{
-				  need = 1;
-				  break;
-				}
+			      {
+				tree var = referenced_var (x);
+				if (alias_leader (var) == alias_leader (symbol)
+				    && need_to_preserve_store (var))
+				  {
+				    need = 1;
+				    break;
+				  }
+			      }
 			  }
 
 		      if (need)
