@@ -7,6 +7,11 @@
 	(search_EIT_table): New function.
 	(get_eit_entry): Use __gnu_Unwind_Find_exidx.
 
+2005-01-20  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.h (ARM_DTORS_SECTION_ASM_OP): Define. 
+	(DTORS_SECION_ASM_OP): Conditionalize on TARGET_AAPCS_BASED.
+
 2005-01-17  Mark Mitchell  <mark@codesourcery.com>
 
 	* config/rs6000/rs6000.h (TARGET_SPE_ABI): Make it dynamic.
