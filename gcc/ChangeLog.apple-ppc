@@ -1,3 +1,10 @@
+2004-12-03  Stuart Hastings <stuart@apple.com>
+
+	Radar 3855246
+	* gcc/config/rs6000/rs6000.c (init_cumulative_args): Remove APPLE LOCAL.
+	* gcc/config/rs6000/rs6000.h (target_flags): Remove APPLE LOCAL.
+	(TARGET_OPTIONS): Add -mlong-branch as a synonym for -mlongcall.
+
 2004-12-03  Caroline Tice  <ctice@apple.com>
             Andrew Pinski  <pinskia@physics.uc.edu>
 

@@ -4987,8 +4987,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 
   /* Check for a longcall attribute.  */
   if (fntype
-      /* APPLE LOCAL long-branch */
-      && TARGET_LONG_BRANCH
       && lookup_attribute ("longcall", TYPE_ATTRIBUTES (fntype))
       && !lookup_attribute ("shortcall", TYPE_ATTRIBUTES (fntype)))
     cum->call_cookie = CALL_LONG;
