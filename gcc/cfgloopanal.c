@@ -608,7 +608,7 @@ loop_split_edge_with (e, insns, loops)
 
   new_bb = create_basic_block (n_basic_blocks, NULL, NULL);
   add_bb_to_loop (new_bb, loop_c);
-  new_bb->flags = 0;
+  new_bb->flags = BB_SUPERBLOCK;
 
   new_e = make_edge (new_bb, dest, EDGE_FALLTHRU);
   new_e->probability = REG_BR_PROB_BASE;

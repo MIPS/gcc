@@ -50,6 +50,7 @@ static void fixup_fallthru_exit_predecessor PARAMS ((void));
 static void cleanup_unconditional_jumps	PARAMS ((struct loops *));
 static rtx unlink_insn_chain PARAMS ((rtx, rtx));
 static rtx duplicate_insn_chain PARAMS ((rtx, rtx));
+static void break_superblocks PARAMS ((void));
 
 /* Map insn uid to lexical block.  */
 static varray_type insn_scopes;
@@ -1000,6 +1001,35 @@ cfg_layout_initialize (loops)
   verify_insn_chain ();
 }
 
+/* Splits superblocks.  */
+static void
+break_superblocks ()
+{
+  sbitmap superblocks;
+  int i, need;
+
+  superblocks = sbitmap_alloc (n_basic_blocks);
+  sbitmap_zero (superblocks);
+
+  need = 0;
+
+  for (i = 0; i < n_basic_blocks; i++)
+    if (BASIC_BLOCK(i)->flags & BB_SUPERBLOCK)
+      {
+	BASIC_BLOCK(i)->flags &= ~BB_SUPERBLOCK;
+	SET_BIT (superblocks, i);
+	need = 1;
+      }
+
+  if (need)
+    {
+      rebuild_jump_labels (get_insns ());
+      find_many_sub_basic_blocks (superblocks);
+    }
+
+  free (superblocks);
+}
+
 /* Finalize the changes: reorder insn list according to the sequence, enter
    compensation code, rebuild scope forest.  */
 
@@ -1016,6 +1046,8 @@ cfg_layout_finalize ()
   scope_to_insns_finalize ();
 
   free_aux_for_blocks ();
+
+  break_superblocks ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();

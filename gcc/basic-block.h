@@ -233,6 +233,7 @@ typedef struct basic_block_def {
 #define BB_REACHABLE		4
 /* Used by dfs_enumerate_from; keep this one zero!  */
 #define BB_VISITED		8
+#define BB_SUPERBLOCK		16
 
 /* Number of basic blocks in the current function.  */
 
