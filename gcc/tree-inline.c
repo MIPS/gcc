@@ -723,6 +723,8 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
       /* Declare this new variable.  */
       TREE_CHAIN (var) = vars;
       vars = var;
+      /* Make gimplifier happy about this variable.  */
+      var->decl.seen_in_bind_expr = keep_function_tree_in_gimple_form (fn);
 
       /* Even if P was TREE_READONLY, the new VAR should not be.
 	 In the original code, we would have constructed a

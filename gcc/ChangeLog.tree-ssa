@@ -1,3 +1,10 @@
+2003-10-25  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (decode_options): Uncomment unit-at-a-time setting
+	* params.def: Syncrhonize with manline.
+	* tree-inline.c (initialize_inlined_parameters):  Set variable as
+	gimplified.
+
 2003-10-24  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* gimplify.c (create_artificial_label): New function.
