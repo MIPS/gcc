@@ -802,8 +802,8 @@ do_multiply (r, a, b)
 	    /* Would underflow to zero, which we shouldn't bother adding.  */
 	    continue;
 
+	  memset (&u, 0, sizeof (u));
 	  u.class = rvc_normal;
-	  u.sign = 0;
 	  u.exp = exp;
 
 	  for (k = j; k < SIGSZ * 2; k += 2)
@@ -898,8 +898,9 @@ do_divide (r, a, b)
   else
     rr = r;
 
+  /* Make sure all fields in the result are initialized.  */
+  get_zero (rr, sign);
   rr->class = rvc_normal;
-  rr->sign = sign;
 
   exp = a->exp - b->exp + 1;
   if (exp > MAX_EXP)
@@ -1820,7 +1821,7 @@ real_from_string (r, str)
   else if (*str == '+')
     str++;
 
-  if (str[0] == '0' && str[1] == 'x')
+  if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
     {
       /* Hexadecimal floating point.  */
       int pos = SIGNIFICAND_BITS - 4, d;
@@ -2696,7 +2697,8 @@ decode_ieee_single (fmt, r, buf)
 	{
 	  r->class = rvc_nan;
 	  r->sign = sign;
-	  r->signalling = ((image >> 22) & 1) ^ fmt->qnan_msb_set;
+	  r->signalling = (((image >> (HOST_BITS_PER_LONG - 2)) & 1)
+			   ^ fmt->qnan_msb_set);
 	  r->sig[SIGSZ-1] = image;
 	}
       else
@@ -3691,7 +3693,7 @@ const struct real_format mips_quad_format =
 
 /* Descriptions of VAX floating point formats can be found beginning at
 
-   http://www.openvms.compaq.com:8000/73final/4515/4515pro_013.html#f_floating_point_format
+   http://h71000.www7.hp.com/doc/73FINAL/4515/4515pro_013.html#f_floating_point_format
 
    The thing to remember is that they're almost IEEE, except for word
    order, exponent bias, and the lack of infinities, nans, and denormals.
@@ -3844,7 +3846,7 @@ decode_vax_d (fmt, r, buf)
   image0 &= 0xffffffff;
   image1 &= 0xffffffff;
 
-  exp = (image0 >> 7) & 0x7f;
+  exp = (image0 >> 7) & 0xff;
 
   memset (r, 0, sizeof (*r));
 

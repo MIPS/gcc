@@ -1,5 +1,25 @@
 2004-03-08  Alan Modra  <amodra@bigpond.net.au>
 
+	Merge from mainline.
+	2004-02-10  Danny Smith  <dannysmith@users.sourceforge.net>
+	* real.c (real_from_string): Look for 'X' as well as 'x' in
+	hexfloat strings.
+
+	2003-10-29  Hans-Peter Nilsson  <hp@axis.com>
+	* real.c (do_divide): Initialize result with a 0.
+
+	2003-09-10  Jerry Quinn  <jlquinn@optonline.net>
+	* real.c: Update URL to VAX floating point docs.
+	(decode_vax_d): Extract 8 exponent bits instead of 7.
+
+	2003-08-27  Jason Merrill  <jason@redhat.com>
+	* real.c (do_multiply): Initialize with memset.
+
+	2003-04-02  Andreas Schwab  <schwab at suse dot de>
+	* real.c (decode_ieee_single): Fix decoding of SNaN bit.
+
+2004-03-08  Alan Modra  <amodra@bigpond.net.au>
+
 	PR target/14406
 	* config/rs6000/rs6000.md (abstf2, abstf2+1): Delete define_insn.
 	(abstf2, abstf2_internal): New define_expand.
