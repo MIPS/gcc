@@ -257,6 +257,7 @@ static void restore_currdefs_to_original_value (varray_type locals,
 						unsigned limit);
 static void register_definitions_for_stmt (tree, varray_type *);
 static edge single_incoming_edge_ignoring_loop_edges (basic_block);
+static inline bool unsafe_associative_fp_binop (tree);
 
 /* Local version of fold that doesn't introduce cruft.  */
 
@@ -1629,6 +1630,18 @@ record_equality (tree x, tree y, varray_type *block_const_and_copies_p)
   record_const_or_copy_1 (x, y, prev_x, block_const_and_copies_p);
 }
 
+/* Return true, if it is ok to do folding of an associative expression.
+   EXP is the tree for the associative expression.  */ 
+
+static inline bool
+unsafe_associative_fp_binop (tree exp)
+{
+  enum tree_code code = TREE_CODE (exp);
+  return !(!flag_unsafe_math_optimizations
+           && (code == MULT_EXPR || code == PLUS_EXPR)
+           && FLOAT_TYPE_P (TREE_TYPE (exp)));
+}
+
 /* STMT is a MODIFY_EXPR for which we were unable to find RHS in the
    hash tables.  Try to simplify the RHS using whatever equivalences
    we may have recorded.
@@ -1698,7 +1711,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
 	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);
 
-	  if (rhs_code == rhs_def_code
+	  if ((rhs_code == rhs_def_code && unsafe_associative_fp_binop (rhs))
 	      || (rhs_code == PLUS_EXPR && rhs_def_code == MINUS_EXPR)
 	      || (rhs_code == MINUS_EXPR && rhs_def_code == PLUS_EXPR))
 	    {
