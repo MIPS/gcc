@@ -1,3 +1,8 @@
+2005-01-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR debug/19345
+	* gcc.dg/pr19345.c: New test.
+
 2005-03-10  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR rtl-opt/20412
@@ -166,11 +171,6 @@
 
 	PR c++/19406
 	* g++.dg/debug/using1.C: New test.
-
-2004-12-28  Jakub Jelinek  <jakub@redhat.com>
-
-	PR c++/18384, c++/18327
-	* g++.dg/init/array18.C: New test.
 
 2004-11-27  Jakub Jelinek  <jakub@redhat.com>
 

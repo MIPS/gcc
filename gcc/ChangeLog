@@ -1,3 +1,9 @@
+2005-01-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR debug/19345
+	* dwarf2out.c (add_abstract_origin_attribute): TYPE_STUB_DECL is
+	not always going to give us a non-NULL result, so guard against that.
+
 2005-03-10  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR rtl-opt/20412
