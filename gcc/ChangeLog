@@ -1,3 +1,7 @@
+Tue Aug 27 22:26:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (BIGGEST_FIELD_ALIGNMENT): Set proper default for x86_64.
+
 Thu Oct  3 15:15:00 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (lea to mul peep2): Fix condition.

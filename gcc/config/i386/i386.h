@@ -798,7 +798,11 @@ extern int ix86_arch;
    supports no vector modes, cut out the complexity and fall back
    on BIGGEST_FIELD_ALIGNMENT.  */
 #ifdef IN_TARGET_LIBS
+#ifdef __x86_64__
+#define BIGGEST_FIELD_ALIGNMENT 128
+#else
 #define BIGGEST_FIELD_ALIGNMENT 32
+#endif
 #else
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
    x86_field_alignment (FIELD, COMPUTED)
