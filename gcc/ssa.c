@@ -793,12 +793,6 @@ convert_to_ssa()
 
   int nregs;
 
-  find_basic_blocks (get_insns (), max_reg_num(), NULL);
-  /* The dominator algorithms assume all blocks are reachable, clean
-     up first.  */
-  cleanup_cfg (get_insns ());
-  life_analysis (get_insns (), max_reg_num (), NULL, 1);
-
   /* Compute dominators.  */
   dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
   compute_flow_dominators (dominators, NULL);

@@ -804,6 +804,12 @@ extern const char * const note_insn_name[];
 #define TRAP_CONDITION(RTX) XCEXP(RTX, 0, TRAP_IF)
 #define TRAP_CODE(RTX) XCEXP(RTX, 1, TRAP_IF)
 
+/* For a COND_EXEC rtx, COND_EXEC_TEST is the condition to base
+   conditionally executing the code on, COND_EXEC_CODE is the code
+   to execute if the condition is true.  */
+#define COND_EXEC_TEST(RTX) XCEXP(RTX, 0, COND_EXEC)
+#define COND_EXEC_CODE(RTX) XCEXP(RTX, 1, COND_EXEC)
+
 /* 1 in a SYMBOL_REF if it addresses this function's constants pool.  */
 #define CONSTANT_POOL_ADDRESS_P(RTX) ((RTX)->unchanging)
 
@@ -1555,6 +1561,7 @@ extern void fix_sched_param		PARAMS ((const char *, const char *));
 /* In print-rtl.c */
 extern void debug_rtx			PARAMS ((rtx));
 extern void debug_rtx_list		PARAMS ((rtx, int));
+extern void debug_rtx_range		PARAMS ((rtx, rtx));
 extern rtx debug_rtx_find		PARAMS ((rtx, int));
 #ifdef BUFSIZ
 extern void print_rtl			PARAMS ((FILE *, rtx));
@@ -1794,8 +1801,10 @@ extern int stack_regs_mentioned		PARAMS ((rtx insn));
 extern void convert_to_ssa		PARAMS ((void));
 extern void convert_from_ssa		PARAMS ((void));
 
-/* In toplev.c */
+/* In condexec.c */
+extern void if_convert			PARAMS ((void));
 
+/* In toplev.c */
 extern rtx stack_limit_rtx;
 
 /* In regrename.c */

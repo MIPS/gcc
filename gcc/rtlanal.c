@@ -1213,7 +1213,7 @@ dead_or_set_regno_p (insn, test_regno)
      unsigned int test_regno;
 {
   unsigned int regno, endregno;
-  rtx link;
+  rtx link, pattern;
 
   /* See if there is a death note for something that includes
      TEST_REGNO.  */
@@ -1236,7 +1236,12 @@ dead_or_set_regno_p (insn, test_regno)
       && find_regno_fusage (insn, CLOBBER, test_regno))
     return 1;
 
-  if (GET_CODE (PATTERN (insn)) == SET)
+  pattern = PATTERN (insn);
+
+  if (GET_CODE (pattern) == COND_EXEC)
+    pattern = COND_EXEC_CODE (pattern);
+
+  if (GET_CODE (pattern) == SET)
     {
       rtx dest = SET_DEST (PATTERN (insn));
  
@@ -1259,13 +1264,16 @@ dead_or_set_regno_p (insn, test_regno)
 
       return (test_regno >= regno && test_regno < endregno);
     }
-  else if (GET_CODE (PATTERN (insn)) == PARALLEL)
+  else if (GET_CODE (pattern) == PARALLEL)
     {
       register int i;
 
-      for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
+      for (i = XVECLEN (pattern, 0) - 1; i >= 0; i--)
 	{
-	  rtx body = XVECEXP (PATTERN (insn), 0, i);
+	  rtx body = XVECEXP (pattern, 0, i);
+
+	  if (GET_CODE (body) == COND_EXEC)
+	    body = COND_EXEC_CODE (body);
 
 	  if (GET_CODE (body) == SET || GET_CODE (body) == CLOBBER)
 	    {

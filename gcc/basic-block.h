@@ -228,7 +228,9 @@ extern void make_edge			PARAMS ((sbitmap *, basic_block,
 						 basic_block, int));
 extern void remove_edge			PARAMS ((edge));
 extern void create_basic_block		PARAMS ((int, rtx, rtx, rtx));
-
+extern void merge_blocks_nomove		PARAMS ((basic_block, basic_block));
+extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
+						 basic_block));
 
 /* Structure to hold information for each natural loop.  */
 struct loop
@@ -458,6 +460,5 @@ extern void debug_regset		PARAMS ((regset));
    it being unused. */
 extern void verify_flow_info		PARAMS ((void));
 extern int flow_loop_outside_edge_p	PARAMS ((const struct loop *, edge));
-
 
 #endif /* _BASIC_BLOCK_H */

@@ -1,3 +1,84 @@
+Wed Apr  5 16:13:54 2000  Michael Meissner  <meissner@cygnus.com>
+			  Richard Henderson  <rth@cygnus.com>
+
+	Conditional execution support:
+
+	* Makefile.in (OBJS): Add condexec.o.
+	(condexec.o): New target.
+	* condexec.c: New file.
+
+	* rtl.def (COND_EXEC): New.
+	* rtl.h (COND_EXEC_TEST, COND_EXEC_CODE): New.
+
+	* basic-block.h (merge_blocks_nomove): Declare.
+	(tidy_fallthru_edge): Declare.
+	* flow.c (loop_depth): Remove.
+	(reg_next_use, cc0_live, mem_set_list): Replace with ...
+	(struct reg_cond_life_info, struct propagate_block_info): New.
+	(merge_blocks_nomove): Document as merging into previous blocks.
+	Remove cruft from between blocks; remove all edges out of A.
+	(tidy_fallthru_edge): Export.
+	(life_analysis): Don't allocate reg_next_use.
+	(propagate_block_delete_insn): Break out of propagate_block.
+	(propagate_block_delete_libcall): Likewise.
+	(propagate_block): Create a propagate_block_info struct to pass
+	to subroutines.  Allocate one not two temporary regsets.
+	(mark_set_regs): Recognize COND_EXEC.
+	(mark_set_reg): Break out of mark_set_1.  Handle conditional kills.
+	(free_reg_cond_life_info): New.
+	(flush_reg_cond_reg_1, flush_reg_cond_reg): New.
+	(ior_reg_cond, not_reg_cond, nand_reg_cond): New.
+	(mark_used_reg): Break out of mark_used_regs.  Handle conditional life.
+	(mark_used_regs): Recognize COND_EXEC.
+	(insn_dead_p): Use propagate_block_info struct.
+	(libcall_dead_p, invalidate_mems_from_autoinc): Likewise.
+	(find_auto_inc, try_pre_increment_1): Likewise.
+	(print_rtl_with_bb): Dump regs live at end too.
+	(count_reg_sets_1): Pass in loop_depth.
+	(count_reg_sets, count_reg_references): Likewise.
+	(recompute_reg_usage): Provide it.
+
+	* genconfig.c (have_cond_arith_flag): Remove.
+	(have_cond_exec_flag): New.
+	(walk_insn_part): Detect COND_EXEC, not arithmetic in IF_THEN_ELSE.
+	(main): Print HAVE_conditional_execution.
+	* tm.texi (MAX_CONDITIONAL_EXECUTE): Document.
+
+	* haifa-sched.c (haifa_classify_insn): Recognize COND_EXEC.
+	(sched_analyze_insn, print_pattern): Likewise.
+	(schedule_insns): Don't do count_or_remove_death_notes check
+	for HAVE_conditional_execution.
+
+	* gcse.c (gcse_main): Don't rebuild the CFG here.
+	(delete_null_pointer_checks): Likewise.
+	* ssa.c (convert_to_ssa): Likewise.
+	* toplev.c (rest_of_compilation): Do it here instead.  Call
+	if_convert after doing so.
+
+	* jump.c (jump_optimize_1): Remove all store_flag, conditional move,
+	and conditional arithmetic code.
+	(find_insert_position): Remove.
+
+	* print-rtl.c (debug_rtx_range): New.
+
+	* rtlanal.c (dead_or_set_regno_p): Handle COND_EXEC.
+
+	* varray.h (VARRAY_ACTIVE_SIZE, VARRAY_POP_ALL): New.
+
+	* config/alpha/alpha.c (alpha_emit_conditional_move): Fail
+	if we discover we need a pseudo and no_new_pseudos is true.
+	* config/alpha/alpha.md (ne:DI insn): New.
+	(trunctfsf2, sne): Emit NE instead of non-canonical LTU.
+
+	* config/d30v/abi: New.
+	* config/d30v/d30v-protos.h: New.
+	* config/d30v/d30v.c: New.
+	* config/d30v/d30v.h: New.
+	* config/d30v/d30v.md: New.
+	* config/d30v/libgcc1.asm: New.
+	* config/d30v/t-d30v: New.
+	* config/d30v/xm-d30v.h: New.
+
 Wed Apr  5 12:35:18 2000  Hans-Peter Nilsson  <hp@axis.com>
 
 	* optabs.c (emit_libcall_block): Remove spurious REG_EQUAL notes

@@ -2588,6 +2588,7 @@ haifa_classify_insn (insn)
 		WORST_CLASS (tmp_class,
 			   may_trap_exp (SET_SRC (XVECEXP (pat, 0, i)), 0));
 	      break;
+	    case COND_EXEC:
 	    case TRAP_IF:
 	      tmp_class = TRAP_RISKY;
 	      break;
@@ -2617,6 +2618,7 @@ haifa_classify_insn (insn)
 	    WORST_CLASS (tmp_class,
 			 may_trap_exp (SET_SRC (pat), 0));
 	  break;
+	case COND_EXEC:
 	case TRAP_IF:
 	  tmp_class = TRAP_RISKY;
 	  break;
@@ -3649,6 +3651,15 @@ sched_analyze_insn (deps, x, insn, loop_notes)
   int maxreg = max_reg_num ();
   int i;
 
+  if (code == COND_EXEC)
+    {
+      sched_analyze_2 (deps, COND_EXEC_TEST (x), insn);
+
+      /* ??? Should be recording conditions so we reduce the number of
+	 false dependancies.  */
+      x = COND_EXEC_CODE (x);
+      code = GET_CODE (x);
+    }
   if (code == SET || code == CLOBBER)
     sched_analyze_1 (deps, x, insn);
   else if (code == PARALLEL)
@@ -3656,11 +3667,19 @@ sched_analyze_insn (deps, x, insn, loop_notes)
       register int i;
       for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
 	{
-	  code = GET_CODE (XVECEXP (x, 0, i));
+	  rtx sub = XVECEXP (x, 0, i);
+	  code = GET_CODE (sub);
+
+	  if (code == COND_EXEC)
+	    {
+	      sched_analyze_2 (deps, COND_EXEC_TEST (sub), insn);
+	      sub = COND_EXEC_CODE (sub);
+	      code = GET_CODE (sub);
+	    }
 	  if (code == SET || code == CLOBBER)
-	    sched_analyze_1 (deps, XVECEXP (x, 0, i), insn);
+	    sched_analyze_1 (deps, sub, insn);
 	  else
-	    sched_analyze_2 (deps, XVECEXP (x, 0, i), insn);
+	    sched_analyze_2 (deps, sub, insn);
 	}
     }
   else
@@ -5312,6 +5331,11 @@ print_pattern (buf, x, verbose)
     case USE:
       print_value (t1, XEXP (x, 0), verbose);
       sprintf (buf, "use %s", t1);
+      break;
+    case COND_EXEC:
+      print_value (t1, COND_EXEC_CODE (x), verbose);
+      print_value (t2, COND_EXEC_TEST (x), verbose);
+      sprintf (buf, "cond_exec %s %s", t1, t2);
       break;
     case PARALLEL:
       {
@@ -6994,10 +7018,15 @@ schedule_insns (dump_file)
 			  (reload_completed ? PROP_DEATH_NOTES
 			   : PROP_DEATH_NOTES | PROP_REG_INFO));
 
+#ifndef HAVE_conditional_execution
+	/* ??? REG_DEAD notes only exist for unconditional deaths.  We need
+	   a count of the conditional plus unconditional deaths for this to
+	   work out.  */
 	/* In the single block case, the count of registers that died should
 	   not have changed during the schedule.  */
 	if (count_or_remove_death_notes (blocks, 0) != deaths_in_region[rgn])
-          abort (); 
+          abort ();
+#endif
       }
 
   if (any_large_regions)
