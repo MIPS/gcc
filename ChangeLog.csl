@@ -1,3 +1,17 @@
+2004-11-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/cp/g++spec.c (lang_specific_driver): Add a -R option if
+	-lstdc++ is added.
+	* gcc/cp/Make-lang.in (g++spec.o): Define LIBDIR.
+	* gcc/config/i386/t-sol2-10 (MULTILIB_DIRNAMES,
+	MULTILIB_OSDIRNAMES): Use amd64 instead of 64.
+	* gcc/config/i386/i386.c (optimization_options): Use
+	SUBTARGET_OPTIMIZATION_OPTIONS.
+	* gcc/config/i386/sol2-10.h (SUBTARGET_OPTIMIZATION_OPTIONS):
+	Define.
+	(TARGET_SUBTARGET_DEFAULT): Don't include
+	MASK_OMIT_LEAF_FRAME_POINTER.
+
 2004-11-07  Mark Mitchell <mark@codesourcery.com>
 
 	* gcc/config/sparc/sol2.h (ASM_OUTPUT_CALL): Fix typo.

@@ -56,7 +56,7 @@ g++spec.o: $(srcdir)/cp/g++spec.c $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H) $(CON
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
-		$(INCLUDES) $(srcdir)/cp/g++spec.c)
+		-DLIBDIR=\"$(libdir)\" $(INCLUDES) $(srcdir)/cp/g++spec.c)
 
 # Create the compiler driver for g++.
 GXX_OBJS = gcc.o g++spec.o intl.o prefix.o version.o 
