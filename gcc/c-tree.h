@@ -197,7 +197,6 @@ extern tree lookup_name                         PARAMS ((tree));
 extern tree lookup_name_current_level		PARAMS ((tree));
 extern void parmlist_tags_warning               PARAMS ((void));
 extern void pending_xref_error                  PARAMS ((void));
-extern void mark_c_function_context             PARAMS ((void *));
 extern void push_c_function_context             PARAMS ((struct function *));
 extern void pop_c_function_context              PARAMS ((struct function *));
 extern void pop_label_level                     PARAMS ((void));

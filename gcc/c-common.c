@@ -3522,42 +3522,6 @@ finish_label_address_expr (label)
   return result;
 }
 
-/* Mark P (a stmt_tree) for GC.  The use of a `void *' for the
-   parameter allows this function to be used as a GC-marking
-   function.  */
-
-void
-mark_stmt_tree (p)
-     void *p;
-{
-  stmt_tree st = (stmt_tree) p;
-
-  ggc_mark_tree (st->x_last_stmt);
-  ggc_mark_tree (st->x_last_expr_type);
-}
-
-/* Mark LD for GC.  */
-
-void
-c_mark_lang_decl (c)
-     struct c_lang_decl *c ATTRIBUTE_UNUSED;
-{
-}
-
-/* Mark F for GC.  */
-
-void
-mark_c_language_function (f)
-     struct language_function *f;
-{
-  if (!f)
-    return;
-
-  ggc_mark (f);
-  mark_stmt_tree (&f->x_stmt_tree);
-  ggc_mark_tree (f->x_scope_stmt_stack);
-}
-
 /* Hook used by expand_expr to expand language-specific tree codes.  */
 
 rtx

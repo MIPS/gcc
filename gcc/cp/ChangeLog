@@ -1,3 +1,13 @@
+2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* semantics.c (current_stmt_tree): Update for change to
+	struct language_function.
+	(finish_mem_initializers): Likewise.
+	* decl.c (cxx_init_decl_processing): Don't set mark_lang_status.
+	* cp-tree.h (struct language_function): Rename from
+	cp_language_function.  Change all uses.
+	(cp_function_chain): Don't need to cast.
+
 2002-04-27  Geoffrey Keating  <geoffk@redhat.com>
 
 	* class.c (duplicate_tag_error): Reset discriminator.

@@ -281,7 +281,7 @@ typedef struct stmt_tree_s *stmt_tree;
 /* Global state pertinent to the current function.  Some C dialects
    extend this structure with additional fields.  */
 
-struct language_function GTY(()) {
+struct c_language_function GTY(()) {
   /* While we are parsing the function, this contains information
      about the statement-tree that we are building.  */
   struct stmt_tree_s x_stmt_tree;
@@ -340,7 +340,6 @@ extern tree walk_stmt_tree			PARAMS ((tree *,
 							 void *));
 extern void prep_stmt                           PARAMS ((tree));
 extern void expand_stmt                         PARAMS ((tree));
-extern void mark_stmt_tree                      PARAMS ((void *));
 extern void shadow_warning			PARAMS ((const char *,
 							 tree, tree));
 extern tree c_begin_if_stmt			PARAMS ((void));
@@ -363,8 +362,6 @@ struct c_lang_decl GTY(()) {
      heuristics regarding optimization.  */
 #define DECL_NUM_STMTS(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
-
-extern void c_mark_lang_decl                    PARAMS ((struct c_lang_decl *));
 
 /* The variant of the C language being processed.  Each C language
    front-end defines this variable.  */
@@ -812,8 +809,6 @@ extern tree boolean_increment			PARAMS ((enum tree_code,
 /* Hook currently used only by the C++ front end to reset internal state
    after entering or leaving a header file.  */
 extern void extract_interface_info		PARAMS ((void));
-
-extern void mark_c_language_function            PARAMS ((struct language_function *));
 
 extern int case_compare                         PARAMS ((splay_tree_key,
 							 splay_tree_key));

@@ -1,3 +1,7 @@
+2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* lang.c (struct language_function): New dummy structure.
+
 2002-04-26  Geoffrey Keating  <geoffk@redhat.com>
 
 	* java-tree.h (MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC): Set

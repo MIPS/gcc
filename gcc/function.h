@@ -368,14 +368,14 @@ struct function GTY(())
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
-  struct machine_function * GTY ((really ("machine_function"))) machine;
+  struct machine_function * GTY ((maybe_undef (""))) machine;
   /* The largest alignment of slot allocated on the stack.  */
   int stack_alignment_needed;
   /* Preferred alignment of the end of stack frame.  */
   int preferred_stack_boundary;
 
   /* Language-specific code can use this to store whatever it likes.  */
-  struct language_function * GTY((really ("language_function"))) language;
+  struct language_function * language;
 
   /* For reorg.  */
 
@@ -566,25 +566,16 @@ extern HOST_WIDE_INT get_frame_size	PARAMS ((void));
 /* Likewise, but for a different than the current function.  */
 extern HOST_WIDE_INT get_func_frame_size	PARAMS ((struct function *));
 
-/* These variables hold pointers to functions to create
-   target specific, per-function data structures.  */
+/* A pointer to a function to create target specific, per-function
+   data structures.  */
 extern struct machine_function * (*init_machine_status)	PARAMS ((void));
-/* This variable holds a pointer to a function to register any
-   data items in the target specific, per-function data structure
-   that will need garbage collection.  */
-extern void (*mark_machine_status)	PARAMS ((void *));
 
 /* Likewise, but for language-specific data.  */
 extern void (*init_lang_status)         PARAMS ((struct function *));
-extern void (*mark_lang_status)		PARAMS ((void *));
 extern void (*save_lang_status)		PARAMS ((struct function *));
 extern void (*restore_lang_status)	PARAMS ((struct function *));
 /* This is obsolete.  Do not set it.  */
 extern void (*free_lang_status)         PARAMS ((struct function *));
-
-/* Adaptor functions that call the hooks if they are set.  */
-extern void gt_ggc_mr_machine_function	PARAMS ((void *));
-extern void gt_ggc_mr_language_function	PARAMS ((void *));
 
 /* Save and restore status information for a nested function.  */
 extern void restore_emit_status		PARAMS ((struct function *));

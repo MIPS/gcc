@@ -65,6 +65,7 @@ struct type {
   enum gc_used_enum {
     GC_UNUSED = 0,
     GC_USED,
+    GC_MAYBE_POINTED_TO,
     GC_POINTED_TO
   } gc_used;
   union {

@@ -99,7 +99,7 @@ stmt_tree
 current_stmt_tree ()
 {
   return (cfun 
-	  ? &cfun->language->x_stmt_tree 
+	  ? &cfun->language->base.x_stmt_tree 
 	  : &scope_chain->x_stmt_tree);
 }
 
@@ -1157,7 +1157,7 @@ finish_mem_initializers (init_list)
 tree *
 current_scope_stmt_stack ()
 {
-  return &cfun->language->x_scope_stmt_stack;
+  return &cfun->language->base.x_scope_stmt_stack;
 }
 
 /* Finish a parenthesized expression EXPR.  */

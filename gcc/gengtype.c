@@ -345,11 +345,10 @@ set_gc_used_type (t, level)
      type_p t;
      enum gc_used_enum level;
 {
-  int seen = t->gc_used != GC_UNUSED;
-  if (t->gc_used < level)
-    t->gc_used = level;
-  if (seen)
+  if (t->gc_used >= level)
     return;
+
+  t->gc_used = level;
 
   switch (t->kind)
     {
@@ -358,7 +357,19 @@ set_gc_used_type (t, level)
       {
 	pair_p f;
 	for (f = t->u.s.fields; f; f = f->next)
-	  set_gc_used_type (f->type, GC_USED);
+	  {
+	    options_p o;
+	    int maybe_null = 0;
+	    
+	    for (o = f->opt; o; o = o->next)
+	      if (strcmp (o->name, "maybe_null") == 0)
+		maybe_null = 1;
+	    
+	    if (maybe_null && f->type->kind == TYPE_POINTER)
+	      set_gc_used_type (f->type->u.p, GC_MAYBE_POINTED_TO);
+	    else
+	      set_gc_used_type (f->type, GC_USED);
+	  }
 	break;
       }
 
@@ -778,10 +789,10 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
     {
       const char *tagid = NULL;
       const char *length = NULL;
-      const char *really = NULL;
       const char *special = NULL;
       int skip_p = 0;
       int always_p = 0;
+      int maybe_undef_p = 0;
       options_p oo;
       
       if (f->type->kind == TYPE_SCALAR
@@ -792,8 +803,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
       for (oo = f->opt; oo; oo = oo->next)
 	if (strcmp (oo->name, "length") == 0)
 	  length = (const char *)oo->info;
-	else if (strcmp (oo->name, "really") == 0)
-	  really = (const char *)oo->info;
+	else if (strcmp (oo->name, "maybe_undef") == 0)
+	  maybe_undef_p = 1;
 	else if (strcmp (oo->name, "tag") == 0)
 	  tagid = (const char *)oo->info;
 	else if (strcmp (oo->name, "special") == 0)
@@ -813,11 +824,16 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
       if (skip_p)
 	continue;
 
-      if (really && (length
-		     || f->type->kind != TYPE_POINTER
-		     || f->type->u.p->kind != TYPE_STRUCT))
-	  error_at_line (&f->line, "field `%s' has invalid option `really'\n",
-			 f->name);
+      if (maybe_undef_p)
+	{
+	  if (f->type->kind != TYPE_POINTER
+	      || f->type->u.p->kind != TYPE_STRUCT)
+	    error_at_line (&f->line, 
+			   "field `%s' has invalid option `maybe_undef_p'\n",
+			   f->name);
+	  if (f->type->u.p->u.s.line.file == NULL)
+	    continue;
+	}
       
       if (s->kind == TYPE_UNION && ! always_p )
 	{
@@ -853,10 +869,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	case TYPE_POINTER:
 	  if (! length)
 	    {
-	      if (really)
-		fprintf (of, "%*sgt_ggc_mr_%s (%s.%s);\n", indent, "", 
-			 really, val, f->name);
-	      else if (f->type->u.p->kind == TYPE_STRUCT
+	      if (f->type->u.p->kind == TYPE_STRUCT
 		       || f->type->u.p->kind == TYPE_UNION
 		       || f->type->u.p->kind == TYPE_LANG_STRUCT)
 		fprintf (of, "%*sgt_ggc_m_%s (%s.%s);\n", indent, "", 
@@ -1130,8 +1143,13 @@ write_gc_types (structures)
   
   fputs ("\n/* GC marker procedures.  */\n", header_file);
   for (s = structures; s; s = s->next)
-    if (s->gc_used == GC_POINTED_TO)
+    if (s->gc_used == GC_POINTED_TO
+	|| s->gc_used == GC_MAYBE_POINTED_TO)
       {
+	if (s->gc_used == GC_MAYBE_POINTED_TO
+	    && s->u.s.line.file == NULL)
+	  continue;
+
 	/* Declare the marker procedure only once.  */
 	fprintf (header_file, 
 		 "extern void gt_ggc_m_%s PARAMS ((void *));\n",

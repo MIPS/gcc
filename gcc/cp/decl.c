@@ -6313,7 +6313,6 @@ cxx_init_decl_processing ()
   /* Fill in back-end hooks.  */
   init_lang_status = &push_cp_function_context;
   free_lang_status = &pop_cp_function_context;
-  mark_lang_status = &gt_ggc_m_cp_language_function;
   lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
 
   init_decl2 ();
@@ -13734,7 +13733,7 @@ static void
 save_function_data (decl)
      tree decl;
 {
-  struct cp_language_function *f;
+  struct language_function *f;
 
   /* Save the language-specific per-function data so that we can
      get it back when we really expand this function.  */
@@ -13742,9 +13741,9 @@ save_function_data (decl)
 		      19990908);
 
   /* Make a copy.  */
-  f = ((struct cp_language_function *)
-       ggc_alloc (sizeof (struct cp_language_function)));
-  memcpy (f, cp_function_chain, sizeof (struct cp_language_function));
+  f = ((struct language_function *)
+       ggc_alloc (sizeof (struct language_function)));
+  memcpy (f, cp_function_chain, sizeof (struct language_function));
   DECL_SAVED_FUNCTION_DATA (decl) = f;
 
   /* Clear out the bits we don't need.  */
@@ -14420,10 +14419,10 @@ static void
 push_cp_function_context (f)
      struct function *f;
 {
-  struct cp_language_function *p
-    = ((struct cp_language_function *)
-       ggc_alloc_cleared (sizeof (struct cp_language_function)));
-  f->language = (struct language_function *) p;
+  struct language_function *p
+    = ((struct language_function *)
+       ggc_alloc_cleared (sizeof (struct language_function)));
+  f->language = p;
 
   /* It takes an explicit call to expand_body to generate RTL for a
      function.  */
@@ -14443,8 +14442,7 @@ pop_cp_function_context (f)
 {
   if (f->language)
     {
-      struct cp_language_function *cp =
-	(struct cp_language_function *) f->language;
+      struct language_function *cp = f->language;
       if (cp->x_local_names)
 	VARRAY_FREE (cp->x_local_names);
     }

@@ -63,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
     } while (0)
 
 /* Per-function machine data.  */
-struct machine_function
+struct machine_function GTY(())
  {
    int needs_return_address_on_stack;
  };
@@ -3132,6 +3132,8 @@ Prev_insn (insn)
   return PREV_INSN (insn);
 }
 #endif
+
+#include "gt-cris.h"
 
 /*
  * Local variables:

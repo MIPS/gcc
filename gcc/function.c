@@ -126,16 +126,11 @@ int virtuals_instantiated;
 /* These variables hold pointers to functions to create
    target specific, per-function data structures.  */
 struct machine_function * (*init_machine_status) PARAMS ((void));
-/* This variable holds a pointer to a function to register any
-   data items in the target specific, per-function data structure
-   that will need garbage collection.  */
-void (*mark_machine_status) PARAMS ((void *));
 
 /* Likewise, but for language-specific data.  */
 void (*init_lang_status) PARAMS ((struct function *));
 void (*save_lang_status) PARAMS ((struct function *));
 void (*restore_lang_status) PARAMS ((struct function *));
-void (*mark_lang_status) PARAMS ((void *));
 /* This is obsolete; do not set it.  */
 void (*free_lang_status) PARAMS ((struct function *));
 
@@ -7858,26 +7853,6 @@ reposition_prologue_and_epilogue_notes (f)
 	}
     }
 #endif /* HAVE_prologue or HAVE_epilogue */
-}
-
-/* Some adaptor functions to mark parts of the function structure.  */
-
-void
-gt_ggc_mr_machine_function (x)
-     void *x;
-{
-  if (mark_machine_status)
-    (*mark_machine_status) (x);
-  else if (x)
-    ggc_set_mark (x);
-}
-
-void
-gt_ggc_mr_language_function (x)
-     void *x;
-{
-  if (mark_lang_status)
-    (*mark_lang_status) ((struct lang_function *)x);
 }
 
 /* Called once, at initialization, to initialize function.c.  */

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                            $Revision: 1.8.6.2 $
+ *                            $Revision: 1.8.6.3 $
  *                                                                          *
  *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
  *                                                                          *
@@ -137,6 +137,11 @@ static struct binding_level *global_binding_level;
 
 /* Binding level structures are initialized by copying this one.  */
 static struct binding_level clear_binding_level = {NULL, NULL, NULL, NULL};
+
+struct language_function GTY(())
+{
+  int unused;
+};
 
 static tree merge_sizes			PARAMS ((tree, tree, tree, int, int));
 static tree compute_related_constant	PARAMS ((tree, tree));

@@ -209,6 +209,11 @@ static int dependency_tracking = 0;
 #define DEPEND_TARGET_SET 4
 #define DEPEND_FILE_ALREADY_SET 8
 
+struct language_function GTY(())
+{
+  int unused;
+};
+
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU Java"
 #undef LANG_HOOKS_INIT

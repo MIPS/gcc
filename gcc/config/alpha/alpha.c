@@ -493,7 +493,6 @@ override_options ()
 #if TARGET_ABI_UNICOSMK
   /* Set up function hooks.  */
   init_machine_status = alpha_init_machine_status;
-  mark_machine_status = gt_ggc_m_machine_function;
 #endif
 }
 

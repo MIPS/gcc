@@ -6985,9 +6985,9 @@ check_for_loop_decls ()
    that keep track of the progress of compilation of the current function.
    Used for nested functions.  */
 
-struct c_language_function
+struct language_function GTY(())
 {
-  struct language_function base;
+  struct c_language_function base;
   tree named_labels;
   tree shadowed_labels;
   int returns_value;
@@ -7005,10 +7005,10 @@ void
 push_c_function_context (f)
      struct function *f;
 {
-  struct c_language_function *p;
-  p = ((struct c_language_function *)
-       ggc_alloc (sizeof (struct c_language_function)));
-  f->language = (struct language_function *) p;
+  struct language_function *p;
+  p = ((struct language_function *)
+       ggc_alloc (sizeof (struct language_function)));
+  f->language = p;
 
   p->base.x_stmt_tree = c_stmt_tree;
   p->base.x_scope_stmt_stack = c_scope_stmt_stack;
@@ -7028,8 +7028,7 @@ void
 pop_c_function_context (f)
      struct function *f;
 {
-  struct c_language_function *p
-    = (struct c_language_function *) f->language;
+  struct language_function *p = f->language;
   tree link;
 
   /* Bring back all the labels that were shadowed.  */
@@ -7060,24 +7059,6 @@ pop_c_function_context (f)
   current_binding_level = p->binding_level;
 
   f->language = NULL;
-}
-
-/* Mark the language specific parts of F for GC.  */
-
-void
-mark_c_function_context (language)
-     void *language;
-{
-  struct c_language_function *p
-    = (struct c_language_function *) language;
-
-  if (p == 0)
-    return;
-
-  mark_c_language_function (&p->base);
-  ggc_mark_tree (p->shadowed_labels);
-  ggc_mark_tree (p->named_labels);
-  gt_ggc_m_binding_level (p->binding_level);
 }
 
 /* Copy the DECL_LANG_SPECIFIC data associated with DECL.  */

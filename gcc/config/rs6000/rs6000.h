@@ -1533,7 +1533,7 @@ typedef struct rs6000_stack {
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
-typedef struct machine_function
+typedef struct machine_function GTY(())
 {
   /* Whether a System V.4 varargs area was created.  */
   int sysv_varargs_p;

@@ -10085,7 +10085,6 @@ arm_init_expanders ()
 {
   /* Arrange to initialize and mark the machine per-function status.  */
   init_machine_status = arm_init_machine_status;
-  mark_machine_status = gt_ggc_m_machine_function;
 }
 
 /* Generate the rest of a function's prologue.  */

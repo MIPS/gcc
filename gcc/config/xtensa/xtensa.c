@@ -84,7 +84,7 @@ const char *xtensa_st_opcodes[(int) MAX_MACHINE_MODE];
 #define LARGEST_MOVE_RATIO 15
 
 /* Define the structure for the machine field in struct function.  */
-struct machine_function
+struct machine_function GTY(())
 {
   int accesses_prev_frame;
 };
@@ -2643,3 +2643,5 @@ a7_overlap_mentioned_p (x)
 
   return 0;
 }
+
+#include "gt-xtensa.h"

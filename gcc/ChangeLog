@@ -1,5 +1,51 @@
 2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
 
+	* config/xtensa/t-xtensa: Add dependencies for gt-xtensa.h.
+	* config/xtensa/xtensa.c: Include gt-cris.h.
+	(struct machine_function): Use gengtype	to mark.
+	* config/mmix/mmix.h (struct machine_function): Use gengtype
+	to mark.
+	* config/cris/t-cris: Add dependencies for gt-cris.h.
+	* config/cris/cris.c: Include gt-cris.h.
+	(struct machine_function): Use gengtype	to mark.
+	* config/rs6000/rs6000.h (struct machine_function): Use gengtype
+	to mark.
+	* doc/tm.texi (Per-Function Data): Delete references to
+	mark_machine_status.
+	* config/ia64/ia64.c (ia64_override_options): Don't set
+	mark_machine_status.
+	* config/i386/i386.c (override_options): Likewise.
+	* config/d30v/d30v.c (d30v_init_expanders): Likewise.
+	* config/arm/arm.c (arm_init_expanders): Likewise.
+	* config/alpha/alpha.c (override_options): Likewise.
+	* gengtype.h (enum gc_used_enum): Add GC_MAYBE_POINTED_TO. 
+	* gengtype.c (set_gc_used_type): Handle 'maybe_null' option.
+	(write_gc_structure_fields): Don't handle 'really' option.
+	Handle 'maybe_null' option.
+	(write_gc_types): Handle 'maybe_null' option.
+	* function.h (struct function): Don't use "really".
+	(mark_machine_status): Delete declaration.
+	(mark_lang_status): Delete declaration.
+	(gt_ggc_mr_machine_function): Delete prototype.
+	(gt_ggc_mr_language_function): Delete prototype.
+	* function.c (mark_machine_status): Delete.
+	(mark_lang_status): Delete.
+	(gt_ggc_mr_machine_function): Delete.
+	(gt_ggc_mr_language_function): Delete.
+	* c-tree.h (mark_c_function_context): Delete prototype.
+	* c-objc-common.c (c_objc_common_init): Don't set mark_lang_status.
+	* c-decl.c (struct language_function): Rename from struct
+	c_language_function.  Update uses.  Use gengtype to mark.
+	(mark_c_function_context): Delete.
+	* c-common.h (struct c_language_function): Rename from struct
+	language_function.
+	(mark_stmt_tree): Delete prototype.
+	(c_mark_lang_decl): Delete prototype.
+	(mark_c_language_function): Delete prototype.
+	* c-common.c (mark_stmt_tree): Delete.
+	(c_mark_lang_decl): Delete.
+	(mark_c_language_function): Delete.
+
 	* gengtype.h (enum typekind): Add TYPE_LANG_STRUCT.
 	(lang_bitmap): New typedef.  Use where appropriate.
 	(struct type): Add gc_used field, lang_struct field.

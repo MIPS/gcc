@@ -1,3 +1,7 @@
+2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* utils.c (struct language_function): New dummy structure.
+
 2002-04-11  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Makefile.in (decl.o): gt-ada-<filename.h> is in objdir, not srcdir.

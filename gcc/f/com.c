@@ -14103,6 +14103,11 @@ static void ffe_finish PARAMS ((void));
 static void ffe_init_options PARAMS ((void));
 static void ffe_print_identifier PARAMS ((FILE *, tree, int));
 
+struct language_function GTY(())
+{
+  int unused;
+};
+
 #undef  LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME			"GNU F77"
 #undef  LANG_HOOKS_INIT

@@ -810,9 +810,9 @@ struct unparsed_text;
 
 /* Global state pertinent to the current function.  */
 
-struct cp_language_function GTY(())
+struct language_function GTY(())
 {
-  struct language_function base;
+  struct c_language_function base;
 
   tree x_dtor_label;
   tree x_current_class_ptr;
@@ -839,8 +839,7 @@ struct cp_language_function GTY(())
 
 /* The current C++-specific per-function global variables.  */
 
-#define cp_function_chain \
-  ((struct cp_language_function *) (cfun->language))
+#define cp_function_chain (cfun->language)
 
 /* In a destructor, the point at which all derived class destroying
    has been done, just before any base class destroying will be done.  */
@@ -1862,7 +1861,7 @@ struct lang_decl GTY(())
 	{
 	  tree GTY ((tag ("0"))) sorted_fields;
 	  struct unparsed_text * GTY ((tag ("2"))) pending_inline_info;
-	  struct cp_language_function * GTY ((tag ("1"))) 
+	  struct language_function * GTY ((tag ("1"))) 
 	       saved_language_function;
 	} GTY ((desc ("%1.u3sel + %1.pending_inline_p"))) u;
       } GTY ((tag ("1"))) f;

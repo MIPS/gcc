@@ -88,7 +88,7 @@ extern GTY(()) rtx mmix_compare_op1;
 /* Per-function machine data.  This is normally an opaque type just
    defined and used in the tm.c file, but we need to see the definition in
    mmix.md too.  */
-struct machine_function
+struct machine_function GTY(())
  {
    int has_landing_pad;
  };

@@ -41,3 +41,6 @@ $(LIB2FUNCS_EXTRA): $(CRIS_LIB1CSRC)
 	&& mv -f tmp-$@ $@
 
 TARGET_LIBGCC2_CFLAGS = -Dinhibit_libc
+
+$(out_object_file): gt-cris.h
+gt-cris.h : s-gtype ; @true

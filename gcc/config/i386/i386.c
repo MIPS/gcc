@@ -1004,7 +1004,6 @@ override_options ()
 
   /* Arrange to set up i386_stack_locals for all functions.  */
   init_machine_status = ix86_init_machine_status;
-  mark_machine_status = gt_ggc_m_machine_function;
   
   /* Validate -mregparm= value.  */
   if (ix86_regparm_string)

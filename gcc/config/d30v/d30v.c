@@ -3551,7 +3551,6 @@ d30v_init_expanders ()
 {
   /* Arrange to save and restore machine status around nested functions.  */
   init_machine_status = d30v_init_machine_status;
-  mark_machine_status = gt_ggc_m_machine_function;
 }
 
 /* Find the current function's return address.
