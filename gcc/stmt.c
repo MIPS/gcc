@@ -405,7 +405,6 @@ static bool check_unique_operand_names (tree, tree);
 static char *resolve_operand_name_1 (char *, tree, tree);
 static void expand_null_return_1 (rtx);
 static enum br_predictor return_prediction (rtx);
-static rtx shift_return_value (rtx);
 static void expand_value_return (rtx);
 static int tail_recursion_args (tree, tree);
 static void expand_cleanups (tree, int, int);
@@ -2947,33 +2946,6 @@ return_prediction (rtx val)
 }
 
 
-/* If the current function returns values in the most significant part
-   of a register, shift return value VAL appropriately.  The mode of
-   the function's return type is known not to be BLKmode.  */
-
-static rtx
-shift_return_value (rtx val)
-{
-  tree type;
-
-  type = TREE_TYPE (DECL_RESULT (current_function_decl));
-  if (targetm.calls.return_in_msb (type))
-    {
-      rtx target;
-      HOST_WIDE_INT shift;
-
-      target = DECL_RTL (DECL_RESULT (current_function_decl));
-      shift = (GET_MODE_BITSIZE (GET_MODE (target))
-	       - BITS_PER_UNIT * int_size_in_bytes (type));
-      if (shift > 0)
-	val = expand_binop (GET_MODE (target), ashl_optab,
-			    gen_lowpart (GET_MODE (target), val),
-			    GEN_INT (shift), target, 1, OPTAB_WIDEN);
-    }
-  return val;
-}
-
-
 /* Generate RTL to return from the current function, with value VAL.  */
 
 static void
@@ -3258,8 +3230,9 @@ expand_return (tree retval)
       val = expand_expr (retval_rhs, val, GET_MODE (val), 0);
       val = force_not_mem (val);
       emit_queue ();
+
       /* Return the calculated value, doing cleanups first.  */
-      expand_value_return (shift_return_value (val));
+      expand_value_return (val);
     }
   else
     {
@@ -3267,6 +3240,7 @@ expand_return (tree retval)
 	 calculate value into hard return reg.  */
       expand_expr (retval, const0_rtx, VOIDmode, 0);
       emit_queue ();
+
       expand_value_return (result_rtl);
     }
 }

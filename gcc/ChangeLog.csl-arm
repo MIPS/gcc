@@ -1,3 +1,56 @@
+2005-01-26  Julian Brown  <julian@codesourcery.com>
+
+	Backport:
+	2004-11-24  Richard Sandiford  <rsandifo@redhat.com>
+
+	* optabs.h (force_expand_binop): Declare.
+	* optabs.c (force_expand_binop): Export.
+	* stmt.c (shift_return_value): Delete.
+	(expand_return): Don't call it.
+	* expr.h (shift_return_value): Declare.
+	* calls.c (shift_returned_value): Delete in favor of...
+	(shift_return_value): ...this new function.  Leave the caller to check
+	for non-BLKmode values passed in the msb of a register.  Take said
+	mode and a shift direction as argument.  Operate on the hard function
+	value, not a pseudo.
+	(expand_call): Adjust accordingly.
+	* function.c (expand_function_start): If a non-BLKmode return value
+	is padded at the last significant end of the return register, use the
+	return value's natural mode for the DECL_RESULT, not the mode of the
+	padded register.
+	(expand_function_end): Shift the same sort of return values left by
+	the appropriate amount.
+
+	Backport:
+	2004-09-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* optabs.c (simplify_expand_binop, force_expand_binop): New functions.
+	(only these parts of the patch are applied)
+
+	* config/arm/arm-protos.h (arm_must_pass_in_stack): Declare.
+	(arm_pad_arg_upward): Declare:
+	(arm_pad_reg_upward): Declare.
+	* config/arm/arm.c (TARGET_RETURN_IN_MSB): Define target hook as...
+	(arm_return_in_msb): New function, specifying when values returned in 
+	registers should be aligned to the most-significant end.
+	(arm_function_value): If necessary (aggregates and complex values of 
+	word size or less), promote the return type of a function to SImode to
+	enable padding to word size.
+	(arm_must_pass_in_stack): New function, returns false for small 
+	aggregates so they can be passed in registers (the default 
+	implementation passes them in the stack).
+	(arm_pad_arg_upward): New function, fixes argument padding on the
+	stack in big-endian AAPCS mode.
+	(arm_pad_reg_upward): New function, fixes argument padding in
+	registers in big-endian AAPCS mode.
+	* config/arm/arm.h (PROMOTE_FUNCTION_MODE): modes of mode class
+	MODE_COMPLEX_INT are also promoted to SImode.
+	(MUST_PASS_IN_STACK): Define.
+	(FUNCTION_ARG_PADDING): Define.
+	(BLOCK_REG_PADDING): Define.
+	(PAD_VARARGS_DOWN): For AAPCS, varargs are always padded upwards
+	regardless of endianness.
+
 2005-01-25  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_compute_func_type): Don't use

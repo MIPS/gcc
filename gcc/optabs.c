@@ -1869,6 +1869,40 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
   return 0;
 }
 
+
+/* Like expand_binop, but return a constant rtx if the result can be
+ * calculated at compile time.  The arguments and return value are
+ * otherwise the same as for expand_binop.  */
+
+static rtx
+simplify_expand_binop (enum machine_mode mode, optab binoptab,
+                           rtx op0, rtx op1, rtx target, int unsignedp,
+                                                  enum optab_methods methods)
+{
+  if (CONSTANT_P (op0) && CONSTANT_P (op1))
+    return simplify_gen_binary (binoptab->code, mode, op0, op1);
+  else
+    return expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods);
+}
+
+/* Like simplify_expand_binop, but always put the result in TARGET.
+ * Return true if the expansion succeeded.  */
+
+bool
+force_expand_binop (enum machine_mode mode, optab binoptab,
+                    rtx op0, rtx op1, rtx target, int unsignedp,
+                    enum optab_methods methods)
+{
+  rtx x = simplify_expand_binop (mode, binoptab, op0, op1,
+                                 target, unsignedp, methods);
+  if (x == 0)
+    return false;
+  if (x != target)
+    emit_move_insn (target, x);
+  return true;
+}
+
+
 /* Like expand_binop, but for open-coding vectors binops.  */
 
 static rtx

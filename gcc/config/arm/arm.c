@@ -176,6 +176,8 @@ static const char * arm_cxx_unwind_resume_name (void);
 static bool arm_cxx_use_aeabi_atexit (void);
 static void arm_init_libfuncs (void);
 
+static bool arm_return_in_msb (tree);
+
 
 /* Initialize the GCC target structure.  */
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -310,6 +312,9 @@ static void arm_init_libfuncs (void);
 #undef TARGET_EH_FNSPEC_TTABLE_INDIRECT
 #define TARGET_EH_FNSPEC_TTABLE_INDIRECT hook_bool_void_false
 #endif
+
+#undef TARGET_RETURN_IN_MSB
+#define TARGET_RETURN_IN_MSB arm_return_in_msb
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2256,6 +2261,17 @@ arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
   return code;
 }
 
+/* Values which must be returned in the most-significant end of the return
+   register.  */
+
+static bool
+arm_return_in_msb (tree valtype)
+{
+  return (TARGET_AAPCS_BASED
+          && BYTES_BIG_ENDIAN
+          && (AGGREGATE_TYPE_P (valtype)
+              || TREE_CODE (valtype) == COMPLEX_TYPE));
+}
 
 /* Define how to find the value returned by a function.  */
 
@@ -2265,11 +2281,23 @@ rtx arm_function_value(tree type, tree func ATTRIBUTE_UNUSED)
   int unsignedp ATTRIBUTE_UNUSED;
   rtx r ATTRIBUTE_UNUSED;
 
-  
   mode = TYPE_MODE (type);
   /* Promote integer types.  */
   if (INTEGRAL_TYPE_P (type))
     PROMOTE_FUNCTION_MODE (mode, unsignedp, type);
+
+  /* Promotes small structs returned in a register to full-word size
+   * for big-endian AAPCS.  */
+  if (arm_return_in_msb (type))
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      if (size % UNITS_PER_WORD != 0)
+        {
+          size += UNITS_PER_WORD - size % UNITS_PER_WORD;
+          mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
+        }
+    }
+
   return LIBCALL_VALUE(mode);
 }
 
@@ -2381,6 +2409,7 @@ arm_return_in_memory (tree type)
   /* Return all other types in memory.  */
   return 1;
 }
+
 
 /* Indicate whether or not words of a double are in big-endian order.  */
 
@@ -2567,6 +2596,71 @@ arm_va_arg (tree valist, tree type)
 
   return std_expand_builtin_va_arg (valist, type);
 }
+
+/* Return true if a type must be passed in memory. The default definition
+   doesn't allow small aggregates (padded to the size of a word) to be passed
+   in a register, which is required for AAPCS.  */
+
+bool
+arm_must_pass_in_stack (enum machine_mode mode, tree type)
+{
+  if (!TARGET_AAPCS_BASED)
+    return default_must_pass_in_stack (mode, type);
+
+  if (!type)
+    return false;
+
+  /* If the type has variable size...  */
+  if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    return true;
+
+  /* If the type is marked as addressable (it is required
+     to be constructed into the stack)...  */
+  if (TREE_ADDRESSABLE (type))
+    return true;
+
+  return false;
+}
+
+
+/* For use by FUNCTION_ARG_PADDING (MODE, TYPE).
+ * Return true if an argument passed on the stack should be padded upwards,
+ * i.e. if the least-significant byte has useful data.  */
+
+bool
+arm_pad_arg_upward (enum machine_mode mode, tree type)
+{
+  if (!TARGET_AAPCS_BASED)
+    return DEFAULT_FUNCTION_ARG_PADDING(mode, type);
+
+  if (type && BYTES_BIG_ENDIAN && INTEGRAL_TYPE_P (type))
+    return false;
+
+  return true;
+}
+
+
+/* Similarly, for use by BLOCK_REG_PADDING (MODE, TYPE, FIRST).
+ * For non-AAPCS, return !BYTES_BIG_ENDIAN if the least significant
+ * byte of the register has useful data, and return the opposite if the
+ * most significant byte does.
+ * For AAPCS, small aggregates and small complex types are always padded
+ * upwards.  */
+
+bool
+arm_pad_reg_upward (enum machine_mode mode, tree type, int first)
+{
+  if (TARGET_AAPCS_BASED
+      && BYTES_BIG_ENDIAN
+      && (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == COMPLEX_TYPE)
+      && int_size_in_bytes (type) <= 4)
+    return true;
+
+  /* Otherwise, use default padding.  */
+  return !BYTES_BIG_ENDIAN;
+}
+
+
 
 /* Encode the current state of the #pragma [no_]long_calls.  */
 typedef enum

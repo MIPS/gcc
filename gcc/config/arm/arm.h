@@ -607,9 +607,10 @@ extern int arm_is_6_or_7;
 #define PROMOTE_FUNCTION_ARGS
 
 #define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)	\
-  if (GET_MODE_CLASS (MODE) == MODE_INT		\
-      && GET_MODE_SIZE (MODE) < 4)      	\
-    (MODE) = SImode;				\
+  if ((GET_MODE_CLASS (MODE) == MODE_INT		\
+       || GET_MODE_CLASS (MODE) == MODE_COMPLEX_INT)    \
+      && GET_MODE_SIZE (MODE) < 4)                      \
+    (MODE) = SImode;				        \
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -1750,6 +1751,20 @@ typedef struct
    appropriate for passing a pointer to that type.  */
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
   arm_function_arg_pass_by_reference (&CUM, MODE, TYPE, NAMED)
+
+#define MUST_PASS_IN_STACK(MODE, TYPE) \
+  arm_must_pass_in_stack (MODE, TYPE)
+
+#define FUNCTION_ARG_PADDING(MODE, TYPE) \
+  (arm_pad_arg_upward (MODE, TYPE) ? upward : downward)
+
+#define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
+  (arm_pad_reg_upward (MODE, TYPE, FIRST) ? upward : downward)
+
+/* For AAPCS, padding should never be below the argument. For other ABIs,
+ * mimic the default.  */
+#define PAD_VARARGS_DOWN \
+  ((TARGET_AAPCS_BASED) ? 0 : BYTES_BIG_ENDIAN)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
