@@ -1,3 +1,7 @@
+Thu Aug 26 18:32:32 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* gcse.c (hash_scan_insn): Don't scan obvious no-ops.
+
 Wed Aug 25 17:56:59 1999  Richard Henderson  <rth@cygnus.com>
 
 	* optabs.c (emit_cmp_and_jump_insns): Be more thorough in
