@@ -1,3 +1,8 @@
+2004-03-01  Devang Patel  <dpatel@apple.com>
+
+	* tree-dg.c (dg_delete_graph): Reset varrays.
+	(gate_ddg) : Check current loops.
+
 2004-02-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (cleanup_control_expr_graph): Prevent probability from
