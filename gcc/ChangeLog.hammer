@@ -1,3 +1,59 @@
+2004-03-05  Alan Modra  <amodra@bigpond.net.au>
+
+	* real.c (encode_ibm_extended): Don't bother rounding low double.
+	* c-common.c (builtin_define_float_constants): Tweak MAX
+	when fmt->pnan < fmt->p.
+
+	Backport from mainline
+	2004-02-08  Richard Sandiford  <rsandifo@redhat.com>
+	* real.c (encode_ibm_extended): Normalize the input value before
+	converting it to a double.  Handle the case where a normal value
+	rounds to infinity.
+
+	2003-04-01  Alexandre Oliva  <aoliva@redhat.com>
+	* real.h (EXP_BITS): Make room for...
+	(struct real_value): ... added canonical bit.
+	(struct real_format): Added pnan.
+	(mips_single_format, mips_double_format, mips_extended_format,
+	mips_quad_format): New.
+	* real.c: Copy p to pnan in all formats.
+	(get_canonical_qnan, get_canonical_snan): Set canonical bit.
+	(real_nan): Use pnan to compute significand's shift.
+	(real_identical): Disregard significand in canonical NaNs.
+	(real_hash): Likewise.  Take signalling into account.
+	(encode_ieee_single, encode_ieee_double, encode_ieee_quad):
+	Disregard significand bits in canonical NaNs.  Set all bits of
+	canonical NaN if !qnan_msb_set.
+	(encode_ibm_extended, decode_ibm_extended): Likewise.  Use
+	qnan_msb_set to tell the base double format.
+	(ibm_extended_format): Use 53 as pnan.
+	(mips_single_format, mips_double_format, mips_extended_format,
+	mips_quad_format): Copied from the corresponding ieee/ibm
+	formats, with qnan_msb_set false.
+	* config/mips/iris6.h (MIPS_TFMODE_FORMAT): Use mips_extended_format.
+	* config/mips/mips.c (override_options): Use mips_single_format
+	and mips_double_format.  Default TFmode to mips_quad_format.
+	* config/mips/t-iris6 (tp-bit.c): Define QUIET_NAN_NEGATED.
+	* config/mips/t-mips (fp-bit.c, dp-bit.c): Likewise.
+	* config/fp-bit.c (pack_d, unpack_d): Obey it.
+
+	2003-03-31  Richard Henderson  <rth@redhat.com>
+	* real.c (real_identical): Reorg so as to not compare
+	signalling for normals.
+
+	2003-03-27  Richard Henderson  <rth@redhat.com>
+	* real.h (struct real_value): Add signalling.
+	(EXP_BITS): Decrement.
+	* real.c (get_canonical_qnan): Don't set MSB-1.
+	(get_canonical_snan): Likewise.  Set signalling.
+	(real_identical): Compare signalling.
+	(round_for_format): Remove force-one-bit on code.
+	(real_nan): Likewise.  Set signalling.
+	(encode_ieee_single): Add force-one-bit code; honor signalling.
+	(encode_ieee_double, encode_ieee_extended, encode_ieee_quad): Likewise.
+	(decode_ieee_single): Set signalling.
+	(decode_ieee_double, decode_ieee_extended, decode_ieee_quad): Likewise.
+
 2004-03-05  Jan Hubicka  <jh@suse.cz>
 
 	* libgcc2.c (gcov_exit): Fix locking race condition.
