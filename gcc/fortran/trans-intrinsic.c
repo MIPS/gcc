@@ -3071,9 +3071,6 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_NONE:
       abort ();
 
-    case GFC_ISYM_CSHIFT:
-      gfc_todo_error ("Intrinsic %s", expr->value.function.name);
-
     case GFC_ISYM_REPEAT:
       gfc_conv_intrinsic_repeat (se, expr);
       break;
@@ -3458,6 +3455,7 @@ gfc_is_intrinsic_libcall (gfc_expr * expr)
       return 1;
 
     case GFC_ISYM_RESHAPE:
+    case GFC_ISYM_CSHIFT:
     case GFC_ISYM_EOSHIFT:
     case GFC_ISYM_PACK:
     case GFC_ISYM_UNPACK:

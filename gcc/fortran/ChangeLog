@@ -1,3 +1,9 @@
+2003-10-12  Feng Wang  <wf_cs@yahoo.com>
+
+	* iresolve.c (gfc_resolve_cshift): Change to match implementation.
+	* trans-intrinsic.c (gfc_conv_intrinsic_function): Remove CSHIFT.
+	(gfc_is_intrinsic_libcall): Add CSHIFT.
+
 2003-10-12  Richard Henderson  <rth@redhat.com>
 
 	* trans-array.c (gfc_trans_static_array_pointer): Set TREE_INVARIANT.

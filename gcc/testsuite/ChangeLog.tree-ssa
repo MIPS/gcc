@@ -1,3 +1,7 @@
+2003-10-12  Feng Wang  <wf_cs@yahoo.com>
+
+	* gfortran.fortran-torture/execute/intrinsic_cshift.f90: New test.
+
 2003-10-11  Huang Chun  <jiwang@mail.edu.cn>
 
 	* gfortran.fortran-torture/execute/intrinsic_len.f90: New test.

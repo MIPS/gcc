@@ -1,3 +1,11 @@
+2003-10-12  Feng Wang  <wf_cs@yahoo.com>
+
+	* intrinsics/cshift0.c: New file.
+	* m4/cshift1.m4: New file
+	* generated/cshift*.c: New files.
+	* Makefile.am: Add them.
+	* Makefile.in: Regenerate.
+
 2003-10-12  XiaoQiang Zhang  <zhangapache@yahoo.com>
 
 	* io/list_read.c (read_character): Remove unwanted call to free_saved.

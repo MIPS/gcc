@@ -1,5 +1,5 @@
 /* Intrinsic function resolution.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GNU G95.
@@ -375,21 +375,28 @@ gfc_resolve_count (gfc_expr * f, gfc_expr * mask, gfc_expr * dim)
 
 void
 gfc_resolve_cshift (gfc_expr * f, gfc_expr * array,
-		    gfc_expr * shift ATTRIBUTE_UNUSED,
+		    gfc_expr * shift,
 		    gfc_expr * dim)
 {
-  static char cshift0[] = "__cshift0", cshift1[] = "__cshift1";
+  int n;
 
   f->ts = array->ts;
   f->rank = array->rank;
 
-  if (dim == NULL)
-    f->value.function.name = cshift0;
+  if (shift->rank > 0)
+    n = 1;
   else
+    n = 0;
+
+  if (dim != NULL)
     {
       gfc_resolve_index (dim, 1);
-      f->value.function.name = cshift1;
+      /* Convert dim to shift's kind, so we don't need so many variations.  */
+      if (dim->ts.kind != shift->ts.kind)
+	gfc_convert_type (dim, &shift->ts, 2);
     }
+  f->value.function.name =
+    gfc_get_string ("__cshift%d_%d", n, shift->ts.kind);
 }
 
 

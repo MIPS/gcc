@@ -33,6 +33,7 @@ gfor_helper_src= \
 intrinsics/associated.c \
 intrinsics/abort.c \
 intrinsics/cpu_time.c \
+intrinsics/cshift0.c \
 intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
 intrinsics/ishftc.c \
@@ -187,6 +188,10 @@ i_eoshift3_c= \
 generated/eoshift3_4.c \
 generated/eoshift3_8.c
 
+i_cshift1_c= \
+generated/cshift1_4.c \
+generated/cshift1_8.c
+
 in_pack_c = \
 generated/in_pack_i4.c \
 generated/in_pack_i8.c
@@ -201,13 +206,13 @@ m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/types.m4 m4/all.m4 \
     m4/dotprod.m4 m4/dotprodl.m4 m4/matmul.m4 m4/matmull.m4 \
     m4/ctrig.m4 m4/cexp.m4 m4/chyp.m4 m4/mtype.m4 \
     m4/specific.m4 m4/specific2.m4 m4/head.m4 m4/shape.m4 m4/reshape.m4 \
-    m4/transpose.m4
+    m4/transpose.m4 m4/eoshift1.m4 m4/eoshift3.m4
 
 gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_maxloc1_c) $(i_maxval_c) $(i_minloc0_c) $(i_minloc1_c) $(i_minval_c) \
     $(i_product_c) $(i_sum_c) $(i_dotprod_c) $(i_dotprodl_c) $(i_matmul_c) \
     $(i_matmull_c) $(i_transpose_c) $(i_shape_c) $(i_eoshift1_c) \
-    $(i_eoshift3_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c)
+    $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c)
 
 # We only use these if libm doesn't contain complex math functions.
 
@@ -385,6 +390,9 @@ $(i_eoshift1_c): m4/eoshift1.m4 $(I_M4_DEPS)
 
 $(i_eoshift3_c): m4/eoshift3.m4 $(I_M4_DEPS)
 	m4 -Dfile=$@ -I$(srcdir)/m4 eoshift3.m4 > $@
+
+$(i_cshift1_c): m4/cshift1.m4 $(I_M4_DEPS)
+	m4 -Dfile=$@ -I$(srcdir)/m4 cshift1.m4 > $@
 
 $(in_pack_c): m4/in_pack.m4 $(I_M4_DEPS)
 	m4 -Dfile=$@ -I$(srcdir)/m4 in_pack.m4 > $@
