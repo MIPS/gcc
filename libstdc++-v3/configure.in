@@ -179,6 +179,30 @@ changequote([,])dnl
       AC_DEFINE(HAVE_SINHF)
       AC_DEFINE(HAVE_SINHL)
       ;;
+    *-cygwin*)
+      # Check for available headers.
+      AC_CHECK_HEADERS([nan.h ieeefp.h endian.h sys/isa_defs.h \
+	machine/endian.h machine/param.h sys/machine.h sys/types.h \
+	fp.h locale.h float.h inttypes.h])
+      SECTION_FLAGS='-ffunction-sections -fdata-sections'
+      AC_SUBST(SECTION_FLAGS)
+      GLIBCPP_CHECK_LINKER_FEATURES
+      GLIBCPP_CHECK_COMPLEX_MATH_SUPPORT
+      GLIBCPP_CHECK_WCHAR_T_SUPPORT
+      os_include_dir="config/os/newlib"
+      AC_DEFINE(HAVE_COPYSIGN)
+      AC_DEFINE(HAVE_COPYSIGNF)
+      AC_DEFINE(HAVE_FINITEF)
+      AC_DEFINE(HAVE_FREXPF)
+      AC_DEFINE(HAVE_HYPOTF)
+      AC_DEFINE(HAVE_SINCOS)
+      AC_DEFINE(HAVE_SINCOSF)
+      AC_DEFINE(HAVE_MBSTATE_T)
+      if test x"long_double_math_on_this_cpu" = x"yes"; then
+	AC_DEFINE(HAVE_HYPOTL)
+      fi
+      AC_DEFINE(HAVE_HYPOT)
+      ;;
     *)
       os_include_dir="config/os/newlib"
       AC_DEFINE(HAVE_HYPOT)
