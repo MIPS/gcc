@@ -204,6 +204,24 @@ static void dom_opt_initialize_block (struct dom_walk_data *,
 static void dom_opt_walk_stmts (struct dom_walk_data *, basic_block, tree);
 static void cprop_into_phis (struct dom_walk_data *, basic_block, tree);
 
+/* Return the value associated with variable VAR in TABLE.  */
+
+static inline tree
+get_value_for (tree var)
+{
+  return VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (var));
+}
+
+
+/* Associate VALUE to variable VAR in TABLE.  */
+
+static inline void
+set_value_for (tree var, tree value)
+{
+  VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (var)) = value;
+}
+
+
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
    value numbering.
@@ -1952,35 +1970,6 @@ update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs,
 
   return cached_lhs;
 }
-
-/* Return the value associated with variable VAR in TABLE.  */
-
-static inline tree
-get_value_for (tree var)
-{
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (var) != SSA_NAME)
-    abort ();
-#endif
-  return VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (var));
-}
-
-
-/* Associate VALUE to variable VAR in TABLE.  */
-
-static inline void
-set_value_for (tree var, tree value)
-{
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (var) != SSA_NAME)
-    abort ();
-#endif
-
-  VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (var)) = value;
-}
-
 
 /* Search for an existing instance of STMT in the AVAIL_EXPRS table.  If
    found, return its LHS. Otherwise insert STMT in the table and return

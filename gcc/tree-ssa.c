@@ -85,10 +85,10 @@ struct GTY(()) def_blocks_d
   bitmap livein_blocks;
 };
 
-/* Hash table to store the current reaching definition for every variable in
+/* Table to store the current reaching definition for every variable in
    the function.  Given a variable V, its entry will be its immediately
    reaching SSA_NAME node.  */
-static htab_t currdefs;
+static varray_type currdefs;
 
 /* Structure to map variables to values.  It's used to keep track of the
    current reaching definition, constant values and variable copies while
@@ -159,12 +159,10 @@ static void register_new_def (tree, tree, varray_type *);
 static void insert_phi_nodes_for (tree, bitmap *);
 static tree remove_annotations_r (tree *, int *, void *);
 static tree get_reaching_def (tree);
-static tree get_value_for (tree, htab_t);
-static void set_value_for (tree, tree, htab_t);
+static tree get_value_for (tree, varray_type);
+static void set_value_for (tree, tree, varray_type);
 static hashval_t def_blocks_hash (const void *);
 static int def_blocks_eq (const void *, const void *);
-static hashval_t var_value_hash (const void *);
-static int var_value_eq (const void *, const void *);
 static int debug_def_blocks_r (void **, void *);
 static struct def_blocks_d *get_def_blocks_for (tree);
 static void htab_statistics (FILE *, htab_t);
@@ -190,6 +188,23 @@ static void print_exprs (FILE *, const char *, tree, const char *, tree,
 			 const char *);
 static void print_exprs_edge (FILE *, edge, const char *, tree, const char *, 
 			      tree);
+
+/* Return the value associated with variable VAR in TABLE.  */
+
+static inline tree
+get_value_for (tree var, varray_type table)
+{
+  return VARRAY_TREE (table, var_ann (var)->uid);
+}
+
+
+/* Associate VALUE to variable VAR in TABLE.  */
+
+static inline void
+set_value_for (tree var, tree value, varray_type table)
+{
+  VARRAY_TREE (table, var_ann (var)->uid) = value;
+}
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
    to convert.  VARS is an sbitmap representing variables that need to be
@@ -309,9 +324,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
 			    def_blocks_hash, def_blocks_eq, NULL);
 
-  /* Allocate memory for the CURRDEFS hash table.  */
-  currdefs = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
-			  var_value_hash, var_value_eq, NULL);
+  VARRAY_TREE_INIT (currdefs, num_referenced_vars, "currdefs");
 
   /* Allocate memory for the GLOBALS bitmap which will indicate which
      variables are live across basic block boundaries.  Note that this
@@ -393,7 +406,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
     sbitmap_free (vars_to_rename);
 
   htab_delete (def_blocks);
-  htab_delete (currdefs);
+  VARRAY_CLEAR (currdefs);
 
   timevar_pop (TV_TREE_SSA_OTHER);
 }
@@ -796,9 +809,10 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	  tree currdef;
 
 	  /* If this PHI node has already been rewritten, then there is
-	     nothing to do.  */
+	     nothing to do for this PHI or any following PHIs since we
+	     always add new PHI nodes at the start of the PHI chain.  */
 	  if (PHI_REWRITTEN (phi))
-	    continue;
+	    break;
 
 	  currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
 	  add_phi_arg (&phi, currdef, e);
@@ -1831,9 +1845,6 @@ dump_tree_ssa_stats (FILE *file)
   fprintf (file, "    def_blocks: ");
   htab_statistics (file, def_blocks);
 
-  fprintf (file, "    currdefs: ");
-  htab_statistics (file, currdefs);
-
   fprintf (file, "\n");
 }
 
@@ -1903,19 +1914,19 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
     {
       basic_block bb = VARRAY_TOP_BB (work_stack);
       int bb_index = bb->index;
+      int dfs_index;
 
       VARRAY_POP (work_stack);
       
-      EXECUTE_IF_SET_IN_BITMAP (dfs[bb_index], 0, bb_index,
+      EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index],
+				      phi_insertion_points,
+				      0, dfs_index,
 	{
-          basic_block bb = BASIC_BLOCK (bb_index);
+	  basic_block bb = BASIC_BLOCK (dfs_index);
 
-	  if (! bitmap_bit_p (phi_insertion_points, bb_index))
-	    {
-	      phi_vector_lengths += bb_ann (bb)->num_preds;
-	      VARRAY_PUSH_BB (work_stack, bb);
-	      bitmap_set_bit (phi_insertion_points, bb_index);
-	    }
+	  phi_vector_lengths += bb_ann (bb)->num_preds;
+	  VARRAY_PUSH_BB (work_stack, bb);
+	  bitmap_set_bit (phi_insertion_points, dfs_index);
 	});
     }
 
@@ -2195,23 +2206,6 @@ def_blocks_eq (const void *p1, const void *p2)
 }
 
 
-/* Hashing and equality functions for VAR_VALUE_D.  */
-
-static hashval_t
-var_value_hash (const void *p)
-{
-  return htab_hash_pointer
-	((const void *)((const struct var_value_d *)p)->var);
-}
-
-static int
-var_value_eq (const void *p1, const void *p2)
-{
-  return ((const struct var_value_d *)p1)->var
-	 == ((const struct var_value_d *)p2)->var;
-}
-
-
 /* Dump the DEF_BLOCKS hash table on stderr.  */
 
 void
@@ -2242,51 +2236,6 @@ debug_def_blocks_r (void **slot, void *data ATTRIBUTE_UNUSED)
   return 1;
 }
 
-
-/* Return the value associated with variable VAR in TABLE.  */
-
-static tree
-get_value_for (tree var, htab_t table)
-{
-  struct var_value_d *vm_p, vm;
-
-#if defined ENABLE_CHECKING
-  if (!SSA_VAR_P (var))
-    abort ();
-#endif
-
-  vm.var = var;
-  vm_p = (struct var_value_d *) htab_find (table, (void *) &vm);
-  return (vm_p) ? vm_p->value : NULL_TREE;
-}
-
-
-/* Associate VALUE to variable VAR in TABLE.  */
-
-static void
-set_value_for (tree var, tree value, htab_t table)
-{
-  struct var_value_d *vm_p, vm;
-  void **slot;
-
-#if defined ENABLE_CHECKING
-  if (!SSA_VAR_P (var))
-    abort ();
-#endif
-
-  vm.var = var;
-  slot = htab_find_slot (table, (void *) &vm, INSERT);
-  if (*slot == NULL)
-    {
-      vm_p = ggc_alloc (sizeof *vm_p);
-      vm_p->var = var;
-      *slot = (void *) vm_p;
-    }
-  else
-    vm_p = (struct var_value_d *) *slot;
-
-  vm_p->value = value;
-}
 
 /* Return the set of blocks where variable VAR is defined and the blocks
    where VAR is live on entry (livein).  */

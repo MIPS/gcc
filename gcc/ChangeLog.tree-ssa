@@ -12,6 +12,20 @@
 
 2003-10-16  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (get_value_for, set_value_for): Move to the start
+	of the file.  Delete pointless sanity checking.
+
+	* tree-ssa.c (currdefs): Now a varray instead of a hash table.
+	(get_value_for, set_value_for): Corresponding changes.  Move to
+	the start of the file and delete pointless sanity checking.
+	(rewrite_into_ssa, dump_tree_ssa_stats): Corresponding changes.
+	(var_value_hash, var_value_eq): Kill.
+
+	* tree-ssa.c (rewrite_add_phi_arguments): Once we encounter a
+	rewritten PHI break the inner loop.
+
+	* tree-ssa.c (insert_phi_nodes_for): Use EXECUTE_IF_AND_COMPL_IN_BITMAP.
+
 	* tree-dfa.c (create_phi_node):  Clear PHI_REWRITTEN on all new PHIs
 	(remove_all_phi_nodes_for): Set PHI_REWRITTEN on any PHIs which are
 	not removed.
