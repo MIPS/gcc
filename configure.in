@@ -1135,7 +1135,7 @@ if test "x$gmplibs" = x; then
   gmplibs="-lgmp"
 fi
 
-save_CFLAGS="$CFLAGS"
+saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS $gmpinc"
 # Check GMP actually works
 AC_MSG_CHECKING([for correct version of gmp.h])
