@@ -74,9 +74,7 @@ $(GCJ)-cross$(exeext): $(GCJ)$(exeext)
 	-rm -f $(GCJ)-cross$(exeext)
 	cp $(GCJ)$(exeext) $(GCJ)-cross$(exeext)
 
-gt-java-abi.h gt-java-builtins.h gt-java-decl.h : s-gtype ; @true
-gt-java-driver.h gt-java-langhooks.h gt-java-lower.h : s-gtype ; @true
-gt-java-tree.h gt-java-treegen.h: s-gtype ; @true
+gt-java-hooks.h gt-java-langhooks.h gt-java-mangle.h : s-gtype ; @true
 
 # Executables built by this Makefile:
 JAVA_OBJS = java/abi.o java/boehm.o java/builtins.o java/classobj.o \

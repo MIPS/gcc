@@ -1,5 +1,8 @@
 2005-01-22  Tom Tromey  <tromey@redhat.com>
 
+	* Make-lang.in (gt-java-hooks.h gt-java-langhooks.h
+	gt-java-mangle.h): New target.  Removed old gt-java- targets.
+
 	* treegen.cc: Fixed includes.
 	* tree.cc: Fixed includes.
 	* lower.cc: Fixed includes.
