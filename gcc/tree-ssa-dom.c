@@ -791,11 +791,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       tree cond, cached_lhs;
       edge e1;
 
-      /* Do not forward a back edge in the CFG.  This avoids short circuiting
-	 loops and other similar undesirable behavior.  */
-      if (e->flags & EDGE_DFS_BACK)
-	return;
-
       /* Do not forward entry edges into the loop.  In the case loop
 	 has multiple entry edges we may end up in constructing irreducible
 	 region.  

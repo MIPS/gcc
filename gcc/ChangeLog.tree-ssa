@@ -1,5 +1,8 @@
 2004-01-21  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (thread_across_edge): Remove bogus restriction
+	which prevents threading around to the top of a loop.
+
 	* tree-ssa-dom.c (thread_across_edge): Handle SWITCH_EXPRs in the
 	target block in addition to COND_EXPRs.
  
