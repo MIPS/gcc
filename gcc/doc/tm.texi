@@ -8583,6 +8583,11 @@ have ELF ``default'' visibility, independently of the visibility of
 the containing class.
 @end deftypefn
 
+@deftypefn {Target Hook} const char * TARGET_CXX_UNWIND_RESUME_NAME (void)
+This hook returns the name of the routine that should be called to
+resume unwinding at the end of a C++ catch handler.
+@end deftypefn
+
 @node Misc
 @section Miscellaneous Parameters
 @cindex parameters, miscellaneous

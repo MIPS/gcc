@@ -3852,4 +3852,13 @@ output_function_exception_table (void)
   function_section (current_function_decl);
 }
 
+
+/* Initialize unwind_resume_libfunc.  */
+
+void
+default_init_unwind_resume_libfunc (void)
+{
+  /* The default c++ routines aren't actually c++ specific, so use those.  */
+  unwind_resume_libfunc = init_one_libfunc (default_unwind_resume_name ());
+}
 #include "gt-except.h"

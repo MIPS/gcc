@@ -122,6 +122,7 @@ extern rtx get_exception_pointer (struct function *);
 extern int duplicate_eh_regions (struct function *, struct inline_remap *);
 
 extern void sjlj_emit_function_exit_after (rtx);
+extern void default_init_unwind_resume_libfunc (void);
 
 
 /* If non-NULL, this is a function that returns an expression to be

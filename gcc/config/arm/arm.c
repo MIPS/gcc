@@ -171,6 +171,7 @@ static bool arm_cookie_has_size (void);
 static bool arm_cxx_cdtor_returns_this (void);
 static bool arm_cxx_key_method_may_be_inline (void);
 static bool arm_cxx_export_class_data (void);
+static const char * arm_cxx_unwind_resume_name (void);
 static void arm_init_libfuncs (void);
 
 
@@ -289,6 +290,9 @@ static void arm_init_libfuncs (void);
 
 #undef TARGET_CXX_EXPORT_CLASS_DATA
 #define TARGET_CXX_EXPORT_CLASS_DATA arm_cxx_export_class_data
+
+#undef TARGET_CXX_UNWIND_RESUME_NAME
+#define TARGET_CXX_UNWIND_RESUME_NAME arm_cxx_unwind_resume_name
 
 #ifdef TARGET_UNWIND_INFO
 /* EABI unwinding tables use a different format to teh typeinfo tables.  */
@@ -14982,4 +14986,18 @@ arm_output_fn_unwind (FILE * f, bool prologue)
     fputs ("\t.fnstart\n", f);
   else
     fputs ("\t.fnend\n", f);
+}
+
+
+/* Return the name of the unwind library resume routine.  */
+
+static const char *
+arm_cxx_unwind_resume_name (void)
+{
+#ifdef TARGET_UNWIND_INFO
+  /* The EABI says use this routine, not _Unwind_Resume.  */
+  if (!USING_SJLJ_EXCEPTIONS)
+    return "__cxa_end_cleanup";
+#endif
+  return default_unwind_resume_name ();
 }

@@ -61,6 +61,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "tm_p.h"
 #include "target-def.h"
+#include "except.h"
 
 void
 default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
@@ -243,6 +244,16 @@ default_cxx_get_cookie_size (tree type)
     cookie_size = type_align;
 
   return cookie_size;
+}
+
+
+/* Return the name of the function used to exit from a cleanup handler.  */
+
+const char *
+default_unwind_resume_name (void)
+{
+  return USING_SJLJ_EXCEPTIONS ? "_Unwind_SjLj_Resume"
+			       : "_Unwind_Resume";
 }
 
 

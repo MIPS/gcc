@@ -27,8 +27,9 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-
 #include "unwind-cxx.h"
+
+#ifdef __ARM_EABI_UNWINDER__
 
 using namespace __cxxabiv1;
 
@@ -71,11 +72,11 @@ __cxa_begin_cleanup(_Unwind_Exception* ue_header __attribute__((unused)))
 {
 }
 
-extern "C" void
-__cxa_end_cleanup(_Unwind_Exception* ue_header)
+/* This needs to tailcall _Unwind_Resume without clobbering any registers,
+   or altering the stack.  */
+extern "C" void __attribute__((naked))
+__cxa_end_cleanup (_Unwind_Exception* ue_header)
 {
-  /* TODO: This should really be an assembly stub which doesn't corrupt any
-     registers.  */
-  _Unwind_Resume(ue_header);
+  _Unwind_Resume (ue_header);
 }
-
+#endif

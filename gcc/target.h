@@ -469,6 +469,9 @@ struct gcc_target
        etc.) should be exported from the current DLL, even when the
        associated class is not exported.  */
     bool (*export_class_data) (void);
+    /* Return the name of the function used to exit from a c++ cleanup
+       handler.  */
+    const char * (*unwind_resume_name) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */

@@ -1,3 +1,25 @@
+2004-09-29  Paul Brook  <paul@codesourcery.com>
+
+	* c-decl.c (finish_decl): Call default_init_unwind_resume_libfunc.
+	* except.c (default_init_unwind_resume_libfunc): New function.
+	* except.h (default_init_unwind_resume_libfunc): Add prototype.
+	* optabs.c (init_optabs): Don't set unwind_resume_libfunc.
+	* target-def.h (TARGET_CXX_UNWIND_RESUME_NAME): Define.
+	(TARGET_CXX): Use it.
+	* target.h (struct gcc_target): Add cxx.unwind_resume_name.
+	* targhooks.c (default_unwind_resume_name): New function.
+	* targhooks.h (default_unwind_resume_name): Add prototype.
+	* config/arm/arm.h (arm_cxx_unwind_resume_name): New function.
+	(TARGET_CXX_UNWIND_RESUME_NAME): Define.
+	* doc/tm.texi: Document TARGET_CXX_UNWIND_RESUME_NAME.
+cp/
+	* except.c (init_exception_processing): Set unwind_resume_libfunc.
+ada/
+	* misc.c (gnat_init_gcc_eh): Call default_init_unwind_resume_libfunc.
+java/
+	* decl.c (java_init_decl_processing): Call
+	default_init_unwind_resume_libfunc.
+
 2004-09-27  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm-protos.h (arm_output_fn_unwind): Add prototype.

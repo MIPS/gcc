@@ -1,3 +1,12 @@
+2004-09-29  Paul Brook  <paul@codesourcery.com>
+
+	* acinclude.m4: Check for __cxa_end_cleanup.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* libsupc++/eh_arm.cc: Only compile for arm EABI targets.
+	(__cxa_end_cleanup): Declare ((naked)) to avoid messing with the
+	stack.
+
 2004-09-24  Paul Brook  <paul@codesourcery.com>
 
 libstdc++-v3/testsuite
