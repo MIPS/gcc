@@ -1,3 +1,7 @@
+2003-11-06  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (tree_block_label):  Cleanup.
+
 2003-11-06  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (fast_a_dominates_b): New function.

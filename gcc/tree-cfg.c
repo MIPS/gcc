@@ -3848,10 +3848,7 @@ tree_block_label (basic_block bb)
   if (!stmt || TREE_CODE (stmt) != LABEL_EXPR)
     {
       block_stmt_iterator iterator = bsi_start (bb);
-      tree label;
-
-      label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_CONTEXT (label) = current_function_decl;
+      tree label = create_artificial_label ();
       stmt = build1 (LABEL_EXPR, void_type_node, label);
       bsi_insert_before (&iterator, stmt, BSI_SAME_STMT);
       return label;
