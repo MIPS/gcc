@@ -178,6 +178,7 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la \
     lib-java-awt.la lib-java-applet.la lib-javax-swing.la lib-java-beans.la \
     lib-java-util-logging.la lib-javax-naming.la lib-javax-accessibility.la \
+    lib-javax-imageio.la \
     $(cond_gtk_ltlibrary) $(cond_x_ltlibrary)
 
 toolexecmainlib_DATA = libgcj.spec
@@ -460,6 +461,7 @@ lib_javax_accessibility_la_SOURCES = $(accessibility_java_source_files)
 lib_java_beans_la_SOURCES = $(beans_java_source_files)
 lib_java_util_logging_la_SOURCES = $(logging_java_source_files)
 lib_javax_naming_la_SOURCES = $(naming_java_source_files)
+lib_javax_imageio_la_SOURCES = $(javax_imageio_source_files)
 
 lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
 EXTRA_lib_gnu_awt_xlib_la_SOURCES = $(x_java_source_files)
@@ -483,6 +485,7 @@ all_java_source_files = \
     $(lib_javax_swing_la_SOURCES) \
     $(lib_javax_accessibility_la_SOURCES) \
     $(lib_javax_naming_la_SOURCES) \
+    $(lib_javax_imageio_la_SOURCES) \
     $(lib_java_util_logging_la_SOURCES) \
     $(gtk_awt_peer_sources) \
     $(x_java_source_files)
@@ -516,6 +519,7 @@ all_java_object_files = \
     $(lib_javax_swing_la_OBJECTS) \
     $(lib_javax_accessibility_la_OBJECTS) \
     $(lib_javax_naming_la_OBJECTS) \
+    $(lib_javax_imageio_la_OBJECTS) \
     $(lib_java_util_logging_la_OBJECTS)
 
 
@@ -1662,7 +1666,7 @@ gnu/java/rmi/server/UnicastServer.java \
 gnu/java/rmi/server/UnicastServerRef.java
 
 
-javax_source_files = \
+javax_imageio_source_files = \
 javax/imageio/IIOImage.java \
 javax/imageio/ImageReader.java \
 javax/imageio/ImageTranscoder.java \
@@ -1708,7 +1712,14 @@ javax/imageio/metadata/IIOMetadataFormatImpl.java \
 javax/imageio/metadata/IIOMetadataNode.java \
 javax/imageio/metadata/IIOAttr.java \
 javax/imageio/metadata/IIONamedNodeMap.java \
-javax/imageio/metadata/IIONodeList.java \
+javax/imageio/metadata/IIONodeList.java
+
+lib_javax_imageio_la_LIBADD = -L$(here)/.libs libgcj.la lib-org-w3c-dom.la
+lib_javax_imageio_la_LDFLAGS = -rpath $(toolexeclibdir) \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+
+
+javax_source_files = \
 javax/print/AttributeException.java \
 javax/print/CancelablePrintJob.java \
 javax/print/Doc.java \
@@ -3631,6 +3642,47 @@ javax/accessibility/AccessibleTable.lo \
 javax/accessibility/AccessibleTableModelChange.lo \
 javax/accessibility/AccessibleText.lo \
 javax/accessibility/AccessibleValue.lo
+lib_javax_imageio_la_DEPENDENCIES =  libgcj.la lib-org-w3c-dom.la
+lib_javax_imageio_la_OBJECTS =  javax/imageio/IIOImage.lo \
+javax/imageio/ImageReader.lo javax/imageio/ImageTranscoder.lo \
+javax/imageio/ImageWriter.lo javax/imageio/spi/IIORegistry.lo \
+javax/imageio/spi/IIOServiceProvider.lo \
+javax/imageio/spi/ImageInputStreamSpi.lo \
+javax/imageio/spi/ImageOutputStreamSpi.lo \
+javax/imageio/spi/ImageReaderWriterSpi.lo \
+javax/imageio/spi/ImageTranscoderSpi.lo \
+javax/imageio/spi/RegisterableService.lo \
+javax/imageio/spi/ServiceRegistry.lo \
+javax/imageio/spi/ImageReaderSpi.lo javax/imageio/spi/ImageWriterSpi.lo \
+javax/imageio/stream/IIOByteBuffer.lo \
+javax/imageio/stream/ImageInputStream.lo \
+javax/imageio/stream/ImageOutputStream.lo \
+javax/imageio/stream/FileCacheImageInputStream.lo \
+javax/imageio/stream/FileCacheImageOutputStream.lo \
+javax/imageio/stream/FileImageInputStream.lo \
+javax/imageio/stream/FileImageOutputStream.lo \
+javax/imageio/stream/ImageInputStreamImpl.lo \
+javax/imageio/stream/ImageOutputStreamImpl.lo \
+javax/imageio/stream/MemoryCacheImageInputStream.lo \
+javax/imageio/stream/MemoryCacheImageOutputStream.lo \
+javax/imageio/IIOException.lo javax/imageio/IIOParam.lo \
+javax/imageio/IIOParamController.lo javax/imageio/ImageIO.lo \
+javax/imageio/ImageReadParam.lo javax/imageio/ImageTypeSpecifier.lo \
+javax/imageio/ImageWriteParam.lo \
+javax/imageio/event/IIOReadProgressListener.lo \
+javax/imageio/event/IIOReadUpdateListener.lo \
+javax/imageio/event/IIOReadWarningListener.lo \
+javax/imageio/event/IIOWriteProgressListener.lo \
+javax/imageio/event/IIOWriteWarningListener.lo \
+javax/imageio/metadata/IIOMetadata.lo \
+javax/imageio/metadata/IIOMetadataController.lo \
+javax/imageio/metadata/IIOMetadataFormat.lo \
+javax/imageio/metadata/IIOInvalidTreeException.lo \
+javax/imageio/metadata/IIOMetadataFormatImpl.lo \
+javax/imageio/metadata/IIOMetadataNode.lo \
+javax/imageio/metadata/IIOAttr.lo \
+javax/imageio/metadata/IIONamedNodeMap.lo \
+javax/imageio/metadata/IIONodeList.lo
 lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = 
 @GTK_CAIRO_FALSE@lib_gnu_java_awt_peer_gtk_la_OBJECTS =  \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkTextLayout.lo \
@@ -5116,13 +5168,13 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/imageio/event/IIOReadWarningListener.P \
 .deps/javax/imageio/event/IIOWriteProgressListener.P \
 .deps/javax/imageio/event/IIOWriteWarningListener.P \
+.deps/javax/imageio/metadata/IIOAttr.P \
 .deps/javax/imageio/metadata/IIOInvalidTreeException.P \
 .deps/javax/imageio/metadata/IIOMetadata.P \
 .deps/javax/imageio/metadata/IIOMetadataController.P \
 .deps/javax/imageio/metadata/IIOMetadataFormat.P \
 .deps/javax/imageio/metadata/IIOMetadataFormatImpl.P \
 .deps/javax/imageio/metadata/IIOMetadataNode.P \
-.deps/javax/imageio/metadata/IIOAttr.P \
 .deps/javax/imageio/metadata/IIONamedNodeMap.P \
 .deps/javax/imageio/metadata/IIONodeList.P \
 .deps/javax/imageio/spi/IIORegistry.P \
@@ -5736,8 +5788,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/org/xml/sax/helpers/XMLReaderFactory.P .deps/posix-threads.P \
 .deps/posix.P .deps/prims.P .deps/resolve.P .deps/verify.P \
 .deps/win32-threads.P .deps/win32.P
-SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(lib_org_xml_sax_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) $(lib_java_awt_la_SOURCES) $(lib_java_applet_la_SOURCES) $(lib_javax_swing_la_SOURCES) $(lib_java_beans_la_SOURCES) $(lib_java_util_logging_la_SOURCES) $(lib_javax_naming_la_SOURCES) $(lib_javax_accessibility_la_SOURCES) $(lib_gnu_java_awt_peer_gtk_la_SOURCES) $(lib_gnu_awt_xlib_la_SOURCES) $(EXTRA_lib_gnu_awt_xlib_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(rmic_SOURCES) $(EXTRA_rmic_SOURCES) $(rmiregistry_SOURCES) $(EXTRA_rmiregistry_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
-OBJECTS = $(libgcj_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_java_awt_la_OBJECTS) $(lib_java_applet_la_OBJECTS) $(lib_javax_swing_la_OBJECTS) $(lib_java_beans_la_OBJECTS) $(lib_java_util_logging_la_OBJECTS) $(lib_javax_naming_la_OBJECTS) $(lib_javax_accessibility_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_awt_xlib_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(rmic_OBJECTS) $(rmiregistry_OBJECTS) $(gen_from_JIS_OBJECTS)
+SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(lib_org_xml_sax_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) $(lib_java_awt_la_SOURCES) $(lib_java_applet_la_SOURCES) $(lib_javax_swing_la_SOURCES) $(lib_java_beans_la_SOURCES) $(lib_java_util_logging_la_SOURCES) $(lib_javax_naming_la_SOURCES) $(lib_javax_accessibility_la_SOURCES) $(lib_javax_imageio_la_SOURCES) $(lib_gnu_java_awt_peer_gtk_la_SOURCES) $(lib_gnu_awt_xlib_la_SOURCES) $(EXTRA_lib_gnu_awt_xlib_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(rmic_SOURCES) $(EXTRA_rmic_SOURCES) $(rmiregistry_SOURCES) $(EXTRA_rmiregistry_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
+OBJECTS = $(libgcj_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_java_awt_la_OBJECTS) $(lib_java_applet_la_OBJECTS) $(lib_javax_swing_la_OBJECTS) $(lib_java_beans_la_OBJECTS) $(lib_java_util_logging_la_OBJECTS) $(lib_javax_naming_la_OBJECTS) $(lib_javax_accessibility_la_OBJECTS) $(lib_javax_imageio_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_awt_xlib_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(rmic_OBJECTS) $(rmiregistry_OBJECTS) $(gen_from_JIS_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -5853,6 +5905,9 @@ lib-javax-naming.la: $(lib_javax_naming_la_OBJECTS) $(lib_javax_naming_la_DEPEND
 
 lib-javax-accessibility.la: $(lib_javax_accessibility_la_OBJECTS) $(lib_javax_accessibility_la_DEPENDENCIES)
 	$(LINK) -rpath $(toolexeclibdir) $(lib_javax_accessibility_la_LDFLAGS) $(lib_javax_accessibility_la_OBJECTS) $(lib_javax_accessibility_la_LIBADD) $(LIBS)
+
+lib-javax-imageio.la: $(lib_javax_imageio_la_OBJECTS) $(lib_javax_imageio_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_javax_imageio_la_LDFLAGS) $(lib_javax_imageio_la_OBJECTS) $(lib_javax_imageio_la_LIBADD) $(LIBS)
 
 lib-gnu-java-awt-peer-gtk.la: $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
 	$(LINK) -rpath $(toolexeclibdir) $(lib_gnu_java_awt_peer_gtk_la_LDFLAGS) $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_LIBADD) $(LIBS)

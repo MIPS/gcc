@@ -1,5 +1,11 @@
 2004-12-29  Michael Koch  <konqueror@gmx.de>
 
+	* Makefile.am: Put javax.imageio into its own library and link it
+	against lib-org-w3c-dom.la to fix bootstrapping.
+	* Makefile.in: Regenerated.
+
+2004-12-29  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/TextAction.java
 	(getTextComponent): Simplified. Added Javadoc.
 	(augmentList): Implemented. Added Javadoc.

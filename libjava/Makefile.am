@@ -43,6 +43,7 @@ endif
 toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la \
     lib-java-awt.la lib-java-applet.la lib-javax-swing.la lib-java-beans.la \
     lib-java-util-logging.la lib-javax-naming.la lib-javax-accessibility.la \
+    lib-javax-imageio.la \
     $(cond_gtk_ltlibrary) $(cond_x_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
 
@@ -417,6 +418,7 @@ lib_javax_accessibility_la_SOURCES = $(accessibility_java_source_files)
 lib_java_beans_la_SOURCES = $(beans_java_source_files)
 lib_java_util_logging_la_SOURCES = $(logging_java_source_files)
 lib_javax_naming_la_SOURCES = $(naming_java_source_files)
+lib_javax_imageio_la_SOURCES = $(javax_imageio_source_files)
 
 lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
 EXTRA_lib_gnu_awt_xlib_la_SOURCES = $(x_java_source_files)
@@ -440,6 +442,7 @@ all_java_source_files = \
     $(lib_javax_swing_la_SOURCES) \
     $(lib_javax_accessibility_la_SOURCES) \
     $(lib_javax_naming_la_SOURCES) \
+    $(lib_javax_imageio_la_SOURCES) \
     $(lib_java_util_logging_la_SOURCES) \
     $(gtk_awt_peer_sources) \
     $(x_java_source_files)
@@ -602,6 +605,7 @@ all_java_object_files = \
     $(lib_javax_swing_la_OBJECTS) \
     $(lib_javax_accessibility_la_OBJECTS) \
     $(lib_javax_naming_la_OBJECTS) \
+    $(lib_javax_imageio_la_OBJECTS) \
     $(lib_java_util_logging_la_OBJECTS)
 
 $(all_java_object_files): %.lo: %.java
@@ -2061,7 +2065,7 @@ gnu/java/rmi/server/UnicastRemoteStub.java \
 gnu/java/rmi/server/UnicastServer.java \
 gnu/java/rmi/server/UnicastServerRef.java
 
-javax_source_files = \
+javax_imageio_source_files = \
 javax/imageio/IIOImage.java \
 javax/imageio/ImageReader.java \
 javax/imageio/ImageTranscoder.java \
@@ -2107,7 +2111,15 @@ javax/imageio/metadata/IIOMetadataFormatImpl.java \
 javax/imageio/metadata/IIOMetadataNode.java \
 javax/imageio/metadata/IIOAttr.java \
 javax/imageio/metadata/IIONamedNodeMap.java \
-javax/imageio/metadata/IIONodeList.java \
+javax/imageio/metadata/IIONodeList.java
+## See jv_convert_LDADD.
+lib_javax_imageio_la_LIBADD = -L$(here)/.libs libgcj.la lib-org-w3c-dom.la
+lib_javax_imageio_la_LDFLAGS = -rpath $(toolexeclibdir) \
+## The mysterious backslash is consumed by make.
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+
+
+javax_source_files = \
 javax/print/AttributeException.java \
 javax/print/CancelablePrintJob.java \
 javax/print/Doc.java \
