@@ -329,10 +329,13 @@ ggc_mark_rtx_children (r)
 	    case NOTE_INSN_BLOCK_END:
 	      ggc_mark_tree (NOTE_BLOCK (r));
 	      break;
+	      
 	    case NOTE_INSN_VAR_LOCATION:
 	      ggc_mark_rtx (NOTE_VAR_LOCATION (r));
 	      ggc_mark_tree (NOTE_VAR_LOCATION_DECL (r));
 	      ggc_mark_rtx (NOTE_VAR_LOCATION_LOC (r));
+	      break;
+
 	    default:
 	      break;
 	    }

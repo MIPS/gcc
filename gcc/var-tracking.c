@@ -796,9 +796,9 @@ static hashval_t
 variable_htab_hash (x)
      const void *x;
 {
-  variable v = (variable) x;
+  const variable v = x;
 
-  return ((size_t) v->decl);
+  return (HASH_VAL (v->decl));
 }
 
 /* Compare the declaration of variable X with declaration Y.  */
@@ -808,8 +808,8 @@ variable_htab_eq (x, y)
      const void *x;
      const void *y;
 {
-  variable v = (variable) x;
-  tree decl = (tree) y;
+  const variable v = x;
+  const tree decl = y;
 
   return (v->decl == decl);
 }
@@ -1125,7 +1125,7 @@ var_tracking_emit_notes ()
 	for (l = in[j]; l; l = l->next)
 	  {
 	    set_location_part (l->decl, l->offset, l->loc, bb->head,
-			       EMIT_NOTE_AFTER_INSN);
+			       EMIT_NOTE_BEFORE_INSN);
 	  }
       /* Emit the notes and delete the marked location parts.  */
       emit_note_data.insn = bb->head;
