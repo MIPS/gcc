@@ -4980,6 +4980,14 @@ need_fake_edge_p (tree t)
      figured out from the RTL in mark_constant_function, and
      the counter incrementation code from -fprofile-arcs
      leads to different results from -fbranch-probabilities.  */
+
+  /* FIXME The previous comment is wrong in many ways.  We now allow
+     PURE functions to have loops so if the fake edge is because of
+     this, PURE would need to be checked.  Also, we do the analysis
+     earlier than we used to as well as there are also functions which
+     were marked in the source. Currently we mark these function in
+     ipa-static-vars-analysis. */
+
   call = get_call_expr_in (t);
   if (call
       && !(call_expr_flags (call) & 

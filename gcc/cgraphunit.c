@@ -452,19 +452,19 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
         if (flag_ipa_cp && decl == NULL_TREE)
           flag_ipa_cp = 0;
 	break;
-
-      case STATEMENT_LIST:
-	{
-	  tree_stmt_iterator tsi;
-	  /* Track current statement while finding CALL_EXPRs.  */
-	  for (tsi = tsi_start (*tp); !tsi_end_p (tsi); tsi_next (&tsi))
-	    {
-	      walk_tree (tsi_stmt_ptr (tsi), record_call_1, data,
-			 visited_nodes);
-	    }
-	}
-	break;
       }
+
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator tsi;
+	/* Track current statement while finding CALL_EXPRs.  */
+	for (tsi = tsi_start (*tp); !tsi_end_p (tsi); tsi_next (&tsi))
+	  {
+	    walk_tree (tsi_stmt_ptr (tsi), record_call_1, data,
+		       visited_nodes);
+	  }
+      }
+      break;
 
     default:
       /* Save some cycles by not walking types and declaration as we
@@ -724,6 +724,7 @@ cgraph_varpool_analyze_pending_decls (void)
       else
         cgraph_varpool_first_unanalyzed_node->non_ipa = true;
       cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
+
       if (DECL_INITIAL (decl))
 	cgraph_create_edges (NULL, DECL_INITIAL (decl));
       changed = true;
@@ -836,7 +837,7 @@ cgraph_finalize_compilation_unit (void)
       node->next_needed = NULL;
 
       /* ??? It is possible to create extern inline function and later using
-	 weak alas attribute to kill its body. See
+	 weak alias attribute to kill its body. See
 	 gcc.c-torture/compile/20011119-1.c  */
       if (!DECL_SAVED_TREE (decl))
 	{
@@ -987,6 +988,13 @@ cgraph_expand_function (struct cgraph_node *node)
     }
 }
 
+/* FIXME this needs to be enhanced.  If we are compiling a single
+   module this returns true if the variable is a module level static,
+   but if we are doing whole program compilation, this could return
+   true if TREE_PUBLIC is true. */
+/* Return true if the variable T is the right kind of static variable to
+   perform compilation unit scope escape analysis.  */
+
 /* Expand all functions that must be output.
 
    Attempt to topologically sort the nodes so function is output when
@@ -1129,6 +1137,8 @@ cgraph_optimize (void)
       cgraph_varpool_assemble_pending_decls ();
       return;
     }
+  cgraph_varpool_analyze_pending_decls ();
+
   timevar_push (TV_IPA_OPT);
 
   /* Frontend may output common variables after the unit has been finalized.
@@ -1178,29 +1188,29 @@ cgraph_optimize (void)
       fprintf (cgraph_dump_file, "\nFinal ");
       dump_cgraph (cgraph_dump_file);
     }
-#ifdef ENABLE_CHECKING
-  verify_cgraph ();
-  /* Double check that all inline clones are gone and that all
-     function bodies have been released from memory.  */
-  if (flag_unit_at_a_time
-      && !dump_enabled_p (TDI_tree_all)
-      && !(sorrycount || errorcount))
-    {
-      struct cgraph_node *node;
-      bool error_found = false;
+/* #ifdef ENABLE_CHECK */
+/*   verify_cgraph (); */
+     /* Double check that all inline clones are gone and that all 
+        function bodies have been released from memory.  */ 
+/*   if (flag_unit_at_a_time */
+/*       && !dump_enabled_p (TDI_tree_all) */
+/*       && !(sorrycount || errorcount)) */
+/*     { */
+/*       struct cgraph_node *node; */
+/*       bool error_found = false; */
 
-      for (node = cgraph_nodes; node; node = node->next)
-	if (node->analyzed
-	    && (node->global.inlined_to
-	        || DECL_SAVED_TREE (node->decl)))
-	  {
-	    error_found = true;
-	    dump_cgraph_node (stderr, node);
- 	  }
-      if (error_found)
-	internal_error ("Nodes with no released memory found.");
-    }
-#endif
+/*       for (node = cgraph_nodes; node; node = node->next) */
+/* 	if (node->analyzed */
+/* 	    && (node->global.inlined_to */
+/* 	        || DECL_SAVED_TREE (node->decl))) */
+/* 	  { */
+/* 	    error_found = true; */
+/* 	    dump_cgraph_node (stderr, node); */
+/*  	  } */
+/*       if (error_found) */
+/* 	internal_error ("Nodes with no released memory found."); */
+/*     } */
+/* #endif */
 }
 
 /* Generate and emit a static constructor or destructor.  WHICH must be

@@ -99,6 +99,7 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *dump_file)
   bool changed = false;
   int insns = 0;
 
+  return false;
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif

@@ -1531,7 +1531,11 @@ inline_forbidden_p (tree fndecl)
 
   /* We should always be called after the CFG is built. */
   if (basic_block_info_for_function (DECL_STRUCT_FUNCTION (fndecl))== (varray_type) 0)
-    abort ();
+    {
+      fprintf (stderr, "\nunlowered function:%s",
+	       lang_hooks.decl_printable_name (fndecl, 2));
+      abort ();
+    }
 
   FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (fndecl))
     for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))

@@ -1,3 +1,50 @@
+2004-12-02  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+
+	Removal of const and pure detection from rtl level:	
+	* alias.c (nonlocal_mentioned_p_1,nonlocal_mentioned_p,
+	nonlocal_referenced_p_1,nonlocal_referenced_p,nonlocal_set_p_1,
+	nonlocal_set_p,mark_constant_function): removed
+	* calls.c (flags_from_decl_or_type):removed cgraph_rtl_info refs
+	* passes.c (rest_of_handle_cfg) remove calls to mark_constant_function
+	* cgraph.h (const_function, pure_function) flags removed from 
+	cgraph_rtl_info
+
+	Addition of const and pure function detection to ipa static as well as
+	detection of readonly static variables are removal of addressable bit 
+	from static varaiables.:
+	* ipa_static_vars_anal.c (bool has_proper_scope_for_analysis,
+	check_operand,check_tree,look_for_address_of,check_rhs_var,
+	check_lhs_var,get_asm_expr_operands,process_call_for_static_vars,
+	scan_for_static_refs,get_static_name_by_uid,propagate_bits,ipa_init
+	analyze_variable,analyze_function,static_execute) added functionality.
+	* tree-cfg.c (need_fake_edge_p): added comment that needs work.
+	
+	* ipa_static_vars_anal.c (add_static_var): added debugging.
+	* tree-inline.c (inline_forbidden_p): added debugging.
+
+	Move calls_read_all and calls_write_all from cgraph_node structure to 
+	ipa_static_info structure.
+	* cgraph.c (dump_cgraph_node) removed refs vars. 
+
+	Fixed spelling error in *_OVERWRITTABLE
+	* cgraph.h
+	* cgraph.c (cgraph_master_clone,cgraph_function_body_availability,
+	cgraph_variable_initializer_availability)
+
+	Fixed indention and nesting problem in source:
+	cgraphunit.c (record_call_1)
+
+
+2004-12-02  Jan Hubicka  <jh@suse.cz> committed by Kenneth Zadeck
+	Fixes to make variable and functions appear at proper time in ipa analysis.
+	*cgraph.c (enqueue_needed_varpool_node): renamed to 
+	cgraph_varpool_enqueue_needed_node	
+	(cgraph_varpool_reset_queue): new function. 
+	(cgraph_varpool_mark_needed_node, decide_is_variable_needed) add calls.
+	(cgraph_varpool_finalize_decl) renamed function call
+	* cgraphunit.c (cgraph_optimize) disabled recovery of useless nodes.
+	* ipa.c (cgraph_remove_unreachable_nodes) disabled detection.
+
 2004-12-02  Jan Hubicka  <jh@suse.cz>
 
 	Temporarily avoid unreachable node removal for IPA stuff.

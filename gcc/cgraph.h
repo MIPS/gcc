@@ -35,10 +35,10 @@ enum availability
   /* Function body/variable initializer is known but might be replaced
      by a different one from other compilation unit and thus can be
      dealt with only as a hint.  */
-  AVAIL_OVERWRITTABLE,
-  /* Same as AVAIL_OVERWRITTABLE except the front end has said that
+  AVAIL_OVERWRITABLE,
+  /* Same as AVAIL_OVERWRITABLE except the front end has said that
      this instance is stable enough to analyze or even inline.  */
-  AVAIL_OVERWRITTABLE_BUT_INLINABLE,
+  AVAIL_OVERWRITABLE_BUT_INLINABLE,
   /* Function body/variable initializer is known and will be used in final
      program.  */
   AVAIL_AVAILABLE,
@@ -66,14 +66,6 @@ struct cgraph_local_info GTY(())
 
   /* Set when function is visible by other units.  */
   bool externally_visible;
-
-  /* Set when this function calls another function external to the
-     compilation unit or if the function has a asm clobber of memory.
-     In general, such calls are modeled as reading and writing all
-     variables (both bits on) but sometime there are attributes on the
-     called function so we can do better.  */
-  bool calls_read_all;
-  bool calls_write_all;
 
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
@@ -110,8 +102,6 @@ struct cgraph_global_info GTY(())
 struct cgraph_rtl_info GTY(())
 {
    int preferred_incoming_stack_boundary;
-   bool const_function;
-   bool pure_function;
 };
 
 /* The cgraph data structure.
@@ -199,9 +189,12 @@ struct cgraph_varpool_node GTY(())
   /* Pointer to the next function in cgraph_varpool_nodes_queue.  */
   struct cgraph_varpool_node *next_needed;
 
-  /* Set when function must be output - it is externally visible
-     or it's address is taken.  */
+  /* Set when variable is visible - it is externally visible,
+     it is used directly or it's address is taken.  */
   bool needed;
+  /* Needed variables might become dead by optimization.  This flag
+     forces the variable to be output even if it appears dead otherwise.  */
+  bool force_output;
   /* Set once the variable has been instantiated and its callee
      lists created.  */
   bool analyzed;
@@ -261,6 +254,8 @@ bool cgraph_is_master_clone (struct cgraph_node *);
 bool cgraph_is_immortal_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_immortal_master_clone (struct cgraph_node *);
+void cgraph_varpool_enqueue_needed_node (struct cgraph_varpool_node *);
+void cgraph_varpool_reset_queue (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
 bool cgraph_inline_p (struct cgraph_edge *, const char **);

@@ -532,10 +532,6 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " externally_visible");
   if (node->local.finalized)
     fprintf (f, " finalized");
-  if (node->local.calls_read_all)
-    fprintf (f, " calls_read_all");
-  if (node->local.calls_write_all)
-    fprintf (f, " calls_write_all");
   if (node->local.disregard_inline_limits)
     fprintf (f, " always_inline");
   else if (node->local.inlinable)
@@ -674,10 +670,10 @@ change_decl_assembler_name (tree decl, tree name)
   SET_DECL_ASSEMBLER_NAME (decl, name);
 }
 
-/* Helped function for finalization code - add node into lists so it will
+/* Helper function for finalization code - add node into lists so it will
    be analyzed and compiled.  */
-static void
-enqueue_needed_varpool_node (struct cgraph_varpool_node *node)
+void
+cgraph_varpool_enqueue_needed_node (struct cgraph_varpool_node *node)
 {
   if (cgraph_varpool_last_needed_node)
     cgraph_varpool_last_needed_node->next_needed = node;
@@ -690,13 +686,22 @@ enqueue_needed_varpool_node (struct cgraph_varpool_node *node)
   notice_global_symbol (node->decl);
 }
 
+/* Reset the queue of needed nodes.  */
+void
+cgraph_varpool_reset_queue (void)
+{
+  cgraph_varpool_last_needed_node = NULL;
+  cgraph_varpool_nodes_queue = NULL;
+  cgraph_varpool_first_unanalyzed_node = NULL;
+}
+
 /* Notify finalize_compilation_unit that given node is reachable
    or needed.  */
 void
 cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
 {
   if (!node->needed && node->finalized)
-    enqueue_needed_varpool_node (node);
+    cgraph_varpool_enqueue_needed_node (node);
   node->needed = 1;
 }
 
@@ -712,10 +717,10 @@ decide_is_variable_needed (struct cgraph_varpool_node *node, tree decl)
   if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
     {
       if (TREE_PUBLIC (decl))
-        node->externally_visible = true;
+	node->externally_visible = true;
       return true;
     }
-
+  
   /* ??? If the assembler name is set by hand, it is possible to assemble
      the name later after finalizing the function and the fact is noticed
      in assemble_name then.  This is arguably a bug.  */
@@ -723,26 +728,26 @@ decide_is_variable_needed (struct cgraph_varpool_node *node, tree decl)
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
     {
       if (TREE_PUBLIC (decl))
-        node->externally_visible = true;
+	node->externally_visible = true;
       return true;
     }
-
+  
   /* If we decided it was needed before, but at the time we didn't have
      the definition available, then it's still needed.  */
   if (node->needed)
     return true;
-
+  
   /* Externally visible functions must be output.  The exception is
      COMDAT functions that must be output only when they are needed.  */
   if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     return true;
-
+  
   if (flag_unit_at_a_time)
     return false;
-
+  
   /* If not doing unit at a time, then we'll only defer this function
      if its marked for inlining.  Otherwise we want to emit it now.  */
-
+  
   /* We want to emit COMDAT variables only when absolutely necessary.  */
   if (DECL_COMDAT (decl))
     return false;
@@ -753,7 +758,7 @@ void
 cgraph_varpool_finalize_decl (tree decl)
 {
   struct cgraph_varpool_node *node = cgraph_varpool_node (decl);
- 
+  
   /* The first declaration of a variable that comes through this function
      decides whether it is global (in C, has external linkage)
      or local (in C, has internal linkage).  So do nothing more
@@ -761,19 +766,18 @@ cgraph_varpool_finalize_decl (tree decl)
   if (node->finalized)
     {
       if (cgraph_global_info_ready || !flag_unit_at_a_time)
-	cgraph_varpool_assemble_pending_decls ();
+ 	cgraph_varpool_assemble_pending_decls ();
       return;
     }
   if (node->needed)
-    enqueue_needed_varpool_node (node);
+    cgraph_varpool_enqueue_needed_node (node);
   node->finalized = true;
-
+  
   if (decide_is_variable_needed (node, decl))
     cgraph_varpool_mark_needed_node (node);
   if (cgraph_global_info_ready || !flag_unit_at_a_time)
     cgraph_varpool_assemble_pending_decls ();
 }
-
 
 /* Return true when the DECL can possibly be inlined.  */
 bool
@@ -855,7 +859,7 @@ cgraph_master_clone (struct cgraph_node *n)
 {
   enum availability avail = cgraph_function_body_availability (n);
    
-  if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITTABLE)
+  if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITABLE)
     return NULL;
 
   if (!n->master_clone) 
@@ -914,7 +918,7 @@ cgraph_function_body_availability (struct cgraph_node *node)
   else if (!node->local.externally_visible)
     avail = AVAIL_AVAILABLE;
 
-  /* If the function can be overwritten, return OVERWRITTABLE.  Take
+  /* If the function can be overwritten, return OVERWRITABLE.  Take
      care at least of two notable extensions - the COMDAT functions
      used to share template instantiations in C++ (this is symmetric
      to code cp_cannot_inline_tree_fn and probably shall be shared and
@@ -932,9 +936,9 @@ cgraph_function_body_availability (struct cgraph_node *node)
   else if (!(*targetm.binds_local_p) (node->decl)
 	   && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))
     if (DECL_DECLARED_INLINE_P (node->decl))
-      avail = AVAIL_OVERWRITTABLE_BUT_INLINABLE;
+      avail = AVAIL_OVERWRITABLE_BUT_INLINABLE;
     else 
-      avail = AVAIL_OVERWRITTABLE;
+      avail = AVAIL_OVERWRITABLE;
   else avail = AVAIL_AVAILABLE;
   node->local.avail = avail;
   return avail;
@@ -949,11 +953,11 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
     return AVAIL_NOT_AVAILABLE;
   if (!TREE_PUBLIC (node->decl))
     return AVAIL_AVAILABLE;
-  /* If the variable can be overwritted, return OVERWRITTABLE.  Takes
+  /* If the variable can be overwritted, return OVERWRITABLE.  Takes
      care of at least two notable extensions - the COMDAT variables
      used to share template instantiations in C++.  */
   if (!(*targetm.binds_local_p) (node->decl) && !DECL_COMDAT (node->decl))
-    return AVAIL_OVERWRITTABLE;
+    return AVAIL_OVERWRITABLE;
   return AVAIL_AVAILABLE;
 }
 

@@ -24,6 +24,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "bitmap.h"
 #include "tree.h"
 
+/* Lattice values for const and pure functions.  Everything starts out
+   being const, then may drop to pure and then neither depending on
+   what is found.  */
+enum ipa_static_pure_const_state
+{
+  IPA_CONST,
+  IPA_PURE,
+  IPA_NEITHER
+};
+
 /* The static variables defined within the compilation unit that are
    loaded or stored directly by function that owns this structure.  */ 
 
@@ -34,11 +44,25 @@ struct ipa_local_static_vars_info_d
   bitmap statics_read_by_ann_uid;
   bitmap statics_written_by_ann_uid;
 
+  enum ipa_static_pure_const_state pure_const_state;
+
+  /* False if the front end set either TREE_READONLY or DECL_IS_PURE
+     in front end.  If false, do not change the theses flags no matter
+     what we find.  */
+  bool pure_const_not_set_in_source;
+
   /* Var_anns_valid is reset at the start of compilation for each
      function because the indexing that the "_var_anns" is based
      on is invalidated between function compilations.  This allows for
      lazy creation of the "_var_ann" variables.  */
   bool var_anns_valid;
+  /* Set when this function calls another function external to the
+     compilation unit or if the function has a asm clobber of memory.
+     In general, such calls are modeled as reading and writing all
+     variables (both bits on) but sometime there are attributes on the
+     called function so we can do better.  */
+  bool calls_read_all;
+  bool calls_write_all;
 };
 
 struct ipa_global_static_vars_info_d
@@ -51,6 +75,8 @@ struct ipa_global_static_vars_info_d
   bitmap statics_not_written_by_decl_uid;
   bitmap statics_not_read_by_ann_uid;
   bitmap statics_not_written_by_ann_uid;
+
+  enum ipa_static_pure_const_state pure_const_state;
 
   /* Var_anns_valid is reset at the start of compilation for each
      function because the indexing that the "_var_anns" is based
