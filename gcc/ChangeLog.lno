@@ -1,3 +1,7 @@
+2004-07-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivopts.c (determine_biv_step): Use simple_iv.
+
 2004-07-09  Devang Patel  <dpatel@apple.com>
 
 	* Makefile.in (tree-ssa-loop-manip.o): Add tree-scalar-evolution.h

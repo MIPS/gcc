@@ -1006,32 +1006,17 @@ static tree
 determine_biv_step (tree phi)
 {
   struct loop *loop = bb_for_stmt (phi)->loop_father;
-  tree name = PHI_RESULT (phi), ev, step;
+  tree name = PHI_RESULT (phi), base, step;
   tree type = TREE_TYPE (name);
 
   if (!is_gimple_reg (name))
     return NULL_TREE;
 
-  /* Just work for integers and pointers.  */
-  if (TREE_CODE (type) != INTEGER_TYPE
-      && TREE_CODE (type) != POINTER_TYPE)
+  if (!simple_iv (loop, phi, name, &base, &step))
     return NULL_TREE;
 
-  ev = analyze_scalar_evolution (loop, name);
-  if (chrec_contains_undetermined (ev))
-    return NULL_TREE;
-
-  if (TREE_CODE (ev) == INTEGER_CST
-      || TREE_CODE (ev) == SSA_NAME)
+  if (!step)
     return convert (type, integer_zero_node);
-
-  if (TREE_CODE (ev) != POLYNOMIAL_CHREC)
-    return NULL_TREE;
-
-  step = CHREC_RIGHT (ev);
-
-  if (TREE_CODE (step) != INTEGER_CST)
-    return NULL_TREE;
 
   return step;
 }
