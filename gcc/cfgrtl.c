@@ -1246,12 +1246,14 @@ commit_one_edge_insertion (e, watch_calls)
 	{
 	  rtx return_reg;
 	  rtx next_insert_after = next_nonnote_insn (insert_after);
+	  rtx set;
 
 	  /* The first insn after the call may be a stack pop, skip it.  */
 	  if (next_insert_after
 	      && GET_CODE (next_insert_after) == INSN
-	      && GET_CODE (PATTERN (next_insert_after)) == SET
-	      && SET_DEST (PATTERN (next_insert_after)) == stack_pointer_rtx)
+	      && (set = single_set (next_insert_after))
+	      && GET_CODE (set) == SET
+	      && SET_DEST (set) == stack_pointer_rtx)
 	    next_insert_after = next_nonnote_insn (next_insert_after);
 	  if (next_insert_after && GET_CODE (next_insert_after) == INSN)
 	    {
