@@ -1,3 +1,7 @@
+2002-08-05  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Makefile.in (s-gtype): Re-add dependency on $(GTFILES).
+
 2002-08-03  Geoffrey Keating  <geoffk@redhat.com>
 
 	* rtl.h (rtx_next): Declare.
