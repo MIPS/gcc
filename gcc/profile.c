@@ -1262,7 +1262,7 @@ end_branch_prob ()
     {
       if (bbg_file)
 	{
-#if __GNUC__
+#if __GNUC__ && !CROSS_COMPILE && SUPPORTS_WEAK
 	  /* If __gcov_init has a value in the compiler, it means we
 	     are instrumenting ourselves. We should not remove the
 	     counts file, because we might be recompiling

@@ -1010,14 +1010,13 @@ enum label_kind
 #define INTVAL(RTX) XCWINT(RTX, 0, CONST_INT)
 
 /* For a CONST_DOUBLE:
-   The usual two ints that hold the value.
-   For a DImode, that is all there are;
-    and CONST_DOUBLE_LOW is the low-order word and ..._HIGH the high-order.
-   For a float, the number of ints varies,
-    and CONST_DOUBLE_LOW is the one that should come first *in memory*.
-    So use &CONST_DOUBLE_LOW(r) as the address of an array of ints.  */
+   For a DImode, there are two integers CONST_DOUBLE_LOW is the
+     low-order word and ..._HIGH the high-order.
+   For a float, there is a REAL_VALUE_TYPE structure, and 
+     CONST_DOUBLE_REAL_VALUE(r) is a pointer to it.  */
 #define CONST_DOUBLE_LOW(r) XCWINT (r, 0, CONST_DOUBLE)
 #define CONST_DOUBLE_HIGH(r) XCWINT (r, 1, CONST_DOUBLE)
+#define CONST_DOUBLE_REAL_VALUE(r) ((struct real_value *)&CONST_DOUBLE_LOW(r))
 
 /* For a CONST_VECTOR, return element #n.  */
 #define CONST_VECTOR_ELT(RTX, N) XCVECEXP (RTX, 0, N, CONST_VECTOR)
@@ -1104,7 +1103,7 @@ do {									\
 #define MEM_SCALAR_P(RTX)						\
   (RTL_FLAG_CHECK1("MEM_SCALAR_P", (RTX), MEM)->frame_related)
 
-/* If VAL is non-zero, set MEM_IN_STRUCT_P and clear MEM_SCALAR_P in
+/* If VAL is nonzero, set MEM_IN_STRUCT_P and clear MEM_SCALAR_P in
    RTX.  Otherwise, vice versa.  Use this macro only when you are
    *sure* that you know that the MEM is in a structure, or is a
    scalar.  VAL is evaluated only once.  */
@@ -1577,6 +1576,7 @@ extern rtx set_unique_reg_note		PARAMS ((rtx, enum reg_note, rtx));
 #define single_set_1(I) single_set_2 (I, PATTERN (I))
 
 extern int rtx_addr_can_trap_p		PARAMS ((rtx));
+extern bool nonzero_address_p		PARAMS ((rtx));
 extern int rtx_unstable_p		PARAMS ((rtx));
 extern int rtx_varies_p			PARAMS ((rtx, int));
 extern int rtx_addr_varies_p		PARAMS ((rtx, int));
@@ -2268,7 +2268,6 @@ extern void invert_br_probabilities	PARAMS ((rtx));
 extern bool expensive_function_p	PARAMS ((int));
 /* In tracer.c */
 extern void tracer			PARAMS ((void));
-
 
 /* In calls.c */
 

@@ -171,6 +171,16 @@ java::lang::ClassLoader::markClassErrorState0 (java::lang::Class *klass)
 }
 
 jclass
+java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *cl, 
+					jstring name,
+					jbyteArray data, 
+					jint offset,
+					jint length)
+{
+  return cl->defineClass (name, data, offset, length);
+}
+
+jclass
 java::lang::VMClassLoader::getPrimitiveClass (jchar type)
 {
   char sig[2];
@@ -260,7 +270,7 @@ _Jv_PrepareCompiledClass (jclass klass)
 	  if (! found)
 	    {
 	      jstring str = _Jv_NewStringUTF (name->data);
-	      throw new java::lang::ClassNotFoundException (str);
+	      throw new java::lang::NoClassDefFoundError (str);
 	    }
 
 	  pool->data[index].clazz = found;
@@ -269,6 +279,7 @@ _Jv_PrepareCompiledClass (jclass klass)
       else if (pool->tags[index] == JV_CONSTANT_String)
 	{
 	  jstring str;
+
 	  str = _Jv_NewStringUtf8Const (pool->data[index].utf8);
 	  pool->data[index].o = str;
 	  pool->tags[index] |= JV_CONSTANT_ResolvedFlag;

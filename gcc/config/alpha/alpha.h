@@ -411,6 +411,10 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 /* Define the size of `long long'.  The default is the twice the word size.  */
 #define LONG_LONG_TYPE_SIZE 64
 
+/* We're IEEE unless someone says to use VAX.  */
+#define TARGET_FLOAT_FORMAT \
+  (TARGET_FLOAT_VAX ? VAX_FLOAT_FORMAT : IEEE_FLOAT_FORMAT)
+
 /* The two floating-point formats we support are S-floating, which is
    4 bytes, and T-floating, which is 8 bytes.  `float' is S and `double'
    and `long double' are T.  */
@@ -489,7 +493,7 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */
@@ -1165,14 +1169,6 @@ extern int alpha_memory_latency;
     }									\
 }
 
-/* We do not allow indirect calls to be optimized into sibling calls, nor
-   can we allow a call to a function in a different compilation unit to
-   be optimized into a sibcall.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL)			\
-  (DECL							\
-   && (! TREE_PUBLIC (DECL)				\
-       || (TREE_ASM_WRITTEN (DECL) && (*targetm.binds_local_p) (DECL))))
-
 /* Try to output insns to set TARGET equal to the constant C if it can be
    done in less than N insns.  Do all computations in MODE.  Returns the place
    where the output has been placed if it can be done and the insns have been
@@ -1285,12 +1281,6 @@ do {						\
 				     current_function_outgoing_args_size))
 
 /* Addressing modes, and classification of registers for them.  */
-
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
-
-/* #define HAVE_PRE_DECREMENT 0 */
-/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 

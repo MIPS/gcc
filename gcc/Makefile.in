@@ -393,7 +393,7 @@ CRTSTUFF_CFLAGS = -O2 $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
   -finhibit-size-directive -fno-inline-functions -fno-exceptions \
   -fno-zero-initialized-in-bss
 
-# Additional sources to handle exceptions; overridden on ia64.
+# Additional sources to handle exceptions; overridden by targets as needed.
 LIB2ADDEH = $(srcdir)/unwind-dw2.c $(srcdir)/unwind-dw2-fde.c \
   $(srcdir)/unwind-sjlj.c
 LIB2ADDEHDEP = unwind.inc unwind-dw2-fde.h
@@ -3329,7 +3329,7 @@ ${QMTEST_DIR}/context: stamp-qmtest
 # Run the G++ testsuite using QMTest.
 qmtest-g++: ${QMTEST_DIR}/context ${QMTEST_DIR}/gpp-expected.qmr
 	cd ${QMTEST_DIR} && ${QMTEST} run ${QMTESTRUNFLAGS} -C context \
-	   -o gpp.qmr -O ${QMTEST_DIR}/gpp-expected.qmr \
+	   -o gpp.qmr -O gpp-expected.qmr \
 	   ${QMTEST_GPP_TESTS}
 
 # Use the QMTest GUI.

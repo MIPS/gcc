@@ -232,7 +232,7 @@ static int flag_long_names = 0;
 static int flag_function_summary = 0;
 
 /* Object directory file prefix.  This is the directory/file where the
-   graph and data files are looked for, if non-zero.  */
+   graph and data files are looked for, if nonzero.  */
 
 static char *object_directory = 0;
 

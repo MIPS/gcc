@@ -648,7 +648,7 @@ div_and_round_double (code, uns,
       int num_hi_sig, den_hi_sig;
       unsigned HOST_WIDE_INT quo_est, scale;
 
-      /* Find the highest non-zero divisor digit.  */
+      /* Find the highest nonzero divisor digit.  */
       for (i = 4 - 1;; i--)
 	if (den[i] != 0)
 	  {
@@ -1349,7 +1349,7 @@ size_htab_hash (x)
 	  ^ (TREE_OVERFLOW (t) << 20));
 }
 
-/* Return non-zero if the value represented by *X (an INTEGER_CST tree node)
+/* Return nonzero if the value represented by *X (an INTEGER_CST tree node)
    is the same as that given by *Y, which is the same.  */
 
 static int
@@ -1780,7 +1780,7 @@ truth_value_p (code)
 }
 
 /* Return nonzero if two operands are necessarily equal.
-   If ONLY_CONST is non-zero, only return non-zero for constants.
+   If ONLY_CONST is nonzero, only return nonzero for constants.
    This function tests whether the operands are indistinguishable;
    it does not test whether they are equal using C's == operation.
    The distinction is important for IEEE floating point, because
@@ -2014,7 +2014,7 @@ operand_equal_for_comparison_p (arg0, arg1, other)
 /* See if ARG is an expression that is either a comparison or is performing
    arithmetic on comparisons.  The comparisons must only be comparing
    two different values, which will be stored in *CVAL1 and *CVAL2; if
-   they are non-zero it means that some operands have already been found.
+   they are nonzero it means that some operands have already been found.
    No variables may be used anywhere else in the expression except in the
    comparisons.  If SAVE_P is true it means we removed a SAVE_EXPR around
    the expression and save_expr needs to be called with CVAL1 and CVAL2.
@@ -2399,7 +2399,7 @@ distribute_bit_expr (code, type, arg0, arg1)
 }
 
 /* Return a BIT_FIELD_REF of type TYPE to refer to BITSIZE bits of INNER
-   starting at BITPOS.  The field is unsigned if UNSIGNEDP is non-zero.  */
+   starting at BITPOS.  The field is unsigned if UNSIGNEDP is nonzero.  */
 
 static tree
 make_bit_field_ref (inner, type, bitsize, bitpos, unsignedp)
@@ -2672,7 +2672,7 @@ decode_field_reference (exp, pbitsize, pbitpos, pmode, punsignedp,
   return inner;
 }
 
-/* Return non-zero if MASK represents a mask of SIZE ones in the low-order
+/* Return nonzero if MASK represents a mask of SIZE ones in the low-order
    bit positions.  */
 
 static int
@@ -4394,7 +4394,7 @@ count_cond (expr, lim)
 /* Transform `a + (b ? x : y)' into `b ? (a + x) : (a + y)'.
    Transform, `a + (x < y)' into `(x < y) ? (a + 1) : (a + 0)'.  Here
    CODE corresponds to the `+', COND to the `(b ? x : y)' or `(x < y)'
-   expression, and ARG to `a'.  If COND_FIRST_P is non-zero, then the
+   expression, and ARG to `a'.  If COND_FIRST_P is nonzero, then the
    COND is the first argument to CODE; otherwise (as in the example
    given here), it is the second argument.  TYPE is the type of the
    original expression.  */
@@ -4526,7 +4526,7 @@ fold_binary_op_with_conditional_arg (code, type, cond, arg, cond_first_p)
    TYPE, X + ADDEND is the same as X.  If NEGATE, return true if X -
    ADDEND is the same as X.
 
-   X + 0 and X - 0 both give X when X is NaN, infinite, or non-zero
+   X + 0 and X - 0 both give X when X is NaN, infinite, or nonzero
    and finite.  The problematic cases are when X is zero, and its mode
    has signed zeros.  In the case of rounding towards -infinity,
    X - 0 is not the same as X because 0 - 0 is -0.  In other rounding
@@ -5770,12 +5770,25 @@ fold (expr)
 
       goto binary;
 
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
+      if (integer_all_onesp (arg0))
+	return omit_one_operand (type, arg0, arg1);
+      goto shift;
+
+    case RSHIFT_EXPR:
+      /* Optimize -1 >> x for arithmetic right shifts.  */
+      if (integer_all_onesp (arg0) && ! TREE_UNSIGNED (type))
+	return omit_one_operand (type, arg0, arg1);
+      /* ... fall through ...  */
+
+    case LSHIFT_EXPR:
+    shift:
       if (integer_zerop (arg1))
 	return non_lvalue (convert (type, arg0));
+      if (integer_zerop (arg0))
+	return omit_one_operand (type, arg0, arg1);
+
       /* Since negative shift count is not well-defined,
 	 don't try to compute it in the compiler.  */
       if (TREE_CODE (arg1) == INTEGER_CST && tree_int_cst_sgn (arg1) < 0)

@@ -1307,8 +1307,6 @@ extern int avr_reg_order[];
    addressing.  */
 
 #define HAVE_PRE_DECREMENT 1
-/* #define HAVE_PRE_INCREMENT
-   #define HAVE_POST_DECREMENT  */
 /* Similar for other kinds of addressing.  */
 
 #define CONSTANT_ADDRESS_P(X) CONSTANT_P (X)
@@ -1845,9 +1843,9 @@ progmem_section ()							      \
 
 #define OBJC_PROLOGUE {}
 /* A C statement to output any assembler statements which are
-   required to precede any Objective C object definitions or message
+   required to precede any Objective-C object definitions or message
    sending.  The statement is executed only when compiling an
-   Objective C program.  */
+   Objective-C program.  */
 
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)	 gas_output_ascii (FILE,P,SIZE)
@@ -2641,8 +2639,6 @@ extern int avr_case_values_threshold;
 extern struct rtx_def *tmp_reg_rtx;
 extern struct rtx_def *zero_reg_rtx;
 extern struct rtx_def *ldi_reg_rtx;
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 

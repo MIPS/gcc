@@ -856,12 +856,6 @@ CUMULATIVE_ARGS;
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
-
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
-
 /* These assume that REGNO is a hard or pseudo reg number.  They give
    nonzero only if REGNO is a hard reg of the suitable class or a pseudo
    reg currently allocated to a suitable hard reg.

@@ -68,7 +68,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 extern struct obstack temporary_obstack;
 
-/* Set to non-zero value in order to emit class initilization code
+/* Set to nonzero value in order to emit class initilization code
    before static field references.  */
 extern int always_initialize_class_p;
 
@@ -292,41 +292,33 @@ get_constant (jcf, index)
       }
 
     case CONSTANT_Float:
-      /* ??? Even more ideal would be to import the number using the
-	 IEEE decode routines, then use whatever format the target
-	 actually uses.  This would enable Java on VAX to kind work.  */
-      if (TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-	{
-	  jint num = JPOOL_INT(jcf, index);
-	  long buf = num;
-	  REAL_VALUE_TYPE d;
-	  real_from_target (&d, &buf, SFmode);
-	  value = build_real (float_type_node, d);
-	  break;
-	}
-      else
-	goto bad;
+      {
+	jint num = JPOOL_INT(jcf, index);
+	long buf = num;
+	REAL_VALUE_TYPE d;
+
+	real_from_target_fmt (&d, &buf, &ieee_single_format);
+	value = build_real (float_type_node, d);
+	break;
+      }
 
     case CONSTANT_Double:
-      if (TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-	{
-	  long buf[2], lo, hi;
-	  REAL_VALUE_TYPE d;
+      {
+	long buf[2], lo, hi;
+	REAL_VALUE_TYPE d;
 
-	  hi = JPOOL_UINT (jcf, index);
-	  lo = JPOOL_UINT (jcf, index+1);
+	hi = JPOOL_UINT (jcf, index);
+	lo = JPOOL_UINT (jcf, index+1);
 
-	  if (FLOAT_WORDS_BIG_ENDIAN)
-	    buf[0] = hi, buf[1] = lo;
-	  else
-	    buf[0] = lo, buf[1] = hi;
+	if (FLOAT_WORDS_BIG_ENDIAN)
+	  buf[0] = hi, buf[1] = lo;
+	else
+	  buf[0] = lo, buf[1] = hi;
 
-	  real_from_target (&d, buf, DFmode);
-	  value = build_real (double_type_node, d);
-	  break;
-	}
-      else
-	goto bad;
+	real_from_target_fmt (&d, &buf, &ieee_double_format);
+	value = build_real (double_type_node, d);
+	break;
+      }
 
     case CONSTANT_String:
       {
@@ -378,7 +370,7 @@ get_name_constant (jcf, index)
   return name;
 }
 
-/* Handle reading innerclass attributes. If a non zero entry (denoting
+/* Handle reading innerclass attributes. If a nonzero entry (denoting
    a non anonymous entry) is found, We augment the inner class list of
    the outer context with the newly resolved innerclass.  */
 

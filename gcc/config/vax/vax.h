@@ -106,6 +106,9 @@ extern int target_flags;
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_UNIX_ASM)
 #endif
+
+#define OVERRIDE_OPTIONS override_options ()
+
 
 /* Target machine storage layout */
 
@@ -138,7 +141,7 @@ extern int target_flags;
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS (! TARGET_VAXC_ALIGNMENT)
 
 /* No data type wants to be aligned rounder than this.  */
@@ -536,10 +539,8 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Addressing modes, and classification of registers for them.  */
 
 #define HAVE_POST_INCREMENT 1
-/* #define HAVE_POST_DECREMENT 0 */
 
 #define HAVE_PRE_DECREMENT 1
-/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 

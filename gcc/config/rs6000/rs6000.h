@@ -633,7 +633,7 @@ extern int rs6000_default_long_calls;
 #define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
   (TARGET_SPE && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* Make strings word-aligned so strcpy from constants will be faster.
@@ -652,7 +652,7 @@ extern int rs6000_default_long_calls;
    && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
    && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
 
-/* Non-zero if move instructions will actually fail to work
+/* Nonzero if move instructions will actually fail to work
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 0
 
@@ -1227,8 +1227,8 @@ enum reg_class
    Return 1 if VALUE is in the range specified by C.
 
    `I' is a signed 16-bit constant
-   `J' is a constant with only the high-order 16 bits non-zero
-   `K' is a constant with only the low-order 16 bits non-zero
+   `J' is a constant with only the high-order 16 bits nonzero
+   `K' is a constant with only the low-order 16 bits nonzero
    `L' is a signed 16-bit constant shifted left 16 bits
    `M' is a constant that is greater than 31
    `N' is a positive constant that is an exact power of two
@@ -1695,13 +1695,13 @@ typedef struct rs6000_args
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   function_arg_advance (&CUM, MODE, TYPE, NAMED)
 
-/* Non-zero if we can use a floating-point register to pass this arg.  */
+/* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE,TYPE) \
   (GET_MODE_CLASS (MODE) == MODE_FLOAT  \
    && (CUM).fregno <= FP_ARG_MAX_REG    \
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
-/* Non-zero if we can use an AltiVec register to pass this arg.  */
+/* Nonzero if we can use an AltiVec register to pass this arg.  */
 #define USE_ALTIVEC_FOR_ARG_P(CUM,MODE,TYPE)	\
   (ALTIVEC_VECTOR_MODE (MODE)			\
    && (CUM).vregno <= ALTIVEC_ARG_MAX_REG	\
@@ -1804,10 +1804,6 @@ typedef struct rs6000_args
    argument is passed depends on whether or not it is a named argument.  */
 #define STRICT_ARGUMENT_NAMING 1
 
-/* We do not allow indirect calls to be optimized into sibling calls, nor
-   do we allow calls with vector parameters.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) function_ok_for_sibcall ((DECL))
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -1818,7 +1814,7 @@ typedef struct rs6000_args
    the stack pointer does not matter. No definition is equivalent to
    always zero.
 
-   On the RS/6000, this is non-zero because we can restore the stack from
+   On the RS/6000, this is nonzero because we can restore the stack from
    its backpointer, which we maintain.  */
 #define EXIT_IGNORE_STACK	1
 
@@ -1895,7 +1891,7 @@ typedef struct rs6000_args
 {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
  { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
  { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},	\
- { 30, 30} }
+ { RS6000_PIC_OFFSET_TABLE_REGNUM, RS6000_PIC_OFFSET_TABLE_REGNUM } }
 
 /* Given FROM and TO register numbers, say whether this elimination is allowed.
    Frame pointer elimination is automatically handled.
@@ -1906,10 +1902,11 @@ typedef struct rs6000_args
    We need r30 if -mminimal-toc was specified, and there are constant pool
    references.  */
 
-#define CAN_ELIMINATE(FROM, TO)					\
- ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM	\
-  ? ! frame_pointer_needed					\
-  : (FROM) == 30 ? ! TARGET_MINIMAL_TOC || TARGET_NO_TOC || get_pool_size () == 0 \
+#define CAN_ELIMINATE(FROM, TO)						\
+ ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM		\
+  ? ! frame_pointer_needed						\
+  : (FROM) == RS6000_PIC_OFFSET_TABLE_REGNUM 				\
+  ? ! TARGET_MINIMAL_TOC || TARGET_NO_TOC || get_pool_size () == 0	\
   : 1)
 
 /* Define the offset between two registers, one to be eliminated, and the other
@@ -1924,16 +1921,13 @@ typedef struct rs6000_args
    (OFFSET) = info->total_size;						\
  else if ((FROM) == ARG_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM)	\
    (OFFSET) = (info->push_p) ? info->total_size : 0;			\
-  else if ((FROM) == 30)						\
+  else if ((FROM) == RS6000_PIC_OFFSET_TABLE_REGNUM)			\
     (OFFSET) = 0;							\
   else									\
     abort ();								\
 }
 
 /* Addressing modes, and classification of registers for them.  */
-
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
 
 #define HAVE_PRE_DECREMENT 1
 #define HAVE_PRE_INCREMENT 1
@@ -2189,7 +2183,7 @@ do {									     \
 #define RS6000_PIC_OFFSET_TABLE_REGNUM 30
 #define PIC_OFFSET_TABLE_REGNUM (flag_pic ? RS6000_PIC_OFFSET_TABLE_REGNUM : INVALID_REGNUM)
 
-#define TOC_REGISTER (TARGET_MINIMAL_TOC ? 30 : 2)
+#define TOC_REGISTER (TARGET_MINIMAL_TOC ? RS6000_PIC_OFFSET_TABLE_REGNUM : 2)
 
 /* Define this macro if the register defined by
    `PIC_OFFSET_TABLE_REGNUM' is clobbered by calls.  Do not define
@@ -2261,7 +2255,7 @@ do {									     \
 #define MAX_MOVE_MAX 8
 
 /* Nonzero if access to memory by bytes is no faster than for words.
-   Also non-zero if doing byte operations (specifically shifts) in registers
+   Also nonzero if doing byte operations (specifically shifts) in registers
    is undesirable.  */
 #define SLOW_BYTE_ACCESS 1
 

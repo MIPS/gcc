@@ -1,7 +1,318 @@
+2002-09-29  Anthony Green  <green@redhat.com>
+
+	* java/lang/reflect/UndeclaredThrowableException.java: New file.
+	Imported from GNU Classpath.
+	* java/lang/reflect/natProxy.cc: New file.
+	* java/lang/reflect/InvocationHandler.java: New file.  Imported
+	from GNU Classpath.
+	* java/lang/reflect/Proxy.java: New file.  Imported from GNU
+	Classpath.
+	* gnu/java/lang/reflect/TypeSignature.java: Refresh from GNU
+	Classpath.	
+	* gnu/classpath/Configuration.java.in (HAVE_NATIVE_GET_PROXY_DATA,
+	HAVE_NATIVE_GET_PROXY_CLASS, HAVE_NATIVE_GENERATE_PROXY_CLASS):
+	New statics.
+	* gcj/javaprims.h ("Java"): Add new classes.
+	* java/lang/reflect/Proxy.java: Fix check for duplicate interfaces.
+	* Makefile.am (java/lang/reflect/Proxy$$ProxyData.h): Create this.
+ 	java/lang/reflect/Proxy$$ProxyType.h): And this.
+	(inner_nat_headers): Add these new headers.
+	(ordinary_java_source_files): Add new files.
+	(nat_source_files): Add new file.
+	* Makefile.in: Rebuilt.
+
+2002-09-28  Richard Earnshaw  <rearnsha@arm.com>
+
+	* configure.host: Handle arm*-elf, strongarm*-elf and xscale*-elf with
+	a single configuration.
+
+2002-09-25  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* java/util/TimeZone.java (getDSTSavings): New method.
+	Fixes PR libgcj/7786.
+
+2002-09-25  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* resolve.cc (_Jv_ResolvePoolEntry) [end_of_method_search]: Check
+	to see if `the_method == 0' before looking up vtable index.
+	Fixes PR libgcj/7709.
+
+2002-09-25  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClassLoader.cc: 
+	(_Jv_PrepareCompiledClass): Throw NoClassDefFoundError, per spec.
+	* resolve.cc: Include NoClassDefFoundError.h, not
+	ClassNotFoundException.h.
+	(_Jv_ResolvePoolEntry): Throw NoClassDefFoundError, per spec.
+
+	* defineclass.cc: Don't include ClassNotFoundException.h.
+
+	* resolve.cc: Include StringBuffer.
+	(_Jv_ResolvePoolEntry): Use StringBuffer to create error string.
+
+	* boehm.cc (_Jv_MarkObj): Don't fail if class object has been
+	allocated but not initialized.
+
+2002-09-25  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	Fix for PR libgcj/7766:
+	* java/util/zip/ZipInputStream.java (entryAtEOF): New field.
+	(getNextEntry): Set it.
+	(closeEntry): Likewise.
+	(read): Likewise.
+	(close): Likewise.
+	(available): Use it.
+
+2002-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(DatagramSocket): Initialize new instance variables.
+	(close): Reset new instance variables.
+	(getLocalAddress): Remove unneeded SecurityManager usage.
+	(getLocalPort): Check if socket is already bound.
+	(isConnected): New method.
+	(getInetAddress): Implemented.
+	(getPort): Better Implementation, documentation fixed.
+	(getRemoteSocketAddress): New method.
+	* java/net/JarURLConnection.java
+	(element): Typo fixed.
+	(getMainAttributes): New method.
+	(getAttributes): New method (stub only).
+	(getManifest): New method (stub only).
+	* java/net/NetPermission.java: Added serialVersionsUID.
+	* java/net/Socket.java
+	(connect): Check blocking mode of associated channel,
+	documentation added.
+	(getLocalSocketAddress): Better implementation.
+	(getRemoteSocketAddress): Implemented.
+	(isBound): New method.
+	(setSendBufferSize): Documentation added.
+	* java/net/SocketAddress.java: Added serialVersionsUID.
+	* java/net/SocketPermission.java: Added serialVersionsUID.
+	* java/net/URL.java
+	(URL): Wrap for shorter lines, initialize new instance variables,
+	documentation added.
+	(equals): Check new instance variables too.
+	(getContent): Documentation added.
+	(getPath): Documentation added.
+	(getAuthority): New method.
+	(getHost): Documentation added.
+	(getPort): Documentation added.
+	(getDefaultPort): New method.
+	(getProtocol): Documentation added.
+	(getUserInfo): Documentation added.
+	(set): Initialize new instance variables, documentation added.
+	* java/net/URLStreamHandler.java
+	(setURL): New method.
+	* java/net/natPlainDatagramSocketImpl.cc
+	(connect): Fix exception name.
+	(disconnect): Fix exception name.
+
+2002-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/channels/spi/AbstractSelectableChannel.java: New file.
+	* java/nio/channels/DatagramChannel.java:
+	extends AbstractSelectableChannel
+	* java/nio/channels/ServerSocketChannel.java:
+	extends AbstractSelectableChannel
+	* java/nio/channels/SocketChannel.java:
+	extends AbstractSelectableChannel
+	* Makefile.am (ordinary_java_source_files):
+	java/nio/channels/spi/AbstractSelectableChannel.java added.
+	* Makefile.in: Regenerated.
+
+2002-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramSocket.java
+	(DatagramSocket): Exception documentation added.
+	(bind): Exception documentation added, addded SecurityManager check,
+	added SocketAddress type check.
+	(getSoTimeout): Check impl.
+	(receive): Fix SecurityManager check, check impl, documentation added.
+	(send): Check channel mode, documentation added.
+	(connect): New method.
+	(disconnect): Implemented.
+	(getLocalSocketAddress): New method.
+	(getReceiveBufferSize): Check impl.
+	(setReuseAddress): Check impl.
+	(getReuseAddress): Check impl.
+	(setBroadcast): Check impl.
+	(getBroadcast): Check impl.
+	(setTrafficClass): Check impl, Documentation cleared.
+	(getTrafficClass): Check impl.
+	(getSendBufferSize): Check impl.
+	(setReceiveBufferSize): Check impl, documentation added.
+	(setSendBufferSize): Documentation added.
+	(setDatagramSocketImplFactory): New method.
+	* java/net/HttpURLConnection.java
+	(HTTP_INTERNAL_ERROR): The correct code is 500.
+	(HTTP_NOT_IMPLEMENTED): Added new constant.
+	(setFollowRedirects): Documentation added.
+	(getInstanceFollowRedirects): New method.
+	(setInstanceFollowRedirects): New method.
+	(setRequestMethod): Documentation added.
+	(getResponseCode): Documentation added.
+	(getResponseMessage): Documentation added.
+	* java/net/JarURLConnection.java
+	(JarURLConnection): protected since JDK 1.4.
+	(getJarEntry): java.io.IOException to IOException, documentation added.
+	(getJarFile): Documentation added.
+	* java/net/ServerSocket.java
+	(ServerSocket): Private to public, exception added.
+	(ServerSocket): java.io.IOException to IOException, documentation added.
+	(bind): Check socket address type, documentation added.
+	(bind): java.io.IOException to IOException, documentation added.
+	(accept): Documentation added.
+	(implAccept): Check ch is not non-blocking, documentation added.
+	(setSoTimeout): Documentation fixed.
+	(setReceiveBufferSize): Documentation added.
+	* java/net/Socket.java
+	(Socket): Documentation added.
+	(bind): Documentation added.
+	(connect): Check socket address type, documentation added.
+	(getRemoteSocketAddress): New method.
+	(getLocalSocketAddress): New method.
+	(setSoLinger): Documentation added.
+	(getReuseAddress): New method.
+	(setReuseAddress): New method.
+	(getTrafficClass): New method.
+	(setTrafficClass): New method.
+	* java/net/URLStreamHandler.java
+	(openConnection): java.io.IOException to IOException.
+	(parseURL): Documentation added.
+	(sameFile): public to protected, documentation added.
+	(setURL): Documentation added.
+	* java/nio/IllegalBlockingModeException.java: New file.
+	* Makefile.am (ordinary_java_source_files):
+	added java/nio/IllegalBlockingModeException.java
+	* Makefile.in: Regenerated.
+
+2002-09-25  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/DatagramPacket
+	(DatagramPacket): Exception documentation added.
+	(setData): Likewise.
+	(setSocketAddress): Likewise.
+	* java/net/DatagramSocketImpl.java
+	(peek): Documentation addded.
+	(peekData): Documentation addded.
+	(send): Documentation addded.
+	(receive): Documentation addded.
+	(connect): New method.
+	(disconnect): New method.
+	(joinGroup): New abstract method.
+	(leaveGroup): New abstract method.
+	* java/net/InetSocketAddress.java
+	(InetSocketAddress): Documentation added.
+	(equals): final keyword added.
+	(getAddress): final keyword added.
+	(getHostName): final keyword added.
+	(getPort): final keyword added.
+	(hashCode): final keyword added.
+	(isUnresolved): final keyword added.
+	* java/net/MulticastSocket.java
+	(MulticastSocket): Documentation added.
+	(MulticastSocket): New method.
+	(joinGroup): Documentation added.
+	(joinGroup): New method.
+	(leaveGroup): Documentation added.
+	(leaveGroup): New method.
+	(send): Documentation added.
+	* java/net/NetworkInterface.java
+	(getByName): Documentation added.
+	(getByInetAddress): Documentation added.
+	(getNetworkInterfaces): Documentation added.
+	* java/net/PlainDatagramSocketImpl.java
+	(connect): New method.
+	(disconnect): New method.
+	* java/net/SocketImpl.java
+	(create): Documentation added.
+	(shutdownInput): Convert public to protected, as it always was.
+	(shutdownOutput): Convert public to protected, as it always was.
+	* java/net/SocketOptions.java
+	(whole file): Reintented.
+	* java/net/URLClassLoader.java
+	(URLClassLoader): SecurityManager check added, documentation added.
+	(findResources): Documentation added.
+	(findClass): Documentation added.
+	(newInstance): More correct method arguments.
+	* java/net/URLConnection.java
+	(connect): Documentation added.
+	(getContent): Documentation added.
+	(getPermission): Documentation added.
+	(getInputStream): Documentation added.
+	(getOutputStream): Documentation added.
+	(setDoInput): Throw correct exception, documentation added.
+	(setDoOutput): Throw correct exception, documentation added.
+	(setAllowUserInteraction): Throw correct exception, documentation added.
+	(setUseCaches): Throw correct exception, documentation added.
+	(setIfModifiedSince): Throw correct exception, documentation added.
+	(setRequestProperty): Throw exception, documentation added.
+	(addRequestProperty): Throw exception, documentation added.
+	(getRequestProperty): Throw exception, documentation added.
+	(getRequestProperties): Documentation added.
+	(setContentHandlerFactory): Documentation added.
+	(guessContentTypeFromName): protected to public.
+	(setFileNameMap): Documentation added.
+	* java/net/URLDecoder.java
+	(URLDecoder): New method.
+	(decode): Documentation added.
+	(whole file): Reindented.
+	* java/net/URLEncoder.java
+	(encode): Documentation added.
+	* java/net/natPlainDatagramSocketImpl.cc
+	(connect): New method.
+	(disconnect): New method.
+	* javax/naming/RefAddr:
+	(addrType): addrType was never final.
+	(equals): Fix typo in method name.
+	* javax/naming/BinaryRefAddr:
+	(equals): Fix typo in method name.
+
+2002-09-22  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/6576:
+	* java/util/ResourceBundle.java (tryBundle): Cache `null' if we
+	didn't find a given bundle.
+	(getBundle): Don't require base bundle.
+	(setParent): Removed old comment.
+	(tryLocalBundle): Try components even if preceding components were
+	empty.
+
+2002-09-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.am (all-multi): Fix multilib parallel build.
+
+2002-09-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/Socket.java
+	(sendUrgentData): New method.
+	(getChannel): New method.
+	* java/net/ServerSocket.java
+	(getChannel): New method.
+	(isBound): New method.
+	* java/net/DatagramSocket.java
+	(DatagramSocket): Two new methods.
+	(bind): New method.
+	(getChannel): New method.
+	(isBound): New method.
+	(send): Added newline to to make shorter lines.
+	* java/net/PlainDatagramSocketImpl.java
+	(mcastGrp): Added argument.
+	(join): Use new mcastGrp.
+	(leave): Use new mcastGrp.
+	(joinGroup): New method.
+	(leaveGroup): New method.
+	* java/net/natPlainDatagramSocketImpl.cc
+	(mcastGrp): Added argument, no yet really implemented.
+	(getOption): Added newline for shorter lines.
+	* java/net/natPlainSocketImpl.cc
+	(read, setOption, getOption): Added newline for shorter lines.
+
 2002-09-19  Tom Tromey  <tromey@redhat.com>
 
-	* java/lang/ClassLoader.java (resolveClass0): Set cause for
-	newly-created exception.
+       * java/lang/ClassLoader.java (resolveClass0): Set cause for
+       newly-created exception.
 
 2002-09-18  Michael Koch  <konqueror@gmx.de>
 

@@ -38,6 +38,8 @@ exception statement from your version. */
 package java.net;
 
 import java.io.*;
+import java.nio.channels.SocketChannel;
+import java.nio.channels.IllegalBlockingModeException;
 
 /* Written using on-line Java Platform 1.2 API Specification.
  * Status:  I believe all methods are implemented.
@@ -77,6 +79,8 @@ public class Socket
    * The implementation object to which calls are redirected
    */
   SocketImpl impl;
+
+  SocketChannel ch; // this field must have been set if created by SocketChannel
 
   // Constructors
 
@@ -126,6 +130,8 @@ public class Socket
    * @exception UnknownHostException If the hostname cannot be resolved to a
    * network address.
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkConnect method doesn't allow the operation
    */
   public Socket (String host, int port)
     throws UnknownHostException, IOException
@@ -141,6 +147,8 @@ public class Socket
    * @param port The port number to connect to
    *
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkConnect method doesn't allow the operation
    */
   public Socket (InetAddress address, int port)
     throws IOException 
@@ -180,6 +188,8 @@ public class Socket
    * @param localPort The local port to connect to
    *
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkConnect method doesn't allow the operation
    */
   public Socket (InetAddress address, int port,
 		 InetAddress localAddr, int localPort) throws IOException
@@ -199,6 +209,8 @@ public class Socket
    * for a datagram socket
    *
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkConnect method doesn't allow the operation
    *
    * @deprecated Use the <code>DatagramSocket</code> class to create
    * datagram oriented sockets.
@@ -220,6 +232,8 @@ public class Socket
    * <code>false</code> to create a datagram socket.
    *
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkConnect method doesn't allow the operation
    *
    * @deprecated Use the <code>DatagramSocket</code> class to create
    * datagram oriented sockets.
@@ -243,6 +257,8 @@ public class Socket
    * @param stream true for a stream socket, false for a datagram socket
    *
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkConnect method doesn't allow the operation
    */
   private Socket(InetAddress raddr, int rport, InetAddress laddr, int lport,
                  boolean stream) throws IOException
@@ -272,7 +288,10 @@ public class Socket
    *
    * @param bindpoint The address/port to bind to
    *
-   * @exception If an error occurs
+   * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkConnect method doesn't allow the operation
+   * @exception IllegalArgumentException If the address type is not supported
    * 
    * @since 1.4
    */
@@ -291,12 +310,21 @@ public class Socket
    * @param endpoint The address to connect to
    *
    * @exception IOException If an error occurs
+   * @exception IllegalArgumentException If the addess type is not supported
+   * @exception IllegalBlockingModeException If this socket has an associated
+   * channel, and the channel is in non-blocking mode
    * 
    * @since 1.4
    */
   public void connect (SocketAddress endpoint)
     throws IOException
   {
+    if (! (endpoint instanceof InetSocketAddress))
+      throw new IllegalArgumentException ("Address type not supported");
+
+    if (ch != null && !ch.isBlocking ())
+      throw new IllegalBlockingModeException ();
+    
     impl.connect (endpoint, 0);
   }
 
@@ -308,12 +336,22 @@ public class Socket
    * @param endpoint The address to connect to
    *
    * @exception IOException If an error occurs
+   * @exception IllegalArgumentException If the address type is not supported
+   * @exception IllegalBlockingModeException If this socket has an associated
+   * channel, and the channel is in non-blocking mode
+   * @exception SocketTimeoutException If the timeout is reached
    * 
    * @since 1.4
    */
   public void connect (SocketAddress endpoint, int timeout)
     throws IOException
   {
+    if (! (endpoint instanceof InetSocketAddress))
+      throw new IllegalArgumentException ("Address type not supported");
+
+    if (ch != null && !ch.isBlocking ())
+      throw new IllegalBlockingModeException ();
+    
     impl.connect (endpoint, timeout);
   }
 
@@ -393,6 +431,33 @@ public class Socket
       return impl.getLocalPort();
 
     return -1;
+  }
+
+  /**
+   * If the socket is already bound this returns the local SocketAddress,
+   * otherwise null
+   *
+   * @since 1.4
+   */
+  public SocketAddress getLocalSocketAddress()
+  {
+    InetAddress addr = getLocalAddress ();
+
+    if (addr == null)
+      return null;
+    
+    return new InetSocketAddress (addr, impl.getLocalPort());
+  }
+
+  /**
+   * If the socket is already connected this returns the remote SocketAddress,
+   * otherwise null
+   *
+   * @since 1.4
+   */
+  public SocketAddress getRemoteSocketAddress()
+  {
+    return new InetSocketAddress (impl.getInetAddress (), impl.getPort ());
   }
 
   /**
@@ -476,6 +541,7 @@ public class Socket
    * SO_LINGER not set.
    *
    * @exception SocketException If an error occurs or Socket not connected
+   * @exception IllegalArgumentException If linger is negative
    */
   public void setSoLinger(boolean on, int linger) throws SocketException
   {
@@ -522,6 +588,21 @@ public class Socket
       return(((Integer)linger).intValue());
     else
       return -1;
+  }
+
+  /**
+   * Sends urgent data through the socket
+   *
+   * @param data The data to send.
+   * Only the lowest eight bits of data are sent
+   *
+   * @exception IOException If an error occurs
+   *
+   * @since 1.4
+   */
+  public void sendUrgentData (int data) throws IOException
+  {
+    impl.sendUrgentData (data);
   }
 
   /**
@@ -622,6 +703,7 @@ public class Socket
    * @param size The new send buffer size.
    *
    * @exception SocketException If an error occurs or Socket not connected
+   * @exception IllegalArgumentException If size is 0 or negative
    *
    * @since 1.2
    */
@@ -668,6 +750,7 @@ public class Socket
    * @param size The new receive buffer size.
    *
    * @exception SocketException If an error occurs or Socket is not connected
+   * @exception IllegalArgumentException If size is 0 or negative
    *
    * @since 1.2
    */
@@ -818,5 +901,103 @@ public class Socket
   {
     if (impl != null)
       impl.shutdownOutput();
+  }
+
+  /**
+   * Returns the socket channel associated with this socket.
+   *
+   * It returns null if no associated socket exists.
+   */
+  public SocketChannel getChannel()
+  {
+    return ch;
+  }
+
+  /**
+   * Checks if the SO_REUSEADDR option is enabled
+   *
+   * @exception SocketException If an error occurs
+   *
+   * @since 1.4
+   */
+  public boolean getReuseAddress () throws SocketException
+  {
+    if (impl == null)
+      throw new SocketException ("Cannot initialize Socket implementation");
+
+    Object reuseaddr = impl.getOption (SocketOptions.SO_REUSEADDR);
+
+    if (!(reuseaddr instanceof Boolean))
+      throw new SocketException ("Internal Error");
+
+    return ((Boolean) reuseaddr).booleanValue ();
+  }
+
+  /**
+   * Enables/Disables the SO_REUSEADDR option
+   *
+   * @exception SocketException If an error occurs
+   *
+   * @since 1.4
+   */
+  public void setReuseAddress (boolean on) throws SocketException
+  {
+    if (impl == null)
+      throw new SocketException ("Cannot initialize Socket implementation");
+
+    impl.setOption (SocketOptions.SO_REUSEADDR, new Boolean (on));
+  }
+
+  /**
+   * Returns the current traffic class
+   *
+   * @exception SocketException If an error occurs
+   *
+   * @see Socket:setTrafficClass
+   *
+   * @since 1.4
+   */
+  public int getTrafficClass () throws SocketException
+  {
+    if (impl == null)
+      throw new SocketException ("Cannot initialize Socket implementation");
+
+    Object obj = impl.getOption(SocketOptions.IP_TOS);
+
+    if (obj instanceof Integer)
+      return ((Integer) obj).intValue ();
+    else
+      throw new SocketException ("Unexpected type");
+  }
+
+  /**
+   * Sets the traffic class value
+   *
+   * @param tc The traffic class
+   *
+   * @exception SocketException If an error occurs
+   * @exception IllegalArgumentException If tc value is illegal
+   *
+   * @see Socket:getTrafficClass
+   *
+   * @since 1.4
+   */
+  public void setTrafficClass (int tc) throws SocketException
+  {
+    if (impl == null)
+      throw new SocketException ("Cannot initialize Socket implementation");
+
+    if (tc < 0 || tc > 255)
+      throw new IllegalArgumentException();
+
+    impl.setOption (SocketOptions.IP_TOS, new Integer (tc));
+  }
+
+  /**
+   * Checks if the socket is already bound.
+   */
+  public boolean isBound ()
+  {
+    return getLocalAddress () != null;
   }
 }

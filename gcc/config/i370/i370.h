@@ -76,6 +76,8 @@ extern int mvs_function_name_length;
   { "no-char-instructions", -1, N_("Do not generate char instructions")}, \
   { "", TARGET_DEFAULT, 0} }
 
+#define OVERRIDE_OPTIONS  override_options ()
+
 /* To use IBM supplied macro function prologue and epilogue, define the
    following to 1.  Should only be needed if IBM changes the definition
    of their prologue and epilogue.  */
@@ -653,12 +655,6 @@ enum reg_class
 #define EXIT_IGNORE_STACK	1
 
 /* Addressing modes, and classification of registers for them.  */
-
-/* #define HAVE_POST_INCREMENT */
-/* #define HAVE_POST_DECREMENT */
-
-/* #define HAVE_PRE_DECREMENT */
-/* #define HAVE_PRE_INCREMENT */
 
 /* These assume that REGNO is a hard or pseudo reg number.  They give
    nonzero only if REGNO is a hard reg of the suitable class or a pseudo

@@ -181,13 +181,13 @@ struct temp_slot GTY(())
   tree type;
   /* The value of `sequence_rtl_expr' when this temporary is allocated.  */
   tree rtl_expr;
-  /* Non-zero if this temporary is currently in use.  */
+  /* Nonzero if this temporary is currently in use.  */
   char in_use;
-  /* Non-zero if this temporary has its address taken.  */
+  /* Nonzero if this temporary has its address taken.  */
   char addr_taken;
   /* Nesting level at which this slot is being used.  */
   int level;
-  /* Non-zero if this should survive a call to free_temp_slots.  */
+  /* Nonzero if this should survive a call to free_temp_slots.  */
   int keep;
   /* The offset of the slot from the frame_pointer, including extra space
      for alignment.  This info is for combine_temp_slots.  */
@@ -1250,46 +1250,6 @@ push_temp_slots ()
 {
   temp_slot_level++;
 }
-
-/* Likewise, but save the new level as the place to allocate variables
-   for blocks.  */
-
-#if 0
-void
-push_temp_slots_for_block ()
-{
-  push_temp_slots ();
-
-  var_temp_slot_level = temp_slot_level;
-}
-
-/* Likewise, but save the new level as the place to allocate temporaries
-   for TARGET_EXPRs.  */
-
-void
-push_temp_slots_for_target ()
-{
-  push_temp_slots ();
-
-  target_temp_slot_level = temp_slot_level;
-}
-
-/* Set and get the value of target_temp_slot_level.  The only
-   permitted use of these functions is to save and restore this value.  */
-
-int
-get_target_temp_slot_level ()
-{
-  return target_temp_slot_level;
-}
-
-void
-set_target_temp_slot_level (level)
-     int level;
-{
-  target_temp_slot_level = level;
-}
-#endif
 
 /* Pop a temporary nesting level.  All slots in use in the current level
    are freed.  */
@@ -3284,7 +3244,7 @@ insns_for_mem_hash (k)
   return (hashval_t)(size_t) m->key;
 }
 
-/* Return non-zero if K1 and K2 (two REGs) are the same.  */
+/* Return nonzero if K1 and K2 (two REGs) are the same.  */
 
 static int
 insns_for_mem_comp (k1, k2)
@@ -3640,7 +3600,7 @@ instantiate_decls_1 (let, valid_only)
 /* Subroutine of the preceding procedures: Given RTL representing a
    decl and the size of the object, do any instantiation required.
 
-   If VALID_ONLY is non-zero, it means that the RTL should only be
+   If VALID_ONLY is nonzero, it means that the RTL should only be
    changed if the new address is valid.  */
 
 static void
@@ -4188,24 +4148,6 @@ get_first_nonparm_insn ()
   if (last_parm_insn)
     return NEXT_INSN (last_parm_insn);
   return get_insns ();
-}
-
-/* Return the first NOTE_INSN_BLOCK_BEG note in the function.
-   Crash if there is none.  */
-
-rtx
-get_first_block_beg ()
-{
-  rtx searcher;
-  rtx insn = get_first_nonparm_insn ();
-
-  for (searcher = insn; searcher; searcher = NEXT_INSN (searcher))
-    if (GET_CODE (searcher) == NOTE
-	&& NOTE_LINE_NUMBER (searcher) == NOTE_INSN_BLOCK_BEG)
-      return searcher;
-
-  abort ();	/* Invalid call to this function.  (See comments above.)  */
-  return NULL_RTX;
 }
 
 /* Return 1 if EXP is an aggregate type (or a value with aggregate type).
@@ -5198,7 +5140,7 @@ promoted_input_arg (regno, pmode, punsignedp)
    The starting offset and size for this parm are returned in *OFFSET_PTR
    and *ARG_SIZE_PTR, respectively.
 
-   IN_REGS is non-zero if the argument will be passed in registers.  It will
+   IN_REGS is nonzero if the argument will be passed in registers.  It will
    never be set if REG_PARM_STACK_SPACE is not defined.
 
    FNDECL is the function in which the argument was defined.

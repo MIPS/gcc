@@ -116,6 +116,7 @@ static void pa_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT))
      ATTRIBUTE_UNUSED;
 static void pa_encode_section_info PARAMS ((tree, int));
 static const char *pa_strip_name_encoding PARAMS ((const char *));
+static bool pa_function_ok_for_sibcall PARAMS ((tree, tree));
 static void pa_globalize_label PARAMS ((FILE *, const char *))
      ATTRIBUTE_UNUSED;
 
@@ -193,6 +194,9 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_ENCODE_SECTION_INFO pa_encode_section_info
 #undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING pa_strip_name_encoding
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL pa_function_ok_for_sibcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -305,7 +309,7 @@ override_options ()
     }
 }
 
-/* Return non-zero only if OP is a register of mode MODE,
+/* Return nonzero only if OP is a register of mode MODE,
    or CONST0_RTX.  */
 int
 reg_or_0_operand (op, mode)
@@ -315,7 +319,7 @@ reg_or_0_operand (op, mode)
   return (op == CONST0_RTX (mode) || register_operand (op, mode));
 }
 
-/* Return non-zero if OP is suitable for use in a call to a named
+/* Return nonzero if OP is suitable for use in a call to a named
    function.
 
    For 2.5 try to eliminate either call_operand_address or
@@ -6631,6 +6635,44 @@ pa_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
       function_section (thunk_fndecl);
     }
   current_thunk_number++;
+}
+
+/* Only direct calls to static functions are allowed to be sibling (tail)
+   call optimized.
+
+   This restriction is necessary because some linker generated stubs will
+   store return pointers into rp' in some cases which might clobber a
+   live value already in rp'.
+
+   In a sibcall the current function and the target function share stack
+   space.  Thus if the path to the current function and the path to the
+   target function save a value in rp', they save the value into the
+   same stack slot, which has undesirable consequences.
+
+   Because of the deferred binding nature of shared libraries any function
+   with external scope could be in a different load module and thus require
+   rp' to be saved when calling that function.  So sibcall optimizations
+   can only be safe for static function.
+
+   Note that GCC never needs return value relocations, so we don't have to
+   worry about static calls with return value relocations (which require
+   saving rp').
+
+   It is safe to perform a sibcall optimization when the target function
+   will never return.  */
+static bool
+pa_function_ok_for_sibcall (decl, exp)
+     tree decl;
+     tree exp ATTRIBUTE_UNUSED;
+{
+#ifdef TARGET_HAS_STUBS_AND_ELF_SECTIONS
+  /* Sibcalls, stubs, and elf sections don't play well.  */
+  return false;
+#endif
+  return (decl
+	  && ! TARGET_PORTABLE_RUNTIME
+	  && ! TARGET_64BIT
+	  && ! TREE_PUBLIC (decl));
 }
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for

@@ -84,6 +84,7 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  1,					/* Branch cost */
 };
 /* Processor costs (relative to an add) */
 static const
@@ -121,6 +122,7 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  1,					/* Branch cost */
 };
 
 static const
@@ -158,6 +160,7 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  1,					/* Branch cost */
 };
 
 static const
@@ -195,6 +198,7 @@ struct processor_costs pentium_cost = {
   3,					/* MMX or SSE register to integer */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
+  2,					/* Branch cost */
 };
 
 static const
@@ -232,6 +236,7 @@ struct processor_costs pentiumpro_cost = {
   3,					/* MMX or SSE register to integer */
   32,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
 };
 
 static const
@@ -269,6 +274,7 @@ struct processor_costs k6_cost = {
   6,					/* MMX or SSE register to integer */
   32,					/* size of prefetch block */
   1,					/* number of parallel prefetches */
+  1,					/* Branch cost */
 };
 
 static const
@@ -306,6 +312,7 @@ struct processor_costs athlon_cost = {
   6,					/* MMX or SSE register to integer */
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
 };
 
 static const
@@ -343,6 +350,7 @@ struct processor_costs pentium4_cost = {
   10,					/* MMX or SSE register to integer */
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
+  2,					/* Branch cost */
 };
 
 const struct processor_costs *ix86_cost = &pentium_cost;
@@ -396,6 +404,13 @@ const int x86_epilogue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_decompose_lea = m_PENT4;
 const int x86_shift1 = ~m_486;
 const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON | m_PENT4;
+const int x86_sse_partial_reg_dependency = m_PENT4 | m_PPRO;
+/* Set for machines where the type and dependencies are resolved on SSE register
+   parts insetad of whole registers, so we may maintain just lower part of
+   scalar values in proper format leaving the upper part undefined.  */
+const int x86_sse_partial_regs = m_ATHLON;
+const int x86_sse_typeless_stores = m_ATHLON;
+const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4;
 
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -742,6 +757,7 @@ static int ix86_save_reg PARAMS ((unsigned int, int));
 static void ix86_compute_frame_layout PARAMS ((struct ix86_frame *));
 static int ix86_comp_type_attributes PARAMS ((tree, tree));
 const struct attribute_spec ix86_attribute_table[];
+static bool ix86_function_ok_for_sibcall PARAMS ((tree, tree));
 static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static int ix86_value_regno PARAMS ((enum machine_mode));
@@ -843,6 +859,9 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   ia32_multipass_dfa_lookahead
 
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL ix86_function_ok_for_sibcall
+
 #ifdef HAVE_AS_TLS
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS true
@@ -876,17 +895,16 @@ override_options ()
       const int align_jump;
       const int align_jump_max_skip;
       const int align_func;
-      const int branch_cost;
     }
   const processor_target_table[PROCESSOR_max] =
     {
-      {&i386_cost, 0, 0, 4, 3, 4, 3, 4, 1},
-      {&i486_cost, 0, 0, 16, 15, 16, 15, 16, 1},
-      {&pentium_cost, 0, 0, 16, 7, 16, 7, 16, 1},
-      {&pentiumpro_cost, 0, 0, 16, 15, 16, 7, 16, 1},
-      {&k6_cost, 0, 0, 32, 7, 32, 7, 32, 1},
-      {&athlon_cost, 0, 0, 16, 7, 64, 7, 16, 1},
-      {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0, 1}
+      {&i386_cost, 0, 0, 4, 3, 4, 3, 4},
+      {&i486_cost, 0, 0, 16, 15, 16, 15, 16},
+      {&pentium_cost, 0, 0, 16, 7, 16, 7, 16},
+      {&pentiumpro_cost, 0, 0, 16, 15, 16, 7, 16},
+      {&k6_cost, 0, 0, 32, 7, 32, 7, 32},
+      {&athlon_cost, 0, 0, 16, 7, 64, 7, 16},
+      {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0}
     };
 
   static const char * const cpu_names[] = TARGET_CPU_DEFAULT_NAMES;
@@ -936,6 +954,11 @@ override_options ()
     };
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
+
+  /* By default our XFmode is the 80-bit extended format.  If we have
+     use TFmode instead, it's also the 80-bit format, but with padding.  */
+  real_format_for_mode[XFmode - QFmode] = &ieee_extended_intel_96_format;
+  real_format_for_mode[TFmode - QFmode] = &ieee_extended_intel_128_format;
 
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
@@ -996,19 +1019,19 @@ override_options ()
 	/* Default cpu tuning to the architecture.  */
 	ix86_cpu = ix86_arch;
 	if (processor_alias_table[i].flags & PTA_MMX
-	    && !(target_flags & MASK_MMX_SET))
+	    && !(target_flags_explicit & MASK_MMX))
 	  target_flags |= MASK_MMX;
 	if (processor_alias_table[i].flags & PTA_3DNOW
-	    && !(target_flags & MASK_3DNOW_SET))
+	    && !(target_flags_explicit & MASK_3DNOW))
 	  target_flags |= MASK_3DNOW;
 	if (processor_alias_table[i].flags & PTA_3DNOW_A
-	    && !(target_flags & MASK_3DNOW_A_SET))
+	    && !(target_flags_explicit & MASK_3DNOW_A))
 	  target_flags |= MASK_3DNOW_A;
 	if (processor_alias_table[i].flags & PTA_SSE
-	    && !(target_flags & MASK_SSE_SET))
+	    && !(target_flags_explicit & MASK_SSE))
 	  target_flags |= MASK_SSE;
 	if (processor_alias_table[i].flags & PTA_SSE2
-	    && !(target_flags & MASK_SSE2_SET))
+	    && !(target_flags_explicit & MASK_SSE2))
 	  target_flags |= MASK_SSE2;
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
@@ -1115,20 +1138,20 @@ override_options ()
      don't want additional code to keep the stack aligned when
      optimizing for code size.  */
   ix86_preferred_stack_boundary = (optimize_size
-				   ? TARGET_64BIT ? 64 : 32
+				   ? TARGET_64BIT ? 128 : 32
 				   : 128);
   if (ix86_preferred_stack_boundary_string)
     {
       i = atoi (ix86_preferred_stack_boundary_string);
-      if (i < (TARGET_64BIT ? 3 : 2) || i > 12)
+      if (i < (TARGET_64BIT ? 4 : 2) || i > 12)
 	error ("-mpreferred-stack-boundary=%d is not between %d and 12", i,
-	       TARGET_64BIT ? 3 : 2);
+	       TARGET_64BIT ? 4 : 2);
       else
 	ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
     }
 
   /* Validate -mbranch-cost= value, or provide default.  */
-  ix86_branch_cost = processor_target_table[ix86_cpu].branch_cost;
+  ix86_branch_cost = processor_target_table[ix86_cpu].cost->branch_cost;
   if (ix86_branch_cost_string)
     {
       i = atoi (ix86_branch_cost_string);
@@ -1231,7 +1254,7 @@ override_options ()
 	target_flags |= MASK_3DNOW_A;
     }
   if ((x86_accumulate_outgoing_args & CPUMASK)
-      && !(target_flags & MASK_ACCUMULATE_OUTGOING_ARGS_SET)
+      && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
       && !optimize_size)
     target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
 
@@ -1286,6 +1309,24 @@ const struct attribute_spec ix86_attribute_table[] =
 #endif
   { NULL,        0, 0, false, false, false, NULL }
 };
+
+/* If PIC, we cannot make sibling calls to global functions
+   because the PLT requires %ebx live.
+   If we are returning floats on the register stack, we cannot make
+   sibling calls to functions that return floats.  (The stack adjust
+   instruction will wind up after the sibcall jump, and not be executed.)  */
+
+static bool
+ix86_function_ok_for_sibcall (decl, exp)
+     tree decl;
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return ((decl)
+	  && (! flag_pic || ! TREE_PUBLIC (decl))
+	  && (! TARGET_FLOAT_RETURNS_IN_80387
+	      || ! FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (decl))))
+	      || FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (cfun->decl))))));
+}
 
 /* Handle a "cdecl" or "stdcall" attribute;
    arguments as in struct attribute_spec.handler.  */
@@ -5077,18 +5118,14 @@ legitimate_pic_address_disp_p (disp)
     case UNSPEC_GOTOFF:
       return local_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_GOTTPOFF:
+    case UNSPEC_GOTNTPOFF:
+    case UNSPEC_INDNTPOFF:
       if (saw_plus)
 	return false;
       return initial_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_NTPOFF:
-      /* ??? Could support offset here.  */
-      if (saw_plus)
-	return false;
       return local_exec_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     case UNSPEC_DTPOFF:
-      /* ??? Could support offset here.  */
-      if (saw_plus)
-	return false;
       return local_dynamic_symbolic_operand (XVECEXP (disp, 0, 0), Pmode);
     }
 
@@ -5264,6 +5301,8 @@ legitimate_address_p (mode, addr, strict)
 	    goto is_legitimate_pic;
 
 	  case UNSPEC_GOTTPOFF:
+	  case UNSPEC_GOTNTPOFF:
+	  case UNSPEC_INDNTPOFF:
 	  case UNSPEC_NTPOFF:
 	  case UNSPEC_DTPOFF:
 	    break;
@@ -5539,23 +5578,7 @@ ix86_encode_section_info (decl, first)
       const char *symbol_str;
       char *newstr;
       size_t len;
-      enum tls_model kind;
-
-      if (!flag_pic)
-	{
-	  if (local_p)
-	    kind = TLS_MODEL_LOCAL_EXEC;
-	  else
-	    kind = TLS_MODEL_INITIAL_EXEC;
-	}
-      /* Local dynamic is inefficient when we're not combining the
-	 parts of the address.  */
-      else if (optimize && local_p)
-	kind = TLS_MODEL_LOCAL_DYNAMIC;
-      else
-	kind = TLS_MODEL_GLOBAL_DYNAMIC;
-      if (kind < flag_tls_default)
-	kind = flag_tls_default;
+      enum tls_model kind = decl_tls_model (decl);
 
       symbol_str = XSTR (symbol, 0);
 
@@ -5670,32 +5693,36 @@ legitimize_address (x, oldx, mode)
 		regs_ever_live[PIC_OFFSET_TABLE_REGNUM] = 1;
 	      pic = pic_offset_table_rtx;
 	    }
-	  else
+	  else if (!TARGET_GNU_TLS)
 	    {
 	      pic = gen_reg_rtx (Pmode);
 	      emit_insn (gen_set_got (pic));
 	    }
+	  else
+	    pic = NULL;
 
 	  base = get_thread_pointer ();
 
-	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_GOTTPOFF);
+	  off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x),
+				!TARGET_GNU_TLS
+				? UNSPEC_GOTTPOFF
+				: flag_pic ? UNSPEC_GOTNTPOFF
+					   : UNSPEC_INDNTPOFF);
 	  off = gen_rtx_CONST (Pmode, off);
-	  off = gen_rtx_PLUS (Pmode, pic, off);
+	  if (flag_pic || !TARGET_GNU_TLS)
+	    off = gen_rtx_PLUS (Pmode, pic, off);
 	  off = gen_rtx_MEM (Pmode, off);
 	  RTX_UNCHANGING_P (off) = 1;
 	  set_mem_alias_set (off, ix86_GOT_alias_set ());
-
-	  /* Damn Sun for specifing a set of dynamic relocations without
-	     considering the two-operand nature of the architecture!
-	     We'd be much better off with a "GOTNTPOFF" relocation that
-	     already contained the negated constant.  */
-	  /* ??? Using negl and reg+reg addressing appears to be a lose
-	     size-wise.  The negl is two bytes, just like the extra movl
-	     incurred by the two-operand subl, but reg+reg addressing
-	     uses the two-byte modrm form, unlike plain reg.  */
-
 	  dest = gen_reg_rtx (Pmode);
-	  emit_insn (gen_subsi3 (dest, base, off));
+
+	  if (TARGET_GNU_TLS)
+	    {
+	      emit_move_insn (dest, off);
+	      return gen_rtx_PLUS (Pmode, base, dest);
+	    }
+	  else
+	    emit_insn (gen_subsi3 (dest, base, off));
 	  break;
 
         case TLS_MODEL_LOCAL_EXEC:
@@ -5976,6 +6003,7 @@ output_pic_addr_const (file, x, code)
 	  fputs ("@GOTPCREL(%rip)", file);
 	  break;
 	case UNSPEC_GOTTPOFF:
+	  /* FIXME: This might be @TPOFF in Sun ld too.  */
 	  fputs ("@GOTTPOFF", file);
 	  break;
 	case UNSPEC_TPOFF:
@@ -5986,6 +6014,12 @@ output_pic_addr_const (file, x, code)
 	  break;
 	case UNSPEC_DTPOFF:
 	  fputs ("@DTPOFF", file);
+	  break;
+	case UNSPEC_GOTNTPOFF:
+	  fputs ("@GOTNTPOFF", file);
+	  break;
+	case UNSPEC_INDNTPOFF:
+	  fputs ("@INDNTPOFF", file);
 	  break;
 	default:
 	  output_operand_lossage ("invalid UNSPEC as operand");
@@ -6896,6 +6930,7 @@ output_addr_const_extra (file, x)
     {
     case UNSPEC_GOTTPOFF:
       output_addr_const (file, op);
+      /* FIXME: This might be @TPOFF in Sun ld.  */
       fputs ("@GOTTPOFF", file);
       break;
     case UNSPEC_TPOFF:
@@ -6909,6 +6944,14 @@ output_addr_const_extra (file, x)
     case UNSPEC_DTPOFF:
       output_addr_const (file, op);
       fputs ("@DTPOFF", file);
+      break;
+    case UNSPEC_GOTNTPOFF:
+      output_addr_const (file, op);
+      fputs ("@GOTNTPOFF", file);
+      break;
+    case UNSPEC_INDNTPOFF:
+      output_addr_const (file, op);
+      fputs ("@INDNTPOFF", file);
       break;
 
     default:
@@ -9104,12 +9147,9 @@ ix86_expand_int_movcc (operands)
        * This is reasonably steep, but branch mispredict costs are
        * high on modern cpus, so consider failing only if optimizing
        * for space.
-       *
-       * %%% Parameterize branch_cost on the tuning architecture, then
-       * use that.  The 80386 couldn't care less about mispredicts.
        */
 
-      if (!optimize_size && !TARGET_CMOVE)
+      if (!TARGET_CMOVE && BRANCH_COST >= 2)
 	{
 	  if (cf == 0)
 	    {
@@ -9187,7 +9227,7 @@ ix86_expand_int_movcc (operands)
       optab op;
       rtx var, orig_out, out, tmp;
 
-      if (optimize_size)
+      if (BRANCH_COST >= 2)
 	return 0; /* FAIL */
 
       /* If one of the two operands is an interesting constant, load a
@@ -11112,13 +11152,6 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
       memory = get_attr_memory (insn);
       dep_memory = get_attr_memory (dep_insn);
 
-      if (dep_memory == MEMORY_LOAD || dep_memory == MEMORY_BOTH)
-	{
-	  if (dep_insn_type == TYPE_IMOV || dep_insn_type == TYPE_FMOV)
-	    cost += 2;
-	  else
-	    cost += 3;
-        }
       /* Show ability of reorder buffer to hide latency of load by executing
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
@@ -11392,7 +11425,7 @@ ix86_variable_issue (dump, sched_verbose, insn, can_issue_more)
 static int
 ia32_use_dfa_pipeline_interface ()
 {
-  if (ix86_cpu == PROCESSOR_PENTIUM)
+  if (ix86_cpu == PROCESSOR_PENTIUM || ix86_cpu == PROCESSOR_ATHLON)
     return 1;
   return 0;
 }
@@ -12570,7 +12603,8 @@ safe_vector_operand (x, mode)
 			      : gen_rtx_SUBREG (DImode, x, 0)));
   else
     emit_insn (gen_sse_clrv4sf (mode == V4SFmode ? x
-				: gen_rtx_SUBREG (V4SFmode, x, 0)));
+				: gen_rtx_SUBREG (V4SFmode, x, 0),
+				CONST0_RTX (V4SFmode)));
   return x;
 }
 
@@ -13260,7 +13294,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
 
     case IX86_BUILTIN_SSE_ZERO:
       target = gen_reg_rtx (V4SFmode);
-      emit_insn (gen_sse_clrv4sf (target));
+      emit_insn (gen_sse_clrv4sf (target, CONST0_RTX (V4SFmode)));
       return target;
 
     case IX86_BUILTIN_MMX_ZERO:

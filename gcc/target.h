@@ -102,7 +102,7 @@ struct gcc_target
     void (* eh_frame_section) PARAMS ((void));
 
     /* Select and switch to a section for EXP.  It may be a DECL or a
-       constant for which TREE_CST_RTL is valid.  RELOC is non-zero if
+       constant for which TREE_CST_RTL is valid.  RELOC is nonzero if
        runtime relocations must be applied; bit 1 will be set if the
        runtime relocations require non-local name resolution.  ALIGN is
        the required alignment of the data.  */
@@ -244,6 +244,11 @@ struct gcc_target
      not, at the current point in the compilation.  */
   bool (* cannot_modify_jumps_p) PARAMS ((void));
 
+  /* True if it is OK to do sibling call optimization for the specified
+     call expression EXP.  DECL will be the called function, or NULL if
+     this is an indirect call.  */
+  bool (*function_ok_for_sibcall) PARAMS ((tree decl, tree exp));
+  
   /* True if EXP should be placed in a "small data" section.  */
   bool (* in_small_data_p) PARAMS ((tree));
 

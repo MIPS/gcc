@@ -126,7 +126,7 @@ extern int target_flags;
 
 #define TARGET_HIMEM (target_flags & MASK_HIMEM)
 
-/* Compile using bitfield insns.  */
+/* Compile using bit-field insns.  */
 #define TARGET_BITFIELD ((target_flags & MASK_NO_BITFIELD) == 0)
 
 #define TARGET_IEEE_COMPARE (target_flags & MASK_IEEE_COMPARE)
@@ -276,7 +276,7 @@ while (0)
 
 /* If bit field type is int, don't let it cross an int,
    and give entire struct the alignment of an int.  */
-/* Required on the 386 since it doesn't have a full set of bitfield insns.
+/* Required on the 386 since it doesn't have a full set of bit-field insns.
    (There is no signed extv insn.)  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
@@ -810,12 +810,6 @@ __transfer_from_trampoline ()		\
 
 /* Addressing modes, and classification of registers for them.  */
 
-/* #define HAVE_POST_INCREMENT 0 */
-/* #define HAVE_POST_DECREMENT 0 */
-
-/* #define HAVE_PRE_DECREMENT 0 */
-/* #define HAVE_PRE_INCREMENT 0 */
-
 /* Macros to check register numbers against specific register classes.  */
 
 /* These assume that REGNO is a hard or pseudo reg number.
@@ -863,7 +857,7 @@ __transfer_from_trampoline ()		\
 
 /*  Certain machines have the property that some registers cannot be
     copied to some other registers without using memory.  Define this
-    macro on those machines to be a C expression that is non-zero if
+    macro on those machines to be a C expression that is nonzero if
     objects of mode M in registers of CLASS1 can only be copied to
     registers of class CLASS2 by storing a register of CLASS1 into
     memory and loading that memory location into a register of CLASS2.

@@ -628,7 +628,9 @@ or @code{clk_objective_c}.  Note that if we are preprocessing
 assembler, this variable will be @code{clk_c} but the function-like
 macro @code{preprocessing_asm_p()} will return true, so you might want
 to check for that first.  If you need to check for strict ANSI, the
-variable @code{flag_iso} can be used.
+variable @code{flag_iso} can be used.  The function-like macro
+@code{preprocessing_trad_p()} can be used to check for traditional
+preprocessing.
 
 With @code{TARGET_OS_CPP_BUILTINS} this macro obsoletes the
 @code{CPP_PREDEFINES} target macro.
@@ -1440,7 +1442,7 @@ alignment of the underlying types of itself and of the previous
 bit-field; (ii) a zero-sized bit-field will affect the alignment of
 the whole enclosing structure, even if it is unnamed; except that
 (iii) a zero-sized bit-field will be disregarded unless it follows
-another bit-field of non-zero size.  If this hook returns @code{true},
+another bit-field of nonzero size.  If this hook returns @code{true},
 other macros that control bit-field layout are ignored.
 
 When a bit-field is inserted into a packed record, the whole size
@@ -1542,13 +1544,6 @@ target machine.  If this is undefined, the default is
 @code{LONG_DOUBLE_TYPE_SIZE}.  Otherwise, it is the constant value that is
 the largest value that @code{LONG_DOUBLE_TYPE_SIZE} can have at run-time.
 This is used in @code{cpp}.
-
-@findex INTEL_EXTENDED_IEEE_FORMAT
-@item INTEL_EXTENDED_IEEE_FORMAT
-Define this macro to be 1 if the target machine uses 80-bit floating-point
-values with 128-bit size and alignment.  This is used in @file{real.c}.
-This also distinguishes the Intel 80-bit floating-point format from the
-Motorola 96-bit floating-point format.
 
 @findex TARGET_FLT_EVAL_METHOD
 @item TARGET_FLT_EVAL_METHOD
@@ -4233,18 +4228,18 @@ the function prologue.  Normally, the profiling code comes after.
 @subsection Permitting tail calls
 @cindex tail calls
 
-@table @code
-@findex FUNCTION_OK_FOR_SIBCALL
-@item FUNCTION_OK_FOR_SIBCALL (@var{decl})
-A C expression that evaluates to true if it is ok to perform a sibling
-call to @var{decl} from the current function.
+@deftypefn {Target Hook} bool TARGET_FUNCTION_OK_FOR_SIBCALL (tree @var{decl}, tree @var{exp})
+True if it is ok to do sibling call optimization for the specified
+call expression @var{exp}.  @var{decl} will be the called function,
+or @code{NULL} if this is an indirect call.
 
 It is not uncommon for limitations of calling conventions to prevent
 tail calls to functions outside the current unit of translation, or
-during PIC compilation.  Use this macro to enforce these restrictions,
+during PIC compilation.  The hook is used to enforce these restrictions,
 as the @code{sibcall} md pattern can not fail, or fall over to a
-``normal'' call.
-@end table
+``normal'' call.  The criteria for successful sibling call optimization
+may vary greatly between different architectures.
+@end deftypefn
 
 @node Varargs
 @section Implementing the Varargs Macros
@@ -5406,6 +5401,15 @@ A C expression used to determine whether @code{clear_by_pieces} will be used
 to clear a chunk of memory, or whether some other block clear mechanism
 will be used.  Defaults to 1 if @code{move_by_pieces_ninsns} returns less
 than @code{CLEAR_RATIO}.
+
+@findex STORE_BY_PIECES_P
+@item STORE_BY_PIECES_P (@var{size}, @var{alignment})
+A C expression used to determine whether @code{store_by_pieces} will be
+used to set a chunk of memory to a constant value, or whether some other
+mechanism will be used.  Used by @code{__builtin_memset} when storing
+values other than constant zero and by @code{__builtin_strcpy} when
+when called with a constant source string.
+Defaults to @code{MOVE_BY_PIECES_P}.
 
 @findex USE_LOAD_POST_INCREMENT
 @item USE_LOAD_POST_INCREMENT (@var{mode})

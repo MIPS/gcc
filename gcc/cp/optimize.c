@@ -107,9 +107,9 @@ calls_setjmp_r (tp, walk_subtrees, data)
   return setjmp_call_p (*tp) ? *tp : NULL_TREE;
 }
 
-/* Returns non-zero if FN calls `setjmp' or some other function that
+/* Returns nonzero if FN calls `setjmp' or some other function that
    can return more than once.  This function is conservative; it may
-   occasionally return a non-zero value even when FN does not actually
+   occasionally return a nonzero value even when FN does not actually
    call `setjmp'.  */
 
 int
@@ -147,7 +147,7 @@ update_cloned_parm (parm, cloned_parm)
 }
 
 /* FN is a function that has a complete body.  Clone the body as
-   necessary.  Returns non-zero if there's no longer any need to
+   necessary.  Returns nonzero if there's no longer any need to
    process the main body.  */
 
 int

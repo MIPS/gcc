@@ -46,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define NO_DOLLAR_IN_LABEL
 
-/* Writing `int' for a bitfield forces int alignment for the structure.  */
+/* Writing `int' for a bit-field forces int alignment for the structure.  */
 
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
@@ -386,7 +386,7 @@ Boston, MA 02111-1307, USA.  */
    generated assembly code more compact (and thus faster to assemble)
    as well as more readable, especially for targets like the i386
    (where the only alternative is to output character sequences as
-   comma separated lists of numbers).   */
+   comma separated lists of numbers).  */
 
 #define ASM_OUTPUT_LIMITED_STRING(FILE, STR)		\
   do							\

@@ -582,55 +582,7 @@ struct cse_basic_block_data
     } path[PATHLENGTH];
 };
 
-/* Nonzero if X has the form (PLUS frame-pointer integer).  We check for
-   virtual regs here because the simplify_*_operation routines are called
-   by integrate.c, which is called before virtual register instantiation.
-
-   ?!? FIXED_BASE_PLUS_P and NONZERO_BASE_PLUS_P need to move into
-   a header file so that their definitions can be shared with the
-   simplification routines in simplify-rtx.c.  Until then, do not
-   change these macros without also changing the copy in simplify-rtx.c.  */
-
-#define FIXED_BASE_PLUS_P(X)					\
-  ((X) == frame_pointer_rtx || (X) == hard_frame_pointer_rtx	\
-   || ((X) == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])\
-   || (X) == virtual_stack_vars_rtx				\
-   || (X) == virtual_incoming_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == frame_pointer_rtx			\
-	   || XEXP (X, 0) == hard_frame_pointer_rtx		\
-	   || ((X) == arg_pointer_rtx				\
-	       && fixed_regs[ARG_POINTER_REGNUM])		\
-	   || XEXP (X, 0) == virtual_stack_vars_rtx		\
-	   || XEXP (X, 0) == virtual_incoming_args_rtx))	\
-   || GET_CODE (X) == ADDRESSOF)
-
-/* Similar, but also allows reference to the stack pointer.
-
-   This used to include FIXED_BASE_PLUS_P, however, we can't assume that
-   arg_pointer_rtx by itself is nonzero, because on at least one machine,
-   the i960, the arg pointer is zero when it is unused.  */
-
-#define NONZERO_BASE_PLUS_P(X)					\
-  ((X) == frame_pointer_rtx || (X) == hard_frame_pointer_rtx	\
-   || (X) == virtual_stack_vars_rtx				\
-   || (X) == virtual_incoming_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == frame_pointer_rtx			\
-	   || XEXP (X, 0) == hard_frame_pointer_rtx		\
-	   || ((X) == arg_pointer_rtx				\
-	       && fixed_regs[ARG_POINTER_REGNUM])		\
-	   || XEXP (X, 0) == virtual_stack_vars_rtx		\
-	   || XEXP (X, 0) == virtual_incoming_args_rtx))	\
-   || (X) == stack_pointer_rtx					\
-   || (X) == virtual_stack_dynamic_rtx				\
-   || (X) == virtual_outgoing_args_rtx				\
-   || (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 1)) == CONST_INT \
-       && (XEXP (X, 0) == stack_pointer_rtx			\
-	   || XEXP (X, 0) == virtual_stack_dynamic_rtx		\
-	   || XEXP (X, 0) == virtual_outgoing_args_rtx))	\
-   || GET_CODE (X) == ADDRESSOF)
-
+static bool fixed_base_plus_p	PARAMS ((rtx x));
 static int notreg_cost		PARAMS ((rtx, enum rtx_code));
 static int approx_reg_cost_1	PARAMS ((rtx *, void *));
 static int approx_reg_cost	PARAMS ((rtx));
@@ -693,6 +645,39 @@ static bool insn_live_p		PARAMS ((rtx, int *));
 static bool set_live_p		PARAMS ((rtx, rtx, int *));
 static bool dead_libcall_p	PARAMS ((rtx, int *));
 
+/* Nonzero if X has the form (PLUS frame-pointer integer).  We check for
+   virtual regs here because the simplify_*_operation routines are called
+   by integrate.c, which is called before virtual register instantiation.  */
+
+static bool
+fixed_base_plus_p (x)
+     rtx x;
+{
+  switch (GET_CODE (x))
+    {
+    case REG:
+      if (x == frame_pointer_rtx || x == hard_frame_pointer_rtx)
+	return true;
+      if (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])
+	return true;
+      if (REGNO (x) >= FIRST_VIRTUAL_REGISTER
+	  && REGNO (x) <= LAST_VIRTUAL_REGISTER)
+	return true;
+      return false;
+
+    case PLUS:
+      if (GET_CODE (XEXP (x, 1)) != CONST_INT)
+	return false;
+      return fixed_base_plus_p (XEXP (x, 0));
+
+    case ADDRESSOF:
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Dump the expressions in the equivalence class indicated by CLASSP.
    This function is used only for debugging.  */
 void
@@ -1596,7 +1581,7 @@ insert (x, classp, hash, mode)
 		   || (GET_CODE (x) == REG
 		       && RTX_UNCHANGING_P (x)
 		       && REGNO (x) >= FIRST_PSEUDO_REGISTER)
-		   || FIXED_BASE_PLUS_P (x));
+		   || fixed_base_plus_p (x));
 
   if (table[hash])
     table[hash]->prev_same_hash = elt;
@@ -2319,11 +2304,7 @@ canon_hash (x, mode)
 	 the integers representing the constant.  */
       hash += (unsigned) code + (unsigned) GET_MODE (x);
       if (GET_MODE (x) != VOIDmode)
-	for (i = 2; i < GET_RTX_LENGTH (CONST_DOUBLE); i++)
-	  {
-	    unsigned HOST_WIDE_INT tem = XWINT (x, i);
-	    hash += tem;
-	  }
+	hash += real_hash (CONST_DOUBLE_REAL_VALUE (x));
       else
 	hash += ((unsigned) CONST_DOUBLE_LOW (x)
 		 + (unsigned) CONST_DOUBLE_HIGH (x));
@@ -2362,10 +2343,9 @@ canon_hash (x, mode)
 	  do_not_record = 1;
 	  return 0;
 	}
-      if (! RTX_UNCHANGING_P (x) || FIXED_BASE_PLUS_P (XEXP (x, 0)))
-	{
-	  hash_arg_in_memory = 1;
-	}
+      if (! RTX_UNCHANGING_P (x) || fixed_base_plus_p (XEXP (x, 0)))
+	hash_arg_in_memory = 1;
+
       /* Now that we have already found this special case,
 	 might as well speed it up as much as possible.  */
       hash += (unsigned) MEM;
@@ -2383,7 +2363,7 @@ canon_hash (x, mode)
 	  hash += (unsigned) USE;
 	  x = XEXP (x, 0);
 
-	  if (! RTX_UNCHANGING_P (x) || FIXED_BASE_PLUS_P (XEXP (x, 0)))
+	  if (! RTX_UNCHANGING_P (x) || fixed_base_plus_p (XEXP (x, 0)))
 	    hash_arg_in_memory = 1;
 
 	  /* Now that we have already found this special case,
@@ -2771,9 +2751,9 @@ cse_rtx_varies_p (x, from_alias)
    replace each register reference inside it
    with the "oldest" equivalent register.
 
-   If INSN is non-zero and we are replacing a pseudo with a hard register
+   If INSN is nonzero and we are replacing a pseudo with a hard register
    or vice versa, validate_change is used to ensure that INSN remains valid
-   after we make our substitution.  The calls are made with IN_GROUP non-zero
+   after we make our substitution.  The calls are made with IN_GROUP nonzero
    so apply_change_group must be called upon the outermost return from this
    function (unless INSN is zero).  The result of apply_change_group can
    generally be discarded since the changes we are making are optional.  */
@@ -3128,7 +3108,7 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 
   while (arg2 == CONST0_RTX (GET_MODE (arg1)))
     {
-      /* Set non-zero when we find something of interest.  */
+      /* Set nonzero when we find something of interest.  */
       rtx x = 0;
       int reverse_code = 0;
       struct table_elt *p = 0;
@@ -3260,9 +3240,10 @@ find_comparison_args (code, parg1, parg2, pmode1, pmode2)
 	      break;
 	    }
 
-	  /* If this is fp + constant, the equivalent is a better operand since
-	     it may let us predict the value of the comparison.  */
-	  else if (NONZERO_BASE_PLUS_P (p->exp))
+	  /* If this non-trapping address, e.g. fp + constant, the
+	     equivalent is a better operand since it may let us predict
+	     the value of the comparison.  */
+	  else if (!rtx_addr_can_trap_p (p->exp))
 	    {
 	      arg1 = p->exp;
 	      continue;
@@ -3735,6 +3716,7 @@ fold_rtx (x, insn)
 	rtx cheap_arg, expensive_arg;
 	rtx replacements[2];
 	int j;
+	int old_cost = COST_IN (XEXP (x, i), code);
 
 	/* Most arguments are cheap, so handle them specially.  */
 	switch (GET_CODE (arg))
@@ -3825,7 +3807,6 @@ fold_rtx (x, insn)
 
 	for (j = 0; j < 2 && replacements[j]; j++)
 	  {
-	    int old_cost = COST_IN (XEXP (x, i), code);
 	    int new_cost = COST_IN (replacements[j], code);
 
 	    /* Stop if what existed before was cheaper.  Prefer constants
@@ -3963,17 +3944,10 @@ fold_rtx (x, insn)
 	     comparison.  */
 	  if (const_arg0 == 0 || const_arg1 == 0)
 	    {
-	      /* Is FOLDED_ARG0 frame-pointer plus a constant?  Or
-		 non-explicit constant?  These aren't zero, but we
-		 don't know their sign.  */
+	      /* Some addresses are known to be nonzero.  We don't know
+		 their sign, but equality comparisons are known.  */
 	      if (const_arg1 == const0_rtx
-		  && (NONZERO_BASE_PLUS_P (folded_arg0)
-#if 0  /* Sad to say, on sysvr4, #pragma weak can make a symbol address
-	  come out as 0.  */
-		      || GET_CODE (folded_arg0) == SYMBOL_REF
-#endif
-		      || GET_CODE (folded_arg0) == LABEL_REF
-		      || GET_CODE (folded_arg0) == CONST))
+		  && nonzero_address_p (folded_arg0))
 		{
 		  if (code == EQ)
 		    return false_rtx;
@@ -5007,7 +4981,7 @@ cse_insn (insn, libcall_insn)
       int src_folded_regcost = MAX_COST;
       int src_related_regcost = MAX_COST;
       int src_elt_regcost = MAX_COST;
-      /* Set non-zero if we need to call force_const_mem on with the
+      /* Set nonzero if we need to call force_const_mem on with the
 	 contents of src_folded before using it.  */
       int src_folded_force_flag = 0;
 
@@ -5347,9 +5321,9 @@ cse_insn (insn, libcall_insn)
       if (src == src_folded)
 	src_folded = 0;
 
-      /* At this point, ELT, if non-zero, points to a class of expressions
+      /* At this point, ELT, if nonzero, points to a class of expressions
          equivalent to the source of this SET and SRC, SRC_EQV, SRC_FOLDED,
-	 and SRC_RELATED, if non-zero, each contain additional equivalent
+	 and SRC_RELATED, if nonzero, each contain additional equivalent
 	 expressions.  Prune these latter expressions by deleting expressions
 	 already in the equivalence class.
 
@@ -6167,7 +6141,7 @@ cse_insn (insn, libcall_insn)
 
 	elt->in_memory = (GET_CODE (sets[i].inner_dest) == MEM
 			  && (! RTX_UNCHANGING_P (sets[i].inner_dest)
-			      || FIXED_BASE_PLUS_P (XEXP (sets[i].inner_dest,
+			      || fixed_base_plus_p (XEXP (sets[i].inner_dest,
 							  0))));
 
 	/* If we have (set (subreg:m1 (reg:m2 foo) 0) (bar:m1)), M1 is no
@@ -6833,10 +6807,10 @@ cse_set_around_loop (x, insn, loop_start)
    the total number of SETs in all the insns of the block, the last insn of the
    block, and the branch path.
 
-   The branch path indicates which branches should be followed.  If a non-zero
+   The branch path indicates which branches should be followed.  If a nonzero
    path size is specified, the block should be rescanned and a different set
    of branches will be taken.  The branch path is only used if
-   FLAG_CSE_FOLLOW_JUMPS or FLAG_CSE_SKIP_BLOCKS is non-zero.
+   FLAG_CSE_FOLLOW_JUMPS or FLAG_CSE_SKIP_BLOCKS is nonzero.
 
    DATA is a pointer to a struct cse_basic_block_data, defined below, that is
    used to describe the block.  It is filled in with the information about
@@ -6862,7 +6836,7 @@ cse_end_of_basic_block (insn, data, follow_jumps, after_loop, skip_blocks)
   /* Update the previous branch path, if any.  If the last branch was
      previously TAKEN, mark it NOT_TAKEN.  If it was previously NOT_TAKEN,
      shorten the path by one and look at the previous branch.  We know that
-     at least one branch must have been taken if PATH_SIZE is non-zero.  */
+     at least one branch must have been taken if PATH_SIZE is nonzero.  */
   while (path_size > 0)
     {
       if (data->path[path_size - 1].status != NOT_TAKEN)
@@ -7207,7 +7181,7 @@ cse_main (f, nregs, after_loop, file)
    block.  NEXT_BRANCH points to the branch path when following jumps or
    a null path when not following jumps.
 
-   AROUND_LOOP is non-zero if we are to try to cse around to the start of a
+   AROUND_LOOP is nonzero if we are to try to cse around to the start of a
    loop.  This is true when we are being called for the last time on a
    block and this CSE pass is before loop.c.  */
 

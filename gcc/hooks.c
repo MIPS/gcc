@@ -62,3 +62,12 @@ hook_FILEptr_constcharptr_void (a, b)
      const char *b ATTRIBUTE_UNUSED;
 {
 }
+
+/* Hook that takes two trees and returns false.  */
+bool
+hook_tree_tree_bool_false (a, b)
+     tree a ATTRIBUTE_UNUSED;
+     tree b ATTRIBUTE_UNUSED;
+{
+  return false;
+}

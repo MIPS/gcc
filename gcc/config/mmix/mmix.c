@@ -693,7 +693,7 @@ mmix_asm_preferred_eh_data_format (code, global)
   return DW_EH_PE_absptr;
 }
 
-/* Make a note that we've seen the beginning of of the prologue.  This
+/* Make a note that we've seen the beginning of the prologue.  This
    matters to whether we'll translate register numbers as calculated by
    mmix_machine_dependent_reorg.  */
 
@@ -1974,7 +1974,7 @@ mmix_get_hard_reg_initial_val (mode, regno)
   return get_hard_reg_initial_val (mode, regno);
 }
 
-/* Non-zero when the function epilogue is simple enough that a single
+/* Nonzero when the function epilogue is simple enough that a single
    "POP %d,0" should be used even within the function.  */
 
 int

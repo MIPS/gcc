@@ -67,7 +67,6 @@ static int ambi_op_p PARAMS ((enum tree_code));
 static int unary_op_p PARAMS ((enum tree_code));
 static tree store_bindings PARAMS ((tree, tree));
 static tree lookup_tag_reverse PARAMS ((tree, tree));
-static tree obscure_complex_init PARAMS ((tree, tree));
 static tree lookup_name_real PARAMS ((tree, int, int, int));
 static void push_local_name PARAMS ((tree));
 static void warn_extern_redeclared_static PARAMS ((tree, tree));
@@ -659,7 +658,7 @@ namespace_bindings_p ()
   return b->namespace_p;
 }
 
-/* If KEEP is non-zero, make a BLOCK node for the next binding level,
+/* If KEEP is nonzero, make a BLOCK node for the next binding level,
    unconditionally.  Otherwise, use the normal logic to decide whether
    or not to create a BLOCK.  */
 
@@ -688,7 +687,7 @@ declare_namespace_level ()
   current_binding_level->namespace_p = 1;
 }
 
-/* Returns non-zero if this scope was created to store template
+/* Returns nonzero if this scope was created to store template
    parameters.  */
 
 int
@@ -1740,7 +1739,7 @@ clear_identifier_class_values ()
     IDENTIFIER_CLASS_VALUE (TREE_PURPOSE (t)) = NULL_TREE;
 }
 
-/* Returns non-zero if T is a virtual function table.  */
+/* Returns nonzero if T is a virtual function table.  */
 
 int
 vtable_decl_p (t, data)
@@ -1750,7 +1749,7 @@ vtable_decl_p (t, data)
   return (TREE_CODE (t) == VAR_DECL && DECL_VIRTUAL_P (t));
 }
 
-/* Returns non-zero if T is a TYPE_DECL for a type with virtual
+/* Returns nonzero if T is a TYPE_DECL for a type with virtual
    functions.  */
 
 int
@@ -1779,8 +1778,8 @@ struct walk_globals_data {
 };
 
 /* Walk the vtable declarations in NAMESPACE.  Whenever one is found
-   for which P returns non-zero, call F with its address.  If any call
-   to F returns a non-zero value, return a non-zero value.  */
+   for which P returns nonzero, call F with its address.  If any call
+   to F returns a nonzero value, return a nonzero value.  */
 
 static int
 walk_vtables_r (namespace, data)
@@ -1800,8 +1799,8 @@ walk_vtables_r (namespace, data)
 }
 
 /* Walk the vtable declarations.  Whenever one is found for which P
-   returns non-zero, call F with its address.  If any call to F
-   returns a non-zero value, return a non-zero value.  */
+   returns nonzero, call F with its address.  If any call to F
+   returns a nonzero value, return a nonzero value.  */
 int
 walk_vtables (p, f, data)
      walk_globals_pred p;
@@ -1848,8 +1847,8 @@ walk_namespaces (f, data)
 }
 
 /* Walk the global declarations in NAMESPACE.  Whenever one is found
-   for which P returns non-zero, call F with its address.  If any call
-   to F returns a non-zero value, return a non-zero value.  */
+   for which P returns nonzero, call F with its address.  If any call
+   to F returns a nonzero value, return a nonzero value.  */
 
 static int
 walk_globals_r (namespace, data)
@@ -1882,8 +1881,8 @@ walk_globals_r (namespace, data)
 }
 
 /* Walk the global declarations.  Whenever one is found for which P
-   returns non-zero, call F with its address.  If any call to F
-   returns a non-zero value, return a non-zero value.  */
+   returns nonzero, call F with its address.  If any call to F
+   returns a nonzero value, return a nonzero value.  */
 
 int
 walk_globals (p, f, data)
@@ -2559,7 +2558,7 @@ pop_everything ()
 
 /* The type TYPE is being declared.  If it is a class template, or a
    specialization of a class template, do any processing required and
-   perform error-checking.  If IS_FRIEND is non-zero, this TYPE is
+   perform error-checking.  If IS_FRIEND is nonzero, this TYPE is
    being declared a friend.  B is the binding level at which this TYPE
    should be bound.
 
@@ -3460,7 +3459,11 @@ duplicate_decls (newdecl, olddecl)
 	newtype = oldtype;
 
       if (TREE_CODE (newdecl) == VAR_DECL)
-	DECL_THIS_EXTERN (newdecl) |= DECL_THIS_EXTERN (olddecl);
+	{
+	  DECL_THIS_EXTERN (newdecl) |= DECL_THIS_EXTERN (olddecl);
+	  DECL_INITIALIZED_P (newdecl) |= DECL_INITIALIZED_P (olddecl);
+	}
+
       /* Do this after calling `merge_types' so that default
 	 parameters don't confuse us.  */
       else if (TREE_CODE (newdecl) == FUNCTION_DECL
@@ -5293,7 +5296,7 @@ lookup_tag (form, name, binding_level, thislevel_only)
      int thislevel_only;
 {
   register struct cp_binding_level *level;
-  /* Non-zero if, we should look past a template parameter level, even
+  /* Nonzero if, we should look past a template parameter level, even
      if THISLEVEL_ONLY.  */
   int allow_template_parms_p = 1;
 
@@ -5376,7 +5379,7 @@ lookup_tag (form, name, binding_level, thislevel_only)
 		 are in the pseudo-global level created for the
 		 template parameters, rather than the (surrounding)
 		 namespace level.  Thus, we keep going one more level,
-		 even though THISLEVEL_ONLY is non-zero.  */
+		 even though THISLEVEL_ONLY is nonzero.  */
 	      allow_template_parms_p = 0;
 	      continue;
 	    }
@@ -5400,7 +5403,7 @@ set_current_level_tags_transparency (tags_transparent)
    Otherwise return 0.  However, the value can never be 0
    in the cases in which this is used.
 
-   C++: If NAME is non-zero, this is the new name to install.  This is
+   C++: If NAME is nonzero, this is the new name to install.  This is
    done when replacing anonymous tags with real tag names.  */
 
 static tree
@@ -6023,7 +6026,7 @@ check_for_out_of_scope_variable (tree decl)
    If PREFER_TYPE is -2, we're being called from yylex(). (UGLY)
    Otherwise we prefer non-TYPE_DECLs.
 
-   If NONCLASS is non-zero, we don't look for the NAME in class scope,
+   If NONCLASS is nonzero, we don't look for the NAME in class scope,
    using IDENTIFIER_CLASS_VALUE.  */
 
 static tree
@@ -6426,7 +6429,7 @@ typedef struct predefined_identifier
   const char *const name;
   /* The place where the IDENTIFIER_NODE should be stored.  */
   tree *const node;
-  /* Non-zero if this is the name of a constructor or destructor.  */
+  /* Nonzero if this is the name of a constructor or destructor.  */
   const int ctor_or_dtor_p;
 } predefined_identifier;
 
@@ -7549,45 +7552,6 @@ grok_reference_init (decl, type, init)
   return NULL_TREE;
 }
 
-/* Fill in DECL_INITIAL with some magical value to prevent expand_decl from
-   mucking with forces it does not comprehend (i.e. initialization with a
-   constructor).  If we are at global scope and won't go into COMMON, fill
-   it in with a dummy CONSTRUCTOR to force the variable into .data;
-   otherwise we can use error_mark_node.  */
-
-static tree
-obscure_complex_init (decl, init)
-     tree decl, init;
-{
-  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
-    {
-      error ("run-time initialization of thread-local storage");
-      return NULL_TREE;
-    }
-
-  if (! flag_no_inline && TREE_STATIC (decl))
-    {
-      if (extract_init (decl, init))
-	return NULL_TREE;
-    }
-
-#if ! defined (ASM_OUTPUT_BSS) && ! defined (ASM_OUTPUT_ALIGNED_BSS)
-  if (toplevel_bindings_p () && ! DECL_COMMON (decl))
-    DECL_INITIAL (decl) = build (CONSTRUCTOR, TREE_TYPE (decl), NULL_TREE,
-				 NULL_TREE);
-  else
-#endif
-    {
-      if (zero_init_p (TREE_TYPE (decl)))
-	DECL_INITIAL (decl) = error_mark_node;
-      /* Otherwise, force_store_init_value will have already stored a
-	 zero-init initializer in DECL_INITIAL, that should be
-	 retained.  */
-    }
-
-  return init;
-}
-
 /* When parsing `int a[] = {1, 2};' we don't know the size of the
    array until we finish parsing the initializer.  If that's the
    situation we're in, update DECL accordingly.  */
@@ -7774,16 +7738,17 @@ check_initializer (decl, init)
      tree decl;
      tree init;
 {
-  tree type;
-
-  if (TREE_CODE (decl) == FIELD_DECL)
-    return init;
-
-  type = TREE_TYPE (decl);
+  tree type = TREE_TYPE (decl);
 
   /* If `start_decl' didn't like having an initialization, ignore it now.  */
   if (init != NULL_TREE && DECL_INITIAL (decl) == NULL_TREE)
     init = NULL_TREE;
+
+  /* If an initializer is present, DECL_INITIAL has been
+     error_mark_node, to indicate that an as-of-yet unevaluated
+     initialization will occur.  From now on, DECL_INITIAL reflects
+     the static initialization -- if any -- of DECL.  */
+  DECL_INITIAL (decl) = NULL_TREE;
 
   /* Check the initializer.  */
   if (init)
@@ -7824,21 +7789,9 @@ check_initializer (decl, init)
       init = NULL_TREE;
     }
   else if (!DECL_EXTERNAL (decl) && TREE_CODE (type) == REFERENCE_TYPE)
-    {
-      init = grok_reference_init (decl, type, init);
-      if (init)
-	init = obscure_complex_init (decl, init);
-    }
-  else if (!DECL_EXTERNAL (decl) && !zero_init_p (type))
-    {
-      force_store_init_value (decl, build_forced_zero_init (type));
-
-      if (init)
-	goto process_init;
-    }
+    init = grok_reference_init (decl, type, init);
   else if (init)
     {
-    process_init:
       if (TYPE_HAS_CONSTRUCTOR (type) || TYPE_NEEDS_CONSTRUCTING (type))
 	{
 	  if (TREE_CODE (type) == ARRAY_TYPE)
@@ -7862,11 +7815,6 @@ check_initializer (decl, init)
 	  if (TREE_CODE (init) != TREE_VEC)
 	    init = store_init_value (decl, init);
 	}
-
-      if (init)
-	/* We must hide the initializer so that expand_decl
-	   won't try to do something it does not understand.  */
-	init = obscure_complex_init (decl, init);
     }
   else if (DECL_EXTERNAL (decl))
     ;
@@ -7885,10 +7833,6 @@ check_initializer (decl, init)
 	}
 
       check_for_uninitialized_const_var (decl);
-
-      if (COMPLETE_TYPE_P (type) && TYPE_NEEDS_CONSTRUCTING (type))
-	init = obscure_complex_init (decl, NULL_TREE);
-
     }
   else
     check_for_uninitialized_const_var (decl);
@@ -8256,10 +8200,60 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
       SET_DECL_ASSEMBLER_NAME (decl, get_identifier (asmspec));
       make_decl_rtl (decl, asmspec);
     }
-
-  /* Deduce size of array from initialization, if not already known.  */
-  init = check_initializer (decl, init);
-  maybe_deduce_size_from_array_init (decl, init);
+  else if (TREE_CODE (decl) == RESULT_DECL)
+    init = check_initializer (decl, init);
+  else if (TREE_CODE (decl) == VAR_DECL)
+    {
+      /* Only PODs can have thread-local storage.  Other types may require
+	 various kinds of non-trivial initialization.  */
+      if (DECL_THREAD_LOCAL (decl) && !pod_type_p (TREE_TYPE (decl)))
+	error ("`%D' cannot be thread-local because it has non-POD type `%T'",
+	       decl, TREE_TYPE (decl));
+      /* Convert the initializer to the type of DECL, if we have not
+	 already initialized DECL.  */
+      if (!DECL_INITIALIZED_P (decl)
+	  /* If !DECL_EXTERNAL then DECL is being defined.  In the
+	     case of a static data memberm initialized inside the
+	     class-specifier, there can be an initializer even if DECL
+	     is *not* defined.  */
+	  && (!DECL_EXTERNAL (decl) || init))
+	{
+	  init = check_initializer (decl, init);
+	  /* If DECL has an array type without a specific bound, deduce the
+	     array size from the initializer.  Note that this must be done
+	     after check_initializer is called because of cases like this:
+	     
+ 	       struct S { int a; int b; };
+	       struct S a[] = { 1, 2 };
+	 
+	     which creates a one-element array, not a two-element array.  */
+	  maybe_deduce_size_from_array_init (decl, init);
+	  /* Handle:
+	     
+	     [dcl.init]
+	     
+	     The memory occupied by any object of static storage
+	     duration is zero-initialized at program startup before
+	     any other initialization takes place.
+	     
+	     We cannot create an appropriate initializer until after
+	     the type of DECL is finalized.  If DECL_INITIAL is set,
+	     then the DECL is statically initialized, and any
+	     necessary zero-initialization has already been performed.  */
+	  if (TREE_STATIC (decl) && !DECL_INITIAL (decl))
+	    DECL_INITIAL (decl) = build_zero_init (TREE_TYPE (decl),
+						   /*static_storage_p=*/true);
+	  /* Remember that the initialization for this variable has
+	     taken place.  */
+	  DECL_INITIALIZED_P (decl) = 1;
+	}
+      /* If the variable has an array type, lay out the type, even if
+	 there is no initializer.  It is valid to index through the
+	 array, and we must get TYPE_ALIGN set correctly on the array
+	 type.  */
+      else if (TREE_CODE (type) == ARRAY_TYPE)
+	layout_type (type);
+    }
 
   /* Add this declaration to the statement-tree.  This needs to happen
      after the call to check_initializer so that the DECL_STMT for a
@@ -8395,7 +8389,7 @@ declare_global_var (name, type)
 }
 
 /* Returns a pointer to the `atexit' function.  Note that if
-   FLAG_USE_CXA_ATEXIT is non-zero, then this will actually be the new
+   FLAG_USE_CXA_ATEXIT is nonzero, then this will actually be the new
    `__cxa_atexit' function specified in the IA64 C++ ABI.  */
 
 static tree
@@ -11990,7 +11984,7 @@ require_complete_types_for_parms (parms)
     }
 }
 
-/* Returns non-zero if T is a local variable.  */
+/* Returns nonzero if T is a local variable.  */
 
 int
 local_variable_p (t)
@@ -12008,7 +12002,7 @@ local_variable_p (t)
   return 0;
 }
 
-/* Returns non-zero if T is an automatic local variable or a label.
+/* Returns nonzero if T is an automatic local variable or a label.
    (These are the declarations that need to be remapped when the code
    containing them is duplicated.)  */
 
@@ -12258,7 +12252,7 @@ grokparms (first_parm)
       first parameter is a reference to non-const qualified T.
 
    This function can be used as a predicate. Positive values indicate
-   a copy constructor and non-zero values indicate a copy assignment
+   a copy constructor and nonzero values indicate a copy assignment
    operator.  */
 
 int
@@ -12895,7 +12889,7 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
 	  && template_class_depth (current_class_type)
 	  && PROCESSING_REAL_TEMPLATE_DECL_P ())
 	{
-	  /* Since GLOBALIZE is non-zero, we are not looking at a
+	  /* Since GLOBALIZE is nonzero, we are not looking at a
 	     definition of this tag.  Since, in addition, we are currently
 	     processing a (member) template declaration of a template
 	     class, we must be very careful; consider:
@@ -13250,7 +13244,7 @@ finish_enum (enumtype)
   for (pair = TYPE_VALUES (enumtype); pair; pair = TREE_CHAIN (pair))
     TREE_TYPE (TREE_VALUE (pair)) = enumtype;
   
-  /* For a enum defined in a template, all further processing is
+  /* For an enum defined in a template, all further processing is
      postponed until the template is instantiated.  */
   if (processing_template_decl)
     {
@@ -14325,7 +14319,7 @@ finish_function (flags)
   free_after_compilation (cfun);
   cfun = NULL;
 
-  /* If this is a in-class inline definition, we may have to pop the
+  /* If this is an in-class inline definition, we may have to pop the
      bindings for the template parameters that we added in
      maybe_begin_member_template_processing when start_function was
      called.  */

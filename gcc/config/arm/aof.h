@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_LIBGCC_SPECIAL 1
 
 #define LINK_SPEC "%{aof} %{bin} %{aif} %{ihf} %{shl,*} %{reent*} %{split} \
-		   %{ov*,*} %{reloc*} -nodebug"
+		   %{ov*} %{reloc*} -nodebug"
 
 #define STARTFILE_SPEC "crtbegin.o%s"
 

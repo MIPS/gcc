@@ -151,9 +151,6 @@ extern void text_section		PARAMS ((void));
 /* Tell assembler to switch to data section.  */
 extern void data_section		PARAMS ((void));
 
-/* Tell assembler to make sure its in the data section.  */
-extern void force_data_section		PARAMS ((void));
-
 /* Tell assembler to switch to read-only data section.  This is normally
    the text section.  */
 extern void readonly_data_section	PARAMS ((void));
@@ -244,9 +241,6 @@ extern int decode_reg_name		PARAMS ((const char *));
    Use this only for static variables.  */
 extern void make_var_volatile		PARAMS ((tree));
 
-/* Output alignment directive to align for constant expression EXP.  */
-extern void assemble_constant_align	PARAMS ((tree));
-
 extern void assemble_alias		PARAMS ((tree, tree));
 
 extern void default_assemble_visibility	PARAMS ((tree, const char *));
@@ -323,7 +317,7 @@ extern bool default_assemble_integer	PARAMS ((rtx, unsigned int, int));
 
 /* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
    the alignment of the integer in bits.  Return 1 if we were able to output
-   the constant, otherwise 0.  If FORCE is non-zero, abort if we can't output
+   the constant, otherwise 0.  If FORCE is nonzero, abort if we can't output
    the constant.  */
 extern bool assemble_integer		PARAMS ((rtx, unsigned, unsigned, int));
 

@@ -69,7 +69,7 @@ extern int target_flags;
 #define MASK_68881	2
 #define TARGET_68881 (target_flags & MASK_68881)
 
-/* Compile using 68020 bitfield insns.  */
+/* Compile using 68020 bit-field insns.  */
 #define MASK_BITFIELD	4
 #define TARGET_BITFIELD (target_flags & MASK_BITFIELD)
 
@@ -1198,10 +1198,8 @@ __transfer_from_trampoline ()					\
 /* Addressing modes, and classification of registers for them.  */
 
 #define HAVE_POST_INCREMENT 1
-/* #define HAVE_POST_DECREMENT 0 */
 
 #define HAVE_PRE_DECREMENT 1
-/* #define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 

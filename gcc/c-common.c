@@ -567,6 +567,21 @@ int flag_permissive;
 
 int flag_enforce_eh_specs = 1;
 
+/*  The version of the C++ ABI in use.  The following values are
+    allowed:
+
+    0: The version of the ABI believed most conformant with the 
+       C++ ABI specification.  This ABI may change as bugs are
+       discovered and fixed.  Therefore, 0 will not necessarily
+       indicate the same ABI in different versions of G++.
+
+    1: The version of the ABI first used in G++ 3.2.
+
+    Additional positive integers will be assigned as new versions of
+    the ABI become the default version of the ABI.  */
+
+int flag_abi_version = 1;
+
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
 
@@ -581,26 +596,26 @@ int warn_implicit = 1;
 
 int warn_ctor_dtor_privacy = 1;
 
-/* Non-zero means warn in function declared in derived class has the
+/* Nonzero means warn in function declared in derived class has the
    same name as a virtual in the base class, but fails to match the
    type signature of any virtual function in the base class.  */
 
 int warn_overloaded_virtual;
 
-/* Non-zero means warn when declaring a class that has a non virtual
+/* Nonzero means warn when declaring a class that has a non virtual
    destructor, when it really ought to have a virtual one.  */
 
 int warn_nonvdtor;
 
-/* Non-zero means warn when the compiler will reorder code.  */
+/* Nonzero means warn when the compiler will reorder code.  */
 
 int warn_reorder;
 
-/* Non-zero means warn when synthesis behavior differs from Cfront's.  */
+/* Nonzero means warn when synthesis behavior differs from Cfront's.  */
 
 int warn_synth;
 
-/* Non-zero means warn when we convert a pointer to member function
+/* Nonzero means warn when we convert a pointer to member function
    into a pointer to (void or function).  */
 
 int warn_pmf2ptr = 1;
@@ -734,6 +749,8 @@ static tree handle_alias_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_visibility_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
+static tree handle_tls_model_attribute	PARAMS ((tree *, tree, tree, int,
+						 bool *));
 static tree handle_no_instrument_function_attribute PARAMS ((tree *, tree,
 							     tree, int,
 							     bool *));
@@ -768,7 +785,6 @@ static void builtin_define_with_hex_fp_value PARAMS ((const char *, tree,
 						      int, const char *,
 						      const char *));
 static void builtin_define_type_max PARAMS ((const char *, tree, int));
-static void cpp_define_data_format PARAMS ((cpp_reader *));
 static void builtin_define_type_precision PARAMS ((const char *, tree));
 static void builtin_define_float_constants PARAMS ((const char *,
 						    const char *, tree));
@@ -833,6 +849,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_vector_size_attribute },
   { "visibility",	      1, 1, true,  false, false,
 			      handle_visibility_attribute },
+  { "tls_model",	      1, 1, true,  false, false,
+			      handle_tls_model_attribute },
   { "nonnull",                0, -1, false, true, true,
 			      handle_nonnull_attribute },
   { "nothrow",                0, 0, true,  false, false,
@@ -2780,12 +2798,12 @@ c_common_truthvalue_conversion (expr)
     case ABS_EXPR:
     case FLOAT_EXPR:
     case FFS_EXPR:
-      /* These don't change whether an object is non-zero or zero.  */
+      /* These don't change whether an object is nonzero or zero.  */
       return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case LROTATE_EXPR:
     case RROTATE_EXPR:
-      /* These don't change whether an object is zero or non-zero, but
+      /* These don't change whether an object is zero or nonzero, but
 	 we can't ignore them if their second arg has side-effects.  */
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
 	return build (COMPOUND_EXPR, boolean_type_node, TREE_OPERAND (expr, 1),
@@ -3868,7 +3886,7 @@ expand_tree_builtin (function, params, coerced_params)
   return NULL_TREE;
 }
 
-/* Returns non-zero if CODE is the code for a statement.  */
+/* Returns nonzero if CODE is the code for a statement.  */
 
 int
 statement_code_p (code)
@@ -4686,97 +4704,6 @@ boolean_increment (code, arg)
   return val;
 }
 
-/* Define macros necessary to describe fundamental data type formats.  */
-static void
-cpp_define_data_format (pfile)
-    cpp_reader *pfile;
-{
-  const char *format;
-
-  /* Define endianness enumeration values.  */
-  cpp_define (pfile, "__GCC_LITTLE_ENDIAN__=0");
-  cpp_define (pfile, "__GCC_BIG_ENDIAN__=1");
-
-  /* Define supported floating-point format enumeration values.  */
-  cpp_define (pfile, "__UNKNOWN_FORMAT__=0");
-  cpp_define (pfile, "__IEEE_FORMAT__=1");
-  cpp_define (pfile, "__IBM_FORMAT__=2");
-  cpp_define (pfile, "__C4X_FORMAT__=3");
-  cpp_define (pfile, "__VAX_FORMAT__=4");
-  
-  /* Define target endianness:
-       - bit order
-       - byte order
-       - word order in an integer that spans a multi-word
-       - word order in a floating-poing that spans a multi-word  */
-  if (BITS_BIG_ENDIAN)
-    cpp_define (pfile, "__TARGET_BITS_ORDER__=__GCC_BIG_ENDIAN__");
-  else
-    cpp_define (pfile, "__TARGET_BITS_ORDER__=__GCC_BIG_ENDIAN__");
-  if (BYTES_BIG_ENDIAN)
-    cpp_define (pfile, "__TARGET_BYTES_ORDER__=__GCC_BIG_ENDIAN__");
-  else
-    cpp_define (pfile, "__TARGET_BYTES_ORDER__=__GCC_LITTLE_ENDIAN__");
-  /* Define words order in a multi-word integer.  */
-  if (WORDS_BIG_ENDIAN)
-    cpp_define (pfile, "__TARGET_INT_WORDS_ORDER__=__GCC_BIG_ENDIAN__");
-  else
-    cpp_define (pfile, "__TARGET_INT_WORDS_ORDER__=__GCC_LITTLE_ENDIAN__");
-  /* Define words order in a multi-word floating point.  */
-  if (FLOAT_WORDS_BIG_ENDIAN)
-    cpp_define (pfile, "__TARGET_FLOAT_WORDS_ORDER__=__GCC_BIG_ENDIAN__");
-  else
-    cpp_define (pfile, "__TARGET_FLOAT_WORDS_ORDER__=__GCC_LITTLE_ENDIAN__");
-
-  switch (TARGET_FLOAT_FORMAT)
-    {
-    case UNKNOWN_FLOAT_FORMAT:
-      format = "__UNKNOWN_FORMAT__";
-      break;
-
-    case IEEE_FLOAT_FORMAT:
-      format = "__IEEE_FORMAT__";
-      break;
-
-    case VAX_FLOAT_FORMAT:
-      format = "__VAX_FORMAT__";
-      cpp_define (pfile, "__TARGET_USES_VAX_F_FLOAT__=1");
-#ifdef TARGET_G_FLOAT      
-      if (TARGET_G_FLOAT)
-        {
-          cpp_define (pfile, "__TARGET_USES_VAX_D_FLOAT__=0");
-          cpp_define (pfile, "__TARGET_USES_VAX_G_FLOAT__=1");
-        }
-      else
-        {
-          cpp_define (pfile, "__TARGET_USES_VAX_D_FLOAT__=1");
-          cpp_define (pfile, "__TARGET_USES_VAX_G_FLOAT__=0");
-        }
-#endif       
-      cpp_define (pfile, "__TARGET_USES_VAX_H_FLOAT__=1");
-      break;
-
-    case IBM_FLOAT_FORMAT:
-      format = "__IBM_FORMAT__";
-      break;
-
-    case C4X_FLOAT_FORMAT:
-      format = "__C4X_FORMAT__";
-      break;
-
-    default:
-      abort();
-    }
-  if (TARGET_FLOAT_FORMAT != VAX_FLOAT_FORMAT)
-    {
-      cpp_define (pfile, "__TARGET_USES_VAX_F_FLOAT__=0");
-      cpp_define (pfile, "__TARGET_USES_VAX_D_FLOAT__=0");
-      cpp_define (pfile, "__TARGET_USES_VAX_G_FLOAT__=0");
-      cpp_define (pfile, "__TARGET_USES_VAX_H_FLOAT__=0");
-    }
-  builtin_define_with_value ("__GCC_FLOAT_FORMAT__", format, 0);
-}
-
 /* Define NAME with value TYPE precision.  */
 static void
 builtin_define_type_precision (name, type)
@@ -4802,141 +4729,23 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
      mean time, I suspect using doubles won't harm the bootstrap here.  */
 
   const double log10_2 = .30102999566398119521;
-  const double log10_16 = 1.20411998265592478085;
-  const double log10_b
-    = TARGET_FLOAT_FORMAT == IBM_FLOAT_FORMAT ? log10_16 : log10_2;
-
-  const int log2_b = TARGET_FLOAT_FORMAT == IBM_FLOAT_FORMAT ? 4 : 1;
+  double log10_b;
+  const struct real_format *fmt;
 
   char name[64], buf[128];
-  int mant_dig, max_exp, min_exp;
   int dig, min_10_exp, max_10_exp;
   int decimal_dig;
 
-  /* ??? This information should be shared with real.c.  */
+  fmt = real_format_for_mode[TYPE_MODE (type) - QFmode];
 
-#ifndef INTEL_EXTENDED_IEEE_FORMAT
-#define INTEL_EXTENDED_IEEE_FORMAT 0
-#endif
-#ifndef TARGET_G_FLOAT
-#define TARGET_G_FLOAT 0
-#endif
-
-  switch (TARGET_FLOAT_FORMAT)
-    {
-    case IEEE_FLOAT_FORMAT:
-      switch (TYPE_PRECISION (type))
-	{
-	case 32:
-	  /* ??? Handle MIPS r5900, which doesn't implement Inf or NaN,
-	     but rather reuses the largest exponent as a normal number.  */
-	  mant_dig = 24;
-	  min_exp = -125;
-	  max_exp = 128;
-	  break;
-	case 64:
-	  mant_dig = 53;
-	  min_exp = -1021;
-	  max_exp = 1024;
-	  break;
-	case 128:
-	  if (!INTEL_EXTENDED_IEEE_FORMAT)
-	    {
-	      mant_dig = 113;
-	      min_exp = -16381;
-	      max_exp = 16384;
-	      break;
-	    }
-	  /* FALLTHRU */
-	case 96:
-	  mant_dig = 64;
-	  max_exp = 16384;
-	  if (INTEL_EXTENDED_IEEE_FORMAT)
-	    min_exp = -16381;
-	  else
-	    /* ??? Otherwise assume m68k.  */
-	    min_exp = -16382;
-	  break;
-	default:
-	  abort ();
-	}
-      break;
-
-    case VAX_FLOAT_FORMAT:
-      switch (TYPE_PRECISION (type))
-	{
-	case 32: /* F_FLOAT */
-	  mant_dig = 24;
-	  min_exp = -127;
-	  max_exp = 127;
-	  break;
-	case 64: /* G_FLOAT or D_FLOAT */
-	  if (TARGET_G_FLOAT)
-	    {
-	      mant_dig = 53;
-	      min_exp = -1023;
-	      max_exp = 1023;
-	    }
-	  else
-	    {
-	      mant_dig = 56;
-	      min_exp = -127;
-	      max_exp = 127;
-	    }
-	  break;
-	case 128: /* H_FLOAT */
-	  mant_dig = 113;
-	  min_exp = -16383;
-	  max_exp = 16383;
-	  break;
-	default:
-	  abort ();
-	}
-      break;
-
-    case IBM_FLOAT_FORMAT:
-      switch (TYPE_PRECISION (type))
-	{
-	case 32:
-	  mant_dig = 6;
-	  min_exp = -64;
-	  max_exp = 63;
-	  break;
-	case 64:
-	  mant_dig = 14;
-	  min_exp = -64;
-	  max_exp = 63;
-	  break;
-	default:
-	  abort ();
-	}
-      break;
-      
-    case C4X_FLOAT_FORMAT:
-      switch (TYPE_PRECISION (type))
-	{
-	case 32:
-	  mant_dig = 24;
-	  min_exp = -126;
-	  max_exp = 128;
-	  break;
-	case 64:
-	  mant_dig = 32;
-	  min_exp = -126;
-	  max_exp = 128;
-	  break;
-	default:
-	  abort ();
-	}
-      break;
-
-    default:
-      abort ();
-    }
+  /* The radix of the exponent representation.  */
+  if (type == float_type_node)
+    builtin_define_with_int_value ("__FLT_RADIX__", fmt->b);
+  log10_b = log10_2 * fmt->log2_b;
 
   /* The number of radix digits, p, in the floating-point significand.  */
   sprintf (name, "__%s_MANT_DIG__", name_prefix);
-  builtin_define_with_int_value (name, mant_dig);
+  builtin_define_with_int_value (name, fmt->p);
 
   /* The number of decimal digits, q, such that any floating-point number
      with q decimal digits can be rounded into a floating-point number with
@@ -4945,37 +4754,37 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
 	p log10 b			if b is a power of 10
  	floor((p - 1) log10 b)		otherwise
   */
-  dig = (mant_dig - 1) * log10_b;
+  dig = (fmt->p - 1) * log10_b;
   sprintf (name, "__%s_DIG__", name_prefix);
   builtin_define_with_int_value (name, dig);
 
   /* The minimum negative int x such that b**(x-1) is a normalized float.  */
   sprintf (name, "__%s_MIN_EXP__", name_prefix);
-  sprintf (buf, "(%d)", min_exp);
+  sprintf (buf, "(%d)", fmt->emin);
   builtin_define_with_value (name, buf, 0);
 
   /* The minimum negative int x such that 10**x is a normalized float,
 
-	  ceil (log10 (b ** (min_exp - 1)))
-	= ceil (log10 (b) * (min_exp - 1))
+	  ceil (log10 (b ** (emin - 1)))
+	= ceil (log10 (b) * (emin - 1))
 
-     Recall that min_exp is negative, so the integer truncation calculates
+     Recall that emin is negative, so the integer truncation calculates
      the ceiling, not the floor, in this case.  */
-  min_10_exp = (min_exp - 1) * log10_b;
+  min_10_exp = (fmt->emin - 1) * log10_b;
   sprintf (name, "__%s_MIN_10_EXP__", name_prefix);
   sprintf (buf, "(%d)", min_10_exp);
   builtin_define_with_value (name, buf, 0);
 
   /* The maximum int x such that b**(x-1) is a representable float.  */
   sprintf (name, "__%s_MAX_EXP__", name_prefix);
-  builtin_define_with_int_value (name, max_exp);
+  builtin_define_with_int_value (name, fmt->emax);
 
   /* The maximum int x such that 10**x is in the range of representable
      finite floating-point numbers,
 
-	  floor (log10((1 - b**-p) * b**max_exp))
-	= floor (log10(1 - b**-p) + log10(b**max_exp))
-	= floor (log10(1 - b**-p) + log10(b)*max_exp)
+	  floor (log10((1 - b**-p) * b**emax))
+	= floor (log10(1 - b**-p) + log10(b**emax))
+	= floor (log10(1 - b**-p) + log10(b)*emax)
 
      The safest thing to do here is to just compute this number.  But since
      we don't link cc1 with libm, we cannot.  We could implement log10 here
@@ -4996,7 +4805,7 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
      Hand-waving aside, crunching all of the sets of constants above by hand
      does not yield a case for which the first term is significant, which
      in the end is all that matters.  */
-  max_10_exp = max_exp * log10_b;
+  max_10_exp = fmt->emax * log10_b;
   sprintf (name, "__%s_MAX_10_EXP__", name_prefix);
   builtin_define_with_int_value (name, max_10_exp);
 
@@ -5010,7 +4819,7 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
      The only macro we care about is this number for the widest supported
      floating type, but we want this value for rendering constants below.  */
   {
-    double d_decimal_dig = 1 + mant_dig * log10_b;
+    double d_decimal_dig = 1 + fmt->p * log10_b;
     decimal_dig = d_decimal_dig;
     if (decimal_dig < d_decimal_dig)
       decimal_dig++;
@@ -5023,40 +4832,49 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
      constants.  */
 
   /* The maximum representable finite floating-point number,
-     (1 - b**-p) * b**max_exp  */
+     (1 - b**-p) * b**emax  */
   {
     int i, n;
     char *p;
 
     strcpy (buf, "0x0.");
-    n = mant_dig * log2_b;
+    n = fmt->p * fmt->log2_b;
     for (i = 0, p = buf + 4; i + 3 < n; i += 4)
       *p++ = 'f';
     if (i < n)
       *p++ = "08ce"[n - i];
-    sprintf (p, "p%d", max_exp * log2_b);
+    sprintf (p, "p%d", fmt->emax * fmt->log2_b);
   }
   sprintf (name, "__%s_MAX__", name_prefix);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
 
   /* The minimum normalized positive floating-point number,
-     b**(min_exp-1).  */
+     b**(emin-1).  */
   sprintf (name, "__%s_MIN__", name_prefix);
-  sprintf (buf, "0x1p%d", (min_exp - 1) * log2_b);
+  sprintf (buf, "0x1p%d", (fmt->emin - 1) * fmt->log2_b);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
 
   /* The difference between 1 and the least value greater than 1 that is
      representable in the given floating point type, b**(1-p).  */
   sprintf (name, "__%s_EPSILON__", name_prefix);
-  sprintf (buf, "0x1p%d", (1 - mant_dig) * log2_b);
+  sprintf (buf, "0x1p%d", (1 - fmt->p) * fmt->log2_b);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
 
   /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
-     positive floating-point number, b**(min_exp-p).  Winds up being zero
-     for targets that don't support denormals.  */
+     positive floating-point number, b**(emin-p).  Zero for formats that
+     don't support denormals.  */
   sprintf (name, "__%s_DENORM_MIN__", name_prefix);
-  sprintf (buf, "0x1p%d", (min_exp - mant_dig) * log2_b);
-  builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
+  if (fmt->has_denorm)
+    {
+      sprintf (buf, "0x1p%d", (fmt->emin - fmt->p) * fmt->log2_b);
+      builtin_define_with_hex_fp_value (name, type, decimal_dig,
+					buf, fp_suffix);
+    }
+  else
+    {
+      sprintf (buf, "0.0%s", fp_suffix);
+      builtin_define_with_value (name, buf, 0);
+    }
 }
 
 /* Hook that registers front end and target-specific built-ins.  */
@@ -5102,22 +4920,8 @@ cb_register_builtins (pfile)
   builtin_define_type_max ("__LONG_LONG_MAX__", long_long_integer_type_node, 2);
 
   builtin_define_type_precision ("__CHAR_BIT__", char_type_node);
-  builtin_define_type_precision ("__WCHAR_BIT__", wchar_type_node);
-  builtin_define_type_precision ("__SHRT_BIT__", short_integer_type_node);
-  builtin_define_type_precision ("__INT_BIT__", integer_type_node);
-  builtin_define_type_precision ("__LONG_BIT__", long_integer_type_node);
-  builtin_define_type_precision ("__LONG_LONG_BIT__",
-                                 long_long_integer_type_node);
-  builtin_define_type_precision ("__FLOAT_BIT__", float_type_node);
-  builtin_define_type_precision ("__DOUBLE_BIT__", double_type_node);
-  builtin_define_type_precision ("__LONG_DOUBLE_BIT__", long_double_type_node);
 
   /* float.h needs to know these.  */
-
-  /* The radix of the exponent representation.  */
-  builtin_define_with_int_value ("__FLT_RADIX__",
-			         (TARGET_FLOAT_FORMAT == IBM_FLOAT_FORMAT
-			          ? 16 : 2));
 
   builtin_define_with_int_value ("__FLT_EVAL_METHOD__",
 				 TARGET_FLT_EVAL_METHOD);
@@ -5165,8 +4969,6 @@ cb_register_builtins (pfile)
   if (c_language == clk_cplusplus && TREE_UNSIGNED (wchar_type_node))
     cpp_define (pfile, "__WCHAR_UNSIGNED__");
 
-  cpp_define_data_format (pfile);
-  
   /* Make the choice of ObjC runtime visible to source code.  */
   if (flag_objc && flag_next_runtime)
     cpp_define (pfile, "__NEXT_RUNTIME__");
@@ -5174,6 +4976,7 @@ cb_register_builtins (pfile)
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */
 # define preprocessing_asm_p() (cpp_get_options (pfile)->lang == CLK_ASM)
+# define preprocessing_trad_p() (cpp_get_options (pfile)->traditional)
 # define builtin_define(TXT) cpp_define (pfile, TXT)
 # define builtin_assert(TXT) cpp_assert (pfile, TXT)
   TARGET_CPU_CPP_BUILTINS ();
@@ -6088,6 +5891,49 @@ handle_visibility_attribute (node, name, args, flags, no_add_attrs)
 	  && strcmp (TREE_STRING_POINTER (id), "internal"))
 	{
 	  error ("visibility arg must be one of \"hidden\", \"protected\" or \"internal\"");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle an "tls_model" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_tls_model_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree decl = *node;
+
+  if (! DECL_THREAD_LOCAL (decl))
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else
+    {
+      tree id;
+
+      id = TREE_VALUE (args);
+      if (TREE_CODE (id) != STRING_CST)
+	{
+	  error ("tls_model arg not a string");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+      if (strcmp (TREE_STRING_POINTER (id), "local-exec")
+	  && strcmp (TREE_STRING_POINTER (id), "initial-exec")
+	  && strcmp (TREE_STRING_POINTER (id), "local-dynamic")
+	  && strcmp (TREE_STRING_POINTER (id), "global-dynamic"))
+	{
+	  error ("tls_model arg must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}

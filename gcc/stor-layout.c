@@ -48,7 +48,7 @@ tree sizetype_tab[(int) TYPE_KIND_LAST];
    The value is measured in bits.  */
 unsigned int maximum_field_alignment;
 
-/* If non-zero, the alignment of a bitstring or (power-)set value, in bits.
+/* If nonzero, the alignment of a bitstring or (power-)set value, in bits.
    May be overridden by front-ends.  */
 unsigned int set_alignment = 0;
 
@@ -96,7 +96,7 @@ get_pending_sizes ()
   return chain;
 }
 
-/* Return non-zero if EXPR is present on the pending sizes list.  */
+/* Return nonzero if EXPR is present on the pending sizes list.  */
 
 int
 is_pending_size (expr)
@@ -788,7 +788,7 @@ place_field (rli, field)
 	 affect the alignment of a record; even a zero-sized field
 	 can do this.  The alignment should be to the alignment of
 	 the type, except that for zero-size bitfields this only
-	 applies if there was an immediately prior, non-zero-size
+	 applies if there was an immediately prior, nonzero-size
 	 bitfield.  (That's the way it is, experimentally.) */
       if (! integer_zerop (DECL_SIZE (field))
  	  ? ! DECL_PACKED (field)
@@ -1003,12 +1003,12 @@ place_field (rli, field)
  	  || (rli->prev_field && ! DECL_PACKED (rli->prev_field))))
     {
       /* At this point, either the prior or current are bitfields,
-	 (possibly both), and we're dealing with MS packing. */
+	 (possibly both), and we're dealing with MS packing.  */
       tree prev_saved = rli->prev_field;
 
       /* Is the prior field a bitfield?  If so, handle "runs" of same
-	 type size fields. */
-      if (rli->prev_field /* necessarily a bitfield if it exists. */) 
+	 type size fields.  */
+      if (rli->prev_field /* necessarily a bitfield if it exists.  */)
 	{
 	  /* If both are bitfields, nonzero, and the same size, this is
 	     the middle of a run.  Zero declared size fields are special
@@ -1030,7 +1030,7 @@ place_field (rli, field)
 
 	      if (rli->remaining_in_alignment < bitsize)
 		{
-		  /* out of bits; bump up to next 'word'. */
+		  /* out of bits; bump up to next 'word'.  */
 		  rli->bitpos = size_binop (PLUS_EXPR,
 				      type_size,
 				      DECL_FIELD_BIT_OFFSET(rli->prev_field));
@@ -1060,12 +1060,12 @@ place_field (rli, field)
 	      else
 		{
 		  /* We "use up" size zero fields; the code below should behave
-		     as if the prior field was not a bitfield. */
+		     as if the prior field was not a bitfield.  */
 		  prev_saved = NULL;
 		}
 
 	      /* Cause a new bitfield to be captured, either this time (if 
-		 currently a bitfield) or next time we see one. */
+		 currently a bitfield) or next time we see one.  */
 	      if (!DECL_BIT_FIELD_TYPE(field)
 		 || integer_zerop (DECL_SIZE (field)))
 		{
@@ -1105,7 +1105,7 @@ place_field (rli, field)
 		  = TREE_INT_CST_LOW (TYPE_SIZE(TREE_TYPE(field)))
 		    - TREE_INT_CST_LOW (DECL_SIZE (field));
 
-	  /* Now align (conventionally) for the new type. */
+	  /* Now align (conventionally) for the new type.  */
 	  if (!DECL_PACKED(field))
 	      type_align = MAX(TYPE_ALIGN (type), type_align);
 
@@ -1123,7 +1123,7 @@ place_field (rli, field)
 
 	  rli->bitpos = round_up (rli->bitpos, type_align);
           /* If we really aligned, don't allow subsequent bitfields
-	     to undo that. */
+	     to undo that.  */
 	  rli->prev_field = NULL;
 	}
     }
@@ -1154,7 +1154,7 @@ place_field (rli, field)
   if (known_align != actual_align)
     layout_decl (field, actual_align);
 
-  /* Only the MS bitfields use this. */
+  /* Only the MS bitfields use this.  */
   if (rli->prev_field == NULL && DECL_BIT_FIELD_TYPE(field))
       rli->prev_field = field;
 
@@ -1465,11 +1465,14 @@ finalize_type_size (type)
 
 /* Do all of the work required to layout the type indicated by RLI,
    once the fields have been laid out.  This function will call `free'
-   for RLI.  */
+   for RLI, unless FREE_P is false.  Passing a value other than false
+   for FREE_P is bad practice; this option only exists to support the
+   G++ 3.2 ABI.  */
 
 void
-finish_record_layout (rli)
+finish_record_layout (rli, free_p)
      record_layout_info rli;
+     int free_p;
 {
   /* Compute the final size.  */
   finalize_record_size (rli);
@@ -1489,7 +1492,8 @@ finish_record_layout (rli)
     }
 
   /* Clean up.  */
-  free (rli);
+  if (free_p)
+    free (rli);
 }
 
 
@@ -1784,7 +1788,7 @@ layout_type (type)
 	  (*lang_adjust_rli) (rli);
 
 	/* Finish laying out the record.  */
-	finish_record_layout (rli);
+	finish_record_layout (rli, /*free_p=*/true);
       }
       break;
 

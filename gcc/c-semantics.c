@@ -329,7 +329,7 @@ genrtl_expr_stmt (expr)
    whether to (1) save the value of the expression, (0) discard it or
    (-1) use expr_stmts_for_value to tell.  The use of -1 is
    deprecated, and retained only for backward compatibility.
-   MAYBE_LAST is non-zero if this EXPR_STMT might be the last statement
+   MAYBE_LAST is nonzero if this EXPR_STMT might be the last statement
    in expression statement.  */
 
 void 
@@ -446,6 +446,17 @@ genrtl_do_stmt (t)
       expand_stmt (DO_BODY (t));
       expand_end_null_loop ();
     }
+  else if (integer_nonzerop (cond))
+    {
+      emit_nop ();
+      emit_line_note (input_filename, lineno);
+      expand_start_loop (1);
+
+      expand_stmt (DO_BODY (t));
+
+      emit_line_note (input_filename, lineno);
+      expand_end_loop ();
+    }
   else
     {
       emit_nop ();
@@ -510,7 +521,10 @@ genrtl_for_stmt (t)
   /* Expand the initialization.  */
   emit_nop ();
   emit_line_note (input_filename, lineno);
-  expand_start_loop_continue_elsewhere (1); 
+  if (FOR_EXPR (t))
+    expand_start_loop_continue_elsewhere (1); 
+  else
+    expand_start_loop (1);
   genrtl_do_pushlevel ();
   cond = expand_cond (FOR_COND (t));
 
@@ -532,9 +546,11 @@ genrtl_for_stmt (t)
   input_filename = saved_filename;
   lineno = saved_lineno;
   emit_line_note (input_filename, lineno);
-  expand_loop_continue_here ();
   if (FOR_EXPR (t))
-    genrtl_expr_stmt (FOR_EXPR (t));
+    {
+      expand_loop_continue_here ();
+      genrtl_expr_stmt (FOR_EXPR (t));
+    }
   expand_end_loop ();
 }
 

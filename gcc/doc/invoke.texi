@@ -174,8 +174,8 @@ in the following sections.
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
 @gccoptlist{
--fno-access-control  -fcheck-new  -fconserve-space @gol
--fno-const-strings  -fdollars-in-identifiers @gol
+-fabi-version=@var{n} -fno-access-control  -fcheck-new @gol
+-fconserve-space -fno-const-strings  -fdollars-in-identifiers @gol
 -fno-elide-constructors @gol
 -fno-enforce-eh-specs  -fexternal-templates @gol
 -falt-external-templates @gol
@@ -515,7 +515,7 @@ in the following sections.
 -mno-portable-runtime  -mno-soft-float @gol
 -mno-space-regs  -msoft-float  -mpa-risc-1-0 @gol
 -mpa-risc-1-1  -mpa-risc-2-0  -mportable-runtime @gol
--mschedule=@var{cpu-type}  -mspace-regs}
+-mschedule=@var{cpu-type}  -mspace-regs -msio -mwsio}
 
 @emph{Intel 960 Options}
 @gccoptlist{
@@ -1256,6 +1256,17 @@ language supported by GCC@.
 Here is a list of options that are @emph{only} for compiling C++ programs:
 
 @table @gcctabopt
+
+@item -fabi-version=@var{n}
+@opindex fabi-version
+Use version @var{n} of the C++ ABI.  Version 1 is the version of the C++
+ABI that first appeared in G++ 3.2.  Version 0 will always be the
+version that conforms most closely to the C++ ABI specification.
+Therefore, the ABI obtained using version 0 will change as ABI bugs are
+fixed.
+
+The default is version 1.
+
 @item -fno-access-control
 @opindex fno-access-control
 Turn off all access checking.  This switch is mainly useful for working
@@ -1529,6 +1540,38 @@ explicitly padding @code{A} so that its size is a multiple of its
 alignment (ignoring virtual base classes); that will cause G++ and other
 compilers to layout @code{C} identically.
 
+@item
+Incorrect handling of bit-fields with declared widths greater than that
+of their underlying types, when the bit-fields appear in a union.  For
+example:
+
+@smallexample
+union U @{ int i : 4096; @};
+@end smallexample
+
+@noindent
+Assuming that an @code{int} does not have 4096 bits, G++ will make the
+union too small by the number of bits in an @code{int}.
+
+@item
+Empty classes can be placed at incorrect offsets.  For example:
+ 
+@smallexample
+struct A @{@};
+
+struct B @{
+  A a;
+  virtual void f ();
+@};
+
+struct C : public B, public A @{@};
+@end smallexample
+
+@noindent
+G++ will place the @code{A} base class of @code{C} at a non-zero offset;
+it should be placed at offset zero.  G++ mistakenly believes that the
+@code{A} data member of @code{B} is already at offset zero.
+
 @end itemize
 
 @item -Wctor-dtor-privacy @r{(C++ only)}
@@ -1748,7 +1791,7 @@ file named @file{@var{sourcename}.decl}.
 @opindex Wno-protocol
 If a class is declared to implement a protocol, a warning is issued for
 every method in the protocol that is not implemented by the class.  The
-default behaviour is to issue a warning for every method not explicitly
+default behavior is to issue a warning for every method not explicitly
 implemented in the class, even if a method implementation is inherited
 from the superclass.  If you use the @code{-Wno-protocol} option, then
 methods inherited from the superclass are considered to be implemented,
@@ -4916,29 +4959,34 @@ Like %@{@code{S}*@}, but preserve order of @code{S} and @code{T} options
 There can be any number of ampersand-separated variables; for each the
 wild card is optional.  Useful for CPP as @samp{%@{D*&U*&A*@}}.
 
-@item %@{@code{S}*:@code{X}@}
-Substitutes @code{X} if one or more switches whose names start with
-@code{-S} are specified to GCC@.  Note that the tail part of the
-@code{-S} option (i.e.@: the part matched by the @samp{*}) will be substituted
-for each occurrence of @samp{%*} within @code{X}.
-
 @item %@{@code{S}:@code{X}@}
-Substitutes @code{X}, but only if the @samp{-S} switch was given to GCC@.
+Substitutes @code{X}, if the @samp{-S} switch was given to GCC@.
 
 @item %@{!@code{S}:@code{X}@}
-Substitutes @code{X}, but only if the @samp{-S} switch was @emph{not} given to GCC@.
+Substitutes @code{X}, if the @samp{-S} switch was @emph{not} given to GCC@.
+
+@item %@{@code{S}*:@code{X}@}
+Substitutes @code{X} if one or more switches whose names start with
+@code{-S} are specified to GCC@.  Normally @code{X} is substituted only
+once, no matter how many such switches appeared.  However, if @code{%*}
+appears somewhere in @code{X}, then @code{X} will be substituted once
+for each matching switch, with the @code{%*} replaced by the part of
+that switch that matched the @code{*}.
 
 @item %@{.@code{S}:@code{X}@}
-Substitutes @code{X}, but only if processing a file with suffix @code{S}.
+Substitutes @code{X}, if processing a file with suffix @code{S}.
 
 @item %@{!.@code{S}:@code{X}@}
-Substitutes @code{X}, but only if @emph{not} processing a file with suffix @code{S}.
+Substitutes @code{X}, if @emph{not} processing a file with suffix @code{S}.
 
 @item %@{@code{S}|@code{P}:@code{X}@}
-Substitutes @code{X} if either @code{-S} or @code{-P} was given to GCC@.  This may be
-combined with @samp{!} and @samp{.} sequences as well, although they
-have a stronger binding than the @samp{|}.  For example a spec string
-like this:
+Substitutes @code{X} if either @code{-S} or @code{-P} was given to GCC@.
+This may be combined with @samp{!}, @samp{.}, and @code{*} sequences as well,
+although they have a stronger binding than the @samp{|}.  If @code{%*}
+appears in @code{X}, all of the alternatives must be starred, and only
+the first matching alternative is substituted.
+
+For example, a spec string like this:
 
 @smallexample
 %@{.c:-foo@} %@{!.c:-bar@} %@{.c|d:-baz@} %@{!.c|d:-boggle@}
@@ -4954,23 +5002,33 @@ jim.d         -bar -boggle
 -d jim.d      -bar -baz -boggle
 @end smallexample
 
+@item %@{S:X; T:Y; :D@}
+
+If @code{S} was given to GCC, substitues @code{X}; else if @code{T} was
+given to GCC, substitues @code{Y}; else substitutes @code{D}.  There can
+be as many clauses as you need.  This may be combined with @code{.}, 
+@code{!}, @code{|}, and @code{*} as needed.
+
+
 @end table
 
-The conditional text @code{X} in a %@{@code{S}:@code{X}@} or
-%@{!@code{S}:@code{X}@} construct may contain other nested @samp{%} constructs
-or spaces, or even newlines.  They are processed as usual, as described
-above.
+The conditional text @code{X} in a %@{@code{S}:@code{X}@} or similar
+construct may contain other nested @samp{%} constructs or spaces, or
+even newlines.  They are processed as usual, as described above.
+Trailing white space in @code{X} is ignored.  White space may also
+appear anywhere on the left side of the colon in these constructs,
+except between @code{.} or @code{*} and the corresponding word.
 
-The @option{-O}, @option{-f}, @option{-m}, and @option{-W}
-switches are handled specifically in these
-constructs.  If another value of @option{-O} or the negated form of a @option{-f}, @option{-m}, or
-@option{-W} switch is found later in the command line, the earlier switch
-value is ignored, except with @{@code{S}*@} where @code{S} is just one
-letter, which passes all matching options.
+The @option{-O}, @option{-f}, @option{-m}, and @option{-W} switches are
+handled specifically in these constructs.  If another value of
+@option{-O} or the negated form of a @option{-f}, @option{-m}, or
+@option{-W} switch is found later in the command line, the earlier
+switch value is ignored, except with @{@code{S}*@} where @code{S} is
+just one letter, which passes all matching options.
 
-The character @samp{|} at the beginning of the predicate text is used to indicate
-that a command should be piped to the following command, but only if @option{-pipe}
-is specified.
+The character @samp{|} at the beginning of the predicate text is used to
+indicate that a command should be piped to the following command, but
+only if @option{-pipe} is specified.
 
 It is built into GCC which switches take arguments and which do not.
 (You might think it would be useful to generalize this to allow each
@@ -7975,9 +8033,9 @@ proper scheduling option for your machine.  The default scheduling is
 
 @item -mlinker-opt
 @opindex mlinker-opt
-Enable the optimization pass in the HPUX linker.  Note this makes symbolic
-debugging impossible.  It also triggers a bug in the HPUX 8 and HPUX 9 linkers
-in which they give bogus error messages when linking some programs.
+Enable the optimization pass in the HP-UX linker.  Note this makes symbolic
+debugging impossible.  It also triggers a bug in the HP-UX 8 and HP-UX 9
+linkers in which they give bogus error messages when linking some programs.
 
 @item -msoft-float
 @opindex msoft-float
@@ -7994,6 +8052,13 @@ therefore, it is only useful if you compile @emph{all} of a program with
 this option.  In particular, you need to compile @file{libgcc.a}, the
 library that comes with GCC, with @option{-msoft-float} in order for
 this to work.
+
+@item -msio
+@opindex msio
+Generate the predefine, @code{_SIO}, for server IO.  The default is
+@option{-mwsio}.  This generates the predefines, @code{__hp9000s700},
+@code{__hp9000s700__} and @code{_WSIO}, for workstation IO.  These
+options are available under HP-UX and HI-UX.
 @end table
 
 @node Intel 960 Options
@@ -9199,7 +9264,7 @@ These are the @samp{-m} options defined for the Intel IA-64 architecture.
 @table @gcctabopt
 @item -mbig-endian
 @opindex mbig-endian
-Generate code for a big endian target.  This is the default for HPUX@.
+Generate code for a big endian target.  This is the default for HP-UX@.
 
 @item -mlittle-endian
 @opindex mlittle-endian

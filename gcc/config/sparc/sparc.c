@@ -176,6 +176,8 @@ static void emit_soft_tfmode_cvt PARAMS ((enum rtx_code, rtx *));
 static void emit_hard_tfmode_operation PARAMS ((enum rtx_code, rtx *));
 
 static void sparc_encode_section_info PARAMS ((tree, int));
+
+static bool sparc_function_ok_for_sibcall PARAMS ((tree, tree));
 
 /* Option handling.  */
 
@@ -238,6 +240,9 @@ enum processor_type sparc_cpu;
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO sparc_encode_section_info
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL sparc_function_ok_for_sibcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -7763,7 +7768,6 @@ set_extends (insn)
 	  return INTVAL (op1) >= 0;
 	return (GET_CODE (op1) == REG && sparc_check_64 (op1, insn) == 1);
       }
-    case ASHIFT:
     case LSHIFTRT:
       return GET_MODE (SET_SRC (pat)) == SImode;
       /* Positive integers leave the high bits zero.  */
@@ -8021,6 +8025,32 @@ sparc_elf_asm_named_section (name, flags)
   fputc ('\n', asm_out_file);
 }
 #endif /* OBJECT_FORMAT_ELF */
+
+/* We do not allow sibling calls if -mflat, nor
+   we do not allow indirect calls to be optimized into sibling calls.
+   
+   Also, on sparc 32-bit we cannot emit a sibling call when the
+   current function returns a structure.  This is because the "unimp
+   after call" convention would cause the callee to return to the
+   wrong place.  The generic code already disallows cases where the
+   function being called returns a structure.
+
+   It may seem strange how this last case could occur.  Usually there
+   is code after the call which jumps to epilogue code which dumps the
+   return value into the struct return area.  That ought to invalidate
+   the sibling call right?  Well, in the c++ case we can end up passing
+   the pointer to the struct return area to a constructor (which returns
+   void) and then nothing else happens.  Such a sibling call would look
+   valid without the added check here.  */
+static bool
+sparc_function_ok_for_sibcall (decl, exp)
+     tree decl;
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return (decl
+	  && ! TARGET_FLAT
+	  && (TARGET_ARCH64 || ! current_function_returns_struct));
+}
 
 /* ??? Similar to the standard section selection, but force reloc-y-ness
    if SUNOS4_SHARED_LIBRARIES.  Unclear why this helps (as opposed to

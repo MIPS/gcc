@@ -346,8 +346,8 @@ int use_gnu_debug_info_extensions = 0;
 int optimize = 0;
 
 /* Nonzero means optimize for size.  -Os.
-   The only valid values are zero and non-zero. When optimize_size is
-   non-zero, optimize defaults to 2, but certain individual code
+   The only valid values are zero and nonzero. When optimize_size is
+   nonzero, optimize defaults to 2, but certain individual code
    bloating optimizations are disabled.  */
 
 int optimize_size = 0;
@@ -1927,7 +1927,7 @@ close_dump_file (index, func, insns)
 /* Do any final processing required for the declarations in VEC, of
    which there are LEN.  We write out inline functions and variables
    that have been deferred until this point, but which are required.
-   Returns non-zero if anything was put out.  */
+   Returns nonzero if anything was put out.  */
 
 int
 wrapup_global_declarations (vec, len)
@@ -4761,7 +4761,7 @@ general_init (argv0)
    minimal options processing.  Outputting diagnostics is OK, but GC
    and identifier hashtables etc. are not initialized yet.
 
-   Return non-zero to suppress compiler back end initialization.  */
+   Return nonzero to suppress compiler back end initialization.  */
 static void
 parse_options_and_default_flags (argc, argv)
      int argc;
@@ -5218,7 +5218,7 @@ backend_init ()
   expand_dummy_function_end ();
 }
 
-/* Language-dependent initialization.  Returns non-zero on success.  */
+/* Language-dependent initialization.  Returns nonzero on success.  */
 static int
 lang_dependent_init (name)
      const char *name;
@@ -5359,11 +5359,6 @@ do_compile ()
      says if we run timers or not.  */
   init_timevar ();
   timevar_start (TV_TOTAL);
-
-  /* We need to initialize real.c in order to define __FLT_MIN__ etc,
-     which must happen even with -E.  But with -E we'll suppress the
-     rest of backend_init.  */
-  init_real_once ();
 
   /* Set up the back-end if requested.  */
   if (!no_backend)
