@@ -1503,6 +1503,17 @@ powerpc-*-beos*)
 powerpc-*-darwin*)
 	tm_file="${tm_file} rs6000/darwin.h"
 	tmake_file="${tmake_file} rs6000/t-darwin"
+	# APPLE LOCAL begin 64-bit
+	echo enable_bringup=$enable_bringup
+	case ${enable_bringup} in
+	yes)
+	case ${target} in
+	  *-darwin[0-7]*) ;;
+	  *) tmake_file="${tmake_file} rs6000/t-darwin8" ;;
+	esac
+	;;
+	esac
+	# APPLE LOCAL end 64-bit
 	extra_headers=altivec.h
 	;;
 powerpc*-*-freebsd*)

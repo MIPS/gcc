@@ -763,6 +763,17 @@ ac_env_CPP_value=$CPP
 ac_cv_env_CPP_set=${CPP+set}
 ac_cv_env_CPP_value=$CPP
 
+# This is a cheesy 64-bit bringup hack where we edit out the -m64,
+# do configury tests (which would fail since 64-bit libsystem
+# doesn't exist yet), then add it back for compilation proper.
+oldCC="`echo $CC`"
+newCC="`echo $CC | sed -e 's/ -m64//g'`"
+add_m64_back=no
+if test "$oldCC" != "$newCC" ; then
+    CC="$newCC"
+    add_m64_back=yes
+fi
+
 #
 # Report the --help message.
 #
@@ -97439,7 +97450,11 @@ else
   GLIBCXX_TEST_ABI_FALSE=
 fi
 
-
+# Final part of 64-bit bringup hack
+if test $add_m64_back = yes; then
+    CC="$CC -m64"
+    add_m64_back=no
+fi
 
 
 cat >confcache <<\_ACEOF

@@ -1,3 +1,11 @@
+2004-09-23  Stan Shebs  <shebs@apple.com>
+
+	* Makefile.in: Use --print-multi-lib to collect
+	compiled-in multilibs.
+	* config.gcc: Add in a Darwin 8.x makefile fragment.
+	* fixinc.in: Bandaid for a missing __ppc64__ in limits.h
+	* config/rs6000/t-darwin8: New file, adds -m64 multilib.
+
 2004-09-23  Devang Patel  <dpatel@apple.com>
 
 	Radar 3765210.
