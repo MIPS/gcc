@@ -1,3 +1,7 @@
+2002-11-27  Andreas Jaeger  <aj@suse.de>
+
+	* version.c: Add -hammer to version_string.
+
 Tue Nov 26 15:42:46 CET 2002  Jan Hubicka  <jh@suse.cz>
 	Merge from 3.4-BIB:
 	* config.guess:  Default to k8 for k8.
