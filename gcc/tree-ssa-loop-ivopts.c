@@ -224,7 +224,11 @@ struct ivopts_data
 
 /* Bound on number of candidates below that all candidates are considered.  */
 
-#define CONSIDER_ALL_CANDIDATES_BOUND 15
+#define CONSIDER_ALL_CANDIDATES_BOUND 30
+
+/* If there are more iv occurences, we just give up (it is quite unlikely that
+   optimizing such a loop would help, and it would take ages).  */
+#define MAX_CONSIDERED_USES 250
 
 /* The properties of the target.  */
 
@@ -3708,9 +3712,17 @@ find_best_candidate (struct ivopts_data *data,
   unsigned c, d;
   unsigned best_cost = INFTY, cost;
   struct iv_cand *cnd = NULL, *acnd;
-  bitmap depends_on = NULL;
+  bitmap depends_on = NULL, asol;
 
-  EXECUTE_IF_SET_IN_BITMAP (sol, 0, c,
+  if (data->consider_all_candidates)
+    asol = sol;
+  else
+    {
+      asol = BITMAP_XMALLOC ();
+      bitmap_a_and_b (asol, sol, use->related_cands);
+    }
+
+  EXECUTE_IF_SET_IN_BITMAP (asol, 0, c,
     {
       acnd = iv_cand (data, c);
       cost = get_use_iv_cost (data, use, acnd, &depends_on);
@@ -3745,14 +3757,19 @@ next_cand: ;
   if (cand)
     *cand = cnd;
 
+  if (!data->consider_all_candidates)
+    BITMAP_XFREE (asol);
+
   return best_cost;
 }
 
-/* Computes cost of set of ivs SOL + invariants INV.  Removes unnecessary
-   induction variable candidates and invariants from the sets.  */
+/* Returns cost of set of ivs SOL + invariants INV.  Removes unnecessary
+   induction variable candidates and invariants from the sets.  Only
+   uses 0 .. MAX_USE - 1 are taken into account.  */
 
 static unsigned
-set_cost (struct ivopts_data *data, bitmap sol, bitmap inv)
+set_cost_up_to (struct ivopts_data *data, bitmap sol, bitmap inv,
+		unsigned max_use)
 {
   unsigned i;
   unsigned cost = 0, size = 0, acost;
@@ -3760,7 +3777,7 @@ set_cost (struct ivopts_data *data, bitmap sol, bitmap inv)
   struct iv_cand *cand;
   bitmap used_ivs = BITMAP_XMALLOC (), used_inv = BITMAP_XMALLOC ();
 
-  for (i = 0; i < n_iv_uses (data); i++)
+  for (i = 0; i < max_use; i++)
     {
       use = iv_use (data, i);
       acost = find_best_candidate (data, use, sol, inv,
@@ -3796,6 +3813,66 @@ set_cost (struct ivopts_data *data, bitmap sol, bitmap inv)
   return cost;
 }
 
+/* Computes cost of set of ivs SOL + invariants INV.  Removes unnecessary
+   induction variable candidates and invariants from the sets.  */
+
+static unsigned
+set_cost (struct ivopts_data *data, bitmap sol, bitmap inv)
+{
+  return set_cost_up_to (data, sol, inv, n_iv_uses (data));
+}
+
+/* Tries to extend the sets IVS and INV in the best possible way in order
+   to express the USE.  */
+
+static bool
+try_add_cand_for (struct ivopts_data *data, bitmap ivs, bitmap inv,
+		  struct iv_use *use)
+{
+  unsigned best_cost = set_cost_up_to (data, ivs, inv, use->id + 1), act_cost;
+  bitmap best_ivs = BITMAP_XMALLOC ();
+  bitmap best_inv = BITMAP_XMALLOC ();
+  bitmap act_ivs = BITMAP_XMALLOC ();
+  bitmap act_inv = BITMAP_XMALLOC ();
+  unsigned i;
+  struct cost_pair *cp;
+
+  bitmap_copy (best_ivs, ivs);
+  bitmap_copy (best_inv, inv);
+
+  for (i = 0; i < use->n_map_members; i++)
+    {
+      cp = use->cost_map + i;
+      if (cp->cost == INFTY)
+	continue;
+
+      bitmap_copy (act_ivs, ivs);
+      bitmap_set_bit (act_ivs, cp->cand->id);
+      if (cp->depends_on)
+	bitmap_a_or_b (act_inv, inv, cp->depends_on);
+      else
+	bitmap_copy (act_inv, inv);
+      act_cost = set_cost_up_to (data, act_ivs, act_inv, use->id + 1);
+
+      if (act_cost < best_cost)
+	{
+	  best_cost = act_cost;
+	  bitmap_copy (best_ivs, act_ivs);
+	  bitmap_copy (best_inv, act_inv);
+	}
+    }
+
+  bitmap_copy (ivs, best_ivs);
+  bitmap_copy (inv, best_inv);
+
+  BITMAP_XFREE (best_ivs);
+  BITMAP_XFREE (best_inv);
+  BITMAP_XFREE (act_ivs);
+  BITMAP_XFREE (act_inv);
+
+  return (best_cost != INFTY);
+}
+
 /* Finds an initial set of IVS and invariants INV.  We do this by simply
    choosing the best candidate for each use.  */
 
@@ -3804,11 +3881,9 @@ get_initial_solution (struct ivopts_data *data, bitmap ivs, bitmap inv)
 {
   unsigned i;
 
-  for (i = 0; i < n_iv_cands (data); i++)
-    bitmap_set_bit (ivs, i);
-  for (i = 1; i <= data->max_inv_id; i++)
-    if (!ver_info (data, i)->has_nonlin_use)
-      bitmap_set_bit (inv, i);
+  for (i = 0; i < n_iv_uses (data); i++)
+    if (!try_add_cand_for (data, ivs, inv, iv_use (data, i)))
+      return INFTY;
 
   return set_cost (data, ivs, inv);
 }
@@ -4679,6 +4754,8 @@ tree_ssa_iv_optimize_loop (struct ivopts_data *data, struct loop *loop)
 
   /* Finds interesting uses (item 1).  */
   find_interesting_uses (data);
+  if (n_iv_uses (data) > MAX_CONSIDERED_USES)
+    goto finish;
 
   /* Finds candidates for the induction variables (item 2).  */
   find_iv_candidates (data);

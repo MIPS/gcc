@@ -1,3 +1,15 @@
+2004-07-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR tree-optimization/16656
+	* tree-ssa-loop-ivopts.c (CONSIDER_ALL_CANDIDATES_BOUND): Increase
+	to 30.
+	(MAX_CONSIDERED_USES): New.
+	(set_cost_up_to, try_add_cand_for): New functions.
+	(set_cost): Use set_cost_up_to.
+	(find_best_candidate, get_initial_solution): Improve efficiency.
+	(tree_ssa_iv_optimize_loop): Fail if there are more than
+	MAX_CONSIDERED_USES iv uses in the loop.
+
 2004-07-22  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-data-ref.c (array_base_name_differ_p): Add comments, and consider
