@@ -3697,8 +3697,7 @@ public abstract class Component
             Window toplevel = (Window) parent;
             if (toplevel.isFocusableWindow ())
               {
-                if (peer != null
-                    && !(this instanceof Panel))
+                if (peer != null)
                   // This call will cause a FOCUS_GAINED event to be
                   // posted to the system event queue if the native
                   // windowing system grants the focus request.
@@ -3784,8 +3783,7 @@ public abstract class Component
             Window toplevel = (Window) parent;
             if (toplevel.isFocusableWindow ())
               {
-                if (peer != null
-                    && !(this instanceof Panel))
+                if (peer != null)
                   // This call will cause a FOCUS_GAINED event to be
                   // posted to the system event queue if the native
                   // windowing system grants the focus request.
@@ -3906,7 +3904,6 @@ public abstract class Component
                 if (focusedWindow == toplevel)
                   {
                     if (peer != null
-                        && !(this instanceof Panel)
                         && !(this instanceof Window))
                       // This call will cause a FOCUS_GAINED event to be
                       // posted to the system event queue if the native

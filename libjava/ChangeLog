@@ -1,3 +1,12 @@
+2004-07-12  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/Component.java (requestFocus()): Don't handle Panels
+	specially.
+	(requestFocus(boolean)): Likewise.
+	(requestFocusInWindow(boolean)): Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.c (create):
+	Set GTK_CAN_FOCUS flag.
+
 2004-07-11  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* java/awt/Component.java (deliverEvent): Implement.
