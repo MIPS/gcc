@@ -1,3 +1,7 @@
+2003-02-01  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* Makefile.in (tree-ssa-pre2.o): Remove accidental addition.
+	
 2003-01-31  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (find_taken_edge_cond_expr): New function.
