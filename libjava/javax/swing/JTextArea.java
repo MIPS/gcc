@@ -249,4 +249,12 @@ public class JTextArea extends JTextComponent
     tabSize = newSize;
     firePropertyChange("tabSize", oldValue, tabSize);
   }
+
+  // Methods required to allow jpackage.org packages to be built
+  // http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=130006
+  
+  public void setWrapStyleWord(boolean word)
+  {
+    throw new UnsupportedOperationException ();
+  }
 }

@@ -773,4 +773,17 @@ public abstract class JTextComponent extends JComponent
   {
     return (InputMethodListener[]) getListeners(InputMethodListener.class);
   }
+
+  // Methods required to allow jpackage.org packages to be built
+  // http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=130006
+  
+  public void cut()
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void setMargin(Insets m)
+  {
+    throw new UnsupportedOperationException ();
+  }
 }

@@ -878,4 +878,12 @@ public class Window extends Container implements Accessible
         getToolkit().getSystemEventQueue().postEvent(ce);
       }
   }
+
+  // Methods required to allow jpackage.org packages to be built
+  // http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=130006
+  
+  public void setLocationRelativeTo (Component c)
+  {
+    throw new UnsupportedOperationException ();
+  }  
 }

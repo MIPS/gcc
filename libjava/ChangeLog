@@ -1,5 +1,22 @@
 2004-11-11  Gary Benson  <gbenson@redhat.com>
 
+	* java/awt/Window.java (setLocationRelativeTo): New stub.
+	* javax/swing/JList.java (setSelectionInterval): New stub.
+	* javax/swing/JRootPane.java (setDefaultButton): New stub.
+	* javax/swing/JTable.java (getRowHeight, setRowHeight,
+	sizeColumnsToFit): New stubs.
+	* javax/swing/JTextArea.java (setWrapStyleWord): New stub.
+	* javax/swing/text/JTextComponent.java (cut, setMargin): New stubs.
+	* javax/swing/JTree.java: Import javax.swing.tree.TreeCellEditor
+	and javax.swing.tree.TreeSelectionModel.
+	(collapsePath, collapseRow, expandPath, expandRow,
+	getLastSelectedPathComponent, getPathForLocation, getRowBounds,
+	getRowCount, getSelectionModel, getSelectionPaths, isExpanded,
+	makeVisible, scrollPathToVisible, setCellEditor, setLargeModel,
+	setRowHeight, setSelectionPath): New stubs.
+
+2004-11-11  Gary Benson  <gbenson@redhat.com>
+
 	* javax/swing/JTree.java (setShowRootHandles): Rename to...
 	(setShowsRootHandles): ... this.
 

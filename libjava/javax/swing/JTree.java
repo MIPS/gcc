@@ -50,10 +50,12 @@ import javax.swing.event.TreeSelectionListener;
 import javax.swing.event.TreeWillExpandListener;
 import javax.swing.plaf.TreeUI;
 import javax.swing.tree.ExpandVetoException;
+import javax.swing.tree.TreeCellEditor;
 import javax.swing.tree.TreeCellRenderer;
 import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 
 
 public class JTree extends JComponent
@@ -469,5 +471,93 @@ public class JTree extends JComponent
   public void setCellRenderer(TreeCellRenderer newRenderer)
   {
     cellRenderer = newRenderer;
+  }
+
+  // Methods required to allow jpackage.org packages to be built
+  // http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=130006
+  
+  public void collapsePath(TreePath path)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void collapseRow(int row)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void expandPath(TreePath path)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void expandRow(int row)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public Object getLastSelectedPathComponent()
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public TreePath getPathForLocation(int x, int y)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public Rectangle getRowBounds(int row)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public int getRowCount()
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public TreeSelectionModel getSelectionModel()
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public TreePath[] getSelectionPaths()
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public boolean isExpanded(TreePath path)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void makeVisible(TreePath path)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void scrollPathToVisible(TreePath path)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void setCellEditor(TreeCellEditor editor)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void setLargeModel(boolean newValue)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void setRowHeight(int rowHeight)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void setSelectionPath(TreePath path)
+  {
+    throw new UnsupportedOperationException ();
   }
 }

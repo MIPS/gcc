@@ -390,4 +390,22 @@ public class JTable extends JComponent
     // FIXME:
     return null;
   }
+
+  // Methods required to allow jpackage.org packages to be built
+  // http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=130006
+  
+  public int getRowHeight()
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void setRowHeight(int rowHeight)
+  {
+    throw new UnsupportedOperationException ();
+  }
+
+  public void sizeColumnsToFit(int resizingColumn)
+  {
+    throw new UnsupportedOperationException ();
+  }
 }

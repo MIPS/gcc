@@ -539,4 +539,12 @@ public class JRootPane extends JComponent
   {
     return "RootPaneUI";
   }
+
+  // Methods required to allow jpackage.org packages to be built
+  // http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=130006
+  
+  public void setDefaultButton(JButton defaultButton)
+  {
+    throw new UnsupportedOperationException ();
+  }
 }

@@ -1173,4 +1173,12 @@ public class JList extends JComponent implements Accessible, Scrollable
   {
     return false;
   }
+
+  // Methods required to allow jpackage.org packages to be built
+  // http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=130006
+
+  public void setSelectionInterval(int anchor,  int lead)  
+  {
+    throw new UnsupportedOperationException ();
+  }
 }
