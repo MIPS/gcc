@@ -6531,10 +6531,6 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
 
-  /* Perform the mudflap transform, if requested.  */
-  if (flag_mudflap && flag_disable_simple)
-    mudflap_c_function (fndecl);
-
   /* Simplify the function.  Don't try to optimize the function if
      simplification failed.  */
   if (!flag_disable_simple
@@ -6556,7 +6552,6 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 	  dump_end (TDI_simple, dump_file);
 	}
 
-#if 0
       if (flag_mudflap)
 	{
 	  mudflap_c_function (fndecl);
@@ -6566,7 +6561,6 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 	     them?  */
 	  simplify_function_tree (fndecl);
 	}
-#endif
 
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1)

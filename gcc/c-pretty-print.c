@@ -1021,12 +1021,24 @@ dump_c_node (buffer, node, spc, brief_dump)
       output_add_string (buffer, ")");
       break;
 
-    case TRY_CATCH_EXPR:
-      NIY;
-      break;
-
     case TRY_FINALLY_EXPR:
-      NIY;
+    case TRY_CATCH_EXPR:
+      output_add_string (buffer, "try");
+      newline_and_indent (buffer, spc+2);
+      output_add_string (buffer, "{");
+      newline_and_indent (buffer, spc+4);
+      dump_c_node (buffer, TREE_OPERAND (node, 0), spc+4, brief_dump);
+      newline_and_indent (buffer, spc+2);
+      output_add_string (buffer, "}");
+      newline_and_indent (buffer, spc);
+      output_add_string (buffer,
+			 (TREE_CODE (node) == TRY_CATCH_EXPR) ? "catch" : "finally");
+      newline_and_indent (buffer, spc+2);
+      output_add_string (buffer, "{");
+      newline_and_indent (buffer, spc+4);
+      dump_c_node (buffer, TREE_OPERAND (node, 1), spc+4, brief_dump);
+      newline_and_indent (buffer, spc+2);
+      output_add_string (buffer, "}");
       break;
 
     case GOTO_SUBROUTINE_EXPR:
@@ -1621,6 +1633,7 @@ op_prio (op)
     {
     case TREE_LIST:
     case COMPOUND_EXPR:
+    case BIND_EXPR:
       return 1;
 
     case MODIFY_EXPR:

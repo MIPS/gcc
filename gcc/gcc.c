@@ -735,7 +735,7 @@ static const char *cpp_unique_options =
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
  %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
- %{fmudflap:-D_MUDFLAP}\
+ %{fmudflap:-D_MUDFLAP -include mf-runtime.h}\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed

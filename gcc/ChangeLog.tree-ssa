@@ -1,3 +1,20 @@
+2002-10-16  Frank Ch. Eigler  <fche@redhat.com>
+
+	* c-decl.c (c_expand_body): Enable mudflap, only for gimple.
+	* c-pretty-print.c (dump_c_node): Render try/catch/finally exprs.
+	(op_prio): Accept BIND_EXPRs.
+	* gcc.c (cpp_unique_options): Make -fmudflap -include mf-runtime.h.
+	* toplev.c (process_options): Complain on -fmudflap -fdisable-simple.
+	* tree-mudflap.c (*): Reorganize for generic/gimple operation.
+	(mf_init_extern_trees): Extract decl nodes from -include'd file.
+	(mf_external_ref, mf_decl_extern_trees): Removed; updated callers.
+	(mf_offset_expr_of_array_ref): Don't bother store index type as 
+	TREE_PURPOSE.
+	(mf_build_check_statement_for): Use GIMPLE tree types and builders.
+	(mx_register_decls): New function, replacing mx_register_decl.
+	(mx_xfn_xform_decls): Support only GIMPLE input tree types.
+	(mf_flush_enqueued_calls): Clean up enqueued call statements.
+	
 2002-10-14  Diego Novillo  <dnovillo@redhat.com>
 
 	* toplev.c (parse_options_and_default_flags): Undo local

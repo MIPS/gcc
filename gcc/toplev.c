@@ -5183,6 +5183,9 @@ process_options ()
   if (optimize >= 1 && flag_disable_simple)
     warning ("-fdisable-simple also disables optimizations on trees");
 
+  if (flag_disable_simple && flag_mudflap)
+    warning ("-fdisable-simple also disables mudflap instrumentation");
+
   if (flag_dump_tree_all_ssa)
     dump_enable_all_ssa ();
 }
