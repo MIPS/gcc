@@ -1,6 +1,6 @@
 // Algorithm implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -1643,7 +1643,7 @@ __result, __binary_pred, _IterType());
 
       if (__first == __last) return;
       for (_RandomAccessIter __i = __first + 1; __i != __last; ++__i)
-	iter_swap(__i, __first + __random_number((__i - __first) + 1));
+	iter_swap(__i, __first + (rand() % ((__i - __first) + 1)));
     }
 
   /**

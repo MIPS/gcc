@@ -1,4 +1,14 @@
 2004-08-05  Paolo Carlini  <pcarlini@suse.de>
+	
+	Backport from mainline/3.4:
+	2003-12-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/13284
+	* include/bits/stl_algo.h (random_shuffle): Use rand, as
+	permitted by DR 395.
+	* include/ext/algorithm: Same.
+
+2004-08-05  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/10378
 	* include/bits/stl_alloc.h (allocator::construct,

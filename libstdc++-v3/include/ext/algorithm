@@ -266,7 +266,7 @@ namespace __gnu_cxx
       _Distance __m = min(__n, __remaining);
 
       while (__m > 0) {
-	if (std::__random_number(__remaining) < __m) {
+	if ((rand() % __remaining) < __m) {
 	      *__out = *__first;
 	      ++__out;
 	      --__m;
@@ -326,7 +326,7 @@ namespace __gnu_cxx
 
       while (__first != __last) {
 	++__t;
-	_Distance __M = std::__random_number(__t);
+	_Distance __M = rand() % __t;
 	if (__M < __n)
 	  __out[__M] = *__first;
 	++__first;
