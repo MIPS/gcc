@@ -976,13 +976,6 @@ public class GridBagLayout
       int totalSize = sumIntArray (sizes);
       double totalWeight = sumDoubleArray (weights);
 
-      // Rows or columns with size 0 should not be weighted in the calculation.
-      for (int i = 0; i < weights.length; i++)
-        {
-          if (sizes[i] == 0)
-            totalWeight -= weights[i];
-        }
-
       int diff = range - totalSize;
 
       if (diff == 0)
@@ -990,14 +983,10 @@ public class GridBagLayout
 
       for (int i = 0; i < sizes.length; i++)
         {
-          // A row or column with zero size cannot all of a sudden gain size.
-          if (sizes[i] != 0.0)
-            {
-              int newsize = (int) (sizes[i] + (((double) diff) * weights [i] / totalWeight ));
+          int newsize = (int) (sizes[i] + (((double) diff) * weights [i] / totalWeight ));
 
-              if (newsize > 0)
-                sizes[i] = newsize;
-            }
+          if (newsize > 0)
+            sizes[i] = newsize;
         }
     }
 
