@@ -848,8 +848,8 @@ cfg_layout_duplicate_bb (bb, e)
 #endif
 
   insn = duplicate_insn_chain (bb->head, bb->end);
-  new_bb = create_basic_block (n_basic_blocks, insn ? insn : get_last_insn (),
-		 	       get_last_insn ());
+  new_bb = create_basic_block (n_basic_blocks, insn,
+		 	       insn ? get_last_insn () : NULL);
   alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
 
   if (RBI (bb)->header)
