@@ -23,9 +23,11 @@ load_lib "g++-dg.exp"
 # Initialize `dg'.
 dg-init
 
+set old_dg_do_what_default "${dg-do-what-default}"
+
 # Main loop.
 foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.C]] {
-    global runtests torture_without_loops dg-do-what-default
+    global runtests dg-do-what-default
 
     # If we're only testing specific files and this isn't one of them, skip it.
     if ![runtest_file_p $runtests $test] {
@@ -34,31 +36,65 @@ foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.C]] {
     set nshort [file tail [file dirname $test]]/[file tail $test]
     set bname "[file rootname [file tail $test]]"
 
-    verbose "Testing $nshort" 1
-
     catch { file delete "$bname.Hp.pch" }
     catch { file delete "$bname.H.pch" }
+    catch { file delete "$bname.s" }
+    catch { file delete "$bname.s-pch" }
+    catch { file delete "$bname.Hp" }
 
-    # For the header files, the default is to precompile.
-    set old_dg_do_what_default "${dg-do-what-default}"
-    set dg-do-what-default precompile
-    dg-test -keep-output "[file rootname $test].H" "" ""
-    set dg-do-what-default "$old_dg_do_what_default"
-    
-    if { [ file exists "$bname.H.pch" ] } {
-	# To ensure that the PCH is used, not the original header,
-	# the actual PCH file is renamed to "<foo>.hp.pch".
-	file rename "$bname.H.pch" "$bname.Hp.pch"
-	if { [ is_remote host ] } {
-	    remote_download host "$bname.Hp.pch"
+    # We don't try to use the loop-optimizing options, since they are highly
+    # unlikely to make any difference to PCH.
+    foreach flags { "-g" "-O2 -g" "-O2" } {
+	verbose "Testing $nshort, $flags" 1
+
+	# For the header files, the default is to precompile.
+	set dg-do-what-default precompile
+	dg-test -keep-output "[file rootname $test].H" $flags ""
+
+	# For the rest, the default is to compile to .s.
+	set dg-do-what-default compile
+
+	if { [ file exists "$bname.H.pch" ] } {
+	    # To ensure that the PCH is used, not the original header,
+	    # the actual PCH file is renamed to "<foo>.Hp.pch".
+	    file rename "$bname.H.pch" "$bname.Hp.pch"
+	    if { [ is_remote host ] } {
+		remote_download host "$bname.Hp.pch"
+	    }
+
+	    dg-test -keep-output $test $flags "-I."
+	    file delete "$bname.Hp.pch"
+	    if { [ file exists "$bname.s" ] } {
+		file rename "$bname.s" "$bname.s-pch"
+		if { [ is_remote host ] } {
+		    remote_upload host "[file rootname $test].H" "$bname.Hp"
+		} else {
+		    file copy "[file rootname $test].H" "$bname.Hp"
+		}
+		dg-test -keep-output $test $flags "-I."
+		remote_file host delete "$bname.Hp"
+		set tmp [ diff "$bname.s" "$bname.s-pch" ]
+		if { $tmp == 0 } {
+		    untested "$nshort $flags assembly comparison"
+		} elseif { $tmp == 1 } {
+		    pass "$nshort $flags assembly comparison"
+		} else {
+		    fail "$nshort $flags assembly comparison"
+		}
+		file delete "$bname.s"
+		file delete "$bname.s-pch"
+	    } else {
+		untested "$nshort $flags assembly comparison"
+	    }
+
+	} else {
+	    untested $nshort
+	    untested "$nshort $flags assembly comparison"
 	}
-	
-	dg-test $test "" "-I."
-	file delete "$bname.Hp.pch"
-    } else {
-	untested $test
     }
 }
+
+set dg-do-what-default "$old_dg_do_what_default"
 
 # All done.
 dg-finish

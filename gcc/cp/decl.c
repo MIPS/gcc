@@ -42,7 +42,6 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "toplev.h"
 #include "hashtab.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
 #include "c-common.h"

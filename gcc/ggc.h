@@ -40,8 +40,22 @@ typedef void (*gt_pointer_operator) PARAMS ((void *, void *));
 typedef void (*gt_note_pointers) 
      PARAMS ((void *, void *, gt_pointer_operator, void *));
 
-/* Used by the gt_pch_n_* routines.  */
-extern int gt_pch_note_object PARAMS ((void *, gt_note_pointers, void *));
+/* One of these is called before objects are re-ordered in memory.
+   The first parameter is the original object, the second is the
+   subobject that has had its pointers reordered, the third parameter
+   can compute the new values of a pointer when given the cookie in
+   the fourth parameter.  */
+typedef void (*gt_handle_reorder)
+     PARAMS ((void *, void *, gt_pointer_operator, void *));
+
+/* Used by the gt_pch_n_* routines.  Register an object in the hash table.  */
+extern int gt_pch_note_object 
+     PARAMS ((void *, void *, gt_note_pointers));
+
+/* Used by the gt_pch_n_* routines.  Register that an object has a reorder 
+   function.  */
+extern void gt_pch_note_reorder
+     PARAMS ((void *, void *, gt_handle_reorder));
 
 /* Mark the object in the first parameter and anything it points to.  */
 typedef void (*gt_pointer_walker) PARAMS ((void *));

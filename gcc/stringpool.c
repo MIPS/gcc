@@ -198,7 +198,7 @@ void
 gt_pch_n_S (x)
      const void *x;
 {
-  gt_pch_note_object ((void *)x, &gt_pch_p_S, (void *)x);
+  gt_pch_note_object ((void *)x, (void *)x, &gt_pch_p_S);
 }
 
 /* Handle saving and restoring the string pool for PCH.  */

@@ -40,7 +40,6 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "toplev.h"
 #include "rtl.h"
-#include "ggc.h"
 #include "timevar.h"
 
 /* The type of functions taking a tree, and some additional data, and

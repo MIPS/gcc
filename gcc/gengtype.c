@@ -1375,6 +1375,7 @@ struct write_types_data
   const char *param_prefix;
   const char *subfield_marker_routine;
   const char *marker_routine;
+  const char *reorder_note_routine;
   const char *comment;
 };
 
@@ -1425,6 +1426,7 @@ struct walk_type_data
   type_p *param;
   int used_length;
   type_p orig_s;
+  const char *reorder_fn;
 };
 
 /* Print a mangled name representing T to OF.  */
@@ -1561,6 +1563,8 @@ walk_type (t, d)
     else if (strcmp (oo->name, "chain_next") == 0)
       ;
     else if (strcmp (oo->name, "chain_prev") == 0)
+      ;
+    else if (strcmp (oo->name, "reorder") == 0)
       ;
     else
       error_at_line (d->line, "unknown option `%s'\n", oo->name);
@@ -1759,6 +1763,7 @@ walk_type (t, d)
 	    int use_param_p = 0;
 	    char *newval;
 
+	    d->reorder_fn = NULL;
 	    for (oo = f->opt; oo; oo = oo->next)
 	      if (strcmp (oo->name, "dot") == 0)
 		dot = (const char *)oo->info;
@@ -1768,6 +1773,8 @@ walk_type (t, d)
 		skip_p = 1;
 	      else if (strcmp (oo->name, "default") == 0)
 		default_p = 1;
+	      else if (strcmp (oo->name, "reorder") == 0)
+		d->reorder_fn = (const char *)oo->info;
 	      else if (strncmp (oo->name, "use_param", 9) == 0
 		       && (oo->name[9] == '\0' || ISDIGIT (oo->name[9])))
 		use_param_p = 1;
@@ -1820,6 +1827,8 @@ walk_type (t, d)
 		d->indent -= 2;
 	      }
 	  }
+	d->reorder_fn = NULL;
+
 	d->val = oldval;
 	d->prev_val[1] = oldprevval1;
 	d->prev_val[2] = oldprevval2;
@@ -1883,6 +1892,7 @@ write_types_process_field (f, d)
 	       wtd->subfield_marker_routine, d->val);
       if (wtd->param_prefix)
 	{
+	  oprintf (d->of, ", %s", d->prev_val[3]);
 	  if (d->orig_s)
 	    {
 	      oprintf (d->of, ", gt_%s_", wtd->param_prefix);
@@ -1890,9 +1900,12 @@ write_types_process_field (f, d)
 	    }
 	  else
 	    oprintf (d->of, ", gt_%sa_%s", wtd->param_prefix, d->prev_val[0]);
-	  oprintf (d->of, ", %s", d->prev_val[3]);
 	}
       oprintf (d->of, ");\n");
+      if (d->reorder_fn && wtd->reorder_note_routine)
+	oprintf (d->of, "%*s%s (%s, %s, %s);\n", d->indent, "", 
+		 wtd->reorder_note_routine, d->val,
+		 d->prev_val[3], d->reorder_fn);
       break;
 
     case TYPE_STRING:
@@ -1906,6 +1919,10 @@ write_types_process_field (f, d)
       oprintf (d->of, "%*sgt_%s_", d->indent, "", wtd->prefix);
       output_mangled_typename (d->of, f);
       oprintf (d->of, " (%s);\n", d->val);
+      if (d->reorder_fn && wtd->reorder_note_routine)
+	oprintf (d->of, "%*s%s (%s, %s, %s);\n", d->indent, "", 
+		 wtd->reorder_note_routine, d->val, d->val,
+		 d->reorder_fn);
       break;
 
     case TYPE_SCALAR:
@@ -1992,9 +2009,8 @@ write_func_for_structure (orig_s, s, param, wtd)
       oprintf (d.of, "  if (%s (x", wtd->marker_routine);
       if (wtd->param_prefix)
 	{
-	  oprintf (d.of, ", gt_%s_", wtd->param_prefix);
+	  oprintf (d.of, ", x, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
-	  oprintf (d.of, ", x");
 	}
       oprintf (d.of, "))\n");
     }
@@ -2003,9 +2019,8 @@ write_func_for_structure (orig_s, s, param, wtd)
       oprintf (d.of, "  while (%s (xlimit", wtd->marker_routine);
       if (wtd->param_prefix)
 	{
-	  oprintf (d.of, ", gt_%s_", wtd->param_prefix);
+	  oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
-	  oprintf (d.of, ", xlimit");
 	}
       oprintf (d.of, "))\n");
       oprintf (d.of, "   xlimit = (");
@@ -2029,9 +2044,8 @@ write_func_for_structure (orig_s, s, param, wtd)
 		   wtd->marker_routine);
 	  if (wtd->param_prefix)
 	    {
-	      oprintf (d.of, ", gt_%s_", wtd->param_prefix);
+	      oprintf (d.of, ", xprev, gt_%s_", wtd->param_prefix);
 	      output_mangled_typename (d.of, orig_s);
-	      oprintf (d.of, ", xprev");
 	    }
 	  oprintf (d.of, ");\n");
 	  oprintf (d.of, "      }\n");
@@ -2156,13 +2170,14 @@ write_types (structures, param_structs, wtd)
 
 static const struct write_types_data ggc_wtd =
 {
-  "ggc_m", NULL, "ggc_mark", "ggc_test_and_set_mark",
+  "ggc_m", NULL, "ggc_mark", "ggc_test_and_set_mark", NULL,
   "GC marker procedures.  "
 };
 
 static const struct write_types_data pch_wtd =
 {
   "pch_n", "pch_p", "gt_pch_note_object", "gt_pch_note_object",
+  "gt_pch_note_reorder",
   "PCH type-walking procedures.  "
 };
 

@@ -1,3 +1,24 @@
+2002-12-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* gengtype.c (struct write_types_data): Add reorder_note_routine field.
+	(struct walk_type_data): Add reorder_fn field.
+	(walk_type): Process 'reorder' option.
+	(write_types_process_field): Reorder parameters to gt_pch_note_object,
+	call reorder_note_routine.
+	(write_func_for_structure): Reorder parameters to gt_pch_note_object.
+	(ggc_wtd): Update for change to struct write_types_data.
+	(pch_wtd): Likewise.
+	* ggc.h (gt_pch_note_object): Reorder parameters.
+	(gt_handle_reorder): New definition.
+	(gt_pch_note_reorder): New prototype.
+	* ggc-common.c (struct ptr_data): Add reorder_fn.
+	(gt_pch_note_object): Reorder parameters.
+	(gt_pch_note_reorder): New.
+	(gt_pch_save): Call reorder_fn.
+	* stringpool.c (gt_pch_n_S): Update for change to gt_pch_note_object.
+
+	* dbxout.c (cwd): Don't mark for PCH.
+
 2002-12-09  Geoffrey Keating  <geoffk@apple.com>
 
 	* gengtype.c (finish_root_table): Fix some warnings.

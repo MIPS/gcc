@@ -141,7 +141,7 @@ static GTY(()) const char *lastfile;
 
 /* Current working directory.  */
 
-static GTY(()) const char *cwd;
+static const char *cwd;
 
 enum typestatus {TYPE_UNSEEN, TYPE_XREF, TYPE_DEFINED};
 

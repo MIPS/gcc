@@ -35,7 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "toplev.h"
 #include "output.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "timevar.h"
 #include "diagnostic.h"

@@ -35,8 +35,6 @@ Boston, MA 02111-1307, USA.  */
   {".H",   "@c++-header", 0},
   {".hh",  "@c++-header", 0},
   {"@c++-header",
-     /* We should convert -ansi to -std=c++98 even if -fpreprocessed,
-	to get dollars in identifiers correct.  */
     "%{E|M|MM:cc1plus -E %{!no-gcc:-D__GNUG__=%v1}\
        %(cpp_options) %2 %(cpp_debug_options)}\
      %{!E:%{!M:%{!MM:\

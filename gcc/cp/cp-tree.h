@@ -20,6 +20,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#include "ggc.h"
 #include "function.h"
 #include "hashtab.h"
 #include "splay-tree.h"
@@ -1163,7 +1164,7 @@ struct lang_type_class GTY(())
   tree as_base;
   tree pure_virtuals;
   tree friend_classes;
-  tree methods;
+  tree GTY ((reorder ("resort_type_method_vec"))) methods;
   tree decl_list;
   tree template_info;
   tree befriending_classes;
@@ -1763,6 +1764,9 @@ struct lang_decl_flags GTY(())
   } GTY ((desc ("%1.u2sel"))) u2;
 };
 
+/* sorted_fields is sorted based on a pointer, so we need to be able
+   to resort it if pointers get rearranged.  */
+
 struct lang_decl GTY(())
 {
   struct lang_decl_flags decl_flags;
@@ -1794,7 +1798,8 @@ struct lang_decl GTY(())
 	
 	union lang_decl_u3
 	{
-	  tree GTY ((tag ("0"))) sorted_fields;
+	  tree GTY ((tag ("0"), reorder ("resort_sorted_fields"))) 
+	       sorted_fields;
 	  struct unparsed_text * GTY ((tag ("2"))) pending_inline_info;
 	  struct language_function * GTY ((tag ("1"))) 
 	       saved_language_function;
@@ -3552,10 +3557,14 @@ extern tree perform_implicit_conversion         PARAMS ((tree, tree));
 
 /* in class.c */
 extern tree build_base_path			PARAMS ((enum tree_code, tree, tree, int));
-extern tree convert_to_base                     (tree, tree, bool);
+extern tree convert_to_base                     PARAMS ((tree, tree, bool));
 extern tree build_vtbl_ref			PARAMS ((tree, tree));
 extern tree build_vfn_ref			PARAMS ((tree, tree));
 extern tree get_vtable_decl                     PARAMS ((tree, int));
+extern void resort_sorted_fields 
+  PARAMS ((void *, void *, gt_pointer_operator, void *));
+extern void resort_type_method_vec
+  PARAMS ((void *, void *, gt_pointer_operator, void *));
 extern void add_method				PARAMS ((tree, tree, int));
 extern int currently_open_class			PARAMS ((tree));
 extern tree currently_open_derived_class	PARAMS ((tree));

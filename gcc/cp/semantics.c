@@ -33,7 +33,6 @@
 #include "lex.h"
 #include "toplev.h"
 #include "flags.h"
-#include "ggc.h"
 #include "rtl.h"
 #include "expr.h"
 #include "output.h"

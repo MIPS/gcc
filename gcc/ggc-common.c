@@ -224,8 +224,9 @@ static htab_t saving_htab;
 struct ptr_data 
 {
   void *obj;
-  gt_note_pointers note_ptr_fn;
   void *note_ptr_cookie;
+  gt_note_pointers note_ptr_fn;
+  gt_handle_reorder reorder_fn;
   size_t size;
   void *new_addr;
 };
@@ -235,10 +236,10 @@ struct ptr_data
 /* Register an object in the hash table.  */
 
 int
-gt_pch_note_object (obj, note_ptr_fn, note_ptr_cookie)
+gt_pch_note_object (obj, note_ptr_cookie, note_ptr_fn)
      void *obj;
-     gt_note_pointers note_ptr_fn;
      void *note_ptr_cookie;
+     gt_note_pointers note_ptr_fn;
 {
   struct ptr_data **slot;
   
@@ -265,6 +266,27 @@ gt_pch_note_object (obj, note_ptr_fn, note_ptr_cookie)
   else
     (*slot)->size = ggc_get_size (obj);
   return 1;
+}
+
+/* Register an object in the hash table.  */
+
+void
+gt_pch_note_reorder (obj, note_ptr_cookie, reorder_fn)
+     void *obj;
+     void *note_ptr_cookie;
+     gt_handle_reorder reorder_fn;
+{
+  struct ptr_data *data;
+  
+  if (obj == NULL || obj == (void *) 1)
+    return;
+
+  data = htab_find_with_hash (saving_htab, obj, POINTER_HASH (obj));
+  if (data == NULL
+      || data->note_ptr_cookie != note_ptr_cookie)
+    abort ();
+  
+  data->reorder_fn = reorder_fn;
 }
 
 /* Hash and equality functions for saving_htab, callbacks for htab_create.  */
@@ -496,6 +518,10 @@ gt_pch_save (f)
 	  this_object = xrealloc (this_object, this_object_size);
 	}
       memcpy (this_object, state.ptrs[i]->obj, state.ptrs[i]->size);
+      if (state.ptrs[i]->reorder_fn != NULL)
+	state.ptrs[i]->reorder_fn (state.ptrs[i]->obj, 
+				   state.ptrs[i]->note_ptr_cookie,
+				   relocate_ptrs, &state);
       state.ptrs[i]->note_ptr_fn (state.ptrs[i]->obj, 
 				  state.ptrs[i]->note_ptr_cookie,
 				  relocate_ptrs, &state);
