@@ -1,5 +1,10 @@
 2005-03-24  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_for): Use 'result' when building BIND_EXPR.
+	Fixed order of arguments.
+
+2005-03-24  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (visit_array_initializer): Build COMPOUND_EXPRs, not a
 	statement list.  Lay out array class.
 

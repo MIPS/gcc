@@ -568,8 +568,8 @@ void
 tree_generator::visit_for (model_for *fstmt,
 			   const ref_stmt &init,
 			   const ref_expression &cond,
-			   const ref_stmt &body,
-			   const ref_stmt &update)
+			   const ref_stmt &update,
+			   const ref_stmt &body)
 {
   tree update_tree = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_CONTEXT (update_tree) = current_block;
@@ -620,9 +620,8 @@ tree_generator::visit_for (model_for *fstmt,
   tsi_link_after (&result_out, build1 (LABEL_EXPR, void_type_node, done_tree),
 		  TSI_CONTINUE_LINKING);
 
-  current = build3 (BIND_EXPR, void_type_node,
-		    BLOCK_VARS (current_block),
-		    body_tree, current_block);
+  current = build3 (BIND_EXPR, void_type_node, BLOCK_VARS (current_block),
+		    result, current_block);
 }
 
 void
