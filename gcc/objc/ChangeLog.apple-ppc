@@ -1,3 +1,9 @@
+2005-01-14  Mike Stump  <mrs@apple.com>
+
+	Radar 3948135
+	* lang-specs.h ("@objective-c"): Use cc1obj when -E is used so
+	that -fzero-link is accepted.
+
 2005-01-12  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3882153
