@@ -6669,12 +6669,6 @@ build_cdtor (int method_type, tree cdtors)
 {
   tree body = 0;
 
-  /* The Objective-C metadata initializer (if any) must be run
-     _before_ all other static constructors.  */
-  if (c_dialect_objc () && (method_type == 'I')
-      && objc_static_init_needed_p ())
-    cdtors = objc_generate_static_init_call (cdtors);
-
   if (!cdtors)
     return;
 
@@ -6730,6 +6724,11 @@ c_write_global_declarations (void)
   for (t = all_translation_units; t; t = TREE_CHAIN (t))
     c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
+
+  /* The Objective-C metadata initializer (if any) must be run
+     _before_ all other static constructors.  */
+  if (objc_static_init_needed_p ())
+    static_ctors = objc_generate_static_init_call (static_ctors);
 
   /* Generate functions to call static constructors and destructors
      for targets that do not support .ctors/.dtors sections.  These

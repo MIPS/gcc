@@ -1,3 +1,7 @@
+2004-08-21  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc/execute/IMP.m: Include <stdlib.h>.
+
 2004-08-06  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc.dg/const-str-3.m: Include <memory.h> and <stdlib.h>.

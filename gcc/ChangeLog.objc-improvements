@@ -1,4 +1,9 @@
-<<<<<<< ChangeLog
+2004-08-21  Ziemowit Laski  <zlaski@apple.com>
+
+	* c-decl.c (build_cdtor) Move calls to objc_static_init_needed_p()
+	and objc_generate_static_init_call() ...
+	(c_write_global_declarations): ... here.
+
 2004-08-19  Ziemowit Laski  <zlaski@apple.com>
 
 	* c-parse.in (methodtype): Specify %type; remove (explicit) semantic
@@ -125,7 +130,6 @@
 	(get_output_file_with_visibility): Add more special cases for headers
 	used by more than one front-end.
 	
-=======
 2004-08-06  Ziemowit Laski  <zlaski@apple.com>
 
 	* doc/frontends.texi: Mention Objective-C++ in addition to
