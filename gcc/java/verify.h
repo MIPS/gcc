@@ -125,6 +125,7 @@ void vfy_note_stack_type (vfy_method *method, int pc, int slot,
 			  vfy_jclass type);
 void vfy_note_local_type (vfy_method *method, int pc, int slot,
 			  vfy_jclass type);
+void vfy_note_instruction_seen (int pc);
 
 #define GLOM(name, stuff) name ## stuff
 #define VFY_PRIMITIVE_CLASS(name) \

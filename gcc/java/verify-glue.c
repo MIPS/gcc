@@ -404,6 +404,11 @@ vfy_note_local_type (vfy_method *method ATTRIBUTE_UNUSED, int pc, int slot,
   TREE_VEC_ELT (vec, slot) = type;
 }
 
+void
+vfy_note_instruction_seen (int pc)
+{
+  instruction_bits[pc] |= BCODE_VERIFIED;
+}
 
 /* Verify the bytecodes of the current method.
    Return 1 on success, 0 on failure. */
@@ -448,6 +453,7 @@ verify_jvm_instructions_new (JCF *jcf, const unsigned char *byte_ops,
 		   lookup_label (handler_pc),
 		   catch_type == 0 ? NULL_TREE
 		   : get_class_constant (jcf, catch_type));
+      instruction_bits[handler_pc] |= BCODE_EXCEPTION_TARGET;
     }
 
   handle_nested_ranges ();

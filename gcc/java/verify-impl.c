@@ -147,6 +147,7 @@ debug_print (const char *fmt, ...)
 
 #define FLAG_INSN_START 1
 #define FLAG_BRANCH_TARGET 2
+#define FLAG_INSN_SEEN 4
 
 struct state;
 struct type;
@@ -2346,10 +2347,6 @@ verify_instructions_0 (void)
 
   vfr->next_verify_state = NULL;
 
-  /* Other parts of the compiler assume that there is a label with a
-     type map at PC=0.  */
-  add_new_state (0, vfr->current_state);
-
   while (true)
     {
       /* If the PC was invalidated, get a new one from the work list.  */
@@ -2389,6 +2386,7 @@ verify_instructions_0 (void)
          the end of the bytecode until we process a `ret'.  */
       if (vfr->PC >= vfr->current_method->code_length)
 	verify_fail ("fell off end");
+      vfr->flags[vfr->PC] |= FLAG_INSN_SEEN;
 
       /* We only have to keep saved state at branch targets.  If
          we're at a branch target and the state here hasn't been set
@@ -2396,7 +2394,10 @@ verify_instructions_0 (void)
          won't necessarily have FLAG_BRANCH_TARGET set.  This
          doesn't matter, since those states will be filled in by
          merge_into.  */
-      if (vfr->states[vfr->PC] == NULL && (vfr->flags[vfr->PC] & FLAG_BRANCH_TARGET))
+      /* Note that other parts of the compiler assume that there is a
+	 label with a type map at PC=0.  */
+      if (vfr->states[vfr->PC] == NULL
+	  && (vfr->PC == 0 || (vfr->flags[vfr->PC] & FLAG_BRANCH_TARGET) != 0))
 	add_new_state (vfr->PC, vfr->current_state);
 
       /* Set this before handling exceptions so that debug output is
@@ -3329,6 +3330,9 @@ verify_instructions (void)
     {
       int j;
       struct state *curr;
+
+      if ((vfr->flags[i] & FLAG_INSN_SEEN) != 0)
+	vfy_note_instruction_seen (i);
 
       if (! vfr->states[i])
 	continue;

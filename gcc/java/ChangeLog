@@ -1,5 +1,14 @@
 2004-10-19  Tom Tromey  <tromey@redhat.com>
 
+	* verify.h (vfy_note_instruction_seen): Declare.
+	* verify-glue.c (verify_jvm_instructions_new): Set
+	BCODE_EXCEPTION_TARGET on target instruction.
+	(vfy_note_instruction_seen): New function.
+	* verify-impl.c (FLAG_INSN_SEEN): New define.
+	(verify_instructions_0): Set flag on instruction.  Save state for
+	PC=0 later.
+	(verify_instructions): Call vfy_note_instruction_seen.
+
 	* verify-glue.c (vfy_note_stack_depth): Fix off-by-one error.
 	(verify_jvm_instructions_new): Call method_init_exceptions,
 	add_handler, and handle_nested_ranges.
