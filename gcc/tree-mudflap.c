@@ -1276,6 +1276,8 @@ mudflap_enqueue_decl (obj, label)
       tree object_size;
       tree call_stmt;
 
+      mf_mark (obj);
+
       object_size = size_in_bytes (TREE_TYPE (obj));
 
       dump_file = dump_begin (TDI_mudflap, &dump_flags);

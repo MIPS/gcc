@@ -603,14 +603,13 @@ proper position among the other output files.  */
 
 /* mudflap specs */
 #ifndef MFWRAP_SPEC
-/* XXX: valid only if linking with static libmudflap.a */
 /* XXX: valid only for GNU ld */
 /* XXX: should exactly match hooks provided by libmudflap.a */
 #define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
  --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
  --wrap=mmap --wrap=munmap --wrap=alloca\
 } %{fmudflapth: --wrap=pthread_create\
-}}"
+}} %{fmudflap|fmudflapth: --wrap=main}"
 #endif
 #ifndef MFLIB_SPEC
 #define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{static:%(link_gcc_c_sequence) -lmudflap}} %{fmudflapth: -export-dynamic -lmudflapth -lpthread %{static:%(link_gcc_c_sequence) -lmudflapth}} "

@@ -1,3 +1,9 @@
+2003-06-11  Frank Ch. Eigler  <fche@redhat.com>
+
+	* gcc.c (MFWRAP_SPEC): Always wrap main().
+	* tree-mudflap.c (mudflap_enqueue_decl): Mark enqueued decls
+	to prevent them from repeated processing.
+
 2003-06-11  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c: add graph_dump_file, graph_dump_flags.
