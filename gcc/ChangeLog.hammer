@@ -1,3 +1,10 @@
+2004-03-30  Hartmut Penner  <hpenner@de.ibm.com>
+
+	Backport from mainline:
+	PR 11591	
+	* config/rs6000/rs6000.c (rs6000_legitimate_address): 
+	Allow any offset to argument pointer in no-strict case.
+
 2004-03-27  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/rs6000/t-linux64bi (bispecs): Correct for non-default cpu.
