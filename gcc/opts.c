@@ -1130,6 +1130,15 @@ common_handle_option (size_t scode, const char *arg,
       flag_mudflap = value;
       break;
 
+    case OPT_fmudflapth:
+      flag_mudflap = value;
+      flag_mudflap_threads = value;
+      break;
+
+    case OPT_fmudflapir:
+      flag_mudflap_ignore_reads = value;
+      break;
+
     case OPT_fnew_ra:
       flag_new_regalloc = value;
       break;

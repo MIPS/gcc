@@ -158,12 +158,12 @@ mudflap_function_ops (void)
   push_gimplify_context ();
 
   /* In multithreaded mode, don't cache the lookup cache parameters.  */
-  if (! (flag_mudflap > 1))
+  if (! flag_mudflap_threads)
     mf_decl_cache_locals (&DECL_SAVED_TREE (current_function_decl));
 
   mf_xform_derefs (DECL_SAVED_TREE (current_function_decl));
 
-  if (! (flag_mudflap > 1))
+  if (! flag_mudflap_threads)
     mf_decl_clear_locals ();
 
   pop_gimplify_context (NULL);
@@ -465,9 +465,9 @@ mf_build_check_statement_for (tree addr, tree size, tree_stmt_iterator *iter,
   /* Build: __mf_elem = &__mf_lookup_cache [(__mf_base >> __mf_shift)
                                             & __mf_mask].  */
   t = build (RSHIFT_EXPR, mf_uintptr_type, mf_base,
-             (flag_mudflap > 1 ? mf_cache_shift_decl : mf_cache_shift_decl_l));
+             (flag_mudflap_threads ? mf_cache_shift_decl : mf_cache_shift_decl_l));
   t = build (BIT_AND_EXPR, mf_uintptr_type, t,
-             (flag_mudflap > 1 ? mf_cache_mask_decl : mf_cache_mask_decl_l));
+             (flag_mudflap_threads ? mf_cache_mask_decl : mf_cache_mask_decl_l));
   t = build (ARRAY_REF,
              TREE_TYPE (TREE_TYPE (mf_cache_array_decl)),
              mf_cache_array_decl, t);
@@ -526,7 +526,7 @@ mf_build_check_statement_for (tree addr, tree size, tree_stmt_iterator *iter,
   t = build_function_call_expr (mf_check_fndecl, u);
   append_to_statement_list (t, &stmt);
 
-  if (! (flag_mudflap > 1))
+  if (! flag_mudflap_threads)
     {
       t = build (MODIFY_EXPR, void_type_node,
                  mf_cache_shift_decl_l, mf_cache_shift_decl);
@@ -550,6 +550,10 @@ mf_xform_derefs_1 (tree_stmt_iterator *iter, tree *tp,
                    location_t *locus, tree dirflag)
 {
   tree type, ptr_type, addr, size, t;
+
+  /* Don't instrument read operations.  */
+  if (dirflag == integer_zero_node && flag_mudflap_ignore_reads)
+    return;
 
   t = *tp;
   type = TREE_TYPE (t);
@@ -743,7 +747,7 @@ mx_register_decls (tree decl, tree *stmt_list)
           (! mf_marked_p (decl)) && /* not already processed */
           (TREE_ADDRESSABLE (decl))) /* has address taken */
         {
-          tree size, variable_name;
+          tree size = NULL_TREE, variable_name;
           tree unregister_fncall, unregister_fncall_params;
           tree register_fncall, register_fncall_params;
 

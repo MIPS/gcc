@@ -77,6 +77,7 @@ mflang_flush_calls (tree enqueued_call_stmt_chain)
 		  NULL_TREE, SF_DEFAULT);
 
   TREE_PUBLIC (current_function_decl) = 0;
+  TREE_USED (current_function_decl) = 1;
   DECL_ARTIFICIAL (current_function_decl) = 1;
   mf_mark (current_function_decl);
 

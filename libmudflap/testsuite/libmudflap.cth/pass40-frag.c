@@ -21,8 +21,10 @@ test (void)
         for (i = 1; i <= 10000; ++i) {
                 if (i%100 == 0) fprintf (stderr, "%i ", i);
                 if (i%1000 == 0) fprintf (stderr, "\n");
+#ifndef STATIC 
+	  /* Some glibc versions don't like static multithreaded programs doing this. */
                 if (i==5000) __mf_set_options ("-thread-stack=192");
-
+#endif
                 rc = pthread_create (&h, &my_pthread_attr,
                         func, NULL);
                 if (rc)

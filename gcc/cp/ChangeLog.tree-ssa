@@ -1,3 +1,7 @@
+2004-01-30  Frank Ch. Eigler  <fche@redhat.com>
+
+	* cp-mudflap.c (mflang_flush_calls): Mark static ctor as TREE_USED.
+
 2004-01-12  Jason Merrill  <jason@redhat.com>
 
 	* cp-lang.c (ok_to_generate_alias_set_for_type): Remove.

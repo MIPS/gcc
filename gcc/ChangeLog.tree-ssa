@@ -1,3 +1,14 @@
+2004-01-30  Frank Ch. Eigler  <fche@redhat.com>
+
+	* common.opt: Add support for -fmudflapth, -fmudflapir.
+	* opts.c: Ditto.
+	* flags.h: Add new flags flag_mudflap_threads, _ignore_reads.
+	* toplev.c: Initialize new flags.  Remove redundant code from
+	lang_independent_options[].
+	* tree-mudflap.c (*): Support new flag_mudflap_threads encoding.
+	(mf_xform_derefs_1): Support flag_mudflap_ignore_reads option.
+	* c-mudflap.c (mflang_flush_calls): Mark static ctor TREE_USED.
+
 2004-01-30  Ian Lance Taylor  <ian@wasabisystems.com>
 
 	* gengtype-yacc.y (bitfieldlen): Add empty action.

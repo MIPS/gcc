@@ -1,6 +1,6 @@
 /* Compilation switch flag definitions for GCC.
    Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003
+   2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -708,6 +708,8 @@ extern int flag_non_call_exceptions;
 /* Nonzero means enable mudflap bounds-checking transforms;
    >1 means also to include multithreading locks.  */
 extern int flag_mudflap;
+extern int flag_mudflap_threads;
+extern int flag_mudflap_ignore_reads;
 
 /* Disable SSA optimizations on trees.  */
 extern int flag_disable_tree_ssa;

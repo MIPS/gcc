@@ -455,7 +455,15 @@ Force all loop invariant computations out of loops
 
 fmudflap
 Common RejectNegative
-Add mudflap bounds-checking instrumentation (-fmudflapth includes multithreading support)
+Add mudflap bounds-checking instrumentation for single-threaded program.
+
+fmudflapth
+Common RejectNegative
+Add mudflap bounds-checking instrumentation for multi-threaded program.
+
+fmudflapir
+Common RejectNegative
+Ignore read operations when inserting mudflap instrumentation.
 
 fnew-ra
 Common

@@ -940,6 +940,8 @@ int flag_bounds_check = 0;
 
 /* Mudflap bounds-checking transform.  */
 int flag_mudflap = 0;
+int flag_mudflap_threads = 0;
+int flag_mudflap_ignore_reads = 0;
 
 /* This will attempt to merge constant section constants, if 1 only
    string constants and constants from constant pool, if 2 also constant
@@ -1174,8 +1176,6 @@ static const lang_independent_options f_options[] =
   { "trapv", &flag_trapv, 1 },
   { "wrapv", &flag_wrapv, 1 },
   { "new-ra", &flag_new_regalloc, 1 },
-  { "mudflap", &flag_mudflap, 1 },
-  { "mudflapth", &flag_mudflap, 2 },
   { "disable-tree-ssa", &flag_disable_tree_ssa, 1 },
   { "tree-gvn", &flag_tree_gvn, 1 },
   { "tree-pre", &flag_tree_pre, 1 },
