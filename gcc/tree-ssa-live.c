@@ -41,11 +41,12 @@ Boston, MA 02111-1307, USA.  */
 
 extern unsigned long next_ssa_version;
 
-static void live_worklist			PARAMS ((tree_live_info_p, varray_type, int));
-static tree_live_info_p new_tree_live_info	PARAMS ((var_map));
-static inline void set_if_valid			PARAMS ((var_map, sbitmap, tree));
-static inline void add_livein_if_notdef		PARAMS ((tree_live_info_p, sbitmap, tree, basic_block));
-static inline void register_ssa_partition	PARAMS ((var_map, tree));
+static void live_worklist (tree_live_info_p, varray_type, int);
+static tree_live_info_p new_tree_live_info (var_map);
+static inline void set_if_valid (var_map, sbitmap, tree);
+static inline void add_livein_if_notdef (tree_live_info_p, sbitmap,
+					 tree, basic_block);
+static inline void register_ssa_partition (var_map, tree);
 
 
 /* This is where the mapping from SSA version number to real storage variable
@@ -63,8 +64,7 @@ static inline void register_ssa_partition	PARAMS ((var_map, tree));
 /* Create the variable partition and initialize it.  */
 
 var_map
-init_var_map (size)
-     int size;
+init_var_map (int size)
 {
   var_map map;
 
@@ -84,8 +84,7 @@ init_var_map (size)
 /* Free memory associated with a var_map.  */
 
 void
-delete_var_map (map)
-     var_map map;
+delete_var_map (var_map map)
 {
   free (map->partition_to_var);
   partition_delete (map->var_partition);
@@ -100,9 +99,7 @@ delete_var_map (map)
    manager. Any unregistered partitions may be compacted out later.  */
 
 static inline void
-register_ssa_partition (map, ssa_var)
-     var_map map;
-     tree ssa_var;
+register_ssa_partition (var_map map, tree ssa_var)
 {
   if (TREE_CODE (ssa_var) != SSA_NAME)
     abort ();
@@ -112,9 +109,7 @@ register_ssa_partition (map, ssa_var)
 /* This function will combine 2 partitions.  */
 
 int
-var_union (map, var1, var2)
-     var_map map;
-     tree var1, var2;
+var_union (var_map map, tree var1, tree var2)
 {
   int p1, p2, p3;
   tree root_var = NULL_TREE;
@@ -181,9 +176,7 @@ var_union (map, var1, var2)
    definitions for assignment to program variables.  */
 
 void 
-compact_var_map (map, flags)
-     var_map map;
-     int flags;
+compact_var_map (var_map map, int flags)
 {
   sbitmap used;
   int x, limit, count, tmp, root, root_i;
@@ -270,10 +263,7 @@ compact_var_map (map, flags)
    to be mapped back to real variables.  */
   
 void 
-change_partition_var (map, var, part)
-     var_map map;
-     tree var;
-     int part;
+change_partition_var (var_map map, tree var, int part)
 {
   var_ann_t ann;
 
@@ -291,7 +281,7 @@ change_partition_var (map, var, part)
    need to have entries in the partition table.  */
 
 var_map
-create_ssa_var_map ()
+create_ssa_var_map (void)
 {
   block_stmt_iterator bsi;
   basic_block bb;
@@ -346,8 +336,7 @@ create_ssa_var_map ()
 /* Create a new live range information object.  */
 
 static tree_live_info_p
-new_tree_live_info (map)
-     var_map map;
+new_tree_live_info (var_map map)
 {
   tree_live_info_p live;
 
@@ -370,8 +359,7 @@ new_tree_live_info (map)
 /* Free storage for a live range info object.  */
 
 void 
-delete_tree_live_info (live)
-     tree_live_info_p live;
+delete_tree_live_info (tree_live_info_p live)
 {
   if (live->liveout)
     sbitmap_vector_free (live->liveout);
@@ -387,10 +375,7 @@ delete_tree_live_info (live)
    given partition.  */
 
 static void
-live_worklist (live, stack, i)
-     tree_live_info_p live;
-     varray_type stack;
-     int i;
+live_worklist (tree_live_info_p live, varray_type stack, int i)
 {
   int b;
   tree var;
@@ -431,10 +416,7 @@ live_worklist (live, stack, i)
 /* If a variable is in a partition, set the bit for that partition.  */
 
 static inline void
-set_if_valid (map, vec, var)
-     var_map map;
-     sbitmap vec;
-     tree var;
+set_if_valid (var_map map, sbitmap vec, tree var)
 {
   int p = var_to_partition (map, var);
   if (p != NO_PARTITION)
@@ -445,11 +427,8 @@ set_if_valid (map, vec, var)
    global bit for it.  */
 
 static inline void
-add_livein_if_notdef (live, def_vec, var, bb)
-     tree_live_info_p live;
-     sbitmap def_vec;
-     tree var;
-     basic_block bb;
+add_livein_if_notdef (tree_live_info_p live, sbitmap def_vec,
+		      tree var, basic_block bb)
 {
   int p = var_to_partition (live->map, var);
   if (p == NO_PARTITION || bb == ENTRY_BLOCK_PTR)
@@ -465,8 +444,7 @@ add_livein_if_notdef (live, def_vec, var, bb)
    each basic block.  */
 
 tree_live_info_p 
-calculate_live_on_entry (map)
-     var_map map;
+calculate_live_on_entry (var_map map)
 {
   tree_live_info_p live;
   int num, i;
@@ -574,8 +552,7 @@ calculate_live_on_entry (map)
 /* Calculate the live on exit vectors.  */
 
 void
-calculate_live_on_exit (liveinfo)
-     tree_live_info_p liveinfo;
+calculate_live_on_exit (tree_live_info_p liveinfo)
 {
   unsigned b;
   int i;
@@ -625,8 +602,7 @@ calculate_live_on_exit (liveinfo)
 /* Initialize a root_var object.  */
 
 root_var_p
-init_root_var (map)
-     var_map map;
+init_root_var (var_map map)
 {
   root_var_p rv;
   int num_partitions = num_var_partitions (map);
@@ -686,9 +662,7 @@ init_root_var (map)
 /* Remove a partition form a root_var's list.  */
 
 void
-remove_root_var_partition (rv, root_index, partition_index)
-     root_var_p rv;
-     int root_index, partition_index;
+remove_root_var_partition (root_var_p rv, int root_index, int partition_index)
 {
   int i;
 
@@ -712,8 +686,7 @@ remove_root_var_partition (rv, root_index, partition_index)
 
 /* Free the memory used by a root_var object.  */
 void
-delete_root_var (rv)
-     root_var_p rv;
+delete_root_var (root_var_p rv)
 {
   if (!rv)
     return;
@@ -725,9 +698,7 @@ delete_root_var (rv)
 
 /* Output a root_var object.  */
 void
-dump_root_var (f, rv)
-     FILE *f;
-     root_var_p rv;
+dump_root_var (FILE *f, root_var_p rv)
 {
   int x, i;
 
@@ -756,9 +727,7 @@ dump_root_var (f, rv)
 /* Output a partition.  */
 
 void
-dump_var_map (f, map)
-     FILE *f;
-     var_map map;
+dump_var_map (FILE *f, var_map map)
 {
   int t;
   unsigned x, y;

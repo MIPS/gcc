@@ -478,18 +478,18 @@ extern void tree_perform_ssapre		PARAMS ((tree));
 
 
 /* In tree-ssa-ccp.c  */
-void tree_ssa_ccp			PARAMS ((tree));
-void fold_stmt				PARAMS ((tree));
+void tree_ssa_ccp (tree);
+void fold_stmt (tree);
 
 
 /* In tree-ssa-dce.c  */
-void tree_ssa_dce			PARAMS ((tree));
+void tree_ssa_dce (tree);
 
 /* In tree-ssa-copyprop.c  */
-void tree_ssa_copyprop			PARAMS ((tree));
+void tree_ssa_copyprop (tree);
 
-static inline int phi_arg_from_edge	PARAMS ((tree, edge));
-static inline struct phi_arg_d *phi_element_for_edge	PARAMS ((tree, edge));
+static inline int phi_arg_from_edge (tree, edge);
+static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
 
 #include "tree-flow-inline.h"
 

@@ -1,3 +1,9 @@
+2003-06-11  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-flow.h, tree-ssa-ccp.c, tree-ssa-copyprop.c,
+	tree-ssa-dce.c, tree-ssa-live.c, tree-ssa-live.h:
+	Convert function prototypes to ISO C.
+
 2003-06-10  Jeff Law  <law@redhat.com>
 
 	* toplev.c (parse_options_and_default_flags): Fix typo in last change.

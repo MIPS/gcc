@@ -53,24 +53,23 @@ typedef struct _var_map
 #define VARMAP_NORMAL		0
 #define VARMAP_NO_SINGLE_DEFS	1
 
-extern var_map init_var_map		PARAMS ((int));
-extern void delete_var_map		PARAMS ((var_map));
-extern void dump_var_map		PARAMS ((FILE *, var_map));
-extern int var_union			PARAMS ((var_map, tree, tree));
-extern void change_partition_var	PARAMS ((var_map, tree, int));
-extern var_map create_ssa_var_map	PARAMS ((void));
-extern void compact_var_map		PARAMS ((var_map, int));
+extern var_map init_var_map (int);
+extern void delete_var_map (var_map);
+extern void dump_var_map (FILE *, var_map);
+extern int var_union (var_map, tree, tree);
+extern void change_partition_var (var_map, tree, int);
+extern var_map create_ssa_var_map (void);
+extern void compact_var_map (var_map, int);
 
-static inline int num_var_partitions	PARAMS ((var_map));
-static inline tree var_to_partition_to_var	PARAMS ((var_map, tree));
-static inline tree partition_to_var	PARAMS ((var_map, int));
-static inline int var_to_partition		PARAMS ((var_map, tree));
+static inline int num_var_partitions (var_map);
+static inline tree var_to_partition_to_var (var_map, tree);
+static inline tree partition_to_var (var_map, int);
+static inline int var_to_partition (var_map, tree);
 
 /* Number of partitions.  */
 
 static inline int 
-num_var_partitions (map)
-     var_map map;
+num_var_partitions (var_map map)
 {
   return map->num_partitions;
 }
@@ -80,9 +79,7 @@ num_var_partitions (map)
    partition.  */
  
 static inline tree
-partition_to_var (map, i)
-     var_map map;
-     int i;
+partition_to_var (var_map map, int i)
 {
   if (map->compact_to_partition)
     i = map->compact_to_partition[i];
@@ -94,9 +91,7 @@ partition_to_var (map, i)
    NO_PARTITION is returned if its not in any partition.  */
 
 static inline int
-var_to_partition (map, var)
-     var_map map;
-     tree var;
+var_to_partition (var_map map, tree var)
 {
   var_ann_t ann;
   int part;
@@ -122,9 +117,7 @@ var_to_partition (map, var)
    the specified one is a member of.  */
 
 static inline tree
-var_to_partition_to_var (map, var)
-     var_map map;
-     tree var;
+var_to_partition_to_var (var_map map, tree var)
 {
   int part;
 
@@ -183,20 +176,18 @@ typedef struct tree_live_info_d
 } *tree_live_info_p;
 
 
-extern tree_live_info_p calculate_live_on_entry	PARAMS ((var_map));
-extern void calculate_live_on_exit	PARAMS ((tree_live_info_p));
-extern void delete_tree_live_info	PARAMS ((tree_live_info_p));
+extern tree_live_info_p calculate_live_on_entry (var_map);
+extern void calculate_live_on_exit (tree_live_info_p);
+extern void delete_tree_live_info (tree_live_info_p);
 
 
-static inline int partition_is_global	PARAMS ((tree_live_info_p, int));
-static inline sbitmap live_entry_blocks	PARAMS ((tree_live_info_p, int));
-static inline sbitmap live_on_exit	PARAMS ((tree_live_info_p, basic_block));
+static inline int partition_is_global (tree_live_info_p, int);
+static inline sbitmap live_entry_blocks (tree_live_info_p, int);
+static inline sbitmap live_on_exit (tree_live_info_p, basic_block);
 
 
 static inline int
-partition_is_global (live, p)
-     tree_live_info_p live;
-     int p;
+partition_is_global (tree_live_info_p live, int p)
 {
   if (!live->global)
     abort ();
@@ -205,9 +196,7 @@ partition_is_global (live, p)
 }
 
 static inline sbitmap
-live_entry_blocks (live, p)
-     tree_live_info_p live;
-     int p;
+live_entry_blocks (tree_live_info_p live, int p)
 {
   if (!live->livein)
     abort ();
@@ -216,9 +205,7 @@ live_entry_blocks (live, p)
 }
 
 static inline sbitmap
-live_on_exit (live, bb)
-     tree_live_info_p live;
-     basic_block bb;
+live_on_exit (tree_live_info_p live, basic_block bb)
 {
   if (!live->liveout)
     abort();
@@ -254,15 +241,15 @@ typedef struct root_var_d
   var_map map;
 } *root_var_p;
 
-static inline tree root_var		PARAMS ((root_var_p, int));
-static inline int first_root_var_partition	PARAMS ((root_var_p, int));
-static inline int next_root_var_partition	PARAMS ((root_var_p, int));
-static inline int num_root_vars		PARAMS ((root_var_p));
-static inline int find_root_var		PARAMS ((root_var_p, int));
-extern root_var_p init_root_var		PARAMS ((var_map));
-extern void delete_root_var		PARAMS ((root_var_p));
-extern void dump_root_var		PARAMS ((FILE *, root_var_p));
-extern void remove_root_var_partition	PARAMS ((root_var_p, int, int));
+static inline tree root_var (root_var_p, int);
+static inline int first_root_var_partition (root_var_p, int);
+static inline int next_root_var_partition (root_var_p, int);
+static inline int num_root_vars (root_var_p);
+static inline int find_root_var (root_var_p, int);
+extern root_var_p init_root_var (var_map);
+extern void delete_root_var (root_var_p);
+extern void dump_root_var (FILE *, root_var_p);
+extern void remove_root_var_partition (root_var_p, int, int);
 
 /* Value returned when there are no more partitions associated with a root
    variable.  */
@@ -270,44 +257,35 @@ extern void remove_root_var_partition	PARAMS ((root_var_p, int, int));
 
 /* Number of distinct root variables.  */
 static inline int 
-num_root_vars (rv)
-     root_var_p rv;
+num_root_vars (root_var_p rv)
 {
   return rv->num_root_vars;
 }
 
 /* A specific root variable.  */
 static inline tree
-root_var (rv, i)
-     root_var_p rv;
-     int i;
+root_var (root_var_p rv, int i)
 {
   return VARRAY_TREE (rv->root_var, i);
 }
 
 /* First partition belonging to a root variable version.  */
 static inline int
-first_root_var_partition (rv, i)
-     root_var_p rv;
-     int i;
+first_root_var_partition (root_var_p rv, int i)
 {
   return VARRAY_INT (rv->first_partition, i);
 }
 
 /* Next partition belonging to a root variable partition list.  */
 static inline int
-next_root_var_partition (rv, i)
-     root_var_p rv;
-     int i;
+next_root_var_partition (root_var_p rv, int i)
 {
   return rv->next_partition[i];
 }
 
 /* Find the root_var index for a specific partition.  */
 static inline int
-find_root_var (rv, i)
-     root_var_p rv;
-     int i;
+find_root_var (root_var_p rv, int i)
 {
   tree t;
   var_ann_t ann;

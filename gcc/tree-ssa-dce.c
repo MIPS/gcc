@@ -83,26 +83,24 @@ static struct stmt_stats
 static htab_t needed_stmts;
 
 /* Forward function prototypes.  */
-static bool necessary_p				PARAMS ((tree));
-static int mark_tree_necessary			PARAMS ((tree));
-static void mark_necessary			PARAMS ((tree));
-static void print_stats 			PARAMS ((void));
-static bool need_to_preserve_store		PARAMS ((tree));
-static void find_useful_stmts			PARAMS ((void));
-static bool stmt_useful_p			PARAMS ((tree));
-static void process_worklist			PARAMS ((void));
-static void remove_dead_stmts			PARAMS ((void));
-static void remove_dead_stmt			PARAMS ((block_stmt_iterator *,
-      							 basic_block));
-static void remove_dead_phis			PARAMS ((basic_block));
-static void remove_conditional			(basic_block bb);
+static bool necessary_p (tree);
+static int mark_tree_necessary (tree);
+static void mark_necessary (tree);
+static void print_stats (void);
+static bool need_to_preserve_store (tree);
+static void find_useful_stmts (void);
+static bool stmt_useful_p (tree);
+static void process_worklist (void);
+static void remove_dead_stmts (void);
+static void remove_dead_stmt (block_stmt_iterator *, basic_block);
+static void remove_dead_phis (basic_block);
+static void remove_conditional (basic_block);
 
 
 /* Is a tree necessary?  */
 
 static inline bool
-necessary_p (t)
-     tree t;
+necessary_p (tree t)
 {
   return htab_find (needed_stmts, t) != NULL;
 }
@@ -111,8 +109,7 @@ necessary_p (t)
 /* Mark a tree as necessary.  Return 1 if it was not already marked.  */
 
 static int
-mark_tree_necessary (t)
-     tree t;
+mark_tree_necessary (tree t)
 {
   void **slot;
 
@@ -140,8 +137,7 @@ mark_tree_necessary (t)
 /* Mark a tree as necessary, and mark it's control parents as well.  */
 
 static void
-mark_necessary (t)
-     tree t;
+mark_necessary (tree t)
 {
   if (mark_tree_necessary (t))
     {
@@ -159,7 +155,7 @@ mark_necessary (t)
 /* Print out removed statement statistics.  */
 
 static void
-print_stats ()
+print_stats (void)
 {
   dump_file = dump_begin (TDI_dce, &dump_flags);
   if (dump_file && (dump_flags & (TDF_STATS|TDF_DETAILS)))
@@ -186,8 +182,7 @@ print_stats ()
 /* Return true if a store to a variable needs to be preserved.  */
 
 static bool
-need_to_preserve_store (var)
-     tree var;
+need_to_preserve_store (tree var)
 {
   tree base_symbol;
   tree sym;
@@ -233,7 +228,7 @@ need_to_preserve_store (var)
    calls and stores to file level variables.  */
 
 static void
-find_useful_stmts ()
+find_useful_stmts (void)
 {
   basic_block bb;
   block_stmt_iterator i;
@@ -262,8 +257,7 @@ find_useful_stmts ()
 /* Return true if STMT is necessary.  */
 
 static bool
-stmt_useful_p (stmt)
-     tree stmt;
+stmt_useful_p (tree stmt)
 {
   varray_type ops;
   size_t i;
@@ -319,7 +313,7 @@ stmt_useful_p (stmt)
    this value to the worklist.  */
 
 static void
-process_worklist ()
+process_worklist (void)
 {
   basic_block bb;
   tree i, j;
@@ -428,7 +422,7 @@ process_worklist ()
    contributes nothing to the program, and can be deleted.  */
 
 static void
-remove_dead_stmts ()
+remove_dead_stmts (void)
 {
   basic_block bb;
   tree t;
@@ -468,8 +462,7 @@ remove_dead_stmts ()
 /* Remove dead PHI nodes from block BB.  */
 
 static void
-remove_dead_phis (bb)
-     basic_block bb;
+remove_dead_phis (basic_block bb)
 {
   tree prev, phi;
 
@@ -506,9 +499,7 @@ remove_dead_phis (bb)
 /* Remove dead statement pointed by iterator I from block BB.  */
 
 static void
-remove_dead_stmt (i, bb)
-     block_stmt_iterator *i;
-     basic_block bb;
+remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 {
   tree t;
 
@@ -548,8 +539,7 @@ remove_dead_stmt (i, bb)
 /* Main routine to eliminate dead code.  */
 
 void
-tree_ssa_dce (fndecl)
-     tree fndecl;
+tree_ssa_dce (tree fndecl)
 {
   tree fnbody;
 

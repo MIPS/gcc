@@ -42,9 +42,9 @@ static FILE *dump_file;
 static int dump_flags;
 
 /* Local functions.  */
-static void copyprop_stmt	PARAMS ((tree));
-static void copyprop_phi	PARAMS ((tree));
-static inline tree get_original	PARAMS ((tree, tree *));
+static void copyprop_stmt (tree);
+static void copyprop_phi (tree);
+static inline tree get_original (tree, tree *);
 
 
 /* Main entry point to the copy propagator.  The algorithm is a simple
@@ -53,8 +53,7 @@ static inline tree get_original	PARAMS ((tree, tree *));
    definition is a copy (i.e., X_i = Y_j), then X_i is replaced with Y_j.  */
 
 void
-tree_ssa_copyprop (fndecl)
-     tree fndecl;
+tree_ssa_copyprop (tree fndecl)
 {
   basic_block bb;
 
@@ -89,8 +88,7 @@ tree_ssa_copyprop (fndecl)
    by a statement of the form X_i = Y_j, replace the use of X_i with Y_j.  */
 
 static void
-copyprop_stmt (stmt)
-     tree stmt;
+copyprop_stmt (tree stmt)
 {
   varray_type uses;
   size_t i;
@@ -143,8 +141,7 @@ copyprop_stmt (stmt)
    a definition of the form X_i = Y_j, replace it with Y_j.  */
 
 static void
-copyprop_phi (phi)
-     tree phi;
+copyprop_phi (tree phi)
 {
   int i;
 
@@ -184,9 +181,7 @@ copyprop_phi (phi)
    VAR = ORIG, return ORIG.  Otherwise, return NULL.  */
 
 static inline tree
-get_original (var, vuse_p)
-     tree var;
-     tree *vuse_p;
+get_original (tree var, tree *vuse_p)
 {
   tree def_stmt;
 

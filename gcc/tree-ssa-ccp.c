@@ -96,34 +96,34 @@ static varray_type cfg_edges;
    nodes that need to be visited are accessed using immediate_uses (D).  */
 static varray_type ssa_edges;
 
-static void initialize			PARAMS ((void));
-static void finalize			PARAMS ((void));
-static void visit_phi_node		PARAMS ((tree));
-static tree ccp_fold			PARAMS ((tree));
-static value cp_lattice_meet		PARAMS ((value, value));
-static void visit_stmt			PARAMS ((tree));
-static void visit_cond_stmt		PARAMS ((tree));
-static void visit_assignment		PARAMS ((tree));
-static void add_var_to_ssa_edges_worklist PARAMS ((tree));
-static void add_outgoing_control_edges	PARAMS ((basic_block));
-static void add_control_edge		PARAMS ((edge));
-static void def_to_undefined		PARAMS ((tree));
-static void def_to_varying		PARAMS ((tree));
-static void set_lattice_value		PARAMS ((tree, value));
-static void simulate_block		PARAMS ((basic_block));
-static void simulate_stmt		PARAMS ((tree));
-static void substitute_and_fold		PARAMS ((void));
-static value evaluate_stmt		PARAMS ((tree));
-static void dump_lattice_value		PARAMS ((FILE *, const char *, value));
-static tree widen_bitfield		PARAMS ((tree, tree, tree));
-static bool replace_uses_in		PARAMS ((tree));
-static latticevalue likely_value	PARAMS ((tree));
-static tree get_rhs			PARAMS ((tree));
-static void set_rhs			PARAMS ((tree, tree));
-static value *get_value			PARAMS ((tree));
-static value get_default_value		PARAMS ((tree));
-static hashval_t value_map_hash		PARAMS ((const void *));
-static int value_map_eq			PARAMS ((const void *, const void *));
+static void initialize (void);
+static void finalize (void);
+static void visit_phi_node (tree);
+static tree ccp_fold (tree);
+static value cp_lattice_meet (value, value);
+static void visit_stmt (tree);
+static void visit_cond_stmt (tree);
+static void visit_assignment (tree);
+static void add_var_to_ssa_edges_worklist (tree);
+static void add_outgoing_control_edges (basic_block);
+static void add_control_edge (edge);
+static void def_to_undefined (tree);
+static void def_to_varying (tree);
+static void set_lattice_value (tree, value);
+static void simulate_block (basic_block);
+static void simulate_stmt (tree);
+static void substitute_and_fold (void);
+static value evaluate_stmt (tree);
+static void dump_lattice_value (FILE *, const char *, value);
+static tree widen_bitfield (tree, tree, tree);
+static bool replace_uses_in (tree);
+static latticevalue likely_value (tree);
+static tree get_rhs (tree);
+static void set_rhs (tree, tree);
+static value *get_value (tree);
+static value get_default_value (tree);
+static hashval_t value_map_hash (const void *);
+static int value_map_eq (const void *, const void *);
 
 
 /* Debugging dumps.  */
@@ -135,8 +135,7 @@ static int dump_flags;
    the declaration for the function to optimize.  */
 
 void
-tree_ssa_ccp (fndecl)
-     tree fndecl;
+tree_ssa_ccp (tree fndecl)
 {
   timevar_push (TV_TREE_CCP);
 
@@ -205,8 +204,7 @@ tree_ssa_ccp (fndecl)
    with each variable reference inside the block.  */
 
 static void
-simulate_block (block)
-     basic_block block;
+simulate_block (basic_block block)
 {
   tree phi;
 
@@ -268,8 +266,7 @@ simulate_block (block)
    statements reached by it.  */
 
 static void
-simulate_stmt (use_stmt)
-     tree use_stmt;
+simulate_stmt (tree use_stmt)
 {
   basic_block use_bb = bb_for_stmt (use_stmt);
 
@@ -298,7 +295,7 @@ simulate_stmt (use_stmt)
    should still be in SSA form.  */
 
 static void
-substitute_and_fold ()
+substitute_and_fold (void)
 {
   basic_block bb;
 
@@ -349,8 +346,7 @@ substitute_and_fold ()
    of the PHI node that are incoming via executable edges.  */
 
 static void
-visit_phi_node (phi)
-     tree phi;
+visit_phi_node (tree phi)
 {
   int i;
   value phi_val;
@@ -418,9 +414,7 @@ visit_phi_node (phi)
 		Ci  M Cj	= Ci		if (i == j)
 		Ci  M Cj	= VARYING	if (i != j)  */
 static value
-cp_lattice_meet (val1, val2)
-     value val1;
-     value val2;
+cp_lattice_meet (value val1, value val2)
 {
   value result;
 
@@ -468,8 +462,7 @@ cp_lattice_meet (val1, val2)
 	  result of the branch.  */
 
 static void
-visit_stmt (stmt)
-     tree stmt;
+visit_stmt (tree stmt)
 {
   varray_type ops;
   size_t i;
@@ -521,8 +514,7 @@ visit_stmt (stmt)
    value computed by the RHS.  */
 
 static void
-visit_assignment (stmt)
-     tree stmt;
+visit_assignment (tree stmt)
 {
   value val;
   tree lhs, rhs;
@@ -584,8 +576,7 @@ visit_assignment (stmt)
    mark outgoing edges appropriately.  */
 
 static void
-visit_cond_stmt (stmt)
-     tree stmt;
+visit_cond_stmt (tree stmt)
 {
   edge e;
   value val;
@@ -613,8 +604,7 @@ visit_cond_stmt (stmt)
 /* Add all the edges coming out of BB to the control flow worklist.  */
 
 static void
-add_outgoing_control_edges (bb)
-     basic_block bb;
+add_outgoing_control_edges (basic_block bb)
 {
   edge e;
 
@@ -626,8 +616,7 @@ add_outgoing_control_edges (bb)
 /* Add edge E to the control flow worklist.  */
 
 static void
-add_control_edge (e)
-     edge e;
+add_control_edge (edge e)
 {
   /* If the edge had already been added, skip it.  */
   if (e->flags & EDGE_EXECUTABLE)
@@ -651,8 +640,7 @@ add_control_edge (e)
    otherwise return the original RHS.  */
 
 static tree
-ccp_fold (stmt)
-     tree stmt;
+ccp_fold (tree stmt)
 {
   tree rhs = get_rhs (stmt);
   enum tree_code code = TREE_CODE (rhs);
@@ -795,8 +783,7 @@ ccp_fold (stmt)
 /* Evaluate statement STMT.  */
 
 static value
-evaluate_stmt (stmt)
-     tree stmt;
+evaluate_stmt (tree stmt)
 {
   value val;
   tree simplified;
@@ -856,10 +843,7 @@ evaluate_stmt (stmt)
 /* Debugging dumps.  */
 
 static void
-dump_lattice_value (outf, prefix, val)
-     FILE *outf;
-     const char *prefix;
-     value val;
+dump_lattice_value (FILE *outf, const char *prefix, value val)
 {
   if (val.lattice_val == UNDEFINED)
     fprintf (outf, "%sUNDEFINED", prefix);
@@ -877,10 +861,7 @@ dump_lattice_value (outf, prefix, val)
    FIELD is wider than HOST_WIDE_INT, NULL is returned.  */
 
 static tree
-widen_bitfield (val, field, var)
-     tree val;
-     tree field;
-     tree var;
+widen_bitfield (tree val, tree field, tree var)
 {
   unsigned var_size, field_size;
   tree wide_val;
@@ -937,7 +918,7 @@ widen_bitfield (val, field, var)
 /* Initialize local data structures and worklists for CCP.  */
 
 static void
-initialize ()
+initialize (void)
 {
   edge e;
   basic_block bb;
@@ -980,7 +961,7 @@ initialize ()
 /* Free allocated storage.  */
 
 static void
-finalize ()
+finalize (void)
 {
   htab_delete (const_values);
 }
@@ -988,8 +969,7 @@ finalize ()
 /* We have just definited a new value for VAR.  Add all immediate uses
    of VAR to the ssa_edges worklist.  */
 static void
-add_var_to_ssa_edges_worklist (var)
-     tree var;
+add_var_to_ssa_edges_worklist (tree var)
 {
   varray_type imm_uses = immediate_uses (SSA_NAME_DEF_STMT (var));
   if (imm_uses)
@@ -1012,8 +992,7 @@ add_var_to_ssa_edges_worklist (var)
 /* Set the lattice value for the variable VAR to UNDEFINED.  */
 
 static void
-def_to_undefined (var)
-     tree var;
+def_to_undefined (tree var)
 {
   value *value = get_value (var);
 
@@ -1044,8 +1023,7 @@ def_to_undefined (var)
 /* Set the lattice value for the variable VAR to VARYING.  */
 
 static void
-def_to_varying (var)
-     tree var;
+def_to_varying (tree var)
 {
   value *value = get_value (var);
 
@@ -1064,9 +1042,7 @@ def_to_varying (var)
 /* Set the lattice value for variable VAR to VAL.  */
 
 static void
-set_lattice_value (var, val)
-     tree var;
-     value val;
+set_lattice_value (tree var, value val)
 {
   if (val.lattice_val == UNDEFINED)
     def_to_undefined (var);
@@ -1120,8 +1096,7 @@ set_lattice_value (var, val)
    definition.  Return true if at least one reference was replaced.  */
 
 static bool
-replace_uses_in (stmt)
-     tree stmt;
+replace_uses_in (tree stmt)
 {
   bool replaced = false;
   varray_type uses;
@@ -1156,8 +1131,7 @@ replace_uses_in (stmt)
    Else return VARYING.  */
 
 static latticevalue
-likely_value (stmt)
-     tree stmt;
+likely_value (tree stmt)
 {
   varray_type uses;
   size_t i;
@@ -1192,8 +1166,7 @@ likely_value (stmt)
 /* Fold statement STMT.  */
 
 void
-fold_stmt (stmt)
-     tree stmt;
+fold_stmt (tree stmt)
 {
   tree rhs, result;
 
@@ -1209,8 +1182,7 @@ fold_stmt (stmt)
 /* Get the main expression from statement STMT.  */
 
 static tree
-get_rhs (stmt)
-     tree stmt;
+get_rhs (tree stmt)
 {
   enum tree_code code = TREE_CODE (stmt);
 
@@ -1239,9 +1211,7 @@ get_rhs (stmt)
 /* Set the main expression of STMT to EXPR.  */
 
 static void
-set_rhs (stmt, expr)
-     tree stmt;
-     tree expr;
+set_rhs (tree stmt, tree expr)
 {
   enum tree_code code = TREE_CODE (stmt);
 
@@ -1269,8 +1239,7 @@ set_rhs (stmt, expr)
 /* Get the constant value associated with variable VAR.  */
 
 static value *
-get_value (var)
-     tree var;
+get_value (tree var)
 {
   void **slot;
   struct value_map_d *vm_p, vm;
@@ -1312,8 +1281,7 @@ get_value (var)
       constants to be propagated.  */
 
 static value
-get_default_value (var)
-     tree var;
+get_default_value (tree var)
 {
   value val;
   tree sym;
@@ -1350,16 +1318,13 @@ get_default_value (var)
 /* Hash and compare functions for CONST_VALUES.  */
 
 static hashval_t
-value_map_hash (p)
-     const void *p;
+value_map_hash (const void *p)
 {
   return htab_hash_pointer ((const void *)((const struct value_map_d *)p)->var);
 }
 
 static int
-value_map_eq (p1, p2)
-     const void *p1;
-     const void *p2;
+value_map_eq (const void *p1, const void *p2)
 {
   return ((const struct value_map_d *)p1)->var
 	 == ((const struct value_map_d *)p2)->var;
