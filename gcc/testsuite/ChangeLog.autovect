@@ -1,5 +1,11 @@
 2005-03-08  Dorit Naishlos  <dorit@il.ibm.com>
 
+	* gfortran.dg/vect/vect-2.f90: New.
+	* gfortran.dg/vect/vect-3.f90: New.
+	* gfortran.dg/vect/vect-4.f90: New.
+
+2005-03-08  Dorit Naishlos  <dorit@il.ibm.com>
+
 	* gcc.dg/vect/vect-reduc-1.c: Also test min/max reduction. Initialize
 	the reduction variable to nonzero value to test for correct handling of
 	initial value.

@@ -1,0 +1,4 @@
+2005-03-08  Keith Besaw  <kbesaw@us.ibm.com>
+
+	* f95-lang.c(builtin_function): If "const" attribute is passed
+	then TREE_READONLY is set to 1 in the builtin's new declaration.
