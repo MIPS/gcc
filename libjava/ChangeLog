@@ -1,3 +1,48 @@
+2004-04-22  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(handleEvent): Dispatch key press and key release events to
+	backing widget.
+	(requestFocus): Post a FOCUS_GAINED event to the event queue.
+	(gtkWidgetRequestFocus): New method.
+	(gtkWidgetDispatchKeyEvent): Likewise.
+	* java/awt/Component.java (requestFocus, requestFocus(boolean),
+	requestFocusInWindow, requestFocusInWindow(boolean),
+	getFocusCycleRootAncestor, nextFocus, transferFocus,
+	transferFocusBackward, transferFocusUpCycle, hasFocus,
+	isFocusOwner): Implement and document focus-handling methods.
+	(setFocusTraversalKeys): Inherit focus traversal keys when
+	keystrokes argument is null.  Fix focus-handling documentation
+	throughout class.
+	* java/awt/Container.java (setFocusTraversalKeys,
+	getFocusTraversalKeys, areFocusTraversalKeysSet,
+	isFocusCycleRoot, setFocusTraversalPolicy,
+	getFocusTraversalPolicy, isFocusTraversalPolicySet,
+	setFocusCycleRoot, isFocusCycleRoot, transferFocusDownCycle):
+	Implement and document focus-handling methods.
+	(transferFocusBackward): Remove method.
+	(readObject, writeObject): Implement and document serialization
+	methods.
+	* java/awt/ContainerOrderFocusTraversalPolicy.java: Implement
+	and document.
+	* java/awt/DefaultFocusTraversalPolicy.java: Implement and
+	document.
+	* java/awt/DefaultKeyboardFocusManager.java: Implement and
+	partially document.
+	* java/awt/EventDispatchThread.java (run): Set default keyboard
+	focus manager.  Attempt to dispatch each event to the keyboard
+	focus manager before normal dispatch.
+	* java/awt/KeyboardFocusManager.java: Implement and partially
+	document.
+	* java/awt/Window.java (Window): Set focusCycleRoot to true.
+	(show): Focus initial component when window is shown for the
+	first time.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c
+	(pre_event_handler): Replace complex key press and key release
+	logic with simple callbacks into GtkComponentPeer.
+	* jni/gtk-peer/gtkpeer.h: Fix FOCUS_GAINED/FOCUS_LOST reversal.
+
 2004-04-21  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/MenuSelectionManager.java

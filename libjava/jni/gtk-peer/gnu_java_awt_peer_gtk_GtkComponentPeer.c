@@ -42,6 +42,12 @@ exception statement from your version. */
 
 static GtkWidget *find_fg_color_widget (GtkWidget *widget);
 static GtkWidget *find_bg_color_widget (GtkWidget *widget);
+static gboolean focus_in_cb (GtkWidget *widget,
+                             GdkEventFocus *event,
+                             jobject peer);
+static gboolean focus_out_cb (GtkWidget *widget,
+                              GdkEventFocus *event,
+                              jobject peer);
 
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkGenericPeer_dispose
   (JNIEnv *env, jobject obj)
@@ -128,7 +134,7 @@ Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetCursor
   gdk_threads_leave ();
 }
 
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_requestFocus
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetRequestFocus
   (JNIEnv *env, jobject obj)
 {
   void *ptr;
@@ -136,7 +142,59 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_requestFocus
   ptr = NSA_GET_PTR (env, obj);
   
   gdk_threads_enter ();
-  // gtk_widget_grab_focus (GTK_WIDGET (ptr));
+  gtk_widget_grab_focus (GTK_WIDGET (ptr));
+  gdk_threads_leave ();
+}
+
+/*
+ * Translate a Java KeyEvent object into a GdkEventKey event, then
+ * pass it to the GTK main loop for processing.
+ */
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetDispatchKeyEvent
+  (JNIEnv *env, jobject obj, jint id, jlong when, jint mods,
+   jint keyCode, jchar keyChar, jint keyLocation)
+{
+  void *ptr;
+  GdkEvent *event = gdk_event_new (GDK_MOTION_NOTIFY);
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  // FIXME: need to flesh this out.
+  // Translate
+  if (id == AWT_KEY_PRESSED)
+    event->type = GDK_KEY_PRESS;
+  else if (id == AWT_KEY_RELEASED)
+    event->type = GDK_KEY_RELEASE;
+  else
+    // Don't send AWT KEY_TYPED events to GTK.
+    return;
+
+  // FIXME: this won't work for TextAreas or Lists, which are packed
+  // in GtkScrolledWindows.
+  if (GTK_IS_BUTTON (ptr))
+    event->key.window = GTK_BUTTON (ptr)->event_window;
+  else
+    event->key.window = GTK_WIDGET (ptr)->window;
+
+  event->key.send_event = TRUE;
+
+  event->key.time = (guint32) when;
+  // Translate state
+  event->key.state = 0;
+  // Translate keyval
+  event->key.keyval = keyCode;
+  event->key.length = 1;
+  // Translate keyChar
+  event->key.string = g_strdup ("a");
+  event->key.hardware_keycode = 0;
+  event->key.group = 0;
+
+  gdk_threads_enter ();
+
+  g_printerr ("sending event\n");
+  gtk_main_do_event (event);
+
   gdk_threads_leave ();
 }
 
@@ -775,6 +833,12 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectSignal
   g_signal_connect (GTK_OBJECT (ptr), "event", 
                     G_CALLBACK (pre_event_handler), *gref);
 
+  g_signal_connect (G_OBJECT (ptr), "focus-in-event",
+                    G_CALLBACK (focus_in_cb), *gref);
+
+  g_signal_connect (G_OBJECT (ptr), "focus-out-event",
+                    G_CALLBACK (focus_out_cb), *gref);
+
   gdk_threads_leave ();
 }
 
@@ -813,3 +877,26 @@ find_bg_color_widget (GtkWidget *widget)
   return bg_color_widget;
 }
 
+static gboolean focus_in_cb (GtkWidget *widget,
+                             GdkEventFocus *event,
+                             jobject peer)
+{
+  g_printerr ("            focus in: %p\n", peer);
+  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                              postFocusEventID,
+                              AWT_FOCUS_GAINED,
+                              JNI_FALSE);
+  return FALSE;
+}
+
+static gboolean focus_out_cb (GtkWidget *widget,
+                              GdkEventFocus *event,
+                              jobject peer)
+{
+  g_printerr ("            focus out: %p\n", peer);
+  (*gdk_env)->CallVoidMethod (gdk_env, peer,
+                              postFocusEventID,
+                              AWT_FOCUS_LOST,
+                              JNI_FALSE);
+  return FALSE;
+}

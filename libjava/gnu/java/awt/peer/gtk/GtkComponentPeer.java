@@ -54,12 +54,14 @@ import java.awt.GraphicsConfiguration;
 import java.awt.Image;
 import java.awt.Insets;
 import java.awt.ItemSelectable;
+import java.awt.KeyboardFocusManager;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.FocusEvent;
 import java.awt.event.ItemEvent;
+import java.awt.event.FocusEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.PaintEvent;
@@ -91,6 +93,9 @@ public class GtkComponentPeer extends GtkGenericPeer
   native void gtkWidgetSetCursor (int type);
   native void gtkWidgetSetBackground (int red, int green, int blue);
   native void gtkWidgetSetForeground (int red, int green, int blue);
+  native void gtkWidgetRequestFocus ();
+  native void gtkWidgetDispatchKeyEvent (int id, long when, int mods,
+                                         int keyCode, char keyChar, int keyLocation);
   native void gtkSetFont (String name, int style, int size);
   native void gtkWidgetQueueDrawArea(int x, int y, int width, int height);
   native void addExposeFilter();
@@ -222,6 +227,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   public void handleEvent (AWTEvent event)
   {
     int id = event.getID();
+    KeyEvent ke = null;
 
     switch (id)
       {
@@ -250,6 +256,16 @@ public class GtkComponentPeer extends GtkGenericPeer
               System.err.println (e);
             }
         }
+        break;
+      case KeyEvent.KEY_PRESSED:
+        ke = (KeyEvent) event;
+        gtkWidgetDispatchKeyEvent (ke.getID (), ke.getWhen (), ke.getModifiers (),
+                                   ke.getKeyCode (), ke.getKeyChar (), ke.getKeyLocation ());
+        break;
+      case KeyEvent.KEY_RELEASED:
+        ke = (KeyEvent) event;
+        gtkWidgetDispatchKeyEvent (ke.getID (), ke.getWhen (), ke.getModifiers (),
+                                   ke.getKeyCode (), ke.getKeyChar (), ke.getKeyLocation ());
         break;
       }
   }
@@ -335,7 +351,12 @@ public class GtkComponentPeer extends GtkGenericPeer
 				 new Rectangle (x, y, width, height)));
   }
 
-  native public void requestFocus ();
+  public void requestFocus ()
+  {
+    System.out.println ("In GtkComponentPeer.requestFocus");
+    gtkWidgetRequestFocus ();
+    postFocusEvent (FocusEvent.FOCUS_GAINED, false);
+  }
 
   public void reshape (int x, int y, int width, int height) 
   {
@@ -456,11 +477,12 @@ public class GtkComponentPeer extends GtkGenericPeer
 			       int keyCode, char keyChar, int keyLocation)
   {
     q.postEvent (new KeyEvent (awtComponent, id, when, mods,
-			       keyCode, keyChar, keyLocation));
+    			       keyCode, keyChar, keyLocation));
   }
 
   protected void postFocusEvent (int id, boolean temporary)
   {
+    System.out.println ("GtkComponentPeer.postFocusEvent: " + awtComponent);
     q.postEvent (new FocusEvent (awtComponent, id, temporary));
   }
 
