@@ -1,3 +1,31 @@
+2000-04-06  Richard Henderson  <rth@cygnus.com>
+
+	* condexec.c (cond_exec_process_insns): Don't split insns.
+	* toplev.c (rest_of_compilation): Always split after reload
+	when optimizing.
+
+	* reload.c (find_equiv_reg): Handle COND_EXEC.
+	* rtlanal.c (reg_referenced_p): Likewise.
+	(note_stores): Likewise.
+	(reg_overlap_mentioned_p): Rewrite to use a switch.
+
+	* flow.c (struct propagate_block_info): Rename reg_cond_live
+	to reg_cond_dead.  Update all uses.
+	(mark_set_reg): Add to reg_cond_dead not remove from reg_cond_live.
+	(mark_used_reg): Similarly, remove from reg_cond_dead.
+
+	* genrecog.c (*): Rename _last_insn to last_insn.
+	(make_insn_sequence): Set the position of the peephole2 C test
+	to be at the last insn.
+
+	* jump.c (jump_optimize_1): Disable the "if (p) x=a; else x=b" to
+	"x=b; if (p) x=a" optimization.
+
+	* config/d30v/d30v.c (d30v_expand_epilogue): Properly track
+	stack adjustment for d30v_eh_epilogue_sp_ofs.
+	* config/d30v/d30v.md: Rewrite peepholes to peephole2s.
+	(*bra_reg_true, *bra_reg_false): New.
+
 2000-04-05  Richard Henderson  <rth@cygnus.com>
 
 	* flow.c (mark_set_reg): Don't free condition expr twice.

@@ -2590,21 +2590,38 @@ d30v_expand_epilogue ()
       emit_insn (gen_movdi (gen_rtx (REG, DImode, i), mem_di));
 
   /* Save the GPR registers that need to be saved with a single word store.  */
+  extra_stack = 0;
   for (i = GPR_FIRST; i <= GPR_LAST; i++)
-    if (info->save_p[i] == 1
-	&& ! (d30v_eh_epilogue_sp_ofs && i == GPR_LINK))
-      emit_insn (gen_movsi (gen_rtx (REG, SImode, i), mem_si));
+    if (info->save_p[i] == 1)
+      {
+	if (d30v_eh_epilogue_sp_ofs && i == GPR_LINK)
+	  extra_stack = 4;
+	else
+	  {
+	    if (extra_stack)
+	      {
+	        emit_insn (gen_addsi3 (sp, sp, GEN_INT (extra_stack)));
+		extra_stack = 0;
+	      }
+	    emit_insn (gen_movsi (gen_rtx (REG, SImode, i), mem_si));
+	  }
+      }
 
   /* Release any remaining stack that was allocated for saving the
      varargs registers or because an odd # of registers were stored.  */
-  extra_stack = current_function_pretend_args_size + info->varargs_size;
   if ((info->memrefs_1word & 1) != 0)
     extra_stack += UNITS_PER_WORD;
+  extra_stack += current_function_pretend_args_size + info->varargs_size;
 
   if (extra_stack)
-    emit_insn (gen_addsi3 (sp, sp, GEN_INT (extra_stack)));
-
-  /* ??? Should try to combine this with the above add?  */
+    {
+      if (d30v_eh_epilogue_sp_ofs)
+	emit_insn (gen_addsi3 (d30v_eh_epilogue_sp_ofs,
+			       d30v_eh_epilogue_sp_ofs,
+			       GEN_INT (extra_stack)));
+      else
+        emit_insn (gen_addsi3 (sp, sp, GEN_INT (extra_stack)));
+    }
   if (d30v_eh_epilogue_sp_ofs)
     emit_insn (gen_addsi3 (sp, sp, d30v_eh_epilogue_sp_ofs));
 
