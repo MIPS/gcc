@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Target OS builtins.  */
 /* -D__fpreg=long double is needed to compensate for
-   the lack of __fpreg which is a primative type in
+   the lack of __fpreg which is a primitive type in
    HP C but does not exist in GNU C.  */
 #define TARGET_OS_CPP_BUILTINS()			\
 do {							\
@@ -167,3 +167,14 @@ do {								\
 
 #undef TEXT_SECTION_ASM_OP
 #define TEXT_SECTION_ASM_OP "\t.section\t.text,\t\"ax\",\t\"progbits\""
+
+/* It is illegal to have relocations in shared segments on HPUX.
+   Pretend flag_pic is always set.  */
+#undef  TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION  ia64_rwreloc_select_section
+#undef  TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION  ia64_rwreloc_unique_section
+#undef  TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION  ia64_rwreloc_select_rtx_section
+#undef  TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS  ia64_rwreloc_section_type_flags

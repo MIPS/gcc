@@ -465,6 +465,8 @@ get_jump_table_offset (insn, earliest)
   rtx old_y;
   int i;
 
+  set = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
+
   if (GET_CODE (insn) != JUMP_INSN
       || ! (label = JUMP_LABEL (insn))
       || ! (table = NEXT_INSN (label))

@@ -4506,6 +4506,18 @@ method_header (int flags, tree type, tree mdecl, tree throws)
 	   IDENTIFIER_POINTER (EXPR_WFL_NODE (id)));
     }
 
+  /* A native method can't be strictfp.  */
+  if ((flags & ACC_NATIVE) && (flags & ACC_STRICT))
+    parse_error_context (id, "native method `%s' can't be strictfp",
+			 IDENTIFIER_POINTER (EXPR_WFL_NODE (id)));
+  /* No such thing as a transient or volatile method.  */
+  if ((flags & ACC_TRANSIENT))
+    parse_error_context (id, "method `%s' can't be transient",
+			 IDENTIFIER_POINTER (EXPR_WFL_NODE (id)));
+  if ((flags & ACC_VOLATILE))
+    parse_error_context (id, "method `%s' can't be volatile",
+			 IDENTIFIER_POINTER (EXPR_WFL_NODE (id)));
+
   /* Things to be checked when declaring a constructor */
   if (!type)
     {
@@ -6253,17 +6265,8 @@ java_check_regular_methods (tree class_decl)
       if (check_method_redefinition (class, method))
 	continue;
 
-      /* If we see one constructor a mark so we don't generate the
-	 default one. Also skip other verifications: constructors
-	 can't be inherited hence hiden or overriden */
-     if (DECL_CONSTRUCTOR_P (method))
-       {
-	 saw_constructor = 1;
-	 continue;
-       }
-
-      /* We verify things thrown by the method. They must inherits from
-	 java.lang.Throwable */
+      /* We verify things thrown by the method.  They must inherit from
+	 java.lang.Throwable.  */
       for (mthrows = DECL_FUNCTION_THROWS (method);
 	   mthrows; mthrows = TREE_CHAIN (mthrows))
 	{
@@ -6272,6 +6275,15 @@ java_check_regular_methods (tree class_decl)
 	      (TREE_PURPOSE (mthrows), "Class `%s' in `throws' clause must be a subclass of class `java.lang.Throwable'",
 	       IDENTIFIER_POINTER
 	         (DECL_NAME (TYPE_NAME (TREE_VALUE (mthrows)))));
+	}
+
+      /* If we see one constructor a mark so we don't generate the
+	 default one.  Also skip other verifications: constructors
+	 can't be inherited hence hidden or overridden.  */
+      if (DECL_CONSTRUCTOR_P (method))
+	{
+	  saw_constructor = 1;
+	  continue;
 	}
 
       sig = build_java_argument_signature (TREE_TYPE (method));
@@ -11037,6 +11049,8 @@ qualify_ambiguous_name (tree id)
   int again, super_found = 0, this_found = 0, new_array_found = 0;
   int code;
 
+  decl = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
+
   /* We first qualify the first element, then derive qualification of
      others based on the first one. If the first element is qualified
      by a resolution (field or type), this resolution is stored in the
@@ -12637,7 +12651,7 @@ patch_assignment (tree node, tree wfl_op1)
     }
 
   /* Copy the rhs if it's a reference.  */
-  if (! flag_check_references && optimize > 0)
+  if (! flag_check_references && ! flag_emit_class_files && optimize > 0)
     {
       switch (TREE_CODE (new_rhs))
 	{

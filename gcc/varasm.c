@@ -927,14 +927,6 @@ make_decl_rtl (decl, asmspec)
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
     }
 
-  /* If this variable is to be treated as volatile, show its
-     tree node has side effects.  */
-  if ((flag_volatile_global && TREE_CODE (decl) == VAR_DECL
-       && TREE_PUBLIC (decl))
-      || ((flag_volatile_static && TREE_CODE (decl) == VAR_DECL
-	   && (TREE_PUBLIC (decl) || TREE_STATIC (decl)))))
-    TREE_SIDE_EFFECTS (decl) = 1;
-
   x = gen_rtx_MEM (DECL_MODE (decl), gen_rtx_SYMBOL_REF (Pmode, name));
   SYMBOL_REF_WEAK (XEXP (x, 0)) = DECL_WEAK (decl);
   if (TREE_CODE (decl) != FUNCTION_DECL)
@@ -2639,6 +2631,8 @@ output_constant_def (exp, defer)
   int after_function = 0;
   int labelno = -1;
   rtx rtl;
+
+  defstr = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
 
   /* We can't just use the saved RTL if this is a deferred string constant
      and we are not to defer anymore.  */

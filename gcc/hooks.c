@@ -97,6 +97,13 @@ hook_int_tree_tree_1 (a, b)
   return 1;
 }
 
+int
+hook_int_rtx_0 (a)
+     rtx a ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
 void
 hook_void_tree (a)
      tree a ATTRIBUTE_UNUSED;
@@ -131,3 +138,14 @@ hook_bool_rtx_false (a)
 {
   return false;
 }
+
+bool
+hook_bool_rtx_int_int_intp_false (a, b, c, d)
+     rtx a ATTRIBUTE_UNUSED;
+     int b ATTRIBUTE_UNUSED;
+     int c ATTRIBUTE_UNUSED;
+     int *d ATTRIBUTE_UNUSED;
+{
+  return false;
+}
+

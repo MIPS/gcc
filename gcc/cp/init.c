@@ -1511,8 +1511,8 @@ build_member_call (type, name, parmlist)
 	  return error_mark_node;
 	}
       if (TYPE_LANG_SPECIFIC (TREE_TYPE (decl)))
-	return build_opfncall (CALL_EXPR, LOOKUP_NORMAL, decl,
-			       parmlist, NULL_TREE);
+	return build_new_op (CALL_EXPR, LOOKUP_NORMAL, decl,
+			     parmlist, NULL_TREE);
       return build_function_call (decl, parmlist);
     }
   else
@@ -2024,7 +2024,8 @@ build_new (placement, decl, init, use_global_new)
       else
 	t = type;
 	
-      rval = build_min_nt (NEW_EXPR, placement, t, init);
+      rval = build_min (NEW_EXPR, build_pointer_type (type), 
+			placement, t, init);
       NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
       return rval;
     }

@@ -1044,8 +1044,8 @@ build_x_arrow (datum)
 
   if (IS_AGGR_TYPE (type))
     {
-      while ((rval = build_opfncall (COMPONENT_REF, LOOKUP_NORMAL, rval,
-				     NULL_TREE, NULL_TREE)))
+      while ((rval = build_new_op (COMPONENT_REF, LOOKUP_NORMAL, rval,
+				   NULL_TREE, NULL_TREE)))
 	{
 	  if (rval == error_mark_node)
 	    return error_mark_node;
@@ -1262,19 +1262,6 @@ build_functional_cast (exp, parms)
   return build_cplus_new (type, exp);
 }
 
-
-/* Complain about defining new types in inappropriate places.  We give an
-   exception for C-style casts, to accommodate GNU C stylings.  */
-
-void
-check_for_new_type (string, inptree)
-     const char *string;
-     flagged_type_tree inptree;
-{
-  if (inptree.new_type_flag
-      && (pedantic || strcmp (string, "cast") != 0))
-    pedwarn ("ISO C++ forbids defining types within %s", string);
-}
 
 /* Add new exception specifier SPEC, to the LIST we currently have.
    If it's already in LIST then do nothing.

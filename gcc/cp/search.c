@@ -1385,8 +1385,8 @@ build_baselink (tree binfo, tree access_binfo, tree functions, tree optype)
   my_friendly_assert (!optype || TYPE_P (optype), 20020730);
   my_friendly_assert (TREE_TYPE (functions), 20020805);
 
-  baselink = build (BASELINK, TREE_TYPE (functions), NULL_TREE,
-		    NULL_TREE, NULL_TREE);
+  baselink = make_node (BASELINK);
+  TREE_TYPE (baselink) = TREE_TYPE (functions);
   BASELINK_BINFO (baselink) = binfo;
   BASELINK_ACCESS_BINFO (baselink) = access_binfo;
   BASELINK_FUNCTIONS (baselink) = functions;
@@ -2417,7 +2417,7 @@ dependent_base_p (binfo)
     {
       if (currently_open_class (TREE_TYPE (binfo)))
 	break;
-      if (uses_template_parms (TREE_TYPE (binfo)))
+      if (dependent_type_p (TREE_TYPE (binfo)))
 	return 1;
     }
   return 0;

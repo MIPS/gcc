@@ -7,7 +7,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2002, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2003, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -366,7 +366,7 @@ __gnat_try_lock (dir, file)
   int fd;
 
   sprintf (full_path, "%s%c%s", dir, DIR_SEPARATOR, file);
-  sprintf (temp_file, "%s-%d-%d", dir, getpid(), getppid ());
+  sprintf (temp_file, "%s-%ld-%ld", dir, (long) getpid(), (long) getppid ());
 
   /* Create the temporary file and write the process number.  */
   fd = open (temp_file, O_CREAT | O_WRONLY, 0600);
@@ -2257,7 +2257,7 @@ int _flush_cache()
 
 void
 convert_addresses (addrs, n_addr, buf, len)
-     void *addrs ATTRIBUTE_UNUSED;
+     char *addrs[] ATTRIBUTE_UNUSED;
      int n_addr ATTRIBUTE_UNUSED;
      void *buf ATTRIBUTE_UNUSED;
      int *len;

@@ -106,6 +106,8 @@ static void cris_operand_lossage PARAMS ((const char *, rtx));
 static void cris_asm_output_mi_thunk
   PARAMS ((FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
 
+static bool cris_rtx_costs PARAMS ((rtx, int, int, int *));
+static int cris_address_cost PARAMS ((rtx));
 
 /* The function cris_target_asm_function_epilogue puts the last insn to
    output here.  It always fits; there won't be a symbol operand.  Used in
@@ -163,6 +165,11 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #define TARGET_ASM_OUTPUT_MI_THUNK cris_asm_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS cris_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST cris_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2082,9 +2089,118 @@ cris_simple_epilogue ()
   return 1;
 }
 
+/* Compute a (partial) cost for rtx X.  Return true if the complete
+   cost has been computed, and false if subexpressions should be
+   scanned.  In either case, *TOTAL contains the cost result.  */
+
+static bool
+cris_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code;
+     int *total;
+{
+  switch (code)
+    {
+    case CONST_INT:
+      {
+	HOST_WIDE_INT val = INTVAL (x);
+	if (val == 0)
+	  *total = 0;
+	else if (val < 32 && val >= -32)
+	  *total = 1;
+	/* Eight or 16 bits are a word and cycle more expensive.  */
+	else if (val <= 32767 && val >= -32768)
+	  *total = 2;
+	/* A 32 bit constant (or very seldom, unsigned 16 bits) costs
+	   another word.  FIXME: This isn't linear to 16 bits.  */
+	else
+	  *total = 4;
+	return true;
+      }
+
+    case LABEL_REF:
+      *total = 6;
+      return true;
+
+    case CONST:
+    case SYMBOL_REF:
+      /* For PIC, we need a prefix (if it isn't already there),
+	 and the PIC register.  For a global PIC symbol, we also
+	 need a read of the GOT.  */
+      if (flag_pic)
+	if (cris_got_symbol (x))
+	  *total = 2 + 4 + 6;
+	else
+	  *total = 2 + 6;
+      else
+	*total = 6;
+      return true;
+
+    case CONST_DOUBLE:
+      if (x != CONST0_RTX (GET_MODE (x) == VOIDmode ? DImode : GET_MODE (x)))
+	*total = 12;
+      else
+        /* Make 0.0 cheap, else test-insns will not be used.  */
+	*total = 0;
+      return true;
+
+    case MULT:
+      /* Identify values that are no powers of two.  Powers of 2 are
+         taken care of already and those values should not be changed.  */
+      if (GET_CODE (XEXP (x, 1)) != CONST_INT
+          || exact_log2 (INTVAL (XEXP (x, 1)) < 0))
+	{
+	  /* If we have a multiply insn, then the cost is between
+	     1 and 2 "fast" instructions.  */
+	  if (TARGET_HAS_MUL_INSNS)
+	    {
+	      *total = COSTS_N_INSNS (1) + COSTS_N_INSNS (1) / 2;
+	      return true;
+	    }
+
+	  /* Estimate as 4 + 4 * #ofbits.  */
+	  *total = COSTS_N_INSNS (132);
+	  return true;
+	}
+      return false;
+
+    case UDIV:
+    case MOD:
+    case UMOD:
+    case DIV:
+      if (GET_CODE (XEXP (x, 1)) != CONST_INT
+          || exact_log2 (INTVAL (XEXP (X, 1)) < 0))
+	{
+	  /* Estimate this as 4 + 8 * #of bits.  */
+	  *total = COSTS_N_INSNS (260);
+	  return true;
+	}
+      return false;
+
+    case AND:
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+          /* Two constants may actually happen before optimization.  */
+          && GET_CODE (XEXP (x, 0)) != CONST_INT
+          && !CONST_OK_FOR_LETTER_P (INTVAL (XEXP (x, 1)), 'I'))
+	{
+	  *total = (rtx_cost (XEXP (x, 0), outer_code) + 2
+		    + 2 * GET_MODE_NUNITS (GET_MODE (XEXP (x, 0))));
+	  return true;
+	}
+      return false;
+
+    case ZERO_EXTEND: case SIGN_EXTEND:
+      *total = rtx_cost (XEXP (x, 0), outer_code);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* The ADDRESS_COST worker.  */
 
-int
+static int
 cris_address_cost (x)
      rtx x;
 {

@@ -58,10 +58,11 @@ namespace std
   // In the future, GLIBCXX_ABI > 5 should remove all uses of
   // _GLIBCPP_ASM_SYMVER in this file, and remove exports of any
   // static data members of locale.
+
+  // These are no longer exported.
   locale::_Impl* 		locale::_S_classic;
   locale::_Impl* 		locale::_S_global; 
   const size_t 			locale::_S_categories_size;
-  _GLIBCPP_ASM_SYMVER(_ZNSt6locale18_S_categories_sizeE, _ZNSt6locale17_S_num_categoriesE, GLIBCPP_3.2)
   const size_t 			locale::_S_extra_categories_size;
 
   // Definitions for static const data members of locale::id
@@ -460,12 +461,12 @@ namespace std
 
   void  
   locale::facet::
-  _M_add_reference() throw()
+  _M_add_reference() const throw()
   { __atomic_add(&_M_references, 1); }
 
   void  
   locale::facet::
-  _M_remove_reference() throw()
+  _M_remove_reference() const throw()
   {
     if (__exchange_and_add(&_M_references, -1) == 1)
       {

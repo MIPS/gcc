@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for HPPA.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002 Free Software Foundation, Inc.
+   2002, 2003 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GNU CC.
@@ -97,6 +97,8 @@ hppa_fpstore_bypass_p (out_insn, in_insn)
 #endif
 #endif
 
+static int hppa_address_cost PARAMS ((rtx));
+static bool hppa_rtx_costs PARAMS ((rtx, int, int, int *));
 static inline rtx force_mode PARAMS ((enum machine_mode, rtx));
 static void pa_combine_instructions PARAMS ((rtx));
 static int pa_can_combine_p PARAMS ((rtx, rtx, rtx, int, rtx, rtx, rtx));
@@ -219,6 +221,11 @@ static size_t n_deferred_plabels = 0;
 #undef TARGET_ASM_DESTRUCTOR
 #define TARGET_ASM_DESTRUCTOR pa_asm_out_destructor
 #endif
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS hppa_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST hppa_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1302,17 +1309,103 @@ hppa_legitimize_address (x, oldx, mode)
 
    It is no coincidence that this has the same structure
    as GO_IF_LEGITIMATE_ADDRESS.  */
-int
+
+static int
 hppa_address_cost (X)
      rtx X;
 {
-  if (GET_CODE (X) == PLUS)
+  switch (GET_CODE (X))
+    {
+    case REG:
+    case PLUS:
+    case LO_SUM:
       return 1;
-  else if (GET_CODE (X) == LO_SUM)
-    return 1;
-  else if (GET_CODE (X) == HIGH)
-    return 2;
-  return 4;
+    case HIGH:
+      return 2;
+    default:
+      return 4;
+    }
+}
+
+/* Compute a (partial) cost for rtx X.  Return true if the complete
+   cost has been computed, and false if subexpressions should be
+   scanned.  In either case, *TOTAL contains the cost result.  */
+
+static bool
+hppa_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code;
+     int *total;
+{
+  switch (code)
+    {
+    case CONST_INT:
+      if (INTVAL (x) == 0)
+	*total = 0;
+      else if (INT_14_BITS (x))
+	*total = 1;
+      else
+	*total = 2;
+      return true;
+
+    case HIGH:
+      *total = 2;
+      return true;
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      *total = 4;
+      return true;
+
+    case CONST_DOUBLE:
+      if ((x == CONST0_RTX (DFmode) || x == CONST0_RTX (SFmode))
+	  && outer_code != SET)
+	*total = 0;
+      else
+        *total = 8;
+      return true;
+
+    case MULT:
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+        *total = COSTS_N_INSNS (3);
+      else if (TARGET_PA_11 && !TARGET_DISABLE_FPREGS && !TARGET_SOFT_FLOAT)
+	*total = COSTS_N_INSNS (8);
+      else
+	*total = COSTS_N_INSNS (20);
+      return true;
+
+    case DIV:
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+	{
+	  *total = COSTS_N_INSNS (14);
+	  return true;
+	}
+      /* FALLTHRU */
+
+    case UDIV:
+    case MOD:
+    case UMOD:
+      *total = COSTS_N_INSNS (60);
+      return true;
+
+    case PLUS: /* this includes shNadd insns */
+    case MINUS:
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+	*total = COSTS_N_INSNS (3);
+      else
+        *total = COSTS_N_INSNS (1);
+      return true;
+
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+      *total = COSTS_N_INSNS (1);
+      return true;
+
+    default:
+      return false;
+    }
 }
 
 /* Ensure mode of ORIG, a REG rtx, is MODE.  Returns either ORIG or a
@@ -3213,26 +3306,6 @@ pa_output_function_prologue (file, size)
 
   fputs ("\n\t.ENTRY\n", file);
 
-  /* If we're using GAS and SOM, and not using the portable runtime model,
-     or function sections, then we don't need to accumulate the total number
-     of code bytes.  */
-  if ((TARGET_GAS && TARGET_SOM && ! TARGET_PORTABLE_RUNTIME)
-      || flag_function_sections)
-    total_code_bytes = 0;
-  else if (INSN_ADDRESSES_SET_P ())
-    {
-      unsigned long old_total = total_code_bytes;
-
-      total_code_bytes += INSN_ADDRESSES (INSN_UID (get_last_nonnote_insn ()));
-      total_code_bytes += FUNCTION_BOUNDARY / BITS_PER_UNIT;
-
-      /* Be prepared to handle overflows.  */
-      if (old_total > total_code_bytes)
-	total_code_bytes = -1;
-    }
-  else
-    total_code_bytes = -1;
-
   remove_useless_addtr_insns (get_insns (), 0);
 }
 
@@ -3554,6 +3627,7 @@ pa_output_function_epilogue (file, size)
      FILE *file;
      HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
+  int last_address = 0;
   rtx insn = get_last_insn ();
 
   /* hppa_expand_epilogue does the dirty work now.  We just need
@@ -3576,9 +3650,36 @@ pa_output_function_epilogue (file, size)
   /* If insn is a CALL_INSN, then it must be a call to a volatile
      function (otherwise there would be epilogue insns).  */
   if (insn && GET_CODE (insn) == CALL_INSN)
-    fputs ("\tnop\n", file);
+    {
+      fputs ("\tnop\n", file);
+      last_address += 4;
+    }
 
   fputs ("\t.EXIT\n\t.PROCEND\n", file);
+
+  /* Finally, update the total number of code bytes output so far.  */
+  if ((TARGET_PORTABLE_RUNTIME || !TARGET_GAS || !TARGET_SOM)
+      && !flag_function_sections)
+    {
+      if (INSN_ADDRESSES_SET_P ())
+	{
+	  unsigned long old_total = total_code_bytes;
+
+	  insn = get_last_nonnote_insn ();
+	  last_address += INSN_ADDRESSES (INSN_UID (insn));
+	  if (INSN_P (insn))
+	    last_address += insn_default_length (insn);
+
+	  total_code_bytes += last_address;
+	  total_code_bytes += FUNCTION_BOUNDARY / BITS_PER_UNIT;
+
+	  /* Be prepared to handle overflows.  */
+	  if (old_total > total_code_bytes)
+	    total_code_bytes = -1;
+	}
+      else
+	total_code_bytes = -1;
+    }
 }
 
 void
@@ -6178,37 +6279,42 @@ length_fp_args (insn)
   return length;
 }
 
-/* We include the delay slot in the returned length as it is better to
+/* Return the attribute length for the millicode call instruction INSN.
+   The length must match the code generated by output_millicode_call.
+   We include the delay slot in the returned length as it is better to
    over estimate the length than to under estimate it.  */
 
 int
-attr_length_millicode_call (insn, length)
+attr_length_millicode_call (insn)
      rtx insn;
-     int length;
 {
-  unsigned long distance = total_code_bytes + INSN_ADDRESSES (INSN_UID (insn));
+  unsigned long distance = -1;
 
-  if (distance < total_code_bytes)
-    distance = -1;
+  if (INSN_ADDRESSES_SET_P ())
+    {
+      distance = (total_code_bytes + insn_current_reference_address (insn));
+      if (distance < total_code_bytes)
+	distance = -1;
+    }
 
   if (TARGET_64BIT)
     {
       if (!TARGET_LONG_CALLS && distance < 7600000)
-	return length + 8;
+	return 8;
 
-      return length + 20;
+      return 20;
     }
   else if (TARGET_PORTABLE_RUNTIME)
-    return length + 24;
+    return 24;
   else
     {
       if (!TARGET_LONG_CALLS && distance < 240000)
-	return length + 8;
+	return 8;
 
       if (TARGET_LONG_ABS_CALL && !flag_pic)
-	return length + 12;
+	return 12;
 
-      return length + 24;
+      return 24;
     }
 }
 
@@ -6338,16 +6444,22 @@ output_millicode_call (insn, call_dest)
 
   /* See if the return address can be adjusted.  Use the containing
      sequence insn's address.  */
-  seq_insn = NEXT_INSN (PREV_INSN (XVECEXP (final_sequence, 0, 0)));
-  distance = (INSN_ADDRESSES (INSN_UID (JUMP_LABEL (NEXT_INSN (insn))))
-	      - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8);
-
-  if (VAL_14_BITS_P (distance))
+  if (INSN_ADDRESSES_SET_P ())
     {
-      xoperands[1] = gen_label_rtx ();
-      output_asm_insn ("ldo %0-%1(%2),%2", xoperands);
-      (*targetm.asm_out.internal_label) (asm_out_file, "L",
-				 CODE_LABEL_NUMBER (xoperands[1]));
+      seq_insn = NEXT_INSN (PREV_INSN (XVECEXP (final_sequence, 0, 0)));
+      distance = (INSN_ADDRESSES (INSN_UID (JUMP_LABEL (NEXT_INSN (insn))))
+		  - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8);
+
+      if (VAL_14_BITS_P (distance))
+	{
+	  xoperands[1] = gen_label_rtx ();
+	  output_asm_insn ("ldo %0-%1(%2),%2", xoperands);
+	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
+					     CODE_LABEL_NUMBER (xoperands[1]));
+	}
+      else
+	/* ??? This branch may not reach its target.  */
+	output_asm_insn ("nop\n\tb,n %0", xoperands);
     }
   else
     /* ??? This branch may not reach its target.  */
@@ -6361,18 +6473,25 @@ output_millicode_call (insn, call_dest)
   return "";
 }
 
-/* We include the delay slot in the returned length as it is better to
-   over estimate the length than to under estimate it.  */
+/* Return the attribute length of the call instruction INSN.  The SIBCALL
+   flag indicates whether INSN is a regular call or a sibling call.  The
+   length must match the code generated by output_call.  We include the delay
+   slot in the returned length as it is better to over estimate the length
+   than to under estimate it.  */
 
 int
 attr_length_call (insn, sibcall)
      rtx insn;
      int sibcall;
 {
-  unsigned long distance = total_code_bytes + INSN_ADDRESSES (INSN_UID (insn));
+  unsigned long distance = -1;
 
-  if (distance < total_code_bytes)
-    distance = -1;
+  if (INSN_ADDRESSES_SET_P ())
+    {
+      distance = (total_code_bytes + insn_current_reference_address (insn));
+      if (distance < total_code_bytes)
+	distance = -1;
+    }
 
   if (TARGET_64BIT)
     {
@@ -6434,7 +6553,6 @@ output_call (insn, call_dest, sibcall)
 {
   int delay_insn_deleted = 0;
   int delay_slot_filled = 0;
-  int attr_length = get_attr_length (insn);
   int seq_length = dbr_sequence_length ();
   rtx xoperands[2];
 
@@ -6442,9 +6560,7 @@ output_call (insn, call_dest, sibcall)
 
   /* Handle the common case where we're sure that the branch will reach
      the beginning of the $CODE$ subspace.  */
-  if (!TARGET_LONG_CALLS
-      && ((seq_length == 0 && attr_length == 12)
-	  || (seq_length != 0 && attr_length == 8)))
+  if (!TARGET_LONG_CALLS && attr_length_call (insn, sibcall) == 8)
     {
       xoperands[1] = gen_rtx_REG (word_mode, sibcall ? 0 : 2);
       output_asm_insn ("{bl|b,l} %0,%1", xoperands);
@@ -6672,7 +6788,7 @@ output_call (insn, call_dest, sibcall)
   /* This call has an unconditional jump in its delay slot.  */
   xoperands[0] = XEXP (PATTERN (NEXT_INSN (insn)), 1);
 
-  if (!delay_slot_filled)
+  if (!delay_slot_filled && INSN_ADDRESSES_SET_P ())
     {
       /* See if the return address can be adjusted.  Use the containing
          sequence insn's address.  */
@@ -6701,6 +6817,117 @@ output_call (insn, call_dest, sibcall)
   NOTE_SOURCE_FILE (NEXT_INSN (insn)) = 0;
 
   return "";
+}
+
+/* Return the attribute length of the indirect call instruction INSN.
+   The length must match the code generated by output_indirect call.
+   The returned length includes the delay slot.  Currently, the delay
+   slot of an indirect call sequence is not exposed and it is used by
+   the sequence itself.  */
+
+int
+attr_length_indirect_call (insn)
+     rtx insn;
+{
+  unsigned long distance = -1;
+
+  if (INSN_ADDRESSES_SET_P ())
+    {
+      distance = (total_code_bytes + insn_current_reference_address (insn));
+      if (distance < total_code_bytes)
+	distance = -1;
+    }
+
+  if (TARGET_64BIT)
+    return 12;
+
+  if (TARGET_FAST_INDIRECT_CALLS
+      || (!TARGET_PORTABLE_RUNTIME
+	  && ((TARGET_PA_20 && distance < 7600000) || distance < 240000)))
+    return 8;
+
+  if (flag_pic)
+    return 24;
+
+  if (TARGET_PORTABLE_RUNTIME)
+    return 20;
+
+  /* Out of reach, can use ble.  */
+  return 12;
+}
+
+const char *
+output_indirect_call (insn, call_dest)
+     rtx insn;
+     rtx call_dest;
+{
+  rtx xoperands[1];
+
+  if (TARGET_64BIT)
+    {
+      xoperands[0] = call_dest;
+      output_asm_insn ("ldd 16(%0),%%r2", xoperands);
+      output_asm_insn ("bve,l (%%r2),%%r2\n\tldd 24(%0),%%r27", xoperands);
+      return "";
+    }
+
+  /* First the special case for kernels, level 0 systems, etc.  */
+  if (TARGET_FAST_INDIRECT_CALLS)
+    return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2"; 
+
+  /* Now the normal case -- we can reach $$dyncall directly or
+     we're sure that we can get there via a long-branch stub. 
+
+     No need to check target flags as the length uniquely identifies
+     the remaining cases.  */
+  if (attr_length_indirect_call (insn) == 8)
+    return ".CALL\tARGW0=GR\n\t{bl|b,l} $$dyncall,%%r31\n\tcopy %%r31,%%r2";
+
+  /* Long millicode call, but we are not generating PIC or portable runtime
+     code.  */
+  if (attr_length_indirect_call (insn) == 12)
+    return ".CALL\tARGW0=GR\n\tldil L'$$dyncall,%%r2\n\tble R'$$dyncall(%%sr4,%%r2)\n\tcopy %%r31,%%r2";
+
+  /* Long millicode call for portable runtime.  */
+  if (attr_length_indirect_call (insn) == 20)
+    return "ldil L'$$dyncall,%%r31\n\tldo R'$$dyncall(%%r31),%%r31\n\tblr %%r0,%%r2\n\tbv,n %%r0(%%r31)\n\tnop";
+
+  /* We need a long PIC call to $$dyncall.  */
+  xoperands[0] = NULL_RTX;
+  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+  if (TARGET_SOM || !TARGET_GAS)
+    {
+      xoperands[0] = gen_label_rtx ();
+      output_asm_insn ("addil L'$$dyncall-%0,%%r1", xoperands);
+      (*targetm.asm_out.internal_label) (asm_out_file, "L",
+					 CODE_LABEL_NUMBER (xoperands[0]));
+      output_asm_insn ("ldo R'$$dyncall-%0(%%r1),%%r1", xoperands);
+    }
+  else
+    {
+      output_asm_insn ("addil L'$$dyncall-$PIC_pcrel$0+4,%%r1", xoperands);
+      output_asm_insn ("ldo R'$$dyncall-$PIC_pcrel$0+8(%%r1),%%r1",
+		       xoperands);
+    }
+  output_asm_insn ("blr %%r0,%%r2", xoperands);
+  output_asm_insn ("bv,n %%r0(%%r1)\n\tnop", xoperands);
+  return "";
+}
+
+/* Return the total length of the save and restore instructions needed for
+   the data linkage table pointer (i.e., the PIC register) across the call
+   instruction INSN.  No-return calls do not require a save and restore.
+   In addition, we may be able to avoid the save and restore for calls
+   within the same translation unit.  */
+
+int
+attr_length_save_restore_dltp (insn)
+     rtx insn;
+{
+  if (find_reg_note (insn, REG_NORETURN, NULL_RTX))
+    return 0;
+
+  return 8;
 }
 
 /* In HPUX 8.0's shared library scheme, special relocations are needed

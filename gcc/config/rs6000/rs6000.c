@@ -227,6 +227,7 @@ static unsigned int rs6000_xcoff_section_type_flags PARAMS ((tree, const char *,
 static void rs6000_xcoff_encode_section_info PARAMS ((tree, int))
      ATTRIBUTE_UNUSED;
 static bool rs6000_binds_local_p PARAMS ((tree));
+static bool rs6000_rtx_costs PARAMS ((rtx, int, int, int *));
 static int rs6000_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int rs6000_adjust_priority PARAMS ((rtx, int));
 static int rs6000_issue_rate PARAMS ((void));
@@ -403,6 +404,11 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL rs6000_function_ok_for_sibcall
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS rs6000_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST hook_int_rtx_0
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -777,7 +783,12 @@ rs6000_parse_abi_options ()
   else if (! strcmp (rs6000_abi_string, "no-altivec"))
     rs6000_altivec_abi = 0;
   else if (! strcmp (rs6000_abi_string, "spe"))
-    rs6000_spe_abi = 1;
+    {
+      rs6000_spe_abi = 1;
+      if (!TARGET_SPE_ABI)
+	error ("not configured for ABI: '%s'", rs6000_abi_string);
+    }
+  
   else if (! strcmp (rs6000_abi_string, "no-spe"))
     rs6000_spe_abi = 0;
   else
@@ -3303,7 +3314,10 @@ function_arg_partial_nregs (cum, mode, type, named)
    the argument itself.  The pointer is passed in whatever way is
    appropriate for passing a pointer to that type.
 
-   Under V.4, structures and unions are passed by reference.  */
+   Under V.4, structures and unions are passed by reference.
+
+   As an extension to all ABIs, variable sized types are passed by
+   reference.  */
 
 int
 function_arg_pass_by_reference (cum, mode, type, named)
@@ -3321,8 +3335,7 @@ function_arg_pass_by_reference (cum, mode, type, named)
 
       return 1;
     }
-
-  return 0;
+  return type && int_size_in_bytes (type) <= 0;
 }
 
 /* Perform any needed actions needed for a function that is receiving a
@@ -3558,7 +3571,28 @@ rs6000_va_arg (valist, type)
   rtx lab_false, lab_over, addr_rtx, r;
 
   if (DEFAULT_ABI != ABI_V4)
-    return std_expand_builtin_va_arg (valist, type);
+    {
+      /* Variable sized types are passed by reference.  */
+      if (int_size_in_bytes (type) <= 0)
+	{
+	  u = build_pointer_type (type);
+
+	  /* Args grow upward.  */
+	  t = build (POSTINCREMENT_EXPR, TREE_TYPE (valist), valist,
+		     build_int_2 (POINTER_SIZE / BITS_PER_UNIT, 0));
+	  TREE_SIDE_EFFECTS (t) = 1;
+
+	  t = build1 (NOP_EXPR, build_pointer_type (u), t);
+	  TREE_SIDE_EFFECTS (t) = 1;
+
+	  t = build1 (INDIRECT_REF, u, t);
+	  TREE_SIDE_EFFECTS (t) = 1;
+
+	  return expand_expr (t, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+	}
+      else
+	return std_expand_builtin_va_arg (valist, type);
+    }
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
   f_fpr = TREE_CHAIN (f_gpr);
@@ -4087,7 +4121,7 @@ static struct builtin_description bdesc_spe_evsel[] =
   { 0, CODE_FOR_spe_evfststeq, "__builtin_spe_evsel_fststeq", SPE_BUILTIN_EVSEL_FSTSTEQ },
 };
 
-/* ABS* opreations.  */
+/* ABS* operations.  */
 
 static const struct builtin_description bdesc_abs[] =
 {
@@ -5220,7 +5254,7 @@ rs6000_init_builtins ()
 
 /* Search through a set of builtins and enable the mask bits.
    DESC is an array of builtins.
-   SIZE is the totaly number of builtins.
+   SIZE is the total number of builtins.
    START is the builtin enum at which to start.
    END is the builtin enum at which to end.  */
 static void
@@ -6909,7 +6943,7 @@ includes_rshift_p (shiftop, andop)
 
 /* Return 1 if ANDOP is a mask suitable for use with an rldic insn
    to perform a left shift.  It must have exactly SHIFTOP least
-   signifigant 0's, then one or more 1's, then zero or more 0's.  */
+   significant 0's, then one or more 1's, then zero or more 0's.  */
 
 int
 includes_rldic_lshift_p (shiftop, andop)
@@ -6927,7 +6961,7 @@ includes_rldic_lshift_p (shiftop, andop)
       shift_mask = ~0;
       shift_mask <<= INTVAL (shiftop);
 
-      /* Find the least signifigant one bit.  */
+      /* Find the least significant one bit.  */
       lsb = c & -c;
 
       /* It must coincide with the LSB of the shift mask.  */
@@ -7746,13 +7780,17 @@ print_operand (file, x, code)
 
       if (uval & 1)	/* Clear Left */
 	{
-	  uval &= ((unsigned HOST_WIDE_INT) 1 << 63 << 1) - 1;
+#if HOST_BITS_PER_WIDE_INT > 64
+	  uval &= ((unsigned HOST_WIDE_INT) 1 << 64) - 1;
+#endif
 	  i = 64;
 	}
       else		/* Clear Right */
 	{
 	  uval = ~uval;
-	  uval &= ((unsigned HOST_WIDE_INT) 1 << 63 << 1) - 1;
+#if HOST_BITS_PER_WIDE_INT > 64
+	  uval &= ((unsigned HOST_WIDE_INT) 1 << 64) - 1;
+#endif
 	  i = 63;
 	}
       while (uval != 0)
@@ -8345,7 +8383,7 @@ rs6000_generate_compare (code)
 	     bit3  bit2  bit1  bit0
 
 	     ... bit 2 would be a GT CR alias, so later on we
-	     look in the GT bits for the branch instructins.
+	     look in the GT bits for the branch instructions.
 	     However, we must be careful to emit correct RTL in
 	     the meantime, so optimizations don't get confused.  */
 
@@ -8660,7 +8698,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
   if (GET_CODE (op1) == CONST_DOUBLE)
     REAL_VALUE_FROM_CONST_DOUBLE (c1, op1);
     
-  /* We're going to try to implement comparions by performing
+  /* We're going to try to implement comparisons by performing
      a subtract, then comparing against zero.  Unfortunately,
      Inf - Inf is NaN which is not zero, and so if we don't
      know that the operand is finite and the comparison
@@ -10597,7 +10635,7 @@ rs6000_emit_prologue ()
       && flag_pic && current_function_uses_pic_offset_table)
     {
       rtx dest = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
-      char *picbase = machopic_function_base_name ();
+      const char *picbase = machopic_function_base_name ();
       rtx src = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (picbase, -1));
 
       rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (dest, src)));
@@ -13223,6 +13261,210 @@ rs6000_binds_local_p (decl)
      tree decl;
 {
   return default_binds_local_p_1 (decl, flag_pic || rs6000_flag_pic);
+}
+
+/* Compute a (partial) cost for rtx X.  Return true if the complete
+   cost has been computed, and false if subexpressions should be
+   scanned.  In either case, *TOTAL contains the cost result.  */
+
+static bool
+rs6000_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code ATTRIBUTE_UNUSED;
+     int *total;
+{
+  switch (code)
+    {
+      /* On the RS/6000, if it is valid in the insn, it is free.
+	 So this always returns 0.  */
+    case CONST_INT:
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+    case CONST_DOUBLE:
+    case HIGH:
+      *total = 0;
+      return true;
+
+    case PLUS:
+      *total = ((GET_CODE (XEXP (x, 1)) == CONST_INT
+		 && ((unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 1))
+					       + 0x8000) >= 0x10000)
+		 && ((INTVAL (XEXP (x, 1)) & 0xffff) != 0))
+		? COSTS_N_INSNS (2)
+		: COSTS_N_INSNS (1));
+      return true;
+
+    case AND:
+    case IOR:
+    case XOR:
+      *total = ((GET_CODE (XEXP (x, 1)) == CONST_INT
+		 && (INTVAL (XEXP (x, 1)) & (~ (HOST_WIDE_INT) 0xffff)) != 0
+		 && ((INTVAL (XEXP (x, 1)) & 0xffff) != 0))
+		? COSTS_N_INSNS (2)
+		: COSTS_N_INSNS (1));
+      return true;
+
+    case MULT:
+      if (optimize_size)
+	{
+	  *total = COSTS_N_INSNS (2);
+	  return true;
+	}
+      switch (rs6000_cpu)
+	{
+	case PROCESSOR_RIOS1:
+	case PROCESSOR_PPC405:
+	  *total = (GET_CODE (XEXP (x, 1)) != CONST_INT
+		    ? COSTS_N_INSNS (5)
+		    : (INTVAL (XEXP (x, 1)) >= -256
+		       && INTVAL (XEXP (x, 1)) <= 255)
+		    ? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));
+	  return true;
+
+	case PROCESSOR_RS64A:
+	  *total = (GET_CODE (XEXP (x, 1)) != CONST_INT
+		    ? GET_MODE (XEXP (x, 1)) != DImode
+		    ? COSTS_N_INSNS (20) : COSTS_N_INSNS (34)
+		    : (INTVAL (XEXP (x, 1)) >= -256
+		       && INTVAL (XEXP (x, 1)) <= 255)
+		    ? COSTS_N_INSNS (8) : COSTS_N_INSNS (12));
+	  return true;
+
+	case PROCESSOR_RIOS2:
+	case PROCESSOR_MPCCORE:
+	case PROCESSOR_PPC604e:
+	  *total = COSTS_N_INSNS (2);
+	  return true;
+
+	case PROCESSOR_PPC601:
+	  *total = COSTS_N_INSNS (5);
+	  return true;
+
+	case PROCESSOR_PPC603:
+	case PROCESSOR_PPC7400:
+	case PROCESSOR_PPC750:
+	  *total = (GET_CODE (XEXP (x, 1)) != CONST_INT
+		    ? COSTS_N_INSNS (5)
+		    : (INTVAL (XEXP (x, 1)) >= -256
+		       && INTVAL (XEXP (x, 1)) <= 255)
+		    ? COSTS_N_INSNS (2) : COSTS_N_INSNS (3));
+	  return true;
+
+	case PROCESSOR_PPC7450:
+	  *total = (GET_CODE (XEXP (x, 1)) != CONST_INT
+		    ? COSTS_N_INSNS (4)
+		    : COSTS_N_INSNS (3));
+	  return true;
+
+	case PROCESSOR_PPC403:
+	case PROCESSOR_PPC604:
+	case PROCESSOR_PPC8540:
+	  *total = COSTS_N_INSNS (4);
+	  return true;
+
+	case PROCESSOR_PPC620:
+	case PROCESSOR_PPC630:
+	case PROCESSOR_POWER4:
+	  *total = (GET_CODE (XEXP (x, 1)) != CONST_INT
+		    ? GET_MODE (XEXP (x, 1)) != DImode
+		    ? COSTS_N_INSNS (5) : COSTS_N_INSNS (7)
+		    : (INTVAL (XEXP (x, 1)) >= -256
+		       && INTVAL (XEXP (x, 1)) <= 255)
+		    ? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));
+	  return true;
+
+	default:
+	  abort ();
+	}
+
+    case DIV:
+    case MOD:
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && exact_log2 (INTVAL (XEXP (x, 1))) >= 0)
+	{
+	  *total = COSTS_N_INSNS (2);
+	  return true;
+	}
+      /* FALLTHRU */
+
+    case UDIV:
+    case UMOD:
+      switch (rs6000_cpu)
+	{
+	case PROCESSOR_RIOS1:
+	  *total = COSTS_N_INSNS (19);
+	  return true;
+
+	case PROCESSOR_RIOS2:
+	  *total = COSTS_N_INSNS (13);
+	  return true;
+
+	case PROCESSOR_RS64A:
+	  *total = (GET_MODE (XEXP (x, 1)) != DImode
+		    ? COSTS_N_INSNS (65)
+		    : COSTS_N_INSNS (67));
+	  return true;
+
+	case PROCESSOR_MPCCORE:
+	  *total = COSTS_N_INSNS (6);
+	  return true;
+
+	case PROCESSOR_PPC403:
+	  *total = COSTS_N_INSNS (33);
+	  return true;
+
+	case PROCESSOR_PPC405:
+	  *total = COSTS_N_INSNS (35);
+	  return true;
+
+	case PROCESSOR_PPC601:
+	  *total = COSTS_N_INSNS (36);
+	  return true;
+
+	case PROCESSOR_PPC603:
+	  *total = COSTS_N_INSNS (37);
+	  return true;
+
+	case PROCESSOR_PPC604:
+	case PROCESSOR_PPC604e:
+	  *total = COSTS_N_INSNS (20);
+	  return true;
+
+	case PROCESSOR_PPC620:
+	case PROCESSOR_PPC630:
+	case PROCESSOR_POWER4:
+	  *total = (GET_MODE (XEXP (x, 1)) != DImode
+		    ? COSTS_N_INSNS (21)
+		    : COSTS_N_INSNS (37));
+	  return true;
+
+	case PROCESSOR_PPC750:
+	case PROCESSOR_PPC8540:
+	case PROCESSOR_PPC7400:
+	  *total = COSTS_N_INSNS (19);
+	  return true;
+
+	case PROCESSOR_PPC7450:
+	  *total = COSTS_N_INSNS (23);
+	  return true;
+
+	default:
+	  abort ();
+	}
+
+    case FFS:
+      *total = COSTS_N_INSNS (4);
+      return true;
+
+    case MEM:
+      /* MEM should be slightly more expensive than (plus (reg) (const)) */
+      *total = 5;
+      return true;
+
+    default:
+      return false;
+    }
 }
 
 /* A C expression returning the cost of moving data from a register of class

@@ -960,7 +960,8 @@ ssa_ccp_df_delete_unreachable_insns ()
 void
 ssa_const_prop ()
 {
-  unsigned int i;
+  size_t i;
+  int j;
   edge curredge;
 
   /* We need alias analysis (for what?) */
@@ -995,8 +996,8 @@ ssa_const_prop ()
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
 
-  for (i = 0; i < NUM_EDGES (edges); i++)
-    edges->index_to_edge[i]->flags &= ~EDGE_EXECUTABLE;
+  for (j = 0; j < NUM_EDGES (edges); j++)
+    edges->index_to_edge[j]->flags &= ~EDGE_EXECUTABLE;
 
   VARRAY_GENERIC_PTR_INIT (edge_info, NUM_EDGES (edges) / 2, "edge_info");
 

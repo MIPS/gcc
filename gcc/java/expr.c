@@ -92,7 +92,7 @@ static GTY(()) tree methods_ident;
 static GTY(()) tree ncode_ident;
 tree dtable_ident = NULL_TREE;
 
-/* Set to nonzero value in order to emit class initilization code
+/* Set to nonzero value in order to emit class initialization code
    before static field references.  */
 int always_initialize_class_p;
 
@@ -125,7 +125,7 @@ int always_initialize_class_p;
 
 static GTY(()) tree quick_stack;
 
-/* A free-list of unused permamnet TREE_LIST nodes. */
+/* A free-list of unused permanent TREE_LIST nodes.  */
 static GTY((deletable (""))) tree tree_list_free_list;
 
 /* The stack pointer of the Java virtual machine.
@@ -795,7 +795,7 @@ build_java_arraystore_check (tree array, tree object)
 
   /* No check is needed if the element type is final or is itself an array.  
      Also check that element_type matches object_type, since in the bytecode 
-     compilation case element_type may be the actual element type of the arra
+     compilation case element_type may be the actual element type of the array
      rather than its declared type. */
   if (element_type == object_type
       && (TYPE_ARRAY_P (TREE_TYPE (element_type))
@@ -955,7 +955,7 @@ expand_java_multianewarray (tree class_type, int ndim)
     ARRAY is an array type. May expand some bound checking and NULL
     pointer checking. RHS_TYPE_NODE we are going to store. In the case
     of the CHAR/BYTE/BOOLEAN SHORT, the type popped of the stack is an
-    INT. In those cases, we make the convertion.
+    INT. In those cases, we make the conversion.
 
     if ARRAy is a reference type, the assignment is checked at run-time
     to make sure that the RHS can be assigned to the array element
@@ -1748,13 +1748,16 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 
 	 SELF_TYPE->methods[METHOD_INDEX].ncode
 
-	 This is guaranteed to work (assuming SELF_TYPE has
-	 been initialized), since if the method is not compiled yet,
-	 its ncode points to a trampoline that forces compilation. */
+      */
 
       int method_index = 0;
-      tree meth;
-      tree ref = build_class_ref (self_type);
+      tree meth, ref;
+
+      /* The method might actually be declared in some superclass, so
+	 we have to use its class context, not the caller's notion of
+	 where the method is.  */
+      self_type = DECL_CONTEXT (method);
+      ref = build_class_ref (self_type);
       ref = build1 (INDIRECT_REF, class_type_node, ref);
       if (ncode_ident == NULL_TREE)
 	ncode_ident = get_identifier ("ncode");
@@ -1901,15 +1904,16 @@ build_invokeinterface (tree dtable, tree method)
      abstract nor static.  */
 	    
   if (class_ident == NULL_TREE)
-    {
-      class_ident = get_identifier ("class");
-    }
+    class_ident = get_identifier ("class");
 
-  dtable = build_java_indirect_ref (dtable_type, dtable, flag_check_references);
+  dtable = build_java_indirect_ref (dtable_type, dtable,
+				    flag_check_references);
   dtable = build (COMPONENT_REF, class_ptr_type, dtable,
 		  lookup_field (&dtable_type, class_ident));
 
   interface = DECL_CONTEXT (method);
+  if (! CLASS_INTERFACE (TYPE_NAME (interface)))
+    abort ();
   layout_class_methods (interface);
   
   if (flag_indirect_dispatch)

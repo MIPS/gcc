@@ -1,5 +1,6 @@
 # GCC build-, host- and target-specific configuration file.
-# Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003
+# Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -805,8 +806,11 @@ hppa1.1-*-rtems*)
 	xm_defines=POSIX
 	target_cpu_default="(MASK_JUMP_IN_DELAY | MASK_PORTABLE_RUNTIME | MASK_GAS | MASK_NO_SPACE_REGS | MASK_SOFT_FLOAT)"
 	tm_file="${tm_file} pa/pa32-regs.h dbxelf.h elfos.h pa/elf.h pa/pa-pro-end.h libgloss.h pa/rtems.h rtems.h"
-	tmake_file="pa/t-bsd pa/t-pro"
+	tmake_file="pa/t-bsd pa/t-pro t-rtems"
 	xmake_file="pa/x-ada"
+	if test x$enable_threads = xyes; then
+	  thread_file='rtems'
+	fi
 	;;
 hppa1.0-*-osf*)
 	tm_file="${tm_file} pa/pa32-regs.h pa/som.h pa/pa-osf.h"
@@ -1381,12 +1385,6 @@ i960-*-*)			# Default i960 environment.
 	c_target_objs="i960-c.o"
 	cxx_target_objs="i960-c.o"
 	;;
-ia64*-*-aix*)
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h ia64/sysv4.h ia64/aix.h"
-	tmake_file="ia64/t-ia64 ia64/t-aix"
-	target_cpu_default="MASK_GNU_AS|MASK_GNU_LD"
-	extra_parts="crti.o crtn.o crtbegin.o crtend.o crtbeginS.o crtendS.o"
-	;;
 ia64*-*-elf*)
 	tm_file="${tm_file} dbxelf.h elfos.h ia64/sysv4.h ia64/elf.h"
 	tmake_file="ia64/t-ia64"
@@ -1802,6 +1800,24 @@ mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	tm_file="elfos.h ${tm_file} mips/netbsd.h"
 	tmake_file="${tmake_file}"
 	;;
+mips64*-*-linux*)
+	tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} mips/linux.h mips/linux64.h"
+	tmake_file="t-slibgcc-elf-ver t-linux mips/t-linux mips/t-linux64"
+
+	# This default ABI is a partial lie: t-linux64 overrides the
+	# DRIVER_SELF_SPEC that sets the default abi, in the spec file
+	# that is installed.  What GCC thinks of as the default must
+	# remain as ABI_32 such that the SONAMEs of the libgcc shared
+	# libraries remain compatible with those of mips-linux-gnu.
+	tm_defines="MIPS_ISA_DEFAULT=1 MIPS_ABI_DEFAULT=ABI_32"
+	target_cpu_default="MASK_ABICALLS|MASK_FLOAT64|MASK_64BIT"
+	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
+	gnu_ld=yes
+	gas=yes
+	if test x$enable_threads = xyes; then
+		thread_file='posix'
+	fi
+	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
         tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} mips/linux.h"
 	case $machine in
@@ -2027,7 +2043,7 @@ powerpc-*-eabi*)
 powerpc-*-rtems*)
 	xm_defines=POSIX
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/rtems.h rtems.h"
-	tmake_file="rs6000/t-fprules rs6000/t-ppcgas t-rtems rs6000/t-ppccomm"
+	tmake_file="rs6000/t-fprules rs6000/t-rtems t-rtems rs6000/t-ppccomm"
 	if test x$enable_threads = xyes; then
 	  thread_file='rtems'
 	fi
@@ -2189,6 +2205,7 @@ sh-*-elf* | sh[2346l]*-*-elf*)
 	sh4*)  target_cpu_default="SELECT_SH4" ;;
 	sh3e*) target_cpu_default="SELECT_SH3E" ;;
 	sh3*)  target_cpu_default="SELECT_SH3" ;;
+	sh2e*) target_cpu_default="SELECT_SH2E" ;;
 	sh2*)  target_cpu_default="SELECT_SH2" ;;
 	esac
 	case $machine in
@@ -2233,6 +2250,9 @@ sh-*-linux* | sh[2346lbe]*-*-linux*)
 	sh3e[lb]*) target_cpu_default="SELECT_SH3" ;;
 	sh3e*) target_cpu_default="SELECT_SH3E" ;;
 	sh3*) target_cpu_default="SELECT_SH3" ;;
+	sh2e[lb]e*) target_cpu_default="SELECT_SH2E" ;;
+	sh2e[lb]*) target_cpu_default="SELECT_SH2" ;;
+	sh2e*) target_cpu_default="SELECT_SH2E" ;;
 	sh2*) target_cpu_default="SELECT_SH2" ;;
 	esac
 	case $machine in
@@ -2255,7 +2275,7 @@ sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
 	case $machine in
 	sh5*-*)
 		# SHmedia, 32-bit ABI
-		target_cpu_default="SH5_BIT|SH4_BIT|SH3E_BIT"
+		target_cpu_default="SH5_BIT|SH4_BIT|SH3_BIT|SH_E_BIT"
 		tmake_file="${tmake_file} sh/t-sh64 sh/t-netbsd-sh5"
 		;;
 	sh64*-*)
@@ -2644,14 +2664,11 @@ xstormy16-*-elf)
 	;;
 xtensa-*-elf*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h xtensa/elf.h"
-	with_newlib=yes
-	tmake_file=xtensa/t-xtensa
-	extra_parts="crtbegin.o crtend.o"
-	fixincludes=Makefile.in # newlib headers should be OK
+	tmake_file="xtensa/t-xtensa xtensa/t-elf"
 	;;
 xtensa-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h xtensa/linux.h"
-	tmake_file="t-linux xtensa/t-xtensa"
+	tmake_file="t-linux xtensa/t-xtensa xtensa/t-linux"
 	;;
 *)
 	echo "*** Configuration $machine not supported" 1>&2

@@ -1,6 +1,6 @@
 /* RTL simplification functions for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -423,6 +423,33 @@ simplify_unary_operation (code, mode, op, op_mode)
 	  val = exact_log2 (arg0 & (- arg0)) + 1;
 	  break;
 
+	case CLZ:
+	  arg0 &= GET_MODE_MASK (mode);
+	  val = GET_MODE_BITSIZE (mode) - floor_log2 (arg0) - 1;
+	  break;
+
+	case CTZ:
+	  arg0 &= GET_MODE_MASK (mode);
+	  val = arg0 == 0
+	      ? GET_MODE_BITSIZE (mode)
+	      : exact_log2 (arg0 & -arg0);
+	  break;
+
+	case POPCOUNT:
+	  arg0 &= GET_MODE_MASK (mode);
+	  val = 0;
+	  while (arg0)
+	    val++, arg0 &= arg0 - 1;
+	  break;
+
+	case PARITY:
+	  arg0 &= GET_MODE_MASK (mode);
+	  val = 0;
+	  while (arg0)
+	    val++, arg0 &= arg0 - 1;
+	  val &= 1;
+	  break;
+
 	case TRUNCATE:
 	  val = arg0;
 	  break;
@@ -523,9 +550,55 @@ simplify_unary_operation (code, mode, op, op_mode)
 	case FFS:
 	  hv = 0;
 	  if (l1 == 0)
-	    lv = HOST_BITS_PER_WIDE_INT + exact_log2 (h1 & (-h1)) + 1;
+	    {
+	      if (h1 == 0)
+		lv = 0;
+	      else
+		lv = HOST_BITS_PER_WIDE_INT + exact_log2 (h1 & -h1) + 1;
+	    }
 	  else
-	    lv = exact_log2 (l1 & (-l1)) + 1;
+	    lv = exact_log2 (l1 & -l1) + 1;
+	  break;
+
+	case CLZ:
+	  hv = 0;
+	  if (h1 == 0)
+	    lv = GET_MODE_BITSIZE (mode) - floor_log2 (l1) - 1;
+	  else
+	    lv = GET_MODE_BITSIZE (mode) - floor_log2 (h1) - 1
+	      - HOST_BITS_PER_WIDE_INT;
+	  break;
+
+	case CTZ:
+	  hv = 0;
+	  if (l1 == 0)
+	    {
+	      if (h1 == 0)
+		lv = GET_MODE_BITSIZE (mode);
+	      else
+		lv = HOST_BITS_PER_WIDE_INT + exact_log2 (h1 & -h1);
+	    }
+	  else
+	    lv = exact_log2 (l1 & -l1);
+	  break;
+
+	case POPCOUNT:
+	  hv = 0;
+	  lv = 0;
+	  while (l1)
+	    lv++, l1 &= l1 - 1;
+	  while (h1)
+	    lv++, h1 &= h1 - 1;
+	  break;
+
+	case PARITY:
+	  hv = 0;
+	  lv = 0;
+	  while (l1)
+	    lv++, l1 &= l1 - 1;
+	  while (h1)
+	    lv++, h1 &= h1 - 1;
+	  lv &= 1;
 	  break;
 
 	case TRUNCATE:
@@ -2544,7 +2617,7 @@ simplify_subreg (outermode, op, innermode, byte)
 	  || ! rtx_equal_function_value_matters)
       && REGNO (op) < FIRST_PSEUDO_REGISTER
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      && ! (REG_CANNOT_CHANGE_MODE_P (REGNO (op), outermode, innermode)
+      && ! (REG_CANNOT_CHANGE_MODE_P (REGNO (op), innermode, outermode)
 	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_INT
 	    && GET_MODE_CLASS (innermode) != MODE_COMPLEX_FLOAT)
 #endif
@@ -2568,7 +2641,7 @@ simplify_subreg (outermode, op, innermode, byte)
       if (HARD_REGNO_MODE_OK (final_regno, outermode)
 	  || ! HARD_REGNO_MODE_OK (REGNO (op), innermode))
 	{
-	  rtx x = gen_rtx_REG (outermode, final_regno);
+	  rtx x = gen_rtx_REG_offset (op, outermode, final_regno, byte);
 
 	  /* Propagate original regno.  We don't have any way to specify
 	     the offset inside original regno, so do so only for lowpart.
@@ -2729,11 +2802,15 @@ simplify_rtx (x)
 					     : GET_MODE (XEXP (x, 1))),
 					    XEXP (x, 0), XEXP (x, 1));
     case 'x':
-      /* The only case we try to handle is a SUBREG.  */
       if (code == SUBREG)
 	return simplify_gen_subreg (mode, SUBREG_REG (x),
 				    GET_MODE (SUBREG_REG (x)),
 				    SUBREG_BYTE (x));
+      if (code == CONSTANT_P_RTX)
+	{
+	  if (CONSTANT_P (XEXP (x,0)))
+	    return const1_rtx;
+	}
       return NULL;
     default:
       return NULL;

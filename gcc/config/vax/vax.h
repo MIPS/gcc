@@ -848,51 +848,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define TARGET_FLOAT_FORMAT VAX_FLOAT_FORMAT
 
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-
-/* On a VAX, constants from 0..63 are cheap because they can use the
-   1 byte literal constant format.  compare to -1 should be made cheap
-   so that decrement-and-branch insns can be formed more easily (if
-   the value -1 is copied to a register some decrement-and-branch patterns
-   will not match).  */
-
-#define CONST_COSTS(RTX,CODE,OUTER_CODE) \
-  case CONST_INT:						\
-    if (INTVAL (RTX) == 0) return 0;				\
-    if ((OUTER_CODE) == AND)					\
-      return ((unsigned) ~INTVAL (RTX) <= 077) ? 1 : 2;		\
-    if ((unsigned) INTVAL (RTX) <= 077) return 1;		\
-    if ((OUTER_CODE) == COMPARE && INTVAL (RTX) == -1)		\
-      return 1;							\
-    if ((OUTER_CODE) == PLUS && (unsigned) -INTVAL (RTX) <= 077)\
-      return 1;							\
-  case CONST:							\
-  case LABEL_REF:						\
-  case SYMBOL_REF:						\
-    return 3;							\
-  case CONST_DOUBLE:						\
-    if (GET_MODE_CLASS (GET_MODE (RTX)) == MODE_FLOAT)		\
-      return vax_float_literal (RTX) ? 5 : 8;			\
-    else							\
-      return (((CONST_DOUBLE_HIGH (RTX) == 0			\
-		&& (unsigned) CONST_DOUBLE_LOW (RTX) < 64)	\
-	       || ((OUTER_CODE) == PLUS				\
-		   && CONST_DOUBLE_HIGH (RTX) == -1		\
-		   && (unsigned)-CONST_DOUBLE_LOW (RTX) < 64))	\
-	      ? 2 : 5);
-
-#define RTX_COSTS(RTX,CODE,OUTER_CODE) case FIX: case FLOAT:	\
- case MULT: case DIV: case UDIV: case MOD: case UMOD:		\
- case ASHIFT: case LSHIFTRT: case ASHIFTRT:			\
- case ROTATE: case ROTATERT: case PLUS: case MINUS: case IOR:	\
- case XOR: case AND: case NEG: case NOT: case ZERO_EXTRACT:	\
- case SIGN_EXTRACT: case MEM: return vax_rtx_cost(RTX)
-
-#define	ADDRESS_COST(RTX) (1 + (GET_CODE (RTX) == REG ? 0 : vax_address_cost(RTX)))
-
 /* Specify the cost of a branch insn; roughly the number of extra insns that
    should be added to avoid a branch.
 
@@ -1138,14 +1093,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 ( fputs (".lcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), ",%u\n", (ROUNDED)))
-
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.
-	.mask	^m<r2,r3,r4,r5,r6,r7,r8,r9,r10,r11>	#conservative entry mask
-	addl2	$DELTA, 4(ap)	#adjust first argument
-	jmp	FUNCTION+2	#jump beyond FUNCTION's entry mask
- */
-#define ASM_OUTPUT_MI_THUNK vax_output_mi_thunk
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.

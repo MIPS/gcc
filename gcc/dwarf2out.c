@@ -279,10 +279,8 @@ static GTY((length ("fde_table_allocated"))) dw_fde_ref fde_table;
 /* Number of elements currently allocated for fde_table.  */
 static unsigned fde_table_allocated;
 
-#if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 /* Number of elements in fde_table currently in use.  */
-static unsigned fde_table_in_use;
-#endif
+static GTY(()) unsigned fde_table_in_use;
 
 /* Size (in elements) of increments by which we may expand the
    fde_table.  */
@@ -310,6 +308,7 @@ struct indirect_string_node GTY(())
 static GTY ((param_is (struct indirect_string_node))) htab_t debug_str_hash;
 
 static GTY(()) int dw2_string_counter;
+static GTY(()) unsigned long dwarf2out_cfi_label_num;
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
@@ -561,9 +560,8 @@ char *
 dwarf2out_cfi_label ()
 {
   static char label[20];
-  static unsigned long label_num = 0;
 
-  ASM_GENERATE_INTERNAL_LABEL (label, "LCFI", label_num++);
+  ASM_GENERATE_INTERNAL_LABEL (label, "LCFI", dwarf2out_cfi_label_num++);
   ASM_OUTPUT_LABEL (asm_out_file, label);
   return label;
 }
@@ -7293,6 +7291,14 @@ output_file_names ()
   size_t i;
   int idx;
 
+  /* Handle the case where file_table is empty.  */
+  if (VARRAY_ACTIVE_SIZE (file_table) <= 1)
+    {
+      dw2_asm_output_data (1, 0, "End directory table");
+      dw2_asm_output_data (1, 0, "End file name table");
+      return;
+    }
+
   /* Allocate the various arrays we need.  */
   files = (struct file_info *) alloca (VARRAY_ACTIVE_SIZE (file_table)
 				       * sizeof (struct file_info));
@@ -11604,6 +11610,21 @@ gen_type_die (type, context_die)
   if (type == NULL_TREE || type == error_mark_node)
     return;
 
+  if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
+      && DECL_ORIGINAL_TYPE (TYPE_NAME (type)))
+    {
+      if (TREE_ASM_WRITTEN (type))
+	return;
+
+      /* Prevent broken recursion; we can't hand off to the same type.  */
+      if (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) == type)
+	abort ();
+
+      TREE_ASM_WRITTEN (type) = 1;
+      gen_decl_die (TYPE_NAME (type), context_die);
+      return;
+    }
+
   /* We are going to output a DIE to represent the unqualified version
      of this type (i.e. without any const or volatile qualifiers) so
      get the main variant (i.e. the unqualified version) of this type
@@ -11614,18 +11635,6 @@ gen_type_die (type, context_die)
 
   if (TREE_ASM_WRITTEN (type))
     return;
-
-  if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-      && DECL_ORIGINAL_TYPE (TYPE_NAME (type)))
-    {
-      /* Prevent broken recursion; we can't hand off to the same type.  */
-      if (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) == type)
-	abort ();
-
-      TREE_ASM_WRITTEN (type) = 1;
-      gen_decl_die (TYPE_NAME (type), context_die);
-      return;
-    }
 
   switch (TREE_CODE (type))
     {
@@ -12360,7 +12369,7 @@ lookup_filename (file_name)
 
   if (DWARF2_ASM_LINE_DEBUG_INFO)
     {
-      fprintf (asm_out_file, "\t.file %u ", i);
+      fprintf (asm_out_file, "\t.file %lu ", (unsigned long) i);
       output_quoted_string (asm_out_file, file_name);
       fputc ('\n', asm_out_file);
     }
@@ -12681,6 +12690,8 @@ dwarf2out_finish (input_filename)
 	{
 	  dw_die_ref origin = get_AT_ref (die, DW_AT_abstract_origin);
 	  tree context;
+
+	  context = NULL_TREE; /* [GIMPLE] Avoid uninitialized use warning.  */
 
 	  if (origin)
 	    add_child_die (origin->die_parent, die);

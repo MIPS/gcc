@@ -289,16 +289,12 @@ index_counts_file ()
   unsigned magic, version, ix, checksum;
   long *summary;
 
+  /* No .da file, no data.  */
   if (!da_file)
     return 0;
   counts_file_index = htab_create (10, htab_counts_index_hash, htab_counts_index_eq, htab_counts_index_del);
 
-  /* No .da file, no data.  */
-  if (!da_file)
-    return 0;
-
   /* Now index all profile sections.  */
-
   rewind (da_file);
 
   summary = NULL;
@@ -1674,7 +1670,7 @@ create_profiler ()
   /* Build structure.  */
   assemble_variable (structure, 0, 0, 0);
 
-  /* Build the constructor function to invoke __gcov_init. */
+  /* Build the constructor function to invoke __gcov_init.  */
   ctor_name = concat (IDENTIFIER_POINTER (get_file_function_name ('I')),
 		      "_GCOV", NULL);
   ctor = build_decl (FUNCTION_DECL, get_identifier (ctor_name),

@@ -2926,7 +2926,7 @@ start_decl (declarator, declspecs, initialized, attributes)
 
      Thread-local variables are never common, since there's no entrenched
      body of code to break, and it allows more efficient variable references
-     in the presense of dynamic linking.  */
+     in the presence of dynamic linking.  */
 
   if (TREE_CODE (decl) == VAR_DECL
       && !initialized
@@ -4180,7 +4180,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	    {
 	      /* Type qualifiers on a function return type are normally
 		 permitted by the standard but have no effect, so give a
-		 warning at -W.  Qualifiers on a void return type have
+		 warning at -Wextra.  Qualifiers on a void return type have
 		 meaning as a GNU extension, and are banned on function
 		 definitions in ISO C.  FIXME: strictly we shouldn't
 		 pedwarn for qualified void return types except on function
@@ -5029,7 +5029,7 @@ grokfield (filename, line, declarator, declspecs, width)
 	     again this is an anonymous struct.
 	   Otherwise this is an error.
 
-	 Oh what a horrid tangled web we weave.  I wonder if MS consiously
+	 Oh what a horrid tangled web we weave.  I wonder if MS consciously
 	 took this from Plan 9 or if it was an accident of implementation
 	 that took root before someone noticed the bug...  */
 
@@ -6604,7 +6604,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   if (nested_p)
     ggc_pop_context ();
 
-  /* With just -W, complain only if function returns both with
+  /* With just -Wextra, complain only if function returns both with
      and without a value.  */
   if (extra_warnings
       && current_function_returns_value

@@ -1190,7 +1190,6 @@ build_indirect_ref (ptr, errorstring)
   if (TREE_CODE (type) == POINTER_TYPE)
     {
       if (TREE_CODE (pointer) == ADDR_EXPR
-	  && !flag_volatile
 	  && (TREE_TYPE (TREE_OPERAND (pointer, 0))
 	      == TREE_TYPE (type)))
 	return TREE_OPERAND (pointer, 0);
@@ -1216,7 +1215,7 @@ build_indirect_ref (ptr, errorstring)
 	     to change it via some other pointer.  */
 	  TREE_READONLY (ref) = TYPE_READONLY (t);
 	  TREE_SIDE_EFFECTS (ref)
-	    = TYPE_VOLATILE (t) || TREE_SIDE_EFFECTS (pointer) || flag_volatile;
+	    = TYPE_VOLATILE (t) || TREE_SIDE_EFFECTS (pointer);
 	  TREE_THIS_VOLATILE (ref) = TYPE_VOLATILE (t);
 	  return ref;
 	}
@@ -2318,7 +2317,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	  tree arg1 = get_narrower (op1, &unsigned1);
 	  /* UNS is 1 if the operation to be done is an unsigned one.  */
 	  int uns = TREE_UNSIGNED (result_type);
-	  tree type;
+	  tree type = NULL;  /* [GIMPLE] Avoid uninitialized use warning.  */
 
 	  final_type = result_type;
 
@@ -3571,7 +3570,7 @@ internal_build_compound_expr (list, first_p)
   if (! TREE_SIDE_EFFECTS (TREE_VALUE (list)))
     {
       /* The left-hand operand of a comma expression is like an expression
-         statement: with -W or -Wunused, we should warn if it doesn't have
+         statement: with -Wextra or -Wunused, we should warn if it doesn't have
 	 any side-effects, unless it was explicitly cast to (void).  */
       if ((extra_warnings || warn_unused_value)
            && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR

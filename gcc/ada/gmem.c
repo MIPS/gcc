@@ -7,7 +7,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *         Copyright (C) 2000-2001 Free Software Foundation, Inc.           *
+ *         Copyright (C) 2000-2003 Free Software Foundation, Inc.           *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -71,8 +71,6 @@ static FILE *gmemfile;
 static char *tracebk[TB_LEN];
 static int cur_tb_len, cur_tb_pos;
 
-extern void convert_addresses		PARAMS ((char *[], int, void *,
-						 int *));
 static void gmem_read_backtrace 	PARAMS ((void));
 static char *spc2nul			PARAMS ((char *));
 

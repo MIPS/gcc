@@ -29,7 +29,9 @@ struct directive;		/* Deliberately incomplete.  */
 struct pending_option;
 struct op;
 
+#ifndef HAVE_UCHAR
 typedef unsigned char uchar;
+#endif
 #define U (const uchar *)  /* Intended use: U"string" */
 
 #define BITS_PER_CPPCHAR_T (CHAR_BIT * sizeof (cppchar_t))
@@ -362,7 +364,7 @@ struct cpp_reader
      _cpp_maybe_push_include_file has yet to restore the line map.  */
   struct pending_option **next_include_file;
 
-  /* Multiple inlcude optimisation.  */
+  /* Multiple include optimisation.  */
   const cpp_hashnode *mi_cmacro;
   const cpp_hashnode *mi_ind_cmacro;
   bool mi_valid;

@@ -4600,6 +4600,8 @@ fold (expr)
      if all operands are constant.  */
   int wins = 1;
 
+  tem = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
+
   /* Don't try to process an RTL_EXPR since its operands aren't trees.
      Likewise for a SAVE_EXPR that's already been evaluated.  */
   if (code == RTL_EXPR || (code == SAVE_EXPR && SAVE_EXPR_RTL (t) != 0))
@@ -7437,6 +7439,10 @@ tree_expr_nonnegative_p (t)
     {
     case ABS_EXPR:
     case FFS_EXPR:
+    case CLZ_EXPR:
+    case CTZ_EXPR:
+    case POPCOUNT_EXPR:
+    case PARITY_EXPR:
       return 1;
     case INTEGER_CST:
       return tree_int_cst_sgn (t) >= 0;

@@ -1,3 +1,255 @@
+2003-01-31  Mark WIelaard  <mark@klomp.org>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (gtk_c_headers): Strip trailing / from jniinclude.
+
+2003-01-31  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNI_NewObjectArray): Check that initializer can be
+	cast to element type.
+	(_Jv_JNI_SetObjectArrayElement): Check array bounds.
+	(_Jv_JNI_GetObjectArrayElement): Likewise.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (cond_x_ltlibrary): Renamed library to
+	lib-gnu-awt-xlib.la.
+	(lib_gnu_awt_xlib_la_SOURCES): Renamed.
+	(EXTRA_lib_gnu_awt_xlib_la_SOURCES): Likewise.
+	(lib_gnu_awt_xlib_la_DEPENDENCIES): Likewise.
+	(lib_gnu_awt_xlib_la_LIBADD): Likewise.
+	(lib_gnu_awt_xlib_la_LDFLAGS): Likewise.
+	(lib_gnu_awt_xlib_la_LINK): Likewise.
+	(install-exec-hook): Removed.
+	(lib-gnu-awt-xlib.la): Renamed.
+
+2003-01-31  Tom Tromey  <tromey@redhat.com>
+
+	* aclocal.m4, configure, include/config.h.in: Rebuilt.
+	* acinclude.m4 (CHECK_FOR_BROKEN_MINGW_LD): Resurrected; was in
+	aclocal.m4 and lost in some merge.
+
+	* java/awt/Window.java (Window(Window,GraphicsConfiguration)):
+	Don't try to find graphics configuration.
+	* java/awt/Toolkit.java (default_toolkit_name): Use new
+	Configuration entry.
+	* gnu/classpath/Configuration.java.in (default_awt_peer_toolkit):
+	New global.
+	* configure: Rebuilt.
+	* configure.in (TOOLKIT): New subst.
+	(--enable-java-awt) [xlib, gtk]: Set TOOLKIT if required.
+	Do AWT tests much earlier.  Run Gtk tests.  Make jniinclude
+	directory.  Make output directories for .c files.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (lib_gnu_java_awt_peer_gtk_la_SOURCES): New macro.
+	(toolexeclib_LTLIBRARIES): Added cond_gtk_ltlibrary.
+	(all_java_source_files): Added new sources.
+	($(lib_gnu_java_awt_peer_gtk_la_OBJECTS)): New target.
+	(gtk_c_files): New macro.
+	(gtk_c_source_files): New macro.
+	(cond_gtk_ltlibrary): New macro.
+	($(gtk_c_files)): New target.
+	(lib_gnu_java_awt_peer_gtk_la_LIBADD): New macro.
+	(gtk_awt_peer_sources): New macro.
+	(gtk_c_headers): New macro.
+	($(gtk_c_headers)): New target.
+	(ACLOCAL_AMFLAGS): New macro.
+	* gtk.m4, glib.m4, libart.m4: New files.
+	* gnu/java/awt/peer/gtk/GdkFontMetrics.java,
+	gnu/java/awt/peer/gtk/GdkGraphics.java,
+	gnu/java/awt/peer/gtk/GtkArg.java,
+	gnu/java/awt/peer/gtk/GtkArgList.java,
+	gnu/java/awt/peer/gtk/GtkButtonPeer.java,
+	gnu/java/awt/peer/gtk/GtkCanvasPeer.java,
+	gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java,
+	gnu/java/awt/peer/gtk/GtkCheckboxMenuItemPeer.java,
+	gnu/java/awt/peer/gtk/GtkCheckboxPeer.java,
+	gnu/java/awt/peer/gtk/GtkChoicePeer.java,
+	gnu/java/awt/peer/gtk/GtkClipboard.java,
+	gnu/java/awt/peer/gtk/GtkComponentPeer.java,
+	gnu/java/awt/peer/gtk/GtkContainerPeer.java,
+	gnu/java/awt/peer/gtk/GtkDialogPeer.java,
+	gnu/java/awt/peer/gtk/GtkFileDialogPeer.java,
+	gnu/java/awt/peer/gtk/GtkFontPeer.java,
+	gnu/java/awt/peer/gtk/GtkFramePeer.java,
+	gnu/java/awt/peer/gtk/GtkGenericPeer.java,
+	gnu/java/awt/peer/gtk/GtkImage.java,
+	gnu/java/awt/peer/gtk/GtkImagePainter.java,
+	gnu/java/awt/peer/gtk/GtkLabelPeer.java,
+	gnu/java/awt/peer/gtk/GtkListPeer.java,
+	gnu/java/awt/peer/gtk/GtkMainThread.java,
+	gnu/java/awt/peer/gtk/GtkMenuBarPeer.java,
+	gnu/java/awt/peer/gtk/GtkMenuComponentPeer.java,
+	gnu/java/awt/peer/gtk/GtkMenuItemPeer.java,
+	gnu/java/awt/peer/gtk/GtkMenuPeer.java,
+	gnu/java/awt/peer/gtk/GtkOffScreenImage.java,
+	gnu/java/awt/peer/gtk/GtkPanelPeer.java,
+	gnu/java/awt/peer/gtk/GtkPopupMenuPeer.java,
+	gnu/java/awt/peer/gtk/GtkScrollbarPeer.java,
+	gnu/java/awt/peer/gtk/GtkScrollPanePeer.java,
+	gnu/java/awt/peer/gtk/GtkTextAreaPeer.java,
+	gnu/java/awt/peer/gtk/GtkTextComponentPeer.java,
+	gnu/java/awt/peer/gtk/GtkTextFieldPeer.java,
+	gnu/java/awt/peer/gtk/GtkToolkit.java,
+	gnu/java/awt/peer/gtk/GtkWindowPeer.java,
+	gnu/java/awt/peer/gtk/TestAWT.java,
+	gnu/java/awt/peer/gtk/Test.java: New files from Classpath.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkClipboard.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollPanePeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c,
+	jni/gtk-peer/gthread-jni.c, jni/gtk-peer/gthread-jni.h,
+	jni/gtk-peer/gtkpeer.h, jni/classpath/jcl.c, jni/classpath/jcl.h,
+	jni/classpath/jnilink.c, jni/classpath/jnilink.h,
+	jni/classpath/native_state.c, jni/classpath/native_state.h,
+	jni/classpath/primlib.c, jni/classpath/primlib.h: Likewise.
+
+2003-01-31  Julian Dolby  <dolby@us.ibm.com>
+
+	* java/util/Properties.java (load): Ignore backslash before EOF.
+
+2003-01-30  Jeff Sturm  <jsturm@one-point.com>
+
+	* java/lang/natClass.cc (initializeClass): Check tables when
+	(state == JV_STATE_IN_PROGRESS).
+	(_Jv_GetInterfaces): Use _Jv_WaitForState to link interface.
+	* java/lang/natClassLoader.cc (_Jv_WaitForState): Handle
+	interpreted classes.
+	(linkClass0): Use _Jv_WaitForState.
+
+2003-01-28  Oscar Pearce  <oscar@pearceenterprises.com>
+
+	* java/awt/Component.java (processPaintEvent): Dispose of Graphics
+	object when finished.
+
+2003-01-28  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* libjava/configure.host: Disable can_unwind_signal on darwin.
+
+2003-01-28  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Fixes PR java/9254:
+	* include/win32-threads.h (_Jv_Mutex_t): Convert to a struct
+	additionally containing id of the owner thread as well as
+	the number of nested times the thread has acquired the mutex.
+	(_Jv_MutexInit): Initialise owner thread id and refcount to 0.
+	(_Jv_MutexDestroy): Reset owner thread id and refcount to 0.
+	(_Jv_MutexUnlock): Check if really the owner thread, reset
+	owner thread id to 0 before leaving, if leaving for the last
+	time.
+	(_Jv_MutexLock): Set owner thread id in the mutex and increment
+	refcount.
+	(_Jv_ThreadYield): Yield using a call to Sleep(0).
+	* win32-threads.cc (_Jv_CondWait): Check if really owner of
+	the passed mutex.
+	Pass handle of the broadcast event, instead of a pointer to it
+	in Win32 ResetEvent( ) call.
+	Remove incorrect return values.
+	(_Jv_CondDestroy): Close both event handles and delete
+	critical section.
+	(_Jv_CondNotify): Check if really the owner thread.
+	(_Jv_CondNotifyAll): Check if really the owner thread.
+	(_Jv_InitThreads): Change daemon_cond to a manual-reset event.
+	(really_start): Use SetEvent( ) to signal daemon_cond.
+	(_Jv_ThreadWait): Remove SignalObjectAndWait( ) and use
+	WaitForSingleObject( ) instead to wait for daemon_cond to be
+	signalled.
+
+2003-01-27  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* configure.in: Specifically define HAVE_BACKTRACE if building
+	for MinGW.
+	* include/win32.h: Remove HAVE_BACKTRACE definition.
+	* gnu/gcj/runtime/natStackTrace.cc: Include platform.h.
+	* configure: Rebuilt.
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (toolexecdir, toolexecmainlibdir, toolexeclibdir):
+	Set and AC_SUBST.  Remove USE_LIBDIR conditional.
+	* Makefile.am (toolexecdir, toolexeclibdir): Don't override.
+	(toolexecmainlib_DATA): Renamed from toolexeclib_DATA.
+	* Makefile.in, configure: Rebuilt.
+
+2003-01-24  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Fixes PR java/9253:
+	* java/io/natFileWin32.cc (performList): Append only "*.*"
+	if the canonical file path already has a "\" at the end.
+
+2003-01-24  Tom Tromey  <tromey@redhat.com>
+
+	* defineclass.cc (handleMethodsEnd): Precompute code for static
+	method.
+	(handleCodeAttribute): Likewise.
+	* resolve.cc (ncode): Use run_class for unsynchronized static
+	methods.
+	* include/java-interp.h (class _Jv_InterpMethod): Declare
+	run_class.
+	* interpret.cc (run_synch_class): Initialize class.
+	(run) [insn_invokestatic]: Don't initialize class.
+	[insn_anewarray]: Likewise.
+	[insn_multianewarray]: Likewise.
+	(run_class): New function.
+
+2003-01-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassLoader.java (findLoadedClass): Removed erroneous
+	comment.
+
+2003-01-22  Andrew Haley  <aph@redhat.com>
+
+        * x86_64-signal.h: Add simple handler for x86_64 32-bit mode.
+        * configure.host (CHECKREFSPEC): Define for x86_64.
+
+2003-01-21  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/natResourceBundle.cc (getCallingClassLoader): Start
+	search at 2, not 3.
+
+2003-01-21  Vladimir Puskas  <vpuskas@eunet.yu>
+
+	* java/io/natFileWin32.cc (isAbsolute): Check path length before
+	looking at any characters.
+	* java/io/natFilePosix.cc (_stat): Only compute `buf' if it will
+	be used.
+	(isAbsolute): Check path's length as well.
+
+2003-01-17  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am (core_java_source_files): Add VMObjectStreamClass.java.
+	(nat_source_files): Add natVMObjectStreamClass.cc.
+	* Makefile.in: Regenerated.
+	* gcj/javaprims.h (namespace java): Regenerated.
+	* java/io/ObjectStreamClass.java (getClassUID): Call
+	VMObjectStreamClass.hasClassInitializer().
+	(hasClassInitializer): Removed.
+	* java/io/VMObjectStreamClass.java: New class.
+	* java/io/natVMObjectStreamClass.cc: New file.
+	* java/lang/Class.h: Make java::io::VMObjectStreamClass friend class.
+
 2003-01-16  Mark Wielaard  <mark@klomp.org>
 
 	* java/net/SocketImpl.java (toString): Don't explicitly call

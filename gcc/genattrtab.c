@@ -1161,6 +1161,10 @@ check_attr_value (exp, attr)
       break;
 
     case FFS:
+    case CLZ:
+    case CTZ:
+    case POPCOUNT:
+    case PARITY:
       XEXP (exp, 0) = check_attr_value (XEXP (exp, 0), attr);
       break;
 
@@ -2085,7 +2089,7 @@ expand_units ()
 	     every possible C.
 
 	     The issue delay function for C is op->issue_exp and is used to
-	     write the `<name>_unit_conflict_cost' function.  Symbolicly
+	     write the `<name>_unit_conflict_cost' function.  Symbolically
 	     this is "ISSUE-DELAY (E,C)".
 
 	     The pipeline delay results form the FIFO constraint on the
@@ -3198,8 +3202,8 @@ attr_rtx_cost (x)
 
 
 /* Simplify test expression and use temporary obstack in order to avoid
-   memory bloat.  Use ATTR_IND_SIMPLIFIED to avoid unnecesary simplifications
-   and avoid unnecesary copying if possible.  */
+   memory bloat.  Use ATTR_IND_SIMPLIFIED to avoid unnecessary simplifications
+   and avoid unnecessary copying if possible.  */
 
 static rtx
 simplify_test_exp_in_temp (exp, insn_code, insn_index)
@@ -5021,7 +5025,7 @@ write_attr_get (attr)
       return;
     }
 
-  printf ("     rtx insn;\n");
+  printf ("     rtx insn ATTRIBUTE_UNUSED;\n");
   printf ("{\n");
 
   if (GET_CODE (common_av->value) == FFS)
@@ -6237,7 +6241,18 @@ from the machine description file `md'.  */\n\n");
     for (attr = attrs[i]; attr; attr = attr->next)
       {
 	if (! attr->is_special && ! attr->is_const)
-	  write_attr_get (attr);
+	  {
+	    int insn_alts_p;
+
+	    insn_alts_p
+	      = (attr->name [0] == '*'
+		 && strcmp (&attr->name [1], INSN_ALTS_FUNC_NAME) == 0);
+	    if (insn_alts_p)
+	      printf ("\n#if AUTOMATON_ALTS\n");
+	    write_attr_get (attr);
+	    if (insn_alts_p)
+	      printf ("#endif\n\n");
+	  }
       }
 
   /* Write out delay eligibility information, if DEFINE_DELAY present.

@@ -175,7 +175,6 @@ Andrew Cagney					cagney@redhat.com
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 Chris Demetriou					cgd@broadcom.com
-*Paul Eggert					eggert@twinsun.com
 Steve Ellcey					sje@cup.hp.com
 Ben Elliston					bje@redhat.com
 Marc Espie					espie@cvs.openbsd.org
@@ -191,6 +190,7 @@ Aldy Hernandez					aldyh@redhat.com
 Matthew Hiller					hiller@redhat.com
 Manfred Hollstein				mhollstein@redhat.com
 Andreas Jaeger					aj@suse.de
+Fariborz Jahanian				fjahanian@apple.com
 Jakub Jelinek					jakub@redhat.com
 Dale Johannesen 				dalej@apple.com
 Klaus Kaempf					kkaempf@progis.de
@@ -208,7 +208,7 @@ Kriang Lerdsuwanakij				lerdsuwa@users.sourceforge.net
 Don Lindsay					dlindsay@redhat.com
 Dave Love					d.love@dl.ac.uk
 Martin v. Löwis					loewis@informatik.hu-berlin.de
-*HJ Lu						hjl@lucon.org
+HJ Lu						hjl@lucon.org
 Andrew Macleod					amacleod@redhat.com
 Vladimir Makarov				vmakarov@redhat.com
 Michael Matz					matz@suse.de
@@ -231,6 +231,7 @@ Sebastian Pop                                   s.pop@laposte.net
 Clinton Popetz					cpopetz@cpopetz.com
 Ken Raeburn					raeburn@redhat.com
 Rolf Rasmussen					rolfwr@gcc.gnu.org
+Volker Reichelt					reichelt@igpm.rwth-aachen.de
 Tom Rix						trix@redhat.com
 Craig Rodrigues					rodrigc@gcc.gnu.org
 Gavin Romig-Koch				gavin@redhat.com
@@ -255,6 +256,7 @@ Ian Taylor					ian@zembu.com
 Michael Tiemann					tiemann@redhat.com
 Philipp Thomas					pthomas@suse.de
 Kresten Krab Thorup				krab@gcc.gnu.org
+Andreas Tobler					andreast@gcc.gnu.org
 Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
 John Wehle					john@feith.com
@@ -267,7 +269,6 @@ GNATS only accounts
 Wolfgang Bangerth	bangerth		bangerth@ticam.utexas.edu
 James Dennett		jdennett		jdennett@acm.org
 Christian Ehrhardt	cae			ehrhardt@mathematik.uni-ulm.de
-Volker Reichelt		reichelt		reichelt@igpm.rwth-aachen.de
 
 Peter Bienstman(?)
 Benjamin Chelf(?)

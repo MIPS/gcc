@@ -27,11 +27,12 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// { dg-do compile }
+// { dg-do compile { xfail *-*-linux-gnu } }
+// { dg-excess-errors "" }
 
 #include <math.h>
 
-void fpclassify() { }
+void fpclassify() { }  // { dg-error "parse error" "" { xfail *-*-linux-gnu } }
 
 void isfinite() { }
 

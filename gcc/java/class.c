@@ -54,13 +54,13 @@ static int32 hashUtf8String (const char *, int);
 static tree make_field_value (tree);
 static tree get_dispatch_vector (tree);
 static tree get_dispatch_table (tree, tree);
+static int supers_all_compiled (tree type);
 static void add_interface_do (tree, tree, int);
 static tree maybe_layout_super_class (tree, tree);
 static int assume_compiled (const char *);
 static tree build_method_symbols_entry (tree);
 
 static GTY(()) rtx registerClass_libfunc;
-static GTY(()) rtx registerResource_libfunc;
 
 struct obstack temporary_obstack;
 
@@ -275,7 +275,7 @@ make_class (void)
 {
   tree type;
   type = make_node (RECORD_TYPE);
-  TYPE_BINFO (type) = make_tree_vec (6);
+  TYPE_BINFO (type) = make_tree_vec (BINFO_ELTS);
   MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC (type);
 
   return type;
@@ -360,7 +360,7 @@ set_super_info (int access_flags, tree this_class,
   TYPE_BINFO_BASETYPES (this_class) = make_tree_vec (total_supers);
   if (super_class)
     {
-      tree super_binfo = make_tree_vec (6);
+      tree super_binfo = make_tree_vec (BINFO_ELTS);
       BINFO_TYPE (super_binfo) = super_class;
       BINFO_OFFSET (super_binfo) = integer_zero_node;
       TREE_VIA_PUBLIC (super_binfo) = 1;
@@ -492,7 +492,7 @@ int common_enclosing_context_p (tree type1, tree type2)
 static void
 add_interface_do (tree basetype_vec, tree interface_class, int i)
 {
-  tree interface_binfo = make_tree_vec (6);
+  tree interface_binfo = make_tree_vec (BINFO_ELTS);
   BINFO_TYPE (interface_binfo) = interface_class;
   BINFO_OFFSET (interface_binfo) = integer_zero_node;
   BINFO_VPTR_FIELD (interface_binfo) = integer_zero_node;
@@ -741,111 +741,7 @@ hashUtf8String (const char *str, int len)
   return hash;
 }
 
-/* Generate a byte array representing the contents of FILENAME.  The
-   array is assigned a unique local symbol.  The array represents a
-   compiled Java resource, which is accessed by the runtime using
-   NAME.  */
-void
-compile_resource_file (char *name, const char *filename)
-{
-  struct stat stat_buf;
-  int fd;
-  char *buffer;
-  char buf[60];
-  tree rtype, field = NULL_TREE, data_type, rinit, data, decl;
-  static int Jr_count = 0;
-
-  fd = open (filename, O_RDONLY | O_BINARY);
-  if (fd < 0)
-    {
-      perror ("Failed to read resource file");
-      return;
-    }
-  if (fstat (fd, &stat_buf) != 0
-      || ! S_ISREG (stat_buf.st_mode))
-    {
-      perror ("Could not figure length of resource file");
-      return;
-    }
-  buffer = xmalloc (strlen (name) + stat_buf.st_size);
-  strcpy (buffer, name);
-  read (fd, buffer + strlen (name), stat_buf.st_size);
-  close (fd);
-  data_type = build_prim_array_type (unsigned_byte_type_node,
-				     strlen (name) + stat_buf.st_size);
-  rtype = make_node (RECORD_TYPE);
-  PUSH_FIELD (rtype, field, "name_length", unsigned_int_type_node);
-  PUSH_FIELD (rtype, field, "resource_length", unsigned_int_type_node);
-  PUSH_FIELD (rtype, field, "data", data_type);
-  FINISH_RECORD (rtype);
-  START_RECORD_CONSTRUCTOR (rinit, rtype);
-  PUSH_FIELD_VALUE (rinit, "name_length", 
-		    build_int_2 (strlen (name), 0));
-  PUSH_FIELD_VALUE (rinit, "resource_length", 
-		    build_int_2 (stat_buf.st_size, 0));
-  data = build_string (strlen(name) + stat_buf.st_size, buffer);
-  TREE_TYPE (data) = data_type;
-  PUSH_FIELD_VALUE (rinit, "data", data);
-  FINISH_RECORD_CONSTRUCTOR (rinit);
-  TREE_CONSTANT (rinit) = 1;
-
-  /* Generate a unique-enough identifier.  */
-  sprintf(buf, "_Jr%d", ++Jr_count);
-
-  decl = build_decl (VAR_DECL, get_identifier (buf), rtype);
-  TREE_STATIC (decl) = 1;
-  DECL_ARTIFICIAL (decl) = 1;
-  DECL_IGNORED_P (decl) = 1;
-  TREE_READONLY (decl) = 1;
-  TREE_THIS_VOLATILE (decl) = 0;
-  DECL_INITIAL (decl) = rinit;
-  layout_decl (decl, 0);
-  pushdecl (decl);
-  rest_of_decl_compilation (decl, (char*) 0, global_bindings_p (), 0);
-  make_decl_rtl (decl, (char*) 0);
-  assemble_variable (decl, 1, 0, 0);
-
-  {
-    tree init_name = get_file_function_name ('I');
-    tree init_type = build_function_type (void_type_node, end_params_node);
-    tree init_decl;
-    
-    init_decl = build_decl (FUNCTION_DECL, init_name, init_type);
-    SET_DECL_ASSEMBLER_NAME (init_decl, init_name);
-    TREE_STATIC (init_decl) = 1;
-    current_function_decl = init_decl;
-    DECL_RESULT (init_decl) = build_decl (RESULT_DECL, 
-					  NULL_TREE, void_type_node);
-
-    /* It can be a static function as long as collect2 does not have
-       to scan the object file to find its ctor/dtor routine.  */
-    TREE_PUBLIC (init_decl) = ! targetm.have_ctors_dtors;
-
-    pushlevel (0);
-    make_decl_rtl (init_decl, NULL);
-    init_function_start (init_decl, input_filename, 0);
-    expand_function_start (init_decl, 0);
-    
-    emit_library_call (registerResource_libfunc, 0, VOIDmode, 1,
-		       gen_rtx (SYMBOL_REF, Pmode, buf), 
-		       Pmode);
-    
-    expand_function_end (input_filename, 0, 0);
-    poplevel (1, 0, 1);
-    { 
-      /* Force generation, even with -O3 or deeper. Gross hack. FIXME */
-      int saved_flag = flag_inline_functions;
-      flag_inline_functions = 0;	
-      rest_of_compilation (init_decl);
-      flag_inline_functions = saved_flag;
-    }
-    current_function_decl = NULL_TREE;
-    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (init_decl), 0),
-				     DEFAULT_INIT_PRIORITY);
-  }     
-}
-
-tree utf8_decl_list = NULL_TREE;
+static GTY(()) tree utf8_decl_list = NULL_TREE;
 
 tree
 build_utf8_ref (tree name)
@@ -1026,8 +922,18 @@ build_static_field_ref (tree fdecl)
   tree fclass = DECL_CONTEXT (fdecl);
   int is_compiled = is_compiled_class (fclass);
 
-  /* Allow static final fields to fold to a constant.  */
-  if (is_compiled || FIELD_FINAL (fdecl))
+  /* Allow static final fields to fold to a constant.  When using
+     -fno-assume-compiled, gcj will sometimes try to fold a field from
+     an uncompiled class.  This is required when the field in question
+     meets the appropriate criteria for a compile-time constant.
+     However, currently sometimes gcj is too eager and will end up
+     returning the field itself, leading to an incorrect external
+     reference being generated.  */
+  if (is_compiled
+      || (FIELD_FINAL (fdecl) && DECL_INITIAL (fdecl) != NULL_TREE
+	  && (JSTRING_TYPE_P (TREE_TYPE (fdecl))
+	      || JNUMERIC_TYPE_P (TREE_TYPE (fdecl)))
+	  && TREE_CONSTANT (DECL_INITIAL (fdecl))))
     {
       if (!DECL_RTL_SET_P (fdecl))
 	{
@@ -1265,7 +1171,8 @@ static tree
 get_dispatch_vector (tree type)
 {
   tree vtable = TYPE_VTABLE (type);
-  if (vtable == NULL)
+
+  if (vtable == NULL_TREE)
     {
       HOST_WIDE_INT i;
       tree method;
@@ -1365,6 +1272,18 @@ get_dispatch_table (tree type, tree this_class_addr)
   return build (CONSTRUCTOR,
 		build_prim_array_type (nativecode_ptr_type_node, arraysize),
 		NULL_TREE, list);
+}
+
+static int
+supers_all_compiled (tree type)
+{
+  while (type != NULL_TREE)
+    {
+      if (!assume_compiled (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)))))
+	return 0;
+      type = CLASSTYPE_SUPER (type);
+    }
+  return 1;
 }
 
 void
@@ -1468,8 +1387,8 @@ make_class_data (tree type)
   DECL_IGNORED_P (methods_decl) = 1;
   rest_of_decl_compilation (methods_decl, (char*) 0, 1, 0);
 
-  if (assume_compiled (IDENTIFIER_POINTER (DECL_NAME (type_decl)))
-      && ! CLASS_INTERFACE (type_decl) && !flag_indirect_dispatch)
+  if (supers_all_compiled (type) && ! CLASS_INTERFACE (type_decl)
+      && !flag_indirect_dispatch)
     {
       tree dtable = get_dispatch_table (type, this_class_addr);
       dtable_decl = build_dtable_decl (type);
@@ -1956,9 +1875,6 @@ layout_class_methods (tree this_class)
   TYPE_NVIRTUALS (this_class) = dtable_count;
 }
 
-/* Return 0 if NAME is equal to STR, -1 if STR is "less" than NAME,
-   and 1 if STR is "greater" than NAME.  */
-
 /* Lay METHOD_DECL out, returning a possibly new value of
    DTABLE_COUNT. Also mangle the method's name. */
 
@@ -1995,7 +1911,7 @@ layout_class_method (tree this_class, tree super_class,
     }
   else if (! METHOD_STATIC (method_decl) && !DECL_ARTIFICIAL (method_decl))
     {
-      tree method_sig = 
+      tree method_sig =
 	build_java_argument_signature (TREE_TYPE (method_decl));
       tree super_method = lookup_argument_method (super_class, method_name,
 						  method_sig);
@@ -2044,7 +1960,7 @@ register_class (void)
 
    The preferred mechanism is through the .jcr section, which contain
    a list of pointers to classes which get registered during
-   constructor invoction time.  The fallback mechanism is to generate
+   constructor invocation time.  The fallback mechanism is to generate
    a `constructor' function which calls _Jv_RegisterClass for each
    class in this file.  */
 
@@ -2198,8 +2114,6 @@ void
 init_class_processing (void)
 {
   registerClass_libfunc = gen_rtx_SYMBOL_REF (Pmode, "_Jv_RegisterClass");
-  registerResource_libfunc = 
-    gen_rtx_SYMBOL_REF (Pmode, "_Jv_RegisterResource");
   fields_ident = get_identifier ("fields");
   info_ident = get_identifier ("info");
   gcc_obstack_init (&temporary_obstack);

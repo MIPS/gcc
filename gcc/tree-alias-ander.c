@@ -142,7 +142,9 @@ static aterm get_ref PARAMS ((aterm));
 static argterm fun_rec_aterm PARAMS ((aterm_list));
 static aterm pta_make_lam PARAMS ((const char *, aterm, aterm_list));
 static aterm pta_make_ref PARAMS ((const char *));
+#if 0
 static aterm pta_bottom PARAMS ((void));
+#endif
 static aterm pta_join PARAMS ((aterm, aterm));
 static aterm pta_deref PARAMS ((aterm));
 static aterm pta_rvalue PARAMS ((aterm));
@@ -155,7 +157,9 @@ typedef aterm contents_type;
 static contents_type pta_get_contents PARAMS ((aterm));
 static void pr_ptset_aterm_elem PARAMS ((aterm));
 static void pta_pr_ptset PARAMS ((contents_type));
+#if 0
 static int pta_get_ptsize PARAMS ((contents_type));
+#endif
 
 /* Hook for debugging */
 static void
@@ -253,11 +257,13 @@ pta_make_ref (id)
   return ref (tag, var, var);
 }
 
+#if 0
 static aterm
-pta_bottom (void)
+pta_bottom ()
 {
   return aterm_zero ();
 }
+#endif
 
 static aterm
 pta_join (t1, t2)
@@ -403,6 +409,7 @@ pta_pr_ptset (t)
   deleteregion (scratch_rgn);
 }
 
+#if 0
 static int
 pta_get_ptsize (t)
      contents_type t;
@@ -410,6 +417,7 @@ pta_get_ptsize (t)
   aterm_list ptset = aterm_tlb (t);
   return aterm_list_length (ptset);
 }
+#endif
 
 /* Initialize Andersen alias analysis. */
 static int initted = 0;
@@ -451,8 +459,6 @@ static void
 andersen_cleanup (ops)
      struct tree_alias_ops *ops ATTRIBUTE_UNUSED;
 {
-  FILE *dot;
-  char name[512];
   if (dump_file)
     {
       if (dump_flags & TDF_STATS)    
@@ -654,7 +660,7 @@ andersen_op_assign (ops, lhs, operands)
 static void
 andersen_heap_assign (ops, lhs)
      struct tree_alias_ops *ops ATTRIBUTE_UNUSED;
-     alias_typevar lhs;
+     alias_typevar lhs ATTRIBUTE_UNUSED;
 {
 #if 0
   alias_type type1;

@@ -877,7 +877,7 @@ const struct attribute_spec c_common_attribute_table[] =
 };
 
 /* Give the specifications for the format attributes, used by C and all
-   descendents.  */
+   descendants.  */
 
 const struct attribute_spec c_common_format_attribute_table[] =
 {
@@ -2822,6 +2822,7 @@ c_common_truthvalue_conversion (expr)
     case ABS_EXPR:
     case FLOAT_EXPR:
     case FFS_EXPR:
+    case POPCOUNT_EXPR:
       /* These don't change whether an object is nonzero or zero.  */
       return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
@@ -2999,7 +3000,7 @@ c_common_get_alias_set (t)
   if (! TYPE_P (t))
     return -1;
 
-  /* The C standard guarantess that any object may be accessed via an
+  /* The C standard guarantees that any object may be accessed via an
      lvalue that has character type.  */
   if (t == char_type_node
       || t == signed_char_type_node
@@ -3554,7 +3555,7 @@ c_common_nodes_and_builtins ()
     c_init_attributes ();
 
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE,			\
-		    BOTH_P, FALLBACK_P, NONANSI_P, ATTRS)		\
+		    BOTH_P, FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT)	\
   if (NAME)								\
     {									\
       tree decl;							\
@@ -3581,6 +3582,8 @@ c_common_nodes_and_builtins ()
 				   built_in_attributes[(int) ATTRS]);	\
 									\
       built_in_decls[(int) ENUM] = decl;				\
+      if (IMPLICIT)							\
+        implicit_built_in_decls[(int) ENUM] = decl;			\
     }									
 #include "builtins.def"
 #undef DEF_BUILTIN
@@ -4512,9 +4515,9 @@ c_expand_builtin_printf (arglist, target, tmode, modifier, ignore, unlocked)
      int unlocked;
 {
   tree fn_putchar = unlocked ?
-    built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED] : built_in_decls[BUILT_IN_PUTCHAR];
+    implicit_built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED] : implicit_built_in_decls[BUILT_IN_PUTCHAR];
   tree fn_puts = unlocked ?
-    built_in_decls[BUILT_IN_PUTS_UNLOCKED] : built_in_decls[BUILT_IN_PUTS];
+    implicit_built_in_decls[BUILT_IN_PUTS_UNLOCKED] : implicit_built_in_decls[BUILT_IN_PUTS];
   tree fn, format_arg, stripped_string;
 
   /* If the return value is used, or the replacement _DECL isn't
@@ -4616,9 +4619,9 @@ c_expand_builtin_fprintf (arglist, target, tmode, modifier, ignore, unlocked)
      int unlocked;
 {
   tree fn_fputc = unlocked ?
-    built_in_decls[BUILT_IN_FPUTC_UNLOCKED] : built_in_decls[BUILT_IN_FPUTC];
+    implicit_built_in_decls[BUILT_IN_FPUTC_UNLOCKED] : implicit_built_in_decls[BUILT_IN_FPUTC];
   tree fn_fputs = unlocked ?
-    built_in_decls[BUILT_IN_FPUTS_UNLOCKED] : built_in_decls[BUILT_IN_FPUTS];
+    implicit_built_in_decls[BUILT_IN_FPUTS_UNLOCKED] : implicit_built_in_decls[BUILT_IN_FPUTS];
   tree fn, format_arg, stripped_string;
 
   /* If the return value is used, or the replacement _DECL isn't
@@ -4899,6 +4902,18 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
       sprintf (buf, "0.0%s", fp_suffix);
       builtin_define_with_value (name, buf, 0);
     }
+
+  /* For C++ std::numeric_limits<T>::has_infinity.  */
+  sprintf (name, "__%s_HAS_INFINITY__", name_prefix);
+  builtin_define_with_int_value (name, 
+				 MODE_HAS_INFINITIES (TYPE_MODE (type)));
+  /* For C++ std::numeric_limits<T>::has_quiet_NaN.  We do not have a
+     predicate to distinguish a target that has both quiet and
+     signalling NaNs from a target that has only quiet NaNs or only
+     signalling NaNs, so we assume that a target that has any kind of
+     NaN has quiet NaNs.  */
+  sprintf (name, "__%s_HAS_QUIET_NAN__", name_prefix);
+  builtin_define_with_int_value (name, MODE_HAS_NANS (TYPE_MODE (type)));
 }
 
 /* Hook that registers front end and target-specific built-ins.  */
@@ -6360,7 +6375,7 @@ handle_nonnull_attribute (node, name, args, flags, no_add_attrs)
   unsigned HOST_WIDE_INT attr_arg_num;
 
   /* If no arguments are specified, all pointer arguments should be
-     non-null.  Veryify a full prototype is given so that the arguments
+     non-null.  Verify a full prototype is given so that the arguments
      will have the correct types when we actually check them later.  */
   if (! args)
     {

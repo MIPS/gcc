@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -419,7 +419,7 @@ adjust_field_rtx_def (t, opt)
   options_p nodot;
   int i;
   type_p rtx_tp, rtvec_tp, tree_tp, mem_attrs_tp, note_union_tp, scalar_tp;
-  type_p bitmap_tp, basic_block_tp;
+  type_p bitmap_tp, basic_block_tp, reg_attrs_tp;
 
   static const char * const rtx_name[NUM_RTX_CODE] = {
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
@@ -443,6 +443,7 @@ adjust_field_rtx_def (t, opt)
   rtvec_tp = create_pointer (find_structure ("rtvec_def", 0));
   tree_tp = create_pointer (find_structure ("tree_node", 1));
   mem_attrs_tp = create_pointer (find_structure ("mem_attrs", 0));
+  reg_attrs_tp = create_pointer (find_structure ("reg_attrs", 0));
   bitmap_tp = create_pointer (find_structure ("bitmap_element_def", 0));
   basic_block_tp = create_pointer (find_structure ("basic_block_def", 0));
   scalar_tp = create_scalar_type ("rtunion scalar", 14);
@@ -523,6 +524,8 @@ adjust_field_rtx_def (t, opt)
 		t = scalar_tp, subname = "rtint";
 	      else if (i == REG && aindex == 1)
 		t = scalar_tp, subname = "rtint";
+	      else if (i == REG && aindex == 2)
+		t = reg_attrs_tp, subname = "rtreg";
 	      else if (i == SCRATCH && aindex == 0)
 		t = scalar_tp, subname = "rtint";
 	      else if (i == BARRIER && aindex >= 3)
@@ -814,7 +817,7 @@ adjust_field_type (t, opt)
 }
 
 /* Create a union for YYSTYPE, as yacc would do it, given a fieldlist FIELDS
-   and information about the correspondance between token types and fields
+   and information about the correspondence between token types and fields
    in TYPEINFO.  POS is used for error messages.  */
 
 void
@@ -1427,6 +1430,7 @@ struct walk_type_data
   int used_length;
   type_p orig_s;
   const char *reorder_fn;
+  int needs_cast_p;
 };
 
 /* Print a mangled name representing T to OF.  */
@@ -1531,9 +1535,9 @@ walk_type (t, d)
   int maybe_undef_p = 0;
   int use_param_num = -1;
   int use_params_p = 0;
-  int needs_cast_p = 0;
   options_p oo;
   
+  d->needs_cast_p = 0;
   for (oo = d->opt; oo; oo = oo->next)
     if (strcmp (oo->name, "length") == 0)
       length = (const char *)oo->info;
@@ -1559,6 +1563,10 @@ walk_type (t, d)
     else if (strcmp (oo->name, "descbits") == 0)
       ;
     else if (strcmp (oo->name, "param_is") == 0)
+      ;
+    else if (strncmp (oo->name, "param", 5) == 0
+	     && ISDIGIT (oo->name[5])
+	     && strcmp (oo->name + 6, "_is") == 0)
       ;
     else if (strcmp (oo->name, "chain_next") == 0)
       ;
@@ -1596,8 +1604,9 @@ walk_type (t, d)
 	    nt = create_array (nt, t->u.a.len);
 	  else if (length != NULL && t->kind == TYPE_POINTER)
 	    nt = create_pointer (nt);
-	  needs_cast_p = (t->kind != TYPE_POINTER
-			  && nt->kind == TYPE_POINTER);
+	  d->needs_cast_p = (t->kind != TYPE_POINTER
+			     && (nt->kind == TYPE_POINTER
+				 || nt->kind == TYPE_STRING));
 	  t = nt;
 	}
       else
@@ -1883,13 +1892,14 @@ write_types_process_field (f, d)
      const struct walk_type_data *d;
 {
   const struct write_types_data *wtd;
+  const char *cast = d->needs_cast_p ? "(void *)" : "";
   wtd = (const struct write_types_data *) d->cookie;
   
   switch (f->kind)
     {
     case TYPE_POINTER:
-      oprintf (d->of, "%*s%s (%s", d->indent, "", 
-	       wtd->subfield_marker_routine, d->val);
+      oprintf (d->of, "%*s%s (%s%s", d->indent, "", 
+	       wtd->subfield_marker_routine, cast, d->val);
       if (wtd->param_prefix)
 	{
 	  oprintf (d->of, ", %s", d->prev_val[3]);
@@ -1903,8 +1913,8 @@ write_types_process_field (f, d)
 	}
       oprintf (d->of, ");\n");
       if (d->reorder_fn && wtd->reorder_note_routine)
-	oprintf (d->of, "%*s%s (%s, %s, %s);\n", d->indent, "", 
-		 wtd->reorder_note_routine, d->val,
+	oprintf (d->of, "%*s%s (%s%s, %s, %s);\n", d->indent, "", 
+		 wtd->reorder_note_routine, cast, d->val,
 		 d->prev_val[3], d->reorder_fn);
       break;
 
@@ -1918,10 +1928,10 @@ write_types_process_field (f, d)
     case TYPE_PARAM_STRUCT:
       oprintf (d->of, "%*sgt_%s_", d->indent, "", wtd->prefix);
       output_mangled_typename (d->of, f);
-      oprintf (d->of, " (%s);\n", d->val);
+      oprintf (d->of, " (%s%s);\n", cast, d->val);
       if (d->reorder_fn && wtd->reorder_note_routine)
-	oprintf (d->of, "%*s%s (%s, %s, %s);\n", d->indent, "", 
-		 wtd->reorder_note_routine, d->val, d->val,
+	oprintf (d->of, "%*s%s (%s%s, %s%s, %s);\n", d->indent, "", 
+		 wtd->reorder_note_routine, cast, d->val, cast, d->val,
 		 d->reorder_fn);
       break;
 
@@ -2647,7 +2657,7 @@ write_root (f, v, type, name, has_length, line, if_marked)
 	oprintf (f, "    1, \n");
 	oprintf (f, "    sizeof (%s),\n", v->name);
 	oprintf (f, "    &gt_ggc_m_S,\n");
-	oprintf (f, "    &gt_pch_n_S\n");
+	oprintf (f, "    (gt_pointer_walker) &gt_pch_n_S\n");
 	oprintf (f, "  },\n");
       }
       break;

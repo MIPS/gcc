@@ -1558,6 +1558,20 @@ enum reg_class
    || ((CLASS) == SIREG)						\
    || ((CLASS) == DIREG))
 
+/* Return a class of registers that cannot change FROM mode to TO mode.
+  
+   x87 registers can't do subreg as all values are reformated to extended
+   precision.  XMM registers does not support with nonzero offsets equal
+   to 4, 8 and 12 otherwise valid for integer registers. Since we can't
+   determine these, prohibit all nonparadoxical subregs changing size.  */
+
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
+  (GET_MODE_SIZE (TO) < GET_MODE_SIZE (FROM)		\
+   ? reg_classes_intersect_p (FLOAT_SSE_REGS, (CLASS))	\
+     || MAYBE_MMX_CLASS_P (CLASS) 			\
+   : GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
+   ? reg_classes_intersect_p (FLOAT_REGS, (CLASS)) : 0)
+
 /* A C statement that adds to CLOBBERS any hard regs the port wishes
    to automatically clobber for all asms.
 
@@ -1753,6 +1767,15 @@ typedef struct ix86_args {
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
+/* A C expression that indicates when an argument must be passed by
+   reference.  If nonzero for an argument, a copy of that argument is
+   made in memory and a pointer to the argument is passed instead of
+   the argument itself.  The pointer is passed in whatever way is
+   appropriate for passing a pointer to that type.  */
+ 
+#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
+  function_arg_pass_by_reference(&CUM, MODE, TYPE, NAMED)
+ 
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.
 
@@ -2576,303 +2599,6 @@ do {							\
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
 
-/* A part of a C `switch' statement that describes the relative costs
-   of constant RTL expressions.  It must contain `case' labels for
-   expression codes `const_int', `const', `symbol_ref', `label_ref'
-   and `const_double'.  Each case must ultimately reach a `return'
-   statement to return the relative cost of the use of that kind of
-   constant value in an expression.  The cost may depend on the
-   precise value of the constant, which is available for examination
-   in X, and the rtx code of the expression in which it is contained,
-   found in OUTER_CODE.
-
-   CODE is the expression code--redundant, since it can be obtained
-   with `GET_CODE (X)'.  */
-
-#define CONST_COSTS(RTX, CODE, OUTER_CODE)			\
-  case CONST_INT:						\
-  case CONST:							\
-  case LABEL_REF:						\
-  case SYMBOL_REF:						\
-    if (TARGET_64BIT && !x86_64_sign_extended_value (RTX))	\
-      return 3;							\
-    if (TARGET_64BIT && !x86_64_zero_extended_value (RTX))	\
-      return 2;							\
-    return flag_pic && SYMBOLIC_CONST (RTX) ? 1 : 0;		\
-								\
-  case CONST_DOUBLE:						\
-    if (GET_MODE (RTX) == VOIDmode)				\
-      return 0;							\
-    switch (standard_80387_constant_p (RTX))			\
-      {								\
-      case 1: /* 0.0 */						\
-	return 1;						\
-      case 2: /* 1.0 */						\
-	return 2;						\
-      default:							\
-	/* Start with (MEM (SYMBOL_REF)), since that's where	\
-	   it'll probably end up.  Add a penalty for size.  */	\
-	return (COSTS_N_INSNS (1) + (flag_pic != 0)		\
-		+ (GET_MODE (RTX) == SFmode ? 0			\
-		   : GET_MODE (RTX) == DFmode ? 1 : 2));	\
-      }
-
-/* Delete the definition here when TOPLEVEL_COSTS_N_INSNS gets added to cse.c */
-#define TOPLEVEL_COSTS_N_INSNS(N) \
-  do { total = COSTS_N_INSNS (N); goto egress_rtx_costs; } while (0)
-
-/* Return index of given mode in mult and division cost tables.  */
-#define MODE_INDEX(mode)					\
-  ((mode) == QImode ? 0						\
-   : (mode) == HImode ? 1					\
-   : (mode) == SImode ? 2					\
-   : (mode) == DImode ? 3					\
-   : 4)
-
-/* Like `CONST_COSTS' but applies to nonconstant RTL expressions.
-   This can be used, for example, to indicate how costly a multiply
-   instruction is.  In writing this macro, you can use the construct
-   `COSTS_N_INSNS (N)' to specify a cost equal to N fast
-   instructions.  OUTER_CODE is the code of the expression in which X
-   is contained.
-
-   This macro is optional; do not define it if the default cost
-   assumptions are adequate for the target machine.  */
-
-#define RTX_COSTS(X, CODE, OUTER_CODE)					\
-  case ZERO_EXTEND:							\
-    /* The zero extensions is often completely free on x86_64, so make	\
-       it as cheap as possible.  */					\
-    if (TARGET_64BIT && GET_MODE (X) == DImode				\
-	&& GET_MODE (XEXP (X, 0)) == SImode)				\
-      {									\
-	total = 1; goto egress_rtx_costs;				\
-      } 								\
-    else								\
-      TOPLEVEL_COSTS_N_INSNS (TARGET_ZERO_EXTEND_WITH_AND ?		\
-			      ix86_cost->add : ix86_cost->movzx);	\
-    break;								\
-  case SIGN_EXTEND:							\
-    TOPLEVEL_COSTS_N_INSNS (ix86_cost->movsx);				\
-    break;								\
-  case ASHIFT:								\
-    if (GET_CODE (XEXP (X, 1)) == CONST_INT				\
-	&& (GET_MODE (XEXP (X, 0)) != DImode || TARGET_64BIT))		\
-      {									\
-	HOST_WIDE_INT value = INTVAL (XEXP (X, 1));			\
-	if (value == 1)							\
-	  TOPLEVEL_COSTS_N_INSNS (ix86_cost->add);			\
-	if ((value == 2 || value == 3)					\
-	    && !TARGET_DECOMPOSE_LEA					\
-	    && ix86_cost->lea <= ix86_cost->shift_const)		\
-	  TOPLEVEL_COSTS_N_INSNS (ix86_cost->lea);			\
-      }									\
-    /* fall through */							\
-		  							\
-  case ROTATE:								\
-  case ASHIFTRT:							\
-  case LSHIFTRT:							\
-  case ROTATERT:							\
-    if (!TARGET_64BIT && GET_MODE (XEXP (X, 0)) == DImode)		\
-      {									\
-	if (GET_CODE (XEXP (X, 1)) == CONST_INT)			\
-	  {								\
-	    if (INTVAL (XEXP (X, 1)) > 32)				\
-	      TOPLEVEL_COSTS_N_INSNS(ix86_cost->shift_const + 2);	\
-	    else							\
-	      TOPLEVEL_COSTS_N_INSNS(ix86_cost->shift_const * 2);	\
-	  }								\
-	else								\
-	  {								\
-	    if (GET_CODE (XEXP (X, 1)) == AND)				\
-	      TOPLEVEL_COSTS_N_INSNS(ix86_cost->shift_var * 2);		\
-	    else							\
-	      TOPLEVEL_COSTS_N_INSNS(ix86_cost->shift_var * 6 + 2);	\
-	  }								\
-      }									\
-    else								\
-      {									\
-	if (GET_CODE (XEXP (X, 1)) == CONST_INT)			\
-	  TOPLEVEL_COSTS_N_INSNS (ix86_cost->shift_const);		\
-	else								\
-	  TOPLEVEL_COSTS_N_INSNS (ix86_cost->shift_var);		\
-      }									\
-    break;								\
-									\
-  case MULT:								\
-    if (FLOAT_MODE_P (GET_MODE (X)))					\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fmul);				\
-    else if (GET_CODE (XEXP (X, 1)) == CONST_INT)			\
-      {									\
-	unsigned HOST_WIDE_INT value = INTVAL (XEXP (X, 1));		\
-	int nbits = 0;							\
-									\
-	while (value != 0)						\
-	  {								\
-	    nbits++;							\
-	    value >>= 1;						\
-	  } 								\
-									\
-	TOPLEVEL_COSTS_N_INSNS (ix86_cost->mult_init			\
-				[MODE_INDEX (GET_MODE (X))]		\
-			        + nbits * ix86_cost->mult_bit);		\
-      }									\
-    else			/* This is arbitrary */			\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->mult_init			\
-			      [MODE_INDEX (GET_MODE (X))]		\
-			      + 7 * ix86_cost->mult_bit);		\
-									\
-  case DIV:								\
-  case UDIV:								\
-  case MOD:								\
-  case UMOD:								\
-    if (FLOAT_MODE_P (GET_MODE (X)))					\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fdiv);				\
-    else								\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->divide				\
-			      [MODE_INDEX (GET_MODE (X))]);		\
-    break;								\
-									\
-  case PLUS:								\
-    if (FLOAT_MODE_P (GET_MODE (X)))					\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fadd);				\
-    else if (!TARGET_DECOMPOSE_LEA					\
-	&& INTEGRAL_MODE_P (GET_MODE (X))				\
-	&& GET_MODE_BITSIZE (GET_MODE (X)) <= GET_MODE_BITSIZE (Pmode))	\
-      {									\
-        if (GET_CODE (XEXP (X, 0)) == PLUS				\
-	    && GET_CODE (XEXP (XEXP (X, 0), 0)) == MULT			\
-	    && GET_CODE (XEXP (XEXP (XEXP (X, 0), 0), 1)) == CONST_INT	\
-	    && CONSTANT_P (XEXP (X, 1)))				\
-	  {								\
-	    HOST_WIDE_INT val = INTVAL (XEXP (XEXP (XEXP (X, 0), 0), 1));\
-	    if (val == 2 || val == 4 || val == 8)			\
-	      {								\
-		return (COSTS_N_INSNS (ix86_cost->lea)			\
-			+ rtx_cost (XEXP (XEXP (X, 0), 1),		\
-				    (OUTER_CODE))			\
-			+ rtx_cost (XEXP (XEXP (XEXP (X, 0), 0), 0),	\
-				    (OUTER_CODE))			\
-			+ rtx_cost (XEXP (X, 1), (OUTER_CODE)));	\
-	      }								\
-	  }								\
-	else if (GET_CODE (XEXP (X, 0)) == MULT				\
-		 && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT)	\
-	  {								\
-	    HOST_WIDE_INT val = INTVAL (XEXP (XEXP (X, 0), 1));		\
-	    if (val == 2 || val == 4 || val == 8)			\
-	      {								\
-		return (COSTS_N_INSNS (ix86_cost->lea)			\
-			+ rtx_cost (XEXP (XEXP (X, 0), 0),		\
-				    (OUTER_CODE))			\
-			+ rtx_cost (XEXP (X, 1), (OUTER_CODE)));	\
-	      }								\
-	  }								\
-	else if (GET_CODE (XEXP (X, 0)) == PLUS)			\
-	  {								\
-	    return (COSTS_N_INSNS (ix86_cost->lea)			\
-		    + rtx_cost (XEXP (XEXP (X, 0), 0), (OUTER_CODE))	\
-		    + rtx_cost (XEXP (XEXP (X, 0), 1), (OUTER_CODE))	\
-		    + rtx_cost (XEXP (X, 1), (OUTER_CODE)));		\
-	  }								\
-      }									\
-    /* fall through */							\
-									\
-  case MINUS:								\
-    if (FLOAT_MODE_P (GET_MODE (X)))					\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fadd);				\
-    /* fall through */							\
-									\
-  case AND:								\
-  case IOR:								\
-  case XOR:								\
-    if (!TARGET_64BIT && GET_MODE (X) == DImode)			\
-      return (COSTS_N_INSNS (ix86_cost->add) * 2			\
-	      + (rtx_cost (XEXP (X, 0), (OUTER_CODE))			\
-	         << (GET_MODE (XEXP (X, 0)) != DImode))			\
-	      + (rtx_cost (XEXP (X, 1), (OUTER_CODE))			\
- 	         << (GET_MODE (XEXP (X, 1)) != DImode)));		\
-    /* fall through */							\
-									\
-  case NEG:								\
-    if (FLOAT_MODE_P (GET_MODE (X)))					\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fchs);				\
-    /* fall through */							\
-									\
-  case NOT:								\
-    if (!TARGET_64BIT && GET_MODE (X) == DImode)			\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->add * 2);			\
-    TOPLEVEL_COSTS_N_INSNS (ix86_cost->add);				\
-									\
-  case FLOAT_EXTEND:							\
-    if (!TARGET_SSE_MATH						\
-	|| !VALID_SSE_REG_MODE (GET_MODE (X)))				\
-      TOPLEVEL_COSTS_N_INSNS (0);					\
-    break;								\
-									\
-  case ABS:								\
-    if (FLOAT_MODE_P (GET_MODE (X)))					\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fabs);				\
-    break;								\
-									\
-  case SQRT:								\
-    if (FLOAT_MODE_P (GET_MODE (X)))					\
-      TOPLEVEL_COSTS_N_INSNS (ix86_cost->fsqrt);			\
-    break;								\
-									\
-  egress_rtx_costs:							\
-    break;
-
-
-/* An expression giving the cost of an addressing mode that contains
-   ADDRESS.  If not defined, the cost is computed from the ADDRESS
-   expression and the `CONST_COSTS' values.
-
-   For most CISC machines, the default cost is a good approximation
-   of the true cost of the addressing mode.  However, on RISC
-   machines, all instructions normally have the same length and
-   execution time.  Hence all addresses will have equal costs.
-
-   In cases where more than one form of an address is known, the form
-   with the lowest cost will be used.  If multiple forms have the
-   same, lowest, cost, the one that is the most complex will be used.
-
-   For example, suppose an address that is equal to the sum of a
-   register and a constant is used twice in the same basic block.
-   When this macro is not defined, the address will be computed in a
-   register and memory references will be indirect through that
-   register.  On machines where the cost of the addressing mode
-   containing the sum is no higher than that of a simple indirect
-   reference, this will produce an additional instruction and
-   possibly require an additional register.  Proper specification of
-   this macro eliminates this overhead for such machines.
-
-   Similar use of this macro is made in strength reduction of loops.
-
-   ADDRESS need not be valid as an address.  In such a case, the cost
-   is not relevant and can be any value; invalid addresses need not be
-   assigned a different cost.
-
-   On machines where an address involving more than one register is as
-   cheap as an address computation involving only one register,
-   defining `ADDRESS_COST' to reflect this can cause two registers to
-   be live over a region of code where only one would have been if
-   `ADDRESS_COST' were not defined in that manner.  This effect should
-   be considered in the definition of this macro.  Equivalent costs
-   should probably only be given to addresses with different numbers
-   of registers on machines with lots of registers.
-
-   This macro will normally either not be defined or be defined as a
-   constant.
-
-   For i386, it is better to use a complex address than let gcc copy
-   the address into a reg and make a new pseudo.  But not if the address
-   requires to two regs - that would mean more pseudos with longer
-   lifetimes.  */
-
-#define ADDRESS_COST(RTX) \
-  ix86_address_cost (RTX)
-
 /* A C expression for the cost of moving data from a register in class FROM to
    one in class TO.  The classes are expressed using the enumeration values
    such as `GENERAL_REGS'.  A value of 2 is the default; other values are
@@ -3287,6 +3013,8 @@ do {						\
   {"ix86_comparison_operator", {EQ, NE, LE, LT, GE, GT, LEU, LTU, GEU,	\
 			       GTU, UNORDERED, ORDERED, UNLE, UNLT,	\
 			       UNGE, UNGT, LTGT, UNEQ }},		\
+  {"ix86_carry_flag_operator", {LTU, LT, UNLT, GT, UNGT, LE, UNLE,	\
+				 GE, UNGE, LTGT, UNEQ}},		\
   {"cmp_fp_expander_operand", {CONST_DOUBLE, SUBREG, REG, MEM}},	\
   {"ext_register_operand", {SUBREG, REG}},				\
   {"binary_fp_operator", {PLUS, MINUS, MULT, DIV}},			\

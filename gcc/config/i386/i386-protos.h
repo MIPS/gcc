@@ -149,7 +149,6 @@ extern void ix86_split_long_move PARAMS ((rtx[]));
 extern void ix86_split_ashldi PARAMS ((rtx *, rtx));
 extern void ix86_split_ashrdi PARAMS ((rtx *, rtx));
 extern void ix86_split_lshrdi PARAMS ((rtx *, rtx));
-extern int ix86_address_cost PARAMS ((rtx));
 extern rtx ix86_find_base_term PARAMS ((rtx));
 
 extern rtx assign_386_stack_local PARAMS ((enum machine_mode, int));
@@ -195,6 +194,9 @@ extern void x86_function_profiler PARAMS ((FILE *, int));
 #ifdef TREE_CODE
 extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx));
 extern rtx function_arg PARAMS ((CUMULATIVE_ARGS *, enum machine_mode, tree, int));
+extern int function_arg_pass_by_reference PARAMS ((CUMULATIVE_ARGS *,
+						   enum machine_mode,
+						   tree, int));
 extern void function_arg_advance PARAMS ((CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int));
 extern rtx ix86_function_value PARAMS ((tree));

@@ -1,3 +1,497 @@
+2003-02-01  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html:  Correct link to libg++ information.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2003-02-01  Paolo Carlini  <pcarlini@unitus.it>
+            Benjamin Kosnik  <bkoz@redhat.com>
+
+	Const correctness issue:
+	http://gcc.gnu.org/ml/libstdc++/2003-01/msg00370.html
+	* include/bits/locale_classes.h
+	(locale::_Impl::_M_facets): Change type to const facet**.
+	(locale::_Impl::_M_install_facet): Change declaration to
+	take const facet*.
+	(locale::facet::_M_references): Make mutable.
+	(locale::facet::_M_add_reference): Declare const.
+	(locale::facet::_M_remove_reference): Likewise.
+	* include/bits/locale_facets.tcc
+	(use_facet(const locale&)): Tweak for const facet** _M_facets.
+	(has_facet(const locale&)): Likewise.
+	* src/locale.cc
+	(locale::facet::_M_add_reference): Adjust definition.
+	(locale::facet::_M_remove_reference): Likewise.
+	* src/localename.cc
+	(locale::_Impl::_Impl(const _Impl&, size_t)): Tweak for
+	const facet** _M_facets.
+	(locale::_Impl::_Impl(const char*, size_t)): Likewise.
+	(locale::_Impl::_Impl(facet**, size_t, bool)): Likewise.
+	(locale::_Impl::_M_install_facet): Adjust definition to take
+	const facet* and for const facet** _M_facets.
+	* testsuite/22_locale/locale/cons/8.cc: Add.
+
+2003-01-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* include/std/std_limits.h (numeric_limits<float>::has_infinity):
+	Use __FLT_HAS_INIFINITY__ to initialize.
+	(numeric_limits<float>::has_quiet_NaN): Likewise.
+	(numeric_limits<double>::has_infinity): Use __DBL_HAS_INIFINITY__
+	to initialize.
+	(numeric_limits<double>::has_quiet_NaN): Likewise.
+	(numeric_limits<long double>::has_infinity): Use
+	__LDBL_HAS_INIFINITY__ to initialize.
+	(numeric_limits<long_double>::has_quiet_NaN): Likewise.
+
+2003-01-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9433
+	* libsupc++/tinfo.cc (__vmi_class_type_info::__do_dyncast): Cope
+	with bases which are very ambiguous.
+
+2003-01-28  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* src/Makefile.am (CONFIG_CXXFLAGS): Reverse order of
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@.
+	* libsupc++/Makefile.am (CONFIG_CXXFLAGS): Likewise.
+	* src/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* acinclude.m4 (glibcpp_toolexeclibdir): Instead of
+	$(MULTISUBDIR), use `$CC -print-multi-os-directory`, unless
+	version_specific_libs is enabled.
+	* aclocal.m4, configure: Rebuilt.
+
+2003-01-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* include/bits/valarray_meta.h: Remove, split into ...
+	* include/bits/valarray_before.h: ... this, and ...
+	* include/bits/valarray_after.h: ... this.
+	* include/std/std_valarray.h: Adjust.
+	* include/Makefile.am (bits_headers): Adjust.
+	* include/Makefile.in: Regenerate.
+
+2003-01-24  Andreas Schwab  <schwab@suse.de>
+
+	* config/linker-map.gnu: Fix for size_t variance.
+
+2003-01-23  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/9322
+	* include/std/std_streambuf.h
+	(basic_streambuf::basic_streambuf,
+	basic_streambuf::~basic_streambuf,
+	basic_streambuf::getloc, basic_streambuf::imbue):
+	Remove _M_buf_locale_init
+	* include/bits/fstream.tcc (basic_filebuf::imbue):  Likewise
+	* testsuite/27_io/filebuf_virtuals.cc (test08):  Add.
+	* testsuite/27_io/streambuf_members.cc (test08):  Add.
+	* testsuite/27_io/stringbuf_virtuals.cc (test08):  Add.
+
+2003-01-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Revert include ordering.
+	* config/locale/generic/c_locale.h: Add include guards.
+	* config/locale/gnu/c_locale.h: Same.
+	* include/bits/locale_classes.h: Remove cctype include.
+	* include/std/std_iosfwd.h: Add c++locale.h, cctype includes.
+	* include/std/std_fstream.h: Remove streambuf include.
+	* include/std/std_sstream.h: Remove streambuf include.
+	
+2003-01-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in (libtool_VERSION): To 6:0:0.
+	* configure: Regenerated.
+	* config/linker-map.gnu: Clean.
+	
+	* src/misc-inst.cc: Remove instantiations.
+
+	* include/bits/stl_alloc.h (__malloc_alloc_template): 
+	To __malloc_alloc.
+	(__default_alloc_template): To __pool_alloc.
+	* src/stl-inst.cc: Same.
+	* include/backward/alloc.h: Update.
+	* testsuite/ext/allocators.cc: Update.
+	
+	* src/globals.cc (__gnu_cxx): Remove _GLIBCPP_ASM_SYMVER. Should
+	really try to remove these if possible.
+	* src/locale.cc (std): Same.
+
+	* testsuite/abi_check.cc (check_version): Add.
+
+2003-01-22  Benjamin Kosnik  <bkoz@redhat.com>
+	    Sysoltsev Slawa  <Vyatcheslav.Sysoltsev@intel.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+	
+	PR libstdc++/9269
+	* include/std/std_fstream.h (basic_filebuf::uflow): Declare.
+	(basic_filebuf::underflow): Declare.
+	Move definitions.
+
+2003-01-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.h: Move non-facet classes requiring
+	<string> to...  
+	* include/bits/locale_classes.h: New.  
+	* include/bits/Makefile.am (bits_headers_src): Add locale_classes.h.
+	* include/bits/Makefile.in: Regenerate.
+
+	* include/bits/locale_facets.tcc (__convert_from_v): Move to...
+	* config/locale/gnu/c_locale.h: ...here.
+	* config/locale/generic/c_locale.h: Same.
+	
+	* include/bits/locale_facets.tcc: Move declarations to...
+	* include/bits/locale_facets.h: ...here.
+	* include/bits/basic_ios.h: Tweak includes accordingly.
+	* include/std/std_sstream.h: Add streambuf include.
+	* include/std/std_fstream.h: Ditto.
+	* include/std/std_locale.h: Add locale_classes.h include.
+	* include/std/std_iosfwd.h: Tweak.
+	* src/concept-inst.cc: Add iterator include.
+
+	* config/linker-map.gnu: Specify __cxa functions, mark __cxa_dyn_*
+	bits as unexported in the future.
+	
+2003-01-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Reshuffle 22_locale testsuite.
+	* 22_locale/(codecvt.cc money_get.cc
+	codecvt_members_char_char.cc money_get_members_char.cc
+	codecvt_members_unicode_char.cc money_get_members_wchar_t.cc
+	codecvt_members_unicode_wchar_t.cc moneypunct_byname.cc
+	codecvt_members_wchar_t_char.cc moneypunct.cc collate_byname.cc
+	moneypunct_members_char.cc collate.cc moneypunct_members_wchar_t.cc
+	collate_members_char.cc money_put.cc collate_members_wchar_t.cc
+	money_put_members_char.cc ctor_copy_dtor.cc
+	money_put_members_wchar_t.cc ctype.cc num_get.cc ctype_is_char.cc
+	num_get_members_char.cc ctype_is_wchar_t.cc num_get_members_wchar_t.cc
+	ctype_members_char.cc numpunct_byname.cc ctype_members_wchar_t.cc
+	numpunct.cc ctype_narrow_char.cc numpunct_members_char.cc
+	ctype_narrow_wchar_t.cc numpunct_members_wchar_t.cc ctype_scan_char.cc
+	num_put.cc ctype_scan_wchar_t.cc num_put_members_char.cc
+	ctype_to_char.cc num_put_members_wchar_t.cc ctype_to_wchar_t.cc
+	operators.cc ctype_widen_char.cc static_members.cc
+	ctype_widen_wchar_t.cc time_get.cc facet.cc time_get_members_char.cc
+	global_templates.cc time_get_members_wchar_t.cc, members.cc,
+	time_put.cc, messages_byname.cc, time_put_members_char.cc,
+	messages.cc, time_put_members_wchar_t.cc, messages_members_char.cc): 
+	Splint up into individual test cases...	
+	* 22_locale/codecvt/1.cc: New.
+	* 22_locale/codecvt/2.cc: New.
+	* 22_locale/codecvt/always_noconv/char/1.cc: New.
+	* 22_locale/codecvt/always_noconv/char/wrapped_env.cc: New.
+	* 22_locale/codecvt/always_noconv/char/wrapped_locale.cc: New.
+	* 22_locale/codecvt/always_noconv/wchar_t/1.cc: New.
+	* 22_locale/codecvt/always_noconv/wchar_t/wrapped_env.cc: New.
+	* 22_locale/codecvt/always_noconv/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/codecvt/encoding/char/1.cc: New.
+	* 22_locale/codecvt/encoding/char/wrapped_env.cc: New.
+	* 22_locale/codecvt/encoding/char/wrapped_locale.cc: New.
+	* 22_locale/codecvt/encoding/wchar_t/1.cc: New.
+	* 22_locale/codecvt/encoding/wchar_t/wrapped_env.cc: New.
+	* 22_locale/codecvt/encoding/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/codecvt/in/char/1.cc: New.
+	* 22_locale/codecvt/in/char/wrapped_env.cc: New.
+	* 22_locale/codecvt/in/char/wrapped_locale.cc: New.
+	* 22_locale/codecvt/in/wchar_t/1.cc: New.
+	* 22_locale/codecvt/in/wchar_t/wrapped_env.cc: New.
+	* 22_locale/codecvt/in/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/codecvt/length/char/1.cc: New.
+	* 22_locale/codecvt/length/char/wrapped_env.cc: New.
+	* 22_locale/codecvt/length/char/wrapped_locale.cc: New.
+	* 22_locale/codecvt/length/wchar_t/1.cc: New.
+	* 22_locale/codecvt/length/wchar_t/wrapped_env.cc: New.
+	* 22_locale/codecvt/length/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/codecvt/max_length/char/1.cc: New.
+	* 22_locale/codecvt/max_length/char/wrapped_env.cc: New.
+	* 22_locale/codecvt/max_length/char/wrapped_locale.cc: New.
+	* 22_locale/codecvt/max_length/wchar_t/1.cc: New.
+	* 22_locale/codecvt/max_length/wchar_t/wrapped_env.cc: New.
+	* 22_locale/codecvt/max_length/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/codecvt/out/char/1.cc: New.
+	* 22_locale/codecvt/out/char/wrapped_env.cc: New.
+	* 22_locale/codecvt/out/char/wrapped_locale.cc: New.
+	* 22_locale/codecvt/out/wchar_t/1.cc: New.
+	* 22_locale/codecvt/out/wchar_t/wrapped_env.cc: New.
+	* 22_locale/codecvt/out/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/codecvt/unicode/char.cc: New.
+	* 22_locale/codecvt/unicode/wchar_t.cc: New.
+	* 22_locale/codecvt/unshift/char/1.cc: New.
+	* 22_locale/codecvt/unshift/char/wrapped_env.cc: New.
+	* 22_locale/codecvt/unshift/char/wrapped_locale.cc: New.
+	* 22_locale/codecvt/unshift/wchar_t/1.cc: New.
+	* 22_locale/codecvt/unshift/wchar_t/wrapped_env.cc: New.
+	* 22_locale/codecvt/unshift/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/collate/1.cc: New.
+	* 22_locale/collate/2.cc: New.
+	* 22_locale/collate/compare/char/1.cc: New.
+	* 22_locale/collate/compare/char/2.cc: New.
+	* 22_locale/collate/compare/char/wrapped_env.cc: New.
+	* 22_locale/collate/compare/char/wrapped_locale.cc: New.
+	* 22_locale/collate/compare/wchar_t/1.cc: New.
+	* 22_locale/collate/compare/wchar_t/2.cc: New.
+	* 22_locale/collate/compare/wchar_t/wrapped_env.cc: New.
+	* 22_locale/collate/compare/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/collate/hash/char/1.cc: New.
+	* 22_locale/collate/hash/char/2.cc: New.
+	* 22_locale/collate/hash/char/wrapped_env.cc: New.
+	* 22_locale/collate/hash/char/wrapped_locale.cc: New.
+	* 22_locale/collate/hash/wchar_t/1.cc: New.
+	* 22_locale/collate/hash/wchar_t/2.cc: New.
+	* 22_locale/collate/hash/wchar_t/wrapped_env.cc: New.
+	* 22_locale/collate/hash/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/collate/transform/char/2.cc: New.
+	* 22_locale/collate/transform/char/wrapped_env.cc: New.
+	* 22_locale/collate/transform/char/wrapped_locale.cc: New.
+	* 22_locale/collate/transform/wchar_t/2.cc: New.
+	* 22_locale/collate/transform/wchar_t/wrapped_env.cc: New.
+	* 22_locale/collate/transform/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/collate_byname/1.cc: New.
+	* 22_locale/ctype/1.cc: New.
+	* 22_locale/ctype/2.cc: New.
+	* 22_locale/ctype/cons/char/1.cc: New.
+	* 22_locale/ctype/cons/char/wrapped_env.cc: New.
+	* 22_locale/ctype/cons/char/wrapped_locale.cc: New.
+	* 22_locale/ctype/is/char/1.cc: New.
+	* 22_locale/ctype/is/char/2.cc: New.
+	* 22_locale/ctype/is/char/3.cc: New.
+	* 22_locale/ctype/is/char/wrapped_env.cc: New.
+	* 22_locale/ctype/is/char/wrapped_locale.cc: New.
+	* 22_locale/ctype/is/wchar_t/1.cc: New.
+	* 22_locale/ctype/is/wchar_t/2.cc: New.
+	* 22_locale/ctype/is/wchar_t/wrapped_env.cc: New.
+	* 22_locale/ctype/is/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/ctype/narrow/char/1.cc: New.
+	* 22_locale/ctype/narrow/char/2.cc: New.
+	* 22_locale/ctype/narrow/char/wrapped_env.cc: New.
+	* 22_locale/ctype/narrow/char/wrapped_locale.cc: New.
+	* 22_locale/ctype/narrow/wchar_t/1.cc: New.
+	* 22_locale/ctype/narrow/wchar_t/2.cc: New.
+	* 22_locale/ctype/narrow/wchar_t/wrapped_env.cc: New.
+	* 22_locale/ctype/narrow/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/ctype/scan/char/1.cc: New.
+	* 22_locale/ctype/scan/char/wrapped_env.cc: New.
+	* 22_locale/ctype/scan/char/wrapped_locale.cc: New.
+	* 22_locale/ctype/scan/wchar_t/1.cc: New.
+	* 22_locale/ctype/scan/wchar_t/wrapped_env.cc: New.
+	* 22_locale/ctype/scan/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/ctype/to/char/1.cc: New.
+	* 22_locale/ctype/to/char/wrapped_env.cc: New.
+	* 22_locale/ctype/to/char/wrapped_locale.cc: New.
+	* 22_locale/ctype/to/wchar_t/1.cc: New.
+	* 22_locale/ctype/to/wchar_t/wrapped_env.cc: New.
+	* 22_locale/ctype/to/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/ctype/widen/char/1.cc: New.
+	* 22_locale/ctype/widen/char/wrapped_env.cc: New.
+	* 22_locale/ctype/widen/char/wrapped_locale.cc: New.
+	* 22_locale/ctype/widen/wchar_t/1.cc: New.
+	* 22_locale/ctype/widen/wchar_t/wrapped_env.cc: New.
+	* 22_locale/ctype/widen/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/facet/1.cc: New.
+	* 22_locale/facet/2.cc: New.
+	* 22_locale/global_templates/1.cc: New.
+	* 22_locale/locale/cons/1.cc: New.
+	* 22_locale/locale/cons/2.cc: New.
+	* 22_locale/locale/cons/3.cc: New.
+	* 22_locale/locale/cons/4.cc: New.
+	* 22_locale/locale/cons/5.cc: New.
+	* 22_locale/locale/cons/6.cc: New.
+	* 22_locale/locale/cons/7.cc: New.
+	* 22_locale/locale/global_locale_objects/1.cc: New.
+	* 22_locale/locale/global_locale_objects/2.cc: New.
+	* 22_locale/locale/global_locale_objects/3.cc: New.
+	* 22_locale/locale/operations/1.cc: New.
+	* 22_locale/locale/operations/2.cc: New.
+	* 22_locale/messages/1.cc: New.
+	* 22_locale/messages/2.cc: New.
+	* 22_locale/messages/members/char/1.cc: New.
+	* 22_locale/messages/members/char/2.cc: New.
+	* 22_locale/messages/members/char/3.cc: New.
+	* 22_locale/messages/members/char/wrapped_env.cc: New.
+	* 22_locale/messages/members/char/wrapped_locale.cc: New.
+	* 22_locale/messages_byname/1.cc: New.
+	* 22_locale/money_get/1.cc: New.
+	* 22_locale/money_get/2.cc: New.
+	* 22_locale/money_get/get/char/1.cc: New.
+	* 22_locale/money_get/get/char/2.cc: New.
+	* 22_locale/money_get/get/char/3.cc: New.
+	* 22_locale/money_get/get/char/4.cc: New.
+	* 22_locale/money_get/get/char/5.cc: New.
+	* 22_locale/money_get/get/char/6.cc: New.
+	* 22_locale/money_get/get/char/7.cc: New.
+	* 22_locale/money_get/get/char/8.cc: New.
+	* 22_locale/money_get/get/char/wrapped_env.cc: New.
+	* 22_locale/money_get/get/char/wrapped_locale.cc: New.
+	* 22_locale/money_get/get/wchar_t/1.cc: New.
+	* 22_locale/money_get/get/wchar_t/2.cc: New.
+	* 22_locale/money_get/get/wchar_t/3.cc: New.
+	* 22_locale/money_get/get/wchar_t/4.cc: New.
+	* 22_locale/money_get/get/wchar_t/5.cc: New.
+	* 22_locale/money_get/get/wchar_t/6.cc: New.
+	* 22_locale/money_get/get/wchar_t/7.cc: New.
+	* 22_locale/money_get/get/wchar_t/8.cc: New.
+	* 22_locale/money_get/get/wchar_t/wrapped_env.cc: New.
+	* 22_locale/money_get/get/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/money_put/1.cc: New.
+	* 22_locale/money_put/2.cc: New.
+	* 22_locale/money_put/put/char/1.cc: New.
+	* 22_locale/money_put/put/char/2.cc: New.
+	* 22_locale/money_put/put/char/3.cc: New.
+	* 22_locale/money_put/put/char/4.cc: New.
+	* 22_locale/money_put/put/char/5.cc: New.
+	* 22_locale/money_put/put/char/6.cc: New.
+	* 22_locale/money_put/put/char/wrapped_env.cc: New.
+	* 22_locale/money_put/put/char/wrapped_locale.cc: New.
+	* 22_locale/money_put/put/wchar_t/1.cc: New.
+	* 22_locale/money_put/put/wchar_t/2.cc: New.
+	* 22_locale/money_put/put/wchar_t/3.cc: New.
+	* 22_locale/money_put/put/wchar_t/4.cc: New.
+	* 22_locale/money_put/put/wchar_t/5.cc: New.
+	* 22_locale/money_put/put/wchar_t/6.cc: New.
+	* 22_locale/money_put/put/wchar_t/wrapped_env.cc: New.
+	* 22_locale/money_put/put/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/moneypunct/1.cc: New.
+	* 22_locale/moneypunct/2.cc: New.
+	* 22_locale/moneypunct/3.cc: New.
+	* 22_locale/moneypunct/members/char/1.cc: New.
+	* 22_locale/moneypunct/members/char/2.cc: New.
+	* 22_locale/moneypunct/members/char/wrapped_env.cc: New.
+	* 22_locale/moneypunct/members/char/wrapped_locale.cc: New.
+	* 22_locale/moneypunct/members/wchar_t/1.cc: New.
+	* 22_locale/moneypunct/members/wchar_t/2.cc: New.
+	* 22_locale/moneypunct/members/wchar_t/wrapped_env.cc: New.
+	* 22_locale/moneypunct/members/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/moneypunct_byname/1.cc: New.
+	* 22_locale/num_get/1.cc: New.
+	* 22_locale/num_get/2.cc: New.
+	* 22_locale/num_get/get/char/1.cc: New.
+	* 22_locale/num_get/get/char/2.cc: New.
+	* 22_locale/num_get/get/char/3.cc: New.
+	* 22_locale/num_get/get/char/4.cc: New.
+	* 22_locale/num_get/get/char/5.cc: New.
+	* 22_locale/num_get/get/char/6.cc: New.
+	* 22_locale/num_get/get/char/wrapped_env.cc: New.
+	* 22_locale/num_get/get/char/wrapped_locale.cc: New.
+	* 22_locale/num_get/get/wchar_t/1.cc: New.
+	* 22_locale/num_get/get/wchar_t/2.cc: New.
+	* 22_locale/num_get/get/wchar_t/3.cc: New.
+	* 22_locale/num_get/get/wchar_t/4.cc: New.
+	* 22_locale/num_get/get/wchar_t/5.cc: New.
+	* 22_locale/num_get/get/wchar_t/6.cc: New.
+	* 22_locale/num_get/get/wchar_t/wrapped_env.cc: New.
+	* 22_locale/num_get/get/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/num_put/1.cc: New.
+	* 22_locale/num_put/2.cc: New.
+	* 22_locale/num_put/put/char/1.cc: New.
+	* 22_locale/num_put/put/char/2.cc: New.
+	* 22_locale/num_put/put/char/3.cc: New.
+	* 22_locale/num_put/put/char/4.cc: New.
+	* 22_locale/num_put/put/char/5.cc: New.
+	* 22_locale/num_put/put/char/wrapped_env.cc: New.
+	* 22_locale/num_put/put/char/wrapped_locale.cc: New.
+	* 22_locale/num_put/put/wchar_t/1.cc: New.
+	* 22_locale/num_put/put/wchar_t/2.cc: New.
+	* 22_locale/num_put/put/wchar_t/3.cc: New.
+	* 22_locale/num_put/put/wchar_t/4.cc: New.
+	* 22_locale/num_put/put/wchar_t/5.cc: New.
+	* 22_locale/num_put/put/wchar_t/wrapped_env.cc: New.
+	* 22_locale/num_put/put/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/numpunct/1.cc: New.
+	* 22_locale/numpunct/2.cc: New.
+	* 22_locale/numpunct/members/char/1.cc: New.
+	* 22_locale/numpunct/members/char/2.cc: New.
+	* 22_locale/numpunct/members/char/wrapped_env.cc: New.
+	* 22_locale/numpunct/members/char/wrapped_locale.cc: New.
+	* 22_locale/numpunct/members/wchar_t/1.cc: New.
+	* 22_locale/numpunct/members/wchar_t/2.cc: New.
+	* 22_locale/numpunct/members/wchar_t/wrapped_env.cc: New.
+	* 22_locale/numpunct/members/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/numpunct_byname/1.cc: New.
+	* 22_locale/numpunct_byname/2.cc: New.
+	* 22_locale/time_get/1.cc: New.
+	* 22_locale/time_get/2.cc: New.
+	* 22_locale/time_get/date_order/char/1.cc: New.
+	* 22_locale/time_get/date_order/char/wrapped_env.cc: New.
+	* 22_locale/time_get/date_order/char/wrapped_locale.cc: New.
+	* 22_locale/time_get/date_order/wchar_t/1.cc: New.
+	* 22_locale/time_get/date_order/wchar_t/wrapped_env.cc: New.
+	* 22_locale/time_get/date_order/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_date/char/1.cc: New.
+	* 22_locale/time_get/get_date/char/2.cc: New.
+	* 22_locale/time_get/get_date/char/3.cc: New.
+	* 22_locale/time_get/get_date/char/wrapped_env.cc: New.
+	* 22_locale/time_get/get_date/char/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_date/wchar_t/1.cc: New.
+	* 22_locale/time_get/get_date/wchar_t/2.cc: New.
+	* 22_locale/time_get/get_date/wchar_t/3.cc: New.
+	* 22_locale/time_get/get_date/wchar_t/wrapped_env.cc: New.
+	* 22_locale/time_get/get_date/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_monthname/char/1.cc: New.
+	* 22_locale/time_get/get_monthname/char/2.cc: New.
+	* 22_locale/time_get/get_monthname/char/3.cc: New.
+	* 22_locale/time_get/get_monthname/char/wrapped_env.cc: New.
+	* 22_locale/time_get/get_monthname/char/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_monthname/wchar_t/1.cc: New.
+	* 22_locale/time_get/get_monthname/wchar_t/2.cc: New.
+	* 22_locale/time_get/get_monthname/wchar_t/3.cc: New.
+	* 22_locale/time_get/get_monthname/wchar_t/wrapped_env.cc: New.
+	* 22_locale/time_get/get_monthname/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_time/char/1.cc: New.
+	* 22_locale/time_get/get_time/char/2.cc: New.
+	* 22_locale/time_get/get_time/char/3.cc: New.
+	* 22_locale/time_get/get_time/char/wrapped_env.cc: New.
+	* 22_locale/time_get/get_time/char/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_time/wchar_t/1.cc: New.
+	* 22_locale/time_get/get_time/wchar_t/2.cc: New.
+	* 22_locale/time_get/get_time/wchar_t/3.cc: New.
+	* 22_locale/time_get/get_time/wchar_t/wrapped_env.cc: New.
+	* 22_locale/time_get/get_time/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_weekday/char/1.cc: New.
+	* 22_locale/time_get/get_weekday/char/2.cc: New.
+	* 22_locale/time_get/get_weekday/char/3.cc: New.
+	* 22_locale/time_get/get_weekday/char/wrapped_env.cc: New.
+	* 22_locale/time_get/get_weekday/char/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_weekday/wchar_t/1.cc: New.
+	* 22_locale/time_get/get_weekday/wchar_t/2.cc: New.
+	* 22_locale/time_get/get_weekday/wchar_t/3.cc: New.
+	* 22_locale/time_get/get_weekday/wchar_t/wrapped_env.cc: New.
+	* 22_locale/time_get/get_weekday/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_year/char/1.cc: New.
+	* 22_locale/time_get/get_year/char/3.cc: New.
+	* 22_locale/time_get/get_year/char/wrapped_env.cc: New.
+	* 22_locale/time_get/get_year/char/wrapped_locale.cc: New.
+	* 22_locale/time_get/get_year/wchar_t/1.cc: New.
+	* 22_locale/time_get/get_year/wchar_t/3.cc: New.
+	* 22_locale/time_get/get_year/wchar_t/wrapped_env.cc: New.
+	* 22_locale/time_get/get_year/wchar_t/wrapped_locale.cc: New.
+	* 22_locale/time_put/1.cc: New.
+	* 22_locale/time_put/2.cc: New.
+	* 22_locale/time_put/put/char/1.cc: New.
+	* 22_locale/time_put/put/char/10.cc: New.
+	* 22_locale/time_put/put/char/2.cc: New.
+	* 22_locale/time_put/put/char/3.cc: New.
+	* 22_locale/time_put/put/char/4.cc: New.
+	* 22_locale/time_put/put/char/5.cc: New.
+	* 22_locale/time_put/put/char/6.cc: New.
+	* 22_locale/time_put/put/char/7.cc: New.
+	* 22_locale/time_put/put/char/8.cc: New.
+	* 22_locale/time_put/put/char/9.cc: New.
+	* 22_locale/time_put/put/char/wrapped_env.cc: New.
+	* 22_locale/time_put/put/char/wrapped_locale.cc: New.
+	* 22_locale/time_put/put/wchar_t/1.cc: New.
+	* 22_locale/time_put/put/wchar_t/10.cc: New.
+	* 22_locale/time_put/put/wchar_t/2.cc: New.
+	* 22_locale/time_put/put/wchar_t/3.cc: New.
+	* 22_locale/time_put/put/wchar_t/4.cc: New.
+	* 22_locale/time_put/put/wchar_t/5.cc: New.
+	* 22_locale/time_put/put/wchar_t/6.cc: New.
+	* 22_locale/time_put/put/wchar_t/7.cc: New.
+	* 22_locale/time_put/put/wchar_t/8.cc: New.
+	* 22_locale/time_put/put/wchar_t/9.cc: New.
+	* 22_locale/time_put/put/wchar_t/wrapped_env.cc: New.
+	* 22_locale/time_put/put/wchar_t/wrapped_locale.cc: New.
+
 2003-01-16  Jeffrey D. Oldham  <oldham@codesourcery.com>
 
 	* config/locale/generic/messages_members.h

@@ -807,7 +807,7 @@ union lang_tree_node
   (DECL_LANG_SPECIFIC(DECL)->u.f.ict)
 /* A list of all the static method calls in the method DECL (if optimizing).
    Actually each TREE_VALUE points to a COMPONT_EXPR that wraps the
-   invoation so we can later patch it. */
+   invocation so we can later patch it.  */
 #define DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->u.f.smic)
 /* The Number of Artificial Parameters (NAP) DECL contains. this$<n>
@@ -835,7 +835,7 @@ union lang_tree_node
 #define FIELD_LOCAL_ALIAS_USED(DECL) DECL_LANG_FLAG_7 (DECL)
 
 /* True when DECL is a this$<n> field. Note that
-   FIELD_LOCAL_ALIAS_USED can be differenciated when tested against
+   FIELD_LOCAL_ALIAS_USED can be differentiated when tested against
    FIELD_LOCAL_ALIAS.  */
 #define FIELD_THISN(DECL) DECL_LANG_FLAG_7 (DECL)
 
@@ -1290,6 +1290,12 @@ struct rtx_def * java_expand_expr (tree, rtx, enum machine_mode, int);
 extern void java_inlining_merge_static_initializers (tree, void *);
 extern void java_inlining_map_static_initializers (tree, void *);
 
+extern void compile_resource_data (char *name, const char *buffer, int length);
+extern void write_resource_constructor (void);
+extern void compile_resource_file (char *name, const char *filename);
+extern void init_resource_processing (void);
+
+
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
 /* Access flags etc for a method (a FUNCTION_DECL): */
@@ -1508,7 +1514,7 @@ extern tree *type_map;
 #define MODIFY_EXPR_FROM_INITIALIZATION_P(EXPR) TREE_LANG_FLAG_2 (EXPR)
 
 /* True if EXPR (a TREE_TYPE denoting a class type) has its methods
-   already checked (for redifitions, etc, see java_check_regular_methods.) */
+   already checked (for redefinitions, etc, see java_check_regular_methods.) */
 #define CLASS_METHOD_CHECKED_P(EXPR) TREE_LANG_FLAG_2 (EXPR)
 
 /* True if TYPE (a TREE_TYPE denoting a class type) was found to

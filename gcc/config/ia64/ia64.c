@@ -147,6 +147,7 @@ static rtx gen_fr_spill_x PARAMS ((rtx, rtx, rtx));
 static rtx gen_fr_restore_x PARAMS ((rtx, rtx, rtx));
 
 static enum machine_mode hfa_element_mode PARAMS ((tree, int));
+static bool ia64_rtx_costs PARAMS ((rtx, int, int, int *));
 static void fix_range PARAMS ((const char *));
 static struct machine_function * ia64_init_machine_status PARAMS ((void));
 static void emit_insn_group_barriers PARAMS ((FILE *, rtx));
@@ -207,13 +208,16 @@ static void ia64_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 
 static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
-static void ia64_aix_select_section PARAMS ((tree, int,
-					     unsigned HOST_WIDE_INT))
-     ATTRIBUTE_UNUSED;
-static void ia64_aix_unique_section PARAMS ((tree, int))
-     ATTRIBUTE_UNUSED;
-static void ia64_aix_select_rtx_section PARAMS ((enum machine_mode, rtx,
+static void ia64_rwreloc_select_section PARAMS ((tree, int,
 					         unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_unique_section PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					             unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static unsigned int ia64_rwreloc_section_type_flags
+     PARAMS ((tree, const char *, int))
      ATTRIBUTE_UNUSED;
 
 static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
@@ -313,6 +317,11 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_ASM_OUTPUT_MI_THUNK ia64_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS ia64_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST hook_int_rtx_0
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1036,7 +1045,7 @@ ia64_move_ok (dst, src)
     return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
 }
 
-/* Check if OP is a mask suitible for use with SHIFT in a dep.z instruction.
+/* Check if OP is a mask suitable for use with SHIFT in a dep.z instruction.
    Return the length of the field, or <= 0 on failure.  */
 
 int
@@ -1779,7 +1788,7 @@ ia64_compute_frame_size (size)
   i = regno - OUT_REG (0) + 1;
 
   /* When -p profiling, we need one output register for the mcount argument.
-     Likwise for -a profiling for the bb_init_func argument.  For -ax
+     Likewise for -a profiling for the bb_init_func argument.  For -ax
      profiling, we need two output registers for the two bb_init_trace_func
      arguments.  */
   if (current_function_profile)
@@ -2246,7 +2255,7 @@ do_restore (move_fn, reg, cfa_off)
 
 /* Wrapper functions that discards the CONST_INT spill offset.  These
    exist so that we can give gr_spill/gr_fill the offset they need and
-   use a consistant function interface.  */
+   use a consistent function interface.  */
 
 static rtx
 gen_movdi_x (dest, src, offset)
@@ -2861,7 +2870,7 @@ ia64_expand_epilogue (sibcall_p)
 	 first available call clobbered register.  If there was a frame_pointer 
 	 register, we may have swapped the names of r2 and HARD_FRAME_POINTER_REGNUM, 
 	 so we have to make sure we're using the string "r2" when emitting
-	 the register name for the assmbler.  */
+	 the register name for the assembler.  */
       if (current_frame_info.reg_fp && current_frame_info.reg_fp == GR_REG (2))
 	fp = HARD_FRAME_POINTER_REGNUM;
 
@@ -3392,7 +3401,7 @@ ia64_function_arg (cum, mode, type, named, incoming)
     }
 
   /* If there is a prototype, then FP values go in a FR register when
-     named, and in a GR registeer when unnamed.  */
+     named, and in a GR register when unnamed.  */
   else if (cum->prototype)
     {
       if (! named)
@@ -3532,7 +3541,7 @@ ia64_function_arg_advance (cum, mode, type, named)
     cum->int_regs = cum->words;
 
   /* If there is a prototype, then FP values go in a FR register when
-     named, and in a GR registeer when unnamed.  */
+     named, and in a GR register when unnamed.  */
   else if (cum->prototype)
     {
       if (! named)
@@ -3972,7 +3981,86 @@ ia64_print_operand (file, x, code)
   return;
 }
 
-/* Calulate the cost of moving data from a register in class FROM to
+/* Compute a (partial) cost for rtx X.  Return true if the complete
+   cost has been computed, and false if subexpressions should be
+   scanned.  In either case, *TOTAL contains the cost result.  */
+/* ??? This is incomplete.  */
+
+static bool
+ia64_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code;
+     int *total;
+{
+  switch (code)
+    {
+    case CONST_INT:
+      switch (outer_code)
+        {
+        case SET:
+	  *total = CONST_OK_FOR_J (INTVAL (x)) ? 0 : COSTS_N_INSNS (1);
+	  return true;
+        case PLUS:
+	  if (CONST_OK_FOR_I (INTVAL (x)))
+	    *total = 0;
+	  else if (CONST_OK_FOR_J (INTVAL (x)))
+	    *total = 1;
+	  else
+	    *total = COSTS_N_INSNS (1);
+	  return true;
+        default:
+	  if (CONST_OK_FOR_K (INTVAL (x)) || CONST_OK_FOR_L (INTVAL (x)))
+	    *total = 0;
+	  else
+	    *total = COSTS_N_INSNS (1);
+	  return true;
+	}
+
+    case CONST_DOUBLE:
+      *total = COSTS_N_INSNS (1);
+      return true;
+
+    case CONST:
+    case SYMBOL_REF:
+    case LABEL_REF:
+      *total = COSTS_N_INSNS (3);
+      return true;
+
+    case MULT:
+      /* For multiplies wider than HImode, we have to go to the FPU,
+         which normally involves copies.  Plus there's the latency
+         of the multiply itself, and the latency of the instructions to
+         transfer integer regs to FP regs.  */
+      /* ??? Check for FP mode.  */
+      if (GET_MODE_SIZE (GET_MODE (x)) > 2)
+        *total = COSTS_N_INSNS (10);
+      else
+	*total = COSTS_N_INSNS (2);
+      return true;
+
+    case PLUS:
+    case MINUS:
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+      *total = COSTS_N_INSNS (1);
+      return true;
+
+    case DIV:
+    case UDIV:
+    case MOD:
+    case UMOD:
+      /* We make divide expensive, so that divide-by-constant will be
+         optimized to a multiply.  */
+      *total = COSTS_N_INSNS (60);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+/* Calculate the cost of moving data from a register in class FROM to
    one in class TO, using MODE.  */
 
 int
@@ -5209,7 +5297,7 @@ safe_group_barrier_needed_p (insn)
 }
 
 /* INSNS is a chain of instructions.  Scan the chain, and insert stop bits
-   as necessary to eliminate dependendencies.  This function assumes that
+   as necessary to eliminate dependencies.  This function assumes that
    a final instruction scheduling pass has been run which has already
    inserted most of the necessary stop bits.  This function only inserts
    new ones at basic block boundaries, since these are invisible to the
@@ -5484,7 +5572,7 @@ static const char *bundle_name [NR_BUNDLES] =
 
 int ia64_final_schedule = 0;
 
-/* Codes of the corrsponding quieryied units: */
+/* Codes of the corresponding quieryied units: */
 
 static int _0mii_, _0mmi_, _0mfi_, _0mmf_;
 static int _0bbb_, _0mbb_, _0mib_, _0mmb_, _0mfb_, _0mlx_;
@@ -5517,7 +5605,7 @@ static state_t temp_dfa_state = NULL;
 static state_t prev_cycle_state = NULL;
 
 /* The following array element values are TRUE if the corresponding
-   insn reuqires to add stop bits before it.  */
+   insn requires to add stop bits before it.  */
 
 static char *stops_p;
 
@@ -8273,34 +8361,28 @@ ia64_select_rtx_section (mode, x, align)
     default_elf_select_rtx_section (mode, x, align);
 }
 
-/* It is illegal to have relocations in shared segments on AIX.
+/* It is illegal to have relocations in shared segments on AIX and HPUX.
    Pretend flag_pic is always set.  */
 
 static void
-ia64_aix_select_section (exp, reloc, align)
+ia64_rwreloc_select_section (exp, reloc, align)
      tree exp;
      int reloc;
      unsigned HOST_WIDE_INT align;
 {
-  int save_pic = flag_pic;
-  flag_pic = 1;
-  default_elf_select_section (exp, reloc, align);
-  flag_pic = save_pic;
+  default_elf_select_section_1 (exp, reloc, align, true);
 }
 
 static void
-ia64_aix_unique_section (decl, reloc)
+ia64_rwreloc_unique_section (decl, reloc)
      tree decl;
      int reloc;
 {
-  int save_pic = flag_pic;
-  flag_pic = 1;
-  default_unique_section (decl, reloc);
-  flag_pic = save_pic;
+  default_unique_section_1 (decl, reloc, true);
 }
 
 static void
-ia64_aix_select_rtx_section (mode, x, align)
+ia64_rwreloc_select_rtx_section (mode, x, align)
      enum machine_mode mode;
      rtx x;
      unsigned HOST_WIDE_INT align;
@@ -8310,6 +8392,16 @@ ia64_aix_select_rtx_section (mode, x, align)
   ia64_select_rtx_section (mode, x, align);
   flag_pic = save_pic;
 }
+
+static unsigned int
+ia64_rwreloc_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  return default_section_type_flags_1 (decl, name, reloc, true);
+}
+
 
 /* Output the assembler code for a thunk function.  THUNK_DECL is the
    declaration for the thunk function itself, FUNCTION is the decl for

@@ -965,7 +965,7 @@ extern int rs6000_default_long_calls;
    we end up clobbering r11.
 
    The AltiVec case needs to be fixed.  Dunno if we should break ABI
-   compatability and reserve a register for it as well..  */
+   compatibility and reserve a register for it as well..  */
 
 #define FIXED_SCRATCH (TARGET_SPE ? 14 : 11)
 
@@ -1329,10 +1329,12 @@ enum reg_class
 
 /* Return a class of registers that cannot change FROM mode to TO mode.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO)				 \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) ? FLOAT_REGS		 \
-   : (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1 ? GENERAL_REGS \
-   : NO_REGS)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				\
+   ? reg_classes_intersect_p (FLOAT_REGS, CLASS)			\
+   : (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1		\
+   ? reg_classes_intersect_p (GENERAL_REGS, CLASS) 			\
+   : 0)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1362,7 +1364,7 @@ typedef struct rs6000_stack {
   enum rs6000_abi abi;		/* which ABI to use */
   int gp_save_offset;		/* offset to save GP regs from initial SP */
   int fp_save_offset;		/* offset to save FP regs from initial SP */
-  int altivec_save_offset;	/* offset to save AltiVec regs from inital SP */
+  int altivec_save_offset;	/* offset to save AltiVec regs from initial SP */
   int lr_save_offset;		/* offset to save LR from initial SP */
   int cr_save_offset;		/* offset to save CR from initial SP */
   int vrsave_save_offset;	/* offset to save VRSAVE from initial SP */
@@ -2290,151 +2292,6 @@ do {									     \
    have been dropped from the PowerPC architecture.  */
 
 #define SHIFT_COUNT_TRUNCATED (TARGET_POWER ? 1 : 0)
-
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.
-
-   On the RS/6000, if it is valid in the insn, it is free.  So this
-   always returns 0.  */
-
-#define CONST_COSTS(RTX,CODE,OUTER_CODE)			\
-  case CONST_INT:						\
-  case CONST:							\
-  case LABEL_REF:						\
-  case SYMBOL_REF:						\
-  case CONST_DOUBLE:						\
-  case HIGH:							\
-    return 0;
-
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE.  */
-
-#define RTX_COSTS(X,CODE,OUTER_CODE)					\
-  case PLUS:								\
-    return ((GET_CODE (XEXP (X, 1)) == CONST_INT			\
-	     && ((unsigned HOST_WIDE_INT) (INTVAL (XEXP (X, 1))		\
-					   + 0x8000) >= 0x10000)	\
-	     && ((INTVAL (XEXP (X, 1)) & 0xffff) != 0))			\
-	    ? COSTS_N_INSNS (2)						\
-	    : COSTS_N_INSNS (1));					\
-  case AND:								\
-  case IOR:								\
-  case XOR:								\
-    return ((GET_CODE (XEXP (X, 1)) == CONST_INT			\
-	     && (INTVAL (XEXP (X, 1)) & (~ (HOST_WIDE_INT) 0xffff)) != 0 \
-	     && ((INTVAL (XEXP (X, 1)) & 0xffff) != 0))			\
-	    ? COSTS_N_INSNS (2)						\
-	    : COSTS_N_INSNS (1));					\
-  case MULT:								\
-    if (optimize_size)							\
-      return COSTS_N_INSNS (2);						\
-    switch (rs6000_cpu)							\
-      {									\
-      case PROCESSOR_RIOS1:						\
-      case PROCESSOR_PPC405:						\
-        return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
-		? COSTS_N_INSNS (5)					\
-		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
-		? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));		\
-      case PROCESSOR_RS64A:						\
-        return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
-		? GET_MODE (XEXP (X, 1)) != DImode			\
-		? COSTS_N_INSNS (20) : COSTS_N_INSNS (34)		\
-		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
-		? COSTS_N_INSNS (8) : COSTS_N_INSNS (12));		\
-      case PROCESSOR_RIOS2:						\
-      case PROCESSOR_MPCCORE:						\
-      case PROCESSOR_PPC604e:						\
-        return COSTS_N_INSNS (2);					\
-      case PROCESSOR_PPC601:						\
-        return COSTS_N_INSNS (5);					\
-      case PROCESSOR_PPC603:						\
-      case PROCESSOR_PPC7400:						\
-      case PROCESSOR_PPC750:						\
-        return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
-		? COSTS_N_INSNS (5)					\
-		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
-		? COSTS_N_INSNS (2) : COSTS_N_INSNS (3));		\
-      case PROCESSOR_PPC7450:						\
-        return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
-		? COSTS_N_INSNS (4)					\
-		: COSTS_N_INSNS (3));			    		\
-      case PROCESSOR_PPC403:						\
-      case PROCESSOR_PPC604:						\
-      case PROCESSOR_PPC8540:						\
-        return COSTS_N_INSNS (4);					\
-      case PROCESSOR_PPC620:						\
-      case PROCESSOR_PPC630:						\
-      case PROCESSOR_POWER4:						\
-        return (GET_CODE (XEXP (X, 1)) != CONST_INT			\
-		? GET_MODE (XEXP (X, 1)) != DImode			\
-		? COSTS_N_INSNS (5) : COSTS_N_INSNS (7)			\
-		: INTVAL (XEXP (X, 1)) >= -256 && INTVAL (XEXP (X, 1)) <= 255 \
-		? COSTS_N_INSNS (3) : COSTS_N_INSNS (4));		\
-      }									\
-  case DIV:								\
-  case MOD:								\
-    if (GET_CODE (XEXP (X, 1)) == CONST_INT				\
-	&& exact_log2 (INTVAL (XEXP (X, 1))) >= 0)			\
-      return COSTS_N_INSNS (2);						\
-    /* otherwise fall through to normal divide.  */			\
-  case UDIV:								\
-  case UMOD:								\
-    switch (rs6000_cpu)							\
-      {									\
-      case PROCESSOR_RIOS1:						\
-	return COSTS_N_INSNS (19);					\
-      case PROCESSOR_RIOS2:						\
-	return COSTS_N_INSNS (13);					\
-      case PROCESSOR_RS64A:						\
-        return (GET_MODE (XEXP (X, 1)) != DImode			\
-		? COSTS_N_INSNS (65)					\
-		: COSTS_N_INSNS (67));					\
-      case PROCESSOR_MPCCORE:						\
-	return COSTS_N_INSNS (6);					\
-      case PROCESSOR_PPC403:						\
-	return COSTS_N_INSNS (33);					\
-      case PROCESSOR_PPC405:						\
-	return COSTS_N_INSNS (35);					\
-      case PROCESSOR_PPC601:						\
-	return COSTS_N_INSNS (36);					\
-      case PROCESSOR_PPC603:						\
-	return COSTS_N_INSNS (37);					\
-      case PROCESSOR_PPC604:						\
-      case PROCESSOR_PPC604e:						\
-	return COSTS_N_INSNS (20);					\
-      case PROCESSOR_PPC620:						\
-      case PROCESSOR_PPC630:						\
-      case PROCESSOR_POWER4:						\
-        return (GET_MODE (XEXP (X, 1)) != DImode			\
-		? COSTS_N_INSNS (21)					\
-		: COSTS_N_INSNS (37));					\
-      case PROCESSOR_PPC750:						\
-      case PROCESSOR_PPC8540:						\
-      case PROCESSOR_PPC7400:						\
-        return COSTS_N_INSNS (19);					\
-      case PROCESSOR_PPC7450:						\
-        return COSTS_N_INSNS (23);					\
-      }									\
-  case FFS:								\
-    return COSTS_N_INSNS (4);						\
-  case MEM:								\
-    /* MEM should be slightly more expensive than (plus (reg) (const)) */ \
-    return 5;
-
-/* Compute the cost of an address.  This is meant to approximate the size
-   and/or execution delay of an insn using that address.  If the cost is
-   approximated by the RTL complexity, including CONST_COSTS above, as
-   is usually the case for CISC machines, this macro should not be defined.
-   For aggressively RISCy machines, only one insn format is allowed, so
-   this macro should be a constant.  The value of this macro only matters
-   for valid addresses.
-
-   For the RS/6000, everything is cost 0.  */
-
-#define ADDRESS_COST(RTX) 0
 
 /* Adjust the length of an INSN.  LENGTH is the currently-computed length and
    should be adjusted to reflect any required changes.  This macro is used when

@@ -1,5 +1,5 @@
 /* Print RTL for GNU C Compiler.
-   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000
+   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -409,6 +409,23 @@ print_rtx (in_rtx)
 	    else
 	      fprintf (outfile, " %d", value);
 
+	    if (GET_CODE (in_rtx) == REG && REG_ATTRS (in_rtx))
+	      {
+		fputs (" [", outfile);
+		if (ORIGINAL_REGNO (in_rtx) != REGNO (in_rtx))
+		  fprintf (outfile, "orig:%i", ORIGINAL_REGNO (in_rtx));
+		if (REG_EXPR (in_rtx))
+		  print_mem_expr (outfile, REG_EXPR (in_rtx));
+
+		if (REG_OFFSET (in_rtx))
+		  {
+		    fputc ('+', outfile);
+		    fprintf (outfile, HOST_WIDE_INT_PRINT_DEC,
+			     REG_OFFSET (in_rtx));
+		  }
+		fputs (" ]", outfile);
+	      }
+
 	    if (is_insn && &INSN_CODE (in_rtx) == &XINT (in_rtx, i)
 		&& XINT (in_rtx, i) >= 0
 		&& (name = get_insn_name (XINT (in_rtx, i))) != NULL)
@@ -493,6 +510,7 @@ print_rtx (in_rtx)
 
   switch (GET_CODE (in_rtx))
     {
+#ifndef GENERATOR_FILE
     case MEM:
       fputs (" [", outfile);
       fprintf (outfile, HOST_WIDE_INT_PRINT_DEC, MEM_ALIAS_SET (in_rtx));
@@ -520,7 +538,6 @@ print_rtx (in_rtx)
       fputc (']', outfile);
       break;
 
-#ifndef GENERATOR_FILE
     case CONST_DOUBLE:
       if (FLOAT_MODE_P (GET_MODE (in_rtx)))
 	{

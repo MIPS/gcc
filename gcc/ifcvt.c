@@ -647,8 +647,8 @@ noce_emit_store_flag (if_info, x, reversep, normalize)
       end_sequence ();
     }
 
-  /* Don't even try if the comparison operands are weird.  */
-  if (cond_complex)
+  /* Don't even try if the comparison operands or the mode of X are weird.  */
+  if (cond_complex || !SCALAR_INT_MODE_P (GET_MODE (x)))
     return NULL_RTX;
 
   return emit_store_flag (x, code, XEXP (cond, 0),
@@ -1802,14 +1802,22 @@ noce_process_if_block (ce_info)
   else
     {
       insn_b = prev_nonnote_insn (if_info.cond_earliest);
+      /* We're going to be moving the evaluation of B down from above
+	 COND_EARLIEST to JUMP.  Make sure the relevant data is still
+	 intact.  */
       if (! insn_b
 	  || GET_CODE (insn_b) != INSN
 	  || (set_b = single_set (insn_b)) == NULL_RTX
 	  || ! rtx_equal_p (x, SET_DEST (set_b))
+	  || reg_overlap_mentioned_p (x, SET_SRC (set_b))
+	  || modified_between_p (SET_SRC (set_b),
+				 PREV_INSN (if_info.cond_earliest), jump)
+	  /* Likewise with X.  In particular this can happen when
+	     noce_get_condition looks farther back in the instruction
+	     stream than one might expect.  */
 	  || reg_overlap_mentioned_p (x, cond)
 	  || reg_overlap_mentioned_p (x, a)
-	  || reg_overlap_mentioned_p (x, SET_SRC (set_b))
-	  || modified_between_p (x, if_info.cond_earliest, NEXT_INSN (jump)))
+	  || modified_between_p (x, PREV_INSN (if_info.cond_earliest), jump))
 	insn_b = set_b = NULL_RTX;
     }
   b = (set_b ? SET_SRC (set_b) : x);

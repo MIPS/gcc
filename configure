@@ -819,7 +819,7 @@ target_libs="target-libiberty \
 		${libstdcxx_version} \
 		target-libmudflap \
 		target-libf2c \
-		${libgcj}
+		${libgcj} \
 		target-libobjc"
 
 # these tools are built using the target libs, and are intended to run only

@@ -1,3 +1,252 @@
+2003-02-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/init/new1.C: Remove -fvolatile dg-options line.
+	* g++.dg/init/new2.C: Likewise.
+	* g++.dg/other/new1.C: Likewise.
+
+2003-01-31  Loren J. Rittle <ljrittle@acm.org>
+
+	* gcc.dg/struct-ret-libc.c: New test.
+
+2003-01-31  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20030129-1.c: New test.
+
+2003-01-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8849
+	* g++.dg/template/ptrmem4.C: New test.
+
+2003-01-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/parser/constant1.C: New test.
+
+2003-01-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8591
+	* g++.dg/parse/friend2.C: New test.
+
+2003-01-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9437
+	* g++.dg/template/unify4.C: New test.
+
+2003-01-28  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20030128-1.c: New test.
+
+2003-01-28  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	* g++.dg/lookup/nested1.C: Test moved from ...
+	* g++.old-deja/g++.other/lookup24.C: ... here.
+
+Tue Jan 28 12:19:35 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/i386-cmov5.c:  New test.
+
+2003-01-28  D.Venkatasubramanian   <dvenkat@noida.hcltech.com>
+
+        * gcc.c-torture/execute/20010925-1.c: Changed the
+        memcpy declaration.
+
+2003-01-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3902
+	* g++.dg/parse/template5.C: New test.
+
+2003-01-28  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/9258
+	* g77.dg/pr9258: New test.
+
+2003-01-28  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* README: Move relevant parts from README.g++.
+
+	* README.g++: Remove this file.
+
+2003-01-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/abi/dcast1.C: New test.
+
+2003-01-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/builtin-constant.x: Only expect failure at -O1.
+
+2003-01-27  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	PR c++/47
+	* g++.old-deja/g++.other/lookup24.C: New test.
+
+2003-01-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/7227
+	* gcc.dg/uninit-C.c: New test.
+
+2003-01-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/abi/covariant1.C: New test.
+
+2003-01-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20030123-1.c: New test.
+
+Sat Jan 25 21:06:49 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/8492
+	* gcc.c-torture/compile/20030125-1.c
+
+2003-01-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9403
+	* g++.dg/parse/template3.C: New test.
+	* g++.old-deja/g++.pt/memclass5.C: Add needed template keyword.
+	
+	PR c++/795
+	* g++.dg/parse/template4.C: New test.
+	
+	PR c++/9415
+	* g++.dg/template/qual2.C: New test.
+	
+	PR c++/8545
+	* g++.old-deja/g++.brendan/parse3.C: Remove XFAIL.
+
+	* g++.old-deja/g++.ns/bogus1.C: Change expected error.
+
+2003-01-25  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/switch-1.c: New test case.
+
+Sat Jan 25 12:32:55 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/20030125-1.[cx]: New test.
+
+2003-01-25  Paolo Carlini  <pcarlini@unitus.it>
+
+	Tweaks for Bison-1.875. From the NEWS file:
+	"- `parse error' -> `syntax error'
+	Bison now uniformly uses the term `syntax error'"
+	* gcc.dg/cpp/19990413-1.c: Test for "(parse|syntax) error".
+	* gcc.dg/cpp/digraph2.c: Likewise.
+	* gcc.dg/cpp/direct2.c: Likewise.
+	* gcc.dg/cpp/paste4.c: Likewise.
+	* gcc.dg/c90-restrict-1.c: Likewise.
+	* gcc.dg/c99-func-2.c: Likewise.
+	* gcc.dg/noncompile/920721-2.c: Likewise.
+	* gcc.dg/noncompile/930622-2.c: Likewise.
+	* gcc.dg/noncompile/940112-1.c: Likewise.
+	* gcc.dg/noncompile/950921-1.c: Likewise.
+	* gcc.dg/noncompile/951123-1.c: Likewise.
+	* gcc.dg/noncompile/971104-1.c: Likewise.
+	* gcc.dg/noncompile/990416-1.c: Likewise.
+
+2003-01-24  Paolo Carlini  <pcarlini@unitus.it>
+
+	* g++.dg/parse/undefined1.C: Add error message.
+
+2003-01-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9354
+	* g++.dg/parse/new1.C: New test.
+
+	PR c++/9216
+	* g++.dg/parse/template2.C: New test.
+
+	PR c++/9354
+	* g++.dg/parse/typedef2.C: New test.
+
+	PR c++/9328
+	* g++.dg/ext/typeof3.C: New test.
+
+2003-01-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/2738
+	* g++.dg/parse/ret-type1.C: New test.
+
+	PR c++/3792
+	* g++.dg/parse/tmpl-outside1.C: New test.
+
+	PR c++/4207
+	* g++.dg/parse/int-as-enum1.C: New test.
+
+	PR c++/4903
+	* g++.dg/parse/no-typename1.C: New test.
+
+	PR c++/5533
+	* g++.dg/parse/no-value1.C: New test.
+
+	PR c++/5921
+	* g++.dg/parse/wrong-inline1.C: New test.
+
+	PR c++/6402
+	* g++.dg/parse/ref1.C: New test.
+
+	PR c++/6992
+	* g++.dg/parse/attr-ctor1.C: New test.
+
+	PR c++/7229
+	* g++.dg/parse/namespace5.C: New test.
+
+	PR c++/7917
+	* g++.dg/parse/func-def1.C: New test.
+
+	PR c++/8143
+	* g++.dg/parse/undefined1.C: New test.
+
+	PR c++/5723, PR c++/8522
+	* g++.dg/parse/specialization1.C: New test.
+
+	PR c++/163, PR c++/8595
+	* g++.dg/parse/struct-as-enum1.C: New test.
+
+	PR c++/9173
+	* g++.dg/parse/undefined2.C: New test.
+
+2003-01-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9298
+	* g++.dg/parse/template1.C: New test.
+
+	PR c++/9384
+	* g++.dg/parse/using1.C: New test.
+
+	PR c++/9285
+	PR c++/9294
+	* g++.dg/parse/expr2.C: New test.
+
+	PR c++/9388
+	* g++.dg/parse/lookup2.C: Likewise.
+
+Tue Jan 21 18:01:35 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/990208-1.c:  Add noinline attributes as needed.
+	* gcc.c-torture/execute/eeprof-1.c:  Likewise.
+	* gcc.c-torture/execute/stdio-opt-*.c: Likewise.
+	* gcc.c-torture/execute/string-opt-*.c: Likewise.
+
+2003-01-20  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.c-torture/execute/20030117-1.c: New test case.  Exposes
+	problem with ARM sibcall code generation.
+
+2003-01-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20030120-1.c: New.
+
+2003-01-19  Paolo Carlini  <pcarlini@unitus.it>
+
+	* g++.old-deja/g++.pt/typename13.C: Remove XFAIL.
+
+2003-01-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9272
+	* g++.dg/parse/ctor1.C: New test.
+
+	PR c++/9294:
+	* g++.dg/parse/qualified1.C: New test.
+	
+	* g++.dg/parse/typename3.C: New test.
+
 2003-01-16  Richard Henderson  <rth@redhat.com>
 
 	* g++.dg/tls/init-2.C: Fix error matches for real this time.

@@ -1,6 +1,6 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -62,9 +62,11 @@ static int reference_types_internal = 0;
 static void finalize_record_size	PARAMS ((record_layout_info));
 static void finalize_type_size		PARAMS ((tree));
 static void place_union_field		PARAMS ((record_layout_info, tree));
+#if defined (PCC_BITFIELD_TYPE_MATTERS) || defined (BITFIELD_NBYTES_LIMITED)
 static int excess_unit_span		PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT,
 						HOST_WIDE_INT, HOST_WIDE_INT,
 						tree));
+#endif
 static unsigned int update_alignment_for_field
                                         PARAMS ((record_layout_info, tree, 
 						 unsigned int));
@@ -302,6 +304,29 @@ int_mode_for_mode (mode)
     }
 
   return mode;
+}
+
+/* Return the alignment of MODE. This will be bounded by 1 and
+   BIGGEST_ALIGNMENT.  */
+
+unsigned int
+get_mode_alignment (mode)
+     enum machine_mode mode;
+{
+  unsigned int alignment;
+
+  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
+      || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
+    alignment = GET_MODE_UNIT_SIZE (mode);
+  else
+    alignment = GET_MODE_SIZE (mode);
+
+  /* Extract the LSB of the size.  */
+  alignment = alignment & -alignment;
+  alignment *= BITS_PER_UNIT;
+
+  alignment = MIN (BIGGEST_ALIGNMENT, MAX (1, alignment));
+  return alignment;
 }
 
 /* Return the value of VALUE, rounded up to a multiple of DIVISOR.
@@ -792,6 +817,7 @@ place_union_field (rli, field)
 			       DECL_SIZE_UNIT (field), rli->offset));
 }
 
+#if defined (PCC_BITFIELD_TYPE_MATTERS) || defined (BITFIELD_NBYTES_LIMITED)
 /* A bitfield of SIZE with a required access alignment of ALIGN is allocated
    at BYTE_OFFSET / BIT_OFFSET.  Return nonzero if the field would span more
    units of alignment than the underlying TYPE.  */
@@ -809,6 +835,7 @@ excess_unit_span (byte_offset, bit_offset, size, align, type)
 	  > ((unsigned HOST_WIDE_INT) tree_low_cst (TYPE_SIZE (type), 1)
 	     / align));
 }
+#endif
 
 /* RLI contains information about the layout of a RECORD_TYPE.  FIELD
    is a FIELD_DECL to be added after those fields already present in
@@ -1228,15 +1255,7 @@ finalize_record_size (rli)
     unpadded_size_unit
       = size_binop (PLUS_EXPR, unpadded_size_unit, size_one_node);
 
-  /* Record the un-rounded size in the binfo node.  But first we check
-     the size of TYPE_BINFO to make sure that BINFO_SIZE is available.  */
-  if (TYPE_BINFO (rli->t) && TREE_VEC_LENGTH (TYPE_BINFO (rli->t)) > 6)
-    {
-      TYPE_BINFO_SIZE (rli->t) = unpadded_size;
-      TYPE_BINFO_SIZE_UNIT (rli->t) = unpadded_size_unit;
-    }
-
-    /* Round the size up to be a multiple of the required alignment */
+  /* Round the size up to be a multiple of the required alignment */
 #ifdef ROUND_TYPE_SIZE
   TYPE_SIZE (rli->t) = ROUND_TYPE_SIZE (rli->t, unpadded_size,
 					TYPE_ALIGN (rli->t));

@@ -3007,10 +3007,7 @@ purge_addressof_1 (loc, insn, force, store, ht)
       rtx sub, insns;
 
       if (GET_CODE (XEXP (x, 0)) != MEM)
-	{
-	  put_addressof_into_stack (x, ht);
-	  return true;
-	}
+	put_addressof_into_stack (x, ht);
 
       /* We must create a copy of the rtx because it was created by
 	 overwriting a REG rtx which is always shared.  */
@@ -3372,8 +3369,7 @@ purge_addressof (insns)
   compute_insns_for_mem (insns, NULL_RTX, ht);
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN
-	|| GET_CODE (insn) == CALL_INSN)
+    if (INSN_P (insn))
       {
 	if (! purge_addressof_1 (&PATTERN (insn), insn,
 				 asm_noperands (PATTERN (insn)) > 0, 0, ht))
@@ -4008,6 +4004,8 @@ instantiate_virtual_regs_1 (loc, object, extra_insns)
     case ABS:
     case SQRT:
     case FFS:
+    case CLZ:          case CTZ:
+    case POPCOUNT:     case PARITY:
       /* These case either have just one operand or we know that we need not
 	 check the rest of the operands.  */
       loc = &XEXP (x, 0);
@@ -5005,15 +5003,6 @@ assign_parms (fndecl)
 	  set_mem_attributes (x, result, 1);
 	  SET_DECL_RTL (result, x);
 	}
-
-      if (GET_CODE (DECL_RTL (parm)) == REG)
-	REGNO_DECL (REGNO (DECL_RTL (parm))) = parm;
-      else if (GET_CODE (DECL_RTL (parm)) == CONCAT)
-	{
-	  REGNO_DECL (REGNO (XEXP (DECL_RTL (parm), 0))) = parm;
-	  REGNO_DECL (REGNO (XEXP (DECL_RTL (parm), 1))) = parm;
-	}
-
     }
 
   /* Output all parameter conversion instructions (possibly including calls)
@@ -6175,6 +6164,8 @@ prepare_function_start ()
   current_function_calls_longjmp = 0;
 
   current_function_calls_alloca = 0;
+  current_function_calls_eh_return = 0;
+  current_function_calls_constant_p = 0;
   current_function_contains_functions = 0;
   current_function_is_leaf = 0;
   current_function_nothrow = 0;
@@ -6795,9 +6786,10 @@ expand_function_end (filename, line, end_bindings)
     }
 
   /* Warn about unused parms if extra warnings were specified.  */
-  /* Either ``-W -Wunused'' or ``-Wunused-parameter'' enables this
+  /* Either ``-Wextra -Wunused'' or ``-Wunused-parameter'' enables this
      warning.  WARN_UNUSED_PARAMETER is negative when set by
-     -Wunused.  */
+     -Wunused.  Note that -Wall implies -Wunused, so ``-Wall -Wextra'' will
+     also give these warnings.  */
   if (warn_unused_parameter > 0
       || (warn_unused_parameter < 0 && extra_warnings))
     {

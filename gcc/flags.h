@@ -86,7 +86,8 @@ extern int inhibit_warnings;
 
 extern int warn_system_headers;
 
-/* Do print extra warnings (such as for uninitialized variables).  -W.  */
+/* Do print extra warnings (such as for uninitialized variables).
+   -W/-Wextra.  */
 
 extern int extra_warnings;
 
@@ -336,18 +337,6 @@ extern int flag_omit_frame_pointer;
 
 extern int flag_no_peephole;
 
-/* Nonzero means all references through pointers are volatile.  */
-
-extern int flag_volatile;
-
-/* Nonzero means treat all global and extern variables as volatile.  */
-
-extern int flag_volatile_global;
-
-/* Nonzero means treat all static variables as volatile.  */
-
-extern int flag_volatile_static;
-
 /* Nonzero allows GCC to optimize sibling and tail recursive calls.  */
 
 extern int flag_optimize_sibling_calls;
@@ -560,7 +549,7 @@ extern int flag_instrument_function_entry_exit;
 /* Perform a peephole pass before sched2.  */
 extern int flag_peephole2;
 
-/* Try to guess branch probablities.  */
+/* Try to guess branch probabilities.  */
 extern int flag_guess_branch_prob;
 
 /* -fcheck-bounds causes gcc to generate array bounds checks.
@@ -633,6 +622,10 @@ extern enum graph_dump_types graph_dump_format;
 
 extern int flag_no_ident;
 
+/* Nonzero means perform global CSE.  */
+
+extern int flag_gcse;
+
 /* Nonzero if we want to perform enhanced load motion during gcse.  */
 
 extern int flag_gcse_lm;
@@ -700,7 +693,7 @@ extern int flag_signaling_nans;
   (MODE_HAS_INFINITIES (MODE) && !flag_finite_math_only)
 
 /* Like HONOR_NANS, but true if the given mode distinguishes between
-   postive and negative zero, and the sign of zero is important.  */
+   positive and negative zero, and the sign of zero is important.  */
 #define HONOR_SIGNED_ZEROS(MODE) \
   (MODE_HAS_SIGNED_ZEROS (MODE) && !flag_unsafe_math_optimizations)
 

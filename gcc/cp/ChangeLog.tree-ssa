@@ -1,3 +1,10 @@
+2003-02-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* parser.c (cp_parser_asm_definition): Call finish_asm_stmt with
+	'volatile_p' directly.
+	* typeck.c (build_binary_op): Initialize variable 'type'.
+	* Make-lang.in (cp/tree.o-warn): Add -Wno-error.
+
 2003-01-29  Frank Ch. Eigler  <fche@redhat.com>
 
 	* cp-mudflap.c (mflang_register_call): Adapt to mf-runtime.h API

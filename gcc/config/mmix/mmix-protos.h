@@ -95,7 +95,6 @@ extern void mmix_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern int mmix_constant_address_p PARAMS ((rtx));
 extern int mmix_legitimate_address PARAMS ((enum machine_mode, rtx, int));
 extern int mmix_legitimate_constant_p PARAMS ((rtx));
-extern int mmix_address_cost PARAMS ((rtx));
 extern void mmix_print_operand PARAMS ((FILE *, rtx, int));
 extern void mmix_print_operand_address PARAMS ((FILE *, rtx));
 extern void mmix_machine_dependent_reorg PARAMS ((rtx));
@@ -109,8 +108,6 @@ extern void mmix_setup_frame_addresses PARAMS ((void));
 /* Needs to be ifdef:d for sake of enum rtx_code.  */
 extern enum machine_mode mmix_select_cc_mode PARAMS ((enum rtx_code, rtx, rtx));
 extern void mmix_canonicalize_comparison PARAMS ((enum rtx_code *, rtx *, rtx *));
-extern int mmix_rtx_cost_recalculated
-  PARAMS ((rtx, enum rtx_code, enum rtx_code, int *));
 extern int mmix_valid_comparison PARAMS ((enum rtx_code, enum machine_mode, rtx));
 extern rtx mmix_gen_compare_reg PARAMS ((enum rtx_code, rtx, rtx));
 #endif

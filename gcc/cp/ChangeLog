@@ -1,3 +1,306 @@
+2003-02-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* typeck.c (build_indirect_ref): Don't check flag_volatile.
+
+2003-01-31  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8849
+	* pt.c (resolve_overloaded_unification): Handle FUNCTION_DECL.
+
+2003-01-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (BINFO_SUBVTT_INDEX, BINFO_VPTR_INDEX,
+	BINFO_PRIMARY_BASE_OF): Use BINFO_ELTS.
+	(BINFO_LANG_ELTS): New #define.
+	* tree.c (make_binfo): Use BINFO_LANG_ELTS.
+
+2003-01-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* cp/Make-lang.in: Remove -Wno-error from cp/decl.o.
+
+2003-01-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (check_field_decls): Only check C_TYPE_FIELDS_READONLY
+	for class types.
+	* cp-tree.h (C_TYPE_FIELDS_READONLY): Use a lang-specific bit
+	rather than TYPE_LANG_FLAG_0.
+	(TYPE_BUILT_IN): Remove.
+	(TYPE_DEPENDENT_P): New macro.
+	(TYPE_DEPENDENT_P_VALID): Likewise.
+	(lang_type_class): Add fields_readonly.
+	* decl.c (record_builtin_type): Don't set TYPE_BUILT_IN.
+	* pt.c (dependent_type_p_r): New function, split out from ...
+	(dependent_type_p): ... here.  Memoize results.
+	* search.c (dependent_base_p): Use dependent_type_p, not
+	uses_template_parms.
+	* typeck.c (build_modify_expr): Only check C_TYPE_FIELDS_READONLY
+	for class types.
+
+2003-01-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (build_field_call): Use build_new_op, not build_opfncall.
+	(prep_operand): New function.
+	(build_new_op): Use it.  Remove dead code.
+	* class.c (pushclass): Change "modify" parameter type from int to
+	bool.
+	(currently_open_class): Use same_type_p, not pointer equality.
+	(push_nested_class): Adjust calls to pushclass, remove modify
+	parameter.
+	* cp-tree.h (INTEGRAL_OR_ENUMERATION_TYPE_P): New macro.
+	(pushclass): Change prototype.
+	(push_nested_class): Likewise.
+	(grokoptypename): Remove.
+	(build_opfncall): Remove.
+	(value_dependent_expression_p): Declare.
+	(resolve_typename_type): Likewise.
+	(resolve_typename_type_in_current_instantiation): Likewise.
+	(enter_scope_of): Remove.
+	(tsubst): Remove.
+	(tsubst_expr): Likewise.
+	(tsubst_copy): Likewise.
+	(tsubst_copy_and_build): Likewise.
+	* decl.c (warn_about_implicit_typename_lookup): Remove.
+	(finish_case_label): Return error_mark_node for erroneous labels.
+	(start_decl): Adjust calls to push_nested_class.
+	(grokfndecl): Call push_scope/pop_scope around call to
+	duplicate_decls.
+	(grokdeclarator): Do not call tsubst.
+	(start_function): Adjust calls to push_nested_class.
+	* decl2.c (grok_array_decl): Use build_new_op, not build_opfncall.
+	(check_classfn): Use push_scope/pop_scope around type comparisions.
+	(grokoptypename): Remove.
+	(push_sscope): Adjust call to push_nested_class.
+	* error.c (dump_type): Show cv-qualification of typename types.
+	* init.c (build_member_call): Use build_new_op, not
+	build_opfncall.
+	* method.c (build_opfncall): Remove.
+	* parser.c (cp_parser): Add allow_non_constant_expression_p and
+	non_constant_expression_p.
+	(cp_parser_constant_expression): Adjust prototype.
+	(cp_parser_resolve_typename_type): Remove.
+	(cp_parser_non_constant_expression): New function.
+	(cp_parser_non_constant_id_expression): Likewise.
+	(cp_parser_new): Set allow_non_constant_expression_p and
+	non_constant_expression_p.
+	(cp_parser_primary_expression): Reject `this' and `va_arg' in
+	constant-expressions.  Note that dependent names aren't really
+	constant.
+	(cp_parser_postfix_expression): Reject conversions to non-integral
+	types in constant-expressions.  Neither are increments or
+	decrements.
+	(cp_parser_unary_expression): Reject increments and decrements in
+	constant-expressions.
+	(cp_parser_direct_new_declarator): Adjust call to
+	cp_parser_constant_expression.
+	(cp_parser_cast_expression): Reject conversions to non-integral
+	types in constant-expressions.
+	(cp_parser_assignment_expression): Rejects assignments in
+	constant-expressions.
+	(cp_parser_expression): Reject commas in constant-expressions.
+	(cp_parser_labeled_statement): Adjust call to
+	cp_parser_constant_expression.
+	(cp_parser_direct_declarator): Simplify array bounds, even in
+	templates, when they are non-dependent.  Use
+	resolve_typename_type, not cp_parser_resolve_typename_type.
+	(cp_parser_class_head): Use resolve_typename_type, not
+	cp_parser_resolve_typename_type.
+	(cp_parser_member_declaration): Adjust call to
+	cp_parser_constant_expression.
+	(cp_parser_constant_initializer): Likewise.
+	(cp_parser_constructor_declarator): Use resolve_typename_type, not
+	cp_parser_resolve_typename_type.
+	(cp_parser_late_parsing_default_args): Adjust call to
+	push_nested_class.
+	* pt.c (tsubst): Give it internal linkage.
+	(tsubst_expr): Likewise.
+	(tsubst_copy): Likewise.
+	(tsubst_copy_and_build): Likewise.
+	(push_access_scope_real): Likewise.
+	(tsubst_friend_class): Likewise.
+	(instantiate_class_template): Adjust call to pushclass.
+	(value_dependent_expression_p): Give it external linkage.
+	Robustify.
+	(resolve_typename_type): New function.
+	* semantics.c (finish_call_expr): Use build_new_op, not
+	build_opfncall.
+	(begin_constructor_declarator): Remove.
+	(begin_class_definition): Adjust call to pushclass.
+	(enter_scope_of): Remove.
+	* typeck.c (comptypes): Resolve typename types as appropriate.
+	(build_x_indirect_ref): Use build_new_op, not build_opfncall.
+	(build_x_compound_expr): Likewise.
+	(build_modify_expr): Likewise.
+	(build_x_modify_expr): Likewise.
+	* typeck2.c (build_x_arrow): Likewise.
+	
+2003-01-29  Fariborz Jahanian  <fjahanian@apple.com>
+
+        * pt.c (last_pending_template) Declare GTY().
+
+2003-01-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/8591
+	* parser.c (cp_parser_elaborated_type_specifier): Convert
+	TEMPLATE_DECL to TYPE_DECL only when processing template friends.
+	(cp_parser_maybe_treat_template_as_class): Remove redundant tests.
+
+2003-01-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9437
+	* pt.c (unify): Don't unify '*T' with 'U C::*'.
+
+	PR c++/3902
+	* parser.c (cp_parser_decl_specifier_seq): Cannot have constructor
+	inside a declarator.
+
+2003-01-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (update_vtable_entry_for_fn): Add index parameter.
+	Generate vcall thunk for covariant overriding from a virtual
+	primary base.
+	(dfs_modify_vtables): Adjust.
+
+2003-01-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9403
+	* parser.c (cp_parser_class_or_namespace_name): Reject duplicate
+	template keyword.
+	(cp_parser_base_specifier): Look for and consume a
+	TEMPLATE keyword. Replace switch with array index.
+
+	PR c++/795
+	* semantics.c (finish_non_static_data_member): Remember the
+	field's type even in a template.
+
+	PR c++/9415
+	* pt.c (tsubst_copy_and_build, CALL_EXPR): BASELINK exprs are
+	already scoped.
+	
+	PR c++/8545
+	* parser.c (cp_parser_cast_expression): Be more tentative.
+
+2003-01-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* cp-tree.h (flagged_type_tree_s): Remove.
+	(check_for_new_type): Likewise.
+	* typeck2.c (check_for_new_type): Likewise.
+
+2003-01-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* dump.c: ANSIfy function declarations and definitions.
+
+	* cp-tree.h, decl.h: Get rid of PARAMS.  Again.
+
+2003-01-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9354
+	* init.c (build_new): Set the type of the new-expression, even
+	when processing_templte_decl.
+
+	PR c++/9216
+	* parser.c (cp_parser_primary_expression): Improve error message
+	for templates used in an expression context.
+
+	PR c++/8696
+	* parser.c (cp_parser_decl_specifier_seq): Commit to tentative
+	parse when encountering "typedef".
+
+2003-01-22  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* class.c, parser.c: ANSIfy function definitions and declarations.
+
+2003-01-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9328
+	* error.c (dump_decl): For an OVERLOAD, just print the name of the
+	function; it doesn't make sense to try to print its type.
+	* semantics.c (finish_typeof): Issue errors about invalid uses.
+
+	PR c++/9298
+	* parser.c (cp_parser_consume_semicolon_at_end_of_statement): New
+	function.
+	(cp_parser_expression_statement): Use it.
+	(cp_parser_explicit_instantiation): Likewise.
+	* pt.c (do_decl_instantiation): Improve error handling logic.
+	
+2003-01-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9384
+	* parser.c (cp_parser_using_declaration): Issue error messages
+	about name resolution failures here.
+
+	PR c++/9388
+	* class.c (currently_open_derived_class): Use dependent_type_p.
+	* cp-tree.h (dependent_type_p): New function.
+	(dependent_template_arg_p): Likewise.
+	(dependent_template_p): Likewise.
+	(type_dependent_expression_p): Likewise.
+	* parser.c (cp_parser_dependent_type_p): Remove.
+	(cp_parser_value_dependent_type_p): Likewise.
+	(cp_parser_type_dependent_expression_p): Likewise.
+	(cp_parser_dependent_template_arg_p): Likewise.
+	(cp_parser_dependent_template_id_p): Likewise.
+	(cp_parser_dependent_template_p): Likewise.
+	(cp_parser_diagnose_invalid_type_name): Replace
+	cp_parser_dependent_type_p with dependent_type_p, etc.
+	(cp_parser_primary_expresion): Likewise.
+	(cp_parser_nested_name_specifier_opt): Likewise.
+	(cp_parser_postfix_expression): Likewise.
+	(cp_parser_unary_expression): Likewise.
+	(cp_parser_template_name): Likewise.
+	(cp_parser_class_name): Likewise.
+	(cp_parser_lookup_name): Likewise.
+	* pt.c (dependent_type_p): New function.
+	(value_dependent_expression_p): Likewise.
+	(type_dependent_expression_p): Likewise.
+	(dependent_template_arg_p): Likewise.
+	(dependent_template_id_p): Likewise.
+	(dependent_template_p): Likewise.
+	
+	PR c++/9285
+	PR c++/9294
+	* parser.c (cp_parser_simple_declaration): Return quickly when
+        encountering errors.
+
+2003-01-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Make-lang.in (cp/decl.o-warn): Add -Wno-error.
+
+2003-01-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9167, c++/9358
+	* decl.c (require_complete_types_for_parms): Also update DECL_ARG_TYPE.
+
+2003-01-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/9342
+	* call.c (build_conditional_expr): Always do lvalue-rvalue
+	conversion.
+
+2003-01-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9294
+	* cp-tree.def (BASELINK): Make it class 'x', not class 'e'.
+	* cp-tree.h (BASELINK_BINFO): Adjust.
+	(BASELINK_FUNCTIONS): Likewise.
+	(BASELINK_ACCESS_BINFO): Likewise.
+	(tree_baselink): New structure.
+	(cp_tree_node_structure_enum): Add TS_CP_BASELINK.
+	(lang_tree_node): Add baselink.
+	* decl.c (cp_tree_node_structure): Add BASELINK case.
+	* search.c (build_baselink): Adjust.
+	* tree.c (cp_walk_subtrees): Add BASELINK case.  Remove BASELINK_P
+	test from TREE_LIST case.
+
+	PR c++/9272
+	* parser.c (cp_parser_constructor_declarator_p): Do not assume
+	that a constructor cannot be declared outside of its own class.
+	
+	* parser.c (cp_parser_resolve_typename_type): If the scope cannot
+	be resolved, neither can the qualified name.
+
+	* rtti.c (get_pseudo_ti_desc): Fix thinko.
+
 2003-01-16  Jason Merrill  <jason@redhat.com>
 
 	PR c++/8564

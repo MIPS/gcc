@@ -74,6 +74,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "cfglayout.h"
 #include "tree-alias-common.h" 
+#include "cfgloop.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -606,25 +607,9 @@ int flag_signaling_nans = 0;
 
 int flag_complex_divide_method = 0;
 
-/* Nonzero means all references through pointers are volatile.  */
-
-int flag_volatile;
-
-/* Nonzero means treat all global and extern variables as volatile.  */
-
-int flag_volatile_global;
-
-/* Nonzero means treat all static variables as volatile.  */
-
-int flag_volatile_static;
-
 /* Nonzero means just do syntax checking; don't output anything.  */
 
 int flag_syntax_only = 0;
-
-/* Nonzero means perform global cse.  */
-
-static int flag_gcse;
 
 /* Nonzero means perform loop optimizer.  */
 
@@ -646,6 +631,10 @@ static int flag_if_conversion2;
    useless null pointer tests.  */
 
 static int flag_delete_null_pointer_checks;
+
+/* Nonzero means perform global CSE.  */
+
+int flag_gcse = 0;
 
 /* Nonzero means to do the enhanced load motion during gcse, which trys
    to hoist loads by not killing them when a store to the same location
@@ -1012,12 +1001,6 @@ static const lang_independent_options f_options[] =
    N_("Perform DWARF2 duplicate elimination") },
   {"float-store", &flag_float_store, 1,
    N_("Do not store floats in registers") },
-  {"volatile", &flag_volatile, 1,
-   N_("Consider all mem refs through pointers as volatile") },
-  {"volatile-global", &flag_volatile_global, 1,
-   N_("Consider all mem refs to global data to be volatile") },
-  {"volatile-static", &flag_volatile_static, 1,
-   N_("Consider all mem refs to static data to be volatile") },
   {"defer-pop", &flag_defer_pop, 1,
    N_("Defer popping functions args from stack until later") },
   {"omit-frame-pointer", &flag_omit_frame_pointer, 1,
@@ -1454,7 +1437,7 @@ int inhibit_warnings = 0;
 
 int warn_system_headers = 0;
 
-/* Print various extra warnings.  -W.  */
+/* Print various extra warnings.  -W/-Wextra.  */
 
 int extra_warnings = 0;
 
@@ -1549,7 +1532,7 @@ int warn_deprecated_decl = 1;
 
 int warn_strict_aliasing;
 
-/* Likewise for -W.  */
+/* Like f_options, but for -W.  */
 
 static const lang_independent_options W_options[] =
 {
@@ -1593,6 +1576,8 @@ static const lang_independent_options W_options[] =
    N_("Warn when an optimization pass is disabled") },
   {"deprecated-declarations", &warn_deprecated_decl, 1,
    N_("Warn about uses of __attribute__((deprecated)) declarations") },
+  {"extra", &extra_warnings, 1,
+   N_("Print extra (possibly unwanted) warnings") },
   {"missing-noreturn", &warn_missing_noreturn, 1,
    N_("Warn about functions which might be candidates for attribute noreturn") },
   {"strict-aliasing", &warn_strict_aliasing, 1,
@@ -2289,14 +2274,6 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
      int top_level;
      int at_end;
 {
-  /* Declarations of variables, and of functions defined elsewhere.  */
-
-/* The most obvious approach, to put an #ifndef around where
-   this macro is used, doesn't work since it's inside a macro call.  */
-#ifndef ASM_FINISH_DECLARE_OBJECT
-#define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP, END)
-#endif
-
   /* We deferred calling assemble_alias so that we could collect
      other attributes such as visibility.  Emit the alias now.  */
   {
@@ -2324,11 +2301,14 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
 	 is seen.  But at end of compilation, do output code for them.  */
       if (at_end || !DECL_DEFER_OUTPUT (decl))
 	assemble_variable (decl, top_level, at_end, 0);
+
+#ifdef ASM_FINISH_DECLARE_OBJECT
       if (decl == last_assemble_variable_decl)
 	{
 	  ASM_FINISH_DECLARE_OBJECT (asm_out_file, decl,
 				     top_level, at_end);
 	}
+#endif
 
       timevar_pop (TV_VARCONST);
     }
@@ -2382,7 +2362,8 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
 
 void
 rest_of_type_compilation (type, toplev)
-#if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO) || defined (SDB_DEBUGGING_INFO)
+#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)	\
+    || defined (SDB_DEBUGGING_INFO) || defined (DWARF2_DEBUGGING_INFO)
      tree type;
      int toplev;
 #else
@@ -2963,6 +2944,10 @@ rest_of_compilation (decl)
       verify_flow_info ();
 #endif
     }
+
+  /* Instantiate any remaining CONSTANT_P_RTX nodes.  */
+  if (optimize > 0 && flag_gcse && current_function_calls_constant_p)
+    purge_builtin_constant_p ();
 
   /* Move constant computations out of loops.  */
 
@@ -3784,7 +3769,6 @@ display_help ()
   printf (_("  -pedantic               Issue warnings needed by strict compliance to ISO C\n"));
   printf (_("  -pedantic-errors        Like -pedantic except that errors are produced\n"));
   printf (_("  -w                      Suppress warnings\n"));
-  printf (_("  -W                      Enable extra warnings\n"));
 
   for (i = ARRAY_SIZE (W_options); i--;)
     {
@@ -4170,6 +4154,14 @@ decode_W_option (arg)
   else if (!strcmp (arg, "no-unused"))
     {
       set_Wunused (0);
+    }
+  else if (!strcmp (arg, "extra"))
+    {
+      /* We save the value of warn_uninitialized, since if they put
+	 -Wuninitialized on the command line, we need to generate a
+	 warning about not using it without also specifying -O.  */
+      if (warn_uninitialized != 1)
+	warn_uninitialized = 2;
     }
   else
     return 0;

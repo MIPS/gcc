@@ -891,6 +891,8 @@ simplify_stmt_expr (expr_p)
     {
       tree substmt, last_expr_stmt, last_expr, bind;
 
+      bind = NULL_TREE;	/* [GIMPLE] Avoid uninitialized use warning.  */
+
       /* Splice the last expression out of the STMT chain.  */
       last_expr_stmt = NULL_TREE;
       for (substmt = COMPOUND_BODY (body); substmt;

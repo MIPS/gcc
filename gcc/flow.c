@@ -274,7 +274,7 @@ struct propagate_block_info
   /* Nonzero if the value of CC0 is live.  */
   int cc0_live;
 
-  /* Flags controling the set of information propagate_block collects.  */
+  /* Flags controlling the set of information propagate_block collects.  */
   int flags;
 };
 
@@ -693,6 +693,16 @@ update_life_info (blocks, extent, prop_flags)
 	     partial improvement (see MAX_MEM_SET_LIST_LEN usage).
 	     Further improvement may be possible.  */
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
+
+	  /* Zap the life information from the last round.  If we don't 
+	     do this, we can wind up with registers that no longer appear
+	     in the code being marked live at entry, which twiggs bogus
+	     warnings from regno_uninitialized.  */
+	  FOR_EACH_BB (bb)
+	    {
+	      CLEAR_REG_SET (bb->global_live_at_start);
+	      CLEAR_REG_SET (bb->global_live_at_end);
+	    }
 	}
 
       /* If asked, remove notes from the blocks we'll update.  */
@@ -1680,7 +1690,7 @@ propagate_one_insn (pbi, insn)
 	    }
 
 	  /* Similarly if INSN contains a LIBCALL note, remove the
-	     dnagling REG_RETVAL note.  */
+	     dangling REG_RETVAL note.  */
 	  note = find_reg_note (insn, REG_LIBCALL, NULL_RTX);
 	  if (note)
 	    {
@@ -2379,7 +2389,7 @@ regno_uninitialized (regno)
 	      || FUNCTION_ARG_REGNO_P (regno))))
     return 0;
 
-  return REGNO_REG_SET_P (ENTRY_BLOCK_PTR->next_bb->global_live_at_start, regno);
+  return REGNO_REG_SET_P (ENTRY_BLOCK_PTR->global_live_at_end, regno);
 }
 
 /* 1 if register REGNO was alive at a place where `setjmp' was called
@@ -2394,7 +2404,7 @@ regno_clobbered_at_setjmp (regno)
     return 0;
 
   return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (ENTRY_BLOCK_PTR->next_bb->global_live_at_start, regno))
+	   || REGNO_REG_SET_P (ENTRY_BLOCK_PTR->global_live_at_end, regno))
 	  && REGNO_REG_SET_P (regs_live_at_setjmp, regno));
 }
 
@@ -4231,7 +4241,7 @@ dump_regset (r, outf)
     });
 }
 
-/* Print a human-reaable representation of R on the standard error
+/* Print a human-readable representation of R on the standard error
    stream.  This function is designed to be used from within the
    debugger.  */
 

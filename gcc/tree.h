@@ -84,7 +84,7 @@ extern const char *const built_in_class_names[4];
 /* Codes that identify the various built in functions
    so that expand_call can identify them quickly.  */
 
-#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT) ENUM,
+#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM) ENUM,
 enum built_in_function
 {
 #include "builtins.def"
@@ -99,6 +99,7 @@ extern const char *const built_in_names[(int) END_BUILTINS];
 
 /* An array of _DECL trees for the above.  */
 extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
+extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
 
 /* The definition of tree nodes fills the next several pages.  */
 
@@ -1495,19 +1496,12 @@ struct tree_type GTY(())
 
 /* For a BINFO record describing a virtual base class, i.e., one where
    TREE_VIA_VIRTUAL is set, this field assists in locating the virtual
-   base.  The actual contents are language-dependent.  Under the old
-   ABI, the C++ front-end uses a FIELD_DECL whose contents are a
-   pointer to the virtual base; under the new ABI this field is
-   instead an INTEGER_CST giving an offset into the vtable where the
-   offset to the virtual base can be found.  */
+   base.  The actual contents are language-dependent.  In the C++
+   front-end this field is an INTEGER_CST giving an offset into the
+   vtable where the offset to the virtual base can be found.  */
 #define BINFO_VPTR_FIELD(NODE) TREE_VEC_ELT (NODE, 5)
 
-/* The size of a base class subobject of this type.  Not all frontends
-   currently allocate the space for these fields.  */
-#define BINFO_SIZE(NODE) TREE_VEC_ELT (NODE, 6)
-#define BINFO_SIZE_UNIT(NODE) TREE_VEC_ELT (NODE, 7)
-#define TYPE_BINFO_SIZE(NODE) BINFO_SIZE (TYPE_BINFO (NODE))
-#define TYPE_BINFO_SIZE_UNIT(NODE) BINFO_SIZE_UNIT (TYPE_BINFO (NODE))
+#define BINFO_ELTS 6
 
 /* Slot used to build a chain that represents a use of inheritance.
    For example, if X is derived from Y, and Y is derived from Z,
@@ -1663,7 +1657,7 @@ struct tree_type GTY(())
    ? (NODE)->decl.rtl					\
    : (make_decl_rtl (NODE, NULL), (NODE)->decl.rtl))
 /* Set the DECL_RTL for NODE to RTL.  */
-#define SET_DECL_RTL(NODE, RTL) (DECL_CHECK (NODE)->decl.rtl = (RTL))
+#define SET_DECL_RTL(NODE, RTL) set_decl_rtl (NODE, RTL)
 /* Returns nonzero if the DECL_RTL for NODE has already been set.  */
 #define DECL_RTL_SET_P(NODE)  (DECL_CHECK (NODE)->decl.rtl != NULL)
 /* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
@@ -2544,7 +2538,6 @@ enum attribute_flags
 
 extern tree merge_decl_attributes PARAMS ((tree, tree));
 extern tree merge_type_attributes PARAMS ((tree, tree));
-struct cpp_reader;
 extern void default_register_cpp_builtins PARAMS ((struct cpp_reader *));
 
 /* Split a list of declspecs and attributes into two.  */
@@ -3103,6 +3096,8 @@ extern tree invert_truthvalue	PARAMS ((tree));
 extern tree fold_builtin				PARAMS ((tree));
 extern enum built_in_function builtin_mathfn_code	PARAMS ((tree));
 extern tree build_function_call_expr			PARAMS ((tree, tree));
+extern tree mathfn_built_in				PARAMS ((tree, enum built_in_function fn));
+extern tree strip_float_extensions			PARAMS ((tree));
 
 /* In convert.c */
 extern tree strip_float_extensions			PARAMS ((tree));
@@ -3376,7 +3371,10 @@ extern FILE *dump_begin			PARAMS ((enum tree_dump_index, int *));
 extern void dump_end			PARAMS ((enum tree_dump_index, FILE *));
 extern void dump_node			PARAMS ((tree, int, FILE *));
 extern int dump_switch_p                PARAMS ((const char *));
-const char *dump_flag_name		PARAMS ((enum tree_dump_index));
+extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
+/* Assign the RTX to declaration.  */
+
+extern void set_decl_rtl		PARAMS ((tree, rtx));
 
 extern int simplify_function_tree	PARAMS ((tree));
 extern const char *get_name		PARAMS ((tree));

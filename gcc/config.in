@@ -225,6 +225,9 @@
 /* Define if you have the <langinfo.h> header file.  */
 #undef HAVE_LANGINFO_H
 
+/* Define if you have the <ldfcn.h> header file.  */
+#undef HAVE_LDFCN_H
+
 /* Define if you have the <limits.h> header file.  */
 #undef HAVE_LIMITS_H
 
@@ -484,6 +487,9 @@
 #undef HAVE_DECL_GETRUSAGE
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
+#undef HAVE_DECL_LDGETNAME
+
+/* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_TIMES
 
 /* Define if <sys/times.h> defines struct tms. */
@@ -491,6 +497,9 @@
 
 /* Define if <time.h> defines clock_t. */
 #undef HAVE_CLOCK_T
+
+/* Define if <sys/types.h> defines `uchar'. */
+#undef HAVE_UCHAR
 
 /* Define .init_array/.fini_array sections are available and working. */
 #undef HAVE_INITFINI_ARRAY

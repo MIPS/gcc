@@ -1,3 +1,37 @@
+2003-02-03  Diego Novillo  <dnovillo@redhat.com>
+
+	Fix warnings to allow bootstrapping with -Werror.
+
+	* Makefile.in (c-semantics.o-warn): Add -Wno-error.
+	(emit-rtl.o-warn): Likewise.
+	(profile.o-warn): Likewise.
+	(tree.o-warn): Likewise.
+	(OBJS): Remove simple-break-elim.o and simple-goto-elim.o.
+	* c-pretty-print.c (print_function_decl): Remove unused function.
+	* bitmap.c (bitmap_last_set_bit): Initialize variable 'word'.
+	* c-typeck.c (build_binary_op): Initialize variable 'type'.
+	* combine.c (combine_simplify_rtx): Initialize variable 'reversed'.
+	(make_compound_operation): Initialize variable 'i'.
+	* dwarf2out.c (dwarf2out_finish): Initialize variable 'context'.
+	* expr.c (store_constructor): Initialize variables 'lo', 'hi',
+	'startb' and 'endb'.
+	(expand_expr): Initialize variable 'op0'.
+	* fold-const.c (fold): Initialize variable 'tem'.
+	* profile.c (branch_prob): Initialize variable 'prev_file_name'.
+	* reload.c (find_equiv_reg): Initialize variables 'valtry and
+	'valueno'.
+	* rtlanal.c (get_jump_table_offset): Initialize variable 'set'.
+	* ssa-ccp.c (ssa_const_prop): Fix sign mismatch warning.
+	* varasm.c (output_constant_def): Initialize variable 'defstr'.
+	* gimplify.c (simplify_expr): Initialize variables
+	'saved_input_filename' and 'saved_lineno'.
+	(simplify_compound_lval): Initialize variable 'code'.
+	* tree-alias-ander.c (pta_bottom): De-ansify.
+	(andersen_cleanup): Remove unused variables.
+	(andersen_heap_assign): Mark argument lhs ATTRIBUTE_UNUSED.
+	(pta_bottom): Remove unused function.
+	(pta_get_ptsize): Remove unused function.
+
 2003-02-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (get_expr_operands): Add a VUSE for the dereference of

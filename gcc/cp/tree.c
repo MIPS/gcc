@@ -893,7 +893,7 @@ make_binfo (offset, binfo, vtable, virtuals)
      tree offset, binfo;
      tree vtable, virtuals;
 {
-  tree new_binfo = make_tree_vec (11);
+  tree new_binfo = make_tree_vec (BINFO_LANG_ELTS);
   tree type;
 
   if (TREE_CODE (binfo) == TREE_VEC)
@@ -2166,6 +2166,7 @@ cp_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
     case TEMPLATE_TYPE_PARM:
     case TYPENAME_TYPE:
     case TYPEOF_TYPE:
+    case BASELINK:
       /* None of thse have subtrees other than those already walked
          above.  */
       *walk_subtrees_p = 0;
@@ -2177,9 +2178,7 @@ cp_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
       break;
 
     case TREE_LIST:
-      /* A BASELINK_P's TREE_PURPOSE is a BINFO, and hence circular.  */
-      if (!BASELINK_P (*tp))
-        WALK_SUBTREE (TREE_PURPOSE (*tp));
+      WALK_SUBTREE (TREE_PURPOSE (*tp));
       break;
 
     case OVERLOAD:

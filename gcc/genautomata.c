@@ -1,5 +1,5 @@
 /* Pipeline hazard description translator.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
    Written by Vladimir Makarov <vmakarov@redhat.com>
    
@@ -39,8 +39,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    following:
 
    1. New operator `|' (alternative) is permitted in functional unit
-      reservation which can be treated deterministicly and
-      non-deterministicly.
+      reservation which can be treated deterministically and
+      non-deterministically.
 
    2. Possibility of usage of nondeterministic automata too.
 
@@ -1156,7 +1156,7 @@ struct arc
    of automaton insn or which is part of NDFA.  */
 struct alt_state
 {
-  /* The following field is a determinist state which characterizes
+  /* The following field is a deterministic state which characterizes
      unit reservations of the instruction.  */
   state_t state;
   /* The following field refers to the next state which characterizes
@@ -1212,7 +1212,7 @@ struct ainsn
   int important_p;
 };
 
-/* The folowing describes an automaton for PHR.  */
+/* The following describes an automaton for PHR.  */
 struct automaton
 {
   /* The following field value is the list of insn declarations for
@@ -1605,7 +1605,7 @@ next_sep_el (pstr, sep, par_flag)
 
 /* Given a string and a separator, return the number of separated
    elements in it, taking parentheses into account if PAR_FLAG has
-   nonzero value.  Return 0 for the null string, -1 if parantheses is
+   nonzero value.  Return 0 for the null string, -1 if parentheses is
    not balanced.  */
 static int
 n_sep_els (s, sep, par_flag)
@@ -4001,7 +4001,7 @@ reserv_sets_are_intersected (operand_1, operand_2)
 
 /* The function sets up RESULT bits by bits of OPERAND shifted on one
    cpu cycle.  The remaining bits of OPERAND (representing the last
-   cycle unit reservations) are not chenged.  */
+   cycle unit reservations) are not changed.  */
 static void
 reserv_sets_shift (result, operand)
      reserv_sets_t result;
@@ -5411,7 +5411,7 @@ transform_regexp (regexp)
   return regexp;
 }
 
-/* The function applys all transformations for reservations of all
+/* The function applies all transformations for reservations of all
    insn declarations.  */
 static void
 transform_insn_regexps ()
@@ -7205,7 +7205,7 @@ longest_path_length (state)
        advance' arcs -- see comment below.  */
     abort ();
   else if (state->longest_path_length != UNDEFINED_LONGEST_PATH_LENGTH)
-    /* We alreday visited the state.  */
+    /* We already visited the state.  */
     return state->longest_path_length;
 
   result = 0;
@@ -7576,10 +7576,6 @@ output_reserved_units_table_name (f, automaton)
 
 /* Name of result variable in some functions.  */
 #define RESULT_VARIABLE_NAME "res"
-
-/* Name of function (attribute) to translate insn into number of insn
-   alternatives reservation.  */
-#define INSN_ALTS_FUNC_NAME "insn_alts"
 
 /* Name of function (attribute) to translate insn into internal insn
    code.  */
@@ -8359,7 +8355,7 @@ output_max_insn_queue_index_def ()
 }
 
 
-/* The function outputs switch cases for insn reseravtions using
+/* The function outputs switch cases for insn reservations using
    function *output_automata_list_code.  */
 static void
 output_insn_code_cases (output_automata_list_code)
@@ -8617,40 +8613,57 @@ output_internal_insn_code_evaluation (insn_name, insn_code_name, code)
 }
 
 
-/* The function outputs function `dfa_insn_code'.  */
+/* This function outputs `dfa_insn_code' and its helper function
+   `dfa_insn_code_enlarge'.  */
 static void
 output_dfa_insn_code_func ()
 {
-  fprintf (output_file, "#ifdef __GNUC__\n__inline__\n#endif\n");
-  fprintf (output_file, "static int %s PARAMS ((rtx));\n",
-	   DFA_INSN_CODE_FUNC_NAME);
-  fprintf (output_file, "static int\n%s (%s)\n\trtx %s;\n",
-	   DFA_INSN_CODE_FUNC_NAME, INSN_PARAMETER_NAME, INSN_PARAMETER_NAME);
-  fprintf (output_file, "{\n  int %s;\n  int %s;\n\n",
-	   INTERNAL_INSN_CODE_NAME, TEMPORARY_VARIABLE_NAME);
-  fprintf (output_file, "  if (INSN_UID (%s) >= %s)\n    {\n",
-	   INSN_PARAMETER_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
-  fprintf (output_file, "      %s = %s;\n      %s = 2 * INSN_UID (%s);\n",
-	   TEMPORARY_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME,
-	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME, INSN_PARAMETER_NAME);
-  fprintf (output_file, "      %s = xrealloc (%s, %s * sizeof (int));\n",
-	   DFA_INSN_CODES_VARIABLE_NAME, DFA_INSN_CODES_VARIABLE_NAME,
-	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
+  /* Emacs c-mode gets really confused if there's a { or } in column 0
+     inside a string, so don't do that.  */
+  fprintf (output_file, "\
+static void dfa_insn_code_enlarge PARAMS ((int));\n\
+static void\n\
+dfa_insn_code_enlarge (uid)\n\
+     int uid;\n{\n\
+  int i = %s;\n\
+  %s = 2 * uid;\n\
+  %s = xrealloc (%s,\n\
+                 %s * sizeof(int));\n\
+  for (; i < %s; i++)\n\
+    %s[i] = -1;\n}\n\n",
+ 	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME,
+ 	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME,
+ 	   DFA_INSN_CODES_VARIABLE_NAME, DFA_INSN_CODES_VARIABLE_NAME,
+ 	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME,
+ 	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME,
+ 	   DFA_INSN_CODES_VARIABLE_NAME);
+  fprintf (output_file, "\
+static inline int %s PARAMS ((rtx));\n\
+static inline int\n%s (%s)\n\
+    rtx %s;\n{\n\
+ int uid = INSN_UID (%s);\n\
+ int %s;\n\n",
+	   DFA_INSN_CODE_FUNC_NAME, DFA_INSN_CODE_FUNC_NAME,
+	   INSN_PARAMETER_NAME, INSN_PARAMETER_NAME,
+	   INSN_PARAMETER_NAME,
+	   INTERNAL_INSN_CODE_NAME);
+
   fprintf (output_file,
-	   "      for (; %s < %s; %s++)\n        %s [%s] = -1;\n    }\n",
-	   TEMPORARY_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME,
-	   TEMPORARY_VARIABLE_NAME, DFA_INSN_CODES_VARIABLE_NAME,
-	   TEMPORARY_VARIABLE_NAME);
-  fprintf (output_file, "  if ((%s = %s [INSN_UID (%s)]) < 0)\n    {\n",
-	   INTERNAL_INSN_CODE_NAME, DFA_INSN_CODES_VARIABLE_NAME,
-	   INSN_PARAMETER_NAME);
-  fprintf (output_file, "      %s = %s (%s);\n", INTERNAL_INSN_CODE_NAME,
-	   INTERNAL_DFA_INSN_CODE_FUNC_NAME, INSN_PARAMETER_NAME);
-  fprintf (output_file, "      %s [INSN_UID (%s)] = %s;\n",
-	   DFA_INSN_CODES_VARIABLE_NAME, INSN_PARAMETER_NAME,
-	   INTERNAL_INSN_CODE_NAME);
-  fprintf (output_file, "    }\n  return %s;\n}\n\n",
-	   INTERNAL_INSN_CODE_NAME);
+	   "  if (uid >= %s)\n    dfa_insn_code_enlarge (uid);\n\n",
+	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
+  fprintf (output_file, "  %s = %s[uid];\n",
+	   INTERNAL_INSN_CODE_NAME, DFA_INSN_CODES_VARIABLE_NAME);
+  fprintf (output_file, "\
+  if (%s < 0)\n\
+    {\n\
+      %s = %s (%s);\n\
+      %s[uid] = %s;\n\
+    }\n",
+	   INTERNAL_INSN_CODE_NAME,
+	   INTERNAL_INSN_CODE_NAME,
+	   INTERNAL_DFA_INSN_CODE_FUNC_NAME, INSN_PARAMETER_NAME,
+	   DFA_INSN_CODES_VARIABLE_NAME, INTERNAL_INSN_CODE_NAME);
+  fprintf (output_file, "  return %s;\n}\n\n", INTERNAL_INSN_CODE_NAME);
 }
 
 /* The function outputs PHR interface function `state_transition'.  */
@@ -8885,61 +8898,102 @@ output_internal_insn_latency_func ()
 {
   decl_t decl;
   struct bypass_decl *bypass;
-  int i;
+  int i, j, col;
+  const char *tabletype = "unsigned char";
 
+  /* Find the smallest integer type that can hold all the default
+     latency values.  */
+  for (i = 0; i < description->decls_num; i++)
+    if (description->decls[i]->mode == dm_insn_reserv)
+      {
+	decl = description->decls[i];
+	if (DECL_INSN_RESERV (decl)->default_latency > UCHAR_MAX
+	    && tabletype[0] != 'i')  /* don't shrink it */
+	  tabletype = "unsigned short";
+	if (DECL_INSN_RESERV (decl)->default_latency > USHRT_MAX)
+	  tabletype = "int";
+      }
+    
   fprintf (output_file, "static int %s PARAMS ((int, int, rtx, rtx));\n",
 	   INTERNAL_INSN_LATENCY_FUNC_NAME);
   fprintf (output_file, "static int\n%s (%s, %s, %s, %s)",
 	   INTERNAL_INSN_LATENCY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
 	   INTERNAL_INSN2_CODE_NAME, INSN_PARAMETER_NAME,
 	   INSN2_PARAMETER_NAME);
-  fprintf (output_file, "\n\tint %s;\n\tint %s;\n",
+  fprintf (output_file,
+	   "\n\tint %s ATTRIBUTE_UNUSED;\n\tint %s ATTRIBUTE_UNUSED;\n",
 	   INTERNAL_INSN_CODE_NAME, INTERNAL_INSN2_CODE_NAME);
   fprintf (output_file,
-	   "\trtx %s ATTRIBUTE_UNUSED;\n\trtx %s ATTRIBUTE_UNUSED;\n",
+	   "\trtx %s ATTRIBUTE_UNUSED;\n\trtx %s ATTRIBUTE_UNUSED;\n{\n",
 	   INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME);
-  fprintf (output_file, "{\n  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
-  for (i = 0; i < description->decls_num; i++)
+
+  if (DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num == 0)
     {
-      decl = description->decls [i];
-      if (decl->mode == dm_insn_reserv)
-	{
-	  fprintf (output_file, "    case %d:\n",
-		   DECL_INSN_RESERV (decl)->insn_num);
-	  if (DECL_INSN_RESERV (decl)->bypass_list == NULL)
-	    fprintf (output_file, "      return (%s != %s ? %d : 0);\n",
-		     INTERNAL_INSN2_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME,
-		     DECL_INSN_RESERV (decl)->default_latency);
-	  else
-	    {
-	      fprintf (output_file, "      switch (%s)\n        {\n",
-		       INTERNAL_INSN2_CODE_NAME);
-	      for (bypass = DECL_INSN_RESERV (decl)->bypass_list;
-		   bypass != NULL;
-		   bypass = bypass->next)
-		{
-		  fprintf (output_file, "        case %d:\n",
-			   bypass->in_insn_reserv->insn_num);
-		  if (bypass->bypass_guard_name == NULL)
-		    fprintf (output_file, "          return %d;\n",
-			     bypass->latency);
-		  else
-		    fprintf (output_file,
-			     "          return (%s (%s, %s) ? %d : %d);\n",
-			     bypass->bypass_guard_name, INSN_PARAMETER_NAME,
-			     INSN2_PARAMETER_NAME, bypass->latency,
-			     DECL_INSN_RESERV (decl)->default_latency);
-		}
-	      fprintf (output_file, "        default:\n");
-	      fprintf (output_file,
-		       "          return (%s != %s ? %d : 0);\n        }\n",
-		       INTERNAL_INSN2_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME,
-		       DECL_INSN_RESERV (decl)->default_latency);
-	      
-	    }
-	}
+      fputs ("  return 0;\n}\n\n", output_file);
+      return;
     }
-  fprintf (output_file, "    default:\n      return 0;\n    }\n}\n\n");
+
+  fprintf (output_file, "  static const %s default_latencies[] =\n    {",
+	   tabletype);
+
+  for (i = 0, j = 0, col = 7; i < description->decls_num; i++)
+    if (description->decls[i]->mode == dm_insn_reserv
+	&& description->decls[i] != advance_cycle_insn_decl)
+      {
+	if ((col = (col+1) % 8) == 0)
+	  fputs ("\n     ", output_file);
+	decl = description->decls[i];
+	if (j++ != DECL_INSN_RESERV (decl)->insn_num)
+	  abort ();
+	fprintf (output_file, "% 4d,",
+		 DECL_INSN_RESERV (decl)->default_latency);
+      }
+  if (j != DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num)
+    abort ();
+  fputs ("\n    };\n", output_file);
+
+  fprintf (output_file, "  if (%s >= %s || %s >= %s)\n    return 0;\n",
+	   INTERNAL_INSN_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME,
+	   INTERNAL_INSN2_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME);
+
+  fprintf (output_file, "  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
+  for (i = 0; i < description->decls_num; i++)
+    if (description->decls[i]->mode == dm_insn_reserv
+	&& DECL_INSN_RESERV (description->decls[i])->bypass_list)
+      {
+	decl = description->decls [i];
+	fprintf (output_file,
+		 "    case %d:\n      switch (%s)\n        {\n",
+		 DECL_INSN_RESERV (decl)->insn_num,
+		 INTERNAL_INSN2_CODE_NAME);
+	for (bypass = DECL_INSN_RESERV (decl)->bypass_list;
+	     bypass != NULL;
+	     bypass = bypass->next)
+	  {
+	    if (bypass->in_insn_reserv->insn_num
+		== DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num)
+	      abort ();
+	    fprintf (output_file, "        case %d:\n",
+		     bypass->in_insn_reserv->insn_num);
+	    if (bypass->bypass_guard_name == NULL)
+	      fprintf (output_file, "          return %d;\n",
+		       bypass->latency);
+	    else
+	      {
+		fprintf (output_file,
+			 "          if (%s (%s, %s))\n",
+			 bypass->bypass_guard_name, INSN_PARAMETER_NAME,
+			 INSN2_PARAMETER_NAME);
+		fprintf (output_file,
+			 "            return %d;\n          break;\n",
+			 bypass->latency);
+	      }
+	  }
+	fputs ("        }\n      break;\n", output_file);
+      }
+
+  fprintf (output_file, "    }\n  return default_latencies[%s];\n}\n\n",
+	   INTERNAL_INSN_CODE_NAME);
 }
 
 /* The function outputs PHR interface function `insn_latency'.  */
@@ -8966,44 +9020,59 @@ static void
 output_print_reservation_func ()
 {
   decl_t decl;
-  int i;
+  int i, j;
 
-  fprintf (output_file, "void\n%s (%s, %s)\n\tFILE *%s;\n\trtx %s;\n",
+  fprintf (output_file,
+	   "void\n%s (%s, %s)\n\tFILE *%s;\n\trtx %s ATTRIBUTE_UNUSED;\n{\n",
            PRINT_RESERVATION_FUNC_NAME, FILE_PARAMETER_NAME,
            INSN_PARAMETER_NAME, FILE_PARAMETER_NAME,
            INSN_PARAMETER_NAME);
-  fprintf (output_file, "{\n  int %s;\n", INTERNAL_INSN_CODE_NAME);
-  fprintf (output_file, "\n  if (%s != 0)\n    {\n", INSN_PARAMETER_NAME);
-  fprintf (output_file, "      %s = %s (%s);\n",
-	   INTERNAL_INSN_CODE_NAME, DFA_INSN_CODE_FUNC_NAME,
-	   INSN_PARAMETER_NAME);
-  fprintf (output_file, "      if (%s > %s)\n",
-	   INTERNAL_INSN_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME);
-  fprintf (output_file, "        {\n          fprintf (%s, \"%s\");\n",
-           FILE_PARAMETER_NAME, NOTHING_NAME);
-  fprintf (output_file, "          return;\n        }\n");
-  fprintf (output_file, "    }\n  else\n");
-  fprintf (output_file,
-           "    {\n      fprintf (%s, \"%s\");\n      return;\n    }\n",
-           FILE_PARAMETER_NAME, NOTHING_NAME);
-  fprintf (output_file, "  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
-  for (i = 0; i < description->decls_num; i++)
+
+  if (DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num == 0)
+    {
+      fprintf (output_file, "  fputs (\"%s\", %s);\n}\n\n",
+	       NOTHING_NAME, FILE_PARAMETER_NAME);
+      return;
+    }
+
+
+  fputs ("  static const char *const reservation_names[] =\n    {",
+	 output_file);
+
+  for (i = 0, j = 0; i < description->decls_num; i++)
     {
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv && decl != advance_cycle_insn_decl)
 	{
-          fprintf (output_file,
-                   "    case %d:\n", DECL_INSN_RESERV (decl)->insn_num);
-          fprintf (output_file,
-                   "      fprintf (%s, \"%s\");\n      break;\n",
-                   FILE_PARAMETER_NAME,
-                   regexp_representation (DECL_INSN_RESERV (decl)->regexp));
-          finish_regexp_representation ();
-        }
+	  if (j++ != DECL_INSN_RESERV (decl)->insn_num)
+	    abort ();
+	  fprintf (output_file, "\n      \"%s\",",
+		   regexp_representation (DECL_INSN_RESERV (decl)->regexp));
+	  finish_regexp_representation ();
+	}
     }
-  fprintf (output_file, "    default:\n      fprintf (%s, \"%s\");\n    }\n",
-           FILE_PARAMETER_NAME, NOTHING_NAME);
-  fprintf (output_file, "}\n\n");
+  if (j != DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num)
+    abort ();
+	      
+  fprintf (output_file, "\n      \"%s\"\n    };\n  int %s;\n\n",
+	   NOTHING_NAME, INTERNAL_INSN_CODE_NAME);
+
+  fprintf (output_file, "  if (%s == 0)\n    %s = %s;\n",
+	   INSN_PARAMETER_NAME,
+	   INTERNAL_INSN_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME);
+  fprintf (output_file, "  else\n\
+    {\n\
+      %s = %s (%s);\n\
+      if (%s > %s)\n\
+        %s = %s;\n\
+    }\n",
+	   INTERNAL_INSN_CODE_NAME, DFA_INSN_CODE_FUNC_NAME,
+	       INSN_PARAMETER_NAME,
+	   INTERNAL_INSN_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME,
+	   INTERNAL_INSN_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME);
+
+  fprintf (output_file, "  fputs (reservation_names[%s], %s);\n}\n\n",
+	   INTERNAL_INSN_CODE_NAME, FILE_PARAMETER_NAME);
 }
 
 /* The following function is used to sort unit declaration by their

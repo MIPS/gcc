@@ -1,3 +1,145 @@
+2003-01-31  Mark Wielaard  <mark@klomp.org>
+
+	* gjavah.c (throwable_p): Allocate 1 more byte for string.
+
+2003-01-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (make_class): Use BINFO_ELTS.
+	(set_super_info): Likewse.
+	(add_interface_do): Likewise.
+
+2003-01-30  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-parse.c (read_class): Update identifier's class value if it
+	changed during parsing.
+
+2003-01-30  Loren James Rittle  <ljrittle@acm.org>
+
+	* Make-lang.in (po-generated): Find the targets in $(parsedir).
+	Propagate change to all other rules as required.
+	(java/parse-scan.o): Add explicit dependency on
+	$(parsedir)/java/parse-scan.c .
+
+2003-01-29  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (patch_assignment): Only transform the rhs of an
+	assignment when compiling to native.
+
+2003-01-28  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (generate_bytecode_conditional): Typo fixes.
+
+2003-01-28  Tom Tromey  <tromey@redhat.com>
+
+	* lex.c (java_lex): Don't include UEOF as part of token.
+	(java_read_unicode): Error if \u sequence prematurely terminated.
+
+2003-01-27  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (java_check_regular_methods): Check for construct after
+	checking types in throws clause.
+
+2003-01-24  Tom Tromey  <tromey@redhat.com>
+
+	* class.c (build_static_field_ref): Only a String or numeric field
+	can fold to a constant.
+
+2003-01-23  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-parse.c (parse_zip_file_entries): Overwrite trailing \0 of
+	file name in resource buffer.
+
+2003-01-23  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (build_known_method_ref): Use method's context to find
+	method table index.
+
+2003-01-23  Tom Tromey  <tromey@redhat.com>
+
+	* constants.c (set_constant_entry): Allocated cleared memory.
+
+2003-01-22  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h: Don't use PARAMS.
+	* resource.c: Add prototypes for all functions.
+	(write_resource_constructor): Use `const char *' to avoid
+	warning.
+
+2003-01-22 Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* jcf-parse.c (process_zip_dir): Remove unused variable.
+
+2003-01-22  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (build_invokeinterface): Abort if method's context is not
+	an interface.
+
+2003-01-22  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Input and output files): Mention non-class entries.
+	* decl.c (java_init_decl_processing): Call
+	init_resource_processing.
+	* java-tree.h (compile_resource_data, write_resource_constructor,
+	compile_resource_file, init_resource_processing): Declare.
+	* config-lang.in (gtfiles): Added resource.c.
+	* Make-lang.in (gt-java-resource.h): New target.
+	(JAVA_OBJS): Added resource.o.
+	(java/resource.o): New target.
+	* resource.c: New file.
+	* class.c (compile_resource_file): Moved to resource.c.
+	(registerResource_libfunc): Likewise.
+	(utf8_decl_list): Mark with GTY; now static.
+	* jcf-parse.c (classify_zip_file): New function.
+	(parse_zip_file_entries): Use it; compile .properties files.
+	(process_zip_dir): Use classify_zip_file and compute_class_name.
+	Don't write class name into zip directory.
+	(java_parse_file): Call write_resource_constructor.
+	(compute_class_name): New function.
+	* jcf-io.c (read_zip_member): Reindented.
+
+2003-01-21  Tom Tromey  <tromey@redhat.com>
+
+	* class.c (supers_all_compiled): New function.
+	(make_class_data): Use it.
+
+2003-01-21  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (method_header): Native method can't be strictfp.
+	No method can be transient or volatile.
+
+2003-01-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Make-lang.in (jvspec.o-warn): Add -Wno-error.
+
+2003-01-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* check-init.c: Fix comment typos.
+	* class.c: Likewise.
+	* constants.c: Likewise.
+	* decl.c: Likewise.
+	* except.c: Likewise.
+	* expr.c: Likewise.
+	* java-except.h: Likewise.
+	* java-tree.h: Likewise.
+	* javaop.h: Likewise.
+	* jcf-dump.c: Likewise.
+	* jcf-io.c: Likewise.
+	* jcf-parse.c: Likewise.
+	* jcf-write.c: Likewise.
+	* lang.c: Likewise.
+	* mangle.c: Likewise.
+	* typeck.c: Likewise.
+	* verify.c: Likewise.
+
+2003-01-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (java/jcf-write.o): Depend on $(TM_P_H).
+	* jcf-write.c: Include "tm_p.h".
+
+2003-01-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-io.c (caching_stat): Cast the 3rd arg of scandir to void*.
+
 2003-01-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* builtins.c (java_build_function_call_expr): Renamed from

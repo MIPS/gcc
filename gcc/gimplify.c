@@ -275,6 +275,9 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   if (*expr_p == NULL_TREE)
     return 1;
 
+  saved_input_filename = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
+  saved_lineno = -1;		/* [GIMPLE] Avoid uninitialized use warning.  */
+
   /* Set up our internal queues if needed.  */
   if (pre_p == NULL)
     pre_p = &internal_pre;
@@ -998,6 +1001,8 @@ simplify_compound_lval (expr_p, pre_p, post_p)
   if (TREE_CODE (*expr_p) != ARRAY_REF && TREE_CODE (*expr_p) != COMPONENT_REF)
     abort ();
 #endif
+
+  code = ERROR_MARK;	/* [GIMPLE] Avoid uninitialized use warning.  */
 
   /* Create a stack with all the array dimensions so that they can be
      simplified from left to right (to match user expectations).  */

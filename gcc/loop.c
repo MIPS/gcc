@@ -56,6 +56,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "predict.h"
 #include "insn-flags.h"
 #include "optabs.h"
+#include "cfgloop.h"
 
 /* Not really meaningful values, but at least something.  */
 #ifndef SIMULTANEOUS_PREFETCHES
@@ -495,7 +496,7 @@ loop_optimize (f, dumpfile, flags)
 
   /* Allocate and initialize auxiliary loop information.  */
   loops_info = xcalloc (loops->num, sizeof (struct loop_info));
-  for (i = 0; i < loops->num; i++)
+  for (i = 0; i < (int) loops->num; i++)
     loops->array[i].aux = loops_info + i;
 
   /* Now find all register lifetimes.  This must be done after
@@ -1107,10 +1108,12 @@ scan_loop (loop, flags)
   /* Now consider each movable insn to decide whether it is worth moving.
      Store 0 in regs->array[I].set_in_loop for each reg I that is moved.
 
-     Generally this increases code size, so do not move moveables when
-     optimizing for code size.  */
+     For machines with few registers this increases code size, so do not
+     move moveables when optimizing for code size on such machines.  
+     (The 18 below is the value for i386.)  */
 
-  if (! optimize_size)
+  if (!optimize_size 
+      || (reg_class_size[GENERAL_REGS] > 18 && !loop_info->has_call))
     {
       move_movables (loop, movables, threshold, insn_count);
 
@@ -3267,7 +3270,7 @@ loop_invariant_p (loop, x)
 
       /* Out-of-range regs can occur when we are called from unrolling.
 	 These have always been created by the unroller and are set in
-	 the loop, hence are never invariant. */
+	 the loop, hence are never invariant.  */
 
       if (REGNO (x) >= (unsigned) regs->num)
 	return 0;
@@ -4196,7 +4199,15 @@ emit_prefetch_instructions (loop)
 		 non-constant INIT_VAL to have the same mode as REG, which
 		 in this case we know to be Pmode.  */
 	      if (GET_MODE (init_val) != Pmode && !CONSTANT_P (init_val))
-		init_val = convert_to_mode (Pmode, init_val, 0);
+		{
+		  rtx seq;
+
+		  start_sequence ();
+		  init_val = convert_to_mode (Pmode, init_val, 0);
+		  seq = get_insns ();
+		  end_sequence ();
+		  loop_insn_emit_before (loop, 0, loop_start, seq);
+		}
 	      loop_iv_add_mult_emit_before (loop, init_val,
 					    info[i].giv->mult_val,
 					    add_val, reg, 0, loop_start);
@@ -7332,21 +7343,8 @@ combine_givs_p (g1, g2)
      the expression of G2 in terms of G1 can be used.  */
   if (ret != NULL_RTX
       && g2->giv_type == DEST_ADDR
-      && memory_address_p (GET_MODE (g2->mem), ret)
-      /* ??? Looses, especially with -fforce-addr, where *g2->location
-	 will always be a register, and so anything more complicated
-	 gets discarded.  */
-#if 0
-#ifdef ADDRESS_COST
-      && ADDRESS_COST (tem) <= ADDRESS_COST (*g2->location)
-#else
-      && rtx_cost (tem, MEM) <= rtx_cost (*g2->location, MEM)
-#endif
-#endif
-      )
-    {
-      return ret;
-    }
+      && memory_address_p (GET_MODE (g2->mem), ret))
+    return ret;
 
   return NULL_RTX;
 }

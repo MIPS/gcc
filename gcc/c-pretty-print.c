@@ -42,8 +42,6 @@ static void newline_and_indent			PARAMS ((output_buffer *, int));
 static inline void maybe_init_pretty_print	PARAMS ((void));
 static void print_declaration			PARAMS ((output_buffer *, tree,
       							 int, int));
-static void print_function_decl			PARAMS ((output_buffer *, tree,
-      							 int));
 static void print_struct_decl			PARAMS ((output_buffer *, tree,
       							 int));
 static void dump_c_tree				PARAMS ((output_buffer *, tree,
@@ -1581,46 +1579,6 @@ print_declaration (buffer, t, spc, brief_dump)
   output_add_character (buffer, ';');
   if (!brief_dump)
     output_add_newline (buffer);
-}
-
-/* Print the declaration of a function given its declaration node.  */
-
-static void
-print_function_decl (buffer, node, spc)
-     output_buffer *buffer;
-     tree node;
-     int spc;
-{
-  if (TREE_CODE_CLASS (TREE_CODE (node)) != 'd')
-    NIY;
-  
-  INDENT (spc);
-
-  /* Print the return type.  */
-  dump_c_node (buffer, TREE_TYPE (TREE_TYPE (node)), 0, 0);
-  output_add_space (buffer);
-  /* Print the namespace.  */
-  dump_c_node (buffer, TREE_TYPE (node), 0, 0);
-  /* Print function name.  */
-  output_printf (buffer, "::%s (", TREE_CODE (node) == NOP_EXPR ?
-		 IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (node, 0))) :
-		 IDENTIFIER_POINTER (DECL_NAME (node)));
-  
-  /* Print the functions arguments.  */
-  {
-    tree tmp = TYPE_ARG_TYPES (TREE_TYPE (node));
-    while (tmp && TREE_CHAIN (tmp) && tmp != error_mark_node)
-      {
-	dump_c_node (buffer, TREE_VALUE (tmp), 0, 0);
-	tmp = TREE_CHAIN (tmp);
-	if (TREE_CHAIN (tmp) && TREE_CODE (TREE_CHAIN (tmp)) == TREE_LIST)
-	  {
-	    output_add_character (buffer, ',');
-	    output_add_space (buffer);
-	  }
-      }
-  }
-  output_add_character (buffer, ')');
 }
 
 /* Prints a structure: name, fields, and methods.  

@@ -1260,7 +1260,7 @@ record_set_info (dest, setter, data)
 /* Scan the function and record each set of each pseudo-register.
 
    This is called once, at the start of the gcse pass.  See the comments for
-   `reg_set_table' for further documenation.  */
+   `reg_set_table' for further documentation.  */
 
 static void
 compute_sets (f)
@@ -1305,6 +1305,7 @@ want_to_gcse_p (x)
     case CONST_DOUBLE:
     case CONST_VECTOR:
     case CALL:
+    case CONSTANT_P_RTX:
       return 0;
 
     default:
@@ -1593,7 +1594,7 @@ hash_expr_1 (x, mode, do_not_record_p)
   const char *fmt;
 
   /* Used to turn recursion into iteration.  We can't rely on GCC's
-     tail-recursion eliminatio since we need to keep accumulating values
+     tail-recursion elimination since we need to keep accumulating values
      in HASH.  */
 
   if (x == 0)
@@ -2216,7 +2217,8 @@ hash_scan_set (pat, insn, table)
 		    && REGNO (src) >= FIRST_PSEUDO_REGISTER
 		    && can_copy_p [GET_MODE (dest)]
 		    && REGNO (src) != regno)
-		   || CONSTANT_P (src))
+		   || (CONSTANT_P (src)
+		       && GET_CODE (src) != CONSTANT_P_RTX))
 	       /* A copy is not available if its src or dest is subsequently
 		  modified.  Here we want to search from INSN+1 on, but
 		  oprs_available_p searches from INSN on.  */
@@ -3952,7 +3954,7 @@ try_replace_reg (from, to, insn)
 
   /* REG_EQUAL may get simplified into register.
      We don't allow that. Remove that note. This code ought
-     not to hapen, because previous code ought to syntetize
+     not to happen, because previous code ought to synthesize
      reg-reg move, but be on the safe side.  */
   if (note && REG_P (XEXP (note, 0)))
     remove_note (insn, note);
@@ -4032,7 +4034,7 @@ find_avail_set (regno, insn)
 
 /* Subroutine of cprop_insn that tries to propagate constants into
    JUMP_INSNS.  JUMP must be a conditional jump.  If SETCC is non-NULL
-   it is the instruction that immediately preceeds JUMP, and must be a
+   it is the instruction that immediately precedes JUMP, and must be a
    single SET of a register.  FROM is what we will try to replace,
    SRC is the constant we will try to substitute for it.  Returns nonzero
    if a change was made.  */
@@ -4124,6 +4126,7 @@ constprop_register (insn, from, to, alter_jumps)
      conditional branch instructions first.  */
   if (alter_jumps
       && (sset = single_set (insn)) != NULL
+      && NEXT_INSN (insn)
       && any_condjump_p (NEXT_INSN (insn)) && onlyjump_p (NEXT_INSN (insn)))
     {
       rtx dest = SET_DEST (sset);
@@ -4277,7 +4280,8 @@ do_local_cprop (x, insn, alter_jumps, libcall_sp)
 	  if (l->in_libcall)
 	    continue;
 
-	  if (CONSTANT_P (this_rtx))
+	  if (CONSTANT_P (this_rtx)
+	      && GET_CODE (this_rtx) != CONSTANT_P_RTX)
 	    newcnst = this_rtx;
 	  if (REG_P (this_rtx) && REGNO (this_rtx) >= FIRST_PSEUDO_REGISTER
 	      /* Don't copy propagate if it has attached REG_EQUIV note.
@@ -4292,7 +4296,7 @@ do_local_cprop (x, insn, alter_jumps, libcall_sp)
       if (newcnst && constprop_register (insn, x, newcnst, alter_jumps))
 	{
 	  /* If we find a case where we can't fix the retval REG_EQUAL notes
-	     match the new register, we either have to abandom this replacement
+	     match the new register, we either have to abandon this replacement
 	     or fix delete_trivially_dead_insns to preserve the setting insn,
 	     or make it delete the REG_EUAQL note, and fix up all passes that
 	     require the REG_EQUAL note there.  */
@@ -4375,6 +4379,7 @@ local_cprop_pass (alter_jumps)
   rtx insn;
   struct reg_use *reg_used;
   rtx libcall_stack[MAX_NESTED_LIBCALLS + 1], *libcall_sp;
+  bool changed = false;
 
   cselib_init ();
   libcall_sp = &libcall_stack[MAX_NESTED_LIBCALLS];
@@ -4406,13 +4411,24 @@ local_cprop_pass (alter_jumps)
 		   reg_used++, reg_use_count--)
 		if (do_local_cprop (reg_used->reg_rtx, insn, alter_jumps,
 		    libcall_sp))
-		  break;
+		  {
+		    changed = true;
+		    break;
+		  }
 	    }
 	  while (reg_use_count);
 	}
       cselib_process_insn (insn);
     }
   cselib_finish ();
+  /* Global analysis may get into infinite loops for unreachable blocks.  */
+  if (changed && alter_jumps)
+    {
+      delete_unreachable_blocks ();
+      free_reg_set_mem ();
+      alloc_reg_set_mem (max_reg_num ());
+      compute_sets (get_insns ());
+    }
 }
 
 /* Forward propagate copies.  This includes copies and constants.  Return
@@ -4503,11 +4519,21 @@ one_cprop_pass (pass, cprop_jumps, bypass_jumps)
       fprintf (gcse_file, "%d const props, %d copy props\n\n",
 	       const_prop_count, copy_prop_count);
     }
+  /* Global analysis may get into infinite loops for unreachable blocks.  */
+  if (changed && cprop_jumps)
+    delete_unreachable_blocks ();
 
   return changed;
 }
 
 /* Bypass conditional jumps.  */
+
+/* The value of last_basic_block at the beginning of the jump_bypass
+   pass.  The use of redirect_edge_and_branch_force may introduce new
+   basic blocks, but the data flow analysis is only valid for basic
+   block indices less than bypass_last_basic_block.  */
+
+static int bypass_last_basic_block;
 
 /* Find a set of REGNO to a constant that is available at the end of basic
    block BB.  Returns NULL if no such set is found.  Based heavily upon
@@ -4579,6 +4605,13 @@ bypass_block (bb, setcc, jump)
   for (e = bb->pred; e; e = enext)
     {
       enext = e->pred_next;
+      if (e->flags & EDGE_COMPLEX)
+	continue;
+
+      /* We can't redirect edges from new basic blocks.  */
+      if (e->src->index >= bypass_last_basic_block)
+	continue;
+
       for (i = 0; i < reg_use_count; i++)
 	{
 	  struct reg_use *reg_used = &reg_use_table[i];
@@ -4612,12 +4645,13 @@ bypass_block (bb, setcc, jump)
 	  else
 	    dest = NULL;
 
-	  /* Once basic block indices are stable, we should be able
-	     to use redirect_edge_and_branch_force instead.  */
 	  old_dest = e->dest;
-	  if (dest != NULL && dest != old_dest
-	      && redirect_edge_and_branch (e, dest))
-	    {
+	  if (dest != NULL
+	      && dest != old_dest
+	      && dest != EXIT_BLOCK_PTR)
+            {
+	      redirect_edge_and_branch_force (e, dest);
+
 	      /* Copy the register setter to the redirected edge.
 		 Don't copy CC0 setters, as CC0 is dead after jump.  */
 	      if (setcc)
@@ -4661,6 +4695,8 @@ bypass_conditional_jumps ()
   if (ENTRY_BLOCK_PTR->next_bb == EXIT_BLOCK_PTR)
     return 0;
 
+  bypass_last_basic_block = last_basic_block;
+
   changed = 0;
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb->next_bb,
 		  EXIT_BLOCK_PTR, next_bb)
@@ -4697,7 +4733,7 @@ bypass_conditional_jumps ()
     }
 
   /* If we bypassed any register setting insns, we inserted a
-     copy on the redirected edge.  These need to be commited.  */
+     copy on the redirected edge.  These need to be committed.  */
   if (changed)
     commit_edge_insertions();
 
@@ -5039,7 +5075,7 @@ insert_insn_end_bb (expr, bb, pre)
       /* Keeping in mind SMALL_REGISTER_CLASSES and parameters in registers,
 	 we search backward and place the instructions before the first
 	 parameter is loaded.  Do this for everyone for consistency and a
-	 presumtion that we'll get better code elsewhere as well.
+	 presumption that we'll get better code elsewhere as well.
 
 	 It should always be the case that we can put these instructions
 	 anywhere in the basic block with performing PRE optimizations.
@@ -5684,7 +5720,7 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
     }
 
   /* Now compute global properties based on the local properties.   This
-     is a classic global availablity algorithm.  */
+     is a classic global availability algorithm.  */
   compute_available (nonnull_local, nonnull_killed,
 		     nonnull_avout, nonnull_avin);
 
@@ -5765,7 +5801,7 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
    reference of that form, then we know the register can not have the value
    zero at the conditional branch.
 
-   So we merely need to compute the local properies and propagate that data
+   So we merely need to compute the local properties and propagate that data
    around the cfg, then optimize where possible.
 
    We run this pass two times.  Once before CSE, then again after CSE.  This
@@ -6947,7 +6983,7 @@ store_killed_after (x, insn, bb)
      Note that if registers are changed ANYWHERE in the block, we'll
      decide we can't move it, regardless of whether it changed above
      or below the store. This could be improved by checking the register
-     operands while lookinng for aliasing in each insn.  */
+     operands while looking for aliasing in each insn.  */
   if (!store_ops_ok (XEXP (x, 0), bb))
     return 1;
 
@@ -6974,7 +7010,7 @@ store_killed_before (x, insn, bb)
      Note that if registers are changed ANYWHERE in the block, we'll
      decide we can't move it, regardless of whether it changed above
      or below the store. This could be improved by checking the register
-     operands while lookinng for aliasing in each insn.  */
+     operands while looking for aliasing in each insn.  */
   if (!store_ops_ok (XEXP (x, 0), bb))
     return 1;
 
@@ -7020,7 +7056,7 @@ build_store_vectors ()
 
 	  if (!store_killed_after (ptr->pattern, insn, bb))
 	    {
-	      /* If we've already seen an availale expression in this block,
+	      /* If we've already seen an available expression in this block,
 		 we can delete the one we saw already (It occurs earlier in
 		 the block), and replace it with this one). We'll copy the
 		 old SRC expression to an unused register in case there
@@ -7084,7 +7120,7 @@ build_store_vectors ()
 	      Load in the middle here if we push the store down. It happens in
 		    gcc.c-torture/execute/960311-1.c with -O3
 	      If we always kill it in this case, we'll sometimes do
-	      uneccessary work, but it shouldn't actually hurt anything.
+	      unnecessary work, but it shouldn't actually hurt anything.
 	    if (!TEST_BIT (ae_gen[b], ptr->index)).  */
 	    SET_BIT (ae_kill[b->index], ptr->index);
 	  }
@@ -7107,7 +7143,7 @@ build_store_vectors ()
     }
 }
 
-/* Insert an instruction at the begining of a basic block, and update
+/* Insert an instruction at the beginning of a basic block, and update
    the BLOCK_HEAD if needed.  */
 
 static void

@@ -1,6 +1,6 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -99,6 +99,11 @@ extern int fprintf_unlocked PARAMS ((FILE *, const char *, ...));
 
 #endif
 
+/* ??? Glibc's fwrite/fread_unlocked macros cause 
+   "warning: signed and unsigned type in conditional expression".  */
+#undef fread_unlocked
+#undef fwrite_unlocked
+
 /* There are an extraordinary number of issues with <ctype.h>.
    The last straw is that it varies with the locale.  Use libiberty's
    replacement instead.  */
@@ -111,6 +116,10 @@ extern int fprintf_unlocked PARAMS ((FILE *, const char *, ...));
 #if !defined (errno) && defined (HAVE_DECL_ERRNO) && !HAVE_DECL_ERRNO
 extern int errno;
 #endif
+
+/* Some of glibc's string inlines cause warnings.  Plus we'd rather
+   rely on (and therefore test) GCC's string builtins.  */
+#define __NO_STRING_INLINES
 
 #ifdef STRING_WITH_STRINGS
 # include <string.h>
@@ -321,7 +330,8 @@ extern PTR realloc PARAMS ((PTR, size_t));
 
 /* If the system doesn't provide strsignal, we get it defined in
    libiberty but no declaration is supplied.  */
-#ifndef HAVE_STRSIGNAL
+#if !defined (HAVE_STRSIGNAL) \
+    || (defined (HAVE_DECL_STRSIGNAL) && !HAVE_DECL_STRSIGNAL)
 # ifndef strsignal
 extern const char *strsignal PARAMS ((int));
 # endif
@@ -569,7 +579,7 @@ typedef char _Bool;
 
 #if defined(FLEX_SCANNER) || defined(YYBISON)
 /* Flex and bison use malloc and realloc.  Yuk.  Note that this means
-   really_call_* cannot be used in a .l or .y file. */
+   really_call_* cannot be used in a .l or .y file.  */
 #define malloc xmalloc
 #define realloc xrealloc
 #endif
@@ -603,7 +613,8 @@ typedef char _Bool;
 	ASM_OUTPUT_DESTRUCTOR SIGNED_CHAR_SPEC MAX_CHAR_TYPE_SIZE	\
 	WCHAR_UNSIGNED UNIQUE_SECTION SELECT_SECTION SELECT_RTX_SECTION	\
 	ENCODE_SECTION_INFO STRIP_NAME_ENCODING ASM_GLOBALIZE_LABEL	\
-	ASM_OUTPUT_MI_THUNK
+	ASM_OUTPUT_MI_THUNK CONST_COSTS RTX_COSTS DEFAULT_RTX_COSTS	\
+	ADDRESS_COST
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have

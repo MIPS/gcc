@@ -155,6 +155,9 @@ static void mips_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
 static int mips_use_dfa_pipeline_interface      PARAMS ((void));
 static void mips_encode_section_info		PARAMS ((tree, int));
+static bool mips_rtx_costs			PARAMS ((rtx, int, int, int *));
+static int mips_address_cost			PARAMS ((rtx));
+
 
 /* Structure to be filled in by compute_frame_size with register
    save masks, and offsets for the current function.  */
@@ -670,6 +673,10 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
 #undef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE mips_valid_pointer_mode
+#undef TARGET_RTX_COSTS
+#define TARGET_RTX_COSTS mips_rtx_costs
+#undef TARGET_ADDRESS_COST
+#define TARGET_ADDRESS_COST mips_address_cost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2986,15 +2993,349 @@ mips_move_2words (operands, insn)
   return ret;
 }
 
+static bool
+mips_rtx_costs (x, code, outer_code, total)
+     rtx x;
+     int code, outer_code;
+     int *total;
+{
+  enum machine_mode mode = GET_MODE (x);
+
+  switch (code)
+    {
+    case CONST_INT:
+      if (! TARGET_MIPS16)
+	{
+	  /* Always return 0, since we don't have different sized insns,
+	     hence different costs according to Richard Kenner.  */
+	  *total = 0;
+	  return true;
+	}
+
+      if (outer_code == SET)
+	{
+	  if (INTVAL (x) >= 0 && INTVAL (x) < 0x100)
+	    *total = 0;
+	  else if ((INTVAL (x) >= 0 && INTVAL (x) < 0x10000)
+		   || (INTVAL (x) < 0 && INTVAL (x) > -0x100))
+	    *total = COSTS_N_INSNS (1);
+	  else
+	    *total = COSTS_N_INSNS (2);
+	  return true;
+	}
+
+      /* A PLUS could be an address.  We don't want to force an address
+	 to use a register, so accept any signed 16 bit value without
+	 complaint.  */
+      if (outer_code == PLUS
+	  && INTVAL (x) >= -0x8000 && INTVAL (x) < 0x8000)
+	{
+	  *total = 0;
+	  return true;
+	}
+
+      /* A number between 1 and 8 inclusive is efficient for a shift.
+	 Otherwise, we will need an extended instruction.  */
+      if (outer_code == ASHIFT || outer_code == ASHIFTRT
+	  || outer_code == LSHIFTRT)
+	{
+	  if (INTVAL (x) >= 1 && INTVAL (x) <= 8)
+	    *total = 0;
+	  else
+	    *total = COSTS_N_INSNS (1);
+	  return true;
+	}
+
+      /* We can use cmpi for an xor with an unsigned 16 bit value.  */
+      if (outer_code == XOR
+	  && INTVAL (x) >= 0 && INTVAL (x) < 0x10000)
+	{
+	  *total = 0;
+	  return true;
+	}
+
+      /* We may be able to use slt or sltu for a comparison with a
+	 signed 16 bit value.  (The boundary conditions aren't quite
+	 right, but this is just a heuristic anyhow.)  */
+      if ((outer_code == LT || outer_code == LE
+	   || outer_code == GE || outer_code == GT
+	   || outer_code == LTU || outer_code == LEU
+	   || outer_code == GEU || outer_code == GTU)
+	  && INTVAL (x) >= -0x8000 && INTVAL (x) < 0x8000)
+	{
+	  *total = 0;
+	  return true;
+	}
+
+      /* Equality comparisons with 0 are cheap.  */
+      if ((outer_code == EQ || outer_code == NE)
+	  && INTVAL (x) == 0)
+	return 0;
+
+      /* Otherwise, work out the cost to load the value into a
+	 register.  */
+      if (INTVAL (x) >= 0 && INTVAL (x) < 0x100)
+	*total = COSTS_N_INSNS (1);
+      else if ((INTVAL (x) >= 0 && INTVAL (x) < 0x10000)
+	       || (INTVAL (x) < 0 && INTVAL (x) > -0x100))
+	*total = COSTS_N_INSNS (2);
+      else
+	*total = COSTS_N_INSNS (3);
+      return true;
+
+    case LABEL_REF:
+      *total = COSTS_N_INSNS (2);
+      return true;
+
+    case CONST:
+      {
+	rtx offset = const0_rtx;
+	rtx symref = eliminate_constant_term (XEXP (x, 0), &offset);
+
+	if (TARGET_MIPS16 && mips16_gp_offset_p (x))
+	  {
+	    /* Treat this like a signed 16 bit CONST_INT.  */
+	    if (outer_code == PLUS)
+	      *total = 0;
+	    else if (outer_code == SET)
+	      *total = COSTS_N_INSNS (1);
+	    else
+	      *total = COSTS_N_INSNS (2);
+	    return true;
+	  }
+
+	if (GET_CODE (symref) == LABEL_REF)
+	  *total = COSTS_N_INSNS (2);
+	else if (GET_CODE (symref) != SYMBOL_REF)
+	  *total = COSTS_N_INSNS (4);
+	else if (INTVAL (offset) < -32768 || INTVAL (offset) > 32767)
+	  *total = COSTS_N_INSNS (2);
+	else
+	  *total = COSTS_N_INSNS (SYMBOL_REF_FLAG (symref) ? 1 : 2);
+
+	return true;
+      }
+
+    case SYMBOL_REF:
+      *total = COSTS_N_INSNS (SYMBOL_REF_FLAG (x) ? 1 : 2);
+      return true;
+
+    case CONST_DOUBLE:
+      {
+	rtx high, low;
+	if (TARGET_MIPS16)
+	  {
+	    *total = COSTS_N_INSNS (4);
+	    return true;
+	  }
+
+	split_double (x, &high, &low);
+	*total = COSTS_N_INSNS ((high == CONST0_RTX (GET_MODE (high))
+				 || low == CONST0_RTX (GET_MODE (low)))
+				? 2 : 4);
+	return true;
+      }
+
+    case MEM:
+      {
+	int num_words = (GET_MODE_SIZE (mode) > UNITS_PER_WORD) ? 2 : 1;
+	if (simple_memory_operand (x, mode))
+	  *total = COSTS_N_INSNS (num_words);
+	else
+	  *total = COSTS_N_INSNS (2*num_words);
+	return true;
+      }
+
+    case FFS:
+      *total = COSTS_N_INSNS (6);
+      return true;
+
+    case NOT:
+      *total = COSTS_N_INSNS ((mode == DImode && !TARGET_64BIT) ? 2 : 1);
+      return true;
+
+    case AND:
+    case IOR:
+    case XOR:
+      if (mode == DImode && !TARGET_64BIT)
+	{
+	  *total = COSTS_N_INSNS (2);
+	  return true;
+	}
+      return false;
+
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+      if (mode == DImode && !TARGET_64BIT)
+	{
+	  *total = COSTS_N_INSNS ((GET_CODE (XEXP (x, 1)) == CONST_INT)
+				  ? 4 : 12);
+	  return true;
+	}
+      return false;
+
+    case ABS:
+      if (mode == SFmode || mode == DFmode)
+	*total = COSTS_N_INSNS (1);
+      else
+	*total = COSTS_N_INSNS (4);
+      return true;
+
+    case PLUS:
+    case MINUS:
+      if (mode == SFmode || mode == DFmode)
+	{
+	  if (TUNE_MIPS3000 || TUNE_MIPS3900)
+	    *total = COSTS_N_INSNS (2);
+	  else if (TUNE_MIPS6000)
+	    *total = COSTS_N_INSNS (3);
+	  else
+	    *total = COSTS_N_INSNS (6);
+	  return true;
+	}
+      if (mode == DImode && !TARGET_64BIT)
+	{
+	  *total = COSTS_N_INSNS (4);
+	  return true;
+	}
+      return false;
+
+    case NEG:
+      if (mode == DImode && !TARGET_64BIT)
+	{
+	  *total = 4;
+	  return true;
+	}
+      return false;
+
+    case MULT:
+      if (mode == SFmode)
+	{
+	  if (TUNE_MIPS3000
+	      || TUNE_MIPS3900
+	      || TUNE_MIPS5000)
+	    *total = COSTS_N_INSNS (4);
+	  else if (TUNE_MIPS6000
+		   || TUNE_MIPS5400
+		   || TUNE_MIPS5500)
+	    *total = COSTS_N_INSNS (5);
+	  else
+	    *total = COSTS_N_INSNS (7);
+	  return true;
+	}
+
+      if (mode == DFmode)
+	{
+	  if (TUNE_MIPS3000
+	      || TUNE_MIPS3900
+	      || TUNE_MIPS5000)
+	    *total = COSTS_N_INSNS (5);
+	  else if (TUNE_MIPS6000
+		   || TUNE_MIPS5400
+		   || TUNE_MIPS5500)
+	    *total = COSTS_N_INSNS (6);
+	  else
+	    *total = COSTS_N_INSNS (8);
+	  return true;
+	}
+
+      if (TUNE_MIPS3000)
+	*total = COSTS_N_INSNS (12);
+      else if (TUNE_MIPS3900)
+	*total = COSTS_N_INSNS (2);
+      else if (TUNE_MIPS5400 || TUNE_MIPS5500)
+	*total = COSTS_N_INSNS ((mode == DImode) ? 4 : 3);
+      else if (TUNE_MIPS6000)
+	*total = COSTS_N_INSNS (17);
+      else if (TUNE_MIPS5000)
+	*total = COSTS_N_INSNS (5);
+      else
+	*total = COSTS_N_INSNS (10);
+      return true;
+
+    case DIV:
+    case MOD:
+      if (mode == SFmode)
+	{
+	  if (TUNE_MIPS3000
+	      || TUNE_MIPS3900)
+	    *total = COSTS_N_INSNS (12);
+	  else if (TUNE_MIPS6000)
+	    *total = COSTS_N_INSNS (15);
+	  else if (TUNE_MIPS5400 || TUNE_MIPS5500)
+	    *total = COSTS_N_INSNS (30);
+	  else
+	    *total = COSTS_N_INSNS (23);
+	  return true;
+	}
+
+      if (mode == DFmode)
+	{
+	  if (TUNE_MIPS3000
+	      || TUNE_MIPS3900)
+	    *total = COSTS_N_INSNS (19);
+	  else if (TUNE_MIPS5400 || TUNE_MIPS5500)
+	    *total = COSTS_N_INSNS (59);
+	  else if (TUNE_MIPS6000)
+	    *total = COSTS_N_INSNS (16);
+	  else
+	    *total = COSTS_N_INSNS (36);
+	  return true;
+	}
+      /* FALLTHRU */
+
+    case UDIV:
+    case UMOD:
+      if (TUNE_MIPS3000
+	  || TUNE_MIPS3900)
+	*total = COSTS_N_INSNS (35);
+      else if (TUNE_MIPS6000)
+	*total = COSTS_N_INSNS (38);
+      else if (TUNE_MIPS5000)
+	*total = COSTS_N_INSNS (36);
+      else if (TUNE_MIPS5400 || TUNE_MIPS5500)
+	*total = COSTS_N_INSNS ((mode == SImode) ? 42 : 74);
+      else
+	*total = COSTS_N_INSNS (69);
+      return true;
+
+    case SIGN_EXTEND:
+      /* A sign extend from SImode to DImode in 64 bit mode is often
+	 zero instructions, because the result can often be used
+	 directly by another instruction; we'll call it one.  */
+      if (TARGET_64BIT && mode == DImode
+	  && GET_MODE (XEXP (x, 0)) == SImode)
+	*total = COSTS_N_INSNS (1);
+      else
+	*total = COSTS_N_INSNS (2);
+      return true;
+
+    case ZERO_EXTEND:
+      if (TARGET_64BIT && mode == DImode
+	  && GET_MODE (XEXP (x, 0)) == SImode)
+	*total = COSTS_N_INSNS (2);
+      else
+	*total = COSTS_N_INSNS (1);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Provide the costs of an addressing mode that contains ADDR.
    If ADDR is not a valid address, its cost is irrelevant.  */
 
-int
+static int
 mips_address_cost (addr)
      rtx addr;
 {
   switch (GET_CODE (addr))
     {
+    case REG:
+      return 1;
+
     case LO_SUM:
       return 1;
 
@@ -4315,9 +4656,11 @@ mips_arg_info (cum, mode, type, named, info)
 	 is a double, but $f14 if it is a single.  Otherwise, on a
 	 32-bit double-float machine, each FP argument must start in a
 	 new register pair.  */
-      even_reg_p = ((mips_abi == ABI_O64 && mode == SFmode) || FP_INC > 1);
+      even_reg_p = (GET_MODE_SIZE (mode) > UNITS_PER_HWFPVALUE
+		    || (mips_abi == ABI_O64 && mode == SFmode)
+		    || FP_INC > 1);
     }
-  else if (!TARGET_64BIT)
+  else if (!TARGET_64BIT || LONG_DOUBLE_TYPE_SIZE == 128)
     {
       if (GET_MODE_CLASS (mode) == MODE_INT
 	  || GET_MODE_CLASS (mode) == MODE_FLOAT)
@@ -4629,7 +4972,7 @@ mips_setup_incoming_varargs (cum, mode, type, no_rtl)
 	      rtx ptr = plus_constant (virtual_incoming_args_rtx, off);
 	      emit_move_insn (gen_rtx_MEM (mode, ptr),
 			      gen_rtx_REG (mode, FP_ARG_FIRST + i));
-	      off += UNITS_PER_FPVALUE;
+	      off += UNITS_PER_HWFPVALUE;
 	    }
 	}
     }
@@ -4705,6 +5048,15 @@ mips_va_start (valist, nextarg)
      rtx nextarg;
 {
   const CUMULATIVE_ARGS *cum = &current_function_args_info;
+
+  /* ARG_POINTER_REGNUM is initialized to STACK_POINTER_BOUNDARY, but
+     since the stack is aligned for a pair of argument-passing slots,
+     and the beginning of a variable argument list may be an odd slot,
+     we have to decrease its alignment.  */
+  if (cfun && cfun->emit->regno_pointer_align)
+    while (((current_function_pretend_args_size * BITS_PER_UNIT)
+	    & (REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) - 1)) != 0)
+      REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) /= 2;
 
   if (mips_abi == ABI_EABI)
     {
@@ -4903,9 +5255,9 @@ mips_va_arg (valist, type)
 	      off = build (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff);
 
 	      /* When floating-point registers are saved to the stack,
-		 each one will take up UNITS_PER_FPVALUE bytes, regardless
+		 each one will take up UNITS_PER_HWFPVALUE bytes, regardless
 		 of the float's precision.  */
-	      rsize = UNITS_PER_FPVALUE;
+	      rsize = UNITS_PER_HWFPVALUE;
 	    }
 	  else
 	    {
@@ -4924,7 +5276,7 @@ mips_va_arg (valist, type)
 	     bytes (= PARM_BOUNDARY bits).  RSIZE can sometimes be smaller
 	     than that, such as in the combination -mgp64 -msingle-float
 	     -fshort-double.  Doubles passed in registers will then take
-	     up UNITS_PER_FPVALUE bytes, but those passed on the stack
+	     up UNITS_PER_HWFPVALUE bytes, but those passed on the stack
 	     take up UNITS_PER_WORD bytes.  */
 	  osize = MAX (rsize, UNITS_PER_WORD);
 
@@ -4998,7 +5350,10 @@ mips_va_arg (valist, type)
 	 that alignments <= UNITS_PER_WORD are preserved by the va_arg
 	 increment mechanism.  */
 
-      if (TARGET_64BIT)
+      if ((mips_abi == ABI_N32 || mips_abi == ABI_64)
+	  && TYPE_ALIGN (type) > 64)
+	align = 16;
+      else if (TARGET_64BIT)
 	align = 8;
       else if (TYPE_ALIGN (type) > 32)
 	align = 8;
@@ -5359,6 +5714,10 @@ override_options ()
   else
     mips16 = 0;
 
+#ifdef MIPS_TFMODE_FORMAT
+  real_format_for_mode[TFmode - QFmode] = &MIPS_TFMODE_FORMAT;
+#endif
+  
   mips_print_operand_punct['?'] = 1;
   mips_print_operand_punct['#'] = 1;
   mips_print_operand_punct['&'] = 1;
@@ -7076,7 +7435,7 @@ save_restore_insns (store_p, large_reg, large_offset)
       /* Pick which pointer to use as a base register.  */
       fp_offset = cfun->machine->frame.fp_sp_offset;
       end_offset = fp_offset - (cfun->machine->frame.fp_reg_size
-				- UNITS_PER_FPVALUE);
+				- UNITS_PER_HWFPVALUE);
 
       if (fp_offset < 0 || end_offset < 0)
 	internal_error
@@ -7129,7 +7488,7 @@ save_restore_insns (store_p, large_reg, large_offset)
 	    else
 	      emit_move_insn (reg_rtx, mem_rtx);
 
-	    fp_offset -= UNITS_PER_FPVALUE;
+	    fp_offset -= UNITS_PER_HWFPVALUE;
 	  }
     }
 }
@@ -8260,11 +8619,26 @@ mips_function_value (valtype, func, mode)
     }
   mclass = GET_MODE_CLASS (mode);
 
-  if (mclass == MODE_FLOAT && GET_MODE_SIZE (mode) <= UNITS_PER_FPVALUE)
+  if (mclass == MODE_FLOAT && GET_MODE_SIZE (mode) <= UNITS_PER_HWFPVALUE)
     reg = FP_RETURN;
 
+  else if (mclass == MODE_FLOAT && mode == TFmode)
+    /* long doubles are really split between f0 and f2, not f1.  Eek.
+       Use DImode for each component, since GCC wants integer modes
+       for subregs.  */
+    return gen_rtx_PARALLEL
+      (VOIDmode,
+       gen_rtvec (2,
+		  gen_rtx_EXPR_LIST (VOIDmode,
+				     gen_rtx_REG (DImode, FP_RETURN),
+				     GEN_INT (0)),
+		  gen_rtx_EXPR_LIST (VOIDmode,
+				     gen_rtx_REG (DImode, FP_RETURN + 2),
+				     GEN_INT (GET_MODE_SIZE (mode) / 2))));
+       
+
   else if (mclass == MODE_COMPLEX_FLOAT
-	   && GET_MODE_SIZE (mode) <= UNITS_PER_FPVALUE * 2)
+	   && GET_MODE_SIZE (mode) <= UNITS_PER_HWFPVALUE * 2)
     {
       enum machine_mode cmode = GET_MODE_INNER (mode);
 
@@ -8405,19 +8779,20 @@ function_arg_pass_by_reference (cum, mode, type, named)
    We can't allow 64-bit float registers to change from a 32-bit
    mode to a 64-bit mode.  */
 
-enum reg_class
-mips_cannot_change_mode_class (from, to)
+bool
+mips_cannot_change_mode_class (from, to, class)
      enum machine_mode from, to;
+     enum reg_class class;
 {
   if (GET_MODE_SIZE (from) != GET_MODE_SIZE (to))
     {
       if (TARGET_BIG_ENDIAN)
-        return FP_REGS;
+	return reg_classes_intersect_p (FP_REGS, class);
       if (TARGET_FLOAT64)
-        return HI_AND_FP_REGS;
-      return HI_REG;
+	return reg_classes_intersect_p (HI_AND_FP_REGS, class);
+      return reg_classes_intersect_p (HI_REG, class);
     }
-  return NO_REGS;
+  return false;
 }
 
 /* This function returns the register class required for a secondary
