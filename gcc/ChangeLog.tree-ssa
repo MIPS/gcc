@@ -1,5 +1,27 @@
 2004-01-18  Richard Henderson  <rth@redhat.com>
 
+	* tree-sra.c (REALPART_INDEX, IMAGPART_INDEX): Remove.
+	(sra_candidates, needs_copy_in): Use a bitmap.  Update all users.
+	(struct sra_elt, sra_elt_hash, sra_elt_eq): New.
+	(sra_map_size): Remove.
+	(sra_map): Use a htab_t.
+	(lookup_scalar): Update to match.
+	(get_scalar_for_field, get_scalar_for_complex_part): Likewise.
+	(scalarize_structure_assignment): Use annotate_all_with_locus.
+	(csc_build_component_ref): Remove index argument.
+	(csc_build_complex_part): Take tree_code, not index.
+	(create_scalar_copies): Don't collect indicies.
+	(emit_scalar_copies): New.
+	(scalarize_modify_expr, scalarize_tree_list): Use it. 
+	(scalarize_return_expr): Likewise.
+	(scalarize_structures): Simplify needs_copy_in iteration.
+	(scalarize_call_expr): Use annotate_all_with_locus.
+	(dump_sra_map_trav): Split from ...
+	(dump_sra_map): ... here.  Update for hash table.
+	(tree_sra): Update for new datastructures.
+
+2004-01-18  Richard Henderson  <rth@redhat.com>
+
 	* tree-cfg.c (dump_function_to_file): Move ";; Function" header ...
 	* tree-optimize.c (execute_one_pass): ... here.
 
