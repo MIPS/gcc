@@ -1,3 +1,12 @@
+2003-09-15  Jason Merrill  <jason@redhat.com>
+
+	* tree-simple.c (is_gimple_val): Allow addresses of all decls.
+	(is_gimple_const): Allow addresses of all non-weak statics.
+	* tree-ssa-ccp.c (fold_stmt): Return bool.
+	* tree-flow.h: Adjust prototype.
+	* tree-ssa-dom.c (optimize_stmt): If folding changed stuff, we
+	need to recalculate the vops.
+
 2003-09-13  Diego Novillo  <dnovillo@redhat.com>
 
 	Fix PR optimization/12268

@@ -498,7 +498,7 @@ extern void tree_perform_ssapre (tree);
 
 /* In tree-ssa-ccp.c  */
 void tree_ssa_ccp (tree);
-void fold_stmt (tree *);
+bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */

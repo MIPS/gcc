@@ -285,14 +285,10 @@ is_gimple_const (tree t)
     return 1;
 
   if (TREE_CODE (t) == ADDR_EXPR
-#if 0
       && DECL_P (TREE_OPERAND (t, 0))
-#else
-      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL
-#endif
       && (TREE_STATIC (TREE_OPERAND (t, 0))
-	  || DECL_EXTERNAL (TREE_OPERAND (t, 0)))
-      && !DECL_WEAK (TREE_OPERAND (t, 0)))
+	  || (DECL_EXTERNAL (TREE_OPERAND (t, 0))
+	      && !DECL_WEAK (TREE_OPERAND (t, 0)))))
     return 1;
 
   if (TREE_CODE (t) == PLUS_EXPR
@@ -450,12 +446,7 @@ is_gimple_val (tree t)
       TREE_CODE (t) == EXC_PTR_EXPR
       /* Allow the address of a decl.  */
       || (TREE_CODE (t) == ADDR_EXPR
-#if 0
-	  && DECL_P (TREE_OPERAND (t, 0))
-#else
-	  && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL
-#endif
-	  ))
+	  && DECL_P (TREE_OPERAND (t, 0))))
     return 1;
 
   /* Allow address of vla, so that we do not replace it in the call_expr of

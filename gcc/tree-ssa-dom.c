@@ -850,7 +850,15 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
   /* If the statement has been modified with constant replacements,
      fold its RHS before checking for redundant computations.  */
   if (ann->modified)
-    fold_stmt (bsi_stmt_ptr (si));
+    {
+      if (fold_stmt (bsi_stmt_ptr (si)))
+	{
+	  stmt = bsi_stmt (si);
+	  /* Folding may have removed the need for some vops/vdefs,
+	     particularly if we folded away a call to a builtin.  */
+	  may_have_exposed_new_symbols = true;
+	}
+    }
 
   /* Check for redundant computations.  Do this optimization only
      for assignments that make no calls and have no aliased stores

@@ -1273,12 +1273,14 @@ likely_value (tree stmt)
 
 
 /* Fold the statement pointed by STMT_P.  In some cases, this function may
-   replace the whole statement with a new one.  */
+   replace the whole statement with a new one.  Returns true iff folding
+   makes any changes.  */
 
-void
+bool
 fold_stmt (tree *stmt_p)
 {
   tree rhs, result, stmt;
+  bool changed = false;
 
   stmt = *stmt_p;
   rhs = get_rhs (stmt);
@@ -1324,10 +1326,15 @@ fold_stmt (tree *stmt_p)
 
       /* Strip away useless type conversions.  */
       if (result != rhs)
-	STRIP_MAIN_TYPE_NOPS (result);
+	{
+	  changed = true;
+	  STRIP_MAIN_TYPE_NOPS (result);
+	}
 
       set_rhs (stmt_p, result);
     }
+
+  return changed;
 }
 
 
