@@ -368,7 +368,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
      rewrite.  */
   TREE_PUBLIC (thunk_fndecl) = TREE_PUBLIC (function);
   DECL_VISIBILITY (thunk_fndecl) = DECL_VISIBILITY (function);
-  DECL_VISIBILITY_SPECIFIED (thunk_fndecl) = DECL_VISIBILITY_SPECIFIED (function);
+  DECL_VISIBILITY_SPECIFIED (thunk_fndecl) 
+    = DECL_VISIBILITY_SPECIFIED (function);
   if (flag_weak && TREE_PUBLIC (thunk_fndecl))
     comdat_linkage (thunk_fndecl);
 
@@ -928,13 +929,24 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 {
   tree fn;
   tree parameter_types = void_list_node;
-  tree return_type = void_type_node;
+  tree return_type;
   tree fn_type;
   tree raises = empty_except_spec;
   tree rhs_parm_type = NULL_TREE;
   tree name;
 
   type = TYPE_MAIN_VARIANT (type);
+
+  if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (type))
+    {
+      if (kind == sfk_destructor)
+	/* See comment in check_special_function_return_type.  */
+	return_type = build_pointer_type (void_type_node);
+      else
+	return_type = build_pointer_type (type);
+    }
+  else
+    return_type = void_type_node;
 
   switch (kind)
     {
@@ -1012,8 +1024,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 	       TYPE_UNQUALIFIED);
   grok_special_member_properties (fn);
   set_linkage_according_to_type (type, fn);
-  rest_of_decl_compilation (fn, /*asmspec=*/NULL,
-			    toplevel_bindings_p (), at_eof);
+  rest_of_decl_compilation (fn, toplevel_bindings_p (), at_eof);
   DECL_IN_AGGR_P (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
   DECL_NOT_REALLY_EXTERN (fn) = 1;

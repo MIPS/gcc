@@ -71,6 +71,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "libfuncs.h"
+#include "hashtab.h"
 
 #define OBJC_VOID_AT_END	void_list_node
 
@@ -422,6 +423,23 @@ extern enum debug_info_type write_symbols;
 extern const char *dump_base_name;
 
 static int flag_typed_selectors;
+
+/* Store all constructed constant strings in a hash table so that
+   they get uniqued properly.  */
+
+struct string_descriptor GTY(())
+{
+  /* The literal argument .  */
+  tree literal;
+
+  /* The resulting constant string.  */
+  tree constructor;
+};
+
+static GTY((param_is (struct string_descriptor))) htab_t string_htab;
+
+static hashval_t string_hash (const void *);
+static int string_eq (const void *, const void *);
 
 FILE *gen_declaration_file;
 
@@ -1555,6 +1573,33 @@ my_build_string (int len, const char *str)
   return fix_string_type (build_string (len, str));
 }
 
+
+static hashval_t
+string_hash (const void *ptr)
+{
+  tree str = ((struct string_descriptor *)ptr)->literal;
+  const unsigned char *p = (const unsigned char *) TREE_STRING_POINTER (str);
+  int i, len = TREE_STRING_LENGTH (str);
+  hashval_t h = len;
+
+  for (i = 0; i < len; i++)
+    h = ((h * 613) + p[i]);
+
+  return h;
+}
+
+static int
+string_eq (const void *ptr1, const void *ptr2)
+{
+  tree str1 = ((struct string_descriptor *)ptr1)->literal;
+  tree str2 = ((struct string_descriptor *)ptr2)->literal;
+  int len1 = TREE_STRING_LENGTH (str1);
+
+  return (len1 == TREE_STRING_LENGTH (str2)
+	  && !memcmp (TREE_STRING_POINTER (str1), TREE_STRING_POINTER (str2),
+		      len1));
+}
+
 /* Given a chain of STRING_CST's, build a static instance of
    NXConstantString which points at the concatenation of those
    strings.  We place the string object in the __string_objects
@@ -1568,8 +1613,24 @@ objc_build_string_object (tree string)
   tree initlist, constructor, constant_string_class;
   int length;
   tree fields;
+  struct string_descriptor *desc, key;
+  void **loc;
 
   string = fix_string_type (string);
+  TREE_SET_CODE (string, STRING_CST);
+  length = TREE_STRING_LENGTH (string) - 1;
+
+  /* Perhaps we already constructed a constant string just like this one? */
+  key.literal = string;
+  loc = htab_find_slot (string_htab, &key, INSERT);
+  desc = *loc;
+
+  if (desc)
+    return desc->constructor;
+
+  *loc = desc = ggc_alloc (sizeof (*desc));
+  desc->literal = string;
+  desc->constructor = error_mark_node;  /* For now.  */
 
   constant_string_class = lookup_interface (constant_string_id);
   if (!constant_string_class
@@ -1581,37 +1642,35 @@ objc_build_string_object (tree string)
       return error_mark_node;
     }
 
-  /* Call to 'combine_strings' has been moved above.  */
-  TREE_SET_CODE (string, STRING_CST);
-  length = TREE_STRING_LENGTH (string) - 1;
-
   if (!string_layout_checked)
     {
-      /* The NSConstantString/NXConstantString ivar layout is now
-	 known.  */
+      /* The NSConstantString/NXConstantString ivar layout is now known.  */
       if (!check_string_class_template ())
 	{
 	  error ("interface `%s' does not have valid constant string layout",
 		 IDENTIFIER_POINTER (constant_string_id));
 	  return error_mark_node;
 	}
+
       add_class_reference (constant_string_id);
     }
+
   fields = TYPE_FIELDS (constant_string_type);
 
   /* & ((NXConstantString) { NULL, string, length })  */
-
   if (flag_next_runtime)
     {
       /* For the NeXT runtime, we can generate a literal reference
 	 to the string class, don't need to run a constructor.  */
       setup_string_decl ();
+
       if (string_class_decl == NULL_TREE)
 	{
 	  error ("cannot find reference tag for class `%s'",
 		 IDENTIFIER_POINTER (constant_string_id));
 	  return error_mark_node;
 	}
+
       initlist = build_tree_list
 	(fields,
 	 copy_node (build_unary_op (ADDR_EXPR, string_class_decl, 0)));
@@ -1632,6 +1691,7 @@ objc_build_string_object (tree string)
   initlist = tree_cons (fields, build_int_2 (length, 0), initlist);
   constructor = objc_build_constructor (constant_string_type,
 					nreverse (initlist));
+  TREE_INVARIANT (constructor) = true;
 
   if (!flag_next_runtime)
     {
@@ -1641,8 +1701,10 @@ objc_build_string_object (tree string)
 
   constructor = build_unary_op (ADDR_EXPR, constructor, 1);
   TREE_CONSTANT (constructor) = true;
+  TREE_INVARIANT (constructor) = true;
+  TREE_STATIC (constructor) = true;
 
-  return constructor;
+  return (desc->constructor = constructor);
 }
 
 /* Declare a static instance of CLASS_DECL initialized by CONSTRUCTOR.  */
@@ -1677,7 +1739,7 @@ objc_add_static_instance (tree constructor, tree class_decl)
      Postpone till end of input.  */
   DECL_DEFER_OUTPUT (decl) = 1;
   pushdecl_top_level (decl);
-  rest_of_decl_compilation (decl, 0, 1, 0);
+  rest_of_decl_compilation (decl, 1, 0);
 
   /* Add the DECL to the head of this CLASS' list.  */
   TREE_PURPOSE (*chain) = tree_cons (NULL_TREE, decl, TREE_PURPOSE (*chain));
@@ -2549,7 +2611,7 @@ build_objc_string_decl (enum string_section section)
   DECL_THIS_STATIC (decl) = 1; /* squash redeclaration errors */
 #endif  
 
-  make_decl_rtl (decl, 0);
+  make_decl_rtl (decl);
   pushdecl_top_level (decl);
 
   return decl;
@@ -5908,6 +5970,10 @@ hash_init (void)
     = (hash *) ggc_alloc_cleared (SIZEHASHTABLE * sizeof (hash));
   cls_method_hash_list
     = (hash *) ggc_alloc_cleared (SIZEHASHTABLE * sizeof (hash));
+
+  /* Initialize the hash table used to hold the constant string objects.  */
+  string_htab = htab_create_ggc (31, string_hash,
+				   string_eq, NULL);
 }
 
 /* WARNING!!!!  hash_enter is called with a method, and will peek
@@ -8185,7 +8251,7 @@ handle_class_ref (tree chain)
   TREE_PUBLIC (decl) = 1;
 
   pushdecl (decl);
-  rest_of_decl_compilation (decl, 0, 0, 0);
+  rest_of_decl_compilation (decl, 0, 0);
 
   /* Make a decl for the address.  */
   sprintf (string, "%sobjc_class_ref_%s",
@@ -8197,7 +8263,7 @@ handle_class_ref (tree chain)
   TREE_USED (decl) = 1;
 
   pushdecl (decl);
-  rest_of_decl_compilation (decl, 0, 0, 0);
+  rest_of_decl_compilation (decl, 0, 0);
 }
 
 static void

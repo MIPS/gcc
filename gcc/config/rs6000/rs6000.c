@@ -16520,8 +16520,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 
   switch (code)
     {
-      /* On the RS/6000, if it is valid in the insn, it is free.
-	 So this always returns 0.  */
+      /* On the RS/6000, if it is valid in the insn, it is free.  */
     case CONST_INT:
       if (((outer_code == SET
 	    || outer_code == PLUS
@@ -16534,12 +16533,13 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	  || (outer_code == AND
 	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
 		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')
-		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'T')))
+		  || mask_operand (x, VOIDmode)))
 	  || outer_code == ASHIFT
 	  || outer_code == ASHIFTRT
 	  || outer_code == LSHIFTRT
 	  || outer_code == ROTATE
 	  || outer_code == ROTATERT
+	  || outer_code == ZERO_EXTRACT
 	  || (outer_code == MULT
 	      && CONST_OK_FOR_LETTER_P (INTVAL (x), 'I'))
 	  || (outer_code == COMPARE
@@ -16569,7 +16569,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	  && ((outer_code == AND
 	       && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
 		   || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')
-		   || CONST_OK_FOR_LETTER_P (INTVAL (x), 'S')))
+		   || mask64_operand (x, DImode)))
 	      || ((outer_code == IOR || outer_code == XOR)
 		  && CONST_DOUBLE_HIGH (x) == 0
 		  && (CONST_DOUBLE_LOW (x)
@@ -16591,13 +16591,16 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 
     case CONST:
     case HIGH:
-    case LABEL_REF:
     case SYMBOL_REF:
     case MEM:
       /* When optimizing for size, MEM should be slightly more expensive
 	 than generating address, e.g., (plus (reg) (const)).
 	 L1 cache latecy is about two instructions.  */
       *total = optimize_size ? COSTS_N_INSNS (1) + 1 : COSTS_N_INSNS (2);
+      return true;
+
+    case LABEL_REF:
+      *total = 0;
       return true;
 
     case PLUS:
@@ -16726,13 +16729,16 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
     case AND:
     case IOR:
     case XOR:
+    case ZERO_EXTRACT:
+      *total = COSTS_N_INSNS (1);
+      return false;
+
     case ASHIFT:
     case ASHIFTRT:
     case LSHIFTRT:
     case ROTATE:
     case ROTATERT:
-    case SIGN_EXTEND:
-    case ZERO_EXTEND:
+      /* Handle mul_highpart.  */
       if (outer_code == TRUNCATE
 	  && GET_CODE (XEXP (x, 0)) == MULT)
 	{
@@ -16742,7 +16748,18 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	    *total = rs6000_cost->mulsi;
 	  return true;
 	}
-      *total = COSTS_N_INSNS (1);
+      else if (outer_code == AND)
+	*total = 0;
+      else
+	*total = COSTS_N_INSNS (1);
+      return false;
+
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      if (GET_CODE (XEXP (x, 0)) == MEM)
+	*total = 0;
+      else
+	*total = COSTS_N_INSNS (1);
       return false;
 
     case COMPARE:

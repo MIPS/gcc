@@ -100,7 +100,6 @@ static tree check_initializer (tree, tree, int, tree *);
 static void make_rtl_for_nonlocal_decl (tree, tree, const char *);
 static void save_function_data (tree);
 static void check_function_type (tree, tree);
-static void begin_constructor_body (void);
 static void finish_constructor_body (void);
 static void begin_destructor_body (void);
 static void finish_destructor_body (void);
@@ -1909,11 +1908,12 @@ duplicate_decls (tree newdecl, tree olddecl)
   COPY_DECL_ASSEMBLER_NAME (olddecl, newdecl);
 
   /* Warn about conflicting visibility specifications.  */
-  if (DECL_VISIBILITY_SPECIFIED (olddecl) && DECL_VISIBILITY_SPECIFIED (newdecl)
+  if (DECL_VISIBILITY_SPECIFIED (olddecl) 
+      && DECL_VISIBILITY_SPECIFIED (newdecl)
       && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
     {
       warning ("%J'%D': visibility attribute ignored because it",
-        newdecl, newdecl);
+	       newdecl, newdecl);
       warning ("%Jconflicts with previous declaration here", olddecl);
     }
   /* Choose the declaration which specified visibility.  */
@@ -1921,21 +1921,6 @@ duplicate_decls (tree newdecl, tree olddecl)
     {
       DECL_VISIBILITY (newdecl) = DECL_VISIBILITY (olddecl);
       DECL_VISIBILITY_SPECIFIED (newdecl) = 1;
-    }
-  /* If it's a definition of a global operator new or operator
-     delete, it must be default visibility.  */
-  if (NEW_DELETE_OPNAME_P (DECL_NAME (newdecl)) && DECL_INITIAL (newdecl) != NULL_TREE)
-    {
-      if (!DECL_FUNCTION_MEMBER_P (newdecl) && VISIBILITY_DEFAULT != DECL_VISIBILITY (newdecl))
-        {
-          warning ("%J`%D': ignoring non-default symbol",
-            newdecl, newdecl);
-          warning ("%Jvisibility on global operator new or delete", newdecl);
-          DECL_VISIBILITY (olddecl) = VISIBILITY_DEFAULT;
-          DECL_VISIBILITY_SPECIFIED (olddecl) = 1;
-          DECL_VISIBILITY (newdecl) = VISIBILITY_DEFAULT;
-          DECL_VISIBILITY_SPECIFIED (newdecl) = 1;
-        }
     }
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -1997,7 +1982,7 @@ duplicate_decls (tree newdecl, tree olddecl)
       && (TREE_CODE (olddecl) == FUNCTION_DECL
 	  || (TREE_CODE (olddecl) == VAR_DECL
 	      && TREE_STATIC (olddecl))))
-    make_decl_rtl (olddecl, NULL);
+    make_decl_rtl (olddecl);
 
   return olddecl;
 }
@@ -3304,6 +3289,10 @@ build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
   TREE_NOTHROW (fn) = 1;
   SET_OVERLOADED_OPERATOR_CODE (fn, operator_code);
   SET_DECL_LANGUAGE (fn, lang_c);
+  /* Runtime library routines are, by definition, available in an
+     external shared object.  */
+  DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
+  DECL_VISIBILITY_SPECIFIED (fn) = 1;
   return fn;
 }
 
@@ -3635,7 +3624,8 @@ start_decl (const cp_declarator *declarator,
 	    cp_decl_specifier_seq *declspecs,
             int initialized,
             tree attributes,
-            tree prefix_attributes)
+            tree prefix_attributes, 
+	    bool *pop_scope_p)
 {
   tree decl;
   tree type, tem;
@@ -3670,14 +3660,11 @@ start_decl (const cp_declarator *declarator,
 
   context = DECL_CONTEXT (decl);
 
-  if (initialized && context && TREE_CODE (context) == NAMESPACE_DECL
-      && context != current_namespace && TREE_CODE (decl) == VAR_DECL)
-    {
-      /* When parsing the initializer, lookup should use the object's
-	 namespace.  */
-      push_decl_namespace (context);
-    }
-
+  if (context)
+    *pop_scope_p = push_scope (context);
+  else
+    *pop_scope_p = false;
+  
   /* We are only interested in class contexts, later.  */
   if (context && TREE_CODE (context) == NAMESPACE_DECL)
     context = NULL_TREE;
@@ -3733,8 +3720,6 @@ start_decl (const cp_declarator *declarator,
 
   if (context && COMPLETE_TYPE_P (complete_type (context)))
     {
-      push_nested_class (context);
-
       if (TREE_CODE (decl) == VAR_DECL)
 	{
 	  tree field = lookup_field (context, DECL_NAME (decl), 0, false);
@@ -4555,10 +4540,25 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
   int toplev = toplevel_bindings_p ();
   int defer_p;
 
+  /* Set the DECL_ASSEMBLER_NAME for the object.  */
+  if (asmspec)
+    {
+      /* The `register' keyword, when used together with an
+	 asm-specification, indicates that the variable should be
+	 placed in a particular register.  */
+      if (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+	{
+	  change_decl_assembler_name (decl, get_identifier (asmspec));
+	  DECL_HARD_REGISTER (decl) = 1;
+	}
+      else
+	set_user_assembler_name (decl, asmspec);
+    }
+
   /* Handle non-variables up front.  */
   if (TREE_CODE (decl) != VAR_DECL)
     {
-      rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
+      rest_of_decl_compilation (decl, toplev, at_eof);
       return;
     }
 
@@ -4571,17 +4571,6 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	 external; it is only a declaration, and not a definition.  */
       if (init == NULL_TREE)
 	my_friendly_assert (DECL_EXTERNAL (decl), 20000723);
-    }
-
-  /* Set the DECL_ASSEMBLER_NAME for the variable.  */
-  if (asmspec)
-    {
-      change_decl_assembler_name (decl, get_identifier (asmspec));
-      /* The `register' keyword, when used together with an
-	 asm-specification, indicates that the variable should be
-	 placed in a particular register.  */
-      if (DECL_REGISTER (decl))
-	DECL_HARD_REGISTER (decl) = 1;
     }
 
   /* We don't create any RTL for local variables.  */
@@ -4617,16 +4606,9 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	   && DECL_IMPLICIT_INSTANTIATION (decl))
     defer_p = 1;
 
-  /* If we're deferring the variable, we only need to make RTL if
-     there's an ASMSPEC.  Otherwise, we'll lazily create it later when
-     we need it.  (There's no way to lazily create RTL for things that
-     have assembly specs because the information about the specifier
-     isn't stored in the tree, yet)  */
-  if (defer_p && asmspec)
-    make_decl_rtl (decl, asmspec);
   /* If we're not deferring, go ahead and assemble the variable.  */
-  else if (!defer_p)
-    rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
+  if (!defer_p)
+    rest_of_decl_compilation (decl, toplev, at_eof);
 }
 
 /* Generate code to initialize DECL (a local variable).  */
@@ -4743,20 +4725,10 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
       && (DECL_INITIAL (decl) || init))
     DECL_INITIALIZED_IN_CLASS_P (decl) = 1;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && DECL_CONTEXT (decl)
-      && TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL
-      && DECL_CONTEXT (decl) != current_namespace
-      && init)
-    {
-      /* Leave the namespace of the object.  */
-      pop_decl_namespace ();
-    }
-
   type = TREE_TYPE (decl);
 
   if (type == error_mark_node)
-    goto finish_end0;
+    goto finish_end;
 
   if (TYPE_HAS_MUTABLE_P (type))
     TREE_READONLY (decl) = 0;
@@ -4773,7 +4745,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  && !DECL_PRETTY_FUNCTION_P (decl)
 	  && !dependent_type_p (TREE_TYPE (decl)))
 	maybe_deduce_size_from_array_init (decl, init);
-      goto finish_end0;
+      goto finish_end;
     }
 
   /* Parameters are handled by store_parm_decls, not cp_finish_decl.  */
@@ -4797,8 +4769,8 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  && !COMPLETE_TYPE_P (TREE_TYPE (decl)))
 	TYPE_DECL_SUPPRESS_DEBUG (decl) = 1;
 
-      rest_of_decl_compilation (decl, NULL,
-				DECL_CONTEXT (decl) == NULL_TREE, at_eof);
+      rest_of_decl_compilation (decl, DECL_CONTEXT (decl) == NULL_TREE,
+				at_eof);
       goto finish_end;
     }
 
@@ -4861,6 +4833,9 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  /* Remember that the initialization for this variable has
 	     taken place.  */
 	  DECL_INITIALIZED_P (decl) = 1;
+	  /* The variable is being defined, so determine its
+	     visibility.  */
+	  determine_visibility (decl);
 	}
       /* If the variable has an array type, lay out the type, even if
 	 there is no initializer.  It is valid to index through the
@@ -4927,26 +4902,6 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  if (TREE_STATIC (decl))
 	    expand_static_init (decl, init);
 	}
-    finish_end0:
-
-      /* Undo call to `pushclass' that was done in `start_decl'
-	 due to initialization of qualified member variable.
-	 I.e., Foo::x = 10;  */
-      {
-	tree context = CP_DECL_CONTEXT (decl);
-	if (context
-	    && TYPE_P (context)
-	    && (TREE_CODE (decl) == VAR_DECL
-		/* We also have a pushclass done that we need to undo here
-		   if we're at top level and declare a method.  */
-		|| TREE_CODE (decl) == FUNCTION_DECL)
-	    /* If size hasn't been set, we're still defining it,
-	       and therefore inside the class body; don't pop
-	       the binding level..  */
-	    && COMPLETE_TYPE_P (context)
-	    && context == current_class_type)
-	  pop_nested_class ();
-      }
     }
 
   /* If a CLEANUP_STMT was created to destroy a temporary bound to a
@@ -5342,7 +5297,6 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	      else
 		maxindex = size_binop (PLUS_EXPR, maxindex, ssize_int (1));
 	    }
-	  maxindex = copy_node (maxindex);
 	}
       else
 	{
@@ -5373,8 +5327,6 @@ complete_array_type (tree type, tree initial_value, int do_default)
       domain = build_index_type (maxindex);
       TYPE_DOMAIN (type) = domain;
 
-      if (! TREE_TYPE (maxindex))
-	TREE_TYPE (maxindex) = domain;
       if (initial_value)
         itype = TREE_TYPE (initial_value);
       else
@@ -6251,7 +6203,8 @@ create_array_type_for_decl (tree name, tree type, tree size)
 /* Check that it's OK to declare a function with the indicated TYPE.
    SFK indicates the kind of special function (if any) that this
    function is.  OPTYPE is the type given in a conversion operator
-   declaration.  Returns the actual return type of the function; that
+   declaration, or the class type for a constructor/destructor.
+   Returns the actual return type of the function; that
    may be different than TYPE if an error occurs, or for certain
    special functions.  */
 
@@ -6266,13 +6219,23 @@ check_special_function_return_type (special_function_kind sfk,
       if (type)
 	error ("return type specification for constructor invalid");
 
-      type = void_type_node;
+      if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (optype))
+	type = build_pointer_type (optype);
+      else
+	type = void_type_node;
       break;
 
     case sfk_destructor:
       if (type)
 	error ("return type specification for destructor invalid");
-      type = void_type_node;
+      /* We can't use the proper return type here because we run into
+	 problems with abiguous bases and covariant returns.
+	 Java classes are left unchanged because (void *) isn't a valid
+	 Java type, and we don't want to change the Java ABI.  */
+      if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (optype))
+	type = build_pointer_type (void_type_node);
+      else
+	type = void_type_node;
       break;
 
     case sfk_conversion:
@@ -6657,6 +6620,9 @@ grokdeclarator (const cp_declarator *declarator,
 #endif
   typedef_type = type;
 
+
+  if (sfk != sfk_conversion)
+    ctor_return_type = ctype;
 
   if (sfk != sfk_none)
     type = check_special_function_return_type (sfk, type,
@@ -9828,6 +9794,12 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       fntype = TREE_TYPE (decl1);
     }
 
+  /* Determine the ELF visibility attribute for the function.  We must
+     not do this before calling "pushdecl", as we must allow
+     "duplicate_decls" to merge any attributes appropriately.  */
+  if (!DECL_CLONED_FUNCTION_P (decl1))
+    determine_visibility (decl1);
+
   /* Reset these in case the call to pushdecl changed them.  */
   current_function_decl = decl1;
   cfun->decl = decl1;
@@ -9945,10 +9917,12 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   ++function_depth;
 
-  if (DECL_DESTRUCTOR_P (decl1))
+  if (DECL_DESTRUCTOR_P (decl1)
+      || (DECL_CONSTRUCTOR_P (decl1)
+	  && targetm.cxx.cdtor_returns_this ()))
     {
-      dtor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_CONTEXT (dtor_label) = current_function_decl;
+      cdtor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      DECL_CONTEXT (cdtor_label) = current_function_decl;
     }
 
   start_fname_decls ();
@@ -10116,22 +10090,27 @@ save_function_data (tree decl)
   f->x_local_names = NULL;
 }
 
-/* Add a note to mark the beginning of the main body of the constructor.
-   This is used to set up the data structures for the cleanup regions for
-   fully-constructed bases and members.  */
 
-static void
-begin_constructor_body (void)
-{
-}
-
-/* Add a note to mark the end of the main body of the constructor.  This is
-   used to end the cleanup regions for fully-constructed bases and
-   members.  */
+/* Set the return value of the constructor (if present).  */
 
 static void
 finish_constructor_body (void)
 {
+  tree val;
+  tree exprstmt;
+
+  if (targetm.cxx.cdtor_returns_this ())
+    {
+      /* Any return from a constructor will end up here.  */
+      add_stmt (build_stmt (LABEL_EXPR, cdtor_label));
+
+      val = DECL_ARGUMENTS (current_function_decl);
+      val = build (MODIFY_EXPR, TREE_TYPE (val),
+		   DECL_RESULT (current_function_decl), val);
+      /* Return the address of the object.  */
+      exprstmt = build_stmt (RETURN_EXPR, val);
+      add_stmt (exprstmt);
+    }
 }
 
 /* Do all the processing for the beginning of a destructor; set up the
@@ -10191,7 +10170,7 @@ finish_destructor_body (void)
 
   /* Any return from a destructor will end up here; that way all base
      and member cleanups will be run when the function returns.  */
-  add_stmt (build_stmt (LABEL_EXPR, dtor_label));
+  add_stmt (build_stmt (LABEL_EXPR, cdtor_label));
 
   /* In a virtual destructor, we must call delete.  */
   if (DECL_VIRTUAL_P (current_function_decl))
@@ -10218,6 +10197,18 @@ finish_destructor_body (void)
       finish_then_clause (if_stmt);
       finish_if_stmt (if_stmt);
     }
+
+  if (targetm.cxx.cdtor_returns_this ())
+    {
+      tree val;
+
+      val = DECL_ARGUMENTS (current_function_decl);
+      val = build (MODIFY_EXPR, TREE_TYPE (val),
+		   DECL_RESULT (current_function_decl), val);
+      /* Return the address of the object.  */
+      exprstmt = build_stmt (RETURN_EXPR, val);
+      add_stmt (exprstmt);
+    }
 }
 
 /* Do the necessary processing for the beginning of a function body, which
@@ -10243,8 +10234,6 @@ begin_function_body (void)
 
   if (processing_template_decl)
     /* Do nothing now.  */;
-  else if (DECL_CONSTRUCTOR_P (current_function_decl))
-    begin_constructor_body ();
   else if (DECL_DESTRUCTOR_P (current_function_decl))
     begin_destructor_body ();
 
@@ -10429,7 +10418,10 @@ finish_function (int flags)
       && !DECL_NAME (DECL_RESULT (fndecl))
       /* Normally, with -Wreturn-type, flow will complain.  Unless we're an
 	 inline function, as we might never be compiled separately.  */
-      && (DECL_INLINE (fndecl) || processing_template_decl))
+      && (DECL_INLINE (fndecl) || processing_template_decl)
+      /* Structor return values (if any) are set by the compiler.  */
+      && !DECL_CONSTRUCTOR_P (fndecl)
+      && !DECL_DESTRUCTOR_P (fndecl))
     warning ("no return statement in function returning non-void");
 
   /* Store the end of the function, so that we get good line number

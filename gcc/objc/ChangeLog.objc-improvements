@@ -1,3 +1,12 @@
+2004-08-10  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (string_descriptor): New type.
+	(string_htab): New hash table, for constant strings.
+	(string_hash, string_eq): New functions.
+	(hash_init): Initialize string_htab hash table.
+	(objc_build_string_object): Unique string objects using the
+	string_htab hash table.
+
 2004-07-30  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c (objc_start_function, objc_push_parm, objc_get_parm_info,

@@ -977,7 +977,7 @@ static void init_ext_80387_constants (void);
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ix86_attribute_table
-#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 #  undef TARGET_MERGE_DECL_ATTRIBUTES
 #  define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
 #endif
@@ -1609,9 +1609,9 @@ const struct attribute_spec ix86_attribute_table[] =
   /* Regparm attribute specifies how many integer arguments are to be
      passed in registers.  */
   { "regparm",   1, 1, false, true,  true,  ix86_handle_regparm_attribute },
-#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
-  { "dllimport", 0, 0, false, false, false, ix86_handle_dll_attribute },
-  { "dllexport", 0, 0, false, false, false, ix86_handle_dll_attribute },
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
+  { "dllimport", 0, 0, false, false, false, handle_dll_attribute },
+  { "dllexport", 0, 0, false, false, false, handle_dll_attribute },
   { "shared",    0, 0, true,  false, false, ix86_handle_shared_attribute },
 #endif
   { "ms_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
@@ -5399,7 +5399,14 @@ ix86_expand_prologue (void)
 
       if (eax_live)
 	{
-	  rtx t = plus_constant (stack_pointer_rtx, allocate);
+	  rtx t;
+	  if (frame_pointer_needed)
+	    t = plus_constant (hard_frame_pointer_rtx,
+			       allocate
+			       - frame.to_allocate
+			       - frame.nregs * UNITS_PER_WORD);
+	  else
+	    t = plus_constant (stack_pointer_rtx, allocate);
 	  emit_move_insn (eax, gen_rtx_MEM (SImode, t));
 	}
     }
@@ -11501,13 +11508,20 @@ ix86_expand_clrmem (rtx dst, rtx count_exp, rtx align_exp)
   if (destreg != XEXP (dst, 0))
     dst = replace_equiv_address_nv (dst, destreg);
 
-  emit_insn (gen_cld ());
 
   /* When optimizing for size emit simple rep ; movsb instruction for
-     counts not divisible by 4.  */
+     counts not divisible by 4.  The movl $N, %ecx; rep; stosb
+     sequence is 7 bytes long, so if optimizing for size and count is
+     small enough that some stosl, stosw and stosb instructions without
+     rep are shorter, fall back into the next if.  */
 
-  if ((!optimize || optimize_size) && (count == 0 || (count & 0x03)))
+  if ((!optimize || optimize_size)
+      && (count == 0
+	  || ((count & 0x03)
+	      && (!optimize_size || (count & 0x03) + (count >> 2) > 7))))
     {
+      emit_insn (gen_cld ());
+
       countreg = ix86_zero_extend_to_Pmode (count_exp);
       zeroreg = copy_to_mode_reg (QImode, const0_rtx);
       destexp = gen_rtx_PLUS (Pmode, destreg, countreg);
@@ -11521,17 +11535,54 @@ ix86_expand_clrmem (rtx dst, rtx count_exp, rtx align_exp)
       int size = TARGET_64BIT && !optimize_size ? 8 : 4;
       unsigned HOST_WIDE_INT offset = 0;
 
+      emit_insn (gen_cld ());
+
       zeroreg = copy_to_mode_reg (size == 4 ? SImode : DImode, const0_rtx);
       if (count & ~(size - 1))
 	{
-	  countreg = copy_to_mode_reg (counter_mode,
-				       GEN_INT ((count >> (size == 4 ? 2 : 3))
-						& (TARGET_64BIT ? -1 : 0x3fffffff)));
-	  countreg = ix86_zero_extend_to_Pmode (countreg);
-	  destexp = gen_rtx_ASHIFT (Pmode, countreg, GEN_INT (size == 4 ? 2 : 3));
-	  destexp = gen_rtx_PLUS (Pmode, destexp, destreg);
-	  emit_insn (gen_rep_stos (destreg, countreg, dst, zeroreg, destexp));
-	  offset = count & ~(size - 1);
+	  unsigned HOST_WIDE_INT repcount;
+	  unsigned int max_nonrep;
+
+	  repcount = count >> (size == 4 ? 2 : 3);
+	  if (!TARGET_64BIT)
+	    repcount &= 0x3fffffff;
+
+	  /* movl $N, %ecx; rep; stosl is 7 bytes, while N x stosl is N bytes.
+	     movl $N, %ecx; rep; stosq is 8 bytes, while N x stosq is 2xN
+	     bytes.  In both cases the latter seems to be faster for small
+	     values of N.  */
+	  max_nonrep = size == 4 ? 7 : 4;
+	  if (!optimize_size)
+	    switch (ix86_tune)
+	      {
+	      case PROCESSOR_PENTIUM4:
+	      case PROCESSOR_NOCONA:
+	        max_nonrep = 3;
+	        break;
+	      default:
+	        break;
+	      }
+
+	  if (repcount <= max_nonrep)
+	    while (repcount-- > 0)
+	      {
+		rtx mem = adjust_automodify_address_nv (dst,
+							GET_MODE (zeroreg),
+							destreg, offset);
+		emit_insn (gen_strset (destreg, mem, zeroreg));
+		offset += size;
+	      }
+	  else
+	    {
+	      countreg = copy_to_mode_reg (counter_mode, GEN_INT (repcount));
+	      countreg = ix86_zero_extend_to_Pmode (countreg);
+	      destexp = gen_rtx_ASHIFT (Pmode, countreg,
+					GEN_INT (size == 4 ? 2 : 3));
+	      destexp = gen_rtx_PLUS (Pmode, destexp, destreg);
+	      emit_insn (gen_rep_stos (destreg, countreg, dst, zeroreg,
+				       destexp));
+	      offset = count & ~(size - 1);
+	    }
 	}
       if (size == 8 && (count & 0x04))
 	{

@@ -224,7 +224,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wimport  -Wno-import  -Winit-self  -Winline @gol
 -Wno-invalid-offsetof  -Winvalid-pch @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
--Wmain  -Wmissing-braces @gol
+-Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wmissing-noreturn @gol
 -Wno-multichar  -Wnonnull  -Wpacked  -Wpadded @gol
@@ -310,8 +310,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsched-spec-load-dangerous  @gol
 -fsched-stalled-insns=@var{n} -sched-stalled-insns-dep=@var{n} @gol
 -fsched2-use-superblocks @gol
--fsched2-use-traces  -fsignaling-nans @gol
--fsingle-precision-constant  @gol
+-fsched2-use-traces -freschedule-modulo-scheduled-loops @gol
+-fsignaling-nans -fsingle-precision-constant  @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
@@ -628,7 +628,7 @@ See RS/6000 and PowerPC Options.
 -m5-32media  -m5-32media-nofpu @gol
 -m5-compact  -m5-compact-nofpu @gol
 -mb  -ml  -mdalign  -mrelax @gol
--mbigtable  -mfmovd  -mhitachi  -mnomacsave @gol
+-mbigtable  -mfmovd  -mhitachi -mrenesas -mno-renesas -mnomacsave @gol
 -mieee  -misize  -mpadstruct  -mspace @gol
 -mprefergot  -musermode}
 
@@ -2634,13 +2634,8 @@ incorrect result when the signed value is converted to unsigned.
 
 @item
 An aggregate has an initializer which does not initialize all members.
-For example, the following code would cause such a warning, because
-@code{x.h} would be implicitly initialized to zero:
-
-@smallexample
-struct s @{ int f, g, h; @};
-struct s x = @{ 3, 4 @};
-@end smallexample
+This warning can be independently controlled by
+@option{-Wmissing-field-initializers}.
 
 @item
 A function parameter is declared without a type specifier in K&R-style
@@ -2923,6 +2918,30 @@ Warn if a global function is defined without a previous declaration.
 Do so even if the definition itself provides a prototype.
 Use this option to detect global functions that are not declared in
 header files.
+
+@item -Wmissing-field-initializers
+@opindex Wmissing-field-initializers
+@opindex W
+@opindex Wextra
+Warn if a structure's initializer has some fields missing.  For
+example, the following code would cause such a warning, because
+@code{x.h} is implicitly zero:
+
+@smallexample
+struct s @{ int f, g, h; @};
+struct s x = @{ 3, 4 @};
+@end smallexample
+
+This option does not warn about designated initializers, so the following
+modification would not trigger a warning:
+
+@smallexample
+struct s @{ int f, g, h; @};
+struct s x = @{ .f = 3, .g = 4 @};
+@end smallexample
+
+This warning is included in @option{-Wextra}.  To get other @option{-Wextra}
+warnings without this one, use @samp{-Wextra -Wno-missing-field-initializers}.
 
 @item -Wmissing-noreturn
 @opindex Wmissing-noreturn
@@ -4396,6 +4415,12 @@ reality and hurt the performance.  This only makes
 sense when scheduling after register allocation, i.e.@: with
 @option{-fschedule-insns2} or at @option{-O2} or higher.
 
+@item -freschedule-modulo-scheduled-loops
+@opindex fscheduling-in-modulo-scheduled-loops
+The modulo scheduling comes before the traditional scheduling, if a loop was modulo scheduled
+we may want to prevent the later scheduling passes from changing its schedule, we use this
+option to control that.
+
 @item -fcaller-saves
 @opindex fcaller-saves
 Enable values to be allocated in registers that will be clobbered by
@@ -5096,6 +5121,12 @@ The algorithm used by @option{-fcrossjumping} is @math{O(N^2)} in
 the number of edges incoming to each block.  Increasing values mean
 more aggressive optimization, making the compile time increase with
 probably small improvement in executable size.
+
+@item min-crossjump-insns
+The minimum number of instructions which must be matched at the end
+of two blocks before crossjumping will be performed on them.  This
+value is ignored in the case where all instructions in the block being
+crossjumped from are matched.  The default value is 5.
 
 @item max-delay-slot-insn-search
 The maximum number of instructions to consider when looking for an
@@ -10606,6 +10637,16 @@ Enable the use of the instruction @code{fmovd}.
 @item -mhitachi
 @opindex mhitachi
 Comply with the calling conventions defined by Renesas.
+
+@item -mrenesas
+@opindex mhitachi
+Comply with the calling conventions defined by Renesas.
+
+@item -mno-renesas
+@opindex mhitachi
+Comply with the calling conventions defined for GCC before the Renesas
+conventions were available.  This option is the default for all
+targets of the SH toolchain except for @samp{sh-symbianelf}.
 
 @item -mnomacsave
 @opindex mnomacsave

@@ -1,3 +1,35 @@
+2004-08-06  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* lang.c (flag_emit_class_files, flag_filelist_file, flag_redundant,
+	flag_use_divide_subroutine, flag_use_boehm_gc, flag_store_check,
+	flag_hash_synchronization, flag_assert, flag_jni, flag_newer,
+	flag_check_references, flag_extraneous_semicolon, flag_deprecated,
+	flag_force_classes_archive_check, flag_optimize_sci,
+	flag_indirect_dispatch): Remove explicit declarations.
+	* lang.opt: Add implicit declare/define/assign.  Remove obsolete
+	final comment.
+
+2004-08-05  Michael Chastain  <mec.gnu@mindspring.com>
+
+	PR bootstrap/14893
+	* Make-lang.in (java.install-man): Install from either build
+	tree or source tree, whichever has the file first.
+
+2004-08-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* jcf-parse.c (get_constant): Adjust force_fit_type call.
+	* lex.h (SET_LVAL_NODE_TYPE): Remove.
+	* lex.c (java_perform_atof): Use SET_LVAL_NODE directly.
+	(do_java_lex): Likewise. Adjust force_fit_type call.
+
+2004-08-04  Roger Sayle  <roger@eyesopen.com>
+	    Andrew Haley  <aph@redhat.com>
+
+	* typeck.c (convert_ieee_real_to_integer): Call fold on the range
+	checking trees as they're being built.
+	(convert): Call convert_ieee_real_to_integer if we're
+	converting a constant, even if we're writing a class file.
+
 2004-08-02  Bryce McKinlay  <mckinlay@redhat.com>
 
 	PR java/16701

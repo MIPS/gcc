@@ -684,7 +684,7 @@ builtin_function (const char *name,
   TREE_PUBLIC (decl) = 1;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl, NULL);
+  make_decl_rtl (decl);
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
@@ -750,9 +750,9 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_ROUNDF, "roundf", true);
 
   /* These are used to implement the ** operator.  */
-  gfc_define_builtin ("__builtin_pow", mfunc_double[0], 
+  gfc_define_builtin ("__builtin_pow", mfunc_double[1], 
 		      BUILT_IN_POW, "pow", true);
-  gfc_define_builtin ("__builtin_powf", mfunc_float[0], 
+  gfc_define_builtin ("__builtin_powf", mfunc_float[1], 
 		      BUILT_IN_POWF, "powf", true);
 
   /* Other builtin functions we use.  */
