@@ -1,5 +1,7 @@
 2003-09-22  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030922-1.c: New test.
+
 	* gcc.dg/tree-ssa/20030807-2.c: Add additional cases to this test.
 
 2003-09-21  Diego Novillo  <dnovillo@redhat.com>
