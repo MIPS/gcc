@@ -93,7 +93,8 @@ tree_compute_must_alias (tree fndecl, sbitmap vars_to_rename,
       
       /* We are only interested in disambiguating addressable locals.  */
       if (TREE_ADDRESSABLE (var)
-	  /* FIXME Why exactly do we need to ignore arrays?  */
+	  /* FIXME Why exactly do we need to ignore pointers and arrays?  */
+	  && !POINTER_TYPE_P (TREE_TYPE (var))
 	  && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE
 	  && decl_function_context (var) == current_function_decl
 	  && !DECL_NONLOCAL (var)
@@ -171,20 +172,9 @@ find_addressable_vars (sbitmap addresses_needed)
 	    {
 	      tree t = PHI_ARG_DEF (phi, i);
 
-	      if (TREE_CODE (t) == NOP_EXPR)
-		t = TREE_OPERAND (t, 0);
-
-	      if (TREE_CODE (t) == PLUS_EXPR)
-		t = TREE_OPERAND (t, 0);
-
 	      if (TREE_CODE (t) != ADDR_EXPR)
 		continue;
 	      t = TREE_OPERAND (t, 0);
-	      while (TREE_CODE (t) == ARRAY_REF
-		    || TREE_CODE (t) == COMPONENT_REF
-		    || TREE_CODE (t) == REALPART_EXPR
-		    || TREE_CODE (t) == IMAGPART_EXPR)
-		t = TREE_OPERAND (t, 0);
 	      if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 		continue;
 	      SET_BIT (addresses_needed, var_ann (t)->uid);
@@ -227,6 +217,7 @@ promote_var (tree var, sbitmap vars_to_rename)
   ann->may_aliases = NULL;
   ann->is_call_clobbered = 0;
   ann->may_alias_global_mem = 0;
+  ann->may_point_to_global_mem = 0;
 
   /* If the variable was an alias tag, remove it from every variable that
      had it in its may-alias set.  */
