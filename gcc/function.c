@@ -4260,12 +4260,7 @@ assign_parms (tree fndecl)
   /* Nonzero if function takes extra anonymous args.
      This means the last named arg must be on the stack
      right before the anonymous ones.  */
-  int stdarg
-    = (TYPE_ARG_TYPES (fntype) != 0
-       && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-	   != void_type_node));
-
-  current_function_stdarg = stdarg;
+  int stdarg = current_function_stdarg;
 
   /* If the reg that the virtual arg pointer will be translated into is
      not a fixed reg or is the stack pointer, make a copy of the virtual
@@ -6295,6 +6290,7 @@ void
 allocate_struct_function (tree fndecl)
 {
   tree result;
+  tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
 
   cfun = ggc_alloc_cleared (sizeof (struct function));
 
@@ -6339,6 +6335,12 @@ allocate_struct_function (tree fndecl)
   current_function_needs_context
     = (decl_function_context (current_function_decl) != 0
        && ! DECL_NO_STATIC_CHAIN (current_function_decl));
+
+  current_function_stdarg
+    = (fntype
+       && TYPE_ARG_TYPES (fntype) != 0
+       && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
+	   != void_type_node));
 }
 
 /* Reset cfun, and other non-struct-function variables to defaults as

@@ -3492,6 +3492,7 @@ enum tree_dump_index
   TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
+  TDI_tail,			/* dump after tail recursion elimination  */
   TDI_pta,                      /* dump points-to information for each
 				   function.  */
   TDI_alias,			/* dump aliasing information.  */

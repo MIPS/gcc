@@ -78,10 +78,12 @@ optimize_function_tree (tree fndecl)
       /* Find all the variables referenced in the function.  */
       find_referenced_vars (fndecl);
 
+      /* Eliminate tail recursion calls.  */
+      tree_optimize_tail_calls ();
+
       /* Compute aliasing information for all the variables referenced in
 	 the function.  */
       compute_may_aliases (fndecl);
-
 
       /*			BEGIN SSA PASSES
 

@@ -1,3 +1,16 @@
+2003-10-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-tailcall.c: New.
+	* Makefile.in (tree-tailcall.o): Add.
+	* function.c (assign_parms): Setting of current_function_stdarg
+	moved ...
+	(allocate_struct_function): ... here.
+	* tree-dump.c (dump_files): Add .tail dump.
+	* tree-flow.h (tree_optimize_tail_calls): Declare.
+	* tree-optimize.c (optimize_function_tree): Call
+	tree_optimize_tail_calls.
+	* tree.h (enum tree_dump_index): Add TDI_tail.
+
 2003-10-18  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa-copyprop.c (move_var_to_scope):  Do not clear abstract
