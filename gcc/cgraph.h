@@ -182,5 +182,6 @@ void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
 bool cgraph_inline_p (tree, tree);
+bool cgraph_preserve_function_body_p (tree);
 
 #endif  /* GCC_CGRAPH_H  */

@@ -44,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "tree-mudflap.h"
 #include "ggc.h"
+#include "cgraph.h"
 
 /* Rewrite a function tree to the SSA form and perform the SSA-based
    optimizations on it.  */
@@ -234,43 +235,6 @@ set_save_expr_context (tree *tp,
   return NULL;
 }
 
-/* Clear out the DECL_RTL for the non-static local variables in BLOCK and
-   its sub-blocks.  DATA is the decl of the function being processed.  */
-
-static tree
-clear_decl_rtl (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
-{
-  bool nonstatic_p, local_p;
-  tree t = *tp;
-
-  switch (TREE_CODE (t))
-    {
-    case VAR_DECL:
-      nonstatic_p = !TREE_STATIC (t) && !DECL_EXTERNAL (t);
-      local_p = DECL_CONTEXT (t) == data;
-      break;
-
-    case PARM_DECL:
-    case LABEL_DECL:
-      nonstatic_p = true;
-      local_p = DECL_CONTEXT (t) == data;
-      break;
-
-    case RESULT_DECL:
-      nonstatic_p = local_p = true;
-      break;
-
-    default:
-      nonstatic_p = local_p = false;
-      break;
-    }
-
-  if (nonstatic_p && local_p)
-    SET_DECL_RTL (t, NULL);
-
-  return NULL;
-}
-
 /* For functions-as-trees languages, this performs all optimization and
    compilation for FNDECL.  */
 
@@ -304,7 +268,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   /* We might need the body of this function so that we can expand
      it inline somewhere else.  This means not lowering some constructs
      such as exception handling.  */
-  if (DECL_INLINE (fndecl) && flag_inline_trees)
+  if (cgraph_preserve_function_body_p (fndecl))
     cfun->saved_tree = save_body (fndecl, &cfun->saved_args);
 
   /* Mudflap-instrument any relevant declarations.  */
@@ -408,16 +372,14 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   /* Run the optimizers and output the assembler code for this function.  */
   rest_of_compilation (fndecl);
 
-  /* Undo the GC context switch.  */
-  if (nested_p)
-    ggc_pop_context ();
-
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)
     {
       DECL_SAVED_TREE (fndecl) = cfun->saved_tree;
       DECL_ARGUMENTS (fndecl) = cfun->saved_args;
     }
+  else
+    DECL_SAVED_TREE (fndecl) = NULL;
   cfun = 0;
   DECL_SAVED_INSNS (fndecl) = 0;
 
@@ -445,18 +407,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	}
     }
 
-  /* Since we don't need the RTL for this function anymore, stop pointing to
-     it.  That's especially important for LABEL_DECLs, since you can reach all
-     the instructions in the function from the CODE_LABEL stored in the
-     DECL_RTL for the LABEL_DECL.  Walk the BLOCK-tree, clearing DECL_RTL for
-     LABEL_DECLs and non-static local variables.  Note that we must check the
-     context of the variables, otherwise processing a nested function can kill
-     the rtl of a variable from an outer function.  */
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
-				clear_decl_rtl,
-				fndecl);
-
-  if (DECL_SAVED_INSNS (fndecl) == 0 && !nested_p && !flag_inline_trees)
+  if (!nested_p && !flag_inline_trees)
     {
       /* Stop pointing to the local nodes about to be freed.
 	 But DECL_INITIAL must remain nonzero so we know this
@@ -471,7 +422,10 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   input_location = saved_loc;
 
-  if (!nested_p)
-    ggc_collect ();
+  ggc_collect ();
+
+  /* Undo the GC context switch.  */
+  if (nested_p)
+    ggc_pop_context ();
   timevar_pop (TV_EXPAND);
 }

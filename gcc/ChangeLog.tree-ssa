@@ -1,3 +1,14 @@
+2003-12-03  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (tree-optimize.o): Depend on cgraph.h
+	* cgraph.h (cgraph_preserve_function_body_p): Declare.
+	* cgraphunit.c (cgraph_preserve_function_body_p): New function.
+	* tree-optimize.c: Include cgraph.h
+	(clear_decl_rtl): Kill.
+	(tree_rest_of_compilation): Use cgraph_preserve_function_body_p;
+	do not clear DECL_RTL; do final ggc in the pushed context for nested
+	functions;
+
 2003-12-02  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (cleanup_operand_arrays): Avoid creating a new 

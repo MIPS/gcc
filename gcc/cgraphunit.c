@@ -495,8 +495,6 @@ cgraph_expand_function (struct cgraph_node *node)
      via lang_expand_decl_stmt.  */
   (*lang_hooks.callgraph.expand_function) (decl);
 
-  if (!cgraph_function_possibly_inlined_p (decl))
-    DECL_SAVED_TREE (decl) = NULL;
   current_function_decl = NULL;
 }
 
@@ -1438,6 +1436,18 @@ cgraph_mark_local_functions (void)
     }
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "\n\n");
+}
+
+/* Return true when function body of DECL still needs to be kept around
+   for later re-use.  */
+bool
+cgraph_preserve_function_body_p (tree decl)
+{
+  /* Keep the body; we're going to dump it.  */
+  if (dump_enabled_p (TDI_all))
+    return true;
+  /* Too conservative, but OK for now.  */
+  return cgraph_function_possibly_inlined_p (decl);
 }
 
 /* Perform simple optimizations based on callgraph.  */
