@@ -1,3 +1,64 @@
+2002-05-23  Geoffrey Keating  <geoffk@redhat.com>
+
+	* varray.c (uses_ggc): Make more varray kinds GCable.
+	* varray.h (union varray_data_tag): Let gengtype see
+	fields 'generic' and 'te'.
+	* reg-stack.c: Include gt-reg-stack.h, ggc.h.
+	(stack_regs_mentioned_data): Move out of ifdef; mark with gengtype.
+	(reg_to_stack): Don't call VARRAY_FREE.
+	* insn-addr.h (INSN_ADDRESSES_FREE): Don't use VARRAY_FREE.
+	(insn_addresses_): Use gengtype to mark.
+	* gengtype.c (write_gc_structure_fields): Handle arrays of generic
+	pointers; handle generic pointers in unused union fields.
+	(get_output_file_with_visibility): Include cselib.h,
+	insn-addr.h in gtype-desc.c.
+	* function.c (prologue): Use gengtype to mark.
+	(epilogue): Likewise.
+	(sibcall_epilogue): Likewise.
+	* dependence.c: Include gt-dependence.h, ggc.h.
+	(struct def_use): Use gengtype to mark.
+	(struct loop): Likewise.
+	(struct induction): Likewise.
+	(struct dependence): Likewise.
+	(def_use_chain): Likewise.
+	(dep_chain): Likewise.
+	(loop_chain): Likewise.
+	(induction_chain): Likewise.
+	(init_dependence_analysis): Don't free anything, just clear pointers.
+	(build_def_use): Use GGC to allocate def_use.
+	(add_loop): Use GGC to allocate loop.
+	(find_induction_variable): Use GGC to allocate induction.
+	(check_node_dependence): Use GGC to allocate induction, dependence.
+	(dump_node_dependence): Don't free varrays.
+	(end_dependence_analysis): Likewise.
+	* cselib.h (struct cselib_val_struct): Use gengtype to mark.
+	(struct elt_loc_list): Likewise.
+	(struct elt_list): Likewise.
+	* cselib.c: Don't include obstack.h.
+	(hash_table): Use gengtype to mark.
+	(reg_values): Use gengtype to mark.
+	(used_regs): Use gengtype to mark.
+	(cselib_obstack): Delete.
+	(cselib_startobj): Delete.
+	(empty_vals): Mark as deletable.
+	(empty_elt_lists): Mark as deletable.
+	(empty_elt_loc_lists): Mark as deletable.
+	(new_elt_list): Use GGC to allocate struct elt_list.
+	(new_elt_loc_list): Use GGC to allocate struct elt_loc_list.
+	(clear_table): Don't delete obstack; don't unnecessarily clear
+	deletable variables.
+	(new_cselib_val): Use GGC to allocate struct cselib_val.
+	(cselib_init): Don't set up obstacks.  Use GGC to allocate
+	hash table.
+	(cselib_finish): Just clear variables, don't free anything.
+	* Makefile.in (cselib.o): Remove dependency on $(OBSTACK_H).
+	(reg-stack.o): Add dependency on gt-reg-stack.h, $(GGC_H).
+	(dependence.o): Add dependency on gt-dependence.h, $(GGC_H).
+	(GTFILES): Add insn-addr.h, cselib.h, dependence.c, reg-stack.c.
+	(gt-reg-stack.h): New rule.
+	(gt-dependence.h): New rule.
+	(gtype-desc.o): Add cselib.h, insn-addr.h.
+
 2002-05-22  Geoffrey Keating  <geoffk@redhat.com>
 
 	* varray.c: Use only necessary headers.

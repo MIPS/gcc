@@ -97,7 +97,7 @@ struct htab GTY(())
   htab_free free_f;
   
   /* Table itself.  */
-  PTR * GTY ((use_param (""), length ("%.size"))) entries;
+  PTR * GTY ((use_param (""), length ("%h.size"))) entries;
 
   /* Current size (in entries) of the hash table */
   size_t size;

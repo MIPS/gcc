@@ -51,10 +51,10 @@ static const size_t element_size[NUM_VARRAY_DATA] = {
 };
 
 static const int uses_ggc[NUM_VARRAY_DATA] = {
-  0, 1, 1, 1, 0, 0, 1, 1, 0, 0, /* unsigned HOST_WIDE_INT */
-  0, /* PTR */
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* unsigned HOST_WIDE_INT */
+  1, /* PTR */
   1, 1, 1, 1, 1, /* bitmap_head_def */
-  0, 0, 0, 0
+  0, 0, 0, 1
 };
 
 /* Allocate a virtual array with NUM_ELEMENT elements, each of which is

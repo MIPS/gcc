@@ -138,12 +138,12 @@ tree inline_function_decl;
 struct function *cfun = 0;
 
 /* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
-static varray_type prologue;
-static varray_type epilogue;
+static GTY(()) varray_type prologue;
+static GTY(()) varray_type epilogue;
 
 /* Array of INSN_UIDs to hold the INSN_UIDs for each sibcall epilogue
    in this function.  */
-static varray_type sibcall_epilogue;
+static GTY(()) varray_type sibcall_epilogue;
 
 /* In order to evaluate some expressions, such as function calls returning
    structures in memory, we need to temporarily allocate stack locations.

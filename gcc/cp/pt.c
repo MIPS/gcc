@@ -63,7 +63,7 @@ int processing_template_parmlist;
 static int template_header_count;
 
 static GTY(()) tree saved_trees;
-static varray_type inline_parm_levels;
+static GTY(()) varray_type inline_parm_levels;
 static size_t inline_parm_levels_used;
 
 static GTY(()) tree current_tinst_level;

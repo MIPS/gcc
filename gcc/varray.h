@@ -103,7 +103,7 @@ typedef union varray_data_tag GTY (()) {
 				tag ("VARRAY_DATA_HINT")))	hint[1];
   unsigned HOST_WIDE_INT  GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_UHINT")))	uhint[1];
-  PTR			  GTY ((length ("%0.num_elements"), skip (""),
+  PTR			  GTY ((length ("%0.num_elements"), use_param (""),
 				tag ("VARRAY_DATA_GENERIC")))	generic[1];
   char			 *GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_CPTR")))	cptr[1];
@@ -121,7 +121,7 @@ typedef union varray_data_tag GTY (()) {
 			tag ("VARRAY_DATA_CONST_EQUIV"))) 	const_equiv[1];
   struct basic_block_def *GTY ((length ("%0.num_elements"), skip (""),
 				tag ("VARRAY_DATA_BB")))	bb[1];
-  struct elt_list	 *GTY ((length ("%0.num_elements"), skip (""),
+  struct elt_list	 *GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_TE")))	te[1];
 } varray_data;
 

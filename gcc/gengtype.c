@@ -668,6 +668,8 @@ get_output_file_with_visibility (input_file)
 	  fputs ("#include \"expr.h\"\n", fm->output);
 	  fputs ("#include \"hard-reg-set.h\"\n", fm->output);
 	  fputs ("#include \"basic-block.h\"\n", fm->output);
+	  fputs ("#include \"cselib.h\"\n", fm->output);
+	  fputs ("#include \"insn-addr.h\"\n", fm->output);
 	  fputs ("#include \"ssa.h\"\n", fm->output);
 	  fputs ("#include \"optabs.h\"\n", fm->output);
 	  fputs ("#include \"libfuncs.h\"\n", fm->output);
@@ -905,10 +907,18 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	    {
 	      type_p t1;
 	      type_p nt = param;
-	      for (t1 = t; t->kind == TYPE_POINTER; t = t->u.p)
+	      int arraycount = 0;
+	      
+	      for (t1 = t; t->kind == TYPE_ARRAY; t = t->u.a.p)
+		arraycount++;
+	      for (; t->kind == TYPE_POINTER; t = t->u.p)
 		nt = create_pointer (nt);
+	      while (arraycount-- > 0)
+		nt = create_array (nt, t->u.a.len);
 	      t = nt;
 	    }
+	  else if (s->kind == TYPE_UNION && ! always_p && tagid)
+	    ;
 	  else
 	    error_at_line (&f->line, "no parameter defined");
 	}
@@ -1139,6 +1149,9 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 					   param);
 		free (newval);
 	      }
+	    else if (ta->kind == TYPE_POINTER && ta->u.p->kind == TYPE_SCALAR
+		     && use_param_p && param == NULL)
+	      fprintf (of, "%*sabort();\n", indent, "");
 	    else
 	      error_at_line (&f->line, 
 			     "field `%s' is array of unimplemented type",

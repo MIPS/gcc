@@ -1,3 +1,7 @@
+2002-05-23  Geoffrey Keating  <geoffk@redhat.com>
+
+	* pt.c (inline_parm_levels): Mark for GC.
+
 2002-05-22  Geoffrey Keating  <geoffk@redhat.com>
 
 	* mangle.c (start_mangling): Allocate G.substitutions here...
