@@ -1,5 +1,9 @@
 2005-03-28  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_cast): Handle boxing and unboxing.
+
+2005-03-28  Tom Tromey  <tromey@redhat.com>
+
 	* lower.cc (visit_bytecode_block) <op_swap>: Finish set-up of new
 	variable.
 	(visit_bytecode_block) <op_new>: Added casts.

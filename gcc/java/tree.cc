@@ -1611,20 +1611,53 @@ tree_generator::visit_cast (model_cast *elt,
   expr->visit (this);
   tree expr_tree = current;
 
-  if (dest->type ()->primitive_p ())
+  model_type *dest_type = dest->type ();
+  if (dest_type->primitive_p () != expr->type ()->primitive_p ())
+    {
+      if (dest_type->primitive_p ())
+	{
+	  // Unboxing conversion.  Call <type>Value() on the wrapper
+	  // object, e.g. for Integer we call intValue().  Using
+	  // get_pretty_name here is a bit of an abuse.
+	  // FIXME: for the C++ ABI we could reference fields directly
+	  // in some situations.
+	  std::string method_name = dest_type->get_pretty_name () + "Value";
+	  model_method *call
+	    = find_method (method_name.c_str (),
+			   assert_cast<model_class *> (expr->type ()),
+			   NULL, dest_type, elt);
+	  current = gcc_builtins->map_method_call (class_wrapper, expr_tree,
+						   NULL_TREE, call, false);
+	}
+      else
+	{
+	  // Boxing conversion.  We call the static factory method
+	  // valueOf(), which handles the caching required by boxing
+	  // conversion.
+	  model_class *dest_class = assert_cast<model_class *> (dest_type);
+	  model_method *call = find_method ("valueOf", dest_class,
+					    expr->type (), dest_class,
+					    elt);
+	  tree args = build_tree_list (NULL_TREE, expr_tree);
+	  current = gcc_builtins->map_method_call (class_wrapper, NULL_TREE,
+						   args, call, false);
+	  TREE_SIDE_EFFECTS (current) = 1;
+	}
+    }
+  else if (dest_type->primitive_p ())
     {
       // We can't use fold_convert() here since, apparently, it can't
       // convert a float to an int.
-      current = convert (gcc_builtins->map_type (dest->type ()), expr_tree);
+      current = convert (gcc_builtins->map_type (dest_type), expr_tree);
       TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
     }
   else
     {
       // Reference types.  We only need to emit a cast check if the
       // types are known to be incompatible.
-      if (dest->type ()->assignable_from_p (expr->type ()))
+      if (dest_type->assignable_from_p (expr->type ()))
 	{
-	  current = build3 (CALL_EXPR, gcc_builtins->map_type (dest->type ()),
+	  current = build3 (CALL_EXPR, gcc_builtins->map_type (dest_type),
 			    builtin_Jv_CheckCast,
 			    build_tree_list (NULL_TREE, expr_tree),
 			    NULL_TREE);
@@ -1632,8 +1665,8 @@ tree_generator::visit_cast (model_cast *elt,
 	}
       else
 	{
-	  emit_type_assertion (dest->type (), expr->type ());
-	  current = build1 (NOP_EXPR, gcc_builtins->map_type (dest->type ()),
+	  emit_type_assertion (dest_type, expr->type ());
+	  current = build1 (NOP_EXPR, gcc_builtins->map_type (dest_type),
 			    expr_tree);
 	  TREE_SIDE_EFFECTS (current) = TREE_SIDE_EFFECTS (expr_tree);
 	}
