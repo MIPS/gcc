@@ -1,5 +1,8 @@
 2004-01-30  Jan Hubicka  <jh@suse.cz>
 
+	* reload.c (get_secondary_mem):  Fix updating of
+	secondary_memlocs_elim_used.
+
 	* reload.c (secondary_memlocs_elim_used): New static variable.
 	(get_secondary_mem): Update it.
 	(find_reloads): Use it.
