@@ -47,7 +47,6 @@
 static int count_insns			PARAMS ((basic_block));
 static bool ignore_bb_p			PARAMS ((basic_block));
 static bool better_p			PARAMS ((edge, edge));
-static bool is_trace_head_p		PARAMS ((basic_block));
 int find_trace				PARAMS ((basic_block, basic_block *));
 static void tail_duplicate		PARAMS ((void));
 static void layout_superblocks		PARAMS ((void));
@@ -165,23 +164,6 @@ find_best_predecessor (basic_block bb)
   return best;
 }
 
-static bool
-is_trace_head_p (bb)
-    basic_block bb;
-{
-  edge e = find_best_predecessor (bb);
-  basic_block bb2;
-
-  if (!e)
-    return true;
-  bb2 = e->src;
-  if (find_best_successor (bb2) != e
-      || seen (bb2)
-      || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX)))
-    return true;
-  return false;
-}
-
 /* Find the trace using bb and record it in the TRACE array.
    Return number of basic blocks recorded.  */
 
@@ -193,9 +175,24 @@ find_trace (bb, trace)
   int i = 0;
   edge e;
 
-  trace [i++] = bb;
   if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Trace: %i [%i]", bb->index, bb->frequency);
+    fprintf (rtl_dump_file, "Trace seed %i [%i]", bb->index, bb->frequency);
+
+  while ((e = find_best_predecessor (bb)) != NULL)
+    {
+      basic_block bb2 = e->src;
+      if (find_best_successor (bb2) != e
+	  || seen (bb2)
+	  || (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX)))
+	break;
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ",%i [%i]", bb->index, bb->frequency);
+      bb = bb2;
+    }
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, " forward %i [%i]", bb->index, bb->frequency);
+  trace [i++] = bb;
+
   /* Follow the trace in forward direction.  */
   while ((e = find_best_successor (bb)) != NULL)
     {
@@ -240,7 +237,8 @@ tail_duplicate ()
     }
 
   for (; traced_insns * 100 < weighted_insns * DYNAMIC_COVERAGE
-	 && (nduplicated + ninsns) * 100 < ninsns * MAXIMAL_CODE_GROWTH ;)
+	 && (nduplicated + ninsns) * 100 < ninsns * MAXIMAL_CODE_GROWTH
+	 && !fibheap_empty (heap);)
     {
       basic_block bb = fibheap_extract_min (heap);
       int n, pos;
@@ -249,16 +247,10 @@ tail_duplicate ()
 	break;
       if (ignore_bb_p (bb))
 	continue;
+      if (seen (bb))
+	abort ();
 
       blocks[bb->index] = NULL;
-
-      if (!is_trace_head_p (bb))
-	{
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, "Basic block %i [%i] is not trace head.\n",
-		     bb->index, bb->frequency);
-	  continue;
-	}
 
       if (seen (bb))
 	abort ();
@@ -297,15 +289,6 @@ tail_duplicate ()
 	         head.  */
 	      blocks[old->index] = fibheap_insert (heap, -old->frequency, old);
 
-	      /* Similary all sucessors possibly changed the most
-	         common predecesor.  Reconsider them.  */
-	      for (e = old->succ; e; e = e->succ_next)
-		if (!ignore_bb_p (e->dest) && !seen (e->dest)
-		    && e->dest != bb && !blocks[e->dest->index])
-		  {
-		    blocks[e->dest->index] =
-		      fibheap_insert (heap, -e->dest->frequency, e->dest);
-		  }
 	      if (rtl_dump_file)
 		fprintf (rtl_dump_file, "Duplicated %i as %i [%i]\n",
 			 old->index, bb2->index, bb2->frequency);
