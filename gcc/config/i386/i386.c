@@ -9709,9 +9709,15 @@ ix86_expand_int_movcc (operands)
       emit_move_insn (tmp, operands[2]);
       operands[2] = tmp;
     }
+
   if (! register_operand (operands[2], VOIDmode)
-      && ! register_operand (operands[3], VOIDmode))
+      && (mode == QImode 
+          || ! register_operand (operands[3], VOIDmode)))
     operands[2] = force_reg (mode, operands[2]);
+
+  if (mode == QImode
+      && ! register_operand (operands[3], VOIDmode))
+    operands[3] = force_reg (mode, operands[3]);
 
   emit_insn (compare_seq);
   emit_insn (gen_rtx_SET (VOIDmode, operands[0],

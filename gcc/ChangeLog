@@ -1,3 +1,8 @@
+Wed Dec  4 11:53:07 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc): Force operand into register for QImode
+	condtiional moves.
+
 2002-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in configure configure.in dummy-conditions.c fix-header.c
