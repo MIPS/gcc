@@ -1,3 +1,107 @@
+2003-06-10  Andrew Haley  <aph@redhat.com>
+
+	* langhooks-def.h (LANG_HOOKS_DECL_OK_FOR_SIBCALL): New.
+	(LANG_HOOKS_DECLS): Add LANG_HOOKS_DECL_OK_FOR_SIBCALL.
+	(lhd_decl_ok_for_sibcall): New.
+	* langhooks.c (lhd_decl_ok_for_sibcall): New.
+	* langhooks.h (lang_hooks_for_decls.ok_for_sibcall): New field.
+	* calls.c (expand_call): Check lang_hook before generating a
+	sibcall.
+
+2003-06-09  Richard Henderson  <rth@redhat.com>
+
+	2003-05-11  Ulrich Weigand  <uweigand@de.ibm.com>
+        * except.c (EH_RETURN_STACKADJ_RTX): Do not define.
+        (EH_RETURN_HANDLER_RTX): Likewise.
+        (expand_builtin_eh_return): Do not copy stack adjustment
+        if EH_RETURN_STACKADJ_RTX is not defined.
+        (expand_eh_return): Likewise.  Also, do not pass stack
+        adjustment as argument to the eh_return pattern.
+        * except.h (MUST_USE_SJLJ_EXCEPTIONS): Do not define just
+        because EH_RETURN_STACKADJ_RTX is not defined.
+        * unwind-dw.c (uw_update_context_1): If EH_RETURN_STACKADJ_RTX
+        is not defined, treat stack pointer like a regular register.
+        (uw_init_context_1): Set up fake initial stack pointer register.
+        (uw_install_context_1): Do not compute stack adjustment if
+        EH_RETURN_STACKADJ_RTX is not defined.
+
+        * config/i386/i386.md ("eh_return"): Remove first argument.
+        * config/mips/mips.md ("eh_return"): Likewise.
+        * config/rs6000/rs6000.md ("eh_return"): Likewise.
+        * config/sh/sh.md ("eh_return"): Likewise.
+
+        * config/s390/s390.h (EH_RETURN_STACKADJ_RTX): Remove.
+
+2003-06-08  Richard Henderson  <rth@redhat.com>
+
+	* stmt.c (expand_asm_operands): Re-word warning.
+
+2003-06-08  Richard Henderson  <rth@redhat.com>
+
+        * expr.h (EXPAND_MEMORY): New.
+        * expr.c (expand_expr): Check it.
+        * stmt.c (expand_asm_operands): Provide it when the constraint
+        requires a memory.  Warn for memory input constraints without
+        a memory operand.
+
+2003-06-07  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (cb_register_builtins): Define __EXCEPTIONS for C also.
+
+2003-06-07  Kelley Cook  <kelleycook@wideopenwest.com>
+
+	* configure.in (HAVE_LD_RO_RW_SECTION_MIXING): Remove quotes in
+	section names.
+	* configure: Regenerate.
+
+2003-06-07  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (CRT_CALL_STATIC_FUNCTION): Define.
+
+2003-06-06  James E Wilson  <wilson@tuliptree.org>
+
+	PR inline-asm/10890
+	* reload1.c (merge_assigned_reloads): Abort only if two reloads have
+	different in fields.
+
+2003-06-06  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/11052
+	* ifcvt.c (noce_process_if_block): Fail if the destination has
+	side-effects.
+
+2003-06-06  Dan Kegel  <dank@kegel.com>
+	    Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/10331
+	* config/sh/t-linux (STMP_FIXPROTO): Define.
+
+	PR target/11096
+	* config/sh/linux.h (CPLUSPLUS_CPP_SPEC): Redefine so to include
+	-D_GNU_SOURCE.
+
+2003-06-05  David Miller  <davem@redhat.com>
+            Richard Henderson  <rth@redhat.com>
+
+        * optabs.c (HAVE_conditional_trap): Provide default.
+        (gen_conditional_trap): Likewise.
+        (init_optabs): Merge init_traps.
+        (gen_cond_trap): Use prepare_operand.  Restructure and avoid ifdef.
+
+2003-06-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/md.texi (Machine Constraints): Correct the meaning of
+	constraints related to floating-point registers on SPARC.
+
+2003-06-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/10663
+	* configure.in (HAVE_LD_RO_RW_SECTION_MIXING): Redirect
+	assembler and linker output to /dev/null.
+	Use a 'sed' construct instead of 'grep -A1'.
+	* configure: Regenerate.
+
 2003-06-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* mklibgcc.in: Propagate .note.GNU-stack section if needed into
