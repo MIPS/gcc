@@ -1,3 +1,15 @@
+2002-07-19  Denis Chertykov  <denisc@overta.ru>
+
+	* pre-reload.c : Substitute all emit_insns to emit_insn.
+	Substitute all emit_insns_before to emit_insn_before.
+	(ra_insn_table_realloc): Bugfix. Argument SIZE now a size of table
+	not a size of increasing.
+	Update all calls to ra_insn_table_realloc.
+	(ra_reg_table_realloc): Bugfix. Argument SIZE now a size of table
+	not a size of increasing.
+	Update all calls to ra_reg_table_realloc
+	(pre_reload_collect): Use FOR_EACH_BB.
+
 2002-07-11  Michael Matz  <matz@suse.de>
 
 	* ra.c (flag_ra_improved_spilling): New.

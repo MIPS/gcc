@@ -31,10 +31,10 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "obstack.h"
 #include "insn-config.h"
-#include "optabs.h"
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
+#include "optabs.h"
 #include "regs.h"
 #include "basic-block.h"
 #include "reload.h"
@@ -731,7 +731,7 @@ emit_output_pre_reload_insns (insn, rl, j)
 
   if (rl->when_needed == RELOAD_OTHER)
     {
-      emit_insns (other_output_reload_insns[rl->opnum]);
+      emit_insn (other_output_reload_insns[rl->opnum]);
       other_output_reload_insns[rl->opnum] = get_insns ();
     }
   else
@@ -856,25 +856,25 @@ emit_pre_reload_insns (insn)
      reloads for the operand.  The RELOAD_OTHER output reloads are
      output in descending order by reload number.  */
 
-  emit_insns_before (other_input_address_reload_insns, insn);
-  emit_insns_before (other_input_reload_insns, insn);
+  emit_insn_before (other_input_address_reload_insns, insn);
+  emit_insn_before (other_input_reload_insns, insn);
 
   for (j = 0; j < reload_n_operands; j++)
     {
-      emit_insns_before (inpaddr_address_reload_insns[j], insn);
-      emit_insns_before (input_address_reload_insns[j], insn);
-      emit_insns_before (input_reload_insns[j], insn);
+      emit_insn_before (inpaddr_address_reload_insns[j], insn);
+      emit_insn_before (input_address_reload_insns[j], insn);
+      emit_insn_before (input_reload_insns[j], insn);
     }
 
-  emit_insns_before (other_operand_reload_insns, insn);
-  emit_insns_before (operand_reload_insns, insn);
+  emit_insn_before (other_operand_reload_insns, insn);
+  emit_insn_before (operand_reload_insns, insn);
 
   for (j = 0; j < reload_n_operands; j++)
     {
-      emit_insns_before (outaddr_address_reload_insns[j], following_insn);
-      emit_insns_before (output_address_reload_insns[j], following_insn);
-      emit_insns_before (output_reload_insns[j], following_insn);
-      emit_insns_before (other_output_reload_insns[j], following_insn);
+      emit_insn_before (outaddr_address_reload_insns[j], following_insn);
+      emit_insn_before (output_address_reload_insns[j], following_insn);
+      emit_insn_before (output_reload_insns[j], following_insn);
+      emit_insn_before (other_output_reload_insns[j], following_insn);
     }
 }
 
@@ -1834,23 +1834,20 @@ find_pre_reloads_toplev (x, opnum, type, ind_levels, is_set_dest, insn,
       /* SUBREG_REG (x) is a MEM, so we cant take the offset, instead we 
          calculate the register number as : 
 	 SUBREG_BYTE (x) / GET_MODE_SIZE (subreg_mode) */
-      /* XXX abort for now, as the interface to find_valid_class() has
-	 changed, and I don't want to analyze what this does.  */
-      abort ();
-/*
       if (is_set_dest)
 	push_pre_reload (NULL_RTX, SUBREG_REG (x), (rtx*)0, &SUBREG_REG (x),
 			 find_valid_class (subreg_mode, 
 					   SUBREG_BYTE (x)
-					   / GET_MODE_SIZE (subreg_mode)),
+					   / GET_MODE_SIZE (subreg_mode),
+					   REGNO (SUBREG_REG (x))),
 			 VOIDmode, subreg_mode, 0, 0, opnum, type);
       else
 	push_pre_reload (SUBREG_REG (x), NULL_RTX, &SUBREG_REG (x), (rtx*)0,
 			 find_valid_class (subreg_mode,
 					   SUBREG_BYTE (x)
-					   / GET_MODE_SIZE (subreg_mode)),
+					   / GET_MODE_SIZE (subreg_mode),
+					   REGNO (SUBREG_REG (x))),
 			 subreg_mode, VOIDmode, 0, 0, opnum, type);
-*/
     }
 
   for (copied = 0, i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -1886,7 +1883,7 @@ pseudo_fits_class_p (operand, class, mode)
      enum reg_class class;
      enum machine_mode mode;
 {
-  static unsigned int max_consecutive[FIRST_PSEUDO_REGISTER];
+  static int max_consecutive[FIRST_PSEUDO_REGISTER];
   int i;
   int num_consecutive = 0;
   int clr = -1;
@@ -2187,7 +2184,6 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	      rtx op1 = recog_data.operand[c - '0'];
 	      rtx op2 = recog_data.operand[i];
 	      c -= '0';
-
 	      if (GET_MODE (op1) != GET_MODE (op2)
 		  && INTEGRAL_MODE_P (GET_MODE (op1))
 		  && INTEGRAL_MODE_P (GET_MODE (op2)))
@@ -2206,7 +2202,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 		      if (o == SUBREG_BYTE (op2))
 			op2 = SUBREG_REG (op2);
 		    }
-		}		    
+		}
 	      operands_match[c][i] = operands_match_p (op1, op2);;
 
 	      /* An operand may not match itself.  */
@@ -3402,7 +3398,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 }
 
 
-/* Increase the insn info table by SIZE more elements.  */
+/* Increase the insn info table for handling SIZE elements.  */
 static void
 ra_insn_table_realloc (ra_info, size)
      struct ra_info *ra_info;
@@ -3410,9 +3406,10 @@ ra_insn_table_realloc (ra_info, size)
 {
   /* Make table 25 percent larger by default.  */
   if (! size)
-    size = ra_info->insn_size / 4;
+    size = ra_info->insn_size;
+  
+  size += ra_info->insn_size / 4 + 1;
 
-  size += ra_info->insn_size + 1;
   
   ra_info->insns = (struct ra_refs **)
     xrealloc (ra_info->insns, size * sizeof (struct ra_refs*));
@@ -3424,7 +3421,7 @@ ra_insn_table_realloc (ra_info, size)
 }
 
 
-/* Increase the reg info table by SIZE more elements.  */
+/* Increase the reg info table for handling SIZE elements.  */
 static void
 ra_reg_table_realloc (ra_info, size)
      struct ra_info *ra_info;
@@ -3432,9 +3429,9 @@ ra_reg_table_realloc (ra_info, size)
 {
   /* Make table 25 percent larger by default.  */
   if (! size)
-    size = ra_info->reg_size / 4;
-
-  size += ra_info->reg_size + 1;
+    size = ra_info->reg_size;
+  
+  size += ra_info->reg_size / 4 + 1;
 
   ra_info->regs = (struct ra_refs **)
     xrealloc (ra_info->regs, size * sizeof (struct ra_refs *));
@@ -3633,7 +3630,7 @@ ra_info_add_insn_refs (ra_info, insn, refs)
   int uid = INSN_UID (insn);
   
   if (uid >= ra_info->insn_size)
-    ra_insn_table_realloc (ra_info, 0);
+    ra_insn_table_realloc (ra_info, uid);
   else if (RA_INSN_REFS (ra_info, insn))
     abort ();
 
@@ -3656,7 +3653,7 @@ ra_info_add_reg_refs (ra_info, insn, refs)
     {
       regno = RA_REF_REGNO (link->ref);
       if (regno >= ra_info->reg_size)
-	ra_reg_table_realloc (ra_info, 0);
+	ra_reg_table_realloc (ra_info, regno);
 
       if (!RA_REG_REFS (ra_info, regno))
 	{
@@ -3674,7 +3671,7 @@ ra_info_add_reg_refs (ra_info, insn, refs)
     {
       regno = RA_REF_REGNO (link->ref);
       if (regno >= ra_info->reg_size)
-	ra_reg_table_realloc (ra_info, 0);
+	ra_reg_table_realloc (ra_info, regno);
 
       if (!RA_REG_REFS (ra_info, regno))
 	{
@@ -3895,7 +3892,7 @@ pre_reload (ra_info, modified)
 	     }
 	 });
       if (max >= ra_info->insn_size)
-	ra_insn_table_realloc (ra_info, 0);
+	ra_insn_table_realloc (ra_info, max);
     }
   pre_reload_collect (ra_info, modified);
 }
@@ -3908,16 +3905,15 @@ pre_reload_collect (ra_info, modified)
 {
   rtx insn;
   int cnt;
-  int i;
+  basic_block bb;
 
   ra_ref *def_refs[(sizeof (ra_ref *)
 		    * MAX_RECOG_OPERANDS * MAX_REGS_PER_ADDRESS + 1)];
   ra_ref *use_refs[(sizeof (ra_ref *)
 		    * MAX_RECOG_OPERANDS * MAX_REGS_PER_ADDRESS + 1)];
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       for (insn = bb->head;
 	   insn && PREV_INSN (insn) != bb->end;
 	   insn = NEXT_INSN (insn))
@@ -3987,9 +3983,19 @@ pre_reload_collect (ra_info, modified)
 	    }
 	  /* Keep basic block info up to date.  */
 	  if (bb->head == orig_insn)
-	    bb->head = NEXT_INSN (prev);
+	    {
+	      if (prev)
+		bb->head = NEXT_INSN (prev);
+	      else
+		bb->head = get_insns ();
+	    }
 	  if (bb->end == orig_insn)
-	    bb->end = PREV_INSN (next);
+	    {
+	      if (next)
+		bb->end = PREV_INSN (next);
+	      else
+		bb->end = get_last_insn ();
+	    }
 	}
     }
 
