@@ -1675,6 +1675,8 @@ static void
 set_debug_level (enum debug_info_type type, int extended, const char *arg)
 {
   static bool type_explicit;
+/* APPLE LOCAL Symbol Separation */
+  int g_all_len = 0;
 
   use_gnu_debug_info_extensions = extended;
 
