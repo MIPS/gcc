@@ -2643,7 +2643,8 @@ do {							\
       return 3;							\
     if (TARGET_64BIT && !x86_64_zero_extended_value (RTX))	\
       return 2;							\
-    return flag_pic && SYMBOLIC_CONST (RTX) ? 1 : 0;		\
+    return flag_pic && SYMBOLIC_CONST (RTX)			\
+	   && (!TARGET_64BIT || (GET_CODE (RTX) != LABEL_REF && (GET_CODE (RTX) != SYMBOL_REF || !SYMBOL_REF_FLAG (RTX)))) ? 1 : 0;\
 								\
   case CONST_DOUBLE:						\
     if (GET_MODE (RTX) == VOIDmode)				\
@@ -2657,7 +2658,7 @@ do {							\
       default:							\
 	/* Start with (MEM (SYMBOL_REF)), since that's where	\
 	   it'll probably end up.  Add a penalty for size.  */	\
-	return (COSTS_N_INSNS (1) + (flag_pic != 0)		\
+	return (COSTS_N_INSNS (1) + (flag_pic != 0 && !TARGET_64BIT) \
 		+ (GET_MODE (RTX) == SFmode ? 0			\
 		   : GET_MODE (RTX) == DFmode ? 1 : 2));	\
       }

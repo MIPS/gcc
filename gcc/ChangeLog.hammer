@@ -1,7 +1,13 @@
+Tue Mar 25 20:57:40 CET 2003  Jan Hubicka <jh@suse.cz>
+
+	* i386.h (RTX_COST): Fix for -fpic.
+	* i386.c (k8_avoid_jump_misspredicts): Fix.
+
 Mon Mar 24 00:07:19 CET 2003  Jan Hubicka  <jh@suse.cz.
 
 	* i386.md (align): New pattern.
 	* i386.c (min_insn_size, k8_avoid_jump_misspredicts): New functions.
+
 Fri Mar 21 19:35:07 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline:
