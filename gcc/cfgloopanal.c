@@ -935,7 +935,11 @@ mark_irreducible_loops (loops)
 	           ? e->dest->loop_father->num + last_basic_block
 	           : e->dest->index + 1;
           if (closed[sidx])
-	    continue;
+	    {
+	      if (mr[sidx] < mr[idx])
+		mr[idx] = mr[sidx];
+	      continue;
+	    }
 	  if (dfs_in[sidx] < 0)
 	    {
 	      stack[stack_top++] = sidx;

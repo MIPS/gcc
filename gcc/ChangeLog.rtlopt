@@ -1,3 +1,7 @@
+2002-12-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloopanal.c (mark_irreducible_loops): Fix.
+
 Sat Dec  7 19:42:20 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
 
 	* bb-reorder.c (array_size): New variable.
