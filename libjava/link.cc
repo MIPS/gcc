@@ -37,6 +37,7 @@ details.  */
 #include <java/lang/VerifyError.h>
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
+#include <java/security/CodeSource.h>
 
 using namespace gcj;
 
@@ -1654,6 +1655,39 @@ _Jv_Linker::verify_type_assertions (jclass klass)
     }
 }
    
+void
+_Jv_Linker::print_class_loaded (jclass klass)
+{
+  char *codesource = NULL;
+  if (klass->protectionDomain != NULL)
+    {
+      java::security::CodeSource *cs
+	= klass->protectionDomain->getCodeSource();
+      if (cs != NULL)
+	{
+	  jstring css = cs->toString();
+	  int len = JvGetStringUTFLength(css);
+	  codesource = (char *) _Jv_AllocBytes(len + 1);
+	  JvGetStringUTFRegion(css, 0, css->length(), codesource);
+	  codesource[len] = '\0';
+	}
+    }
+  if (codesource == NULL)
+    codesource = "<no code source>";
+
+  // We use a somewhat bogus test for the ABI here.
+  char *abi;
+  if (_Jv_IsInterpretedClass (klass))
+    abi = "bytecode";
+  else if (klass->state == JV_STATE_PRELOADING)
+    abi = "BC-compiled";
+  else
+    abi = "pre-compiled";
+
+  fprintf (stderr, "[Loaded (%s) %s from %s]\n", abi, klass->name->chars(),
+	   codesource);
+}
+
 // FIXME: mention invariants and stuff.
 void
 _Jv_Linker::wait_for_state (jclass klass, int state)
@@ -1681,11 +1715,7 @@ _Jv_Linker::wait_for_state (jclass klass, int state)
       && (klass->state == JV_STATE_COMPILED
 	  || klass->state == JV_STATE_PRELOADING)
       && ! _Jv_IsInterpretedClass (klass))
-    // We use a somewhat bogus test for the ABI here.
-    fprintf (stderr, "[Loaded (%s) %s]\n",
-	     (klass->state == JV_STATE_PRELOADING ? "BC-compiled"
-	      : "pre-compiled"),
-	     klass->name->chars());
+    print_class_loaded (klass);
 
   try
     {

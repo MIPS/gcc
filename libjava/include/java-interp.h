@@ -36,7 +36,8 @@ _Jv_IsInterpretedClass (jclass c)
 struct _Jv_ResolvedMethod;
 
 void _Jv_InitInterpreter ();
-void _Jv_DefineClass (jclass, jbyteArray, jint, jint);
+void _Jv_DefineClass (jclass, jbyteArray, jint, jint,
+		      java::security::ProtectionDomain *);
 
 void _Jv_InitField (jobject, jclass, int);
 void * _Jv_AllocMethodInvocation (jsize size);

@@ -88,7 +88,7 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 
       try
 	{
-	  _Jv_DefineClass (klass, data, offset, length);
+	  _Jv_DefineClass (klass, data, offset, length, pd);
 	}
       catch (java::lang::Throwable *ex)
 	{
@@ -101,8 +101,6 @@ java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *loader,
 	  // account for the possibility in defineClass().
 	  throw ex;
 	}
-
-      klass->protectionDomain = pd;
 
       // if everything proceeded sucessfully, we're loaded.
       JvAssert (klass->state == JV_STATE_LOADED);

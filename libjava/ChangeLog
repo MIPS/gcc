@@ -1,3 +1,17 @@
+2004-11-16  Tom Tromey  <tromey@redhat.com>
+
+	* include/java-interp.h (_Jv_DefineClass): Updated.
+	* java/lang/natVMClassLoader.cc (defineClass): Pass protection
+	domain to class reader.
+	* defineclass.cc (parse): Use print_class_loaded.
+	Include ProtectionDomain.h.
+	(_Jv_DefineClass): Added ProtectionDomain argument.
+	(_Jv_ClassReader): Likewise.
+	* include/jvm.h (_Jv_Linker::print_class_loaded): Declare.
+	* link.cc: Include CodeSource.h.
+	(print_class_loaded): New function.
+	(wait_for_state): Use it.
+
 2004-11-16  Andrew Haley  <aph@redhat.com>
 
 	* gnu/gcj/util/Debug.java (print): Add RawDataManaged.

@@ -39,6 +39,7 @@ details.  */
 #include <java/lang/ClassCircularityError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
+#include <java/security/ProtectionDomain.h>
 
 using namespace gcj;
 
@@ -217,7 +218,8 @@ struct _Jv_ClassReader {
       throw_class_format_error ("erroneous type descriptor");
   }
 
-  _Jv_ClassReader (jclass klass, jbyteArray data, jint offset, jint length)
+  _Jv_ClassReader (jclass klass, jbyteArray data, jint offset, jint length,
+		   java::security::ProtectionDomain *pd)
   {
     if (klass == 0 || length < 0 || offset+length > data->length)
       throw_internal_error ("arguments to _Jv_DefineClass");
@@ -230,6 +232,7 @@ struct _Jv_ClassReader {
     def->size_in_bytes = -1;
     def->vtable_method_count = -1;
     def->engine = &_Jv_soleInterpreterEngine;
+    def->protectionDomain = pd;
   }
 
   /** and here goes the parser members defined out-of-line */
@@ -276,9 +279,10 @@ struct _Jv_ClassReader {
 };
 
 void
-_Jv_DefineClass (jclass klass, jbyteArray data, jint offset, jint length)
+_Jv_DefineClass (jclass klass, jbyteArray data, jint offset, jint length,
+		 java::security::ProtectionDomain *pd)
 {
-  _Jv_ClassReader reader (klass, data, offset, length);
+  _Jv_ClassReader reader (klass, data, offset, length, pd);
   reader.parse();
 
   /* that's it! */
@@ -346,7 +350,7 @@ _Jv_ClassReader::parse ()
   // Tell everyone we're done.
   def->state = JV_STATE_READ;
   if (gcj::verbose_class_flag)
-    fprintf (stderr, "[Loaded (bytecode) %s]\n", def->name->chars());
+    _Jv_Linker::print_class_loaded (def);
   def->notifyAll ();
 }
 
@@ -851,8 +855,7 @@ _Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag)
 
 
 void
-_Jv_ClassReader::handleClassBegin
-  (int access_flags, int this_class, int super_class)
+_Jv_ClassReader::handleClassBegin (int access_flags, int this_class, int super_class)
 {
   using namespace java::lang::reflect;
 
