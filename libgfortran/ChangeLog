@@ -1,5 +1,12 @@
 2004-04-01  Bud Davis  <bdavis9659@comcast.net>
 
+	PR 14746
+	* io/read.c (read_f): Allow a decimal without a leading digit.
+	* io/write.c (output_float): remove a leading '0' to keep from
+	overflowing the field (F edit descriptor).
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
 	PR gfortran/14565
 	* io/open.c (new_unit),
 	* io/io.h : new_unit is now visible

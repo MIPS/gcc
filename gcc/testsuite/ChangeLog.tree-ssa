@@ -1,5 +1,10 @@
 2004-04-01  Bud Davis  <bdavis9659@comcast.net>
 
+	PR 14746
+	* gfortran.fortran-torture/execute/f2_edit_1.f90: New test.
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
 	PR gfortran/14565
 	* gfortran.fortran-torture/execute/unopened_unit_1.f90: New test.
 
