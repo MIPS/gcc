@@ -1266,6 +1266,12 @@ common_handle_option (size_t scode, const char *arg,
     default:
       abort ();
 
+    /* APPLE LOCAL begin fat */
+    case OPT_arch:
+      /* Ignore for now. */
+      break;
+    /* APPLE LOCAL end fat */
+
     case OPT__help:
       print_help ();
       exit_after_options = true;

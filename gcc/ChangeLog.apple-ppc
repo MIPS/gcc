@@ -1,5 +1,9 @@
 2004-05-12  Devang Patel  <dpatel@apple.com>
 
+	* opts.c (common_handle_option): Handle OPT_arch.
+
+2004-05-12  Devang Patel  <dpatel@apple.com>
+
 	* config/darwin.h (darwin_builtins): Move to ...
 	* config/darwin.c (darwin_builtins); here.
 
