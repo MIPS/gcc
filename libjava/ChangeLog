@@ -1,5 +1,11 @@
 2004-06-09  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicSplitPaneDivider.java
+	(positionForMouseEvent): Removed redundant semicolon.
+	(continueDrag): Use method arguments.
+
+2004-06-09  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/border/TitledBorder.java,
 	javax/swing/filechooser/FileSystemView.java,
 	javax/swing/plaf/basic/BasicButtonListener.java,
