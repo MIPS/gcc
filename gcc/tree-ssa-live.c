@@ -1604,6 +1604,11 @@ coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map,
 			conflict_graph_merge_regs (graph, v, y);
 			p1 = v;
 		      }
+
+		    /* The root variable of the partition may be changed
+		       now.  */
+		    var = partition_to_var (map, p1);
+
 		    if (debug)
 		      fprintf (debug, ": Success -> %d\n", v);
 		  }

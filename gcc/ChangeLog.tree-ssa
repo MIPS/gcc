@@ -1,3 +1,8 @@
+2004-03-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-live.c (coalesce_tpa_members): Update the root
+	variable of the partition.
+
 2004-03-04  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dce.c (remove_dead_stmt): Redirect an existing edge
