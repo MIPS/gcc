@@ -9183,6 +9183,7 @@ ix86_expand_int_movcc (operands)
       HOST_WIDE_INT diff;
       enum machine_mode cmovmode = mode;
 
+#if 0
       /* Promote OUT into SImode to avoid extra prefix operations.
          Since we can generate minus and neg, we can't rely on insn splitting
 	 to do the job.  */
@@ -9190,6 +9191,7 @@ ix86_expand_int_movcc (operands)
 	  && !TARGET_PARTIAL_REG_STALL
 	  && (REG_P (out) || GET_CODE (out) == SUBREG))
 	out = gen_lowpart (SImode, out), cmovmode = SImode;
+#endif
 
       diff = ct - cf;
       /*  Sign bit compares are better done using shifts than we do by using
