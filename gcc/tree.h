@@ -2551,12 +2551,6 @@ extern tree make_tree_vec (int);
 
 extern tree make_phi_node (tree, int);
 extern void resize_phi_node (tree *, int);
-extern void init_phinodes (void);
-extern void fini_phinodes (void);
-extern void release_phi_node (tree);
-#ifdef GATHER_STATISTICS
-extern void phinodes_print_statistics (void);
-#endif
 
 extern void init_ssanames (void);
 extern void fini_ssanames (void);

@@ -916,6 +916,237 @@ add_call_read_ops (tree stmt, voperands_t prev_vops)
     }
 }
 
+/* Create a new PHI node for variable VAR at basic block BB.  */
+
+tree
+create_phi_node (tree var, basic_block bb)
+{
+  tree phi;
+  bb_ann_t ann;
+
+  phi = make_phi_node (var, bb_ann (bb)->num_preds);
+
+  /* This is a new phi node, so note that is has not yet been
+     rewritten. */
+  PHI_REWRITTEN (phi) = 0;
+
+  /* Add the new PHI node to the list of PHI nodes for block BB.  */
+  ann = bb_ann (bb);
+  TREE_CHAIN (phi) = ann->phi_nodes;
+  ann->phi_nodes = phi;
+
+  /* Associate BB to the PHI node.  */
+  set_bb_for_stmt (phi, bb);
+
+  return phi;
+}
+
+
+/* Add a new argument to PHI node PHI.  DEF is the incoming reaching
+   definition and E is the edge through which DEF reaches PHI.  The new
+   argument is added at the end of the argument list.
+   If PHI has reached its maximum capacity, add a few slots.  In this case,
+   PHI points to the reallocated phi node when we return.  */
+
+void
+add_phi_arg (tree *phi, tree def, edge e)
+{
+  int i = PHI_NUM_ARGS (*phi);
+
+  if (i >= PHI_ARG_CAPACITY (*phi))
+    {
+      /* Resize the phi.  Unfortunately, this also relocates it...  */
+      bb_ann_t ann = bb_ann (e->dest);
+      tree old_phi = *phi;
+
+      resize_phi_node (phi, i + 4);
+
+      /* The result of the phi is defined by this phi node.  */
+      SSA_NAME_DEF_STMT (PHI_RESULT (*phi)) = *phi;
+
+      /* Update the list head if replacing the first listed phi.  */
+      if (ann->phi_nodes == old_phi)
+	ann->phi_nodes = *phi;
+      else
+	{
+          /* Traverse the list looking for the phi node to chain to.  */
+	  tree p;
+	  for (p = ann->phi_nodes;
+	       p && TREE_CHAIN (p) != old_phi;
+	       p = TREE_CHAIN (p));
+
+	  if (!p)
+	    abort ();
+
+	  TREE_CHAIN (p) = *phi;
+	}
+    }
+
+  /* Copy propagation needs to know what object occur in abnormal
+     PHI nodes.  This is a convenient place to record such information.  */
+  if (e->flags & EDGE_ABNORMAL)
+    {
+      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def) = 1;
+      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (*phi)) = 1;
+    }
+
+  PHI_ARG_DEF (*phi, i) = def;
+  PHI_ARG_EDGE (*phi, i) = e;
+  PHI_NUM_ARGS (*phi)++;
+}
+
+
+/* Remove a PHI argument from PHI.  BLOCK is the predecessor block where
+   the PHI argument is coming from.  */
+
+void
+remove_phi_arg (tree phi, basic_block block)
+{
+  int i, num_elem = PHI_NUM_ARGS (phi);
+
+  for (i = 0; i < num_elem; i++)
+    {
+      basic_block src_bb;
+
+      src_bb = PHI_ARG_EDGE (phi, i)->src;
+
+      if (src_bb == block)
+	{
+	  remove_phi_arg_num (phi, i);
+	  return;
+	}
+    }
+}
+
+
+/* Remove the Ith argument from PHI's argument list.  This routine assumes
+   ordering of alternatives in the vector is not important and implements
+   removal by swapping the last alternative with the alternative we want to
+   delete, then shrinking the vector.  */
+
+void
+remove_phi_arg_num (tree phi, int i)
+{
+  int num_elem = PHI_NUM_ARGS (phi);
+
+  /* If we are not at the last element, switch the last element
+     with the element we want to delete.  */
+  if (i != num_elem - 1)
+    {
+      PHI_ARG_DEF (phi, i) = PHI_ARG_DEF (phi, num_elem - 1);
+      PHI_ARG_EDGE (phi, i) = PHI_ARG_EDGE (phi, num_elem - 1);
+    }
+
+  /* Shrink the vector and return.  */
+  PHI_ARG_DEF (phi, num_elem - 1) = NULL_TREE;
+  PHI_ARG_EDGE (phi, num_elem - 1) = NULL;
+  PHI_NUM_ARGS (phi)--;
+
+  /* If we removed the last PHI argument, then go ahead and
+     remove the PHI node.  */
+  if (PHI_NUM_ARGS (phi) == 0)
+    remove_phi_node (phi, NULL, bb_for_stmt (phi));
+}
+
+
+/* Remove PHI node PHI from basic block BB.  If PREV is non-NULL, it is
+   used as the node immediately before PHI in the linked list.  */
+
+void
+remove_phi_node (tree phi, tree prev, basic_block bb)
+{
+  if (prev)
+    {
+      /* Rewire the list if we are given a PREV pointer.  */
+      TREE_CHAIN (prev) = TREE_CHAIN (phi);
+
+      /* If we are deleting the PHI node, then we should release the
+	 SSA_NAME node so that it can be reused.  */
+      release_ssa_name (PHI_RESULT (phi));
+    }
+  else if (phi == phi_nodes (bb))
+    {
+      /* Update the list head if removing the first element.  */
+      bb_ann_t ann = bb_ann (bb);
+      ann->phi_nodes = TREE_CHAIN (phi);
+
+      /* If we are deleting the PHI node, then we should release the
+	 SSA_NAME node so that it can be reused.  */
+      release_ssa_name (PHI_RESULT (phi));
+    }
+  else
+    {
+      /* Traverse the list looking for the node to remove.  */
+      tree prev, t;
+      prev = NULL_TREE;
+      for (t = phi_nodes (bb); t && t != phi; t = TREE_CHAIN (t))
+	prev = t;
+      if (t)
+	remove_phi_node (t, prev, bb);
+    }
+}
+
+
+/* Remove all the PHI nodes for variables in the VARS bitmap.  */
+
+void
+remove_all_phi_nodes_for (sbitmap vars)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      /* Build a new PHI list for BB without variables in VARS.  */
+      tree phi, new_phi_list, last_phi;
+      bb_ann_t ann = bb_ann (bb);
+
+      last_phi = new_phi_list = NULL_TREE;
+      for (phi = ann->phi_nodes; phi; phi = TREE_CHAIN (phi))
+	{
+	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
+
+	  /* Only add PHI nodes for variables not in VARS.  */
+	  if (!TEST_BIT (vars, var_ann (var)->uid))
+	    {
+	      /* If we're not removing this PHI node, then it must have
+		 been rewritten by a previous call into the SSA rewriter.
+		 Note that fact in PHI_REWRITTEN.  */
+	      PHI_REWRITTEN (phi) = 1;
+
+	      if (new_phi_list == NULL_TREE)
+		new_phi_list = last_phi = phi;
+	      else
+		{
+		  TREE_CHAIN (last_phi) = phi;
+		  last_phi = phi;
+		}
+	    }
+	  else
+	    {
+	      /* If we are deleting the PHI node, then we should release the
+		 SSA_NAME node so that it can be reused.  */
+	      release_ssa_name (PHI_RESULT (phi));
+	    }
+	}
+
+      /* Make sure the last node in the new list has no successors.  */
+      if (last_phi)
+	TREE_CHAIN (last_phi) = NULL_TREE;
+      ann->phi_nodes = new_phi_list;
+
+#if defined ENABLE_CHECKING
+      for (phi = ann->phi_nodes; phi; phi = TREE_CHAIN (phi))
+	{
+	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
+	  if (TEST_BIT (vars, var_ann (var)->uid))
+	    abort ();
+	}
+#endif
+    }
+}
+
+
+
 /*---------------------------------------------------------------------------
 			Dataflow analysis (DFA) routines
 ---------------------------------------------------------------------------*/
