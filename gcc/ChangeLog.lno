@@ -1,3 +1,21 @@
+2004-01-26  Dorit Naishlos <dorit@il.ibm.com>
+
+	* Makefile.in: (tree-vectorizer.o): Remove dependency on real.h.
+	* tree-vectorizer.c: (real.h): Remove included file.
+        (vect_get_vec_def_for_operand): No need to explicitly use build_int_2
+        and build_real.
+
+        (vect_transform_loop_bound): Create loop IV update at loop exit
+        block, following changes in loop control.
+
+        (vectorize_loops): Remove debug printout.
+
+        * config/rs6000/altivec.md: (*movv4si_internal): More complex 
+        condition.
+        (*movv8hi_internal1): Likewise.
+        (*movv16qi_internal1): Likewise.
+        (*movv4sf_internal1): Likewise.
+
 2004-01-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-ivopts.c (determine_set_costs): Do not use

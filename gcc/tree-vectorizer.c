@@ -144,7 +144,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-fold-const.h"
 #include "expr.h"
 #include "optabs.h"
-#include "real.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
@@ -891,15 +890,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
         fprintf (tree_dump_file, "\nCreate vector_cst.\n");
       for (i = nunits - 1; i >= 0; --i)
         { 
-          tree elt;
-	  /* CHECKME */
-	  if (TREE_CODE (op) == INTEGER_CST)
-	    elt = build_int_2 (TREE_INT_CST_LOW (op), TREE_INT_CST_HIGH (op));
-	  else
-	    elt = build_real (TREE_TYPE (op),
-                          real_value_truncate (TYPE_MODE (TREE_TYPE (op)),
-                                               TREE_REAL_CST (op))); 
-          t = tree_cons (NULL_TREE, elt, t);
+	  t = tree_cons (NULL_TREE, op, t);
         }
       vec_cst = build_vector (vectype, t);
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -1207,7 +1198,6 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   edge exit_edge = loop_exit_edge (loop, 0);
   block_stmt_iterator loop_exit_bsi = bsi_last (exit_edge->src);
-  block_stmt_iterator loop_latch_bsi = bsi_last (loop->latch);
   block_stmt_iterator pre_header_bsi;
   tree orig_cond_expr;
   int old_N, vf;
@@ -1254,7 +1244,7 @@ vect_transform_loop_bound (loop_vec_info loop_vinfo)
   step_stmt = build (MODIFY_EXPR, unsigned_intSI_type_node, new_indx,
                         build (PLUS_EXPR, unsigned_intSI_type_node,
 			TREE_OPERAND (init_stmt, 0), integer_one_node));
-  bsi_insert_after (&loop_latch_bsi, step_stmt, BSI_SAME_STMT);
+  bsi_insert_before (&loop_exit_bsi, step_stmt, BSI_SAME_STMT);   
 
 
   /* new loop exit test:  */
@@ -2925,12 +2915,6 @@ vectorize_loops (struct loops *loops,
 		 "vectorizer: target vector size is not defined.\n");
       return;
     }
-
-#if 0
-  if (tree_dump_file)
-    dump_function_to_file (fndecl, dump_file, 
-	~(TDF_RAW | TDF_SLIM | TDF_LINENO));
-#endif
 
   /*  ----------- Analyze loops. -----------  */
   /* CHECKME */
