@@ -1,3 +1,8 @@
+2004-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.md (addqi_1_slp): Test for incdec_operand
+	operand 1 instead of 2
+
 2004-10-08  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* config/s390/s390.c (s390_register_info): Don't save fprs for

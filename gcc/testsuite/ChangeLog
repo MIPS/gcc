@@ -1,3 +1,7 @@
+2004-10-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20041018-1.c: New test.
+
 2004-09-27  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/17585
