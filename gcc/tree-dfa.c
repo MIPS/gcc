@@ -1,5 +1,5 @@
 /* Data flow functions for trees.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -1918,8 +1918,8 @@ dump_alias_info (file)
   if (alias_sets == NULL)
     return;
 
-  fprintf (file, "\nAlias information for %s: %d sets\n\n",
-	   current_function_name, VARRAY_ACTIVE_SIZE (alias_sets));
+  fprintf (file, "\nAlias information for %s: %ld sets\n\n",
+	   current_function_name, (long) VARRAY_ACTIVE_SIZE (alias_sets));
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
     {

@@ -1,3 +1,7 @@
+2003-02-12  Andreas Jaeger  <aj@suse.de>
+
+	* tree-dfa.c (dump_alias_info): Cast variable of size_t properly.
+
 2003-02-12  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (find_may_aliases_for): Remove
@@ -36,7 +40,7 @@
 	entries gets large (32), compute global life information and
 	use that to further pruned the number of PHI insertion points
 	necessary.
-	
+
 2003-02-09  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_vars_r): Assume that the RHS of an INDIRECT_REF,
@@ -137,9 +141,9 @@
 	(first_stmt, last_stmt, last_stmt_ptr): Use bsi_ not gsi_ routines.
 	(bsi_init): Split out from bsi_start.
 	(bsi_start): Renamed from gsi_start_bb, use bsi_ routines.
-	(bsi_next_in_bb): Moved from tree-flow-inline.h and renamed from 
+	(bsi_next_in_bb): Moved from tree-flow-inline.h and renamed from
 	gsi_step_in_bb. Also verify BB of new stmt.
-	* tree-dfa.c (compute_immediate_uses, dump_immediate_uses, 
+	* tree-dfa.c (compute_immediate_uses, dump_immediate_uses,
 	collect_dfa_stats, compute_may_aliases): Use block_stmt_iterator.
 	* tree-flow-inline.h (gsi_step_in_bb): Moved to tree-cfg.c
 	(bsi_end_p): Renamed from gsi_end_bb_p.
@@ -206,7 +210,7 @@
 2003-02-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_vars_r): Share INDIRECT_REF nodes whose operand
-	is a VAR_DECL.  
+	is a VAR_DECL.
 	(add_referenced_var): Add additional argument 'sym'.  Update all users.
 	Don't call get_base_symbol.
 	(add_indirect_ref_var): Rename argument 'var' to 'ptr'.
@@ -313,9 +317,9 @@
 	(SSA_VAR_P): Also accept SSA_NAME nodes.
 
 2003-02-01  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* Makefile.in (tree-ssa-pre2.o): Remove accidental addition.
-	
+
 2003-01-31  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (find_taken_edge_cond_expr): New function.
@@ -360,7 +364,7 @@
 	new arguments to may_alias_p.
 
 2003-01-30  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	Remove all traces of steensgaard's algorithm.
 	* tree-alias-steen.c: Removed.
 	* tree-alias-steen.h: Ditto.
@@ -370,14 +374,14 @@
 	* disjoint-set.h: Ditto.
 	* Makefile.in: Remove removed files.
 	* c-config-lang.in: Ditto.
-	* gengtype.c: Ditto.	
+	* gengtype.c: Ditto.
 	* tree-alias-common.c: Don't use steen_alias_ops anymore.
 	* toplev.c: Remove help text and steen option.
 	* tree-alias-common.h: Remove PTA_STEEN.
 	* tree-alias-type.c: Remove all steensgaard related types and
 	functions.
 	* tree-alias-type.h: Ditto.
-	
+
 2003-01-30  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (struct cfg_stats_d): New.
@@ -421,7 +425,7 @@
 	the current indirect_ref.  Caller updated.
 	(num_indirect_refs, num_addressable_vars): New variables.
 	(indirect_refs, addressable_vars): New varrays.
-	(dump_dfa_status): Dump info on the indirect refs and 
+	(dump_dfa_status): Dump info on the indirect refs and
 	addressable vars.
 	(dump_alias_info): Similarly.
 	(compute_may_aliases): Initialize and finalize the new virtual
@@ -749,7 +753,7 @@
 	(need_to_preserve_store): Preserve stores to volatile variables.
 	(tree_ssa_dce): Rename from tree_ssa_eliminate_dead_code.  Update
 	all users.
-	
+
 	* tree-ssa.c: Update copyright notice.
 	Change basic algorithm to rewrite the function into SSA form
 	instead of building factored use-def chains.
@@ -875,7 +879,7 @@
 
 2003-01-22  Jeff Law <law@redhat.com>
 
- 	* tree-cfg.c (make_goto_expr_edges): Check the underlying
+	* tree-cfg.c (make_goto_expr_edges): Check the underlying
 	LABEL_DECL, not the LABEL_EXPR for FORCED_LABEL and NONLOCAL_LABEL.
 
 	* gimplify.c (simplify_expr, case GOTO_EXPR): Identify and mark
@@ -929,10 +933,10 @@
 
 2003-01-16  Daniel Berlin  <dan@dberlin.org>
 
-	* Remove dead PRE code.	
+	* Remove dead PRE code.
 	* tree-ssa-pre.c (tree_perform_ssapre): Collect left occurrences and
 	kills *after* finishing collecting all expressions.
-	
+
 2003-01-15  Jeff Law <law@redhat.com>
 
 	* Death to WFL nodes.
@@ -993,7 +997,7 @@
 	(TREE_LOCUS, TREE_FILENAME, TREE_LINENO): new.
 	(annotate_with_file_line): Renamed from build_expr_wfl.
 
-	* objc/objc-act.c: Use TREE_FILENAME and TREE_LINENO to 
+	* objc/objc-act.c: Use TREE_FILENAME and TREE_LINENO to
 	extract file/line information from tree nodes.
 
 2003-01-14  Frank Ch. Eigler  <fche@redhat.com>
@@ -1063,7 +1067,7 @@
 
 	* gimplify.c (simplify_function_tree): Add an outer BIND_EXPR if
 	needed.
-	(voidify_wrapper_expr): Not static.  Abort if we try to voidify an 
+	(voidify_wrapper_expr): Not static.  Abort if we try to voidify an
 	expression with TREE_ADDRESSABLE type.  Be clever with INDIRECT_REFs.
 	(foreach_stmt): Avoid redundant work.
 	(create_tmp_var): Abort if we try to create a temp of ADDRESSABLE type.
@@ -1099,7 +1103,7 @@
 	* except.h: Declare expand_eh_handler.
 	* expr.c (expand_expr) [TRY_CATCH_EXPR]: Use it.
 	[CATCH_EXPR, EH_FILTER_EXPR]: New cases.
-	* gimplify.c (simplify_expr) [EXC_PTR_EXPR, CATCH_EXPR, 
+	* gimplify.c (simplify_expr) [EXC_PTR_EXPR, CATCH_EXPR,
 	EH_FILTER_EXPR]: New cases.
 	(gimple_build_eh_filter): New fn.
 	(maybe_protect_cleanup): New fn.
@@ -1139,7 +1143,7 @@
 	set in stone, and thus, not documented).
 	(decode_f_option): Add warning if andersen's PTA is selected but
 	not compiled in.
-	
+
 	* flags.h: Add flag_ip.
 
 	* tree-alias-ander.c: Fix todo.
@@ -1183,7 +1187,7 @@
 	(steen_function_call): Update definition and return 1.
 
 	* tree-dfa.c (compute_may_aliases): Call create_alias_vars with
-	current_function_decl. 
+	current_function_decl.
 
 	* tree-flow.h (create_alias_vars): Remove proto from here, it's
 	in tree-alias-common.h.
@@ -1194,7 +1198,7 @@
 
 	* tree-ssa-pre.c: Remove dead, #if 0'd code.
 	(tree_perform_ssapre): Use passed in tree.
-	
+
 2002-12-23  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mf_decl_cache_locals, mf_decl_clear_locals): New
@@ -1380,7 +1384,7 @@
 
 2002-12-02  Andrew MacLeod  <amacleod@redhat.com>
 
-	* gimplify.c (simplify_cleanup_point_expr): gsi_stmt can return NULL, 
+	* gimplify.c (simplify_cleanup_point_expr): gsi_stmt can return NULL,
 	use gsi_end.
 	* tree-cfg.c (make_blocks): Use gsi_end, gsi_stmt can return NULL. Set
 	basic_block for empty_stmt_node containers.
@@ -1423,7 +1427,7 @@
 
 	* tree-ssa-pre.c (okay_injuring_def): inj could be null.
 	(get_operand):  Use instead of special casing INDIRECT_REF and
-	COMPONENT_REF everywhere. 
+	COMPONENT_REF everywhere.
 	(names_match_p): Fix.
 	(defs_match_p): Ignore partial uses.
 	(rename_2): Fix non-matching condition.
@@ -1440,7 +1444,7 @@
 	(tree_perform_ssapre): Add new processed array, since for left
 	occurrences and kills, we need to process *all* statements, not
 	just ones we might consider candiates for PRE.
-	
+
 2002-12-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_refs_in_expr): Look for references in
