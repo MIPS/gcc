@@ -43,6 +43,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "except.h"
 #include "ggc.h"
+#include "tree-simple.h"
 
 static void flush_quick_stack (void);
 static void push_value (tree);
@@ -70,6 +71,8 @@ static void expand_compare (enum tree_code, tree, tree, int);
 static void expand_test (enum tree_code, tree, int);
 static void expand_cond (enum tree_code, tree, int);
 static void expand_java_goto (int);
+static tree expand_java_switch (tree, int);
+static void expand_java_add_case (tree, int, int);
 #if 0
 static void expand_java_call (int, int);
 static void expand_java_ret (tree); 
@@ -1638,6 +1641,42 @@ expand_java_goto (int target_pc)
   java_add_stmt (build  (GOTO_EXPR, void_type_node, target_label));
 }
 
+static tree
+expand_java_switch (tree selector, int default_pc)
+{
+  tree switch_expr, x;
+
+  flush_quick_stack ();
+  switch_expr = build (SWITCH_EXPR, TREE_TYPE (selector), selector,
+		       NULL_TREE, NULL_TREE);
+  java_add_stmt (switch_expr);
+
+  x = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE,
+	     create_artificial_label ());
+  add_tree (x, &SWITCH_BODY (switch_expr));
+
+  x = build (GOTO_EXPR, void_type_node, lookup_label (default_pc));
+  add_tree (x, &SWITCH_BODY (switch_expr));
+
+  return switch_expr;
+}
+
+static void
+expand_java_add_case (tree switch_expr, int match, int target_pc)
+{
+  tree value, x;
+
+  value = build_int_2 (match, match < 0 ? -1 : 0);
+  TREE_TYPE (value) = TREE_TYPE (switch_expr);
+  
+  x = build (CASE_LABEL_EXPR, void_type_node, value, NULL_TREE,
+	     create_artificial_label ());
+  add_tree (x, &SWITCH_BODY (switch_expr));
+
+  x = build (GOTO_EXPR, void_type_node, lookup_label (target_pc));
+  add_tree (x, &SWITCH_BODY (switch_expr));
+}
+
 #if 0
 static void
 expand_java_call (int target_pc, int return_address)
@@ -3021,46 +3060,24 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
 #define LOOKUP_SWITCH \
   { jint default_offset = IMMEDIATE_s4;  jint npairs = IMMEDIATE_s4; \
     tree selector = pop_value (INT_type_node); \
-    tree duplicate, label; \
-    tree type = TREE_TYPE (selector); \
-    flush_quick_stack (); \
-    expand_start_case (0, selector, type, "switch statement");\
+    tree switch_expr = expand_java_switch (selector, oldpc + default_offset); \
     while (--npairs >= 0) \
       { \
 	jint match = IMMEDIATE_s4; jint offset = IMMEDIATE_s4; \
-	tree value = build_int_2 (match, match < 0 ? -1 : 0); \
-	TREE_TYPE (value) = type; \
-	label =  build_decl (LABEL_DECL, NULL_TREE, NULL_TREE); \
-	pushcase (value, convert, label, &duplicate); \
-	expand_java_goto (oldpc + offset); \
+	expand_java_add_case (switch_expr, match, oldpc + offset); \
       } \
-    label =  build_decl (LABEL_DECL, NULL_TREE, NULL_TREE); \
-    pushcase (NULL_TREE, 0, label, &duplicate); \
-    expand_java_goto (oldpc + default_offset); \
-    expand_end_case (selector); \
   }
 
 #define TABLE_SWITCH \
   { jint default_offset = IMMEDIATE_s4; \
     jint low = IMMEDIATE_s4; jint high = IMMEDIATE_s4; \
     tree selector = pop_value (INT_type_node); \
-    tree duplicate, label; \
-    tree type = TREE_TYPE (selector); \
-    flush_quick_stack (); \
-    expand_start_case (0, selector, type, "switch statement");\
+    tree switch_expr = expand_java_switch (selector, oldpc + default_offset); \
     for (; low <= high; low++) \
       { \
         jint offset = IMMEDIATE_s4; \
-        tree value = build_int_2 (low, low < 0 ? -1 : 0); \
-        TREE_TYPE (value) = type; \
-        label =  build_decl (LABEL_DECL, NULL_TREE, NULL_TREE); \
-        pushcase (value, convert, label, &duplicate); \
-        expand_java_goto (oldpc + offset); \
+	expand_java_add_case (switch_expr, low, oldpc + offset); \
       } \
-    label =  build_decl (LABEL_DECL, NULL_TREE, NULL_TREE); \
-    pushcase (NULL_TREE, 0, label, &duplicate); \
-    expand_java_goto (oldpc + default_offset); \
-    expand_end_case (selector); \
   }
 
 #define INVOKE(MAYBE_STATIC, IS_INTERFACE) \
