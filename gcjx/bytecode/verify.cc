@@ -1930,6 +1930,9 @@ private:
 		       end);
 
 	flags[handler] |= FLAG_BRANCH_TARGET;
+#ifdef VFY_WANT_NOTIFICATION
+	vfy_notify_branch_target (current_method, handler);
+#endif
       }
   }
 
@@ -2235,6 +2238,10 @@ private:
 	// Set this before handling exceptions so that debug output is
 	// sane.
 	start_PC = PC;
+
+#ifdef VFY_WANT_NOTIFICATION
+	vfy_notify_verified (current_method, PC);
+#endif
 
 	// Update states for all active exception handlers.  Ordinarily
 	// there are not many exception handlers.  So we simply run

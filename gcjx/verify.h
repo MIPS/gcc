@@ -41,12 +41,23 @@ typedef uint16 vfy_uint_16;
 
 typedef model_bytecode_block::exception vfy_exception;
 
+// These flags aren't used by the verifier itself, but are set on the
+// model_bytecode_block during verification.
+#define VERIFY_SEEN 1
+#define VERIFY_TARGET 2
+
+// This tells the verifier that we want notification of live bytecode
+// and branch targets.
+#define VFY_WANT_NOTIFICATION
+
+
 struct vfy_method
 {
   model_method *method;
   model_bytecode_block *block;
   resolution_scope *scope;
   model_unit_class *unit;
+  unsigned char *flags;
 
   // These fields are referred to directly by the verifier.
   vfy_jclass defining_class;
@@ -67,6 +78,7 @@ struct vfy_method
     max_locals = block->get_max_locals ();
     code_length = block->get_code_length ();
     exc_count = block->get_exception_length ();
+    flags = block->get_flags ();
   }
 };
 
@@ -315,9 +327,14 @@ inline int vfy_fail (const char *message, int pc, vfy_jclass,
     % pc % method->method % message;
 }
 
-inline void vfy_notify_verified (int pc)
+inline void vfy_notify_verified (vfy_method *method, int pc)
 {
-  // FIXME: nothing for now, but should notify the compiler.
+  method->flags[pc] |= VERIFY_SEEN;
+}
+
+inline void vfy_notify_branch_target (vfy_method *method, int pc)
+{
+  method->flags[pc] |= VERIFY_TARGET;
 }
 
 // Return the primitive type corresponding to the argument to

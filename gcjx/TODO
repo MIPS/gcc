@@ -1,3 +1,9 @@
+make sure we don't resolve too many classes
+see email around Mar 28 2005 on the gcj list
+
+we could free the 'flags' associated with a model_bytecode_block
+after we've generated code for that method
+
 in some places we check both inner_p() and static_context_p()
 on a class.  this is lame, we should mark the class static
 in a static context

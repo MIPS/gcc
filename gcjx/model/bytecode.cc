@@ -49,6 +49,8 @@ model_bytecode_block::verify (model_method *container, model_unit_class *unit)
 	    = assert_cast<model_unit_class *> (klass->get_compilation_unit ());
 	}
 
+      allocate_flags (length);
+
       if (global->get_compiler ()->verbose ())
 	std::cout << "[verifying method "
 		  << decl->get_fully_qualified_name ()

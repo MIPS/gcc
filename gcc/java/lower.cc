@@ -26,10 +26,6 @@
 #include "bytecode/insns.hh"
 #include "verify.h"
 
-// FIXME: these must come from the verifier.
-#define VERIFY_SEEN 1
-#define VERIFY_TARGET 2
-
 // This is used to determine which particular variable is used for a
 // given stack or local variable slot.
 typedef enum
@@ -40,7 +36,7 @@ typedef enum
     TYPE_DOUBLE = 2,
     TYPE_OBJECT = 3		// Everything else.
   }
-  slot_type;
+slot_type;
 
 
 
@@ -127,7 +123,7 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
   tree body = alloc_stmt_list ();
   tree_stmt_iterator statements = tsi_start (body);
 
-  int *flags;			// FIXME from the verifier
+  unsigned char *flags = block->get_flags ();
 
   int pc = 0;
   while (pc < length)

@@ -1,5 +1,10 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* lower.cc (VERIFY_SEEN, VERIFY_TARGET): Removed.
+	(visit_bytecode_block): Get verifier flags from the block.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (handle_op_assignment): Correct convert types of
 	arguments and result.
 

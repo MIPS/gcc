@@ -312,11 +312,6 @@ inline int vfy_fail (const char *message, int pc, vfy_jclass,
   throw new java::lang::VerifyError (buf->toString ());
 }
 
-inline void vfy_notify_verified (int pc)
-{
-  // In libgcj, do nothing.
-}
-
 // Return the primitive type corresponding to the argument to
 // `newarray'.
 inline vfy_jclass vfy_get_primitive_type (int type)

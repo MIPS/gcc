@@ -1,5 +1,23 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/verify.cc (branch_prepass): Respect
+	VFY_WANT_NOTIFICATION.
+	(verify_instructions_0): Likewise.
+	* model/bytecode.cc (verify): Call allocate_flags.
+	* model/bytecode.hh (model_bytecode_block::flags): New field.
+	(model_bytecode_block): Initialize it.
+	(~model_bytecode_block): Delete 'flags'.
+	(model_bytecode_block::allocate_flags): New method.
+	(model_bytecode_block::get_flags): Likewise.
+	* verify.h (VERIFY_SEEN): New define.
+	(VERIFY_TARGET): Likewise.
+	(VFY_WANT_NOTIFICATION): Likewise.
+	(vfy_method::flags): New field.
+	(vfy_notify_verified): Wrote.  Added 'method' argument.
+	(vfy_notify_branch_target): New function.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* model/constructor.cc (model_constructor): Copy location of other
 	constructor.
 

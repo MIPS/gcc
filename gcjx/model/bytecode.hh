@@ -68,6 +68,19 @@ private:
 
   // fixme variable and debug info
 
+  // Flags set during the verification process.  This is allocated
+  // with new[] and owned by this object.
+  unsigned char *flags;
+
+
+  /// Allocate space for the flags.
+  void allocate_flags (int size)
+  {
+    assert (! flags);
+    flags = new unsigned char[size];
+    memset (flags, 0, size);
+  }
+
 public:
 
   model_bytecode_block (const location &w)
@@ -78,7 +91,8 @@ public:
       bytes (NULL),
       exc_length (-1),
       excs (NULL),
-      verified (false)
+      verified (false),
+      flags (NULL)
   {
   }
 
@@ -86,6 +100,8 @@ public:
   {
     if (excs)
       delete[] excs;
+    if (flags)
+      delete[] flags;
   }
 
   void resolve (resolution_scope *);
@@ -176,6 +192,13 @@ public:
   /// come from a .class file, and that class' compilation unit is
   /// used.
   void verify (model_method *, model_unit_class * = NULL);
+
+  /// Get the flags for this block.
+  unsigned char *get_flags () const
+  {
+    assert (flags);
+    return flags;
+  }
 };
 
 /// This is a phony block which is used when reading a .class file
