@@ -39,7 +39,7 @@ extern int		mips_can_use_return_insn PARAMS ((void));
 extern void		mips_declare_object PARAMS ((FILE *, const char *,
 						     const char *,
 						     const char *, int));
-extern void		mips_expand_epilogue PARAMS ((void));
+extern void		mips_expand_epilogue PARAMS ((int));
 extern void		mips_expand_prologue PARAMS ((void));
 extern void		mips_output_filename PARAMS ((FILE *, const char *));
 extern void		mips_output_lineno PARAMS ((FILE *, int));
@@ -141,7 +141,7 @@ extern bool		mips_legitimize_address PARAMS ((rtx *,
 extern bool		mips_legitimize_move PARAMS ((enum machine_mode,
 						      rtx, rtx));
 extern rtx		mips_simplify_dwarf_addr PARAMS ((rtx));
-extern void		mips_expand_call PARAMS ((rtx, rtx, rtx, rtx));
+extern void		mips_expand_call PARAMS ((rtx, rtx, rtx, rtx, int));
 extern int              mips_reg_mode_ok_for_base_p PARAMS ((rtx,
 							     enum machine_mode,
 							     int));

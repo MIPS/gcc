@@ -342,6 +342,22 @@ extern void		sbss_section PARAMS ((void));
 #define TARGET_SPLIT_CALLS \
   (TARGET_EXPLICIT_RELOCS && TARGET_ABICALLS && !TARGET_NEWABI)
 
+/* True if we can optimize sibling calls.  For simplicity, we only
+   handle cases in which call_insn_operand will reject invalid
+   sibcall addresses.  There are two cases in which this isn't true:
+
+      - TARGET_MIPS16.  call_insn_operand accepts constant addresses
+	but there is no direct jump instruction.  It isn't worth
+	using sibling calls in this case anyway; they would usually
+	be longer than normal calls.
+
+      - TARGET_ABICALLS && !TARGET_EXPLICIT_RELOCS.  call_insn_operand
+	accepts global constants, but "jr $25" is the only allowed
+	sibcall.  */
+
+#define TARGET_SIBCALLS \
+  (!TARGET_MIPS16 && (!TARGET_ABICALLS || TARGET_EXPLICIT_RELOCS))
+
 /* We must disable the function end stabs when doing the file switching trick,
    because the Lscope stabs end up in the wrong place, making it impossible
    to debug the resulting code.  */
@@ -1723,7 +1739,7 @@ do {							\
 #define FIXED_REGISTERS							\
 {									\
   1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1,			\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,			\
@@ -1739,17 +1755,19 @@ do {							\
 }
 
 
-/* 1 for registers not available across function calls.
-   These must include the FIXED_REGISTERS and also any
-   registers that can be used without being saved.
-   The latter must include the registers where values are returned
-   and the register where structure-value addresses are passed.
-   Aside from that, you can include as many other registers as you like.  */
+/* Don't mark $31 as a call-clobbered register.  The idea is that
+   it's really the call instructions themselves which clobber $31.
+   We don't care what the called function does with it afterwards.
+
+   This approach makes it easier to implement sibcalls.  Unlike normal
+   calls, sibcalls don't clobber $31, so the register reaches the
+   called function in tact.  EPILOGUE_USES says that $31 is useful
+   to the called function.  */
 
 #define CALL_USED_REGISTERS						\
 {									\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
-  0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1,			\
+  0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,			\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
@@ -1776,7 +1794,7 @@ do {							\
 #define CALL_REALLY_USED_REGISTERS                                      \
 { /* General registers.  */                                             \
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,                       \
-  0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1,                       \
+  0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0,                       \
   /* Floating-point registers.  */                                      \
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
@@ -2871,6 +2889,11 @@ typedef struct mips_args {
  ((regs_ever_live[regno] && !call_used_regs[regno])			\
   || (regno == HARD_FRAME_POINTER_REGNUM && frame_pointer_needed)	\
   || (regno == (GP_REG_FIRST + 31) && regs_ever_live[GP_REG_FIRST + 31]))
+
+/* Say that the epilogue uses the return address register.  Note that
+   in the case of sibcalls, the values "used by the epilogue" are
+   considered live at the start of the called function.  */
+#define EPILOGUE_USES(REGNO) ((REGNO) == 31)
 
 /* Treat LOC as a byte offset from the stack pointer and round it up
    to the next fully-aligned offset.  */

@@ -1,3 +1,24 @@
+2003-04-04  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_expand_epilogue): Add an
+	integer argument.
+	(mips_expand_call): Likewise.
+	* config/mips/mips.h (TARGET_SIBCALLS): New macro.
+	(FIXED_REGISTERS): Clear $31 entry.
+	(CALL_USED_REGISTERS, CALL_REALLY_USED_REGISTER): Likewise.
+	(EPILOGUE_USES): Define.
+	* config/mips/mips.c (mips_function_ok_for_sibcall): New function.
+	(TARGET_FUNCTION_OK_FOR_SIBCALL): Use it.
+	(override_options): Add a 'j' register class.
+	(mips_expand_call): Handle sibcalls
+	(mips_expand_epilogue): Handle epilogues for sibcalls.
+	* config/mips/mips.md (epilogue): Adjust call to mips_expand_epilogue.
+	(sibcall_epilogue): New pattern.
+	(call, call_value): Adjust calls to mips_expand_call.
+	(sibcall, sibcall_value): New expanders.
+	(sibcall_internal, sibcall_value_internal): New patterns.
+	(sibcall_value_multiple_internal): New pattern.
+
 2003-03-25  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips.md (extended_mips16): New attribute.

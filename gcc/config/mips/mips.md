@@ -9683,14 +9683,18 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
 (define_expand "epilogue"
   [(const_int 2)]
   ""
-  "
 {
-  if (mips_isa >= 0)            /* avoid unused code warnings */
-    {
-      mips_expand_epilogue ();
-      DONE;
-    }
-}")
+  mips_expand_epilogue (false);
+  DONE;
+})
+
+(define_expand "sibcall_epilogue"
+  [(const_int 2)]
+  ""
+{
+  mips_expand_epilogue (true);
+  DONE;
+})
 
 ;; Trivial return.  Make it look like a normal return insn as that
 ;; allows jump optimizations to work better .
@@ -9791,11 +9795,11 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
 (define_expand "call"
   [(parallel [(call (match_operand 0 "" "")
 		    (match_operand 1 "" ""))
-	      (use (match_operand 2 "" ""))		;; next_arg_reg
-	      (use (match_operand 3 "" ""))])]		;; struct_value_size_rtx
+	      (use (match_operand 2 "" ""))	;; next_arg_reg
+	      (use (match_operand 3 "" ""))])]	;; struct_value_size_rtx
   ""
 {
-  mips_expand_call (0, XEXP (operands[0], 0), operands[1], operands[2]);
+  mips_expand_call (0, XEXP (operands[0], 0), operands[1], operands[2], false);
   DONE;
 })
 
@@ -9833,7 +9837,7 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
   ""
 {
   mips_expand_call (operands[0], XEXP (operands[1], 0),
-		    operands[2], operands[3]);
+		    operands[2], operands[3], false);
   DONE;
 })
 
@@ -9898,6 +9902,76 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
    (const_int 1)]
   "TARGET_SPLIT_CALLS"
   "%*jalr\\t%1"
+  [(set_attr "type" "call")
+   (set_attr "macro_calls" "no")])
+
+;; Sibling calls.  All these patterns use direct jumps.  The lack of
+;; a (clobber (reg:SI 31)) distinguishes them from normal calls.
+
+;; call_insn_operand only accepts constant addresses if a direct
+;; jump is acceptable.  Since the 'S' constraint is defined in
+;; terms of call_insn_operand, the same is true of the contraints.
+
+;; When we use an indirect jump, we need a register that will be
+;; preserved by the epilogue.  Since TARGET_ABICALLS forces us to
+;; use $25 for this purpose -- and $25 is never clobbered by the
+;; epilogue -- we might as well use it for !TARGET_ABICALLS as well.
+
+(define_expand "sibcall"
+  [(parallel [(call (match_operand 0 "" "")
+		    (match_operand 1 "" ""))
+	      (use (match_operand 2 "" ""))	;; next_arg_reg
+	      (use (match_operand 3 "" ""))])]	;; struct_value_size_rtx
+  "TARGET_SIBCALLS"
+{
+  mips_expand_call (0, XEXP (operands[0], 0), operands[1], operands[2], true);
+  DONE;
+})
+
+(define_insn "sibcall_internal"
+  [(call (mem:SI (match_operand 0 "call_insn_operand" "j,S"))
+	 (match_operand 1 "" ""))]
+  "TARGET_SIBCALLS"
+  "@
+    %*jr\\t%0
+    %*j\\t%0"
+  [(set_attr "type" "call")
+   (set_attr "macro_calls" "no")])
+
+(define_expand "sibcall_value"
+  [(parallel [(set (match_operand 0 "" "")
+		   (call (match_operand 1 "" "")
+			 (match_operand 2 "" "")))
+	      (use (match_operand 3 "" ""))])]		;; next_arg_reg
+  "TARGET_SIBCALLS"
+{
+  mips_expand_call (operands[0], XEXP (operands[1], 0),
+		    operands[2], operands[3], true);
+  DONE;
+})
+
+(define_insn "sibcall_value_internal"
+  [(set (match_operand 0 "register_operand" "=df,df")
+        (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
+              (match_operand 2 "" "")))]
+  "TARGET_SIBCALLS"
+  "@
+    %*jr\\t%1
+    %*j\\t%1"
+  [(set_attr "type" "call")
+   (set_attr "macro_calls" "no")])
+
+(define_insn "sibcall_value_multiple_internal"
+  [(set (match_operand 0 "register_operand" "=df,df")
+        (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
+              (match_operand 2 "" "")))
+   (set (match_operand 3 "register_operand" "=df,df")
+	(call (mem:SI (match_dup 1))
+	      (match_dup 2)))]
+  "TARGET_SIBCALLS"
+  "@
+    %*jr\\t%1
+    %*j\\t%1"
   [(set_attr "type" "call")
    (set_attr "macro_calls" "no")])
 

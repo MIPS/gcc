@@ -212,6 +212,7 @@ static rtx mips_lui_reloc			PARAMS ((rtx, int));
 static void mips_legitimize_const_move		PARAMS ((enum machine_mode,
 							 rtx, rtx));
 static int m16_check_op				PARAMS ((rtx, int, int, int));
+static bool mips_function_ok_for_sibcall	PARAMS ((tree, tree));
 static void block_move_loop			PARAMS ((rtx, rtx,
 							 unsigned int,
 							 int,
@@ -836,6 +837,9 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
+
+#undef TARGET_FUNCTION_OK_FOR_SIBCALL
+#define TARGET_FUNCTION_OK_FOR_SIBCALL mips_function_ok_for_sibcall
 
 #undef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE mips_valid_pointer_mode
@@ -3844,11 +3848,14 @@ mips_gen_conditional_trap (operands)
 /* Expand a call or call_value instruction.  RESULT is where the
    result will go (null for calls), ADDR is the address of the
    function, ARGS_SIZE is the size of the arguments and AUX is
-   the value passed to us by mips_function_arg.  */
+   the value passed to us by mips_function_arg.  SIBCALL_P is true
+   if we are expanding a sibling call, false if we're expanding
+   normal call.  */
 
 void
-mips_expand_call (result, addr, args_size, aux)
+mips_expand_call (result, addr, args_size, aux, sibcall_p)
      rtx result, addr, args_size, aux;
+     int sibcall_p;
 {
   int i;
 
@@ -3884,18 +3891,35 @@ mips_expand_call (result, addr, args_size, aux)
 				 aux == 0 ? 0 : (int) GET_MODE (aux)))
     /* Nothing more to do */;
   else if (result == 0)
-    emit_call_insn (gen_call_internal (addr, args_size));
+    emit_call_insn (sibcall_p
+		    ? gen_sibcall_internal (addr, args_size)
+		    : gen_call_internal (addr, args_size));
   else if (GET_CODE (result) == PARALLEL && XVECLEN (result, 0) == 2)
     {
       rtx reg1, reg2;
 
       reg1 = XEXP (XVECEXP (result, 0, 0), 0);
       reg2 = XEXP (XVECEXP (result, 0, 1), 0);
-      emit_call_insn (gen_call_value_multiple_internal (reg1, addr,
-							args_size, reg2));
+      emit_call_insn
+	(sibcall_p
+	 ? gen_sibcall_value_multiple_internal (reg1, addr, args_size, reg2)
+	 : gen_call_value_multiple_internal (reg1, addr, args_size, reg2));
     }
   else
-    emit_call_insn (gen_call_value_internal (result, addr, args_size));
+    emit_call_insn (sibcall_p
+		    ? gen_sibcall_value_internal (result, addr, args_size)
+		    : gen_call_value_internal (result, addr, args_size));
+}
+
+
+/* We can handle any sibcall when TARGET_SIBCALLS is true.  */
+
+static bool
+mips_function_ok_for_sibcall (decl, exp)
+     tree decl ATTRIBUTE_UNUSED;
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return true;
 }
 
 /* Return true if operand OP is a condition code register.
@@ -5868,6 +5892,7 @@ override_options ()
 			     TARGET_MIPS16 ? M16_NA_REGS :
 			     GR_REGS);
   mips_char_to_class['e'] = LEA_REGS;
+  mips_char_to_class['j'] = PIC_FN_ADDR_REG;
   mips_char_to_class['y'] = GR_REGS;
   mips_char_to_class['z'] = ST_REGS;
   mips_char_to_class['B'] = COP0_REGS;
@@ -8261,16 +8286,20 @@ mips_output_function_epilogue (file, size)
     }
 }
 
-/* Expand the epilogue into a bunch of separate insns.  */
+/* Expand the epilogue into a bunch of separate insns.  SIBCALL_P is true
+   if this epilogue precedes a sibling call, false if it is for a normal
+   "epilogue" pattern.  */
 
 void
-mips_expand_epilogue ()
+mips_expand_epilogue (sibcall_p)
+     int sibcall_p;
 {
   HOST_WIDE_INT tsize = cfun->machine->frame.total_size;
   rtx tsize_rtx = GEN_INT (tsize);
   rtx tmp_rtx = (rtx)0;
+  int return_regno;
 
-  if (mips_can_use_return_insn ())
+  if (!sibcall_p && mips_can_use_return_insn ())
     {
       emit_jump_insn (gen_return ());
       return;
@@ -8395,14 +8424,16 @@ mips_expand_epilogue ()
 
 	}
     }
-
-  /* The mips16 loads the return address into $7, not $31.  */
-  if (TARGET_MIPS16 && (cfun->machine->frame.mask & RA_MASK) != 0)
-    emit_jump_insn (gen_return_internal (gen_rtx (REG, Pmode,
-						  GP_REG_FIRST + 7)));
-  else
-    emit_jump_insn (gen_return_internal (gen_rtx (REG, Pmode,
-						  GP_REG_FIRST + 31)));
+  if (!sibcall_p)
+    {
+      /* The mips16 loads the return address into $7, not $31.  */
+      if (TARGET_MIPS16 && (cfun->machine->frame.mask & RA_MASK) != 0)
+	emit_jump_insn (gen_return_internal (gen_rtx (REG, Pmode,
+						      GP_REG_FIRST + 7)));
+      else
+	emit_jump_insn (gen_return_internal (gen_rtx (REG, Pmode,
+						      GP_REG_FIRST + 31)));
+    }
 }
 
 /* Return nonzero if this function is known to have a null epilogue.
