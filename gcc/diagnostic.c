@@ -96,6 +96,8 @@ static void default_diagnostic_finalizer PARAMS ((output_buffer *,
                                                   diagnostic_context *));
 
 static void error_recursion PARAMS ((void)) ATTRIBUTE_NORETURN;
+static diagnostic_state *diagnostic_push_state PARAMS ((output_buffer *));
+static void diagnostic_pop_state PARAMS ((output_buffer *));
 
 extern int rtl_dump_and_exit;
 extern int warnings_are_errors;
@@ -996,6 +998,45 @@ diagnostic_for_decl (decl, msgid, args_ptr, warn)
 }
 
 
+/* Push a new diagnostic_state entry on the stack.  */
+
+static diagnostic_state *
+diagnostic_push_state (buffer)
+     output_buffer *buffer;
+{
+  diagnostic_state *ds;
+
+  /* Create a new entry to put on the stack.  */
+  ds = (diagnostic_state *) xmalloc (sizeof (diagnostic_state));
+  /* Copy the data from the previous entry.  */
+  *ds = *buffer->ds;
+  /* Assume that we will not issue diagnostics tentatively.  */
+  ds->tentative_diagnostic = 0;
+  /* And that there are no saved messages.  */
+  ds->saved_messages = NULL;
+  /* Link this entry onto the stack.  */
+  ds->next = buffer->ds;
+  buffer->ds = ds;
+
+  return ds;
+}
+
+/* Remove the topmost entry from the stack.  */
+
+static void
+diagnostic_pop_state (buffer)
+     output_buffer *buffer;
+{
+  diagnostic_state *ds;
+
+  /* Get the active state.  */
+  ds = buffer->ds;
+  /* Unlink it from the list.  */
+  buffer->ds = ds->next;
+  /* Free the associated storage.  */
+  free (ds);
+}
+
 /* Begin issuing diagnostics tentatively.  When a diagnostic is issued,
    no message will be printed.  Instead, the message will be stored.
    Later, if diagnostic_commit is called, the message will be
@@ -1008,16 +1049,11 @@ diagnostic_issue_tentatively (buffer)
 {
   diagnostic_state *ds;
 
-  /* Create a new entry to put on the stack.  */
-  ds = (diagnostic_state *) xmalloc (sizeof (diagnostic_state));
-  /* Copy the data from the previous entry.  */
-  *ds = *buffer->ds;
+  /* Create a new diagnostic_state entry.  */
+  ds = diagnostic_push_state (buffer);
   /* Save the location of the next diagnostic.  */
   ds->tentative_diagnostic 
     = dyn_string_length (buffer->messages) + 1;
-  /* Link this entry onto the stack.  */
-  ds->next = buffer->ds;
-  buffer->ds = ds;
 }
 
 /* Commit to those diagnostic messages that were issued tentatively.  */
@@ -1026,29 +1062,22 @@ void
 diagnostic_commit (buffer)
      output_buffer *buffer;
 {
-  diagnostic_state *ds;
-
-  /* Get the active state.  */
-  ds = buffer->ds;
-  /* Unlink it from the list.  */
-  buffer->ds = ds->next;
   /* Copy the diagnostic counts back to the previous entry on the
      stack.  */
-  memcpy (buffer->ds->diagnostic_count, 
-	  ds->diagnostic_count,
+  memcpy (buffer->ds->next->diagnostic_count, 
+	  buffer->ds->diagnostic_count,
 	  sizeof (buffer->ds->diagnostic_count));
+  /* Pop the stack.  */
+  diagnostic_pop_state (buffer);
   /* If we're popping all the way back to a non-tentative level, and
      there's a new diagnostic, issue the message now.  */
   if (!buffer->ds->tentative_diagnostic
       && dyn_string_length (buffer->messages))
     {
-      /* FIXME: This should be shared with output_buffer_to_stream.  */
       fputs (buffer->messages->s,
 	     output_buffer_attached_stream (buffer));
       output_clear_message_text (buffer);
     }
-  /* Free the now-unused state.  */
-  free (ds);
 }
 
 /* Rollback the tentatively issued diagnostic messages.  */
@@ -1057,17 +1086,42 @@ void
 diagnostic_rollback (buffer)
      output_buffer *buffer;
 {
-  diagnostic_state *ds;
-
-  /* Get the active state.  */
-  ds = buffer->ds;
-  /* Unlink it from the list.  */
-  buffer->ds = ds->next;
   /* Delete any diagnostics that we've issued.  */
   dyn_string_terminate (buffer->messages, 
-			ds->tentative_diagnostic - 1);
+			buffer->ds->tentative_diagnostic - 1);
   /* Free the now-unused state.  */
-  free (ds);
+  diagnostic_pop_state (buffer);
+}
+
+/* Begin issuing diagnostics immediately (rather than tentatively)
+   until diagnostic_cease_issuing_immediatley is called.  */
+
+void
+diagnostic_issue_immediately (buffer)
+     output_buffer *buffer;
+{
+  diagnostic_state *ds;
+
+  /* Create a new entry on the stack.  */
+  ds = diagnostic_push_state (buffer);
+  /* Save away the old messages.  */
+  ds->saved_messages = buffer->messages;
+  /* Set up a buffer for storing new messages.  */
+  buffer->messages = dyn_string_new (0);
+}
+
+/* Stop issuing diagnostics immediately.  */
+
+void
+diagnostic_cease_issuing_immediately (buffer)
+     output_buffer *buffer;
+{
+  /* Delete the temporary message buffer.  */
+  dyn_string_delete (buffer->messages);
+  /* And restore the old one.  */
+  buffer->messages = buffer->ds->saved_messages;
+  /* Pop this entry from the stack.  */
+  diagnostic_pop_state (buffer);
 }
 
 /* Count an error or warning.  Return 1 if the message should be printed.  */

@@ -1504,13 +1504,25 @@ finish_pseudo_destructor_expr (object, scope, destructor)
 {
   if (!processing_template_decl)
     {
+      if (scope == error_mark_node)
+	{
+	  cp_error ("invalid qualifying scope in pseudo-destructor name");
+	  return error_mark_node;
+	}
+      
       if (scope && TYPE_NAME (scope) != destructor)
-	cp_error ("destructor specifier `%T::~%T()' must have matching names", 
-		  scope, destructor);
+	{
+	  cp_error ("destructor specifier `%T::~%T()' must have matching names", 
+		    scope, destructor);
+	  return error_mark_node;
+	}
       
       if (!same_type_p (TREE_TYPE (object),
 			TREE_TYPE (destructor)))
-	cp_error ("`%E' is not of type `%T'", object, destructor);
+	{
+	  cp_error ("`%E' is not of type `%T'", object, destructor);
+	  return error_mark_node;
+	}
     }
 
   return build_nt (PSEUDO_DTOR_EXPR, 
@@ -1528,6 +1540,9 @@ finish_qualified_call_expr (fn, args)
      tree args;
 {
   tree scope;
+
+  if (fn == error_mark_node)
+    return error_mark_node;
 
   if (processing_template_decl)
     return build_min_nt (CALL_EXPR, fn, args, NULL_TREE);
@@ -2078,34 +2093,22 @@ enter_scope_of (sr)
     }
 }
 
-/* FIXME: Now unused.  */
-
-/* Finish processing a BASE_CLASS with the indicated ACCESS_SPECIFIER.
-   Return a TREE_LIST containing the ACCESS_SPECIFIER and the
-   BASE_CLASS, or NULL_TREE if an error occurred.  The
-   ACCESSS_SPECIFIER is one of
-   access_{default,public,protected_private}[_virtual]_node.*/
+/* Finish processing a BASE_CLASS (a TYPE) with the indicated
+   ACCESS_SPECIFIER (access_public_node, or one if its kind).  Return
+   a TREE_LIST containing the ACCESS_SPECIFIER and the BASE_CLASS.  */
 
 tree 
 finish_base_specifier (access_specifier, base_class)
      tree access_specifier;
      tree base_class;
 {
-  tree result;
-
-  if (! is_aggr_type (base_class, 1))
-    result = NULL_TREE;
-  else
+  if (CP_TYPE_QUALS (base_class) != 0)
     {
-      if (CP_TYPE_QUALS (base_class) != 0)
-        {
-          cp_error ("base class `%T' has cv qualifiers", base_class);
-          base_class = TYPE_MAIN_VARIANT (base_class);
-        }
-      result = build_tree_list (access_specifier, base_class);
+      cp_error ("base class `%T' has cv qualifiers", base_class);
+      base_class = TYPE_MAIN_VARIANT (base_class);
     }
 
-  return result;
+  return build_tree_list (access_specifier, base_class);
 }
 
 /* Called when multiple declarators are processed.  If that is not

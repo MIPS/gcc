@@ -7,7 +7,7 @@ public:
       Graph(void) {}; // ERROR - previously defined here
 }
 
-Graph::Graph(void)
-{    N = 10;// ERROR -  return type.*
+Graph::Graph(void) // ERROR -  return type.*
+{    N = 10;
 }
 

@@ -1,6 +1,6 @@
 // Build don't link:
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 25 Nov 2000 <nathan@codesourcery.com>
 
 // We lost information about which base wasn't an aggregate type, plus we
@@ -18,3 +18,8 @@ struct B : I {};  // ERROR - not an aggregate
 struct C : cI {}; // ERROR - not an aggregate
 struct D : cA {}; // ERROR - cv qualified
 struct E : pA {};
+
+template <typename T> 
+struct F : public T {}; 
+
+template struct F<const A>; // ERROR - invalid base

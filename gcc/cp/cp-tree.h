@@ -3286,8 +3286,6 @@ extern tree static_dtors;
 
 enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 
-extern cp_tag_kind current_aggr;
-
 /* Some macros for char-based bitfields.  */
 #define B_SET(a,x) (a[x>>3] |= (1 << (x&7)))
 #define B_CLR(a,x) (a[x>>3] &= ~(1 << (x&7)))
@@ -3654,8 +3652,6 @@ extern tree lookup_qualified_name               PARAMS ((tree, tree, bool));
 extern tree lookup_name_current_level		PARAMS ((tree));
 extern tree lookup_type_current_level		PARAMS ((tree));
 extern tree lookup_name_namespace_only          PARAMS ((tree));
-extern void begin_only_namespace_names          PARAMS ((void));
-extern void end_only_namespace_names            PARAMS ((void));
 extern tree namespace_ancestor			PARAMS ((tree, tree));
 extern tree unqualified_namespace_lookup	PARAMS ((tree, int, tree *));
 extern int  lookup_using_namespace              PARAMS ((tree, tree, tree, tree, int, tree *));

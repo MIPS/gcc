@@ -105,6 +105,10 @@ struct diagnostic_state
      greater than the index of the first character of any tenatively
      issued diagnostics.  */
   size_t tentative_diagnostic;
+  /* If we are issuing diagnostics immedidately, but were previously
+     processing diagnostics tentatively, these are tentatively issued
+     messages that have not yet been issued.  */
+  dyn_string_t saved_messages;
   /* The next diagnostic_state in the stack.  */
   diagnostic_state *next;
 };
@@ -326,6 +330,8 @@ extern void report_problematic_module	PARAMS ((output_buffer *));
 extern void diagnostic_issue_tentatively PARAMS ((output_buffer *));
 extern void diagnostic_commit           PARAMS ((output_buffer *));
 extern void diagnostic_rollback         PARAMS ((output_buffer *));
+extern void diagnostic_issue_immediately PARAMS ((output_buffer *));
+extern void diagnostic_cease_issuing_immediately PARAMS ((output_buffer *));
 
 /* Called by report_error_function to print out function name.
  * Default may be overridden by language front-ends.  */

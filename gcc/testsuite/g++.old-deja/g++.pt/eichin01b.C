@@ -8,8 +8,11 @@ public:
   void syy(X syarg) { sss = syarg; }
 };
 
-long TC<long>::sss;
-float TC<float>::sss;
+template <class X>
+X TC<X>::sss;
+
+template float TC<float>::sss;
+template long TC<long>::sss;
 
 TC<long> xjj(1,2);
 

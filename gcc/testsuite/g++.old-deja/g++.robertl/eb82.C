@@ -8,5 +8,5 @@ double val <int> () // ERROR - bogus code
 
 int main ()
 {
-   printf ("%d\n", val<(int)3> ());
+   printf ("%d\n", val<(int)3> ()); // ERROR - val undeclared
 }

@@ -6,13 +6,8 @@ typedef int B;
 struct A
 {
   int B;
-  operator B *();
+  operator B *(); // ERROR - `B' is not a type.
 };
-
-A::operator B * ()
-{
-  return 0;
-}
 
 // Test 2: Only at class scope
 struct C

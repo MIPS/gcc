@@ -7,9 +7,11 @@ public:
   void sz(X s) { sss = s; }
 };
 
+template <class X>
+X TC<X>::sss;
 
-long TC<long>::sss;
-float TC<float>::sss;
+template long TC<long>::sss;
+template float TC<float>::sss;
 
 TC<long> xjj(1,2);
 

@@ -1590,13 +1590,19 @@ lookup_member (xbasetype, name, protect, want_type)
         print_candidates (lfi.ambiguous);
       rval = error_mark_node;
     }
+  /* FIXME: Avoid doing lookup in dependent bases in the first place.  */
+  else if (lfi.from_dep_base_p && rval_binfo != basetype_path)
+    rval = NULL_TREE;
 
+  /* FIXME: Remove this entirely.  */
+#if 0
   /* If the thing we found was found via the implicit typename
      extension, build the typename type.  */
   if (rval && lfi.from_dep_base_p && !DECL_CLASS_TEMPLATE_P (rval))
     rval = TYPE_STUB_DECL (build_typename_type (BINFO_TYPE (basetype_path),
 						name, name,
 						TREE_TYPE (rval)));
+#endif
 
   if (rval && is_overloaded_fn (rval)) 
     rval = make_baselink (rval, rval_binfo, basetype_path,
@@ -2598,13 +2604,18 @@ dfs_push_type_decls (binfo, data)
 {
   tree type;
   tree fields;
+  bool dep_base_p;
 
   type = BINFO_TYPE (binfo);
-  for (fields = TYPE_FIELDS (type); fields; fields = TREE_CHAIN (fields))
-    if (DECL_NAME (fields) && TREE_CODE (fields) == TYPE_DECL
-	&& !(!same_type_p (type, current_class_type)
-	     && template_self_reference_p (type, fields)))
-      setup_class_bindings (DECL_NAME (fields), /*type_binding_p=*/1);
+  dep_base_p = (processing_template_decl 
+		&& type != current_class_type
+		&& dependent_base_p (binfo));
+  if (!dep_base_p)
+    for (fields = TYPE_FIELDS (type); fields; fields = TREE_CHAIN (fields))
+      if (DECL_NAME (fields) && TREE_CODE (fields) == TYPE_DECL
+	  && !(!same_type_p (type, current_class_type)
+	       && template_self_reference_p (type, fields)))
+	setup_class_bindings (DECL_NAME (fields), /*type_binding_p=*/1);
 
   /* We can't just use BINFO_MARKED because envelope_add_decl uses
      DERIVED_FROM_P, which calls get_base_distance.  */
@@ -2623,7 +2634,7 @@ dfs_push_decls (binfo, data)
 {
   tree type;
   tree method_vec;
-  int dep_base_p;
+  bool dep_base_p;
 
   type = BINFO_TYPE (binfo);
   dep_base_p = (processing_template_decl && type != current_class_type

@@ -4945,7 +4945,11 @@ instantiate_class_template (type)
 		access = access_private_node;
 	    }
 
-	  base_list = tree_cons (access, base, base_list);
+	  /* Check the BASE for validity.  */
+	  base = finish_base_specifier (access, base);
+	  /* Add it to the list.  */
+	  TREE_CHAIN (base) = base_list;
+	  base_list = base;
 	}
 
       /* The list is now in reverse order; correct that.  */

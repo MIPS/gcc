@@ -5,12 +5,12 @@ class CVector {
 public:
     CVector<int> f() const
     {
-       CVector<int> v(n); // ERROR - no declaration of `n'
+       CVector<int> v(n);
        return v;
     }
     CVector<long> g() const
     {
-       CVector<long> v(n); // ERROR - no declaration of `n'
+       CVector<long> v(n);
        return v;
     }
 };

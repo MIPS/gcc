@@ -205,9 +205,6 @@ tree cp_global_trees[CPTI_MAX];
 
 static tree global_type_node;
 
-/* Expect only namespace names now. */
-static int only_namespace_names;
-
 /* Used only for jumps to as-yet undefined labels, since jumps to
    defined labels can have their validity checked immediately.  */
 
@@ -5957,10 +5954,6 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
   int flags;
   int val_is_implicit_typename = 0;
 
-  /* Hack: copy flag set by parser, if set. */
-  if (only_namespace_names)
-    namespaces_only = 1;
-
   flags = lookup_flags (prefer_type, namespaces_only);
   /* If we're not parsing, we need to complain. */
   flags |= LOOKUP_COMPLAIN;
@@ -6116,18 +6109,6 @@ lookup_type_current_level (name)
     }
 
   return t;
-}
-
-void
-begin_only_namespace_names ()
-{
-  only_namespace_names = 1;
-}
-
-void
-end_only_namespace_names ()
-{
-  only_namespace_names = 0;
 }
 
 /* Push the declarations of builtin types into the namespace.
@@ -7051,7 +7032,7 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
     {
       declspecs = tree_cons (NULL_TREE, get_identifier ("extern"),
 			     declspecs);
-      have_extern_spec = 0;
+      have_extern_spec = false;
     }
 
   if (attributes || prefix_attributes)
@@ -7130,7 +7111,7 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 	    cp_error ("`%#D' is not a static member of `%#T'", decl, context);
 	  else
 	    {
-	      if (DECL_CONTEXT (field) != context)
+	      if (!same_type_p (DECL_CONTEXT (field), context))
 		{
 		  cp_pedwarn ("ISO C++ does not permit `%T::%D' to be defined as `%T::%D'",
 			      DECL_CONTEXT (field), DECL_NAME (decl),
@@ -10705,8 +10686,9 @@ grokdeclarator (declarator, declspecs, decl_context,
 		/* This is the `standard' use of the scoping operator:
 		   basetype :: member .  */
 
-		if (get_scope_of_declarator (orig_declarator)
-		    == current_class_type)
+		if (current_class_type
+		    && same_type_p (get_scope_of_declarator (orig_declarator),
+				    current_class_type))
 		  {
 		    /* class A {
 		         void A::f ();
@@ -11010,8 +10992,8 @@ grokdeclarator (declarator, declspecs, decl_context,
 
 	  /* Until core issue 180 is resolved, allow 'friend typename A::B'.
 	     But don't allow implicit typenames except with a class-key.  */
-	  if (!current_aggr && (TREE_CODE (type) != TYPENAME_TYPE
-				|| IMPLICIT_TYPENAME_P (type)))
+	  if (TREE_CODE (type) != TYPENAME_TYPE
+	      || IMPLICIT_TYPENAME_P (type))
 	    {
 	      if (TREE_CODE (type) == TEMPLATE_TYPE_PARM)
 	        cp_pedwarn ("template parameters cannot be friends");
@@ -13073,7 +13055,7 @@ start_function (declspecs, declarator, attrs, flags)
   if (have_extern_spec)
     {
       declspecs = tree_cons (NULL_TREE, get_identifier ("extern"), declspecs);
-      have_extern_spec = 0;
+      have_extern_spec = false;
     }
 
   if (flags & SF_PRE_PARSED)

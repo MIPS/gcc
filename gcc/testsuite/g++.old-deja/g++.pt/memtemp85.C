@@ -2,15 +2,15 @@
 // crash test - XFAIL *-*-*
 
 // by Paul Burchard <burchard@pobox.com>, Level Set Systems, Inc.
-// Copyright (C) 1999 Free Software Foundation
+// Copyright (C) 1999, 2001 Free Software Foundation
 
 class Q {
 	template<class>
-	class X {
+	class X {  // ERROR - Q::X is inaaccessible
 	};
 };
 template<template<class> class>
 class Y {
 };
-Y<Q::X> y1;
+Y<Q::X> y1; // ERROR - in this context
 

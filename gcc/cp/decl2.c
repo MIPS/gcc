@@ -3695,7 +3695,7 @@ build_expr_from_tree (t)
 	  /* Return an expression for the declaration.  */
 	  if (TREE_CODE (decl) == CONST_DECL)
 	    return DECL_INITIAL (decl);
-	  else 
+	  else
 	    return hack_identifier (decl, name);
 	}
 
@@ -5243,7 +5243,8 @@ handle_class_head (aggr, scope, id)
        template <typename T> struct S::I ....
        
      we must create a TEMPLATE_DECL for the nested type.  */
-  if (PROCESSING_REAL_TEMPLATE_DECL_P ())
+  if (PROCESSING_REAL_TEMPLATE_DECL_P ()
+      && !CLASSTYPE_USE_TEMPLATE (TREE_TYPE (decl)))
     decl = push_template_decl (decl);
 
   return decl;
