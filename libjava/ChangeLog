@@ -1,5 +1,9 @@
 2004-12-26  Michael Koch  <konqueror@gmx.de>
 
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java: More reformatting.
+
+2004-12-26  Michael Koch  <konqueror@gmx.de>
+
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java: Reformatted.
 
 2004-12-26  Jeroen Frijters  <jeroen@frijters.net>
