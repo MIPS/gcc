@@ -61,7 +61,6 @@ details.  */
 #include <java/lang/VirtualMachineError.h>
 #include <gnu/gcj/runtime/VMClassLoader.h>
 #include <gnu/gcj/runtime/FinalizerThread.h>
-#include <gnu/gcj/runtime/FirstThread.h>
 #include <execution.h>
 #include <gnu/java/lang/MainThread.h>
 
