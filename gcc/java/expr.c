@@ -2376,7 +2376,7 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
 	    flags |= ACC_STATIC;
 	  if (opcode == OPCODE_invokeinterface)
 	    {
-	      flags |= ACC_INTERFACE;
+	      flags |= ACC_INTERFACE | ACC_ABSTRACT;
 	      CLASS_INTERFACE (TYPE_NAME (self_type)) = 1;
 	    }
 	  method = add_method (self_type, flags, method_name,
