@@ -455,8 +455,14 @@ try_forward_edges (mode, b)
 	    {
 	      edge t;
 	      first->count -= edge_count;
+	      if (first->count < 0)
+		first->count = 0;
 	      first->succ->count -= edge_count;
+	      if (first->succ->count < 0)
+		first->succ->count = 0;
 	      first->frequency -= edge_frequency;
+	      if (first->frequency < 0)
+		first->frequency = 0;
 	      if (first->succ->succ_next)
 		t = threaded_edge;
 	      else
@@ -1134,8 +1140,14 @@ try_crossjump_to_edge (mode, e1, e2)
       if (FORWARDER_BLOCK_P (s2->dest))
 	{
 	  s2->dest->succ->count -= s2->count;
+	  if (s2->dest->succ->count < 0)
+	    s2->dest->succ->count = 0;
 	  s2->dest->count -= s2->count;
 	  s2->dest->frequency -= EDGE_FREQUENCY (s);
+	  if (s2->dest->frequency < 0)
+	    s2->dest->frequency = 0;
+	  if (s2->dest->count < 0)
+	    s2->dest->count = 0;
 	}
       if (!redirect_to->frequency && !src1->frequency)
 	s->probability = (s->probability + s2->probability) / 2;

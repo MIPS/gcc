@@ -1582,6 +1582,19 @@ verify_flow_info ()
       int has_fallthru = 0;
       edge e;
 
+      if (bb->count < 0)
+        {
+          error ("verify_flow_info: Wrong count of block %i %i",
+	         bb->index, (int)bb->count);
+          err = 1;
+        }
+      if (bb->frequency < 0)
+        {
+          error ("verify_flow_info: Wrong frequency of block %i %i",
+	         bb->index, bb->frequency);
+          err = 1;
+        }
+      e = bb->succ;
       e = bb->succ;
       while (e)
 	{
@@ -1589,6 +1602,18 @@ verify_flow_info ()
 	    {
 	      error ("verify_flow_info: Duplicate edge %i->%i",
 		     e->src->index, e->dest->index);
+	      err = 1;
+	    }
+	  if (e->probability < 0 || e->probability > REG_BR_PROB_BASE)
+	    {
+	      error ("verify_flow_info: Wrong probability of edge %i->%i %i",
+		     e->src->index, e->dest->index, e->probability);
+	      err = 1;
+	    }
+	  if (e->count < 0)
+	    {
+	      error ("verify_flow_info: Wrong count of edge %i->%i %i",
+		     e->src->index, e->dest->index, (int)e->count);
 	      err = 1;
 	    }
 	  last_visited [e->dest->index + 2] = bb;

@@ -996,6 +996,10 @@ cfg_layout_duplicate_bb (bb, e)
   new_bb->frequency = EDGE_FREQUENCY (e);
   bb->count -= e->count;
   bb->frequency -= EDGE_FREQUENCY (e);
+  if (bb->count < 0)
+    bb->count = 0;
+  if (bb->frequency < 0)
+    bb->frequency = 0;
 
   /* Avoid redirect_edge_and_branch from overactive optimizing.  */
   new_bb->index = n_basic_blocks + 1;
