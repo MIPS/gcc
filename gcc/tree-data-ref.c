@@ -1177,8 +1177,8 @@ address_analysis (tree expr, tree stmt, bool is_read, tree alignment,
 
       if (alignment)
 	{
-	  if (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (expr))) 
-	      < (tree_low_cst (alignment, 0) * BITS_PER_UNIT)) 
+	  if (TYPE_ALIGN_UNIT (TREE_TYPE (TREE_TYPE (expr))) 
+	      < tree_low_cst (alignment, 0))
 	    {
 	      if (get_ptr_offset (expr, alignment, misalign))
 		*base_aligned = true;	  
@@ -1374,8 +1374,7 @@ object_analysis (tree memref, tree stmt, bool is_read, tree alignment,
       /* 2.1 check the alignment.  */
       if (alignment)
 	{
-	  if (DECL_ALIGN (memref) >= 
-	      (tree_low_cst (alignment, 0) * BITS_PER_UNIT))
+	  if (DECL_ALIGN_UNIT (memref) >= tree_low_cst (alignment, 0))
 	    object_base_aligned = true;
 	  else
 	    object_base_aligned = false;
@@ -1580,12 +1579,12 @@ create_data_ref (tree memref, tree stmt, bool is_read, tree alignment,
       print_generic_expr (dump_file, DR_INIT_OFFSET (dr), TDF_SLIM);
       fprintf (dump_file, "\n\tstep: ");
       print_generic_expr (dump_file, DR_STEP (dr), TDF_SLIM);
-      fprintf (dump_file, "B\n\tbase aligned %d\n\tmisalign: ", 
+      fprintf (dump_file, "B\n\tbase aligned %d\n\tmisalignment from base: ", 
 	       DR_BASE_ALIGNED (dr));
       print_generic_expr (dump_file, DR_OFFSET_MISALIGNMENT (dr), TDF_SLIM);
       if (DR_OFFSET_MISALIGNMENT (dr) && alignment)
 	{
-	  fprintf (dump_file, "B (mod ");
+	  fprintf (dump_file, "B (offset mod ");
 	  print_generic_expr (dump_file, alignment, TDF_SLIM);
 	  fprintf (dump_file, "B)");
 	}

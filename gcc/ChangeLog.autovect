@@ -1,3 +1,9 @@
+2005-03-21  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (address_analysis): Use TYPE_ALIGN_UNIT.
+	(object_analysis): Use DECL_ALIGN_UNIT.
+	(create_data_ref): Fix printings.
+
 2005-03-16  Dorit Naishlos  <dorit@il.ibm.com>
             Leehod Baruch  <leehod@il.ibm.com>
             Keith Besaw  <kbesaw@us.ibm.com>
