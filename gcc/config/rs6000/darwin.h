@@ -163,13 +163,12 @@ do {									\
 #define TARGET_ASM_FILE_START rs6000_darwin_file_start
 
 /* The "-faltivec" option should have been called "-maltivec" all
-   along.  -ffix-and-continue and -findirect-data is for compatibility
+   along.  -findirect-data is for compatibility
    for old compilers.  */
 
 /* APPLE LOCAL begin Altivec 3837840 */
 /* Supply -faltivec to compiler.  */
 #define SUBTARGET_OPTION_TRANSLATE_TABLE				\
-  { "-ffix-and-continue", "-mfix-and-continue" },			\
   { "-findirect-data", "-mfix-and-continue" },				\
   /* APPLE LOCAL AltiVec */						\
   { "-faltivec", "-faltivec -mpim-altivec" },				\
