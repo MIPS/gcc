@@ -1,3 +1,7 @@
+2002-10-06  Andreas Bauer  <baueran@in.tum.de>
+
+	* calls.c (expand_call): Fix function-is-volatile check.
+
 Sat Oct  5 22:48:06 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* athlon.md: rewrite to DFA.

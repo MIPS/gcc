@@ -2444,7 +2444,7 @@ expand_call (exp, target, ignore)
       || !(*targetm.function_ok_for_sibcall) (fndecl, exp)
       || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP))
       /* Functions that do not return may not be sibcall optimized.  */
-      || TYPE_VOLATILE (TREE_TYPE (TREE_OPERAND (exp, 0)))
+      || TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))))
       /* If this function requires more stack slots than the current
 	 function, we cannot change it into a sibling call.  */
       || args_size.constant > current_function_args_size
