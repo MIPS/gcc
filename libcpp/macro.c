@@ -383,13 +383,17 @@ stringify_arg (cpp_reader *pfile, macro_arg *arg)
 	{
 	  _cpp_buff *buff = _cpp_get_buff (pfile, len);
 	  unsigned char *buf = BUFF_FRONT (buff);
-	  len = cpp_spell_token (pfile, token, buf) - buf;
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+	  len = cpp_spell_token (pfile, token, buf, true) - buf;
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 	  dest = cpp_quote_string (dest, buf, len);
 	  _cpp_release_buff (pfile, buff);
 	}
       else
-	dest = cpp_spell_token (pfile, token, dest);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+	dest = cpp_spell_token (pfile, token, dest, true);
 
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
       if (token->type == CPP_OTHER && token->val.str.text[0] == '\\')
 	backslash_count++;
       else
@@ -425,15 +429,19 @@ paste_tokens (cpp_reader *pfile, const cpp_token **plhs, const cpp_token *rhs)
   lhs = *plhs;
   len = cpp_token_len (lhs) + cpp_token_len (rhs) + 1;
   buf = alloca (len);
-  end = cpp_spell_token (pfile, lhs, buf);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+  end = cpp_spell_token (pfile, lhs, buf, false);
 
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
   /* Avoid comment headers, since they are still processed in stage 3.
      It is simpler to insert a space here, rather than modifying the
      lexer to ignore comments in some circumstances.  Simply returning
      false doesn't work, since we want to clear the PASTE_LEFT flag.  */
   if (lhs->type == CPP_DIV && rhs->type != CPP_EQ)
     *end++ = ' ';
-  end = cpp_spell_token (pfile, rhs, end);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+  end = cpp_spell_token (pfile, rhs, end, false);
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
   *end = '\n';
 
   cpp_push_buffer (pfile, buf, end - buf, /* from_stage3 */ true);
@@ -1799,8 +1807,10 @@ cpp_macro_definition (cpp_reader *pfile, const cpp_hashnode *node)
 	      buffer += NODE_LEN (macro->params[token->val.arg_no - 1]);
 	    }
 	  else
-	    buffer = cpp_spell_token (pfile, token, buffer);
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+	    buffer = cpp_spell_token (pfile, token, buffer, false);
 
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 	  if (token->flags & PASTE_LEFT)
 	    {
 	      *buffer++ = ' ';

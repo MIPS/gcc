@@ -242,6 +242,21 @@ typedef CPPCHAR_SIGNED_T cppchar_signed_t;
 /* Style of header dependencies to generate.  */
 enum cpp_deps_style { DEPS_NONE = 0, DEPS_USER, DEPS_SYSTEM };
 
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+/* The possible normalization levels, from most restrictive to least.  */
+enum cpp_normalize_level {
+  /* In NFKC.  */
+  normalized_KC = 0,
+  /* In NFC.  */
+  normalized_C,
+  /* In NFC, except for subsequences where being in NFC would make
+     the identifier invalid.  */
+  normalized_identifier_C,
+  /* Not normalized at all.  */
+  normalized_none
+};
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
+
 /* This structure is nested inside struct cpp_reader, and
    carries all the options visible to the command line.  */
 struct cpp_options
@@ -409,6 +424,12 @@ struct cpp_options
 
   /* Holds the name of the input character set.  */
   const char *input_charset;
+
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
+  /* The minimum permitted level of normalization before a warning
+     is generated.  */
+  enum cpp_normalize_level warn_normalize;
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */
 
   /* True to warn about precompiled header files we couldn't use.  */
   bool warn_invalid_pch;
@@ -726,7 +747,8 @@ extern unsigned int cpp_errors (cpp_reader *);
 extern unsigned int cpp_token_len (const cpp_token *);
 extern unsigned char *cpp_token_as_text (cpp_reader *, const cpp_token *);
 extern unsigned char *cpp_spell_token (cpp_reader *, const cpp_token *,
-				       unsigned char *);
+  /* APPLE LOCAL mainline UCNs 2005-04-17 3892809 */
+				       unsigned char *, bool);
 extern void cpp_register_pragma (cpp_reader *, const char *, const char *,
 				 void (*) (cpp_reader *), bool);
 extern void cpp_handle_deferred_pragma (cpp_reader *, const cpp_string *);

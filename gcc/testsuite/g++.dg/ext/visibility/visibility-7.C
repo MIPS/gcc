@@ -1,5 +1,7 @@
 /* Test warning from conflicting visibility specifications. */
-/* { dg-require-visibility "" } */
+/* APPLE LOCAL begin mainline 4.0 2005-03-25 */
+/* { dg-require-visibility "protected" } */
+/* APPLE LOCAL end mainline 4.0 2005-03-25 */
 /* { dg-final { scan-hidden "xyzzy" } } */
 
 extern int 

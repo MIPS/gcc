@@ -572,7 +572,8 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
       {
 	unsigned char name[4];
 	
-	*cpp_spell_token (parse_in, tok, name) = 0;
+	/* APPLE LOCAL mainline UCNs 2005-04-17 3892809 */
+	*cpp_spell_token (parse_in, tok, name, false) = 0;
 	
 	error ("stray %qs in program", name);
       }

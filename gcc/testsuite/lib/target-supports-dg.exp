@@ -32,7 +32,9 @@ proc dg-require-weak { args } {
 # test.
 
 proc dg-require-visibility { args } {
-    set visibility_available [ check_visibility_available ]
+/* APPLE LOCAL begin mainline 4.0 2005-03-25 */
+    set visibility_available [ check_visibility_available [lindex $args 1 ] ]
+/* APPLE LOCAL end mainline 4.0 2005-03-25 */
     if { $visibility_available == -1 } {
 	upvar name name
 	unresolved "$name"

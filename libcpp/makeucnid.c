@@ -1,3 +1,4 @@
+/* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
 /* Make ucnid.h from various sources.
    Copyright (C) 2005 Free Software Foundation, Inc.
 
@@ -340,3 +341,4 @@ main(int argc, char ** argv)
   write_table ();
   return 0;
 }
+/* APPLE LOCAL end mainline UCNs 2005-04-17 3892809 */

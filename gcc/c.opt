@@ -384,6 +384,12 @@ Wnonnull
 C ObjC Var(warn_nonnull)
 Warn about NULL being passed to argument slots marked as requiring non-NULL
 
+; APPLE LOCAL begin mainline UCNs 2005-04-17 3892809
+Wnormalized=
+C ObjC C++ ObjC++ Joined
+-Wnormalized=<id|nfc|nfkc>	Warn about non-normalised Unicode strings
+; APPLE LOCAL end mainline UCNs 2005-04-17 3892809
+
 Wold-style-cast
 C++ ObjC++ Var(warn_old_style_cast)
 Warn if a C-style cast is used in a program
@@ -823,9 +829,11 @@ fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
 
+; APPLE LOCAL begin mainline 4.0 2005-03-25
 fvisibility-inlines-hidden
-C++
+C++ ObjC++
 Marks all inlined methods as having hidden visibility
+; APPLE LOCAL end mainline 4.0 2005-03-25
 
 fvtable-gc
 C++ ObjC++
