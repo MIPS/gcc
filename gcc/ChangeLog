@@ -1,7 +1,322 @@
+2004-03-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/rs6000/t-darwin (LIB2FUNCS_STATIC_EXTRA):
+	Add darwin-fpsave.asm, darwin-vecsave.asm,
+	and darwin-world.asm.
+	(TARGET_LIBGCC2_CFLAGS): Add -Wa,-force_cpusubtype_ALL
+	as the asm files contain altivec instructions.
+	* config/rs6000/darwin-fpsave.asm: New file.
+	* config/rs6000/darwin-vecsave.asm: New file.
+	* config/rs6000/darwin-world.asm: New file.
+
+2004-03-31  Zack Weinberg  <zack@codesourcery.com>
+
+	* gengtype-yacc.y (option, stringseq): Add missing
+	terminating semicolon.
+
+2004-03-30  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (tls_gd_32, tls_gd_64,
+	tls_ld_32, tls_ld_64, tls_dtprel_32, tls_dtprel_64,
+	tls_dtprel_ha_32, tls_dtprel_ha_64,
+	tls_dtprel_lo_32, tls_dtprel_lo_64,
+	tls_got_dtprel_64, tls_tprel_32, tls_tprel_64,
+	tls_tprel_ha_32, tls_tprel_ha_64,
+	tls_tprel_lo_32, tls_tprel_lo_64,
+	tls_got_tprel_32, tls_got_tprel_64,
+	tls_tls_32, tls_tls_64): Replace register_operand with
+	gpc_reg_operand.
+
+2004-03-30  Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* config/rs6000/rs6000.md (*ctrsi_internal1, *ctrsi_internal2,
+	*ctrdi_internal1, *ctrdi_internal2, *ctrsi_internal3,
+	*ctrsi_internal4, *ctrdi_internal3, *ctrdi_internal4,
+	*ctrsi_internal5, *ctrsi_internal6, *ctrdi_internal5,
+	*ctrdi_internal6): Replace register_operand with
+	nonimmediate_operand.
+
+2004-03-29  Fariborz Jahanian <fjahanian@apple.com>
+
+	* fold-const.c (fold): Reassociate multiply expression
+	with an adjacent non-multiply expression to use
+	architecture's multiply-add instruction.
+
+2004-03-30  Zack Weinberg  <zack@codesourcery.com>
+
+	* gengtype.c (create_option): New function.
+	* gengtype.h: Prototype it.
+	* gengtype-yacc.y (stringseq): New rule.
+	(option): Use create_option.  Add new bare ID production.  Use
+	stringseq, not STRING directly.
+
+	* alias.c, bitmap.c, c-decl.c, cgraph.h, cpplib.h, cselib.h
+	* dwarf2out.c, emit-rtl.c, function.h, lists.c, tree.h
+	* varray.h, config/alpha/alpha.c:
+	Use new shorter form of GTY markers.
+
+	* doc/gty.texi: Rewrite.
+
+2004-03-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/darwin.c (machopic_function_base_name):
+	Remove current_name and getting the name of the
+	current function.
+
+2004-03-30  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/arm.md (thumb_jump): Reduce the backward branch
+	range, and increase the forward branch range, to allow for
+	the fact that the PC will be off by 4.
+
+2004-03-30  Alan Modra  <amodra@bigpond.net.au>
+
+	* .cvsignore: Add GPATH, GRTAGS, GSYMS and GTAGS (GNU GLOBAL)
+
+2004-03-30  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* config/rs6000/rs6000.c (output_vec_const_move):
+	Find all cases of EASY_VECTOR_15_ADD_SELF.
+	(easy_vector_constant_add_self): Accept
+	all vector constant loadable by vsplt* and vadd*.
+	(easy_vector_same): Use easy_vector_splat_const.
+	(easy_vector_const): Use easy_vector_splat_const.
+	(easy_vector_splat_const): New function.
+	(gen_easy_vector_constant_add_self): New function.
+
+	* config/rs6000/rs6000-protos.c (gen_easy_vector_constant_add_self):
+	New prototype.
+
+	* config/rs6000/altivec.md (movv4si splitter): Change to
+	emit move insn with halfed vector constant.
+	(*movv8hi splitter): Likewise.
+	(*movv16qi splitter): Likewise.
+
+2004-03-30  Hartmut Penner  <hpenner@de.ibm.com>
+
+	PR 11591
+	* config/rs6000/rs6000.c (rs6000_legitimate_address):
+	Allow any offset to argument pointer in no-strict case.
+
+2004-03-30  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (backend_init): Add missing call to inint_optimization_passes.
+	* passes.c (init_optimization_passes, finish_optimization_passes): Output cgraph
+	dump file in non-unit-at-a-time mode.
+
+2004-03-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.h: Correct #ifdef to test for
+	HAVE_AS_NO_MUL_BUG_ABORT_OPTION, not
+	HAVE_AS_MUL_BUG_ABORT_OPTION.
+
+2004-03-29  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* function.c (put_var_into_stack): If old RTL was ADDRESSOF, update
+	the address inside the old RTL.
+
+2004-03-28  Zack Weinberg  <zack@codesourcery.com>
+
+	* c-decl.c: Verify that C_SIZEOF_STRUCT_LANG_IDENTIFIER is correct.
+	(struct c_binding, struct c_scope): Add chain_next
+	attributes to GTY markers.
+	(struct lang_identifier, struct lang_tree_node): Define
+	here...
+	* c-tree.h: ... not here.  No longer need to declare struct
+	c_binding either.  Do define C_SIZEOF_STRUCT_LANG_IDENTIFIER.
+	* c-lang.c, objc/objc-lang.c: Set LANG_HOOKS_IDENTIFIER_SIZE
+	to C_SIZEOF_STRUCT_LANG_IDENTIFIER.
+
+	PR 14734, 11944
+	* c-decl.c (get_parm_info): If error_mark_node is encountered
+	in the bindings chain, unbind and discard it; don't abort.
+
+2004-03-28  Olga Golovonevsky <olga@il.ibm.com>
+	    Dorit Naishlos <dorit@il.ibm.com>
+
+	* config/rs6000/altivec.md: (andvv16qi3, andv8hi3, one_cmplv16qi2,
+	one_cmplv8hi2, one_cmplv4si2, iorv16qi3, iorv8hi3,): New modelling.
+
+2004-03-28  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11-protos.h (m68hc11_page0_symbol_p): Declare.
+
+	* config/m68hc11/m68hc11.c (m68hc11_handle_page0_attribute): New.
+	(m68hc11_attribute_table): New attribute "page0" to mark a global
+	variable as being allocated from within page0 section.
+	(m68hc11_encode_label): New function.
+	(m68hc11_strip_name_encoding): New function.
+	(m68hc11_page0_symbol_p): New function.
+	(m68hc11_indirect_p): Accept global variables marked in page0.
+	(m68hc11_encode_section_info): Lookup "page0" attribute.
+
+	* config/m68hc11/m68hc11.h (EXTRA_CONSTRAINT): 'R' constraint also
+	represents access to page0 variables.
+
+	* config/m68hc11/m68hc11.md ("*logicalsi3_zexthi"): Use gen_rtx_REG.
+	("*logicalsi3_silshl16_zext"): Likewise.
+	("*ashldi3_const32"): Likewise.
+	(peephole2 ashift): Likewise.
+
+2004-03-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-tree.h (C_DECL_REGISTER): New.
+	* c-aux-info.c (gen_decl), c-decl.c (objc_mark_locals_volatile,
+	finish_decl, grokdeclarator, get_parm_info), c-typeck.c
+	(build_array_ref, c_mark_addressable): Set and use it.
+	* c-decl.c (grokdeclarator), c-typeck.c (c_mark_addressable):
+	Allow structures with volatile fields to be declared register.
+	Don't check TREE_ADDRESSABLE before warning about taking address
+	of register.
+	* c-decl.c (finish_decl): Don't allow structures with volatile
+	fields to be placed in named register.
+	* doc/trouble.texi: Remove reference to structures with volatile
+	fields in registers.
+
+2004-03-27  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* function.c (thread_prologue_and_epilogue): Move
+	NOTE_INSN_FUNCTION_END and NOTE_INSN_FUNCTION_BEG notes
+	before the epilogue.
+
+2004-03-27  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* expr.c (store_constructor): Use gen_int_mode to correctly
+	sign-extend CONST_INT value.
+
+2004-03-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtin-types.def (BT_WINT, BT_FN_INT_WINT, BT_FN_WINT_WINT): New.
+	* builtins.def (DEF_C94_BUILTIN): New.  Add wctype builtins.
+	* doc/extend.texi: Likewise.
+
 2004-03-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-typeck.c (comptypes): Replace calls to TYPE_DOMAIN
 	  with TYPE_ORIG_SIZE_TYPE.
+
+2004-03-25  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR 14219
+	* c-typeck.c (build_binary_op): Do not allow comparisons of
+	vectors.
+
+2004-03-26  James A. Morrison  <ja2morri@uwaterloo.ca>
+
+	* config.gcc: Remove sparc-tti-*.
+	* config/sparc/pbd.h: Delete.
+
+	* config/sparc/sol2.h: Remove note about Sun OS 4.x.
+	* config/sparc/aout.h: Likewise.
+
+	* config/sparc/sparc.h: Remove if 0'd code.
+	* config/sparc/sparc.md (call): Remove if 0'd code.
+	(call_value): Likewise.
+	(nonlocal_goto): Likewise.
+	(unimp_insn): Delete.
+
+2004-03-25  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (tree_expr_nonnegative_p): Handle BIT_XOR_EXPR like
+	BIT_IOR_EXPR; A^B is nonnegative when A and B are nonnegative.
+
+2004-03-25  Richard Henderson  <rth@redhat.com>
+
+	PR 11527
+	* c-typeck.c (pop_init_level): Emit pending init elements earlier
+	rather than later.
+
+2004-03-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (fold_builtin): Fix error in last change.
+
+2004-03-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.h: Formatting fix.
+
+2004-03-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.def: Add ctype builtins.
+	* doc/extend.texi: Likewise.
+
+2004-03-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (fold_builtin): Add new builtin optimizations for
+	sqrt and/or cbrt.
+	* fold-const.c (fold): Likewise.
+
+2004-03-25  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_always_hint): New variable.
+	(rs6000_sched_groups): New variable.
+	(processor_target_table): Add power5.
+	(rs6000_override_options): Set rs6000_sched_insert_nops,
+	rs6000_sched_costly_dep and rs6000_sched_restricted_insns_priority
+	from rs6000_sched_groups.
+	(output_cbranch): Use rs6000_always_hint.
+	(rs6000_variable_issue): Use rs6000_sched_groups.
+	(rs6000_adjust_cost): Add CPU_POWER5.
+	(is_microcoded_insn): Use rs6000_sched_groups.
+	(is_dispatch_slot_restricted): Use rs6000_sched_groups.
+	Return 2 for POWER5 cracked instructions.
+	(is_cracked_insn): Use rs6000_sched_groups.
+	(is_branch_slot_insn): Use rs6000_sched_groups.
+	(rs6000_issue_rate): Add CPU_POWER5.
+	(rs6000_sched_finish): Use rs6000_sched_groups.
+	(rs6000_rtx_costs): Add PROCESSOR_POWER5.
+	* config/rs6000/rs6000.h (processor_type): Add PROCESSOR_POWER5.
+	(DEFAULT_SCHED_COSTLY_DEP): Delete.
+	(DEFAULT_RESTRICTED_INSNS_PRIORITY): Delete.
+	(DEFAULT_SCHED_FINISH_NOP_INSERTION_SCHEME): Delete.
+	* config/rs6000/rs6000.md (define_attr "cpu"): Add power5.
+	* config/rs6000/power5.md: New file.
+	* doc/invoke.texi: Add power5 option.
+
+2004-03-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cfgrtl.c, dbxout.c, tree.def, config/darwin.h,
+	config/arm/arm.c, objc/objc-act.c: Fix comment typos.
+	* doc/invoke.texi: Fix a typo.
+
+2004-03-25  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR optimization/9707.
+	* stmt.c (emit_case_nodes): Emit equality comparisons instead
+	of recursing if both children are single-valued cases with no
+	children.
+
+2004-03-25  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (vfp_print_multi): Remove.
+	(arm_output_fldmx): New function.
+	(vfp_emit_fstmx): Return block size, not insn. Add ARM10 VFPr1 bugfix.
+	(arm_expand_prologue): Update to match.
+	(arm_get_vfp_saved_size): New Function.
+	(arm_get_frame_offsets): Use it.
+	(arm_output_epilogue): Use new functions.
+
+2004-03-24  Richard Henderson  <rth@redhat.com>
+
+	* alias.c (alias_invariant, alias_invariant_size): Mark GTY.
+	(reg_known_value, reg_known_value_size): Likewise; make static.
+	(reg_known_equiv_p): Make static.
+	(clear_reg_alias_info): Update for new indexing.
+	(get_reg_known_value, set_reg_known_value): New.
+	(get_reg_known_equiv_p, set_reg_known_equiv_p): New.
+	(canon_rtx): Use them.
+	(init_alias_analysis): Likewise.  Allocate reg_known_value with gc.
+	Don't play queer offsetting games with reg_known_value and
+	reg_known_equiv_p.
+	(end_alias_analysis): Free reg_known_value with gc.
+	* rtl.h (get_reg_known_value, get_reg_known_equiv_p): Declare.
+	* sched-deps.c (reg_known_equiv_p, reg_known_value): Remove.
+	(deps_may_trap_p, sched_analyze_1, sched_analyze_2): Use the new
+	functions instead.
+
+2004-03-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* dwarf2asm.c, loop.h, pretty-print.c, pretty-print.h,
+	config/i386/mmintrin.h: Update copyright.
 
 2004-03-24  Nathanael Nerode  <neroden@gcc.gnu.org>
 

@@ -1938,12 +1938,9 @@ rest_of_compilation (tree decl)
 void
 init_optimization_passes (void)
 {
-  if (flag_unit_at_a_time)
-    {
-      open_dump_file (DFI_cgraph, NULL);
-      cgraph_dump_file = dump_file;
-      dump_file = NULL;
-    }
+  open_dump_file (DFI_cgraph, NULL);
+  cgraph_dump_file = dump_file;
+  dump_file = NULL;
 }
 
 void
@@ -1968,12 +1965,9 @@ finish_optimization_passes (void)
       timevar_pop (TV_DUMP);
     }
 
-  if (flag_unit_at_a_time)
-    {
-      dump_file = cgraph_dump_file;
-      cgraph_dump_file = NULL;
-      close_dump_file (DFI_cgraph, NULL, NULL_RTX);
-    }
+  dump_file = cgraph_dump_file;
+  cgraph_dump_file = NULL;
+  close_dump_file (DFI_cgraph, NULL, NULL_RTX);
 
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)

@@ -2250,7 +2250,7 @@ struct tree_decl GTY(())
       unsigned int align : 24;
       unsigned int off_align : 8;
     } a;
-  } GTY ((skip (""))) u1;
+  } GTY ((skip)) u1;
 
   tree size_unit;
   tree name;

@@ -60,12 +60,9 @@
 #define TARGET_NO_PROTOTYPE 0
 #endif
 
-#define EASY_VECTOR_15(n, x, y) ((n) >= -16 && (n) <= 15 \
-				 && easy_vector_same (x, y))
-
-#define EASY_VECTOR_15_ADD_SELF(n, x, y) ((n) >= 0x10 && (n) <= 0x1e \
-                                          && !((n) & 1)              \
-					  && easy_vector_same (x, y))
+#define EASY_VECTOR_15(n) ((n) >= -16 && (n) <= 15)
+#define EASY_VECTOR_15_ADD_SELF(n) ((n) >= 0x10 && (n) <= 0x1e \
+                                          && !((n) & 1))
 
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
@@ -123,6 +120,12 @@ struct rs6000_cpu_select rs6000_select[3] =
   { (const char *)0,	"-mcpu=",		1,	1 },
   { (const char *)0,	"-mtune=",		1,	0 },
 };
+
+/* Always emit branch hint bits.  */
+static GTY(()) bool rs6000_always_hint;
+
+/* Schedule instructions for group formation.  */
+static GTY(()) bool rs6000_sched_groups;
 
 /* Support adjust_priority scheduler hook 
    and -mprioritize-restricted-insns= option.  */
@@ -405,6 +408,7 @@ static void is_altivec_return_reg (rtx, void *);
 static rtx generate_set_vrsave (rtx, rs6000_stack_t *, int);
 int easy_vector_constant (rtx, enum machine_mode);
 static int easy_vector_same (rtx, enum machine_mode);
+static int easy_vector_splat_const (int, enum machine_mode);
 static bool is_ev64_opaque_type (tree);
 static rtx rs6000_dwarf_register_span (rtx);
 static rtx rs6000_legitimize_tls_address (rtx, enum tls_model);
@@ -714,6 +718,8 @@ rs6000_override_options (const char *default_cpu)
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
 	 {"power4", PROCESSOR_POWER4,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+	 {"power5", PROCESSOR_POWER5,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_POWERPC64},
@@ -914,6 +920,11 @@ rs6000_override_options (const char *default_cpu)
 	rs6000_long_double_type_size = 64;
     }
 
+  rs6000_always_hint = (rs6000_cpu != PROCESSOR_POWER4
+			&& rs6000_cpu != PROCESSOR_POWER5);
+  rs6000_sched_groups = (rs6000_cpu == PROCESSOR_POWER4
+			 || rs6000_cpu == PROCESSOR_POWER5);
+
   /* Handle -m(no-)longcall option.  This is a bit of a cheap hack,
      using TARGET_OPTIONS to handle a toggle switch, but we're out of
      bits in target_flags so TARGET_SWITCHES cannot be used.
@@ -942,13 +953,15 @@ rs6000_override_options (const char *default_cpu)
     }
 
   /* Handle -mprioritize-restricted-insns option.  */
-  rs6000_sched_restricted_insns_priority = DEFAULT_RESTRICTED_INSNS_PRIORITY;
+  rs6000_sched_restricted_insns_priority
+    = (rs6000_sched_groups ? 1 : 0);
   if (rs6000_sched_restricted_insns_priority_str)
     rs6000_sched_restricted_insns_priority =
       atoi (rs6000_sched_restricted_insns_priority_str);
 
   /* Handle -msched-costly-dep option.  */
-  rs6000_sched_costly_dep = DEFAULT_SCHED_COSTLY_DEP;
+  rs6000_sched_costly_dep
+    = (rs6000_sched_groups ? store_to_load_dep_costly : no_dep_costly);
   if (rs6000_sched_costly_dep_str)
     {
       if (! strcmp (rs6000_sched_costly_dep_str, "no"))  
@@ -964,7 +977,8 @@ rs6000_override_options (const char *default_cpu)
     }
 
   /* Handle -minsert-sched-nops option.  */
-  rs6000_sched_insert_nops = DEFAULT_SCHED_FINISH_NOP_INSERTION_SCHEME;
+  rs6000_sched_insert_nops
+    = (rs6000_sched_groups ? sched_finish_regroup_exact : sched_finish_none);
   if (rs6000_sched_insert_nops_str)
     {
       if (! strcmp (rs6000_sched_insert_nops_str, "no"))
@@ -1661,6 +1675,38 @@ easy_fp_constant (rtx op, enum machine_mode mode)
     abort ();
 }
 
+/* Returns the constant for the splat instrunction, if exists.  */
+
+static int
+easy_vector_splat_const (int cst, enum machine_mode mode)
+{
+  switch (mode) 
+    {
+    case V4SImode:
+      if (EASY_VECTOR_15 (cst) 
+	  || EASY_VECTOR_15_ADD_SELF (cst)) 
+	return cst;
+      if ((cst & 0xffff) != ((cst >> 16) & 0xffff))
+	break;
+      cst = cst >> 16;
+    case V8HImode:
+      if (EASY_VECTOR_15 (cst) 
+	  || EASY_VECTOR_15_ADD_SELF (cst)) 
+	return cst;
+      if ((cst & 0xff) != ((cst >> 8) & 0xff))
+	break;
+      cst = cst >> 8;
+    case V16QImode:
+	  if (EASY_VECTOR_15 (cst) 
+	      || EASY_VECTOR_15_ADD_SELF (cst)) 
+	    return cst;
+    default: 
+      break;
+    }
+  return 0;
+}
+
+
 /* Return nonzero if all elements of a vector have the same value.  */
 
 static int
@@ -1674,7 +1720,7 @@ easy_vector_same (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   for (i = 1; i < units; ++i)
     if (INTVAL (CONST_VECTOR_ELT (op, i)) != cst)
       break;
-  if (i == units)
+  if (i == units && easy_vector_splat_const (cst, mode))
     return 1;
   return 0;
 }
@@ -1720,31 +1766,14 @@ easy_vector_constant (rtx op, enum machine_mode mode)
       && cst2 >= -0x7fff && cst2 <= 0x7fff)
     return 1;
 
-  if (TARGET_ALTIVEC)
-    switch (mode) 
-      {
-      case V4SImode:
-	if (EASY_VECTOR_15 (cst, op, mode))
-	  return 1;
-	if ((cst & 0xffff) != ((cst >> 16) & 0xffff))
-	  break;
-	cst = cst >> 16;
-      case V8HImode:
-	if (EASY_VECTOR_15 (cst, op, mode))
-	  return 1;
-	if ((cst & 0xff) != ((cst >> 8) & 0xff))
-	  break;
-	cst = cst >> 8;
-      case V16QImode:
-	if (EASY_VECTOR_15 (cst, op, mode))
-	  return 1;
-      default: 
-	break;
-      }
-
-  if (TARGET_ALTIVEC && EASY_VECTOR_15_ADD_SELF (cst, op, mode))
-    return 1;
-
+  if (TARGET_ALTIVEC 
+      && easy_vector_same (op, mode))
+    {
+      cst = easy_vector_splat_const (cst, mode);
+      if (EASY_VECTOR_15_ADD_SELF (cst) 
+	  || EASY_VECTOR_15 (cst))
+	return 1;
+    }  
   return 0;
 }
 
@@ -1754,13 +1783,31 @@ int
 easy_vector_constant_add_self (rtx op, enum machine_mode mode)
 {
   int cst;
+  if (TARGET_ALTIVEC
+      && GET_CODE (op) == CONST_VECTOR
+      && easy_vector_same (op, mode))
+    {
+      cst = easy_vector_splat_const (INTVAL (CONST_VECTOR_ELT (op, 0)), mode);
+      if (EASY_VECTOR_15_ADD_SELF (cst))
+	return 1;  
+    }
+  return 0;
+}
 
-  if (!easy_vector_constant (op, mode))
-    return 0;
+/* Generate easy_vector_constant out of a easy_vector_constant_add_self.  */
 
-  cst = INTVAL (CONST_VECTOR_ELT (op, 0));
+rtx 
+gen_easy_vector_constant_add_self (rtx op)
+{
+  int i, units;
+  rtvec v;
+  units = GET_MODE_NUNITS (GET_MODE (op));
+  v = rtvec_alloc (units);
 
-  return TARGET_ALTIVEC && EASY_VECTOR_15_ADD_SELF (cst, op, mode);
+  for (i = 0; i < units; i++)
+    RTVEC_ELT (v, i) = 
+      GEN_INT (INTVAL (CONST_VECTOR_ELT (op, i)) >> 1);
+  return gen_rtx_raw_CONST_VECTOR (GET_MODE (op), v);
 }
 
 const char *
@@ -1781,33 +1828,37 @@ output_vec_const_move (rtx *operands)
     {
       if (zero_constant (vec, mode))
 	return "vxor %0,%0,%0";
-      else if (EASY_VECTOR_15_ADD_SELF (cst, vec, mode))
-	return "#";
       else if (easy_vector_constant (vec, mode))
 	{
 	  operands[1] = GEN_INT (cst);
 	  switch (mode)
 	    {
 	    case V4SImode:
-	      if (EASY_VECTOR_15 (cst, vec, mode))
+	      if (EASY_VECTOR_15 (cst))
 		{
 		  operands[1] = GEN_INT (cst);
 		  return "vspltisw %0,%1";
 		}
+	      else if (EASY_VECTOR_15_ADD_SELF (cst))
+		return "#";
 	      cst = cst >> 16;
 	    case V8HImode:
-	      if (EASY_VECTOR_15 (cst, vec, mode))
+	      if (EASY_VECTOR_15 (cst))
 		{
 		  operands[1] = GEN_INT (cst);
 		  return "vspltish %0,%1";
 		}
+	      else if (EASY_VECTOR_15_ADD_SELF (cst))
+		return "#";
 	      cst = cst >> 8;
 	    case V16QImode:
-	      if (EASY_VECTOR_15 (cst, vec, mode))
+	      if (EASY_VECTOR_15 (cst))
 		{
 		  operands[1] = GEN_INT (cst);
 		  return "vspltisb %0,%1";
 		}
+	      else if (EASY_VECTOR_15_ADD_SELF (cst))
+		return "#";
 	    default:
 	      abort ();
 	    }
@@ -3247,7 +3298,8 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
   if (! reg_ok_strict
       && GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == REG
-      && XEXP (x, 0) == virtual_stack_vars_rtx
+      && (XEXP (x, 0) == virtual_stack_vars_rtx
+         || XEXP (x, 0) == arg_pointer_rtx)
       && GET_CODE (XEXP (x, 1)) == CONST_INT)
     return 1;
   if (legitimate_offset_address_p (mode, x, reg_ok_strict))
@@ -10058,7 +10110,6 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
     {
       /* PROB is the difference from 50%.  */
       int prob = INTVAL (XEXP (note, 0)) - REG_BR_PROB_BASE / 2;
-      bool always_hint = rs6000_cpu != PROCESSOR_POWER4;
 
       /* Only hint for highly probable/improbable branches on newer
 	 cpus as static prediction overrides processor dynamic
@@ -10066,7 +10117,7 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
 	 assume not taken for branches that are very close to 50% as a
 	 mispredicted taken branch is more expensive than a
 	 mispredicted not-taken branch.  */ 
-      if (always_hint
+      if (rs6000_always_hint
 	  || abs (prob) > REG_BR_PROB_BASE / 100 * 48)
 	{
 	  if (abs (prob) > REG_BR_PROB_BASE / 20
@@ -13878,7 +13929,7 @@ rs6000_variable_issue (FILE *stream ATTRIBUTE_UNUSED,
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return more;
 
-  if (rs6000_cpu == PROCESSOR_POWER4)
+  if (rs6000_sched_groups)
     {
       if (is_microcoded_insn (insn))
         return 0;
@@ -13926,7 +13977,8 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn ATTRIBUTE_UNUSED,
 	       || rs6000_cpu_attr == CPU_PPC750
 	       || rs6000_cpu_attr == CPU_PPC7400
 	       || rs6000_cpu_attr == CPU_PPC7450
-	       || rs6000_cpu_attr == CPU_POWER4)
+	       || rs6000_cpu_attr == CPU_POWER4
+	       || rs6000_cpu_attr == CPU_POWER5)
 	      && recog_memoized (dep_insn)
 	      && (INSN_CODE (dep_insn) >= 0)
 	      && (get_attr_type (dep_insn) == TYPE_CMP
@@ -13958,7 +14010,7 @@ is_microcoded_insn (rtx insn)
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
 
-  if (rs6000_cpu == PROCESSOR_POWER4)
+  if (rs6000_sched_groups)
     {
       enum attr_type type = get_attr_type (insn);
       if (type == TYPE_LOAD_EXT_U
@@ -13983,7 +14035,7 @@ is_dispatch_slot_restricted (rtx insn)
 {
   enum attr_type type;
 
-  if (rs6000_cpu != PROCESSOR_POWER4)
+  if (!rs6000_sched_groups)
     return 0;
 
   if (!insn
@@ -13995,21 +14047,25 @@ is_dispatch_slot_restricted (rtx insn)
 
   type = get_attr_type (insn);
 
-  switch (type){
-  case TYPE_MFCR:
-  case TYPE_MFCRF:
-  case TYPE_MTCR:
-  case TYPE_DELAYED_CR:
-  case TYPE_CR_LOGICAL:
-  case TYPE_MTJMPR:
-  case TYPE_MFJMPR:
-    return 1;
-  case TYPE_IDIV:
-  case TYPE_LDIV:
-    return 2;
-  default:
-    return 0;
-  }
+  switch (type)
+    {
+    case TYPE_MFCR:
+    case TYPE_MFCRF:
+    case TYPE_MTCR:
+    case TYPE_DELAYED_CR:
+    case TYPE_CR_LOGICAL:
+    case TYPE_MTJMPR:
+    case TYPE_MFJMPR:
+      return 1;
+    case TYPE_IDIV:
+    case TYPE_LDIV:
+      return 2;
+    default:
+      if (rs6000_cpu == PROCESSOR_POWER5
+	  && is_cracked_insn (insn))
+	return 2;
+      return 0;
+    }
 }
 
 /* The function returns true if INSN is cracked into 2 instructions
@@ -14023,7 +14079,7 @@ is_cracked_insn (rtx insn)
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
 
-  if (rs6000_cpu == PROCESSOR_POWER4)
+  if (rs6000_sched_groups)
     {
       enum attr_type type = get_attr_type (insn);
       if (type == TYPE_LOAD_U || type == TYPE_STORE_U
@@ -14051,7 +14107,7 @@ is_branch_slot_insn (rtx insn)
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
 
-  if (rs6000_cpu == PROCESSOR_POWER4)
+  if (rs6000_sched_groups)
     {
       enum attr_type type = get_attr_type (insn);
       if (type == TYPE_BRANCH || type == TYPE_JMPREG)
@@ -14151,6 +14207,7 @@ rs6000_issue_rate (void)
   case CPU_PPC630:
     return 4;
   case CPU_POWER4:
+  case CPU_POWER5:
     return 5;
   default:
     return 1;
@@ -14704,7 +14761,7 @@ rs6000_sched_finish (FILE *dump, int sched_verbose)
   if (sched_verbose)
     fprintf (dump, "=== Finishing schedule.\n");
 
-  if (reload_completed && rs6000_cpu == PROCESSOR_POWER4)
+  if (reload_completed && rs6000_sched_groups)
     {
       if (rs6000_sched_insert_nops == sched_finish_none)
         return;
@@ -15898,6 +15955,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	  return true;
 
 	case PROCESSOR_POWER4:
+	case PROCESSOR_POWER5:
 	  *total = (GET_CODE (XEXP (x, 1)) != CONST_INT
 		    ? GET_MODE (XEXP (x, 1)) != DImode
 		    ? COSTS_N_INSNS (3) : COSTS_N_INSNS (4)
@@ -15983,6 +16041,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 	  return true;
 
 	case PROCESSOR_POWER4:
+	case PROCESSOR_POWER5:
 	  *total = (GET_MODE (XEXP (x, 1)) != DImode
 		    ? COSTS_N_INSNS (18)
 		    : COSTS_N_INSNS (34));

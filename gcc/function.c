@@ -1266,7 +1266,7 @@ init_temp_slots (void)
 void
 put_var_into_stack (tree decl, int rescan)
 {
-  rtx reg;
+  rtx orig_reg, reg;
   enum machine_mode promoted_mode, decl_mode;
   struct function *function = 0;
   tree context;
@@ -1278,9 +1278,9 @@ put_var_into_stack (tree decl, int rescan)
   context = decl_function_context (decl);
 
   /* Get the current rtl used for this object and its original mode.  */
-  reg = (TREE_CODE (decl) == SAVE_EXPR
-	 ? SAVE_EXPR_RTL (decl)
-	 : DECL_RTL_IF_SET (decl));
+ orig_reg = reg = (TREE_CODE (decl) == SAVE_EXPR
+		   ? SAVE_EXPR_RTL (decl)
+		   : DECL_RTL_IF_SET (decl));
 
   /* No need to do anything if decl has no rtx yet
      since in that case caller is setting TREE_ADDRESSABLE
@@ -1345,6 +1345,12 @@ put_var_into_stack (tree decl, int rescan)
       else
 	put_reg_into_stack (function, reg, TREE_TYPE (decl), promoted_mode,
 			    decl_mode, volatilep, 0, usedp, 0);
+
+	  /* If this was previously a MEM but we've removed the ADDRESSOF,
+	     set this address into that MEM so we always use the same
+	     rtx for this variable.  */
+	  if (orig_reg != reg && GET_CODE (orig_reg) == MEM)
+	    XEXP (orig_reg, 0) = XEXP (reg, 0);
     }
   else if (GET_CODE (reg) == CONCAT)
     {
@@ -7625,11 +7631,16 @@ epilogue_done:
 
       /* Similarly, move any line notes that appear after the epilogue.
          There is no need, however, to be quite so anal about the existence
-	 of such a note.  */
+	 of such a note.  Also move the NOTE_INSN_FUNCTION_END and (possibly)
+	 NOTE_INSN_FUNCTION_BEG notes, as those can be relevant for debug
+	 info generation.  */
       for (insn = epilogue_end; insn; insn = next)
 	{
 	  next = NEXT_INSN (insn);
-	  if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
+	  if (GET_CODE (insn) == NOTE 
+	      && (NOTE_LINE_NUMBER (insn) > 0
+		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG
+		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_END))
 	    reorder_insns (insn, insn, PREV_INSN (epilogue_end));
 	}
     }

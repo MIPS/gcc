@@ -1,17 +1,155 @@
+2004-03-31  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/generic/c_locale.cc (__convert_to_v(long double&)):
+	In v3 uses of sscanf, the special floating-point numbers INF,
+	INFINITY, etc., cannot occur in input, therefore, if the latter
+	is too large, ERANGE is always stored in errno, no need of finitel.
+
+2004-03-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/14783
+	* include/bits/stl_tree.h: Adjust initialization list order.
+
+2004-03-29  Loren J. Rittle  <ljrittle@acm.org>
+
+	* testsuite/thread/pthread7-rope.cc: Update comment to reflect test.
+
+2004-03-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/thread/pthread7-rope.cc: Fix, unpredictably, depending
+	on allocator behavior, the memory pointed by data2 may well be not
+	trashed.
+
+2004-03-28  Chavdar Botev  <cbotev@yahoo.com>
+
+	PR libstdc++/14245
+	* include/bits/basic_string.tcc
+	(basic_string::basic_string(const basic_string&)): Pass to
+	_Rep::_M_grab the actual allocator of the string being constructed
+	not the default constructed one.
+
+2004-03-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	libstdc++ PR/13598
+	* config/locale/ieee_1003.1-2001/codecvt_specializations.h
+	(__enc_traits::_M_destroy): New.
+	(__enc_traits::~__enc_traits): Use it.
+	(__enc_traits::operator=): Use _M_destroy, _M_init.
+	(__enc_traits::__enc_traits): Same.
+
+2004-03-27  Petur Runolfsson  <peturr02@ru.is>
+
+	* testsuite/ext/enc_filebuf/char/13598.cc: New.
+
+2004-03-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h: Uglify consistently names of
+	variables, members and classes; tidy.
+
+2004-03-27  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* include/ext/mt_allocator.h (__mt_alloc<>::deallocate):
+	Deallocation loop rewrote.
+
 2004-03-26  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/mt_allocator.h (__mt_alloc<>::allocate,
-	__mt_alloc<>::deallocate): Protect instance of
+	__mt_alloc<>::deallocate): Protect two instances of
 	block->thread_id with __GTHREADS.
 
+2004-03-25  Gawain Bolton  <gp.bolton@computer.org>
+
+	* include/bits/stl_tree.h (_Rb_tree_impl): Add _Node_allocator
+	default argument in constructors.
+	(_Rb_tree::_M_empty_initialize): Remove.
+	
+2004-03-25  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/23_containers/map/operators/1_neg.cc: Adjust line numbers.
+	* testsuite/23_containers/set/operators/1_neg.cc: Same.
+
+2004-03-25  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* include/bits/cpp_type_traits.h: Changed __is_pod
+	completely. Now, it does not use any of the previous type_traits
+	to detect the pod types, and it also detects function pointers as
+	POD types.
+
+	* include/bits/stl_tree.h: Introduced a new class _Rb_tree_impl,
+	which encapsulates the internal implementation of an rb_tree. Made
+	the allocator a base class of this class instead of the rb_tree,
+	which was not conforming. This _Rb_tree_impl class is also
+	specialized on whether the _Compare parameter is a POD type or
+	not. If so, then it maintains the comparison function as a data
+	member, otherwise it makes the _Compare parameter a base class of
+	itself. Also, _M_key_compare is now a function instead of a data
+	member, so that the above trick can work properly. Delegated the
+	initialization of the other data members to this newly created
+	class. Also, now other member functions of rb_tree must refer to
+	_M_key_compare as _M_impl._M_key_compare(). The other data members
+	(*) can be referenced to as _M_impl.(*), where
+	(*) includes _M_header, and _M_node_count.
+
+2004-03-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h (__mt_alloc<>::tune):
+	Add _M_min_bin, the size in bytes of the smallest bin.
+	(__mt_alloc<>::tune()): Tweak accordingly.
+	(__mt_alloc<>::tune(size_t, ...)): Likewise.
+	(__mt_alloc<>::block_record): Change to a union: members next
+	and thread_id are never used at the same time.
+	(__mt_alloc<>::allocate): Update consistently.
+	(__mt_alloc<>::deallocate): Likewise.
+	(__mt_alloc<>::_S_initialize): Update setups of _S_binmap and
+	_S_bin_size for the configurable _M_min_size.
+
+2004-03-25  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* include/bits/stl_list.h: Created a _List_impl class and made it
+	derive from the allocator, instead of the list deriving from the
+	allocator class, which was not conformant. Changed all references
+	from this->_M_node to this->_M_impl._M_node * bits/list.tcc: Same
+	as above (changed all references to the concerned variables).
+
+2004-03-25  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* include/bits/stl_deque.h: Created a _Deque_impl class and made
+	it derive from the allocator, instead of the deque deriving from
+	the allocator class, which was not conformant. Changed all
+	references to the _M_start, _M_finish, _M_map, and _M_map_size to
+	_M_impl.*.
+	(_Deque_base<_Tp,_Alloc>::~_Deque_base()): Added this->
+	qualification in 2 places where it was missing.
+	(_Deque_base<_Tp,_Alloc>::_M_initialize_map(size_t)): Same as
+	above.
+	* include/bits/deque.tcc: Same as above (changed all references to
+	the concerned variables).
+
+2004-03-25  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* include/bits/stl_vector.h: Created a _Vector_impl class and made
+	it derive from the allocator, instead of the _Vector_base class,
+	deriving from the allocator which was not conformant. Changed all
+	references to the _M_start, _M_finish, and _M_end_of_storage to
+	_M_impl.*.
+	* include/bits/vector.tcc: Same as above (changed all references
+	to the concerned variables).
+
+2004-03-25  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* testsuite/23_containers/deque/cons/clear_allocator.cc: New.
+	* testsuite/23_containers/list/cons/clear_allocator.cc: New.
+	* testsuite/23_containers/vector/cons/clear_allocator.cc: New.
+	
 2004-03-24  Dhruv Matani  <dhruvbird@gmx.net>
 
-	* ext/malloc_allocator.h: Fixed the construct function to call
-	global placement new instead of assignment. Added a check after
-	the return from malloc to check whether returned pointer is NULL,
-	and if so, throw std::bad_alloc().
-	* ext/debug_allocator.h: Added a check in the deallocate function
-	to check whether the user has passed a NULL pointer or not.
+	* include/ext/malloc_allocator.h: Fixed the construct function to
+	call global placement new instead of assignment. Added a check
+	after the return from malloc to check whether returned pointer is
+	NULL, and if so, throw std::bad_alloc().
+	* include/ext/debug_allocator.h: Added a check in the deallocate
+	function to check whether the user has passed a NULL pointer or
+	not.
 	
 2004-03-24  Benjamin Kosnik  <bkoz@redhat.com>
 

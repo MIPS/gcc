@@ -165,7 +165,7 @@ bool c_override_global_bindings_to_false;
    suppress further errors about that identifier in the current
    function.  */
 
-struct c_binding GTY(())
+struct c_binding GTY((chain_next ("%h.prev")))
 {
   tree decl;			/* the decl bound */
   tree id;			/* the identifier it's bound to */
@@ -188,6 +188,34 @@ struct c_binding GTY(())
   (((struct lang_identifier *)IDENTIFIER_NODE_CHECK(node))->label_binding)
 #define I_LABEL_DECL(node) \
  (I_LABEL_BINDING(node) ? I_LABEL_BINDING(node)->decl : 0)
+
+/* Each C symbol points to three linked lists of c_binding structures.
+   These describe the values of the identifier in the three different
+   namespaces defined by the language.  */
+
+struct lang_identifier GTY(())
+{
+  struct c_common_identifier common_id;
+  struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
+  struct c_binding *tag_binding;    /* struct/union/enum tags */
+  struct c_binding *label_binding;  /* labels */
+};
+
+/* Validate c-lang.c's assumptions.  */
+extern char C_SIZEOF_STRUCT_LANG_IDENTIFIER_isnt_accurate
+[(sizeof(struct lang_identifier) == C_SIZEOF_STRUCT_LANG_IDENTIFIER) ? 1 : -1];
+
+/* The resulting tree type.  */
+
+union lang_tree_node
+  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
+       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *)TYPE_NEXT_VARIANT (&%h.generic) : (union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
+{
+  union tree_node GTY ((tag ("0"),
+			desc ("tree_node_structure (&%h)")))
+    generic;
+  struct lang_identifier GTY ((tag ("1"))) identifier;
+};
 
 /* Each c_scope structure describes the complete contents of one
    scope.  Four scopes are distinguished specially: the innermost or
@@ -234,7 +262,7 @@ struct c_binding GTY(())
    pop_scope relies on this.  */
 
 
-struct c_scope GTY(())
+struct c_scope GTY((chain_next ("%h.outer")))
 {
   /* The scope containing this one.  */
   struct c_scope *outer;
@@ -294,11 +322,11 @@ static GTY(()) struct c_scope *external_scope;
 
 /* A chain of c_scope structures awaiting reuse.  */
 
-static GTY((deletable (""))) struct c_scope *scope_freelist;
+static GTY((deletable)) struct c_scope *scope_freelist;
 
 /* A chain of c_binding structures awaiting reuse.  */
 
-static GTY((deletable (""))) struct c_binding *binding_freelist;
+static GTY((deletable)) struct c_binding *binding_freelist;
 
 /* Append VAR to LIST in scope SCOPE.  */
 #define SCOPE_LIST_APPEND(scope, list, decl) do {	\
@@ -493,6 +521,7 @@ objc_mark_locals_volatile (void *enclosing_blk)
 	  if (TREE_CODE (b->decl) == VAR_DECL
 	      || TREE_CODE (b->decl) == PARM_DECL)
 	    {
+	      C_DECL_REGISTER (b->decl) = 0;
 	      DECL_REGISTER (b->decl) = 0;
 	      TREE_THIS_VOLATILE (b->decl) = 1;
 	    }
@@ -2902,8 +2931,15 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	      /* In conjunction with an ASMSPEC, the `register'
 		 keyword indicates that we should place the variable
 		 in a particular register.  */
-	      if (DECL_REGISTER (decl))
-		DECL_HARD_REGISTER (decl) = 1;
+	      if (C_DECL_REGISTER (decl))
+		{
+		  DECL_HARD_REGISTER (decl) = 1;
+		  /* This cannot be done for a structure with volatile
+		     fields, on which DECL_REGISTER will have been
+		     reset.  */
+		  if (!DECL_REGISTER (decl))
+		    error ("cannot put object with volatile field into register");
+		}
 
 	      /* If this is not a static variable, issue a warning.
 		 It doesn't make any sense to give an ASMSPEC for an
@@ -2911,7 +2947,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		 GCC has accepted -- but ignored -- the ASMSPEC in
 		 this case.  */
 	      if (TREE_CODE (decl) == VAR_DECL
-		  && !DECL_REGISTER (decl)
+		  && !C_DECL_REGISTER (decl)
 		  && !TREE_STATIC (decl))
 		warning ("%Jignoring asm-specifier for non-static local "
                          "variable '%D'", decl, decl);
@@ -4537,7 +4573,10 @@ grokdeclarator (tree declarator, tree declspecs,
        and in case doing stupid register allocation.  */
 
     if (specbits & (1 << (int) RID_REGISTER))
-      DECL_REGISTER (decl) = 1;
+      {
+	C_DECL_REGISTER (decl) = 1;
+	DECL_REGISTER (decl) = 1;
+      }
 
     /* Record constancy and volatility.  */
     c_apply_type_quals_to_decl (type_quals, decl);
@@ -4546,7 +4585,16 @@ grokdeclarator (tree declarator, tree declspecs,
        Otherwise, the fact that those components are volatile
        will be ignored, and would even crash the compiler.  */
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl)))
-      c_mark_addressable (decl);
+      {
+	/* It is not an error for a structure with volatile fields to
+	   be declared register, but reset DECL_REGISTER since it
+	   cannot actually go in a register.  */
+	int was_reg = C_DECL_REGISTER (decl);
+	C_DECL_REGISTER (decl) = 0;
+	DECL_REGISTER (decl) = 0;
+	c_mark_addressable (decl);
+	C_DECL_REGISTER (decl) = was_reg;
+      }
 
 #ifdef ENABLE_CHECKING
   /* This is the earliest point at which we might know the assembler
@@ -4694,7 +4742,7 @@ get_parm_info (bool ellipsis)
     {
       if (TREE_THIS_VOLATILE (b->decl)
 	  || TREE_READONLY (b->decl)
-	  || DECL_REGISTER (b->decl))
+	  || C_DECL_REGISTER (b->decl))
 	error ("'void' as only parameter may not be qualified");
 
       /* There cannot be an ellipsis.  */
@@ -4801,6 +4849,13 @@ get_parm_info (bool ellipsis)
 	     and TYPE_DECLs appear here when we have an embedded struct
 	     or union.  No warnings for this - we already warned about the
 	     type itself.  */
+	  TREE_CHAIN (decl) = others;
+	  others = decl;
+	  /* fall through */
+
+	case ERROR_MARK:
+	  /* error_mark_node appears here when we have an undeclared
+	     variable.  Just throw it away.  */
 	  if (b->id)
 	    {
 #ifdef ENABLE_CHECKING
@@ -4808,16 +4863,12 @@ get_parm_info (bool ellipsis)
 #endif
 	      I_SYMBOL_BINDING (b->id) = b->shadowed;
 	    }
-
-	  TREE_CHAIN (decl) = others;
-	  others = decl;
 	  break;
 
 	  /* Other things that might be encountered.  */
 	case LABEL_DECL:
 	case FUNCTION_DECL:
 	case VAR_DECL:
-	case ERROR_MARK:
 	default:
 	  abort ();
 	}

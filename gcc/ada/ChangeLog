@@ -1,3 +1,208 @@
+2004-03-29  Javier Miranda  <miranda@gnat.com>
+
+	* checks.adb (Null_Exclusion_Static_Checks): New subprogram
+	(Install_Null_Excluding_Check): Local subprogram that determines whether
+	an access node requires a runtime access check and if so inserts the
+	appropriate run-time check.
+	(Apply_Access_Check): Call Install_Null_Excluding check if required
+	(Apply_Constraint_Check): Call Install_Null_Excluding check if required
+
+	* checks.ads: (Null_Exclusion_Static_Checks): New subprogram
+
+	* einfo.ads: Fix typo in comment
+
+	* exp_ch3.adb (Build_Assignment): Generate conversion to the
+	null-excluding type to force the corresponding run-time check.
+	(Expand_N_Object_Declaration): Generate conversion to the null-excluding
+	type to force the corresponding run-time check.
+
+	* exp_ch5.adb (Expand_N_Assignment_Statement): Generate conversion to
+	the null-excluding type to force the corresponding run-time check.
+
+	* exp_ch6.adb (Expand_Call): Do not generate the run-time check in
+	case of access types unless they have the null-excluding attribute.
+
+	* sprint.adb (Sprint_Node_Actual): Give support to the null-exclusing
+	part.
+
+	* exp_util.ads: Fix typo in comment
+
+	* par.adb (P_Null_Exclusion): New subprogram
+	(P_Subtype_Indication): New formal that indicates if the null-excluding
+	part has been scanned-out and it was present
+
+	* par-ch3.adb, par-ch4.adb, par-ch6.adb: Give support to AI-231
+
+	* sem_aggr.adb: (Check_Can_Never_Be_Null): New subprogram
+	(Aggregate_Constraint_Checks): Generate conversion to the null-excluding
+	type to force the corresponding run-time check
+	(Resolve_Aggregate): Propagate the null-excluding attribute to the array
+	components
+	(Resolve_Array_Aggregate): Carry out some static checks
+	(Resolve_Record_Aggregate.Get_Value): Carry out some static check
+
+	* sem_ch3.adb (Access_Definition): In Ada 0Y the Can_Never_Be_Null
+	attribute must be set only if specified by means of the null-excluding
+	part. In addition, we must also propagate the access-constant attribute
+	if present.
+	(Access_Subprogram_Declaration, Access_Type_Declaration,
+	Analyze_Component_Declaration, Analyze_Object_Declaration,
+	Array_Type_Declaration, Process_Discriminants,
+	Analyze_Subtype_Declaration): Propagate the null-excluding attribute
+	and carry out some static checks.
+	(Build_Derived_Access_Type): Set the null-excluding attribute
+	(Derived_Type_Declaration, Process_Subtype): Carry out some static
+	checks.
+
+	* sem_ch4.adb (Analyze_Allocator): Carry out some static checks
+
+	* sem_ch5.adb (Analyze_Assignment): Carry out some static checks
+
+	* sem_ch6.adb (Process_Formals): Carry out some static checks.
+	(Set_Actual_Subtypes): Generate null-excluding subtype if the
+	null-excluding part was present; it is not required to be done here in
+	case of anonymous access types.
+	(Set_Formal_Mode): Ada 0Y allows anonymous access to have the null
+	value.
+
+	* sem_res.adb (Resolve_Actuals): Carry out some static check
+	(Resolve_Null): Allow null in anonymous access
+
+	* sinfo.adb: New subprogram Null_Exclusion_Present
+	All_Present and Constant_Present available on access_definition nodes
+
+	* sinfo.ads: New flag Null_Exclusion_Present on subtype_declaration,
+	object_declaration, derived_type_definition, component_definition,
+	discriminant_specification, access_to_object_definition,
+	access_function_definition, allocator, access_procedure_definition,
+	access_definition, parameter_specification, All_Present and
+	Constant_Present flags available on access_definition nodes.
+
+2004-03-29  Robert Dewar  <dewar@gnat.com>
+
+	* fname.adb, fname.ads, fname-sf.adb, fname-uf.adb, fname-uf.ads,
+	gnat1drv.adb, lib.adb, lib.ads, lib-load.adb, lib-writ.adb,
+	opt.ads, osint.adb, osint.ads, osint-c.adb, par.adb,
+	par-ch10.adb, par-load.adb, par-prag.adb, sfn_scan.adb,
+	sfn_scan.ads, sinput-l.adb, sinput-l.ads, switch-c.adb,
+	sem_prag.adb: Updates to handle multiple units/file
+
+	* par.adb: Change test for s-rpc to s-rp for detecting rpc and children
+
+	* par.adb, memtrack.adb, prj-makr.adb, prj-part.adb,
+	sem_util.adb: Minor reformatting
+
+	* sem_ch12.adb: Add comment for previous change
+
+2004-03-29  Laurent Pautet  <pautet@act-europe.fr>
+
+	* osint.adb (Executable_Prefix): Set Exec_Name to the current
+	executable name when not initialized. Otherwise, use its current value.
+
+	* osint.ads (Exec_Name): Move Exec_Name from body to spec in order to
+	initialize it to another executable name than the current one. This
+	allows to configure paths for an executable name (gnatmake) different
+	from the current one (gnatdist).
+
+2004-03-29  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch6.adb (Expand_Call): A call to a function declared in the
+	current unit cannot be inlined if it appears in the body of a withed
+	unit, to avoid order of elaboration problems in gigi.
+
+	* exp_ch9.adb (Build_Protected_Sub_Specification): Generate debugging
+	information for protected (wrapper) operation as well, to simplify gdb
+	use.
+
+	* sem_ch6.adb (Analyze_Subprogram_Body): For a private operation in a
+	protected body, indicate that the entity for the generated spec comes
+	from source, to ensure that references are properly generated for it.
+	(Build_Body_To_Inline): Do not inline a function that returns a
+	controlled type.
+
+	* sem_prag.adb (Process_Convention): If subprogram is overloaded, only
+	apply convention to homonyms that are declared explicitly.
+
+	* sem_res.adb (Make_Call_Into_Operator): If the operation is a function
+	that renames an equality operator and the operands are overloaded,
+	resolve them with the declared formal types, before rewriting as an
+	operator.
+
+2004-03-29  GNAT Script  <nobody@gnat.com>
+
+	* Make-lang.in: Makefile automatically updated
+
+2004-03-25  Vasiliy Fofanov  <fofanov@act-europe.fr>
+
+	* memtrack.adb: Log realloc calls, which are treated as free followed
+	by alloc.
+
+2004-03-25  Vincent Celier  <celier@gnat.com>
+
+	* prj-makr.adb (Process_Directories): Detect when a file contains
+	several units. Do not include such files in the config pragmas or
+	in the naming scheme.
+
+	* prj-nmsc.adb (Record_Source): New parameter Trusted_Mode.
+	Resolve links only when not in Trusted_Mode.
+	(Find_Sources, Recursive_Find_Dirs, Find_Source_Dirs, Locate_Directory):
+	Do not resolve links for the display names.
+
+	* prj-part.adb (Parse_Single_Project, Project_Path_Name_Of): Do not
+	resolve links when computing the display names.
+
+2004-03-25  Thomas Quinot  <quinot@act-europe.fr>
+
+	* sem_attr.adb (Check_Dereference): When the prefix of a 'Tag
+	attribute reference does not denote a subtype, it can be any
+	expression that has a classwide type, potentially after an implicit
+	dereference.  In particular, the prefix can be a view conversion for
+	a classwide type (for which Is_Object_Reference holds), but it can
+	also be a value conversion for an access-to-classwide type. In the
+	latter case, there is an implicit dereference, and the original node
+	for the prefix does not verify Is_Object_Reference.
+
+	* sem_util.adb (Is_Dependent_Component_Of_Mutable_Object): A view
+	conversion of a discriminant-dependent component of a mutable object
+	is one itself.
+
+2004-03-25  Ed Schonberg  <schonberg@gnat.com>
+
+	* freeze.adb (Freeze_Entity): When an inherited subprogram is
+	inherited, has convention C, and has unconstrained array parameters,
+	place the corresponding warning on the derived type declaration rather
+	than the original subprogram.
+
+	* sem_ch12.adb (Instantiate_Formal_Subprogram): Set From_Default
+	indication on renaming declaration, if formal has a box and actual
+	is absent.
+
+	* sem_ch8.adb (Analyze_Subprogram_Renaming): Use From_Default flag to
+	determine whether to generate an implicit or explicit reference to
+	the renamed entity.
+
+	* sinfo.ads, sinfo.adb: New flag From_Default, to indicate that a
+	subprogram renaming comes from a defaulted formal subprogram in an
+	instance.
+
+2004-03-25  Gary Dismukes  <dismukes@gnat.com>
+
+	* sem_elab.adb (Check_Elab_Call): Refine loop that checks for default
+	value expressions to ensure that calls within a component definition
+	will be checked (since those are evaluated during the record type's
+	elaboration).
+
+2004-03-25  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* s-tpobop.adb: Code clean up:
+	(Requeue_Call): Extract from PO_Service_Entries to remove duplicated
+	code.
+	(PO_Do_Or_Queue): Remove duplicated code and use Requeue_Call.
+
+2004-03-25  Jose Ruiz  <ruiz@act-europe.fr>
+
+	* Makefile.in: Clean up in the ravenscar run time.
+
 2004-03-23  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* decl.c (gnat_to_gnu_entity, case E_Access_Type): Pass value

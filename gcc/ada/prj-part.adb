@@ -180,8 +180,7 @@ package body Prj.Part is
 
    function Project_Path_Name_Of
      (Project_File_Name : String;
-      Directory         : String)
-      return              String;
+      Directory         : String) return String;
    --  Returns the path name of a project file. Returns an empty string
    --  if project file cannot be found.
 
@@ -863,14 +862,19 @@ package body Prj.Part is
       Extends_All := False;
 
       declare
-         Normed : String := Normalize_Pathname (Path_Name);
+         Normed_Path    : constant String := Normalize_Pathname
+                            (Path_Name, Resolve_Links => False,
+                             Case_Sensitive           => True);
+         Canonical_Path : constant String := Normalize_Pathname
+                            (Normed_Path, Resolve_Links => True,
+                             Case_Sensitive             => False);
+
       begin
-         Name_Len := Normed'Length;
-         Name_Buffer (1 .. Name_Len) := Normed;
+         Name_Len := Normed_Path'Length;
+         Name_Buffer (1 .. Name_Len) := Normed_Path;
          Normed_Path_Name := Name_Find;
-         Canonical_Case_File_Name (Normed);
-         Name_Len := Normed'Length;
-         Name_Buffer (1 .. Name_Len) := Normed;
+         Name_Len := Canonical_Path'Length;
+         Name_Buffer (1 .. Name_Len) := Canonical_Path;
          Canonical_Path_Name := Name_Find;
       end;
 
@@ -1582,8 +1586,7 @@ package body Prj.Part is
 
    function Project_Path_Name_Of
      (Project_File_Name : String;
-      Directory         : String)
-      return              String
+      Directory         : String) return String
    is
       Result : String_Access;
 
@@ -1670,7 +1673,10 @@ package body Prj.Part is
       else
          declare
             Final_Result : constant String :=
-                             GNAT.OS_Lib.Normalize_Pathname (Result.all);
+                             GNAT.OS_Lib.Normalize_Pathname
+                               (Result.all,
+                                Resolve_Links  => False,
+                                Case_Sensitive => True);
          begin
             Free (Result);
             return Final_Result;

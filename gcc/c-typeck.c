@@ -1525,7 +1525,7 @@ build_array_ref (tree array, tree index)
 	  tree foo = array;
 	  while (TREE_CODE (foo) == COMPONENT_REF)
 	    foo = TREE_OPERAND (foo, 0);
-	  if (TREE_CODE (foo) == VAR_DECL && DECL_REGISTER (foo))
+	  if (TREE_CODE (foo) == VAR_DECL && C_DECL_REGISTER (foo))
 	    pedwarn ("ISO C forbids subscripting `register' array");
 	  else if (! flag_isoc99 && ! lvalue_p (foo))
 	    pedwarn ("ISO C90 forbids subscripting non-lvalue array");
@@ -2481,7 +2481,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
 /* Return nonzero if REF is an lvalue valid for this language.
    Lvalues can be assigned, unless their type has TYPE_READONLY.
-   Lvalues can have their address taken, unless they have DECL_REGISTER.  */
+   Lvalues can have their address taken, unless they have C_DECL_REGISTER.  */
 
 int
 lvalue_p (tree ref)
@@ -2590,7 +2590,7 @@ c_mark_addressable (tree exp)
       case CONST_DECL:
       case PARM_DECL:
       case RESULT_DECL:
-	if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x)
+	if (C_DECL_REGISTER (x)
 	    && DECL_NONLOCAL (x))
 	  {
 	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
@@ -2602,23 +2602,12 @@ c_mark_addressable (tree exp)
 	    pedwarn ("register variable `%s' used in nested function",
 		     IDENTIFIER_POINTER (DECL_NAME (x)));
 	  }
-	else if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x))
+	else if (C_DECL_REGISTER (x))
 	  {
 	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
 	      {
 		error ("address of global register variable `%s' requested",
 		       IDENTIFIER_POINTER (DECL_NAME (x)));
-		return false;
-	      }
-
-	    /* If we are making this addressable due to its having
-	       volatile components, give a different error message.  Also
-	       handle the case of an unnamed parameter by not trying
-	       to give the name.  */
-
-	    else if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (x)))
-	      {
-		error ("cannot put object with volatile field into register");
 		return false;
 	      }
 
@@ -4643,6 +4632,10 @@ pop_init_level (int implicit)
 	abort ();
     }
 
+  /* Now output all pending elements.  */
+  constructor_incremental = 1;
+  output_pending_init_elements (1);
+
   p = constructor_stack;
 
   /* Error for initializing a flexible array member, or a zero-length
@@ -4696,10 +4689,6 @@ pop_init_level (int implicit)
 	    RESTORE_SPELLING_DEPTH (constructor_depth);
 	  }
     }
-
-  /* Now output all pending elements.  */
-  constructor_incremental = 1;
-  output_pending_init_elements (1);
 
   /* Pad out the end of the structure.  */
   if (p->replacement_value)
@@ -6631,11 +6620,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	 but don't convert the args to int!  */
       build_type = integer_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
-	   || code0 == COMPLEX_TYPE
-	   || code0 == VECTOR_TYPE)
+	   || code0 == COMPLEX_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
-	      || code1 == COMPLEX_TYPE
-	      || code1 == VECTOR_TYPE))
+	      || code1 == COMPLEX_TYPE))
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{

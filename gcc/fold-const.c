@@ -6073,6 +6073,36 @@ fold (tree expr)
 				  TREE_OPERAND (arg0, 0),
 				  build_real (type, c1)));
 	    }
+          /* Convert a + (b*c + d*e) into (a + b*c) + d*e */
+          if (flag_unsafe_math_optimizations
+              && TREE_CODE (arg1) == PLUS_EXPR
+              && TREE_CODE (arg0) != MULT_EXPR)
+            {
+              tree tree10 = TREE_OPERAND (arg1, 0);
+              tree tree11 = TREE_OPERAND (arg1, 1);
+              if (TREE_CODE (tree11) == MULT_EXPR
+		  && TREE_CODE (tree10) == MULT_EXPR)
+                {
+                  tree tree0;
+                  tree0 = fold (build (PLUS_EXPR, type, arg0, tree10));
+                  return fold (build (PLUS_EXPR, type, tree0, tree11));
+                }
+            }
+          /* Convert (b*c + d*e) + a into b*c + (d*e +a) */
+          if (flag_unsafe_math_optimizations
+              && TREE_CODE (arg0) == PLUS_EXPR
+              && TREE_CODE (arg1) != MULT_EXPR)
+            {
+              tree tree00 = TREE_OPERAND (arg0, 0);
+              tree tree01 = TREE_OPERAND (arg0, 1);
+              if (TREE_CODE (tree01) == MULT_EXPR
+		  && TREE_CODE (tree00) == MULT_EXPR)
+                {
+                  tree tree0;
+                  tree0 = fold (build (PLUS_EXPR, type, tree01, arg1));
+                  return fold (build (PLUS_EXPR, type, tree00, tree0));
+                }
+            }
 	}
 
      bit_rotate:
@@ -6420,23 +6450,24 @@ fold (tree expr)
 	      enum built_in_function fcode0 = builtin_mathfn_code (arg0);
 	      enum built_in_function fcode1 = builtin_mathfn_code (arg1);
 
-	      /* Optimizations of sqrt(...)*sqrt(...).  */
-	      if (fcode0 == fcode1 && BUILTIN_SQRT_P (fcode0))
+	      /* Optimizations of root(...)*root(...).  */
+	      if (fcode0 == fcode1 && BUILTIN_ROOT_P (fcode0))
 		{
-		  tree sqrtfn, arg, arglist;
+		  tree rootfn, arg, arglist;
 		  tree arg00 = TREE_VALUE (TREE_OPERAND (arg0, 1));
 		  tree arg10 = TREE_VALUE (TREE_OPERAND (arg1, 1));
 
 		  /* Optimize sqrt(x)*sqrt(x) as x.  */
-		  if (operand_equal_p (arg00, arg10, 0)
+		  if (BUILTIN_SQRT_P (fcode0)
+		      && operand_equal_p (arg00, arg10, 0)
 		      && ! HONOR_SNANS (TYPE_MODE (type)))
 		    return arg00;
 
-	          /* Optimize sqrt(x)*sqrt(y) as sqrt(x*y).  */
-		  sqrtfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
+	          /* Optimize root(x)*root(y) as root(x*y).  */
+		  rootfn = TREE_OPERAND (TREE_OPERAND (arg0, 0), 0);
 		  arg = fold (build (MULT_EXPR, type, arg00, arg10));
 		  arglist = build_tree_list (NULL_TREE, arg);
-		  return build_function_call_expr (sqrtfn, arglist);
+		  return build_function_call_expr (rootfn, arglist);
 		}
 
 	      /* Optimize expN(x)*expN(y) as expN(x+y).  */
@@ -8639,6 +8670,7 @@ tree_expr_nonnegative_p (tree t)
       return tree_expr_nonnegative_p (TREE_OPERAND (t, 1))
 	     || tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
     case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
       return tree_expr_nonnegative_p (TREE_OPERAND (t, 0))
 	     && tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
 

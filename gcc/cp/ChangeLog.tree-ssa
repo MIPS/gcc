@@ -1,3 +1,8 @@
+2004-04-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* name-lookup.c (innermost_nonclass_level): Check for
+	error_mark_node.
+
 2004-03-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* parser.c (cp_parser_class_specifier): Initialize
