@@ -64,6 +64,8 @@ typedef enum
   perm_list_kind,
   temp_list_kind,
   vec_kind,
+  phi_kind,
+  ssa_name_kind,
   x_kind,
   lang_decl,
   lang_type,
@@ -85,6 +87,8 @@ static const char * const tree_node_kind_names[] = {
   "perm_tree_lists",
   "temp_tree_lists",
   "vecs",
+  "phi_nodes",
+  "ssa names",
   "random kinds",
   "lang_decl kinds",
   "lang_type kinds"
@@ -202,6 +206,11 @@ tree_size (node)
 		  + TREE_CODE_LENGTH (code) * sizeof (char *));
 	if (code == TREE_VEC)
 	  length += TREE_VEC_LENGTH (node) * sizeof (char *) - sizeof (char *);
+	else if (code == PHI_NODE)
+	  length = sizeof (struct tree_phi_node)
+		   + (PHI_ARG_CAPACITY (node) - 1) * sizeof (struct phi_arg_d);
+	else if (code == SSA_NAME)
+	  length = sizeof (struct tree_ssa_name);
 	return length;
       }
 
@@ -228,9 +237,9 @@ make_node (code)
 #endif
   struct tree_common ttmp;
 
-  /* We can't allocate a TREE_VEC without knowing how many elements
+  /* We can't allocate a TREE_VEC or PHI_NODE without knowing how many elements
      it will have.  */
-  if (code == TREE_VEC)
+  if (code == TREE_VEC || code == PHI_NODE)
     abort ();
 
   TREE_SET_CODE ((tree)&ttmp, code);
@@ -275,6 +284,10 @@ make_node (code)
 	kind = id_kind;
       else if (code == TREE_VEC)
 	kind = vec_kind;
+      else if (code == PHI_NODE)
+	kind = phi_kind;
+      else if (code == SSA_NAME)
+	kind = ssa_name_kind;
       else
 	kind = x_kind;
       break;
@@ -1489,6 +1502,8 @@ tree_node_structure (t)
     case IDENTIFIER_NODE:	return TS_IDENTIFIER;
     case TREE_LIST:		return TS_LIST;
     case TREE_VEC:		return TS_VEC;
+    case PHI_NODE:		return TS_PHI_NODE;
+    case SSA_NAME:		return TS_SSA_NAME;
     case PLACEHOLDER_EXPR:	return TS_COMMON;
 
     default:
@@ -4553,6 +4568,22 @@ tree_vec_elt_check_failed (idx, len, file, line, function)
      idx + 1, len, function, trim_filename (file), line);
 }
 
+/* Similar to above, except that the check is for the bounds of a PHI_NODE's
+   (dynamically sized) vector.  */
+
+void
+phi_node_elt_check_failed (idx, len, file, line, function)
+     int idx;
+     int len;
+     const char *file;
+     int line;
+     const char *function;
+{
+  internal_error
+    ("tree check: accessed elt %d of phi_node with %d elts in %s, at %s:%d",
+     idx + 1, len, function, trim_filename (file), line);
+}
+
 #endif /* ENABLE_TREE_CHECKING */
 
 /* For a new vector type node T, build the information necessary for
@@ -4817,6 +4848,87 @@ add_var_to_bind_expr (bind_expr, var)
   if (BIND_EXPR_BLOCK (bind_expr))
     BLOCK_VARS (BIND_EXPR_BLOCK (bind_expr))
       = BIND_EXPR_VARS (bind_expr);
+}
+
+
+/* Return a new PHI_NODE for variable VAR and LEN number of arguments.  */
+
+tree
+make_phi_node (var, len)
+     tree var;
+     int len;
+{
+  tree phi;
+  int size;
+
+  size = sizeof (struct tree_phi_node) + (len - 1) * sizeof (struct phi_arg_d);
+
+#ifdef GATHER_STATISTICS
+  tree_node_counts[(int) phi_kind]++;
+  tree_node_sizes[(int) phi_kind] += size;
+#endif
+
+  phi = ggc_alloc_tree (size);
+  memset ((PTR) phi, 0, size);
+
+  TREE_SET_CODE (phi, PHI_NODE);
+  PHI_NUM_ARGS (phi) = 0;
+  PHI_ARG_CAPACITY (phi) = len;
+  PHI_RESULT (phi) = make_ssa_name (var, phi);
+
+  return phi;
+}
+
+
+/* Return an SSA_NAME node for variable VAR defined in statement STMT.  STMT
+   may be empty_stmt_node for artificial references (e.g., default
+   definitions created when a variable is used without a preceding
+   definition.  See currdef_for.)  */
+
+tree
+make_ssa_name (var, stmt)
+     tree var;
+     tree stmt;
+{
+  /* Next SSA version number.  Initialized by init_tree_ssa.  */
+  extern unsigned long next_ssa_version;
+  tree t;
+
+#if defined ENABLE_CHECKING
+  if ((!DECL_P (var)
+       && TREE_CODE (var) != INDIRECT_REF)
+      || (!IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
+	  && TREE_CODE (stmt) != ASM_EXPR
+	  && TREE_CODE (stmt) != RETURN_EXPR
+	  && TREE_CODE (stmt) != PHI_NODE
+	  && stmt != empty_stmt_node))
+    abort ();
+#endif
+
+  t = make_node (SSA_NAME);
+
+  TREE_TYPE (t) = TREE_TYPE (var);
+  SSA_NAME_DECL (t) = var;
+  SSA_NAME_DEF_STMT (t) = stmt;
+  SSA_NAME_VERSION (t) = next_ssa_version++;
+
+  return t;
+}
+
+
+/* Build a VDEF_EXPR node for variable VAR.  This creates the pseudo
+   assignment VAR = VDEF <VAR>.  The SSA builder is responsible for
+   creating the new SSA name for the result and rewriting the RHS with the
+   appropriate reaching definition.  */
+
+tree
+build_vdef_expr (var)
+     tree var;
+{
+  if (!DECL_P (var) && TREE_CODE (var) != INDIRECT_REF)
+    abort ();
+
+  return build (VDEF_EXPR, TREE_TYPE (var), var, var);
 }
 
 #include "gt-tree.h"

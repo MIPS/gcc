@@ -1,3 +1,7 @@
+2003-01-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/builtin-constant.x: Remove.
+
 2003-01-05  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.c-torture/compile/20001226-1.c: Add clarifying

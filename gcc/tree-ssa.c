@@ -2,20 +2,20 @@
    Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -43,178 +43,210 @@ Boston, MA 02111-1307, USA.  */
 #include "varray.h"
 #include "timevar.h"
 #include "tree-alias-common.h"
+#include "hashtab.h"
+#include "tree-dump.h"
 
-/** @file tree-ssa.c
-    @brief Build the SSA form for a function tree.
+/* This file builds the SSA form for a function as described in:
 
-    This file builds the SSA form for a function using Factored
-    Use-Def chains (FUD chains) as described in the following 
-    two references:
-
-    - Wolfe, M. J., High Performance Compilers for Parallel Computing,
-      Addison-Wesley, 1996.
-
-    - R. Cytron, J. Ferrante, B. Rosen, M. Wegman, and K. Zadeck.
-      Efficiently computing static single assignment form and the control
-      dependence graph. ACM Transactions on Programming Languages and Systems,
-      13(4):451-490, October 1991.
-
-    An important difference is that instead of re-writing the program into
-    SSA form, we build a web of pointers between variable uses and their
-    immediately reaching definitions.  */
+   R. Cytron, J. Ferrante, B. Rosen, M. Wegman, and K. Zadeck. Efficiently
+   Computing Static Single Sssignment Form and the Control Dependence
+   Graph. ACM Transactions on Programming Languages and Systems,
+   13(4):451-490, October 1991.  */
 
 
-/* Partial references
-   ------------------
-
-   To deal with arrays and structures, we use the concept of non-killing
-   definitions.  When an array location or structure element is defined,
-   the SSA builder will consider that a partial definition of the array
-   itself.  Partial definitions are modeled by keeping an SSA link
-   (def-def link) between the current definition and the previous one.
-
-   This is used to chain definitions to arrays and structures, so that all
-   possible reaching defs can be found later by compute_reaching_defs.  For
-   instance,
-
-	      1  A[i] = 5;
-	      2  A[j] = 10;
-	      3  y = A[k] + 10;
-
-   Since the assignments to A[i] at line 1 and A[j] at line 2 are partial
-   definitions of A, without def-def chains the use of A[k] at line 3 will
-   not be reached by the defintion at line 1.
-
-
-   Modeling may-alias information
-   ------------------------------
-
-   May-aliases are discovered by compute_may_aliases.  By default, the set
-   computed is too large because it is exclusively type-based.  However,
-   points-to analysis (PTA) is also available using the flag
-   -ftree-points-to={steen|andersen}.
-
-   If a variable V may alias a set of variables, V becomes the "alias
-   leader" for that set.  When setting up use-def and def-use links in
-   set_ssa_links, we use the alias leader to represent all the variables in
-   the same set.  So, when we find a definition for one of the variables in
-   the set represented by V, we consider that definition to be a definition
-   to V.  Similarly, a use reference to any variable in the same alias set
-   will be considered a use of V.  To allow the discovery of reaching
-   definitions for all the members in the set, we keep def-def links.
-
-   For instance, suppose we have a pointer *p that aliases variables a and
-   b.  compute_may_aliases will set *p to be the alias leader for a and b.
-
-	    1	 a = 4		=> sets CURRDEF(*p)
-	    2	 b = 3		=> sets CURRDEF(*p).  sets def-def link to #1
-	    3	*p = 5		=> sets CURRDEF(*p).  sets def-def link to #2
-	    4	 x = a
-
-   Definitions at lines 1, 2 and 3, will be considered definitions to *p
-   and set_ssa_links will also set a def-def link between the different
-   assignments.
-
-   The immediate reaching definition for the use of a at line 4 will be the
-   assignment at line 5.  However, when computing reaching definitions, the
-   assignment to b at line 2 will be skipped because a and b are not
-   aliased to each other (see the call to ref_defines in follow_chain). 
-
-   
-   Modeling call-clobbered variables
-   ---------------------------------
-
-   Variables that might be call clobbered are handled by inserting a use
-   and a clobbering definition of an artificial global variable call
-   GLOBAL_VAR.  Every alias that may be call clobbered is added to the
-   may-alias set of GLOBAL_VAR.  The aliasing mechanism built into SSA will
-   naturally create def-use and use-def links at call sites for the
-   affected variables.  */
-
-
-/* Nonzero to warn about variables used before they are initialized.  */
-int tree_warn_uninitialized = 0;
-
-/* Array of saved definition chains.  Used by search_fud_chains to restore
-   the previous definition chain when returning from a recursive call.  */
-static tree_ref *save_chain;
-
-/* Visited marks.  Used when computing reaching definitions (follow_chain).  */
-static tree_ref *marked;
+/* Next SSA version number to be assigned by make_ssa_name.  Initialized by
+   init_tree_ssa.  */
+unsigned int next_ssa_version;
 
 /* Dump file and flags.  */
 FILE *tree_ssa_dump_file;
 int tree_ssa_dump_flags;
 
 /* Arrays used to keep track of where to insert PHI nodes for variables
-   definitions (see insert_phi_nodes).  */
+    definitions (see insert_phi_nodes).  */
 static GTY (()) varray_type added = NULL;
 static GTY (()) varray_type in_work = NULL;
 static GTY (()) varray_type work_stack = NULL;
 
-/* Counters updated every time we allocate a new object.  Used to compare
-   against the counts collected by collect_dfa_stats.  */
-extern struct dfa_counts_d dfa_counts;
+/* Each entry in DEF_BLOCKS is a bitmap B for a variable VAR.  If B(J) is
+   set, then there is a definition for variable VAR in basic block J.
+   This hashtable is created by the variable reference finder and used by
+   the SSA builder to add PHI nodes.  It is destroyed after the program is
+   converted to SSA form.  */
+static htab_t def_blocks;
+
+/* Structure to map a variable VAR to the set of blocks that contain
+   definitions for VAR.  */
+struct def_blocks_d
+{
+  tree var;
+  bitmap def_blocks;
+};
+
+/* Hash table to store the current reaching definition for every variable in
+   the function.  Given a variable V, its entry will be its immediately
+   reaching SSA_NAME node.  */
+static htab_t currdefs;
+
+/* Structure to map variables and their current reaching definition.  */
+struct currdef_d
+{
+  tree var;
+  tree currdef;
+};
+
 
 /* Local functions.  */
+static void init_tree_ssa		PARAMS ((void));
+static void delete_tree_ssa		PARAMS ((tree));
+static void mark_def_sites		PARAMS ((void));
+static void set_def_block		PARAMS ((tree, basic_block));
 static void insert_phi_nodes		PARAMS ((sbitmap *));
-static void build_fud_chains		PARAMS ((dominance_info));
-static void search_fud_chains		PARAMS ((basic_block, dominance_info));
-static void follow_chain		PARAMS ((tree_ref, tree_ref));
+static void rewrite_block		PARAMS ((basic_block, dominance_info));
+static void rewrite_stmts		PARAMS ((basic_block, varray_type *));
+static void rewrite_stmt		PARAMS ((tree, varray_type *));
+static inline void rewrite_operand	PARAMS ((tree *));
+static void register_new_def		PARAMS ((tree, varray_type *));
 static void insert_phi_nodes_for	PARAMS ((tree, sbitmap *));
 static void add_phi_node 		PARAMS ((basic_block, tree));
-static void set_ssa_links		PARAMS ((tree_ref, tree));
-static void init_tree_ssa		PARAMS ((void));
 static tree remove_annotations_r	PARAMS ((tree *, int *, void *));
-static inline tree_ref currdef_for	PARAMS ((tree));
-static inline void set_currdef_for	PARAMS ((tree, tree_ref));
+static inline tree currdef_for		PARAMS ((tree, int));
+static inline void set_currdef_for	PARAMS ((tree, tree));
+static hashval_t def_blocks_hash	PARAMS ((const void *));
+static int def_blocks_eq		PARAMS ((const void *, const void *));
+static hashval_t currdef_hash		PARAMS ((const void *));
+static int currdef_eq			PARAMS ((const void *, const void *));
+static void def_blocks_free		PARAMS ((void *));
+static int debug_def_blocks_r		PARAMS ((void **, void *));
 
 
-/**
-   @brief  Main entry point to the SSA builder.
-   @param  fndecl Pointer to a gimplified function tree.
-*/
+/* Main entry point to the SSA builder.  FNDECL is the gimplified function
+   to convert.
+
+   Every statement has two different sets of operands: real and virtual.
+   Real operands are those that use scalar, non-aliased variables.  Virtual
+   operands are everything else (pointers, arrays, compound structures).
+   In addition, virtual operands are used to model side effects like
+   call-clobbered variables.
+
+   The conversion process works in four phases:
+
+   1- Compute aliasing information (compute_may_aliases).
+   2- Mark blocks that contain variable definitions (mark_def_sites).
+   3- Insert PHI nodes (insert_phi_nodes).
+   4- Rewrite all the basic blocks into SSA form (rewrite_block).
+
+   Both operands (OPS) and virtual operands (VOPS) are rewritten by the
+   conversion process.  When new definitions are found, a new SSA_NAME
+   wrapper is created for the variable.  SSA_NAMEs are akin to VAR_DECLs,
+   but contain additional information (defining statement and SSA version
+   number).
+
+   The pretty printer renders SSA_NAME nodes using brackets and underscores
+   to highlight the variable and its version number.  Given a variable VAR,
+   a new SSA_NAME for VAR with version number N is rendered VAR_N.  For
+   instance,
+
+   	a = 4;			a_1 = 4;
+	*p = a;			(*p)_3 = a_1;
+
+   Notice that the SSA builder treats INDIRECT_REF expressions as if they
+   were variables.  It renames both P and *P separately.  Every time P is
+   assigned a new value, *P is considered clobbered.  But new versions of
+   *P do not affect P.
+
+
+   Dealing with aliases
+   --------------------
+
+   Assume that in the following code fragment, variable *p may alias b:
+
+	    1	b = 4;
+	    2	*p = 5;
+	    3	... = b;
+
+   When converting this code to SSA form, we need to model the fact that
+   the use of 'b' at line 3 may be reached by the definition of *p at line
+   2.  We cannot just rewrite the use of 'b' to be a use of '*p':
+
+	    1	b_1 = 4;
+	    2	(*p)_2 = 5;
+	    3	... = (*p)_2;
+
+   The above transformation is wrong, because *p and b MAY alias, the
+   compiler doesn't know whether they will always alias at runtime.  On the
+   other hand, ignoring the may alias relation also leads to an incorrect
+   transformation:
+   
+	    1	b_1 = 4;
+	    2	(*p)_2 = 5;
+	    3	... = b_1;
+
+   With this version, the optimizers will not notice that the assignment to
+   *p at line 2 may in fact reach the use of b at line 3.  To deal with
+   this problem, the rewriting pass will move aliased operands into the
+   virtual operands and then re-write the virtual operand, while leaving
+   the original operand untouched.  So, the above code fragment is converted
+   into:
+
+	     	# (*p)_2 = VDEF <(*p)_1>;
+	    1	b = 4;
+	    2	(*p)_3 = 5;
+	     	# VUSE <(*p)_3>
+	    3	... = b;
+
+   Notice how variable 'b' is not rewritten anymore.  Instead, references
+   to it are moved to the virtual operands which are all rewritten using *p
+   instead of b.
+
+   Virtual operands provide safe information about potential references to
+   the operands in a statement.  But they are imprecise by nature.
+   Optimizations may want to take them into account, at the expense of
+   increased compilation time.  */
 
 void
-build_tree_ssa (fndecl)
+rewrite_into_ssa (fndecl)
      tree fndecl;
 {
   sbitmap *dfs;
   dominance_info idom;
   
-  /* Initialize DFA structures.  */
+  /* Initialize common SSA structures.  */
   init_tree_ssa ();
 
   /* Debugging dumps.  */
   tree_ssa_dump_file = dump_begin (TDI_ssa, &tree_ssa_dump_flags);
-  if (tree_ssa_dump_file)
-    fprintf (tree_ssa_dump_file, "\nFunction %s\n\n", get_name (fndecl));
-
-  /* Find variable references.  */
-  find_tree_refs ();
 
   /* Compute immediate dominators and dominance frontiers.  */
   idom = calculate_dominance_info (CDI_DOMINATORS);
   dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   compute_dominance_frontiers (dfs, idom);
 
-  /* Insert the PHI nodes and build FUD chains.  */
+  /* Compute aliasing information.  */
+  compute_may_aliases ();
+
+  /* Find variable references and mark definition sites.  */
+  mark_def_sites ();
+
+  /* Insert PHI nodes at dominance frontiers of definition blocks.  */
   insert_phi_nodes (dfs);
-  build_fud_chains (idom);
+
+  /* Rewrite all the basic blocks in the program.  */
+  timevar_push (TV_TREE_BUILD_SSA);
+  rewrite_block (ENTRY_BLOCK_PTR, idom);
+  timevar_pop (TV_TREE_BUILD_SSA);
 
   /* Free allocated memory.  */
   sbitmap_vector_free (dfs);
   free_dominance_info (idom);
+  htab_delete (def_blocks);
+  htab_delete (currdefs);
 
+  /* Debugging dumps.  */
   if (tree_ssa_dump_file)
     {
-      /* FIXME  Default dump should be the pretty-printed function with SSA
-	 indices.  */
       if (tree_ssa_dump_flags & (TDF_DETAILS))
-	{
-	  dump_referenced_vars (tree_ssa_dump_file, true);
-	  dump_tree_ssa (tree_ssa_dump_file);
-	}
+	dump_referenced_vars (tree_ssa_dump_file);
 
       if (tree_ssa_dump_flags & TDF_STATS)
 	dump_dfa_stats (tree_ssa_dump_file);
@@ -222,13 +254,75 @@ build_tree_ssa (fndecl)
       dump_end (TDI_ssa, tree_ssa_dump_file);
       tree_ssa_dump_file = NULL;
     }
+
+  dump_function (TDI_ssa, fndecl);
 }
 
 
-/** @brief Insert PHI nodes at the dominance frontier of nodes
-	   with variable definitions.
-    @param dfs Dominance frontier blocks
-*/
+/* Look for variable references in every block of the flowgraph, compute
+   aliasing information and collect definition sites for every variable.  */
+
+static void
+mark_def_sites ()
+{
+  basic_block bb;
+  gimple_stmt_iterator si;
+
+  /* Mark all the blocks that have definitions for each variable referenced
+     in the function.  */
+  FOR_EACH_BB (bb)
+    for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
+      {
+	varray_type ops;
+	size_t i;
+	tree stmt;
+	
+	stmt = gsi_stmt (si);
+	STRIP_NOPS (stmt);
+
+	get_stmt_operands (stmt);
+
+	if (def_op (stmt))
+	  set_def_block (*(def_op (stmt)), bb);
+
+	ops = vdef_ops (stmt);
+	for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	  set_def_block (VDEF_RESULT (VARRAY_TREE (ops, i)), bb);
+      }
+}
+
+
+/* Mark block BB as the definition site for variable VAR.  */
+
+static void
+set_def_block (var, bb)
+     tree var;
+     basic_block bb;
+{
+  struct def_blocks_d db, *db_p;
+  void **slot;
+
+  /* Find the DEFS bitmap associated with variable VAR.  */
+  db.var = var;
+  slot = htab_find_slot (def_blocks, (void *) &db, INSERT);
+  if (*slot == NULL)
+    {
+      db_p = xmalloc (sizeof (*db_p));
+      db_p->var = var;
+      db_p->def_blocks = BITMAP_XMALLOC ();
+      *slot = (void *) db_p;
+    }
+  else
+    db_p = (struct def_blocks_d *) *slot;
+
+  /* Set the bit corresponding to the block where VAR is defined.  */
+  bitmap_set_bit (db_p->def_blocks, bb->index);
+}
+
+
+/* Insert PHI nodes at the dominance frontier of blocks with variable
+   definitions.  DFS contains the dominance frontier information for the
+   flowgraph.  */
 
 static void
 insert_phi_nodes (dfs)
@@ -267,111 +361,25 @@ insert_phi_nodes (dfs)
 }
 
 
-/** @brief Build factored UD-chains.
-
-    Build FUD (Factored Use-Def) chains.  This links every V_USE reference
-    of every variable to its immediate reaching V_DEF or V_PHI and fills in
-    the arguments for all the PHI nodes placed by insert_phi_nodes.
-
-    The algorithm works by doing a depth-first walk of the dominator tree.
-    Every time a V_DEF or V_PHI reference is found, it is marked as the
-    current definition of the associated variable VAR.  It also marks it as
-    the current definition of every variable that VAR might be aliasing.
-
-    When a V_USE reference for VAR is found, the current definition of VAR
-    is retrieved and a use-def link is created between the use and that
-    definition.
-
-    The algorithm also creates def-use links and def-def links similarly.
-    The def-def links are used to model "partial" and "may" definitions:
+/* Perform a depth-first traversal of the dominator tree looking for
+   variables to rename.
    
-    - A partial definition is used in the case of arrays and structures.
-      Whenever the an element of the array is defined, the DFA pass creates
-      a V_DEF/partial reference for the array.  So, when computing reaching
-      definitions, every use of the array will be reached by all the
-      definitions made to individual elements.  For instance,
-@verbatim
-     		A[i] = foo();
-		A[j] = bar();
-		...
-		x = A[k];
-@endverbatim
-      Lacking dependency information, we have to assume that A[k] might be
-      reached by both A[i] and A[j].  The FUD chaining algorithm will place
-      a def-def link between A[i] and A[j].
-
-    - A "may" definition is introduced in the presence of aliasing.  When a
-      variable VAR is defined, that definition is also considered a
-      potential definition of all the variables that might be aliased by
-      VAR.  In this case the compiler keeps a def-def link for every
-      variable that VAR might be aliasing.
-
-    @param idom Dominance information
-*/
+   BB is the block where to start searching.
+   
+   IDOM contains dominance information for the flowgraph.  */
 
 static void
-build_fud_chains (idom)
-     dominance_info idom;
-{
-  size_t i;
-
-  timevar_push (TV_TREE_BUILD_FUD_CHAINS);
-
-  /* Initialize the current definition for all the variables.  */
-  for (i = 0; i < num_referenced_vars; i++)
-    set_currdef_for (referenced_var (i), NULL);
-
-  /* Initialize the array of saved definition chains.  Used by
-     search_fud_chains to restore the previous definition chain when
-     returning from a recursive call.  */
-  save_chain = (tree_ref *) xmalloc (next_tree_ref_id * sizeof (tree_ref));
-  if (save_chain == NULL)
-    abort ();
-  memset ((void *) save_chain, 0, next_tree_ref_id * sizeof (tree_ref));
-
-  /* Search FUD chains starting with the entry block.  */
-  search_fud_chains (ENTRY_BLOCK_PTR, idom);
-
-  free (save_chain);
-
-  timevar_pop (TV_TREE_BUILD_FUD_CHAINS);
-}
-
-
-/** @brief Perform a depth-first traversal of the dominator tree looking
-	   for FUD chains.
-
-    @param bb   Chain of basic blocks to search 
-    @param idom Dominance information
-*/
-
-static void
-search_fud_chains (bb, idom)
+rewrite_block (bb, idom)
      basic_block bb;
      dominance_info idom;
 {
-  edge e;
   basic_block child_bb;
-  ref_list_iterator i;
+  edge e;
+  varray_type block_defs;
 
-  /* Chain every V_USE reference in the block to its immediate reaching
-     definition.  Update the current definition of a variable when V_DEF
-     references are found.  */
-  for (i = rli_start (bb_refs (bb)); !rli_after_end (i); rli_step (&i))
-    {
-      tree_ref ref = rli_ref (i);
-      tree var = ref_var (ref);
+  VARRAY_TREE_INIT (block_defs, 20, "block_defs");
 
-      if (ref_type (ref) != V_DEF
-	  && ref_type (ref) != V_USE
-	  && ref_type (ref) != V_PHI)
-	continue;
-
-      /* Set up def-use, use-def and def-def links between REF and the
-	 current definition of VAR.  */
-      set_ssa_links (ref, var);
-    }
-
+  rewrite_stmts (bb, &block_defs);
 
   /* Visit all the successor blocks of BB looking for PHI nodes.  For every
      PHI node found, add a new argument containing the current reaching
@@ -379,260 +387,156 @@ search_fud_chains (bb, idom)
      is reaching the PHI node.  */
   for (e = bb->succ; e; e = e->succ_next)
     {
-      ref_list_iterator i;
+      tree phi;
 
-      for (i = rli_start (bb_refs (e->dest)); !rli_after_end (i); rli_step (&i))
+      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 	{
-	  tree_ref phi = rli_ref (i);
-	  if (ref_type (phi) == V_PHI)
-	    {
-	      tree_ref currdef = currdef_for (ref_var (phi));
-
-	      /* Besides storing the incoming definition CURRDEF, we also
-		 store E, which is the edge that we are receiving CURRDEF
-		 from.  */
-	      add_phi_arg (phi, currdef, e);
-
-	      /* If CURRDEF is not empty, set a def-use edge between CURRDEF
-		 and this PHI node.  */
-	      if (currdef)
-		add_ref_to_list_end (imm_uses (currdef), phi);
-	    }
+	  tree currdef = currdef_for (SSA_NAME_DECL (PHI_RESULT (phi)), true);
+	  add_phi_arg (phi, currdef, e);
 	}
     }
-
 
   /* Recursively search the dominator children of BB.  */
   FOR_EACH_BB (child_bb)
     if (get_immediate_dominator (idom, child_bb)->index == bb->index)
-      search_fud_chains (child_bb, idom);
-
+      rewrite_block (child_bb, idom);
 
   /* Restore the current reaching definition for each variable referenced
      in the block (in reverse order).  */
-  for (i = rli_start_last (bb_refs (bb)); !rli_after_end (i); rli_step_rev (&i))
+  while (VARRAY_ACTIVE_SIZE (block_defs) > 0)
     {
-      tree_ref ref = rli_ref (i);
-
-      if (ref_type (ref) == V_DEF || ref_type (ref) == V_PHI)
+      tree var;
+      tree saved_def = VARRAY_TOP_TREE (block_defs);
+      VARRAY_POP (block_defs);
+      
+      /* If SAVED_DEF is NULL, then the next slot in the stack contains the
+	 variable associated with SAVED_DEF.  */
+      if (saved_def == NULL_TREE)
 	{
-	  unsigned long id = ref_id (ref);
-	  tree var = ref_var (ref);
-	  set_currdef_for (var, save_chain[id]);
+	  var = VARRAY_TOP_TREE (block_defs);
+	  VARRAY_POP (block_defs);
 	}
+      else
+	var = SSA_NAME_DECL (saved_def);
+
+      set_currdef_for (var, saved_def);
     }
 }
 
 
-/** @brief Computes reaching definitions and reached uses for all the
-	   variables referenced in the current function.  */
+/* Take function FNDECL out of SSA form.  */
 
 void
-compute_reaching_defs ()
+rewrite_out_of_ssa (fndecl)
+     tree fndecl;
 {
-  size_t i;
+  basic_block bb;
+  gimple_stmt_iterator si;
 
-  timevar_push (TV_TREE_RDEFS);
+  FOR_EACH_BB (bb)
+    for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
+      {
+	size_t i;
+	varray_type ops;
+	tree stmt = gsi_stmt (si);
+	STRIP_NOPS (stmt);
 
-  /* Initialize reaching definition and reached uses information for every
-     reference in the function.  */
-  for (i = 0; i < num_referenced_vars; i++)
-    {
-      tree var = referenced_var (i);
-      ref_list_iterator j;
+	get_stmt_operands (stmt);
 
-      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
-	{
-	  tree_ref r = rli_ref (j);
-	  if (ref_type (r) == V_USE)
-	    empty_ref_list (reaching_defs (r));
-	  else if (ref_type (r) == V_DEF || ref_type (r) == V_PHI)
-	    empty_ref_list (reached_uses (r));
-	}
-    }
+	if (def_op (stmt))
+	  {
+	    tree *def_p = def_op (stmt);
+	    *def_p = SSA_NAME_DECL (*def_p);
+	  }
 
-  /* Initialize the mark array to keep track of which definitions have been
-     visited already.  */
-  marked = (tree_ref *) xmalloc (next_tree_ref_id * sizeof (tree_ref));
-  if (marked == NULL)
-    abort ();
-  memset ((void *) marked, 0, next_tree_ref_id * sizeof (tree_ref));
+	ops = use_ops (stmt);
+	for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	  {
+	    tree *use_p = VARRAY_GENERIC_PTR (ops, i);
+	    *use_p = SSA_NAME_DECL (*use_p);
+	  }
+      }
 
-  /* Traverse all the uses following their use-def chains looking for
-     reaching definitions and reached uses.  */
-  for (i = 0; i < num_referenced_vars; i++)
-    {
-      tree var = referenced_var (i);
-      ref_list_iterator j;
-
-      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
-	{
-	  tree_ref u = rli_ref (j);
-	  if (ref_type (u) == V_USE)
-	    follow_chain (imm_reaching_def (u), u);
-	}
-    }
-
-  free (marked);
-
-  timevar_pop (TV_TREE_RDEFS);
-
-  /* Debugging dumps.  */
-  tree_ssa_dump_file = dump_begin (TDI_ssa, &tree_ssa_dump_flags);
-  if (tree_ssa_dump_flags & (TDF_DETAILS))
-    {
-      fprintf (tree_ssa_dump_file, "\nFunction %s\n\n",
-	       get_name (current_function_decl));
-      dump_reaching_defs (tree_ssa_dump_file);
-    }
+  /* Flush out flow graph and SSA data.  */
+  delete_tree_ssa (fndecl);
+  delete_tree_cfg ();
 }
 
 
-/** @brief Follow factored use-def chains to find all possible reaching
-	   definitions for U, starting with D.
+/* Remove a PHI argument from PHI.  BLOCK is the predecessor block where
+   the PHI argument is coming from.
 
-    This also updates reached uses for each reaching definition found.  */
-
-static void
-follow_chain (d, u)
-     tree_ref d;
-     tree_ref u;
-{
-  tree d_var, u_var;
-
-  /* Do nothing if the definition doesn't exist.  */
-  if (d == NULL)
-    return;
-
-#if defined ENABLE_CHECKING
-  /* Consistency check.  D should be a definition or a PHI node.  */
-  if (ref_type (d) != V_DEF && ref_type (d) != V_PHI)
-    abort ();
-
-  /* U should be a V_USE.  */
-  if (ref_type (u) != V_USE)
-    abort ();
-#endif
-
-  /* Do nothing if we've already visited this definition.  */
-  if (marked[ref_id (d)] == u)
-    return;
-
-  marked[ref_id (d)] = u;
-
-  d_var = ref_var (d);
-  u_var = ref_var (u);
-
-  /* If D is a definition for U, add it to the list of definitions reaching
-     U.  Similarly, add U to the list of reached uses of D.  We consider
-     killing and non-killing definitions.  */
-  if (ref_type (d) == V_DEF && ref_defines (d, u_var))
-    {
-      add_ref_to_list_end (reaching_defs (u), d);
-      add_ref_to_list_end (reached_uses (d), u);
-    }
-
-  /* If D is a PHI node, recursively follow each of its arguments.  */
-  if (ref_type (d) == V_PHI)
-    {
-      size_t i;
-      for (i = 0; i < num_phi_args (d); i++)
-	follow_chain (phi_arg_def (phi_arg (d, i)), u);
-    }
-
-  /* If D is a non-killing definition for U, follow D's def-def link.  */
-  else if (!is_killing_def (d, u_var))
-    follow_chain (imm_reaching_def (d), u);
-}
-
-
-/** @brief Remove a PHI alternative.
-
-    This routine assumes ordering of alternatives in the vector is
-    not important and implements removal by swapping the last alternative
-    with the alternative we want to delete, then shrinking the vector.
-
-    @param phi_node The PHI node from which the alternative should be removed
-    @param block    The predecessor block where the PHI alternative comes from
-*/
+   This routine assumes ordering of alternatives in the vector is not
+   important and implements removal by swapping the last alternative with
+   the alternative we want to delete, then shrinking the vector.  */
 
 void
-tree_ssa_remove_phi_alternative (phi_node, block)
-     tree_ref phi_node;
+remove_phi_arg (phi, block)
+     tree phi;
      basic_block block;
 {
-  varray_type phi_vec = phi_args (phi_node);
-  unsigned int num_elem = VARRAY_ACTIVE_SIZE (phi_vec);
-  unsigned int i;
+  size_t i, num_elem = PHI_NUM_ARGS (phi);
 
   for (i = 0; i < num_elem; i++)
     {
       basic_block src_bb;
-      phi_node_arg arg;
 
-      arg = phi_arg (phi_node, i);
-      src_bb = phi_arg_edge (arg)->src;
+      src_bb = PHI_ARG_EDGE (phi, i)->src;
 
       if (src_bb == block)
 	{
 	  /* If we are not at the last element, switch the last element
 	     with the element we want to delete.  */
 	  if (i != num_elem - 1)
-	    set_phi_arg (phi_node, i, phi_arg (phi_node, num_elem - 1));
+	    {
+	      PHI_ARG_DEF(phi, i) = PHI_ARG_DEF(phi, num_elem - 1);
+	      PHI_ARG_EDGE(phi, i) = PHI_ARG_EDGE(phi, num_elem - 1);
+	    }
 
 	  /* Shrink the vector.  */
-	  VARRAY_ACTIVE_SIZE (phi_vec) -= 1;
+	  PHI_NUM_ARGS (phi)--;
 	}
     }
 }
 
 
-/** @brief Dump reaching definitions for all the definitions in the
-	   function.  */
+/* Remove PHI node PHI from basic block BB.  If PREV is non-NULL, it is
+   used as the node immediately before PHI in the linked list.  */
 
 void
-dump_reaching_defs (file)
-     FILE *file;
+remove_phi_node (phi, prev, bb)
+    tree phi;
+    tree prev;
+    basic_block bb;
 {
-  size_t i;
-
-  fprintf (file, "Reaching definitions for %s\n", current_function_name);
-
-  for (i = 0; i < num_referenced_vars; i++)
+  if (prev)
     {
-      tree var = referenced_var (i);
-      ref_list_iterator j;
-
-      fprintf (file, "Variable: ");
-      dump_variable (file, var);
-
-      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
-	{
-	  tree_ref u = rli_ref (j);
-	  if (ref_type (u) == V_USE)
-	    {
-	      dump_ref (file, "", u, 2, 0);
-	      dump_ref_list (file, "", reaching_defs (u), 4, 0);
-	      fprintf (file, "\n");
-	    }
-	}
-      fprintf (file, "\n");
+      /* Rewire the list if we are given a PREV pointer.  */
+      TREE_CHAIN (prev) = TREE_CHAIN (phi);
+    }
+  else if (phi == phi_nodes (bb))
+    {
+      /* Update the list head if removing the first element.  */
+      bb_ann_t ann = bb_ann (bb);
+      ann->phi_nodes = TREE_CHAIN (phi);
+    }
+  else
+    {
+      /* Traverse the list looking for the node to remove.  */
+      tree prev, t;
+      prev = NULL_TREE;
+      for (t = phi_nodes (bb); t && t != phi; t = TREE_CHAIN (t))
+	prev = t;
+      if (t)
+	remove_phi_node (t, prev, bb);
     }
 }
 
 
-/** @brief Dump reaching definitions on stderr.  */
-
-void
-debug_reaching_defs ()
-{
-  dump_reaching_defs (stderr);
-}
-
-
-/** @brief Dump SSA information to a file.
-
-    @param file The file to dump the SSA information in.  */
+/*---------------------------------------------------------------------------
+			       Debugging support
+---------------------------------------------------------------------------*/
+/* Dump SSA information to FILE.  */
 
 void
 dump_tree_ssa (file)
@@ -645,13 +549,14 @@ dump_tree_ssa (file)
   FOR_EACH_BB (bb)
     {
       dump_tree_bb (file, "", bb, 0);
-      dump_ref_list (file, "    ", bb_refs (bb), 0, 1);
+      fputs ("    ", file);
+      print_generic_stmt (file, phi_nodes (bb), 0);
       fputs ("\n\n", file);
     }
 }
 
 
-/** @brief Dump SSA information to stderr.  */
+/* Dump SSA information to stderr.  */
 
 void
 debug_tree_ssa ()
@@ -663,35 +568,28 @@ debug_tree_ssa ()
 /*---------------------------------------------------------------------------
 		  Helpers for the main SSA building functions
 ---------------------------------------------------------------------------*/
-
-/** @brief Insert PHI nodes for variable VAR.  */
+/* Insert PHI nodes for variable VAR.  */
 
 static void
 insert_phi_nodes_for (var, dfs)
      tree var;
      sbitmap *dfs;
 {
-  ref_list_iterator i;
+  unsigned long i;
+  struct def_blocks_d dm, *def_map;
 
-#if defined ENABLE_CHECKING
-  /* Variables in referenced_vars must have at least 1 reference.  */
-  if (tree_refs (var)->first == NULL)
-    abort ();
-#endif
+  /* Add to the worklist all the blocks that have definitions of VAR.  */
+  dm.var = var;
+  def_map = (struct def_blocks_d *) htab_find (def_blocks, (void *) &dm);
+  if (def_map == NULL)
+    return;
 
-  /* Add to the worklist all the basic blocks that have definitions of
-     VAR.  */
-  for (i = rli_start (tree_refs (var)); !rli_after_end (i); rli_step (&i))
-    {
-      tree_ref ref = rli_ref (i);
-      basic_block bb = ref_bb (ref);
-
-      if (ref_type (ref) == V_DEF)
-	{
-	  VARRAY_PUSH_BB (work_stack, bb);
-	  VARRAY_TREE (in_work, bb->index) = var;
-	}
-    }
+  EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, 0, i,
+      {
+	basic_block bb = BASIC_BLOCK (i);
+	VARRAY_PUSH_BB (work_stack, bb);
+	VARRAY_TREE (in_work, bb->index) = var;
+      });
 
   /* Insert PHI nodes at the dominance frontier of all the basic blocks
      in the worklist.  */
@@ -709,11 +607,10 @@ insert_phi_nodes_for (var, dfs)
 }
 
 
-/** @brief Add a new PHI node for variable VAR at the start of basic
-	   block BB.
+/* Add a new PHI node for variable VAR at the start of basic block BB.
 
-    If BB didn't have a definition of BB, we add BB itself to the
-    worklist because the PHI node introduces a new definition of VAR.  */
+   If BB didn't have a definition of VAR, we add BB itself to the worklist
+   because the PHI node introduces a new definition of VAR.  */
 
 static void
 add_phi_node (bb, var)
@@ -722,16 +619,9 @@ add_phi_node (bb, var)
 {
   if (VARRAY_TREE (added, bb->index) != var)
     {
-      tree_ref phi;
-      tree *stmt_p;
+      tree phi;
 
-      /* If the basic block is not empty, associate the PHI node to its
-	 first executable statement.  This is for debugging convenience.
-	 This way, the PHI node will have line number information.  */
-      stmt_p = !bb_empty_p (bb) ? bb->head_tree_p : NULL;
-      phi = create_ref (var, V_PHI, 0, bb, stmt_p, 0);
-      add_ref_to_list_begin (bb_refs (bb), phi);
-
+      phi = create_phi_node (var, bb);
       VARRAY_TREE (added, bb->index) = var;
 
       /* Basic block BB now has a new definition of VAR.  If BB wasn't in
@@ -745,112 +635,140 @@ add_phi_node (bb, var)
 }
 
 
-/** @brief Set up use-def, def-use and def-def links between reference REF
-	   and the current reaching definition for VAR.  */
+/* Rewrite all the statements in basic block BB.
+   
+   BLOCK_DEFS_P points to a stack with all the definitions found in the
+      block.  This is used by rewrite_block to restore the current reaching
+      definition for every variable defined in BB after visiting the
+      immediate dominators of BB.  */
 
 static void
-set_ssa_links (ref, var)
-     tree_ref ref;
-     tree var;
+rewrite_stmts (bb, block_defs_p)
+     basic_block bb;
+     varray_type *block_defs_p;
 {
-  tree_ref currdef = NULL;
+  gimple_stmt_iterator si;
+  tree phi;
 
-  /* Retrieve the current definition for the variable.  Note that if the
-     variable is aliased, this will retrieve the current definition for its
-     alias leader (i.e., the variable representing all the variables in the
-     same alias set).  */
-  currdef = currdef_for (var);
+  /* Process PHI nodes in the block.  Conceptually, all the PHI nodes are
+     executed in parallel and each PHI node introduces a new version for
+     the associated variable.  */
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    register_new_def (PHI_RESULT (phi), block_defs_p);
 
-  if (ref_type (ref) == V_USE)
+  /* Rewrite every variable used in each statement the block with its
+     immediate reaching definitions.  Update the current definition of a
+     variable when a new real or virtual definition is found.  */
+  for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
+    rewrite_stmt (gsi_stmt (si), block_defs_p);
+}
+
+
+/* Rewrite statement STMT into SSA form.  BLOCK_DEFS_P is as in
+   rewrite_stmts.  */
+
+static void
+rewrite_stmt (stmt, block_defs_p)
+     tree stmt;
+     varray_type *block_defs_p;
+{
+  size_t i;
+  varray_type ops;
+
+  STRIP_NOPS (stmt);
+
+#if defined ENABLE_CHECKING
+  /* We have just scanned the code for operands.  No statement should
+     be modified.  */
+  if (stmt_modified_p (stmt))
+    abort ();
+#endif
+
+  /* Rewrite uses and virtual uses in the statement (note that we have
+     already collected operands for every statement in mark_def_sites).  If
+     there are aliased loads in the statement, move the operands to VUSES.
+     This way, we will be able to re-write aliased loads to their
+     immediately reaching aliased definition.  */
+  ops = use_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    rewrite_operand ((tree *)VARRAY_GENERIC_PTR (ops, i));
+
+  ops = vuse_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    rewrite_operand (&(VARRAY_TREE (ops, i)));
+
+  /* Register new definitions and virtual definitions made by the
+     statement.  */
+  if (def_op (stmt))
     {
-      bool found;
-      tree_ref new_currdef;
-
-      /* Make sure that CURRDEF is an actual definition for the variable.
-	 In the presence of aliasing, all definitions to the variables in
-	 the same alias set make a definition to their alias leader,
-	 not to their variable.  This allows us to set def-def links
-	 between definitions to members of the same alias set.
-
-	 However, this does not mean that every definition to the alias
-	 leader will necessarily reach this use.  For instance, assume that
-	 '*p' is the alias leader for variables 'a' and 'b':
-
-	 	*p = 5;
-		 a = 3;
-		   = b;
-
-	 When processing the use of 'b' in the last line, CURRDEF is the
-	 definition 'a = 3' (because 'a' and 'b' are in the same alias
-	 set).   Since 'a' cannot alias 'b', we continue to the next
-	 definition in the def-def chain until we find a definition for 'b'
-	 or for a variable that can alias 'b'.  In this case, we find the
-	 definition '*p = 5', which is what we use as CURRDEF.  */
-      found = false;
-      new_currdef = currdef;
-      while (!found && new_currdef)
-	{
-	  if (ref_var (new_currdef) == var
-	      || ref_var (new_currdef) == alias_leader (var)
-	      || may_alias_p (ref_var (new_currdef), var))
-	    found = true;
-	  else
-	    new_currdef = imm_reaching_def (new_currdef);
-	}
-
-      /* If we didn't find a matching definition, it means that no
-	 definition in the def-def chain affects this use of VAR, so we can
-	 just return.  */
-      if (!found)
-	return;
-
-      currdef = new_currdef;
-
-      /* Set up a def-use chain between CURRDEF (the immediately
-	reaching definition for REF) and REF.  Each definition may
-	have more than one immediate use, so make sure that we don't
-	add REF to CURRDEF's immediate uses more than once.  */
-      if (imm_reaching_def (ref) != currdef)
-	add_ref_to_list_end (imm_uses (currdef), ref);
-
-      /* Set up a use-def chain between REF and CURRDEF.  */
-      set_imm_reaching_def (ref, currdef);
+      tree *def = def_op (stmt);
+      *def = make_ssa_name (*def, stmt);
+      register_new_def (*def, block_defs_p);
     }
-  else if (ref_type (ref) == V_DEF || ref_type (ref) == V_PHI)
+
+  ops = vdef_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
-      /* Save the current definition chain for the variable.  This is used
-	 when visiting the dominator children of a block in
-	 search_fud_chains.  Once all the dominator children of block BB
-	 have been visited, we need to restore CURRDEF for all the
-	 variables referenced in BB.  */
-      save_chain[ref_id (ref)] = currdef;
-
-      /* Set a def-def link to the current definition.  This allows
-	 compute_reaching_defs to find all the reaching definitions in the
-	 presence of non-killing definitions.  It also makes it possible
-	 for remove_ref to patch the SSA web when removing V_DEF
-	 references.  Note that this is unnecessary when processing PHI
-	 nodes.  The argument list of a PHI node represents all the def-def
-	 links for the node.  */
-      if (ref != currdef && ref_type (ref) != V_PHI)
-	set_imm_reaching_def (ref, currdef);
-
-      /* Finally, set REF to be the new CURRDEF for VAR.  If VAR is
-	 aliased, then this becomes CURRDEF for the whole alias set of VAR.
-	 In which case this will set CURRDEF for the alias leader.  */
-      set_currdef_for (var, ref);
+      tree vdef = VARRAY_TREE (ops, i);
+      rewrite_operand (&(VDEF_OP (vdef)));
+      VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
+      register_new_def (VDEF_RESULT (vdef), block_defs_p);
     }
 }
 
 
-/** @brief Initialize DFA/SSA structures.  */
+/* Replace the operand pointed by OP_P with its immediate reaching
+   definition.  */
+
+static inline void
+rewrite_operand (op_p)
+     tree *op_p;
+{
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (*op_p) == SSA_NAME)
+    abort ();
+#endif
+  *op_p = currdef_for (*op_p, true);
+}
+
+
+/* Register a new definition for the variable defined by DEF and push its
+   current reaching definition into the stack pointed by BLOCK_DEFS_P.  */
+
+static void
+register_new_def (def, block_defs_p)
+     tree def;
+     varray_type *block_defs_p;
+{
+  tree var = SSA_NAME_DECL (def);
+  tree currdef = currdef_for (var, false);
+
+  /* If the current reaching definition is NULL, push the variable
+     itself so that rewrite_blocks knows what variable is associated with
+     this NULL reaching def when unwinding the *BLOCK_DEFS_P stack.  */
+  if (currdef == NULL_TREE)
+    VARRAY_PUSH_TREE (*block_defs_p, var);
+
+  /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
+     later used by rewrite_block to restore the reaching definitions for
+     all the variables defined in the block after a recursive visit to all
+     its immediately dominated blocks.  */
+  VARRAY_PUSH_TREE (*block_defs_p, currdef);
+
+  /* Set the current reaching definition for VAR to be DEF.  */
+  set_currdef_for (var, def);
+}
+
+
+/*---------------------------------------------------------------------------
+			     Various helpers.
+---------------------------------------------------------------------------*/
+/* Initialize DFA/SSA structures.  */
 
 static void
 init_tree_ssa ()
 {
-  next_tree_ref_id = 0;
-  memset ((void *) &dfa_counts, 0, sizeof (struct dfa_counts_d));
-  
+  next_ssa_version = 1;
   num_referenced_vars = 0;
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
 
@@ -866,29 +784,26 @@ init_tree_ssa ()
   DECL_CONTEXT (global_var) = NULL_TREE;
   TREE_THIS_VOLATILE (global_var) = 1;
   TREE_ADDRESSABLE (global_var) = 1;
-  set_indirect_var (global_var, create_indirect_ref (global_var));
 
-  /* If -Wuninitialized was used, set tree_warn_uninitialized and clear
-     warn_uninitialized to avoid duplicate warnings.  */
-  if (warn_uninitialized == 1)
-    {
-      tree_warn_uninitialized = 1;
-      warn_uninitialized = 0;
-    }
+  /* Allocate memory for the DEF_BLOCKS hash table.  */
+  def_blocks = htab_create (num_referenced_vars, def_blocks_hash,
+			    def_blocks_eq, def_blocks_free);
+
+  /* Allocate memory for the CURRDEFS hash table.  */
+  currdefs = htab_create (num_referenced_vars, currdef_hash, currdef_eq, free);
 }
 
 
-/** @brief Deallocate memory associated with SSA data structures
-           for the function tree FNBODY.  */
+/* Deallocate memory associated with SSA data structures for FNDECL.  */
 
-void
-delete_tree_ssa (fnbody)
-     tree fnbody;
+static void
+delete_tree_ssa (fndecl)
+     tree fndecl;
 {
   unsigned long int i;
 
   /* Remove annotations from every tree in the function.  */
-  walk_tree (&fnbody, remove_annotations_r, NULL, NULL);
+  walk_tree (&DECL_SAVED_TREE (fndecl), remove_annotations_r, NULL, NULL);
 
   /* Remove annotations from every referenced variable.  */
   for (i = 0; i < num_referenced_vars; i++)
@@ -904,12 +819,11 @@ delete_tree_ssa (fnbody)
   num_referenced_vars = 0;
   referenced_vars = NULL;
   global_var = NULL_TREE;
-
 }
 
 
-/** @brief Callback function for walk_tree to clear DFA/SSA
-	   annotations from node *TP.  */
+/* Callback function for walk_tree to clear DFA/SSA annotations from node
+   *TP.  */
 
 static tree
 remove_annotations_r (tp, walk_subtrees, data)
@@ -922,69 +836,149 @@ remove_annotations_r (tp, walk_subtrees, data)
 }
 
 
-/** @brief Return the current definition for variable V.
+/* Return the current definition for variable V.  If none is found and
+   CREATE_DEFAULT is nonzero, create a new SSA name to act as the zeroth
+   definition for V.  */
 
-    If V is aliased, return the current definition for V's alias
-    leader (i.e., the variable that represents the alias set to
-    which V belongs).
-
-    @param  v The variable that you want the current definition for
-    @return The current definition for V, or for its alias leader. 
-*/
-
-static inline tree_ref
-currdef_for (v)
+static inline tree
+currdef_for (v, create_default)
      tree v;
+     int create_default;
 {
-  if (is_aliased (v))
-    v = alias_leader (v);
+  struct currdef_d *def_map, dm;
 
-  return tree_annotation (v) ? tree_annotation (v)->currdef : NULL;
+#if defined ENABLE_CHECKING
+  if (!SSA_VAR_P (v))
+    abort ();
+#endif
+
+  dm.var = v;
+  def_map = (struct currdef_d *) htab_find (currdefs, (void *) &dm);
+  if (def_map && def_map->currdef)
+    return def_map->currdef;
+  else
+    {
+      if (create_default)
+	{
+	  tree def = make_ssa_name (v, empty_stmt_node);
+	  set_currdef_for (v, def);
+	  return def;
+	}
+      else
+	return NULL_TREE;
+    }
 }
 
 
-/** @brief Set DEF to be the current definition for variable V.
-
-    If V is aliased, set the current definition for V's alias leader
-    (i.e., the variable that represents the alias set to which V belongs).
-
-    @param v   The variable to set the current definition for
-    @param def The new `current' definition for V
-*/
+/* Set DEF to be the current definition for variable V.  */
 
 static inline void
 set_currdef_for (v, def)
      tree v;
-     tree_ref def;
+     tree def;
 {
-  tree_ann ann;
+  struct currdef_d *currdef_p, cd;
+  void **slot;
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE_CLASS (TREE_CODE (v)) != 'd'
       && TREE_CODE (v) != INDIRECT_REF)
     abort ();
 
-  if (def && ref_type (def) != V_DEF && ref_type (def) != V_PHI)
+  if (def && TREE_CODE (def) != SSA_NAME)
     abort ();
 #endif
 
-  ann = tree_annotation (v) ? tree_annotation (v) : create_tree_ann (v);
-  ann->currdef = def;
-
-  /* If V is aliased then CURRDEF also represents a definition for V's
-     alias leader.  Similarly, if V's alias leader has an alias leader of
-     its own, then CURRDEF represents a definition for it.  Therefore, we
-     walk the alias leader chain, which is guaranteed to be a cycle-free
-     graph (see tree-dfa.c:compute_may_aliases).  */
-  if (is_aliased (v))
+  cd.var = v;
+  slot = htab_find_slot (currdefs, (void *) &cd, INSERT);
+  if (*slot == NULL)
     {
-      v = alias_leader (v);
-      do
-	{
-	  ann = tree_annotation (v) ? tree_annotation (v) : create_tree_ann (v);
-	  ann->currdef = def;
-	  v = alias_leader (v);
-	}
-      while (v && v != alias_leader (v));
+      currdef_p = xmalloc (sizeof *currdef_p);
+      currdef_p->var = v;
+      *slot = (void *) currdef_p;
     }
+  else
+    currdef_p = (struct currdef_d *) *slot;
+
+  currdef_p->currdef = def;
+}
+
+
+/* Free memory allocated for a <def, def_blocks> tuple.  */
+
+static void
+def_blocks_free (p)
+     void *p;
+{
+  struct def_blocks_d *db_p = (struct def_blocks_d *) p;
+  free (db_p->def_blocks);
+  free (p);
+}
+
+
+/* Hashing and equality functions for DEF_BLOCKS.  */
+
+static hashval_t
+def_blocks_hash (p)
+     const void *p;
+{
+  return htab_hash_var ((const void *)((const struct def_blocks_d *)p)->var);
+}
+
+static int
+def_blocks_eq (p1, p2)
+     const void *p1;
+     const void *p2;
+{
+  return same_var_p (((const struct def_blocks_d *)p1)->var,
+                     ((const struct def_blocks_d *)p2)->var);
+}
+
+
+/* Hashing and equality functions for CURRDEF.  */
+
+static hashval_t
+currdef_hash (p)
+     const void *p;
+{
+  return htab_hash_var ((const void *)((const struct currdef_d *)p)->var);
+}
+
+static int
+currdef_eq (p1, p2)
+     const void *p1;
+     const void *p2;
+{
+  return same_var_p (((const struct currdef_d *)p1)->var,
+                     ((const struct currdef_d *)p2)->var);
+}
+
+
+/* Dump the DEF_BLOCKS hash table on stderr.  */
+
+void
+debug_def_blocks ()
+{
+  htab_traverse (def_blocks, debug_def_blocks_r, NULL);
+}
+
+
+/* Callback for htab_traverse to dump the DEF_BLOCKS hash table.  */
+
+static int
+debug_def_blocks_r (slot, data)
+     void **slot;
+     void *data ATTRIBUTE_UNUSED;
+{
+  unsigned long i;
+  struct def_blocks_d *db_p = (struct def_blocks_d *) *slot;
+  
+  fprintf (stderr, "VAR: ");
+  print_generic_expr (stderr, db_p->var, 0);
+  fprintf (stderr, ", DEF_BLOCKS: { ");
+  EXECUTE_IF_SET_IN_BITMAP (db_p->def_blocks, 0, i,
+			    fprintf (stderr, "%ld ", i));
+  fprintf (stderr, "}\n");
+
+  return 1;
 }

@@ -1549,6 +1549,9 @@ simplify_addr_expr (expr_p, pre_p, post_p)
 		     is_simple_addr_expr_arg, fb_lvalue);
       TREE_SIDE_EFFECTS (*expr_p)
 	= TREE_SIDE_EFFECTS (TREE_OPERAND (*expr_p, 0));
+
+      /* Mark the RHS addressable.  */
+      (*lang_hooks.mark_addressable) (TREE_OPERAND (*expr_p, 0));
     }
   else
     /* Fold &*EXPR into EXPR.  simplify_expr will re-simplify EXPR.  */
@@ -1945,9 +1948,7 @@ unmark_visited_r (tp, walk_subtrees, data)
 /* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
    model computations that should only be done once.  If we were to unshare
    something like SAVE_EXPR(i++), the simplification process would create
-   wrong code.
-
-   Additionally, copy any flags that were set in the original tree.  */
+   wrong code.  */
 
 static tree
 mostly_copy_tree_r (tp, walk_subtrees, data)
@@ -1964,12 +1965,7 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
   else if (code == BIND_EXPR)
     abort ();
   else
-    {
-      enum tree_flags flags = tree_flags (*tp);
-      copy_tree_r (tp, walk_subtrees, data);
-      if (flags)
-	set_tree_flag (*tp, flags);
-    }
+    copy_tree_r (tp, walk_subtrees, data);
 
   return NULL_TREE;
 }
@@ -2039,7 +2035,7 @@ simplify_cleanup_point_expr (expr_p, pre_p)
 
   gimplify_ctxp->conditions = old_conds;  
   
-  for (iter = gsi_start (&body); !gsi_end (iter); )
+  for (iter = gsi_start (&body); !gsi_end_p (iter); )
     {
       tree wce = gsi_stmt (iter);
       if (wce && TREE_CODE (wce) == WITH_CLEANUP_EXPR)

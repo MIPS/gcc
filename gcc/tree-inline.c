@@ -1286,6 +1286,7 @@ walk_tree (tp, func, data, htab_)
 	case ENUMERAL_TYPE:
 	case BLOCK:
 	case RECORD_TYPE:
+	case SSA_NAME:
 	  /* None of thse have subtrees other than those already walked
 	     above.  */
 	  break;

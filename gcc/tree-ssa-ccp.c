@@ -1,22 +1,22 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000,2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
-   Adapted to SIMPLE trees by Diego Novillo <dnovillo@redhat.com>
+   Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
    
-GNU CC is free software; you can redistribute it and/or modify it
+GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 2, or (at your option) any
 later version.
    
-GNU CC is distributed in the hope that it will be useful, but WITHOUT
+GCC is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to the Free
+along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
@@ -63,57 +63,66 @@ typedef enum
 
 
 /* Main structure for CCP.  Contains the lattice value and, if it's a
-   constant, the constant value.  */
+    constant, the constant value.  */
 typedef struct
 {
   latticevalue lattice_val;
-  tree const_value;
+  tree const_val;
 } value;
 
-/* Array of values indexed by reference ID.  Each reference will be
-   assigned a value out of the constant lattice: UNDEFINED (top), meaning
-   that the reference is to a constant of unknown value, CONSTANT,
-   meaning that the reference has a known constant value and VARYING
-   (bottom), meaning that the reference is to a non-constant value.  */
-static value *values;
+/* Hash table of constant values indexed by SSA name.   Each variable will
+    be assigned a value out of the constant lattice: UNDEFINED (top),
+    meaning that the variable has a constant of unknown value, CONSTANT,
+    meaning that the variable has a known constant value and VARYING
+    (bottom), meaning that the variable has a non-constant value.  */
+static htab_t const_values;
+
+/* Structure to map a variable to its constant value.  */
+struct value_map_d
+{
+  tree var;
+  value val;
+};
 
 /* A bitmap to keep track of executable blocks in the CFG.  */
 static sbitmap executable_blocks;
 
 /* Array of control flow edges on the worklist.  */
-static varray_type edge_info;
-
-/* We need an control flow edge list to be able to get indexes easily.  */
-static struct edge_list *edges;
+static varray_type cfg_edges;
 
 /* Worklist of SSA edges which will need reexamination as their definition
-   has changed.  SSA edges are def-use edges in the SSA web.  For each
-   edge, we store the originating V_DEF/V_PHI reference D.  The destination
-   nodes that need to be visited are accessed using imm_uses (D).  */
-ref_list ssa_edges;
+    has changed.  SSA edges are def-use edges in the SSA web.  For each
+    edge, we store the definition statement or PHI node D.  The destination
+    nodes that need to be visited are accessed using immediate_uses (D).  */
+static varray_type ssa_edges;
 
 static void initialize			PARAMS ((void));
 static void finalize			PARAMS ((void));
-static void visit_phi_node		PARAMS ((tree_ref));
+static void visit_phi_node		PARAMS ((tree));
 static value cp_lattice_meet		PARAMS ((value, value));
 static void visit_stmt			PARAMS ((tree));
 static void visit_cond_stmt		PARAMS ((tree));
 static void visit_assignment		PARAMS ((tree));
 static void add_outgoing_control_edges	PARAMS ((basic_block));
 static void add_control_edge		PARAMS ((edge));
-static void def_to_undefined		PARAMS ((tree_ref));
-static void def_to_varying		PARAMS ((tree_ref));
-static void set_lattice_value		PARAMS ((tree_ref, value));
+static void def_to_undefined		PARAMS ((tree));
+static void def_to_varying		PARAMS ((tree));
+static void set_lattice_value		PARAMS ((tree, value));
 static void simulate_block		PARAMS ((basic_block));
-static void simulate_def_use_chains	PARAMS ((tree_ref));
+static void simulate_def_use_edges	PARAMS ((tree));
 static void substitute_and_fold		PARAMS ((void));
 static value evaluate_stmt		PARAMS ((tree));
 static void dump_lattice_value		PARAMS ((FILE *, const char *, value));
 static tree widen_bitfield		PARAMS ((tree, tree, tree));
-static bool replace_uses_in		PARAMS ((tree, int));
+static bool replace_uses_in		PARAMS ((tree));
 static void fold_stmt			PARAMS ((tree));
 static tree get_rhs			PARAMS ((tree));
 static void set_rhs			PARAMS ((tree, tree));
+static void set_value			PARAMS ((tree, latticevalue, tree));
+static value *get_value			PARAMS ((tree));
+static value get_default_value		PARAMS ((tree));
+static hashval_t value_map_hash		PARAMS ((const void *));
+static int value_map_eq			PARAMS ((const void *, const void *));
 
 
 /* Debugging dumps.  */
@@ -122,10 +131,7 @@ static int dump_flags;
 
 
 /* Main entry point for SSA Conditional Constant Propagation.  FNDECL is
-   the declaration for the function to optimize.
-
-   Long term it should accept as input the specific flow graph to
-   operate on so that it can be called for sub-graphs.  */
+    the declaration for the function to optimize.  */
 
 void
 tree_ssa_ccp (fndecl)
@@ -136,24 +142,25 @@ tree_ssa_ccp (fndecl)
   initialize ();
 
   /* Iterate until the worklists are empty.  */
-  while (VARRAY_ACTIVE_SIZE (edge_info) > 0 || ssa_edges->last != NULL)
+  while (VARRAY_ACTIVE_SIZE (cfg_edges) > 0
+	 || VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
     {
-      if (VARRAY_ACTIVE_SIZE (edge_info) > 0)
+      if (VARRAY_ACTIVE_SIZE (cfg_edges) > 0)
 	{
 	  /* Pull the next block to simulate off the worklist.  */
 	  basic_block dest_block;
-	  dest_block = ((edge)VARRAY_TOP_GENERIC_PTR (edge_info))->dest;
-	  VARRAY_POP (edge_info);
+	  dest_block = ((edge)VARRAY_TOP_GENERIC_PTR (cfg_edges))->dest;
+	  VARRAY_POP (cfg_edges);
 	  simulate_block (dest_block);
 	}
 
-      if (ssa_edges->last)
+      if (VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
 	{
 	  /* Pull the next reference off the worklist.  The SSA edges
 	     worklist stores the origination definition for each edge.  */
-	  tree_ref def = get_last_ref (ssa_edges);
-	  remove_ref_from_list (ssa_edges, def);
-	  simulate_def_use_chains (def);
+	  tree def = VARRAY_TOP_TREE (ssa_edges);
+	  VARRAY_POP (ssa_edges);
+	  simulate_def_use_edges (def);
 	}
     }
 
@@ -173,10 +180,8 @@ tree_ssa_ccp (fndecl)
     {
       if (dump_flags & TDF_DETAILS)
 	{
-	  compute_reaching_defs ();
-	  dump_referenced_vars (dump_file, 1);
+	  dump_referenced_vars (dump_file);
 	  fprintf (dump_file, "\n\n");
-	  dump_reaching_defs (dump_file);
 	  fprintf (dump_file, "\n");
 	}
 
@@ -194,27 +199,19 @@ static void
 simulate_block (block)
      basic_block block;
 {
-  ref_list blockrefs;
-  ref_list_iterator i;
+  tree phi;
 
   /* There is nothing to do for the exit block.  */
   if (block == EXIT_BLOCK_PTR)
     return;
 
-#if defined ENABLE_CHECKING
-  if (block->index < 0 || block->index > last_basic_block)
-    abort ();
-#endif
-
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nSimulating block %d\n", block->index);
 
   /* Always simulate PHI nodes, even if we have simulated this block
-     before.  Note that all PHI nodes are consecutive within a block.  */
-  blockrefs = bb_refs (block);
-  for (i = rli_start (blockrefs); !rli_after_end (i); rli_step (&i))
-    if (ref_type (rli_ref (i)) == V_PHI)
-      visit_phi_node (rli_ref (i));
+     before.  */
+  for (phi = phi_nodes (block); phi; phi = TREE_CHAIN (phi))
+    visit_phi_node (phi);
 
   /* If this is the first time we've simulated this block, then we
      must simulate each of its statements.  */
@@ -225,7 +222,7 @@ simulate_block (block)
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
 
-      for (j = gsi_start_bb (block); !gsi_end_bb (j); gsi_step_bb (&j))
+      for (j = gsi_start_bb (block); !gsi_end_bb_p (j); gsi_step_bb (&j))
 	visit_stmt (gsi_stmt (j));
 
       /* If the block has a single successor, it will always get executed.
@@ -236,36 +233,42 @@ simulate_block (block)
 }
 
 
-/* Follow the def-use chains for definition DEF and simulate all the
+/* Follow the def-use edges for statement DEF_STMT and simulate all the
    statements reached by it.  */
 
 static void
-simulate_def_use_chains (def)
-     tree_ref def;
+simulate_def_use_edges (def_stmt)
+     tree def_stmt;
 {
-  ref_list_iterator i;
+  size_t i;
+  varray_type imm_uses;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_ref (dump_file, "\nSimulating def-use edges for definition: ",
-		 def, 0, 0);
-
-  for (i = rli_start (imm_uses (def)); !rli_after_end (i); rli_step (&i))
     {
-      tree_ref ref = rli_ref (i);
-
-      /* Visit the statement containing the use reached by DEF, only if the
-	 destination block is marked executable.  Note that we only visit
-	 unmodified V_USE references.  We don't want to deal with any
-	 modifiers here.  */
-      if (is_pure_use (ref)
-	  && TEST_BIT (executable_blocks, ref_bb (ref)->index))
-	visit_stmt (ref_stmt (ref));
-
-      /* PHI nodes are always visited, regardless of whether or not the
-	 destination block is executable.  */
-      else if (ref_type (ref) == V_PHI)
-	visit_phi_node (ref);
+      fprintf (dump_file, "\nSimulating def-use edges for statement: ");
+      print_generic_stmt (dump_file, def_stmt, 0);
     }
+
+  imm_uses = immediate_uses (def_stmt);
+  if (imm_uses)
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (imm_uses); i++)
+      {
+	tree use_stmt = VARRAY_TREE (imm_uses, i);
+	basic_block use_bb = bb_for_stmt (use_stmt);
+
+	if (TREE_CODE (use_stmt) == PHI_NODE)
+	  {
+	    /* PHI nodes are always visited, regardless of whether or not the
+	      destination block is executable.  */
+	    visit_phi_node (use_stmt);
+	  }
+	else if (TEST_BIT (executable_blocks, use_bb->index))
+	  {
+	    /* Otherwise, visit the statement containing the use reached by
+	      DEF, only if the destination block is marked executable.  */
+	    visit_stmt (use_stmt);
+	  }
+      }
 }
 
 
@@ -285,13 +288,12 @@ substitute_and_fold ()
     {
       gimple_stmt_iterator i;
 
-      for (i = gsi_start_bb (bb); !gsi_end_bb (i); gsi_step_bb (&i))
+      for (i = gsi_start_bb (bb); !gsi_end_bb_p (i); gsi_step_bb (&i))
 	{
 	  tree stmt = gsi_stmt (i);
 
 	  /* Skip statements that have been folded already.  */
-	  if (tree_flags (stmt) & TF_FOLDED
-	      || !is_exec_stmt (stmt))
+	  if (stmt_modified_p (stmt) || !is_exec_stmt (stmt))
 	    continue;
 
 	  /* Replace the statement with its folded version and mark it
@@ -302,10 +304,10 @@ substitute_and_fold ()
 	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	    }
 
-	  if (replace_uses_in (stmt, true))
+	  if (replace_uses_in (stmt))
 	    {
 	      fold_stmt (stmt);
-	      set_tree_flag (stmt, TF_FOLDED);
+	      modify_stmt (stmt);
 	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -325,24 +327,26 @@ substitute_and_fold ()
    of the PHI node that are incoming via executable edges.  */
 
 static void
-visit_phi_node (phi_node)
-     tree_ref phi_node;
+visit_phi_node (phi)
+     tree phi;
 {
-  unsigned int i;
+  int i;
   value phi_val;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_ref (dump_file, "\nVisiting PHI node: ", phi_node, 0, 0);
+    {
+      fprintf (dump_file, "\nVisiting PHI node: ");
+      print_generic_expr (dump_file, phi, 0);
+    }
 
   phi_val.lattice_val = UNDEFINED;
-  phi_val.const_value = NULL_TREE;
+  phi_val.const_val = NULL_TREE;
 
-  if (!is_volatile_ref (phi_node))
-    for (i = 0; i < num_phi_args (phi_node); i++)
+  if (!TREE_THIS_VOLATILE (SSA_NAME_DECL (PHI_RESULT (phi))))
+    for (i = 0; i < PHI_NUM_ARGS (phi); i++)
       {
 	/* Compute the meet operator over all the PHI arguments. */
-	phi_node_arg arg = phi_arg (phi_node, i);
-	edge e = phi_arg_edge (arg);
+	edge e = PHI_ARG_EDGE (phi, i);
 
 	if (dump_file && (dump_flags & TDF_DETAILS))
 	  {
@@ -355,32 +359,28 @@ visit_phi_node (phi_node)
 	   the existing value of the PHI node and the current PHI argument.  */
 	if (e->flags & EDGE_EXECUTABLE)
 	  {
-	    tree_ref rdef;
-	    
-	    rdef = phi_arg_def (arg);
+	    tree rdef = PHI_ARG_DEF (phi, i);
 
-	    if (is_killing_def (rdef, ref_var (phi_node))
-		&& !is_volatile_ref (rdef))
+	    if (!TREE_THIS_VOLATILE (SSA_NAME_DECL (rdef)))
 	      {
-		value rdef_val;
-
-		rdef_val = values[ref_id (rdef)];
-		phi_val = cp_lattice_meet (phi_val, rdef_val);
+		value *rdef_val = get_value (rdef);
+		phi_val = cp_lattice_meet (phi_val, *rdef_val);
 
 		if (dump_file && (dump_flags & TDF_DETAILS))
 		  {
-		    dump_ref (dump_file, "\t", phi_arg_def (arg), 0, 0);
-		    dump_lattice_value (dump_file, "\tValue: ", rdef_val);
+		    fprintf (dump_file, "\t");
+		    print_generic_expr (dump_file, rdef, 0);
+		    dump_lattice_value (dump_file, "\tValue: ", *rdef_val);
 		    fprintf (dump_file, "\n");
 		  }
 	      }
 	    else
 	      {
-		/* If RDEF is a non-killing definition, we cannot assume
-		   anything about this PHI's node value.  In that case, set
-		   its value to VARYING.  */
+		/* If the variable is volatile, we cannot assume anything
+		   about this PHI's node value.  In that case, set its
+		   value to VARYING.  */
 		phi_val.lattice_val = VARYING;
-		phi_val.const_value = NULL_TREE;
+		phi_val.const_val = NULL_TREE;
 	      }
 
 	    if (phi_val.lattice_val == VARYING)
@@ -394,7 +394,7 @@ visit_phi_node (phi_node)
       fprintf (dump_file, "\n\n");
     }
 
-  set_lattice_value (phi_node, phi_val);
+  set_lattice_value (PHI_RESULT (phi), phi_val);
 }
 
 
@@ -421,21 +421,21 @@ cp_lattice_meet (val1, val2)
   if (val1.lattice_val == VARYING || val2.lattice_val == VARYING)
     {
       result.lattice_val = VARYING;
-      result.const_value = NULL_TREE;
+      result.const_val = NULL_TREE;
       return result;
     }
 
   /* Ci M Cj = Ci	if (i == j)
      Ci M Cj = VARYING	if (i != j)  */
-  if (simple_cst_equal (val1.const_value, val2.const_value) == 1)
+  if (simple_cst_equal (val1.const_val, val2.const_val) == 1)
     {
       result.lattice_val = CONSTANT;
-      result.const_value = val1.const_value;
+      result.const_val = val1.const_val;
     }
   else
     {
       result.lattice_val = VARYING;
-      result.const_value = NULL_TREE;
+      result.const_val = NULL_TREE;
     }
 
   return result;
@@ -458,9 +458,14 @@ static void
 visit_stmt (stmt)
      tree stmt;
 {
+  varray_type ops;
+  size_t i;
+
+#if defined ENABLE_CHECKING
   /* FIXME: This is lame.  All statements should be in GIMPLE form.  */
   if (TREE_NOT_GIMPLE (stmt))
     return;
+#endif
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -472,7 +477,7 @@ visit_stmt (stmt)
   /* Now examine the statement.  If the statement produces an output
      value, evaluate it to see if the lattice value of its output has
      changed.  */
-  if (is_assignment_stmt (stmt))
+  if (def_op (stmt))
     visit_assignment (stmt);
 
   /* If STMT is a control statement, see if we can determine which branch
@@ -484,6 +489,11 @@ visit_stmt (stmt)
      executable.  */
   else if (is_computed_goto (stmt))
     add_outgoing_control_edges (bb_for_stmt (stmt));
+
+  /* Mark all VDEF operands VARYING.  */
+  ops = vdef_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    set_value (VDEF_RESULT (VARRAY_TREE (ops, i)), VARYING, NULL_TREE);
 }
 
 
@@ -497,7 +507,7 @@ visit_assignment (stmt)
   value val;
 
 #if defined ENABLE_CHECKING
-  if (!is_assignment_stmt (stmt))
+  if (!def_op (stmt))
     abort ();
 #endif
 
@@ -513,20 +523,20 @@ visit_assignment (stmt)
 	&& TREE_CODE (lhs) == COMPONENT_REF
 	&& DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
       {
-	tree w = widen_bitfield (val.const_value, TREE_OPERAND (lhs, 1), lhs);
+	tree w = widen_bitfield (val.const_val, TREE_OPERAND (lhs, 1), lhs);
 
 	if (w)
-	  val.const_value = w;
+	  val.const_val = w;
 	else
 	  {
 	    val.lattice_val = VARYING;
-	    val.const_value = NULL;
+	    val.const_val = NULL;
 	  }
       }
   }
 
   /* Set the lattice value of the statement's output.  */
-  set_lattice_value (output_ref (stmt), val);
+  set_lattice_value (*(def_op (stmt)), val);
 }
 
 
@@ -556,7 +566,7 @@ visit_cond_stmt (stmt)
   /* Find which edge out of the conditional block will be taken and add it
      to the worklist.  If no single edge can be determined statically, add
      all outgoing edges from BLOCK.  */
-  e = find_taken_edge (block, val.const_value);
+  e = find_taken_edge (block, val.const_val);
   if (e)
     add_control_edge (e);
   else
@@ -588,7 +598,7 @@ add_control_edge (e)
     return;
 
   e->flags |= EDGE_EXECUTABLE;
-  VARRAY_PUSH_GENERIC_PTR (edge_info, e);
+  VARRAY_PUSH_GENERIC_PTR (cfg_edges, e);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Adding edge (%d -> %d) to worklist\n\n", e->src->index,
@@ -606,13 +616,11 @@ evaluate_stmt (stmt)
   tree simplified, copy;
 
   val.lattice_val = VARYING;
-  val.const_value = NULL_TREE;
+  val.const_val = NULL_TREE;
 
   /* Evaluate a copy of the original statement.  */
-  STRIP_NOPS (stmt);
-  copy = stmt;
-  walk_tree (&copy, copy_tree_r, NULL, NULL);
-  if (replace_uses_in (copy, false))
+  copy = copy_stmt (stmt);
+  if (replace_uses_in (copy))
     fold_stmt (copy);
 
   /* Extract the folded value from the statement.  */
@@ -620,7 +628,7 @@ evaluate_stmt (stmt)
   if (simplified && really_constant_p (simplified))
     {
       val.lattice_val = CONSTANT;
-      val.const_value = simplified;
+      val.const_val = simplified;
     }
 
   /* Debugging dumps.  */
@@ -662,7 +670,7 @@ dump_lattice_value (outf, prefix, val)
   else
     {
       fprintf (outf, "%sCONSTANT ", prefix);
-      print_generic_expr (outf, val.const_value, 0);
+      print_generic_expr (outf, val.const_val, 0);
     }
 }
 
@@ -688,7 +696,7 @@ widen_bitfield (val, field, var)
   if (field_size > HOST_BITS_PER_WIDE_INT || var_size > HOST_BITS_PER_WIDE_INT)
     return NULL;
 
-#ifdef ENABLE_CHECKING
+#if defined ENABLE_CHECKING
   if (var_size < field_size)
     abort ();
 #endif
@@ -733,76 +741,40 @@ widen_bitfield (val, field, var)
 static void
 initialize ()
 {
-  size_t i;
-  edge curredge;
+  edge e;
+  basic_block bb;
 
   /* Initialize debugging dumps.  */
   dump_file = dump_begin (TDI_ccp, &dump_flags);
 
-  /* Build an edge list from the CFG.  */
-  edges = create_edge_list ();
-
   /* Initialize the values array with everything as undefined.  */
-  values = (value *) xmalloc (next_tree_ref_id * sizeof (value));
-  for (i = 0; i < num_referenced_vars; i++)
-    {
-      tree var = referenced_var (i);
-      ref_list_iterator j;
+  const_values = htab_create (50, value_map_hash, value_map_eq, NULL);
 
-      for (j = rli_start (tree_refs (var)); !rli_after_end (j); rli_step (&j))
-	{
-	  tree_ref r = rli_ref (j);
-	  unsigned long id = ref_id (r);
+  /* Compute immediate uses.  */
+  compute_immediate_uses (TDFA_USE_OPS);
 
-	  values[id].lattice_val = UNDEFINED;
-	  values[id].const_value = NULL_TREE;
-
-	  /* If this reference is the declaration of a static variable, set
-	     its lattice value to VARYING.  Static initializers are only
-	     executed the first time the function is called.  We could
-	     assume them constant if there are no other definitions to the
-	     variable in the function, but that hardly seems worth it.  */
-	  if (is_initializing_def (r))
-	    {
-	      values[id].lattice_val = VARYING;
-
-	      /* Exception.  If this is a 'const' declaration, consider the
-		 reference constant.  */
-	      if (TREE_READONLY (var) && really_constant_p (DECL_INITIAL (var)))
-		{
-		  values[id].lattice_val = CONSTANT;
-		  values[id].const_value = DECL_INITIAL (var);
-		}
-	    }
-
-	  /* Special definitions (clobbering, partial or may-def) are all
-	     considered VARYING.  */
-	  else if (!is_pure_def (r))
-	    {
-	      values[id].lattice_val = VARYING;
-	      values[id].const_value = NULL_TREE;
-	    }
-	}
-    }
+  if (dump_file && dump_flags & TDF_DETAILS)
+    dump_immediate_uses (dump_file);
 
   /* Worklist of SSA edges.  */
-  ssa_edges = create_ref_list ();
+  VARRAY_TREE_INIT (ssa_edges, 20, "ssa_edges");
 
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
 
-  for (i = 0; i < (unsigned)(NUM_EDGES (edges)); i++)
-    edges->index_to_edge[i]->flags &= ~EDGE_EXECUTABLE;
+  /* Mark all edges not executable.  */
+  FOR_EACH_BB (bb)
+    for (e = bb->succ; e; e = e->succ_next)
+      e->flags &= ~EDGE_EXECUTABLE;
 
-  VARRAY_GENERIC_PTR_INIT (edge_info, NUM_EDGES (edges) / 2, "edge_info");
+  VARRAY_GENERIC_PTR_INIT (cfg_edges, 20, "cfg_edges");
 
-  /* Add the successors of the entry block to the edge worklist.  That
-     is enough of a seed to get SSA-CCP started.  */
-  for (curredge = ENTRY_BLOCK_PTR->succ; curredge;
-       curredge = curredge->succ_next)
+  /* Seed the algorithm by adding the successors of the entry block to the
+     edge worklist.  */
+  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
-      curredge->flags |= EDGE_EXECUTABLE;
-      VARRAY_PUSH_GENERIC_PTR (edge_info, curredge);
+      e->flags |= EDGE_EXECUTABLE;
+      VARRAY_PUSH_GENERIC_PTR (cfg_edges, e);
     }
 }
 
@@ -812,127 +784,102 @@ initialize ()
 static void
 finalize ()
 {
-  free (values);
-  values = NULL;
-
-  free_edge_list (edges);
-  edges = NULL;
+  htab_delete (const_values);
 }
 
-/* Set the lattice value for the variable defined by REF to UNDEFINED.  */
+
+/* Set the lattice value for the variable VAR to UNDEFINED.  */
 
 static void
-def_to_undefined (ref)
-     tree_ref ref;
+def_to_undefined (var)
+     tree var;
 {
-  if (values[ref_id (ref)].lattice_val != UNDEFINED)
+  if (get_value (var)->lattice_val != UNDEFINED)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
-      add_ref_to_list_end (ssa_edges, ref);
+      VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
     }
 
-  values[ref_id (ref)].lattice_val = UNDEFINED;
+  set_value (var, UNDEFINED, NULL_TREE);
 }
 
 
-/* Set the lattice value for the variable defined by REF to VARYING.  */
+/* Set the lattice value for the variable VAR to VARYING.  */
 
 static void
-def_to_varying (ref)
-     tree_ref ref;
+def_to_varying (var)
+     tree var;
 {
-  if (values[ref_id (ref)].lattice_val != VARYING)
+  if (get_value (var)->lattice_val != VARYING)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Lattice value changed.  Adding definition to SSA edges.\n");
 
-      add_ref_to_list_end (ssa_edges, ref);
+      VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
     }
 
-  values[ref_id (ref)].lattice_val = VARYING;
+  set_value (var, VARYING, NULL_TREE);
 }
 
 
-/* Set the lattice value for reference DEF to VAL.  */
+/* Set the lattice value for variable VAR to VAL.  */
 
 static void
-set_lattice_value (def, val)
-     tree_ref def;
+set_lattice_value (var, val)
+     tree var;
      value val;
 {
   if (val.lattice_val == UNDEFINED)
-    def_to_undefined (def);
+    def_to_undefined (var);
   else if (val.lattice_val == VARYING)
-    def_to_varying (def);
+    def_to_varying (var);
   else
     {
+      value *old_val = get_value (var);
+
       /* If the RHS is a constant value that is different from a previous
 	 value for this reference, add its SSA edge to the worklist.  */
-      if (values[ref_id (def)].lattice_val != CONSTANT
-	  || !(simple_cst_equal (values[ref_id (def)].const_value,
-	                         val.const_value)) == 1)
+      if (old_val->lattice_val != CONSTANT
+	  || !(simple_cst_equal (old_val->const_val, val.const_val)) == 1)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Lattice value changed to ");
-	      print_generic_expr (dump_file, val.const_value, 0);
+	      print_generic_expr (dump_file, val.const_val, 0);
 	      fprintf (dump_file, ".  Adding definition to SSA edges.\n");
 	    }
 
-	  add_ref_to_list_end (ssa_edges, def);
-	  values[ref_id (def)].lattice_val = CONSTANT;
-	  values[ref_id (def)].const_value = val.const_value;
+	  VARRAY_PUSH_TREE (ssa_edges, SSA_NAME_DEF_STMT (var));
+	  set_value (var, CONSTANT, val.const_val);
 	}
     }
 }
 
 
 /* Replace USE references in statement STMT with their immediate reaching
-   definition.  Return true if at least one reference was replaced.  If
-   COMMIT is nonzero, the SSA web is also updated to remove all the
-   replaced references (used only in the final phase of the algorithm)  */
+   definition.  Return true if at least one reference was replaced.  */
 
 static bool
-replace_uses_in (stmt, commit)
+replace_uses_in (stmt)
      tree stmt;
-     int commit;
 {
   bool replaced = false;
-  ref_list refs = tree_refs (stmt);
-  ref_list_iterator i;
+  varray_type uses;
+  size_t i;
 
-  for (i = rli_start (refs); !rli_after_end (i); rli_step (&i))
+  get_stmt_operands (stmt);
+
+  uses = use_ops (stmt);
+  for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree_ref use = rli_ref (i);
-      HOST_WIDE_INT rdef_id;
-      tree_ref rdef;
+      tree *use = VARRAY_GENERIC_PTR (uses, i);
+      value *val = get_value (*use);
 
-      /* Only replace unmodified V_USE references.  */
-      if (!is_pure_use (use))
-	continue;
-
-      /* The lattice value of a USE reference is the value of its immediately
-	 reaching definition.  */
-      rdef = imm_reaching_def (use);
-
-      /* We are only interested in killing definitions.  If we are reached
-	 by a definition of a may-alias of USE's var, we can't assume
-	 anything about it.  */
-      if (rdef == NULL
-	  || !is_killing_def (rdef, ref_var (use))
-	  || is_volatile_def (rdef))
-	continue;
-
-      rdef_id = ref_id (rdef);
-      if (values[rdef_id].lattice_val == CONSTANT)
+      if (val->lattice_val == CONSTANT)
 	{
-	  if (commit)
-	    replace_ref_with (use, values[rdef_id].const_value);
-	  else
-	    try_replace_ref_with (stmt, use, values[rdef_id].const_value);
-
+	  *use = val->const_val;
 	  replaced = true;
 	}
     }
@@ -1005,4 +952,136 @@ set_rhs (stmt, expr)
     GOTO_DESTINATION (stmt) = expr;
   else if (code == LABEL_EXPR)
     LABEL_EXPR_LABEL (stmt) = expr;
+}
+
+
+/* Get the constant value associated with variable VAR.  */
+
+static value *
+get_value (var)
+     tree var;
+{
+  void **slot;
+  struct value_map_d *vm_p, vm;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (var) != SSA_NAME)
+    abort ();
+#endif
+
+  vm.var = var;
+  slot = htab_find_slot (const_values, (void *) &vm, INSERT);
+  if (*slot == NULL)
+    {
+      /* If this is the first time that we need the value for VAR and we
+	 still have not seen a definition for it, assume a default value
+	 accordingly (see get_default_value).  */
+      vm_p = xmalloc (sizeof (*vm_p));
+      vm_p->var = var;
+      vm_p->val = get_default_value (var);
+      *slot = (void *) vm_p;
+    }
+  else
+    vm_p = (struct value_map_d *) *slot;
+
+  return &(vm_p->val);
+}
+
+
+/* Return a default value for variable VAR using the following rules:
+
+   1- Global and static variables are considered VARYING, unless they are
+      declared const.
+
+   2- Function arguments are considered VARYING.
+
+   3- Any other value is considered UNDEFINED.  This is useful when
+      considering PHI nodes.  PHI arguments that are undefined do not
+      change the constant value of the PHI node, which allows for more
+      constants to be propagated.  */
+
+static value
+get_default_value (var)
+     tree var;
+{
+  value val;
+
+  if (!DECL_P (var))
+    var = get_base_symbol (var);
+
+  val.lattice_val = UNDEFINED;
+  val.const_val = NULL_TREE;
+
+  if (TREE_CODE (var) == PARM_DECL)
+    {
+      /* Function arguments are considered VARYING.  */
+      val.lattice_val = VARYING;
+    }
+  else if (decl_function_context (var) == NULL_TREE || TREE_STATIC (var))
+    {
+      /* Globals and static variables are considered VARYING.  */
+      val.lattice_val = VARYING;
+
+      /* Except if they are declared 'const'.  */
+      if (TREE_READONLY (var)
+	  && DECL_INITIAL (var)
+	  && really_constant_p (DECL_INITIAL (var)))
+	{
+	  val.lattice_val = CONSTANT;
+	  val.const_val = DECL_INITIAL (var);
+	}
+    }
+
+  return val;
+}
+
+
+/* Set the value for variable VAR to <LATTICE_VAL, CONST_VAL>.  */
+
+static void
+set_value (var, lattice_val, const_val)
+     tree var;
+     latticevalue lattice_val;
+     tree const_val;
+{
+  void **slot;
+  struct value_map_d *vm_p, vm;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (var) != SSA_NAME)
+    abort ();
+#endif
+
+  vm.var = var;
+  slot = htab_find_slot (const_values, (void *) &vm, INSERT);
+  if (*slot == NULL)
+    {
+      vm_p = xmalloc (sizeof (*vm_p));
+      vm_p->var = var;
+      *slot = (void *) vm_p;
+    }
+  else
+    vm_p = (struct value_map_d *) *slot;
+
+  vm_p->val.lattice_val = lattice_val;
+  vm_p->val.const_val = const_val;
+}
+
+
+/* Hash and compare functions for CONST_VALUES.  */
+
+static hashval_t
+value_map_hash (p)
+     const void *p;
+{
+  return htab_hash_var ((const void *)((const struct value_map_d *)p)->var);
+}
+
+static int
+value_map_eq (p1, p2)
+     const void *p1;
+     const void *p2;
+{
+  return same_var_p (((const struct value_map_d *)p1)->var,
+		     ((const struct value_map_d *)p2)->var);
 }

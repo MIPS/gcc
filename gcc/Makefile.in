@@ -598,7 +598,7 @@ PREDICT_H = predict.h predict.def
 CPPLIB_H = cpplib.h line-map.h
 TREE_DUMP_H = tree-dump.h $(SPLAY_TREE_H)
 TREE_FLOW_H = tree-flow.h tree-flow-inline.h bitmap.h $(BASIC_BLOCK_H) \
-              hard-reg-set.h tree-simple.h
+              hard-reg-set.h tree-simple.h $(HASHTAB_H)
 
 # sed inserts variable overrides after the following line.
 ####target overrides
@@ -770,7 +770,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
  tree-nomudflap.o tree-pretty-print.o tree-cfg.o tree-dfa.o tree-ssa.o     \
  tree-optimize.o tree-simple.o simple-break-elim.o simple-goto-elim.o      \
- tree-ssa-pre.o tree-alias-type.o gimplify.o  				   \
+ tree-alias-type.o gimplify.o  				   \
  tree-alias-ecr.o tree-alias-common.o tree-alias-steen.o disjoint-set.o    \
  tree-ssa-ccp.o tree-ssa-dce.o tree-browser.o @ANDER@ 			   \
  alloc-pool.o et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
@@ -1206,7 +1206,7 @@ $(parsedir)/c-parse.y: c-parse.in
 c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
     $(C_TREE_H) $(GGC_H) $(TARGET_H) flags.h function.h output.h $(EXPR_H) \
     debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) c-pragma.h \
-    gt-c-decl.h
+    gt-c-decl.h $(TREE_DUMP_H)
 c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
@@ -1428,7 +1428,7 @@ tree-alias-common.o: tree-alias-common.c tree-alias-common.h $(SYSTEM_H) \
 tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    ssa.h errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h \
-   $(TM_H) coretypes.h
+   $(TM_H) coretypes.h $(TREE_DUMP_H)
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h $(TIMEVAR_H) \

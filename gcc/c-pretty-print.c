@@ -1373,7 +1373,7 @@ dump_c_node (buffer, node, spc, brief_dump)
     case GOTO_EXPR:
     case GOTO_STMT:
       op0 = GOTO_DESTINATION (node);
-      if (DECL_NAME (op0))
+      if (DECL_P (op0) && DECL_NAME (op0))
 	{
 	  const char *name = IDENTIFIER_POINTER (DECL_NAME (op0));
 	  if (strcmp (name, "break") == 0
@@ -1812,23 +1812,9 @@ op_prio (op)
       return op_prio (TREE_OPERAND (op, 0));
 
     default:
-      /* If OP is any type of expression operator, abort because we
-	 should know what its relative precedence is.  Otherwise, return
-	 an arbitrarily high precedence to avoid surrounding single
+      /* Return an arbitrarily high precedence to avoid surrounding single
 	 VAR_DECLs in ()s.  */
-      if (TREE_CODE_CLASS (TREE_CODE (op)) == '<'
-	  || TREE_CODE_CLASS (TREE_CODE (op)) == '1'
-	  || TREE_CODE_CLASS (TREE_CODE (op)) == '2'
-	  || TREE_CODE_CLASS (TREE_CODE (op)) == 'e')
-	{
-	  fputs ("\n", stderr);
-	  fprintf (stderr, "unhandled expression in op_prio(): ");
-	  print_node_brief (stderr, "", op, 0);
-	  fputs ("\n", stderr);
-	  return -1;
-	}
-      else
-	return 9999;
+      return 9999;
     }
 }
 

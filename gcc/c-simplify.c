@@ -1116,9 +1116,7 @@ deep_copy_node (node)
 /* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
    model computations that should only be done once.  If we were to unshare
    something like SAVE_EXPR(i++), the simplification process would create
-   wrong code.
-
-   Additionally, copy any flags that were set in the original tree.  */
+   wrong code.  */
 
 static tree
 mostly_copy_tree_r (tp, walk_subtrees, data)
@@ -1141,12 +1139,7 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
        SCOPE_STMTs breaks because copy_tree_r zeroes out the block.  */
     abort ();
   else
-    {
-      enum tree_flags flags = tree_flags (*tp);
-      copy_tree_r (tp, walk_subtrees, data);
-      if (flags)
-	set_tree_flag (*tp, flags);
-    }
+    copy_tree_r (tp, walk_subtrees, data);
 
   return NULL_TREE;
 }

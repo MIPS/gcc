@@ -121,13 +121,13 @@ extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 
    See the accessor macros, defined below, for documentation of the
    fields.  */
-struct tree_ann_d;
+union tree_ann_d;
 
 struct tree_common GTY(())
 {
   tree chain;
   tree type;
-  struct tree_ann_d *ann;
+  union tree_ann_d *ann;
   location_t *locus;
 
   ENUM_BITFIELD(tree_code) code : 8;
@@ -346,6 +346,17 @@ struct tree_common GTY(())
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->vec.a[__i]; }))
 
+#define PHI_NODE_ELT_CHECK(t, i) __extension__				\
+(*({const tree __t = t;							\
+    const int __i = (i);						\
+    if (TREE_CODE (__t) != PHI_NODE)					\
+      tree_check_failed (__t, PHI_NODE,					\
+			 __FILE__, __LINE__, __FUNCTION__);		\
+    if (__i < 0 || __i >= __t->phi.capacity)				\
+      phi_node_elt_check_failed (__i, __t->phi.num_args,		\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    &__t->phi.a[__i]; }))
+
 extern void tree_check_failed PARAMS ((const tree, enum tree_code,
 				       const char *, int, const char *))
     ATTRIBUTE_NORETURN;
@@ -353,6 +364,9 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 					     const char *, int, const char *))
     ATTRIBUTE_NORETURN;
 extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
+					       int, const char *))
+    ATTRIBUTE_NORETURN;
+extern void phi_node_elt_check_failed PARAMS ((int, int, const char *,
 					       int, const char *))
     ATTRIBUTE_NORETURN;
 
@@ -972,6 +986,12 @@ struct tree_vec GTY(())
    the given label expression.  */
 #define LABEL_EXPR_LABEL(NODE)  TREE_OPERAND (LABEL_EXPR_CHECK (NODE), 0)
 
+/* VDEF_EXPR accessors.  VDEF_RESULT is the the new SSA_NAME created by the
+   VDEF operator.  VDEF_OP is its operand (the variable's previous SSA
+   name).  */
+#define VDEF_RESULT(NODE)	TREE_OPERAND (VDEF_EXPR_CHECK (NODE), 0)
+#define VDEF_OP(NODE)		TREE_OPERAND (VDEF_EXPR_CHECK (NODE), 1)
+
 /* CATCH_EXPR accessors.  */
 #define CATCH_TYPES(NODE)	TREE_OPERAND (CATCH_EXPR_CHECK (NODE), 0)
 #define CATCH_BODY(NODE)	TREE_OPERAND (CATCH_EXPR_CHECK (NODE), 1)
@@ -988,6 +1008,46 @@ struct tree_exp GTY(())
   tree GTY ((special ("tree_exp"), 
 	     desc ("TREE_CODE ((tree) &%0)"))) 
     operands[1];
+};
+
+/* SSA_NAME accessors.  SSA_NAME_DECL returns the _DECL node being
+   referenced.  SSA_NAME_DEF_STMT returns the statement that defines
+   this reference.  */
+#define SSA_NAME_DECL(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.decl
+#define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.def_stmt
+#define SSA_NAME_VERSION(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.version
+
+struct tree_ssa_name GTY(())
+{
+  struct tree_common common;
+  tree decl;
+  tree def_stmt;
+  unsigned int version;
+};
+
+/* In a PHI_NODE node.  */
+#define PHI_RESULT(NODE)	PHI_NODE_CHECK (NODE)->phi.result
+#define PHI_NUM_ARGS(NODE)	PHI_NODE_CHECK (NODE)->phi.num_args
+#define PHI_ARG_CAPACITY(NODE)	PHI_NODE_CHECK (NODE)->phi.capacity
+#define PHI_ARG_ELT(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I)
+#define PHI_ARG_EDGE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).e
+#define PHI_ARG_DEF(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).def
+
+struct edge_def;
+
+struct phi_arg_d GTY(())
+{
+  tree def;
+  struct edge_def * GTY((skip (""))) e;
+};
+
+struct tree_phi_node GTY(())
+{
+  struct tree_common common;
+  tree result;
+  int num_args;
+  int capacity;
+  struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
 
 /* In a BLOCK node.  */
@@ -1466,6 +1526,15 @@ struct tree_type GTY(())
 
 /* Nonzero if DECL represents a decl.  */
 #define DECL_P(DECL)	(TREE_CODE_CLASS (TREE_CODE (DECL)) == 'd')
+
+/* Nonzero if DECL represents a decl or an SSA name.  */
+#define SSA_DECL_P(DECL) (TREE_CODE (DECL) == VAR_DECL	\
+    			  || TREE_CODE (DECL) == PARM_DECL \
+			  || TREE_CODE (DECL) == SSA_NAME)
+
+/* Nonzero if NODE is a variable for the SSA analyzer.  Variables are SSA
+   decls and INDIRECT_REF nodes.  */
+#define SSA_VAR_P(NODE) (SSA_DECL_P (NODE) || TREE_CODE (NODE) == INDIRECT_REF)
 
 /* This is the name of the object as written by the user.
    It is an IDENTIFIER_NODE.  */
@@ -1987,6 +2056,8 @@ enum tree_node_structure_enum {
   TS_LIST,
   TS_VEC,
   TS_EXP,
+  TS_SSA_NAME,
+  TS_PHI_NODE,
   TS_BLOCK,
   LAST_TS_ENUM
 };
@@ -2010,6 +2081,8 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_list GTY ((tag ("TS_LIST"))) list;
   struct tree_vec GTY ((tag ("TS_VEC"))) vec;
   struct tree_exp GTY ((tag ("TS_EXP"))) exp;
+  struct tree_ssa_name GTY ((tag ("TS_SSA_NAME"))) ssa_name;
+  struct tree_phi_node GTY ((tag ("TS_PHI_NODE"))) phi;
   struct tree_block GTY ((tag ("TS_BLOCK"))) block;
  };
 
@@ -2291,6 +2364,12 @@ extern tree copy_list			PARAMS ((tree));
 /* Make a TREE_VEC.  */
 
 extern tree make_tree_vec		PARAMS ((int));
+
+/* Tree nodes for SSA analysis.  */
+
+extern tree make_phi_node		PARAMS ((tree, int));
+extern tree make_ssa_name		PARAMS ((tree, tree));
+extern tree build_vdef_expr		PARAMS ((tree));
 
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
@@ -3273,8 +3352,9 @@ enum tree_dump_index
 					   each pass */
 #define TDF_STATS	(1 << 4)	/* dump various statistics about
 					   each pass */
-#define TDF_BLOCK	(1 << 5)	/* display basic block boundaries */
+#define TDF_BLOCKS	(1 << 5)	/* display basic block boundaries */
 #define TDF_ALIAS	(1 << 6)	/* display aliasing information */
+#define TDF_VOPS	(1 << 7)	/* display virtual operands */
 
 
 typedef struct dump_info *dump_info_p;

@@ -850,6 +850,26 @@ DEFTREECODE (CASE_LABEL_EXPR, "case_label_expr", 's', 2)
    for the statement.  */
 DEFTREECODE (ASM_EXPR, "asm_expr", 's', 4)
 
+/* Variable references for SSA analysis.  New SSA names are created every
+   time a variable is assigned a new value.  The SSA builder uses SSA_NAME
+   nodes to implement SSA versioning.  */
+DEFTREECODE (SSA_NAME, "ssa_name", 'x', 0)
+
+/* Artificial definitions used in SSA analysis.  A VDEF_EXPR is akin to a
+   MODIFY_EXPR, it assigns a new (unknown) value to a variable: NEW =
+   VDEF_EXPR <OLD>.  It is used to model aliased stores and other
+   side-effects that may modify the contents of a variable.  Operand 0 is
+   the new SSA_NAME created by the definition. Operand 1 is the previous
+   SSA_NAME for the variable.  */
+DEFTREECODE (VDEF_EXPR, "vdef_expr", 'e', 2)
+
+/* SSA PHI operator.  PHI_RESULT is the new SSA_NAME node created by the PHI
+   node.  PHI_ARG_LENGTH is the number of arguments.  PHI_ARG_ELT returns
+   the Ith tuple <ssa_name, edge> from the argument list.  Each tuple
+   contains the incoming reaching definition (SSA_NAME node) and the edge
+   via which that definition is coming through.  */
+DEFTREECODE (PHI_NODE, "phi_node", 'x', 0)
+
 /* Used to represent a typed exception handler.  CATCH_TYPES is the type (or
    list of types) handled, and CATCH_BODY is the code for the handler.  */
 DEFTREECODE (CATCH_EXPR, "catch_expr", 's', 2)

@@ -3273,11 +3273,13 @@ Enable more detailed dumps (not honored by every dump option).
 @item stats
 Enable dumping various statistics about the pass (not honored by every dump
 option).
-@item block
+@item blocks
 Enable showing basic block boundaries (disabled in raw dumps).
 @item alias
 Enable showing aliasing information for all the variables referenced in
 the program.
+@item vops
+Enable showing virtual operands for every statement.
 @item all
 Turn on all options.
 @end table

@@ -1,3 +1,322 @@
+2003-01-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (TREE_FLOW_H): Add dependency on $(HASHTAB_H)
+	(OBJS): Temporarily remove tree-ssa-pre.o.
+	(tree-ssa.o, c-decl.o): Add dependency on $(TREE_DUMP_H).
+
+	* c-decl.c: Include tree-dump.h
+
+	* c-pretty-print.c (dump_c_node): Fix rendering of GOTO_STMTs to
+	computed locations.
+	(op_prio): Don't abort on unknown operators.
+
+	* c-simplify.c (mostly_copy_tree_r): Don't copy statement
+	annotations.
+
+	* gimplify.c (simplify_addr_expr): Mark the RHS of the simplified
+	ADDR_EXPR addressable.
+	(mostly_copy_tree_r): Don't copy statement annotations.
+
+	* old-tree-inline.c (walk_tree): Handle SSA_NAME nodes.
+
+	* timevar.def (TV_TREE_RDEFS): Remove.
+	(TV_TREE_BUILD_SSA): Define.
+	(TV_TREE_DFA): Define.
+
+	* tree-cfg.c: Update copyright notices.
+	Remove doxygen markers everywhere.
+	(remove_unreachable_block): New local function
+	(remove_unreachable_blocks): Call it.
+	(remove_bb): Rename from remove_tree_bb.  Update all callers.
+	(validate_loops): Remove unused function.
+	(block_invalidates_loop): Remove unused function.
+	(remove_stmt): Invalidate the defining statement of all the
+	definitions made by the statement.
+	Remove the annotation before replacing the statement with
+	empty_stmt_node.
+
+	* tree-dfa.c: Update copyright notices.
+	Remove doxygen markers everywhere.
+	(struct clobber_data_d): Remove existing fields.  Add fields 'stmt'
+	and 'prev_vops'.  Update all users.
+	(alias_tags): Rename from alias_leaders.
+	(num_alias_tags): Rename from num_alias_leaders.
+	(struct dfa_stats_d): Declare.
+	(struct dfa_counts_d): Remove.  Update all users.
+	(TRM_*): Remove.  Update all users.
+	(find_tree_refs): Remove.  Update all users.
+	(get_stmt_operands): Rename from find_refs_in_stmt.  Update all users.
+	(get_expr_operands): Rename from find_refs_in_expr.  Update all users.
+	(add_stmt_operand): New function.
+	(set_def): New function.
+	(add_use): New function.
+	(add_vdef): New function.
+	(add_vuse): New function.
+	(create_phi_node): New function.
+	(copy_stmt): New function.
+	(compute_immediate_uses): New function.
+	(compute_immediate_uses_for): New function.
+	(compute_reached_uses): New function.
+	(compute_reaching_defs): New function.
+	(add_immediate_use): New function.
+	(create_var_ann): New function.
+	(create_stmt_ann): New function.
+	(dump_immediate_uses): New function.
+	(debug_immediate_uses): New function.
+	(dump_immediate_uses_for): New function.
+	(debug_immediate_uses_for): New function.
+	(create_ref_list, empty_ref_list, add_ref_to_list_begin,
+	add_ref_to_list_end, add_list_to_list_begin, add_list_to_list_end,
+	find_list_node, rli_start, rli_start_last, rli_start_at,
+	rli_delete, add_ref_to_list_after, tree_ref_size, create_ref,
+	add_ephi_arg, add_referenced_var, replace_ref_with,
+	try_replace_ref_with, replace_ref_r, replace_ref_stmt_with,
+	remove_ref, remove_def, reset_def_def_links, replace_phi_arg_with,
+	create_tree_ann, function_may_recurse_p, dump_ref, debug_ref,
+	dump_ref_list, dump_ref_array, debug_ref_list, debug_ref_array,
+	dump_phi_args, dump_if_different, count_tree_refs, ref_type_name,
+	ref_defines, is_killing_def, tree_ref_structure, output_ref):
+	Remove.  Update all users.
+	(dump_referenced_vars): Remove parameter 'details'.  Update all
+	users.
+	(dump_variable): Don't abort if the variable is nil.  Display all
+	the aliases for the variable.
+	(dump_dfa_stats): Handle new counters.
+	(collect_dfa_stats): Likewise.
+	(collect_dfa_stats_r): Likewise.
+	(find_vars_r): New function.
+	(compute_may_aliases): Call it via walk_tree before computing aliases.
+	Only use alias tags if -ftree-points-to is not given.
+	Call add_may_alias.
+	(find_may_aliases_for): Only use alias tags if -ftree-points-to is
+	not given.
+	(add_may_alias): New function.
+	(find_alias_tag): Rename from find_alias_leader.
+	(dump_alias_info): New function.
+	(debug_alias_info): New function.
+	(htab_hash_var): New function.
+	(htab_var_eq): New function.
+	(get_virtual_var): New function.
+
+	* tree-dump.c (struct dump_option_value_info): Rename -block to
+	-blocks.  Add new option -vops.
+	(dump_function): Don't display which pass enabled the dump.
+
+	* tree-flow-inline.h: Update copyright notices.
+	(var_ann): New function.
+	(stmt_ann): New function.
+	(ann_type): New function.
+	(bb_ann): Rename from bb_annotation.
+	(may_aliases): New function.
+	(set_may_alias_global_mem): New function.
+	(may_alias_global_mem_p): New function.
+	(set_indirect_ref): New function.
+	(indirect_ref): New function.
+	(is_dereferenced): New function.
+	(modify_stmt): New function.
+	(unmodify_stmt): New function.
+	(stmt_modified_p): New function.
+	(def_op): New function.
+	(use_ops): New function.
+	(vdef_ops): New function.
+	(vuse_ops): New function.
+	(immediate_uses): New function.
+	(reaching_defs): New function.
+	(phi_nodes): New function.
+	(same_var_p): New function.
+	(gsi_step_in_bb): Re-implement.  Check if the iterator stepped out
+	of the block by calling bb_for_stmt.
+	(gsi_end_bb_p): Rename from gsi_end_bb.  Update all users.
+	Call gsi_stmt to determine if the iterator has reached the end of
+	the block.
+	(ref_id, ref_type, ref_bb, ref_stmt, ref_var, imm_uses,
+	reached_uses, imm_reaching_def, set_imm_reaching_def,
+	set_phi_arg_def, phi_arg_def, set_phi_arg_edge, phi_arg_edge,
+	reaching_defs, phi_args, num_phi_args, phi_arg, set_phi_arg,
+	tree_annotation, tree_refs, add_tree_ref, remove_tree_ref,
+	alias_leader, set_alias_leader, set_tree_flag, clear_tree_flag,
+	reset_tree_flags, tree_flags, indirect_var, set_indirect_var,
+	bb_refs, remove_bb_ref, set_exprref_class, exprref_class,
+	set_exprref_inserted, exprref_inserted, set_exprref_save,
+	exprref_save, set_exprref_reload, exprref_reload,
+	set_exprref_processed, set_exprref_processed2, exprref_processed2i,
+	exprref_uses, set_exprref_uses, set_expruse_def, expruse_def,
+	set_expruse_phiop, expruse_phiop, set_expruse_phi, expruse_phi,
+	set_expruse_has_real_use, expruse_has_real_use,
+	set_exprphi_phi_args, exprphi_phi_args, num_ephi_args, ephi_arg,
+	set_ephi_arg, set_exprphi_downsafe, exprphi_downsafe,
+	set_exprphi_canbeavail, exprphi_canbeavail, set_exprphi_later,
+	exprphi_later, set_exprphi_extraneous, exprphi_extraneous,
+	exprphi_willbeavail, is_assignment_stmt, is_may_ref, is_may_def,
+	is_may_use, is_partial_ref, is_partial_use, is_volatile_ref,
+	is_volatile_def, is_volatile_use, is_clobbering_def,
+	is_relocating_def, is_addressof_use, is_pure_use, is_pure_def,
+	rli_after_end, rli_step, rli_step_rev, rli_ref, get_last_ref,
+	get_first_ref, ref_list_is_empty): Remove.  Update all users.
+
+	* tree-flow.h: Update copyright notices.
+	Remove doxygen markers.
+	Include hashtab.h.
+	(enum tree_ann_type): New.
+	(struct tree_ann_common_d): New.
+	(struct var_ann_d): New.
+	(struct operands_d): New.
+	(struct voperands_d): New.
+	(operands_t): New type.
+	(voperands_t): New type.
+	(struct dataflow_d): New.
+	(dataflow_t): New type.
+	(struct stmt_ann_d): New.
+	(tree_ann): New type.
+	(var_ann_t): New type.
+	(stmt_ann_t): New type.
+	(bb_ann_t): Rename from bb_ann.
+	(enum tree_ref_type, TRM_*, struct ref_list_node, struct
+	ref_list_priv, ref_list, struct tree_ref_common, struct var_ref_d,
+	struct var_def_d, struct var_phi_d, struct var_use_d, struct
+	phi_node_arg_d, phi_node_arg, struct expr_ref_common, struct
+	expr_phi_d, struct expr_use_d, enum tree_ref_structure_enum, union
+	tree_ref_d, tree_ref, struct tree_ann_d, tree_ann, enum tree_flags,
+	struct dfa_counts_d, ref_list_iterator): Remove.  Update all users.
+	(TDFA_USE_OPS): Define.
+	(TDFA_USE_VOPS): Define.
+
+	* tree-inline.c (walk_tree): Handle SSA_NAME nodes.
+
+	* tree-optimize.c: Update copyright notices.
+	Remove doxygen markers.
+	(optimize_function_tree): Temporarily disable call to
+	tree_perform_ssapre.
+	Remove #if0 code.
+
+	* tree-pretty-print.c (MASK_POINTER): Define.
+	(dump_vops): New function.
+	(dump_generic_node): Shorten made-up names for unnamed objects.
+	Hanlde PHI_NODE, VDEF_EXPR and SSA_NAME nodes.
+	Keep track of basic block transitions.
+	Call dump_vops if -vops dump option is given.
+	(op_prio): Don't abort if the operand is nil.
+	(dump_block_info): Don't keep track of basic block transitions.
+
+	* tree-simple.c: Update copyright notices.
+	(get_base_symbol): Call STRIP_NOPS.
+	Handle SSA_NAME nodes.
+
+	* tree-simple.h: Update copyright notices.
+	(gsi_end_p): Rename from gsi_end.  Update all callers.
+
+	* tree-ssa-ccp.c: Update copyright notices.
+	Update code to use the new SSA infrastructure.
+	(const_values): New hash table to keep track of constants.
+	(struct value_map_d): New.
+	(cfg_edges): Rename from edges.  Update all users.
+	(set_value): New function.
+	(get_value): New function.
+	(get_default_value): New function.
+	(value_map_hash): New function.
+	(value_map_eq): New function.
+
+	* tree-ssa-dce.c: Update copyright notice.
+	Update code to use new SSA infrastructure.  Factor some code into
+	new functions.
+	(dom_info): Declare with file scope.
+	(struct stmt_stats): Add fields 'total_phis' and 'removed_phis'.
+	(needed_stmts): New hash table to keep track of needed statements.
+	(stmt_useful_p): New function.
+	(find_useful_stmts): Call it.
+	(remove_dead_stmt, remove_dead_phis): New functions.
+	(remove_dead_stmts): Call them.
+	(need_to_preserve_store): Preserve stores to volatile variables.
+	(tree_ssa_dce): Rename from tree_ssa_eliminate_dead_code.  Update
+	all users.
+	
+	* tree-ssa.c: Update copyright notice.
+	Change basic algorithm to rewrite the function into SSA form
+	instead of building factored use-def chains.
+	Include hashtab.h and tree-dump.h
+	(next_ssa_version): New global variable.
+	(def_blocks): New file local variable.
+	(struct def_blocks_d): New.
+	(currdefs): New file local variable.
+	(struct currdef_d): New.
+	(rewrite_into_ssa): Rename from build_tree_ssa.  Update all users.
+	Call compute_may_aliases, mark_def_sites and rewrite_block.
+	(rewrite_block): Rename from search_fud_chains.  Call
+	rewrite_stmts.
+	(mark_def_sites): New function.
+	(set_def_block): New function.
+	(rewrite_stmts): New function.
+	(rewrite_stmt): New function.
+	(rewrite_operand): New function.
+	(rewrite_out_of_ssa): New function.
+	(remove_phi_node): New function.
+	(register_new_def): New function.
+	(def_blocks_free): New function.
+	(def_blocks_hash): New function.
+	(def_blocks_eq): New function.
+	(currdef_hash): New function.
+	(currdef_eq): New function.
+	(debug_def_blocks): New function.
+	(debug_def_blocks_r): New function.
+	(build_fud_chains, compute_reaching_defs, follow_chain,
+	dump_reaching_defs, debug_reaching_defs, set_ssa_links): Remove.
+	(remove_phi_arg): Rename from tree_ssa_remove_phi_alternative.
+	Update all users.
+	(init_tree_ssa): Set next_ssa_version to 1.
+	Create hash tables def_blocks and currdefs.
+	(delete_tree_ssa): Accept a FUNCTION_DECL tree as argument.  Update
+	all users.
+	(currdef_for): Add new parameter 'create_default'.  If nonzero,
+	create a new SSA name if none is found for the variable.
+	(set_currdef_for): Search in the currdefs hash table.
+
+	* tree.c (tree_node_kind): Add new values phi_kind and
+	ssa_name_kind.
+	(tree_node_kind_names): Likewise.
+	(tree_size): Handle PHI_NODE and SSA_NAME nodes.
+	(make_node): Likewise.
+	(tree_node_structure): Likewise.
+	(phi_node_elt_check_failed): New function.
+	(make_phi_node): New function.
+	(make_ssa_name): New function.
+	(build_vdef_expr): New function.
+
+	* tree.def (SSA_NAME): New code.
+	(VDEF_EXPR): New code.
+	(PHI_NODE): New code.
+
+	* tree.h (union tree_ann_d): Forward declare.
+	(struct tree_common): Change type of field 'ann'.
+	(PHI_NODE_ELT_CHECK): Define.
+	(phi_node_elt_check_failed): Declare.
+	(VDEF_RESULT): Define.
+	(VDEF_OP): Define.
+	(SSA_NAME_DECL): Define.
+	(SSA_NAME_DEF_STMT): Define.
+	(SSA_NAME_VERSION): Define.
+	(struct tree_ssa_name): New.
+	(PHI_RESULT): Define.
+	(PHI_NUM_ARGS): Define.
+	(PHI_ARG_CAPACITY): Define.
+	(PHI_ARG_ELT): Define.
+	(PHI_ARG_EDGE): Define.
+	(PHI_ARG_DEF): Define.
+	(struct phi_arg_d): New.
+	(struct tree_phi_node): New.
+	(SSA_DECL_P): Define.
+	(SSA_VAR_P): Define.
+	(enum tree_node_structure_enum): Add values TS_SSA_NAME and
+	TS_PHI_NODE.
+	(union tree_node): Add fields 'ssa_name' and 'phi'.
+	(make_phi_node): Declare.
+	(make_ssa_name): Declare.
+	(build_vdef_expr): Declare.
+	(TDF_BLOCKS): Rename from TDF_BLOCK.
+	(TDF_VOPS): Define.
+
+	* doc/invoke.texi: Document new tree dump option -vops.  Update
+	documentation for switch -blocks.
+
 2003-01-27  Jeff Law <law@redhat.com>
 
 	* gimplify.c (simplify_return_expr): Correctly handle return

@@ -2,20 +2,20 @@
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -106,7 +106,7 @@ typedef struct {
 } gimple_stmt_iterator;
 
 static inline gimple_stmt_iterator gsi_start PARAMS ((tree *));
-static inline bool gsi_end		PARAMS ((gimple_stmt_iterator));
+static inline bool gsi_end_p		PARAMS ((gimple_stmt_iterator));
 static inline void gsi_step		PARAMS ((gimple_stmt_iterator *));
 static inline tree gsi_stmt		PARAMS ((gimple_stmt_iterator));
 static inline tree *gsi_stmt_ptr	PARAMS ((gimple_stmt_iterator));
@@ -122,7 +122,7 @@ gsi_start (tp)
 }
 
 static inline bool
-gsi_end (i)
+gsi_end_p (i)
      gimple_stmt_iterator i;
 {
   return (i.tp == NULL || *(i.tp) == error_mark_node);

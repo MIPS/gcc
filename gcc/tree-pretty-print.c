@@ -32,22 +32,19 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 
 /* Local functions, macros and variables.  */
-static int op_prio				PARAMS ((tree));
-static const char *op_symbol			PARAMS ((tree));
-static void pretty_print_string			PARAMS ((output_buffer *,
-							 const char*));
-static void print_call_name			PARAMS ((output_buffer *,
-      							 tree));
-static void newline_and_indent			PARAMS ((output_buffer *, int));
-static inline void maybe_init_pretty_print	PARAMS ((void));
-static void print_declaration			PARAMS ((output_buffer *, tree,
-      							 int, int));
-static void print_struct_decl			PARAMS ((output_buffer *, tree,
-      							 int));
-static void dump_block_info			PARAMS ((output_buffer *,
-						         basic_block, int));
-static void do_niy				PARAMS ((output_buffer *,
-							 tree));
+static int op_prio			PARAMS ((tree));
+static const char *op_symbol		PARAMS ((tree));
+static void pretty_print_string		PARAMS ((output_buffer *, const char*));
+static void print_call_name		PARAMS ((output_buffer *, tree));
+static void newline_and_indent		PARAMS ((output_buffer *, int));
+static inline void maybe_init_pretty_print PARAMS ((void));
+static void print_declaration		PARAMS ((output_buffer *, tree, int,
+      						 int));
+static void print_struct_decl		PARAMS ((output_buffer *, tree, int));
+static void dump_block_info		PARAMS ((output_buffer *, basic_block,
+      						 int));
+static void do_niy			PARAMS ((output_buffer *, tree));
+static void dump_vops			PARAMS ((output_buffer *, tree, int));
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
@@ -58,6 +55,8 @@ static void do_niy				PARAMS ((output_buffer *,
   (buffer, "%s", TREE_CODE (NODE) == NOP_EXPR ?              \
    (*lang_hooks.decl_printable_name) (TREE_OPERAND (NODE, 0), 1) : \
    (*lang_hooks.decl_printable_name) (NODE, 1))
+
+#define MASK_POINTER(P)	((unsigned)((unsigned long)node & 0xffff))
 
 static output_buffer buffer;
 static int initialized = 0;
@@ -137,11 +136,19 @@ dump_generic_node (buffer, node, spc, flags)
   if (node == NULL_TREE)
     return spc;
 
-  if ((flags & TDF_BLOCK)
-      && basic_block_info
-      && node != empty_stmt_node
-      && node != error_mark_node)
-    dump_block_info (buffer, bb_for_stmt (node), spc);
+  if (node != empty_stmt_node && node != error_mark_node)
+    {
+      basic_block curr_bb = bb_for_stmt (node);
+
+      if ((flags & TDF_BLOCKS) && curr_bb && curr_bb->index != last_bb)
+	dump_block_info (buffer, curr_bb, spc);
+
+      if ((flags & TDF_VOPS) && stmt_ann (node))
+	dump_vops (buffer, node, spc);
+
+      if (curr_bb && curr_bb->index != last_bb)
+	last_bb = curr_bb->index;
+    }
 
   switch (TREE_CODE (node))
     {
@@ -243,7 +250,7 @@ dump_generic_node (buffer, node, spc, flags)
 	  if (TYPE_NAME (node) && DECL_NAME (TYPE_NAME (node)))
 	    output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (node))));
 	  else
-	    output_add_string (buffer, "<unnamed pfn>");
+	    output_printf (buffer, "<UPFN%x>", MASK_POINTER (node));
 	  
 	  output_add_character (buffer, ')');
           output_add_space (buffer);
@@ -376,9 +383,7 @@ dump_generic_node (buffer, node, spc, flags)
              used to recover the original literal:
 
              TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (node)))
-	     TYPE_PRECISION (TREE_TYPE (TREE_TYPE (node)))
-	  */
-
+	     TYPE_PRECISION (TREE_TYPE (TREE_TYPE (node)))  */
 	  output_decimal (buffer, TREE_INT_CST_LOW (node));
 	  output_add_string (buffer, "B"); /* pseudo-unit */
 	}
@@ -464,14 +469,14 @@ dump_generic_node (buffer, node, spc, flags)
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        output_printf (buffer, "<unnamed label %p>", (void *) node);
+        output_printf (buffer, "<UL%x>", MASK_POINTER (node));
       break;
 
     case CONST_DECL:
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        output_add_string (buffer, "<unnamed constant>");
+        output_printf (buffer, "<UC%x>", MASK_POINTER (node));
       break;
 
     case TYPE_DECL:
@@ -508,7 +513,7 @@ dump_generic_node (buffer, node, spc, flags)
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        output_printf (buffer, "<unnamed var %p>", (void *) node);
+        output_printf (buffer, "<UV%x>", MASK_POINTER (node));
       break;
 
     case RESULT_DECL:
@@ -519,14 +524,14 @@ dump_generic_node (buffer, node, spc, flags)
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        output_add_string (buffer, "<unnamed field>");
+	output_printf (buffer, "<UF%x>", MASK_POINTER (node));
       break;
 
     case NAMESPACE_DECL:
       if (DECL_NAME (node))
 	output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
       else
-        output_add_string (buffer, "<unnamed namespace>");
+        output_printf (buffer, "<UN%x>", MASK_POINTER (node));
       break;
 
     case COMPONENT_REF:
@@ -604,7 +609,7 @@ dump_generic_node (buffer, node, spc, flags)
 		if (DECL_NAME (val))
 		  output_add_string (buffer, IDENTIFIER_POINTER (DECL_NAME (val)));
 		else
-		  output_add_string (buffer, "<unnamed function>");
+		  output_printf (buffer, "<UF%x>", MASK_POINTER (val));
 	      }
 	    else
 	      {
@@ -1122,7 +1127,7 @@ dump_generic_node (buffer, node, spc, flags)
 	     flowgraph information, we should show them to avoid confusing
 	     the user.  This perhaps should be fixed by actually inserting
 	     an empty statement at the end of LOOP_EXPRs.  */
-	  if ((flags & TDF_BLOCK) && basic_block_info && bb_for_stmt (node))
+	  if ((flags & TDF_BLOCKS) && basic_block_info && bb_for_stmt (node))
 	    {
 	      newline_and_indent (buffer, spc);
 	      dump_block_info (buffer, latch_block (bb_for_stmt (node)), spc);
@@ -1167,7 +1172,9 @@ dump_generic_node (buffer, node, spc, flags)
 
     case GOTO_EXPR:
       op0 = GOTO_DESTINATION (node);
-      if (DECL_NAME (op0))
+      if (TREE_CODE (op0) != SSA_NAME
+	  && DECL_P (op0)
+	  && DECL_NAME (op0))
 	{
 	  const char *name = IDENTIFIER_POINTER (DECL_NAME (op0));
 	  if (strcmp (name, "break") == 0
@@ -1231,9 +1238,44 @@ dump_generic_node (buffer, node, spc, flags)
       output_add_character (buffer, '>');
       break;
 
+    case PHI_NODE:
+      {
+	int i;
+
+	dump_generic_node (buffer, PHI_RESULT (node), spc, flags);
+	output_add_string (buffer, " = PHI <");
+	for (i = 0; i < PHI_NUM_ARGS (node); i++)
+	  {
+	    dump_generic_node (buffer, PHI_ARG_DEF (node, i), spc, flags);
+	    if (i < PHI_NUM_ARGS (node) - 1)
+	      output_add_string (buffer, ", ");
+	  }
+	output_add_string (buffer, ">;");
+      }
+      break;
+
+    case SSA_NAME:
+      if (TREE_CODE (SSA_NAME_DECL (node)) == INDIRECT_REF)
+	output_add_string (buffer, "(");
+      dump_generic_node (buffer, SSA_NAME_DECL (node), spc, flags);
+      if (TREE_CODE (SSA_NAME_DECL (node)) == INDIRECT_REF)
+	output_add_string (buffer, ")");
+      output_add_string (buffer, "_");
+      output_decimal (buffer, SSA_NAME_VERSION (node));
+      break;
+
+    case VDEF_EXPR:
+      dump_generic_node (buffer, VDEF_RESULT (node), spc, flags);
+      output_add_string (buffer, " = VDEF <");
+      dump_generic_node (buffer, VDEF_OP (node), spc, flags);
+      output_add_string (buffer, ">;");
+      output_add_newline (buffer);      
+      break;
+
     default:
       NIY;
     }
+
   return spc;
 }
 
@@ -1407,7 +1449,7 @@ op_prio (op)
      tree op;
 {
   if (op == NULL)
-    abort ();
+    return 9999;
 
   switch (TREE_CODE (op))
     {
@@ -1809,12 +1851,13 @@ dump_block_info (buffer, bb, spc)
      basic_block bb;
      int spc;
 {
-  if (bb && bb->index != last_bb)
+  if (bb)
     {
       edge e;
       tree *stmt_p = bb->head_tree_p;
       int lineno;
 
+      newline_and_indent (buffer, spc);
       output_formatted_scalar (buffer, "# BLOCK %d", bb->index);
 
       if (stmt_p
@@ -1838,7 +1881,55 @@ dump_block_info (buffer, bb, spc)
 	  output_formatted_scalar (buffer, " %d", e->dest->index);
 
       output_add_character (buffer, '.');
+
       newline_and_indent (buffer, spc);
-      last_bb = bb->index;
     }
+}
+
+
+static void
+dump_vops (buffer, stmt, spc)
+     output_buffer *buffer;
+     tree stmt;
+     int spc;
+{
+  size_t i;
+  basic_block bb;
+  varray_type vdefs = vdef_ops (stmt);
+  varray_type vuses = vuse_ops (stmt);
+
+  bb = bb_for_stmt (stmt);
+  if (bb && bb->index != last_bb)
+    {
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  output_add_string (buffer, "#   ");
+	  dump_generic_node (buffer, phi, spc, 0);
+	  newline_and_indent (buffer, spc);
+	}
+    }
+
+  if (vdefs || vuses)
+    newline_and_indent (buffer, spc);
+
+  if (vdefs)
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (vdefs); i++)
+      {
+	tree vdef = VARRAY_TREE (vdefs, i);
+	output_add_string (buffer, "#   ");
+	dump_generic_node (buffer, vdef, spc, 0);
+	INDENT (spc);
+      }
+
+  if (vuses)
+    for (i = 0; i < VARRAY_ACTIVE_SIZE (vuses); i++)
+      {
+	tree vuse = VARRAY_TREE (vuses, i);
+	output_add_string (buffer, "#   VUSE <");
+	dump_generic_node (buffer, vuse, spc, 0);
+	output_add_string (buffer, ">;");
+	newline_and_indent (buffer, spc);
+      }
 }

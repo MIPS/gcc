@@ -689,8 +689,9 @@ static const struct dump_option_value_info dump_options[] =
   {"raw", TDF_RAW},
   {"details", TDF_DETAILS},
   {"stats", TDF_STATS},
-  {"block", TDF_BLOCK},
+  {"blocks", TDF_BLOCKS},
   {"alias", TDF_ALIAS},
+  {"vops", TDF_VOPS},
   {"all", ~0},
   {NULL, 0}
 };
@@ -864,7 +865,6 @@ dump_function (phase, fn)
 	       (*lang_hooks.decl_printable_name) (fn, 2));
       fprintf (stream, " (%s)\n",
 	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
-      fprintf (stream, ";; enabled by -%s\n", dump_flag_name (phase));
       fprintf (stream, "\n");
 
       dump_function_to_file (fn, stream, flags);
