@@ -2550,7 +2550,7 @@ add_sysrooted_prefix (pprefix, prefix, component, priority,
 
 	 If the prefix is relative, only search it for native compilers;
 	 otherwise we will search a directory containing host libraries.  */
-      if (*cross_compile != 0 && *startfile_prefix_spec == 0)
+      if (*cross_compile != '0' && *startfile_prefix_spec == 0)
 	return;
 
       if (gcc_exec_prefix)
