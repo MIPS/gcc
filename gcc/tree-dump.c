@@ -645,6 +645,7 @@ struct dump_file_info
    TREE_DUMP_INDEX enumeration in tree.h */
 static struct dump_file_info dump_files[TDI_end] =
 {
+  {NULL, NULL, 0, 0},
   {".tu", "translation-unit", 0, 0},
   {".class", "class-hierarchy", 0, 0},
   {".original", "tree-original", 0, 0},
@@ -711,7 +712,7 @@ dump_begin (enum tree_dump_index phase, int *flag_ptr)
   char *name;
   char dump_id[10];
 
-  if (!dump_files[phase].state)
+  if (phase == TDI_none || !dump_files[phase].state)
     return NULL;
 
   if (snprintf (dump_id, sizeof (dump_id), ".t%02d", phase) < 0)
@@ -762,7 +763,7 @@ dump_enable_all (int flags)
 {
   enum tree_dump_index i;
 
-  for (i = TDI_tu; i < TDI_end; i++)
+  for (i = TDI_none + 1; i < TDI_end; i++)
     {
       dump_files[i].state = -1;
       dump_files[i].flags = flags;
@@ -782,7 +783,7 @@ dump_switch_p (const char *arg)
   unsigned ix;
   const char *option_value;
 
-  for (ix = 0; ix != TDI_end; ix++)
+  for (ix = TDI_none + 1; ix != TDI_end; ix++)
     if ((option_value = skip_leading_substring (arg, dump_files[ix].swtch)))
       {
 	const char *ptr = option_value;

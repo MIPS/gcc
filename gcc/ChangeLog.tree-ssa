@@ -1,3 +1,13 @@
+2003-10-22  Jeff Law  <law@redhat.com>
+
+	* tree-dump.c (dump_files): Add entry for TDI_none.
+	(dump_begin): Do nothing for TDI_none.
+	(dump_enable_all, dump_switch_p): Start our scan at TDI_none + 1.
+	* tree.h (tree_dump_index): Add.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): If we have altered the
+	CFG and we have variables to [re]rename, go ahead and rename them before
+	starting the next iteration of the dominator optimizer.
+ 
 2003-10-21  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (gimplify_modify_expr): Require a regvar on either

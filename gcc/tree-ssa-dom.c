@@ -340,6 +340,17 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars,
 	  build_dominator_tree (idom);
 	  free_dominance_info (idom);
 	}
+
+      /* If we are going to iterate (CFG_ALTERED is true), then we must
+	 perform any queued renaming before the next iteration.  */
+      if (cfg_altered
+	  && sbitmap_first_set_bit (vars_to_rename) >= 0)
+	{
+	  rewrite_into_ssa (fndecl, vars_to_rename, TDI_none);
+	  sbitmap_zero (vars_to_rename);
+	  VARRAY_GROW (const_and_copies, next_ssa_version);
+	  VARRAY_GROW (vrp_data, next_ssa_version);
+	}
     }
   while (cfg_altered);
 
