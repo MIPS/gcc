@@ -16,7 +16,7 @@
  * Modified Peter C. for Solaris Posix Threads.
  */
 /* Boehm, September 14, 1994 4:44 pm PDT */
-/* $Id: solaris_pthreads.c,v 1.1 1999/04/07 14:56:06 tromey Exp $ */
+/* $Id: solaris_pthreads.c,v 1.10 1997/05/13 23:09:09 peterc Exp $ */
 
 # if defined(_SOLARIS_PTHREADS)
 # include "gc_priv.h"
@@ -46,7 +46,7 @@ pthread_cond_t GC_prom_join_cv;		/* Broadcast when any thread terminates	*/
 pthread_cond_t GC_create_cv;		/* Signalled when a new undetached	*/
 				/* thread starts.			*/
 				
-extern bool GC_multithreaded;
+extern GC_bool GC_multithreaded;
 
 /* We use the allocation lock to protect thread-related data structures. */
 
