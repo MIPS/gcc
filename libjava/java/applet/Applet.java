@@ -1,5 +1,5 @@
 /* Applet.java -- Java base applet class
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -48,6 +48,7 @@ import java.io.ObjectInputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Locale;
+
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
 import javax.accessibility.AccessibleState;
@@ -76,11 +77,6 @@ public class Applet extends Panel
 
   /** The applet stub for this applet. */
   private transient AppletStub stub;
-
-  /**
-   * The dimensions passed to this applet through its HTML tag.
-   */
-  private transient Dimension dimensions;
 
   /**
    * The accessibility context for this applet.
@@ -233,11 +229,11 @@ public class Applet extends Panel
   {
     try
       {
-        return getImage(new URL(url, name));
+	return getImage(new URL(url, name));
       }
     catch (MalformedURLException e)
       {
-        return null;
+	return null;
       }
   }
 
@@ -289,11 +285,11 @@ public class Applet extends Panel
   {
     try
       {
-        return getAudioClip(new URL(url, name));
+	return getAudioClip(new URL(url, name));
       }
     catch (MalformedURLException e)
       {
-        return null;
+	return null;
       }
   }
 
@@ -348,7 +344,7 @@ public class Applet extends Panel
     AudioClip ac = getAudioClip(url);
     try
       {
-        ac.play();
+	ac.play();
       }
     catch (Exception ignored)
       {
@@ -369,7 +365,7 @@ public class Applet extends Panel
   {
     try
       {
-        getAudioClip(url, name).play();
+	getAudioClip(url, name).play();
       }
     catch (Exception ignored)
       {
@@ -462,41 +458,6 @@ public class Applet extends Panel
     s.defaultReadObject();
   }
 
-  private Dimension getDimensions ()
-  {
-    if (dimensions == null)
-      {
-	int width = Integer.parseInt(stub.getParameter("width"));
-	int height = Integer.parseInt(stub.getParameter("height"));
-
-	dimensions = new Dimension(width, height);
-      }
-
-    return dimensions;
-  }
-
-  /**
-   * Returns an instance of {@link Dimension} representing the
-   * applet's width and height parameters.
-   *
-   * @return the applet's preferred size
-   */
-  public Dimension preferredSize()
-  {
-    return getDimensions ();
-  }
-
-  /**
-   * Returns an instance of {@link Dimension} representing the
-   * applet's width and height parameters.
-   *
-   * @return the applet's minimum size
-   */
-  public Dimension minimumSize()
-  {
-    return getDimensions ();
-  }
-
   /**
    * This class provides accessibility support for Applets, and is the
    * runtime type returned by {@link #getAccessibleContext()}.
@@ -540,7 +501,7 @@ public class Applet extends Panel
     {
       AccessibleStateSet s = super.getAccessibleStateSet();
       if (isActive())
-        s.add(AccessibleState.ACTIVE);
+	s.add(AccessibleState.ACTIVE);
       return s;
     }
   } // class AccessibleApplet

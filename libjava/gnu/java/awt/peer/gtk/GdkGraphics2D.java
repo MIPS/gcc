@@ -1,5 +1,5 @@
 /* GdkGraphics2D.java
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -48,7 +48,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import java.text.AttributedCharacterIterator;
-import java.util.Map;
 import java.util.Stack;
 import java.lang.Integer;
 import gnu.java.awt.ClasspathToolkit;
@@ -88,7 +87,7 @@ public class GdkGraphics2D extends Graphics2D
 
   private Stack stateStack;
   
-  native private int[] initState (GtkComponentPeer component);
+  native private void initState (GtkComponentPeer component);
   native private void initState (int width, int height);
   native private void copyState (GdkGraphics2D g);
   native public void dispose ();
@@ -169,10 +168,10 @@ public class GdkGraphics2D extends Graphics2D
   GdkGraphics2D (GtkComponentPeer component)
   {
     this.component = component;
-    int rgb[] = initState (component);
+    initState (component);
 
-    setColor (new Color (rgb[0], rgb[1], rgb[2]));
-    setBackground (new Color (rgb[3], rgb[4], rgb[5]));
+    setColor (component.awtComponent.getForeground ());
+    setBackground (component.awtComponent.getBackground ());
     setPaint (getColor());
     setFont (new Font("SansSerif", Font.PLAIN, 12));
     setTransform (new AffineTransform ());
@@ -823,13 +822,13 @@ public class GdkGraphics2D extends Graphics2D
 
   public void setClip (int x, int y, int width, int height)
   {
-    clip = new Rectangle2D.Double ((double)x, (double)y, 
-                                   (double)width, (double)height);
-    setClip(clip);
+    setClip(new Rectangle2D.Double ((double)x, (double)y, 
+                                    (double)width, (double)height));
   }
   
   public void setClip (Shape s)
   {
+    clip = s;
     if (s != null)
       {
         cairoNewPath ();
@@ -1260,7 +1259,18 @@ public class GdkGraphics2D extends Graphics2D
 
   public void setComposite(Composite comp)
   {
-    throw new java.lang.UnsupportedOperationException ();
+    if (comp instanceof AlphaComposite)
+      {
+        AlphaComposite a = (AlphaComposite) comp;
+        cairoSetOperator(a.getRule());
+        Color c = getColor();
+        setColor(new Color(c.getRed(),
+                           c.getGreen(),
+                           c.getBlue(),
+                           (int) (a.getAlpha() * ((float) c.getAlpha()))));
+      }
+    else
+      throw new java.lang.UnsupportedOperationException ();
   }
 
   public void setRenderingHint(RenderingHints.Key hintKey,
@@ -1467,14 +1477,28 @@ public class GdkGraphics2D extends Graphics2D
   public void drawRoundRect(int x, int y, int width, int height, 
                             int arcWidth, int arcHeight)
   {
-    int x1 = x + arcWidth, x2 = x + width - arcWidth;
-    int y1 = y + arcHeight, y2 = y + height - arcHeight;
-    fillRect (x1, y, x2 - x1, height);
-    fillRect (x, y1, width, y2 - y1);
-    fillArc (x, y, arcWidth, arcHeight, 90, 90);
-    fillArc (x1, y, arcWidth, arcHeight, 0, 90);
-    fillArc (x2, y2, arcWidth, arcHeight, 270, 90);
-    fillArc (x, y2, arcWidth, arcHeight, 180, 90);
+    if (arcWidth > width)
+      arcWidth = width;
+    if (arcHeight > height)
+      arcHeight = height;
+
+    int xx = x + width - arcWidth;
+    int yy = y + height - arcHeight;
+
+    drawArc (x, y, arcWidth, arcHeight, 90, 90);
+    drawArc (xx, y, arcWidth, arcHeight, 0, 90);
+    drawArc (xx, yy, arcWidth, arcHeight, 270, 90);
+    drawArc (x, yy, arcWidth, arcHeight, 180, 90);
+
+    int y1 = y + arcHeight / 2;
+    int y2 = y + height - arcHeight / 2;
+    drawLine (x, y1, x, y2);
+    drawLine (x + width, y1, x + width, y2);
+
+    int x1 = x + arcWidth / 2;
+    int x2 = x + width - arcWidth / 2;
+    drawLine (x1, y, x2, y);
+    drawLine (x1, y + height, x2, y + height);
   }
 
   public void drawString (String str, int x, int y)
@@ -1516,14 +1540,21 @@ public class GdkGraphics2D extends Graphics2D
   public void fillRoundRect (int x, int y, int width, int height, 
                              int arcWidth, int arcHeight)
   {
-    int x1 = x + arcWidth, x2 = x + width - arcWidth;
-    int y1 = y + arcHeight, y2 = y + height - arcHeight;
-    fillRect (x1, y, x2 - x1, height);
-    fillRect (x, y1, width, y2 - y1);
+    if (arcWidth > width)
+      arcWidth = width;
+    if (arcHeight > height)
+      arcHeight = height;
+
+    int xx = x + width - arcWidth;
+    int yy = y + height - arcHeight;
+
     fillArc (x, y, arcWidth, arcHeight, 90, 90);
-    fillArc (x1, y, arcWidth, arcHeight, 0, 90);
-    fillArc (x2, y2, arcWidth, arcHeight, 270, 90);
-    fillArc (x, y2, arcWidth, arcHeight, 180, 90);
+    fillArc (xx, y, arcWidth, arcHeight, 0, 90);
+    fillArc (xx, yy, arcWidth, arcHeight, 270, 90);
+    fillArc (x, yy, arcWidth, arcHeight, 180, 90);
+
+    fillRect (x, y + arcHeight / 2, width, height - arcHeight + 1);
+    fillRect (x + arcWidth / 2, y, width - arcWidth + 1, height);
   }
 
   public Font getFont ()

@@ -47,24 +47,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
+import java.security.PrivilegedAction;
+import java.security.AccessController;
 import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Vector;
-
-
-class MyIOException extends IOException
-{
-    MyIOException (String s)
-    {
-	super(s);
-	if (Configuration.DEBUG)
-	    {
-		String val = System.getProperty("gcj.dumpobjects");
-		if (val != null && !val.equals(""))
-		    System.out.println (this);
-	    }
-    }
-}
 
 public class ObjectInputStream extends InputStream
   implements ObjectInput, ObjectStreamConstants
@@ -134,15 +121,15 @@ public class ObjectInputStream extends InputStream
    */
   public final Object readObject() throws ClassNotFoundException, IOException
   {
-      if (callersClassLoader == null)
-	{
-	  callersClassLoader = getCallersClassLoader ();
-	  if (Configuration.DEBUG)
-	    {
-	      dumpElementln ("CallersClassLoader = " + callersClassLoader);
-	    }
-	}
-
+	if (callersClassLoader == null)
+	  {
+		callersClassLoader = getCallersClassLoader ();
+		if (Configuration.DEBUG && dump)
+		  {
+			dumpElementln ("CallersClassLoader = " + callersClassLoader);
+		  }
+	  }
+	
     if (this.useSubclassMethod)
       return readObjectOverride();
 
@@ -233,7 +220,7 @@ public class ObjectInputStream extends InputStream
 		{
 		  byte b = this.realInputStream.readByte();
 		  if (b != TC_ENDBLOCKDATA)
-		    throw new MyIOException("Data annotated to class was not consumed." + b);
+		    throw new IOException("Data annotated to class was not consumed." + b);
 		}
 	      else
 		is_consumed = false;
@@ -251,7 +238,7 @@ public class ObjectInputStream extends InputStream
 		{
 		  byte b = this.realInputStream.readByte();
 		  if (b != TC_ENDBLOCKDATA)
-		    throw new MyIOException("Data annotated to class was not consumed." + b);
+		    throw new IOException("Data annotated to class was not consumed." + b);
 		}
 	      else
 		is_consumed = false;
@@ -301,29 +288,7 @@ public class ObjectInputStream extends InputStream
 	      
 	      if (osc.realClassIsExternalizable)
 		{
-		  Externalizable obj = null;
-		  
-		  try
-		    {
-		      obj = (Externalizable)clazz.newInstance();
-		    }
-		  catch (InstantiationException e)
-		    {
-		      throw new ClassNotFoundException
-			("Instance of " + clazz + " could not be created");
-		    }
-		  catch (IllegalAccessException e)
-		    {
-		      throw new ClassNotFoundException
-			("Instance of " + clazz + " could not be created because class or "
-			 + "zero-argument constructor is not accessible");
-		    }
-		  catch (NoSuchMethodError e)
-		    {
-		      throw new ClassNotFoundException
-			("Instance of " + clazz
-			 + " could not be created because zero-argument constructor is not defined");
-		    }
+		  Externalizable obj = osc.newInstance();
 		  
 		  int handle = assignNewHandle(obj);
 		  
@@ -387,7 +352,7 @@ public class ObjectInputStream extends InputStream
 			  // the logic.
 
 			  if (this.realInputStream.readByte() != TC_ENDBLOCKDATA)
-			    throw new MyIOException
+			    throw new IOException
 			      ("No end of block data seen for class with readObject (ObjectInputStream) method.");
 			  if(dump) dumpElementln("yes");
 			}
@@ -425,7 +390,7 @@ public class ObjectInputStream extends InputStream
 	    }
 
 	  default:
-	    throw new MyIOException("Unknown marker on stream: " + marker);
+	    throw new IOException("Unknown marker on stream: " + marker);
 	  }
       }
     finally
@@ -434,6 +399,8 @@ public class ObjectInputStream extends InputStream
 	
 	this.isDeserializing = was_deserializing;
 
+	depth -= 2;
+	
 	depth -= 2;
 	
 	if (! was_deserializing)
@@ -1342,10 +1309,10 @@ public class ObjectInputStream extends InputStream
 
 	  int off = field.getOffset();
 
-	  return (long)(((prim_field_data[off++] & 0xFF) << 56)
-			| ((prim_field_data[off++] & 0xFF) << 48)
-			| ((prim_field_data[off++] & 0xFF) << 40)
-			| ((prim_field_data[off++] & 0xFF) << 32)
+	  return (long)(((prim_field_data[off++] & 0xFFL) << 56)
+			| ((prim_field_data[off++] & 0xFFL) << 48)
+			| ((prim_field_data[off++] & 0xFFL) << 40)
+			| ((prim_field_data[off++] & 0xFFL) << 32)
 			| ((prim_field_data[off++] & 0xFF) << 24)
 			| ((prim_field_data[off++] & 0xFF) << 16)
 			| ((prim_field_data[off++] & 0xFF) << 8)
@@ -1379,10 +1346,10 @@ public class ObjectInputStream extends InputStream
 	  int off = field.getOffset();
 
 	  return Double.longBitsToDouble
-	    ( (long) (((prim_field_data[off++] & 0xFF) << 56)
-		      | ((prim_field_data[off++] & 0xFF) << 48)
-		      | ((prim_field_data[off++] & 0xFF) << 40)
-		      | ((prim_field_data[off++] & 0xFF) << 32)
+	    ( (long) (((prim_field_data[off++] & 0xFFL) << 56)
+		      | ((prim_field_data[off++] & 0xFFL) << 48)
+		      | ((prim_field_data[off++] & 0xFFL) << 40)
+		      | ((prim_field_data[off++] & 0xFFL) << 32)
 		      | ((prim_field_data[off++] & 0xFF) << 24)
 		      | ((prim_field_data[off++] & 0xFF) << 16)
 		      | ((prim_field_data[off++] & 0xFF) << 8)
@@ -1841,11 +1808,13 @@ public class ObjectInputStream extends InputStream
    * @param sm SecurityManager instance which should be called.
    * @return The current class loader in the calling stack.
    */
-    private static native ClassLoader currentClassLoader (SecurityManager sm);
 
-    private native ClassLoader getCallersClassLoader();
+  private static native ClassLoader currentClassLoader (SecurityManager sm);
+  
+  private native ClassLoader getCallersClassLoader();
 
-  private void callReadMethod (Method readObject, Class klass, Object obj) throws IOException
+  private void callReadMethod (Method readObject, Class klass, Object obj)
+    throws ClassNotFoundException, IOException
   {
     try
       {
@@ -1859,6 +1828,8 @@ public class ObjectInputStream extends InputStream
 	  throw (RuntimeException) exception;
 	if (exception instanceof IOException)
 	  throw (IOException) exception;
+        if (exception instanceof ClassNotFoundException)
+          throw (ClassNotFoundException) exception;
 
 	throw new IOException("Exception thrown from readObject() on " +
 			       klass + ": " + exception.getClass().getName());
@@ -1903,6 +1874,7 @@ public class ObjectInputStream extends InputStream
 
   private ClassLoader callersClassLoader;
 
+  // The nesting depth for debugging output
   private int depth = 0;
 
   private void dumpElement (String msg)

@@ -89,6 +89,18 @@ public class GtkImage extends Image implements ImageConsumer
     this.observer = observer;
   }
 
+  public synchronized int[]
+  getPixelCache ()
+  {
+    return pixelCache;
+  }
+
+  public synchronized ColorModel
+  getColorModel ()
+  {
+    return model;
+  }
+
   public synchronized int 
   getWidth (ImageObserver observer)
   {
@@ -202,7 +214,7 @@ public class GtkImage extends Image implements ImageConsumer
   public synchronized void 
   setColorModel (ColorModel model)
   {
-    if (this.model == null || this.model == model)
+    if (this.model == null || this.model.equals(model))
       this.model = model;
     else
       isCacheable = false;
@@ -235,13 +247,13 @@ public class GtkImage extends Image implements ImageConsumer
     if (!isCacheable)
       return;
 
-    if (cm != model || pixelCache == null)
+    if (!cm.equals(model) || pixelCache == null)
       {
 	isCacheable = false;
 	return;
       }
 
-    if (scansize == width)
+    if (scansize == width && height == 1)
       {
 	System.arraycopy (pixels, offset, 
 			  pixelCache, y * this.width + x,

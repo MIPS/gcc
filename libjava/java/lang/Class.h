@@ -222,7 +222,7 @@ public:
 
   inline jboolean isArray (void)
     {
-      return name->data[0] == '[';
+      return name->first() == '[';
     }
 
   inline jclass getComponentType (void)
@@ -352,7 +352,7 @@ private:
   friend void _Jv_InitNewClassFields (jclass klass);
 
   // in prims.cc
-  friend void _Jv_InitPrimClass (jclass, char *, char, int, _Jv_ArrayVTable *);
+  friend void _Jv_InitPrimClass (jclass, char *, char, int);
 
   friend void _Jv_PrepareCompiledClass (jclass);
   friend jshort _Jv_GetInterfaces (jclass, _Jv_ifaces *);
@@ -365,6 +365,7 @@ private:
   friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
   friend void _Jv_linkExceptionClassTable (jclass);
+  friend void _Jv_WaitForState (jclass klass, int state);
 
   friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 				   jint flags);

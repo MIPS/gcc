@@ -1,5 +1,6 @@
 /* HttpURLConnection.java -- URLConnection class for HTTP protocol
-   Copyright (C) 1998, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -52,10 +53,13 @@ import java.net.ProtocolException;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import gnu.java.net.HeaderFieldHelper;
+import gnu.java.security.action.GetPropertyAction;
 
 /**
  * This subclass of java.net.URLConnection models a URLConnection via
@@ -76,31 +80,40 @@ public final class Connection extends HttpURLConnection
    * The socket we are connected to
    */
   private Socket socket;
-  private static int proxyPort = 80;
-  private static boolean proxyInUse = false;
-  private static String proxyHost = null;
+  
+  // Properties depeending on system properties settings
+  static int proxyPort = 80;
+  static boolean proxyInUse = false;
+  static String proxyHost = null;
+  static String userAgent;
 
   static 
   {
     // Recognize some networking properties listed at
     // http://java.sun.com/j2se/1.4/docs/guide/net/properties.html.
     String port = null;
-    proxyHost = System.getProperty("http.proxyHost");
+    GetPropertyAction getProperty = new GetPropertyAction("http.proxyHost");
+    proxyHost = (String) AccessController.doPrivileged(getProperty);
     if (proxyHost != null)
       {
 	proxyInUse = true;
-	if ((port = System.getProperty("http.proxyPort")) != null)
+	getProperty.setParameters("http.proxyPort");
+	port = (String) AccessController.doPrivileged(getProperty);
+	if (port != null)
 	  {
 	    try
 	      {
 		proxyPort = Integer.parseInt(port);
 	      }
-	    catch (Throwable t)
+	    catch (NumberFormatException ex)
 	      {
 		// Nothing.  
 	      }
 	  }
       }
+
+    getProperty.setParameters("http.agent");
+    userAgent = (String) AccessController.doPrivileged(getProperty);
   }
 
   /**
@@ -215,8 +228,7 @@ public final class Connection extends HttpURLConnection
       setRequestProperty ("Connection", "Close");
     
     if (getRequestProperty ("user-agent") == null)
-      setRequestProperty ("user-agent", "gnu-libgcj/"
-                          + System.getProperty ("java.vm.version"));
+      setRequestProperty ("user-agent", userAgent);
     
     if (getRequestProperty ("accept") == null)
       setRequestProperty ("accept", "*/*");

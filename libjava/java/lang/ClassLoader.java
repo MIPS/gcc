@@ -122,13 +122,13 @@ public abstract class ClassLoader
    * is not private in order to allow native code (and trusted subclasses)
    * access to this field.
    */
-  final Map loadedClasses = new HashMap();
+  final HashMap loadedClasses = new HashMap();
 
   /**
    * All packages defined by this classloader. It is not private in order to
    * allow native code (and trusted subclasses) access to this field.
    */
-  final Map definedPackages = new HashMap();
+  final HashMap definedPackages = new HashMap();
 
   /**
    * The classloader that is consulted before this classloader.

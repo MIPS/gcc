@@ -13,6 +13,7 @@ details.  */
 #include <config.h>
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <gcj/cni.h>
@@ -42,7 +43,6 @@ details.  */
 #include <java/io/Serializable.h>
 #include <java/lang/Cloneable.h>
 
-
 //
 //  A single class can have many "initiating" class loaders,
 //  and a single "defining" class loader.  The Defining
@@ -60,7 +60,7 @@ details.  */
 #define HASH_LEN 1013
 
 // Hash function for Utf8Consts.
-#define HASH_UTF(Utf) (((Utf)->hash) % HASH_LEN)
+#define HASH_UTF(Utf) ((Utf)->hash16() % HASH_LEN)
 
 struct _Jv_LoaderInfo
 {
@@ -185,8 +185,6 @@ _Jv_RegisterClassHookDefault (jclass klass)
 {
   jint hash = HASH_UTF (klass->name);
 
-  jclass check_class = loaded_classes[hash];
-
   // The BC ABI makes this check unnecessary: we always resolve all
   // data references via the appropriate class loader, so the kludge
   // that required this check has gone.
@@ -202,7 +200,7 @@ _Jv_RegisterClassHookDefault (jclass klass)
 	  // We size-limit MESSAGE so that you can't trash the stack.
 	  char message[200];
 	  strcpy (message, TEXT);
-	  strncpy (message + sizeof (TEXT) - 1, klass->name->data,
+	  strncpy (message + sizeof (TEXT) - 1, klass->name->chars(),
 		   sizeof (message) - sizeof (TEXT));
 	  message[sizeof (message) - 1] = '\0';
 	  if (! gcj::runtimeInitialized)
@@ -248,7 +246,7 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 
   if (! klass)
     {
-      jstring sname = _Jv_NewStringUTF (name->data);
+      jstring sname = name->toString();
 
       java::lang::ClassLoader *sys
 	= java::lang::ClassLoader::getSystemClassLoader ();
@@ -328,7 +326,7 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
       len = 3;
     }
   else
-    len = element->name->length + 5;
+    len = element->name->len() + 5;
 
   {
     char signature[len];
@@ -341,8 +339,8 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
       }
     else
       {
-	size_t length = element->name->length;
-	const char *const name = element->name->data;
+	size_t length = element->name->len();
+	const char *const name = element->name->chars();
 	if (name[0] != '[')
 	  signature[index++] = 'L';
 	memcpy (&signature[index], name, length);

@@ -50,6 +50,7 @@ import java.awt.Stroke;
 import javax.swing.AbstractButton;
 import javax.swing.ButtonModel;
 import javax.swing.Icon;
+import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.SwingUtilities;
 import javax.swing.UIDefaults;
@@ -59,13 +60,21 @@ import javax.swing.plaf.ComponentUI;
 
 public class BasicButtonUI extends ButtonUI
 {
-  /** A constant used to pad out elements in the button's layout and
-      preferred size calculations. */
-  int defaultTextIconGap = 3;
+  /**
+   * A constant used to pad out elements in the button's layout and
+   * preferred size calculations.
+   */
+  protected int defaultTextIconGap = 4;
 
-  /** A constant added to the defaultTextIconGap to adjust the text
-      within this particular button. */
-  int defaultTextShiftOffset = 0;
+  /**
+   * A constant added to the defaultTextIconGap to adjust the text
+   * within this particular button.
+   */
+  protected int defaultTextShiftOffset = 0;
+
+  private int textShiftOffset;
+
+  private Color focusColor;
 
   /**
    * Factory method to create an instance of BasicButtonUI for a given
@@ -85,13 +94,33 @@ public class BasicButtonUI extends ButtonUI
     return defaultTextIconGap;
   }
 
+  protected void clearTextShiftOffset()
+  {
+    textShiftOffset = 0;
+  }
+  
+  protected int getTextShiftOffset()
+  {
+    return textShiftOffset;
+  }
+
+  protected void setTextShiftOffset()
+  {
+    textShiftOffset = defaultTextShiftOffset;
+  }
+
   protected void installDefaults(AbstractButton b)
   {
     UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+    focusColor = defaults.getColor("Button.focus");
     b.setForeground(defaults.getColor("Button.foreground"));
     b.setBackground(defaults.getColor("Button.background"));
     b.setMargin(defaults.getInsets("Button.margin"));
     b.setBorder(defaults.getBorder("Button.border"));
+    b.setIconTextGap(defaults.getInt("Button.textIconGap"));
+    b.setInputMap(JComponent.WHEN_FOCUSED, 
+                  (InputMap) defaults.get("Button.focusInputMap"));
+    b.setOpaque(true);
   }
 
   protected void uninstallDefaults(AbstractButton b)
@@ -99,6 +128,7 @@ public class BasicButtonUI extends ButtonUI
     b.setForeground(null);
     b.setBackground(null);
     b.setBorder(null);
+    b.setIconTextGap(defaultTextIconGap);
     b.setMargin(null);
   }
 
@@ -130,10 +160,12 @@ public class BasicButtonUI extends ButtonUI
 
   protected void installKeyboardActions(AbstractButton b)
   {
+    listener.installKeyboardActions(b);
   }
 
   protected void uninstallKeyboardActions(AbstractButton b)
   {
+    listener.uninstallKeyboardActions(b);
   }
 
   /**
@@ -233,19 +265,19 @@ public class BasicButtonUI extends ButtonUI
                                                      b.getVerticalTextPosition(), 
                                                      b.getHorizontalTextPosition(),
                                                      vr, ir, tr, 
-                                                     defaultTextIconGap 
+                                                     b.getIconTextGap() 
                                                      + defaultTextShiftOffset);
     
     if ((b.getModel().isArmed() && b.getModel().isPressed()) 
         || b.isSelected())
-      paintButtonPressed(g, br, c);
+      paintButtonPressed(g, b);
     else
       paintButtonNormal(g, br, c);
 	
     paintIcon(g, c, ir);
     if (text != null)
-      paintText(g, c, tr, b.getText());
-    paintFocus(g, c, vr, tr, ir);
+      paintText(g, b, tr, text);
+    paintFocus(g, b, vr, tr, ir);
   }
 
   /**
@@ -255,7 +287,7 @@ public class BasicButtonUI extends ButtonUI
    * "focusPainted" property is <code>true</code>.
    *
    * @param g Graphics context to paint with
-   * @param c Component to paint the focus of
+   * @param b Button to paint the focus of
    * @param vr Visible rectangle, the area in which to paint
    * @param tr Text rectangle, contained in visible rectangle
    * @param ir Icon rectangle, contained in visible rectangle
@@ -263,28 +295,17 @@ public class BasicButtonUI extends ButtonUI
    * @see AbstractButton.isFocusPainted()
    * @see JComponent.hasFocus()
    */
-  protected void paintFocus(Graphics g, JComponent c, Rectangle vr,
+  protected void paintFocus(Graphics g, AbstractButton b, Rectangle vr,
                             Rectangle tr, Rectangle ir)
   {
-    AbstractButton b = (AbstractButton) c;
     if (b.hasFocus() && b.isFocusPainted())
       {
-        Graphics2D g2 = (Graphics2D) g;
-        Stroke saved_stroke = g2.getStroke();
-        Color saved_color = g2.getColor();
-        float dashes[] = new float[] {1.0f, 1.0f};        
-        BasicStroke s = new BasicStroke(1.0f, 
-                                        BasicStroke.CAP_SQUARE, 
-                                        BasicStroke.JOIN_MITER,
-                                        10, dashes, 0.0f);
-        g2.setStroke(s);
-        g2.setColor(Color.BLACK);
-        g2.drawRect(vr.x + 2, 
-                    vr.y + 2, 
-                    vr.width - 4,
-                    vr.height - 4);
-        g2.setStroke(saved_stroke);
-        g2.setColor(saved_color);
+        Color saved_color = g.getColor();
+        g.setColor(focusColor);
+        Rectangle focusRect = ir.union(tr);
+        g.drawRect(focusRect.x, focusRect.y,
+                   focusRect.width, focusRect.height);
+        g.setColor(saved_color);
       }
   }
 
@@ -303,11 +324,7 @@ public class BasicButtonUI extends ButtonUI
     Icon i = currentIcon(b);
 
     if (i != null)
-      {
-        int x = iconRect.x;
-        int y = iconRect.y;
-        i.paintIcon(c, g, x, y);
-      }
+      i.paintIcon(c, g, iconRect.x, iconRect.y);
   }
 
   /**
@@ -316,13 +333,14 @@ public class BasicButtonUI extends ButtonUI
    * pressedBackgroundColor}.
    *
    * @param g The graphics context to paint with
-   * @param area The area in which to paint
-   * @param b The component to paint the state of
+   * @param b The button to paint the state of
    */
-  protected void paintButtonPressed(Graphics g, Rectangle area, JComponent b)
+  protected void paintButtonPressed(Graphics g, AbstractButton b)
   {
-    if (((AbstractButton)b).isContentAreaFilled())
+    if (b.isContentAreaFilled())
       {
+	Rectangle area = new Rectangle();
+	SwingUtilities.calculateInnerArea(b, area);
         g.setColor(b.getBackground().darker());
         g.fillRect(area.x, area.y, area.width, area.height);
       }
@@ -337,9 +355,9 @@ public class BasicButtonUI extends ButtonUI
    * @param area The area in which to paint
    * @param b The component to paint the state of
    */
-  protected void paintButtonNormal(Graphics g, Rectangle area, JComponent b)
+  private void paintButtonNormal(Graphics g, Rectangle area, JComponent b)
   {
-    if (((AbstractButton)b).isContentAreaFilled())
+    if (((AbstractButton)b).isContentAreaFilled() && b.isOpaque())
       {
         g.setColor(b.getBackground());
         g.fillRect(area.x, area.y, area.width, area.height);
@@ -358,12 +376,38 @@ public class BasicButtonUI extends ButtonUI
   protected void paintText(Graphics g, JComponent c, Rectangle textRect,
                            String text) 
   {	
-    Font f = c.getFont();
+    paintText(g, (AbstractButton) c, textRect, text);
+  }
+
+  /**
+   * Paints the "text" property of an {@link AbstractButton}, using the
+   * {@link textColor} color.
+   *
+   * @param g The graphics context to paint with
+   * @param b The button to paint the state of
+   * @param textRect The area in which to paint the text
+   * @param text The text to paint
+   *
+   * @since 1.4
+   */
+  protected void paintText(Graphics g, AbstractButton b, Rectangle textRect,
+			   String text)
+  {
+    Font f = b.getFont();
     g.setFont(f);
     FontMetrics fm = g.getFontMetrics(f);
-    g.setColor(c.getForeground());
-    BasicGraphicsUtils.drawString(g, text, 0,
-                                  textRect.x, 
-                                  textRect.y + fm.getAscent());
+
+    if (b.isEnabled())
+      {
+	g.setColor(b.getForeground());
+	g.drawString(text, textRect.x, textRect.y + fm.getAscent());
+      }
+    else
+      {
+	g.setColor(b.getBackground().brighter());
+	g.drawString(text, textRect.x, textRect.y + fm.getAscent());
+	g.setColor(b.getBackground().darker());
+	g.drawString(text, textRect.x + 1, textRect.y + fm.getAscent() + 1);
+      }
   } 
 }

@@ -48,6 +48,7 @@ import java.util.Hashtable;
 
 import gnu.java.io.ObjectIdentityWrapper;
 import gnu.java.lang.reflect.TypeSignature;
+import gnu.java.security.action.SetAccessibleAction;
 import gnu.classpath.Configuration;
 
 /**
@@ -144,6 +145,13 @@ public class ObjectOutputStream extends OutputStream
     protocolVersion = defaultProtocolVersion;
     useSubclassMethod = false;
     writeStreamHeader();
+
+    if (Configuration.DEBUG)
+      {
+	String val = System.getProperty("gcj.dumpobjects");
+	if (val != null && !val.equals(""))
+	  dump = true;
+      }
   }
 
   /**
@@ -172,23 +180,15 @@ public class ObjectOutputStream extends OutputStream
   {
     if (useSubclassMethod)
       {
-	if (Configuration.DEBUG)
-	  {
-	    String val = System.getProperty("gcj.dumpobjects");
-	    if (val != null && !val.equals(""))
-	      dumpElementln ("WRITE OVERRIDE: " + obj);
-	  }
+	if (dump)
+	  dumpElementln ("WRITE OVERRIDE: " + obj);
 	  
 	writeObjectOverride(obj);
 	return;
       }
 
-    if (Configuration.DEBUG)
-      {
-	String val = System.getProperty("gcj.dumpobjects");
-	if (val != null && !val.equals(""))
-	  dumpElementln ("WRITE: " + obj);
-      }
+    if (dump)
+      dumpElementln ("WRITE: " + obj);
     
     depth += 2;    
 
@@ -347,18 +347,21 @@ public class ObjectOutputStream extends OutputStream
 		    fieldsAlreadyWritten = false;
 		    if (currentObjectStreamClass.hasWriteMethod())
 		      {
-			dumpElementln ("WRITE METHOD CALLED FOR: " + obj);
+				if (dump)
+				  dumpElementln ("WRITE METHOD CALLED FOR: " + obj);
 			setBlockDataMode(true);
 			callWriteMethod(obj, currentObjectStreamClass);
 			setBlockDataMode(false);
 			realOutput.writeByte(TC_ENDBLOCKDATA);
-			dumpElementln ("WRITE ENDBLOCKDATA FOR: " + obj);
+			if (dump)
+			  dumpElementln ("WRITE ENDBLOCKDATA FOR: " + obj);
 		      }
 		    else
 		      {
-			dumpElementln ("WRITE FIELDS CALLED FOR: " + obj);
-			writeFields(obj, currentObjectStreamClass);
-		      }
+				if (dump)
+				  dumpElementln ("WRITE FIELDS CALLED FOR: " + obj);
+				writeFields(obj, currentObjectStreamClass);
+			  }
 		  }
 
 		this.currentObject = prevObject;
@@ -410,13 +413,8 @@ public class ObjectOutputStream extends OutputStream
 	setBlockDataMode(old_mode);
 	depth -= 2;
 
-	if (Configuration.DEBUG)
-	  {
-	    String val = System.getProperty("gcj.dumpobjects");
-	    if (val != null && !val.equals(""))
-	      dumpElementln ("END: " + obj);
-	  }
-    
+	if (dump)
+	  dumpElementln ("END: " + obj);
       }
   }
 
@@ -1213,13 +1211,8 @@ public class ObjectOutputStream extends OutputStream
 	field_name = fields[i].getName();
 	type = fields[i].getType();
 
-	if (Configuration.DEBUG)
-	  {
-	    String val = System.getProperty("gcj.dumpobjects");
-	    if (val != null && !val.equals(""))
-	      dumpElementln ("WRITE FIELD: " + field_name + " type=" + type);
-	  }
-
+	if (dump)
+	  dumpElementln ("WRITE FIELD: " + field_name + " type=" + type);
 
 	if (type == Boolean.TYPE)
 	  realOutput.writeBoolean(getBooleanField(obj, osc.forClass(), field_name));
@@ -1524,20 +1517,14 @@ public class ObjectOutputStream extends OutputStream
       }    
   }
 
-  private static Field getField (Class klass, String name)
+  private Field getField (Class klass, String name)
     throws java.io.InvalidClassException
   {
     try
       {
 	final Field f = klass.getDeclaredField(name);
-	AccessController.doPrivileged(new PrivilegedAction()
-	  {
-	    public Object run()
-	    {
-	      f.setAccessible(true);
-	      return null;
-	    }
-	  });
+	setAccessible.setMember(f);
+	AccessController.doPrivileged(setAccessible);
 	return f;
       }
     catch (java.lang.NoSuchFieldException e)
@@ -1547,22 +1534,16 @@ public class ObjectOutputStream extends OutputStream
       }
   }
 
-  private static Method getMethod (Class klass, String name, Class[] args)
+  private Method getMethod (Class klass, String name, Class[] args)
     throws java.lang.NoSuchMethodException
   {
     final Method m = klass.getDeclaredMethod(name, args);
-    AccessController.doPrivileged(new PrivilegedAction()
-      {
-	public Object run()
-	{
-	  m.setAccessible(true);
-	  return null;
-	}
-      });
+    setAccessible.setMember(m);
+    AccessController.doPrivileged(setAccessible);
     return m;
   }
 
-   private void dumpElementln (String msg)
+  private void dumpElementln (String msg)
   {
     for (int i = 0; i < depth; i++)
       System.out.print (" ");
@@ -1591,8 +1572,13 @@ public class ObjectOutputStream extends OutputStream
   private Hashtable OIDLookupTable;
   private int protocolVersion;
   private boolean useSubclassMethod;
+  private SetAccessibleAction setAccessible = new SetAccessibleAction();
 
+  // The nesting depth for debugging output
   private int depth = 0;
+
+  // Set if we're generating debugging dumps
+  private boolean dump = false;
 
   static
   {

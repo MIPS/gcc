@@ -155,3 +155,4 @@ java::lang::System::isWordsBigEndian (void)
   u.lval = 1;
   return u.cval == 0;
 }
+

@@ -1,5 +1,5 @@
 /* BasicLookAndFeel.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,6 +41,7 @@ package javax.swing.plaf.basic;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.io.Serializable;
 import java.util.Enumeration;
@@ -110,6 +111,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "DesktopIconUI", "javax.swing.plaf.basic.BasicDesktopIconUI",
       "DesktopPaneUI", "javax.swing.plaf.basic.BasicDesktopPaneUI",
       "EditorPaneUI", "javax.swing.plaf.basic.BasicEditorPaneUI",
+      "FormattedTextFieldUI", "javax.swing.plaf.basic.BasicFormattedTextFieldUI",
       "InternalFrameUI", "javax.swing.plaf.basic.BasicInternalFrameUI",
       "LabelUI", "javax.swing.plaf.basic.BasicLabelUI",
       "ListUI", "javax.swing.plaf.basic.BasicListUI",
@@ -130,6 +132,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "SeparatorUI", "javax.swing.plaf.basic.BasicSeparatorUI",
       "SliderUI", "javax.swing.plaf.basic.BasicSliderUI",
       "SplitPaneUI", "javax.swing.plaf.basic.BasicSplitPaneUI",
+      "SpinnerUI", "javax.swing.plaf.basic.BasicSpinnerUI",
       "StandardDialogUI", "javax.swing.plaf.basic.BasicStandardDialogUI",
       "TabbedPaneUI", "javax.swing.plaf.basic.BasicTabbedPaneUI",
       "TableHeaderUI", "javax.swing.plaf.basic.BasicTableHeaderUI",
@@ -205,15 +208,15 @@ public abstract class BasicLookAndFeel extends LookAndFeel
   private void loadResourceBundle(UIDefaults defaults)
   {
     ResourceBundle bundle;
-    Enumeration enum;
+    Enumeration e;
     String key;
     String value;
     bundle = ResourceBundle.getBundle("resources/basic");
     // Process Resources
-    enum = bundle.getKeys();
-    while (enum.hasMoreElements())
+    e = bundle.getKeys();
+    while (e.hasMoreElements())
       {
-        key = (String) enum.nextElement();
+        key = (String) e.nextElement();
         value = bundle.getString(key);
         defaults.put(key, value);
       }
@@ -227,7 +230,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
   {
     Object[] uiDefaults;
     
-    // The JDK's default L&F happens to use these three purple shades
+    // The default Look and Feel happens to use these three purple shades
     // extensively.
     Color lightPurple = new Color(0xCC, 0xCC, 0xFF);
     Color midPurple = new Color(0x99, 0x99, 0xCC);
@@ -245,6 +248,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "SPACE",  "pressed",
         "released SPACE", "released"
       }),
+      "Button.focus", midPurple,
       "Button.font", new FontUIResource("Dialog", Font.PLAIN, 12),
       "Button.foreground", new ColorUIResource(Color.black),
       "Button.highlight", new ColorUIResource(Color.white),
@@ -346,7 +350,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ctrl F10", "maximize",
         "ctrl alt shift F6","selectPreviousFrame"
       }),
-      "Desktop.background", new ColorUIResource(0, 92, 92),
+      "Desktop.background", new ColorUIResource(175, 163, 236),
       "DesktopIcon.border", new BorderUIResource.CompoundBorderUIResource(null,
                                                                           null),
       "EditorPane.background", new ColorUIResource(Color.white),
@@ -419,7 +423,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "FocusManagerClassName", "TODO",
       "FormView.resetButtonText", "Reset",
       "FormView.submitButtonText", "Submit Query",
-      "InternalFrame.activeTitleBackground", new ColorUIResource(lightPurple),
+      "InternalFrame.activeTitleBackground", new ColorUIResource(162, 167, 241),
       "InternalFrame.activeTitleForeground", new ColorUIResource(Color.black),
       "InternalFrame.border", new BorderUIResource.CompoundBorderUIResource(null,
                                                                             null),
@@ -427,8 +431,8 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       // XXX Don't use gif
       "InternalFrame.icon", new IconUIResource(new ImageIcon("icons/JavaCup.gif")),
       "InternalFrame.iconifyIcon", BasicIconFactory.createEmptyFrameIcon(),
-      "InternalFrame.inactiveTitleBackground", new ColorUIResource(Color.gray),
-      "InternalFrame.inactiveTitleForeground", new ColorUIResource(Color.lightGray),
+      "InternalFrame.inactiveTitleBackground", new ColorUIResource(Color.lightGray),
+      "InternalFrame.inactiveTitleForeground", new ColorUIResource(Color.black),
       "InternalFrame.maximizeIcon", BasicIconFactory.createEmptyFrameIcon(),
       "InternalFrame.minimizeIcon", BasicIconFactory.createEmptyFrameIcon(),
       "InternalFrame.titleFont", new FontUIResource("Dialog", Font.PLAIN, 12),
@@ -492,7 +496,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ENTER", "return",
         "SPACE", "return"
       },
-      "Menutext.selectionBackground", new ColorUIResource(lightPurple),
+      "Menu.selectionBackground", new ColorUIResource(lightPurple),
       "Menu.selectionForeground", new ColorUIResource(Color.black),
       "MenuBar.background", new ColorUIResource(Color.lightGray),
       "MenuBar.border", new BasicBorders.MenuBarBorder(null, null),
@@ -694,7 +698,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       }),
       "SplitPane.background", new ColorUIResource(Color.lightGray),
       "SplitPane.border", new BasicBorders.SplitPaneBorder(null, null),
-      "SplitPane.dividerSize", new Integer(7),
+      "SplitPane.dividerSize", new Integer(10),
       "SplitPane.highlight", new ColorUIResource(Color.white),
       "SplitPane.shadow", new ColorUIResource(Color.gray),
       "TabbedPane.ancestorInputMap", new UIDefaults.LazyInputMap(new Object[] {
@@ -703,7 +707,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ctrl UP", "requestFocus",
         "ctrl KP_UP", "requestFocus"
       }),
-      "TabbedPane.background", new ColorUIResource(Color.GRAY),
+      "TabbedPane.background", new ColorUIResource(Color.LIGHT_GRAY),
       "TabbedPane.contentBorderInsets", new InsetsUIResource(2, 2, 3, 3),
       "TabbedPane.darkShadow", new ColorUIResource(Color.darkGray),
       "TabbedPane.focus", new ColorUIResource(Color.black),
@@ -819,7 +823,14 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "TextField.keyBindings", new JTextComponent.KeyBinding[] {
         new JTextComponent.KeyBinding(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER,
                                                              0),
-                                      "notify-field-accept")},
+                                      "notify-field-accept"),
+        new JTextComponent.KeyBinding(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT,
+							     InputEvent.SHIFT_DOWN_MASK),
+							     "selection-backward"),
+        new JTextComponent.KeyBinding(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT,
+							     InputEvent.SHIFT_DOWN_MASK),
+							     "selection-forward"),
+          },
       "TextField.margin", new InsetsUIResource(0, 0, 0, 0),
       "TextField.selectionBackground", new ColorUIResource(lightPurple),
       "TextField.selectionForeground", new ColorUIResource(Color.black),
@@ -874,13 +885,13 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "ToolBar.background", new ColorUIResource(Color.lightGray),
       "ToolBar.border", new BorderUIResource.EtchedBorderUIResource(),
       "ToolBar.dockingBackground", new ColorUIResource(Color.lightGray),
-      "ToolBar.dockingForeground", new ColorUIResource(Color.red),
+      "ToolBar.dockingForeground", new ColorUIResource(11, 30, 143),
       "ToolBar.floatingBackground", new ColorUIResource(Color.lightGray),
-      "ToolBar.floatingForeground", new ColorUIResource(Color.darkGray),
+      "ToolBar.floatingForeground", new ColorUIResource(113, 171, 212),
       "ToolBar.font", new FontUIResource("Dialog", Font.PLAIN, 12),
       "ToolBar.foreground", new ColorUIResource(Color.black),
-      "ToolBar.separatorSize", new DimensionUIResource(10, 10),
-      "ToolTip.background", new ColorUIResource(Color.white),
+      "ToolBar.separatorSize", new DimensionUIResource(20, 20),
+      "ToolTip.background", new ColorUIResource(122, 178, 241),
       "ToolTip.border", new BorderUIResource.LineBorderUIResource(Color.lightGray),
       "ToolTip.font", new FontUIResource("SansSerif", Font.PLAIN, 12),
       "ToolTip.foreground", new ColorUIResource(Color.black),

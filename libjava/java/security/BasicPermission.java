@@ -91,15 +91,9 @@ public abstract class BasicPermission extends Permission
   {
     super(name);
 
-    //  FIXME: this arg checking isn't in the spec, and Sun's JDK
-    //  doesn't do it.
-
-//     if (name.indexOf("*") != -1)
-//       {
-//         if ((! name.endsWith(".*") && ! name.equals("*"))
-//             || name.indexOf("*") != name.lastIndexOf("*"))
-//           throw new IllegalArgumentException("Bad wildcard: " + name);
-//       }
+    // This routine used to check for illegal wildcards, but no such
+    // requirement exists in the specification and Sun's runtime
+    // doesn't appear to do it.
 
     if ("".equals(name))
       throw new IllegalArgumentException("Empty name");

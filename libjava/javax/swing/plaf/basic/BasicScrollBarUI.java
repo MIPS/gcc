@@ -125,6 +125,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
      */
     public void stateChanged(ChangeEvent e)
     {
+      //       System.err.println(this + ".stateChanged()");
+      calculatePreferredSize();
+      layoutContainer(scrollbar);		  
       getThumbBounds();
       scrollbar.repaint();
     }
@@ -545,14 +548,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
                                                               3));
 
   /** The Icon that points right. */
-  private static Icon rightIcon = new arrowIcon(new Polygon(new int[]
-                                                               {
-                                                                 3, 7, 3
-                                                               },
-                                                               new int[]
-                                                               {
-                                                                 2, 5, 8
-                                                               }, 3));
+  private static Icon rightIcon = new arrowIcon(new Polygon(new int[] { 3, 7, 3},
+                                                            new int[] { 2, 5, 8}, 
+                                                            3));
 
   /**
    * This method adds a component to the layout.
@@ -568,7 +566,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 
   /**
    * This method configures the scrollbar's colors. This can be 
-   * done by looking up the standard colors from the L&F defaults.
+   * done by looking up the standard colors from the Look and Feel defaults.
    */
   protected void configureScrollBarColors()
   {
@@ -603,7 +601,15 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   protected JButton createIncreaseButton(int orientation)
   {
     if (incrButton == null)
+      {
       incrButton = new JButton();
+        incrButton.setMargin(new Insets(0,0,0,0));
+        incrButton.setHorizontalAlignment(SwingConstants.CENTER);
+        incrButton.setHorizontalTextPosition(SwingConstants.CENTER);
+        incrButton.setVerticalAlignment(SwingConstants.CENTER);
+        incrButton.setVerticalTextPosition(SwingConstants.CENTER);
+      }
+    
     if (orientation == SwingConstants.HORIZONTAL)
       incrButton.setIcon(rightIcon);
     else
@@ -623,7 +629,15 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   protected JButton createDecreaseButton(int orientation)
   {
     if (decrButton == null)
+      {
       decrButton = new JButton();
+        decrButton.setMargin(new Insets(0,0,0,0));
+        decrButton.setHorizontalAlignment(SwingConstants.CENTER);
+        decrButton.setHorizontalTextPosition(SwingConstants.CENTER);
+        decrButton.setVerticalAlignment(SwingConstants.CENTER);
+        decrButton.setVerticalTextPosition(SwingConstants.CENTER);
+      }
+
     if (orientation == SwingConstants.HORIZONTAL)
       decrButton.setIcon(leftIcon);
     else
@@ -734,6 +748,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
    */
   private void calculatePreferredSize()
   {
+    // System.err.println(this + ".calculatePreferredSize()");
+
     int height;
     int width;
     height = width = 0;
@@ -743,7 +759,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	width += incrButton.getPreferredSize().getWidth();
 	width += decrButton.getPreferredSize().getWidth();
 
-	width += Math.max(200, scrollbar.getVisibleAmount());
+	width += (scrollbar.getMaximum() - scrollbar.getMinimum());
 
 	height = Math.max(incrButton.getPreferredSize().height,
 	                  decrButton.getPreferredSize().height);
@@ -756,7 +772,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	height += incrButton.getPreferredSize().getHeight();
 	height += decrButton.getPreferredSize().getHeight();
 
-	height += Math.max(200, scrollbar.getVisibleAmount());
+	height += (scrollbar.getMaximum() - scrollbar.getMinimum());
 
 	width = Math.max(incrButton.getPreferredSize().width,
 	                 decrButton.getPreferredSize().width);
@@ -786,7 +802,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
    */
   public Dimension getPreferredSize(JComponent c)
   {
-    layoutContainer(scrollbar);
+    calculatePreferredSize();
     return preferredSize;
   }
 
@@ -803,6 +819,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     int min = scrollbar.getMinimum();
     int value = scrollbar.getValue();
     int extent = scrollbar.getVisibleAmount();
+
+    // System.err.println(this + ".getThumbBounds()");
 
     if (max == min)
     {
@@ -884,7 +902,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 
   /**
    * This method installs the defaults for the scrollbar specified
-   * by the Basic L&F.
+   * by the Basic Look and Feel.
    */
   protected void installDefaults()
   {
@@ -892,8 +910,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 
     scrollbar.setForeground(defaults.getColor("ScrollBar.foreground"));
     scrollbar.setBackground(defaults.getColor("ScrollBar.background"));
-
     scrollbar.setBorder(defaults.getBorder("ScrollBar.border"));
+    scrollbar.setOpaque(true);
 
     maximumThumbSize = defaults.getDimension("ScrollBar.maximumThumbSize");
     minimumThumbSize = defaults.getDimension("ScrollBar.minimumThumbSize");
@@ -950,8 +968,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	trackRect = new Rectangle();
 	thumbRect = new Rectangle();
 
-	scrollTimer = new Timer();
-	scrollTimer.setDelay(200);
+	scrollTimer = new Timer(200, null);
 	scrollTimer.setRepeats(true);
 
 	installComponents();
@@ -1046,14 +1063,6 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
   public void paint(Graphics g, JComponent c)
   {
     layoutContainer(scrollbar);
-    
-//    Rectangle r = incrButton.getBounds();
-//    SwingUtilities.paintComponent(g, incrButton, scrollbar, r.x, r.y, r.width,
-//                                  r.height);
-//    r = decrButton.getBounds();
-//    SwingUtilities.paintComponent(g, decrButton, scrollbar, r.x, r.y, r.width,
-//                                  r.height);
-
     paintTrack(g, c, getTrackBounds());
     paintThumb(g, c, getThumbBounds());
 
@@ -1259,7 +1268,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 
   /**
    * This method uninstalls any defaults that this
-   * scrollbar acquired from the Basic L&F defaults.
+   * scrollbar acquired from the Basic Look and Feel defaults.
    */
   protected void uninstallDefaults()
   {

@@ -57,12 +57,25 @@ import javax.accessibility.AccessibleContext;
  *
  * @author Ronald Veldema (rveldema@cs.vu.nl)
  */
-public class JFrame extends Frame implements WindowConstants
+public class JFrame extends Frame implements WindowConstants, RootPaneContainer
 {
-    protected  AccessibleContext accessibleContext;
+  private static final long serialVersionUID = -3362141868504252139L;
+  
+  protected  AccessibleContext accessibleContext;
+  
+  private int close_action = HIDE_ON_CLOSE;    
+  
+  private static boolean defaultLookAndFeelDecorated = false;    
 
-    private int close_action = HIDE_ON_CLOSE;    
-    
+  public static void setDefaultLookAndFeelDecorated(boolean d)
+  {
+    defaultLookAndFeelDecorated = d;
+  }
+
+  public static boolean isDefaultLookAndFeelDecorated()
+  {
+    return defaultLookAndFeelDecorated;
+  }
 
     /***************************************************
      *
@@ -111,30 +124,30 @@ public class JFrame extends Frame implements WindowConstants
     return d;
   }
 
-    JMenuBar getJMenuBar()
+  public JMenuBar getJMenuBar()
     {    return getRootPane().getJMenuBar();   }
     
-    void setJMenuBar(JMenuBar menubar)
+  public void setJMenuBar(JMenuBar menubar)
     {    getRootPane().setJMenuBar(menubar); }
     
 
   public  void setLayout(LayoutManager manager)
   {    super.setLayout(manager);  }
 
-    void setLayeredPane(JLayeredPane layeredPane) 
+  public void setLayeredPane(JLayeredPane layeredPane) 
     {   getRootPane().setLayeredPane(layeredPane);   }
   
-    JLayeredPane getLayeredPane()
+  public JLayeredPane getLayeredPane()
     {   return getRootPane().getLayeredPane();     }
   
-    JRootPane getRootPane()
+  public JRootPane getRootPane()
     {
 	if (rootPane == null)
 	    setRootPane(createRootPane());
 	return rootPane;          
     }
 
-    void setRootPane(JRootPane root)
+  public void setRootPane(JRootPane root)
     {
 	if (rootPane != null)
 	    remove(rootPane);
@@ -143,19 +156,19 @@ public class JFrame extends Frame implements WindowConstants
 	add(rootPane, BorderLayout.CENTER);
     }
 
-    JRootPane createRootPane()
+  public JRootPane createRootPane()
     {   return new JRootPane();    }
 
-    public Container getContentPane()
+  public Container getContentPane()
     {    return getRootPane().getContentPane();     }
 
-    void setContentPane(Container contentPane)
+  public void setContentPane(Container contentPane)
     {    getRootPane().setContentPane(contentPane);    }
   
-    Component getGlassPane()
+  public Component getGlassPane()
     {    return getRootPane().getGlassPane();   }
   
-    void setGlassPane(Component glassPane)
+  public void setGlassPane(Component glassPane)
     {   getRootPane().setGlassPane(glassPane);   }
 
     

@@ -1,5 +1,5 @@
 /* JRadioButton.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,33 +42,49 @@ import javax.accessibility.AccessibleContext;
 
 public class JRadioButton extends JToggleButton
 {
-    public JRadioButton()
-    {
-	this(null, null);
-    }
-    public JRadioButton(Action a)
-    {
-	this();
-	setAction(a);
-    }
+  private static final long serialVersionUID = 7751949583255506856L;
 
-    public JRadioButton(Icon icon)
-    { 
-	this(null, icon);
-    }    
+  public JRadioButton()
+  {
+    this(null, null);
+  }
+    
+  public JRadioButton(Action a)
+  {
+    this();
+    setAction(a);
+  }
+
+  public JRadioButton(Icon icon)
+  { 
+    this(null, icon);
+  }    
   
-    public JRadioButton(String text)
-    {
-	this(text, null);
-    }
-      
-    public JRadioButton(String text, Icon icon)
-    {
-	super(text, icon);
-        paint_border = false;
-        content_area_filled = false;
-    }
+  public JRadioButton(Icon icon, boolean selected)
+  { 
+    this(null, icon, selected);
+  }    
+  
+  public JRadioButton(String text)
+  {
+    this(text, null);
+  }
 
+  public JRadioButton(String text, boolean selected)
+  {
+    this(text, null, selected);
+  }
+      
+  public JRadioButton(String text, Icon icon)
+  {
+    super(text, icon);
+    borderPainted = false;
+    contentAreaFilled = false;
+  }
+      
+  public JRadioButton(String text, Icon icon, boolean selected)
+  {
+  }
     
     public AccessibleContext getAccessibleContext()
     {
@@ -78,7 +94,8 @@ public class JRadioButton extends JToggleButton
   
     public String getUIClassID()
     {
-	//Returns a string that specifies the name of the L&F class that renders this component.  
+	//Returns a string that specifies the name of the Look and Feel
+	//class that renders this component.  
 	return "RadioButtonUI";
     }
   

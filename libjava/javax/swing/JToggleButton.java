@@ -47,6 +47,8 @@ public class JToggleButton extends AbstractButton implements Accessible
 
   public static class ToggleButtonModel extends DefaultButtonModel
   {
+    private static final long serialVersionUID = -1589950750899943974L;
+  
     public void setPressed(boolean b)  
     {
       if (! isEnabled())
@@ -62,6 +64,8 @@ public class JToggleButton extends AbstractButton implements Accessible
   }
 
 
+  private static final long serialVersionUID = -3128248873429850443L;
+    
   public JToggleButton()
   {
     this(null, null);
@@ -77,11 +81,21 @@ public class JToggleButton extends AbstractButton implements Accessible
     this(null, icon);
   }    
   
+  public JToggleButton (Icon icon, boolean selected) 
+  {
+    this(null, icon, selected);
+  }
+  
   public JToggleButton(String text)
   {
     this(text, null);
   }
       
+  public JToggleButton(String text, boolean selected)
+  {
+    this(text, null, selected);
+  }
+
   public JToggleButton(String text, Icon icon)
   {
     this(text, icon, false);
@@ -91,22 +105,27 @@ public class JToggleButton extends AbstractButton implements Accessible
   {
     super(text, icon);
 
-    hori_align = LEADING;
+    horizontalAlignment = LEADING;
     setModel(new ToggleButtonModel());	
     model.setSelected(selected);
   }
 
-
-    
+  /**
+   * Gets the AccessibleContext associated with this <code>JToggleButton</code>.
+   *
+   * @return the associated context
+   */
   public AccessibleContext getAccessibleContext()
   {
-    //Gets the AccessibleContext associated with this JToggleButton. 
     return null;
   }
   
+  /**
+   * Returns a string that specifies the name of the Look and Feel
+   * class that renders this component.
+   */
   public String getUIClassID()
   {
-    //Returns a string that specifies the name of the L&F class that renders this component.  
     return "ToggleButtonUI";
   }
   

@@ -43,6 +43,7 @@ import java.awt.ComponentOrientation;
 import java.awt.Container;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Point;
@@ -50,8 +51,13 @@ import java.awt.Rectangle;
 import java.awt.Shape;
 import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.ActionEvent;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.lang.reflect.InvocationTargetException;
+import javax.swing.plaf.ActionMapUIResource;
+import javax.swing.plaf.InputMapUIResource;
 
 
 /**
@@ -63,6 +69,11 @@ import java.lang.reflect.InvocationTargetException;
  */
 public class SwingUtilities implements SwingConstants
 {
+  /** 
+   * This frame should be used as parent for JWindow or JDialog 
+   * that doesn't an owner
+   */
+  private static OwnerFrame ownerFrame;
 
   /**
    * Calculates the portion of the base rectangle which is inside the
@@ -193,8 +204,6 @@ public class SwingUtilities implements SwingConstants
    *
    * @see #getAncestorOfClass
    * @see #windowForComponent
-   * @see 
-   * 
    */
   public static Container getAncestorOfClass(Class c, Component comp)
   {
@@ -372,8 +381,12 @@ public class SwingUtilities implements SwingConstants
 
     return pt;
   }
-
   
+  public static Point convertPoint(Component source, Point aPoint, Component destination)
+  {
+    return convertPoint(source, aPoint.x, aPoint.y, destination);
+  }
+
   /**
    * Converts a rectangle from the coordinate space of one component to
    * another. This is equivalent to converting the rectangle from
@@ -432,7 +445,7 @@ public class SwingUtilities implements SwingConstants
                                destination);
 
     return new MouseEvent(destination, sourceEvent.getID(),
-                          sourceEvent.getWhen(), sourceEvent.getModifiers(),
+                          sourceEvent.getWhen(), sourceEvent.getModifiersEx(),
                           newpt.x, newpt.y, sourceEvent.getClickCount(),
                           sourceEvent.isPopupTrigger(), sourceEvent.getButton());
   }
@@ -703,11 +716,14 @@ public class SwingUtilities implements SwingConstants
       {
       case TOP:
         textR.y = 0;
-        iconR.y = textR.height + textIconGap;
+        iconR.y = (horizontalTextPosition == CENTER 
+                   ? textR.height + textIconGap : 0);
         break;
       case BOTTOM:
         iconR.y = 0;
-        textR.y = iconR.height + textIconGap;
+        textR.y = (horizontalTextPosition == CENTER
+                   ? iconR.height + textIconGap 
+                   : iconR.height - textR.height);
         break;
       case CENTER:
         int centerLine = Math.max(textR.height, iconR.height) / 2;
@@ -715,7 +731,6 @@ public class SwingUtilities implements SwingConstants
         iconR.y = centerLine - iconR.height/2;
         break;
       }
-
     // The two rectangles are laid out correctly now, but only assuming
     // that their upper left corner is at (0,0). If we have any alignment other
     // than TOP and LEFT, we need to adjust them.
@@ -830,5 +845,173 @@ public class SwingUtilities implements SwingConstants
     paintComponent(g, c, p, r.x, r.y, r.width, r.height);
   }
   
+  /**
+   * This method returns the common Frame owner used in JDialogs or
+   * JWindow when no owner is provided.
+   *
+   * @return The common Frame 
+   */
+  static Frame getOwnerFrame()
+  {
+    if (ownerFrame == null)
+      ownerFrame = new OwnerFrame();
+    return ownerFrame;
+  }
 
+  /**
+   * Checks if left mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if left mouse was clicked, false otherwise.
+   */
+  public static boolean isLeftMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiersEx() & InputEvent.BUTTON1_DOWN_MASK)
+	     == InputEvent.BUTTON1_DOWN_MASK);
+  }
+
+  /**
+   * Checks if middle mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if middle mouse was clicked, false otherwise.
+   */
+  public static boolean isMiddleMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiersEx() & InputEvent.BUTTON2_DOWN_MASK)
+	     == InputEvent.BUTTON2_DOWN_MASK);
+  }
+
+  /**
+   * Checks if right mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if right mouse was clicked, false otherwise.
+   */
+  public static boolean isRightMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiersEx() & InputEvent.BUTTON3_DOWN_MASK)
+	     == InputEvent.BUTTON3_DOWN_MASK);
+  }
+  
+  /**
+   * This frame should be used when constructing a Window/JDialog without
+   * a parent. In this case, we are forced to use this frame as a window's
+   * parent, because we simply cannot pass null instead of parent to Window
+   * constructor, since doing it will result in NullPointerException.
+   */
+  private static class OwnerFrame extends Frame
+  {
+    public void setVisible(boolean b)
+    {
+      // Do nothing here. 
+    }
+    
+    public boolean isShowing()
+    {
+      return true;
+    }
+  }
+
+  public static boolean notifyAction(Action action,
+                                     KeyStroke ks,
+                                     KeyEvent event,
+                                     Object sender,
+                                     int modifiers)
+  {
+    if (action != null && action.isEnabled())
+      {
+        String name = (String) action.getValue(Action.ACTION_COMMAND_KEY);
+        if (name == null
+            && event.getKeyChar() != KeyEvent.CHAR_UNDEFINED)
+          name = new String(new char[] {event.getKeyChar()});
+        action.actionPerformed(new ActionEvent(sender,
+                                               ActionEvent.ACTION_PERFORMED,
+                                               name, modifiers));
+        return true;
+      }
+    return false;
+  }
+
+  /**
+   * <p>Change the shared, UI-managed {@link ActionMap} for a given
+   * component. ActionMaps are arranged in a hierarchy, in order to
+   * encourage sharing of common actions between components. The hierarchy
+   * unfortunately places UI-managed ActionMaps at the <em>end</em> of the
+   * parent-pointer chain, as illustrated:</p>
+   *
+   * <pre>
+   *  [{@link javax.swing.JComponent#getActionMap()}] 
+   *          --&gt; [{@link javax.swing.ActionMap}] 
+   *     parent --&gt; [{@link javax.swing.text.KeymapActionMap}] 
+   *       parent --&gt; [{@link javax.swing.plaf.ActionMapUIResource}]
+   * </pre>
+   *
+   * <p>Our goal with this method is to replace the first ActionMap along
+   * this chain which is an instance of {@link ActionMapUIResource}, since
+   * these are the ActionMaps which are supposed to be shared between
+   * components.</p>
+   *
+   * <p>If the provided ActionMap is <code>null</code>, we interpret the
+   * call as a request to remove the UI-managed ActionMap from the
+   * component's ActionMap parent chain.</p>
+   */
+  public static void replaceUIActionMap(JComponent component, 
+                                        ActionMap uiActionMap)
+  {
+    ActionMap child = component.getActionMap();
+    if (child == null)
+      component.setActionMap(uiActionMap);
+    else
+      {
+        while(child.getParent() != null
+              && !(child.getParent() instanceof ActionMapUIResource))
+          child = child.getParent();
+        if (child != null)
+          child.setParent(uiActionMap);
+      }
+  }
+
+  /**
+   * <p>Change the shared, UI-managed {@link InputMap} for a given
+   * component. InputMaps are arranged in a hierarchy, in order to
+   * encourage sharing of common input mappings between components. The
+   * hierarchy unfortunately places UI-managed InputMaps at the
+   * <em>end</em> of the parent-pointer chain, as illustrated:</p>
+   *
+   * <pre>
+   *  [{@link javax.swing.JComponent#getInputMap()}] 
+   *          --&gt; [{@link javax.swing.InputMap}] 
+   *     parent --&gt; [{@link javax.swing.text.KeymapWrapper}] 
+   *       parent --&gt; [{@link javax.swing.plaf.InputMapUIResource}]
+   * </pre>
+   *
+   * <p>Our goal with this method is to replace the first InputMap along
+   * this chain which is an instance of {@link InputMapUIResource}, since
+   * these are the InputMaps which are supposed to be shared between
+   * components.</p>
+   *
+   * <p>If the provided InputMap is <code>null</code>, we interpret the
+   * call as a request to remove the UI-managed InputMap from the
+   * component's InputMap parent chain.</p>
+   */
+  public static void replaceUIInputMap(JComponent component, 
+                                       int condition, 
+                                       InputMap uiInputMap)
+  {
+    InputMap child = component.getInputMap(condition);
+    if (child == null)
+      component.setInputMap(condition, uiInputMap);
+    else
+      {
+        while(child.getParent() != null
+              && !(child.getParent() instanceof InputMapUIResource))
+          child = child.getParent();
+        if (child != null)
+          child.setParent(uiInputMap);
+      }
+  }
 }

@@ -38,7 +38,6 @@ exception statement from your version. */
 package javax.swing.plaf.basic;
 
 import java.awt.event.MouseEvent;
-
 import javax.swing.JComponent;
 import javax.swing.JMenuItem;
 import javax.swing.MenuElement;
@@ -48,28 +47,54 @@ import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
 
 
+/**
+ * UI Delegator for JRadioButtonMenuItem
+ */
 public class BasicRadioButtonMenuItemUI extends BasicMenuItemUI
 {
-
+  /**
+   * Creates a new BasicRadioButtonMenuItemUI object.
+   */
   public BasicRadioButtonMenuItemUI()
-  {    
+  {
     super();
     UIDefaults defaults = UIManager.getLookAndFeelDefaults();
     checkIcon = defaults.getIcon("RadioButtonMenuItem.checkIcon");
   }
 
+  /**
+    * Factory method to create a BasicRadioButtonMenuItemUI for the given {@link
+    * JComponent}, which should be a JRadioButtonMenuItem.
+   *
+    * @param b The {@link JComponent} a UI is being created for.
+   *
+    * @return A BasicRadioButtonMenuItemUI for the {@link JComponent}.
+   */
   public static ComponentUI createUI(JComponent b)
   {
     return new BasicRadioButtonMenuItemUI();
   }
 
+  /**
+   * DOCUMENT ME!
+   *
+   * @return $returnType$ DOCUMENT ME!
+   */
   protected String getPropertyPrefix()
   {
     return null;
-    // TODO
   }
 
-  void processMouseEvent(JMenuItem item, MouseEvent e, MenuElement[] path,
+  /**
+   * DOCUMENT ME!
+   *
+   * @param item DOCUMENT ME!
+   * @param e DOCUMENT ME!
+   * @param path DOCUMENT ME!
+   * @param manager DOCUMENT ME!
+   */
+  public void processMouseEvent(JMenuItem item, MouseEvent e,
+                                MenuElement[] path,
                          MenuSelectionManager manager)
   {
   }

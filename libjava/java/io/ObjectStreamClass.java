@@ -57,6 +57,7 @@ import java.util.Hashtable;
 import java.util.Vector;
 import gnu.java.io.NullOutputStream;
 import gnu.java.lang.reflect.TypeSignature;
+import gnu.java.security.action.SetAccessibleAction;
 import gnu.java.security.provider.Gnu;
 
 
@@ -470,14 +471,8 @@ outer:
 		    }
 		}
 		final Method m = methods[i];
-		AccessController.doPrivileged(new PrivilegedAction()
-		{
-		    public Object run()
-		    {
-			m.setAccessible(true);
-			return null;
-		    }
-		});
+		SetAccessibleAction setAccessible = new SetAccessibleAction(m);
+		AccessController.doPrivileged(setAccessible);
 		return m;
 	    }
 	}
@@ -543,6 +538,8 @@ outer:
   // clazz.
   private void setFields(Class cl)
   {
+    SetAccessibleAction setAccessible = new SetAccessibleAction();
+
     if (!isSerializable() || isExternalizable())
       {
 	fields = NO_FIELDS;
@@ -551,17 +548,11 @@ outer:
 
     try
       {
-	final Field serialPersistentFields =
+	final Field f =
 	  cl.getDeclaredField("serialPersistentFields");
-	AccessController.doPrivileged(new PrivilegedAction()
-	{
-	    public Object run()
-	    {
-		serialPersistentFields.setAccessible(true);
-		return null;
-	    }
-	});
-	int modifiers = serialPersistentFields.getModifiers();
+	setAccessible.setMember(f);
+	AccessController.doPrivileged(setAccessible);
+	int modifiers = f.getModifiers();
 
 	if (Modifier.isStatic(modifiers)
 	    && Modifier.isFinal(modifiers)
@@ -617,14 +608,8 @@ outer:
       if (all_fields[from] != null)
 	{
 	  final Field f = all_fields[from];
-	  AccessController.doPrivileged(new PrivilegedAction()
-	  {
-	      public Object run()
-	      {
-		  f.setAccessible(true);
-		  return null;
-	      }
-	  });
+	  setAccessible.setMember(f);
+	  AccessController.doPrivileged(setAccessible);
 	  fields[to] = new ObjectStreamField(all_fields[from]);
 	  to++;
 	}
@@ -651,14 +636,8 @@ outer:
 	// may not be public AND we only want the serialVersionUID of this
 	// class, not a superclass or interface.
 	final Field suid = cl.getDeclaredField("serialVersionUID");
-	AccessController.doPrivileged(new PrivilegedAction()
-	{
-	    public Object run()
-	    {
-		suid.setAccessible(true);
-		return null;
-	    }
-	});
+	SetAccessibleAction setAccessible = new SetAccessibleAction(suid);
+	AccessController.doPrivileged(setAccessible);
 	int modifiers = suid.getModifiers();
 
 	if (Modifier.isStatic(modifiers)
@@ -832,6 +811,54 @@ outer:
     return fieldsArray;
   }
 
+  /**
+   * Returns a new instance of the Class this ObjectStreamClass corresponds
+   * to.
+   * Note that this should only be used for Externalizable classes.
+   *
+   * @return A new instance.
+   */
+  Externalizable newInstance() throws InvalidClassException
+  {
+    synchronized(this)
+    {
+	if (constructor == null)
+	{
+	    try
+	    {
+		final Constructor c = clazz.getConstructor(new Class[0]);
+
+		AccessController.doPrivileged(new PrivilegedAction()
+		{
+		    public Object run()
+		    {
+			c.setAccessible(true);
+			return null;
+		    }
+		});
+
+		constructor = c;
+	    }
+	    catch(NoSuchMethodException x)
+	    {
+		throw new InvalidClassException(clazz.getName(),
+		    "No public zero-argument constructor");
+	    }
+	}
+    }
+
+    try
+    {
+	return (Externalizable)constructor.newInstance(null);
+    }
+    catch(Throwable t)
+    {
+	throw (InvalidClassException)
+	    new InvalidClassException(clazz.getName(),
+		     "Unable to instantiate").initCause(t);
+    }
+  }
+
   public static final ObjectStreamField[] NO_FIELDS = {};
 
   private static Hashtable classLookupTable = new Hashtable();
@@ -861,6 +888,7 @@ outer:
   boolean realClassIsExternalizable;
   ObjectStreamField[] fieldMapping;
   Class firstNonSerializableParent;
+  private Constructor constructor;  // default constructor for Externalizable
 
   boolean isProxyClass = false;
 

@@ -68,6 +68,8 @@ details.  */
 
 using namespace gcj;
 
+bool gcj::verbose_class_flag;
+
 jclass
 java::lang::Class::forName (jstring className, jboolean initialize,
                             java::lang::ClassLoader *loader)
@@ -85,7 +87,7 @@ java::lang::Class::forName (jstring className, jboolean initialize,
     throw new java::lang::ClassNotFoundException (className);
 
   jclass klass = (buffer[0] == '[' 
-		  ? _Jv_FindClassFromSignature (name->data, loader)
+		  ? _Jv_FindClassFromSignature (name->chars(), loader)
 		  : _Jv_FindClass (name, loader));
 
   if (klass == NULL)
@@ -445,10 +447,7 @@ java::lang::Class::getDeclaredMethods (void)
 jstring
 java::lang::Class::getName (void)
 {
-  char buffer[name->length + 1];  
-  memcpy (buffer, name->data, name->length); 
-  buffer[name->length] = '\0';
-  return _Jv_NewStringUTF (buffer);
+  return name->toString();
 }
 
 JArray<jclass> *
@@ -932,7 +931,7 @@ _Jv_FindMethodInCache (jclass klass,
                        _Jv_Utf8Const *name,
                        _Jv_Utf8Const *signature)
 {
-  int index = name->hash & MCACHE_SIZE;
+  int index = name->hash16 () & MCACHE_SIZE;
   _Jv_mcache *mc = method_cache + index;
   _Jv_Method *m = mc->method;
 
@@ -950,7 +949,7 @@ _Jv_AddMethodToCache (jclass klass,
 {
   _Jv_MonitorEnter (&java::lang::Class::class$); 
 
-  int index = method->name->hash & MCACHE_SIZE;
+  int index = method->name->hash16 () & MCACHE_SIZE;
 
   method_cache[index].method = method;
   method_cache[index].klass = klass;
@@ -1181,8 +1180,8 @@ _Jv_CheckAssignment (java::lang::ClassLoader *loader,
                     _Jv_Utf8Const *source_name,
                     _Jv_Utf8Const *dest_name)
 {
-  jclass source = _Jv_FindClassFromSignature (source_name->data, loader);
-  jclass dest = _Jv_FindClassFromSignature (dest_name->data, loader);
+  jclass source = _Jv_FindClassFromSignature (source_name->chars(), loader);
+  jclass dest = _Jv_FindClassFromSignature (dest_name->chars(), loader);
 
   if (! _Jv_IsAssignableFromSlow (dest, source))
     {
