@@ -106,9 +106,6 @@ struct ehl_map_entry GTY(())
   struct eh_region *region;
 };
 
-static GTY ((param_is (struct ehl_map_entry))) 
-  htab_t exception_handler_label_map;
-
 static int call_site_base;
 static unsigned int sjlj_funcdef_number;
 static GTY ((param_is (union tree_node)))
@@ -137,7 +134,7 @@ struct eh_region GTY(())
 
   /* When a region is deleted, its parents inherit the REG_EH_REGION
      numbers already assigned.  */
-  bitmap GTY ((skip (""))) aka;
+  bitmap aka;
 
   /* Each region does exactly one thing.  */
   enum eh_region_type
@@ -242,6 +239,8 @@ struct eh_status GTY(())
   varray_type GTY ((varray_type (tree))) ttype_data;
   varray_type GTY ((varray_type (unsigned char))) ehspec_data;
   varray_type GTY ((varray_type (unsigned char))) action_record_data;
+
+  htab_t GTY ((param_is (struct ehl_map_entry))) exception_handler_label_map;
 
   struct call_site_record * GTY ((length ("%.call_site_data_used"))) 
     call_site_data;
@@ -492,12 +491,6 @@ free_eh_status (f)
   VARRAY_FREE (eh->action_record_data);
 
   f->eh = NULL;
-
-  if (exception_handler_label_map)
-    {
-      htab_delete (exception_handler_label_map);
-      exception_handler_label_map = NULL;
-    }
 }
 
 
@@ -1196,7 +1189,7 @@ add_ehl_entry (label, region)
   entry->region = region;
 
   slot = (struct ehl_map_entry **)
-    htab_find_slot (exception_handler_label_map, entry, INSERT);
+    htab_find_slot (cfun->eh->exception_handler_label_map, entry, INSERT);
 
   /* Before landing pad creation, each exception handler has its own
      label.  After landing pad creation, the exception handlers may
@@ -1221,13 +1214,13 @@ find_exception_handler_labels ()
 {
   int i;
 
-  if (exception_handler_label_map)
-    htab_empty (exception_handler_label_map);
+  if (cfun->eh->exception_handler_label_map)
+    htab_empty (cfun->eh->exception_handler_label_map);
   else
     {
       /* ??? The expansion factor here (3/2) must be greater than the htab
 	 occupancy factor (4/3) to avoid unnecessary resizing.  */
-      exception_handler_label_map
+      cfun->eh->exception_handler_label_map
         = htab_create_ggc (cfun->eh->last_region_number * 3 / 2,
 			   ehl_hash, ehl_eq, NULL);
     }
@@ -2357,16 +2350,16 @@ remove_exception_handler_label (label)
 
   /* If exception_handler_label_map was not built yet,
      there is nothing to do.  */
-  if (exception_handler_label_map == NULL)
+  if (cfun->eh->exception_handler_label_map == NULL)
     return;
 
   tmp.label = label;
   slot = (struct ehl_map_entry **)
-    htab_find_slot (exception_handler_label_map, &tmp, NO_INSERT);
+    htab_find_slot (cfun->eh->exception_handler_label_map, &tmp, NO_INSERT);
   if (! slot)
     abort ();
 
-  htab_clear_slot (exception_handler_label_map, (void **) slot);
+  htab_clear_slot (cfun->eh->exception_handler_label_map, (void **) slot);
 }
 
 /* Splice REGION from the region tree etc.  */
@@ -2396,7 +2389,7 @@ remove_eh_handler (region)
   if (outer)
     {
       if (!outer->aka)
-        outer->aka = BITMAP_XMALLOC ();
+        outer->aka = BITMAP_GGC_ALLOC ();
       if (region->aka)
 	bitmap_a_or_b (outer->aka, outer->aka, region->aka);
       bitmap_set_bit (outer->aka, region->region_number);
@@ -2477,7 +2470,7 @@ maybe_remove_eh_handler (label)
 
   tmp.label = label;
   slot = (struct ehl_map_entry **)
-    htab_find_slot (exception_handler_label_map, &tmp, NO_INSERT);
+    htab_find_slot (cfun->eh->exception_handler_label_map, &tmp, NO_INSERT);
   if (! slot)
     return;
   region = (*slot)->region;
@@ -2490,7 +2483,7 @@ maybe_remove_eh_handler (label)
      are no more contained calls, which we don't see here.  */
   if (region->type == ERT_MUST_NOT_THROW)
     {
-      htab_clear_slot (exception_handler_label_map, (void **) slot);
+      htab_clear_slot (cfun->eh->exception_handler_label_map, (void **) slot);
       region->label = NULL_RTX;
     }
   else
@@ -2504,7 +2497,7 @@ void
 for_each_eh_label (callback)
      void (*callback) PARAMS ((rtx));
 {
-  htab_traverse (exception_handler_label_map, for_each_eh_label_1,
+  htab_traverse (cfun->eh->exception_handler_label_map, for_each_eh_label_1,
 		 (void *)callback);
 }
 

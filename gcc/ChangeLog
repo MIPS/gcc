@@ -1,3 +1,42 @@
+2002-05-17  Geoffrey Keating  <geoffk@redhat.com>
+
+	* bitmap.c: Include ggc.h, gt-bitmap.h.
+	(bitmap_ggc_free): New.
+	(bitmap_elem_to_freelist): New.
+	(bitmap_element_free): Use bitmap_elem_to_freelist.
+	(bitmap_element_allocate): Allow use of GGC.
+	(bitmap_clear): Use bitmap_elem_to_freelist.
+	(bitmap_copy): Update for change to bitmap_element_allocate.
+	(bitmap_set_bit): Likewise.
+	(bitmap_operation): Update for changes elsewhere.
+	(bitmap_initialize): Allow to create bitmaps that will use GGC.
+	* bitmap.h (struct bitmap_element_def): Use gengtype.
+	(struct bitmap_head_def): Likewise.  Also add 'using_obstack' field.
+	(bitmap_initialize): Add extra parameter.
+	(BITMAP_OBSTACK_ALLOC): Update for change to bitmap_initialize.
+	(BITMAP_ALLOCA): Delete.
+	(BITMAP_XMALLOC): Update for change to bitmap_initialize.
+	(BITMAP_GGC_ALLOC): New.
+	* Makefile.in (gtype-desc.o): Add bitmap.h.
+	(bitmap.o): Add gt-bitmap.h, $(GGC_H).
+	(GTFILES): Add bitmap.c.
+	(gt-bitmap.h): New rule.
+	($(HOST_PREFIX_1)bitmap.o): Add gt-bitmap.h.
+	* basic-block.h: Update for changes to bitmap_initialize.
+	* except.c (exception_handler_label_map): Move into...
+	(struct eh_status): Here.
+	(struct eh_region): Make 'aka' GCable.
+	(free_eh_status): Don't need to specially handle
+	exception_handler_label_map.
+	(add_ehl_entry): Update for changes to exception_handler_label_map.
+	(find_exception_handler_labels): Likewise.
+	(remove_exception_handler_label): Likewise.
+	(maybe_remove_eh_handler): Likewise.
+	(for_each_eh_label): Likewise.
+	(remove_eh_handler): Allocate 'aka' using GGC.
+	* gengtype.c (get_output_file_with_visibility): Add bitmap.h
+	to list of includes.
+
 2002-05-15  Geoffrey Keating  <geoffk@redhat.com>
 
 	* gengtype.c (write_gc_marker_routine_for_structure): Name

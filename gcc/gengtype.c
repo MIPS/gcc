@@ -678,6 +678,7 @@ get_output_file_with_visibility (input_file)
 	  fputs ("#include \"system.h\"\n", fm->output);
 	  fputs ("#include \"varray.h\"\n", fm->output);
 	  fputs ("#include \"hashtab.h\"\n", fm->output);
+	  fputs ("#include \"bitmap.h\"\n", fm->output);
 	  fputs ("#include \"tree.h\"\n", fm->output);
 	  fputs ("#include \"rtl.h\"\n", fm->output);
 	  fputs ("#include \"function.h\"\n", fm->output);
