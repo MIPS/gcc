@@ -1081,11 +1081,11 @@ namespace std
     getline(basic_istream<_CharT, _Traits>& __in,
 	    basic_string<_CharT, _Traits, _Alloc>& __str, _CharT __delim)
     {
-      typedef basic_istream<_CharT, _Traits> 		__istream_type;
-      typedef typename __istream_type::int_type 	__int_type;
+      typedef basic_istream<_CharT, _Traits>		__istream_type;
+      typedef typename __istream_type::int_type		__int_type;
       typedef typename __istream_type::__streambuf_type __streambuf_type;
-      typedef typename __istream_type::__ctype_type 	__ctype_type;
-      typedef basic_string<_CharT, _Traits, _Alloc> 	__string_type;
+      typedef typename __istream_type::__ctype_type	__ctype_type;
+      typedef basic_string<_CharT, _Traits, _Alloc>	__string_type;
       typedef typename __string_type::size_type		__size_type;
 
       __size_type __extracted = 0;
@@ -1093,27 +1093,43 @@ namespace std
       bool __testdelim = false;
       ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
       typename __istream_type::sentry __cerb(__in, true);
-      if (__cerb) 
+      if (__cerb)
 	{
 	  try
 	    {
+	      // Avoid reallocation for common case.	      
 	      __str.erase();
-	      __int_type __idelim = _Traits::to_int_type(__delim);
-	      __streambuf_type* __sb = __in.rdbuf();
-	      __int_type __c = __sb->sbumpc();
+	      _CharT __buf[128];
+	      __size_type __len = 0;
+	      const __int_type __idelim = _Traits::to_int_type(__delim);
 	      const __int_type __eof = _Traits::eof();
-	      __testdelim = _Traits::eq_int_type(__c, __idelim);
-	      
-	      while (!_Traits::eq_int_type(__c, __eof) && !__testdelim
-		     && __extracted < __n)
+	      __streambuf_type* __sb = __in.rdbuf();
+	      __int_type __c = __sb->sgetc();
+
+	      while (__extracted < __n
+		     && !_Traits::eq_int_type(__c, __eof)
+		     && !_Traits::eq_int_type(__c, __idelim))
 		{
-		  __str += _Traits::to_char_type(__c);
+		  if (__len == sizeof(__buf) / sizeof(_CharT))
+		    {
+		      __str.append(__buf, sizeof(__buf) / sizeof(_CharT));
+		      __len = 0;
+		    }
+		  __buf[__len++] = _Traits::to_char_type(__c);
 		  ++__extracted;
-		  __c = __sb->sbumpc();
-		  __testdelim = _Traits::eq_int_type(__c, __idelim);
+		  __c = __sb->snextc();
 		}
+	      __str.append(__buf, __len);
+
 	      if (_Traits::eq_int_type(__c, __eof))
 		__err |= ios_base::eofbit;
+	      else if (_Traits::eq_int_type(__c, __idelim))
+		{
+		  __sb->sbumpc();
+		  ++__extracted;
+		}
+	      else
+		__err |= ios_base::failbit;
 	    }
 	  catch(...)
 	    {
@@ -1123,7 +1139,7 @@ namespace std
 	      __in._M_setstate(ios_base::badbit);
 	    }
 	}
-      if ((!__extracted && !__testdelim) || __extracted == __n)
+      if (!__extracted)
 	__err |= ios_base::failbit;
       if (__err)
 	__in.setstate(__err);
