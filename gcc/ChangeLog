@@ -1,3 +1,11 @@
+2004-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* fold-const.c (build_range_check): If !in_p and recursive call
+	fails, exit immediately.  If high - low overflows and etype is
+	a signed type, retry with unsigned etype.
+	(merge_ranges): If !in0_p and !in1_p, handle even range2 adjacent
+	to range1 at TYPE_MAX_VALUE and TYPE_MIN_VALUE.
+
 2004-05-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/ia64/linux.h (TARGET_ASM_FILE_END): Define.
