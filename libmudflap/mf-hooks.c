@@ -32,17 +32,15 @@ XXX: libgcc license?
 #define UNLIKELY(e) (__builtin_expect (!!(e), 0))
 #define LIKELY(e) (__builtin_expect (!!(e), 1))
 
+#define STRINGIFY2(e) #e
+#define STRINGIFY(e) STRINGIFY2(e)
 #define MF_VALIDATE_EXTENT(value,size)                        \
  {                                                            \
-  struct __mf_cache * elem =                                  \
-    & __mf_lookup_cache [((unsigned)value >> __mf_lc_shift) & \
-			 __mf_lc_mask];                       \
-  if (UNLIKELY ((elem->low > (unsigned)value) ||              \
-		(elem->high < (unsigned)value+size)))         \
+  if (UNLIKELY (__MF_CACHE_MISS_P (value, size)))             \
     {                                                         \
     mf_state resume_state = old_state;                        \
     __mf_state = old_state;                                   \
-    __mf_check ((unsigned)value, size);                       \
+    __mf_check ((unsigned)value, size, __FILE__ ":" STRINGIFY(__LINE__) " (" __PRETTY_FUNCTION__ ")" );                       \
     old_state = resume_state;                                 \
     }                                                         \
  }
@@ -69,6 +67,7 @@ XXX: libgcc license?
 
 
 /* {{{ malloc/free etc. */
+
 void *
 __wrap_malloc (size_t c)
 {
@@ -215,7 +214,6 @@ __wrap_free (void *buf)
   TRACE_OUT;
 }
 
-
 /* }}} */
 /* {{{ str*,mem*,b* */
 
@@ -291,7 +289,7 @@ __wrap_strcpy (char *dest, const char *src)
      check anyways. */
 
   BEGIN_PROTECT(char *, strcpy, dest, src); 
-  TRACE("mf: strcpy %p %s-> %p\n", src, dest);
+  TRACE("mf: strcpy %p -> %p\n", src, dest);
   n = __real_strlen (src);
   MF_VALIDATE_EXTENT(src, (n + 1)); 
   MF_VALIDATE_EXTENT(dest, (n + 1));
@@ -305,7 +303,7 @@ __wrap_strncpy (char *dest, const char *src, size_t n)
   int len;
 
   BEGIN_PROTECT(char *, strncpy, dest, src, n);
-  TRACE("mf: strncpy %d chars %p %s -> %p\n", n, src, dest);
+  TRACE("mf: strncpy %d chars %p -> %p\n", n, src, dest);
   len = __real_strnlen (src, n);
   MF_VALIDATE_EXTENT(src, len);
   MF_VALIDATE_EXTENT(dest, len); /* nb: strNcpy */

@@ -2,33 +2,45 @@
 #define __MF_RUNTIME_H
 
 
+/* ------------------------------------------------------------------------ */
+/* Public libmudflap declarations */
+
 #ifndef HAVE_UINTPTR_T
 #define HAVE_UINTPTR_T
 typedef unsigned long uintptr_t;
 #endif
 
 struct __mf_cache { uintptr_t low; uintptr_t high; };
-
 extern struct __mf_cache __mf_lookup_cache [];
 extern uintptr_t __mf_lc_mask;
 extern unsigned char __mf_lc_shift;
+#define __MF_CACHE_INDEX(ptr) ((((uintptr_t) (ptr)) >> __mf_lc_shift) & __mf_lc_mask)
+#define __MF_CACHE_MISS_P(ptr,sz) ({ \
+             struct __mf_cache *elem = & __mf_lookup_cache[__MF_CACHE_INDEX((ptr))]; \
+             ((elem->low > (uintptr_t) (ptr)) ||                  \
+	      (elem->high < ((uintptr_t) (ptr) + (uintptr_t) ((sz) - 1)))); })
+/* XXX: the above should use CLAMPSZ () */
+extern void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location);
+
+
+/* ------------------------------------------------------------------------ */
+/* Internal libmudflap declarations */
+/* XXX: should be in a separate file.  */
 
 typedef enum {inactive, starting, active, reentrant} mf_state;
 extern mf_state __mf_state;
-
 #define UNLIKELY(e) (__builtin_expect (!!(e), 0))
 #define LIKELY(e) (__builtin_expect (!!(e), 1))
 
-#define __MF_CACHE_INDEX(ptr) ((((uintptr_t) (ptr)) >> __mf_lc_shift) & __mf_lc_mask)
-
 extern void __mf_init_heuristics ();
 
-extern void __mf_check (uintptr_t ptr, uintptr_t sz);
 #define __MF_VIOL_UNKNOWN 0
 #define __MF_VIOL_CHECK 1
 #define __MF_VIOL_REGISTER 2
 #define __MF_VIOL_UNREGISTER 3
-extern void __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type);
+extern void __mf_violation (uintptr_t ptr, uintptr_t sz, 
+			    uintptr_t pc, const char *location, 
+			    int type);
 #define __MF_TYPE_UNKNOWN 0
 #define __MF_TYPE_HEAP 1
 #define __MF_TYPE_STACK 2
@@ -37,6 +49,7 @@ extern void __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 extern void __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name);
 extern void __mf_unregister (uintptr_t ptr, uintptr_t sz);
 extern void __mf_report ();
+extern size_t __mf_backtrace (char ***, void *, unsigned);
 
 #define __MF_PERSIST_MAX 256
 #define __MF_FREEQ_MAX 256

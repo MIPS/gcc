@@ -51,6 +51,7 @@ static void mf_init_extern_trees PARAMS ((void));
 static void mf_decl_extern_trees PARAMS ((void));
 static tree mf_find_addrof PARAMS ((tree, tree));
 static tree mf_varname_tree PARAMS ((tree));
+static tree mf_file_function_line_tree PARAMS ((const char *, int));
 static void mf_enqueue_register_call PARAMS ((const char*, tree, tree, tree));
 static void mf_flush_enqueued_calls PARAMS ((void));
 static tree mx_external_ref PARAMS ((tree, int));
@@ -168,7 +169,7 @@ static GTY (()) tree mf_cache_structptr_type; /* struct __mf_cache * const */
 static GTY (()) tree mf_cache_array_decl;  /* extern struct __mf_cache __mf_lookup_cache []; */
 static GTY (()) tree mf_cache_shift_decl;  /* extern const unsigned char __mf_lc_shift; */
 static GTY (()) tree mf_cache_mask_decl;   /* extern const uintptr_t __mf_lc_mask; */
-static GTY (()) tree mf_check_fndecl;      /* extern void __mf_check (void *ptr, size_t sz); */
+static GTY (()) tree mf_check_fndecl;      /* extern void __mf_check (void *ptr, size_t sz, const char *); */
 static GTY (()) tree mf_register_fndecl;   /* extern void __mf_register (void *ptr, size_t sz, int type, const char *); */
 static GTY (()) tree mf_unregister_fndecl; /* extern void __mf_unregister (void *ptr, size_t sz); */
 
@@ -239,7 +240,9 @@ mf_init_extern_trees ()
 					    mf_uintptr_type,
 					    tree_cons (NULL_TREE, 
 						       mf_uintptr_type,
-						       NULL_TREE))));
+						       tree_cons (NULL_TREE,
+								  const_string_type_node,
+								  NULL_TREE)))));
   DECL_EXTERNAL (mf_check_fndecl) = 1;
   DECL_ARTIFICIAL (mf_check_fndecl) = 1;
   TREE_PUBLIC (mf_check_fndecl) = 1;
@@ -386,6 +389,56 @@ mf_varname_tree (decl)
 }
 
 
+/* And another friend, for producing a simpler message.  */
+static tree
+mf_file_function_line_tree (file, line)
+     const char * file;
+     int line;
+{
+  output_buffer buf_rec;
+  output_buffer *buf = & buf_rec;
+  const char *buf_contents;
+  tree result;
+
+  init_output_buffer (buf, /* prefix */ NULL, /* line-width */ 0);
+
+  /* Add FILENAME[:LINENUMBER]. */
+  if (file == NULL && current_function_decl != NULL_TREE)
+    file = DECL_SOURCE_FILE (current_function_decl);
+  if (file == NULL)
+    file = "<unknown file>";
+  output_add_string (buf, file);
+
+  if (line > 0)
+    {
+      output_add_string (buf, ":");
+      output_decimal (buf, line);
+    }
+
+  /* Add (FUNCTION) */
+  if (current_function_decl != NULL_TREE)
+    {
+      output_add_string (buf, " (");
+      {
+	const char *funcname;
+	if (DECL_NAME (current_function_decl))
+	  funcname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+	if (funcname == NULL)
+	  funcname = "anonymous fn";
+	
+	output_add_string (buf, funcname);
+      }
+      output_add_string (buf, ")");
+    }
+
+  /* Return the lot as a new STRING_CST.  */
+  buf_contents = output_finalize_message (buf);
+  result = fix_string_type (build_string (strlen (buf_contents) + 1, buf_contents));
+
+  return mx_flag (result);
+}
+
+
 
 /* 
    assuming the declaration "foo a[xdim][ydim][zdim];", we will get
@@ -449,13 +502,16 @@ mf_offset_expr_of_array_ref (t, offset, base)
 
 
 tree 
-mf_build_check_statement_for (ptrvalue, finale)
+mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
      tree ptrvalue;
      tree *finale;
+     const char *filename;
+     int lineno;
 {
   tree ptrtype = TREE_TYPE (ptrvalue);
   tree myptrtype = build_qualified_type (ptrtype, TYPE_QUAL_CONST);
-  
+  tree location_string;
+
   tree t1_1;
   tree t1_2, t1_2_1;
   tree t1_3, t1_3_1;
@@ -466,6 +522,8 @@ mf_build_check_statement_for (ptrvalue, finale)
   tree t0;
 
   tree return_type, return_value;
+
+  location_string = mf_file_function_line_tree (filename, lineno);
   
   /* ({ */
   t1_1 = build_stmt (SCOPE_STMT, NULL_TREE);
@@ -534,7 +592,9 @@ mf_build_check_statement_for (ptrvalue, finale)
 						      convert (mf_uintptr_type, 
 							       TYPE_SIZE_UNIT 
 							       (TREE_TYPE (TREE_TYPE (ptrvalue)))),
-						      NULL_TREE)));
+						      tree_cons (NULL_TREE,
+								 location_string,
+								 NULL_TREE))));
   
   t1_4 = build_stmt (IF_STMT, 
 		     t1_4_1,
@@ -581,7 +641,7 @@ mf_build_check_statement_for (ptrvalue, finale)
 			     & __mf_lookup_cache [((unsigned)value >> __mf_shift) &
                                                   __mf_mask];
 			if (UNLIKELY ((elem->low > value) ||
-			              (elem->high < value+sizeof(TYPE))))
+			              (elem->high < value+sizeof(TYPE)-1)))
 			   __mf_check (value, sizeof(TYPE));
                         value;})
 
@@ -591,22 +651,37 @@ mf_build_check_statement_for (ptrvalue, finale)
        (INDIRECT_REF (tree + (.... + sizeM*sizeO*indexO + sizeM*indexM + indexN))
 */
 
+
 static tree
 mx_xfn_indirect_ref (t, continue_p, data)
      tree *t;
      int *continue_p;
      void *data; /* NOTUSED */
 {
+  static const char *last_filename = NULL;
+  static int last_lineno = -1;
+
 #if 0
   fprintf (stderr, "expr=%s\n", tree_code_name [TREE_CODE (*t)]);
 #endif
-
+  
   *continue_p = 1;
 
   /* Avoid infinite recursion of transforming transformed code. */
   if (TREE_MUDFLAPPED_P (*t))
     return NULL_TREE;
 
+  /* Track file-name/line-numbers.  */
+  if (statement_code_p (TREE_CODE (*t)))
+    last_lineno = STMT_LINENO (*t);
+  else if (TREE_CODE (*t) == FILE_STMT)
+    last_filename = FILE_STMT_FILENAME (*t);
+  else if (TREE_CODE (*t) == EXPR_WITH_FILE_LOCATION)
+    {
+      last_filename = EXPR_WFL_FILENAME (*t);
+      last_lineno = EXPR_WFL_LINENO (*t);
+    }
+      
   /* Process some node types.  */
   switch (TREE_CODE (*t))
     {
@@ -615,7 +690,6 @@ mx_xfn_indirect_ref (t, continue_p, data)
       break;
 
     case ARRAY_REF:
-
       {
 	tree base_array, base_obj_type, base_ptr_type;
 	tree offset_expr;
@@ -650,7 +724,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 			  TYPE_SIZE_UNIT (base_obj_type),
 			  offset_expr))));
 	
-	tmp = mf_build_check_statement_for (check_ptr, t);
+	tmp = mf_build_check_statement_for (check_ptr, t, last_filename, last_lineno);
 	*t = tmp;	
 	mx_flag (*t);
 
@@ -677,7 +751,8 @@ mx_xfn_indirect_ref (t, continue_p, data)
       
       /* Substitute check statement for ptrvalue in INDIRECT_REF.  */
       TREE_OPERAND (*t, 0) = 
-	mf_build_check_statement_for (TREE_OPERAND (*t, 0), NULL);
+	mf_build_check_statement_for (TREE_OPERAND (*t, 0), NULL, 
+				      last_filename, last_lineno);
 	
 	/*
 	  fprintf (stderr, "\n");

@@ -1,3 +1,19 @@
+2002-08-21  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks.c (MF_VALIDATE_EXTENT): Rewrite to correct off-by-one
+	error.  Pass location string.
+	(wrap_strcpy, wrap_strncpy): Remove extra %s in trace strings.
+	* mf-runtime.c (options): Add lc-mask, lc-shift options.
+	(__mf_process_opts): Apply some sanity checking for lc-mask.
+	(__mf_check, __mf_violation): Take new location-string argument.
+	Update callers to pass NULL if necessary.
+	(__mf_backtrace): New smart backtracer function.  Calls replace
+	several ad-hoc blocks elsewhere.
+	(__mf_describe_object): Remove bad reentrancy test.  Improve
+	tracing message.
+	* mf-runtime.h: Corresponding changes.  Public/private markup.
+	(__MF_CACHE_MISS_P): New macro.
+
 2002-08-20  Graydon Hoare  <graydon@redhat.com>
 
 	* mf-runtime.h: New option: stack_bound (heuristic). 

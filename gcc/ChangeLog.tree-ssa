@@ -1,3 +1,14 @@
+2002-08-21  Frank Ch. Eigler  <fche@redhat.com>
+
+	Support source-file/line coordinates in check/violation messages.
+	* tree-mudflap.c (mf_init_extern_trees): Add new "location" formal
+	arg to __mf_check.
+	(mf_file_function_line_tree): New function to build an actual location
+	string.
+	(build_check_statement_for): Call it / pass it.
+	(mx_xfn_indirect_ref): Track source file/line location via
+	STMT_LINENO, FILE_STMT, EXPR_WITH_FILE_LOCATION traversal memos.
+
 2002-08-21  Daniel Berlin  <dberlin@dberlin.org>
 
 	* dominance.c: Cache immediate dominators.

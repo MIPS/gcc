@@ -51,7 +51,26 @@ XXX: libgcc license?
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
-/* {{{ Configuration macros */
+/* {{{ Required globals.  */
+
+#ifndef LOOKUP_CACHE_MASK_DFL
+#define LOOKUP_CACHE_MASK_DFL 1023
+#endif
+#ifndef LOOKUP_CACHE_SIZE_MAX
+#define LOOKUP_CACHE_SIZE_MAX 4096 /* Allows max CACHE_MASK 0x0FFF */
+#endif
+#ifndef LOOKUP_CACHE_SHIFT_DFL
+#define LOOKUP_CACHE_SHIFT_DFL 2
+#endif
+
+struct __mf_cache __mf_lookup_cache [LOOKUP_CACHE_SIZE_MAX];
+uintptr_t __mf_lc_mask = LOOKUP_CACHE_MASK_DFL;
+unsigned char __mf_lc_shift = LOOKUP_CACHE_SHIFT_DFL;
+#define LOOKUP_CACHE_SIZE (__mf_lc_mask + 1)
+
+/* }}} */
+/* ------------------------------------------------------------------------ */
+/* {{{ Configuration engine */
 
 struct __mf_options __mf_opts;
 
@@ -154,7 +173,6 @@ options [] =
     {"heur-proc-map", 
      "support /proc/self/map heuristics",
      set_option, 1, &__mf_opts.heur_proc_map},
-
     {"stack-bound",
      "enable a simple upper stack bound heuristic",
      set_option, 1, &__mf_opts.stack_bound},
@@ -168,6 +186,12 @@ options [] =
     {"crumple-zone", 
      "surround allocations with crumple zones of N bytes",
      read_integer_option, 0, &__mf_opts.crumple_zone},
+    {"lc-mask", 
+     "set lookup cache size mask to N (2**M - 1)",
+     read_integer_option, 0, &__mf_lc_mask},
+    {"lc-shift", 
+     "set lookup cache pointer shift",
+     read_integer_option, 0, &__mf_lc_shift},
     {"backtrace", 
      "keep an N-level stack trace of each call context",
      read_integer_option, 0, &__mf_opts.backtrace},
@@ -248,7 +272,6 @@ __mf_process_opts (char *optstr)
 		__mf_usage ();
 		exit (0);
 	      }
-
 	    
 	    if (strncmp (optstr, "no-", 3) == 0)
 	      {
@@ -299,6 +322,10 @@ __mf_process_opts (char *optstr)
 	break;
       }
     }
+
+  /* Special post-processing: bound __mf_lc_mask for security. */
+  __mf_lc_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
+
   return 1;
 }
 
@@ -329,7 +356,6 @@ void __mf_init ()
     }
 
   __mf_init_heuristics ();
-
   __mf_state = active;
 
   TRACE_OUT;
@@ -343,45 +369,6 @@ void __mf_fini ()
   __mf_report ();
   TRACE_OUT;
 }
-
-
-
-
-
-/*
-  Option selection.  Any of these macros may be defined:
-  
-  OPT_TRACE   - emit a trace message for each call
-  OPT_STATS   - collect statistics
-  OPT_FREEQ   - use a queue of <N> buffers for deferring user free() calls
-  OPT_PERSIST - keep history of <N> __mf_unregister'd objects of each class
-  OPT_BKTRACE - store <N>-level stack backtrace for better warning messages
-  OPT_INIT    - emit ctor/dtor __mf_init/_fini
-  OPT_THREADS - support multithreaded applications (XXX: not implemented)
-  OPT_INTCHK  - include mudflap internal checks
-  OPT_LEAK    - print a list of leaked heap objects on shutdown
-  OPT_HELPFUL - give verbose help at violation
-  OPT_TREEOPT - periodically rotate the object database tree for optimization
-*/
-
-/* }}} */
-/* ------------------------------------------------------------------------ */
-/* {{{ Required globals.  */
-
-#ifndef LOOKUP_CACHE_MASK_DFL
-#define LOOKUP_CACHE_MASK_DFL 1023
-#endif
-#ifndef LOOKUP_CACHE_SIZE_MAX
-#define LOOKUP_CACHE_SIZE_MAX 4096 /* Allows max CACHE_MASK 0x0FFF */
-#endif
-#ifndef LOOKUP_CACHE_SHIFT_DFL
-#define LOOKUP_CACHE_SHIFT_DFL 2
-#endif
-
-struct __mf_cache __mf_lookup_cache [LOOKUP_CACHE_SIZE_MAX];
-uintptr_t __mf_lc_mask = LOOKUP_CACHE_MASK_DFL;
-unsigned char __mf_lc_shift = LOOKUP_CACHE_SHIFT_DFL;
-#define LOOKUP_CACHE_SIZE (__mf_lc_mask + 1)
 
 /* }}} */
 /* ------------------------------------------------------------------------ */
@@ -446,7 +433,7 @@ static void __mf_describe_object (__mf_object_t *obj);
 /* ------------------------------------------------------------------------ */
 /* {{{ __mf_check */
 
-void __mf_check (uintptr_t ptr, uintptr_t sz)
+void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 {
   unsigned entry_idx = __MF_CACHE_INDEX (ptr);
   struct __mf_cache *entry = & __mf_lookup_cache [entry_idx];
@@ -503,11 +490,13 @@ void __mf_check (uintptr_t ptr, uintptr_t sz)
 	__mf_lookup_cache_reusecount [entry_idx] ++;    
     }
   
-  TRACE ("mf: check p=%p s=%lu viol=%d\n", (void *)ptr, sz, violation_p);
+  TRACE ("mf: check p=%p s=%lu viol=%d location=%s\n", (void *)ptr, sz, 
+	 violation_p, location);
   END_RECURSION_PROTECT;
   
   if (UNLIKELY (violation_p))
-    __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0), 
+    __mf_violation (ptr, sz,
+		    (uintptr_t) __builtin_return_address (0), location,
 		    __MF_VIOL_CHECK);
 }
 
@@ -530,13 +519,9 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
   gettimeofday (& new_obj->data.alloc_time, NULL);
   
   if (__mf_opts.backtrace > 0)
-    {
-      void *array [__mf_opts.backtrace];
-      size_t bt_size;
-      bt_size = backtrace (array, __mf_opts.backtrace);
-      new_obj->data.alloc_backtrace = backtrace_symbols (array, bt_size);
-      new_obj->data.alloc_backtrace_size = bt_size;
-    }
+    new_obj->data.alloc_backtrace_size = 
+      __mf_backtrace (& new_obj->data.alloc_backtrace,
+		      (void *) pc, 2);
   
   __mf_link_object (new_obj);
   return new_obj;
@@ -584,7 +569,8 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
       
     case mode_violate:
       __mf_violation (ptr, sz, (uintptr_t) 
-		      __builtin_return_address (0), __MF_VIOL_REGISTER);
+		      __builtin_return_address (0), NULL,
+		      __MF_VIOL_REGISTER);
       break;
 
     case mode_populate:
@@ -688,7 +674,8 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 			/* Two or more *real* mappings here. */
 			TRACE("mf: reg violation %p\n", (void *)low);
 			__mf_violation 
-			  (ptr, sz, (uintptr_t) __builtin_return_address (0),
+			  (ptr, sz, 
+			   (uintptr_t) __builtin_return_address (0), NULL,
 			   __MF_VIOL_REGISTER);
 		      }
 		  }
@@ -732,7 +719,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
       break;
 
     case mode_violate:
-      __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0), 
+      __mf_violation (ptr, sz,
+		      (uintptr_t) __builtin_return_address (0), NULL,
 		      __MF_VIOL_UNREGISTER);
       break;
 
@@ -773,7 +761,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	    /* XXX: also: should match ptr == old_obj->low ? */
 	    TRACE("mf: unreg viol %p\n", (void *)ptr);
 	    END_RECURSION_PROTECT;
-	    __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0),
+	    __mf_violation (ptr, sz,
+			    (uintptr_t) __builtin_return_address (0), NULL,
 			    __MF_VIOL_UNREGISTER);
 	    return;
 	  }
@@ -792,13 +781,10 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	    gettimeofday (& old_obj->data.dealloc_time, NULL);
 	    
 	    if (__mf_opts.backtrace > 0)
-	      {
-		void *array [__mf_opts.backtrace];
-		size_t bt_size;
-		bt_size = backtrace (array, __mf_opts.backtrace);
-		old_obj->data.dealloc_backtrace = backtrace_symbols (array, bt_size);
-		old_obj->data.dealloc_backtrace_size = bt_size;
-	      }
+	      old_obj->data.dealloc_backtrace_size = 
+		__mf_backtrace (& old_obj->data.dealloc_backtrace,
+				NULL, 2);
+
 	    
 	    /* Put this object into the cemetary.  This may require this plot to
 	       be recycled, and the previous resident to be designated del_obj.  */
@@ -837,7 +823,6 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	  {
 	    if (__mf_opts.backtrace > 0)
 	      {
-
 		__real_free (del_obj->data.alloc_backtrace);
 		if (__mf_opts.persistent_count > 0)
 		  __real_free (del_obj->data.dealloc_backtrace);
@@ -1183,14 +1168,14 @@ __mf_find_dead_objects (uintptr_t low, uintptr_t high,
 static void
 __mf_describe_object (__mf_object_t *obj)
 {
-
-  if (UNLIKELY (__mf_state != active)) return;
+  /* if (UNLIKELY (__mf_state != active)) return; */
 
   fprintf (stderr,
 	   "mudflap object %08lx: name=`%s'\n"
-	   "bounds=[%08lx,%08lx] area=%s access-count=%u\n"
+	   "bounds=[%08lx,%08lx] size=%lu area=%s access-count=%u\n"
 	   "alloc time=%lu.%06lu pc=%08lx\n",
-	   obj, (obj->name ? obj->name : ""), obj->low, obj->high,
+	   obj, (obj->name ? obj->name : ""), 
+	   obj->low, obj->high, (obj->high - obj->low + 1),
 	   (obj->type == __MF_TYPE_HEAP ? "heap" :
 	    obj->type == __MF_TYPE_STACK ? "stack" :
 	    obj->type == __MF_TYPE_STATIC ? "static" :
@@ -1251,8 +1236,7 @@ __mf_report_leaks (__mf_object_tree_t *node)
 void
 __mf_report ()
 {
-
-  if (UNLIKELY (__mf_state == active)) return;
+  /* if (UNLIKELY (__mf_state == active)) return; */
 
   if (__mf_opts.collect_stats)
     {
@@ -1316,11 +1300,48 @@ __mf_report ()
 }
 
 /* }}} */
+/* {{{ __mf_backtrace */
+
+size_t
+__mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
+{
+  void ** pc_array;
+  unsigned pc_array_size = __mf_opts.backtrace + guess_omit_levels;
+  unsigned remaining_size;
+  unsigned omitted_size = 0;
+  unsigned i;
+
+  pc_array = alloca (pc_array_size * sizeof (void *));
+  pc_array_size = backtrace (pc_array, pc_array_size);
+
+  /* We want to trim the first few levels of the stack traceback,
+     since they contain libmudflap wrappers and junk.  If pc_array[]
+     ends up containing a non-NULL guess_pc, then trim everything
+     before that.  Otherwise, omit the first guess_omit_levels
+     entries. */
+  
+  if (guess_pc != NULL)
+    for (i=0; i<pc_array_size; i++)
+      if (pc_array [i] == guess_pc)
+	omitted_size = i;
+
+  if (omitted_size == 0) /* No match? */
+    if (pc_array_size > guess_omit_levels)
+      omitted_size = guess_omit_levels;
+
+  remaining_size = pc_array_size - omitted_size;
+
+  *symbols = backtrace_symbols (pc_array + omitted_size, remaining_size);
+  return remaining_size;
+}
+
+/* }}} */
 /* ------------------------------------------------------------------------ */
 /* {{{ __mf_violation */
 
 void
-__mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
+__mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, 
+		const char *location, int type)
 {
   char buf [128];
   static unsigned violation_number;
@@ -1328,7 +1349,8 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 
   BEGIN_RECURSION_PROTECT;
 
-  TRACE("mf: violation pc=%p type=%d ptr=%p sz=%d\n", pc, type, ptr, sz);
+  TRACE("mf: violation pc=%p location=%s type=%d ptr=%p size=%lu\n", pc, 
+	(location != NULL ? location : ""), type, ptr, sz);
 
   if (__mf_opts.collect_stats)
     __mf_count_violation [(type < 0) ? 0 :
@@ -1346,9 +1368,12 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
     violation_number ++;
     fprintf (stderr,
 	     "*******\n"
-	     "mudflap violation %u: time=%lu.%06lu ptr=%08lx size=%lx pc=%08lx type=%s\n", 
+	     "mudflap violation %u: time=%lu.%06lu ptr=%08lx size=%lu pc=%08lx%s%s%s type=%s\n", 
 	     violation_number,
 	     now.tv_sec, now.tv_usec, ptr, sz, pc,
+	     (location != NULL ? " location=`" : ""),
+	     (location != NULL ? location : ""),
+	     (location != NULL ? "'" : ""),
 	     ((type == __MF_VIOL_CHECK) ? "check" :
 	      (type == __MF_VIOL_REGISTER) ? "register" :
 	      (type == __MF_VIOL_UNREGISTER) ? "unregister" :
@@ -1356,18 +1381,15 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 
     if (__mf_opts.backtrace > 0)
       {
-	void *array [__mf_opts.backtrace];
-	size_t bt_size;
 	char ** symbols;
-	int i;
+	unsigned i, num;
 	
-	bt_size = backtrace (array, __mf_opts.backtrace);
+	num = __mf_backtrace (& symbols, (void *) pc, 2);
 	/* Note: backtrace_symbols calls malloc().  But since we're in
 	   __mf_violation and presumably __mf_check, it'll detect
 	   recursion, and not put the new string into the database.  */
-	symbols = backtrace_symbols (array, bt_size);
 	
-	for (i=0; i<bt_size; i++)
+	for (i=0; i<num; i++)
 	  fprintf (stderr, "      %s\n", symbols[i]);
 	
 	/* Calling free() here would trigger a violation.  */
@@ -1447,6 +1469,13 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
     case viol_gdb:
       snprintf (buf, 128, "gdb --pid=%d", getpid ());
       system (buf);
+      /* XXX: should probably fork() && sleep(GDB_WAIT_PARAMETER)
+      instead, and let the forked child execlp() gdb.  That way, this
+      subject process can be resumed under the supervision of gdb.
+      This can't happen now, since system() only returns when gdb
+      dies.  In that case, we need to beware of starting a second
+      concurrent gdb child upon the next violation.  (But if the first
+      gdb dies, then starting a new one is appropriate.)  */
       break;
     }
   
