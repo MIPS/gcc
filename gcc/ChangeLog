@@ -22,12 +22,210 @@ Sat Nov 16 02:17:48 CET 2002  Jan Hubicka  <jh@suse.cz>
 	(fop_tf_6): Rewrite
 	(fop_tf_7): Delete.
 
+2002-11-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (optimization_options): Set
+	flag_asynchronous_unwind_tables to 1 by default.
+
+2002-11-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.h (ASM_PREFERRED_EH_DATA_FORMAT): Define.
+
+Fri Nov 15 14:54:19 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386-protos.h (x86_function_profiler): New function
+	* i386.h (MCOUNT_NAME): New.
+	(PROFILE_COUNT_REGISTER): New.
+	(FUNCTION_PROFILER): Move offline to ...
+	* i386.c (x86_function_profiler) ... here; fix 64bit support
+	* beos-elf.h (FUNCTION_PROFILER): Kill.
+	(MCOUNT_NAME): New.
+	* freebsd-aout.h (FUNCTION_PROFILER): Kill.
+	(MCOUNT_NAME): New.
+	(PROFILE_COUNT_REGISTER): New.
+	* linux.h (FUNCTION_PROFILER): Kill.
+	(MCOUNT_NAME): New.
+	* x86-64.h (FUNCTION_PROFILER): Kill.
+	(MCOUNT_NAME): New.
+	* freebsd.h (FUNCTION_PROFILER): Kill.
+	(MCOUNT_NAME): New.
+
+2002-11-14  Jeroen Dobbelaere  <jeroen.dobbelaere@acunia.com>
+
+	* config/arm/arm.h (EXPAND_BUILTIN_VA_ARG,
+	FUNCTION_ARG_PASS_BY_REFERENCE): Define.
+	* config/arm/arm.c (arm_va_arg,
+	arm_function_arg_pass_by_reference): New.
+	* config/arm/arm-protos.h: Add prototypes.
+
+2002-11-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gthr-single.h: Fix formatting.
+
+2002-11-14  Zack Weinberg  <zack@codesourcery.com>
+
+	* tree.c (tree_vec_elt_check_failed): New function.
+	* tree.h (TREE_VEC_ELT_CHECK): New checking macro.
+	(TREE_VEC_ELT): Use it.
+
+	* tree-inline.c (optimize_inline_calls): Don't copy a
+	zero-length vector.
+
+2002-11-14  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* diagnostic.c (sorry): Don't repeat "sorry, unimplemented" text.
+
+2002-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (output_addressed_constants) [MINUS_EXPR]: Clear reloc if
+	both operands contain local relocations.
+	(categorize_decl_for_section): Don't use mergeable sections if
+	initializer has any relocations.
+
+2002-11-14  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gthr-vxworks.h: Fix formatting.
+
+2002-11-13  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/install.texi (Testing): Document extra Java testing.
+	* doc/sourcebuild.texi (Test Suites): Document libgcj testing.
+
+2002-11-13  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa64-hpux.h (LINK_SPEC): Move "+Accept TypeMismatch" switch to the
+	beginning of the spec.
+	(LDD_SUFFIX, PARSE_LDD_OUTPUT): Delete.
+	(LD_INIT_SWITCH, LD_FINI_SWITCH): Define but don't enable.  Add comment
+	regarding problems with global constructors when using GNU ld.
+
+2002-11-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gthr-solaris.h: Fix formatting.
+
+2002-11-13  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gthr-posix.h: Fix formatting.
+
 2002-11-12  Devang Patel <dpatel@apple.com>
 
-	*gcc.c (display_help): Two new options -Xpreprocessor and -Xassembler.
+	* gcc.c (display_help): Two new options -Xpreprocessor and -Xassembler.
 	(process_command): Same.
-	*doc/invoke.texi: Info about these two new options.
-	
+	* doc/invoke.texi: Info about these two new options.
+
+2002-11-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (*andorsi3): New.
+
+2002-11-12  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* doc/install.texi (powerpc-*-linux-gnu*): Update binutils requirement.
+
+2002-11-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (tiny_constant_address_p): Parenthesize
+	expressions appropriately.
+
+2002-11-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gthr-win32.h: Fix formatting.
+
+2002-11-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (single_one_operand): Correctly compute
+	mask when mode is SImode.
+	(single_zero_operand): Likewise.
+	* config/h8300/h8300.md (two new anonymous insns): New.
+
+2002-11-12  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Use GCJ instead of gcj to refer
+	to that entire project.
+
+2002-11-12  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/mips/t-iris6 (MULTILIB_OSDIRNAMES): Restore old
+	directories.
+
+2002-11-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* params.def (ggc-min-expand, ggc-min-heapsize): New parameters.
+	* doc/invoke.texi: Document them.
+
+	* ggc-page.c: Include params.h.  Remove definitions of
+	GGC_MIN_EXPAND_FOR_GC, GGC_MIN_LAST_ALLOCATED.  Replace
+	GGC_POISON with ENABLE_GC_CHECKING in ifdefs, delete #define.
+	(init_gcc): Don't set G.allocated_last_gc here.
+	(ggc_collect): Use PARAM_VALUE (GGC_MIN_HEAPSIZE) and
+	PARAM_VALUE (GGC_MIN_EXPAND) to decide whether or not to
+	perform collection.
+	* ggc-simple.c: Similarly.
+	* Makefile.in (ggc-common.o, ggc-simple.o): Add $(PARAMS_H) to
+	dependencies.
+
+2002-11-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gthr-dce.h: Fix formatting.
+
+2002-11-11  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR c/8467
+	* stmt.c (tail_recursion_args): Handle DECL_MODE differing from the
+	mode of DECL_RTL case.
+
+2002-11-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/contrib.texi: Merge in the list from the libstdc++ web pages.
+
+Mon Nov 11 12:06:08 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (construct_container): Fix handling of SSE_CLASS.
+
+2002-11-10  Joel Sherrill <joel@gcc.gnu.org>
+
+	* config/m68k/t-crtstuff (crti.o): Use this...
+	($(T)crti.o): ... instead.
+	(crtn.o): Use this...
+	($(T)crtn.o): ... instead.
+
+2002-11-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8439
+	* recog.c (validate_replace_rtx_1) [PLUS]: Simplify only
+	if there is something new to be simplified.
+
+2002-11-10  H.J. Lu <hjl@gnu.org>
+
+	* calls.c (PUSH_ARGS_REVERSED): Define only if not defined.
+	* expr.c (PUSH_ARGS_REVERSED): Likewise.
+
+	* config/i386/i386.h (PUSH_ARGS_REVERSED): Set to 1.
+
+2002-11-10  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/rs6000/sysv4.h: Define NO_IMPLICIT_EXTERN_C here...
+	* config/rs6000/linux.h, config/rs6000/linux64.h,
+	config/rs6000/windiss.h: ... not here.
+
+2002-11-10  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/mips/netbsd.h (TARGET_OS_CPP_BUILTINS): Define
+	__ABICALLS__ if TARGET_ABICALLS.
+
+Sun Nov 10 18:49:21 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (MIN_UNITS_PER_WORD): Define to 8 for x86-64 libgcc.
+
+2002-11-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-decl.c (grokdeclarator): Make error for duplicate type
+	qualifiers into a pedwarn, disabled for C99.
+
+2002-11-10  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/mmix.h (FUNCTION_ARG_CALLEE_COPIES): Define the same
+	as FUNCTION_ARG_PASS_BY_REFERENCE.
+
 2002-11-09  Zack Weinberg  <zack@codesourcery.com>
 
 	* doc/install.texi: Add *-*-vxworks* specific installation
@@ -39,6 +237,49 @@ Sat Nov 16 02:17:48 CET 2002  Jan Hubicka  <jh@suse.cz>
 Sat Nov  9 00:10:54 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_machine_dependent_reorg): Fix even more side cases.
+
+2002-11-09  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.h (STARTING_FRAME_OFFSET): Change offset for TARGET_64BIT to 16.
+
+	* config.gcc (hppa*64*-*-linux*): Shorten lines in tm_file define.
+	(hppa*64*-*-hpux11*): Likewise.  Use elfos.h with gas.
+	* pa.c (output_millicode_call): Use symbol difference rather than
+	$PIC_pcrel$0 when using HP assembler.
+	* pa64-hpux.h (TARGET_GAS): Define to 1 or 0 depending on whether or
+	not elfos.h (i.e., gas) is being used.
+	(ASM_FILE_START, STRING_ASM_OP, TEXT_SECTION_ASM_OP,
+	DATA_SECTION_ASM_OP, BSS_SECTION_ASM_OP, ASM_OUTPUT_ALIGNED_COMMON,
+	ASM_OUTPUT_ALIGNED_LOCAL, GLOBAL_ASM_OP, ASM_DECLARE_FUNCTION_NAME,
+	ASM_OUTPUT_EXTERNAL, ASM_OUTPUT_EXTERNAL_LIBCALL,
+	ASM_OUTPUT_INTERNAL_LABEL, ASM_GENERATE_INTERNAL_LABEL): Define when
+	using elfos.h.
+	(TARGET_ASM_GLOBALIZE_LABEL): Undefine when using elfos.h.
+	(DWARF2_ASM_LINE_DEBUG_INFO): Delete.
+	(ASM_FILE_START): Add standard .SPACE and .SUBSPA defines when not
+	using elfos.h.
+	(TEXT_SECTION_ASM_OP, READONLY_DATA_SECTION_ASM_OP, DATA_SECTION_ASM_OP,
+	BSS_SECTION_ASM_OP): New HP style defines when not using elfos.h.
+	(TARGET_ASM_NAMED_SECTION, MAKE_DECL_ONE_ONLY, ASM_WEAKEN_LABEL):
+	Don't define when not using elfos.h.
+	(ASM_DECLARE_RESULT): Don't define.
+	* doc/install.texi (hppa*-hp-hpux*): Remove statement that HP assembler
+	doesn't work on hppa64-hp-hpux11.
+	(hppa*-hp-hpux11): Update.
+
+2002-11-09  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/mips/netbsd.h (SUBTARGET_ASM_SPEC): Don't pass -KPIC
+	to the assembler if -mno-abicalls was specified.
+
+2002-11-09  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa-linux.h (PREFERRED_DEBUGGING_TYPE, DWARF2_ASM_LINE_DEBUG_INFO,
+	ASM_OUTPUT_DEF): Delete.
+
+2002-11-09  Neil Booth  <neil@daikokuya.co.uk>
+
+	* c-opts.c (COMMAND_LINE_OPTIONS): Fix -Wimplicit.
 
 2002-11-08  Roger Sayle  <roger@eyesopen.com>
 
@@ -77,10 +318,106 @@ Fri Nov  8 11:36:11 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (sse_movdfcc, sse_movsfcc): Fix typo in previous patch.
 
+2002-11-08  Dale Johannesen  <dalej@apple.com>
+
+	* dbxout.c (dbxout_type):  Fix stabs info for vector types.
+
+2002-11-08  Neil Booth  <neil@daikokuya.co.uk>
+
+	PR preprocessor/8497
+	PR preprocessor/8501
+	* cpptrad.c (scan_out_logical_line): A '#' from a macro doesn't
+	start a directive.  In assembler, #NUM is not a line directive.
+
+2002-11-08  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cppmain.c (cpp_preprocess_file): Loop to pop any -included
+	buffers.
+
+2002-11-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (two anonymous test insns): New.
+
+Fri Nov  8 11:20:19 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* jump.c (mark_jump_label): Handle subregs of label_refs.
+
 Thu Nov  7 21:54:22 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (sse_movdfcc, sse_movsfcc): Avoid overactive matching.
 	* i386.c (ix86_expand_fp_movcc): Match the reversed cases.
+
+2002-11-07  David Mosberger  <davidm@hpl.hp.com>
+
+	* config/ia64/crtend.asm: Include "auto-host.h".
+	[HAVE_INITFINI_ARRAY]: Invoke __do_global_ctors_aux via .init_array.
+	* config/ia64/crtbegin.asm: Similarly.
+	* config/ia64/t-ia64 (crtbegin.o): Include from current directory.
+	(crtend.o, crtbeginS.o, crtendS.o): Likewise.
+
+	* aclocal.m4 (gcc_AC_INITFINI_ARRAY): New.
+	* configure.in: Use it if --enable-initfini-array not specified.
+	* doc/install.texi (Configuration): Document --enable-initfini-array.
+	* configure, config.in: Rebuild.
+
+2002-11-07  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config/arm/arm-protos.h (arm_get_frame_size)
+	(thumb_get_frame_size): New prototypes.
+	* config/arm/arm.c (arm_get_frame_size)
+	(thumb_get_frame_size): New functions.
+	(use_return_insn, arm_output_epilogue, arm_output_function_epilogue)
+	(arm_compute_initial_elimination_offset, arm_expand_prologue): Use
+	arm_get_frame_size.
+	(thumb_expand_prologue, thumb_expand_epilogue): Use
+	thumb_get_frame_size.
+	* config/arm/arm.h (PREFERRED_STACK_BOUNDARY): Define.
+	(machine_function): Add frame_size member.
+	(THUMB_INITIAL_ELIMINATION_OFFSET): Use thumb_get_frame_size.
+
+2002-11-07  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (bit_count): Make argument unsigned long.  Return unsigned.
+	Adjust code to use portable unsigned bit manipulation.
+	(insn_flags, tune_flags): Change type to unsigned.
+	(struct processors): Make flags unsigned long.
+	(arm_override_options): Change type of count and current_bit_count
+	to unsigned.
+
+2002-11-07  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm/elf.h (TYPE_OPERAND_FMT): Prefix type with %.
+
+Thu Nov  7 15:50:18 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (DWARF_FRAME_RETURN_COLUMN): Use DWARF_FRAME_REGNUM.
+
+Thu Nov  7 11:18:01 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* reg-stack.c (compensate_edge): Fix sanity check.
+
+2002-11-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* config.gcc: Don't create crtbegin, crtend on Darwin; do create
+	crt2.o.  Rearrange t-darwin makefiles.
+	* crtstuff.c [OBJECT_FORMAT_MACHO]: Delete.
+	* unwind-dw2-fde-darwin.c: New.
+	* unwind-dw2-fde-glibc.c: Correct comment.
+	* unwind-dw2-fde.c (__register_frame_info_bases)
+	[DWARF2_OBJECT_END_PTR_EXTENSION]: Clear fde_end.
+	(classify_object_over_fdes): Use last_fde.
+	(add_fdes): Likewise.
+	(linear_search_fdes): Likewise.
+	* unwind-dw2-fde.h (struct object)
+	[DWARF2_OBJECT_END_PTR_EXTENSION]: Add fde_end field.
+	(last_fde): New.
+	* config/darwin.h (STARTFILE_SPEC): Include crt2.o not crtbegin.o.
+	(ENDFILE_SPEC): No crtend.o.
+	* config/t-darwin: New.
+	* config/i386/t-darwin: Delete.
+	* config/darwin-crt2.c: New.
+	* config/rs6000/t-darwin: Delete contents duplicated in t-rs6000
+	or config/t-darwin.
 
 2002-11-06  Douglas B Rupp  <rupp@gnat.com>
 
@@ -120,11 +457,53 @@ Wed Nov  6 17:16:48 CET 2002  Jan Hubicka  <jh@.suse.cz>
 	(abssf/absdf splitters): Simplify
 	(sse_loadss, sse_loadsd): Turn into expander.
 
+2002-11-06  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/8480
+	* config/rs6000/rs6000.md (movdi_internal64): Discourage
+	FPR to FPR moves.
+
+2002-11-06  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/contrib.texi: Merge in the list from the Java web pages.
+
+2002-11-06  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/sparc/freebsd: Fix typo.
+
+2002-11-06  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa64-hpux.h (LDD_SUFFIX, PARSE_LDD_OUTPUT): Define.
+
+2002-11-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/mips.md (call_value_multiple_internal2): Use dla for
+	non-SImode addresses.
+
 Tue Nov  5 14:34:36 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (float_truncate SSE splitter): Ensure that operand is not
 	stack register.
 	(float SSE splitters): Reorder conditional.
+
+2002-11-05  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/elf.h (LIB_SPEC): Add "-lhal".
+
+2002-11-05  John David Anglin  <dave2hiauly1.hia.nrc.ca>
+
+	* pa64-hpux.h (LIB_SPEC): Fix p and pg options.
+	(STARTFILE_SPEC): Remove p and pg options.
+
+2002-11-05  Andrew Haley  <aph@redhat.com>
+
+	* fold-const.c (fold): Don't transform (a0 op compound(a1,a2))
+	to (compound(a1,a0 op a2)) if a0 or a1 have side effects.
+
+2002-11-05  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.h (CANNOT_CHANGE_MODE_CLASS): Move comment to...
+	* config/mips/mips.c (mips_cannot_change_mode_class): ...here.
 
 2002-11-04  Zack Weinberg  <zack@codesourcery.com>
 
@@ -400,7 +779,7 @@ Thu Oct 31 18:08:00 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* i386.c (optimization_options): Set flag_omit_frame_pointer,
 	flag_asynchronous_unwind_tables, flag_pcc_struct_return to 2.
 	Do not clear -momit-leaf-frame-pointer when profiling.
-	(ix86_frame_pointer_required): Frame pointer is allways required when
+	(ix86_frame_pointer_required): Frame pointer is always required when
 	profiling.
 
 Thu Oct 31 16:09:44 CET 2002  Jan Hubicka  <jh@suse.cz>
@@ -5076,7 +5455,7 @@ Tue Sep 17 13:40:13 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 
 	* i386.c (index_register_operand): New.
 	* i386.h (predicate_codes): Add new predicate.
-	* i386.md (lea_general_*): Use index_regsiter_operand
+	* i386.md (lea_general_*): Use index_register_operand
 	(ashift to lea splitter): Do not produce invalid leas
 	(ashift to mov+ashift split): New.
 
@@ -5201,7 +5580,7 @@ Tue Sep 17 13:40:13 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	* emit-rtl.c (set_mem_attributes_minus_bitpos): Fix array_ref
 	handling.
 
-	* loop.c (loop_gics_reduce):  Emit addition after.
+	* loop.c (loop_givs_reduce):  Emit addition after.
 
 2002-09-08  Alan Modra  <amodra@bigpond.net.au>
 

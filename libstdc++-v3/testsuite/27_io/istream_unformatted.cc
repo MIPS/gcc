@@ -551,6 +551,72 @@ test10()
   VERIFY( test );
 }
 
+
+// libstdc++/8258
+class mybuf : public std::basic_streambuf<char> 
+{ };
+
+void test11()
+{
+  bool test = true;
+  using namespace std;
+  char arr[10];
+  mybuf sbuf;
+  basic_istream<char, char_traits<char> > istr(&sbuf);
+  
+  VERIFY(istr.rdstate() == ios_base::goodbit);
+  VERIFY(istr.readsome(arr, 10) == 0);
+  VERIFY(istr.rdstate() == ios_base::goodbit);
+}
+
+// libstdc++/6746   
+void test12()
+{
+  using namespace std;
+  bool test = true;
+  streamsize sum = 0;
+  istringstream iss("shamma shamma");
+      
+  // test01
+  size_t i = iss.rdbuf()->in_avail();
+  VERIFY( i != 0 );
+    
+  // test02
+  streamsize extracted;
+  do
+    {
+      char buf[1024];
+      extracted = iss.readsome(buf, sizeof buf);
+      sum += extracted;
+    }
+  while (iss.good() && extracted);
+  VERIFY( sum != 0 );  
+}
+    
+// libstdc++/6746   
+void test13()
+{
+  using namespace std;
+  bool test = true;
+  streamsize sum = 0;
+  ifstream ifs("istream_unformatted-1.tst");
+      
+  // test01
+  size_t i = ifs.rdbuf()->in_avail();
+  VERIFY( i != 0 );
+    
+  // test02
+  streamsize extracted;
+  do
+    {
+      char buf[1024];
+      extracted = ifs.readsome(buf, sizeof buf);
+      sum += extracted;
+    }
+  while (ifs.good() && extracted);
+  VERIFY( sum != 0 );  
+}
+ 
 int 
 main()
 {
@@ -564,6 +630,10 @@ main()
   test08();
   test09();
   test10();
+  test11();
+
+  test12();
+  test13();
 
   return 0;
 }

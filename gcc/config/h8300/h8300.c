@@ -763,7 +763,9 @@ single_one_operand (operand, mode)
       /* We really need to do this masking because 0x80 in QImode is
 	 represented as -128 for example.  */
       unsigned HOST_WIDE_INT mask =
-	((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1;
+	(GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
+	? ((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1
+	: ~0;
       unsigned HOST_WIDE_INT value = INTVAL (operand);
 
       if (exact_log2 (value & mask) >= 0)
@@ -786,7 +788,9 @@ single_zero_operand (operand, mode)
       /* We really need to do this masking because 0x80 in QImode is
 	 represented as -128 for example.  */
       unsigned HOST_WIDE_INT mask =
-	((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1;
+	(GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
+	? ((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1
+	: ~0;
       unsigned HOST_WIDE_INT value = INTVAL (operand);
 
       if (exact_log2 (~value & mask) >= 0)
@@ -3905,7 +3909,7 @@ h8300_tiny_constant_address_p (x)
 
   return (0
 	  || (TARGET_H8300H
-	      && IN_RANGE (addr, h1, h2) || IN_RANGE (addr, h3, h4))
+	      && (IN_RANGE (addr, h1, h2) || IN_RANGE (addr, h3, h4)))
 	  || (TARGET_H8300S
-	      && IN_RANGE (addr, s1, s2) || IN_RANGE (addr, s3, s4)));
+	      && (IN_RANGE (addr, s1, s2) || IN_RANGE (addr, s3, s4))));
 }

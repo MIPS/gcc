@@ -707,7 +707,11 @@ extern int x86_prefetch_sse;
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
-#define MIN_UNITS_PER_WORD 4
+#ifdef IN_LIBGCC2
+#define MIN_UNITS_PER_WORD	(TARGET_64BIT ? 8 : 4)
+#else
+#define MIN_UNITS_PER_WORD	4
+#endif
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY BITS_PER_WORD
@@ -1586,6 +1590,10 @@ enum reg_class
 
 #define PUSH_ARGS (TARGET_PUSH_ARGS && !ACCUMULATE_OUTGOING_ARGS)
 
+/* We want the stack and args grow in opposite directions, even if
+   PUSH_ARGS is 0.  */
+#define PUSH_ARGS_REVERSED 1
+
 /* Offset of first parameter from the argument pointer register value.  */
 #define FIRST_PARM_OFFSET(FNDECL) 0
 
@@ -1754,20 +1762,11 @@ typedef struct ix86_args {
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
-#define FUNCTION_PROFILER(FILE, LABELNO)				\
-do {									\
-  if (flag_pic)								\
-    {									\
-      fprintf ((FILE), "\tleal\t%sP%d@GOTOFF(%%ebx),%%edx\n",		\
-	       LPREFIX, (LABELNO));					\
-      fprintf ((FILE), "\tcall\t*_mcount@GOT(%%ebx)\n");		\
-    }									\
-  else									\
-    {									\
-      fprintf ((FILE), "\tmovl\t$%sP%d,%%edx\n", LPREFIX, (LABELNO));	\
-      fprintf ((FILE), "\tcall\t_mcount\n");				\
-    }									\
-} while (0)
+#define FUNCTION_PROFILER(FILE, LABELNO) x86_function_profiler (FILE, LABELNO)
+
+#define MCOUNT_NAME "_mcount"
+
+#define PROFILE_COUNT_REGISTER "edx"
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in

@@ -50,6 +50,8 @@ import java.util.TooManyListenersException;
 public class DragSourceContext
   implements DragSourceListener, DragSourceMotionListener, Serializable
 {
+  static final long serialVersionUID = -115407898692194719L;
+
   protected static final int DEFAULT = 0;
   protected static final int ENTER = 1;
   protected static final int OVER = 2;
@@ -111,7 +113,7 @@ public class DragSourceContext
   {
   }
 
-  public void dragExit(DragSourceDragEvent e)
+  public void dragExit(DragSourceEvent e)
   {
   }
 
@@ -119,7 +121,7 @@ public class DragSourceContext
   {
   }
 
-  public void dragDropEnd(DragSourceDragEvent e)
+  public void dragDropEnd(DragSourceDropEvent e)
   {
   }
 

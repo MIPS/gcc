@@ -2189,14 +2189,16 @@ construct_container (mode, type, in_return, nintregs, nsseregs, intreg, sse_regn
 	    sse_regno++;
 	    break;
 	  case X86_64_SSE_CLASS:
-	    if (i < n && class[i + 1] == X86_64_SSEUP_CLASS)
-	      tmpmode = TImode, i++;
+	    if (i < n - 1 && class[i + 1] == X86_64_SSEUP_CLASS)
+	      tmpmode = TImode;
 	    else
 	      tmpmode = DImode;
 	    exp [nexps++] = gen_rtx_EXPR_LIST (VOIDmode,
 					       gen_rtx_REG (tmpmode,
 							    SSE_REGNO (sse_regno)),
 					       GEN_INT (i*8));
+	    if (tmpmode == TImode)
+	      i++;
 	    sse_regno++;
 	    break;
 	  default:
@@ -14444,6 +14446,46 @@ x86_field_alignment (field, computed)
       || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
     return MIN (32, computed);
   return computed;
+}
+
+/* Output assembler code to FILE to increment profiler label # LABELNO
+   for profiling a function entry.  */
+void
+x86_function_profiler (file, labelno)
+     FILE *file;
+     int labelno;
+{
+  if (TARGET_64BIT)
+    if (flag_pic)
+      {
+#ifndef NO_PROFILE_COUNTERS
+	fprintf (file, "\tleaq\t%sP%d@(%%rip),%%r11\n", LPREFIX, labelno);
+#endif
+	fprintf (file, "\tcall\t*%s@GOTPCREL(%%rip)\n", MCOUNT_NAME);
+      }
+    else
+      {
+#ifndef NO_PROFILE_COUNTERS
+	fprintf (file, "\tmovq\t$%sP%d,%%r11\n", LPREFIX, labelno);
+#endif
+	fprintf (file, "\tcall\t%s\n", MCOUNT_NAME);
+      }
+  else if (flag_pic)
+    {
+#ifndef NO_PROFILE_COUNTERS
+      fprintf (file, "\tleal\t%sP%d@GOTOFF(%%ebx),%%%s\n",
+	       LPREFIX, labelno, PROFILE_COUNT_REGISTER);
+#endif
+      fprintf (file, "\tcall\t*%s@GOT(%%ebx)\n", MCOUNT_NAME);
+    }
+  else
+    {
+#ifndef NO_PROFILE_COUNTERS
+      fprintf (file, "\tmovl\t$%sP%d,%%$s\n", LPREFIX, labelno,
+	       PROFILE_COUNT_REGISTER);
+#endif
+      fprintf (file, "\tcall\t%s\n", MCOUNT_NAME);
+    }
 }
 
 /* Implement machine specific optimizations.  

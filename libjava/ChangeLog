@@ -1,3 +1,370 @@
+2002-11-12  Eric Blake  <ebb9@email.byu.edu>
+
+	* java/applet/AppletContext.java: Fix typo and remove redundant
+	modifiers.
+
+2002-11-14  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natRuntime.cc (insertSystemProperties): Set
+	gnu.classpath.home.
+
+2002-11-13  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/ByteBuffer.java
+	(allocate): New method.
+	(wrap): New method.
+	(put): New method.
+	(get): New method.
+	
+2002-11-13  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/channels/AlreadyConnectedException.java:
+	Removed unneeded import.
+	(AlreadyConnectedException): Documentation added.
+	* java/nio/channels/Pipe.java
+	(SinkChannel.SinkChannel): Documentation added.
+	(SinkChannel.validOps): New method.
+	(SourceChannel.SourceChannel): Documentation added.
+	(SourceChannel.validOps): New method.
+	(Pipe): Documentation added.
+	(open): Documentation added.
+	(SinkChannel.channel): Documentation added.
+	(SourceChannel.channel): Documentation added.
+	* java/nio/channel/SelectableChannel.java
+	(SelectableChannel): Documentation added.
+	(blockingLock): Documentation added.
+	(configureBlocking):Documentation added.
+	(isBlocking):Documentation added.
+	(isRegistered):Documentation added.
+	(keyFor):Documentation added.
+	(provider):Documentation added.
+	(register): Documentation added.
+	(validOps): Documentation added.
+	* jaba/nio/channels/SelectionKey.java
+	(SelectionKey): Documentation added.
+	(attach): Documentation added.
+	(attachment): Documentation added.
+	(isAcceptable): Documentation added.
+	(isConnetable): Documentation added.
+	(isReadable): Documentation added.
+	(isWritable): Documentation added.
+	(cancel): Documentation added.
+	(channel): Documentation added.
+	(interestOps): Documentation added.
+	(isValid): Documentation added.
+	(readyOps): Documentation added.
+	(selector): Documentation added.
+	* jaba/nio/channels/Selector.java
+	(Selector): Documentation added.
+	(open): Documentation added.
+	(close): Documentation added.
+	(isOpen): Documentation added.
+	(keys): Documentation added.
+	(provider): Documentation added.
+	(select): Documentation added.
+	(selectedKeys): Documentation added.
+	(selectNow): Documentation added.
+	(wakeup): Documentation added.
+	* java/nio/channels/spi/AbstractInterruptibleChannel.java
+	(AbstractInterruptibleChannel): Documentation added.
+	(opened): Default to true;
+	(begin): Documentation added.
+	(close): Set opened to false, documentation added.
+	(isOpen): Documentation added.
+	* java/nio/channels/spi/AbstractSelectionKey.java
+	(AbstractSelectionKey): Documentation added.
+	(cancel): Documentation added.
+	(isValid): Documentation added.
+	* java/nio/channels/spi/AbstractSelector.java
+	(AbstractSelector): Documentation added.
+	(begin): Documentation added.
+	(close): Documentation added.
+	(isOpen): Documentation added.
+	(deregister): Documentation added.
+	(end): Documentation added.
+	(provider): Documentation added.
+	(implCloseSelector): Documentation added.
+	(register): Documentation added.
+	* java/nio/channels/spi/SelectorProvider.java
+	(SelectorProvider): Documentation added.
+	(openDatagramChannel): Documentation added.
+	(openPipe): Documentation added.
+	(openSelector): Documentation added.
+	(openServerSocketChannel): Documentation added.
+	(openSocketChannel): Documentation added.
+	(provider): Documentation added.
+
+2002-11-12  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/Buffer.java: Implemented.
+	* java/nio/CharBuffer.java: New file.
+	* java/nio/InvalidMarkException.java: New file.
+	* java/nio/channels/DatagramChannel.java: Implemented.
+	* java/nio/channels/ServerSocketChannel.java: Implemented.
+	* java/nio/channels/SocketChannel.java: Implemented.
+	* java/nio/channels/spi/AbstractChannel.java: Removed.
+	* java/nio/channels/spi/AbstractSelectableChannel.java:
+	Implemented.
+	* java/nio/charset/Charset.java:
+	Merge from Classpath.
+	* java/nio/charset/CharsetDecoder.java: New file.
+	* java/nio/charset/CharsetEncoder.java: New file.
+	* java/nio/charset/CoderResult.java: New file.
+	* Makefile.am (ordinary_java_source_files): Added new files.
+	* Makefile.in: Regenerated.
+	
+2002-11-11  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	* gnu/java/nio/charset/ISO_8859_1.java,
+	gnu/java/nio/charset/Provider.java,
+	gnu/java/nio/charset/US_ASCII.java,
+	gnu/java/nio/charset/UTF_16.java,
+	gnu/java/nio/charset/UTF_16BE.java,
+	gnu/java/nio/charset/UTF_16Decoder.java,
+	gnu/java/nio/charset/UTF_16Encoder.java,
+	gnu/java/nio/charset/UTF_16LE.java,
+	gnu/java/nio/charset/UTF_8.java: New files.
+
+2002-11-11  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/charset/CharacterCodingException.java:
+	This class must be public.
+	* java/nio/charset/CoderMalfunctionError.java:
+	This class must be public.
+	* java/nio/charset/CodingErrorAction.java:
+	This class must be public.
+	* java/nio/charset/IllegalCharsetNameException.java:
+	This class must be public, better implementation.
+	* java/nio/charset/MalformedInputException.java:
+	This class must be public, better implementation.
+	* java/nio/charset/UnmappableCharacterException.java:
+	This class must be public, better implementation.
+	* java/nio/charset/UnsupportedCharsetException.java:
+	This class must be public, better implementation.
+	
+2002-11-11  Michael Koch <konqueror@gmx.de>
+
+	* java/nio/BufferOverflowException.java,
+	java/nio/BufferUnderflowException.java: New file.
+	* Makefile.am (ordinary_java_source_files):
+	Added new files.
+	* Makefile.in: Regenerated.
+	
+2002-11-10  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/Container.java (validate): Use tree lock.
+	(getComponent): Likewise.
+	(getComponents): Likewise.
+	(addImpl): Likewise.
+	(remove): Likewise.
+	(removeAll): Likewise.
+	(processEvent): Fixed indentation.
+	(getComponentAt): Use tree lock.
+	(findComponentAt): Likewise.
+	(removeNotify): Likewise.
+	(isAncestorOf): Likewise.
+	(list): Likewise.
+	(visitChildren): Likewise.
+	(findNextFocusComponent): Likewise.
+	(addNotifyContainerChildren): Likewise.
+	(getAccessibleChildrenCount): Likewise.
+	(getAccessibleChild): Likewise.
+
+	* java/awt/GridLayout.java (layoutContainer): Use tree lock.
+	(getSize): Likewise.
+	* java/awt/FlowLayout.java (layoutContainer): Use tree lock.
+	(getSize): Likewise.
+	* java/awt/BorderLayout.java (layoutContainer): Use tree lock.
+	(calcSize): Likewise.
+	* java/awt/CardLayout.java (getSize): Use tree lock.
+	(gotoComponent): Likewise.
+	(layoutContainer): Likewise.
+
+	* java/io/natFileDescriptorWin32.cc (read): Handle case where
+	count is 0.
+	* java/io/natFileDescriptorPosix.cc (read): Handle case where
+	count is 0.
+
+	* java/io/Externalizable.java, java/io/FilePermission.java,
+	java/io/ObjectStreamConstants.java, java/io/Serializable.java,
+	java/io/SerializablePermission.java, java/text/Format.java,
+	java/util/AbstractMap.java, java/util/HashMap.java,
+	java/util/LinkedHashMap.java, javax/naming/BinaryRefAddr.java: New
+	versions from Classpath.
+
+2002-11-10  Anthony Green  <green@redhat.com>
+
+	* java/util/jar/Attributes.java (Name): Fix name check.
+
+2002-11-10  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/natClass.cc (initializeClass): Throw NoClassDefFoundError
+	with getName() as message.
+	(_Jv_CheckArrayStore): Throw ArrayStoreException with object and array
+	type as message.
+
+	* java/lang/natVMThrowable.cc: Don't declare parameter t, it is
+	unused.
+
+2002-11-08  Ranjit Mathew <rmathew@hotmail.com>
+
+	* include/jni.h (JNIIMPORT, JNIEXPORT, JNICALL): Linker defines
+	for Win32. JNICALL has been defined to __stdcall to be compatible
+	with Sun's JDKs.
+
+2002-11-10  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/GridLayout.java (setColumns): Check newCols, not cols.
+	(setRows): Check newRows, not rows.
+
+	* jni.cc (_Jv_GetJNIEnvNewFrame): Set env->ex in all cases.
+
+2002-11-09  Tom Tromey  <tromey@redhat.com>
+
+	* java/applet/Applet.java, java/applet/AppletContext.java,
+	java/applet/AppletStub.java, java/applet/AudioClip.java,
+	java/awt/CardLayout.java,
+	java/awt/ContainerOrderFocusTraversalPolicy.java,
+	java/awt/Cursor.java, java/awt/Event.java, java/awt/Frame.java,
+	java/awt/GridBagConstraints.java, java/awt/GridBagLayout.java,
+	java/awt/GridLayout.java, java/awt/color/ColorSpace.java,
+	java/awt/color/ICC_ColorSpace.java,
+	java/awt/color/ICC_Profile.java,
+	java/awt/color/ICC_ProfileGray.java,
+	java/awt/color/ICC_ProfileRGB.java,
+	java/awt/datatransfer/DataFlavor.java,
+	java/awt/dnd/DragSourceContext.java, java/awt/dnd/DropTarget.java,
+	java/awt/dnd/DropTargetContext.java, java/awt/event/KeyEvent.java:
+	New versions from Classpath.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (awt_java_source_files): Added ICC_ProfileGray and
+	ICC_ProfileRGB.
+
+	* java/awt/ScrollPane.java (ScrollPane): Fixed test for valid
+	display policy.
+
+	* java/awt/List.java (processEvent): Added missing `else's.
+
+	* java/awt/Window.java (show): validate() before showing.  Make
+	parent displayable.
+	(isDisplayable): New method.
+
+2002-11-07  Mark Wielaard  <mark@klomp.org>
+
+        Merge Orp RMI patches from Wu Gansha <gansha.wu@intel.com>
+	* java/rmi/MarshalledObject.java (equals): Check hashcode first.
+
+	* java/rmi/server/RMIClassLoader.java (MyClassLoader): Create/Use
+	annotation.
+	(loadClass): Take String as codebases.
+	(getClassAnnotation): Use MyClassLoader annotations.
+	* java/rmi/server/UnicastRemoteObject.java (UnicastRemoteObject):
+	call exportObject(this).
+
+	* gnu/java/rmi/RMIMarshalledObjectOutputStream.java
+	(RMIMarshalledObjectOutputStream): set locBytesStream and locStream.
+	(setAnnotation): Don't set locBytesStream and locStream.
+	(replaceObject): Removed.
+	(flush): Don't test locStream.
+	(getLocBytes): LikeWise.
+	* gnu/java/rmi/dgc/DGCImpl.java: extends UnicastServerRef.
+	(leaseCache): New field.
+	(dirty): Use leaseCache.
+	(LeaseRecord): New inner class.
+	* gnu/java/rmi/registry/RegistryImpl.java (RegistryImpl): Don't
+	explicitly call exportObject().
+	* gnu/java/rmi/registry/RegistryImpl_Stub.java: set useNewInvoke to
+	false to communicate with Sun JDK130.
+	* gnu/java/rmi/server/ConnectionRunnerPool.java: Add CPU comment.
+	* gnu/java/rmi/server/RMIObjectInputStream.java
+	(UnicastConnectionManager): Removed field.
+	* gnu/java/rmi/server/RMIObjectOutputStream.java (replaceObject):
+	Use UnicastServer.getExportedRef().
+	* gnu/java/rmi/server/UnicastConnection.java (reviveTime): New field.
+	(expireTime): Likewise.
+	(CONNECTION_TIMEOUT): Likewise.
+	(disconnect): Call sock.close().
+	(isExpired): New method.
+	(resetTime): Likewise.
+	(run): Use do while loop and catch Exception for discardConnection().
+	* gnu/java/rmi/server/UnicastConnectionManager.java: Pool connections.
+	* gnu/java/rmi/server/UnicastRef.java: Lots of changes.
+	* gnu/java/rmi/server/UnicastRemoteCall.java: Lots of changes.
+	* gnu/java/rmi/server/UnicastServer.java (refcache): New field.
+	(exportObject): Use refcache.
+	(unexportObject): Likewise.
+	(getExportedRef): New method.
+	* gnu/java/rmi/server/UnicastServerRef.java (UnicastServerRef): New
+	constructor.
+	(exportObject): Save manager.serverobj.
+	(getStub): New method.
+
+2002-11-07  Mark Wielaard  <mark@klomp.org>
+
+	* java/lang/reflect/natField.cc (getBoolean): Use getType().
+	(getByte): Likewise.
+	(getShort): Likewise.
+	(getInt): Likewise.
+	(getLong): Likewise.
+	(getFloat): Likewise.
+	(getDouble): Likewise.
+	(get): Likewise.
+	(setChar): Likewise.
+	(setByte): Likewise.
+	(setShort): Likewise.
+	(setInt): Likewise.
+	(setLong): Likewise.
+	(setFloat): Likewise.
+	(setDouble): Likewise.
+
+2002-11-07  Michael Koch <konqueror@gmx.de>
+
+	* java/awt/Choice.java,
+	java/awt/Container.java,
+	java/awt/GridBagLayout.java:
+	Fixed documentation.
+	* java/awt/peer/ContainerPeer.java:
+	Reindented.
+
+2002-11-07  Michael Koch <konqueror@gmx.de>
+
+	* java/awt/color/ICC_Profile.java:
+	Added missing constants.
+	* java/awt/color/ICC_ColorSpace.java
+	(getMinValue): Added dummy implementation.
+	(getMaxValue): Added dummy implementation.
+	* java/awt/datatransfer/DataFlavor.java
+	(imageFlavor): Added.
+	(isMimeTypeEqual): Must be final.
+	(getDefaultRepresentationClass): Must be non-static.
+	(getDefaultRepresentationClassAsString): Must be non-static.
+	* java/awt/dnd/DragSourceContext.java
+	(dragExit): Corrected argument.
+	(dragDropEnd): Corrected argument.
+	* java/awt/dnd/DragSourceListener.java.java
+	(dragExit): Corrected argument.
+	(dragDropEnd): Corrected argument.
+	* java/awt/font/TextHitInfo.java
+	(toString): Added stubbed implementation.
+	* java/awt/geom/PathIterator.java:
+	The constants must be static.
+	* java/awt/image/VolatileImage.java
+	(IMAGE_INCOMPATIBLE): Fixed typo.
+	* java/awt/image/renderable/RenderableImage.java
+	(HINTS_OBSERVED): Must be static.
+	* java/beans/BeanInfo.java:
+	Constants must be final.
+
+2002-11-06  Tom Tromey  <tromey@redhat.com>
+
+	From svens@it.uu.se.  For PR libgcj/8481.
+	* java/util/Random.java (nextInt(int)): Only use 31 bits.
+
+2002-11-06  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (array_from_valist): Assume that jlong won't be
+	promoted.
+
 2002-11-04  R. A. Rivas Diaz  <rivasdiaz@yahoo.com>
 
 	* gnu/java/security/provider/SHA.java (engineGetDigestLength):
