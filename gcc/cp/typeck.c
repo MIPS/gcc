@@ -5508,7 +5508,7 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
       tree subtype, pfn_or_delta2_field, idx, idx_field, delta2_field;
       tree delta2 = integer_zero_node;
       int ixval = 0;
-      int allconstant = 0, allsimple = 0;
+      int allconstant = 0, allsimple = 0, allinvariant = 0;
 
       delta_field = TYPE_FIELDS (type);
       idx_field = TREE_CHAIN (delta_field);
@@ -5522,6 +5522,7 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
 	  /* If the low bit of PFN is set, the virtual index is PFN >> 1.
 	     Else it's nonvirtual.  */
 	  allconstant = TREE_CONSTANT (pfn);
+	  allinvariant = TREE_INVARIANT (pfn);
 	  allsimple = !! initializer_constant_valid_p (pfn, TREE_TYPE (pfn));
 	  if (TREE_CODE (pfn) == INTEGER_CST && (TREE_INT_CST_LOW (pfn) & 1))
 	    {
@@ -5562,6 +5563,7 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
 	  /* Don't know how to do this yet. Much like the above, probably.  */
 	  abort ();
 	  allconstant = TREE_CONSTANT (delta);
+	  allinvariant = TREE_INVARIANT (delta);
 	  allsimple = !! initializer_constant_valid_p (delta,
 							TREE_TYPE (delta));
 	  
@@ -5571,17 +5573,23 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
       delta = convert_and_check (delta_type_node, delta);
       idx = convert_and_check (delta_type_node, ssize_int (ixval));
 
+      u = build_constructor (subtype, u);
+      TREE_CONSTANT (u) = allconstant;
+      TREE_INVARIANT (u) = allinvariant;
+      TREE_STATIC (u) = allconstant && allsimple;
+      
       allconstant = allconstant && TREE_CONSTANT (delta) && TREE_CONSTANT (idx);
+      allinvariant = allinvariant && TREE_INVARIANT (delta) && TREE_INVARIANT (idx);
       allsimple = allsimple
 		&& initializer_constant_valid_p (delta, TREE_TYPE (delta))
 		&& initializer_constant_valid_p (idx, TREE_TYPE (idx));
 
-      u = build (CONSTRUCTOR, subtype, NULL_TREE, u);
       u = tree_cons (delta_field, delta,
 		     tree_cons (idx_field, idx,
 		     tree_cons (pfn_or_delta2_field, u, NULL_TREE)));
-      u = build (CONSTRUCTOR, type, NULL_TREE, u);
+      u = build_constructor (type, u);
       TREE_CONSTANT (u) = allconstant;
+      TREE_INVARIANT (u) = allinvariant;
       TREE_STATIC (u) = allconstant && allsimple;
       return u;
     }

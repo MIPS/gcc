@@ -5967,31 +5967,29 @@ build_ptrmemfunc_type (tree type)
   /* APPLE LOCAL begin 2.95-ptmf-compatibility  20020313 --turly  */
   if (flag_apple_kext)
     {
-      abort ();
-#if 0
-      /* MERGE FIXME */
       tree u = make_aggr_type (UNION_TYPE);
       SET_IS_AGGR_TYPE (u, 0);
-      fields = build_decl (FIELD_DECL, pfn_identifier, type);
+      xref_basetypes (u, NULL_TREE);
+      fields = build_decl (FIELD_DECL, delta2_identifier, delta_type_node);
       TREE_CHAIN (fields) 
-	= build_decl (FIELD_DECL, delta2_identifier, delta_type_node);
-      finish_builtin_type (u, "__ptrmemfunc_type", fields, 1, ptr_type_node);
+	= build_decl (FIELD_DECL, pfn_identifier, type);
+      finish_builtin_struct (u, "__ptrmemfunc_type", fields, ptr_type_node);
       TYPE_NAME (u) = NULL_TREE;
   
       t = make_aggr_type (RECORD_TYPE);
+      xref_basetypes (t, NULL_TREE);
   
       /* Let the front-end know this is a pointer to member function...  */
       TYPE_PTRMEMFUNC_FLAG (t) = 1;
       /* ... and not really an aggregate.  */
       SET_IS_AGGR_TYPE (t, 0);
   
-      fields = build_decl (FIELD_DECL, delta_identifier, delta_type_node);
+      fields = build_decl (FIELD_DECL, pfn_or_delta2_identifier, u);
       TREE_CHAIN (fields) =
 	build_decl (FIELD_DECL, index_identifier, delta_type_node);
       TREE_CHAIN (TREE_CHAIN (fields)) = 
-	build_decl (FIELD_DECL, pfn_or_delta2_identifier, u);
-      finish_builtin_type (t, "__ptrmemfunc_type", fields, 2, ptr_type_node);
-#endif
+	build_decl (FIELD_DECL, delta_identifier, delta_type_node);
+      finish_builtin_struct (t, "__ptrmemfunc_type", fields, ptr_type_node);
     }
   else
     {
@@ -6005,9 +6003,6 @@ build_ptrmemfunc_type (tree type)
   /* ... and not really an aggregate.  */
   SET_IS_AGGR_TYPE (t, 0);
 
-  /* APPLE LOCAL 2.95-ptmf-compatibility  20020313 --turly  */
-    }
-
   field = build_decl (FIELD_DECL, pfn_identifier, type);
   fields = field;
 
@@ -6016,6 +6011,9 @@ build_ptrmemfunc_type (tree type)
   fields = field;
 
   finish_builtin_struct (t, "__ptrmemfunc_type", fields, ptr_type_node);
+
+  /* APPLE LOCAL 2.95-ptmf-compatibility  20020313 --turly  */
+    }
 
   /* Zap out the name so that the back-end will give us the debugging
      information for this anonymous RECORD_TYPE.  */
