@@ -545,4 +545,20 @@ may_propagate_copy (tree dest, tree orig)
 	  && !DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
 }
 
+static inline void
+set_default_def (tree var, tree def)
+{
+  var_ann_t ann = var_ann (var);
+  if (ann == NULL)
+    ann = create_var_ann (var);
+  ann->default_def = def;
+}
+
+static inline tree
+default_def (tree var)
+{
+  var_ann_t ann = var_ann (var);
+  return ann ? ann->default_def : NULL_TREE;
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -1389,6 +1389,12 @@ dump_variable (FILE *file, tree var)
   if (ann->is_in_va_arg_expr)
     fprintf (file, ", is used in va_arg");
 
+  if (ann->default_def)
+    {
+      fprintf (file, ", default def: ");
+      print_generic_expr (file, ann->default_def, 0);
+    }
+
   if (ann->may_aliases)
     {
       fprintf (file, ", may aliases: ");

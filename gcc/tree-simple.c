@@ -431,7 +431,7 @@ is_gimple_reg (tree t)
   return (is_gimple_variable (t)
 	  && TYPE_MODE (TREE_TYPE (t)) != BLKmode
 	  && ! TREE_STATIC (t)
-	  && ! DECL_EXTERNAL (t)
+	  && (! DECL_P (t) || ! DECL_EXTERNAL (t))
 	  && ! TREE_ADDRESSABLE (t)
 	  /* A volatile decl is not acceptable because we can't reuse it as
 	     needed.  We need to copy it into a temp first.  */

@@ -80,11 +80,10 @@ struct opt_stats_d
 };
 
 static struct opt_stats_d opt_stats;
-static bool addr_expr_propagated_p;
 
 /* Local functions.  */
-static void optimize_block (basic_block, tree, int);
-static void optimize_stmt (block_stmt_iterator, varray_type *);
+static void optimize_block (basic_block, tree, int, sbitmap);
+static bool optimize_stmt (block_stmt_iterator, varray_type *);
 static tree get_value_for (tree, htab_t);
 static void set_value_for (tree, tree, htab_t);
 static hashval_t var_value_hash (const void *);
@@ -94,20 +93,20 @@ static tree get_eq_expr_value (tree, int, varray_type *, htab_t);
 static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
-static void record_cond_is_false (tree cond, varray_type *, htab_t);
-static void record_cond_is_true (tree cond, varray_type *, htab_t);
+static void record_cond_is_false (tree, varray_type *, htab_t);
+static void record_cond_is_true (tree, varray_type *, htab_t);
+static void find_new_vars_to_rename (tree, sbitmap);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
    value numbering.
 
-   The const/copy propagation may propagate ADDR_EXPRs to pointer use
-   sites.  If that occurrs, then we have new variables to expose to the
-   SSA renamer and optimizer.  So return nonzero if we propagate any
-   ADDR_EXPRs to their pointer use sites.  */
+   This pass may expose new symbols that need to be renamed into SSA.  For
+   every new symbol exposed, its corresponding bit will be set in
+   VARS_TO_RENAME.  */
 
-bool
-tree_ssa_dominator_optimize (tree fndecl)
+void
+tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
 {
   bool found_unreachable;
   edge e;
@@ -121,9 +120,6 @@ tree_ssa_dominator_optimize (tree fndecl)
   /* Create our hash tables.  */
   const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
   avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
-
-  /* Indicate that we have not propagated any ADDR_EXPRs.  */
-  addr_expr_propagated_p = false;
 
   /* Build the dominator tree if necessary. 
 
@@ -156,7 +152,7 @@ tree_ssa_dominator_optimize (tree fndecl)
       int i;
 
       /* Optimize the dominator tree.  */
-      optimize_block (ENTRY_BLOCK_PTR, NULL, 0);
+      optimize_block (ENTRY_BLOCK_PTR, NULL, 0, vars_to_rename);
 
       /* Wipe the hash tables.  */
       htab_empty (const_and_copies);
@@ -206,39 +202,39 @@ tree_ssa_dominator_optimize (tree fndecl)
   BITMAP_XFREE (unreachable_bitmap);
 
   timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
-
-  return addr_expr_propagated_p;
 }
 
 /* Perform a depth-first traversal of the dominator tree looking for
    redundant expressions and copy/constant propagation opportunities. 
 
-    Expressions computed by each statement are looked up in the
-    AVAIL_EXPRS table.  If a statement is found to make a redundant
-    computation, it is marked for removal.  Otherwise, the expression
-    computed by the statement is assigned a value number and entered
-    into the AVAIL_EXPRS table.  See optimize_stmt for details on the
-    types of redundancies handled during renaming.
+   Expressions computed by each statement are looked up in the
+   AVAIL_EXPRS table.  If a statement is found to make a redundant
+   computation, it is marked for removal.  Otherwise, the expression
+   computed by the statement is assigned a value number and entered
+   into the AVAIL_EXPRS table.  See optimize_stmt for details on the
+   types of redundancies handled during renaming.
 
-    Once we've optimized the statements in this block we recursively
-    optimize every dominator child of this block.
+   Once we've optimized the statements in this block we recursively
+   optimize every dominator child of this block.
 
-    Finally, remove all the expressions added to the AVAIL_EXPRS
-    table during renaming.  This is because the expressions made
-    available to block BB and its dominator children are not valid for
-    blocks above BB in the dominator tree.
+   Finally, remove all the expressions added to the AVAIL_EXPRS
+   table during renaming.  This is because the expressions made
+   available to block BB and its dominator children are not valid for
+   blocks above BB in the dominator tree.
 
-   EQ_EXPR_VALUE is an assignment expression created when BB's immediate
-   dominator ends in a COND_EXPR statement whose predicate is of the form
-   'VAR == VALUE', where VALUE may be another variable or a constant. 
-   This is used to propagate VALUE on the THEN_CLAUSE of that conditional.
-   This assignment is inserted in CONST_AND_COPIES so that the copy and
-   constant propagator can find more propagation opportunities.  */
+   EDGE_FLAGS are the flags for the incoming edge from BB's dominator
+   parent block.  This is used to determine whether BB is the first block
+   of a THEN_CLAUSE or an ELSE_CLAUSE.
+
+   VARS_TO_RENAME is a bitmap representing variables that will need to be
+   renamed into SSA after dominator optimization.  */
 
 static void
-optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
+optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
+                sbitmap vars_to_rename)
 {
   varray_type block_avail_exprs;
+  varray_type stmts_to_rescan;
   bitmap children;
   unsigned long i;
   block_stmt_iterator si;
@@ -256,13 +252,22 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
      AVAIL_EXPRS table.  This stack is used to know which expressions
      to remove from the table.  */
   VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
+  VARRAY_TREE_INIT (stmts_to_rescan, 20, "stmts_to_rescan");
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
 
   /* If our parent block ended in a COND_EXPR, add any equivalences
      created by the COND_EXPR to the hash table and initialize
-     EQ_EXPR_VALUE appropriately.  */
+     EQ_EXPR_VALUE appropriately.
+
+     EQ_EXPR_VALUE is an assignment expression created when BB's immediate
+     dominator ends in a COND_EXPR statement whose predicate is of the form
+     'VAR == VALUE', where VALUE may be another variable or a constant.
+     This is used to propagate VALUE on the THEN_CLAUSE of that
+     conditional. This assignment is inserted in CONST_AND_COPIES so that
+     the copy and constant propagator can find more propagation
+     opportunities.  */
   if (parent_block_last_stmt
       && TREE_CODE (parent_block_last_stmt) == COND_EXPR
       && (edge_flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
@@ -382,7 +387,17 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 
   /* Optimize each statement within the basic block.  */
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-    optimize_stmt (si, &block_avail_exprs);
+    {
+      /* Optimization may have exposed new symbols that need to be renamed
+	 into SSA form.  If that happens, queue the statement to re-scan its
+	 operands after finishing optimizing this block and its dominator
+	 children.  Notice that we cannot re-scan the statement immediately
+	 because that would change the statement's value number.  If the
+	 statement had been added to AVAIL_EXPRS, we would not be able to
+	 find it again.  */
+      if (optimize_stmt (si, &block_avail_exprs))
+	VARRAY_PUSH_TREE (stmts_to_rescan, bsi_stmt (si));
+    }
 
   /* Propagate known constants/copies into PHI nodes.  */
   for (e = bb->succ; e; e = e->succ_next)
@@ -428,7 +443,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 	      /* The destination block may have become unreachable, in
 		 which case there's no point in optimizing it.  */
 	      if (dest->pred)
-		optimize_block (dest, last, dest->pred->flags);
+		optimize_block (dest, last, dest->pred->flags, vars_to_rename);
 	    });
 	}
       else
@@ -440,7 +455,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
 	      /* The destination block may have become unreachable, in
 		 which case there's no point in optimizing it. */
 	      if (dest->pred)
-		optimize_block (dest, NULL_TREE, 0);
+		optimize_block (dest, NULL_TREE, 0, vars_to_rename);
 	    });
 	}
     }
@@ -547,6 +562,15 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags)
         set_value_for (vm.var, prev_value, const_and_copies);
       else
         htab_remove_elt (const_and_copies, &vm);
+    }
+
+  /* Re-scan operands in all statements that may have had new symbols
+     exposed.  */
+  while (VARRAY_ACTIVE_SIZE (stmts_to_rescan) > 0)
+    {
+      tree stmt = VARRAY_TOP_TREE (stmts_to_rescan);
+      VARRAY_POP (stmts_to_rescan);
+      find_new_vars_to_rename (stmt, vars_to_rename);
     }
 }
 
@@ -655,7 +679,7 @@ record_cond_is_false (tree cond,
       assignment is found, we map the value on the RHS of the assignment to
       the variable in the LHS in the CONST_AND_COPIES table.  */
 
-static void
+static bool
 optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 {
   size_t i;
@@ -663,14 +687,16 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   tree stmt;
   varray_type defs, uses, vuses, vdefs, operand_tables[4], *table;
   bool may_optimize_p;
+  bool may_have_exposed_new_symbols;
 
   stmt = bsi_stmt (si);
   if (IS_EMPTY_STMT (stmt))
-    return;
+    return false;
 
   get_stmt_operands (stmt);
   ann = stmt_ann (stmt);
   opt_stats.num_stmts++;
+  may_have_exposed_new_symbols = false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -757,7 +783,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	    if (TREE_CODE (val) == ADDR_EXPR
 		|| (POINTER_TYPE_P (TREE_TYPE (*op_p))
 		    && is_unchanging_value (val)))
-	      addr_expr_propagated_p = true;
+	      may_have_exposed_new_symbols = true;
 
 	    if (TREE_CODE (val) == SSA_NAME)
 	      propagate_copy (op_p, val, stmt_ann (stmt)->scope);
@@ -829,8 +855,17 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	    }
 
 	  opt_stats.num_re++;
+
+#if defined ENABLE_CHECKING
+	  if (TREE_CODE (cached_lhs) != SSA_NAME
+	      && !is_unchanging_value (cached_lhs)
+	      && !is_optimizable_addr_expr (cached_lhs))
+	    abort ();
+#endif
+
 	  if (TREE_CODE (cached_lhs) == SSA_NAME)
 	    fixup_var_scope (cached_lhs, stmt_ann (stmt)->scope);
+
 	  *expr_p = cached_lhs;
 	  ann->modified = 1;
 	}
@@ -895,52 +930,58 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 		  record_cond_is_true (cond,
 				       block_avail_exprs_p,
 				       const_and_copies);
-
-		  /* A memory store, even an aliased store, creates a
-		     useful equivalence.  By exchanging the LHS and RHS,
-		     creating suitable vops and recording the result in
-		     the available expression table, we may be able to
-		     expose more redundant loads.  */
-		  if (!ann->has_volatile_ops
-		      && i == 0
-		      && (SSA_VAR_P (TREE_OPERAND (stmt, 1))
-			  || TREE_CONSTANT (TREE_OPERAND (stmt, 1))))
-		    {
-		      tree new;
-		      unsigned int j;
-
-		      /* Build a new statement with the RHS and LHS
-			 exchanged.  */
-		      new = build (MODIFY_EXPR, TREE_TYPE (stmt),
-				   TREE_OPERAND (stmt, 1),
-				   TREE_OPERAND (stmt, 0));
-
-		      /* Get an annotation and set up the real operands.  */
-		      get_stmt_ann (new);
-		      get_stmt_operands (new);
-
-		      /* Clear out the virtual operands on the new statement,
-			 we are going to set them explicitly below.  */
-		      get_stmt_ann (new)->vops = NULL;
-
-		      /* For each VDEF on the original statement, we want
-			 to create a VUSE of the VDEF result on the new
-			 statement.  */
-		      for (j = 0; vdefs && j < VARRAY_ACTIVE_SIZE (vdefs); j++)
-			{
-			  tree op;
-
-			  op = (tree) VDEF_RESULT (VARRAY_TREE (vdefs, j));
-			  add_vuse (op, new, NULL);
-			}
-
-		      /* Finally enter the statement into the available
-			 expression table.  */
-		      lookup_avail_expr (new,
-					 block_avail_exprs_p,
-					 const_and_copies);
-		    }
 		}
+	    }
+	}
+
+      /* A memory store, even an aliased store, creates a useful
+	 equivalence.  By exchanging the LHS and RHS, creating suitable
+	 vops and recording the result in the available expression table,
+	 we may be able to expose more redundant loads.  */
+      if (!ann->has_volatile_ops
+	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME
+	      || is_unchanging_value (TREE_OPERAND (stmt, 1)))
+	  && !is_gimple_reg (TREE_OPERAND (stmt, 0)))
+	{
+	  tree new;
+	  size_t j;
+	  tree lhs = TREE_OPERAND (stmt, 0);
+	  tree rhs = TREE_OPERAND (stmt, 1);
+
+	  /* FIXME: If the LHS of the assignment is a bitfield and the RHS
+	     is a constant, we need to adjust the constant to fit into the
+	     type of the LHS.  This fixes gcc.c-torture/execute/921016-1.c
+	     and should not be necessary if GCC represented bitfields
+	     properly.  */
+	  if (TREE_CONSTANT (rhs)
+	      && TREE_CODE (lhs) == COMPONENT_REF
+	      && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
+	    rhs = widen_bitfield (rhs, TREE_OPERAND (lhs, 1), lhs);
+
+	  if (rhs)
+	    {
+	      /* Build a new statement with the RHS and LHS exchanged.  */
+	      new = build (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
+
+	      /* Get an annotation and set up the real operands.  */
+	      get_stmt_ann (new);
+	      get_stmt_operands (new);
+
+	      /* Clear out the virtual operands on the new statement, we are
+		going to set them explicitly below.  */
+	      get_stmt_ann (new)->vops = NULL;
+
+	      /* For each VDEF on the original statement, we want to create a
+		VUSE of the VDEF result on the new statement.  */
+	      for (j = 0; vdefs && j < VARRAY_ACTIVE_SIZE (vdefs); j++)
+		{
+		  tree op = VDEF_RESULT (VARRAY_TREE (vdefs, j));
+		  add_vuse (op, new, NULL);
+		}
+
+	      /* Finally enter the statement into the available expression
+		table.  */
+	      lookup_avail_expr (new, block_avail_exprs_p, const_and_copies);
 	    }
 	}
 
@@ -1109,6 +1150,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	   }
 	}
     }
+
+  return may_have_exposed_new_symbols;
 }
 
 /* Hashing and equality functions for VAR_VALUE_D.  */
@@ -1242,7 +1285,7 @@ lookup_avail_expr (tree stmt,
      definition of another variable.  */
   lhs = TREE_OPERAND ((tree) *slot, 0);
 
-  /* See if the LHS appears in the const_and_copies table.  If it does, then
+  /* See if the LHS appears in the CONST_AND_COPIES table.  If it does, then
      use the value from the const_and_copies table.  */
   if (SSA_VAR_P (lhs))
     {
@@ -1453,4 +1496,81 @@ avail_expr_eq (const void *p1, const void *p2)
     }
 
   return false;
+}
+
+
+/* Scan STMT for operands, if any new exposed symbols are found (i.e.,
+   operands that are not in SSA form), add those symbols to the bitmap
+   VARS_TO_RENAME.  */
+
+static void
+find_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
+{
+  varray_type ops;
+  size_t i;
+  void **slot;
+  bool found_new_symbols = false;
+
+  /* Before scanning for new operands check if STMT wasn't cached in
+     AVAIL_EXPRS.  If so, we may need to replace or remove it afterwards
+     because we are about to modify the STMT's hash value.  */
+  slot = htab_find_slot (avail_exprs, stmt, NO_INSERT);
+
+  /* Force an operand scan.  */
+  modify_stmt (stmt);
+  get_stmt_operands (stmt);
+
+  ops = def_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree *def_p = VARRAY_GENERIC_PTR (ops, i);
+      if (DECL_P (*def_p))
+	{
+	  SET_BIT (vars_to_rename, var_ann (*def_p)->uid);
+	  found_new_symbols = true;
+	}
+    }
+
+  ops = use_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree *use_p = VARRAY_GENERIC_PTR (ops, i);
+      if (DECL_P (*use_p))
+	{
+	  SET_BIT (vars_to_rename, var_ann (*use_p)->uid);
+	  found_new_symbols = true;
+	}
+    }
+
+  ops = vdef_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
+      if (DECL_P (var))
+	{
+	  SET_BIT (vars_to_rename, var_ann (var)->uid);
+	  found_new_symbols = true;
+	}
+    }
+
+  ops = vuse_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree var = VARRAY_TREE (ops, i);
+      if (DECL_P (var))
+	{
+	  SET_BIT (vars_to_rename, var_ann (var)->uid);
+	  found_new_symbols = true;
+	}
+    }
+
+  /* If we found new exposed symbols, we have to remove the statement from
+     the hash table as it is no longer valid.  Otherwise, re-insert it for
+     future use.  */
+  if (slot)
+    {
+      htab_clear_slot (avail_exprs, slot);
+      slot = htab_find_slot (avail_exprs, stmt, INSERT);
+      *slot = (void *) stmt;
+    }
 }

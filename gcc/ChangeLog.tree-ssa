@@ -1,3 +1,44 @@
+2003-08-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow.h (struct var_ann_d): Add field default_def.
+	(widen_bitfield): Declare.
+	(set_default_def): Declare.
+	(default_def): Declare.
+	* tree-flow-inline.h (set_default_def): New inline function.
+	(default_def): New inline function.
+	* tree-dfa.c (dump_variable): Display default_def, if set.
+	* tree-simple.c (is_gimple_reg): Check for DECL_P before checking
+	for DECL_EXTERNAL.
+	* tree-ssa-dom.c (add_expr_propagated_p): Remove.  Update all
+	users.
+	(find_new_vars_to_rename): New local function.
+	(tree_ssa_dominator_optimize): Add new argument vars_to_rename.
+	Change return type to void.  Update all users.
+	(optimize_block): Add new argument vars_to_rename.  Update all
+	users.
+	If the call to optimize_stmt returns true, add the statement to the
+	list of statements to re-scan for operands.
+	After optimizing the block and its dominator children, call
+	find_new_vars_to_rename for every statement that may have had new
+	symbols exposed.
+	(optimize_stmt): Change return type to bool.  Return true if the
+	statement may have had new symbols exposed by optimization.
+	Add a sanity check for the value returned by lookup_avail_expr.
+	Create equivalences for more memory stores, not just the ones done
+	via INDIRECT_REF expressions.
+	Call widen_bitfield when optimizing stores to bitfields.
+	(lookup_avail_expr): Reformat comment.
+	* tree-ssa.c (rewrite_into_ssa): Remove local variable
+	addr_expr_propagated_p.
+	Clear out vars_to_rename before running dominator optimizations.
+	(check_for_new_variables): Remove.
+	(rewrite_stmt): Always register new definitions and virtual
+	definitions.
+	(register_new_def): Update comment.
+	(get_reaching_def): Update the default_def field for the variable
+	if it didn't have a reaching definition.
+	* tree-ssa-ccp.c (widen_bitfield): Declare it extern.
+
 2003-08-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (bsi_next_in_bb): Work correctly when the block ends

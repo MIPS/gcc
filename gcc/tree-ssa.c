@@ -148,7 +148,6 @@ static void set_livein_block (tree, basic_block);
 static void insert_phi_nodes (bitmap *, sbitmap);
 static void insert_phis_for_deferred_variables (varray_type);
 static void rewrite_block (basic_block);
-static void check_for_new_variables (void);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *);
 static void register_new_def (tree, tree, varray_type *);
@@ -277,7 +276,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   sbitmap globals;
   dominance_info idom;
   int i, rename_count;
-  bool addr_expr_propagated_p;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -331,7 +329,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
      dominator optimizations exposed more symbols to rename by propagating
      ADDR_EXPR values into INDIRECT_REF expressions.  */
   rename_count = 0;
-  addr_expr_propagated_p = false;
   do
     {
       /* Find variable references and mark definition sites.  */
@@ -342,7 +339,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 
       /* Rewrite all the basic blocks in the program.  */
       timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
-      sbitmap_zero (vars_to_rename);
       rewrite_block (ENTRY_BLOCK_PTR);
       timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
@@ -351,17 +347,13 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 	dump_function_to_file (fndecl, dump_file, dump_flags);
 
       /* Now optimize all the basic blocks in the program.  */
+      sbitmap_zero (vars_to_rename);
       if (flag_tree_dom)
-	addr_expr_propagated_p = tree_ssa_dominator_optimize (fndecl);
-
-      /* If the dominator optimizations propagated ADDR_EXPRs, we may need
-	 to repeat the SSA renaming process for the new symbols that may
-	 have been exposed.  Re-scan the program for operands not in SSA
-	 form and if new symbols are added to VARS_TO_RENAME, repeat the
-	 process.  */
-      if (addr_expr_propagated_p)
 	{
-	  check_for_new_variables ();
+	  tree_ssa_dominator_optimize (fndecl, vars_to_rename);
+
+	  /* If the dominator optimizations exposed new variables, we need
+	     to repeat the SSA renaming process for those symbols.  */
 	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
 	    {
 	      /* Remove PHI nodes for the new symbols, clear the hash
@@ -1998,62 +1990,6 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
   phi_insertion_points = NULL;
 }
 
-/* Scan all the statements looking for symbols not in SSA form.  If any are
-   found, add them to VARS_TO_RENAME to trigger a second SSA pass.  */
-
-static void
-check_for_new_variables (void)
-{
-  basic_block bb;
-  
-  FOR_EACH_BB (bb)
-    {
-      block_stmt_iterator si;
-
-      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-	{
-	  varray_type ops;
-	  size_t i;
-
-	  tree stmt = bsi_stmt (si);
-
-	  get_stmt_operands (stmt);
-
-	  ops = def_ops (stmt);
-	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	    {
-	      tree *def_p = VARRAY_GENERIC_PTR (ops, i);
-	      if (DECL_P (*def_p))
-		SET_BIT (vars_to_rename, var_ann (*def_p)->uid);
-	    }
-
-	  ops = use_ops (stmt);
-	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	    {
-	      tree *use_p = VARRAY_GENERIC_PTR (ops, i);
-	      if (DECL_P (*use_p))
-		SET_BIT (vars_to_rename, var_ann (*use_p)->uid);
-	    }
-
-	  ops = vdef_ops (stmt);
-	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	    {
-	      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
-	      if (DECL_P (var))
-		SET_BIT (vars_to_rename, var_ann (var)->uid);
-	    }
-
-	  ops = vuse_ops (stmt);
-	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	    {
-	      tree var = VARRAY_TREE (ops, i);
-	      if (DECL_P (var))
-		SET_BIT (vars_to_rename, var_ann (var)->uid);
-	    }
-	}
-    }
-}
-
 
 /* Rewrite statement pointed by iterator SI into SSA form. 
 
@@ -2117,10 +2053,8 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
     {
       tree *def_p = VARRAY_GENERIC_PTR (defs, i);
       if (TREE_CODE (*def_p) != SSA_NAME)
-	{
-	  *def_p = make_ssa_name (*def_p, stmt);
-	  register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
-	}
+	*def_p = make_ssa_name (*def_p, stmt);
+      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -2128,12 +2062,12 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
     {
       tree vdef = VARRAY_TREE (vdefs, i);
 
-      if (TREE_CODE (VDEF_RESULT (vdef)) == SSA_NAME)
-	continue;
+      if (TREE_CODE (VDEF_OP (vdef)) != SSA_NAME)
+	rewrite_operand (&(VDEF_OP (vdef)));
 
-      rewrite_operand (&(VDEF_OP (vdef)));
+      if (TREE_CODE (VDEF_RESULT (vdef)) != SSA_NAME)
+	VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
 
-      VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
 			VDEF_RESULT (vdef), block_defs_p);
     }
@@ -2174,10 +2108,9 @@ register_new_def (tree var, tree def, varray_type *block_defs_p)
 {
   tree currdef = get_value_for (var, currdefs);
 
-  /* If the current reaching definition is NULL or a constant, push the
-     variable itself so that rewrite_block knows what variable is
-     associated with this NULL reaching def when unwinding the
-     *BLOCK_DEFS_P stack.  */
+  /* If the current reaching definition is NULL, push the variable itself
+     so that rewrite_block knows what variable is associated with this NULL
+     reaching def when unwinding the *BLOCK_DEFS_P stack.  */
   if (currdef == NULL_TREE)
     VARRAY_PUSH_TREE (*block_defs_p, var);
 
@@ -2267,23 +2200,28 @@ remove_annotations_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 static tree
 get_reaching_def (tree var)
 {
-  tree default_def, currdef_var;
+  tree default_d, currdef_var;
   
   /* Lookup the current reaching definition for VAR.  */
-  default_def = NULL_TREE;
+  default_d = NULL_TREE;
   currdef_var = get_value_for (var, currdefs);
 
   /* If there is no reaching definition for VAR, create and register a
-     default definition for it.  */
+     default definition for it (if needed).  */
   if (currdef_var == NULL_TREE)
     {
-      default_def = make_ssa_name (var, build_empty_stmt ());
-      set_value_for (var, default_def, currdefs);
+      default_d = default_def (var);
+      if (default_d == NULL_TREE)
+	{
+	  default_d = make_ssa_name (var, build_empty_stmt ());
+	  set_default_def (var, default_d);
+	}
+      set_value_for (var, default_d, currdefs);
     }
 
   /* Return the current reaching definition for VAR, or the default
      definition, if we had to create one.  */
-  return (currdef_var) ? currdef_var : default_def;
+  return (currdef_var) ? currdef_var : default_d;
 }
 
 

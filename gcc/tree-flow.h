@@ -123,6 +123,12 @@ struct var_ann_d GTY(())
 
   /* The BIND_EXPR in that the variable is declared.  */
   tree scope;
+
+  /* Default definition for this symbol.  If this field is not NULL, it
+     means that the first reference to this variable in the function is a
+     USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
+     for this variable with an empty defining statement.  */
+  tree default_def;
 };
 
 
@@ -284,6 +290,8 @@ static inline varray_type reaching_defs (tree);
 static inline bool has_hidden_use (tree);
 static inline void set_has_hidden_use (tree);
 static inline tree parent_stmt (tree);
+static inline void set_default_def (tree, tree);
+static inline tree default_def (tree);
 
 
 /*---------------------------------------------------------------------------
@@ -491,9 +499,10 @@ extern void tree_perform_ssapre (tree);
 /* In tree-ssa-ccp.c  */
 void tree_ssa_ccp (tree);
 void fold_stmt (tree *);
+tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */
-extern bool tree_ssa_dominator_optimize (tree);
+extern void tree_ssa_dominator_optimize (tree, sbitmap);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
 

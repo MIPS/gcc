@@ -119,7 +119,6 @@ static void simulate_stmt (tree);
 static void substitute_and_fold (void);
 static value evaluate_stmt (tree);
 static void dump_lattice_value (FILE *, const char *, value);
-static tree widen_bitfield (tree, tree, tree);
 static bool replace_uses_in (tree);
 static latticevalue likely_value (tree);
 static tree get_rhs (tree);
@@ -933,7 +932,7 @@ dump_lattice_value (FILE *outf, const char *prefix, value val)
    variable VAR, return VAL appropriately widened to fit into VAR.  If
    FIELD is wider than HOST_WIDE_INT, NULL is returned.  */
 
-static tree
+tree
 widen_bitfield (tree val, tree field, tree var)
 {
   unsigned var_size, field_size;
