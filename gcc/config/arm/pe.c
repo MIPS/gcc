@@ -168,7 +168,7 @@ int
 arm_dllexport_name_p (symbol)
      char * symbol;
 {
-  return symbol[0] == '@' && symbol[1] == 'e' && symbol[2] == '.';
+  return symbol[0] == ARM_PE_FLAG_CHAR && symbol[1] == 'e' && symbol[2] == '.';
 }
 
 /* Return non-zero if SYMBOL is marked as being dllimport'd.  */
@@ -177,7 +177,7 @@ int
 arm_dllimport_name_p (symbol)
      char * symbol;
 {
-  return symbol[0] == '@' && symbol[1] == 'i' && symbol[2] == '.';
+  return symbol[0] == ARM_PE_FLAG_CHAR && symbol[1] == 'i' && symbol[2] == '.';
 }
 
 /* Mark a DECL as being dllexport'd.
@@ -206,7 +206,7 @@ arm_mark_dllexport (decl)
     return; /* already done */
 
   newname = alloca (strlen (oldname) + 4);
-  sprintf (newname, "@e.%s", oldname);
+  sprintf (newname, "%xe.%s", ARM_PE_FLAG_CHAR, oldname);
 
   /* We pass newname through get_identifier to ensure it has a unique
      address.  RTL processing can sometimes peek inside the symbol ref
@@ -277,7 +277,7 @@ arm_mark_dllimport (decl)
     }
 
   newname = alloca (strlen (oldname) + 11);
-  sprintf (newname, "@i.__imp_%s", oldname);
+  sprintf (newname, "%ci.__imp_%s", ARM_PE_FLAG_CHAR, oldname);
 
   /* We pass newname through get_identifier to ensure it has a unique
      address.  RTL processing can sometimes peek inside the symbol ref

@@ -22,6 +22,12 @@ Boston, MA 02111-1307, USA.  */
 /* Enable PE specific code.  */
 #define ARM_PE		1
 
+#define ARM_PE_FLAG_CHAR '@'
+
+/* Ensure that @x. will be stripped from the function name.  */
+#define SUBTARGET_NAME_ENCODING_LENGTHS  \
+  case ARM_PE_FLAG_CHAR: return 3;
+
 #include "arm/coff.h"
 
 #undef  USER_LABEL_PREFIX
@@ -109,16 +115,6 @@ Boston, MA 02111-1307, USA.  */
    It's also used to handle dllimport override semantics.  */
 #define REDO_SECTION_INFO_P(DECL) 1
 
-/* Utility used only in this file.  */
-#define ARM_STRIP_NAME_ENCODING(SYM_NAME) \
-  ((SYM_NAME) + ((SYM_NAME)[0] == '@' ? 3 : 0))
-
-/* Strip any text from SYM_NAME added by ENCODE_SECTION_INFO and store
-   the result in VAR.  */
-#undef  STRIP_NAME_ENCODING
-#define STRIP_NAME_ENCODING(VAR, SYM_NAME) \
-  (VAR) = ARM_STRIP_NAME_ENCODING (SYM_NAME)
-
 /* Define this macro if in some cases global symbols from one translation
    unit may not be bound to undefined symbols in another translation unit
    without user intervention.  For instance, under Microsoft Windows
@@ -171,7 +167,7 @@ Boston, MA 02111-1307, USA.  */
 /* Output a reference to a label.  */
 #undef  ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(STREAM, NAME)  \
-  asm_fprintf (STREAM, "%U%s", ARM_STRIP_NAME_ENCODING (NAME))
+  asm_fprintf (STREAM, "%U%s", arm_strip_name_encoding (NAME))
 
 /* Output a function definition label.  */
 #undef  ASM_DECLARE_FUNCTION_NAME
@@ -182,7 +178,7 @@ Boston, MA 02111-1307, USA.  */
 	{							\
 	  drectve_section ();					\
 	  fprintf (STREAM, "\t.ascii \" -export:%s\"\n",	\
-		   ARM_STRIP_NAME_ENCODING (NAME));		\
+		   arm_strip_name_encoding (NAME));		\
 	  function_section (DECL);				\
 	}							\
       ARM_DECLARE_FUNCTION_NAME (STREAM, NAME, DECL);		\
@@ -201,7 +197,7 @@ Boston, MA 02111-1307, USA.  */
 	{						\
 	  drectve_section ();				\
 	  fprintf (STREAM, "\t.ascii \" -export:%s\"\n",\
-		   ARM_STRIP_NAME_ENCODING (NAME));	\
+		   arm_strip_name_encoding (NAME));	\
 	}						\
       if (! arm_dllimport_name_p (NAME))		\
 	{						\
@@ -223,7 +219,7 @@ Boston, MA 02111-1307, USA.  */
 	  enum in_section save_section = in_section;	\
 	  drectve_section ();				\
 	  fprintf (STREAM, "\t.ascii \" -export:%s\"\n",\
-		   ARM_STRIP_NAME_ENCODING (NAME));	\
+		   arm_strip_name_encoding (NAME));	\
 	  switch_to_section (save_section, DECL);	\
 	}						\
       ASM_OUTPUT_LABEL (STREAM, NAME);			\

@@ -33,12 +33,15 @@ extern char * arm_output_epilogue	PARAMS ((void));
 
 extern void   output_func_epilogue	PARAMS ((int));
 extern void   arm_expand_prologue	PARAMS ((void));
+extern const char * arm_strip_name_encoding	PARAMS ((const char *));
 
 #ifdef TREE_CODE
 extern int    arm_return_in_memory	PARAMS ((tree));
 extern int    arm_valid_machine_decl_attribute	PARAMS ((tree, tree, tree));
 extern int    arm_comp_type_attributes	PARAMS ((tree, tree));
 extern int    arm_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+extern void   arm_set_default_type_attributes	PARAMS ((tree));
+extern void   arm_encode_call_attribute	PARAMS ((tree, char));
 #endif
 #ifdef RTX_CODE
 extern int    const_ok_for_arm		PARAMS ((HOST_WIDE_INT));
@@ -126,6 +129,7 @@ extern void   arm_print_operand		PARAMS ((FILE *, rtx, int));
 extern void   arm_final_prescan_insn	PARAMS ((rtx));
 extern int    arm_go_if_legitimate_address PARAMS ((enum machine_mode, rtx));
 extern int    arm_debugger_arg_offset	PARAMS ((int, rtx));
+extern int    arm_is_longcall_p 	PARAMS ((rtx, int, int));
 
 #if defined TREE_CODE
 extern rtx    arm_function_arg		PARAMS ((CUMULATIVE_ARGS *,

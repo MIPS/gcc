@@ -5821,15 +5821,27 @@
   "TARGET_EITHER"
   "
   {
-    /* Operand 2 is either const0_rtx or const1_rtx; depending on whether or
-       not this is supposed to be a long call.  If it's not const0_rtx, force
-       the call address into a register.  */
+    rtx callee;
+    
     /* In an untyped call, we can get NULL for operand 2.  */
-    if (operands[2] == 0)
+    if (operands[2] == NULL_RTX)
       operands[2] = const0_rtx;
-    if (operands[2] != const0_rtx
-	&& GET_CODE (XEXP (operands[0], 0)) != REG)
-      XEXP (operands[0], 0) = force_reg (Pmode, XEXP (operands[0], 0));
+      
+    /* This is to decide if we should generate indirect calls by loading the
+       32 bit address of the callee into a register before performing the
+       branch and link.  operand[2] encodes the long_call/short_call
+       attribute of the function being called.  This attribute is set whenever
+       __attribute__((long_call/short_call)) or #pragma long_call/no_long_call
+       is used, and the short_call attribute can also be set if function is
+       declared as static or if it has already been defined in the current
+       compilation unit.  See arm.c and arm.h for info about this.  The third
+       parameter to arm_is_longcall_p is used to tell it which pattern
+       invoked it.  */
+    callee  = XEXP (operands[0], 0);
+    
+    if (GET_CODE (callee) != REG
+       && arm_is_longcall_p (operands[0], INTVAL (operands[2]), 0))
+      XEXP (operands[0], 0) = force_reg (Pmode, callee);
   }"
 )
 
@@ -5902,14 +5914,16 @@
   "TARGET_EITHER"
   "
   {
-    /* Operand 2 is either const0_rtx or const1_rtx; depending on whether or
-       not this is supposed to be a long call.  If it's not const0_rtx, force
-       the call address into a register.  */
+    rtx callee = XEXP (operands[1], 0);
+    
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[3] == 0)
       operands[3] = const0_rtx;
-    if (operands[3] != const0_rtx && GET_CODE (XEXP (operands[1], 0)) != REG)
-      XEXP (operands[1], 0) = force_reg (Pmode, XEXP (operands[1], 0));
+      
+     /* See the comment in define_expand \"call\" */
+     if (GET_CODE (callee) != REG
+         && arm_is_longcall_p (operands[1], INTVAL (operands[3]), 0))
+       XEXP (operands[1], 0) = force_reg (Pmode, callee);
   }"
 )
 
@@ -5950,8 +5964,8 @@
    (use (match_operand 2 "" ""))
    (clobber (reg:SI 14))]
   "TARGET_ARM
-   && operands[2] == const0_rtx
-   && (GET_CODE (operands[0]) == SYMBOL_REF)"
+   && (GET_CODE (operands[0]) == SYMBOL_REF)
+   && ! arm_is_longcall_p (operands[0], INTVAL (operands[2]), 1)"
   "*
   {
     return NEED_PLT_RELOC ? \"bl%?\\t%a0(PLT)\" : \"bl%?\\t%a0\";
@@ -5965,7 +5979,9 @@
 	(match_operand:SI 2 "general_operand" "g")))
    (use (match_operand 3 "" ""))
    (clobber (reg:SI 14))]
-  "TARGET_ARM && operands[3] == const0_rtx && (GET_CODE(operands[1]) == SYMBOL_REF)"
+  "TARGET_ARM
+   && (GET_CODE (operands[1]) == SYMBOL_REF)
+   && ! arm_is_longcall_p (operands[1], INTVAL (operands[3]), 1)"
   "*
   {
     return NEED_PLT_RELOC ? \"bl%?\\t%a1(PLT)\" : \"bl%?\\t%a1\";
