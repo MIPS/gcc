@@ -1,3 +1,10 @@
+2003-02-26  Josef Zlomek  <zlomekj@suse.cz>
+
+	* rtl.h (note_all_uses): New extern function.
+	* rtlanal.c (note_all_uses): New function.
+	* var-tracking.c (count_uses, add_uses): Changed type of parameter loc.
+	(var_tracking_initialize): Use note_all_uses instead of note_uses.
+
 2003-02-24  Josef Zlomek  <zlomekj@suse.cz>
 
 	* dwarf2out.c (struct var_loc_node): Skip "last".

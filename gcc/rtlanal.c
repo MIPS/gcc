@@ -1828,6 +1828,102 @@ note_uses (pbody, fun, data)
     }
 }
 
+/* Like notes_uses, but call FUN for each expression that is being
+   referenced in PBODY, a pointer to the PATTERN of an insn, and for all
+   interior subexpressions.  FUN receives a pointer to the expression and the
+   DATA passed to this function.  */
+
+void
+note_all_uses (body, fun, data)
+     rtx body;
+     void (*fun) PARAMS ((rtx, void *));
+     void *data;
+{
+  int i;
+
+  if (body == NULL_RTX)
+    return;
+
+  switch (GET_CODE (body))
+    {
+      case REG:
+	(*fun) (body, data);
+	return;
+
+      case MEM:
+	(*fun) (body, data);
+	note_all_uses (XEXP (body, 0), fun, data);
+	return;
+
+      case SET:
+	note_all_uses (SET_SRC (body), fun, data);
+
+	/* Fallthru.  */
+      case CLOBBER:
+	{
+	  rtx dest = SET_DEST (body);
+
+	  /* Note the uses in DEST, for example the uses in
+	     (mem/s:DI (plus:DI (reg/v/f:DI 3 rbx [orig:81 prev ] [81])
+			(const_int 24 [0x18])) [0 <variable>.rtx+0 S8 A64])
+	   
+	     are (reg/v/f:DI 3 rbx [orig:81 prev ] [81])
+	     and (const_int 24 [0x18]).  */
+
+	  while (GET_CODE (dest) == SUBREG
+		 || GET_CODE (dest) == ZERO_EXTRACT
+		 || GET_CODE (dest) == SIGN_EXTRACT
+		 || GET_CODE (dest) == STRICT_LOW_PART)
+	    {
+	      if (GET_CODE (dest) == ZERO_EXTRACT
+		  || GET_CODE (dest) == SIGN_EXTRACT)
+		{
+		  /* Note the uses in parameters.  */
+		  (*fun) (XEXP (dest, 1), data);
+		  (*fun) (XEXP (dest, 2), data);
+		}
+	      dest = XEXP (dest, 0);
+	    }
+
+	  /* If the DEST is a memory, note uses in its subexpressions.  */
+	  if (GET_CODE (dest) == MEM)
+	    note_all_uses (XEXP (body, 0), fun, data);
+	}
+	return;
+
+      default:
+	{
+	  int length = GET_RTX_LENGTH (GET_CODE (body));
+	  const char *format = GET_RTX_FORMAT (GET_CODE (body));
+
+	  for (i = 0; i < length; i++)
+	    {
+	      switch (format[i])
+		{
+		  case 'e':
+		    note_all_uses (XEXP (body, i), fun, data);
+		    break;
+
+		  case 'V':
+		  case 'E':
+		    if (XVEC (body, i) != 0)
+		      {
+			int j;
+			for (j = 0; j < XVECLEN (body, i); j++)
+			  note_all_uses (XVECEXP (body, i, j), fun, data);
+		      }
+		    break;
+
+		  default:
+		    /* Nothing to do.  */
+		    break;
+		}
+	    }
+	}
+        return;
+    }
+}
+
 /* Return nonzero if X's old contents don't survive after INSN.
    This will be true if X is (cc0) or if X is a register and
    X dies in INSN or because INSN entirely sets X.

@@ -270,9 +270,9 @@ static void attrs_htab_clear		PARAMS ((htab_t));
 static void attrs_htab_cleanup		PARAMS ((void *));
 
 static bool track_expr_p		PARAMS ((tree));
-static void count_uses			PARAMS ((rtx *, void *));
+static void count_uses			PARAMS ((rtx, void *));
 static void count_stores		PARAMS ((rtx, rtx, void *));
-static void add_uses			PARAMS ((rtx *, void *));
+static void add_uses			PARAMS ((rtx, void *));
 static void add_stores			PARAMS ((rtx, rtx, void *));
 static bool compute_bb_dataflow		PARAMS ((basic_block));
 static void hybrid_search		PARAMS ((basic_block, sbitmap,
@@ -774,22 +774,22 @@ track_expr_p (expr)
 
 static void
 count_uses (loc, insn)
-     rtx *loc;
+     rtx loc;
      void *insn;
 {
   basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
 
-  if (GET_CODE (*loc) == REG)
+  if (GET_CODE (loc) == REG)
     {
 #ifdef ENABLE_CHECKING
-	if (REGNO (*loc) >= FIRST_PSEUDO_REGISTER)
+	if (REGNO (loc) >= FIRST_PSEUDO_REGISTER)
 	  abort ();
 #endif
 	VTI (bb)->n_locs++;
     }
-  else if (GET_CODE (*loc) == MEM
-	   && MEM_EXPR (*loc)
-	   && track_expr_p (MEM_EXPR (*loc)))
+  else if (GET_CODE (loc) == MEM
+	   && MEM_EXPR (loc)
+	   && track_expr_p (MEM_EXPR (loc)))
     {
 	  VTI (bb)->n_locs++;
     }
@@ -804,7 +804,7 @@ count_stores (loc, expr, insn)
      rtx expr ATTRIBUTE_UNUSED;
      void *insn;
 {
-  count_uses (&loc, insn);
+  count_uses (loc, insn);
 }
 
 /* Add uses (register and memory references) LOC which will be tracked
@@ -812,18 +812,18 @@ count_stores (loc, expr, insn)
 
 static void
 add_uses (loc, insn)
-     rtx *loc;
+     rtx loc;
      void *insn;
 {
-  if (GET_CODE (*loc) == REG
-      || (GET_CODE (*loc) == MEM
-	  && MEM_EXPR (*loc)
-	  && track_expr_p (MEM_EXPR (*loc))))
+  if (GET_CODE (loc) == REG
+      || (GET_CODE (loc) == MEM
+	  && MEM_EXPR (loc)
+	  && track_expr_p (MEM_EXPR (loc))))
     {
       basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
       location *l = VTI (bb)->locs + VTI (bb)->n_locs++;
 
-      l->loc = *loc;
+      l->loc = loc;
       l->insn = (rtx) insn;
       l->type = LT_USE;
     }
@@ -1657,7 +1657,7 @@ var_tracking_initialize ()
 	{
 	  if (INSN_P (insn))
 	    {
-	      note_uses (&PATTERN (insn), count_uses, insn);
+	      note_all_uses (PATTERN (insn), count_uses, insn);
 	      note_stores (PATTERN (insn), count_stores, insn);
 	    }
 	}
@@ -1674,7 +1674,7 @@ var_tracking_initialize ()
 	      int n1, n2;
 
 	      n1 = VTI (bb)->n_locs;
-	      note_uses (&PATTERN (insn), add_uses, insn);
+	      note_all_uses (PATTERN (insn), add_uses, insn);
 	      note_stores (PATTERN (insn), add_stores, insn);
 	      n2 = VTI (bb)->n_locs - 1;
 
