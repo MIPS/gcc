@@ -1,3 +1,7 @@
+2004-10-14  Robert Bowdidge <bowdidge@apple.com>
+        * config/darwin-driver.c: Remove off-by-one error in QA_OVERIDE...
+          machinery.
+
 2004-10-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3719208

@@ -785,7 +785,7 @@ void read_args (int argc, char **argv)
   arg_array = (char**) malloc(sizeof(char*)*arg_array_size);
   
   for (i=0;i<argc;i++) {
-    arg_array[i] = malloc (strlen (argv[i]));
+    arg_array[i] = malloc (strlen (argv[i])+1);
     strcpy (arg_array[i], argv[i]);
   }
 }
@@ -794,7 +794,7 @@ void read_args (int argc, char **argv)
 void insert_arg(int pos, char *arg_to_insert) 
 {
   int i;
-  char *newArg = malloc (strlen (arg_to_insert));
+  char *newArg = malloc (strlen (arg_to_insert)+1);
   strcpy(newArg, arg_to_insert);
   
   if (arg_count == arg_array_size) {
@@ -816,7 +816,7 @@ void insert_arg(int pos, char *arg_to_insert)
 
 
 void replace_arg (char *str, int pos) {
-  char *newArg = malloc(strlen(str));
+  char *newArg = malloc(strlen(str)+1);
   strcpy(newArg,str);
 
   if (confirm_changes)
@@ -828,7 +828,7 @@ void replace_arg (char *str, int pos) {
 
 void append_arg (char *str)
 {
-  char *new_arg = malloc (strlen (str));
+  char *new_arg = malloc (strlen (str)+1);
   strcpy (new_arg, str);
   if (confirm_changes)
     fprintf(stderr,"### Adding argument %s at end\n", str);
@@ -862,7 +862,7 @@ void delete_arg(int pos) {
 void replace_optimization_level (char *new_level) {
   int i;
   int optionFound = 0;
-  char *new_opt = malloc(strlen(new_opt)+2);
+  char *new_opt = malloc(strlen(new_opt)+3);
   sprintf(new_opt, "-O%s",new_level);
   
 
