@@ -303,21 +303,6 @@ struct cpp_buffer
   struct cset_converter input_cset_desc;
 };
 
-/* APPLE LOCAL begin Symbol Separation */
-/* Indicate state of context info processing.
-   Context info processing shares code with PCH, but it does not need
-   everything PCH does. Use this context info states to exclude not
-   required stuff.  */
-enum cpp_cinfo_state
-  {
-    CINFO_NONE,
-    CINFO_FOUND,  /* Context information found */
-    CINFO_VALID,  /* Context information is valid */
-    CINFO_READ,   /* Reading context information */
-    CINFO_WRITE   /* Writing context information */
-  };
-/* APPLE LOCAL end Symbol Separation */
-
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
    Applying cpp_get_token repeatedly yields a stream of pre-processor
    tokens.  Usually, there is only one cpp_reader object active.  */
@@ -462,13 +447,6 @@ struct cpp_reader
   /* Used for buffer overlays by traditional.c.  */
   const unsigned char *saved_cur, *saved_rlimit, *saved_line_base;
 
-  /* APPLE LOCAL begin Symbol Separation */
-  const char *cinfo_candidate_file;
-  const char *cinfo_src_file;
-  /* State of context information read/write operation.  */
-  enum cpp_cinfo_state cinfo_state;
-  /* APPLE LOCAL end Symbol Separation */
-
   /* A saved list of the defined macros, for dependency checking
      of precompiled headers.  */
   struct cpp_savedstate *savedstate;
@@ -537,9 +515,6 @@ extern void _cpp_init_hashtable (cpp_reader *, hash_table *);
 extern void _cpp_destroy_hashtable (cpp_reader *);
 
 /* In files.c */
-/* APPLE LOCAL begin Symbol Separation */
-extern void find_include_cinfo (cpp_reader *, const char *);
-/* APPLE LOCAL end Symbol Separation */
 typedef struct _cpp_file _cpp_file;
 extern _cpp_file *_cpp_find_file (cpp_reader *, const char *fname,
 				  cpp_dir *start_dir, bool fake);

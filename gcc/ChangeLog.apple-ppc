@@ -1,5 +1,9 @@
 2005-03-06  Devang Patel  <dpatel@apple.com>
 
+	* config/darwin.h (LINK_COMMAND_SPEC): Remove foutput-dbg.
+
+2005-03-06  Devang Patel  <dpatel@apple.com>
+
 	* target-def.h (TARGET_VECT_SUPPORT_MISALIGNED_LOADS,  
 	TARGET_VECT_PERMUTE_MISALIGNED_LOADS, TARGET_VECT_BUILD_BUILTIN_LVSL,
 	TARGET_VECT_BUILD_BUILTIN_LVSR, TARGET_VECT_BUILD_BUILTIN_VPERM,

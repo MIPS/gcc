@@ -224,12 +224,6 @@ count_defs (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_hashnode *hn, void *ss_p)
 	struct cpp_string news;
 	void **slot;
 
-        /* APPLE LOCAL begin Symbol Separation */
-        if (pfile->cinfo_state == CINFO_WRITE && pfile->cb.is_builtin_identifier)
-          if (pfile->cb.is_builtin_identifier (hn))
-            return 1;
-        /* APPLE LOCAL end Symbol Separation */
-	
 	news.len = NODE_LEN (hn);
 	news.text = NODE_NAME (hn);
 	slot = htab_find (ss->definedhash, &news);
@@ -269,12 +263,6 @@ write_defs (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_hashnode *hn, void *ss_p)
 	struct cpp_string news;
 	void **slot;
 	
-        /* APPLE LOCAL begin Symbol Separation */
-        if (pfile->cinfo_state == CINFO_WRITE && pfile->cb.is_builtin_identifier)
-          if (pfile->cb.is_builtin_identifier (hn))
-            return 1;
-        /* APPLE LOCAL end Symbol Separation */
-
 	news.len = NODE_LEN (hn);
 	news.text = NODE_NAME (hn);
 	slot = htab_find (ss->definedhash, &news);
@@ -421,8 +409,7 @@ collect_ht_nodes (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_hashnode *hn,
    - anything that was not defined then, but is defined now, was not
      used by the PCH.
 
-   APPLE LOCAL Symbol Separation
-   NAME is used to print warnings if `warn_invalid_pch' or `warn_invalid_sr'
+   NAME is used to print warnings if `warn_invalid_pch' is set in the
    reader's flags.
 */
 
@@ -487,8 +474,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
 	  || h->type != NT_MACRO
 	  || h->flags & NODE_POISONED)
 	{
-          /* APPLE LOCAL Symbol Separation */
-          if (CPP_OPTION (r, warn_invalid_pch) || CPP_OPTION (r, warn_invalid_sr))
+          if (CPP_OPTION (r, warn_invalid_pch))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR,
 		       "%s: not used because `%.*s' not defined",
 		       name, m.name_length, namebuf);
@@ -500,8 +486,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
       if (m.definition_length != ustrlen (newdefn)
 	  || memcmp (namebuf, newdefn, m.definition_length) != 0)
 	{
-	  /* APPLE LOCAL Symbol Separation */
-	  if (CPP_OPTION (r, warn_invalid_pch) || CPP_OPTION (r, warn_invalid_sr))
+	  if (CPP_OPTION (r, warn_invalid_pch))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR,
 	       "%s: not used because `%.*s' defined as `%s' not `%.*s'",
 		       name, m.name_length, namebuf, newdefn + m.name_length,
@@ -550,8 +535,7 @@ cpp_valid_state (cpp_reader *r, const char *name, int fd)
  	++i;
       else
 	{
-	  /* APPLE LOCAL Symbol Separation */
-	  if (CPP_OPTION (r, warn_invalid_pch) || CPP_OPTION (r, warn_invalid_sr))
+	  if (CPP_OPTION (r, warn_invalid_pch))
 	    cpp_error (r, CPP_DL_WARNING_SYSHDR, 
 		       "%s: not used because `%s' is defined",
 		       name, first);

@@ -2160,28 +2160,3 @@ _cpp_init_directives (cpp_reader *pfile)
     }
 }
 
-/* APPLE LOCAL begin Symbol Separation */
-/* MERGE FIXME: These are stub routines.  */
-void find_include_cinfo (cpp_reader *pfile ATTRIBUTE_UNUSED,
-                         const char *in_name ATTRIBUTE_UNUSED)
-{
-}
-
-const char *
-cpp_symbol_separation_init (struct cpp_reader *pfile ATTRIBUTE_UNUSED,
-                            const char * dbg_dir ATTRIBUTE_UNUSED,
-                            const char * main_input_filename ATTRIBUTE_UNUSED)
-{
-  return dbg_dir;
-}
-
-void cpp_write_symbol_deps (struct cpp_reader *pfile ATTRIBUTE_UNUSED)
-{
-}
-
-unsigned long
-cpp_get_stabs_checksum (void)
-{
-  return 0;
-}
-/* APPLE LOCAL end symbol separation */

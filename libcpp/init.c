@@ -487,13 +487,6 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
   if (_cpp_find_failed (pfile->main_file))
     return NULL;
 
-  /* APPLE LOCAL begin Symbol Separation */
-  /* If creating PCH file then main input file is a header and it is a candidate
-     for separate symbol repository. Find one if available.  */
-  if (CPP_OPTION (pfile, making_pch) && CPP_OPTION (pfile, use_ss))
-    find_include_cinfo (pfile, fname);
-  /* APPLE LOCAL end Symbol Separation */
-
   _cpp_stack_file (pfile, pfile->main_file, false);
 
   /* For foo.i, read the original filename foo.c now, for the benefit
