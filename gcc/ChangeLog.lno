@@ -1,4 +1,11 @@
 2004-06-16  Dale Johannesen  <dalej@apple.com>
+	* Makefile.in (GTFILES): Add tree-chrec.h.
+	* tree-chrec.h (chrec_top, chrec_bot): Add GTY.
+	* tree-scalar-evolution.c (initialize_scalar_evolutions_analyzer):
+	Set chrec_top, chrec_bot once per compilation.
+	* gengtype.c (ifiles):  Add tree-fold-const.h, tree-chrec.h.
+
+2004-06-16  Dale Johannesen  <dalej@apple.com>
 	* tree-flow.h (tree_ann_common-d.aux): Document required behavior.
 	* tree-ssa-loop-manip.c (allocate_new_names): Don't propagate
 	new_names into copies.

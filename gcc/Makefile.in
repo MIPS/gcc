@@ -2390,6 +2390,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-iterator.c $(srcdir)/gimplify.c \
   $(srcdir)/tree-alias-type.h $(srcdir)/tree-alias-common.h \
   $(srcdir)/tree-alias-type.c $(srcdir)/tree-alias-common.c \
+  $(srcdir)/tree-chrec.h \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
   $(srcdir)/tree-profile.c $(srcdir)/rtl-profile.c $(srcdir)/tree-nested.c \
   $(out_file) \

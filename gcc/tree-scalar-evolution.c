@@ -2850,11 +2850,14 @@ initialize_scalar_evolutions_analyzer (void)
 {
   /* The elements below are unique.  The values contained in these
      intervals are not used.  */
-  chrec_not_analyzed_yet = NULL_TREE;
-  chrec_top = build_interval_chrec 
-    (build_int_2 (2222, 0), build_int_2 (3222, 0));
-  chrec_bot = build_interval_chrec 
-    (build_int_2 (3333, 0), build_int_2 (4333, 0));
+  if (chrec_top == NULL_TREE)
+    {
+      chrec_not_analyzed_yet = NULL_TREE;
+      chrec_top = build_interval_chrec 
+	(build_int_2 (2222, 0), build_int_2 (3222, 0));
+      chrec_bot = build_interval_chrec 
+	(build_int_2 (3333, 0), build_int_2 (4333, 0));
+    }
 }
 
 /* Initialize the analysis of scalar evolutions for LOOPS.  */

@@ -37,8 +37,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    and not on their value.  */
 
 extern tree chrec_not_analyzed_yet;
-extern tree chrec_top;
-extern tree chrec_bot;
+extern GTY(()) tree chrec_top;
+extern GTY(()) tree chrec_bot;
 
 /* After having added an automatically generated element, please
    include it in the following function.  */
