@@ -1,3 +1,15 @@
+2003-06-25  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks.c (alloca): Separate into stub.
+	(__mf_wrap_alloca_indirect): New function.  Use CALL_REAL
+	malloc/free for alloca blocks.
+	(pthread_create): Tolerate failing pthread_attr_get* calls.
+	* mf-runtime.c (__mf_fini): Call __mf_wrap_alloca_indirect.
+	* mf-impl.h (CALL_WRAP): Remove macro.
+	* testsuite/libmudflap.c/pass21-frag.c: Include <alloca.h>.
+	* testsuite/libmudflap.c/pass23-frag.c: Include more struct
+	padding for ia64 BIT_FIELD_REF constructs.
+
 2003-06-19  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-hooks.c (struct pthread_info): Add "thread_errno" field.

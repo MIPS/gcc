@@ -397,11 +397,12 @@ WRAPPER(int , munmap, void *start, size_t length)
 #endif
 
 
-/* This wrapper is a little different, as it's implemented in terms
-   of the wrapped malloc/free functions. */
 #ifdef WRAP_alloca
-#undef alloca
-WRAPPER(void *, alloca, size_t c)
+
+/* This wrapper is a little different, as it's called indirectly from
+   __mf_fini also to clean up pending allocations.  */ 
+void *
+__mf_wrap_alloca_indirect (size_t c)
 {
   DECLARE (void *, malloc, size_t);
   DECLARE (void, free, void *);
@@ -416,7 +417,7 @@ WRAPPER(void *, alloca, size_t c)
   static struct alloca_tracking *alloca_history = NULL;
 
   void *stack = __builtin_frame_address (0);
-  char *result;
+  void *result;
   struct alloca_tracking *track;
 
   TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
@@ -429,7 +430,8 @@ WRAPPER(void *, alloca, size_t c)
 	 ((uintptr_t) alloca_history->stack DEEPER_THAN (uintptr_t) stack))
     {
       struct alloca_tracking *next = alloca_history->next;
-      CALL_WRAP (free, alloca_history->ptr);
+      __mf_unregister (alloca_history->ptr, 0);
+      CALL_REAL (free, alloca_history->ptr);
       CALL_REAL (free, alloca_history);
       alloca_history = next;
     }
@@ -442,7 +444,7 @@ WRAPPER(void *, alloca, size_t c)
 						    sizeof (struct alloca_tracking));
       if (LIKELY (track != NULL))
 	{
-	  result = (char *) CALL_WRAP (malloc, c);
+	  result = CALL_REAL (malloc, c);
 	  if (UNLIKELY (result == NULL))
 	    {
 	      CALL_REAL (free, track);
@@ -450,6 +452,7 @@ WRAPPER(void *, alloca, size_t c)
 	    }
 	  else
 	    {
+	      __mf_register (result, c, __MF_TYPE_HEAP, "alloca region");
 	      track->ptr = result;
 	      track->stack = stack;
 	      track->next = alloca_history;
@@ -460,6 +463,14 @@ WRAPPER(void *, alloca, size_t c)
   
   return result;
 }
+
+
+#undef alloca
+WRAPPER(void *, alloca, size_t c)
+{
+  return __mf_wrap_alloca_indirect (c);
+}
+
 #endif
 
 
@@ -1076,14 +1087,13 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
   else
     pthread_attr_init (& override_attr);
 
-  /* Get supplied attributes.  Give up on error.  */
+  /* Get supplied attributes, if any.  */
   /* XXX: consider using POSIX2K attr_getstack() */
   if (pthread_attr_getstackaddr (& override_attr, & override_stack) != 0 ||
       pthread_attr_getstacksize (& override_attr, & override_stacksize) != 0)
     {
-      errno = EAGAIN;
-      pi->used_p = 0;
-      return -1;
+      override_stack = NULL;
+      override_stacksize = 0;
     }
 
   /* Do we need to allocate the new thread's stack?  */

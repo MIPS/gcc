@@ -1483,7 +1483,8 @@ __mf_adapt_cache ()
 	break;
     }
   if (smoothed_new_shift < 0) smoothed_new_shift = __mf_lc_shift;
- /* Converge toward this slowly to reduce flapping. */  smoothed_new_shift = 0.9*smoothed_new_shift + 0.1*i;
+  /* Converge toward this slowly to reduce flapping. */  
+  smoothed_new_shift = 0.9*smoothed_new_shift + 0.1*i;
   new_shift = (unsigned) (smoothed_new_shift + 0.5);
   assert (new_shift >= 0 && new_shift < sizeof (uintptr_t)*8);
 
@@ -1930,10 +1931,10 @@ __mfu_report ()
   if (__mf_opts.print_leaks && (__mf_opts.mudflap_mode == mode_check))
     {
       unsigned l;
-      DECLARE (void *, alloca, size_t n);
+      extern void * __mf_wrap_alloca_indirect (size_t c);
 
       /* Free up any remaining alloca()'d blocks.  */
-      (void) CALL_WRAP (alloca, 0); /* XXX: doesn't work in shared mode. */
+      __mf_wrap_alloca_indirect (0);
       __mf_describe_object (NULL); /* Reset description epoch.  */
       __mf_report_leaks (NULL); /* Reset cumulative count.  */
       l = __mf_report_leaks (__mf_object_root);

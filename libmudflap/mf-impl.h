@@ -289,8 +289,6 @@ ret fname (__VA_ARGS__)
        (((__mf_fn_ ## fname)(__mf_dynamic[dyn_ ## fname].pointer)) (__VA_ARGS__)));})
 #define CALL_BACKUP(fname, ...)                       \
   __mf_0fn_ ## fname(__VA_ARGS__)
-#define CALL_WRAP(fname, ...)                         \
-  (__wrap_ ## fname (__VA_ARGS__))
 
 #else /* not PIC --> static library */
 
@@ -302,8 +300,6 @@ ret __wrap_ ## fname (__VA_ARGS__)
  __real_ ## fname (__VA_ARGS__)
 #define CALL_BACKUP(fname, ...)             \
   __real_ ## fname(__VA_ARGS__)
-#define CALL_WRAP(fname, ...)               \
- __wrap_ ## fname (__VA_ARGS__)
 
 #endif /* PIC */
 

@@ -8,6 +8,7 @@ struct foo {
   int nothing : 1;
   int part2 : 5;
   int lots_more_nothing : 3;
+  int some_padding; /* for 64-bit hosts */
   float some_more_nothing;
   double yet_more_nothing;
 };
