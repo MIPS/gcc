@@ -176,6 +176,8 @@ void debug_integer_hset PARAMS ((hset));
 	}						\
   } while (0)
 
+static void debug_msg PARAMS ((int, const char * , ...)) ATTRIBUTE_PRINTF_2;
+
 /* XXX:Extra regset routine, move into bitmap.c??? */
 static int regset_first_set_bit PARAMS((regset));
 
@@ -514,6 +516,29 @@ static int debug_new_regalloc = 2;
 /* Whether to use biased coloring or not */
 static int biased_coloring = 0;
 
+/* Print a message to the dump file, if debug_new_regalloc the
+   same or greater than the specified level. */
+
+static void
+debug_msg VPARAMS ((int level, const char *format, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  int level;
+  const char *format;
+#endif
+  va_list ap;
+  if (debug_new_regalloc >= level && rtl_dump_file != NULL)
+    {
+      VA_START (ap, format);
+
+#ifndef ANSI_PROTOTYPES
+      format = va_arg (ap, const char *);
+#endif
+
+      vfprintf (rtl_dump_file, format, ap);
+      va_end (ap);
+    }
+}
 
 
 static int
@@ -687,40 +712,36 @@ reg_freedom (reg_num)
 
 /* Make the worklists from the inital set of candidates.  */
 static void
-make_worklist (set)
-     regset set;
+make_worklist (initial)
+     regset initial;
 {
-  unsigned int entry;
-
-  EXECUTE_IF_SET_IN_REG_SET (set, 0, entry,
+  unsigned int reg_num;
+  
+  /* Loop all over candidates in the initial set, starting with 0,
+     setting reg_num to the register number and throwing it onto the
+     right work list. */
+  EXECUTE_IF_SET_IN_REG_SET (initial, 0, reg_num,
     {
-      unsigned int reg_num = entry;
-
-      /* Remove it from the initial set */
-      CLEAR_REGNO_REG_SET (set, entry);
-
       /* If it's of significant degree, place it on the spill_worklist.  */
       if (ra_reg_info[reg_num]->degree >= reg_freedom (reg_num))
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	    fprintf (rtl_dump_file, "Inserting %d onto spill_worklist\n", reg_num);
+	  debug_msg (2, "Inserting %d onto spill_worklist\n", reg_num);
 	  SET_REGNO_REG_SET (spill_worklist, reg_num);
 	}
       /* If it's move related, put it on the freeze worklist.  */
       else if (move_related (reg_num))
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	    fprintf (rtl_dump_file, "Inserting %d onto freeze_worklist\n", reg_num);
+	  debug_msg (2, "Inserting %d onto freeze_worklist\n", reg_num);
 	  SET_REGNO_REG_SET (freeze_worklist, reg_num);
 	}
       /* Otherwise, put it on the simplify worklist.  */
       else
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	    fprintf (rtl_dump_file, "Inserting %d onto simplify_worklist\n", reg_num);
+	  debug_msg (2, "Inserting %d onto simplify_worklist\n", reg_num);
 	  SET_REGNO_REG_SET (simplify_worklist, reg_num);
 	}
     });
+    CLEAR_REG_SET (initial);
 }
 
 /* Returns 1 if the varray contains the register reg_num.  */
@@ -742,21 +763,22 @@ static regset
 adjacent (reg_num)
      unsigned int reg_num;
 {
-  regset result;
+  regset result,temp;
   unsigned int entry;
   
   result = BITMAP_XMALLOC ();
-  
+  temp = BITMAP_XMALLOC (); 
   CLEAR_REG_SET (result);
+  CLEAR_REG_SET (temp);
   COPY_REG_SET (result, ra_reg_info[reg_num]->adj_list);
   AND_COMPL_REG_SET (result, coalesced_nodes);
   EXECUTE_IF_SET_IN_REG_SET (result, 0, entry,
   {
       
     if (REGNO_REG_SET_P (select_nodes, entry))
-      CLEAR_REGNO_REG_SET (result, entry);
+      SET_REGNO_REG_SET (temp, entry);
   });
-  
+  AND_COMPL_REG_SET (result, temp); 
   return result;
 }
 
@@ -833,8 +855,8 @@ simplify ()
 
   /* Pick the first thing on the worklist.  */
   curr_reg = regset_first_set_bit (simplify_worklist);
-  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-    fprintf (rtl_dump_file, "picked reg %d in simplify\n", curr_reg);
+ 
+  debug_msg (2, "picked reg %d in simplify\n", curr_reg);
 
   /* Remove it.  */
   CLEAR_REGNO_REG_SET (simplify_worklist, curr_reg);
@@ -844,17 +866,17 @@ simplify ()
   SET_REGNO_REG_SET (select_nodes, curr_reg);
   adj = adjacent (curr_reg);
 
-  /* From new register allocator paper.  */
-  /* ??? My that's a descriptive comment.  */
-  if (ra_reg_info[curr_reg]->degree > reg_freedom (curr_reg))
+  /* From new register allocator paper.  
+     If these nodes are about to lose a high degree neighbor, 
+     then enable the moves again for them. */
+  if (ra_reg_info[curr_reg]->degree >= reg_freedom (curr_reg))
     EXECUTE_IF_SET_IN_REG_SET (adj, 0, entry, { enable_moves (entry); });
 
   /* Now that we've removed it, everything adjacent to it gets
      decremented in degree.  */
   EXECUTE_IF_SET_IN_REG_SET (adj, 0, entry,
     {
-      if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	fprintf (rtl_dump_file, "Decrementing degree of %d\n", entry);
+      debug_msg (2, "Decrementing degree of %d\n", entry);
       decrement_degree (entry, curr_reg);
     });
 
@@ -1053,8 +1075,7 @@ combine (u, v)
   regset adj;
   unsigned int entry;
 
-  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-    fprintf (rtl_dump_file, "Coalescing %d and %d\n", u, v);
+  debug_msg (1, "Coalescing %d and %d\n", u, v);
 
   /* Remove v from the worklists, and make it a coalesced node. */
   if (REGNO_REG_SET_P (freeze_worklist, v))
@@ -1121,8 +1142,7 @@ coalesce ()
       if (REGNO_REG_SET_P (precolored, rhs)
 	  || REGNO_REG_SET_P (ra_reg_info[rhs]->adj_list, lhs))
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	    fprintf (rtl_dump_file, "Move from %d to %d is constrained\n", lhs, rhs);
+	  debug_msg (1, "Move from %d to %d is constrained\n", lhs, rhs);
 
 	  /* If they interfere, can't coalesce.  */
 	  hset_insert (constrained_moves, as);
@@ -1185,8 +1205,7 @@ freeze_moves (reg_num)
 	}
       hset_delete (nodemoves);
 
-      if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	fprintf (rtl_dump_file, "chug...");
+      debug_msg (1, "chug...");
     });
 
   hset_delete (moves);
@@ -1237,8 +1256,7 @@ select_spill ()
 	}
     });
 
-  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-    fprintf (rtl_dump_file, "almost-spilling node %d\n", min_node);
+  debug_msg (1, "almost-spilling node %d\n", min_node);
 
   CLEAR_REGNO_REG_SET (spill_worklist, min_node);
   SET_REGNO_REG_SET (simplify_worklist, min_node);
@@ -1431,9 +1449,8 @@ assign_regs ()
 	      }
 	  colors[curr_reg] = best_color;
 	  reg_renumber[curr_reg] = best_color;
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-	    fprintf (rtl_dump_file, "Color of register %d is %d\n",
-		     curr_reg, colors[curr_reg]);
+	  
+	  debug_msg (1, "Color of register %d is %d\n", curr_reg, colors[curr_reg]);
 	}
       else
 	{
@@ -1459,8 +1476,7 @@ assign_regs ()
 	    {
 	      /* Couldn't find a color to set -- guess we have to spill.  */
 	      SET_REGNO_REG_SET (spilled_nodes, curr_reg);
-	      if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-		fprintf (rtl_dump_file, "Spilling register %d\n", curr_reg);
+	      debug_msg (1, "Spilling register %d\n", curr_reg);
 	      reg_renumber[curr_reg] = -1;
 	    }
 	  else
@@ -1478,8 +1494,7 @@ assign_regs ()
 	      for (k = 1; k < num_regs; k++)
 		SET_HARD_REG_BIT (excluded[curr_reg], colors[curr_reg] + k);
 	      
-	      if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-		fprintf (rtl_dump_file, "Color of register %d is %d\n",
+	      debug_msg (1, "Color of register %d is %d\n", 
 			 curr_reg, colors[curr_reg]);
 	    }
 	}
@@ -1499,10 +1514,7 @@ assign_regs ()
 						     colors[v2])));
       df_analyse (df_analyzer, 0, DF_ALL);
       */
-
-      if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-	fprintf (rtl_dump_file,
-		 "Setting color of register %d to %d due to coalescing\n",
+      debug_msg (1, "Setting color of register %d to %d due to coalescing\n",
 		 v1, colors[v2]);
       colors[v1] = colors[v2];
     });
@@ -1542,32 +1554,27 @@ perform_new_regalloc ()
     {
       if (regset_first_set_bit (simplify_worklist) != -1)
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-	    fprintf (rtl_dump_file, "simplifying\n");
+	  debug_msg (1, "simplifying\n");
 	  simplify ();
 	}
       else if (! hset_empty (worklist_moves))
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-	    fprintf (rtl_dump_file, "coalescing\n");
+	  debug_msg (1, "coalescing\n");
 	  coalesce ();
 	}
       else if (regset_first_set_bit (freeze_worklist) != -1)
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-	    fprintf (rtl_dump_file, "freezing\n");
+	  debug_msg (1, "freezing\n");
 	  freeze ();
 	}
       else if (regset_first_set_bit (spill_worklist) != -1)
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-	    fprintf (rtl_dump_file, "spilling\n");
+	  debug_msg (1, "spilling\n");
 	  select_spill ();
 	}
       else
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 0)
-	    fprintf (rtl_dump_file, "done\n");
+	  debug_msg (1, "done\n");
 	  break;
 	}
     }
@@ -1617,13 +1624,11 @@ perform_new_regalloc_init ()
 	  ra_reg_info[i]->degree = INT_MAX;
 	  colors[i] = i;
 	  SET_REGNO_REG_SET (precolored, i);
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	    fprintf (rtl_dump_file, "Inserting precolored node for hard reg %d\n", i);
+	  debug_msg (2, "Inserting precolored node for hard reg %d\n", i);
 	}
       else if (is_reg_candidate (i))
 	{
-	  if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-	    fprintf (rtl_dump_file, "Inserting new candidate %d\n", i);
+	  debug_msg (2, "Inserting new candidate %d\n", i);
 	  SET_REGNO_REG_SET (initial, i);
 	  ra_reg_info[i] = ig_node_new ();
 	}
@@ -1692,8 +1697,7 @@ perform_new_regalloc_init ()
 	      for (; currdef; currdef = currdef->next)
 		EXECUTE_IF_SET_IN_SBITMAP (live, 0, j,
 		  {
-		    if (rtl_dump_file != NULL && debug_new_regalloc > 1)
-		      fprintf (rtl_dump_file, "Inserting edge from %d to %d\n",
+		    debug_msg (2, "Inserting edge from %d to %d\n",
 			       DF_REF_REGNO (currdef->ref), j);
 
 		    add_edge (DF_REF_REGNO (currdef->ref), j);

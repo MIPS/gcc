@@ -1,9 +1,22 @@
 2001-02-02  Daniel Berlin  <dberlin@redhat.com>
 
+	* new-regalloc.c: Use debug_msg in rest of places.
+	(adjacent): Fix same type of traversal through regset problem.
+	
+2001-02-02  Geert Bosch  <bosch@gnat.com)
+
+	* new-regalloc.c: Add debug_msg to output based on debug_regalloc
+	level, clean up some of the if+fprintf pairs to use it instead.
+	(make_worklist): Don't clear bit while running through bitmap, as
+	it screws up the traversal.
+	
+2001-02-02  Daniel Berlin  <dberlin@redhat.com>
+
 	* new-regalloc.c: Add warning about something i learned the hard
 	way using the hashed sets. This is part of the preparation for
 	moving the hashed set stuff into seperate files (hset.h, hset.c),
 	or libiberty.
+	
 
 2001-02-02  Daniel Berlin  <dberlin@redhat.com>
 
