@@ -1,5 +1,13 @@
 2004-12-15  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 3918376
+	* config/rs6000/rs6000.c (altivec_ovl_resolve): When matching
+	4-element vectors, allow V4SF in addition to V4SI modes.
+	(rs6000_fold_builtin): If invalid arguments are provided, use
+	the return type for the first overload candidate, if available.
+
+2004-12-15  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3913672
 	* config/rs6000/darwin.h (SUBTARGET_OPTION_TRANSLATE_TABLE): For
 	'-faltivec', pass in '-pim-altivec' instead of '-maltivec

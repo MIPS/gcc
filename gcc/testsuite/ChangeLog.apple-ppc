@@ -1,5 +1,10 @@
 2004-12-15  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 3918376
+	* gcc.apple/apple-altivec-4.c: New.
+
+2004-12-15  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3913672
 	* gcc.apple/apple-altivec-3.c: New.
 

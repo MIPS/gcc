@@ -7543,7 +7543,7 @@ altivec_ovl_resolve (struct altivec_pim_info *info, tree t1, tree t2)
 	  OVL_MATCH (t1 == pixel_V8HI_type_node);
 
 	case pim_ovl_4:
-	  OVL_MATCH (TYPE_MODE (t1) == V4SImode);
+	  OVL_MATCH (TYPE_MODE (t1) == V4SImode || TYPE_MODE (t1) == V4SFmode);
 
 	case pim_ovl_4u:
 	  OVL_MATCH (TYPE_MODE (t1) == V4SImode && TYPE_UNSIGNED (t1));
@@ -7734,7 +7734,9 @@ rs6000_fold_builtin (tree exp, bool ARG_UNUSED (ignore))
   if (!rettype)
     {
       error ("invalid argument(s) for AltiVec operation or predicate");
-      rettype = V4SI_type_node;
+      /* Choose the return type for the first overload candidate, if
+	 a type has been provided.  Otherwise, use 'vector signed int'.  */
+      rettype = info->rettype ? info->rettype : V4SI_type_node;
     }
 
   /* Retrieve the underlying AltiVec __builtin_... to call, and call it.  */
