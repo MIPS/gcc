@@ -1,3 +1,18 @@
+2004-08-26  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(RottView.modelToView): New method.
+	(UpdateHandler): Renamed from EventHandler.
+	(updateHandler): Renamed from eventHandler.
+	(modelToView): Implemented.
+	* javax/swing/text/AbstractDocument.java
+	(BranchElement.getElement): Return null for non-existing indeces.
+	(BranchElement.getElementIndex): Return 0 in some corner cases.
+	* javax/swing/text/FieldView.java
+	(modelToView): New method.
+	* javax/swing/text/PlainView.java
+	(modelToView): Made public.
+
 2004-08-25  Kim Ho  <kho@redhat.com>
 
 	* Makefile.am: New files.

@@ -567,7 +567,6 @@ public abstract class AbstractDocument
       return element_parent;
     }
       
-      
     public abstract int getEndOffset();
       
     public abstract int getElementCount();
@@ -600,6 +599,9 @@ public abstract class AbstractDocument
 
     public Element getElement(int index)
     {
+      if (index < 0 || index >= children.size())
+	return null;
+
       return (Element) children.get(index);
     }
 
@@ -610,7 +612,15 @@ public abstract class AbstractDocument
 
     public int getElementIndex(int offset)
     {
-      return children.indexOf(positionToElement(offset));
+      if (children.size() == 0)
+	return 0;
+      
+      Element element = positionToElement(offset);
+
+      if (element == null)
+	return 0;
+      
+      return children.indexOf(element);
     }
 
     public int getEndOffset()

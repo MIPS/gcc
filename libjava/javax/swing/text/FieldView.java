@@ -90,6 +90,12 @@ public class FieldView extends PlainView
     return axis = axis == X_AXIS ? 1 : 0;
   }
   
+  public Shape modelToView(int pos, Shape a, Position.Bias bias)
+    throws BadLocationException
+  {
+    return super.modelToView(pos, a, bias);
+  }
+  
   public void paint(Graphics g, Shape s)
   {
     super.paint(g, s);

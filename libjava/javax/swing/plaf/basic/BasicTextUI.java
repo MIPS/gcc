@@ -71,6 +71,7 @@ import javax.swing.text.Highlighter;
 import javax.swing.text.JTextComponent;
 import javax.swing.text.Keymap;
 import javax.swing.text.PlainDocument;
+import javax.swing.text.PlainView;
 import javax.swing.text.Position;
 import javax.swing.text.View;
 import javax.swing.text.ViewFactory;
@@ -139,9 +140,15 @@ public abstract class BasicTextUI extends TextUI
       if (view != null)
 	view.paint(g, s);
     }
+
+    protected Rectangle modelToView(int position, Shape a, Position.Bias bias)
+      throws BadLocationException
+    {
+      return ((PlainView) view).modelToView(position, a, bias).getBounds();
+    }
   }
 
-  class EventHandler implements PropertyChangeListener
+  class UpdateHandler implements PropertyChangeListener
   {
     public void propertyChange(PropertyChangeEvent event)
     {
@@ -157,7 +164,7 @@ public abstract class BasicTextUI extends TextUI
 
   RootView rootView = new RootView();
   JTextComponent textComponent;
-  EventHandler eventHandler = new EventHandler();
+  UpdateHandler updateHandler = new UpdateHandler();
 
   public BasicTextUI()
   {
@@ -192,7 +199,7 @@ public abstract class BasicTextUI extends TextUI
 	textComponent.setDocument(doc);
       }
     
-    textComponent.addPropertyChangeListener(eventHandler);
+    textComponent.addPropertyChangeListener(updateHandler);
     modelChanged();
     
     installDefaults();
@@ -309,7 +316,7 @@ public abstract class BasicTextUI extends TextUI
     super.uninstallUI(component);
     rootView.setView(null);
 
-    textComponent.removePropertyChangeListener(eventHandler);
+    textComponent.removePropertyChangeListener(updateHandler);
     textComponent = null;
 
     uninstallDefaults();
@@ -409,7 +416,7 @@ public abstract class BasicTextUI extends TextUI
   public Rectangle modelToView(JTextComponent t, int pos, Position.Bias bias)
     throws BadLocationException
   {
-    return null;
+    return rootView.modelToView(pos, getVisibleEditorRect(), bias).getBounds();
   }
 
   public int viewToModel(JTextComponent t, Point pt)

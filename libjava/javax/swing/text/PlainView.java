@@ -90,7 +90,7 @@ public class PlainView extends View
 			 rect.width, fontHeight);
   }
 
-  protected Shape modelToView(int position, Shape a, Position.Bias b)
+  public Shape modelToView(int position, Shape a, Position.Bias b)
     throws BadLocationException
   {
     Document document = getDocument();
