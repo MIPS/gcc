@@ -1,3 +1,8 @@
+2003-12-17  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (estimate_num_insns_1):  Check that all nodes are
+	known; add missing nodes; fix MODIFY_EXPR
+
 2003-12-16  Jason Merrill  <jason@redhat.com>
 
 	PR middle-end/12920

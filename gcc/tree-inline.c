@@ -1213,6 +1213,9 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case SSA_NAME:
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
+    case STATEMENT_LIST:
+    case ERROR_MARK:
+    case NON_LVALUE_EXPR:
       break;
     /* We don't account constants for now.  Assume that the cost is amortized
        by operations that do use them.  We may re-consider this decision once
@@ -1241,7 +1244,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case PHI_NODE:
       *walk_subtrees = 0;
       return NULL;
-      break;
     /* Reconginze assignments of large structures and constructors of
        big arrays.  */
     case INIT_EXPR:
@@ -1249,13 +1251,14 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case MODIFY_EXPR:
     case CONSTRUCTOR:
       {
-	int size = int_size_in_bytes (TREE_TYPE (x));
+	HOST_WIDE_INT size;
 
-	if (!size || size > MOVE_MAX_PIECES)
+	size = int_size_in_bytes (TREE_TYPE (x));
+
+	if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
 	  *count += 10;
 	else
-	  *count += 2 * (size + MOVE_MAX - 1) / MOVE_MAX;
-	return NULL;
+	  *count += ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
       }
       break;
 
@@ -1343,7 +1346,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       *count += 10;
       break;
     default:
-      break;
+      /* Abort here se we know we don't miss any nodes.  */
+      abort ();
     }
   return NULL;
 }
