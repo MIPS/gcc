@@ -1,3 +1,384 @@
+2004-01-24  Matthias Klose  <doko@debian.org>
+
+	* objc/objc-act.c (is_public): Fix typo in message.
+
+2004-01-23  Richard Henderson  <rth@redhat.com>
+
+        PR opt/12941
+        * combine.c (SHIFT_COUNT_TRUNCATED): Provide default value.
+        (simplify_comparison): Don't simplify (eq (zero_extract c 1 r) 0)
+        if SHIFT_COUNT_TRUNCATED is set.
+
+2004-01-23  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* doc/invoke.texi (Optimize Options): Note that --param arguments
+	are subject to change without notice.
+
+2004-01-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* reload.c (can_reload_into): Add prototype and K&R style function
+	declaration.
+
+2004-01-21  Andreas Jaeger  <aj@suse.de>
+	    Michael Matz  <matz@suse.de>
+
+	* doc/extend.texi (Extended Asm): Clarify memory clobber.
+
+2004-01-21  Ralf Corsepius  <corsepiu@faw.uni-ulm.de>
+
+	PR target/13073
+        * config/h8300/t-rtems (h8300-*-rtems*): New.
+        * config.gcc: Use config/h8300/t-rtems.
+	
+2004-01-20  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+        Backport from mainline
+
+        2004-01-10  Jan Hubicka  <jh@suse.cz>
+        PR opt/12826
+        * loop.c (insert_loop_mem): Prefer VOLATILE memory references to be
+        stored. 
+        
+2004-01-16  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/13608
+	* i386.c (ix86_compute_frame_layout): Fix for alloca on leaf function.
+
+2004-01-16  Segher Boessenkool  <boessen@de.ibm.com>
+
+        PR target/11793
+	* config/rs6000/rs6000.h (LEGITIMATE_CONSTANT_P): Handle
+	vectors.
+	
+2004-01-16  Jan Hubicka  <jh@suse.cz>
+
+        PR opt/11350
+        * cfgcleanup.c (try_optimize_cfg): Suppress tablejump removal
+	after reload.
+        * cfgrtl.c (try_redirect_by_replacing_branch): Likewise.
+
+2004-01-15  J"orn Rennecke <joern.rennecke@superh.com>
+
+	PR optimization/10392
+	* reload.c (can_reload_into): New function.
+	(push_reload): Use it.
+
+2004-01-14  J"orn Rennecke <joern.rennecke@superh.com>
+
+	PR target/9365
+	* sh.c (gen_block_redirect): Add special handling of RETURN.
+	(gen_far_branch) Don't call gen_stuff_delay_slot if there is no
+	far branch target (i.e. it's a return).
+
+2004-01-14  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* gcc/config/rs6000/rs6000.c (rs6000_stack_info)
+	Calculate always vrsave_mask if TARGET_ALTIVEC.
+	(rs6000_emit_prologue): Emit code for vrsave
+	only if TARGET_ALTIVEC_VRSAVE.
+	(rs6000_emit_epilogue): Likewise.
+ 
+2003-01-14  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	PR objc/7993
+        * objc-act.c (is_private): Do not emit the 'instance variable %s
+        is declared private' error.
+        (is_public): Emit the error after calling is_private.
+        (lookup_objc_ivar): If the instance variable is private, return 0
+        - the instance variable is invisible here.
+       
+2004-01-12  Marc Espie <espie@openbsd.org>
+
+	* system.h: handle YYBYACC like YYBISON.
+
+2004-01-12  Matthias Klose  <doko@debian.org>
+
+        Backport from mainline
+
+        2003-12-08 Stuart Hastings <stuart@apple.com>
+        * config/i386/i386.md: Typo in split of fp-valued if_then_else.
+
+2004-01-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/11397
+	* varasm.c (assemble_alias): Remove weak aliases from weak_decls.
+
+2004-01-12  J"orn Rennecke <joern.rennecke@superh.com>
+
+	PR target/13585
+	* sh-protos.h (check_use_sfunc_addr): Declare.
+	* sh.c (extract_sfunc_addr, check_use_sfunc_addr): New functions.
+	* sh.md (use_sfunc_addr): Use check_use_sfunc_addr in insn predicate.
+
+2004-01-12  Matthias Klose  <doko@debian.org>
+
+	Backport from mainline
+
+	2004-01-11  Richard Henderson  <rth@redhat.com>
+	PR opt/12441
+	Revert: Sat Mar 30 14:08:55 CET 2002  Jan Hubicka  <jh@suse.cz>
+	* i386.c (aligned_operand): Be prepared for SUBREGed registers.
+	(ix86_decompose_address): Use REG_P instead of GET_CODE (...) == REG.
+	(ix86_address_cost): Be prepared for SUBREGed registers.
+	(legitimate_address_p): Accept SUBREGed registers.
+
+2004-01-11  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_encode_section_info): Use 'I'
+	for TLS_MODEL_INITIAL_EXEC.
+	(tls_symbolic_operand_1): Update to match.
+	(tls_symbolic_operand_type): Likewise.
+
+2004-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/13392
+	* builtins.c (expand_builtin_expect_jump): Handle conditional jumps
+	to drop through label.  Don't fall back to SCC even when conditional
+	jump has not been found.
+
+2004-01-09  Jeff Bailey  <jbailey@nisa.net>
+
+	PR target/12561
+	* config/t-gnu: Rename SYSTEM_HEADER_DIR to NATIVE_SYSTEM_HEADER_DIR.
+
+2004-01-09  Richard Henderson  <rth@redhat.com>
+
+	* recog.c (constrain_operands): Validate mem operands.
+
+2004-01-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR target/13069
+	Backport the following from mainline: 
+
+	2003-03-08  Neil Booth  <neil@daikokuya.co.uk>
+        * config/sh/rtemself.h (TARGET_OS_CPP_BUILTINS): Use instead of
+        CPP_PREDEFINES.
+        * config/sh/rtems.h (TARGET_OS_CPP_BUILTINS): Use instead of
+        CPP_PREDEFINES.
+
+	2003-09-27  Kelley Cook  <kcook@gcc.gnu.org>
+	* config/sh/rtemself.h, config/sh/rtems.h: GNU CC -> GCC.
+
+2004-01-02  Roger Sayle  <roger@eyesopen.com>
+
+	* tree.h (integer_nonzerop): Use PARAMS macro with prototype.
+	* tree.c (integer_nonzerop): Use K&R style function declaration.
+
+2004-01-02  Andreas Schwab  <schwab@suse.de>
+
+	* doc/c-tree.texi: Fix @item vs. @itemx.
+	* doc/cpp.texi: Likewise.
+	* doc/install.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+
+2004-01-02  Andreas Jaeger  <aj@suse.de>, Gerald Pfeifer  <gp@suse.de>
+
+	* doc/install.texi (Specific): Mention x86_64.
+
+2004-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR optimization/13521
+	Backport from mainline:
+		2003-03-22  Richard Henderson <rth@redhat.com>
+
+		* cfgcleanup.c (insns_match_p): Do not do EQUIV substitution
+		after reload.
+
+2003-12-31  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/12632
+	* tree.c (integer_nonzerop): New predicate for nonzero integers.
+	* tree.h (integer_nonzerop): Add function prototype.
+	* fold-const.c (fold) <COND_EXPR>: Don't fold a constant condition,
+	if we'd replace a COND_EXPR of non-void type by one of its operands
+	of void type.
+
+2003-12-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+	Backport from mainline:
+
+	2003-09-12  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/13373
+	* config/mcore/mcore-protos.h (mcore_r15_operand_p): Declare.
+	(mcore_secondary_reload_class): Declare.
+	(mcore_output_inline_const_forced): Remove.
+	* config/mcore/mcore.md (movsi): Remove the code that forced
+	non-inlineable constants into a register if the target was r15
+	or the stack pointer.  Remove constant restrictions from the main
+	define_insn.  Remove r <- I, r <- M and r <- N alternatives in favor
+	of an r <- P alternative.  Remove fallback define_insn for reload.
+	(movhi, movqi): Use gen_lowpart rather than gen_SUBREG.  Remove reload
+	define_insn.  Use mcore_output_move in the remaining define_insn.
+	Adjust condition and constraints in the way as for movsi.
+	(movdi): Always split unacceptable constants into two.  Use
+	simplify_gen_subreg instead of operand_subword{,_force}.
+	* config/mcore/mcore.c (mcore_output_inline_const_forced): Remove.
+	(mcore_output_move): Support HImode and QImode moves as well.
+	(mcore_m15_operand_p): New function.
+	(mcore_reload_class): Use it to detect cases where LRW_REGS are better.
+	(mcore_secondary_reload_class): New function.
+	* config/mcore/mcore.h (SECONDARY_RELOAD_CLASS): Redefine in
+	terms of mcore_secondary_reload_class.
+
+2003-12-31  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/ia64/ia64.c (ia64_va_arg): Pass pointer for
+	variable-sized type through convert_memory_address.
+	(ia64_in_small_data_p): Always return false for FUNCTION_DECLs.
+
+2003-12-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR bootstrap/13068
+	Backport from mainline:
+		2003-05-09  Matt Kraai <kraai@alumni.cmu.edu>
+
+		* mklibgcc.in: Remove extra quotes.
+		2003-05-08  Aldy Hernandez  <aldyh@redhat.com>
+
+		* mklibgcc.in: Use mkinstalldirs when installing multilib
+		directories.
+
+2003-12-24  Roger Sayle  <roger@eyesopen.com>
+
+	Backport from mainline:
+
+	2003-09-18  Mark Mitchell  <mark@codesourcery.com>
+	* explow.c (convert_memory_address): Define even when
+	POINTERS_EXTEND_UNSIGNED is not defined.  Do nothing if the address
+	is already in the right mode.
+
+2003-12-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/13475
+	Backport from mainline:
+		2003-06-19  Aldy Hernandez  <aldyh@redhat.com>
+
+		* expr.c (const_vector_from_tree): Initialize remaining
+		elements to 0.
+
+2003-12-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/11576
+	* config/h8300/h8300.h (CONSTANT_ADDRESS_P): Allow CONST and
+	HIGH on all variants.
+
+2003-12-23  Matthias Klose  <doko@debian.org>
+
+	* config/mips/linux.h (LIB_SPEC): Use -lpthread when
+	-pthread was specified.
+
+2003-12-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/13394
+	* toplev.c (rest_of_compilation): Move call to
+	check_function_return_warnings right after the sibcall
+	optimization pass.
+
+2003-12-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/13382
+	* c-typeck.c (convert_for_assignment): When converting from
+	integral type to pointer type, always call convert.
+
+2003-12-22  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+	PR target/11271
+	* reload.c: Revert last backport from mainline.  It breaks s390.
+
+2003-12-21  Roger Sayle  <roger@eyesopen.com>
+
+	* config/ia64/hpux.h (TARGET_OS_CPP_BUILTINS): Define _ILP32
+	when compiling in ILP32 mode.
+
+2003-12-21  Gabriel Dos Reis <gdr@integrable-solutions.net>
+
+    Backport from mainline:
+    2003-10-31  Richard Earnshaw  <rearnsha@arm.com>
+
+	    PR target/11271
+	    * reload.c (find_reloads_address): Handle any register in
+	    (PLUS (PLUS (REG) (REG)) (CONST_INT).
+
+2003-12-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/13400
+	* ifcvt.c (noce_process_if_block): Disable unconditional write
+	optimizations if we could introduce a store to trapping memory
+	that wasn't present previously.
+
+2003-12-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/13031
+	* gcse.c (cprop_jump): Backport code clean-up and bug-fix
+	from mainline [2003-05-20 Sayle, Hirata and Rennecke patch].
+	(cprop_insn): Don't attemp further substitutions if the
+	current instruction has been deleted.
+	(local_cprop_pass): Likewise.
+
+2003-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/13239
+	* builtins.c (expand_builtin_expect_jump): Update
+	TREE_VALUE (arglist) if unsave_expr_now langhook
+	created a new tree.
+
+2003-12-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/sol2.h (LINK_ARCH32_SPEC): Define in terms of ...
+	(LINK_ARCH32_SPEC_BASE): ... this new macro.
+	* config/sparc/sol2-bi.h (LINK_ARCH64_SPEC): Define in terms of
+	...
+	(LINK_ARCH64_SPEC_BASE): ... this new macro.
+	* config/sparc/sol2-gld-bi.h (LINK_ARCH32_SPEC): New macro.
+	(LINK_ARCH64_SPEC): Likewise.
+
+2003-12-17  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/11992
+	* config/s390/s390.md ("*cmpmem_long_64"): Use CLCLE instruction
+	instead of CLCL.
+	("*cmpmem_long_31"): Likewise.
+
+2003-12-16  Zack Weinberg  <zack@codesourcery.com>
+
+	Backport the following patches from mainline.
+
+    2003-12-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/ia64/ia64.h (MUST_PASS_IN_STACK): Define.
+
+    2003-12-01  James E Wilson  <wilson@specifixinc.com>
+
+	* config/ia64/ia64.h (FUNCTION_ARG_REGNO_P): Use AR_REG_FIRST not
+	GR_ARG_FIRST.
+
+    2003-10-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/ia64/ia64.md (cmpxchg_acq_si): Mark operand 3 as DImode.
+	* config/ia64/ia64.c (ia64_expand_fetch_and_op,
+	ia64_expand_op_and_fetch): Make sure the REG for ar.ccv is
+	DImode.   Use convert_move to load ar.ccv.
+	(ia64_expand_compare_and_swap): Likewise.
+	If expand_expr doesn't put 'old' and 'new' in the proper
+	modes, run them through convert_to_mode.
+
+    2003-10-14  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.c (ia64_expand_call): Force function address
+	to DImode.
+	* config/ia64/ia64.md (call_gp): Put DImode on operand 0.
+
+    2003-06-11  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/ia64.md (call_gp): Fix memory mode.
+
+    2003-05-14  Eric Christopher  <echristo@redhat.com>
+
+	* combine.c: Fix header comments.
+	(distribute_notes): Remove usage of elim_i1, elim_i2. Propagate
+	to all calls and prototype.
+
 2003-12-16  David O'Brien  <obrien@FreeBSD.org>
 
 	* config/alpha/freebsd.h (FBSD_TARGET_CPU_CPP_BUILTINS): Add __LP64__.
@@ -9,7 +390,7 @@
 
 	* altivec.h (vec_cmple, vec_all_numeric): Fix typo.
 	* testsuite/gcc.dg/altivec-10.c: Test for above.
-	
+
 2003-12-15  Kazu Hirata  <kazu@cs.umass.edu>
 
 	PR target/13122
@@ -127,8 +508,8 @@
 	    Graham Reed <greed@pobox.com>
 
 	PR target/13150
-        * collect2.c (GCC_OK_SYMBOL): Add support for AIX C_WEAKEXT.
-        (GCC_UNDEF_SYMBOL): Same.
+	* collect2.c (GCC_OK_SYMBOL): Add support for AIX C_WEAKEXT.
+	(GCC_UNDEF_SYMBOL): Same.
 
 2003-12-08  Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -189,7 +570,7 @@
        (SHLIB_LC): Define.
        * unwind-libunwind.c (_Unwind_GetCFA): Implement.
        (_Unwind_GetBSP) [UNW_TARGET_IA64]: New function.
-	
+
 2003-12-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* expr.c (store_constructor): Only set RTX_UNCHANGING_P for
@@ -235,7 +616,7 @@
 	2002-11-19  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config.gcc (sh*-*-linux*): Add t-slibgcc-elf-ver and t-linux.
-        to tmake_file.
+	to tmake_file.
 	* config/sh/libgcc-glibc.ver: New file.
 
 	Backport from mainline
@@ -18298,4 +18679,3 @@ cp:
 	* mips.h (FUNCTION_ARG_REGNO_P): Fix parentheses.
 
 See ChangeLog.7 for earlier changes.
-

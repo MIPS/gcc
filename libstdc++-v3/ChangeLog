@@ -1,3 +1,95 @@
+2004-01-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12967
+	* include/bits/list.tcc (merge): Implement resolution of
+	DR 300 [WP].
+
+2004-01-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13884
+	* include/bits/sstream.tcc: Guard use of extern template.
+
+2004-01-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc
+	(money_put::do_put(..., long double)): Use the basic_string
+	constructor for char arrays, not that for C-strings, to pass
+	__digits to do_put(..., const string_type&): __ws isn't
+	null-terminated.
+
+2004-01-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (__pad<>::_S_pad):
+	Improve performance-wise: avoid one traits::copy, avoid
+	the __builtin_alloca, streamline.
+
+2004-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12971
+	* include/bits/locale_facets.tcc
+	(money_put::do_put(..., long double)): Fix conversion
+	specification as per DR 328 [WP].
+
+2004-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/monetary_members.cc: Don't leak memory
+	on exception.
+	
+2004-01-26  Andreas Schwab  <schwab@suse.de>
+
+	* config/locale/gnu/monetary_members.cc: Restore locale before
+	rethrowing exception.
+
+2004-01-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13650
+	* include/bits/basic_string.tcc (compare(size_type, size_type,
+	const _CharT*, size_type)): Implement correctly the resolution
+	of DR 5: basically, s is a char array, -not- a C string.
+
+	* include/bits/basic_string.tcc (_M_clone): Null-terminate.
+
+2004-01-19  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12352
+	PR libstdc++/12438
+	* include/bits/locale_classes.h (locale::locale(const locale&,
+	_Facet*)): Don't leak memory on exception.
+	* include/bits/locale_facets.tcc (locale::combine(const locale&)):
+	Likewise.
+	* src/locale.cc (locale::locale(const char*)): Likewise.
+	* src/localename.cc (locale::_Impl::~_Impl(),
+	locale::_Impl::_Impl(const _Impl&, size_t),
+	locale::_Impl::_Impl(const char*, size_t)): Likewise.
+	(locale::_Impl::_M_replace_categories(const _Impl*, category):
+	Tweak.
+
+2004-01-12  Marc Espie <espie@openbsd.org>
+
+	* src/Makefile.am (version.dep): backport from HEAD.
+	* src/Makefile.in: regen.
+
+2004-01-12  Gernot Hillier  <gernot.hillier@siemens.com>
+
+	* configure.in: GLIBCXX->GLIBCPP.
+	* configure: Regenerated.
+	* aclocal.m4: Regenerated.
+
+2004-01-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in: Add io bits to linux cross config.
+	* configure: Regenerate.
+
+2004-01-07  Paolo Carlini  <pcarlini@suse.de>
+	    Petur Runolfsson  <peturr02@ru.is>
+	
+	PR libstdc++/13007
+	* include/bits/fstream.tcc (imbue): Don't touch the stored
+	locale.
+	* include/std/std_streambuf.h (imbue): According to the
+	standard, base class version does nothing.
+	(pubimbue): Store the locale.
+
 2003-12-10  Benjamin Kosnik  <bkoz@redhat.com>
 
 	PR libstdc++/6243

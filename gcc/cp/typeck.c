@@ -5212,7 +5212,7 @@ build_modify_expr (lhs, modifycode, rhs)
   tree newrhs = rhs;
   tree lhstype = TREE_TYPE (lhs);
   tree olhstype = lhstype;
-  tree olhs = lhs;
+  tree olhs = NULL_TREE;
 
   /* Avoid duplicate error messages from operands that had errors.  */
   if (lhs == error_mark_node || rhs == error_mark_node)
@@ -5448,6 +5448,15 @@ build_modify_expr (lhs, modifycode, rhs)
 
       if (lhstype != TREE_TYPE (lhs))
 	{
+	  /* Avoid warnings converting integral types back into enums for
+	     enum bit fields.  */
+	  if (TREE_CODE (lhstype) == INTEGER_TYPE
+	      && TREE_CODE (olhstype) == ENUMERAL_TYPE)
+	    {
+	      if (TREE_SIDE_EFFECTS (lhs))
+		lhs = stabilize_reference (lhs);
+	      olhs = lhs;
+	    }
 	  lhs = copy_node (lhs);
 	  TREE_TYPE (lhs) = lhstype;
 	}
@@ -5520,10 +5529,7 @@ build_modify_expr (lhs, modifycode, rhs)
 
   if (olhstype == TREE_TYPE (result))
     return result;
-  /* Avoid warnings converting integral types back into enums
-     for enum bit fields.  */
-  if (TREE_CODE (TREE_TYPE (result)) == INTEGER_TYPE
-      && TREE_CODE (olhstype) == ENUMERAL_TYPE)
+  if (olhs)
     {
       result = build (COMPOUND_EXPR, olhstype, result, olhs);
       TREE_NO_UNUSED_WARNING (result) = 1;

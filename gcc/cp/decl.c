@@ -3415,7 +3415,14 @@ duplicate_decls (newdecl, olddecl)
       /* Even if the types match, prefer the new declarations type
 	 for anitipated built-ins, for exception lists, etc...  */
       else if (DECL_ANTICIPATED (olddecl))
-	TREE_TYPE (olddecl) = TREE_TYPE (newdecl);
+	{
+	  tree type = TREE_TYPE (newdecl);
+	  tree attribs = (*targetm.merge_type_attributes)
+	    (TREE_TYPE (olddecl), type);
+
+	  type = build_type_attribute_variant (type, attribs);
+	  TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = type;
+	}
 
       /* Whether or not the builtin can throw exceptions has no
 	 bearing on this declarator.  */
@@ -3735,6 +3742,14 @@ duplicate_decls (newdecl, olddecl)
 	  DECL_SOURCE_LOCATION (olddecl) 
 	    = DECL_SOURCE_LOCATION (DECL_TEMPLATE_RESULT (olddecl))
 	    = DECL_SOURCE_LOCATION (newdecl);
+	}
+
+      if (DECL_FUNCTION_TEMPLATE_P (newdecl))
+	{
+	  DECL_INLINE (DECL_TEMPLATE_RESULT (olddecl)) 
+	    |= DECL_INLINE (DECL_TEMPLATE_RESULT (newdecl));
+	  DECL_DECLARED_INLINE_P (DECL_TEMPLATE_RESULT (olddecl))
+	    |= DECL_DECLARED_INLINE_P (DECL_TEMPLATE_RESULT (newdecl));
 	}
 
       return 1;
@@ -4127,9 +4142,9 @@ pushdecl (x)
 
       /* In case this decl was explicitly namespace-qualified, look it
 	 up in its namespace context.  */
-      if (TREE_CODE (x) == VAR_DECL && DECL_NAMESPACE_SCOPE_P (x)
-	  && namespace_bindings_p ())
-	t = namespace_binding (name, DECL_CONTEXT (x));
+      if ((DECL_CONTEXT (x) && TREE_CODE (DECL_CONTEXT (x)) == NAMESPACE_DECL)
+          && namespace_bindings_p ())
+        t = namespace_binding (name, DECL_CONTEXT (x));
       else
 	t = lookup_name_current_level (name);
 
@@ -4919,7 +4934,11 @@ push_overloaded_decl (decl, flags)
 	}
     }
 
-  if (old || TREE_CODE (decl) == TEMPLATE_DECL)
+  if (old || TREE_CODE (decl) == TEMPLATE_DECL
+      /* If it's a using declaration, we always need to build an OVERLOAD,
+	 because it's the only way to remember that the declaration comes
+	 from 'using', and have the lookup behave correctly.  */
+      || (flags & PUSH_USING))
     {
       if (old && TREE_CODE (old) != OVERLOAD)
 	new_binding = ovl_cons (decl, ovl_cons (old, NULL_TREE));
@@ -8310,8 +8329,11 @@ reshape_init (tree type, tree *initp)
 		 empty class shall have the form of an empty
 		 initializer-list {}.  */
 	      if (!brace_enclosed_p)
-		error ("initializer for `%T' must be brace-enclosed",
-		       type);
+                {
+                  error ("initializer for `%T' must be brace-enclosed",
+                         type);
+                  return error_mark_node;
+                }
 	    }
 	  else
 	    {
@@ -8336,6 +8358,8 @@ reshape_init (tree type, tree *initp)
 		    break;
 
 		  field_init = reshape_init (TREE_TYPE (field), initp);
+                  if (field_init == error_mark_node)
+                    return error_mark_node;
 		  TREE_CHAIN (field_init) = CONSTRUCTOR_ELTS (new_init);
 		  CONSTRUCTOR_ELTS (new_init) = field_init;
 		  /* [dcl.init.aggr] 
@@ -8366,6 +8390,8 @@ reshape_init (tree type, tree *initp)
 	      tree element_init;
 
 	      element_init = reshape_init (TREE_TYPE (type), initp);
+              if (element_init == error_mark_node)
+                return error_mark_node;
 	      TREE_CHAIN (element_init) = CONSTRUCTOR_ELTS (new_init);
 	      CONSTRUCTOR_ELTS (new_init) = element_init;
 	      if (TREE_PURPOSE (element_init))
@@ -10151,9 +10177,8 @@ compute_array_index_type (name, size)
 	    error ("size of array is negative");
 	  size = integer_one_node;
 	}
-      /* Except that an extension we allow zero-sized arrays.  We
-	 always allow them in system headers because glibc uses
-	 them.  */
+      /* As an extension we allow zero-sized arrays.  We always allow
+         them in system headers because glibc uses them.  */
       else if (integer_zerop (size) && pedantic && !in_system_header)
 	{
 	  if (name)
@@ -14161,7 +14186,6 @@ build_enumerator (name, value, enumtype)
       a function could mean local to a class method.  */
     decl = build_decl (CONST_DECL, name, type);
 
-  DECL_CONTEXT (decl) = FROB_CONTEXT (context);
   DECL_INITIAL (decl) = value;
   TREE_READONLY (decl) = 1;
 
@@ -14171,7 +14195,14 @@ build_enumerator (name, value, enumtype)
       things like `S::i' later.)  */
     finish_member_declaration (decl);
   else
-    pushdecl (decl);
+    {
+      pushdecl (decl);
+      /* Contrary to finish_member_declaration, pushdecl does not properly
+         set the DECL_CONTEXT.  Do that now here.  Doing that before calling
+         pushdecl will confuse the logic used in that function.  Hopefully,
+         future versions will implement a more straight logic.  */
+      DECL_CONTEXT (decl) = FROB_CONTEXT (context);
+    }
 
   /* Add this enumeration constant to the list for this type.  */
   TYPE_VALUES (enumtype) = tree_cons (name, decl, TYPE_VALUES (enumtype));

@@ -1,3 +1,7 @@
+2004-01-27  Jan Hubicka  <jh@suse.cz>
+
+	Merge from 3.3 branch (hammer-3_3-merge-20040126)
+
 2004-01-27  Alan Modra  <amodra@bigpond.net.au>
 
 	* gcc.c (main): Move code for relative standard_startfile_prefix to..

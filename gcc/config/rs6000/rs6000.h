@@ -2006,7 +2006,8 @@ typedef struct rs6000_args
 
 #define LEGITIMATE_CONSTANT_P(X)				\
   (((GET_CODE (X) != CONST_DOUBLE				\
-     && GET_CODE (X) != CONST_VECTOR)				\
+     && (GET_CODE (X) != CONST_VECTOR)				\
+         || zero_constant (X, GET_MODE (X)))				\
     || GET_MODE (X) == VOIDmode					\
     || (TARGET_POWERPC64 && GET_MODE (X) == DImode)		\
     || easy_fp_constant (X, GET_MODE (X))			\
