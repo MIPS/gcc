@@ -1,5 +1,5 @@
 /* MenuBarPeer.java -- Interface for menu bar peer
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -43,6 +43,6 @@ import java.awt.Menu;
 public interface MenuBarPeer extends MenuComponentPeer
 {
   void addHelpMenu(Menu menu);
+  void addMenu(Menu menu);
   void delMenu(int index);
-} // interface MenuBarPeer 
-
+}

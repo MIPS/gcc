@@ -141,8 +141,9 @@ setHelpMenu(Menu menu)
       helpMenu.removeNotify ();
       helpMenu.parent = null;
     }
-  helpMenu = menu;
 
+  if (menu.parent != null)
+    menu.parent.remove (menu);
   if (menu.parent != null)
     menu.parent.remove (menu);
   menu.parent = this;
@@ -176,7 +177,8 @@ add(Menu menu)
 
   if (peer != null)
     {
-      menu.addNotify();
+      MenuBarPeer mp = (MenuBarPeer) peer;
+      mp.addMenu (menu);
     }
 
   return(menu);
@@ -279,11 +281,6 @@ addNotify()
   {
     Menu mi = (Menu)e.nextElement();
     mi.addNotify();
-  }
-  if (helpMenu != null)
-  {
-    helpMenu.addNotify();
-    ((MenuBarPeer) peer).addHelpMenu(helpMenu);
   }
 }
 
