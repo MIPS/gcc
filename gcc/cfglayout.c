@@ -751,7 +751,7 @@ cfg_layout_duplicate_bb (bb, e)
 	     moved far from original jump.  */
 	  if (GET_CODE (PATTERN (insn)) == ADDR_VEC
 	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
-	    abort ();
+	    break;
 	  new = emit_jump_insn (copy_insn (PATTERN (insn)));
 	  goto insn_common;
 
@@ -900,7 +900,6 @@ cfg_layout_initialize ()
   /* Our algorithm depends on fact that there are now dead jumptables
      around the code.  */
   delete_trivially_dead_insns (get_insns (), max_reg_num (), 0);
-  delete_dead_jumptables ();
   alloc_aux_for_blocks (sizeof (struct reorder_block_def));
   cleanup_unconditional_jumps ();
   scope_to_insns_initialize ();
