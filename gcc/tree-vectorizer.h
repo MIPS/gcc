@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -21,6 +21,20 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_TREE_VECTORIZER_H
 #define GCC_TREE_VECTORIZER_H
+
+#ifdef USE_MAPPED_LOCATION
+  typedef source_location LOC;
+  #define UNKNOWN_LOC UNKNOWN_LOCATION
+  #define EXPR_LOC(e) EXPR_LOCATION(e)
+  #define LOC_FILE(l) LOCATION_FILE (l)
+  #define LOC_LINE(l) LOCATION_LINE (l)
+#else
+  typedef source_locus LOC;
+  #define UNKNOWN_LOC NULL
+  #define EXPR_LOC(e) EXPR_LOCUS(e)
+  #define LOC_FILE(l) (l)->file
+  #define LOC_LINE(l) (l)->line
+#endif
 
 /* Used for naming of new temporaries.  */
 enum vect_var_kind {
@@ -52,6 +66,95 @@ enum vect_def_type {
   vect_unknown_def_type
 };
 
+/* Define verbosity levels.  */
+enum verbosity_levels {
+  REPORT_NONE,
+  REPORT_VECTORIZED_LOOPS,
+  REPORT_UNVECTORIZED_LOOPS,
+  REPORT_ALIGNMENT,
+  REPORT_BAD_FORM_LOOPS,
+  REPORT_OUTER_LOOPS,
+  REPORT_DETAILS,
+  /* New verbosity levels should be added before this one.  */
+  MAX_VERBOSITY_LEVEL
+};
+
+/*-----------------------------------------------------------------*/
+/* Info on vectorized loops.                                       */
+/*-----------------------------------------------------------------*/
+typedef struct _loop_vec_info {
+
+  /* The loop to which this info struct refers to.  */
+  struct loop *loop;
+
+  /* The loop basic blocks.  */
+  basic_block *bbs;
+
+  /* The loop exit_condition.  */
+  tree exit_cond;
+
+  /* Number of iterations.  */
+  tree num_iters;
+
+  /* Is the loop vectorizable? */
+  bool vectorizable;
+
+  /* Unrolling factor  */
+  int vectorization_factor;
+
+  /* Unknown DRs according to which loop was peeled.  */
+  struct data_reference *unaligned_dr;
+
+  /* peeling_for_alignment indicates whether peeling for alignment will take
+     place, and what the peeling factor should be:
+     peeling_for_alignment = X means: 
+        If X=0: Peeling for alignment will not be applied.
+        If X>0: Peel first X iterations. 
+        If X=-1: Generate a runtime test to calculate the number of iterations
+                 to be peeled, using the dataref recorded in the field
+                 unaligned_dr.  */
+  int peeling_for_alignment;
+
+  /* The mask used to check the alignment of pointers or arrays.  */
+  int ptr_mask;
+  
+  /* All data references in the loop that are being written to.  */
+  varray_type data_ref_writes;
+
+  /* All data references in the loop that are being read from.  */
+  varray_type data_ref_reads;
+
+  /* Statements in the loop that have data references that are candidates for a
+     runtime (loop versioning) misalignment check.  */
+  varray_type may_misalign_stmts;
+
+  /* The loop location in the source.  */
+  LOC loop_line_number;
+} *loop_vec_info;
+
+/* Access Functions.  */
+#define LOOP_VINFO_LOOP(L)           (L)->loop
+#define LOOP_VINFO_BBS(L)            (L)->bbs
+#define LOOP_VINFO_EXIT_COND(L)      (L)->exit_cond
+#define LOOP_VINFO_NITERS(L)         (L)->num_iters
+#define LOOP_VINFO_VECTORIZABLE_P(L) (L)->vectorizable
+#define LOOP_VINFO_VECT_FACTOR(L)    (L)->vectorization_factor
+#define LOOP_VINFO_PTR_MASK(L)       (L)->ptr_mask
+#define LOOP_VINFO_DATAREF_WRITES(L) (L)->data_ref_writes
+#define LOOP_VINFO_DATAREF_READS(L)  (L)->data_ref_reads
+#define LOOP_VINFO_INT_NITERS(L) (TREE_INT_CST_LOW ((L)->num_iters))
+#define LOOP_PEELING_FOR_ALIGNMENT(L) (L)->peeling_for_alignment
+#define LOOP_VINFO_UNALIGNED_DR(L) (L)->unaligned_dr
+#define LOOP_VINFO_MAY_MISALIGN_STMTS(L) (L)->may_misalign_stmts
+#define LOOP_VINFO_LOC(L)          (L)->loop_line_number
+
+#define LOOP_LOC(L)    LOOP_VINFO_LOC(L)
+
+
+#define LOOP_VINFO_NITERS_KNOWN_P(L)                     \
+(host_integerp ((L)->num_iters,0)                        \
+&& TREE_INT_CST_LOW ((L)->num_iters) > 0)
+
 /*-----------------------------------------------------------------*/
 /* Info on vectorized defs.                                        */
 /*-----------------------------------------------------------------*/
@@ -61,7 +164,8 @@ enum stmt_vec_info_type {
   store_vec_info_type,
   op_vec_info_type,
   assignment_vec_info_type,
-  select_vec_info_type
+  select_vec_info_type,
+  reduc_vec_info_type
 };
 
 typedef struct _stmt_vec_info {
@@ -71,8 +175,8 @@ typedef struct _stmt_vec_info {
   /* The stmt to which this info struct refers to.  */
   tree stmt;
 
-  /* The loop with respect to which STMT is vectorized.  */
-  struct loop *loop;
+  /* The loop_vec_info with respect to which STMT is vectorized.  */
+  loop_vec_info loop_vinfo;
 
   /* Not all stmts in the loop need to be vectorized. e.g, the incrementation
      of the loop induction variable and computation of array indexes. relevant
@@ -101,20 +205,25 @@ typedef struct _stmt_vec_info {
   tree memtag;
 
   /** The following fields are used to store the information about 
-      data-reference. {base + initial_offset} is the first location accessed by
-      data-ref in the loop, and step is the stride of data-ref in the loop;
+      data-reference. {base_address + initial_offset} is the first location 
+      accessed by data-ref in the loop, and step is the stride of data-ref in 
+      the loop in bytes;
       e.g.:
     
                        Example 1                      Example 2
       data-ref         a[j].b[i][j]                   a + 4B (a is int*)
-
-      base             a                              a
+      
+      base_address     &a                             a
       initial_offset   j_0*D_j + i_0*D_i + C          4
       step             D_j                            4
 
+      data-reference structure info:
+      base_name        a                              NULL
+      access_fn        <access_fns of indexes of b>   (0, +, 1)
+
   **/
-  /* The above base, offset and step.  */
-  tree base;
+  /* The above base_address, offset and step.  */
+  tree base_address;
   tree initial_offset;
   tree step;
 
@@ -148,14 +257,14 @@ typedef struct _stmt_vec_info {
 /* Access Functions.  */
 #define STMT_VINFO_TYPE(S)                (S)->type
 #define STMT_VINFO_STMT(S)                (S)->stmt
-#define STMT_VINFO_LOOP(S)                (S)->loop
+#define STMT_VINFO_LOOP_VINFO(S)          (S)->loop_vinfo
 #define STMT_VINFO_RELEVANT_P(S)          (S)->relevant
 #define STMT_VINFO_LIVE_P(S)          	  (S)->live
 #define STMT_VINFO_VECTYPE(S)             (S)->vectype
 #define STMT_VINFO_VEC_STMT(S)            (S)->vectorized_stmt
 #define STMT_VINFO_DATA_REF(S)            (S)->data_ref_info
 #define STMT_VINFO_MEMTAG(S)              (S)->memtag
-#define STMT_VINFO_VECT_DR_BASE(S)        (S)->base
+#define STMT_VINFO_VECT_DR_BASE_ADDRESS(S)(S)->base_address
 #define STMT_VINFO_VECT_INIT_OFFSET(S)    (S)->initial_offset
 #define STMT_VINFO_VECT_STEP(S)           (S)->step
 #define STMT_VINFO_VECT_BASE_ALIGNED_P(S) (S)->base_aligned_p
@@ -212,76 +321,6 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
 
 
 /*-----------------------------------------------------------------*/
-/* Info on vectorized loops.                                       */
-/*-----------------------------------------------------------------*/
-typedef struct _loop_vec_info {
-
-  /* The loop to which this info struct refers to.  */
-  struct loop *loop;
-
-  /* The loop basic blocks.  */
-  basic_block *bbs;
-
-  /* The loop exit_condition.  */
-  tree exit_cond;
-
-  /* Number of iterations.  */
-  tree num_iters;
-
-  /* Is the loop vectorizable? */
-  bool vectorizable;
-
-  /* Unrolling factor  */
-  int vectorization_factor;
-
-  /* Unknown DRs according to which loop was peeled.  */
-  struct data_reference *unaligned_dr;
-
-  /* peeling_for_alignment indicates whether peeling for alignment will take 
-     place, and what the peeling factor should be:
-     peeling_for_alignment = X means: 
-	If X=0: Peeling for alignment will not be applied.
-        If X>0: Peel first X iterations.
-        If X=-1: Generate a runtime test to calculate the number of iterations 
-		 to be peeled, using the dataref recorded in the field 
-		 unaligned_dr.  */
-  int peeling_for_alignment;
-
-  /* The mask used to check the alignment of pointers or arrays.  */
-  int ptr_mask;
-
-  /* All data references in the loop that are being written to.  */
-  varray_type data_ref_writes;
-
-  /* All data references in the loop that are being read from.  */
-  varray_type data_ref_reads;
-
-  /* Statements in the loop that have data references that are candidates for a
-     runtime (loop versioning) misalignment check.  */
-  varray_type may_misalign_stmts;
-} *loop_vec_info;
-
-/* Access Functions.  */
-#define LOOP_VINFO_LOOP(L)           (L)->loop
-#define LOOP_VINFO_BBS(L)            (L)->bbs
-#define LOOP_VINFO_EXIT_COND(L)      (L)->exit_cond
-#define LOOP_VINFO_NITERS(L)         (L)->num_iters
-#define LOOP_VINFO_VECTORIZABLE_P(L) (L)->vectorizable
-#define LOOP_VINFO_VECT_FACTOR(L)    (L)->vectorization_factor
-#define LOOP_VINFO_PTR_MASK(L)       (L)->ptr_mask
-#define LOOP_VINFO_DATAREF_WRITES(L) (L)->data_ref_writes
-#define LOOP_VINFO_DATAREF_READS(L)  (L)->data_ref_reads
-#define LOOP_VINFO_INT_NITERS(L) (TREE_INT_CST_LOW ((L)->num_iters))       
-#define LOOP_PEELING_FOR_ALIGNMENT(L) (L)->peeling_for_alignment
-#define LOOP_VINFO_UNALIGNED_DR(L)    (L)->unaligned_dr
-#define LOOP_VINFO_MAY_MISALIGN_STMTS(L) (L)->may_misalign_stmts
-  
-
-#define LOOP_VINFO_NITERS_KNOWN_P(L)                     \
-(host_integerp ((L)->num_iters,0)                        \
-&& TREE_INT_CST_LOW ((L)->num_iters) > 0)      
-
-/*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */
 /*-----------------------------------------------------------------*/
 
@@ -291,7 +330,7 @@ extern void vectorize_loops (struct loops *);
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info);
-extern stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
+extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
 
 /* Pattern recognition functions.  */
 tree vect_recog_unsigned_subsat_pattern (tree, varray_type *);

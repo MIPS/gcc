@@ -1,3 +1,15 @@
+2005-02-16  Dorit Naishlos  <dorit@il.ibm.com>
+
+	Merge vectorizer related changes made on mainline
+	between autovect-merge-20050127 and 20050215.
+	* tree-vectorizer.c: Merge changes from mainline.
+	* tree-vectorizer.h: Likewise.
+	* tree-data-ref.c: Merge vectorizer related changes from mainline.
+	* common.opt: Likewise.
+	* opts.c: Likewise.
+	* tree.h: Likewise.
+	* docs/invoke.texi: Likewise.
+
 2005-02-14  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-data-ref.c (subscript_dependence_tester): Count only once 
