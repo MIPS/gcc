@@ -1353,6 +1353,8 @@ tree-optimize.o : tree-optimize.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h flags.h
 c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(C_TREE_H) $(C_COMMON_H) diagnostic.h tree-simple.h varray.h
+c-call-graph.o : c-call-graph.c $(CONFIG_H) $(SYSTEM_H) $(C_TREE_H) \
+   $(C_COMMON_H) diagnostic.h hard-reg-set.h $(BASIC_BLOCK_H) tree-flow.h
 tree-simple.o : tree-simple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) tree-simple.h
 c-pretty-print.o : c-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(EXPR_H) $(C_COMMON_H) errors.h diagnostic.h
