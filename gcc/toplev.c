@@ -378,6 +378,10 @@ void (*incomplete_decl_finalize_hook) PARAMS ((tree)) = 0;
 
 int flag_eliminate_dwarf2_dups = 0;
 
+/* Nonzero if doing unused type elimination.  */
+
+int flag_eliminate_unused_debug_types = 1;
+
 /* Nonzero if generating code to do profiling.  */
 
 int profile_flag = 0;
@@ -966,6 +970,8 @@ static const lang_independent_options f_options[] =
 {
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1,
    N_("Perform DWARF2 duplicate elimination") },
+  {"eliminate-unused-debug-types", &flag_eliminate_unused_debug_types, 1,
+   N_("Perform DWARF2 unused type elimination") },
   {"float-store", &flag_float_store, 1,
    N_("Do not store floats in registers") },
   {"volatile", &flag_volatile, 1,

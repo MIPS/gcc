@@ -3355,6 +3355,7 @@ struct file_table
 
 /* Filenames referenced by this compilation unit.  */
 static struct file_table file_table;
+static varray_type file_table_emitted;
 
 /* Local pointer to the name of the main input file.  Initialized in
    dwarf2out_init.  */
@@ -3723,6 +3724,14 @@ static void add_loc_descr_to_loc_list   PARAMS ((dw_loc_list_ref *,
 static void output_loc_list		PARAMS ((dw_loc_list_ref));
 static char *gen_internal_sym 		PARAMS ((const char *));
 static void mark_limbo_die_list		PARAMS ((void *));
+
+static void prune_unmark_dies		PARAMS ((dw_die_ref));
+static void prune_unused_types_mark     PARAMS ((dw_die_ref, int));
+static void prune_unused_types_walk     PARAMS ((dw_die_ref));
+static void prune_unused_types_walk_attribs PARAMS ((dw_die_ref));
+static void prune_unused_types_prune    PARAMS ((dw_die_ref));
+static void prune_unused_types          PARAMS ((void));
+static int maybe_emit_file              PARAMS ((int));
 
 /* Section names used to hold DWARF debugging information.  */
 #ifndef DEBUG_INFO_SECTION
@@ -5109,6 +5118,7 @@ splice_child_die (parent, child)
 	break;
       }
 
+  child->die_parent = parent;
   child->die_sib = parent->die_child;
   parent->die_child = child;
 }
@@ -11911,11 +11921,30 @@ lookup_filename (file_name)
   file_table.table[i] = xstrdup (file_name);
   file_table.in_use = i + 1;
   file_table.last_lookup_index = i;
-
-  if (DWARF2_ASM_LINE_DEBUG_INFO)
-    fprintf (asm_out_file, "\t.file %u \"%s\"\n", i, file_name);
+  VARRAY_PUSH_UINT (file_table_emitted, 0);
 
   return i;
+}
+
+static int
+maybe_emit_file (fileno)
+     int fileno;
+{
+  static int emitcount = 0;  
+  if (DWARF2_ASM_LINE_DEBUG_INFO && fileno > 0)
+    {
+      if (!VARRAY_UINT (file_table_emitted, fileno))
+	{
+	  VARRAY_UINT (file_table_emitted, fileno) = ++emitcount;
+          fprintf (asm_out_file, "\t.file %u ",
+		   VARRAY_UINT (file_table_emitted, fileno));
+	  output_quoted_string (asm_out_file, file_table.table[fileno]);
+	  fputc ('\n', asm_out_file);
+	}
+      return VARRAY_UINT (file_table_emitted, fileno);
+    }
+  else
+    return fileno;
 }
 
 static void
@@ -11928,6 +11957,9 @@ init_file_table ()
   /* Skip the first entry - file numbers begin at 1.  */
   file_table.in_use = 1;
   file_table.last_lookup_index = 0;
+
+  VARRAY_UINT_INIT (file_table_emitted, 64, "file_table_emitted");
+  VARRAY_PUSH_UINT (file_table_emitted, 0);
 }
 
 /* Output a label to mark the beginning of a source code line entry
@@ -11951,6 +11983,8 @@ dwarf2out_source_line (line, filename)
       if (DWARF2_ASM_LINE_DEBUG_INFO)
 	{
 	  unsigned file_num = lookup_filename (filename);
+
+          file_num = maybe_emit_file (file_num);
 
 	  /* Emit the .loc directive understood by GNU as.  */
 	  fprintf (asm_out_file, "\t.loc %d %d 0\n", file_num, line);
@@ -12033,6 +12067,7 @@ dwarf2out_start_source_file (lineno, filename)
       dw2_asm_output_data (1, DW_MACINFO_start_file, "Start new file");
       dw2_asm_output_data_uleb128 (lineno, "Included from line number %d",
 				   lineno);
+      maybe_emit_file (lookup_filename (filename));
       dw2_asm_output_data_uleb128 (lookup_filename (filename),
 				   "Filename we just started");
     }
@@ -12223,6 +12258,214 @@ output_indirect_string (pfile, h, v)
   return 1;
 }
 
+
+
+/* Clear the marks for a die and its children.
+   Be cool if the mark isn't set. */
+
+static void
+prune_unmark_dies (die)
+     dw_die_ref die;
+{
+  dw_die_ref c;
+  die->die_mark = 0;
+  for (c = die->die_child; c; c = c->die_sib)
+    prune_unmark_dies (c);
+}
+
+
+/* Given DIE that we're marking as used, find any other dies
+   it references as attributes and mark them as used.  */
+
+static void
+prune_unused_types_walk_attribs (die)
+     dw_die_ref die;
+{
+  dw_attr_ref a;
+
+  for (a = die->die_attr; a != NULL; a = a->dw_attr_next)
+    {
+      if (a->dw_attr_val.val_class == dw_val_class_die_ref)
+        {
+          /* A reference to another DIE.
+             Make sure that it will get emitted.  */
+          prune_unused_types_mark (a->dw_attr_val.v.val_die_ref.die, 1);
+        }
+      else if (a->dw_attr == DW_AT_decl_file)
+        {
+          /* A reference to a file.  Make sure the file name is emitted.  */
+          a->dw_attr_val.v.val_unsigned =
+            maybe_emit_file (a->dw_attr_val.v.val_unsigned);
+        }
+    }
+}
+
+
+/* Mark DIE as being used.  If DOKIDS is true, then walk down
+   to DIE's children.  */
+
+static void
+prune_unused_types_mark (die, dokids)
+     dw_die_ref die;
+     int dokids;
+{
+  dw_die_ref c;
+
+  if (die->die_mark == 0) {
+    /* We haven't done this node yet.  Mark it as used.  */
+    die->die_mark = 1;
+
+    /* We also have to mark its parents as used.
+       (But we don't want to mark our parents' kids due to this.)  */
+    if (die->die_parent)
+      prune_unused_types_mark (die->die_parent, 0);
+
+    /* Mark any referenced nodes.  */
+    prune_unused_types_walk_attribs (die);
+  }
+
+  if (dokids && die->die_mark != 2)
+    {
+      /* We need to walk the children, but haven't done so yet.
+         Remember that we've walked the kids.  */
+      die->die_mark = 2;
+
+      /* Walk them.  */
+      for (c = die->die_child; c; c = c->die_sib)
+        {
+          /* If this is an array type, we need to make sure our
+             kids get marked, even if they're types. */
+          if (die->die_tag == DW_TAG_array_type)
+            prune_unused_types_mark (c, 1);
+          else
+            prune_unused_types_walk (c);
+        }
+    }
+}
+
+
+/* Walk the tree DIE and mark types that we actually use.  */
+
+static void
+prune_unused_types_walk (die)
+     dw_die_ref die;
+{
+  dw_die_ref c;
+
+  /* Don't do anything if this node is already marked.  */
+  if (die->die_mark)
+    return;
+
+  switch (die->die_tag) {
+  case DW_TAG_const_type:
+  case DW_TAG_packed_type:
+  case DW_TAG_pointer_type:
+  case DW_TAG_reference_type:
+  case DW_TAG_volatile_type:
+  case DW_TAG_typedef:
+  case DW_TAG_array_type:
+  case DW_TAG_structure_type:
+  case DW_TAG_union_type:
+  case DW_TAG_class_type:
+  case DW_TAG_friend:
+  case DW_TAG_variant_part:
+  case DW_TAG_enumeration_type:
+  case DW_TAG_subroutine_type:
+  case DW_TAG_string_type:
+  case DW_TAG_set_type:
+  case DW_TAG_subrange_type:
+  case DW_TAG_ptr_to_member_type:
+  case DW_TAG_file_type:
+    /* It's a type node --- don't mark it.  */
+    return;
+
+  default:
+    /* Mark everything else.  */
+    break;
+  }
+
+  die->die_mark = 1;
+
+  /* Now, mark any dies referenced from here.  */
+  prune_unused_types_walk_attribs (die);
+
+  /* Mark children.  */
+  for (c = die->die_child; c; c = c->die_sib)
+    prune_unused_types_walk (c);
+}
+
+
+/* Remove from the tree DIE any dies that aren't marked.  */
+
+static void
+prune_unused_types_prune (die)
+     dw_die_ref die;
+{
+  dw_die_ref c, p, n;
+  if (!die->die_mark)
+    abort();
+
+  p = NULL;
+  for (c = die->die_child; c; c = n)
+    {
+      n = c->die_sib;
+      if (c->die_mark)
+        {
+          prune_unused_types_prune (c);
+          p = c;
+        }
+      else
+        {
+          if (p)
+            p->die_sib = n;
+          else
+            die->die_child = n;
+          free_die (c);
+        }
+    }
+}
+
+
+/* Remove dies representing declarations that we never use.  */
+
+static void
+prune_unused_types ()
+{
+  unsigned int i;
+  limbo_die_node *node;
+
+  /* Clear all the marks.  */
+  prune_unmark_dies (comp_unit_die);
+  for (node = limbo_die_list; node; node = node->next)
+    prune_unmark_dies (node->die);
+
+  /* Set the mark on nodes that are actually used.  */
+  prune_unused_types_walk (comp_unit_die);
+  for (node = limbo_die_list; node; node = node->next)
+    prune_unused_types_walk (node->die);
+
+  /* Also set the mark on nodes referenced from the
+     pubname_table or arange_table.  */
+  for (i=0; i < pubname_table_in_use; i++)
+    {
+      prune_unused_types_mark (pubname_table[i].die, 1);
+    }
+  for (i=0; i < arange_table_in_use; i++)
+    {
+      prune_unused_types_mark (arange_table[i], 1);
+    }
+
+  /* Get rid of nodes that aren't marked.  */
+  prune_unused_types_prune (comp_unit_die);
+  for (node = limbo_die_list; node; node = node->next)
+    prune_unused_types_prune (node->die);
+
+  /* Leave the marks clear.  */
+  prune_unmark_dies (comp_unit_die);
+  for (node = limbo_die_list; node; node = node->next)
+    prune_unmark_dies (node->die);
+}
+
 /* Output stuff that dwarf requires at the end of every file,
    and generate the DWARF-2 debugging info.  */
 
@@ -12318,6 +12561,9 @@ dwarf2out_finish (input_filename)
      They will go into limbo_die_list.  */
   if (flag_eliminate_dwarf2_dups)
     break_out_includes (comp_unit_die);
+
+  if (flag_eliminate_unused_debug_types)
+    prune_unused_types ();
 
   /* Traverse the DIE's and add add sibling attributes to those DIE's
      that have children.  */
