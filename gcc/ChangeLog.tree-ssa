@@ -1,3 +1,9 @@
+2004-01-21  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (thread_across_edge): Create equivalences for
+	PHIs before looking at the statements in the destination
+	block.
+
 2004-01-20  Roger Sayle  <roger@eyesopen.com>
 
 	* fold-const.c (fold_convert): Rename to fold_convert_const.

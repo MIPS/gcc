@@ -629,6 +629,30 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
     = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
   block_stmt_iterator bsi;
   tree stmt = NULL;
+  tree phi;
+
+  /* Each PHI creates a temporary equivalence, record them.  */
+  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+    {
+      tree src = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, e));
+      tree dst = PHI_RESULT (phi);
+      tree prev_value = get_value_for (dst, const_and_copies);
+
+      if (TREE_CODE (src) == SSA_NAME)
+	{
+	  tree tmp = get_value_for (src, const_and_copies);
+
+	  if (tmp)
+	    src = tmp;
+	}
+	  
+      set_value_for (dst, src, const_and_copies);
+
+      if (! bd->const_and_copies)
+        VARRAY_TREE_INIT (bd->const_and_copies, 2, "block_const_and_copies");
+      VARRAY_PUSH_TREE (bd->const_and_copies, dst);
+      VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
+    }
 
   for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -763,7 +787,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
      be taken.  */
   if (stmt && TREE_CODE (stmt) == COND_EXPR)
     {
-      tree cached_lhs, phi;
+      tree cached_lhs;
       edge e1;
 
       /* Do not forward a back edge in the CFG.  This avoids short circuiting
@@ -783,31 +807,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      break;
 	  if (e1)
 	    return;
-	}
-
-      /* Each PHI creates a temporary equivalence, record them.  */
-      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-	{
-	  tree src = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, e));
-	  tree dst = PHI_RESULT (phi);
-	  tree prev_value = get_value_for (dst, const_and_copies);
-
-	  if (TREE_CODE (src) == SSA_NAME)
-	    {
-	      tree tmp = get_value_for (src, const_and_copies);
-
-	      if (tmp)
-		src = tmp;
-	    }
-	  
-	  set_value_for (dst, src, const_and_copies);
-
-	  if (! bd->const_and_copies)
-	    VARRAY_TREE_INIT (bd->const_and_copies, 2,
-			      "block_const_and_copies");
-	  VARRAY_PUSH_TREE (bd->const_and_copies, dst);
-	  VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
-
 	}
 
       /* Now temporarily cprop the operands and try to find the resulting
