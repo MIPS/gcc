@@ -207,7 +207,7 @@ struct function GTY(())
 
   /* # of bytes of outgoing arguments.  If ACCUMULATE_OUTGOING_ARGS is
      defined, the needed space is pushed by the prologue.  */
-  int outgoing_args_size;
+  HOST_WIDE_INT outgoing_args_size;
 
   /* This is the offset from the arg pointer to the place where the first
      anonymous arg can be found, if there is one.  */

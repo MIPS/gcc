@@ -713,7 +713,7 @@ struct ix86_frame
   int va_arg_size;
   HOST_WIDE_INT frame;
   int padding2;
-  int outgoing_arguments_size;
+  HOST_WIDE_INT outgoing_arguments_size;
   int red_zone_size;
 
   HOST_WIDE_INT to_allocate;

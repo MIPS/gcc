@@ -1912,8 +1912,8 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
 		     value of reg_parm_stack_space is wrong, but gives
 		     correct results on all supported machines.  */
 
-		  int adjust = (DECL_SAVED_INSNS (fndecl)->outgoing_args_size
-				+ reg_parm_stack_space);
+		  HOST_WIDE_INT adjust = (DECL_SAVED_INSNS (fndecl)->outgoing_args_size
+				          + reg_parm_stack_space);
 
 		  start_sequence ();
 		  emit_stack_save (SAVE_BLOCK, &old_stack_level, NULL_RTX);

@@ -863,7 +863,7 @@ reload (first, global)
      cause a core dump.  */
   offsets_known_at = xmalloc (num_labels);
   offsets_at
-    = (int (*)[NUM_ELIMINABLE_REGS])
+    = (HOST_WIDE_INT (*)[NUM_ELIMINABLE_REGS])
     xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (HOST_WIDE_INT));
 
   /* Alter each pseudo-reg rtx to contain its hard reg number.
