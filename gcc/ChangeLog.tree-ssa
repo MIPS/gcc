@@ -1,3 +1,25 @@
+2003-03-03  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (is_strred_cand): Temporarily disable strength
+	reduction while working on bootstrapping.
+	(requires_edge_placement): Reenable for now, until an insertion
+	infrastructure exists that can handle critical edges.
+	(count_stmts_in_bb): New function, used for verifying we do
+	insertions properly.
+	(update_old_new): Fix up bb heads as well.
+	(do_proper_save): Handle single statement bb properly.
+	Handle BB's contained in BIND_EXPRS.
+	(code_motion): Count number of statements in bb before and after
+	to make sure we don't screw up boundaries.
+	(finalize_1): Ditto.
+	(rename_2): Fix subtle rename bug.
+	(phi_opnd_from_res): Do this the right way, by cloning the
+	occurrence and modifying it, as every other PRE implementation
+	does.
+	(tree_perform_ssapre): Handle comparisons too (unary exprs
+	currently disabled till load PRE is reimplemented).
+	(reset_can_be_avail): Fix can_be_avail test.
+
 2003-03-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* doc/invoke.texi: Fix typo.
