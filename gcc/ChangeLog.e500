@@ -1,3 +1,13 @@
+2003-10-08  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.md ("abssi2_isel"): Add early clobber to
+	operand 2.
+
+2003-10-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/linuxspe.h: Define TARGET_SPE_ABI, TARGET_SPE,
+	TARGET_E500, TARGET_ISEL, and TARGET_FPRS.
+
 2003-08-18  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/spe.md ("*nabssf2_gpr"): New.
