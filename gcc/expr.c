@@ -8814,6 +8814,31 @@ expand_expr (exp, target, tmode, modifier)
 	  tree then_ = TREE_OPERAND (exp, 1);
 	  tree else_ = TREE_OPERAND (exp, 2);
 
+	  /* If the conditional has only one useful arm and that arm is an
+	     unconditional jump to a local label and we have no pending
+	     cleanups, then we can simplify the resulting INSN stream
+	     by using jumpif/jumpifnot.  */
+	  if (optimize > 0
+	      && TREE_CODE (then_) == GOTO_EXPR
+	      && TREE_CODE (GOTO_DESTINATION (then_)) == LABEL_DECL
+	      && ! NONLOCAL_LABEL (GOTO_DESTINATION (then_))
+	      && ! TREE_SIDE_EFFECTS (else_)
+	      && ! any_pending_cleanups ())
+	    {
+	      jumpif (pred, label_rtx (GOTO_DESTINATION (then_)));
+	      return const0_rtx;
+	    }
+	  else if (optimize > 0
+		   && TREE_CODE (else_) == GOTO_EXPR
+		   && TREE_CODE (GOTO_DESTINATION (else_)) == LABEL_DECL
+		   && ! NONLOCAL_LABEL (GOTO_DESTINATION (else_))
+		   && ! TREE_SIDE_EFFECTS (then_)
+		   && ! any_pending_cleanups ())
+	    {
+	      jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_)));
+	      return const0_rtx;
+	    }
+
 	  /* Just use the 'if' machinery.  */
 	  expand_start_cond (pred, 0);
 	  start_cleanup_deferral ();

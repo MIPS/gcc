@@ -3254,7 +3254,7 @@ extern void expand_asm_operands		PARAMS ((tree, tree, tree, tree, int,
 extern void expand_asm_expr		PARAMS ((tree));
 extern bool asm_op_is_mem_input (tree, tree);
 extern tree resolve_asm_operand_names (tree, tree, tree);
-extern int any_pending_cleanups		PARAMS ((int));
+extern int any_pending_cleanups		PARAMS ((void));
 extern void init_stmt_for_function	PARAMS ((void));
 extern void expand_start_target_temps	PARAMS ((void));
 extern void expand_end_target_temps	PARAMS ((void));

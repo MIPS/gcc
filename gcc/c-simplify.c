@@ -648,6 +648,22 @@ gimplify_c_loop (cond, body, incr, cond_is_first)
 
   loop = finish_bc_block (break_block, loop);
 
+  /* This catches do ... while (0) loops and eliminates their looping
+     structure.  Conditions for detecting these loops:
+
+	1. The condition must be last.
+	2. We must have exit code.
+	3. The exit code must be an unconditional jump to the 'break'
+	   label.  The way we construct the exit code above assures that
+	   if the exit code is an unconditional jump, then it will
+	   have the 'break' label as its target.
+	4. The 'continue' label must be unused.  */
+  if (! cond_is_first
+      && exit
+      && TREE_CODE (exit) == GOTO_EXPR
+      && ! TREE_USED (cont_block))
+    TREE_OPERAND (loop, 0) = TREE_OPERAND (TREE_OPERAND (loop, 0), 0);
+
   return loop;
 }
 

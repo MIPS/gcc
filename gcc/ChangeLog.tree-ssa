@@ -1,6 +1,17 @@
+2003-06-30  Jeff Law  <law@redhat.com>
+
+	* c-simplify.c (gimplify_c_loop): Don't return a LOOP_EXPR for
+	a do ... while (0) loop.
+ 
+	* expr.c (expand_expr, case COND_EXPR): Be smarter about expanding
+	a COND_EXPR with only one useful arm, which happens to be a GOTO_EXPR.
+ 
+	* tree-cfg.c (remove_useless_stmts_and_vars): Don't remove user
+	variables unless we're at -O2 or higher.
+
 2003-06-30  Daniel Berlin  <dberlin@dberlin.org>
 
-    * tree-ssa-pre.c (expr_phi_insertion): Stop optimizing the expression
+	* tree-ssa-pre.c (expr_phi_insertion): Stop optimizing the expression
 	if we have > some very large number of ephi operands, as it will
 	take an ungodly amount of memory and time.
 	(pre_expression): Push/pop gc context so we can do gc collection
