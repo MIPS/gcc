@@ -1,3 +1,11 @@
+2003-09-07  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR optimization/12198
+	* gcc.dg/tree-ssa/20030907-1.c: New test.
+
+	PR optimization/12109
+	* gcc.dg/tree-ssa/20030907-2.c: New test.
+
 2003-09-04  Diego Novillo  <dnovillo@redhat.com>
 	
 	* gcc.c-torture/execute/20030828-1.c: New test.
@@ -9,7 +17,7 @@
 
 2003-08-27  Jeff Law  <law@redhat.com>
 
-	* gcc.dg/tree-ssa-20030821-1.c: Don't get confused by declaration
+	* gcc.dg/tree-ssa/20030821-1.c: Don't get confused by declaration
 	of dont_remove.
 
 2003-08-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
