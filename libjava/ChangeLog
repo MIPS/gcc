@@ -1,3 +1,10 @@
+2004-07-22  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gnu/java/awt/ClasspathToolkit.java (createImageProducer): New.
+	Default implementation.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java (createImageProducer): New.
+	Implement using GdkPixbufDecoder.
+
 2004-07-21  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
