@@ -254,6 +254,10 @@ linear_transform_loops (struct loops *loops)
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
       bool problem = false;
+      
+      if (loop_nest)
+	continue;
+      
       flow_loop_scan (loop_nest, LOOP_ALL);
       if (dump_file)
 	flow_loop_dump (loop_nest, dump_file, NULL, 0);
