@@ -146,7 +146,6 @@ extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
-/* APPLE LOCAL lno */
 extern struct tree_opt_pass pass_iv_optimize;
 /* APPLE LOCAL lno */
 extern struct tree_opt_pass pass_loop_prefetch;

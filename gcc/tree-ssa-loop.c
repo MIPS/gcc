@@ -39,7 +39,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-scalar-evolution.h"
 /* APPLE LOCAL begin lno */
 #include "tree-data-ref.h"
-#include "tree-vectorizer.h"
 #include "function.h"
 /* APPLE LOCAL end lno */
 
@@ -48,10 +47,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 struct loops *current_loops;
 
 /* Initializes the loop structures.  DUMP is the file to that the details
-   about the analysis should be dumped.  If CANONICALIZE_SSA is true, loop
-   closed ssa form is enforced and redundant phi nodes created by creating
-   preheaders are cleaned up.  */
+   about the analysis should be dumped.  */
 
+/* APPLE LOCAL lno */
 struct loops *
 tree_loop_optimizer_init (FILE *dump)
 {

@@ -1,6 +1,13 @@
 2005-03-08  Dale Johannesen  <dalej@apple.com>
 
 	* Makefile.in:  Remove useless code from LNO branch.
+	* tree-ssa-loop-ch.c:  Local marker cleanup.
+	* tree-pass.h:  Ditto.
+	* tree-ssa-loop.c:  Ditto both the above.
+
+2005-03-08  Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in:  Remove useless code from LNO branch.
 	* cfgloop.h: Ditto.
 	* cfgloopmanip.c: Ditto.
 	* common.opt: Ditto.
