@@ -925,6 +925,72 @@ cfg_layout_split_block (bb, insn)
   return fallthru;
 }
 
+/* Same as flow_delete_block but update cfg_layout structures.  */
+int
+cfg_layout_delete_block (bb)
+     basic_block bb;
+{
+  rtx insn, next, prev = PREV_INSN (bb->head), *to, remaints;
+  int ret;
+
+  if (RBI (bb)->header)
+    {
+      next = bb->head;
+      if (prev)
+	NEXT_INSN (prev) = RBI (bb)->header;
+      else
+	set_first_insn (RBI (bb)->header);
+      PREV_INSN (RBI (bb)->header) = prev;
+      insn = RBI (bb)->header;
+      while (NEXT_INSN (insn))
+	insn = NEXT_INSN (insn);
+      NEXT_INSN (insn) = next;
+      PREV_INSN (next) = insn;
+    }
+  next = NEXT_INSN (bb->end);
+  if (RBI (bb)->footer)
+    {
+      insn = bb->end;
+      NEXT_INSN (insn) = RBI (bb)->footer;
+      PREV_INSN (RBI (bb)->footer) = insn;
+      while (NEXT_INSN (insn))
+	insn = NEXT_INSN (insn);
+      NEXT_INSN (insn) = next;
+      if (next)
+	PREV_INSN (next) = insn;
+      else
+	set_last_insn (insn);
+    }
+  if (bb->next_bb != EXIT_BLOCK_PTR)
+    to = &RBI(bb->next_bb)->header;
+  else
+    to = &function_footer;
+  ret = flow_delete_block (bb);
+
+  if (prev)
+    prev = NEXT_INSN (prev);
+  else 
+    prev = get_insns ();
+  if (next)
+    next = PREV_INSN (next);
+  else 
+    next = get_last_insn ();
+
+  if (next && NEXT_INSN (next) != prev)
+    {
+      remaints = unlink_insn_chain (prev, next);
+      insn = remaints;
+      while (NEXT_INSN (insn))
+	insn = NEXT_INSN (insn);
+      NEXT_INSN (insn) = *to;
+      if (*to)
+	PREV_INSN (*to) = insn;
+      *to = remaints;
+    }
+
+  return ret;
+}
+
 /* Create a duplicate of the basic block BB and redirect edge E into it.  */
 
 basic_block

@@ -129,7 +129,7 @@ remove_bbs (dom, bbs, nbbs)
 	}
       remove_bb_from_loops (bbs[i]);
       delete_from_dominance_info (dom, bbs[i]);
-      flow_delete_block (bbs[i]);
+      cfg_layout_delete_block (bbs[i]);
     }
 }
 

@@ -911,7 +911,7 @@ iv_simple_condition_p (loop, condition, values, desc)
   if (scond == const_true_rtx)
     {
       desc->infinite = alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX); 
-      return true;
+      return false;
     }
   cond = GET_CODE (scond);
   if (GET_RTX_CLASS (cond) != '<')
@@ -1079,7 +1079,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 	    {
 	      desc->infinite =
 		      alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
-	      return true;
+	      return false;
 	    }
 	}
       else
@@ -1088,7 +1088,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 	    {
 	      desc->infinite =
 		      alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
-	      return true;
+	      return false;
 	    }
 	}
     }
@@ -1314,6 +1314,7 @@ iv_simple_loop_exit_p (loops, loop, exit_edge, desc)
 
   desc->out_edge = exit_edge;
   desc->in_edge = ei;
+  desc->postincr = (ei->dest != loop->latch);
 
   /* Test whether the condition is suitable.  */
   if (!(condition = get_condition (exit_bb->end, &first_cond_insn)))
@@ -1714,10 +1715,6 @@ compute_simple_loop_info (loops)
 {
   unsigned i;
   struct loop *loop;
-  struct loop_desc sli_iv;
-  struct loop_desc sli_old;
-  int simple_by_iv;
-  int simple_by_old;
 
   for (i = 1; i < loops->num; i++)
     {
@@ -1725,33 +1722,7 @@ compute_simple_loop_info (loops)
       if (!loop)
 	continue;
       
-      simple_by_iv = iv_simple_loop_p (loops, loop, &sli_iv);
-
-      if (rtl_dump_file)
-	{
-	  simple_by_old = simple_loop_p (loops, loop, &sli_old);
-
-	  if (simple_by_iv && !simple_by_old)
-	    fprintf (rtl_dump_file,
-		     "An additional loop %d detected simple.\n", loop->num);
-	  if (!simple_by_iv && simple_by_old)
-	    fprintf (rtl_dump_file,
-		     "Loop %d not detected simple.\n", loop->num);
-	  if (simple_by_iv && simple_by_old)
-	    {
-	      if (sli_iv.const_iter && !sli_old.const_iter)
-		fprintf (rtl_dump_file,
-			 "An additional loop %d detected constant iterating.\n",
-			 loop->num);
-	      if (!sli_iv.const_iter && sli_old.const_iter)
-		fprintf (rtl_dump_file,
-		     "Loop %d not detected constant iterating.\n", loop->num);
-	      if (sli_iv.const_iter && sli_old.const_iter
-		  && sli_iv.niter != sli_old.niter)
-		fprintf (rtl_dump_file,
-			 "Wrongly determined number of iterations for loop %d.\n",
-			 loop->num);
-	    }
-	}
+      loop->simple = iv_simple_loop_p (loops, loop, &loop->desc);
+      loop->has_desc = 1;
     }
 }

@@ -124,6 +124,7 @@ static void clear_reg_values		PARAMS ((rtx));
 static rtx earliest_value_at_for	PARAMS ((basic_block, int));
 static rtx get_reg_value_at		PARAMS ((basic_block, rtx,
 						 struct ref *));
+static int iv_omit_initial_values_1	PARAMS ((rtx *, void *));
 static void compute_reg_values		PARAMS ((basic_block, rtx));
 static void compute_register_values	PARAMS ((int));
 static void simplify_reg_values		PARAMS ((basic_block, rtx));
@@ -817,6 +818,7 @@ compare_with_mode_bounds (code, par, mode, inner_mode)
     case LEU:
     case GEU:
       sign = 0;
+      break;
     default:
       sign = 1;
     }
@@ -1296,6 +1298,30 @@ substitute_into_expr (expr, substitution, simplify)
   return new_expr;
 }
 
+/* Called through for_each_rtx from iv_omit_initial_values.  */
+static int
+iv_omit_initial_values_1 (expr, data)
+     rtx *expr;
+     void *data ATTRIBUTE_UNUSED;
+{
+  if (GET_CODE (*expr) == INITIAL_VALUE)
+    {
+      *expr = XEXP (*expr, 0);
+      return -1;
+    }
+  return 0;
+}
+
+/* Omits initial_values from the expression EXPR.  */
+rtx
+iv_omit_initial_values (expr)
+     rtx expr;
+{
+  expr = copy_rtx (expr);
+  for_each_rtx (&expr, iv_omit_initial_values_1, NULL);
+  return expr;
+}
+
 /* Splits expression for induction variable into BASE and STEP.  We expect
    EXPR to come from iv_simplify_rtx.  */
 void
@@ -1697,9 +1723,16 @@ get_reg_value_at (bb, insn, ref)
       def_loop = def_bb->loop_father;
       defno = DF_REF_ID (def->ref);
 
-      /* The outside definition.  */
-      if (loop != def_loop && !flow_loop_nested_p (loop, def_loop))
-	continue;
+      if (loop != def_loop)
+	{
+	  if (flow_loop_nested_p (loop, def_loop))
+	    return earliest_value_at_for (bb, regno);
+	  else
+	    continue;
+	}
+
+      if (!TEST_BIT (loop_rd_in_ok, defno))
+	fill_loop_rd_in_for_def (def->ref);
 
       /* The definition that dominates us.  */
       if (def_bb == bb
@@ -1707,9 +1740,6 @@ get_reg_value_at (bb, insn, ref)
 	break;
       if (def_bb != bb && fast_dominated_by_p (dom, bb, def_bb))
 	break;
-
-      if (!TEST_BIT (loop_rd_in_ok, defno))
-	fill_loop_rd_in_for_def (def->ref);
 
       /* The definition that does not dominate us, but reaches us.  */
       if (bitmap_bit_p (loop_rd_in[bb->index], defno))

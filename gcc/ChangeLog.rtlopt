@@ -1,3 +1,26 @@
+2003-04-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfglayout.c (cfg_layout_delete_block): New.
+	* cfglayout.h (cfg_layout_delete_block): Declare.
+	* cfgloopmanip.c (remove_bbs): Use it.
+	* cfgloop.h (iv_omit_initial_values): Declare.
+	* cfgloopanal.c (iv_simple_condition_p): Do not consider infinite
+	loops simple.
+	(iv_simple_loop_exit_p): Fill in desc->postincr.
+	(compute_simple_loop_info): Compute simple loop info using loop_iv
+	code.
+	* loop-iv.c (iv_omit_initial_values_1): New static function.
+	(iv_omit_initial_values): New function.
+	(compare_with_mode_bounds, get_reg_value_at): Fix.
+	* loop-unroll.c (unroll_and_peel_loops, peel_loops_completely,
+	decide_unrolling_and_peeling, decide_peel_once_rolling,
+	decide_peel_completely, peel_loop_completely,
+	decide_unroll_constant_iterations, unroll_loop_constant_iterations,
+	decide_unroll_runtime_iterations, unroll_loop_runtime_iterations,
+	decide_peel_simple, decide_unroll_stupid): Use iv analysis results.
+	* toplev.c (rest_of_compilation): Call initialize_iv_analysis if
+	needed.
+
 2003-04-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloop.h (iv_simplify_subreg, iv_simplify_rtx): Declare.

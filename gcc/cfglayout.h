@@ -43,3 +43,4 @@ extern void scope_to_insns_initialize	PARAMS ((void));
 extern void scope_to_insns_finalize	PARAMS ((void));
 extern bool cfg_layout_redirect_edge	PARAMS ((edge, basic_block));
 extern edge cfg_layout_split_block	PARAMS ((basic_block, rtx));
+extern int cfg_layout_delete_block	PARAMS ((basic_block));

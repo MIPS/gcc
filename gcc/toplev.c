@@ -3256,19 +3256,20 @@ rest_of_compilation (decl)
 	  if (flag_unswitch_loops)
 	    unswitch_loops (loops);
 
-	  /* For now just a testing whether it works.  */
-	  timevar_push (TV_IV_ANAL);
-	  initialize_iv_analysis (loops);
-	  analyse_induction_variables (loops);
-	  compute_simple_loop_info (loops);
-	  finalize_iv_analysis (loops);
-	  timevar_pop (TV_IV_ANAL);
-
  	  if (flag_peel_loops || flag_unroll_loops)
- 	    unroll_and_peel_loops (loops,
-		(flag_peel_loops ? UAP_PEEL : 0) |
-		(flag_unroll_loops ? UAP_UNROLL : 0) |
-		(flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
+	    {
+	      timevar_push (TV_IV_ANAL);
+	      initialize_iv_analysis (loops);
+	      analyse_induction_variables (loops);
+	      compute_simple_loop_info (loops);
+	      finalize_iv_analysis (loops);
+	      timevar_pop (TV_IV_ANAL);
+
+	      unroll_and_peel_loops (loops,
+			(flag_peel_loops ? UAP_PEEL : 0) |
+			(flag_unroll_loops ? UAP_UNROLL : 0) |
+			(flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
+	    }
 
 #ifdef HAVE_doloop_end
 	  if (HAVE_doloop_end && flag_branch_on_count_reg)

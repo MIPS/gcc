@@ -54,7 +54,10 @@ struct loop_desc
 
   			/* All of the above is depredicated and will be removed
 			   soon.  */
-  rtx assumptions;	/* Condition under that the values below are correct.  */
+  rtx assumptions;	/* Condition under that the values below are correct.
+			   For now we just ignore the loop if it is not always
+			   true.  Later we might consider an unswitching-like
+			   solution.  */
   rtx noloop_assumptions; /* Condition under that the loop does not roll at all.  */
   rtx infinite;		/* Condition under that the loop is infinite.  */
   rtx niter_expr;	/* The expression to count the number of iterations.  */
@@ -387,6 +390,7 @@ extern rtx simplify_iv_using_values	PARAMS ((rtx, rtx *));
 extern rtx iv_simplify_using_initial_values PARAMS ((enum rtx_code, rtx,
 						     struct loop *));
 
+extern rtx iv_omit_initial_values	PARAMS ((rtx));
 extern void iv_split			PARAMS ((rtx, rtx *, rtx *));
 extern rtx iv_base			PARAMS ((rtx));
 extern rtx iv_step			PARAMS ((rtx));
