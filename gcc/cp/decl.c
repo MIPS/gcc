@@ -5523,7 +5523,7 @@ typename_compare (k1, k2)
   d2 = TYPE_NAME (t2);
 
   return (DECL_NAME (d1) == DECL_NAME (d2)
-	  && same_type_p (TYPE_CONTEXT (t1), TYPE_CONTEXT (t2))
+	  && TYPE_CONTEXT (t1) == TYPE_CONTEXT (t2)
 	  && ((TREE_TYPE (t1) != NULL_TREE)
 	      == (TREE_TYPE (t2) != NULL_TREE))
 	  && same_type_p (TREE_TYPE (t1), TREE_TYPE (t2))
