@@ -1,3 +1,7 @@
+2004-11-30  Mark Mitchell  <mark@codesourcery.com>
+
+  	* function.c (INVOKE__main): Fix typo in comment.
+
 2004-11-22  Mark Mitchell  <mark@codesourcery.com>
 
 	* crtsuff.c (IN_LIBGCC2): Define.  Handle targets that use

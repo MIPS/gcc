@@ -6546,7 +6546,7 @@ init_function_for_compilation (void)
   VARRAY_GROW (sibcall_epilogue, 0);
 }
 
-/* Define IVOKE__main if we should emit a call to __main at the start
+/* Define INVOKE__main if we should emit a call to __main at the start
    of "main".  */ 
 #if (!defined(INVOKE__main)			\
      && !defined(INIT_SECTION_ASM_OP)		\
