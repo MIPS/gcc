@@ -1,3 +1,10 @@
+2005-03-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4015382 (Part II)
+	* g++.dg/ext/new-delete-1.C: Replace confusing '$'
+	with '.' in search string.
+	* g++.dg/ext/new-delete-2.C: Likewise.
+
 2005-02-28  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4015382

@@ -25,4 +25,4 @@ int *foo(void) {
 }
 
 /* { dg-final { scan-assembler-not "coal" } } */
-/* { dg-final { scan-assembler "bl L__ZdlPvi$stub" } } */
+/* { dg-final { scan-assembler "bl L__ZdlPvi.stub" } } */

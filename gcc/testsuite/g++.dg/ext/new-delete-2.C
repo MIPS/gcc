@@ -23,6 +23,6 @@ int *foo(void) {
 
 /* { dg-final { scan-assembler "coal" } } */
 
-/* { dg-final { scan-assembler "bl L__Znwm$stub" } } */
-/* { dg-final { scan-assembler "bl L__ZdlPvi$stub" } } */
-/* { dg-final { scan-assembler "bl L__ZdlPv$stub" } } */
+/* { dg-final { scan-assembler "bl L__Znwm.stub" } } */
+/* { dg-final { scan-assembler "bl L__ZdlPvi.stub" } } */
+/* { dg-final { scan-assembler "bl L__ZdlPv.stub" } } */
