@@ -34,7 +34,6 @@
 // XXX This test (test02) is not working for non-glibc locale models.
 // { dg-do run { xfail *-*-* } }
 
-#ifdef _GLIBCPP_USE_WCHAR_T
 typedef wchar_t char_type;
 class gnu_ctype: public std::ctype<char_type> { };
 
@@ -184,14 +183,11 @@ void test05()
       VERIFY( preLANG == postLANG );
     }
 }
-#endif
 
 int main() 
 {
-#ifdef _GLIBCPP_USE_WCHAR_T
   test01();
   test04();
   test05();
-#endif
   return 0;
 }
