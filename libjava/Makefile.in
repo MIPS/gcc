@@ -980,6 +980,7 @@ javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
 javax/swing/plaf/basic/BasicTextUI.java \
 javax/swing/plaf/basic/BasicToggleButtonUI.java \
+javax/swing/plaf/basic/BasicToolBarUI.java \
 javax/swing/plaf/basic/BasicTreeUI.java \
 javax/swing/plaf/basic/BasicViewportUI.java \
 javax/swing/plaf/basic/BasicLookAndFeel.java \
@@ -3033,6 +3034,7 @@ javax/swing/plaf/basic/BasicSplitPaneUI.lo \
 javax/swing/plaf/basic/BasicTabbedPaneUI.lo \
 javax/swing/plaf/basic/BasicTextUI.lo \
 javax/swing/plaf/basic/BasicToggleButtonUI.lo \
+javax/swing/plaf/basic/BasicToolBarUI.lo \
 javax/swing/plaf/basic/BasicTreeUI.lo \
 javax/swing/plaf/basic/BasicViewportUI.lo \
 javax/swing/plaf/basic/BasicLookAndFeel.lo \
@@ -5132,6 +5134,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicTabbedPaneUI.P \
 .deps/javax/swing/plaf/basic/BasicTextUI.P \
 .deps/javax/swing/plaf/basic/BasicToggleButtonUI.P \
+.deps/javax/swing/plaf/basic/BasicToolBarUI.P \
 .deps/javax/swing/plaf/basic/BasicTreeUI.P \
 .deps/javax/swing/plaf/basic/BasicViewportUI.P \
 .deps/javax/swing/plaf/metal/MetalLookAndFeel.P \

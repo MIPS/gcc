@@ -40,7 +40,9 @@ package javax.swing;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.LayoutManager;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -184,6 +186,24 @@ public class JToolBar extends JComponent
 
 	} // Separator
 
+//        /**
+//         * DefaultJToolBarLayout
+//         */
+//        private class DefaultJToolBarLayout {
+//
+//            private void DefaultJToolBarLayout() {
+//            }
+//
+//            private LayoutManager getLayout() {
+//                switch (JToolBar.this.getOrientation()) {
+//                    case HORIZONTAL: setLayout(new GridLayout(1, 0, 4, 4));
+//                                     break;
+//                    case VERTICAL: setLayout(new GridLayout(0, 1, 4, 4));
+//                                   break;
+//                }
+//            }
+//        } // DefaultJToolBarLayout
+
 
     private static final long serialVersionUID = -1269915519555129643L;
     
@@ -214,8 +234,16 @@ public class JToolBar extends JComponent
 	/**
 	 * orientation
 	 */
-	private int orientation;
+	private int orientation = HORIZONTAL;
 
+	/** Name that is assigned to the window of the undocked JToolBar */
+	private transient String name;
+
+//        protected transient DefaultJToolBarLayout toolbarLayout;
+
+	/** Fired in a PropertyChangeEvent when the "orientation" property changes.
+	*/
+	public static final String ORIENTATION_CHANGED_PROPERTY = "orientation";
 
 	//-------------------------------------------------------------
 	// Initialization ---------------------------------------------
@@ -225,32 +253,38 @@ public class JToolBar extends JComponent
 	 * Constructor JToolBar
 	 */
 	public JToolBar() {
-		// TODO
+          this(null);
 	} // JToolBar()
 
 	/**
 	 * Constructor JToolBar
-	 * @param orientation TODO
+	 * @param orientation JToolBar orientation (HORIZONTAL or VERTICAL)
 	 */
 	public JToolBar(int orientation) {
-		// TODO
+          this(null, orientation);
 	} // JToolBar()
 
 	/**
 	 * Constructor JToolBar
-	 * @param name TODO
+	 * @param name Name assigned to undocked tool bar.
 	 */
 	public JToolBar(String name) {
-		// TODO
+          this(name, HORIZONTAL);
 	} // JToolBar()
 
 	/**
 	 * Constructor JToolBar
-	 * @param name TODO
-	 * @param orientation TODO
+	 * @param name Name assigned to undocked tool bar.
+	 * @param orientation JToolBar orientation (HORIZONTAL or VERTICAL)
 	 */
 	public JToolBar(String name, int orientation) {
-		// TODO
+		nameExplicitlySet = (name != null);
+		this.name = name;
+		if (orientation != HORIZONTAL && orientation != VERTICAL)
+			throw new IllegalArgumentException(orientation + " is not a legal orientation");
+		this.orientation = orientation;
+//                toolbarLayout = new DefaultJToolBarLayout();
+                updateUI();	
 	} // JToolBar()
 
 
@@ -289,6 +323,7 @@ public class JToolBar extends JComponent
 	 * @returns ToolBarUI
 	 */
 	public ToolBarUI getUI() {
+	    System.out.println("ui = " + ui);
 		return (ToolBarUI) ui;
 	} // getUI()
 
@@ -304,8 +339,7 @@ public class JToolBar extends JComponent
 	 * updateUI
 	 */
 	public void updateUI() {
-		setUI((ToolBarUI) UIManager.get(this));
-		invalidate();
+          setUI((ToolBarUI)UIManager.getUI(this));
 	} // updateUI()
 
 	/**
@@ -387,15 +421,31 @@ public class JToolBar extends JComponent
 	 * @returns int
 	 */
 	public int getOrientation() {
-		return 0; // TODO
+		return this.orientation;
 	} // getOrientation()
 
 	/**
+	 * setLayout
+	 * @param mgr
+	 */
+	public void setLayout(LayoutManager mgr) {
+	    super.setLayout(mgr);
+	} // setLayout()
+
+	/**
 	 * setOrientation
-	 * @param orientation TODO
+	 * @param orientation
 	 */
 	public void setOrientation(int orientation) {
-		// TODO
+		if (orientation != HORIZONTAL && orientation != VERTICAL)
+			throw new IllegalArgumentException(orientation + " is not a legal orientation");
+	    if (orientation != this.orientation)
+	    {
+		int oldOrientation = this.orientation;
+		this.orientation = orientation;
+		firePropertyChange(ORIENTATION_CHANGED_PROPERTY, oldOrientation,
+			this.orientation);
+	    }
 	} // setOrientation()
 
 	/**
@@ -437,10 +487,11 @@ public class JToolBar extends JComponent
 	 * @param constraints TODO
 	 * @param index TODO
 	 */
+  /*
 	protected void addImpl(Component component, Object constraints, int index) {
 		// TODO
 	} // addImpl()
-
+  */
 	/**
 	 * paramString
 	 * @returns String

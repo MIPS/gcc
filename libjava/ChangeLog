@@ -1,3 +1,12 @@
+2004-04-16  Andrew Overholt  <overholt@redhat.com>
+
+	* Makefile.am: Add new file.
+	* Makefile.in: Re-generate.     
+	* javax/swing/JToolBar.java
+	Partially implemented.
+	* javax/swing/plaf/basic/BasicToolBarUI.java
+	New file. Partially implemented.
+
 2004-06-16  Graydon Hoare  <graydon@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java 
