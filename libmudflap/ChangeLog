@@ -1,3 +1,10 @@
+2003-03-11  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-runtime.h.in: Tweak.
+	* Makefile.am, configure.in: Tweak mf-runtime.h generation some more.
+	Don't use intermediate files nor AC_OUTPUT-time postprocessing.
+	* Makefile.in, testsuite/Makefile.in, configure: Regenerated.
+
 2003-03-10  Frank Ch. Eigler  <fche@redhat.com>
 
 	* configure.in: Tweak generation of mf-runtime.h some more.  It

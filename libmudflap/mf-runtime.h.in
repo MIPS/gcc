@@ -1,18 +1,18 @@
-/* ------------------------------------------------------------------------ */
+#ifndef MF_RUNTIME_H
+#define MF_RUNTIME_H
+
 /* Public libmudflap declarations  -*- C -*- */
 
 
-
-/* XXX: need a better way of conditionally defining this type.  */
-#if HAVE_STDINT_H
+#if @MF_HAVE_STDINT_H@ /* autoconf HAVE_STDINT_H */
 #include <stdint.h>
 #else
 # if !defined (HAVE_UINTPTR_T)
 typedef unsigned long uintptr_t;
 # endif
 #endif
-/* Define this here, in case an autoconf application was run without CFLAGS=-fmudflap
-   but is being compiled with -fmudflap.  */
+/* Define this here, in case an autoconf application was run
+   without CFLAGS=-fmudflap but is being compiled with -fmudflap.  */
 #define HAVE_UINTPTR_T 1
 #include <sys/types.h>
 
@@ -98,3 +98,5 @@ extern int __mf_set_options (const char *opts);
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* MF_RUNTIME_H */

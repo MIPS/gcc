@@ -13,10 +13,6 @@ AM_CFLAGS = -ansi -Wall -O3 -g -freorder-blocks
 lib_LTLIBRARIES = libmudflap.la
 include_HEADERS = mf-runtime.h
 
-mf-runtime.h: mf-runtime.h.in $(top_builddir)/config.status
-	cd $(top_builddir) \
-	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
-
 libmudflap_la_SOURCES = \
 	mf-runtime.c \
 	mf-heuristics.c

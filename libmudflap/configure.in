@@ -26,6 +26,8 @@ AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
 
 dnl Should check for this header for the host/target, not the build platform
+AC_CHECK_HEADER(stdint.h, [MF_HAVE_STDINT_H=1], [MF_HAVE_STDINT_H=0])
+AC_SUBST(MF_HAVE_STDINT_H)
 AC_CHECK_HEADERS(stdint.h execinfo.h)
 AC_CHECK_FUNCS(backtrace backtrace_symbols)
 
@@ -37,13 +39,4 @@ else
 fi
 AC_SUBST(LIBMUDFLAP_PICFLAGS)
 
-AC_OUTPUT([Makefile testsuite/Makefile], [
-(
- echo '#ifndef __MF_RUNTIME_H'
- echo '#define __MF_RUNTIME_H'
- egrep 'HAVE_(STDINT|UINTPTR)' < config.h
- cat ${top_srcdir-$ac_given_srcdir}/mf-runtime.h.in
- echo '#endif'
-) > mf-runtime.h
-echo creating mf-runtime.h
-])
+AC_OUTPUT([Makefile testsuite/Makefile mf-runtime.h])
