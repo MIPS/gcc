@@ -3915,7 +3915,7 @@ web_class (web)
 		c = class;
 		/* FIXME denisc@overta.ru
 		   I have disabled the `web_class_spill_ref'.  */
-		class = ALL_REGS;
+		class = GENERAL_REGS;
 		break;
 	      }
 	    if (!blocks)
