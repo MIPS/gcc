@@ -674,7 +674,7 @@ try_redirect_by_replacing_jump (e, target)
   if (tmp || !onlyjump_p (insn))
     return false;
 
-  if ((!optimize || flow2_completed) && tablejump_p (insn))
+  if ((!optimize || flow2_completed) && tablejump_p (insn, NULL, NULL))
     return false;
 
   /* Avoid removing branch with side effects.  */

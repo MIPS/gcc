@@ -1099,20 +1099,32 @@ simplejump_p (insn)
 	  && GET_CODE (SET_DEST (PATTERN (insn))) == PC
 	  && GET_CODE (SET_SRC (PATTERN (insn))) == LABEL_REF);
 }
-/* Return 1 if INSN is an tablejump.  */
+
+/* If INSN is a tablejump return 1 and store the label (before jump table) to
+   *LABELP and the jump table to *TABLEP.  LABELP and TABLEP may be NULL.  */
 
 int
-tablejump_p (insn)
+tablejump_p (insn, labelp, tablep)
      rtx insn;
+     rtx *labelp;
+     rtx *tablep;
 {
-  rtx table;
-  return (GET_CODE (insn) == JUMP_INSN
-	  && JUMP_LABEL (insn)
-	  && NEXT_INSN (JUMP_LABEL (insn))
-	  && (table = next_active_insn (JUMP_LABEL (insn)))
-	  && GET_CODE (table) == JUMP_INSN
-	  && (GET_CODE (PATTERN (table)) == ADDR_VEC
-	      || GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC));
+  rtx label, table;
+  
+  if (GET_CODE (insn) == JUMP_INSN
+      && (label = JUMP_LABEL (insn)) != NULL_RTX
+      && (table = next_active_insn (label)) != NULL_RTX
+      && GET_CODE (table) == JUMP_INSN
+      && (GET_CODE (PATTERN (table)) == ADDR_VEC
+	  || GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC))
+    {
+      if (labelp)
+	*labelp = label;
+      if (tablep)
+	*tablep = table;
+      return 1;
+    }
+  return 0;
 }
 
 /* Return nonzero if INSN is a (possibly) conditional jump

@@ -1,5 +1,7 @@
 2005-01-03  Jakub Jelinek  <jakub@redhat.com>
 
+	* gcc.c-torture/compile/20050103-1.c: New test.
+
 	* g++.dg/other/ref1.C: New test.
 
 	* g++.dg/other/destruct1.C: New test.
