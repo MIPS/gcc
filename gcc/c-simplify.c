@@ -61,7 +61,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static void simplify_stmt            PARAMS ((tree *));
 static void simplify_expr_stmt       PARAMS ((tree, tree *, tree *));
 static void simplify_decl_stmt       PARAMS ((tree, tree *, tree *, tree *));
-static void simplify_constructor     PARAMS ((tree, tree *, tree *));
 static void maybe_fixup_loop_cond    PARAMS ((tree *, tree *, tree *));
 static void simplify_for_stmt        PARAMS ((tree, tree *));
 static void simplify_while_stmt      PARAMS ((tree, tree *));
@@ -69,32 +68,9 @@ static void simplify_do_stmt         PARAMS ((tree));
 static void simplify_if_stmt         PARAMS ((tree, tree *));
 static void simplify_switch_stmt     PARAMS ((tree, tree *));
 static void simplify_return_stmt     PARAMS ((tree, tree *));
-typedef enum fallback_t {
-  fb_rvalue=1,
-  fb_lvalue=2,
-  fb_either=1|2
-} fallback_t;
-static void simplify_expr	     PARAMS ((tree *, tree *, tree *,
-                                              int (*) PARAMS ((tree)),
-					      fallback_t));
-static void simplify_array_ref       PARAMS ((tree *, tree *, tree *));
-static void simplify_compound_lval   PARAMS ((tree *, tree *, tree *));
-static void simplify_self_mod_expr   PARAMS ((tree *, tree *, tree *));
-static void simplify_component_ref   PARAMS ((tree *, tree *, tree *));
-static void simplify_call_expr       PARAMS ((tree *, tree *, tree *));
-static void simplify_tree_list       PARAMS ((tree *, tree *, tree *));
-static void simplify_cond_expr       PARAMS ((tree *, tree *));
-static void simplify_modify_expr     PARAMS ((tree *, tree *, tree *));
-static void simplify_boolean_expr    PARAMS ((tree *, tree *));
-static void simplify_compound_expr   PARAMS ((tree *, tree *, tree *));
-static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
-                                              int (*) PARAMS ((tree))));
-static void simplify_save_expr       PARAMS ((tree *, tree *));
 static void simplify_stmt_expr       PARAMS ((tree *, tree *));
 static void simplify_compound_literal_expr PARAMS ((tree *, tree *, tree *));
-static void simplify_addr_expr       PARAMS ((tree *, tree *, tree *));
 static void make_type_writable       PARAMS ((tree));
-static tree add_tree                 PARAMS ((tree, tree *));
 static tree insert_before_continue   PARAMS ((tree, tree));
 static tree tree_last_decl           PARAMS ((tree));
 static int  stmt_has_effect          PARAMS ((tree));
@@ -102,9 +78,27 @@ static int  expr_has_effect          PARAMS ((tree));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
 static inline void remove_suffix     PARAMS ((char *, int));
 static const char *get_name          PARAMS ((tree));
-static tree build_addr_expr	     PARAMS ((tree));
 static int is_last_stmt_of_scope     PARAMS ((tree));
 static tree tail_expression          PARAMS ((tree *, int));
+
+/* Should move to tree-simple.c when the target language loses the C-isms.  */
+static void simplify_constructor     PARAMS ((tree, tree *, tree *));
+static void simplify_array_ref       PARAMS ((tree *, tree *, tree *));
+static void simplify_compound_lval   PARAMS ((tree *, tree *, tree *));
+static void simplify_component_ref   PARAMS ((tree *, tree *, tree *));
+static void simplify_call_expr       PARAMS ((tree *, tree *, tree *));
+static void simplify_tree_list       PARAMS ((tree *, tree *, tree *));
+static void simplify_modify_expr     PARAMS ((tree *, tree *, tree *));
+static void simplify_compound_expr   PARAMS ((tree *, tree *, tree *));
+static void simplify_save_expr       PARAMS ((tree *, tree *));
+static void simplify_addr_expr       PARAMS ((tree *, tree *, tree *));
+static void simplify_self_mod_expr   PARAMS ((tree *, tree *, tree *));
+static void simplify_cond_expr       PARAMS ((tree *, tree *));
+static void simplify_boolean_expr    PARAMS ((tree *, tree *));
+static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
+                                              int (*) (tree)));
+static tree build_addr_expr	      PARAMS ((tree));
+
 
 /* Local variables.  */
 static FILE *dump_file;
@@ -116,7 +110,7 @@ static int dump_flags;
     node for the function we want to simplify.  */
 
 int
-c_simplify_function_tree (fndecl)
+simplify_function_tree (fndecl)
      tree fndecl;
 {
   tree fnbody;
@@ -149,7 +143,7 @@ c_simplify_function_tree (fndecl)
   pushlevel (0);
 
   /* Simplify the function's body.  */
-  simplify_stmt (&fnbody);
+  simplify_expr (&fnbody, NULL, NULL, NULL, fb_rvalue);
 
   /* Declare the new temporary variables.  */
   declare_tmp_vars (getdecls(), fnbody);
@@ -1041,7 +1035,7 @@ simplify_compound_literal_expr (expr_p, pre_p, post_p)
         bit is set, an rvalue is OK.  If the 2 bit is set, an lvalue is OK.
         If both are set, either is OK, but an lvalue is preferable.  */
 
-static void
+void
 simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
      tree *expr_p;
      tree *pre_p;
@@ -1051,6 +1045,16 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 {
   tree tmp;
   tree internal_post = NULL_TREE;
+  int done;
+
+  if (pre_p == NULL)
+    {
+      /* Temporary kludge: If pre_p is null, this is a statement.  Hand off
+	 to the C-specific code.  Soon we will have a l-i notion of
+	 statements.  */
+      (*lang_hooks.simplify_expr) (expr_p, pre_p, post_p);
+      return;
+    }
 
   if (simple_test_f == NULL)
     abort ();
@@ -1062,9 +1066,15 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   if (post_p == NULL)
     post_p = &internal_post;
 
-  /* First deal with the special cases.  */
-  switch (TREE_CODE (*expr_p))
+  /* First do any language-specific simplification.  */
+  done = (*lang_hooks.simplify_expr) (expr_p, pre_p, post_p);
+
+  if (done)
+    /* The frontend completely simplified this node.  */;
+  else switch (TREE_CODE (*expr_p))
     {
+      /* First deal with the special cases.  */
+
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
@@ -1154,19 +1164,12 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
     case COMPLEX_CST:
       break;
 
-    case COMPOUND_LITERAL_EXPR:
-      simplify_compound_literal_expr (expr_p, pre_p, post_p);
-      break;
-
     case CONSTRUCTOR:
       simplify_constructor (*expr_p, pre_p, post_p);
       break;
 
     /* The following are special cases that are not handled by the original
        SIMPLE grammar.  */
-    case STMT_EXPR:
-      simplify_stmt_expr (expr_p, pre_p);
-      break;
 
     /* SAVE_EXPR nodes are converted into a SIMPLE identifier and
        eliminated.  */
@@ -1269,6 +1272,36 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 
   if (internal_post)
     add_tree (internal_post, pre_p);
+}
+
+/* Do C-specific simplification.  Args are as for simplify_expr.  */
+
+int
+c_simplify_expr (expr_p, pre_p, post_p)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+{
+  if (pre_p == NULL)
+    {
+      simplify_stmt (expr_p);
+      return 1;
+    }
+
+  switch (TREE_CODE (*expr_p))
+    {
+    case COMPOUND_LITERAL_EXPR:
+      simplify_compound_literal_expr (expr_p, pre_p, post_p);
+      return 1;
+      break;
+
+    case STMT_EXPR:
+      simplify_stmt_expr (expr_p, pre_p);
+      return 1;
+      break;
+    }
+
+  return 0;
 }
 
 /*  Build an expression for the address of T.  Folds away INDIRECT_REF to
@@ -1995,7 +2028,10 @@ simplify_addr_expr (expr_p, pre_p, post_p)
     {
       /* Fold &*EXPR into EXPR and simplify EXPR into a legal argument for
 	 ADDR_EXPR.  Notice that we need to request an rvalue because EXPR is
-	 already the lvalue that we were looking for originally.  */
+	 already the lvalue that we were looking for originally.
+
+         ??? is_simple_addr_expr_arg is wrong here.  we really want to tell
+         simplify_expr to start over.  */
       *expr_p = TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0);
       simplify_expr (expr_p, pre_p, post_p, is_simple_addr_expr_arg, fb_rvalue);
     }
@@ -2056,7 +2092,7 @@ tree_build_scope (t)
     Return the newly added list node or NULL_TREE if T was not added to
     LIST_P.  */
 
-static tree
+tree
 add_tree (t, list_p)
     tree t;
     tree *list_p;
@@ -2685,4 +2721,30 @@ tail_expression (chain, decl_is_bad)
 	}
     }
   return NULL_TREE;
+}
+
+/* Returns nonzero if STMT is a SIMPLE declaration, i.e. one with no
+   initializer.
+
+   This is not appropriate for static decls, so we leave them alone.  */
+
+int
+is_simple_decl_stmt (stmt)
+     tree stmt;
+{
+  tree decl = DECL_STMT_DECL (stmt);
+  tree init = DECL_INITIAL (decl);
+
+  if (!is_simple_val (DECL_SIZE_UNIT (decl)))
+    return 0;
+
+  /* Plain decls are simple.  */
+  if (init == NULL_TREE || init == error_mark_node)
+    return 1;
+
+  /* Don't mess with a compile-time initializer.  */
+  if (TREE_STATIC (decl))
+    return 1;
+
+  return 0;
 }

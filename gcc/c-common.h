@@ -1225,4 +1225,6 @@ extern void dump_time_statistics		PARAMS ((void));
 
 extern int c_dump_tree				PARAMS ((void *, tree));
 
+extern int c_simplify_expr			PARAMS ((tree *, tree *, tree *));
+
 #endif /* ! GCC_C_COMMON_H */

@@ -1,3 +1,28 @@
+2002-08-09  Jason Merrill  <jason@redhat.com>
+
+	* langhooks-def.h: Replace the simplify_function_tree hook
+	with a simplify_expr hook.
+	* langhooks.h: Likewise.
+	* langhooks.c: Replace lhd_simplify_function_tree with
+	lhd_simplify_expr.
+	* c-lang.c (LANG_HOOKS_SIMPLIFY_FUNCTION_TREE): Don't define.
+	(LANG_HOOKS_SIMPLIFY_EXPR): Define.
+	* c-decl.c (c_expand_body): De-hook simplify_function_tree.
+	* c-common.h: Declare c_simplify_expr.
+	* c-simplify.c (simplify_function_tree): Rename from 
+	c_simplify_function_tree.  Call simplify_expr instead of
+	simplify_stmt.
+	(c_simplify_expr): Split out from...
+	(simplify_expr): ...here.  No longer static.  Call langhook.
+	(is_simple_decl_stmt): Move here from tree-simple.c.
+	* tree-simple.c: Don't include c-tree.h.
+	(is_simple_stmt, is_simple_compstmt): Remove.
+	(is_simple_decl_stmt): Move to c-simplify.c.
+	* tree.h: Declare simplify_function_tree.
+	* tree-simple.h: Declare simplify_expr, add_tree.
+
+	* tree-simple.c (rationalize_compound_expr): New fn.
+
 2002-08-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* basic-block.h (EDGE_TRUE_VALUE): Define.

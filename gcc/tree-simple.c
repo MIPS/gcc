@@ -22,9 +22,6 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "tree.h"
-/* ??? SIMPLE trees use many tree nodes defined in the C front end.  These
-       should be moved to tree.def.  */ 
-#include "c-tree.h"
 #include "tree-simple.h"
 #include "output.h"
 #include "rtl.h"
@@ -195,152 +192,6 @@ Boston, MA 02111-1307, USA.  */
 
      ----------------------------------------------------------------------  */
 
-/* Validation of SIMPLE statements.  */
-
-/*  Return nonzero if T is a statement that complies with the SIMPLE
-    grammar.
-
-      stmt
-	      : compstmt
-	      | expr ';'
-	      | IF '(' condexpr ')' stmt
-	      | IF '(' condexpr ')' stmt ELSE stmt
-	      | WHILE '(' condexpr ')' stmt
-	      | DO stmt WHILE '(' condexpr ')'
-	      | FOR '('exprseq ';' condexpr ';'exprseq ')' stmt
-	      | SWITCH '(' val ')' casestmts
-	      | ';'
-
-      casestmts
-	      : '{' cases default'}'
-	      | ';'
-	      | '{' '}'
-
-      cases
-	      : cases case
-	      | case
-
-      case
-	      : CASE CONST':' stmtlist stop_stmt
-
-      default
-	      : DEFAULT ':' stmtlist stop_stmt
-
-      stop_stmt
-	      : BREAK ';'
-	      | CONTINUE ';'
-	      | RETURN ';'
-	      | RETURN val ';'
-	      | RETURN '(' val ')' ';'  */
-
-int
-is_simple_stmt (t)
-     tree t;
-{
-  if (t == NULL_TREE)
-    return 1;
-
-  switch (TREE_CODE (t))
-    {
-    case COMPOUND_STMT:
-      return is_simple_compstmt (COMPOUND_BODY (t));
-
-    case SCOPE_STMT:
-      return is_simple_compstmt (t);
-
-    case EXPR_STMT:
-      return is_simple_expr (EXPR_STMT_EXPR (t));
-
-    case IF_STMT:
-      return (is_simple_condexpr (IF_COND (t))
-	      && is_simple_stmt (THEN_CLAUSE (t))
-	      && is_simple_stmt (ELSE_CLAUSE (t)));
-
-    case WHILE_STMT:
-      return (is_simple_condexpr (WHILE_COND (t))
-	      && is_simple_stmt (WHILE_BODY (t)));
-
-    case DO_STMT:
-      return (is_simple_condexpr (DO_COND (t))
-	      && is_simple_stmt (DO_BODY (t)));
-
-    case FOR_STMT:
-      {
-	int s1, s2, s3, s4;
-
-	if (TREE_CODE (FOR_INIT_STMT (t)) == DECL_STMT)
-	  s1 = 0;
-	else
-	  s1 = is_simple_exprseq (EXPR_STMT_EXPR (FOR_INIT_STMT (t)));
-
-	s2 = is_simple_condexpr (FOR_COND (t));
-	s3 = is_simple_exprseq (FOR_EXPR (t));
-	s4 = is_simple_stmt (FOR_BODY (t));
-
-	return (s1 && s2 && s3 && s4);
-      }
-
-    /* Note that we can assume that we don't need to special case the body
-       of the switch() statement.  If we got to this stage, we can assume
-       that the switch() is properly formed (i.e., it will be a compound
-       statement containing all the case labels).  */
-    case SWITCH_STMT:
-      return (is_simple_val (SWITCH_COND (t))
-	      && is_simple_stmt (SWITCH_BODY (t)));
-
-    case FILE_STMT:
-    case LABEL_STMT:
-    case GOTO_STMT:
-    case ASM_STMT:
-    case CASE_LABEL:
-    case CONTINUE_STMT:
-    case BREAK_STMT:
-      return 1;
-
-    case RETURN_STMT:
-      {
-	tree type = TREE_TYPE (TREE_TYPE (current_function_decl));
-	if (TREE_CODE (type) != VOID_TYPE
-	    && RETURN_EXPR (t))
-	  return is_simple_rhs (TREE_OPERAND (RETURN_EXPR (t), 1));
-	else
-	  return 1;
-      }
-
-    case DECL_STMT:
-      return is_simple_decl_stmt (t);
-
-    default:
-      return 0;
-    }
-}
-
-/* Returns nonzero if STMT is a SIMPLE declaration, i.e. one with no
-   initializer.
-
-   This is not appropriate for static decls, so we leave them alone.  */
-
-int
-is_simple_decl_stmt (stmt)
-     tree stmt;
-{
-  tree decl = DECL_STMT_DECL (stmt);
-  tree init = DECL_INITIAL (decl);
-
-  if (!is_simple_val (DECL_SIZE_UNIT (decl)))
-    return 0;
-
-  /* Plain decls are simple.  */
-  if (init == NULL_TREE || init == error_mark_node)
-    return 1;
-
-  /* Don't mess with a compile-time initializer.  */
-  if (TREE_STATIC (decl))
-    return 1;
-
-  return 0;
-}
-
 /* Returns nonzero if T is a simple CONSTRUCTOR:
 
      aggr_init: '{' vals '}'
@@ -400,33 +251,6 @@ is_simple_initializer (t)
 	      | '{' decls all_stmts '}'
 	      | '{' decls '}'  */
 
-int
-is_simple_compstmt (t)
-     tree t;
-{
-  if (t == NULL_TREE)
-    return 1;
-
-  /* Look for '{'.  */
-  if (TREE_CODE (t) != SCOPE_STMT
-      || !SCOPE_BEGIN_P (t))
-    return 0;
-
-  /* Test all the statements in the body.  */
-  for (t = TREE_CHAIN (t);
-       t && !(TREE_CODE (t) == SCOPE_STMT && SCOPE_END_P (t));
-       t = TREE_CHAIN (t))
-    if (!is_simple_stmt (t))
-      return 0;
-
-  /* Look for '}'.  */
-  if (t
-      && (TREE_CODE (t) != SCOPE_STMT
-	  || !SCOPE_END_P (t)))
-    return 0;
-
-  return 1;
-}
 
 
 
@@ -1069,4 +893,36 @@ is_simplifiable_builtin (expr)
     default:
       return 1;
     }
+}
+
+/* Given a COMPOUND_EXPR TOP, reorganize all of the nested COMPOUND_EXPRs
+   so that they only appear as the second operand.  */
+
+tree
+rationalize_compound_expr (top)
+     tree top;
+{
+  tree cur = top;
+  while (TREE_CODE (cur) == COMPOUND_EXPR)
+    {
+      tree lhs = TREE_OPERAND (cur, 0);
+      tree rhs = TREE_OPERAND (cur, 1);
+      if (TREE_CODE (lhs) == COMPOUND_EXPR)
+	{
+	  /* We have ((a, b), c).  Rearrange to (a, (b, c)).  */
+	  tree lhs1 = TREE_OPERAND (lhs, 0);
+	  tree rhs1 = TREE_OPERAND (lhs, 1);
+
+	  /* Change lhs from (a, b) to (b, c).  */
+	  TREE_OPERAND (lhs, 0) = rhs1;
+	  TREE_OPERAND (lhs, 1) = rhs;
+
+	  /* Change cur from (lhs, c) to (a, lhs), i.e. (a, (b, c)).  */
+	  TREE_OPERAND (cur, 0) = lhs1;
+	  TREE_OPERAND (cur, 1) = lhs;
+	}
+      else
+	cur = rhs;
+    }
+  return top;
 }

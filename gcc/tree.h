@@ -3110,6 +3110,7 @@ extern int dump_switch_p                PARAMS ((const char *));
 extern void dump_enable_all_ssa         PARAMS ((void));
 const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 
+extern int simplify_function_tree      PARAMS ((tree));
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

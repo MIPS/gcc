@@ -327,9 +327,6 @@ extern void c_finish_incomplete_decl PARAMS ((tree));
 extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;
 
-/* In c-simplify.c  */
-extern int c_simplify_function_tree PARAMS ((tree));
-
 /* In c-pretty-print.c  */
 extern void print_c_tree  PARAMS ((FILE*, tree));
 extern void print_c_node  PARAMS ((FILE*, tree));

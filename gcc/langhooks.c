@@ -436,12 +436,13 @@ lhd_expr_size (exp)
     return size_in_bytes (TREE_TYPE (exp));
 }
 
-/* lang_hooks.simplify_function_tree re-writes the body of function FNDECL
-   into SIMPLE form.  */
+/* lang_hooks.simplify_expr re-writes *EXPR_P into SIMPLE form.  */
 
 int
-lhd_simplify_function_tree (fndecl)
-     tree fndecl ATTRIBUTE_UNUSED;
+lhd_simplify_expr (expr_p, pre_p, post_p)
+     tree *expr_p ATTRIBUTE_UNUSED;
+     tree *pre_p ATTRIBUTE_UNUSED;
+     tree *post_p ATTRIBUTE_UNUSED;
 {
   return 0;
 }

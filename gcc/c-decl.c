@@ -6713,7 +6713,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   /* Simplify the function.  Don't try to optimize the function if
      simplification failed.  */
   if (!flag_disable_simple
-      && (*lang_hooks.simplify_function_tree) (fndecl))
+      && simplify_function_tree (fndecl))
     {
       /* Invoke the SSA tree optimizer.  */
       if (flag_tree_ssa)

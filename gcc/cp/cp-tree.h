@@ -4367,7 +4367,7 @@ extern tree mangle_ref_init_variable            PARAMS ((tree));
 extern int cp_dump_tree                         PARAMS ((void *, tree));
 
 /* in cp-simplify.c */
-extern int cp_simplify_function_tree		PARAMS ((tree));
+extern int cp_simplify_expr		        PARAMS ((tree *, tree *, tree *));
 
 /* -- end of C++ */
 

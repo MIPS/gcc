@@ -82,7 +82,7 @@ void lhd_tree_inlining_end_inlining		PARAMS ((tree));
 tree lhd_tree_inlining_convert_parm_for_inlining PARAMS ((tree, tree, tree));
 
 /* Declarations for tree simplification hooks.  */
-int lhd_simplify_function_tree			PARAMS ((tree));
+int lhd_simplify_expr			     PARAMS ((tree *, tree *, tree *));
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
@@ -170,8 +170,7 @@ int lhd_simplify_function_tree			PARAMS ((tree));
 }
 
 /* Hooks for tree simplification.  */
-#define LANG_HOOKS_SIMPLIFY_FUNCTION_TREE \
-  lhd_simplify_function_tree
+#define LANG_HOOKS_SIMPLIFY_EXPR lhd_simplify_expr
 
 /* Tree dump hooks.  */
 int lhd_tree_dump_dump_tree 			PARAMS ((void *, tree));
@@ -265,7 +264,7 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_TREE_DUMP_INITIALIZER, \
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
-  LANG_HOOKS_SIMPLIFY_FUNCTION_TREE \
+  LANG_HOOKS_SIMPLIFY_EXPR \
 }
 
 #endif /* GCC_LANG_HOOKS_DEF_H */

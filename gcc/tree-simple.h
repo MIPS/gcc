@@ -67,4 +67,17 @@ int is_simple_constructor_elt          PARAMS ((tree));
 int is_simple_initializer              PARAMS ((tree));
 int is_simplifiable_builtin            PARAMS ((tree));
 
+/* FIXME this needs a better name.  */
+tree add_tree			       PARAMS ((tree, tree *));
+/* FIXME we should deduce this from the predicate.  */
+typedef enum fallback_t {
+  fb_rvalue=1,
+  fb_lvalue=2,
+  fb_either=1|2
+} fallback_t;
+void simplify_expr		       PARAMS ((tree *, tree *, tree *,
+						int (*) PARAMS ((tree)),
+						fallback_t));
+
+
 #endif /* _TREE_SIMPLE_H */

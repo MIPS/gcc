@@ -82,7 +82,7 @@ optimize_function (fn)
   /* Simplify the function.  Don't try to optimize the function if
      simplification failed.  */
   if (!flag_disable_simple
-      && (*lang_hooks.simplify_function_tree) (fn))
+      && simplify_function_tree (fn))
     {
       /* Invoke the SSA tree optimizer.  */
       if (flag_tree_ssa)
