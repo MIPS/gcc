@@ -1,3 +1,8 @@
+2002-09-26  Roger Sayle  <roger@eyesopen.com>
+
+	* stmt.c (expand_exit_loop_if_false): Expand a simple conditional
+	jump, if the loop to exit is the top of the current nesting stack.
+
 2002-09-26  Torbjorn Granlund  <tege@swox.com>
 
 	* libgcc2.c (fixunsdfdi, fixunssfdi): Rewrite, avoiding `long long'

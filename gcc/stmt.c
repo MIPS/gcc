@@ -2702,12 +2702,19 @@ expand_exit_loop_if_false (whichloop, cond)
   if (integer_zerop (cond))
     return expand_exit_loop (whichloop);
 
+  /* Check if we definitely won't need a fixup.  */
+  if (whichloop == nesting_stack)
+    {
+      jumpifnot (cond, whichloop->data.loop.end_label);
+      return 1;
+    }
+
   /* In order to handle fixups, we actually create a conditional jump
      around an unconditional branch to exit the loop.  If fixups are
      necessary, they go before the unconditional branch.  */
 
   label = gen_label_rtx ();
-  do_jump (cond, NULL_RTX, label);
+  jumpif (cond, label);
   expand_goto_internal (NULL_TREE, whichloop->data.loop.end_label,
 			NULL_RTX);
   emit_label (label);
