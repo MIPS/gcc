@@ -48,6 +48,9 @@ import java.io.Serializable;
 public class SpinnerNumberModel extends AbstractSpinnerModel
   implements Serializable
 {
+  /**
+   * For compatability with Sun's JDK
+   */
   private static final long serialVersionUID = 7279176385485777821L;
 
   /** DOCUMENT ME! */

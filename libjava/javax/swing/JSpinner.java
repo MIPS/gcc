@@ -116,6 +116,11 @@ public class JSpinner extends JComponent
     private JSpinner spinner;
     
     /**
+     * For compatability with Sun's JDK 1.4.2 rev. 5
+     */
+    private static final long serialVersionUID = -5317788736173368172L;
+
+    /**
      * Creates a new <code>DefaultEditor</code> object.
      *
      * @param spinner the <code>JSpinner</code> associated with this editor

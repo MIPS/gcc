@@ -52,9 +52,9 @@ import javax.swing.plaf.ButtonUI;
  * for the implementations of radio buttons (<code>JRadioButton</code>)
  * and check boxes (<code>JCheckBox</code>).
  *
- * @author Michael Koch  <address@hidden>
- * @author Graydon Hoare  <address@hidden>
- * @author Andrew John Hughes  <address@hidden>
+ * @author Michael Koch  <konqueror@gmx.de>
+ * @author Graydon Hoare  <graydon@redhat.com>
+ * @author Andrew John Hughes  <gnu_andrew@member.fsf.org>
  * @see JRadioButton
  * @see JCheckBox
  * @since 1.2

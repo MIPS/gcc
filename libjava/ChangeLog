@@ -1,5 +1,14 @@
 2004-09-27  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JSpinner.java
+	(serialVersionUID): New static field.
+	* javax/swing/JToggleButton.java
+	(JToggleButton): Fixed email addresses.
+	* javax/swing/SpinnerNumberModel.java
+	(serialVersionUID): Added javadoc.
+
+2004-09-27  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JTextArea.java:
 	Don't use JTextComponent.doc directly. GCJ from java-gui-branch has a
 	bug here which is fixed in HEAD ...
