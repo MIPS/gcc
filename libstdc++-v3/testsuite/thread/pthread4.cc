@@ -2,7 +2,7 @@
 // Adapted from http://gcc.gnu.org/ml/gcc-bugs/2002-01/msg00679.html
 // which was adapted from pthread1.cc by Mike Lu <MLu@dynamicsoft.com>
 //
-// Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,7 +30,6 @@
 // Do not include <pthread.h> explicitly; if threads are properly
 // configured for the port, then it is picked up free from STL headers.
 
-#if __GTHREADS
 using namespace std;
 
 static list<string> foo;
@@ -90,6 +89,12 @@ consume (void*)
   return 0;
 }
 
+#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
+// Explicitly instantiate for systems with no COMDAT or weak support.
+template class __gnu_cxx::__mt_alloc<std::string>;
+template class __gnu_cxx::__mt_alloc<std::_List_node<std::string> >;
+#endif
+
 int
 main (void)
 {
@@ -107,6 +112,3 @@ main (void)
 
   return 0;
 }
-#else
-int main (void) {}
-#endif

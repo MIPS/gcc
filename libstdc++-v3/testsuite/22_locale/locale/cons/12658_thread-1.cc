@@ -22,7 +22,7 @@
 
 // 22.1.1.2 locale constructors and destructors [lib.locale.cons]
 
-// { dg-do run { xfail *-*-linux* } }
+// { dg-do run { xfail *-*-* } }
 
 #include <locale>
 #include <pthread.h>

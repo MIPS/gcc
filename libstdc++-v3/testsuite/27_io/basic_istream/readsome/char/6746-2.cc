@@ -18,13 +18,15 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
+// The ARM simulator does not provide support for "fstat", which
+// causes "in_avail" to return an incorrect value.
+// { dg-do run { xfail arm*-*-elf arm*-*-eabi } }
+
 // 27.6.1.3 unformatted input functions
 // @require@ %-*.tst %-*.txt
 // @diff@ %-*.tst %-*.txt
 
-#include <cstring> // for strncmp,...
 #include <istream>
-#include <sstream>
 #include <fstream>
 #include <testsuite_hooks.h>
 

@@ -27,16 +27,12 @@ template<typename _Tp>
 struct test_policy
 { static bool per_type() { return true; } };
 
-using __gnu_cxx::__pool;
-using __gnu_cxx::__common_pool_policy;
-
-template<>
-struct test_policy<__common_pool_policy<__pool, true> >
-{ static bool per_type() { return false; } };
-
-template<>
-struct test_policy<__common_pool_policy<__pool, false> >
-{ static bool per_type() { return false; } };
+template<bool _Thread>
+struct test_policy<__gnu_cxx::__common_pool_policy<_Thread> >
+{ 
+  typedef __gnu_cxx::__common_pool_policy<_Thread> policy_type;
+  static bool per_type() { return false; } 
+};
 
 struct pod2
 {
@@ -108,11 +104,11 @@ void test04()
 int main()
 {
 #ifdef __GTHREADS
-  test04<float, __gnu_cxx::__common_pool_policy<__pool, true> >();
-  test04<double, __gnu_cxx::__per_type_pool_policy<double, __pool, true> >();
+  test04<float, __gnu_cxx::__common_pool_policy<true> >();
+  test04<double, __gnu_cxx::__per_type_pool_policy<double, true> >();
 #endif
-  test04<float, __gnu_cxx::__common_pool_policy<__pool, false> >();
-  test04<double, __gnu_cxx::__per_type_pool_policy<double, __pool, false> >();
+  test04<float, __gnu_cxx::__common_pool_policy<false> >();
+  test04<double, __gnu_cxx::__per_type_pool_policy<double, false> >();
 
   return 0;
 }

@@ -1,6 +1,6 @@
 // 2001-08-27 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,8 +28,6 @@
 void test02()
 {
   using namespace std;
-  typedef money_base::part part;
-  typedef money_base::pattern pattern;
   typedef ostreambuf_iterator<wchar_t> iterator_type;
 
   bool test __attribute__((unused)) = true;
@@ -37,16 +35,7 @@ void test02()
   // basic construction
   locale loc_c = locale::classic();
   locale loc_hk = __gnu_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
-  locale loc_de = __gnu_test::try_named_locale("de_DE@euro");
-  VERIFY( loc_c != loc_de );
-  VERIFY( loc_hk != loc_fr );
-  VERIFY( loc_hk != loc_de );
-  VERIFY( loc_de != loc_fr );
-
-  // cache the moneypunct facets
-  typedef moneypunct<wchar_t, true> __money_true;
-  typedef moneypunct<wchar_t, false> __money_false;
+  VERIFY( loc_c != loc_hk );
 
   // sanity check the data is correct.
   const wstring empty;
@@ -66,45 +55,48 @@ void test02()
   // cache the money_put facet
   wostringstream oss;
   oss.imbue(loc_hk);
-  const money_put<wchar_t>& mon_put = use_facet<money_put<wchar_t> >(oss.getloc()); 
+  const money_put<wchar_t>& mon_put =
+    use_facet<money_put<wchar_t> >(oss.getloc()); 
 
   // now try with showbase, to get currency symbol in format
   oss.setf(ios_base::showbase);
 
   // test sign of more than one digit, say hong kong.
   oss.str(empty);
-  iterator_type os_it05 = mon_put.put(oss.rdbuf(), false, oss, ' ', digits1);
+  iterator_type os_it05 = mon_put.put(oss.rdbuf(), false, oss, L' ', digits1);
   wstring result5 = oss.str();
-  VERIFY( result5 == L"HK$7,200,000,000.00");
+  VERIFY( result5 == L"HK$7,200,000,000.00" );
 
   oss.str(empty);
-  iterator_type os_it06 = mon_put.put(oss.rdbuf(), true, oss, ' ', digits2);
+  iterator_type os_it06 = mon_put.put(oss.rdbuf(), true, oss, L' ', digits2);
   wstring result6 = oss.str();
-  VERIFY( result6 == L"(HKD 100,000,000,000.00)");
+  VERIFY( result6 == L"(HKD 100,000,000,000.00)" );
 
   // test one-digit formats without zero padding
   oss.imbue(loc_c);
   oss.str(empty);
-  const money_put<wchar_t>& mon_put2 = use_facet<money_put<wchar_t> >(oss.getloc()); 
-  iterator_type os_it07 = mon_put2.put(oss.rdbuf(), true, oss, ' ', digits4);
+  const money_put<wchar_t>& mon_put2 =
+    use_facet<money_put<wchar_t> >(oss.getloc()); 
+  iterator_type os_it07 = mon_put2.put(oss.rdbuf(), true, oss, L' ', digits4);
   wstring result7 = oss.str();
-  VERIFY( result7 == L"1");
+  VERIFY( result7 == L"1" );
 
   // test one-digit formats with zero padding, zero frac widths
   oss.imbue(loc_hk);
   oss.str(empty);
-  const money_put<wchar_t>& mon_put3 = use_facet<money_put<wchar_t> >(oss.getloc()); 
-  iterator_type os_it08 = mon_put3.put(oss.rdbuf(), true, oss, ' ', digits4);
+  const money_put<wchar_t>& mon_put3 =
+    use_facet<money_put<wchar_t> >(oss.getloc()); 
+  iterator_type os_it08 = mon_put3.put(oss.rdbuf(), true, oss, L' ', digits4);
   wstring result8 = oss.str();
-  VERIFY( result8 == L"(HKD .01)");
+  VERIFY( result8 == L"(HKD .01)" );
 
   oss.unsetf(ios_base::showbase);
 
   // test bunk input
   oss.str(empty);
-  iterator_type os_it09 = mon_put.put(oss.rdbuf(), true, oss, ' ', digits3);
+  iterator_type os_it09 = mon_put.put(oss.rdbuf(), true, oss, L' ', digits3);
   wstring result9 = oss.str();
-  VERIFY( result9 == L"");
+  VERIFY( result9 == L"" );
 }
 
 int main()

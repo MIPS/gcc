@@ -23,7 +23,6 @@
 #include <cstdlib>
 #include <ext/debug_allocator.h>
 #include <ext/malloc_allocator.h>
-#include <testsuite_hooks.h>
 #include <testsuite_allocator.h>
 
 using __gnu_cxx::malloc_allocator;
@@ -33,6 +32,7 @@ void*
 operator new(std::size_t n) throw(std::bad_alloc)
 {
   new_called = true;
+  requested = n;
   return std::malloc(n);
 }
 
@@ -43,17 +43,14 @@ operator delete(void *v) throw()
   return std::free(v);
 }
 
-// These just help tracking down error messages.
-void test01() 
+bool test02() 
 { 
-  bool test __attribute__((unused)) = true;
   typedef debug_allocator<malloc_allocator<unsigned int> > allocator_type;
-  VERIFY( bool(__gnu_test::check_new<allocator_type, false>()) ); 
+  return (__gnu_test::check_new<allocator_type, false>() == false); 
 }
 
 int main()
 {
-  test01();
-  return 0;
+  return test02();
 }
 

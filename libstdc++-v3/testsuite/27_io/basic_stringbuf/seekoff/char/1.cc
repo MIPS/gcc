@@ -1,6 +1,6 @@
 // 981208 bkoz test functionality of basic_stringbuf for char_type == char
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -23,18 +23,13 @@
 #include <testsuite_hooks.h>
 
 std::string str_01("mykonos. . . or what?");
-std::string str_02("paris, or sainte-maxime?");
-std::string str_03;
 std::stringbuf strb_01(str_01);
-std::stringbuf strb_02(str_02, std::ios_base::in);
-std::stringbuf strb_03(str_03, std::ios_base::out);
 
 // test overloaded virtual functions
 void test04() 
 {
   bool test __attribute__((unused)) = true;
   std::string 		str_tmp;
-  std::stringbuf 		strb_tmp;
   std::streamsize 		strmsz_1, strmsz_2;
   typedef std::stringbuf::int_type int_type;
   typedef std::stringbuf::traits_type traits_type;
@@ -42,12 +37,8 @@ void test04()
   typedef std::stringbuf::off_type off_type;
 
   int_type c1 = strb_01.sbumpc();
-  int_type c2 = strb_02.sbumpc();
-  int_type c3 = strb_01.sbumpc();
+  int_type c2, c3;
 
-  // PUT
-  strb_03.str(str_01); //reset
-  
   // BUFFER MANAGEMENT & POSITIONING
 
   // seekoff
@@ -58,12 +49,11 @@ void test04()
   off_type off_1 = 0;
   off_type off_2 = 0;
   strb_01.str(str_01); //in|out ("mykonos. . . or what?");
-  strb_02.str(str_02); //in ("paris, or sainte-maxime?");
-  strb_03.str(str_03); //out ("")
+
   //IN|OUT
   //beg
   pt_1 = strb_01.pubseekoff(2, std::ios_base::beg);
-  off_1 = pt_1;
+  off_1 = off_type(pt_1);
   VERIFY( off_1 >= 0 );
   c1 = strb_01.snextc(); //current in pointer +1
   VERIFY( c1 == 'o' );
@@ -72,12 +62,12 @@ void test04()
   VERIFY( strb_01.str() == str_tmp );
   //cur
   pt_1 = strb_01.pubseekoff(2, std::ios_base::cur);
-  off_1 = pt_1;
+  off_1 = off_type(pt_1);
   VERIFY( off_1 == -1 ); // can't seekoff for in and out + cur in sstreams
   pt_1 = strb_01.pubseekoff(2, std::ios_base::cur, std::ios_base::in);
-  off_1 = pt_1;
+  off_1 = off_type(pt_1);
   pt_2 = strb_01.pubseekoff(2, std::ios_base::cur, std::ios_base::in);
-  off_2 = pt_2;
+  off_2 = off_type(pt_2);
   VERIFY( off_2 == off_1 + 2 );
   c1 = strb_01.snextc(); //current in pointer + 1
   VERIFY( c1 == ' ' );
@@ -86,7 +76,7 @@ void test04()
   VERIFY( strb_01.str() == str_tmp );
   //end
   pt_2 = strb_01.pubseekoff(2, std::ios_base::end);
-  off_1 = pt_2;
+  off_1 = off_type(pt_2);
   VERIFY( off_1 == -1 ); // not a valid position
   VERIFY( strb_01.str() == str_tmp );
   // end part two (from the filebuf tests)

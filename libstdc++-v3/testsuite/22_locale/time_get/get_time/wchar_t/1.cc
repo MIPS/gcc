@@ -1,6 +1,6 @@
 // 2001-09-21 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,18 +28,13 @@ void test01()
 {
   using namespace std;
   bool test __attribute__((unused)) = true;
-  typedef time_base::dateorder dateorder;
+
   typedef istreambuf_iterator<wchar_t> iterator_type;
 
   // basic construction and sanity checks.
   locale loc_c = locale::classic();
-  locale loc_hk = __gnu_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
   locale loc_de = __gnu_test::try_named_locale("de_DE");
-  VERIFY( loc_hk != loc_c );
-  VERIFY( loc_hk != loc_fr );
-  VERIFY( loc_hk != loc_de );
-  VERIFY( loc_de != loc_fr );
+  VERIFY( loc_de != loc_c );
 
   const wstring empty;
 
@@ -94,7 +89,7 @@ void test01()
   errorstate = good;
   tim_get.get_time(is_it04, end, iss, errorstate, &time04);
   VERIFY( time01.tm_hour == time_bday.tm_hour );
-  VERIFY( *is_it04 == 'a');
+  VERIFY( *is_it04 == L'a' );
   VERIFY( errorstate == ios_base::failbit );
 
   // inspection of named locales, de_DE

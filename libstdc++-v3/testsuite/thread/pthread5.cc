@@ -2,7 +2,7 @@
 // Adpated from libstdc++/5464 submitted by jjessel@amadeus.net
 // Jean-Francois JESSEL (Amadeus SAS Development) 
 //
-// Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,7 +31,6 @@
 // Do not include <pthread.h> explicitly; if threads are properly
 // configured for the port, then it is picked up free from STL headers.
 
-#if __GTHREADS
 #ifdef _GLIBCXX_HAVE_UNISTD_H
 #include <unistd.h>	// To test for _POSIX_THREAD_PRIORITY_SCHEDULING
 #endif
@@ -87,6 +86,12 @@ thread_function (void* arg)
   return arg;
 }
 
+#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
+// Explicitly instantiate for systems with no COMDAT or weak support.
+template class __gnu_cxx::__mt_alloc<tt_t>;
+template class __gnu_cxx::__mt_alloc<std::_List_node<std::string*> >;
+#endif   
+
 int
 main ()
 {
@@ -124,6 +129,3 @@ main ()
 
   return (0);
 }
-#else
-int main (void) {}
-#endif

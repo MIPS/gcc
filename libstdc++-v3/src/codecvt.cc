@@ -1,4 +1,4 @@
-// Copyright (C) 2000, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2002, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -45,13 +45,15 @@ namespace std
 
   codecvt<char, char, mbstate_t>::
   codecvt(size_t __refs)
-  : __codecvt_abstract_base<char, char, mbstate_t>(__refs)
-  { _M_c_locale_codecvt = _S_get_c_locale(); }
+  : __codecvt_abstract_base<char, char, mbstate_t>(__refs),
+  _M_c_locale_codecvt(_S_get_c_locale())
+  { }
 
   codecvt<char, char, mbstate_t>::
   codecvt(__c_locale __cloc, size_t __refs)
-  : __codecvt_abstract_base<char, char, mbstate_t>(__refs)
-  { _M_c_locale_codecvt = _S_clone_c_locale(__cloc); }
+  : __codecvt_abstract_base<char, char, mbstate_t>(__refs),
+  _M_c_locale_codecvt(_S_clone_c_locale(__cloc))
+  { }
 
   codecvt<char, char, mbstate_t>::
   ~codecvt()
@@ -85,8 +87,7 @@ namespace std
   codecvt<char, char, mbstate_t>::
   do_in(state_type&, const extern_type* __from, 
 	const extern_type*, const extern_type*& __from_next,
-	intern_type* __to, intern_type*, 
-	intern_type*& __to_next) const
+	intern_type* __to, intern_type*, intern_type*& __to_next) const
   {
     // _GLIBCXX_RESOLVE_LIB_DEFECTS
     // According to the resolution of DR19, "If returns noconv [...]
@@ -110,7 +111,10 @@ namespace std
   codecvt<char, char, mbstate_t>::
   do_length (state_type&, const extern_type* __from,
 	     const extern_type* __end, size_t __max) const
-  { return std::min(__max, static_cast<size_t>(__end - __from)); }
+  { 
+    size_t __d = static_cast<size_t>(__end - __from);
+    return std::min(__max, __d); 
+  }
   
   int 
   codecvt<char, char, mbstate_t>::
@@ -121,13 +125,15 @@ namespace std
   // codecvt<wchar_t, char, mbstate_t> required specialization
   codecvt<wchar_t, char, mbstate_t>::
   codecvt(size_t __refs)
-  : __codecvt_abstract_base<wchar_t, char, mbstate_t>(__refs)
-  { _M_c_locale_codecvt = _S_get_c_locale(); }
+  : __codecvt_abstract_base<wchar_t, char, mbstate_t>(__refs),
+  _M_c_locale_codecvt(_S_get_c_locale())
+  { }
 
   codecvt<wchar_t, char, mbstate_t>::
   codecvt(__c_locale __cloc, size_t __refs)
-  : __codecvt_abstract_base<wchar_t, char, mbstate_t>(__refs)
-  { _M_c_locale_codecvt = _S_clone_c_locale(__cloc); }
+  : __codecvt_abstract_base<wchar_t, char, mbstate_t>(__refs),
+  _M_c_locale_codecvt(_S_clone_c_locale(__cloc))
+  { }
 
   codecvt<wchar_t, char, mbstate_t>::
   ~codecvt()

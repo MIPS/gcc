@@ -1,6 +1,6 @@
 // 2001-09-12 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,25 +28,14 @@
 void test01()
 {
   using namespace std;
-  typedef money_base::part part;
-  typedef money_base::pattern pattern;
   typedef istreambuf_iterator<char> iterator_type;
 
   bool test __attribute__((unused)) = true;
 
   // basic construction
   locale loc_c = locale::classic();
-  locale loc_hk = __gnu_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
   locale loc_de = __gnu_test::try_named_locale("de_DE@euro");
   VERIFY( loc_c != loc_de );
-  VERIFY( loc_hk != loc_fr );
-  VERIFY( loc_hk != loc_de );
-  VERIFY( loc_de != loc_fr );
-
-  // cache the moneypunct facets
-  typedef moneypunct<char, true> __money_true;
-  typedef moneypunct<char, false> __money_false;
 
   // sanity check the data is correct.
   const string empty;
@@ -54,27 +43,17 @@ void test01()
   // total EPA budget FY 2002
   const string digits1("720000000000");
 
-  // est. cost, national missile "defense", expressed as a loss in USD 2001
-  const string digits2("-10000000000000");  
-
-  // not valid input
-  const string digits3("-A"); 
-
-  // input less than frac_digits
-  const string digits4("-1");
-  
   iterator_type end;
   istringstream iss;
   iss.imbue(loc_de);
   // cache the money_get facet
   const money_get<char>& mon_get = use_facet<money_get<char> >(iss.getloc()); 
 
-
   iss.str("7.200.000.000,00 ");
   iterator_type is_it01(iss);
   string result1;
   ios_base::iostate err01 = ios_base::goodbit;
-  mon_get.get(is_it01, end, true, iss, err01, result1);
+  mon_get.get(is_it01, end, true, iss, err01, result1); // xxx
   VERIFY( result1 == digits1 );
   VERIFY( err01 == ios_base::eofbit );
 
@@ -100,7 +79,7 @@ void test01()
   ios_base::iostate err04 = ios_base::goodbit;
   mon_get.get(is_it04, end, true, iss, err04, result4);
   VERIFY( result4 == empty );
-  VERIFY( err04 == ios_base::failbit | ios_base::eofbit );
+  VERIFY( err04 == (ios_base::failbit | ios_base::eofbit) );
 
   iss.str("working for enlightenment and peace in a mad world");
   iterator_type is_it05(iss);

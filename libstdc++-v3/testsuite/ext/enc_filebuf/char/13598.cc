@@ -18,7 +18,7 @@
 
 #include <locale>
 #include <cstring>
-#include <testsuite_hooks.h>
+#include <cassert>
 #ifdef _GLIBCXX_USE___ENC_TRAITS
 #include <ext/enc_filebuf.h>
 #endif
@@ -26,9 +26,8 @@
 int main()
 {
 #ifdef _GLIBCXX_USE___ENC_TRAITS
-  bool test __attribute__((unused)) = true;
-
   const char* str = "Hello, world!\n";
+
   std::locale loc(std::locale::classic(),
 		  new std::codecvt<char, char, std::__enc_traits>());
   std::__enc_traits st("ISO-8859-1", "ISO-8859-1");
@@ -40,8 +39,8 @@ int main()
   int s = fb.pubsync();
   fb.close();
   
-  VERIFY( n == std::strlen(str) );
-  VERIFY( s == 0 );
+  assert(n == std::strlen(str));
+  assert(s == 0);
 #endif
   
   return 0;

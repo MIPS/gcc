@@ -36,7 +36,8 @@ void test01()
   int count1 = ist.gcount();
   ist.seekg(pos);
   int count2 = ist.gcount();
-  ist.seekg(pos, ios::beg);
+  VERIFY( count1 == count2 );
+  ist.seekg(ios::off_type(pos), ios::beg);
   count2 = ist.gcount();
   VERIFY( count1 == count2 );
 }
