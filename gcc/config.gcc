@@ -45,6 +45,8 @@
 #
 #  cpu_type		The name of the cpu, if different from machine.
 #
+#  tm_defines		List of target macros to define for all compilations.
+#
 #  tm_file		A list of target macro files, if different from
 #			"$cpu_type/$cpu_type.h". Usually it's constructed
 #			per target in a way like this:
@@ -68,6 +70,10 @@
 #  tmake_file		A list of machine-description-specific
 #			makefile-fragments, if different from
 #			"$cpu_type/t-$cpu_type".
+#
+#  extra_modes          The name of the file containing a list of extra
+#                       machine modes, if necessary and different from
+#                       "$cpu_type/$cpu_type-modes.def".
 #
 #  float_format		Set to the symbolic name for the floating-point
 #			formats used for this machine, if different from
@@ -184,6 +190,7 @@ extra_host_objs=
 extra_gcc_objs=
 c_target_objs=
 cxx_target_objs=
+tm_defines=
 xm_defines=
 float_format=
 # Set this to force installation and use of collect2.
@@ -286,6 +293,11 @@ tm_file=${cpu_type}/${cpu_type}.h
 if test -f ${srcdir}/config/${cpu_type}/${cpu_type}-protos.h
 then
 	tm_p_file=${cpu_type}/${cpu_type}-protos.h
+fi
+extra_modes=
+if test -f ${srcdir}/config/${cpu_type}/${cpu_type}-modes.def
+then
+	extra_modes=${cpu_type}/${cpu_type}-modes.def
 fi
 
 case $machine in
@@ -994,7 +1006,7 @@ i[34567]86-ncr-sysv4*)		# NCR 3000 - ix86 running system V.4
 	then
 		tm_file=i386/sysv4gdb.h
 	else
-		tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h i386/sysv4.h"
+		tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h i386/sysv4.h i386/sysv4-cpp.h"
 	fi
 	extra_parts="crtbegin.o crtend.o"
 	tmake_file=i386/t-crtpic
@@ -1019,7 +1031,7 @@ i[34567]86-sequent-sysv*)	# would otherwise be caught by i?86-*-sysv*
 	exit 1
 	;;
 i[34567]86-wrs-vxworks*)
-	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h i386/gstabs.h i386/i386-aout.h i386/vxi386.h"
+	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h i386/gstabs.h i386/vxi386.h"
 	thread_file='vxworks'
 	;;
 i[34567]86-*-aout*)
@@ -1218,7 +1230,7 @@ i[34567]86-*-sysv5*)           # Intel x86 on System V Release 5
        ;;
 i[34567]86-*-sysv4*)		# Intel 80386's running system V.4
 	xm_defines="POSIX SMALL_ARG_MAX"
-	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h i386/sysv4.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h i386/sysv4.h i386/sysv4-cpp.h"
 	if test x$stabs = xyes
 	then
 		tm_file="${tm_file} dbx.h"
@@ -1810,11 +1822,6 @@ mips-sgi-*)	# would otherwise be caught by mips-*-elf*
 	;;
 mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	tm_file="elfos.h mips/netbsd.h"
-	case $machine in
-	mips*el-*)
-		tm_file="mips/little.h $tm_file" 
-		;;
-	esac
 	tmake_file="${tmake_file} mips/t-netbsd"
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
@@ -1825,11 +1832,6 @@ mips*-*-linux*)				# Linux MIPS, either endian.
                 target_cpu_default="MASK_SOFT_FLOAT"
                 ;;
         esac
-        case $machine in
-        mips*el-*)
-                tm_file="mips/little.h $tm_file"
-                ;;
-	esac
 	tmake_file="t-slibgcc-elf-ver t-linux mips/t-linux"
 	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
 	gnu_ld=yes
@@ -1845,46 +1847,27 @@ mips*-*-openbsd*)		# mips big endian
 	target_cpu_default="MASK_GAS|MASK_ABICALLS"
 	tm_file="mips/openbsd-be.h ${tm_file}"
 	;;
-mipsel-*-ecoff*)
-	tm_file=mips/ecoffl.h
-	if test x$stabs = xyes; then
-		tm_file="${tm_file} dbx.h"
-	fi
-	tmake_file=mips/t-ecoff
-	;;
-mips-*-ecoff*)
+mips-*-ecoff* | mipsel-*-ecoff*)
 	tm_file="gofast.h mips/ecoff.h"
 	if test x$stabs = xyes; then
 		tm_file="${tm_file} dbx.h"
 	fi
 	tmake_file=mips/t-ecoff
 	;;
-mipsisa32-*-elf*)
+mipsisa32-*-elf* | mipsisa32el-*-elf*)
 	tm_file="mips/isa3264.h mips/abi64.h"
 	tmake_file=mips/t-isa3264
 	target_cpu_default="MASK_SOFT_FLOAT"
 	;;
-mipsel-*-elf*)
-	tm_file="mips/elfl.h"
-	tmake_file=mips/t-elf
-	;;
-mips-*-elf*)
+mips-*-elf* | mipsel-*-elf*)
 	tm_file="mips/elf.h"
 	tmake_file=mips/t-elf
 	;;
-mips64el-*-elf*)
-	tm_file="mips/elfl64.h"
-	tmake_file=mips/t-elf
-	;;
-mips64orionel-*-elf*)
-	tm_file="mips/elforion.h mips/elfl64.h"
-	tmake_file=mips/t-elf
-	;;
-mips64-*-elf*)
+mips64-*-elf* | mips64el-*-elf*)
 	tm_file="mips/elf64.h"
 	tmake_file=mips/t-elf
 	;;
-mips64orion-*-elf*)
+mips64orion-*-elf* | mips64orionel-*-elf*)
 	tm_file="mips/elforion.h mips/elf64.h"
 	tmake_file=mips/t-elf
 	;;
@@ -1904,12 +1887,7 @@ mips*-*-rtems*)
 	  thread_file='rtems'
 	fi
 	;;
-mipstx39el-*-elf*)
-	tm_file="mips/r3900.h mips/elfl.h mips/abi64.h"
-	tmake_file=mips/t-r3900
-	target_cpu_default="MASK_SOFT_FLOAT"
-	;;
-mipstx39-*-elf*)
+mipstx39-*-elf* | mipstx39el-*-elf*)
 	tm_file="mips/r3900.h mips/elf.h mips/abi64.h"
 	tmake_file=mips/t-r3900
 	;;
@@ -2201,6 +2179,7 @@ s390x-*-linux*)
 	tm_file="s390/s390x.h s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
 	tm_p_file=s390/s390-protos.h
 	md_file=s390/s390.md
+	extra_modes=s390/s390-modes.def
 	out_file=s390/s390.c
 	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux s390/t-linux64"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
@@ -2208,7 +2187,7 @@ s390x-*-linux*)
 		thread_file='posix'
 	fi
 	;;
-sh-*-elf* | shl*-*-elf* | sh64*-*-elf*)
+sh-*-elf* | sh[2346l]*-*-elf*)
 	tmake_file="sh/t-sh sh/t-elf"
 	case $machine in
 	shl* | sh64l*)
@@ -2228,6 +2207,14 @@ sh-*-elf* | shl*-*-elf* | sh64*-*-elf*)
 			target_requires_64bit_host_wide_int=yes
 		fi
 		;;
+	sh4_single*)  target_cpu_default="SELECT_SH4_SINGLE" ;;
+	sh4*)  target_cpu_default="SELECT_SH4" ;;
+	sh3e*) target_cpu_default="SELECT_SH3E" ;;
+	sh3*)  target_cpu_default="SELECT_SH3" ;;
+	sh2*)  target_cpu_default="SELECT_SH2" ;;
+	esac
+	case $machine in
+	sh[234]*) tmake_file="${tmake_file} sh/t-monolib" ;;
 	esac
 	;;
 sh-*-rtemself*)
@@ -2248,14 +2235,42 @@ sh-*-rtems*)
 	  thread_file='rtems'
 	fi
 	;;
-sh-*-linux*)
-	tm_file="sh/little.h ${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/linux.h"
-	tmake_file="sh/t-sh sh/t-elf sh/t-le sh/t-linux"
+sh-*-linux* | sh[2346lbe]*-*-linux*)
+	tmake_file="sh/t-sh sh/t-elf sh/t-linux"
+	case $machine in
+	sh*be-*-* | sh*eb-*-*) ;;
+	*)
+		tm_file="sh/little.h ${tm_file}"
+		tmake_file="${tmake_file} sh/t-le"
+		;;
+	esac
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/linux.h"
 	gas=yes gnu_ld=yes
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
 	fi
 	float_format=sh
+	case $machine in
+	sh64*)
+		tmake_file="${tmake_file} sh/t-sh64"
+		tm_file="${tm_file} sh/sh64.h"
+		extra_headers="shmedia.h ushmedia.h sshmedia.h"
+		# Not strictly necessary to check this, but a good idea anyway.
+		if test $machine = $target; then
+			target_requires_64bit_host_wide_int=yes
+		fi
+		;;
+	sh4_single*) target_cpu_default="SELECT_SH4_SINGLE" ;;
+	sh4*) target_cpu_default="SELECT_SH4" ;;
+	sh3e[lb]e*) target_cpu_default="SELECT_SH3E" ;;
+	sh3e[lb]*) target_cpu_default="SELECT_SH3" ;;
+	sh3e*) target_cpu_default="SELECT_SH3E" ;;
+	sh3*) target_cpu_default="SELECT_SH3" ;;
+	sh2*) target_cpu_default="SELECT_SH2" ;;
+	esac
+	case $machine in
+	sh[234]*) tmake_file="${tmake_file} sh/t-monolib" ;;
+	esac
 	;;
 sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
   sh64-*-netbsd* | sh64l*-*-netbsd*)
@@ -2582,18 +2597,21 @@ strongarm-*-elf*)
 	tmake_file=arm/t-strongarm-elf
 	out_file=arm/arm.c
 	md_file=arm/arm.md
+	extra_modes=arm/arm-modes.def
 	;;
 strongarm-*-coff*)
 	tm_file="arm/semi.h arm/aout.h arm/coff.h arm/strongarm-coff.h arm/arm.h"
 	tmake_file=arm/t-strongarm-coff
 	out_file=arm/arm.c
 	md_file=arm/arm.md
+	extra_modes=arm/arm-modes.def
 	;;
 strongarm-*-pe)
 	tm_file="arm/semi.h arm/aout.h arm/coff.h arm/strongarm-coff.h arm/arm.h arm/pe.h arm/strongarm-pe.h"
 	tmake_file=arm/t-strongarm-pe
 	out_file=arm/arm.c
 	md_file=arm/arm.md
+	extra_modes=arm/arm-modes.def
 	extra_objs=pe.o
 	;;
 thumb*-*-*)
@@ -2627,6 +2645,7 @@ v850-*-*)
 	cxx_target_objs="v850-c.o"
 	;;
 vax-*-bsd*)			# VAXen running BSD
+	tm_file="${tm_file} vax/bsd.h"
 	use_collect2=yes
 	float_format=vax
 	;;
@@ -2666,12 +2685,14 @@ xscale-*-elf)
 	tmake_file=arm/t-xscale-elf
 	out_file=arm/arm.c
 	md_file=arm/arm.md
+	extra_modes=arm/arm-modes.def
 	;;
 xscale-*-coff)
 	tm_file="arm/semi.h arm/aout.h arm/coff.h arm/xscale-coff.h arm/arm.h"
 	tmake_file=arm/t-xscale-coff
 	out_file=arm/arm.c
 	md_file=arm/arm.md
+	extra_modes=arm/arm-modes.def
 	;;
 xstormy16-*-elf)
 	# For historical reasons, the target files omit the 'x'.
@@ -2832,31 +2853,36 @@ hppa*-*-* | parisc*-*-*)
 		target_cpu_default2="MASK_GAS|MASK_JUMP_IN_DELAY"
 	fi
 	case $machine in
-		hppa1.0* | parisc1.0*)
-			tm_file="pa/pa-700.h ${tm_file}"
-			;;
-		hppa1.1* | parisc1.1*)
-			tm_file="pa/pa-7100.h ${tm_file}"
+		hppa1* | parisc1*)
+			tm_defines="TARGET_SCHED_DEFAULT=\\\"7100LC\\\""
 			;;
 	esac
 	;;
-
-mips*-*-ecoff* | mips*-*-elf*)
-	if test x$gas = xyes
-	then
-		if test x$gnu_ld = xyes
+mips*-*-*)
+	case $machine in
+	mips*-*-ecoff* | mips*-*-elf*)
+		if test x$gas = xyes
 		then
-			target_cpu_default2="MASK_GAS|MASK_SPLIT_ADDR"
-		else
+			if test x$gnu_ld = xyes
+			then
+				target_cpu_default2="MASK_GAS|MASK_SPLIT_ADDR"
+			else
+				target_cpu_default2="MASK_GAS"
+			fi
+		fi
+		;;
+	mips*-*-*)
+		if test x$gas = xyes
+		then
 			target_cpu_default2="MASK_GAS"
 		fi
-	fi
-	;;
-mips*-*-*)
-	if test x$gas = xyes
-	then
-		target_cpu_default2="MASK_GAS"
-	fi
+		;;
+	esac
+	case $machine in
+		mips*el-*-*)
+			tm_file="mips/little.h ${tm_file}"
+			;;
+	esac
 	;;
 powerpc*-*-* | rs6000-*-*)
         if test x$enable_altivec = xyes
@@ -2876,7 +2902,6 @@ powerpc*-*-* | rs6000-*-*)
 
 		x401 | x403 | x405 | xec603e | x801 | x821 | x823 | x860)
 			target_cpu_default2="\\\"$with_cpu\\\""
-			tm_file="$tm_file rs6000/softfloat.h"
 			;;
 
 		xyes | xno)
@@ -2892,15 +2917,9 @@ powerpc*-*-* | rs6000-*-*)
 			fi
 			;;
 	esac
-	case $machine in
-	  *-*-darwin*)
-	    ;;
-	  *)
-	    c_target_objs="rs6000-c.o"
-	    cxx_target_objs="rs6000-c.o"
-	    tmake_file="${tmake_file} rs6000/t-rs6000-c-rule"
-	    ;;
-	esac
+	c_target_objs="${c_target_objs} rs6000-c.o"
+	cxx_target_objs="${cxx_target_objs} rs6000-c.o"
+	tmake_file="${tmake_file} rs6000/t-rs6000-c-rule"
 	;;
 sparc*-*-*)
 	case ".$with_cpu" in

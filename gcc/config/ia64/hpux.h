@@ -40,7 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_SPEC
 #define CPP_SPEC "\
   %{mcpu=itanium:-D__itanium__} \
-  %{mlp64:-D__LP64__ -D_LP64 -D__LONG_MAX__=9223372036854775807L} \
+  %{mlp64:-D__LP64__ -D_LP64} \
   %{!ansi:%{!std=c*:%{!std=i*: -D_HPUX_SOURCE -D__STDC_EXT__}}} \
   -D__fpreg=long\\ double \
   -D__float80=long\\ double \
@@ -103,7 +103,7 @@ Boston, MA 02111-1307, USA.  */
    structure handling, this macro simply ensures that single field
    structures are always treated like structures.  */
 
-#define MEMBER_TYPE_FORCES_BLK(FIELD) 1
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) 1
 
 /* Override the setting of FUNCTION_ARG_REG_LITTLE_ENDIAN in
    defaults.h.  Setting this to true means that we are not passing

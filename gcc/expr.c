@@ -10045,6 +10045,7 @@ compare_from_rtx (op0, op1, code, unsignedp, mode, size)
      enum machine_mode mode;
      rtx size;
 {
+  enum rtx_code ucode;
   rtx tem;
 
   /* If one operand is constant, make it the second one.  Only do this
@@ -10066,8 +10067,8 @@ compare_from_rtx (op0, op1, code, unsignedp, mode, size)
 
   do_pending_stack_adjust ();
 
-  if (GET_CODE (op0) == CONST_INT && GET_CODE (op1) == CONST_INT
-      && (tem = simplify_relational_operation (code, mode, op0, op1)) != 0)
+  ucode = unsignedp ? unsigned_condition (code) : code;
+  if ((tem = simplify_relational_operation (ucode, mode, op0, op1)) != 0)
     return tem;
 
 #if 0
@@ -10117,6 +10118,7 @@ do_compare_rtx_and_jump (op0, op1, code, unsignedp, mode, size,
      rtx size;
      rtx if_false_label, if_true_label;
 {
+  enum rtx_code ucode;
   rtx tem;
   int dummy_true_label = 0;
 
@@ -10148,8 +10150,8 @@ do_compare_rtx_and_jump (op0, op1, code, unsignedp, mode, size,
 
   do_pending_stack_adjust ();
 
-  if (GET_CODE (op0) == CONST_INT && GET_CODE (op1) == CONST_INT
-      && (tem = simplify_relational_operation (code, mode, op0, op1)) != 0)
+  ucode = unsignedp ? unsigned_condition (code) : code;
+  if ((tem = simplify_relational_operation (ucode, mode, op0, op1)) != 0)
     {
       if (tem == const_true_rtx)
 	{
@@ -10787,6 +10789,36 @@ try_tablejump (index_type, index_expr, minval, range,
 			       TREE_UNSIGNED (TREE_TYPE (range))),
 		table_label, default_label);
   return 1;
+}
+
+/* Nonzero if the mode is a valid vector mode for this architecture.
+   This returns nonzero even if there is no hardware support for the
+   vector mode, but we can emulate with narrower modes.  */
+
+int
+vector_mode_valid_p (mode)
+     enum machine_mode mode;
+{
+  enum mode_class class = GET_MODE_CLASS (mode);
+  enum machine_mode innermode;
+
+  /* Doh!  What's going on?  */
+  if (class != MODE_VECTOR_INT
+      && class != MODE_VECTOR_FLOAT)
+    return 0;
+
+  /* Hardware support.  Woo hoo!  */
+  if (VECTOR_MODE_SUPPORTED_P (mode))
+    return 1;
+
+  innermode = GET_MODE_INNER (mode);
+
+  /* We should probably return 1 if requesting V4DI and we have no DI,
+     but we have V2DI, but this is probably very unlikely.  */
+
+  /* If we have support for the inner mode, we can safely emulate it.
+     We may not have V2DI, but me can emulate with a pair of DIs.  */
+  return mov_optab->handlers[innermode].insn_code != CODE_FOR_nothing;
 }
 
 #include "gt-expr.h"

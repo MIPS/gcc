@@ -171,9 +171,8 @@ struct rtx_def
      and must not be deleted even if its count is zero.
      1 in a LABEL_REF if this is a reference to a label outside the
      current loop.
-     1 in an INSN, JUMP_INSN, CALL_INSN, CODE_LABEL, BARRIER, or NOTE if
-     this insn must be scheduled together with the preceding insn.  Valid
-     only within sched.
+     1 in an INSN, JUMP_INSN or CALL_INSN if this insn must be scheduled
+     together with the preceding insn.  Valid only within sched.
      1 in an INSN, JUMP_INSN, or CALL_INSN if insn is in a delay slot and
      from the target of a branch.  Valid from reorg until end of compilation;
      cleared before used.
@@ -1154,8 +1153,8 @@ do {						\
 /* During sched, 1 if RTX is an insn that must be scheduled together
    with the preceding insn.  */
 #define SCHED_GROUP_P(RTX)						\
-  (RTL_FLAG_CHECK6("SCHED_GROUP_P", (RTX), INSN, JUMP_INSN, CALL_INSN,	\
-		          CODE_LABEL, BARRIER, NOTE)->in_struct)
+  (RTL_FLAG_CHECK3("SCHED_GROUP_P", (RTX), INSN, JUMP_INSN, CALL_INSN	\
+		          )->in_struct)
 
 /* For a SET rtx, SET_DEST is the place that is set
    and SET_SRC is the value it is set to.  */
@@ -2076,6 +2075,7 @@ extern int reg_classes_intersect_p	PARAMS ((enum reg_class, enum reg_class));
 extern int reg_class_subset_p		PARAMS ((enum reg_class, enum reg_class));
 extern void globalize_reg		PARAMS ((int));
 extern void init_regs			PARAMS ((void));
+extern void init_fake_stack_mems	PARAMS ((void));
 extern void init_reg_sets		PARAMS ((void));
 extern void regset_release_memory	PARAMS ((void));
 extern void regclass_init		PARAMS ((void));
@@ -2084,7 +2084,7 @@ extern void reg_scan			PARAMS ((rtx, unsigned int, int));
 extern void reg_scan_update		PARAMS ((rtx, rtx, unsigned int));
 extern void fix_register		PARAMS ((const char *, int, int));
 
-extern void delete_null_pointer_checks	PARAMS ((rtx));
+extern int delete_null_pointer_checks	PARAMS ((rtx));
 
 /* In regmove.c */
 #ifdef BUFSIZ
@@ -2210,7 +2210,6 @@ extern int anti_dependence		PARAMS ((rtx, rtx));
 extern int output_dependence		PARAMS ((rtx, rtx));
 extern void mark_constant_function	PARAMS ((void));
 extern void init_alias_once		PARAMS ((void));
-extern void init_alias_once_per_function PARAMS ((void));
 extern void init_alias_analysis		PARAMS ((void));
 extern void end_alias_analysis		PARAMS ((void));
 extern rtx addr_side_effect_eval	PARAMS ((rtx, int, int));

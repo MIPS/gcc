@@ -663,7 +663,7 @@ static int handle_avail_expr	PARAMS ((rtx, struct expr *));
 static int classic_gcse		PARAMS ((void));
 static int one_classic_gcse_pass PARAMS ((int));
 static void invalidate_nonnull_info PARAMS ((rtx, rtx, void *));
-static void delete_null_pointer_checks_1 PARAMS ((unsigned int *,
+static int delete_null_pointer_checks_1 PARAMS ((unsigned int *,
 						  sbitmap *, sbitmap *,
 						  struct null_pointer_info *));
 static void pre_edge_try_insert	PARAMS ((struct edge_list *, struct expr **));
@@ -5529,7 +5529,7 @@ invalidate_nonnull_info (x, setter, data)
    NPI.  NONNULL_AVIN and NONNULL_AVOUT are pre-allocated sbitmaps;
    they are not our responsibility to free.  */
 
-static void
+static int
 delete_null_pointer_checks_1 (block_reg, nonnull_avin,
 			      nonnull_avout, npi)
      unsigned int *block_reg;
@@ -5540,7 +5540,8 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
   basic_block bb, current_block;
   sbitmap *nonnull_local = npi->nonnull_local;
   sbitmap *nonnull_killed = npi->nonnull_killed;
-  
+  int something_changed = 0;
+
   /* Compute local properties, nonnull and killed.  A register will have
      the nonnull property if at the end of the current block its value is
      known to be nonnull.  The killed property indicates that somewhere in
@@ -5661,6 +5662,7 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
 	  emit_barrier_after (new_jump);
 	}
 
+      something_changed = 1;
       delete_insn (last_insn);
       if (compare_and_branch == 2)
         delete_insn (earliest);
@@ -5671,6 +5673,8 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
 	 block.)  */
       block_reg[bb->index] = 0;
     }
+
+  return something_changed;
 }
 
 /* Find EQ/NE comparisons against zero which can be (indirectly) evaluated
@@ -5697,7 +5701,7 @@ delete_null_pointer_checks_1 (block_reg, nonnull_avin,
 
    This could probably be integrated with global cprop with a little work.  */
 
-void
+int
 delete_null_pointer_checks (f)
      rtx f ATTRIBUTE_UNUSED;
 {
@@ -5708,10 +5712,11 @@ delete_null_pointer_checks (f)
   int regs_per_pass;
   int max_reg;
   struct null_pointer_info npi;
+  int something_changed = 0;
 
   /* If we have only a single block, then there's nothing to do.  */
   if (n_basic_blocks <= 1)
-    return;
+    return 0;
 
   /* Trying to perform global optimizations on flow graphs which have
      a high connectivity will take a long time and is unlikely to be
@@ -5722,7 +5727,7 @@ delete_null_pointer_checks (f)
      a couple switch statements.  So we require a relatively large number
      of basic blocks and the ratio of edges to blocks to be high.  */
   if (n_basic_blocks > 1000 && n_edges / n_basic_blocks >= 20)
-    return;
+    return 0;
 
   /* We need four bitmaps, each with a bit for each register in each
      basic block.  */
@@ -5775,8 +5780,10 @@ delete_null_pointer_checks (f)
     {
       npi.min_reg = reg;
       npi.max_reg = MIN (reg + regs_per_pass, max_reg);
-      delete_null_pointer_checks_1 (block_reg, nonnull_avin,
-				    nonnull_avout, &npi);
+      something_changed |= delete_null_pointer_checks_1 (block_reg,
+							 nonnull_avin,
+							 nonnull_avout,
+							 &npi);
     }
 
   /* Free the table of registers compared at the end of every block.  */
@@ -5787,6 +5794,8 @@ delete_null_pointer_checks (f)
   sbitmap_vector_free (npi.nonnull_killed);
   sbitmap_vector_free (nonnull_avin);
   sbitmap_vector_free (nonnull_avout);
+
+  return something_changed;
 }
 
 /* Code Hoisting variables and subroutines.  */

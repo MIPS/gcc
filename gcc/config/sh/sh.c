@@ -341,25 +341,13 @@ print_operand (stream, x, code)
       fprintf (stream, "%s", LOCAL_LABEL_PREFIX);
       break;
     case '@':
-      {
-	int interrupt_handler;
-
-	if ((lookup_attribute
-	     ("interrupt_handler",
-	      DECL_ATTRIBUTES (current_function_decl)))
-	    != NULL_TREE)
-	  interrupt_handler = 1;
-	else
-	  interrupt_handler = 0;
-	
       if (trap_exit)
 	fprintf (stream, "trapa #%d", trap_exit);
-      else if (interrupt_handler)
+      else if (sh_cfun_interrupt_handler_p ())
 	fprintf (stream, "rte");
       else
 	fprintf (stream, "rts");
       break;
-      }
     case '#':
       /* Output a nop if there's nothing in the delay slot.  */
       if (dbr_sequence_length () == 0)
@@ -4362,16 +4350,9 @@ calc_live_regs (count_ptr, live_regs_mask)
   int reg;
   int count;
   int interrupt_handler;
-  rtx pr_initial;
   int pr_live;
 
-  if ((lookup_attribute
-       ("interrupt_handler",
-	DECL_ATTRIBUTES (current_function_decl)))
-      != NULL_TREE)
-    interrupt_handler = 1;
-  else
-    interrupt_handler = 0;
+  interrupt_handler = sh_cfun_interrupt_handler_p ();
 
   for (count = 0; 32 * count < FIRST_PSEUDO_REGISTER; count++)
     live_regs_mask[count] = 0;
@@ -4385,12 +4366,18 @@ calc_live_regs (count_ptr, live_regs_mask)
 	  target_flags &= ~FPU_SINGLE_BIT;
 	  break;
 	}
-  pr_initial = has_hard_reg_initial_val (Pmode,
-					 TARGET_SHMEDIA
-					 ? PR_MEDIA_REG : PR_REG);
-  pr_live = (pr_initial
-	     ? REGNO (pr_initial) != (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
-	     : regs_ever_live[TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG]);
+  /* PR_MEDIA_REG is a general purpose register, thus global_alloc already
+     knows how to use it.  That means the pseudo originally allocated for
+     the initial value can become the PR_MEDIA_REG hard register, as seen for
+     execute/20010122-1.c:test9.  */
+  if (TARGET_SHMEDIA)
+    pr_live = regs_ever_live[PR_MEDIA_REG];
+  else
+    {
+      rtx pr_initial = has_hard_reg_initial_val (Pmode, PR_REG);
+      pr_live = (pr_initial
+		 ? REGNO (pr_initial) != (PR_REG) : regs_ever_live[PR_REG]);
+    }
   /* Force PR to be live if the prologue has to call the SHmedia
      argument decoder or register saver.  */
   if (TARGET_SHCOMPACT
@@ -4484,10 +4471,7 @@ sh_expand_prologue ()
   int d_rounding = 0;
   int save_flags = target_flags;
 
-  current_function_interrupt
-    = lookup_attribute ("interrupt_handler",
-			DECL_ATTRIBUTES (current_function_decl))
-    != NULL_TREE;
+  current_function_interrupt = sh_cfun_interrupt_handler_p ();
 
   /* We have pretend args if we had an object sent partially in registers
      and partially on the stack, e.g. a large structure.  */
@@ -5742,6 +5726,13 @@ sh_handle_trap_exit_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
+int
+sh_cfun_interrupt_handler_p (void)
+{
+  return (lookup_attribute ("interrupt_handler",
+			    DECL_ATTRIBUTES (current_function_decl))
+	  != NULL_TREE);
+}
 
 /* Predicates used by the templates.  */
 
@@ -6694,6 +6685,23 @@ sh_can_redirect_branch (branch1, branch2)
 	}
     }
   return 0;
+}
+
+/* Return non-zero if register old_reg can be renamed to register new_reg.  */
+int
+sh_hard_regno_rename_ok (old_reg, new_reg)
+     unsigned int old_reg ATTRIBUTE_UNUSED;
+     unsigned int new_reg;
+{
+
+/* Interrupt functions can only use registers that have already been
+   saved by the prologue, even if they would normally be
+   call-clobbered.  */
+
+  if (sh_cfun_interrupt_handler_p () && !regs_ever_live[new_reg])
+     return 0;
+
+   return 1;
 }
 
 /* A C statement (sans semicolon) to update the integer variable COST

@@ -104,16 +104,15 @@ static int mul_highpart_cost[NUM_MACHINE_MODES];
 void
 init_expmed ()
 {
-  /* This is "some random pseudo register" for purposes of calling recog
-     to see what insns exist.  */
-  rtx reg = gen_rtx_REG (word_mode, 10000);
-  rtx shift_insn, shiftadd_insn, shiftsub_insn;
+  rtx reg, shift_insn, shiftadd_insn, shiftsub_insn;
   int dummy;
   int m;
   enum machine_mode mode, wider_mode;
 
   start_sequence ();
 
+  /* This is "some random pseudo register" for purposes of calling recog
+     to see what insns exist.  */
   reg = gen_rtx_REG (word_mode, 10000);
 
   zero_cost = rtx_cost (const0_rtx, 0);
@@ -4137,6 +4136,13 @@ make_tree (type, x)
 			    build (TRUNC_DIV_EXPR, t,
 				   make_tree (t, XEXP (x, 0)),
 				   make_tree (t, XEXP (x, 1)))));
+
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      t = (*lang_hooks.types.type_for_mode) (GET_MODE (XEXP (x, 0)),
+					     GET_CODE (x) == ZERO_EXTEND);
+      return fold (convert (type, make_tree (t, XEXP (x, 0))));
+
    default:
       t = make_node (RTL_EXPR);
       TREE_TYPE (t) = type;

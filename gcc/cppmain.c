@@ -43,7 +43,7 @@ static void setup_callbacks PARAMS ((cpp_reader *));
 /* General output routines.  */
 static void scan_translation_unit PARAMS ((cpp_reader *));
 static void scan_translation_unit_trad PARAMS ((cpp_reader *));
-static void check_multiline_token PARAMS ((const cpp_string *));
+static void account_for_newlines PARAMS ((const uchar *, size_t));
 static int dump_macro PARAMS ((cpp_reader *, cpp_hashnode *, void *));
 
 static void print_line PARAMS ((const struct line_map *, unsigned int,
@@ -208,19 +208,18 @@ scan_translation_unit (pfile)
       cpp_output_token (token, print.outf);
 
       if (token->type == CPP_COMMENT)
-	check_multiline_token (&token->val.str);
+	account_for_newlines (token->val.str.text, token->val.str.len);
     }
 }
 
-/* Adjust print.line for newlines embedded in tokens.  */
+/* Adjust print.line for newlines embedded in output.  */
 static void
-check_multiline_token (str)
-     const cpp_string *str;
+account_for_newlines (str, len)
+     const uchar *str;
+     size_t len;
 {
-  unsigned int i;
-
-  for (i = 0; i < str->len; i++)
-    if (str->text[i] == '\n')
+  while (len--)
+    if (*str++ == '\n')
       print.line++;
 }
 
@@ -239,6 +238,8 @@ scan_translation_unit_trad (pfile)
       maybe_print_line (print.map, pfile->out.first_line);
       fwrite (pfile->out.base, 1, len, print.outf);
       print.printed = 1;
+      if (!CPP_OPTION (pfile, discard_comments))
+	account_for_newlines (pfile->out.base, len);
     }
 }
 
@@ -319,7 +320,6 @@ cb_line_change (pfile, token, parsing_args)
     return;
 
   maybe_print_line (print.map, token->line);
-  print.printed = 1;
   print.prev = 0;
   print.source = 0;
 
@@ -328,12 +328,16 @@ cb_line_change (pfile, token, parsing_args)
      will provide a space if PREV_WHITE.  Don't bother trying to
      reconstruct tabs; we can't get it right in general, and nothing
      ought to care.  Some things do care; the fault lies with them.  */
-  if (token->col > 2)
+  if (!CPP_OPTION (pfile, traditional))
     {
-      unsigned int spaces = token->col - 2;
+      print.printed = 1;
+      if (token->col > 2)
+	{
+	  unsigned int spaces = token->col - 2;
 
-      while (spaces--)
-	putc (' ', print.outf);
+	  while (spaces--)
+	    putc (' ', print.outf);
+	}
     }
 }
 

@@ -1186,7 +1186,6 @@ java/util/AbstractSequentialList.java \
 java/util/AbstractSet.java \
 java/util/ArrayList.java \
 java/util/Arrays.java \
-java/util/BasicMapEntry.java \
 java/util/BitSet.java \
 java/util/Calendar.java	\
 java/util/Collection.java \
@@ -1198,6 +1197,7 @@ java/util/Dictionary.java \
 java/util/EmptyStackException.java \
 java/util/Enumeration.java \
 java/util/EventListener.java \
+java/util/EventListenerProxy.java \
 java/util/EventObject.java \
 java/util/GregorianCalendar.java \
 java/util/HashMap.java \
@@ -1219,6 +1219,7 @@ java/util/Observable.java \
 java/util/Observer.java	\
 java/util/Properties.java \
 java/util/PropertyPermission.java \
+java/util/PropertyPermissionCollection.java \
 java/util/PropertyResourceBundle.java \
 java/util/Random.java \
 java/util/RandomAccess.java \

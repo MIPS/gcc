@@ -7537,12 +7537,19 @@ rs6000_emit_minmax (dest, code, op0, op1)
      rtx op1;
 {
   enum machine_mode mode = GET_MODE (op0);
+  enum rtx_code c;
   rtx target;
+
+  if (code == SMAX || code == SMIN)
+    c = GE;
+  else
+    c = GEU;
+
   if (code == SMAX || code == UMAX)
-    target = emit_conditional_move (dest, GE, op0, op1, mode, 
+    target = emit_conditional_move (dest, c, op0, op1, mode, 
 				    op0, op1, mode, 0);
   else
-    target = emit_conditional_move (dest, GE, op0, op1, mode, 
+    target = emit_conditional_move (dest, c, op0, op1, mode, 
 				    op1, op0, mode, 0);
   if (target == NULL_RTX)
     abort ();
@@ -8661,6 +8668,14 @@ rs6000_frame_related (insn, reg, val, reg2, rreg)
      rtx rreg;
 {
   rtx real, temp;
+
+  /* copy_rtx will not make unique copies of registers, so we need to
+     ensure we don't have unwanted sharing here.  */
+  if (reg == reg2)
+    reg = gen_raw_REG (GET_MODE (reg), REGNO (reg));
+
+  if (reg == rreg)
+    reg = gen_raw_REG (GET_MODE (reg), REGNO (reg));
 
   real = copy_rtx (PATTERN (insn));
 

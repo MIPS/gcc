@@ -1,3 +1,74 @@
+2002-06-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c/std_cwchar.h: Guard. Add mbstate_t bits.
+	* include/c/std_cwctype.h: Guard.
+
+	* libsupc++/eh_alloc.cc: Tweak include order.
+	* libsupc++/pure.cc: Use cstdio.
+	* libsupc++/new_op.cc: Remove malloc forward declaration, as
+	cstdlib brings it in. Use std::malloc.
+
+	* src/Makefile.am (sources): Remove cmath.cc.
+	* src/Makefile.in: Regenerate.
+	* src/cmath.cc: Remove.
+	
+2002-06-18  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.target:  Force mips to use the generic cpu routines.
+
+2002-06-18  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.host:  Delete file.
+	* configure.target:  More documentation.  Factor out common parts of
+	script into "intelligent" settings about defaults.  Remove redundancy.
+
+	* acinclude.m4:  Update comments.  Do not call configure.host.
+	(GLIBCPP_ENABLE_SYMVERS):  If disabled, do not bother checking for
+	libgcc_s.
+	* configure.in:  Slight reformatting, more comments.  Factor out
+	"config/" from all the directories.
+	* docs/html/17_intro/porting.texi:  Update and expand.
+	* testsuite/Makefile.am (AM_RUNTESTFLAGS):  Move empty setting
+	from configure.host.
+
+	* aclocal.m4, configure, docs/html/17_intro/porting.html,
+	testsuite/Makefile.in:  Regenerate.
+
+2002-06-16  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/TODO:  Update.
+	* docs/doxygen/tables.html:  Uncomment magical middle column.
+	* docs/doxygen/user.cfg.in:  Kludge to ignore function-like macros.
+	* include/bits/stl_queue.h:  Doxygenate and reformat.
+	* include/bits/ios_base.h, include/std/std_streambuf.h:  Add comment
+	for deprecated names required by the standard.
+
+2002-06-14  J.T. Conklin  <jtc@acorntoolworks.com>
+
+	* configure.in (target_alias): Fix.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+
+2002-06-12  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/Makefile.am:  Add new files.
+	* include/Makefile.in:  Regenerate.
+
+	* include/bits/stl_deque.h, include/bits/stl_list.h,
+	include/bits/stl_vector.h:  Clean up, reformat.  Move definitions...
+	* include/bits/deque.tcc, include/bits/list.tcc,
+	include/bits/vector.tcc:  ...to here.  New files.
+
+	* include/ext/stl_hashtable.h:  Inclide correct full headers.
+	* include/std/std_deque.h:  Include .tcc files for now.
+	* include/std/std_list.h:  Likewise.
+	* include/std/std_vector.h:  Likewise.
+
+2002-06-12  Daniel Jacobowitz  <drow@mvista.com>
+
+	* Makefile.am: Add FLAGS_TO_PASS.
+	* Makefile.in: Regenerated.
+
 2002-06-11  J.T. Conklin  <jtc@acorntoolworks.com>
             Benjamin Kosnik  <bkoz@redhat.com>
 	

@@ -510,6 +510,8 @@ build_vtable (class_type, name, vtable_type)
   TREE_STATIC (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_VIRTUAL_P (decl) = 1;
+  DECL_ALIGN (decl) = TARGET_VTABLE_ENTRY_ALIGN;
+
   import_export_vtable (decl, class_type, 0);
 
   return decl;
@@ -3835,6 +3837,8 @@ build_base_field (rli, binfo, empty_p, offsets, t)
   DECL_SIZE_UNIT (decl) = CLASSTYPE_SIZE_UNIT (basetype);
   DECL_ALIGN (decl) = CLASSTYPE_ALIGN (basetype);
   DECL_USER_ALIGN (decl) = CLASSTYPE_USER_ALIGN (basetype);
+  /* Tell the backend not to round up to TYPE_ALIGN.  */
+  DECL_PACKED (decl) = 1;
   
   if (!integer_zerop (DECL_SIZE (decl)))
     {
@@ -4975,6 +4979,12 @@ layout_class_type (t, empty_p, vfuns_p,
     {
       CLASSTYPE_SIZE (t) = bitsize_zero_node;
       CLASSTYPE_SIZE_UNIT (t) = size_zero_node;
+    }
+  /* If this is a POD, we can't reuse its tail padding.  */
+  else if (!CLASSTYPE_NON_POD_P (t))
+    {
+      CLASSTYPE_SIZE (t) = TYPE_SIZE (t);
+      CLASSTYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (t);
     }
   else
     {
@@ -7500,7 +7510,7 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
   vid.primary_vtbl_p = (binfo == TYPE_BINFO (t));
   vid.ctor_vtbl_p = !same_type_p (BINFO_TYPE (rtti_binfo), t);
   /* The first vbase or vcall offset is at index -3 in the vtable.  */
-  vid.index = ssize_int (-3);
+  vid.index = ssize_int (-3 * TARGET_VTABLE_DATA_ENTRY_DISTANCE);
 
   /* Add entries to the vtable for RTTI.  */
   build_rtti_vtbl_entries (binfo, &vid);
@@ -7517,6 +7527,22 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
        vbase; 
        vbase = TREE_CHAIN (vbase))
     CLEAR_BINFO_VTABLE_PATH_MARKED (TREE_VALUE (vbase));
+
+  /* If the target requires padding between data entries, add that now.  */
+  if (TARGET_VTABLE_DATA_ENTRY_DISTANCE > 1)
+    {
+      tree cur, *prev;
+
+      for (prev = &vid.inits; (cur = *prev); prev = &TREE_CHAIN (cur))
+	{
+	  tree add = cur;
+	  int i;
+
+	  for (i = 1; i < TARGET_VTABLE_DATA_ENTRY_DISTANCE; ++i)
+	    add = tree_cons (NULL_TREE, null_pointer_node, add);
+	  *prev = add;
+	}
+    }
 
   if (non_fn_entries_p)
     *non_fn_entries_p = list_length (vid.inits);
@@ -7735,7 +7761,8 @@ build_vbase_offset_vtbl_entries (binfo, vid)
 	}
 
       /* The next vbase will come at a more negative offset.  */
-      vid->index = size_binop (MINUS_EXPR, vid->index, ssize_int (1));
+      vid->index = size_binop (MINUS_EXPR, vid->index,
+			       ssize_int (TARGET_VTABLE_DATA_ENTRY_DISTANCE));
 
       /* The initializer is the delta from BINFO to this virtual base.
 	 The vbase offsets go in reverse inheritance-graph order, and

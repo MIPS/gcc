@@ -195,10 +195,8 @@ init_caller_save ()
   savepat = gen_rtx_SET (VOIDmode, test_mem, test_reg);
   restpat = gen_rtx_SET (VOIDmode, test_reg, test_mem);
 
-  start_sequence ();
-
-  saveinsn = emit_insn (savepat);
-  restinsn = emit_insn (restpat);
+  saveinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, 0, savepat, -1, 0, 0);
+  restinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, 0, restpat, -1, 0, 0);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (mode = 0 ; mode < MAX_MACHINE_MODE; mode++)
@@ -254,8 +252,6 @@ init_caller_save ()
 	      SET_HARD_REG_BIT (call_fixed_reg_set, i);
 	    }
 	}
-
-  end_sequence ();
   cfun->rtl_form = old;
 }
 

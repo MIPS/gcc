@@ -211,6 +211,9 @@ struct lexer_state
   /* Nonzero if in a directive that takes angle-bracketed headers.  */
   unsigned char angled_headers;
 
+  /* Nonzero if in a #if or #elif directive.  */
+  unsigned char in_expression;
+
   /* Nonzero to save comments.  Turned off if discard_comments, and in
      all directives apart from #define.  */
   unsigned char save_comments;
@@ -298,7 +301,7 @@ struct cpp_buffer
   struct search_path dir;
 
   /* Used for buffer overlays by cpptrad.c.  */
-  const uchar *saved_cur, *saved_rlimit, *saved_line_base;
+  const uchar *saved_cur, *saved_rlimit;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -308,6 +311,9 @@ struct cpp_reader
 {
   /* Top of buffer stack.  */
   cpp_buffer *buffer;
+
+  /* Overlaid buffer (can be different after processing #include).  */
+  cpp_buffer *overlaid_buffer;
 
   /* Lexer state.  */
   struct lexer_state state;
@@ -364,9 +370,9 @@ struct cpp_reader
      for include files.  (Altered as we get more of them.)  */
   unsigned int max_include_len;
 
-  /* Date and time tokens.  Calculated together if either is requested.  */
-  cpp_token date;
-  cpp_token time;
+  /* Date and time text.  Calculated together if either is requested.  */
+  const uchar *date;
+  const uchar *time;
 
   /* EOF token, and a token forcing paste avoidance.  */
   cpp_token avoid_paste;
@@ -469,7 +475,8 @@ extern bool _cpp_save_parameter		PARAMS ((cpp_reader *, cpp_macro *,
 extern bool _cpp_arguments_ok		PARAMS ((cpp_reader *, cpp_macro *,
 						 const cpp_hashnode *,
 						 unsigned int));
-
+extern const uchar *_cpp_builtin_macro_text PARAMS ((cpp_reader *,
+						     cpp_hashnode *));
 /* In cpphash.c */
 extern void _cpp_init_hashtable		PARAMS ((cpp_reader *, hash_table *));
 extern void _cpp_destroy_hashtable	PARAMS ((cpp_reader *));
@@ -522,11 +529,12 @@ extern bool _cpp_read_logical_line_trad PARAMS ((cpp_reader *));
 extern void _cpp_overlay_buffer PARAMS ((cpp_reader *pfile, const uchar *,
 					 size_t));
 extern void _cpp_remove_overlay PARAMS ((cpp_reader *));
-extern cpp_hashnode *_cpp_lex_identifier_trad PARAMS ((cpp_reader *));
 extern void _cpp_set_trad_context PARAMS ((cpp_reader *));
 extern bool _cpp_create_trad_definition PARAMS ((cpp_reader *, cpp_macro *));
 extern bool _cpp_expansions_different_trad PARAMS ((const cpp_macro *,
 						    const cpp_macro *));
+extern uchar *_cpp_copy_replacement_text PARAMS ((const cpp_macro *, uchar *));
+extern size_t _cpp_replacement_text_len PARAMS ((const cpp_macro *));
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1

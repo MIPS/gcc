@@ -228,7 +228,7 @@ print_rtx (in_rtx)
 	      fprintf (outfile, " [%d]", ORIGINAL_REGNO (in_rtx));
 	    break;
 	  }
-	if (i == 3 && GET_CODE (in_rtx) == NOTE)
+	if (i == 4 && GET_CODE (in_rtx) == NOTE)
 	  {
 	    switch (NOTE_LINE_NUMBER (in_rtx))
 	      {
@@ -331,7 +331,7 @@ print_rtx (in_rtx)
 		     print_rtx_head, indent * 2, "");
 	    sawclose = 0;
 	  }
-	fputs ("[ ", outfile);
+	fputs (" [", outfile);
 	if (NULL != XVEC (in_rtx, i))
 	  {
 	    indent += 2;
@@ -346,7 +346,7 @@ print_rtx (in_rtx)
 	if (sawclose)
 	  fprintf (outfile, "\n%s%*s", print_rtx_head, indent * 2, "");
 
-	fputs ("] ", outfile);
+	fputs ("]", outfile);
 	sawclose = 1;
 	indent -= 2;
 	break;
@@ -364,7 +364,7 @@ print_rtx (in_rtx)
 	break;
 
       case 'i':
-	if (i == 5 && GET_CODE (in_rtx) == NOTE)
+	if (i == 6 && GET_CODE (in_rtx) == NOTE)
 	  {
 	    /* This field is only used for NOTE_INSN_DELETED_LABEL, and
 	       other times often contains garbage from INSN->NOTE death.  */
@@ -641,6 +641,7 @@ debug_rtx (x)
      rtx x;
 {
   outfile = stderr;
+  sawclose = 0;
   print_rtx (x);
   fprintf (stderr, "\n");
 }
@@ -677,7 +678,10 @@ debug_rtx_list (x, n)
       }
 
   for (i = count, insn = x; i > 0 && insn != 0; i--, insn = NEXT_INSN (insn))
-    debug_rtx (insn);
+    {
+      debug_rtx (insn);
+      fprintf (stderr, "\n");
+    }
 }
 
 /* Call this function to print an rtx list from START to END inclusive.  */
@@ -689,6 +693,7 @@ debug_rtx_range (start, end)
   while (1)
     {
       debug_rtx (start);
+      fprintf (stderr, "\n");
       if (!start || start == end)
 	break;
       start = NEXT_INSN (start);

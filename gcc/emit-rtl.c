@@ -92,6 +92,12 @@ static int no_line_numbers;
 
 rtx global_rtl[GR_MAX];
 
+/* Commonly used RTL for hard registers.  These objects are not necessarily
+   unique, so we allocate them separately from global_rtl.  They are
+   initialized once per compilation unit, then copied into regno_reg_rtx
+   at the beginning of each function.  */
+static GTY(()) rtx static_regno_reg_rtx[FIRST_PSEUDO_REGISTER];
+
 /* We record floating-point CONST_DOUBLEs in each floating-point mode for
    the values of 0, 1, and 2.  For the integer entries and VOIDmode, we
    record a copy of const[012]_rtx.  */
@@ -492,7 +498,10 @@ immed_double_const (i0, i1, mode)
     {
       int width;
       if (GET_MODE_CLASS (mode) != MODE_INT
-	  && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
+	  && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT
+	  /* We can get a 0 for an error mark.  */
+	  && GET_MODE_CLASS (mode) != MODE_VECTOR_INT
+	  && GET_MODE_CLASS (mode) != MODE_VECTOR_FLOAT)
 	abort ();
 
       /* We clear out all bits that don't belong in MODE, unless they and
@@ -603,6 +612,22 @@ gen_rtx_REG (mode, regno)
       if (regno == STACK_POINTER_REGNUM)
 	return stack_pointer_rtx;
     }
+
+#if 0
+  /* If the per-function register table has been set up, try to re-use
+     an existing entry in that table to avoid useless generation of RTL.
+
+     This code is disabled for now until we can fix the various backends
+     which depend on having non-shared hard registers in some cases.   Long
+     term we want to re-enable this code as it can significantly cut down
+     on the amount of useless RTL that gets generated.  */
+  if (cfun
+      && cfun->emit
+      && regno_reg_rtx
+      && regno < FIRST_PSEUDO_REGISTER
+      && reg_raw_mode[regno] == mode)
+    return regno_reg_rtx[regno];
+#endif
 
   return gen_raw_REG (mode, regno);
 }
@@ -3379,7 +3404,7 @@ try_split (pat, trial, last)
 	     usage count so we don't delete the label.  */
 	  if (GET_CODE (trial) == INSN)
 	    {
-	      insn = last_insn;
+	      insn = insn_last;
 	      while (insn != NULL_RTX)
 		{
 		  if (GET_CODE (insn) == INSN)
@@ -4458,7 +4483,8 @@ emit_insn_after_scope (pattern, after, scope)
   after = NEXT_INSN (after);
   while (1)
     {
-      INSN_SCOPE (after) = scope;
+      if (active_insn_p (after))
+	INSN_SCOPE (after) = scope;
       if (after == last)
 	break;
       after = NEXT_INSN (after);
@@ -4477,7 +4503,8 @@ emit_jump_insn_after_scope (pattern, after, scope)
   after = NEXT_INSN (after);
   while (1)
     {
-      INSN_SCOPE (after) = scope;
+      if (active_insn_p (after))
+	INSN_SCOPE (after) = scope;
       if (after == last)
 	break;
       after = NEXT_INSN (after);
@@ -4496,7 +4523,8 @@ emit_call_insn_after_scope (pattern, after, scope)
   after = NEXT_INSN (after);
   while (1)
     {
-      INSN_SCOPE (after) = scope;
+      if (active_insn_p (after))
+	INSN_SCOPE (after) = scope;
       if (after == last)
 	break;
       after = NEXT_INSN (after);
@@ -4516,7 +4544,8 @@ emit_insn_before_scope (pattern, before, scope)
   first = NEXT_INSN (first);
   while (1)
     {
-      INSN_SCOPE (first) = scope;
+      if (active_insn_p (first))
+	INSN_SCOPE (first) = scope;
       if (first == last)
 	break;
       first = NEXT_INSN (first);
@@ -5223,7 +5252,6 @@ void
 init_emit ()
 {
   struct function *f = cfun;
-  int i;
 
   f->emit = (struct emit_status *) ggc_alloc (sizeof (struct emit_status));
   first_insn = NULL;
@@ -5254,12 +5282,12 @@ init_emit ()
 				  * sizeof (tree));
 
   /* Put copies of all the hard registers into regno_reg_rtx.  */
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    regno_reg_rtx[i] = gen_raw_REG (reg_raw_mode[i], i);
+  memcpy (regno_reg_rtx,
+	  static_regno_reg_rtx,
+	  FIRST_PSEUDO_REGISTER * sizeof (rtx));
 
   /* Put copies of all the virtual register rtx into regno_reg_rtx.  */
   init_virtual_regs (f->emit);
-
 
   /* Indicate that the virtual registers and stack locations are
      all pointers.  */
@@ -5395,6 +5423,11 @@ init_emit_once (line_numbers)
   virtual_outgoing_args_rtx =
     gen_raw_REG (Pmode, VIRTUAL_OUTGOING_ARGS_REGNUM);
   virtual_cfa_rtx = gen_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
+
+  /* Initialize RTL for commonly used hard registers.  These are
+     copied into regno_reg_rtx as we begin to compile each function.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    static_regno_reg_rtx[i] = gen_raw_REG (reg_raw_mode[i], i);
 
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first

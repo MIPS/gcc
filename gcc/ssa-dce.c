@@ -512,8 +512,6 @@ ssa_eliminate_dead_code ()
 
   /* Prepare for use of BLOCK_NUM ().  */
   connect_infinite_loops_to_exit ();
-   /* Be careful not to clear the added edges.  */
-  compute_bb_for_insn ();
 
   /* Compute control dependence.  */
   pdom = calculate_dominance_info (CDI_POST_DOMINATORS);

@@ -220,6 +220,9 @@ int flag_short_double;
 
 int flag_short_wchar;
 
+/* Nonzero means allow Microsoft extensions without warnings or errors.  */
+int flag_ms_extensions;
+
 /* Nonzero means warn about use of multicharacter literals.  */
 
 int warn_multichar = 1;
@@ -368,6 +371,7 @@ static bool get_nonnull_operand		PARAMS ((tree,
 void builtin_define_std PARAMS ((const char *));
 static void builtin_define_with_value PARAMS ((const char *, const char *,
 					       int));
+static void builtin_define_type_max PARAMS ((const char *, tree, int));
 
 /* Table of machine-independent attributes common to all C-like languages.  */
 const struct attribute_spec c_common_attribute_table[] =
@@ -1603,38 +1607,33 @@ c_common_type_for_mode (mode, unsignedp)
   if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
     return build_pointer_type (integer_type_node);
 
-#ifdef VECTOR_MODE_SUPPORTED_P
-  if (VECTOR_MODE_SUPPORTED_P (mode))
+  switch (mode)
     {
-      switch (mode)
-	{
-	case V16QImode:
-	  return unsignedp ? unsigned_V16QI_type_node : V16QI_type_node;
-	case V8HImode:
-	  return unsignedp ? unsigned_V8HI_type_node : V8HI_type_node;
-	case V4SImode:
-	  return unsignedp ? unsigned_V4SI_type_node : V4SI_type_node;
-	case V2DImode:
-	  return unsignedp ? unsigned_V2DI_type_node : V2DI_type_node;
-	case V2SImode:
-	  return unsignedp ? unsigned_V2SI_type_node : V2SI_type_node;
-	case V4HImode:
-	  return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
-	case V8QImode:
-	  return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
-	case V16SFmode:
-	  return V16SF_type_node;
-	case V4SFmode:
-	  return V4SF_type_node;
-	case V2SFmode:
-	  return V2SF_type_node;
-	case V2DFmode:
-	  return V2DF_type_node;
-	default:
-	  break;
-	}
+    case V16QImode:
+      return unsignedp ? unsigned_V16QI_type_node : V16QI_type_node;
+    case V8HImode:
+      return unsignedp ? unsigned_V8HI_type_node : V8HI_type_node;
+    case V4SImode:
+      return unsignedp ? unsigned_V4SI_type_node : V4SI_type_node;
+    case V2DImode:
+      return unsignedp ? unsigned_V2DI_type_node : V2DI_type_node;
+    case V2SImode:
+      return unsignedp ? unsigned_V2SI_type_node : V2SI_type_node;
+    case V4HImode:
+      return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
+    case V8QImode:
+      return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
+    case V16SFmode:
+      return V16SF_type_node;
+    case V4SFmode:
+      return V4SF_type_node;
+    case V2SFmode:
+      return V2SF_type_node;
+    case V2DFmode:
+      return V2DF_type_node;
+    default:
+      break;
     }
-#endif
 
   return 0;
 }
@@ -4351,6 +4350,19 @@ cb_register_builtins (pfile)
   builtin_define_with_value ("__WCHAR_TYPE__", MODIFIED_WCHAR_TYPE, 0);
   builtin_define_with_value ("__WINT_TYPE__", WINT_TYPE, 0);
 
+  /* limits.h needs to know these.  */
+  builtin_define_type_max ("__SCHAR_MAX__", signed_char_type_node, 0);
+  builtin_define_type_max ("__SHRT_MAX__", short_integer_type_node, 0);
+  builtin_define_type_max ("__INT_MAX__", integer_type_node, 0);
+  builtin_define_type_max ("__LONG_MAX__", long_integer_type_node, 1);
+  builtin_define_type_max ("__LONG_LONG_MAX__", long_long_integer_type_node, 2);
+
+  {
+    char buf[8];
+    sprintf (buf, "%d", (int) TYPE_PRECISION (signed_char_type_node));
+    builtin_define_with_value ("__CHAR_BIT__", buf, 0);
+  }
+
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);
   builtin_define_with_value ("__USER_LABEL_PREFIX__", user_label_prefix, 0);
@@ -4458,6 +4470,54 @@ builtin_define_with_value (macro, expansion, is_str)
     sprintf (buf, "%s=\"%s\"", macro, expansion);
   else
     sprintf (buf, "%s=%s", macro, expansion);
+
+  cpp_define (parse_in, buf);
+}
+
+/* Define MAX for TYPE based on the precision of the type, which is assumed
+   to be signed.  IS_LONG is 1 for type "long" and 2 for "long long".  */
+
+static void
+builtin_define_type_max (macro, type, is_long)
+     const char *macro;
+     tree type;
+     int is_long;
+{
+  const char *value;
+  char *buf;
+  size_t mlen, vlen, extra;
+
+  /* Pre-rendering the values mean we don't have to futz with printing a
+     multi-word decimal value.  There are also a very limited number of
+     precisions that we support, so it's really a waste of time.  */
+  switch (TYPE_PRECISION (type))
+    {
+    case 8:
+      value = "127";
+      break;
+    case 16:
+      value = "32767";
+      break;
+    case 32:
+      value = "2147483647";
+      break;
+    case 64:
+      value = "9223372036854775807";
+      break;
+    case 128:
+      value = "170141183460469231731687303715884105727";
+      break;
+    default:
+      abort ();
+    }
+
+  mlen = strlen (macro);
+  vlen = strlen (value);
+  extra = 2 + is_long;
+  buf = alloca (mlen + vlen + extra);
+
+  sprintf (buf, "%s=%s%s", macro, value,
+	   (is_long == 1 ? "L" : is_long == 2 ? "LL" : ""));
 
   cpp_define (parse_in, buf);
 }
@@ -4998,8 +5058,20 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
 		     (mode, TREE_UNSIGNED (type))))
 	error ("no data type for mode `%s'", p);
       else
-	*node = typefm;
-        /* No need to layout the type here.  The caller should do this.  */
+	{
+	  /* If this is a vector, make sure we either have hardware
+	     support, or we can emulate it.  */
+	  if ((GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+	       || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+	      && !vector_mode_valid_p (mode))
+	    {
+	      error ("unable to emulate '%s'", GET_MODE_NAME (mode));
+	      return NULL_TREE;
+	    }
+
+	  *node = typefm;
+	  /* No need to layout the type here.  The caller should do this.  */
+	}
     }
 
   return NULL_TREE;
@@ -5575,6 +5647,16 @@ handle_vector_size_attribute (node, name, args, flags, no_add_attrs)
 	}
 
       new_type = build_type_copy (new_type);
+
+      /* If this is a vector, make sure we either have hardware
+         support, or we can emulate it.  */
+      if ((GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+	   || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+	  && !vector_mode_valid_p (mode))
+	{
+	  error ("unable to emulate '%s'", GET_MODE_NAME (mode));
+	  return NULL_TREE;
+	}
 
       /* Set the debug information here, because this is the only
 	 place where we know the underlying type for a vector made

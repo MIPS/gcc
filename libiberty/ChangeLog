@@ -1,7 +1,7 @@
-Thu Jun  6 22:57:34 CEST 2002  Pavel Nejedly <bim@atrey.karlin.mff.cuni.cz>
+2002-06-17  Douglas Rupp  <rupp@gnat.com>
 
-	* Makefile.in (et-forest.c): Add.
-	* et-forest.c: New file.
+	* lbasename.c: Add 2002 to copyright.
+	(IS_DIR_SEPARATOR): Remove VMS junk.
 
 2002-06-05  Geoffrey Keating  <geoffk@redhat.com>
 
