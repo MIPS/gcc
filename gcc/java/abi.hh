@@ -87,7 +87,13 @@ public:
   /// Return a tree representing a reference to some other class.
   virtual tree build_class_reference (tree_builtins *builtins,
 				      aot_class *current,
+				      // FIXME: should take a string here
 				      tree other) = 0;
+
+  /// Return a tree representing a reference to some other class.
+  virtual tree build_class_reference (tree_builtins *builtins,
+				      aot_class *current,
+				      model_class *other) = 0;
 
   /// Return an expression that is used to create a new object given
   /// its type, constructor, and arguments to the constructor.
@@ -122,6 +128,10 @@ public:
 
   tree build_class_reference (tree_builtins *, aot_class *, tree);
 
+  tree build_class_reference (tree_builtins *builtins,
+			      aot_class *current,
+			      model_class *other);
+
   tree build_new (tree_builtins *, aot_class *, tree, tree, tree);
 
   tree get_size_in_bytes (tree klass)
@@ -152,6 +162,10 @@ public:
 			      tree, model_field *);
 
   tree build_class_reference (tree_builtins *, aot_class *, tree);
+
+  tree build_class_reference (tree_builtins *builtins,
+			      aot_class *current,
+			      model_class *other);
 
   tree build_new (tree_builtins *, aot_class *, tree, tree, tree);
 

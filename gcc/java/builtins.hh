@@ -29,6 +29,10 @@ class tree_builtins : public aot_class_factory
   // This maps our types to gcc types.
   std::map<model_type *, tree> typemap;
 
+  // This maps classes to their class objects.
+  // FIXME: perhaps this should be attached to the gcc type somehow?
+  std::map<model_class *, tree> classobj_map;
+
   // This maps a method to its corresponding gcc tree.
   std::map<model_method *, tree> methodmap;
 
@@ -77,6 +81,7 @@ public:
 
   tree map_method_call (aot_class *, tree, tree, model_method *, bool);
   tree map_new (model_class *, tree, tree);
+  tree map_class_object (model_class *);
 
   /// Memoize a utf8const.
   tree map_utf8const (const std::string &);

@@ -85,7 +85,7 @@ tree
 class_object_creator::make_decl (tree type, tree value)
 {
   tree decl = build_decl (VAR_DECL, NULL_TREE, type);
-  DECL_INITIAL (decl) = build_constructor (type, value);
+  DECL_INITIAL (decl) = value;
   TREE_STATIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   DECL_IGNORED_P (decl) = 1;
@@ -194,6 +194,8 @@ class_object_creator::create_index_table (const std::vector<model_element *> &ta
     }
 
   // FIXME create the tables and update the arguments
+  result_table = null_pointer_node;
+  result_syms = null_pointer_node;
 }
 
 void
@@ -263,12 +265,16 @@ class_object_creator::create_class_instance (tree class_tree)
     mods &= ~ACC_ACCESS;
   inst.set_field ("accflags", build_int_cst (type_jushort, mods));
 
+  tree super_tree = null_pointer_node;
   model_class *super = real_class->get_superclass ();
   if (real_class->interface_p ())
     super = global->get_compiler ()->java_lang_Object ();
-  inst.set_field ("superclass",
-		  super ? builtins->map_type (real_class->get_superclass ())
-		  : null_pointer_node);
+  if (super)
+    {
+      gcj_abi *abi = builtins->find_abi (super);
+      super_tree = abi->build_class_reference (builtins, klass, super);
+    }
+  inst.set_field ("superclass", super_tree);
 
   inst.set_field ("constants", null_pointer_node);  // FIXME
 
@@ -330,5 +336,9 @@ class_object_creator::create_class_instance (tree class_tree)
 
   tree init = inst.finish_record ();
 
-  result = make_decl (type_class, init);
+  result = builtins->map_class_object (klass->get ());
+  DECL_INITIAL (result) = init;
+  rest_of_decl_compilation (result, 1, 0);
+
+  result = build1 (ADDR_EXPR, type_class_ptr, result);
 }

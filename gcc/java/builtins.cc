@@ -252,6 +252,24 @@ tree_builtins::map_type (model_type *type)
 }
 
 tree
+tree_builtins::map_class_object (model_class *klass)
+{
+  if (classobj_map.find (klass) == classobj_map.end ())
+    {
+      tree decl = build_decl (VAR_DECL, NULL_TREE, type_class);
+      TREE_STATIC (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      // FIXME: DECL_EXTERNAL ?
+      SET_DECL_ASSEMBLER_NAME (decl,
+			       get_identifier (get_class_object_name (klass).c_str ()));
+
+      classobj_map[klass] = decl;
+    }
+  return classobj_map[klass];
+}
+
+tree
 tree_builtins::map_param_or_var (tree_code type, tree context,
 				 model_variable_decl *var)
 {

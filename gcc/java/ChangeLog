@@ -1,5 +1,16 @@
 2005-02-09  Tom Tromey  <tromey@redhat.com>
 
+	* abi.cc (build_class_reference): New methods.
+	* builtins.cc (map_class_object): New method.
+	* builtins.hh (tree_builtins::classobj_map): New field.
+	(tree_builtins::map_class_object): Declare.
+	* classobj.cc (make_decl): Don't create another constructor.
+	(create_class_instance): Use map_class_object.  Correctly handle
+	'super'.
+	(create_index_table): Temporarily set results to null.
+
+2005-02-09  Tom Tromey  <tromey@redhat.com>
+
 	* classobj.cc (make_decl): Set decl assembler name on class
 	record.
 	* builtins.cc (get_class_object_name): New method.

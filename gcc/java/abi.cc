@@ -156,6 +156,15 @@ cxx_abi::build_class_reference (tree_builtins *builtins,
 }
 
 tree
+cxx_abi::build_class_reference (tree_builtins *builtins,
+				aot_class *,
+				model_class *klass)
+{
+  tree class_obj = builtins->map_class_object (klass);
+  return build1 (ADDR_EXPR, type_class_ptr, class_obj);
+}
+
+tree
 cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
 		    tree klass, tree constructor, tree arguments)
 {
@@ -223,12 +232,20 @@ bc_abi::build_field_reference (tree_builtins *builtins,
 tree
 bc_abi::build_class_reference (tree_builtins *, aot_class *current, tree klass)
 {
-  return NULL_TREE;
+  abort ();
+}
+
+tree
+bc_abi::build_class_reference (tree_builtins *,
+			       aot_class *,
+			       model_class *)
+{
+  abort ();
 }
 
 tree
 bc_abi::build_new (tree_builtins *builtins, aot_class *current,
 		   tree klass, tree constructor, tree arguments)
 {
-  return NULL_TREE;
+  abort ();
 }

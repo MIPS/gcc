@@ -715,6 +715,8 @@ initialize_builtin_functions ()
 static void
 initialize_version ()
 {
+  // FIXME: this is wrong, must parse version.c.
+  // Take from gcj.
   int version = __GNUC__ * 10000 + __GNUC_MINOR__ * 10;
   if (flag_indirect_dispatch)
     version += 5;
