@@ -1,3 +1,12 @@
+Tue Nov 26 16:17:15 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* bb-reorder.c (copy_bb_p): Code cleanup.
+
+	* bb-reorder.c (struct trace): New item "length".
+	(find_traces_1_round): compute the length of trace.
+	(connect_traces): when probalities are same, prefer longer trace as
+	the continuation.
+
 Mon Nov 25 18:54:17 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
 
 	* bb-reorder.c (find_traces_1_round): Fix debug prints.

@@ -110,6 +110,9 @@ struct trace
 
   /* The round of the STC creation which this trace was found in.  */
   int round;
+
+  /* The length (i.e. the number of basic blocks) of the trace.  */
+  int length;
 };
 
 /* Maximum frequency and count of one of the entry blocks.  */
@@ -284,6 +287,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
       trace = traces + *n_traces;
       trace->first = bb;
       trace->round = round;
+      trace->length = 0;
       (*n_traces)++;
 
       do
@@ -296,6 +300,7 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 
 	  best_edge = NULL;
 	  mark_bb_visited (bb, *n_traces);
+	  trace->length++;
 
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, "Basic block %d was visited in trace %d\n",
@@ -655,6 +660,7 @@ connect_traces (n_traces, traces)
       if (!connected[t])
 	{
 	  edge e, best;
+	  int best_len;
 
 	  connected[t] = true;
 
@@ -662,16 +668,25 @@ connect_traces (n_traces, traces)
 	  for (t2 = t; t2 > 0;)
 	    {
 	      best = NULL;
+	      best_len = 0;
 	      for (e = traces[t2].first->pred; e; e = e->pred_next)
 		{
+		  int si = e->src->index;
+
 		  if (e->src != ENTRY_BLOCK_PTR
 		      && (e->flags & EDGE_CAN_FALLTHRU)
 		      && !(e->flags & EDGE_COMPLEX)
-		      && e->src->index < original_last_basic_block
-		      && end_of_trace[e->src->index] >= 0
-		      && !connected[end_of_trace[e->src->index]]
-		      && (!best || e->probability > best->probability))
-		    best = e;
+		      && si < original_last_basic_block
+		      && end_of_trace[si] >= 0
+		      && !connected[end_of_trace[si]]
+		      && (!best 
+			  || e->probability > best->probability
+			  || (e->probability == best->probability
+			      && traces[end_of_trace[si]].length > best_len)))
+		    {
+		      best = e;
+		      best_len = traces[end_of_trace[si]].length;
+		    }
 		}
 	      if (best)
 		{
@@ -697,16 +712,25 @@ connect_traces (n_traces, traces)
 	    {
 	      /* Find the continuation of the chain.  */
 	      best = NULL;
+	      best_len = 0;
 	      for (e = traces[t].last->succ; e; e = e->succ_next)
 		{
+		  int di = e->dest->index;
+
 		  if (e->dest != EXIT_BLOCK_PTR
 		      && (e->flags & EDGE_CAN_FALLTHRU)
 		      && !(e->flags & EDGE_COMPLEX)
-		      && e->dest->index < original_last_basic_block
-		      && start_of_trace[e->dest->index] >= 0
-		      && !connected[start_of_trace[e->dest->index]]
-		      && (!best || e->probability > best->probability))
-		    best = e;
+		      && di < original_last_basic_block
+		      && start_of_trace[di] >= 0
+		      && !connected[start_of_trace[di]]
+		      && (!best
+			  || e->probability > best->probability
+			  || (e->probability == best->probability
+			      && traces[end_of_trace[di]].length > best_len)))
+		    {
+		      best = e;
+		      best_len = traces[end_of_trace[di]].length;
+		    }
 		}
 
 	      if (best)
@@ -727,24 +751,39 @@ connect_traces (n_traces, traces)
 			&& (e->flags & EDGE_CAN_FALLTHRU)
 			&& (EDGE_FREQUENCY (e) >= freq_threshold)
 			&& (e->count >= count_threshold)
-			&& (!best || e->probability > best->probability))
+			&& (!best 
+			    || e->probability > best->probability))
 		      {
 			edge best2 = NULL;
+			int best2_len = 0;
+
 			for (e2 = e->dest->succ; e2; e2 = e2->succ_next)
-			  if (e2->dest == EXIT_BLOCK_PTR
-			      || ((e2->flags & EDGE_CAN_FALLTHRU)
-				  && e2->dest->index < original_last_basic_block
-				  && start_of_trace[e2->dest->index] >= 0
-				  && !connected[start_of_trace[e2->dest->index]]
-				  && (EDGE_FREQUENCY (e2) >= freq_threshold)
-				  && (e2->count >= count_threshold)
-				  && (!best2
-				      || e2->probability > best2->probability)))
-			    {
-			      best = e;
-			      best2 = e2;
-			      next_bb = e2->dest;
-			    }
+			  {
+			    int di = e2->dest->index;
+
+			    if (e2->dest == EXIT_BLOCK_PTR
+				|| ((e2->flags & EDGE_CAN_FALLTHRU)
+				    && di < original_last_basic_block
+				    && start_of_trace[di] >= 0
+				    && !connected[start_of_trace[di]]
+				    && (EDGE_FREQUENCY (e2) >= freq_threshold)
+				    && (e2->count >= count_threshold)
+				    && (!best2
+					|| e2->probability > best2->probability
+					|| (e2->probability
+					    == best2->probability
+					    && traces[end_of_trace[di]].length 
+					    > best2_len))))
+			      {
+				best = e;
+				best2 = e2;
+				if (e2->dest != EXIT_BLOCK_PTR)
+				  best2_len = traces[start_of_trace[di]].length;
+				else
+				  best2_len = INT_MAX;
+				next_bb = e2->dest;
+			      }
+			  }
 		      }
 		  if (best)
 		    {
@@ -820,7 +859,7 @@ copy_bb_p (bb, size_can_grow)
      int size_can_grow;
 {
   int size = 0;
-  int max_size;
+  int max_size = uncond_jump_length;
   rtx insn;
 
   if (!bb->frequency)
@@ -830,10 +869,8 @@ copy_bb_p (bb, size_can_grow)
   if (!cfg_layout_can_duplicate_bb_p (bb))
     return false;
 
-  if (maybe_hot_bb_p (bb))
-    max_size = 8 * uncond_jump_length;
-  else
-    size_can_grow = false;
+  if (size_can_grow && maybe_hot_bb_p (bb))
+    max_size *= 8;
 
   for (insn = bb->head; insn != NEXT_INSN (bb->end);
        insn = NEXT_INSN (insn))
@@ -842,8 +879,7 @@ copy_bb_p (bb, size_can_grow)
 	size += get_attr_length (insn);
     }
 
-  if ((size_can_grow && size <= max_size)
-      || size <= uncond_jump_length)
+  if (size <= max_size)
     return true;
   return false;
 }
