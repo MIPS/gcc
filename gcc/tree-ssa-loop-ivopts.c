@@ -3219,13 +3219,13 @@ iv_value (struct iv *iv, tree niter)
 static tree
 cand_value_at (struct loop *loop, struct iv_cand *cand, tree at, tree niter)
 {
-  tree type = TREE_TYPE (niter);
+  tree val = iv_value (cand->iv, niter);
+  tree type = TREE_TYPE (cand->iv->base);
 
   if (stmt_after_increment (loop, cand, at))
-    niter = fold (build (PLUS_EXPR, type, niter,
-			 convert (type, integer_one_node)));
+    val = fold (build (PLUS_EXPR, type, val, cand->iv->step));
 
-  return iv_value (cand->iv, niter);
+  return val;
 }
 
 /* Check whether it is possible to express the condition in USE by comparison
@@ -3238,7 +3238,8 @@ may_eliminate_iv (struct loop *loop,
 		  enum tree_code *compare, tree *bound)
 {
   edge exit;
-  struct tree_niter_desc *niter;
+  struct tree_niter_desc *niter, new_niter;
+  tree wider_type, type, base;
 
   /* For now just very primitive -- we work just for the single exit condition,
      and are quite conservative about the possible overflows.  TODO -- both of
@@ -3251,19 +3252,39 @@ may_eliminate_iv (struct loop *loop,
 
   niter = &loop_data (loop)->niter;
   if (!niter->niter
-      || !operand_equal_p (niter->assumptions, boolean_true_node, 0)
-      || !operand_equal_p (niter->may_be_zero, boolean_false_node, 0))
+      || !integer_nonzerop (niter->assumptions)
+      || !integer_zerop (niter->may_be_zero))
     return false;
 
-  /* FIXME -- we ignore the possible overflow here.  For example
-     in case the loop iterates MAX_UNSIGNED_INT / 2 times and
-     the step of candidate is 4, this is wrong.  */
   if (exit->flags & EDGE_TRUE_VALUE)
     *compare = EQ_EXPR;
   else
     *compare = NE_EXPR;
 
   *bound = cand_value_at (loop, cand, use->stmt, niter->niter);
+
+  /* Let us check there is not some problem with overflows, by checking that
+     the number of iterations is unchanged.  */
+  base = cand->iv->base;
+  type = TREE_TYPE (base);
+  if (stmt_after_increment (loop, cand, use->stmt))
+    base = fold (build (PLUS_EXPR, type, base, cand->iv->step));
+
+  new_niter.niter = NULL_TREE;
+  number_of_iterations_cond (TREE_TYPE (cand->iv->base), base,
+			     cand->iv->step, NE_EXPR, *bound, NULL_TREE,
+			     &new_niter);
+  if (!new_niter.niter
+      || !integer_nonzerop (new_niter.assumptions)
+      || !integer_zerop (new_niter.may_be_zero))
+    return false;
+
+  wider_type = TREE_TYPE (new_niter.niter);
+  if (TYPE_PRECISION (wider_type) < TYPE_PRECISION (TREE_TYPE (niter->niter)))
+    wider_type = TREE_TYPE (niter->niter);
+  if (!operand_equal_p (fold_convert (wider_type, niter->niter),
+			fold_convert (wider_type, new_niter.niter), 0))
+    return false;
 
   return true;
 }

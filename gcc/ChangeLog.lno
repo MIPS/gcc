@@ -1,5 +1,10 @@
 2004-07-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-ssa-loop-ivopts.c (cand_value_at): Handle types correctly.
+	(may_eliminate_iv): Verify there is no overflow.
+
+2004-07-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-ssa-loop-ivopts.c (find_bivs, find_givs_in_stmt_scev):
 	Ensure that step of the iv satisfies cst_and_fits_in_hwi.
 	(determine_use_iv_cost_outer): Preserve the fact that the cost
