@@ -3348,6 +3348,7 @@ rest_of_compilation (decl)
       /* Do control and data sched analysis,
 	 and write some of the results to dump file.  */
 
+#if 0
       if (flag_superblock_scheduling)
 	{
 	  if (!flag_trace_scheduling)
@@ -3361,6 +3362,7 @@ rest_of_compilation (decl)
 	  life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
 	}
       else
+#endif
 	schedule_insns (rtl_dump_file);
 
       close_dump_file (DFI_sched, print_rtl_with_bb, insns);
