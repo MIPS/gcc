@@ -1,3 +1,7 @@
+2004-02-16  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from 3.3-branch (gcc-3_3_3_release)
+
 2004-02-15  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_avoid_jump_misspredicts):  Fix merge error.
