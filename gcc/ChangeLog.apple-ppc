@@ -1,3 +1,7 @@
+2005-03-11  Devang Patel  <dpatel@apple.com>
+
+        * target.h: Reinsert one line comment.
+
 2005-03-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3995882
