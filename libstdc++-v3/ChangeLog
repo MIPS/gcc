@@ -1,3 +1,7 @@
+2003-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure: Rebuilt.
+
 2003-06-02  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR libstdc++/9815

@@ -1,3 +1,7 @@
+2003-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure: Rebuilt.
+
 2003-05-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.in (HAVE_RO_EH_FRAME): Check whether .eh_frame section
