@@ -9586,11 +9586,9 @@ check_special_function_return_type (sfk, type, optype)
   return type;
 }
 
-/* Given declspecs and a declarator,
-   determine the name and type of the object declared
-   and construct a ..._DECL node for it.
-   (In one case we can return a ..._TYPE node instead.
-    For invalid input we sometimes return 0.)
+/* Given declspecs and a declarator (abstract or otherwise), determine
+   the name and type of the object declared and construct a DECL node
+   for it.
 
    DECLSPECS is a chain of tree_list nodes whose value fields
     are the storage classes and type specifiers.
@@ -9617,35 +9615,15 @@ check_special_function_return_type (sfk, type, optype)
    if there are none; *ATTRLIST may be modified if attributes from inside
    the declarator should be applied to the declaration.
 
-   In the TYPENAME case, DECLARATOR is really an abstract declarator.
-   It may also be so in the PARM case, for a prototype where the
-   argument type is specified but not the name.
+   When this function is called, scoping variables (such as
+   CURRENT_CLASS_TYPE) should reflect the scope in which the
+   declaration occurs, not the scope in which the new declaration will
+   be placed.  For example, on:
 
-   This function is where the complicated C meanings of `static'
-   and `extern' are interpreted.
+     void S::f() { ... }
 
-   For C++, if there is any monkey business to do, the function which
-   calls this one must do it, i.e., prepending instance variables,
-   renaming overloaded function names, etc.
-
-   Note that for this C++, it is an error to define a method within a class
-   which does not belong to that class.
-
-   Except in the case where SCOPE_REFs are implicitly known (such as
-   methods within a class being redundantly qualified),
-   declarations which involve SCOPE_REFs are returned as SCOPE_REFs
-   (class_name::decl_name).  The caller must also deal with this.
-
-   If a constructor or destructor is seen, and the context is FIELD,
-   then the type gains the attribute TREE_HAS_x.  If such a declaration
-   is erroneous, NULL_TREE is returned.
-
-   QUALS is used only for FUNCDEF and MEMFUNCDEF cases.  For a member
-   function, these are the qualifiers to give to the `this' pointer. We
-   apply TYPE_QUAL_RESTRICT to the this ptr, not the object.
-
-   May return void_type_node if the declarator turned out to be a friend.
-   See grokfield for details.  */
+   when grokdeclarator is called for `S::f', the CURRENT_CLASS_TYPE
+   should not be `S'.  */
 
 tree
 grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
@@ -9696,6 +9674,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   int template_count = 0;
   tree in_namespace = NULL_TREE;
   tree returned_attrs = NULL_TREE;
+  tree scope = NULL_TREE;
 
   RIDBIT_RESET_ALL (specbits);
   if (decl_context == FUNCDEF)
@@ -10561,6 +10540,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   if (nclasses > 0 && friendp)
     error ("storage class specifiers invalid in friend function declarations");
 
+  scope = get_scope_of_declarator (declarator);
+
   /* Now figure out the structure of the declarator proper.
      Descend through it, creating more complex types, until we reach
      the declared identifier (or NULL_TREE, in an abstract declarator).  */
@@ -10959,43 +10940,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    if (TREE_CODE (sname) == BIT_NOT_EXPR)
 	      sname = TREE_OPERAND (sname, 0);
 
-	    if (TREE_COMPLEXITY (declarator) == 0)
-	      /* This needs to be here, in case we are called
-		 multiple times.  */ ;
-	    else if (TREE_COMPLEXITY (declarator) == -1)
-	      /* Namespace member. */
-	      pop_decl_namespace ();
-	    else if (friendp && (TREE_COMPLEXITY (declarator) < 2))
-	      /* Don't fall out into global scope. Hides real bug? --eichin */ ;
-	    else if (! IS_AGGR_TYPE_CODE
-		     (TREE_CODE (TREE_OPERAND (declarator, 0))))
-	      ;
-	    else if (TREE_COMPLEXITY (declarator) == current_class_depth)
-	      {
-		/* Resolve any TYPENAME_TYPEs from the decl-specifier-seq
-		   that refer to ctype.  They couldn't be resolved earlier
-		   because we hadn't pushed into the class yet.
-		   Example: resolve 'B<T>::type' in
-		   'B<typename B<T>::type> B<T>::f () { }'.  */
-		if (current_template_parms
-		    && uses_template_parms (type)
-		    && uses_template_parms (current_class_type))
-		  {
-		    tree args = current_template_args ();
-		    type = tsubst (type, args, tf_error | tf_warning,
-				   NULL_TREE);
-		  }
-
-		/* This pop_nested_class corresponds to the
-                   push_nested_class used to push into class scope for
-                   parsing the argument list of a function decl, in
-                   qualified_id.  */
-		pop_nested_class ();
-		TREE_COMPLEXITY (declarator) = current_class_depth;
-	      }
-	    else
-	      abort ();
-
 	    if (TREE_OPERAND (declarator, 0) == NULL_TREE)
 	      {
 		/* We had a reference to a global decl, or
@@ -11130,6 +11074,35 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	*attrlist = chainon (returned_attrs, *attrlist);
       else
 	attrlist = &returned_attrs;
+    }
+
+  /* Resolve any TYPENAME_TYPEs from the decl-specifier-seq that refer
+     to ctype.  They couldn't be resolved earlier because we hadn't
+     pushed into the class yet.  
+
+     For example, consider:
+
+       template <typename T>
+       struct S {
+         typedef T X;
+         X f();
+       };
+
+       template <typename T>
+       typename S<T>::X f() {}
+
+       When parsing the decl-specifier-seq for the definition of `f',
+       we construct a TYPENAME_TYPE for `S<T>::X'.  By substituting
+       here, we resolve it to the correct type.  */
+  if (scope && TYPE_P (scope) 
+      && current_template_parms
+      && uses_template_parms (scope))
+    {
+      tree args = current_template_args ();
+      push_scope (scope);
+      type = tsubst (type, args, tf_error | tf_warning,
+		     NULL_TREE);
+      pop_scope (scope);
     }
 
   /* Now TYPE has the actual type.  */
@@ -14590,7 +14563,7 @@ cp_tree_node_structure (t)
 {
   switch (TREE_CODE (&t->generic))
     {
-    case DEFAULT_ARG:		return TS_CP_IDENTIFIER;
+    case DEFAULT_ARG:		return TS_CP_DEFAULT_ARG;
     case IDENTIFIER_NODE:	return TS_CP_IDENTIFIER;
     case CPLUS_BINDING:		return TS_CP_BINDING;
     case OVERLOAD:		return TS_CP_OVERLOAD;

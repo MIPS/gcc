@@ -499,7 +499,7 @@ struct tree_srcloc GTY(())
 struct tree_default_arg GTY (())
 {
   struct tree_common common;
-  struct cp_token_block *tokens;
+  struct cp_token_cache *tokens;
 };
 
 enum cp_tree_node_structure_enum {
@@ -1760,7 +1760,7 @@ struct lang_decl GTY(())
 	union lang_decl_u3
 	{
 	  tree GTY ((tag ("0"))) sorted_fields;
-	  struct cp_token_block * GTY ((tag ("2"))) pending_inline_info;
+ 	  struct cp_token_cache * GTY ((tag ("2"))) pending_inline_info;
 	  struct language_function * GTY ((tag ("1"))) 
 	       saved_language_function;
 	} GTY ((desc ("%1.u3sel + %1.pending_inline_p"))) u;

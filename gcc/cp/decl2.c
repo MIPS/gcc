@@ -3990,7 +3990,7 @@ push_scope (t)
   if (TREE_CODE (t) == NAMESPACE_DECL)
     push_decl_namespace (t);
   else
-    pushclass (t, 2);
+    push_nested_class (t, 2);
 }
 
 /* Leave scope pushed by push_scope. */
@@ -4002,7 +4002,7 @@ pop_scope (t)
   if (TREE_CODE (t) == NAMESPACE_DECL)
     pop_decl_namespace ();
   else
-    popclass ();
+    pop_nested_class ();
 }
 
 /* [basic.lookup.koenig] */

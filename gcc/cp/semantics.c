@@ -1094,11 +1094,12 @@ begin_mem_initializers ()
     error ("only constructors take base initializers");
 }
 
-/* The INIT_LIST is a list of mem-initializers, in the order they were
-   written by the user.  The TREE_VALUE of each node is a list of
-   initializers for a particular subobject.  The TREE_PURPOSE is a
-   FIELD_DECL is the initializer is for a non-static data member, and
-   a class type if the initializer is for a base class.  */
+/* The INIT_LIST is a list of mem-initializers, in reverse of the
+   order they were written by the user.  The TREE_VALUE of each node
+   is a list of initializers for a particular subobject.  The
+   TREE_PURPOSE is a FIELD_DECL is the initializer is for a non-static
+   data member, and a class type if the initializer is for a base
+   class.  */
 
 void
 finish_mem_initializers (init_list)

@@ -4097,7 +4097,7 @@ adjust_clone_args (decl)
 
       clone_parms = orig_clone_parms;
       
-      /* Skip the 'this' parameter. */
+      /* Skip the non-user parameters.  */
       orig_clone_parms = TREE_CHAIN (orig_clone_parms);
       orig_decl_parms = TREE_CHAIN (orig_decl_parms);
 
@@ -5457,15 +5457,8 @@ init_class_processing ()
   ridpointers[(int) RID_PROTECTED] = access_protected_node;
 }
 
-/* Set current scope to NAME. CODE tells us if this is a
-   STRUCT, UNION, or ENUM environment.
-
-   NAME may end up being NULL_TREE if this is an anonymous or
-   late-bound struct (as in "struct { ... } foo;")  */
-
-/* Set global variables CURRENT_CLASS_NAME and CURRENT_CLASS_TYPE to
-   appropriate values, found by looking up the type definition of
-   NAME (as a CODE).
+/* Set global variables CURRENT_CLASS_NAME and CURRENT_CLASS_TYPE as
+   appropriate for TYPE.
 
    If MODIFY is 1, we set IDENTIFIER_CLASS_VALUE's of names
    which can be seen locally to the class.  They are shadowed by
@@ -5675,7 +5668,7 @@ push_nested_class (type, modify)
   pushclass (type, modify);
 }
 
-/* Undoes a push_nested_class call.  MODIFY is passed on to popclass.  */
+/* Undoes a push_nested_class call.  */
 
 void
 pop_nested_class ()

@@ -163,30 +163,32 @@ static tree for_each_template_parm_r PARAMS ((tree *, int *, void *));
 static tree copy_default_args_to_explicit_spec_1 PARAMS ((tree, tree));
 static void copy_default_args_to_explicit_spec PARAMS ((tree));
 static int invalid_nontype_parm_type_p PARAMS ((tree, tsubst_flags_t));
+static int eq_local_specializations (const void *, const void *);
 
-/* Do any processing required when DECL (a member template declaration
-   using TEMPLATE_PARAMETERS as its innermost parameter list) is
-   finished.  Returns the TEMPLATE_DECL corresponding to DECL, unless
-   it is a specialization, in which case the DECL itself is returned.  */
+/* Do any processing required when DECL (a member template
+   declaration) is finished.  Returns the TEMPLATE_DECL corresponding
+   to DECL, unless it is a specialization, in which case the DECL
+   itself is returned.  */
 
 tree
 finish_member_template_decl (decl)
   tree decl;
 {
-  if (decl == NULL_TREE || decl == void_type_node)
-    return NULL_TREE;
-  else if (decl == error_mark_node)
-    /* By returning NULL_TREE, the parser will just ignore this
-       declaration.  We have already issued the error.  */
-    return NULL_TREE;
-  else if (TREE_CODE (decl) == TREE_LIST)
+  if (decl == error_mark_node)
+    return error_mark_node;
+
+  my_friendly_assert (DECL_P (decl), 20020812);
+
+  if (TREE_CODE (decl) == TYPE_DECL)
     {
-      /* Assume that the class is the only declspec.  */
-      decl = TREE_VALUE (decl);
-      if (IS_AGGR_TYPE (decl) && CLASSTYPE_TEMPLATE_INFO (decl)
-	  && ! CLASSTYPE_TEMPLATE_SPECIALIZATION (decl))
+      tree type;
+
+      type = TREE_TYPE (decl);
+      if (IS_AGGR_TYPE (type) 
+	  && CLASSTYPE_TEMPLATE_INFO (type)
+	  && !CLASSTYPE_TEMPLATE_SPECIALIZATION (type))
 	{
-	  tree tmpl = CLASSTYPE_TI_TEMPLATE (decl);
+	  tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
 	  check_member_template (tmpl);
 	  return tmpl;
 	}
@@ -739,7 +741,10 @@ static tree
 retrieve_local_specialization (tmpl)
      tree tmpl;
 {
-  return (tree) htab_find (local_specializations, tmpl);
+  tree spec = 
+    (tree) htab_find_with_hash (local_specializations, tmpl,
+				htab_hash_pointer (tmpl));
+  return spec ? TREE_PURPOSE (spec) : NULL_TREE;
 }
 
 /* Returns non-zero iff DECL is a specialization of TMPL.  */
@@ -905,6 +910,16 @@ unregister_specialization (spec, tmpl)
   return 0;
 }
 
+/* Compare an entry in the local specializations hash table P1 (which
+   is really a pointer to a TREE_LIST) with P2 (which is really a
+   DECL).  */
+
+static int
+eq_local_specializations (const void *p1, const void *p2)
+{
+  return TREE_VALUE ((tree) p1) == (tree) p2;
+}
+
 /* Like register_specialization, but for local declarations.  We are
    registering SPEC, an instantiation of TMPL.  */
 
@@ -915,8 +930,9 @@ register_local_specialization (spec, tmpl)
 {
   void **slot;
 
-  slot = htab_find_slot (local_specializations, tmpl, INSERT);
-  *slot = spec;
+  slot = htab_find_slot_with_hash (local_specializations, tmpl, 
+				   htab_hash_pointer (tmpl), INSERT);
+  *slot = build_tree_list (spec, tmpl);
 }
 
 /* Print the list of candidate FNS in an error message.  */
@@ -4392,6 +4408,11 @@ for_each_template_parm_r (tp, walk_subtrees, d)
       }
       break;
 
+    case TYPEOF_TYPE:
+      if (for_each_template_parm (TYPE_FIELDS (t), fn, data))
+	return error_mark_node;
+      break;
+
     case FUNCTION_DECL:
     case VAR_DECL:
       if (DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t)
@@ -5893,10 +5914,6 @@ tsubst_decl (t, args, type, complain)
 	       being called from tsubst_friend_function, and we want
 	       only to create a new decl (R) with appropriate types so
 	       that we can call determine_specialization.  */
-	    my_friendly_assert ((TREE_CODE (DECL_TI_TEMPLATE (t)) 
-				 == LOOKUP_EXPR)
-				|| (TREE_CODE (DECL_TI_TEMPLATE (t))
-				    == IDENTIFIER_NODE), 0);
 	    gen_tmpl = NULL_TREE;
 	  }
 
@@ -6998,7 +7015,7 @@ tsubst_copy (t, args, complain, in_decl)
   switch (code)
     {
     case PARM_DECL:
-      return do_identifier (DECL_NAME (t), 0, NULL_TREE);
+      return retrieve_local_specialization (t);
 
     case CONST_DECL:
       {
@@ -7050,7 +7067,8 @@ tsubst_copy (t, args, complain, in_decl)
 
     case VAR_DECL:
     case FUNCTION_DECL:
-      if (DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t))
+      if ((DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t))
+	  || local_variable_p (t))
 	t = tsubst (t, args, complain, in_decl);
       mark_used (t);
       return t;
@@ -10148,6 +10166,8 @@ instantiate_decl (d, defer_ok)
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
       htab_t saved_local_specializations;
+      tree tmpl_parm;
+      tree spec_parm;
 
       /* Save away the current list, in case we are instantiating one
 	 template from within the body of another.  */
@@ -10155,12 +10175,30 @@ instantiate_decl (d, defer_ok)
 
       /* Set up the list of local specializations.  */
       local_specializations = htab_create (37, 
-					   htab_hash_pointer,
-					   htab_eq_pointer,
+					   NULL,
+					   eq_local_specializations,
 					   NULL);
 
       /* Set up context.  */
       start_function (NULL_TREE, d, NULL_TREE, SF_PRE_PARSED);
+
+      /* Create substitution entries for the parameters.  */
+      tmpl_parm = DECL_ARGUMENTS (DECL_TEMPLATE_RESULT (tmpl));
+      spec_parm = DECL_ARGUMENTS (d);
+      if (DECL_NONSTATIC_MEMBER_FUNCTION_P (d))
+	{
+	  register_local_specialization (spec_parm, tmpl_parm);
+	  spec_parm = skip_artificial_parms_for (d, spec_parm);
+	  tmpl_parm = skip_artificial_parms_for (DECL_TEMPLATE_RESULT (tmpl),
+						 tmpl_parm);
+	}
+      while (tmpl_parm)
+	{
+	  register_local_specialization (spec_parm, tmpl_parm);
+	  tmpl_parm = TREE_CHAIN (tmpl_parm);
+	  spec_parm = TREE_CHAIN (spec_parm);
+	}
+      my_friendly_assert (!spec_parm, 20020813);
 
       /* Substitute into the body of the function.  */
       tsubst_expr (DECL_SAVED_TREE (code_pattern), args,
