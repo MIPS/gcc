@@ -2323,6 +2323,7 @@ build VPARAMS ((enum tree_code code, tree tt, ...))
   register int length;
   register int i;
   int fro;
+  int constant;
 
   VA_START (p, tt);
 
@@ -2341,6 +2342,13 @@ build VPARAMS ((enum tree_code code, tree tt, ...))
      to do this.  */
   fro = first_rtl_op (code);
 
+  /* Expressions without side effects may be constant if their
+     arguments are as well.  */
+  constant = (TREE_CODE_CLASS (code) == '<'
+	      || TREE_CODE_CLASS (code) == '1'
+	      || TREE_CODE_CLASS (code) == '2'
+	      || TREE_CODE_CLASS (code) == 'c');
+
   if (length == 2)
     {
       /* This is equivalent to the loop below, but faster.  */
@@ -2356,6 +2364,8 @@ build VPARAMS ((enum tree_code code, tree tt, ...))
 	    TREE_SIDE_EFFECTS (t) = 1;
 	  if (!TREE_READONLY (arg0))
 	    TREE_READONLY (t) = 0;
+	  if (!TREE_CONSTANT (arg0))
+	    constant = 0;
 	}
 
       if (arg1 && fro > 1)
@@ -2364,6 +2374,8 @@ build VPARAMS ((enum tree_code code, tree tt, ...))
 	    TREE_SIDE_EFFECTS (t) = 1;
 	  if (!TREE_READONLY (arg1))
 	    TREE_READONLY (t) = 0;
+	  if (!TREE_CONSTANT (arg1))
+	    constant = 0;
 	}
     }
   else if (length == 1)
@@ -2390,10 +2402,14 @@ build VPARAMS ((enum tree_code code, tree tt, ...))
 	    {
 	      if (TREE_SIDE_EFFECTS (operand))
 		TREE_SIDE_EFFECTS (t) = 1;
+	      if (!TREE_CONSTANT (operand))
+		constant = 0;
 	    }
 	}
     }
   va_end (p);
+
+  TREE_CONSTANT (t) = constant;
   return t;
 }
 
@@ -2466,6 +2482,8 @@ build1 (code, type, node)
       break;
 
     default:
+      if (TREE_CODE_CLASS (code) == '1' && node && TREE_CONSTANT (node))
+	TREE_CONSTANT (t) = 1;
       break;
     }
 
@@ -2479,36 +2497,6 @@ build1 (code, type, node)
 
 tree
 build_nt VPARAMS ((enum tree_code code, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  enum tree_code code;
-#endif
-  va_list p;
-  register tree t;
-  register int length;
-  register int i;
-
-  VA_START (p, code);
-
-#ifndef ANSI_PROTOTYPES
-  code = va_arg (p, enum tree_code);
-#endif
-
-  t = make_node (code);
-  length = TREE_CODE_LENGTH (code);
-
-  for (i = 0; i < length; i++)
-    TREE_OPERAND (t, i) = va_arg (p, tree);
-
-  va_end (p);
-  return t;
-}
-
-/* Similar to `build_nt', except we build
-   on the temp_decl_obstack, regardless.  */
-
-tree
-build_parse_node VPARAMS ((enum tree_code code, ...))
 {
 #ifndef ANSI_PROTOTYPES
   enum tree_code code;
@@ -4786,6 +4774,7 @@ build_common_tree_nodes_2 (short_double)
   /* Define these next since types below may used them.  */
   integer_zero_node = build_int_2 (0, 0);
   integer_one_node = build_int_2 (1, 0);
+  integer_minus_one_node = build_int_2 (-1, -1);
 
   size_zero_node = size_int (0);
   size_one_node = size_int (1);

@@ -344,6 +344,11 @@ struct depth_first_search_dsS {
 };
 typedef struct depth_first_search_dsS *depth_first_search_ds;
 
+/* Have print_rtl_and_abort give the same information that fancy_abort
+   does.  */
+#define print_rtl_and_abort() \
+  print_rtl_and_abort_fcn (__FILE__, __LINE__, __FUNCTION__)
+
 /* Forward declarations */
 static int count_basic_blocks		PARAMS ((rtx));
 static void find_basic_blocks_1		PARAMS ((rtx));
@@ -424,7 +429,9 @@ static void mark_used_regs		PARAMS ((struct propagate_block_info *,
 void dump_flow_info			PARAMS ((FILE *));
 void debug_flow_info			PARAMS ((void));
 static void dump_edge_info		PARAMS ((FILE *, edge, int));
-static void print_rtl_and_abort		PARAMS ((void));
+static void print_rtl_and_abort_fcn	PARAMS ((const char *, int,
+						 const char *))
+					ATTRIBUTE_NORETURN;
 
 static void invalidate_mems_from_autoinc PARAMS ((struct propagate_block_info *,
 						  rtx));
@@ -2813,7 +2820,14 @@ tidy_fallthru_edge (e, b, c)
 	  NOTE_SOURCE_FILE (q) = 0;
 	}
       else
-	q = PREV_INSN (q);
+	{
+	  q = PREV_INSN (q);
+
+	  /* We don't want a block to end on a line-number note since that has
+	     the potential of changing the code between -g and not -g.  */
+	  while (GET_CODE (q) == NOTE && NOTE_LINE_NUMBER (q) >= 0)
+	    q = PREV_INSN (q);
+	}
 
       b->end = q;
     }
@@ -3344,14 +3358,13 @@ mark_regs_live_at_end (set)
 #endif
     }
 
-#ifdef PIC_OFFSET_TABLE_REGNUM
 #ifndef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
   /* Many architectures have a GP register even without flag_pic.
      Assume the pic register is not in use, or will be handled by
      other means, if it is not fixed.  */
-  if (fixed_regs[PIC_OFFSET_TABLE_REGNUM])
+  if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
+      && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
     SET_REGNO_REG_SET (set, PIC_OFFSET_TABLE_REGNUM);
-#endif
 #endif
 
   /* Mark all global registers, and all registers used by the epilogue
@@ -3483,12 +3496,11 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	    SET_REGNO_REG_SET (new_live_at_end, ARG_POINTER_REGNUM);
 #endif
 
-#ifdef PIC_OFFSET_TABLE_REGNUM
 	  /* Any constant, or pseudo with constant equivalences, may
 	     require reloading from memory using the pic register.  */
-	  if (fixed_regs[PIC_OFFSET_TABLE_REGNUM])
+	  if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
+	      && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
 	    SET_REGNO_REG_SET (new_live_at_end, PIC_OFFSET_TABLE_REGNUM);
-#endif
 	}
 
       /* Regs used in phi nodes are not included in
@@ -6580,15 +6592,20 @@ print_rtl_with_bb (outf, rtx_first)
 }
 
 /* Dump the rtl into the current debugging dump file, then abort.  */
+
 static void
-print_rtl_and_abort ()
+print_rtl_and_abort_fcn (file, line, function)
+     const char *file;
+     int line;
+     const char *function;
 {
   if (rtl_dump_file)
     {
       print_rtl_with_bb (rtl_dump_file, get_insns ());
       fclose (rtl_dump_file);
     }
-  abort ();
+
+  fancy_abort (file, line, function);
 }
 
 /* Recompute register set/reference counts immediately prior to register
@@ -6947,7 +6964,9 @@ verify_flow_info ()
 	  basic_block bb = NOTE_BASIC_BLOCK (x);
 	  num_bb_notes++;
 	  if (bb->index != last_bb_num_seen + 1)
-	    fatal ("Basic blocks not numbered consecutively");
+	    /* Basic blocks not numbered consecutively.  */
+	    abort ();
+	       
 	  last_bb_num_seen = bb->index;
 	}
 
@@ -6987,8 +7006,9 @@ verify_flow_info ()
     }
 
   if (num_bb_notes != n_basic_blocks)
-    fatal ("number of bb notes in insn chain (%d) != n_basic_blocks (%d)",
-	   num_bb_notes, n_basic_blocks);
+    internal_error
+      ("number of bb notes in insn chain (%d) != n_basic_blocks (%d)",
+       num_bb_notes, n_basic_blocks);
 
   if (err)
     abort ();

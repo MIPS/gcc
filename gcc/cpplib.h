@@ -166,6 +166,7 @@ struct cpp_string
 #define PASTE_LEFT	(1 << 3) /* If on LHS of a ## operator.  */
 #define NAMED_OP	(1 << 4) /* C++ named operators.  */
 #define NO_EXPAND	(1 << 5) /* Do not macro-expand this token.  */
+#define AVOID_LPASTE	(1 << 6) /* Check left for accidental pastes.  */
 
 /* A preprocessing token.  This has been carefully packed and should
    occupy 12 bytes on 32-bit hosts and 16 bytes on 64-bit hosts.  */
@@ -461,7 +462,9 @@ enum builtin_type
   BT_BASE_FILE,			/* `__BASE_FILE__' */
   BT_INCLUDE_LEVEL,		/* `__INCLUDE_LEVEL__' */
   BT_TIME,			/* `__TIME__' */
-  BT_STDC			/* `__STDC__' */
+  BT_STDC,			/* `__STDC__' */
+  BT_WEAK                       /* Whether or not G++ supports weak 
+				   symbols.  */
 };
 
 /* There is a slot in the hashnode for use by front ends when integrated
@@ -487,8 +490,6 @@ struct cpp_hashnode
     enum cpp_ttype operator;		/* Code for a named operator.  */
     enum builtin_type builtin;		/* Code for a builtin macro.  */
   } value;
-
-  union tree_node *fe_value;		/* Front end value.  */
 };
 
 /* Call this first to get a handle to pass to other functions.  */
@@ -603,6 +604,7 @@ extern void cpp_forall_identifiers	PARAMS ((cpp_reader *,
 extern void cpp_scan_buffer_nooutput	PARAMS ((cpp_reader *, int));
 extern void cpp_start_lookahead		PARAMS ((cpp_reader *));
 extern void cpp_stop_lookahead		PARAMS ((cpp_reader *, int));
+extern int  cpp_sys_objmacro_p		PARAMS ((cpp_reader *));
 
 /* In cppfiles.c */
 extern int cpp_included	PARAMS ((cpp_reader *, const char *));

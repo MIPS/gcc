@@ -203,14 +203,7 @@ int warn_ctor_dtor_privacy = 1;
 /* True if we want to implement vtables using "thunks".
    The default is off.  */
 
-#if ENABLE_NEW_GXX_ABI
 int flag_vtable_thunks = 1;
-#else
-#ifndef DEFAULT_VTABLE_THUNKS
-#define DEFAULT_VTABLE_THUNKS 0
-#endif
-int flag_vtable_thunks = DEFAULT_VTABLE_THUNKS;
-#endif
 
 /* Nonzero means generate separate instantiation control files and juggle
    them at link time.  */
@@ -353,11 +346,6 @@ int flag_labels_ok;
 int flag_ms_extensions;
 
 /* C++ specific flags.  */   
-/* Zero means that `this' is a *const.  This gives nice behavior in the
-   2.0 world.  1 gives 1.2-compatible behavior.  2 gives Spring behavior.
-   -2 means we're constructing an object and it has fixed type.  */
-
-int flag_this_is_variable;
 
 /* Nonzero means we should attempt to elide constructors when possible.  */
 
@@ -403,6 +391,10 @@ int flag_operator_names = 1;
 
 int flag_check_new;
 
+/* Nonnull if we want to dump class heirarchies.  */
+
+const char *flag_dump_class_layout;
+
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.
    0: Old rules, set by -fno-for-scope.
@@ -417,14 +409,6 @@ int flag_new_for_scope = 1;
    Otherwise, emit them as local symbols.  */
 
 int flag_weak = 1;
-
-/* Nonzero to enable experimental ABI changes.  */
-
-#if ENABLE_NEW_GXX_ABI
-int flag_new_abi = 1;
-#else
-int flag_new_abi;
-#endif
 
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
    destructors for local statics and global objects.  */
@@ -445,17 +429,6 @@ int flag_inline_trees = 0;
    infinite template instantiations.  */
 
 int max_tinst_depth = 50;
-
-/* The name-mangling scheme to use.  Must be 1 or greater to support
-   template functions with identical types, but different template
-   arguments.  */
-int name_mangling_version = 2;
-
-/* Nonzero if squashed mangling is to be performed. 
-   This uses the B and K codes to reference previously seen class types 
-   and class qualifiers.       */
-
-int flag_do_squangling;
 
 /* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
 
@@ -523,7 +496,6 @@ lang_f_options[] =
   {"permissive", &flag_permissive, 1},
   {"repo", &flag_use_repository, 1},
   {"rtti", &flag_rtti, 1},
-  {"squangle", &flag_do_squangling, 1},
   {"stats", &flag_detailed_statistics, 1},
   {"use-cxa-atexit", &flag_use_cxa_atexit, 1},
   {"vtable-gc", &flag_vtable_gc, 1},
@@ -541,8 +513,9 @@ static const char * const unsupported_options[] = {
   "enum-int-equiv",
   "guiding-decls",
   "nonnull-objects",
-  "this-is-variable",
+  "squangle",
   "strict-prototype",
+  "this-is-variable",
 };
 
 /* Compare two option strings, pointed two by P1 and P2, for use with
@@ -627,33 +600,34 @@ cxx_decode_option (argc, argv)
           flag_external_templates = 1;
           cp_deprecated ("-fexternal-templates");
         }
-      else if (!strcmp (p, "new-abi"))
-	{
-	  flag_new_abi = 1;
-	  flag_do_squangling = 1;
-	  flag_vtable_thunks = 1;
-	}
-      else if (!strcmp (p, "no-new-abi"))
-	{
-	  flag_new_abi = 0;
-	  flag_do_squangling = 0;
-	}
       else if ((option_value
                 = skip_leading_substring (p, "template-depth-")))
 	max_tinst_depth
 	  = read_integral_parameter (option_value, p - 2, max_tinst_depth);
       else if ((option_value
                 = skip_leading_substring (p, "name-mangling-version-")))
-	name_mangling_version 
-	  = read_integral_parameter (option_value, p - 2, name_mangling_version);
-      else if ((option_value
-                = skip_leading_substring (p, "dump-translation-unit-")))
 	{
-	  if (p[22] == '\0')
+	  warning ("-fname-mangling-version is no longer supported");
+	  return 1;
+	}
+      else if ((option_value
+                = skip_leading_substring (p, "dump-translation-unit=")))
+	{
+	  if (!*option_value)
 	    error ("no file specified with -fdump-translation-unit");
 	  else
 	    flag_dump_translation_unit = option_value;
 	}
+      else if ((option_value
+                = skip_leading_substring (p, "dump-class-layout=")))
+	{
+	  if (!*option_value)
+	    error ("no file specified with -fdump-class-layout");
+	  else
+	    flag_dump_class_layout = option_value;
+	}
+      else if (!strcmp (p, "dump-class-layout"))
+	flag_dump_class_layout = ""; /* empty string for stderr */
       else 
 	{
 	  int found = 0;
@@ -934,6 +908,9 @@ build_artificial_parm (name, type)
 
   parm = build_decl (PARM_DECL, name, type);
   DECL_ARTIFICIAL (parm) = 1;
+  /* All our artificial parms are implicitly `const'; they cannot be
+     assigned to.  */
+  TREE_READONLY (parm) = 1;
   DECL_ARG_TYPE (parm) = type;
   return parm;
 }
@@ -946,7 +923,10 @@ build_artificial_parm (name, type)
 
    This function adds the "in-charge" flag to member function FN if
    appropriate.  It is called from grokclassfn and tsubst.
-   FN must be either a constructor or destructor.  */
+   FN must be either a constructor or destructor.
+
+   The in-charge flag follows the 'this' parameter, and is followed by the
+   VTT parm (if any), then the user-written parms.  */
 
 void
 maybe_retrofit_in_chrg (fn)
@@ -969,17 +949,38 @@ maybe_retrofit_in_chrg (fn)
       && !TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
     return;
 
-  /* First add it to DECL_ARGUMENTS...  */
-  parm = build_artificial_parm (in_charge_identifier, integer_type_node);
-  TREE_READONLY (parm) = 1;
-  parms = DECL_ARGUMENTS (fn);
-  TREE_CHAIN (parm) = TREE_CHAIN (parms);
-  TREE_CHAIN (parms) = parm;
-
-  /* ...and then to TYPE_ARG_TYPES.  */
   arg_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
   basetype = TREE_TYPE (TREE_VALUE (arg_types));
-  arg_types = hash_tree_chain (integer_type_node, TREE_CHAIN (arg_types));
+  arg_types = TREE_CHAIN (arg_types);
+
+  parms = TREE_CHAIN (DECL_ARGUMENTS (fn));
+
+  /* If this is a subobject constructor or destructor, our caller will
+     pass us a pointer to our VTT.  */
+  if (TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
+    {
+      parm = build_artificial_parm (vtt_parm_identifier, vtt_parm_type);
+
+      /* First add it to DECL_ARGUMENTS between 'this' and the real args...  */
+      TREE_CHAIN (parm) = parms;
+      parms = parm;
+
+      /* ...and then to TYPE_ARG_TYPES.  */
+      arg_types = hash_tree_chain (vtt_parm_type, arg_types);
+
+      DECL_HAS_VTT_PARM_P (fn) = 1;
+    }
+
+  /* Then add the in-charge parm (before the VTT parm).  */
+  parm = build_artificial_parm (in_charge_identifier, integer_type_node);
+  TREE_CHAIN (parm) = parms;
+  parms = parm;
+  arg_types = hash_tree_chain (integer_type_node, arg_types);
+
+  /* Insert our new parameter(s) into the list.  */
+  TREE_CHAIN (DECL_ARGUMENTS (fn)) = parms;
+
+  /* And rebuild the function type.  */
   fntype = build_cplus_method_type (basetype, TREE_TYPE (TREE_TYPE (fn)),
 				    arg_types);
   if (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)))
@@ -989,18 +990,6 @@ maybe_retrofit_in_chrg (fn)
 
   /* Now we've got the in-charge parameter.  */
   DECL_HAS_IN_CHARGE_PARM_P (fn) = 1;
-
-  /* If this is a subobject constructor or destructor, our caller will
-     pass us a pointer to our VTT.  */
-  if (flag_new_abi && TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
-    {
-      DECL_VTT_PARM (fn) = build_artificial_parm (vtt_parm_identifier, 
-						  vtt_parm_type);
-      DECL_CONTEXT (DECL_VTT_PARM (fn)) = fn;
-      DECL_USE_VTT_PARM (fn) = build_artificial_parm (NULL_TREE,
-						      boolean_type_node);
-      DECL_CONTEXT (DECL_USE_VTT_PARM (fn)) = fn;
-    }
 }
 
 /* Classes overload their constituent function names automatically.
@@ -1078,12 +1067,7 @@ grokclassfn (ctype, function, flags, quals)
   if (flags == DTOR_FLAG)
     {
       DECL_DESTRUCTOR_P (function) = 1;
-
-      if (flag_new_abi) 
-	set_mangled_name_for_decl (function);
-      else
-	DECL_ASSEMBLER_NAME (function) = build_destructor_name (ctype);
-
+      set_mangled_name_for_decl (function);
       TYPE_HAS_DESTRUCTOR (ctype) = 1;
     }
   else
@@ -1557,11 +1541,7 @@ finish_static_data_member_decl (decl, init, asmspec_tree, flags)
   if (!asmspec && current_class_type)
     {
       DECL_INITIAL (decl) = error_mark_node;
-      if (flag_new_abi)
-	DECL_ASSEMBLER_NAME (decl) = mangle_decl (decl);
-      else
-	DECL_ASSEMBLER_NAME (decl) 
-	  = build_static_name (current_class_type, DECL_NAME (decl));
+      DECL_ASSEMBLER_NAME (decl) = mangle_decl (decl);
     }
   if (! processing_template_decl)
     {
@@ -1696,13 +1676,7 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
 	 name for this TYPE_DECL.  */
       DECL_ASSEMBLER_NAME (value) = DECL_NAME (value);
       if (!uses_template_parms (value)) 
-	{
-	  if (flag_new_abi)
-	    DECL_ASSEMBLER_NAME (value) = mangle_type (TREE_TYPE (value));
-	  else
-	    DECL_ASSEMBLER_NAME (value) =
-	      get_identifier (build_overload_name (TREE_TYPE (value), 1, 1));
-	}
+	DECL_ASSEMBLER_NAME (value) = mangle_type (TREE_TYPE (value));
 
       if (processing_template_decl)
 	value = push_template_decl (value);
@@ -1883,10 +1857,7 @@ grokoptypename (declspecs, declarator)
      tree declspecs, declarator;
 {
   tree t = grokdeclarator (declarator, declspecs, TYPENAME, 0, NULL_TREE);
-  if (flag_new_abi)
-    return mangle_conv_op_name_for_type (t);
-  else
-    return build_typename_overload (t);
+  return mangle_conv_op_name_for_type (t);
 }
 
 /* When a function is declared with an initializer,
@@ -2396,14 +2367,24 @@ comdat_linkage (decl)
 {
   if (flag_weak)
     make_decl_one_only (decl);
-  else if (TREE_CODE (decl) == FUNCTION_DECL || DECL_VIRTUAL_P (decl))
-    /* We can just emit functions and vtables statically; having
-       multiple copies is (for the most part) only a waste of space.
-       There is at least one correctness issue, however: the address
-       of a template instantiation with external linkage should be the
+  else if (TREE_CODE (decl) == FUNCTION_DECL 
+	   || (TREE_CODE (decl) == VAR_DECL && DECL_ARTIFICIAL (decl)))
+    /* We can just emit function and compiler-generated variables
+       statically; having multiple copies is (for the most part) only
+       a waste of space.  
+
+       There are two correctness issues, however: the address of a
+       template instantiation with external linkage should be the
        same, independent of what translation unit asks for the
        address, and this will not hold when we emit multiple copies of
-       the function.  However, there's little else we can do.  */
+       the function.  However, there's little else we can do.  
+
+       Also, by default, the typeinfo implementation for the new ABI
+       assumes that there will be only one copy of the string used as
+       the name for each type.  Therefore, if weak symbols are
+       unavailable, the run-time library should perform a more
+       conservative check; it should perform a string comparison,
+       rather than an address comparison.  */
     TREE_PUBLIC (decl) = 0;
   else
     {
@@ -2744,9 +2725,7 @@ import_export_decl (decl)
       tree ctype = DECL_CONTEXT (decl);
       import_export_class (ctype);
       if (CLASSTYPE_INTERFACE_KNOWN (ctype)
-	  && (flag_new_abi
-	      ? (! DECL_THIS_INLINE (decl))
-	      : (! DECL_ARTIFICIAL (decl) || DECL_VINDEX (decl))))
+	  && ! DECL_THIS_INLINE (decl))
 	{
 	  DECL_NOT_REALLY_EXTERN (decl)
 	    = ! (CLASSTYPE_INTERFACE_ONLY (ctype)
@@ -2833,23 +2812,7 @@ get_guard (decl)
   tree sname;
   tree guard;
 
-  /* For a local variable, under the old ABI, we do not try to get a
-     unique mangled name for the DECL.  */
-  if (!flag_new_abi && DECL_FUNCTION_SCOPE_P (decl))
-    {
-      guard = get_temp_name (integer_type_node);
-      cp_finish_decl (guard, NULL_TREE, NULL_TREE, 0);
-      return guard;
-    }
-
-  if (!flag_new_abi)
-    /* For struct X foo __attribute__((weak)), there is a counter
-       __snfoo. Since base is already an assembler name, sname should
-       be globally unique */
-    sname = get_id_2 ("__sn", DECL_ASSEMBLER_NAME (decl));
-  else
-    sname = mangle_guard_variable (decl);
-
+  sname = mangle_guard_variable (decl);
   guard = IDENTIFIER_GLOBAL_VALUE (sname);
   if (! guard)
     {
@@ -2857,11 +2820,7 @@ get_guard (decl)
 
       /* Under the new ABI, we use a type that is big enough to
 	 contain a mutex as well as an integer counter.  */
-      if (flag_new_abi)
-	guard_type = long_long_integer_type_node;
-      else
-	guard_type = integer_type_node;
-
+      guard_type = long_long_integer_type_node;
       guard = build_decl (VAR_DECL, sname, guard_type);
       
       /* The guard should have the same linkage as what it guards. */
@@ -2887,9 +2846,6 @@ static tree
 get_guard_bits (guard)
      tree guard;
 {
-  if (!flag_new_abi)
-    return guard;
-
   /* Under the new ABI, we only set the first byte of the guard,
      in order to leave room for a mutex in the high-order bits.  */
   guard = build1 (ADDR_EXPR, 
@@ -3345,7 +3301,7 @@ start_static_initialization_or_destruction (decl, initp)
 
   /* Under the new ABI, we have not already set the GUARD, so we must
      do so now.  */
-  if (guard && initp && flag_new_abi)
+  if (guard && initp)
     finish_expr_stmt (set_guard (guard));
 
   return guard_if_stmt;
@@ -3616,8 +3572,7 @@ finish_file ()
 
   timevar_push (TV_VARCONST);
 
-  if (new_abi_rtti_p ())
-    emit_support_tinfos ();
+  emit_support_tinfos ();
   
   do 
     {
@@ -3637,8 +3592,7 @@ finish_file ()
       
       /* Write out needed type info variables. Writing out one variable
          might cause others to be needed.  */
-      if (new_abi_rtti_p ()
-          && walk_globals (tinfo_decl_p, emit_tinfo_decl, /*data=*/0))
+      if (walk_globals (tinfo_decl_p, emit_tinfo_decl, /*data=*/0))
 	reconsider = 1;
 
       /* The list of objects with static storage duration is built up
@@ -3711,10 +3665,7 @@ finish_file ()
 		 finish_function doesn't clean things up, and we end
 		 up with CURRENT_FUNCTION_DECL set.  */
 	      push_to_top_level ();
-	      if (DECL_TINFO_FN_P (decl))
-		synthesize_tinfo_fn (decl);
-	      else
-		synthesize_method (decl);
+	      synthesize_method (decl);
 	      pop_from_top_level ();
 	      reconsider = 1;
 	    }
@@ -4032,8 +3983,8 @@ build_expr_from_tree (t)
     case ARRAY_REF:
       if (TREE_OPERAND (t, 0) == NULL_TREE)
 	/* new-type-id */
-	return build_parse_node (ARRAY_REF, NULL_TREE,
-				 build_expr_from_tree (TREE_OPERAND (t, 1)));
+	return build_nt (ARRAY_REF, NULL_TREE,
+			 build_expr_from_tree (TREE_OPERAND (t, 1)));
       return grok_array_decl (build_expr_from_tree (TREE_OPERAND (t, 0)),
 			      build_expr_from_tree (TREE_OPERAND (t, 1)));
 

@@ -51,14 +51,9 @@ extern tree global_namespace;
 extern int (*valid_lang_attribute) PARAMS ((tree, tree, tree, tree));
 
 #ifndef BOOL_TYPE_SIZE
-#ifdef SLOW_BYTE_ACCESS
 /* In the new ABI, `bool' has size and alignment `1', on all
    platforms.  */
-#define BOOL_TYPE_SIZE \
-  ((SLOW_BYTE_ACCESS && !flag_new_abi) ? (POINTER_SIZE) : (CHAR_TYPE_SIZE))
-#else
 #define BOOL_TYPE_SIZE CHAR_TYPE_SIZE
-#endif
 #endif
 
 static tree grokparms				PARAMS ((tree));
@@ -149,7 +144,7 @@ static void end_cleanup_fn PARAMS ((void));
 static tree cp_make_fname_decl PARAMS ((tree, const char *, int));
 static void initialize_predefined_identifiers PARAMS ((void));
 static tree check_special_function_return_type
-  PARAMS ((special_function_kind, tree, tree, tree));
+  PARAMS ((special_function_kind, tree, tree));
 static tree push_cp_library_fn PARAMS ((enum tree_code, tree));
 static tree build_cp_library_fn PARAMS ((tree, enum tree_code, tree));
 static void store_parm_decls PARAMS ((tree));
@@ -863,6 +858,24 @@ pushlevel (tag_transparent)
   keep_next_level_flag = 0;
 }
 
+/* We're defining an object of type TYPE.  If it needs a cleanup, but
+   we're not allowed to add any more objects with cleanups to the current
+   scope, create a new binding level.  */
+
+void
+maybe_push_cleanup_level (type)
+     tree type;
+{
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+      && current_binding_level->more_cleanups_ok == 0)
+    {
+      keep_next_level (2);
+      pushlevel (1);
+      clear_last_expr ();
+      add_scope_stmt (/*begin_p=*/1, /*partial_p=*/1);
+    }
+}
+  
 /* Enter a new scope.  The KIND indicates what kind of scope is being
    created.  */
 
@@ -1124,7 +1137,7 @@ push_class_binding (id, decl)
 	  else
 	    {
 	      my_friendly_assert (DECL_P (decl), 0);
-	      context = CP_DECL_CONTEXT (decl);
+	      context = context_for_name_lookup (decl);
 	    }
 
 	  if (is_properly_derived_from (current_class_type, context))
@@ -2826,13 +2839,7 @@ pushtag (name, type, globalize)
 	    VARRAY_PUSH_TREE (local_classes, type);
 
 	  if (!uses_template_parms (type))
-	    {
-	      if (flag_new_abi)
-		DECL_ASSEMBLER_NAME (d) = mangle_type (type);
-	      else
-		DECL_ASSEMBLER_NAME (d)
-		  = get_identifier (build_overload_name (type, 1, 1));
-	    }
+	    DECL_ASSEMBLER_NAME (d) = mangle_type (type);
         }
       if (b->parm_flag == 2)
 	{
@@ -3392,7 +3399,9 @@ duplicate_decls (newdecl, olddecl)
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
       DECL_NEEDS_FINAL_OVERRIDER_P (newdecl) |= DECL_NEEDS_FINAL_OVERRIDER_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
-      DECL_LANG_SPECIFIC (newdecl)->u2 = DECL_LANG_SPECIFIC (olddecl)->u2;
+      if (DECL_OVERLOADED_OPERATOR_P (olddecl) != ERROR_MARK)
+	SET_OVERLOADED_OPERATOR_CODE
+	  (newdecl, DECL_OVERLOADED_OPERATOR_P (olddecl));
       new_defines_function = DECL_INITIAL (newdecl) != NULL_TREE;
 
       /* Optionally warn about more than one declaration for the same
@@ -3867,7 +3876,9 @@ pushdecl (x)
 	  else if (TREE_CODE (t) == PARM_DECL)
 	    {
 	      if (DECL_CONTEXT (t) == NULL_TREE)
-		fatal ("parse errors have confused me too much");
+		/* This is probaby caused by too many errors, but calling
+		   abort will say that if errors have occurred.  */
+		abort ();
 
 	      /* Check for duplicate params.  */
 	      if (duplicate_decls (x, t))
@@ -5520,16 +5531,15 @@ build_typename_type (context, name, fullname, base_type)
 {
   tree t;
   tree d;
-  struct hash_entry* e;
+  struct hash_entry *e;
 
   static struct hash_table ht;
 
   if (!ht.table)
     {
       static struct hash_table *h = &ht;
-      if (!hash_table_init (&ht, &hash_newfunc, &typename_hash,
-			    &typename_compare))
-	fatal ("virtual memory exhausted");
+
+      hash_table_init (&ht, &hash_newfunc, &typename_hash, &typename_compare);
       ggc_add_tree_hash_table_root (&h, 1);
     }
 
@@ -5992,10 +6002,9 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 	      && TREE_CODE (val) == TYPE_DECL
 	      && ! same_type_p (TREE_TYPE (from_obj), TREE_TYPE (val)))
 	    cp_pedwarn ("\
-lookup of `%D' in the scope of `%#T' (`%#T') \
-does not match lookup in the current scope (`%#T')",
-			name, got_object, TREE_TYPE (from_obj),
-			TREE_TYPE (val));
+lookup of `%D' in the scope of `%#T' (`%#D') \
+does not match lookup in the current scope (`%#D')",
+			name, got_object, from_obj, val);
 
 	  /* We don't change val to from_obj if got_object depends on
 	     template parms because that breaks implicit typename for
@@ -6289,8 +6298,8 @@ init_decl_processing ()
 
   /* Check to see that the user did not specify an invalid combination
      of command-line options.  */
-  if (flag_new_abi && !flag_vtable_thunks)
-    fatal ("the new ABI requires vtable thunks");
+  if (!flag_vtable_thunks)
+    error ("the ABI requires vtable thunks");
 
   /* Create all the identifiers we need.  */
   initialize_predefined_identifiers ();
@@ -6393,17 +6402,8 @@ init_decl_processing ()
   record_builtin_type (RID_MAX, NULL_PTR, string_type_node);
 #endif
 
-  if (flag_new_abi)
-    delta_type_node = ptrdiff_type_node;
-  else if (flag_huge_objects)
-    delta_type_node = long_integer_type_node;
-  else
-    delta_type_node = short_integer_type_node;
-
-  if (flag_new_abi)
-    vtable_index_type = ptrdiff_type_node;
-  else
-    vtable_index_type = delta_type_node;
+  delta_type_node = ptrdiff_type_node;
+  vtable_index_type = ptrdiff_type_node;
 
   vtt_parm_type = build_pointer_type (const_ptr_type_node);
   lang_type_promotes_to = convert_type_from_ellipsis;
@@ -6472,12 +6472,9 @@ init_decl_processing ()
   layout_type (vtbl_ptr_type_node);
   record_builtin_type (RID_MAX, NULL_PTR, vtbl_ptr_type_node);
 
-  if (flag_new_abi)
-    {
-      push_namespace (get_identifier ("__cxxabiv1"));
-      abi_node = current_namespace;
-      pop_namespace ();
-    }
+  push_namespace (get_identifier ("__cxxabiv1"));
+  abi_node = current_namespace;
+  pop_namespace ();
 
   global_type_node = make_node (LANG_TYPE);
   record_unknown_type (global_type_node, "global type");
@@ -6503,10 +6500,7 @@ init_decl_processing ()
   }
 
   abort_fndecl
-    = build_library_fn_ptr ((flag_new_abi
-			     ? "__cxa_pure_virtual"
-			     : "__pure_virtual"),
-			    void_ftype);
+    = build_library_fn_ptr ("__cxa_pure_virtual", void_ftype);
 
   /* Perform other language dependent initializations.  */
   init_class_processing ();
@@ -6854,6 +6848,7 @@ check_tag_decl (declspecs)
 {
   int found_type = 0;
   int saw_friend = 0;
+  int saw_typedef = 0;
   tree ob_modifier = NULL_TREE;
   register tree link;
   register tree t = NULL_TREE;
@@ -6863,19 +6858,30 @@ check_tag_decl (declspecs)
       register tree value = TREE_VALUE (link);
 
       if (TYPE_P (value)
+	  || TREE_CODE (value) == TYPE_DECL
 	  || (TREE_CODE (value) == IDENTIFIER_NODE
 	      && IDENTIFIER_GLOBAL_VALUE (value)
-	      && TYPE_P (IDENTIFIER_GLOBAL_VALUE (value))))
+	      && TREE_CODE (IDENTIFIER_GLOBAL_VALUE (value)) == TYPE_DECL))
 	{
 	  ++found_type;
 
-	  if ((TREE_CODE (value) != TYPENAME_TYPE && IS_AGGR_TYPE (value))
-	      || TREE_CODE (value) == ENUMERAL_TYPE)
+	  if (found_type == 2 && TREE_CODE (value) == IDENTIFIER_NODE)
+	    {
+	      if (! in_system_header)
+		cp_pedwarn ("redeclaration of C++ built-in type `%T'", value);
+	      return NULL_TREE;
+	    }
+
+	  if (TYPE_P (value)
+	      && ((TREE_CODE (value) != TYPENAME_TYPE && IS_AGGR_TYPE (value))
+		  || TREE_CODE (value) == ENUMERAL_TYPE))
 	    {
 	      my_friendly_assert (TYPE_MAIN_DECL (value) != NULL_TREE, 261);
 	      t = value;
 	    }
 	}
+      else if (value == ridpointers[(int) RID_TYPEDEF])
+        saw_typedef = 1;
       else if (value == ridpointers[(int) RID_FRIEND])
 	{
 	  if (current_class_type == NULL_TREE
@@ -6909,6 +6915,27 @@ check_tag_decl (declspecs)
 	   && TYPE_NAME (t)
 	   && ANON_AGGRNAME_P (TYPE_IDENTIFIER (t)))
     {
+      /* 7/3 In a simple-declaration, the optional init-declarator-list
+         can be omitted only when declaring a class (clause 9) or
+         enumeration (7.2), that is, when the decl-specifier-seq contains
+         either a class-specifier, an elaborated-type-specifier with
+         a class-key (9.1), or an enum-specifier.  In these cases and
+         whenever a class-specifier or enum-specifier is present in the
+         decl-specifier-seq, the identifiers in these specifiers are among
+         the names being declared by the declaration (as class-name,
+         enum-names, or enumerators, depending on the syntax).  In such
+         cases, and except for the declaration of an unnamed bit-field (9.6),
+         the decl-specifier-seq shall introduce one or more names into the
+         program, or shall redeclare a name introduced by a previous
+         declaration.  [Example:
+             enum { };            // ill-formed
+             typedef class { };   // ill-formed
+         --end example]  */
+      if (saw_typedef)
+        {
+          error ("Missing type-name in typedef-declaration.");
+          return NULL_TREE;
+        }
       /* Anonymous unions are objects, so they can have specifiers.  */;
       SET_ANON_AGGR_TYPE_P (t);
 
@@ -7193,17 +7220,7 @@ start_decl_1 (decl)
   if (type == error_mark_node)
     return;
 
-  /* If this type of object needs a cleanup, but we're not allowed to
-     add any more objects with cleanups to the current scope, create a
-     new binding level.  */
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
-      && current_binding_level->more_cleanups_ok == 0)
-    {
-      keep_next_level (2);
-      pushlevel (1);
-      clear_last_expr ();
-      add_scope_stmt (/*begin_p=*/1, /*partial_p=*/1);
-    }
+  maybe_push_cleanup_level (type);
 
   if (initialized)
     /* Is it valid for this decl to have an initializer at all?
@@ -7517,8 +7534,7 @@ maybe_commonize_var (decl)
 	     which we can't if it has been initialized.  */
 
 	  if (TREE_PUBLIC (decl))
-	    DECL_ASSEMBLER_NAME (decl)
-	      = build_static_name (current_function_decl, DECL_NAME (decl));
+	    DECL_ASSEMBLER_NAME (decl) = mangle_decl (decl);
 	  else
 	    {
 	      cp_warning_at ("sorry: semantics of inline function static data `%#D' are wrong (you'll wind up with multiple copies)", decl);
@@ -7606,7 +7622,6 @@ check_initializer (decl, init)
 
       DECL_INITIAL (decl) = init;
 
-      /* This will keep us from needing to worry about our obstacks.  */
       my_friendly_assert (init != NULL_TREE, 149);
       init = NULL_TREE;
     }
@@ -8625,7 +8640,8 @@ bad_specifiers (object, type, virtualp, quals, inlinep, friendp, raises)
 	      object, type);
   if (friendp)
     cp_error_at ("`%D' declared as a friend", object);
-  if (raises)
+  if (raises && !TYPE_PTRFN_P (TREE_TYPE (object))
+      && !TYPE_PTRMEMFUNC_P (TREE_TYPE (object)))
     cp_error_at ("`%D' declared with an exception specification", object);
 }
 
@@ -8846,7 +8862,7 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
   /* Plain overloading: will not be grok'd by grokclassfn.  */
   if (! ctype && ! processing_template_decl
       && (! DECL_EXTERN_C_P (decl) || DECL_OVERLOADED_OPERATOR_P (decl))
-      && (! DECL_USE_TEMPLATE (decl) || name_mangling_version < 1))
+      && ! DECL_USE_TEMPLATE (decl))
     set_mangled_name_for_decl (decl);
 
   if (funcdef_flag)
@@ -8956,13 +8972,7 @@ grokvardecl (type, declarator, specbits_in, initialized, constp, in_namespace)
       /* DECL_ASSEMBLER_NAME is needed only for full-instantiated
 	 templates.  */
       if (!uses_template_parms (decl))
-	{
-	  if (flag_new_abi)
-	    DECL_ASSEMBLER_NAME (decl) = mangle_decl (decl);
-	  else
-	    DECL_ASSEMBLER_NAME (decl) = build_static_name (basetype,
-							    declarator);
-	}
+	DECL_ASSEMBLER_NAME (decl) = mangle_decl (decl);
     }
   else
     {
@@ -8987,13 +8997,7 @@ grokvardecl (type, declarator, specbits_in, initialized, constp, in_namespace)
 
       context = DECL_CONTEXT (decl);
       if (declarator && context && current_lang_name != lang_name_c)
-	{
-	  if (flag_new_abi)
-	    DECL_ASSEMBLER_NAME (decl) = mangle_decl (decl);
-	  else
-	    DECL_ASSEMBLER_NAME (decl)
-	      = build_static_name (context, declarator);
-	}
+	DECL_ASSEMBLER_NAME (decl) = mangle_decl (decl);
     }
 
   if (in_namespace)
@@ -9058,7 +9062,6 @@ build_ptrmemfunc_type (type)
 {
   tree fields[4];
   tree t;
-  tree u;
   tree unqualified_variant = NULL_TREE;
 
   if (type == error_mark_node)
@@ -9083,30 +9086,10 @@ build_ptrmemfunc_type (type)
   /* ... and not really an aggregate.  */
   SET_IS_AGGR_TYPE (t, 0);
 
-  if (!flag_new_abi)
-    {
-      u = make_aggr_type (UNION_TYPE);
-      SET_IS_AGGR_TYPE (u, 0);
-      fields[0] = build_decl (FIELD_DECL, pfn_identifier, type);
-      fields[1] = build_decl (FIELD_DECL, delta2_identifier,
-			      delta_type_node);
-      finish_builtin_type (u, "__ptrmemfunc_type", fields, 1, ptr_type_node);
-      TYPE_NAME (u) = NULL_TREE;
-
-      fields[0] = build_decl (FIELD_DECL, delta_identifier,
-			      delta_type_node);
-      fields[1] = build_decl (FIELD_DECL, index_identifier,
-			      delta_type_node);
-      fields[2] = build_decl (FIELD_DECL, pfn_or_delta2_identifier, u);
-      finish_builtin_type (t, "__ptrmemfunc_type", fields, 2, ptr_type_node);
-    }
-  else
-    {
-      fields[0] = build_decl (FIELD_DECL, pfn_identifier, type);
-      fields[1] = build_decl (FIELD_DECL, delta_identifier,
-			      delta_type_node);
-      finish_builtin_type (t, "__ptrmemfunc_type", fields, 1, ptr_type_node);
-    }
+  fields[0] = build_decl (FIELD_DECL, pfn_identifier, type);
+  fields[1] = build_decl (FIELD_DECL, delta_identifier,
+			  delta_type_node);
+  finish_builtin_type (t, "__ptrmemfunc_type", fields, 1, ptr_type_node);
 
   /* Zap out the name so that the back-end will give us the debugging
      information for this anonymous RECORD_TYPE.  */
@@ -9378,17 +9361,15 @@ create_array_type_for_decl (name, type, size)
 
 /* Check that it's OK to declare a function with the indicated TYPE.
    SFK indicates the kind of special function (if any) that this
-   function is.  CTYPE is the class of which this function is a
-   member.  OPTYPE is the type given in a conversion operator
+   function is.  OPTYPE is the type given in a conversion operator
    declaration.  Returns the actual return type of the function; that
    may be different than TYPE if an error occurs, or for certain
    special functions.  */
 
 static tree
-check_special_function_return_type (sfk, type, ctype, optype)
+check_special_function_return_type (sfk, type, optype)
      special_function_kind sfk;
      tree type;
-     tree ctype;
      tree optype;
 {
   switch (sfk)
@@ -9397,9 +9378,8 @@ check_special_function_return_type (sfk, type, ctype, optype)
       if (type)
 	cp_error ("return type specification for constructor invalid");
 
-      /* In the old ABI, we return `this'; in the new ABI we don't
-	 bother.  */
-      type = flag_new_abi ? void_type_node : build_pointer_type	(ctype);
+      /* In the new ABI constructors do not return a value.  */
+      type = void_type_node;
       break;
 
     case sfk_destructor:
@@ -10009,7 +9989,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
   if (sfk != sfk_none)
     type = check_special_function_return_type (sfk, type,
-					       ctor_return_type,
 					       ctor_return_type);
   else if (type == NULL_TREE)
     {
@@ -11027,24 +11006,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    DECL_NAME (CLASSTYPE_TI_TEMPLATE (type))
 	      = TYPE_IDENTIFIER (type);
 
-	  if (flag_new_abi)
-	    DECL_ASSEMBLER_NAME (decl) = mangle_type (type);
-	  else
-	    {
-	      /* XXX Temporarily set the scope.
-		 When returning, start_decl expects it as NULL_TREE,
-		 and will then then set it using pushdecl. */
-	      my_friendly_assert (DECL_CONTEXT (decl) == NULL_TREE, 980404);
-	      if (current_class_type)
-		DECL_CONTEXT (decl) = current_class_type;
-	      else
-		DECL_CONTEXT (decl) = FROB_CONTEXT (current_namespace);
-
-	      DECL_ASSEMBLER_NAME (decl) = DECL_NAME (decl);
-	      DECL_ASSEMBLER_NAME (decl)
-		= get_identifier (build_overload_name (type, 1, 1));
-	      DECL_CONTEXT (decl) = NULL_TREE;
-	    }
+	  DECL_ASSEMBLER_NAME (decl) = mangle_type (type);
 
 	  /* FIXME remangle member functions; member functions of a
 	     type with external linkage have external linkage.  */
@@ -11340,15 +11302,8 @@ friend declaration requires class-key, i.e. `friend %#T'",
 		/* The constructor can be called with exactly one
 		   parameter if there is at least one parameter, and
 		   any subsequent parameters have default arguments.
-		   We don't look at the first parameter, which is
-		   really just the `this' parameter for the new
-		   object.  */
-		tree arg_types =
-		  TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (decl)));
-
-		/* Skip the `in_chrg' argument too, if present.  */
-		if (DECL_HAS_IN_CHARGE_PARM_P (decl))
-		  arg_types = TREE_CHAIN (arg_types);
+		   Ignore any compiler-added parms.  */
+		tree arg_types = FUNCTION_FIRST_USER_PARMTYPE (decl);
 
 		if (arg_types == void_list_node
 		    || (arg_types
@@ -11963,9 +11918,7 @@ copy_args_p (d)
   if (!DECL_FUNCTION_MEMBER_P (d))
     return 0;
 
-  t = FUNCTION_ARG_CHAIN (d);
-  if (DECL_CONSTRUCTOR_P (d) && DECL_HAS_IN_CHARGE_PARM_P (d))
-    t = TREE_CHAIN (t);
+  t = FUNCTION_FIRST_USER_PARMTYPE (d);
   if (t && TREE_CODE (TREE_VALUE (t)) == REFERENCE_TYPE
       && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (t)))
 	  == DECL_CONTEXT (d))
@@ -11988,21 +11941,8 @@ int
 grok_ctor_properties (ctype, decl)
      tree ctype, decl;
 {
-  tree parmtypes = FUNCTION_ARG_CHAIN (decl);
+  tree parmtypes = FUNCTION_FIRST_USER_PARMTYPE (decl);
   tree parmtype = parmtypes ? TREE_VALUE (parmtypes) : void_type_node;
-
-  /* When a type has virtual baseclasses, a magical first int argument is
-     added to any ctor so we can tell if the class has been initialized
-     yet.  This could screw things up in this function, so we deliberately
-     ignore the leading int if we're in that situation.  */
-  if (DECL_HAS_IN_CHARGE_PARM_P (decl))
-    {
-      my_friendly_assert (parmtypes
-			  && TREE_VALUE (parmtypes) == integer_type_node,
-			  980529);
-      parmtypes = TREE_CHAIN (parmtypes);
-      parmtype = TREE_VALUE (parmtypes);
-    }
 
   /* [class.copy]
 
@@ -13513,8 +13453,18 @@ start_function (declspecs, declarator, attrs, flags)
 
       /* Constructors and destructors need to know whether they're "in
 	 charge" of initializing virtual base classes.  */
+      t = TREE_CHAIN (t);
       if (DECL_HAS_IN_CHARGE_PARM_P (decl1))
-	current_in_charge_parm = TREE_CHAIN (t);
+	{
+	  current_in_charge_parm = t;
+	  t = TREE_CHAIN (t);
+	}
+      if (DECL_HAS_VTT_PARM_P (decl1))
+	{
+	  if (DECL_NAME (t) != vtt_parm_identifier)
+	    abort ();
+	  current_vtt_parm = t;
+	}
     }
 
   if (DECL_INTERFACE_KNOWN (decl1))
@@ -13615,16 +13565,6 @@ start_function (declspecs, declarator, attrs, flags)
     {
       dtor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
       DECL_CONTEXT (dtor_label) = current_function_decl;
-    }
-  /* Under the old ABI we return `this' from constructors, so we make
-     ordinary `return' statements in constructors jump to CTOR_LABEL;
-     from there we return `this'.  Under the new ABI, we don't bother
-     with any of this.  By not setting CTOR_LABEL the remainder of the
-     machinery is automatically disabled.  */
-  else if (!flag_new_abi && DECL_CONSTRUCTOR_P (decl1))
-    {
-      ctor_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-      DECL_CONTEXT (ctor_label) = current_function_decl;
     }
 
   store_parm_decls (current_function_parms);
@@ -13805,9 +13745,7 @@ static void
 finish_destructor_body ()
 {
   tree compound_stmt;
-  tree virtual_size;
   tree exprstmt;
-  tree if_stmt;
 
   /* Create a block to contain all the extra code.  */
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
@@ -13889,31 +13827,31 @@ finish_destructor_body ()
 	}
     }
 
-  virtual_size = c_sizeof (current_class_type);
+  /* In a virtual destructor, we must call delete.  */
+  if (DECL_VIRTUAL_P (current_function_decl))
+    {
+      tree if_stmt;
+      tree virtual_size = c_sizeof (current_class_type);
 
-  /* At the end, call delete if that's what's requested.  */
+      /* [class.dtor]
 
-  /* FDIS sez: At the point of definition of a virtual destructor
-     (including an implicit definition), non-placement operator delete
-     shall be looked up in the scope of the destructor's class and if
-     found shall be accessible and unambiguous.
+	 At the point of definition of a virtual destructor (including
+	 an implicit definition), non-placement operator delete shall
+	 be looked up in the scope of the destructor's class and if
+	 found shall be accessible and unambiguous.  */
+      exprstmt = build_op_delete_call
+	(DELETE_EXPR, current_class_ptr, virtual_size,
+	 LOOKUP_NORMAL | LOOKUP_SPECULATIVELY, NULL_TREE);
 
-     This is somewhat unclear, but I take it to mean that if the class
-     only defines placement deletes we don't do anything here.  So we
-     pass LOOKUP_SPECULATIVELY; delete_sanity will complain for us if
-     they ever try to delete one of these.  */
-  exprstmt = build_op_delete_call
-    (DELETE_EXPR, current_class_ptr, virtual_size,
-     LOOKUP_NORMAL | LOOKUP_SPECULATIVELY, NULL_TREE);
-
-  if_stmt = begin_if_stmt ();
-  finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
-			      current_in_charge_parm,
-			      integer_one_node),
-		       if_stmt);
-  finish_expr_stmt (exprstmt);
-  finish_then_clause (if_stmt);
-  finish_if_stmt ();
+      if_stmt = begin_if_stmt ();
+      finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
+				  current_in_charge_parm,
+				  integer_one_node),
+			   if_stmt);
+      finish_expr_stmt (exprstmt);
+      finish_then_clause (if_stmt);
+      finish_if_stmt ();
+    }
 
   /* Close the block we started above.  */
   finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
@@ -14477,8 +14415,6 @@ lang_mark_tree (t)
 	      ggc_mark_tree (ld->befriending_classes);
 	      ggc_mark_tree (ld->context);
 	      ggc_mark_tree (ld->cloned_function);
-	      if (!DECL_OVERLOADED_OPERATOR_P (t))
-		ggc_mark_tree (ld->u2.vtt_parm);
 	      if (TREE_CODE (t) == TYPE_DECL)
 		ggc_mark_tree (ld->u.sorted_fields);
 	      else if (TREE_CODE (t) == FUNCTION_DECL

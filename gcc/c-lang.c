@@ -70,10 +70,11 @@ c_init ()
 {
   c_common_lang_init ();
 
-  /* If still unspecified, make it match pedantic && -std=c99.  */
+  /* If still unspecified, make it match -std=c99
+     (allowing for -pedantic-errors).  */
   if (mesg_implicit_function_declaration < 0)
     {
-      if (pedantic && flag_isoc99)
+      if (flag_isoc99)
 	mesg_implicit_function_declaration = flag_pedantic_errors ? 2 : 1;
       else
 	mesg_implicit_function_declaration = 0;
@@ -187,10 +188,9 @@ start_cdtor (method_type)
   tree body;
 
   start_function (void_list_node_1,
-		  build_parse_node (CALL_EXPR, fnname,
-				    tree_cons (NULL_TREE, NULL_TREE,
-					       void_list_node_1),
-				    NULL_TREE),
+		  build_nt (CALL_EXPR, fnname,
+			    tree_cons (NULL_TREE, NULL_TREE, void_list_node_1),
+			    NULL_TREE),
 		  NULL_TREE, NULL_TREE);
   store_parm_decls ();
 

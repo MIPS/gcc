@@ -72,7 +72,7 @@ ALLOCA_FINISH = true
 XCFLAGS =
 TCFLAGS =
 BOOT_CFLAGS =  -g
-STAGE1_CFLAGS = -g -O1 @stage1_cflags@
+STAGE1_CFLAGS = -g @stage1_cflags@
 CFLAGS = $(STAGE1_CFLAGS)
 
 # The warning flags are separate from BOOT_CFLAGS because people tend to
@@ -192,9 +192,6 @@ GCC_FOR_TARGET = ./xgcc -B./ -B$(build_tooldir)/bin/ -isystem $(build_tooldir)/i
 # It omits XCFLAGS, and specifies -B./.
 # It also specifies -isystem ./include to find, e.g., stddef.h.
 GCC_CFLAGS=$(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(LOOSE_WARN) -isystem ./include $(TCFLAGS)
-
-# Specify the abi to use when building the c++ runtime
-GXX_ABI_FLAG=@GXX_ABI_FLAG@
 
 # Sed command to transform gcc to installed name.  Overwritten by configure.
 program_transform_name = @program_transform_name@
@@ -318,8 +315,6 @@ slibdir = @slibdir@
 build_tooldir = $(exec_prefix)/$(target_alias)
 # Directory in which the compiler finds target-independent g++ includes.
 gcc_gxx_include_dir = @gcc_gxx_include_dir@
-# Directory in which the compiler finds target-dependent g++ includes.
-gcc_gxx_target_include_dir = $(build_tooldir)/include/@libstdcxx_incdir@
 # Directory to search for site-specific includes.
 includedir = $(local_prefix)/include
 # assertdir is overridden in cross-make.
@@ -395,7 +390,7 @@ CROSS_LIBGCC1 = libgcc1.cross
 # so that -g1 will be tested.
 #
 LIBGCC2_DEBUG_CFLAGS = -g1
-LIBGCC2_CFLAGS = -O2 -save-temps  $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
+LIBGCC2_CFLAGS = -save-temps  $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
 
 # Additional options to use when compiling libgcc2.a.
 # Some targets override this to -isystem include
@@ -738,20 +733,20 @@ C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
 
-OBJS = diagnostic.o version.o tree.o print-tree.o stor-layout.o fold-const.o  \
- function.o stmt.o except.o expr.o calls.o expmed.o explow.o optabs.o real.o  \
- builtins.o intl.o varasm.o rtl.o print-rtl.o rtlanal.o emit-rtl.o genrtl.o   \
- dbxout.o sdbout.o dwarfout.o dwarf2out.o xcoffout.o bitmap.o alias.o gcse.o  \
- integrate.o jump.o cse.o loop.o doloop.o unroll.o flow.o combine.o varray.o  \
- regclass.o regmove.o local-alloc.o global.o reload.o reload1.o caller-save.o \
- insn-peep.o reorg.o haifa-sched.o final.o recog.o reg-stack.o regrename.o    \
- insn-opinit.o insn-recog.o insn-extract.o insn-output.o insn-emit.o lcm.o    \
- profile.o insn-attrtab.o $(out_object_file) $(EXTRA_OBJS) convert.o	      \
- mbchar.o splay-tree.o graph.o sbitmap.o resource.o hash.o predict.o	      \
- lists.o ggc-common.o $(GGC) stringpool.o simplify-rtx.o ssa.o bb-reorder.o   \
+OBJS = diagnostic.o version.o tree.o print-tree.o stor-layout.o fold-const.o \
+ function.o stmt.o except.o expr.o calls.o expmed.o explow.o optabs.o real.o \
+ builtins.o intl.o varasm.o rtl.o print-rtl.o rtlanal.o emit-rtl.o genrtl.o  \
+ dbxout.o sdbout.o dwarfout.o dwarf2out.o xcoffout.o bitmap.o alias.o gcse.o \
+ integrate.o jump.o cse.o loop.o doloop.o unroll.o flow.o combine.o varray.o \
+ regclass.o regmove.o local-alloc.o global.o reload.o reload1.o caller-save.o\
+ insn-peep.o reorg.o haifa-sched.o final.o recog.o reg-stack.o regrename.o   \
+ insn-opinit.o insn-recog.o insn-extract.o insn-output.o insn-emit.o lcm.o   \
+ profile.o insn-attrtab.o $(out_object_file) $(EXTRA_OBJS) convert.o	     \
+ mbchar.o splay-tree.o graph.o sbitmap.o resource.o hash.o predict.o	     \
+ lists.o ggc-common.o $(GGC) stringpool.o simplify-rtx.o ssa.o bb-reorder.o  \
  sibcall.o conflict.o timevar.o ifcvt.o dominance.o dependence.o dce.o \
- sched-vis.o sched-deps.o sched-rgn.o sched-ebb.o hashtab.o ra.o \
- df.o cbitmap.o
+ sched-vis.o sched-deps.o sched-rgn.o sched-ebb.o hashtab.o cselib.o params.o \
+ ra.o df.o cbitmap.o
 
 BACKEND = toplev.o libbackend.a
 
@@ -1070,12 +1065,13 @@ libgcc.a: $(LIBGCC_DEPS)
 multilib.h: s-mlib; @true
 s-mlib: $(srcdir)/genmultilib Makefile
 	$(SHELL) $(srcdir)/genmultilib \
-	  "$(MULTILIB_OPTIONS)" \
-	  "$(MULTILIB_DIRNAMES)" \
-	  "$(MULTILIB_MATCHES)" \
-	  "$(MULTILIB_EXCEPTIONS)" \
-	  "$(MULTILIB_EXTRA_OPTS)" \
-	  "$(MULTILIB_EXCLUSIONS)" > tmp-mlib.h
+	  "`test @enable_multilib@ = yes && echo $(MULTILIB_OPTIONS)`" \
+	  "`test @enable_multilib@ = yes && echo $(MULTILIB_DIRNAMES)`" \
+	  "`test @enable_multilib@ = yes && echo $(MULTILIB_MATCHES)`" \
+	  "`test @enable_multilib@ = yes && echo $(MULTILIB_EXCEPTIONS)`" \
+	  "`test @enable_multilib@ = yes && echo $(MULTILIB_EXTRA_OPTS)`" \
+	  "`test @enable_multilib@ = yes && echo $(MULTILIB_EXCLUSIONS)`" \
+		> tmp-mlib.h
 	$(SHELL) $(srcdir)/move-if-change tmp-mlib.h multilib.h
 	touch s-mlib
 
@@ -1270,14 +1266,16 @@ DRIVER_DEFINES = \
   -DDEFAULT_TARGET_MACHINE=\"$(target_alias)\" \
   -DSTANDARD_BINDIR_PREFIX=\"$(bindir)/\" \
   -DTOOLDIR_BASE_PREFIX=\"$(unlibsubdir)/../\" \
-  `test "$SHLIB_LINK" -a "@enable_shared@" = "yes" && echo "-DENABLE_SHARED_LIBGCC"` \
-  `test "$SHLIB_MULTILIB" && echo "-DNO_SHARED_LIBGCC_MULTILIB"`
+  `test "$${SHLIB_LINK}" -a "@enable_shared@" = "yes" && echo "-DENABLE_SHARED_LIBGCC"` \
+  `test "$${SHLIB_MULTILIB}" && echo "-DNO_SHARED_LIBGCC_MULTILIB"`
 
 gcc.o: gcc.c $(CONFIG_H) system.h intl.h multilib.h \
     Makefile $(lang_specs_files) prefix.h $(GCC_H)
+	(SHLIB_LINK='$(SHLIB_LINK)' \
+	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
   $(DRIVER_DEFINES) \
-  -c $(srcdir)/gcc.c
+  -c $(srcdir)/gcc.c)
 
 gccspec.o: gccspec.c $(CONFIG_H) system.h $(GCC_H)
 cppspec.o: cppspec.c $(CONFIG_H) system.h $(GCC_H)
@@ -1343,7 +1341,8 @@ toplev.o : toplev.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) function.h \
    flags.h input.h $(INSN_ATTR_H) xcoffout.h output.h diagnostic.h \
    insn-codes.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h dwarfout.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
-   graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) ssa.h
+   graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
+   ssa.h params.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(MAYBE_USE_COLLECT2) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -c $(srcdir)/toplev.c
@@ -1354,7 +1353,7 @@ rtl.o : rtl.c $(GCONFIG_H) system.h $(RTL_H) bitmap.h $(GGC_H) toplev.h
 print-rtl.o : print-rtl.c $(GCONFIG_H) system.h $(RTL_H) hard-reg-set.h \
     $(BASIC_BLOCK_H)
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
-rtlanal.o : rtlanal.c $(CONFIG_H) system.h toplev.h $(RTL_H)
+rtlanal.o : rtlanal.c $(CONFIG_H) system.h toplev.h $(RTL_H) hard-reg-set.h
 errors.o : errors.c $(GCONFIG_H) system.h errors.h
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
@@ -1412,19 +1411,23 @@ emit-rtl.o : emit-rtl.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
 real.o : real.c $(CONFIG_H) system.h $(TREE_H) toplev.h
 integrate.o : integrate.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    $(INTEGRATE_H) insn-flags.h insn-config.h $(EXPR_H) real.h $(REGS_H) \
-   intl.h function.h output.h $(RECOG_H) except.h toplev.h $(LOOP_H)
+   intl.h function.h output.h $(RECOG_H) except.h toplev.h $(LOOP_H) \
+   params.h
 jump.o : jump.c $(CONFIG_H) system.h $(RTL_H) flags.h hard-reg-set.h $(REGS_H) \
    insn-config.h insn-flags.h $(RECOG_H) $(EXPR_H) real.h except.h function.h \
    toplev.h $(INSN_ATTR_H)
 
 simplify-rtx.o : simplify-rtx.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
+   output.h function.h $(GGC_H) $(OBSTACK_H)
+cselib.o : cselib.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) \
+   hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h function.h cselib.h $(GGC_H) $(OBSTACK_H)
 cse.o : cse.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) hard-reg-set.h flags.h \
    real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h output.h function.h \
    $(BASIC_BLOCK_H) $(GGC_H)
 gcse.o : gcse.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) hard-reg-set.h \
-   flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) \
+   flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) \
    function.h output.h toplev.h
 sibcall.o : sibcall.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) function.h \
    hard-reg-set.h flags.h insn-config.h $(RECOG_H) $(BASIC_BLOCK_H)
@@ -1530,6 +1533,7 @@ ifcvt.o : ifcvt.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) \
    output.h
 dependence.o : dependence.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) \
    $(C_COMMON_H) flags.h varray.h $(EXPR_H)
+params.o : params.c $(CONFIG_H) system.h params.h toplev.h
 
 $(out_object_file): $(out_file) $(CONFIG_H) $(TREE_H) $(GGC_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h real.h insn-config.h conditions.h \
@@ -1832,11 +1836,6 @@ $(HOST_PREFIX_1)bitmap.o: $(srcdir)/bitmap.c $(CONFIG_H) system.h $(RTL_H) \
 	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/bitmap.c > $(HOST_PREFIX)bitmap.c
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)bitmap.c
 
-$(HOST_PREFIX_1)rtlanal.o: $(srcdir)/rtlanal.c $(CONFIG_H) system.h $(RTL_H)
-	rm -f $(HOST_PREFIX)rtlanal.c
-	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/rtlanal.c > $(HOST_PREFIX)rtlanal.c
-	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)rtlanal.c
-
 $(HOST_PREFIX_1)alloca.o: $(srcdir)/../libiberty/alloca.c
 	rm -f $(HOST_PREFIX)alloca.c
 	$(LN_S) $(srcdir)/../libiberty/alloca.c $(HOST_PREFIX)alloca.c
@@ -1911,7 +1910,7 @@ intl.all intl.install intl.uninstall \
 PREPROCESSOR_DEFINES = \
   -DGCC_INCLUDE_DIR=\"$(libsubdir)/include\" \
   -DGPLUSPLUS_INCLUDE_DIR=\"$(gcc_gxx_include_dir)\" \
-  -DGPLUSPLUS_TOOL_INCLUDE_DIR=\"$(gcc_gxx_target_include_dir)\" \
+  -DGPLUSPLUS_TOOL_INCLUDE_DIR=\"$(gcc_gxx_include_dir)/$(target_alias)\" \
   -DLOCAL_INCLUDE_DIR=\"$(includedir)\" \
   -DCROSS_INCLUDE_DIR=\"$(gcc_tooldir)/sys-include\" \
   -DTOOL_INCLUDE_DIR=\"$(gcc_tooldir)/include\"
@@ -1981,15 +1980,19 @@ unprotoize$(exeext): unprotoize.o $(PROTO_OBJS) $(LIBDEPS)
 
 protoize.o: protoize.c $(srcdir)/../include/getopt.h $(CONFIG_H) system.h \
    Makefile version.h
+	(SHLIB_LINK='$(SHLIB_LINK)' \
+	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  $(DRIVER_DEFINES) $(PREPROCESSOR_DEFINES) \
-	  $(srcdir)/protoize.c $(OUTPUT_OPTION)
+	  $(srcdir)/protoize.c $(OUTPUT_OPTION))
 
 unprotoize.o: unprotoize.c protoize.c $(srcdir)/../include/getopt.h \
    $(CONFIG_H) system.h Makefile version.h
+	(SHLIB_LINK='$(SHLIB_LINK)' \
+	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  $(DRIVER_DEFINES) $(PREPROCESSOR_DEFINES) \
-	  $(srcdir)/unprotoize.c $(OUTPUT_OPTION)
+	  $(srcdir)/unprotoize.c $(OUTPUT_OPTION))
 
 # This info describes the target machine, so compile with GCC just built.
 SYSCALLS.c.X: $(srcdir)/sys-types.h $(srcdir)/sys-protos.h $(GCC_PASSES) \
@@ -2288,7 +2291,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 	-rm -f $(STAGESTUFF)
 	-rm -rf libgcc
 # Delete the temporary source copies for cross compilation.
-	-rm -f $(HOST_PREFIX_1)rtl.c $(HOST_PREFIX_1)rtlanal.c
+	-rm -f $(HOST_PREFIX_1)rtl.c
 	-rm -f $(HOST_PREFIX_1)alloca.c $(HOST_PREFIX_1)malloc.c
 	-rm -f $(HOST_PREFIX_1)obstack.c
 # Delete the temp files made in the course of building libgcc.a.
@@ -2489,7 +2492,7 @@ installdirs:
 	-if [ -d $(man1dir) ] ; then true ; else mkdir $(man1dir) ; chmod a+rx $(man1dir) ; fi
 
 # Install the compiler executables built during cross compilation.
-install-common: native installdirs $(EXTRA_PARTS) lang.install-common
+install-common: native $(EXTRA_PARTS) lang.install-common
 	for file in $(COMPILERS); do \
 	  if [ -f $$file ] ; then \
 	    rm -f $(libsubdir)/$$file; \
@@ -2548,7 +2551,7 @@ install-common: native installdirs $(EXTRA_PARTS) lang.install-common
 
 # Install the driver program as $(target_alias)-gcc
 # and also as either gcc (if native) or $(gcc_tooldir)/bin/gcc.
-install-driver: xgcc$(exeext)
+install-driver: installdirs xgcc$(exeext)
 	-if [ -f gcc-cross$(exeext) ] ; then \
 	  rm -f $(bindir)/$(GCC_CROSS_NAME)$(exeext); \
 	  $(INSTALL_PROGRAM) gcc-cross$(exeext) $(bindir)/$(GCC_CROSS_NAME)$(exeext); \
@@ -2744,7 +2747,7 @@ site.exp: ./config.status Makefile
 # CFLAGS is set even though it's empty to show we reserve the right to set it.
 	@echo "set CFLAGS \"\"" >> ./tmp0
 	@echo "set CXXFLAGS \"-I$(objdir)/../$(target_subdir)libio -I\$$srcdir/../libg++/src -I\$$srcdir/../libio -I\$$srcdir/../libstdc++ -I\$$srcdir/../libstdc++/stl -L$(objdir)/../$(target_subdir)libg++ -L$(objdir)/../$(target_subdir)libstdc++\"" >> ./tmp0
-	@echo "set HAVE_LIBSTDCXX_V3 @HAVE_LIBSTDCXX_V3@" >> ./tmp0
+	@echo "set HAVE_LIBSTDCXX_V3 1" >> ./tmp0
 # If newlib has been configured, we need to pass -B to gcc so it can find
 # newlib's crt0.o if it exists.  This will cause a "path prefix not used"
 # message if it doesn't, but the testsuite is supposed to ignore the message -
@@ -2774,7 +2777,11 @@ site.exp: ./config.status Makefile
 		-e '1,/^## All variables above are.*##/ d' >> site.exp
 	-@rm -f ./tmp?
 
-CHECK_TARGETS = check-gcc check-g++ check-g77 check-objc @CHECK_PO@
+CHECK_TARGETS = check-gcc @check_languages@ @CHECK_PO@
+
+check-c++ : check-g++
+check-f77 : check-g77
+check-java : 
 
 check: $(CHECK_TARGETS)
 
@@ -2843,6 +2850,16 @@ check-po:
 	   test -f java/Makefile && test -f objc/Makefile; then \
 	   $(MAKE) -C po check-po; \
 	fi
+
+check-consistency: testsuite/site.exp
+	-rootme=`pwd`; export rootme; \
+	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	cd testsuite; \
+	EXPECT=${EXPECT} ; export EXPECT ; \
+	if [ -f $${rootme}/../expect/expect ] ; then  \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   export TCL_LIBRARY ; fi ; \
+	$(RUNTEST) --tool consistency $(RUNTESTFLAGS)
 
 # These exist for maintenance purposes.
 
@@ -2945,10 +2962,10 @@ bootstrap-lean : clean_s1 clean_s2 stage3_build
 
 bootstrap2: bootstrap
 
-bootstrap2-lean : bootstrap_lean
+bootstrap2-lean : bootstrap-lean
 
 bootstrap3 bootstrap3-lean: bootstrap
- 
+
 bootstrap4 bootstrap4-lean: stage4_build
 
 unstage1 unstage2 unstage3 unstage4:

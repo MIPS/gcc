@@ -185,7 +185,7 @@ typedef struct stack_def
 {
   int top;			/* index to top stack element */
   HARD_REG_SET reg_set;		/* set of live registers */
-  char reg[REG_STACK_SIZE];	/* register - stack mapping */
+  unsigned char reg[REG_STACK_SIZE];/* register - stack mapping */
 } *stack;
 
 /* This is used to carry information about basic blocks.  It is 
@@ -239,7 +239,8 @@ static int check_asm_stack_operands	PARAMS ((rtx));
 static int get_asm_operand_n_inputs	PARAMS ((rtx));
 static rtx stack_result			PARAMS ((tree));
 static void replace_reg			PARAMS ((rtx *, int));
-static void remove_regno_note		PARAMS ((rtx, enum reg_note, int));
+static void remove_regno_note		PARAMS ((rtx, enum reg_note,
+						 unsigned int));
 static int get_hard_regnum		PARAMS ((stack, rtx));
 static void delete_insn_for_stacker	PARAMS ((rtx));
 static rtx emit_pop_insn		PARAMS ((rtx, stack, rtx,
@@ -334,22 +335,18 @@ next_flags_user (insn)
 {
   /* Search forward looking for the first use of this value. 
      Stop at block boundaries.  */
-  /* ??? This really cries for BLOCK_END!  */
 
-  while (1)
+  while (insn != current_block->end)
     {
       insn = NEXT_INSN (insn);
-      if (!insn)
-	return NULL_RTX;
 
       if (INSN_P (insn) && reg_mentioned_p (ix86_flags_rtx, PATTERN (insn)))
         return insn;
 
-      if (GET_CODE (insn) == JUMP_INSN
-	  || GET_CODE (insn) == CODE_LABEL
-	  || GET_CODE (insn) == CALL_INSN)
+      if (GET_CODE (insn) == CALL_INSN)
 	return NULL_RTX;
     }
+  return NULL_RTX;
 }
 
 /* Reorganise the stack into ascending numbers,
@@ -841,7 +838,7 @@ static void
 remove_regno_note (insn, note, regno)
      rtx insn;
      enum reg_note note;
-     int regno;
+     unsigned int regno;
 {
   register rtx *note_link, this;
 
@@ -1230,17 +1227,12 @@ swap_rtx_condition (insn)
 
       /* Search forward looking for the first use of this value. 
 	 Stop at block boundaries.  */
-      /* ??? This really cries for BLOCK_END!  */
-      while (1)
+      while (insn != current_block->end)
 	{
 	  insn = NEXT_INSN (insn);
-	  if (insn == NULL_RTX)
-	    return 0;
 	  if (INSN_P (insn) && reg_mentioned_p (dest, insn))
 	    break;
-	  if (GET_CODE (insn) == JUMP_INSN)
-	    return 0;
-	  if (GET_CODE (insn) == CODE_LABEL)
+	  if (GET_CODE (insn) == CALL_INSN)
 	    return 0;
 	}
 
@@ -1263,8 +1255,19 @@ swap_rtx_condition (insn)
 
   if (swap_rtx_condition_1 (pat))
     {
+      int fail = 0;
       INSN_CODE (insn) = -1;
       if (recog_memoized (insn) == -1)
+	fail = 1;
+      /* In case the flags don't die here, recurse to try fix
+         following user too.  */
+      else if (! dead_or_set_p (insn, ix86_flags_rtx))
+	{
+	  insn = next_flags_user (insn);
+	  if (!insn || !swap_rtx_condition (insn))
+	    fail = 1;
+	}
+      if (fail)
 	{
 	  swap_rtx_condition_1 (pat);
 	  return 0;

@@ -119,8 +119,8 @@ static tree bfs_walk
 	PARAMS ((tree, tree (*) (tree, void *), tree (*) (tree, void *),
 	       void *));
 static tree lookup_field_queue_p PARAMS ((tree, void *));
+static int shared_member_p PARAMS ((tree));
 static tree lookup_field_r PARAMS ((tree, void *));
-static tree context_for_name_lookup PARAMS ((tree));
 static tree canonical_binfo PARAMS ((tree));
 static tree shared_marked_p PARAMS ((tree, void *));
 static tree shared_unmarked_p PARAMS ((tree, void *));
@@ -714,7 +714,7 @@ at_function_scope_p ()
 
 /* Return the scope of DECL, as appropriate when doing name-lookup.  */
 
-static tree
+tree
 context_for_name_lookup (decl)
      tree decl;
 {
@@ -724,9 +724,9 @@ context_for_name_lookup (decl)
      definition, the members of the anonymous union are considered to
      have been defined in the scope in which the anonymous union is
      declared.  */ 
-  tree context = CP_DECL_CONTEXT (decl);
+  tree context = DECL_CONTEXT (decl);
 
-  while (TYPE_P (context) && ANON_AGGR_TYPE_P (context))
+  while (context && TYPE_P (context) && ANON_AGGR_TYPE_P (context))
     context = TYPE_CONTEXT (context);
   if (!context)
     context = global_namespace;
@@ -1313,6 +1313,37 @@ template_self_reference_p (type, decl)
 	   && DECL_NAME (decl) == constructor_name (type));
 }
 
+
+/* Nonzero for a class member means that it is shared between all objects
+   of that class.
+
+   [class.member.lookup]:If the resulting set of declarations are not all
+   from sub-objects of the same type, or the set has a  nonstatic  member
+   and  includes members from distinct sub-objects, there is an ambiguity
+   and the program is ill-formed.
+
+   This function checks that T contains no nonstatic members.  */
+
+static int
+shared_member_p (t)
+     tree t;
+{
+  if (TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == TYPE_DECL \
+      || TREE_CODE (t) == CONST_DECL)
+    return 1;
+  if (is_overloaded_fn (t))
+    {
+      for (; t; t = OVL_NEXT (t))
+	{
+	  tree fn = OVL_CURRENT (t);
+	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+	    return 0;
+	}
+      return 1;
+    }
+  return 0;
+}
+
 /* DATA is really a struct lookup_field_info.  Look for a field with
    the name indicated there in BINFO.  If this function returns a
    non-NULL value it is the result of the lookup.  Called from
@@ -1393,7 +1424,7 @@ lookup_field_r (binfo, data)
      hide the old one, we might have an ambiguity.  */
   if (lfi->rval_binfo && !is_subobject_of_p (lfi->rval_binfo, binfo, lfi->type))
     {
-      if (nval == lfi->rval && SHARED_MEMBER_P (nval))
+      if (nval == lfi->rval && shared_member_p (nval))
 	/* The two things are really the same.  */
 	;
       else if (is_subobject_of_p (binfo, lfi->rval_binfo, lfi->type))
@@ -2015,22 +2046,13 @@ look_for_overrides_r (type, fndecl)
                   return 1;
                 }
             }
-          else
+          else if (same_signature_p (fndecl, fn))
             {
-              if (/* The first parameter is the `this' parameter,
-	             which has POINTER_TYPE, and we can therefore
-	             safely use TYPE_QUALS, rather than
-		     CP_TYPE_QUALS.  */
-	          (TYPE_QUALS (TREE_TYPE (TREE_VALUE (btypes)))
-	           == TYPE_QUALS (thistype))
-	          && compparms (TREE_CHAIN (btypes), TREE_CHAIN (dtypes)))
-                {
-                  /* It's definitely virtual, even if not explicitly set.  */
-                  DECL_VIRTUAL_P (fndecl) = 1;
-	          check_final_overrider (fndecl, fn);
-	      
-	          return 1;
-	        }
+	      /* It's definitely virtual, even if not explicitly set.  */
+	      DECL_VIRTUAL_P (fndecl) = 1;
+	      check_final_overrider (fndecl, fn);
+
+	      return 1;
 	    }
 	}
     }
@@ -2046,7 +2068,7 @@ dfs_skip_nonprimary_vbases_unmarkedp (binfo, data)
      tree binfo;
      void *data ATTRIBUTE_UNUSED;
 {
-  if (TREE_VIA_VIRTUAL (binfo) && !BINFO_PRIMARY_MARKED_P (binfo))
+  if (TREE_VIA_VIRTUAL (binfo) && !BINFO_PRIMARY_P (binfo))
     /* This is a non-primary virtual base.  Skip it.  */
     return NULL_TREE;
 
@@ -2061,7 +2083,7 @@ dfs_skip_nonprimary_vbases_markedp (binfo, data)
      tree binfo;
      void *data ATTRIBUTE_UNUSED;
 {
-  if (TREE_VIA_VIRTUAL (binfo) && !BINFO_PRIMARY_MARKED_P (binfo))
+  if (TREE_VIA_VIRTUAL (binfo) && !BINFO_PRIMARY_P (binfo))
     /* This is a non-primary virtual base.  Skip it.  */
     return NULL_TREE;
 
@@ -2079,7 +2101,7 @@ get_shared_vbase_if_not_primary (binfo, data)
      tree binfo;
      void *data;
 {
-  if (TREE_VIA_VIRTUAL (binfo) && !BINFO_PRIMARY_MARKED_P (binfo))
+  if (TREE_VIA_VIRTUAL (binfo) && !BINFO_PRIMARY_P (binfo))
     {
       tree type = (tree) data;
 
@@ -2089,7 +2111,7 @@ get_shared_vbase_if_not_primary (binfo, data)
       /* This is a non-primary virtual base.  If there is no primary
 	 version, get the shared version.  */
       binfo = binfo_for_vbase (BINFO_TYPE (binfo), type);
-      if (BINFO_PRIMARY_MARKED_P (binfo))
+      if (BINFO_PRIMARY_P (binfo))
 	return NULL_TREE;
     }
 
@@ -2153,7 +2175,7 @@ dfs_get_pure_virtuals (binfo, data)
   /* We're not interested in primary base classes; the derived class
      of which they are a primary base will contain the information we
      need.  */
-  if (!BINFO_PRIMARY_MARKED_P (binfo))
+  if (!BINFO_PRIMARY_P (binfo))
     {
       tree virtuals;
       
@@ -2357,9 +2379,7 @@ init_vbase_pointers (type, decl_ptr)
   if (TYPE_USES_VIRTUAL_BASECLASSES (type))
     {
       struct vbase_info vi;
-      int old_flag = flag_this_is_variable;
       tree binfo = TYPE_BINFO (type);
-      flag_this_is_variable = -2;
 
       /* Find all the virtual base classes, marking them for later
 	 initialization.  */
@@ -2377,7 +2397,6 @@ init_vbase_pointers (type, decl_ptr)
 		marked_vtable_pathp,
 		NULL);
 
-      flag_this_is_variable = old_flag;
       return vi.inits;
     }
 
@@ -2456,7 +2475,7 @@ expand_upcast_fixups (binfo, addr, orig_addr, vbase, vbase_addr, t,
   tree delta;
   HOST_WIDE_INT n;
 
-  while (BINFO_PRIMARY_MARKED_P (binfo))
+  while (BINFO_PRIMARY_P (binfo))
     {
       binfo = BINFO_INHERITANCE_CHAIN (binfo);
       if (TREE_VIA_VIRTUAL (binfo))
@@ -2476,8 +2495,7 @@ expand_upcast_fixups (binfo, addr, orig_addr, vbase, vbase_addr, t,
       *vbase_offsets = delta;
     }
 
-  for (virtuals = BINFO_VIRTUALS (binfo), 
-	 n = first_vfun_index (BINFO_TYPE (binfo));
+  for (virtuals = BINFO_VIRTUALS (binfo), n = 0;
        virtuals;
        virtuals = TREE_CHAIN (virtuals), ++n)
     {
@@ -2594,7 +2612,7 @@ fixup_virtual_upcast_offsets (real_binfo, binfo, init_self, can_elide, addr, ori
       tree real_base_binfo = TREE_VEC_ELT (real_binfos, i);
       tree base_binfo = TREE_VEC_ELT (binfos, i);
       int is_not_base_vtable
-	= !BINFO_PRIMARY_MARKED_P (real_base_binfo);
+	= !BINFO_PRIMARY_P (real_base_binfo);
       if (! TREE_VIA_VIRTUAL (real_base_binfo))
 	fixup_virtual_upcast_offsets (real_base_binfo, base_binfo,
 				      is_not_base_vtable, can_elide, addr,
@@ -2738,7 +2756,7 @@ dfs_find_vbase_instance (binfo, data)
 {
   tree base = TREE_VALUE ((tree) data);
 
-  if (BINFO_PRIMARY_MARKED_P (binfo)
+  if (BINFO_PRIMARY_P (binfo)
       && same_type_p (BINFO_TYPE (binfo), base))
     return binfo;
 
@@ -2756,7 +2774,7 @@ find_vbase_instance (base, type)
   tree instance;
 
   instance = binfo_for_vbase (base, type);
-  if (!BINFO_PRIMARY_MARKED_P (instance))
+  if (!BINFO_PRIMARY_P (instance))
     return instance;
 
   return dfs_walk (TYPE_BINFO (type), 
@@ -3250,14 +3268,32 @@ binfo_for_vtable (var)
   return main_binfo;
 }
 
-/* Returns the binfo of the first direct or indirect virtual base from
-   which BINFO is derived, or NULL if binfo is not via virtual.  */
+/* Returns the binfo of the first direct or indirect virtual base derived
+   from BINFO, or NULL if binfo is not via virtual.  */
 
 tree
 binfo_from_vbase (binfo)
      tree binfo;
 {
   for (; binfo; binfo = BINFO_INHERITANCE_CHAIN (binfo))
+    {
+      if (TREE_VIA_VIRTUAL (binfo))
+	return binfo;
+    }
+  return NULL_TREE;
+}
+
+/* Returns the binfo of the first direct or indirect virtual base derived
+   from BINFO up to the TREE_TYPE, LIMIT, or NULL if binfo is not
+   via virtual.  */
+
+tree
+binfo_via_virtual (binfo, limit)
+     tree binfo;
+     tree limit;
+{
+  for (; binfo && (!limit || !same_type_p (BINFO_TYPE (binfo), limit));
+       binfo = BINFO_INHERITANCE_CHAIN (binfo))
     {
       if (TREE_VIA_VIRTUAL (binfo))
 	return binfo;

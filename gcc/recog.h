@@ -1,6 +1,6 @@
 /* Declarations for interface to insn recognizer and insn-output.c.
-   Copyright (C) 1987, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -77,6 +77,7 @@ extern int recog_memoized_1		PARAMS ((rtx));
 extern int check_asm_operands		PARAMS ((rtx));
 extern int asm_operand_ok		PARAMS ((rtx, const char *));
 extern int validate_change		PARAMS ((rtx, rtx *, rtx, int));
+extern int insn_invalid_p		PARAMS ((rtx));
 extern int apply_change_group		PARAMS ((void));
 extern int num_validated_changes	PARAMS ((void));
 extern void cancel_changes		PARAMS ((int));
@@ -119,6 +120,7 @@ extern int mode_dependent_address_p	PARAMS ((rtx));
 
 extern int recog			PARAMS ((rtx, rtx, int *));
 extern void add_clobbers		PARAMS ((rtx, int));
+extern int added_clobbers_hard_reg_p	PARAMS ((int));
 extern void insn_extract		PARAMS ((rtx));
 extern void extract_insn		PARAMS ((rtx));
 extern void extract_constrain_insn_cached PARAMS ((rtx));

@@ -55,6 +55,24 @@ Boston, MA 02111-1307, USA.  */
 #include "md5.h"
 #include "tm_p.h"
 
+/* DWARF2 Abbreviation Glossary:
+   CFA = Canonical Frame Address
+	   a fixed address on the stack which identifies a call frame.
+	   We define it to be the value of SP just before the call insn.
+	   The CFA register and offset, which may change during the course
+	   of the function, are used to calculate its value at runtime.
+   CFI = Call Frame Instruction
+	   an instruction for the DWARF2 abstract machine
+   CIE = Common Information Entry
+	   information describing information common to one or more FDEs
+   DIE = Debugging Information Entry
+   FDE = Frame Description Entry
+	   information describing the stack call frame, in particular,
+	   how to restore registers
+
+   DW_CFA_... = DWARF2 CFA call frame instruction
+   DW_TAG_... = DWARF2 DIE tag */
+
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
 
@@ -855,7 +873,7 @@ dwarf2out_def_cfa (label, reg, offset)
   def_cfa_1 (label, &loc);
 }
 
-/* This routine does the actual work. The CFA is now calculated from
+/* This routine does the actual work.  The CFA is now calculated from
    the dw_cfa_location structure.  */
 static void
 def_cfa_1 (label, loc_p)
@@ -879,6 +897,8 @@ def_cfa_1 (label, loc_p)
     {
       if (loc.indirect == 0
 	  || loc.base_offset == old_cfa.base_offset)
+	/* Nothing changed so no need to issue any call frame
+           instructions.  */
 	return;
     }
 
@@ -886,6 +906,9 @@ def_cfa_1 (label, loc_p)
 
   if (loc.reg == old_cfa.reg && !loc.indirect)
     {
+      /* Construct a "DW_CFA_def_cfa_offset <offset>" instruction,
+	 indicating the CFA register did not change but the offset
+	 did.  */
       cfi->dw_cfi_opc = DW_CFA_def_cfa_offset;
       cfi->dw_cfi_oprnd1.dw_cfi_offset = loc.offset;
     }
@@ -894,6 +917,9 @@ def_cfa_1 (label, loc_p)
   else if (loc.offset == old_cfa.offset && old_cfa.reg != (unsigned long) -1
 	   && !loc.indirect)
     {
+      /* Construct a "DW_CFA_def_cfa_register <register>" instruction,
+	 indicating the CFA register has changed to <register> but the
+	 offset has not changed.  */
       cfi->dw_cfi_opc = DW_CFA_def_cfa_register;
       cfi->dw_cfi_oprnd1.dw_cfi_reg_num = loc.reg;
     }
@@ -901,12 +927,18 @@ def_cfa_1 (label, loc_p)
 
   else if (loc.indirect == 0)
     {
+      /* Construct a "DW_CFA_def_cfa <register> <offset>" instruction,
+	 indicating the CFA register has changed to <register> with
+	 the specified offset.  */
       cfi->dw_cfi_opc = DW_CFA_def_cfa;
       cfi->dw_cfi_oprnd1.dw_cfi_reg_num = loc.reg;
       cfi->dw_cfi_oprnd2.dw_cfi_offset = loc.offset;
     }
   else
     {
+      /* Construct a DW_CFA_def_cfa_expression instruction to
+	 calculate the CFA using a full location expression since no
+	 register-offset pair is available.  */
       struct dw_loc_descr_struct *loc_list;
       cfi->dw_cfi_opc = DW_CFA_def_cfa_expression;
       loc_list = build_cfa_loc (&loc);
@@ -1237,15 +1269,152 @@ dwarf2out_stack_adjust (insn)
   dwarf2out_args_size (label, args_size);
 }
 
-/* A temporary register used in adjusting SP or setting up the store_reg.  */
-static unsigned cfa_temp_reg;
+/* A temporary register holding an integral value used in adjusting SP
+   or setting up the store_reg.  The "offset" field holds the integer
+   value, not an offset.  */
+dw_cfa_location cfa_temp;
 
-/* A temporary value used in adjusting SP or setting up the store_reg.  */
-static long cfa_temp_value;
+/* Record call frame debugging information for an expression EXPR,
+   which either sets SP or FP (adjusting how we calculate the frame
+   address) or saves a register to the stack.  LABEL indicates the
+   address of EXPR.
 
-/* Record call frame debugging information for an expression, which either
-   sets SP or FP (adjusting how we calculate the frame address) or saves a
-   register to the stack.  */
+   This function encodes a state machine mapping rtxes to actions on
+   cfa, cfa_store, and cfa_temp.reg.  We describe these rules so
+   users need not read the source code.
+
+  The High-Level Picture
+
+  Changes in the register we use to calculate the CFA: Currently we
+  assume that if you copy the CFA register into another register, we
+  should take the other one as the new CFA register; this seems to
+  work pretty well.  If it's wrong for some target, it's simple
+  enough not to set RTX_FRAME_RELATED_P on the insn in question.
+
+  Changes in the register we use for saving registers to the stack:
+  This is usually SP, but not always.  Again, we deduce that if you
+  copy SP into another register (and SP is not the CFA register),
+  then the new register is the one we will be using for register
+  saves.  This also seems to work.
+
+  Register saves: There's not much guesswork about this one; if
+  RTX_FRAME_RELATED_P is set on an insn which modifies memory, it's a
+  register save, and the register used to calculate the destination
+  had better be the one we think we're using for this purpose.
+
+  Except: If the register being saved is the CFA register, and the
+  offset is non-zero, we are saving the CFA, so we assume we have to
+  use DW_CFA_def_cfa_expression.  If the offset is 0, we assume that
+  the intent is to save the value of SP from the previous frame.
+
+  Invariants / Summaries of Rules
+
+  cfa	       current rule for calculating the CFA.  It usually
+	       consists of a register and an offset.
+  cfa_store    register used by prologue code to save things to the stack
+	       cfa_store.offset is the offset from the value of
+	       cfa_store.reg to the actual CFA
+  cfa_temp     register holding an integral value.  cfa_temp.offset
+	       stores the value, which will be used to adjust the
+	       stack pointer.
+ 
+  Rules  1- 4: Setting a register's value to cfa.reg or an expression
+  	       with cfa.reg as the first operand changes the cfa.reg and its
+	       cfa.offset.
+
+  Rules  6- 9: Set a non-cfa.reg register value to a constant or an
+	       expression yielding a constant.  This sets cfa_temp.reg
+	       and cfa_temp.offset.
+
+  Rule 5:      Create a new register cfa_store used to save items to the
+	       stack.
+
+  Rules 10-13: Save a register to the stack.  Define offset as the
+	       difference of the original location and cfa_store's
+	       location.
+
+  The Rules
+
+  "{a,b}" indicates a choice of a xor b.
+  "<reg>:cfa.reg" indicates that <reg> must equal cfa.reg.
+
+  Rule 1:
+  (set <reg1> <reg2>:cfa.reg)
+  effects: cfa.reg = <REG1>
+           cfa.offset unchanged
+
+  Rule 2:
+  (set sp ({minus,plus} {sp,fp}:cfa.reg {<const_int>,<reg>:cfa_temp.reg}))
+  effects: cfa.reg = sp if fp used
+ 	   cfa.offset += {+/- <const_int>, cfa_temp.offset} if cfa.reg==sp
+	   cfa_store.offset += {+/- <const_int>, cfa_temp.offset}
+	     if cfa_store.reg==sp
+
+  Rule 3:
+  (set fp ({minus,plus} <reg>:cfa.reg <const_int>))
+  effects: cfa.reg = fp
+  	   cfa_offset += +/- <const_int>
+
+  Rule 4:
+  (set <reg1> (plus <reg2>:cfa.reg <const_int>))
+  constraints: <reg1> != fp
+  	       <reg1> != sp
+  effects: cfa.reg = <reg1>
+
+  Rule 5:
+  (set <reg1> (plus <reg2>:cfa_temp.reg sp:cfa.reg))
+  constraints: <reg1> != fp
+  	       <reg1> != sp
+  effects: cfa_store.reg = <reg1>
+  	   cfa_store.offset = cfa.offset - cfa_temp.offset
+
+  Rule 6:
+  (set <reg> <const_int>)
+  effects: cfa_temp.reg = <reg>
+  	   cfa_temp.offset = <const_int>
+
+  Rule 7:
+  (set <reg1>:cfa_temp.reg (ior <reg2>:cfa_temp.reg <const_int>))
+  effects: cfa_temp.reg = <reg1>
+	   cfa_temp.offset |= <const_int>
+
+  Rule 8:
+  (set <reg> (high <exp>))
+  effects: none
+
+  Rule 9:
+  (set <reg> (lo_sum <exp> <const_int>))
+  effects: cfa_temp.reg = <reg>
+  	   cfa_temp.offset = <const_int>
+
+  Rule 10:
+  (set (mem (pre_modify sp:cfa_store (???? <reg1> <const_int>))) <reg2>)
+  effects: cfa_store.offset -= <const_int>
+	   cfa.offset = cfa_store.offset if cfa.reg == sp
+	   offset = -cfa_store.offset
+	   cfa.reg = sp
+	   cfa.base_offset = offset
+
+  Rule 11:
+  (set (mem ({pre_inc,pre_dec} sp:cfa_store.reg)) <reg>)
+  effects: cfa_store.offset += -/+ mode_size(mem)
+	   cfa.offset = cfa_store.offset if cfa.reg == sp
+	   offset = -cfa_store.offset
+	   cfa.reg = sp
+	   cfa.base_offset = offset
+
+  Rule 12:
+  (set (mem ({minus,plus} <reg1>:cfa_store <const_int>)) <reg2>)
+  effects: cfa_store.offset += -/+ <const_int>
+	   offset = -cfa_store.offset
+	   cfa.reg = <reg1
+	   cfa.base_offset = offset
+
+  Rule 13:
+  (set (mem <reg1>:cfa_store) <reg2>)
+  effects: offset = -cfa_store.offset
+	   cfa.reg = <reg1>
+	   cfa.base_offset = offset */
 
 static void
 dwarf2out_frame_debug_expr (expr, label)
@@ -1257,7 +1426,7 @@ dwarf2out_frame_debug_expr (expr, label)
 
   /* If RTX_FRAME_RELATED_P is set on a PARALLEL, process each member of
      the PARALLEL independently. The first element is always processed if
-     it is a SET. This is for backward compatability.   Other elements
+     it is a SET. This is for backward compatibility.   Other elements
      are processed only if they are SETs and the RTX_FRAME_RELATED_P
      flag is set in them.  */
 
@@ -1287,6 +1456,7 @@ dwarf2out_frame_debug_expr (expr, label)
   switch (GET_CODE (dest))
     {
     case REG:
+      /* Rule 1 */
       /* Update the CFA rule wrt SP or FP.  Make sure src is
          relative to the current CFA register.  */
       switch (GET_CODE (src))
@@ -1310,6 +1480,7 @@ dwarf2out_frame_debug_expr (expr, label)
 	case MINUS:
 	  if (dest == stack_pointer_rtx)
 	    {
+	      /* Rule 2 */
 	      /* Adjusting SP.  */
 	      switch (GET_CODE (XEXP (src, 1)))
 		{
@@ -1317,9 +1488,9 @@ dwarf2out_frame_debug_expr (expr, label)
 		  offset = INTVAL (XEXP (src, 1));
 		  break;
 		case REG:
-		  if ((unsigned) REGNO (XEXP (src, 1)) != cfa_temp_reg)
+		  if ((unsigned) REGNO (XEXP (src, 1)) != cfa_temp.reg)
 		    abort ();
-		  offset = cfa_temp_value;
+		  offset = cfa_temp.offset;
 		  break;
 		default:
 		  abort ();
@@ -1344,6 +1515,7 @@ dwarf2out_frame_debug_expr (expr, label)
 	    }
 	  else if (dest == hard_frame_pointer_rtx)
 	    {
+	      /* Rule 3 */
 	      /* Either setting the FP from an offset of the SP,
 		 or adjusting the FP */
 	      if (! frame_pointer_needed)
@@ -1367,39 +1539,52 @@ dwarf2out_frame_debug_expr (expr, label)
 	      if (GET_CODE (src) != PLUS)
 		abort ();
 
+	      /* Rule 4 */
 	      if (GET_CODE (XEXP (src, 0)) == REG
 		  && REGNO (XEXP (src, 0)) == cfa.reg
 		  && GET_CODE (XEXP (src, 1)) == CONST_INT)
-		/* Setting the FP (or a scratch that will be copied into the FP
-		   later on) from SP + const.  */
-		cfa.reg = REGNO (dest);
+		{
+		  /* Setting a temporary CFA register that will be copied
+		     into the FP later on.  */
+		  offset = INTVAL (XEXP (src, 1));
+		  if (GET_CODE (src) == PLUS)
+		    offset = -offset;
+		  cfa.offset += offset;
+		  cfa.reg = REGNO (dest);
+		}
+	      /* Rule 5 */
 	      else
 		{
+		  /* Setting a scratch register that we will use instead
+		     of SP for saving registers to the stack.  */
 		  if (XEXP (src, 1) != stack_pointer_rtx)
 		    abort ();
 		  if (GET_CODE (XEXP (src, 0)) != REG
-		      || (unsigned) REGNO (XEXP (src, 0)) != cfa_temp_reg)
+ 		      || (unsigned) REGNO (XEXP (src, 0)) != cfa_temp.reg)
 		    abort ();
 		  if (cfa.reg != STACK_POINTER_REGNUM)
 		    abort ();
 		  cfa_store.reg = REGNO (dest);
-		  cfa_store.offset = cfa.offset - cfa_temp_value;
+		  cfa_store.offset = cfa.offset - cfa_temp.offset;
 		}
 	    }
 	  break;
 
+	  /* Rule 6 */
 	case CONST_INT:
-	  cfa_temp_reg = REGNO (dest);
-	  cfa_temp_value = INTVAL (src);
+	  cfa_temp.reg = REGNO (dest);
+	  cfa_temp.offset = INTVAL (src);
 	  break;
 
+	  /* Rule 7 */
 	case IOR:
 	  if (GET_CODE (XEXP (src, 0)) != REG
-	      || (unsigned) REGNO (XEXP (src, 0)) != cfa_temp_reg
-	      || (unsigned) REGNO (dest) != cfa_temp_reg
+	      || (unsigned) REGNO (XEXP (src, 0)) != cfa_temp.reg
 	      || GET_CODE (XEXP (src, 1)) != CONST_INT)
 	    abort ();
-	  cfa_temp_value |= INTVAL (XEXP (src, 1));
+	  if ((unsigned) REGNO (dest) != cfa_temp.reg)
+	    cfa_temp.reg = REGNO (dest);
+	  cfa_temp.offset |= INTVAL (XEXP (src, 1));
 	  break;
 
 	default:
@@ -1410,12 +1595,16 @@ dwarf2out_frame_debug_expr (expr, label)
 
       /* Skip over HIGH, assuming it will be followed by a LO_SUM, which
 	 will fill in all of the bits.  */
+      /* Rule 8 */
     case HIGH:
       break;
 
+      /* Rule 9 */
     case LO_SUM:
-      cfa_temp_reg = REGNO (dest);
-      cfa_temp_value = INTVAL (XEXP (src, 1));
+      if (GET_CODE (XEXP (src, 1)) != CONST_INT)
+	abort ();
+      cfa_temp.reg = REGNO (dest);
+      cfa_temp.offset = INTVAL (XEXP (src, 1));
       break;
 
     case MEM:
@@ -1426,6 +1615,7 @@ dwarf2out_frame_debug_expr (expr, label)
 	 CFA register.  */
       switch (GET_CODE (XEXP (dest, 0)))
 	{
+	  /* Rule 10 */
 	  /* With a push.  */
 	case PRE_MODIFY:
 	  /* We can't handle variable size modifications.  */
@@ -1442,6 +1632,7 @@ dwarf2out_frame_debug_expr (expr, label)
 
 	  offset = -cfa_store.offset;
 	  break;
+	  /* Rule 11 */
 	case PRE_INC:
 	case PRE_DEC:
 	  offset = GET_MODE_SIZE (GET_MODE (dest));
@@ -1458,9 +1649,12 @@ dwarf2out_frame_debug_expr (expr, label)
 	  offset = -cfa_store.offset;
 	  break;
 
+	  /* Rule 12 */
 	  /* With an offset.  */
 	case PLUS:
 	case MINUS:
+	  if (GET_CODE (XEXP (XEXP (dest, 0), 1)) != CONST_INT)
+	    abort ();
 	  offset = INTVAL (XEXP (XEXP (dest, 0), 1));
 	  if (GET_CODE (XEXP (dest, 0)) == MINUS)
 	    offset = -offset;
@@ -1470,6 +1664,7 @@ dwarf2out_frame_debug_expr (expr, label)
 	  offset -= cfa_store.offset;
 	  break;
 
+	  /* Rule 13 */
 	  /* Without an offset.  */
 	case REG:
 	  if (cfa_store.reg != (unsigned) REGNO (XEXP (dest, 0)))
@@ -1543,8 +1738,8 @@ dwarf2out_frame_debug (insn)
 	abort ();
       cfa.reg = STACK_POINTER_REGNUM;
       cfa_store = cfa;
-      cfa_temp_reg = -1;
-      cfa_temp_value = 0;
+      cfa_temp.reg = -1;
+      cfa_temp.offset = 0;
       return;
     }
 
@@ -3014,8 +3209,8 @@ get_cfa_from_loc_descr (cfa, loc)
 	  cfa->offset = ptr->dw_loc_oprnd1.v.val_unsigned;
 	  break;
 	default:
-	  fatal ("DW_LOC_OP %s not implememnted yet.\n",
-		 dwarf_stack_op_name (ptr->dw_loc_opc));
+	  internal_error ("DW_LOC_OP %s not implememnted\n",
+			  dwarf_stack_op_name (ptr->dw_loc_opc));
 	}
     }
 }
@@ -3565,7 +3760,6 @@ static void init_file_table		PARAMS ((struct file_table *));
 static void add_incomplete_type		PARAMS ((tree));
 static void retry_incomplete_types	PARAMS ((void));
 static void gen_type_die_for_member	PARAMS ((tree, tree, dw_die_ref));
-static void gen_abstract_function	PARAMS ((tree));
 static rtx save_rtx			PARAMS ((rtx));
 static void splice_child_die		PARAMS ((dw_die_ref, dw_die_ref));
 static int file_info_cmp		PARAMS ((const void *, const void *));
@@ -6356,7 +6550,7 @@ output_aranges ()
       /* Pad using a 2 bytes word so that padding is correct
          for any pointer size.  */
       ASM_OUTPUT_DWARF_DATA2 (asm_out_file, 0);
-      for (i = 2; i < DWARF_ARANGES_PAD_SIZE; i += 2)
+      for (i = 2; i < (unsigned) DWARF_ARANGES_PAD_SIZE; i += 2)
 	fprintf (asm_out_file, ",0");
       if (flag_debug_asm)
 	fprintf (asm_out_file, "\t%s Pad to %d byte boundary",
@@ -8819,8 +9013,8 @@ add_bound_info (subrange_die, bound_attr, bound)
 	 We assume that a MEM rtx is safe because gcc wouldn't put the
 	 value there unless it was going to be used repeatedly in the
 	 function, i.e. for cleanups.  */
-      if (! optimize || (SAVE_EXPR_RTL (bound)
-			 && GET_CODE (SAVE_EXPR_RTL (bound)) == MEM))
+      if (SAVE_EXPR_RTL (bound)
+	  && (! optimize || GET_CODE (SAVE_EXPR_RTL (bound)) == MEM))
 	{
 	  register dw_die_ref ctx = lookup_decl_die (current_function_decl);
 	  register dw_die_ref decl_die = new_die (DW_TAG_variable, ctx);
@@ -9125,7 +9319,7 @@ add_abstract_origin_attribute (die, origin)
 	fn = TYPE_STUB_DECL (fn);
       fn = decl_function_context (fn);
       if (fn)
-	gen_abstract_function (fn);
+	dwarf2out_abstract_function (fn);
     }
 
   if (DECL_P (origin))
@@ -9827,8 +10021,8 @@ gen_type_die_for_member (type, member, context_die)
    of a function which we may later generate inlined and/or
    out-of-line instances of.  */
 
-static void
-gen_abstract_function (decl)
+void
+dwarf2out_abstract_function (decl)
      tree decl;
 {
   register dw_die_ref old_die = lookup_decl_die (decl);
@@ -9910,7 +10104,11 @@ gen_subprogram_die (decl, context_die)
       register unsigned file_index
 	= lookup_filename (&decl_file_table, DECL_SOURCE_FILE (decl));
 
-      if (get_AT_flag (old_die, DW_AT_declaration) != 1)
+      if (!get_AT_flag (old_die, DW_AT_declaration)
+	  /* We can have a normal definition following an inline one in the
+	     case of redefinition of GNU C extern inlines.
+	     It seems reasonable to use AT_specification in this case.  */
+	  && !get_AT_unsigned (old_die, DW_AT_inline))
 	{
 	  /* ??? This can happen if there is a bug in the program, for
 	     instance, if it has duplicate function definitions.  Ideally,
@@ -9980,15 +10178,17 @@ gen_subprogram_die (decl, context_die)
 
   if (declaration)
     {
-      if (! origin)
-	add_AT_flag (subr_die, DW_AT_declaration, 1);
+      if (!(old_die && get_AT_unsigned (old_die, DW_AT_inline)))
+	{
+	  add_AT_flag (subr_die, DW_AT_declaration, 1);
 
-      /* The first time we see a member function, it is in the context of
-         the class to which it belongs.  We make sure of this by emitting
-         the class first.  The next time is the definition, which is
-         handled above.  The two may come from the same source text.  */
-      if (DECL_CONTEXT (decl) || DECL_ABSTRACT (decl))
-	equate_decl_number_to_die (decl, subr_die);
+	  /* The first time we see a member function, it is in the context of
+	     the class to which it belongs.  We make sure of this by emitting
+	     the class first.  The next time is the definition, which is
+	     handled above.  The two may come from the same source text.  */
+	  if (DECL_CONTEXT (decl) || DECL_ABSTRACT (decl))
+	    equate_decl_number_to_die (decl, subr_die);
+	}
     }
   else if (DECL_ABSTRACT (decl))
     {
@@ -10011,7 +10211,7 @@ gen_subprogram_die (decl, context_die)
     }
   else if (!DECL_EXTERNAL (decl))
     {
-      if (origin == NULL_TREE)
+      if (!(old_die && get_AT_unsigned (old_die, DW_AT_inline)))
 	equate_decl_number_to_die (decl, subr_die);
 
       ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_BEGIN_LABEL,
@@ -10295,7 +10495,7 @@ gen_inlined_subroutine_die (stmt, context_die, depth)
       char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
       /* Emit info for the abstract instance first, if we haven't yet.  */
-      gen_abstract_function (decl);
+      dwarf2out_abstract_function (decl);
 
       add_abstract_origin_attribute (subr_die, decl);
       ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
@@ -11070,12 +11270,12 @@ gen_decl_die (decl, context_die)
 	 emit info for the abstract instance and set up to refer to it.  */
       if (DECL_INLINE (decl) && ! DECL_ABSTRACT (decl)
 	  && ! class_scope_p (context_die)
-	  /* gen_abstract_function won't emit a die if this is just a
+	  /* dwarf2out_abstract_function won't emit a die if this is just a
 	     declaration.  We must avoid setting DECL_ABSTRACT_ORIGIN in
 	     that case, because that works only if we have a die.  */
 	  && DECL_INITIAL (decl) != NULL_TREE)
 	{
-	  gen_abstract_function (decl);
+	  dwarf2out_abstract_function (decl);
 	  set_decl_origin_self (decl);
 	}
 
@@ -11474,7 +11674,8 @@ dwarf2out_line (filename, line)
 	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, SEPARATE_LINE_CODE_LABEL,
 				     separate_line_info_table_in_use);
 	  if (flag_debug_asm)
-	    fprintf (asm_out_file, "\t%s line %d", ASM_COMMENT_START, line);
+	    fprintf (asm_out_file, "\t%s %s:%d", ASM_COMMENT_START,
+		     filename, line);
 	  fputc ('\n', asm_out_file);
 
 	  /* expand the line info table if necessary */
@@ -11503,7 +11704,8 @@ dwarf2out_line (filename, line)
 	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, LINE_CODE_LABEL,
 				     line_info_table_in_use);
 	  if (flag_debug_asm)
-	    fprintf (asm_out_file, "\t%s line %d", ASM_COMMENT_START, line);
+	    fprintf (asm_out_file, "\t%s %s:%d", ASM_COMMENT_START,
+		     filename, line);
 	  fputc ('\n', asm_out_file);
 
 	  /* Expand the line info table if necessary.  */

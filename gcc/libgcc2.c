@@ -1,7 +1,7 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
-   2001 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001  Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -1145,8 +1145,8 @@ __floatdisf (DWtype u)
 UWtype
 __fixunsxfSI (XFtype a)
 {
-  if (a >= - (DFtype) LONG_MIN)
-    return (Wtype) (a + LONG_MIN) - LONG_MIN;
+  if (a >= - (DFtype) Wtype_MIN)
+    return (Wtype) (a + Wtype_MIN) - Wtype_MIN;
   return (Wtype) a;
 }
 #endif
@@ -1167,8 +1167,8 @@ __fixunsxfSI (XFtype a)
 UWtype
 __fixunsdfSI (DFtype a)
 {
-  if (a >= - (DFtype) LONG_MIN)
-    return (Wtype) (a + LONG_MIN) - LONG_MIN;
+  if (a >= - (DFtype) Wtype_MIN)
+    return (Wtype) (a + Wtype_MIN) - Wtype_MIN;
   return (Wtype) a;
 }
 #endif
@@ -1189,8 +1189,8 @@ __fixunsdfSI (DFtype a)
 UWtype
 __fixunssfSI (SFtype a)
 {
-  if (a >= - (SFtype) LONG_MIN)
-    return (Wtype) (a + LONG_MIN) - LONG_MIN;
+  if (a >= - (SFtype) Wtype_MIN)
+    return (Wtype) (a + Wtype_MIN) - Wtype_MIN;
   return (Wtype) a;
 }
 #endif
@@ -3886,9 +3886,9 @@ next_stack_level (void *pc, frame_state *udata, frame_state *caller_udata,
     return 0;
 
   /* Now go back to our caller's stack frame.  If our caller's CFA was
-     saved in a register in this stack frame or a previous one,
-     restore it; otherwise, assume CFA register was saved in SP and
-     restore it to our CFA value.  */
+     saved in a register in this stack frame or a previous one, restore it;
+     otherwise, assume CFA register is SP and restore it to our CFA value
+     (which is defined to be the value of SP in the caller's frame).  */
 
   p = saved_regs->reg[caller_udata->cfa_reg];
   if (p)
@@ -4107,7 +4107,12 @@ label:
      On the SPARC, this means flushing the register windows.  */
   __builtin_unwind_init ();
 
-  /* Now reset pc to the right throw point.  */
+  /* Now reset pc to the right throw point.  The return address points to
+     the instruction after the call to __throw; we subtract 1 so that pc
+     points into the call insn itself.  Since we work with PC ranges (as
+     opposed to specific call sites), it isn't important for it to point to
+     the very beginning of the call insn, and making it do so would be
+     hard on targets with variable length call insns.  */
   pc = __builtin_extract_return_addr (__builtin_return_address (0)) - 1;
 
   handler = throw_helper (eh, pc, my_udata, &offset);
@@ -4157,7 +4162,12 @@ label:
      On the SPARC, this means flushing the register windows.  */
   __builtin_unwind_init ();
 
-  /* Now reset pc to the right throw point.  */
+  /* Now reset pc to the right throw point.  The return address points to
+     the instruction after the call to __throw; we subtract 1 so that pc
+     points into the call insn itself.  Since we work with PC ranges (as
+     opposed to specific call sites), it isn't important for it to point to
+     the very beginning of the call insn, and making it do so would be
+     hard on targets with variable length call insns.  */
   pc = __builtin_extract_return_addr (__builtin_return_address (0)) - 1;
 
   handler = throw_helper (eh, pc, my_udata, &offset);

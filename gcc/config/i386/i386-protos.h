@@ -21,10 +21,11 @@ Boston, MA 02111-1307, USA. */
 
 /* Functions in i386.c */
 extern void override_options PARAMS ((void));
-extern void order_regs_for_local_alloc PARAMS ((void));
 extern void optimization_options PARAMS ((int, int));
 
 extern int ix86_can_use_return_insn_p PARAMS ((void));
+extern int ix86_frame_pointer_required PARAMS ((void));
+extern void ix86_setup_frame_addresses PARAMS ((void));
 
 extern void ix86_asm_file_end PARAMS ((FILE *));
 extern void load_pic_register PARAMS ((void));
@@ -129,6 +130,16 @@ extern enum machine_mode ix86_fp_compare_mode PARAMS ((enum rtx_code));
 extern rtx ix86_force_to_memory PARAMS ((enum machine_mode, rtx));
 extern void ix86_free_from_memory PARAMS ((enum machine_mode));
 extern void ix86_split_fp_branch PARAMS ((rtx, rtx, rtx, rtx, rtx, rtx));
+extern int ix86_hard_regno_mode_ok PARAMS ((int, enum machine_mode));
+extern int ix86_register_move_cost PARAMS ((enum machine_mode, enum reg_class,
+					    enum reg_class));
+extern int ix86_secondary_memory_needed PARAMS ((enum reg_class,
+						 enum reg_class,
+						 enum machine_mode, int));
+extern enum reg_class ix86_preferred_reload_class PARAMS ((rtx,
+							   enum reg_class));
+extern int ix86_memory_move_cost PARAMS ((enum machine_mode, enum reg_class,
+					  int));
 
 #ifdef TREE_CODE
 extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx));

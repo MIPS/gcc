@@ -857,7 +857,8 @@ _cpp_lex_token (pfile, result)
  done_directive:
   buffer = pfile->buffer;
   pfile->state.next_bol = 0;
-  result->flags = 0;
+  result->flags = buffer->saved_flags;
+  buffer->saved_flags = 0;
  next_char:
   pfile->lexer_pos.line = buffer->lineno;
  next_char2:
@@ -899,7 +900,7 @@ _cpp_lex_token (pfile, result)
 	  /* This is a new line, so clear any white space flag.
 	     Newlines in arguments are white space (6.10.3.10);
 	     parse_arg takes care of that.  */
-	  result->flags &= ~PREV_WHITE;
+	  result->flags &= ~(PREV_WHITE | AVOID_LPASTE);
 	  goto next_char;
 	}
 
@@ -1196,7 +1197,7 @@ _cpp_lex_token (pfile, result)
 
 	      /* Get whitespace right - newline_in_args sets it.  */
 	      if (pfile->lexer_pos.col == 1)
-		result->flags &= ~PREV_WHITE;
+		result->flags &= ~(PREV_WHITE | AVOID_LPASTE);
 	    }
 	  else
 	    {
@@ -1656,7 +1657,7 @@ cpp_avoid_paste (pfile, token1, token2)
     case CPP_OR:	return c == '|';
     case CPP_COLON:	return c == ':' || c == '>';
     case CPP_DEREF:	return c == '*';
-    case CPP_DOT:	return c == '.' || c == '%';
+    case CPP_DOT:	return c == '.' || c == '%' || b == CPP_NUMBER;
     case CPP_HASH:	return c == '#' || c == '%'; /* Digraph form.  */
     case CPP_NAME:	return ((b == CPP_NUMBER
 				 && name_p (pfile, &token2->val.str))
@@ -1758,7 +1759,7 @@ new_chunk (size)
   unsigned char *base;
   cpp_chunk *result;
 
-  size = ALIGN (size, DEFAULT_ALIGNMENT);
+  size = POOL_ALIGN (size, DEFAULT_ALIGNMENT);
   base = (unsigned char *) xmalloc (size + sizeof (cpp_chunk));
   /* Put the chunk descriptor at the end.  Then chunk overruns will
      cause obvious chaos.  */
@@ -1825,7 +1826,7 @@ _cpp_pool_reserve (pool, len)
      cpp_pool *pool;
      unsigned int len;
 {
-  len = ALIGN (len, pool->align);
+  len = POOL_ALIGN (len, pool->align);
   if (len > (unsigned int) POOL_ROOM (pool))
     _cpp_next_chunk (pool, len, 0);
 

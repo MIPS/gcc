@@ -1311,12 +1311,33 @@ extern rtx try_split			PARAMS ((rtx, rtx, int));
 extern rtx split_insns			PARAMS ((rtx, rtx));
 
 /* In simplify-rtx.c  */
-extern rtx simplify_unary_operation	PARAMS ((enum rtx_code, enum machine_mode, rtx, enum machine_mode));
-extern rtx simplify_binary_operation	PARAMS ((enum rtx_code, enum machine_mode, rtx, rtx));
-extern rtx simplify_ternary_operation	PARAMS ((enum rtx_code, enum machine_mode, enum machine_mode, rtx, rtx, rtx));
-extern rtx simplify_relational_operation PARAMS ((enum rtx_code, enum machine_mode, rtx, rtx));
-extern rtx simplify_gen_binary		PARAMS ((enum rtx_code, enum machine_mode,
-					       rtx, rtx));
+extern rtx simplify_unary_operation	PARAMS ((enum rtx_code,
+						 enum machine_mode, rtx,
+						 enum machine_mode));
+extern rtx simplify_binary_operation	PARAMS ((enum rtx_code,
+						 enum machine_mode, rtx,
+						 rtx));
+extern rtx simplify_ternary_operation	PARAMS ((enum rtx_code,
+						 enum machine_mode,
+						 enum machine_mode, rtx, rtx,
+						 rtx));
+extern rtx simplify_relational_operation PARAMS ((enum rtx_code,
+						  enum machine_mode, rtx,
+						  rtx));
+extern rtx simplify_gen_binary		PARAMS ((enum rtx_code,
+						 enum machine_mode,
+						 rtx, rtx));
+extern rtx simplify_gen_unary		PARAMS ((enum rtx_code,
+						 enum machine_mode, rtx,
+						 enum machine_mode));
+extern rtx simplify_gen_ternary		PARAMS ((enum rtx_code,
+						 enum machine_mode,
+						 enum machine_mode,
+						 rtx, rtx, rtx));
+extern rtx simplify_gen_relational	PARAMS ((enum rtx_code,
+						 enum machine_mode,
+						 rtx, rtx));
+extern rtx simplify_replace_rtx		PARAMS ((rtx, rtx, rtx));
 extern rtx simplify_rtx			PARAMS ((rtx));
 
 /* In optabs.c  */
@@ -1382,12 +1403,16 @@ extern rtx set_of			PARAMS ((rtx, rtx));
 extern void note_stores			PARAMS ((rtx,
 						 void (*) (rtx, rtx, void *),
 						 void *));
+extern void note_uses			PARAMS ((rtx *,
+						 void (*) (rtx *, void *),
+						 void *));
 extern rtx reg_set_last			PARAMS ((rtx, rtx));
 extern int dead_or_set_p		PARAMS ((rtx, rtx));
 extern int dead_or_set_regno_p		PARAMS ((rtx, unsigned int));
 extern rtx find_reg_note		PARAMS ((rtx, enum reg_note, rtx));
 extern rtx find_regno_note		PARAMS ((rtx, enum reg_note,
 						 unsigned int));
+extern rtx find_reg_equal_equiv_note	PARAMS ((rtx));
 extern int find_reg_fusage		PARAMS ((rtx, enum rtx_code, rtx));
 extern int find_regno_fusage		PARAMS ((rtx, enum rtx_code,
 						 unsigned int));
@@ -1606,6 +1631,9 @@ extern rtx gen_rtx_MEM PARAMS ((enum machine_mode, rtx));
 
 #define LAST_VIRTUAL_REGISTER		((FIRST_VIRTUAL_REGISTER) + 4)
 
+/* REGNUM never really appearing in the INSN stream.  */
+#define INVALID_REGNUM			(~(unsigned int)0)
+
 extern rtx find_next_ref		PARAMS ((rtx, rtx));
 extern rtx *find_single_use		PARAMS ((rtx, rtx, rtx *));
 
@@ -1754,9 +1782,6 @@ int force_line_numbers PARAMS ((void));
 void restore_line_number_status PARAMS ((int old_value));
 extern void renumber_insns                      PARAMS ((FILE *));
 extern void remove_unnecessary_notes             PARAMS ((void));
-
-/* In insn-emit.c */
-extern void add_clobbers		PARAMS ((rtx, int));
 
 /* In combine.c */
 extern int combine_instructions		PARAMS ((rtx, unsigned int));

@@ -4953,10 +4953,16 @@ override_options ()
   if (! ISA_HAS_64BIT_REGS)
     {
       if (TARGET_FLOAT64)
-	fatal ("-mips%d does not support 64 bit fp registers", mips_isa);
+	{
+	  error ("-mips%d does not support 64 bit fp registers", mips_isa);
+	  target_flags &= ~ MASK_FLOAT64;
+	}
 
       else if (TARGET_64BIT)
-	fatal ("-mips%d does not support 64 bit gp registers", mips_isa);
+	{
+	  error ("-mips%d does not support 64 bit gp registers", mips_isa);
+	  target_flags &= ~MASK_64BIT;
+	}
     }
 
   if (mips_abi != ABI_32 && mips_abi != ABI_O64)
@@ -5572,8 +5578,7 @@ print_operand (file, op, letter)
     fputs (reg_names[GP_REG_FIRST], file);
 
   else if (letter == 'd' || letter == 'x' || letter == 'X')
-    fatal ("PRINT_OPERAND: letter %c was found & insn was not CONST_INT",
-	   letter);
+    output_operand_lossage ("invalid use of %%d, %%x, or %%X");
 
   else if (letter == 'B')
     fputs (code == EQ ? "z" : "n", file);
@@ -5820,7 +5825,7 @@ mips_make_temp_file ()
 
   stream = fopen (temp_filename, "w+");
   if (!stream)
-    pfatal_with_name (temp_filename);
+    fatal_io_error ("can't open %s", temp_filename);
 
 #ifndef __MSDOS__
   /* In MSDOS, we cannot unlink the temporary file until we are finished using
@@ -6070,17 +6075,17 @@ mips_asm_file_end (file)
       fprintf (file, "\n\t.text\n");
       rewind (asm_out_text_file);
       if (ferror (asm_out_text_file))
-	fatal_io_error (temp_filename);
+	fatal_io_error ("can't rewind %s", temp_filename);
 
       while ((len = fread (buffer, 1, sizeof (buffer), asm_out_text_file)) > 0)
 	if ((int) fwrite (buffer, 1, len, file) != len)
-	  pfatal_with_name (asm_file_name);
+	  fatal_io_error ("can't write to %s", asm_file_name);
 
       if (len < 0)
-	pfatal_with_name (temp_filename);
+	fatal_io_error ("can't read from %s", temp_filename);
 
       if (fclose (asm_out_text_file) != 0)
-	pfatal_with_name (temp_filename);
+	fatal_io_error ("can't close %s", temp_filename);
 
 #ifdef __MSDOS__
       unlink (temp_filename);
@@ -6434,8 +6439,9 @@ save_restore_insns (store_p, large_reg, large_offset, file)
 		       - GET_MODE_SIZE (gpr_mode));
 
       if (gp_offset < 0 || end_offset < 0)
-	fatal ("gp_offset (%ld) or end_offset (%ld) is less than zero.",
-	       (long) gp_offset, (long) end_offset);
+	internal_error
+	  ("gp_offset (%ld) or end_offset (%ld) is less than zero.",
+	   (long) gp_offset, (long) end_offset);
 
       /* If we see a large frame in mips16 mode, we save the registers
          before adjusting the stack pointer, and load them afterward.  */
@@ -6651,8 +6657,9 @@ save_restore_insns (store_p, large_reg, large_offset, file)
       end_offset = fp_offset - (current_frame_info.fp_reg_size - fp_size);
 
       if (fp_offset < 0 || end_offset < 0)
-	fatal ("fp_offset (%ld) or end_offset (%ld) is less than zero.",
-	       (long) fp_offset, (long) end_offset);
+	internal_error
+	  ("fp_offset (%ld) or end_offset (%ld) is less than zero.",
+	   (long) fp_offset, (long) end_offset);
 
       else if (fp_offset < 32768)
 	base_reg_rtx = stack_pointer_rtx, base_offset  = 0;
@@ -7108,13 +7115,22 @@ mips_expand_prologue ()
 
       for (i = 0; i < num; i++)
 	{
-	  rtx pattern = RTVEC_ELT (adjust, i);
+	  rtx insn, pattern;
+
+	  pattern = RTVEC_ELT (adjust, i);
 	  if (GET_CODE (pattern) != SET
 	      || GET_CODE (SET_SRC (pattern)) != ASHIFT)
 	    abort_with_insn (pattern, "Insn is not a shift");
-
 	  PUT_CODE (SET_SRC (pattern), ASHIFTRT);
-	  emit_insn (pattern);
+
+	  insn = emit_insn (pattern);
+
+	  /* Global life information isn't valid at this point, so we
+	     can't check whether these shifts are actually used.  Mark
+	     them MAYBE_DEAD so that flow2 will remove them, and not
+	     complain about dead code in the prologue.  */
+	  REG_NOTES(insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, NULL_RTX,
+					       REG_NOTES (insn));
 	}
     }
 

@@ -57,6 +57,7 @@ extern enum rs6000_sdata_type rs6000_sdata;
 #define	MASK_REGNAMES		0x02000000	/* Use alternate register names.  */
 #define	MASK_PROTOTYPE		0x01000000	/* Only prototyped fcns pass variable args.  */
 #define MASK_LONG_DOUBLE_128	0x00800000	/* Use IEEE quad long double.  */
+#define MASK_NO_BITFIELD_WORD	0x00400000	/* Bitfields cannot cross word boundaries */
 
 #define	TARGET_NO_BITFIELD_TYPE	(target_flags & MASK_NO_BITFIELD_TYPE)
 #define	TARGET_STRICT_ALIGN	(target_flags & MASK_STRICT_ALIGN)
@@ -66,6 +67,7 @@ extern enum rs6000_sdata_type rs6000_sdata;
 #define	TARGET_REGNAMES		(target_flags & MASK_REGNAMES)
 #define	TARGET_PROTOTYPE	(target_flags & MASK_PROTOTYPE)
 #define TARGET_LONG_DOUBLE_128	(target_flags & MASK_LONG_DOUBLE_128)
+#define TARGET_NO_BITFIELD_WORD	(target_flags & MASK_NO_BITFIELD_WORD)
 #define	TARGET_TOC		((target_flags & MASK_64BIT)		\
 				 || ((target_flags & (MASK_RELOCATABLE	\
 						      | MASK_MINIMAL_TOC)) \
@@ -136,6 +138,9 @@ extern int g_switch_set;		/* Whether -G xx was passed.  */
   { "no-traceback",	 0, N_("no description yet") },			\
   { "eabi",		 MASK_EABI, N_("Use EABI.") },			\
   { "no-eabi",		-MASK_EABI, N_("Don't use EABI.") },		\
+  { "bit-word",		-MASK_NO_BITFIELD_WORD, "" },			\
+  { "no-bit-word",	 MASK_NO_BITFIELD_WORD,				\
+    N_("Do not allow bitfields to cross word boundaries") },		\
   { "regnames",		  MASK_REGNAMES,				\
     N_("Use alternate register names.") },				\
   { "no-regnames",	 -MASK_REGNAMES,				\
@@ -199,6 +204,13 @@ do {									\
     rs6000_current_abi = ABI_V4;					\
   else if (!strcmp (rs6000_abi_name, "solaris"))			\
     rs6000_current_abi = ABI_SOLARIS;					\
+  else if (!strcmp (rs6000_abi_name, "i960-old"))			\
+    {									\
+      rs6000_current_abi = ABI_V4;					\
+      target_flags |= (MASK_LITTLE_ENDIAN | MASK_EABI			\
+		       | MASK_NO_BITFIELD_WORD);			\
+      target_flags &= ~MASK_STRICT_ALIGN;				\
+    }									\
   else									\
     {									\
       rs6000_current_abi = ABI_V4;					\
@@ -372,6 +384,9 @@ do {									\
 /* Override elfos.h definition.  */
 #undef	PCC_BITFIELD_TYPE_MATTERS
 #define	PCC_BITFIELD_TYPE_MATTERS (TARGET_BITFIELD_TYPE)
+
+#undef	BITFIELD_NBYTES_LIMITED
+#define	BITFIELD_NBYTES_LIMITED (TARGET_NO_BITFIELD_WORD)
 
 /* Define this macro to be the value 1 if instructions will fail to
    work if given data not on the nominal alignment.  If instructions
@@ -1061,13 +1076,16 @@ do {									\
 %{mlittle} %{mlittle-endian} %{mbig} %{mbig-endian} \
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
     %{mcall-solaris: -mlittle -msolaris} \
+    %{mcall-i960-old: -mlittle} \
     %{mcall-linux: -mbig} }}}}"
 
 #define	CC1_ENDIAN_BIG_SPEC ""
 
 #define	CC1_ENDIAN_LITTLE_SPEC "\
 %{!mstrict-align: %{!mno-strict-align: \
+    %{!mcall-i960-old: \
 	-mstrict-align \
+    } \
 }}"
 
 #define	CC1_ENDIAN_DEFAULT_SPEC "%(cc1_endian_big_spec)"
@@ -1079,10 +1097,11 @@ do {									\
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
     %{mcall-aixdesc: -mbig %(cc1_endian_big) } \
     %{mcall-solaris: -mlittle %(cc1_endian_little) } \
+    %{mcall-i960-old: -mlittle %(cc1_endian_little) } \
     %{mcall-linux: -mbig %(cc1_endian_big) } \
-    %{!mcall-aixdesc: %{!mcall-solaris: %{!mcall-linux: \
+    %{!mcall-aixdesc: %{!mcall-solaris: %{!mcall-i960-old: %{!mcall-linux: \
 	    %(cc1_endian_default) \
-    }}} \
+    }}}} \
 }}}} \
 %{mcall-solaris: -mregnames } \
 %{mno-sdata: -msdata=none } \
@@ -1090,6 +1109,7 @@ do {									\
 %{!meabi: %{!mno-eabi: \
     %{mrelocatable: -meabi } \
     %{mcall-solaris: -mno-eabi } \
+    %{mcall-i960-old: -meabi } \
     %{mcall-linux: -mno-eabi }}} \
 %{msdata: -msdata=default} \
 %{mno-sdata: -msdata=none} \
@@ -1161,9 +1181,10 @@ do {									\
 
 /* Override the default target of the linker.  */
 #define	LINK_TARGET_SPEC "\
-%{mlittle: -oformat elf32-powerpcle } %{mlittle-endian: -oformat elf32-powerpcle } \
+%{mlittle: --oformat elf32-powerpcle } %{mlittle-endian: --oformat elf32-powerpcle } \
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
-    %{mcall-solaris: -oformat elf32-powerpcle} \
+    %{mcall-i960-old: --oformat elf32-powerpcle} \
+    %{mcall-solaris: --oformat elf32-powerpcle} \
   }}}}"
 
 /* Any specific OS flags.  */
@@ -1221,6 +1242,7 @@ do {									\
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
     %{mcall-solaris: %(cpp_endian_solaris) } \
     %{mcall-linux: %(cpp_endian_big) } \
+    %{mcall-i960-old: %(cpp_endian_little) } \
     %{mcall-aixdesc:  %(cpp_endian_big) } \
     %{!mcall-solaris: %{!mcall-linux: %{!mcall-aixdesc: %(cpp_endian_default) }}}}}}}"
 

@@ -261,11 +261,15 @@ friendly_abort (where, file, line, func)
      int line;
      const char *func;
 {
-  if (where > 0)
-    error ("Internal error #%d.", where);
+  if (errorcount > 0 || sorrycount > 0)
+    /* Say nothing.  */;
+  else if (where > 0)
+    {
+      error ("Internal error #%d.", where);
 
-  /* Uncount this error, so finish_abort will do the right thing.  */
-  --errorcount;
+      /* Uncount this error, so internal_error will do the right thing.  */
+      --errorcount;
+    }
 
   fancy_abort (file, line, func);
 }
@@ -810,12 +814,18 @@ process_init_constructor (type, init, elts)
 		next1 = build_functional_cast (TREE_TYPE (field),
 					       NULL_TREE);
 	      else
-		next1 = build (CONSTRUCTOR, NULL_TREE, NULL_TREE,
-			       NULL_TREE);
+	        {
+		  next1 = build (CONSTRUCTOR, NULL_TREE, NULL_TREE,
+			         NULL_TREE);
+                  if (init)
+                    TREE_HAS_CONSTRUCTOR (next1)
+                       = TREE_HAS_CONSTRUCTOR (init);
+                }
 	      next1 = digest_init (TREE_TYPE (field), next1, 0);
 
 	      /* Warn when some struct elements are implicitly initialized.  */
-	      if (extra_warnings)
+	      if (extra_warnings
+	          && (!init || TREE_HAS_CONSTRUCTOR (init)))
 		cp_warning ("missing initializer for member `%D'", field);
 	    }
 	  else
@@ -831,7 +841,8 @@ process_init_constructor (type, init, elts)
 
 	      /* Warn when some struct elements are implicitly initialized
 		 to zero.  */
-	      if (extra_warnings)
+	      if (extra_warnings
+	          && (!init || TREE_HAS_CONSTRUCTOR (init)))
 		cp_warning ("missing initializer for member `%D'", field);
 
 	      /* The default zero-initialization is fine for us; don't
@@ -1082,6 +1093,10 @@ build_m_component_ref (datum, component)
     return build_min_nt (DOTSTAR_EXPR, datum, component);
 
   datum = decay_conversion (datum);
+
+  if (datum == error_mark_node || component == error_mark_node)
+    return error_mark_node;
+
   objtype = TYPE_MAIN_VARIANT (TREE_TYPE (datum));  
 
   if (TYPE_PTRMEMFUNC_P (TREE_TYPE (component)))
@@ -1089,18 +1104,15 @@ build_m_component_ref (datum, component)
       type = TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (component)));
       field_type = type;
     }
-  else
+  else if (TYPE_PTRMEM_P (TREE_TYPE (component)))
     {
       type = TREE_TYPE (TREE_TYPE (component));
       field_type = TREE_TYPE (type);
     }
-
-  if (datum == error_mark_node || component == error_mark_node)
-    return error_mark_node;
-
-  if (TREE_CODE (type) != OFFSET_TYPE && TREE_CODE (type) != METHOD_TYPE)
+  else
     {
-      cp_error ("`%E' cannot be used as a member pointer, since it is of type `%T'", component, type);
+      cp_error ("`%E' cannot be used as a member pointer, since it is of type `%T'", 
+		component, TREE_TYPE (component));
       return error_mark_node;
     }
 

@@ -1,3 +1,11 @@
+2001-02-19  Daniel Berlin  <dberlin@redhat.com>
+
+	Mainline merge performed.
+	
+	* ra.c: Rename mm_reg_alloc to reg_alloc.
+	Commented file some more.
+	* toplev.c: ditto.
+
 2001-02-09  Daniel Berlin  <dberlin@redhat.com>
 
 	* toplev.c: Add mm_reg_alloc prototype.

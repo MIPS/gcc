@@ -149,6 +149,15 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 #endif
 #endif
 
+/* This determines whether or not we support link-once semantics.  */
+#ifndef SUPPORTS_ONE_ONLY
+#ifdef MAKE_DECL_ONE_ONLY
+#define SUPPORTS_ONE_ONLY 1
+#else
+#define SUPPORTS_ONE_ONLY 0
+#endif
+#endif
+
 /* If the target supports weak symbols, define TARGET_ATTRIBUTE_WEAK to
    provide a weak attribute.  Else define it to nothing. 
 
@@ -285,6 +294,18 @@ do {								\
 
 #ifndef BUILD_VA_LIST_TYPE
 #define BUILD_VA_LIST_TYPE(X) ((X) = ptr_type_node)
+#endif
+
+#ifndef PIC_OFFSET_TABLE_REGNUM
+#define PIC_OFFSET_TABLE_REGNUM INVALID_REGNUM
+#endif
+
+/* By default, the preprocessor should be invoked the same way in C++
+   as in C.  */
+#ifndef CPLUSPLUS_CPP_SPEC
+#ifdef CPP_SPEC
+#define CPLUSPLUS_CPP_SPEC CPP_SPEC
+#endif
 #endif
 
 #endif  /* GCC_DEFAULTS_H */

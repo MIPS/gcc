@@ -1,26 +1,26 @@
 /* Subroutines for assembler code output on the TMS320C[34]x
-   Copyright (C) 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
 
-   This file is part of GNU CC.
+This file is part of GNU CC.
 
-   GNU CC is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+GNU CC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+GNU CC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 /* Some output-actions in c4x.md need these.  */
 #include "config.h"
@@ -429,6 +429,27 @@ c4x_hard_regno_mode_ok (regno, mode)
   return 0;
 }
 
+/* Return non-zero if REGNO1 can be renamed to REGNO2.  */
+int
+c4x_hard_regno_rename_ok (regno1, regno2)
+     unsigned int regno1;
+     unsigned int regno2;
+{
+  /* We can not copy call saved registers from mode QI into QF or from
+     mode QF into QI.  */
+  if (IS_FLOAT_CALL_SAVED_REGNO (regno1) && IS_INT_CALL_SAVED_REGNO (regno2))
+    return 0;
+  if (IS_INT_CALL_SAVED_REGNO (regno1) && IS_FLOAT_CALL_SAVED_REGNO (regno2))
+    return 0;
+  /* We cannot copy from an extended (40 bit) register to a standard
+     (32 bit) register because we only set the condition codes for
+     extended registers.  */
+  if (IS_EXT_REGNO (regno1) && ! IS_EXT_REGNO (regno2))
+    return 0;
+  if (IS_EXT_REGNO (regno2) && ! IS_EXT_REGNO (regno1))
+    return 0;
+  return 1;
+}
 
 /* The TI C3x C compiler register argument runtime model uses 6 registers,
    AR2, R2, R3, RC, RS, RE.
@@ -837,8 +858,9 @@ c4x_expand_prologue ()
 	     requires more than 32767 words of local temporary
 	     storage!  */
 	  if (size > 32767)
-	    fatal ("ISR %s requires %d words of local vars, max is 32767.",
+	    error ("ISR %s requires %d words of local vars, max is 32767.",
 		   current_function_name, size);
+
 	  insn = emit_insn (gen_addqi3 (gen_rtx_REG (QImode, SP_REGNO),
 				        gen_rtx_REG (QImode, SP_REGNO),
 					GEN_INT (size)));
@@ -964,9 +986,8 @@ c4x_expand_prologue ()
 	{
 	  if (regs_ever_live[regno] && ! call_used_regs[regno])
 	    {
-	      if ((regno == R6_REGNO) || (regno == R7_REGNO))
+	      if (IS_FLOAT_CALL_SAVED_REGNO (regno))
 		{
-		  /* R6 and R7 are saved as floating point.  */
 		  if (TARGET_PRESERVE_FLOAT)
 		    {
                       insn = emit_insn (gen_pushqi
@@ -1096,8 +1117,7 @@ c4x_expand_epilogue()
 	      if (regno == AR3_REGNO && dont_pop_ar3)
 		continue;
 	      
-	      /* R6 and R7 are saved as floating point.  */
-	      if ((regno == R6_REGNO) || (regno == R7_REGNO))
+	      if (IS_FLOAT_CALL_SAVED_REGNO (regno))
 		{
 		  insn = emit_insn (gen_popqf_unspec
 				    (gen_rtx_REG (QFmode, regno)));
@@ -1389,7 +1409,7 @@ c4x_emit_libcall (libcall, code, dmode, smode, noperands, operands)
       break;
 
     default:
-      fatal ("c4x_emit_libcall: Bad number of operands");
+      abort ();
     }
 
   insns = get_insns ();
@@ -3951,7 +3971,7 @@ c4x_valid_operands (code, operands, mode, force)
       break;
       
     default:
-      fatal ("c4x_valid_operands: Internal error");
+      abort ();
       break;
     }
       
@@ -4079,7 +4099,7 @@ group1_reg_operand (op, mode)
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
-  return REG_P (op) && IS_GROUP1_REG (op);
+  return REG_P (op) && (! reload_completed || IS_GROUP1_REG (op));
 }
 
 
@@ -4099,11 +4119,11 @@ group1_mem_operand (op, mode)
 	  rtx op0 = XEXP (op, 0);
 	  rtx op1 = XEXP (op, 1);
 
-	  if (((GET_CODE (op0) == REG) && IS_GROUP1_REG (op0))
-	      || ((GET_CODE (op1) == REG) && IS_GROUP1_REG (op1)))
+	  if ((REG_P (op0) && (! reload_completed || IS_GROUP1_REG (op0)))
+	      || (REG_P (op1) && (! reload_completed || IS_GROUP1_REG (op1))))
 	    return 1;
 	}
-      else if ((REG_P (op)) && IS_GROUP1_REG (op))
+      else if ((REG_P (op)) && (! reload_completed || IS_GROUP1_REG (op)))
 	return 1;
     }
 
@@ -4122,7 +4142,7 @@ arx_reg_operand (op, mode)
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
-  return REG_P (op) && IS_ADDR_REG (op);
+  return REG_P (op) && (! reload_completed || IS_ADDR_REG (op));
 }
 
 
@@ -4136,7 +4156,7 @@ c4x_arn_reg_operand (op, mode, regno)
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
-  return REG_P (op) && (REGNO (op) == regno);
+  return REG_P (op) && (! reload_completed || (REGNO (op) == regno));
 }
 
 
@@ -4161,16 +4181,16 @@ c4x_arn_mem_operand (op, mode, regno)
 	  op = XEXP (op, 0);
 
 	case REG:
-          if (REG_P (op) && (REGNO (op) == regno))
-	    return 1;
-	  break;
+          return REG_P (op) && (! reload_completed || (REGNO (op) == regno));
 
 	case PRE_MODIFY:
 	case POST_MODIFY:
-          if (REG_P (XEXP (op, 0)) && (REGNO (XEXP (op, 0)) == regno))
+          if (REG_P (XEXP (op, 0)) && (! reload_completed 
+				       || (REGNO (XEXP (op, 0)) == regno)))
 	    return 1;
           if (REG_P (XEXP (XEXP (op, 1), 1))
-	      && (REGNO (XEXP (XEXP (op, 1), 1)) == regno))
+	      && (! reload_completed
+		  || (REGNO (XEXP (XEXP (op, 1), 1)) == regno)))
 	    return 1;
 	  break;
 
@@ -4179,8 +4199,10 @@ c4x_arn_mem_operand (op, mode, regno)
 	    rtx op0 = XEXP (op, 0);
 	    rtx op1 = XEXP (op, 1);
 
-	    if (((GET_CODE (op0) == REG) && (REGNO (op0) == regno)) 
-	        || ((GET_CODE (op1) == REG) && (REGNO (op1) == regno)))
+	    if ((REG_P (op0) && (! reload_completed
+				 || (REGNO (op0) == regno)))
+	        || (REG_P (op1) && (! reload_completed
+				    || (REGNO (op1) == regno))))
 	      return 1;
 	  }
 	  break;
@@ -4876,7 +4898,7 @@ c4x_adjust_cost (insn, link, dep_insn, cost)
 {
   /* Don't worry about this until we know what registers have been
      assigned.  */
-  if (! reload_completed)
+  if (flag_schedule_insns == 0 && ! reload_completed)
     return 0;
 
   /* How do we handle dependencies where a read followed by another

@@ -1,4 +1,5 @@
-@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+@c 2000, 2001 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -172,9 +173,9 @@ in the following sections.
 -fhuge-objects  -fno-implicit-templates @gol
 -fno-implicit-inline-templates @gol
 -fno-implement-inlines  -fms-extensions @gol
--fname-mangling-version-@var{n}  -fno-operator-names @gol
+-fno-operator-names @gol
 -fno-optional-diags  -fpermissive @gol
--frepo  -fno-rtti  -fsquangle  -ftemplate-depth-@var{n} @gol
+-frepo  -fno-rtti -ftemplate-depth-@var{n} @gol
 -fuse-cxa-atexit  -fvtable-thunks  -nostdinc++ @gol
 -fno-default-inline  -Wctor-dtor-privacy @gol
 -Wnon-virtual-dtor  -Wreorder @gol
@@ -223,8 +224,8 @@ in the following sections.
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{
--a  -ax  -d@var{letters}  -fdump-unnumbered -fdump-translation-unit-@var{file} @gol
--fpretend-float -fprofile-arcs  -ftest-coverage @gol
+-a  -ax  -d@var{letters}  -fdump-unnumbered -fdump-translation-unit=@var{file} @gol
+-fdump-class-layout=@var{file} -fpretend-float -fprofile-arcs  -ftest-coverage @gol
 -g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gxcoff  -gxcoff+ @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -254,6 +255,7 @@ in the following sections.
 -fsingle-precision-constant  -fssa @gol
 -fstrength-reduce  -fstrict-aliasing  -fthread-jumps  -ftrapv @gol
 -funroll-all-loops  -funroll-loops  @gol
+--param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
 @item Preprocessor Options
@@ -457,12 +459,11 @@ in the following sections.
 -mintel-syntax -mieee-fp  -mno-fancy-math-387 @gol
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
--mreg-alloc=@var{list}  -mregparm=@var{num} @gol
 -malign-jumps=@var{num}  -malign-loops=@var{num} @gol
 -malign-functions=@var{num} -mpreferred-stack-boundary=@var{num} @gol
 -mthreads -mno-align-stringops -minline-all-stringops @gol
 -mpush-args -maccumulate-outgoing-args -m128bit-long-double @gol
--m96bit-long-double}
+-m96bit-long-double -mregparm=@var{num}}
 
 @emph{HPPA Options}
 @gccoptlist{
@@ -1317,20 +1318,6 @@ errors if these functions are not inlined everywhere they are called.
 Disable pedantic warnings about constructs used in MFC, such as implicit
 int and getting a pointer to member function via non-standard syntax.
 
-@item -fname-mangling-version-@var{n}
-Control the way in which names are mangled.  Version 0 is compatible
-with versions of g++ before 2.8.  Version 1 is the default.  Version 1
-will allow correct mangling of function templates.  For example, 
-version 0 mangling does not mangle foo<int, double> and foo<int, char>
-given this declaration:
-
-@example
-template <class T, class U> void foo(T t);
-@end example
-
-Like all options that change the ABI, all C++ code, @emph{including
-libgcc} must be built with the same setting of this option.
-
 @item -fno-operator-names
 Do not treat the operator name keywords @code{and}, @code{bitand},
 @code{bitor}, @code{compl}, @code{not}, @code{or} and @code{xor} as
@@ -1359,18 +1346,6 @@ functions for use by the C++ runtime type identification features
 of the language, you can save some space by using this flag.  Note that
 exception handling uses the same information, but it will generate it as
 needed.
-
-@item -fsquangle
-@itemx -fno-squangle
-@samp{-fsquangle} will enable a compressed form of name mangling for
-identifiers. In particular, it helps to shorten very long names by recognizing
-types and class names which occur more than once, replacing them with special
-short ID codes.  This option also requires any C++ libraries being used to
-be compiled with this option as well.  The compiler has this disabled (the
-equivalent of @samp{-fno-squangle}) by default.
-
-Like all options that change the ABI, all C++ code, @emph{including
-libgcc.a} must be built with the same setting of this option.
 
 @item -ftemplate-depth-@var{n}
 Set the maximum instantiation depth for template classes to @var{n}.
@@ -1480,13 +1455,28 @@ new-style casts (@samp{static_cast}, @samp{reinterpret_cast}, and
 @item -Woverloaded-virtual (C++ only)
 @cindex overloaded virtual fn, warning
 @cindex warning for overloaded virtual fn
-Warn when a derived class function declaration may be an error in
-defining a virtual function.  In a derived class, the
-definitions of virtual functions must match the type signature of a
-virtual function declared in the base class.  With this option, the
-compiler warns when you define a function with the same name as a
-virtual function, but with a type signature that does not match any
-declarations from the base class.
+Warn when a function declaration hides virtual functions from a
+base class.  For example, in:
+
+@smallexample
+struct A @{
+  virtual void f();
+@};
+
+struct B: public A @{
+  void f(int);
+@};
+@end smallexample
+
+the @code{A} class version of @code{f} is hidden in @code{B}, and code
+like this:
+
+@smallexample
+B* b;
+b->f();
+@end smallexample
+
+will fail to compile.
 
 @item -Wno-pmf-conversions (C++ only)
 Disable the diagnostic for converting a bound pointer to member function
@@ -2068,9 +2058,35 @@ ISO C.
 
 @itemize @bullet
 @item
-Macro arguments occurring within string constants in the macro body.
-These would substitute the argument in traditional C, but are part of
-the constant in ISO C.
+Macro parameters that appear within string literals in the macro body.
+In traditional C macro replacement takes place within string literals,
+but does not in ISO C.
+
+@item
+In traditional C, some preprocessor directives did not exist.
+Traditional preprocessors would only consider a line to be a directive
+if the @samp{#} appeared in column 1 on the line.  Therefore
+@samp{-Wtraditional} warns about directives that traditional C
+understands but would ignore because the @samp{#} does not appear as the
+first character on the line.  It also suggests you hide directives like
+@samp{#pragma} not understood by traditional C by indenting them.  Some
+traditional implementations would not recognise @samp{#elif}, so it
+suggests avoiding it altogether.
+
+@item
+A function-like macro that appears without arguments.
+
+@item
+The unary plus operator.
+
+@item
+The `U' integer constant suffix, or the `F' or `L' floating point
+constant suffixes.  (Traditonal C does support the `L' suffix on integer
+constants.)  Note, these suffixes appear in macros defined in the system
+headers of most modern systems, e.g. the _MIN/_MAX macros in limits.h.
+Use of these macros can lead to spurious warnings as they do not
+necessarily reflect whether the code in question is any less portable to
+traditional C given that suitable backup definitions are provided.
 
 @item
 A function declared external in one block and then used after the end of
@@ -2093,12 +2109,6 @@ typically represent bit patterns, are not warned about.
 Usage of ISO string concatenation is detected.
 
 @item
-A function macro appears without arguments.
-
-@item
-The unary plus operator.
-
-@item
 Initialization of automatic aggregates.
 
 @item
@@ -2111,15 +2121,6 @@ omitted.  This is done under the assumption that the zero initializer in
 user code appears conditioned on e.g. @code{__STDC__} to avoid missing
 initializer warnings and relies on default initialization to zero in the
 traditional C case.
-
-@item
-The `U' integer constant suffix, or the `F' or `L' floating point
-constant suffixes.  (Traditonal C does support the `L' suffix on integer
-constants.)  Note, these suffixes appear in macros defined in the system
-headers of most modern systems, e.g. the _MIN/_MAX macros in limits.h.
-Use of these macros can lead to spurious warnings as they do not
-necessarily reflect whether the code in question is any less portable to
-traditional C given that suitable backup definitions are provided.
 @end itemize
 
 @item -Wundef
@@ -2668,9 +2669,14 @@ numbers and line number note output.  This makes it more feasible to
 use diff on debugging dumps for compiler invocations with different
 options, in particular with and without -g.
 
-@item -fdump-translation-unit-@var{file} (C and C++ only)
+@item -fdump-translation-unit=@var{file} (C and C++ only)
 Dump a representation of the tree structure for the entire translation
 unit to @var{file}.
+
+@item -fdump-class_layout=@var{file} (C++ only)
+@item -fdump-class_layout (C++ only)
+Dump a representation of each class's heirarchy to @var{file}, or
+@code{stderr} if not specified.
 
 @item -fpretend-float
 When running a cross-compiler, pretend that the target machine uses the
@@ -3246,6 +3252,24 @@ of registers left over after register allocation.  This optimization
 will most benefit processors with lots of registers.  It can, however,
 make debugging impossible, since variables will no longer stay in
 a ``home register''.
+
+@item --param @var{name}=@var{value}
+In some places, GCC uses various constants to control the amount of
+optimization that is done.  For example, GCC will not inline functions
+that contain more that a certain number of instructions.  You can
+control some of these constants on the command-line using the
+@samp{--param} option.  
+
+In each case, the @var{value} is a integer.  The allowable choices for
+@var{name} are given in the following table:
+
+@table @gcctabopt
+@item max-inline-insns
+If an function contains more than this many instructions, it
+will not be inlined.  This option is precisely equivalent to
+@samp{-finline-limit}.
+@end table
+
 @end table
 
 @node Preprocessor Options
@@ -3348,8 +3372,10 @@ Instead of outputting the result of preprocessing, output a rule
 suitable for @code{make} describing the dependencies of the main source
 file.  The preprocessor outputs one @code{make} rule containing the
 object file name for that source file, a colon, and the names of all the
-included files.  If there are many included files then the rule is split
-into several lines using @samp{\}-newline.
+included files.  Unless overridden explicitly, the object file name
+consists of the basename of the source file with any suffix replaced with
+object file suffix. If there are many included files then the
+rule is split into several lines using @samp{\}-newline.
 
 @samp{-M} implies @samp{-E}.
 
@@ -3688,11 +3714,16 @@ of these is when the application wishes to throw and catch exceptions
 across different shared libraries.  In that case, each of the libraries
 as well as the application itself should use the shared @file{libgcc}.
 
-At present the GCC driver makes no attempt to recognize the situations
-in which the shared @file{libgcc} should be used, and defaults to using
-the static @file{libgcc} always.  This will likely change in the future,
-at which time @samp{-static-libgcc} becomes useful as a means for 
-overriding GCC's choice.
+Therefore, whenever you specify the @samp{-shared} option, the GCC
+driver automatically adds @samp{-shared-libgcc}, unless you explicitly
+specify @samp{-static-libgcc}.  The G++ driver automatically adds
+@samp{-shared-libgcc} when you build a main executable as well because
+for C++ programs that is typically the right thing to do.
+(Exception-handling will not work reliably otherwise.)
+
+However, when linking a main executable written in C, you must
+explicitly say @samp{-shared-libgcc} if you want to use the shared
+@file{libgcc}.
 
 @item -symbolic
 Bind references to global symbols when building a shared object.  Warn
@@ -3736,8 +3767,10 @@ libraries and for parts of the compiler:
 Add the directory @var{dir} to the head of the list of directories to be
 searched for header files.  This can be used to override a system header
 file, substituting your own version, since these directories are
-searched before the system header file directories.  If you use more
-than one @samp{-I} option, the directories are scanned in left-to-right
+searched before the system header file directories.  However, you should
+not use this option to add directories that contain vendor-supplied
+system header files (use @samp{-isystem} for that). If you use more than
+one @samp{-I} option, the directories are scanned in left-to-right
 order; the standard system directories come after.
 
 @item -I-
@@ -6622,13 +6655,6 @@ functions.
 In addition, seriously incorrect code will result if you call a
 function with too many arguments.  (Normally, extra arguments are
 harmlessly ignored.)
-
-@item -mreg-alloc=@var{regs}
-Control the default allocation order of integer registers.  The
-string @var{regs} is a series of letters specifying a register.  The
-supported letters are: @code{a} allocate EAX; @code{b} allocate EBX;
-@code{c} allocate ECX; @code{d} allocate EDX; @code{S} allocate ESI;
-@code{D} allocate EDI; @code{B} allocate EBP.
 
 @item -mregparm=@var{num}
 Control how many registers are used to pass integer arguments.  By

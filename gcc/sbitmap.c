@@ -24,9 +24,27 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "ggc.h"
 
 /* Bitmap manipulation routines.  */
 
+sbitmap
+sbitmap_ggc_alloc (n_elms)
+     unsigned int n_elms;
+{
+  unsigned int bytes, size, amt;
+  sbitmap bmap;
+
+  size = SBITMAP_SET_SIZE (n_elms);
+  bytes = size * sizeof (SBITMAP_ELT_TYPE);
+  amt = (sizeof (struct simple_bitmap_def)
+         + bytes - sizeof (SBITMAP_ELT_TYPE));
+  bmap = (sbitmap) ggc_alloc (amt);
+  bmap->n_bits = n_elms;
+  bmap->size = size;
+  bmap->bytes = bytes;
+  return bmap;
+}
 /* Allocate a simple bitmap of N_ELMS bits.  */
 
 sbitmap

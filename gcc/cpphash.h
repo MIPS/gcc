@@ -43,14 +43,15 @@ struct htab;
 #define CPP_STACK_MAX 200
 
 /* Memory pools.  */
-#define ALIGN(size, align) (((size) + ((align) - 1)) & ~((align) - 1))
+#define POOL_ALIGN(size, align) (((size) + ((align) - 1)) & ~((align) - 1))
 #define POOL_FRONT(p) ((p)->cur->front)
 #define POOL_LIMIT(p) ((p)->cur->limit)
 #define POOL_BASE(p)  ((p)->cur->base)
 #define POOL_SIZE(p)  ((p)->cur->limit - (p)->cur->base)
 #define POOL_ROOM(p)  ((p)->cur->limit - (p)->cur->front)
 #define POOL_USED(p)  ((p)->cur->front - (p)->cur->base)
-#define POOL_COMMIT(p, len) do {((p)->cur->front += ALIGN (len, (p)->align));\
+#define POOL_COMMIT(p, len) do {\
+  ((p)->cur->front += POOL_ALIGN (len, (p)->align));\
   if ((p)->cur->front > (p)->cur->limit) abort ();} while (0)
 
 typedef struct cpp_chunk cpp_chunk;
@@ -155,6 +156,8 @@ struct spec_nodes
 {
   cpp_hashnode *n_L;			/* L"str" */
   cpp_hashnode *n_defined;		/* defined operator */
+  cpp_hashnode *n_true;			/* C++ keyword true */
+  cpp_hashnode *n_false;		/* C++ keyword false */
   cpp_hashnode *n__Pragma;		/* _Pragma operator */
   cpp_hashnode *n__STRICT_ANSI__;	/* STDC_0_IN_SYSTEM_HEADERS */
   cpp_hashnode *n__CHAR_UNSIGNED__;	/* plain char is unsigned */
@@ -193,6 +196,9 @@ struct cpp_buffer
 
   /* Line number at line_base (above). */
   unsigned int lineno;
+
+  /* Contains PREV_WHITE and/or AVOID_LPASTE.  */
+  unsigned char saved_flags;
 
   /* Because of the way the lexer works, -Wtrigraphs can sometimes
      warn twice for the same trigraph.  This helps prevent that.  */

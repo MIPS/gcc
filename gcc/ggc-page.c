@@ -111,7 +111,7 @@ Boston, MA 02111-1307, USA.  */
      2: Page-entry allocations/deallocations as well.
      3: Object allocations as well.
      4: Object marks as well.   */
-#define GGC_DEBUG_LEVEL (0)
+#define GGC_DEBUG_LEVEL (1)
 
 #ifndef HOST_BITS_PER_PTR
 #define HOST_BITS_PER_PTR  HOST_BITS_PER_LONG

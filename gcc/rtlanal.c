@@ -24,11 +24,11 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "toplev.h"
 #include "rtl.h"
-
-static void set_of_1		PARAMS ((rtx, rtx, void *));
-static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
+#include "hard-reg-set.h"
 
 /* Forward declarations */
+static void set_of_1		PARAMS ((rtx, rtx, void *));
+static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
 static int computed_jump_p_1	PARAMS ((rtx));
 
 /* Bit flags that specify the machine subtype we are compiling for.
@@ -68,7 +68,9 @@ rtx_unstable_p (x)
     case REG:
       /* As in rtx_varies_p, we have to use the actual rtx, not reg number.  */
       if (x == frame_pointer_rtx || x == hard_frame_pointer_rtx
-	  || x == arg_pointer_rtx || RTX_UNCHANGING_P (x))
+	  /* The arg pointer varies if it is not a fixed register.  */
+	  || (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])
+	  || RTX_UNCHANGING_P (x))
 	return 0;
 #ifndef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
       /* ??? When call-clobbered, the value is stable modulo the restore
@@ -144,7 +146,8 @@ rtx_varies_p (x, for_alias)
 	 eliminated the frame and/or arg pointer and are using it
 	 for pseudos.  */
       if (x == frame_pointer_rtx || x == hard_frame_pointer_rtx
-	  || x == arg_pointer_rtx)
+	  /* The arg pointer varies if it is not a fixed register.  */
+	  || (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM]))
 	return 0;
       if (x == pic_offset_table_rtx
 #ifdef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
@@ -212,7 +215,9 @@ rtx_addr_can_trap_p (x)
     case REG:
       /* As in rtx_varies_p, we have to use the actual rtx, not reg number.  */
       return ! (x == frame_pointer_rtx || x == hard_frame_pointer_rtx
-		|| x == stack_pointer_rtx || x == arg_pointer_rtx);
+		|| x == stack_pointer_rtx
+		/* The arg pointer varies if it is not a fixed register.  */
+		|| (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM]));
 
     case CONST:
       return rtx_addr_can_trap_p (XEXP (x, 0));
@@ -1303,6 +1308,89 @@ note_stores (x, fun, data)
       note_stores (XVECEXP (x, 0, i), fun, data);
 }
 
+/* Like notes_stores, but call FUN for each expression that is being
+   referenced in PBODY, a pointer to the PATTERN of an insn.  We only call
+   FUN for each expression, not any interior subexpressions.  FUN receives a
+   pointer to the expression and the DATA passed to this function.
+
+   Note that this is not quite the same test as that done in reg_referenced_p
+   since that considers something as being referenced if it is being
+   partially set, while we do not.  */
+
+void
+note_uses (pbody, fun, data)
+     rtx *pbody;
+     void (*fun) PARAMS ((rtx *, void *));
+     void *data;
+{
+  rtx body = *pbody;
+  int i;
+
+  switch (GET_CODE (body))
+    {
+    case COND_EXEC:
+      (*fun) (&COND_EXEC_TEST (body), data);
+      note_uses (&COND_EXEC_CODE (body), fun, data);
+      return;
+
+    case PARALLEL:
+      for (i = XVECLEN (body, 0) - 1; i >= 0; i--)
+	note_uses (&XVECEXP (body, 0, i), fun, data);
+      return;
+
+    case USE:
+      (*fun) (&XEXP (body, 0), data);
+      return;
+
+    case ASM_OPERANDS:
+      for (i = ASM_OPERANDS_INPUT_LENGTH (body) - 1; i >= 0; i--)
+	(*fun) (&ASM_OPERANDS_INPUT (body, i), data);
+      return;
+
+    case TRAP_IF:
+      (*fun) (&TRAP_CONDITION (body), data);
+      return;
+
+    case UNSPEC:
+    case UNSPEC_VOLATILE:
+      for (i = XVECLEN (body, 0) - 1; i >= 0; i--)
+	(*fun) (&XVECEXP (body, 0, i), data);
+      return;
+
+    case CLOBBER:
+      if (GET_CODE (XEXP (body, 0)) == MEM)
+	(*fun) (&XEXP (XEXP (body, 0), 0), data);
+      return;
+
+    case SET:
+      {
+	rtx dest = SET_DEST (body);
+
+	/* For sets we replace everything in source plus registers in memory
+	   expression in store and operands of a ZERO_EXTRACT.  */
+	(*fun) (&SET_SRC (body), data);
+
+	if (GET_CODE (dest) == ZERO_EXTRACT)
+	  {
+	    (*fun) (&XEXP (dest, 1), data);
+	    (*fun) (&XEXP (dest, 2), data);
+	  }
+
+	while (GET_CODE (dest) == SUBREG || GET_CODE (dest) == STRICT_LOW_PART)
+	  dest = XEXP (dest, 0);
+
+	if (GET_CODE (dest) == MEM)
+	  (*fun) (&XEXP (dest, 0), data);
+      }
+      return;
+
+    default:
+      /* All the other possibilities never store.  */
+      (*fun) (pbody, data);
+      return;
+    }
+}
+
 /* Return nonzero if X's old contents don't survive after INSN.
    This will be true if X is (cc0) or if X is a register and
    X dies in INSN or because INSN entirely sets X.
@@ -1485,6 +1573,23 @@ find_regno_note (insn, kind, regno)
   return 0;
 }
 
+/* Return a REG_EQUIV or REG_EQUAL note if insn has only a single set and
+   has such a note.  */
+
+rtx
+find_reg_equal_equiv_note (insn)
+     rtx insn;
+{
+  rtx note;
+
+  if (single_set (insn) == 0)
+    return 0;
+  else if ((note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) != 0)
+    return note;
+  else
+    return find_reg_note (insn, REG_EQUAL, NULL_RTX);
+}
+
 /* Return true if DATUM, or any overlap of DATUM, of kind CODE is found
    in the CALL_INSN_FUNCTION_USAGE information of INSN.  */
 
@@ -1596,11 +1701,10 @@ remove_note (insn, note)
   abort ();
 }
 
-/* Search LISTP (an EXPR_LIST) for NODE and remove NODE from the list
-   if it is found.
+/* Search LISTP (an EXPR_LIST) for an entry whose first operand is NODE and
+   remove that entry from the list if it is found.
 
-   A simple equality test is used to determine if NODE is on the
-   EXPR_LIST.  */
+   A simple equality test is used to determine if NODE matches.  */
 
 void
 remove_node_from_expr_list (node, listp)
@@ -1622,6 +1726,8 @@ remove_node_from_expr_list (node, listp)
 
 	  return;
 	}
+
+      prev = temp;
       temp = XEXP (temp, 1);
     }
 }

@@ -65,7 +65,18 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   2,					/* cost of reg,reg fld/fst */
   {8, 8, 8},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {8, 8, 8}				/* cost of loading integer registers */
+  {8, 8, 8},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {4, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {4, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {4, 8, 16},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {4, 8, 16},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  3,					/* MMX or SSE register to integer */
 };
 
 struct processor_costs i486_cost = {	/* 486 specific costs */
@@ -86,7 +97,18 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   2,					/* cost of reg,reg fld/fst */
   {8, 8, 8},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {8, 8, 8}				/* cost of loading integer registers */
+  {8, 8, 8},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {4, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {4, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {4, 8, 16},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {4, 8, 16},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  3					/* MMX or SSE register to integer */
 };
 
 struct processor_costs pentium_cost = {
@@ -107,7 +129,18 @@ struct processor_costs pentium_cost = {
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 6}				/* cost of loading integer registers */
+  {4, 4, 6},				/* cost of loading integer registers */
+  8,					/* cost of moving MMX register */
+  {8, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {8, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {4, 8, 16},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {4, 8, 16},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  3					/* MMX or SSE register to integer */
 };
 
 struct processor_costs pentiumpro_cost = {
@@ -128,7 +161,18 @@ struct processor_costs pentiumpro_cost = {
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 6}				/* cost of loading integer registers */
+  {4, 4, 6},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {2, 2},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {2, 2},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {2, 2, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {2, 2, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  3					/* MMX or SSE register to integer */
 };
 
 struct processor_costs k6_cost = {
@@ -149,7 +193,18 @@ struct processor_costs k6_cost = {
   4,					/* cost of reg,reg fld/fst */
   {6, 6, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 4}				/* cost of loading integer registers */
+  {4, 4, 4},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {2, 2},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {2, 2},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {2, 2, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {2, 2, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  6					/* MMX or SSE register to integer */
 };
 
 struct processor_costs athlon_cost = {
@@ -170,7 +225,18 @@ struct processor_costs athlon_cost = {
   4,					/* cost of reg,reg fld/fst */
   {6, 6, 20},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 16}				/* cost of loading integer registers */
+  {4, 4, 16},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {2, 2},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {2, 2},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {2, 2, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {2, 2, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  6					/* MMX or SSE register to integer */
 };
 
 struct processor_costs *ix86_cost = &pentium_cost;
@@ -331,6 +397,7 @@ struct rtx_def *ix86_compare_op1 = NULL_RTX;
 struct machine_function
 {
   rtx stack_locals[(int) MAX_MACHINE_MODE][MAX_386_STACK_LOCALS];
+  int accesses_prev_frame;
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
@@ -344,10 +411,6 @@ int ix86_arch;
 /* Strings to hold which cpu and instruction set architecture  to use.  */
 const char *ix86_cpu_string;		/* for -mcpu=<xxx> */
 const char *ix86_arch_string;		/* for -march=<xxx> */
-
-/* Register allocation order */
-const char *ix86_reg_alloc_order;
-static char regs_allocated[FIRST_PSEUDO_REGISTER];
 
 /* # of registers to use to pass arguments.  */
 const char *ix86_regparm_string;
@@ -458,6 +521,7 @@ static int ix86_fp_comparison_cost PARAMS ((enum rtx_code code));
 void
 override_options ()
 {
+  int i;
   /* Comes from final.c -- no real reason to change it.  */
 #define MAX_CODE_ALIGN 16
 
@@ -509,7 +573,6 @@ override_options ()
 
   if (ix86_arch_string != 0)
     {
-      int i;
       for (i = 0; i < pta_size; i++)
 	if (! strcmp (ix86_arch_string, processor_alias_table[i].name))
 	  {
@@ -518,13 +581,13 @@ override_options ()
 	    ix86_cpu = ix86_arch;
 	    break;
 	  }
+
       if (i == pta_size)
 	error ("bad value (%s) for -march= switch", ix86_arch_string);
     }
 
   if (ix86_cpu_string != 0)
     {
-      int i;
       for (i = 0; i < pta_size; i++)
 	if (! strcmp (ix86_cpu_string, processor_alias_table[i].name))
 	  {
@@ -544,71 +607,48 @@ override_options ()
   mark_machine_status = ix86_mark_machine_status;
   free_machine_status = ix86_free_machine_status;
 
-  /* Validate registers in register allocation order.  */
-  if (ix86_reg_alloc_order)
-    {
-      int i, ch;
-      for (i = 0; (ch = ix86_reg_alloc_order[i]) != '\0'; i++)
-	{
-	  int regno = 0;
-
-	  switch (ch)
-	    {
-	    case 'a':	regno = 0;	break;
-	    case 'd':	regno = 1;	break;
-	    case 'c':	regno = 2;	break;
-	    case 'b':	regno = 3;	break;
-	    case 'S':	regno = 4;	break;
-	    case 'D':	regno = 5;	break;
-	    case 'B':	regno = 6;	break;
-
-	    default:	fatal ("Register '%c' is unknown", ch);
-	    }
-
-	  if (regs_allocated[regno])
-	    fatal ("Register '%c' already specified in allocation order", ch);
-
-	  regs_allocated[regno] = 1;
-	}
-    }
-
   /* Validate -mregparm= value.  */
   if (ix86_regparm_string)
     {
-      ix86_regparm = atoi (ix86_regparm_string);
-      if (ix86_regparm < 0 || ix86_regparm > REGPARM_MAX)
-	fatal ("-mregparm=%d is not between 0 and %d",
-	       ix86_regparm, REGPARM_MAX);
+      i = atoi (ix86_regparm_string);
+      if (i < 0 || i > REGPARM_MAX)
+	error ("-mregparm=%d is not between 0 and %d", i, REGPARM_MAX);
+      else
+	ix86_regparm = i;
     }
 
   /* Validate -malign-loops= value, or provide default.  */
   ix86_align_loops = processor_target_table[ix86_cpu].align_loop;
   if (ix86_align_loops_string)
     {
-      ix86_align_loops = atoi (ix86_align_loops_string);
-      if (ix86_align_loops < 0 || ix86_align_loops > MAX_CODE_ALIGN)
-	fatal ("-malign-loops=%d is not between 0 and %d",
-	       ix86_align_loops, MAX_CODE_ALIGN);
+      i = atoi (ix86_align_loops_string);
+      if (i < 0 || i > MAX_CODE_ALIGN)
+	error ("-malign-loops=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
+      else
+	ix86_align_loops = i;
     }
 
   /* Validate -malign-jumps= value, or provide default.  */
   ix86_align_jumps = processor_target_table[ix86_cpu].align_jump;
   if (ix86_align_jumps_string)
     {
-      ix86_align_jumps = atoi (ix86_align_jumps_string);
-      if (ix86_align_jumps < 0 || ix86_align_jumps > MAX_CODE_ALIGN)
-	fatal ("-malign-jumps=%d is not between 0 and %d",
-	       ix86_align_jumps, MAX_CODE_ALIGN);
+      i = atoi (ix86_align_jumps_string);
+      if (i < 0 || i > MAX_CODE_ALIGN)
+	error ("-malign-jumps=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
+      else
+	ix86_align_jumps = i;
     }
 
   /* Validate -malign-functions= value, or provide default.  */
   ix86_align_funcs = processor_target_table[ix86_cpu].align_func;
   if (ix86_align_funcs_string)
     {
-      ix86_align_funcs = atoi (ix86_align_funcs_string);
-      if (ix86_align_funcs < 0 || ix86_align_funcs > MAX_CODE_ALIGN)
-	fatal ("-malign-functions=%d is not between 0 and %d",
-	       ix86_align_funcs, MAX_CODE_ALIGN);
+      i = atoi (ix86_align_funcs_string);
+      if (i < 0 || i > MAX_CODE_ALIGN)
+	error ("-malign-functions=%d is not between 0 and %d",
+	       i, MAX_CODE_ALIGN);
+      else
+	ix86_align_funcs = i;
     }
 
   /* Validate -mpreferred-stack-boundary= value, or provide default.
@@ -616,20 +656,22 @@ override_options ()
   ix86_preferred_stack_boundary = 128;
   if (ix86_preferred_stack_boundary_string)
     {
-      int i = atoi (ix86_preferred_stack_boundary_string);
+      i = atoi (ix86_preferred_stack_boundary_string);
       if (i < 2 || i > 31)
-	fatal ("-mpreferred-stack-boundary=%d is not between 2 and 31", i);
-      ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
+	error ("-mpreferred-stack-boundary=%d is not between 2 and 31", i);
+      else
+	ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
     }
 
   /* Validate -mbranch-cost= value, or provide default.  */
   ix86_branch_cost = processor_target_table[ix86_cpu].branch_cost;
   if (ix86_branch_cost_string)
     {
-      ix86_branch_cost = atoi (ix86_branch_cost_string);
-      if (ix86_branch_cost < 0 || ix86_branch_cost > 5)
-	fatal ("-mbranch-cost=%d is not between 0 and 5",
-	       ix86_branch_cost);
+      i = atoi (ix86_branch_cost_string);
+      if (i < 0 || i > 5)
+	error ("-mbranch-cost=%d is not between 0 and 5", i);
+      else
+	ix86_branch_cost = i;
     }
 
   /* Keep nonleaf frame pointers.  */
@@ -645,61 +687,6 @@ override_options ()
      on by -msse.  */
   if (TARGET_SSE)
     target_flags |= MASK_MMX;
-}
-
-/* A C statement (sans semicolon) to choose the order in which to
-   allocate hard registers for pseudo-registers local to a basic
-   block.
-
-   Store the desired register order in the array `reg_alloc_order'.
-   Element 0 should be the register to allocate first; element 1, the
-   next register; and so on.
-
-   The macro body should not assume anything about the contents of
-   `reg_alloc_order' before execution of the macro.
-
-   On most machines, it is not necessary to define this macro.  */
-
-void
-order_regs_for_local_alloc ()
-{
-  int i, ch, order;
-
-  /* User specified the register allocation order.  */
-
-  if (ix86_reg_alloc_order)
-    {
-      for (i = order = 0; (ch = ix86_reg_alloc_order[i]) != '\0'; i++)
-	{
-	  int regno = 0;
-
-	  switch (ch)
-	    {
-	    case 'a':	regno = 0;	break;
-	    case 'd':	regno = 1;	break;
-	    case 'c':	regno = 2;	break;
-	    case 'b':	regno = 3;	break;
-	    case 'S':	regno = 4;	break;
-	    case 'D':	regno = 5;	break;
-	    case 'B':	regno = 6;	break;
-	    }
-
-	  reg_alloc_order[order++] = regno;
-	}
-
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	{
-	  if (! regs_allocated[i])
-	    reg_alloc_order[order++] = i;
-	}
-    }
-
-  /* If user did not specify a register allocation order, use natural order.  */
-  else
-    {
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	reg_alloc_order[i] = i;
-    }
 }
 
 void
@@ -1688,6 +1675,40 @@ ix86_can_use_return_insn_p ()
   tsize = ix86_compute_frame_size (get_frame_size (), &nregs, NULL, NULL);
   return tsize == 0 && nregs == 0;
 }
+
+/* Value should be nonzero if functions must have frame pointers.
+   Zero means the frame pointer need not be set up (and parms may
+   be accessed via the stack pointer) in functions that seem suitable.  */
+
+int
+ix86_frame_pointer_required ()
+{
+  /* If we accessed previous frames, then the generated code expects
+     to be able to access the saved ebp value in our frame.  */
+  if (cfun->machine->accesses_prev_frame)
+    return 1;
+  
+  /* Several x86 os'es need a frame pointer for other reasons,
+     usually pertaining to setjmp.  */
+  if (SUBTARGET_FRAME_POINTER_REQUIRED)
+    return 1;
+
+  /* In override_options, TARGET_OMIT_LEAF_FRAME_POINTER turns off
+     the frame pointer by default.  Turn it back on now if we've not
+     got a leaf function.  */
+  if (TARGET_OMIT_LEAF_FRAME_POINTER && ! leaf_function_p ())
+    return 1;
+
+  return 0;
+}
+
+/* Record that the current function accesses previous call frames.  */
+
+void
+ix86_setup_frame_addresses ()
+{
+  cfun->machine->accesses_prev_frame = 1;
+}
 
 static char pic_label_name[32];
 
@@ -1886,12 +1907,11 @@ ix86_compute_frame_size (size, nregs_on_stack, rpadding1, rpadding2)
 
   offset = frame_pointer_needed ? 8 : 4;
 
-  /* Do some sanity checking of stack_alignment_needed and preferred_alignment,
-     since i386 port is the only using those features that may break easilly.  */
+  /* Do some sanity checking of stack_alignment_needed and
+     preferred_alignment, since i386 port is the only using those features
+     that may break easilly.  */
 
   if (size && !stack_alignment_needed)
-    abort ();
-  if (!size && stack_alignment_needed != STACK_BOUNDARY / BITS_PER_UNIT)
     abort ();
   if (preferred_alignment < STACK_BOUNDARY / BITS_PER_UNIT)
     abort ();
@@ -3239,7 +3259,7 @@ print_reg (x, code, file)
     case 4:
     case 8:
     case 12:
-      if (! FP_REG_P (x))
+      if (! ANY_FP_REG_P (x))
 	putc ('e', file);
       /* FALLTHRU */
     case 16:
@@ -3716,6 +3736,8 @@ output_387_binary_op (insn, operands)
 {
   static char buf[30];
   const char *p;
+  const char *ssep;
+  int is_sse = SSE_REG_P (operands[0]) | SSE_REG_P (operands[1]) | SSE_REG_P (operands[2]);
 
 #ifdef ENABLE_CHECKING
   /* Even if we do not want to check the inputs, this documents input
@@ -3729,7 +3751,7 @@ output_387_binary_op (insn, operands)
 	      && (STACK_REG_P (operands[1]) || GET_CODE (operands[1]) == MEM)))
       && (STACK_TOP_P (operands[1]) || STACK_TOP_P (operands[2])))
     ; /* ok */
-  else
+  else if (!is_sse)
     abort ();
 #endif
 
@@ -3741,6 +3763,7 @@ output_387_binary_op (insn, operands)
 	p = "fiadd";
       else
 	p = "fadd";
+      ssep = "add";
       break;
 
     case MINUS:
@@ -3749,6 +3772,7 @@ output_387_binary_op (insn, operands)
 	p = "fisub";
       else
 	p = "fsub";
+      ssep = "sub";
       break;
 
     case MULT:
@@ -3757,6 +3781,7 @@ output_387_binary_op (insn, operands)
 	p = "fimul";
       else
 	p = "fmul";
+      ssep = "mul";
       break;
 
     case DIV:
@@ -3765,12 +3790,22 @@ output_387_binary_op (insn, operands)
 	p = "fidiv";
       else
 	p = "fdiv";
+      ssep = "div";
       break;
 
     default:
       abort ();
     }
 
+  if (is_sse)
+   {
+      strcpy (buf, ssep);
+      if (GET_MODE (operands[0]) == SFmode)
+	strcat (buf, "ss\t{%2, %0|%0, %2}");
+      else
+	strcat (buf, "sd\t{%2, %0|%0, %2}");
+      return buf;
+   }
   strcpy (buf, p);
 
   switch (GET_CODE (operands[3]))
@@ -3975,11 +4010,25 @@ output_fp_compare (insn, operands, eflags_p, unordered_p)
   int stack_top_dies;
   rtx cmp_op0 = operands[0];
   rtx cmp_op1 = operands[1];
+  int is_sse = SSE_REG_P (operands[0]) | SSE_REG_P (operands[1]);
 
   if (eflags_p == 2)
     {
       cmp_op0 = cmp_op1;
       cmp_op1 = operands[2];
+    }
+  if (is_sse)
+    {
+      if (GET_MODE (operands[0]) == SFmode)
+	if (unordered_p)
+	  return "ucomiss\t{%1, %0|%0, %1}";
+	else
+	  return "comiss\t{%1, %0|%0, %y}";
+      else
+	if (unordered_p)
+	  return "ucomisd\t{%1, %0|%0, %1}";
+	else
+	  return "comisd\t{%1, %0|%0, %y}";
     }
 
   if (! STACK_TOP_P (cmp_op0))
@@ -4736,15 +4785,17 @@ ix86_prepare_fp_compare_args (code, pop0, pop1)
   enum machine_mode fpcmp_mode = ix86_fp_compare_mode (code);
   rtx op0 = *pop0, op1 = *pop1;
   enum machine_mode op_mode = GET_MODE (op0);
+  int is_sse = SSE_REG_P (op0) | SSE_REG_P (op1);
 
   /* All of the unordered compare instructions only work on registers.
      The same is true of the XFmode compare instructions.  The same is
      true of the fcomi compare instructions.  */
 
-  if (fpcmp_mode == CCFPUmode
-      || op_mode == XFmode
-      || op_mode == TFmode
-      || ix86_use_fcomi_compare (code))
+  if (!is_sse
+      && (fpcmp_mode == CCFPUmode
+	  || op_mode == XFmode
+	  || op_mode == TFmode
+	  || ix86_use_fcomi_compare (code)))
     {
       op0 = force_reg (op_mode, op0);
       op1 = force_reg (op_mode, op1);
@@ -8677,4 +8728,235 @@ ix86_free_from_memory (mode)
 						 : mode == HImode && TARGET_PARTIAL_REG_STALL
 						 ? 2
 						 : 4))));
+}
+
+/* Put float CONST_DOUBLE in the constant pool instead of fp regs.
+   QImode must go into class Q_REGS.
+   Narrow ALL_REGS to GENERAL_REGS.  This supports allowing movsf and
+   movdf to do mem-to-mem moves through integer regs. */
+enum reg_class
+ix86_preferred_reload_class (x, class)
+     rtx x;
+     enum reg_class class;
+{
+  if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) != VOIDmode)
+    {
+      /* SSE can't load any constant directly yet.  */
+      if (SSE_CLASS_P (class))
+	return NO_REGS;
+      /* Floats can load 0 and 1.  */
+      if (MAYBE_FLOAT_CLASS_P (class) && standard_80387_constant_p (x))
+	{
+	  /* Limit class to non-SSE.  Use GENERAL_REGS if possible.  */
+	  if (MAYBE_SSE_CLASS_P (class))
+	    return (reg_class_subset_p (class, GENERAL_REGS)
+		    ? GENERAL_REGS : FLOAT_REGS);
+	  else
+	    return class;
+	}
+      /* General regs can load everything.  */
+      if (reg_class_subset_p (class, GENERAL_REGS))
+	return GENERAL_REGS;
+      /* In case we haven't resolved FLOAT or SSE yet, give up.  */
+      if (MAYBE_FLOAT_CLASS_P (class) || MAYBE_SSE_CLASS_P (class))
+	return NO_REGS;
+    }
+  if (MAYBE_MMX_CLASS_P (class) && CONSTANT_P (x))
+    return NO_REGS;
+  if (GET_MODE (x) == QImode && ! reg_class_subset_p (class, Q_REGS))
+    return Q_REGS;
+  return class;
+}
+
+/* If we are copying between general and FP registers, we need a memory
+   location. The same is true for SSE and MMX registers.
+
+   The macro can't work reliably when one of the CLASSES is class containing
+   registers from multiple units (SSE, MMX, integer).  We avoid this by never
+   combining those units in single alternative in the machine description.
+   Ensure that this constraint holds to avoid unexpected surprises.
+
+   When STRICT is false, we are being called from REGISTER_MOVE_COST, so do not
+   enforce these sanity checks.  */
+int
+ix86_secondary_memory_needed (class1, class2, mode, strict)
+     enum reg_class class1, class2;
+     enum machine_mode mode;
+     int strict;
+{
+  if (MAYBE_FLOAT_CLASS_P (class1) != FLOAT_CLASS_P (class1)
+      || MAYBE_FLOAT_CLASS_P (class2) != FLOAT_CLASS_P (class2)
+      || MAYBE_SSE_CLASS_P (class1) != SSE_CLASS_P (class1)
+      || MAYBE_SSE_CLASS_P (class2) != SSE_CLASS_P (class2)
+      || MAYBE_MMX_CLASS_P (class1) != MMX_CLASS_P (class1)
+      || MAYBE_MMX_CLASS_P (class2) != MMX_CLASS_P (class2))
+    {
+      if (strict)
+	abort ();
+      else
+	return 1;
+    }
+  return (FLOAT_CLASS_P (class1) != FLOAT_CLASS_P (class2)
+	  || (SSE_CLASS_P (class1) != SSE_CLASS_P (class2)
+	      && (mode) != SImode)
+	  || (MMX_CLASS_P (class1) != MMX_CLASS_P (class2)
+	      && (mode) != SImode));
+}
+/* Return the cost of moving data from a register in class CLASS1 to
+   one in class CLASS2. 
+
+   It is not required that the cost always equal 2 when FROM is the same as TO;
+   on some machines it is expensive to move between registers if they are not
+   general registers.  */
+int
+ix86_register_move_cost (mode, class1, class2)
+     enum machine_mode mode;
+     enum reg_class class1, class2;
+{
+  /* In case we require secondary memory, compute cost of the store followed
+     by load.  In case of copying from general_purpose_register we may emit
+     multiple stores followed by single load causing memory size mismatch
+     stall.  Count this as arbitarily high cost of 20.  */
+  if (ix86_secondary_memory_needed (class1, class2, mode, 0))
+    {
+      if (CLASS_MAX_NREGS (class1, mode) > CLASS_MAX_NREGS (class2, mode))
+	return 10;
+      return (MEMORY_MOVE_COST (mode, class1, 0)
+	      + MEMORY_MOVE_COST (mode, class2, 1));
+    }
+  /* Moves between SSE/MMX and integer unit are expensive.
+     ??? We should make this cost CPU specific.  */
+  if (MMX_CLASS_P (class1) != MMX_CLASS_P (class2)
+      || SSE_CLASS_P (class1) != SSE_CLASS_P (class2))
+    return ix86_cost->mmxsse_to_integer;
+  if (MAYBE_FLOAT_CLASS_P (class1))
+    return ix86_cost->fp_move;
+  if (MAYBE_SSE_CLASS_P (class1))
+    return ix86_cost->sse_move;
+  if (MAYBE_MMX_CLASS_P (class1))
+    return ix86_cost->mmx_move;
+  return 2;
+}
+
+/* Return 1 if hard register REGNO can hold a value of machine-mode MODE.  */
+int
+ix86_hard_regno_mode_ok (regno, mode)
+     int regno;
+     enum machine_mode mode;
+{
+  /* Flags and only flags can only hold CCmode values.  */
+  if (CC_REGNO_P (regno))
+    return GET_MODE_CLASS (mode) == MODE_CC;
+  if (GET_MODE_CLASS (mode) == MODE_CC
+      || GET_MODE_CLASS (mode) == MODE_RANDOM
+      || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
+    return 0;
+  if (FP_REGNO_P (regno))
+    return VALID_FP_MODE_P (mode);
+  if (SSE_REGNO_P (regno))
+    return VALID_SSE_REG_MODE (mode);
+  if (MMX_REGNO_P (regno))
+    return VALID_MMX_REG_MODE (mode);
+  /* We handle both integer and floats in the general purpose registers.
+     In future we should be able to handle vector modes as well.  */
+  if (!VALID_INT_MODE_P (mode) && !VALID_FP_MODE_P (mode))
+    return 0;
+  /* Take care for QImode values - they can be in non-QI regs, but then
+     they do cause partial register stalls.  */
+  if (regno < 4 || mode != QImode)
+    return 1;
+  return reload_in_progress || reload_completed || !TARGET_PARTIAL_REG_STALL;
+}
+
+/* Return the cost of moving data of mode M between a
+   register and memory.  A value of 2 is the default; this cost is
+   relative to those in `REGISTER_MOVE_COST'.
+
+   If moving between registers and memory is more expensive than
+   between two registers, you should define this macro to express the
+   relative cost.  
+ 
+   Model also increased moving costs of QImode registers in non
+   Q_REGS classes.
+ */
+int
+ix86_memory_move_cost (mode, class, in)
+     enum machine_mode mode;
+     enum reg_class class;
+     int in;
+{
+  if (FLOAT_CLASS_P (class))
+    {
+      int index;
+      switch (mode)
+	{
+	  case SFmode:
+	    index = 0;
+	    break;
+	  case DFmode:
+	    index = 1;
+	    break;
+	  case XFmode:
+	  case TFmode:
+	    index = 2;
+	    break;
+	  default:
+	    return 100;
+	}
+      return in ? ix86_cost->fp_load [index] : ix86_cost->fp_store [index];
+    }
+  if (SSE_CLASS_P (class))
+    {
+      int index;
+      switch (GET_MODE_SIZE (mode))
+	{
+	  case 4:
+	    index = 0;
+	    break;
+	  case 8:
+	    index = 1;
+	    break;
+	  case 16:
+	    index = 2;
+	    break;
+	  default:
+	    return 100;
+	}
+      return in ? ix86_cost->sse_load [index] : ix86_cost->sse_store [index];
+    }
+  if (MMX_CLASS_P (class))
+    {
+      int index;
+      switch (GET_MODE_SIZE (mode))
+	{
+	  case 4:
+	    index = 0;
+	    break;
+	  case 8:
+	    index = 1;
+	    break;
+	  default:
+	    return 100;
+	}
+      return in ? ix86_cost->mmx_load [index] : ix86_cost->mmx_store [index];
+    }
+  switch (GET_MODE_SIZE (mode))
+    {
+      case 1:
+	if (in)
+	  return (Q_CLASS_P (class) ? ix86_cost->int_load[0]
+		  : ix86_cost->movzbl_load);
+	else
+	  return (Q_CLASS_P (class) ? ix86_cost->int_store[0]
+		  : ix86_cost->int_store[0] + 4);
+	break;
+      case 2:
+	return in ? ix86_cost->int_load[1] : ix86_cost->int_store[1];
+      default:
+	/* Compute number of 32bit moves needed.  TFmode is moved as XFmode.  */
+	if (mode == TFmode)
+	  mode = XFmode;
+	return ((in ? ix86_cost->int_load[2] : ix86_cost->int_store[2])
+		* (int) GET_MODE_SIZE (mode) / 4);
+    }
 }

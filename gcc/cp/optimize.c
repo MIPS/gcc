@@ -1,5 +1,5 @@
 /* Perform optimizations on tree structure.
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Written by Mark Michell (mark@codesourcery.com).
 
 This file is part of GNU CC.
@@ -161,7 +161,6 @@ remap_block (scope_stmt, decls, id)
       tree old_block;
       tree new_block;
       tree old_var;
-      tree *first_block;
       tree fn;
 
       /* Make the new block.  */
@@ -195,16 +194,24 @@ remap_block (scope_stmt, decls, id)
 	}
       /* We put the BLOCK_VARS in reverse order; fix that now.  */
       BLOCK_VARS (new_block) = nreverse (BLOCK_VARS (new_block));
-      /* Attach this new block after the DECL_INITIAL block for the
-	 function into which this block is being inlined.  In
-	 rest_of_compilation we will straighten out the BLOCK tree.  */
       fn = VARRAY_TREE (id->fns, 0);
-      if (DECL_INITIAL (fn))
-	first_block = &BLOCK_CHAIN (DECL_INITIAL (fn));
+      if (fn == current_function_decl)
+	/* We're building a clone; DECL_INITIAL is still error_mark_node, and
+	   current_binding_level is the parm binding level.  */
+	insert_block (new_block);
       else
-	first_block = &DECL_INITIAL (fn);
-      BLOCK_CHAIN (new_block) = *first_block;
-      *first_block = new_block;
+	{
+	  /* Attach this new block after the DECL_INITIAL block for the
+	     function into which this block is being inlined.  In
+	     rest_of_compilation we will straighten out the BLOCK tree.  */
+	  tree *first_block;
+	  if (DECL_INITIAL (fn))
+	    first_block = &BLOCK_CHAIN (DECL_INITIAL (fn));
+	  else
+	    first_block = &DECL_INITIAL (fn);
+	  BLOCK_CHAIN (new_block) = *first_block;
+	  *first_block = new_block;
+	}
       /* Remember the remapped block.  */
       splay_tree_insert (id->decl_map,
 			 (splay_tree_key) old_block,
@@ -337,6 +344,26 @@ copy_body_r (tp, walk_subtrees, data)
 	{
 	  TREE_OPERAND (*tp, 1) = TREE_OPERAND (*tp, 3);
 	  TREE_OPERAND (*tp, 3) = NULL_TREE;
+	}
+      else if (TREE_CODE (*tp) == MODIFY_EXPR
+	       && TREE_OPERAND (*tp, 0) == TREE_OPERAND (*tp, 1)
+	       && nonstatic_local_decl_p (TREE_OPERAND (*tp, 0))
+	       && DECL_CONTEXT (TREE_OPERAND (*tp, 0)) == fn)
+	{
+	  /* Some assignments VAR = VAR; don't generate any rtl code
+	     and thus don't count as variable modification.  Avoid
+	     keeping bogosities like 0 = 0.  */
+	  tree decl = TREE_OPERAND (*tp, 0), value;
+	  splay_tree_node n;
+
+	  n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
+	  if (n)
+	    {
+	      value = (tree) n->value;
+	      STRIP_TYPE_NOPS (value);
+	      if (TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
+		*tp = value;
+	    }
 	}
     }
 
@@ -646,6 +673,12 @@ expand_call_inline (tp, walk_subtrees, data)
       return NULL_TREE;
     }
 
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+    /* Because types were not copied in copy_body, CALL_EXPRs beneath
+       them should not be expanded.  This can happen if the type is a
+       dynamic array type, for example.  */
+    *walk_subtrees = 0;
+
   /* From here on, we're only interested in CALL_EXPRs.  */
   if (TREE_CODE (t) != CALL_EXPR)
     return NULL_TREE;
@@ -894,10 +927,6 @@ maybe_clone_body (fn)
   inline_data id;
   tree clone;
 
-  /* We don't clone constructors and destructors under the old ABI.  */
-  if (!flag_new_abi)
-    return 0;
-
   /* We only clone constructors and destructors.  */
   if (!DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (fn)
       && !DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn))
@@ -958,29 +987,26 @@ maybe_clone_body (fn)
 	      splay_tree_insert (id.decl_map,
 				 (splay_tree_key) parm,
 				 (splay_tree_value) in_charge);
-
+	    }
+	  else if (DECL_ARTIFICIAL (parm)
+		   && DECL_NAME (parm) == vtt_parm_identifier)
+	    {
 	      /* For a subobject constructor or destructor, the next
 		 argument is the VTT parameter.  Remap the VTT_PARM
 		 from the CLONE to this parameter.  */
-	      if (DECL_NEEDS_VTT_PARM_P (clone))
+	      if (DECL_HAS_VTT_PARM_P (clone))
 		{
 		  splay_tree_insert (id.decl_map,
-				     (splay_tree_key) DECL_VTT_PARM (fn),
+				     (splay_tree_key) parm,
 				     (splay_tree_value) clone_parm);
-		  splay_tree_insert (id.decl_map,
-				     (splay_tree_key) DECL_USE_VTT_PARM (fn),
-				     (splay_tree_value) boolean_true_node);
 		  clone_parm = TREE_CHAIN (clone_parm);
 		}
 	      /* Otherwise, map the VTT parameter to `NULL'.  */
-	      else if (DECL_VTT_PARM (fn))
+	      else
 		{
 		  splay_tree_insert (id.decl_map,
-				     (splay_tree_key) DECL_VTT_PARM (fn),
+				     (splay_tree_key) parm,
 				     (splay_tree_value) null_pointer_node);
-		  splay_tree_insert (id.decl_map,
-				     (splay_tree_key) DECL_USE_VTT_PARM (fn),
-				     (splay_tree_value) boolean_false_node);
 		}
 	    }
 	  /* Map other parameters to their equivalents in the cloned

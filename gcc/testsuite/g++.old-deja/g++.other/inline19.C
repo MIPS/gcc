@@ -2,7 +2,7 @@
 // Origin: Scott Snyder <snyder@fnal.gov> via PR 1733.
 // Special g++ Options: -O1
 //
-// crash test
+// crash test - XFAIL *-*-*
 
 struct TBtItem
 {

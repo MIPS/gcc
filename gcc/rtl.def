@@ -994,6 +994,8 @@ DEF_RTL_EXPR(US_TRUNCATE, "us_truncate", "e", '1')
    of canonical RTL.  It is, however, easier to manipulate this way.  */
 DEF_RTL_EXPR(PHI, "phi", "E", 'x')
 
+/* Expression PHI, used for SSA PRE */
+DEF_RTL_EXPR(EPHI, "phi", "E", 'x')
 
 /*
 Local variables:

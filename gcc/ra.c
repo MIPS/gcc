@@ -34,6 +34,10 @@
 #include "sbitmap.h"
 #include "expr.h"
 #include "output.h"
+
+/* The algorithm used is currently Iterated Register Coalescing by
+   L.A.George, and Appel.
+*/
 /* TODO
    * do lots of commenting 
    * create definitions of ever-life regs at the beginning of
@@ -64,6 +68,7 @@
    * implement spill coalescing/propagation
    * implement optimistic coalescing
   */
+/* Double linked list */
 struct dlist
 {
   struct dlist *prev;
@@ -75,38 +80,46 @@ struct dlist
   }
   value;
 };
+/* Simple helper macros for ease of misuse */
 #define DLIST_WEB(l) ((l)->value.web)
 #define DLIST_MOVE(l) ((l)->value.move)
 
-enum type
+/* Classification of a given node (I.E. What state it's in) */
+enum node_type
 {
   INITIAL,
   PRECOLORED, SIMPLIFY, FREEZE, SPILL, SPILLED, COALESCED, COLORED, SELECT
 };
 
+/* Web structure used to store info about connected live ranges */
 struct web
 {
-  unsigned int id;
-  unsigned int regno;
-  unsigned int weight;
-  unsigned int span_insns;
-  unsigned int spill_temp;
-  unsigned int use_my_regs;
-  int spill_cost;
-  int color;
-  int add_hardregs;
-  int num_conflicts;
-  int num_uses;
-  int num_defs;
-  int move_related;
-  enum type type;
+  unsigned int id; /* Unique web ID */
+  unsigned int regno; /* Register number of the live range's variable */
+  unsigned int weight; /* Weight used to determine, among other
+			  things, how many colors we can block */
+  unsigned int span_insns; /* How many insn's the live range spans */
+  unsigned int spill_temp; /* Temporarily used to remember what webs
+			      were spilled */
+  unsigned int use_my_regs; /* Determine if we should use the
+			       usable_regs for this web */
+  int spill_cost; /* Cost of spilling */
+  int color; /* Color of the web */
+  int add_hardregs; /* Additional hard registers needed to be
+		       allocated to the web */
+  int num_conflicts;  /* Number of conflicts currently */
+  int num_uses; /* Number of uses this web spans */
+  int num_defs; /* Number of defs this web spans. */
+  int move_related; /* Whether the web is move related (IE involved
+		       in a move */
+  enum node_type type; /* Current state of the node */
   enum reg_class regclass;	/* just used for debugging */
   /* might be too much to store a HARD_REG_SET here for machines with _many_
      registers.  Shouldn't hurt for now.  */
-  HARD_REG_SET usable_regs;
-  int num_freedom;
-  rtx reg_rtx;
-  rtx stack_slot;
+  HARD_REG_SET usable_regs; 
+  int num_freedom; /* Number of registers we could place this in */ 
+  rtx reg_rtx; /* RTX for this register */
+  rtx stack_slot; /* Stack slot for this register */
   struct ref **defs;		/* [0..num_defs-1] */
   struct ref **uses;		/* [0..num_uses-1] */
   struct web *uplink;
@@ -126,7 +139,7 @@ enum move_type
 {
   WORKLIST, COEALESCED, CONSTRAINED, FROZEN, ACTIVE
 };
-
+/* Structure of a move we are considering coalescing */
 struct move
 {
   rtx insn;
@@ -136,6 +149,7 @@ struct move
   struct dlist *dlink;
 };
 
+/* List of moves */
 struct move_list
 {
   struct move_list *next;
@@ -250,10 +264,11 @@ static void emit_colors PARAMS((struct df *));
 static int one_pass PARAMS((struct df *));
 static void dump_ra PARAMS((struct df *));
 static void init_ra PARAMS((void));
-void mm_reg_alloc PARAMS((FILE *));
+void reg_alloc PARAMS((FILE *));
 
 
-
+/* Determine if an insn is copying one register to another. If so,
+   fill in source and target and return 1. */
 static int
 copy_insn_p (insn, source, target)
      rtx insn;
@@ -314,6 +329,8 @@ copy_insn_p (insn, source, target)
   return 1;
 }
 
+/* Determine if two hard register sets intersect.
+   Return one if they do. */
 static int
 hard_regs_intersect_p (a, b)
      HARD_REG_SET *a, *b;
@@ -327,6 +344,9 @@ lose:
   return 0;
 }
 
+/* Record a conflict between two webs, if we haven't recorded it
+   already.
+*/
 static void
 record_conflict (web1, web2)
      struct web *web1, *web2;
@@ -397,6 +417,7 @@ queue_conflict (web)
   queued_conflicts = wl;
 }
 
+/* Apply the conflicts we have queued so far, to the current web. */
 static void
 apply_conflicts (void)
 {
@@ -483,6 +504,8 @@ clean_conflicts (df)
     }
 }
 
+/* Remember that we've handled a given move, so we don't reprocess
+   it. */
 static void
 remember_move (insn)
      rtx insn;
@@ -601,8 +624,7 @@ live_in (df, regno, insn)
     }
 }
 
-
-
+/* Handle tricky asm insns */
 static void
 handle_asm_insn (df, insn)
      struct df *df;
@@ -815,6 +837,7 @@ prune_hardregs_for_mode (s, mode)
   AND_HARD_REG_SET (*s, all);
 }
 
+/* Initialize a single web */
 static void
 init_one_web (web, regno)
      struct web *web;
@@ -892,6 +915,7 @@ init_one_web (web, regno)
   web->dlink = NULL;
 }
 
+/* Initialize all the webs we are going to need */
 static void
 init_webs (df)
      struct df *df;
@@ -924,6 +948,7 @@ init_webs (df)
     }
 }
 
+/* Remember that a web was spilled */
 static void
 remember_web_was_spilled (web)
      struct web *web;
@@ -992,6 +1017,7 @@ remember_web_was_spilled (web)
     }
 }
 
+/* Fill in the miscellaneous web fields */
 static void
 fill_misc_web_info (df)
      struct df *df;
@@ -1103,6 +1129,8 @@ fill_misc_web_info (df)
     }
 }
 
+/* Distribute moves to the corresponding webs */
+
 static void
 moves_to_webs (df)
      struct df *df;
@@ -1208,6 +1236,7 @@ connect_rmw_webs (df)
     }
 }
 
+/* Build the webs, and their conflicts */
 static void
 build_webs_and_conflicts (df)
      struct df *df;
@@ -1240,6 +1269,7 @@ build_webs_and_conflicts (df)
     }
 }
 
+/* Build the interference graph */
 static void
 build_i_graph (df)
      struct df *df;
@@ -1270,6 +1300,7 @@ build_i_graph (df)
     handle_asm_insn (df, insn);
 }
 
+/* Dump the interference graph */
 static void
 dump_igraph (df)
      struct df *df;
@@ -1310,6 +1341,7 @@ dump_igraph (df)
       }
 }
 
+/* Allocate the memory necessary for the register allocator*/
 static void
 alloc_mem (df)
      struct df *df;
@@ -1330,6 +1362,7 @@ alloc_mem (df)
 					      sizeof all_defs_for_web[0]);
 }
 
+/* Free the memory used by the register allocator */
 static void
 free_mem (df)
      struct df *df;
@@ -1374,6 +1407,7 @@ free_mem (df)
   free (igraph);
 }
 
+/* Push a node onto the front of the list */
 static void
 push_list (x, list)
      struct dlist *x;
@@ -1384,7 +1418,7 @@ push_list (x, list)
     (*list)->prev = x;
   *list = x;
 }
-
+/* Remove a node from the list */
 static void
 remove_list (x, list)
      struct dlist *x;
@@ -1401,6 +1435,7 @@ remove_list (x, list)
   x->next = x->prev = NULL;
 }
 
+/* Pop the front of the list */
 static struct dlist *
 pop_list (list)
      struct dlist **list;
@@ -1411,6 +1446,7 @@ pop_list (list)
   return r;
 }
 
+/* Free the given double linked list */
 static void
 free_dlist (list)
      struct dlist **list;
@@ -1422,18 +1458,14 @@ free_dlist (list)
 }
 
 
-/*
-
-   Here begins the real allocator. 
-
-   */
+/* Here begins the real allocator code.*/
 
 static struct dlist *simplify_wl, *freeze_wl, *spill_wl, *spilled_nodes;
 static struct dlist *simplify_spilled_wl;
 static struct dlist *coalesced_nodes, *colored_nodes;
 static struct dlist *select_stack;
 
-static struct dlist *mv_worklist, *mv_coalsced, *mv_constrained;
+static struct dlist *mv_worklist, *mv_coalesced, *mv_constrained;
 static struct dlist *mv_frozen, *mv_active;
 
 static void
@@ -1448,12 +1480,13 @@ free_all_lists (void)
   free_dlist (&colored_nodes);
   free_dlist (&select_stack);
   free_dlist (&mv_worklist);
-  free_dlist (&mv_coalsced);
+  free_dlist (&mv_coalesced);
   free_dlist (&mv_constrained);
   free_dlist (&mv_frozen);
   free_dlist (&mv_active);
 }
 
+/* Mark a web as being ready to be simplified */
 static void
 mark_simplify (web)
      struct web *web;
@@ -1465,6 +1498,7 @@ mark_simplify (web)
   web->type = SIMPLIFY;
 }
 
+/* Build the worklists we are going to process */
 static void
 build_worklists (df)
      struct df *df;
@@ -1506,6 +1540,7 @@ build_worklists (df)
       }
 }
 
+/* Enable a move to be processed */
 static void
 enable_move (web)
      struct web *web;
@@ -1520,6 +1555,8 @@ enable_move (web)
       }
 }
 
+/* Decrement the degree of the node, and if necessary, it's
+   neighbors. */
 static void
 decrement_degree (web, dec)
      struct web *web;
@@ -1550,6 +1587,7 @@ decrement_degree (web, dec)
     }
 }
 
+/* Simplify the nodes on the simplify worklist */
 static void
 simplify (void)
 {
@@ -1584,6 +1622,7 @@ simplify (void)
     }
 }
 
+/* Helper function to remove a move from the movelist of the web */
 static void
 remove_move_1 (web, move)
      struct web *web;
@@ -1608,6 +1647,7 @@ remove_move_1 (web, move)
   }
 }
 
+/* Remove a move from the movelist of the web */
 static void
 remove_move (web, move)
      struct web *web;
@@ -1620,6 +1660,7 @@ remove_move (web, move)
       abort ();
 }
 
+/* Merge the moves for the two webs into the first web's movelist */
 static void
 merge_moves (u, v)
      struct web *u, *v;
@@ -1645,6 +1686,7 @@ merge_moves (u, v)
   v->moves = NULL;
 }
 
+/* Add a web to the simplify worklist, from the freeze worklist */
 static void
 add_worklist (web)
      struct web *web;
@@ -1657,6 +1699,7 @@ add_worklist (web)
     }
 }
 
+/* Precolored node coalescing heuristic */
 static int
 ok (target, source)
      struct web *target, *source;
@@ -1686,6 +1729,7 @@ ok (target, source)
   return 1;
 }
 
+/* Non-precolored node coalescing heuristic */
 static int
 conservative (target, source)
      struct web *target, *source;
@@ -1723,6 +1767,8 @@ conservative (target, source)
   return 1;
 }
 
+/* If the web is coalesced, return it's alias. Otherwise, return what
+   was passed in*/
 static struct web *
 alias (web)
      struct web *web;
@@ -1732,6 +1778,7 @@ alias (web)
   return web;
 }
 
+/* Combine two webs */
 static void
 combine (u, v)
      struct web *u, *v;
@@ -1760,15 +1807,16 @@ combine (u, v)
     }
 
   /* XXX combine the usable_regs together, and adjust the weight and
-     conflict.  As this might constrain more, it might make us oncolorable.
+     conflict.  As this might constrain more, it might make us uncolorable.
      I think we should disallow this in conservative test, so only
-     web with similar constrains are coalesced.  */
+     web with similar constraints are coalesced.  */
   /* If we coalesce a spill temporary together with a normal node,
      the result is not any longer a spill temporary.  */
   if (u->spill_temp && !v->spill_temp)
     u->spill_temp = 0;
 }
 
+/* Attempt to coalesce things on the move worklist */
 static void
 coalesce (void)
 {
@@ -1786,7 +1834,7 @@ coalesce (void)
   if (source == target)
     {
       remove_move (source, m);
-      push_list (d, &mv_coalsced);
+      push_list (d, &mv_coalesced);
       m->type = COALESCED;
       add_worklist (source);
     }
@@ -1805,7 +1853,7 @@ coalesce (void)
     {
       remove_move (source, m);
       remove_move (target, m);
-      push_list (d, &mv_coalsced);
+      push_list (d, &mv_coalesced);
       m->type = COALESCED;
       combine (source, target);
       add_worklist (source);
@@ -1817,6 +1865,7 @@ coalesce (void)
     }
 }
 
+/* Freeze the moves associated with the web */
 static void
 freeze_moves (web)
      struct web *web;
@@ -1825,7 +1874,7 @@ freeze_moves (web)
   for (ml = web->moves; ml; ml = ml_next)
     {
       struct move *m = ml->move;
-      struct web *s, *d;
+      struct web *src, *dest;
       ml_next = ml->next;
       if (m->type == ACTIVE)
 	remove_list (m->dlink, &mv_active);
@@ -1834,19 +1883,20 @@ freeze_moves (web)
       push_list (m->dlink, &mv_frozen);
       m->type = FROZEN;
       remove_move (web, m);
-      s = alias (m->source_web);
-      d = alias (m->target_web);
-      s = (s == web) ? d : s;
-      remove_move (s, m);
+      src = alias (m->source_web);
+      dest = alias (m->target_web);
+      src = (src == web) ? dest : src;
+      remove_move (src, m);
       /* XXX GA use the original v, instead of alias(v) */
-      if (!s->moves && s->num_conflicts < NUM_REGS (s))
+      if (!src->moves && src->num_conflicts < NUM_REGS (src))
 	{
-	  remove_list (s->dlink, &freeze_wl);
-	  mark_simplify (s);
+	  remove_list (src->dlink, &freeze_wl);
+	  mark_simplify (src);
 	}
     }
 }
 
+/* Freeze the first thing on the freeze worklist */
 static void
 freeze (void)
 {
@@ -1854,6 +1904,7 @@ freeze (void)
   mark_simplify (DLIST_WEB (d));
   freeze_moves (DLIST_WEB (d));
 }
+
 static float (*spill_heuristic) PARAMS ((struct web *));
 
 static float default_spill_heuristic PARAMS ((struct web *));
@@ -1866,6 +1917,8 @@ default_spill_heuristic (w)
     (float) w->num_conflicts;
 }
 
+/* Select the cheapest spill to be potentially spilled (we don't
+ *actually* spill until we need to. */
 static void
 select_spill (void)
 {
@@ -2080,6 +2133,7 @@ colorize_one_web (web)
     }
 }
 
+/* Assign the colors to the nodes on the select stack */
 static void
 assign_colors (void)
 {
@@ -2097,6 +2151,7 @@ assign_colors (void)
     }
 }
 
+/* Allocate a spill slot for a web */
 static void
 allocate_spill_web (web)
      struct web *web;
@@ -2116,6 +2171,7 @@ allocate_spill_web (web)
   web->stack_slot = slot;
 }
 
+/* Rewrite the program to include the spill code */
 static void
 rewrite_program (df)
      struct df *df;
@@ -2170,20 +2226,14 @@ rewrite_program (df)
     }
 }
 
+/* Create new pseudos for each web we colored, and set up reg_renumber.*/
 static void
 emit_colors (df)
      struct df *df;
 {
-  /*
-     struct dlist *d;
-     while (d = pop_list (&colored_nodes))
-     {
-     struct web *web = DLIST_WEB (d);
-
-     }
-   */
   unsigned int i;
   struct web *web;
+  struct dlist *ml;
   /* First create the (REG xx) rtx's for all webs, as we need to know
      the number, to make sure, flow has enough memory for them in the
      various tables.  */
@@ -2253,6 +2303,7 @@ emit_colors (df)
     debug_msg (0, "Renumber pseudo %d to %d\n", i, reg_renumber[i]);
 }
 
+/* Perform one pass of iterated coalescing */
 static int
 one_pass (df)
      struct df *df;
@@ -2281,6 +2332,7 @@ one_pass (df)
   return 0;
 }
 
+/* Dump debugging info for the register allocator */
 static void
 dump_ra (df)
      struct df *df;
@@ -2323,6 +2375,7 @@ dump_ra (df)
   debug_msg (0, "\n");
 }
 
+/* Initialize the register allocator */
 static void
 init_ra (void)
 {
@@ -2355,8 +2408,9 @@ init_ra (void)
   compute_bb_for_insn (get_max_uid ());
 }
 
+/* Main register allocator entry point */
 void
-mm_reg_alloc (_file)
+reg_alloc (_file)
      FILE *_file;
 {
   struct df *df;
@@ -2373,7 +2427,7 @@ mm_reg_alloc (_file)
     {
       debug_msg (0, "RegAlloc Pass %d\n\n", pass);
       if (pass++ > 40)
-	fatal ("Didn't find a coloring.\n");
+	internal_error ("Didn't find a coloring.\n");
       df = df_init ();
       df_analyse (df, 0, DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN);
       if (file)

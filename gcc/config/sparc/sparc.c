@@ -2414,7 +2414,8 @@ eligible_for_epilogue_delay (trial, slot)
   src = SET_SRC (pat);
 
   /* This matches "*return_[qhs]i" or even "*return_di" on TARGET_ARCH64.  */
-  if (arith_operand (src, GET_MODE (src)))
+  if (GET_MODE_CLASS (GET_MODE (src)) != MODE_FLOAT
+      && arith_operand (src, GET_MODE (src)))
     {
       if (TARGET_ARCH64)
         return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (DImode);
@@ -2423,7 +2424,8 @@ eligible_for_epilogue_delay (trial, slot)
     }
 
   /* This matches "*return_di".  */
-  else if (arith_double_operand (src, GET_MODE (src)))
+  else if (GET_MODE_CLASS (GET_MODE (src)) != MODE_FLOAT
+	   && arith_double_operand (src, GET_MODE (src)))
     return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (DImode);
 
   /* This matches "*return_sf_no_fpu".  */
@@ -2520,7 +2522,8 @@ eligible_for_sibcall_delay (trial)
 
   src = SET_SRC (pat);
 
-  if (arith_operand (src, GET_MODE (src)))
+  if (GET_MODE_CLASS (GET_MODE (src)) != MODE_FLOAT
+      && arith_operand (src, GET_MODE (src)))
     {
       if (TARGET_ARCH64)
         return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (DImode);
@@ -2528,7 +2531,8 @@ eligible_for_sibcall_delay (trial)
         return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (SImode);
     }
 
-  else if (arith_double_operand (src, GET_MODE (src)))
+  else if (GET_MODE_CLASS (GET_MODE (src)) != MODE_FLOAT
+	   && arith_double_operand (src, GET_MODE (src)))
     return GET_MODE_SIZE (GET_MODE (src)) <= GET_MODE_SIZE (DImode);
 
   else if (! TARGET_FPU && restore_operand (SET_DEST (pat), SFmode)
@@ -4057,6 +4061,9 @@ static void function_arg_record_value_1
 static rtx function_arg_record_value
 	PARAMS ((tree, enum machine_mode, int, int, int));
 
+/* A subroutine of function_arg_record_value.  Traverse the structure
+   recusively and determine how many registers will be required.  */
+
 static void
 function_arg_record_value_1 (type, startbitpos, parms)
      tree type;
@@ -4131,7 +4138,8 @@ function_arg_record_value_1 (type, startbitpos, parms)
     }
 }
 
-/* Handle recursive structure field register assignment.  */
+/* A subroutine of function_arg_record_value.  Assign the bits of the
+   structure between parms->intoffset and bitpos to integer registers.  */
 
 static void 
 function_arg_record_value_3 (bitpos, parms)
@@ -4140,6 +4148,7 @@ function_arg_record_value_3 (bitpos, parms)
 {
   enum machine_mode mode;
   unsigned int regno;
+  unsigned int startbit, endbit;
   int this_slotno, intslots, intoffset;
   rtx reg;
 
@@ -4149,7 +4158,9 @@ function_arg_record_value_3 (bitpos, parms)
   intoffset = parms->intoffset;
   parms->intoffset = -1;
 
-  intslots = (bitpos - intoffset + BITS_PER_WORD - 1) / BITS_PER_WORD;
+  startbit = intoffset & -BITS_PER_WORD;
+  endbit = (bitpos + BITS_PER_WORD - 1) & -BITS_PER_WORD;
+  intslots = (endbit - startbit) / BITS_PER_WORD;
   this_slotno = parms->slotno + intoffset / BITS_PER_WORD;
 
   intslots = MIN (intslots, SPARC_INT_ARG_MAX - this_slotno);
@@ -4182,6 +4193,11 @@ function_arg_record_value_3 (bitpos, parms)
     }
   while (intslots > 0);
 }
+
+/* A subroutine of function_arg_record_value.  Traverse the structure
+   recursively and assign bits to floating point registers.  Track which
+   bits in between need integer registers; invoke function_arg_record_value_3
+   to make that happen.  */
 
 static void
 function_arg_record_value_2 (type, startbitpos, parms)
@@ -4243,6 +4259,9 @@ function_arg_record_value_2 (type, startbitpos, parms)
     }
 }
 
+/* Used by function_arg and function_value to implement the complex
+   Sparc64 structure calling conventions.  */
+
 static rtx
 function_arg_record_value (type, mode, slotno, named, regbase)
      tree type;
@@ -4265,10 +4284,12 @@ function_arg_record_value (type, mode, slotno, named, regbase)
 
   if (parms.intoffset != -1)
     {
+      unsigned int startbit, endbit;
       int intslots, this_slotno;
 
-      intslots = (typesize*BITS_PER_UNIT - parms.intoffset + BITS_PER_WORD - 1)
-	/ BITS_PER_WORD;
+      startbit = parms.intoffset & -BITS_PER_WORD;
+      endbit = (typesize*BITS_PER_UNIT + BITS_PER_WORD - 1) & -BITS_PER_WORD;
+      intslots = (endbit - startbit) / BITS_PER_WORD;
       this_slotno = slotno + parms.intoffset / BITS_PER_WORD;
 
       intslots = MIN (intslots, SPARC_INT_ARG_MAX - this_slotno);
@@ -4666,9 +4687,11 @@ function_value (type, mode, incoming_p)
 
 	  return function_arg_record_value (type, mode, 0, 1, regbase);
 	}
-      else if (TREE_CODE (type) == UNION_TYPE)
+      else if (AGGREGATE_TYPE_P (type))
 	{
-	  int bytes = int_size_in_bytes (type);
+	  /* All other aggregate types are passed in an integer register
+	     in a mode corresponding to the size of the type.  */
+	  HOST_WIDE_INT bytes = int_size_in_bytes (type);
 
 	  if (bytes > 32)
 	    abort ();
@@ -4680,7 +4703,7 @@ function_value (type, mode, incoming_p)
   if (TARGET_ARCH64
       && GET_MODE_CLASS (mode) == MODE_INT 
       && GET_MODE_SIZE (mode) < UNITS_PER_WORD
-      && type && TREE_CODE (type) != UNION_TYPE)
+      && type && ! AGGREGATE_TYPE_P (type))
     mode = DImode;
 
   if (incoming_p)

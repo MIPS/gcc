@@ -1203,7 +1203,7 @@ dump_function_decl (t, flags)
     }
 
   fntype = TREE_TYPE (t);
-  parmtypes = TYPE_ARG_TYPES (fntype);
+  parmtypes = FUNCTION_FIRST_USER_PARMTYPE (t);
 
   if (DECL_CLASS_SCOPE_P (t))
     cname = DECL_CONTEXT (t);
@@ -1241,14 +1241,6 @@ dump_function_decl (t, flags)
 
   if (flags & TFF_DECL_SPECIFIERS) 
     {
-      if (TREE_CODE (fntype) == METHOD_TYPE && parmtypes)
-	/* Skip "this" parameter.  */
-	parmtypes = TREE_CHAIN (parmtypes);
-
-      /* Skip past the "in_charge" parameter.  */
-      if (DECL_HAS_IN_CHARGE_PARM_P (t))
-	parmtypes = TREE_CHAIN (parmtypes);
-
       dump_parameters (parmtypes, flags);
 
       if (show_return)
@@ -1963,7 +1955,7 @@ dump_expr (t, flags)
 	      t = TYPE_METHOD_BASETYPE (t);
 	      virtuals = TYPE_BINFO_VIRTUALS (TYPE_MAIN_VARIANT (t));
 
-	      n = tree_low_cst (idx, 0) - first_vfun_index (t);
+	      n = tree_low_cst (idx, 0);
 
 	      /* Map vtable index back one, to allow for the null pointer to
 		 member.  */

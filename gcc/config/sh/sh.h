@@ -1670,13 +1670,6 @@ extern int current_function_anonymous_args;
 /* Nonzero if access to memory by bytes is no faster than for words.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Force sizeof(bool) == 1 to maintain binary compatibility; otherwise, the
-   change in SLOW_BYTE_ACCESS would have changed it to 4.  */
-
-/* This used to use INT_TYPE_SIZE / CHAR_TYPE_SIZE, but these are
-   not guaranteed to be defined when BOOL_TYPE_SIZE is used.  */
-#define BOOL_TYPE_SIZE (flag_new_abi ? BITS_PER_WORD : BITS_PER_UNIT)
-
 /* We assume that the store-condition-codes instructions store 0 for false
    and some other value for true.  This is the value stored for true.  */
 
@@ -1931,11 +1924,34 @@ dtors_section()							\
 #define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
    do { fprintf (FILE, ".section\t%s\n", NAME); } while (0)
 
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME) \
-   do { ctors_section();  asm_fprintf((FILE),"\t.long\t%U%s\n", (NAME)); } while (0)
+/* This is the pseudo-op used to generate a reference to a specific
+   symbol in some section.  */
 
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME) \
-   do {  dtors_section();  asm_fprintf((FILE),"\t.long\t%U%s\n", (NAME)); } while (0)
+#define INT_ASM_OP	"\t.long\t"
+     
+/* A C statement (sans semicolon) to output an
+   element in the table of global constructors.  */
+#define ASM_OUTPUT_CONSTRUCTOR(FILE, NAME)			\
+  do								\
+    {								\
+      ctors_section ();						\
+      fprintf (FILE, "%s", INT_ASM_OP);				\
+      assemble_name (FILE, NAME);				\
+      fprintf (FILE, "\n");					\
+    }								\
+  while (0)
+
+/* A C statement (sans semicolon) to output an
+   element in the table of global destructors.  */
+#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       			\
+  do								\
+    {								\
+      dtors_section ();                   			\
+      fprintf (FILE, "%s", INT_ASM_OP);				\
+      assemble_name (FILE, NAME);              			\
+      fprintf (FILE, "\n");					\
+    }								\
+  while (0)
 
 #undef DO_GLOBAL_CTORS_BODY
 

@@ -823,7 +823,7 @@ struct tree_exp
 #define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->block.supercontext)
 /* Note: when changing this, make sure to find the places
    that use chainon or nreverse.  */
-#define BLOCK_CHAIN(NODE) TREE_CHAIN (NODE)
+#define BLOCK_CHAIN(NODE) TREE_CHAIN (BLOCK_CHECK (NODE))
 #define BLOCK_ABSTRACT_ORIGIN(NODE) (BLOCK_CHECK (NODE)->block.abstract_origin)
 #define BLOCK_ABSTRACT(NODE) (BLOCK_CHECK (NODE)->block.abstract_flag)
 
@@ -939,6 +939,13 @@ struct tree_block
 #define TYPE_ALIGN_UNIT(NODE) \
   (TYPE_ALIGN (NODE) / BITS_PER_UNIT)
 
+/* If your language allows you to declare types, and you want debug info
+   for them, then you need to generate corresponding TYPE_DECL nodes.
+   These "stub" TYPE_DECL nodes have no name, and simply point at the
+   type node.  You then set the TYPE_STUB_DECL field of the type node
+   to point back at the TYPE_DECL node.  This allows the debug routines
+   to know that the two nodes represent the same type, so that we only
+   get one debug info record for them. */
 #define TYPE_STUB_DECL(NODE) (TREE_CHAIN (NODE))
 
 /* In a RECORD_TYPE, UNION_TYPE or QUAL_UNION_TYPE, it means the type
@@ -1715,6 +1722,7 @@ enum tree_index
     
   TI_INTEGER_ZERO,
   TI_INTEGER_ONE,
+  TI_INTEGER_MINUS_ONE,
   TI_NULL_POINTER,
 
   TI_SIZE_ZERO,
@@ -1770,6 +1778,7 @@ extern tree global_trees[TI_MAX];
 
 #define integer_zero_node		global_trees[TI_INTEGER_ZERO]
 #define integer_one_node		global_trees[TI_INTEGER_ONE]
+#define integer_minus_one_node		global_trees[TI_INTEGER_MINUS_ONE]
 #define size_zero_node			global_trees[TI_SIZE_ZERO]
 #define size_one_node			global_trees[TI_SIZE_ONE]
 #define bitsize_zero_node		global_trees[TI_BITSIZE_ZERO]
@@ -1913,7 +1922,6 @@ extern tree maybe_get_identifier	PARAMS ((const char *));
 
 extern tree build			PARAMS ((enum tree_code, tree, ...));
 extern tree build_nt			PARAMS ((enum tree_code, ...));
-extern tree build_parse_node		PARAMS ((enum tree_code, ...));
 
 extern tree build_int_2_wide		PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT));
 extern tree build_real			PARAMS ((tree, REAL_VALUE_TYPE));
@@ -2157,6 +2165,8 @@ extern tree size_int_type_wide		PARAMS ((HOST_WIDE_INT, tree));
 extern tree round_up			PARAMS ((tree, int));
 extern tree round_down			PARAMS ((tree, int));
 extern tree get_pending_sizes		PARAMS ((void));
+extern int is_pending_size		PARAMS ((tree));
+extern void put_pending_size		PARAMS ((tree));
 extern void put_pending_sizes		PARAMS ((tree));
 
 /* Type for sizes of data-type.  */
@@ -2765,6 +2775,7 @@ extern void set_yydebug			PARAMS ((int));
 
 /* In stor-layout.c */
 extern void fixup_signed_type		PARAMS ((tree));
+extern void internal_reference_types 	PARAMS ((void));
 
 /* varasm.c */
 extern void make_decl_rtl		PARAMS ((tree, const char *));

@@ -122,6 +122,7 @@ extern void dump_sbitmap		PARAMS ((FILE *, sbitmap));
 extern void dump_sbitmap_vector 	PARAMS ((FILE *, const char *,
 						 const char *, sbitmap *,
 						 int));
+extern sbitmap sbitmap_ggc_alloc	PARAMS ((unsigned int));
 extern sbitmap sbitmap_alloc		PARAMS ((unsigned int));
 extern sbitmap sbitmap_realloc		PARAMS ((sbitmap, unsigned int));
 extern sbitmap *sbitmap_vector_alloc	PARAMS ((unsigned int, unsigned int));

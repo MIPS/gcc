@@ -268,6 +268,9 @@ static int execute			PARAMS ((void));
 static void clear_args			PARAMS ((void));
 static void fatal_error			PARAMS ((int));
 static void set_input			PARAMS ((const char *));
+static void init_gcc_specs              PARAMS ((struct obstack *,
+						 const char *,
+						 const char *));
 
 /* Specs are strings containing lines, each of which (if not blank)
 is made up of a program name, and arguments separated by spaces.
@@ -357,6 +360,7 @@ or with constant text in a single argument.
 	and substitute the full name found.
  %eSTR  Print STR as an error message.  STR is terminated by a newline.
         Use this when inconsistent options are detected.
+ %nSTR  Print STR as an notice.  STR is terminated by a newline.
  %x{OPTION}	Accumulate an option for %X.
  %X	Output the accumulated linker options specified by compilations.
  %Y	Output the accumulated assembler options specified by compilations.
@@ -590,8 +594,9 @@ static const char *cpp_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
  %{std*} %{nostdinc*}\
  %{C} %{v} %{I*} %{P} %{$} %I\
- %{MD:-M -MF %{!o: %b.d}%{o*:%.d%*}} %{MMD:-MM -MF %{!o: %b.d}%{o*:%.d%*}}\
- %{M} %{MM} %{MF*} %{MG} %{MP} %{MQ*} %{MT*} %{M|MD|MM|MMD:%{o*:-MQ %*}}\
+ %{MD:-M -MF %W{!o: %b.d}%W{o*:%.d%*}}\
+ %{MMD:-MM -MF %W{!o: %b.d}%W{o*:%.d%*}}\
+ %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*} %{M|MD|MM|MMD:%{o*:-MQ %*}}\
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
  %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
@@ -603,7 +608,7 @@ static const char *cpp_options =
  %{fleading-underscore} %{fno-leading-underscore}\
  %{fno-operator-names} %{ftabstop=*} %{remap}\
  %{g3:-dD} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*&U*&A*} %{i*} %Z %i\
- %{E:%W{o*}}%{M:%W{o*}}%{MM:%W{o*}}";
+ %{E:%{!M*:%W{o*}}}";
 
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
@@ -695,6 +700,10 @@ struct compiler
 				   whose names end in this suffix.  */
 
   const char *spec;		/* To use this compiler, run this spec.  */
+
+  const char *cpp_spec;         /* If non-NULL, substitute this spec
+				   for `%C', rather than the usual
+				   cpp_spec.  */
 };
 
 /* Pointer to a vector of `struct compiler' that gives the spec for
@@ -1252,6 +1261,35 @@ static struct spec_list *extra_specs = (struct spec_list *) 0;
 
 static struct spec_list *specs = (struct spec_list *) 0;
 
+/* Add appropriate libgcc specs to OBSTACK, taking into account
+   various permutations of -shared-libgcc, -shared, and such.  */
+
+static void
+init_gcc_specs (obstack, shared_name, static_name)
+     struct obstack *obstack;
+     const char *shared_name;
+     const char *static_name;
+{
+  char buffer[128];
+
+  /* If we see -shared-libgcc, then use the shared version.  */
+  sprintf (buffer, "%%{shared-libgcc:%s}", shared_name);
+  obstack_grow (obstack, buffer, strlen (buffer));
+  /* If we see -static-libgcc, then use the shared version.  */
+  sprintf (buffer, "%%{static-libgcc:%s}", static_name);
+  obstack_grow (obstack, buffer, strlen (buffer));
+  /* Otherwise, if we see -shared, then use the shared version.  */
+  sprintf (buffer,
+	   "%%{!shared-libgcc:%%{!static-libgcc:%%{shared:%s}}}", 
+	   shared_name);
+  obstack_grow (obstack, buffer, strlen (buffer));
+  /* Otherwise, use the static version.  */
+  sprintf (buffer, 
+	   "%%{!shared-libgcc:%%{!static-libgcc:%%{!shared:%s}}}", 
+	   static_name);
+  obstack_grow (obstack, buffer, strlen (buffer));
+}
+
 /* Initialize the specs lookup routines.  */
 
 static void
@@ -1326,15 +1364,16 @@ init_spec ()
        when given the proper command line arguments.  */
     while (*p)
       {
-	const char *r;
         if (in_sep && *p == '-' && strncmp (p, "-lgcc", 5) == 0)
 	  {
+	    init_gcc_specs (&obstack,
 #ifdef NO_SHARED_LIBGCC_MULTILIB
-	    r = "%{shared-libgcc:-lgcc_s}%{!shared-libgcc:-lgcc}";
+			    "-lgcc_s"
 #else
-	    r = "%{shared-libgcc:-lgcc_s%M}%{!shared-libgcc:-lgcc}";
+			    "-lgcc_s%M"
 #endif
-	    obstack_grow (&obstack, r, strlen(r));
+			    ,
+			    "-lgcc");
 	    p += 5;
 	    in_sep = 0;
 	  }
@@ -1342,12 +1381,14 @@ init_spec ()
 	  {
 	    /* Ug.  We don't know shared library extensions.  Hope that
 	       systems that use this form don't do shared libraries.  */
+	    init_gcc_specs (&obstack,
 #ifdef NO_SHARED_LIBGCC_MULTILIB
-	    r = "%{shared-libgcc:-lgcc_s}%{!shared-libgcc:libgcc.a%s}";
+			    "-lgcc_s"
 #else
-	    r = "%{shared-libgcc:-lgcc_s%M}%{!shared-libgcc:libgcc.a%s}";
+			    "-lgcc_s%M"
 #endif
-	    obstack_grow (&obstack, r, strlen(r));
+			    ,
+			    "libgcc.a%s");
 	    p += 10;
 	    in_sep = 0;
 	  }
@@ -3835,6 +3876,9 @@ static int suffixed_basename_length;
 static const char *input_basename;
 static const char *input_suffix;
 
+/* The compiler used to process the current input file.  */
+static struct compiler *input_file_compiler;
+
 /* These are variables used within do_spec and do_spec_1.  */
 
 /* Nonzero if an arg has been started and not yet terminated
@@ -4153,6 +4197,21 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      return -1;
 	    }
 	    break;
+	  case 'n':
+	    /* %nfoo means report an notice with `foo' on stderr.  */
+	    {
+	      const char *q = p;
+	      char *buf;
+	      while (*p != 0 && *p != '\n')
+		p++;
+	      buf = (char *) alloca (p - q + 1);
+	      strncpy (buf, q, p - q);
+	      buf[p - q] = 0;
+	      notice ("%s\n", buf);
+	      if (*p)
+		p++;
+	    }
+	    break;
 
 	  case 'j':
 	    {
@@ -4406,9 +4465,15 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    break;
 
 	  case 'C':
-	    value = do_spec_1 (cpp_spec, 0, NULL_PTR);
-	    if (value != 0)
-	      return value;
+	    {
+	      const char* spec 
+		= (input_file_compiler->cpp_spec 
+		   ? input_file_compiler->cpp_spec 
+		   : cpp_spec);
+	      value = do_spec_1 (spec, 0, NULL_PTR);
+	      if (value != 0)
+		return value;
+	    }
 	    break;
 
 	  case 'E':
@@ -4444,7 +4509,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 
 		len = strlen (multilib_dir);
 		obstack_blank (&obstack, len + 1);
-		p = obstack_next_free (&obstack) - len;
+		p = obstack_next_free (&obstack) - (len + 1);
 
 		*p++ = '_';
 		for (q = multilib_dir; *q ; ++q, ++p)
@@ -5760,7 +5825,6 @@ main (argc, argv)
 
   for (i = 0; (int) i < n_infiles; i++)
     {
-      register struct compiler *cp = 0;
       int this_file_error = 0;
 
       /* Tell do_spec what to substitute for %i.  */
@@ -5774,17 +5838,18 @@ main (argc, argv)
 
       /* Figure out which compiler from the file's suffix.  */
 
-      cp = lookup_compiler (infiles[i].name, input_filename_length,
-			    infiles[i].language);
-
-      if (cp)
+      input_file_compiler
+	= lookup_compiler (infiles[i].name, input_filename_length,
+			   infiles[i].language);
+      
+      if (input_file_compiler)
 	{
 	  /* Ok, we found an applicable compiler.  Run its spec.  */
 
-	  if (cp->spec[0] == '#')
+	  if (input_file_compiler->spec[0] == '#')
 	    error ("%s: %s compiler not installed on this system",
-		   input_filename, &cp->spec[1]);
-	  value = do_spec (cp->spec);
+		   input_filename, &input_file_compiler->spec[1]);
+	  value = do_spec (input_file_compiler->spec);
 	  if (value < 0)
 	    this_file_error = 1;
 	}

@@ -466,8 +466,11 @@ decl_is_java_type (decl, err)
 	{
 	  tree jthrow_node
 	    = IDENTIFIER_GLOBAL_VALUE (get_identifier ("jthrowable"));
+
 	  if (jthrow_node == NULL_TREE)
-	    fatal ("call to Java `catch' or `throw', while `jthrowable' undefined");
+	    fatal_error
+	      ("call to Java `catch' or `throw' with `jthrowable' undefined");
+
 	  jthrow_node = TREE_TYPE (TREE_TYPE (jthrow_node));
 
 	  if (! DERIVED_FROM_P (jthrow_node, TREE_TYPE (decl)))
@@ -864,8 +867,6 @@ expand_throw (exp)
 	  tree arg_types;
 	  
 	  arg_types = void_list_node;
-	  if (!flag_new_abi)
-	    arg_types = tree_cons (NULL_TREE, integer_type_node, arg_types);
 	  arg_types = tree_cons (NULL_TREE, ptr_type_node, arg_types);
 	  cleanup_type = (build_pointer_type 
 			  (build_function_type (void_type_node, arg_types)));
@@ -924,9 +925,7 @@ expand_throw (exp)
 	  if (TYPE_HAS_DESTRUCTOR (TREE_TYPE (object)))
 	    {
 	      cleanup = lookup_fnfields (TYPE_BINFO (TREE_TYPE (object)),
-					 (flag_new_abi
-					  ? complete_dtor_identifier
-					  : dtor_identifier),
+					 complete_dtor_identifier,
 					 0);
 	      cleanup = TREE_VALUE (cleanup);
 	      mark_used (cleanup);

@@ -1,5 +1,5 @@
 /* Definitions for computing resource usage of specific insns.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -176,7 +176,7 @@ next_insn_no_annul (insn)
 }
 
 /* Given X, some rtl, and RES, a pointer to a `struct resource', mark
-   which resources are references by the insn.  If INCLUDE_DELAYED_EFFECTS
+   which resources are referenced by the insn.  If INCLUDE_DELAYED_EFFECTS
    is TRUE, resources used by the called routine will be included for
    CALL_INSNs.  */
 
@@ -1029,7 +1029,7 @@ mark_target_live_regs (insns, target, res)
 #if ARG_POINTER_REGNUM != FRAME_POINTER_REGNUM
 		    && ! (i == ARG_POINTER_REGNUM && fixed_regs[i])
 #endif
-#if defined (PIC_OFFSET_TABLE_REGNUM) && !defined (PIC_OFFSET_TABLE_REG_CALL_CLOBBERED)
+#if !defined (PIC_OFFSET_TABLE_REG_CALL_CLOBBERED)
 		    && ! (i == PIC_OFFSET_TABLE_REGNUM && flag_pic)
 #endif
 		    )

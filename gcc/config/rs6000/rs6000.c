@@ -471,7 +471,8 @@ rs6000_float_const (string, mode)
      const char *string;
      enum machine_mode mode;
 {
-  REAL_VALUE_TYPE value = REAL_VALUE_ATOF (string, mode);
+  REAL_VALUE_TYPE value;
+  value = REAL_VALUE_ATOF (string, mode);
   return immed_real_const_1 (value, mode);
 }
 
@@ -1783,6 +1784,7 @@ rs6000_emit_move (dest, source, mode)
 				  XEXP (operands[1], 0));
 
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+  return;
 }
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -2205,7 +2207,7 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 {
   CUMULATIVE_ARGS next_cum;
   int reg_size = TARGET_32BIT ? 4 : 8;
-  rtx save_area, mem;
+  rtx save_area = NULL_RTX, mem;
   int first_reg_offset, set;
 
   if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
@@ -3236,8 +3238,9 @@ validate_condition_mode (code, mode)
 	  || code == UNGE || code == UNLE))
     abort();
   
-  /* These should never be generated.  */
+  /* These should never be generated except for fast_math.  */
   if (mode == CCFPmode
+      && ! flag_fast_math
       && (code == LE || code == GE
 	  || code == UNEQ || code == LTGT
 	  || code == UNGT || code == UNLT))
@@ -4450,8 +4453,10 @@ rs6000_generate_compare (code)
 					   rs6000_compare_op0, 
 					   rs6000_compare_op1)));
   
-  /* Some kinds of FP comparisons need an OR operation.  */
+  /* Some kinds of FP comparisons need an OR operation;
+     except that for fast_math we don't bother.  */
   if (rs6000_compare_fp_p
+      && ! flag_fast_math
       && (code == LE || code == GE
 	  || code == UNEQ || code == LTGT
 	  || code == UNGT || code == UNLT))
@@ -5057,12 +5062,15 @@ rs6000_return_addr (count, frame)
   /* Currently we don't optimize very well between prolog and body code and
      for PIC code the code can be actually quite bad, so don't try to be
      too clever here.  */
-  if (count != 0 || flag_pic != 0)
+  if (count != 0
+      || flag_pic != 0
+      || DEFAULT_ABI == ABI_AIX
+      || DEFAULT_ABI == ABI_AIX_NODESC)
     {
       cfun->machine->ra_needs_full_frame = 1;
       return
 	gen_rtx_MEM (Pmode,
-	  memory_address (Pmode,
+          memory_address (Pmode,
 			  plus_constant (copy_to_reg (gen_rtx_MEM (Pmode,
 								   memory_address (Pmode, frame))),
 					 RETURN_ADDRESS_OFFSET)));
@@ -6732,6 +6740,38 @@ toc_hash_mark_table (vht)
   htab_traverse (*ht, toc_hash_mark_entry, (void *)0);
 }
 
+/* These are the names given by the C++ front-end to vtables, and
+   vtable-like objects.  Ideally, this logic should not be here;
+   instead, there should be some programmatic way of inquiring as
+   to whether or not an object is a vtable.  */
+
+#define VTABLE_NAME_P(NAME)				\
+  (strncmp ("_vt.", name, strlen("_vt.")) == 0		\
+  || strncmp ("_ZTV", name, strlen ("_ZTV")) == 0	\
+  || strncmp ("_ZTT", name, strlen ("_ZTT")) == 0	\
+  || strncmp ("_ZTC", name, strlen ("_ZTC")) == 0) 
+
+void
+rs6000_output_symbol_ref (file, x)
+     FILE *file;
+     rtx x;
+{
+  /* Currently C++ toc references to vtables can be emitted before it
+     is decided whether the vtable is public or private.  If this is
+     the case, then the linker will eventually complain that there is
+     a reference to an unknown section.  Thus, for vtables only, 
+     we emit the TOC reference to reference the symbol and not the
+     section.  */
+  const char *name = XSTR (x, 0);
+
+  if (VTABLE_NAME_P (name)) 
+    {
+      RS6000_OUTPUT_BASENAME (file, name);
+    }
+  else
+    assemble_name (file, name);
+}
+
 /* Output a TOC entry.  We derive the entry name from what is
    being written.  */
 
@@ -6875,10 +6915,15 @@ output_toc (file, x, labelno, mode)
 	 integer constants in the TOC we have to pad them.
 	 (This is still a win over putting the constants in
 	 a separate constant pool, because then we'd have
-	 to have both a TOC entry _and_ the actual constant.)  */
-      if (POINTER_SIZE < GET_MODE_BITSIZE (mode))
+	 to have both a TOC entry _and_ the actual constant.)
+
+	 For a 32-bit target, CONST_INT values are loaded and shifted
+	 entirely within `low' and can be stored in one TOC entry.  */
+
+      if (TARGET_64BIT && POINTER_SIZE < GET_MODE_BITSIZE (mode))
 	abort ();/* It would be easy to make this work, but it doesn't now.  */
-      if (mode != Pmode)
+
+      if (POINTER_SIZE > GET_MODE_BITSIZE (mode))
 	lshift_double (low, high, POINTER_SIZE - GET_MODE_BITSIZE (mode),
 		       POINTER_SIZE, &low, &high, 0);
 
@@ -6893,12 +6938,24 @@ output_toc (file, x, labelno, mode)
 	}
       else
 	{
-	  if (TARGET_MINIMAL_TOC)
-	    fprintf (file, "\t.long 0x%lx\n\t.long 0x%lx\n",
-		     (long)high, (long)low);
+	  if (POINTER_SIZE < GET_MODE_BITSIZE (mode))
+	    {
+	      if (TARGET_MINIMAL_TOC)
+		fprintf (file, "\t.long 0x%lx\n\t.long 0x%lx\n",
+			 (long)high, (long)low);
+	      else
+		fprintf (file, "\t.tc ID_%lx_%lx[TC],0x%lx,0x%lx\n",
+			 (long)high, (long)low, (long)high, (long)low);
+	    }
 	  else
-	    fprintf (file, "\t.tc ID_%lx_%lx[TC],0x%lx,0x%lx\n",
-		     (long)high, (long)low, (long)high, (long)low);
+	    {
+	      if (TARGET_MINIMAL_TOC)
+		fprintf (file, "\t.long 0x%lx\n",
+			 (long)low);
+	      else
+		fprintf (file, "\t.tc IS_%lx[TC],0x%lx\n",
+			 (long)low, (long)low);
+	    }
 	  return;
 	}
     }
@@ -6939,7 +6996,7 @@ output_toc (file, x, labelno, mode)
      a TOC reference to an unknown section.  Thus, for vtables only,
      we emit the TOC reference to reference the symbol and not the
      section.  */
-  if (strncmp ("_vt.", name, 4) == 0)
+  if (VTABLE_NAME_P (name))
     {
       RS6000_OUTPUT_BASENAME (file, name);
       if (offset < 0)
@@ -7077,6 +7134,29 @@ rs6000_gen_section_name (buf, filename, section_desc)
     *p = '\0';
 }
 
+
+/* Emit profile function. */
+void
+output_profile_hook (labelno)
+     int labelno;
+{
+  if (DEFAULT_ABI == ABI_AIX)
+    {
+      char buf[30];
+      char *label_name;
+      rtx fun;
+
+      labelno += 1;
+
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
+      STRIP_NAME_ENCODING (label_name, ggc_strdup (buf));
+      fun = gen_rtx_SYMBOL_REF (Pmode, label_name);
+
+      emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 1,
+                         fun, Pmode);
+    }
+}
+
 /* Write function profiler code. */
 
 void
@@ -7145,60 +7225,9 @@ output_function_profiler (file, labelno)
       break;
 
     case ABI_AIX:
-      /* Set up a TOC entry for the profiler label.  */
-      toc_section ();
-      ASM_OUTPUT_INTERNAL_LABEL (file, "LPC", labelno);
-      if (TARGET_MINIMAL_TOC)
-	{
-	  fputs (TARGET_32BIT ? "\t.long " : "\t.llong ", file);
-	  assemble_name (file, buf);
-	  putc ('\n', file);
-	}
-      else
-	{
-	  fputs ("\t.tc\t", file);
-	  assemble_name (file, buf);
-	  fputs ("[TC],", file);
-	  assemble_name (file, buf);
-	  putc ('\n', file);
-	}
-      text_section ();
-
-  /* Figure out last used parameter register.  The proper thing to do is
-     to walk incoming args of the function.  A function might have live
-     parameter registers even if it has no incoming args.  */
-
-      for (last_parm_reg = 10;
-	   last_parm_reg > 2 && ! regs_ever_live [last_parm_reg];
-	   last_parm_reg--)
-	;
-
-  /* Save parameter registers in regs 23-30 and static chain in r22.
-     Don't overwrite reg 31, since it might be set up as the frame pointer.  */
-
-      for (i = 3, j = 30; i <= last_parm_reg; i++, j--)
-	asm_fprintf (file, "\tmr %d,%d\n", j, i);
-      if (current_function_needs_context)
-	asm_fprintf (file, "\tmr %d,%d\n", j, STATIC_CHAIN_REGNUM);
-
-  /* Load location address into r3, and call mcount.  */
-
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LPC", labelno);
-      asm_fprintf (file, TARGET_32BIT ? "\t{l|lwz} %s," : "\tld %s,",
-		   reg_names[3]);
-      assemble_name (file, buf);
-      asm_fprintf (file, "(%s)\n\tbl %s\n\t", reg_names[2], RS6000_MCOUNT);
-      asm_fprintf (file, RS6000_CALL_GLUE);
-      putc('\n', file);
-
-  /* Restore parameter registers and static chain.  */
-
-      for (i = 3, j = 30; i <= last_parm_reg; i++, j--)
-	asm_fprintf (file, "\tmr %d,%d\n", i, j);
-      if (current_function_needs_context)
-	asm_fprintf (file, "\tmr %d,%d\n", STATIC_CHAIN_REGNUM, j);
-
+      /* Don't do anything, done in output_profile_hook (). */
       break;
+
     }
 }
 

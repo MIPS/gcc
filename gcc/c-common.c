@@ -232,6 +232,7 @@ static void add_attribute		PARAMS ((enum attrs, const char *,
 						 int, int, int));
 static void init_attributes		PARAMS ((void));
 static int default_valid_lang_attribute PARAMS ((tree, tree, tree, tree));
+static int constant_fits_type_p		PARAMS ((tree, tree));
 
 /* Keep a stack of if statements.  We record the number of compound
    statements seen up to the if keyword, as well as the line number
@@ -466,7 +467,7 @@ combine_strings (strings)
   nchars = wide_flag ? length / wchar_bytes : length;
 
   if (pedantic && nchars - 1 > nchars_max && c_language == clk_c)
-    pedwarn ("string length `%d' is greater than the minimum length `%d' ISO C%d is required to support",
+    pedwarn ("string length `%d' is greater than the length `%d' ISO C%d compilers are required to support",
 	     nchars - 1, nchars_max, flag_isoc99 ? 99 : 89);
 
   /* Create the array type for the string constant.
@@ -1189,6 +1190,20 @@ unsigned_conversion_warning (result, operand)
     }
 }
 
+/* Nonzero if constant C has a value that is permissible
+   for type TYPE (an INTEGER_TYPE).  */
+
+static int
+constant_fits_type_p (c, type)
+     tree c, type;
+{
+  if (TREE_CODE (c) == INTEGER_CST)
+    return int_fits_type_p (c, type);
+
+  c = convert (type, c);
+  return !TREE_OVERFLOW (c);
+}     
+
 /* Convert EXPR to TYPE, warning about conversion problems with constants.
    Invoke this function on every expression that is converted implicitly,
    i.e. because of language rules and not because of an explicit cast.  */
@@ -1216,7 +1231,7 @@ convert_and_check (type, expr)
 	       don't warn unless pedantic.  */
 	    if ((pedantic
 		 || TREE_UNSIGNED (type)
-		 || ! int_fits_type_p (expr, unsigned_type (type)))
+		 || ! constant_fits_type_p (expr, unsigned_type (type)))
 	        && skip_evaluation == 0)
 	      warning ("overflow in implicit constant conversion");
 	}
@@ -3736,7 +3751,7 @@ statement_code_p (code)
     }
 }
 
-/* Walk the statemen tree, rooted at *tp.  Apply FUNC to all the
+/* Walk the statement tree, rooted at *tp.  Apply FUNC to all the
    sub-trees of *TP in a pre-order traversal.  FUNC is called with the
    DATA and the address of each sub-tree.  If FUNC returns a non-NULL
    value, the traversal is aborted, and the value returned by FUNC is

@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -64,8 +64,6 @@ static tree BI_header_type;
 void init_init_processing ()
 {
   tree fields[1];
-
-  minus_one_node = build_int_2 (-1, -1);
 
   /* Define the structure that holds header information for
      arrays allocated via operator new.  */
@@ -139,7 +137,7 @@ dfs_initialize_vtbl_ptrs (binfo, data)
      tree binfo;
      void *data;
 {
-  if (!BINFO_PRIMARY_MARKED_P (binfo) 
+  if ((!BINFO_PRIMARY_P (binfo) || TREE_VIA_VIRTUAL (binfo))
       && CLASSTYPE_VFIELDS (BINFO_TYPE (binfo)))
     {
       tree base_ptr = TREE_VALUE ((tree) data);
@@ -220,7 +218,7 @@ build_default_init (type)
        anything with a CONSTRUCTOR for arrays here, as that would imply
        copy-initialization.  */
     return NULL_TREE;
-  else if (AGGREGATE_TYPE_P (type))
+  else if (AGGREGATE_TYPE_P (type) && !TYPE_PTRMEMFUNC_P (type))
     {
       /* This is a default initialization of an aggregate, but not one of
 	 non-POD class type.  We cleverly notice that the initialization
@@ -698,10 +696,7 @@ sort_base_init (t, base_init_list, rbase_ptr, vbase_ptr)
 
    If there is a need for a call to a constructor, we must surround
    that call with a pushlevel/poplevel pair, since we are technically
-   at the PARM level of scope.
-
-   Note that emit_base_init does *not* initialize virtual base
-   classes.  That is done specially, elsewhere.  */
+   at the PARM level of scope.  */
 
 void
 emit_base_init (mem_init_list, base_init_list)
@@ -804,16 +799,27 @@ static tree
 build_vtbl_address (binfo)
      tree binfo;
 {
+  tree binfo_for = binfo;
   tree vtbl;
+
+  if (BINFO_VPTR_INDEX (binfo) && TREE_VIA_VIRTUAL (binfo)
+      && BINFO_PRIMARY_P (binfo))
+    /* If this is a virtual primary base, then the vtable we want to store
+       is that for the base this is being used as the primary base of.  We
+       can't simply skip the initialization, because we may be expanding the
+       inits of a subobject constructor where the virtual base layout
+       can be different.  */
+    while (BINFO_PRIMARY_BASE_OF (binfo_for))
+      binfo_for = BINFO_PRIMARY_BASE_OF (binfo_for);
 
   /* Figure out what vtable BINFO's vtable is based on, and mark it as
      used.  */
-  vtbl = get_vtbl_decl_for_binfo (binfo);
+  vtbl = get_vtbl_decl_for_binfo (binfo_for);
   assemble_external (vtbl);
   TREE_USED (vtbl) = 1;
 
   /* Now compute the address to use when initializing the vptr.  */
-  vtbl = BINFO_VTABLE (binfo);
+  vtbl = BINFO_VTABLE (binfo_for);
   if (TREE_CODE (vtbl) == VAR_DECL)
     {
       vtbl = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (vtbl)), vtbl);
@@ -854,7 +860,7 @@ expand_virtual_init (binfo, decl)
       tree vtt_parm;
 
       /* Compute the value to use, when there's a VTT.  */
-      vtt_parm = DECL_VTT_PARM (current_function_decl);
+      vtt_parm = current_vtt_parm;
       vtbl2 = build (PLUS_EXPR, 
 		     TREE_TYPE (vtt_parm), 
 		     vtt_parm,
@@ -866,7 +872,8 @@ expand_virtual_init (binfo, decl)
 	 the vtt_parm in the case of the non-subobject constructor.  */
       vtbl = build (COND_EXPR, 
 		    TREE_TYPE (vtbl), 
-		    DECL_USE_VTT_PARM (current_function_decl),
+		    build (EQ_EXPR, boolean_type_node,
+			   current_in_charge_parm, integer_zero_node),
 		    vtbl2, 
 		    vtbl);
     }
@@ -1945,14 +1952,6 @@ resolve_offset_ref (exp)
       addr = convert_pointer_to (basetype, addr);
       member = cp_convert (ptrdiff_type_node, member);
 
-      if (!flag_new_abi)
-	/* Pointer to data members are offset by one, so that a null
-	   pointer with a real value of 0 is distinguishable from an
-	   offset of the first member of a structure.  */
-	member = cp_build_binary_op (MINUS_EXPR, member,
-				     cp_convert (ptrdiff_type_node, 
-						 integer_one_node));
-
       return build1 (INDIRECT_REF, type,
 		     build (PLUS_EXPR, build_pointer_type (type),
 			    addr, member));
@@ -2082,8 +2081,8 @@ build_new (placement, decl, init, use_global_new)
 		}
 	      else
 		{
-		  int flags = pedantic ? WANT_INT : (WANT_INT | WANT_ENUM);
-		  if (build_expr_type_conversion (flags, this_nelts, 0)
+		  if (build_expr_type_conversion (WANT_INT | WANT_ENUM, 
+						  this_nelts, 0)
 		      == NULL_TREE)
 		    pedwarn ("size in array new must have integral type");
 
@@ -2207,27 +2206,25 @@ build_java_class_ref (type)
     CL_suffix = get_identifier("class$");
   if (jclass_node == NULL_TREE)
     {
-      jclass_node = IDENTIFIER_GLOBAL_VALUE (get_identifier("jclass"));
+      jclass_node = IDENTIFIER_GLOBAL_VALUE (get_identifier ("jclass"));
       if (jclass_node == NULL_TREE)
-	fatal("call to Java constructor, while `jclass' undefined");
+	fatal_error ("call to Java constructor, while `jclass' undefined");
+
       jclass_node = TREE_TYPE (jclass_node);
     }
 
   /* Mangle the class$ field, new and old ABI */
-  if (flag_new_abi)
-    {
-      tree field;
-      for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-	if (DECL_NAME (field) == CL_suffix)
-	  {
-	    name = mangle_decl (field);
-	    break;
-	  }
-      if (!field)
-	fatal ("Can't find class$");
+  {
+    tree field;
+    for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+      if (DECL_NAME (field) == CL_suffix)
+	{
+	  name = mangle_decl (field);
+	  break;
+	}
+    if (!field)
+      internal_error ("Can't find class$");
     }
-  else
-    name = build_static_name (type, CL_suffix);
 
   class_decl = IDENTIFIER_GLOBAL_VALUE (name);
   if (class_decl == NULL_TREE)
@@ -2254,27 +2251,17 @@ get_cookie_size (type)
 {
   tree cookie_size;
 
-  if (flag_new_abi)
-    {
-      /* Under the new ABI, we need to allocate an additional max
-	 (sizeof (size_t), alignof (true_type)) bytes.  */
-      tree sizetype_size;
-      tree type_align;
-
-      sizetype_size = size_in_bytes (sizetype);
-      type_align = size_int (TYPE_ALIGN_UNIT (type));
-      if (INT_CST_LT_UNSIGNED (type_align, sizetype_size))
-	cookie_size = sizetype_size;
-      else
-	cookie_size = type_align;
-    }
+  /* Under the new ABI, we need to allocate an additional max
+     (sizeof (size_t), alignof (true_type)) bytes.  */
+  tree sizetype_size;
+  tree type_align;
+  
+  sizetype_size = size_in_bytes (sizetype);
+  type_align = size_int (TYPE_ALIGN_UNIT (type));
+  if (INT_CST_LT_UNSIGNED (type_align, sizetype_size))
+    cookie_size = sizetype_size;
   else
-    {
-      if (TYPE_ALIGN (type) > TYPE_ALIGN (BI_header_type))
-	return size_int (TYPE_ALIGN_UNIT (type));
-      else
-	return size_in_bytes (BI_header_type);
-    }
+    cookie_size = type_align;
 
   return cookie_size;
 }
@@ -2376,7 +2363,7 @@ build_new_1 (exp)
   else if (placement && !TREE_CHAIN (placement) 
 	   && same_type_p (TREE_TYPE (TREE_VALUE (placement)),
 			   ptr_type_node))
-    use_cookie = (!flag_new_abi || !use_global_new);
+    use_cookie = !use_global_new;
   /* Otherwise, we need the cookie.  */
   else
     use_cookie = 1;
@@ -2400,7 +2387,9 @@ build_new_1 (exp)
       use_java_new = 1;
       alloc_decl = IDENTIFIER_GLOBAL_VALUE (get_identifier (alloc_name));
       if (alloc_decl == NULL_TREE)
-	fatal("call to Java constructor, while `%s' undefined", alloc_name);
+	fatal_error ("call to Java constructor with `%s' undefined",
+		     alloc_name);
+
       class_addr = build1 (ADDR_EXPR, jclass_node, class_decl);
       alloc_call = (build_function_call
 		    (alloc_decl,
@@ -2469,23 +2458,13 @@ build_new_1 (exp)
       tree cookie;
 
       /* Store the number of bytes allocated so that we can know how
-	 many elements to destroy later.  */
-      if (flag_new_abi)
-	{
-	  /* Under the new ABI, we use the last sizeof (size_t) bytes
-	     to store the number of elements.  */
-	  cookie = build (MINUS_EXPR, build_pointer_type (sizetype),
-			  alloc_node, size_in_bytes (sizetype));
-	  cookie = build_indirect_ref (cookie, NULL_PTR);
-	}
-      else
-	{
-	  cookie = build (MINUS_EXPR, build_pointer_type (BI_header_type),
-			  alloc_node, cookie_size);
-	  cookie = build_indirect_ref (cookie, NULL_PTR);
-	  cookie = build_component_ref (cookie, nelts_identifier,
-					NULL_TREE, 0);
-	}
+	 many elements to destroy later.  Under the new ABI, we use
+	 the last sizeof (size_t) bytes to store the number of
+	 elements.  */
+      cookie = build (MINUS_EXPR, build_pointer_type (sizetype),
+		      alloc_node, size_in_bytes (sizetype));
+      cookie = build_indirect_ref (cookie, NULL_PTR);
+
       cookie_expr = build (MODIFY_EXPR, void_type_node, cookie, nelts);
       TREE_SIDE_EFFECTS (cookie_expr) = 1;
     }
@@ -2989,7 +2968,7 @@ build_vec_init (base, init, from_array)
 
       if_stmt = begin_if_stmt ();
       finish_if_stmt_cond (build (NE_EXPR, boolean_type_node,
-				  iterator, minus_one_node),
+				  iterator, integer_minus_one_node),
 			   if_stmt);
 
       /* Otherwise, loop through the elements.  */
@@ -3063,7 +3042,7 @@ build_vec_init (base, init, from_array)
       finish_do_body (do_stmt);
       finish_do_stmt (build (NE_EXPR, boolean_type_node,
 			     build_unary_op (PREDECREMENT_EXPR, iterator, 0),
-			     minus_one_node),
+			     integer_minus_one_node),
 		      do_stmt);
 
       finish_then_clause (if_stmt);
@@ -3254,12 +3233,30 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
       tree do_delete = NULL_TREE;
       tree ifexp;
 
+      /* For `::delete x', we must not use the deleting destructor
+	 since then we would not be sure to get the global `operator
+	 delete'.  */
       if (use_global_delete && auto_delete == sfk_deleting_destructor)
 	{
 	  /* Delete the object. */
 	  do_delete = build_builtin_delete_call (addr);
 	  /* Otherwise, treat this like a complete object destructor
 	     call.  */
+	  auto_delete = sfk_complete_destructor;
+	}
+      /* If the destructor is non-virtual, there is no deleting
+	 variant.  Instead, we must explicitly call the appropriate
+	 `operator delete' here.  */
+      else if (!DECL_VIRTUAL_P (CLASSTYPE_DESTRUCTORS (type))
+	       && auto_delete == sfk_deleting_destructor)
+	{
+	  /* Buidl the call.  */
+	  do_delete = build_op_delete_call (DELETE_EXPR,
+					    addr,
+					    c_sizeof_nowarn (type),
+					    LOOKUP_NORMAL,
+					    NULL_TREE);
+	  /* Call the complete object destructor.  */
 	  auto_delete = sfk_complete_destructor;
 	}
 
@@ -3400,24 +3397,11 @@ build_vec_delete (base, maxindex, auto_delete_vec, use_global_delete)
       tree cookie_addr;
 
       type = strip_array_types (TREE_TYPE (type));
-      if (flag_new_abi)
-	{
-	  cookie_addr = build (MINUS_EXPR,
-			       build_pointer_type (sizetype),
-			       base,
-			       TYPE_SIZE_UNIT (sizetype));
-	  maxindex = build_indirect_ref (cookie_addr, NULL_PTR);
-	}
-      else
-	{
-	  tree cookie;
-
-	  cookie_addr = build (MINUS_EXPR, build_pointer_type (BI_header_type),
-			       base, get_cookie_size (type));
-	  cookie = build_indirect_ref (cookie_addr, NULL_PTR);
-	  maxindex = build_component_ref (cookie, nelts_identifier, 
-					  NULL_TREE, 0);
-	}
+      cookie_addr = build (MINUS_EXPR,
+			   build_pointer_type (sizetype),
+			   base,
+			   TYPE_SIZE_UNIT (sizetype));
+      maxindex = build_indirect_ref (cookie_addr, NULL_PTR);
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {

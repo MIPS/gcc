@@ -61,8 +61,10 @@ JAVA_TARGET_INDEPENDENT_BIN_TOOLS = gcjh jv-scan jcf-dump
 .PHONY: java
 
 jvspec.o: $(srcdir)/java/jvspec.c system.h $(GCC_H) $(CONFIG_H)
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
-		$(INCLUDES) $(srcdir)/java/jvspec.c $(OUTPUT_OPTION)
+	(SHLIB_LINK='$(SHLIB_LINK)' \
+	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
+		$(INCLUDES) $(srcdir)/java/jvspec.c)
 
 # Create the compiler driver for $(GCJ).
 $(GCJ)$(exeext): gcc.o jvspec.o version.o \
@@ -100,6 +102,7 @@ $(srcdir)/java/keyword.h: $(srcdir)/java/keyword.gperf
 JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
   java/constants.o java/lang.o java/typeck.o java/except.o java/verify.o \
   java/zextract.o java/jcf-io.o java/jcf-parse.o java/mangle.o \
+  java/mangle_name.o \
   java/jcf-write.o java/buffer.o java/check-init.o java/jcf-depend.o \
   java/jcf-path.o java/xref.o java/boehm.o mkdeps.o
 
@@ -111,7 +114,7 @@ JVSCAN_OBJS = java/parse-scan.o java/jv-scan.o version.o
 JCFDUMP_OBJS = java/jcf-dump.o java/jcf-io.o java/jcf-depend.o java/jcf-path.o \
 		java/zextract.o errors.o version.o mkdeps.o
 
-JVGENMAIN_OBJS = java/jvgenmain.o
+JVGENMAIN_OBJS = java/jvgenmain.o java/mangle_name.o errors.o
 
 # Use loose warnings for this front end.
 java-warn =
@@ -155,7 +158,7 @@ java.dvi: java/gcj.dvi
 # Nothing to do here.
 java.install-normal:
 
-java.install-common:
+java.install-common: installdirs
 	-if [ -f $(GCJ)$(exeext) ]; then \
 	  if [ -f $(GCJ)-cross$(exeext) ]; then \
 	    rm -f $(bindir)/$(JAVA_CROSS_NAME)$(exeext); \
@@ -181,7 +184,7 @@ java.uninstall:
 	-rm -rf $(bindir)/$(JAVA_INSTALL_NAME)$(exeext)
 	-rm -rf $(bindir)/$(JAVA_CROSS_NAME)$(exeext)
 
-java.install-info:
+java.install-info: installdirs
 	if [ -f jc1$(exeext) ] ; then \
 	  if [ -f $(srcdir)/java/gcj.info ]; then \
 	    rm -f $(infodir)/gcj.info*; \
@@ -268,6 +271,8 @@ java/lang.o: java/lang.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h input.h \
   toplev.h system.h $(RTL_H) $(EXPR_H)
 java/mangle.o: java/mangle.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) system.h \
   toplev.h $(GGC_H)
+java/mangle_name.o: java/mangle_name.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) \
+  system.h toplev.h $(GGC_H)
 java/parse-scan.o: $(CONFIG_H) system.h toplev.h $(JAVA_LEX_C) java/parse.h \
   java/lex.h
 java/typeck.o: java/typeck.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \

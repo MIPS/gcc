@@ -270,6 +270,7 @@ enum java_tree_index
   JTI_SUPER_IDENTIFIER_NODE,  
   JTI_CONTINUE_IDENTIFIER_NODE,  
   JTI_ACCESS0_IDENTIFIER_NODE, 
+  JTI_CLASSDOLLAR_IDENTIFIER_NODE,
   JTI_ONE_ELT_ARRAY_DOMAIN_TYPE,
 
   JTI_RETURN_ADDRESS_TYPE_NODE,
@@ -280,7 +281,6 @@ enum java_tree_index
   JTI_LONG_ZERO_NODE,
   JTI_FLOAT_ZERO_NODE,
   JTI_DOUBLE_ZERO_NODE,
-  JTI_INTEGER_NEGATIVE_ONE_NODE,
   JTI_INTEGER_TWO_NODE,
   JTI_INTEGER_FOUR_NODE,
   JTI_EMPTY_STMT_NODE,
@@ -461,6 +461,8 @@ extern tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_CONTINUE_IDENTIFIER_NODE]  /* "continue" */
 #define access0_identifier_node \
   java_global_trees[JTI_ACCESS0_IDENTIFIER_NODE] /* "access$0" */
+#define classdollar_identifier_node \
+  java_global_trees[JTI_CLASSDOLLAR_IDENTIFIER_NODE] /* "class$" */
 #define one_elt_array_domain_type \
   java_global_trees[JTI_ONE_ELT_ARRAY_DOMAIN_TYPE]
 /* The type of the return address of a subroutine. */
@@ -480,8 +482,6 @@ extern tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_FLOAT_ZERO_NODE]
 #define double_zero_node \
   java_global_trees[JTI_DOUBLE_ZERO_NODE]
-#define integer_negative_one_node \
-  java_global_trees[JTI_INTEGER_NEGATIVE_ONE_NODE]
 #define integer_two_node \
   java_global_trees[JTI_INTEGER_TWO_NODE]
 #define integer_four_node \
@@ -1118,6 +1118,7 @@ extern tree java_mangle_class_field PARAMS ((struct obstack *, tree));
 extern tree java_mangle_class_field_from_string PARAMS ((struct obstack *, char *));
 extern tree java_mangle_vtable PARAMS ((struct obstack *, tree));
 extern const char *lang_printable_name_wls PARAMS ((tree, int));
+extern void append_gpp_mangled_name PARAMS ((const char *, int));
 
 /* We use ARGS_SIZE_RTX to indicate that gcc/expr.h has been included
    to declare `enum expand_modifier'. */
@@ -1156,6 +1157,7 @@ struct rtx_def * java_lang_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 #define ID_FINIT_P(ID)  ((ID) == finit_identifier_node \
 			 || (ID) == finit_leg_identifier_node)
 #define ID_CLINIT_P(ID) ((ID) == clinit_identifier_node)
+#define ID_CLASSDOLLAR_P(ID) ((ID) == classdollar_identifier_node)
 
 /* Access flags etc for a variable/field (a FIELD_DECL): */
 
@@ -1418,7 +1420,7 @@ extern tree *type_map;
 			     INNER_CLASS_DECL_P (NODE) :		      \
 			     (TREE_CODE (NODE) == RECORD_TYPE ? 	      \
 			      INNER_CLASS_TYPE_P (NODE) : 		      \
-			      (fatal ("INNER_CLASS_P: Wrong node type"), 0)))
+			      (abort (), 0)))
 
 /* On a TYPE_DECL, hold the list of inner classes defined within the
    scope of TYPE_DECL.  */

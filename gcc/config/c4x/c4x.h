@@ -492,6 +492,9 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 		       		   || IS_BK_REGNO(r))
 #define IS_INT_REGNO(r)           (IS_EXT_REGNO(r) || IS_STD_REGNO(r))
 #define IS_GROUP1_REGNO(r)        (IS_ADDR_OR_INDEX_REGNO(r) || IS_BK_REGNO(r))
+#define IS_INT_CALL_SAVED_REGNO(r) (((r) == R4_REGNO) || ((r) == R5_REGNO) \
+                                    || ((r) == R8_REGNO))
+#define IS_FLOAT_CALL_SAVED_REGNO(r) (((r) == R6_REGNO) || ((r) == R7_REGNO))
 
 #define IS_PSEUDO_REGNO(r)            ((r) >= FIRST_PSEUDO_REGISTER)
 #define IS_R0R1_OR_PSEUDO_REGNO(r)    (IS_R0R1_REGNO(r) || IS_PSEUDO_REGNO(r))
@@ -614,6 +617,11 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
  IR0_REGNO, IR1_REGNO,					\
  SP_REGNO, DP_REGNO, ST_REGNO, IE_REGNO, IF_REGNO, IOF_REGNO}
 
+/* A C expression that is nonzero if hard register number REGNO2 can be
+   considered for use as a rename register for REGNO1 */
+
+#define HARD_REGNO_RENAME_OK(REGNO1,REGNO2) \
+  c4x_hard_regno_rename_ok((REGNO1), (REGNO2))
 
 /* Determine which register classes are very likely used by spill registers.
    local-alloc.c won't allocate pseudos that have these classes as their
@@ -634,8 +642,8 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
    registers.  */
 
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)		              \
-     ((((REGNO) == R6_REGNO || (REGNO) == R7_REGNO) && ! ((MODE) == QFmode))  \
-      || (((REGNO) == R4_REGNO || (REGNO) == R5_REGNO || (REGNO == R8_REGNO)) \
+     ((IS_FLOAT_CALL_SAVED_REGNO (REGNO) && ! ((MODE) == QFmode))  	      \
+      || (IS_INT_CALL_SAVED_REGNO (REGNO)				      \
 	  && ! ((MODE) == QImode || (MODE) == HImode || (MODE) == Pmode)))
 
 /* Specify the modes required to caller save a given hard regno.  */
@@ -1052,8 +1060,7 @@ enum reg_class
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
     if (regs_ever_live[regno] && ! call_used_regs[regno])	\
       offset += TARGET_PRESERVE_FLOAT				\
-		&& ((regno == R6_REGNO) || (regno == R7_REGNO)) \
-		? 2 : 1;					\
+		&& IS_FLOAT_CALL_SAVED_REGNO (regno) ? 2 : 1;	\
   (DEPTH) = -(offset + get_frame_size ());			\
 }
 
@@ -1072,8 +1079,7 @@ enum reg_class
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
     if (regs_ever_live[regno] && ! call_used_regs[regno])	\
       offset += TARGET_PRESERVE_FLOAT				\
-		&& ((regno == R6_REGNO) || (regno == R7_REGNO)) \
-		? 2 : 1;					\
+		&& IS_FLOAT_CALL_SAVED_REGNO (regno) ? 2 : 1;	\
   (OFFSET) = -(offset + get_frame_size ());			\
 }
 

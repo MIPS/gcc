@@ -5467,7 +5467,7 @@
 ;; Unconditional and other jump instructions.
 
 ;; This can only be used in a leaf function, so we do
-;; not need to use the PIC register.
+;; not need to use the PIC register when generating PIC code.
 (define_insn "return"
   [(return)
    (use (reg:SI 2))
@@ -5482,18 +5482,29 @@
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
 
-;; Use a different pattern for functions which have non-trivial
+;; Emit a different pattern for functions which have non-trivial
 ;; epilogues so as not to confuse jump and reorg.
-;;
-;; We use the PIC register to ensure it's restored after a
-;; call in PIC mode.  This can be non-optimal for non-PIC
-;; code but the real world cost should be unmeasurable.
 (define_insn "return_internal"
   [(return)
-   (use (match_operand 0 "register_operand" "r"))
    (use (reg:SI 2))
    (const_int 1)]
-  "true_regnum (operands[0]) == PIC_OFFSET_TABLE_REGNUM"
+  "! flag_pic"
+  "*
+{
+  if (TARGET_PA_20)
+    return \"bve%* (%%r2)\";
+  return \"bv%* %%r0(%%r2)\";
+}"
+  [(set_attr "type" "branch")
+   (set_attr "length" "4")])
+
+;; Use the PIC register to ensure it's restored after a
+;; call in PIC mode.
+(define_insn "return_internal_pic"
+  [(return)
+   (use (match_operand 0 "register_operand" "r"))
+   (use (reg:SI 2))]
+  "flag_pic && true_regnum (operands[0]) == PIC_OFFSET_TABLE_REGNUM"
   "*
 {
   if (TARGET_PA_20)
@@ -5531,8 +5542,11 @@
       rtx x;
 
       hppa_expand_epilogue ();
-      x = gen_return_internal (gen_rtx_REG (word_mode,
-					    PIC_OFFSET_TABLE_REGNUM));
+      if (flag_pic)
+	x = gen_return_internal_pic (gen_rtx_REG (word_mode,
+						  PIC_OFFSET_TABLE_REGNUM));
+      else
+	x = gen_return_internal ();
       emit_jump_insn (x);
     }
   DONE;
@@ -5723,6 +5737,9 @@
 		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
 				  GEN_INT (64)));
 
+  if (flag_pic && PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
+    hppa_init_pic_save ();
+
   /* Use two different patterns for calls to explicitly named functions
      and calls through function pointers.  This is necessary as these two
      types of calls use different calling conventions, and CSE might try
@@ -5892,6 +5909,9 @@
     emit_move_insn (arg_pointer_rtx,
 		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
 				  GEN_INT (64)));
+
+  if (flag_pic && PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
+    hppa_init_pic_save ();
 
   /* Use two different patterns for calls to explicitly named functions
      and calls through function pointers.  This is necessary as these two
@@ -6089,6 +6109,9 @@
 
   op = XEXP (operands[0], 0);
 
+  if (flag_pic && PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
+    hppa_init_pic_save ();
+
   /* We do not allow indirect sibling calls.  */
   call_insn = emit_call_insn (gen_sibcall_internal_symref (op, operands[1]));
 
@@ -6143,6 +6166,9 @@
   rtx call_insn;
 
   op = XEXP (operands[1], 0);
+
+  if (flag_pic && PIC_OFFSET_TABLE_SAVE_RTX == NULL_RTX)
+    hppa_init_pic_save ();
 
   /* We do not allow indirect sibling calls.  */
   call_insn = emit_call_insn (gen_sibcall_value_internal_symref (operands[0],

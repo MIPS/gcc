@@ -1,8 +1,8 @@
 /* This is a software floating point library which can be used instead of
    the floating point routines in libgcc1.c for targets without hardware
    floating point. 
-   Copyright (C) 1994, 1995, 1996, 1997, 1998,
-   2000 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
    to one copy, then compile both copies and add them to libgcc.a.  */
 
 #include "fp-bit.h"
+#include "tm.h"
 
 /* The following macros can be defined to change the behaviour of this file:
    FLOAT: Implement a `float', aka SFmode, fp library.  If this is not
@@ -623,8 +624,8 @@ _fpmul_parts ( fp_number_type *  a,
       return b;
     }
 
-  /* Calculate the mantissa by multiplying both 64bit numbers to get a
-     128 bit number */
+  /* Calculate the mantissa by multiplying both numbers to get a
+     twice-as-wide number.  */
   {
 #if defined(NO_DI_MODE)
     {
@@ -653,22 +654,22 @@ _fpmul_parts ( fp_number_type *  a,
 	}
     }
 #elif defined(FLOAT) 
+    /* Multiplying two USIs to get a UDI, we're safe.  */
     {
-      /* Multiplying two 32 bit numbers to get a 64 bit number  on 
-        a machine with DI, so we're safe */
-
-      DItype answer = (DItype)(a->fraction.ll) * (DItype)(b->fraction.ll);
+      UDItype answer = (UDItype)a->fraction.ll * (UDItype)b->fraction.ll;
       
-      high = answer >> 32;
+      high = answer >> BITS_PER_SI;
       low = answer;
     }
 #else
-    /* Doing a 64*64 to 128 */
+    /* fractype is DImode, but we need the result to be twice as wide.
+       Assuming a widening multiply from DImode to TImode is not
+       available, build one by hand.  */
     {
-      USItype nl = a->fraction.ll & 0xffffffff;
-      USItype nh = a->fraction.ll >> 32;
-      USItype ml = b->fraction.ll & 0xffffffff;
-      USItype mh = b->fraction.ll >>32;
+      USItype nl = a->fraction.ll;
+      USItype nh = a->fraction.ll >> BITS_PER_SI;
+      USItype ml = b->fraction.ll;
+      USItype mh = b->fraction.ll >> BITS_PER_SI;
       UDItype pp_ll = (UDItype) ml * nl;
       UDItype pp_hl = (UDItype) mh * nl;
       UDItype pp_lh = (UDItype) ml * nh;
@@ -677,12 +678,12 @@ _fpmul_parts ( fp_number_type *  a,
       UDItype res0 = 0;
       UDItype ps_hh__ = pp_hl + pp_lh;
       if (ps_hh__ < pp_hl)
-	res2 += 0x100000000LL;
-      pp_hl = (ps_hh__ << 32) & 0xffffffff00000000LL;
+	res2 += (UDItype)1 << BITS_PER_SI;
+      pp_hl = (UDItype)(USItype)ps_hh__ << BITS_PER_SI;
       res0 = pp_ll + pp_hl;
       if (res0 < pp_ll)
 	res2++;
-      res2 += ((ps_hh__ >> 32) & 0xffffffffL) + pp_hh;
+      res2 += (ps_hh__ >> BITS_PER_SI) + pp_hh;
       high = res2;
       low = res0;
     }
@@ -1150,9 +1151,9 @@ si_to_float (SItype arg_a)
 	{
 	  /* Special case for minint, since there is no +ve integer
 	     representation for it */
-	  if (arg_a == (SItype) 0x80000000)
+	  if (arg_a == (- MAX_SI_INT - 1))
 	    {
-	      return -2147483648.0;
+	      return (FLO_type)(- MAX_SI_INT - 1);
 	    }
 	  in.fraction.ll = (-arg_a);
 	}
@@ -1222,7 +1223,7 @@ float_to_si (FLO_type arg_a)
   /* it is a number, but a small one */
   if (a.normal_exp < 0)
     return 0;
-  if (a.normal_exp > 30)
+  if (a.normal_exp > BITS_PER_SI - 2)
     return a.sign ? (-MAX_SI_INT)-1 : MAX_SI_INT;
   tmp = a.fraction.ll >> ((FRACBITS + NGARDS) - a.normal_exp);
   return a.sign ? (-tmp) : (tmp);
@@ -1259,7 +1260,7 @@ float_to_usi (FLO_type arg_a)
   /* it is a number, but a small one */
   if (a.normal_exp < 0)
     return 0;
-  if (a.normal_exp > 31)
+  if (a.normal_exp > BITS_PER_SI - 1)
     return MAX_USI_INT;
   else if (a.normal_exp > (FRACBITS + NGARDS))
     return a.fraction.ll << (a.normal_exp - (FRACBITS + NGARDS));

@@ -1,6 +1,7 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -473,7 +474,7 @@ init_decl_processing ()
   integer_one_node = build_int_2 (1, 0);
   integer_two_node = build_int_2 (2, 0);
   integer_four_node = build_int_2 (4, 0);
-  integer_negative_one_node = build_int_2 (-1, 0);
+  integer_minus_one_node = build_int_2 (-1, -1);
 
   size_zero_node = size_int (0);
   size_one_node = size_int (1);
@@ -601,6 +602,7 @@ init_decl_processing ()
   super_identifier_node = get_identifier ("super");
   continue_identifier_node = get_identifier ("continue");
   access0_identifier_node = get_identifier ("access$0");
+  classdollar_identifier_node = get_identifier ("class$");
 
   /* for lack of a better place to put this stub call */
   init_expr_processing();
@@ -1817,8 +1819,8 @@ start_java_method (fndecl)
     {
       tree parm_name = NULL_TREE, parm_decl;
       tree parm_type = TREE_VALUE (tem);
-      if (i >= DECL_MAX_LOCALS(fndecl))
-	fatal ("function has more parameters than local slots");
+      if (i >= DECL_MAX_LOCALS (fndecl))
+	abort ();
 
       parm_decl = build_decl (PARM_DECL, parm_name, parm_type);
       DECL_CONTEXT (parm_decl) = fndecl;

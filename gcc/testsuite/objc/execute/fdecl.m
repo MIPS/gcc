@@ -5,9 +5,15 @@
 
 @interface test
 {
-        AClass foo;
+        AClass *foo;
 }
 @end
 
 @implementation test
 @end
+
+int main (void)
+{
+  return 0;
+}
+

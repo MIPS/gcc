@@ -146,6 +146,12 @@ static int max_uid_cuid;
 #define INSN_CUID(INSN) \
 (INSN_UID (INSN) > max_uid_cuid ? insn_cuid (INSN) : uid_cuid[INSN_UID (INSN)])
 
+/* In case BITS_PER_WORD == HOST_BITS_PER_WIDE_INT, shifting by
+   BITS_PER_WORD would invoke undefined behavior.  Work around it.  */
+
+#define UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD(val) \
+  (((unsigned HOST_WIDE_INT)(val) << (BITS_PER_WORD - 1)) << 1)
+
 /* Maximum register number, which is the size of the tables below.  */
 
 static unsigned int combine_max_regno;
@@ -1661,9 +1667,33 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 	}
 
       if (subreg_lowpart_p (SET_DEST (PATTERN (i3))))
-	lo = INTVAL (SET_SRC (PATTERN (i3)));
-      else
+	{
+	  /* We don't handle the case of the target word being wider
+	     than a host wide int.  */
+	  if (HOST_BITS_PER_WIDE_INT < BITS_PER_WORD)
+	    abort ();
+
+	  lo &= ~(UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD (1) - 1);
+	  lo |= INTVAL (SET_SRC (PATTERN (i3)));
+	}
+      else if (HOST_BITS_PER_WIDE_INT == BITS_PER_WORD)
 	hi = INTVAL (SET_SRC (PATTERN (i3)));
+      else if (HOST_BITS_PER_WIDE_INT >= 2 * BITS_PER_WORD)
+	{
+	  int sign = -(int) ((unsigned HOST_WIDE_INT) lo
+			     >> (HOST_BITS_PER_WIDE_INT - 1));
+
+	  lo &= ~ (UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD
+		   (UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD (1) - 1));
+	  lo |= (UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD
+		 (INTVAL (SET_SRC (PATTERN (i3)))));
+	  if (hi == sign)
+	    hi = lo < 0 ? -1 : 0;
+	}
+      else
+	/* We don't handle the case of the higher word not fitting
+	   entirely in either hi or lo.  */
+	abort ();
 
       combine_merges++;
       subst_insn = i3;
@@ -5199,69 +5229,6 @@ simplify_set (x)
       src = SET_SRC (x);
     }
 
-#ifdef HAVE_conditional_arithmetic
-  /* If we have conditional arithmetic and the operand of a SET is
-     a conditional expression, replace this with an IF_THEN_ELSE.
-     We can either have a conditional expression or a MULT of that expression
-     with a constant.  */
-  if ((GET_RTX_CLASS (GET_CODE (src)) == '1'
-       || GET_RTX_CLASS (GET_CODE (src)) == '2'
-       || GET_RTX_CLASS (GET_CODE (src)) == 'c')
-      && (GET_RTX_CLASS (GET_CODE (XEXP (src, 0))) == '<'
-	  || (GET_CODE (XEXP (src, 0)) == MULT
-	      && GET_RTX_CLASS (GET_CODE (XEXP (XEXP (src, 0), 0))) == '<'
-	      && GET_CODE (XEXP (XEXP (src, 0), 1)) == CONST_INT)))
-    {
-      rtx cond = XEXP (src, 0);
-      rtx true_val = const1_rtx;
-      rtx false_arm, true_arm;
-      rtx reversed;
-
-      if (GET_CODE (cond) == MULT)
-	{
-	  true_val = XEXP (cond, 1);
-	  cond = XEXP (cond, 0);
-	}
-
-      if (GET_RTX_CLASS (GET_CODE (src)) == '1')
-	{
-	  true_arm = gen_unary (GET_CODE (src), GET_MODE (src),
-				GET_MODE (XEXP (src, 0)), true_val);
-	  false_arm = gen_unary (GET_CODE (src), GET_MODE (src),
-				 GET_MODE (XEXP (src, 0)), const0_rtx);
-	}
-      else
-	{
-	  true_arm = gen_binary (GET_CODE (src), GET_MODE (src),
-				 true_val, XEXP (src, 1));
-	  false_arm = gen_binary (GET_CODE (src), GET_MODE (src),
-				  const0_rtx, XEXP (src, 1));
-	}
-
-      /* Canonicalize if true_arm is the simpler one.  */
-      if (GET_RTX_CLASS (GET_CODE (true_arm)) == 'o'
-	  && GET_RTX_CLASS (GET_CODE (false_arm)) != 'o'
-	  && (reversed = reversed_comparison_code (cond, GET_MODE (cond),
-						   XEXP (cond, 0),
-						   XEXP (cond, 1))))
-	{
-	  rtx temp = true_arm;
-
-	  true_arm = false_arm;
-	  false_arm = temp;
-
-	  cond = reversed;
-	}
-
-      src = gen_rtx_combine (IF_THEN_ELSE, GET_MODE (src),
-			     gen_rtx_combine (GET_CODE (cond), VOIDmode,
-					      XEXP (cond, 0),
-					      XEXP (cond, 1)),
-			     true_arm, false_arm);
-      SUBST (SET_SRC (x), src);
-    }
-#endif
-
   /* If either SRC or DEST is a CLOBBER of (const_int 0), make this
      whole thing fail.  */
   if (GET_CODE (src) == CLOBBER && XEXP (src, 0) == const0_rtx)
@@ -7426,8 +7393,10 @@ if_then_else_cond (x, ptrue, pfalse)
 	  && GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))) > UNITS_PER_WORD
 	  && (WORDS_BIG_ENDIAN || SUBREG_WORD (x) != 0))
 	{
-	  true0 = operand_subword (true0, SUBREG_WORD (x), 0, mode);
-	  false0 = operand_subword (false0, SUBREG_WORD (x), 0, mode);
+	  true0 = operand_subword (true0, SUBREG_WORD (x), 0,
+				   GET_MODE (SUBREG_REG (x)));
+	  false0 = operand_subword (false0, SUBREG_WORD (x), 0,
+				    GET_MODE (SUBREG_REG (x)));
 	}
       *ptrue = force_to_mode (true0, mode, ~(HOST_WIDE_INT) 0, NULL_RTX, 0);
       *pfalse
@@ -8283,6 +8252,16 @@ nonzero_bits (x, mode)
 
 	if (result_low > 0)
 	  nonzero &= ~(((HOST_WIDE_INT) 1 << result_low) - 1);
+
+#ifdef POINTERS_EXTEND_UNSIGNED
+	/* If pointers extend unsigned and this is an addition or subtraction
+	   to a pointer in Pmode, all the bits above ptr_mode are known to be
+	   zero.  */
+	if (POINTERS_EXTEND_UNSIGNED && GET_MODE (x) == Pmode
+	    && (code == PLUS || code == MINUS)
+	    && GET_CODE (XEXP (x, 0)) == REG && REG_POINTER (XEXP (x, 0)))
+	  nonzero &= GET_MODE_MASK (ptr_mode);
+#endif
       }
       break;
 
@@ -8621,7 +8600,20 @@ num_sign_bit_copies (x, mode)
 
       num0 = num_sign_bit_copies (XEXP (x, 0), mode);
       num1 = num_sign_bit_copies (XEXP (x, 1), mode);
-      return MAX (1, MIN (num0, num1) - 1);
+      result = MAX (1, MIN (num0, num1) - 1);
+
+#ifdef POINTERS_EXTEND_UNSIGNED
+      /* If pointers extend signed and this is an addition or subtraction
+	 to a pointer in Pmode, all the bits above ptr_mode are known to be
+	 sign bit copies.  */
+      if (! POINTERS_EXTEND_UNSIGNED && GET_MODE (x) == Pmode
+	  && (code == PLUS || code == MINUS)
+	  && GET_CODE (XEXP (x, 0)) == REG && REG_POINTER (XEXP (x, 0)))
+	result = MAX ((GET_MODE_BITSIZE (Pmode)
+		       - GET_MODE_BITSIZE (ptr_mode) + 1),
+		      result);
+#endif
+      return result;
 
     case MULT:
       /* The number of bits of the product is the sum of the number of

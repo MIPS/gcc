@@ -1,5 +1,6 @@
 /* Handle types for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -52,8 +53,10 @@ set_local_type (slot, type)
 {
   int max_locals = DECL_MAX_LOCALS(current_function_decl);
   int nslots = TYPE_IS_WIDE (type) ? 2 : 1;
+
   if (slot < 0 || slot + nslots - 1 >= max_locals)
-    fatal ("invalid local variable index");
+    abort ();
+
   type_map[slot] = type;
   while (--nslots > 0)
     type_map[++slot] = void_type_node;
@@ -356,6 +359,11 @@ java_array_type_length (array_type)
   return -1;
 }
 
+/* An array of unknown length will be ultimately given an length of
+   -2, so that we can still have `length' producing a negative value
+   even if found. This was part of an optimization amaing at removing
+   `length' from static arrays. We could restore it, FIXME.  */
+
 tree
 build_prim_array_type (element_type, length)
      tree element_type;
@@ -375,7 +383,7 @@ build_java_array_type (element_type, length)
      tree element_type;
      HOST_WIDE_INT length;
 {
-  tree sig, t, fld;
+  tree sig, t, fld, atype, arfld;
   char buf[12];
   tree elsig = build_java_signature (element_type);
   tree el_name = element_type;
@@ -398,7 +406,9 @@ build_java_array_type (element_type, length)
   el_name = TYPE_NAME (el_name);
   if (TREE_CODE (el_name) == TYPE_DECL)
     el_name = DECL_NAME (el_name);
-  TYPE_NAME (t) = identifier_subst (el_name, "", '.', '.', "[]");
+  TYPE_NAME (t) = build_decl (TYPE_DECL,
+                             identifier_subst (el_name, "", '.', '.', "[]"),
+                             t);
 
   set_java_signature (t, sig);
   set_super_info (0, t, object_type_node, 0);
@@ -412,40 +422,18 @@ build_java_array_type (element_type, length)
   DECL_CONTEXT (fld) = t;
   FIELD_PUBLIC (fld) = 1;
   FIELD_FINAL (fld) = 1;
+  TREE_READONLY (fld) = 1;
 
-  if (length >= 0)
-    {
-      tree atype = build_prim_array_type (element_type, length);
-      tree arfld = build_decl (FIELD_DECL, get_identifier ("data"), atype);
-      
-      DECL_CONTEXT (arfld) = t;
-      TREE_CHAIN (fld) = arfld;
+  /* Add clone method.  This is different from Object.clone because it
+     is public.  */
+  add_method (t, ACC_PUBLIC | ACC_FINAL, get_identifier ("clone"),
+             get_identifier ("()Ljava/lang/Object;"));
 
-      /* We need to force the data field to begin at an alignment at
-       least equal to the biggest alignment in an object type node
-       in order to be compatible with the way that JArray is defined
-       in CNI.  However, we can't exceed BIGGEST_FIELD_ALIGNMENT. */
-      {
-      unsigned desired_align = TYPE_ALIGN (object_type_node);
-      desired_align = MAX (desired_align, TYPE_ALIGN (element_type));
-#ifdef BIGGEST_FIELD_ALIGNMENT
-      desired_align = MIN (desired_align, 
-                           (unsigned) BIGGEST_FIELD_ALIGNMENT);
-#endif
-#ifdef ADJUST_FIELD_ALIGN
-      desired_align = ADJUST_FIELD_ALIGN (fld, desired_align);
-#endif
-      DECL_ALIGN (arfld) = desired_align;
-      }
-    }
-  else
-    {
-      unsigned desired_align = TYPE_ALIGN (element_type);
-#ifdef BIGGEST_FIELD_ALIGNMENT
-      desired_align = MIN (desired_align, (unsigned) BIGGEST_FIELD_ALIGNMENT);
-#endif
-      TYPE_ALIGN (t) = desired_align;
-    }
+  atype = build_prim_array_type (element_type, length);
+  arfld = build_decl (FIELD_DECL, get_identifier ("data"), atype);
+  DECL_CONTEXT (arfld) = t;
+  TREE_CHAIN (fld) = arfld;
+  DECL_ALIGN (arfld) = TYPE_ALIGN (element_type);
 
   /* We could layout_class, but that loads java.lang.Object prematurely.
    * This is called by the parser, and it is a bad idea to do load_class
@@ -498,9 +486,11 @@ parse_signature_type (ptr, limit)
      const unsigned char **ptr, *limit;
 {
   tree type;
-  if ((*ptr) >= limit)
-    fatal ("bad signature string");
-  switch (*(*ptr))
+
+  if (*ptr >= limit)
+    abort ();
+
+  switch (**ptr)
     {
     case 'B':  (*ptr)++;  return byte_type_node;
     case 'C':  (*ptr)++;  return char_type_node;
@@ -523,7 +513,7 @@ parse_signature_type (ptr, limit)
 	for ( ; ; str++)
 	  {
 	    if (str >= limit)
-	      fatal ("bad signature string");
+	      abort ();
 	    if (*str == ';')
 	      break;
 	  }
@@ -532,7 +522,7 @@ parse_signature_type (ptr, limit)
 	break;
       }
     default:
-      fatal ("unrecognized signature string");
+      abort ();
     }
   return promote_type (type);
 }
@@ -560,7 +550,7 @@ parse_signature_string (sig_string, sig_length)
 	  argtype_list = tree_cons (NULL_TREE, argtype, argtype_list);
 	}
       if (str++, str >= limit)
-	fatal ("bad signature string");
+	abort ();
       result_type = parse_signature_type (&str, limit);
       argtype_list = chainon (nreverse (argtype_list), end_params_node);
       result_type = build_function_type (result_type, argtype_list);
@@ -696,7 +686,7 @@ build_java_signature (type)
 	  break;
 	bad_type:
 	default:
-	  fatal ("internal error - build_java_signature passed invalid type");
+	  abort ();
 	}
       TYPE_SIGNATURE (type) = sig;
     }
@@ -716,7 +706,7 @@ set_java_signature (type, sig)
   MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC (type);
   old_sig = TYPE_SIGNATURE (type);
   if (old_sig != NULL_TREE && old_sig != sig)
-    fatal ("internal error - set_java_signature");
+    abort ();
   TYPE_SIGNATURE (type) = sig;
 #if 0 /* careful about METHOD_TYPE */
   if (IDENTIFIER_SIGNATURE_TYPE (sig) == NULL_TREE && TREE_PERMANENT (type))
@@ -834,8 +824,6 @@ lookup_do (searched_class, searched_interface, method_name, signature, signature
 	   method != NULL_TREE;  method = TREE_CHAIN (method))
 	{
 	  tree method_sig = (*signature_builder) (TREE_TYPE (method));
-	  tree name = DECL_NAME (method);
-
 	  if (DECL_NAME (method) == method_name && method_sig == signature)
 	    return method;
 	}

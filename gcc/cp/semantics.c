@@ -912,7 +912,22 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 
   if (!processing_template_decl)
     for (t = input_operands; t; t = TREE_CHAIN (t))
-      TREE_VALUE (t) = decay_conversion (TREE_VALUE (t));
+      {
+	tree converted_operand 
+	  = decay_conversion (TREE_VALUE (t)); 
+
+	/* If the type of the operand hasn't been determined (e.g.,
+	   because it involves an overloaded function), then issue an
+	   error message.  There's no context available to resolve the
+	   overloading.  */
+	if (TREE_TYPE (converted_operand) == unknown_type_node)
+	  {
+	    cp_error ("type of asm operand `%E' could not be determined", 
+		      TREE_VALUE (t));
+	    converted_operand = error_mark_node;
+	  }
+	TREE_VALUE (t) = converted_operand;
+      }
 
   r = build_stmt (ASM_STMT, cv_qualifier, string,
 		  output_operands, input_operands,
@@ -1624,7 +1639,7 @@ begin_constructor_declarator (scope, name)
      tree scope;
      tree name;
 {
-  tree result = build_parse_node (SCOPE_REF, scope, name);
+  tree result = build_nt (SCOPE_REF, scope, name);
   enter_scope_of (result);
   return result;
 }
@@ -2136,6 +2151,9 @@ finish_typeof (expr)
 
       return t;
     }
+
+  if (TREE_CODE (expr) == OFFSET_REF)
+    expr = resolve_offset_ref (expr);
 
   return TREE_TYPE (expr);
 }

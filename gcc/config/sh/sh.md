@@ -290,6 +290,8 @@
 ;; ??? using pc is not computed transitively.
 		(ne (match_dup 0) (match_dup 0))
 		(const_int 14)
+		(ne (symbol_ref ("flag_pic")) (const_int 0))
+		(const_int 24)
 		] (const_int 16))
 	 (eq_attr "type" "jump")
 	 (cond [(eq_attr "med_branch_p" "yes")
@@ -306,6 +308,8 @@
 ;; ??? using pc is not computed transitively.
 		(ne (match_dup 0) (match_dup 0))
 		(const_int 12)
+		(ne (symbol_ref ("flag_pic")) (const_int 0))
+		(const_int 22)
 		] (const_int 14))
 	 ] (const_int 2)))
 
@@ -2837,7 +2841,7 @@
    (use (match_operand:PSI 2 "fpscr_operand" "c"))
    (clobber (match_scratch:SI 3 "X"))]
   "TARGET_SH4 && ! TARGET_FMOVD && reload_completed
-   && FP_OR_XD_REGISTER_P (operands[0])
+   && FP_OR_XD_REGISTER_P (true_regnum (operands[0]))
    && find_regno_note (insn, REG_DEAD, true_regnum (operands[1]))"
   [(const_int 0)]
   "
@@ -2934,41 +2938,6 @@
 				  operands[2]));
   REG_NOTES (insn) = gen_rtx (EXPR_LIST, REG_INC, addr, NULL_RTX);
   DONE;
-}")
-
-;; The '&' for operand 2 is not really true, but push_secondary_reload
-;; insists on it.
-;; Operand 1 must accept FPUL_REGS in case fpul is reloaded to memory,
-;; to avoid a bogus tertiary reload.
-;; We need a tertiary reload when a floating point register is reloaded
-;; to memory, so the predicate for operand 0 must accept this, while the 
-;; constraint of operand 1 must reject the secondary reload register.
-;; Thus, the secondary reload register for this case has to be GENERAL_REGS,
-;; too.
-;; By having the predicate for operand 0 reject any register, we make
-;; sure that the ordinary moves that just need an intermediate register
-;; won't get a bogus tertiary reload.
-;; We use tertiary_reload_operand instead of memory_operand here because
-;; memory_operand rejects operands that are not directly addressible, e.g.:
-;; (mem:SF (plus:SI (reg:SI FP_REG)
-;;         (const_int 132)))
-
-(define_expand "reload_outsf"
-  [(parallel [(set (match_operand:SF 2 "register_operand" "=&r")
-		   (match_operand:SF 1 "register_operand" "y"))
-	      (clobber (scratch:SI))])
-   (parallel [(set (match_operand:SF 0 "tertiary_reload_operand" "=m")
-		   (match_dup 2))
-	      (clobber (scratch:SI))])]
-  ""
-  "
-{
-  if (TARGET_SH3E)
-    {
-      emit_insn (gen_movsf_ie (operands[2], operands[1], get_fpscr_rtx ()));
-      emit_insn (gen_movsf_ie (operands[0], operands[2], get_fpscr_rtx ()));
-      DONE;
-    }
 }")
 
 ;; If the output is a register and the input is memory or a register, we have
@@ -3115,15 +3084,22 @@
 ;; when the destination changes mode.
 (define_insn "movsf_ie"
   [(set (match_operand:SF 0 "general_movdst_operand"
-	 "=f,r,f,f,fy,f,m,r,r,m,f,y,y,rf,r,y,y")
+	 "=f,r,f,f,fy,f,m,r,r,m,f,y,y,rf,r<,y,y")
 	(match_operand:SF 1 "general_movsrc_operand"
-	  "f,r,G,H,FQ,mf,f,FQ,mr,r,y,f,>,fr,y,r,y"))
+	  "f,r,G,H,FQ,mf,f,FQ,mr,r,y,f,>,fr,y,r>,y"))
    (use (match_operand:PSI 2 "fpscr_operand" "c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c"))
    (clobber (match_scratch:SI 3 "=X,X,X,X,&z,X,X,X,X,X,X,X,X,y,X,X,X"))]
 
   "TARGET_SH3E
    && (arith_reg_operand (operands[0], SFmode)
-       || arith_reg_operand (operands[1], SFmode))"
+       || arith_reg_operand (operands[1], SFmode)
+       || arith_reg_operand (operands[3], SImode)
+       || (fpul_operand (operands[0], SFmode)
+	   && memory_operand (operands[1], SFmode)
+	   && GET_CODE (XEXP (operands[1], 0)) == POST_INC)
+       || (fpul_operand (operands[1], SFmode)
+	   && memory_operand (operands[0], SFmode)
+	   && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC))"
   "@
 	fmov	%1,%0
 	mov	%1,%0
@@ -3184,7 +3160,7 @@
    (set_attr "type" "nil")])
 
 (define_expand "reload_insf"
-  [(parallel [(set (match_operand:SF 0 "register_operand" "=f")
+  [(parallel [(set (match_operand:SF 0 "register_operand" "=a")
 		   (match_operand:SF 1 "immediate_operand" "FQ"))
 	      (use (reg:PSI FPSCR_REG))
 	      (clobber (match_operand:SI 2 "register_operand" "=&z"))])]
@@ -3568,6 +3544,9 @@
   ""
   "jmp	@%0%#"
   [(set_attr "needs_delay_slot" "yes")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
    (set_attr "type" "jump_ind")])
 
 (define_insn "sibcalli_pcrel"
@@ -3579,6 +3558,9 @@
   "TARGET_SH2"
   "braf	%0\\n%O2:%#"
   [(set_attr "needs_delay_slot" "yes")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
    (set_attr "type" "jump_ind")])
 
 (define_insn_and_split "sibcall_pcrel"
@@ -3601,7 +3583,12 @@
 						  lab));
   SIBLING_CALL_P (call_insn) = 1;
   DONE;
-}")
+}"
+  [(set_attr "needs_delay_slot" "yes")
+   (set (attr "fp_mode")
+	(if_then_else (eq_attr "fpu_single" "yes")
+		      (const_string "single") (const_string "double")))
+   (set_attr "type" "jump_ind")])
 
 (define_expand "sibcall"
   [(parallel
@@ -3674,7 +3661,8 @@
   [(set (pc) (plus:SI (match_operand:SI 0 "register_operand" "r")
 		      (label_ref (match_operand 1 "" ""))))
    (use (label_ref (match_operand 2 "" "")))]
-  "! INSN_UID (operands[1]) || prev_real_insn (operands[1]) == insn"
+  "TARGET_SH2
+   && (! INSN_UID (operands[1]) || prev_real_insn (operands[1]) == insn)"
   "braf	%0%#"
   [(set_attr "needs_delay_slot" "yes")
    (set_attr "type" "jump_ind")])

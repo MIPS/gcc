@@ -207,7 +207,9 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
   int first = 1;
   int max_uid = 0;
   rtx last_insn;
+#ifdef HAVE_trap
   enum rtx_code reversed_code;
+#endif
 
   cross_jump_death_matters = (cross_jump == 2);
   max_uid = init_label_info (f) + 1;
@@ -420,6 +422,28 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 
 	      if (temp2 == temp)
 		{
+		  /* Ensure that we jump to the later of the two labels.  
+		     Consider:
+
+			if (test) goto L2;
+			goto L1;
+			...
+		      L1:
+			(clobber return-reg)
+		      L2:
+			(use return-reg)
+
+		     If we leave the goto L1, we'll incorrectly leave
+		     return-reg dead for TEST true.  */
+
+		  temp2 = next_active_insn (JUMP_LABEL (insn));
+		  if (!temp2)
+		    temp2 = get_last_insn ();
+		  if (GET_CODE (temp2) != CODE_LABEL)
+		    temp2 = prev_label (temp2);
+		  if (temp2 != JUMP_LABEL (temp))
+		    redirect_jump (temp, temp2, 1);
+
 		  delete_jump (insn);
 		  changed = 1;
 		  continue;
@@ -1321,10 +1345,10 @@ duplicate_loop_exit_test (loop_start)
 }
 
 /* Move all block-beg, block-end, loop-beg, loop-cont, loop-vtop, loop-end,
-   eh-beg, eh-end notes between START and END out before START.  Assume that
-   END is not such a note.  START may be such a note.  Returns the value
-   of the new starting insn, which may be different if the original start
-   was such a note.  */
+   notes between START and END out before START.  Assume that END is not
+   such a note.  START may be such a note.  Returns the value of the new
+   starting insn, which may be different if the original start was such a
+   note.  */
 
 rtx
 squeeze_notes (start, end)
@@ -1342,9 +1366,7 @@ squeeze_notes (start, end)
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_VTOP
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END))
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_VTOP))
 	{
 	  if (insn == start)
 	    start = next;
@@ -2087,6 +2109,12 @@ int
 comparison_dominates_p (code1, code2)
      enum rtx_code code1, code2;
 {
+  /* UNKNOWN comparison codes can happen as a result of trying to revert
+     comparison codes.
+     They can't match anything, so we have to reject them here.  */
+  if (code1 == UNKNOWN || code2 == UNKNOWN)
+    return 0;
+
   if (code1 == code2)
     return 1;
 

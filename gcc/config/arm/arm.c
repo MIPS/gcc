@@ -267,7 +267,10 @@ static struct processors all_cores[] =
   {"arm700",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
   {"arm700i",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
   {"arm710",	             FL_MODE26 | FL_MODE32 },
+  {"arm710t",	             FL_MODE26 | FL_MODE32                           | FL_THUMB },
   {"arm720",	             FL_MODE26 | FL_MODE32 },
+  {"arm720t",	             FL_MODE26 | FL_MODE32                           | FL_THUMB },
+  {"arm740t",	             FL_MODE26 | FL_MODE32                           | FL_THUMB },
   {"arm710c",	             FL_MODE26 | FL_MODE32 },
   {"arm7100",	             FL_MODE26 | FL_MODE32 },
   {"arm7500",	             FL_MODE26 | FL_MODE32 },
@@ -279,11 +282,16 @@ static struct processors all_cores[] =
   {"arm9",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
   {"arm920",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
   {"arm920t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
+  {"arm940t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
   {"arm9tdmi",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED },
+  {"arm9e",	       	      		 FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED },
   {"strongarm",	             FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
   {"strongarm110",           FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
   {"strongarm1100",          FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
-  {"xscale",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_XSCALE | FL_ARCH5 | FL_ARCH5E },
+  {"strongarm1110",          FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
+  {"arm10tdmi",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
+  {"arm1020t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
+  {"xscale",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE },
   
   {NULL, 0}
 };
@@ -565,7 +573,7 @@ arm_override_options ()
     target_flags |= ARM_FLAG_APCS_FRAME;
   
   if (TARGET_APCS_REENT && flag_pic)
-    fatal ("-fpic and -mapcs-reent are incompatible");
+    error ("-fpic and -mapcs-reent are incompatible");
   
   if (TARGET_APCS_REENT)
     warning ("APCS reentrant code not supported.  Ignored");
@@ -613,7 +621,7 @@ arm_override_options ()
       else if (streq (target_fp_name, "3"))
 	arm_fpu_arch = FP_SOFT3;
       else
-	fatal ("Invalid floating point emulation option: -mfpe-%s",
+	error ("Invalid floating point emulation option: -mfpe-%s",
 	       target_fp_name);
     }
   else
@@ -2235,8 +2243,10 @@ legitimize_pic_address (orig, mode, reg)
    generated insns at the start of the function);  false if called
    by an exception receiver that needs the PIC register reloaded
    (in which case the insns are just dumped at the current location).  */
+
 void
-arm_finalize_pic (int prologue)
+arm_finalize_pic (prologue)
+     int prologue;
 {
 #ifndef AOF_ASSEMBLER
   rtx l1, pic_tmp, pic_tmp2, seq, pic_rtx;
@@ -7794,27 +7804,34 @@ arm_expand_prologue ()
 		  
 	     If neither of these places is available, we abort (for now).
 
-	     Note - setting RTX_FRAME_RELATED_P on these insns breaks
-	     the dwarf2 parsing code in various bits of gcc.  This ought
-	     to be fixed sometime, but until then the flag is suppressed.
-	     [Use gcc/testsuite/gcc.c-torture/execute/921215-1.c with
-	     "-O3 -g" to test this].  */
+	     Note - we only need to tell the dwarf2 backend about the SP
+	     adjustment in the second variant; the static chain register
+	     doesn't need to be unwound, as it doesn't contain a value
+	     inherited from the caller.  */
 
 	  if (regs_ever_live[3] == 0)
 	    {
 	      insn = gen_rtx_REG (SImode, 3);
 	      insn = gen_rtx_SET (SImode, insn, ip_rtx);
 	      insn = emit_insn (insn);
-	      /* RTX_FRAME_RELATED_P (insn) = 1; */
 	    }
 	  else if (current_function_pretend_args_size == 0)
 	    {
+	      rtx dwarf;
 	      insn = gen_rtx_PRE_DEC (SImode, stack_pointer_rtx);
 	      insn = gen_rtx_MEM (SImode, insn);
 	      insn = gen_rtx_SET (VOIDmode, insn, ip_rtx);
 	      insn = emit_insn (insn);
-	      /* RTX_FRAME_RELATED_P (insn) = 1; */
+
 	      fp_offset = 4;
+
+	      /* Just tell the dwarf backend that we adjusted SP.  */
+	      dwarf = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+				   gen_rtx_PLUS (SImode, stack_pointer_rtx,
+						 GEN_INT (-fp_offset)));
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+						    dwarf, REG_NOTES (insn));
 	    }
 	  else
 	    /* FIXME - the way to handle this situation is to allow
@@ -7921,7 +7938,6 @@ arm_expand_prologue ()
 	      insn = gen_rtx_REG (SImode, 3);
 	      insn = gen_rtx_SET (SImode, ip_rtx, insn);
 	      insn = emit_insn (insn);
-	      /* RTX_FRAME_RELATED_P (insn) = 1; */
 	    }
 	  else /* if (current_function_pretend_args_size == 0) */
 	    {
@@ -7929,7 +7945,6 @@ arm_expand_prologue ()
 	      insn = gen_rtx_MEM (SImode, insn);
 	      insn = gen_rtx_SET (SImode, ip_rtx, insn);
 	      insn = emit_insn (insn);
-	      /* RTX_FRAME_RELATED_P (insn) = 1; */
 	    }
 	}
     }
@@ -8817,16 +8832,12 @@ arm_init_builtins ()
 
   /* Initialize arm V5 builtins.  */
   if (arm_arch5)
-    {
-      def_builtin ("__builtin_clz", int_ftype_int, ARM_BUILTIN_CLZ);
-    }
+    def_builtin ("__builtin_clz", int_ftype_int, ARM_BUILTIN_CLZ);
 
   /* Initialize arm V5E builtins.  */
   if (arm_arch5e)
-    {
-      def_builtin ("__builtin_prefetch", void_ftype_pchar,
-		   ARM_BUILTIN_PREFETCH);
-    }
+    def_builtin ("__builtin_prefetch", void_ftype_pchar,
+		 ARM_BUILTIN_PREFETCH);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -9419,6 +9430,7 @@ is_called_in_ARM_mode (func)
 }
 
 /* The bits which aren't usefully expanded as rtl. */
+
 const char *
 thumb_unexpanded_epilogue ()
 {
@@ -9483,7 +9495,8 @@ thumb_unexpanded_epilogue ()
       if (mask == 0)
 	/* Oh dear!  We have no low registers into which we can pop
            high registers!  */
-	fatal ("No low registers available for popping high registers");
+	internal_error
+	  ("no low registers available for popping high registers");
       
       for (next_hi_reg = 8; next_hi_reg < 13; next_hi_reg++)
 	if (regs_ever_live[next_hi_reg] && !call_used_regs[next_hi_reg]
@@ -10060,7 +10073,7 @@ output_thumb_prologue (f)
 
 const char *
 thumb_load_double_from_address (operands)
-     rtx * operands;
+     rtx *operands;
 {
   rtx addr;
   rtx base;
@@ -10069,13 +10082,10 @@ thumb_load_double_from_address (operands)
   rtx arg2;
   
   if (GET_CODE (operands[0]) != REG)
-    fatal ("thumb_load_double_from_address: destination is not a register");
+    abort ();
   
   if (GET_CODE (operands[1]) != MEM)
-    {
-      debug_rtx (operands[1]);
-      fatal ("thumb_load_double_from_address: source is not a computed memory address");
-    }
+    abort ();
 
   /* Get the memory address.  */
   addr = XEXP (operands[1], 0);
@@ -10118,7 +10128,7 @@ thumb_load_double_from_address (operands)
 	base = arg1, offset = arg2;
   
       if (GET_CODE (base) != REG)
-	fatal ("thumb_load_double_from_address: base is not a register");
+	abort ();
 
       /* Catch the case of <address> = <reg> + <reg> */
       if (GET_CODE (offset) == REG)
@@ -10175,8 +10185,7 @@ thumb_load_double_from_address (operands)
       break;
       
     default:
-      debug_rtx (operands[1]);
-      fatal ("thumb_load_double_from_address: Unhandled address calculation");
+      abort ();
       break;
     }
   

@@ -258,7 +258,7 @@ cp_convert_to_pointer (type, expr, force)
       if (TYPE_PTRMEMFUNC_P (type))
 	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0);
 
-      if (flag_new_abi && TYPE_PTRMEM_P (type))
+      if (TYPE_PTRMEM_P (type))
 	/* Under the new ABI, a NULL pointer-to-member is represented
 	   by -1, not by zero.  */
 	expr = build_int_2 (-1, -1);
@@ -380,6 +380,7 @@ build_up_reference (type, arg, flags)
 	arg = get_temp_name (argtype);
       else
 	{
+	  maybe_push_cleanup_level (argtype);
 	  arg = pushdecl (build_decl (VAR_DECL, NULL_TREE, argtype));
 	  DECL_ARTIFICIAL (arg) = 1;
 	}

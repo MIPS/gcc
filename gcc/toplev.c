@@ -63,6 +63,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "diagnostic.h"
 #include "ssa.h"
+#include "params.h"
 
 #ifndef ACCUMULATE_OUTGOING_ARGS
 #define ACCUMULATE_OUTGOING_ARGS 0
@@ -157,6 +158,9 @@ extern char **environ;
 
 extern int size_directive_output;
 extern tree last_assemble_variable_decl;
+
+extern void calc_def_use_chains PARAMS ((FILE *));
+extern void reg_alloc PARAMS ((FILE *));
 
 static void set_target_switch PARAMS ((const char *));
 static const char *decl_name PARAMS ((tree, int));
@@ -260,7 +264,7 @@ enum dump_file_index
   DFI_cse,
   DFI_addressof,
   DFI_ssa,
-  DFI_dce,
+  DFI_ssa_dce,
   DFI_ussa,
   DFI_gcse,
   DFI_loop,
@@ -293,7 +297,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"       h      o q   u     "
-	"       H  K   OPQ  TUVW YZ"
+	"       H  K   OPQ  TUVW  Z"
 */
 
 struct dump_file_info dump_file[DFI_MAX] =
@@ -810,8 +814,8 @@ int flag_gnu_linker = 1;
 /* Enable SSA.  */
 int flag_ssa = 0;
 
-/* Enable dead code elimination. */
-int flag_dce = 0;
+/* Enable SSA dead code elimination. */
+int flag_ssa_dce = 0;
 
 /* Tag all structures with __attribute__(packed).  */
 int flag_pack_struct = 0;
@@ -888,6 +892,8 @@ int flag_bounds_check = 0;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
+int flag_new_regalloc = 0;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -955,6 +961,14 @@ int flag_leading_underscore = -1;
 
 /* The user symbol prefix after having resolved same.  */
 const char *user_label_prefix;
+
+static const param_info lang_independent_params[] = {
+#define DEFPARAM(ENUM, OPTION, HELP, DEFAULT) \
+  { OPTION, DEFAULT },
+#include "params.def"
+#undef DEFPARAM
+  { NULL, 0 }
+};
 
 /* A default for same.  */
 #ifndef USER_LABEL_PREFIX
@@ -1044,9 +1058,9 @@ lang_independent_options f_options[] =
   {"pretend-float", &flag_pretend_float, 1,
    "Pretend that host and target use the same FP format"},
   {"schedule-insns", &flag_schedule_insns, 1,
-   "Reschedule instructions to avoid pipeline stalls"},
+   "Reschedule instructions before register allocation"},
   {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
-  "Run two passes of the instruction scheduler"},
+   "Reschedule instructions after register allocation"},
   {"sched-interblock",&flag_schedule_interblock, 1,
    "Enable scheduling across basic blocks" },
   {"sched-spec",&flag_schedule_speculative, 1,
@@ -1128,8 +1142,8 @@ lang_independent_options f_options[] =
    "Instrument function entry/exit with profiling calls"},
   {"ssa", &flag_ssa, 1,
    "Enable SSA optimizations" },
-  {"dce", &flag_dce, 1,
-   "Enable dead code elimination" },
+  {"dce", &flag_ssa_dce, 1,
+   "Enable SSA dead code elimination" },
   {"leading-underscore", &flag_leading_underscore, 1,
    "External symbols have a leading underscore" },
   {"ident", &flag_no_ident, 0,
@@ -1152,6 +1166,8 @@ lang_independent_options f_options[] =
    "Report on permanent memory allocation at end of run"},
   { "trapv", &flag_trapv, 1,
     "Trap for signed overflow in addition / subtraction / multiplication." },
+  { "new-ra", &flag_new_regalloc, 1,
+    "Use graph coloring register allocation." },
 };
 
 /* Table of language-specific options.  */
@@ -1660,47 +1676,14 @@ do_float_handler (fn, data)
   return 1;
 }
 
-/* Specify, in HANDLER, where to longjmp to when a floating arithmetic
-   error happens, pushing the previous specification into OLD_HANDLER.
-   Return an indication of whether there was a previous handler in effect.  */
-
-int
-push_float_handler (handler, old_handler)
-     jmp_buf handler, old_handler;
-{
-  int was_handled = float_handled;
-
-  float_handled = 1;
-  if (was_handled)
-    memcpy ((char *) old_handler, (char *) float_handler,
-	   sizeof (float_handler));
-
-  memcpy ((char *) float_handler, (char *) handler, sizeof (float_handler));
-  return was_handled;
-}
-
-/* Restore the previous specification of whether and where to longjmp to
-   when a floating arithmetic error happens.  */
-
-void
-pop_float_handler (handled, handler)
-     int handled;
-     jmp_buf handler;
-{
-  float_handled = handled;
-  if (handled)
-    bcopy ((char *) handler, (char *) float_handler, sizeof (float_handler));
-}
-
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
    into ICE messages, which is much more user friendly.  */
 
 static void
 crash_signal (signo)
-     /* If this is missing, some compilers complain.  */
      int signo;
 {
-  fatal ("Internal error: %s.", strsignal (signo));
+  internal_error ("Internal error: %s", strsignal (signo));
 }
 
 /* Strip off a legitimate source ending from the input string NAME of
@@ -1849,7 +1832,7 @@ open_dump_file (index, decl)
 
   rtl_dump_file = fopen (dump_name, open_arg);
   if (rtl_dump_file == NULL)
-    pfatal_with_name (dump_name);
+    fatal_io_error ("can't open %s", dump_name);
 
   free (dump_name);
 
@@ -2207,7 +2190,7 @@ compile_file (name)
     {
       aux_info_file = fopen (aux_info_file_name, "w");
       if (aux_info_file == 0)
-	pfatal_with_name (aux_info_file_name);
+	fatal_io_error ("can't open %s", aux_info_file_name);
     }
 
   /* Open assembler code output file.  Do this even if -fsyntax-only is on,
@@ -2232,7 +2215,7 @@ compile_file (name)
       else
         asm_out_file = fopen (asm_file_name, "w");
       if (asm_out_file == 0)
-        pfatal_with_name (asm_file_name);
+	fatal_io_error ("can't open %s for writing", asm_file_name);
     }
 
 #ifdef IO_BUFFER_SIZE
@@ -2509,8 +2492,10 @@ compile_file (name)
 
   finish_parse ();
 
-  if (ferror (asm_out_file) != 0 || fclose (asm_out_file) != 0)
-    fatal_io_error (asm_file_name);
+  if (ferror (asm_out_file) != 0)
+    fatal_io_error ("error writing to %s", asm_file_name);
+  if (fclose (asm_out_file) != 0)
+    fatal_io_error ("error closing %s", asm_file_name);
 
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)
@@ -2698,6 +2683,24 @@ note_deferral_of_defined_inline_function (decl)
       /* Reset CURRENT_FUNCTION_DECL.  */
       current_function_decl = saved_cfd;
     }
+#endif
+}
+
+/* FNDECL is an inline function which is about to be emitted out of line.
+   Do any preparation, such as emitting abstract debug info for the inline
+   before it gets mangled by optimization.  */
+
+void
+note_outlining_of_inline_function (fndecl)
+     tree fndecl ATTRIBUTE_UNUSED;
+{
+#ifdef DWARF2_DEBUGGING_INFO
+  /* The DWARF 2 backend tries to reduce debugging bloat by not emitting
+     the abstract description of inline functions until something tries to
+     reference them.  Force it out now, before optimizations mangle the
+     block tree.  */
+  if (write_symbols == DWARF2_DEBUG)
+    dwarf2out_abstract_function (fndecl);
 #endif
 }
 
@@ -3005,9 +3008,11 @@ rest_of_compilation (decl)
 	}
 
       tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
-      /* If we are not running the second CSE pass, then we are no longer
-	 expecting CSE to be run.  */
-      cse_not_expected = !flag_rerun_cse_after_loop;
+
+      /* If we are not running more CSE passes, then we are no longer
+	 expecting CSE to be run.  But always rerun it in a cheap mode.  */
+      cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
+      flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
 
       if (tem || optimize > 1)
 	{
@@ -3069,20 +3074,19 @@ rest_of_compilation (decl)
 	 blocks, e.g., calling find_basic_blocks () or cleanup_cfg (),
 	 may cause problems.  */
 
-      if (flag_dce)
+      if (flag_ssa_dce)
 	{
 	  /* Remove dead code. */
 
 	  timevar_push (TV_DEAD_CODE_ELIM);
-	  open_dump_file (DFI_dce, decl);
+	  open_dump_file (DFI_ssa_dce, decl);
 
 	  insns = get_insns ();
 	  eliminate_dead_code();
 
-	  close_dump_file (DFI_dce, print_rtl_with_bb, insns);
+	  close_dump_file (DFI_ssa_dce, print_rtl_with_bb, insns);
 	  timevar_pop (TV_DEAD_CODE_ELIM);
 	}
-
       /* Convert from SSA form.  */
 
       timevar_push (TV_FROM_SSA);
@@ -3106,6 +3110,8 @@ rest_of_compilation (decl)
 
   if (optimize > 0 && flag_gcse)
     {
+      int tem2 = 0;
+
       timevar_push (TV_GCSE);
       open_dump_file (DFI_gcse, decl);
 
@@ -3113,14 +3119,34 @@ rest_of_compilation (decl)
       cleanup_cfg (insns);
       tem = gcse_main (insns, rtl_dump_file);
 
-      /* If gcse altered any jumps, rerun jump optimizations to clean
-	 things up.  */
-      if (tem)
+      /* If -fexpensive-optimizations, re-run CSE to clean up things done
+	 by gcse.  */
+      if (flag_expensive_optimizations)
 	{
+	  timevar_push (TV_CSE);
+	  reg_scan (insns, max_reg_num (), 1);
+	  tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	  timevar_pop (TV_CSE);
+	  cse_not_expected = !flag_rerun_cse_after_loop;
+	}
+      
+      /* If gcse or cse altered any jumps, rerun jump optimizations to clean
+	 things up.  Then possibly re-run CSE again.  */
+      while (tem || tem2)
+	{
+	  tem = tem2 = 0;
 	  timevar_push (TV_JUMP);
 	  jump_optimize (insns, !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
 			 !JUMP_AFTER_REGSCAN);
 	  timevar_pop (TV_JUMP);
+
+	  if (flag_expensive_optimizations)
+	    {
+	      timevar_push (TV_CSE);
+	      reg_scan (insns, max_reg_num (), 1);
+	      tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	      timevar_pop (TV_CSE);
+	    }
 	}
 
       close_dump_file (DFI_gcse, print_rtl, insns);
@@ -3403,12 +3429,20 @@ rest_of_compilation (decl)
 
   timevar_push (TV_GLOBAL_ALLOC);
   open_dump_file (DFI_greg, decl);
-
   if (! register_life_up_to_date)
     recompute_reg_usage (insns, ! optimize_size);
   regclass (insns, max_reg_num (), rtl_dump_file);
-  init_new_regalloc ();
-
+  reg_alloc (rtl_dump_file);
+  allocate_reg_info(max_regno, FALSE, TRUE);
+  allocate_reg_life_data ();
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_REG_INFO);
+  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+  life_analysis (insns, rtl_dump_file, PROP_FINAL);
+  recompute_reg_usage (insns, ! optimize_size);
+  regclass (insns, max_reg_num (), rtl_dump_file);
+  build_insn_chain (insns);
+  rebuild_label_notes_after_reload = 1;
+  failure = reload (insns, 0);
   close_dump_file (DFI_greg, print_rtl_with_bb, insns);
   timevar_pop (TV_GLOBAL_ALLOC);
 
@@ -4018,8 +4052,12 @@ decode_f_option (arg)
 
   if ((option_value = skip_leading_substring (arg, "inline-limit-"))
       || (option_value = skip_leading_substring (arg, "inline-limit=")))
-    inline_max_insns =
-      read_integral_parameter (option_value, arg - 2, inline_max_insns);
+    {
+      int val = 
+	read_integral_parameter (option_value, arg - 2,
+				 MAX_INLINE_INSNS);
+      set_param_value ("max-inline-insns", val);
+    }
 #ifdef INSN_SCHEDULING
   else if ((option_value = skip_leading_substring (arg, "sched-verbose=")))
     fix_sched_param ("verbose", option_value);
@@ -4123,8 +4161,7 @@ decode_W_option (arg)
     {
       larger_than_size = read_integral_parameter (option_value, arg - 2, -1);
 
-      if (larger_than_size != -1)
-	warn_larger_than = 1;
+      warn_larger_than = larger_than_size != -1;
     }
   else if (!strcmp (arg, "unused"))
     {
@@ -4306,6 +4343,40 @@ independent_decode_option (argc, argv)
       exit (0);
     }
 
+  /* Handle '--param <name>=<value>'.  */
+  if (strcmp (arg, "-param") == 0)
+    {
+      char *equal;
+
+      if (argc == 1)
+	{
+	  error ("-param option missing argument");
+	  return 1;
+	}
+
+      /* Get the '<name>=<value' parameter.  */
+      arg = argv[1];
+      /* Look for the `='.  */
+      equal = strchr (arg, '=');
+      if (!equal) 
+	error ("invalid --param option: %s", arg);
+      else 
+	{
+	  int val;
+
+	  /* Zero out the `=' sign so that we get two separate strings.  */
+	  *equal = '\0';
+	  /* Figure out what value is specified.  */
+	  val = read_integral_parameter (equal + 1, NULL, INVALID_PARAM_VAL);
+	  if (val != INVALID_PARAM_VAL)
+	    set_param_value (arg, val);
+	  else
+	    error ("invalid parameter value `%s'", equal + 1);
+	}
+
+      return 2;
+    }
+      
   if (*arg == 'Y')
     arg++;
 
@@ -4546,6 +4617,9 @@ main (argc, argv)
 
   /* Initialize the diagnostics reporting machinery.  */
   initialize_diagnostics ();
+
+  /* Register the language-independent parameters.  */
+  add_params (lang_independent_params, LAST_PARAM);
 
   /* Perform language-specific options intialization.  */
   if (lang_hooks.init_options)

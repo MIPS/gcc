@@ -44,6 +44,7 @@ struct cpp_macro
   unsigned int fun_like : 1;	/* If a function-like macro.  */
   unsigned int variadic : 1;	/* If a variadic macro.  */
   unsigned int disabled : 1;	/* If macro is disabled.  */
+  unsigned int syshdr   : 1;	/* If macro defined in system header.  */
 };
 
 typedef struct macro_arg macro_arg;
@@ -146,7 +147,7 @@ builtin_macro (pfile, token)
      cpp_reader *pfile;
      cpp_token *token;
 {
-  unsigned char flags = token->flags & PREV_WHITE;
+  unsigned char flags = ((token->flags & PREV_WHITE) | AVOID_LPASTE);
   cpp_hashnode *node = token->val.node;
 
   switch (node->value.builtin)
@@ -214,6 +215,10 @@ builtin_macro (pfile, token)
 		   tb->tm_hour, tb->tm_min, tb->tm_sec);
 	}
       *token = node->value.builtin == BT_DATE ? pfile->date: pfile->time;
+      break;
+
+    case BT_WEAK:
+      make_number_token (pfile, token, SUPPORTS_ONE_ONLY);
       break;
 
     default:
@@ -461,7 +466,7 @@ paste_all_tokens (pfile, lhs)
   /* The pasted token has the PREV_WHITE flag of the LHS, is no longer
      PASTE_LEFT, and is subject to macro expansion.  */
   lhs->flags &= ~(PREV_WHITE | PASTE_LEFT | NO_EXPAND);
-  lhs->flags |= orig_flags & PREV_WHITE;
+  lhs->flags |= orig_flags & (PREV_WHITE | AVOID_LPASTE);
 }
 
 /* Reads the unexpanded tokens of a macro argument into ARG.  VAR_ARGS
@@ -558,7 +563,7 @@ parse_args (pfile, node)
 
       if (argc + 1 == macro->paramc && macro->variadic)
 	{
-	  if (CPP_PEDANTIC (pfile))
+	  if (CPP_PEDANTIC (pfile) && ! macro->syshdr)
 	    cpp_pedwarn (pfile, "ISO C99 requires rest arguments to be used");
 	}
       else
@@ -612,7 +617,7 @@ funlike_invocation_p (pfile, node, list)
 
   if (maybe_paren.type == CPP_OPEN_PAREN)
     args = parse_args (pfile, node);
-  else if (CPP_WTRADITIONAL (pfile))
+  else if (CPP_WTRADITIONAL (pfile) && ! node->value.macro->syshdr)
     cpp_warning (pfile,
 	 "function-like macro \"%s\" must be used with arguments in traditional C",
 		 node->name);
@@ -671,13 +676,13 @@ enter_macro_context (pfile, node)
       list.limit = macro->expansion + macro->count;
     }
 
+  /* Only push a macro context for non-empty replacement lists.  */
   if (list.first != list.limit)
     {
-      /* Push its context.  */
       context = next_context (pfile);
       context->list = list;
       context->macro = macro;
-
+      
       /* Disable the macro within its expansion.  */
       macro->disabled = 1;
     }
@@ -712,6 +717,7 @@ replace_args (pfile, macro, args, list)
      macro_arg *args;
      struct toklist *list;
 {
+  unsigned char flags = 0;
   unsigned int i, total;
   const cpp_token *src, *limit;
   cpp_token *dest;
@@ -800,15 +806,24 @@ replace_args (pfile, macro, args, list)
 	    /* The first token gets PREV_WHITE of the CPP_MACRO_ARG.  */
 	    dest->flags &= ~PREV_WHITE;
 	    dest->flags |= src->flags & PREV_WHITE;
+	    dest->flags |= AVOID_LPASTE;
 
 	    /* The last token gets the PASTE_LEFT of the CPP_MACRO_ARG.  */
 	    dest[count - 1].flags |= src->flags & PASTE_LEFT;
 
 	    dest += count;
 	  }
+
+	/* The token after the argument must avoid an accidental paste.  */
+	flags = AVOID_LPASTE;
       }
     else
-      *dest++ = *src;
+      {
+	*dest = *src;
+	dest->flags |= flags;
+	dest++;
+	flags = 0;
+      }
 
   list->limit = dest;
 
@@ -899,8 +914,6 @@ cpp_get_token (pfile, token)
      cpp_reader *pfile;
      cpp_token *token;
 {
-  unsigned char flags = 0;
-
   for (;;)
     {
       cpp_context *context = pfile->context;
@@ -913,16 +926,21 @@ cpp_get_token (pfile, token)
       else if (context->list.first != context->list.limit)
 	{
 	  *token = *context->list.first++;
-	  token->flags |= flags;
-	  flags = 0;
+	  token->flags |= pfile->buffer->saved_flags;
+	  pfile->buffer->saved_flags = 0;
 	  /* PASTE_LEFT tokens can only appear in macro expansions.  */
 	  if (token->flags & PASTE_LEFT)
-	    paste_all_tokens (pfile, token);
+	    {
+	      paste_all_tokens (pfile, token);
+	      pfile->buffer->saved_flags = AVOID_LPASTE;
+	    }
 	}
       else
 	{
 	  if (context->macro)
 	    {
+	      /* Avoid accidental paste at the end of a macro.  */
+	      pfile->buffer->saved_flags |= AVOID_LPASTE;
 	      _cpp_pop_context (pfile);
 	      continue;
 	    }
@@ -948,16 +966,19 @@ cpp_get_token (pfile, token)
 	  if (node->flags & NODE_BUILTIN)
 	    {
 	      builtin_macro (pfile, token);
+	      pfile->buffer->saved_flags = AVOID_LPASTE;
 	      break;
 	    }
-
-	  /* Merge PREV_WHITE of tokens.  */
-	  flags = token->flags & PREV_WHITE;
 
 	  if (node->value.macro->disabled)
 	    token->flags |= NO_EXPAND;
 	  else if (enter_macro_context (pfile, node))
-	    continue;
+	    {
+	      /* Pass AVOID_LPASTE and our PREV_WHITE to next token.  */
+	      pfile->buffer->saved_flags = ((token->flags & PREV_WHITE)
+					    | AVOID_LPASTE);
+	      continue;
+	    }
 	}
 
       /* Don't interpret _Pragma within directives.  The standard is
@@ -973,6 +994,18 @@ cpp_get_token (pfile, token)
 
   if (pfile->la_write)
     save_lookahead_token (pfile, token);
+}
+
+/* Returns true if we're expanding an object-like macro that was
+   defined in a system header.  Just checks the macro at the top of
+   the stack.  Used for diagnostic suppression.  */
+int
+cpp_sys_objmacro_p (pfile)
+     cpp_reader *pfile;
+{
+  cpp_macro *macro = pfile->context->macro;
+
+  return macro && ! macro->fun_like && macro->syshdr;
 }
 
 /* Read each token in, until EOF.  Directives are transparently
@@ -1432,6 +1465,9 @@ _cpp_create_definition (pfile, node)
   macro->disabled = (macro->count == 1 && !macro->fun_like
 		     && macro->expansion[0].type == CPP_NAME
 		     && macro->expansion[0].val.node == node);
+
+  /* To suppress some diagnostics.  */
+  macro->syshdr = pfile->buffer->sysp != 0;
 
   /* Commit the memory.  */
   POOL_COMMIT (&pfile->macro_pool, macro->count * sizeof (cpp_token));

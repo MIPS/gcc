@@ -1928,6 +1928,19 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
   /* For functions, static overrides non-static.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
+      /* If we're redefining a function previously defined as extern
+	 inline, make sure we emit debug info for the inline before we
+	 throw it away, in case it was inlined into a function that hasn't
+	 been written out yet.  */
+      if (new_is_definition && DECL_INITIAL (olddecl) && TREE_USED (olddecl))
+	{
+	  note_outlining_of_inline_function (olddecl);
+
+	  /* The new defn must not be inline.
+	     FIXME what about -finline-functions? */
+	  DECL_INLINE (newdecl) = 0;
+	}
+
       TREE_PUBLIC (newdecl) &= TREE_PUBLIC (olddecl);
       /* This is since we don't automatically
 	 copy the attributes of NEWDECL into OLDDECL.  */
@@ -2815,6 +2828,7 @@ lookup_tag (code, name, binding_level, thislevel_only)
      int thislevel_only;
 {
   register struct binding_level *level;
+  int thislevel = 1;
 
   for (level = binding_level; level; level = level->level_chain)
     {
@@ -2829,12 +2843,22 @@ lookup_tag (code, name, binding_level, thislevel_only)
 		  pending_invalid_xref = name;
 		  pending_invalid_xref_file = input_filename;
 		  pending_invalid_xref_line = lineno;
+		  /* If in the same binding level as a declaration as a tag
+		     of a different type, this must not be allowed to
+		     shadow that tag, so give the error immediately.
+		     (For example, "struct foo; union foo;" is invalid.)  */
+		  if (thislevel)
+		    pending_xref_error ();
 		}
 	      return TREE_VALUE (tail);
 	    }
 	}
-      if (thislevel_only && ! level->tag_transparent)
-	return NULL_TREE;
+      if (! level->tag_transparent)
+	{
+	  if (thislevel_only)
+	    return NULL_TREE;
+	  thislevel = 0;
+	}
     }
   return NULL_TREE;
 }
@@ -3962,7 +3986,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  /* Issue a warning if this is an ISO C 99 program or if -Wreturn-type
 	     and this is a function, or if -Wimplicit; prefer the former
 	     warning since it is more explicit.  */
-	  if ((warn_implicit_int || warn_return_type) && funcdef_flag)
+	  if ((warn_implicit_int || warn_return_type || flag_isoc99)
+	      && funcdef_flag)
 	    warn_about_return_type = 1;
 	  else if (warn_implicit_int || flag_isoc99)
 	    pedwarn_c99 ("type defaults to `int' in declaration of `%s'",
@@ -5112,9 +5137,6 @@ xref_tag (code, name)
   ref = make_node (code);
   if (code == ENUMERAL_TYPE)
     {
-      /* (In ANSI, Enums can be referred to only if already defined.)  */
-      if (pedantic)
-	pedwarn ("ISO C forbids forward references to `enum' types");
       /* Give the type a default layout like unsigned int
 	 to avoid crashing if it does not get defined.  */
       TYPE_MODE (ref) = TYPE_MODE (unsigned_type_node);
@@ -5602,13 +5624,19 @@ finish_enum (enumtype, values, attributes)
   unsign = (tree_int_cst_sgn (minnode) >= 0);
   precision = MAX (min_precision (minnode, unsign),
 		   min_precision (maxnode, unsign));
-  if (!TYPE_PACKED (enumtype))
-    precision = MAX (precision, TYPE_PRECISION (integer_type_node));
-  if (type_for_size (precision, unsign) == 0)
+  if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
-      warning ("enumeration values exceed range of largest integer");
-      precision = TYPE_PRECISION (long_long_integer_type_node);
+      tree narrowest = type_for_size (precision, unsign);
+      if (narrowest == 0)
+	{
+	  warning ("enumeration values exceed range of largest integer");
+	  narrowest = long_long_integer_type_node;
+	}
+
+      precision = TYPE_PRECISION (narrowest);
     }
+  else
+    precision = TYPE_PRECISION (integer_type_node);
 
   if (precision == TYPE_PRECISION (integer_type_node))
     enum_value_type = type_for_size (precision, 0);
@@ -6728,7 +6756,8 @@ c_expand_body (fndecl, nested_p)
     {
       tree ret_type = TREE_TYPE (TREE_TYPE (fndecl));
 
-      if (ret_type && TREE_CODE (TYPE_SIZE_UNIT (ret_type)) == INTEGER_CST
+      if (ret_type && TYPE_SIZE_UNIT (ret_type)
+	  && TREE_CODE (TYPE_SIZE_UNIT (ret_type)) == INTEGER_CST
 	  && 0 < compare_tree_int (TYPE_SIZE_UNIT (ret_type),
 				   larger_than_size))
 	{
