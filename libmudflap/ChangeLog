@@ -1,3 +1,22 @@
+2003-03-28  Frank Ch. Eigler  <fche@redhat.com>
+
+	* configure.in: Check for target gettimeofday, signal, some headers.
+	* mf-impl.h (__mf_opts): Add new "sigusr1_report" field.  Comment
+	out inop multi_threaded field.
+	* mf-runtime.c (options): Handle new "-sigusr1-report" option.
+	(__mf_set_options): Correct handling of "-help".
+	(__mf_sigusr1_respond): New function to manage SIGUSR1 response.
+	(__mf_check, __mf_register, __mf_unregister): Call it.
+	(__mf_insert_new_object, __mf_unregister): Respect HAVE_GETTIMEOFDAY.
+	(__mf_report_leaks): Make callable
+	(__mf_tree_analyze): Traverse in-order.  Accumulate address bit
+	distribution statistics.
+	(__mf_adapt_cache): Rewrite shift guessing logic based on address
+	bit distributions.
+	* config.h.in, configure: Regenerated.
+	* testsuite/libmudflap.c/fail27-frag.c: New test.
+	* testsuite/libmudflap.c/pass36-frag.c: New test.
+
 2003-03-11  Frank Ch. Eigler  <fche@redhat.com>
 
 	* mf-runtime.h.in: Tweak.

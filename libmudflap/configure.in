@@ -25,11 +25,10 @@ AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
 
-dnl Should check for this header for the host/target, not the build platform
 AC_CHECK_HEADER(stdint.h, [MF_HAVE_STDINT_H=1], [MF_HAVE_STDINT_H=0])
 AC_SUBST(MF_HAVE_STDINT_H)
-AC_CHECK_HEADERS(stdint.h execinfo.h)
-AC_CHECK_FUNCS(backtrace backtrace_symbols)
+AC_CHECK_HEADERS(stdint.h execinfo.h signal.h)
+AC_CHECK_FUNCS(backtrace backtrace_symbols gettimeofday signal)
 
 if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CC --features |
    grep "enable shared" > /dev/null; then

@@ -84,6 +84,9 @@ struct __mf_options
   /* Collect and emit statistics. */
   unsigned collect_stats;
 
+  /* Set up a SIGUSR1 -> __mf_report handler. */
+  unsigned sigusr1_report;
+
   /* Execute internal checking code. */
   unsigned internal_checking;
 
@@ -108,8 +111,8 @@ struct __mf_options
   /* Emit internal tracing message. */
   unsigned verbose_trace;
 
-  /* Support multiple threads. */
-  unsigned multi_threaded;
+  /* Support multiple threads.  XXX: not yet implemented. */
+  /* unsigned multi_threaded; */
 
   /* Wipe stack/heap objects upon unwind.  */
   unsigned wipe_stack;

@@ -16,6 +16,9 @@ XXX: libgcc license?
 #ifdef HAVE_EXECINFO_H
 #include <execinfo.h>
 #endif
+#ifdef HAVE_SIGNAL_H
+#include <signal.h>
+#endif
 #include <assert.h>
 
 #include <string.h>
@@ -108,7 +111,7 @@ __mf_set_default_options ()
   __mf_opts.abbreviate = 1;
   __mf_opts.check_initialization = 1;
   __mf_opts.verbose_violations = 1;
-  __mf_opts.multi_threaded = 0;
+  /* __mf_opts.multi_threaded = 0; */
   __mf_opts.free_queue_length = 4;
   __mf_opts.persistent_count = 100;
   __mf_opts.crumple_zone = 32;
@@ -169,6 +172,11 @@ options [] =
     {"collect-stats", 
      "collect statistics on mudflap's operation",
      set_option, 1, &__mf_opts.collect_stats},
+#if HAVE_SIGNAL
+    {"sigusr1-report",
+     "print report upon SIGUSR1",
+     set_option, 1, &__mf_opts.sigusr1_report},
+#endif
     {"internal-checking", 
      "perform more expensive internal checking",
      set_option, 1, &__mf_opts.internal_checking},
@@ -188,9 +196,11 @@ options [] =
      "abbreviate repetitive listings",
      set_option, 1, &__mf_opts.abbreviate},
     /* XXX: this should be sensitive to gcc --enable-threading= setting */
+    /*
     {"multi-threaded", 
      "support multiple threads",
      set_option, 1, &__mf_opts.multi_threaded},
+    */
     {"wipe-stack",
      "wipe stack objects at unwind",
      set_option, 1, &__mf_opts.wipe_stack},
@@ -242,7 +252,7 @@ __mf_usage ()
 
   fprintf (stderr, 
 	   "This is a GCC \"mudflap\" memory-checked binary.\n"
-	   "Mudflap is Copyright (C) 2002 Free Software Foundation, Inc.\n"
+	   "Mudflap is Copyright (C) 2002-2003 Free Software Foundation, Inc.\n"
 	   "\n"
 	   "The mudflap code can be controlled by an environment variable:\n"
 	   "\n"
@@ -311,8 +321,7 @@ __mf_set_options (const char *optstr)
 		strncmp (optstr, "help", 4) == 0)
 	      {
 		/* Caller will print help and exit.  */
-		rc = -1;
-		break;
+		return -1;
 	      }
 	    
 	    if (strncmp (optstr, "no-", 3) == 0)
@@ -376,6 +385,9 @@ __mf_set_options (const char *optstr)
 
   TRACE ("mf: set options from `%s'\n", saved_optstr);
 
+  /* Call this unconditionally, in case -sigusr1-report was toggled. */
+  __mf_sigusr1_respond ();
+
   return rc;
 }
 
@@ -435,6 +447,8 @@ static unsigned long __mf_total_register_size [__MF_TYPE_MAX+1];
 static unsigned long __mf_count_unregister;
 static unsigned long __mf_total_unregister_size;
 static unsigned long __mf_count_violation [__MF_VIOL_WATCH+1];
+static unsigned long __mf_sigusr1_received;
+static unsigned long __mf_sigusr1_handled;
 
 
 /* ------------------------------------------------------------------------ */
@@ -487,7 +501,7 @@ static void __mf_adapt_cache ();
 static void __mf_unlink_object (__mf_object_tree_t *obj);
 static void __mf_describe_object (__mf_object_t *obj);
 static unsigned __mf_watch_or_not (void *ptr, size_t sz, char flag);
-
+static void __mf_sigusr1_respond ();
 
 
 /* ------------------------------------------------------------------------ */
@@ -570,9 +584,12 @@ void __mf_check (void *ptr, size_t sz, int type, const char *location)
   uintptr_t ptr_high = CLAMPSZ (ptr, sz);
   struct __mf_cache old_entry = *entry;
 
+  if (UNLIKELY (__mf_opts.sigusr1_report))
+    __mf_sigusr1_respond ();
+
   BEGIN_RECURSION_PROTECT;
-  TRACE ("mf: check ptr=%08lx size=%lu %s location=`%s'\n",
-	 ptr, sz, (type == 0 ? "read" : "write"), location);
+  TRACE ("mf: check ptr=%08lx b=%u size=%lu %s location=`%s'\n",
+	 ptr, entry_idx, sz, (type == 0 ? "read" : "write"), location);
   
   switch (__mf_opts.mudflap_mode)
     {
@@ -816,7 +833,9 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
   new_obj->data.type = type;
   new_obj->data.name = name;
   new_obj->data.alloc_pc = pc;
+#if HAVE_GETTIMEOFDAY
   gettimeofday (& new_obj->data.alloc_time, NULL);
+#endif
   
   if (__mf_opts.backtrace > 0 && (type == __MF_TYPE_HEAP || type == __MF_TYPE_HEAP_I))
     new_obj->data.alloc_backtrace_size = 
@@ -873,6 +892,10 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 				(type > __MF_TYPE_MAX) ? 0 : 
 				type] += sz;
     }
+
+
+  if (UNLIKELY (__mf_opts.sigusr1_report))
+  __mf_sigusr1_respond ();
 
   switch (__mf_opts.mudflap_mode)
     {
@@ -1050,8 +1073,11 @@ void
 __mf_unregister (void *ptr, size_t sz)
 {
   DECLARE (void, free, void *ptr);
-  BEGIN_RECURSION_PROTECT;
 
+  if (UNLIKELY (__mf_opts.sigusr1_report))
+  __mf_sigusr1_respond ();
+
+  BEGIN_RECURSION_PROTECT;
   TRACE ("mf: unregister ptr=%08lx size=%lu\n", ptr, sz);
 
   switch (__mf_opts.mudflap_mode)
@@ -1120,8 +1146,10 @@ __mf_unregister (void *ptr, size_t sz)
 	    old_obj->data.deallocated_p = 1;
 	    old_obj->left = old_obj->right = NULL;
 	    old_obj->data.dealloc_pc = (uintptr_t) __builtin_return_address (0);
+#if HAVE_GETTIMEOFDAY
 	    gettimeofday (& old_obj->data.dealloc_time, NULL);
-	    
+#endif
+
 	    if (__mf_opts.backtrace > 0 && old_obj->data.type == __MF_TYPE_HEAP)
 	      old_obj->data.dealloc_backtrace_size = 
 		__mf_backtrace (& old_obj->data.dealloc_backtrace,
@@ -1265,10 +1293,11 @@ __mf_age_tree (__mf_object_tree_t *obj)
 struct tree_stats
 {
   unsigned obj_count;
-  uintptr_t total_size;
+  unsigned long total_size;
   unsigned live_obj_count;
   double total_weight;
   double weighted_size;
+  unsigned long weighted_address_bits [sizeof (uintptr_t) * 8][2];
 };
 
 
@@ -1276,6 +1305,9 @@ static void
 __mf_tree_analyze (__mf_object_tree_t *obj, struct tree_stats* s)
 {
   assert (obj != NULL);
+
+  if (obj->left)
+    __mf_tree_analyze (obj->left, s);
 
   /* Exclude never-accessed objects.  */
   if (obj->data.read_count + obj->data.write_count)
@@ -1285,16 +1317,28 @@ __mf_tree_analyze (__mf_object_tree_t *obj, struct tree_stats* s)
 
       if (obj->data.liveness)
 	{
+	  unsigned i;
+	  uintptr_t addr;
+
+	  VERBOSE_TRACE ("mf: analyze low=%08lx live=%u name=`%s'\n",
+			 obj->data.low, obj->data.liveness, obj->data.name);
+
 	  s->live_obj_count ++;
 	  s->total_weight += (double) obj->data.liveness;
 	  s->weighted_size +=
 	    (double) (obj->data.high - obj->data.low + 1) *
 	    (double) obj->data.liveness;
+
+	  addr = obj->data.low;
+	  for (i=0; i<sizeof(uintptr_t) * 8; i++)
+	    {
+	      unsigned bit = addr & 1;
+	      s->weighted_address_bits[i][bit] += obj->data.liveness;
+	      addr = addr >> 1;
+	    }
 	}
     }
 
-  if (obj->left)
-    __mf_tree_analyze (obj->left, s);
   if (obj->right)
     __mf_tree_analyze (obj->right, s);
 }
@@ -1304,13 +1348,11 @@ static void
 __mf_adapt_cache ()
 {
   struct tree_stats s;
-  double avg_weight;
-  uintptr_t avg_size;
-  uintptr_t weighted_avg_size;
   uintptr_t new_mask;
-  uintptr_t shifted;
   unsigned char new_shift;
-  double cache_utilization;
+  float cache_utilization;
+  float max_value;
+  static float smoothed_new_shift = -1.0;
   unsigned i;
 
   memset (&s, 0, sizeof (s));
@@ -1323,10 +1365,25 @@ __mf_adapt_cache ()
   if (! (s.obj_count > 0) && (s.live_obj_count > 0) && (s.total_weight > 0.0))
     return;
 
-  avg_weight = s.total_weight / s.live_obj_count;
-  weighted_avg_size = (uintptr_t) (s.weighted_size / s.total_weight);
-  avg_size = (uintptr_t) (s.total_size / s.obj_count);
-  if (avg_size == 0) avg_size = 1;
+  /* Guess a good value for the shift parameter by finding an address bit that is a
+     good discriminant of lively objects.  */
+  max_value = 0.0;
+  for (i=0; i<sizeof (uintptr_t)*8; i++)
+    {
+      float value = (float) s.weighted_address_bits[i][0] * (float) s.weighted_address_bits[i][1];
+      if (max_value < value) max_value = value;
+    }
+  for (i=0; i<sizeof (uintptr_t)*8; i++)
+    {
+      float shoulder_factor = 0.7;  /* Include slightly less popular bits too.  */
+      float value = (float) s.weighted_address_bits[i][0] * (float) s.weighted_address_bits[i][1];
+      if (value >= max_value * shoulder_factor)
+	break;
+    }
+  if (smoothed_new_shift < 0) smoothed_new_shift = __mf_lc_shift;
+ /* Converge toward this slowly to reduce flapping. */  smoothed_new_shift = 0.9*smoothed_new_shift + 0.1*i;
+  new_shift = (unsigned) (smoothed_new_shift + 0.5);
+  assert (new_shift >= 0 && new_shift < sizeof (uintptr_t)*8);
 
   /* Count number of used buckets.  */
   cache_utilization = 0.0;
@@ -1334,37 +1391,14 @@ __mf_adapt_cache ()
     if (__mf_lookup_cache[i].low != 0 || __mf_lookup_cache[i].high != 0)
       cache_utilization += 1.0;
   cache_utilization /= (1 + __mf_lc_mask);
-  if (cache_utilization < 0.5)
-    new_mask = __mf_lc_mask >> 1;
-  else if (cache_utilization > 0.7)
-    new_mask = (__mf_lc_mask << 1) | 1;
-  else
-    new_mask = __mf_lc_mask;
-  
-  new_mask |= 0x3ff; /* impose a practical minimum */
+
+  new_mask |= 0x3ff; /* XXX: force a large cache.  */
   new_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
 
-#if 0 /* giving up on heuristics? */
-  new_mask = __mf_lc_mask;
-#endif
-
-  /* Find a good new shift amount.  Make it big enough that the
-     popular objects take up 1-2 "cache lines".  The 24 in the
-     next line imposes a practical 16MB upper limit on the cache line
-     size.  */
-  for (new_shift=0, shifted=2; /* shifted == 2**(new_shift+1) */
-       new_shift < 24;
-       new_shift++, shifted<<=1)
-    if (shifted > weighted_avg_size)
-      break;
-    
-  VERBOSE_TRACE ("mf: adapt cache %u/%u/%lu/%.0f/%.0f => "
-		 "%.0f/%lu/%lu/%.0f%% => "
-		 "%08lx/%u\n",
-		 s.obj_count, s.live_obj_count, s.total_size,
-		 s.total_weight, s.weighted_size,
-		 avg_weight, weighted_avg_size, avg_size, (cache_utilization*100.0),
-		 new_mask, new_shift);
+  VERBOSE_TRACE ("mf: adapt cache obj=%u/%u sizes=%lu/%.0f/%.0f => "
+		 "util=%u%% m=%08lx s=%u\n",
+		 s.obj_count, s.live_obj_count, s.total_size, s.total_weight, s.weighted_size,
+		 (unsigned)(cache_utilization*100.0), new_mask, new_shift);
 
   /* We should reinitialize cache if its parameters have changed.  */
   if (new_mask != __mf_lc_mask ||
@@ -1684,13 +1718,19 @@ __mf_describe_object (__mf_object_t *obj)
 static unsigned
 __mf_report_leaks (__mf_object_tree_t *node)
 {
-  static unsigned count = 0;  /* Shared amongst recursive calls.  */
-  /* XXX: when to reset?  */
+ /* The counter is amongst recursive calls, so
+    that cumulative numbers are printed below.  */
+  static unsigned count = 0;
 
-  if (node == NULL) return count;
+  if (node == NULL)  /* Reset */
+    {
+      count = 0;
+      return 0;
+    }
 
   /* Inorder traversal. */
-  __mf_report_leaks (node->left);
+  if (node->left)
+    __mf_report_leaks (node->left);
   if (node->data.type == __MF_TYPE_HEAP
       || node->data.type == __MF_TYPE_HEAP_I)
     {
@@ -1698,7 +1738,8 @@ __mf_report_leaks (__mf_object_tree_t *node)
       fprintf (stderr, "Leaked object %u:\n", count);
       __mf_describe_object (& node->data);
     }
-  __mf_report_leaks (node->right);
+  if (node->right)
+    __mf_report_leaks (node->right);
 
   return count;
 }
@@ -1775,6 +1816,7 @@ __mf_report ()
       /* Free up any remaining alloca()'d blocks.  */
       (void) CALL_WRAP (alloca, 0); /* XXX: doesn't work in shared mode. */
       __mf_describe_object (NULL); /* Reset description epoch.  */
+      __mf_report_leaks (NULL); /* Reset cumulative count.  */
       l = __mf_report_leaks (__mf_object_root);
       fprintf (stderr, "number of leaked objects: %u\n", l);
     }
@@ -1895,7 +1937,9 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
     unsigned dead_p;
     unsigned num_helpful = 0;
     struct timeval now;
+#if HAVE_GETTIMEOFDAY
     gettimeofday (& now, NULL);
+#endif
 
     violation_number ++;
     fprintf (stderr,
@@ -2098,4 +2142,41 @@ __mf_watch_or_not (void *ptr, size_t sz, char flag)
   TRACE (" hits=%u\n", count);
 
   return count;
+}
+
+
+void
+__mf_sigusr1_handler (int num)
+{
+  __mf_sigusr1_received ++;
+}
+
+/* Install or remove SIGUSR1 handler as necessary.
+   Also, respond to a received pending SIGUSR1.  */
+void
+__mf_sigusr1_respond ()
+{
+  static int handler_installed;
+
+#if HAVE_SIGNAL
+  /* Manage handler */
+  if (__mf_opts.sigusr1_report && ! handler_installed)
+    {
+      signal (SIGUSR1, __mf_sigusr1_handler);
+      handler_installed = 1;
+    }
+  else if(! __mf_opts.sigusr1_report && handler_installed)
+    {
+      signal (SIGUSR1, SIG_DFL);
+      handler_installed = 0;
+    }
+#endif
+
+  /* Manage enqueued signals */
+  if (__mf_sigusr1_received > __mf_sigusr1_handled)
+    {
+      __mf_sigusr1_handled ++;
+      __mf_report ();
+      handler_installed = 0; /* We may need to re-enable signal; this might be a SysV library. */
+    }
 }
