@@ -297,7 +297,7 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
       for (insn = f; insn; insn = next)
 	{
 	  rtx reallabelprev;
-	  rtx temp, temp1, temp2 = NULL_RTX, temp3, temp4, temp5;
+	  rtx temp, temp1, temp2 = NULL_RTX;
 	  rtx nlabel;
 	  int this_is_simplejump, this_is_condjump;
 	  int this_is_condjump_in_parallel;

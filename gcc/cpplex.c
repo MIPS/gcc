@@ -2050,6 +2050,97 @@ _cpp_init_input_buffer (pfile)
 
 #if 0
 
+/* Lexing algorithm.
+
+ The original lexer in cpplib was made up of two passes: a first pass
+ that replaced trigraphs and deleted esacped newlines, and a second
+ pass that tokenized the result of the first pass.  Tokenisation was
+ performed by peeking at the next character in the input stream.  For
+ example, if the input stream contained "!=", the handler for the !
+ character would peek at the next character, and if it were a '='
+ would skip over it, and return a "!=" token, otherwise it would
+ return just the "!" token.
+
+ To implement a single-pass lexer, this peeking ahead is unworkable.
+ An arbitrary number of escaped newlines, and trigraphs (in particular
+ ??/ which translates to the escape \), could separate the '!' and '='
+ in the input stream, yet the next token is still a "!=".
+
+ Suppose instead that we lex by one logical line at a time, producing
+ a token list or stack for each logical line, and when seeing the '!'
+ push a CPP_NOT token on the list.  Then if the '!' is part of a
+ longer token ("!=") we know we must see the remainder of the token by
+ the time we reach the end of the logical line.  Thus we can have the
+ '=' handler look at the previous token (at the end of the list / top
+ of the stack) and see if it is a "!" token, and if so, instead of
+ pushing a "=" token revise the existing token to be a "!=" token.
+
+ This works in the presence of escaped newlines, because the '\' would
+ have been pushed on the top of the stack as a CPP_BACKSLASH.  The
+ newline ('\n' or '\r') handler looks at the token at the top of the
+ stack to see if it is a CPP_BACKSLASH, and if so discards both.
+ Otherwise it pushes the newline (CPP_VSPACE) token as normal.  Hence
+ the '=' handler would never see any intervening escaped newlines.
+
+ To make trigraphs work in this context, as in precedence trigraphs
+ are highest and converted before anything else, the '?' handler does
+ lookahead to see if it is a trigraph, and if so skips the trigraph
+ and pushes the token it represents onto the top of the stack.  This
+ also works in the particular case of a CPP_BACKSLASH trigraph.
+
+ To the preprocessor, whitespace is only significant to the point of
+ knowing whether whitespace precedes a particular token.  For example,
+ the '=' handler needs to know whether there was whitespace between it
+ and a "!" token on the top of the stack, to make the token conversion
+ decision correctly.  So each token has a PREV_WHITESPACE flag to
+ indicate this - the standard permits consecutive whitespace to be
+ regarded as a single space.  The compiler front ends are not
+ interested in whitespace at all; they just require a token stream.
+ Another place where whitespace is significant to the preprocessor is
+ a #define statment - if there is whitespace between the macro name
+ and an initial "(" token the macro is "object-like", otherwise it is
+ a function-like macro that takes arguments.
+
+ However, all is not rosy.  Parsing of identifiers, numbers, comments
+ and strings becomes trickier because of the possibility of raw
+ trigraphs and escaped newlines in the input stream.
+
+ The trigraphs are three consecutive characters beginning with two
+ question marks.  A question mark is not valid as part of a number or
+ identifier, so parsing of a number or identifier terminates normally
+ upon reaching it, returning to the mainloop which handles the
+ trigraph just like it would in any other position.  Similarly for the
+ backslash of a backslash-newline combination.  So we just need the
+ escaped-newline dropper in the mainloop to check if the token on the
+ top of the stack after dropping the escaped newline is a number or
+ identifier, and if so to continue the processing it as if nothing had
+ happened.
+
+ For strings, we replace trigraphs whenever we reach a quote or
+ newline, because there might be a backslash trigraph escaping them.
+ We need to be careful that we start trigraph replacing from where we
+ left off previously, because it is possible for a first scan to leave
+ "fake" trigraphs that a second scan would pick up as real (e.g. the
+ sequence "????/\n=" would find a fake ??= trigraph after removing the
+ escaped newline.)
+
+ For line comments, on reaching a newline we scan the previous
+ character(s) to see if it escaped, and continue if it is.  Block
+ comments ignore everything and just focus on finding the comment
+ termination mark.  The only difficult thing, and it is surprisingly
+ tricky, is checking if an asterisk precedes the final slash since
+ they could be separated by escaped newlines.  If the preprocessor is
+ invoked with the output comments option, we don't bother removing
+ escaped newlines and replacing trigraphs for output.
+
+ Finally, numbers can begin with a period, which is pushed initially
+ as a CPP_DOT token in its own right.  The digit handler checks if the
+ previous token was a CPP_DOT not separated by whitespace, and if so
+ pops it off the stack and pushes a period into the number's buffer
+ before calling the number parser.
+
+*/
+
 static void expand_comment_space PARAMS ((cpp_toklist *));
 void init_trigraph_map PARAMS ((void));
 static unsigned char* trigraph_replace PARAMS ((cpp_reader *, unsigned char *,
@@ -2070,16 +2161,12 @@ void _cpp_lex_line PARAMS ((cpp_reader *, cpp_toklist *));
 
 static void _cpp_output_list PARAMS ((cpp_reader *, cpp_toklist *));
 
-unsigned int spell_char PARAMS ((unsigned char *, cpp_toklist *,
-				 cpp_token *token));
 unsigned int spell_string PARAMS ((unsigned char *, cpp_toklist *,
 				   cpp_token *token));
 unsigned int spell_comment PARAMS ((unsigned char *, cpp_toklist *,
 				    cpp_token *token));
 unsigned int spell_name PARAMS ((unsigned char *, cpp_toklist *,
 				 cpp_token *token));
-unsigned int spell_other PARAMS ((unsigned char *, cpp_toklist *,
-				  cpp_token *token));
 
 typedef unsigned int (* speller) PARAMS ((unsigned char *, cpp_toklist *,
 					  cpp_token *));
@@ -2109,22 +2196,25 @@ typedef unsigned int (* speller) PARAMS ((unsigned char *, cpp_toklist *,
 
 #define SPELL_TEXT     0
 #define SPELL_HANDLER  1
-#define SPELL_NONE     2
-#define SPELL_EOL      3
+#define SPELL_CHAR     2
+#define SPELL_NONE     3
+#define SPELL_EOL      4
 
 #define T(e, s) {SPELL_TEXT, s},
 #define H(e, s) {SPELL_HANDLER, s},
+#define C(e, s) {SPELL_CHAR, s},
 #define N(e, s) {SPELL_NONE, s},
 #define E(e, s) {SPELL_EOL, s},
 
 static const struct token_spelling
 {
-  char type;
+  unsigned char type;
   PTR  speller;
 } token_spellings [N_TTYPES + 1] = {TTYPE_TABLE {0, 0} };
 
 #undef T
 #undef H
+#undef C
 #undef N
 #undef E
 
@@ -2155,12 +2245,12 @@ cpp_free_token_list (list)
 {
   if (list->comments)
     free (list->comments);
-  free (list->tokens - 1);
+  free (list->tokens - 1);	/* Backup over dummy token.  */
   free (list->namebuf);
   free (list);
 }
 
-static char trigraph_map[256];
+static unsigned char trigraph_map[256];
 
 void
 init_trigraph_map ()
@@ -3029,10 +3119,6 @@ _cpp_lex_line (pfile, list)
 	  cur_token++;
 	  break;
 
-	case ')':
-	  PUSH_TOKEN (CPP_CLOSE_PAREN);
-	  break;
-
 	case '(':
 	  /* Is this the beginning of an assertion string?  */
 	  if (list->dir_flags & SYNTAX_ASSERT)
@@ -3042,11 +3128,6 @@ _cpp_lex_line (pfile, list)
 	      goto do_parse_string;
 	    }
 	  PUSH_TOKEN (CPP_OPEN_PAREN);
-	  break;
-
-	make_complement:
-	case '~':
-	  PUSH_TOKEN (CPP_COMPL);
 	  break;
 
 	case '?':
@@ -3097,6 +3178,8 @@ _cpp_lex_line (pfile, list)
 	    PUSH_TOKEN (CPP_DOT);
 	  break;
 
+	make_complement:
+	case '~': PUSH_TOKEN (CPP_COMPL); break;
 	make_xor:
 	case '^': PUSH_TOKEN (CPP_XOR); break;
 	make_open_brace:
@@ -3112,6 +3195,7 @@ _cpp_lex_line (pfile, list)
 	case '!': PUSH_TOKEN (CPP_NOT); break;
 	case ',': PUSH_TOKEN (CPP_COMMA); break;
 	case ';': PUSH_TOKEN (CPP_SEMICOLON); break;
+	case ')': PUSH_TOKEN (CPP_CLOSE_PAREN); break;
 
 	case '$':
 	  if (CPP_OPTION (pfile, dollars_in_ident))
@@ -3169,43 +3253,23 @@ _cpp_lex_line (pfile, list)
 
 /* Needs buffer of 3 + len.  */
 unsigned int
-spell_char (buffer, list, token)
-     unsigned char *buffer;
-     cpp_toklist *list;
-     cpp_token *token;
-{
-  unsigned char* orig_buff = buffer;
-  size_t len;
-
-  if (token->type == CPP_WCHAR)
-    *buffer++ = 'L';
-  *buffer++ = '\'';
-
-  len = token->val.name.len;
-  memcpy (buffer, TOK_NAME (list, token), len);
-  buffer += len;
-  *buffer++ = '\'';
-  return buffer - orig_buff;
-}
-
-/* Needs buffer of 3 + len.  */
-unsigned int
 spell_string (buffer, list, token)
      unsigned char *buffer;
      cpp_toklist *list;
      cpp_token *token;
 {
-  unsigned char* orig_buff = buffer;
+  unsigned char c, *orig_buff = buffer;
   size_t len;
 
-  if (token->type == CPP_WSTRING)
+  if (token->type == CPP_WSTRING || token->type == CPP_WCHAR)
     *buffer++ = 'L';
-  *buffer++ = '"';
+  c = token->type == CPP_STRING || token->type == CPP_WSTRING ? '"': '\'';
+  *buffer++ = c;
 
   len = token->val.name.len;
   memcpy (buffer, TOK_NAME (list, token), len);
   buffer += len;
-  *buffer++ = '"';
+  *buffer++ = c;
   return buffer - orig_buff;
 }
 
@@ -3256,17 +3320,6 @@ spell_name (buffer, list, token)
   return len;
 }
 
-/* Needs buffer of 1.  */
-unsigned int
-spell_other (buffer, list, token)
-     unsigned char *buffer;
-     cpp_toklist *list ATTRIBUTE_UNUSED;
-     cpp_token *token;
-{
-  *buffer++ = token->aux;
-  return 1;
-}
-
 void
 _cpp_lex_file (pfile)
      cpp_reader* pfile;
@@ -3299,6 +3352,11 @@ _cpp_lex_file (pfile)
     }
 }
 
+/* This could be useful to other routines.  If you allocate this many
+   bytes, you have enough room to spell the token.  */
+#define TOKEN_LEN(token) (4 + (token_spellings[token->type].type == \
+			       SPELL_HANDLER ? token->val.name.len: 0))
+
 static void
 _cpp_output_list (pfile, list)
      cpp_reader *pfile;
@@ -3321,8 +3379,7 @@ _cpp_output_list (pfile, list)
 	      cpp_token *comment = &list->comments[comment_no];
 	      do
 		{
-		  /* Longest wrapper is 4.  */
-		  CPP_RESERVE (pfile, 4 + 2 + comment->val.name.len);
+		  CPP_RESERVE (pfile, 2 + TOKEN_LEN (comment));
 		  pfile->limit += spell_comment (pfile->limit, list, comment);
 		  comment_no++, comment++;
 		  if (comment_no == list->comments_used)
@@ -3335,6 +3392,7 @@ _cpp_output_list (pfile, list)
 	    CPP_PUTC_Q (pfile, ' ');
 	}
 
+      CPP_RESERVE (pfile, 2 + TOKEN_LEN (token));
       switch (token_spellings[token->type].type)
 	{
 	case SPELL_TEXT:
@@ -3342,9 +3400,8 @@ _cpp_output_list (pfile, list)
 	    const unsigned char *spelling;
 	    unsigned char c;
 
-	    CPP_RESERVE (pfile, 4 + 2); /* Longest is 4.  */
 	    if (token->flags & DIGRAPH)
-	      spelling = digraph_spellings [token->type - CPP_FIRST_DIGRAPH];
+	      spelling = digraph_spellings[token->type - CPP_FIRST_DIGRAPH];
 	    else
 	      spelling = token_spellings[token->type].speller;
 
@@ -3358,10 +3415,12 @@ _cpp_output_list (pfile, list)
 	    speller s;
 
 	    s = (speller) token_spellings[token->type].speller;
-	    /* Longest wrapper is 4.  */
-	    CPP_RESERVE (pfile, 4 + 2 + token->val.name.len);
 	    pfile->limit += s (pfile->limit, list, token);
 	  }
+	  break;
+
+	case SPELL_CHAR:
+	  *pfile->limit++ = token->aux;
 	  break;
 
 	case SPELL_EOL:

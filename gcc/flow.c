@@ -1769,9 +1769,8 @@ delete_unreachable_blocks ()
 	  }
     }
 
-  /* Delete all unreachable basic blocks.  Count down so that we
-     don't interfere with the block renumbering that happens in
-     flow_delete_block.  */
+  /* Delete all unreachable basic blocks.  Count down so that we don't
+     interfere with the block renumbering that happens in flow_delete_block. */
 
   deleted_handler = 0;
 
@@ -2499,8 +2498,8 @@ tidy_fallthru_edges ()
 }
 
 /* Perform data flow analysis.
-   F is the first insn of the function and NREGS the number of register numbers
-   in use.  */
+   F is the first insn of the function; FLAGS is a set of PROP_* flags
+   to be used in accumulating flow info.  */
 
 void
 life_analysis (f, file, flags)
@@ -4018,13 +4017,14 @@ mark_set_regs (pbi, x, insn)
      rtx x, insn;
 {
   rtx cond = NULL_RTX;
+  enum rtx_code code;
 
  retry:
-  switch (GET_CODE (x))
+  switch (code = GET_CODE (x))
     {
     case SET:
     case CLOBBER:
-      mark_set_1 (pbi, GET_CODE (x), SET_DEST (x), cond, insn, pbi->flags); 
+      mark_set_1 (pbi, code, SET_DEST (x), cond, insn, pbi->flags);
       return;
 
     case COND_EXEC:
@@ -4038,7 +4038,7 @@ mark_set_regs (pbi, x, insn)
 	for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
 	  {
 	    rtx sub = XVECEXP (x, 0, i);
-	    switch (GET_CODE (sub))
+	    switch (code = GET_CODE (sub))
 	      {
 	      case COND_EXEC:
 		if (cond != NULL_RTX)
@@ -4052,8 +4052,7 @@ mark_set_regs (pbi, x, insn)
 
 	      case SET:
 	      case CLOBBER:
-		mark_set_1 (pbi, GET_CODE (sub), SET_DEST (sub), cond,
-			    insn, pbi->flags);
+		mark_set_1 (pbi, code, SET_DEST (sub), cond, insn, pbi->flags);
 		break;
 
 	      default:
@@ -4077,8 +4076,8 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
      rtx reg, cond, insn;
      int flags;
 {
-  register int regno_first, regno_last;
-  int not_dead;
+  int regno_first = -1, regno_last = -1;
+  int not_dead = 0;
   int i;
 
   /* Some targets place small structures in registers for
@@ -4096,8 +4095,6 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
      byte field of a register does not mean the value from before this insn
      is now dead.  Of course, if it was dead after it's unused now.  */
 
-  not_dead = 0;
-  regno_last = regno_first = -1;
   switch (GET_CODE (reg))
     {
     case ZERO_EXTRACT:
@@ -4231,9 +4228,8 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 #endif
       )
     {
-      int some_was_live, some_was_dead;
+      int some_was_live = 0, some_was_dead = 0;
 
-      some_was_live = some_was_dead = 0;
       for (i = regno_first; i <= regno_last; ++i)
 	{
 	  int needed_regno = REGNO_REG_SET_P (pbi->reg_live, i);
@@ -4275,18 +4271,19 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 	      y = pbi->reg_next_use[regno_first];
 
 	      /* The next use is no longer next, since a store intervenes.  */
-	      for (i = regno_first; i <= regno_last; i++)
+	      for (i = regno_first; i <= regno_last; ++i)
 		pbi->reg_next_use[i] = 0;
 	    }
 
 	  if (flags & PROP_REG_INFO)
 	    {
-	      for (i = regno_first; i <= regno_last; i++)
+	      for (i = regno_first; i <= regno_last; ++i)
 		{
 		  /* Count (weighted) references, stores, etc.  This counts a
 		     register twice if it is modified, but that is correct.  */
-	          REG_N_SETS (i) += 1;
-	          REG_N_REFS (i) += pbi->bb->loop_depth + 1;
+		  REG_N_SETS (i) += 1;
+		  REG_N_REFS (i) += (optimize_size ? 1
+				     : pbi->bb->loop_depth + 1);
 
 	          /* The insns where a reg is live are normally counted
 		     elsewhere, but we want the count to include the insn
@@ -4304,9 +4301,9 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 	      else
 		{
 		  /* Keep track of which basic blocks each reg appears in.  */
-	          if (REG_BASIC_BLOCK (regno_first) == REG_BLOCK_UNKNOWN)
+		  if (REG_BASIC_BLOCK (regno_first) == REG_BLOCK_UNKNOWN)
 		    REG_BASIC_BLOCK (regno_first) = blocknum;
-	          else if (REG_BASIC_BLOCK (regno_first) != blocknum)
+		  else if (REG_BASIC_BLOCK (regno_first) != blocknum)
 		    REG_BASIC_BLOCK (regno_first) = REG_BLOCK_GLOBAL;
 		}
 	    }
@@ -4335,7 +4332,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 	  else if (! some_was_live)
 	    {
 	      if (flags & PROP_REG_INFO)
-		REG_N_DEATHS (regno_first)++;
+		REG_N_DEATHS (regno_first) += 1;
 
 	      if (flags & PROP_DEATH_NOTES)
 		{
@@ -4383,8 +4380,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
   else if (GET_CODE (reg) == REG)
     {
       if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
-	for (i = regno_first; i <= regno_last; ++i)
-	  pbi->reg_next_use[i] = 0;
+	pbi->reg_next_use[regno_first] = 0;
     }
 
   /* If this is the last pass and this is a SCRATCH, show it will be dying

@@ -856,8 +856,7 @@ convert_to_ssa()
     abort ();
 
   /* Need global_live_at_{start,end} up to date.  */
-  life_analysis (get_insns (), NULL,
-		 PROP_KILL_DEAD_CODE | PROP_SCAN_DEAD_CODE);
+  life_analysis (get_insns (), NULL, PROP_KILL_DEAD_CODE | PROP_SCAN_DEAD_CODE);
 
   /* Compute dominators.  */
   dominators = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
@@ -1813,8 +1812,7 @@ convert_from_ssa()
   rtx insns = get_insns ();
     
   /* Need global_live_at_{start,end} up to date.  */
-  life_analysis (get_insns (), NULL,
-		 PROP_KILL_DEAD_CODE | PROP_SCAN_DEAD_CODE);
+  life_analysis (insns, NULL, PROP_KILL_DEAD_CODE | PROP_SCAN_DEAD_CODE);
 
   /* Figure out which regs in copies and phi nodes don't conflict and
      therefore can be coalesced.  */

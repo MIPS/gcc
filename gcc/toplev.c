@@ -1098,7 +1098,7 @@ lang_independent_options f_options[] =
   {"bounded-pointers", &flag_bounded_pointers, 1,
    "Compile pointers as triples: value, base & end" },
   {"bounds-check", &flag_bounds_check, 1,
-   "Generate code to check bounds before dereferencing pointers and arrays" },
+   "Generate code to check bounds before dereferencing pointers and arrays" }
 };
 
 #define NUM_ELEM(a)  (sizeof (a) / sizeof ((a)[0]))
