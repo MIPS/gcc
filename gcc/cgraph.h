@@ -113,12 +113,13 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   struct cgraph_rtl_info rtl;
 };
 
-struct cgraph_edge GTY(())
+struct cgraph_edge GTY((chain_next ("%h.next_caller")))
 {
   struct cgraph_node *caller;
   struct cgraph_node *callee;
   struct cgraph_edge *next_caller;
   struct cgraph_edge *next_callee;
+  tree call_expr;
   bool inline_call;
 };
 
@@ -153,17 +154,20 @@ extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
 
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
-void cgraph_remove_edge (struct cgraph_node *, struct cgraph_node *);
-void cgraph_remove_call (tree, tree);
+void cgraph_remove_edge (struct cgraph_edge *);
 void cgraph_remove_node (struct cgraph_node *);
-struct cgraph_edge *cgraph_record_call (tree, tree);
+struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
+					struct cgraph_node *,
+				        tree);
 struct cgraph_node *cgraph_node (tree decl);
+struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree call_expr);
 struct cgraph_node *cgraph_node_for_identifier (tree id);
 bool cgraph_calls_p (tree, tree);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
 struct cgraph_rtl_info *cgraph_rtl_info (tree);
 const char * cgraph_node_name (struct cgraph_node *);
+void cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree decl);
 struct cgraph_varpool_node *cgraph_varpool_node_for_identifier (tree id);
@@ -177,11 +181,11 @@ bool cgraph_function_possibly_inlined_p (tree);
 bool cgraph_assemble_pending_functions (void);
 void cgraph_finalize_function (tree, bool);
 void cgraph_finalize_compilation_unit (void);
-void cgraph_create_edges (tree, tree);
+void cgraph_create_edges (struct cgraph_node *, tree);
 void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
-bool cgraph_inline_p (tree, tree);
+bool cgraph_inline_p (struct cgraph_edge *);
 bool cgraph_preserve_function_body_p (tree);
 
 #endif  /* GCC_CGRAPH_H  */

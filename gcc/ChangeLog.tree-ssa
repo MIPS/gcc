@@ -1,3 +1,29 @@
+2003-12-07  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (create_edge): Rename to ...
+	(cgraph_create_edge): ... this one; accept call_expr as operand.
+	(cgraph_edge): New function
+	(cgraph_remove_edge): Use edge as argument
+	(cgraph_record_call, cgraph_remove_call): Kill.
+	(clone_cgraphedge): New function.
+	* cgraph.h (cgraph_edge): Add call_expr argument; add chain_next.
+	(cgraph_record_call, cgraph_remove_call): Kill prototype.
+	(cgraph_remove_call, cgraph_inline_p): Update prototype.
+	(cgraph_clone_edge): Declare.
+	* cgraphunit.c (cgraph_finalize_function): Update use of
+	cgraph_remove_edge
+	(record_call_1): Use cgraph_create_edge; record builtins too.
+	(cgraph_create_edges): Accept node instead of decl.
+	(cgraph_analyze_function): Update use cgraph_create_edges.
+	(cgraph_inline_p): Accept edge.
+	* tree-inline.c (inline_data): Replace decl and current_decl
+	by node and current_node.
+	(copy_body_r): Clone edges.
+	(expand_call_inline): Do not create inlined edges.
+	(optimize_inline_call): Set id->current_node, id->node.
+	* tree-optimize.c (tree_rest_of_compilation): Update cgraph edges after
+	compiling.
+
 2003-12-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-loop.c (dump_file, dump_flags): Only declare with

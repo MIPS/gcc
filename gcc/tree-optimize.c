@@ -459,8 +459,17 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)
     {
+      struct cgraph_node *node = cgraph_node (current_function_decl);
+
       DECL_SAVED_TREE (fndecl) = cfun->saved_tree;
       DECL_ARGUMENTS (fndecl) = cfun->saved_args;
+
+      /* Recompute callgraph edges co cgraph_expr points to new locations.
+	 This code will go once we represent inline clones in the cgraph
+	 explicitely.  */
+      while (node->callees)
+	cgraph_remove_edge (node->callees);
+      cgraph_create_edges (node, cfun->saved_tree);
     }
   else
     DECL_SAVED_TREE (fndecl) = NULL;

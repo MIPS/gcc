@@ -66,8 +66,6 @@ int cgraph_varpool_n_nodes;
 /* The linked list of cgraph varpool nodes.  */
 static GTY(())  struct cgraph_varpool_node *cgraph_varpool_nodes;
 
-static struct cgraph_edge *create_edge (struct cgraph_node *,
-					struct cgraph_node *);
 static hashval_t hash_node (const void *);
 static int eq_node (const void *, const void *);
 
@@ -128,6 +126,23 @@ cgraph_node (tree decl)
   return node;
 }
 
+/* Return callgraph edge representing CALL_EXPR.  */
+struct cgraph_edge *
+cgraph_edge (struct cgraph_node *node, tree call_expr)
+{
+  struct cgraph_edge *e;
+
+  /* This loop may turn out to be performance problem.  In such case adding
+     hashtables into call nodes with very many edges is probably best
+     sollution.  It is not good idea to add pointer into CALL_EXPR itself
+     because we want to make possible having multiple cgraph nodes representing
+     different clones of the same body before the body is actually cloned.  */
+  for (e = node->callees; e; e= e->next_callee)
+    if (e->call_expr == call_expr)
+      break;
+  return e;
+}
+
 /* Try to find existing function for identifier ID.  */
 struct cgraph_node *
 cgraph_node_for_identifier (tree id)
@@ -150,26 +165,20 @@ cgraph_node_for_identifier (tree id)
 
 /* Create edge from CALLER to CALLEE in the cgraph.  */
 
-static struct cgraph_edge *
-create_edge (struct cgraph_node *caller, struct cgraph_node *callee)
+struct cgraph_edge *
+cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
+		    tree call_expr)
 {
   struct cgraph_edge *edge = ggc_alloc (sizeof (struct cgraph_edge));
-  struct cgraph_edge *edge2;
+
+  if (TREE_CODE (call_expr) != CALL_EXPR)
+    abort ();
 
   edge->inline_call = false;
-  /* At the moment we don't associate calls with specific CALL_EXPRs
-     as we probably ought to, so we must preserve inline_call flags to
-     be the same in all copies of the same edge.  */
-  if (cgraph_global_info_ready)
-    for (edge2 = caller->callees; edge2; edge2 = edge2->next_callee)
-      if (edge2->callee == callee)
-	{
-	  edge->inline_call = edge2->inline_call;
-	  break;
-	}
 
   edge->caller = caller;
   edge->callee = callee;
+  edge->call_expr = call_expr;
   edge->next_caller = callee->callers;
   edge->next_callee = caller->callees;
   caller->callees = edge;
@@ -177,20 +186,20 @@ create_edge (struct cgraph_node *caller, struct cgraph_node *callee)
   return edge;
 }
 
-/* Remove the edge from CALLER to CALLEE in the cgraph.  */
+/* Remove the edge E the cgraph.  */
 
 void
-cgraph_remove_edge (struct cgraph_node *caller, struct cgraph_node *callee)
+cgraph_remove_edge (struct cgraph_edge *e)
 {
   struct cgraph_edge **edge, **edge2;
 
-  for (edge = &callee->callers; *edge && (*edge)->caller != caller;
+  for (edge = &e->callee->callers; *edge && *edge != e;
        edge = &((*edge)->next_caller))
     continue;
   if (!*edge)
     abort ();
   *edge = (*edge)->next_caller;
-  for (edge2 = &caller->callees; *edge2 && (*edge2)->callee != callee;
+  for (edge2 = &e->caller->callees; *edge2 && *edge2 != e;
        edge2 = &(*edge2)->next_callee)
     continue;
   if (!*edge2)
@@ -205,9 +214,9 @@ cgraph_remove_node (struct cgraph_node *node)
 {
   void **slot;
   while (node->callers)
-    cgraph_remove_edge (node->callers->caller, node);
+    cgraph_remove_edge (node->callers);
   while (node->callees)
-    cgraph_remove_edge (node, node->callees->callee);
+    cgraph_remove_edge (node->callees);
   while (node->nested)
     cgraph_remove_node (node->nested);
   if (node->origin)
@@ -266,20 +275,6 @@ cgraph_mark_needed_node (struct cgraph_node *node)
 {
   node->needed = 1;
   cgraph_mark_reachable_node (node);
-}
-
-/* Record call from CALLER to CALLEE  */
-
-struct cgraph_edge *
-cgraph_record_call (tree caller, tree callee)
-{
-  return create_edge (cgraph_node (caller), cgraph_node (callee));
-}
-
-void
-cgraph_remove_call (tree caller, tree callee)
-{
-  cgraph_remove_edge (cgraph_node (caller), cgraph_node (callee));
 }
 
 /* Return true when CALLER_DECL calls CALLEE_DECL.  */
@@ -617,4 +612,11 @@ cgraph_function_possibly_inlined_p (tree decl)
   return cgraph_node (decl)->global.inlined;
 }
 
+/* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
+void
+cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n, tree call_expr)
+{
+  struct cgraph_edge *new = cgraph_create_edge (n, e->callee, call_expr);
+  new->inline_call = e->inline_call;
+}
 #include "gt-cgraph.h"

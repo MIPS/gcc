@@ -105,9 +105,10 @@ typedef struct inline_data
   /* Hash table used to prevent walk_tree from visiting the same node
      umpteen million times.  */
   htab_t tree_pruner;
-  /* Decl of function we are inlining into.  */
-  tree decl;
-  tree current_decl;
+  /* Callgraph node of function we are inlining into.  */
+  struct cgraph_node *node;
+  /* Callgraph node of currently inlined function.  */
+  struct cgraph_node *current_node;
   /* Statement iterator.  We need this so we can keep the tree in
      gimple form when we insert the inlined function.   It is not
      used when we are not dealing with gimple trees.  */
@@ -554,6 +555,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
      knows not to copy VAR_DECLs, etc., so this is safe.  */
   else
     {
+      struct cgraph_edge *edge = NULL;
+
       if (TREE_CODE (*tp) == MODIFY_EXPR
 	  && TREE_OPERAND (*tp, 0) == TREE_OPERAND (*tp, 1)
 	  && ((*lang_hooks.tree_inlining.auto_var_in_fn_p)
@@ -623,8 +626,14 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		}
 	    }
 	}
+      else if (TREE_CODE (*tp) == CALL_EXPR && id->node
+	       && get_callee_fndecl (*tp))
+	edge = cgraph_edge (id->current_node, *tp);
 
       copy_tree_r (tp, walk_subtrees, NULL);
+
+      if (edge)
+	cgraph_clone_edge (edge, id->node, *tp);
 
       TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
 
@@ -1331,6 +1340,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   tree args;
   tree return_slot_addr;
   location_t saved_location;
+  struct cgraph_edge *edge;
 
   /* See what we've got.  */
   id = (inline_data *) data;
@@ -1400,9 +1410,20 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       && DECL_SAVED_TREE (DECL_ABSTRACT_ORIGIN (fn)))
     fn = DECL_ABSTRACT_ORIGIN (fn);
 
+  edge = cgraph_edge (id->current_node, t);
+
+  /* Constant propagation on argument done during previous inlining
+     may create new direct call.  Produce an edge for it.  */
+  if (!edge)
+    {
+      cgraph_create_edge (id->node, cgraph_node (fn), t);
+      goto egress;
+    }
+    
+
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
-  if (!DECL_SAVED_TREE (fn) || !cgraph_inline_p (id->current_decl, fn))
+  if (!DECL_SAVED_TREE (fn) || !cgraph_inline_p (edge))
     {
       if (warn_inline && DECL_INLINE (fn) && DECL_DECLARED_INLINE_P (fn)
 	  && !DECL_IN_SYSTEM_HEADER (fn))
@@ -1495,7 +1516,13 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
   /* After we've initialized the parameters, we insert the body of the
      function itself.  */
-  append_to_statement_list (copy_body (id), &BIND_EXPR_BODY (expr));
+  {
+    struct cgraph_node *old_node = id->current_node;
+
+    id->current_node = edge->callee;
+    append_to_statement_list (copy_body (id), &BIND_EXPR_BODY (expr));
+    id->current_node = old_node;
+  }
   inlined_body = &BIND_EXPR_BODY (expr);
 
   /* After the body of the function comes the RET_LABEL.  This must come
@@ -1536,7 +1563,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	 function which we are inlining into, thus the saving and
 	 restoring of current_function_decl.  */
       save_decl = current_function_decl;
-      current_function_decl = id->decl;
+      current_function_decl = id->node->decl;
       inline_result = voidify_wrapper_expr (expr);
       current_function_decl = save_decl;
 
@@ -1580,19 +1607,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   id->inlined_insns += DECL_ESTIMATED_INSNS (fn) - 1;
 
   /* Update callgraph if needed.  */
-  if (id->decl)
-    {
-      cgraph_remove_call (id->decl, fn);
-      cgraph_create_edges (id->decl, *inlined_body);
-    }
+  if (id->node)
+    cgraph_remove_edge (edge);
 
   /* Recurse into the body of the just inlined function.  */
-  {
-    tree old_decl = id->current_decl;
-    id->current_decl = fn;
-    expand_calls_inline (inlined_body, id);
-    id->current_decl = old_decl;
-  }
+  expand_calls_inline (inlined_body, id);
   VARRAY_POP (id->fns);
 
   /* If we've returned to the top level, clear out the record of how
@@ -1715,8 +1734,7 @@ optimize_inline_calls (tree fn)
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));
 
-  id.decl = fn;
-  id.current_decl = fn;
+  id.current_node = id.node = cgraph_node (fn);
   /* Don't allow recursion into FN.  */
   VARRAY_TREE_INIT (id.fns, 32, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);

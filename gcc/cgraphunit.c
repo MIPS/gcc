@@ -184,7 +184,7 @@ cgraph_finalize_function (tree decl, bool nested)
       memset (&node->rtl, 0, sizeof (node->rtl));
       node->analyzed = false;
       while (node->callees)
-	cgraph_remove_edge (node, node->callees->callee);
+	cgraph_remove_edge (node->callees);
 
       /* We may need to re-queue the node for assembling in case
          we already proceeded it and ignored as not needed.  */
@@ -257,9 +257,7 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 	tree decl = get_callee_fndecl (*tp);
 	if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	  {
-	    if (DECL_BUILT_IN (decl))
-	      return NULL;
-	    cgraph_record_call (data, decl);
+	    cgraph_create_edge (data, cgraph_node (decl), *tp);
 
 	    /* When we see a function call, we don't want to look at the
 	       function reference in the ADDR_EXPR that is hanging from
@@ -292,16 +290,16 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
   return NULL;
 }
 
-/* Create cgraph edges for function calls inside BODY from DECL.  */
+/* Create cgraph edges for function calls inside BODY from NODE.  */
 
 void
-cgraph_create_edges (tree decl, tree body)
+cgraph_create_edges (struct cgraph_node *node, tree body)
 {
   /* The nodes we're interested in are never shared, so walk
      the tree ignoring duplicates.  */
   visited_nodes = htab_create (37, htab_hash_pointer,
 				    htab_eq_pointer, NULL);
-  walk_tree (&body, record_call_1, decl, visited_nodes);
+  walk_tree (&body, record_call_1, node, visited_nodes);
   htab_delete (visited_nodes);
   visited_nodes = NULL;
 }
@@ -315,7 +313,7 @@ cgraph_analyze_function (struct cgraph_node *node)
   current_function_decl = decl;
 
   /* First kill forward declaration so reverse inlining works properly.  */
-  cgraph_create_edges (decl, DECL_SAVED_TREE (decl));
+  cgraph_create_edges (node, DECL_SAVED_TREE (decl));
 
   node->local.inlinable = tree_inlinable_function_p (decl);
   if (!DECL_ESTIMATED_INSNS (decl))
@@ -1359,19 +1357,9 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node)
 /* Return true when CALLER_DECL should be inlined into CALLEE_DECL.  */
 
 bool
-cgraph_inline_p (tree caller_decl, tree callee_decl)
+cgraph_inline_p (struct cgraph_edge *e)
 {
-  struct cgraph_node *caller = cgraph_node (caller_decl);
-  struct cgraph_node *callee = cgraph_node (callee_decl);
-  struct cgraph_edge *e;
-
-  for (e = caller->callees; e; e = e->next_callee)
-    if (e->callee == callee)
-      return e->inline_call;
-  /* We do not record builtins in the callgraph.  Perhaps it would make more
-     sense to do so and then prune out those not overwritten by explicit
-     function body.  */
-  return false;
+  return e->inline_call;
 }
 /* Expand all functions that must be output.
 
