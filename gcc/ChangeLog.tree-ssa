@@ -1,3 +1,9 @@
+2004-03-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/13066
+	* fold-const (fold): Call fold_convert when building
+	a TRUTH_*_EXPR tree.
+
 2004-03-01  Andrew MacLeod  <amacleod@redhat.com>
 
 	* common.opt : Add tree-copyrename option. Remove duplicate tree-sra.

@@ -5493,7 +5493,8 @@ fold (tree expr)
       t = fold (build (code == BIT_AND_EXPR ? TRUTH_AND_EXPR
 		       : code == BIT_IOR_EXPR ? TRUTH_OR_EXPR
 		       : TRUTH_XOR_EXPR,
-		       type, arg0, arg1));
+		       type, fold_convert (boolean_type_node, arg0),
+		       fold_convert (boolean_type_node, arg1)));
 
       if (code == EQ_EXPR)
 	t = invert_truthvalue (t);
