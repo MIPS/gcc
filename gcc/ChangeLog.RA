@@ -1,3 +1,7 @@
+2003-10-31  Michael Matz  <matz@suse.de>
+
+	* df.c (df_ref_search_cached): Also check DF_REF_STRIPPED.
+
 2003-10-29  Michael Matz  <matz@suse.de>
 
 	* ra-build.c (select_regclass): Extend usable_regs for uninitialized

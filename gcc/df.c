@@ -746,7 +746,7 @@ df_ref_search_cached (struct df *df, rtx reg, rtx *loc, rtx insn,
 	  && DF_REF_TYPE (this_ref) == ref_type
           && (DF_REF_FLAGS (this_ref)
 	      & (DF_REF_READ_WRITE | DF_REF_MODE_CHANGE
-		 | DF_REF_COMPARE_RELATED)) == ref_flags)
+		 | DF_REF_COMPARE_RELATED | DF_REF_STRIPPED)) == ref_flags)
 	{
 	  DF_REF_FLAGS (this_ref) &= ~DF_REF_DELETED;
 	  return this_ref;
