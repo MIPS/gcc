@@ -1,3 +1,21 @@
+2003-09-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-dce.c (pdom_info, needed_stmts): Remove.
+	(NECESSARY): Define.
+	(necessary_p): Check bit instead of hash table lookup.
+	(clear_necessary): New. Clear necessary bit.
+	(mark_necessary): Use bit instead of hash table. No control lookup.
+	(mark_tree_necessary): Remove.
+	(find_useful_stmts): Clear necessary bit before checking it.
+	(stmt_useful_p): Remove GOTO_EXPR case. Check arms of COND_EXPR for 
+	GOTO. All other control flow stmts are necessary.
+	(process_worklist): Dont look for control parents.
+	(remove_dead_stmts): No dominattor info is necessary.
+	(remove_dead_stmt): Don't need BB any more. Remove COND_EXPR by changing
+	the condition to 'if (0)'. Abort on other control flow.
+	(tree_ssa_dce): No longer need the hash table.
+	(remove_conditional): Remove.
+
 2003-09-25  Andreas Schwab  <schwab@suse.de>
 
 	* tree-flow.h: Declare next_ssa_version.
