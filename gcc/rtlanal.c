@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "basic-block.h"
 #include "real.h"
+#include "regs.h"
 
 /* Forward declarations */
 static int global_reg_mentioned_p_1 (rtx *, void *);
@@ -1437,7 +1438,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, rtx x,
 
       return (endregno > x_regno
 	      && regno < x_regno + (x_regno < FIRST_PSEUDO_REGISTER
-				    ? HARD_REGNO_NREGS (x_regno, GET_MODE (x))
+				    ? hard_regno_nregs[x_regno][GET_MODE (x)]
 			      : 1));
 
     case SUBREG:
@@ -1449,7 +1450,7 @@ refers_to_regno_p (unsigned int regno, unsigned int endregno, rtx x,
 	  unsigned int inner_regno = subreg_regno (x);
 	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
-			     ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
+			     ? hard_regno_nregs[regno][GET_MODE (x)] : 1);
 
 	  return endregno > inner_regno && regno < inner_endregno;
 	}
@@ -1541,7 +1542,7 @@ reg_overlap_mentioned_p (rtx x, rtx in)
       regno = REGNO (x);
     do_reg:
       endregno = regno + (regno < FIRST_PSEUDO_REGISTER
-			  ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
+			  ? hard_regno_nregs[regno][GET_MODE (x)] : 1);
       return refers_to_regno_p (regno, endregno, in, (rtx*) 0);
 
     case MEM:
@@ -1794,7 +1795,7 @@ dead_or_set_p (rtx insn, rtx x)
 
   regno = REGNO (x);
   last_regno = (regno >= FIRST_PSEUDO_REGISTER ? regno
-		: regno + HARD_REGNO_NREGS (regno, GET_MODE (x)) - 1);
+		: regno + hard_regno_nregs[regno][GET_MODE (x)] - 1);
 
   for (i = regno; i <= last_regno; i++)
     if (! dead_or_set_regno_p (insn, i))
@@ -1844,7 +1845,7 @@ dead_or_set_regno_p (rtx insn, unsigned int test_regno)
 
       regno = REGNO (dest);
       endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
-		  : regno + HARD_REGNO_NREGS (regno, GET_MODE (dest)));
+		  : regno + hard_regno_nregs[regno][GET_MODE (dest)]);
 
       return (test_regno >= regno && test_regno < endregno);
     }
@@ -1875,7 +1876,7 @@ dead_or_set_regno_p (rtx insn, unsigned int test_regno)
 
 	      regno = REGNO (dest);
 	      endregno = (regno >= FIRST_PSEUDO_REGISTER ? regno + 1
-			  : regno + HARD_REGNO_NREGS (regno, GET_MODE (dest)));
+			  : regno + hard_regno_nregs[regno][GET_MODE (dest)]);
 
 	      if (test_regno >= regno && test_regno < endregno)
 		return 1;
@@ -1927,8 +1928,8 @@ find_regno_note (rtx insn, enum reg_note kind, unsigned int regno)
 	&& REGNO (XEXP (link, 0)) <= regno
 	&& ((REGNO (XEXP (link, 0))
 	     + (REGNO (XEXP (link, 0)) >= FIRST_PSEUDO_REGISTER ? 1
-		: HARD_REGNO_NREGS (REGNO (XEXP (link, 0)),
-				    GET_MODE (XEXP (link, 0)))))
+		: hard_regno_nregs[REGNO (XEXP (link, 0))]
+				  [GET_MODE (XEXP (link, 0))]))
 	    > regno))
       return link;
   return 0;
@@ -1990,7 +1991,7 @@ find_reg_fusage (rtx insn, enum rtx_code code, rtx datum)
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
 	  unsigned int end_regno
-	    = regno + HARD_REGNO_NREGS (regno, GET_MODE (datum));
+	    = regno + hard_regno_nregs[regno][GET_MODE (datum)];
 	  unsigned int i;
 
 	  for (i = regno; i < end_regno; i++)
@@ -2025,7 +2026,7 @@ find_regno_fusage (rtx insn, enum rtx_code code, unsigned int regno)
       if (GET_CODE (op = XEXP (link, 0)) == code
 	  && GET_CODE (reg = XEXP (op, 0)) == REG
 	  && (regnote = REGNO (reg)) <= regno
-	  && regnote + HARD_REGNO_NREGS (regnote, GET_MODE (reg)) > regno)
+	  && regnote + hard_regno_nregs[regnote][GET_MODE (reg)] > regno)
 	return 1;
     }
 
@@ -3187,46 +3188,57 @@ loc_mentioned_in_p (rtx *loc, rtx in)
   return 0;
 }
 
+/* Helper function for subreg_lsb.  Given a subreg's OUTER_MODE, INNER_MODE,
+   and SUBREG_BYTE, return the bit offset where the subreg begins
+   (counting from the least significant bit of the operand).  */
+
+unsigned int
+subreg_lsb_1 (enum machine_mode outer_mode,
+	      enum machine_mode inner_mode,
+	      unsigned int subreg_byte)
+{
+  unsigned int bitpos;
+  unsigned int byte;
+  unsigned int word;
+
+  /* A paradoxical subreg begins at bit position 0.  */
+  if (GET_MODE_BITSIZE (outer_mode) > GET_MODE_BITSIZE (inner_mode))
+    return 0;
+
+  if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
+    /* If the subreg crosses a word boundary ensure that
+       it also begins and ends on a word boundary.  */
+    if ((subreg_byte % UNITS_PER_WORD
+	 + GET_MODE_SIZE (outer_mode)) > UNITS_PER_WORD
+	&& (subreg_byte % UNITS_PER_WORD
+	    || GET_MODE_SIZE (outer_mode) % UNITS_PER_WORD))
+	abort ();
+
+  if (WORDS_BIG_ENDIAN)
+    word = (GET_MODE_SIZE (inner_mode)
+	    - (subreg_byte + GET_MODE_SIZE (outer_mode))) / UNITS_PER_WORD;
+  else
+    word = subreg_byte / UNITS_PER_WORD;
+  bitpos = word * BITS_PER_WORD;
+
+  if (BYTES_BIG_ENDIAN)
+    byte = (GET_MODE_SIZE (inner_mode)
+	    - (subreg_byte + GET_MODE_SIZE (outer_mode))) % UNITS_PER_WORD;
+  else
+    byte = subreg_byte % UNITS_PER_WORD;
+  bitpos += byte * BITS_PER_UNIT;
+
+  return bitpos;
+}
+
 /* Given a subreg X, return the bit offset where the subreg begins
    (counting from the least significant bit of the reg).  */
 
 unsigned int
 subreg_lsb (rtx x)
 {
-  enum machine_mode inner_mode = GET_MODE (SUBREG_REG (x));
-  enum machine_mode mode = GET_MODE (x);
-  unsigned int bitpos;
-  unsigned int byte;
-  unsigned int word;
-
-  /* A paradoxical subreg begins at bit position 0.  */
-  if (GET_MODE_BITSIZE (mode) > GET_MODE_BITSIZE (inner_mode))
-    return 0;
-
-  if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
-    /* If the subreg crosses a word boundary ensure that
-       it also begins and ends on a word boundary.  */
-    if ((SUBREG_BYTE (x) % UNITS_PER_WORD
-	 + GET_MODE_SIZE (mode)) > UNITS_PER_WORD
-	&& (SUBREG_BYTE (x) % UNITS_PER_WORD
-	    || GET_MODE_SIZE (mode) % UNITS_PER_WORD))
-	abort ();
-
-  if (WORDS_BIG_ENDIAN)
-    word = (GET_MODE_SIZE (inner_mode)
-	    - (SUBREG_BYTE (x) + GET_MODE_SIZE (mode))) / UNITS_PER_WORD;
-  else
-    word = SUBREG_BYTE (x) / UNITS_PER_WORD;
-  bitpos = word * BITS_PER_WORD;
-
-  if (BYTES_BIG_ENDIAN)
-    byte = (GET_MODE_SIZE (inner_mode)
-	    - (SUBREG_BYTE (x) + GET_MODE_SIZE (mode))) % UNITS_PER_WORD;
-  else
-    byte = SUBREG_BYTE (x) % UNITS_PER_WORD;
-  bitpos += byte * BITS_PER_UNIT;
-
-  return bitpos;
+  return subreg_lsb_1 (GET_MODE (x), GET_MODE (SUBREG_REG (x)),
+		       SUBREG_BYTE (x));
 }
 
 /* This function returns the regno offset of a subreg expression.
@@ -3246,8 +3258,8 @@ subreg_regno_offset (unsigned int xregno, enum machine_mode xmode,
   if (xregno >= FIRST_PSEUDO_REGISTER)
     abort ();
 
-  nregs_xmode = HARD_REGNO_NREGS (xregno, xmode);
-  nregs_ymode = HARD_REGNO_NREGS (xregno, ymode);
+  nregs_xmode = hard_regno_nregs[xregno][xmode];
+  nregs_ymode = hard_regno_nregs[xregno][ymode];
 
   /* If this is a big endian paradoxical subreg, which uses more actual
      hard registers than the original register, we must return a negative
@@ -3289,8 +3301,8 @@ subreg_offset_representable_p (unsigned int xregno, enum machine_mode xmode,
   if (xregno >= FIRST_PSEUDO_REGISTER)
     abort ();
 
-  nregs_xmode = HARD_REGNO_NREGS (xregno, xmode);
-  nregs_ymode = HARD_REGNO_NREGS (xregno, ymode);
+  nregs_xmode = hard_regno_nregs[xregno][xmode];
+  nregs_ymode = hard_regno_nregs[xregno][ymode];
 
   /* paradoxical subregs are always valid.  */
   if (offset == 0
@@ -3502,7 +3514,7 @@ hoist_test_store (rtx x, rtx val, regset live)
   if (REGNO (x) < FIRST_PSEUDO_REGISTER)
     {
       int regno = REGNO (x);
-      int n = HARD_REGNO_NREGS (regno, GET_MODE (x));
+      int n = hard_regno_nregs[regno][GET_MODE (x)];
 
       if (!live)
 	return false;

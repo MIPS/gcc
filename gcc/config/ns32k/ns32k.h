@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  NS32000 version.
    Copyright (C) 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002 Free Software Foundation, Inc.
+   2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -404,7 +404,7 @@ while (0)
 
 /* Register in which address to store a structure value
    is passed to a function.  */
-#define STRUCT_VALUE_REGNUM 2
+#define NS32K_STRUCT_VALUE_REGNUM 2
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -569,7 +569,7 @@ enum reg_class
    Before the prologue, RA is at 0(sp).  */
 
 #define INCOMING_RETURN_ADDR_RTX \
-  gen_rtx (MEM, VOIDmode, gen_rtx (REG, VOIDmode, STACK_POINTER_REGNUM))
+  gen_rtx_MEM (VOIDmode, gen_rtx_REG (VOIDmode, STACK_POINTER_REGNUM))
 
 /* A C expression whose value is RTL representing the value of the
    return address for the frame COUNT steps up from the current frame,
@@ -581,7 +581,7 @@ enum reg_class
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)					\
   ((COUNT> 0 && flag_omit_frame_pointer)? NULL_RTX			\
-   : gen_rtx (MEM, Pmode, gen_rtx (PLUS, Pmode, (FRAME), GEN_INT(4))))
+   : gen_rtx_MEM (Pmode, gen_rtx_PLUS (Pmode, (FRAME), GEN_INT(4))))
 
 /* A C expression whose value is an integer giving the offset, in
    bytes, from the value of the stack pointer register to the top of

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -1126,7 +1126,8 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define STATIC_CHAIN_REGNUM	(TARGET_SH5 ? 1 : 3)
 
 /* Don't default to pcc-struct-return, because we have already specified
-   exactly how to return structures in the RETURN_IN_MEMORY macro.  */
+   exactly how to return structures in the TARGET_RETURN_IN_MEMORY
+   target hook.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
@@ -1632,7 +1633,7 @@ extern enum reg_class reg_class_from_letter[];
    tested here has to be kept in sync with the one in explow.c:promote_mode.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  gen_rtx (REG,								\
+  gen_rtx_REG (								\
 	   ((GET_MODE_CLASS (TYPE_MODE (VALTYPE)) == MODE_INT		\
 	     && GET_MODE_SIZE (TYPE_MODE (VALTYPE)) < UNITS_PER_WORD	\
 	     && (TREE_CODE (VALTYPE) == INTEGER_TYPE			\
@@ -2560,9 +2561,9 @@ struct sh_args {
 	 prevalent.  */							\
       if (GET_MODE_SIZE (MODE) + offset - offset_base <= 64)		\
 	{								\
-	  sum = gen_rtx (PLUS, Pmode, XEXP (X, 0),			\
+	  sum = gen_rtx_PLUS (Pmode, XEXP (X, 0),			\
 			 GEN_INT (offset_base));			\
-	  X = gen_rtx (PLUS, Pmode, sum, GEN_INT (offset - offset_base));\
+	  X = gen_rtx_PLUS (Pmode, sum, GEN_INT (offset - offset_base));\
 	  push_reload (sum, NULL_RTX, &XEXP (X, 0), NULL,		\
 		       BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, (OPNUM),	\
 		       (TYPE));						\
@@ -3197,13 +3198,6 @@ extern int rtx_equal_function_value_matters;
       && GET_MODE_SIZE (MODE) < UNITS_PER_WORD)		\
     (UNSIGNEDP) = ((MODE) == SImode ? 0 : (UNSIGNEDP)),	\
     (MODE) = (TARGET_SH1 ? SImode : DImode);
-
-/* Defining PROMOTE_FUNCTION_ARGS eliminates some unnecessary zero/sign
-   extensions applied to char/short functions arguments.  Defining
-   PROMOTE_FUNCTION_RETURN does the same for function returns.  */
-
-#define PROMOTE_FUNCTION_ARGS
-#define PROMOTE_FUNCTION_RETURN
 
 #define MAX_FIXED_MODE_SIZE (TARGET_SH5 ? 128 : 64)
 

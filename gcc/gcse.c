@@ -1,6 +1,6 @@
 /* Global common subexpression elimination/Partial redundancy elimination
    and global constant/copy propagation for GNU compiler.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -4873,6 +4873,21 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    }
 	  else
 	    dest = NULL;
+
+	  /* Avoid unification of the edge with other edges from original
+	     branch.  We would end up emitting the instruction on "both"
+	     edges.  */
+	    
+	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc))))
+	    {
+	      edge e2;
+	      for (e2 = e->src->succ; e2; e2 = e2->succ_next)
+		if (e2->dest == dest)
+		  {
+		    dest = NULL;
+		    break;
+		  }
+	    }
 
 	  old_dest = e->dest;
 	  if (dest != NULL

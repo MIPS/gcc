@@ -78,6 +78,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "opts.h"
 #include "coverage.h"
 #include "value-prof.h"
+#include "alloc-pool.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -711,6 +712,11 @@ int flag_branch_target_load_optimize = 0;
 
 int flag_branch_target_load_optimize2 = 0;
 
+/* For the bt-load pass, nonzero means don't re-use branch target registers
+   in any basic block.  */
+
+int flag_btr_bb_exclusive;
+
 /* Nonzero means to rerun cse after loop optimization.  This increases
    compilation time about 20% and picks up a few more common expressions.  */
 
@@ -1064,6 +1070,7 @@ static const lang_independent_options f_options[] =
   {"gcse-las", &flag_gcse_las, 1 },
   {"branch-target-load-optimize", &flag_branch_target_load_optimize, 1 },
   {"branch-target-load-optimize2", &flag_branch_target_load_optimize2, 1 },
+  {"btr-bb-exclusive", &flag_btr_bb_exclusive, 1 },
   {"loop-optimize", &flag_loop_optimize, 1 },
   {"crossjumping", &flag_crossjumping, 1 },
   {"if-conversion", &flag_if_conversion, 1 },
@@ -2812,6 +2819,7 @@ rest_of_handle_life (tree decl, rtx insns)
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
   if (optimize)
     cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
+		 | CLEANUP_LOG_LINKS
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
@@ -2901,6 +2909,13 @@ rest_of_handle_cse2 (tree decl, rtx insns)
     dump_flow_info (rtl_dump_file);
   /* CFG is no longer maintained up-to-date.  */
   tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+
+  /* Run a pass to eliminate duplicated assignments to condition code
+     registers.  We have to run this after bypass_jumps, because it
+     makes it harder for that pass to determine whether a jump can be
+     bypassed safely.  */
+  cse_condition_code_reg ();
+
   purge_all_dead_edges (0);
   delete_trivially_dead_insns (insns, max_reg_num ());
 
@@ -3302,6 +3317,9 @@ rest_of_compilation (tree decl)
 
       if (flag_loop_optimize)
 	rest_of_handle_loop_optimize (decl, insns);
+
+      if (flag_gcse)
+	rest_of_handle_jump_bypass (decl, insns);
     }
 
   timevar_push (TV_FLOW);
@@ -3329,16 +3347,11 @@ rest_of_compilation (tree decl)
   if (flag_tracer)
     rest_of_handle_tracer (decl, insns);
 
-  if (optimize > 0)
-    {
-      if (flag_unswitch_loops
+  if (optimize > 0
+      && (flag_unswitch_loops
 	  || flag_peel_loops
-	  || flag_unroll_loops)
-	rest_of_handle_loop2 (decl, insns);
-
-      if (flag_gcse)
-	rest_of_handle_jump_bypass (decl, insns);
-    }
+	  || flag_unroll_loops))
+    rest_of_handle_loop2 (decl, insns);
 
   if (flag_web)
     rest_of_handle_web (decl, insns);
@@ -3456,7 +3469,7 @@ rest_of_compilation (tree decl)
 
   if (optimize)
     {
-      life_analysis (insns, rtl_dump_file, PROP_FINAL);
+      life_analysis (insns, rtl_dump_file, PROP_POSTRELOAD);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
 		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
@@ -4586,6 +4599,8 @@ finalize (void)
       stringpool_statistics ();
       dump_tree_statistics ();
       dump_rtx_statistics ();
+      dump_varray_statistics ();
+      dump_alloc_pool_statistics ();
     }
 
   /* Free up memory for the benefit of leak detectors.  */

@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc. 
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -2503,7 +2503,14 @@ alpha_emit_set_const_1 (rtx target, enum machine_mode mode,
 	}
       else if (n >= 2 + (extra != 0))
 	{
-	  temp = copy_to_suggested_reg (GEN_INT (high << 16), subtarget, mode);
+	  if (no_new_pseudos)
+	    {
+	      emit_insn (gen_rtx_SET (VOIDmode, target, GEN_INT (high << 16)));
+	      temp = target;
+	    }
+	  else
+	    temp = copy_to_suggested_reg (GEN_INT (high << 16),
+					  subtarget, mode);
 
 	  /* As of 2002-02-23, addsi3 is only available when not optimizing.
 	     This means that if we go through expand_binop, we'll try to
@@ -6233,7 +6240,7 @@ alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   if (TARGET_ABI_UNICOSMK)
     std_expand_builtin_va_start (valist, nextarg);
 
-  /* For Unix, SETUP_INCOMING_VARARGS moves the starting address base
+  /* For Unix, TARGET_SETUP_INCOMING_VARARGS moves the starting address base
      up by 48, storing fp arg registers in the first 48 bytes, and the
      integer arg registers in the next 48 bytes.  This is only done,
      however, if any integer registers need to be stored.

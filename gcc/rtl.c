@@ -1,6 +1,6 @@
 /* RTL utility routines.
    Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -224,6 +224,10 @@ copy_rtx (rtx orig)
       /* SCRATCH must be shared because they represent distinct values.  */
     case ADDRESSOF:
       return orig;
+    case CLOBBER:
+      if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
+	return orig;
+      break;
 
     case CONST:
       /* CONST can be shared if it contains a SYMBOL_REF.  If it contains

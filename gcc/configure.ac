@@ -171,10 +171,8 @@ AC_MSG_RESULT($generated_files_in_srcdir)
 
 if test "$generated_files_in_srcdir" = "yes"; then
   GENINSRC=''
-  docobjdir='$(srcdir)/doc'
 else
   GENINSRC='#'
-  docobjdir='$(objdir)/doc'
 fi
 AC_SUBST(GENINSRC)
 
@@ -1138,11 +1136,13 @@ fi
 
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
-  AC_DEFINE(DEFAULT_USE_CXA_ATEXIT, 1,
-  [Define if you want to use __cxa_atexit, rather than atexit, to
-   register C++ destructors for local statics and global objects.
-   This is essential for fully standards-compliant handling of
-   destructors, but requires __cxa_atexit in libc.])
+   AC_CHECK_FUNC(__cxa_atexit,
+	[AC_DEFINE(DEFAULT_USE_CXA_ATEXIT, 1,
+   	[Define if you want to use __cxa_atexit, rather than atexit, to
+   	register C++ destructors for local statics and global objects.
+   	This is essential for fully standards-compliant handling of
+   	destructors, but requires __cxa_atexit in libc.])],
+	echo "__cxa_atexit can't be enabled on this target")
 fi
 
 # Look for a file containing extra machine modes.
@@ -2474,7 +2474,7 @@ case "$target" in
   | xstormy16*-*-* | cris-*-* | xtensa-*-*)
     insn="nop"
     ;;
-  ia64*-*-*)
+  ia64*-*-* | s390*-*-*)
     insn="nop 0"
     ;;
   mmix-*-*)
@@ -2897,7 +2897,7 @@ rm -f Make-hooks
 touch Make-hooks
 target_list="all.build all.cross start.encap rest.encap tags \
 	install-normal install-common install-man \
-	uninstall srcextra \
+	uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean \
 	stage1 stage2 stage3 stage4 stageprofile stagefeedback"
 for t in $target_list
@@ -2990,7 +2990,6 @@ AC_SUBST(objdir)
 # Substitute configuration variables
 AC_SUBST(subdirs)
 AC_SUBST(srcdir)
-AC_SUBST(docobjdir)
 AC_SUBST(all_boot_languages)
 AC_SUBST(all_compilers)
 AC_SUBST(all_gtfiles)
@@ -3056,6 +3055,14 @@ AC_SUBST(cxx_target_objs)
 AC_SUBST(target_cpu_default)
 
 AC_SUBST_FILE(language_hooks)
+
+# If it doesn't already exist, create document directory
+echo "checking for the document directory." 1>&2
+if test -d doc ; then
+  true
+else
+  mkdir doc 
+fi
 
 # Echo link setup.
 if test x${build} = x${host} ; then

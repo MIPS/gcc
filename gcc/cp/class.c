@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -866,7 +866,7 @@ add_method (tree type, tree method, int error_p)
 	}
     }
       
-  if (template_class_depth (type))
+  if (processing_template_decl)
     /* TYPE is a template class.  Don't issue any errors now; wait
        until instantiation time to complain.  */
     ;
@@ -1197,7 +1197,7 @@ handle_using_decl (tree using_decl, tree t)
     alter_access (t, fdecl, access);
 }
 
-/* Run through the base clases of T, updating
+/* Run through the base classes of T, updating
    CANT_HAVE_DEFAULT_CTOR_P, CANT_HAVE_CONST_CTOR_P, and
    NO_CONST_ASN_REF_P.  Also set flag bits in T based on properties of
    the bases.  */

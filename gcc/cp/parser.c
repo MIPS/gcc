@@ -72,6 +72,8 @@ typedef struct cp_token GTY (())
   /* If this token is a keyword, this value indicates which keyword.
      Otherwise, this value is RID_MAX.  */
   ENUM_BITFIELD (rid) keyword : 8;
+  /* Token flags.  */
+  unsigned char flags;
   /* The value associated with this token, if any.  */
   tree value;
   /* The location at which this token was found.  */
@@ -597,7 +599,7 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
   while (!done)
     {
       /* Get a new token from the preprocessor.  */
-      token->type = c_lex (&token->value);
+      token->type = c_lex_with_flags (&token->value, &token->flags);
       /* Issue messages about tokens we cannot process.  */
       switch (token->type)
 	{
@@ -1063,7 +1065,7 @@ typedef enum cp_parser_flags
 
 typedef enum cp_parser_declarator_kind
 {
-  /* We want an abstract declartor.  */
+  /* We want an abstract declarator.  */
   CP_PARSER_DECLARATOR_ABSTRACT,
   /* We want a named declarator.  */
   CP_PARSER_DECLARATOR_NAMED,
@@ -1681,6 +1683,8 @@ static bool cp_parser_next_token_starts_class_definition_p
   (cp_parser *);
 static bool cp_parser_next_token_ends_template_argument_p
   (cp_parser *);
+static bool cp_parser_nth_token_starts_template_argument_list_p
+  (cp_parser *, size_t);
 static enum tag_types cp_parser_token_is_class_key
   (cp_token *);
 static void cp_parser_check_class_key
@@ -2741,7 +2745,8 @@ cp_parser_id_expression (cp_parser *parser,
 	 we can avoid the template-id case.  This is an optimization
 	 for this common case.  */
       if (token->type == CPP_NAME 
-	  && cp_lexer_peek_nth_token (parser->lexer, 2)->type != CPP_LESS)
+	  && !cp_parser_nth_token_starts_template_argument_list_p 
+	       (parser, 2))
 	return cp_parser_identifier (parser);
 
       cp_parser_parse_tentatively (parser);
@@ -3113,7 +3118,9 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	     template-id), nor a `::', then we are not looking at a
 	     nested-name-specifier.  */
 	  token = cp_lexer_peek_nth_token (parser->lexer, 2);
-	  if (token->type != CPP_LESS && token->type != CPP_SCOPE)
+	  if (token->type != CPP_SCOPE
+	      && !cp_parser_nth_token_starts_template_argument_list_p
+		  (parser, 2))
 	    break;
 	}
 
@@ -5465,7 +5472,12 @@ cp_parser_statement (cp_parser* parser, bool in_statement_expr_p)
    labeled-statement:
      identifier : statement
      case constant-expression : statement
-     default : statement  
+     default : statement
+
+   GNU Extension:
+   
+   labeled-statement:
+     case constant-expression ... constant-expression : statement
 
    Returns the new CASE_LABEL, for a `case' or `default' label.  For
    an ordinary label, returns a LABEL_STMT.  */
@@ -5489,7 +5501,8 @@ cp_parser_labeled_statement (cp_parser* parser, bool in_statement_expr_p)
     {
     case RID_CASE:
       {
-	tree expr;
+	tree expr, expr_hi;
+	cp_token *ellipsis;
 
 	/* Consume the `case' token.  */
 	cp_lexer_consume_token (parser->lexer);
@@ -5497,10 +5510,26 @@ cp_parser_labeled_statement (cp_parser* parser, bool in_statement_expr_p)
 	expr = cp_parser_constant_expression (parser, 
 					      /*allow_non_constant_p=*/false,
 					      NULL);
+
+	ellipsis = cp_lexer_peek_token (parser->lexer);
+	if (ellipsis->type == CPP_ELLIPSIS)
+	  {
+            /* Consume the `...' token.  */
+	    cp_lexer_consume_token (parser->lexer);
+	    expr_hi =
+	      cp_parser_constant_expression (parser,
+	    				     /*allow_non_constant_p=*/false,
+					     NULL);
+	    /* We don't need to emit warnings here, as the common code
+	       will do this for us.  */
+	  }
+	else
+	  expr_hi = NULL_TREE;
+
 	if (!parser->in_switch_statement_p)
 	  error ("case label `%E' not within a switch statement", expr);
 	else
-	  statement = finish_case_label (expr, NULL_TREE);
+	  statement = finish_case_label (expr, expr_hi);
       }
       break;
 
@@ -7708,13 +7737,19 @@ cp_parser_type_parameter (cp_parser* parser)
 					 /*check_dependency_p=*/true,
 					 /*template_p=*/&is_template,
 					 /*declarator_p=*/false);
-	    /* Look up the name.  */
-	    default_argument 
-	      = cp_parser_lookup_name (parser, default_argument,
-				       /*is_type=*/false,
-				       /*is_template=*/is_template,
-				       /*is_namespace=*/false,
-				       /*check_dependency=*/true);
+	    if (TREE_CODE (default_argument) == TYPE_DECL)
+	      /* If the id-expression was a template-id that refers to
+		 a template-class, we already have the declaration here,
+		 so no further lookup is needed.  */
+		 ;
+	    else
+	      /* Look up the name.  */
+	      default_argument 
+		= cp_parser_lookup_name (parser, default_argument,
+					/*is_type=*/false,
+					/*is_template=*/is_template,
+					/*is_namespace=*/false,
+					/*check_dependency=*/true);
 	    /* See if the default argument is valid.  */
 	    default_argument
 	      = check_template_template_default_arg (default_argument);
@@ -7763,7 +7798,7 @@ cp_parser_template_id (cp_parser *parser,
   tree template_id;
   ptrdiff_t start_of_id;
   tree access_check = NULL_TREE;
-  cp_token *next_token;
+  cp_token *next_token, *next_token_2;
   bool is_identifier;
 
   /* If the next token corresponds to a template-id, there is no need
@@ -7788,7 +7823,8 @@ cp_parser_template_id (cp_parser *parser,
      finding a template-id.  */
   if ((next_token->type != CPP_NAME && next_token->keyword != RID_OPERATOR)
       || (next_token->type == CPP_NAME
-	  && cp_lexer_peek_nth_token (parser->lexer, 2)->type != CPP_LESS))
+	  && !cp_parser_nth_token_starts_template_argument_list_p 
+	       (parser, 2)))
     {
       cp_parser_error (parser, "expected template-id");
       return error_mark_node;
@@ -7820,15 +7856,60 @@ cp_parser_template_id (cp_parser *parser,
       return template;
     }
 
-  /* Look for the `<' that starts the template-argument-list.  */
-  if (!cp_parser_require (parser, CPP_LESS, "`<'"))
+  /* If we find the sequence `[:' after a template-name, it's probably 
+     a digraph-typo for `< ::'. Substitute the tokens and check if we can
+     parse correctly the argument list.  */
+  next_token = cp_lexer_peek_nth_token (parser->lexer, 1);
+  next_token_2 = cp_lexer_peek_nth_token (parser->lexer, 2);
+  if (next_token->type == CPP_OPEN_SQUARE 
+      && next_token->flags & DIGRAPH
+      && next_token_2->type == CPP_COLON 
+      && !(next_token_2->flags & PREV_WHITE))
     {
-      pop_deferring_access_checks ();
-      return error_mark_node;
+      cp_parser_parse_tentatively (parser);
+      /* Change `:' into `::'.  */
+      next_token_2->type = CPP_SCOPE;
+      /* Consume the first token (CPP_OPEN_SQUARE - which we pretend it is
+         CPP_LESS.  */
+      cp_lexer_consume_token (parser->lexer);
+      /* Parse the arguments.  */
+      arguments = cp_parser_enclosed_template_argument_list (parser);
+      if (!cp_parser_parse_definitely (parser))
+	{
+	  /* If we couldn't parse an argument list, then we revert our changes
+	     and return simply an error. Maybe this is not a template-id
+	     after all.  */
+	  next_token_2->type = CPP_COLON;
+	  cp_parser_error (parser, "expected `<'");
+	  pop_deferring_access_checks ();
+	  return error_mark_node;
+	}
+      /* Otherwise, emit an error about the invalid digraph, but continue
+         parsing because we got our argument list.  */
+      pedwarn ("`<::' cannot begin a template-argument list");
+      inform ("`<:' is an alternate spelling for `['. Insert whitespace "
+	      "between `<' and `::'");
+      if (!flag_permissive)
+	{
+	  static bool hint;
+	  if (!hint)
+	    {
+	      inform ("(if you use `-fpermissive' G++ will accept your code)");
+	      hint = true;
+	    }
+	}
     }
-
-  /* Parse the arguments.  */
-  arguments = cp_parser_enclosed_template_argument_list (parser);
+  else
+    {
+      /* Look for the `<' that starts the template-argument-list.  */
+      if (!cp_parser_require (parser, CPP_LESS, "`<'"))
+	{
+	  pop_deferring_access_checks ();
+	  return error_mark_node;
+	}
+      /* Parse the arguments.  */
+      arguments = cp_parser_enclosed_template_argument_list (parser);
+    }
 
   /* Build a representation of the specialization.  */
   if (TREE_CODE (template) == IDENTIFIER_NODE)
@@ -7968,7 +8049,7 @@ cp_parser_template_name (cp_parser* parser,
      -- but we do not if there is no `<'.  */
 
   if (processing_template_decl
-      && cp_lexer_next_token_is (parser->lexer, CPP_LESS))
+      && cp_parser_nth_token_starts_template_argument_list_p (parser, 1))
     {
       /* In a declaration, in a dependent context, we pretend that the
 	 "template" keyword was present in order to improve error
@@ -10279,15 +10360,20 @@ cp_parser_direct_declarator (cp_parser* parser,
 	     declarator.  */
 	  if (first)
 	    {
+	      bool saved_in_type_id_in_expr_p;
+
 	      parser->default_arg_ok_p = saved_default_arg_ok_p;
 	      parser->in_declarator_p = saved_in_declarator_p;
 	      
 	      /* Consume the `('.  */
 	      cp_lexer_consume_token (parser->lexer);
 	      /* Parse the nested declarator.  */
+	      saved_in_type_id_in_expr_p = parser->in_type_id_in_expr_p;
+	      parser->in_type_id_in_expr_p = true;
 	      declarator 
 		= cp_parser_declarator (parser, dcl_kind, ctor_dtor_or_conv_p,
 					/*parenthesized_p=*/NULL);
+	      parser->in_type_id_in_expr_p = saved_in_type_id_in_expr_p;
 	      first = false;
 	      /* Expect a `)'.  */
 	      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
@@ -11042,11 +11128,11 @@ cp_parser_parameter_declaration (cp_parser *parser,
       if (!parser->in_template_argument_list_p
 	  /* In an expression context, having seen:
 
-	       (int((char *)...
+	       (int((char ...
 
 	     we cannot be sure whether we are looking at a
-	     function-type (taking a "char*" as a parameter) or a cast
-	     of some object of type "char*" to "int".  */
+	     function-type (taking a "char" as a parameter) or a cast
+	     of some object of type "char" to "int".  */
 	  && !parser->in_type_id_in_expr_p
 	  && cp_parser_parsing_tentatively (parser)
 	  && !cp_parser_committed_to_tentative_parse (parser)
@@ -11485,7 +11571,7 @@ cp_parser_class_name (cp_parser *parser,
   /* Handle the common case (an identifier, but not a template-id)
      efficiently.  */
   if (token->type == CPP_NAME 
-      && cp_lexer_peek_nth_token (parser->lexer, 2)->type != CPP_LESS)
+      && !cp_parser_nth_token_starts_template_argument_list_p (parser, 2))
     {
       tree identifier;
 
@@ -11699,8 +11785,12 @@ cp_parser_class_specifier (cp_parser* parser)
 	  /* Figure out which function we need to process.  */
 	  fn = TREE_VALUE (queue_entry);
 
+	  /* A hack to prevent garbage collection.  */
+	  function_depth++;
+
 	  /* Parse the function.  */
 	  cp_parser_late_parsing_for_member (parser, fn);
+	  function_depth--;
 	}
 
     }
@@ -12701,7 +12791,7 @@ cp_parser_base_specifier (cp_parser* parser)
 	  break;
 	}
     }
-  /* It is not uncommon to see programs mechanically, errouneously, use
+  /* It is not uncommon to see programs mechanically, erroneously, use
      the 'typename' keyword to denote (dependent) qualified types
      as base classes.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TYPENAME))
@@ -14832,6 +14922,31 @@ cp_parser_next_token_ends_template_argument_p (cp_parser *parser)
   return (token->type == CPP_COMMA || token->type == CPP_GREATER 
 	  || token->type == CPP_RSHIFT);
 }
+
+/* Returns TRUE iff the n-th token is a ">", or the n-th is a "[" and the
+   (n+1)-th is a ":" (which is a possible digraph typo for "< ::").  */
+
+static bool
+cp_parser_nth_token_starts_template_argument_list_p (cp_parser * parser, 
+						     size_t n)
+{
+  cp_token *token;
+
+  token = cp_lexer_peek_nth_token (parser->lexer, n);
+  if (token->type == CPP_LESS)
+    return true;
+  /* Check for the sequence `<::' in the original code. It would be lexed as
+     `[:', where `[' is a digraph, and there is no whitespace before
+     `:'.  */
+  if (token->type == CPP_OPEN_SQUARE && token->flags & DIGRAPH)
+    {
+      cp_token *token2;
+      token2 = cp_lexer_peek_nth_token (parser->lexer, n+1);
+      if (token2->type == CPP_COLON && !(token2->flags & PREV_WHITE))
+	return true;
+    }
+  return false;
+}
  
 /* Returns the kind of tag indicated by TOKEN, if it is a class-key,
    or none_type otherwise.  */
@@ -14935,7 +15050,7 @@ cp_parser_pre_parsed_nested_name_specifier (cp_parser *parser)
   parser->object_scope = NULL_TREE;
 }
 
-/* Add tokens to CACHE until an non-nested END token appears.  */
+/* Add tokens to CACHE until a non-nested END token appears.  */
 
 static void
 cp_parser_cache_group (cp_parser *parser, 

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright 2001,2002,2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -200,12 +200,14 @@ static enum machine_mode xtensa_find_mode_for_size (unsigned);
 static struct machine_function * xtensa_init_machine_status (void);
 static void printx (FILE *, signed int);
 static void xtensa_function_epilogue (FILE *, HOST_WIDE_INT);
+static rtx xtensa_builtin_saveregs (void);
 static unsigned int xtensa_multibss_section_type_flags (tree, const char *,
 							int) ATTRIBUTE_UNUSED;
 static void xtensa_select_rtx_section (enum machine_mode, rtx,
 				       unsigned HOST_WIDE_INT);
 static bool xtensa_rtx_costs (rtx, int, int, int *);
 static tree xtensa_build_builtin_va_list (void);
+static bool xtensa_return_in_memory (tree, tree);
 
 static int current_function_arg_words;
 static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
@@ -236,6 +238,21 @@ static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST xtensa_build_builtin_va_list
+
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#undef TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#undef TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY xtensa_return_in_memory
+
+#undef TARGET_EXPAND_BUILTIN_SAVEREGS
+#define TARGET_EXPAND_BUILTIN_SAVEREGS xtensa_builtin_saveregs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -964,7 +981,7 @@ gen_int_relational (enum rtx_code test_code, /* relational test (EQ, etc) */
       cmp1 = temp;
     }
 
-  return gen_rtx (p_info->test_code, VOIDmode, cmp0, cmp1);
+  return gen_rtx_fmt_ee (p_info->test_code, VOIDmode, cmp0, cmp1);
 }
 
 
@@ -989,7 +1006,7 @@ gen_float_relational (enum rtx_code test_code, /* relational test (EQ, etc) */
     case LT: reverse_regs = 0; invert = 0; gen_fn = gen_slt_sf; break;
     case GE: reverse_regs = 1; invert = 0; gen_fn = gen_sle_sf; break;
     default:
-      fatal_insn ("bad test", gen_rtx (test_code, VOIDmode, cmp0, cmp1));
+      fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
       reverse_regs = 0; invert = 0; gen_fn = 0; /* avoid compiler warnings */
     }
 
@@ -1003,7 +1020,7 @@ gen_float_relational (enum rtx_code test_code, /* relational test (EQ, etc) */
   brtmp = gen_rtx_REG (CCmode, FPCC_REGNUM);
   emit_insn (gen_fn (brtmp, cmp0, cmp1));
 
-  return gen_rtx (invert ? EQ : NE, VOIDmode, brtmp, const0_rtx);
+  return gen_rtx_fmt_ee (invert ? EQ : NE, VOIDmode, brtmp, const0_rtx);
 }
 
 
@@ -1021,7 +1038,7 @@ xtensa_expand_conditional_branch (rtx *operands, enum rtx_code test_code)
     {
     case CMP_DF:
     default:
-      fatal_insn ("bad test", gen_rtx (test_code, VOIDmode, cmp0, cmp1));
+      fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
 
     case CMP_SI:
       invert = FALSE;
@@ -1030,7 +1047,7 @@ xtensa_expand_conditional_branch (rtx *operands, enum rtx_code test_code)
 
     case CMP_SF:
       if (!TARGET_HARD_FLOAT)
-	fatal_insn ("bad test", gen_rtx (test_code, VOIDmode, cmp0, cmp1));
+	fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
       invert = FALSE;
       cmp = gen_float_relational (test_code, cmp0, cmp1);
       break;
@@ -1076,7 +1093,7 @@ gen_conditional_move (rtx cmp)
 	  code = GE;
 	  op1 = const0_rtx;
 	}
-      cmp = gen_rtx (code, VOIDmode, cc0_rtx, const0_rtx);
+      cmp = gen_rtx_fmt_ee (code, VOIDmode, cc0_rtx, const0_rtx);
 
       if (boolean_operator (cmp, VOIDmode))
 	{
@@ -1117,7 +1134,7 @@ gen_conditional_move (rtx cmp)
       else
 	return 0;
 
-      return gen_rtx (code, VOIDmode, op0, op1);
+      return gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
     }
 
   if (TARGET_HARD_FLOAT && (branch_type == CMP_SF))
@@ -1310,7 +1327,27 @@ xtensa_copy_incoming_a7 (rtx *operands, enum machine_mode mode)
   if (a7_overlap_mentioned_p (operands[1])
       && !cfun->machine->incoming_a7_copied)
     {
-      rtx mov;
+      rtx mov, src;
+
+      /* Despite defining SPLIT_COMPLEX_ARGS, complex function
+	 arguments may still appear if they are wrapped in a struct.
+	 For CQImode and CHImode arguments, this results in a move
+	 with a source operand of the form: "(subreg:SI (reg:CHI a7)
+	 0)".  The subreg is later removed by the reload pass,
+	 resulting in the RTL for a7 being regenerated using
+	 hard_frame_pointer_rtx, and making it impossible for us to
+	 distinguish the function argument.  Detect this here when
+	 generating the RTL and remove the subreg immediately so that
+	 reload won't mess it up.  */
+      src = operands[1];
+      if (GET_CODE (src) == SUBREG
+	  && GET_CODE (SUBREG_REG (src)) == REG
+	  && REGNO (SUBREG_REG (src)) == A7_REG
+	  && SUBREG_BYTE (src) == 0
+	  && (GET_MODE (SUBREG_REG (src)) == CHImode
+	      || GET_MODE (SUBREG_REG (src)) == CQImode))
+	operands[1] = gen_raw_REG (mode, A7_REG);
+
       switch (mode)
 	{
 	case DFmode:
@@ -1753,14 +1790,18 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
   result_mode = (mode == BLKmode ? TYPE_MODE (type) : mode);
 
   /* We need to make sure that references to a7 are represented with
-     rtx that is not equal to hard_frame_pointer_rtx.  For BLKmode and
-     modes bigger than 2 words (because we only have patterns for
-     modes of 2 words or smaller), we can't control the expansion
-     unless we explicitly list the individual registers in a PARALLEL.  */
+     rtx that is not equal to hard_frame_pointer_rtx.  For multi-word
+     modes for which we don't define move patterns, we can't control
+     the expansion unless we explicitly list the individual registers
+     in a PARALLEL.  Likewise, a single-word BLKmode argument passed
+     in a7 must be wrapped in a PARALLEL to avoid code that takes the
+     register number and builds a new REG.  This is extremely fragile
+     but seems to be the best solution for now.  */
 
-  if ((mode == BLKmode || words > 2)
-      && regno < A7_REG
-      && regno + words > A7_REG)
+  if ((mode != DImode && mode != DFmode
+       && regno < A7_REG
+       && regno + words > A7_REG)
+      || (mode == BLKmode && regno == A7_REG))
     {
       rtx result;
       int n;
@@ -2355,7 +2396,7 @@ xtensa_build_builtin_va_list (void)
 /* Save the incoming argument registers on the stack.  Returns the
    address of the saved registers.  */
 
-rtx
+static rtx
 xtensa_builtin_saveregs (void)
 {
   rtx gp_regs, dest;
@@ -2446,6 +2487,25 @@ xtensa_va_arg (tree valist, tree type)
   tree tmp, addr_tree, type_size;
   rtx array, orig_ndx, r, addr, size, va_size;
   rtx lab_false, lab_over, lab_false2;
+
+  /* Handle complex values as separate real and imaginary parts.  */
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    {
+      rtx real_part, imag_part, concat_val, local_copy;
+
+      real_part = xtensa_va_arg (valist, TREE_TYPE (type));
+      imag_part = xtensa_va_arg (valist, TREE_TYPE (type));
+
+      /* Make a copy of the value in case the parts are not contiguous.  */
+      real_part = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (type)), real_part);
+      imag_part = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (type)), imag_part);
+      concat_val = gen_rtx_CONCAT (TYPE_MODE (type), real_part, imag_part);
+
+      local_copy = assign_temp (type, 0, 1, 0);
+      emit_move_insn (local_copy, concat_val);
+
+      return XEXP (local_copy, 0);
+    }
 
   f_stk = TYPE_FIELDS (va_list_type_node);
   f_reg = TREE_CHAIN (f_stk);
@@ -2990,6 +3050,15 @@ xtensa_rtx_costs (rtx x, int code, int outer_code, int *total)
     default:
       return false;
     }
+}
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
+static bool
+xtensa_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  return ((unsigned HOST_WIDE_INT) int_size_in_bytes (type)
+	  > 4 * UNITS_PER_WORD);
 }
 
 #include "gt-xtensa.h"

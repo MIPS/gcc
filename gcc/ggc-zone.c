@@ -1,5 +1,6 @@
 /* "Bag-of-pages" zone garbage collector for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Richard Henderson (rth@redhat.com) and Daniel Berlin
    (dberlin@dberlin.org) 
 
@@ -125,6 +126,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef HOST_BITS_PER_PTR
 #define HOST_BITS_PER_PTR  HOST_BITS_PER_LONG
 #endif
+
 #ifdef COOKIE_CHECKING
 #define CHUNK_MAGIC 0x95321123
 #define DEADCHUNK_MAGIC 0x12817317
@@ -733,6 +735,31 @@ ggc_alloc_zone (size_t size, struct alloc_zone *zone)
   return ggc_alloc_zone_1 (size, zone, -1);
 }
 
+/* Poison the chunk.  */
+#ifdef ENABLE_GC_CHECKING
+#define poison_chunk(CHUNK, SIZE) \
+  memset ((CHUNK)->u.data, 0xa5, (SIZE))
+#else
+#define poison_chunk(CHUNK, SIZE)
+#endif
+
+/* Free the object at P.  */
+
+void
+ggc_free (void *p)
+{
+  struct alloc_chunk *chunk;
+  
+  chunk = (struct alloc_chunk *) ((char *)p - CHUNK_OVERHEAD);
+  
+  /* Poison the chunk.  */
+  poison_chunk (chunk, ggc_get_size (p));
+
+  /* XXX: We only deal with explicitly freeing large objects ATM.  */
+  if (chunk->large)
+    free (p);
+}
+
 /* If P is not marked, mark it and return false.  Otherwise return true.
    P must have been allocated by the GC allocator; it mustn't point to
    static objects, stack variables, or memory allocated with malloc.  */
@@ -930,13 +957,6 @@ ggc_pop_context (void)
   for (zone = G.zones; zone; zone = zone->next_zone)
     ggc_pop_context_1 (zone);
 }
-/* Poison the chunk.  */
-#ifdef ENABLE_GC_CHECKING
-#define poison_chunk(CHUNK, SIZE) \
-  memset ((CHUNK)->u.data, 0xa5, (SIZE))
-#else
-#define poison_chunk(CHUNK, SIZE)
-#endif
 
 /* Free all empty pages and objects within a page for a given zone  */
 

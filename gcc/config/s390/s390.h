@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -114,9 +115,9 @@ extern int target_flags;
 #define TARGET_IEEE_FLOAT          1
 
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             0x33
+#define TARGET_DEFAULT             0x31
 #else
-#define TARGET_DEFAULT             0x3
+#define TARGET_DEFAULT             0x1
 #endif
 
 #define TARGET_SWITCHES                                                  \
@@ -207,8 +208,6 @@ extern int target_flags;
 #define MAX_BITS_PER_WORD 64
 
 /* Function arguments and return values are promoted to word size.  */
-#define PROMOTE_FUNCTION_ARGS
-#define PROMOTE_FUNCTION_RETURN
 #define PROMOTE_FOR_CALL_ONLY
 
 #define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)		\
@@ -714,9 +713,6 @@ CUMULATIVE_ARGS;
 
 /* Only gpr 2 and fpr 0 are ever used as return registers.  */
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 2 || (N) == 16)
-
-/* Structure value address is passed as invisible first argument (gpr 2).  */
-#define STRUCT_VALUE 0
 
 
 /* Function entry and exit.  */

@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Renesas M32R cpu.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -101,6 +101,9 @@ static int    m32r_issue_rate (void);
 
 static void m32r_encode_section_info (tree, rtx, int);
 static bool m32r_in_small_data_p (tree);
+static bool m32r_return_in_memory (tree, tree);
+static void m32r_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+					 tree, int *, int);
 static void init_idents (void);
 static bool m32r_rtx_costs (rtx, int, int, int *);
 
@@ -143,6 +146,17 @@ static bool m32r_rtx_costs (rtx, int, int, int *);
 #define TARGET_RTX_COSTS m32r_rtx_costs
 #undef  TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
+
+#undef  TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+
+#undef  TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
+#undef  TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY m32r_return_in_memory
+
+#undef  TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS m32r_setup_incoming_varargs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1048,7 +1062,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 	    {
 	      emit_insn (gen_cmp_eqsi_insn (x, y));
 		
-	      return gen_rtx (code, CCmode, cc_reg, const0_rtx);
+	      return gen_rtx_fmt_ee (code, CCmode, cc_reg, const0_rtx);
 	    }
 	  break;
       
@@ -1074,7 +1088,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 		  break;
 		case GT:
 		  if (GET_CODE (y) == CONST_INT)
-		    tmp = gen_rtx (PLUS, SImode, y, const1_rtx);
+		    tmp = gen_rtx_PLUS (SImode, y, const1_rtx);
 		  else
 		    emit_insn (gen_addsi3 (tmp, y, constm1_rtx));
 		  emit_insn (gen_cmp_ltsi_insn (x, tmp));
@@ -1088,7 +1102,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 		  abort ();
 		}
 	      
-	      return gen_rtx (code, CCmode, cc_reg, const0_rtx);
+	      return gen_rtx_fmt_ee (code, CCmode, cc_reg, const0_rtx);
 	    }
 	  break;
 	  
@@ -1114,7 +1128,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 		  break;
 		case GTU:
 		  if (GET_CODE (y) == CONST_INT)
-		    tmp = gen_rtx (PLUS, SImode, y, const1_rtx);
+		    tmp = gen_rtx_PLUS (SImode, y, const1_rtx);
 		  else
 		    emit_insn (gen_addsi3 (tmp, y, constm1_rtx));
 		  emit_insn (gen_cmp_ltusi_insn (x, tmp));
@@ -1128,7 +1142,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 		  abort();
 		}
 	      
-	      return gen_rtx (code, CCmode, cc_reg, const0_rtx);
+	      return gen_rtx_fmt_ee (code, CCmode, cc_reg, const0_rtx);
 	    }
 	  break;
 
@@ -1141,12 +1155,12 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
       /* Reg/reg equal comparison.  */
       if (compare_code == EQ
 	  && register_operand (y, SImode))
-	return gen_rtx (code, CCmode, x, y);
+	return gen_rtx_fmt_ee (code, CCmode, x, y);
       
       /* Reg/zero signed comparison.  */
       if ((compare_code == EQ || compare_code == LT)
 	  && y == const0_rtx)
-	return gen_rtx (code, CCmode, x, y);
+	return gen_rtx_fmt_ee (code, CCmode, x, y);
       
       /* Reg/smallconst equal comparison.  */
       if (compare_code == EQ
@@ -1156,7 +1170,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 	  rtx tmp = gen_reg_rtx (SImode);
 
 	  emit_insn (gen_addsi3 (tmp, x, GEN_INT (-INTVAL (y))));
-	  return gen_rtx (code, CCmode, tmp, const0_rtx);
+	  return gen_rtx_fmt_ee (code, CCmode, tmp, const0_rtx);
 	}
       
       /* Reg/const equal comparison.  */
@@ -1165,7 +1179,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
 	{
 	  rtx tmp = force_reg (GET_MODE (x), y);
 
-	  return gen_rtx (code, CCmode, x, tmp);
+	  return gen_rtx_fmt_ee (code, CCmode, x, tmp);
 	}
     }
 
@@ -1201,7 +1215,7 @@ gen_compare (enum rtx_code code, rtx x, rtx y, int need_compare)
       abort ();
     }
 
-  return gen_rtx (branch_code, VOIDmode, cc_reg, CONST0_RTX (CCmode));
+  return gen_rtx_fmt_ee (branch_code, VOIDmode, cc_reg, CONST0_RTX (CCmode));
 }
 
 /* Split a 2 word move (DI or DF) into component parts.  */
@@ -1348,6 +1362,14 @@ function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   return ret;
 }
 
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
+static bool
+m32r_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  return m32r_pass_by_reference (type);
+}
+
 /* Do any needed setup for a variadic function.  For the M32R, we must
    create a register parameter block, and then copy any anonymous arguments
    in registers to memory.
@@ -1355,7 +1377,7 @@ function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    CUM has not been updated for the last named argument which has type TYPE
    and mode MODE, and we rely on this fact.  */
 
-void
+static void
 m32r_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			     tree type, int *pretend_size, int no_rtl)
 {
@@ -1895,7 +1917,7 @@ m32r_load_pic_register (void)
 {
   global_offset_table = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
   emit_insn (gen_get_pc (pic_offset_table_rtx, global_offset_table,
-                         gen_rtx_CONST_INT(SImode, TARGET_MODEL_SMALL)));
+                         GEN_INT (TARGET_MODEL_SMALL)));
                                                                                 
   /* Need to emit this whether or not we obey regdecls,
      since setjmp/longjmp can cause life info to screw up.  */
@@ -2183,7 +2205,7 @@ m32r_legitimize_pic_address (rtx orig, rtx reg)
       emit_insn (gen_pic_load_addr (address, orig));
 
       emit_insn (gen_addsi3 (address, address, pic_offset_table_rtx));
-      pic_ref = gen_rtx (MEM, Pmode, address);
+      pic_ref = gen_rtx_MEM (Pmode, address);
 
       RTX_UNCHANGING_P (pic_ref) = 1;
       insn = emit_move_insn (reg, pic_ref);
@@ -2191,7 +2213,7 @@ m32r_legitimize_pic_address (rtx orig, rtx reg)
 #if 0
       /* Put a REG_EQUAL note on this insn, so that it can be optimized
          by loop.  */
-      REG_NOTES (insn) = gen_rtx (EXPR_LIST, REG_EQUAL, orig,
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig,
                   REG_NOTES (insn));
 #endif
       return reg;
@@ -2234,7 +2256,7 @@ m32r_legitimize_pic_address (rtx orig, rtx reg)
             abort ();
         }
 
-      return gen_rtx (PLUS, Pmode, base, offset);
+      return gen_rtx_PLUS (Pmode, base, offset);
     }
 
   return orig;
@@ -2738,13 +2760,13 @@ block_move_call (rtx dest_reg, rtx src_reg, rtx bytes_rtx)
     bytes_rtx = convert_to_mode (Pmode, bytes_rtx, 1);
 
 #ifdef TARGET_MEM_FUNCTIONS
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "memcpy"), 0,
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "memcpy"), 0,
 		     VOIDmode, 3, dest_reg, Pmode, src_reg, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype), bytes_rtx,
 				      TREE_UNSIGNED (sizetype)),
 		     TYPE_MODE (sizetype));
 #else
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "bcopy"), 0,
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "bcopy"), 0,
 		     VOIDmode, 3, src_reg, Pmode, dest_reg, Pmode,
 		     convert_to_mode (TYPE_MODE (integer_type_node), bytes_rtx,
 				      TREE_UNSIGNED (integer_type_node)),

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Renesas H8/300 version
-   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -80,6 +80,9 @@ extern int h8300_tiny_constant_address_p (rtx);
 extern int byte_accesses_mergeable_p (rtx, rtx);
 extern int same_cmp_preceding_p (rtx);
 extern int same_cmp_following_p (rtx);
+
+extern int h8300_legitimate_constant_p (rtx);
+extern int h8300_legitimate_address_p (rtx, int);
 
 /* Used in builtins.c */
 extern rtx h8300_return_addr_rtx (int, rtx);

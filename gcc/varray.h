@@ -1,5 +1,5 @@
 /* Virtual array support.
-   Copyright (C) 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
@@ -222,6 +222,8 @@ extern varray_type varray_grow (varray_type, size_t);
 #define VARRAY_CLEAR(VA) varray_clear(VA)
 
 extern void varray_clear (varray_type);
+
+extern void dump_varray_statistics (void);
 
 /* Check for VARRAY_xxx macros being in bound.  */
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)

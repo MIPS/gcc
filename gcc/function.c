@@ -269,7 +269,7 @@ static tree blocks_nreverse (tree);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
-/* We always define `record_insns' even if its not used so that we
+/* We always define `record_insns' even if it's not used so that we
    can always export `prologue_epilogue_contains'.  */
 static void record_insns (rtx, varray_type *) ATTRIBUTE_UNUSED;
 static int contains (rtx, varray_type);
@@ -3241,9 +3241,9 @@ purge_addressof_1 (rtx *loc, rtx insn, int force, int store, int may_postpone,
 		    return true;
 		  }
 	      purge_addressof_replacements
-		= gen_rtx (EXPR_LIST, VOIDmode, XEXP (x, 0),
-			   gen_rtx_EXPR_LIST (VOIDmode, sub,
-					      purge_addressof_replacements));
+		= gen_rtx_EXPR_LIST (VOIDmode, XEXP (x, 0),
+				     gen_rtx_EXPR_LIST (VOIDmode, sub,
+							purge_addressof_replacements));
 	      return true;
 	    }
 	  goto restart;
@@ -4260,7 +4260,7 @@ aggregate_value_p (tree exp, tree fntype)
     return 0;
 
   regno = REGNO (reg);
-  nregs = HARD_REGNO_NREGS (regno, TYPE_MODE (type));
+  nregs = hard_regno_nregs[regno][TYPE_MODE (type)];
   for (i = 0; i < nregs; i++)
     if (! call_used_regs[regno + i])
       return 1;
@@ -4374,6 +4374,7 @@ assign_parms (tree fndecl)
       int in_regs;
       int partial = 0;
       int pretend_bytes = 0;
+      int loaded_in_reg = 0;
 
       /* Set LAST_NAMED if this is last named arg before last
 	 anonymous args.  */
@@ -4745,6 +4746,7 @@ assign_parms (tree fndecl)
 	      emit_group_store (parmreg, entry_parm, TREE_TYPE (parm),
 				int_size_in_bytes (TREE_TYPE (parm)));
 	      SET_DECL_RTL (parm, parmreg);
+	      loaded_in_reg = 1;
 
 	      if (regno >= max_parm_reg)
 		{
@@ -4776,7 +4778,8 @@ assign_parms (tree fndecl)
 	     Handle calls that pass values in multiple non-contiguous
 	     locations.  The Irix 6 ABI has examples of this.  */
 	  if (GET_CODE (entry_parm) == REG
-	      || GET_CODE (entry_parm) == PARALLEL)
+	      || (GET_CODE (entry_parm) == PARALLEL
+		 && (!loaded_in_reg || !optimize)))
 	    {
 	      int size = int_size_in_bytes (TREE_TYPE (parm));
 	      int size_stored = CEIL_ROUND (size, UNITS_PER_WORD);
@@ -6394,9 +6397,6 @@ allocate_struct_function (tree fndecl)
 
   init_stmt_for_function ();
   init_eh_for_function ();
-  init_emit ();
-  init_expr ();
-  init_varasm_status (cfun);
 
   (*lang_hooks.function.init) (cfun);
   if (init_machine_status)
@@ -6434,6 +6434,9 @@ prepare_function_start (tree fndecl)
     cfun = DECL_SAVED_INSNS (fndecl);
   else
     allocate_struct_function (fndecl);
+  init_emit ();
+  init_varasm_status (cfun);
+  init_expr ();
 
   cse_not_expected = ! optimize;
 
@@ -7486,8 +7489,8 @@ keep_stack_depressed (rtx insns)
 		    && !REGNO_REG_SET_P (EXIT_BLOCK_PTR->global_live_at_start,
 					 regno)
 		    && !refers_to_regno_p (regno,
-					   regno + HARD_REGNO_NREGS (regno,
-								     Pmode),
+					   regno + hard_regno_nregs[regno]
+								   [Pmode],
 					   info.equiv_reg_src, NULL)
 		    && info.const_equiv[regno] == 0)
 		  break;

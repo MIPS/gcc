@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Vitesse IQ2000 processors
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -163,9 +163,14 @@ static struct machine_function* iq2000_init_machine_status (void);
 static void iq2000_select_rtx_section (enum machine_mode, rtx, unsigned HOST_WIDE_INT);
 static void iq2000_init_builtins      (void);
 static rtx  iq2000_expand_builtin     (tree, rtx, rtx, enum machine_mode, int);
+static bool iq2000_return_in_memory   (tree, tree);
+static void iq2000_setup_incoming_varargs (CUMULATIVE_ARGS *,
+					   enum machine_mode, tree, int *,
+					   int);
 static bool iq2000_rtx_costs          (rtx, int, int, int *);
 static int  iq2000_address_cost       (rtx);
 static void iq2000_select_section     (tree, int, unsigned HOST_WIDE_INT);
+static bool iq2000_return_in_memory   (tree, tree);
 
 #undef  TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS 		iq2000_init_builtins
@@ -179,6 +184,23 @@ static void iq2000_select_section     (tree, int, unsigned HOST_WIDE_INT);
 #define TARGET_ADDRESS_COST		iq2000_address_cost
 #undef  TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION	iq2000_select_section
+
+#undef  TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS	hook_bool_tree_true
+#undef  TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN	hook_bool_tree_true
+#undef  TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES	hook_bool_tree_true
+
+#undef  TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX		hook_rtx_tree_int_null
+#undef  TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY		iq2000_return_in_memory
+
+#undef  TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS	iq2000_setup_incoming_varargs
+#undef  TARGET_STRICT_ARGUMENT_NAMING
+#define TARGET_STRICT_ARGUMENT_NAMING	hook_bool_CUMULATIVE_ARGS_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1149,12 +1171,12 @@ gen_int_relational (enum rtx_code test_code, rtx result, rtx cmp0, rtx cmp1,
   else
     {
       reg = (invert || eqne_p) ? gen_reg_rtx (mode) : result;
-      convert_move (reg, gen_rtx (p_info->test_code, mode, cmp0, cmp1), 0);
+      convert_move (reg, gen_rtx_fmt_ee (p_info->test_code, mode, cmp0, cmp1), 0);
     }
 
   if (test == ITEST_NE)
     {
-      convert_move (result, gen_rtx (GTU, mode, reg, const0_rtx), 0);
+      convert_move (result, gen_rtx_GTU (mode, reg, const0_rtx), 0);
       if (p_invert != NULL)
 	*p_invert = 0;
       invert = 0;
@@ -1172,7 +1194,7 @@ gen_int_relational (enum rtx_code test_code, rtx result, rtx cmp0, rtx cmp1,
       rtx one;
 
       one = const1_rtx;
-      convert_move (result, gen_rtx (XOR, mode, reg, one), 0);
+      convert_move (result, gen_rtx_XOR (mode, reg, one), 0);
     }
 
   return result;
@@ -1220,7 +1242,7 @@ gen_conditional_branch (rtx operands[], enum rtx_code test_code)
 
       /* For cmp0 != cmp1, build cmp0 == cmp1, and test for result == 0.  */
       emit_insn (gen_rtx_SET (VOIDmode, reg,
-			      gen_rtx (test_code == NE ? EQ : test_code,
+			      gen_rtx_fmt_ee (test_code == NE ? EQ : test_code,
 				       CCmode, cmp0, cmp1)));
 
       test_code = test_code == NE ? EQ : NE;
@@ -1231,7 +1253,7 @@ gen_conditional_branch (rtx operands[], enum rtx_code test_code)
       break;
 
     default:
-      abort_with_insn (gen_rtx (test_code, VOIDmode, cmp0, cmp1), "bad test");
+      abort_with_insn (gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1), "bad test");
     }
 
   /* Generate the branch.  */
@@ -1246,7 +1268,7 @@ gen_conditional_branch (rtx operands[], enum rtx_code test_code)
 
   emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode,
-						     gen_rtx (test_code, mode,
+						     gen_rtx_fmt_ee (test_code, mode,
 							      cmp0, cmp1),
 						     label1, label2)));
 }
@@ -1516,7 +1538,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
   if (mode == VOIDmode)
     {
       if (cum->num_adjusts > 0)
-	ret = gen_rtx (PARALLEL, (enum machine_mode) cum->fp_code,
+	ret = gen_rtx_PARALLEL ((enum machine_mode) cum->fp_code,
 		       gen_rtvec_v (cum->num_adjusts, cum->adjust));
     }
 
@@ -2251,14 +2273,14 @@ save_restore_insns (int store_p)
 	{
 	  rtx reg_rtx;
 	  rtx mem_rtx
-	    = gen_rtx (MEM, gpr_mode,
-		       gen_rtx (PLUS, Pmode, base_reg_rtx,
+	    = gen_rtx_MEM (gpr_mode,
+		       gen_rtx_PLUS (Pmode, base_reg_rtx,
 				GEN_INT (gp_offset - base_offset)));
 
 	  if (! current_function_calls_eh_return)
 	    RTX_UNCHANGING_P (mem_rtx) = 1;
 
-	  reg_rtx = gen_rtx (REG, gpr_mode, regno);
+	  reg_rtx = gen_rtx_REG (gpr_mode, regno);
 
 	  if (store_p)
 	    iq2000_emit_frame_related_store (mem_rtx, reg_rtx, gp_offset);
@@ -2412,9 +2434,9 @@ iq2000_expand_prologue (void)
       for (; regno <= GP_ARG_LAST; regno++)
 	{
 	  if (offset != 0)
-	    ptr = gen_rtx (PLUS, Pmode, stack_pointer_rtx, GEN_INT (offset));
-	  emit_move_insn (gen_rtx (MEM, gpr_mode, ptr),
-			  gen_rtx (REG, gpr_mode, regno));
+	    ptr = gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (offset));
+	  emit_move_insn (gen_rtx_MEM (gpr_mode, ptr),
+			  gen_rtx_REG (gpr_mode, regno));
 
 	  offset += GET_MODE_SIZE (gpr_mode);
 	}
@@ -2427,7 +2449,7 @@ iq2000_expand_prologue (void)
 
       if (tsize > 32767)
 	{
-	  adjustment_rtx = gen_rtx (REG, Pmode, IQ2000_TEMP1_REGNUM);
+	  adjustment_rtx = gen_rtx_REG (Pmode, IQ2000_TEMP1_REGNUM);
 	  emit_move_insn (adjustment_rtx, tsize_rtx);
 	}
       else
@@ -2510,14 +2532,14 @@ iq2000_expand_epilogue (void)
   if (current_function_calls_eh_return)
     {
       /* Perform the additional bump for __throw.  */
-      emit_move_insn (gen_rtx (REG, Pmode, HARD_FRAME_POINTER_REGNUM),
+      emit_move_insn (gen_rtx_REG (Pmode, HARD_FRAME_POINTER_REGNUM),
 		      stack_pointer_rtx);
-      emit_insn (gen_rtx (USE, VOIDmode, gen_rtx (REG, Pmode,
+      emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (Pmode,
 						  HARD_FRAME_POINTER_REGNUM)));
       emit_jump_insn (gen_eh_return_internal ());
     }
   else
-      emit_jump_insn (gen_return_internal (gen_rtx (REG, Pmode,
+      emit_jump_insn (gen_return_internal (gen_rtx_REG (Pmode,
 						  GP_REG_FIRST + 31)));
 }
 
@@ -2642,8 +2664,8 @@ iq2000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   enum machine_mode mode = TYPE_MODE (valtype);
   int unsignedp = TREE_UNSIGNED (valtype);
 
-  /* Since we define PROMOTE_FUNCTION_RETURN, we must promote the mode
-     just as PROMOTE_MODE does.  */
+  /* Since we define TARGET_PROMOTE_FUNCTION_RETURN that returns true,
+     we must promote the mode just as PROMOTE_MODE does.  */
   mode = promote_mode (valtype, mode, &unsignedp, 1);
 
   return gen_rtx_REG (mode, reg);
@@ -3262,20 +3284,32 @@ iq2000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   return NULL_RTX;
 }
 
-void
-iq2000_setup_incoming_varargs (CUMULATIVE_ARGS cum, int mode ATTRIBUTE_UNUSED,
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
+static bool
+iq2000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  return ((int_size_in_bytes (type) > (2 * UNITS_PER_WORD))
+	  || (int_size_in_bytes (type) == -1));
+}
+
+/* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
+
+static void
+iq2000_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
+			       enum machine_mode mode ATTRIBUTE_UNUSED,
 			       tree type ATTRIBUTE_UNUSED, int * pretend_size,
 			       int no_rtl)
 {
-  unsigned int iq2000_off = (! (cum).last_arg_fp); 
-  unsigned int iq2000_fp_off = ((cum).last_arg_fp); 
+  unsigned int iq2000_off = ! cum->last_arg_fp; 
+  unsigned int iq2000_fp_off = cum->last_arg_fp; 
 
-  if (((cum).arg_words < MAX_ARGS_IN_REGISTERS - iq2000_off))
+  if ((cum->arg_words < MAX_ARGS_IN_REGISTERS - iq2000_off))
     {
       int iq2000_save_gp_regs 
-	= MAX_ARGS_IN_REGISTERS - (cum).arg_words - iq2000_off; 
+	= MAX_ARGS_IN_REGISTERS - cum->arg_words - iq2000_off; 
       int iq2000_save_fp_regs 
-        = (MAX_ARGS_IN_REGISTERS - (cum).fp_arg_words - iq2000_fp_off); 
+        = (MAX_ARGS_IN_REGISTERS - cum->fp_arg_words - iq2000_fp_off); 
 
       if (iq2000_save_gp_regs < 0) 
 	iq2000_save_gp_regs = 0; 
@@ -3287,7 +3321,7 @@ iq2000_setup_incoming_varargs (CUMULATIVE_ARGS cum, int mode ATTRIBUTE_UNUSED,
 
       if (! (no_rtl)) 
 	{
-	  if ((cum).arg_words < MAX_ARGS_IN_REGISTERS - iq2000_off) 
+	  if (cum->arg_words < MAX_ARGS_IN_REGISTERS - iq2000_off) 
 	    {
 	      rtx ptr, mem; 
 	      ptr = plus_constant (virtual_incoming_args_rtx, 
@@ -3295,7 +3329,7 @@ iq2000_setup_incoming_varargs (CUMULATIVE_ARGS cum, int mode ATTRIBUTE_UNUSED,
 				      * UNITS_PER_WORD)); 
 	      mem = gen_rtx_MEM (BLKmode, ptr); 
 	      move_block_from_reg 
-		((cum).arg_words + GP_ARG_FIRST + iq2000_off, 
+		(cum->arg_words + GP_ARG_FIRST + iq2000_off, 
 		 mem, 
 		 iq2000_save_gp_regs);
 	    } 

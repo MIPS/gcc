@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1207,15 +1207,6 @@ do {									\
 
 #define GOT_SYMBOL_NAME "_GLOBAL_OFFSET_TABLE_"
 
-/* Register in which address to store a structure value
-   arrives in the function.  On the 386, the prologue
-   copies this from the stack to register %eax.  */
-#define STRUCT_VALUE_INCOMING 0
-
-/* Place in which caller passes the structure value address.
-   0 means push the value on the stack like an argument.  */
-#define STRUCT_VALUE 0
-
 /* A C expression which can inhibit the returning of certain function
    values in registers, based on the type of value.  A nonzero value
    says to return the function value in memory, just as large
@@ -1797,24 +1788,6 @@ typedef struct ix86_args {
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
   function_arg_pass_by_reference(&CUM, MODE, TYPE, NAMED)
  
-/* Perform any needed actions needed for a function that is receiving a
-   variable number of arguments.
-
-   CUM is as above.
-
-   MODE and TYPE are the mode and type of the current parameter.
-
-   PRETEND_SIZE is a variable that should be set to the amount of stack
-   that must be pushed by the prolog to pretend that our caller pushed
-   it.
-
-   Normally, this macro will push all remaining incoming registers on the
-   stack and set PRETEND_SIZE to the length of the registers pushed.  */
-
-#define SETUP_INCOMING_VARARGS(CUM, MODE, TYPE, PRETEND_SIZE, NO_RTL)	\
-  ix86_setup_incoming_varargs (&(CUM), (MODE), (TYPE), &(PRETEND_SIZE), \
-			       (NO_RTL))
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
   ix86_va_start (VALIST, NEXTARG)
@@ -2588,11 +2561,6 @@ enum ix86_builtins
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-/* When a prototype says `char' or `short', really pass an `int'.
-   (The 386 can't easily push less than an int.)  */
-
-#define PROMOTE_PROTOTYPES 1
 
 /* A macro to update M and UNSIGNEDP when an object whose type is
    TYPE and which has the specified mode and signedness is to be

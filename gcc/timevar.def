@@ -1,6 +1,6 @@
 /* This file contains the definitions for timing variables used to
    measure run-time performance of the compiler.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -45,6 +45,7 @@ DEFTIMEVAR (TV_CGRAPHOPT             , "callgraph optimization")
 DEFTIMEVAR (TV_CFG                   , "cfg construction")
 /* Time spent by cleaning up CFG.  */
 DEFTIMEVAR (TV_CLEANUP_CFG           , "cfg cleanup")
+DEFTIMEVAR (TV_CFG_VERIFY            , "CFG verifier")
 DEFTIMEVAR (TV_DELETE_TRIVIALLY_DEAD , "trivially dead code")
 /* Time spent by life analysis.  */
 DEFTIMEVAR (TV_LIFE		     , "life analysis")

@@ -1,6 +1,6 @@
 /* Register to Stack convert for GNU compiler.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1491,7 +1491,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	  case CALL:
 	    {
 	      int count;
-	      for (count = HARD_REGNO_NREGS (REGNO (*dest), GET_MODE (*dest));
+	      for (count = hard_regno_nregs[REGNO (*dest)][GET_MODE (*dest)];
 		   --count >= 0;)
 		{
 		  regstack->reg[++regstack->top] = REGNO (*dest) + count;
@@ -2484,7 +2484,7 @@ convert_regs_exit (void)
     {
       value_reg_low = REGNO (retvalue);
       value_reg_high = value_reg_low
-	+ HARD_REGNO_NREGS (value_reg_low, GET_MODE (retvalue)) - 1;
+	+ hard_regno_nregs[value_reg_low][GET_MODE (retvalue)] - 1;
     }
 
   output_stack = &BLOCK_INFO (EXIT_BLOCK_PTR)->stack_in;

@@ -1,6 +1,6 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -4127,14 +4127,18 @@ convert_arg_to_ellipsis (tree arg)
 
   arg = require_complete_type (arg);
   
-  if (arg != error_mark_node && ! pod_type_p (TREE_TYPE (arg)))
+  if (arg != error_mark_node
+      && !pod_type_p (TREE_TYPE (arg)))
     {
       /* Undefined behavior [expr.call] 5.2.2/7.  We used to just warn
 	 here and do a bitwise copy, but now cp_expr_size will abort if we
-	 try to do that.  */
-      warning ("cannot pass objects of non-POD type `%#T' through `...'; \
-call will abort at runtime",
-	       TREE_TYPE (arg));
+	 try to do that. 
+	 If the call appears in the context of a sizeof expression, 
+	 there is no need to emit a warning, since the expression won't be 
+	 evaluated. We keep the builtin_trap just as a safety check.  */
+      if (!skip_evaluation)
+	warning ("cannot pass objects of non-POD type `%#T' through `...'; "
+	         "call will abort at runtime", TREE_TYPE (arg));
       arg = call_builtin_trap (TREE_TYPE (arg));
     }
 
@@ -4305,6 +4309,21 @@ build_over_call (struct z_candidate *cand, int flags)
   tree conv, arg, val;
   int i = 0;
   int is_method = 0;
+
+  /* In a template, there is no need to perform all of the work that
+     is normally done.  We are only interested in the type of the call
+     expression, i.e., the return type of the function.  Any semantic
+     errors will be deferred until the template is instantiated.  */
+  if (processing_template_decl)
+    {
+      tree expr;
+      tree return_type;
+      return_type = TREE_TYPE (TREE_TYPE (fn));
+      expr = build (CALL_EXPR, return_type, fn, args);
+      if (!VOID_TYPE_P (return_type))
+	require_complete_type (return_type);
+      return convert_from_reference (expr);
+    }
 
   /* Give any warnings we noticed during overload resolution.  */
   if (cand->warnings)

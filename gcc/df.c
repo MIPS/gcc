@@ -1,5 +1,6 @@
 /* Dataflow support routines.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz,
                                     mhayes@redhat.com)
 
@@ -818,7 +819,7 @@ df_ref_record (struct df *df, rtx reg, rtx *loc, rtx insn,
 	 are really referenced.  E.g., a (subreg:SI (reg:DI 0) 0) does _not_
 	 reference the whole reg 0 in DI mode (which would also include
 	 reg 1, at least, if 0 and 1 are SImode registers).  */
-      endregno = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      endregno = hard_regno_nregs[regno][GET_MODE (reg)];
       if (GET_CODE (reg) == SUBREG)
         regno += subreg_regno_offset (regno, GET_MODE (SUBREG_REG (reg)),
 				      SUBREG_BYTE (reg), GET_MODE (reg));

@@ -1,6 +1,6 @@
 /* Procedure integration for GCC.
    Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -191,7 +191,7 @@ function_cannot_inline_p (tree fndecl)
   if (current_function_cannot_inline)
     return current_function_cannot_inline;
 
-  /* If its not even close, don't even look.  */
+  /* If it's not even close, don't even look.  */
   if (get_max_uid () > 3 * max_insns)
     return N_("function too large to be inline");
 
@@ -2830,7 +2830,7 @@ mark_stores (rtx dest, rtx x ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
     {
       unsigned int uregno = regno;
       unsigned int last_reg = (uregno >= FIRST_PSEUDO_REGISTER ? uregno
-			       : uregno + HARD_REGNO_NREGS (uregno, mode) - 1);
+			       : uregno + hard_regno_nregs[uregno][mode] - 1);
       unsigned int i;
 
       /* Ignore virtual stack var or virtual arg register since those

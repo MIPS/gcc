@@ -65,6 +65,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "hashtab.h"
 #include "cgraph.h"
+#include "input.h"
 
 #ifdef DWARF2_DEBUGGING_INFO
 static void dwarf2out_source_line (unsigned int, const char *);
@@ -1790,11 +1791,19 @@ dw_cfi_oprnd2_desc (enum dwarf_call_frame_info cfi)
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
+/* Map register numbers held in the call frame info that gcc has
+   collected using DWARF_FRAME_REGNUM to those that should be output in
+   .debug_frame and .eh_frame.  */
+#ifndef DWARF2_FRAME_REG_OUT
+#define DWARF2_FRAME_REG_OUT(REGNO, FOR_EH) (REGNO)
+#endif
+
 /* Output a Call Frame Information opcode and its operand(s).  */
 
 static void
 output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 {
+  unsigned long r;
   if (cfi->dw_cfi_opc == DW_CFA_advance_loc)
     dw2_asm_output_data (1, (cfi->dw_cfi_opc
 			     | (cfi->dw_cfi_oprnd1.dw_cfi_offset & 0x3f)),
@@ -1802,17 +1811,17 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 			 cfi->dw_cfi_oprnd1.dw_cfi_offset);
   else if (cfi->dw_cfi_opc == DW_CFA_offset)
     {
-      dw2_asm_output_data (1, (cfi->dw_cfi_opc
-			       | (cfi->dw_cfi_oprnd1.dw_cfi_reg_num & 0x3f)),
-			   "DW_CFA_offset, column 0x%lx",
-			   cfi->dw_cfi_oprnd1.dw_cfi_reg_num);
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+      dw2_asm_output_data (1, (cfi->dw_cfi_opc | (r & 0x3f)),
+			   "DW_CFA_offset, column 0x%lx", r);
       dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd2.dw_cfi_offset, NULL);
     }
   else if (cfi->dw_cfi_opc == DW_CFA_restore)
-    dw2_asm_output_data (1, (cfi->dw_cfi_opc
-			     | (cfi->dw_cfi_oprnd1.dw_cfi_reg_num & 0x3f)),
-			 "DW_CFA_restore, column 0x%lx",
-			 cfi->dw_cfi_oprnd1.dw_cfi_reg_num);
+    {
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+      dw2_asm_output_data (1, (cfi->dw_cfi_opc | (r & 0x3f)),
+			   "DW_CFA_restore, column 0x%lx", r);
+    }
   else
     {
       dw2_asm_output_data (1, cfi->dw_cfi_opc,
@@ -1857,15 +1866,15 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 
 	case DW_CFA_offset_extended:
 	case DW_CFA_def_cfa:
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd1.dw_cfi_reg_num,
-				       NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
 	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd2.dw_cfi_offset, NULL);
 	  break;
 
 	case DW_CFA_offset_extended_sf:
 	case DW_CFA_def_cfa_sf:
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd1.dw_cfi_reg_num,
-				       NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
 	  dw2_asm_output_data_sleb128 (cfi->dw_cfi_oprnd2.dw_cfi_offset, NULL);
 	  break;
 
@@ -1873,15 +1882,15 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 	case DW_CFA_undefined:
 	case DW_CFA_same_value:
 	case DW_CFA_def_cfa_register:
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd1.dw_cfi_reg_num,
-				       NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
 	  break;
 
 	case DW_CFA_register:
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd1.dw_cfi_reg_num,
-				       NULL);
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd2.dw_cfi_reg_num,
-				       NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd2.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
 	  break;
 
 	case DW_CFA_def_cfa_offset:
@@ -1911,7 +1920,7 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
     }
 }
 
-/* Output the call frame information used to used to record information
+/* Output the call frame information used to record information
    that relates to calculating the frame pointer, and records the
    location of saved registers.  */
 
@@ -3240,6 +3249,7 @@ static void dwarf2out_begin_block (unsigned, unsigned);
 static void dwarf2out_end_block (unsigned, unsigned);
 static bool dwarf2out_ignore_block (tree);
 static void dwarf2out_global_decl (tree);
+static void dwarf2out_imported_module_or_decl (tree, tree);
 static void dwarf2out_abstract_function (tree);
 
 /* The debug hooks structure.  */
@@ -3263,6 +3273,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   debug_nothing_int,		/* end_function */
   dwarf2out_decl,		/* function_decl */
   dwarf2out_global_decl,
+  dwarf2out_imported_module_or_decl,
   debug_nothing_tree,		/* deferred_inline_function */
   /* The DWARF 2 backend tries to reduce debugging bloat by not
      emitting the abstract description of inline functions until
@@ -3343,6 +3354,7 @@ typedef struct die_struct GTY(())
   dw_offset die_offset;
   unsigned long die_abbrev;
   int die_mark;
+  unsigned int decl_id;
 }
 die_node;
 
@@ -3460,20 +3472,9 @@ static GTY(()) varray_type file_table;
 static GTY(()) varray_type file_table_emitted;
 static GTY(()) size_t file_table_last_lookup_index;
 
-/* A pointer to the base of a table of references to DIE's that describe
-   declarations.  The table is indexed by DECL_UID() which is a unique
-   number identifying each decl.  */
-static GTY((length ("decl_die_table_allocated"))) dw_die_ref *decl_die_table;
-
-/* Number of elements currently allocated for the decl_die_table.  */
-static GTY(()) unsigned decl_die_table_allocated;
-
-/* Number of elements in decl_die_table currently in use.  */
-static GTY(()) unsigned decl_die_table_in_use;
-
-/* Size (in elements) of increments by which we may expand the
-   decl_die_table.  */
-#define DECL_DIE_TABLE_INCREMENT 256
+/* A hash table of references to DIE's that describe declarations.
+   The key is a DECL_UID() which is a unique number identifying each decl.  */
+static GTY ((param_is (struct die_struct))) htab_t decl_die_table;
 
 /* A pointer to the base of a list of references to DIE's that
    are uniquely identified by their tag, presence/absence of
@@ -3639,12 +3640,15 @@ static bool is_java (void);
 static bool is_fortran (void);
 static bool is_ada (void);
 static void remove_AT (dw_die_ref, enum dwarf_attribute);
+static void remove_child_TAG (dw_die_ref, enum dwarf_tag);
 static inline void free_die (dw_die_ref);
 static void remove_children (dw_die_ref);
 static void add_child_die (dw_die_ref, dw_die_ref);
 static dw_die_ref new_die (enum dwarf_tag, dw_die_ref, tree);
 static dw_die_ref lookup_type_die (tree);
 static void equate_type_number_to_die (tree, dw_die_ref);
+static hashval_t decl_die_table_hash (const void *);
+static int decl_die_table_eq (const void *, const void *);
 static dw_die_ref lookup_decl_die (tree);
 static void equate_decl_number_to_die (tree, dw_die_ref);
 static void print_spaces (FILE *);
@@ -3787,7 +3791,8 @@ static void decls_for_scope (tree, dw_die_ref, int);
 static int is_redundant_typedef (tree);
 static void gen_namespace_die (tree);
 static void gen_decl_die (tree, dw_die_ref);
-static dw_die_ref force_namespace_die (tree);
+static dw_die_ref force_decl_die (tree);
+static dw_die_ref force_type_die (tree);
 static dw_die_ref setup_namespace_context (tree, dw_die_ref);
 static void declare_in_namespace (tree, dw_die_ref);
 static unsigned lookup_filename (const char *);
@@ -4065,6 +4070,8 @@ dwarf_tag_name (unsigned int tag)
       return "DW_TAG_variable";
     case DW_TAG_volatile_type:
       return "DW_TAG_volatile_type";
+    case DW_TAG_imported_module:
+      return "DW_TAG_imported_module";
     case DW_TAG_MIPS_loop:
       return "DW_TAG_MIPS_loop";
     case DW_TAG_format_label:
@@ -5041,6 +5048,34 @@ remove_AT (dw_die_ref die, enum dwarf_attribute attr_kind)
     }
 }
 
+/* Remove child die whose die_tag is specified tag.  */
+
+static void
+remove_child_TAG (dw_die_ref die, enum dwarf_tag tag)
+{
+  dw_die_ref current, prev, next;
+  current = die->die_child;
+  prev = NULL;
+  while (current != NULL)
+    {
+      if (current->die_tag == tag)
+	{
+	  next = current->die_sib;
+	  if (prev == NULL)
+	    die->die_child = next;
+	  else
+	    prev->die_sib = next;
+	  free_die (current);
+	  current = next;
+	}
+      else
+	{
+	  prev = current;
+	  current = current->die_sib;
+	}
+    }
+}
+
 /* Free up the memory used by DIE.  */
 
 static inline void
@@ -5169,14 +5204,28 @@ equate_type_number_to_die (tree type, dw_die_ref type_die)
   TYPE_SYMTAB_DIE (type) = type_die;
 }
 
+/* Returns a hash value for X (which really is a die_struct).  */
+
+static hashval_t
+decl_die_table_hash (const void *x)
+{
+  return (hashval_t) ((const dw_die_ref) x)->decl_id;
+}
+
+/* Return nonzero if decl_id of die_struct X is the same as UID of decl *Y.  */
+
+static int
+decl_die_table_eq (const void *x, const void *y)
+{
+  return (((const dw_die_ref) x)->decl_id == DECL_UID ((const tree) y));
+}
+
 /* Return the DIE associated with a given declaration.  */
 
 static inline dw_die_ref
 lookup_decl_die (tree decl)
 {
-  unsigned decl_id = DECL_UID (decl);
-
-  return (decl_id < decl_die_table_in_use ? decl_die_table[decl_id] : NULL);
+  return htab_find_with_hash (decl_die_table, decl, DECL_UID (decl));
 }
 
 /* Equate a DIE to a particular declaration.  */
@@ -5185,27 +5234,11 @@ static void
 equate_decl_number_to_die (tree decl, dw_die_ref decl_die)
 {
   unsigned int decl_id = DECL_UID (decl);
-  unsigned int num_allocated;
+  void **slot;
 
-  if (decl_id >= decl_die_table_allocated)
-    {
-      num_allocated
-	= ((decl_id + 1 + DECL_DIE_TABLE_INCREMENT - 1)
-	   / DECL_DIE_TABLE_INCREMENT)
-	  * DECL_DIE_TABLE_INCREMENT;
-
-      decl_die_table = ggc_realloc (decl_die_table,
-				    sizeof (dw_die_ref) * num_allocated);
-
-      memset (&decl_die_table[decl_die_table_allocated], 0,
-	     (num_allocated - decl_die_table_allocated) * sizeof (dw_die_ref));
-      decl_die_table_allocated = num_allocated;
-    }
-
-  if (decl_id >= decl_die_table_in_use)
-    decl_die_table_in_use = (decl_id + 1);
-
-  decl_die_table[decl_id] = decl_die;
+  slot = htab_find_slot_with_hash (decl_die_table, decl, decl_id, INSERT);
+  *slot = decl_die;
+  decl_die->decl_id = decl_id;
 }
 
 /* Keep track of the number of spaces used to indent the
@@ -8047,7 +8080,7 @@ reg_loc_descriptor (rtx rtl)
   reg = reg_number (rtl);
   regs = (*targetm.dwarf_register_span) (rtl);
 
-  if (HARD_REGNO_NREGS (reg, GET_MODE (rtl)) > 1
+  if (hard_regno_nregs[reg][GET_MODE (rtl)] > 1
       || regs)
     return multiple_reg_loc_descriptor (rtl, regs);
   else
@@ -8077,7 +8110,7 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
   dw_loc_descr_ref loc_result = NULL;
 
   reg = reg_number (rtl);
-  nregs = HARD_REGNO_NREGS (reg, GET_MODE (rtl));
+  nregs = hard_regno_nregs[reg][GET_MODE (rtl)];
 
   /* Simple, contiguous registers.  */
   if (regs == NULL_RTX)
@@ -10704,9 +10737,13 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	{
 	  subr_die = old_die;
 
-	  /* Clear out the declaration attribute and the parm types.  */
+	  /* Clear out the declaration attribute and the formal parameters.
+	     Do not remove all children, because it is possible that this 
+	     declaration die was forced using force_decl_die(). In such
+	     cases die that forced declaration die (e.g. TAG_imported_module)
+	     is one of the children that we do not want to remove.  */
 	  remove_AT (subr_die, DW_AT_declaration);
-	  remove_children (subr_die);
+	  remove_child_TAG (subr_die, DW_TAG_formal_parameter);
 	}
       else
 	{
@@ -10754,8 +10791,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  /* The first time we see a member function, it is in the context of
 	     the class to which it belongs.  We make sure of this by emitting
 	     the class first.  The next time is the definition, which is
-	     handled above.  The two may come from the same source text.  */
-	  if (DECL_CONTEXT (decl) || DECL_ABSTRACT (decl))
+	     handled above.  The two may come from the same source text. 
+
+	     Note that force_decl_die() forces function declaration die. It is
+	     later reused to represent definition.  */
 	    equate_decl_number_to_die (decl, subr_die);
 	}
     }
@@ -10967,7 +11006,7 @@ gen_variable_die (tree decl, dw_die_ref context_die)
   if (declaration)
     add_AT_flag (var_die, DW_AT_declaration, 1);
 
-  if (class_or_namespace_scope_p (context_die) || DECL_ABSTRACT (decl))
+  if (DECL_ABSTRACT (decl) || declaration)
     equate_decl_number_to_die (decl, var_die);
 
   if (! declaration && ! DECL_ABSTRACT (decl))
@@ -11849,23 +11888,95 @@ is_redundant_typedef (tree decl)
   return 0;
 }
 
-/* Returns the DIE for namespace NS or aborts.
-
-   Note that namespaces don't really have a lexical context, so there's no
-   need to pass in a context_die.  They always go inside their containing
-   namespace, or comp_unit_die if none.  */
+/* Returns the DIE for decl or aborts.  */
 
 static dw_die_ref
-force_namespace_die (tree ns)
+force_decl_die (tree decl)
 {
-  dw_die_ref ns_die;
+  dw_die_ref decl_die;
+  unsigned saved_external_flag;
+  tree save_fn = NULL_TREE;
+  decl_die = lookup_decl_die (decl);
+  if (!decl_die)
+    {
+      dw_die_ref context_die;
+      tree decl_context = DECL_CONTEXT (decl);
+      if (decl_context)
+	{
+	  /* Find die that represents this context.  */
+	  if (TYPE_P (decl_context))
+	    context_die = force_type_die (decl_context);
+	  else
+	    context_die = force_decl_die (decl_context);
+	}
+      else
+	context_die = comp_unit_die;
 
-  dwarf2out_decl (ns);
-  ns_die = lookup_decl_die (ns);
-  if (!ns_die)
-    abort();
+      switch (TREE_CODE (decl))
+	{
+	case FUNCTION_DECL:
+	  /* Clear current_function_decl, so that gen_subprogram_die thinks
+	     that this is a declaration. At this point, we just want to force
+	     declaration die.  */
+	  save_fn = current_function_decl;
+	  current_function_decl = NULL_TREE;
+	  gen_subprogram_die (decl, context_die);
+	  current_function_decl = save_fn; 
+	  break;
 
-  return ns_die;
+	case VAR_DECL:
+	  /* Set external flag to force declaration die. Restore it after
+	   gen_decl_die() call.  */
+	  saved_external_flag = DECL_EXTERNAL (decl);
+	  DECL_EXTERNAL (decl) = 1;
+	  gen_decl_die (decl, context_die);
+	  DECL_EXTERNAL (decl) = saved_external_flag;
+	  break;
+
+	case NAMESPACE_DECL:
+	  dwarf2out_decl (decl);
+	  break;
+
+	default:
+	  abort ();
+	}
+  
+      /* See if we can find the die for this deci now.
+	 If not then abort.  */
+      if (!decl_die)
+	decl_die = lookup_decl_die (decl);
+      if (!decl_die)
+	abort ();
+    }
+  
+  return decl_die;
+}
+
+/* Returns the DIE for decl or aborts.  */
+
+static dw_die_ref
+force_type_die (tree type)
+{
+  dw_die_ref type_die;
+
+  type_die = lookup_type_die (root_type (type));
+  if (!type_die)
+    {
+      dw_die_ref context_die;
+      if (TYPE_CONTEXT (type))
+	if (TYPE_P (TYPE_CONTEXT (type)))
+	  context_die = force_type_die (TYPE_CONTEXT (type));
+	else
+	  context_die = force_decl_die (TYPE_CONTEXT (type));
+      else
+	context_die = comp_unit_die;
+
+      gen_type_die (type, context_die);
+      type_die = lookup_type_die (root_type (type));
+      if (!type_die)
+	abort();
+    }
+  return type_die;
 }
 
 /* Force out any required namespaces to be able to output DECL,
@@ -11877,7 +11988,7 @@ setup_namespace_context (tree thing, dw_die_ref context_die)
   tree context = DECL_P (thing) ? DECL_CONTEXT (thing) : TYPE_CONTEXT (thing);
   if (context && TREE_CODE (context) == NAMESPACE_DECL)
     /* Force out the namespace.  */
-    context_die = force_namespace_die (context);
+    context_die = force_decl_die (context);
 
   return context_die;
 }
@@ -11930,7 +12041,7 @@ gen_namespace_die (tree decl)
 
       /* Force out the namespace we are an alias of, if necessary.  */
       dw_die_ref origin_die
-	= force_namespace_die (DECL_ABSTRACT_ORIGIN (decl));
+	= force_decl_die (DECL_ABSTRACT_ORIGIN (decl));
 
       /* Now create the namespace alias DIE.  */
       dw_die_ref namespace_die
@@ -12131,6 +12242,52 @@ dwarf2out_global_decl (tree decl)
      definitions which have not yet been forced out.  */
   if (TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl))
     dwarf2out_decl (decl);
+}
+
+/* Output debug information for imported module or decl.  */ 
+ 
+static void
+dwarf2out_imported_module_or_decl (tree decl, tree context)
+{
+  dw_die_ref imported_die, at_import_die;
+  dw_die_ref scope_die;
+  unsigned file_index;
+  
+  if (debug_info_level <= DINFO_LEVEL_TERSE)
+    return;
+
+  if (!decl)
+    abort ();
+
+  /* To emit DW_TAG_imported_module or DW_TAG_imported_decl, we need two DIEs.
+     We need decl DIE for reference and scope die. First, get DIE for the decl 
+     itself.  */
+
+  /* Get the scope die for decl context. Use comp_unit_die for global module
+     or decl. If die is not found for non globals, force new die.  */
+  if (!context)
+    scope_die = comp_unit_die;
+  else if (TYPE_P (context))
+    scope_die = force_type_die (context);
+  else
+    scope_die = force_decl_die (context);
+
+  /* For TYPE_DECL, lookup TREE_TYPE.  */
+  if (TREE_CODE (decl) == TYPE_DECL)
+    at_import_die = force_type_die (TREE_TYPE (decl));
+  else
+    at_import_die = force_decl_die (decl);
+  
+  /* OK, now we have DIEs for decl as well as scope. Emit imported die.  */ 
+  if (TREE_CODE (decl) == NAMESPACE_DECL)
+    imported_die = new_die (DW_TAG_imported_module, scope_die, context);
+  else
+    imported_die = new_die (DW_TAG_imported_declaration, scope_die, context);
+  
+  file_index = lookup_filename (input_filename);
+  add_AT_unsigned (imported_die, DW_AT_decl_file, file_index);
+  add_AT_unsigned (imported_die, DW_AT_decl_line, input_line);
+  add_AT_die_ref (imported_die, DW_AT_import, at_import_die);
 }
 
 /* Write the debugging output for DECL.  */
@@ -12546,10 +12703,8 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   init_file_table ();
 
   /* Allocate the initial hunk of the decl_die_table.  */
-  decl_die_table = ggc_alloc_cleared (DECL_DIE_TABLE_INCREMENT
-				      * sizeof (dw_die_ref));
-  decl_die_table_allocated = DECL_DIE_TABLE_INCREMENT;
-  decl_die_table_in_use = 0;
+  decl_die_table = htab_create_ggc (10, decl_die_table_hash,
+				    decl_die_table_eq, NULL);
 
   /* Allocate the initial hunk of the decl_scope_table.  */
   VARRAY_TREE_INIT (decl_scope_table, 256, "decl_scope_table");

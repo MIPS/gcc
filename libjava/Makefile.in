@@ -292,6 +292,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.c \
@@ -370,6 +371,9 @@ jni/classpath/primlib.h
 
 
 lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
+lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+
 
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
 org/w3c/dom/CDATASection.java \
@@ -396,6 +400,10 @@ org/w3c/dom/traversal/DocumentTraversal.java \
 org/w3c/dom/traversal/NodeFilter.java \
 org/w3c/dom/traversal/NodeIterator.java \
 org/w3c/dom/traversal/TreeWalker.java
+
+lib_org_w3c_dom_la_LIBADD = -L$(here)/.libs libgcj.la
+lib_org_w3c_dom_la_LDFLAGS = -rpath $(toolexeclibdir) \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 
 lib_org_xml_sax_la_SOURCES = org/xml/sax/ext/DeclHandler.java \
@@ -428,6 +436,10 @@ org/xml/sax/SAXNotSupportedException.java \
 org/xml/sax/SAXParseException.java \
 org/xml/sax/XMLFilter.java \
 org/xml/sax/XMLReader.java
+
+lib_org_xml_sax_la_LIBADD = -L$(here)/.libs libgcj.la
+lib_org_xml_sax_la_LDFLAGS = -rpath $(toolexeclibdir) \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 
 lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
@@ -2556,6 +2568,7 @@ gnu/awt/xlib/XGraphics.java \
 gnu/awt/xlib/XGraphicsConfiguration.java \
 gnu/awt/xlib/XOffScreenImage.java \
 gnu/awt/xlib/XPanelPeer.java \
+gnu/awt/xlib/XFontPeer.java \
 gnu/awt/xlib/XToolkit.java
 
 
@@ -2682,8 +2695,7 @@ java/net/natInetAddress.lo java/nio/natDirectByteBufferImpl.lo \
 java/nio/channels/natFileChannelImpl.lo java/text/natCollator.lo \
 java/util/natResourceBundle.lo java/util/natTimeZone.lo \
 java/util/zip/natDeflater.lo java/util/zip/natInflater.lo
-lib_org_xml_sax_la_LDFLAGS = 
-lib_org_xml_sax_la_LIBADD = 
+lib_org_xml_sax_la_DEPENDENCIES =  libgcj.la
 lib_org_xml_sax_la_OBJECTS =  org/xml/sax/ext/DeclHandler.lo \
 org/xml/sax/ext/LexicalHandler.lo \
 org/xml/sax/helpers/AttributeListImpl.lo \
@@ -2705,8 +2717,7 @@ org/xml/sax/SAXException.lo org/xml/sax/SAXNotRecognizedException.lo \
 org/xml/sax/SAXNotSupportedException.lo \
 org/xml/sax/SAXParseException.lo org/xml/sax/XMLFilter.lo \
 org/xml/sax/XMLReader.lo
-lib_org_w3c_dom_la_LDFLAGS = 
-lib_org_w3c_dom_la_LIBADD = 
+lib_org_w3c_dom_la_DEPENDENCIES =  libgcj.la
 lib_org_w3c_dom_la_OBJECTS =  org/w3c/dom/Attr.lo \
 org/w3c/dom/CDATASection.lo org/w3c/dom/CharacterData.lo \
 org/w3c/dom/Comment.lo org/w3c/dom/DOMException.lo \
@@ -2722,7 +2733,6 @@ org/w3c/dom/traversal/DocumentTraversal.lo \
 org/w3c/dom/traversal/NodeFilter.lo \
 org/w3c/dom/traversal/NodeIterator.lo \
 org/w3c/dom/traversal/TreeWalker.lo
-lib_gnu_java_awt_peer_gtk_la_LDFLAGS = 
 lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = 
 @GTK_CAIRO_FALSE@lib_gnu_java_awt_peer_gtk_la_OBJECTS =  \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkClasspathFontPeer.lo \
@@ -2786,6 +2796,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.lo \
 @GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.lo \
@@ -2866,6 +2877,7 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.lo \
+@GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.lo \
 @GTK_CAIRO_TRUE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.lo \
@@ -2936,8 +2948,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/awt/j2d/IntegerGraphicsState.P \
 .deps/gnu/awt/j2d/MappedRaster.P .deps/gnu/awt/xlib/XCanvasPeer.P \
 .deps/gnu/awt/xlib/XEventLoop.P .deps/gnu/awt/xlib/XEventQueue.P \
-.deps/gnu/awt/xlib/XFontMetrics.P .deps/gnu/awt/xlib/XFramePeer.P \
-.deps/gnu/awt/xlib/XGraphics.P \
+.deps/gnu/awt/xlib/XFontMetrics.P .deps/gnu/awt/xlib/XFontPeer.P \
+.deps/gnu/awt/xlib/XFramePeer.P .deps/gnu/awt/xlib/XGraphics.P \
 .deps/gnu/awt/xlib/XGraphicsConfiguration.P \
 .deps/gnu/awt/xlib/XOffScreenImage.P .deps/gnu/awt/xlib/XPanelPeer.P \
 .deps/gnu/awt/xlib/XToolkit.P .deps/gnu/classpath/Configuration.P \
@@ -4573,6 +4585,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.P \
+.deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuComponentPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.P \
 .deps/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.P \

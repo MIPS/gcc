@@ -1,6 +1,6 @@
 /* Generate code from machine description to emit insns as rtl.
    Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -217,6 +217,14 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
     case PC:
       printf ("pc_rtx");
       return;
+    case CLOBBER:
+      if (REG_P (XEXP (x, 0)))
+	{
+	  printf ("gen_hard_reg_clobber (%smode, %i)", GET_MODE_NAME (GET_MODE (XEXP (x, 0))),
+			  			     REGNO (XEXP (x, 0)));
+	  return;
+	}
+      break;
 
     case CC0:
       printf ("cc0_rtx");

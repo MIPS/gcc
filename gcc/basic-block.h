@@ -1,5 +1,5 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -363,8 +363,6 @@ extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
 extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern void clear_bb_flags (void);
-extern void tidy_fallthru_edge (edge, basic_block, basic_block);
-extern void tidy_fallthru_edges (void);
 extern void flow_reverse_top_sort_order_compute (int *);
 extern int flow_depth_first_order_compute (int *, int *);
 extern void flow_preorder_transversal_compute (int *);
@@ -480,6 +478,10 @@ enum update_life_extent
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
 				 | PROP_ALLOW_CFG_CHANGES \
 				 | PROP_SCAN_DEAD_STORES)
+#define PROP_POSTRELOAD		(PROP_DEATH_NOTES  \
+				 | PROP_KILL_DEAD_CODE  \
+				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
+				 | PROP_SCAN_DEAD_STORES)
 
 #define CLEANUP_EXPENSIVE	1	/* Do relatively expensive optimizations
 					   except for edge forwarding */
@@ -495,6 +497,7 @@ enum update_life_extent
 #define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
 					   insns.  */
 #define CLEANUP_CFGLAYOUT	256	/* Do cleanup in cfglayout mode.  */
+#define CLEANUP_LOG_LINKS	512	/* Update log links.  */
 extern void life_analysis (rtx, FILE *, int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
@@ -532,7 +535,6 @@ extern bool probably_never_executed_bb_p (basic_block);
 
 /* In flow.c */
 extern void init_flow (void);
-extern void dump_bb (basic_block, FILE *);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);
 extern void dump_regset (regset, FILE *);
@@ -564,11 +566,6 @@ extern void alloc_aux_for_edge (edge, int);
 extern void alloc_aux_for_edges (int);
 extern void clear_aux_for_edges (void);
 extern void free_aux_for_edges (void);
-
-/* This function is always defined so it can be called from the
-   debugger, and it is declared extern so we don't get warnings about
-   it being unused.  */
-extern void verify_flow_info (void);
 
 typedef struct conflict_graph_def *conflict_graph;
 

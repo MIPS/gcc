@@ -65,6 +65,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-flags.h"
 #include "optabs.h"
 #include "cfgloop.h"
+#include "ggc.h"
 
 /* Not really meaningful values, but at least something.  */
 #ifndef SIMULTANEOUS_PREFETCHES
@@ -162,7 +163,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define LOOP_REGNO_NREGS(REGNO, SET_DEST) \
 ((REGNO) < FIRST_PSEUDO_REGISTER \
- ? (int) HARD_REGNO_NREGS ((REGNO), GET_MODE (SET_DEST)) : 1)
+ ? (int) hard_regno_nregs[(REGNO)][GET_MODE (SET_DEST)] : 1)
 
 
 /* Vector mapping INSN_UIDs to luids.
@@ -534,7 +535,10 @@ loop_optimize (rtx f, FILE *dumpfile, int flags)
       struct loop *loop = &loops->array[i];
 
       if (! loop->invalid && loop->end)
-	scan_loop (loop, flags);
+	{
+	  scan_loop (loop, flags);
+	  ggc_collect ();
+	}
     }
 
   end_alias_analysis ();

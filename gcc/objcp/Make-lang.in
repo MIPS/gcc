@@ -89,6 +89,10 @@ objc++.all.build:
 objc++.all.cross:
 objc++.start.encap:
 objc++.rest.encap:
+objc++.info:
+objc++.srcinfo:
+objc++.srcextra:
+objc++.man:
 
 objc++.tags: force
 	cd $(srcdir)/objcp; etags -o TAGS.sub *.y *.c *.h; \

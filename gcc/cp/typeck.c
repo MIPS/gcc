@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -714,6 +714,12 @@ merge_types (tree t1, tree t2)
 	break;
       }
 
+    case TYPENAME_TYPE:
+      /* There is no need to merge attributes into a TYPENAME_TYPE.
+	 When the type is instantiated it will have whatever
+	 attributes result from the instantiation.  */
+      return t1;
+
     default:;
     }
   return build_type_attribute_variant (t1, attributes);
@@ -963,8 +969,10 @@ comptypes (tree t1, tree t2, int strict)
   if (TREE_CODE (t1) != TREE_CODE (t2))
     return false;
 
-  /* Qualifiers must match.  */
-  if (cp_type_quals (t1) != cp_type_quals (t2))
+  /* Qualifiers must match.  For array types, we will check when we
+     recur on the array element types.  */
+  if (TREE_CODE (t1) != ARRAY_TYPE
+      && TYPE_QUALS (t1) != TYPE_QUALS (t2))
     return false;
   if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
     return false;
@@ -973,7 +981,8 @@ comptypes (tree t1, tree t2, int strict)
      definition.  Note that we already checked for equality of the type
      qualifiers (just above).  */
 
-  if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
+  if (TREE_CODE (t1) != ARRAY_TYPE
+      && TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return true;
 
   if (!(*targetm.comp_type_attributes) (t1, t2))
@@ -5468,7 +5477,7 @@ build_ptrmemfunc (tree type, tree pfn, int force)
    given by CST.
 
    ??? There is no consistency as to the types returned for the above
-   values.  Some code acts as if its a sizetype and some as if its
+   values.  Some code acts as if it were a sizetype and some as if it were
    integer_type_node.  */
 
 void

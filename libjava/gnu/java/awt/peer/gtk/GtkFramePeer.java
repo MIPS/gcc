@@ -53,42 +53,79 @@ import java.awt.peer.MenuBarPeer;
 public class GtkFramePeer extends GtkWindowPeer
     implements FramePeer
 {
-  int menuBarHeight = 0;
+  private int menuBarHeight;
   private MenuBarPeer menuBar;
   native int getMenuBarHeight (MenuBarPeer bar);
 
-  native public void setMenuBarPeer (MenuBarPeer bar);
-  native public void removeMenuBarPeer (MenuBarPeer bar);
+  native void setMenuBarPeer (MenuBarPeer bar);
+  native void removeMenuBarPeer ();
+  native void moveLayout (int offset);
+  native void gtkLayoutSetVisible (boolean vis);
 
   public void setMenuBar (MenuBar bar)
   {
-    if (bar == null && menuBar != null)
+    if (bar == null)
     {    
-      removeMenuBarPeer(menuBar); 
-      menuBar = null;
-      insets.top -= menuBarHeight;
-      menuBarHeight = 0;      
-      awtComponent.doLayout();
-    }
-    else if (bar != null)
-    {
       if (menuBar != null)
-        removeMenuBarPeer(menuBar);
+      {
+        gtkLayoutSetVisible(false);
+        removeMenuBarPeer(); 
+        menuBar = null;
+        moveLayout(menuBarHeight);
+        insets.top -= menuBarHeight;
+        menuBarHeight = 0;      
+        awtComponent.doLayout();
+        gtkLayoutSetVisible(true);
+      }
+    }
+    else
+    {
+      gtkLayoutSetVisible(false);
+      int oldHeight = 0;
+      if (menuBar != null)
+      {
+        removeMenuBarPeer();
+        oldHeight = menuBarHeight;
+        insets.top -= menuBarHeight;
+      }
       menuBar = (MenuBarPeer) ((MenuBar) bar).getPeer();
-      setMenuBarPeer(menuBar);      
+      setMenuBarPeer(menuBar);
+      menuBarHeight = getMenuBarHeight (menuBar);
+      if (oldHeight != menuBarHeight)
+        moveLayout(oldHeight - menuBarHeight);
+      insets.top += menuBarHeight;
+      awtComponent.doLayout();
+      gtkLayoutSetVisible(true);
     }
   }
 
-  protected void postSizeAllocateEvent()
+  public void setBounds (int x, int y, int width, int height)
   {
-    if (menuBar != null)
-    {
-      if (menuBarHeight != 0)
-        insets.top -= menuBarHeight;
-      menuBarHeight = getMenuBarHeight(menuBar);
-      insets.top += menuBarHeight;
-    }
-    awtComponent.doLayout();
+    nativeSetBounds (x, y,
+		     width - insets.left - insets.right,
+		     height - insets.top - insets.bottom
+		     + menuBarHeight);
+  }  
+  
+  public void setResizable (boolean resizable)
+  {
+    // Call setSize; otherwise when resizable is changed from true to
+    // false the frame will shrink to the dimensions it had before it
+    // was resizable.
+    setSize (awtComponent.getWidth() - insets.left - insets.right,
+             awtComponent.getHeight() - insets.top - insets.bottom
+             + menuBarHeight);
+    set ("allow_shrink", resizable);
+    set ("allow_grow", resizable);
+  }  
+  
+  protected void postInsetsChangedEvent (int top, int left,
+					 int bottom, int right)
+  {
+    insets.top = top + menuBarHeight;
+    insets.left = left;
+    insets.bottom = bottom;
+    insets.right = right;
   }
 
   public GtkFramePeer (Frame frame)
@@ -101,6 +138,7 @@ public class GtkFramePeer extends GtkWindowPeer
     // Create a normal decorated window.
     create (GDK_WINDOW_TYPE_HINT_NORMAL, true);
     setMenuBar(((Frame) awtComponent).getMenuBar());
+    awtComponent.setForeground(java.awt.SystemColor.windowText);
   }
 
   public void getArgs (Component component, GtkArgList args)
@@ -133,12 +171,13 @@ public class GtkFramePeer extends GtkWindowPeer
   protected void postConfigureEvent (int x, int y, int width, int height)
   {
     int frame_x = x - insets.left;
-    // Add the height of the menubar (if none, menuBarHeight is 0 and has no
-    // effect). To move the frame down a bit so as to still fit in the window.
+    // Since insets.top includes the MenuBar height, we need to add back
+    // the MenuBar height to the frame's y position.
+    // If no MenuBar exists in this frame, the MenuBar height will be 0.
     int frame_y = y - insets.top + menuBarHeight;
     int frame_width = width + insets.left + insets.right;
-    // Add the height of the menubar to adjust the height so it still fits in
-    // the window.
+    // Ditto as above. Since insets.top already includes the MenuBar's height,
+    // we need to subtract the MenuBar's height from the top inset.
     int frame_height = height + insets.top + insets.bottom - menuBarHeight;
     if (frame_x != awtComponent.getX()
         || frame_y != awtComponent.getY()

@@ -869,9 +869,14 @@ public abstract class Component
    */
   public void show()
   {
+    // We must set visible before showing the peer.  Otherwise the
+    // peer could post paint events before visible is true, in which
+    // case lightweight components are not initially painted --
+    // Container.paint first calls isShowing () before painting itself
+    // and its children.
+    this.visible = true;
     if (peer != null)
       peer.setVisible(true);
-    this.visible = true;
   }
 
   /**
@@ -1697,6 +1702,9 @@ public abstract class Component
    */
   public void paint(Graphics g)
   {
+    // Paint the heavyweight peer
+    if (!isLightweight() && peer != null)
+      peer.paint(g);
   }
 
   /**
@@ -1714,6 +1722,15 @@ public abstract class Component
    */
   public void update(Graphics g)
   {
+    if (!isLightweight())
+      {
+        Rectangle clip = g.getClipBounds();
+        if (clip == null)
+          g.clearRect(0, 0, width, height);
+        else
+          g.clearRect(clip.x, clip.y, clip.width, clip.height);
+      }
+
     paint(g);
   }
 
@@ -1727,8 +1744,6 @@ public abstract class Component
   {
     if (! visible)
       return;
-    if (peer != null)
-      peer.paint(g);
     paint(g);
   }
 
@@ -2782,8 +2797,6 @@ public abstract class Component
 
     if (e instanceof FocusEvent)
       processFocusEvent((FocusEvent) e);
-    else if (e instanceof PaintEvent)
-      processPaintEvent((PaintEvent) e);
     else if (e instanceof MouseWheelEvent)
       processMouseWheelEvent((MouseWheelEvent) e);
     else if (e instanceof MouseEvent)
@@ -4217,41 +4230,6 @@ p   * <li>the set of backward traversal keys
 
     newEvent.setUpdateRect(union);
     return newEvent;
-  }
-
-  /**
-   * Does the work for a paint event.
-   *
-   * @param event the event to process
-   */
-  private void processPaintEvent(PaintEvent event)
-  {
-    // Can't do graphics without peer
-    if (peer == null)
-      return;
-
-    Graphics gfx = getGraphics();
-    try
-      {
-	Shape clip = event.getUpdateRect();
-	gfx.setClip(clip);
-
-	switch (event.id)
-	  {
-	  case PaintEvent.PAINT:
-	    paint(gfx);
-	    break;
-	  case PaintEvent.UPDATE:
-	    update(gfx);
-	    break;
-	  default:
-	    throw new IllegalArgumentException("unknown paint event");
-	  }
-      }
-    finally
-      {
-	gfx.dispose();
-      }
   }
 
   /**

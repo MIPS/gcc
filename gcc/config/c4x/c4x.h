@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -306,11 +306,14 @@ extern int target_flags;
 #define TARGET_C40		(target_flags & C40_FLAG)
 #define TARGET_C44		(target_flags & C44_FLAG)
 
-/* Define some options to control code generation.  */
+/* Nonzero to use load_immed_addr pattern rather than forcing memory
+   addresses into memory.  */
 #define TARGET_LOAD_ADDRESS	(1 || (! TARGET_C3X && ! TARGET_SMALL))
+
 /* Nonzero to convert direct memory references into HIGH/LO_SUM pairs
    during RTL generation.  */
 #define TARGET_EXPOSE_LDP	0
+
 /* Nonzero to force loading of direct memory references into a register.  */
 #define TARGET_LOAD_DIRECT_MEMS	0
 
@@ -319,8 +322,6 @@ extern int target_flags;
    and less than max-cycles.  */
 
 #define TARGET_RPTS_CYCLES(CYCLES) (TARGET_RPTS || (CYCLES) < c4x_rpts_cycles)
-
-#define	BCT_CHECK_LOOP_ITERATIONS  !(TARGET_LOOP_UNSIGNED)
 
 /* -mcpu=XX    with XX = target DSP version number.  */
 
@@ -1160,7 +1161,6 @@ CUMULATIVE_ARGS;
 /* How Large Values Are Returned.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN	0
-#define STRUCT_VALUE_REGNUM		AR0_REGNO	/* AR0.  */
 
 /* Varargs handling.  */
 
@@ -1259,7 +1259,7 @@ CUMULATIVE_ARGS;
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 {									\
-  if (c4x_check_legit_addr (MODE, X, 0))				\
+  if (c4x_legitimate_address_p (MODE, X, 0))				\
     goto ADDR;								\
 }
 
@@ -1275,7 +1275,7 @@ CUMULATIVE_ARGS;
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 {									\
-  if (c4x_check_legit_addr (MODE, X, 1))				\
+  if (c4x_legitimate_address_p (MODE, X, 1))				\
     goto ADDR;								\
 }
 
@@ -1284,6 +1284,7 @@ CUMULATIVE_ARGS;
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) \
 {									\
   rtx new;								\
+									\
   new = c4x_legitimize_address (X, MODE);				\
   if (new != NULL_RTX)							\
   {									\
@@ -1305,7 +1306,7 @@ CUMULATIVE_ARGS;
       if (! TARGET_SMALL)						\
 	{								\
           int i;							\
-      	  X = gen_rtx_LO_SUM (GET_MODE (X),				\
+      	  (X) = gen_rtx_LO_SUM (GET_MODE (X),				\
 			      gen_rtx_HIGH (GET_MODE (X), X), X);	\
           i = push_reload (XEXP (X, 0), NULL_RTX,			\
 			   &XEXP (X, 0), NULL,				\
@@ -1315,6 +1316,12 @@ CUMULATIVE_ARGS;
 	     normally not be used so force it.  */			\
           rld[i].reg_rtx = gen_rtx_REG (Pmode, DP_REGNO); 		\
           rld[i].nocombine = 1; 					\
+        }								\
+      else								\
+        {								\
+          /* make_memloc in reload will substitute invalid memory       \
+             references.  We need to fix them up.  */                   \
+          (X) = gen_rtx_LO_SUM (Pmode, gen_rtx_REG (Pmode, DP_REGNO), (X)); \
         }								\
       goto WIN;								\
    }									\
@@ -1482,13 +1489,6 @@ fini_section ()							\
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
 c4x_external_ref (NAME)
-
-/* A C statement to output on FILE an assembler pseudo-op to
-   declare a library function named external.
-   (Only needed to keep asm30 happy for ___divqf3 etc.)  */
-
-#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN) \
-c4x_external_ref (XSTR (FUN, 0))
 
 /* The prefix to add to user-visible assembler symbols.  */
 
@@ -1777,33 +1777,33 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x5069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (tramp, 0)), tmp1);	\
       tmp1 = expand_and (QImode, FNADDR, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x1069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (tramp, 2)), tmp1);	\
       tmp1 = expand_shift (RSHIFT_EXPR, QImode, CXT,			\
 			   size_int (16), 0, 1);			\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x5068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (tramp, 3)), tmp1);	\
       tmp1 = expand_and (QImode, CXT, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x1068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (tramp, 6)), tmp1);	\
     }									\
   else									\
     {									\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (TRAMP, 8)), FNADDR); 	\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (TRAMP, 9)), CXT); 	\
     }									\
 }
@@ -1912,3 +1912,8 @@ enum c4x_builtins
   C4X_BUILTIN_FRIEEE,	/*	frieee	   (only C4x)	*/
   C4X_BUILTIN_RCPF	/*	fast_invf  (only C4x)	*/
 };
+
+
+/* Hack to overcome use of libgcc2.c using auto-host.h to determine
+   HAVE_GAS_HIDDEN.  */
+#undef HAVE_GAS_HIDDEN

@@ -1,3 +1,34 @@
+2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (doc/gcj.dvi): Use $(abs_docdir). 
+
+2004-01-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* expr.c (build_field_ref): Move variable
+	definition up.
+
+2004-01-28  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (build_field_ref): Widen field offset.
+
+2004-01-27  Andrew Haley  <aph@redhat.com>
+
+	java/13273
+	* parse.y (check_interface_throws_clauses): Make sure class_decl
+	has been loaded.
+
+2004-01-22  Jeff Sturm  <jsturm@one-point.com>
+
+	PR java/13733
+	* parse.y (patch_assignment): Don't modify lhs_type for
+	reference assignments.
+
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in: Replace $(docdir) with doc.
+	(java.info, java.srcinfo, java.man, java.srcman): New rules.
+	(java.install-man): Revamp rule.
+	
 2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Make-lang.in (JAVA_INSTALL_NAME, JAVA_TARGET_INSTALL_NAME, 

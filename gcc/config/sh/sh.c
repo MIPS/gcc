@@ -92,7 +92,7 @@ static int pragma_trapa;
    interrupted.  */
 int pragma_nosave_low_regs;
 
-/* This is used for communication between SETUP_INCOMING_VARARGS and
+/* This is used for communication between TARGET_SETUP_INCOMING_VARARGS and
    sh_expand_prologue.  */
 int current_function_anonymous_args;
 
@@ -676,8 +676,8 @@ expand_block_move (rtx *operands)
 	  tree entry_name;
 	  rtx sym;
 	  rtx func_addr_rtx;
-	  rtx r4 = gen_rtx (REG, SImode, 4);
-	  rtx r5 = gen_rtx (REG, SImode, 5);
+	  rtx r4 = gen_rtx_REG (SImode, 4);
+	  rtx r5 = gen_rtx_REG (SImode, 5);
 
 	  entry_name = get_identifier ("__movstrSI12_i4");
 
@@ -694,9 +694,9 @@ expand_block_move (rtx *operands)
 	  rtx sym;
 	  rtx func_addr_rtx;
 	  int dwords;
-	  rtx r4 = gen_rtx (REG, SImode, 4);
-	  rtx r5 = gen_rtx (REG, SImode, 5);
-	  rtx r6 = gen_rtx (REG, SImode, 6);
+	  rtx r4 = gen_rtx_REG (SImode, 4);
+	  rtx r5 = gen_rtx_REG (SImode, 5);
+	  rtx r6 = gen_rtx_REG (SImode, 6);
 
 	  entry_name = get_identifier (bytes & 4
 				       ? "__movstr_i4_odd"
@@ -956,14 +956,14 @@ prepare_scc_operands (enum rtx_code code)
 
   if (TARGET_SH4 && GET_MODE_CLASS (mode) == MODE_FLOAT)
     (mode == SFmode ? emit_sf_insn : emit_df_insn)
-     (gen_rtx (PARALLEL, VOIDmode, gen_rtvec (2,
-		gen_rtx (SET, VOIDmode, t_reg,
-			 gen_rtx (code, SImode,
+     (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2,
+		gen_rtx_SET (VOIDmode, t_reg,
+			 gen_rtx_fmt_ee (code, SImode,
 				  sh_compare_op0, sh_compare_op1)),
-		gen_rtx (USE, VOIDmode, get_fpscr_rtx ()))));
+		gen_rtx_USE (VOIDmode, get_fpscr_rtx ()))));
   else
-    emit_insn (gen_rtx (SET, VOIDmode, t_reg,
-			gen_rtx (code, SImode, sh_compare_op0,
+    emit_insn (gen_rtx_SET (VOIDmode, t_reg,
+			gen_rtx_fmt_ee (code, SImode, sh_compare_op0,
 				 sh_compare_op1)));
 
   return t_reg;
@@ -997,13 +997,13 @@ from_compare (rtx *operands, int code)
   else
     insn = gen_rtx_SET (VOIDmode,
 			gen_rtx_REG (SImode, T_REG),
-			gen_rtx (code, SImode, sh_compare_op0,
+			gen_rtx_fmt_ee (code, SImode, sh_compare_op0,
 				 sh_compare_op1));
   if (TARGET_SH4 && GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
-      insn = gen_rtx (PARALLEL, VOIDmode,
+      insn = gen_rtx_PARALLEL (VOIDmode,
 		      gen_rtvec (2, insn,
-				 gen_rtx (USE, VOIDmode, get_fpscr_rtx ())));
+				 gen_rtx_USE (VOIDmode, get_fpscr_rtx ())));
       (mode == SFmode ? emit_sf_insn : emit_df_insn) (insn);
     }
   else
@@ -4092,8 +4092,10 @@ sh_reorg (void)
 		  if (GET_CODE (dst) == REG && FP_ANY_REGISTER_P (REGNO (dst)))
 		    {
 		      /* This must be an insn that clobbers r0.  */
-		      rtx clobber = XVECEXP (PATTERN (scan), 0,
-					     XVECLEN (PATTERN (scan), 0) - 1);
+		      rtx *clobberp = &XVECEXP (PATTERN (scan), 0,
+						XVECLEN (PATTERN (scan), 0)
+						- 1);
+		      rtx clobber = *clobberp;
 
 		      if (GET_CODE (clobber) != CLOBBER
 			  || ! rtx_equal_p (XEXP (clobber, 0), r0_rtx))
@@ -4129,7 +4131,7 @@ sh_reorg (void)
 			}
 		      last_float_move = scan;
 		      last_float = src;
-		      newsrc = gen_rtx (MEM, mode,
+		      newsrc = gen_rtx_MEM (mode,
 					(((TARGET_SH4 && ! TARGET_FMOVD)
 					  || REGNO (dst) == FPUL_REG)
 					 ? r0_inc_rtx
@@ -4137,7 +4139,8 @@ sh_reorg (void)
 		      last_float_addr = &XEXP (newsrc, 0);
 
 		      /* Remove the clobber of r0.  */
-		      XEXP (clobber, 0) = gen_rtx_SCRATCH (Pmode);
+		      *clobberp = gen_rtx_CLOBBER (GET_MODE (clobber),
+						   gen_rtx_SCRATCH (Pmode));
 		      RTX_UNCHANGING_P (newsrc) = 1;
 		    }
 		  /* This is a mova needing a label.  Create it.  */
@@ -5902,7 +5905,7 @@ sh_builtin_saveregs (void)
 	  mem = gen_rtx_MEM (DFmode, fpregs);
 	  set_mem_alias_set (mem, alias_set);
 	  emit_move_insn (mem, 
-			  gen_rtx (REG, DFmode, BASE_ARG_REG (DFmode) + regno));
+			  gen_rtx_REG (DFmode, BASE_ARG_REG (DFmode) + regno));
 	}
       regno = first_floatreg;
       if (regno & 1)
@@ -5911,7 +5914,7 @@ sh_builtin_saveregs (void)
 	  mem = gen_rtx_MEM (SFmode, fpregs);
 	  set_mem_alias_set (mem, alias_set);
 	  emit_move_insn (mem,
-			  gen_rtx (REG, SFmode, BASE_ARG_REG (SFmode) + regno
+			  gen_rtx_REG (SFmode, BASE_ARG_REG (SFmode) + regno
 						- (TARGET_LITTLE_ENDIAN != 0)));
 	}
     }
@@ -6517,10 +6520,6 @@ sh_function_arg_advance (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 	  : ROUND_ADVANCE (GET_MODE_SIZE (mode)))));
 }
 
-/* If the structure value address is not passed in a register, define
-   `STRUCT_VALUE' as an expression returning an RTX for the place
-   where the address is passed.  If it returns 0, the address is
-   passed as an "invisible" first argument.  */
 /* The Renesas calling convention doesn't quite fit into this scheme since
    the address is passed like an invisible argument, but one that is always
    passed in memory.  */
@@ -6531,6 +6530,8 @@ sh_struct_value_rtx (tree fndecl, int incoming ATTRIBUTE_UNUSED)
     return 0;
   return gen_rtx_REG (Pmode, 2);
 }
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
 sh_return_in_memory (tree type, tree fndecl)
@@ -6775,7 +6776,7 @@ sh_handle_sp_switch_attribute (tree *node, tree name, tree args,
     }
   else
     {
-      char *s = ggc_strdup (TREE_STRING_POINTER (TREE_VALUE (args)));
+      const char *s = ggc_strdup (TREE_STRING_POINTER (TREE_VALUE (args)));
       sp_switch = gen_rtx_SYMBOL_REF (VOIDmode, s);
     }
 
@@ -7653,7 +7654,7 @@ get_fpscr_rtx (void)
 {
   if (! fpscr_rtx)
     {
-      fpscr_rtx = gen_rtx (REG, PSImode, FPSCR_REG);
+      fpscr_rtx = gen_rtx_REG (PSImode, FPSCR_REG);
       REG_USERVAR_P (fpscr_rtx) = 1;
       mark_user_reg (fpscr_rtx);
     }

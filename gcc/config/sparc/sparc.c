@@ -137,6 +137,7 @@ static void sparc_init_modes (void);
 static int save_regs (FILE *, int, int, const char *, int, int, HOST_WIDE_INT);
 static int restore_regs (FILE *, int, int, const char *, int, int);
 static void build_big_number (FILE *, HOST_WIDE_INT, const char *);
+static void scan_record_type (tree, int *, int *, int *);
 static int function_arg_slotno (const CUMULATIVE_ARGS *, enum machine_mode,
 				tree, int, int, int *, int *);
 
@@ -147,6 +148,7 @@ static void sparc_output_addr_vec (rtx);
 static void sparc_output_addr_diff_vec (rtx);
 static void sparc_output_deferred_case_vectors (void);
 static int check_return_regs (rtx);
+static rtx sparc_builtin_saveregs (void);
 static int epilogue_renumber (rtx *, int);
 static bool sparc_assemble_integer (rtx, unsigned int, int);
 static int set_extends (rtx);
@@ -193,6 +195,10 @@ static rtx sparc_tls_got (void);
 static const char *get_some_local_dynamic_name (void);
 static int get_some_local_dynamic_name_1 (rtx *, void *);
 static bool sparc_rtx_costs (rtx, int, int, int *);
+static bool sparc_promote_prototypes (tree);
+static rtx sparc_struct_value_rtx (tree, int);
+static bool sparc_return_in_memory (tree, tree);
+static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
 
 /* Option handling.  */
 
@@ -275,6 +281,36 @@ enum processor_type sparc_cpu;
 #define TARGET_RTX_COSTS sparc_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
+
+/* Return TRUE if the promotion described by PROMOTE_MODE should also be done
+   for outgoing function arguments.
+   This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
+   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
+   for this value.  */
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+
+/* Return TRUE if the promotion described by PROMOTE_MODE should also be done
+   for the return value of functions.  If this macro is defined, FUNCTION_VALUE
+   must perform the same promotions done by PROMOTE_MODE.
+   This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
+   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
+   for this value.  */
+#undef TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+
+#undef TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES sparc_promote_prototypes
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX sparc_struct_value_rtx
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY sparc_return_in_memory
+
+#undef TARGET_EXPAND_BUILTIN_SAVEREGS
+#define TARGET_EXPAND_BUILTIN_SAVEREGS sparc_builtin_saveregs
+#undef TARGET_STRICT_ARGUMENT_NAMING
+#define TARGET_STRICT_ARGUMENT_NAMING sparc_strict_argument_naming
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -4816,8 +4852,93 @@ init_cumulative_args (struct sparc_args *cum, tree fntype,
   cum->libcall_p = fntype == 0;
 }
 
+/* Handle the TARGET_PROMOTE_PROTOTYPES target hook.
+   When a prototype says `char' or `short', really pass an `int'.  */
+
+static bool
+sparc_promote_prototypes (tree fntype ATTRIBUTE_UNUSED)
+{
+  return TARGET_ARCH32 ? true : false;
+}
+
+/* Handle the TARGET_STRICT_ARGUMENT_NAMING target hook.  */
+
+static bool
+sparc_strict_argument_naming (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
+{
+  /* For the V9 we want NAMED to mean what it says it means.  */
+  return TARGET_V9 ? true : false;
+}
+
+/* Handle the TARGET_RETURN_IN_MEMORY target hook.
+   Specify whether to return the return value in memory.  */
+
+static bool
+sparc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  /* SPARC ABI says that quad-precision floats and all structures are
+     returned in memory.
+     For V9: unions <= 32 bytes in size are returned in int regs,
+     structures up to 32 bytes are returned in int and fp regs.  */
+  return (TARGET_ARCH32
+	  ? (TYPE_MODE (type) == BLKmode
+	     || TYPE_MODE (type) == TFmode)
+	  : (TYPE_MODE (type) == BLKmode
+	     && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 32));
+}
+
+/* Handle the TARGET_STRUCT_VALUE target hook.
+   Return where to find the structure return value address.  */
+
+static rtx
+sparc_struct_value_rtx (tree fndecl ATTRIBUTE_UNUSED, int incoming)
+{
+  if (TARGET_ARCH64)
+    return 0;
+  else
+    {
+      if (incoming)
+	return gen_rtx_MEM (Pmode, plus_constant (frame_pointer_rtx,
+						  STRUCT_VALUE_OFFSET));
+      else
+	return gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
+						  STRUCT_VALUE_OFFSET));
+    }
+}
+
+/* Scan the record type TYPE and return the following predicates:
+    - INTREGS_P: the record contains at least one field or sub-field
+      that is eligible for promotion in integer registers.
+    - FP_REGS_P: the record contains at least one field or sub-field
+      that is eligible for promotion in floating-point registers.
+    - PACKED_P: the record contains at least one field that is packed.
+
+   Sub-fields are not taken into account for the PACKED_P predicate.  */
+
+static void
+scan_record_type (tree type, int *intregs_p, int *fpregs_p, int *packed_p)
+{
+  tree field;
+
+  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+    {
+      if (TREE_CODE (field) == FIELD_DECL)
+	{
+	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
+	    scan_record_type (TREE_TYPE (field), intregs_p, fpregs_p, 0);
+	  else if (FLOAT_TYPE_P (TREE_TYPE (field)) && TARGET_FPU)
+	    *fpregs_p = 1;
+	  else
+	    *intregs_p = 1;
+
+	  if (packed_p && DECL_PACKED (field))
+	    *packed_p = 1;
+	}
+    }
+}
+
 /* Compute the slot number to pass an argument in.
-   Returns the slot number or -1 if passing on the stack.
+   Return the slot number or -1 if passing on the stack.
 
    CUM is a variable of type CUMULATIVE_ARGS which gives info about
     the preceding args and about the function being called.
@@ -4916,27 +5037,14 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
 	}
       else
 	{
-	  tree field;
-	  int intregs_p = 0, fpregs_p = 0;
-	  /* The ABI obviously doesn't specify how packed
-	     structures are passed.  These are defined to be passed
-	     in int regs if possible, otherwise memory.  */
-	  int packed_p = 0;
+	  int intregs_p = 0, fpregs_p = 0, packed_p = 0;
 
-	  /* First see what kinds of registers we need.  */
-	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-	    {
-	      if (TREE_CODE (field) == FIELD_DECL)
-		{
-		  if (TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
-		      && TARGET_FPU)
-		    fpregs_p = 1;
-		  else
-		    intregs_p = 1;
-		  if (DECL_PACKED (field))
-		    packed_p = 1;
-		}
-	    }
+	  /* First see what kinds of registers we would need.  */
+	  scan_record_type (type, &intregs_p, &fpregs_p, &packed_p);
+
+	  /* The ABI obviously doesn't specify how packed structures
+	     are passed.  These are defined to be passed in int regs
+	     if possible, otherwise memory.  */
 	  if (packed_p || !named)
 	    fpregs_p = 0, intregs_p = 1;
 
@@ -4972,7 +5080,7 @@ struct function_arg_record_value_parms
   int named;		/* whether the argument is named.  */
   int regbase;		/* regno of the base register.  */
   int stack;		/* 1 if part of the argument is on the stack.  */
-  int intoffset;	/* offset of the pending integer field.  */
+  int intoffset;	/* offset of the first pending integer field.  */
   unsigned int nregs;	/* number of words passed in registers.  */
 };
 
@@ -4983,6 +5091,7 @@ static void function_arg_record_value_2
 static void function_arg_record_value_1
  (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
 static rtx function_arg_record_value (tree, enum machine_mode, int, int, int);
+static rtx function_arg_union_value (int, int);
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
    recursively and determine how many registers will be required.  */
@@ -5029,20 +5138,20 @@ function_arg_record_value_1 (tree type, HOST_WIDE_INT startbitpos,
 	    				 bitpos,
 					 parms,
 					 packed_p);
-	  else if ((TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
-		    || (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE
-			&& (TREE_CODE (TREE_TYPE (TREE_TYPE (field)))
-			    == REAL_TYPE)))
-	           && TARGET_FPU
-	           && ! packed_p
-	           && parms->named)
+	  else if (FLOAT_TYPE_P (TREE_TYPE (field))
+		   && TARGET_FPU
+		   && parms->named
+		   && ! packed_p)
 	    {
 	      if (parms->intoffset != -1)
 		{
+		  unsigned int startbit, endbit;
 		  int intslots, this_slotno;
 
-		  intslots = (bitpos - parms->intoffset + BITS_PER_WORD - 1)
-		    / BITS_PER_WORD;
+		  startbit = parms->intoffset & -BITS_PER_WORD;
+		  endbit   = (bitpos + BITS_PER_WORD - 1) & -BITS_PER_WORD;
+
+		  intslots = (endbit - startbit) / BITS_PER_WORD;
 		  this_slotno = parms->slotno + parms->intoffset
 		    / BITS_PER_WORD;
 
@@ -5121,6 +5230,7 @@ function_arg_record_value_3 (HOST_WIDE_INT bitpos,
 
       this_slotno += 1;
       intoffset = (intoffset | (UNITS_PER_WORD-1)) + 1;
+      mode = word_mode;
       parms->nregs += 1;
       intslots -= 1;
     }
@@ -5166,13 +5276,10 @@ function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
 	    				 bitpos,
 					 parms,
 					 packed_p);
-	  else if ((TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
-		    || (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE
-			&& (TREE_CODE (TREE_TYPE (TREE_TYPE (field)))
-			    == REAL_TYPE)))
-	           && TARGET_FPU
-	           && ! packed_p
-	           && parms->named)
+	  else if (FLOAT_TYPE_P (TREE_TYPE (field))
+		   && TARGET_FPU
+		   && parms->named
+		   && ! packed_p)
 	    {
 	      int this_slotno = parms->slotno + bitpos / BITS_PER_WORD;
 	      int regno;
@@ -5248,6 +5355,7 @@ function_arg_record_value (tree type, enum machine_mode mode,
   parms.intoffset = 0;
   function_arg_record_value_1 (type, 0, &parms, false);
 
+  /* Take into account pending integer fields.  */
   if (parms.intoffset != -1)
     {
       unsigned int startbit, endbit;
@@ -5317,6 +5425,34 @@ function_arg_record_value (tree type, enum machine_mode mode,
   return parms.ret;
 }
 
+/* Used by function_arg and function_value to implement the conventions
+   of the 64-bit ABI for passing and returning unions.
+   Return an expression valid as a return value for the two macros
+   FUNCTION_ARG and FUNCTION_VALUE.
+
+   SIZE is the size in bytes of the union.
+   REGNO is the hard register the union will be passed in.  */
+
+static rtx
+function_arg_union_value (int size, int regno)
+{
+  enum machine_mode mode;
+  rtx reg;
+
+  if (size <= UNITS_PER_WORD)
+    mode = word_mode;
+  else
+    mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
+
+  reg = gen_rtx_REG (mode, regno);
+
+  /* Unions are passed left-justified.  */
+  return gen_rtx_PARALLEL (mode,
+			   gen_rtvec (1, gen_rtx_EXPR_LIST (VOIDmode,
+							    reg,
+							    const0_rtx)));
+}
+
 /* Handle the FUNCTION_ARG macro.
    Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
@@ -5366,14 +5502,12 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
     }
   else if (type && TREE_CODE (type) == UNION_TYPE)
     {
-      enum machine_mode mode;
-      int bytes = int_size_in_bytes (type);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
 
-      if (bytes > 16)
-	abort ();
+      if (size > 16)
+	abort (); /* shouldn't get here */
 
-      mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 0);
-      reg = gen_rtx_REG (mode, regno);
+      return function_arg_union_value (size, regno);
     }
   /* v9 fp args in reg slots beyond the int reg slots get passed in regs
      but also have the slot allocated for them.
@@ -5546,7 +5680,10 @@ function_arg_pass_by_reference (const struct sparc_args *cum ATTRIBUTE_UNUSED,
   if (TARGET_ARCH32)
     {
       return ((type && AGGREGATE_TYPE_P (type))
-	      || mode == TFmode || mode == TCmode);
+	      || mode == TFmode
+	      || mode == SCmode
+	      || mode == DCmode
+	      || mode == TCmode);
     }
   else
     {
@@ -5628,12 +5765,13 @@ rtx
 function_value (tree type, enum machine_mode mode, int incoming_p)
 {
   int regno;
-  int regbase = (incoming_p
-		 ? SPARC_OUTGOING_INT_ARG_FIRST
-		 : SPARC_INCOMING_INT_ARG_FIRST);
 
   if (TARGET_ARCH64 && type)
     {
+      int regbase = (incoming_p
+		     ? SPARC_OUTGOING_INT_ARG_FIRST
+		     : SPARC_INCOMING_INT_ARG_FIRST);
+
       if (TREE_CODE (type) == RECORD_TYPE)
 	{
 	  /* Structures up to 32 bytes in size are passed in registers,
@@ -5643,6 +5781,15 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	    abort (); /* shouldn't get here */
 
 	  return function_arg_record_value (type, mode, 0, 1, regbase);
+	}
+      else if (TREE_CODE (type) == UNION_TYPE)
+	{
+	  HOST_WIDE_INT size = int_size_in_bytes (type);
+
+	  if (size > 32)
+	    abort (); /* shouldn't get here */
+
+	  return function_arg_union_value (size, regbase);
 	}
       else if (AGGREGATE_TYPE_P (type))
 	{
@@ -5655,13 +5802,10 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 
 	  mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 0);
 	}
+      else if (GET_MODE_CLASS (mode) == MODE_INT
+	       && GET_MODE_SIZE (mode) < UNITS_PER_WORD)
+	mode = word_mode;
     }
-    
-  if (TARGET_ARCH64
-      && GET_MODE_CLASS (mode) == MODE_INT 
-      && GET_MODE_SIZE (mode) < UNITS_PER_WORD
-      && type && ! AGGREGATE_TYPE_P (type))
-    mode = DImode;
 
   if (incoming_p)
     regno = BASE_RETURN_VALUE_REG (mode);
@@ -5675,7 +5819,7 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
    to determine if stdarg or varargs is used and return the address of
    the first unnamed parameter.  */
 
-rtx
+static rtx
 sparc_builtin_saveregs (void)
 {
   int first_reg = current_function_args_info.words;
@@ -5751,6 +5895,8 @@ sparc_va_arg (tree valist, tree type)
     {
       if (AGGREGATE_TYPE_P (type)
 	  || TYPE_MODE (type) == TFmode
+	  || TYPE_MODE (type) == SCmode
+	  || TYPE_MODE (type) == DCmode
 	  || TYPE_MODE (type) == TCmode)
 	{
 	  indirect = 1;
@@ -6421,7 +6567,7 @@ epilogue_renumber (register rtx *where, int test)
       if (REGNO (*where) >= 8 && REGNO (*where) < 24)      /* oX or lX */
 	return 1;
       if (! test && REGNO (*where) >= 24 && REGNO (*where) < 32)
-	*where = gen_rtx (REG, GET_MODE (*where), OUTGOING_REGNO (REGNO(*where)));
+	*where = gen_rtx_REG (GET_MODE (*where), OUTGOING_REGNO (REGNO(*where)));
     case SCRATCH:
     case CC0:
     case PC:
@@ -7208,7 +7354,7 @@ sparc_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   /* Call __enable_execute_stack after writing onto the stack to make sure
      the stack address is accessible.  */
 #ifdef TRANSFER_FROM_TRAMPOLINE
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__enable_execute_stack"),
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__enable_execute_stack"),
                      LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
 #endif
 
@@ -7249,7 +7395,7 @@ sparc64_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   /* Call __enable_execute_stack after writing onto the stack to make sure
      the stack address is accessible.  */
 #ifdef TRANSFER_FROM_TRAMPOLINE
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__enable_execute_stack"),
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__enable_execute_stack"),
                      LCT_NORMAL, VOIDmode, 1, tramp, Pmode);
 #endif
 }

@@ -1,3 +1,568 @@
+2004-02-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h: Additional minor tweaks.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+
+2004-02-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/vector.tcc (vector::_M_insert_aux(iterator)):
+	Remove, unused.
+
+2004-02-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_function.h: Additional minor tweaks.
+
+2004-02-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/deque.tcc: Wrap overlong lines, constify
+	a few variables, reformat according to the coding standards.
+	* include/bits/list.tcc: Likewise.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/stl_function.h: Likewise.
+	* include/bits/stl_iterator.h: Likewise.
+	* include/bits/stl_iterator_base_funcs.h: Likewise.
+	* include/bits/stl_iterator_base_types.h: Likewise.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_relops.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+
+2004-02-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_bvector.h: Wrap overlong lines, constify
+	a few variables, reformat according to the coding standards.
+	* include/bits/stl_tree.h: Likewise.
+
+2004-01-31  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h: Minor additional reformat, add
+	copyright year.
+	* include/bits/stl_algobase.h: Add copyright year.
+
+2004-01-31  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h: Wrap overlong lines, constify
+	a few variables, reformat according to the coding standards.
+	* include/bits/stl_algobase.h: Likewise.
+	* include/bits/stl_heap.h: Likewise.
+
+2004-01-31  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_Rep::operator[]): Remove, unused.
+
+	* include/bits/basic_string.h: Fix two comments.
+
+2004-01-31  Per Bothner  <per@bothner.com>
+
+	* include/ext/mt_allocator.h
+	(__mt_alloc::_S_thread_freelist_mutex): Guard with
+	__GTHREAD_MUTEX_INIT.
+
+2004-01-31  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_Rep::_S_create): Minor tweak.
+
+2004-01-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/21_strings/basic_string/cons/char/6.cc: New.
+	* testsuite/21_strings/basic_string/cons/wchar_t/6.cc: New.
+	* testsuite/performance/21_strings/string_cons_input_iterator.cc: New.
+	
+2004-01-30  Felix Yen  <fwy@alumni.brown.edu>
+
+	* testsuite/performance/20_util/allocator_thread.cc (do_loop):
+	Don't use clear, but instead assign. Use insert.
+
+2004-01-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/demangle.cc: Add instantiations.
+	* src/Makefile.am: Remove special rules for demangle.lo, demangle.o.
+	* src/Makefile.in: Regenerate.
+	
+2004-01-30  David Edelsohn  <edelsohn@gnu.org>
+
+	* src/allocator.cc: Protect _S_get_thread_id() and
+	_S_thread_key_destr() with #ifdef __GTHREADS.
+
+2004-01-30  Paolo Carlini  <pcarlini@suse.de>
+
+	Reshuffle performance testsuite.
+	* testsuite/performance/allocator.cc, allocator_map_thread.cc,
+	allocator_thread.cc, complex_norm.cc, container_benchmark.cc,
+	cout_insert_int.cc, filebuf_copy.cc, filebuf_sputc.cc,
+	fstream_seek_write.cc, ifstream_extract_float.cc,
+	ifstream_extract_int.cc, ifstream_getline.cc, is_wchar_t.cc,
+	list_create_fill_sort.cc, map_create_fill.cc,
+	narrow_widen_char.cc, narrow_widen_wchar_t.cc,
+	ofstream_insert_float.cc, ofstream_insert_int.cc,
+	string_append.cc, wchar_t_in.cc, wchar_t_length.cc,
+	wchar_t_out.cc: Split into...
+	* testsuite/performance/20_util/allocator.cc: New.
+	* testsuite/performance/20_util/allocator_map_thread.cc: New.
+	* testsuite/performance/20_util/allocator_thread.cc: New.
+	* testsuite/performance/21_strings/string_append: New.
+	* testsuite/performance/22_locale/is_wchar_t.cc: New.
+	* testsuite/performance/22_locale/narrow_widen_char.cc: New.
+	* testsuite/performance/22_locale/narrow_widen_wchar_t.cc: New.
+	* testsuite/performance/22_locale/wchar_t_in.cc: New.
+	* testsuite/performance/22_locale/wchar_t_length.cc: New.
+	* testsuite/performance/22_locale/wchar_t_out.cc: New.
+	* testsuite/performance/23_containers/container_benchmark.cc: New.
+	* testsuite/performance/23_containers/list_create_fill_sort.cc: New.
+	* testsuite/performance/23_containers/map_create_fill.cc: New.
+	* testsuite/performance/26_numerics/complex_norm.cc: New.
+	* testsuite/performance/27_io/cout_insert_int.cc: New.
+	* testsuite/performance/27_io/filebuf_copy.cc: New.
+	* testsuite/performance/27_io/filebuf_sputc.cc: New.
+	* testsuite/performance/27_io/fstream_seek_write.cc: New.
+	* testsuite/performance/27_io/ifstream_extract_float.cc: New.
+	* testsuite/performance/27_io/ifstream_extract_int.cc: New.
+	* testsuite/performance/27_io/ifstream_getline.cc: New.
+	* testsuite/performance/27_io/ofstream_insert_float.cc: New.
+	* testsuite/performance/27_io/ofstream_insert_int.cc: New.
+
+2004-01-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_Rep::_S_create):
+	Never allocate a string bigger than max_size(); always keep
+	__capacity and __size in sync to avoid memory leaks at
+	deallocation time.
+
+2004-01-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_S_construct(_InIterator,
+	_InIterator, const _Alloc&, input_iterator_tag)): Simplify
+	the double loop, streamline.
+
+	* include/bits/basic_string.tcc: Very minor tweaks.
+
+2004-01-30  Loren J. Rittle  <ljrittle@acm.org>
+
+	* scripts/check_performance: Only compile with $THREAD_FLAG
+	when test is marked to require it.  Allow multiple
+	compilations/executions of marked tests.
+	* testsuite/testsuite_performance.h (report_performance):
+	Report dynamic thread support status.
+	(report_header): Likewise.
+	* testsuite/performance/allocator.cc: Stabilize iteration
+	count.  Support more allocators.  Mark each allocator test to
+	run and report independently.
+	* testsuite/performance/allocator_map_thread.cc: Likewise.
+	* testsuite/performance/allocator_thread.cc: Likewise.
+
+2004-01-29  Stephen M. Webb  <stephen.webb@bregmasoft.com>
+
+	* config/local/generic/c_locale.h: Change ::malloc() to new char[].
+  	* config/local/gnu/c_locale.h: Change ::malloc() to new char[].
+  	* include/bits/stl_tempbuf.h: Convert _Temporary_buffer to use
+	std::get_temporary_buffer() instead of duplicating its code.
+	Update to C++STYLE conventions.
+  	* include/std/std_memory.h (get_temporary_buffer): Use ::operator
+	new() instead of std::malloc().
+	(return_temporary_buffer): Use ::operator delete() instead of
+	std::free().
+
+2004-01-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/allocator.h: Temporary switch to new_allocator as
+	the default to unjam bootstraps.
+	
+2004-01-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (bits_headers): Remove allocator_traits.h.
+	* include/Makefile.in: Regenerate.
+	* include/bits/allocator_traits.h: Remove.
+	* include/bits/allocator.h: Remove allocator_traits.h include, and
+	relevant comments.
+	(allocator): Empty base class, inherit from the underlying allocator.
+	* src/allocator-inst.cc: Move __pool_alloc instantiation to...
+	* src/allocator.cc: ...here. New. For the underlying allocators.
+	Add __mt_alloc, __pool_alloc, new_allocator, malloc_allocator bits.
+	* config/linker-map.gnu: Remove __pool_alloc bits.
+	* src/Makefile.am (sources): Add allocator.cc.
+	* src/Makefile.in: Regenerate.
+	* testsuite/20_util/allocator/1.cc: Split second test into...
+	* testsuite/20_util/allocator/8230.cc: ...this. 
+	* include/bits/stl_bvector.h (__gnu_norm): Change bit_vector
+	typedef to use std::allocatore. Format.
+	* include/ext/pool_allocator.h: Remove allocator_traits.h include,
+	_Alloc_traits.
+	* include/ext/mt_allocator.h (__gnu_cxx): Qualify
+	__throw_bad_alloc calls. Don't include <memory>.
+	* include/ext/malloc_allocator.h: Remove <memory> include.
+	* include/ext/new_allocator.h (new_allocator): Same.
+	* include/ext/ropeimpl.h (__gnu_cxx): Remove __alloc using
+	declaration. Switch __alloc to _Alloc.
+	* include/ext/hashtable.h: Remove __alloc.
+	* include/backward/alloc.h: Only inject allocator, not
+	implementation details.
+
+	* include/ext/mt_allocator.h: Replace free with delete.
+	
+2004-01-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/globals_io.cc: Change to __gnu_internal namespace.
+	* src/globals_locale.cc: Same.
+	* src/locale_init.cc: Same.
+	* src/ios_init.cc: Same.
+	
+2004-01-28  Stefan Olsson  <stefan@snon.net>
+
+	* include/ext/mt_allocator.h: Replaced all malloc() calls with
+	operator new(). Added support for the env variable
+	GLIBCXX_FORCE_NEW (this required the _S_init call to be the first
+	one in allocate() as well). Fix typos.
+
+2004-01-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_S_create(size_t,
+	const _Alloc&): Change signature to take two size_type
+	arguments.
+	* include/bits/basic_string.tcc (_S_construct(_InIterator,
+	_InIterator, const _Alloc&, input_iterator_tag)): Update
+	call, tweak a bit.
+	(_S_construct(_InIterator, _InIterator, const _Alloc&,
+	forward_iterator_tag)): Likewise.
+	(_S_construct(size_type, _CharT, const _Alloc&)): Likewise.
+	(_M_mutate(size_type, size_type, size_type)): Don't
+	implement the exponential growth policy, demand it to
+	_S_create, update call and simplify.
+	(_M_clone(const _Alloc&, size_type)): Likewise.
+	(_S_create(size_type, size_type, const _Alloc&)): Implement
+	the growth policy, simplify otherwise.
+
+	* include/bits/basic_string.h (_Rep::operator[]): Tweak
+	signature to take a size_type, consistently with the other
+	members.
+	
+2004-01-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/ios_base/storage/11584.cc: Correct new and
+	delete declarations, add include and test variable.
+
+2003-01-27  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/codecvt.h, include/bits/locale_facets.h,
+	include/bits/postypes.h, include/bits/stl_bvector.h,
+	include/bits/stl_multiset.h, include/bits/stl_set.h,
+	include/bits/stream_iterator.h, include/bits/streambuf_iterator.h,
+	include/std/std_complex.h:  Document.
+
+2004-01-27  Jerry Quinn  <jlquinn@optonline.net>
+
+	PR libstdc++/11584
+	* include/bits/ios_base.h (ios_base::_M_grow_words):  Add
+        iword/pword selector.
+	(ios_base::iword, ios_base::pword):  Use it.
+	* src/ios.cc (ios_base::_M_grow_words):  Clear _M_word_zero
+        iword or pword member on alloc failure.
+	* testsuite/27_io/ios_base/storage/11584.cc:  New test.
+
+2004-01-27  Ulrich Weigand  <uweigand@de.ibm.com>
+	    PJ Darcy  <darcypj@us.ibm.com>
+
+	* configure.host: Add support for *-tpf.
+	* crossconfig.m4: Likewise.
+	* configure: Regenerate.
+	* config/os/tpf: New directory.
+	* config/os/tpf/os_defines.h: New file.
+	* config/os/tpf/ctype_base.h: Likewise.
+	* config/os/tpf/ctype_inline.h: Likewise.
+	* config/os/tpf/ctype_noninline.h: Likewise.
+
+2004-01-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13884
+	* include/bits/sstream.tcc: Guard use of extern template.
+	
+2004-01-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc
+	(basic_string(const basic_string&, size_type, size_type),
+	basic_string(const basic_string&, size_type, size_type,
+	const _Alloc&)): Avoid unnecessarily constructing iterators.
+
+2004-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/generic/c_locale.cc: Fix throw messages
+	to use the __N marker.
+	* config/locale/gnu/c_locale.cc: Likewise.
+	* config/locale/ieee_1003.1-2001/codecvt_specializations.h:
+	Likewise.
+	* docs/html/17_intro/C++STYLE: Likewise.
+	* include/bits/basic_ios.tcc: Likewise.
+	* include/bits/fstream.tcc: Likewise.
+	* include/bits/vector.tcc: Likewise.
+	* include/ext/ropeimpl.h: Likewise.
+	* include/std/std_bitset.h: Likewise.
+	* src/ios.cc: Likewise.
+	* src/locale.cc: Likewise.
+	* src/localename.cc: Likewise.
+
+2004-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_M_replace_aux): Use the
+	__N marker in throw message.
+	* include/bits/basic_string.tcc (assign(const _CharT*,
+	size_type), insert(size_type, const _CharT*, size_type),
+	replace(size_type, size_type, const _CharT*, size_type),
+	reserve, _Rep::_S_create, resize, _M_replace_dispatch):
+	Likewise.
+
+	* include/bits/basic_string.h, include/bits/basic_string.tcc:
+	Fold overlong lines, minor formatting changes.
+
+2004-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (replace(iterator, iterator,
+	const basic_string&)): Remove _GLIBCXX_DEBUG_PEDASSERT.
+	(replace(iterator, iterator, const _CharT*)): Ditto.
+	(replace(iterator, iterator, const _CharT*, size_type)):
+	Add missing _GLIBCXX_DEBUG_PEDASSERT.
+
+2004-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (replace(size_type,
+	size_type, const _CharT*, size_type)): Implement optimized
+	in-place algorithm for non-overlapping ranges.
+	* testsuite/21_strings/basic_string/replace/char/6.cc: New.
+	* testsuite/21_strings/basic_string/replace/wchar_t/6.cc: New.
+
+	* include/bits/basic_string.tcc (insert(size_type,
+	const _CharT*, size_type)): Tweak slightly.
+
+2004-01-26  Andreas Schwab  <schwab@suse.de>
+
+	* config/locale/gnu/monetary_members.cc: Restore locale before
+	rethrowing exception.
+
+2004-01-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_M_replace_aux, _M_replace_safe):
+	Define inline here.
+	* include/bits/basic_string.tcc (_M_replace_aux, _M_replace_safe):
+	Move inline.
+
+	* include/bits/basic_string.tcc: Very minor tweaks.
+
+2004-01-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/performance/string_append.cc: Increase number
+	of iterations.
+
+2004-01-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (erase(size_type, size_type),
+	erase(iterator), erase(iterator, iterator)): Call _M_replace_safe
+	instead, thus avoiding redundant check for length_error.
+
+	* include/bits/basic_string.h: Tweak some comments.
+
+2004-01-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (operator+(const _CharT*,
+	const basic_string&)): No need to go through the append
+	taking two iterators.
+
+2004-01-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (rfind(_CharT, size_type)):
+	Revert last change to use std::min: machine language is worse.
+	(find_last_of(const _CharT*, size_type, size_type)): Ditto.
+	(find_last_not_of(const _CharT*, size_type, size_type)): Ditto.
+	(find_last_not_of(_CharT, size_type)): Ditto.
+
+	* include/bits/basic_string.tcc (insert(size_type, const _CharT*,
+	size_type)): Discard the value returned by _M_check.
+	(replace(size_type, size_type, const _CharT*, size_type)): Ditto.
+	(append(const basic_string&, size_type, size_type)): Ditto.
+	(copy(_CharT*, size_type, size_type)): Ditto.
+	(compare(size_type, size_type, const basic_string&)): Ditto.
+	(compare(size_type, size_type, const basic_string&,
+	size_type, size_type)): Ditto.
+	(compare(size_type, size_type, const _CharT*)): Ditto.
+	(compare(size_type, size_type, const _CharT*, size_type)): Ditto.
+
+2004-01-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (insert(size_type,
+	const basic_string&, size_type, size_type)): Define inline here.
+	* include/bits/basic_string.tcc (insert(size_type,
+	const basic_string&, size_type, size_type)): Move inline.
+
+2004-01-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (assign(const basic_string&,
+	size_type, size_type)): Define inline here.
+	(replace(size_type, size_type, const basic_string&,
+	size_type, size_type)): Ditto.
+	(_M_replace_dispatch(iterator, iterator, _InputIterator,
+	_InputIterator, __false_type)): Only declare.
+	(_M_replace(iterator, iterator, _InputIterator,
+	_InputIterator)): Remove.
+	* include/bits/basic_string.tcc (assign(const basic_string&,
+	size_type, size_type)): Move inline.
+	(replace(size_type, size_type, const basic_string&,
+	size_type, size_type)): Ditto.
+	(_M_replace_dispatch(iterator, iterator, _InputIterator,
+	_InputIterator, __false_type)): Define, now does also what
+	_M_replace did before.
+	* src/string-inst.cc (_M_replace): Don't instantiate.
+
+	* include/bits/basic_string.tcc (find(const _CharT*,
+	size_type, size_type)): Tidy.
+	(rfind(_CharT, size_type)): Ditto.
+	(find_first_not_of(const _CharT*, size_type, size_type)): Ditto.
+	(find_first_not_of(_CharT, size_type)): Ditto.
+	(find_last_not_of(const _CharT*, size_type, size_type)): Ditto.
+	(find_last_not_of(_CharT, size_type)): Ditto.
+
+2004-01-23  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13838
+	* include/debug/bitset (operator|=): Fix typo.
+	* testsuite/23_containers/bitset/operations/13838.cc: New.
+
+2004-01-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (insert(size_type,
+	const _CharT*, size_type __n)): Fix length_error check.
+	(replace(size_type, size_type, const _CharT*, size_type):
+	Ditto; call _M_replace_safe.
+	(_M_replace_aux(size_type, size_type, size_type, _CharT):
+	Fix length_error check.
+	(_M_replace(iterator, iterator, _InputIterator,
+	_InputIterator)): Ditto, tweak.
+	(_M_replace_safe(size_type, size_type, const _CharT*,
+	size_type)): Remove length_error check.
+
+	* include/bits/basic_string.tcc (append(const basic_string&),
+	append(const basic_string&, size_type, size_type)): Tweak
+	comment.
+
+	* include/bits/basic_string.tcc (copy(_CharT*, size_type,
+	size_type)): If __n == 0 don't call traits::copy.
+
+2004-01-23  Stefan Olsson  <stefan@snon.net>
+
+	* include/ext/mt_allocator.h: Reduce lock contention.
+
+2004-01-23  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13831
+	* include/bits/fstream.tcc (underflow): Remove unused
+	variable.
+	* include/bits/streambuf_iterator.h (equal): Ditto.
+	* include/bits/locale_facets.h (_M_convert_from_char):
+	Ditto.
+
+2004-01-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR c/13814
+	* config/linker-map.gnu (nan): Delete.
+	* libmath/mathconf.h (NAN, nan): Delete.
+	* linkage.m4 (nan): Don't check for it.
+	* libmath/nan.c: Delete file.
+
+	* config.h.in, configure: Regenerate.
+
+2004-01-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (push_back(_CharT)):
+	Call _M_replace_aux.
+	(insert(size_type, const basic_string&)): Trivial tweak.
+	(insert(size_type, size_type, _CharT)): Call _M_replace_aux.
+	(insert(iterator, _CharT)): Ditto.
+	(erase(size_type, size_type)): Ditto.
+	(erase(iterator)): Ditto.
+	(erase(iterator, iterator)): Ditto.
+	(replace(size_type, size_type, size_type, _CharT)): Ditto.
+
+2004-01-23  Loren J. Rittle  <ljrittle@acm.org>
+
+	libstdc++/13823
+	* testsuite/performance/allocator_map_thread.cc: New test.
+
+2004-01-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc
+	(money_put::do_put(..., long double)): Use the basic_string
+	constructor for char arrays, not that for C-strings, to pass
+	__digits to do_put(..., const string_type&): __ws isn't
+	null-terminated.
+
+2004-01-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_M_replace_safe): Change
+	signatures to take size_types and const _CharT*.
+	(_M_replace_aux): Likewise, takes size_types instead of
+	iterators.
+	(append(size_type, _CharT)): Update call.
+	(assign(size_type, _CharT)): Ditto.
+	(replace(iterator, iterator, size_type, _CharT)): Ditto.
+	(_M_replace_dispatch(iterator, iterator, _Integer,
+	_Integer, __true_type)): Ditto.
+	* include/bits/basic_string.tcc (assign(const _CharT*,
+	size_type)): Ditto.
+	(insert(size_type, const _CharT*, size_type)): Ditto.
+	(replace(size_type, size_type, const _CharT*,
+	size_type)): Ditto.
+	(_M_replace(iterator, iterator, _InputIterator,
+	_InputIterator)): Ditto.
+	(append(const basic_string&)): Ditto.
+	(append(const basic_string&, size_type, size_type): Ditto.
+	(append(const _CharT*, size_type): Ditto.
+	(_M_replace_safe, _M_replace_safe): Change definitions
+	accordingly, simplify.
+	* string-inst.cc (_M_replace_safe): Don't instantiate.
+
+2004-01-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (append(const basic_string&)):
+	Revert previous change.
+	(append(const basic_string&, size_type, size_type)): Revert
+	previous change, use _M_check and _M_limit.
+
+2004-01-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_M_check): Change to return
+	a checked __pos and take an additional const char* argument.
+	(_M_fold): Rename to _M_limit, change to return a size_type,
+	corresponding to the __off limited to the actual length.
+	(insert(size_type, size_type, _CharT)): Update call, call
+	replace.
+	(insert(iterator, _CharT)): Call replace(iterator, iterator,
+	size_type, _CharT) instead.
+	(erase(size_type, size_type)): Update calls.
+	(replace(size_type, size_type, size_type, _CharT)): Ditto.
+	(substr(size_type, size_type)): Use _M_check.
+	* include/bits/basic_string.tcc (basic_string(const basic_string&,
+	size_type, size_type)): Update calls.
+	(basic_string(const basic_string&, size_type, size_type,
+	const _Alloc&)): Ditto.
+	(assign(const basic_string&, size_type, size_type)): Use the
+	new _M_check and _M_limit.
+	(insert(size_type, const basic_string&, size_type, size_type):
+	Ditto.
+	(insert(size_type, const _CharT*, size_type)): Ditto.
+	(replace(size_type, size_type, const _CharT*, size_type): Ditto.
+	(replace(size_type, size_type, const basic_string&,
+	size_type, size_type)): Ditto.
+	(append(const basic_string&)): Ditto.
+	(append(const basic_string&, size_type, size_type)): Ditto.
+	(copy(_CharT*, size_type, size_type)): Ditto.
+	(compare(size_type, size_type, const basic_string&)): Ditto.
+	(compare(size_type, size_type, const basic_string&,size_type,
+	size_type)): Ditto.
+	(compare(size_type, size_type, const _CharT*)): Ditto.
+	(compare(size_type, size_type, const _CharT*, size_type)): Ditto.
+
 2004-01-19  Stefan Olsson  <stefan@snon.net>
 
 	* include/ext/mt_allocator.h: If a thread, when it dies, still has

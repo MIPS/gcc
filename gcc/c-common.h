@@ -1,6 +1,6 @@
 /* Definitions for c-common.c.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -206,7 +206,7 @@ struct c_common_identifier GTY(())
 
 #define default_function_type		c_global_trees[CTI_DEFAULT_FUNCTION_TYPE]
 
-/* g77 integer types, which which must be kept in sync with f/com.h */
+/* g77 integer types, which must be kept in sync with f/com.h */
 #define g77_integer_type_node		c_global_trees[CTI_G77_INTEGER_TYPE]
 #define g77_uinteger_type_node		c_global_trees[CTI_G77_UINTEGER_TYPE]
 #define g77_longint_type_node		c_global_trees[CTI_G77_LONGINT_TYPE]

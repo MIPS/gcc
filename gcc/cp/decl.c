@@ -6036,7 +6036,7 @@ check_static_variable_definition (tree decl, tree type)
       error ("invalid in-class initialization of static data member of non-integral type `%T'",
 	     type);
       /* If we just return the declaration, crashes will sometimes
-	 occur.  We therefore return void_type_node, as if this was a
+	 occur.  We therefore return void_type_node, as if this were a
 	 friend declaration, to cause callers to completely ignore
 	 this declaration.  */
       return 1;
@@ -8205,7 +8205,7 @@ grokdeclarator (tree declarator,
 	    if (decl == NULL_TREE)
 	      return NULL_TREE;
 	  }
-	else if (!staticp && ! processing_template_decl
+	else if (!staticp && !dependent_type_p (type)
 		 && !COMPLETE_TYPE_P (complete_type (type))
 		 && (TREE_CODE (type) != ARRAY_TYPE || initialized == 0))
 	  {
@@ -10764,8 +10764,6 @@ finish_function (int flags)
       which then got a warning when stored in a ptr-to-function variable.  */
 
   my_friendly_assert (building_stmt_tree (), 20000911);
-
-  finish_fname_decls ();
   
   /* For a cloned function, we've already got all the code we need;
      there's no need to add any extra bits.  */
@@ -10789,6 +10787,8 @@ finish_function (int flags)
 			      (TREE_TYPE (current_function_decl)),
 			      current_eh_spec_block);
     }
+
+  finish_fname_decls ();
 
   /* If we're saving up tree structure, tie off the function now.  */
   finish_stmt_tree (&DECL_SAVED_TREE (fndecl));

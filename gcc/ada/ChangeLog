@@ -1,3 +1,187 @@
+2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (doc/gnat_ug_unx.dvi): Use $(abs_docdir). 
+	(doc/gnat_ug_vms.dvi, doc/gnat_ug_unx.dvi): Likewise.
+	(doc/gnat_ug_unx.dvi, doc/gnat-style.dvi): Likewise.
+
+2004-01-26  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Makefile.in (mips-sgi-irix5): Remove -lathread from THREADSLIB.
+
+	* 5fsystem.ads (Functions_Return_By_DSP): Set to False.
+	(ZCX_By_Default): Likewise.
+	(Front_End_ZCX_Support): Likewise.
+
+	* 5gtaprop.adb (Stack_Guard): Mark T, On unreferenced.
+	(Initialize_Lock): Mark Level unreferenced.
+	(Sleep): Mark Reason unreferenced.
+	(Timed_Sleep): Likewise.
+	(Wakeup): Likewise.
+	(Exit_Task): Use Result.
+	(Check_No_Locks): Mark Self_ID unreferenced.
+	
+	* 5gtasinf.adb (New_Sproc): Make Attr constant.
+	(Bound_Thread_Attributes): Make Sproc constant.
+	(New_Bound_Thread_Attributes): Likewise.
+
+2004-01-26  Ed Schonberg  <schonberg@gnat.com>
+
+	* exp_ch3.adb (Build_Slice_Assignment): New TSS procedure for
+	one-dimensional array an slice assignments, when component type is
+	controlled.
+
+	* exp_ch5.adb (Expand_Assign_Array): If array is one-dimensional,
+	component type is controlled, and control_actions are in effect, use
+	TSS procedure rather than generating inline code.
+
+	* exp_tss.ads (TSS_Slice_Assign): New TSS procedure for one-dimensional
+	arrays with controlled components.
+
+2004-01-26  Vincent Celier  <celier@gnat.com>
+
+	* gnatcmd.adb (GNATCmd): Add specification of argument file on the
+	command line for the non VMS case.
+
+	* gnatlink.adb (Process_Binder_File): When building object file, if
+	GNU linker is used, put all object paths between quotes, to prevent ld
+	error when there are unusual characters (such as '!') in the paths.
+
+	* Makefile.generic: When there are sources in Ada and the main is in
+	C/C++, invoke gnatmake with -B, instead of -z.
+
+	* vms_conv.adb (Preprocess_Command_Data): New procedure, extracted
+	from VMS_Conversion.
+	(Process_Argument): New procedure, extracted from VMS_Conversion. Add
+	specification of argument file on the command line.
+
+2004-01-26  Bernard Banner  <banner@gnat.com>
+
+	* Makefile.in: Enable GMEM_LIB and SYMLIB for x86_64
+
+2004-01-26  Ed Schonberg  <schonberg@gnat.com>
+
+	* snames.adb: Update copyright notice.
+	Add info on slice assignment for controlled arrays.
+
+2004-01-23  Robert Dewar  <dewar@gnat.com>
+
+	* exp_aggr.adb: Minor reformatting
+
+	* exp_ch9.adb: Minor code clean up
+	Minor reformatting
+	Fix bad character in comment
+
+	PR ada/13471
+	* targparm.adb (Get_Target_Parameters): Give clean abort error on
+	unexpected end of file, along with more detailed message.
+
+2004-01-23  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* exp_pakd.adb (Install_PAT): Clear Freeze_Node for PAT and Etype of
+	PAT.
+
+	* decl.c (copy_alias_set): New function.
+	(gnat_to_gnu_entity, make_aligning_type, make_packable_type): Use it.
+
+2004-01-23  Doug Rupp  <rupp@gnat.com>
+
+	* Makefile.in (install-gnatlib): Change occurrences of lib$$file to
+	lib$${file} in case subsequent character is not a separator.
+
+2004-01-23  Vincent Celier  <celier@gnat.com>
+
+	* 5vml-tgt.adb (Build_Dynamic_Library): Invoke gcc with -shared-libgcc
+	when the GCC version is at least 3.
+
+	* make.adb: (Scan_Make_Arg): Pass -B to Scan_Make_Switches
+	Remove all "Opt.", to prepare for opt split
+
+	* prj-part.adb (Parse_Single_Project): New Boolean out parameter
+	Extends_All. Set to True when the project parsed is an extending all
+	project. Fails for importing an extending all project only when the
+	imported project is an extending all project.
+	(Post_Parse_Context_Clause): Set Is_Extending_All to the with clause,
+	depending on the value of Extends_All returned.
+
+	* prj-proc.adb (Process): Check that no project shares its object
+	directory with a project that extends it, directly or indirectly,
+	including a virtual project.
+	Check that no project extended by another project shares its object
+	directory with another also extended project.
+
+	* prj-tree.adb (Is_Extending_All, Set_Is_Extending_All): Allow for
+	Kind = N_With_Clause
+
+	* prj-tree.ads: Minor reformatting
+	Indicate that Flag2 also applies to N_With_Clause (Is_Extending_All).
+
+2004-01-23  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_ch13.adb (Analyze_Attribute_Definition_Clause): If the attribute
+	applies to a type with an incomplete view, use full view in Name of
+	clause, for consistency with uses of Get_Attribute_Definition_Clause.
+
+2004-01-23  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* 5itaprop.adb (Set_Priority): Reset the priority to 0 when using
+	SCHED_RR, since other values are not supported by this policy.
+	(Initialize): Move initialization of mutex attribute to package
+	elaboration, to prevent early access to this variable.
+
+	* Makefile.in: Remove mention of Makefile.adalib, unused.
+
+	* Makefile.adalib, 1aexcept.adb, 1aexcept.ads, 1ic.ads, 1ssecsta.adb,
+	1ssecsta.ads: Removed, unused.
+
+2004-01-21  Javier Miranda  <miranda@gnat.com>
+
+	* exp_aggr.adb (Build_Record_Aggr_Code): Do not build the master
+	entity if already built in the current scope.
+
+	* exp_ch9.adb (Build_Master_Entity): Do not set the has_master_entity
+	reminder in internal scopes. Required for nested limited aggregates.
+
+2004-01-21  Doug Rupp  <rupp@gnat.com>
+
+	* Makefile.in (hyphen): New variable, default value '-'. Set to '_' on
+	VMS. Replace all occurences of libgnat- and libgnarl- with
+	libgnat$(hyphen) and libgnarl$(hyphen).
+	Fixed shared library build problem on VMS.
+
+2004-01-21  Robert Dewar  <dewar@gnat.com>
+
+	* mlib-prj.adb: Minor reformatting
+
+2004-01-21  Thomas Quinot  <quinot@act-europe.fr>
+
+	* prj-tree.adb, 7staprop.adb, vms_conv.adb, xr_tabls.adb: Add missing
+	'constant' keywords for declaration of pointers that are not modified.
+
+	* exp_pakd.adb: Fix English in comment.
+
+2004-01-21  Ed Schonberg  <schonberg@gnat.com>
+
+	PR ada/10889
+	* sem_ch3.adb (Analyze_Subtype_Declaration): For an array subtype,
+	copy all attributes of the parent, including the foreign language
+	convention.
+
+2004-01-21  Sergey Rybin  <rybin@act-europe.fr>
+
+	PR ada/10565
+	* sem_ch9.adb (Analyze_Delay_Alternative): Add expression type check
+	for 'delay until' statement.
+
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in: Replace $(docdir) with doc.
+	(doc/gnat_ug_unx.info, doc/gnat_ug_vwx.info, doc/gnat_ug_vms.info
+	doc/gnat_ug_wnt.info, doc/gnat_rm.info, doc/gnat-style.info): Update
+	to use consistent MAKEINFO rule.
+	(ada.man, ada.srcman): Dummy entry.
+	(ADA_INFOFILES): Define.
+	(ada.info, ada.srcinfo): New rules.
+
 2004-01-19  Arnaud Charlet  <charlet@act-europe.fr>
 
 	* utils.c: Update copyright notice, missed in previous change.

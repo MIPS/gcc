@@ -1,5 +1,5 @@
 /* Debug hooks for GCC.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -89,6 +89,9 @@ struct gcc_debug_hooks
      compilation proper has finished.  */
   void (* global_decl) (tree decl);
 
+  /* Debug information for imported modules and declarations.  */
+  void (* imported_module_or_decl) (tree decl, tree context);
+
   /* DECL is an inline function, whose body is present, but which is
      not being output at this point.  */
   void (* deferred_inline_function) (tree decl);
@@ -116,6 +119,7 @@ extern void debug_nothing_int_charstar (unsigned int, const char *);
 extern void debug_nothing_int (unsigned int);
 extern void debug_nothing_int_int (unsigned int, unsigned int);
 extern void debug_nothing_tree (tree);
+extern void debug_nothing_tree_tree (tree, tree);
 extern bool debug_true_tree (tree);
 extern void debug_nothing_rtx (rtx);
 

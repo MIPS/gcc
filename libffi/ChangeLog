@@ -1,3 +1,48 @@
+2004-01-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* src/sparc/ffi.c (ffi_prep_args_v9): Shift the parameter array
+	when the structure return address is passed in %o0.
+	(ffi_V9_return_struct): Rename into ffi_v9_layout_struct.
+	(ffi_v9_layout_struct): Align the field following a nested structure
+	on a word boundary.  Use memmove instead of memcpy.
+	(ffi_call): Update call to ffi_V9_return_struct.
+	(ffi_prep_closure): Define 'ctx' only for V8.
+	(ffi_closure_sparc_inner): Clone into ffi_closure_sparc_inner_v8
+	and ffi_closure_sparc_inner_v9.
+	(ffi_closure_sparc_inner_v8): Return long doubles by reference.
+	Always skip the structure return address.  For structures and long
+	doubles, copy the argument directly.
+	(ffi_closure_sparc_inner_v9): Skip the structure return address only
+	if required.  Shift the maximum floating-point slot accordingly.  For
+	big structures, copy the argument directly; otherwise, left-justify the
+	argument and call ffi_v9_layout_struct to lay out the structure on
+	the stack.
+	* src/sparc/v8.S: Undef STACKFRAME before defining it.
+	(ffi_closure_v8): Pass the structure return address.  Update call to
+	ffi_closure_sparc_inner_v8.  Short-circuit FFI_TYPE_INT handling.
+	Skip the 'unimp' insn when returning long doubles and structures.
+	* src/sparc/v9.S: Undef STACKFRAME before defining it.
+	(ffi_closure_v9): Increase the frame size by 2 words.  Short-circuit
+	FFI_TYPE_INT handling.  Load structures both in integers and
+	floating-point registers on return.
+	* README: Update status of the SPARC port.
+
+2004-01-24  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/pyobjc-tc.c (main): Treat result value
+	as of type ffi_arg.
+	* testsuite/libffi.call/struct3.c (main): Fix CHECK.
+
+2004-01-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* testsuite/libffi.call/cls_uint.c (cls_ret_uint_fn): Treat result
+	value as of type ffi_arg, not unsigned int.
+
+2004-01-21  Michael Ritzert  <ritzert@t-online.de>
+
+	* ffi64.c (ffi_prep_args): Cast the RHS of an assignment instead
+	of the LHS.
+
 2004-01-12  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* testsuite/lib/libffi-dg.exp: Set LD_LIBRARY_PATH_32 for
@@ -421,7 +466,7 @@
 
 	* src/powerpc/ffi.c (ffi_closure_helper_SYSV) Handle struct
 	passing correctly.
-	
+
 2003-09-09  Alan Modra  <amodra@bigpond.net.au>
 
 	* configure: Regenerate.
@@ -430,7 +475,7 @@
 
 	* Makefile.am: Remove build rules for ffitest.
 	* Makefile.in: Rebuilt.
-	
+
 2003-09-04  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* src/java_raw_api.c: Include <stdlib.h> to fix compiler warning
@@ -445,7 +490,7 @@
 
 	* testsuite/Makefile.am: New file.
 	* testsuite/Makefile.in: Built
-	* testsuite/lib/libffi-dg.exp: New file. 
+	* testsuite/lib/libffi-dg.exp: New file.
 	* testsuite/config/default.exp: Likewise.
 	* testsuite/libffi.call/call.exp: Likewise.
 	* testsuite/libffi.call/ffitest.h: Likewise.
@@ -497,12 +542,12 @@
 	* testsuite/libffi.call/struct6.c: Likewise.
 	* testsuite/libffi.call/struct7.c: Likewise.
 	* testsuite/libffi.call/struct8.c: Likewise.
-	* testsuite/libffi.call/struct9.c: Likewise.	
+	* testsuite/libffi.call/struct9.c: Likewise.
 	* testsuite/libffi.special/special.exp: New file.
 	* testsuite/libffi.special/ffitestcxx.h: Likewise.
 	* testsuite/libffi.special/unwindtest.cc: Likewise.
 
-	
+
 2003-08-13  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* src/sh/ffi.c (OFS_INT16): Set 0 for little endian case.  Update
@@ -646,11 +691,11 @@
 
 	* libffi/src/powerpc/darwin_closure.S:
 	Fix alignement bug, allocate 8 bytes for the result.
-	* libffi/src/powerpc/aix_closure.S: 
+	* libffi/src/powerpc/aix_closure.S:
 	Likewise.
 	* libffi/src/powerpc/ffi_darwin.c:
 	Update stackframe description for aix/darwin_closure.S.
- 
+
 2003-02-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* src/s390/ffi.c (ffi_closure_helper_SYSV): Add hidden visibility
@@ -663,7 +708,7 @@
 	for changes to the libffi_basedir definition.
 	(libffi_basedir): Remove ${srcdir} from value and include trailing
 	slash if nonempty.
-	
+
         * configure: Regenerate.
 
 2003-01-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>

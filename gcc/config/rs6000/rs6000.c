@@ -3426,7 +3426,47 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 		      adjust_address (operands[1], SImode, 4));
       return;
     }
-  
+  else if (mode == DImode && TARGET_POWERPC64
+	   && GET_CODE (operands[0]) == REG
+	   && GET_CODE (operands[1]) == MEM && optimize > 0
+	   && SLOW_UNALIGNED_ACCESS (DImode,
+				     MEM_ALIGN (operands[1]) > 32
+				     ? 32
+				     : MEM_ALIGN (operands[1]))
+	   && !no_new_pseudos)
+    {
+      rtx reg = gen_reg_rtx (SImode);
+      emit_insn (gen_rtx_SET (SImode, reg,
+			      adjust_address (operands[1], SImode, 0)));
+      reg = simplify_gen_subreg (DImode, reg, SImode, 0);
+      emit_insn (gen_insvdi (operands[0], GEN_INT (32), const0_rtx, reg));
+      reg = gen_reg_rtx (SImode);
+      emit_insn (gen_rtx_SET (SImode, reg,
+			      adjust_address (operands[1], SImode, 4)));
+      reg = simplify_gen_subreg (DImode, reg, SImode, 0);
+      emit_insn (gen_insvdi (operands[0], GEN_INT (32), GEN_INT (32), reg));
+      return;
+    }
+  else if (mode == DImode && TARGET_POWERPC64
+	   && GET_CODE (operands[1]) == REG
+	   && GET_CODE (operands[0]) == MEM && optimize > 0
+	   && SLOW_UNALIGNED_ACCESS (DImode,
+				     MEM_ALIGN (operands[0]) > 32
+				     ? 32
+				     : MEM_ALIGN (operands[0]))
+	   && !no_new_pseudos)
+      {
+	rtx reg = gen_reg_rtx (DImode);
+	emit_move_insn (reg,
+			gen_rtx_LSHIFTRT (DImode, operands[1], GEN_INT (32)));
+	emit_move_insn (adjust_address (operands[0], SImode, 0),
+			simplify_gen_subreg (SImode, reg, DImode, 0));
+	emit_move_insn (reg, operands[1]);
+	emit_move_insn (adjust_address (operands[0], SImode, 4),
+			simplify_gen_subreg (SImode, reg, DImode, 0));
+	return;
+      }
+
   if (!no_new_pseudos)
     {
       if (GET_CODE (operands[1]) == MEM && optimize > 0
@@ -3941,10 +3981,12 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
 	cum->vregno++;
       
-      /* In variable-argument functions, vector arguments get GPRs allocated
-	 even if they are going to be passed in a vector register.  */
-      if (cum->stdarg && DEFAULT_ABI != ABI_V4)
-	{
+      /* PowerPC64 Linux and AIX allocates GPRs for a vector argument
+	 even if it is going to be passed in a vector register.  
+	 Darwin does the same for variable-argument functions.  */
+      if ((DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
+		   || (cum->stdarg && DEFAULT_ABI != ABI_V4))
+        {
 	  int align;
 	  
 	  /* Vector parameters must be 16-byte aligned.  This places
@@ -4248,7 +4290,32 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 
   if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
-    return gen_rtx_REG (mode, cum->vregno);
+    if (TARGET_64BIT && ! cum->prototype)
+      {
+       /* Vector parameters get passed in vector register
+          and also in GPRs or memory, in absence of prototype.  */
+       int align_words;
+       rtx slot;
+       align_words = (cum->words + 1) & ~1;
+
+       if (align_words >= GP_ARG_NUM_REG)
+         {
+           slot = NULL_RTX;
+         }
+       else
+         {
+           slot = gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+         }
+       return gen_rtx_PARALLEL (mode,
+                gen_rtvec (2,
+                           gen_rtx_EXPR_LIST (VOIDmode,
+                                              slot, const0_rtx),
+                           gen_rtx_EXPR_LIST (VOIDmode,
+                                              gen_rtx_REG (mode, cum->vregno),
+                                              const0_rtx)));
+      }
+    else
+      return gen_rtx_REG (mode, cum->vregno);
   else if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
     {
       if (named || abi == ABI_V4)
@@ -4433,7 +4500,7 @@ function_arg_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 }
 
 static void
-rs6000_move_block_from_reg(int regno, rtx x, int nregs)
+rs6000_move_block_from_reg (int regno, rtx x, int nregs)
 {
   int i;
   enum machine_mode reg_mode = TARGET_32BIT ? SImode : DImode;
@@ -5496,7 +5563,7 @@ altivec_expand_predicate_builtin (enum insn_code icode, const char *opcode,
   scratch = gen_reg_rtx (mode0);
 
   pat = GEN_FCN (icode) (scratch, op0, op1,
-			 gen_rtx (SYMBOL_REF, Pmode, opcode));
+			 gen_rtx_SYMBOL_REF (Pmode, opcode));
   if (! pat)
     return 0;
   emit_insn (pat);
@@ -9539,8 +9606,8 @@ rs6000_generate_compare (enum rtx_code code)
 	     However, we must be careful to emit correct RTL in
 	     the meantime, so optimizations don't get confused.  */
 
-	  or1 = gen_rtx (NE, SImode, compare_result, const0_rtx);
-	  or2 = gen_rtx (NE, SImode, compare_result2, const0_rtx);
+	  or1 = gen_rtx_NE (SImode, compare_result, const0_rtx);
+	  or2 = gen_rtx_NE (SImode, compare_result2, const0_rtx);
 
 	  /* OR them together.  */
 	  cmp = gen_rtx_SET (VOIDmode, or_result,
@@ -9597,8 +9664,8 @@ rs6000_generate_compare (enum rtx_code code)
 	}
       validate_condition_mode (or1, comp_mode);
       validate_condition_mode (or2, comp_mode);
-      or1_rtx = gen_rtx (or1, SImode, compare_result, const0_rtx);
-      or2_rtx = gen_rtx (or2, SImode, compare_result, const0_rtx);
+      or1_rtx = gen_rtx_fmt_ee (or1, SImode, compare_result, const0_rtx);
+      or2_rtx = gen_rtx_fmt_ee (or2, SImode, compare_result, const0_rtx);
       compare2_rtx = gen_rtx_COMPARE (CCEQmode,
 				      gen_rtx_IOR (SImode, or1_rtx, or2_rtx),
 				      const_true_rtx);
@@ -9610,7 +9677,7 @@ rs6000_generate_compare (enum rtx_code code)
 
   validate_condition_mode (code, GET_MODE (compare_result));
   
-  return gen_rtx (code, VOIDmode, compare_result, const0_rtx);
+  return gen_rtx_fmt_ee (code, VOIDmode, compare_result, const0_rtx);
 }
 
 
@@ -9637,7 +9704,7 @@ rs6000_emit_sCOND (enum rtx_code code, rtx result)
       
       cc_mode = GET_MODE (XEXP (condition_rtx, 0));
 
-      rev_cond_rtx = gen_rtx (rs6000_reverse_condition (cc_mode, cond_code),
+      rev_cond_rtx = gen_rtx_fmt_ee (rs6000_reverse_condition (cc_mode, cond_code),
 			      SImode, XEXP (condition_rtx, 0), const0_rtx);
       not_op = gen_rtx_COMPARE (CCEQmode, rev_cond_rtx, const0_rtx);
       emit_insn (gen_rtx_SET (VOIDmode, not_result, not_op));
@@ -15045,7 +15112,7 @@ rs6000_machopic_legitimize_pic_address (rtx orig, enum machine_mode mode,
 	      return machopic_legitimize_pic_address (mem, Pmode, reg);
 	    }
 	}
-      return gen_rtx (PLUS, Pmode, base, offset);
+      return gen_rtx_PLUS (Pmode, base, offset);
     }
 
   /* Fall back on generic machopic code.  */

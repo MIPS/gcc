@@ -1,6 +1,6 @@
 /* Perform simple optimizations to clean up the result of reload.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -410,7 +410,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	{
 	  rtx set = single_set (insn);
 
-	  /* We might have multiple sets, some of which do implict
+	  /* We might have multiple sets, some of which do implicit
 	     extension.  Punt on this for now.  */
 	  if (! set)
 	    continue;
@@ -423,6 +423,15 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		   || GET_CODE (SET_SRC (set)) == ZERO_EXTEND
 		   || GET_CODE (SET_SRC (set)) == SIGN_EXTEND)
 	    ; /* Continue ordinary processing.  */
+#ifdef CANNOT_CHANGE_MODE_CLASS
+	  /* If the register cannot change mode to word_mode, it follows that
+	     it cannot have been used in word_mode.  */
+	  else if (GET_CODE (SET_DEST (set)) == REG
+		   && CANNOT_CHANGE_MODE_CLASS (GET_MODE (SET_DEST (set)),
+						word_mode,
+						REGNO_REG_CLASS (REGNO (SET_DEST (set)))))
+	    ; /* Continue ordinary processing.  */
+#endif
 	  /* If this is a straight load, make the extension explicit.  */
 	  else if (GET_CODE (SET_DEST (set)) == REG
 		   && recog_data.n_operands == 2
@@ -771,8 +780,8 @@ reload_combine (void)
       set = single_set (insn);
       if (set != NULL_RTX
 	  && GET_CODE (SET_DEST (set)) == REG
-	  && (HARD_REGNO_NREGS (REGNO (SET_DEST (set)),
-				GET_MODE (SET_DEST (set)))
+	  && (hard_regno_nregs[REGNO (SET_DEST (set))]
+			      [GET_MODE (SET_DEST (set))]
 	      == 1)
 	  && GET_CODE (SET_SRC (set)) == PLUS
 	  && GET_CODE (XEXP (SET_SRC (set), 1)) == REG
@@ -816,7 +825,7 @@ reload_combine (void)
 					 i)
 		      && reg_state[i].use_index == RELOAD_COMBINE_MAX_USES
 		      && reg_state[i].store_ruid <= reg_state[regno].use_ruid
-		      && HARD_REGNO_NREGS (i, GET_MODE (reg)) == 1)
+		      && hard_regno_nregs[i][GET_MODE (reg)] == 1)
 		    {
 		      rtx index_reg = gen_rtx_REG (GET_MODE (reg), i);
 
@@ -909,7 +918,7 @@ reload_combine (void)
 		  unsigned int i;
 		  unsigned int start_reg = REGNO (usage_rtx);
 		  unsigned int num_regs =
-			HARD_REGNO_NREGS (start_reg, GET_MODE (usage_rtx));
+			hard_regno_nregs[start_reg][GET_MODE (usage_rtx)];
 		  unsigned int end_reg  = start_reg + num_regs - 1;
 		  for (i = start_reg; i <= end_reg; i++)
 		    if (GET_CODE (XEXP (link, 0)) == CLOBBER)
@@ -990,7 +999,7 @@ reload_combine_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
       || GET_CODE (SET_DEST (set)) == SIGN_EXTRACT
       || GET_CODE (SET_DEST (set)) == STRICT_LOW_PART)
     {
-      for (i = HARD_REGNO_NREGS (regno, mode) - 1 + regno; i >= regno; i--)
+      for (i = hard_regno_nregs[regno][mode] - 1 + regno; i >= regno; i--)
 	{
 	  reg_state[i].use_index = -1;
 	  reg_state[i].store_ruid = reload_combine_ruid;
@@ -998,7 +1007,7 @@ reload_combine_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
     }
   else
     {
-      for (i = HARD_REGNO_NREGS (regno, mode) - 1 + regno; i >= regno; i--)
+      for (i = hard_regno_nregs[regno][mode] - 1 + regno; i >= regno; i--)
 	{
 	  reg_state[i].store_ruid = reload_combine_ruid;
 	  reg_state[i].use_index = RELOAD_COMBINE_MAX_USES;
@@ -1036,7 +1045,7 @@ reload_combine_note_use (rtx *xp, rtx insn)
 	/* Mark the return register as used in an unknown fashion.  */
 	  rtx reg = XEXP (x, 0);
 	  int regno = REGNO (reg);
-	  int nregs = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+	  int nregs = hard_regno_nregs[regno][GET_MODE (reg)];
 
 	  while (--nregs >= 0)
 	    reg_state[regno + nregs].use_index = -1;
@@ -1072,7 +1081,7 @@ reload_combine_note_use (rtx *xp, rtx insn)
 	if (regno >= FIRST_PSEUDO_REGISTER)
 	  abort ();
 
-	nregs = HARD_REGNO_NREGS (regno, GET_MODE (x));
+	nregs = hard_regno_nregs[regno][GET_MODE (x)];
 
 	/* We can't substitute into multi-hard-reg uses.  */
 	if (nregs > 1)
@@ -1382,7 +1391,7 @@ reload_cse_move2add (rtx first)
 		 number of calls to gen_rtx_SET to avoid memory
 		 allocation if possible.  */
 	      && SCALAR_INT_MODE_P (GET_MODE (XEXP (cnd, 0)))
-	      && HARD_REGNO_NREGS (REGNO (XEXP (cnd, 0)), GET_MODE (XEXP (cnd, 0))) == 1
+	      && hard_regno_nregs[REGNO (XEXP (cnd, 0))][GET_MODE (XEXP (cnd, 0))] == 1
 	      && GET_CODE (XEXP (cnd, 1)) == CONST_INT)
 	    {
 	      rtx implicit_set =
@@ -1441,7 +1450,7 @@ move2add_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
   regno += REGNO (dst);
 
   if (SCALAR_INT_MODE_P (mode)
-      && HARD_REGNO_NREGS (regno, mode) == 1 && GET_CODE (set) == SET
+      && hard_regno_nregs[regno][mode] == 1 && GET_CODE (set) == SET
       && GET_CODE (SET_DEST (set)) != ZERO_EXTRACT
       && GET_CODE (SET_DEST (set)) != SIGN_EXTRACT
       && GET_CODE (SET_DEST (set)) != STRICT_LOW_PART)
@@ -1542,7 +1551,7 @@ move2add_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
     }
   else
     {
-      unsigned int endregno = regno + HARD_REGNO_NREGS (regno, mode);
+      unsigned int endregno = regno + hard_regno_nregs[regno][mode];
 
       for (i = regno; i < endregno; i++)
 	/* Reset the information about this register.  */

@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1610,8 +1610,12 @@ decl_constant_value (tree decl)
 		      TREE_OPERAND (decl, 0), d1, d2);
     }
 
-  if (TREE_READONLY_DECL_P (decl)
-      && ! TREE_THIS_VOLATILE (decl)
+  if (DECL_P (decl)
+      && (/* Enumeration constants are constant.  */
+	  TREE_CODE (decl) == CONST_DECL
+	  /* And so are variables with a 'const' type -- unless they
+	     are also 'volatile'.  */
+	  || CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl)))
       && DECL_INITIAL (decl)
       && DECL_INITIAL (decl) != error_mark_node
       /* This is invalid if initial value is not constant.

@@ -1,7 +1,220 @@
+2004-02-01  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/13957
+	* g++.dg/template/non-type-template-argument-1.C, 
+	g++.dg/template/qualified-id1.C: Update	dg-error marks.
+	* g++.dg/template/nontype6.C: New test.
+
+2004-02-01  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-1.c: Also test for __builtin_signbit{,f,l}.
+	* gcc.dg/builtins-31.c: New testcase.
+	* gcc.dg/builtins-32.c: New testcase.
+
+2004-01-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objc.dg/call-super-2.m: Update line numbers
+	for the including of stddef.h.
+
+2004-01-30  Michael Matz  <matz@suse.de>
+
+	* g++.dg/ext/case-range1.C, g++.dg/ext/case-range2.C,
+	g++.dg/ext/case-range3.C: New tests.
+
+2004-01-30  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	DR206
+	PR c++/13813
+	* g++.dg/template/member4.C: New test.
+
+2004-01-30  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/13683
+	* g++.dg/template/sizeof6.C: New test.
+
+2004-01-30  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/fwritable-strings-1.c: New test.
+
+2004-01-30  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040130-1.c: New test.
+
+2004-01-29  Geoffrey Keating  <geoffk@geoffk.org>
+
+	* objc.dg/call-super-2.m: Include stddef.h for size_t.
+
+2004-01-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13883
+	* g++.dg/template/ctor3.C: New test.
+
+2004-01-29  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/tc1: New directory.
+	* g++.dg/tc1/dr108.C, g++.dg/tc1/dr128.C, g++.dg/tc1/dr147.C,
+	g++.dg/tc1/dr179.C, g++.dg/tc1/dr1.C, g++.dg/tc1/dr213.C,
+	g++.dg/tc1/dr74.C, g++.dg/tc1/dr90.C, g++.dg/tc1/dr127.C,
+	g++.dg/tc1/dr137.C, g++.dg/tc1/dr164.C, g++.dg/tc1/dr185.C,
+	g++.dg/tc1/dr20.C, g++.dg/tc1/dr52.C, g++.dg/tc1/dr85.C: New tests.
+
+2004-01-28  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/parse/error11.C: New test.
+	* g++.dg/parse/error12.C: Likewise.
+
+2004-01-28  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/proto-qual-1.m (ROUND, aligned_sizeof): New.
+	(scan_initial, main): Use aligned_sizeof instead of sizeof.
+	
+2004-01-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13791
+	* g++.dg/ext/attrib12.C: New test.
+
+	PR c++/13736
+	* g++.dg/parse/cast2.C: New test.
+
+2004-01-27  James E Wilson  <wilson@specifixinc.com>
+
+	* objc.dg/encode-2.m (main): New local string.  Set depending on
+	sizeof long.  Use in sscanf call.
+	* objc.dg/encode-3.m (main): New local string.  Set depending on
+	sizeof long.  Use in scan_initial call.
+
+2004-01-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* objc.dg/call-super-2.m: Make LP64-safe.
+	* objc.dg/desig-init-1.m: Likewise.
+
+2004-01-27  Devang Patel <dpatel@apple.com>
+
+	* g++.dg/debug/namespace1.C: New test.
+	
+2004-01-27  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* gcc.dg/const-elim-1.c: Add xfail for strongarm-*-* and
+	xscale-*-*.
+
+	* gcc.dg/arm-mmx-1.c: New test.
+
+2004-01-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/20040127-1.c: New test.
+	* gcc.dg/20040127-2.c: New test.
+
+2004-01-26  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* objc.dg/stret-1.m (glob): Renamed to globa.
+
+2004-01-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13663
+	* g++.dg/expr/for1.C: New test.
+
+2004-01-26  Fariborz Jahanian <fjahanian@apple.com>
+
+	PR middle-end/13779
+	* gcc.dg/darwin-longlong.c: New test.
+
+2004-01-26  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* gcc.dg/20040124-1.c: Moved test from here...
+	* gcc.c-torture/compile/20040124-1.c: ...to here.
+
+2004-01-26  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-ret.c: Run only in 32-bit mode.  Don't scan
+	the assembly output if -m64 is passed.
+
+2004-01-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/13833
+	* g++.dg/template/cond3.C: New test.
+
+2004-01-25  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/13810
+	* g++.dg/template/ttp7.C: New test.
+
+2004-01-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/13797
+	* g++.dg/template/nontype4.C: New test.
+	* g++.dg/template/nontype5.C: Likewise.
+
+2004-01-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-clobber-at.c: New test.
+
+2004-01-24  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* gcc.dg/20040124-1.c: New test.
+
+2004-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20040123-1.c: New test.
+
+2004-01-23  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/builtins-30.c: Move dg-warning marks to the proper lines.
+
+2004-01-24  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c90-array-lval-7.c, gcc.dg/c99-array-lval-7.c: New tests.
+
+2004-01-23  Andrew Pinski  <apinski@apple.com>
+
+	* gcc.dg/20030121-1.c: Move to ..
+	* gcc.dg/20040121-1.c: here.
+
+2004-01-23  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-29.c: New test case.
+
+2004-01-23  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 18314
+	* gcc.dg/builtins-30.c: New testcase.
+
+2004-01-23  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* g++.dg/compat/compat.exp: Add LD_LIBRARY_PATH_32/64 for Solaris.
+	* lib/g77.exp: Likewise.
+	* lib/objc.exp: Likewise.
+	* lib/g++.exp: Likewise.
+
+2004-01-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/struct-by-value-2.c: New test.
+
+2004-01-21  Andrew Pinski  <apinski@apple.com>
+
+	PR target/13785
+	* gcc.dg/20030121-1.c: New test.
+
+2004-01-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20030123-1.c: Add -fno-omit-frame-pointer option.  Do not
+	clobber frame pointer register in asm statement.
+
+2004-01-21  Falk Hueffner  <falk@debian.org>
+
+	* gcc.c-torture/compile/20040121-1.c: New test.
+
+2004-01-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/noncompile/20020213-1.c: Add another dg-warning line.
+
+2004-01-20  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* gcc.dg/ppc64-abi-2.c: New test.
+
 2004-01-18  James A. Morrison  <ja2morri@uwaterloo.ca>
 
-        * lib/treelang.exp: Fill out this file.
-        * lib/treelang-dg.exp: New File.
+	* lib/treelang.exp: Fill out this file.
+	* lib/treelang-dg.exp: New File.
 
 2004-01-20  Joseph S. Myers  <jsm@polyomino.org.uk>
 
@@ -20317,4 +20530,5 @@ rlsruhe.de>
 	correspond to c-torture	1.11.
 
 	* New file.
+
 

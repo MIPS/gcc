@@ -1,5 +1,5 @@
 /* Subroutines common to both C and C++ pretty-printers.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -540,7 +540,7 @@ pp_c_declaration_specifiers (c_pretty_printer *pp, tree t)
       direct-declarator [ static type-qualifier-list(opt) assignment-expression(opt)]
       direct-declarator [ type-qualifier-list static assignment-expression ]
       direct-declarator [ type-qualifier-list * ]
-      direct-declaratpr ( parameter-type-list )
+      direct-declarator ( parameter-type-list )
       direct-declarator ( identifier-list(opt) )  */
 
 void

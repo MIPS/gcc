@@ -1,6 +1,6 @@
 ;;  Mips.md	     Machine Description for MIPS based processors
 ;;  Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 ;;  Contributed by   A. Lichnewsky, lich@inria.inria.fr
 ;;  Changes by       Michael Meissner, meissner@osf.org
 ;;  64 bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -976,7 +976,7 @@
 
 (define_insn "adddi3_internal_2"
   [(set (match_operand:DI 0 "register_operand" "=d,d,d")
-	(plus:DI (match_operand:DI 1 "register_operand" "%d,%d,%d")
+	(plus:DI (match_operand:DI 1 "register_operand" "%d,d,d")
 		 (match_operand:DI 2 "small_int" "P,J,N")))
    (clobber (match_operand:SI 3 "register_operand" "=d,d,d"))]
   "!TARGET_64BIT && !TARGET_DEBUG_G_MODE && !TARGET_MIPS16"

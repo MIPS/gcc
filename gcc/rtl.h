@@ -1065,6 +1065,8 @@ enum label_kind
 
 /* in rtlanal.c */
 extern unsigned int subreg_lsb (rtx);
+extern unsigned int subreg_lsb_1 (enum machine_mode, enum machine_mode,
+				  unsigned int);
 extern unsigned int subreg_regno_offset	(unsigned int, enum machine_mode,
 					 unsigned int, enum machine_mode);
 extern bool subreg_offset_representable_p (unsigned int, enum machine_mode,
@@ -1474,7 +1476,9 @@ extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
 extern rtx gen_label_rtx (void);
 extern int subreg_hard_regno (rtx, int);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
-extern rtx gen_lowpart (enum machine_mode, rtx);
+extern rtx gen_lowpart_general (enum machine_mode, rtx);
+extern rtx (*gen_lowpart) (enum machine_mode mode, rtx x);
+
 
 /* In cse.c */
 extern rtx gen_lowpart_if_possible (enum machine_mode, rtx);
@@ -2011,6 +2015,7 @@ extern int cse_main (rtx, int, int, FILE *);
 #endif
 extern void cse_end_of_basic_block (rtx, struct cse_basic_block_data *,
 				    int, int, int);
+extern void cse_condition_code_reg (void);
 
 /* In jump.c */
 extern int comparison_dominates_p (enum rtx_code, enum rtx_code);
@@ -2308,6 +2313,7 @@ extern void end_alias_analysis (void);
 extern rtx addr_side_effect_eval (rtx, int, int);
 extern bool memory_modified_in_insn_p (rtx, rtx);
 extern rtx find_base_term (rtx);
+extern rtx gen_hard_reg_clobber (enum machine_mode, unsigned int);
 
 /* In sibcall.c */
 typedef enum {

@@ -179,7 +179,6 @@ namespace std
     {
       int_type __ret = traits_type::eof();
       const bool __testin = this->_M_mode & ios_base::in;
-      const bool __testout = this->_M_mode & ios_base::out;
       if (__testin && !_M_writing)
 	{
 	  // Check for pback madness, and if so swich back to the
@@ -256,9 +255,9 @@ namespace std
 		      // codecvt::max_length() is bogus.
 		      if (_M_ext_end - _M_ext_buf + __rlen > _M_ext_buf_size)
 			{
-			  __throw_ios_failure("basic_filebuf::underflow "
+			  __throw_ios_failure(__N("basic_filebuf::underflow "
 					      "codecvt::max_length() "
-					      "is not valid");
+					      "is not valid"));
 			}
 		      streamsize __elen = _M_file.xsgetn(_M_ext_end, __rlen);
 		      if (__elen == 0)
@@ -310,15 +309,15 @@ namespace std
 	      // However, reaching it while looping on partial means that
 	      // the file has got an incomplete character.
 	      if (__r == codecvt_base::partial)
-		__throw_ios_failure("basic_filebuf::underflow "
-				    "incomplete character in file");
+		__throw_ios_failure(__N("basic_filebuf::underflow "
+				    "incomplete character in file"));
 	    }
 	  else if (__r == codecvt_base::error)
-	    __throw_ios_failure("basic_filebuf::underflow "
-				"invalid byte sequence in file");
+	    __throw_ios_failure(__N("basic_filebuf::underflow "
+				"invalid byte sequence in file"));
 	  else
-	    __throw_ios_failure("basic_filebuf::underflow "
-				"error reading the file");	    
+	    __throw_ios_failure(__N("basic_filebuf::underflow "
+				"error reading the file"));	    
 	}
       return __ret;
     }

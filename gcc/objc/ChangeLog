@@ -1,3 +1,7 @@
+2004-02-03  Ziemowit Laski  <zlaski@apple.com>
+
+        Sync up with HEAD:2004-02-02.
+
 2004-01-30  Ziemowit Laski  <zlaski@apple.com>
 
 	* Make-lang.in (objc-lang.o): Depend on $(C_PRETTY_PRINT_H),

@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1268,7 +1268,6 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
       bb->rbi->duplicated = 1;
       /* Add to loop.  */
       add_bb_to_loop (new_bb, bb->loop_father->copy);
-      add_to_dominance_info (CDI_DOMINATORS, new_bb);
       /* Possibly set header.  */
       if (bb->loop_father->header == bb && bb->loop_father != base)
 	new_bb->loop_father->header = new_bb;

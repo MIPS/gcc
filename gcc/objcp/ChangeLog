@@ -1,3 +1,8 @@
+2004-02-03  Ziemowit Laski  <zlaski@apple.com>
+
+        * Make-lang.in (objc++.info, objc++.srcinfo, objc++.srcextra,
+	objc++.man): New empty targets.
+
 2004-01-30  Ziemowit Laski  <zlaski@apple.com>
 
 	* config-lang.in: New file.

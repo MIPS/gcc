@@ -1,6 +1,6 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3549,7 +3549,7 @@ expand_call (tree exp, rtx target, int ignore)
   if (flags & ECF_SP_DEPRESSED)
     {
       clear_pending_stack_adjust ();
-      emit_insn (gen_rtx (CLOBBER, VOIDmode, stack_pointer_rtx));
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, stack_pointer_rtx));
       emit_move_insn (virtual_stack_dynamic_rtx, stack_pointer_rtx);
       save_stack_pointer ();
     }

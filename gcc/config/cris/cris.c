@@ -92,6 +92,11 @@ static void cris_print_index (rtx, FILE *);
 
 static struct machine_function * cris_init_machine_status (void);
 
+static rtx cris_struct_value_rtx (tree, int);
+
+static void cris_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+					 tree type, int *, int);
+
 static int cris_initial_frame_pointer_offset (void);
 
 static int saved_regs_mentioned (rtx);
@@ -175,6 +180,15 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #define TARGET_RTX_COSTS cris_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST cris_address_cost
+
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX cris_struct_value_rtx
+
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS cris_setup_incoming_varargs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3174,6 +3188,34 @@ restart:
 
     default:
       LOSE_AND_RETURN ("unexpected address expression", x);
+    }
+}
+
+/* Worker function for TARGET_STRUCT_VALUE_RTX.  */
+
+static rtx
+cris_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+		       int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, CRIS_STRUCT_VALUE_REGNUM);
+}
+
+/* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
+
+static void
+cris_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
+			     enum machine_mode mode ATTRIBUTE_UNUSED,
+			     tree type ATTRIBUTE_UNUSED,
+			     int *pretend_arg_size,
+			     int second_time)
+{
+  if (ca->regs < CRIS_MAX_ARGS_IN_REGS)
+    *pretend_arg_size = (CRIS_MAX_ARGS_IN_REGS - ca->regs) * 4;
+  if (TARGET_PDEBUG)
+    {
+      fprintf (asm_out_file,
+	       "\n; VA:: ANSI: %d args before, anon @ #%d, %dtime\n",
+	       ca->regs, *pretend_arg_size, second_time);
     }
 }
 

@@ -2530,6 +2530,8 @@ simplify_relational_operation (enum rtx_code code, enum machine_mode mode,
       && ! ((GET_CODE (op0) == REG || GET_CODE (trueop0) == CONST_INT)
 	    && (GET_CODE (op1) == REG || GET_CODE (trueop1) == CONST_INT))
       && 0 != (tem = simplify_binary_operation (MINUS, mode, op0, op1))
+      /* We cannot do this for == or != if tem is a nonzero address.  */
+      && ((code != EQ && code != NE) || ! nonzero_address_p (tem))
       && code != GTU && code != GEU && code != LTU && code != LEU)
     return simplify_relational_operation (signed_condition (code),
 					  mode, tem, const0_rtx);
@@ -3379,8 +3381,44 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       res = simplify_subreg (outermode, part, GET_MODE (part), final_offset);
       if (res)
 	return res;
-      /* We can at least simplify it by referring directly to the relevant part.  */
+      /* We can at least simplify it by referring directly to the
+	 relevant part.  */
       return gen_rtx_SUBREG (outermode, part, final_offset);
+    }
+
+  /* Optimize SUBREG truncations of zero and sign extended values.  */
+  if ((GET_CODE (op) == ZERO_EXTEND
+       || GET_CODE (op) == SIGN_EXTEND)
+      && GET_MODE_BITSIZE (outermode) < GET_MODE_BITSIZE (innermode))
+    {
+      unsigned int bitpos = subreg_lsb_1 (outermode, innermode, byte);
+
+      /* If we're requesting the lowpart of a zero or sign extension,
+	 there are three possibilities.  If the outermode is the same
+	 as the origmode, we can omit both the extension and the subreg.
+	 If the outermode is not larger than the origmode, we can apply
+	 the truncation without the extension.  Finally, if the outermode
+	 is larger than the origmode, but both are integer modes, we
+	 can just extend to the appropriate mode.  */
+      if (bitpos == 0)
+	{
+	  enum machine_mode origmode = GET_MODE (XEXP (op, 0));
+	  if (outermode == origmode)
+	    return XEXP (op, 0);
+	  if (GET_MODE_BITSIZE (outermode) <= GET_MODE_BITSIZE (origmode))
+	    return simplify_gen_subreg (outermode, XEXP (op, 0), origmode,
+					subreg_lowpart_offset (outermode,
+							       origmode));
+	  if (SCALAR_INT_MODE_P (outermode))
+	    return simplify_gen_unary (GET_CODE (op), outermode,
+				       XEXP (op, 0), origmode);
+	}
+
+      /* A SUBREG resulting from a zero extension may fold to zero if
+	 it extracts higher bits that the ZERO_EXTEND's source bits.  */
+      if (GET_CODE (op) == ZERO_EXTEND
+	  && bitpos >= GET_MODE_BITSIZE (GET_MODE (XEXP (op, 0))))
+	return CONST0_RTX (outermode);
     }
 
   return NULL_RTX;

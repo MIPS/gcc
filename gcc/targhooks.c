@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -70,14 +70,12 @@ default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 #endif
 }
 
-bool
-default_promote_function_args (tree fntype ATTRIBUTE_UNUSED)
+enum machine_mode
+default_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
 {
-#ifdef PROMOTE_FUNCTION_ARGS
-  return true;
-#else
-  return false;
-#endif
+  if (m1 == m2)
+    return m1;
+  return VOIDmode;
 }
 
 bool
@@ -100,38 +98,18 @@ default_promote_prototypes (tree fntype ATTRIBUTE_UNUSED)
 }
 
 rtx
-default_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED, int incoming)
+default_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+			  int incoming ATTRIBUTE_UNUSED)
 {
-  rtx rv = 0;
-  if (incoming)
-    {
-#ifdef STRUCT_VALUE_INCOMING
-      rv = STRUCT_VALUE_INCOMING;
-#else
 #ifdef STRUCT_VALUE
-      rv = STRUCT_VALUE;
+  return STRUCT_VALUE;
 #else
-#ifndef STRUCT_VALUE_REGNUM
-      abort();
+#ifdef STRUCT_VALUE_REGNUM
+  return gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM);
 #else
-      rv = gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM);
+  abort ();
 #endif
 #endif
-#endif
-    }
-  else
-    {
-#ifdef STRUCT_VALUE
-      rv = STRUCT_VALUE;
-#else
-#ifndef STRUCT_VALUE_REGNUM
-      abort();
-#else
-      rv = gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM);
-#endif
-#endif
-    }
-  return rv;
 }
 
 bool
@@ -168,14 +146,12 @@ default_setup_incoming_varargs (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 #endif
 }
 
+/* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
+
 bool
-default_strict_argument_naming (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
+hook_bool_CUMULATIVE_ARGS_false (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 {
-#ifdef STRICT_ARGUMENT_NAMING
-  return STRICT_ARGUMENT_NAMING;
-#else
-  return 0;
-#endif
+  return false;
 }
 
 bool

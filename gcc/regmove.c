@@ -1,6 +1,6 @@
 /* Move registers around to reduce number of move instructions needed.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -246,7 +246,7 @@ mark_flags_life_zones (rtx flags)
   flags_nregs = 1;
 #else
   flags_regno = REGNO (flags);
-  flags_nregs = HARD_REGNO_NREGS (flags_regno, GET_MODE (flags));
+  flags_nregs = hard_regno_nregs[flags_regno][GET_MODE (flags)];
 #endif
   flags_set_1_rtx = flags;
 
