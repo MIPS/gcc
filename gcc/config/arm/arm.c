@@ -7830,9 +7830,10 @@ arm_debugger_arg_offset (value, addr)
   if (REGNO (addr) == HARD_FRAME_POINTER_REGNUM)
     return 0;
   
-  /* If we are using the stack pointer (on the Thumb) to point at the
+  /* If we are using the stack pointer to point at the
      argument, then an offset of 0 is correct.  */
-  if (TARGET_THUMB && REGNO (addr) == SP_REGNUM)
+  if ((TARGET_THUMB || ! frame_pointer_needed)
+      && REGNO (addr) == SP_REGNUM)
     return 0;
   
   /* Oh dear.  The argument is pointed to by a register rather

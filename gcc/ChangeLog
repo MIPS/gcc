@@ -8,6 +8,9 @@
 	if we need to push a large stack frame and there are no callee-saved
 	registers.
 
+	* arm.c (arm_debugger_arg_offset): An offset of 0 is also valid
+	in ARM code if the frame pointer has been eliminated.
+	
 2000-03-16  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.h (ASM_OUTPUT_MI_THUNK): Fix compile time
@@ -15,7 +18,8 @@
 
 2000-03-15  Nick Clifton  <nickc@cygnus.com>
 
-	* config/arm/arm.c (arm_output_epilogue): Do not pass %c to asm_fprintf.
+	* config/arm/arm.c (arm_output_epilogue): Do not pass %c to 
+	asm_fprintf.
 
 2000-03-08  Nick Clifton  <nickc@cygnus.com>
 
