@@ -611,7 +611,10 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   fprintf (f, "\n  cycle: ");
   n = node->next_cycle;
   while (n)
-    fprintf (f, "%s/%i ", cgraph_node_name (n), n->uid);
+    {
+      fprintf (f, "%s/%i ", cgraph_node_name (n), n->uid);
+      n = n->next_cycle;
+    }
   fprintf (f, "\n");
 }
 /* Dump the callgraph.  */

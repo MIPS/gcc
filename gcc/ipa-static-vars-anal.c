@@ -3035,12 +3035,20 @@ static_execute (void)
   /* Need to fix up the local information sets.  The information that
      has been gathered so far is preinlining.  However, the
      compilation will progress post inlining so the local sets for the
-     inlined calls need to be merged into the callers.  */
+     inlined calls need to be merged into the callers.  Note that the
+     local sets are not shared between all of the nodes in a cycle so
+     those nodes in the cycle must be processed explicitly.  */
   for (i = 0; i < order_pos; i++ )
     {
       node = order[i];
-      if (cgraph_is_immortal_master_clone (node))
-	merge_callee_local_info (node, node);
+      merge_callee_local_info (node, node);
+      
+      w = node->next_cycle;
+      while (w)
+	{
+	  merge_callee_local_info (w, w);
+	  w = w->next_cycle;
+	}
     }
 
   if (dump_file)
@@ -3060,13 +3068,6 @@ static_execute (void)
 	  fprintf (dump_file, 
 		   "\nFunction name:%s/%i:", 
 		   cgraph_node_name (node), node->uid);
-	  w = node->next_cycle;
-	  while (w) 
-	    {
-	      fprintf (dump_file, "\n  next cycle: %s/%i ",
-		       cgraph_node_name (w), w->uid);
-	      w = w->next_cycle;
-	    }
 	  fprintf (dump_file, "\n  locals read: ");
 	  EXECUTE_IF_SET_IN_BITMAP (node_l->statics_read_by_decl_uid,
 				    0, index, bi)
@@ -3080,6 +3081,33 @@ static_execute (void)
 	    {
 	      fprintf(dump_file, "%s ",
 		      get_static_name_by_uid (index));
+	    }
+
+	  w = node->next_cycle;
+	  while (w) 
+	    {
+	      ipa_static_vars_info_t w_info = w->static_vars_info;
+	      ipa_local_static_vars_info_t w_l = w_info->local;
+	      fprintf (dump_file, "\n  next cycle: %s/%i ",
+		       cgraph_node_name (w), w->uid);
+ 	      fprintf (dump_file, "\n    locals read: ");
+	      EXECUTE_IF_SET_IN_BITMAP (w_l->statics_read_by_decl_uid,
+					0, index, bi)
+		{
+		  fprintf (dump_file, "%s ",
+			   get_static_name_by_uid (index));
+		}
+
+	      fprintf (dump_file, "\n    locals written: ");
+	      EXECUTE_IF_SET_IN_BITMAP (w_l->statics_written_by_decl_uid,
+					0, index, bi)
+		{
+		  fprintf(dump_file, "%s ",
+			  get_static_name_by_uid (index));
+		}
+	      
+
+	      w = w->next_cycle;
 	    }
 	  fprintf (dump_file, "\n  globals read: ");
 	  EXECUTE_IF_SET_IN_BITMAP (node_g->statics_read_by_decl_uid,

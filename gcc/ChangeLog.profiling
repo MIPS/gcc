@@ -1,3 +1,9 @@
+2005-03-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* cgraph.c (dump_cgraph_node): Fixed infinite loop in debugging code.
+	* ipa-static-vars-anal (static_execute): Added better debugging and
+	fixed bug that casused local information to computed wrong in the 
+        presence of certain inlining and recursive functions.
+
 2005-03-10  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-gimple.c (get_base_address): We need to deal with VECTOR_CST
