@@ -1,36 +1,33 @@
 /* { dg-do run { target powerpc*-*-* } } */
 /* { dg-do run { target i?86-*-* x86_64-*-* } } */
 /* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse" { target i?86-*-* x86_64-*-* } } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128
-#define OFF 3
+#define N 8
+#define OFF 8
 
-/* unaligned load.  */
+typedef int aint __attribute__ ((__aligned__(16)));
 
-int main1 (int off)
+aint ib[N+OFF] = {0, 1, 3, 5, 7, 11, 13, 17, 0, 2, 6, 10, 14, 22, 26, 34};
+
+int main1 (aint *ib)
 {
   int i;
   int ia[N];
-  int ib[N+OFF];
-
-  for (i = 0; i < N+OFF; i++)
-    {
-      ib[i] = i;
-    }
 
   for (i = 0; i < N; i++)
     {
-      ia[i] = ib[i+off];
+      ia[i] = ib[i+OFF];
     }
+
 
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (ia[i] != ib[i+off])
+     if (ia[i] != ib[i+OFF])
         abort ();
     }
 
@@ -38,13 +35,13 @@ int main1 (int off)
 }
 
 int main (void)
-{ 
+{
   check_vect ();
-  
-  main1 (0); /* aligned */
-  main1 (OFF); /* unaligned */
+
+  main1 (ib);
   return 0;
 }
+
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 

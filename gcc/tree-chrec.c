@@ -636,7 +636,10 @@ chrec_component_in_loop_num (tree chrec,
 					    right);
       
     default:
-      return NULL_TREE;
+      if (right)
+	return NULL_TREE;
+      else
+	return chrec;
     }
 }
 

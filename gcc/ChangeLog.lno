@@ -1,3 +1,21 @@
+2004-09-13  Ira Rosen <irar@il.ibm.com>
+
+        * tree_chrec.c (chrec_component_in_loop_num): Fix for initial
+        condition.
+        * tree-vectorizer.c (vect_compute_array_ref_alignment): New function.
+        (vect_compute_array_base_alignment): Renamed (former name
+        vect_compute_array_alignment).
+        (vect_get_ptr_offset): New function.
+        (vect_get_symbl_and_dr): New function.
+        (vect_get_base_and_bit_offset): Support additional data refs. Renamed
+        (former name vect_get_base_decl_and_bit_offset).
+        (vect_create_index_for_array_ref): Remove check for constant init.
+        (vect_create_data_ref): Handle ADDR_EXPR, PLUS_EXPR and MINUS_EXPR.
+        (vect_compute_data_ref_alignment): Support the changes.
+        (vect_analyze_data_refs): Call vect_get_symbl_and_dr. Support additional
+        data refs.
+        (vect_analyze_data_ref_accesses): Support nonconstant init.
+
 2004-09-10  Dorit Naishlos <dorit@il.ibm.com>
 
 	* tree.def (ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF)

@@ -179,10 +179,18 @@ static bool vect_compute_data_ref_alignment
 static bool vect_analyze_data_ref_access (struct data_reference *);
 static bool vect_get_first_index (tree, tree *);
 static bool vect_can_force_dr_alignment_p (tree, unsigned int);
-static tree vect_get_base_decl_and_bit_offset (tree, tree, tree *);
+static tree vect_get_base_and_bit_offset 
+  (struct data_reference *, tree, tree, loop_vec_info, tree *, bool*);
 static struct data_reference * vect_analyze_pointer_ref_access 
   (tree, tree, bool);
-static tree vect_compute_array_alignment (tree, tree, tree *, tree *);
+static tree vect_compute_array_base_alignment (tree, tree, tree *, tree *);
+static tree vect_compute_array_ref_alignment 
+  (struct data_reference *, loop_vec_info, tree, tree *);
+static tree vect_get_ptr_offset (tree, tree, tree *);
+static tree vect_get_symbl_and_dr 
+  (tree, tree, bool, loop_vec_info, struct data_reference **);
+static struct data_reference * vect_analyze_pointer_ref_access 
+  (tree, tree, bool);
 
 /* Utility functions for the code transformation.  */
 static tree vect_create_destination_var (tree, tree);
@@ -204,7 +212,7 @@ static void vect_finish_stmt_generation
 static void vect_transform_for_unknown_loop_bound 
   (loop_vec_info loop_vinfo, tree * ratio, struct loops *loops);
 
-/* Utility functions for loop tranformations prior to vectorizeration.  */
+/* Utility functions for loop tranformations prior to vectorization.  */
 
 /* Tranformation entry point function. 
    It can be used outside of the vectorizer 
@@ -1356,92 +1364,196 @@ vect_debug_details (struct loop *loop)
   return false;
 }
 
+/* Function vect_get_ptr_offset
 
-/* Function vect_get_base_decl_and_bit_offset
+   Compute the OFFSET modulo vector-type alignment of pointer REF in bits.  */
 
-   Return the DECL from which the data reference REF is based.
-   If VECTYPE is given, also compute the OFFSET from DECL in bits on the way.
-
-   If something unexpected is encountered (an unsupported form of data-ref),
-   or 
-   if VECTYPE is given and can't determine OFFSET:
-   then NULL_TREE is returned.
-
-   FORNOW: Handle only ARRAY_REFs, and COMPONENT_REFs that consist of
-   VAR_DECLs and ARRAY_REFs (no INDIRECT_REFs).  */
-
-static tree
-vect_get_base_decl_and_bit_offset (tree ref, tree vectype, tree *offset)
+static tree 
+vect_get_ptr_offset (tree ref, tree vectype, tree *offset)
 {
-  tree this_offset;
-  tree decl = NULL_TREE;
-  tree next_ref;
+  unsigned int ptr_n, ptr_offset;
 
-  if (TREE_CODE (ref) == VAR_DECL)
-    return ref;
+  if (!POINTER_TYPE_P (TREE_TYPE (ref)))
+    return NULL_TREE;
 
-  if (TREE_CODE (ref) == COMPONENT_REF)
+  if (vect_debug_details (NULL))
     {
-      tree oprnd0 = TREE_OPERAND (ref, 0);
-      tree oprnd1 = TREE_OPERAND (ref, 1);
+      fprintf (dump_file, "alignment of pointer ");
+      print_generic_expr (dump_file, ref, TDF_SLIM);
+      fprintf (dump_file, " offset %d n %d\n ",
+	       get_ptr_info (ref)->alignment.offset,
+	       get_ptr_info (ref)->alignment.n);
+    }
+  /* The pointer is aligned to N with offset OFFSET.  */
+  ptr_offset = get_ptr_info (ref)->alignment.offset;
+  ptr_n = get_ptr_info (ref)->alignment.n;  
+		  
+  if (ptr_n/TYPE_ALIGN (vectype) >= 1 && ptr_n % TYPE_ALIGN (vectype) == 0)
+    {
+      /* Compute the offset for vectype.  */
+      ptr_offset = ptr_offset % TYPE_ALIGN (vectype);
+      /* In bits.  */
+      ptr_offset = ptr_offset * BITS_PER_UNIT;
+      *offset = fold_convert (unsigned_type_node,
+			      build_int_2 (ptr_offset, 0));
+      return ref;
+    }
+  else 
+    {
+      if (vect_debug_details (NULL))
+	{
+	  fprintf (dump_file, "misaligned pointer access: ");
+	  print_generic_expr (dump_file, ref, TDF_SLIM);
+	}
+      return NULL_TREE;	      
+    }
+}
+
+
+/* Function vect_get_base_and_bit_offset
+
+   Return the BASE of the data reference EXPR.
+   If VECTYPE is given, also compute the OFFSET from BASE in bits.
+   E.g., for EXPR a.b[i] + 4B, BASE is a, and OFFSET is the overall offset in 
+   bits of 'a.b[i] + 4B' from a.
+
+   Input:
+   EXPR - the memory reference that is being analyzed
+   DR - the data_reference struct of the _original_ memory reference
+        (Note: DR_REF (DR) is not necessarily EXPR)
+   VECTYPE - the type that defines the alignment (i.e, we compute
+             alignment relative to TYPE_ALIGN(VECTYPE))
+   
+   Output:
+   BASE (returned value) - the base of the data reference EXPR.
+                           E.g, if EXPR is a.b[k].c[i][j] the returned
+			   base is a.
+   OFFSET - offset of EXPR from BASE in bits
+   BASE_ALIGNED_P - indicates if BASE is aligned
+ 
+   If something unexpected is encountered (an unsupported form of data-ref),
+   or if VECTYPE is given but OFFSET cannot be determined:
+   then NULL_TREE is returned.  */
+
+static tree 
+vect_get_base_and_bit_offset (struct data_reference *dr, 
+			      tree expr, 
+			      tree vectype, 
+			      loop_vec_info loop_vinfo,
+			      tree *offset,
+			      bool *base_aligned_p)
+{
+  tree this_offset = size_zero_node;
+  tree base = NULL_TREE;
+  tree next_ref;
+  tree oprnd0, oprnd1;
+  struct data_reference *array_dr;
+  enum tree_code code = TREE_CODE (expr);
+
+  *base_aligned_p = false;
+
+  switch (code)
+    {
+    /* These cases end the recursion:  */
+    case VAR_DECL:
+      *offset = size_zero_node;
+      if (vectype && DECL_ALIGN (expr) >= TYPE_ALIGN (vectype))
+	*base_aligned_p = true;
+      return expr;
+
+    case SSA_NAME:
+      if (!vectype)
+	return expr;
+
+      if (TREE_CODE (TREE_TYPE (expr)) != POINTER_TYPE)
+	return NULL_TREE;
+      
+      if (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (expr))) < TYPE_ALIGN (vectype)) 
+	return vect_get_ptr_offset (expr, vectype, offset);
+      else
+	{	  
+	  *base_aligned_p = true;
+	  *offset = size_zero_node;
+	  return expr;
+	}
+      
+    case INTEGER_CST:      
+      *offset = int_const_binop (MULT_EXPR, expr,     
+				 build_int_2 (BITS_PER_UNIT, 0), 1);
+      return expr;
+
+    /* These cases continue the recursion:  */
+    case COMPONENT_REF:
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
 
       this_offset = bit_position (oprnd1);
-      if (vectype && !host_integerp (this_offset,1))
+      if (vectype && !host_integerp (this_offset, 1))
         return NULL_TREE;
+      next_ref = oprnd0;
+      break;
+
+    case ADDR_EXPR:
+      oprnd0 = TREE_OPERAND (expr, 0);
+      next_ref = oprnd0;
+      break;
+
+    case INDIRECT_REF:
+      oprnd0 = TREE_OPERAND (expr, 0);
+      next_ref = oprnd0;
+      break;
+    
+    case ARRAY_REF:
+      if (DR_REF (dr) != expr)
+	/* Build array data_reference struct if the existing DR_REF 
+	   doesn't match EXPR. This happens, for example, when the 
+	   EXPR is *T and T is initialized to &arr[indx]. The DR struct
+	   contains information on the access of T, not of arr. In order
+	   to continue  the analysis, we create a new DR struct that
+	   describes the access of arr.  
+	*/
+	array_dr = analyze_array (DR_STMT (dr), expr, DR_IS_READ (dr));
+      else
+	array_dr = dr;
+	  
+      next_ref = vect_compute_array_ref_alignment (array_dr, loop_vinfo,  
+						   vectype, &this_offset);
+      if (!next_ref)
+	return NULL_TREE;
+
+      if (vectype &&
+	  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (next_ref))) >= TYPE_ALIGN (vectype))
+	{
+	  *offset = this_offset;
+	  *base_aligned_p = true;
+	  return next_ref;
+	}
+      break;
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      /* In case we have a PLUS_EXPR of the form
+	 (oprnd0 + oprnd1), we assume that only oprnd0 determines the base. 
+	 This is verified in  vect_get_symbl_and_dr.  */ 
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
+
+      base = vect_get_base_and_bit_offset 
+	(dr, oprnd1, vectype, loop_vinfo, &this_offset, base_aligned_p);  
+      if (vectype && !base) 
+	return NULL_TREE;
 
       next_ref = oprnd0;
-    }
-  else if (TREE_CODE (ref) == ARRAY_REF)
-    {
-      tree oprnd0 = TREE_OPERAND (ref, 0);
-      tree oprnd1 = TREE_OPERAND (ref, 1);
-      tree dims = size_one_node; 
-      tree misalign = size_zero_node;
+      break;
 
-      if (TREE_CODE (TREE_TYPE (ref)) == ARRAY_TYPE)
-	{
-	  this_offset = size_zero_node;
-	  next_ref =
-            vect_compute_array_alignment (ref, vectype, &dims, &misalign);
-	}
-      else
-	{
-	  this_offset = oprnd1;
-	  next_ref =
-            vect_compute_array_alignment (oprnd0, vectype, &dims, &misalign);
-
-	  if (vectype)
-	    {
-	      tree init;
-	      tree nunits = array_ref_element_size (ref);
-	      tree nbits = int_const_binop (MULT_EXPR, nunits,     
-				build_int_2 (BITS_PER_UNIT, 0), 1);
-	      if (!vect_get_first_index (ref, &init))
-		return NULL_TREE;
-
-	      this_offset = int_const_binop (MINUS_EXPR, this_offset, init, 1);
-	      this_offset = int_const_binop (MULT_EXPR, this_offset, nbits, 1);
-	      misalign = int_const_binop (PLUS_EXPR, misalign, this_offset, 1);
-	    }
-	}
-
-      if (vectype)
-	{
-          if (!host_integerp (misalign, 1) || TREE_OVERFLOW (misalign) 
-	      || !next_ref)
-	    return NULL_TREE;
-	  this_offset = misalign;
-	}
-    }
-  else
-    {
-      /* TODO: extend to handle more cases.  */
+    default:
       return NULL_TREE;
     }
 
-  decl = vect_get_base_decl_and_bit_offset (next_ref, vectype, offset); 
+  base = vect_get_base_and_bit_offset (dr, next_ref, vectype, 
+				       loop_vinfo, offset, base_aligned_p);  
 
-  if (vectype && decl)
+  if (vectype && base)
     {
       *offset = int_const_binop (PLUS_EXPR, *offset, this_offset, 1);
       if (!host_integerp (*offset, 1) || TREE_OVERFLOW (*offset))
@@ -1449,13 +1561,12 @@ vect_get_base_decl_and_bit_offset (tree ref, tree vectype, tree *offset)
 
       if (vect_debug_details (NULL))
         {
-          print_generic_expr (dump_file, ref, TDF_SLIM);
+          print_generic_expr (dump_file, expr, TDF_SLIM);
           fprintf (dump_file, " --> total offset for ref: ");
           print_generic_expr (dump_file, *offset, TDF_SLIM);
         }
-    } 
-   
-  return decl;
+    }    
+  return base;
 }
 
 
@@ -1593,30 +1704,23 @@ vect_create_addr_base_for_vector_ref (tree stmt, tree *new_stmt_list,
   tree scalar_type = TREE_TYPE (ref);
   tree scalar_ptr_type = build_pointer_type (scalar_type);
   tree access_fn;
-  tree init_val, step;
+  tree init_val, step, init_oval;
   bool ok;
-  bool is_ptr_ref, is_array_ref;
+  bool is_ptr_ref, is_array_ref, is_addr_expr;
   tree array_base;
   tree vec_stmt;
   tree new_temp;
   tree array_ref;
   tree addr_base, addr_expr;
+  tree dest, new_stmt;
 
   /* Only the access function of the last index is relevant (i_n in
      a[i_1][i_2]...[i_n]), the others correspond to loop invariants. */
   access_fn = DR_ACCESS_FN (dr, 0);
-  ok = vect_is_simple_iv_evolution (loop->num, access_fn, &init_val, &step, 
-				    true);
-
-#ifdef ENABLE_CHECKING
+  ok = vect_is_simple_iv_evolution (loop->num, access_fn, 
+				    &init_oval, &step, true);
   if (!ok)
-    abort ();
-
-  /* FORNOW: Handling only constant 'init' that can be held in a
-     signed HOST_WIDE_INT.  */
-  if (!init_val || !host_integerp (init_val,0))
-    abort ();
-#endif
+    init_oval = integer_zero_node;
 
   is_ptr_ref = TREE_CODE (data_ref_base_type) == POINTER_TYPE
 	       && TREE_CODE (data_ref_base) == SSA_NAME;
@@ -1624,9 +1728,11 @@ vect_create_addr_base_for_vector_ref (tree stmt, tree *new_stmt_list,
 		 && (TREE_CODE (data_ref_base) == VAR_DECL
 		     || TREE_CODE (data_ref_base) == COMPONENT_REF
 		     || TREE_CODE (data_ref_base) == ARRAY_REF);
-
+  is_addr_expr = TREE_CODE (data_ref_base) == ADDR_EXPR
+                 || TREE_CODE (data_ref_base) == PLUS_EXPR
+                 || TREE_CODE (data_ref_base) == MINUS_EXPR;
 #ifdef ENABLE_CHECKING
-  if (!is_ptr_ref && !is_array_ref)
+  if (!is_ptr_ref && !is_array_ref && !is_addr_expr)
     abort ();
 #endif
 
@@ -1641,13 +1747,18 @@ vect_create_addr_base_for_vector_ref (tree stmt, tree *new_stmt_list,
 
   if (is_array_ref)
     array_base = data_ref_base;
-  else /* is_ptr_ref */
+  else /* is_ptr_ref  or is_addr_expr */
     {
       /* array_ptr = (scalar_array_ptr_type *) data_ref_base;  */
       tree scalar_array_type = build_array_type (scalar_type, 0);
       tree scalar_array_ptr_type = build_pointer_type (scalar_array_type);
       tree array_ptr = create_tmp_var (scalar_array_ptr_type, "array_ptr");
       add_referenced_tmp_var (array_ptr);
+
+      dest = create_tmp_var (TREE_TYPE (data_ref_base), "dataref");
+      add_referenced_tmp_var (dest);
+      data_ref_base  = force_gimple_operand (data_ref_base, &new_stmt, false, dest);  
+      append_to_statement_list_force (new_stmt, new_stmt_list);
 
       vec_stmt = fold_convert (scalar_array_ptr_type, data_ref_base);
       vec_stmt = build2 (MODIFY_EXPR, void_type_node, array_ptr, vec_stmt);
@@ -1658,6 +1769,11 @@ vect_create_addr_base_for_vector_ref (tree stmt, tree *new_stmt_list,
       /* (*array_ptr)  */
       array_base = build_fold_indirect_ref (new_temp);
     }
+
+  dest = create_tmp_var (TREE_TYPE (init_oval), "newinit");
+  add_referenced_tmp_var (dest);
+  init_val = force_gimple_operand (init_oval, &new_stmt, false, dest);  
+  append_to_statement_list_force (new_stmt, new_stmt_list);
 
   if (offset)
     {
@@ -1817,6 +1933,10 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
 	fprintf (dump_file, "vectorizing a record based array ref: ");
       else if (TREE_CODE (data_ref_base) == SSA_NAME)
 	fprintf (dump_file, "vectorizing a pointer ref: ");
+      else if (TREE_CODE (data_ref_base) == ADDR_EXPR
+	       || TREE_CODE (data_ref_base) == PLUS_EXPR
+	       || TREE_CODE (data_ref_base) == MINUS_EXPR)
+	fprintf (dump_file, "vectorizing an address expr: ");
       print_generic_expr (dump_file, base_name, TDF_SLIM);
     }
 
@@ -3736,7 +3856,8 @@ vect_get_first_index (tree ref, tree *array_first_index)
 }
 
 
-/* Function vect_compute_array_alignment.
+/* Function vect_compute_array_base_alignment.
+   A utility function of vect_compute_array_ref_alignment.
 
    Compute the misalignment of ARRAY in bits.
 
@@ -3771,10 +3892,10 @@ vect_get_first_index (tree ref, tree *array_first_index)
    calculation.  */
 
 static tree
-vect_compute_array_alignment (tree array,
-                              tree vectype,
-                              tree *prev_dimensions,
-                              tree *misalignment)
+vect_compute_array_base_alignment (tree array,
+				   tree vectype,
+				   tree *prev_dimensions,
+				   tree *misalignment)
 {
   tree index;
   tree domain;
@@ -3788,8 +3909,8 @@ vect_compute_array_alignment (tree array,
     return array;
   
   if (!vectype)
-    /* just get the base decl  */
-    return vect_compute_array_alignment 
+    /* Just get the base decl.  */
+    return vect_compute_array_base_alignment 
 		(TREE_OPERAND (array, 0), NULL, NULL, NULL);
 
   if (!host_integerp (*misalignment, 1) || TREE_OVERFLOW (*misalignment) || 
@@ -3812,7 +3933,7 @@ vect_compute_array_alignment (tree array,
 		 build_int_2 (GET_MODE_NUNITS (TYPE_MODE (vectype)), 0), 1);
   if (integer_zerop (mis))
     /* This array is aligned. Continue just in order to get the base decl.  */
-    return vect_compute_array_alignment 
+    return vect_compute_array_base_alignment 
 		(TREE_OPERAND (array, 0), NULL, NULL, NULL);
 
   index = TREE_OPERAND (array, 1);
@@ -3847,9 +3968,9 @@ vect_compute_array_alignment (tree array,
   *prev_dimensions = int_const_binop (MULT_EXPR, 
 				*prev_dimensions, dimension_size, 1);
 
-  return vect_compute_array_alignment (TREE_OPERAND (array, 0), vectype,
-                                       prev_dimensions,
-                                       misalignment);
+  return vect_compute_array_base_alignment (TREE_OPERAND (array, 0), vectype,
+					    prev_dimensions,
+					    misalignment);
 }
 
 
@@ -3870,22 +3991,16 @@ vect_compute_data_ref_alignment (struct data_reference *dr,
 				 loop_vec_info loop_vinfo)
 {
   tree stmt = DR_STMT (dr);
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree ref = DR_REF (dr);
   tree vectype;
-  tree access_fn = DR_ACCESS_FN (dr, 0); 
-  tree init;
   tree scalar_type;
-  tree misalign;
-  tree array_first_index = NULL_TREE;
-  tree array_base = unshare_expr (DR_BASE_NAME (dr));
-  tree base_decl = NULL_TREE;
-  tree bit_offset = size_zero_node;
   tree offset = size_zero_node;
-  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree base, bit_offset, alignment;
   tree unit_bits = fold_convert (unsigned_type_node, 
 				 build_int_2 (BITS_PER_UNIT, 0));
-  tree nunits;
-  tree alignment;
+  tree dr_base;
+  bool base_aligned_p, ok;
   
   if (vect_debug_details (NULL))
     fprintf (dump_file, "vect_compute_data_ref_alignment:");
@@ -3908,136 +4023,188 @@ vect_compute_data_ref_alignment (struct data_reference *dr,
       return false;
     }
 
-  /* Check the index of the array_ref.  */
+#ifdef ENABLE_CHECKING
+  if (TREE_CODE (ref) != ARRAY_REF && TREE_CODE (ref) != INDIRECT_REF)
+    abort ();
+#endif
 
-  init = initial_condition_in_loop_num (access_fn, 
-		LOOP_VINFO_LOOP (loop_vinfo)->num);
+  if (TREE_CODE (ref) == ARRAY_REF)
+    dr_base = ref;
+  else
+    dr_base = STMT_VINFO_VECT_DR_BASE (stmt_info);
 
-  /* FORNOW: In order to simplify the handling of alignment, we make sure
-     that the first location at which the array is accessed ('init') is on an
-     'NUNITS' boundary, since we are assuming here that 'array base' is aligned. 
-     This is too conservative, since we require that
-     both {'array_base' is a multiple of NUNITS} && {'init' is a multiple of
-     NUNITS}, instead of just {('array_base' + 'init') is a multiple of NUNITS}.
-     This should be relaxed in the future.  */
-
-  if (!init || !host_integerp (init,0))
+  base = vect_get_base_and_bit_offset (dr, dr_base, vectype,
+                          loop_vinfo, &bit_offset, &base_aligned_p);
+  if (!base)
     {
       if (vect_debug_details (NULL))
-        fprintf (dump_file, "init not simple INTEGER_CST.");
-      /* FORNOW: It is not possible to vectorize this data reference.
-         vect_create_addr_base_for_vector_ref can only handle a constant init.
-       */
-      return false;
+        {
+          fprintf (dump_file, "Unknown alignment for access: ");
+          print_generic_expr (dump_file,
+                              STMT_VINFO_VECT_DR_BASE (stmt_info), TDF_SLIM);
+        }
+      return true;
     }
 
-  if (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (array_base))) < TYPE_ALIGN (vectype))
+  if (!base_aligned_p)
     {
-      base_decl = vect_get_base_decl_and_bit_offset 
-		   (STMT_VINFO_VECT_DR_BASE (stmt_info), vectype, &bit_offset);
-      if (!base_decl)
-        {
-          if (vect_debug_details (NULL))
-            fprintf (dump_file, "Unknown alignment for access");
-          return true;
-        }
-
-      offset = int_const_binop (TRUNC_DIV_EXPR, bit_offset, unit_bits, 1);
-      bit_offset = int_const_binop (TRUNC_MOD_EXPR, bit_offset, unit_bits, 1);
-      if (!integer_zerop (bit_offset))
-        {
-          if (vect_debug_details (NULL))
-            {
-              fprintf (dump_file, "bit offset alignment: ");
-              print_generic_expr (dump_file, bit_offset, TDF_SLIM);
-            }
-          /* It is not possible to vectorize this data reference. */
-          return false;
-        }
-
-      if (DECL_ALIGN (base_decl) < TYPE_ALIGN (vectype)
-           && !vect_can_force_dr_alignment_p (base_decl, TYPE_ALIGN (vectype)))
+      if (!vect_can_force_dr_alignment_p (base, TYPE_ALIGN (vectype)))
         {
           if (vect_debug_details (NULL))
             {
               fprintf (dump_file, "can't force alignment of ref: ");
-              print_generic_expr (dump_file, array_base, TDF_SLIM);
+              print_generic_expr (dump_file, ref, TDF_SLIM);
             }
           return true;
         }
-
-       if (DECL_ALIGN (base_decl) < TYPE_ALIGN (vectype))
-         {
-           /* Force the alignment of the decl.
-              NOTE: This is the only change to the code we make during
-              the analysis phase, before deciding to vectorize the loop.  */
-           if (vect_debug_details (NULL))
-             fprintf (dump_file, "force alignment");
-           DECL_ALIGN (base_decl) = TYPE_ALIGN (vectype);
-           DECL_USER_ALIGN (base_decl) = TYPE_ALIGN (vectype);
-         }
+      
+      /* Force the alignment of the decl.
+         NOTE: This is the only change to the code we make during
+         the analysis phase, before deciding to vectorize the loop.  */
+      if (vect_debug_details (NULL))
+        fprintf (dump_file, "force alignment");
+      DECL_ALIGN (base) = TYPE_ALIGN (vectype);
+      DECL_USER_ALIGN (base) = TYPE_ALIGN (vectype);
     }
 
-  /* The misalignement is:
-     (base_alignment + offset + index_access_fn_init) % alignment.
-     At this point we already guaranteed that base_alignment == 0,
-     and computed the offset.
-     It remains to check the first index accessed.  */
-
-  if (!vect_get_first_index (ref, &array_first_index))
+  /* At this point we assume that the base is aligned, and the offset from it
+     (including index, if relevant) has been computed and is in BIT_OFFSET.  */
+#ifdef ENABLE_CHECKING
+  ok = TREE_CODE (base) == SSA_NAME
+    || (TREE_CODE (base) == VAR_DECL
+        && DECL_ALIGN (base) >= TYPE_ALIGN (vectype));
+  if (!ok)
+    abort ();
+#endif
+  
+  /* Convert into bytes.  */
+  offset = int_const_binop (TRUNC_DIV_EXPR, bit_offset, unit_bits, 1);
+  /* Check that there is no remainder in bits.  */
+  bit_offset = int_const_binop (TRUNC_MOD_EXPR, bit_offset, unit_bits, 1);
+  if (!integer_zerop (bit_offset))
     {
       if (vect_debug_details (NULL))
-        fprintf (dump_file, "no first_index for array.");
-      return true;
+        {
+          fprintf (dump_file, "bit offset alignment: ");
+          print_generic_expr (dump_file, bit_offset, TDF_SLIM);
+        }
+      return false;
     }
 
-  /* alignment required, in bytes: */
+  /* Alignment required, in bytes:  */
   alignment = fold_convert (unsigned_type_node,
-			build_int_2 (TYPE_ALIGN (vectype)/BITS_PER_UNIT, 0));
-  /* bytes per scalar element: */
-  nunits = fold_convert (unsigned_type_node,
-		build_int_2 (GET_MODE_SIZE (TYPE_MODE (scalar_type)), 0));
-
-  /* misalign = (offset + (init-array_first_index)*nunits) % alignment  */
-  if (vect_debug_details (NULL))
-    {
-      fprintf (dump_file, "misalign = ( offset <");
-      print_generic_expr (dump_file, offset, TDF_SLIM);
-      fprintf (dump_file, "> + (init <");
-      print_generic_expr (dump_file, init, TDF_SLIM);
-      fprintf (dump_file, "> - first_indx <");
-      print_generic_expr (dump_file, array_first_index, TDF_SLIM);
-      fprintf (dump_file, ">) * nunits <");
-      print_generic_expr (dump_file, nunits, TDF_SLIM);
-      fprintf (dump_file, ">)  mod alignment <");
-      print_generic_expr (dump_file, alignment, TDF_SLIM);
-      fprintf (dump_file, ">");
-    }
-
-  misalign = int_const_binop (MINUS_EXPR, init, array_first_index, 0);
-  misalign = int_const_binop (MULT_EXPR, misalign, nunits, 0);
-  misalign = int_const_binop (PLUS_EXPR, misalign, offset, 0);
-  misalign = int_const_binop (TRUNC_MOD_EXPR, misalign, alignment, 0);
-
-  if (vect_debug_details (NULL))
-    {
-      fprintf (dump_file, "misalign = ");
-      print_generic_expr (dump_file, misalign, TDF_SLIM);
-    }
-
-  if (!host_integerp (misalign,1) || TREE_OVERFLOW (misalign))
+                    build_int_2 (TYPE_ALIGN (vectype)/BITS_PER_UNIT, 0));
+  
+  /* Modulo alignment.  */
+  offset = int_const_binop (TRUNC_MOD_EXPR, offset, alignment, 0);
+  if (!host_integerp (offset, 1) || TREE_OVERFLOW (offset))
     {
       if (vect_debug_details (NULL))
         fprintf (dump_file, "unexpected misalign value");
-      return true;
+      return false;
     }
 
-  DR_MISALIGNMENT (dr) = tree_low_cst (misalign,1);
+  DR_MISALIGNMENT (dr) = tree_low_cst (offset, 1);
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "misalign = %d", DR_MISALIGNMENT (dr));
 
   return true;
+}
+
+
+/* Function vect_compute_array_ref_alignment
+
+   Compute the alignment of an array-ref.
+   The alignment we compute here is relative to
+   TYPE_ALIGN(VECTYPE) boundary.
+
+   Output:
+   OFFSET - the alignment in bits
+   Return value - the base of the array-ref. E.g,
+                  if the array-ref is a.b[k].c[i][j] the returned
+                  base is a.b[k].c
+*/
+
+static tree
+vect_compute_array_ref_alignment (struct data_reference *dr,
+                                  loop_vec_info loop_vinfo,
+                                  tree vectype,
+                                  tree *offset)
+{
+  tree array_first_index = size_zero_node;
+  tree init;
+  tree ref = DR_REF (dr);
+  tree scalar_type = TREE_TYPE (ref);
+  tree oprnd0 = TREE_OPERAND (ref, 0);
+  tree dims = size_one_node;
+  tree misalign = size_zero_node;
+  tree next_ref, this_offset = size_zero_node;
+  tree nunits;
+  tree nbits;
+
+  if (TREE_CODE (TREE_TYPE (ref)) == ARRAY_TYPE)
+      /* The reference is an array without its last index. */
+      next_ref = vect_compute_array_base_alignment (ref, vectype, &dims, &misalign);
+  else
+      next_ref = 
+        vect_compute_array_base_alignment (oprnd0, vectype, &dims, &misalign);
+  if (!vectype)
+    /* Alignment is not requested. Just return the base.  */
+    return next_ref;
+  
+  /* Compute alignment.  */
+  if (!host_integerp (misalign, 1) || TREE_OVERFLOW (misalign) || !next_ref)
+    return NULL_TREE;
+  this_offset = misalign;
+  
+  /* Check the first index accessed.  */
+  if (!vect_get_first_index (ref, &array_first_index))
+    {
+      if (vect_debug_details (NULL))
+        fprintf (dump_file, "no first_index for array.");
+      return NULL_TREE;
+    }
+   
+  /* Check the index of the array_ref.  */
+  init = initial_condition_in_loop_num (DR_ACCESS_FN (dr, 0),
+                                        LOOP_VINFO_LOOP (loop_vinfo)->num);
+   
+  /* FORNOW: In order to simplify the handling of alignment, we make sure
+     that the first location at which the array is accessed ('init') is on an
+     'NUNITS' boundary, since we are assuming here that 'array base' is aligned.
+     This is too conservative, since we require that
+     both {'array_base' is a multiple of NUNITS} && {'init' is a multiple of
+     NUNITS}, instead of just {('array_base' + 'init') is a multiple of NUNITS}.
+     This should be relaxed in the future.  */
+
+  if (!init || !host_integerp (init, 0))
+    {
+      if (vect_debug_details (NULL))
+        fprintf (dump_file, "non constant init. ");
+      return NULL_TREE;
+    }
+  
+  /* bytes per scalar element: */
+  nunits = fold_convert (unsigned_type_node,
+                build_int_2 (GET_MODE_SIZE (TYPE_MODE (scalar_type)), 0));
+  nbits = int_const_binop (MULT_EXPR, nunits,
+                           build_int_2 (BITS_PER_UNIT, 0), 1);
+
+  /* misalign = offset + (init-array_first_index)*nunits*bits_in_byte */
+  misalign = int_const_binop (MINUS_EXPR, init, array_first_index, 0);
+  misalign = int_const_binop (MULT_EXPR, misalign, nbits, 0);
+  misalign = int_const_binop (PLUS_EXPR, misalign, this_offset, 0);
+
+  /* TODO: allow negative misalign values.  */
+  if (!host_integerp (misalign, 1) || TREE_OVERFLOW (misalign))
+    {
+      if (vect_debug_details (NULL))
+        fprintf (dump_file, "unexpected misalign value");
+      return NULL_TREE;
+    }
+  *offset = misalign;
+  return next_ref;
 }
 
 
@@ -4474,12 +4641,13 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt, bool is_read)
       return NULL;
     }
 		
-  if (TREE_CODE (init) != SSA_NAME 	   /* FORNOW */
-      || !host_integerp (step,0))
+  STRIP_NOPS (init);
+
+  if (!host_integerp (step,0))
     {
       if (vect_debug_stats (loop) || vect_debug_details (loop)) 
 	fprintf (dump_file, 
-		"not vectorized: non constant init/step for pointer access.");	
+		"not vectorized: non constant step for pointer access.");	
       return NULL;
     }
 
@@ -4523,6 +4691,145 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt, bool is_read)
 }
 
 
+/* Function vect_get_symbl_and_dr.  
+
+   The function returns SYMBL - the relevant variable for
+   memory tag (for aliasing purposes). 
+   Also data reference structure DR is created.  
+
+   Input:
+   MEMREF - data reference in STMT
+   IS_READ - TRUE if STMT reads from MEMREF, FALSE if writes to MEMREF
+   
+   Output:
+   DR - data_reference struct for MEMREF
+   return value - the relevant variable for memory tag (for aliasing purposes).
+
+*/ 
+
+static tree
+vect_get_symbl_and_dr (tree memref, tree stmt, bool is_read, 
+		       loop_vec_info loop_vinfo, struct data_reference **dr)
+{
+  tree symbl, oprnd0, oprnd1;
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree offset;
+  tree array_base, base;
+  struct data_reference *new_dr;
+  bool base_aligned_p;
+
+  *dr = NULL;
+  switch (TREE_CODE (memref))
+    {
+    case INDIRECT_REF:
+      new_dr = vect_analyze_pointer_ref_access (memref, stmt, is_read);
+      if (! new_dr)
+	return NULL_TREE; 
+      *dr = new_dr;
+      symbl = DR_BASE_NAME (new_dr);
+      STMT_VINFO_VECT_DR_BASE (stmt_info) = symbl;
+
+      switch (TREE_CODE (symbl))
+	{
+	case PLUS_EXPR:
+	case MINUS_EXPR:
+	  oprnd0 = TREE_OPERAND (symbl, 0);
+	  oprnd1 = TREE_OPERAND (symbl, 1);
+
+	  STRIP_NOPS(oprnd1);
+	  /* Only {address_base + offset} expressions are supported,  
+	     where address_base can be POINTER_TYPE or ARRRAY_TYPE and 
+	     offset can be anything but POINTER_TYPE or ARRAY_TYPE.  
+	     TODO: swap operands if {offset + address_base}.  */
+	  if ((TREE_CODE (TREE_TYPE (oprnd1)) == POINTER_TYPE 
+	       && TREE_CODE (oprnd1) != INTEGER_CST)
+	      || TREE_CODE (TREE_TYPE (oprnd1)) == ARRAY_TYPE)
+	    return NULL_TREE;
+
+	  if (TREE_CODE (TREE_TYPE (oprnd0)) == POINTER_TYPE)
+	    symbl = oprnd0;
+	  else
+	    symbl = vect_get_symbl_and_dr (oprnd0, stmt, is_read, 
+					   loop_vinfo, &new_dr); 
+
+	case SSA_NAME:
+	case ADDR_EXPR:
+	  /* symbl remains unchanged.  */
+	  break;
+
+	default:
+	  if (vect_debug_details (NULL))
+	    {
+	      fprintf (dump_file, "unhandled data ref: ");
+	      print_generic_expr (dump_file, memref, TDF_SLIM);
+	      fprintf (dump_file, " (symbl ");
+	      print_generic_expr (dump_file, symbl, TDF_SLIM);
+	      fprintf (dump_file, ") in stmt  ");
+	      print_generic_expr (dump_file, stmt, TDF_SLIM);
+	    }
+	  return NULL_TREE;	
+	}
+      break;
+
+    case ARRAY_REF:
+      offset = size_zero_node;
+      array_base = TREE_OPERAND (memref, 0);
+
+      /* Store the array base in the stmt info. 
+	 For one dimensional array ref a[i], the base is a,
+	 for multidimensional a[i1][i2]..[iN], the base is 
+	 a[i1][i2]..[iN-1]. */
+      array_base = TREE_OPERAND (memref, 0);
+      STMT_VINFO_VECT_DR_BASE (stmt_info) = array_base;	     
+
+      new_dr = analyze_array (stmt, memref, is_read);
+      *dr = new_dr;
+
+      /* Find the relevant symbol for aliasing purposes.  */	
+      base = DR_BASE_NAME (new_dr);
+      switch (TREE_CODE (base))	
+	{
+	case VAR_DECL:
+	  symbl = base;
+	  break;
+
+	case INDIRECT_REF:
+	  symbl = TREE_OPERAND (base, 0); 
+	  break;
+
+	case COMPONENT_REF:
+	  /* CHECKME: could have recorded more accurate information - 
+	     i.e, the actual FIELD_DECL that is being referenced -
+	     but later passes expect VAR_DECL as the nmt.  */	
+	  symbl = vect_get_base_and_bit_offset (new_dr, base, NULL_TREE, 
+					loop_vinfo, &offset, &base_aligned_p);
+	  if (symbl)
+	    break;
+	  /* fall through */	
+	default:
+	  if (vect_debug_details (NULL))
+	    {
+	      fprintf (dump_file, "unhandled struct/class field access ");
+	      print_generic_expr (dump_file, stmt, TDF_SLIM);
+	    }
+	  return NULL_TREE;
+	}
+      break;
+
+    default:
+      if (vect_debug_details (NULL))
+	{
+	  fprintf (dump_file, "unhandled data ref: ");
+	  print_generic_expr (dump_file, memref, TDF_SLIM);
+	  fprintf (dump_file, " in stmt  ");
+	  print_generic_expr (dump_file, stmt, TDF_SLIM);
+	}
+      return NULL_TREE;
+    }
+  return symbl;
+}
+
+
 /* Function vect_analyze_data_refs.
 
    Find all the data references in the loop.
@@ -4540,6 +4847,8 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
   block_stmt_iterator si;
   int j;
   struct data_reference *dr;
+  tree tag;
+  tree address_base;
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "\n<<vect_analyze_data_refs>>\n");
@@ -4558,7 +4867,6 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  varray_type *datarefs = NULL;
 	  int nvuses, nv_may_defs, nv_must_defs;
 	  tree memref = NULL;
-	  tree array_base;
 	  tree symbl;
 
 	  /* Assumption: there exists a data-ref in stmt, if and only if 
@@ -4604,77 +4912,30 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      is_read = false;
 	    }
 
-	  if (TREE_CODE (memref) == INDIRECT_REF)
+          /* Analyze MEMREF. If it is of a supported form, build data_reference
+             struct for it (DR) and find the relevant symbol for aliasing
+             purposes.  */
+          symbl = vect_get_symbl_and_dr (memref, stmt, is_read, loop_vinfo, &dr);
+          if (!symbl)
             {
-              dr = vect_analyze_pointer_ref_access (memref, stmt, is_read);
-              if (! dr)
-                return false; 
-	      symbl = DR_BASE_NAME (dr);
-	      STMT_VINFO_VECT_DR_BASE (stmt_info) = symbl;
+              if (vect_debug_stats (loop) || vect_debug_details (loop))
+                {
+                  fprintf (dump_file, "not vectorized: unhandled data ref: ");
+                  print_generic_expr (dump_file, stmt, TDF_SLIM);
+                }
+              return false;
             }
-	  else if (TREE_CODE (memref) == ARRAY_REF)
-	    {
-              tree base;
-              tree offset = size_zero_node;
-              array_base = TREE_OPERAND (memref, 0);
 
-	      /* Store the array base in the stmt info. 
-		 For one dimensional array ref a[i], the base is a,
-		 for multidimensional a[i1][i2]..[iN], the base is 
-		 a[i1][i2]..[iN-1]. */
-	      array_base = TREE_OPERAND (memref, 0);
-	      STMT_VINFO_VECT_DR_BASE (stmt_info) = array_base;	     
-              dr = analyze_array (stmt, memref, is_read);
+          /* Find and record the memtag assigned to this data-ref.  */
+          switch (TREE_CODE (symbl)) 
+            {
+            case VAR_DECL:
+              STMT_VINFO_MEMTAG (stmt_info) = symbl;
+              break;
 
-	      /* Find the relevant symbol for aliasing purposes.  */	
-	      base = DR_BASE_NAME (dr);
-	      switch (TREE_CODE (base))	
-		{
-		case VAR_DECL:
-		  symbl = base;
-		  break;
-		/* FORNOW: Disabled.  
-		case INDIRECT_REF:
-		  symbl = TREE_OPERAND (base, 0); 
-		  break;
-		*/
-		case COMPONENT_REF:
-		  /* CHECKME: could have recorded more accurate information - 
-		     i.e, the actual FIELD_DECL that is being referenced -
-		     but later passes expect VAR_DECL as the nmt.  */	
-		  symbl = vect_get_base_decl_and_bit_offset (base, NULL_TREE, 
-							     &offset);
-		  if (symbl)
-		    break;
-		  /* fall through */	
-		default:
-                  if (vect_debug_stats (loop) || vect_debug_details (loop))
-		    {
-                      fprintf (dump_file,
-                        "not vectorized: unhandled struct/class field access ");
-                      print_generic_expr (dump_file, stmt, TDF_SLIM);
-		    }
-                  return false;
-		} /* switch */
-	    }
-	  else
-	    {
-	      if (vect_debug_stats (loop) || vect_debug_details (loop))
-		{
-		  fprintf (dump_file, "not vectorized: unhandled data ref: ");
-		  print_generic_expr (dump_file, stmt, TDF_SLIM);
-		}
-	      return false;
-	    }
-	
-	  /* Find and record the memtag assigned to this data-ref.  */
-	  if (TREE_CODE (symbl) == VAR_DECL)
-	    STMT_VINFO_MEMTAG (stmt_info) = symbl;
-	  else if (TREE_CODE (symbl) == SSA_NAME)
-	    {
-	      tree tag;
-	      symbl = SSA_NAME_VAR (symbl);
-	      tag = get_var_ann (symbl)->type_mem_tag;
+            case SSA_NAME:
+              symbl = SSA_NAME_VAR (symbl);
+              tag = get_var_ann (symbl)->type_mem_tag;
 	      if (!tag)
 		{
 		  tree ptr = TREE_OPERAND (memref, 0);
@@ -4688,9 +4949,33 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 		  return false;
 		}
 	      STMT_VINFO_MEMTAG (stmt_info) = tag;
-	    }
-	  else
-	    {
+	      break;
+
+	    case ADDR_EXPR:
+	      address_base = TREE_OPERAND (symbl, 0);
+
+	      switch (TREE_CODE (address_base))
+		{
+		case ARRAY_REF:
+		  dr = analyze_array (stmt, TREE_OPERAND (symbl, 0), DR_IS_READ(dr));
+		  STMT_VINFO_MEMTAG (stmt_info) = DR_BASE_NAME (dr);
+		  break;
+		  
+		case VAR_DECL: 
+		  STMT_VINFO_MEMTAG (stmt_info) = address_base;
+		  break;
+
+		default:
+		  if (vect_debug_stats (loop) || vect_debug_details (loop))
+		    {
+		      fprintf (dump_file, "not vectorized: unhandled address expression: ");
+		      print_generic_expr (dump_file, stmt, TDF_SLIM);
+		    }
+		  return false;
+		}
+	      break;
+	      
+	    default:
 	      if (vect_debug_stats (loop) || vect_debug_details (loop))
 		{
 		  fprintf (dump_file, "not vectorized: unsupported data-ref: ");

@@ -6,32 +6,27 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 128
-#define OFF 3
+#define N 16
 
-/* unaligned load.  */
+int ic[N*2];
 
-int main1 (int off)
+#define ia (ic+N)
+
+int main1 ()
 {
-  int i;
-  int ia[N];
-  int ib[N+OFF];
-
-  for (i = 0; i < N+OFF; i++)
-    {
-      ib[i] = i;
-    }
+  int i, j;
+  int ib[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
 
   for (i = 0; i < N; i++)
     {
-      ia[i] = ib[i+off];
+       ia[i] = ib[i];
     }
 
-  /* check results:  */
+  /* check results: */  
   for (i = 0; i < N; i++)
     {
-      if (ia[i] != ib[i+off])
-        abort ();
+       if (ia[i] != ib[i])
+         abort();
     }
 
   return 0;
@@ -40,11 +35,8 @@ int main1 (int off)
 int main (void)
 { 
   check_vect ();
-  
-  main1 (0); /* aligned */
-  main1 (OFF); /* unaligned */
-  return 0;
+
+  return main1 ();
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
-
