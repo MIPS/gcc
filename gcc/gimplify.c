@@ -3046,7 +3046,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 		if (current_function_decl != context)
 		  {
 		    NONLOCAL_LABEL (dest) = 1;
-		    FUNCTION_RECEIVES_NONLOCAL_GOTO (context) = 1;
+		    find_function_data (context)->has_nonlocal_label = 1;
 		  }
 	      }
 	    break;

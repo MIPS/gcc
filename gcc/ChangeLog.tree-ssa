@@ -1,3 +1,13 @@
+2004-01-06  Jeff Law  <law@redhat.com>
+
+	* tree.h (FUNCTION_RECEIVES_NONLOCAL_GOTO): Kill.
+	* tree-cfg.c (make_exit_edges, is_ctrl_altering_stmt):  Use
+	current_function_has_nonlocal_label instead of
+	FUNCTION_RECEIVES_NONLOCAL_GOTO.
+	* gimplify.c (gimplify_expr): Set has_nonlocal_label in the
+	appropriate function's struct function rather than setting
+	a bit in the FUNCTION_DECL.
+
 2004-01-06  Jan Hubicka  <jh@suse.cz>
 
 	* expr.c (string_constant): Recognize array_ref.

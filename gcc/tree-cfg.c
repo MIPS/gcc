@@ -528,7 +528,7 @@ make_exit_edges (basic_block bb)
 	 make edges from this call site to all the nonlocal goto
 	 handlers.  */
       if (TREE_SIDE_EFFECTS (last)
-	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	  && current_function_has_nonlocal_label)
 	make_goto_expr_edges (bb);
 
       /* If this statement has reachable exception handlers, then
@@ -558,7 +558,7 @@ make_exit_edges (basic_block bb)
 	 create any required edges.  */
       if (TREE_CODE (TREE_OPERAND (last, 1)) == CALL_EXPR
 	  && TREE_SIDE_EFFECTS (TREE_OPERAND (last, 1))
-	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	  && current_function_has_nonlocal_label)
 	make_goto_expr_edges (bb);
 
       make_eh_edges (last);
@@ -2087,7 +2087,7 @@ is_ctrl_altering_stmt (tree t)
       /* A non-pure/const CALL_EXPR alters flow control if the current function
          has nonlocal labels.  */
       if (TREE_SIDE_EFFECTS (t)
-	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+	  && current_function_has_nonlocal_label)
 	return true;
 
       /* A CALL_EXPR also alters flow control if it does not return.  */
