@@ -324,7 +324,7 @@ okay_injuring_def (inj, var)
 {
   if (!inj
       || ref_type (inj) == V_PHI
-      || ref_defines (inj, var)
+//      || ref_defines (inj, var)
       || !maybe_find_rhs_use_for_var (inj, var))
     return false;
   return true;
@@ -672,7 +672,7 @@ defs_y_dom_x (ei, y, x)
 
           if (!(a_dom_b (ref_bb (imm_reaching_def (ref)), ref_bb (x))))
             return false;
-	  break;
+	  //	  break;
         }
     }
   return true;
@@ -1069,9 +1069,10 @@ rename_2 (ei, rename2_set)
 		    if (op2 && ref_type (op2) == V_USE)
 		      op2 = imm_reaching_def (op2);
 		    
-		    if (op1 && op2
-			&& op1 != op2
-			&& ref_var (op1) == ref_var (op2))
+		    if ((op1 && op2 && op1 != op2
+			 && ref_var (op1) == ref_var (op2))
+			|| (op1 && !op2) 
+			|| (!op1 && op2))
 		      {
 			match = false;
 			break;
@@ -1329,10 +1330,11 @@ catch it in rename_2 or during downsafety propagation. */
 		  if ((ref_type (x2) == E_USE && !expruse_phiop (x2)) 
 		      || ref_type (x2) == E_LEFT)
 		    {
-		      set_expruse_has_real_use (y, true);
-		      		  
-		/*	if (expruse_def (x) && ref_type (expruse_def (x)) == E_PHI)
-			  VARRAY_PUSH_GENERIC_PTR (rename2_set, x);*/
+		      set_expruse_has_real_use (y, true);       	      
+#if 0
+		      if (expruse_def (x) && ref_type (expruse_def (x)) == E_PHI)
+			VARRAY_PUSH_GENERIC_PTR (rename2_set, x);
+#endif
 		    }
 		  else
 		    {
@@ -1838,31 +1840,31 @@ expr_phi_insertion (dfs, ei)
         {
           int varcount = 0;
 	  ref_list_iterator j;
-
+	  
 	  j = rli_start (tree_refs (*occurp));
 	  for (; !rli_after_end (j); rli_step (&j))
-	  {
-	    tree_ref ref = rli_ref (j);
-	    if (ei->strred_cand)
-	      if (ref_type (ref) == V_USE
-		  && ref_var (ref) == get_operand (occur, 0)
-		  && imm_reaching_def (ref))
-		ref = get_injured_use (ei, ref, ref_var (ref));
+	    {
+	      tree_ref ref = rli_ref (j);
+	      if (ei->strred_cand)
+		if (ref_type (ref) == V_USE
+		    && ref_var (ref) == get_operand (occur, 0)
+		    && imm_reaching_def (ref))
+		  ref = get_injured_use (ei, ref, ref_var (ref));
 	      /* ??? If the trees aren't shared, will the last part of this ||
 		 work right? */ 
-              if (ref_type (ref) != V_USE
-                  || !is_simple_modify_expr (ref_stmt (ref))
-                  /*|| TREE_OPERAND (ref_stmt (ref), 1) != real*/)
-                continue;
-              if (ref_var (ref) != get_operand (occur, 0)
-                  && (get_operand (occur, 1) == NULL 
+	      if (ref_type (ref) != V_USE
+		  || !is_simple_modify_expr (ref_stmt (ref))
+		  /*|| TREE_OPERAND (ref_stmt (ref), 1) != real*/)
+		continue;
+	      if (ref_var (ref) != get_operand (occur, 0)
+		  && (get_operand (occur, 1) == NULL 
 		      || ref_var (ref) != get_operand (occur, 1)))
-                continue; 
-              if (!imm_reaching_def (ref)
+		continue; 
+	      if (!imm_reaching_def (ref)
 		  || ref_type (imm_reaching_def (ref)) != V_PHI)
-                continue;
-              set_var_phis (ei, imm_reaching_def (ref), varcount++);
-            }
+		continue;
+	      set_var_phis (ei, imm_reaching_def (ref), varcount++);
+	    }
         }
     }
   sbitmap_a_or_b (dfphis, dfphis, varphis[0]);

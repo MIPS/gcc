@@ -1,3 +1,8 @@
+2003-01-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (rename_2): Fix a false matching condition.
+	This is actually fallout from is_default_def change.
+
 2003-01-02  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (c_genericize): Dump more info about the function.
