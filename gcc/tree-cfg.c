@@ -3797,8 +3797,12 @@ handle_switch_fallthru (tree sw_stmt, basic_block dest, basic_block new_bb)
   for (e = dest->pred; e; e = e->pred_next)
     if (e->src != new_bb)
       {
+        /* The only way stmt can be NULL is if we are in the process of
+	   handling a nested switch stmt when we get here, and haven't 
+	   fully constructed the default case for the other one yet.  This 
+	   ought to be safe to ignore at this point.  */
         stmt = last_stmt (e->src);
-	if (TREE_CODE (stmt) != GOTO_EXPR)
+	if (stmt && TREE_CODE (stmt) != GOTO_EXPR)
 	  {
 	    goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
 	    tmp = PENDING_STMT (e);
@@ -3901,20 +3905,45 @@ handle_switch_split (basic_block src, basic_block dest)
 
   /* Insert a goto on all edges except the one from src to this label. */
 
+restart_loop:
   for (e = dest->pred; e ; e = e->pred_next)
     {
       if (e->src != src)
         {
+	  tmp = bsi_last (e->src);
+	  goto_stmt = bsi_stmt (tmp);
+	  /* Dont issue a goto if it already goto's this label.  See below 
+	     for how this can happen to a new label.  */
+	  if (goto_stmt && TREE_CODE (goto_stmt) == GOTO_EXPR
+	      && GOTO_DESTINATION (goto_stmt) == label)
+	    continue;
+
 	  goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
 	  tmp_tree = PENDING_STMT (e);
 	  SET_PENDING_STMT (e, NULL_TREE);
 	  bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &new_bb);
+
+	  /* So splitting this edge *can* result in another basic block
+	     if there is a case label nested inside an if construct, for
+	     instance. Yes, this is allowed. blah. 
+	     So this is ugly. The edge may no longer be in the edge list we
+	     have been traversing, so we have to start over.  First attach any
+	     pending insertions to the new edge.  This is why we need to check 
+	     for exisiting GOTO's to our label above.  */
+	  if (new_bb)
+	    {
+#ifdef ENABLE_CHECKING
+	      /* There ought to be exactly one successor to the new block.  */
+	      if (new_bb->succ == NULL || new_bb->succ->succ_next != NULL)
+	        abort();
+#endif
+	      SET_PENDING_STMT (new_bb->succ, tmp_tree);
+	      new_bb->succ->flags = new_bb->succ->flags & ~EDGE_FALLTHRU;
+	      goto restart_loop;
+	    }
 	  SET_PENDING_STMT (e, tmp_tree);
 	  e->flags = e->flags & ~EDGE_FALLTHRU;
 
-	  /* Splitting this edge should never result in a new block.  */
-	  if (new_bb)
-	    abort ();
 	}
     }
 

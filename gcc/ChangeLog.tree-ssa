@@ -1,3 +1,10 @@
+2003-10-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (handle_switch_fallthru): A new basic block can result
+	from splitting edges of nested switch stmts.
+	(handle_switch_split): If a new block is created, restart the loop for
+	inserting GOTO's to handle the new block.
+
 2003-10-17  Jan Hubicka  <jh@suse.cz>
 
 	* tree-cfg.c (remove_useless_stmts_and_vars_bind): Fix handling of
