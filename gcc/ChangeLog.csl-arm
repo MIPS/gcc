@@ -1,3 +1,11 @@
+2004-01-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/arm/arm.h (ARM_EABI_CTORS_SECTION_OP): Do not define
+	if a definition has already been provided.
+	(ARM_EABI_DTORS_SECTION_OP): Likewise.
+	* config/arm/symbian.h (ARM_EABI_CTORS_SECTION_OP): Define.
+	(ARM_EABI_DTORS_SECTION_OP): Likewise.
+
 2005-01-26  Julian Brown  <julian@codesourcery.com>
 
 	Backport:
