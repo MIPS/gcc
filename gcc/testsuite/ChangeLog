@@ -1,3 +1,8 @@
+2004-06-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/16114
+	* gcc.c-torture/compile/20040621-2.c: New test.
+
 2004-06-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/range-test-1.c: New test.
