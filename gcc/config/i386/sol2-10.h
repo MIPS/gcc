@@ -57,3 +57,18 @@ Boston, MA 02111-1307, USA.  */
   while (0)
 
 #define TARGET_INIT_FINI_ATTRIBUTES
+
+#define SUBTARGET_OVERRIDE_OPTIONS				\
+  do								\
+    {								\
+      if (flag_omit_frame_pointer == 2)				\
+	flag_omit_frame_pointer = 0;				\
+      if (flag_asynchronous_unwind_tables == 2)			\
+	flag_asynchronous_unwind_tables = 0;			\
+    }								\
+  while (0)
+
+#undef TARGET_SUBTARGET_DEFAULT
+#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP	\
+				  | MASK_FLOAT_RETURNS		\
+				  | MASK_OMIT_LEAF_FRAME_POINTER)

@@ -1,3 +1,10 @@
+2004-07-14  Daniel Jacobowitz  <dan@debian.org>
+
+	* config/i386/i386.c (override_options): Move
+	SUBTARGET_OVERRIDE_OPTIONS before defaulting flag_omit_frame_pointer.
+	* config/i386/sol2-10.h (SUBTARGET_OVERRIDE_OPTIONS): Define.
+	(TARGET_SUBTARGET_DEFAULT): Define.
+
 2004-07-13  Daniel Jacobowitz  <dan@debian.org>
 
 	* config/i386/sol2-10.h: Call the target "Solaris 10".
