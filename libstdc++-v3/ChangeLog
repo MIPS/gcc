@@ -1,3 +1,8 @@
+2003-03-22  Loren J. Rittle  <ljrittle@acm.org>
+
+	* config/os/hpux/bits/ctype_noninline.h (ctype<char>::classic_table):
+	Correct return value.
+
 2002-07-29  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/cpu/powerpc/bits/cpu_limits.h (__glibcpp_long_bits): Define.

@@ -1,3 +1,34 @@
+2003-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* Backport from mainline:
+	2002-05-13  Jason Merrill  <jason@redhat.com>
+
+	* class.c (build_vtbl_ref_1): Use fixed_type_or_null.
+	(fixed_type_or_null): See through reference vars.
+	(build_base_path): Vtable contents are constant.
+
+2003-03-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/8316, c++/9315, c++/10136
+	* call.c (joust): Improve wording.
+
+2003-03-17  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (finish_function): Don't skip a block.
+
+	PR c++/9993
+	* decl.c (finish_function): Only allow the NRVO to use variables
+	declared at function scope.
+
+2003-03-16  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6440
+	* pt.c (maybe_process_partial_specialization): Handle
+	member class template when enclosing class template is
+	explicit specialized.
+	(most_general_template): Stop looking when DECL is already
+	specialized.
+
 2003-03-19  Jason Merrill  <jason@redhat.com>
 
 	RH Issue Tracker #14363
