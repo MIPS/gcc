@@ -3646,6 +3646,10 @@ for machine in $build $host $target; do
 		tm_file=arm/unknown-elf.h
 		tmake_file=arm/t-arm-elf
 		;;
+	arm*-*-conix*)
+		tm_file=arm/conix-elf.h
+		tmake_file=arm/t-arm-elf
+		;;
         arm*-*-oabi)
 		tm_file=arm/unknown-elf-oabi.h
 		tmake_file=arm/t-arm-elf

@@ -1,3 +1,9 @@
+2000-02-29  Philip Blundell  <pb@futuretv.com>
+
+	* config/arm/conix-elf.h: New file.
+	* configure.in (arm*-*-conix*): New configuration.
+	* configure: Regenerate.
+
 2000-02-28  Dmitri Makarov  <dim@windriver.com>
 
 	* extend.texi: Document ARM's support for long/short calls.
