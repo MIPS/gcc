@@ -1093,10 +1093,17 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   splay_tree st;
   tree args;
   tree return_slot_addr;
+  location_t saved_location;
 
   /* See what we've got.  */
   id = (inline_data *) data;
   t = *tp;
+
+  /* Set input_location here so we get the right instantiation context
+     if we call instantiate_decl from inlinable_function_p.  */
+  saved_location = input_location;
+  if (EXPR_LOCUS (t))
+    input_location = *EXPR_LOCUS (t);
 
   /* Recurse, but letting recursive invocations know that we are
      inside the body of a TARGET_EXPR.  */
@@ -1121,7 +1128,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	    --id->in_target_cleanup_p;
 	}
 
-      return NULL_TREE;
+      goto egress;
 #endif
     }
 
@@ -1133,13 +1140,13 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
   /* From here on, we're only interested in CALL_EXPRs.  */
   if (TREE_CODE (t) != CALL_EXPR)
-    return NULL_TREE;
+    goto egress;
 
   /* First, see if we can figure out what function is being called.
      If we cannot, then there is no hope of inlining the function.  */
   fn = get_callee_fndecl (t);
   if (!fn)
-    return NULL_TREE;
+    goto egress;
 
   /* Turn forward declarations into real ones.  */
   if (flag_unit_at_a_time)
@@ -1169,11 +1176,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 	  warning ("%Jinlining failed in call to '%F'", fn, fn);
 	  warning ("called from here");
 	}
-      return NULL_TREE;
+      goto egress;
     }
 
   if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
-    return NULL_TREE;
+    goto egress;
 
   /* Build a block containing code to initialize the arguments, the
      actual inline expansion of the body, and a label for the return
@@ -1397,6 +1404,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   (*lang_hooks.tree_inlining.end_inlining) (fn);
 
   /* Keep iterating.  */
+ egress:
+  input_location = saved_location;
   return NULL_TREE;
 }
 
@@ -1652,11 +1661,6 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, void *htab_)
       && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     {
       int i, len;
-
-      /* Set input_location here so we get the right instantiation context
-         if we call instantiate_decl from inlinable_function_p.  */
-      if (EXPR_LOCUS (*tp))
-        input_location = *EXPR_LOCUS (*tp);
 
       /* Walk over all the sub-trees of this operand.  */
       len = first_rtl_op (code);

@@ -1,3 +1,10 @@
+2003-09-28  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (gimplify_call_expr): Annotate all call_exprs.	
+	* tree-inline.c (expand_call_inline): Set input_location based
+	on EXPR_LOCUS; save and restore input_location around that.
+	(walk_tree): Do not set input_location.
+
 2003-09-27  Graham Stott  <graham.stott@btinternet.com>
 
 	* expr.c (expand_expr)[CATCH_EXPR]: Fix bogus return value. 

@@ -1558,6 +1558,11 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
     abort ();
 #endif
 
+  /* For reliable diagnostics during inlining, it is necessary that 
+     every call_expr be annotated with file and line.  */
+  if (!EXPR_LOCUS (*expr_p))
+    annotate_with_file_line (*expr_p, input_filename, input_line);
+
   /* This may be a call to a builtin function.
 
      Builtin function calls may be transformed into different
