@@ -77,11 +77,20 @@ FLAGS_TO_PASS = \
 	"CC=$(cc_set_by_configure)" \
         "CFLAGS=$(CFLAGS) $(WARN_CFLAGS)"
 
+# Rule to configure ada/Makefile.in.
+# This is evil, but better than the previous state of things.  :-P
+$(GCC_DIR)/ada/Makefile:
+	cd $(GCC_DIR)/ada && \
+	$(srcdir)/../gcc/ada/configure \
+	    THREAD_KIND="$(THREAD_KIND)" \
+	    TRACE="$(TRACE)"
+
+
 # Rules to build gnatlib.
 .PHONY: gnatlib gnatlib-plain gnatlib-sjlj gnatlib-zcx gnatlib-shared
 gnatlib: @default_gnatlib_target@
 
-gnatlib-plain:
+gnatlib-plain: $(GCC_DIR)/ada/Makefile
 	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) \
 	  GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	  GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
@@ -90,7 +99,7 @@ gnatlib-plain:
 	  TRACE="$(TRACE)" \
 	  gnatlib
 
-gnatlib-sjlj gnatlib-zcx gnatlib-shared:
+gnatlib-sjlj gnatlib-zcx gnatlib-shared: $(GCC_DIR)/ada/Makefile
 	$(MAKE) -C $(GCC_DIR)/ada $(FLAGS_TO_PASS) \
 	  GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	  GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \

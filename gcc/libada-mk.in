@@ -32,3 +32,10 @@ gcc_xmake_file=@xmake_file@
 
 # This really shouldn't be needed, but for now...
 CC=@CC@
+
+# Needed for ada/Makefile.in, along with tmake_file and xmake_file
+# This is all hackery, of course
+OUTPUT_OPTION=@OUTPUT_OPTION@
+# Internationalization library.
+LIBINTL=@LIBINTL@
+LIBINTL_DEP=@LIBINTL_DEP@

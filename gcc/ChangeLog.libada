@@ -1,0 +1,10 @@
+2004-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* gcc/libada-mk.in: Add some substitutions for gcc/ada/Makefile.
+
+Copyright 2004 Free Software Foundation, Inc.
+This ChangeLog is free software; the Free Software Foundation gives
+unlimited permission to copy, distribute, and modify it.
+
+When the libada branch merges, put this in the top level ChangeLog.
+
