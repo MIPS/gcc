@@ -1,3 +1,11 @@
+2004-03-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Backport from the 3.3 branch:
+	* config/s390/s390.c (s390_expand_movstr): Clobber double-word
+	register before initializing high and low parts separately.
+	(s390_expand_clrstr): Likewise.
+	(s390_expand_cmpmem): Likewise.
+
 2004-03-05  Jan Hubicka  <jh@suse.cz>
 
 	* cfgcleanup.c (thread_jump): Update call of cselib_init.

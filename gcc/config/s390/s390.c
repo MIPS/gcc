@@ -2878,6 +2878,9 @@ s390_expand_movstr (dst, src, len)
       rtx reg0 = gen_reg_rtx (double_mode);
       rtx reg1 = gen_reg_rtx (double_mode);
 
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, reg0));
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, reg1));
+
       emit_move_insn (gen_highpart (single_mode, reg0), 
 		      force_operand (XEXP (dst, 0), NULL_RTX));
       emit_move_insn (gen_highpart (single_mode, reg1), 
@@ -2973,6 +2976,9 @@ s390_expand_clrstr (dst, len)
       enum machine_mode single_mode = TARGET_64BIT ? DImode : SImode;
       rtx reg0 = gen_reg_rtx (double_mode);
       rtx reg1 = gen_reg_rtx (double_mode);
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, reg0));
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, reg1));
 
       emit_move_insn (gen_highpart (single_mode, reg0), 
 		      force_operand (XEXP (dst, 0), NULL_RTX));
@@ -3077,6 +3083,9 @@ s390_expand_cmpmem (target, op0, op1, len)
       enum machine_mode single_mode = TARGET_64BIT ? DImode : SImode;
       rtx reg0 = gen_reg_rtx (double_mode);
       rtx reg1 = gen_reg_rtx (double_mode);
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, reg0));
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, reg1));
 
       emit_move_insn (gen_highpart (single_mode, reg0), 
 		      force_operand (XEXP (op0, 0), NULL_RTX));
