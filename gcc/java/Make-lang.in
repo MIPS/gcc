@@ -110,7 +110,8 @@ JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
   java/zextract.o java/jcf-io.o java/jcf-parse.o java/mangle.o \
   java/mangle_name.o java/builtins.o java/resource.o \
   java/jcf-write.o java/buffer.o java/check-init.o java/jcf-depend.o \
-  java/jcf-path.o java/xref.o java/boehm.o java/java-tree-inline.o mkdeps.o
+  java/jcf-path.o java/xref.o java/boehm.o java/java-tree-inline.o \
+  java/java-gimplify.o mkdeps.o
 
 GCJH_OBJS = java/gjavah.o java/jcf-io.o java/jcf-depend.o java/jcf-path.o \
   java/zextract.o version.o mkdeps.o errors.o ggc-none.o

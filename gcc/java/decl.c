@@ -57,7 +57,6 @@ static struct binding_level *make_binding_level (void);
 static tree create_primitive_vtable (const char *);
 static tree check_local_named_variable (tree, tree, int, int *);
 static tree check_local_unnamed_variable (tree, tree, tree);
-static void dump_function (enum tree_dump_index, tree);
 
 /* Name of the Cloneable class.  */
 tree java_lang_cloneable_identifier_node;
@@ -435,7 +434,10 @@ java_init_decl_processing (void)
   pushdecl (build_decl (TYPE_DECL, get_identifier ("unsigned long"),
 			unsigned_long_type_node));
 
-  set_sizetype (make_unsigned_type (POINTER_SIZE));
+  /* This is not a java type, however tree-dfa requires a definition for
+     size_type_node.  */
+  size_type_node = make_unsigned_type (POINTER_SIZE);
+  set_sizetype (size_type_node);
 
   /* Define these next since types below may used them.  */
   integer_type_node = java_type_for_size (INT_TYPE_SIZE, 0);
@@ -1728,6 +1730,11 @@ complete_start_java_method (tree fndecl)
 			build (TRY_FINALLY_EXPR, void_type_node, body, exit));
 	  TREE_SIDE_EFFECTS (lock) = 1;
 	  BLOCK_EXPR_BODY (function_body) = lock;
+
+	  /* If we previously saved the tree for inlining,
+	     update that too.  */
+	  if (DECL_SAVED_TREE (fndecl) != NULL_TREE)
+	    DECL_SAVED_TREE (fndecl) = lock;
 	}
     }
 }
@@ -1812,33 +1819,6 @@ end_java_method (void)
   rest_of_compilation (fndecl);
 
   current_function_decl = NULL_TREE;
-}
-
-/* Dump FUNCTION_DECL FN as tree dump PHASE. */
-
-static void
-dump_function (enum tree_dump_index phase, tree fn)
-{
-  FILE *stream;
-  int flags;
-
-  stream = dump_begin (phase, &flags);
-  if (stream)
-    {
-      dump_node (fn, TDF_SLIM | flags, stream);
-      dump_end (phase, stream);
-    }
-}
- 
-void java_optimize_inline (tree fndecl)
-{
-  if (flag_inline_trees)
-    {
-      timevar_push (TV_INTEGRATION);
-      optimize_inline_calls (fndecl);
-      timevar_pop (TV_INTEGRATION);
-      dump_function (TDI_inlined, fndecl);
-    }
 }
 
 /* We pessimistically marked all methods and fields external until we

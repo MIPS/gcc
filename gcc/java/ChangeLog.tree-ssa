@@ -1,3 +1,35 @@
+2003-06-21  Jeff Sturm  <jsturm@one-point.com>
+
+	* Make-lang.in (JAVA_OBJS): Add java-gimplify.o.
+
+	* decl.c (java_init_decl_processing): Initialize size_type_node.
+	(complete_start_java_method): Update DECL_SAVED_TREE.
+	(dump_function): Remove.
+	(java_optimize_inline): Remove.
+
+	* expr.c (always_initialize_class_p): Initialize to 1.
+	(build_instanceof): Build proper boolean condition.
+	(build_class_init): Set DECL_INITIAL for init_test_decl.
+	(force_evaluation_order): Don't save_expr a void expr node.
+
+	* java-gimplify.c: New file.
+
+	* java-tree.h (java_gimplify_expr): Declare.
+
+	* lang.c (java_tree_inlining_walk_subtrees): Remove declaration.
+	(flag_optimize_sci): Initialize to 0.
+	(LANG_HOOKS_TREE_INLINING_WALK_SUBTREES): Remove define.
+	(LANG_HOOKS_SIMPLIFY_EXPR): Add define.
+	(java_tree_inlining_walk_subtrees): Remove function.
+	(java_init): Set flag_disable_gimple to 1.
+
+	* parse.y (source_end_java_method): Set cfun->x_whole_function_mode_p.
+	Gimplify.  Optimize tree before expanding.  Update comments.
+	(java_expand_method_bodies): Always save DECL_SAVED_TREE.
+	(patch_invoke): Don't save_expr force_evaluation_order result.
+	(patch_assignment): Use simpler compound expression.
+	(patch_if_else_statement): Don't optimize constant condition nodes.
+
 2003-03-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* class.c: Replace DECL_SOURCE_FILE with TREE_FILENAME and

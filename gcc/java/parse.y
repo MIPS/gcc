@@ -71,6 +71,7 @@ definitions and other extensions.  */
 #include "ggc.h"
 #include "debug.h"
 #include "tree-inline.h"
+#include "tree-dump.h"
 
 /* Local function prototypes */
 static char *java_accstring_lookup (int);
@@ -7376,13 +7377,35 @@ source_end_java_method (void)
      patched.  Dump it to a file if the user requested it.  */
   dump_java_tree (TDI_original, fndecl);
 
-  java_optimize_inline (fndecl);
-
-  /* Generate function's code */
   if (BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl))
       && ! flag_emit_class_files
       && ! flag_emit_xref)
-    expand_expr_stmt (BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl)));
+    {
+      /* Convert function tree to GIMPLE.  */
+      if (!flag_disable_gimple)
+	{
+	  cfun->x_whole_function_mode_p = 1;
+	  gimplify_function_tree (fndecl);
+	  dump_function (TDI_gimple, fndecl);
+	}
+
+      /* Inline suitable calls from this function.  */
+      if (flag_inline_trees)
+	{
+	  timevar_push (TV_INTEGRATION);
+	  optimize_inline_calls (fndecl);
+	  timevar_pop (TV_INTEGRATION);
+	  dump_function (TDI_inlined, fndecl);
+	}
+
+      /* Run SSA optimizers if gimplify succeeded.  */
+      if (keep_function_tree_in_gimple_form (fndecl)
+	  && optimize > 0 && !flag_disable_tree_ssa)
+	optimize_function_tree (fndecl);
+
+      /* Generate function's code.  */
+      expand_expr_stmt (DECL_SAVED_TREE (fndecl));
+    }
 
   /* pop out of its parameters */
   pushdecl_force_head (DECL_ARGUMENTS (fndecl));
@@ -7399,7 +7422,6 @@ source_end_java_method (void)
 			       TREE_FILENAME (fndecl),
 			       TREE_SOURCE_LINE_FIRST (fndecl));
 
-      /* Run the optimizers and output assembler code for this function. */
       rest_of_compilation (fndecl);
     }
 
@@ -8025,10 +8047,9 @@ java_expand_method_bodies (tree class)
 
       current_function_decl = decl;
 
-      /* Save the function for inlining.  */
-      if (flag_inline_trees)
-	DECL_SAVED_TREE (decl) =
-	  BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl));
+      /* Save the function for gimplify and inlining.  */
+      DECL_SAVED_TREE (decl) =
+	BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl));
 
       /* It's time to assign the variable flagging static class
 	 initialization based on which classes invoked static methods
@@ -10739,7 +10760,7 @@ patch_invoke (tree patch, tree method, tree args)
       /* We have to call force_evaluation_order now because creating a
 	 COMPOUND_EXPR wraps the arg list in a way that makes it
 	 unrecognizable by force_evaluation_order later.  Yuk.  */
-      tree save = save_expr (force_evaluation_order (patch));
+      tree save = force_evaluation_order (patch);
       tree type = TREE_TYPE (patch);
 
       patch = build (COMPOUND_EXPR, type, save, build_java_empty_stmt ());
@@ -12763,7 +12784,7 @@ patch_assignment (tree node, tree wfl_op1)
 	case INDIRECT_REF:
 	case COMPONENT_REF:
 	  /* Transform a = foo.bar 
-	     into a = { int tmp; tmp = foo.bar; tmp; ).   	     
+	     into a = ({int tmp; tmp = foo.bar;}).
 	     We need to ensure that if a read from memory fails
 	     because of a NullPointerException, a destination variable
 	     will remain unchanged.  An explicit temporary does what
@@ -12780,8 +12801,7 @@ patch_assignment (tree node, tree wfl_op1)
 	    tree assignment 
 	      = build (MODIFY_EXPR, TREE_TYPE (new_rhs), tmp, fold (new_rhs));
 	    BLOCK_VARS (block) = tmp;
-	    BLOCK_EXPR_BODY (block) 
-	      = build (COMPOUND_EXPR, TREE_TYPE (new_rhs), assignment, tmp);
+	    BLOCK_EXPR_BODY (block) = assignment;
 	    TREE_SIDE_EFFECTS (block) = 1;
 	    new_rhs = block;
 	  }
@@ -14764,20 +14784,6 @@ patch_if_else_statement (tree node)
       return error_mark_node;
     }
 
-  if (TREE_CODE (expression) == INTEGER_CST)
-    {
-      if (integer_zerop (expression))
-	node = TREE_OPERAND (node, 2);
-      else
-	node = TREE_OPERAND (node, 1);
-      if (CAN_COMPLETE_NORMALLY (node) != can_complete_normally)
-	{
-	  node = build (COMPOUND_EXPR, void_type_node, node,
-		        build_java_empty_stmt ());
-	  CAN_COMPLETE_NORMALLY (node) = can_complete_normally;
-	}
-      return node;
-    }
   TREE_TYPE (node) = void_type_node;
   TREE_SIDE_EFFECTS (node) = 1;
   CAN_COMPLETE_NORMALLY (node) = can_complete_normally;

@@ -63,8 +63,6 @@ static void put_decl_string (const char *, int);
 static void put_decl_node (tree);
 static void java_print_error_function (diagnostic_context *, const char *);
 static int process_option_with_no (const char *, const struct string_option *, int);
-static tree java_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
-					      void *, void *);
 static int java_unsafe_for_reeval (tree);
 static int merge_init_test_initialization (void * *, void *);
 static int inline_init_test_initialization (void * *, void *);
@@ -176,7 +174,8 @@ int flag_force_classes_archive_check;
 
 /* When zero, don't optimize static class initialization. This flag shouldn't
    be tested alone, use STATIC_CLASS_INITIALIZATION_OPTIMIZATION_P instead.  */
-int flag_optimize_sci = 1;
+/* FIXME: Make this work with gimplify.  */
+int flag_optimize_sci = 0;
 
 /* When nonzero, use offset tables for virtual method calls
    in order to improve binary compatibility. */
@@ -284,11 +283,11 @@ struct language_function GTY(())
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE java_signed_or_unsigned_type
 
-#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
-#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES java_tree_inlining_walk_subtrees
-
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN java_dump_tree
+
+#undef LANG_HOOKS_GIMPLIFY_EXPR
+#define LANG_HOOKS_GIMPLIFY_EXPR java_gimplify_expr
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -525,6 +524,9 @@ java_init (void)
   if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
       && force_align_functions_log < 1)
     force_align_functions_log = 1;
+
+  /* FIXME: Remove this once the gimplifier is ready.  */
+  flag_disable_gimple = 1;
 
   jcf_path_init ();
   jcf_path_seal (version_flag);
@@ -854,52 +856,6 @@ decl_constant_value (tree decl)
       && TREE_CODE (DECL_INITIAL (decl)) != CONSTRUCTOR)
     return DECL_INITIAL (decl);
   return decl;
-}
-
-/* Walk the language specific tree nodes during inlining.  */
-
-static tree
-java_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
-				  int *subtrees ATTRIBUTE_UNUSED,
-				  walk_tree_fn func ATTRIBUTE_UNUSED,
-				  void *data ATTRIBUTE_UNUSED,
-				  void *htab ATTRIBUTE_UNUSED)
-{
-  enum tree_code code;
-  tree result;
-
-#define WALK_SUBTREE(NODE)				\
-  do							\
-    {							\
-      result = walk_tree (&(NODE), func, data, htab);	\
-      if (result)					\
-	return result;					\
-    }							\
-  while (0)
-
-  tree t = *tp;
-  if (!t)
-    return NULL_TREE;
-
-  code = TREE_CODE (t);
-  switch (code)
-    {
-    case BLOCK:
-      if (BLOCK_EXPR_BODY (t))
-	{
-	  tree *prev = &BLOCK_EXPR_BODY (*tp);
-	  while (*prev)
-	    {
-	      WALK_SUBTREE (*prev);
-	      prev = &TREE_CHAIN (*prev);
-	    }	    
-	}
-      return NULL_TREE;
-      break;
-
-    default:
-      return NULL_TREE;
-    }
 }
 
 /* Called from unsafe_for_reeval.  */

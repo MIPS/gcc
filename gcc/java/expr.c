@@ -94,7 +94,8 @@ tree dtable_ident = NULL_TREE;
 
 /* Set to nonzero value in order to emit class initialization code
    before static field references.  */
-int always_initialize_class_p;
+/* FIXME: Make this work with gimplify.  */
+int always_initialize_class_p = 1;
 
 /* We store the stack state in two places:
    Within a basic block, we use the quick_stack, which is a
@@ -1224,7 +1225,8 @@ build_instanceof (tree value, tree type)
     {
       tree save = save_expr (value);
       expr = build (COND_EXPR, itype,
-		    save,
+		    build (NE_EXPR, boolean_type_node,
+			   save, null_pointer_node),
 		    build (EQ_EXPR, itype,
 			   build_get_class (save),
 			   build_class_ref (type)),
@@ -1710,6 +1712,7 @@ build_class_init (tree clas, tree expr)
              optimizing class initialization. */
 	  if (!STATIC_CLASS_INIT_OPT_P ())
 	    DECL_BIT_INDEX(*init_test_decl) = -1;
+	  DECL_INITIAL (*init_test_decl) = integer_zero_node;
 	}
 
       init = build (CALL_EXPR, void_type_node,
@@ -3370,7 +3373,9 @@ force_evaluation_order (tree node)
 
       if (cmp)
 	{
-	  cmp = save_expr (build (COMPOUND_EXPR, TREE_TYPE (node), cmp, node));
+	  cmp = build (COMPOUND_EXPR, TREE_TYPE (node), cmp, node);
+	  if (TREE_TYPE (cmp) != void_type_node)
+	    cmp = save_expr (cmp);
 	  CAN_COMPLETE_NORMALLY (cmp) = CAN_COMPLETE_NORMALLY (node);
 	  TREE_SIDE_EFFECTS (cmp) = 1;
 	  node = cmp;
