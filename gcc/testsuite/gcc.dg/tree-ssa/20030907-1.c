@@ -4,7 +4,7 @@
    the "Case Ranges" extension wasn't handled in tree-cfg.c.  */
 
 /* { dg-do compile } */
-/* { dg-options "-O -fdump-tree-ssa" } */
+/* { dg-options "-O -fdump-tree-optimized" } */
 
 int main() 
 { 
@@ -24,4 +24,4 @@ int main()
 
 /* The abort() call clearly is unreachable.  Only the "extern abort"
    declaration should survive optimization.  */
-/* { dg-final { scan-tree-dump-times "abort" 1 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "abort" 1 "optimized"} } */

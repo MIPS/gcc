@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
     
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -35,7 +35,8 @@ bar ()
     ;
 }
 
-/* There should be two IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 2 "ssa"} } */
+/* There should be one IF conditional.  The two inner conditionals in the
+   GIMPLE form are dead.  */
+/* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
  
 

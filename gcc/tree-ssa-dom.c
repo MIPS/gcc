@@ -100,7 +100,6 @@ static void htab_statistics (FILE *, htab_t);
 static void record_cond_is_false (tree, varray_type *, htab_t);
 static void record_cond_is_true (tree, varray_type *, htab_t);
 static void thread_edge (edge, basic_block);
-static void mark_new_vars_to_rename (tree, sbitmap);
 static tree update_rhs_and_lookup_avail_expr (tree, tree, varray_type *,
 					      htab_t, stmt_ann_t, bool);
 
@@ -110,10 +109,14 @@ static tree update_rhs_and_lookup_avail_expr (tree, tree, varray_type *,
 
    This pass may expose new symbols that need to be renamed into SSA.  For
    every new symbol exposed, its corresponding bit will be set in
-   VARS_TO_RENAME.  */
+   VARS_TO_RENAME.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
+tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename,
+			     enum tree_dump_index phase)
 {
   bool cfg_altered;
   edge e;
@@ -121,7 +124,7 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
   timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
 
   /* Set up debugging dump files.  */
-  dump_file = dump_begin (TDI_dom, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
 
   /* Create our hash tables.  */
   const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
@@ -194,12 +197,17 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
 	 the dominator tree is strictly necessary.  */
       if (cfg_altered)
 	{
-	  dominance_info idom = calculate_dominance_info (CDI_DOMINATORS);
+	  dominance_info idom;
+	  cleanup_tree_cfg ();
+	  idom = calculate_dominance_info (CDI_DOMINATORS);
 	  build_dominator_tree (idom);
 	  free_dominance_info (idom);
 	}
     }
   while (cfg_altered);
+
+  /* Remove any unreachable blocks left behind and linearize the CFG.  */
+  cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -207,7 +215,7 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
       if (dump_flags & TDF_STATS)
 	dump_dominator_optimization_stats (dump_file);
       dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_dom, dump_file);
+      dump_end (phase, dump_file);
     }
 
   htab_delete (const_and_copies);
@@ -219,7 +227,9 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
   timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
 }
 
+
 /* Redirects edge E to basic block DEST.  */
+
 static void
 thread_edge (edge e, basic_block dest)
 {
@@ -232,6 +242,10 @@ thread_edge (edge e, basic_block dest)
   if (e != bb->succ
       || bb->succ->succ_next)
     abort ();
+
+  /* Remove EDGE_FALLTHRU from the edge (by convention, control edges are
+     not fallthru).  */
+  flags &= ~EDGE_FALLTHRU;
 
   /* We need a label at our final destination.  If it does not already exist,
      create it.  */
@@ -246,8 +260,8 @@ thread_edge (edge e, basic_block dest)
   else
     label = LABEL_EXPR_LABEL (dest_stmt);
 
-  /* If our block does not end with a GOTO, then create one.  Otherwise redirect
-     the existing GOTO_EXPR to LABEL.  */
+  /* If our block does not end with a GOTO, then create one.  Otherwise
+     redirect the existing GOTO_EXPR to LABEL.  */
   stmt = last_stmt (bb);
   if (!stmt || TREE_CODE (stmt) != GOTO_EXPR)
     {
@@ -1633,28 +1647,37 @@ avail_expr_eq (const void *p1, const void *p2)
 }
 
 
-/* Add all the variables found in STMT's operands to the bitmap
+/* Add all the non-SSA variables found in STMT's operands to the bitmap
    VARS_TO_RENAME.  */
 
-static void
+void
 mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
 {
   varray_type ops;
   size_t i;
+  sbitmap vars_in_vops_to_rename;
+  bool found_exposed_symbol = false;
+  varray_type vdefs_before, vdefs_after;
+  
+  vars_in_vops_to_rename = sbitmap_alloc (num_referenced_vars);
+  sbitmap_zero (vars_in_vops_to_rename);
 
   /* Before re-scanning the statement for operands, mark the existing
      virtual operands to be renamed again.  We do this because when new
-     symbols are exposed, the virtual operands that were here before
-     because of aliasing will probably be removed by the call to
-     get_stmt_operand.  Therefore, we need to flag them to be renamed
-     beforehand.  */
-  ops = vdef_ops (stmt);
+     symbols are exposed, the virtual operands that were here before due to
+     aliasing will probably be removed by the call to get_stmt_operand.
+     Therefore, we need to flag them to be renamed beforehand.
+
+     We flag them in a separate bitmap because we don't really want to
+     rename them if there are not any newly exposed symbols in the
+     statement operands.  */
+  vdefs_before = ops = vdef_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
       tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
       if (!DECL_P (var))
 	var = SSA_NAME_VAR (var);
-      SET_BIT (vars_to_rename, var_ann (var)->uid);
+      SET_BIT (vars_in_vops_to_rename, var_ann (var)->uid);
     }
 
   ops = vuse_ops (stmt);
@@ -1663,7 +1686,7 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
       tree var = VARRAY_TREE (ops, i);
       if (!DECL_P (var))
 	var = SSA_NAME_VAR (var);
-      SET_BIT (vars_to_rename, var_ann (var)->uid);
+      SET_BIT (vars_in_vops_to_rename, var_ann (var)->uid);
     }
 
   /* Now force an operand re-scan on the statement and mark any newly
@@ -1676,7 +1699,10 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
     {
       tree *var_p = VARRAY_TREE_PTR (ops, i);
       if (DECL_P (*var_p))
-	SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
+	{
+	  found_exposed_symbol = true;
+	  SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
+	}
     }
 
   ops = use_ops (stmt);
@@ -1684,15 +1710,21 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
     {
       tree *var_p = VARRAY_TREE_PTR (ops, i);
       if (DECL_P (*var_p))
-	SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
+	{
+	  found_exposed_symbol = true;
+	  SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
+	}
     }
 
-  ops = vdef_ops (stmt);
+  vdefs_after = ops = vdef_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
       tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
       if (DECL_P (var))
-	SET_BIT (vars_to_rename, var_ann (var)->uid);
+	{
+	  found_exposed_symbol = true;
+	  SET_BIT (vars_to_rename, var_ann (var)->uid);
+	}
     }
 
   ops = vuse_ops (stmt);
@@ -1700,6 +1732,21 @@ mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
     {
       tree var = VARRAY_TREE (ops, i);
       if (DECL_P (var))
-	SET_BIT (vars_to_rename, var_ann (var)->uid);
+	{
+	  found_exposed_symbol = true;
+	  SET_BIT (vars_to_rename, var_ann (var)->uid);
+	}
     }
+
+  /* If we found any newly exposed symbols, or if VDEFs disappeared
+     altogether, add the variables we had set in VARS_IN_VOPS_TO_RENAME to
+     VARS_TO_RENAME.  We need to check for vanishing VDEFs because in those
+     cases, the names that were formerly generated by this statement are
+     not going to be available anymore.  */
+  if (found_exposed_symbol
+      || (vdefs_before != NULL
+	  && vdefs_after == NULL))
+    sbitmap_a_or_b (vars_to_rename, vars_to_rename, vars_in_vops_to_rename);
+
+  sbitmap_free (vars_in_vops_to_rename);
 }

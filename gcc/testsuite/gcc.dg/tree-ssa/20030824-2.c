@@ -18,5 +18,5 @@ int foo (int x, int y)
   return i + j;
 }
 
-/* This function should be optimized into 'return x+y'.  */
+/* This function should be optimized into 'return y+x'.  */
 /* { dg-final { scan-tree-dump-times "return y \\+ x" 1 "optimized"} } */

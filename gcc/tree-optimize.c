@@ -69,7 +69,7 @@ optimize_function_tree (tree fndecl)
     FILE *file = dump_begin (TDI_useless, &flags);
     if (file)
       {
-	dump_function_to_file (current_function_decl, file, flags);
+	dump_function_to_file (fndecl, file, flags);
 	dump_end (TDI_useless, file);
       }
   }
@@ -80,9 +80,15 @@ optimize_function_tree (tree fndecl)
 
   build_tree_cfg (DECL_SAVED_TREE (fndecl));
 
-  /* Begin analysis and optimization passes.  */
+  /* Begin analysis and optimization passes.  After the function is
+     initially renamed into SSA form, passes are responsible from keeping
+     it in SSA form.  If a pass exposes new symbols or invalidates the SSA
+     numbering for existing variables, it should add them to the
+     VARS_TO_RENAME bitmap and call rewrite_into_ssa() afterwards.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
+      sbitmap vars_to_rename;
+
       /* Initialize common SSA structures.  */
       init_tree_ssa ();
 
@@ -93,39 +99,91 @@ optimize_function_tree (tree fndecl)
 	 the function.  */
       compute_may_aliases (fndecl);
 
-      /* Rewrite the function into SSA form.  */
-      rewrite_into_ssa (fndecl, NULL);
 
-      if (flag_tree_dce)
+      /*			BEGIN SSA PASSES
+
+	 IMPORTANT: If you change the order in which these passes are
+		    executed, you also need to change the enum
+		    TREE_DUMP_INDEX in tree.h and DUMP_FILES in
+                    tree-dump.c.  */
+
+
+      /* Rewrite the function into SSA form.  Initially, request all
+	 variables to be renamed.  */
+      rewrite_into_ssa (fndecl, NULL, TDI_ssa_1);
+
+      /* Set up VARS_TO_RENAME to allow passes to inform which variables
+	 need to be renamed.  */
+      vars_to_rename = sbitmap_alloc (num_referenced_vars);
+
+      /* Perform dominator optimizations.  */
+      if (flag_tree_dom)
 	{
-	  /* If the dominator optimizations propagated ADDR_EXPRs into
-	     INDIRECT_REF expressions, we may be able to promote may-alias
-	     into must-alias relations.  If DCE eliminated all the pointer
-	     assignments that were taking the address of a local variable X,
-	     we can now rename X as a non-aliased local.  */
-	  tree_ssa_dce (fndecl);
-	  if (flag_tree_dom && flag_tree_must_alias)
-	    tree_compute_must_alias (fndecl);
+	  sbitmap_zero (vars_to_rename);
+	  tree_ssa_dominator_optimize (fndecl, vars_to_rename, TDI_dom_1);
+
+	  /* If the dominator optimizations exposed new variables, we need
+	      to repeat the SSA renaming process for those symbols.  */
+	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_2);
 	}
 
-      if (flag_tree_pre)
-	tree_perform_ssapre (fndecl);
-
-      if (flag_tree_ccp)
-	tree_ssa_ccp (fndecl);
-
-      if (flag_tree_copyprop)
-	tree_ssa_copyprop (fndecl);
-
+      /* Do a first DCE pass prior to must-alias.  This pass will remove
+	 dead pointer assignments taking the address of local variables.  */
       if (flag_tree_dce)
-	tree_ssa_dce (fndecl);
+	tree_ssa_dce (fndecl, TDI_dce_1);
+
+      /* The must-alias pass removes the aliasing and addressability bits
+	 from variables that used to have their address taken.  */
+      if (flag_tree_must_alias)
+	{
+	  sbitmap_zero (vars_to_rename);
+	  tree_compute_must_alias (fndecl, vars_to_rename, TDI_mustalias);
+
+	  /* Run the SSA pass again if we need to rename new variables.  */
+	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_3);
+	}
+
+      /* Run SCCP (Sparse Conditional Constant Propagation).  */
+      if (flag_tree_ccp)
+	{
+	  sbitmap_zero (vars_to_rename);
+	  tree_ssa_ccp (fndecl, vars_to_rename, TDI_ccp);
+
+	  /* Run the SSA pass again if we need to rename new variables.  */
+	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	    rewrite_into_ssa (fndecl, vars_to_rename, TDI_ssa_4);
+	}
+
+      /* Run SSA-PRE (Partial Redundancy Elimination).  */
+      if (flag_tree_pre)
+	tree_perform_ssapre (fndecl, TDI_pre);
+
+      /* Perform a second pass of dominator optimizations.  */
+      if (flag_tree_dom)
+	{
+	  sbitmap_zero (vars_to_rename);
+	  tree_ssa_dominator_optimize (fndecl, vars_to_rename, TDI_dom_2);
+
+	  /* There should not be any new symbols exposed.  */
+	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	    abort ();
+	}
+
+      /* Run copy propagation.  */
+      if (flag_tree_copyprop)
+	tree_ssa_copyprop (fndecl, TDI_copyprop);
+
+      /* Do a second DCE pass.  */
+      if (flag_tree_dce)
+	tree_ssa_dce (fndecl, TDI_dce_2);
 
       /* Rewrite the function out of SSA form.  */
-      rewrite_out_of_ssa (fndecl);
-    }
+      rewrite_out_of_ssa (fndecl, TDI_optimized);
 
-  /* Debugging dump after optimization.  */
-  dump_function (TDI_optimized, fndecl);
+      sbitmap_free (vars_to_rename);
+    }
 }
 
 

@@ -3444,20 +3444,25 @@ enum tree_dump_index
 				   function's flowgraph.  */
   TDI_pta,                      /* dump points-to information for each
 				   function.  */
-  TDI_ssa,                      /* dump SSA information for each function.  */
-  TDI_dom,			/* dump dominator optimization information
-				   for each function.  */
-  TDI_mustalias,		/* dump must-alias information for each
-				   function.  */
-  TDI_pre,                      /* dump SSA PRE information for each
-				   function.  */
-  TDI_ccp,			/* dump SSA CCP information for each
-				   function.  */
-  TDI_copyprop,			/* dump SSA Copy propagation information for
-				   each function.  */
-  TDI_dce,                      /* dump SSA DCE information for each
-				   function.  */
-  TDI_optimized,		/* dump each function after optimizing it.  */
+  TDI_alias,			/* dump aliasing information.  */
+
+  /* Optimization passes.  The ordering and numbering of these phases must
+     be the same as the one in optimize_function_tree().  */
+  TDI_ssa_1,
+  TDI_dom_1,
+  TDI_ssa_2,
+  TDI_dce_1,
+  TDI_mustalias,
+  TDI_ssa_3,
+  TDI_ccp,
+  TDI_ssa_4,
+  TDI_pre,
+  TDI_dom_2,
+  TDI_ssa_5,
+  TDI_copyprop,
+  TDI_dce_2,
+  TDI_optimized,
+
   TDI_mudflap,			/* dump each function after mudflap.  */
   TDI_xml,                      /* dump function call graph.   */
   TDI_all,			/* enable all the dumps above.  */
@@ -3475,8 +3480,7 @@ enum tree_dump_index
 #define TDF_STATS	(1 << 4)	/* dump various statistics about
 					   each pass */
 #define TDF_BLOCKS	(1 << 5)	/* display basic block boundaries */
-#define TDF_ALIAS	(1 << 6)	/* display aliasing information */
-#define TDF_VOPS	(1 << 7)	/* display virtual operands */
+#define TDF_VOPS	(1 << 6)	/* display virtual operands */
 
 
 typedef struct dump_info *dump_info_p;

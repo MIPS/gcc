@@ -369,9 +369,6 @@ void bsi_next_in_bb (block_stmt_iterator *, basic_block);
 /*---------------------------------------------------------------------------
 			      Global declarations
 ---------------------------------------------------------------------------*/
-/* Nonzero to warn about variables used before they are initialized.  */
-extern int tree_warn_uninitialized;
-
 /* Array of all variables referenced in the function.  */
 extern GTY(()) varray_type referenced_vars;
 
@@ -477,8 +474,8 @@ extern void add_referenced_tmp_var (tree var);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_into_ssa (tree, sbitmap);
-extern void rewrite_out_of_ssa (tree);
+extern void rewrite_into_ssa (tree, sbitmap, enum tree_dump_index);
+extern void rewrite_out_of_ssa (tree, enum tree_dump_index);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
@@ -492,24 +489,25 @@ extern bool tree_ssa_useless_type_conversion (tree);
 extern void build_dominator_tree (dominance_info);
 
 /* In tree-ssa-pre.c  */
-extern void tree_perform_ssapre (tree);
+extern void tree_perform_ssapre (tree, enum tree_dump_index);
 
 /* In tree-ssa-ccp.c  */
-void tree_ssa_ccp (tree);
+void tree_ssa_ccp (tree, sbitmap, enum tree_dump_index);
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */
-extern void tree_ssa_dominator_optimize (tree, sbitmap);
+extern void tree_ssa_dominator_optimize (tree, sbitmap, enum tree_dump_index);
 extern void dump_dominator_optimization_stats (FILE *);
 extern void debug_dominator_optimization_stats (void);
+extern void mark_new_vars_to_rename (tree, sbitmap);
 
 /* In tree-ssa-dce.c  */
-void tree_ssa_dce (tree);
+void tree_ssa_dce (tree, enum tree_dump_index);
 
 
 /* In tree-ssa-copyprop.c  */
-void tree_ssa_copyprop (tree);
+void tree_ssa_copyprop (tree, enum tree_dump_index);
 void propagate_copy (tree *, tree, tree);
 void fixup_var_scope (tree, tree);
 
@@ -520,7 +518,7 @@ static inline bool is_unchanging_value (tree);
 static inline bool may_propagate_copy (tree, tree);
 
 /* In tree-must-alias.c  */
-void tree_compute_must_alias (tree);
+void tree_compute_must_alias (tree, sbitmap, enum tree_dump_index);
 
 /* In tree-eh.c  */
 extern void lower_eh_constructs (tree *);

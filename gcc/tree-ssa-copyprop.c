@@ -51,15 +51,18 @@ static void move_var_to_scope (tree, tree, tree);
 /* Main entry point to the copy propagator.  The algorithm is a simple
    linear scan of the flowgraph.  For every variable X_i used in the
    function, it retrieves its unique reaching definition.  If X_i's
-   definition is a copy (i.e., X_i = Y_j), then X_i is replaced with Y_j.  */
+   definition is a copy (i.e., X_i = Y_j), then X_i is replaced with Y_j.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-tree_ssa_copyprop (tree fndecl)
+tree_ssa_copyprop (tree fndecl, enum tree_dump_index phase)
 {
   basic_block bb;
 
   timevar_push (TV_TREE_COPYPROP);
-  dump_file = dump_begin (TDI_copyprop, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
 
   /* Traverse every block in the flowgraph propagating copies in each
      statement.  */
@@ -78,7 +81,7 @@ tree_ssa_copyprop (tree fndecl)
   if (dump_file)
     {
       dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_copyprop, dump_file);
+      dump_end (phase, dump_file);
     }
 
   timevar_pop (TV_TREE_COPYPROP);

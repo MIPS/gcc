@@ -69,7 +69,6 @@ static FILE *dump_file;
 static int dump_flags;
 
 static varray_type worklist;
-static dominance_info dom_info = NULL;
 static dominance_info pdom_info = NULL;
 
 static struct stmt_stats
@@ -453,7 +452,6 @@ remove_dead_stmts (void)
   tree t;
   block_stmt_iterator i;
 
-  dom_info = NULL;
   pdom_info = NULL;
 
   FOR_EACH_BB_REVERSE (bb)
@@ -475,9 +473,6 @@ remove_dead_stmts (void)
     }
 
   /* If we needed the dominance info, free it now.  */
-  if (dom_info != NULL)
-    free_dominance_info (dom_info);
-
   if (pdom_info != NULL)
     free_dominance_info (pdom_info);
 }
@@ -560,10 +555,13 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
   bsi_remove (i);
 }
 
-/* Main routine to eliminate dead code.  */
+/* Main routine to eliminate dead code.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-tree_ssa_dce (tree fndecl)
+tree_ssa_dce (tree fndecl, enum tree_dump_index phase)
 {
   tree fnbody;
 
@@ -580,7 +578,7 @@ tree_ssa_dce (tree fndecl)
   needed_stmts = htab_create (64, htab_hash_pointer, htab_eq_pointer, NULL);
 
   /* Initialize dump_file for debugging dumps.  */
-  dump_file = dump_begin (TDI_dce, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
 
   find_useful_stmts ();
 
@@ -600,7 +598,7 @@ tree_ssa_dce (tree fndecl)
     {
       dump_function_to_file (fndecl, dump_file, dump_flags);
       print_stats ();
-      dump_end (TDI_dce, dump_file);
+      dump_end (phase, dump_file);
     }
 
   htab_delete (needed_stmts);
@@ -620,9 +618,6 @@ remove_conditional (basic_block bb)
   /* Calculate dominance info, if it hasn't been computed yet.  */
   if (pdom_info == NULL)
     pdom_info = calculate_dominance_info (CDI_POST_DOMINATORS);
-
-  if (dom_info == NULL)
-    dom_info = calculate_dominance_info (CDI_DOMINATORS);
 
   pdom_bb = get_immediate_dominator (pdom_info, bb);
 

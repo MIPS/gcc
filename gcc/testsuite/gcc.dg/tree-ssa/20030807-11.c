@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
 
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -16,4 +16,4 @@ foo (reg)
 }
                                                                                 
 /* There should be no IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 0 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */

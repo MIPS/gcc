@@ -2074,12 +2074,12 @@ compute_alias_sets (void)
       }
 
   /* Debugging dumps.  */
-  dump_file = dump_begin (TDI_ssa, &dump_flags);
-  if (dump_file && dump_flags & TDF_ALIAS)
+  dump_file = dump_begin (TDI_alias, &dump_flags);
+  if (dump_file)
     {
       dump_alias_info (dump_file);
       dump_referenced_vars (dump_file);
-      dump_end (TDI_ssa, dump_file);
+      dump_end (TDI_alias, dump_file);
     }
 }
 

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
   
 
 struct rtx_def;
@@ -58,5 +58,5 @@ store_expr (exp, target, want_value)
 /* All paths to the test "target != 0" occuring in the final IF statement
    dereference target.  Thus target can not have the value zero at that
    point and the test should have been eliminated.  */
-/* { dg-final { scan-tree-dump-times "target.*!= 0" 0 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "target.*!= 0" 0 "dom2"} } */
 

@@ -1,3 +1,57 @@
+2003-09-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (compute_alias_sets): Use TDI_alias instead of
+	TDI_ssa.
+	* tree-dump.c (dump_files): Add enties for TDI_alias, TDI_ssa1,
+	TDI_dom1, TDI_ssa2, TDI_dce1, TDI_ssa3, TDI_dom2, TDI_ssa4,
+	TDI_ssa5 and TDI_dce2.
+	Remove entries for TDI_ssa, TDI_dom and TDI_dce.
+	* tree.h (enum tree_dump_index): Similarly.
+	(TDF_ALIAS): Remove.
+	(TDF_VOPS): Change value.
+	* doc/invoke.texi (-fdump-tree-alias): Document.
+	* tree-flow.h (tree_warn_uninitialized): Remove unused variable.
+	(rewrite_into_ssa): Add enum tree_dump_index argument.  Update all
+	callers.
+	(rewrite_out_of_ssa): Likewise.
+	(tree_perform_ssa_pre): Likewise.
+	(tree_ssa_dominator_optimize): Likewise.
+	(tree_ssa_dce): Likewise.
+	(tree_ssa_copyprop): Likewise.
+	(tree_ssa_ccp): Likewise.
+	Add sbitmap argument.
+	(tree_compute_must_alias): Likewise.
+	(mark_new_vars_to_rename): Declare.
+	* tree-must-alias.c (tree_compute_must_alias): Do not call
+	rewrite_into_ssa.
+	Remove local vars_to_rename.  Use new argument instead.
+	* tree-optimize.c (optimize_function_tree): Re-write optimization
+	ordering to support passes that need the SSA form updated.
+	Call tree_ssa_dominator_optimize.
+	Re-arrange optimization ordering.
+	* tree-ssa-ccp.c (substitute_and_fold): Take new argument
+	vars_to_rename.
+	Call mark_new_vars_to_rename.
+	(visit_phi_node): Move variable 'val' into the right scope.
+	(initialize): Move call dump_begin ...
+	(tree_ssa_ccp): ... here.
+	* tree-ssa-dom.c (mark_new_vars_to_rename): Declare extern.
+	Make sure that variables in virtual operands aren't marked
+	unnecessarily.
+	* tree-ssa.c (rewrite_into_ssa): Do not call
+	tree_ssa_dominator_optimize.
+
+2003-09-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-dce.c (dom_info): Remove unused variable.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): If the CFG has been
+	altered, call cleanup_tree_cfg.
+	Call cleanup_tree_cfg before returning.
+	* tree-ssa-pre.c (tree_perform_ssapre): Call get_stmt_operands
+	before processing the statement.
+	* tree-ssa-dom.c (thread_edge): Remove attribute EDGE_FALLTHRU from
+	edge.
+
 2003-09-21  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_block): Rework code to propagate values

@@ -1,3 +1,59 @@
+2003-09-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030920-1.c: New test.
+
+2003-09-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030703-2.c: Expect one if() conditional after
+	the second dominator pass.
+	* gcc.dg/tree-ssa/20030807-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-1.c: Add return statement to avoid DCE
+	removing the whole body.
+	Expect two if() statements after the second dominator pass.
+	* gcc.dg/tree-ssa/20030807-7.c: Explain why we fail to optimize.
+
+2003-09-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20030530-2.c: Adjust to use -fdump-tree-dom2.
+	* gcc.dg/tree-ssa/20030611-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030703-1.c: Likewise
+	* gcc.dg/tree-ssa/20030703-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030708-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030709-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030709-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030710-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030714-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030714-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030729-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030730-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030730-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030731-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-10.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-11.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-4.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-5.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-6.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-7.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-8.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-9.c: Likewise.
+	* gcc.dg/tree-ssa/20030808-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-4.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-5.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-6.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-7.c: Likewise.
+	* gcc.dg/tree-ssa/20030815-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030824-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030907-1.c: Likewise.
+
 2003-09-21  Lifang Zeng  <zlf605@hotmail.com>
 
 	* gfortran.fortran-torture/execute/data.f90: New test.

@@ -54,21 +54,29 @@ static int dump_flags;
 
 
 /* This pass finds must-alias relations exposed by constant propagation of
-   ADDR_EXPR values into INDIRECT_REF expressions.  */
+   ADDR_EXPR values into INDIRECT_REF expressions.
+   
+   FNDECL is the function to process.
+   
+   VARS_TO_RENAME will contain the variables that need to be renamed into SSA
+   after this pass is done.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-tree_compute_must_alias (tree fndecl)
+tree_compute_must_alias (tree fndecl, sbitmap vars_to_rename,
+			 enum tree_dump_index phase)
 {
   size_t i;
-  sbitmap addresses_needed, vars_to_rename;
+  sbitmap addresses_needed;
 
   timevar_push (TV_TREE_MUST_ALIAS);
 
   /* Initialize debugging dumps.  */
-  dump_file = dump_begin (TDI_mustalias, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
 
   /* Initialize internal data structures.  */
-  vars_to_rename = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (vars_to_rename);
 
   addresses_needed = sbitmap_alloc (num_referenced_vars);
@@ -93,17 +101,8 @@ tree_compute_must_alias (tree fndecl)
 	promote_var (var, vars_to_rename);
     }
 
-  /* Run the SSA pass again if we need to rename new variables.  */
-  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
-    {
-      /* Rename all variables in VARS_TO_RENAME into SSA form.  */
-      remove_all_phi_nodes_for (vars_to_rename);
-      rewrite_into_ssa (fndecl, vars_to_rename);
-    }
-
   /* Free allocated memory.  */
   sbitmap_free (addresses_needed);
-  sbitmap_free (vars_to_rename);
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -112,7 +111,7 @@ tree_compute_must_alias (tree fndecl)
 	dump_referenced_vars (dump_file);
 
       dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_mustalias, dump_file);
+      dump_end (phase, dump_file);
     }
 
   timevar_pop (TV_TREE_MUST_ALIAS);

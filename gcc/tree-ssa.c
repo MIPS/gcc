@@ -194,6 +194,9 @@ static void print_exprs_edge (FILE *, edge, const char *, tree, const char *,
    VARS.  If VARS is NULL, all variables in REFERENCED_VARS will be
    processed.
 
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.
+
    Every statement has two different sets of operands: real and virtual.
    Real operands are those that use scalar, non-aliased variables.  Virtual
    operands are everything else (pointers, arrays, compound structures).
@@ -255,16 +258,16 @@ static void print_exprs_edge (FILE *, edge, const char *, tree, const char *,
    the original operand untouched.  So, the above code fragment is converted
    into:
 
-	     	# AT.1_2 = VDEF <AT.1_1>;
+	     	# MT.1_2 = VDEF <MT.1_1>;
 	    1	b = 4;
-	        # AT.1_3 = VDEF <AT.1_2>;
+	        # MT.1_3 = VDEF <MT.1_2>;
 	    2	*p_3 = 5;
-	     	# VUSE <AT.1_3>
+	     	# VUSE <MT.1_3>
 	    3	... = b;
 
    Notice how variable 'b' is not rewritten anymore.  Instead, references
    to it are moved to the virtual operands which are all rewritten using
-   AT.1, which is an artificial variable representing all the variables
+   MT.1, which is an artificial variable representing all the variables
    aliased by 'p'.
 
    Virtual operands provide safe information about potential references to
@@ -273,18 +276,17 @@ static void print_exprs_edge (FILE *, edge, const char *, tree, const char *,
    increased compilation time.  */
 
 void
-rewrite_into_ssa (tree fndecl, sbitmap vars)
+rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
 {
   bitmap *dfs;
   sbitmap globals;
   dominance_info idom;
-  int i, rename_count;
   basic_block bb;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
   /* Debugging dumps.  */
-  dump_file = dump_begin (TDI_ssa, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
 
   /* Initialize the array of variables to rename.  */
   if (vars == NULL)
@@ -293,7 +295,10 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
       sbitmap_ones (vars_to_rename);
     }
   else
-    vars_to_rename = vars;
+    {
+      vars_to_rename = vars;
+      remove_all_phi_nodes_for (vars_to_rename);
+    }
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
   def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
@@ -314,84 +319,27 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   /* Initialize dominance frontier and immediate dominator bitmaps.  */
   dfs = (bitmap *) xmalloc (n_basic_blocks * sizeof (bitmap *));
   FOR_EACH_BB (bb)
-    {
-      dfs[bb->index] = BITMAP_XMALLOC ();
-      clear_dom_children (bb);
-    }
+    dfs[bb->index] = BITMAP_XMALLOC ();
 
-  /* Compute immediate dominators.  */
+  /* Compute immediate dominators, dominance frontiers and the dominator
+     tree.  FIXME: DFS and dominator tree information should be cached.
+     Although, right now the only pass that doesn't mess dominance
+     information is must-alias.  */
   idom = calculate_dominance_info (CDI_DOMINATORS);
-
   build_dominator_tree (idom);
-
   compute_dominance_frontiers (dfs, idom);
-
-  /* We're finished the the immediate dominator information.  */
   free_dominance_info (idom);
 
-  /* Start the SSA rename process.  This may need to be repeated if the
-     dominator optimizations exposed more symbols to rename by propagating
-     ADDR_EXPR values into INDIRECT_REF expressions.  */
-  rename_count = 0;
-  do
-    {
-      /* Find variable references and mark definition sites.  */
-      mark_def_sites (globals);
+  /* Find variable references and mark definition sites.  */
+  mark_def_sites (globals);
 
-      /* Insert PHI nodes at dominance frontiers of definition blocks.  */
-      insert_phi_nodes (dfs, globals);
+  /* Insert PHI nodes at dominance frontiers of definition blocks.  */
+  insert_phi_nodes (dfs, globals);
 
-      /* Rewrite all the basic blocks in the program.  */
-      timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
-      rewrite_block (ENTRY_BLOCK_PTR);
-      timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
-
-      /* Debugging dumps after renaming the function into SSA.  */
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	dump_function_to_file (fndecl, dump_file, dump_flags);
-
-      /* Sanity check.  It's possible for the dominator optimizer to expose
-	 new symbols more than once, but we don't want to spend an eternity
-	 repeating this cycle.  FIXME: The threshold 3 was found by trial
-	 and error.  In a bootstrap+test cycle it is only used in
-	 gcc.c-torture/execute/930718-1.c.  */
-      if (rename_count++ >= 3)
-	break;
-
-      /* Now optimize all the basic blocks in the program.  */
-      sbitmap_zero (vars_to_rename);
-      if (flag_tree_dom)
-	{
-	  tree_ssa_dominator_optimize (fndecl, vars_to_rename);
-
-	  /* If the dominator optimizations exposed new variables, we need
-	     to repeat the SSA renaming process for those symbols.  */
-	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
-	    {
-	      /* Remove PHI nodes for the new symbols, clear the hash
-		 tables and bitmaps and run SSA again on the new exposed
-		 variables.  */
-	      remove_all_phi_nodes_for (vars_to_rename);
-	      htab_empty (def_blocks);
-	      htab_empty (currdefs);
-	      sbitmap_zero (globals);
-	    }
-	}
-    }
-  while (sbitmap_first_set_bit (vars_to_rename) >= 0);
-
-  /* Free allocated memory.  */
-  for (i = 0; i < n_basic_blocks; i++)
-    BITMAP_XFREE (dfs[i]);
-  free (dfs);
-  sbitmap_free (globals);
-  if (vars == NULL)
-    sbitmap_free (vars_to_rename);
-
-  /* The dominator optimizations may have made some blocks unreachable,
-     go ahead and clean things up.  */
-  if (flag_tree_dom)
-    cleanup_tree_cfg ();
+  /* Rewrite all the basic blocks in the program.  */
+  timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
+  rewrite_block (ENTRY_BLOCK_PTR);
+  timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Debugging dumps.  */
   if (dump_file)
@@ -403,8 +351,17 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 	}
 
       dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_ssa, dump_file);
+      dump_end (phase, dump_file);
     }
+
+  /* Free allocated memory.  */
+  FOR_EACH_BB (bb)
+    BITMAP_XFREE (dfs[bb->index]);
+  free (dfs);
+
+  sbitmap_free (globals);
+  if (vars == NULL)
+    sbitmap_free (vars_to_rename);
 
   htab_delete (def_blocks);
   htab_delete (currdefs);
@@ -1630,10 +1587,13 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
 }
 
 
-/* Take function FNDECL out of SSA form.  */
+/* Take function FNDECL out of SSA form.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-rewrite_out_of_ssa (tree fndecl)
+rewrite_out_of_ssa (tree fndecl, enum tree_dump_index phase)
 {
   basic_block bb;
   block_stmt_iterator si;
@@ -1645,7 +1605,7 @@ rewrite_out_of_ssa (tree fndecl)
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
 
-  dump_file = dump_begin (TDI_optimized, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
@@ -1773,8 +1733,12 @@ rewrite_out_of_ssa (tree fndecl)
   delete_var_map (map);
   timevar_pop (TV_TREE_SSA_TO_NORMAL);
 
+  /* Debugging dumps.  */
   if (dump_file)
-    dump_end (TDI_optimized, dump_file);
+    {
+      dump_function_to_file (fndecl, dump_file, dump_flags);
+      dump_end (phase, dump_file);
+    }
 }
 
 

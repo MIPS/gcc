@@ -2752,8 +2752,13 @@ pre_expression (struct expr_info *slot, void *data)
 }
 
 
+/* Main entry point to the SSA-PRE pass.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
+
 void
-tree_perform_ssapre (tree fndecl)
+tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 {
   int currbbs;
   block_stmt_iterator j;
@@ -2763,7 +2768,7 @@ tree_perform_ssapre (tree fndecl)
   int i;
   
   timevar_push (TV_TREE_PRE);
-  dump_file = dump_begin (TDI_pre, &dump_flags);
+  dump_file = dump_begin (phase, &dump_flags);
   VARRAY_GENERIC_PTR_INIT (bexprs, 1, "bexprs");
 
   /* Compute immediate dominators.  */
@@ -2789,9 +2794,13 @@ tree_perform_ssapre (tree fndecl)
 	tree stmt = bsi_stmt (j);
 	stmt_ann_t ann;
 	struct expr_info *slot = NULL;
-	ann = stmt_ann (expr);
+
+	get_stmt_operands (expr);
 	if (use_ops (expr) == NULL)
 	  continue;
+
+	ann = stmt_ann (expr);
+
 	if (TREE_CODE (expr) == MODIFY_EXPR)
 	  expr = TREE_OPERAND (expr, 1);
 	if ((TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
@@ -2885,7 +2894,7 @@ tree_perform_ssapre (tree fndecl)
 	  fprintf (dump_file, "New phis:%d\n", pre_stats.newphis);
 	}
       dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_pre, dump_file);
+      dump_end (phase, dump_file);
     }
   memset (&pre_stats, 0, sizeof (struct pre_stats_d));
   VARRAY_CLEAR (bexprs);

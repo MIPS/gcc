@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
       
 
 struct rtx_def;
@@ -31,8 +31,8 @@ delete_dead_jumptables ()
 
 /* There should be precisely one load of ->code.  If there is
    more than, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "->code" 1 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "->code" 1 "dom2"} } */
    
-/* There should be one IF statement.
-/* { dg-final { scan-tree-dump-times "if " 1 "ssa"} } */
+/* There should be one IF statement.  */
+/* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
 

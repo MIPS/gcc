@@ -122,7 +122,7 @@ static void def_to_varying (tree);
 static void set_lattice_value (tree, value);
 static void simulate_block (basic_block);
 static void simulate_stmt (tree);
-static void substitute_and_fold (void);
+static void substitute_and_fold (sbitmap);
 static value evaluate_stmt (tree);
 static void dump_lattice_value (FILE *, const char *, value);
 static bool replace_uses_in (tree);
@@ -145,12 +145,22 @@ static int dump_flags;
 
 
 /* Main entry point for SSA Conditional Constant Propagation.  FNDECL is
-   the declaration for the function to optimize.  */
+   the declaration for the function to optimize.
+   
+   On exit, VARS_TO_RENAME will contain the symbols that have been exposed by
+   the propagation of ADDR_EXPR expressions into pointer derferences and need
+   to be renamed into SSA.
+
+   PHASE indicates which dump file from the DUMP_FILES array to use when
+   dumping debugging information.  */
 
 void
-tree_ssa_ccp (tree fndecl)
+tree_ssa_ccp (tree fndecl, sbitmap vars_to_rename, enum tree_dump_index phase)
 {
   timevar_push (TV_TREE_CCP);
+
+  /* Initialize debugging dumps.  */
+  dump_file = dump_begin (phase, &dump_flags);
 
   initialize ();
 
@@ -183,7 +193,7 @@ tree_ssa_ccp (tree fndecl)
     }
 
   /* Now perform substitutions based on the known constant values.  */
-  substitute_and_fold ();
+  substitute_and_fold (vars_to_rename);
 
   /* Now cleanup any unreachable code.  */
   cleanup_tree_cfg ();
@@ -204,7 +214,7 @@ tree_ssa_ccp (tree fndecl)
 	}
 
       dump_function_to_file (fndecl, dump_file, dump_flags);
-      dump_end (TDI_ccp, dump_file);
+      dump_end (phase, dump_file);
     }
 }
 
@@ -304,7 +314,7 @@ simulate_stmt (tree use_stmt)
    should still be in SSA form.  */
 
 static void
-substitute_and_fold (void)
+substitute_and_fold (sbitmap vars_to_rename)
 {
   basic_block bb;
 
@@ -357,6 +367,13 @@ substitute_and_fold (void)
 	    {
 	      fold_stmt (bsi_stmt_ptr (i));
 	      modify_stmt (stmt);
+
+	      /* If the statement is an assignment involving pointer
+		 dereferences, we may have exposed new symbols.  */
+	      if (TREE_CODE (stmt) == MODIFY_EXPR
+		  && (TREE_CODE (TREE_OPERAND (stmt, 0)) == INDIRECT_REF
+		      || TREE_CODE (TREE_OPERAND (stmt, 1)) == INDIRECT_REF))
+		mark_new_vars_to_rename (stmt, vars_to_rename);
 	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -426,12 +443,10 @@ visit_phi_node (tree phi)
 	if (e->flags & EDGE_EXECUTABLE)
 	  {
 	    tree rdef = PHI_ARG_DEF (phi, i);
-	    value *rdef_val;
+	    value *rdef_val, val;
 
 	    if (TREE_CONSTANT (rdef))
 	      {
-		value val;
-
 		val.lattice_val = CONSTANT;
 		val.const_val = rdef;
 		rdef_val = &val;
@@ -1013,9 +1028,6 @@ initialize (void)
 {
   edge e;
   basic_block bb;
-
-  /* Initialize debugging dumps.  */
-  dump_file = dump_begin (TDI_ccp, &dump_flags);
 
   /* Initialize the values array with everything as undefined.  */
   const_values = htab_create (50, value_map_hash, value_map_eq, NULL);

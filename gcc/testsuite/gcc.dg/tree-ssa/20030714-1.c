@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
    
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -34,11 +34,11 @@ find_base_value (src)
 
 
 /* There should be six IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 6 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "if " 6 "dom2"} } */
 
 /* There should be three casts to short unsigned int.  */
-/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 3 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 3 "dom2"} } */
 
-/* There should be three loads of ->code
-/* { dg-final { scan-tree-dump-times "->code" 3 "ssa"} } */
+/* There should be three loads of ->code.  */
+/* { dg-final { scan-tree-dump-times "->code" 3 "dom2"} } */
                                                                                 

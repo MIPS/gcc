@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-ssa" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
 struct rtx_def;
 typedef struct rtx_def *rtx;
 enum rtx_code
@@ -33,9 +33,9 @@ nonlocal_mentioned_p (x)
 
 /* There should be precisely one cast to a short unsigned int.  If there is
    more than one, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 1 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 1 "dom2"} } */
                                                                                 
 /* There should be one IF conditional.  */
-/* { dg-final { scan-tree-dump-times "if " 1 "ssa"} } */
+/* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
                                                                                 
 
