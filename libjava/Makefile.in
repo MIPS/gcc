@@ -1145,6 +1145,7 @@ javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/SpinnerListModel.java \
 javax/swing/SpinnerModel.java \
 javax/swing/SpinnerNumberModel.java \
 javax/swing/Spring.java \
@@ -3050,8 +3051,9 @@ java/awt/image/DataBufferShort.lo java/awt/image/DataBufferUShort.lo \
 java/awt/image/DirectColorModel.lo java/awt/image/Kernel.lo \
 java/awt/image/ImageConsumer.lo java/awt/image/ImageObserver.lo \
 java/awt/image/ImageProducer.lo java/awt/image/IndexColorModel.lo \
-java/awt/image/LookupTable.lo java/awt/image/PackedColorModel.lo \
+java/awt/image/LookupTable.lo \
 java/awt/image/MultiPixelPackedSampleModel.lo \
+java/awt/image/PackedColorModel.lo \
 java/awt/image/PixelInterleavedSampleModel.lo java/awt/image/Raster.lo \
 java/awt/image/RasterOp.lo java/awt/image/SampleModel.lo \
 java/awt/image/ShortLookupTable.lo \
@@ -3263,13 +3265,13 @@ javax/swing/JToolTip.lo javax/swing/JTree.lo javax/swing/JViewport.lo \
 javax/swing/JWindow.lo javax/swing/KeyStroke.lo \
 javax/swing/ListCellRenderer.lo javax/swing/ListModel.lo \
 javax/swing/ListSelectionModel.lo javax/swing/LookAndFeel.lo \
-javax/swing/Scrollable.lo javax/swing/SpinnerModel.lo \
-javax/swing/SpinnerNumberModel.lo javax/swing/Spring.lo \
-javax/swing/SpringLayout.lo javax/swing/SwingConstants.lo \
-javax/swing/SwingUtilities.lo javax/swing/Timer.lo \
-javax/swing/ToolTipManager.lo javax/swing/TransferHandler.lo \
-javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
-javax/swing/UnsupportedLookAndFeelException.lo \
+javax/swing/Scrollable.lo javax/swing/SpinnerListModel.lo \
+javax/swing/SpinnerModel.lo javax/swing/SpinnerNumberModel.lo \
+javax/swing/Spring.lo javax/swing/SpringLayout.lo \
+javax/swing/SwingConstants.lo javax/swing/SwingUtilities.lo \
+javax/swing/Timer.lo javax/swing/ToolTipManager.lo \
+javax/swing/TransferHandler.lo javax/swing/UIDefaults.lo \
+javax/swing/UIManager.lo javax/swing/UnsupportedLookAndFeelException.lo \
 javax/swing/event/AncestorEvent.lo \
 javax/swing/event/AncestorListener.lo javax/swing/event/ChangeEvent.lo \
 javax/swing/event/ChangeListener.lo javax/swing/event/DocumentEvent.lo \
@@ -3747,7 +3749,7 @@ libgcj-test.spec.in libgcj.pc.in libgcj.spec.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 DIST_SUBDIRS =  @DIRLTDL@ testsuite gcj include @DIRLTDL@ gcj include
 DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
@@ -5249,12 +5251,12 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/ScrollPaneLayout.P .deps/javax/swing/Scrollable.P \
 .deps/javax/swing/SingleSelectionModel.P \
 .deps/javax/swing/SizeRequirements.P .deps/javax/swing/SizeSequence.P \
-.deps/javax/swing/SpinnerModel.P .deps/javax/swing/SpinnerNumberModel.P \
-.deps/javax/swing/Spring.P .deps/javax/swing/SpringLayout.P \
-.deps/javax/swing/SwingConstants.P .deps/javax/swing/SwingUtilities.P \
-.deps/javax/swing/Timer.P .deps/javax/swing/ToolTipManager.P \
-.deps/javax/swing/TransferHandler.P .deps/javax/swing/UIDefaults.P \
-.deps/javax/swing/UIManager.P \
+.deps/javax/swing/SpinnerListModel.P .deps/javax/swing/SpinnerModel.P \
+.deps/javax/swing/SpinnerNumberModel.P .deps/javax/swing/Spring.P \
+.deps/javax/swing/SpringLayout.P .deps/javax/swing/SwingConstants.P \
+.deps/javax/swing/SwingUtilities.P .deps/javax/swing/Timer.P \
+.deps/javax/swing/ToolTipManager.P .deps/javax/swing/TransferHandler.P \
+.deps/javax/swing/UIDefaults.P .deps/javax/swing/UIManager.P \
 .deps/javax/swing/UnsupportedLookAndFeelException.P \
 .deps/javax/swing/ViewportLayout.P .deps/javax/swing/WindowConstants.P \
 .deps/javax/swing/border/AbstractBorder.P \

@@ -1,3 +1,14 @@
+2004-09-23  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am: Add javax/swing/SpinnerListModel.java.
+	* Makefile.in: Regenerated.
+
+2004-09-23  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* javax/swing/SpinnerListModel.java, javax/swing/SpinnerModel.java
+	Implemented SpinnerListModel.  Added documentation to
+	SpinnerModel.
+
 2004-09-23  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c 
