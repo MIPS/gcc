@@ -684,17 +684,17 @@ gen_reg_rtx (mode)
       rtx *new1;
       tree *new2;
 
-      new = xrealloc (f->emit->regno_pointer_align, old_size * 2);
+      new = ggc_realloc (f->emit->regno_pointer_align, old_size * 2);
       memset (new + old_size, 0, old_size);
       f->emit->regno_pointer_align = (unsigned char *) new;
 
-      new1 = (rtx *) xrealloc (f->emit->x_regno_reg_rtx,
-			       old_size * 2 * sizeof (rtx));
+      new1 = (rtx *) ggc_realloc (f->emit->x_regno_reg_rtx,
+				  old_size * 2 * sizeof (rtx));
       memset (new1 + old_size, 0, old_size * sizeof (rtx));
       regno_reg_rtx = new1;
 
-      new2 = (tree *) xrealloc (f->emit->regno_decl,
-				old_size * 2 * sizeof (tree));
+      new2 = (tree *) ggc_realloc (f->emit->regno_decl,
+				   old_size * 2 * sizeof (tree));
       memset (new2 + old_size, 0, old_size * sizeof (tree));
       f->emit->regno_decl = new2;
 
@@ -2234,21 +2234,6 @@ restore_emit_status (p)
 {
   last_label_num = 0;
   clear_emit_caches ();
-}
-
-/* Clear out all parts of the state in F that can safely be discarded
-   after the function has been compiled, to let garbage collection
-   reclaim the memory.  */
-
-void
-free_emit_status (f)
-     struct function *f;
-{
-  free (f->emit->x_regno_reg_rtx);
-  free (f->emit->regno_pointer_align);
-  free (f->emit->regno_decl);
-  free (f->emit);
-  f->emit = NULL;
 }
 
 /* Go through all the RTL insn bodies and copy any invalid shared
@@ -4677,7 +4662,7 @@ init_emit ()
 {
   struct function *f = cfun;
 
-  f->emit = (struct emit_status *) xmalloc (sizeof (struct emit_status));
+  f->emit = (struct emit_status *) ggc_alloc (sizeof (struct emit_status));
   first_insn = NULL;
   last_insn = NULL;
   seq_rtl_expr = NULL;
@@ -4696,14 +4681,16 @@ init_emit ()
   f->emit->regno_pointer_align_length = LAST_VIRTUAL_REGISTER + 101;
 
   f->emit->regno_pointer_align
-    = (unsigned char *) xcalloc (f->emit->regno_pointer_align_length,
-				 sizeof (unsigned char));
+    = (unsigned char *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
+					   * sizeof (unsigned char));
 
   regno_reg_rtx
-    = (rtx *) xcalloc (f->emit->regno_pointer_align_length, sizeof (rtx));
+    = (rtx *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
+				 * sizeof (rtx));
 
   f->emit->regno_decl
-    = (tree *) xcalloc (f->emit->regno_pointer_align_length, sizeof (tree));
+    = (tree *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
+				  * sizeof (tree));
 
   /* Put copies of all the virtual register rtx into regno_reg_rtx.  */
   init_virtual_regs (f->emit);
@@ -4766,6 +4753,11 @@ mark_emit_status (es)
   if (es == 0)
     return;
 
+  ggc_mark (es);
+  ggc_mark (es->x_regno_reg_rtx);
+  ggc_mark (es->regno_decl);
+  ggc_mark (es->regno_pointer_align);
+  
   for (i = es->regno_pointer_align_length, r = es->x_regno_reg_rtx,
        t = es->regno_decl;
        i > 0; --i, ++r, ++t)

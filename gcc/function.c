@@ -424,7 +424,7 @@ free_after_parsing (f)
 
   if (free_lang_status)
     (*free_lang_status) (f);
-  free_stmt_status (f);
+  f->stmt = NULL;
 }
 
 /* Clear out all parts of the state in F that can safely be discarded
@@ -436,15 +436,12 @@ free_after_compilation (f)
      struct function *f;
 {
   free_eh_status (f);
-  free_expr_status (f);
-  free_emit_status (f);
+  f->expr = NULL;
+  f->emit = NULL;
   free_varasm_status (f);
 
   if (free_machine_status)
     (*free_machine_status) (f);
-
-  if (f->x_parm_reg_stack_loc)
-    free (f->x_parm_reg_stack_loc);
 
   f->x_temp_slots = NULL;
   f->arg_offset_rtx = NULL;
@@ -4285,7 +4282,7 @@ assign_parms (fndecl)
     }
 
   max_parm_reg = LAST_VIRTUAL_REGISTER + 1;
-  parm_reg_stack_loc = (rtx *) xcalloc (max_parm_reg, sizeof (rtx));
+  parm_reg_stack_loc = (rtx *) ggc_alloc_cleared (max_parm_reg * sizeof (rtx));
 
 #ifdef INIT_CUMULATIVE_INCOMING_ARGS
   INIT_CUMULATIVE_INCOMING_ARGS (args_so_far, fntype, NULL_RTX);
@@ -4847,7 +4844,7 @@ assign_parms (fndecl)
 		 but it's also rare and we need max_parm_reg to be
 		 precisely correct.  */
 	      max_parm_reg = regno + 1;
-	      new = (rtx *) xrealloc (parm_reg_stack_loc,
+	      new = (rtx *) ggc_realloc (parm_reg_stack_loc,
 				      max_parm_reg * sizeof (rtx));
 	      memset ((char *) (new + old_max_parm_reg), 0,
 		     (max_parm_reg - old_max_parm_reg) * sizeof (rtx));
@@ -7853,6 +7850,7 @@ mark_function_status (p)
 
   ggc_mark_rtx (p->arg_offset_rtx);
 
+  ggc_mark (p->x_parm_reg_stack_loc);
   if (p->x_parm_reg_stack_loc)
     for (i = p->x_max_parm_reg, r = p->x_parm_reg_stack_loc;
 	 i > 0; --i, ++r)

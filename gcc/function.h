@@ -587,10 +587,7 @@ extern void free_after_compilation	PARAMS ((struct function *));
 
 extern void init_varasm_status		PARAMS ((struct function *));
 extern void free_varasm_status		PARAMS ((struct function *));
-extern void free_emit_status		PARAMS ((struct function *));
-extern void free_stmt_status            PARAMS ((struct function *));
 extern void free_eh_status		PARAMS ((struct function *));
-extern void free_expr_status		PARAMS ((struct function *));
 
 extern rtx get_first_block_beg		PARAMS ((void));
 

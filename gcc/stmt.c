@@ -564,19 +564,6 @@ mark_goto_fixup (g)
     }
 }
 
-/* Clear out all parts of the state in F that can safely be discarded
-   after the function has been compiled, to let garbage collection
-   reclaim the memory.  */
-
-void
-free_stmt_status (f)
-     struct function *f;
-{
-  /* Clear the reference; all the actual freeing will be done at
-     the next GC collection.  */
-  f->stmt = NULL;
-}
-
 /* Mark P for GC.  */
 
 void

@@ -141,6 +141,8 @@ extern void ggc_pop_context 	PARAMS ((void));
 extern void *ggc_alloc		PARAMS ((size_t));
 /* Like ggc_alloc, but allocates cleared memory.  */
 extern void *ggc_alloc_cleared	PARAMS ((size_t));
+/* Resize a block.  */
+extern void *ggc_realloc	PARAMS ((void *, size_t));
 
 #define ggc_alloc_rtx(NSLOTS)						  \
   ((struct rtx_def *) ggc_alloc (sizeof (struct rtx_def)		  \

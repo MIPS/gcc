@@ -295,13 +295,6 @@ mark_expr_status (p)
   ggc_mark_rtx (p->x_forced_labels);
 }
 
-void
-free_expr_status (f)
-     struct function *f;
-{
-  f->expr = NULL;
-}
-
 /* Small sanity check that the queue is empty at the end of a function.  */
 
 void

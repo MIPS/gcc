@@ -631,6 +631,22 @@ ggc_alloc_cleared (size)
   return buf;
 }
 
+/* Resize a block of memory, possibly re-allocating it.  */
+void *
+ggc_realloc (x, size)
+     void *x;
+     size_t size;
+{
+  void *r;
+  size_t old_size = ggc_get_size (x);
+  
+  if (size <= old_size)
+    return x;
+  r = ggc_alloc (size);
+  memcpy (r, x, old_size);
+  return r;
+}
+
 /* Print statistics that are independent of the collector in use.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10 \
 		  ? (x) \

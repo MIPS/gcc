@@ -1,3 +1,22 @@
+2002-02-16  Geoffrey Keating  <geoffk@redhat.com>
+
+	* ggc-common.c (ggc_realloc): New function.
+	* ggc.h: Prototype it.
+	* emit-rtl.c (free_emit_status): Delete.
+	(init_emit): Allocate emit subarrays using GC.
+	(gen_reg_rtx): Reallocate subarrays using GC.
+	(init_emit): Use GC to allocate 'struct emit_status' and its
+	subarrays.
+	(mark_emit_status): Mark structure and its subarrays.
+	* stmt.c (free_stmt_status): Delete.
+	* expr.c (free_expr_status): Delete.
+	* function.h: Remove prototypes for deleted functions.
+	* function.c (free_after_compilation): Don't use deleted functions.
+	Don't call free() on x_parm_reg_stack_loc.
+	(free_after_parsing): Don't use free_stmt_status.
+	(assign_parms): Use GC to allocate and resize x_parm_reg_stack_loc.
+	(mark_function_status): Mark x_parm_reg_stack_loc.
+
 2002-02-13  Geoffrey Keating  <geoffk@redhat.com>
 
 	* varasm.c (init_varasm_status): Use GC to allocate
