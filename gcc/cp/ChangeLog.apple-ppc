@@ -1,3 +1,12 @@
+2005-02-10  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3982256
+	* cp-objcp-common.h (cxx_get_alias_set, 
+	cxx_warn_unused_global_decl, cp_expr_size, cp_tree_size,
+	cp_var_mod_type_p, cxx_initialize_diagnostics,
+	cxx_types_compatible_p): Move prototypes ...
+	* cp-tree.h: ... here.
+
 2005-02-08  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3987120

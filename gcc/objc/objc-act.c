@@ -1,6 +1,6 @@
 /* Implement classes and message passing for Objective C.
    Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steve Naroff.
 
 This file is part of GCC.
@@ -72,6 +72,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-iterator.h"
 #include "libfuncs.h"
 #include "hashtab.h"
+#include "langhooks-def.h"
 
 #define OBJC_VOID_AT_END	void_list_node
 
@@ -635,7 +636,6 @@ objc_finish_file (void)
 #ifdef OBJCPLUS
   /* We need to instantiate templates _before_ we emit ObjC metadata;
      if we do not, some metadata (such as selectors) may go missing.  */
-  /* APPLE LOCAL radar 3971445 fsf candidate */
   at_eof = 1;
   instantiate_pending_templates (0);
 #endif
@@ -891,6 +891,27 @@ objc_is_class_id (tree type)
 {
   return OBJC_TYPE_NAME (type) == objc_class_id;
 }
+
+
+int
+objc_types_compatible_p (tree type1, tree type2)
+{
+
+  if (objc_is_object_ptr (type1) || objc_is_object_ptr (type2)
+      || objc_is_class_name (type1) || objc_is_class_name (type2))
+    {
+      return lhd_types_compatible_p (type1, type2);
+    }
+  else
+    {
+#ifdef OBJCPLUS
+      return cxx_types_compatible_p (type1, type2);
+#else
+      return c_types_compatible_p (type1, type2);
+#endif
+    }
+}
+
 
 /* Return 1 if LHS and RHS are compatible types for assignment or
    various other operations.  Return 0 if they are incompatible, and

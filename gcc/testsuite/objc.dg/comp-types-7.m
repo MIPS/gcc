@@ -1,5 +1,7 @@
-/* APPLE LOCAL file Objective-C */
 /* { dg-do compile } */
+/* We used to ICE because we removed the cast to List_linked*
+   in -[ListIndex_linked next]. */
+
 @interface List
 {
 @public
@@ -24,7 +26,7 @@
 @implementation ListIndex_linked
 - next
 {
-   /* The gimplifier should be able to eliminate the cast in the rhs below.  */
    link = ((List_linked*)collection)->firstLink;
 }
 @end
+

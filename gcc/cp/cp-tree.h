@@ -4359,6 +4359,18 @@ extern tree mangle_ref_init_variable            (tree);
 /* in dump.c */
 extern bool cp_dump_tree                         (void *, tree);
 
+/* APPLE LOCAL begin Objective-C */
+/* In cp/cp-objcp-common.c.  */
+
+extern HOST_WIDE_INT cxx_get_alias_set (tree);
+extern bool cxx_warn_unused_global_decl (tree);
+extern tree cp_expr_size (tree);
+extern size_t cp_tree_size (enum tree_code);
+extern bool cp_var_mod_type_p (tree, tree);
+extern void cxx_initialize_diagnostics (struct diagnostic_context *);
+extern int cxx_types_compatible_p (tree, tree);
+/* APPLE LOCAL end Objective-C */
+
 /* APPLE LOCAL begin KEXT double destructor */
 extern int has_apple_kext_compatibility_attr_p	PARAMS ((tree));
 extern int has_empty_operator_delete_p		PARAMS ((tree));
