@@ -3852,7 +3852,12 @@ handle_switch_split (basic_block src, basic_block dest)
 	 after the last stmt in BB_c (which is pointed to by 'tmp'), and make
 	 it the only element of BB_a.  */
       tsi = tsi_from_bsi (tmp);
-      tsi_link_after (&tsi, stmt, TSI_NEW_STMT);
+      tsi_link_after (&tsi, stmt, TSI_SAME_STMT);
+      /* If we're linking after the last stmt in the chain, we have to update
+         the container for the current stmt as well since we may have a new
+	 container.  */
+      set_bb_for_stmt (*tsi_container (tsi), bb_for_stmt (tsi_stmt (tsi)));
+      tsi_next (&tsi);
       dest->head_tree_p = (tree *) NULL;
       dest->end_tree_p = (tree *) NULL;
       append_stmt_to_bb (tsi_container (tsi),

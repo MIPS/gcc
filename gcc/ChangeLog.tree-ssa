@@ -1,3 +1,19 @@
+2003-09-26  Andrew MacLeod  <amacloeod@redhat.com>
+
+	* tree-ssa-dom.c (struct var_value_d): Remove.
+	(const_and_copies): Change to a varray_type.
+	(tree_ssa_dominator_optimize): Initialize const_and_copies as a varray.
+	(optimize_block): Simply set the value in const_and_copies.
+	(dump_dominator_optimization_stats): No hash stats for const_and_copies.
+	(record_cond_is_true, record_cond_is_false, 
+	simplify_rhs_and_lookup_avail_expr, update_rhs_and_lookup_avail_expr):
+	Parameter const_and_copies is now a varray_type.
+	(var_value_hash, var_value_eq): Remove.
+	(get_value_for, set_value_for): Access varray elements.
+	(get_eq_expr_value): Parameter const_and_copies is now a varray_type.
+
+	* tree-cfg.c (handle_switch_split): Update container of previous stmt.
+
 2003-09-25  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-ander.c:  Fixup comment spacing.

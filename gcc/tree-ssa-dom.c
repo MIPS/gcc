@@ -44,14 +44,6 @@ Boston, MA 02111-1307, USA.  */
 static FILE *dump_file;
 static int dump_flags;
 
-/* Structure to map variables to values.  It's used to keep track of the
-   available constants and copies.  */
-struct var_value_d
-{
-  tree var;
-  tree value;
-};
-
 /* Hash table with expressions made available during the renaming process.
    When an assignment of the form X_i = EXPR is found, the statement is
    stored in this table.  If the same expression EXPR is later found on the
@@ -59,7 +51,7 @@ struct var_value_d
    global redundancy elimination). */
 static htab_t avail_exprs;
 
-/* Hash table of constant values and copies indexed by SSA name.  When the
+/* Table of constant values and copies indexed by SSA name.  When the
    renaming pass finds an assignment of a constant (X_i = C) or a copy
    assignment from another SSA variable (X_i = Y_j), it creates a mapping
    between X_i and the RHS in this table.  This mapping is used later on,
@@ -67,7 +59,7 @@ static htab_t avail_exprs;
    table, instead of using X_i, we use the RHS of the statement stored in
    this table (thus performing very simplistic copy and constant
    propagation).  */
-static htab_t const_and_copies;
+static varray_type const_and_copies;
 
 /* Statistics for dominator optimizations.  */
 struct opt_stats_d
@@ -88,22 +80,20 @@ static varray_type redirection_targets;
 /* Local functions.  */
 static void optimize_block (basic_block, tree, int, sbitmap, bool *);
 static bool optimize_stmt (block_stmt_iterator, varray_type *, bool *);
-static tree get_value_for (tree, htab_t);
-static void set_value_for (tree, tree, htab_t);
-static hashval_t var_value_hash (const void *);
-static int var_value_eq (const void *, const void *);
-static tree lookup_avail_expr (tree, varray_type *, htab_t, bool);
-static tree get_eq_expr_value (tree, int, varray_type *, htab_t);
+static inline tree get_value_for (tree, varray_type);
+static inline void set_value_for (tree, tree, varray_type);
+static tree lookup_avail_expr (tree, varray_type *, varray_type, bool);
+static tree get_eq_expr_value (tree, int, varray_type *, varray_type);
 static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
-static void record_cond_is_false (tree, varray_type *, htab_t);
-static void record_cond_is_true (tree, varray_type *, htab_t);
+static void record_cond_is_false (tree, varray_type *, varray_type);
+static void record_cond_is_true (tree, varray_type *, varray_type);
 static void thread_edge (edge, basic_block);
 static tree update_rhs_and_lookup_avail_expr (tree, tree, varray_type *,
-					      htab_t, stmt_ann_t, bool);
+					      varray_type, stmt_ann_t, bool);
 static tree simplify_rhs_and_lookup_avail_expr (tree, varray_type *,
-						htab_t, stmt_ann_t, int);
+						varray_type, stmt_ann_t, int);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -128,8 +118,7 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename,
   /* Set up debugging dump files.  */
   dump_file = dump_begin (phase, &dump_flags);
 
-  /* Create our hash tables.  */
-  const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
+  /* Create our hash table.  */
   avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
 
   /* Build the dominator tree if necessary. 
@@ -153,6 +142,7 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename,
       free_dominance_info (idom);
     }
 
+  VARRAY_TREE_INIT (const_and_copies, next_ssa_version, "const_and_copies");
   VARRAY_EDGE_INIT (edges_to_redirect, 20, "edges_to_redirect");
   VARRAY_BB_INIT (redirection_targets, 20, "redirection_targets");
 
@@ -168,8 +158,9 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename,
       optimize_block (ENTRY_BLOCK_PTR, NULL, 0, vars_to_rename, &cfg_altered);
 
       /* Wipe the hash tables.  */
-      htab_empty (const_and_copies);
       htab_empty (avail_exprs);
+
+      VARRAY_CLEAR (const_and_copies);
 
       /* If some edges were threaded in this iteration, then perform
 	 the required redirections and recompute the dominators.  */
@@ -220,7 +211,6 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename,
       dump_end (phase, dump_file);
     }
 
-  htab_delete (const_and_copies);
   htab_delete (avail_exprs);
 
   VARRAY_FREE (edges_to_redirect);
@@ -738,18 +728,13 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
   while (VARRAY_ACTIVE_SIZE (block_const_and_copies) > 0)
     {
       tree prev_value, dest;
-      struct var_value_d vm;
 
       prev_value = VARRAY_TOP_TREE (block_const_and_copies);
       VARRAY_POP (block_const_and_copies);
       dest = VARRAY_TOP_TREE (block_const_and_copies);
       VARRAY_POP (block_const_and_copies);
 
-      vm.var = dest;
-      if (prev_value)
-	set_value_for (vm.var, prev_value, const_and_copies);
-      else
-	htab_remove_elt (const_and_copies, &vm);
+      set_value_for (dest, prev_value, const_and_copies);
     }
 
   /* Re-scan operands in all statements that may have had new symbols
@@ -793,9 +778,6 @@ dump_dominator_optimization_stats (FILE *file)
   fprintf (file, "    avail_exprs: ");
   htab_statistics (file, avail_exprs);
 
-  fprintf (file, "    const_and_copies: ");
-  htab_statistics (file, const_and_copies);
-
   fprintf (file, "\n");
 }
 
@@ -826,7 +808,7 @@ htab_statistics (FILE *file, htab_t htab)
 static void
 record_cond_is_true (tree cond,
 		     varray_type *block_avail_exprs_p,
-		     htab_t const_and_copies)
+		     varray_type const_and_copies)
 {
   tree stmt;
 
@@ -840,7 +822,7 @@ record_cond_is_true (tree cond,
 static void
 record_cond_is_false (tree cond,
 		      varray_type *block_avail_exprs_p,
-		      htab_t const_and_copies)
+		      varray_type const_and_copies)
 {
   tree stmt;
 
@@ -858,7 +840,7 @@ record_cond_is_false (tree cond,
 static tree
 simplify_rhs_and_lookup_avail_expr (tree stmt,
 				    varray_type *block_avail_exprs_p,
-				    htab_t const_and_copies,
+				    varray_type const_and_copies,
 				    stmt_ann_t ann,
 				    int insert)
 {
@@ -1475,7 +1457,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 static tree
 update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs, 
 				  varray_type *block_avail_exprs_p,
-				  htab_t const_and_copies,
+				  varray_type const_and_copies,
 				  stmt_ann_t ann,
 				  bool insert)
 {
@@ -1523,65 +1505,32 @@ update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs,
   return cached_lhs;
 }
 
-/* Hashing and equality functions for VAR_VALUE_D.  */
-
-static hashval_t
-var_value_hash (const void *p)
-{
-  return htab_hash_pointer
-	((const void *)((const struct var_value_d *)p)->var);
-}
-
-static int
-var_value_eq (const void *p1, const void *p2)
-{
-  return ((const struct var_value_d *)p1)->var
-	 == ((const struct var_value_d *)p2)->var;
-}
-
 /* Return the value associated with variable VAR in TABLE.  */
 
-static tree
-get_value_for (tree var, htab_t table)
+static inline tree
+get_value_for (tree var, varray_type table)
 {
-  struct var_value_d *vm_p, vm;
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (var) != SSA_NAME)
     abort ();
 #endif
-
-  vm.var = var;
-  vm_p = (struct var_value_d *) htab_find (table, (void *) &vm);
-  return (vm_p) ? vm_p->value : NULL_TREE;
+  return VARRAY_TREE (table, SSA_NAME_VERSION (var));
 }
 
 
 /* Associate VALUE to variable VAR in TABLE.  */
 
-static void
-set_value_for (tree var, tree value, htab_t table)
+static inline void
+set_value_for (tree var, tree value, varray_type table)
 {
-  struct var_value_d *vm_p, vm;
-  void **slot;
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (var) != SSA_NAME)
     abort ();
 #endif
 
-  vm.var = var;
-  slot = htab_find_slot (table, (void *) &vm, INSERT);
-  if (*slot == NULL)
-    {
-      vm_p = xmalloc (sizeof *vm_p);
-      vm_p->var = var;
-      *slot = (void *) vm_p;
-    }
-  else
-    vm_p = (struct var_value_d *) *slot;
-
-  vm_p->value = value;
+  VARRAY_TREE (table, SSA_NAME_VERSION (var)) = value;
 }
 
 
@@ -1600,7 +1549,7 @@ set_value_for (tree var, tree value, htab_t table)
 static tree
 lookup_avail_expr (tree stmt,
 		   varray_type *block_avail_exprs_p,
-		   htab_t const_and_copies,
+		   varray_type const_and_copies,
 		   bool insert)
 {
   void **slot;
@@ -1674,8 +1623,8 @@ lookup_avail_expr (tree stmt,
    get back a constant indicating if the condition is true.  */
 
 static tree
-get_eq_expr_value (tree if_stmt, int true_arm,
-		   varray_type *block_avail_exprs_p, htab_t const_and_copies)
+get_eq_expr_value (tree if_stmt, int true_arm, varray_type *block_avail_exprs_p,
+		   varray_type const_and_copies)
 {
   tree cond, value;
 
