@@ -1,3 +1,10 @@
+2003-10-05  Josef Zlomek  <zlomekj@suse.cz>
+
+	Jan Hubicka <jh@suse.cz>
+	* vasprintf.c (int_vasprintf): Pass va_list by value.
+	Use va_copy for copying va_list.
+	(vasprintf): Pass va_list by value.
+
 2003-09-06  Josef Zlomek  <zlomekj@suse.cz>
 
 	* fibheap.c (fibheap_replace_key_data): Change type of OKEY to

@@ -1,6 +1,6 @@
 /* Like vsprintf but provides a pointer to malloc'd storage, which must
    be freed by the caller.
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 2003 Free Software Foundation, Inc.
 
 This file is part of the libiberty library.
 Libiberty is free software; you can redistribute it and/or
@@ -59,13 +59,13 @@ not be allocated, zero is returned and @code{NULL} is stored in
 
 */
 
-static int int_vasprintf PARAMS ((char **, const char *, va_list *));
+static int int_vasprintf PARAMS ((char **, const char *, va_list));
 
 static int
 int_vasprintf (result, format, args)
      char **result;
      const char *format;
-     va_list *args;
+     va_list args;
 {
   const char *p = format;
   /* Add one to make sure that it is never zero, which might cause malloc
@@ -73,7 +73,11 @@ int_vasprintf (result, format, args)
   int total_width = strlen (format) + 1;
   va_list ap;
 
-  memcpy ((PTR) &ap, (PTR) args, sizeof (va_list));
+#ifdef va_copy
+  va_copy (ap, args);
+#else
+  memcpy ((PTR) &ap, (PTR) &args, sizeof (va_list));
+#endif
 
   while (*p != '\0')
     {
@@ -135,12 +139,15 @@ int_vasprintf (result, format, args)
 	  p++;
 	}
     }
+#ifdef va_copy
+  va_end (ap);
+#endif
 #ifdef TEST
   global_total_width = total_width;
 #endif
   *result = (char *) malloc (total_width);
   if (*result != NULL)
-    return vsprintf (*result, format, *args);
+    return vsprintf (*result, format, args);
   else
     return 0;
 }
@@ -155,7 +162,7 @@ vasprintf (result, format, args)
      va_list args;
 #endif
 {
-  return int_vasprintf (result, format, &args);
+  return int_vasprintf (result, format, args);
 }
 
 #ifdef TEST
