@@ -1,3 +1,11 @@
+2003-11-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-tailcall.c (struct tailcall): New.
+	(bb_optimize_tail_calls, find_tail_call_p): Removed.
+	(eliminate_tail_call): Get the tailcall from the struct tailcall.
+	(optimize_tail_call, find_tail_calls): New.
+	(tree_optimize_tail_calls): Use them.
+
 2003-11-07  Jan Hubicka  <jh@suse.cz>
 
 	* gimple-low.c (simple_goto_p): Move to...

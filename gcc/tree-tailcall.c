@@ -36,10 +36,30 @@ Boston, MA 02111-1307, USA.  */
 static FILE *dump_file;		/* CFG dump file. */
 static int dump_flags;		/* CFG dump flags.  */
 
+/* A structure that describes the tailcall.  */
+
+struct tailcall
+{
+  /* The blocks in that the call and corresponding return occur.  */
+  basic_block call_block, return_block;
+
+  /* The iterators pointing to the statements.  */
+  block_stmt_iterator call_bsi, return_bsi;
+
+  /* Variable used to return the call value.  */
+  tree ret_variable;
+
+  /* True if it is a call to the current function.  */
+  bool tail_recursion;
+
+  /* Next tailcall in the chain.  */
+  struct tailcall *next;
+};
+
 static bool suitable_for_tail_opt_p (void);
-static void bb_optimize_tail_calls (basic_block, tree *);
-static bool find_tail_call_p (basic_block, block_stmt_iterator *, bool *);
-static void eliminate_tail_call (block_stmt_iterator, bool, tree);
+static bool optimize_tail_call (struct tailcall *, tree *);
+static void eliminate_tail_call (struct tailcall *, tree);
+static void find_tail_calls (basic_block, struct tailcall *, struct tailcall **);
 
 /* Returns false when the function is not suitable for tail call optimization
    from some reason (e.g. if it takes variable number of arguments).  */
@@ -67,83 +87,124 @@ suitable_for_tail_opt_p (void)
   return true;
 }
 
-/* Checks whether basic block BB ends in a tail call.  If so, BSI is set
-   to point to it.  HAS_RETURN is set to true if the call is followed by
-   return.  */
+/* Finds tailcalls falling into basic block BB.  The current state of the
+   recursive search is stored inside ACT, the list of found tailcalls is
+   added to the start of RET.  */
 
-static bool
-find_tail_call_p (basic_block bb, block_stmt_iterator *bsi, bool *has_return)
+static void
+find_tail_calls (basic_block bb, struct tailcall *act, struct tailcall **ret)
 {
-  tree ret_var, ass_var, stmt, func, param, args;
+  tree ass_var, stmt, func, param, args;
+  block_stmt_iterator bsi;
+  bool seen_return = false, found = false, tail_recursion = false;
+  struct tailcall *nw;
+  edge e;
 
   if (bb->succ->succ_next)
-    return false;
+    return;
 
-  *bsi = bsi_last (bb);
-  if (bsi_end_p (*bsi))
-    return false;
-
-  stmt = bsi_stmt (*bsi);
-  *has_return = TREE_CODE (stmt) == RETURN_EXPR;
-  if (*has_return)
+  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
     {
-      ret_var = TREE_OPERAND (stmt, 0);
-      if (ret_var && TREE_CODE (ret_var) == MODIFY_EXPR)
-	ret_var = TREE_OPERAND (ret_var, 1);
-      bsi_prev (bsi);
+      stmt = bsi_stmt (bsi);
+
+      /* Ignore labels and gotos.  */
+      if (TREE_CODE (stmt) == LABEL_EXPR
+	  || TREE_CODE (stmt) == GOTO_EXPR)
+	continue;
+
+      /* Check for a return statement.  */
+      if (TREE_CODE (stmt) == RETURN_EXPR)
+	{
+	  if (act->return_block)
+	    abort ();
+
+	  act->ret_variable = TREE_OPERAND (stmt, 0);
+	  if (act->ret_variable
+	      && TREE_CODE (act->ret_variable) == MODIFY_EXPR)
+	    act->ret_variable = TREE_OPERAND (act->ret_variable, 1);
+
+	  act->return_bsi = bsi;
+	  act->return_block = bb;
+	  seen_return = true;
+
+	  continue;
+	}
+
+      found = true;
+
+      /* Check for a call.  */
+      if (TREE_CODE (stmt) == MODIFY_EXPR)
+	{
+	  ass_var = TREE_OPERAND (stmt, 0);
+	  stmt = TREE_OPERAND (stmt, 1);
+	}
+      else
+	ass_var = NULL_TREE;
+
+      if (ass_var != act->ret_variable)
+	break;
+
+      if (TREE_CODE (stmt) != CALL_EXPR)
+	break;
+
+      func = get_callee_fndecl (stmt);
+      if (func == current_function_decl)
+	{
+	  for (param = DECL_ARGUMENTS (func), args = TREE_OPERAND (stmt, 1);
+	       param && args;
+	       param = TREE_CHAIN (param), args = TREE_CHAIN (args))
+	    if (param != TREE_VALUE (args)
+		/* Make sure there are no problems with copying.  */
+		&& !is_gimple_reg_type (TREE_TYPE (param)))
+	      break;
+	  if (!args && !param)
+	    tail_recursion = true;
+	}
+
+      /* We found the call, record it.  */
+      nw = xmalloc (sizeof (struct tailcall));
+
+      nw->return_block = act->return_block;
+      nw->return_bsi = act->return_bsi;
+
+      nw->call_block = bb;
+      nw->call_bsi = bsi;
+
+      nw->ret_variable = act->ret_variable;
+      nw->tail_recursion = tail_recursion;
+
+      nw->next = *ret;
+      *ret = nw;
+      break;
     }
-  else
-    ret_var = NULL_TREE;
 
-  if (bsi_end_p (*bsi))
-    return false;
-
-  stmt = bsi_stmt (*bsi);
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
+  /* Unless we found soumething that stops the search, recurse to the
+     predecessors.  */
+  if (!found)
     {
-      ass_var = TREE_OPERAND (stmt, 0);
-      stmt = TREE_OPERAND (stmt, 1);
+      for (e = bb->pred; e; e = e->pred_next)
+	find_tail_calls (e->src, act, ret);
     }
-  else
-    ass_var = NULL_TREE;
 
-  if (ass_var != ret_var)
-    return false;
-
-  if (TREE_CODE (stmt) != CALL_EXPR)
-    return false;
-
-  func = get_callee_fndecl (stmt);
-  if (func != current_function_decl)
-    return false;
-
-  for (param = DECL_ARGUMENTS (func), args = TREE_OPERAND (stmt, 1);
-       param && args;
-       param = TREE_CHAIN (param), args = TREE_CHAIN (args))
-    if (param != TREE_VALUE (args)
-	/* Make sure there are no problems with copying.  */
-	&& !is_gimple_reg_type (TREE_TYPE (param)))
-      return false;
-  if (args || param)
-    return false;
-
-  return true;
+  if (seen_return)
+    {
+      /* Undo the changes recorded in this basic block.  */
+      act->ret_variable = NULL_TREE;
+      act->return_block = NULL;
+    }
 }
 
-/* Eliminates tail call pointed by BSI.  HAS_RETURN is true if we also should
-   remove the return statement following the call.  TMP_VARS is a list of
+/* Eliminates tail call described by T.  TMP_VARS is a list of
    temporary variables used to copy the function arguments.  */
 
 static void
-eliminate_tail_call (block_stmt_iterator bsi, bool has_return, tree tmp_vars)
+eliminate_tail_call (struct tailcall *t, tree tmp_vars)
 {
-  tree param, stmt, args, tmp_var, label;
-  block_stmt_iterator bsi_s;
-  bool emit_label;
+  tree param, stmt, args, tmp_var;
   basic_block bb;
 
-  stmt = bsi_stmt (bsi);
-  bb = bb_for_stmt (stmt);
+  stmt = bsi_stmt (t->call_bsi);
+  bb = t->call_block;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -169,7 +230,7 @@ eliminate_tail_call (block_stmt_iterator bsi, bool has_return, tree tmp_vars)
 	   it here.  Additionally, it would obviously be
 	   useless anyway.  */
 	&& var_ann (param))
-      bsi_insert_before (&bsi,
+      bsi_insert_before (&t->call_bsi,
 			 build (MODIFY_EXPR, TREE_TYPE (param),
 				TREE_VALUE (tmp_var),
 				unshare_expr (TREE_VALUE (args))),
@@ -183,59 +244,36 @@ eliminate_tail_call (block_stmt_iterator bsi, bool has_return, tree tmp_vars)
        tmp_var = TREE_CHAIN (tmp_var))
     if (param != TREE_VALUE (args)
 	&& var_ann (param))
-      bsi_insert_before (&bsi,
+      bsi_insert_before (&t->call_bsi,
 			 build (MODIFY_EXPR, TREE_TYPE (param),
 				param, TREE_VALUE (tmp_var)),
 			 BSI_SAME_STMT);
 
   /* Replace the call by jump to the start of function.  */
-  bsi_s = bsi_start (ENTRY_BLOCK_PTR->succ->dest);
-  if (bsi_end_p (bsi_s) || TREE_CODE (bsi_stmt (bsi_s)) != LABEL_EXPR)
+  if (t->return_block == bb)
     {
-      label = create_artificial_label ();
-      emit_label = true;
+      bsi_remove (&t->return_bsi);
+      bb->succ->flags |= EDGE_FALLTHRU;
     }
-  else
-    {
-      label = LABEL_EXPR_LABEL (bsi_stmt (bsi_s));
-      emit_label = false;
-    }
+  bsi_remove (&t->call_bsi);
 
-  if (has_return)
-    bsi_remove (&bsi);
-  bsi_replace (bsi, build1 (GOTO_EXPR, void_type_node, label));
-
-  if (emit_label)
-    {
-      /* Emit the label; do it now, since otherwise we would conflict
-	 with bsi in case the call is the first statement of the
-	 program.  */
-      bsi_s = bsi_start (ENTRY_BLOCK_PTR->succ->dest);
-      bsi_insert_before (&bsi_s,
-			 build1 (LABEL_EXPR, void_type_node, label),
-			 BSI_NEW_STMT);
-    }
-
-  /* Update the cfg.  */
-  remove_edge (bb->succ);
-  make_edge (bb, ENTRY_BLOCK_PTR->succ->dest, 0);
+  if (!redirect_edge_and_branch (t->call_block->succ,
+				 ENTRY_BLOCK_PTR->succ->dest))
+    abort ();
 }
 
-/* Optimizes tail calls in the basic block BB.  *TMP_VARS is set to a list of
+/* Optimizes the tailcall described by T.  *TMP_VARS is set to a list of
    temporary variables used to copy the function arguments the first time
-   they are needed.  */
+   they are needed.  Returns true if cfg is changed.  */
 
-static void
-bb_optimize_tail_calls (basic_block bb, tree *tmp_vars)
+static bool
+optimize_tail_call (struct tailcall *t, tree *tmp_vars)
 {
-  block_stmt_iterator bsi;
-  bool has_return = 0;
   tree tmp_var, param;
 
-  /* Find the tail call.  Again, this should be more involved, catching
-     the cases when the call and return are not in the same block.  */
-  if (!find_tail_call_p (bb, &bsi, &has_return))
-    return;
+  /* Nothing to do unless it is tail recursion.  */
+  if (!t->tail_recursion)
+    return false;
 
   if (!*tmp_vars)
     {
@@ -251,7 +289,8 @@ bb_optimize_tail_calls (basic_block bb, tree *tmp_vars)
       *tmp_vars = nreverse (*tmp_vars);
     }
 
-  eliminate_tail_call (bsi, has_return, *tmp_vars);
+  eliminate_tail_call (t, *tmp_vars);
+  return true;
 }
 
 /* Optimizes tail calls in the function, turning the tail recursion
@@ -260,19 +299,36 @@ bb_optimize_tail_calls (basic_block bb, tree *tmp_vars)
 void
 tree_optimize_tail_calls (void)
 {
-  edge e, next;
+  edge e;
   tree tmp_vars = NULL_TREE;
+  struct tailcall common, *tailcalls = NULL, *next;
+  bool changed = false;
 
   if (!suitable_for_tail_opt_p ())
     return;
 
   dump_file = dump_begin (TDI_tail, &dump_flags);
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = next)
+  common.return_block = NULL;
+  common.ret_variable = NULL_TREE;
+
+  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
     {
-      next = e->pred_next;
-      bb_optimize_tail_calls (e->src, &tmp_vars);
+      find_tail_calls (e->src, &common, &tailcalls);
+
+      if (common.return_block)
+	abort ();
     }
+
+  for (; tailcalls; tailcalls = next)
+    {
+      next = tailcalls->next;
+      changed |= optimize_tail_call (tailcalls, &tmp_vars);
+      free (tailcalls);
+    }
+
+  if (changed)
+    cleanup_tree_cfg ();
 
   if (dump_file)
     {
