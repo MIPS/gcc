@@ -1460,9 +1460,9 @@ remove_bb (basic_block bb)
 
 /* Examine BB to determine if it is a forwarding block (a block which only
    transfers control to a new destination).  If BB is a forwarding block,
-   then return the ultimate destination.  */
+   then return edge leading to the ultimate destination.  */
 
-basic_block
+edge
 tree_block_forwards_to (basic_block bb)
 {
   block_stmt_iterator bsi;
@@ -1503,14 +1503,14 @@ tree_block_forwards_to (basic_block bb)
      case.  */
   if (bsi_end_p (bsi))
     {
-      basic_block dest;
+      edge dest;
 
       /* Recursive call to pick up chains of forwarding blocks.  */
       dest = tree_block_forwards_to (bb->succ->dest);
 
-      /* If none found, we forward to bb->succ->dest at minimum.  */
+      /* If none found, we forward to bb->succ at minimum.  */
       if (!dest)
-	dest = bb->succ->dest;
+	dest = bb->succ;
 
       ann->forwardable = 1;
       return dest;

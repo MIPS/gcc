@@ -145,9 +145,17 @@ struct vrp_element
 
 static struct opt_stats_d opt_stats;
 
-/* Redirections scheduled by jump threading.   */
-static varray_type edges_to_redirect;
-static varray_type redirection_targets;
+/* This virtual array holds pairs of edges which describe a scheduled
+   edge redirection from jump threading.
+
+   The first entry in each pair is the edge we are going to redirect.
+
+   The second entry in each pair is the edge leading to our final
+   destination block.  By providing this as an edge rather than the
+   final target block itself we can correctly handle redirections
+   when the target block had PHIs which required edge insertions/splitting
+   to remove the PHIs.  */
+static varray_type redirection_edges;
 
 /* A virtual array holding value range records for the variable identified
    by the index, SSA_VERSION.  */
@@ -308,8 +316,7 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 			     true_false_expr_eq, NULL);
   VARRAY_TREE_INIT (const_and_copies, highest_ssa_version, "const_and_copies");
   VARRAY_TREE_INIT (nonzero_vars, highest_ssa_version, "nonzero_vars");
-  VARRAY_EDGE_INIT (edges_to_redirect, 20, "edges_to_redirect");
-  VARRAY_BB_INIT (redirection_targets, 20, "redirection_targets");
+  VARRAY_EDGE_INIT (redirection_edges, 20, "redirection_edges");
   VARRAY_GENERIC_PTR_INIT (vrp_data, highest_ssa_version, "vrp_data");
 
 
@@ -382,18 +389,39 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 
       /* If some edges were threaded in this iteration, then perform
 	 the required redirections and recompute the dominators.  */
-      if (VARRAY_ACTIVE_SIZE (edges_to_redirect) > 0)
+      if (VARRAY_ACTIVE_SIZE (redirection_edges) > 0)
 	{
 	  basic_block tgt;
 	  unsigned int i;
 
 	  /* First note any variables which we are going to have to take
 	     out of SSA form.  */
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (edges_to_redirect); i++)
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
 	    {
-	      e = VARRAY_EDGE (edges_to_redirect, i);
+	      e = VARRAY_EDGE (redirection_edges, i);
+	      tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
 
 	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+		{
+		  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
+		  int j;
+
+                  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
+
+		  for (j = 0; j < PHI_NUM_ARGS (phi); j++)
+		    {
+		      tree arg = PHI_ARG_DEF (phi, j);
+
+		      if (TREE_CODE (arg) != SSA_NAME)
+			continue;
+
+		      arg = SSA_NAME_VAR (arg);
+		      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
+		    }
+	        }
+
+	      /* Similarly for our destination.  */
+	      for (phi = phi_nodes (tgt); phi; phi = TREE_CHAIN (phi))
 		{
 		  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
 		  int j;
@@ -419,14 +447,12 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 	    rewrite_vars_out_of_ssa (vars_to_rename);
 
 	  /* Now redirect the edges.  */
-	  while (VARRAY_ACTIVE_SIZE (edges_to_redirect) > 0)
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
 	    {
 	      basic_block src;
 
-	      e = VARRAY_TOP_EDGE (edges_to_redirect);
-	      tgt = VARRAY_TOP_BB (redirection_targets);
-	      VARRAY_POP (edges_to_redirect);
-	      VARRAY_POP (redirection_targets);
+	      e = VARRAY_EDGE (redirection_edges, i);
+	      tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
@@ -442,6 +468,7 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
 			 e->src->index);
 	    }
 
+	  VARRAY_CLEAR (redirection_edges);
 	  cfg_altered = true;
 	}
 
@@ -500,8 +527,7 @@ tree_ssa_dominator_optimize (tree fndecl, bitmap vars,
   htab_delete (true_exprs);
   htab_delete (false_exprs);
 
-  VARRAY_FREE (edges_to_redirect);
-  VARRAY_FREE (redirection_targets);
+  VARRAY_FREE (redirection_edges);
 
   /* And finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
@@ -572,20 +598,23 @@ thread_across_edge (edge e)
 	  /* If we have a known destination for the conditional, then
 	     we can perform this optimization, which saves at least one
 	     conditional jump each time it applies since we get to
-	     bypass the conditional at our original destination.  */
-	  if (dest && ! phi_nodes (dest))
+	     bypass the conditional at our original destination. 
+
+	     Note that we can either thread through a block with PHIs
+	     or to a block with PHIs, but not both.  At this time the
+	     bookkeeping to keep the CFG & SSA up-to-date has proven
+	     difficult.  */
+	  if (dest)
 	    {
-	      basic_block forwards_to;
 	      int saved_forwardable = bb_ann (e->src)->forwardable;
+	      edge tmp_edge;
 
 	      bb_ann (e->src)->forwardable = 0;
-
-	      forwards_to = tree_block_forwards_to (dest);
-
+	      tmp_edge = tree_block_forwards_to (dest);
+	      taken_edge = (tmp_edge ? tmp_edge : taken_edge);
 	      bb_ann (e->src)->forwardable = saved_forwardable;
-	      dest = (forwards_to ? forwards_to : dest);
-	      VARRAY_PUSH_EDGE (edges_to_redirect, e);
-	      VARRAY_PUSH_BB (redirection_targets, dest);
+	      VARRAY_PUSH_EDGE (redirection_edges, e);
+	      VARRAY_PUSH_EDGE (redirection_edges, taken_edge);
 	    }
 	}
     }

@@ -1,3 +1,20 @@
+2003-12-18  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (edges_to_redirect, redirection_targets): Merged
+	into a single varray "redirection_edges".
+	(tree_ssa_dominator_optimize): Twiddle initialization, finalization
+	and accessors to redirection information based on combining varrays.
+	Get the threading destination from the saved edge rather than from a
+	saved block.  Mark variables appearing in PHIs at the jump thread
+	destination to be taken out of SSA form.
+	(thread_across_edge): Save the edge into the destination block
+	rather than the destination block itself.  Twiddle based on 
+	combining varrays of jump threading information.
+	* tree-flow.h (tree_block_forwards_to): Returns an edge rather than
+	a block.
+	* tree-cfg.c (tree_block_forwards_to): Return the edge leading to
+	the target block rather than the target block itself.
+
 2003-12-18  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (get_memory_tag_for): Don't put things with different
