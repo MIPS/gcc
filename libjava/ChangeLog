@@ -1,5 +1,10 @@
 2004-06-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/KeyStroke.java
+	(getKeyStroke(char,boolean)): Marked deprecated.
+
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/DefaultCellEditor.java,
 	javax/swing/GrayFilter.java,
 	javax/swing/event/DocumentEvent.java,
