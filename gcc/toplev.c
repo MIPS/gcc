@@ -2555,6 +2555,7 @@ rest_of_compilation (decl)
   /* Build CFG -- for predictions based on source code.  */
   insns = get_insns ();
   rebuild_jump_labels (insns);
+  find_exception_handler_labels ();
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   
   cleanup_cfg (CLEANUP_PRE_SIBCALL | CLEANUP_UNREACHABLE_ONLY);
