@@ -867,7 +867,7 @@ unsigned int
 reg_spill_cost(regno)
 	int regno;
 {
-	return costs[regno].mem_cost;
+  return costs[regno].mem_cost;
 }
 
 enum reg_class
@@ -1288,7 +1288,7 @@ regclass (f, nregs, dump)
 
 	  /* In non-optimizing compilation REG_N_REFS is not initialized
 	     yet.  */
-	  if (optimize && !REG_N_REFS (i))
+	  if (optimize && !REG_N_REFS (i) && !REG_N_SETS (i))
 	    continue;
 
 	  for (class = (int) ALL_REGS - 1; class > 0; class--)
@@ -2419,6 +2419,18 @@ reg_scan_mark_refs (x, insn, note_flag, min_regno)
     case INSN_LIST:
       if (XEXP (x, 1))
 	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag, min_regno);
+      break;
+
+    case CLOBBER:
+      {
+	rtx reg = XEXP (x, 0);
+	if (REG_P (reg)
+	    && REGNO (reg) >= min_regno)
+	  {
+	    REG_N_SETS (REGNO (reg))++;
+	    REG_N_REFS (REGNO (reg))++;
+	  }
+      }
       break;
 
     case SET:

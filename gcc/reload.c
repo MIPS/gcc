@@ -93,6 +93,7 @@ a register with any other reload.  */
 #include "insn-config.h"
 #include "recog.h"
 #include "reload.h"
+#include "pre-reload.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "flags.h"
@@ -134,32 +135,12 @@ int reload_n_operands;
    perform all the replacements needed.  */
 
 /* Nonzero means record the places to replace.  */
-static int replace_reloads;
+int replace_reloads;
 
-/* Each replacement is recorded with a structure like this.  */
-struct replacement
-{
-  rtx *where;			/* Location to store in */
-  rtx *subreg_loc;		/* Location of SUBREG if WHERE is inside
-				   a SUBREG; 0 otherwise.  */
-  int what;			/* which reload this is for */
-  enum machine_mode mode;	/* mode it must have */
-};
-
-static struct replacement replacements[MAX_RECOG_OPERANDS * ((MAX_REGS_PER_ADDRESS * 2) + 1)];
+struct replacement replacements[MAX_RECOG_OPERANDS * ((MAX_REGS_PER_ADDRESS * 2) + 1)];
 
 /* Number of replacements currently recorded.  */
-static int n_replacements;
-
-/* Used to track what is modified by an operand.  */
-struct decomposition
-{
-  int reg_flag;		/* Nonzero if referencing a register.  */
-  int safe;		/* Nonzero if this can't conflict with anything.  */
-  rtx base;		/* Base address for MEM.  */
-  HOST_WIDE_INT start;	/* Starting offset or register number.  */
-  HOST_WIDE_INT end;	/* Ending offset or register number.  */
-};
+int n_replacements;
 
 #ifdef SECONDARY_MEMORY_NEEDED
 
@@ -177,10 +158,10 @@ static rtx secondary_memlocs_elim[NUM_MACHINE_MODES][MAX_RECOG_OPERANDS];
 
 /* The instruction we are doing reloads for;
    so we can test whether a register dies in it.  */
-static rtx this_insn;
+rtx this_insn;
 
 /* Nonzero if this instruction is a user-specified asm with operands.  */
-static int this_insn_is_asm;
+int this_insn_is_asm;
 
 /* If hard_regs_live_known is nonzero,
    we can tell which hard regs are currently live,
@@ -198,53 +179,16 @@ static int subst_reg_equivs_changed;
 
 /* On return from push_reload, holds the reload-number for the OUT
    operand, which can be different for that from the input operand.  */
-static int output_reloadnum;
-
-  /* Compare two RTX's.  */
-#define MATCHES(x, y) \
- (x == y || (x != 0 && (GET_CODE (x) == REG				\
-			? GET_CODE (y) == REG && REGNO (x) == REGNO (y)	\
-			: rtx_equal_p (x, y) && ! side_effects_p (x))))
-
-  /* Indicates if two reloads purposes are for similar enough things that we
-     can merge their reloads.  */
-#define MERGABLE_RELOADS(when1, when2, op1, op2) \
-  ((when1) == RELOAD_OTHER || (when2) == RELOAD_OTHER	\
-   || ((when1) == (when2) && (op1) == (op2))		\
-   || ((when1) == RELOAD_FOR_INPUT && (when2) == RELOAD_FOR_INPUT) \
-   || ((when1) == RELOAD_FOR_OPERAND_ADDRESS		\
-       && (when2) == RELOAD_FOR_OPERAND_ADDRESS)	\
-   || ((when1) == RELOAD_FOR_OTHER_ADDRESS		\
-       && (when2) == RELOAD_FOR_OTHER_ADDRESS))
-
-  /* Nonzero if these two reload purposes produce RELOAD_OTHER when merged.  */
-#define MERGE_TO_OTHER(when1, when2, op1, op2) \
-  ((when1) != (when2)					\
-   || ! ((op1) == (op2)					\
-	 || (when1) == RELOAD_FOR_INPUT			\
-	 || (when1) == RELOAD_FOR_OPERAND_ADDRESS	\
-	 || (when1) == RELOAD_FOR_OTHER_ADDRESS))
-
-  /* If we are going to reload an address, compute the reload type to
-     use.  */
-#define ADDR_TYPE(type)					\
-  ((type) == RELOAD_FOR_INPUT_ADDRESS			\
-   ? RELOAD_FOR_INPADDR_ADDRESS				\
-   : ((type) == RELOAD_FOR_OUTPUT_ADDRESS		\
-      ? RELOAD_FOR_OUTADDR_ADDRESS			\
-      : (type)))
+int output_reloadnum;
 
 #ifdef HAVE_SECONDARY_RELOADS
 static int push_secondary_reload PARAMS ((int, rtx, int, int, enum reg_class,
 					enum machine_mode, enum reload_type,
 					enum insn_code *));
 #endif
-static enum reg_class find_valid_class PARAMS ((enum machine_mode, int));
-static int reload_inner_reg_of_subreg PARAMS ((rtx, enum machine_mode));
 static int push_reload		PARAMS ((rtx, rtx, rtx *, rtx *, enum reg_class,
 				       enum machine_mode, enum machine_mode,
 				       int, int, int, enum reload_type));
-static void push_replacement	PARAMS ((rtx *, int, enum machine_mode));
 static void combine_reloads	PARAMS ((void));
 static int find_reusable_reload	PARAMS ((rtx *, rtx, enum reg_class,
 				       enum reload_type, int, int));
@@ -254,7 +198,6 @@ static rtx find_dummy_reload	PARAMS ((rtx, rtx, rtx *, rtx *,
 static int hard_reg_set_here_p	PARAMS ((unsigned int, unsigned int, rtx));
 static struct decomposition decompose PARAMS ((rtx));
 static int immune_p		PARAMS ((rtx, rtx, struct decomposition));
-static int alternative_allows_memconst PARAMS ((const char *, int));
 static rtx find_reloads_toplev	PARAMS ((rtx, int, enum reload_type, int,
 					 int, rtx, int *));
 static rtx make_memloc		PARAMS ((rtx, int));
@@ -661,7 +604,7 @@ clear_secondary_mem ()
 /* Find the largest class for which every register number plus N is valid in
    M1 (if in range).  Abort if no such class exists.  */
 
-static enum reg_class
+enum reg_class
 find_valid_class (m1, n)
      enum machine_mode m1 ATTRIBUTE_UNUSED;
      int n;
@@ -775,7 +718,7 @@ find_reusable_reload (p_in, out, class, type, opnum, dont_share)
 /* Return nonzero if X is a SUBREG which will require reloading of its
    SUBREG_REG expression.  */
 
-static int
+int
 reload_inner_reg_of_subreg (x, mode)
      rtx x;
      enum machine_mode mode;
@@ -1528,7 +1471,7 @@ push_reload (in, out, inloc, outloc, class,
    when the reload was recorded.
    This is used in insn patterns that use match_dup.  */
 
-static void
+void
 push_replacement (loc, reloadnum, mode)
      rtx *loc;
      int reloadnum;
@@ -4219,7 +4162,7 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 /* Return 1 if alternative number ALTNUM in constraint-string CONSTRAINT
    accepts a memory operand with constant address.  */
 
-static int
+int
 alternative_allows_memconst (constraint, altnum)
      const char *constraint;
      int altnum;
@@ -6857,3 +6800,5 @@ debug_reload ()
 {
   debug_reload_to_stream (stderr);
 }
+
+

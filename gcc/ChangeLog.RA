@@ -1,3 +1,26 @@
+Sat Feb  2 18:58:07 2002  Denis Chertykov  <denisc@overta.ru>
+
+        * pre-reload.h: New. Communication between reload.c, reload1.c and
+        pre-reload.c.
+
+        * pre-reload.c: New. Analog of reload pass which work with pseudos
+        and classes.
+
+        * ra.c (sort_and_combine_web_pairs): Disable 'for_move' to prevent
+        abort inside 'combine'.
+        (reg_alloc): Call pre_reload and rescan all regs.
+        (debug_hard_reg_set): New. Print readable HARD_REG_SET.
+
+        * regclass.c (regclass): Work with all regs which have sets or
+        refs.
+        (reg_scan_mark_refs): Count regs inside (clobber ...).
+        (reload.c): Changed for use pre-reload.h.
+        (reload1.c): Likewise.
+
+        * Makefile.in (reload.o): Add dependency on pre-reload.h
+        (reload1.o): Likewise.
+        (pre-reload.o): New.
+
 2002-01-19  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	* ra.c (ok): Wide webs coalesced to precolored ones take more

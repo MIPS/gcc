@@ -751,7 +751,7 @@ OBJS =									\
  sbitmap.o sched-deps.o	sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	\
  sibcall.o simplify-rtx.o splay-tree.o ssa.o ssa-ccp.o ssa-dce.o	\
  stmt.o stor-layout.o stringpool.o timevar.o toplev.o tree.o unroll.o	\
- varasm.o varray.o version.o xcoffout.o	ra.o 				\
+ varasm.o varray.o version.o xcoffout.o	ra.o pre-reload.o				\
  $(GGC) $(out_object_file) $(EXTRA_OBJS)
 
 BACKEND = main.o libbackend.a
@@ -1506,10 +1506,14 @@ global.o : global.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h reload.h function.h
 varray.o : varray.c $(CONFIG_H) $(SYSTEM_H) varray.h $(RTL_H) $(TREE_H) bitmap.h \
    errors.h
 reload.o : reload.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h output.h $(EXPR_H) \
-   reload.h $(RECOG_H) hard-reg-set.h insn-config.h $(REGS_H) \
+   reload.h $(RECOG_H) hard-reg-set.h insn-config.h $(REGS_H) pre-reload.h \
    function.h real.h toplev.h $(TM_P_H)
 reload1.o : reload1.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) real.h flags.h $(EXPR_H) \
-   reload.h $(REGS_H) hard-reg-set.h insn-config.h \
+   reload.h $(REGS_H) hard-reg-set.h insn-config.h pre-reload.h \
+   $(BASIC_BLOCK_H) $(RECOG_H) output.h function.h toplev.h cselib.h $(TM_P_H) \
+   except.h
+pre-reload.o : pre-reload.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) real.h flags.h $(EXPR_H) \
+   reload.h $(REGS_H) hard-reg-set.h insn-config.h pre-reload.h \
    $(BASIC_BLOCK_H) $(RECOG_H) output.h function.h toplev.h cselib.h $(TM_P_H) \
    except.h
 caller-save.o : caller-save.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h \

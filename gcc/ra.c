@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Matz <matzmich@cs.tu-berlin.de>
    and Daniel Berlin <dan@cgsoftware.com>
 
@@ -8108,9 +8108,7 @@ sort_and_combine_web_pairs (for_move)
 	  && !TEST_BIT (sup_igraph, w1->id * num_webs + w2->id)
 	  && !TEST_BIT (sup_igraph, w2->id * num_webs + w1->id)
 	  && w2->type != PRECOLORED
-	  && (for_move
-	      || hard_regs_intersect_p (&w1->usable_regs,
-					&w2->usable_regs)))
+	  && hard_regs_intersect_p (&w1->usable_regs, &w2->usable_regs))
 	  {
 	    if (w1->type != PRECOLORED
 		|| (w1->type == PRECOLORED && ok (w2, w1)))
@@ -9297,7 +9295,18 @@ reg_alloc (void)
     rtl_dump_file = NULL;
   regclass (get_insns (), max_reg_num (), rtl_dump_file);
   rtl_dump_file = ra_dump_file;
+  pre_reload ();
 
+  {
+    allocate_reg_info (max_reg_num (), FALSE, FALSE);
+    compute_bb_for_insn (get_max_uid ());
+    delete_trivially_dead_insns (get_insns (), max_reg_num (), 1);
+    reg_scan_update (get_insns (), BLOCK_END (n_basic_blocks - 1),
+		     max_regno);
+    max_regno = max_reg_num ();
+    regclass (get_insns (), max_reg_num (), rtl_dump_file);
+  }
+  
   split_live_ranges = FALSE;
   /* XXX the REG_EQUIV notes currently are screwed up, when pseudos are
      coalesced, which have such notes.  In that case, the whole combined
@@ -9461,6 +9470,22 @@ reg_alloc (void)
   if ((debug_new_regalloc & DUMP_LAST_RTL) != 0)
     ra_print_rtl_with_bb (rtl_dump_file, get_insns ()); 
 }
+
+void
+debug_hard_reg_set (set)
+     HARD_REG_SET set;
+{
+  int i;
+  for (i=0; i < FIRST_PSEUDO_REGISTER; ++i)
+    {
+      if (TEST_HARD_REG_BIT (set, i))
+	{
+	  fprintf (stderr, "%s ", reg_names[i]);
+	}
+    }
+  fprintf (stderr, "\n");
+}
+
 
 /*
 vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4:

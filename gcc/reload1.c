@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "regs.h"
 #include "basic-block.h"
 #include "reload.h"
+#include "pre-reload.h"
 #include "recog.h"
 #include "output.h"
 #include "cselib.h"
@@ -438,7 +439,7 @@ static void do_input_reload		PARAMS ((struct insn_chain *,
 static void do_output_reload		PARAMS ((struct insn_chain *,
 						 struct reload *, int));
 static void emit_reload_insns		PARAMS ((struct insn_chain *));
-static void delete_output_reload	PARAMS ((rtx, int, int));
+void delete_output_reload	PARAMS ((rtx, int, int));
 static void delete_address_reloads	PARAMS ((rtx, rtx));
 static void delete_address_reloads_1	PARAMS ((rtx, rtx, rtx));
 static rtx inc_for_reload		PARAMS ((rtx, rtx, rtx, int));
@@ -455,7 +456,6 @@ static void move2add_note_store		PARAMS ((rtx, rtx, void *));
 #ifdef AUTO_INC_DEC
 static void add_auto_inc_notes		PARAMS ((rtx, rtx));
 #endif
-static void copy_eh_notes		PARAMS ((rtx, rtx));
 static HOST_WIDE_INT sext_for_mode	PARAMS ((enum machine_mode,
 						 HOST_WIDE_INT));
 static void failed_reload		PARAMS ((rtx, int));
@@ -6098,17 +6098,17 @@ merge_assigned_reloads (insn)
 }
 
 /* These arrays are filled by emit_reload_insns and its subroutines.  */
-static rtx input_reload_insns[MAX_RECOG_OPERANDS];
-static rtx other_input_address_reload_insns = 0;
-static rtx other_input_reload_insns = 0;
-static rtx input_address_reload_insns[MAX_RECOG_OPERANDS];
-static rtx inpaddr_address_reload_insns[MAX_RECOG_OPERANDS];
-static rtx output_reload_insns[MAX_RECOG_OPERANDS];
-static rtx output_address_reload_insns[MAX_RECOG_OPERANDS];
-static rtx outaddr_address_reload_insns[MAX_RECOG_OPERANDS];
-static rtx operand_reload_insns = 0;
-static rtx other_operand_reload_insns = 0;
-static rtx other_output_reload_insns[MAX_RECOG_OPERANDS];
+rtx input_reload_insns[MAX_RECOG_OPERANDS];
+rtx other_input_address_reload_insns = 0;
+rtx other_input_reload_insns = 0;
+rtx input_address_reload_insns[MAX_RECOG_OPERANDS];
+rtx inpaddr_address_reload_insns[MAX_RECOG_OPERANDS];
+rtx output_reload_insns[MAX_RECOG_OPERANDS];
+rtx output_address_reload_insns[MAX_RECOG_OPERANDS];
+rtx outaddr_address_reload_insns[MAX_RECOG_OPERANDS];
+rtx operand_reload_insns = 0;
+rtx other_operand_reload_insns = 0;
+rtx other_output_reload_insns[MAX_RECOG_OPERANDS];
 
 /* Values to be put in spill_reg_store are put here first.  */
 static rtx new_spill_reg_store[FIRST_PSEUDO_REGISTER];
@@ -7560,7 +7560,7 @@ gen_reload (out, in, opnum, type)
    J is the reload-number that originally used REG.  The caller has made
    certain that reload J doesn't use REG any longer for input.  */
 
-static void
+void
 delete_output_reload (insn, j, last_reload_reg)
      rtx insn;
      int j;
@@ -9464,7 +9464,7 @@ add_auto_inc_notes (insn, x)
 #endif
 
 /* Copy EH notes from an insn to its reloads.  */
-static void
+void
 copy_eh_notes (insn, x)
      rtx insn;
      rtx x;
