@@ -1215,7 +1215,8 @@ enum reg_class
 
 #define ASM_OUTPUT_SKIP(FILE, SIZE)  					\
 {									\
-  int s, k;								\
+  unsigned HOST_WIDE_INT s;						\
+  int  k;								\
   for (s = (SIZE); s > 0; s -= MAX_CHUNK)				\
     {									\
       if (s > MAX_CHUNK)						\
@@ -1923,7 +1924,7 @@ abort(); \
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".comm ", (FILE)),                     \
   assemble_name ((FILE), (NAME)),               \
-  fprintf ((FILE), ",%u\n", (ROUNDED)))
+  fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", (ROUNDED)))
 
 /* This says how to output an assembler line
    to define a local common symbol.  */
@@ -1931,7 +1932,7 @@ abort(); \
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".lcomm ", (FILE)),                    \
   assemble_name ((FILE), (NAME)),               \
-  fprintf ((FILE), ",%u\n", (ROUNDED)))
+  fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", (ROUNDED)))
 
 #endif /* TARGET_ELF_ABI */
 #endif /* ! GCC_I370_H */
