@@ -1010,17 +1010,17 @@ struct tree_exp GTY(())
     operands[1];
 };
 
-/* SSA_NAME accessors.  SSA_NAME_DECL returns the _DECL node being
+/* SSA_NAME accessors.  SSA_NAME_VAR returns the variable being
    referenced.  SSA_NAME_DEF_STMT returns the statement that defines
    this reference.  */
-#define SSA_NAME_DECL(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.decl
+#define SSA_NAME_VAR(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.var
 #define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.def_stmt
 #define SSA_NAME_VERSION(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.version
 
 struct tree_ssa_name GTY(())
 {
   struct tree_common common;
-  tree decl;
+  tree var;
   tree def_stmt;
   unsigned int version;
 };
@@ -1527,14 +1527,20 @@ struct tree_type GTY(())
 /* Nonzero if DECL represents a decl.  */
 #define DECL_P(DECL)	(TREE_CODE_CLASS (TREE_CODE (DECL)) == 'd')
 
-/* Nonzero if DECL represents a decl or an SSA name.  */
-#define SSA_DECL_P(DECL) (TREE_CODE (DECL) == VAR_DECL	\
-    			  || TREE_CODE (DECL) == PARM_DECL \
-			  || TREE_CODE (DECL) == SSA_NAME)
+/* Nonzero if DECL represents a decl or an SSA name for a decl.  */
+#define SSA_DECL_P(DECL) \
+	(TREE_CODE (DECL) == VAR_DECL	\
+	 || TREE_CODE (DECL) == PARM_DECL \
+	 || (TREE_CODE (DECL) == SSA_NAME \
+	     && (TREE_CODE (SSA_NAME_VAR (DECL)) == VAR_DECL \
+		 || TREE_CODE (SSA_NAME_VAR (DECL)) == PARM_DECL)))
+			      
 
 /* Nonzero if NODE is a variable for the SSA analyzer.  Variables are SSA
-   decls and INDIRECT_REF nodes.  */
-#define SSA_VAR_P(NODE) (SSA_DECL_P (NODE) || TREE_CODE (NODE) == INDIRECT_REF)
+   decls, SSA names and INDIRECT_REF nodes.  */
+#define SSA_VAR_P(NODE) (SSA_DECL_P (NODE) \
+    			 || TREE_CODE (NODE) == SSA_NAME \
+    			 || TREE_CODE (NODE) == INDIRECT_REF)
 
 /* This is the name of the object as written by the user.
    It is an IDENTIFIER_NODE.  */

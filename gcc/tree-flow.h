@@ -171,7 +171,6 @@ static inline tree create_indirect_ref		PARAMS ((tree));
 static inline varray_type may_aliases		PARAMS ((tree));
 static inline bool is_aliased			PARAMS ((tree));
 static inline bool may_alias_global_mem_p 	PARAMS ((tree));
-static inline void set_may_alias_global_mem	PARAMS ((tree));
 static inline bool is_dereferenced	 	PARAMS ((tree));
 static inline void set_indirect_ref		PARAMS ((tree, tree));
 static inline tree indirect_ref			PARAMS ((tree));
@@ -343,6 +342,7 @@ static inline bool same_var_p		PARAMS ((tree, tree));
 extern void dump_alias_info		PARAMS ((FILE *));
 extern void debug_alias_info		PARAMS ((void));
 extern tree get_virtual_var		PARAMS ((tree));
+extern void set_may_alias_global_mem	PARAMS ((tree));
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0

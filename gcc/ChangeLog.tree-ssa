@@ -1,3 +1,38 @@
+2003-02-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (get_expr_operands): Add a VUSE for the dereference of
+	every pointer passed in a function call.
+	Move code to add an operand for the base pointer of an
+	INDIRECT_REF ...
+	(add_stmt_operand): ... here.
+	Add a VUSE for the base pointer of every INDIRECT_REF variable.
+	(find_may_aliases_for): Fix starting index for the loop that scans
+	INDIRECT_REFs for aliasing.
+	Factor code that marks two variables aliased into
+	register_new_alias.
+	(register_new_alias): New function.
+	(may_alias_p): Handle aliasing of structure fields.
+	(add_may_alias): Fix documentation.
+	(find_vars_r): Factor code that adds a new referenced variable into
+	add_referenced_var.
+	(add_referenced_var): New function.
+	(add_indirect_ref_var): New function.
+	(get_virtual_var): Handle variables wrapped in SSA_NAMEs.
+	(set_may_alias_global_mem): Move from ...
+	* tree-flow-inline.h: ... here.
+
+	* tree-ssa-dce.c (need_to_preserve_store): CALL_EXPRs are
+	implicitly live.  VA_ARG_EXPRs are not.
+	(stmt_useful_p):
+
+	* tree.h (SSA_NAME_VAR): Rename from SSA_NAME_DECL.  Update all
+	users.
+	(struct tree_ssa_name): Rename field 'decl' to 'var'.  Update all
+	users.
+	(SSA_DECL_P): Accept only VAR_DECLs and PARM_DECLs possibly wrapped
+	inside an SSA_NAME node.
+	(SSA_VAR_P): Also accept SSA_NAME nodes.
+
 2003-02-01  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* Makefile.in (tree-ssa-pre2.o): Remove accidental addition.

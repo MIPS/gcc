@@ -403,7 +403,7 @@ rewrite_block (bb)
 
       for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 	{
-	  tree currdef = currdef_for (SSA_NAME_DECL (PHI_RESULT (phi)), true);
+	  tree currdef = currdef_for (SSA_NAME_VAR (PHI_RESULT (phi)), true);
 	  add_phi_arg (phi, currdef, e);
 	}
     }
@@ -429,7 +429,7 @@ rewrite_block (bb)
 	  VARRAY_POP (block_defs);
 	}
       else
-	var = SSA_NAME_DECL (saved_def);
+	var = SSA_NAME_VAR (saved_def);
 
       set_currdef_for (var, saved_def);
     }
@@ -458,14 +458,14 @@ rewrite_out_of_ssa (fndecl)
 	if (def_op (stmt))
 	  {
 	    tree *def_p = def_op (stmt);
-	    *def_p = SSA_NAME_DECL (*def_p);
+	    *def_p = SSA_NAME_VAR (*def_p);
 	  }
 
 	ops = use_ops (stmt);
 	for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	  {
 	    tree *use_p = VARRAY_GENERIC_PTR (ops, i);
-	    *use_p = SSA_NAME_DECL (*use_p);
+	    *use_p = SSA_NAME_VAR (*use_p);
 	  }
       }
 
@@ -752,7 +752,7 @@ register_new_def (def, block_defs_p)
      tree def;
      varray_type *block_defs_p;
 {
-  tree var = SSA_NAME_DECL (def);
+  tree var = SSA_NAME_VAR (def);
   tree currdef = currdef_for (var, false);
 
   /* If the current reaching definition is NULL, push the variable

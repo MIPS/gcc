@@ -342,7 +342,7 @@ visit_phi_node (phi)
   phi_val.lattice_val = UNDEFINED;
   phi_val.const_val = NULL_TREE;
 
-  if (!TREE_THIS_VOLATILE (SSA_NAME_DECL (PHI_RESULT (phi))))
+  if (!TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi))))
     for (i = 0; i < PHI_NUM_ARGS (phi); i++)
       {
 	/* Compute the meet operator over all the PHI arguments. */
@@ -361,7 +361,7 @@ visit_phi_node (phi)
 	  {
 	    tree rdef = PHI_ARG_DEF (phi, i);
 
-	    if (!TREE_THIS_VOLATILE (SSA_NAME_DECL (rdef)))
+	    if (!TREE_THIS_VOLATILE (SSA_NAME_VAR (rdef)))
 	      {
 		value *rdef_val = get_value (rdef);
 		phi_val = cp_lattice_meet (phi_val, *rdef_val);

@@ -36,7 +36,7 @@ var_ann (t)
   /* SSA_NAME nodes share the same annotations as the VAR_DECL node that
      they wrap.  */
   if (TREE_CODE (t) == SSA_NAME)
-    t = SSA_NAME_DECL (t);
+    t = SSA_NAME_VAR (t);
 
   /* INDIRECT_REF nodes share the annotation from the canonical
      dereference for their base pointer (see find_vars_r).  */
@@ -88,16 +88,6 @@ is_aliased (var)
      tree var;
 {
   return may_aliases (var) != NULL;
-}
-
-static inline void
-set_may_alias_global_mem (var)
-     tree var;
-{
-  var_ann_t ann = var_ann (var);
-  if (ann == NULL)
-    ann = create_var_ann (var);
-  ann->may_alias_global_mem = 1;
 }
 
 static inline bool

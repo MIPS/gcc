@@ -4908,7 +4908,7 @@ make_ssa_name (var, stmt)
   t = make_node (SSA_NAME);
 
   TREE_TYPE (t) = TREE_TYPE (var);
-  SSA_NAME_DECL (t) = var;
+  SSA_NAME_VAR (t) = var;
   SSA_NAME_DEF_STMT (t) = stmt;
   SSA_NAME_VERSION (t) = next_ssa_version++;
 

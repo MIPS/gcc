@@ -949,7 +949,7 @@ get_base_symbol (t)
       return t;
 
     case SSA_NAME:
-      return get_base_symbol (SSA_NAME_DECL (t));
+      return get_base_symbol (SSA_NAME_VAR (t));
 
     case ARRAY_REF:
     case COMPONENT_REF:

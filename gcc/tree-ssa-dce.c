@@ -216,7 +216,7 @@ need_to_preserve_store (var)
   if (var == NULL)
     return false;
 
-  sym = SSA_NAME_DECL (var);
+  sym = SSA_NAME_VAR (var);
   base_symbol = get_base_symbol (var);
 
   /* Stores to volatiles must be preserved.  */
@@ -284,19 +284,18 @@ stmt_useful_p (stmt)
   varray_type ops;
   size_t i;
 
-  /* Instructions that are implicitly live.  Asms and Returns are required.
-     Labels are kept because they are control flow, and we have no way of
-     knowing whether they can be removed.   DCE can eliminate all the other
-     statements in a block, and CFG can then remove the block and labels.
-     VA_ARG_EXPR behaves like a builtin function call to
-     __builtin_va_arg().  */
+  /* Instructions that are implicitly live.  Function calls, asm and return
+     statements are required.  Labels are kept because they are control
+     flow, and we have no way of knowing whether they can be removed.   DCE
+     can eliminate all the other statements in a block, and CFG can then
+     remove the block and labels.  */
   if ((TREE_CODE (stmt) == ASM_EXPR)
       || (TREE_CODE (stmt) == RETURN_EXPR)
       || (TREE_CODE (stmt) == CASE_LABEL_EXPR)
-      || (TREE_CODE (stmt) == VA_ARG_EXPR)
+      || (TREE_CODE (stmt) == CALL_EXPR)
+      || (TREE_CODE (stmt) == LABEL_EXPR)
       || ((TREE_CODE (stmt) == MODIFY_EXPR)
-	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == VA_ARG_EXPR))
-      || (TREE_CODE (stmt) == LABEL_EXPR))
+	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)))
     return true;
 
   /* GOTO_EXPR nodes to nonlocal labels need to be kept (This fixes

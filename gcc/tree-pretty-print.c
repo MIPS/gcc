@@ -1255,10 +1255,10 @@ dump_generic_node (buffer, node, spc, flags)
       break;
 
     case SSA_NAME:
-      if (TREE_CODE (SSA_NAME_DECL (node)) == INDIRECT_REF)
+      if (TREE_CODE (SSA_NAME_VAR (node)) == INDIRECT_REF)
 	output_add_string (buffer, "(");
-      dump_generic_node (buffer, SSA_NAME_DECL (node), spc, flags);
-      if (TREE_CODE (SSA_NAME_DECL (node)) == INDIRECT_REF)
+      dump_generic_node (buffer, SSA_NAME_VAR (node), spc, flags);
+      if (TREE_CODE (SSA_NAME_VAR (node)) == INDIRECT_REF)
 	output_add_string (buffer, ")");
       output_add_string (buffer, "_");
       output_decimal (buffer, SSA_NAME_VERSION (node));
