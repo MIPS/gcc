@@ -94,11 +94,14 @@ do {									\
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
-
+/* APPLE LOCAL begin gfull gused */
 #define CC1_SPEC "\
-%{gused: -feliminate-unused-debug-symbols %<gused }\
+%{gused: -g -feliminate-unused-debug-symbols %<gused }\
+%{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
+%{g: %{!gfull: -feliminate-unused-debug-symbols %<gfull }}\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
+/* APPLE LOCAL end gfull gused */
 
 /* APPLE LOCAL begin 3492132 */
 

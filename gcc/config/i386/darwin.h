@@ -48,7 +48,13 @@ Boston, MA 02111-1307, USA.  */
 /* APPLE LOCAL dynamic-no-pic */
 /* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */
 /* When -mdynamic-no-pic finally works, remove the "xx" below.  FIXME!!  */
-#define CC1_SPEC "%{!static:%{!mxxdynamic-no-pic:-fPIC}} %<faltivec %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
+/* APPLE LOCAL gfull gused */
+#define CC1_SPEC "\
+%{gused: -g -feliminate-unused-debug-symbols %<gused }\
+%{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
+%{g: %{!gfull: -feliminate-unused-debug-symbols %<gfull }}\
+%{!static:%{!mxxdynamic-no-pic:-fPIC}} %<faltivec %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
+
 
 /* APPLE LOCAL AltiVec */
 #define CPP_ALTIVEC_SPEC "%<faltivec"
