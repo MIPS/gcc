@@ -12548,7 +12548,7 @@ grokparms (first_parm)
 	{
 	  /* Top-level qualifiers on the parameters are
 	     ignored for function types.  */
-	  type = TYPE_MAIN_VARIANT (type);
+	  type = cp_build_qualified_type (type, 0);
 	  if (TREE_CODE (type) == METHOD_TYPE)
 	    {
 	      error ("parameter `%D' invalidly declared method type", decl);

@@ -1,3 +1,8 @@
+2003-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* decl.c (grokparms): Use cp_build_qualified_type instead
+	TYPE_MAIN_VARIANT.
+
 2003-04-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/9881
