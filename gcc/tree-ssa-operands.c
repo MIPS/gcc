@@ -426,7 +426,8 @@ correct_use_link (ssa_imm_use_t *ptr)
   prev = ptr->prev;
   if (prev)
     {
-      while (prev->use)
+      /* find the root, which has a non-NULL stmt, and a NULL use.  */
+      while (prev->stmt == NULL || prev->use != NULL)
         prev = prev->prev;
       root = prev->stmt;
       if (root == *(ptr->use))
@@ -899,50 +900,15 @@ append_v_must_def (tree var)
   VARRAY_PUSH_TREE (build_v_must_defs, var);
 }
 
-/* Create an operands cache for STMT, returning it in NEW_OPS. OLD_OPS are the
-   original operands, and if ANN is non-null, appropriate stmt flags are set
-   in the stmt's annotation.  If ANN is NULL, this is not considered a "real"
-   stmt, and none of the operands will be entered into their respective
-   immediate uses tables.  This is to allow stmts to be processed when they
-   are not actually in the CFG.
 
-   Note that some fields in old_ops may change to NULL, although none of the
-   memory they originally pointed to will be destroyed.  It is appropriate
-   to call free_stmt_operands() on the value returned in old_ops.
+/* Parse STMT looking for operands.  OLD_OPS is the original stmt operand
+   cache for STMT, if it exested before.  When fniished, the various build_*
+   operand vectors will have potential operands. in them.  */
 
-   The rationale for this: Certain optimizations wish to examine the difference
-   between new_ops and old_ops after processing.  If a set of operands don't
-   change, new_ops will simply assume the pointer in old_ops, and the old_ops
-   pointer will be set to NULL, indicating no memory needs to be cleared.  
-   Usage might appear something like:
-
-       old_ops_copy = old_ops = stmt_ann(stmt)->operands;
-       build_ssa_operands (stmt, NULL, &old_ops, &new_ops);
-          <* compare old_ops_copy and new_ops *>
-       free_ssa_operands (old_ops);					*/
-
-void
-build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops, 
-		    stmt_operands_p new_ops)
+static void
+parse_ssa_operands (tree stmt)
 {
   enum tree_code code;
-  tree_ann_t saved_ann = stmt->common.ann;
-  
-  /* Replace stmt's annotation with the one passed in for the duration
-     of the operand building process.  This allows "fake" stmts to be built
-     and not be included in other data structures which can be built here.  */
-  stmt->common.ann = (tree_ann_t) ann;
-  
-  /* Initially assume that the statement has no volatile operands, nor
-     makes aliased loads or stores.  */
-  if (ann)
-    {
-      ann->has_volatile_ops = false;
-      ann->makes_aliased_stores = false;
-      ann->makes_aliased_loads = false;
-    }
-
-  start_ssa_stmt_operands ();
 
   code = TREE_CODE (stmt);
   switch (code)
@@ -1007,6 +973,53 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
       get_expr_operands (stmt, &stmt, opf_none);
       break;
     }
+}
+
+/* Create an operands cache for STMT, returning it in NEW_OPS. OLD_OPS are the
+   original operands, and if ANN is non-null, appropriate stmt flags are set
+   in the stmt's annotation.  If ANN is NULL, this is not considered a "real"
+   stmt, and none of the operands will be entered into their respective
+   immediate uses tables.  This is to allow stmts to be processed when they
+   are not actually in the CFG.
+
+   Note that some fields in old_ops may change to NULL, although none of the
+   memory they originally pointed to will be destroyed.  It is appropriate
+   to call free_stmt_operands() on the value returned in old_ops.
+
+   The rationale for this: Certain optimizations wish to examine the difference
+   between new_ops and old_ops after processing.  If a set of operands don't
+   change, new_ops will simply assume the pointer in old_ops, and the old_ops
+   pointer will be set to NULL, indicating no memory needs to be cleared.  
+   Usage might appear something like:
+
+       old_ops_copy = old_ops = stmt_ann(stmt)->operands;
+       build_ssa_operands (stmt, NULL, &old_ops, &new_ops);
+          <* compare old_ops_copy and new_ops *>
+       free_ssa_operands (old_ops);					*/
+
+void
+build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops, 
+		    stmt_operands_p new_ops)
+{
+  tree_ann_t saved_ann = stmt->common.ann;
+  
+  /* Replace stmt's annotation with the one passed in for the duration
+     of the operand building process.  This allows "fake" stmts to be built
+     and not be included in other data structures which can be built here.  */
+  stmt->common.ann = (tree_ann_t) ann;
+  
+  /* Initially assume that the statement has no volatile operands, nor
+     makes aliased loads or stores.  */
+  if (ann)
+    {
+      ann->has_volatile_ops = false;
+      ann->makes_aliased_stores = false;
+      ann->makes_aliased_loads = false;
+    }
+
+  start_ssa_stmt_operands ();
+
+  parse_ssa_operands (stmt);
 
   if (ann)
     finalize_ssa_stmt_operands (stmt, old_ops, new_ops);
@@ -1895,10 +1908,11 @@ create_ssa_artficial_load_stmt (stmt_operands_p old_ops, tree new_stmt)
 
 /* Issue immediate use error for VAR to debug file F.  */
 static void 
-verify_abort(FILE *f, ssa_imm_use_t *var)
+verify_abort (FILE *f, ssa_imm_use_t *var)
 {
   tree stmt;
-  if ((stmt = var->stmt))
+  stmt = var->stmt;
+  if (stmt)
     {
       if (stmt_modified_p(stmt))
 	{
@@ -1910,14 +1924,14 @@ verify_abort(FILE *f, ssa_imm_use_t *var)
 	   (unsigned int)var->use);
   print_generic_expr (f, USE_FROM_PTR (var), TDF_SLIM);
   fprintf(f, "\n");
-  abort ();
 }
 
 
-/* Scan the immediate_use list for VAR making sure its linked properly.  Verify
-   that IN_LIST is present in the list, ifit is spcified.  */
-void
-verify_imm_links (FILE *f, tree var, ssa_imm_use_t *in_list)
+/* Scan the immediate_use list for VAR making sure its linked properly.
+   return RTUE iof there is a problem.  */
+
+bool
+verify_imm_links (FILE *f, tree var)
 {
   ssa_imm_use_t *ptr, *prev;
   ssa_imm_use_t *list;
@@ -1931,32 +1945,39 @@ verify_imm_links (FILE *f, tree var, ssa_imm_use_t *in_list)
   if (list->prev == NULL)
     {
       gcc_assert (list->next == NULL);
-      gcc_assert (in_list == NULL);
-      return;
+      return false;
     }
 
   prev = list;
   count = 0;
   for (ptr = list->next; ptr != list; )
     {
-      /* IF we've found the one we're searching for, simply return.  */
-      if (ptr == in_list)
-        return;
-
       if (prev != ptr->prev)
-	verify_abort (f, ptr);
+        {
+	  verify_abort (f, ptr);
+	  return true;
+	}
 
       if (ptr->use == NULL)
-	verify_abort (f, ptr);  	/* 2 roots, or SAFE guard node.  */
+        {
+	  verify_abort (f, ptr); 	/* 2 roots, or SAFE guard node.  */
+	  return true;
+	}
       else
 	if (*(ptr->use) != var)
-	  verify_abort (f, ptr);
+	  {
+	    verify_abort (f, ptr);
+	    return true;
+	  }
 
       prev = ptr;
       ptr = ptr->next;
       /* Avoid infinite loops.  */
       if (count++ > 30000)
-        verify_abort (f, ptr);
+	{
+	  verify_abort (f, ptr);
+	  return true;
+	}
     }
 
   /* Verify list in the other direction.  */
@@ -1964,18 +1985,26 @@ verify_imm_links (FILE *f, tree var, ssa_imm_use_t *in_list)
   for (ptr = list->prev; ptr != list; )
     {
       if (prev != ptr->next)
-        verify_abort (f, ptr);
+	{
+	  verify_abort (f, ptr);
+	  return true;
+	}
       prev = ptr;
       ptr = ptr->prev;
       if (count-- < 0)
-        verify_abort (f, ptr);
+	{
+	  verify_abort (f, ptr);
+	  return true;
+	}
     }
 
-  gcc_assert (count == 0);
+  if (count != 0)
+    {
+      verify_abort (f, ptr);
+      return true;
+    }
 
-  /* if in_list is set and we got this far, then its not in the list.  */
-  if (in_list)
-    verify_abort (f, in_list);
+  return false;
 }
 
 

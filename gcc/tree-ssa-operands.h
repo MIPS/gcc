@@ -193,7 +193,7 @@ typedef stmt_operands_t *stmt_operands_p;
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
 extern void update_stmt_operands (tree);
-extern void verify_imm_links (FILE *f, tree var, ssa_imm_use_t *in_list);
+extern bool verify_imm_links (FILE *f, tree var);
 
 extern void copy_virtual_operands (tree, tree);
 extern void create_ssa_artficial_load_stmt (stmt_operands_p, tree);

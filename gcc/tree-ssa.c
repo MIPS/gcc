@@ -111,7 +111,8 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
 {
 
   if (!TREE_VISITED (ssa_name))
-    verify_imm_links (stderr, ssa_name, NULL);
+    if (verify_imm_links (stderr, ssa_name))
+      return true;
 
   TREE_VISITED (ssa_name) = 1;
 
@@ -256,7 +257,26 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
       err = true;
     }
 
-  verify_imm_links (stderr, ssa_name, use_p);
+  /* Make sure the use is in an appropriate list by checking the previous 
+     element to make sure its the same.  */
+  if (use_p->prev == NULL)
+    {
+      error ("No immediate_use list");
+      err = true;
+    }
+  else
+    {
+      tree listvar ;
+      if (use_p->prev->use == NULL)
+	listvar = use_p->prev->stmt;
+      else
+	listvar = USE_FROM_PTR (use_p->prev);
+      if (listvar != ssa_name)
+        {
+	  error ("Wrong immediate use list");
+	  err = true;
+	}
+    }
 
   if (err)
     {
@@ -1087,6 +1107,7 @@ replace_immediate_uses (tree var, tree repl)
       else
 	update_stmt (stmt);
     }
+
 }
 
 /* Gets the value VAR is equivalent to according to EQ_TO.  */
