@@ -1436,12 +1436,12 @@ static bool
 validate_pch (cpp_reader *pfile, _cpp_file *file, const char *pchname)
 {
   const char *saved_path = file->path;
-  _cpp_file_data *data = file->data;
   bool valid = false;
 
   file->path = pchname;
   if (open_file (pfile, file))
     {
+      _cpp_file_data *data = file->data;
       valid = 1 & pfile->cb.valid_pch (pfile, pchname, data->fd);
 
       if (!valid)

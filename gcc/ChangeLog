@@ -1,3 +1,8 @@
+2003-12-12  Mike Stump  <mrs@apple.com>
+
+	* cppfiles.c (validate_pch): Grab file->data after open_file, as
+	it can set it.
+
 2003-12-11  Per Bothner  <pbothner@apple.com>
 
 	* c-common.c (register_decl_dependency, reserve_fragment_binding,
