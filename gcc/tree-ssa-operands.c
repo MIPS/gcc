@@ -769,10 +769,12 @@ get_stmt_operands (tree stmt)
 	    get_expr_operands (stmt, &TREE_VALUE (link), 0, &prev_vops);
 	  }
 
-	for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
-	  if (!strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory")
-	      && bitmap_first_set_bit (call_clobbered_vars) >= 0)
-	    add_call_clobber_ops (stmt, &prev_vops);
+	/* Clobber memory for asm ("" : : : "memory");  */
+	if (global_var
+	    || bitmap_first_set_bit (call_clobbered_vars) >= 0)
+	  for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
+	    if (!strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory"))
+	      add_call_clobber_ops (stmt, &prev_vops);
       }
       break;
 

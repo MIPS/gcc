@@ -1,3 +1,7 @@
+2004-03-26  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-1.c: New test.
+
 2004-03-24  Paul Brook  <paul@codesourcery.com>
 
 	* gfortran.fortran-torture/execute/csqrt_1.f90: Use f95 style
