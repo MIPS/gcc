@@ -2961,11 +2961,12 @@ alias (web)
   return web;
 }
 
-/* Actually combine two webs, when they can be coalesced.  */
+/* Actually combine two webs, that can be coalesced.  */
 static void
 combine (u, v)
      struct web *u, *v;
 {
+  int i;
   struct conflict_link *wl;
   if (v->type == FREEZE)
     remove_list (v->dlink, &freeze_wl);
@@ -2979,7 +2980,6 @@ combine (u, v)
   /* combine add_hardregs's of U and V.  */
   if (u->type == PRECOLORED)
     {
-      int i;
       struct web *web;
 
       for (i = 0; i <= v->add_hardregs; ++i)
@@ -3034,16 +3034,34 @@ combine (u, v)
 	  }
       }
   
+  /* Now merge the usable_regs together.  */
+  /* XXX That merging might normally make it necessary to
+     adjust add_hardregs, which also means to adjust neighbors.  This can
+     result in making some more webs trivially colorable, (or the opposite,
+     if this increases our add_hardregs).  Because we intersect the
+     usable_regs it should only be possible to decrease add_hardregs.  So a
+     conservative solution for now is to simply don't change it.  */
+  u->use_my_regs = 1;
+  AND_HARD_REG_SET (u->usable_regs, v->usable_regs);
+  u->regclass = reg_class_subunion[u->regclass][v->regclass];
+  /* Count number of possible hardregs.  This might make U a spillweb,
+     but that could also happen, if U and V together had too many
+     conflicts.  */
+  u->num_freedom = 0;
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (TEST_HARD_REG_BIT (u->usable_regs, i))
+      u->num_freedom++;
+  /* The next would mean an invalid coalesced move (both webs have no
+     possible hardreg in common), so abort.  */
+  if (!u->num_freedom)
+    abort();
+  
   if (u->num_conflicts >= NUM_REGS (u) && u->type == FREEZE)
     {
       remove_list (u->dlink, &freeze_wl);
       put_web (u, SPILL);
     }
 
-  /* XXX combine the usable_regs together, and adjust the weight and
-     conflict.  As this might constrain more, it might make us uncolorable.
-     I think we should disallow this in conservative test, so only
-     webs with similar constraints are coalesced.  */
   /* If we coalesce a spill temporary together with a normal node,
      the result is not any longer a spill temporary.  */
   if (u->spill_temp && ! v->spill_temp)
