@@ -468,10 +468,12 @@ find_obviously_necessary_stmts (struct edge_list *el)
 	 and we currently do not have a means to recognize the finite ones.  */
       FOR_EACH_BB (bb)
 	{
-	  unsigned ix;
-	  FOR_EACH_EDGE (e, bb->succs, ix)
-	    if (e->flags & EDGE_DFS_BACK)
-	      mark_control_dependent_edges_necessary (e->dest, el);
+	  FOR_EACH_EDGE (e, bb->succs)
+	    {
+	      if (e->flags & EDGE_DFS_BACK)
+		mark_control_dependent_edges_necessary (e->dest, el);
+	    }
+	  END_FOR_EACH_EDGE;
 	}
     }
 }

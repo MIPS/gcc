@@ -1346,7 +1346,6 @@ rewrite_program2 (bitmap new_deaths)
       nl_first_reload = ri.nl_size;
       if (ri.num_reloads)
 	{
-	  unsigned ix;
 	  int in_ir = 0;
 	  edge e;
 	  int num = 0;
@@ -1354,7 +1353,7 @@ rewrite_program2 (bitmap new_deaths)
 	  HARD_REG_SET cum_colors, colors;
 	  CLEAR_HARD_REG_SET (cum_colors);
 
-	  FOR_EACH_EDGE (e, bb->preds, ix)
+	  FOR_EACH_EDGE (e, bb->preds)
 	    {
 	      int j;
 
@@ -1371,6 +1370,8 @@ rewrite_program2 (bitmap new_deaths)
 	      IOR_HARD_REG_SET (cum_colors, colors);
 	      num++;
 	    }
+	  END_FOR_EACH_EDGE;
+
 	  if (num == 5)
 	    in_ir = 1;
 

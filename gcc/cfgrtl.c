@@ -469,7 +469,6 @@ rtl_split_block (basic_block bb, void *insnp)
   basic_block new_bb;
   rtx insn = insnp;
   edge e;
-  unsigned ix;
 
   if (!insn)
     {
@@ -494,8 +493,11 @@ rtl_split_block (basic_block bb, void *insnp)
   /* Redirect the outgoing edges.  */
   new_bb->succs = bb->succs;
   bb->succs = NULL;
-  FOR_EACH_EDGE (e, new_bb->succs, ix)
-    e->src = new_bb;
+  FOR_EACH_EDGE (e, new_bb->succs)
+    {
+      e->src = new_bb;
+    }
+  END_FOR_EACH_EDGE;
 
   if (bb->global_live_at_start)
     {
@@ -677,7 +679,6 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
   edge tmp;
   rtx set;
   int fallthru = 0;
-  unsigned ix;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -688,9 +689,12 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
     return NULL;
 
   /* Verify that all targets will be TARGET.  */
-  FOR_EACH_EDGE (tmp, src->succs, ix)
-    if (tmp->dest != target && tmp != e)
-      break;
+  FOR_EACH_EDGE (tmp, src->succs)
+    {
+      if (tmp->dest != target && tmp != e)
+	break;
+    }
+  END_FOR_EACH_EDGE;
 
   if (tmp || !onlyjump_p (insn))
     return NULL;
@@ -1046,7 +1050,6 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       /* We can't redirect the entry block.  Create an empty block at the
          start of the function which we use to add the new jump.  */
       edge tmp;
-      unsigned ix;
       bool found = false;
 
       basic_block bb = create_basic_block (BB_HEAD (e->dest), NULL, ENTRY_BLOCK_PTR);
@@ -1054,13 +1057,16 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       /* Change the existing edge's source to be the new block, and add
 	 a new edge from the entry block to the new block.  */
       e->src = bb;
-      FOR_EACH_EDGE (tmp, ENTRY_BLOCK_PTR->succs, ix)
-        if (tmp == e)
-          {
-            VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succs, ix);
-            found = true;
-            break;
-          }
+      FOR_EACH_EDGE (tmp, ENTRY_BLOCK_PTR->succs)
+	{
+	  if (tmp == e)
+	    {
+	      VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succs, __ix);
+	      found = true;
+	      break;
+	    }
+	}
+      END_FOR_EACH_EDGE;
 
       if (!found)
         abort ();
@@ -1204,9 +1210,12 @@ rtl_tidy_fallthru_edge (edge e)
   edge e2;
   unsigned ix;
 
-  FOR_EACH_EDGE (e2, b->succs, ix)
-    if (e == e2)
-      break;
+  for (ix = 0; ix < EDGE_COUNT (b->succs); ix++)
+    {
+      e2 = EDGE_I (b->succs, ix);
+      if (e == e2)
+	break;
+    }
 
   /* ??? In a late-running flow pass, other folks may have deleted basic
      blocks by nopping out blocks, leaving multiple BARRIERs between here
@@ -1319,11 +1328,13 @@ rtl_split_edge (edge edge_in)
   if ((edge_in->flags & EDGE_FALLTHRU) == 0)
     {
       edge e;
-      unsigned ix;
 
-      FOR_EACH_EDGE (e, edge_in->dest->preds, ix)
-	if (e->flags & EDGE_FALLTHRU)
-	  break;
+      FOR_EACH_EDGE (e, edge_in->dest->preds)
+	{
+	  if (e->flags & EDGE_FALLTHRU)
+	    break;
+	}
+      END_FOR_EACH_EDGE;
 
       if (e)
 	force_nonfallthru (e);
@@ -1695,9 +1706,8 @@ commit_edge_insertions (void)
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
       edge e;
-      unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->succs, ix)
+      FOR_EACH_EDGE (e, bb->succs)
 	{
 	  if (e->insns.r)
 	    {
@@ -1705,6 +1715,7 @@ commit_edge_insertions (void)
 	      commit_one_edge_insertion (e, false);
 	    }
 	}
+      END_FOR_EACH_EDGE;
     }
 
   if (!changed)
@@ -1743,9 +1754,8 @@ commit_edge_insertions_watch_calls (void)
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
       edge e;
-      unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->succs, ix)
+      FOR_EACH_EDGE (e, bb->succs)
 	{
 	  if (e->insns.r)
 	    {
@@ -1753,6 +1763,7 @@ commit_edge_insertions_watch_calls (void)
 	      commit_one_edge_insertion (e, true);
 	    }
 	}
+      END_FOR_EACH_EDGE;
     }
 
   if (!changed)
@@ -1982,7 +1993,6 @@ rtl_verify_flow_info_1 (void)
       int n_fallthru = 0, n_eh = 0, n_call = 0, n_abnormal = 0, n_branch = 0;
       edge e, fallthru = NULL;
       rtx note;
-      unsigned ix;
 
       if (INSN_P (BB_END (bb))
 	  && (note = find_reg_note (BB_END (bb), REG_BR_PROB, NULL_RTX))
@@ -1996,7 +2006,7 @@ rtl_verify_flow_info_1 (void)
 	      err = 1;
 	    }
 	}
-      FOR_EACH_EDGE (e, bb->succs, ix)
+      FOR_EACH_EDGE (e, bb->succs)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    {
@@ -2023,6 +2033,7 @@ rtl_verify_flow_info_1 (void)
 	  else if (e->flags & EDGE_ABNORMAL)
 	    n_abnormal++;
 	}
+      END_FOR_EACH_EDGE;
 
       if (n_eh && GET_CODE (PATTERN (BB_END (bb))) != RESX
 	  && !find_reg_note (BB_END (bb), REG_EH_REGION, NULL_RTX))
@@ -2155,14 +2166,16 @@ rtl_verify_flow_info (void)
   int num_bb_notes;
   const rtx rtx_first = get_insns ();
   basic_block last_bb_seen = ENTRY_BLOCK_PTR, curr_bb = NULL;
-  unsigned ix;
 
   FOR_EACH_BB_REVERSE (bb)
     {
       edge e;
-      FOR_EACH_EDGE (e, bb->succs, ix)
-	if (e->flags & EDGE_FALLTHRU)
-	  break;
+      FOR_EACH_EDGE (e, bb->succs)
+	{
+	  if (e->flags & EDGE_FALLTHRU)
+	    break;
+	}
+      END_FOR_EACH_EDGE;
       if (!e)
 	{
 	  rtx insn;
@@ -2278,7 +2291,6 @@ purge_dead_edges (basic_block bb)
   rtx insn = BB_END (bb), note;
   bool purged = false;
   bool found;
-  unsigned ix;
 
   /* If this instruction cannot trap, remove REG_EH_REGION notes.  */
   if (NONJUMP_INSN_P (insn)
@@ -2293,7 +2305,7 @@ purge_dead_edges (basic_block bb)
     }
 
   /* Cleanup abnormal edges caused by exceptions or non-local gotos.  */
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       if (e->flags & EDGE_EH)
 	{
@@ -2313,8 +2325,9 @@ purge_dead_edges (basic_block bb)
       remove_edge (e);
       bb->flags |= BB_DIRTY;
       purged = true;
-      ix --;
+      __ix --;
     }
+  END_FOR_EACH_EDGE;
 
   if (JUMP_P (insn))
     {
@@ -2338,7 +2351,7 @@ purge_dead_edges (basic_block bb)
 	    remove_note (insn, note);
 	}
 
-      FOR_EACH_EDGE (e, bb->succs, ix)
+      FOR_EACH_EDGE (e, bb->succs)
 	{
 	  /* Avoid abnormal flags to leak from computed jumps turned
 	     into simplejumps.  */
@@ -2372,8 +2385,9 @@ purge_dead_edges (basic_block bb)
 	  bb->flags |= BB_DIRTY;
 	  purged = true;
 	  remove_edge (e);
-	  ix--;
+	  __ix--;
 	}
+      END_FOR_EACH_EDGE;
 
       if (EDGE_COUNT (bb->succs) == 0 || !purged)
 	return purged;
@@ -2426,7 +2440,7 @@ purge_dead_edges (basic_block bb)
      edge we know that there used to be a jump here and can then safely
      remove all non-fallthru edges.  */
   found = false;
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       if (! (e->flags & (EDGE_COMPLEX | EDGE_FALLTHRU)))
 	{
@@ -2434,19 +2448,22 @@ purge_dead_edges (basic_block bb)
 	  break;
 	}
     }
+  END_FOR_EACH_EDGE;
+
   if (!found)
     return purged;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       if (!(e->flags & EDGE_FALLTHRU))
 	{
 	  bb->flags |= BB_DIRTY;
 	  remove_edge (e);
 	  purged = true;
-	  ix--;
+	  __ix--;
 	}
     }
+  END_FOR_EACH_EDGE;
 
   if (EDGE_COUNT (bb->succs) != 1)
     abort ();
@@ -2572,12 +2589,16 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	  unsigned ix;
 	  edge tmp, s;
 
-	  FOR_EACH_EDGE (tmp, src->succs, ix)
-	    if (e == tmp)
-	      {
-		found = true;
-		break;
-	      }
+	  FOR_EACH_EDGE (tmp, src->succs)
+	    {
+	      if (e == tmp)
+		{
+		  found = true;
+		  break;
+		}
+	    }
+	  END_FOR_EACH_EDGE;
+
 	  if (!found)
 	    abort ();
 
@@ -2937,15 +2958,17 @@ rtl_flow_call_edges_add (sbitmap blocks)
       if (need_fake_edge_p (insn))
 	{
 	  edge e;
-	  unsigned ix;
 
-	  FOR_EACH_EDGE (e, bb->succs, ix)
-	    if (e->dest == EXIT_BLOCK_PTR)
-	      {
-		insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
-		commit_edge_insertions ();
-		break;
-	      }
+	  FOR_EACH_EDGE (e, bb->succs)
+	    {
+	      if (e->dest == EXIT_BLOCK_PTR)
+		{
+		  insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
+		  commit_edge_insertions ();
+		  break;
+		}
+	    }
+	  END_FOR_EACH_EDGE;
 	}
     }
 
@@ -2972,7 +2995,6 @@ rtl_flow_call_edges_add (sbitmap blocks)
 	    {
 	      edge e;
 	      rtx split_at_insn = insn;
-	      unsigned ix;
 
 	      /* Don't split the block between a call and an insn that should
 	         remain in the same block as the call.  */
@@ -2988,9 +3010,12 @@ rtl_flow_call_edges_add (sbitmap blocks)
 
 #ifdef ENABLE_CHECKING
 	      if (split_at_insn == BB_END (bb))
-		FOR_EACH_EDGE (e, bb->succs, ix)
-		  if (e->dest == EXIT_BLOCK_PTR)
-		    abort ();
+		FOR_EACH_EDGE (e, bb->succs)
+		  {
+		    if (e->dest == EXIT_BLOCK_PTR)
+		      abort ();
+		  }
+	        END_FOR_EACH_EDGE;
 #endif
 
 	      /* Note that the following may create a new basic block

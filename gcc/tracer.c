@@ -118,11 +118,13 @@ find_best_successor (basic_block bb)
 {
   edge e;
   edge best = NULL;
-  unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
-    if (!best || better_p (e, best))
-      best = e;
+  FOR_EACH_EDGE (e, bb->succs)
+    {
+      if (!best || better_p (e, best))
+	best = e;
+    }
+  END_FOR_EACH_EDGE;
   if (!best || ignore_bb_p (best->dest))
     return NULL;
   if (best->probability <= probability_cutoff)
@@ -137,11 +139,13 @@ find_best_predecessor (basic_block bb)
 {
   edge e;
   edge best = NULL;
-  unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->preds, ix)
-    if (!best || better_p (e, best))
-      best = e;
+  FOR_EACH_EDGE (e, bb->preds)
+    {
+      if (!best || better_p (e, best))
+	best = e;
+    }
+  END_FOR_EACH_EDGE;
   if (!best || ignore_bb_p (best->src))
     return NULL;
   if (EDGE_FREQUENCY (best) * REG_BR_PROB_BASE
@@ -276,12 +280,14 @@ tail_duplicate (void)
 	      && can_duplicate_block_p (bb2))
 	    {
 	      edge e;
-	      unsigned ix;
 	      basic_block old = bb2;
 
-	      FOR_EACH_EDGE (e, bb2->preds, ix)
-		if (e->src == bb)
-		  break;
+	      FOR_EACH_EDGE (e, bb2->preds)
+		{
+		  if (e->src == bb)
+		    break;
+		}
+	      END_FOR_EACH_EDGE;
 
 	      nduplicated += counts [bb2->index];
 	      bb2 = duplicate_block (bb2, e);
@@ -330,17 +336,19 @@ layout_superblocks (void)
 
   while (bb != EXIT_BLOCK_PTR)
     {
-      unsigned ix;
       edge e, best = NULL;
       while (end->rbi->next)
 	end = end->rbi->next;
 
-      FOR_EACH_EDGE (e, end->succs, ix)
-	if (e->dest != EXIT_BLOCK_PTR
-	    && e->dest != EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest
-	    && !e->dest->rbi->visited
-	    && (!best || EDGE_FREQUENCY (e) > EDGE_FREQUENCY (best)))
-	  best = e;
+      FOR_EACH_EDGE (e, end->succs)
+	{
+	  if (e->dest != EXIT_BLOCK_PTR
+	      && e->dest != EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest
+	      && !e->dest->rbi->visited
+	      && (!best || EDGE_FREQUENCY (e) > EDGE_FREQUENCY (best)))
+	    best = e;
+	}
+      END_FOR_EACH_EDGE;
 
       if (best)
 	{

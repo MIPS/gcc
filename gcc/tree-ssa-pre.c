@@ -1134,13 +1134,15 @@ compute_antic_aux (basic_block block)
      setting the BB_VISITED flag.  */
   if (! (block->flags & BB_VISITED))
     {
-      unsigned ix;
-      FOR_EACH_EDGE (e, block->preds, ix)
- 	if (e->flags & EDGE_ABNORMAL)
- 	  {
- 	    block->flags |= BB_VISITED;
- 	    break;
- 	  }
+      FOR_EACH_EDGE (e, block->preds)
+	{
+	  if (e->flags & EDGE_ABNORMAL)
+	    {
+	      block->flags |= BB_VISITED;
+	      break;
+	    }
+	}
+      END_FOR_EACH_EDGE;
     }
   if (block->flags & BB_VISITED)
     {
@@ -1171,12 +1173,14 @@ compute_antic_aux (basic_block block)
       varray_type worklist;
       edge e;
       size_t i;
-      unsigned ix;
       basic_block bprime, first;
 
       VARRAY_BB_INIT (worklist, 1, "succ");
-      FOR_EACH_EDGE (e, block->succs, ix)
-	VARRAY_PUSH_BB (worklist, e->dest);
+      FOR_EACH_EDGE (e, block->succs)
+	{
+	  VARRAY_PUSH_BB (worklist, e->dest);
+	}
+      END_FOR_EACH_EDGE;
 
       first = VARRAY_BB (worklist, 0);
       set_copy (ANTIC_OUT, ANTIC_IN (first));
@@ -1442,7 +1446,6 @@ insert_aux (basic_block block)
 		      edge pred;
 		      basic_block bprime;
 		      tree eprime;
-		      unsigned ix;
 
 		      val = get_value_handle (node->expr);
 		      if (bitmap_set_contains_value (PHI_GEN (block), val))
@@ -1456,7 +1459,7 @@ insert_aux (basic_block block)
 		    		    
 		      avail = xcalloc (last_basic_block, sizeof (tree));
 
-		      FOR_EACH_EDGE (pred, block->preds,  ix)
+		      FOR_EACH_EDGE (pred, block->preds)
 			{
 			  tree vprime;
 			  tree edoubleprime;
@@ -1512,6 +1515,8 @@ insert_aux (basic_block block)
 				abort ();
 			    }
 			}
+		      END_FOR_EACH_EDGE;
+
 		      /* If we can insert it, it's not the same value
 			 already existing along every predecessor, and
 			 it's defined by some predecessor, it is
@@ -1528,7 +1533,7 @@ insert_aux (basic_block block)
 			    }
 
 			  /* Make the necessary insertions. */
-			  FOR_EACH_EDGE (pred, block->preds, ix)
+			  FOR_EACH_EDGE (pred, block->preds)
 			    {
 			      tree stmts = alloc_stmt_list ();
 			      tree builtexpr;
@@ -1544,7 +1549,9 @@ insert_aux (basic_block block)
 				  bsi_commit_edge_inserts (NULL);
 				  avail[bprime->index] = builtexpr;
 				}			      
-			    } 
+			    }
+			  END_FOR_EACH_EDGE;
+
 			  /* Now build a phi for the new variable.  */
 			  temp = create_tmp_var (type, "prephitmp");
 			  add_referenced_tmp_var (temp);
@@ -1560,11 +1567,13 @@ insert_aux (basic_block block)
 			    bitmap_value_replace_in_set (AVAIL_OUT (block), 
 							 PHI_RESULT (temp));
 
-			  FOR_EACH_EDGE (pred, block->preds, ix)
+			  FOR_EACH_EDGE (pred, block->preds)
 			    {
 			      add_phi_arg (&temp, avail[pred->src->index],
 					   pred);
 			    }
+			  END_FOR_EACH_EDGE;
+
 			  if (dump_file && (dump_flags & TDF_DETAILS))
 			    {
 			      fprintf (dump_file, "Created phi ");

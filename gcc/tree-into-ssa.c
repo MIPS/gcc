@@ -224,13 +224,12 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
   while (tos != worklist)
     {
       edge e;
-      unsigned ix;
 
       /* Pull a block off the worklist.  */
       bb = *--tos;
 
       /* For each predecessor block.  */
-      FOR_EACH_EDGE (e, bb->preds, ix)
+      FOR_EACH_EDGE (e, bb->preds)
 	{
 	  basic_block pred = e->src;
 	  int pred_index = pred->index;
@@ -244,6 +243,7 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
 	      bitmap_set_bit (livein, pred_index);
 	    }
 	}
+      END_FOR_EACH_EDGE;
     }
 
   free (worklist);
@@ -299,9 +299,9 @@ ssa_mark_phi_uses (struct dom_walk_data *walk_data, basic_block bb)
   sbitmap kills = gd->kills;
   edge e;
   tree phi, use;
-  unsigned uid, ix;
+  unsigned uid;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -319,6 +319,7 @@ ssa_mark_phi_uses (struct dom_walk_data *walk_data, basic_block bb)
 	    set_livein_block (use, bb);
 	}
     }
+  END_FOR_EACH_EDGE;
 }
 
 /* Call back for walk_dominator_tree used to collect definition sites
@@ -827,15 +828,17 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
   sbitmap names_to_rename = walk_data->global_data;
   edge e;
-  unsigned ix;
   bool abnormal_phi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
-  FOR_EACH_EDGE (e, bb->preds, ix)
-    if (e->flags & EDGE_ABNORMAL)
-      break;
+  FOR_EACH_EDGE (e, bb->preds)
+    {
+      if (e->flags & EDGE_ABNORMAL)
+	break;
+    }
+  END_FOR_EACH_EDGE;
   abnormal_phi = (e != NULL);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
@@ -870,9 +873,8 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 			   basic_block bb)
 {
   edge e;
-  unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       tree phi;
 
@@ -890,6 +892,7 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	  add_phi_arg (&phi, currdef, e);
 	}
     }
+  END_FOR_EACH_EDGE;
 }
 
 /* Ditto, for ssa name rewriting.  */
@@ -898,11 +901,10 @@ static void
 ssa_rewrite_phi_arguments (struct dom_walk_data *walk_data, basic_block bb)
 {
   edge e;
-  unsigned ix;
   sbitmap names_to_rename = walk_data->global_data;
   use_operand_p op;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       tree phi;
 
@@ -923,6 +925,7 @@ ssa_rewrite_phi_arguments (struct dom_walk_data *walk_data, basic_block bb)
 	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (USE_FROM_PTR (op)) = 1;
 	}
     }
+  END_FOR_EACH_EDGE;
 }
 
 /* SSA Rewriting Step 5.  Restore the current reaching definition for each
@@ -1124,9 +1127,11 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 	/* If we are rewriting ssa names, add also the phi arguments.  */
 	if (TREE_CODE (var) == SSA_NAME)
 	  {
-	    unsigned ix;
-	    FOR_EACH_EDGE (e, bb->preds, ix)
-	      add_phi_arg (&phi, var, e);
+	    FOR_EACH_EDGE (e, bb->preds)
+	      {
+		add_phi_arg (&phi, var, e);
+	      }
+	    END_FOR_EACH_EDGE;
 	  }
       }
     while (0));

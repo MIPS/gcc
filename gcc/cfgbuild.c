@@ -249,11 +249,13 @@ make_edges (basic_block min, basic_block max, int update_p)
         FOR_BB_BETWEEN (bb, min, max->next_bb, next_bb)
 	  {
 	    edge e;
-	    unsigned ix;
 
-	    FOR_EACH_EDGE (e, bb->succs, ix)
-	      if (e->dest != EXIT_BLOCK_PTR)
-		SET_BIT (edge_cache[bb->index], e->dest->index);
+	    FOR_EACH_EDGE (e, bb->succs)
+	      {
+		if (e->dest != EXIT_BLOCK_PTR)
+		  SET_BIT (edge_cache[bb->index], e->dest->index);
+	      }
+	    END_FOR_EACH_EDGE;
 	  }
     }
 
@@ -269,7 +271,6 @@ make_edges (basic_block min, basic_block max, int update_p)
       enum rtx_code code;
       int force_fallthru = 0;
       edge e;
-      unsigned ix;
 
       if (LABEL_P (BB_HEAD (bb))
 	  && LABEL_ALT_ENTRY_P (BB_HEAD (bb)))
@@ -389,12 +390,16 @@ make_edges (basic_block min, basic_block max, int update_p)
 
       /* Find out if we can drop through to the next block.  */
       insn = NEXT_INSN (insn);
-      FOR_EACH_EDGE (e, bb->succs, ix)
-	if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
-	  {
-	    insn = 0;
-	    break;
-	  }
+      FOR_EACH_EDGE (e, bb->succs)
+	{
+	  if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
+	    {
+	      insn = 0;
+	      break;
+	    }
+	}
+      END_FOR_EACH_EDGE;
+
       while (insn
 	     && NOTE_P (insn)
 	     && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK)
@@ -701,7 +706,6 @@ find_many_sub_basic_blocks (sbitmap blocks)
   FOR_BB_BETWEEN (bb, min, max->next_bb, next_bb)
     {
       edge e;
-      unsigned ix;
 
       if (STATE (bb) == BLOCK_ORIGINAL)
 	continue;
@@ -709,11 +713,12 @@ find_many_sub_basic_blocks (sbitmap blocks)
 	{
 	  bb->count = 0;
 	  bb->frequency = 0;
-	  FOR_EACH_EDGE (e, bb->preds, ix)
+	  FOR_EACH_EDGE (e, bb->preds)
 	    {
 	      bb->count += e->count;
 	      bb->frequency += EDGE_FREQUENCY (e);
 	    }
+	  END_FOR_EACH_EDGE;
 	}
 
       compute_outgoing_frequencies (bb);
@@ -744,17 +749,17 @@ find_sub_basic_blocks (basic_block bb)
   FOR_BB_BETWEEN (b, min, max->next_bb, next_bb)
     {
       edge e;
-      unsigned ix;
 
       if (b != min)
 	{
 	  b->count = 0;
 	  b->frequency = 0;
-	  FOR_EACH_EDGE (e, b->preds, ix)
+	  FOR_EACH_EDGE (e, b->preds)
 	    {
 	      b->count += e->count;
 	      b->frequency += EDGE_FREQUENCY (e);
 	    }
+	  END_FOR_EACH_EDGE;
 	}
 
       compute_outgoing_frequencies (b);

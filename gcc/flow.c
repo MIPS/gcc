@@ -1096,7 +1096,6 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       int rescan, changed;
       basic_block bb;
       edge e;
-      unsigned ix;
 
       bb = *qhead++;
       if (qhead == qend)
@@ -1107,7 +1106,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       CLEAR_REG_SET (new_live_at_end);
 
       if (EDGE_COUNT (bb->succs) > 0)
-	FOR_EACH_EDGE (e, bb->succs, ix)
+	FOR_EACH_EDGE (e, bb->succs)
 	  {
 	    basic_block sb = e->dest;
 
@@ -1131,6 +1130,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 		if (EH_USES (i))
 		  SET_REGNO_REG_SET (new_live_at_end, i);
 	  }
+        END_FOR_EACH_EDGE;
       else
 	{
 	  /* This might be a noreturn function that throws.  And
@@ -1263,7 +1263,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 
       /* Queue all predecessors of BB so that we may re-examine
 	 their live_at_end.  */
-      FOR_EACH_EDGE (e, bb->preds, ix)
+      FOR_EACH_EDGE (e, bb->preds)
 	{
 	  basic_block pb = e->src;
 	  if (pb->aux == NULL)
@@ -1274,6 +1274,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	      pb->aux = pb;
 	    }
 	}
+      END_FOR_EACH_EDGE;
     }
 
   FREE_REG_SET (tmp);
@@ -1366,11 +1367,10 @@ initialize_uninitialized_subregs (void)
 {
   rtx insn;
   edge e;
-  unsigned ix;
   int reg, did_something = 0;
   find_regno_partial_param param;
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs, ix)
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
     {
       basic_block bb = e->dest;
       regset map = bb->global_live_at_start;
@@ -1405,6 +1405,7 @@ initialize_uninitialized_subregs (void)
 	    }
 	});
     }
+  END_FOR_EACH_EDGE;
 
   if (did_something)
     commit_edge_insertions ();

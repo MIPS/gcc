@@ -136,7 +136,6 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
 {
   rtx last = get_last_insn ();
   edge e;
-  unsigned ix;
   int probability;
   gcov_type count;
 
@@ -163,7 +162,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
   probability = 0;
   count = 0;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 	{
@@ -179,9 +178,10 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
 	  count += e->count;
 	  probability += e->probability;
 	  remove_edge (e);
-	  ix--; /* HACK! */
+	  __ix--; /* HACK! */
 	}
     }
+  END_FOR_EACH_EDGE;
 
   /* This is somewhat ugly: the call_expr expander often emits instructions
      after the sibcall (to perform the function return).  These confuse the
@@ -225,7 +225,6 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
   tree stmt = NULL;
   rtx note, last;
   edge e;
-  unsigned ix;
 
   if (dump_file)
     {
@@ -256,7 +255,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
 
   NOTE_BASIC_BLOCK (note) = bb;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
@@ -267,9 +266,10 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
       if (e->flags & EDGE_ABNORMAL)
 	{
 	  remove_edge (e);
-	  ix--;
+	  __ix--;
 	}
     }
+  END_FOR_EACH_EDGE;
 
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -322,11 +322,13 @@ construct_init_block (void)
 {
   basic_block init_block, first_block;
   edge e;
-  unsigned ix;
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs, ix)
-    if (e->dest == ENTRY_BLOCK_PTR->next_bb)
-      break;
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
+    {
+      if (e->dest == ENTRY_BLOCK_PTR->next_bb)
+	break;
+    }
+  END_FOR_EACH_EDGE;
 
   init_block = create_basic_block (NEXT_INSN (get_insns ()),
 				   get_last_insn (),
@@ -385,25 +387,31 @@ construct_exit_block (void)
   exit_block->frequency = EXIT_BLOCK_PTR->frequency;
   exit_block->count = EXIT_BLOCK_PTR->count;
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
+  ix = 0;
+  while (ix < EDGE_COUNT (EXIT_BLOCK_PTR->preds))
     {
+      e = EDGE_I (EXIT_BLOCK_PTR->preds, ix);
       if (!(e->flags & EDGE_ABNORMAL))
-	{
-	  redirect_edge_succ (e, exit_block);
-	  ix--;
-	}
+	redirect_edge_succ (e, exit_block);
+      else
+	ix++;
     }
+
   e = make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
   e->probability = REG_BR_PROB_BASE;
   e->count = EXIT_BLOCK_PTR->count;
 
-  FOR_EACH_EDGE (e2, EXIT_BLOCK_PTR->preds, ix)
-    if (e2 != e)
-      {
-        e->count -= e2->count;
-	exit_block->count -= e2->count;
-	exit_block->frequency -= EDGE_FREQUENCY (e2);
-      }
+  FOR_EACH_EDGE (e2, EXIT_BLOCK_PTR->preds)
+    {
+      if (e2 != e)
+	{
+	  e->count -= e2->count;
+	  exit_block->count -= e2->count;
+	  exit_block->frequency -= EDGE_FREQUENCY (e2);
+	}
+    }
+  END_FOR_EACH_EDGE;
+    
   if (e->count < 0)
     e->count = 0;
   if (exit_block->count < 0)

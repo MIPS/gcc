@@ -2096,7 +2096,6 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
   tree stmt;
-  unsigned ix;
 
   if (flags & TDF_BLOCKS)
     {
@@ -2120,17 +2119,20 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 
       pp_string (buffer, "# PRED:");
       pp_write_text_to_stream (buffer);
-      FOR_EACH_EDGE (e, bb->preds, ix)
-        if (flags & TDF_SLIM)
-	  {
-	    pp_string (buffer, " ");
-	    if (e->src == ENTRY_BLOCK_PTR)
-	      pp_string (buffer, "ENTRY");
-	    else
-	      pp_decimal_int (buffer, e->src->index);
-	  }
-	else
-	  dump_edge_info (buffer->buffer->stream, e, 0);
+      FOR_EACH_EDGE (e, bb->preds)
+	{
+	  if (flags & TDF_SLIM)
+	    {
+	      pp_string (buffer, " ");
+	      if (e->src == ENTRY_BLOCK_PTR)
+		pp_string (buffer, "ENTRY");
+	      else
+		pp_decimal_int (buffer, e->src->index);
+	    }
+	  else
+	    dump_edge_info (buffer->buffer->stream, e, 0);
+	}
+      END_FOR_EACH_EDGE;
       pp_newline (buffer);
     }
   else
@@ -2154,23 +2156,25 @@ static void
 dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
-  unsigned ix;
 
   INDENT (indent);
   pp_string (buffer, "# SUCC:");
   pp_write_text_to_stream (buffer);
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
-    if (flags & TDF_SLIM)
-      {
-	pp_string (buffer, " ");
-	if (e->dest == EXIT_BLOCK_PTR)
-	  pp_string (buffer, "EXIT");
-	else
-	  pp_decimal_int (buffer, e->dest->index);
-      }
-    else
-      dump_edge_info (buffer->buffer->stream, e, 1);
+  FOR_EACH_EDGE (e, bb->succs)
+    {
+      if (flags & TDF_SLIM)
+	{
+	  pp_string (buffer, " ");
+	  if (e->dest == EXIT_BLOCK_PTR)
+	    pp_string (buffer, "EXIT");
+	  else
+	    pp_decimal_int (buffer, e->dest->index);
+	}
+      else
+	dump_edge_info (buffer->buffer->stream, e, 1);
+    }
+  END_FOR_EACH_EDGE;
   pp_newline (buffer);
 }
 
@@ -2226,13 +2230,15 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 		     int flags)
 {
   edge e;
-  unsigned ix;
 
   /* If there is a fallthru edge, we may need to add an artificial goto to the
      dump.  */
-  FOR_EACH_EDGE (e, bb->succs, ix)
-    if (e->flags & EDGE_FALLTHRU)
-      break;
+  FOR_EACH_EDGE (e, bb->succs)
+    {
+      if (e->flags & EDGE_FALLTHRU)
+	break;
+    }
+  END_FOR_EACH_EDGE;
   if (e && e->dest != bb->next_bb)
     {
       INDENT (indent);

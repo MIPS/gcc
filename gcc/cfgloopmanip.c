@@ -118,10 +118,9 @@ static bool
 fix_bb_placement (struct loops *loops, basic_block bb)
 {
   edge e;
-  unsigned ix;
   struct loop *loop = loops->tree_root, *act;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -133,6 +132,7 @@ fix_bb_placement (struct loops *loops, basic_block bb)
       if (flow_loop_nested_p (loop, act))
 	loop = act;
     }
+  END_FOR_EACH_EDGE;
 
   if (loop == bb->loop_father)
     return false;
@@ -158,7 +158,6 @@ fix_bb_placements (struct loops *loops, basic_block from)
   basic_block *queue, *qtop, *qbeg, *qend;
   struct loop *base_loop;
   edge e;
-  unsigned ix;
 
   /* We pass through blocks back-reachable from FROM, testing whether some
      of their successors moved to outer loop.  It may be necessary to
@@ -205,7 +204,7 @@ fix_bb_placements (struct loops *loops, basic_block from)
 	}
 
       /* Something has changed, insert predecessors into queue.  */
-      FOR_EACH_EDGE (e, from->preds, ix)
+      FOR_EACH_EDGE (e, from->preds)
 	{
 	  basic_block pred = e->src;
 	  struct loop *nca;
@@ -237,6 +236,7 @@ fix_bb_placements (struct loops *loops, basic_block from)
 	    qend = queue;
 	  SET_BIT (in_queue, pred->index);
 	}
+      END_FOR_EACH_EDGE;
     }
   free (in_queue);
   free (queue);
@@ -254,7 +254,6 @@ fix_irreducible_loops (basic_block from)
   sbitmap on_stack;
   edge *edges, e;
   unsigned n_edges, i;
-  unsigned ix;
 
   if (!(from->flags & BB_IRREDUCIBLE_LOOP))
     return;
@@ -271,9 +270,12 @@ fix_irreducible_loops (basic_block from)
       bb = stack[--stack_top];
       RESET_BIT (on_stack, bb->index);
 
-      FOR_EACH_EDGE (e, bb->preds, ix)
-	if (e->flags & EDGE_IRREDUCIBLE_LOOP)
-	  break;
+      FOR_EACH_EDGE (e, bb->preds)
+	{
+	  if (e->flags & EDGE_IRREDUCIBLE_LOOP)
+	    break;
+	}
+      END_FOR_EACH_EDGE;
       if (e)
 	continue;
 
@@ -284,8 +286,11 @@ fix_irreducible_loops (basic_block from)
 	{
 	  n_edges = EDGE_COUNT (bb->succs);
 	  edges = xmalloc (n_edges * sizeof (edge));
-	  FOR_EACH_EDGE (e, bb->succs, ix)
-	    edges[ix] = e;
+	  FOR_EACH_EDGE (e, bb->succs)
+	    {
+	      edges[__ix] = e;
+	    }
+	  END_FOR_EACH_EDGE;
 	}
 
       for (i = 0; i < n_edges; i++)
@@ -323,7 +328,6 @@ remove_path (struct loops *loops, edge e)
   basic_block *rem_bbs, *bord_bbs, *dom_bbs, from, bb;
   int i, nrem, n_bord_bbs, n_dom_bbs;
   sbitmap seen;
-  unsigned ix;
 
   if (!loop_delete_branch_edge (e, 0))
     return false;
@@ -358,12 +362,15 @@ remove_path (struct loops *loops, edge e)
   for (i = 0; i < nrem; i++)
     {
       bb = rem_bbs[i];
-      FOR_EACH_EDGE (ae, bb->succs, ix)
-	if (ae->dest != EXIT_BLOCK_PTR && !TEST_BIT (seen, ae->dest->index))
-	  {
-	    SET_BIT (seen, ae->dest->index);
-	    bord_bbs[n_bord_bbs++] = ae->dest;
-	  }
+      FOR_EACH_EDGE (ae, rem_bbs[i]->succs)
+	{
+	  if (ae->dest != EXIT_BLOCK_PTR && !TEST_BIT (seen, ae->dest->index))
+	    {
+	      SET_BIT (seen, ae->dest->index);
+	      bord_bbs[n_bord_bbs++] = ae->dest;
+	    }
+	}
+      END_FOR_EACH_EDGE;
     }
 
   /* Remove the path.  */
@@ -457,14 +464,16 @@ scale_bbs_frequencies (basic_block *bbs, int nbbs, int num, int den)
 {
   int i;
   edge e;
-  unsigned ix;
 
   for (i = 0; i < nbbs; i++)
     {
       bbs[i]->frequency = (bbs[i]->frequency * num) / den;
       bbs[i]->count = RDIV (bbs[i]->count * num, den);
-      FOR_EACH_EDGE (e, bbs[i]->succs, ix)
-	e->count = (e->count * num) /den;
+      FOR_EACH_EDGE (e, bbs[i]->succs)
+	{
+	  e->count = (e->count * num) /den;
+	}
+      END_FOR_EACH_EDGE;
     }
 }
 
@@ -502,7 +511,6 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
   int freq, prob, tot_prob;
   gcov_type cnt;
   edge e;
-  unsigned ix;
 
   loop->header = header_edge->dest;
   loop->latch = latch_edge->src;
@@ -537,8 +545,11 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge,
   /* Fix frequencies.  */
   switch_bb->frequency = freq;
   switch_bb->count = cnt;
-  FOR_EACH_EDGE (e, switch_bb->succs, ix)
-    e->count = (switch_bb->count * e->probability) / REG_BR_PROB_BASE;
+  FOR_EACH_EDGE (e, switch_bb->succs)
+    {
+      e->count = (switch_bb->count * e->probability) / REG_BR_PROB_BASE;
+    }
+  END_FOR_EACH_EDGE;
   scale_loop_frequencies (loop, prob, tot_prob);
   scale_loop_frequencies (succ_bb->loop_father, tot_prob - prob, tot_prob);
 
@@ -640,19 +651,22 @@ int
 fix_loop_placement (struct loop *loop)
 {
   basic_block *body;
-  unsigned i, ix;
+  unsigned i;
   edge e;
   struct loop *father = loop->pred[0], *act;
 
   body = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
-    FOR_EACH_EDGE (e, body[i]->succs, ix)
-      if (!flow_bb_inside_loop_p (loop, e->dest))
-	{
-	  act = find_common_loop (loop, e->dest->loop_father);
-	  if (flow_loop_nested_p (father, act))
-	    father = act;
-	}
+    FOR_EACH_EDGE (e, body[i]->succs)
+      {
+	if (!flow_bb_inside_loop_p (loop, e->dest))
+	  {
+	    act = find_common_loop (loop, e->dest->loop_father);
+	    if (flow_loop_nested_p (father, act))
+	      father = act;
+	  }
+      }
+    END_FOR_EACH_EDGE;
   free (body);
 
   if (father != loop->outer)
@@ -857,7 +871,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
   int p, freq_in, freq_le, freq_out_orig;
   int prob_pass_thru, prob_pass_wont_exit, prob_pass_main;
   int add_irreducible_flag;
-  unsigned ix;
 
   if (e->dest != loop->header)
     abort ();
@@ -994,11 +1007,14 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
 	      if (new_bb->loop_father == target)
 		new_bb->flags |= BB_IRREDUCIBLE_LOOP;
 
-	      FOR_EACH_EDGE (ae, new_bb->succs, ix)
-		if (ae->dest->rbi->duplicated
-		    && (ae->src->loop_father == target
-			|| ae->dest->loop_father == target))
-		  ae->flags |= EDGE_IRREDUCIBLE_LOOP;
+	      FOR_EACH_EDGE (ae, new_bb->succs)
+		{
+		  if (ae->dest->rbi->duplicated
+		      && (ae->src->loop_father == target
+			  || ae->dest->loop_father == target))
+		    ae->flags |= EDGE_IRREDUCIBLE_LOOP;
+		}
+	      END_FOR_EACH_EDGE;
 	    }
 	  for (i = 0; i < n; i++)
 	    new_bbs[i]->rbi->duplicated = 0;
@@ -1119,25 +1135,28 @@ create_preheader (struct loop *loop, int flags)
   struct loop *cloop, *ploop;
   int nentry = 0;
   bool irred = false;
-  unsigned ix;
 
   cloop = loop->outer;
 
-  FOR_EACH_EDGE (e, loop->header->preds, ix)
+  FOR_EACH_EDGE (e, loop->header->preds)
     {
       if (e->src == loop->latch)
 	continue;
       irred |= (e->flags & EDGE_IRREDUCIBLE_LOOP) != 0;
       nentry++;
     }
+  END_FOR_EACH_EDGE;
+
   if (!nentry)
     abort ();
   if (nentry == 1)
     {
-      FOR_EACH_EDGE (e, loop->header->preds, ix)
-	if (e->src != loop->latch)
-	  break;
-
+      FOR_EACH_EDGE (e, loop->header->preds)
+	{
+	  if (e->src != loop->latch)
+	    break;
+	}
+      END_FOR_EACH_EDGE;
       if (!(flags & CP_SIMPLE_PREHEADERS) || EDGE_COUNT (e->src->succs) == 1)
 	return NULL;
     }
@@ -1156,9 +1175,12 @@ create_preheader (struct loop *loop, int flags)
 
   /* Reorganize blocks so that the preheader is not stuck in the middle of the
      loop.  */
-  FOR_EACH_EDGE (e, dummy->preds, ix)
-    if (e->src != loop->latch)
-      break;
+  FOR_EACH_EDGE (e, dummy->preds)
+    {
+      if (e->src != loop->latch)
+	break;
+    }
+  END_FOR_EACH_EDGE;
   move_block_after (dummy, e->src);
 
   loop->header->loop_father = loop;
@@ -1193,7 +1215,7 @@ create_preheaders (struct loops *loops, int flags)
 void
 force_single_succ_latches (struct loops *loops)
 {
-  unsigned i, ix;
+  unsigned i;
   struct loop *loop;
   edge e;
 
@@ -1203,9 +1225,12 @@ force_single_succ_latches (struct loops *loops)
       if (loop->latch != loop->header && EDGE_COUNT (loop->latch->succs) == 1)
 	continue;
 
-      FOR_EACH_EDGE (e, loop->header->preds, ix)
-	if (e->src == loop->latch)
-	  break;
+      FOR_EACH_EDGE (e, loop->header->preds)
+	{
+	  if (e->src == loop->latch)
+	    break;
+	}
+      END_FOR_EACH_EDGE;
 
       loop_split_edge_with (e, NULL_RTX);
     }

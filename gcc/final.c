@@ -677,7 +677,6 @@ compute_alignments (void)
       rtx label = BB_HEAD (bb);
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
-      unsigned ix;
 
       if (!LABEL_P (label)
 	  || probably_never_executed_bb_p (bb))
@@ -685,13 +684,14 @@ compute_alignments (void)
       max_log = LABEL_ALIGN (label);
       max_skip = LABEL_ALIGN_MAX_SKIP;
 
-      FOR_EACH_EDGE (e, bb->preds, ix)
+      FOR_EACH_EDGE (e, bb->preds)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    has_fallthru = 1, fallthru_frequency += EDGE_FREQUENCY (e);
 	  else
 	    branch_frequency += EDGE_FREQUENCY (e);
 	}
+      END_FOR_EACH_EDGE;
 
       /* There are two purposes to align block with no fallthru incoming edge:
 	 1) to avoid fetch stalls when branch destination is near cache boundary

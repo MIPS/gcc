@@ -274,22 +274,23 @@ mark_irreducible_loops (struct loops *loops)
   int *queue2 = xmalloc ((last_basic_block + loops->num) * sizeof (int));
   int nq, depth;
   struct loop *cloop;
-  unsigned ix;
 
   /* Reset the flags.  */
   FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      unsigned ix;
       act->flags &= ~BB_IRREDUCIBLE_LOOP;
-      FOR_EACH_EDGE (e, act->succs, ix)
-	e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+      FOR_EACH_EDGE (e, act->succs)
+	{
+	  e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+	}
+      END_FOR_EACH_EDGE;
     }
 
   /* Create the edge lists.  */
   g = new_graph (last_basic_block + loops->num);
 
   FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
-    FOR_EACH_EDGE (e, act->succs, ix)
+    FOR_EACH_EDGE (e, act->succs)
       {
         /* Ignore edges to exit.  */
         if (e->dest == EXIT_BLOCK_PTR)
@@ -328,6 +329,7 @@ mark_irreducible_loops (struct loops *loops)
 
 	add_edge (g, src, dest, e);
       }
+    END_FOR_EACH_EDGE;
 
   /* Find the strongly connected components.  Use the algorithm of Tarjan --
      first determine the postorder dfs numbering in reversed graph, then
@@ -418,7 +420,6 @@ unsigned
 expected_loop_iterations (const struct loop *loop)
 {
   edge e;
-  unsigned ix;
 
   if (loop->header->count)
     {
@@ -427,11 +428,14 @@ expected_loop_iterations (const struct loop *loop)
       count_in = 0;
       count_latch = 0;
 
-      FOR_EACH_EDGE (e, loop->header->preds, ix)
-	if (e->src == loop->latch)
-	  count_latch = e->count;
-	else
-	  count_in += e->count;
+      FOR_EACH_EDGE (e, loop->header->preds)
+	{
+	  if (e->src == loop->latch)
+	    count_latch = e->count;
+	  else
+	    count_in += e->count;
+	}
+      END_FOR_EACH_EDGE;
 
       if (count_in == 0)
         expected = count_latch * 2;
@@ -448,11 +452,14 @@ expected_loop_iterations (const struct loop *loop)
       freq_in = 0;
       freq_latch = 0;
 
-      FOR_EACH_EDGE (e, loop->header->preds, ix)
-	if (e->src == loop->latch)
-	  freq_latch = EDGE_FREQUENCY (e);
-	else
-	  freq_in += EDGE_FREQUENCY (e);
+      FOR_EACH_EDGE (e, loop->header->preds)
+	{
+	  if (e->src == loop->latch)
+	    freq_latch = EDGE_FREQUENCY (e);
+	  else
+	    freq_in += EDGE_FREQUENCY (e);
+	}
+      END_FOR_EACH_EDGE;
 
       if (freq_in == 0)
 	return freq_latch * 2;

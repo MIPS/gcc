@@ -190,7 +190,6 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 {
   basic_block bb, call_bb, at_bb;
   edge e;
-  unsigned ix;
 
   if (is_gimple_min_invariant (expr))
     return expr;
@@ -231,9 +230,13 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 	  break;
 	}
 
-      FOR_EACH_EDGE (e, bb->preds, ix)
-	if (e->src->aux)
-	  break;
+      FOR_EACH_EDGE (e, bb->preds)
+	{
+	  if (e->src->aux)
+	    break;
+	}
+      END_FOR_EACH_EDGE;
+
       if (!e)
 	abort ();
 
@@ -362,7 +365,6 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   bool tail_recursion;
   struct tailcall *nw;
   edge e;
-  unsigned ix;
   tree m, a;
   basic_block abb;
   stmt_ann_t ann;
@@ -408,9 +410,11 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   if (bsi_end_p (bsi))
     {
       /* Recurse to the predecessors.  */
-      FOR_EACH_EDGE (e, bb->preds, ix)
-	find_tail_calls (e->src, ret);
-
+      FOR_EACH_EDGE (e, bb->preds)
+	{
+	  find_tail_calls (e->src, ret);
+	}
+      END_FOR_EACH_EDGE;
       return;
     }
 
@@ -801,7 +805,6 @@ static void
 tree_optimize_tail_calls_1 (bool opt_tailcalls)
 {
   edge e;
-  unsigned ix;
   bool phis_constructed = false;
   struct tailcall *tailcalls = NULL, *act, *next;
   bool changed = false;
@@ -813,7 +816,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
     {
       /* Only traverse the normal exits, i.e. those that end with return
 	 statement.  */
@@ -823,6 +826,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  && TREE_CODE (stmt) == RETURN_EXPR)
 	find_tail_calls (e->src, &tailcalls);
     }
+  END_FOR_EACH_EDGE;
 
   /* Construct the phi nodes and accumulators if necessary.  */
   a_acc = m_acc = NULL_TREE;
@@ -896,7 +900,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (a_acc || m_acc)
     {
       /* Modify the remaining return statements.  */
-      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
+      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
 	{
 	  stmt = last_stmt (e->src);
 
@@ -904,6 +908,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	      && TREE_CODE (stmt) == RETURN_EXPR)
 	    adjust_return_value (e->src, m_acc, a_acc);
 	}
+      END_FOR_EACH_EDGE;
     }
 
   if (changed)

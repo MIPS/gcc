@@ -1,3 +1,12 @@
+2004-08-16  Ben Elliston  <bje@au.ibm.com>
+
+	* basic-block.h: Include "errors.h".
+	(ENABLE_CHECKING): Define to 0 if not already defined.
+	(FOR_EACH_EDGE): Reimplement.
+	(END_FOR_EACH_EDGE): New.
+	* Update all callers: Eliminate explicit iterator variables, use
+	FOR_EACH_EDGE and END_FOR_EACH_EDGE macros.
+
 2004-08-12  Ben Elliston  <bje@au.ibm.com>
 
 	* basic-block.h (FOR_EACH_PRED_EDGE, FOR_EACH_SUCC_EDGE): Remove.

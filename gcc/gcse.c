@@ -3911,7 +3911,6 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
   edge e, edest;
   int i, change;
   int may_be_loop_header;
-  unsigned ix;
 
   insn = (setcc != NULL) ? setcc : jump;
 
@@ -3924,15 +3923,18 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 
   may_be_loop_header = false;
 
-  FOR_EACH_EDGE (e, bb->preds, ix)
-    if (e->flags & EDGE_DFS_BACK)
-      {
-	may_be_loop_header = true;
-	break;
-      }
+  FOR_EACH_EDGE (e, bb->preds)
+    {
+      if (e->flags & EDGE_DFS_BACK)
+	{
+	  may_be_loop_header = true;
+	  break;
+	}
+    }
+  END_FOR_EACH_EDGE;
 
   change = 0;
-  FOR_EACH_EDGE (e, bb->preds, ix)
+  FOR_EACH_EDGE (e, bb->preds)
     {
       if (e->flags & EDGE_COMPLEX)
 	continue;
@@ -3990,15 +3992,17 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    }
 	  else if (GET_CODE (new) == LABEL_REF)
 	    {
-	      unsigned ix;
 	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
 	      /* Don't bypass edges containing instructions.  */
-	      FOR_EACH_EDGE (edest, bb->succs, ix)
-		if (edest->dest == dest && edest->insns.r)
-		  {
-		    dest = NULL;
-		    break;
-		  }
+	      FOR_EACH_EDGE (edest, bb->succs)
+		{
+		  if (edest->dest == dest && edest->insns.r)
+		    {
+		      dest = NULL;
+		      break;
+		    }
+		}
+	      END_FOR_EACH_EDGE;
 	    }
 	  else
 	    dest = NULL;
@@ -4010,13 +4014,15 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc))))
 	    {
 	      edge e2;
-	      unsigned ix;
-	      FOR_EACH_EDGE (e2, e->src->succs, ix)
-		if (e2->dest == dest)
-		  {
-		    dest = NULL;
-		    break;
-		  }
+	      FOR_EACH_EDGE (e2, e->src->succs)
+		{
+		  if (e2->dest == dest)
+		    {
+		      dest = NULL;
+		      break;
+		    }
+		}
+	      END_FOR_EACH_EDGE;
 	    }
 
 	  old_dest = e->dest;
@@ -4048,6 +4054,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    }
 	}
     }
+  END_FOR_EACH_EDGE;
   return change;
 }
 
@@ -4226,20 +4233,22 @@ compute_pre_data (void)
   FOR_EACH_BB (bb)
     {
       edge e;
-      unsigned ix;
 
       /* If the current block is the destination of an abnormal edge, we
 	 kill all trapping expressions because we won't be able to properly
 	 place the instruction on the edge.  So make them neither
 	 anticipatable nor transparent.  This is fairly conservative.  */
-      FOR_EACH_EDGE (e, bb->preds, ix)
-	if (e->flags & EDGE_ABNORMAL)
-	  {
-	    sbitmap_difference (antloc[bb->index], antloc[bb->index], trapping_expr);
-	    sbitmap_difference (transp[bb->index], transp[bb->index], trapping_expr);
-	    break;
-	  }
-
+      FOR_EACH_EDGE (e, bb->preds)
+	{
+	  if (e->flags & EDGE_ABNORMAL)
+	    {
+	      sbitmap_difference (antloc[bb->index], antloc[bb->index], trapping_expr);
+	      sbitmap_difference (transp[bb->index], transp[bb->index], trapping_expr);
+	      break;
+	    }
+	}
+      END_FOR_EACH_EDGE;
+      
       sbitmap_a_or_b (ae_kill[bb->index], transp[bb->index], comp[bb->index]);
       sbitmap_not (ae_kill[bb->index], ae_kill[bb->index]);
     }
@@ -4272,9 +4281,8 @@ static int
 pre_expr_reaches_here_p_work (basic_block occr_bb, struct expr *expr, basic_block bb, char *visited)
 {
   edge pred;
-  unsigned ix;
   
-  FOR_EACH_EDGE (pred, bb->preds, ix)
+  FOR_EACH_EDGE (pred, bb->preds)
     {
       basic_block pred_bb = pred->src;
 
@@ -4306,6 +4314,7 @@ pre_expr_reaches_here_p_work (basic_block occr_bb, struct expr *expr, basic_bloc
 	    return 1;
 	}
     }
+  END_FOR_EACH_EDGE;
 
   /* All paths have been checked.  */
   return 0;
@@ -5146,7 +5155,6 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
 {
   edge pred;
   int visited_allocated_locally = 0;
-  unsigned ix;
 
   if (visited == NULL)
     {
@@ -5154,7 +5162,7 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
       visited = xcalloc (last_basic_block, 1);
     }
 
-  FOR_EACH_EDGE (pred, bb->preds, ix)
+  FOR_EACH_EDGE (pred, bb->preds)
     {
       basic_block pred_bb = pred->src;
 
@@ -5180,6 +5188,7 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
 	    break;
 	}
     }
+  END_FOR_EACH_EDGE;
   if (visited_allocated_locally)
     free (visited);
 
@@ -6528,7 +6537,6 @@ insert_store (struct ls_expr * expr, edge e)
   rtx reg, insn;
   basic_block bb;
   edge tmp;
-  unsigned ix;
 
   /* We did all the deleted before this insert, so if we didn't delete a
      store, then we haven't set the reaching reg yet either.  */
@@ -6545,25 +6553,29 @@ insert_store (struct ls_expr * expr, edge e)
      insert it at the start of the BB, and reset the insert bits on the other
      edges so we don't try to insert it on the other edges.  */
   bb = e->dest;
-  FOR_EACH_EDGE (tmp, e->dest->preds, ix)
-    if (!(tmp->flags & EDGE_FAKE))
-      {
-	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
-	if (index == EDGE_INDEX_NO_EDGE)
-	  abort ();
-	if (! TEST_BIT (pre_insert_map[index], expr->index))
-	  break;
-      }
+  FOR_EACH_EDGE (tmp, e->dest->preds)
+    {
+      if (!(tmp->flags & EDGE_FAKE))
+	{
+	  int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
+	  if (index == EDGE_INDEX_NO_EDGE)
+	    abort ();
+	  if (! TEST_BIT (pre_insert_map[index], expr->index))
+	    break;
+	}
+    }
+  END_FOR_EACH_EDGE;
 
   /* If tmp is NULL, we found an insertion on every edge, blank the
      insertion vector for these edges, and insert at the start of the BB.  */
   if (!tmp && bb != EXIT_BLOCK_PTR)
     {
-      FOR_EACH_EDGE (tmp, e->dest->preds, ix)
+      FOR_EACH_EDGE (tmp, e->dest->preds)
 	{
 	  int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
 	  RESET_BIT (pre_insert_map[index], expr->index);
 	}
+      END_FOR_EACH_EDGE;
       insert_insn_start_bb (insn, bb);
       return 0;
     }
@@ -7087,14 +7099,16 @@ static bool
 bb_has_well_behaved_predecessors (basic_block bb)
 {
   edge pred;
-  unsigned ix;
 
   if (EDGE_COUNT (bb->preds) == 0)
     return false;
-  FOR_EACH_EDGE (pred, bb->preds, ix)
-    if (((pred->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (pred))
-	|| is_jump_table_basic_block (pred->src))
-      return false;
+  FOR_EACH_EDGE (pred, bb->preds)
+    {
+      if (((pred->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (pred))
+	  || is_jump_table_basic_block (pred->src))
+	return false;
+    }
+  END_FOR_EACH_EDGE;
   return true;
 }
 
@@ -7152,7 +7166,6 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
   int npred_ok = 0;
   gcov_type ok_count = 0; /* Redundant load execution count.  */
   gcov_type critical_count = 0; /* Execution count of critical edges.  */
-  unsigned ix;
 
   /* The execution count of the loads to be added to make the
      load fully redundant.  */
@@ -7170,7 +7183,7 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
     return;
 
   /* Check potential for replacing load with copy for predecessors.  */
-  FOR_EACH_EDGE (pred, bb->preds, ix)
+  FOR_EACH_EDGE (pred, bb->preds)
     {
       rtx next_pred_bb_end;
 
@@ -7226,6 +7239,7 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
 	  unavail_occrs = unoccr;
 	}
     }
+  END_FOR_EACH_EDGE;
 
   if (npred_ok == 0    /* No load can be replaced by copy.  */
       || (optimize_size && npred_ok > 1)) /* Prevent exploding the code.  */

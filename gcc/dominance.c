@@ -519,7 +519,7 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
          to them.  That way we have the smallest node with also a path to
          us only over nodes behind us.  In effect we search for our
          semidominator.  */
-      FOR_EACH_EDGE (e, ev, ix)
+      FOR_EACH_EDGE (e, ev)
 	{
 	  TBB k1;
 	  basic_block b = (reverse) ? e->dest : e->src;
@@ -539,6 +539,7 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
 	  if (k1 < k)
 	    k = k1;
 	}
+      END_FOR_EACH_EDGE;
 
       di->key[v] = k;
       link_roots (di, par, v);
@@ -849,14 +850,13 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
 {
   basic_block dom_bb = NULL;
   edge e;
-  unsigned ix;
 
   if (!dom_computed[dir])
     abort ();
 
   if (dir == CDI_DOMINATORS)
     {
-      FOR_EACH_EDGE (e, bb->preds, ix)
+      FOR_EACH_EDGE (e, bb->preds)
 	{
 	  /* Ignore the predecessors that either are not reachable from
 	     the entry block, or whose dominator was not determined yet.  */
@@ -866,14 +866,16 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
 	  if (!dominated_by_p (dir, e->src, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->src);
 	}
+      END_FOR_EACH_EDGE;
     }
   else
     {
-      FOR_EACH_EDGE (e, bb->succs, ix)
+      FOR_EACH_EDGE (e, bb->succs)
 	{
 	  if (!dominated_by_p (dir, e->dest, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->dest);
 	}
+      END_FOR_EACH_EDGE;
     }
 
   return dom_bb;

@@ -2501,8 +2501,7 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
 
   for (i = 0; i < loop->num_nodes; i++)
     {
-      unsigned ix;
-      FOR_EACH_EDGE (e, body[i]->succs, ix)
+      FOR_EACH_EDGE (e, body[i]->succs)
 	{
 	  if (flow_bb_inside_loop_p (loop, e->dest))
 	    continue;
@@ -2519,6 +2518,7 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
 	    continue;
 	  *desc = act;
 	}
+      END_FOR_EACH_EDGE;
     }
 
   if (dump_file)

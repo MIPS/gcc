@@ -635,7 +635,6 @@ fixup_reorder_chain (void)
       rtx bb_end_insn;
       basic_block nb;
       basic_block old_bb;
-      unsigned ix;
 
       if (EDGE_COUNT (bb->succs) == 0)
 	continue;
@@ -644,11 +643,14 @@ fixup_reorder_chain (void)
 	 a taken jump.  */
       e_taken = e_fall = NULL;
 
-      FOR_EACH_EDGE (e, bb->succs, ix)
-	if (e->flags & EDGE_FALLTHRU)
-	  e_fall = e;
-	else if (! (e->flags & EDGE_EH))
-	  e_taken = e;
+      FOR_EACH_EDGE (e, bb->succs)
+	{
+	  if (e->flags & EDGE_FALLTHRU)
+	    e_fall = e;
+	  else if (! (e->flags & EDGE_EH))
+	    e_taken = e;
+	}
+      END_FOR_EACH_EDGE;
 
       bb_end_insn = BB_END (bb);
       if (JUMP_P (bb_end_insn))
@@ -860,11 +862,13 @@ fixup_reorder_chain (void)
   FOR_EACH_BB (bb)
     {
       edge e;
-      unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->succs, ix)
-	if (e->flags & EDGE_FALLTHRU)
-	  break;
+      FOR_EACH_EDGE (e, bb->succs)
+	{
+	  if (e->flags & EDGE_FALLTHRU)
+	    break;
+	}
+      END_FOR_EACH_EDGE;
 
       if (e && !can_fallthru (e->src, e->dest))
 	force_nonfallthru (e);
@@ -924,7 +928,6 @@ static void
 fixup_fallthru_exit_predecessor (void)
 {
   edge e;
-  unsigned ix;
   basic_block bb = NULL;
 
   /* This transformation is not valid before reload, because we might separate
@@ -932,9 +935,12 @@ fixup_fallthru_exit_predecessor (void)
   if (! reload_completed)
     abort ();
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
-    if (e->flags & EDGE_FALLTHRU)
-      bb = e->src;
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+    {
+      if (e->flags & EDGE_FALLTHRU)
+	bb = e->src;
+    }
+  END_FOR_EACH_EDGE;
 
   if (bb && bb->rbi->next)
     {
@@ -1233,7 +1239,7 @@ cfg_layout_finalize (void)
 bool
 can_copy_bbs_p (basic_block *bbs, unsigned n)
 {
-  unsigned i, ix;
+  unsigned i;
   edge e;
   int ret = true;
 
@@ -1244,14 +1250,17 @@ can_copy_bbs_p (basic_block *bbs, unsigned n)
     {
       /* In case we should redirect abnormal edge during duplication, fail.  */
 
-      FOR_EACH_EDGE (e, bbs[i]->succs, ix)
-	if ((e->flags & EDGE_ABNORMAL)
-	    && e->dest->rbi->duplicated)
-	  {
-	    ret = false;
-	    goto end;
-	  }
-
+      FOR_EACH_EDGE (e, bbs[i]->succs)
+	{
+	  if ((e->flags & EDGE_ABNORMAL)
+	      && e->dest->rbi->duplicated)
+	    {
+	      ret = false;
+	      goto end;
+	    }
+	}
+      END_FOR_EACH_EDGE;
+      
       if (!can_duplicate_block_p (bbs[i]))
 	{
 	  ret = false;
@@ -1289,7 +1298,6 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
   unsigned i, j;
   basic_block bb, new_bb, dom_bb;
   edge e;
-  unsigned ix;
 
   /* Duplicate bbs, update dominators, assign bbs to loops.  */
   for (i = 0; i < n; i++)
@@ -1330,7 +1338,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
       new_bb = new_bbs[i];
       bb = bbs[i];
 
-      FOR_EACH_EDGE (e, new_bb->succs, ix)
+      FOR_EACH_EDGE (e, new_bb->succs)
 	{
 	  for (j = 0; j < n_edges; j++)
 	    if (edges[j] && edges[j]->src == bb && edges[j]->dest == e->dest)
@@ -1340,6 +1348,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
 	    continue;
 	  redirect_edge_and_branch_force (e, e->dest->rbi->copy);
 	}
+      END_FOR_EACH_EDGE;
     }
 
   /* Clear information about duplicates.  */

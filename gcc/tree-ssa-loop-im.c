@@ -1185,7 +1185,7 @@ static void
 fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 {
   basic_block bb = NULL, *bbs, last = NULL;
-  unsigned i, ix;
+  unsigned i;
   edge e;
   struct loop *inn_loop = loop;
 
@@ -1203,9 +1203,13 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 	  if (TEST_BIT (contains_call, bb->index))
 	    break;
 
-	  FOR_EACH_EDGE (e, bb->succs, ix)
-	    if (!flow_bb_inside_loop_p (loop, e->dest))
-	      break;
+	  FOR_EACH_EDGE (e, bb->succs)
+	    {
+	      if (!flow_bb_inside_loop_p (loop, e->dest))
+		break;
+	    }
+	  END_FOR_EACH_EDGE;
+
 	  if (e)
 	    break;
 

@@ -126,8 +126,7 @@ mark_loop_exit_edges (void)
     {
       FOR_EACH_BB (bb)
 	{
-	  unsigned int ix;
-	  FOR_EACH_EDGE (e, bb->succs, ix)
+	  FOR_EACH_EDGE (e, bb->succs)
 	    {
 	      if (find_common_loop (bb->loop_father, e->dest->loop_father)
 		  != bb->loop_father)
@@ -135,6 +134,7 @@ mark_loop_exit_edges (void)
 	      else
 		e->flags &= ~EDGE_LOOP_EXIT;
 	    }
+	  END_FOR_EACH_EDGE;
 	}
     }
 
@@ -250,11 +250,13 @@ static basic_block
 block_fallthru (basic_block bb)
 {
   edge e;
-  unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
-    if (! (e->flags & EDGE_FALLTHRU))
-      break;
+  FOR_EACH_EDGE (e, bb->succs)
+    {
+      if (! (e->flags & EDGE_FALLTHRU))
+	break;
+    }
+  END_FOR_EACH_EDGE;
 
   return (e) ? e->dest : NULL_BLOCK;
 }
@@ -2358,7 +2360,6 @@ block_jumps_and_fallthru_p (basic_block cur_bb, basic_block target_bb)
   rtx insn;
   rtx end;
   int n_insns = 0;
-  unsigned ix;
 
   if (!cur_bb || !target_bb)
     return -1;
@@ -2367,7 +2368,7 @@ block_jumps_and_fallthru_p (basic_block cur_bb, basic_block target_bb)
   if (EDGE_COUNT (cur_bb->succs) == 0)
     return FALSE;
 
-  FOR_EACH_EDGE (cur_edge, cur_bb->succs, ix)
+  FOR_EACH_EDGE (cur_edge, cur_bb->succs)
     {
       if (cur_edge->flags & EDGE_COMPLEX)
 	/* Anything complex isn't what we want.  */
@@ -2382,6 +2383,7 @@ block_jumps_and_fallthru_p (basic_block cur_bb, basic_block target_bb)
       else
 	return -1;
     }
+  END_FOR_EACH_EDGE;
 
   if ((jump_p & fallthru_p) == 0)
     return -1;
@@ -2428,7 +2430,6 @@ find_if_block (struct ce_if_block * ce_info)
   int else_predecessors;
   edge cur_edge;
   basic_block next;
-  unsigned ix;
 
   ce_info->last_test_bb = test_bb;
 
@@ -2492,20 +2493,22 @@ find_if_block (struct ce_if_block * ce_info)
 
   /* Count the number of edges the THEN and ELSE blocks have.  */
   then_predecessors = 0;
-  FOR_EACH_EDGE (cur_edge, then_bb->preds, ix)
+  FOR_EACH_EDGE (cur_edge, then_bb->preds)
     {
       then_predecessors++;
       if (cur_edge->flags & EDGE_COMPLEX)
 	return FALSE;
     }
+  END_FOR_EACH_EDGE;
 
   else_predecessors = 0;
-  FOR_EACH_EDGE (cur_edge, else_bb->preds, ix)
+  FOR_EACH_EDGE (cur_edge, else_bb->preds)
     {
       else_predecessors++;
       if (cur_edge->flags & EDGE_COMPLEX)
 	return FALSE;
     }
+  END_FOR_EACH_EDGE;
 
   /* The THEN block of an IF-THEN combo must have exactly one predecessor,
      other than any || blocks which jump to the THEN block.  */
@@ -2743,7 +2746,7 @@ block_has_only_trap (basic_block bb)
     return NULL_RTX;
 
   /* The block must have no successors.  */
-  if (EDGE_COUNT (bb->succs) == 0)
+  if (EDGE_COUNT (bb->succs) > 0)
     return NULL_RTX;
 
   /* The only instruction in the THEN block must be the trap.  */

@@ -1690,7 +1690,6 @@ vt_find_locations (void)
   int *bb_order;
   int *rc_order;
   int i;
-  unsigned ix;
 
   /* Compute reverse completion order of depth first search of the CFG
      so that the data-flow runs faster.  */
@@ -1735,15 +1734,16 @@ vt_find_locations (void)
 
 	      /* Calculate the IN set as union of predecessor OUT sets.  */
 	      dataflow_set_clear (&VTI (bb)->in);
-	      FOR_EACH_EDGE (e, bb->preds, ix)
+	      FOR_EACH_EDGE (e, bb->preds)
 		{
 		  dataflow_set_union (&VTI (bb)->in, &VTI (e->src)->out);
 		}
+	      END_FOR_EACH_EDGE;
 
 	      changed = compute_bb_dataflow (bb);
 	      if (changed)
 		{
-		  FOR_EACH_EDGE (e, bb->succs, ix)
+		  FOR_EACH_EDGE (e, bb->succs)
 		    {
 		      if (e->dest == EXIT_BLOCK_PTR)
 			continue;
@@ -1770,6 +1770,7 @@ vt_find_locations (void)
 					  e->dest);
 			}
 		    }
+		  END_FOR_EACH_EDGE;
 		}
 	    }
 	}

@@ -15761,49 +15761,51 @@ static void
 ix86_pad_returns (void)
 {
   edge e;
-  unsigned ix;
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
-  {
-    basic_block bb = e->src;
-    rtx ret = BB_END (bb);
-    rtx prev;
-    bool replace = false;
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+    {
+      basic_block bb = e->src;
+      rtx ret = BB_END (bb);
+      rtx prev;
+      bool replace = false;
 
-    if (GET_CODE (ret) != JUMP_INSN || GET_CODE (PATTERN (ret)) != RETURN
-	|| !maybe_hot_bb_p (bb))
-      continue;
-    for (prev = PREV_INSN (ret); prev; prev = PREV_INSN (prev))
-      if (active_insn_p (prev) || GET_CODE (prev) == CODE_LABEL)
-	break;
-    if (prev && GET_CODE (prev) == CODE_LABEL)
-      {
-	edge e;
-	unsigned ix;
+      if (GET_CODE (ret) != JUMP_INSN || GET_CODE (PATTERN (ret)) != RETURN
+	  || !maybe_hot_bb_p (bb))
+	continue;
+      for (prev = PREV_INSN (ret); prev; prev = PREV_INSN (prev))
+	if (active_insn_p (prev) || GET_CODE (prev) == CODE_LABEL)
+	  break;
+      if (prev && GET_CODE (prev) == CODE_LABEL)
+	{
+	  edge e;
 
-	FOR_EACH_EDGE (e, bb->preds, ix)
-	  if (EDGE_FREQUENCY (e) && e->src->index >= 0
-	      && !(e->flags & EDGE_FALLTHRU))
+	  FOR_EACH_EDGE (e, bb->preds)
+	    {
+	      if (EDGE_FREQUENCY (e) && e->src->index >= 0
+		  && !(e->flags & EDGE_FALLTHRU))
+		replace = true;
+	    }
+	  END_FOR_EACH_EDGE;
+	}
+      if (!replace)
+	{
+	  prev = prev_active_insn (ret);
+	  if (prev
+	      && ((GET_CODE (prev) == JUMP_INSN && any_condjump_p (prev))
+		  || GET_CODE (prev) == CALL_INSN))
 	    replace = true;
-      }
-    if (!replace)
-      {
-	prev = prev_active_insn (ret);
-	if (prev
-	    && ((GET_CODE (prev) == JUMP_INSN && any_condjump_p (prev))
-		|| GET_CODE (prev) == CALL_INSN))
-	  replace = true;
-	/* Empty functions get branch mispredict even when the jump destination
-	   is not visible to us.  */
-	if (!prev && cfun->function_frequency > FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
-	  replace = true;
-      }
-    if (replace)
-      {
-        emit_insn_before (gen_return_internal_long (), ret);
-	delete_insn (ret);
-      }
-  }
+	  /* Empty functions get branch mispredict even when the jump destination
+	     is not visible to us.  */
+	  if (!prev && cfun->function_frequency > FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
+	    replace = true;
+	}
+      if (replace)
+	{
+	  emit_insn_before (gen_return_internal_long (), ret);
+	  delete_insn (ret);
+	}
+    }
+  END_FOR_EACH_EDGE;
 }
 
 /* Implement machine specific optimizations.  We implement padding of returns

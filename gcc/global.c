@@ -747,11 +747,13 @@ global_conflicts (void)
 	   regs live across such edges.  */
 	{
 	  edge e;
-	  unsigned ix;
 
-	  FOR_EACH_EDGE (e, b->preds, ix)
-	    if (e->flags & EDGE_ABNORMAL)
-	      break;
+	  FOR_EACH_EDGE (e, b->preds)
+	    {
+	      if (e->flags & EDGE_ABNORMAL)
+		break;
+	    }
+	  END_FOR_EACH_EDGE;
 
 	  if (e != NULL)
 	    {
@@ -2322,7 +2324,6 @@ calculate_reg_pav (void)
   varray_type bbs, new_bbs, temp;
   basic_block *bb_array;
   sbitmap wset;
-  unsigned ix;
 
   VARRAY_BB_INIT (bbs, n_basic_blocks, "basic blocks");
   VARRAY_BB_INIT (new_bbs, n_basic_blocks, "basic blocks for the next iter.");
@@ -2341,10 +2342,13 @@ calculate_reg_pav (void)
 	{
 	  bb = bb_array [i];
 	  changed_p = 0;
-	  FOR_EACH_EDGE (e, bb->preds, ix)
-	    changed_p = modify_bb_reg_pav (bb, e->src, changed_p);
+	  FOR_EACH_EDGE (e, bb->preds)
+	    {
+	      changed_p = modify_bb_reg_pav (bb, e->src, changed_p);
+	    }
+	  END_FOR_EACH_EDGE;
 	  if (changed_p)
-	    FOR_EACH_EDGE (e, bb->succs, ix)
+	    FOR_EACH_EDGE (e, bb->succs)
 	      {
 		succ = e->dest;
 		if (succ->index != EXIT_BLOCK && !TEST_BIT (wset, succ->index))
@@ -2353,6 +2357,7 @@ calculate_reg_pav (void)
 		    VARRAY_PUSH_BB (new_bbs, succ);
 		  }
 	      }
+	    END_FOR_EACH_EDGE;
 	}
       temp = bbs;
       bbs = new_bbs;

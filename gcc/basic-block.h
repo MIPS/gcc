@@ -29,6 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "predict.h"
 #include "vec.h"
+#include "errors.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -517,13 +518,34 @@ struct edge_list
 #define EDGE_CRITICAL_P(e)		(EDGE_COUNT ((e)->src->succs) >= 2 \
 					 && EDGE_COUNT ((e)->dest->preds) >= 2)
 
-#define FOR_EACH_EDGE(e, vec, iter) \
-  for ((iter) = 0; VEC_iterate (edge, (vec), (iter), (e)); (iter)++)
+#ifndef ENABLE_CHECKING
+#define ENABLE_CHECKING 0
+#endif
 
 #define EDGE_COUNT(ev)			VEC_length (edge, (ev))
-#define EDGE_I(ev,i)			VEC_index(edge, (ev), (i))
-#define EDGE_PRED(bb,i)			VEC_index(edge, (bb)->preds, (i))
-#define EDGE_SUCC(bb,i)			VEC_index(edge, (bb)->succs, (i))
+#define EDGE_I(ev,i)			VEC_index  (edge, (ev), (i))
+#define EDGE_PRED(bb,i)			VEC_index  (edge, (bb)->preds, (i))
+#define EDGE_SUCC(bb,i)			VEC_index  (edge, (bb)->succs, (i))
+
+#define FOR_EACH_EDGE(EDGE,EDGE_VEC)					\
+do {									\
+  VEC(edge) *__ev = (EDGE_VEC);						\
+  edge __check_edge;							\
+  unsigned int __ix;							\
+  (EDGE) = NULL;							\
+  for (__ix = 0; VEC_iterate (edge, __ev, __ix, (EDGE)); __ix++)	\
+    {									\
+      if (ENABLE_CHECKING)						\
+	__check_edge = (EDGE);
+
+#define END_FOR_EACH_EDGE						\
+      if (ENABLE_CHECKING						\
+	  && (__ix >= EDGE_COUNT (__ev)					\
+	      || EDGE_I (__ev, __ix) != __check_edge))			\
+	internal_error ("edge modified in FOR_EACH_EDGE");		\
+    }									\
+}									\
+while (0)
 
 struct edge_list * create_edge_list (void);
 void free_edge_list (struct edge_list *);

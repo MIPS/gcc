@@ -442,12 +442,14 @@ reg_to_stack (FILE *file)
   FOR_EACH_BB_REVERSE (bb)
     {
       edge e;
-      unsigned ix;
 
-      FOR_EACH_EDGE (e, bb->preds, ix)
-	if (!(e->flags & EDGE_DFS_BACK)
-	    && e->src != ENTRY_BLOCK_PTR)
-	  BLOCK_INFO (bb)->predecessors++;
+      FOR_EACH_EDGE (e, bb->preds)
+	{
+	  if (!(e->flags & EDGE_DFS_BACK)
+	      && e->src != ENTRY_BLOCK_PTR)
+	    BLOCK_INFO (bb)->predecessors++;
+	}
+      END_FOR_EACH_EDGE;
     }
 
   /* Create the replacement registers up front.  */
@@ -2556,7 +2558,6 @@ convert_regs_entry (void)
   int inserted = 0;
   edge e;
   basic_block block;
-  unsigned ix;
 
   FOR_EACH_BB_REVERSE (block)
     {
@@ -2585,7 +2586,7 @@ convert_regs_entry (void)
      Note that we are inserting converted code here.  This code is
      never seen by the convert_regs pass.  */
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs, ix)
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
     {
       basic_block block = e->dest;
       block_info bi = BLOCK_INFO (block);
@@ -2607,6 +2608,7 @@ convert_regs_entry (void)
 
       bi->stack_in.top = top;
     }
+  END_FOR_EACH_EDGE;
 
   return inserted;
 }
@@ -2793,7 +2795,6 @@ convert_regs_1 (FILE *file, basic_block block)
   rtx insn, next;
   edge e, beste = NULL;
   bool control_flow_insn_deleted = false;
-  unsigned ix;
 
   inserted = 0;
   deleted = 0;
@@ -2804,7 +2805,7 @@ convert_regs_1 (FILE *file, basic_block block)
      if multiple such exists, take one with largest count, prefer critical
      one (as splitting critical edges is more expensive), or one with lowest
      index, to avoid random changes with different orders of the edges.  */
-  FOR_EACH_EDGE (e, block->preds, ix)
+  FOR_EACH_EDGE (e, block->preds)
     {
       if (e->flags & EDGE_DFS_BACK)
 	;
@@ -2827,6 +2828,7 @@ convert_regs_1 (FILE *file, basic_block block)
       else if (e->src->index < beste->src->index)
 	beste = e;
     }
+  END_FOR_EACH_EDGE;
 
   /* Initialize stack at block entry.  */
   if (bi->stack_in.top == -2)
@@ -2955,7 +2957,7 @@ convert_regs_1 (FILE *file, basic_block block)
   bi->stack_out = regstack;
 
   /* Compensate the back edges, as those wasn't visited yet.  */
-  FOR_EACH_EDGE (e, block->succs, ix)
+  FOR_EACH_EDGE (e, block->succs)
     {
       if (e->flags & EDGE_DFS_BACK
 	  || (e->dest == EXIT_BLOCK_PTR))
@@ -2966,7 +2968,9 @@ convert_regs_1 (FILE *file, basic_block block)
 	  inserted |= compensate_edge (e, file);
 	}
     }
-  FOR_EACH_EDGE (e, block->preds, ix)
+  END_FOR_EACH_EDGE;
+
+  FOR_EACH_EDGE (e, block->preds)
     {
       if (e != beste && !(e->flags & EDGE_DFS_BACK)
 	  && e->src != ENTRY_BLOCK_PTR)
@@ -2976,6 +2980,7 @@ convert_regs_1 (FILE *file, basic_block block)
 	  inserted |= compensate_edge (e, file);
 	}
     }
+  END_FOR_EACH_EDGE;
 
   return inserted;
 }
@@ -3001,7 +3006,6 @@ convert_regs_2 (FILE *file, basic_block block)
   do
     {
       edge e;
-      unsigned ix;
 
       block = *--sp;
 
@@ -3018,13 +3022,16 @@ convert_regs_2 (FILE *file, basic_block block)
 	 stack the successor in all cases and hand over the task of
 	 fixing up the discrepancy to convert_regs_1.  */
 
-      FOR_EACH_EDGE (e, block->succs, ix)
-	if (! (e->flags & EDGE_DFS_BACK))
-	  {
-	    BLOCK_INFO (e->dest)->predecessors--;
-	    if (!BLOCK_INFO (e->dest)->predecessors)
-	       *sp++ = e->dest;
-	  }
+      FOR_EACH_EDGE (e, block->succs)
+	{
+	  if (! (e->flags & EDGE_DFS_BACK))
+	    {
+	      BLOCK_INFO (e->dest)->predecessors--;
+	      if (!BLOCK_INFO (e->dest)->predecessors)
+		*sp++ = e->dest;
+	    }
+	}
+      END_FOR_EACH_EDGE;
 
       inserted |= convert_regs_1 (file, block);
       BLOCK_INFO (block)->done = 1;
@@ -3044,7 +3051,6 @@ convert_regs (FILE *file)
   int inserted;
   basic_block b;
   edge e;
-  unsigned ix;
 
   /* Initialize uninitialized registers on function entry.  */
   inserted = convert_regs_entry ();
@@ -3059,8 +3065,11 @@ convert_regs (FILE *file)
 
   /* Process all blocks reachable from all entry points.  */
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs, ix)
-    inserted |= convert_regs_2 (file, e->dest);
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
+    {
+      inserted |= convert_regs_2 (file, e->dest);
+    }
+  END_FOR_EACH_EDGE;
 
   /* ??? Process all unreachable blocks.  Though there's no excuse
      for keeping these even when not optimizing.  */

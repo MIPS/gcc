@@ -803,7 +803,6 @@ find_rgns (struct edge_list *edge_list)
 	  if (TEST_BIT (header, bb->index) && TEST_BIT (inner, bb->index))
 	    {
 	      edge e;
-	      unsigned ix;
 	      basic_block jbb;
 
 	      /* Now check that the loop is reducible.  We do this separate
@@ -845,9 +844,12 @@ find_rgns (struct edge_list *edge_list)
 	      /* Decrease degree of all I's successors for topological
 		 ordering.  */
 
-	      FOR_EACH_EDGE (e, bb->succs, ix)
-		if (e->dest != EXIT_BLOCK_PTR)
-		  --degree[e->dest->index];
+	      FOR_EACH_EDGE (e, bb->succs)
+		{
+		  if (e->dest != EXIT_BLOCK_PTR)
+		    --degree[e->dest->index];
+		}
+	      END_FOR_EACH_EDGE;
 
 	      /* Estimate # insns, and count # blocks in the region.  */
 	      num_bbs = 1;
@@ -879,9 +881,8 @@ find_rgns (struct edge_list *edge_list)
 	      else
 		{
 		  edge e;
-		  unsigned ix;
 
-		  FOR_EACH_EDGE (e, bb->preds, ix)
+		  FOR_EACH_EDGE (e, bb->preds)
 		    {
 		      if (e->src == ENTRY_BLOCK_PTR)
 			continue;
@@ -901,6 +902,7 @@ find_rgns (struct edge_list *edge_list)
 			    }
 			}
 		    }
+		  END_FOR_EACH_EDGE;
 		}
 
 	      /* Now add all the blocks in the loop to the queue.
@@ -936,10 +938,9 @@ find_rgns (struct edge_list *edge_list)
 	      while (head < tail && !too_large_failure)
 		{
 		  edge e;
-		  unsigned ix;
 		  child = queue[++head];
 
-		  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->preds, ix)
+		  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->preds)
 		    {
 		      node = e->src->index;
 
@@ -963,6 +964,7 @@ find_rgns (struct edge_list *edge_list)
 			    }
 			}
 		    }
+		  END_FOR_EACH_EDGE;
 		}
 
 	      if (tail >= 0 && !too_large_failure)
@@ -994,9 +996,12 @@ find_rgns (struct edge_list *edge_list)
 			  CONTAINING_RGN (child) = nr_regions;
 			  queue[head] = queue[tail--];
 
-			  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->succs, ix)
-			    if (e->dest != EXIT_BLOCK_PTR)
-			      --degree[e->dest->index];
+			  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->succs)
+			    {
+			      if (e->dest != EXIT_BLOCK_PTR)
+				--degree[e->dest->index];
+			    }
+			  END_FOR_EACH_EDGE;
 			}
 		      else
 			--head;

@@ -1456,14 +1456,16 @@ emit_to_new_bb_before (rtx seq, rtx insn)
   rtx last;
   basic_block bb;
   edge e;
-  unsigned ix;
 
   /* If there happens to be an fallthru edge (possibly created by cleanup_cfg
      call), we don't want it to go into newly created landing pad or other EH 
      construct.  */
-  FOR_EACH_EDGE (e, BLOCK_FOR_INSN (insn)->preds, ix)
-    if (e->flags & EDGE_FALLTHRU)
-      force_nonfallthru (e);
+  FOR_EACH_EDGE (e, BLOCK_FOR_INSN (insn)->preds)
+    {
+      if (e->flags & EDGE_FALLTHRU)
+	force_nonfallthru (e);
+    }
+  END_FOR_EACH_EDGE;
   last = emit_insn_before (seq, insn);
   if (BARRIER_P (last))
     last = PREV_INSN (last);
@@ -2024,7 +2026,6 @@ sjlj_emit_function_exit (void)
 {
   rtx seq;
   edge e;
-  unsigned ix;
 
   start_sequence ();
 
@@ -2038,9 +2039,12 @@ sjlj_emit_function_exit (void)
      post-dominates all can_throw_internal instructions.  This is
      the last possible moment.  */
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds, ix)
-    if (e->flags & EDGE_FALLTHRU)
-      break;
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+    {
+      if (e->flags & EDGE_FALLTHRU)
+	break;
+    }
+  END_FOR_EACH_EDGE;
   if (e)
     {
       rtx insn;
@@ -2206,17 +2210,17 @@ finish_eh_generation (void)
   FOR_EACH_BB (bb)
     {
       edge e;
-      unsigned ix;
       bool eh = false;
-      FOR_EACH_EDGE (e, bb->succs, ix)
+      FOR_EACH_EDGE (e, bb->succs)
 	{
 	  if (e->flags & EDGE_EH)
 	    {
 	      remove_edge (e);
-	      ix--;
+	      __ix--;
 	      eh = true;
 	    }
 	}
+      END_FOR_EACH_EDGE;
       if (eh)
 	rtl_make_eh_edge (NULL, bb, BB_END (bb));
     }

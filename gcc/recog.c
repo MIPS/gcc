@@ -3141,12 +3141,14 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		  /* Re-insert the EH_REGION notes.  */
 		  if (note || (was_call && nonlocal_goto_handler_labels))
 		    {
-		      unsigned ix;
 		      edge eh_edge;
 
-		      FOR_EACH_EDGE (eh_edge, bb->succs, ix)
-			if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
-			  break;
+		      FOR_EACH_EDGE (eh_edge, bb->succs)
+			{
+			  if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
+			    break;
+			}
+		      END_FOR_EACH_EDGE;
 
 		      for (x = try ; x != before_try ; x = PREV_INSN (x))
 			if (CALL_P (x)

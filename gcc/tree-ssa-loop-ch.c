@@ -172,7 +172,6 @@ duplicate_blocks (varray_type bbs_to_duplicate)
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (bbs_to_duplicate); i++)
     {
-      unsigned ix;
       preheader_edge = VARRAY_GENERIC_PTR_NOGC (bbs_to_duplicate, i);
       header = preheader_edge->dest;
 
@@ -193,14 +192,16 @@ duplicate_blocks (varray_type bbs_to_duplicate)
       PENDING_STMT (preheader_edge) = NULL;
 
       /* Add the phi arguments to the outgoing edges.  */
-      FOR_EACH_EDGE (e, header->succs, ix)
+      FOR_EACH_EDGE (e, header->succs)
 	{
 	  edge e1;
-	  unsigned ix1;
-	  FOR_EACH_EDGE (e1, new_header->succs, ix1)
-	    if (e1->dest == e->dest)
-	      break;
-	  if (e1 == NULL || ix1 > EDGE_COUNT (new_header->succs))
+	  FOR_EACH_EDGE (e1, new_header->succs)
+	    {
+	      if (e1->dest == e->dest)
+		break;
+	    }
+	  END_FOR_EACH_EDGE;
+	  if (e1 == NULL)
 	    abort ();
 
 	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
@@ -209,6 +210,7 @@ duplicate_blocks (varray_type bbs_to_duplicate)
 	      add_phi_arg (&phi, def, e1);
 	    }
 	}
+      END_FOR_EACH_EDGE;
     }
 
   calculate_dominance_info (CDI_DOMINATORS);

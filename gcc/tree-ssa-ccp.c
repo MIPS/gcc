@@ -302,7 +302,6 @@ simulate_block (basic_block block)
       block_stmt_iterator j;
       unsigned int normal_edge_count;
       edge e, normal_edge;
-      unsigned ix;
 
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
@@ -320,7 +319,7 @@ simulate_block (basic_block block)
       normal_edge_count = 0;
       normal_edge = NULL;
 
-      FOR_EACH_EDGE (e, block->succs, ix)
+      FOR_EACH_EDGE (e, block->succs)
         {
 	  if (e->flags & EDGE_ABNORMAL)
 	    {
@@ -331,10 +330,11 @@ simulate_block (basic_block block)
 	      normal_edge_count++;
 	      normal_edge = e;
 	    }
-        }
-
-        if (normal_edge_count == 1)
-	  add_control_edge (normal_edge);
+	}
+      END_FOR_EACH_EDGE;
+      
+      if (normal_edge_count == 1)
+	add_control_edge (normal_edge);
     }
 }
 
@@ -840,10 +840,12 @@ static void
 add_outgoing_control_edges (basic_block bb)
 {
   edge e;
-  unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
-    add_control_edge (e);
+  FOR_EACH_EDGE (e, bb->succs)
+    {
+      add_control_edge (e);
+    }
+  END_FOR_EACH_EDGE;
 }
 
 
@@ -1187,7 +1189,6 @@ initialize (void)
   edge e;
   basic_block bb;
   sbitmap virtual_var;
-  unsigned ix;
 
   /* Worklists of SSA edges.  */
   VARRAY_TREE_INIT (ssa_edges, 20, "ssa_edges");
@@ -1218,7 +1219,6 @@ initialize (void)
       v_must_def_optype v_must_defs;
       size_t x;
       int vary;
-      unsigned ix;
 
       /* Get the default value for each definition.  */
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
@@ -1256,8 +1256,11 @@ initialize (void)
 	    }
 	}
 
-      FOR_EACH_EDGE (e, bb->succs, ix)
-	e->flags &= ~EDGE_EXECUTABLE;
+      FOR_EACH_EDGE (e, bb->succs)
+	{
+	  e->flags &= ~EDGE_EXECUTABLE;
+	}
+      END_FOR_EACH_EDGE;
     }
 
   /* Now process PHI nodes.  */
@@ -1304,7 +1307,7 @@ initialize (void)
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs, ix)
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
     {
       if (e->dest != EXIT_BLOCK_PTR)
         {
@@ -1312,6 +1315,7 @@ initialize (void)
 	  cfg_blocks_add (e->dest);
 	}
     }
+  END_FOR_EACH_EDGE;
 }
 
 

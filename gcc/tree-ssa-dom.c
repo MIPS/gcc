@@ -845,7 +845,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
     {
       tree cond, cached_lhs;
       edge e1;
-      unsigned ix;
 
       /* Do not forward entry edges into the loop.  In the case loop
 	 has multiple entry edges we may end up in constructing irreducible
@@ -854,9 +853,12 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 edges forward to the same destination block.  */
       if (!e->flags & EDGE_DFS_BACK)
 	{
-	  FOR_EACH_EDGE (e1, e->dest->preds, ix)
-	    if (e1->flags & EDGE_DFS_BACK)
-	      break;
+	  FOR_EACH_EDGE (e1, e->dest->preds)
+	    {
+	      if (e1->flags & EDGE_DFS_BACK)
+		break;
+	    }
+	  END_FOR_EACH_EDGE;
 	  if (e1)
 	    return;
 	}
@@ -1417,9 +1419,8 @@ single_incoming_edge_ignoring_loop_edges (basic_block bb)
 {
   edge retval = NULL;
   edge e;
-  unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->preds, ix)
+  FOR_EACH_EDGE (e, bb->preds)
     {
       /* A loop back edge can be identified by the destination of
 	 the edge dominating the source of the edge.  */
@@ -1435,6 +1436,7 @@ single_incoming_edge_ignoring_loop_edges (basic_block bb)
 	 it.  */
       retval = e;
     }
+  END_FOR_EACH_EDGE;
 
   return retval;
 }
@@ -2544,12 +2546,11 @@ cprop_into_successor_phis (basic_block bb,
 			   bitmap nonzero_vars)
 {
   edge e;
-  unsigned ix;
 
   /* This can get rather expensive if the implementation is naive in
      how it finds the phi alternative associated with a particular edge.  */
 
-  FOR_EACH_EDGE (e, bb->succs, ix)
+  FOR_EACH_EDGE (e, bb->succs)
     {
       tree phi;
       int phi_num_args;
@@ -2628,6 +2629,7 @@ cprop_into_successor_phis (basic_block bb,
 	    }
 	}
     }
+  END_FOR_EACH_EDGE;
 }
 
 
