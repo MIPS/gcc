@@ -36,8 +36,11 @@ bar (rtx r)
   return 0;
 }
 
-/* There should be three IF conditionals.  The two inner conditionals in the
-   GIMPLE form are dead.  */
-/* { dg-final { scan-tree-dump-times "if " 3 "dom3"} } */
+/* There should be two IF conditionals.  One tests <= max_uid_cuid, the
+   other tets the value in uid_cuid.  If either is false the jumps
+   are threaded to the return 0.  Which in turn means the path
+   which combines the result of those two tests into a new test
+   must always be true and it is optimized appropriately.  */
+/* { dg-final { scan-tree-dump-times "if " 2 "dom3"} } */
  
 
