@@ -1,3 +1,9 @@
+2004-07-04  Dorit Naishlos <dorit@il.ibm.com>
+
+	* tree-vectorizer.c (vect_create_data_ref, vect_init_vector): 
+	Use insert_on_edge to add code in loop preheader.
+	(vect_transform_loop): Make sure there's a preheader BB.
+
 2004-06-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-prefetch.c: New file.

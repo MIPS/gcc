@@ -727,7 +727,8 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
   tree array_type;
   tree base_addr;
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
-  block_stmt_iterator pre_header_bsi;
+  edge pe;
+  basic_block new_bb;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -775,8 +776,6 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
 	{
 	  /* try to find the tag from the actual pointer used in the stmt  */
 	  tree ptr;
-	  if (TREE_CODE (ref) != INDIRECT_REF)
-	    abort ();
 	  ptr = TREE_OPERAND (ref, 0);
 	  symbl = SSA_NAME_VAR (ptr);
           tag = get_var_ann (symbl)->type_mem_tag;
@@ -827,13 +826,10 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
   new_temp = make_ssa_name (vect_ptr, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
 
-  /* CHECKME: Is there a utility for inserting code at the end of a basic block?  */
-  pre_header_bsi = bsi_last (loop->pre_header);
-  if (!bsi_end_p (pre_header_bsi)
-      && is_ctrl_stmt (bsi_stmt (pre_header_bsi)))
-    bsi_insert_before (&pre_header_bsi, vec_stmt, BSI_NEW_STMT);
-  else
-    bsi_insert_after (&pre_header_bsi, vec_stmt, BSI_NEW_STMT);
+  pe = loop_preheader_edge (loop);
+  new_bb = bsi_insert_on_edge_immediate (pe, vec_stmt);
+  if (new_bb)
+    abort ();
 
   idx = vect_create_index_for_array_ref (stmt, bsi);
 
@@ -890,11 +886,12 @@ vect_init_vector (tree stmt, tree vector_var)
 {
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
   struct loop *loop = STMT_VINFO_LOOP (stmt_vinfo);
-  block_stmt_iterator pre_header_bsi;
   tree new_var;
   tree init_stmt;
   tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo); 
   tree vec_oprnd;
+  edge pe;
+  basic_block new_bb;
  
   new_var = vect_get_new_vect_var (vectype, vect_simple_var, "cst_");
   add_referenced_tmp_var (new_var); 
@@ -913,13 +910,10 @@ vect_init_vector (tree stmt, tree vector_var)
       fprintf (dump_file, "\n");
     }
 
-  /* CHECKME: Is there a utility for inserting code at the end of a basic block?  */
-  pre_header_bsi = bsi_last (loop->pre_header);
-  if (!bsi_end_p (pre_header_bsi)
-      && is_ctrl_stmt (bsi_stmt (pre_header_bsi)))
-    bsi_insert_before (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
-  else
-    bsi_insert_after (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
+  pe = loop_preheader_edge (loop);
+  new_bb = bsi_insert_on_edge_immediate (pe, init_stmt);
+  if (new_bb)
+    abort ();
 
   vec_oprnd = TREE_OPERAND (init_stmt, 0);
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2013,6 +2007,17 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
       vect_update_initial_conditions_of_duplicated_loop (loop_vinfo, 
 	ratio_mult_vf_name, new_loop_header, e, exit_ep);
     }
+
+
+  /* 1) Make sure the loop header has exactly two entries
+     2) Make sure we have a preheader basic block.  */
+
+  if (!loop->header->pred->pred_next
+      || loop->header->pred->pred_next->pred_next)
+    abort ();
+
+  loop_split_edge_with (loop_preheader_edge (loop), NULL);
+
 
   /* CHECKME: FORNOW the vectorizer supports only loops which body consist
      of one basic block + header. When the vectorizer will support more
