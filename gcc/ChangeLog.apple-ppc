@@ -1,3 +1,24 @@
+2004-11-04  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3759876
+	* config/rs6000/rs6000.c (rs6000_function_ok_for_sibcall):  Enable
+	indirect sibcalls.
+	* config/rs6000/rs6000.md (*sibcall_symbolic):  Make them work.
+	(*sibcall_value_symbolic):  Ditto.
+
+2004-11-04  Dale Johannesen  <dalej@apple.com>
+
+	* opts.c (decode_options):  Use mainline-style loop opts.
+
+2004-11-04  Dale Johannesen  <dalej@apple.com>
+	
+	* config/rs6000/rs6000.md (*save_fpregs_with_label_si):
+	Use any_parallel_operand to remove a warning.
+	* config/rs6000/darwin.md (*save_fpregs_with_label_di):  Ditto.
+	(*save_vregs_di):  Ditto.
+	(*restore_vregs_di):  Ditto.
+	(*save_vregs_with_label_di):  Ditto.
+
 2004-11-04  Devang Patel  <dpatel@apple.com>
 
 	Partial 3837835 fix.
