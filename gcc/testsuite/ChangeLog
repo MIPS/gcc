@@ -1,3 +1,9 @@
+2004-06-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/15569
+	PR rtl-optimization/15681
+	* gcc.dg/20040609-1.c: New test.
+
 2004-04-28  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/15084
