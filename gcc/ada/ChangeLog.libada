@@ -1,3 +1,9 @@
+2004-12-16  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Remove unused MLIB_TGT.
+	* configure.ac: Likewise.  Update comments.
+	* configure: Regenerate.
+
 2004-12-13  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Add one bogosity back from configure.ac for VMS

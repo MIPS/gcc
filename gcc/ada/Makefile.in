@@ -1,5 +1,5 @@
-# Makefile for GNU Ada Compiler (GNAT).
-#   Copyright (C) 1994-2004 Free Software Foundation, Inc.
+# Makefile for gnatlib
+#   Copyright 1994-2004 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -19,8 +19,8 @@
 #Boston, MA 02111-1307, USA.
 
 # The makefile built from this file lives in the language subdirectory.
-# Its purpose is to provide support for gnatlib and gnattools builds.
-# It is not to be used for building gnat1.
+# Its purpose is to provide support for gnatlib builds.
+# It is not to be used for building gnat1 or gnattools.
 
 # This will fail; this needs to be invoked from libada or gnattools.
 all: all.indirect
@@ -139,7 +139,6 @@ TOOLSCASE =
 # Support leftovers for configure script.
 SO_OPTS = @SO_OPTS@
 GNATLIB_SHARED = @GNATLIB_SHARED@
-MLIB_TGT = @MLIB_TGT@
 LIBRARY_VERSION = @LIBRARY_VERSION@
 TGT_LIB = @TGT_LIB@
 

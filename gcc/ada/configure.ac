@@ -124,10 +124,6 @@ SO_OPTS="-Wl,-soname,"
 AC_SUBST([GNATLIB_SHARED])
 GNATLIB_SHARED=gnatlib
 
-# default value for gnatmake's target dependent file
-AC_SUBST(MLIB_TGT)
-MLIB_TGT='mlib-tgt'
-
 # By default, do not distribute prefix.o (in libgccprefix), since it is only
 # needed by external GNAT tools such as gnatdist and Glide.
 # Override this variable on native platforms when needed.
