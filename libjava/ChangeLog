@@ -1,5 +1,28 @@
 2004-06-21  Olga Rodimina  <rodimina@redhat.com>
 
+	* javax/swing/AbstractButton.java:
+	(init): Set display mnemonic index to -1.
+	(setMnemonic(char)): Use setMnemonic(int).
+	(setMnemonic(int)): Set display mnemonic index.
+	(getDisplayedMnemonicIndex): Change method signature
+	by removing 'index' parameter.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java:
+	Added default for Menu.selectionBackground.	
+	* javax/swing/plaf/basic/BasicMenuItemUI.java:
+	(paintMenuItem): Change background color of the selected
+	menu item.
+	(paintText): Paint differently when menu item is disabled.
+	Also paint mnemonic if it appears in the menu item's label.
+	(paintAccelerator): Paint accelerator differently
+	if menu item is disabled.
+	* javax/swing/plaf/basic/BasicMenuUI.java:
+	(installDefaults): Install defaults for 
+	selectionForeground and selectionBackground.
+	(uninstallDefaults): Uninstall defauls for 
+	selectionForeground and selectionBackground.
+
+2004-06-21  Olga Rodimina  <rodimina@redhat.com>
+
 	* javax/swing/JCheckBoxMenuItem.java: Added Javadoc.
 	(getSelectedObjects): Implemented.
 	* javax/swing/JRadioButtonMenuItem.java: Added Javadoc.

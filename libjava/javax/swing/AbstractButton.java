@@ -547,6 +547,7 @@ public abstract class AbstractButton extends JComponent
     setAlignmentY(CENTER_ALIGNMENT);
 
     addFocusListener(new ButtonFocusListener());
+    setDisplayedMnemonicIndex(-1);    
  }
  
   /**
@@ -704,14 +705,7 @@ public abstract class AbstractButton extends JComponent
    */
   public void setMnemonic(char mne)
   {
-    int old = getModel().getMnemonic();
-    getModel().setMnemonic(mne);
-    if (old != getModel().getMnemonic())
-      {
-        firePropertyChange(MNEMONIC_CHANGED_PROPERTY, old, (int) mne);        
-        revalidate();
-        repaint();
-      }
+    setMnemonic((int) mne);
   }
 
   /**
@@ -725,13 +719,26 @@ public abstract class AbstractButton extends JComponent
    */
   public void setMnemonic(int mne)
   {
-    int old = mne;
-    getModel().setMnemonic(mne);
-    if (old != getModel().getMnemonic())
+    int old = getModel().getMnemonic();
+
+    if (old != mne)
       {
-        firePropertyChange(MNEMONIC_CHANGED_PROPERTY, old, mne);
-        revalidate();
-        repaint();
+	getModel().setMnemonic(mne);
+
+	if (text != null && ! text.equals(""))
+	  {
+	    // Since lower case char = upper case char for 
+	    // mnemonic, we will convert both text and mnemonic 
+	    // to upper case before checking if mnemonic character occurs
+	    // in the menu item text. 
+	    int upperCaseMne = Character.toUpperCase((char) mne);
+	    String upperCaseText = text.toUpperCase();
+	    setDisplayedMnemonicIndex(upperCaseText.indexOf(upperCaseMne));
+	  }
+
+	firePropertyChange(MNEMONIC_CHANGED_PROPERTY, old, mne);
+	revalidate();
+	repaint();
       }
   }
 
@@ -766,7 +773,7 @@ public abstract class AbstractButton extends JComponent
    *
    * @return An index into the button's "text" property
    */
-  public int getDisplayedMnemonicIndex(int index)
+  public int getDisplayedMnemonicIndex()
   {
     return mnemonicIndex;
   }

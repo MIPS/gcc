@@ -493,7 +493,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ENTER", "return",
         "SPACE", "return"
       },
-      "Menutext.selectionBackground", new ColorUIResource(lightPurple),
+      "Menu.selectionBackground", new ColorUIResource(lightPurple),
       "Menu.selectionForeground", new ColorUIResource(Color.black),
       "MenuBar.background", new ColorUIResource(Color.lightGray),
       "MenuBar.border", new BasicBorders.MenuBarBorder(null, null),

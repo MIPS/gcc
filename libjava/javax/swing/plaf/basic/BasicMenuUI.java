@@ -213,8 +213,11 @@ public class BasicMenuUI extends BasicMenuItemUI
     acceleratorFont = defaults.getFont("Menu.acceleratorFont");
     acceleratorForeground = defaults.getColor("Menu.acceleratorForeground");
     acceleratorSelectionForeground = defaults.getColor("Menu.acceleratorSelectionForeground");
+    selectionBackground = defaults.getColor("Menu.selectionBackground");
+    selectionForeground = defaults.getColor("Menu.selectionForeground");
     arrowIcon = defaults.getIcon("Menu.arrowIcon");
     oldBorderPainted = defaults.getBoolean("Menu.borderPainted");
+    menuItem.setOpaque(true);
   }
 
   /**
@@ -254,6 +257,8 @@ public class BasicMenuUI extends BasicMenuItemUI
     acceleratorFont = null;
     acceleratorForeground = null;
     acceleratorSelectionForeground = null;
+    selectionBackground = null;
+    selectionForeground = null;
     arrowIcon = null;
   }
 

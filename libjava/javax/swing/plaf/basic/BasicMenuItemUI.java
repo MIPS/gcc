@@ -35,7 +35,6 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.swing.plaf.basic;
 
 import java.awt.AWTKeyStroke;
@@ -156,7 +155,7 @@ public class BasicMenuItemUI extends MenuItemUI
   protected Color selectionBackground;
 
   /**
-   * Color of the background that is used when menu item is selected.
+   * Color of the text that is used when menu item is selected.
    */
   protected Color selectionForeground;
 
@@ -520,7 +519,7 @@ public class BasicMenuItemUI extends MenuItemUI
       {
 	if (m.isContentAreaFilled())
 	  {
-	    g.setColor(m.getBackground().darker());
+	    g.setColor(selectionBackground);
 	    g.fillRect(br.x, br.y, br.width, br.height);
 	  }
       }
@@ -616,10 +615,27 @@ public class BasicMenuItemUI extends MenuItemUI
     Font f = menuItem.getFont();
     g.setFont(f);
     FontMetrics fm = g.getFontMetrics(f);
-    g.setColor(menuItem.getForeground());
 
-    BasicGraphicsUtils.drawString(g, text, 0, textRect.x,
-                                  textRect.y + fm.getAscent());
+    if (text != null && ! text.equals(""))
+      {
+	if (menuItem.isEnabled())
+	  g.setColor(menuItem.getForeground());
+	else
+	  // FIXME: should fix this to use 'disabledForeground', but its
+	  // default value in BasicLookAndFeel is null.	  
+	  g.setColor(Color.gray);
+
+	int mnemonicIndex = menuItem.getDisplayedMnemonicIndex();
+
+	if (mnemonicIndex != -1)
+	  BasicGraphicsUtils.drawStringUnderlineCharAt(g, text, mnemonicIndex,
+	                                               textRect.x,
+	                                               textRect.y
+	                                               + fm.getAscent());
+	else
+	  BasicGraphicsUtils.drawString(g, text, 0, textRect.x,
+	                                textRect.y + fm.getAscent());
+      }
   }
 
   /**
@@ -755,7 +771,14 @@ public class BasicMenuItemUI extends MenuItemUI
   {
     g.setFont(acceleratorFont);
     FontMetrics fm = g.getFontMetrics(acceleratorFont);
-    g.setColor(acceleratorForeground);
+
+    if (menuItem.isEnabled())
+      g.setColor(acceleratorForeground);
+    else
+      // FIXME: should fix this to use 'disabledForeground', but its
+      // default value in BasicLookAndFeel is null.
+      g.setColor(Color.gray);
+
     BasicGraphicsUtils.drawString(g, acceleratorText, 0, acceleratorRect.x,
                                   acceleratorRect.y + fm.getAscent());
   }
