@@ -171,6 +171,7 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
 {
   tree from = TREE_OPERAND (*expr_p, 1);
   tree to = TREE_OPERAND (*expr_p, 0);
+  tree sub;
 
   /* If we are initializing something from a TARGET_EXPR, strip the
      TARGET_EXPR and initialize it directly.  */
@@ -181,16 +182,33 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
   if (TREE_CODE (from) == TARGET_EXPR)
     from = TARGET_EXPR_INITIAL (from);
 
+  sub = from;
+
+  /* If we are initializing from a STMT_EXPR, extract the returned
+     expression.  */
+  if (TREE_CODE (from) == STMT_EXPR)
+    sub = EXPR_STMT_EXPR (stmt_expr_last_stmt (from));
+
+  /* Look through any COMPOUND_EXPRs.  */
+  while (TREE_CODE (sub) == COMPOUND_EXPR)
+    sub = TREE_OPERAND (sub, 1);
+
   /* If we are initializing from an AGGR_INIT_EXPR, drop the INIT_EXPR and
      replace the slot operand with our target.
 
      Should we add a target parm to gimplify_expr instead?  No, as in this
      case we want to replace the INIT_EXPR.  */
-  if (TREE_CODE (from) == AGGR_INIT_EXPR)
+  if (TREE_CODE (sub) == AGGR_INIT_EXPR)
     {
       gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
-      TREE_OPERAND (from, 2) = to;
+      TREE_OPERAND (sub, 2) = to;
       *expr_p = from;
+
+      /* The initialization is now a side-effect, so the container can
+         become void.  This is important for a STMT_EXPR, so we don't try
+         to voidify it later by creating a temporary.  */
+      if (from != sub)
+	TREE_TYPE (from) = void_type_node;
     }
 }
 

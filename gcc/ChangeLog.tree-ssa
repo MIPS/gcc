@@ -1,3 +1,10 @@
+2003-12-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/12453
+	* c-simplify.c (stmt_expr_last_stmt): Split out from...
+	(gimplify_stmt_expr): Here.
+	* c-common.h: Declare it.
+
 2003-12-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* et-forest.h (et_forest_create, et_forest_delete,

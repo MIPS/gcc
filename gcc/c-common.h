@@ -1291,6 +1291,7 @@ extern void c_warn_unused_result (tree *);
 /* In c-simplify.c  */
 extern void c_genericize (tree);
 extern int c_gimplify_stmt (tree *);
+extern tree stmt_expr_last_stmt (tree);
 
 extern void pch_init (void);
 extern int c_common_valid_pch (cpp_reader *pfile, const char *name, int fd);

@@ -935,6 +935,50 @@ c_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
     }
 }
 
+/* Returns the final EXPR_STMT which represents the return value of a
+   STMT_EXPR, or NULL_TREE if none.  */
+
+tree
+stmt_expr_last_stmt (tree stmt_expr)
+{
+  tree body = STMT_EXPR_STMT (stmt_expr);
+  tree last_stmt, substmt;
+
+  /* Splice the last expression out of the STMT chain.  */
+  last_stmt = NULL_TREE;
+  for (substmt = COMPOUND_BODY (body); substmt;
+       substmt = TREE_CHAIN (substmt))
+    if (TREE_CODE (substmt) != SCOPE_STMT)
+      last_stmt = substmt;
+
+  if (last_stmt == NULL_TREE
+      || TREE_CODE (last_stmt) != EXPR_STMT
+      || (TREE_TYPE (last_stmt)
+	  && VOID_TYPE_P (TREE_TYPE (last_stmt))))
+    {
+      location_t loc;
+      if (last_stmt)
+	{
+	  loc.file = input_filename;
+	  loc.line = STMT_LINENO (last_stmt);
+	}
+      else if (EXPR_LOCUS (stmt_expr))
+	loc = *EXPR_LOCUS (stmt_expr);
+      else
+	loc = input_location;
+      warning ("%Hstatement-expressions should end with a "
+	       "non-void expression", &loc);
+      last_stmt = NULL_TREE;
+    }
+
+#if defined ENABLE_CHECKING
+  if (last_stmt && !is_last_stmt_of_scope (last_stmt))
+    abort ();
+#endif
+
+  return last_stmt;
+}
+
 /* Gimplify a STMT_EXPR.  EXPR_P points to the expression to gimplify.
    After gimplification, if the STMT_EXPR returns a value, EXPR_P will
    point to a new temporary that holds that value; otherwise it will be
@@ -955,35 +999,10 @@ gimplify_stmt_expr (tree *expr_p)
     }
   else
     {
-      tree last_stmt, last_expr, substmt;
+      tree last_stmt = stmt_expr_last_stmt (*expr_p);
+      tree last_expr = NULL_TREE;
 
-      /* Splice the last expression out of the STMT chain.  */
-      last_stmt = NULL_TREE;
-      for (substmt = COMPOUND_BODY (body); substmt;
-	   substmt = TREE_CHAIN (substmt))
-	if (TREE_CODE (substmt) != SCOPE_STMT)
-	  last_stmt = substmt;
-
-      if (last_stmt == NULL_TREE
-	  || TREE_CODE (last_stmt) != EXPR_STMT
-	  || (TREE_TYPE (last_stmt)
-	      && VOID_TYPE_P (TREE_TYPE (last_stmt))))
-	{
-	  location_t loc;
-	  if (last_stmt)
-	    {
-	      loc.file = input_filename;
-	      loc.line = STMT_LINENO (last_stmt);
-	    }
-	  else if (EXPR_LOCUS (*expr_p))
-	    loc = *EXPR_LOCUS (*expr_p);
-	  else
-	    loc = input_location;
-	  warning ("%Hstatement-expressions should end with a "
-		   "non-void expression", &loc);
-	  last_expr = NULL_TREE;
-	}
-      else
+      if (last_stmt)
 	{
 	  last_expr = EXPR_STMT_EXPR (last_stmt);
 
@@ -992,11 +1011,6 @@ gimplify_stmt_expr (tree *expr_p)
 				last_expr);
 	  EXPR_STMT_EXPR (last_stmt) = NULL_TREE;
 	}
-
-#if defined ENABLE_CHECKING
-      if (last_stmt && !is_last_stmt_of_scope (last_stmt))
-	abort ();
-#endif
 
       /* Genericize the block.  */
       c_gimplify_stmt (&body);

@@ -1,3 +1,9 @@
+2003-12-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/12453
+	* cp-simplify.c (cp_gimplify_init_expr): Look inside STMT_EXPRs
+	and COMPOUND_EXPRs to find an AGGR_INIT_EXPR.
+
 2003-12-16  Jason Merrill  <jason@redhat.com>
 
 	PR middle-end/12920
