@@ -486,6 +486,9 @@ extern struct function *cfun;
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;
 
+/* Nonzero if at least one trampoline has been created.  */
+extern int trampolines_created;
+
 /* For backward compatibility... eventually these should all go away.  */
 #define current_function_name (cfun->name)
 #define current_function_pops_args (cfun->pops_args)

@@ -396,3 +396,10 @@ do {									\
       fprintf (FILE, "\n");						\
     }									\
 } while (0)
+
+#define ASM_FILE_END(FILE) \
+  do {									\
+    named_section_flags (".note.GNU-stack",				\
+			 SECTION_DEBUG					\
+			 | (trampolines_created ? SECTION_CODE : 0));	\
+  } while (0)
