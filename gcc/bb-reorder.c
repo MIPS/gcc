@@ -622,8 +622,6 @@ reorder_basic_blocks ()
   uncond_jump_length = get_uncond_jump_length ();
   find_traces ();
 
-  cfg_layout_initialize ();
-
   free (copy_bb_p_visited);
 
   if (rtl_dump_file)
