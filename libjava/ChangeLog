@@ -1,3 +1,8 @@
+2004-10-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFramePeer.c
+	(nativeSetIconImage): Rename to nativeSetIconImageFromDecoder.
+
 2004-10-26  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c
