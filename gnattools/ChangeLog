@@ -1,3 +1,7 @@
+2004-12-13  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Reinstate stamp-gnatlib check.
+
 2004-12-12  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Use gcc/ada/Make-tools for submake, rather than

@@ -169,6 +169,17 @@ GNATTOOLS2_FILES = \
 .PHONY: gnattools gnattools-native gnattools-cross regnattools
 gnattools: @default_gnattools_target@
 
+# Sanity check
+$(GCC_DIR)/stamp-gnatlib:
+	@if [ ! -f $(GCC_DIR)/stamp-gnatlib ] ; \
+        then \
+          echo Can't build gnattools while gnatlib is out of date or unbuilt ; \
+          false; \
+        else \
+          true; \
+        fi
+
+
 # Build directory for the tools. Let's copy the target-dependent
 # sources using the same mechanism as for gnatlib. The other sources are
 # accessed using the vpath directive in ada/Make-tools.in
@@ -189,7 +200,7 @@ $(GCC_DIR)/stamp-tools:
 # to be able to build gnatmake without a version of gnatmake around. Once 
 # everything has been compiled once, gnatmake can be recompiled with itself 
 # (see target regnattools) 
-gnattools-native: $(GCC_DIR)/stamp-tools
+gnattools-native: $(GCC_DIR)/stamp-tools $(GCC_DIR)/stamp-gnatlib
 	# gnattools1
 	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_1) \
@@ -202,7 +213,7 @@ gnattools-native: $(GCC_DIR)/stamp-tools
 # gnatmake/link can be built with recent gnatmake/link if they are available.
 # This is especially convenient for building cross tools or for rebuilding
 # the tools when the original bootstrap has already be done.
-regnattools:
+regnattools: $(GCC_DIR)/stamp-gnatlib
 	# gnattools1-re
 	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_1re) \
@@ -217,7 +228,7 @@ regnattools:
 # files that are among the sources
 # FIXME: This should be done in configure.
 RTS_DIR:=$(strip $(subst \,/,$(shell gnatls -v | grep adalib )))
-gnattools-cross: $(GCC_DIR)/stamp-tools
+gnattools-cross: $(GCC_DIR)/stamp-tools $(GCC_DIR)/stamp-gnatlib
 	# gnattools1-re
 	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_CROSS) INCLUDES="" \
