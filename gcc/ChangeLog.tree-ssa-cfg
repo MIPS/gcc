@@ -1,3 +1,7 @@
+2003-08-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* version.c (version_string): Update.
+
 2003-08-16  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* basic-block.h (EDGE_CONSTRUCT_ENTRY): New.
