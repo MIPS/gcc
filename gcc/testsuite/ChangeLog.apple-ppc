@@ -1,3 +1,8 @@
+2005-04-02  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4072153
+	* gcc.apple/comma-expr-1.c: New.
+
 2005-03-31  Dale Johannesen  <dalej@apple.com>
 
 	* gcc.dg/tree-ssa-chrec/ssa-chrec-55.c:  Include stdio.h.
