@@ -2965,7 +2965,8 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
+ 		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
       /* ??? Run if-conversion before delete_null_pointer_checks,
          since the later does not preserve the CFG.  This should
@@ -3005,13 +3006,6 @@ rest_of_compilation (decl)
       timevar_push (TV_CSE);
 
       reg_scan (insns, max_reg_num (), 1);
-
-      if (flag_thread_jumps)
-	{
-	  timevar_push (TV_JUMP);
-	  thread_jumps (insns, max_reg_num (), 1);
-	  timevar_pop (TV_JUMP);
-	}
 
       tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
 
@@ -3212,16 +3206,6 @@ rest_of_compilation (decl)
 	    }
 	}
 
-      if (flag_thread_jumps)
-	{
-	  /* This pass of jump threading straightens out code
-	     that was kinked by loop optimization.  */
-	  timevar_push (TV_JUMP);
-	  reg_scan (insns, max_reg_num (), 0);
-	  thread_jumps (insns, max_reg_num (), 0);
-	  timevar_pop (TV_JUMP);
-	}
-
       close_dump_file (DFI_cse2, print_rtl, insns);
       timevar_pop (TV_CSE2);
 
@@ -3239,7 +3223,8 @@ rest_of_compilation (decl)
   open_dump_file (DFI_cfg, decl);
 
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
+  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0
+	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   check_function_return_warnings ();
 
   /* It may make more sense to mark constant functions after dead code is
