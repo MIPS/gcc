@@ -294,13 +294,20 @@ static void cp_lexer_stop_debugging
 
 /* A token type for template-ids.  If a template-id is processed while
    parsing tentatively, it is replaced with a CPP_TEMPLATE_ID token;
-   the value of th CPP_TEMPLATE_ID is whatever was returned by
+   the value of the CPP_TEMPLATE_ID is whatever was returned by
    cp_parser_template_id.  */
 #define CPP_TEMPLATE_ID ((enum cpp_ttype) (CPP_KEYWORD + 1))
 
+/* A token type for nested-name-specifiers.  If a
+   nested-name-specifier is processed while parsing tentatively, it is
+   replaced with a CPP_NESTED_NAME_SPECIFIER token; the value of the
+   CPP_NESTED_NAME_SPECIFIER is whatever was returned by
+   cp_parser_nested_name_specifier_opt.  */
+#define CPP_NESTED_NAME_SPECIFIER ((enum cpp_ttype) (CPP_TEMPLATE_ID + 1))
+
 /* A token type for tokens that are not tokens at all; these are used
    to mark the end of a token block.  */
-#define CPP_NONE (CPP_TEMPLATE_ID + 1)
+#define CPP_NONE (CPP_NESTED_NAME_SPECIFIER + 1)
 
 /* Variables.  */
 
@@ -2103,6 +2110,13 @@ cp_parser_defer_access_check (cp_parser *parser,
 {
   tree check;
 
+  /* If we are not supposed to defer access checks, just check now.  */
+  if (!parser->context->deferring_access_checks_p)
+    {
+      enforce_access (class_type, decl);
+      return;
+    }
+
   /* See if we are already going to perform this check.  */
   for (check = parser->context->deferred_access_checks;
        check;
@@ -2740,6 +2754,7 @@ cp_parser_primary_expression (cp_parser *parser,
     case CPP_NAME:
     case CPP_SCOPE:
     case CPP_TEMPLATE_ID:
+    case CPP_NESTED_NAME_SPECIFIER:
       {
 	tree id_expression;
 	tree decl;
@@ -3353,6 +3368,40 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 				     bool type_p)
 {
   bool success = false;
+  tree access_check = NULL_TREE;
+  ptrdiff_t start;
+
+  /* If the next token corresponds to a nested name specifier, there
+     is no need to reparse it.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NESTED_NAME_SPECIFIER))
+    {
+      tree value;
+      tree check;
+
+      /* Get the stored value.  */
+      value = cp_lexer_consume_token (parser->lexer)->value;
+      /* Perform any access checks that were deferred.  */
+      for (check = TREE_PURPOSE (value); check; check = TREE_CHAIN (check))
+	cp_parser_defer_access_check (parser, 
+				      TREE_PURPOSE (check),
+				      TREE_VALUE (check));
+      /* Set the scope from the stored value.  */
+      parser->scope = TREE_VALUE (value);
+      return parser->scope;
+    }
+
+  /* Remember where the nested-name-specifier starts.  */
+  if (cp_parser_parsing_tentatively (parser)
+      && !cp_parser_committed_to_tentative_parse (parser))
+    {
+      cp_token *next_token = cp_lexer_peek_token (parser->lexer);
+      start = cp_lexer_token_difference (parser->lexer,
+					 parser->lexer->first_token,
+					 next_token);
+      access_check = parser->context->deferred_access_checks;
+    }
+  else
+    start = -1;
 
   while (true)
     {
@@ -3431,6 +3480,44 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	 be looking up names inside the class.  */
       if (TYPE_P (parser->scope))
 	complete_type (parser->scope);
+    }
+
+  /* If parsing tentatively, replace the sequence of tokens that makes
+     up the nested-name-specifier with a CPP_NESTED_NAME_SPECIFIER
+     token.  That way, should we re-parse the token stream, we will
+     not have to repeat the effort required to do the parse, nor will
+     we issue duplicate error messages.  */
+  if (success && start >= 0)
+    {
+      cp_token *token;
+      tree c;
+
+      /* Find the token that corresponds to the start of the
+	 template-id.  */
+      token = cp_lexer_advance_token (parser->lexer, 
+				      parser->lexer->first_token,
+				      start);
+
+      /* Remember the access checks associated with this
+	 nested-name-specifier.  */
+      c = parser->context->deferred_access_checks;
+      if (c == access_check)
+	access_check = NULL_TREE;
+      else
+	{
+	  while (TREE_CHAIN (c) != access_check)
+	    c = TREE_CHAIN (c);
+	  access_check = parser->context->deferred_access_checks;
+	  parser->context->deferred_access_checks = TREE_CHAIN (c);
+	  TREE_CHAIN (c) = NULL_TREE;
+	}
+
+      /* Reset the contents of the START token.  */
+      token->type = CPP_NESTED_NAME_SPECIFIER;
+      token->value = build_tree_list (access_check, parser->scope);
+      token->keyword = RID_MAX;
+      /* Purge all subsequent tokens.  */
+      cp_lexer_purge_tokens_after (parser->lexer, token);
     }
 
   return success ? parser->scope : NULL_TREE;
@@ -7767,13 +7854,14 @@ cp_parser_template_id (parser, template_keyword_p, check_dependency_p)
   bool saved_greater_than_is_operator_p;
   ptrdiff_t start_of_id;
 
-  /* If the next token corresponds to a template-id, all parsing has
-     already been done.  */
+  /* If the next token corresponds to a template-id, there is no need
+     to reparse it.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_TEMPLATE_ID))
     return cp_lexer_consume_token (parser->lexer)->value;
 
   /* Remember where the template-id starts.  */
-  if (cp_parser_parsing_tentatively (parser))
+  if (cp_parser_parsing_tentatively (parser)
+      && !cp_parser_committed_to_tentative_parse (parser))
     {
       cp_token *next_token = cp_lexer_peek_token (parser->lexer);
       start_of_id = cp_lexer_token_difference (parser->lexer,
@@ -8625,7 +8713,7 @@ cp_parser_elaborated_type_specifier (parser, is_friend, is_declaration)
 				     /*check_dependency_p=*/true,
 				     /*type_p=*/true);
   else
-    /* Even though `typename' is not present, the prposed resolution
+    /* Even though `typename' is not present, the proposed resolution
        to Core Issue 180 says that in `class A<T>::B', `B' should be
        considered a type-name, even if `A<T>' is dependent.  */
     cp_parser_nested_name_specifier_opt (parser,
@@ -14395,10 +14483,19 @@ cp_parser_commit_to_tentative_parse (parser)
      cp_parser *parser;
 {
   cp_parser_context *context;
+  cp_lexer *lexer;
 
   /* Mark all of the levels as committed.  */
+  lexer = parser->lexer;
   for (context = parser->context; context->next; context = context->next)
-    context->status = CP_PARSER_STATUS_KIND_COMMITTED;
+    {
+      if (context->status == CP_PARSER_STATUS_KIND_COMMITTED)
+	break;
+      context->status = CP_PARSER_STATUS_KIND_COMMITTED;
+      while (!cp_lexer_saving_tokens (lexer))
+	lexer = lexer->next;
+      cp_lexer_commit_tokens (lexer);
+    }
 }
 
 /* Abort the currently active tentative parse.  All consumed tokens
@@ -14434,7 +14531,10 @@ cp_parser_parse_definitely (parser)
   /* If no parse errors occurred, commit to the tentative parse.  */
   if (!error_occurred)
     {
-      cp_lexer_commit_tokens (parser->lexer);
+      /* Commit to the tokens read tentatively, unless that was
+	 already done.  */
+      if (context->status != CP_PARSER_STATUS_KIND_COMMITTED)
+	cp_lexer_commit_tokens (parser->lexer);
       if (!parser->context->deferring_access_checks_p)
 	/* If in the parent context we are not deferring checks, then
 	   these perform these checks now.  */
