@@ -1480,11 +1480,14 @@ enum reg_class
 
 /* Return a class of registers that cannot change FROM mode to TO mode.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				\
-   ? reg_classes_intersect_p (FLOAT_REGS, CLASS)			\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			  \
+  (((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN)		  \
+    && GET_MODE_SIZE (FROM) >= 8 && GET_MODE_SIZE (TO) >= 8)		  \
+   ? 0									  \
+   : GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				  \
+   ? reg_classes_intersect_p (FLOAT_REGS, CLASS)			  \
    : (TARGET_SPE && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1) \
-   ? reg_classes_intersect_p (GENERAL_REGS, CLASS) 			\
+   ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
    : 0)
 
 /* Stack layout; function entry, exit and calling.  */
@@ -2228,7 +2231,7 @@ do {								\
    between pointers and any other objects of this machine mode.  */
 #define Pmode (TARGET_32BIT ? SImode : DImode)
 
-/* Supply definition of STACK_SIZE_MODE for allocate_dynamic_stack_space. */
+/* Supply definition of STACK_SIZE_MODE for allocate_dynamic_stack_space.  */
 #define STACK_SIZE_MODE (TARGET_32BIT ? SImode : DImode)
 
 /* Mode of a function address in a call instruction (for indexing purposes).

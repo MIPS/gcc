@@ -896,7 +896,7 @@ finish_handler_parms (tree decl, tree handler)
     type = expand_start_catch_block (decl);
 
   HANDLER_TYPE (handler) = type;
-  if (type)
+  if (!processing_template_decl && type)
     mark_used (eh_type_info (type));
 }
 
@@ -1158,7 +1158,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	type = TREE_TYPE (type);
       else
 	{
-	  /* Set the cv qualifiers */
+	  /* Set the cv qualifiers.  */
 	  int quals = cp_type_quals (TREE_TYPE (current_class_ref));
 	  
 	  if (DECL_MUTABLE_P (decl))
@@ -1189,7 +1189,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	    }
 	}
 
-      /* If PROCESSING_TEMPLATE_DECL is non-zero here, then
+      /* If PROCESSING_TEMPLATE_DECL is nonzero here, then
 	 QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
 	 for now.  */
       if (processing_template_decl)
@@ -2250,9 +2250,9 @@ finish_id_expression (tree id_expression,
 		      tree scope,
 		      cp_id_kind *idk,
 		      tree *qualifying_class,
-		      bool constant_expression_p,
-		      bool allow_non_constant_expression_p,
-		      bool *non_constant_expression_p,
+		      bool integral_constant_expression_p,
+		      bool allow_non_integral_constant_expression_p,
+		      bool *non_integral_constant_expression_p,
 		      const char **error_msg)
 {
   /* Initialize the output parameters.  */
@@ -2318,12 +2318,31 @@ finish_id_expression (tree id_expression,
     }
 
   /* If the name resolved to a template parameter, there is no
-     need to look it up again later.  Similarly, we resolve
-     enumeration constants to their underlying values.  */
-  if (TREE_CODE (decl) == CONST_DECL)
+     need to look it up again later.  */
+  if ((TREE_CODE (decl) == CONST_DECL && DECL_TEMPLATE_PARM_P (decl))
+      || TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
     {
       *idk = CP_ID_KIND_NONE;
-      if (DECL_TEMPLATE_PARM_P (decl) || !processing_template_decl)
+      if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
+	decl = TEMPLATE_PARM_DECL (decl);
+      if (integral_constant_expression_p 
+	  && !dependent_type_p (TREE_TYPE (decl))
+	  && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))) 
+	{
+	  if (!allow_non_integral_constant_expression_p)
+	    error ("template parameter `%D' of type `%T' is not allowed in "
+		   "an integral constant expression because it is not of "
+		   "integral or enumeration type", decl, TREE_TYPE (decl));
+	  *non_integral_constant_expression_p = true;
+	}
+      return DECL_INITIAL (decl);
+    }
+  /* Similarly, we resolve enumeration constants to their 
+     underlying values.  */
+  else if (TREE_CODE (decl) == CONST_DECL)
+    {
+      *idk = CP_ID_KIND_NONE;
+      if (!processing_template_decl)
 	return DECL_INITIAL (decl);
       return decl;
     }
@@ -2418,8 +2437,8 @@ finish_id_expression (tree id_expression,
 	      /* Since this name was dependent, the expression isn't
 		 constant -- yet.  No error is issued because it might
 		 be constant when things are instantiated.  */
-	      if (constant_expression_p)
-		*non_constant_expression_p = true;
+	      if (integral_constant_expression_p)
+		*non_integral_constant_expression_p = true;
 	      if (TYPE_P (scope) && dependent_type_p (scope))
 		return build_nt (SCOPE_REF, scope, id_expression);
 	      else if (TYPE_P (scope) && DECL_P (decl))
@@ -2435,37 +2454,33 @@ finish_id_expression (tree id_expression,
 	  /* Since this name was dependent, the expression isn't
 	     constant -- yet.  No error is issued because it might be
 	     constant when things are instantiated.  */
-	  if (constant_expression_p)
-	    *non_constant_expression_p = true;
+	  if (integral_constant_expression_p)
+	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
 	  return id_expression;
 	}
 
       /* Only certain kinds of names are allowed in constant
-	 expression.  Enumerators have already been handled above.  */
-      if (constant_expression_p)
+       expression.  Enumerators and template parameters 
+       have already been handled above.  */
+      if (integral_constant_expression_p)
 	{
-	  /* Non-type template parameters of integral or enumeration
-	     type are OK.  */
-	  if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX
-	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
-	  ;
-	  /* Const variables or static data members of integral or
-	     enumeration types initialized with constant expressions
-	     are OK.  */
-	  else if (TREE_CODE (decl) == VAR_DECL
-		   && CP_TYPE_CONST_P (TREE_TYPE (decl))
-		   && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
-		   && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
+	    /* Const variables or static data members of integral or
+	      enumeration types initialized with constant expressions
+	      are OK.  */
+	  if (TREE_CODE (decl) == VAR_DECL
+	      && CP_TYPE_CONST_P (TREE_TYPE (decl))
+	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
 	    ;
 	  else
 	    {
-	      if (!allow_non_constant_expression_p)
+	      if (!allow_non_integral_constant_expression_p)
 		{
 		  error ("`%D' cannot appear in a constant-expression", decl);
 		  return error_mark_node;
 		}
-	      *non_constant_expression_p = true;
+	      *non_integral_constant_expression_p = true;
 	    }
 	}
       
@@ -2733,7 +2748,7 @@ emit_associated_thunks (tree fn)
       
       for (thunk = DECL_THUNKS (fn); thunk; thunk = TREE_CHAIN (thunk))
 	{
-	  if (!THUNK_ALIAS_P (thunk))
+	  if (!THUNK_ALIAS (thunk))
 	    {
 	      use_thunk (thunk, /*emit_p=*/1);
 	      if (DECL_RESULT_THUNK_P (thunk))

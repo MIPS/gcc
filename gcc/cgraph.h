@@ -68,7 +68,7 @@ struct cgraph_rtl_info GTY(())
 };
 
 
-/* The cgraph data strutcture.
+/* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
 
 struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
@@ -119,7 +119,7 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   PTR GTY ((skip (""))) aux;
 };
 
-/* The cgraph_varpool data strutcture.
+/* The cgraph_varpool data structure.
    Each static variable decl has assigned cgraph_varpool_node.  */
 
 struct cgraph_varpool_node GTY(())

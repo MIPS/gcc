@@ -16,6 +16,9 @@
 // Include I/O support for 'long long' and 'unsigned long long'.
 #undef _GLIBCXX_USE_LONG_LONG
 
+// Define if C99 math functions (like fpclassify) should be exposed.
+#undef _GLIBCXX_USE_C99_MATH
+
 // Define if C99 features such as lldiv_t, llabs, lldiv should be exposed.
 #undef _GLIBCXX_USE_C99
 
@@ -62,9 +65,6 @@
 
 // Define if gthr-default.h exists (meaning that threading support is enabled).
 #undef HAVE_GTHR_DEFAULT
-
-// Define if lrand48 exists.
-#undef HAVE_DRAND48
 
 // Define if getpagesize exists.
 #undef HAVE_GETPAGESIZE

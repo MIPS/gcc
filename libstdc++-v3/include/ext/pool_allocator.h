@@ -41,18 +41,17 @@
  */
 
 /** @file ext/debug_allocator.h
- *  This file is a GNU extension to the Standard C++ Library. 
+ *  This file is a GNU extension to the Standard C++ Library.
  *  You should only include this header if you are using GCC 3 or later.
  */
-
 #ifndef _POOL_ALLOCATOR_H
 #define _POOL_ALLOCATOR_H 1
 
-#include <bits/functexcept.h> 
+#include <new>
+#include <bits/functexcept.h>
 #include <bits/stl_threads.h>
 #include <bits/atomicity.h>
 #include <bits/allocator_traits.h>
-#include <ext/new_allocator.h>
 
 namespace __gnu_cxx
 {
@@ -65,9 +64,9 @@ namespace __gnu_cxx
    *  when in default high-speed pool mode).
    *
    *  Important implementation properties:
-   *  0. If globally mandated, then allocate objects from __new_alloc
+   *  0. If globally mandated, then allocate objects from new
    *  1. If the clients request an object of size > _S_max_bytes, the resulting
-   *     object will be obtained directly from __new_alloc
+   *     object will be obtained directly from new
    *  2. In all other cases, we allocate an object of size exactly
    *     _S_round_up(requested_size).  Thus the client has enough size
    *     information that we can return the object to the proper free list
@@ -111,7 +110,7 @@ namespace __gnu_cxx
       static size_t                 _S_heap_size;
 
       static _STL_mutex_lock        _S_lock;
-      static _Atomic_word 	    _S_force_new;
+      static _Atomic_word	    _S_force_new;
 
       static size_t
       _S_round_up(size_t __bytes)
@@ -152,7 +151,7 @@ namespace __gnu_cxx
 
   template<bool __threads, int __inst>
     inline bool
-    operator==(const __pool_alloc<__threads,__inst>&, 
+    operator==(const __pool_alloc<__threads,__inst>&,
 	       const __pool_alloc<__threads,__inst>&)
     { return true; }
 
@@ -201,7 +200,7 @@ namespace __gnu_cxx
               ((_Obj*)(void*)_S_start_free)->_M_free_list_link = *__free_list;
               *__free_list = (_Obj*)(void*)_S_start_free;
             }
-          _S_start_free = (char*) __new_alloc::allocate(__bytes_to_get);
+          _S_start_free = static_cast<char*>(::operator new(__bytes_to_get));
           if (_S_start_free == 0)
             {
               size_t __i;
@@ -226,7 +225,7 @@ namespace __gnu_cxx
                     }
                 }
               _S_end_free = 0;        // In case of exception.
-              _S_start_free = (char*)__new_alloc::allocate(__bytes_to_get);
+              _S_start_free = static_cast<char*>(::operator new(__bytes_to_get));
               // This should either throw an exception or remedy the situation.
               // Thus we assume it succeeded.
             }
@@ -289,9 +288,9 @@ namespace __gnu_cxx
 	  else
 	    __atomic_add(&_S_force_new, -1);
 	}
-      
+
       if ((__n > (size_t) _S_max_bytes) || (_S_force_new > 0))
-	__ret = __new_alloc::allocate(__n);
+	__ret = ::operator new(__n);
       else
 	{
 	  _Obj* volatile* __free_list = _S_free_list + _S_freelist_index(__n);
@@ -306,24 +305,24 @@ namespace __gnu_cxx
 	    {
 	      *__free_list = __result -> _M_free_list_link;
 	      __ret = __result;
-	    }	    
+	    }
 	  if (__builtin_expect(__ret == 0, 0))
 	    __throw_bad_alloc();
 	}
       return __ret;
     }
-  
+
   template<bool __threads, int __inst>
     void
     __pool_alloc<__threads, __inst>::deallocate(void* __p, size_t __n)
     {
       if ((__n > (size_t) _S_max_bytes) || (_S_force_new > 0))
-	__new_alloc::deallocate(__p, __n);
+	::operator delete(__p);
       else
 	{
 	  _Obj* volatile* __free_list = _S_free_list + _S_freelist_index(__n);
 	  _Obj* __q = (_Obj*)__p;
-	  
+
 	  // Acquire the lock here with a constructor call.  This
 	  // ensures that it is released in exit or during stack
 	  // unwinding.
@@ -368,9 +367,9 @@ namespace std
   template<typename _Tp, bool __thr, int __inst>
     struct _Alloc_traits<_Tp, __gnu_cxx::__pool_alloc<__thr, __inst> >
     {
-      static const bool _S_instanceless = true;      
-      typedef __gnu_cxx::__pool_alloc<__thr, __inst> 	base_alloc_type;
-      typedef __simple_alloc<_Tp, base_alloc_type>  	_Alloc_type;
+      static const bool _S_instanceless = true;
+      typedef __gnu_cxx::__pool_alloc<__thr, __inst>	base_alloc_type;
+      typedef __simple_alloc<_Tp, base_alloc_type>	_Alloc_type;
       typedef __allocator<_Tp, base_alloc_type>		allocator_type;
     };
   //@}
@@ -379,11 +378,11 @@ namespace std
   /// Versions for the __allocator adaptor used with the predefined
   /// "SGI" style allocators.
   template<typename _Tp, typename _Tp1, bool __thr, int __inst>
-    struct _Alloc_traits<_Tp, __allocator<_Tp1, 
+    struct _Alloc_traits<_Tp, __allocator<_Tp1,
 				     __gnu_cxx::__pool_alloc<__thr, __inst> > >
     {
       static const bool _S_instanceless = true;
-      typedef __gnu_cxx::__pool_alloc<__thr, __inst> 	base_alloc_type;
+      typedef __gnu_cxx::__pool_alloc<__thr, __inst>	base_alloc_type;
       typedef __simple_alloc<_Tp, base_alloc_type>	_Alloc_type;
       typedef __allocator<_Tp, base_alloc_type>		allocator_type;
     };

@@ -157,10 +157,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P cp_var_mod_type_p
-#undef LANG_HOOKS_TREE_INLINING_START_INLINING
-#define LANG_HOOKS_TREE_INLINING_START_INLINING cp_start_inlining
-#undef LANG_HOOKS_TREE_INLINING_END_INLINING
-#define LANG_HOOKS_TREE_INLINING_END_INLINING cp_end_inlining
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN cp_dump_tree
 #undef LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN
@@ -297,6 +293,12 @@ ok_to_generate_alias_set_for_type (tree t)
 static HOST_WIDE_INT
 cxx_get_alias_set (tree t)
 {
+  if (TREE_CODE (t) == RECORD_TYPE
+      && TYPE_CONTEXT (t) && CLASS_TYPE_P (TYPE_CONTEXT (t))
+      && CLASSTYPE_AS_BASE (TYPE_CONTEXT (t)) == t)
+    /* The base variant of a type must be in the same alias set as the
+       complete type.  */
+    return get_alias_set (TYPE_CONTEXT (t));
   
   if (/* It's not yet safe to use alias sets for some classes in C++.  */
       !ok_to_generate_alias_set_for_type (t)
@@ -346,7 +348,9 @@ cp_expr_size (tree exp)
 	abort ();
       /* This would be wrong for a type with virtual bases, but they are
 	 caught by the abort above.  */
-      return CLASSTYPE_SIZE_UNIT (TREE_TYPE (exp));
+      return (is_empty_class (TREE_TYPE (exp))
+	      ? size_zero_node 
+	      : CLASSTYPE_SIZE_UNIT (TREE_TYPE (exp)));
     }
   else
     /* Use the default code.  */

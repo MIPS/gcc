@@ -97,7 +97,7 @@ package body Switch.C is
             when False =>
 
             --  There are few front-end switches that
-            --  do not start with -gnat: -I, --RTS, -nostdlib
+            --  do not start with -gnat: -I, --RTS
 
                if Switch_Chars (Ptr) = 'I' then
                   Store_Switch := False;
@@ -117,14 +117,6 @@ package body Switch.C is
                      Add_Src_Search_Dir (Switch_Chars (Ptr .. Max));
                   end if;
 
-                  Ptr := Max + 1;
-
-               --  Processing of -nostdlib
-
-               elsif Ptr + 7 = Max
-                 and then Switch_Chars (Ptr .. Ptr + 7) = "nostdlib"
-               then
-                  Opt.No_Stdlib := True;
                   Ptr := Max + 1;
 
                --  Processing of the --RTS switch. --RTS has been modified by
@@ -296,12 +288,13 @@ package body Switch.C is
                Xref_Active := False;
                Set_Debug_Flag ('g');
 
-            --  Processing for e switch
+            --  -gnate? (extended switches)
 
             when 'e' =>
-               --  Only -gnateD and -gnatep= are stored
-
                Ptr := Ptr + 1;
+
+               --  The -gnate? switches are all double character switches
+               --  so we must always have a character after the e.
 
                if Ptr > Max then
                   raise Bad_Switch;
@@ -309,7 +302,7 @@ package body Switch.C is
 
                case Switch_Chars (Ptr) is
 
-                  --  Configuration pragmas
+                  --  -gnatec (configuration pragmas)
 
                   when 'c' =>
                      Store_Switch := False;
@@ -359,7 +352,7 @@ package body Switch.C is
 
                      return;
 
-                  --  Symbol definition
+                  --  -gnateD switch (symbol definition)
 
                   when 'D' =>
                      Store_Switch := False;
@@ -381,7 +374,7 @@ package body Switch.C is
                               (Storing'First .. First_Stored + Max - Ptr + 2));
                      return;
 
-                  --  Full source path for brief error messages
+                  --  -gnatef (full source path for brief error messages)
 
                   when 'f' =>
                      Store_Switch := False;
@@ -389,7 +382,7 @@ package body Switch.C is
                      Full_Path_Name_For_Brief_Errors := True;
                      return;
 
-                  --  Mapping file
+                  --  -gnatem (mapping file)
 
                   when 'm' =>
                      Store_Switch := False;
@@ -410,7 +403,7 @@ package body Switch.C is
                        new String'(Switch_Chars (Ptr .. Max));
                      return;
 
-                  --  Preprocessing data file
+                  --  -gnatep (preprocessing data file)
 
                   when 'p' =>
                      Store_Switch := False;
@@ -445,19 +438,21 @@ package body Switch.C is
                         Store_Compilation_Switch (To_Store);
                      end;
 
-                     return;
+                  return;
+
+                  --  All other -gnate? switches are unassigned
 
                   when others =>
                      raise Bad_Switch;
                end case;
 
-            --  Processing for E switch
+            --  -gnatE (dynamic elaboration checks)
 
             when 'E' =>
                Ptr := Ptr + 1;
                Dynamic_Elaboration_Checks := True;
 
-            --  Processing for f switch
+            --  -gnatf (full error messages)
 
             when 'f' =>
                Ptr := Ptr + 1;

@@ -517,6 +517,7 @@ sort_mem_initializers (tree t, tree mem_inits)
 	    cp_warning_at ("  `%#D'", subobject);
 	  else
 	    warning ("  base `%T'", subobject);
+	  warning ("  when initialized here");
 	}
 
       /* Look again, from the beginning of the list.  */
@@ -1122,7 +1123,7 @@ build_aggr_init (tree exp, tree init, int flags)
     }
 
   if (TREE_CODE (exp) == VAR_DECL || TREE_CODE (exp) == PARM_DECL)
-    /* just know that we've seen something for this node */
+    /* Just know that we've seen something for this node.  */
     TREE_USED (exp) = 1;
 
   TREE_TYPE (exp) = TYPE_MAIN_VARIANT (type);
@@ -1504,7 +1505,7 @@ build_offset_ref (tree type, tree name, bool address_p)
 
       if (TREE_CODE (t) != TEMPLATE_ID_EXPR && !really_overloaded_fn (t))
 	{
-	  /* Get rid of a potential OVERLOAD around it */
+	  /* Get rid of a potential OVERLOAD around it.  */
 	  t = OVL_CURRENT (t);
 
 	  /* Unique functions are handled easily.  */
@@ -1692,7 +1693,7 @@ build_new (tree placement, tree decl, tree init, int use_global_new)
 
       if (absdcl && TREE_CODE (absdcl) == ARRAY_REF)
 	{
-	  /* probably meant to be a vec new */
+	  /* Probably meant to be a vec new.  */
 	  tree this_nelts;
 
 	  while (TREE_OPERAND (absdcl, 0)
@@ -1847,7 +1848,7 @@ build_java_class_ref (tree type)
       jclass_node = TREE_TYPE (jclass_node);
     }
 
-  /* Mangle the class$ field */
+  /* Mangle the class$ field.  */
   {
     tree field;
     for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
@@ -2010,12 +2011,21 @@ build_new_1 (tree exp)
       tree class_decl = build_java_class_ref (true_type);
       tree class_size = size_in_bytes (true_type);
       static const char alloc_name[] = "_Jv_AllocObject";
-      use_java_new = 1;
-      alloc_decl = IDENTIFIER_GLOBAL_VALUE (get_identifier (alloc_name));
-      if (alloc_decl == NULL_TREE)
-	fatal_error ("call to Java constructor with `%s' undefined",
-		     alloc_name);
 
+      use_java_new = 1;
+      alloc_decl = NULL;
+      if (!get_global_value_if_present (get_identifier (alloc_name), 
+					&alloc_decl))
+	{
+	  error ("call to Java constructor with `%s' undefined", alloc_name);
+	  return error_mark_node;
+	}
+      else if (really_overloaded_fn (alloc_decl))
+	{
+	  error ("`%D' should never be overloaded", alloc_decl);
+	  return error_mark_node;
+	}
+      alloc_decl = OVL_CURRENT (alloc_decl);
       class_addr = build1 (ADDR_EXPR, jclass_node, class_decl);
       alloc_call = (build_function_call
 		    (alloc_decl,
@@ -2812,7 +2822,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
       if (TREE_SIDE_EFFECTS (addr))
 	addr = save_expr (addr);
 
-      /* throw away const and volatile on target type of addr */
+      /* Throw away const and volatile on target type of addr.  */
       addr = convert_force (build_pointer_type (type), addr, 0);
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
@@ -3072,7 +3082,8 @@ build_vec_delete (tree base, tree maxindex,
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      /* get the total number of things in the array, maxindex is a bad name */
+      /* Get the total number of things in the array, maxindex is a
+	 bad name.  */
       maxindex = array_type_nelts_total (type);
       type = strip_array_types (type);
       base = build_unary_op (ADDR_EXPR, base, 1);

@@ -81,8 +81,8 @@ rtx
 cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 {
   tree type = TREE_TYPE (exp);
-  register enum machine_mode mode = TYPE_MODE (type);
-  register enum tree_code code = TREE_CODE (exp);
+  enum machine_mode mode = TYPE_MODE (type);
+  enum tree_code code = TREE_CODE (exp);
 
   /* No sense saving up arithmetic to be done
      if it's all in the wrong mode to form part of an address.

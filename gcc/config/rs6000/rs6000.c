@@ -239,8 +239,8 @@ static int rs6000_sr_alias_set;
 int rs6000_default_long_calls;
 const char *rs6000_longcall_switch;
 
-/* Control alignment for fields within structures. */
-/* String from -malign-XXXXX. */
+/* Control alignment for fields within structures.  */
+/* String from -malign-XXXXX.  */
 const char *rs6000_alignment_string;
 int rs6000_alignment_flags;
 
@@ -399,6 +399,13 @@ static void rs6000_move_block_from_reg(int regno, rtx x, int nregs);
 static void setup_incoming_varargs (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree,
 				    int *, int);
+#if TARGET_MACHO
+static void macho_branch_islands (void);
+static void add_compiler_branch_island (tree, tree, int);
+static int no_previous_def (tree function_name);
+static tree get_prev_label (tree function_name);
+#endif
+
 static tree rs6000_build_builtin_va_list (void);
 
 /* Hash table stuff for keeping track of TOC entries.  */
@@ -617,147 +624,79 @@ rs6000_override_options (const char *default_cpu)
 {
   size_t i, j;
   struct rs6000_cpu_select *ptr;
+  int set_masks;
 
-  /* Simplify the entries below by making a mask for any POWER
-     variant and any PowerPC variant.  */
+  /* Simplifications for entries below.  */
 
-#define POWER_MASKS (MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING)
-#define POWERPC_MASKS (MASK_POWERPC | MASK_PPC_GPOPT \
-		       | MASK_PPC_GFXOPT | MASK_POWERPC64)
-#define POWERPC_OPT_MASKS (MASK_PPC_GPOPT | MASK_PPC_GFXOPT)
+  enum {
+    POWERPC_BASE_MASK = MASK_POWERPC | MASK_NEW_MNEMONICS,
+    POWERPC_7400_MASK = POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_ALTIVEC
+  };
 
+  /* This table occasionally claims that a processor does not support
+     a particular feature even though it does, but the feature is slower
+     than the alternative.  Thus, it shouldn't be relied on as a
+     complete description of the processor's support.  
+
+     Please keep this list in order, and don't forget to update the
+     documentation in invoke.texi when adding a new processor or
+     flag.  */
   static struct ptt
     {
       const char *const name;		/* Canonical processor name.  */
       const enum processor_type processor; /* Processor type enum value.  */
       const int target_enable;	/* Target flags to enable.  */
-      const int target_disable;	/* Target flags to disable.  */
     } const processor_target_table[]
-      = {{"common", PROCESSOR_COMMON, MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_MASKS},
-	 {"power", PROCESSOR_POWER,
-	    MASK_POWER | MASK_MULTIPLE | MASK_STRING,
-	    MASK_POWER2 | POWERPC_MASKS | MASK_NEW_MNEMONICS},
-	 {"power2", PROCESSOR_POWER,
-	    MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
-	    POWERPC_MASKS | MASK_NEW_MNEMONICS},
-	 {"power3", PROCESSOR_PPC630,
-	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS},
-	 {"power4", PROCESSOR_POWER4,
-            MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS | MASK_MFCRF,
-            POWER_MASKS},
-	 {"powerpc", PROCESSOR_POWERPC,
-	    MASK_POWERPC | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"powerpc64", PROCESSOR_POWERPC64,
-	    MASK_POWERPC | MASK_POWERPC64 | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS},
-	 {"rios", PROCESSOR_RIOS1,
-	    MASK_POWER | MASK_MULTIPLE | MASK_STRING,
-	    MASK_POWER2 | POWERPC_MASKS | MASK_NEW_MNEMONICS},
-	 {"rios1", PROCESSOR_RIOS1,
-	    MASK_POWER | MASK_MULTIPLE | MASK_STRING,
-	    MASK_POWER2 | POWERPC_MASKS | MASK_NEW_MNEMONICS},
-	 {"rsc", PROCESSOR_PPC601,
-	    MASK_POWER | MASK_MULTIPLE | MASK_STRING,
-	    MASK_POWER2 | POWERPC_MASKS | MASK_NEW_MNEMONICS},
-	 {"rsc1", PROCESSOR_PPC601,
-	    MASK_POWER | MASK_MULTIPLE | MASK_STRING,
-	    MASK_POWER2 | POWERPC_MASKS | MASK_NEW_MNEMONICS},
-	 {"rios2", PROCESSOR_RIOS2,
-	    MASK_POWER | MASK_MULTIPLE | MASK_STRING | MASK_POWER2,
-	    POWERPC_MASKS | MASK_NEW_MNEMONICS},
-	 {"rs64a", PROCESSOR_RS64A,
-	    MASK_POWERPC | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS},
-	 {"401", PROCESSOR_PPC403,
-	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
+      = {{"401", PROCESSOR_PPC403, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"403", PROCESSOR_PPC403,
-	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS | MASK_STRICT_ALIGN,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"405", PROCESSOR_PPC405,
-	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"405fp", PROCESSOR_PPC405,
-	    MASK_POWERPC | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"440", PROCESSOR_PPC440,
-	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"440fp", PROCESSOR_PPC440,
-	    MASK_POWERPC | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"505", PROCESSOR_MPCCORE,
-	    MASK_POWERPC | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
+	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_STRICT_ALIGN},
+	 {"405", PROCESSOR_PPC405, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+	 {"405fp", PROCESSOR_PPC405, POWERPC_BASE_MASK},
+	 {"440", PROCESSOR_PPC440, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+	 {"440fp", PROCESSOR_PPC440, POWERPC_BASE_MASK},
+	 {"505", PROCESSOR_MPCCORE, POWERPC_BASE_MASK},
 	 {"601", PROCESSOR_PPC601,
-	    MASK_POWER | MASK_POWERPC | MASK_NEW_MNEMONICS | MASK_MULTIPLE | MASK_STRING,
-	    MASK_POWER2 | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"602", PROCESSOR_PPC603,
-	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"603", PROCESSOR_PPC603,
-	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"603e", PROCESSOR_PPC603,
-	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"ec603e", PROCESSOR_PPC603,
-	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"604", PROCESSOR_PPC604,
-	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"604e", PROCESSOR_PPC604e,
-	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"620", PROCESSOR_PPC620,
-	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS},
-	 {"630", PROCESSOR_PPC630,
-	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS},
-	 {"740", PROCESSOR_PPC750,
- 	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
- 	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"750", PROCESSOR_PPC750,
- 	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
- 	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"G3", PROCESSOR_PPC750,
- 	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
- 	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"7400", PROCESSOR_PPC7400,
-            MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-            POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"7450", PROCESSOR_PPC7450,
-            MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-            POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"G4", PROCESSOR_PPC7450,
-            MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-            POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"8540", PROCESSOR_PPC8540,
-	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | MASK_PPC_GPOPT | MASK_POWERPC64},
-	 {"801", PROCESSOR_MPCCORE,
-	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"821", PROCESSOR_MPCCORE,
-	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"823", PROCESSOR_MPCCORE,
-	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
-	 {"860", PROCESSOR_MPCCORE,
-	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
-	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
+	  MASK_POWER | POWERPC_BASE_MASK | MASK_MULTIPLE | MASK_STRING},
+	 {"602", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"603", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"603e", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"604", PROCESSOR_PPC604, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"604e", PROCESSOR_PPC604e, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"620", PROCESSOR_PPC620, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"630", PROCESSOR_PPC630, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"740", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"7400", PROCESSOR_PPC7400, POWERPC_7400_MASK},
+	 {"7450", PROCESSOR_PPC7450, POWERPC_7400_MASK},
+	 {"750", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"801", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+	 {"821", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+	 {"823", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+	 {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"970", PROCESSOR_POWER4,
-	    MASK_POWERPC | POWERPC_OPT_MASKS | MASK_NEW_MNEMONICS | MASK_MFCRF,
-	    POWER_MASKS},
+	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
+	 {"common", PROCESSOR_COMMON, MASK_NEW_MNEMONICS},
+	 {"ec603e", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+	 {"G3", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"G4",  PROCESSOR_PPC7450, POWERPC_7400_MASK},
 	 {"G5", PROCESSOR_POWER4,
-	    MASK_POWERPC | POWERPC_OPT_MASKS | MASK_NEW_MNEMONICS | MASK_MFCRF,
-	    POWER_MASKS}};
+	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
+	 {"power", PROCESSOR_POWER, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+	 {"power2", PROCESSOR_POWER,
+	  MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING},
+	 {"power3", PROCESSOR_PPC630, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"power4", PROCESSOR_POWER4, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
+	 {"powerpc64", PROCESSOR_POWERPC64,
+	  POWERPC_BASE_MASK | MASK_POWERPC64},
+	 {"rios", PROCESSOR_RIOS1, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+	 {"rios1", PROCESSOR_RIOS1, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+	 {"rios2", PROCESSOR_RIOS2,
+	  MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING},
+	 {"rsc", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+	 {"rsc1", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
+	 {"rs64a", PROCESSOR_RS64A, POWERPC_BASE_MASK},
+      };
 
   const size_t ptt_size = ARRAY_SIZE (processor_target_table);
 
@@ -765,6 +704,28 @@ rs6000_override_options (const char *default_cpu)
   int multiple = TARGET_MULTIPLE;
   /* Save current -mstring/-mno-string status.  */
   int string = TARGET_STRING;
+
+  /* Some OSs don't support saving the high part of 64-bit registers on
+     context switch.  Other OSs don't support saving Altivec registers.
+     On those OSs, we don't touch the MASK_POWERPC64 or MASK_ALTIVEC
+     settings; if the user wants either, the user must explicitly specify
+     them and we won't interfere with the user's specification.  */
+
+  enum {
+    POWER_MASKS = MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
+    POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT 
+		     | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
+		     | MASK_MFCRF)
+  };
+ set_masks = POWER_MASKS | POWERPC_MASKS | MASK_SOFT_FLOAT;
+#ifdef OS_MISSING_POWERPC64
+  if (OS_MISSING_POWERPC64)
+    set_masks &= ~MASK_POWERPC64;
+#endif
+#ifdef OS_MISSING_ALTIVEC
+  if (OS_MISSING_ALTIVEC)
+    set_masks &= ~MASK_ALTIVEC;
+#endif
 
   /* Identify the processor type.  */
   rs6000_select[0].string = default_cpu;
@@ -783,8 +744,9 @@ rs6000_override_options (const char *default_cpu)
 
 		if (ptr->set_arch_p)
 		  {
-		    target_flags |= processor_target_table[j].target_enable;
-		    target_flags &= ~processor_target_table[j].target_disable;
+		    target_flags &= ~set_masks;
+		    target_flags |= (processor_target_table[j].target_enable
+				     & set_masks);
 		  }
 		break;
 	      }
@@ -2167,7 +2129,7 @@ and64_operand (rtx op, enum machine_mode mode)
 int
 and64_2_operand (rtx op, enum machine_mode mode)
 {
-  if (fixed_regs[CR0_REGNO])	/* CR0 not available, don't do andi./andis. */
+  if (fixed_regs[CR0_REGNO])	/* CR0 not available, don't do andi./andis.  */
     return gpc_reg_operand (op, mode) || mask64_2_operand (op, mode);
 
   return logical_operand (op, mode) || mask64_2_operand (op, mode);
@@ -2486,7 +2448,7 @@ legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
 
     case DFmode:
     case DImode:
-      if (TARGET_32BIT)
+      if (mode == DFmode || !TARGET_POWERPC64)
 	extra = 4;
       else if (offset & 3)
 	return false;
@@ -2494,7 +2456,7 @@ legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
 
     case TFmode:
     case TImode:
-      if (TARGET_32BIT)
+      if (mode == TFmode || !TARGET_POWERPC64)
 	extra = 12;
       else if (offset & 3)
 	return false;
@@ -2564,7 +2526,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
     return false;
   x = XEXP (x, 1);
 
-  if (TARGET_ELF)
+  if (TARGET_ELF || TARGET_MACHO)
     {
       if (DEFAULT_ABI != ABI_AIX && flag_pic)
 	return false;
@@ -2945,6 +2907,9 @@ rs6000_tls_symbol_ref (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
 bool
 rs6000_tls_referenced_p (rtx x)
 {
+  if (! TARGET_HAVE_TLS)
+    return false;
+
   return for_each_rtx (&x, &rs6000_tls_symbol_ref_1, 0);
 }
 
@@ -3450,7 +3415,26 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
   /* Handle the case of CONSTANT_P_RTX.  */
   if (GET_CODE (operands[1]) == CONSTANT_P_RTX)
     goto emit_set;
-  
+
+  /* 128-bit constant floating-point values on Darwin should really be
+     loaded as two parts.  */
+  if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN)
+      && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_LONG_DOUBLE_128
+      && mode == TFmode && GET_CODE (operands[1]) == CONST_DOUBLE)
+    {
+      /* DImode is used, not DFmode, because simplify_gen_subreg doesn't
+	 know how to get a DFmode SUBREG of a TFmode.  */
+      rs6000_emit_move (simplify_gen_subreg (DImode, operands[0], mode, 0),
+			simplify_gen_subreg (DImode, operands[1], mode, 0),
+			DImode);
+      rs6000_emit_move (simplify_gen_subreg (DImode, operands[0], mode,
+					     GET_MODE_SIZE (DImode)),
+			simplify_gen_subreg (DImode, operands[1], mode,
+					     GET_MODE_SIZE (DImode)),
+			DImode);
+      return;
+    }
+
   /* FIXME:  In the long term, this switch statement should go away
      and be replaced by a sequence of tests based on things like
      mode == Pmode.  */
@@ -3696,7 +3680,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
   (ALTIVEC_VECTOR_MODE (MODE)				\
    && (CUM)->vregno <= ALTIVEC_ARG_MAX_REG		\
    && TARGET_ALTIVEC_ABI				\
-   && (DEFAULT_ABI == ABI_V4 || (NAMED)))
+   && (NAMED))
 
 /* Return a nonzero value to say to return the function value in
    memory, just as large structures are always returned.  TYPE will be
@@ -4056,7 +4040,7 @@ rs6000_mixed_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       else if (align_words + RS6000_ARG_SIZE (mode, type)
 	       > GP_ARG_NUM_REG)
 	/* If this is partially on the stack, then we only
-	   include the portion actually in registers here. */
+	   include the portion actually in registers here.  */
 	return gen_rtx_PARALLEL (DFmode,
 		 gen_rtvec (2,   
 			    gen_rtx_EXPR_LIST (VOIDmode,
@@ -4223,7 +4207,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	     value in GPRs is reported here.  */
 	  if (align_words + CLASS_MAX_NREGS (mode, GENERAL_REGS)
 	      > GP_ARG_NUM_REG)
-	    /* Fortunately, there are only two possibilites, the value
+	    /* Fortunately, there are only two possibilities, the value
 	       is either wholly in GPRs or half in GPRs and half not.  */
 	    part_mode = DImode;
 	  
@@ -4712,7 +4696,7 @@ rs6000_va_arg (tree valist, tree type)
       sav_scale = 4;
     }
 
-  /* Pull the value out of the saved registers ...  */
+  /* Pull the value out of the saved registers....  */
 
   lab_false = gen_label_rtx ();
   lab_over = gen_label_rtx ();
@@ -8295,7 +8279,8 @@ addrs_ok_for_quad_peep (rtx addr1, rtx addr2)
 
 enum reg_class
 secondary_reload_class (enum reg_class class, 
-		enum machine_mode mode ATTRIBUTE_UNUSED, rtx in)
+			enum machine_mode mode ATTRIBUTE_UNUSED,
+			rtx in)
 {
   int regno;
 
@@ -9749,7 +9734,7 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
     s += sprintf (s, "{b%s|b%s%s} ", ccode, ccode, pred);
 
   /* We need to escape any '%' characters in the reg_names string.
-     Assume they'd only be the first character...  */
+     Assume they'd only be the first character....  */
   if (reg_names[cc_regno + CR0_REGNO][0] == '%')
     *s++ = '%';
   s += sprintf (s, "%s", reg_names[cc_regno + CR0_REGNO]);
@@ -9782,7 +9767,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   enum machine_mode result_mode = GET_MODE (dest);
   rtx temp;
 
-  /* These modes should always match. */
+  /* These modes should always match.  */
   if (GET_MODE (op1) != compare_mode
       /* In the isel case however, we can use a compare immediate, so
 	 op1 may be a small constant.  */
@@ -9794,7 +9779,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
     return 0;
 
   /* First, work out if the hardware can do this at all, or
-     if it's too slow...  */
+     if it's too slow....  */
   if (! rs6000_compare_fp_p)
     {
       if (TARGET_ISEL)
@@ -10000,73 +9985,72 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
     emit_move_insn (dest, target);
 }
 
-/* Called by splitter for multireg moves.
-   Input: 
-          operands[0] : Destination of move
-          operands[1] : Source of move
+/* Emit instructions to move SRC to DST.  Called by splitters for
+   multi-register moves.  It will emit at most one instruction for
+   each register that is accessed; that is, it won't emit li/lis pairs
+   (or equivalent for 64-bit code).  One of SRC or DST must be a hard
+   register.  */
 
-   Output:
-	  operands[2-n] : Destination slots
-	  operands[n-m] : Source slots
-   where n = 2 + HARD_REGNO_NREGS (reg, GET_MODE (operands[0]))
-         m = 2 + 2 * HARD_REGNO_NREGS (reg, GET_MODE (operands[0])) - 1
-
-   Splits the move of operands[1] to operands[0].
-   This is done, if GPRs are one of the operands.  In this case
-   a sequence of simple move insns has to be issued.  The sequence of these
-   move insns has to be done in correct order to avoid early clobber of the
-   base register or destructive overlap of registers. 
-*/
-	  
 void
-rs6000_split_multireg_move (rtx *operands)
+rs6000_split_multireg_move (rtx dst, rtx src)
 {
-  int nregs, reg, i, j, used_update = 0;
-  enum machine_mode mode; 
-  rtx dst = operands[0];
-  rtx src = operands[1];
-  rtx insn = 0;
+  /* The register number of the first register being moved.  */
+  int reg;
+  /* The mode that is to be moved.  */
+  enum machine_mode mode;
+  /* The mode that the move is being done in, and its size.  */
+  enum machine_mode reg_mode;
+  int reg_mode_size;
+  /* The number of registers that will be moved.  */
+  int nregs;
 
-  /* Calculate number to move (2/4 for 32/64 bit mode).  */ 
-
-  reg = REG_P (operands[0]) ? REGNO (operands[0]) : REGNO (operands[1]); 
-  mode = GET_MODE (operands[0]);
-  nregs = HARD_REGNO_NREGS (reg, mode);                                  
+  reg = REG_P (dst) ? REGNO (dst) : REGNO (src);
+  mode = GET_MODE (dst);
+  nregs = HARD_REGNO_NREGS (reg, mode);
+  if (FP_REGNO_P (reg))
+    reg_mode = DFmode;
+  else if (ALTIVEC_REGNO_P (reg))
+    reg_mode = V16QImode;
+  else
+    reg_mode = word_mode;
+  reg_mode_size = GET_MODE_SIZE (reg_mode);
   
-  if (REG_P (operands[1]) 
-      && REG_P (operands[0]) 
-      && (REGNO (operands[1]) < REGNO (operands[0])))
-    {  
-      /* Move register range backwards, if we have destructive overlap.  */
-
-      j = nregs;
-      for (i = 0; i < nregs; i++)
-        {
-          j--;
-          operands[i+2] = operand_subword (operands[0], j, 0, mode);
-          operands[i+2+nregs] = 
-            operand_subword (operands[1], j, 0, mode);   
-        }
-    }     
+  if (reg_mode_size * nregs != GET_MODE_SIZE (mode))
+    abort ();
+  
+  if (REG_P (src) && REG_P (dst) && (REGNO (src) < REGNO (dst)))
+    {
+      /* Move register range backwards, if we might have destructive
+	 overlap.  */
+      int i;
+      for (i = nregs - 1; i >= 0; i--)
+	emit_insn (gen_rtx_SET (VOIDmode, 
+				simplify_gen_subreg (reg_mode, dst, mode,
+						     i * reg_mode_size),
+				simplify_gen_subreg (reg_mode, src, mode,
+						     i * reg_mode_size)));
+    }
   else
     {
-      j = -1;
+      int i;
+      int j = -1;
+      bool used_update = false;
 
-      if (GET_CODE (operands[1]) == MEM)
+      if (GET_CODE (src) == MEM && INT_REGNO_P (reg))
         {
           rtx breg;
 
-	  if (GET_CODE (XEXP (operands[1], 0)) == PRE_INC
-	      || GET_CODE (XEXP (operands[1], 0)) == PRE_DEC)
+	  if (GET_CODE (XEXP (src, 0)) == PRE_INC
+	      || GET_CODE (XEXP (src, 0)) == PRE_DEC)
 	    {
 	      rtx delta_rtx;
-	      breg = XEXP (XEXP (operands[1], 0), 0);
-	      delta_rtx =  GET_CODE (XEXP (operands[1], 0)) == PRE_INC 
-		  ? GEN_INT (GET_MODE_SIZE (GET_MODE (operands[1]))) 
-		  : GEN_INT (-GET_MODE_SIZE (GET_MODE (operands[1]))); 
-	      insn = emit_insn (TARGET_32BIT
-				? gen_addsi3 (breg, breg, delta_rtx)
-				: gen_adddi3 (breg, breg, delta_rtx));
+	      breg = XEXP (XEXP (src, 0), 0);
+	      delta_rtx =  GET_CODE (XEXP (src, 0)) == PRE_INC 
+		  ? GEN_INT (GET_MODE_SIZE (GET_MODE (src))) 
+		  : GEN_INT (-GET_MODE_SIZE (GET_MODE (src))); 
+	      emit_insn (TARGET_32BIT
+			 ? gen_addsi3 (breg, breg, delta_rtx)
+			 : gen_adddi3 (breg, breg, delta_rtx));
 	      src = gen_rtx_MEM (mode, breg);
 	    }
 
@@ -10086,35 +10070,34 @@ rs6000_split_multireg_move (rtx *operands)
 	    j = REGNO (breg) - REGNO (dst);
         }
 
-      if (GET_CODE (operands[0]) == MEM)
+      if (GET_CODE (dst) == MEM && INT_REGNO_P (reg))
 	{
 	  rtx breg;
 
-	  if (GET_CODE (XEXP (operands[0], 0)) == PRE_INC
-	      || GET_CODE (XEXP (operands[0], 0)) == PRE_DEC)
+	  if (GET_CODE (XEXP (dst, 0)) == PRE_INC
+	      || GET_CODE (XEXP (dst, 0)) == PRE_DEC)
 	    {
 	      rtx delta_rtx;
-	      breg = XEXP (XEXP (operands[0], 0), 0);
-	      delta_rtx = GET_CODE (XEXP (operands[0], 0)) == PRE_INC 
-		? GEN_INT (GET_MODE_SIZE (GET_MODE (operands[0]))) 
-		: GEN_INT (-GET_MODE_SIZE (GET_MODE (operands[0]))); 
+	      breg = XEXP (XEXP (dst, 0), 0);
+	      delta_rtx = GET_CODE (XEXP (dst, 0)) == PRE_INC 
+		? GEN_INT (GET_MODE_SIZE (GET_MODE (dst))) 
+		: GEN_INT (-GET_MODE_SIZE (GET_MODE (dst))); 
 
 	      /* We have to update the breg before doing the store.
 		 Use store with update, if available.  */
 
 	      if (TARGET_UPDATE)
 		{
-		  insn = emit_insn (TARGET_32BIT
-				    ? gen_movsi_update (breg, breg, delta_rtx, 
-					operand_subword (src, 0, 0, mode))
-				    : gen_movdi_update (breg, breg, delta_rtx,
-					operand_subword (src, 0, 0, mode)));
-		  used_update = 1;
+		  rtx nsrc = simplify_gen_subreg (reg_mode, src, mode, 0);
+		  emit_insn (TARGET_32BIT
+			     ? gen_movsi_update (breg, breg, delta_rtx, nsrc)
+			     : gen_movdi_update (breg, breg, delta_rtx, nsrc));
+		  used_update = true;
 		}
 	      else
-		  insn = emit_insn (TARGET_32BIT
-				    ? gen_addsi3 (breg, breg, delta_rtx)
-				    : gen_adddi3 (breg, breg, delta_rtx));
+		emit_insn (TARGET_32BIT
+			   ? gen_addsi3 (breg, breg, delta_rtx)
+			   : gen_adddi3 (breg, breg, delta_rtx));
 	      dst = gen_rtx_MEM (mode, breg);
 	    }
 	}
@@ -10126,15 +10109,16 @@ rs6000_split_multireg_move (rtx *operands)
 	  if (j == nregs) 
 	    j = 0;
 
-	  operands[i+2] = operand_subword (dst, j, 0, mode);
-	  operands[i+2+nregs] = operand_subword (src, j, 0, mode);
-
+	  /* If compiler already emited move of first word by 
+	     store with update, no need to do anything.  */
 	  if (j == 0 && used_update)
-	    {
-	      /* Already emited move of first word by 
-		 store with update -> emit dead insn instead (r := r).  */
-	      operands[i+2] = operands[i+2+nregs];
-	    }
+	    continue;
+	  
+	  emit_insn (gen_rtx_SET (VOIDmode,
+				  simplify_gen_subreg (reg_mode, dst, mode,
+						       j * reg_mode_size),
+				  simplify_gen_subreg (reg_mode, src, mode,
+						       j * reg_mode_size)));
 	}
     }
 }
@@ -10908,7 +10892,7 @@ rs6000_ra_ever_killed (void)
   /* regs_ever_live has LR marked as used if any sibcalls are present,
      but this should not force saving and restoring in the
      pro/epilogue.  Likewise, reg_set_between_p thinks a sibcall
-     clobbers LR, so that is inappropriate. */
+     clobbers LR, so that is inappropriate.  */
 
   /* Also, the prologue can generate a store into LR that
      doesn't really count, like this:
@@ -11982,7 +11966,7 @@ rs6000_output_function_prologue (FILE *file,
       rs6000_emit_prologue ();
       emit_note (NOTE_INSN_DELETED);
 
-      /* Expand INSN_ADDRESSES so final() doesn't crash. */
+      /* Expand INSN_ADDRESSES so final() doesn't crash.  */
       {
 	rtx insn;
 	unsigned addr = 0;
@@ -12414,7 +12398,7 @@ rs6000_output_function_epilogue (FILE *file,
 	  rs6000_emit_epilogue (FALSE);
 	  emit_note (NOTE_INSN_DELETED);
 
-	  /* Expand INSN_ADDRESSES so final() doesn't crash. */
+	  /* Expand INSN_ADDRESSES so final() doesn't crash.  */
 	  {
 	    rtx insn;
 	    unsigned addr = 0;
@@ -12432,7 +12416,8 @@ rs6000_output_function_epilogue (FILE *file,
 	}
     }
 
-#if TARGET_OBJECT_FORMAT == OBJECT_MACHO
+#if TARGET_MACHO
+  macho_branch_islands ();
   /* Mach-O doesn't support labels at the end of objects, so if
      it looks like we might want one, insert a NOP.  */
   {
@@ -12511,8 +12496,7 @@ rs6000_output_function_epilogue (FILE *file,
 	 official way to get this info, so we use language_string.  C
 	 is 0.  C++ is 9.  No number defined for Obj-C, so use the
 	 value for C for now.  There is no official value for Java,
-         although IBM appears to be using 13.  There is no official value
-	 for Chill, so we've chosen 44 pseudo-randomly.  */
+         although IBM appears to be using 13.  */
       if (! strcmp (language_string, "GNU C")
 	  || ! strcmp (language_string, "GNU Objective-C"))
 	i = 0;
@@ -12527,8 +12511,6 @@ rs6000_output_function_epilogue (FILE *file,
 	i = 9;
       else if (! strcmp (language_string, "GNU Java"))
 	i = 13;
-      else if (! strcmp (language_string, "GNU CHILL"))
-	i = 44;
       else
 	abort ();
       fprintf (file, "%d,", i);
@@ -13500,7 +13482,7 @@ output_function_profiler (FILE *file, int labelno)
     case ABI_DARWIN:
       if (!TARGET_PROFILE_KERNEL)
 	{
-	  /* Don't do anything, done in output_profile_hook (). */
+	  /* Don't do anything, done in output_profile_hook ().  */
 	}
       else
 	{
@@ -13617,7 +13599,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn ATTRIBUTE_UNUSED,
 }
 
 /* The function returns a true if INSN is microcoded.
-   Return false ptherwise.  */
+   Return false otherwise.  */
 
 static bool
 is_microcoded_insn (rtx insn)
@@ -13641,7 +13623,7 @@ is_microcoded_insn (rtx insn)
   return false;
 }
 
-/* The function returns a non-zero value if INSN can be scheduled only
+/* The function returns a nonzero value if INSN can be scheduled only
    as the first insn in a dispatch group ("dispatch-slot restricted").
    In this case, the returned value indicates how many dispatch slots
    the insn occupies (at the beginning of the group).
@@ -13710,7 +13692,7 @@ is_cracked_insn (rtx insn)
 }
 
 /* The function returns true if INSN can be issued only from
-   the branch slot. */
+   the branch slot.  */
 
 static bool
 is_branch_slot_insn (rtx insn)
@@ -14004,7 +13986,7 @@ get_next_active_insn (rtx insn, rtx tail)
   return next_insn;
 }
 
-/* Return whether the presence of INSN causes a dispatch group terminatation
+/* Return whether the presence of INSN causes a dispatch group termination
    of group WHICH_GROUP.
 
    If WHICH_GROUP == current_group, this function will return true if INSN
@@ -14046,7 +14028,7 @@ insn_terminates_group_p (rtx insn, enum group_termination which_group)
   return false;
 }
 
-/* Return true if it is recommended to keep NEXT_INSN "far" (in a seperate
+/* Return true if it is recommended to keep NEXT_INSN "far" (in a separate
    dispatch group) from the insns in GROUP_INSNS.  Return false otherwise.  */
 
 static bool
@@ -14084,7 +14066,7 @@ is_costly_group (rtx *group_insns, rtx next_insn)
    one of the following schemes, depending on the value of the flag
    -minsert_sched_nops = X:
    (1) X == sched_finish_regroup_exact: insert exactly as many nops as needed
-       in order to force NEXT_INSN into a seperate group.
+       in order to force NEXT_INSN into a separate group.
    (2) X < sched_finish_regroup_exact: insert exactly X nops.  
    GROUP_END, CAN_ISSUE_MORE and GROUP_COUNT record the state after nop 
    insertion (has a group just ended, how many vacant issue slots remain in the
@@ -14720,83 +14702,118 @@ symbolic_operand (rtx op)
 }
 #endif
 
-#ifdef RS6000_LONG_BRANCH
+#if TARGET_MACHO
 
-static tree stub_list = 0;
+static tree branch_island_list = 0;
 
-/* ADD_COMPILER_STUB adds the compiler generated stub for handling 
-   procedure calls to the linked list.  */
+/* Remember to generate a branch island for far calls to the given
+   function.  */
 
-void 
-add_compiler_stub (tree label_name, tree function_name, int line_number)
+static void 
+add_compiler_branch_island (tree label_name, tree function_name, int line_number)
 {
-  tree stub = build_tree_list (function_name, label_name);
-  TREE_TYPE (stub) = build_int_2 (line_number, 0);
-  TREE_CHAIN (stub) = stub_list;
-  stub_list = stub;
+  tree branch_island = build_tree_list (function_name, label_name);
+  TREE_TYPE (branch_island) = build_int_2 (line_number, 0);
+  TREE_CHAIN (branch_island) = branch_island_list;
+  branch_island_list = branch_island;
 }
 
-#define STUB_LABEL_NAME(STUB)     TREE_VALUE (STUB)
-#define STUB_FUNCTION_NAME(STUB)  TREE_PURPOSE (STUB)
-#define STUB_LINE_NUMBER(STUB)    TREE_INT_CST_LOW (TREE_TYPE (STUB))
+#define BRANCH_ISLAND_LABEL_NAME(BRANCH_ISLAND)     TREE_VALUE (BRANCH_ISLAND)
+#define BRANCH_ISLAND_FUNCTION_NAME(BRANCH_ISLAND)  TREE_PURPOSE (BRANCH_ISLAND)
+#define BRANCH_ISLAND_LINE_NUMBER(BRANCH_ISLAND)    \
+		TREE_INT_CST_LOW (TREE_TYPE (BRANCH_ISLAND))
 
-/* OUTPUT_COMPILER_STUB outputs the compiler generated stub for
-   handling procedure calls from the linked list and initializes the
-   linked list.  */
+/* Generate far-jump branch islands for everything on the
+   branch_island_list.  Invoked immediately after the last instruction
+   of the epilogue has been emitted; the branch-islands must be
+   appended to, and contiguous with, the function body.  Mach-O stubs
+   are generated in machopic_output_stub().  */
 
-void
-output_compiler_stub (void)
+static void
+macho_branch_islands (void)
 {
-  char tmp_buf[256];
-  char label_buf[256];
-  tree stub;
+  char tmp_buf[512];
+  tree branch_island;
 
-  if (!flag_pic)
-    for (stub = stub_list; stub; stub = TREE_CHAIN (stub))
-      {
-	fprintf (asm_out_file,
-		 "%s:\n", IDENTIFIER_POINTER(STUB_LABEL_NAME(stub)));
-
+  for (branch_island = branch_island_list;
+       branch_island;
+       branch_island = TREE_CHAIN (branch_island))
+    {
+      const char *label =
+	IDENTIFIER_POINTER (BRANCH_ISLAND_LABEL_NAME (branch_island));
+      const char *name  =
+	darwin_strip_name_encoding (
+	  IDENTIFIER_POINTER (BRANCH_ISLAND_FUNCTION_NAME (branch_island)));
+      char name_buf[512];
+      /* Cheap copy of the details from the Darwin ASM_OUTPUT_LABELREF().  */
+      if (name[0] == '*' || name[0] == '&')
+	strcpy (name_buf, name+1);
+      else
+	{
+	  name_buf[0] = '_';
+	  strcpy (name_buf+1, name);
+	}
+      strcpy (tmp_buf, "\n");
+      strcat (tmp_buf, label);
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-	if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
-	  fprintf (asm_out_file, "\t.stabd 68,0,%d\n", STUB_LINE_NUMBER(stub));
+      if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
+	fprintf (asm_out_file, "\t.stabd 68,0," HOST_WIDE_INT_PRINT_UNSIGNED "\n",
+		 BRANCH_ISLAND_LINE_NUMBER(branch_island));
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
-
-	if (IDENTIFIER_POINTER (STUB_FUNCTION_NAME (stub))[0] == '*')
-	  strcpy (label_buf,
-		  IDENTIFIER_POINTER (STUB_FUNCTION_NAME (stub))+1);
-	else
-	  {
-	    label_buf[0] = '_';
-	    strcpy (label_buf+1,
-		    IDENTIFIER_POINTER (STUB_FUNCTION_NAME (stub)));
-	  }
-
-	strcpy (tmp_buf, "lis r12,hi16(");
-	strcat (tmp_buf, label_buf);
-	strcat (tmp_buf, ")\n\tori r12,r12,lo16(");
-	strcat (tmp_buf, label_buf);
-	strcat (tmp_buf, ")\n\tmtctr r12\n\tbctr");
-	output_asm_insn (tmp_buf, 0);
-
+      if (flag_pic)
+	{
+	  strcat (tmp_buf, ":\n\tmflr r0\n\tbcl 20,31,");
+	  strcat (tmp_buf, label);
+	  strcat (tmp_buf, "_pic\n");
+	  strcat (tmp_buf, label);
+	  strcat (tmp_buf, "_pic:\n\tmflr r11\n");
+ 
+	  strcat (tmp_buf, "\taddis r11,r11,ha16(");
+	  strcat (tmp_buf, name_buf);
+	  strcat (tmp_buf, " - ");
+	  strcat (tmp_buf, label);
+	  strcat (tmp_buf, "_pic)\n");
+ 		   
+	  strcat (tmp_buf, "\tmtlr r0\n");
+  
+	  strcat (tmp_buf, "\taddi r12,r11,lo16(");
+	  strcat (tmp_buf, name_buf);
+	  strcat (tmp_buf, " - ");
+	  strcat (tmp_buf, label);
+	  strcat (tmp_buf, "_pic)\n");
+ 
+	  strcat (tmp_buf, "\tmtctr r12\n\tbctr\n");
+	}
+      else
+	{
+	  strcat (tmp_buf, ":\nlis r12,hi16(");
+	  strcat (tmp_buf, name_buf);
+	  strcat (tmp_buf, ")\n\tori r12,r12,lo16(");
+	  strcat (tmp_buf, name_buf);
+	  strcat (tmp_buf, ")\n\tmtctr r12\n\tbctr");
+	}
+      output_asm_insn (tmp_buf, 0);
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-	if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
-	  fprintf(asm_out_file, "\t.stabd 68,0,%d\n", STUB_LINE_NUMBER (stub));
+      if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
+	fprintf(asm_out_file, "\t.stabd 68,0," HOST_WIDE_INT_PRINT_UNSIGNED "\n",
+		BRANCH_ISLAND_LINE_NUMBER (branch_island));
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
-      }
+    }
 
-  stub_list = 0;
+  branch_island_list = 0;
 }
 
 /* NO_PREVIOUS_DEF checks in the link list whether the function name is
    already there or not.  */
 
-int
+static int
 no_previous_def (tree function_name)
 {
-  tree stub;
-  for (stub = stub_list; stub; stub = TREE_CHAIN (stub))
-    if (function_name == STUB_FUNCTION_NAME (stub))
+  tree branch_island;
+  for (branch_island = branch_island_list;
+       branch_island;
+       branch_island = TREE_CHAIN (branch_island))
+    if (function_name == BRANCH_ISLAND_FUNCTION_NAME (branch_island))
       return 0;
   return 1;
 }
@@ -14804,13 +14821,15 @@ no_previous_def (tree function_name)
 /* GET_PREV_LABEL gets the label name from the previous definition of
    the function.  */
 
-tree
+static tree
 get_prev_label (tree function_name)
 {
-  tree stub;
-  for (stub = stub_list; stub; stub = TREE_CHAIN (stub))
-    if (function_name == STUB_FUNCTION_NAME (stub))
-      return STUB_LABEL_NAME (stub);
+  tree branch_island;
+  for (branch_island = branch_island_list;
+       branch_island;
+       branch_island = TREE_CHAIN (branch_island))
+    if (function_name == BRANCH_ISLAND_FUNCTION_NAME (branch_island))
+      return BRANCH_ISLAND_LABEL_NAME (branch_island);
   return 0;
 }
 
@@ -14820,13 +14839,14 @@ get_prev_label (tree function_name)
    CALL_DEST is the routine we are calling.  */
 
 char *
-output_call (rtx insn, rtx call_dest, int operand_number)
+output_call (rtx insn, rtx *operands, int dest_operand_number, int cookie_operand_number)
 {
   static char buf[256];
-  if (GET_CODE (call_dest) == SYMBOL_REF && TARGET_LONG_BRANCH && !flag_pic)
+  if (GET_CODE (operands[dest_operand_number]) == SYMBOL_REF
+      && (INTVAL (operands[cookie_operand_number]) & CALL_LONG))
     {
       tree labelname;
-      tree funname = get_identifier (XSTR (call_dest, 0));
+      tree funname = get_identifier (XSTR (operands[dest_operand_number], 0));
       
       if (no_previous_def (funname))
 	{
@@ -14840,23 +14860,25 @@ output_call (rtx insn, rtx call_dest, int operand_number)
 	  for (; insn && GET_CODE (insn) != NOTE; insn = PREV_INSN (insn));
 	  if (insn)
 	    line_number = NOTE_LINE_NUMBER (insn);
-	  add_compiler_stub (labelname, funname, line_number);
+	  add_compiler_branch_island (labelname, funname, line_number);
 	}
       else
 	labelname = get_prev_label (funname);
 
+      /* "jbsr foo, L42" is Mach-O for "Link as 'bl foo' if a 'bl'
+	 instruction will reach 'foo', otherwise link as 'bl L42'".
+	 "L42" should be a 'branch island', that will do a far jump to
+	 'foo'.  Branch islands are generated in
+	 macho_branch_islands().  */
       sprintf (buf, "jbsr %%z%d,%.246s",
-	       operand_number, IDENTIFIER_POINTER (labelname));
-      return buf;
+	       dest_operand_number, IDENTIFIER_POINTER (labelname));
     }
   else
-    {
-      sprintf (buf, "bl %%z%d", operand_number);
-      return buf;
-    }
+    sprintf (buf, "bl %%z%d", dest_operand_number);
+  return buf;
 }
 
-#endif /* RS6000_LONG_BRANCH */
+#endif /* TARGET_MACHO */
 
 /* Generate PIC and indirect symbol stubs.  */
 
@@ -14944,7 +14966,7 @@ rs6000_machopic_legitimize_pic_address (rtx orig, enum machine_mode mode,
       if (GET_CODE (XEXP (orig, 0)) == PLUS)
 	{
 	  /* Use a different reg for the intermediate value, as
-	     it will be marked UNCHANGING. */
+	     it will be marked UNCHANGING.  */
 	  rtx reg_temp = no_new_pseudos ? reg : gen_reg_rtx (Pmode);
 
 	  base =
@@ -15523,7 +15545,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
       return true;
 
     case MEM:
-      /* MEM should be slightly more expensive than (plus (reg) (const)) */
+      /* MEM should be slightly more expensive than (plus (reg) (const)).  */
       *total = 5;
       return true;
 
@@ -15550,7 +15572,7 @@ rs6000_register_move_cost (enum machine_mode mode,
 	return (rs6000_memory_move_cost (mode, from, 0)
 		+ rs6000_memory_move_cost (mode, GENERAL_REGS, 0));
 
-/* It's more expensive to move CR_REGS than CR0_REGS because of the shift...*/
+/* It's more expensive to move CR_REGS than CR0_REGS because of the shift....  */
       else if (from == CR_REGS)
 	return 4;
 

@@ -1,12 +1,12 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
 @ignore
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -174,8 +174,7 @@ in the following sections.
 @gccoptlist{-fabi-version=@var{n}  -fno-access-control  -fcheck-new @gol
 -fconserve-space  -fno-const-strings @gol
 -fno-elide-constructors @gol
--fno-enforce-eh-specs  -fexternal-templates @gol
--falt-external-templates @gol
+-fno-enforce-eh-specs @gol
 -ffor-scope  -fno-for-scope  -fno-gnu-keywords @gol
 -fno-implicit-templates @gol
 -fno-implicit-inline-templates @gol
@@ -260,7 +259,7 @@ in the following sections.
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -ftest-coverage  -ftime-report @gol
--g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2 @gol
+-g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
 -print-multi-directory  -print-multi-lib @gol
@@ -290,6 +289,7 @@ in the following sections.
 -fno-trapping-math  -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
+-fprofile-generate -fprofile-use @gol
 -freduce-all-givs  -fregmove  -frename-registers @gol
 -freorder-blocks  -freorder-functions @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
@@ -411,8 +411,16 @@ in the following sections.
 -mno-crt0  -mrelax}
 
 @emph{M32R/D Options}
-@gccoptlist{-m32rx  -m32r  -mcode-model=@var{model-type} @gol
--msdata=@var{sdata-type}  -G @var{num}}
+@gccoptlist{-m32r2 -m32rx -m32r @gol
+-mdebug @gol
+-malign-loops -mno-align-loops @gol
+-missue-rate=@var{number} @gol
+-mbranch-cost=@var{number} @gol
+-mmodel=@var{code-size-model-type} @gol
+-msdata=@var{sdata-type} @gol
+-mno-flush-func -mflush-func=@var{name} @gol
+-mno-flush-trap -mflush-trap=@var{number} @gol
+-G @var{num}}
 
 @emph{M88K Options}
 @gccoptlist{-m88000  -m88100  -m88110  -mbig-pic @gol
@@ -686,7 +694,7 @@ in the following sections.
 -fnon-call-exceptions  -funwind-tables @gol
 -fasynchronous-unwind-tables @gol
 -finhibit-size-directive  -finstrument-functions @gol
--fno-common  -fno-ident  -fno-gnu-linker @gol
+-fno-common  -fno-ident @gol
 -fpcc-struct-return  -fpic  -fPIC -fpie -fPIE @gol
 -freg-struct-return  -fshared-data  -fshort-enums @gol
 -fshort-double  -fshort-wchar @gol
@@ -1065,7 +1073,7 @@ names @samp{c9x} and @samp{iso9899:199x} are deprecated.
 Default, ISO C90 plus GNU extensions (including some C99 features).
 
 @item gnu99
-@item gnu9x
+@itemx gnu9x
 ISO C99 plus GNU extensions.  When ISO C99 is fully implemented in GCC,
 this will become the default.  The name @samp{gnu9x} is deprecated.
 
@@ -1261,6 +1269,8 @@ write into string constants.
 
 Writing into string constants is a very bad idea; ``constants'' should
 be constant.
+
+This option is deprecated.
 @end table
 
 @node C++ Dialect Options
@@ -1289,11 +1299,12 @@ Here is a list of options that are @emph{only} for compiling C++ programs:
 
 @item -fabi-version=@var{n}
 @opindex fabi-version
-Use version @var{n} of the C++ ABI.  Version 1 is the version of the C++
-ABI that first appeared in G++ 3.2.  Version 0 will always be the
-version that conforms most closely to the C++ ABI specification.
-Therefore, the ABI obtained using version 0 will change as ABI bugs are
-fixed.
+Use version @var{n} of the C++ ABI.  Version 2 is the version of the
+C++ ABI that first appeared in G++ 3.4.  Version 1 is the version of
+the C++ ABI that first appeared in G++ 3.2.  Version 0 will always be
+the version that conforms most closely to the C++ ABI specification.
+Therefore, the ABI obtained using version 0 will change as ABI bugs
+are fixed.
 
 The default is version 1.
 
@@ -1351,24 +1362,6 @@ Don't check for violation of exception specifications at runtime.  This
 option violates the C++ standard, but may be useful for reducing code
 size in production builds, much like defining @samp{NDEBUG}.  The compiler
 will still optimize based on the exception specifications.
-
-@item -fexternal-templates
-@opindex fexternal-templates
-
-Cause @samp{#pragma interface} and @samp{implementation} to apply to
-template instantiation; template instances are emitted or not according
-to the location of the template definition.  @xref{Template
-Instantiation}, for more information.
-
-This option is deprecated.
-
-@item -falt-external-templates
-@opindex falt-external-templates
-Similar to @option{-fexternal-templates}, but template instances are
-emitted or not according to the place where they are first instantiated.
-@xref{Template Instantiation}, for more information.
-
-This option is deprecated.
 
 @item -ffor-scope
 @itemx -fno-for-scope
@@ -3056,8 +3049,7 @@ makes debugging work better in GDB but will probably make other debuggers
 crash or
 refuse to read the program.  If you want to control for certain whether
 to generate the extra information, use @option{-gstabs+}, @option{-gstabs},
-@option{-gxcoff+}, @option{-gxcoff}, @option{-gdwarf-1+}, @option{-gdwarf-1},
-or @option{-gvms} (see below).
+@option{-gxcoff+}, @option{-gxcoff}, or @option{-gvms} (see below).
 
 Unlike most other C compilers, GCC allows you to use @option{-g} with
 @option{-O}.  The shortcuts taken by optimized code may occasionally
@@ -3119,23 +3111,6 @@ use of these extensions is likely to make other debuggers crash or
 refuse to read the program, and may cause assemblers other than the GNU
 assembler (GAS) to fail with an error.
 
-@item -gdwarf
-@opindex gdwarf
-Produce debugging information in DWARF version 1 format (if that is
-supported).  This is the format used by SDB on most System V Release 4
-systems.
-
-This option is deprecated.
-
-@item -gdwarf+
-@opindex gdwarf+
-Produce debugging information in DWARF version 1 format (if that is
-supported), using GNU extensions understood only by the GNU debugger
-(GDB)@.  The use of these extensions is likely to make other debuggers
-crash or refuse to read the program.
-
-This option is deprecated.
-
 @item -gdwarf-2
 @opindex gdwarf-2
 Produce debugging information in DWARF version 2 format (if that is
@@ -3165,9 +3140,9 @@ present in the program.  Some debuggers support macro expansion when
 you use @option{-g3}.
 
 Note that in order to avoid confusion between DWARF1 debug level 2,
-and DWARF2, neither @option{-gdwarf} nor @option{-gdwarf-2} accept
-a concatenated debug level.  Instead use an additional @option{-g@var{level}}
-option to change the debug level for DWARF1 or DWARF2.
+and DWARF2 @option{-gdwarf-2} does not accept a concatenated debug
+level.  Instead use an additional @option{-g@var{level}} option to
+change the debug level for DWARF2.
 
 @item -feliminate-dwarf2-dups
 @opindex feliminate-dwarf2-dups
@@ -3760,7 +3735,6 @@ compilation time.
 -fmerge-constants @gol
 -fthread-jumps @gol
 -floop-optimize @gol
--fcrossjumping @gol
 -fif-conversion @gol
 -fif-conversion2 @gol
 -fdelayed-branch @gol
@@ -3797,7 +3771,8 @@ also turns on the following optimization flags:
 -fstrict-aliasing @gol
 -funit-at-a-time @gol
 -falign-functions  -falign-jumps @gol
--falign-loops  -falign-labels}
+-falign-loops  -falign-labels @gol
+-fcrossjumping}
 
 Please note the warning under @option{-fgcse} about
 invoking @option{-O2} on programs that use computed gotos.
@@ -4589,6 +4564,21 @@ we perform a copy-propagation pass to try to reduce scheduling dependencies
 and occasionally eliminate the copy.
 
 Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -fprofile-generate
+@opindex fprofile-generate
+Enable options usually used for instrumenting application to produce profile usefull
+for later recompilation profile feedback based optimization.
+
+The following options are enabled: @code{-fprofile-arcs}, @code{-fprofile-values}, @code{-fvpt}
+
+@item -fprofile-use
+@opindex fprofile-use
+Enable profile feedback directed optimizations, and optimizations
+generally profitable only with profile feedback available.
+
+The following options are enabled: @code{-fbranch-probabilities},
+@code{-fvpt}, @code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}.
 
 @end table
 
@@ -7055,9 +7045,13 @@ This option makes symbolic debugging impossible.
 @subsection M32R/D Options
 @cindex M32R/D options
 
-These @option{-m} options are defined for Mitsubishi M32R/D architectures:
+These @option{-m} options are defined for Renesas M32R/D architectures:
 
 @table @gcctabopt
+@item -m32r2
+@opindex m32r2
+Generate code for the M32R/2@.
+
 @item -m32rx
 @opindex m32rx
 Generate code for the M32R/X@.
@@ -7066,8 +7060,8 @@ Generate code for the M32R/X@.
 @opindex m32r
 Generate code for the M32R@.  This is the default.
 
-@item -mcode-model=small
-@opindex mcode-model=small
+@item -mmodel=small
+@opindex mmodel=small
 Assume all objects live in the lower 16MB of memory (so that their addresses
 can be loaded with the @code{ld24} instruction), and assume all subroutines
 are reachable with the @code{bl} instruction.
@@ -7076,14 +7070,14 @@ This is the default.
 The addressability of a particular object can be set with the
 @code{model} attribute.
 
-@item -mcode-model=medium
-@opindex mcode-model=medium
+@item -mmodel=medium
+@opindex mmodel=medium
 Assume objects may be anywhere in the 32-bit address space (the compiler
 will generate @code{seth/add3} instructions to load their addresses), and
 assume all subroutines are reachable with the @code{bl} instruction.
 
-@item -mcode-model=large
-@opindex mcode-model=large
+@item -mmodel=large
+@opindex mmodel=large
 Assume objects may be anywhere in the 32-bit address space (the compiler
 will generate @code{seth/add3} instructions to load their addresses), and
 assume subroutines may not be reachable with the @code{bl} instruction
@@ -7124,6 +7118,49 @@ All modules should be compiled with the same @option{-G @var{num}} value.
 Compiling with different values of @var{num} may or may not work; if it
 doesn't the linker will give an error message---incorrect code will not be
 generated.
+
+@item -mdebug
+@opindex -mdebug
+Makes the M32R specific code in the compiler display some statistics
+that might help in debugging programs.
+
+@item -malign-loops
+@opindex malign-loops
+Align all loops to a 32-byte boundary.
+
+@item -mno-align-loops
+@opindex mno-align-loops
+Do not enforce a 32-byte alignment for loops.  This is the default.
+
+@item -missue-rate=@var{number}
+@opindex missue-rate=@var{number}
+Issue @var{number} instructions per cycle.  @var{number} can only be 1
+or 2.
+
+@item -mbranch-cost=@var{number}
+@opindex mbranch-cost=@var{number}
+@var{number} can only be 1 or 2.  If it is 1 then branches will be
+prefered over conditional code, if it is 2, then the opposite will
+apply.
+
+@item -mflush-trap=@var{number}
+@opindex mflush-trap=@var{number}
+Specifies the trap number to use to flush the cache.  The default is
+12.  Valid numbers are between 0 and 15 inclusive.
+
+@item -mno-flush-trap
+@opindex mno-flush-trap
+Specifies that the cache cannot be flushed by using a trap.
+
+@item -mflush-func=@var{name}
+@opindex mflush-func=@var{name}
+Specifies the name of the operating system function to call to flush
+the cache.  The default is @emph{_flush_cache}, but a function call
+will only be used if a trap is not available.
+
+@item -mno-flush-func
+@opindex mno-flush-func
+Indicates that there is no OS function for flushing the cache.
 
 @end table
 
@@ -7453,13 +7490,15 @@ should normally not specify either @option{-mnew-mnemonics} or
 @opindex mcpu
 Set architecture type, register usage, choice of mnemonics, and
 instruction scheduling parameters for machine type @var{cpu_type}.
-Supported values for @var{cpu_type} are @samp{rios}, @samp{rios1},
-@samp{rsc}, @samp{rios2}, @samp{rs64a}, @samp{601}, @samp{602},
-@samp{603}, @samp{603e}, @samp{604}, @samp{604e}, @samp{620},
-@samp{630}, @samp{740}, @samp{7400}, @samp{7450}, @samp{G4}, 
-@samp{750}, @samp{G3},  @samp{power}, @samp{power2}, @samp{powerpc}, 
-@samp{403}, @samp{505}, @samp{801}, @samp{821}, @samp{823}, @samp{860},
-@samp{970}, @samp{G5} and @samp{common}.
+Supported values for @var{cpu_type} are @samp{401}, @samp{403},
+@samp{405}, @samp{405fp}, @samp{440}, @samp{440fp}, @samp{505},
+@samp{601}, @samp{602}, @samp{603}, @samp{603e}, @samp{604},
+@samp{604e}, @samp{620}, @samp{630}, @samp{740}, @samp{7400},
+@samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
+@samp{860}, @samp{970}, @samp{common}, @samp{ec603e}, @samp{G3},
+@samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
+@samp{power4}, @samp{powerpc}, @samp{powerpc64}, @samp{rios},
+@samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64a}.
 
 @option{-mcpu=common} selects a completely generic processor.  Code
 generated under this option will run on any POWER or PowerPC processor.
@@ -7477,47 +7516,23 @@ The other options specify a specific processor.  Code generated under
 those options will run best on that processor, and may not run at all on
 others.
 
-The @option{-mcpu} options automatically enable or disable other
-@option{-m} options as follows:
+The @option{-mcpu} options automatically enable or disable the
+following options: @option{-maltivec}, @option{-mhard-float},
+@option{-mmfcrf}, @option{-mmultiple}, @option{-mnew-mnemonics},
+@option{-mpower}, @option{-mpower2}, @option{-mpowerpc64},
+@option{-mpowerpc-gpopt}, @option{-mpowerpc-gfxopt},
+@option{-mstring}.  The particular options set for any particular CPU
+will vary between compiler versions, depending on what setting seems
+to produce optimal code for that CPU; it doesn't necessarily reflect
+the actual hardware's capabilities.  If you wish to set an individual
+option to a particular value, you may specify it after the
+@option{-mcpu} option, like @samp{-mcpu=970 -mno-altivec}.
 
-@table @samp
-@item common
-@option{-mno-power}, @option{-mno-powerpc}
-
-@item power
-@itemx power2
-@itemx rios1
-@itemx rios2
-@itemx rsc
-@option{-mpower}, @option{-mno-powerpc}, @option{-mno-new-mnemonics}
-
-@item powerpc
-@itemx rs64a
-@itemx 602
-@itemx 603
-@itemx 603e
-@itemx 604
-@itemx 620
-@itemx 630
-@itemx 740
-@itemx 7400
-@itemx 7450
-@itemx G4
-@itemx 750
-@itemx G3
-@itemx 505
-@itemx 970
-@itemx G5
-@option{-mno-power}, @option{-mpowerpc}, @option{-mnew-mnemonics}
-
-@item 601
-@option{-mpower}, @option{-mpowerpc}, @option{-mnew-mnemonics}
-
-@item 403
-@itemx 821
-@itemx 860
-@option{-mno-power}, @option{-mpowerpc}, @option{-mnew-mnemonics}, @option{-msoft-float}
-@end table
+On AIX, the @option{-maltivec} and @option{-mpowerpc64} options are
+not enabled or disabled by the @option{-mcpu} option at present, since
+AIX does not have full support for these options.  You may still
+enable or disable them individually if you're sure it'll work in your
+environment.
 
 @item -mtune=@var{cpu_type}
 @opindex mtune
@@ -8002,6 +8017,10 @@ generate slower code.  As of this writing, the AIX linker can do this,
 as can the GNU linker for PowerPC/64.  It is planned to add this feature
 to the GNU linker for 32-bit PowerPC systems as well.
 
+On Mach-O (Darwin) systems, this option directs the compiler emit to
+the glue for every direct call, and the Darwin linker decides whether
+to use or discard it.
+
 In the future, we may cause GCC to ignore all longcall specifications
 when the linker is known to generate glue.
 
@@ -8046,62 +8065,62 @@ This specifies the @var{executable} that will be loading the build
 output file being linked. See man ld(1) for more information.
 
 @item -allowable_client  @var{client_name}
-@item -arch_only
+@itemx -arch_only
 
-@item -client_name       
-@item -compatibility_version
-@item -current_version    
-@item -dependency-file
-@item -dylib_file    
-@item -dylinker_install_name
-@item -dynamic
-@item -dynamiclib   
-@item -exported_symbols_list  
-@item -filelist
-@item -flat_namespace   
-@item -force_cpusubtype_ALL
-@item -force_flat_namespace   
-@item -headerpad_max_install_names
-@item -image_base  
-@item -init
-@item -install_name
-@item -keep_private_externs
-@item -multi_module
-@item -multiply_defined      
-@item -multiply_defined_unused      
-@item -noall_load  
-@item -nofixprebinding
-@item -nomultidefs
-@item -noprebind     
-@item -noseglinkedit
-@item -pagezero_size    
-@item -prebind
-@item -prebind_all_twolevel_modules
-@item -private_bundle
-@item -read_only_relocs
-@item -sectalign  
-@item -sectobjectsymbols    
-@item -whyload
-@item -seg1addr 
-@item -sectcreate
-@item -sectobjectsymbols
-@item -sectorder
-@item -seg_addr_table
-@item -seg_addr_table_filename
-@item -seglinkedit
-@item -segprot   
-@item -segs_read_only_addr
-@item -segs_read_write_addr
-@item -single_module   
-@item -static
-@item -sub_library
-@item -sub_umbrella 
-@item -twolevel_namespace
-@item -umbrella
-@item -undefined
-@item -unexported_symbols_list
-@item -weak_reference_mismatches
-@item -whatsloaded  
+@itemx -client_name       
+@itemx -compatibility_version
+@itemx -current_version    
+@itemx -dependency-file
+@itemx -dylib_file    
+@itemx -dylinker_install_name
+@itemx -dynamic
+@itemx -dynamiclib   
+@itemx -exported_symbols_list  
+@itemx -filelist
+@itemx -flat_namespace   
+@itemx -force_cpusubtype_ALL
+@itemx -force_flat_namespace   
+@itemx -headerpad_max_install_names
+@itemx -image_base  
+@itemx -init
+@itemx -install_name
+@itemx -keep_private_externs
+@itemx -multi_module
+@itemx -multiply_defined      
+@itemx -multiply_defined_unused      
+@itemx -noall_load  
+@itemx -nofixprebinding
+@itemx -nomultidefs
+@itemx -noprebind     
+@itemx -noseglinkedit
+@itemx -pagezero_size    
+@itemx -prebind
+@itemx -prebind_all_twolevel_modules
+@itemx -private_bundle
+@itemx -read_only_relocs
+@itemx -sectalign  
+@itemx -sectobjectsymbols    
+@itemx -whyload
+@itemx -seg1addr 
+@itemx -sectcreate
+@itemx -sectobjectsymbols
+@itemx -sectorder
+@itemx -seg_addr_table
+@itemx -seg_addr_table_filename
+@itemx -seglinkedit
+@itemx -segprot   
+@itemx -segs_read_only_addr
+@itemx -segs_read_write_addr
+@itemx -single_module   
+@itemx -static
+@itemx -sub_library
+@itemx -sub_umbrella 
+@itemx -twolevel_namespace
+@itemx -umbrella
+@itemx -undefined
+@itemx -unexported_symbols_list
+@itemx -weak_reference_mismatches
+@itemx -whatsloaded  
 
 @opindex allowable_client
 @opindex arch_only    
@@ -8160,7 +8179,7 @@ output file being linked. See man ld(1) for more information.
 @opindex weak_reference_mismatches
 @opindex whatsloaded
 
-This options are available for Darwin linker. Darwin linker man page
+These options are available for Darwin linker. Darwin linker man page
 describes them in detail.
 @end table
 
@@ -8819,7 +8838,7 @@ and will not be binary compatible with structures in code compiled
 without that switch.
 
 @item -m96bit-long-double
-@item -m128bit-long-double
+@itemx -m128bit-long-double
 @opindex m96bit-long-double
 @opindex m128bit-long-double
 These switches control the size of @code{long double} type. The i386 
@@ -9618,7 +9637,7 @@ Supported values for @var{cpu_type} are
 
 @table @samp
 @item ev4
-@item ev45
+@itemx ev45
 @itemx 21064
 Schedules as an EV4 and has no instruction set extensions.
 
@@ -9640,7 +9659,7 @@ Schedules as an EV5 and supports the BWX and MAX extensions.
 Schedules as an EV6 and supports the BWX, FIX, and MAX extensions.
 
 @item ev67
-@item 21264a
+@itemx 21264a
 Schedules as an EV6 and supports the BWX, CIX, FIX, and MAX extensions.
 @end table
 
@@ -9890,7 +9909,7 @@ parameters for machine type @var{cpu_type}.  Supported values for
 TMS320C40.
 
 @item -mbig-memory
-@item -mbig
+@itemx -mbig
 @itemx -msmall-memory
 @itemx -msmall
 @opindex mbig-memory
@@ -10982,7 +11001,7 @@ Use 32-bit @code{int}.
 Use 64-bit @code{float}.  This is the default.
 
 @item -mfloat32
-@item -mno-float64
+@itemx -mno-float64
 @opindex mfloat32
 @opindex mno-float64
 Use 32-bit @code{float}.
@@ -11502,17 +11521,6 @@ program will work on other systems which always work this way.
 @item -fno-ident
 @opindex fno-ident
 Ignore the @samp{#ident} directive.
-
-@item -fno-gnu-linker
-@opindex fno-gnu-linker
-Do not output global initializations (such as C++ constructors and
-destructors) in the form used by the GNU linker (on systems where the GNU
-linker is the standard method of handling them).  Use this option when
-you want to use a non-GNU linker, which also requires using the
-@command{collect2} program to make sure the system linker includes
-constructors and destructors.  (@command{collect2} is included in the GCC
-distribution.)  For systems which @emph{must} use @command{collect2}, the
-compiler driver @command{gcc} is configured to do this automatically.
 
 @item -finhibit-size-directive
 @opindex finhibit-size-directive

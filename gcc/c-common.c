@@ -387,7 +387,7 @@ int flag_isoc94;
 
 int flag_isoc99;
 
-/* Nonzero means that we have builtin functions, and main is an int */
+/* Nonzero means that we have builtin functions, and main is an int.  */
 
 int flag_hosted = 1;
 
@@ -511,17 +511,6 @@ int flag_no_gnu_keywords;
 
 int flag_implement_inlines = 1;
 
-/* Nonzero means do emit exported implementations of templates, instead of
-   multiple static copies in each file that needs a definition.  */
-
-int flag_external_templates;
-
-/* Nonzero means that the decision to emit or not emit the implementation of a
-   template depends on where the template is instantiated, rather than where
-   it is defined.  */
-
-int flag_alt_external_templates;
-
 /* Nonzero means that implicit instantiations will be emitted if needed.  */
 
 int flag_implicit_templates = 1;
@@ -621,10 +610,12 @@ int flag_enforce_eh_specs = 1;
 
     1: The version of the ABI first used in G++ 3.2.
 
+    2: The version of the ABI first used in G++ 3.4.
+
     Additional positive integers will be assigned as new versions of
     the ABI become the default version of the ABI.  */
 
-int flag_abi_version = 1;
+int flag_abi_version = 2;
 
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
@@ -951,7 +942,7 @@ c_expand_end_cond (void)
   if_stack_pointer--;
   if (if_stack[if_stack_pointer].needs_warning)
     warning ("%Hsuggest explicit braces to avoid ambiguous `else'",
-             &if_stack[if_stack_pointer].locus);
+	     &if_stack[if_stack_pointer].locus);
   last_expr_type = NULL_TREE;
 }
 
@@ -1333,7 +1324,7 @@ convert_and_check (tree type, tree expr)
 		 || TREE_UNSIGNED (type)
 		 || ! constant_fits_type_p (expr,
 					    c_common_unsigned_type (type)))
-	        && skip_evaluation == 0)
+		&& skip_evaluation == 0)
 	      warning ("overflow in implicit constant conversion");
 	}
       else
@@ -1869,7 +1860,7 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
 
   if (mode == TYPE_MODE (widest_integer_literal_type_node))
     return unsignedp ? widest_unsigned_literal_type_node
-                     : widest_integer_literal_type_node;
+		     : widest_integer_literal_type_node;
 
   if (mode == QImode)
     return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
@@ -2795,6 +2786,9 @@ static tree builtin_function_2 (const char *, const char *, tree, tree,
 tree
 c_build_qualified_type (tree type, int type_quals)
 {
+  if (type == error_mark_node)
+    return type;
+  
   if (TREE_CODE (type) == ARRAY_TYPE)
     return build_array_type (c_build_qualified_type (TREE_TYPE (type),
 						     type_quals),
@@ -2820,6 +2814,9 @@ void
 c_apply_type_quals_to_decl (int type_quals, tree decl)
 {
   tree type = TREE_TYPE (decl);
+  
+  if (type == error_mark_node)
+    return;
 
   if (((type_quals & TYPE_QUAL_CONST)
        || (type && TREE_CODE (type) == REFERENCE_TYPE))
@@ -2916,14 +2913,14 @@ c_common_get_alias_set (tree t)
 	 technically, an `int **' and `const int **' cannot point at
 	 the same thing.
 
-         But, the standard is wrong.  In particular, this code is
+	 But, the standard is wrong.  In particular, this code is
 	 legal C++:
 
-            int *ip;
-            int **ipp = &ip;
-            const int* const* cipp = &ipp;
+	    int *ip;
+	    int **ipp = &ip;
+	    const int* const* cipp = &ipp;
 
-         And, it doesn't make sense for that to be legal unless you
+	 And, it doesn't make sense for that to be legal unless you
 	 can dereference IPP and CIPP.  So, we ignore cv-qualifiers on
 	 the pointed-to types.  This issue has been reported to the
 	 C++ committee.  */
@@ -3467,7 +3464,7 @@ c_common_nodes_and_builtins (void)
 									\
       built_in_decls[(int) ENUM] = decl;				\
       if (IMPLICIT)							\
-        implicit_built_in_decls[(int) ENUM] = decl;			\
+	implicit_built_in_decls[(int) ENUM] = decl;			\
     }
 #include "builtins.def"
 #undef DEF_BUILTIN
@@ -4797,7 +4794,7 @@ handle_section_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
 	      && ! TREE_STATIC (decl))
 	    {
 	      error ("%Jsection attribute cannot be specified for "
-                     "local variables", decl);
+		     "local variables", decl);
 	      *no_add_attrs = true;
 	    }
 
@@ -4808,7 +4805,7 @@ handle_section_attribute (tree *node, tree name ATTRIBUTE_UNUSED, tree args,
 			      TREE_STRING_POINTER (TREE_VALUE (args))) != 0)
 	    {
 	      error ("%Jsection of '%D' conflicts with previous declaration",
-                     *node, *node);
+		     *node, *node);
 	      *no_add_attrs = true;
 	    }
 	  else
@@ -5310,7 +5307,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
       new_type = build_type_copy (new_type);
 
       /* If this is a vector, make sure we either have hardware
-         support, or we can emulate it.  */
+	 support, or we can emulate it.  */
       if ((GET_MODE_CLASS (mode) == MODE_VECTOR_INT
 	   || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
 	  && !vector_mode_valid_p (mode))
@@ -5406,7 +5403,7 @@ handle_nonnull_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
       if (! TYPE_ARG_TYPES (type))
 	{
 	  error ("nonnull attribute without arguments on a non-prototype");
-          *no_add_attrs = true;
+	  *no_add_attrs = true;
 	}
       return NULL_TREE;
     }
@@ -5436,7 +5433,7 @@ handle_nonnull_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
 	      argument = TREE_CHAIN (argument);
 	    }
 
-          if (! argument
+	  if (! argument
 	      || TREE_CODE (TREE_VALUE (argument)) == VOID_TYPE)
 	    {
 	      error ("nonnull argument with out-of-range operand number (arg %lu, operand %lu)",
@@ -5445,7 +5442,7 @@ handle_nonnull_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
 	      return NULL_TREE;
 	    }
 
-          if (TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE)
+	  if (TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE)
 	    {
 	      error ("nonnull argument references non-pointer operand (arg %lu, operand %lu)",
 		   (unsigned long) attr_arg_num, (unsigned long) arg_num);
@@ -5471,22 +5468,22 @@ check_function_nonnull (tree attrs, tree params)
     {
       if (is_attribute_p ("nonnull", TREE_PURPOSE (a)))
 	{
-          args = TREE_VALUE (a);
+	  args = TREE_VALUE (a);
 
-          /* Walk the argument list.  If we encounter an argument number we
-             should check for non-null, do it.  If the attribute has no args,
-             then every pointer argument is checked (in which case the check
+	  /* Walk the argument list.  If we encounter an argument number we
+	     should check for non-null, do it.  If the attribute has no args,
+	     then every pointer argument is checked (in which case the check
 	     for pointer type is done in check_nonnull_arg).  */
-          for (param = params, param_num = 1; ;
-               param_num++, param = TREE_CHAIN (param))
-            {
-              if (! param)
+	  for (param = params, param_num = 1; ;
+	       param_num++, param = TREE_CHAIN (param))
+	    {
+	      if (! param)
 	break;
-              if (! args || nonnull_check_p (args, param_num))
+	      if (! args || nonnull_check_p (args, param_num))
 	check_function_arguments_recurse (check_nonnull_arg, NULL,
 					  TREE_VALUE (param),
 					  param_num);
-            }
+	    }
 	}
     }
 }
@@ -5503,7 +5500,7 @@ nonnull_check_p (tree args, unsigned HOST_WIDE_INT param_num)
   for (; args; args = TREE_CHAIN (args))
     {
       if (! get_nonnull_operand (TREE_VALUE (args), &arg_num))
-        abort ();
+	abort ();
 
       if (arg_num == param_num)
 	return true;
@@ -5528,7 +5525,7 @@ check_nonnull_arg (void *ctx ATTRIBUTE_UNUSED, tree param,
 
   if (integer_zerop (param))
     warning ("null argument where non-null required (arg %lu)",
-             (unsigned long) param_num);
+	     (unsigned long) param_num);
 }
 
 /* Helper for nonnull attribute handling; fetch the operand number
@@ -5662,7 +5659,7 @@ check_function_arguments_recurse (void (*callback)
     {
       /* Strip coercion.  */
       check_function_arguments_recurse (callback, ctx,
-				        TREE_OPERAND (param, 0), param_num);
+					TREE_OPERAND (param, 0), param_num);
       return;
     }
 
@@ -5724,9 +5721,9 @@ check_function_arguments_recurse (void (*callback)
     {
       /* Check both halves of the conditional expression.  */
       check_function_arguments_recurse (callback, ctx,
-				        TREE_OPERAND (param, 1), param_num);
+					TREE_OPERAND (param, 1), param_num);
       check_function_arguments_recurse (callback, ctx,
-				        TREE_OPERAND (param, 2), param_num);
+					TREE_OPERAND (param, 2), param_num);
       return;
     }
 
@@ -5844,15 +5841,15 @@ resort_field_decl_cmp (const void *x_p, const void *y_p)
 
 void
 resort_sorted_fields (void *obj,
-                      void *orig_obj ATTRIBUTE_UNUSED ,
-                      gt_pointer_operator new_value,
-                      void *cookie)
+		      void *orig_obj ATTRIBUTE_UNUSED ,
+		      gt_pointer_operator new_value,
+		      void *cookie)
 {
   struct sorted_fields_type *sf = obj;
   resort_data.new_value = new_value;
   resort_data.cookie = cookie;
   qsort (&sf->elts[0], sf->len, sizeof (tree),
-         resort_field_decl_cmp);
+	 resort_field_decl_cmp);
 }
 
 /* Used by estimate_num_insns.  Estimate number of instructions seen
@@ -5994,10 +5991,42 @@ c_decl_uninit (tree t)
   return false;
 }
 
+/* Issue the error given by MSGID, indicating that it occurred before
+   TOKEN, which had the associated VALUE.  */
+
+void
+c_parse_error (const char *msgid, enum cpp_ttype token, tree value)
+{
+  const char *string = _(msgid);
+
+  if (token == CPP_EOF)
+    error ("%s at end of input", string);
+  else if (token == CPP_CHAR || token == CPP_WCHAR)
+    {
+      unsigned int val = TREE_INT_CST_LOW (value);
+      const char *const ell = (token == CPP_CHAR) ? "" : "L";
+      if (val <= UCHAR_MAX && ISGRAPH (val))
+	error ("%s before %s'%c'", string, ell, val);
+      else
+	error ("%s before %s'\\x%x'", string, ell, val);
+    }
+  else if (token == CPP_STRING
+	   || token == CPP_WSTRING)
+    error ("%s before string constant", string);
+  else if (token == CPP_NUMBER)
+    error ("%s before numeric constant", string);
+  else if (token == CPP_NAME)
+    error ("%s before \"%s\"", string, IDENTIFIER_POINTER (value));
+  else if (token < N_TTYPES)
+    error ("%s before '%s' token", string, cpp_type2name (token));
+  else
+    error ("%s", string);
+}
+
 /* Walk a gimplified function and warn for functions whose return value is
    ignored and attribute((warn_unused_result)) is set.  This is done before
-   inlining, so we don't have to worry about that.  */
-
+   inlining, so we don't have to worry about that.  */  
+   
 void
 c_warn_unused_result (tree *top_p)
 {
@@ -6033,7 +6062,7 @@ c_warn_unused_result (tree *top_p)
 
     case CALL_EXPR:
       /* This is a naked call, as opposed to a CALL_EXPR nested inside
-	 a MODIFY_EXPR.  All calls whose value is ignored should be 
+	 a MODIFY_EXPR.  All calls whose value is ignored should be
 	 represented like this.  Look for the attribute.  */
       fdecl = get_callee_fndecl (t);
       if (fdecl)

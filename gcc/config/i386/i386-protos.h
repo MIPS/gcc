@@ -59,7 +59,6 @@ extern int x86_64_nonmemory_operand (rtx, enum machine_mode);
 extern int x86_64_szext_nonmemory_operand (rtx, enum machine_mode);
 extern int x86_64_immediate_operand (rtx, enum machine_mode);
 extern int x86_64_zext_immediate_operand (rtx, enum machine_mode);
-extern int const_int_1_operand (rtx, enum machine_mode);
 extern int symbolic_operand (rtx, enum machine_mode);
 extern int tls_symbolic_operand (rtx, enum machine_mode);
 extern int global_dynamic_symbolic_operand (rtx, enum machine_mode);
@@ -218,6 +217,7 @@ extern int x86_field_alignment (tree, int);
 extern rtx ix86_tls_get_addr (void);
 extern bool ix86_must_pass_in_stack (enum machine_mode mode, tree);
 
+extern void ix86_expand_vector_init (rtx, rtx);
 /* In winnt.c  */
 extern int i386_pe_dllexport_name_p (const char *);
 extern int i386_pe_dllimport_name_p (const char *);

@@ -434,7 +434,9 @@ layout_decl (tree decl, unsigned int known_align)
 	      enum machine_mode xmode
 		= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
 
-	      if (xmode != BLKmode && known_align >= GET_MODE_ALIGNMENT (xmode))
+	      if (xmode != BLKmode 
+		  && (known_align == 0
+		      || known_align >= GET_MODE_ALIGNMENT (xmode)))
 		{
 		  DECL_ALIGN (decl) = MAX (GET_MODE_ALIGNMENT (xmode),
 					   DECL_ALIGN (decl));
@@ -452,7 +454,7 @@ layout_decl (tree decl, unsigned int known_align)
       else if (DECL_PACKED (decl) && DECL_USER_ALIGN (decl))
 	/* Don't touch DECL_ALIGN.  For other packed fields, go ahead and
 	   round up; we'll reduce it again below.  We want packing to
-	   supercede USER_ALIGN inherited from the type, but defer to
+	   supersede USER_ALIGN inherited from the type, but defer to
 	   alignment explicitly specified on the field decl.  */;
       else
 	do_type_align (type, decl);

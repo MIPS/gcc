@@ -1003,15 +1003,14 @@ public class Socket
   public synchronized void close ()  throws IOException
   {
     if (isClosed())
-      throw new SocketException("socket is closed");
+      return;
     
     getImpl().close();
+    impl = null;
+    bound = false;
 
     if (getChannel() != null)
       getChannel().close();
-    
-    impl = null;
-    bound = false;
   }
 
   /**

@@ -182,7 +182,23 @@ md_file=
 
 # Obsolete configurations.
 case ${target} in
- dummy)
+ d30v-* | \
+ dsp16xx-* | \
+ i370-* | \
+ i960-* | \
+ i?86-moss-msdos | i?86-*-moss* | \
+ i?86-ncr-sysv4* | \
+ i?86-*-netware | \
+ i?86-*-freebsd2* | i?86-*-freebsd*aout* | \
+ i?86-*-linux*aout* | \
+ i?86-*-linux*libc1* | \
+ i?86-*-interix | \
+ i?86-*-mach* | \
+ i?86-*-udk* | \
+ i?86-*-sysv[123]* | \
+ i386-*-vsta | \
+ m68k-hp-hpux* | m68000-hp-hpux* | \
+ m68k-*-sysv4*)
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
       echo "*** Specify --enable-obsolete to build it anyway." >&2
@@ -263,6 +279,9 @@ ia64-*-*)
 hppa*-*-* | parisc*-*-*)
 	cpu_type=pa
 	;;
+m32r*-*-*)
+        cpu_type=m32r
+        ;;
 m680[012]0-*-*)
 	cpu_type=m68k
 	extra_headers=math-68881.h
@@ -643,7 +662,7 @@ arm*-*-netbsd*)
 	use_collect2=yes
 	;;
 arm*-*-linux*)			# ARM GNU/Linux with ELF
-	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/linux-gas.h arm/linux-elf.h"
+	tm_file="dbxelf.h elfos.h linux.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/linux-gas.h arm/linux-elf.h"
 	tmake_file="t-slibgcc-elf-ver t-linux arm/t-linux"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
@@ -875,7 +894,6 @@ i370-*-linux*)
 	;;
 i[34567]86-*-darwin*)
 	tm_file="${tm_file} i386/darwin.h"
-	use_fixproto=yes
 	;;
 i[34567]86-*-elf*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h"
@@ -1264,6 +1282,31 @@ m32r-*-elf*)
 	extra_parts="crtinit.o crtfini.o"
 	use_fixproto=yes
  	;;
+m32rle-*-elf*)
+	tm_file="dbxelf.h elfos.h svr4.h m32r/little.h ${tm_file}"
+	extra_parts="crtinit.o crtfini.o m32rx/crtinit.o m32rx/crtfini.o"
+	use_fixproto=yes
+	;;
+m32r-*-linux*)
+	tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} m32r/linux.h"
+	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
+	tmake_file="m32r/t-linux"
+	gnu_ld=yes
+	use_fixproto=yes
+	if test x$enable_threads = xyes; then
+		thread_file='posix'
+	fi
+ 	;;
+m32rle-*-linux*)
+	tm_file="dbxelf.h elfos.h svr4.h linux.h m32r/little.h ${tm_file} m32r/linux.h"
+	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
+	tmake_file="m32r/t-linux"
+	gnu_ld=yes
+	use_fixproto=yes
+	if test x$enable_threads = xyes; then
+		thread_file='posix'
+	fi
+	;;
 # m68hc11 and m68hc12 share the same machine description.
 m68hc11-*-*|m6811-*-*)
 	tm_file="dbxelf.h elfos.h m68hc11/m68hc11.h"
@@ -1342,6 +1385,13 @@ m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
 	esac
 	;;
 m68k*-*-netbsd*)
+    if test "x$enable_obsolete" != xyes; then
+      echo "*** Configuration ${target} is obsolete." >&2
+      echo "*** Specify --enable-obsolete to build it anyway." >&2
+      echo "*** Support will be REMOVED in the next major release of GCC," >&2
+      echo "*** unless a maintainer comes forward." >&2
+      exit 1
+    fi
 	tm_file="m68k/m68k.h netbsd.h netbsd-aout.h m68k/netbsd.h"
 	tmake_file=t-netbsd
 	extra_parts=""
@@ -1659,10 +1709,6 @@ powerpc-*-darwin*)
 	tm_file="${tm_file} rs6000/darwin.h"
 	tmake_file="t-darwin t-slibgcc-darwin rs6000/t-darwin"
 	extra_headers=altivec.h
-	# override ppc default
-	need_64bit_hwint=
-	use_fixproto=yes
-	rebuild_banshee=yes
 	;;
 powerpc*-*-freebsd*)
 	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file} rs6000/sysv4.h rs6000/freebsd.h"
@@ -1828,6 +1874,7 @@ s390x-ibm-tpf*)
 	tm_p_file=s390/s390-protos.h
 	md_file=s390/s390.md
 	extra_modes=s390/s390-modes.def
+	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
 	out_file=s390/s390.c
 	tmake_file="t-slibgcc-elf-ver s390/t-crtstuff s390/t-tpf"
 	;;
@@ -2196,6 +2243,13 @@ vax-*-ultrix*)			# VAXen running ultrix
 	use_fixproto=yes
 	;;
 vax-*-*)			# VAX default entry
+    if test "x$enable_obsolete" != xyes; then
+      echo "*** Configuration ${target} is obsolete." >&2
+      echo "*** Specify --enable-obsolete to build it anyway." >&2
+      echo "*** Support will be REMOVED in the next major release of GCC," >&2
+      echo "*** unless a maintainer comes forward." >&2
+      exit 1
+    fi
 	use_fixproto=yes
 	;;
 xscale-*-elf)

@@ -343,6 +343,7 @@ pp_base_flush (pretty_printer *pp)
   pp_clear_state (pp);
   fputc ('\n', pp->buffer->stream);
   fflush (pp->buffer->stream);
+  pp_needs_newline (pp) = false;
 }
 
 /* Sets the number of maximum characters per line PRETTY-PRINTER can
@@ -472,7 +473,7 @@ pp_base_last_position_in_text (const pretty_printer *pp)
 }
 
 /* Return the amount of characters PRETTY-PRINTER can accept to
-   make a full line.  Meaningfull only in line-wrapping mode.  */
+   make a full line.  Meaningful only in line-wrapping mode.  */
 int
 pp_base_remaining_character_count_for_line (pretty_printer *pp)
 {

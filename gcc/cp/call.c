@@ -104,11 +104,12 @@ static tree direct_reference_binding (tree, tree);
 static bool promoted_arithmetic_type_p (tree);
 static tree conditional_conversion (tree, tree);
 static char *name_as_c_string (tree, tree, bool *);
-static tree call_builtin_trap (void);
+static tree call_builtin_trap (tree);
 static tree prep_operand (tree);
 static void add_candidates (tree, tree, tree, bool, tree, tree,
 			    int, struct z_candidate **);
 static tree merge_conversion_sequences (tree, tree);
+static bool magic_varargs_p (tree);
 
 tree
 build_vfield_ref (tree datum, tree type)
@@ -1743,7 +1744,7 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	  type1 = type2;
 	  break;
 	}
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case LT_EXPR:
     case GT_EXPR:
     case LE_EXPR:
@@ -2036,7 +2037,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
     case GT_EXPR:
     case GE_EXPR:
       enum_p = 1;
-      /* FALLTHROUGH */
+      /* Fall through.  */
     
     default:
       ref1 = 0;
@@ -3408,7 +3409,7 @@ prep_operand (tree operand)
    CANDIDATES.  The ARGS are the arguments provided to the call,
    without any implicit object parameter.  The EXPLICIT_TARGS are
    explicit template arguments provided.  TEMPLATE_ONLY is true if
-   only template fucntions should be considered.  CONVERSION_PATH,
+   only template functions should be considered.  CONVERSION_PATH,
    ACCESS_PATH, and FLAGS are as for add_function_candidate.  */
 
 static void
@@ -4101,7 +4102,7 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
     case RVALUE_CONV:
       if (! IS_AGGR_TYPE (totype))
 	return expr;
-      /* else fall through */
+      /* Else fall through.  */
     case BASE_CONV:
       if (TREE_CODE (convs) == BASE_CONV && !NEED_TEMPORARY_P (convs))
 	{
@@ -4191,16 +4192,18 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
 		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION);
 }
 
-/* Build a call to __builtin_trap which can be used in an expression.  */
+/* Build a call to __builtin_trap which can be used as an expression of
+   type TYPE.  */
 
 static tree
-call_builtin_trap (void)
+call_builtin_trap (tree type)
 {
   tree fn = implicit_built_in_decls[BUILT_IN_TRAP];
 
   my_friendly_assert (fn != NULL, 20030927);
   fn = build_call (fn, NULL_TREE);
-  fn = build (COMPOUND_EXPR, integer_type_node, fn, integer_zero_node);
+  fn = build (COMPOUND_EXPR, type, fn, error_mark_node);
+  fn = force_target_expr (type, fn);
   return fn;
 }
 
@@ -4239,7 +4242,7 @@ convert_arg_to_ellipsis (tree arg)
       warning ("cannot pass objects of non-POD type `%#T' through `...'; \
 call will abort at runtime",
 	       TREE_TYPE (arg));
-      arg = call_builtin_trap ();
+      arg = call_builtin_trap (TREE_TYPE (arg));
     }
 
   return arg;
@@ -4261,8 +4264,10 @@ build_x_va_arg (tree expr, tree type)
   if (! pod_type_p (type))
     {
       /* Undefined behavior [expr.call] 5.2.2/7.  */
-      warning ("cannot receive objects of non-POD type `%#T' through `...'",
-		  type);
+      warning ("cannot receive objects of non-POD type `%#T' through `...'; \
+call will abort at runtime",
+	       type);
+      return call_builtin_trap (type);
     }
   
   return build_va_arg (expr, type);
@@ -4366,6 +4371,29 @@ convert_for_arg_passing (tree type, tree val)
 				   TYPE_SIZE (integer_type_node)))
     val = perform_integral_promotions (val);
   return val;
+}
+
+/* Returns true iff FN is a function with magic varargs, i.e. ones for
+   which no conversions at all should be done.  This is true for some
+   builtins which don't act like normal functions.  */
+
+static bool
+magic_varargs_p (tree fn)
+{
+  if (DECL_BUILT_IN (fn))
+    switch (DECL_FUNCTION_CODE (fn))
+      {
+      case BUILT_IN_CLASSIFY_TYPE:
+      case BUILT_IN_CONSTANT_P:
+      case BUILT_IN_NEXT_ARG:
+      case BUILT_IN_STDARG_START:
+      case BUILT_IN_VA_START:
+	return true;
+
+      default:;
+      }
+
+  return false;
 }
 
 /* Subroutine of the various build_*_call functions.  Overload resolution
@@ -4517,10 +4545,14 @@ build_over_call (struct z_candidate *cand, int flags)
 
   /* Ellipsis */
   for (; arg; arg = TREE_CHAIN (arg))
-    converted_args 
-      = tree_cons (NULL_TREE,
-		   convert_arg_to_ellipsis (TREE_VALUE (arg)),
-		   converted_args);
+    {
+      tree a = TREE_VALUE (arg);
+      if (magic_varargs_p (fn))
+	/* Do no conversions for magic varargs.  */;
+      else
+	a = convert_arg_to_ellipsis (a);
+      converted_args = tree_cons (NULL_TREE, a, converted_args);
+    }
 
   converted_args = nreverse (converted_args);
 
@@ -4594,9 +4626,30 @@ build_over_call (struct z_candidate *cand, int flags)
     {
       tree to = stabilize_reference
 	(build_indirect_ref (TREE_VALUE (converted_args), 0));
+      tree type = TREE_TYPE (to);
+      tree as_base = CLASSTYPE_AS_BASE (type);
 
       arg = build_indirect_ref (TREE_VALUE (TREE_CHAIN (converted_args)), 0);
-      val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+      if (tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (as_base)))
+	val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+      else
+	{
+	  /* We must only copy the non-tail padding parts. Use
+	     CLASSTYPE_AS_BASE for the bitwise copy.  */
+	  tree to_as_base, arg_as_base, base_ptr_type;
+
+	  to = save_expr (to);
+	  base_ptr_type = build_pointer_type (as_base);
+	  to_as_base = build_indirect_ref
+	    (build_nop (base_ptr_type, build_unary_op (ADDR_EXPR, to, 0)), 0);
+	  arg_as_base = build_indirect_ref
+	    (build_nop (base_ptr_type, build_unary_op (ADDR_EXPR, arg, 0)), 0);
+	  
+	  val = build (MODIFY_EXPR, as_base, to_as_base, arg_as_base);
+	  val = build (COMPOUND_EXPR, type, convert_to_void (val, NULL), to);
+	  TREE_USED (val) = 1;
+	}
+      
       return val;
     }
 
@@ -4808,14 +4861,23 @@ build_special_member_call (tree instance, tree name, tree args,
 	  || name == deleting_dtor_identifier)
 	my_friendly_assert (args == NULL_TREE, 20020712);
 
-      /* We must perform the conversion here so that we do not
-	 subsequently check to see whether BINFO is an accessible
-	 base.  (It is OK for a constructor to call a constructor in
-	 an inaccessible base as long as the constructor being called
-	 is accessible.)  */
+      /* Convert to the base class, if necessary.  */
       if (!same_type_ignoring_top_level_qualifiers_p 
 	  (TREE_TYPE (instance), BINFO_TYPE (binfo)))
-	instance = convert_to_base_statically (instance, binfo);
+	{
+	  if (name != ansi_assopname (NOP_EXPR))
+	    /* For constructors and destructors, either the base is
+	       non-virtual, or it is virtual but we are doing the
+	       conversion from a constructor or destructor for the
+	       complete object.  In either case, we can convert
+	       statically.  */
+	    instance = convert_to_base_statically (instance, binfo);
+	  else
+	    /* However, for assignment operators, we must convert
+	       dynamically if the base is virtual.  */
+	    instance = build_base_path (PLUS_EXPR, instance,
+					binfo, /*nonnull=*/1);
+	}
     }
   
   my_friendly_assert (instance != NULL_TREE, 20020712);

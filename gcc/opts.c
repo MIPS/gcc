@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -147,6 +147,13 @@ static unsigned int columns = 80;
 
 /* What to print when a switch has no documentation.  */
 static const char undocumented_msg[] = N_("This switch lacks documentation");
+
+/* Used for bookkeeping on whether user set these flags so
+   -fprofile-use/-fprofile-generate does not use them.  */
+static bool profile_arc_flag_set, flag_profile_values_set;
+static bool flag_unroll_loops_set, flag_tracer_set;
+static bool flag_value_profile_transformations_set;
+static bool flag_peel_loops_set, flag_branch_probabilities_set;
 
 /* Input file names.  */
 const char **in_fnames;
@@ -529,7 +536,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_guess_branch_prob = 1;
       flag_cprop_registers = 1;
       flag_loop_optimize = 1;
-      flag_crossjumping = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
       flag_tree_ccp = 1;
@@ -544,6 +550,7 @@ decode_options (unsigned int argc, const char **argv)
 
   if (optimize >= 2)
     {
+      flag_crossjumping = 1;
       flag_optimize_sibling_calls = 1;
       flag_cse_follow_jumps = 1;
       flag_cse_skip_blocks = 1;
@@ -890,6 +897,7 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_fbranch_probabilities:
+      flag_branch_probabilities_set = true;
       flag_branch_probabilities = value;
       break;
 
@@ -1040,10 +1048,6 @@ common_handle_option (size_t scode, const char *arg,
       flag_gcse_las = value;
       break;
 
-    case OPT_fgnu_linker:
-      flag_gnu_linker = value;
-      break;
-
     case OPT_fguess_branch_probability:
       flag_guess_branch_prob = value;
       break;
@@ -1160,6 +1164,7 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_fpeel_loops:
+      flag_peel_loops_set = true;
       flag_peel_loops = value;
       break;
 
@@ -1192,14 +1197,41 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_fprofile_arcs:
+      profile_arc_flag_set = true;
       profile_arc_flag = value;
       break;
 
+    case OPT_fprofile_use:
+      if (!flag_branch_probabilities_set)
+        flag_branch_probabilities = value;
+      if (!flag_profile_values_set)
+        flag_profile_values = value;
+      if (!flag_unroll_loops_set)
+        flag_unroll_loops = value;
+      if (!flag_peel_loops_set)
+        flag_peel_loops = value;
+      if (!flag_tracer_set)
+        flag_tracer = value;
+      if (!flag_value_profile_transformations_set)
+        flag_value_profile_transformations = value;
+      break;
+
+    case OPT_fprofile_generate:
+      if (!profile_arc_flag_set)
+        profile_arc_flag = value;
+      if (!flag_profile_values_set)
+        flag_profile_values = value;
+      if (!flag_value_profile_transformations_set)
+        flag_value_profile_transformations = value;
+      break;
+
     case OPT_fprofile_values:
+      flag_profile_values_set = true;
       flag_profile_values = value;
       break;
 
     case OPT_fvpt:
+      flag_value_profile_transformations_set = value;
       flag_value_profile_transformations = value;
       break;
 
@@ -1383,6 +1415,7 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_ftracer:
+      flag_tracer_set = true;
       flag_tracer = value;
       break;
 
@@ -1455,6 +1488,7 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_funroll_loops:
+      flag_unroll_loops_set = true;
       flag_unroll_loops = value;
       break;
 
@@ -1496,19 +1530,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_gcoff:
       set_debug_level (SDB_DEBUG, false, arg);
-      break;
-
-    case OPT_gdwarf:
-      if (*arg)
-	{
-	  error ("use -gdwarf -gN for DWARF v1 level N, "
-		 "and -gdwarf-2 for DWARF v2" );
-	  break;
-	}
-
-      /* Fall through.  */
-    case OPT_gdwarf_:
-      set_debug_level (DWARF_DEBUG, code == OPT_gdwarf_, arg);
       break;
 
     case OPT_gdwarf_2:
@@ -1906,7 +1927,7 @@ wrap_help (const char *help, const char *item, unsigned int item_width)
 		len = i;
 	      else if ((help[i] == '-' || help[i] == '/')
 		       && help[i + 1] != ' '
-		       && ISALPHA (help[i - 1]))
+		       && i > 0 && ISALPHA (help[i - 1]))
 		len = i + 1;
 	    }
 	}

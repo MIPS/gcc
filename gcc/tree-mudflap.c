@@ -353,10 +353,10 @@ mf_file_function_line_tree (location_t *locus)
     colon = line = "";
 
   /* Add (FUNCTION).  */
-  if (cfun->name)
+  name = (*lang_hooks.decl_printable_name) (current_function_decl, 1);
+  if (name)
     {
       op = " (";
-      name = cfun->name;
       cp = ")";
     }
   else

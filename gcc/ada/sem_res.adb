@@ -3727,6 +3727,13 @@ package body Sem_Res is
          Establish_Transient_Scope
            (N, Sec_Stack => not Functions_Return_By_DSP_On_Target);
 
+         --  If the call appears within the bounds of a loop, it will
+         --  be rewritten and reanalyzed, nothing left to do here.
+
+         if Nkind (N) /= N_Function_Call then
+            return;
+         end if;
+
       elsif Is_Init_Proc (Nam)
         and then not Within_Init_Proc
       then
@@ -6199,6 +6206,12 @@ package body Sem_Res is
                  Rop);
                Error_Msg_N ("\as Duration, and will lose precision?", Rop);
             end if;
+
+         elsif Is_Numeric_Type (Typ)
+           and then Nkind (Operand) in N_Op
+           and then Unique_Fixed_Point_Type (N) /= Any_Type
+         then
+            Set_Etype (Operand, Standard_Duration);
 
          else
             Error_Msg_N ("invalid context for mixed mode operation", N);

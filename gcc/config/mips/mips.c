@@ -52,6 +52,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "integrate.h"
+#include "langhooks.h"
 
 /* Enumeration for all of the relational tests, so that we can build
    arrays indexed by the test type, and not worry about the order
@@ -569,7 +570,7 @@ char mips_reg_names[][8] =
  "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
  "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
  "hi",   "lo",   "",     "$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",
- "$fcc5","$fcc6","$fcc7","", "",     "",     "",     "",
+ "$fcc5","$fcc6","$fcc7","", "",     "",     "",     "$fakec",
  "$c0r0", "$c0r1", "$c0r2", "$c0r3", "$c0r4", "$c0r5", "$c0r6", "$c0r7",
  "$c0r8", "$c0r9", "$c0r10","$c0r11","$c0r12","$c0r13","$c0r14","$c0r15",
  "$c0r16","$c0r17","$c0r18","$c0r19","$c0r20","$c0r21","$c0r22","$c0r23",
@@ -598,7 +599,7 @@ char mips_sw_reg_names[][8] =
   "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
   "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31",
   "hi",   "lo",   "",     "$fcc0","$fcc1","$fcc2","$fcc3","$fcc4",
-  "$fcc5","$fcc6","$fcc7","$rap", "",     "",     "",     "",
+  "$fcc5","$fcc6","$fcc7","$rap", "",     "",     "",     "$fakec",
   "$c0r0", "$c0r1", "$c0r2", "$c0r3", "$c0r4", "$c0r5", "$c0r6", "$c0r7",
   "$c0r8", "$c0r9", "$c0r10","$c0r11","$c0r12","$c0r13","$c0r14","$c0r15",
   "$c0r16","$c0r17","$c0r18","$c0r19","$c0r20","$c0r21","$c0r22","$c0r23",
@@ -1658,13 +1659,9 @@ mips_load_got (rtx base, rtx addr, enum mips_symbol_type symbol_type)
   mem = gen_rtx_MEM (ptr_mode, gen_rtx_LO_SUM (Pmode, base, offset));
   set_mem_alias_set (mem, mips_got_alias_set);
 
-  /* GOT references can't trap.  */
+  /* GOT entries are constant and references to them can't trap.  */
+  RTX_UNCHANGING_P (mem) = 1;
   MEM_NOTRAP_P (mem) = 1;
-
-  /* If we allow a function's address to be lazily bound, its entry
-     may change after the first call.  Other entries are constant.  */
-  if (symbol_type != SYMBOL_GOTOFF_CALL)
-    RTX_UNCHANGING_P (mem) = 1;
 
   return mem;
 }
@@ -3191,13 +3188,27 @@ mips_expand_call (rtx result, rtx addr, rtx args_size, rtx aux, int sibcall_p)
 {
   if (!call_insn_operand (addr, VOIDmode))
     {
-      if (TARGET_EXPLICIT_RELOCS && global_got_operand (addr, VOIDmode))
+      /* If we're generating PIC, and this call is to a global function,
+	 try to allow its address to be resolved lazily.  This isn't
+	 possible for NewABI sibcalls since the value of $gp on entry
+	 to the stub would be our caller's gp, not ours.  */
+      if (TARGET_EXPLICIT_RELOCS
+	  && !(sibcall_p && TARGET_NEWABI)
+	  && global_got_operand (addr, VOIDmode))
 	{
-	  rtx high = mips_unspec_offset_high (pic_offset_table_rtx,
-					      addr, SYMBOL_GOTOFF_CALL);
-	  addr = mips_load_got (high, addr, SYMBOL_GOTOFF_CALL);
+	  rtx high, lo_sum_symbol;
+
+	  high = mips_unspec_offset_high (pic_offset_table_rtx,
+					  addr, SYMBOL_GOTOFF_CALL);
+	  lo_sum_symbol = mips_unspec_address (addr, SYMBOL_GOTOFF_CALL);
+	  addr = gen_reg_rtx (Pmode);
+	  if (Pmode == SImode)
+	    emit_insn (gen_load_callsi (addr, high, lo_sum_symbol));
+	  else
+	    emit_insn (gen_load_calldi (addr, high, lo_sum_symbol));
 	}
-      addr = force_reg (Pmode, addr);
+      else
+	addr = force_reg (Pmode, addr);
     }
 
   if (TARGET_MIPS16
@@ -3903,7 +3914,7 @@ mips_build_builtin_va_list (void)
       tree f_ovfl, f_gtop, f_ftop, f_goff, f_foff, f_res, record;
       tree array, index;
 
-      record = make_node (RECORD_TYPE);
+      record = (*lang_hooks.types.make_type) (RECORD_TYPE);
 
       f_ovfl = build_decl (FIELD_DECL, get_identifier ("__overflow_argptr"),
 			  ptr_type_node);
@@ -4622,8 +4633,6 @@ override_options (void)
      defaults for the N32/N64 ABIs.  */
   if (TARGET_IRIX && !TARGET_SGI_O32_AS)
     {
-      flag_gnu_linker = 1;
-
       targetm.have_ctors_dtors = true;
       targetm.asm_out.constructor = default_named_section_asm_out_constructor;
       targetm.asm_out.destructor = default_named_section_asm_out_destructor;
@@ -4654,10 +4663,10 @@ override_options (void)
 	  /* Adapt wording to IRIX version: IRIX 5 only had a single ABI,
 	     so -mabi=32 isn't usually specified.  */
 	  if (TARGET_IRIX5)
-	    warning ("-g is only supported using GNU as,");
+	    inform ("-g is only supported using GNU as,");
 	  else
-	    warning ("-g is only supported using GNU as with -mabi=32,");
-	  warning ("-g option disabled");
+	    inform ("-g is only supported using GNU as with -mabi=32,");
+	  inform ("-g option disabled");
 	  write_symbols = NO_DEBUG;
 	}
     }
@@ -5566,14 +5575,7 @@ mips_output_external (FILE *file ATTRIBUTE_UNUSED, tree decl, const char *name)
       extern_head = p;
     }
 
-  if (TARGET_IRIX && mips_abi == ABI_32
-      && TREE_CODE (decl) == FUNCTION_DECL
-      /* ??? Don't include alloca, since gcc will always expand it
-	 inline.  If we don't do this, the C++ library fails to build.  */
-      && strcmp (name, "alloca")
-      /* ??? Don't include __builtin_next_arg, because then gcc will not
-	 bootstrap under Irix 5.1.  */
-      && strcmp (name, "__builtin_next_arg"))
+  if (TARGET_IRIX && mips_abi == ABI_32 && TREE_CODE (decl) == FUNCTION_DECL)
     {
       p = (struct extern_list *) ggc_alloc (sizeof (struct extern_list));
       p->next = extern_head;
@@ -5844,7 +5846,8 @@ mips_file_end (void)
 	  name_tree = get_identifier (p->name);
 
 	  /* Positively ensure only one .extern for any given symbol.  */
-	  if (! TREE_ASM_WRITTEN (name_tree))
+	  if (!TREE_ASM_WRITTEN (name_tree)
+	      && TREE_SYMBOL_REFERENCED (name_tree))
 	    {
 	      TREE_ASM_WRITTEN (name_tree) = 1;
 	      /* In IRIX 5 or IRIX 6 for the O32 ABI, we must output a
@@ -6049,6 +6052,11 @@ mips_global_pointer (void)
   /* FUNCTION_PROFILER includes a jal macro, so we need to give it
      a valid gp.  */
   if (current_function_profile)
+    return GLOBAL_POINTER_REGNUM;
+
+  /* If the function has a nonlocal goto, $gp must hold the correct
+     global pointer for the target function.  */
+  if (current_function_has_nonlocal_goto)
     return GLOBAL_POINTER_REGNUM;
 
   /* If the gp is never referenced, there's no need to initialize it.
@@ -6543,11 +6551,15 @@ mips_frame_set (rtx mem, rtx reg)
 static void
 mips_save_reg (rtx reg, rtx mem)
 {
-  if (GET_MODE (reg) == DFmode && mips_split_64bit_move_p (mem, reg))
+  if (GET_MODE (reg) == DFmode && !TARGET_FLOAT64)
     {
       rtx x1, x2;
 
-      mips_split_64bit_move (mem, reg);
+      if (mips_split_64bit_move_p (mem, reg))
+	mips_split_64bit_move (mem, reg);
+      else
+	emit_move_insn (mem, reg);
+
       x1 = mips_frame_set (mips_subword (mem, 0), mips_subword (reg, 0));
       x2 = mips_frame_set (mips_subword (mem, 1), mips_subword (reg, 1));
       mips_set_frame_expr (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, x1, x2)));
@@ -6639,7 +6651,7 @@ mips_expand_prologue (void)
   /* Set up the frame pointer, if we're using one.  In mips16 code,
      we point the frame pointer ahead of the outgoing argument area.
      This should allow more variables & incoming arguments to be
-     acceesed with unextended instructions.  */
+     accessed with unextended instructions.  */
   if (frame_pointer_needed)
     {
       if (TARGET_MIPS16 && cfun->machine->frame.args_size != 0)

@@ -151,7 +151,7 @@ typedef struct
        nested compares can be done.  The csubcc and caddcc instructions don't
        have enough bits to specify both a CC register to be set and a CR register
        to do the test on, so the same bit number is used for both.  Needless to
-       say, this is rather inconvient for GCC.  */
+       say, this is rather inconvenient for GCC.  */
     rtx nested_cc_reg;
 
     /* Extra CR registers used for &&, ||.  */
@@ -1644,7 +1644,7 @@ frv_expand_prologue (void)
 
 
 /* Under frv, all of the work is done via frv_expand_epilogue, but
-   this function provides a convient place to do cleanup.  */
+   this function provides a convenient place to do cleanup.  */
 
 static void
 frv_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
@@ -2300,7 +2300,7 @@ frv_final_prescan_insn (rtx insn, rtx *opvec, int noperands ATTRIBUTE_UNUSED)
 
   /* Set frv_insn_packing_flag to FALSE if the next instruction should
      be packed with this one.  Set it to TRUE otherwise.  If the next
-     instruction is an asm insntruction, this statement will set the
+     instruction is an asm instruction, this statement will set the
      flag to TRUE, and that value will still hold when the asm operands
      themselves are printed.  */
   frv_insn_packing_flag = ! (insn && INSN_P (insn)
@@ -3757,7 +3757,7 @@ pic_register_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 }
 
 /* Return 1 if operand is a symbolic reference when a PIC option is specified
-   that takes 3 seperate instructions to form.  */
+   that takes 3 separate instructions to form.  */
 
 int
 pic_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
@@ -5830,7 +5830,7 @@ frv_emit_scc (enum rtx_code test, rtx target)
 
 
 /* Split a SCC instruction into component parts, returning a SEQUENCE to hold
-   the seperate insns.  */
+   the separate insns.  */
 
 rtx
 frv_split_scc (rtx dest, rtx test, rtx cc_reg, rtx cr_reg, HOST_WIDE_INT value)
@@ -5941,7 +5941,7 @@ frv_emit_cond_move (rtx dest, rtx test_rtx, rtx src1, rtx src2)
 }
 
 
-/* Split a conditonal move into constituent parts, returning a SEQUENCE
+/* Split a conditional move into constituent parts, returning a SEQUENCE
    containing all of the insns.  */
 
 rtx
@@ -6402,16 +6402,16 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
   /* Scan all of the blocks for registers that must not be allocated.  */
   for (j = 0; j < num_bb; j++)
     {
-      rtx last_insn = bb[j]->end;
-      rtx insn = bb[j]->head;
+      rtx last_insn = BB_END (bb[j]);
+      rtx insn = BB_HEAD (bb[j]);
       int regno;
 
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Scanning %s block %d, start %d, end %d\n",
 		 (bb[j] == else_bb) ? "else" : ((bb[j] == then_bb) ? "then" : "test"),
 		 (int) bb[j]->index,
-		 (int) INSN_UID (bb[j]->head),
-		 (int) INSN_UID (bb[j]->end));
+		 (int) INSN_UID (BB_HEAD (bb[j])),
+		 (int) INSN_UID (BB_END (bb[j])));
 
       /* Anything live at the beginning of the block is obviously unavailable
          for allocation.  */
@@ -6611,7 +6611,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 			    gen_rtx_fmt_ee (code, CC_CCRmode, cc, const0_rtx));
 
   /* Record the check insn to be inserted later.  */
-  frv_ifcvt_add_insn (check_insn, test_bb->end, TRUE);
+  frv_ifcvt_add_insn (check_insn, BB_END (test_bb), TRUE);
 
   /* Update the tests.  */
   frv_ifcvt.cr_reg = cr;
@@ -6729,7 +6729,7 @@ frv_ifcvt_modify_multiple_tests (ce_if_block_t *ce_info,
   /* First add the andcr/andncr/orcr/orncr, which will be added after the
      conditional check instruction, due to frv_ifcvt_add_insn being a LIFO
      stack.  */
-  frv_ifcvt_add_insn ((*logical_func) (cr, cr, new_cr), bb->end, TRUE);
+  frv_ifcvt_add_insn ((*logical_func) (cr, cr, new_cr), BB_END (bb), TRUE);
 
   /* Now add the conditional check insn.  */
   cc = XEXP (test_expr, 0);
@@ -6740,7 +6740,7 @@ frv_ifcvt_modify_multiple_tests (ce_if_block_t *ce_info,
 
   /* add the new check insn to the list of check insns that need to be
      inserted.  */
-  frv_ifcvt_add_insn (check_insn, bb->end, TRUE);
+  frv_ifcvt_add_insn (check_insn, BB_END (bb), TRUE);
 
   if (TARGET_DEBUG_COND_EXEC)
     {
@@ -6942,7 +6942,7 @@ single_set_pattern (rtx pattern)
    insn cannot be converted to be executed conditionally.  */
 
 rtx
-frv_ifcvt_modify_insn (ce_if_block_t *ce_info ATTRIBUTE_UNUSED,
+frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
                        rtx pattern,
                        rtx insn)
 {
@@ -7068,7 +7068,16 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info ATTRIBUTE_UNUSED,
          other registers.  */
       else if (frv_ifcvt.scratch_insns_bitmap
 	       && bitmap_bit_p (frv_ifcvt.scratch_insns_bitmap,
-				INSN_UID (insn)))
+				INSN_UID (insn))
+	       /* We must not unconditionally set a reg set used as
+		  scratch in the THEN branch if the same reg is live
+		  in the ELSE branch.  */
+	       && REG_P (SET_DEST (set))
+	       && (! ce_info->else_bb
+		   || BLOCK_FOR_INSN (insn) == ce_info->else_bb
+		   || ! (REGNO_REG_SET_P
+			 (ce_info->else_bb->global_live_at_start,
+			  REGNO (SET_DEST (set))))))
 	pattern = set;
 
       else if (mode == QImode || mode == HImode || mode == SImode
@@ -8444,7 +8453,7 @@ frv_pack_insns (void)
 	}
 
       /* Clear the VLIW start flag on random USE and CLOBBER insns, which is
-         set on the USE insn that preceeds the return, and potentially on
+         set on the USE insn that precedes the return, and potentially on
          CLOBBERs for setting multiword variables.  Also skip the ADDR_VEC
          holding the case table labels.  */
       pattern_code = GET_CODE (PATTERN (insn));
@@ -9000,7 +9009,7 @@ frv_legitimize_target (enum insn_code icode, rtx target)
 }
 
 /* Given that ARG is being passed as operand OPNUM to instruction ICODE,
-   check whether ARG satisfies the operand's contraints.  If it doesn't,
+   check whether ARG satisfies the operand's constraints.  If it doesn't,
    copy ARG to a temporary register and return that.  Otherwise return ARG
    itself.  */
 

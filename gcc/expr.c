@@ -4230,11 +4230,13 @@ store_expr (tree exp, rtx target, int want_value)
 			      || side_effects_p (target))))
       && TREE_CODE (exp) != ERROR_MARK
       && ! dont_store_target
-	 /* If store_expr stores a DECL whose DECL_RTL(exp) == TARGET,
-	    but TARGET is not valid memory reference, TEMP will differ
-	    from TARGET although it is really the same location.  */
-      && (TREE_CODE_CLASS (TREE_CODE (exp)) != 'd'
-	  || target != DECL_RTL_IF_SET (exp))
+      /* If store_expr stores a DECL whose DECL_RTL(exp) == TARGET,
+	 but TARGET is not valid memory reference, TEMP will differ
+	 from TARGET although it is really the same location.  */
+      && !(GET_CODE (target) == MEM
+	   && GET_CODE (XEXP (target, 0)) != QUEUED
+	   && (!memory_address_p (GET_MODE (target), XEXP (target, 0))
+	       || (flag_force_addr && !REG_P (XEXP (target, 0)))))
       /* If there's nothing to copy, don't bother.  Don't call expr_size
 	 unless necessary, because some front-ends (C++) expr_size-hook
 	 aborts on objects that are not supposed to be bit-copied or
@@ -4620,7 +4622,10 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 				       highest_pow2_factor (offset));
 	    }
 
-	  if (TREE_READONLY (field))
+	  /* If the constructor has been cleared, setting RTX_UNCHANGING_P
+	     on the MEM might lead to scheduling the clearing after the
+	     store.  */
+	  if (TREE_READONLY (field) && !cleared)
 	    {
 	      if (GET_CODE (to_rtx) == MEM)
 		to_rtx = copy_rtx (to_rtx);
@@ -4682,6 +4687,10 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
       int const_bounds_p;
       HOST_WIDE_INT minelt = 0;
       HOST_WIDE_INT maxelt = 0;
+      int icode = 0;
+      rtx *vector = NULL;
+      int elt_size = 0;
+      unsigned n_elts = 0;
 
       /* Vectors are like arrays, but the domain is stored via an array
 	 type indirectly.  */
@@ -4692,6 +4701,22 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	     it always will.  */
 	  domain = TYPE_DEBUG_REPRESENTATION_TYPE (type);
 	  domain = TYPE_DOMAIN (TREE_TYPE (TYPE_FIELDS (domain)));
+	  if (REG_P (target) && VECTOR_MODE_P (GET_MODE (target)))
+	    {
+	      enum machine_mode mode = GET_MODE (target);
+
+	      icode = (int) vec_init_optab->handlers[mode].insn_code;
+	      if (icode != CODE_FOR_nothing)
+		{
+		  unsigned int i;
+
+		  elt_size = GET_MODE_SIZE (GET_MODE_INNER (mode));
+		  n_elts = (GET_MODE_SIZE (mode) / elt_size);
+		  vector = alloca (n_elts);
+		  for (i = 0; i < n_elts; i++)
+		    vector [i] = CONST0_RTX (GET_MODE_INNER (mode));
+		}
+	    }
 	}
 
       const_bounds_p = (TYPE_MIN_VALUE (domain)
@@ -4756,7 +4781,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	    need_to_clear = 1;
 	}
 
-      if (need_to_clear && size > 0)
+      if (need_to_clear && size > 0 && !vector)
 	{
 	  if (! cleared)
 	    {
@@ -4806,6 +4831,9 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	      struct nesting *loop;
 	      HOST_WIDE_INT lo, hi, count;
 	      tree position;
+
+	      if (vector)
+		abort ();
 
 	      /* If the range is constant and "small", unroll the loop.  */
 	      if (const_bounds_p
@@ -4898,6 +4926,9 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	    {
 	      tree position;
 
+	      if (vector)
+		abort ();
+
 	      if (index == 0)
 		index = ssize_int (1);
 
@@ -4915,6 +4946,16 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	      xtarget = adjust_address (xtarget, mode, 0);
 	      store_expr (value, xtarget, 0);
 	    }
+	  else if (vector)
+	    {
+	      int pos;
+
+	      if (index != 0)
+		pos = tree_low_cst (index, 0) - minelt;
+	      else
+		pos = i;
+	      vector[pos] = expand_expr (value, NULL_RTX, VOIDmode, 0);
+	    }
 	  else
 	    {
 	      if (index != 0)
@@ -4930,11 +4971,15 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		  target = copy_rtx (target);
 		  MEM_KEEP_ALIAS_SET_P (target) = 1;
 		}
-
 	      store_constructor_field (target, bitsize, bitpos, mode, value,
 				       type, cleared, get_alias_set (elttype));
-
 	    }
+	}
+      if (vector)
+	{
+	  emit_insn (GEN_FCN (icode) (target,
+				      gen_rtx_PARALLEL (GET_MODE (target),
+						        gen_rtvec_v (n_elts, vector))));
 	}
     }
 
@@ -5917,60 +5962,6 @@ var_rtx (tree exp)
       return 0;
     }
 }
-
-#ifdef MAX_INTEGER_COMPUTATION_MODE
-
-void
-check_max_integer_computation_mode (tree exp)
-{
-  enum tree_code code;
-  enum machine_mode mode;
-
-  /* Strip any NOPs that don't change the mode.  */
-  STRIP_NOPS (exp);
-  code = TREE_CODE (exp);
-
-  /* We must allow conversions of constants to MAX_INTEGER_COMPUTATION_MODE.  */
-  if (code == NOP_EXPR
-      && TREE_CODE (TREE_OPERAND (exp, 0)) == INTEGER_CST)
-    return;
-
-  /* First check the type of the overall operation.   We need only look at
-     unary, binary and relational operations.  */
-  if (TREE_CODE_CLASS (code) == '1'
-      || TREE_CODE_CLASS (code) == '2'
-      || TREE_CODE_CLASS (code) == '<')
-    {
-      mode = TYPE_MODE (TREE_TYPE (exp));
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-    }
-
-  /* Check operand of a unary op.  */
-  if (TREE_CODE_CLASS (code) == '1')
-    {
-      mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-    }
-
-  /* Check operands of a binary/comparison op.  */
-  if (TREE_CODE_CLASS (code) == '2' || TREE_CODE_CLASS (code) == '<')
-    {
-      mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-
-      mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 1)));
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-    }
-}
-#endif
 
 /* Return the highest power of two that EXP is known to be a multiple of.
    This is used in updating alignment of MEMs in array references.  */
@@ -6406,49 +6397,6 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 
       target = 0;
     }
-
-#ifdef MAX_INTEGER_COMPUTATION_MODE
-  /* Only check stuff here if the mode we want is different from the mode
-     of the expression; if it's the same, check_max_integer_computation_mode
-     will handle it.  Do we really need to check this stuff at all?  */
-
-  if (target
-      && GET_MODE (target) != mode
-      && TREE_CODE (exp) != INTEGER_CST
-      && TREE_CODE (exp) != PARM_DECL
-      && TREE_CODE (exp) != ARRAY_REF
-      && TREE_CODE (exp) != ARRAY_RANGE_REF
-      && TREE_CODE (exp) != COMPONENT_REF
-      && TREE_CODE (exp) != BIT_FIELD_REF
-      && TREE_CODE (exp) != INDIRECT_REF
-      && TREE_CODE (exp) != CALL_EXPR
-      && TREE_CODE (exp) != VAR_DECL
-      && TREE_CODE (exp) != RTL_EXPR)
-    {
-      enum machine_mode mode = GET_MODE (target);
-
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && mode > MAX_INTEGER_COMPUTATION_MODE)
-	internal_error ("unsupported wide integer operation");
-    }
-
-  if (tmode != mode
-      && TREE_CODE (exp) != INTEGER_CST
-      && TREE_CODE (exp) != PARM_DECL
-      && TREE_CODE (exp) != ARRAY_REF
-      && TREE_CODE (exp) != ARRAY_RANGE_REF
-      && TREE_CODE (exp) != COMPONENT_REF
-      && TREE_CODE (exp) != BIT_FIELD_REF
-      && TREE_CODE (exp) != INDIRECT_REF
-      && TREE_CODE (exp) != VAR_DECL
-      && TREE_CODE (exp) != CALL_EXPR
-      && TREE_CODE (exp) != RTL_EXPR
-      && GET_MODE_CLASS (tmode) == MODE_INT
-      && tmode > MAX_INTEGER_COMPUTATION_MODE)
-    internal_error ("unsupported wide integer operation");
-
-  check_max_integer_computation_mode (exp);
-#endif
 
   /* If will do cse, generate all results into pseudo registers
      since 1) that allows cse to find more things
@@ -7273,10 +7221,9 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	      offset_rtx = convert_to_mode (ptr_mode, offset_rtx, 0);
 #endif
 
-	    /* A constant address in OP0 can have VOIDmode, we must not try
-	       to call force_reg for that case.  Avoid that case.  */
-	    if (GET_CODE (op0) == MEM
-		&& GET_MODE (op0) == BLKmode
+	    if (GET_MODE (op0) == BLKmode
+		/* A constant address in OP0 can have VOIDmode, we must
+		   not try to call force_reg in that case.  */
 		&& GET_MODE (XEXP (op0, 0)) != VOIDmode
 		&& bitsize != 0
 		&& (bitpos % bitsize) == 0
@@ -7333,7 +7280,10 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	       fetch it as a bit field.  */
 	    || (mode1 != BLKmode
 		&& (((TYPE_ALIGN (TREE_TYPE (tem)) < GET_MODE_ALIGNMENT (mode)
-		      || (bitpos % GET_MODE_ALIGNMENT (mode) != 0))
+		      || (bitpos % GET_MODE_ALIGNMENT (mode) != 0)
+		      || (GET_CODE (op0) == MEM
+			  && (MEM_ALIGN (op0) < GET_MODE_ALIGNMENT (mode1)
+			      || (bitpos % GET_MODE_ALIGNMENT (mode1) != 0))))
 		     && ((modifier == EXPAND_CONST_ADDRESS
 			  || modifier == EXPAND_INITIALIZER)
 			 ? STRICT_ALIGNMENT
@@ -10046,7 +9996,7 @@ do_tablejump (rtx index, enum machine_mode mode, rtx range, rtx table_label,
   if (mode != Pmode)
     index = convert_to_mode (Pmode, index, 1);
 
-  /* Don't let a MEM slip thru, because then INDEX that comes
+  /* Don't let a MEM slip through, because then INDEX that comes
      out of PIC_CASE_VECTOR_ADDRESS won't be a valid address,
      and break_out_memory_refs will go to work on it and mess it up.  */
 #ifdef PIC_CASE_VECTOR_ADDRESS

@@ -727,6 +727,13 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
 	{
 	  lab = copy_to_reg (lab);
 
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				      gen_rtx_MEM (BLKmode,
+						   gen_rtx_SCRATCH (VOIDmode))));
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				      gen_rtx_MEM (BLKmode,
+						   hard_frame_pointer_rtx)));
+
 	  emit_move_insn (hard_frame_pointer_rtx, fp);
 	  emit_stack_restore (SAVE_NONLOCAL, stack, NULL_RTX);
 
@@ -1106,7 +1113,7 @@ result_vector (int savep, rtx result)
 static rtx
 expand_builtin_apply_args_1 (void)
 {
-  rtx registers;
+  rtx registers, tem;
   int size, align, regno;
   enum machine_mode mode;
   rtx struct_incoming_value = targetm.calls.struct_value_rtx (cfun ? TREE_TYPE (cfun->decl) : 0, 1);
@@ -1124,8 +1131,6 @@ expand_builtin_apply_args_1 (void)
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if ((mode = apply_args_mode[regno]) != VOIDmode)
       {
-	rtx tem;
-
 	align = GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT;
 	if (size % align != 0)
 	  size = CEIL (size, align) * align;
@@ -1137,8 +1142,17 @@ expand_builtin_apply_args_1 (void)
       }
 
   /* Save the arg pointer to the block.  */
-  emit_move_insn (adjust_address (registers, Pmode, 0),
-		  copy_to_reg (virtual_incoming_args_rtx));
+  tem = copy_to_reg (virtual_incoming_args_rtx);
+#ifdef STACK_GROWS_DOWNWARD
+  /* We need the pointer as the caller actually passed them to us, not
+     as we might have pretended they were passed.  Make sure it's a valid
+     operand, as emit_move_insn isn't expected to handle a PLUS.  */
+  tem
+    = force_operand (plus_constant (tem, current_function_pretend_args_size),
+		     NULL_RTX);
+#endif
+  emit_move_insn (adjust_address (registers, Pmode, 0), tem);
+  
   size = GET_MODE_SIZE (Pmode);
 
   /* Save the structure value address unless this is passed as an
@@ -1399,7 +1413,7 @@ expand_builtin_return (rtx result)
 
   /* Return whatever values was restored by jumping directly to the end
      of the function.  */
-  expand_null_return ();
+  expand_naked_return ();
 }
 
 /* Used by expand_builtin_classify_type and fold_builtin_classify_type.  */
@@ -4475,6 +4489,14 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
       do_jump (arg0, if_false_label, if_true_label);
       ret = get_insns ();
       end_sequence ();
+
+      /* For mildly unsafe builtin jump's, if unsave_expr_now
+	 creates a new tree instead of changing the old one
+	 TREE_VALUE (arglist) needs to be updated.  */
+      if (arg0 != TREE_VALUE (arglist)
+	  && TREE_CODE (arg0) == UNSAVE_EXPR
+	  && TREE_OPERAND (arg0, 0) != TREE_VALUE (arglist))
+	TREE_VALUE (arglist) = TREE_OPERAND (arg0, 0);
 
       /* Now that the __builtin_expect has been validated, go through and add
 	 the expect's to each of the conditional jumps.  If we run into an

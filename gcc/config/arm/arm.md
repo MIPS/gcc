@@ -792,13 +792,13 @@
 )
 
 (define_insn "*addsi3_carryin_shift"
-  [(set (match_operand:SI 0 "s_register_operand" "")
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (ltu:SI (reg:CC_C CC_REGNUM) (const_int 0))
 		 (plus:SI
 		   (match_operator:SI 2 "shift_operator"
-		      [(match_operand:SI 3 "s_register_operand" "")
-		       (match_operand:SI 4 "reg_or_int_operand" "")])
-		    (match_operand:SI 1 "s_register_operand" ""))))]
+		      [(match_operand:SI 3 "s_register_operand" "r")
+		       (match_operand:SI 4 "reg_or_int_operand" "rM")])
+		    (match_operand:SI 1 "s_register_operand" "r"))))]
   "TARGET_ARM"
   "adc%?\\t%0, %1, %3%S2"
   [(set_attr "conds" "use")]
@@ -846,6 +846,20 @@
   [(set_attr "conds" "use")
    (set_attr "length" "4,8")]
 )
+
+; transform ((x << y) - 1) to ~(~(x-1) << y)  Where X is a constant.
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(plus:SI (ashift:SI (match_operand:SI 1 "const_int_operand" "")
+			    (match_operand:SI 2 "s_register_operand" ""))
+		 (const_int -1)))
+   (clobber (match_operand:SI 3 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 3) (match_dup 1))
+   (set (match_dup 0) (not:SI (ashift:SI (match_dup 3) (match_dup 2))))]
+  "
+  operands[1] = GEN_INT (~(INTVAL (operands[1]) - 1));
+")
 
 (define_expand "addsf3"
   [(set (match_operand:SF          0 "s_register_operand" "")
@@ -1216,7 +1230,7 @@
    (set_attr "type" "mult")]
 )
 
-;; Unnamed template to match long long multiply-accumlate (smlal)
+;; Unnamed template to match long long multiply-accumulate (smlal)
 
 (define_insn "*mulsidi3adddi"
   [(set (match_operand:DI 0 "s_register_operand" "=&r")
@@ -1253,7 +1267,7 @@
    (set_attr "predicable" "yes")]
 )
 
-;; Unnamed template to match long long unsigned multiply-accumlate (umlal)
+;; Unnamed template to match long long unsigned multiply-accumulate (umlal)
 
 (define_insn "*umulsidi3adddi"
   [(set (match_operand:DI 0 "s_register_operand" "=&r")
@@ -1740,6 +1754,28 @@
 
 (define_split
   [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "shiftable_operator"
+	 [(zero_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))
+	  (match_operand:SI 5 "s_register_operand" "")]))
+   (clobber (match_operand:SI 6 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 6) (ashift:SI (match_dup 2) (match_dup 3)))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(lshiftrt:SI (match_dup 6) (match_dup 4))
+	  (match_dup 5)]))]
+  "{
+     HOST_WIDE_INT temp = INTVAL (operands[3]);
+
+     operands[3] = GEN_INT (32 - temp - INTVAL (operands[4]));
+     operands[4] = GEN_INT (32 - temp);
+   }"
+)
+  
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
 	(sign_extract:SI (match_operand:SI 1 "s_register_operand" "")
 			 (match_operand:SI 2 "const_int_operand" "")
 			 (match_operand:SI 3 "const_int_operand" "")))]
@@ -1754,6 +1790,28 @@
    }"
 )
 
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "shiftable_operator"
+	 [(sign_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))
+	  (match_operand:SI 5 "s_register_operand" "")]))
+   (clobber (match_operand:SI 6 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 6) (ashift:SI (match_dup 2) (match_dup 3)))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(ashiftrt:SI (match_dup 6) (match_dup 4))
+	  (match_dup 5)]))]
+  "{
+     HOST_WIDE_INT temp = INTVAL (operands[3]);
+
+     operands[3] = GEN_INT (32 - temp - INTVAL (operands[4]));
+     operands[4] = GEN_INT (32 - temp);
+   }"
+)
+  
 ;;; ??? This pattern is bogus.  If operand3 has bits outside the range
 ;;; represented by the bitfield, then this will produce incorrect results.
 ;;; Somewhere, the value needs to be truncated.  On targets like the m68k,
@@ -2262,6 +2320,109 @@
    (set_attr "predicable" "yes")]
 )
 
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "logical_binary_operator"
+	 [(zero_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))
+	  (match_operator:SI 9 "logical_binary_operator"
+	   [(lshiftrt:SI (match_operand:SI 5 "s_register_operand" "")
+			 (match_operand:SI 6 "const_int_operand" ""))
+	    (match_operand:SI 7 "s_register_operand" "")])]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM
+   && GET_CODE (operands[1]) == GET_CODE (operands[9])
+   && INTVAL (operands[3]) == 32 - INTVAL (operands[6])"
+  [(set (match_dup 8)
+	(match_op_dup 1
+	 [(ashift:SI (match_dup 2) (match_dup 4))
+	  (match_dup 5)]))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(lshiftrt:SI (match_dup 8) (match_dup 6))
+	  (match_dup 7)]))]
+  "
+  operands[4] = GEN_INT (32 - (INTVAL (operands[3]) + INTVAL (operands[4])));
+")
+
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "logical_binary_operator"
+	 [(match_operator:SI 9 "logical_binary_operator"
+	   [(lshiftrt:SI (match_operand:SI 5 "s_register_operand" "")
+			 (match_operand:SI 6 "const_int_operand" ""))
+	    (match_operand:SI 7 "s_register_operand" "")])
+	  (zero_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM
+   && GET_CODE (operands[1]) == GET_CODE (operands[9])
+   && INTVAL (operands[3]) == 32 - INTVAL (operands[6])"
+  [(set (match_dup 8)
+	(match_op_dup 1
+	 [(ashift:SI (match_dup 2) (match_dup 4))
+	  (match_dup 5)]))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(lshiftrt:SI (match_dup 8) (match_dup 6))
+	  (match_dup 7)]))]
+  "
+  operands[4] = GEN_INT (32 - (INTVAL (operands[3]) + INTVAL (operands[4])));
+")
+
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "logical_binary_operator"
+	 [(sign_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))
+	  (match_operator:SI 9 "logical_binary_operator"
+	   [(ashiftrt:SI (match_operand:SI 5 "s_register_operand" "")
+			 (match_operand:SI 6 "const_int_operand" ""))
+	    (match_operand:SI 7 "s_register_operand" "")])]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM
+   && GET_CODE (operands[1]) == GET_CODE (operands[9])
+   && INTVAL (operands[3]) == 32 - INTVAL (operands[6])"
+  [(set (match_dup 8)
+	(match_op_dup 1
+	 [(ashift:SI (match_dup 2) (match_dup 4))
+	  (match_dup 5)]))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(ashiftrt:SI (match_dup 8) (match_dup 6))
+	  (match_dup 7)]))]
+  "
+  operands[4] = GEN_INT (32 - (INTVAL (operands[3]) + INTVAL (operands[4])));
+")
+
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "logical_binary_operator"
+	 [(match_operator:SI 9 "logical_binary_operator"
+	   [(ashiftrt:SI (match_operand:SI 5 "s_register_operand" "")
+			 (match_operand:SI 6 "const_int_operand" ""))
+	    (match_operand:SI 7 "s_register_operand" "")])
+	  (sign_extract:SI (match_operand:SI 2 "s_register_operand" "")
+			   (match_operand:SI 3 "const_int_operand" "")
+			   (match_operand:SI 4 "const_int_operand" ""))]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM
+   && GET_CODE (operands[1]) == GET_CODE (operands[9])
+   && INTVAL (operands[3]) == 32 - INTVAL (operands[6])"
+  [(set (match_dup 8)
+	(match_op_dup 1
+	 [(ashift:SI (match_dup 2) (match_dup 4))
+	  (match_dup 5)]))
+   (set (match_dup 0)
+	(match_op_dup 1
+	 [(ashiftrt:SI (match_dup 8) (match_dup 6))
+	  (match_dup 7)]))]
+  "
+  operands[4] = GEN_INT (32 - (INTVAL (operands[3]) + INTVAL (operands[4])));
+")
 
 
 ;; Minimum and maximum insns
@@ -3384,7 +3545,7 @@
 	(sign_extend:HI (match_operand:QI 1 "memory_operand"      "m")))]
   "TARGET_ARM && arm_arch4"
   "*
-  /* If the address is invalid, this will split the instruction into two. */
+  /* If the address is invalid, this will split the instruction into two.  */
   if (bad_signed_byte_operand (operands[1], VOIDmode))
     return \"#\";
   return \"ldr%?sb\\t%0, %1\";
@@ -3420,7 +3581,7 @@
 	XEXP (operands[2], 0) = plus_constant (operands[3], low);
 	operands[1] = plus_constant (XEXP (operands[1], 0), offset - low);
       }
-    /* Ensure the sum is in correct canonical form */
+    /* Ensure the sum is in correct canonical form.  */
     else if (GET_CODE (operands[1]) == PLUS
 	     && GET_CODE (XEXP (operands[1], 1)) != CONST_INT
 	     && !s_register_operand (XEXP (operands[1], 1), VOIDmode))
@@ -3482,7 +3643,7 @@
 	(sign_extend:SI (match_operand:QI 1 "memory_operand"      "m")))]
   "TARGET_ARM && arm_arch4"
   "*
-  /* If the address is invalid, this will split the instruction into two. */
+  /* If the address is invalid, this will split the instruction into two.  */
   if (bad_signed_byte_operand (operands[1], VOIDmode))
     return \"#\";
   return \"ldr%?sb\\t%0, %1\";
@@ -3517,7 +3678,7 @@
 	XEXP (operands[2], 0) = plus_constant (operands[0], low);
 	operands[1] = plus_constant (XEXP (operands[1], 0), offset - low);
       }
-    /* Ensure the sum is in correct canonical form */
+    /* Ensure the sum is in correct canonical form.  */
     else if (GET_CODE (operands[1]) == PLUS
 	     && GET_CODE (XEXP (operands[1], 1)) != CONST_INT
 	     && !s_register_operand (XEXP (operands[1], 1), VOIDmode))
@@ -3757,7 +3918,7 @@
   "
   if (TARGET_ARM)
     {
-      /* Everything except mem = const or mem = mem can be done easily */
+      /* Everything except mem = const or mem = mem can be done easily.  */
       if (GET_CODE (operands[0]) == MEM)
         operands[1] = force_reg (SImode, operands[1]);
       if (GET_CODE (operands[1]) == CONST_INT
@@ -3771,7 +3932,7 @@
           DONE;
         }
     }
-  else /* TARGET_THUMB.... */
+  else /* TARGET_THUMB....  */
     {
       if (!no_new_pseudos)
         {
@@ -4258,7 +4419,7 @@
 	       }
 	   }
         }
-      /* Handle loading a large integer during reload */
+      /* Handle loading a large integer during reload.  */
       else if (GET_CODE (operands[1]) == CONST_INT
 	       && !const_ok_for_arm (INTVAL (operands[1]))
 	       && !const_ok_for_arm (~INTVAL (operands[1])))
@@ -4302,7 +4463,7 @@
 	      = replace_equiv_address (operands[1],
 				       copy_to_reg (XEXP (operands[1], 0)));
         }
-      /* Handle loading a large integer during reload */
+      /* Handle loading a large integer during reload.  */
       else if (GET_CODE (operands[1]) == CONST_INT
 	        && !CONST_OK_FOR_THUMB_LETTER (INTVAL (operands[1]), 'I'))
         {
@@ -4607,7 +4768,7 @@
 	       = replace_equiv_address (operands[1],
 					copy_to_reg (XEXP (operands[1], 0)));
         }
-      /* Handle loading a large integer during reload */
+      /* Handle loading a large integer during reload.  */
       else if (GET_CODE (operands[1]) == CONST_INT
 	       && !CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'I'))
         {
@@ -5006,7 +5167,7 @@
                      (use (match_operand:SI 2 "" ""))])]
   "TARGET_ARM"
   "
-  /* Support only fixed point registers */
+  /* Support only fixed point registers.  */
   if (GET_CODE (operands[2]) != CONST_INT
       || INTVAL (operands[2]) > 14
       || INTVAL (operands[2]) < 2
@@ -6862,7 +7023,7 @@
       FAIL;
 
     /* When compiling for SOFT_FLOAT, ensure both arms are in registers. 
-       Otherwise, ensure it is a valid FP add operand */
+       Otherwise, ensure it is a valid FP add operand.  */
     if ((!TARGET_HARD_FLOAT)
         || (!fpa_add_operand (operands[3], SFmode)))
       operands[3] = force_reg (SFmode, operands[3]);
@@ -7479,6 +7640,24 @@
    ]
 )
 
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(match_operator:SI 1 "shiftable_operator"
+	 [(match_operator:SI 2 "shiftable_operator"
+	   [(match_operator:SI 3 "shift_operator"
+	     [(match_operand:SI 4 "s_register_operand" "")
+	      (match_operand:SI 5 "reg_or_int_operand" "")])
+	    (match_operand:SI 6 "s_register_operand" "")])
+	  (match_operand:SI 7 "arm_rhs_operand" "")]))
+   (clobber (match_operand:SI 8 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 8)
+	(match_op_dup 2 [(match_op_dup 3 [(match_dup 4) (match_dup 5)])
+			 (match_dup 6)]))
+   (set (match_dup 0)
+	(match_op_dup 1 [(match_dup 8) (match_dup 7)]))]
+  "")
+
 (define_insn "*arith_shiftsi_compare0"
   [(set (reg:CC_NOOV CC_REGNUM)
         (compare:CC_NOOV (match_operator:SI 1 "shiftable_operator"
@@ -7983,6 +8162,44 @@
   [(set_attr "conds" "clob")
    (set_attr "length" "20")])
 
+(define_split
+  [(set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV (ior:SI
+			  (and:SI (match_operand:SI 0 "s_register_operand" "")
+				  (const_int 1))
+			  (match_operator:SI 1 "comparison_operator"
+			   [(match_operand:SI 2 "s_register_operand" "")
+			    (match_operand:SI 3 "arm_add_operand" "")]))
+			 (const_int 0)))
+   (clobber (match_operand:SI 4 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 4)
+	(ior:SI (match_op_dup 1 [(match_dup 2) (match_dup 3)])
+		(match_dup 0)))
+   (set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV (and:SI (match_dup 4) (const_int 1))
+			 (const_int 0)))]
+  "")
+
+(define_split
+  [(set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV (ior:SI
+			  (match_operator:SI 1 "comparison_operator"
+			   [(match_operand:SI 2 "s_register_operand" "")
+			    (match_operand:SI 3 "arm_add_operand" "")])
+			  (and:SI (match_operand:SI 0 "s_register_operand" "")
+				  (const_int 1)))
+			 (const_int 0)))
+   (clobber (match_operand:SI 4 "s_register_operand" ""))]
+  "TARGET_ARM"
+  [(set (match_dup 4)
+	(ior:SI (match_op_dup 1 [(match_dup 2) (match_dup 3)])
+		(match_dup 0)))
+   (set (reg:CC_NOOV CC_REGNUM)
+	(compare:CC_NOOV (and:SI (match_dup 4) (const_int 1))
+			 (const_int 0)))]
+  "")
+
 (define_insn "*negscc"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(neg:SI (match_operator 3 "arm_comparison_operator"
@@ -8035,7 +8252,7 @@
 	  return \"bics\\t%0, %2, %3, asr #32\;movcs\\t%0, %1\";
 	}
       /* The only case that falls through to here is when both ops 1 & 2
-	 are constants */
+	 are constants.  */
     }
 
   if (GET_CODE (operands[5]) == GE
@@ -8054,7 +8271,7 @@
 	  return \"ands\\t%0, %2, %3, asr #32\;movcc\\t%0, %1\";
 	}
       /* The only case that falls through to here is when both ops 1 & 2
-	 are constants */
+	 are constants.  */
     }
   if (GET_CODE (operands[4]) == CONST_INT
       && !const_ok_for_arm (INTVAL (operands[4])))
@@ -8191,7 +8408,7 @@
   "*
   /* If we have an operation where (op x 0) is the identity operation and
      the conditional operator is LT or GE and we are comparing against zero and
-     everything is in registers then we can do this in two instructions */
+     everything is in registers then we can do this in two instructions.  */
   if (operands[3] == const0_rtx
       && GET_CODE (operands[7]) != AND
       && GET_CODE (operands[5]) == REG

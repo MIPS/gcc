@@ -158,33 +158,6 @@ grok_method_quals (tree ctype, tree function, tree quals)
   return this_quals;
 }
 
-/* Warn when -fexternal-templates is used and #pragma
-   interface/implementation is not used all the times it should be,
-   inform the user.  */
-
-void
-warn_if_unknown_interface (tree decl)
-{
-  static int already_warned = 0;
-  if (already_warned++)
-    return;
-
-  if (flag_alt_external_templates)
-    {
-      tree til = tinst_for_decl ();
-      location_t saved_loc = input_location;
-
-      if (til)
-	input_location = *EXPR_LOCUS (til);
-      warning ("template `%#D' instantiated in file without #pragma interface",
-	       decl);
-      input_location = saved_loc;
-    }
-  else
-    cp_warning_at ("template `%#D' defined in file without #pragma interface",
-		   decl);
-}
-
 /* A subroutine of the parser, to handle a component list.  */
 
 void
@@ -621,12 +594,20 @@ check_java_method (tree method)
   bool jerr = false;
   tree arg_types = TYPE_ARG_TYPES (TREE_TYPE (method));
   tree ret_type = TREE_TYPE (TREE_TYPE (method));
+
   if (!acceptable_java_type (ret_type))
     {
       error ("Java method '%D' has non-Java return type `%T'",
 		method, ret_type);
       jerr = true;
     }
+
+  arg_types = TREE_CHAIN (arg_types);
+  if (DECL_HAS_IN_CHARGE_PARM_P (method))
+    arg_types = TREE_CHAIN (arg_types);
+  if (DECL_HAS_VTT_PARM_P (method))
+    arg_types = TREE_CHAIN (arg_types);
+  
   for (; arg_types != NULL_TREE; arg_types = TREE_CHAIN (arg_types))
     {
       tree type = TREE_VALUE (arg_types);
@@ -873,10 +854,8 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
     init = NULL_TREE;
 
   value = grokdeclarator (declarator, declspecs, FIELD, init != 0, &attrlist);
-  if (! value || value == error_mark_node)
+  if (! value || error_operand_p (value))
     /* friend or constructor went bad.  */
-    return value;
-  if (TREE_TYPE (value) == error_mark_node)
     return error_mark_node;
 
   if (TREE_CODE (value) == TYPE_DECL && init)
@@ -972,7 +951,11 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 
   if (processing_template_decl
       && (TREE_CODE (value) == VAR_DECL || TREE_CODE (value) == FUNCTION_DECL))
-    value = push_template_decl (value);
+    {
+      value = push_template_decl (value);
+      if (error_operand_p (value))
+	return error_mark_node;
+    }
 
   if (attrlist)
     cplus_decl_attributes (&value, attrlist, 0);
@@ -1026,8 +1009,7 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 tree
 grokbitfield (tree declarator, tree declspecs, tree width)
 {
-  register tree value = grokdeclarator (declarator, declspecs, BITFIELD,
-					0, NULL);
+  tree value = grokdeclarator (declarator, declspecs, BITFIELD, 0, NULL);
 
   if (! value) return NULL_TREE; /* friends went bad.  */
 
@@ -1296,12 +1278,12 @@ coerce_new_type (tree type)
   {
     case 2:
       args = tree_cons (NULL_TREE, size_type_node, args);
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case 1:
       type = build_exception_variant
               (build_function_type (ptr_type_node, args),
                TYPE_RAISES_EXCEPTIONS (type));
-      /* FALLTHROUGH */
+      /* Fall through.  */
     default:;
   }
   return type;
@@ -1330,12 +1312,12 @@ coerce_delete_type (tree type)
   {
     case 2:
       args = tree_cons (NULL_TREE, ptr_type_node, args);
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case 1:
       type = build_exception_variant
               (build_function_type (void_type_node, args),
                TYPE_RAISES_EXCEPTIONS (type));
-      /* FALLTHROUGH */
+      /* Fall through.  */
     default:;
   }
 

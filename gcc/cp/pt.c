@@ -924,7 +924,7 @@ is_specialization_of_friend (tree decl, tree friend)
        };
 
      For this type of template friend, TEMPLATE_DEPTH below will be
-     non-zero.  To determine if DECL is a friend of FRIEND, we first
+     nonzero.  To determine if DECL is a friend of FRIEND, we first
      check if the enclosing class is a specialization of another.  */
 
   template_depth = template_class_depth (DECL_CONTEXT (friend));
@@ -974,7 +974,7 @@ is_specialization_of_friend (tree decl, tree friend)
 	    return 0;
 	  else if (is_template)
 	    {
-	      /* If both are templates, check template paramter list.  */
+	      /* If both are templates, check template parameter list.  */
 	      tree friend_parms
 		= tsubst_template_parms (DECL_TEMPLATE_PARMS (friend),
 					 args, tf_none);
@@ -2231,7 +2231,7 @@ process_template_parm (tree list, tree next)
       else
 	{
 	  t = make_aggr_type (TEMPLATE_TYPE_PARM);
-	  /* parm is either IDENTIFIER_NODE or NULL_TREE */
+	  /* parm is either IDENTIFIER_NODE or NULL_TREE.  */
 	  decl = build_decl (TYPE_DECL, parm, t);
 	}
         
@@ -3448,8 +3448,9 @@ convert_nontype_argument (tree type, tree expr)
 	if (expr == error_mark_node)
 	  return error_mark_node;
 
-	my_friendly_assert (same_type_p (type, TREE_TYPE (expr)),
-			    0);
+	if (!same_type_p (type, TREE_TYPE (expr)))
+	  return error_mark_node;
+
 	return expr;
       }
       break;
@@ -3896,7 +3897,7 @@ mangle_class_name_for_template (const char* name, tree parms, tree arglist)
 	      cat (IDENTIFIER_POINTER (DECL_NAME (arg)));
 	    }
 	  else
-	    /* Output the parameter declaration */
+	    /* Output the parameter declaration.  */
 	    cat (type_as_string (arg, TFF_CHASE_TYPEDEF));
 	  continue;
 	}
@@ -4492,19 +4493,7 @@ lookup_template_class (tree d1,
 	 is set up.  */
       if (TREE_CODE (t) != ENUMERAL_TYPE)
 	DECL_NAME (type_decl) = classtype_mangled_name (t);
-      if (!is_partial_instantiation)
-	{
-	  /* For backwards compatibility; code that uses
-	     -fexternal-templates expects looking up a template to
-	     instantiate it.  I think DDD still relies on this.
-	     (jason 8/20/1998) */
-	  if (TREE_CODE (t) != ENUMERAL_TYPE
-	      && flag_external_templates
-	      && CLASSTYPE_INTERFACE_KNOWN (TREE_TYPE (template))
-	      && ! CLASSTYPE_INTERFACE_ONLY (TREE_TYPE (template)))
-	    add_pending_template (t);
-	}
-      else
+      if (is_partial_instantiation)
 	/* If the type makes use of template parameters, the
 	   code that generates debugging information will crash.  */
 	DECL_IGNORED_P (TYPE_STUB_DECL (t)) = 1;
@@ -4637,7 +4626,7 @@ for_each_template_parm_r (tree* tp, int* walk_subtrees, void* d)
       break;
 
     case TEMPLATE_DECL:
-      /* A template template parameter is encountered */
+      /* A template template parameter is encountered.  */
       if (DECL_TEMPLATE_TEMPLATE_PARM_P (t)
 	  && for_each_template_parm (TREE_TYPE (t), fn, data, pfd->visited))
 	return error_mark_node;
@@ -4917,6 +4906,9 @@ tsubst_friend_function (tree decl, tree args)
      
      Then, in S<int>, template <class U> void f(int, U) is not an
      instantiation of anything.  */
+  if (new_friend == error_mark_node)
+    return error_mark_node;
+  
   DECL_USE_TEMPLATE (new_friend) = 0;
   if (TREE_CODE (decl) == TEMPLATE_DECL)
     {
@@ -5287,24 +5279,7 @@ instantiate_class_template (tree type)
 	args = inner_args;
     }
 
-  if (flag_external_templates)
-    {
-      if (flag_alt_external_templates)
-	{
-	  CLASSTYPE_INTERFACE_ONLY (type) = interface_only;
-	  SET_CLASSTYPE_INTERFACE_UNKNOWN_X (type, interface_unknown);
-	}
-      else
-	{
-	  CLASSTYPE_INTERFACE_ONLY (type) = CLASSTYPE_INTERFACE_ONLY (pattern);
-	  SET_CLASSTYPE_INTERFACE_UNKNOWN_X
-	    (type, CLASSTYPE_INTERFACE_UNKNOWN (pattern));
-	}
-    }
-  else
-    {
-      SET_CLASSTYPE_INTERFACE_UNKNOWN (type);
-    }
+  SET_CLASSTYPE_INTERFACE_UNKNOWN (type);
 
   /* Set the input location to the template definition. This is needed
      if tsubsting causes an error.  */
@@ -5763,7 +5738,7 @@ tsubst_aggr_type (tree t,
       if (TYPE_PTRMEMFUNC_P (t))
 	return tsubst (TYPE_PTRMEMFUNC_FN_TYPE (t), args, complain, in_decl);
 
-      /* else fall through */
+      /* Else fall through.  */
     case ENUMERAL_TYPE:
     case UNION_TYPE:
       if (TYPE_TEMPLATE_INFO (t))
@@ -6700,7 +6675,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		else if (TREE_CODE (t) == BOUND_TEMPLATE_TEMPLATE_PARM)
 		  {
 		    /* We are processing a type constructed from
-		       a template template parameter */
+		       a template template parameter.  */
 		    tree argvec = tsubst (TYPE_TI_ARGS (t),
 					  args, complain, in_decl);
 		    if (argvec == error_mark_node)
@@ -8060,7 +8035,7 @@ tsubst_copy_and_build (tree t,
 	tree decl;
 	cp_id_kind idk;
 	tree qualifying_class;
-	bool non_constant_expression_p;
+	bool non_integral_constant_expression_p;
 	const char *error_msg;
 
 	if (IDENTIFIER_TYPENAME_P (t))
@@ -8080,9 +8055,9 @@ tsubst_copy_and_build (tree t,
 	decl = finish_id_expression (t, decl, NULL_TREE,
 				     &idk,
 				     &qualifying_class,
-				     /*constant_expression_p=*/false,
-				     /*allow_non_constant_expression_p=*/false,
-				     &non_constant_expression_p,
+				     /*integral_constant_expression_p=*/false,
+				     /*allow_non_integral_constant_expression_p=*/false,
+				     &non_integral_constant_expression_p,
 				     &error_msg);
 	if (error_msg)
 	  error (error_msg);
@@ -8635,7 +8610,7 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
      deferring all checks until we have the FUNCTION_DECL.  */
   push_deferring_access_checks (dk_deferred);
 
-  /* substitute template parameters */
+  /* Substitute template parameters.  */
   fndecl = tsubst (DECL_TEMPLATE_RESULT (gen_tmpl),
 		   targ_ptr, complain, gen_tmpl);
 
@@ -8649,9 +8624,6 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
   /* The DECL_TI_TEMPLATE should always be the immediate parent
      template, not the most general template.  */
   DECL_TI_TEMPLATE (fndecl) = tmpl;
-
-  if (flag_external_templates)
-    add_pending_template (fndecl);
 
   /* If we've just instantiated the main entry point for a function,
      instantiate all the alternate entry points as well.  We do this
@@ -9063,7 +9035,7 @@ type_unification_real (tree tparms,
      are present, and the parm list isn't variadic.  */
   if (args && args != void_list_node && parms == void_list_node)
     return 1;
-  /* Fail if parms are left and they don't have default values.	 */
+  /* Fail if parms are left and they don't have default values.  */
   if (parms
       && parms != void_list_node
       && TREE_PURPOSE (parms) == NULL_TREE)
@@ -10001,7 +9973,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 
 	  return unify (tparms, targs, t1, t, strict);
 	}
-      /* else fall through */
+      /* Else fall through.  */
 
     default:
       if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (parm))))
@@ -10537,9 +10509,6 @@ do_decl_instantiation (tree decl, tree storage)
       return;
     }
 
-  if (flag_external_templates)
-    return;
-
   if (storage == NULL_TREE)
     ;
   else if (storage == ridpointers[(int) RID_EXTERN])
@@ -10607,11 +10576,6 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
     }
 
   complete_type (t);
-
-  /* With -fexternal-templates, explicit instantiations are treated the same
-     as implicit ones.  */
-  if (flag_external_templates)
-    return;
 
   if (!COMPLETE_TYPE_P (t))
     {
@@ -10995,22 +10959,6 @@ instantiate_decl (tree d, int defer_ok)
       else
 	repo_template_used (d);
 
-      if (flag_external_templates && ! DECL_INTERFACE_KNOWN (d))
-	{
-	  if (flag_alt_external_templates)
-	    {
-	      if (interface_unknown)
-		warn_if_unknown_interface (d);
-	    }
-	  else if (DECL_INTERFACE_KNOWN (code_pattern))
-	    {
-	      DECL_INTERFACE_KNOWN (d) = 1;
-	      DECL_NOT_REALLY_EXTERN (d) = ! DECL_EXTERNAL (code_pattern);
-	    }
-	  else
-	    warn_if_unknown_interface (code_pattern);
-	}
-
       if (at_eof)
 	import_export_decl (d);
     }
@@ -11122,10 +11070,20 @@ instantiate_decl (tree d, int defer_ok)
 	  /* Mark D as instantiated so that recursive calls to
 	     instantiate_decl do not try to instantiate it again.  */
 	  DECL_TEMPLATE_INSTANTIATED (d) = 1;
+	  /* This is done in analogous to `start_decl'.  It is
+	     required for correct access checking.  */
+	  push_nested_class (DECL_CONTEXT (d));
 	  cp_finish_decl (d, 
 			  (!DECL_INITIALIZED_IN_CLASS_P (d) 
 			   ? DECL_INITIAL (d) : NULL_TREE),
 			  NULL_TREE, 0);
+	  /* Normally, pop_nested_class is called by cp_finish_decl
+	     above.  But when instantiate_decl is triggered during
+	     instantiate_class_template processing, its DECL_CONTEXT
+	     is still not completed yet, and pop_nested_class isn't
+	     called.  */
+	  if (!COMPLETE_TYPE_P (DECL_CONTEXT (d)))
+	    pop_nested_class ();
 	}
     }
   else if (TREE_CODE (d) == FUNCTION_DECL)
@@ -11919,6 +11877,17 @@ any_dependent_template_arguments_p (tree args)
 bool
 dependent_template_p (tree tmpl)
 {
+  if (TREE_CODE (tmpl) == OVERLOAD)
+    {
+      while (tmpl)
+	{
+	  if (dependent_template_p (OVL_FUNCTION (tmpl)))
+	    return true;
+	  tmpl = OVL_CHAIN (tmpl);
+	}
+      return false;
+    }
+
   /* Template template parameters are dependent.  */
   if (DECL_TEMPLATE_TEMPLATE_PARM_P (tmpl)
       || TREE_CODE (tmpl) == TEMPLATE_TEMPLATE_PARM)

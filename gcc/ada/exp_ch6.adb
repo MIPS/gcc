@@ -547,8 +547,9 @@ package body Exp_Ch6 is
 
             Var := Make_Var (Expression (Actual));
 
-            Crep  := not Same_Representation
-                       (Etype (Formal), Etype (Expression (Actual)));
+            Crep := not Same_Representation
+                          (Etype (Formal), Etype (Expression (Actual)));
+
          else
             V_Typ := Etype (Actual);
             Var   := Make_Var (Actual);
@@ -1528,8 +1529,16 @@ package body Exp_Ch6 is
          if Validity_Checks_On then
             if Ekind (Formal) = E_In_Parameter
               and then Validity_Check_In_Params
-              and then Is_Entity_Name (Actual)
             then
+               --  If the actual is an indexed component of a packed
+               --  type, it has not been expanded yet. It will be
+               --  copied in the validity code that follows, and has
+               --  to be expanded appropriately, so reanalyze it.
+
+               if Nkind (Actual) = N_Indexed_Component then
+                  Set_Analyzed (Actual, False);
+               end if;
+
                Ensure_Valid (Actual);
 
             elsif Ekind (Formal) = E_In_Out_Parameter
@@ -1932,6 +1941,7 @@ package body Exp_Ch6 is
                Bod         : Node_Id;
                Must_Inline : Boolean := False;
                Spec        : constant Node_Id := Unit_Declaration_Node (Subp);
+               Scop        : constant Entity_Id := Scope (Subp);
 
             begin
                --  Verify that the body to inline has already been seen,
@@ -1942,6 +1952,26 @@ package body Exp_Ch6 is
                if No (Spec)
                  or else Nkind (Spec) /= N_Subprogram_Declaration
                  or else No (Body_To_Inline (Spec))
+               then
+                  Must_Inline := False;
+
+               --  If this an inherited function that returns a private
+               --  type, do not inline if the full view is an unconstrained
+               --  array, because such calls cannot be inlined.
+
+               elsif Present (Orig_Subp)
+                 and then Is_Array_Type (Etype (Orig_Subp))
+                 and then not Is_Constrained (Etype (Orig_Subp))
+               then
+                  Must_Inline := False;
+
+               --  If the subprogram comes from an instance in the same
+               --  unit, and the instance is not yet frozen, inlining might
+               --  trigger order-of-elaboration problems in gigi.
+
+               elsif Is_Generic_Instance (Scop)
+                 and then Present (Freeze_Node (Scop))
+                 and then not Analyzed (Freeze_Node (Scop))
                then
                   Must_Inline := False;
 
@@ -2522,7 +2552,8 @@ package body Exp_Ch6 is
             Temp_Typ := Etype (A);
          end if;
 
-         --  Comments needed here ???
+         --  If the actual is a simple name or a literal, no need to
+         --  create a temporary, object can be used directly.
 
          if (Is_Entity_Name (A)
               and then
@@ -2961,7 +2992,7 @@ package body Exp_Ch6 is
               Make_Integer_Literal (Loc,
                 Intval =>
                   Expr_Value
-                   (Expression (RTE (RE_Default_Secondary_Stack_Size))));
+                   (Constant_Value (RTE (RE_Default_Secondary_Stack_Size))));
          end if;
 
          Sec_Stack_Len := Convert_To (RTE (RE_Storage_Offset), Sec_Stack_Len);

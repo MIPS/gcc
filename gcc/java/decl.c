@@ -94,7 +94,7 @@ int current_pc;
 void
 indent (void)
 {
-  register int i;
+  int i;
 
   for (i = 0; i < binding_depth*2; i++)
     putc (' ', stderr);
@@ -435,7 +435,7 @@ create_primitive_vtable (const char *name)
 void
 java_init_decl_processing (void)
 {
-  register tree endlink;
+  tree endlink;
   tree field = NULL_TREE;
   tree t;
 
@@ -774,7 +774,7 @@ java_init_decl_processing (void)
   PUSH_FIELD (class_type_node, field, "idt", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "arrayclass", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "protectionDomain", ptr_type_node);
-  PUSH_FIELD (class_type_node, field, "signers", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "hack_signers", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "chain", ptr_type_node);
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
@@ -1012,7 +1012,7 @@ java_init_decl_processing (void)
 tree
 lookup_name (tree name)
 {
-  register tree val;
+  tree val;
   if (current_binding_level != global_binding_level
       && IDENTIFIER_LOCAL_VALUE (name))
     val = IDENTIFIER_LOCAL_VALUE (name);
@@ -1027,7 +1027,7 @@ lookup_name (tree name)
 static tree
 lookup_name_current_level (tree name)
 {
-  register tree t;
+  tree t;
 
   if (current_binding_level == global_binding_level)
     return IDENTIFIER_GLOBAL_VALUE (name);
@@ -1047,8 +1047,8 @@ lookup_name_current_level (tree name)
 void
 push_labeled_block (tree lb)
 {
-  register tree name = DECL_NAME (LABELED_BLOCK_LABEL (lb));
-  register struct binding_level *b = current_binding_level;
+  tree name = DECL_NAME (LABELED_BLOCK_LABEL (lb));
+  struct binding_level *b = current_binding_level;
   tree oldlocal = IDENTIFIER_LOCAL_VALUE (name);
   if (oldlocal != 0)
       b->shadowed = tree_cons (name, oldlocal, b->shadowed);
@@ -1088,9 +1088,9 @@ pop_labeled_block (void)
 tree
 pushdecl (tree x)
 {
-  register tree t;
-  register tree name = DECL_NAME (x);
-  register struct binding_level *b = current_binding_level;
+  tree t;
+  tree name = DECL_NAME (x);
+  struct binding_level *b = current_binding_level;
   
   if (TREE_CODE (x) != TYPE_DECL)
     DECL_CONTEXT (x) = current_function_decl;
@@ -1205,8 +1205,8 @@ pushdecl_force_head (tree x)
 tree
 pushdecl_top_level (tree x)
 {
-  register tree t;
-  register struct binding_level *b = current_binding_level;
+  tree t;
+  struct binding_level *b = current_binding_level;
 
   current_binding_level = global_binding_level;
   t = pushdecl (x);
@@ -1245,7 +1245,7 @@ make_binding_level (void)
 void
 pushlevel (int unused ATTRIBUTE_UNUSED)
 {
-  register struct binding_level *newlevel = NULL_BINDING_LEVEL;
+  struct binding_level *newlevel = NULL_BINDING_LEVEL;
 
 #if 0
   /* If this is the top level of a function,
@@ -1301,7 +1301,7 @@ pushlevel (int unused ATTRIBUTE_UNUSED)
 tree
 poplevel (int keep, int reverse, int functionbody)
 {
-  register tree link;
+  tree link;
   /* The chain of decls was accumulated in reverse order.
      Put it into forward order, just for cleanliness.  */
   tree decls;
@@ -1484,7 +1484,7 @@ poplevel (int keep, int reverse, int functionbody)
 #if 0
       for (link = named_labels; link; link = TREE_CHAIN (link))
 	{
-	  register tree label = TREE_VALUE (link);
+	  tree label = TREE_VALUE (link);
 
 	  if (DECL_INITIAL (label) == 0)
 	    {
@@ -1507,7 +1507,7 @@ poplevel (int keep, int reverse, int functionbody)
   /* Pop the current level, and free the structure for reuse.  */
 
   {
-    register struct binding_level *level = current_binding_level;
+    struct binding_level *level = current_binding_level;
     current_binding_level = current_binding_level->level_chain;
 
     level->level_chain = free_binding_level;

@@ -212,8 +212,8 @@ struct bb_ann_d;
 struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")))
 {
   /* The first and last insns of the block.  */
-  rtx head;
-  rtx end;
+  rtx head_;
+  rtx end_;
 
   /* Pointers to the first and last trees of the block.  */
   tree stmt_list;
@@ -345,8 +345,8 @@ extern struct obstack flow_obstack;
 
 /* Stuff for recording basic block info.  */
 
-#define BLOCK_HEAD(B)      (BASIC_BLOCK (B)->head)
-#define BLOCK_END(B)       (BASIC_BLOCK (B)->end)
+#define BB_HEAD(B)      (B)->head_
+#define BB_END(B)       (B)->end_
 
 /* Special block numbers [markers] for entry and exit.  */
 #define ENTRY_BLOCK (-1)
@@ -500,6 +500,8 @@ enum update_life_extent
 #define PROP_AUTOINC		64	/* Create autoinc mem references.  */
 #define PROP_EQUAL_NOTES	128	/* Take into account REG_EQUAL notes.  */
 #define PROP_SCAN_DEAD_STORES	256	/* Scan for dead code.  */
+#define PROP_ASM_SCAN		512	/* Internal flag used within flow.c
+					   to flag analysis of asms.  */
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
@@ -636,20 +638,14 @@ enum cdi_direction
   CDI_POST_DOMINATORS
 };
 
-/* The possible states of the dominators, sorted from the worst (i.e. no
-   dominance information available) to the best.  */
-
 enum dom_state
 {
   DOM_NONE,		/* Not computed at all.  */
-  DOM_CONS_OK,		/* The data is conservatively OK, i.e. if it says
-			   you that A dominates B, it indeed does.  */
-  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not
-			   usable.  */
+  DOM_CONS_OK,		/* The data is conservatively OK, i.e. if it says you that A dominates B,
+			   it indeed does.  */
+  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
   DOM_OK		/* Everything is ok.  */
 };
-
-/* Current state of the dominators and postdominators.  */
 
 extern enum dom_state dom_computed[2];
 

@@ -1254,6 +1254,9 @@ parse_output_constraint (const char **constraint_p, int operand_num,
 	break;
       }
 
+  if (*is_inout && !*allows_reg)
+    warning ("read-write constraint does not allow a register");
+
   return true;
 }
 
@@ -1269,6 +1272,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
   const char *orig_constraint = constraint;
   size_t c_len = strlen (constraint);
   size_t j;
+  bool saw_match = false;
 
   /* Assume the constraint doesn't allow the use of either
      a register or memory.  */
@@ -1319,6 +1323,8 @@ parse_input_constraint (const char **constraint_p, int input_num,
 	{
 	  char *end;
 	  unsigned long match;
+
+	  saw_match = true;
 
 	  match = strtoul (constraint + j, &end, 10);
 	  if (match >= (unsigned long) noutputs)
@@ -1383,6 +1389,9 @@ parse_input_constraint (const char **constraint_p, int input_num,
 #endif
 	break;
       }
+
+  if (saw_match && !*allows_reg)
+    warning ("matching constraint does not allow a register");
 
   return true;
 }
@@ -2942,6 +2951,26 @@ expand_null_return (void)
   expand_null_return_1 (last_insn);
 }
 
+/* Generate RTL to return directly from the current function.
+   (That is, we bypass any return value.)  */
+
+void
+expand_naked_return (void)
+{
+  rtx last_insn, end_label;
+
+  last_insn = get_last_insn ();
+  end_label = naked_return_label;
+
+  clear_pending_stack_adjust ();
+  do_pending_stack_adjust ();
+  clear_last_expr ();
+
+  if (end_label == 0)
+    end_label = naked_return_label = gen_label_rtx ();
+  expand_goto_internal (NULL_TREE, end_label, last_insn);
+}
+
 /* Try to guess whether the value of return means error code.  */
 static enum br_predictor
 return_prediction (rtx val)
@@ -3592,6 +3621,14 @@ expand_nl_handler_label (rtx slot, rtx before_insn)
 static void
 expand_nl_goto_receiver (void)
 {
+    /* Clobber the FP when we get here, so we have to make sure it's
+     marked as used by this function.  */
+  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+
+  /* Mark the static chain as clobbered here so life information
+     doesn't get messed up for it.  */
+  emit_insn (gen_rtx_CLOBBER (VOIDmode, static_chain_rtx));
+
 #ifdef HAVE_nonlocal_goto
   if (! HAVE_nonlocal_goto)
 #endif
@@ -3640,6 +3677,13 @@ expand_nl_goto_receiver (void)
   if (HAVE_nonlocal_goto_receiver)
     emit_insn (gen_nonlocal_goto_receiver ());
 #endif
+
+  /* @@@ This is a kludge.  Not all machine descriptions define a blockage
+     insn, but we must not allow the code we just generated to be reordered
+     by scheduling.  Specifically, the update of the frame pointer must
+     happen immediately, not later.  So emit an ASM_INPUT to act as blockage
+     insn.  */
+  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 }
 
 /* Make handlers for nonlocal gotos taking place in the function calls in

@@ -4220,7 +4220,7 @@ get_unwidened (tree op, tree for_type)
 	 The resulting extension to its nominal type (a fullword type)
 	 must fit the same conditions as for other extensions.  */
 
-      if (innerprec < TYPE_PRECISION (TREE_TYPE (op))
+      if (INT_CST_LT_UNSIGNED (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (op)))
 	  && (for_type || ! DECL_BIT_FIELD (TREE_OPERAND (op, 1)))
 	  && (! uns || final_prec <= innerprec || unsignedp)
 	  && type != 0)
@@ -5134,6 +5134,11 @@ initializer_zerop (tree init)
 	    && ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (TREE_IMAGPART (init))));
     case CONSTRUCTOR:
       {
+	/* Set is empty if it has no elements.  */
+        if ((TREE_CODE (TREE_TYPE (init)) == SET_TYPE)
+             && CONSTRUCTOR_ELTS (init))
+	  return false;
+
 	if (AGGREGATE_TYPE_P (TREE_TYPE (init)))
 	  {
 	    tree aggr_init = CONSTRUCTOR_ELTS (init);

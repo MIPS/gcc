@@ -170,6 +170,12 @@ CC_STATUS cc_prev_status;
 
 char regs_ever_live[FIRST_PSEUDO_REGISTER];
 
+/* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
+   Unlike regs_ever_live, elements of this array corresponding to
+   eliminable regs like the frame pointer are set if an asm sets them.  */
+
+char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
+
 /* Nonzero means current function must be given a frame pointer.
    Initialized in function.c to 0.  Set only in reload1.c as per
    the needs of the function.  */
@@ -667,7 +673,7 @@ compute_alignments (void)
 
   FOR_EACH_BB (bb)
     {
-      rtx label = bb->head;
+      rtx label = BB_HEAD (bb);
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
 
@@ -1834,10 +1840,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       if (prescan > 0)
 	break;
 
-#ifdef FINAL_PRESCAN_LABEL
-      FINAL_PRESCAN_INSN (insn, NULL, 0);
-#endif
-
       if (LABEL_NAME (insn))
 	(*debug_hooks->label) (insn);
 
@@ -1905,7 +1907,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	/* An INSN, JUMP_INSN or CALL_INSN.
 	   First check for special kinds that recog doesn't recognize.  */
 
-	if (GET_CODE (body) == USE /* These are just declarations */
+	if (GET_CODE (body) == USE /* These are just declarations.  */
 	    || GET_CODE (body) == CLOBBER)
 	  break;
 

@@ -769,7 +769,7 @@ loop_delete_branch_edge (edge e, int really_delete)
       if (src->succ->succ_next->succ_next)
 	return false;
       /* And it must be just a simple branch.  */
-      if (!any_condjump_p (src->end))
+      if (!any_condjump_p (BB_END (src)))
 	return false;
 
       snd = e == src->succ ? src->succ->succ_next : src->succ;
@@ -1107,7 +1107,7 @@ create_preheader (struct loop *loop, int flags)
     insn = PREV_INSN (insn);
   else
     insn = get_last_insn ();
-  if (insn == loop->header->end)
+  if (insn == BB_END (loop->header))
     {
       /* Split_block would not split block after its end.  */
       emit_note_after (NOTE_INSN_DELETED, insn);
@@ -1223,7 +1223,7 @@ loop_split_edge_with (edge e, rtx insns)
     }
 
   if (insns)
-    emit_insn_after (insns, new_bb->end);
+    emit_insn_after (insns, BB_END (new_bb));
 
   if (dest->loop_father->latch == src)
     dest->loop_father->latch = new_bb;
@@ -1283,7 +1283,7 @@ create_loop_notes (void)
 
 		  /* If loop starts with jump into it, place the note in
 		     front of the jump.  */
-		  insn = PREV_INSN (first[loop->num]->head);
+		  insn = PREV_INSN (BB_HEAD (first[loop->num]));
 		  if (insn
 		      && GET_CODE (insn) == BARRIER)
 		    insn = PREV_INSN (insn);
@@ -1298,24 +1298,24 @@ create_loop_notes (void)
 			abort ();
 
 		      if (!flow_bb_inside_loop_p (loop, pbb->succ->dest))
-			insn = first[loop->num]->head;
+			insn = BB_HEAD (first[loop->num]);
 		    }
 		  else
-		    insn = first[loop->num]->head;
+		    insn = BB_HEAD (first[loop->num]);
 		    
-		  head = first[loop->num]->head;
+		  head = BB_HEAD (first[loop->num]);
 		  emit_note_before (NOTE_INSN_LOOP_BEG, insn);
-		  first[loop->num]->head = head;
+		  BB_HEAD (first[loop->num]) = head;
 
 		  /* Position the note correctly wrto barrier.  */
-		  insn = last[loop->num]->end;
+		  insn = BB_END (last[loop->num]);
 		  if (NEXT_INSN (insn)
 		      && GET_CODE (NEXT_INSN (insn)) == BARRIER)
 		    insn = NEXT_INSN (insn);
 		  
-		  end = last[loop->num]->end;
+		  end = BB_END (last[loop->num]);
 		  emit_note_after (NOTE_INSN_LOOP_END, insn);
-		  last[loop->num]->end = end;
+		  BB_END (last[loop->num]) = end;
 		}
 	    }
 	}

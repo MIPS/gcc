@@ -1765,7 +1765,7 @@ Saved %d bytes via prologue function (%d vs. %d) for function %s\n",
     }
 
   /* If no prolog save function is available, store the registers the old
-     fashioned way (one by one). */
+     fashioned way (one by one).  */
   if (!save_all)
     {
       /* Special case interrupt functions that save all registers for a call.  */
@@ -1786,7 +1786,7 @@ Saved %d bytes via prologue function (%d vs. %d) for function %s\n",
 	  else
 	    init_stack_alloc = actual_fsize;
 	      
-	  /* Save registers at the beginning of the stack frame */
+	  /* Save registers at the beginning of the stack frame.  */
 	  offset = init_stack_alloc - 4;
 	  
 	  if (init_stack_alloc)
@@ -2270,7 +2270,7 @@ v850_encode_data_area (tree decl, rtx symbol)
 {
   int flags;
 
-  /* Map explict sections into the appropriate attribute */
+  /* Map explicit sections into the appropriate attribute */
   if (v850_get_data_area (decl) == DATA_AREA_NORMAL)
     {
       if (DECL_SECTION_NAME (decl))
@@ -2431,7 +2431,7 @@ construct_restore_jr (rtx op)
     
   stack_bytes = INTVAL (XEXP (SET_SRC (XVECEXP (op, 0, 1)), 1));
 
-  /* Each pop will remove 4 bytes from the stack... */
+  /* Each pop will remove 4 bytes from the stack....  */
   stack_bytes -= (count - 2) * 4;
 
   /* Make sure that the amount we are popping either 0 or 16 bytes.  */
@@ -2634,7 +2634,7 @@ construct_save_jarl (rtx op)
      registers.  */
   stack_bytes = INTVAL (XEXP (SET_SRC (XVECEXP (op, 0, 0)), 1));
 
-  /* Each push will put 4 bytes from the stack... */
+  /* Each push will put 4 bytes from the stack....  */
   stack_bytes += (count - (TARGET_LONG_CALLS ? 3 : 2)) * 4;
 
   /* Make sure that the amount we are popping either 0 or 16 bytes.  */
@@ -2721,7 +2721,7 @@ extern tree last_assemble_variable_decl;
 extern int size_directive_output;
 
 /* A version of asm_output_aligned_bss() that copes with the special
-   data areas of the v850. */
+   data areas of the v850.  */
 void
 v850_output_aligned_bss (FILE * file,
                          tree decl,
@@ -2858,7 +2858,7 @@ v850_insert_attributes (tree decl, tree * attr_ptr ATTRIBUTE_UNUSED )
 	kind = GHS_SECTION_KIND_TEXT;
       else
 	{
-	  /* First choose a section kind based on the data area of the decl. */
+	  /* First choose a section kind based on the data area of the decl.  */
 	  switch (v850_get_data_area (decl))
 	    {
 	    default:
@@ -2891,11 +2891,11 @@ v850_insert_attributes (tree decl, tree * attr_ptr ATTRIBUTE_UNUSED )
 	}
 
       /* Now, if the section kind has been explicitly renamed,
-         then attach a section attribute. */
+         then attach a section attribute.  */
       chosen_section = GHS_current_section_names [(int) kind];
 
       /* Otherwise, if this kind of section needs an explicit section
-         attribute, then also attach one. */
+         attribute, then also attach one.  */
       if (chosen_section == NULL)
         chosen_section = GHS_default_section_names [(int) kind];
 
@@ -3001,7 +3001,7 @@ construct_dispose_instruction (rtx op)
     
   stack_bytes = INTVAL (XEXP (SET_SRC (XVECEXP (op, 0, 1)), 1));
 
-  /* Each pop will remove 4 bytes from the stack... */
+  /* Each pop will remove 4 bytes from the stack....  */
   stack_bytes -= (count - 2) * 4;
 
   /* Make sure that the amount we are popping
@@ -3155,8 +3155,8 @@ pattern_is_ok_for_prepare (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 	return 0;
 
       /* If the register is being pushed somewhere other than the stack
-	 space just aquired by the first operand then abandon this quest.
-	 Note: the test is <= becuase both values are negative.	 */
+	 space just acquired by the first operand then abandon this quest.
+	 Note: the test is <= because both values are negative.	 */
       if (INTVAL (XEXP (plus, 1))
 	  <= INTVAL (XEXP (SET_SRC (XVECEXP (op, 0, 0)), 1)))
 	return 0;
