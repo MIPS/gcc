@@ -40,4 +40,26 @@ AC_SUBST([MAINT])dnl
 
 # Output: create a Makefile.
 AC_CONFIG_FILES([Makefile])
+
+AC_CANONICAL_SYSTEM
+
+AC_ARG_ENABLE(shared,
+[  --disable-shared        don't provide a shared libgnat],
+[ 
+  case $enable_shared in
+  yes | no) ;;
+  *)
+    enable_shared=no
+    IFS="${IFS=         }"; ac_save_ifs="$IFS"; IFS="${IFS}:,"
+    for pkg in $enableval; do
+      if test "$pkg" = "ada" || test "$pkg" = "libada"; then
+        enable_shared=yes
+      fi
+    done
+    IFS="$ac_save_ifs"
+    ;;
+  esac
+], [enable_shared=yes])
+AC_SUBST(enable_shared)
+
 AC_OUTPUT

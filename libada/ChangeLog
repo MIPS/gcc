@@ -1,7 +1,15 @@
+2003-10-27  Arnaud Charlet  <charlet@act-europe.fr>
+
+	PR ada/6637, ada/5911
+	* configure.in: Add support for --enable/disable-shared
+	* Makefile.in: Add initial, simple support for gnatlib/gnattools
+	for native and cross configurations.
+	* configure: Regenerate
+
 2003-10-23  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* configure.in: Make --enable-maintainer-mode work.
-	* configure: Regnerate.
+	* configure: Regenerate.
 
 	* Makefile.in, configure.in: New files.
 	* configure: Generate.

@@ -21,56 +21,64 @@ all: gnatlib gnattools
 # Standard autoconf-set variables.
 SHELL = @SHELL@
 srcdir = @srcdir@
+build = @build@
+target = @target@
+enable_shared = @enable_shared@
 
 # Nonstandard autoconf-set variables.
 
+FLAGS_TO_PASS =
+
+GNATLIB = gnatlib
+
+ifeq ($(build),$(target))
+  GNATTOOLS = gnattools
+
+  ifeq ($(enable_shared),yes)
+    GNATLIB = gnatlib-shared
+  endif
+
+else
+  GNATTOOLS = cross-gnattools ada.all.cross
+endif
+
 # Rules to build gnatlib.
 gnatlib:
-	exit 0
+	$(MAKE) -C ../../gcc $(FLAGS_TO_PASS) $(GNATLIB)
 
 # Rules to build gnattools.
 gnattools:
-	exit 0
+	$(MAKE) -C ../../gcc $(FLAGS_TO_PASS) $(GNATTOOLS)
 
 # Check uninstalled version.
 check:
-	exit 0
 
 # Check installed version.
 installcheck:
-	exit 0
 
 # Build info (none here).
 info:
-	exit 0
 
 # Build DVI (none here).
 dvi:
-	exit 0
 
 # Build TAGS (none here).
 TAGS:
-	exit 0
 
 # Installation rules.
 install:
-	exit 0
 
 install-info:
-	exit 0
 
 # Cleaning rules.
 mostlyclean:
-	exit 0
 
 clean:
-	exit 0
 
 distclean:
-	exit 0
+	$(RM) Makefile config.status config.log
 
 maintainer-clean:
-	exit 0
 
 # Rules for rebuilding this Makefile.
 Makefile: $(srcdir)/Makefile.in config.status
