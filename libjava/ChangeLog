@@ -1,5 +1,10 @@
 2004-09-21  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/ComponentSampleModel.java: Add documentation.
+
+
+2004-09-21  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/ComponentSampleModel.java (constructor):
 	Initialize numBanks when figuring out the max bank index.
 
