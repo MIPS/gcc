@@ -199,6 +199,8 @@ Boston, MA 02111-1307, USA.  */
 
      ----------------------------------------------------------------------  */
 
+static bool is_union_based_ref		PARAMS ((tree));
+
 /* Validation of SIMPLE statements.  */
 
 /** {{{ is_simple_stmt ()
@@ -298,7 +300,7 @@ is_simple_stmt (t)
 	tree type = TREE_TYPE (TREE_TYPE (current_function_decl));
 	if (TREE_CODE (type) != VOID_TYPE
 	    && RETURN_EXPR (t))
-	  return is_simple_val (TREE_OPERAND (RETURN_EXPR (t), 1));
+	  return is_simple_rhs (TREE_OPERAND (RETURN_EXPR (t), 1));
 	else
 	  return 1;
       }
@@ -783,6 +785,54 @@ is_simple_val (t)
 
 /* }}} */
 
+/** {{{ is_simple_min_lvalue ()
+
+    Return true if T is a SIMPLE minimal lvalue, of the form
+
+    min_lval: ID | '(' '*' ID ')'
+
+    This never actually appears in the original SIMPLE grammar, but is
+    repeated in several places.  */
+
+int
+is_simple_min_lval (t)
+     tree t;
+{
+  if (t == NULL_TREE)
+    return 1;
+
+  return (is_simple_id (t)
+	  || (TREE_CODE (t) == INDIRECT_REF
+	      && is_simple_id (TREE_OPERAND (t, 0)))
+	  || is_union_based_ref (t));
+}
+
+/* }}} */
+
+/** {{{ is_union_based_ref ()
+
+    Returns true iff T is a compound lvalue expression involving a union.
+    We currently don't simplify such expressions because it confuses alias
+    analysis.  FIXME alias analysis should be smarter, and this should go
+    away.  gcc.c-torture/execute/990413-2.c breaks without this.  */
+
+static bool
+is_union_based_ref (t)
+     tree t;
+{
+  for (; TREE_CODE (t) == COMPONENT_REF || TREE_CODE (t) == ARRAY_REF;
+       t = TREE_OPERAND (t, 0))
+    {
+      if (TREE_CODE (t) == COMPONENT_REF
+	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
+	return 1;
+    }
+
+  return 0;
+}
+
+/* }}} */
+
 /** {{{ is_simple_arrayref ()
 
     Return nonzero if T is an array reference of the form:
@@ -797,18 +847,6 @@ is_simple_val (t)
 	      | reflist '[' val ']'  */
 
 int
-is_simple_arraybase (t)
-     tree t;
-{
-  if (t == NULL_TREE)
-    return 1;
-
-  return (is_simple_id (t)
-	  || (TREE_CODE (t) == INDIRECT_REF
-	      && is_simple_id (TREE_OPERAND (t, 0))));
-}
-
-int
 is_simple_arrayref (t)
      tree t;
 {
@@ -818,12 +856,16 @@ is_simple_arrayref (t)
   /* Allow arrays of complex types.  */
   if (TREE_CODE (t) == REALPART_EXPR
       || TREE_CODE (t) == IMAGPART_EXPR)
-    return is_simple_arrayref (TREE_OPERAND (t, 0));
+    t = TREE_OPERAND (t, 0);
 
-  return (TREE_CODE (t) == ARRAY_REF
-	  && (is_simple_arraybase (TREE_OPERAND (t, 0))
-	      || is_simple_arrayref (TREE_OPERAND (t, 0)))
-          && is_simple_val (TREE_OPERAND (t, 1)));
+  if (TREE_CODE (t) != ARRAY_REF)
+    return 0;
+
+  for (; TREE_CODE (t) == ARRAY_REF; t = TREE_OPERAND (t, 0))
+    if (! is_simple_val (TREE_OPERAND (t, 1)))
+      return 0;
+
+  return is_simple_min_lval (t);
 }
 
 /* }}} */
@@ -847,30 +889,14 @@ is_simple_compref (t)
   if (t == NULL_TREE)
     return 1;
 
-  return (TREE_CODE (t) == COMPONENT_REF
-	  && is_simple_compref_lhs (TREE_OPERAND (t, 0))
-	  && is_simple_id (TREE_OPERAND (t, 1)));
-}
+  if (TREE_CODE (t) != COMPONENT_REF)
+    return 0;
 
-/* }}} */
+  for (; TREE_CODE (t) == COMPONENT_REF; t = TREE_OPERAND (t, 0))
+    if (! is_simple_id (TREE_OPERAND (t, 1)))
+      abort ();
 
-/** {{{ is_simple_compref_lhs ()
-
-    Return nonzero if T is allowed on the left side of a component
-    reference.  */
-
-int
-is_simple_compref_lhs (t)
-     tree t;
-{
-  if (t == NULL_TREE)
-    return 1;
-
-  /* Allow ID, *ID or a SIMPLE component reference on the LHS.  */
-  return (is_simple_id (t)
-	  || (TREE_CODE (t) == INDIRECT_REF
-	      && is_simple_id (TREE_OPERAND (t, 0)))
-	  || is_simple_compref (t));
+  return is_simple_min_lval (t);
 }
 
 /* }}} */

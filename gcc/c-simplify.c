@@ -1157,15 +1157,14 @@ simplify_expr_common (expr_p, pre_p, post_p, simple_test_f, stmt, fallback)
   /* If it's sufficiently simple already, we're done.  Unless we are
      handling some post-effects internally; if that's the case, we need to
      copy into a temp before adding the post-effects to the tree.  */
-  if ((*simple_test_f) (*expr_p) && !internal_post)
+  if (!internal_post && (*simple_test_f) (*expr_p))
     return;
 
   /* Otherwise, we need to create a new temporary for the simplified
      expression.  */
 
-  if (fallback_lvalue && is_simple_varname (*expr_p)
-      /* We can't return an lvalue if we have an internal postqueue.  */
-      && !internal_post)
+  /* We can't return an lvalue if we have an internal postqueue.  */
+  if (fallback_lvalue && !internal_post && is_simple_varname (*expr_p))
     {
       /* An lvalue will do.  Take the address of the expression, store it
 	 in a temporary, and replace the expression with an INDIRECT_REF of
@@ -1303,7 +1302,7 @@ simplify_array_ref (expr_p, pre_p, post_p, stmt)
      Simplify the base, and then each of the dimensions from left to
      right.  */
 
-  simplify_lvalue_expr (p, pre_p, post_p, is_simple_arraybase, stmt);
+  simplify_lvalue_expr (p, pre_p, post_p, is_simple_min_lval, stmt);
 
   for (; VARRAY_ACTIVE_SIZE (dim_stack) > 0; VARRAY_POP (dim_stack))
     {
@@ -1414,7 +1413,7 @@ simplify_component_ref (expr_p, pre_p, post_p, stmt)
       abort ();
 
   /* Now we're down to the first bit that isn't a COMPONENT_REF.  */
-  simplify_expr_either (p, pre_p, post_p, is_simple_arraybase, stmt);
+  simplify_expr_either (p, pre_p, post_p, is_simple_min_lval, stmt);
 }
 
 /* }}} */
@@ -1643,7 +1642,7 @@ simplify_boolean_expr (expr_p, pre_p, stmt)
     abort ();
 
   /* First, make sure that our operands are truthvalues.  This should
-     already be the case, but let's be conservative.  */
+     already be the case, but they may have the wrong type.  */
   lhs = (*lang_hooks.truthvalue_conversion) (TREE_OPERAND (*expr_p, 0));
   rhs = (*lang_hooks.truthvalue_conversion) (TREE_OPERAND (*expr_p, 1));
 
@@ -2138,13 +2137,11 @@ get_initialized_tmp_var (val, pre_p, stmt)
      tree stmt;
 {
   tree t, mod;
-  tree post = NULL_TREE;
 
-  simplify_expr (&val, pre_p, &post, is_simple_rhs, stmt);
+  simplify_expr (&val, pre_p, NULL, is_simple_rhs, stmt);
   t = create_tmp_var (TREE_TYPE (val));
   mod = build_modify_expr (t, NOP_EXPR, val);
   add_tree (mod, pre_p);
-  add_tree (post, pre_p);
 
   return t;
 }

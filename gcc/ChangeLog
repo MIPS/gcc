@@ -1,5 +1,18 @@
 2002-06-10  Jason Merrill  <jason@redhat.com>
 
+	* tree-simple.c (is_union_based_ref): New fn.
+	(is_simple_min_lval): Use it.  Rename from is_simple_arraybase.
+	(is_simple_arrayref): Adjust.  Use loop instead of recursion.
+	(is_simple_compref): Likewise.
+	(is_simple_compref_lhs): Remove.
+	* tree-simple.h: Adjust.
+	* c-simplify.c (simplify_array_ref): Adjust.
+	(simplify_component_ref): Adjust.
+
+	* c-simplify.c (simplify_expr_common): Tweak ordering.
+	(get_initialized_tmp_var): Let simplify_expr handle post-effects.
+	* tree-simple.c (is_simple_stmt): Accept an rhs for a return expr.
+
 	* c-simplify.c (simplify_boolean_expr): Avoid redundant tests.
 	Give the temp the appropriate type for a boolean value, and
 	reconvert at the end.
