@@ -1,3 +1,13 @@
+2004-04-09  Jeff Law  <law@redhat.com>
+
+	* tree-into-ssa.c (insert_phi_nodes_for): Use passed in worklist
+	varray instead of allocated one for every variable we rewrite into
+	SSA form.
+	(insert_phi_nodes_1): Pass worklist varray from caller to
+	insert_phi_nodes_for.
+	(insert_phi_nodes): Allocate a worklist for insert_phi_nodes_for
+	and pass it to insert_phi_nodes_1.
+
 2004-04-08  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (nonzero_vars): Turn it into a bitmap.
