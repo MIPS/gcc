@@ -276,7 +276,11 @@ ra_print_rtx_object (file, x)
 		       fputs ("]", file);
 		   }
 		 else
-		   fprintf (file, "p%d", regno);
+		   {
+		     fprintf (file, "p%d", regno);
+		     if (SPILL_SLOT_P (regno))
+		       fprintf (file, "'");
+		   }
 		 break;
 	       }
       case SUBREG:
@@ -392,6 +396,8 @@ ra_print_rtx (file, x, with_pn)
 	  fprintf (file, " [%d uses] uid=(", LABEL_NUSES (x));
 	}
       fprintf (file, "%d", INSN_UID (x));
+      if (bitmap_bit_p (emitted_by_spill, INSN_UID (x)))
+	  fprintf (file, "`");
       if (with_pn)
 	fprintf (file, " %d %d", PREV_INSN (x) ? INSN_UID (PREV_INSN (x)) : 0,
 		 NEXT_INSN (x) ? INSN_UID (NEXT_INSN (x)) : 0);
@@ -938,7 +944,7 @@ dump_static_insn_cost (file, message, prefix)
   struct cost store = {0, 0};
   struct cost regcopy = {0, 0};
   struct cost selfcopy = {0, 0};
-  struct cost overall = {0, 0};
+  struct cost overall = {0, 0}; 
   basic_block bb;
 
   if (!file)
@@ -1067,6 +1073,21 @@ debug_web_conflicts (web)
 	     web->id, web->regno, web->add_hardregs,
 	     reg_class_names[web->regclass],
 	     web->num_freedom, web->num_conflicts);
+
+  if (web->num_aliased)
+    {
+      struct dlist *d;
+      fprintf (stderr, "   Coalescing target for:");
+
+      for (d = WEBS(COALESCED); d; d = d->next)
+	{
+	  struct web *a = alias (DLIST_WEB (d));
+	  if (a == web)
+	    fprintf (stderr, " %d(%d)", DLIST_WEB (d)->id,
+		     DLIST_WEB (d)->regno);
+	}
+      fprintf (stderr, "\n");
+    }
 
   for (def2 = 0; def2 < num_webs; def2++)
     if (TEST_BIT (igraph, igraph_index (web->id, def2)) && web->id != def2)

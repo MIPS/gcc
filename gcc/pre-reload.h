@@ -1,5 +1,5 @@
 /* Communication between reload.c, reload1.c, pre-reload.c and ra.c.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Denis Chertykov <denisc@overta.ru>
 
 This file is part of GNU CC.
@@ -100,7 +100,7 @@ struct ra_ref
   rtx insn;			/* insn which contain register rtx */
   int opno;			/* operand number in insn */
   rtx operand;			/* operand which contain register rtx */
-  rtx *opernad_loc;		/* *operand_loc = operand */
+  rtx *operand_loc;		/* *operand_loc = operand */
   enum ra_ref_type type;	/* type of operand */
   struct ra_ref *matches;	/* This reg must match  */
   struct ra_ref *matched;	/* This reg matched by  */
@@ -213,13 +213,18 @@ extern struct ra_info *ra_info_init    PARAMS ((int));
 extern void ra_info_free               PARAMS ((struct ra_info *));
 extern void debug_hard_reg_set         PARAMS ((HARD_REG_SET));
 extern void compare_ra_info            PARAMS ((struct ra_info *));
+extern int ra_check_constraints        PARAMS ((rtx));
+extern int ra_validate_change	       PARAMS ((rtx, rtx *, rtx, int));
+extern int ra_apply_change_group       PARAMS ((void));
+extern void ra_cancel_changes	       PARAMS ((int));
 
 struct df2ra
 {
   ra_ref **def2def;
   ra_ref **use2use;
 };
+extern struct df2ra df2ra;
 
 #define DF2RA(DF2RA, DF_REF) (*(DF_REF_REG_DEF_P (DF_REF)		\
-		         ? &(DF2RA).def2def[DF_REF_ID (DF_REF)]	\
+		         ? &(DF2RA).def2def[DF_REF_ID (DF_REF)]		\
 		         : &(DF2RA).use2use[DF_REF_ID (DF_REF)]))

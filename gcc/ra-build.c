@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>
 
@@ -31,6 +31,8 @@
 #include "df.h"
 #include "output.h"
 #include "ggc.h"
+#include "obstack.h"
+#include "pre-reload.h"
 #include "ra.h"
 
 /* This file is part of the graph coloring register alloctor.
@@ -118,7 +120,8 @@ static void free_bb_info PARAMS ((void));
 static void build_web_parts_and_conflicts PARAMS ((struct df *));
 static void select_regclass PARAMS ((void));
 static void detect_spanned_deaths PARAMS ((unsigned int *spanned_deaths));
-
+static void conflicts_early_clobbered PARAMS ((void));
+static void web_class PARAMS ((struct web*));
 
 /* A sbitmap of DF_REF_IDs of uses, which are live over an abnormal
    edge.  */
@@ -1076,8 +1079,9 @@ livethrough_conflicts_bb (bb)
     {
       if (INSN_P (insn))
 	{
-	  struct ra_insn_info info = insn_df[INSN_UID (insn)];
+	  struct ra_insn_info info;
 	  unsigned int n;
+	  info = insn_df[INSN_UID (insn)];
 	  for (n = 0; n < info.num_defs; n++)
 	    bitmap_set_bit (all_defs, DF_REF_ID (info.defs[n]));
 	  if (TEST_BIT (insns_with_deaths, INSN_UID (insn)))
@@ -2728,15 +2732,21 @@ detect_webs_set_in_cond_jump ()
 static void
 select_regclass ()
 {
-  struct dlist *d;
+  struct dlist *d, *d_next;
 
-  if (flag_ra_pre_reload)
-    web_class ();
-  
-  for (d = WEBS(INITIAL); d; d = d->next)
+  for (d = WEBS (INITIAL); d; d = d_next)
     {
       int i;
       struct web *web = DLIST_WEB (d);
+      struct web *supweb = web;
+      d_next = d->next;
+      if (flag_ra_pre_reload && web->type != PRECOLORED)
+	{
+	  web_class (web);
+	  if (WEBS (SPILLED))
+	    continue;
+	}
+      
       do
 	{
 	  unsigned int found_size = 0;
@@ -2746,9 +2756,11 @@ select_regclass ()
 	  
 	  if (flag_ra_pre_reload)
 	    {
-	      web->regclass = web_preferred_class (web);
-	      COPY_HARD_REG_SET (web->usable_regs,
-				 reg_class_contents [web->regclass]);
+	      if (web->parent_web)
+		{
+		  web->regclass = supweb->regclass;
+		  COPY_HARD_REG_SET (web->usable_regs, supweb->usable_regs);
+		}
 	    }
 	  else
 	    {
@@ -2862,6 +2874,11 @@ make_webs (df)
   /* And finally relate them to each other, meaning to record all possible
      conflicts between webs (see the comment there).  */
   conflicts_between_webs (df);
+  conflicts_early_clobbered ();
+  
+  if (WEBS (SPILLED))
+    return;
+  
   detect_remat_webs ();
   determine_web_costs ();
 }
@@ -3088,8 +3105,7 @@ handle_asm_insn (df, insn)
       else
 	{
 	  if (flag_ra_pre_reload)
-	    COPY_HARD_REG_SET (conflict,
-			       usable_regs [web_preferred_class (web)]);
+	    COPY_HARD_REG_SET (conflict, web->usable_regs);
 	  else
 	    {
 	      COPY_HARD_REG_SET (conflict, usable_regs
@@ -3131,8 +3147,6 @@ void
 build_i_graph (df)
      struct df *df;
 {
-  rtx insn;
-
   init_web_parts (df);
 
   sbitmap_zero (move_handled);
@@ -3148,11 +3162,19 @@ build_i_graph (df)
      connected web parts.  Collect all information and build the webs
      including all conflicts between webs (instead web parts).  */
   make_webs (df);
+  if (WEBS (SPILLED))
+    return;
+  
   moves_to_webs (df);
+#if 0
+ {
+  rtx insn;
 
   /* Look for additional constraints given by asms.  */
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     handle_asm_insn (df, insn);
+ }
+#endif
 }
 
 /* Allocates or reallocates most memory for the interference graph and
@@ -3590,6 +3612,114 @@ detect_spanned_deaths (spanned_deaths)
   sbitmap_free (live);
   sbitmap_free (rmw_web);
   sbitmap_free (defs_per_insn);
+}
+
+static void
+conflicts_early_clobbered ()
+{
+  rtx insn;
+  struct ra_insn_info info;
+  
+  for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
+    {
+      unsigned int n;
+      
+      if (!INSN_P (insn) || INSN_UID (insn) > insn_df_max_uid)
+	continue;
+      
+      info = insn_df[INSN_UID (insn)];
+
+      for (n = 0; n < info.num_defs; n++)
+	{
+	  ra_ref *rref;
+	  struct ref *dref = info.defs[n];
+	  rref = DF2RA (df2ra, dref);
+	  if (rref && RA_REF_CLOBBER_P (rref))
+	    {
+	      unsigned int i;
+	      struct web *web1 = def2web[DF_REF_ID (dref)];
+	      for (i = 0; i < info.num_uses; ++i)
+		{
+		  struct ref *uref = info.uses[i];
+		  struct web *web2 = use2web[DF_REF_ID (uref)];
+		  record_conflict (web1, web2);
+		}
+	    }
+	}
+    }
+}
+
+/* Select a reg_class for the WEB. Split the WEB if single reg_class
+   can't be selected.  */
+static void
+web_class (web)
+     struct web *web;
+{
+  unsigned int i, n, num_refs;
+  struct ref *dref;
+  struct ref **refs;
+  struct ra_ref *rref;
+  enum reg_class class;
+  int web_size;
+  int spilled_web = 0;
+  bitmap already_insn = NULL;
+
+  class = ALL_REGS;
+  for (n = 0, refs = web->uses, num_refs = web->num_uses;
+       n < 2;
+       refs = web->defs, num_refs = web->num_defs, n++)
+    for (i = 0; i < num_refs; i++)
+      {
+	dref = refs[i];
+	if (already_insn
+	    && bitmap_bit_p (already_insn, INSN_UID (DF_REF_INSN (dref))))
+	  continue;
+	rref = DF2RA (df2ra, dref);
+	if (rref)
+	  {
+	    int blocks;
+	    enum reg_class c = NO_REGS;
+
+	    if (reg_class_subset_p (rref->class, class))
+	      c = rref->class;
+	    else if (reg_class_subset_p (class, rref->class))
+	      c = class;
+	    
+	    if (c != NO_REGS)
+	      {
+		web_size = CLASS_MAX_NREGS (c, PSEUDO_REGNO_MODE (web->regno));
+		blocks = count_long_blocks (usable_regs[c], web_size);
+	      }
+	    else
+	      {
+		blocks = 0;
+		c = class;
+	      }
+	    if (!blocks)
+	      {
+		web_class_spill_ref (web, dref);
+		spilled_web = 1;
+		if (!already_insn)
+		  already_insn = BITMAP_XMALLOC ();
+		bitmap_set_bit (already_insn, INSN_UID (DF_REF_INSN (dref)));
+	      }
+	    else
+	      class = c;
+	  }
+      }
+  if (spilled_web)
+    {
+      remove_list (web->dlink, &WEBS(INITIAL));
+      put_web (web, SPILLED);
+    }
+  else
+    {
+      web->regclass = class;
+      COPY_HARD_REG_SET (web->usable_regs, usable_regs[class]);
+    }
+
+  if (already_insn)
+    BITMAP_XFREE (already_insn);
 }
 
 #include "gt-ra-build.h"

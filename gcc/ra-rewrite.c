@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -32,7 +32,9 @@
 #include "expr.h"
 #include "output.h"
 #include "except.h"
+#include "obstack.h"
 #include "ra.h"
+#include "pre-reload.h"
 
 /* This file is part of the graph coloring register allocator, and
    contains the functions to change the insn stream.  I.e. it adds
@@ -58,7 +60,7 @@ static void delete_overlapping_uses PARAMS ((rtx *, void *));
 static int slot_member_p PARAMS ((struct rtx_list *, rtx));
 static void insert_stores PARAMS ((bitmap));
 static int spill_same_color_p PARAMS ((struct web *, struct web *));
-static int is_partly_live_1 PARAMS ((sbitmap, struct web *));
+static unsigned int is_partly_live_1 PARAMS ((sbitmap, struct web *));
 static void update_spill_colors PARAMS ((HARD_REG_SET *, struct web *, int));
 static int spill_is_free PARAMS ((HARD_REG_SET *, struct web *));
 static void emit_loads PARAMS ((struct rewrite_info *, int, rtx));
@@ -68,11 +70,23 @@ static void reloads_to_loads PARAMS ((struct rewrite_info *, struct ref **,
 				      unsigned int, struct web **));
 static void rewrite_program2 PARAMS ((bitmap));
 static void mark_refs_for_checking PARAMS ((struct web *, bitmap));
-static void detect_web_parts_to_rebuild PARAMS ((void));
+void detect_web_parts_to_rebuild PARAMS ((void));
 static void delete_useless_defs PARAMS ((void));
 static void detect_non_changed_webs PARAMS ((void));
 static void reset_changed_flag PARAMS ((void));
+static void assign_stack_slots PARAMS ((void));
+static void assign_stack_slots_1 PARAMS ((void));
+static struct move * find_move PARAMS ((struct ref*));
+static void init_find_move PARAMS((void));
+static void mark_insn_refs_for_checking PARAMS ((struct ra_insn_info *,
+						 sbitmap , bitmap));
+static int coalesce_spill_slot PARAMS ((struct web *, struct ref*, rtx));
 
+/* Raw array for quick mapping INSN_UID to structure of a move.  */
+static struct move **insn2move;
+
+/* Bitmap used for tracking insns changed in spill pass.
+   Very similar to ra_modified_insns.  */
 bitmap last_changed_insns;
 
 /* For tracking some statistics, we count the number (and cost)
@@ -133,6 +147,12 @@ spill_coalescing (coalesce, spilled)
 	    s->is_coalesced = 1;
 	    t->is_coalesced = 1;
 	    merge_moves (s, t);
+	    
+	    /* Now merge the usable_regs together.  */
+	    s->use_my_regs = 1;
+	    AND_HARD_REG_SET (s->usable_regs, t->usable_regs);
+	    s->regclass = reg_class_subunion[s->regclass][t->regclass];
+	    
 	    for (wl = t->conflict_list; wl; wl = wl->next)
 	      {
 		struct web *pweb = wl->t;
@@ -326,17 +346,23 @@ allocate_spill_web (web)
   unsigned int total_size = MAX (inherent_size, 0);
   if (web->stack_slot)
     return;
-  if (0)
-    {
-      slot = assign_stack_local (PSEUDO_REGNO_MODE (regno), total_size,
-				 inherent_size == total_size ? 0 : -1);
-      RTX_UNCHANGING_P (slot) = RTX_UNCHANGING_P (regno_reg_rtx[regno]);
-      set_mem_alias_set (slot, new_alias_set ());
-    }
-  else
-    slot = gen_reg_rtx (PSEUDO_REGNO_MODE (regno));
-  web->stack_slot = slot;
+
+/*   GO_IF_HARD_REG_EQUAL (usable_regs[GENERAL_REGS], web->usable_regs, */
+/* 			alloc_slot); */
+  slot = gen_reg_rtx (PSEUDO_REGNO_MODE (regno));
   bitmap_set_bit (spill_slot_regs, REGNO (slot));
+  web->stack_slot = slot;
+  return;
+  /* If we trying to spill a web which needed in GENERAL_REGS then we don't
+     needed in remaining register. So, allocate the stack slot.  */
+  /*
+ alloc_slot:
+  slot = assign_stack_local (PSEUDO_REGNO_MODE (regno), total_size,
+			     inherent_size == total_size ? 0 : -1);
+  RTX_UNCHANGING_P (slot) = RTX_UNCHANGING_P (regno_reg_rtx[regno]);
+  set_mem_alias_set (slot, new_alias_set ());
+  web->stack_slot = slot;
+  */
 }
 
 /* This chooses a color for all SPILLED webs for interference region
@@ -746,9 +772,10 @@ insert_stores (new_deaths)
       if (uid < insn_df_max_uid)
 	{
 	  unsigned int n;
-	  struct ra_insn_info info = insn_df[uid];
+	  struct ra_insn_info info;
 	  rtx following = NEXT_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
+	  info = insn_df[uid];
 	  for (n = 0; n < info.num_defs; n++)
 	    {
 	      struct web *web = def2web[DF_REF_ID (info.defs[n])];
@@ -774,16 +801,19 @@ insert_stores (new_deaths)
 		  && ! slot_member_p (slots, slot))
 		{
 		  rtx insns, ni;
+		  rtx spill;
+		  int has_use;
 		  last_slot = slot;
 		  remember_slot (&slots, slot);
-		  if (DF_REF_FLAGS (info.defs[n]) & DF_REF_MEM_OK
-		      && validate_change (insn, DF_REF_LOC (info.defs[n]),
-					  slot, 0))
+		  if ((GET_CODE (slot) == MEM)
+		      && ra_validate_change (insn, DF_REF_LOC (info.defs[n]),
+					     slot, 0))
 		    {
 		      df_insn_modify (df, bb, insn);
+		      bitmap_set_bit (ra_modified_insns, uid);
 		      bitmap_set_bit (last_changed_insns, uid);
-		      if (!bitmap_bit_p (useless_defs, DF_REF_ID
-					 (info.defs[n])))
+		      if (!bitmap_bit_p (useless_defs,
+					 DF_REF_ID (info.defs[n])))
 			ra_emit_move_insn (source, slot);
 		    }
 		  else
@@ -810,8 +840,29 @@ insert_stores (new_deaths)
 		    }
 		  emitted_spill_stores++;
 		  spill_store_cost += bb->frequency + 1;
-		  bitmap_set_bit (new_deaths,
-				  INSN_UID (PREV_INSN (following)));
+		  /* Check all uses in insns generated by spill phase in
+		     previous passes.  */
+		  spill = following;
+		  has_use = 0;
+		  for (spill = following;
+		       (spill && !has_use
+			&& bitmap_bit_p (emitted_by_spill,
+					 INSN_UID (spill)));
+		       spill = NEXT_INSN (spill))
+		    {
+		      unsigned int i;
+		      for (i = 0; i < web->num_uses; ++i)
+			{
+			  if (DF_REF_INSN (web->uses[i]) == spill)
+			    {
+			      has_use = 1;
+			      break;
+			    }
+			}
+		    }
+		  if (!has_use)
+		    bitmap_set_bit (new_deaths,
+				    INSN_UID (PREV_INSN (following)));
 		}
 	      else
 		{
@@ -824,7 +875,7 @@ insert_stores (new_deaths)
 	 the last emitted slot, and additionally clear all slots
 	 overlapping it's source (after all, we need it again).  */
       /* XXX If we emit the stack-ref directly into the using insn the
-         following needs a change, because that is no new insn.  Preferably
+	 following needs a change, because that is no new insn.  Preferably
 	 we would add some notes to the insn, what stackslots are needed
 	 for it.  */
       if (uid >= last_max_uid
@@ -842,9 +893,9 @@ insert_stores (new_deaths)
 	      rtx d = SET_DEST (set);
 	      note_uses (&set, delete_overlapping_uses, (void *)&slots);
 	      /*if (1 || GET_CODE (SET_SRC (set)) == MEM)
-	        delete_overlapping_slots (&slots, SET_SRC (set));*/
+		delete_overlapping_slots (&slots, SET_SRC (set));*/
 	      /*if (REG_P (d) || GET_CODE (d) == MEM
-		  || (GET_CODE (d) == SUBREG && REG_P (SUBREG_REG (d))))
+		|| (GET_CODE (d) == SUBREG && REG_P (SUBREG_REG (d))))
 		remember_slot (&slots, d);*/
 	    }
 	}
@@ -876,7 +927,7 @@ spill_same_color_p (web1, web2)
 /* Given the set of live web IDs LIVE, returns nonzero, if any of WEBs
    subwebs (or WEB itself) is live.  */
 
-static int
+static unsigned int
 is_partly_live_1 (live, web)
      sbitmap live;
      struct web *web;
@@ -1053,12 +1104,13 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	slot = simplify_gen_subreg (GET_MODE (reg), slot, innermode,
 				    SUBREG_BYTE (reg));
       if (web->one_load && web->last_use_insn
-	  && DF_REF_FLAGS (web->last_use) & DF_REF_MEM_OK
-	  && validate_change (web->last_use_insn, DF_REF_LOC (web->last_use),
-			      slot, 0))
+	  && (GET_CODE (slot) == MEM || supweb->pattern)
+	  && ra_validate_change (web->last_use_insn,
+				 DF_REF_LOC (web->last_use), slot, 0))
 	{
 	  bb = BLOCK_FOR_INSN (web->last_use_insn);
 	  df_insn_modify (df, bb, web->last_use_insn);
+	  bitmap_set_bit (ra_modified_insns, INSN_UID (web->last_use_insn));
 	  bitmap_set_bit (last_changed_insns, INSN_UID (web->last_use_insn));
 	}
       else
@@ -1734,6 +1786,41 @@ rewrite_program2 (new_deaths)
   BITMAP_XFREE (ri.need_reload);
 }
 
+/* Mark all webs mentioned in insn described by INFO for checking in
+   the next allocator pass.
+   Layout of webs isn't changed they are only mentioned in changed
+   insns. */
+static void
+mark_insn_refs_for_checking (info, already_webs, uses_as_bitmap)
+     struct ra_insn_info *info;
+     sbitmap already_webs;
+     bitmap uses_as_bitmap;
+{
+  int i, n;
+  int num_refs;
+  struct ref **refs;
+
+  for (i = 0, refs = info->uses, num_refs = info->num_uses;
+       i < 2;
+       i++, refs = info->defs, num_refs = info->num_defs)
+    for (n = 0; n < num_refs; n++)
+      {
+	struct web *web;
+	int id = DF_REF_ID (refs[n]);
+
+	/* Insn may be deleted by coalesce_spill_slot.  */
+	if (!INSN_P (DF_REF_INSN (refs[n])))
+	  return;
+
+	web = DF_REF_REG_USE_P (refs[n]) ? use2web[id]: def2web[id];
+	if (TEST_BIT (already_webs, web->id) || web->type == SPILLED)
+	  continue;
+	SET_BIT (already_webs, web->id);
+	mark_refs_for_checking (web, uses_as_bitmap);
+      }
+}
+
+
 /* WEBS is a web conflicting with a spilled one.  Prepare it
    to be able to rescan it in the next pass.  Mark all it's uses
    for checking, and clear the some members of their web parts
@@ -1751,7 +1838,8 @@ mark_refs_for_checking (web, uses_as_bitmap)
     {
       unsigned int id = DF_REF_ID (web->uses[i]);
       SET_BIT (last_check_uses, id);
-      bitmap_set_bit (uses_as_bitmap, id);
+      if (uses_as_bitmap)
+	bitmap_set_bit (uses_as_bitmap, id);
       web_parts[df->def_id + id].spanned_deaths = 0;
       web_parts[df->def_id + id].crosses_call = 0;
       web_parts[df->def_id + id].crosses_bb = 0;
@@ -1771,11 +1859,12 @@ mark_refs_for_checking (web, uses_as_bitmap)
    rechecking, look at their neighbors, and clean up some global
    information, we will rebuild.  */
 
-static void
+void
 detect_web_parts_to_rebuild ()
 {
   bitmap uses_as_bitmap;
   unsigned int i, pass;
+  int uid;
   struct dlist *d;
   sbitmap already_webs = sbitmap_alloc (num_webs);
 
@@ -1849,8 +1938,16 @@ detect_web_parts_to_rebuild ()
 	    SET_BIT (already_webs, web2->id);
 	    mark_refs_for_checking (web2, uses_as_bitmap);
 	  });
+	
       }
 
+  EXECUTE_IF_SET_IN_BITMAP (last_changed_insns, 0, uid,
+  {
+    if (uid < insn_df_max_uid)
+      mark_insn_refs_for_checking (&insn_df[uid], already_webs,
+				   uses_as_bitmap);
+  });
+    
   /* We also recheck unconditionally all uses of any hardregs.  This means
      we _can_ delete all these uses from the live_at_end[] bitmaps.
      And because we sometimes delete insn refering to hardregs (when
@@ -1956,16 +2053,47 @@ reset_changed_flag ()
     DLIST_WEB(d)->changed = 0;
 }
 
+/* Check all colored webs to detect ones colored by an_unusable_color.
+   These webs are spill temporaries and must be substituted by stack slots.
+   IMHO(denisc@overta.ru): This check must be supported in different
+   manner.  */
+int
+subst_to_stack_p ()
+{
+  struct dlist *d;
+  for (d = WEBS(COLORED); d; d = d->next)
+    {
+      struct web *web = DLIST_WEB (d);
+      if (web->color == an_unusable_color)
+	return 1;
+    }
+  return 0;
+}
+
 /* The toplevel function for this file.  Given a colorized graph,
    and lists of spilled, coalesced and colored webs, we add some
    spill code.  This also sets up the structures for incrementally
    building the interference graph in the next pass.  */
 
 void
-actual_spill ()
+actual_spill (spill_p)
+     int spill_p ATTRIBUTE_UNUSED;
 {
   int i;
-  bitmap new_deaths = BITMAP_XMALLOC ();
+  bitmap new_deaths;
+
+  /* If we have a webs colored by an_unusable_color (ie we think that they are
+     already in frame) we must put such webs to frame.  */
+  if (/* !spill_p && */ subst_to_stack_p ())
+    /* If you uncomment the SPILL_P usage then you will have a calls to
+       assign_stack_slots only at end of allocation process.
+       See to the caller of actual_spill.  */
+    {
+      assign_stack_slots ();
+      return;
+    }
+    
+  new_deaths = BITMAP_XMALLOC ();
   if (last_changed_insns)
     BITMAP_XFREE (last_changed_insns);
   last_changed_insns = BITMAP_XMALLOC ();
@@ -1989,6 +2117,371 @@ actual_spill ()
   detect_non_changed_webs ();
   detect_web_parts_to_rebuild ();
   BITMAP_XFREE (new_deaths);
+}
+
+/* Allocate and assign stack slots to all webs colored by
+   an_unusable_color.
+   Replace all uses and defs to stack slots in all possible cases.  */
+
+static void
+assign_stack_slots ()
+{
+  int i;
+  struct dlist *d, *d_next;
+  
+  if (last_changed_insns)
+    BITMAP_XFREE (last_changed_insns);
+  last_changed_insns = BITMAP_XMALLOC ();
+
+  /* Cleanup SPILLED list. I hope to colorize all these webs in next pass
+     after substitution webs colored by an_unusable_color to stack slots. */
+  for (d = WEBS(SPILLED); d; d = d_next)
+    {
+      struct web *web = DLIST_WEB (d);
+      d_next = d->next;
+      remove_list (web->dlink, &WEBS(SPILLED));
+      put_web (web, INITIAL);
+    }
+
+  /* Allocate slots in stack frame and modify all insns which use slots.  */
+  assign_stack_slots_1 ();
+
+  if (death_insns_max_uid < get_max_uid ())
+    {
+      sbitmap old_deaths = insns_with_deaths;
+      insns_with_deaths = sbitmap_alloc (get_max_uid ());
+      sbitmap_zero (insns_with_deaths);
+      EXECUTE_IF_SET_IN_SBITMAP (old_deaths, 0, i,
+      { SET_BIT (insns_with_deaths, i);});
+      sbitmap_free (old_deaths);
+    }
+  death_insns_max_uid = get_max_uid ();
+  detect_web_parts_to_rebuild ();
+}
+
+/* Setup insn2move array.  */
+static void
+init_find_move ()
+{
+  struct move_list *ml;
+  struct move *m;
+  for (ml = wl_moves; ml; ml = ml->next)
+    if ((m = ml->move) != NULL
+	&& bitmap_bit_p (emitted_by_spill, INSN_UID (m->insn)))
+      insn2move[INSN_UID (m->insn)] = m;
+}
+
+/* Return a structure of a move if REF is a def or use of a move
+   else return NULL.
+ */
+static struct move *
+find_move (ref)
+     struct ref *ref;
+{
+  rtx insn = DF_REF_INSN (ref);
+  return insn2move[INSN_UID (insn)];
+}
+
+/* If the WEB connected with a small web referred by REF then substitute
+   all refs of a small web to stack slot PLACE.
+   Remove dead move insns.
+   This is the same as coalesce and substitute. */
+static int
+coalesce_spill_slot (web, ref, place)
+     struct web *web;
+     struct ref *ref;
+     rtx place;
+{
+  rtx source;
+  struct web *dweb;
+  struct web *s;
+  struct web *t;
+  struct move *m;
+  struct ref **refs;
+  int num_refs;
+  int i,j;
+  rtx back_move = NULL;
+  rtx insn, move_insn;
+
+  m = find_move (ref);
+  if (!m || !INSN_P (m->insn))
+    return 0;
+
+  s = m->source_web;
+  t = m->target_web;
+  if (s == web)
+    dweb = t;
+  else if (t == web)
+    dweb = s;
+  else
+    return 0;
+
+  if (TEST_BIT (sup_igraph, s->id * num_webs + t->id)
+      || TEST_BIT (sup_igraph, t->id * num_webs + s->id)
+      || s->pattern || t->pattern)
+    return 0;
+
+  if (dweb->type != COLORED || !dweb->spill_temp || dweb->crosses_bb
+      || dweb->is_coalesced || dweb->color == an_unusable_color)
+    return 0;
+
+  move_insn = m->insn;
+  
+  /* Replace all web refs to stack spill slot.  */
+  for (i = 0, refs = dweb->uses, num_refs = dweb->num_uses;
+       i < 2;
+       refs = dweb->defs, num_refs = dweb->num_defs, i++)
+    for (j = 0; j < num_refs; j++)
+      {
+	rtx target;
+	rtx insns;
+	struct move *back_m;
+
+	insn = DF_REF_INSN (refs[j]);
+	if (insn == move_insn)
+	  continue;
+	if (i == 0		/* Is this a use ? */
+	    && (back_m = find_move (refs[j])) != NULL
+	    && back_m->target_web == web)
+	  {
+	    if (back_move)
+	      abort ();
+	    back_move = back_m->insn;
+	    continue;
+	  }
+	  
+	target = DF_REF_REG (refs[j]);
+
+	/* Happens when move was deleted before.  */
+	if (!INSN_P (insn))
+	  continue;
+
+	source = place;
+	start_sequence ();
+	if (GET_CODE (target) == SUBREG)
+	  source = simplify_gen_subreg (GET_MODE (target), place,
+					GET_MODE (place),
+					SUBREG_BYTE (target));
+	insns = get_insns ();
+	end_sequence ();
+	if (insns)
+	  {
+	    ra_cancel_changes (0);
+	    return 0;
+	  }
+	ra_validate_change (insn, DF_REF_LOC (refs[j]), source, 1);
+      }
+  if (!ra_apply_change_group ())
+    return 0;
+    
+  remove_list (dweb->dlink, &WEBS(COLORED));
+  put_web (dweb, SPILLED);
+  PUT_CODE (move_insn, NOTE);
+  NOTE_LINE_NUMBER (move_insn) = NOTE_INSN_DELETED;
+  RESET_BIT (insns_with_deaths, INSN_UID (move_insn));
+  deleted_move_insns++;
+  deleted_move_cost += BLOCK_FOR_INSN (move_insn)->frequency + 1;
+
+  if (back_move)
+    {
+      PUT_CODE (back_move, NOTE);
+      NOTE_LINE_NUMBER (back_move) = NOTE_INSN_DELETED;
+      RESET_BIT (insns_with_deaths, INSN_UID (back_move));
+      deleted_move_insns++;
+      deleted_move_cost += BLOCK_FOR_INSN (back_move)->frequency + 1;
+    }
+  /* Mark all changed insns.  */
+  for (i = 0, refs = dweb->uses, num_refs = dweb->num_uses;
+       i < 2;
+       refs = dweb->defs, num_refs = dweb->num_defs, i++)
+    for (j = 0; j < num_refs; j++)
+      {
+	insn = DF_REF_INSN (refs[j]);
+	df_insn_modify (df, BLOCK_FOR_INSN (insn), insn);
+	bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+	if (insn != back_move && insn != move_insn)
+	  bitmap_set_bit (last_changed_insns, INSN_UID (insn));
+      }
+  return 1;
+}
+
+/* Allocate and assign stack slots to all refs of spill slot web.
+   Replace spill slot web to stack slot in all insns.
+   This function also perform a simple elimination of dead insns.  */
+
+static void
+assign_stack_slots_1 ()
+{
+  unsigned int j, i, n, webs_count;
+  struct ref **refs;
+  unsigned int num_refs;
+
+  ra_debug_msg (DUMP_COLORIZE, "Allocate stack spill slots for webs:\n");
+
+  insn2move = (struct move **) xcalloc (get_max_uid (),
+					sizeof (struct move *));
+  init_find_move ();
+  webs_count = num_webs - num_subwebs;
+  for (n = 0; n < webs_count; ++n)
+    {
+      unsigned int inherent_size;
+      unsigned int total_size;
+      rtx place;
+      struct web *web = id2web[n];
+      
+      if (web->type != COLORED || web->color != an_unusable_color)
+	continue;
+
+      if (web->stack_slot && !REG_P (web->stack_slot))
+	abort ();
+
+      /* Detect dead spilltemp webs and skip them.  */
+      if (web->num_uses == 0 && web->num_defs == 1)
+	{
+	  rtx dead = DF_REF_INSN (web->defs[0]);
+	  if (insn_df[INSN_UID (dead)].num_defs == 1
+	      && GET_CODE (dead) == INSN)
+	    continue;
+	}
+      
+      inherent_size = PSEUDO_REGNO_BYTES (web->regno);
+      total_size = MAX (inherent_size, 0);
+      place = assign_stack_local (PSEUDO_REGNO_MODE (web->regno),
+				  total_size,
+				  inherent_size == total_size ? 0: -1);
+      RTX_UNCHANGING_P (place) =
+	RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
+      set_mem_alias_set (place, new_alias_set ());
+
+      ra_debug_msg (DUMP_COLORIZE, "\t%3d(%d) insns: ",
+		    web->id, web->regno);
+	  
+      web->stack_slot = place;
+      web->changed = 1;
+
+      /* Replace all web refs to stack spill slot.  */
+	  
+      for (i = 0, refs = web->uses, num_refs = web->num_uses;
+	   i < 2;
+	   refs = web->defs, num_refs = web->num_defs, i++)
+	for (j = 0; j < num_refs; j++)
+	  {
+	    rtx target, source;
+	    rtx insns;
+	    rtx insn = DF_REF_INSN (refs[j]);
+	    rtx aux_insn = (i == 0 ? PREV_INSN (insn): NEXT_INSN (insn));
+	    basic_block bb = BLOCK_FOR_INSN (insn);
+
+	    /* Happens when spill_coalescing() deletes move insns.  */
+	    if (!INSN_P (insn))
+	      continue;
+
+	    ra_debug_msg (DUMP_COLORIZE, " %d(%c%d)", INSN_UID (insn),
+			  i == 0 ? 'u': 'd',
+			  DF_REF_ID (refs[j]));
+
+	    /* Trying to substitute this use to corresponding web.  */
+	    if (coalesce_spill_slot (web, refs[j], place))
+	      continue;
+	      
+	    target = DF_REF_REG (refs[j]);
+	    source = place;
+
+	    start_sequence ();
+	    if (GET_CODE (target) == SUBREG)
+	      source = simplify_gen_subreg (GET_MODE (target), source,
+					    GET_MODE (source),
+					    SUBREG_BYTE (target));
+	    if (ra_validate_change (insn, DF_REF_LOC (refs[j]), source, 0))
+	      {
+		df_insn_modify (df, bb, insn);
+		bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+		bitmap_set_bit (last_changed_insns, INSN_UID (insn));
+	      }
+	    else
+	      {
+		if (i == 0) /* Insn for use.  */
+		  ra_emit_move_insn (copy_rtx (target), source);
+		else
+		  ra_emit_move_insn (source, copy_rtx (target));
+	      }
+	    insns = get_insns ();
+	    end_sequence ();
+	    if (insns && i == 0) /* Is this a use?  */
+	      {
+		rtx pi;
+		emit_insn_before (insns, insn);
+		if (bb->head == insn)
+		  bb->head = NEXT_INSN (aux_insn);
+		for (pi = PREV_INSN (insn); pi != aux_insn;
+		     pi = PREV_INSN (pi))
+		  {
+		    set_block_for_insn (pi, bb);
+		    df_insn_modify (df, bb, pi);
+		    bitmap_set_bit (ra_modified_insns, INSN_UID (pi));
+		    bitmap_set_bit (emitted_by_spill, INSN_UID (pi));
+		  }
+	      }
+	    else if (insns)
+	      {
+		rtx ni;
+		emit_insn_after (insns, insn);
+		if (bb->end == insn)
+		  bb->end = PREV_INSN (aux_insn);
+		for (ni = insns; ni != aux_insn; ni = NEXT_INSN (ni))
+		  {
+		    set_block_for_insn (ni, bb);
+		    df_insn_modify (df, bb, ni);
+		    bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+		    bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
+		  }
+	      }
+	  }
+      ra_debug_msg (DUMP_COLORIZE, "\n");
+      remove_list (web->dlink, &WEBS(COLORED));
+      put_web (web, SPILLED);
+      bitmap_clear_bit (spill_slot_regs, web->regno);
+    }
+
+  ra_debug_msg (DUMP_COLORIZE, "\n");
+
+  /* A very simple dead insns elimination.  */
+  for (n = 0; n < webs_count; ++n)
+    {
+      struct web *web = id2web[n];
+      
+      if (web->type == COLORED && web->num_uses == 0 && web->num_defs == 1)
+	{
+	  unsigned int i;
+	  rtx dead = DF_REF_INSN (web->defs[0]);
+	  struct ra_insn_info *info = &insn_df[INSN_UID (dead)];
+
+	  if (info->num_defs != 1 || GET_CODE (dead) != INSN)
+	    continue;
+	  for (i = 0; i < info->num_uses; ++i)
+	    {
+	      struct web *web1
+		= find_web_for_subweb (use2web[DF_REF_ID (info->uses[i])]);
+	      if (web1->type == COLORED)
+		{
+		  remove_list (web1->dlink, &WEBS(COLORED));
+		  put_web (web1, SPILLED);
+		}
+	    }
+	  remove_list (web->dlink, &WEBS(COLORED));
+	  put_web (web, SPILLED);
+	  PUT_CODE (dead, NOTE);
+	  NOTE_LINE_NUMBER (dead) = NOTE_INSN_DELETED;
+	  RESET_BIT (insns_with_deaths, INSN_UID (dead));
+	  df_insn_modify (df, BLOCK_FOR_INSN (dead), dead);
+	  bitmap_set_bit (ra_modified_insns, INSN_UID (dead));
+	  /* This is not fully correct because not only a move insn can be
+	     deleted.  */
+	  deleted_move_insns++;
+	  deleted_move_cost += BLOCK_FOR_INSN (dead)->frequency + 1;
+	}
+    }
+  free (insn2move);
 }
 
 /* A bitmap of pseudo reg numbers which are coalesced directly
@@ -2038,7 +2531,7 @@ emit_colors (df)
 	  unsigned int total_size = MAX (inherent_size, 0);
 	  rtx place = assign_stack_local (PSEUDO_REGNO_MODE (web->regno),
 					  total_size,
-					  inherent_size == total_size ? 0 : -1);
+					  inherent_size == total_size ? 0: -1);
 	  RTX_UNCHANGING_P (place) =
 	      RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
 	  set_mem_alias_set (place, new_alias_set ());
@@ -2279,6 +2772,132 @@ setup_renumber (free_it)
       free (ra_reg_renumber);
       ra_reg_renumber = NULL;
       ra_max_regno = 0;
+    }
+}
+
+
+/* The WEB can't have a single color. The REF is a constraining ref.
+   The REF will be spilled out from the WEB.  */
+void
+web_class_spill_ref (web, ref)
+     struct web *web;
+     struct ref *ref;
+{
+  rtx insns;
+  rtx insn = DF_REF_INSN (ref);
+
+  if (DF_REF_REG_USE_P (ref))
+    {
+      int num_refs;
+      int i, j;
+      rtx source, target;
+      struct ref **refs;
+      rtx reg = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
+      rtx def_rtx = NULL;
+      basic_block bb = BLOCK_FOR_INSN (insn);
+
+      for (i = 0, refs = web->uses, num_refs = web->num_uses;
+	   i < 2;
+	   refs = web->defs, num_refs = web->num_defs, i++)
+	for (j = 0; j < num_refs; j++)
+	  {
+	    if (DF_REF_INSN (refs[j]) != insn)
+	      continue;
+	      
+	    target = DF_REF_REG (refs[j]);
+	    source = reg;
+
+	    if (GET_CODE (target) == SUBREG)
+	      source = simplify_gen_subreg (GET_MODE (target), source,
+					    GET_MODE (source),
+					    SUBREG_BYTE (target));
+	    ra_validate_change (insn, DF_REF_LOC (refs[j]), source, 1);
+	    if (i == 1) /* This is a def.  */
+	      {
+		if (def_rtx)
+		  abort ();
+		def_rtx = source;
+	      }
+	  }
+      if (!ra_apply_change_group ())
+	abort ();
+
+      df_insn_modify (df, bb, insn);
+      bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+
+      start_sequence ();
+      ra_emit_move_insn (reg, DF_REF_REG (ref));
+      insns = get_insns ();
+      end_sequence ();
+      if (insns)
+	{
+	  rtx pi;
+	  rtx aux_insn = PREV_INSN (insn);
+	  emit_insn_before (insns, insn);
+	  if (bb->head == insn)
+	    bb->head = NEXT_INSN (aux_insn);
+	  for (pi = PREV_INSN (insn); pi != aux_insn;
+	       pi = PREV_INSN (pi))
+	    {
+	      set_block_for_insn (pi, bb);
+	      df_insn_modify (df, bb, pi);
+	      bitmap_set_bit (ra_modified_insns, INSN_UID (pi));
+	    }
+	}
+
+      if (def_rtx)
+	{
+	  start_sequence ();
+	  ra_emit_move_insn (DF_REF_REG (ref), copy_rtx (def_rtx));
+	  insns = get_insns ();
+	  end_sequence ();
+	  if (insns)
+	    {
+	      rtx ni;
+	      rtx aux_insn = NEXT_INSN (insn);
+	      emit_insn_after (insns, insn);
+	      if (bb->end == insn)
+		bb->end = PREV_INSN (aux_insn);
+	      for (ni = insns; ni != aux_insn; ni = NEXT_INSN (ni))
+		{
+		  set_block_for_insn (ni, bb);
+		  df_insn_modify (df, bb, ni);
+		  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+		}
+	    }
+	}
+    }
+  else if (DF_REF_REG_DEF_P (ref))
+    {
+      rtx aux_insn = NEXT_INSN (insn);
+      rtx reg = gen_reg_rtx (GET_MODE (DF_REF_REG (ref)));
+      basic_block bb = BLOCK_FOR_INSN (insn);
+      
+      if (ra_validate_change (insn, DF_REF_LOC (ref), reg, 0))
+	{
+	  df_insn_modify (df, bb, insn);
+	  bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+	}
+      else
+	abort ();
+
+      start_sequence ();
+      ra_emit_move_insn (DF_REF_REG (ref), reg);
+      insns = get_insns ();
+      end_sequence ();
+      if (insns)
+	{
+	  rtx ni;
+	  emit_insn_after (insns, insn);
+	  if (bb->end == insn)
+	    bb->end = PREV_INSN (aux_insn);
+	  for (ni = insns; ni != aux_insn; ni = NEXT_INSN (ni))
+	    {
+	      set_block_for_insn (ni, bb);
+	      df_insn_modify (df, bb, ni);
+	      bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+	    }
+	}
     }
 }
 

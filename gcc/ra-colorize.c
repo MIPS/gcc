@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -70,7 +70,6 @@ static int color_usable_p PARAMS ((int, HARD_REG_SET, HARD_REG_SET,
 int get_free_reg PARAMS ((HARD_REG_SET, HARD_REG_SET, enum machine_mode));
 static int get_biased_reg PARAMS ((HARD_REG_SET, HARD_REG_SET, HARD_REG_SET,
 				   HARD_REG_SET, enum machine_mode));
-static int count_long_blocks PARAMS ((HARD_REG_SET, int));
 static char * hardregset_to_string PARAMS ((HARD_REG_SET));
 static void calculate_dont_begin PARAMS ((struct web *, HARD_REG_SET *));
 static void colorize_one_web PARAMS ((struct web *, int));
@@ -392,7 +391,6 @@ build_worklists (df)
 	  for (i = 0; i < num; i++)
 	    {
 	      struct web *web = order2web[i];
-	      struct conflict_link *wl;
 	      remove_list (web->dlink, &WEBS(INITIAL));
 	      put_web (web, SIMPLIFY);
 	      /*put_web (web, SELECT);
@@ -763,6 +761,18 @@ combine (u, v)
     u->spill_cost += v->spill_cost;
     /*u->spill_cost = MAX (u->spill_cost, v->spill_cost);*/
   merge_moves (u, v);
+
+  /* Now merge the usable_regs together.  */
+  /* XXX That merging might normally make it necessary to
+     adjust add_hardregs, which also means to adjust neighbors.  This can
+     result in making some more webs trivially colorable, (or the opposite,
+     if this increases our add_hardregs).  Because we intersect the
+     usable_regs it should only be possible to decrease add_hardregs.  So a
+     conservative solution for now is to simply don't change it.  */
+  u->use_my_regs = 1;
+  AND_HARD_REG_SET (u->usable_regs, v->usable_regs);
+  u->regclass = reg_class_subunion[u->regclass][v->regclass];
+
   /* combine add_hardregs's of U and V.  */
 
   for (wl = v->conflict_list; wl; wl = wl->next)
@@ -831,16 +841,6 @@ combine (u, v)
 	}
     }
 
-  /* Now merge the usable_regs together.  */
-  /* XXX That merging might normally make it necessary to
-     adjust add_hardregs, which also means to adjust neighbors.  This can
-     result in making some more webs trivially colorable, (or the opposite,
-     if this increases our add_hardregs).  Because we intersect the
-     usable_regs it should only be possible to decrease add_hardregs.  So a
-     conservative solution for now is to simply don't change it.  */
-  u->use_my_regs = 1;
-  AND_HARD_REG_SET (u->usable_regs, v->usable_regs);
-  u->regclass = reg_class_subunion[u->regclass][v->regclass];
   /* Count number of possible hardregs.  This might make U a spillweb,
      but that could also happen, if U and V together had too many
      conflicts.  */
@@ -1160,7 +1160,7 @@ get_biased_reg (dont_begin_colors, bias, prefer_colors, free_colors, mode)
 /* Counts the number of non-overlapping bitblocks of length LEN
    in FREE_COLORS.  */
 
-static int
+int
 count_long_blocks (free_colors, len)
      HARD_REG_SET free_colors;
      int len;
@@ -1522,7 +1522,7 @@ colorize_one_web (web, hard)
 	{
 	  unsigned int loop;
 	  struct web *try = NULL;
-	  struct web *candidates[9];
+	  struct web *candidates[10];
 
 	  ra_debug_msg (DUMP_COLORIZE, "  *** %d spilled, although %s ***\n",
 		     web->id, web->spill_temp ? "spilltemp" : "non-spill");
@@ -1566,21 +1566,35 @@ colorize_one_web (web, hard)
 		}
 	      if (aw->type != COLORED)
 		continue;
-	      if (w->type == COLORED && !w->spill_temp && !w->is_coalesced
-		  && w->was_spilled)
+	      else
 		{
-		  if (w->spill_cost < web->spill_cost)
-		    set_cand (0, w);
-		  else if (web->spill_temp)
-		    set_cand (1, w);
+		  int c;
+		  int intersects_p = 0;
+		  for (c = 0; c <= aw->add_hardregs; ++c)
+		    if (TEST_HARD_REG_BIT (web->usable_regs, aw->color + c))
+		      {
+			intersects_p = 1;
+			break;
+		      }
+		  if (!intersects_p)
+		    continue;
 		}
-	      if (w->type == COLORED && !w->spill_temp && !w->is_coalesced
-		  && !w->was_spilled)
+	      if (!w->spill_temp && !w->is_coalesced && w->type == COLORED)
 		{
-		  if (w->spill_cost < web->spill_cost)
-		    set_cand (2, w);
-		  else if (web->spill_temp && web->spill_temp != 2)
-		    set_cand (3, w);
+		  if (w->was_spilled)
+		    {
+		      if (w->spill_cost < web->spill_cost)
+			set_cand (0, w);
+		      else if (web->spill_temp)
+			set_cand (1, w);
+		    }
+		  else
+		    {
+		      if (w->spill_cost < web->spill_cost)
+			set_cand (2, w);
+		      else if (web->spill_temp && web->spill_temp != 2)
+			set_cand (3, w);
+		    }
 		}
 	      if (web->spill_temp)
 		{
@@ -1608,9 +1622,16 @@ colorize_one_web (web, hard)
 		     temps (and not only type 2 spill temps).  */
 		  if (web->changed && !aw->changed && aw->spill_temp)
 		    set_cand (8, aw);
+		  if (aw->spill_temp && aw->span_deaths /* && !aw->changed */
+		      && !web->span_deaths
+		      && !web->is_coalesced)
+		    set_cand (9, aw);
 		}
 	    }
-	  for (loop = 0; try == NULL && loop < 9; loop++)
+	  for (loop = 0;
+	       try == NULL
+		 && loop < sizeof (candidates) / sizeof (candidates[0]);
+	       loop++)
 	    if (candidates[loop])
 	      try = candidates[loop];
 #undef set_cand
@@ -1717,7 +1738,7 @@ assign_colors ()
       struct web *web;
       d = pop_list (&WEBS(SELECT));
       web = DLIST_WEB (d);
-      colorize_one_web (DLIST_WEB (d), 1);
+      colorize_one_web (DLIST_WEB (d), 2);
     }
 
   for (d = WEBS(COALESCED); d; d = d->next)
@@ -1743,16 +1764,16 @@ try_recolor_web (web)
      struct web *web;
 {
   struct conflict_link *wl;
-  unsigned HOST_WIDE_INT *cost_neighbors;
-  unsigned int *min_color;
+  unsigned HOST_WIDE_INT cost_neighbors[FIRST_PSEUDO_REGISTER];
+  unsigned int min_color[FIRST_PSEUDO_REGISTER];
   int newcol, c;
   HARD_REG_SET precolored_neighbors, spill_temps;
   HARD_REG_SET possible_begin, wide_seen;
-  cost_neighbors = (unsigned HOST_WIDE_INT *)
-    xcalloc (FIRST_PSEUDO_REGISTER, sizeof (cost_neighbors[0]));
+
+  memset (cost_neighbors, 0, sizeof (cost_neighbors));
   /* For each hard-regs count the number of preceding hardregs, which
      would overlap this color, if used in WEB's mode.  */
-  min_color = (unsigned int *) xcalloc (FIRST_PSEUDO_REGISTER, sizeof (int));
+  memset (min_color, 0, sizeof (min_color));
   CLEAR_HARD_REG_SET (possible_begin);
   for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
     {
@@ -1930,8 +1951,6 @@ try_recolor_web (web)
 	}
       free (old_colors);
     }
-  free (min_color);
-  free (cost_neighbors);
 }
 
 /* This ensures that all conflicts of coalesced webs are seen from
@@ -1977,7 +1996,8 @@ insert_coalesced_conflicts ()
 					    &wl->t->usable_regs))
 		{
 		  /*abort ();*/
-		  fprintf (stderr, "SHIT.  Lost a conflict.\n");
+		  fprintf (stderr, "SHIT.  Lost a conflict in %s\n",
+			   cfun->name);
 		  ra_debug_msg (DUMP_COLORIZE, "Lost conflict %d - %d\n",
 				tweb->id, wl->t->id);
 		  if (wl->sub == NULL)
@@ -2041,13 +2061,13 @@ recolor_spills ()
       if (web->type == SPILLED)
 	try_recolor_web (web);
     }
+  free (order2web);
   /* It might have been decided in try_recolor_web() (in colorize_one_web())
      that a coalesced web should be spilled, so it was put on the
      select stack.  Those webs need recoloring again, and all remaining
      coalesced webs might need their color updated, so simply call
      assign_colors() again.  */
   assign_colors ();
-  free (order2web);
 }
 
 /* This checks the current color assignment for obvious errors,
@@ -2354,7 +2374,6 @@ restore_conflicts_from_coalesce (web)
 	       the neighbor.  */
 	    struct conflict_link **opcl;
 	    struct conflict_link *owl;
-	    struct sub_conflict *sl;
 	    wl = *pcl;
 	    *pcl = wl->next;
 	    if (!other->have_orig_conflicts && other->type != PRECOLORED)
@@ -2993,6 +3012,12 @@ ra_colorize_free_all ()
       struct web *wnext;
       web->orig_conflict_list = NULL;
       web->conflict_list = NULL;
+      if (web->defs)
+	free (web->defs);
+      if (web->uses)
+	free (web->uses);
+      if (web->useless_conflicts)
+	free (web->useless_conflicts);
       for (web = web->subreg_next; web; web = wnext)
 	{
 	  wnext = web->subreg_next;

@@ -1,5 +1,5 @@
 /* Search an insn for pseudo regs that must be in reg_class and are not.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Denis Chertykov <denisc@overta.ru>
 
 This file is part of GNU CC.
@@ -105,7 +105,6 @@ static void ra_info_remove_refs   PARAMS ((struct ra_info *,
 static int df_link2ra_link        PARAMS ((struct df2ra, rtx, struct df_link *,
 					   struct ra_link *));
 
-
 static const char *const reg_class_names[] = REG_CLASS_NAMES;
 static int indirect_levels = -1;
 
@@ -141,7 +140,6 @@ gen_pre_reload (out, in, opnum, type, class)
      enum reg_class class;
 {
   rtx last = get_last_insn ();
-  rtx tem;
 
   /* If IN is a paradoxical SUBREG, remove it and try to put the
      opposite SUBREG on OUT.  Likewise for a paradoxical SUBREG on OUT.  */
@@ -2107,6 +2105,668 @@ pre_operands_match_p (x, y)
   return operands_match_p (x, y);
 }
 
+
+struct alternative_info
+{
+  int class;			/* this_alternative */
+  char match_win;		/* this_alternative_match_win */
+  char win;			/* this_alternative_win */
+  char offmemok;		/* this_alternative_offmemok */
+  char earlyclobber;		/* this_alternative_earlyclobber */
+  int matches;			/* this_alternative_matches */
+  int matched;			/* goal_alternative_matched */
+  rtx reg;			/* this_alternative_reg */
+  rtx *reg_loc;			/* this_alternative_reg_loc */
+  char *constraints;		/* this_alternative_constraints */
+  int address_operand;		/* this_alternative_address_operand */
+};
+
+enum reload_usage { RELOAD_READ, RELOAD_READ_WRITE, RELOAD_WRITE };
+static int scan_alternative PARAMS ((struct alternative_info [], char *[],
+				     enum reload_usage [], int [],
+				     char [MAX_RECOG_OPERANDS]
+				     [MAX_RECOG_OPERANDS],
+				     int, int *));
+
+/* Scan one alternative and fill alternative info.  */
+
+static int
+scan_alternative (this_alt, constraints, modified, address_reloaded,
+		  operands_match, swapped, commut)
+     struct alternative_info this_alt[];
+     char *constraints[];
+     enum reload_usage modified[];
+     int address_reloaded[];
+     char operands_match[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
+     int swapped;
+     int *commut;
+{
+  int i;
+  int j;
+  int noperands;
+  int losers = 0;
+  /* BAD is set to 1 if it some operand can't fit this alternative
+     even after reloading.  */
+  int bad = 0;
+  /* REJECT is a count of how undesirable this alternative says it is
+     if any reloading is required.  If the alternative matches exactly
+     then REJECT is ignored, but otherwise it gets this much
+     counted against it in addition to the reloading needed.  Each
+     ? counts three times here since we want the disparaging caused by
+     a bad register class to only count 1/3 as much.  */
+  int reject = 0;
+  enum machine_mode *operand_mode = recog_data.operand_mode;
+  int commutative = *commut;
+    
+  noperands = recog_data.n_operands;
+  
+  for (i = 0; i < noperands; i++)
+    {
+      struct alternative_info *op_alt = &this_alt[i];
+      char *p = constraints[i];
+      int win = 0;
+      int did_match = 0;
+      /* 0 => this operand can be reloaded somehow for this
+	 alternative.  */
+      int badop = 1;
+      /* 0 => this operand can be reloaded if the alternative
+	 allows regs.  */
+      int winreg = 0;
+      int c;
+      rtx operand = recog_data.operand[i];
+      rtx *operand_loc = recog_data.operand_loc[i];
+      int offset = 0;
+      /* Nonzero means this is a MEM that must be reloaded into a reg
+	 regardless of what the constraint says.  */
+      int force_reload = 0;
+      int offmemok = 0;
+      /* Nonzero if a constant forced into memory would be OK for this
+	 operand.  */
+      int constmemok = 0;
+      int earlyclobber = 0;
+      int match_seen = 0;
+
+      /* If the predicate accepts a unary operator, it means that
+	 we need to reload the operand, but do not do this for
+	 match_operator and friends.  */
+      if (GET_RTX_CLASS (GET_CODE (operand)) == '1' && *p != 0)
+	{
+	  operand = XEXP (operand, 0);
+	  operand_loc = &XEXP (operand, 0);
+	}
+
+      /* If the operand is a SUBREG, extract
+	 the REG or MEM (or maybe even a constant) within.
+	 (Constants can occur as a result of reg_equiv_constant.)  */
+
+      while (GET_CODE (operand) == SUBREG)
+	{
+	  /* Offset only matters when operand is a REG and
+	     it is a hard reg.  This is because it is passed
+	     to reg_fits_class_p if it is a REG and all pseudos
+	     return 0 from that function.  */
+	  if (REG_P (SUBREG_REG (operand))
+	      && REGNO (SUBREG_REG (operand)) < FIRST_PSEUDO_REGISTER)
+	    {
+	      offset +=
+		subreg_regno_offset (REGNO (SUBREG_REG (operand)),
+				     GET_MODE (SUBREG_REG (operand)),
+				     SUBREG_BYTE (operand),
+				     GET_MODE (operand));
+	    }
+	  operand = SUBREG_REG (operand);
+	  operand_loc = &SUBREG_REG (operand);
+	  /* Force reload if this is a constant or PLUS or if there may
+	     be a problem accessing OPERAND in the outer mode.  */
+	  if (CONSTANT_P (operand)
+	      || GET_CODE (operand) == PLUS
+	      /* We must force a reload of paradoxical SUBREGs
+		 of a MEM because the alignment of the inner value
+		 may not be enough to do the outer reference.  On
+		 big-endian machines, it may also reference outside
+		 the object.
+
+		 On machines that extend byte operations and we have a
+		 SUBREG where both the inner and outer modes are no wider
+		 than a word and the inner mode is narrower, is integral,
+		 and gets extended when loaded from memory, combine.c has
+		 made assumptions about the behavior of the machine in such
+		 register access.  If the data is, in fact, in memory we
+		 must always load using the size assumed to be in the
+		 register and let the insn do the different-sized
+		 accesses.
+
+		 This is doubly true if WORD_REGISTER_OPERATIONS.  In
+		 this case eliminate_regs has left non-paradoxical
+		 subregs for push_reloads to see.  Make sure it does
+		 by forcing the reload.
+
+		 ??? When is it right at this stage to have a subreg
+		 of a mem that is _not_ to be handled specialy?  IMO
+		 those should have been reduced to just a mem.  */
+	      || ((GET_CODE (operand) == MEM
+		   || (0
+		       && REG_P (operand)
+		       && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
+#ifndef WORD_REGISTER_OPERATIONS
+		  && (((GET_MODE_BITSIZE (GET_MODE (operand))
+			< BIGGEST_ALIGNMENT)
+		       && (GET_MODE_SIZE (operand_mode[i])
+			   > GET_MODE_SIZE (GET_MODE (operand))))
+		      || (GET_CODE (operand) == MEM && BYTES_BIG_ENDIAN)
+#ifdef LOAD_EXTEND_OP
+		      || (GET_MODE_SIZE (operand_mode[i]) <= UNITS_PER_WORD
+			  && (GET_MODE_SIZE (GET_MODE (operand))
+			      <= UNITS_PER_WORD)
+			  && (GET_MODE_SIZE (operand_mode[i])
+			      > GET_MODE_SIZE (GET_MODE (operand)))
+			  && INTEGRAL_MODE_P (GET_MODE (operand))
+			  && LOAD_EXTEND_OP (GET_MODE (operand)) != NIL)
+#endif
+		      )
+#endif
+		  )
+	      )
+	    force_reload = 1;
+	}
+
+      op_alt->class = (int) NO_REGS;
+      op_alt->win = 0;
+      op_alt->match_win = 0;
+      op_alt->offmemok = 0;
+      op_alt->earlyclobber = 0;
+      op_alt->matches = -1;
+      op_alt->reg = NULL_RTX;
+      op_alt->reg_loc = NULL;
+      op_alt->constraints = p;
+      op_alt->address_operand = 0;
+	  
+      /* An empty constraint or empty alternative
+	 allows anything which matched the pattern.  */
+      if (*p == 0 || *p == ',')
+	{
+	  win = 1, badop = 0;
+	  if (REG_P (operand))
+	    {
+	      op_alt->reg = operand;
+	      op_alt->reg_loc = operand_loc;
+	      op_alt->class = GENERAL_REGS;
+	    }
+	}
+
+      /* Scan this alternative's specs for this operand;
+	 set WIN if the operand fits any letter in this alternative.
+	 Otherwise, clear BADOP if this operand could
+	 fit some letter after reloads,
+	 or set WINREG if this operand could fit after reloads
+	 provided the constraint allows some registers.  */
+
+      match_seen = 0;
+      while (*p && (c = *p++) != ',')
+	switch (c)
+	  {
+	  case '=':  case '+':
+	    break;
+		
+	  case '*':
+	    reject += 4;
+	    break;
+
+	  case '%':
+	    /* The last operand should not be marked commutative.  */
+	    if (i != noperands - 1)
+	      *commut = commutative = i;
+	    break;
+
+	  case '?':
+	    reject += 6;
+	    break;
+
+	  case '!':
+	    reject = 600;
+	    break;
+
+	  case '#':
+	    /* Ignore rest of this alternative as far as
+	       reloading is concerned.  */
+	    if (match_seen)
+	      while (*p && *p != ',')
+		p++;
+	    break;
+
+	  case '0':  case '1':  case '2':  case '3':  case '4':
+	  case '5':  case '6':  case '7':  case '8':  case '9':
+	    {
+	      struct alternative_info *mop_alt;
+	      match_seen = 1;
+	      c -= '0';
+	      op_alt->matches = c;
+	      mop_alt = &this_alt[c];
+	      /* We are supposed to match a previous operand.
+		 If we do, we win if that one did.
+		 If we do not, count both of the operands as losers.
+		 (This is too conservative, since most of the time
+		 only a single reload insn will be needed to make
+		 the two operands win.  As a result, this alternative
+		 may be rejected when it is actually desirable.)  */
+	      if ((swapped && (c != commutative || i != commutative + 1))
+		  /* If we are matching as if two operands were swapped,
+		     also pretend that operands_match had been computed
+		     with swapped.
+		     But if I is the second of those and C is the first,
+		     don't exchange them, because operands_match is valid
+		     only on one side of its diagonal.  */
+		  ? (operands_match
+		     [(c == commutative || c == commutative + 1)
+		     ? 2 * commutative + 1 - c : c]
+		     [(i == commutative || i == commutative + 1)
+		     ? 2 * commutative + 1 - i : i])
+		  : operands_match[c][i])
+		{
+		  /* If we are matching a non-offsettable address where an
+		     offsettable address was expected, then we must reject
+		     this combination, because we can't reload it.  */
+		  if (mop_alt->offmemok
+		      && GET_CODE (recog_data.operand[c]) == MEM
+		      && mop_alt->class == (int) NO_REGS
+		      && ! mop_alt->win)
+		    bad = 1;
+
+		  did_match = mop_alt->win;
+		}
+	      else
+		{
+		  /* Retroactively mark the operand we had to match
+		     as a loser, if it wasn't already.  */
+		  if (mop_alt->win)
+		    losers++;
+		  mop_alt->win = 0;
+		  if (mop_alt->class == (int) NO_REGS)
+		    bad = 1;
+		}
+	      /* This can be fixed with reloads if the operand
+		 we are supposed to match can be fixed with reloads.  */
+	      badop = 0;
+	      op_alt->class = mop_alt->class;
+
+	      /* If we have to reload this operand and some previous
+		 operand also had to match the same thing as this
+		 operand, we don't know how to do that.  So reject this
+		 alternative.  */
+	      if (! did_match || force_reload)
+		for (j = 0; j < i; j++)
+		  if (this_alt[j].matches
+		      == op_alt->matches)
+		    badop = 1;
+
+	      if (REG_P (operand))
+		{
+		  op_alt->reg = operand;
+		  op_alt->reg_loc = operand_loc;
+		}
+	    }
+	    break;
+
+	  case 'p':
+	    /* All necessary reloads for an address_operand
+	       were handled in find_reloads_address.  */
+	    op_alt->class = (int) BASE_REG_CLASS;
+	    op_alt->address_operand = 1;
+	    win = 1;
+	    break;
+
+	  case 'm':
+	    if (force_reload)
+	      break;
+	    if (GET_CODE (operand) == MEM)
+	      win = 1;
+	    /* force_const_mem does not accept HIGH.  */
+	    if (CONSTANT_P (operand)
+		&& GET_CODE (operand) != HIGH)
+	      badop = 0;
+	    constmemok = 1;
+	    break;
+
+	  case '<':
+	    if (GET_CODE (operand) == MEM
+		&& ! address_reloaded[i]
+		&& (GET_CODE (XEXP (operand, 0)) == PRE_DEC
+		    || GET_CODE (XEXP (operand, 0)) == POST_DEC))
+	      win = 1;
+	    break;
+
+	  case '>':
+	    if (GET_CODE (operand) == MEM
+		&& ! address_reloaded[i]
+		&& (GET_CODE (XEXP (operand, 0)) == PRE_INC
+		    || GET_CODE (XEXP (operand, 0)) == POST_INC))
+	      win = 1;
+	    break;
+
+	    /* Memory operand whose address is not offsettable.  */
+	  case 'V':
+	    if (force_reload)
+	      break;
+	    if (GET_CODE (operand) == MEM
+		&& ! offsettable_nonstrict_memref_p (operand))
+	      win = 1;
+	    break;
+
+	    /* Memory operand whose address is offsettable.  */
+	  case 'o':
+	    if (force_reload)
+	      break;
+	    if (GET_CODE (operand) == MEM
+		/* If IND_LEVELS, find_reloads_address won't reload a
+		   pseudo that didn't get a hard reg, so we have to
+		   reject that case.  */
+		&& (offsettable_nonstrict_memref_p (operand)
+		    /* A reloaded address is offsettable because it is now
+		       just a simple register indirect.  */
+		    || address_reloaded[i]))
+	      win = 1;
+	    /* force_const_mem does not accept HIGH.  */
+	    if ((CONSTANT_P (operand) && GET_CODE (operand) != HIGH)
+		|| GET_CODE (operand) == MEM)
+	      badop = 0;
+	    constmemok = 1;
+	    offmemok = 1;
+	    break;
+
+	  case '&':
+	    /* Output operand that is stored before the need for the
+	       input operands (and their index registers) is over.  */
+	    earlyclobber = 1;
+	    break;
+
+	  case 'E':
+#ifndef REAL_ARITHMETIC
+	    /* Match any floating double constant, but only if
+	       we can examine the bits of it reliably.  */
+	    if ((HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
+		 || HOST_BITS_PER_WIDE_INT != BITS_PER_WORD)
+		&& GET_MODE (operand) != VOIDmode && ! flag_pretend_float)
+	      break;
+#endif
+	    if (GET_CODE (operand) == CONST_DOUBLE)
+	      win = 1;
+	    break;
+
+	  case 'F':
+	    if (GET_CODE (operand) == CONST_DOUBLE)
+	      win = 1;
+	    break;
+
+	  case 'G':
+	  case 'H':
+	    if (GET_CODE (operand) == CONST_DOUBLE
+		&& CONST_DOUBLE_OK_FOR_LETTER_P (operand, c))
+	      win = 1;
+	    break;
+
+	  case 's':
+	    if (GET_CODE (operand) == CONST_INT
+		|| (GET_CODE (operand) == CONST_DOUBLE
+		    && GET_MODE (operand) == VOIDmode))
+	      break;
+	  case 'i':
+	    if (CONSTANT_P (operand)
+#ifdef LEGITIMATE_PIC_OPERAND_P
+		&& (! flag_pic || LEGITIMATE_PIC_OPERAND_P (operand))
+#endif
+		)
+	      win = 1;
+	    break;
+
+	  case 'n':
+	    if (GET_CODE (operand) == CONST_INT
+		|| (GET_CODE (operand) == CONST_DOUBLE
+		    && GET_MODE (operand) == VOIDmode))
+	      win = 1;
+	    break;
+
+	  case 'I':
+	  case 'J':
+	  case 'K':
+	  case 'L':
+	  case 'M':
+	  case 'N':
+	  case 'O':
+	  case 'P':
+	    if (GET_CODE (operand) == CONST_INT
+		&& CONST_OK_FOR_LETTER_P (INTVAL (operand), c))
+	      win = 1;
+	    break;
+
+	  case 'X':
+	    win = 1;
+	    break;
+
+	  case 'g':
+	    if (! force_reload
+		/* A PLUS is never a valid operand, but reload can make
+		   it from a register when eliminating registers.  */
+		&& GET_CODE (operand) != PLUS
+		/* A SCRATCH is not a valid operand.  */
+		&& GET_CODE (operand) != SCRATCH
+#ifdef LEGITIMATE_PIC_OPERAND_P
+		&& (! CONSTANT_P (operand)
+		    || ! flag_pic
+		    || LEGITIMATE_PIC_OPERAND_P (operand))
+#endif
+		&& GENERAL_REGS == ALL_REGS)
+	      win = 1;
+	    /* Drop through into 'r' case.  */
+
+	  case 'r':
+	    op_alt->class = (int) (reg_class_subunion
+				   [op_alt->class]
+				   [(int) GENERAL_REGS]);
+	    goto reg;
+
+	  default:
+	    if (REG_CLASS_FROM_LETTER (c) == NO_REGS)
+	      {
+#ifdef EXTRA_CONSTRAINT
+		if (EXTRA_CONSTRAINT (operand, c))
+		  win = 1;
+#endif
+		break;
+	      }
+	    /* FIXME: denisc@overta.ru Better to use union of contents
+	       of classes.  */
+	    op_alt->class
+	      = (int) (reg_class_subunion
+		       [op_alt->class]
+		       [(int) REG_CLASS_FROM_LETTER (c)]);
+	  reg:
+	    if (GET_MODE (operand) == BLKmode)
+	      break;
+	    winreg = 1;
+	    if (REG_P (operand))
+	      {
+		op_alt->reg_loc = operand_loc;
+		op_alt->reg = operand;
+		if (REGNO (operand) >= FIRST_PSEUDO_REGISTER)
+		  win = pseudo_fits_class_p (operand, op_alt->class,
+					     GET_MODE (operand)) ;
+		else if (reg_fits_class_p (operand, op_alt->class,
+					   offset, GET_MODE (operand)))
+		  win = 1;
+	      }
+	    break;
+	  }
+
+      constraints[i] = p;
+
+      /* If this operand could be handled with a reg,
+	 and some reg is allowed, then this operand can be handled.  */
+      if (winreg && op_alt->class != (int) NO_REGS)
+	badop = 0;
+
+      /* Record which operands fit this alternative.  */
+      op_alt->earlyclobber = earlyclobber;
+      if (win && ! force_reload)
+	op_alt->win = 1;
+      else if (did_match && ! force_reload)
+	op_alt->match_win = 1;
+      else
+	{
+	  int const_to_mem = 0;
+
+	  op_alt->offmemok = offmemok;
+	  losers++;
+	  if (badop)
+	    bad = 1;
+	  /* Alternative loses if it has no regs for a reg operand.  */
+	  if (REG_P (operand)
+	      && op_alt->class == (int) NO_REGS
+	      && op_alt->matches < 0)
+	    bad = 1;
+
+	  /* If this is a constant that is reloaded into the desired
+	     class by copying it to memory first, count that as another
+	     reload.  This is consistent with other code and is
+	     required to avoid choosing another alternative when
+	     the constant is moved into memory by this function on
+	     an early reload pass.  Note that the test here is
+	     precisely the same as in the code below that calls
+	     force_const_mem.  */
+	  if (CONSTANT_P (operand)
+	      /* force_const_mem does not accept HIGH.  */
+	      && GET_CODE (operand) != HIGH
+	      && (PREFERRED_RELOAD_CLASS (operand,
+					  (enum reg_class) op_alt->class)
+		  == NO_REGS)
+	      && operand_mode[i] != VOIDmode)
+	    {
+	      const_to_mem = 1;
+	      if (op_alt->class != (int) NO_REGS)
+		losers++;
+	    }
+
+	  /* If we can't reload this value at all, reject this
+	     alternative.  Note that we could also lose due to
+	     LIMIT_RELOAD_RELOAD_CLASS, but we don't check that
+	     here.  */
+
+	  if (! CONSTANT_P (operand)
+	      && (enum reg_class) op_alt->class != NO_REGS
+	      && (PREFERRED_RELOAD_CLASS (operand,
+					  (enum reg_class) op_alt->class)
+		  == NO_REGS))
+	    bad = 1;
+
+	  /* We prefer to reload pseudos over reloading other things,
+	     since such reloads may be able to be eliminated later.
+	     If we are reloading a SCRATCH, we won't be generating any
+	     insns, just using a register, so it is also preferred.
+	     So bump REJECT in other cases.  Don't do this in the
+	     case where we are forcing a constant into memory and
+	     it will then win since we don't want to have a different
+	     alternative match then.  */
+	  if (! (REG_P (operand)
+		 && (0
+		     && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
+	      && GET_CODE (operand) != SCRATCH
+	      && ! (const_to_mem && constmemok))
+	    reject += 2;
+
+	  /* Input reloads can be inherited more often than output
+	     reloads can be removed, so penalize output reloads.  */
+	  if (modified[i] != RELOAD_READ
+	      && GET_CODE (operand) != SCRATCH)
+	    reject++;
+	}
+    }
+
+  /* Now see if any output operands that are marked "earlyclobber"
+     in this alternative conflict with any input operands
+     or any memory addresses.  */
+
+  for (i = 0; i < noperands; i++)
+    {
+      struct alternative_info *op_alt = &this_alt[i];
+      if (op_alt->earlyclobber
+	  && (op_alt->win || op_alt->match_win))
+	{
+	  struct decomposition early_data;
+
+	  early_data = pre_reload_decompose (recog_data.operand[i]);
+
+	  if (modified[i] == RELOAD_READ)
+	    abort ();
+
+	  if (op_alt->class == NO_REGS)
+	    {
+	      op_alt->earlyclobber = 0;
+	      if (this_insn_is_asm)
+		error_for_asm (this_insn,
+			       "`&' constraint used with no register class");
+	      else
+		abort ();
+	    }
+
+	  for (j = 0; j < noperands; j++)
+	    /* Is this an input operand or a memory ref?  */
+	    if ((GET_CODE (recog_data.operand[j]) == MEM
+		 || modified[j] != RELOAD_WRITE)
+		&& j != i
+		/* Ignore things like match_operator operands.  */
+		&& *recog_data.constraints[j] != 0
+		/* Don't coutn an input operand that is constrained to match
+		   the early clobber operand.  */
+		&& ! (this_alt[j].matches == i
+		      && rtx_equal_p (recog_data.operand[i],
+				      recog_data.operand[j]))
+		/* Is it altered by storing the earlyclobber operand?  */
+		&& !pre_reload_immune_p (recog_data.operand[j],
+					 recog_data.operand[i],
+					 early_data))
+	      {
+		/* If the output is in a single-reg class,
+		   it's costly to reload it, so reload the input instead.  */
+		if (reg_class_size[op_alt->class] == 1
+		    && (REG_P (recog_data.operand[j])
+			|| GET_CODE (recog_data.operand[j]) == SUBREG))
+		  {
+		    losers++;
+		    this_alt[j].win = 0;
+		    this_alt[j].match_win = 0;
+		  }
+		else
+		  break;
+	      }
+	  /* If an earlyclobber operand conflicts with something,
+	     it must be reloaded, so request this and count the cost.  */
+	  if (j != noperands)
+	    {
+	      losers++;
+	      op_alt->win = 0;
+	      this_alt[j].match_win = 0;
+	      for (j = 0; j < noperands; j++)
+		{
+		  struct alternative_info * op = &this_alt[j];
+		  if (op->matches == i && op->match_win)
+		    {
+		      op->win = 0;
+		      op->match_win = 0;
+		      losers++;
+		    }
+		}
+	    }
+	}
+    }
+      
+  /* REJECT, set by the '!', '*' and '?' constraint characters and when
+     a register would be reloaded into a non-preferred class, discourages
+     the use of this alternative for a reload goal.  REJECT is incremented
+     by six for each ? and two for each non-preferred class.  */
+  losers = losers * 6 + reject;
+
+  return bad ? -1 : losers;
+}
+
 /* Pre-reload INSN or collect all defs/uses for INSN.
    If n_reloads nonzero then INSN was reloaded and no defs/uses was
    callected.
@@ -2130,8 +2790,6 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
   char *constraints[MAX_RECOG_OPERANDS];
   /* These are the preferred classes for an operand, or NO_REGS if it isn't
      a register.  */
-  enum reg_class preferred_class[MAX_RECOG_OPERANDS];
-  char pref_or_nothing[MAX_RECOG_OPERANDS];
   /* Nonzero for a MEM operand whose entire address needs a reload.  */
   int address_reloaded[MAX_RECOG_OPERANDS];
   /* Value of enum reload_type to use for operand.  */
@@ -2139,42 +2797,23 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
   /* Value of enum reload_type to use within address of operand.  */
   enum reload_type address_type[MAX_RECOG_OPERANDS];
   /* Save the usage of each operand.  */
-  enum reload_usage { RELOAD_READ, RELOAD_READ_WRITE, RELOAD_WRITE }
-  modified[MAX_RECOG_OPERANDS];
-  int no_input_reloads = 0, no_output_reloads = 0;
+  enum reload_usage modified[MAX_RECOG_OPERANDS];
   int n_alternatives;
-  int this_alternative[MAX_RECOG_OPERANDS];
-  char this_alternative_match_win[MAX_RECOG_OPERANDS];
-  char this_alternative_win[MAX_RECOG_OPERANDS];
-  char this_alternative_offmemok[MAX_RECOG_OPERANDS];
-  char this_alternative_earlyclobber[MAX_RECOG_OPERANDS];
-  int this_alternative_matches[MAX_RECOG_OPERANDS];
-  rtx this_alternative_reg[MAX_RECOG_OPERANDS];
-  rtx *this_alternative_reg_loc[MAX_RECOG_OPERANDS];
-  char *this_alternative_constraints[MAX_RECOG_OPERANDS];
-  int this_alternative_address_operand[MAX_RECOG_OPERANDS];
+  struct alternative_info this_alt[MAX_RECOG_OPERANDS];
+  
   int this_alternative_number;
   int swapped;
-  int goal_alternative[MAX_RECOG_OPERANDS];
+
+  struct alternative_info goal_alt[MAX_RECOG_OPERANDS];
+  
   int goal_alternative_number = 0;
   int operand_reloadnum[MAX_RECOG_OPERANDS];
-  int goal_alternative_matches[MAX_RECOG_OPERANDS];
-  int goal_alternative_matched[MAX_RECOG_OPERANDS];
-  char goal_alternative_match_win[MAX_RECOG_OPERANDS];
-  char goal_alternative_win[MAX_RECOG_OPERANDS];
-  char goal_alternative_offmemok[MAX_RECOG_OPERANDS];
-  char goal_alternative_earlyclobber[MAX_RECOG_OPERANDS];
-  rtx goal_alternative_reg[MAX_RECOG_OPERANDS];
-  rtx *goal_alternative_reg_loc[MAX_RECOG_OPERANDS];
-  char *goal_alternative_constraints[MAX_RECOG_OPERANDS];
-  int goal_alternative_address_operand[MAX_RECOG_OPERANDS];
   int goal_alternative_swapped;
   int best;
   int commutative;
   char operands_match[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
   rtx substed_operand[MAX_RECOG_OPERANDS];
   rtx set = single_set (insn);
-  int goal_earlyclobber = 0, this_earlyclobber;
   enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
   int ind_levels = indirect_levels;
   ra_ref **orig_def_refs = def_refs;
@@ -2399,653 +3038,21 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
       /* Loop over operands for one constraint alternative.  */
       /* LOSERS counts those that don't fit this alternative
 	 and would require loading.  */
-      int losers = 0;
-      /* BAD is set to 1 if it some operand can't fit this alternative
-	 even after reloading.  */
-      int bad = 0;
-      /* REJECT is a count of how undesirable this alternative says it is
-	 if any reloading is required.  If the alternative matches exactly
-	 then REJECT is ignored, but otherwise it gets this much
-	 counted against it in addition to the reloading needed.  Each
-	 ? counts three times here since we want the disparaging caused by
-	 a bad register class to only count 1/3 as much.  */
-      int reject = 0;
 
-      this_earlyclobber = 0;
-
-      for (i = 0; i < noperands; i++)
-	{
-	  char *p = constraints[i];
-	  int win = 0;
-	  int did_match = 0;
-	  /* 0 => this operand can be reloaded somehow for this
-	     alternative.  */
-	  int badop = 1;
-	  /* 0 => this operand can be reloaded if the alternative
-	     allows regs.  */
-	  int winreg = 0;
-	  int c;
-	  rtx operand = recog_data.operand[i];
-	  rtx *operand_loc = recog_data.operand_loc[i];
-	  int offset = 0;
-	  /* Nonzero means this is a MEM that must be reloaded into a reg
-	     regardless of what the constraint says.  */
-	  int force_reload = 0;
-	  int offmemok = 0;
-	  /* Nonzero if a constant forced into memory would be OK for this
-	     operand.  */
-	  int constmemok = 0;
-	  int earlyclobber = 0;
-	  int match_seen = 0;
-
-	  /* If the predicate accepts a unary operator, it means that
-	     we need to reload the operand, but do not do this for
-	     match_operator and friends.  */
-	  if (GET_RTX_CLASS (GET_CODE (operand)) == '1' && *p != 0)
-	    {
-	      operand = XEXP (operand, 0);
-	      operand_loc = &XEXP (operand, 0);
-	    }
-
-	  /* If the operand is a SUBREG, extract
-	     the REG or MEM (or maybe even a constant) within.
-	     (Constants can occur as a result of reg_equiv_constant.)  */
-
-	  while (GET_CODE (operand) == SUBREG)
-	    {
-	      /* Offset only matters when operand is a REG and
-		 it is a hard reg.  This is because it is passed
-		 to reg_fits_class_p if it is a REG and all pseudos
-		 return 0 from that function.  */
-	      if (REG_P (SUBREG_REG (operand))
-		  && REGNO (SUBREG_REG (operand)) < FIRST_PSEUDO_REGISTER)
-		{
-		  offset +=
-		    subreg_regno_offset (REGNO (SUBREG_REG (operand)),
-					 GET_MODE (SUBREG_REG (operand)),
-					 SUBREG_BYTE (operand),
-					 GET_MODE (operand));
-		}
-	      operand = SUBREG_REG (operand);
-	      operand_loc = &SUBREG_REG (operand);
-	      /* Force reload if this is a constant or PLUS or if there may
-		 be a problem accessing OPERAND in the outer mode.  */
-	      if (CONSTANT_P (operand)
-		  || GET_CODE (operand) == PLUS
-		  /* We must force a reload of paradoxical SUBREGs
-		     of a MEM because the alignment of the inner value
-		     may not be enough to do the outer reference.  On
-		     big-endian machines, it may also reference outside
-		     the object.
-
-		     On machines that extend byte operations and we have a
-		     SUBREG where both the inner and outer modes are no wider
-		     than a word and the inner mode is narrower, is integral,
-		     and gets extended when loaded from memory, combine.c has
-		     made assumptions about the behavior of the machine in such
-		     register access.  If the data is, in fact, in memory we
-		     must always load using the size assumed to be in the
-		     register and let the insn do the different-sized
-		     accesses.
-
-		     This is doubly true if WORD_REGISTER_OPERATIONS.  In
-		     this case eliminate_regs has left non-paradoxical
-		     subregs for push_reloads to see.  Make sure it does
-		     by forcing the reload.
-
-		     ??? When is it right at this stage to have a subreg
-		     of a mem that is _not_ to be handled specialy?  IMO
-		     those should have been reduced to just a mem.  */
-		  || ((GET_CODE (operand) == MEM
-		       || (0
-			   && REG_P (operand)
-			   && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
-#ifndef WORD_REGISTER_OPERATIONS
-		      && (((GET_MODE_BITSIZE (GET_MODE (operand))
-			    < BIGGEST_ALIGNMENT)
-			   && (GET_MODE_SIZE (operand_mode[i])
-			       > GET_MODE_SIZE (GET_MODE (operand))))
-			  || (GET_CODE (operand) == MEM && BYTES_BIG_ENDIAN)
-#ifdef LOAD_EXTEND_OP
-			  || (GET_MODE_SIZE (operand_mode[i]) <= UNITS_PER_WORD
-			      && (GET_MODE_SIZE (GET_MODE (operand))
-				  <= UNITS_PER_WORD)
-			      && (GET_MODE_SIZE (operand_mode[i])
-				  > GET_MODE_SIZE (GET_MODE (operand)))
-			      && INTEGRAL_MODE_P (GET_MODE (operand))
-			      && LOAD_EXTEND_OP (GET_MODE (operand)) != NIL)
-#endif
-			  )
-#endif
-		      )
-		  )
-		force_reload = 1;
-	    }
-
-	  this_alternative[i] = (int) NO_REGS;
-	  this_alternative_win[i] = 0;
-	  this_alternative_match_win[i] = 0;
-	  this_alternative_offmemok[i] = 0;
-	  this_alternative_earlyclobber[i] = 0;
-	  this_alternative_matches[i] = -1;
-	  this_alternative_reg[i] = NULL_RTX;
-	  this_alternative_reg_loc[i] = NULL;
-	  this_alternative_constraints[i] = p;
-	  this_alternative_address_operand[i] = 0;
-	  
-	  /* An empty constraint or empty alternative
-	     allows anything which matched the pattern.  */
-	  if (*p == 0 || *p == ',')
-	    {
-	      win = 1, badop = 0;
-	      if (REG_P (operand))
-		{
-		  this_alternative_reg[i] = operand;
-		  this_alternative_reg_loc[i] = operand_loc;
-		  this_alternative[i] = GENERAL_REGS;
-		}
-	    }
-
-	  /* Scan this alternative's specs for this operand;
-	     set WIN if the operand fits any letter in this alternative.
-	     Otherwise, clear BADOP if this operand could
-	     fit some letter after reloads,
-	     or set WINREG if this operand could fit after reloads
-	     provided the constraint allows some registers.  */
-
-	  match_seen = 0;
-	  while (*p && (c = *p++) != ',')
-	    switch (c)
-	      {
-	      case '=':  case '+':
-		break;
-		
-	      case '*':
-		reject += 4;
-		break;
-
-	      case '%':
-		/* The last operand should not be marked commutative.  */
-		if (i != noperands - 1)
-		  commutative = i;
-		break;
-
-	      case '?':
-		reject += 6;
-		break;
-
-	      case '!':
-		reject = 600;
-		break;
-
-	      case '#':
-		/* Ignore rest of this alternative as far as
-		   reloading is concerned.  */
-		if (match_seen)
-		  while (*p && *p != ',')
-		    p++;
-		break;
-
-	      case '0':  case '1':  case '2':  case '3':  case '4':
-	      case '5':  case '6':  case '7':  case '8':  case '9':
-
-		match_seen = 1;
-		c -= '0';
-		this_alternative_matches[i] = c;
-		/* We are supposed to match a previous operand.
-		   If we do, we win if that one did.
-		   If we do not, count both of the operands as losers.
-		   (This is too conservative, since most of the time
-		   only a single reload insn will be needed to make
-		   the two operands win.  As a result, this alternative
-		   may be rejected when it is actually desirable.)  */
-		if ((swapped && (c != commutative || i != commutative + 1))
-		    /* If we are matching as if two operands were swapped,
-		       also pretend that operands_match had been computed
-		       with swapped.
-		       But if I is the second of those and C is the first,
-		       don't exchange them, because operands_match is valid
-		       only on one side of its diagonal.  */
-		    ? (operands_match
-		       [(c == commutative || c == commutative + 1)
-		       ? 2 * commutative + 1 - c : c]
-		       [(i == commutative || i == commutative + 1)
-		       ? 2 * commutative + 1 - i : i])
-		    : operands_match[c][i])
-		  {
-		    /* If we are matching a non-offsettable address where an
-		       offsettable address was expected, then we must reject
-		       this combination, because we can't reload it.  */
-		    if (this_alternative_offmemok[c]
-			&& GET_CODE (recog_data.operand[c]) == MEM
-			&& this_alternative[c] == (int) NO_REGS
-			&& ! this_alternative_win[c])
-		      bad = 1;
-
-		    did_match = this_alternative_win[c];
-		  }
-		else
-		  {
-		    /* Retroactively mark the operand we had to match
-		       as a loser, if it wasn't already.  */
-		    if (this_alternative_win[c])
-		      losers++;
-		    this_alternative_win[c] = 0;
-		    if (this_alternative[c] == (int) NO_REGS)
-		      bad = 1;
-		  }
-		/* This can be fixed with reloads if the operand
-		   we are supposed to match can be fixed with reloads.  */
-		badop = 0;
-		this_alternative[i] = this_alternative[c];
-
-		/* If we have to reload this operand and some previous
-		   operand also had to match the same thing as this
-		   operand, we don't know how to do that.  So reject this
-		   alternative.  */
-		if (! did_match || force_reload)
-		  for (j = 0; j < i; j++)
-		    if (this_alternative_matches[j]
-			== this_alternative_matches[i])
-		      badop = 1;
-
-		if (REG_P (operand))
-		  {
-		    this_alternative_reg[i] = operand;
-		    this_alternative_reg_loc[i] = operand_loc;
-		  }
-		break;
-
-	      case 'p':
-		/* All necessary reloads for an address_operand
-		   were handled in find_reloads_address.  */
-		this_alternative[i] = (int) BASE_REG_CLASS;
-		this_alternative_address_operand[i] = 1;
-		win = 1;
-		break;
-
-	      case 'm':
-		if (force_reload)
-		  break;
-		if (GET_CODE (operand) == MEM)
-		  win = 1;
-		/* force_const_mem does not accept HIGH.  */
-		if (CONSTANT_P (operand)
-		    && GET_CODE (operand) != HIGH)
-		  badop = 0;
-		constmemok = 1;
-		break;
-
-	      case '<':
-		if (GET_CODE (operand) == MEM
-		    && ! address_reloaded[i]
-		    && (GET_CODE (XEXP (operand, 0)) == PRE_DEC
-			|| GET_CODE (XEXP (operand, 0)) == POST_DEC))
-		  win = 1;
-		break;
-
-	      case '>':
-		if (GET_CODE (operand) == MEM
-		    && ! address_reloaded[i]
-		    && (GET_CODE (XEXP (operand, 0)) == PRE_INC
-			|| GET_CODE (XEXP (operand, 0)) == POST_INC))
-		  win = 1;
-		break;
-
-		/* Memory operand whose address is not offsettable.  */
-	      case 'V':
-		if (force_reload)
-		  break;
-		if (GET_CODE (operand) == MEM
-		    && ! offsettable_nonstrict_memref_p (operand))
-		  win = 1;
-		break;
-
-		/* Memory operand whose address is offsettable.  */
-	      case 'o':
-		if (force_reload)
-		  break;
-		if (GET_CODE (operand) == MEM
-		    /* If IND_LEVELS, find_reloads_address won't reload a
-		       pseudo that didn't get a hard reg, so we have to
-		       reject that case.  */
-		    && (offsettable_nonstrict_memref_p (operand)
-			/* A reloaded address is offsettable because it is now
-			   just a simple register indirect.  */
-			|| address_reloaded[i]))
-		  win = 1;
-		/* force_const_mem does not accept HIGH.  */
-		if ((CONSTANT_P (operand) && GET_CODE (operand) != HIGH)
-		    || GET_CODE (operand) == MEM)
-		  badop = 0;
-		constmemok = 1;
-		offmemok = 1;
-		break;
-
-	      case '&':
-		/* Output operand that is stored before the need for the
-		   input operands (and their index registers) is over.  */
-		earlyclobber = 1, this_earlyclobber = 1;
-		break;
-
-	      case 'E':
-#ifndef REAL_ARITHMETIC
-		/* Match any floating double constant, but only if
-		   we can examine the bits of it reliably.  */
-		if ((HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-		     || HOST_BITS_PER_WIDE_INT != BITS_PER_WORD)
-		    && GET_MODE (operand) != VOIDmode && ! flag_pretend_float)
-		  break;
-#endif
-		if (GET_CODE (operand) == CONST_DOUBLE)
-		  win = 1;
-		break;
-
-	      case 'F':
-		if (GET_CODE (operand) == CONST_DOUBLE)
-		  win = 1;
-		break;
-
-	      case 'G':
-	      case 'H':
-		if (GET_CODE (operand) == CONST_DOUBLE
-		    && CONST_DOUBLE_OK_FOR_LETTER_P (operand, c))
-		  win = 1;
-		break;
-
-	      case 's':
-		if (GET_CODE (operand) == CONST_INT
-		    || (GET_CODE (operand) == CONST_DOUBLE
-			&& GET_MODE (operand) == VOIDmode))
-		  break;
-	      case 'i':
-		if (CONSTANT_P (operand)
-#ifdef LEGITIMATE_PIC_OPERAND_P
-		    && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (operand))
-#endif
-		    )
-		  win = 1;
-		break;
-
-	      case 'n':
-		if (GET_CODE (operand) == CONST_INT
-		    || (GET_CODE (operand) == CONST_DOUBLE
-			&& GET_MODE (operand) == VOIDmode))
-		  win = 1;
-		break;
-
-	      case 'I':
-	      case 'J':
-	      case 'K':
-	      case 'L':
-	      case 'M':
-	      case 'N':
-	      case 'O':
-	      case 'P':
-		if (GET_CODE (operand) == CONST_INT
-		    && CONST_OK_FOR_LETTER_P (INTVAL (operand), c))
-		  win = 1;
-		break;
-
-	      case 'X':
-		win = 1;
-		break;
-
-	      case 'g':
-		if (! force_reload
-		    /* A PLUS is never a valid operand, but reload can make
-		       it from a register when eliminating registers.  */
-		    && GET_CODE (operand) != PLUS
-		    /* A SCRATCH is not a valid operand.  */
-		    && GET_CODE (operand) != SCRATCH
-#ifdef LEGITIMATE_PIC_OPERAND_P
-		    && (! CONSTANT_P (operand)
-			|| ! flag_pic
-			|| LEGITIMATE_PIC_OPERAND_P (operand))
-#endif
-		    && GENERAL_REGS == ALL_REGS)
-		  win = 1;
-		/* Drop through into 'r' case.  */
-
-	      case 'r':
-		this_alternative[i] = (int) (reg_class_subunion
-					     [this_alternative[i]]
-					     [(int) GENERAL_REGS]);
-		goto reg;
-
-	      default:
-		if (REG_CLASS_FROM_LETTER (c) == NO_REGS)
-		  {
-#ifdef EXTRA_CONSTRAINT
-		    if (EXTRA_CONSTRAINT (operand, c))
-		      win = 1;
-#endif
-		    break;
-		  }
-		/* FIXME: denisc@overta.ru Better to use union of contents
-		   of classes.  */
-		this_alternative[i]
-		  = (int) (reg_class_subunion
-			   [this_alternative[i]]
-			   [(int) REG_CLASS_FROM_LETTER (c)]);
-	      reg:
-		if (GET_MODE (operand) == BLKmode)
-		  break;
-		winreg = 1;
-		if (REG_P (operand))
-		  {
-		    this_alternative_reg_loc[i] = operand_loc;
-		    this_alternative_reg[i] = operand;
-		    if (REGNO (operand) >= FIRST_PSEUDO_REGISTER)
-		      win = pseudo_fits_class_p (operand, this_alternative[i],
-						GET_MODE (operand)) ;
-		    else if (reg_fits_class_p (operand, this_alternative[i],
-					       offset, GET_MODE (operand)))
-		      win = 1;
-		  }
-		break;
-	      }
-
-	  constraints[i] = p;
-
-	  /* If this operand could be handled with a reg,
-	     and some reg is allowed, then this operand can be handled.  */
-	  if (winreg && this_alternative[i] != (int) NO_REGS)
-	    badop = 0;
-
-	  /* Record which operands fit this alternative.  */
-	  this_alternative_earlyclobber[i] = earlyclobber;
-	  if (win && ! force_reload)
-	    this_alternative_win[i] = 1;
-	  else if (did_match && ! force_reload)
-	    this_alternative_match_win[i] = 1;
-	  else
-	    {
-	      int const_to_mem = 0;
-
-	      this_alternative_offmemok[i] = offmemok;
-	      losers++;
-	      if (badop)
-		bad = 1;
-	      /* Alternative loses if it has no regs for a reg operand.  */
-	      if (REG_P (operand)
-		  && this_alternative[i] == (int) NO_REGS
-		  && this_alternative_matches[i] < 0)
-		bad = 1;
-
-	      /* If this is a constant that is reloaded into the desired
-		 class by copying it to memory first, count that as another
-		 reload.  This is consistent with other code and is
-		 required to avoid choosing another alternative when
-		 the constant is moved into memory by this function on
-		 an early reload pass.  Note that the test here is
-		 precisely the same as in the code below that calls
-		 force_const_mem.  */
-	      if (CONSTANT_P (operand)
-		  /* force_const_mem does not accept HIGH.  */
-		  && GET_CODE (operand) != HIGH
-		  && ((PREFERRED_RELOAD_CLASS (operand,
-					       (enum reg_class)
-					       this_alternative[i])
-		       == NO_REGS)
-		      || no_input_reloads)
-		  && operand_mode[i] != VOIDmode)
-		{
-		  const_to_mem = 1;
-		  if (this_alternative[i] != (int) NO_REGS)
-		    losers++;
-		}
-
-	      /* If we can't reload this value at all, reject this
-		 alternative.  Note that we could also lose due to
-		 LIMIT_RELOAD_RELOAD_CLASS, but we don't check that
-		 here.  */
-
-	      if (! CONSTANT_P (operand)
-		  && (enum reg_class) this_alternative[i] != NO_REGS
-		  && (PREFERRED_RELOAD_CLASS (operand,
-					      (enum reg_class)
-					      this_alternative[i])
-		      == NO_REGS))
-		bad = 1;
-
-	      /* Alternative loses if it requires a type of reload not
-		 permitted for this insn.  We can always reload SCRATCH
-		 and objects with a REG_UNUSED note.  */
-	      else if (GET_CODE (operand) != SCRATCH
-		       && modified[i] != RELOAD_READ && no_output_reloads)
-		bad = 1;
-	      else if (modified[i] != RELOAD_WRITE && no_input_reloads
-		       && ! const_to_mem)
-		bad = 1;
-
-	      /* We prefer to reload pseudos over reloading other things,
-		 since such reloads may be able to be eliminated later.
-		 If we are reloading a SCRATCH, we won't be generating any
-		 insns, just using a register, so it is also preferred.
-		 So bump REJECT in other cases.  Don't do this in the
-		 case where we are forcing a constant into memory and
-		 it will then win since we don't want to have a different
-		 alternative match then.  */
-	      if (! (REG_P (operand)
-		     && (0
-			 && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
-		  && GET_CODE (operand) != SCRATCH
-		  && ! (const_to_mem && constmemok))
-		reject += 2;
-
-	      /* Input reloads can be inherited more often than output
-		 reloads can be removed, so penalize output reloads.  */
-	      if (operand_type[i] != RELOAD_FOR_INPUT
-		  && GET_CODE (operand) != SCRATCH)
-		reject++;
-	    }
-	}
-
-      /* Now see if any output operands that are marked "earlyclobber"
-	 in this alternative conflict with any input operands
-	 or any memory addresses.  */
-
-      for (i = 0; i < noperands; i++)
-	if (this_alternative_earlyclobber[i]
-	    && (this_alternative_win[i] || this_alternative_match_win[i]))
-	  {
-	    struct decomposition early_data;
-
-	    early_data = pre_reload_decompose (recog_data.operand[i]);
-
-	    if (modified[i] == RELOAD_READ)
-	      abort ();
-
-	    if (this_alternative[i] == NO_REGS)
-	      {
-		this_alternative_earlyclobber[i] = 0;
-		if (this_insn_is_asm)
-		  error_for_asm (this_insn,
-				 "`&' constraint used with no register class");
-		else
-		  abort ();
-	      }
-
-	    for (j = 0; j < noperands; j++)
-	      /* Is this an input operand or a memory ref?  */
-	      if ((GET_CODE (recog_data.operand[j]) == MEM
-		   || modified[j] != RELOAD_WRITE)
-		  && j != i
-		  /* Ignore things like match_operator operands.  */
-		  && *recog_data.constraints[j] != 0
-		  /* Don't coutn an input operand that is constrained to match
-		     the early clobber operand.  */
-		  && ! (this_alternative_matches[j] == i
-			&& rtx_equal_p (recog_data.operand[i],
-					recog_data.operand[j]))
-		  /* Is it altered by storing the earlyclobber operand?  */
-		  && !pre_reload_immune_p (recog_data.operand[j],
-					   recog_data.operand[i],
-					   early_data))
-		{
-		  /* If the output is in a single-reg class,
-		     it's costly to reload it, so reload the input instead.  */
-		  if (reg_class_size[this_alternative[i]] == 1
-		      && (REG_P (recog_data.operand[j])
-			  || GET_CODE (recog_data.operand[j]) == SUBREG))
-		    {
-		      losers++;
-		      this_alternative_win[j] = 0;
-		      this_alternative_match_win[j] = 0;
-		    }
-		  else
-		    break;
-		}
-	    /* If an earlyclobber operand conflicts with something,
-	       it must be reloaded, so request this and count the cost.  */
-	    if (j != noperands)
-	      {
-		losers++;
-		this_alternative_win[i] = 0;
-		this_alternative_match_win[j] = 0;
-		for (j = 0; j < noperands; j++)
-		  if (this_alternative_matches[j] == i
-		      && this_alternative_match_win[j])
-		    {
-		      this_alternative_win[j] = 0;
-		      this_alternative_match_win[j] = 0;
-		      losers++;
-		    }
-	      }
-	  }
+      int losers = scan_alternative (this_alt, constraints, modified,
+				     address_reloaded, operands_match,
+				     swapped, &commutative);
       
-      /* REJECT, set by the '!', '*' and '?' constraint characters and when
-	 a register would be reloaded into a non-preferred class, discourages
-	 the use of this alternative for a reload goal.  REJECT is incremented
-	 by six for each ? and two for each non-preferred class.  */
-      losers = losers * 6 + reject;
-
       /* If this alternative can be made to work by reloading,
 	 and it needs less reloading than the others checked so far,
 	 record it as the chosen goal for reloading.  */
-      if (! bad && best > losers)
+      if (losers >= 0 && best > losers)
 	{
 	  for (i = 0; i < noperands; i++)
-	    {
-	      goal_alternative[i] = this_alternative[i];
-	      goal_alternative_win[i] = this_alternative_win[i];
-	      goal_alternative_match_win[i] = this_alternative_match_win[i];
-	      goal_alternative_offmemok[i] = this_alternative_offmemok[i];
-	      goal_alternative_matches[i] = this_alternative_matches[i];
-	      goal_alternative_earlyclobber[i]
-		= this_alternative_earlyclobber[i];
-	      goal_alternative_reg[i] = this_alternative_reg[i];
-	      goal_alternative_reg_loc[i] = this_alternative_reg_loc[i];
-	      goal_alternative_constraints[i]
-		= this_alternative_constraints[i];
-	      goal_alternative_address_operand[i]
-		= this_alternative_address_operand[i]; 
-	    }
+	    memcpy (&goal_alt[i], &this_alt[i], sizeof (this_alt[0]));
 	  goal_alternative_swapped = swapped;
-	  best = losers;
 	  goal_alternative_number = this_alternative_number;
-	  goal_earlyclobber = this_earlyclobber;
+	  best = losers;
 	}
     }
 
@@ -3063,19 +3070,8 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
       swapped = !swapped;
       if (swapped)
 	{
-	  enum reg_class tclass;
-	  int t;
-
 	  recog_data.operand[commutative] = substed_operand[commutative + 1];
 	  recog_data.operand[commutative + 1] = substed_operand[commutative];
-
-	  tclass = preferred_class[commutative];
-	  preferred_class[commutative] = preferred_class[commutative + 1];
-	  preferred_class[commutative + 1] = tclass;
-
-	  t = pref_or_nothing[commutative];
-	  pref_or_nothing[commutative] = pref_or_nothing[commutative + 1];
-	  pref_or_nothing[commutative + 1] = t;
 
 	  memcpy (constraints, recog_data.constraints,
 		  noperands * sizeof (char *));
@@ -3113,15 +3109,15 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
      goal_alternative_matched[I] = J.  */
 
   for (i = 0; i < noperands; i++)
-    goal_alternative_matched[i] = -1;
+    goal_alt[i].matched = -1;
  
   for (i = 0; i < noperands; i++)
-    if (! goal_alternative_win[i]
-	&& goal_alternative_matches[i] >= 0)
-      goal_alternative_matched[goal_alternative_matches[i]] = i;
+    if (! goal_alt[i].win
+	&& goal_alt[i].matches >= 0)
+      goal_alt[goal_alt[i].matches].matched = i;
 
   for (i = 0; i < noperands; i++)
-    goal_alternative_win[i] |= goal_alternative_match_win[i];
+    goal_alt[i].win |= goal_alt[i].match_win;
 
   /* If the best alternative is with operands 1 and 2 swapped,
      consider them swapped before reporting the reloads.  Update the
@@ -3172,21 +3168,20 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	 In any case, anything needed to address this operand can remain
 	 however they were previously categorized.  */
 
-      if (goal_alternative_earlyclobber[i] && operand_type[i] != RELOAD_OTHER)
+      if (goal_alt[i].earlyclobber && operand_type[i] != RELOAD_OTHER)
 	operand_type[i] = RELOAD_OTHER;
     }
 
   /* Any constants that aren't allowed and can't be reloaded
      into registers are here changed into memory references.  */
   for (i = 0; i < noperands; i++)
-    if (! goal_alternative_win[i]
+    if (! goal_alt[i].win
 	&& CONSTANT_P (recog_data.operand[i])
 	/* force_const_mem does not accept HIGH.  */
 	&& GET_CODE (recog_data.operand[i]) != HIGH
-	&& ((PREFERRED_RELOAD_CLASS (recog_data.operand[i],
-				     (enum reg_class) goal_alternative[i])
-	     == NO_REGS)
-	    || no_input_reloads)
+	&& (PREFERRED_RELOAD_CLASS (recog_data.operand[i],
+				    (enum reg_class) goal_alt[i].class)
+	    == NO_REGS)
 	&& operand_mode[i] != VOIDmode)
       {
 	substed_operand[i] = recog_data.operand[i]
@@ -3196,21 +3191,20 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 				     NULL);
 	if (alternative_allows_memconst (recog_data.constraints[i],
 					 goal_alternative_number))
-	  goal_alternative_win[i] = 1;
+	  goal_alt[i].win = 1;
       }
 
   /* Record the values of the earlyclobber operands for the caller.  */
-  if (goal_earlyclobber)
-    for (i = 0; i < noperands; i++)
-      if (goal_alternative_earlyclobber[i])
-	reload_earlyclobbers[n_earlyclobbers++] = recog_data.operand[i];
+  for (i = 0; i < noperands; i++)
+    if (goal_alt[i].earlyclobber)
+      reload_earlyclobbers[n_earlyclobbers++] = recog_data.operand[i];
 
   /* Now record reloads for all the operands that need them.  */
   for (i = 0; i < noperands; i++)
-    if (! goal_alternative_win[i])
+    if (! goal_alt[i].win)
       {
 	/* Operands that match previous ones have already been handled.  */
-	if (goal_alternative_matches[i] >= 0)
+	if (goal_alt[i].matches >= 0)
 	  ;
 	/* Handle an operand with a nonoffsettable address
 	   appearing where an offsettable address will do
@@ -3219,8 +3213,8 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	   ??? We can also do this when the operand is a register and
 	   reg_equiv_mem is not offsettable, but this is a bit tricky,
 	   so we don't bother with it.  It may not be worth doing.  */
-	else if (goal_alternative_matched[i] == -1
-		 && goal_alternative_offmemok[i]
+	else if (goal_alt[i].matched == -1
+		 && goal_alt[i].offmemok
 		 && GET_CODE (recog_data.operand[i]) == MEM)
 	  {
 	    operand_reloadnum[i]
@@ -3251,7 +3245,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 		  }
 	      }
 	  }
-	else if (goal_alternative_matched[i] == -1)
+	else if (goal_alt[i].matched == -1)
 	  {
 	    operand_reloadnum[i]
 	      = push_pre_reload ((modified[i] != RELOAD_WRITE
@@ -3262,7 +3256,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 				  ? recog_data.operand_loc[i] : 0),
 				 (modified[i] != RELOAD_READ
 				  ? recog_data.operand_loc[i] : 0),
-				 (enum reg_class) goal_alternative[i],
+				 (enum reg_class) goal_alt[i].class,
 				 (modified[i] == RELOAD_WRITE
 				  ? VOIDmode : operand_mode[i]),
 				 (modified[i] == RELOAD_READ
@@ -3275,29 +3269,29 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	   and the other must be output only.
 	   Pass the input operand as IN and the other as OUT.  */
 	else if (modified[i] == RELOAD_READ
-		 && modified[goal_alternative_matched[i]] == RELOAD_WRITE)
+		 && modified[goal_alt[i].matched] == RELOAD_WRITE)
 	  {
 	    operand_reloadnum[i]
 	      = push_pre_reload (recog_data.operand[i],
-				 recog_data.operand [goal_alternative_matched[i]],
+				 recog_data.operand [goal_alt[i].matched],
 				 recog_data.operand_loc[i],
-				 recog_data.operand_loc[goal_alternative_matched[i]],
-				 (enum reg_class) goal_alternative[i],
+				 recog_data.operand_loc[goal_alt[i].matched],
+				 (enum reg_class) goal_alt[i].class,
 				 operand_mode[i],
-				 operand_mode[goal_alternative_matched[i]],
+				 operand_mode[goal_alt[i].matched],
 				 0, 0, i, RELOAD_OTHER);
-	    operand_reloadnum[goal_alternative_matched[i]] = output_reloadnum;
+	    operand_reloadnum[goal_alt[i].matched] = output_reloadnum;
 	  }
 	else if (modified[i] == RELOAD_WRITE
-		 && modified[goal_alternative_matched[i]] == RELOAD_READ)
+		 && modified[goal_alt[i].matched] == RELOAD_READ)
 	  {
-	    operand_reloadnum[goal_alternative_matched[i]]
-	      = push_pre_reload (recog_data.operand[goal_alternative_matched[i]],
+	    operand_reloadnum[goal_alt[i].matched]
+	      = push_pre_reload (recog_data.operand[goal_alt[i].matched],
 				 recog_data.operand[i],
-				 recog_data.operand_loc[goal_alternative_matched[i]],
+				 recog_data.operand_loc[goal_alt[i].matched],
 				 recog_data.operand_loc[i],
-				 (enum reg_class) goal_alternative[i],
-				 operand_mode[goal_alternative_matched[i]],
+				 (enum reg_class) goal_alt[i].class,
+				 operand_mode[goal_alt[i].matched],
 				 operand_mode[i],
 				 0, 0, i, RELOAD_OTHER);
 	    operand_reloadnum[i] = output_reloadnum;
@@ -3388,7 +3382,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	opno2ref[i] = 0;
       
 	if (GET_CODE (recog_data.operand[i]) == MEM
-	    || goal_alternative_address_operand[i])
+	    || goal_alt[i].address_operand)
 	  {
 	    /* FIXME: Now we can only record registers inside address. */
 	    struct scan_addr_state scan_state;
@@ -3398,7 +3392,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	    scan_state.uses = use_refs;
 	    scan_state.regs_per_addr = 0;
 	    scan_state.alt = goal_alternative_number;
-	    scan_state.constraints = goal_alternative_constraints[i];
+	    scan_state.constraints = goal_alt[i].constraints;
 	    scan_state.modified = 0;
 	    scan_state.class = BASE_REG_CLASS;
 	    scan_state.ra_info = ra_info;
@@ -3407,23 +3401,23 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	    def_refs = scan_state.defs;
 	    use_refs = scan_state.uses;
 	  }
-	else if (goal_alternative_reg[i])
+	else if (goal_alt[i].reg)
 	  {
-	    int matches = goal_alternative_matches[i];
+	    int matches = goal_alt[i].matches;
 	  
 	    ra_ref *ref = (ra_ref *) obstack_alloc (&ra_info->obstack,
 						    sizeof (ra_ref));
 	    opno2ref[i] = ref;
-	    ref->reg = goal_alternative_reg[i];
-	    ref->loc = goal_alternative_reg_loc[i];
+	    ref->reg = goal_alt[i].reg;
+	    ref->loc = goal_alt[i].reg_loc;
 	    ref->insn = insn;
 	    ref->opno = i;
 	    ref->operand = recog_data.operand[i];
 	    ref->type = RA_REF_NONE;
 
-	    if (*goal_alternative_constraints[i] != '\0')
+	    if (*goal_alt[i].constraints != '\0')
 	      {
-		if (goal_alternative_earlyclobber[i])
+		if (goal_alt[i].earlyclobber)
 		  RA_REF_SET_TYPE (ref, RA_REF_CLOBBER);
 		if (operand_type[i] == RELOAD_OTHER)
 		  RA_REF_SET_TYPE (ref, RA_REF_RDWR);
@@ -3449,12 +3443,12 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	      }
 	    else
 	      COPY_HARD_REG_SET (ref->hardregs,
-				 reg_class_contents[goal_alternative[i]]);
+				 reg_class_contents[goal_alt[i].class]);
 
 	    /* Fields for debugging.  */
 	    ref->alt = goal_alternative_number;
-	    ref->constraints = goal_alternative_constraints[i];
-	    ref->class = goal_alternative[i];
+	    ref->constraints = goal_alt[i].constraints;
+	    ref->class = goal_alt[i].class;
 	    
 	    if (RA_REF_WRITE_P (ref) || RA_REF_CLOBBER_P (ref))
 	      *def_refs++ = ref;
@@ -3466,6 +3460,271 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 
   *n_defs = def_refs - orig_def_refs;
   *n_uses = use_refs - orig_use_refs;
+}
+
+/* Recognize the insn INSN and check constraints validity very
+   strictly.  */
+int
+ra_check_constraints (insn)
+     rtx insn;
+{
+  int insn_code_number;
+  int i;
+  int noperands;
+  /* These start out as the constraints for the insn
+     and they are chewed up as we consider alternatives.  */
+  char *constraints[MAX_RECOG_OPERANDS];
+  /* These are the preferred classes for an operand, or NO_REGS if it isn't
+     a register.  */
+  /* Nonzero for a MEM operand whose entire address needs a reload.  */
+  int address_reloaded[MAX_RECOG_OPERANDS];
+  /* Value of enum reload_type to use for operand.  */
+  enum reload_type operand_type[MAX_RECOG_OPERANDS];
+  /* Value of enum reload_type to use within address of operand.  */
+  enum reload_type address_type[MAX_RECOG_OPERANDS];
+  /* Save the usage of each operand.  */
+  enum reload_usage modified[MAX_RECOG_OPERANDS];
+  int n_alternatives;
+  struct alternative_info this_alt[MAX_RECOG_OPERANDS];
+  
+  int this_alternative_number;
+  int swapped;
+
+  int best;
+  int commutative;
+  char operands_match[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
+  rtx substed_operand[MAX_RECOG_OPERANDS];
+  enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
+  rtx pat = PATTERN (insn);
+
+  /* If we are before reload and the pattern is a SET, see if we can add
+     clobbers.  */
+  int icode = recog (pat, insn, 0);
+  int is_asm = icode < 0 && asm_noperands (PATTERN (insn)) >= 0;
+
+
+  /* If this is an asm and the operand aren't legal, then fail.  Likewise if
+     this is not an asm and the insn wasn't recognized.  */
+  if ((is_asm && ! check_asm_operands (PATTERN (insn)))
+      || (!is_asm && icode < 0))
+    return 0;
+
+  INSN_CODE (insn) = icode;
+  extract_insn (insn);
+
+  noperands = reload_n_operands = recog_data.n_operands;
+  n_alternatives = recog_data.n_alternatives;
+
+  n_reloads = 0;
+  n_replacements = 0;
+  n_earlyclobbers = 0;
+
+  /* Just return "no reloads" if insn has no operands with constraints.  */
+  if (noperands == 0 || n_alternatives == 0)
+    return 1;
+
+  this_insn = insn;
+  insn_code_number = INSN_CODE (insn);
+  this_insn_is_asm = insn_code_number < 0;
+
+  memcpy (operand_mode, recog_data.operand_mode,
+	  noperands * sizeof (enum machine_mode));
+  memcpy (constraints, recog_data.constraints, noperands * sizeof (char *));
+
+  commutative = -1;
+
+  /* If we will need to know, later, whether some pair of operands
+     are the same, we must compare them now and save the result.
+     Reloading the base and index registers will clobber them
+     and afterward they will fail to match.  */
+
+  for (i = 0; i < noperands; i++)
+    {
+      char *p;
+      int c;
+
+      substed_operand[i] = recog_data.operand[i];
+      p = constraints[i];
+
+      modified[i] = RELOAD_READ;
+
+      /* Scan this operand's constraint to see if it is an output operand,
+	 an in-out operand, is commutative, or should match another.  */
+
+      while ((c = *p++))
+	{
+	  if (c == '=')
+	    modified[i] = RELOAD_WRITE;
+	  else if (c == '+')
+	    modified[i] = RELOAD_READ_WRITE;
+	  else if (c == '%')
+	    {
+	      /* The last operand should not be marked commutative.  */
+	      if (i == noperands - 1)
+		abort ();
+
+	      commutative = i;
+	    }
+	  else if (c >= '0' && c <= '9')
+	    {
+	      rtx op1 = recog_data.operand[c - '0'];
+	      rtx op2 = recog_data.operand[i];
+	      c -= '0';
+	      if (GET_MODE (op1) != GET_MODE (op2)
+		  && INTEGRAL_MODE_P (GET_MODE (op1))
+		  && INTEGRAL_MODE_P (GET_MODE (op2)))
+		{
+		  if (GET_MODE_SIZE (GET_MODE (op1))
+		      < GET_MODE_SIZE (GET_MODE (op2)))
+		    {
+		      rtx t = op1;
+		      op1 = op2;
+		      op2 = t;
+		    }
+		  if (GET_CODE (op2) == SUBREG)
+		    {
+		      unsigned o = subreg_lowpart_offset (GET_MODE (op2),
+							  GET_MODE (op1));
+		      if (o == SUBREG_BYTE (op2))
+			op2 = SUBREG_REG (op2);
+		    }
+		}
+	      operands_match[c][i] = pre_operands_match_p (op1, op2);;
+
+	      /* An operand may not match itself.  */
+	      if (c == i)
+		abort ();
+
+	      /* If C can be commuted with C+1, and C might need to match I,
+		 then C+1 might also need to match I.  */
+	      if (commutative >= 0)
+		{
+		  if (c == commutative || c == commutative + 1)
+		    {
+		      int other = c + (c == commutative ? 1 : -1);
+		      operands_match[other][i]
+			= pre_operands_match_p (recog_data.operand[other],
+					    recog_data.operand[i]);
+		    }
+		  if (i == commutative || i == commutative + 1)
+		    {
+		      int other = i + (i == commutative ? 1 : -1);
+		      operands_match[c][other]
+			= pre_operands_match_p (recog_data.operand[c],
+					    recog_data.operand[other]);
+		    }
+		  /* Note that C is supposed to be less than I.
+		     No need to consider altering both C and I because in
+		     that case we would alter one into the other.  */
+		}
+	    }
+	}
+    }
+
+  /* Examine each operand that is a memory reference or memory address
+     and check addresses.  */
+  for (i = 0; i < noperands; i++)
+    {
+      RTX_CODE code = GET_CODE (recog_data.operand[i]);
+
+      address_reloaded[i] = 0;
+      operand_type[i] = (modified[i] == RELOAD_READ ? RELOAD_FOR_INPUT
+			 : modified[i] == RELOAD_WRITE ? RELOAD_FOR_OUTPUT
+			 : RELOAD_OTHER);
+      address_type[i]
+	= (modified[i] == RELOAD_READ ? RELOAD_FOR_INPUT_ADDRESS
+	   : modified[i] == RELOAD_WRITE ? RELOAD_FOR_OUTPUT_ADDRESS
+	   : RELOAD_OTHER);
+
+      if (*constraints[i] == 0)
+	/* Ignore things like match_operator operands.  */
+	;
+      else if (constraints[i][0] == 'p')
+	{
+	  /* FIXME: denisc@overta.ru We don't use reload_address now.
+	     define_address must be used here.  */
+	  if (!memory_address_p (recog_data.operand_mode[i],
+				 recog_data.operand[i]))
+	    return 0;
+	}
+      else if (code == MEM)
+	{
+	  /* FIXME: denisc@overta.ru We don't use reload_address now.
+	     define_address must be used here.  */
+	  if (!memory_address_p (recog_data.operand_mode[i],
+				 XEXP (recog_data.operand[i], 0)))
+	    return 0;
+	}
+    }
+
+  /* Now see what we need for pseudo-regs. For this, we must consider
+     all the operands together against the register constraints.  */
+
+  best = MAX_RECOG_OPERANDS * 2 + 600;
+
+  swapped = 0;
+ try_swapped:
+
+  /* The constraints are made of several alternatives.
+     Each operand's constraint looks like foo,bar,... with commas
+     separating the alternatives.  The first alternatives for all
+     operands go together, the second alternatives go together, etc.
+
+     First loop over alternatives.  */
+
+  for (this_alternative_number = 0;
+       this_alternative_number < n_alternatives;
+       this_alternative_number++)
+    {
+      /* Loop over operands for one constraint alternative.  */
+      /* LOSERS counts those that don't fit this alternative
+	 and would require loading.  */
+
+      int losers = scan_alternative (this_alt, constraints, modified,
+				     address_reloaded, operands_match,
+				     swapped, &commutative);
+
+      if (losers == 0)
+	return 1;
+      /* If this alternative can be made to work by reloading,
+	 and it needs less reloading than the others checked so far,
+	 record it as the chosen goal for reloading.  */
+      if (losers >= 0 && best > losers)
+	{
+	  for (i = 0; i < noperands; i++)
+	    if (! this_alt[i].win)
+	      break;
+
+	  if (i == noperands)
+	    return 1;
+	  best = losers;
+	}
+    }
+
+  /* If insn is commutative (it's safe to exchange a certain pair of operands)
+     then we need to try each alternative twice,
+     the second time matching those two operands
+     as if we had exchanged them.
+     To do this, really exchange them in operands.
+
+     If we have just tried the alternatives the second time,
+     return operands to normal and drop through.  */
+
+  if (commutative >= 0)
+    {
+      swapped = !swapped;
+      if (swapped)
+	{
+	  recog_data.operand[commutative] = substed_operand[commutative + 1];
+	  recog_data.operand[commutative + 1] = substed_operand[commutative];
+
+	  memcpy (constraints, recog_data.constraints,
+		  noperands * sizeof (char *));
+	  goto try_swapped;
+	}
+    }
+
+  return 0;
 }
 
 
@@ -4261,3 +4520,164 @@ compare_ra_info (ra1)
 
   ra_info_free (ra2);
 }
+
+/* Static data for the next two routines.  */
+
+typedef struct change_t
+{
+  rtx object;
+  int old_code;
+  rtx *loc;
+  rtx old;
+} change_t;
+
+static change_t *changes;
+static int changes_allocated;
+
+static int num_changes = 0;
+
+/* Validate a proposed change to OBJECT.  LOC is the location in the rtl
+   at which NEW will be placed.  If OBJECT is zero, no validation is done,
+   the change is simply made.
+
+   If OBJECT must be an INSN, CALL_INSN, or JUMP_INSN, the insn will be
+   re-recognized with the change in place.
+
+   IN_GROUP is nonzero if this is part of a group of changes that must be
+   performed as a group.  In that case, the changes will be stored.  The
+   function `ra_apply_change_group' will validate and apply the changes.
+
+   If IN_GROUP is zero, this is a single change.  Try to recognize the insn
+   or validate the memory reference with the change applied.  If the result
+   is not valid for the machine, suppress the change and return zero.
+   Otherwise, perform the change and return 1.  */
+
+int
+ra_validate_change (object, loc, new, in_group)
+    rtx object;
+    rtx *loc;
+    rtx new;
+    int in_group;
+{
+  rtx old = *loc;
+
+  if (old == new || rtx_equal_p (old, new))
+    return 1;
+
+  if (in_group == 0 && num_changes != 0)
+    abort ();
+
+  *loc = new;
+
+  /* Save the information describing this change.  */
+  if (num_changes >= changes_allocated)
+    {
+      if (changes_allocated == 0)
+	/* This value allows for repeated substitutions inside complex
+	   indexed addresses, or changes in up to 5 insns.  */
+	changes_allocated = MAX_RECOG_OPERANDS * 5;
+      else
+	changes_allocated *= 2;
+
+      changes =
+	(change_t*) xrealloc (changes,
+			      sizeof (change_t) * changes_allocated);
+    }
+
+  changes[num_changes].object = object;
+  changes[num_changes].loc = loc;
+  changes[num_changes].old = old;
+
+  if (object)
+    {
+      /* Set INSN_CODE to force rerecognition of insn.  Save old code in
+	 case invalid.  */
+      changes[num_changes].old_code = INSN_CODE (object);
+      INSN_CODE (object) = -1;
+    }
+
+  num_changes++;
+
+  /* If we are making a group of changes, return 1.  Otherwise, validate the
+     change group we made.  */
+
+  if (in_group)
+    return 1;
+  else
+    return ra_apply_change_group ();
+}
+
+/* Apply a group of changes previously issued with `ra_validate_change'.
+   Return 1 if all changes are valid, zero otherwise.  */
+
+int
+ra_apply_change_group ()
+{
+  int i;
+  rtx last_validated = NULL_RTX;
+
+  /* The changes have been applied and all INSN_CODEs have been reset to
+     force rerecognition. */
+
+  for (i = 0; i < num_changes; i++)
+    {
+      rtx object = changes[i].object;
+
+      /* if there is no object to test or if it is the same as the one we
+         already tested, ignore it.  */
+      if (object == 0 || object == last_validated)
+	continue;
+
+      if (!ra_check_constraints (object))
+	{
+	  rtx pat = PATTERN (object);
+
+	  if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER)
+	    /* If this insn is a CLOBBER or USE, it is always valid, but is
+	       never recognized.  */
+	    continue;
+	  else
+	    break;
+	}
+      last_validated = object;
+    }
+
+  if (i == num_changes)
+    {
+      basic_block bb;
+
+      for (i = 0; i < num_changes; i++)
+	if (changes[i].object
+	    && INSN_P (changes[i].object)
+	    && (bb = BLOCK_FOR_INSN (changes[i].object)))
+	  bb->flags |= BB_DIRTY;
+
+      num_changes = 0;
+      return 1;
+    }
+  else
+    {
+      ra_cancel_changes (0);
+      return 0;
+    }
+}
+
+/* Retract the changes numbered NUM and up.  */
+
+void
+ra_cancel_changes (num)
+     int num;
+{
+  int i;
+
+  /* Back out all the changes.  Do this in the opposite order in which
+     they were made.  */
+  for (i = num_changes - 1; i >= num; i--)
+    {
+      *changes[i].loc = changes[i].old;
+      if (changes[i].object && GET_CODE (changes[i].object) != MEM)
+	INSN_CODE (changes[i].object) = changes[i].old_code;
+    }
+  num_changes = num;
+}
+

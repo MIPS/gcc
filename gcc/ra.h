@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -619,6 +619,8 @@ extern void dump_web_conflicts PARAMS ((struct web *));
 extern void dump_web_insns PARAMS ((struct web*));
 extern int web_conflicts_p PARAMS ((struct web *, struct web *));
 extern void debug_hard_reg_set PARAMS ((HARD_REG_SET));
+extern void debug_web_insns PARAMS ((struct web *));
+extern void debug_web_conflicts PARAMS ((struct web *web));
 
 extern int comp_webs_maxcost PARAMS ((const void *, const void *));
 
@@ -634,7 +636,7 @@ extern struct web * alias PARAMS ((struct web *));
 extern void merge_moves PARAMS ((struct web *, struct web *));
 extern void ra_colorize_graph PARAMS ((struct df *));
 
-extern void actual_spill PARAMS ((void));
+extern void actual_spill PARAMS ((int));
 extern void emit_colors PARAMS ((struct df *));
 extern void delete_moves PARAMS ((void));
 extern void setup_renumber PARAMS ((int));
@@ -642,7 +644,9 @@ extern void remove_suspicious_death_notes PARAMS ((void));
 extern int is_partly_dead PARAMS ((sbitmap, struct web *));
 extern void set_web_live PARAMS ((sbitmap, struct web *));
 extern void reset_web_live PARAMS ((sbitmap, struct web *));
-extern enum reg_class web_preferred_class PARAMS ((struct web *));
-extern void web_class PARAMS ((void));
+extern int count_long_blocks PARAMS ((HARD_REG_SET, int));
+extern void detect_web_parts_to_rebuild PARAMS ((void));
+extern void web_class_spill_ref PARAMS ((struct web *, struct ref *));
+extern int subst_to_stack_p PARAMS ((void));
 
 #define SPILL_SLOT_P(REGNO) bitmap_bit_p (spill_slot_regs, (REGNO))

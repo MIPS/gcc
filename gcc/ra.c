@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -159,8 +159,6 @@ bitmap spill_slot_regs;
 
 /* Tracking insns modified/deleted/emitted by allocator in current pass.  */
 bitmap ra_modified_insns;
-
-static enum reg_class *reg_class_of_web;
 
 extern struct df2ra build_df2ra PARAMS ((struct df*, struct ra_info*));
 static struct ra_info *ra_info;
@@ -468,20 +466,52 @@ one_pass (df, rebuild)
   if (!rebuild)
     dump_igraph_machine ();
 
-  /* Colorize the I-graph.  This results in either a list of
-     spilled_webs, in which case we need to run the spill phase, and
-     rerun the allocator, or that list is empty, meaning we are done.  */
-  ra_colorize_graph (df);
+  if (!WEBS (SPILLED))
+    {
+      /* Colorize the I-graph.  This results in either a list of
+	 spilled_webs, in which case we need to run the spill phase, and
+	 rerun the allocator, or that list is empty, meaning we are done.  */
+      ra_colorize_graph (df);
+      
+      last_max_uid = get_max_uid ();
 
-  last_max_uid = get_max_uid ();
-  /* actual_spill() might change WEBS(SPILLED) and even empty it,
-     so we need to remember it's state.  */
-  something_spilled = !!WEBS(SPILLED);
+      /* actual_spill() might change WEBS(SPILLED) and even empty it,
+	 so we need to remember it's state.  */
+      something_spilled = !!WEBS(SPILLED);
 
-  /* Add spill code if necessary.  */
-  if (something_spilled)
-    actual_spill ();
+      /* Add spill code if necessary.  */
+      if (something_spilled)
+	actual_spill (1);
 
+      /* Check all colored webs to detect ones colored by an_unusable_color.
+	 These webs are spill temporaries and must be substituted by stack
+	 slots. `subst_to_stack_p' performs checking.  */
+      if (!something_spilled && subst_to_stack_p ())
+	{
+	  something_spilled = 1;
+	  ra_debug_msg (DUMP_NEARLY_EVER,
+			"Stack spill slots must be added.\n");
+	  actual_spill (0);
+	}
+    }
+  else if (ra_pass == 1)
+    {
+      if (death_insns_max_uid < get_max_uid ())
+	{
+	  sbitmap_free (insns_with_deaths);
+	  insns_with_deaths = sbitmap_alloc (get_max_uid ());
+	  sbitmap_ones (insns_with_deaths);
+	  death_insns_max_uid = get_max_uid ();
+	}
+      last_changed_insns = ra_modified_insns;
+      detect_web_parts_to_rebuild ();
+      last_changed_insns = NULL;
+      something_spilled = 1;
+      last_max_uid = get_max_uid ();
+    }
+  else
+    abort ();
+  
   ticks = clock () - ticks;
   if (rebuild)
     ticks_rebuild += ticks;
@@ -593,7 +623,6 @@ init_ra ()
       break;
   if (an_unusable_color == FIRST_PSEUDO_REGISTER)
     abort ();
-
   compute_bb_for_insn ();
   ra_reg_renumber = NULL;
   insns_with_deaths = NULL;
@@ -800,6 +829,7 @@ reg_alloc ()
   flag_ra_pre_reload = 0;
   flag_ra_spanned_deaths_from_scratch = 0;
   */
+  while_newra = 1;
   if (! INSN_P (last))
     last = prev_real_insn (last);
   /* If this is an empty function we shouldn't do all the following,
@@ -901,10 +931,7 @@ reg_alloc ()
   df = df_init ();
   ra_modified_insns = NULL;
   if (flag_ra_pre_reload)
-    {
-      ra_info = ra_info_init (max_reg_num ());
-      reg_class_of_web = NULL;
-    }
+    ra_info = ra_info_init (max_reg_num ());
   
   /* This is the main loop, calling one_pass as long as there are still
      some spilled webs.  */
@@ -915,7 +942,15 @@ reg_alloc ()
 	internal_error ("Didn't find a coloring.\n");
 
       if (flag_ra_pre_reload)
-	pre_reload (ra_info, ra_modified_insns);
+	{
+	  pre_reload (ra_info, ra_modified_insns);
+	  if (rtl_dump_file && ra_pass == 1 && (debug_new_regalloc & DUMP_RTL))
+	    {
+	      ra_debug_msg (DUMP_NEARLY_EVER, "Original function:\n");
+	      ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
+	      fflush (rtl_dump_file);
+	    }
+	}
 
       if (!ra_modified_insns)
 	ra_modified_insns = BITMAP_XMALLOC ();
@@ -1007,7 +1042,9 @@ reg_alloc ()
 	  /* And new insns.  */
 	  compute_bb_for_insn ();
 	  /* Some of them might be dead.  */
+	  /*
 	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+	  */
 	  /* Those new pseudos need to have their REFS count set.  */
 	  reg_scan_update (get_insns (), NULL, max_regno);
 	  max_regno = max_reg_num ();
@@ -1060,7 +1097,6 @@ reg_alloc ()
   no_new_pseudos = 0;
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
   /*compute_bb_for_insn ();*/
-  while_newra = 1;
   /*store_motion ();*/
   no_new_pseudos = 1;
   rtl_dump_file = ra_dump_file;
@@ -1158,100 +1194,10 @@ reg_alloc ()
   allocate_initial_values (reg_equiv_memory_loc);
   /* And one last regclass pass just before reload.  */
   regclass (get_insns (), max_reg_num (), rtl_dump_file);
-  if (flag_ra_pre_reload)
-    if (reg_class_of_web)
-      free (reg_class_of_web);
   BITMAP_XFREE (emitted_by_spill);
   BITMAP_XFREE (spill_slot_regs);
 }
 
-
-enum reg_class
-web_preferred_class (web)
-     struct web *web;
-{
-  if (!reg_class_of_web)
-    abort ();
-
-  if (web->id >= num_webs)
-    abort ();
-
-  return reg_class_of_web[find_web_for_subweb(web)->id];
-}
-
-
-void
-web_class ()
-{
-  unsigned int n;
-  unsigned int i;
-  char class[LIM_REG_CLASSES];
-  ra_ref *rref;
-  struct ref* dref;
-  enum reg_class best;
-  int debug = 0;
-  static const char *const reg_class_names[] = REG_CLASS_NAMES;
-
-  if (reg_class_of_web)
-    free (reg_class_of_web);
-
-  reg_class_of_web = xmalloc (sizeof (enum reg_class) * (num_webs
-							 - num_subwebs));
-  for (n = 0; n < (num_webs - num_subwebs); ++n)
-    {
-      struct web *web = id2web[n];
-      int founded = 0;
-
-      reg_class_of_web[n] = NO_REGS;
-
-      if (web->type == PRECOLORED)
-	continue;
-
-      for (i = 0; i < LIM_REG_CLASSES; ++i)
-	class[i] = 0;
-
-      for (i = 0; i < web->num_defs; ++i)
-	{
-	  dref = web->defs[i];
-	  rref = DF2RA (df2ra, dref);
-	  if (rref)
-	    ++class[rref->class];
-	}
-
-      for (i = 0; i < web->num_uses; ++i)
-	{
-	  dref = web->uses[i];
-	  rref = DF2RA (df2ra, dref);
-	  if (rref)
-	    ++class[rref->class];
-	}
-      if (debug)
-	fprintf (stderr, "Web: %d ", web->id);
-      best = ALL_REGS;
-      for (i = 0; i < LIM_REG_CLASSES; ++i)
-	if (class[i])
-	  {
-	    if (reg_class_subset_p (i, best))
-	      {
-		best = i;
-		founded = 1;
-	      }
-	    else if (!reg_class_subset_p (best, i))
-	      best = NO_REGS;
-	    if (debug)
-	      fprintf (stderr, "%s: %d ", reg_class_names[i], class[i]);
-	  }
-      if (debug)
-	fprintf (stderr, " BEST: %s\n", reg_class_names[best]); 
-      if (best == NO_REGS)
-	{
-	  if (debug)
-	    fprintf (stderr, "Web: %d (%d) NO_REGS\n", web->id, web->regno);
-	  best = GENERAL_REGS;
-	}
-      reg_class_of_web[n] = best;
-    }
-}
 /*
 vim:cinoptions={.5s,g0,p5,t0,(0,^-0.5s,n-0.5s:tw=78:cindent:sw=4:
 */
