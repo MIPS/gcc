@@ -1,3 +1,8 @@
+2005-01-27  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-typeck.c (build_unary_op): It's not the symbol that is addressable
+	in a mem_ref that has it's address taken.
+
 2005-01-25  Jan Hubicka  <jh@suse.cz>
 
 	* ipa-inline.c (cgraph_decide_inlining_of_small_functions): Kill bogus
