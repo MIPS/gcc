@@ -1,3 +1,29 @@
+2004-03-15  Olga Rodimina  <rodimina@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
+	(drawImage(img,xform,bgcolor,obs)): New Method.
+	Helper function that every drawImage method will
+	use.
+	(drawRaster): Added new parameter, bgcolor. All
+	transparent pixels are changed to bgcolor before 
+	image is drawn.
+	(drawRenderedImage): Fixed to use changed drawRaster().
+	(drawImage(image,xform,obs): Fixed to use new helper function 
+	(drawImage(image,op,x,y)): Ditto.
+	(drawImage (img,x,y,observer)): Ditto.
+	((PainterThread) bgcolor): New Field.
+	((PainterThread) (setPixels)): Changed all transparent pixels 
+	to bgcolor.	
+	(drawImage(img,x,y,width,height,bgcolor,observer)): 
+	Fixed FIXME - all the transparent pixels are 
+	changed to the specified bgcolor. 
+	(drawImage(img, x, y, width, height, observer): Changed to 
+	use function above.
+	(drawImage (img,dx1,dy1,dx2,dy2,sx1,sy1,sx2,sy2,bgcolor,observer)): 
+	Fixed FIXME- changed all transparent pixels to bgcolor.
+	(drawImage (img, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2, observer)):
+	Changed to use function above. 
+
 2004-03-14  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* java/applet/Applet.java (dimensions): New field.
@@ -134,7 +160,7 @@
 
 2004-03-05  Olga Rodimina  <rodimina@redhat.com>
 
-	gnu/java/awt/peer/gtk/GdkGraphics2D.java
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
 	(GdkGraphics2D (BufferedImage)): Initialize
 	pixmap associated with specified BufferedImage.
 	(setPaint): Changed implementation of Texture
