@@ -1,3 +1,8 @@
+2003-11-10  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (c_warn_unused_result): Restructure to use iterator
+	on COMPOUND_EXPR only.
+
 2003-11-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (tree_verify_flow_info): Fix checking of order of basic

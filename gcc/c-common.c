@@ -5969,50 +5969,66 @@ c_decl_uninit (tree t)
 void
 c_warn_unused_result (tree *top_p)
 {
+  tree t = *top_p;
   tree_stmt_iterator i;
   tree fdecl, ftype;
 
-  for (i = tsi_start (top_p); !tsi_end_p (i); tsi_next (&i))
+  switch (TREE_CODE (t))
     {
-      tree t = tsi_stmt (i);
+    case COMPOUND_EXPR:
+      for (i = tsi_start (top_p); !tsi_end_p (i); tsi_next (&i))
+	c_warn_unused_result (tsi_stmt_ptr (i));
+      break;
 
-      switch (TREE_CODE (t))
+    case COND_EXPR:
+      c_warn_unused_result (&COND_EXPR_THEN (t));
+      c_warn_unused_result (&COND_EXPR_ELSE (t));
+      break;
+    case BIND_EXPR:
+      c_warn_unused_result (&BIND_EXPR_BODY (t));
+      break;
+    case TRY_FINALLY_EXPR:
+    case TRY_CATCH_EXPR:
+      c_warn_unused_result (&TREE_OPERAND (t, 0));
+      c_warn_unused_result (&TREE_OPERAND (t, 1));
+      break;
+    case CATCH_EXPR:
+      c_warn_unused_result (&CATCH_BODY (t));
+      break;
+    case EH_FILTER_EXPR:
+      c_warn_unused_result (&EH_FILTER_FAILURE (t));
+      break;
+
+    case CALL_EXPR:
+      /* This is a naked call, as opposed to a CALL_EXPR nested inside
+	 a MODIFY_EXPR.  All calls whose value is ignored should be 
+	 represented like this.  Look for the attribute.  */
+      fdecl = get_callee_fndecl (t);
+      if (fdecl)
+	ftype = TREE_TYPE (fdecl);
+      else
 	{
-	case BIND_EXPR:
-	  c_warn_unused_result (&BIND_EXPR_BODY (t));
-	  break;
-
-	case CALL_EXPR:
-	  /* This is a naked call, as opposed to a CALL_EXPR nested inside
-	     a MODIFY_EXPR.  All calls whose value is ignored should be 
-	     represented like this.  Look for the attribute.  */
-	  fdecl = get_callee_fndecl (t);
-	  if (fdecl)
-	    ftype = TREE_TYPE (fdecl);
-	  else
-	    {
-	      ftype = TREE_TYPE (TREE_OPERAND (t, 0));
-	      /* Look past pointer-to-function to the function type itself.  */
-	      ftype = TREE_TYPE (ftype);
-	    }
-
-	  if (lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (ftype)))
-	    {
-	      if (fdecl)
-		warning ("%Hignoring return value of `%D', "
-			 "declared with attribute warn_unused_result",
-			 EXPR_LOCUS (t), fdecl);
-	      else
-		warning ("%Hignoring return value of function "
-			 "declared with attribute warn_unused_result",
-			 EXPR_LOCUS (t));
-	    }
-	  break;
-
-	default:
-	  /* Not a container, not a call, or a call whose value is used.  */
-	  break;
+	  ftype = TREE_TYPE (TREE_OPERAND (t, 0));
+	  /* Look past pointer-to-function to the function type itself.  */
+	  ftype = TREE_TYPE (ftype);
 	}
+
+      if (lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (ftype)))
+	{
+	  if (fdecl)
+	    warning ("%Hignoring return value of `%D', "
+		     "declared with attribute warn_unused_result",
+		     EXPR_LOCUS (t), fdecl);
+	  else
+	    warning ("%Hignoring return value of function "
+		     "declared with attribute warn_unused_result",
+		     EXPR_LOCUS (t));
+	}
+      break;
+
+    default:
+      /* Not a container, not a call, or a call whose value is used.  */
+      break;
     }
 }
 
