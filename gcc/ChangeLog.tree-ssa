@@ -1,3 +1,45 @@
+2003-12-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-flow-inline.h (free_vuse, free_vdefs): Moved to 
+	tree-ssa-operands.c
+	(get_def_ops, get_use_ops, get_vdef_ops, get_vuse_ops): Use the new 
+	more direct structure pointer.
+	(get_use_op_ptr, get_def_op_ptr): Cast is no longer necessary.
+	* tree-flow.h (struct stmt_ann_d): Replace operands and voperands 
+	pointers with pointers directly to the operand types.
+	* tree-ssa-dom.c (cprop_into_stmt): Use new stmt based interface to 
+	free virtual operands.  Check virtual bases of both VUSE and VDEF.
+	* tree-ssa-operands.c (struct voperands_d): Declare here, used only
+	for previous_vops during stmt operand construction.
+	(struct vecmanage_d, vecmanage_add_segmen, vecmanage_add_special,
+	vecmanage_init, vecmanage_tree_ptr_init, vecmanage_fini, check_free,
+	vecmanage_new_vector, vecmanage_new_tree_ptr_vector, 
+	vecmanage_free_vector): Remove.
+	(allocate_ssa_op_vec, free_ssa_op_vec, allocate_ssa_virtual_op_vec, 
+	allocate_operands_t, allocate_voperands_t): Remove.
+	(finalize_new_ssa_operands, inalize_new_ssa_virtual_operand): Remove.
+	(struct freelist_d): New. List of free operand structures.
+	(check_optype_freelist): New. Choose memory from freelist, if available.
+	(add_optype_freelist): New. Add structure to freelist, if appropriate.
+	(allocate_def_optype): New. Allocate a def operand list from GC.
+	(allocate_use_optype): New. Allocate a useoperand list from GC.
+	(allocate_vdef_optype): New. Allocate a vdef operand list from GC.
+	(allocate_vuse_optype): New. Allocate a vuse operand list from GC.
+	(free_uses, free_defs, free_vuses, free_vdefs): Use GC and the freelist.
+	(remove_vuses, remove_vdefs): New.  External interface to remove virtual
+	operands.
+	(init_ssa_operands, fini_ssa_operands): Ensure the free list is empty.
+	(finalize_ssa_defs, finalize_ssa_use, finalize_ssa_vdefs, 
+	finalize_ssa_vuses): Use new direct pointers from the stmt annotation.
+	(append_vdef, append_vuse): No need to hack prev_vops pointer now.
+	(get_stmt_operands): use new freeing interface, keep previous vops in
+	their own local structure for now, passing its address around.
+	* tree-ssa-operands.h (struct def_optype_d, struct use_optype_d,
+	struct vdef_optype_d, struct vuse_optype_d): Implement as a single
+	dynamically allocated structure.
+	(struct operands_d, struct operands_d): Remove.
+	* tree-ssa-pre.c (subst_phis): Remove virtual operands using new funcs.
+
 2003-12-16  Jan Hubicka  <jh@suse.cz>
 
 	Revert until initializers are made language independent:

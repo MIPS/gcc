@@ -198,48 +198,28 @@ stmt_modified_p (tree t)
   return ann ? ann->modified : true;
 }
 
-static inline void
-free_vuses (vuse_optype vuses)
-{
-  if (NUM_VUSES (vuses) > 0)
-    {
-      vuses->num_vuses = 0;
-      vuses->vuses = NULL;
-    }
-}
-
-static inline void
-free_vdefs (vdef_optype vdefs)
-{
-  if (NUM_VDEFS (vdefs) > 0)
-    {
-      vdefs->num_vdefs = 0;
-      vdefs->vdefs = NULL;
-    }
-}
-
 static inline def_optype
 get_def_ops (stmt_ann_t ann)
 {
-  return ann ? (ann->ops ? &(ann->ops->def_ops) : NULL) : NULL;
+  return ann ? ann->def_ops : NULL;
 }
 
 static inline use_optype
 get_use_ops (stmt_ann_t ann)
 {
-  return ann ? (ann->ops ? &(ann->ops->use_ops) : NULL) : NULL;
+  return ann ? ann->use_ops : NULL;
 }
 
 static inline vdef_optype
 get_vdef_ops (stmt_ann_t ann)
 {
-  return ann ? (ann->vops ? &(ann->vops->vdef_ops) : NULL) : NULL;
+  return ann ? ann->vdef_ops : NULL;
 }
 
 static inline vuse_optype
 get_vuse_ops (stmt_ann_t ann)
 {
-  return ann ? (ann->vops ? &(ann->vops->vuse_ops) : NULL) : NULL;
+  return ann ? ann->vuse_ops : NULL;
 }
 
 static inline tree *
@@ -249,7 +229,7 @@ get_use_op_ptr (use_optype uses, unsigned int index)
   if (index >= uses->num_uses)
     abort();
 #endif
-  return ((tree **)uses->uses)[index];
+  return uses->uses[index];
 }
 
 static inline tree *
@@ -259,7 +239,7 @@ get_def_op_ptr (def_optype defs, unsigned int index)
   if (index >= defs->num_defs)
     abort();
 #endif
-  return ((tree **)defs->defs)[index];
+  return defs->defs[index];
 }
 
 static inline tree *

@@ -1764,7 +1764,7 @@ cprop_into_stmt (tree stmt)
 		 the renamed virtual operand if we later modify this
 		 statement.  Also only allow the new value to be an SSA_NAME
 		 for propagation into virtual operands.  */
-	      if (table_index > 1
+	      if (table_index > 0
 		  && (get_virtual_var (val) != get_virtual_var (*op_p)
 		      || TREE_CODE (val) != SSA_NAME))
 		continue;
@@ -2113,8 +2113,8 @@ record_equivalences_from_stmt (tree stmt,
 
 	  /* Clear out the virtual operands on the new statement, we are
 	     going to set them explicitly below.  */
-	  free_vuses (STMT_VUSE_OPS (new));
-	  free_vdefs (STMT_VDEF_OPS (new));
+	  remove_vuses (new);
+	  remove_vdefs (new);
 
 	  start_ssa_stmt_operands (new);
 	  /* For each VDEF on the original statement, we want to create a

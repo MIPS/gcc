@@ -220,10 +220,12 @@ struct stmt_ann_d GTY(())
   basic_block GTY ((skip (""))) bb;
 
   /* Statement operands.  */
-  struct operands_d * GTY (()) ops;
+  struct def_optype_d * GTY (()) def_ops;
+  struct use_optype_d * GTY (()) use_ops;
 
   /* Virtual operands (VDEF and VUSE).  */
-  struct voperands_d * GTY (()) vops;
+  struct vdef_optype_d * GTY (()) vdef_ops;
+  struct vuse_optype_d * GTY (()) vuse_ops;
 
   /* Dataflow information.  */
   dataflow_t df;

@@ -26,7 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 typedef struct def_optype_d GTY(())
 {
   unsigned num_defs; 
-  tree ** GTY((skip(""))) defs;
+  tree * GTY((length("%h.num_defs"), skip(""))) defs[1];
 } def_optype_t;
 
 typedef def_optype_t *def_optype;
@@ -34,7 +34,7 @@ typedef def_optype_t *def_optype;
 typedef struct use_optype_d GTY(())
 {
   unsigned num_uses; 
-  tree ** GTY((skip(""))) uses;
+  tree * GTY((length("%h.num_uses"), skip(""))) uses[1];
 } use_optype_t;
 
 typedef use_optype_t *use_optype;
@@ -42,7 +42,7 @@ typedef use_optype_t *use_optype;
 typedef struct vdef_optype_d GTY(())
 {
   unsigned num_vdefs; 
-  tree * GTY((length ("%h.num_vdefs * 2"))) vdefs;
+  tree GTY((length ("%h.num_vdefs * 2"))) vdefs[1];
 } vdef_optype_t;
 
 typedef vdef_optype_t *vdef_optype;
@@ -50,7 +50,7 @@ typedef vdef_optype_t *vdef_optype;
 typedef struct vuse_optype_d GTY(()) 
 {
   unsigned num_vuses; 
-  tree * GTY((length ("%h.num_vuses"))) vuses;
+  tree GTY((length ("%h.num_vuses"))) vuses[1];
 } vuse_optype_t;
 
 typedef vuse_optype_t *vuse_optype;
@@ -85,33 +85,13 @@ typedef vuse_optype_t *vuse_optype;
 #define VUSE_OP(OPS, I)  	(*(VUSE_OP_PTR ((OPS), (I))))
 
 
-struct operands_d GTY(())
-{
-  /* LHS of assignment statements.  */
-  struct def_optype_d GTY(()) def_ops;
-
-  /* Array of pointers to each operand in the statement.  */
-  struct use_optype_d GTY(()) use_ops;
-};
-
-typedef struct operands_d *operands_t;
-
-
-struct voperands_d GTY(())
-{
-  /* List of VDEF references in this statement.  */
-  struct vdef_optype_d GTY(()) vdef_ops;
-
-  /* List of VUSE references in this statement.  */
-  struct vuse_optype_d GTY(()) vuse_ops;
-};
-
-typedef struct voperands_d *voperands_t;
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
 extern void verify_start_operands (tree);
 extern void finalize_ssa_stmt_operands (tree);
 void add_vuse (tree, tree);
 extern void get_stmt_operands (tree);
+extern void remove_vuses (tree);
+extern void remove_vdefs (tree);
 
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

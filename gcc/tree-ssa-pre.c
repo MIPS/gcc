@@ -1302,7 +1302,7 @@ subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
     {
       vuse_optype vuses = STMT_VUSE_OPS (Z);
 
-      free_vuses (STMT_VUSE_OPS (stmt_copy));
+      remove_vuses (stmt_copy);
 
       start_ssa_stmt_operands (stmt_copy);
       for (i = 0; i < NUM_VUSES (vuses); i++)
@@ -1313,8 +1313,8 @@ subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
     }
   else
     {
-      free_vuses (STMT_VUSE_OPS (stmt_copy));
-      free_vdefs (STMT_VDEF_OPS (stmt_copy));
+      remove_vuses (stmt_copy);
+      remove_vdefs (stmt_copy);
     }
 
   if (j->index < n_phi_preds)

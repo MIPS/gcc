@@ -62,6 +62,12 @@ static GTY (()) varray_type build_vuses;
 tree check_build_stmt;
 #endif
 
+typedef struct voperands_d 
+{
+  vdef_optype vdef_ops;
+  vuse_optype vuse_ops;
+} *voperands_t;
+
 static void note_addressable (tree, stmt_ann_t);
 static void get_expr_operands (tree, tree *, int, voperands_t);
 static inline void append_def (tree *, tree);
@@ -72,319 +78,232 @@ static void add_call_read_ops (tree, voperands_t);
 static void add_stmt_operand (tree *, tree, int, voperands_t);
 static int get_call_flags (tree);
 
-#define VECSIZE  		1024
-#define SPECIAL_THRESHOLD	128
-#define NUM_FREE		3
 
-typedef struct vecmanage_d
+struct freelist_d GTY((chain_next ("%h.next")))
 {
-  varray_type vecs;
-  varray_type special;  /* Used for large vectors.  */
-  size_t top;
-  size_t type_size;
-  void *free[NUM_FREE];
-  void *free_32;
-  void *free_128;
-  void *free_1024;
-} vecmanage_t;
+   struct freelist_d *next;
+};
 
-typedef vecmanage_t *vecmanage_type;
+#define NUM_FREE	4
+static GTY ((length ("NUM_FREE"))) struct freelist_d optype_freelist[NUM_FREE] = { {0}, {0}, {0}, {0} };
 
 
-/* Adds a new segment, and returns the new segments index.  */
-static int
-vecmanage_add_segment (vecmanage_type sa)
+static inline void *
+check_optype_freelist (size_t num)
 {
-  void *ptr;
-  ptr = xmalloc (sa->type_size * VECSIZE);
-  VARRAY_PUSH_GENERIC_PTR_NOGC (sa->vecs, ptr);
-  return VARRAY_ACTIVE_SIZE (sa->vecs) - 1;
-}
+  return NULL;
+#if 0
+  void *vec = NULL;
 
-static void *
-vecmanage_add_special (vecmanage_type sa, size_t size)
-{
-  void *ptr;
-  ptr = xmalloc (sa->type_size * size);
-  if (!sa->special)
-    VARRAY_GENERIC_PTR_NOGC_INIT (sa->special, 10, "vecmanage_special");
-  VARRAY_PUSH_GENERIC_PTR_NOGC (sa->special, ptr);
-  return ptr;
-}
-
-static void
-vecmanage_init (vecmanage_type sa, size_t size)
-{
-  int x;
-  sa->top = 0;
-  sa->special = NULL;
-  sa->type_size = size;
-  for (x = 0; x < NUM_FREE; x++)
-    sa->free[x] = NULL;
-  /* Allocate the first segment.  */
-  VARRAY_GENERIC_PTR_NOGC_INIT (sa->vecs, 10, "vecmanage_vecs");
-  vecmanage_add_segment (sa);
-}
-
-static inline void 
-vecmanage_tree_ptr_init (vecmanage_type sa)
-{
-  vecmanage_init (sa, sizeof (tree *));
-}
-
-static void
-vecmanage_fini (vecmanage_type sa)
-{
-  int x;
-  void *ptr;
-
-  sa->top = 0;
-  if (!sa->vecs)
-    return;
-
-  /* Free the allocated vectors in reverse order of allocation.  */
-  for (x = VARRAY_ACTIVE_SIZE (sa->vecs) - 1; x >= 0; x--)
+  if (num <= NUM_FREE && optype_freelist[num - 1].next)
     {
-      ptr = VARRAY_TOP_GENERIC_PTR_NOGC (sa->vecs);
-      VARRAY_POP (sa->vecs);
-      free (ptr);
-    }
-  VARRAY_FREE (sa->vecs);
-
-  if (sa->special)
-    {
-      for (x = VARRAY_ACTIVE_SIZE (sa->special) - 1; x >= 0; x--)
-	{
-	  ptr = VARRAY_TOP_GENERIC_PTR_NOGC (sa->special);
-	  VARRAY_POP (sa->special);
-	  free (ptr);
-	}
-      VARRAY_FREE (sa->special);
-    }
-}
-
-static void **
-check_free (vecmanage_type sa, size_t num)
-{
-  void **vec = NULL;
-
-  if (num <= NUM_FREE && sa->free[num - 1])
-    {
-      vec = (void **)sa->free[num - 1];
-      sa->free[num - 1] = *vec;
+      vec = (void *)optype_freelist[num - 1].next;
+      optype_freelist[num - 1].next = optype_freelist[num - 1].next->next;
     }
   return vec;
+#endif
 }
 /* Return a vector of contguous memory of a specified size.  */
 
-static void *
-vecmanage_new_vector (vecmanage_type sa, size_t num)
-{
-  int vec_num;
-  size_t vec_index;
-  void **vec;
-  vec_num = VARRAY_ACTIVE_SIZE (sa->vecs) - 1;
-  vec_index = sa->top;
-
-  vec = check_free (sa, num);
-  if (vec)
-    return vec;
-  if (vec_index + num >= VECSIZE)
-    {
-      if (num < SPECIAL_THRESHOLD)
-        {
-	  vec_num = vecmanage_add_segment (sa);
-	  vec_index = 0;
-	}
-      else
-        {
-	  vec = vecmanage_add_special (sa, num);
-	  return vec;
-	}
-    }
-
-  vec = (void **)VARRAY_GENERIC_PTR_NOGC (sa->vecs, vec_num);
-  vec = &((vec)[vec_index]);
-  sa->top = vec_index + num;
-  return vec;
-}
-
-static inline tree **
-vecmanage_new_tree_ptr_vector (vecmanage_type sa, size_t num)
-{
-  return (tree **)vecmanage_new_vector (sa, num);
-}
 
 static inline void
-vecmanage_free_vector (vecmanage_type sa, void **vec, size_t size)
+add_optype_freelist (void *vec, size_t size)
 {
+#if 0
+  struct freelist_d *ptr;
 #ifdef ENABLE_CHECKING
   if (size == 0)
     abort ();
 #endif
-  /* Put it into one of the free lists.  */
+
+  /* if its bigger than one of our lists, simply let it go and let GC 
+     collect it.  */
   if (size > NUM_FREE)
-    size = 2;
+    return;
 
-  vec[0] = sa->free[size - 1];
-  sa->free[size - 1] = (void *)vec;
-  return;
+  ptr = vec;
+  ptr->next = optype_freelist[size - 1].next;;
+  optype_freelist[size - 1].next = ptr;
+#endif
 }
 
-vecmanage_t ssa_operands;
 
-static inline tree **
-allocate_ssa_op_vec (unsigned num)
+static inline def_optype
+allocate_def_optype (unsigned num)
 {
-  return vecmanage_new_tree_ptr_vector (&ssa_operands, num);
+  def_optype def_ops;
+  unsigned size;
+  size = sizeof (struct def_optype_d) + sizeof (tree *) * (num - 1);
+  def_ops = check_optype_freelist (num);
+  if (!def_ops)
+    def_ops =  ggc_alloc (size);
+  def_ops->num_defs = num;
+  return def_ops;
+}
+
+static inline use_optype
+allocate_use_optype (unsigned num)
+{
+  use_optype use_ops;
+  unsigned size;
+  size = sizeof (struct use_optype_d) + sizeof (tree *) * (num - 1);
+  use_ops = check_optype_freelist (num);
+  if (!use_ops)
+    use_ops =  ggc_alloc (size);
+  use_ops->num_uses = num;
+  return use_ops;
+}
+
+static inline vdef_optype
+allocate_vdef_optype (unsigned num)
+{
+  vdef_optype vdef_ops;
+  unsigned size;
+  size = sizeof (struct vdef_optype_d) + sizeof (tree) * ((num * 2) - 1);
+  vdef_ops = check_optype_freelist (num * 2);
+  if (!vdef_ops)
+    vdef_ops =  ggc_alloc (size);
+  vdef_ops->num_vdefs = num;
+  return vdef_ops;
+}
+
+static inline vuse_optype
+allocate_vuse_optype (unsigned num)
+{
+  vuse_optype vuse_ops;
+  unsigned size;
+  size = sizeof (struct vuse_optype_d) + sizeof (tree) * (num - 1);
+  vuse_ops = check_optype_freelist (num);
+  if (!vuse_ops)
+    vuse_ops =  ggc_alloc (size);
+  vuse_ops->num_vuses = num;
+  return vuse_ops;
 }
 
 static inline void
-free_ssa_op_vec (tree **vec, size_t size)
+free_uses (use_optype *uses, bool dealloc)
 {
-  vecmanage_free_vector (&ssa_operands, (void **)vec, size);
-}
-static inline tree *
-allocate_ssa_virtual_op_vec (unsigned num)
-{
-  return (tree *)ggc_alloc (num * sizeof (tree));
-}
-
-static inline operands_t
-allocate_operands_t (void)
-{
-  operands_t ptr;
-  ptr = (operands_t)ggc_alloc (sizeof (struct operands_d));
-  memset ((void *) ptr , 0, sizeof (struct operands_d));
-  return ptr;
-}
-
-static inline voperands_t
-allocate_voperands_t (void)
-{
-  voperands_t ptr;
-  ptr = (voperands_t)ggc_alloc (sizeof (struct voperands_d));
-  memset ((void *) ptr , 0, sizeof (struct voperands_d));
-  return ptr;
-}
-
-static inline void
-free_uses (use_optype uses)
-{
-  if (NUM_USES (uses) > 0)
+  if (*uses)
     {
-      free_ssa_op_vec (uses->uses, uses->num_uses);
-      uses->num_uses = 0;
-      uses->uses = NULL;
+      if (dealloc)
+	add_optype_freelist (*uses, (*uses)->num_uses);
+      *uses = NULL;
     }
 }
 
 static inline void
-free_defs (def_optype defs)
+free_defs (def_optype *defs, bool dealloc)
 {
-  if (NUM_DEFS (defs) > 0)
+  if (*defs)
     {
-      free_ssa_op_vec (defs->defs, defs->num_defs);
-      defs->num_defs = 0;
-      defs->defs = NULL;
+      if (dealloc)
+	add_optype_freelist (*defs, (*defs)->num_defs);
+      *defs = NULL;
+    }
+}
+
+static inline void
+free_vuses (vuse_optype *vuses, bool dealloc)
+{
+  if (*vuses)
+    {
+      if (dealloc)
+	add_optype_freelist (*vuses, (*vuses)->num_vuses);
+      *vuses = NULL;
+    }
+}
+
+static inline void
+free_vdefs (vdef_optype *vdefs, bool dealloc)
+{
+  if (*vdefs)
+    {
+      if (dealloc)
+	add_optype_freelist (*vdefs, (*vdefs)->num_vdefs);
+      *vdefs = NULL;
     }
 }
 
 void
+remove_vuses (tree stmt)
+{
+  stmt_ann_t ann;
+
+  ann = stmt_ann (stmt);
+  if (ann)
+    free_vuses (&(ann->vuse_ops), true);
+}
+
+void
+remove_vdefs (tree stmt)
+{
+  stmt_ann_t ann;
+
+  ann = stmt_ann (stmt);
+  if (ann)
+    free_vdefs (&(ann->vdef_ops), true);
+}
+
+
+void
 init_ssa_operands (void)
 {
+  int x;
+
   VARRAY_TREE_PTR_INIT (build_defs, 5, "build defs");
   VARRAY_TREE_PTR_INIT (build_uses, 10, "build uses");
   VARRAY_TREE_INIT (build_vdefs, 10, "build vdefs");
   VARRAY_TREE_INIT (build_vuses, 10, "build vuses");
-  vecmanage_tree_ptr_init (&ssa_operands);
+
+  for (x = 0; x < NUM_FREE; x++)
+    optype_freelist[x].next = NULL;
 }
 
 void
 fini_ssa_operands (void)
 {
-  vecmanage_fini (&ssa_operands);
-}
-
-static inline tree **
-finalize_new_ssa_operands (varray_type build)
-{
-  tree **vec;
-  unsigned num, x;
-
-  num = VARRAY_ACTIVE_SIZE (build);
-  if (num == 0)
-    return 0;
-
-  vec = allocate_ssa_op_vec (num);
-  for (x = 0; x < num; x++)
-    vec[x] = VARRAY_TREE_PTR (build, x);
-
-  VARRAY_POP_ALL (build);
-  return vec;
-}
-
-static inline tree *
-finalize_new_ssa_virtual_operands (varray_type build)
-{
-  tree *vec;
-  unsigned num, x;
-
-  num = VARRAY_ACTIVE_SIZE (build);
-  if (num == 0)
-    return 0;
-
-  vec = allocate_ssa_virtual_op_vec (num);
-  for (x = 0; x < num; x++)
-    vec[x] = VARRAY_TREE (build, x);
-
-  VARRAY_POP_ALL (build);
-  return vec;
+  int x;
+  for (x = 0; x < NUM_FREE; x++)
+    optype_freelist[x].next = NULL;
 }
 
 static void
 finalize_ssa_defs (tree stmt)
 {
-  unsigned num;
-  tree **vec;
+  unsigned num, x;
   stmt_ann_t ann;
+  def_optype def_ops;
 
   num = VARRAY_ACTIVE_SIZE (build_defs);
   if (num == 0)
     return;
 
-  vec = finalize_new_ssa_operands (build_defs);
 #ifdef ENABLE_CHECKING
   /* There should only be a single real definition per assignment.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR && num > 1)
     abort ();
 #endif
 
+  def_ops = allocate_def_optype (num);
+  for (x = 0; x < num ; x++)
+    def_ops->defs[x] = VARRAY_TREE_PTR (build_defs, x);
+  VARRAY_POP_ALL (build_defs);
+
   ann = stmt_ann (stmt);
-  if (ann->ops == NULL)
-    ann->ops = allocate_operands_t ();
-  ann->ops->def_ops.num_defs = num;
-  ann->ops->def_ops.defs = vec;
+  ann->def_ops = def_ops;
 }
 
 static void
 finalize_ssa_uses (tree stmt)
 {
-  unsigned num;
-  tree **vec;
+  unsigned num, x;
+  use_optype use_ops;
   stmt_ann_t ann;
 
   num = VARRAY_ACTIVE_SIZE (build_uses);
   if (num == 0)
     return;
 
-  vec = finalize_new_ssa_operands (build_uses);
-
-  ann = stmt_ann (stmt);
-  if (ann->ops == NULL)
-    ann->ops = allocate_operands_t ();
-  ann->ops->use_ops.num_uses = num;
-  ann->ops->use_ops.uses = vec;
 #ifdef ENABLE_CHECKING
   {
     unsigned x;
@@ -393,24 +312,30 @@ finalize_ssa_uses (tree stmt)
        initial call to get_stmt_operands does not pass a pointer to a 
        statement).  */
     for (x = 0; x < num; x++)
-      if (*(vec[x]) == stmt)
+      if (*(VARRAY_TREE_PTR (build_uses, x)) == stmt)
 	abort ();
   }
 #endif
+
+  use_ops = allocate_use_optype (num);
+  for (x = 0; x < num ; x++)
+    use_ops->uses[x] = VARRAY_TREE_PTR (build_uses, x);
+  VARRAY_POP_ALL (build_uses);
+
+  ann = stmt_ann (stmt);
+  ann->use_ops = use_ops;
 }
 
 static void
 finalize_ssa_vdefs (tree stmt)
 {
-  unsigned num;
-  tree *vec;
+  unsigned num, x;
+  vdef_optype vdef_ops;
   stmt_ann_t ann;
 
   num = VARRAY_ACTIVE_SIZE (build_vdefs);
   if (num == 0)
     return;
-
-  vec = finalize_new_ssa_virtual_operands (build_vdefs);
 
 #ifdef ENABLE_CHECKING
   /* VDEFs must be entered in pairs of result/uses.  */
@@ -418,19 +343,21 @@ finalize_ssa_vdefs (tree stmt)
     abort();
 #endif
 
+  vdef_ops = allocate_vdef_optype (num / 2);
+  for (x = 0; x < num; x++)
+    vdef_ops->vdefs[x] = VARRAY_TREE (build_vdefs, x);
+  VARRAY_POP_ALL (build_vdefs);
+
   ann = stmt_ann (stmt);
-  if (ann->vops == NULL)
-    ann->vops = allocate_voperands_t ();
-  ann->vops->vdef_ops.num_vdefs = num / 2;
-  ann->vops->vdef_ops.vdefs = vec;
+  ann->vdef_ops = vdef_ops;
 }
 
 static inline void
 finalize_ssa_vuses (tree stmt)
 {
-  unsigned num;
-  tree *vec;
+  unsigned num, x;
   stmt_ann_t ann;
+  vuse_optype vuse_ops;
   vdef_optype vdefs;
 
 #ifdef ENABLE_CHECKING
@@ -511,12 +438,15 @@ finalize_ssa_vuses (tree stmt)
     }
 
   num = VARRAY_ACTIVE_SIZE (build_vuses);
-  vec = finalize_new_ssa_virtual_operands (build_vuses);
+  /* We could have reduced the size to zero now, however.  */
+  if (num == 0)
+    return;
 
-  if (ann->vops == NULL)
-    ann->vops = allocate_voperands_t ();
-  ann->vops->vuse_ops.num_vuses = num;
-  ann->vops->vuse_ops.vuses = vec;
+  vuse_ops = allocate_vuse_optype (num);
+  for (x = 0; x < num; x++)
+    vuse_ops->vuses[x] = VARRAY_TREE (build_vuses, x);
+  VARRAY_POP_ALL (build_vuses);
+  ann->vuse_ops = vuse_ops;
 }
 
 extern void
@@ -616,14 +546,14 @@ append_vdef (tree var, tree stmt, voperands_t prev_vops)
   result = NULL_TREE;
   source = NULL_TREE;
   if (prev_vops)
-    for (i = 0; i < NUM_VDEFS (&(prev_vops->vdef_ops)); i++)
+    for (i = 0; i < NUM_VDEFS (prev_vops->vdef_ops); i++)
       {
-	result = VDEF_RESULT (&(prev_vops->vdef_ops), i);
+	result = VDEF_RESULT (prev_vops->vdef_ops, i);
 	if (result == var
 	    || (TREE_CODE (result) == SSA_NAME
 		&& SSA_NAME_VAR (result) == var))
 	  {
-	    source = VDEF_OP (&(prev_vops->vdef_ops), i);
+	    source = VDEF_OP (prev_vops->vdef_ops, i);
 	    break;
 	  }
       }
@@ -676,9 +606,9 @@ append_vuse (tree var, tree stmt, voperands_t prev_vops)
   found = false;
   vuse = NULL_TREE;
   if (prev_vops)
-    for (i = 0; i < NUM_VUSES (&(prev_vops->vuse_ops)); i++)
+    for (i = 0; i < NUM_VUSES (prev_vops->vuse_ops); i++)
       {
-	vuse = VUSE_OP (&(prev_vops->vuse_ops), i);
+	vuse = VUSE_OP (prev_vops->vuse_ops, i);
 	if (vuse == var
 	    || (TREE_CODE (vuse) == SSA_NAME
 		&& SSA_NAME_VAR (vuse) == var))
@@ -731,7 +661,7 @@ get_stmt_operands (tree stmt)
 {
   enum tree_code code;
   stmt_ann_t ann;
-  voperands_t prev_vops = NULL;
+  struct voperands_d prev_vops;
 
 #if defined ENABLE_CHECKING
   /* The optimizers cannot handle statements that are nothing but a
@@ -758,18 +688,17 @@ get_stmt_operands (tree stmt)
     }
 
   /* Remove any existing operands as they will be scanned again.  */
-  if (ann->ops)
-    {
-      free_defs (&(ann->ops->def_ops));
-      free_uses (&(ann->ops->use_ops));
-    }
+  free_defs (&(ann->def_ops), true);
+  free_uses (&(ann->use_ops), true);
 
   /* Before removing existing virtual operands, save them in PREV_VOPS so 
      that we can re-use their SSA versions.  */
-  if (ann->vops)
-    prev_vops = ann->vops;
+  prev_vops.vdef_ops = VDEF_OPS (ann);
+  prev_vops.vuse_ops = VUSE_OPS (ann);
 
-  ann->vops = NULL;
+  /* Dont free the previous values to memory since we're still using them.  */
+  free_vdefs (&(ann->vdef_ops), false);
+  free_vuses (&(ann->vuse_ops), false);
 
   start_ssa_stmt_operands (stmt);
 
@@ -777,16 +706,16 @@ get_stmt_operands (tree stmt)
   switch (code)
     {
     case MODIFY_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none, prev_vops);
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none, &prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def, &prev_vops);
       break;
 
     case COND_EXPR:
-      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none, prev_vops);
+      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none, &prev_vops);
       break;
 
     case SWITCH_EXPR:
-      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none, prev_vops);
+      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none, &prev_vops);
       break;
 
     case ASM_EXPR:
@@ -812,7 +741,7 @@ get_stmt_operands (tree stmt)
 	    if (!allows_reg && allows_mem)
 	      note_addressable (TREE_VALUE (link), ann);
 	    get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def,
-			       prev_vops);
+			       &prev_vops);
 	  }
 	for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
 	  {
@@ -822,25 +751,25 @@ get_stmt_operands (tree stmt)
 				    oconstraints, &allows_mem, &allows_reg);
 	    if (!allows_reg && allows_mem)
 	      note_addressable (TREE_VALUE (link), ann);
-	    get_expr_operands (stmt, &TREE_VALUE (link), 0, prev_vops);
+	    get_expr_operands (stmt, &TREE_VALUE (link), 0, &prev_vops);
 	  }
 	for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
 	  if (!strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory")
 	      && num_call_clobbered_vars > 0)
-	    add_call_clobber_ops (stmt, prev_vops);
+	    add_call_clobber_ops (stmt, &prev_vops);
       }
       break;
 
     case RETURN_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none, &prev_vops);
       break;
 
     case GOTO_EXPR:
-      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none, prev_vops);
+      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none, &prev_vops);
       break;
 
     case LABEL_EXPR:
-      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none, prev_vops);
+      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none, &prev_vops);
       break;
 
       /* These nodes contain no variable references.  */
@@ -859,11 +788,15 @@ get_stmt_operands (tree stmt)
 	 append_use.  This default will handle statements like empty statements,
 	 CALL_EXPRs or VA_ARG_EXPRs that may appear on the RHS of a statement
 	 or as statements themselves.  */
-      get_expr_operands (stmt, &stmt, opf_none, prev_vops);
+      get_expr_operands (stmt, &stmt, opf_none, &prev_vops);
       break;
     }
 
   finalize_ssa_stmt_operands (stmt);
+
+  /* Now free the previous virtual ops to memory.  */
+  free_vdefs (&(prev_vops.vdef_ops), true);
+  free_vuses (&(prev_vops.vuse_ops), true);
 
   /* Clear the modified bit for STMT.  Subsequent calls to
      get_stmt_operands for this statement will do nothing until the
