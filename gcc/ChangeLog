@@ -1,3 +1,13 @@
+2002-03-14  Sebastian Pop  <s.pop@laposte.net>
+
+	* c-simplify.c (simplify_switch_stmt, simplify_expr): Add scope
+	parameter.
+	(simplify_while_stmt, simplify_do_stmt, simplify_for_stmt): Avoid
+	negating loop condition during simplification.
+	(new_simplified_if): Don't simplify the IF_BODY.
+	(copy_stmt_chain): Use copy_stmt.
+	(copy_stmt): New function.
+
 Mon Mar  4 15:33:54 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* toplev.c (rest_of_compilation): Cleanup CFG after dead jumptables
