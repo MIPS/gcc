@@ -1,0 +1,11 @@
+2004-01-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure.in: Set native_cross when ppc32->ppc64 and host can
+	execute ppc64 insns.  Do native tests when native_cross.
+	* configure: Rebuild.
+
+	Backport from mainline.
+	2003-03-12  Andreas Schwab  <schwab@suse.de>
+	* acinclude.m4 (GLIBCPP_EXPORT_INSTALL_INFO): Avoid trailing /. in
+	glibcpp_toolexeclibdir.
+	* aclocal.m4, configure: Rebuilt.

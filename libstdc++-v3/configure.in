@@ -84,7 +84,21 @@ if test $ATOMICITYH = cpu/generic ; then
 fi
 
 
-if test -n "$with_cross_host" || test x"$build" != x"$host"; then
+native_cross=no
+case ${with_cross_host},${target} in
+    powerpc*,powerpc64*)
+	AC_TRY_RUN([
+int main()
+{
+   /* stdu r1,-128(r1); addi r1,r1,128 */
+   __asm__ __volatile__ (".long 0xf821ff81,0x38210080");
+   return 0;
+}
+],native_cross=yes,native_cross=no,[AC_MSG_WARN(cross compiling...)]) ;;
+esac
+
+if test -n "$with_cross_host" && test $native_cross = no \
+	|| test x"$build" != x"$host"; then
 
   # We are being configured with some form of cross compiler.
   GLIBCPP_IS_CROSS_COMPILING=true
