@@ -986,8 +986,11 @@ public abstract class Component
    */
   public void setBackground(Color c)
   {
+    // If c is null, inherit from closest ancestor whose bg is set.
+    if (c == null && parent != null)
+      c = parent.getBackground();
     firePropertyChange("background", background, c);
-    if (peer != null)
+    if (peer != null && c != null)
       peer.setBackground(c);
     background = c;
   }
