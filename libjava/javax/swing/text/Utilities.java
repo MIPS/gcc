@@ -89,6 +89,7 @@ public class Utilities
 
     // The font metrics of the current selected font.
     FontMetrics metrics = g.getFontMetrics();
+    int ascent = metrics.getAscent();
 
     for (int offset = s.offset; offset < (s.offset + s.count); ++offset)
       {
@@ -112,7 +113,7 @@ public class Utilities
 	    break;
 	  default:
 	    // Here we draw the char.
-	    g.drawChars(buffer, offset, 1, pixelX, y);
+	    g.drawChars(buffer, offset, 1, pixelX, pixelY + ascent);
 	    pixelX += metrics.charWidth(buffer[offset]);
 	    break;
 	  }

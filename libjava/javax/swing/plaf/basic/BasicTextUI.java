@@ -49,7 +49,13 @@ import java.awt.Shape;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
+import javax.swing.Action;
+import javax.swing.ActionMap;
+import javax.swing.InputMap;
 import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
+import javax.swing.UIDefaults;
+import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.TextUI;
 import javax.swing.plaf.UIResource;
@@ -63,6 +69,7 @@ import javax.swing.text.EditorKit;
 import javax.swing.text.Element;
 import javax.swing.text.Highlighter;
 import javax.swing.text.JTextComponent;
+import javax.swing.text.Keymap;
 import javax.swing.text.PlainDocument;
 import javax.swing.text.Position;
 import javax.swing.text.View;
@@ -146,10 +153,10 @@ public abstract class BasicTextUI extends TextUI
     }
   }
   
+  static EditorKit kit = new DefaultEditorKit();
+
   RootView rootView = new RootView();
   JTextComponent textComponent;
-  int gap = 3;
-  EditorKit kit = new DefaultEditorKit();
   EventHandler eventHandler = new EventHandler();
 
   public BasicTextUI()
@@ -181,7 +188,7 @@ public abstract class BasicTextUI extends TextUI
     Document doc = textComponent.getDocument();
     if (doc == null)
       {
-	doc = new PlainDocument();
+	doc = getEditorKit(textComponent).createDefaultDocument();
 	textComponent.setDocument(doc);
       }
     
@@ -197,11 +204,24 @@ public abstract class BasicTextUI extends TextUI
   {
     Caret caret = textComponent.getCaret();
     if (caret == null)
-      textComponent.setCaret(createCaret());
+      {
+        caret = createCaret();
+        textComponent.setCaret(caret);
+      }
 
     Highlighter highlighter = textComponent.getHighlighter();
     if (highlighter == null)
       textComponent.setHighlighter(createHighlighter());
+
+    String prefix = getPropertyPrefix();
+    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+    textComponent.setBackground(defaults.getColor(prefix + ".background"));
+    textComponent.setForeground(defaults.getColor(prefix + ".foreground"));
+    textComponent.setMargin(defaults.getInsets(prefix + ".margin"));
+    textComponent.setBorder(defaults.getBorder(prefix + ".border"));
+    textComponent.setFont(defaults.getFont(prefix + ".font"));
+
+    caret.setBlinkRate(defaults.getInt(prefix + ".caretBlinkRate"));
   }
 
   protected void installListeners()
@@ -209,9 +229,79 @@ public abstract class BasicTextUI extends TextUI
     // Do nothing here.
   }
 
-  protected void installKeyboardActions()
+  protected String getKeymapName()
   {
-    // Do nothing here.
+    return "BasicTextUI";
+  }
+
+  protected Keymap createKeymap()
+  {
+    String prefix = getPropertyPrefix();
+    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+    JTextComponent.KeyBinding[] bindings = 
+      (JTextComponent.KeyBinding[]) defaults.get(prefix + ".keyBindings");
+    Keymap km = JTextComponent.addKeymap(getKeymapName(), 
+                                         JTextComponent.getKeymap(JTextComponent.DEFAULT_KEYMAP));    
+    JTextComponent.loadKeymap(km, bindings, textComponent.getActions());
+    return km;    
+  }
+
+  protected void installKeyboardActions()
+  {    
+    // load any bindings for the older Keymap interface
+    Keymap km = JTextComponent.getKeymap(getKeymapName());
+    if (km == null)
+      km = createKeymap();
+    textComponent.setKeymap(km);
+
+    // load any bindings for the newer InputMap / ActionMap interface
+    SwingUtilities.replaceUIInputMap(textComponent, 
+                                     JComponent.WHEN_FOCUSED,
+                                     getInputMap(JComponent.WHEN_FOCUSED));
+    SwingUtilities.replaceUIActionMap(textComponent, getActionMap());
+  }
+
+  InputMap getInputMap(int condition)
+  {
+    String prefix = getPropertyPrefix();
+    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+    switch (condition)
+      {
+      case JComponent.WHEN_IN_FOCUSED_WINDOW:
+        // FIXME: is this the right string? nobody seems to use it.
+        return (InputMap) defaults.get(prefix + ".windowInputMap"); 
+      case JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT:
+        return (InputMap) defaults.get(prefix + ".ancestorInputMap");
+      default:
+      case JComponent.WHEN_FOCUSED:
+        return (InputMap) defaults.get(prefix + ".focusInputMap");
+      }
+  }
+
+  ActionMap getActionMap()
+  {
+    String prefix = getPropertyPrefix();
+    UIDefaults defaults = UIManager.getLookAndFeelDefaults();    
+    ActionMap am = (ActionMap) defaults.get(prefix + ".actionMap");
+    if (am == null)
+      {
+        am = createActionMap();
+        defaults.put(prefix + ".actionMap", am);
+      }
+    return am;
+  }
+
+  ActionMap createActionMap()
+  {
+    Action[] actions = textComponent.getActions();
+    ActionMap am = new ActionMap();
+    for (int i = 0; i < actions.length; ++i)
+      {
+        String name = (String) actions[i].getValue(Action.NAME);
+        if (name != null)
+          am.put(name, actions[i]);
+      }
+    return am;
   }
   
   public void uninstallUI(final JComponent component)

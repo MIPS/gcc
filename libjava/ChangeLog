@@ -1,3 +1,101 @@
+2004-08-24  Graydon Hoare  <graydon@redhat.com>
+
+	* java/awt/Component.java 
+	(isFocusTraversable): Predicate on isLightweight()
+	(setFocusable): Set isFocusTraversableOverridden.
+	(requestFocus): Predicate peer dispatch on !isLightweight()
+	(requestFocusInWindow): Likewise.
+	(dispatchEventImpl): Coordinate with KeyboardFocusManager.
+	* java/awt/Container.java
+	(dispatchEventImpl): Predicate on event mask.
+	(LightweightDispatcher): Remove focus machinery.
+	* java/awt/DefaultFocusTraversalPolicy.java
+	(accept): Expand predicate to include isFocusable(). 
+	* java/awt/DefaultKeyboardFocusManager.java:
+	Globally change c.dispatchEvent(e) to redispatchEvent(c,e)
+	* java/awt/KeyboardFocusManager.java
+	(redispatchEvent): Synchronize on event to prevent feedback.
+	* javax/swing/AbstractButton.java
+	(ButtonFocusListener): Remove class.
+	(init): Set focusPainted, focusable.
+	* javax/swing/ActionMap.java (get): Check parent for null. 
+	* javax/swing/InputMap.java (get): Likewise. 
+	* javax/swing/JComponent.java
+	(inputMap_whenFocused): New InputMap.
+	(inputMap_whenAncestorOfFocused): Likewise.
+	(inputMap_whenInFocusedWindow): Likewise.
+	(getActionForKeyStroke): Rewrite.
+	(getConditionForKeystroke): Likewise.
+	(ActionListenerProxy): New private class.
+	(setInputMap): Implement.
+	(getInputMap): Likewise.
+	(setActionMap): Likewise.
+	(getActionMap): Likewise.
+	(processComponentKeyEvent): New empty method.
+	(processKeyEvent): Implement.
+	(processKeyBinding): Likewise.
+	(resetKeyboardActions): Rewrite.
+	* javax/swing/KeyStroke.java: Rewrite.
+	* javax/swing/SwingUtilities.java
+	(notifyAction): Implement.
+	(replaceUIActionMap): Likewise.
+	(replaceUIInputMap): Likewise.
+	* javax/swing/plaf/basic/BasicButtonListener.java
+	(focusGained): Implement.
+	(focusLost): Repaint if focusPainted().
+	(installKeyboardActions): Install pressed / released actions.
+	(uninstallKeyboardActions): Implement.
+	* javax/swing/plaf/basic/BasicButtonUI.java
+	(focusColor): New field.
+	(installDefaults): Load focus color, install input map.
+	(installKeyboardActions): Implement.
+	(uninstallKeyboardActions): Likewise.
+	(paintFocus): Rewrite.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java
+	(Button.focus): New default, midPurple. 
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(kit): Make static.
+	(installUI): Get doc from kit, load defaults.
+	(getKeymapName): Implement.
+	(createKeymap): Likewise.
+	(installKeyboardActions): Likewise.
+	(getInputMap): Likewise.
+	(getActionMap): Likewise.
+	(createActionMap): Likewise.
+	* javax/swing/text/AbstractDocument.java
+	(getStartPosition): Implement.
+	(getEndPosition): Likewise.
+	* javax/swing/text/DefaultEditorKit.java
+	(CopyAction): New class.
+	(CutAction): Likewise.
+	(DefaultKeyTypedAction): Likewise.
+	(InsertBreakAction): Likewise.
+	(InsertContentAction): Likewise.
+	(InsertTabAction): Likewise.
+	(PasteAction): Likewise.
+	(defaultActions): New static table.
+	(createCaret): Implement.
+	(getActions): Likewise.
+	* javax/swing/text/JTextComponent.java
+	(KeymapWrapper): New private class.
+	(KeymapActionMap): Likewise.
+	(DefaultKeymap): New class.
+	(keymaps): New static table.
+	(keymap): New field.
+	(getKeymap): Implement.
+	(removeKeymap): Likewise.
+	(addKeymap): Likewise.
+	(setKeymap): Likewise.
+	(loadKeymap): Likewise.
+	(getActions): Likewise.
+	(margin): New field.
+	(JTextComponent): Build and install default keymap.
+	* javax/swing/text/TextAction.java
+	(textAction): Call super properly.
+	(getTextComponent): Implement.
+	* javax/swing/text/Utilities.java
+	(drawTabbedText): Adjust position by ascent.
+
 2004-08-24  David Jee  <djee@redhat.com>
 
 	PR AWT/17156

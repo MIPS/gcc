@@ -247,6 +247,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "SPACE",  "pressed",
         "released SPACE", "released"
       }),
+      "Button.focus", midPurple,
       "Button.font", new FontUIResource("Dialog", Font.PLAIN, 12),
       "Button.foreground", new ColorUIResource(Color.black),
       "Button.highlight", new ColorUIResource(Color.white),

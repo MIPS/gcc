@@ -174,7 +174,13 @@ public abstract class AbstractDocument
 
   public Position getEndPosition()
   {
-    return null;
+    return new Position() 
+      {        
+        public int getOffset() 
+        { 
+          return getLength(); 
+        } 
+      };
   }
 
   public int getLength()
@@ -199,7 +205,13 @@ public abstract class AbstractDocument
 
   public Position getStartPosition()
   {
-    return null;
+    return new Position() 
+      {        
+        public int getOffset() 
+        { 
+          return 0; 
+        } 
+      };
   }
 
   public String getText(int offset, int length) throws BadLocationException
