@@ -1,3 +1,48 @@
+2004-06-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3518
+	* g++.dg/template/unify7.C: New.
+
+	PR c++/14007
+	* g++.dg/template/unify5.C: New.
+	* g++.dg/template/unify6.C: New.
+	* g++.dg/template/qualttp20.C: Adjust.
+	* g++.old-deja/g++.jason/report.C: Adjust.
+	* g++.old-deja/g++.other/qual1.C: Adjust.
+
+2004-06-21  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/opt/placeholder1.C: New test.
+
+2004-06-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/lookup/crash3.C: Use __SIZE_TYPE__
+	instead of setting the type of size_t by
+	hand.
+
+2004-06-17  Zack Weinberg  <zack@codesourcery.com>
+
+	Bug 14610
+	* gcc.dg/ia64-float80-1.c, gcc.dg/ia64-float80-2.c: New testcases.
+
+2004-06-15  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15967
+	* g++.dg/lookup/crash3.C: New test.
+
+2004-06-14  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/15947
+	* g++.dg/parse/dtor4.C: New test.
+
+2004-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15096
+	* g++.dg/template/ptrmem10.C: New test.
+
+	PR c++/14930
+	* g++.dg/template/friend30.C: New test.
+
 2004-06-13  Hans-Peter Nilsson  <hp@axis.com>
 
 	PR rtl-optimization/15296
@@ -8,8 +53,8 @@
 	PR c++/15862
 	* g++.dg/parse/enum1.C: New test.
 
-2004-06-11  Hartmut Penner  <hpenner@de.ibm.com>	
-	
+2004-06-11  Hartmut Penner  <hpenner@de.ibm.com>
+
 	Backport from mainline:
 
 	2004-03-30  Hartmut Penner  <hpenner@de.ibm.com>
@@ -73,7 +118,7 @@
 	Backport from mainline:
 	2004-06-02  Eric Christopher  <echristo@redhat.com>
 
-        * gcc.c-torture/compile/20040602-1.c: New.
+	* gcc.c-torture/compile/20040602-1.c: New.
 
 2004-06-01  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 

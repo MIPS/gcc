@@ -1,3 +1,117 @@
+2004-06-21  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/16114
+	* cse.c (merge_equiv_classes): Also rehash in response to
+	delete_reg_equiv changes.
+	(rehash_using_reg): Don't exclude REGs from rehashing.
+
+2004-06-21  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR rtl-optimization/15159
+	* tree.c (unsafe_for_reeval): Return 2 for TRY_CATCH_EXPRs.
+
+2004-06-19  Richard Henderson  <rth@redhat.com>
+
+	PR target/15941
+	* function.c (assign_parms): If not padding upward or intentionally
+	forcing upward padding, take offset_rtx into account when determining
+	the alignment for stack_parm.
+
+2004-06-19  Richard Henderson  <rth@redhat.com>
+
+	PR target/15550
+	* ifcvt.c (noce_try_move): Recognize all generated instructions.
+
+2004-06-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/10129
+	* config/darwin.c (darwin_encode_section_info): When the decl has
+	a DECL_INITIAL, it is only defined also when it is not a common.
+
+2004-06-17  Zack Weinberg  <zack@codesourcery.com>
+
+	Bug 14610
+	* Makefile.in (min-insn-modes.o): Correct dependencies.
+	* real.c (encode_ieee_extended, decode_ieee_extended): Always
+	produce/consume 12-byte little-endian Intel format.
+	(encode_ieee_extended_128, decode_ieee_extended_128): Delete.
+	(encode_ieee_extended_motorola, decode_ieee_extended_motorola)
+	(encode_ieee_extended_intel_96, decode_ieee_extended_intel_96)
+	(encode_ieee_extended_intel_128, decode_ieee_extended_intel_128):
+	New functions which convert between 12-byte little-endian Intel
+	format and the desired format.
+	(ieee_extended_motorola_format, ieee_extended_intel_96_round_53_format)
+	(ieee_extended_intel_96_format, ieee_extended_intel_128_format):
+	Update.
+
+2004-06-16  James E Wilson  <wilson@specifixinc.com>
+
+	PR c++/14808
+	* config/i386/cygwin.h (TARGET_IS_PE_COFF): Delete duplicate macro.
+
+2004-06-16  Bernardo Innocenti  <bernie@develer.com>
+
+	Backport from mainline:
+	2004-06-16  Bernardo Innocenti  <bernie@develer.com>
+
+	PR target/13292
+	* config/m68k/m68k.h (TARGET_SWITCHES): Don't remove MASK_68040_ONLY
+	on -msoft-float.
+	(TARGET_FLT_EVAL_METHOD): Don't advertise extended precision for
+	68040 and soft-float.
+	* config/m68k/m68k.md (truncdfsf2): Explicitly require TARGET_68881
+	in the TARGET_68040_ONLY case.
+
+2004-06-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/15653
+	* config/ia64/ia64.c (ia64_dfa_new_cycle): Do not insert nops
+	after shifts before asm.
+
+2004-06-15  Chris Demetriou  <cgd@broadcom.com>
+
+	* config/mips/linux.h (ASM_PREFERRED_EH_DATA_FORMAT): Remove
+	definition.
+	* config/mips/linux64.h (ASM_PREFERRED_EH_DATA_FORMAT): Remove
+	#undef and #if 0'd definition.
+
+2004-06-15  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
+
+	* config/m32r/m32r.h (RETURN_ADDR_RTX): Define.
+	(INCOMING_RETURN_ADDR_RTX): Define.
+	* config/m32r/m32r-protos.h (m32r_return_addr): Added.
+	* config/m32r/m32r.c (m32r_exppand_prologue): Changed for
+	__builtin_return_address(0).
+	(m32r_return_addr): Added for __builtin_return_address(0).
+	(m32r_reload_lr): Ditto.
+
+	* longlong.h: Fix macros for m32r add_ssaaaa and sub_ddmmss.
+
+2004-06-15  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* gccbug.in: Update optimization -> tree-optimization/rtl-optimization.
+
+2004-06-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* real.c: Fix bit count in head comment.
+
+2004-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/15945
+	* simplify-rtx.c (simplify_binary_operation): Don't optimize out
+	Inf + -Inf, Inf - Inf, Inf / Inf and 0 * Inf if flag_trapping_math.
+
+2004-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/15178
+	* config/i386/sol2.h (ASM_OUTPUT_DEF_FROM_DECLS): Define.
+
+2004-06-14  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Handle -mpowerpc64 and -mcpu
+	for power5 and rs64a.  Correct condition for default.  Correct power3,
+	620, 630, 7400, 7450, G4, 970 and G5 -mcpu entries.  Add -many.
+
 2004-06-13  Alan Modra  <amodra@bigpond.net.au>
 
 	Apply mainline 2004-01-27  Alan Modra  <amodra@bigpond.net.au>
@@ -46,19 +160,19 @@
 
 	Backport from mainline:
 
-        * config/rs6000/rs6000.c (output_vec_const_move):
-        Find all cases of EASY_VECTOR_15_ADD_SELF.
-        (easy_vector_constant_add_self): Accept
-        all vector constant loadable by vsplt* and vadd*.
+	* config/rs6000/rs6000.c (output_vec_const_move):
+	Find all cases of EASY_VECTOR_15_ADD_SELF.
+	(easy_vector_constant_add_self): Accept
+	all vector constant loadable by vsplt* and vadd*.
 	(easy_vector_same): Use easy_vector_splat_const.
 	(easy_vector_const): Use easy_vector_splat_const.
-        (easy_vector_splat_const): New function.
+	(easy_vector_splat_const): New function.
 	(gen_easy_vector_constant_add_self): New function.
 
 	* config/rs6000/rs6000-protos.c (gen_easy_vector_constant_add_self):
 	New prototype.
 
-        * config/rs6000/altivec.md (movv4si splitter): Change to
+	* config/rs6000/altivec.md (movv4si splitter): Change to
 	emit move insn with halfed vector constant.
 	(*movv8hi splitter): Likewise.
 	(*movv16qi splitter): Likewise.
@@ -297,8 +411,8 @@
 	Backport from mainline:
 	2004-06-02  Eric Christopher  <echristo@redhat.com>
 
-        * c-typeck.c (common_type): Don't lose type qualifiers
-        when creating new variants.
+	* c-typeck.c (common_type): Don't lose type qualifiers
+	when creating new variants.
 
 2004-06-03  Bernardo Innocenti  <bernie@develer.com>
 
@@ -306,7 +420,7 @@
 	Backport from mainline:
 
 	2004-06-01  Peter Barada  <peter@the-baradas.com>
-	            Peter Jakubek  <peter@laseranimation.com>
+		    Peter Jakubek  <peter@laseranimation.com>
 
 	* config/m68k/m68k.c(m68k_output_mi_thunk):  For ColdFire, use %d0 as
 	a scratch to perform an add to memory.
