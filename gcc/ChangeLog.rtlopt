@@ -1,3 +1,7 @@
+2003-03-11  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (track_expr_p): Fix Do not track global variables.
+
 2003-03-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from mainline:

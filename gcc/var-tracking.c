@@ -758,15 +758,15 @@ track_expr_p (expr)
   if (!decl_rtl)
     return 0;
 
+  /* Do not track global variables until we are able to emit correct location
+     list for them.  */
+  if (TREE_STATIC (expr))
+    return 0;
+
   /* If RTX is a memory it should not be very large (because it would be an array
      or struct).  */
   if (GET_CODE (decl_rtl) == MEM)
     {
-      /* Do not track global variables.  */
-      if (GET_CODE (XEXP (decl_rtl, 0)) == SYMBOL_REF
-	  || GET_CODE (XEXP (decl_rtl, 0)) == CONST)
-	return 0;
-
       /* Do not track structures and arrays.  */
       if (GET_MODE (decl_rtl) == BLKmode)
 	return 0;
