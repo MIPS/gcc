@@ -4806,7 +4806,8 @@ count_cond (tree expr, int lim)
    expression, and ARG to `a'.  If COND_FIRST_P is nonzero, then the
    COND is the first argument to CODE; otherwise (as in the example
    given here), it is the second argument.  TYPE is the type of the
-   original expression.  */
+   original expression.  Return NULL_TREE if no simplication is
+   possible.  */
 
 static tree
 fold_binary_op_with_conditional_arg (enum tree_code code, tree type,
@@ -4835,6 +4836,19 @@ fold_binary_op_with_conditional_arg (enum tree_code code, tree type,
   tree lhs_type = type;
   tree rhs_type = type;
   int save = 0;
+
+  if (TREE_CODE (cond) != COND_EXPR
+      && TREE_CODE_CLASS (code) == '<')
+    return NULL_TREE;
+
+  if (TREE_CODE (arg) == COND_EXPR
+      && count_cond (cond, 25) + count_cond (arg, 25) > 25)
+    return NULL_TREE;
+
+  if (TREE_SIDE_EFFECTS (arg)
+      && (lang_hooks.decls.global_bindings_p () != 0
+	  || CONTAINS_PLACEHOLDER_P (arg)))
+    return NULL_TREE;
 
   if (cond_first_p)
     {
@@ -5588,37 +5602,32 @@ fold (tree expr)
   else if (TREE_CODE_CLASS (code) == '2'
 	   || TREE_CODE_CLASS (code) == '<')
     {
+      if (TREE_CODE (arg0) == COMPOUND_EXPR)
+	return build (COMPOUND_EXPR, type, TREE_OPERAND (arg0, 0),
+		      fold (build (code, type, TREE_OPERAND (arg0, 1), arg1)));
       if (TREE_CODE (arg1) == COMPOUND_EXPR
-	  && ! TREE_SIDE_EFFECTS (TREE_OPERAND (arg1, 0))
-	  && ! TREE_SIDE_EFFECTS (arg0))
+	  && reorder_operands_p (arg0, TREE_OPERAND (arg1, 0)))
 	return build (COMPOUND_EXPR, type, TREE_OPERAND (arg1, 0),
 		      fold (build (code, type,
 				   arg0, TREE_OPERAND (arg1, 1))));
-      else if ((TREE_CODE (arg1) == COND_EXPR
-		|| (TREE_CODE_CLASS (TREE_CODE (arg1)) == '<'
-		    && TREE_CODE_CLASS (code) != '<'))
-	       && (TREE_CODE (arg0) != COND_EXPR
-		   || count_cond (arg0, 25) + count_cond (arg1, 25) <= 25)
-	       && (! TREE_SIDE_EFFECTS (arg0)
-		   || (lang_hooks.decls.global_bindings_p () == 0
-		       && ! CONTAINS_PLACEHOLDER_P (arg0))))
-	return
-	  fold_binary_op_with_conditional_arg (code, type, arg1, arg0,
-					       /*cond_first_p=*/0);
-      else if (TREE_CODE (arg0) == COMPOUND_EXPR)
-	return build (COMPOUND_EXPR, type, TREE_OPERAND (arg0, 0),
-		      fold (build (code, type, TREE_OPERAND (arg0, 1), arg1)));
-      else if ((TREE_CODE (arg0) == COND_EXPR
-		|| (TREE_CODE_CLASS (TREE_CODE (arg0)) == '<'
-		    && TREE_CODE_CLASS (code) != '<'))
-	       && (TREE_CODE (arg1) != COND_EXPR
-		   || count_cond (arg0, 25) + count_cond (arg1, 25) <= 25)
-	       && (! TREE_SIDE_EFFECTS (arg1)
-		   || (lang_hooks.decls.global_bindings_p () == 0
-		       && ! CONTAINS_PLACEHOLDER_P (arg1))))
-	return
-	  fold_binary_op_with_conditional_arg (code, type, arg0, arg1,
-					       /*cond_first_p=*/1);
+
+      if (TREE_CODE (arg0) == COND_EXPR
+	  || TREE_CODE_CLASS (TREE_CODE (arg0)) == '<')
+	{
+	  tem = fold_binary_op_with_conditional_arg (code, type, arg0, arg1,
+						     /*cond_first_p=*/1);
+	  if (tem != NULL_TREE)
+	    return tem;
+	}
+
+      if (TREE_CODE (arg1) == COND_EXPR
+	  || TREE_CODE_CLASS (TREE_CODE (arg1)) == '<')
+	{
+	  tem = fold_binary_op_with_conditional_arg (code, type, arg1, arg0,
+						     /*cond_first_p=*/0);
+	  if (tem != NULL_TREE)
+	    return tem;
+	}
     }
 
   switch (code)
@@ -6531,25 +6540,7 @@ fold (tree expr)
 		  && operand_equal_p (TREE_VALUE (TREE_OPERAND (arg0, 1)),
 				      TREE_VALUE (TREE_OPERAND (arg1, 1)), 0))
 		{
-		  tree sinfn;
-
-		  switch (fcode0)
-		    {
-		    case BUILT_IN_TAN:
-		    case BUILT_IN_COS:
-		      sinfn = implicit_built_in_decls[BUILT_IN_SIN];
-		      break;
-		    case BUILT_IN_TANF:
-		    case BUILT_IN_COSF:
-		      sinfn = implicit_built_in_decls[BUILT_IN_SINF];
-		      break;
-		    case BUILT_IN_TANL:
-		    case BUILT_IN_COSL:
-		      sinfn = implicit_built_in_decls[BUILT_IN_SINL];
-		      break;
-		    default:
-		      sinfn = NULL_TREE;
-		    }
+		  tree sinfn = mathfn_built_in (type, BUILT_IN_SIN);
 
 		  if (sinfn != NULL_TREE)
 		    return build_function_call_expr (sinfn,
@@ -6610,16 +6601,7 @@ fold (tree expr)
 	      if (! optimize_size
 		  && operand_equal_p (arg0, arg1, 0))
 		{
-		  tree powfn;
-
-		  if (type == double_type_node)
-		    powfn = implicit_built_in_decls[BUILT_IN_POW];
-		  else if (type == float_type_node)
-		    powfn = implicit_built_in_decls[BUILT_IN_POWF];
-		  else if (type == long_double_type_node)
-		    powfn = implicit_built_in_decls[BUILT_IN_POWL];
-		  else
-		    powfn = NULL_TREE;
+		  tree powfn = mathfn_built_in (type, BUILT_IN_POW);
 
 		  if (powfn)
 		    {
@@ -6853,16 +6835,7 @@ fold (tree expr)
 	      && operand_equal_p (TREE_VALUE (TREE_OPERAND (arg0, 1)),
 				  TREE_VALUE (TREE_OPERAND (arg1, 1)), 0))
 	    {
-	      tree tanfn;
-
-	      if (fcode0 == BUILT_IN_SIN)
-		tanfn = implicit_built_in_decls[BUILT_IN_TAN];
-	      else if (fcode0 == BUILT_IN_SINF)
-		tanfn = implicit_built_in_decls[BUILT_IN_TANF];
-	      else if (fcode0 == BUILT_IN_SINL)
-		tanfn = implicit_built_in_decls[BUILT_IN_TANL];
-	      else
-		tanfn = NULL_TREE;
+	      tree tanfn = mathfn_built_in (type, BUILT_IN_TAN);
 
 	      if (tanfn != NULL_TREE)
 		return build_function_call_expr (tanfn,
@@ -6876,16 +6849,7 @@ fold (tree expr)
 	      && operand_equal_p (TREE_VALUE (TREE_OPERAND (arg0, 1)),
 				  TREE_VALUE (TREE_OPERAND (arg1, 1)), 0))
 	    {
-	      tree tanfn;
-
-	      if (fcode0 == BUILT_IN_COS)
-		tanfn = implicit_built_in_decls[BUILT_IN_TAN];
-	      else if (fcode0 == BUILT_IN_COSF)
-		tanfn = implicit_built_in_decls[BUILT_IN_TANF];
-	      else if (fcode0 == BUILT_IN_COSL)
-		tanfn = implicit_built_in_decls[BUILT_IN_TANL];
-	      else
-		tanfn = NULL_TREE;
+	      tree tanfn = mathfn_built_in (type, BUILT_IN_TAN);
 
 	      if (tanfn != NULL_TREE)
 		{

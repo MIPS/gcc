@@ -1787,13 +1787,16 @@ of words in each data entry.
 @section Target Character Escape Sequences
 @cindex escape sequences
 
-By default, GCC assumes that the C character escape sequences take on
-their ASCII values for the target.  If this is not correct, you must
-explicitly define all of the macros below.  All of them must evaluate
-to constants; they are used in @code{case} statements.
+By default, GCC assumes that the C character escape sequences and other
+characters take on their ASCII values for the target.  If this is not
+correct, you must explicitly define all of the macros below.  All of
+them must evaluate to constants; they are used in @code{case}
+statements.
 
 @findex TARGET_BELL
+@findex TARGET_BS
 @findex TARGET_CR
+@findex TARGET_DIGIT0
 @findex TARGET_ESC
 @findex TARGET_FF
 @findex TARGET_NEWLINE
@@ -1802,7 +1805,9 @@ to constants; they are used in @code{case} statements.
 @multitable {@code{TARGET_NEWLINE}} {Escape} {ASCII character}
 @item Macro                 @tab Escape             @tab ASCII character
 @item @code{TARGET_BELL}    @tab @kbd{\a}           @tab @code{07}, @code{BEL}
+@item @code{TARGET_BS}      @tab @kbd{\b}           @tab @code{08}, @code{BS}
 @item @code{TARGET_CR}      @tab @kbd{\r}           @tab @code{0D}, @code{CR}
+@item @code{TARGET_DIGIT0}  @tab @kbd{0}            @tab @code{30}, @code{ZERO}
 @item @code{TARGET_ESC}     @tab @kbd{\e}, @kbd{\E} @tab @code{1B}, @code{ESC}
 @item @code{TARGET_FF}      @tab @kbd{\f}           @tab @code{0C}, @code{FF}
 @item @code{TARGET_NEWLINE} @tab @kbd{\n}           @tab @code{0A}, @code{LF}
@@ -5802,13 +5807,6 @@ frequently executed functions of the program.  If not defined, GCC will provide
 a default definition if the target supports named sections.
 @end defmac
 
-@defmac NORMAL_TEXT_SECTION_NAME
-If defined, a C string constant for the name of the section containing code 
-that does not go into the ``unlikely executed text'' partition.  This is used
-as part of the optimization that partitions hot and cold basic blocks into
-separate sections in the .o and executable files.
-@end defmac
-
 @defmac UNLIKELY_EXECUTED_TEXT_SECTION_NAME
 If defined, a C string constant for the name of the section containing unlikely
 executed functions in the program.
@@ -5858,12 +5856,6 @@ If defined, a C expression whose value is a string, including spacing,
 containing the assembler operation to identify the following data as
 finalization code.  If not defined, GCC will assume such a section does
 not exist.
-@end defmac
-
-@defmac SECTION_FORMAT_STRING
-If defined, format string used by fprintf to write out the
-text section headers for the hot and cold sections of the
-assembly file, when hot and cold partitioning is being performed.
 @end defmac
 
 @defmac CRT_CALL_STATIC_FUNCTION (@var{section_op}, @var{function})

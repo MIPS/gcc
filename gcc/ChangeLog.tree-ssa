@@ -1,3 +1,7 @@
+2004-04-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* c-simplify.c (gimplify_decl_stmt): Handle TYPE_DECL.
+
 2004-04-14  Paul Brook  <paul@codesourcery.com>
 
 	* Makefile.in (GMPLIBS, GMPINC): Don't set.

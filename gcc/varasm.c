@@ -205,7 +205,8 @@ text_section (void)
   if (in_section != in_text)
     {
       in_section = in_text;
-      fprintf (asm_out_file, SECTION_FORMAT_STRING, NORMAL_TEXT_SECTION_NAME);
+      fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
+      ASM_OUTPUT_ALIGN (asm_out_file, 2);
     }
 }
 
@@ -218,20 +219,23 @@ unlikely_text_section (void)
       &&  (in_section != in_named 
 	   || strcmp (in_named_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) != 0))
     {
-#ifdef TARGET_ASM_NAMED_SECTION
-	
-      named_section (NULL_TREE, UNLIKELY_EXECUTED_TEXT_SECTION_NAME, 0);
+      if (targetm.have_named_sections)
+        named_section (NULL_TREE, UNLIKELY_EXECUTED_TEXT_SECTION_NAME, 0);
+      else
+	{
+	  in_section = in_unlikely_executed_text;
+	  fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
+	}
       
-#else
-      in_section = in_unlikely_executed_text;
-      fprintf (asm_out_file, SECTION_FORMAT_STRING, 
-	       UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
-#endif /* ifdef TARGET_ASM_NAMED_SECTION */
       if (!unlikely_section_label_printed)
 	{
 	  fprintf (asm_out_file, "__%s_unlikely_section:\n", 
 		   current_function_name ());
 	  unlikely_section_label_printed = true;
+
+	  /* Make sure that we have approprate alignment for instructions
+	     in this section.  */
+	  assemble_align (FUNCTION_BOUNDARY);
 	}
     }
 }

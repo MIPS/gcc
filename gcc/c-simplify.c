@@ -848,6 +848,18 @@ gimplify_decl_stmt (tree *stmt_p)
       *stmt_p = NULL;
       return GS_ERROR;
     }
+    
+  if (TREE_CODE (decl) == TYPE_DECL)
+    {
+      tree type = TREE_TYPE (decl);
+      if (TREE_CODE (type) == ARRAY_TYPE
+          && !TREE_CONSTANT (TYPE_SIZE_UNIT (type)))
+        {
+          /* This is a variable-sized array type.  Simplify its size.  */
+          tree temp = TYPE_SIZE_UNIT (type);
+          gimplify_expr (&temp, &pre, &post, is_gimple_val, fb_rvalue);
+        }
+    }
 
   if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     {

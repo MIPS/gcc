@@ -1,3 +1,183 @@
+2004-04-14  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* bb-reorder.c (fix_crossing_conditional_branches): Adjust the
+	previous fix to check HAVE_return at runtime too.
+
+2004-04-14  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/arm.c (arm_override_options): If the user has not
+	specified an ABI, then default to AAPCS for the iWMMXt processor.
+	* config/arm/t-xscale-elf: Remove redundant multilib specifications.
+	* config/arm/t-xscale-coff: Likewise.
+
+2004-04-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (fold_builtin_isdigit): New.
+	(fold_builtin): Handle BUILT_IN_ISDIGIT.
+	* defaults.h: Add TARGET_DIGIT0 and sort.
+	* doc/tm.texi: Add TARGET_BS and TARGET_DIGIT0.
+
+2004-04-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (fold_builtin_cabs, fold_builtin): Use
+	`mathfn_built_in' to determine the new builtin.
+	* fold-const.c (fold): Likewise.
+
+2004-04-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* doc/invoke.texi: Rename MIPS's -mfix-vr4122-bugs to -mfix-vr4120.
+	* config/mips/mips.h (MASK_FIX_VR4120): Renamed from MASK_FIX_VR4122.
+	(TARGET_FIX_VR4120): Likewise TARGET_FIX_VR4122.
+	(TARGET_SWITCHES): Replace -mfix-vr4122-bugs with -mfix-vr4120.
+	(ASM_SPEC): Update accordingly.
+	* config/mips/mips.c: Update after above renaming.
+	* config/mips/mips.md, config/mips/t-vr, config/mips/vr.h: Likewise.
+	* config/mips/vr4120-div.S: Renamed from vr4122-div.S.
+
+2004-04-13  James E Wilson  <wilson@specifixinc.com>
+
+	* c-opt.c (c_common_post_options): If this_input_filename is NULL,
+	increment errorcount and return false instead of true.
+
+2004-04-13  Uros Bizjak  <uros@kss-loka.si>:
+
+	* optabs.c (expand_twoval_unop): Reorder function arguments.
+	* builtins.c (expand_builtin_mathfn_3): Update calls to
+	expand_twoval_unop.
+
+	* reg-stack.c (subst_stack_regs_pat): Handle UNSPEC_TAN_ONE
+	and UNSPEC_TAN_TAN. Add missing comment.
+
+	* config/i386/i386.md (*tandf3_1, *tansf3_1, *tanxf3_1): New
+	patterns to implement fptan x87 instruction.
+	(tandf2, tansf2, tanxf2): New expanders to implement tan, tanf
+	and tanl built-ins as inline x87 intrinsics. Define corresponding
+	peephole2 optimizers for 'fptan; fstp %st(0); fld1' sequence.
+	(UNSPEC_TAN_ONE, UNSPEC_TAN_TAN): New unspecs to represent
+	x87's fptan insn.
+
+2004-03-13  Richard Henderson  <rth@redhat.com>
+
+	* bb-reorder.c (fix_crossing_unconditional_branches): Use Pmode
+	for LABEL_REFs.
+
+	* defaults.h (HOT_TEXT_SECTION_NAME): Add leading dot.
+	(UNLIKELY_EXECUTED_TEXT_SECTION_NAME): Likewise.
+	* doc/invoke.texi: Update to match.
+
+	* varasm.c (unlikely_text_section): Use assemble_align instead of
+	ASM_OUTPUT_ALIGN.  Use it in the correct place with an approximately
+	correct alignment argument.
+
+2004-04-13  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* reload1.c (emit_reload_insns): Set reg_has_output_reload to one
+	after setting reg_last_reload_reg for optional output reloads.
+
+2004-04-12  Fariborz Jahanian <fjahanian@apple.com>
+
+	* config/rs6000/altivec.h (vec_mergeh, vec_mergel):
+	Definition of these two macros are corrected by adding
+	matchine right paren.
+
+2004-04-12  Jonathan Larmour  <jifl@eCosCentric.com>
+
+	* fix-header.c: kill(), putenv() and tzset() are POSIX not ANSI.
+
+2004-04-12  Roger Sayle  <roger@eyesopen.com>
+
+	* config/i386/i386.c (output_387_reg_move): New function.
+	* config/i386/i386-protos.h (output_387_reg_move): Prototype here.
+	* config/i386/i386.md (*movsf_1, *movsf1_nointerunit,
+	*movdf_nointeger, *movdf_integer, *movxf_nointeger, *movxf_integer,
+	*extendsfdf2_1,  *extendsfxf2_1, *extenddfxf2_1, truncdfsf2_noop,
+	truncxfsf2_noop, truncxfdf2_noop): Call output_387_reg_move.
+
+2004-04-12  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* c-decl.c (finish_decl): Make a decl_stmt for a variable-sized
+	TYPE_DECL.
+	* c-semantics.c (genrtl_decl_stmt): Handle TYPE_DECL.
+	* stmt.c (expand_decl): Remove redundant expansion of TYPE_DOMAIN.
+	* stor-layout.c (variable_size): Don't check for MINUS_EXPR.
+	Use skip_simple_arithmetic to find SAVE_EXPR.
+	(force_type_save_exprs, force_type_save_exprs_1): New functions.
+	* tree-inline.c (remap_type, case POINTER_TYPE, case REFERENCE_TYPE):
+	Properly chain multiple pointers.
+	(copy_tree_r): Copy a TYPE_DECL.
+	* tree.c (variably_modified_type_p): Add some missing tests and
+	make some other minor changes.
+	* tree.h (force_type_save_exprs): New declaration.
+
+2004-04-12  Roger Sayle  <roger@eyesopen.com>
+
+	* simplify-rtx.c (simplify_binary_operation) <UDIV, DIV, UMOD, MOD>:
+	Remove fall throughs.  Convert 0/x and 0%x into x&0 when x has
+	side-effects.  Don't convert x/1.0 into x if we honor signaling NaNs.
+	Convert x/-1.0 into -x if we don't honor signaling NaNs.  Convert
+	x/-1 into -x.  Optimize x%1 into x&0 if x has side-effects.  Optimize
+	x%-1 into 0 (or x&0 if x has side-effects).
+
+2004-04-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.md: Document why a pattern is not
+	available.
+
+	* config/rs6000/rs6000.c (rs6000_emit_cmove): Disable comparisons
+	of floats on the E500.
+	(branch_positive_comparison_operator): Do not allow NE even on the
+	E500.
+
+2004-04-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_assemble_integer): Change
+	in_text_unlikely_section to in_unlikely_text_section.
+
+2004-04-11  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold_binary_op_with_conditional_arg):  Tweak
+	calling convention to allow a NULL_TREE to be returned.  Factor
+	sanity checks from callers, return NULL_TREE when appropriate.
+	(fold): Handle COMPOUND_EXPR operands of binary expressions
+	before COND_EXPR operands.  Use reorder_operands_p(a,b) to check
+	whether a op (b,c) can be rewritten as (b, a op c).  Simplify
+	calls to fold_binary_op_with_conditional_arg.
+
+2004-04-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/mips/iris5.h (current_section_flags):  Add
+	in_unlikely_executed_text and default case.
+
+2004-04-11  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* bb-reorder.c (fix_crossing_conditional_branches): Fix bootstrap
+	failure on solaris. Place ifdef HAVE_return around gen_ret call.
+	* cfgrtl.c (force_nonfallthru_and_redirect): Remove ifdef
+	HAVE_return and place it around the place where it is needed.
+
+2004-04-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* varasm.c (text_section): Use TEXT_SECTION_ASM_OP and
+	ASM_OUTPUT_ALIGN instead of SECTION_FORMAT_STRING
+	and NORMAL_TEXT_SECTION_NAME.
+	(unlikely_text_section): Check targetm.have_named_sections
+	instead of TARGET_ASM_NAMED_SECTION and use TEXT_SECTION_ASM_OP
+	instead of SECTION_FORMAT_STRING.
+	* config/mips/iris5.h (current_section_name): Add
+	in_unlikely_executed_text case and move the abort into the switch.
+	* config/rs6000/sysv4.h (HOT_TEXT_SECTION_NAME): Remove.
+	(NORMAL_TEXT_SECTION_NAME): Remove.
+	(UNLIKELY_EXECUTED_TEXT_SECTION_NAME): Remove.
+	(SECTION_FORMAT_STRING): Remove.
+	* defaults.h (SECTION_FORMAT_STRING): Remove.
+	* tm.texi (NORMAL_TEXT_SECTION_NAME): Remove.
+	(SECTION_FORMAT_STRING): Remove.
+
+2004-04-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-typeck.c (common_type): Prefer long long to long when same
+	precision.
+
 2004-04-09  Zack Weinberg  <zack@codesourcery.com>
 
 	PR 14887
@@ -367,8 +547,8 @@
 	(sindf2, sinsf2, sinxf2): Rename to *sindf2, *sinsf2, *sinxf2.
 	(cosdf2, cossf2, cosxf2): Rename to *cosdf2, *cossf2, *cosxf2.
 
-	(UNSPEC_SINCOS_SIN, UNPEC_SINCOS_COS): New unspecs to represent
-	x87's unspec insn.
+	(UNSPEC_SINCOS_SIN, UNSPEC_SINCOS_COS): New unspecs to represent
+	x87's fsincos insn.
 
 2004-04-06  Devang Patel  <dpatel@apple.com>
 

@@ -1972,13 +1972,13 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 	    case BUILT_IN_SIN:
 	    case BUILT_IN_SINF:
 	    case BUILT_IN_SINL:
-	      if (! expand_twoval_unop(builtin_optab, 0, target, op0, 0))    
+	      if (!expand_twoval_unop (builtin_optab, op0, 0, target, 0))    
 		abort();
 	      break;
 	    case BUILT_IN_COS:
 	    case BUILT_IN_COSF:
 	    case BUILT_IN_COSL:
-	      if (! expand_twoval_unop(builtin_optab, target, 0, op0, 0))
+	      if (!expand_twoval_unop (builtin_optab, op0, target, 0, 0))
 		abort();
 	      break;
 	    default:
@@ -6226,18 +6226,7 @@ fold_builtin_cabs (tree fndecl, tree arglist, tree type)
 
   if (flag_unsafe_math_optimizations)
     {
-      enum built_in_function fcode;
-      tree sqrtfn;
-
-      fcode = DECL_FUNCTION_CODE (fndecl);
-      if (fcode == BUILT_IN_CABS)
-	sqrtfn = implicit_built_in_decls[BUILT_IN_SQRT];
-      else if (fcode == BUILT_IN_CABSF)
-	sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTF];
-      else if (fcode == BUILT_IN_CABSL)
-	sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTL];
-      else
-	sqrtfn = NULL_TREE;
+      tree sqrtfn = mathfn_built_in (type, BUILT_IN_SQRT);
 
       if (sqrtfn != NULL_TREE)
 	{
@@ -7031,6 +7020,28 @@ fold_builtin_toascii (tree arglist)
     }
 }
 
+/* Fold a call to builtin isdigit.  */
+
+static tree
+fold_builtin_isdigit (tree arglist)
+{
+  if (! validate_arglist (arglist, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+  else
+    {
+      /* Transform isdigit(c) -> (unsigned)(c) - '0' <= 9.  */
+      /* According to the C standard, isdigit is unaffected by locale.  */
+      tree arg = TREE_VALUE (arglist);
+      arg = build1 (NOP_EXPR, unsigned_type_node, arg);
+      arg = build (MINUS_EXPR, unsigned_type_node, arg,
+		   fold (build1 (NOP_EXPR, unsigned_type_node,
+				 build_int_2 (TARGET_DIGIT0, 0))));
+      arg = build (LE_EXPR, integer_type_node, arg,
+		   fold (build1 (NOP_EXPR, unsigned_type_node,
+				 build_int_2 (9, 0))));
+      return fold (arg);
+    }
+}
 
 /* Used by constant folding to eliminate some builtin calls early.  EXP is
    the CALL_EXPR of a call to a builtin function.  */
@@ -7353,17 +7364,7 @@ fold_builtin_1 (tree exp)
 	      if (flag_unsafe_math_optimizations
 		  && REAL_VALUES_EQUAL (c, dconsthalf))
 		{
-		  tree sqrtfn;
-
-		  fcode = DECL_FUNCTION_CODE (fndecl);
-		  if (fcode == BUILT_IN_POW)
-		    sqrtfn = implicit_built_in_decls[BUILT_IN_SQRT];
-		  else if (fcode == BUILT_IN_POWF)
-		    sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTF];
-		  else if (fcode == BUILT_IN_POWL)
-		    sqrtfn = implicit_built_in_decls[BUILT_IN_SQRTL];
-		  else
-		    sqrtfn = NULL_TREE;
+		  tree sqrtfn = mathfn_built_in (type, BUILT_IN_SQRT);
 
 		  if (sqrtfn != NULL_TREE)
 		    {
@@ -7533,6 +7534,9 @@ fold_builtin_1 (tree exp)
 
     case BUILT_IN_TOASCII:
       return fold_builtin_toascii (arglist);
+
+    case BUILT_IN_ISDIGIT:
+      return fold_builtin_isdigit (arglist);
 
     default:
       break;

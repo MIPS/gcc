@@ -83,7 +83,9 @@ libf2c/libU77/stamp-h.in: libf2c/libU77/configure.in libf2c/libU77/acconfig.h
 libbanshee/configure: libbanshee/configure.in
 libmudflap/configure: libmudflap/configure.in
 libobjc/configure: libobjc/configure.ac
-# fastjar
+zlib/aclocal.m4: zlib/configure.ac zlib/acinclude.m4
+zlib/Makefile.in: zlib/Makefile.am zlib/configure.ac zlib/aclocal.m4
+zlib/configure: zlib/configure.ac zlib/aclocal.m4
 fastjar/aclocal.m4: fastjar/configure.ac
 fastjar/Makefile.in: fastjar/Makefile.am fastjar/configure.ac fastjar/aclocal.m4
 fastjar/configure: fastjar/configure.ac fastjar/aclocal.m4

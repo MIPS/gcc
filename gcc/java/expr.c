@@ -1992,9 +1992,7 @@ build_invokeinterface (tree dtable, tree method)
   tree lookup_arg;
   tree interface;
   tree idx;
-  tree meth;
   tree otable_index;
-  int i;
 
   /* We expand invokeinterface here.  _Jv_LookupInterfaceMethod() will
      ensure that the selected method exists, is public and not
@@ -2024,17 +2022,7 @@ build_invokeinterface (tree dtable, tree method)
     }
   else
     {
-      i = 1;
-      for (meth = TYPE_METHODS (interface); ; meth = TREE_CHAIN (meth), i++)
-	{
-	  if (meth == method)
-            {
-	      idx = build_int_2 (i, 0);
-	      break;
-	    }
-	  if (meth == NULL_TREE)
-	    abort ();
-	}
+      idx = build_int_2 (get_interface_method_index (method, interface), 0);
     }
 
   lookup_arg = tree_cons (NULL_TREE, dtable,

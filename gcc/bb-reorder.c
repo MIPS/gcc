@@ -78,6 +78,7 @@
 #include "fibheap.h"
 #include "target.h"
 #include "function.h"
+#include "tm_p.h"
 #include "obstack.h"
 #include "expr.h"
 #include "regs.h"
@@ -86,6 +87,15 @@
    when partitioning hot and cold basic blocks into separate sections of
    the .o file there will be an extra round.*/
 #define N_ROUNDS 5
+
+/* Stubs in case we don't have a return insn.
+   We have to check at runtime too, not only compiletime.  */  
+
+#ifndef HAVE_return
+#define HAVE_return 0
+#define gen_return() NULL_RTX
+#endif
+
 
 /* Branch thresholds in thousandths (per mille) of the REG_BR_PROB_BASE.  */
 static int branch_threshold[N_ROUNDS] = {400, 200, 100, 0, 0};
@@ -1684,7 +1694,8 @@ fix_crossing_conditional_branches (void)
 						       (old_label), 
 						       BB_END (new_bb));
 		    }
-		  else if (GET_CODE (old_label) == RETURN)
+		  else if (HAVE_return
+			   && GET_CODE (old_label) == RETURN)
 		    new_jump = emit_jump_insn_after (gen_return (), 
 						     BB_END (new_bb));
 		  else
@@ -1769,7 +1780,7 @@ fix_crossing_unconditional_branches (void)
 		 reference of label, as target for jump.  */
 	      
 	      label = JUMP_LABEL (last_insn);
-	      label_addr = gen_rtx_LABEL_REF (VOIDmode, label);
+	      label_addr = gen_rtx_LABEL_REF (Pmode, label);
 	      LABEL_NUSES (label) += 1;
 	      
 	      /* Get a register to use for the indirect jump.  */
