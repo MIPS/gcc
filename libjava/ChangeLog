@@ -51,6 +51,8 @@
 	Merged code formatting with classpath CVS head.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c:
 	Removed debug code.
+	(Java_gnu_java_awt_peer_gtk_GdkFontPeer_getGlyphVector):
+	Handle special JNI strings with 2 '\0' at the end.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c:
 	Merged file header with classpath CVS head.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c:
