@@ -31,7 +31,6 @@
 #include <stdexcept>
 #include <new>
 #include <typeinfo>
-#include <ios>
 
 namespace std 
 {
@@ -88,9 +87,6 @@ namespace std
   __throw_underflow_error(const char* __s)
   { throw underflow_error(__s); }
 
-  void
-  __throw_ios_failure(const char* __s)
-  { throw ios_base::failure(__s); }
 #else
   void
   __throw_bad_exception(void)
@@ -144,8 +140,5 @@ namespace std
   __throw_underflow_error(const char*)
   { abort(); }
 
-  void
-  __throw_ios_failure(const char*)
-  { abort(); }
 #endif //__EXCEPTIONS
 }

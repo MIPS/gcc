@@ -1,6 +1,6 @@
-// natSelectorImpl.cc
+// natSocketChannelImpl.cc
 
-/* Copyright (C) 2002  Free Software Foundation
+/* Copyright (C) 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -18,6 +18,62 @@ details.  */
 #include <java/io/IOException.h>
 #include <java/net/InetAddress.h>
 #include <java/net/SocketException.h>
+
+
+#ifdef DISABLE_JAVA_NET
+
+jint
+gnu::java::nio::SocketChannelImpl::SocketCreate ()
+{
+  throw new ::java::io::IOException (JvNewStringUTF ("SocketCreate not implemented"));
+}
+
+jint
+gnu::java::nio::SocketChannelImpl::SocketConnect (jint,
+                                                  ::java::net::InetAddress *,
+                                                  jint)
+{
+  throw new ::java::io::IOException (JvNewStringUTF ("SocketConnect not implemented"));
+}
+
+jint
+gnu::java::nio::SocketChannelImpl::SocketBind (jint, ::java::net::InetAddress *,
+                                               jint)
+{
+  throw new ::java::io::IOException (JvNewStringUTF ("SocketBind not implemented"));
+}
+
+jint
+gnu::java::nio::SocketChannelImpl::SocketListen (jint, jint)
+{
+  throw new ::java::io::IOException (JvNewStringUTF ("SocketList not implemented"));
+}
+
+jint
+gnu::java::nio::SocketChannelImpl::SocketAvailable (jint)
+{
+  throw new ::java::net::SocketException (JvNewStringLatin1 ("SocketAvailable: not implemented"));
+}
+
+jint
+gnu::java::nio::SocketChannelImpl::SocketClose (jint)
+{
+  throw new ::java::net::SocketException (JvNewStringLatin1 ("SocketClose: not implemented"));
+}
+
+jint
+gnu::java::nio::SocketChannelImpl::SocketRead (jint, jbyteArray, jint, jint)
+{
+  throw new ::java::net::SocketException (JvNewStringLatin1 ("SocketRead: not implemented"));
+}
+
+jint
+gnu::java::nio::SocketChannelImpl::SocketWrite (jint, jbyteArray, jint, jint)
+{
+  throw new ::java::net::SocketException (JvNewStringLatin1 ("SocketWrite: not implemented"));
+}
+
+#else // DISABLE_JAVA_NET
 
 jint
 gnu::java::nio::SocketChannelImpl::SocketCreate ()
@@ -38,15 +94,7 @@ gnu::java::nio::SocketChannelImpl::SocketConnect (jint fd,
                                                   ::java::net::InetAddress *addr,
                                                   jint port)
 {
-  int result = _Jv_connect_address (fd, addr, port, addr, port);
-
-  if (result < 0)
-    {
-      char* strerr = strerror (errno);
-      throw new ::java::io::IOException (JvNewStringUTF (strerr));
-    }
-
-  return result;
+  throw new ::java::io::IOException (JvNewStringUTF ("SocketConnect not implemented"));
 }
 
 jint
@@ -54,15 +102,7 @@ gnu::java::nio::SocketChannelImpl::SocketBind (jint fd,
                                                ::java::net::InetAddress *addr,
                                                jint port)
 {
-  int result = _Jv_bind_address (fd, addr, port);
-
-  if (result < 0)
-    {
-      char* strerr = strerror (errno);
-      throw new ::java::io::IOException (JvNewStringUTF (strerr));
-    }
-
-  return result;
+  throw new ::java::io::IOException (JvNewStringUTF ("SocketBind not implemented"));
 }
 
 jint
@@ -103,7 +143,9 @@ jint
 gnu::java::nio::SocketChannelImpl::SocketRead (jint fd, jbyteArray data,
                                                jint offset, jint length)
 {
-  int result = ::recv (fd, data, offset, length);
+  /* The cast to char* is needed to placate the Win32 API.  */
+  int result =
+    ::recv (fd, reinterpret_cast<char*>(elements(data)), offset, length);
 
   if (result < 0)
     {
@@ -118,7 +160,11 @@ jint
 gnu::java::nio::SocketChannelImpl::SocketWrite (jint fd, jbyteArray data,
                                                 jint offset, jint length)
 {
-  int result = ::send (fd, data, offset, length);
+  /* The cast to char* is needed to placate the Win32 API. I used char*
+     instead of const char* because I wasn't sure about the API on all
+     UNICES.  */
+  int result =
+    ::send (fd, reinterpret_cast<char*>(elements(data)), offset, length);
 
   if (result < 0)
     {
@@ -128,3 +174,5 @@ gnu::java::nio::SocketChannelImpl::SocketWrite (jint fd, jbyteArray data,
 
   return result;
 }
+
+#endif // DISABLE_JAVA_NET

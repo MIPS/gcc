@@ -22,12 +22,23 @@ Boston, MA 02111-1307, USA.  */
 #if HAVE_UNISTD_H
 #  include <unistd.h>
 #endif
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#undef min
+#undef max
+#endif
 #include "f2c.h"
 
 /* Subroutine */
 int
 G77_sleep_0 (const integer * seconds)
 {
+#ifndef _WIN32
   (void) sleep ((unsigned int) *seconds);
+#else
+  /* w32api Sleep takes duration in millisecs  */
+  (void) Sleep (((unsigned int) *seconds) * 1000 );
+#endif
   return 0;
 }

@@ -50,11 +50,8 @@ using std::fwscanf;
 using std::swprintf;
 using std::swscanf;
 using std::vfwprintf;
-using std::vfwscanf;
 using std::vswprintf;
-using std::vswscanf;
 using std::vwprintf;
-using std::vwscanf;
 using std::wprintf;
 using std::wscanf;
 using std::getwc;
@@ -69,7 +66,6 @@ using std::putwchar;
 using std::ungetwc;
 using std::wcrtomb;
 using std::wcstod;
-using std::wcstof;
 using std::wcstol;
 using std::wcstoul;
 using std::wcscpy;
@@ -96,6 +92,11 @@ using std::wmemset;
 using std::wcsftime;
 
 #if _GLIBCPP_USE_C99
+using std::vfwscanf
+using std::vswscanf
+using std::vwscanf
+
+using std::wcstof;
 using std::wcstold;
 using std::wcstoll;
 using std::wcstoull;

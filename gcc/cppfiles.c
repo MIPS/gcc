@@ -198,11 +198,13 @@ find_or_create_entry (pfile, fname)
      cpp_reader *pfile;
      const char *fname;
 {
+  int saved_errno;
   splay_tree_node node;
   struct include_file *file;
   char *name = xstrdup (fname);
 
   _cpp_simplify_pathname (name);
+  saved_errno = errno;
   node = splay_tree_lookup (pfile->all_include_files, (splay_tree_key) name);
   if (node)
     free (name);
@@ -210,7 +212,7 @@ find_or_create_entry (pfile, fname)
     {
       file = xcnew (struct include_file);
       file->name = name;
-      file->err_no = errno;
+      file->err_no = saved_errno;
       node = splay_tree_insert (pfile->all_include_files,
 				(splay_tree_key) file->name,
 				(splay_tree_value) file);

@@ -1,5 +1,5 @@
 /* Security.java --- Java base security class implmentation
-   Copyright (C) 1999, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,9 +37,10 @@ exception statement from your version. */
 
 package java.security;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.net.URL;
 import java.security.Provider;
 import java.util.Vector;
 import java.util.Enumeration;
@@ -55,13 +56,30 @@ import java.util.Properties;
 public final class Security extends Object
 {
   private static Vector providers = new Vector();
-  private static Properties secprops;
+  private static Properties secprops = new Properties();
 
   static
   {
-    loadProviders(System.getProperty("java.home"),
-		  System.getProperty("java.vm.name"));
-    loadProviders(System.getProperty("gnu.classpath.home"), "classpath");
+    String base = System.getProperty("gnu.classpath.home.url");
+    String vendor = System.getProperty("gnu.classpath.vm.shortname");
+
+    // Try VM specific security file
+    boolean loaded = loadProviders(base, vendor);
+
+    // Append classpath standard provider if possible
+    if (!loadProviders(base, "classpath") && !loaded && providers.size() == 0)
+      {
+	// No providers found and both security files failed to load properly.
+	System.err.println
+		("WARNING: could not properly read security provider files:");
+	System.err.println
+		("         " + base + "/security/" + vendor + ".security");
+	System.err.println
+		("         " + base + "/security/" + "classpath" + ".security");
+	System.err.println
+		("         Falling back to standard GNU security provider");
+	providers.addElement(new gnu.java.security.provider.Gnu());
+      }
   }
 
   // This class can't be instantiated.
@@ -69,21 +87,21 @@ public final class Security extends Object
   {
   }
 
-  private static void loadProviders(String dir, String vendor)
+  /**
+   * Tries to load the vender specific security providers from the given
+   * base URL. Returns true if the resource could be read and completely
+   * parsed successfully, false otherwise.
+   */
+  private static boolean loadProviders(String baseUrl, String vendor)
   {
-    if (dir == null || vendor == null)
-      return;
+    if (baseUrl == null || vendor == null)
+      return false;
 
-    String separator = System.getProperty("file.separator");
-    String secfilestr = (dir +
-			 separator + "lib" +
-			 separator + "security" +
-			 separator + vendor + ".security");
-
+    boolean result = true;
+    String secfilestr = baseUrl + "/security/" + vendor + ".security";
     try
       {
-	FileInputStream fin = new FileInputStream(secfilestr);
-	secprops = new Properties();
+	InputStream fin = new URL(secfilestr).openStream();
 	secprops.load(fin);
 
 	int i = 1;
@@ -111,19 +129,20 @@ public final class Security extends Object
 	        exception = x;
 	      }
 	    if (exception != null)
-	      System.err.println ("Error loading security provider " + name
-	                          + ": " + exception);
+	      {
+		System.err.println ("WARNING: Error loading security provider "
+				    + name + ": " + exception);
+		result = false;
+	      }
 	    i++;
 	  }
       }
-    catch (FileNotFoundException ignored)
-      {
-        // Actually we probibly shouldn't ignore these, once the security
-	// properties file is actually installed somewhere.
-      }
     catch (IOException ignored)
       {
+	result = false;
       }
+
+    return result;
   }
 
   /**

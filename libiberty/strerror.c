@@ -25,6 +25,7 @@
 #undef sys_errlist
 #endif
 
+
 /*  Routines imported from standard C runtime libraries. */
 
 #ifdef HAVE_STDLIB_H
@@ -467,8 +468,10 @@ static const char **sys_errlist;
 
 #else
 
+#ifndef __MINGW32__
 extern int sys_nerr;
 extern char *sys_errlist[];
+#endif
 
 #endif
 

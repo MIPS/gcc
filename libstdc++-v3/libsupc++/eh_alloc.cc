@@ -36,6 +36,9 @@
 #include <exception>
 #include "unwind-cxx.h"
 #include "bits/c++config.h"
+#ifdef __MINGW32__
+#undef __GTHREAD_HIDE_WIN32API
+#endif
 #include "bits/gthr.h"
 
 using namespace __cxxabiv1;

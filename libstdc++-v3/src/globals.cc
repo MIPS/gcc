@@ -26,6 +26,9 @@
 // the GNU General Public License.
 
 #include "bits/c++config.h"
+#ifdef __MINGW32__
+#undef __GTHREAD_HIDE_WIN32API
+#endif
 #include "bits/gthr.h"
 #include <fstream>
 #include <istream>
@@ -47,7 +50,7 @@
 namespace __gnu_cxx
 {
   using namespace std;
-
+ 
   typedef char fake_facet_name[sizeof(char*)]
   __attribute__ ((aligned(__alignof__(char*))));
   fake_facet_name facet_name[6 + _GLIBCPP_NUM_CATEGORIES];
@@ -83,6 +86,11 @@ namespace __gnu_cxx
   __attribute__ ((aligned(__alignof__(locale::facet*))));
   fake_facet_vec facet_vec[_GLIBCPP_NUM_FACETS];
   _GLIBCPP_ASM_SYMVER(_ZN9__gnu_cxx9facet_vecE, _ZSt9facet_vec, GLIBCPP_3.2)
+
+  // To support combined facets and caches in facet array
+  typedef char fake_facet_cache_vec[sizeof(locale::facet*)]
+  __attribute__ ((aligned(__alignof__(locale::facet*))));
+  fake_facet_cache_vec facet_cache_vec[2 * _GLIBCPP_NUM_FACETS];
 
   typedef char fake_ctype_c[sizeof(std::ctype<char>)]
   __attribute__ ((aligned(__alignof__(std::ctype<char>))));
@@ -224,6 +232,17 @@ namespace __gnu_cxx
   _GLIBCPP_ASM_SYMVER(_ZN9__gnu_cxx10messages_wE, _ZSt10messages_w, GLIBCPP_3.2)
 #endif
 
+  // Storage for static C locale caches
+  typedef char fake_locale_cache_np_c[sizeof(std::__locale_cache<numpunct<char> >)]
+  __attribute__ ((aligned(__alignof__(std::__locale_cache<numpunct<char> >))));
+  fake_locale_cache_np_c locale_cache_np_c;
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  typedef char fake_locale_cache_np_w[sizeof(std::__locale_cache<numpunct<wchar_t> >)]
+  __attribute__ ((aligned(__alignof__(std::__locale_cache<numpunct<wchar_t> >))));
+  fake_locale_cache_np_w locale_cache_np_w;
+#endif
+
   typedef char fake_filebuf[sizeof(stdio_filebuf<char>)]
   __attribute__ ((aligned(__alignof__(stdio_filebuf<char>))));
   fake_filebuf buf_cout;
@@ -248,9 +267,6 @@ namespace __gnu_cxx
   // allows static initialization of these objects on systems that need a
   // function call to initialize a mutex.  For example, see stl_threads.h.
 #ifdef __GTHREAD_MUTEX_INIT
-  // Need to provide explicit instantiations of static data for
-  // systems with broken weak linkage support.
-  template __gthread_mutex_t _Swap_lock_struct<0>::_S_swap_lock;
 #elif defined(__GTHREAD_MUTEX_INIT_FUNCTION)
   __gthread_once_t _GLIBCPP_once = __GTHREAD_ONCE_INIT;
   __gthread_mutex_t _GLIBCPP_mutex;
@@ -266,6 +282,14 @@ namespace __gnu_cxx
   _GLIBCPP_mutex_address_init ()
   { __GTHREAD_MUTEX_INIT_FUNCTION (_GLIBCPP_mutex_address); }
 #endif
+
+  // GLIBCXX_ABI.
+  struct __compat
+  {
+    static const char _S_atoms[];
+  };
+  const char __compat::_S_atoms[] = "0123456789eEabcdfABCDF";
+  _GLIBCPP_ASM_SYMVER(_ZN9__gnu_cxx8__compat8_S_atomsE, _ZNSt10__num_base8_S_atomsE, GLIBCPP_3.2)
 } // namespace __gnu_cxx
 
 namespace std

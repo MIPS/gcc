@@ -1,6 +1,6 @@
 // Utility for libstdc++ ABI analysis -*- C++ -*-
 
-// Copyright (C) 2002 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -44,7 +44,7 @@
 struct symbol_info
 {
   enum category { none, function, object, error };
-  category 	type;
+  category 	type;  
   std::string 	name;
   std::string 	demangled_name;
   int 		size;
@@ -74,6 +74,41 @@ namespace __gnu_cxx
 
 typedef std::deque<std::string>				symbol_names;
 typedef __gnu_cxx::hash_map<std::string, symbol_info> 	symbol_infos;
+
+
+bool
+check_version(const symbol_info& test, bool added = false)
+{
+  typedef std::vector<std::string> compat_list;
+  static compat_list known_versions;
+  if (known_versions.empty())
+    {
+      known_versions.push_back("GLIBCPP_3.2"); // base version
+      known_versions.push_back("GLIBCPP_3.2.1");
+      known_versions.push_back("GLIBCPP_3.2.2");
+      known_versions.push_back("GLIBCPP_3.2.3"); // gcc-3.3.0
+      known_versions.push_back("CXXABI_1.2");
+      known_versions.push_back("CXXABI_1.2.1");
+    }
+  compat_list::iterator begin = known_versions.begin();
+  compat_list::iterator end = known_versions.end();
+
+  // Check version names for compatibility...
+  compat_list::iterator it1 = find(begin, end, test.version_name);
+  
+  // Check for weak label.
+  compat_list::iterator it2 = find(begin, end, test.name);
+
+  // Check that added symbols aren't added in the base version.
+  bool compat = true;
+  if (added && test.version_name == known_versions[0])
+    compat = false;
+
+  if (it1 == end && it2 == end)
+    compat = false;
+
+  return compat;
+}
 
 bool 
 check_compatible(const symbol_info& lhs, const symbol_info& rhs, 
@@ -113,7 +148,8 @@ check_compatible(const symbol_info& lhs, const symbol_info& rhs,
 	}
     }
 
-  if (lhs.version_name != rhs.version_name)
+  if (lhs.version_name != rhs.version_name 
+      && !check_version(lhs) && !check_version(rhs))
     {
       ret = false;
       if (verbose)
@@ -258,13 +294,11 @@ report_symbol_info(const symbol_info& symbol, std::size_t n, bool ret = true)
 {
   using namespace std;
   const char tab = '\t';
-  cout << tab << n << endl;
-  cout << tab << "symbol"<< endl;
-  cout << tab << symbol.name << endl;
 
   // Add any other information to display here.
-  cout << tab << "demangled symbol"<< endl;
   cout << tab << symbol.demangled_name << endl;
+  cout << tab << symbol.name << endl;
+  cout << tab << symbol.version_name << endl;
 
   if (ret)
     cout << endl;
@@ -277,17 +311,20 @@ main(int argc, char** argv)
   using namespace std;
 
   // Get arguments.  (Heading towards getopt_long, I can feel it.)
-  string argv1;
-  if (argc < 4 || (string("--help") == (argv1 = argv[1])))
+  bool verbose = false;
+  string argv1 = argc > 1 ? argv[1] : "";
+  if (argv1 == "--help" || argc < 4)
     {
-      cerr << "Usage:  abi_check --check    cur baseline\n"
-              "                  --help\n\n"
-              "Where CUR is a file containing the current results from\n"
+      cerr << "usage: abi_check --check current baseline\n"
+              "                 --check-verbose current baseline\n"
+              "                 --help\n\n"
+              "Where CURRENT is a file containing the current results from\n"
               "extract_symvers, and BASELINE is one from config/abi.\n"
 	   << endl;
       exit(1);
     }
-
+  else if (argv1 == "--check-verbose")
+    verbose = true;
 
   // Quick sanity/setup check for arguments.
   const char* test_file = argv[2];
@@ -346,12 +383,19 @@ main(int argc, char** argv)
 	  added_names.erase(it);
 	}
       else
-	missing_names.push_back(what);
+	  missing_names.push_back(what);
+    }
+
+  // Check missing names for compatibility.
+  typedef pair<symbol_info, symbol_info> symbol_pair;
+  vector<symbol_pair> incompatible;
+  for (size_t i = 0; i < missing_names.size(); ++i)
+    {
+      symbol_info base = baseline_symbols[missing_names[i]];
+      incompatible.push_back(symbol_pair(base, base));
     }
 
   // Check shared names for compatibility.
-  typedef pair<symbol_info, symbol_info> symbol_pair;
-  vector<symbol_pair> incompatible;
   for (size_t i = 0; i < shared_names.size(); ++i)
     {
       symbol_info base = baseline_symbols[shared_names[i]];
@@ -363,49 +407,48 @@ main(int argc, char** argv)
   // Check added names for compatibility.
   for (size_t i = 0; i < added_names.size(); ++i)
     {
-      vector<string> compatible_versions;
-      compatible_versions.push_back("GLIBCPP_3.2.1");
-      compatible_versions.push_back("GLIBCPP_3.2.2");
-      compatible_versions.push_back("CXXABI_1.2.1");
-
       symbol_info test = test_symbols[added_names[i]];
-      vector<string>::iterator end = compatible_versions.end();
-
-      // Check version names for compatibility...
-      vector<string>::iterator it1 = find(compatible_versions.begin(), end, 
-					  test.version_name);
-
-      // Check for weak label.
-      vector<string>::iterator it2 = find(compatible_versions.begin(), end, 
-					  test.name);
-
-      if (it1 == end && it2 == end)
-	{
-	  incompatible.push_back(symbol_pair(test, test));
-	  cout << test.version_name << endl;
-	}
+      if (!check_version(test, true))
+	incompatible.push_back(symbol_pair(test, test));
     }
 
   // Report results.
-  cout << added_names.size() << " added symbols " << endl;
-  for (size_t j = 0; j < added_names.size() ; ++j)
-    report_symbol_info(test_symbols[added_names[j]], j + 1);
-
-  cout << missing_names.size() << " missing symbols " << endl;
-  for (size_t j = 0; j < missing_names.size() ; ++j)
-    report_symbol_info(baseline_symbols[missing_names[j]], j + 1);
-
-  cout << incompatible.size() << " incompatible symbols " << endl;
-  for (size_t j = 0; j < incompatible.size() ; ++j)
+  if (verbose && added_names.size())
     {
-      // First, report name.
-      const symbol_info& base = incompatible[j].first;
-      const symbol_info& test = incompatible[j].second;
-      report_symbol_info(test, j + 1, false);
-
-      // Second, report reason or reasons incompatible.
-      check_compatible(base, test, true);
+      cout << added_names.size() << " added symbols " << endl;
+      for (size_t j = 0; j < added_names.size() ; ++j)
+	report_symbol_info(test_symbols[added_names[j]], j + 1);
     }
+  
+  if (verbose && missing_names.size())
+    {
+      cout << missing_names.size() << " missing symbols " << endl;
+      for (size_t j = 0; j < missing_names.size() ; ++j)
+	report_symbol_info(baseline_symbols[missing_names[j]], j + 1);
+    }
+  
+  if (verbose && incompatible.size())
+    {
+      cout << incompatible.size() << " incompatible symbols " << endl;
+      for (size_t j = 0; j < incompatible.size() ; ++j)
+	{
+	  // First, report name.
+	  const symbol_info& base = incompatible[j].first;
+	  const symbol_info& test = incompatible[j].second;
+	  report_symbol_info(test, j + 1, false);
+	  
+	  // Second, report reason or reasons incompatible.
+	  check_compatible(base, test, true);
+	}
+    }
+  
+  cout << "\n\t\t=== libstdc++-v3 check-abi Summary ===" << endl;
+  cout << endl;
+  cout << "# of added symbols:\t\t " << added_names.size() << endl;
+  cout << "# of missing symbols:\t\t " << missing_names.size() << endl;
+  cout << "# of incompatible symbols:\t " << incompatible.size() << endl;
+  cout << endl;
+  cout << "using: " << baseline_file << endl;
 
   return 0;
 }

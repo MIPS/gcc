@@ -9,6 +9,11 @@
 
 
 
+#if defined( ALPHA___EXTERN_PREFIX_CHECK )
+#   if defined(__DECC) || defined(__PRAGMA_EXTERN_PREFIX)
+#endif  /* ALPHA___EXTERN_PREFIX_CHECK */
+
+
 #if defined( M88K_BAD_S_IF_CHECK )
 #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG) /* is regular? */
 #endif  /* M88K_BAD_S_IF_CHECK */
@@ -31,7 +36,7 @@ static int	stat(const char *__f, struct stat *__p) {
  }
 #endif /* __cplusplus */
 
-#  else /* !__STDC__ */
+#  else /* !__STDC__ THIS FAILS ON BSD SYSTEMS */
 #if __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -57,7 +62,7 @@ static int	stat(__f, __p)
 
 	fstat(),
 	lstat(),
-
+/* THE INSERTION LINE FAILS ON BSD SYSTEMS */
 #endif  /* ULTRIX_STAT_CHECK */
 
 

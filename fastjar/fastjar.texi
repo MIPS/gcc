@@ -1,4 +1,4 @@
-@\input texinfo @c -*-texinfo-*-
+\input texinfo @c -*-texinfo-*-
 @setfilename fastjar.info
 @settitle Guide to GNU jar utilites
 
@@ -35,7 +35,7 @@
 Copyright (C) @value{copyrights-fastjar} Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
+under the terms of the GNU Free Documentation License, Version 1.2 or
 any later version published by the Free Software Foundation; with the
 Invariant Sections being ``GNU General Public License'', the Front-Cover
 texts being (a) (see below), and with the Back-Cover Texts being (b)
@@ -49,6 +49,8 @@ man page gfdl(7).
 @c man end
 @end ignore
 
+@c man begin COPYRIGHT
+
 (a) The FSF's Front-Cover Text is:
 
      A GNU Manual
@@ -58,6 +60,7 @@ man page gfdl(7).
      You have freedom to copy and modify this GNU Manual, like GNU
      software.  Copies published by the Free Software Foundation raise
      funds for GNU development.
+@c man end
 @end ifinfo
 
 @titlepage
@@ -75,7 +78,7 @@ Published by the Free Software Foundation @*
 Boston, MA 02111-1307, USA@*
 @sp 1
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
+under the terms of the GNU Free Documentation License, Version 1.2 or
 any later version published by the Free Software Foundation; with the
 Invariant Sections being ``GNU General Public License'', the Front-Cover
 texts being (a) (see below), and with the Back-Cover Texts being (b)

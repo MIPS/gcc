@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "tm_p.h"
+#include "langhooks.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -109,6 +110,39 @@ static int ia64_flag_schedule_insns2;
    sections.  */
 
 unsigned int ia64_section_threshold;
+
+/* Structure to be filled in by ia64_compute_frame_size with register
+   save masks and offsets for the current function.  */
+
+struct ia64_frame_info
+{
+  HOST_WIDE_INT total_size;	/* size of the stack frame, not including
+				   the caller's scratch area.  */
+  HOST_WIDE_INT spill_cfa_off;	/* top of the reg spill area from the cfa.  */
+  HOST_WIDE_INT spill_size;	/* size of the gr/br/fr spill area.  */
+  HOST_WIDE_INT extra_spill_size;  /* size of spill area for others.  */
+  HARD_REG_SET mask;		/* mask of saved registers.  */
+  unsigned int gr_used_mask;	/* mask of registers in use as gr spill 
+				   registers or long-term scratches.  */
+  int n_spilled;		/* number of spilled registers.  */
+  int reg_fp;			/* register for fp.  */
+  int reg_save_b0;		/* save register for b0.  */
+  int reg_save_pr;		/* save register for prs.  */
+  int reg_save_ar_pfs;		/* save register for ar.pfs.  */
+  int reg_save_ar_unat;		/* save register for ar.unat.  */
+  int reg_save_ar_lc;		/* save register for ar.lc.  */
+  int reg_save_gp;		/* save register for gp.  */
+  int n_input_regs;		/* number of input registers used.  */
+  int n_local_regs;		/* number of local registers used.  */
+  int n_output_regs;		/* number of output registers used.  */
+  int n_rotate_regs;		/* number of rotating registers used.  */
+
+  char need_regstk;		/* true if a .regstk directive needed.  */
+  char initialized;		/* true if the data is finalized.  */
+};
+
+/* Current frame information calculated by ia64_compute_frame_size.  */
+static struct ia64_frame_info current_frame_info;
 
 static rtx gen_tls_get_addr PARAMS ((void));
 static rtx gen_thread_pointer PARAMS ((void));
@@ -166,13 +200,16 @@ static void ia64_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
 
 static void ia64_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
-static void ia64_aix_select_section PARAMS ((tree, int,
-					     unsigned HOST_WIDE_INT))
-     ATTRIBUTE_UNUSED;
-static void ia64_aix_unique_section PARAMS ((tree, int))
-     ATTRIBUTE_UNUSED;
-static void ia64_aix_select_rtx_section PARAMS ((enum machine_mode, rtx,
+static void ia64_rwreloc_select_section PARAMS ((tree, int,
 					         unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_unique_section PARAMS ((tree, int))
+     ATTRIBUTE_UNUSED;
+static void ia64_rwreloc_select_rtx_section PARAMS ((enum machine_mode, rtx,
+					             unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static unsigned int ia64_rwreloc_section_type_flags
+     PARAMS ((tree, const char *, int))
      ATTRIBUTE_UNUSED;
 
 static void ia64_hpux_add_extern_decl PARAMS ((const char *name))
@@ -974,6 +1011,21 @@ ia64_move_ok (dst, src)
     return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
 }
 
+/* Return 0 if we are doing C++ code.  This optimization fails with
+   C++ because of GNAT c++/6685.  */
+
+int
+addp4_optimize_ok (op1, op2)
+     rtx op1, op2;
+{
+
+  if (!strcmp (lang_hooks.name, "GNU C++"))
+    return 0;
+
+  return (basereg_operand (op1, GET_MODE(op1)) !=
+	  basereg_operand (op2, GET_MODE(op2)));
+}
+
 /* Check if OP is a mask suitible for use with SHIFT in a dep.z instruction.
    Return the length of the field, or <= 0 on failure.  */
 
@@ -1246,46 +1298,6 @@ ia64_expand_move (op0, op1)
   return op1;
 }
 
-rtx
-ia64_gp_save_reg (setjmp_p)
-     int setjmp_p;
-{
-  rtx save = cfun->machine->ia64_gp_save;
-
-  if (save != NULL)
-    {
-      /* We can't save GP in a pseudo if we are calling setjmp, because
-	 pseudos won't be restored by longjmp.  For now, we save it in r4.  */
-      /* ??? It would be more efficient to save this directly into a stack
-	 slot.  Unfortunately, the stack slot address gets cse'd across
-	 the setjmp call because the NOTE_INSN_SETJMP note is in the wrong
-	 place.  */
-
-      /* ??? Get the barf bag, Virginia.  We've got to replace this thing
-         in place, since this rtx is used in exception handling receivers.
-         Moreover, we must get this rtx out of regno_reg_rtx or reload
-         will do the wrong thing.  */
-      unsigned int old_regno = REGNO (save);
-      if (setjmp_p && old_regno != GR_REG (4))
-        {
-          REGNO (save) = GR_REG (4);
-          regno_reg_rtx[old_regno] = gen_rtx_raw_REG (DImode, old_regno);
-        }
-    }
-  else
-    {
-      if (setjmp_p)
-	save = gen_rtx_REG (DImode, GR_REG (4));
-      else if (! optimize)
-	save = gen_rtx_REG (DImode, LOC_REG (0));
-      else
-	save = gen_reg_rtx (DImode);
-      cfun->machine->ia64_gp_save = save;
-    }
-
-  return save;
-}
-
 /* Split a post-reload TImode reference into two DImode components.  */
 
 rtx
@@ -1371,12 +1383,12 @@ spill_tfmode_operand (in, force)
       && GET_MODE (SUBREG_REG (in)) == TImode
       && GET_CODE (SUBREG_REG (in)) == REG)
     {
-      rtx mem = gen_mem_addressof (SUBREG_REG (in), NULL_TREE);
+      rtx mem = gen_mem_addressof (SUBREG_REG (in), NULL_TREE, true);
       return gen_rtx_MEM (TFmode, copy_to_reg (XEXP (mem, 0)));
     }
   else if (force && GET_CODE (in) == REG)
     {
-      rtx mem = gen_mem_addressof (in, NULL_TREE);
+      rtx mem = gen_mem_addressof (in, NULL_TREE, true);
       return gen_rtx_MEM (TFmode, copy_to_reg (XEXP (mem, 0)));
     }
   else if (GET_CODE (in) == MEM
@@ -1418,72 +1430,147 @@ ia64_expand_compare (code, mode)
 }
 
 /* Emit the appropriate sequence for a call.  */
-
 void
 ia64_expand_call (retval, addr, nextarg, sibcall_p)
      rtx retval;
      rtx addr;
-     rtx nextarg;
+     rtx nextarg ATTRIBUTE_UNUSED;
      int sibcall_p;
 {
-  rtx insn, b0, pfs, gp_save, narg_rtx, dest;
-  bool indirect_p;
-  int narg;
+  rtx insn, b0;
 
   addr = XEXP (addr, 0);
   b0 = gen_rtx_REG (DImode, R_BR (0));
-  pfs = gen_rtx_REG (DImode, AR_PFS_REGNUM);
 
-  if (! nextarg)
-    narg = 0;
-  else if (IN_REGNO_P (REGNO (nextarg)))
-    narg = REGNO (nextarg) - IN_REG (0);
-  else
-    narg = REGNO (nextarg) - OUT_REG (0);
-  narg_rtx = GEN_INT (narg);
-
+  /* ??? Should do this for functions known to bind local too.  */
   if (TARGET_NO_PIC || TARGET_AUTO_PIC)
     {
       if (sibcall_p)
-	insn = gen_sibcall_nopic (addr, narg_rtx, b0, pfs);
+	insn = gen_sibcall_nogp (addr);
       else if (! retval)
-	insn = gen_call_nopic (addr, narg_rtx, b0);
+	insn = gen_call_nogp (addr, b0);
       else
-	insn = gen_call_value_nopic (retval, addr, narg_rtx, b0);
-      emit_call_insn (insn);
-      return;
+	insn = gen_call_value_nogp (retval, addr, b0);
+      insn = emit_call_insn (insn);
     }
-
-  indirect_p = ! symbolic_operand (addr, VOIDmode);
-
-  if (sibcall_p || (TARGET_CONST_GP && !indirect_p))
-    gp_save = NULL_RTX;
   else
-    gp_save = ia64_gp_save_reg (setjmp_operand (addr, VOIDmode));
-
-  if (gp_save)
-    emit_move_insn (gp_save, pic_offset_table_rtx);
-
-  /* If this is an indirect call, then we have the address of a descriptor.  */
-  if (indirect_p)
     {
-      dest = force_reg (DImode, gen_rtx_MEM (DImode, addr));
-      emit_move_insn (pic_offset_table_rtx,
-		      gen_rtx_MEM (DImode, plus_constant (addr, 8)));
+      if (sibcall_p)
+	insn = gen_sibcall_gp (addr);
+      else if (! retval)
+	insn = gen_call_gp (addr, b0);
+      else
+	insn = gen_call_value_gp (retval, addr, b0);
+      insn = emit_call_insn (insn);
+
+      use_reg (&CALL_INSN_FUNCTION_USAGE (insn), pic_offset_table_rtx);
     }
-  else
-    dest = addr;
 
   if (sibcall_p)
-    insn = gen_sibcall_pic (dest, narg_rtx, b0, pfs);
-  else if (! retval)
-    insn = gen_call_pic (dest, narg_rtx, b0);
+    use_reg (&CALL_INSN_FUNCTION_USAGE (insn), b0);
+}
+void
+ia64_reload_gp ()
+{
+  rtx tmp;
+
+  if (current_frame_info.reg_save_gp)
+    tmp = gen_rtx_REG (DImode, current_frame_info.reg_save_gp);
   else
-    insn = gen_call_value_pic (retval, dest, narg_rtx, b0);
+    {
+      HOST_WIDE_INT offset;
+
+      offset = (current_frame_info.spill_cfa_off
+	        + current_frame_info.spill_size);
+      if (frame_pointer_needed)
+        {
+          tmp = hard_frame_pointer_rtx;
+          offset = -offset;
+        }
+      else
+        {
+          tmp = stack_pointer_rtx;
+          offset = current_frame_info.total_size - offset;
+        }
+
+      if (CONST_OK_FOR_I (offset))
+        emit_insn (gen_adddi3 (pic_offset_table_rtx,
+			       tmp, GEN_INT (offset)));
+      else
+        {
+          emit_move_insn (pic_offset_table_rtx, GEN_INT (offset));
+          emit_insn (gen_adddi3 (pic_offset_table_rtx,
+			         pic_offset_table_rtx, tmp));
+        }
+
+      tmp = gen_rtx_MEM (DImode, pic_offset_table_rtx);
+    }
+
+  emit_move_insn (pic_offset_table_rtx, tmp);
+}
+
+void
+ia64_split_call (retval, addr, retaddr, scratch_r, scratch_b,
+		 noreturn_p, sibcall_p)
+     rtx retval, addr, retaddr, scratch_r, scratch_b;
+     int noreturn_p, sibcall_p;
+{
+  rtx insn;
+  bool is_desc = false;
+
+  /* If we find we're calling through a register, then we're actually
+     calling through a descriptor, so load up the values.  */
+  if (REG_P (addr) && GR_REGNO_P (REGNO (addr)))
+    {
+      rtx tmp;
+      bool addr_dead_p;
+
+      /* ??? We are currently constrained to *not* use peep2, because
+	 we can legitimiately change the global lifetime of the GP
+	 (in the form of killing where previously live).  This is 
+	 because a call through a descriptor doesn't use the previous
+	 value of the GP, while a direct call does, and we do not
+	 commit to either form until the split here.
+
+	 That said, this means that we lack precise life info for
+	 whether ADDR is dead after this call.  This is not terribly
+	 important, since we can fix things up essentially for free
+	 with the POST_DEC below, but it's nice to not use it when we
+	 can immediately tell it's not necessary.  */
+      addr_dead_p = ((noreturn_p || sibcall_p
+		      || TEST_HARD_REG_BIT (regs_invalidated_by_call,
+					    REGNO (addr)))
+		     && !FUNCTION_ARG_REGNO_P (REGNO (addr)));
+
+      /* Load the code address into scratch_b.  */
+      tmp = gen_rtx_POST_INC (Pmode, addr);
+      tmp = gen_rtx_MEM (Pmode, tmp);
+      emit_move_insn (scratch_r, tmp);
+      emit_move_insn (scratch_b, scratch_r);
+
+      /* Load the GP address.  If ADDR is not dead here, then we must
+	 revert the change made above via the POST_INCREMENT.  */
+      if (!addr_dead_p)
+	tmp = gen_rtx_POST_DEC (Pmode, addr);
+      else
+	tmp = addr;
+      tmp = gen_rtx_MEM (Pmode, tmp);
+      emit_move_insn (pic_offset_table_rtx, tmp);
+
+      is_desc = true;
+      addr = scratch_b;
+    }
+
+  if (sibcall_p)
+    insn = gen_sibcall_nogp (addr);
+  else if (retval)
+    insn = gen_call_value_nogp (retval, addr, retaddr);
+  else
+    insn = gen_call_nogp (addr, retaddr);
   emit_call_insn (insn);
 
-  if (gp_save)
-    emit_move_insn (pic_offset_table_rtx, gp_save);
+  if ((!TARGET_CONST_GP || is_desc) && !noreturn_p && !sibcall_p)
+    ia64_reload_gp ();
 }
 
 /* Begin the assembly file.  */
@@ -1521,39 +1608,6 @@ emit_safe_across_calls (f)
   if (out_state)
     fputc ('\n', f);
 }
-
-
-/* Structure to be filled in by ia64_compute_frame_size with register
-   save masks and offsets for the current function.  */
-
-struct ia64_frame_info
-{
-  HOST_WIDE_INT total_size;	/* size of the stack frame, not including
-				   the caller's scratch area.  */
-  HOST_WIDE_INT spill_cfa_off;	/* top of the reg spill area from the cfa.  */
-  HOST_WIDE_INT spill_size;	/* size of the gr/br/fr spill area.  */
-  HOST_WIDE_INT extra_spill_size;  /* size of spill area for others.  */
-  HARD_REG_SET mask;		/* mask of saved registers.  */
-  unsigned int gr_used_mask;	/* mask of registers in use as gr spill 
-				   registers or long-term scratches.  */
-  int n_spilled;		/* number of spilled registers.  */
-  int reg_fp;			/* register for fp.  */
-  int reg_save_b0;		/* save register for b0.  */
-  int reg_save_pr;		/* save register for prs.  */
-  int reg_save_ar_pfs;		/* save register for ar.pfs.  */
-  int reg_save_ar_unat;		/* save register for ar.unat.  */
-  int reg_save_ar_lc;		/* save register for ar.lc.  */
-  int n_input_regs;		/* number of input registers used.  */
-  int n_local_regs;		/* number of local registers used.  */
-  int n_output_regs;		/* number of output registers used.  */
-  int n_rotate_regs;		/* number of rotating registers used.  */
-
-  char need_regstk;		/* true if a .regstk directive needed.  */
-  char initialized;		/* true if the data is finalized.  */
-};
-
-/* Current frame information calculated by ia64_compute_frame_size.  */
-static struct ia64_frame_info current_frame_info;
 
 /* Helper function for ia64_compute_frame_size: find an appropriate general
    register to spill some special register to.  SPECIAL_SPILL_MASK contains
@@ -1796,6 +1850,17 @@ ia64_compute_frame_size (size)
 	  extra_spill_size += 8;
 	  n_spilled += 1;
 	}
+
+      /* Similarly for gp.  Note that if we're calling setjmp, the stacked
+	 registers are clobbered, so we fall back to the stack.  */
+      current_frame_info.reg_save_gp
+	= (current_function_calls_setjmp ? 0 : find_gr_spill (1));
+      if (current_frame_info.reg_save_gp == 0)
+	{
+	  SET_HARD_REG_BIT (mask, GR_REG (1));
+	  spill_size += 8;
+	  n_spilled += 1;
+	}
     }
   else
     {
@@ -1804,6 +1869,17 @@ ia64_compute_frame_size (size)
 	  SET_HARD_REG_BIT (mask, BR_REG (0));
 	  spill_size += 8;
 	  n_spilled += 1;
+	}
+
+      if (regs_ever_live[AR_PFS_REGNUM])
+	{
+	  SET_HARD_REG_BIT (mask, AR_PFS_REGNUM);
+	  current_frame_info.reg_save_ar_pfs = find_gr_spill (1);
+	  if (current_frame_info.reg_save_ar_pfs == 0)
+	    {
+	      extra_spill_size += 8;
+	      n_spilled += 1;
+	    }
 	}
     }
 
@@ -1843,8 +1919,10 @@ ia64_compute_frame_size (size)
     }
 
   /* If we're forced to use st8.spill, we're forced to save and restore
-     ar.unat as well.  */
-  if (spilled_gr_p || cfun->machine->n_varargs)
+     ar.unat as well.  The check for existing liveness allows inline asm
+     to touch ar.unat.  */
+  if (spilled_gr_p || cfun->machine->n_varargs
+      || regs_ever_live[AR_UNAT_REGNUM])
     {
       regs_ever_live[AR_UNAT_REGNUM] = 1;
       SET_HARD_REG_BIT (mask, AR_UNAT_REGNUM);
@@ -2305,7 +2383,8 @@ ia64_expand_prologue ()
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
       && current_frame_info.n_output_regs == 0
-      && current_frame_info.n_input_regs <= current_function_args_info.int_regs)
+      && current_frame_info.n_input_regs <= current_function_args_info.int_regs
+      && !TEST_HARD_REG_BIT (current_frame_info.mask, AR_PFS_REGNUM))
     {
       /* If there is no alloc, but there are input registers used, then we
 	 need a .regstk directive.  */
@@ -2467,8 +2546,8 @@ ia64_expand_prologue ()
   /* The alloc insn already copied ar.pfs into a general register.  The
      only thing we have to do now is copy that register to a stack slot
      if we'd not allocated a local register for the job.  */
-  if (current_frame_info.reg_save_ar_pfs == 0
-      && ! current_function_is_leaf)
+  if (TEST_HARD_REG_BIT (current_frame_info.mask, AR_PFS_REGNUM)
+      && current_frame_info.reg_save_ar_pfs == 0)
     {
       reg = gen_rtx_REG (DImode, AR_PFS_REGNUM);
       do_spill (gen_movdi_x, ar_pfs_save_reg, cfa_off, reg);
@@ -2497,6 +2576,19 @@ ia64_expand_prologue ()
 	  do_spill (gen_movdi_x, alt_reg, cfa_off, reg);
 	  cfa_off -= 8;
 	}
+    }
+
+  if (current_frame_info.reg_save_gp)
+    {
+      insn = emit_move_insn (gen_rtx_REG (DImode,
+					  current_frame_info.reg_save_gp),
+			     pic_offset_table_rtx);
+      /* We don't know for sure yet if this is actually needed, since
+	 we've not split the PIC call patterns.  If all of the calls
+	 are indirect, and not followed by any uses of the gp, then
+	 this save is dead.  Allow it to go away.  */
+      REG_NOTES (insn)
+	= gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, REG_NOTES (insn));
     }
 
   /* We should now be at the base of the gr/br/fr spill area.  */
@@ -2650,7 +2742,7 @@ ia64_expand_epilogue (sibcall_p)
       reg = gen_rtx_REG (DImode, AR_PFS_REGNUM);
       emit_move_insn (reg, alt_reg);
     }
-  else if (! current_function_is_leaf)
+  else if (TEST_HARD_REG_BIT (current_frame_info.mask, AR_PFS_REGNUM))
     {
       alt_regno = next_scratch_gr_reg ();
       alt_reg = gen_rtx_REG (DImode, alt_regno);
@@ -2680,8 +2772,13 @@ ia64_expand_epilogue (sibcall_p)
 		  + current_frame_info.spill_size))
     abort ();
 
+  /* The GP may be stored on the stack in the prologue, but it's
+     never restored in the epilogue.  Skip the stack slot.  */
+  if (TEST_HARD_REG_BIT (current_frame_info.mask, GR_REG (1)))
+    cfa_off -= 8;
+
   /* Restore all general registers.  */
-  for (regno = GR_REG (1); regno <= GR_REG (31); ++regno)
+  for (regno = GR_REG (2); regno <= GR_REG (31); ++regno)
     if (TEST_HARD_REG_BIT (current_frame_info.mask, regno))
       {
 	reg = gen_rtx_REG (DImode, regno);
@@ -2868,10 +2965,6 @@ ia64_hard_regno_rename_ok (from, to)
   /* Retain even/oddness on predicate register pairs.  */
   if (PR_REGNO_P (from) && PR_REGNO_P (to))
     return (from & 1) == (to & 1);
-
-  /* Reg 4 contains the saved gp; we can't reliably rename this.  */
-  if (from == GR_REG (4) && current_function_calls_setjmp)
-    return 0;
 
   return 1;
 }
@@ -4082,7 +4175,6 @@ ia64_secondary_reload_class (class, mode, x)
 
   return NO_REGS;
 }
-
 
 /* Emit text to declare externally defined variables and functions, because
    the Intel assembler does not support undefined externals.  */
@@ -5621,7 +5713,9 @@ ia64_adjust_cost (insn, link, dep_insn, cost)
 	    addr = XVECEXP (addr, 0, 0);
 	  while (GET_CODE (addr) == SUBREG || GET_CODE (addr) == ZERO_EXTEND)
 	    addr = XEXP (addr, 0);
-	  if (GET_CODE (addr) == MEM)
+
+	  /* Note that LO_SUM is used for GOT loads.  */
+	  if (GET_CODE (addr) == MEM || GET_CODE (addr) == LO_SUM)
 	    addr = XEXP (addr, 0);
 	  else
 	    addr = 0;
@@ -7064,12 +7158,11 @@ ia64_epilogue_uses (regno)
   switch (regno)
     {
     case R_GR (1):
-      /* When a function makes a call through a function descriptor, we
-         will write a (potentially) new value to "gp".  After returning
-         from such a call, we need to make sure the function restores the
-         original gp-value, even if the function itself does not use the
-         gp anymore.  */
-      return (TARGET_CONST_GP && !(TARGET_AUTO_PIC || TARGET_NO_PIC));
+      /* With a call to a function in another module, we will write a new
+	 value to "gp".  After returning from such a call, we need to make
+	 sure the function restores the original gp-value, even if the
+	 function itself does not use the gp anymore.  */
+      return !(TARGET_AUTO_PIC || TARGET_NO_PIC);
 
     case IN_REG (0): case IN_REG (1): case IN_REG (2): case IN_REG (3):
     case IN_REG (4): case IN_REG (5): case IN_REG (6): case IN_REG (7):
@@ -7242,6 +7335,18 @@ ia64_strip_name_encoding (str)
   if (str[0] == '*')
     str++;
   return str;
+}
+
+/* True if it is OK to do sibling call optimization for the specified
+   call expression EXP.  DECL will be the called function, or NULL if
+   this is an indirect call.  */
+bool
+ia64_function_ok_for_sibcall (decl)
+     tree decl;
+{
+  /* We must always return with our current GP.  This means we can
+     only sibcall to functions defined in the current module.  */
+  return decl && (*targetm.binds_local_p) (decl);
 }
 
 /* Output assembly directives for prologue regions.  */
@@ -7764,7 +7869,7 @@ ia64_expand_fetch_and_op (binoptab, mode, arglist, target)
      do {
        old = tmp;
        ar.ccv = tmp;
-       ret = tmp + value;
+       ret = tmp <op> value;
        cmpxchgsz.acq tmp = [ptr], ret
      } while (tmp != old)
 */
@@ -7867,8 +7972,15 @@ ia64_expand_compare_and_swap (mode, boolp, arglist, target)
   else
     tmp = gen_reg_rtx (mode);
 
-  ccv = gen_rtx_REG (mode, AR_CCV_REGNUM);
-  emit_move_insn (ccv, old);
+  ccv = gen_rtx_REG (DImode, AR_CCV_REGNUM);
+  if (mode == DImode)
+    emit_move_insn (ccv, old);
+  else
+    {
+      rtx ccvtmp = gen_reg_rtx (DImode);
+      emit_insn (gen_zero_extendsidi2 (ccvtmp, old));
+      emit_move_insn (ccv, ccvtmp);
+    }
   emit_insn (gen_mf ());
   if (mode == SImode)
     insn = gen_cmpxchg_acq_si (tmp, mem, new, ccv);
@@ -8180,34 +8292,28 @@ ia64_select_rtx_section (mode, x, align)
     default_elf_select_rtx_section (mode, x, align);
 }
 
-/* It is illegal to have relocations in shared segments on AIX.
+/* It is illegal to have relocations in shared segments on AIX and HPUX.
    Pretend flag_pic is always set.  */
 
 static void
-ia64_aix_select_section (exp, reloc, align)
+ia64_rwreloc_select_section (exp, reloc, align)
      tree exp;
      int reloc;
      unsigned HOST_WIDE_INT align;
 {
-  int save_pic = flag_pic;
-  flag_pic = 1;
-  default_elf_select_section (exp, reloc, align);
-  flag_pic = save_pic;
+  default_elf_select_section_1 (exp, reloc, align, true);
 }
 
 static void
-ia64_aix_unique_section (decl, reloc)
+ia64_rwreloc_unique_section (decl, reloc)
      tree decl;
      int reloc;
 {
-  int save_pic = flag_pic;
-  flag_pic = 1;
-  default_unique_section (decl, reloc);
-  flag_pic = save_pic;
+  default_unique_section_1 (decl, reloc, true);
 }
 
 static void
-ia64_aix_select_rtx_section (mode, x, align)
+ia64_rwreloc_select_rtx_section (mode, x, align)
      enum machine_mode mode;
      rtx x;
      unsigned HOST_WIDE_INT align;
@@ -8217,6 +8323,16 @@ ia64_aix_select_rtx_section (mode, x, align)
   ia64_select_rtx_section (mode, x, align);
   flag_pic = save_pic;
 }
+
+static unsigned int
+ia64_rwreloc_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  return default_section_type_flags_1 (decl, name, reloc, true);
+}
+
 
 /* Output the assembler code for a thunk function.  THUNK_DECL is the
    declaration for the thunk function itself, FUNCTION is the decl for
@@ -8233,6 +8349,9 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
      tree function;
 {
   rtx this, insn, funexp;
+
+  reload_completed = 1;
+  no_new_pseudos = 1;
 
   /* Set things up as ia64_expand_prologue might.  */
   last_scratch_gr_reg = 15;
@@ -8296,18 +8415,27 @@ ia64_output_mi_thunk (file, thunk, delta, vcall_offset, function)
   ia64_expand_call (NULL_RTX, funexp, NULL_RTX, 1);
   insn = get_last_insn ();
   SIBLING_CALL_P (insn) = 1;
+
+  /* Code generation for calls relies on splitting.  */
+  reload_completed = 1;
+  try_split (PATTERN (insn), insn, 0);
+
   emit_barrier ();
 
   /* Run just enough of rest_of_compilation to get the insns emitted.
      There's not really enough bulk here to make other passes such as
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
+
   insn = get_insns ();
   emit_all_insn_group_barriers (NULL, insn);
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1, 0);
   final_end_function ();
+
+  reload_completed = 0;
+  no_new_pseudos = 0;
 }
 
 #include "gt-ia64.h"

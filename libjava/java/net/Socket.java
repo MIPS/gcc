@@ -85,6 +85,8 @@ public class Socket
 
   SocketChannel ch; // this field must have been set if created by SocketChannel
 
+  private boolean closed = false;
+
   // Constructors
 
   /**
@@ -93,6 +95,7 @@ public class Socket
    * might want this behavior.
    *
    * @specnote This constructor is public since JDK 1.4
+   * @since 1.1
    */
   public Socket ()
   {
@@ -120,6 +123,8 @@ public class Socket
    *             <code>Socket</code>
    *
    * @exception SocketException If an error occurs
+   *
+   * @since 1.1
    */
   protected Socket (SocketImpl impl) throws SocketException
   {
@@ -178,6 +183,8 @@ public class Socket
    * exists and does not allow a connection to the specified host/port or
    * binding to the specified local host/port.
    * @exception IOException If a connection error occurs.
+   *
+   * @since 1.1
    */
   public Socket (String host, int port,
 		 InetAddress localAddr, int localPort) throws IOException
@@ -198,6 +205,8 @@ public class Socket
    * @exception IOException If an error occurs
    * @exception SecurityException If a security manager exists and its
    * checkConnect method doesn't allow the operation
+   *
+   * @since 1.1
    */
   public Socket (InetAddress address, int port,
 		 InetAddress localAddr, int localPort) throws IOException
@@ -308,6 +317,9 @@ public class Socket
    */
   public void bind (SocketAddress bindpoint) throws IOException
   {
+    if (closed)
+      throw new SocketException ("Socket is closed");
+    
     if ( !(bindpoint instanceof InetSocketAddress))
       throw new IllegalArgumentException ();
 
@@ -330,6 +342,9 @@ public class Socket
   public void connect (SocketAddress endpoint)
     throws IOException
   {
+    if (closed)
+      throw new SocketException ("Socket is closed");
+    
     if (! (endpoint instanceof InetSocketAddress))
       throw new IllegalArgumentException ("Address type not supported");
 
@@ -357,6 +372,9 @@ public class Socket
   public void connect (SocketAddress endpoint, int timeout)
     throws IOException
   {
+    if (closed)
+      throw new SocketException ("Socket is closed");
+    
     if (! (endpoint instanceof InetSocketAddress))
       throw new IllegalArgumentException ("Address type not supported");
 
@@ -385,6 +403,8 @@ public class Socket
    * is not connected, then <code>null</code> is returned.
    *
    * @return The local address
+   *
+   * @since 1.1
    */
   public InetAddress getLocalAddress ()
   {
@@ -510,6 +530,8 @@ public class Socket
    * @param on true to enable, false to disable
    * 
    * @exception SocketException If an error occurs or Socket is not connected
+   *
+   * @since 1.1
    */
   public void setTcpNoDelay (boolean on)  throws SocketException
   {
@@ -528,6 +550,8 @@ public class Socket
    * @return Whether or not TCP_NODELAY is set
    * 
    * @exception SocketException If an error occurs or Socket not connected
+   *
+   * @since 1.1
    */
   public boolean getTcpNoDelay() throws SocketException
   {
@@ -556,6 +580,8 @@ public class Socket
    *
    * @exception SocketException If an error occurs or Socket not connected
    * @exception IllegalArgumentException If linger is negative
+   *
+   * @since 1.1
    */
   public void setSoLinger(boolean on, int linger) throws SocketException
   {
@@ -591,6 +617,8 @@ public class Socket
    * if SO_LINGER not set
    *
    * @exception SocketException If an error occurs or Socket is not connected
+   *
+   * @since 1.1
    */
   public int getSoLinger() throws SocketException
   {
@@ -670,6 +698,8 @@ public class Socket
    * 0 if not set
    *
    * @exception SocketException If an error occurs or Socket not connected
+   *
+   * @since 1.1
    */
   public synchronized void setSoTimeout (int timeout) throws SocketException
   {
@@ -696,6 +726,8 @@ public class Socket
    * if not set
    *
    * @exception SocketException If an error occurs or Socket not connected
+   *
+   * @since 1.1
    */
   public synchronized int getSoTimeout () throws SocketException
   {
@@ -811,7 +843,7 @@ public class Socket
    *
    * @exception SocketException If an error occurs or Socket is not connected
    *
-   * @since Java 1.3
+   * @since 1.3
    */
   public void setKeepAlive (boolean on) throws SocketException
   {
@@ -829,7 +861,7 @@ public class Socket
    *
    * @exception SocketException If an error occurs or Socket is not connected
    *
-   * @since Java 1.3
+   * @since 1.3
    */
   public boolean getKeepAlive () throws SocketException
   {
@@ -853,6 +885,11 @@ public class Socket
   {
     if (impl != null)
       impl.close();
+
+    if (ch != null)
+      ch.close();
+    
+    closed = true;
   }
 
   /**
@@ -902,6 +939,8 @@ public class Socket
    * Closes the input side of the socket stream.
    *
    * @exception IOException If an error occurs.
+   *
+   * @since 1.3
    */
   public void shutdownInput() throws IOException
   {
@@ -915,6 +954,8 @@ public class Socket
    * Closes the output side of the socket stream.
    *
    * @exception IOException If an error occurs.
+   *
+   * @since 1.3
    */
   public void shutdownOutput() throws IOException
   {
@@ -928,6 +969,8 @@ public class Socket
    * Returns the socket channel associated with this socket.
    *
    * It returns null if no associated socket exists.
+   *
+   * @since 1.4
    */
   public SocketChannel getChannel()
   {
@@ -1016,6 +1059,8 @@ public class Socket
 
   /**
    * Checks if the socket is connected
+   *
+   * @since 1.4
    */
   public boolean isConnected ()
   {
@@ -1024,6 +1069,8 @@ public class Socket
 
   /**
    * Checks if the socket is already bound.
+   *
+   * @since 1.4
    */
   public boolean isBound ()
   {
@@ -1032,15 +1079,18 @@ public class Socket
 
   /**
    * Checks if the socket is closed.
+   * 
+   * @since 1.4
    */
   public boolean isClosed ()
   {
-    // FIXME: implement this.
-    return false;
+    return closed;
   }
 
   /**
    * Checks if the socket's input stream is shutdown
+   *
+   * @since 1.4
    */
   public boolean isInputShutdown ()
   {
@@ -1049,6 +1099,8 @@ public class Socket
 
   /**
    * Checks if the socket's output stream is shutdown
+   *
+   * @since 1.4
    */
   public boolean isOutputShutdown ()
   {

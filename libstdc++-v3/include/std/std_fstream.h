@@ -1,6 +1,6 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -81,7 +81,6 @@ namespace std
       typedef __basic_file<char>		        __file_type;
       typedef typename traits_type::state_type          __state_type;
       typedef codecvt<char_type, char, __state_type>    __codecvt_type;
-      typedef typename __codecvt_type::result 	        __res_type;
       typedef ctype<char_type>                          __ctype_type;
       //@}
 
@@ -159,7 +158,7 @@ namespace std
        *  @brief  Returns true if the external file is open.
       */
       bool
-      is_open() const { return _M_file.is_open(); }
+      is_open() const throw() { return _M_file.is_open(); }
 
       /**
        *  @brief  Opens an external file.
@@ -189,7 +188,7 @@ namespace std
        *  If any operations fail, this function also fails.
       */
       __filebuf_type*
-      close();
+      close() throw();
 
     protected:
       /**
@@ -206,7 +205,7 @@ namespace std
        *  @endif
       */
       void
-      _M_destroy_internal_buffer();
+      _M_destroy_internal_buffer() throw();
 
       // [27.8.1.4] overridden virtual functions
       // [documentation is inherited]
@@ -234,11 +233,11 @@ namespace std
 
       // [documentation is inherited]
       virtual int_type
-      underflow() { return _M_underflow_common(false); }
+      underflow();
 
       // [documentation is inherited]
       virtual int_type
-      uflow() { return _M_underflow_common(true); }
+      uflow();
 
       // [documentation is inherited]
       virtual int_type
@@ -311,6 +310,7 @@ namespace std
       virtual int
       sync()
       {
+	int __ret = 0;
 	bool __testput = _M_out_cur && _M_out_beg < _M_out_end;
 
 	// Make sure that the internal buffer resyncs its idea of
@@ -319,14 +319,19 @@ namespace std
 	  {
 	    // Need to restore current position after the write.
 	    off_type __off = _M_out_cur - _M_out_end;
-	    _M_really_overflow(); // _M_file.sync() will be called within
-	    if (__off)
+
+	    // _M_file.sync() will be called within
+	    if (traits_type::eq_int_type(_M_really_overflow(),
+					 traits_type::eof()))
+	      __ret = -1;
+	    else if (__off)
 	      _M_file.seekoff(__off, ios_base::cur);
 	  }
 	else
 	  _M_file.sync();
+
 	_M_last_overflowed = false;
-	return 0;
+	return __ret;
       }
 
       // [documentation is inherited]
@@ -431,7 +436,7 @@ namespace std
       }
     };
 
-  // Explicit specializations, defined in src/fstream.cc.
+  // Explicit specialization declarations, defined in src/fstream.cc.
   template<> 
     basic_filebuf<char>::int_type 
     basic_filebuf<char>::_M_underflow_common(bool __bump);
@@ -441,6 +446,18 @@ namespace std
     basic_filebuf<wchar_t>::int_type 
     basic_filebuf<wchar_t>::_M_underflow_common(bool __bump);
  #endif
+
+  // Generic definitions.
+  template <typename _CharT, typename _Traits>
+    typename basic_filebuf<_CharT, _Traits>::int_type
+    basic_filebuf<_CharT, _Traits>::underflow() 
+    { return _M_underflow_common(false); }
+
+  template <typename _CharT, typename _Traits>
+    typename basic_filebuf<_CharT, _Traits>::int_type
+    basic_filebuf<_CharT, _Traits>::uflow() 
+    { return _M_underflow_common(true); }
+
 
   // [27.8.1.5] Template class basic_ifstream
   /**

@@ -1,0 +1,64 @@
+2003-10-12  Christopher Faylor  <cgf@redhat.com>
+
+	* configure.in: (Re) Add cygwin target support.
+	* configure: Regenerate.
+
+2003-06-27  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* src/functexcept.cc (__throw_ios_failure): Split out into
+	new file...
+	* src/functexcept-ios.cc (__throw_ios_failure): Define.
+	* src/Makefile.am: Adjust sources.
+	* src/Makefile.in: Regenerate.
+
+2003-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Backport from trunk.
+	2003-05-21  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libstdc++-v3/config/os/mingw32/os_defines.h
+	(__GTHREAD_HIDE_WIN32API): Define to 1 by default.
+	(NOMINMAX): Define.  Update copyright year.
+
+2003-05-07  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Backport from trunk.
+	2003-05-05  Loren J. Rittle  <ljrittle@acm.org>
+	* include/bits/stl_threads.h (_Atomic_swap): Kill it...
+	(_Swap_lock_struct<>): ...and the horse it rode in on.
+	* src/globals.cc (_Swap_lock_struct<>): Likewise.
+	* include/ext/stl_rope.h (_Rope_RopeRep<>::_M_c_string_lock): New
+	member to support...
+	* include/ext/ropeimpl.h (rope<>::c_str): Follow *all* memory
+	visibility rules related to POSIX threads.
+
+2002-08-27  Christopher Faylor  <cgf@redhat.com>
+
+	* configure.in: Add cygwin target support.
+	* configure: Regenerate.
+
+2002-08-16  Adriano dos Santos Fernandes  <adrianosf@uol.com.br>
+
+	* libsupc++/unwind-cxx.h (__terminate_handler,
+	 __unexpected_handler):Support for w32 catch exceptions across
+	 EXE/DLLs boundaries.
+	* libsupc++/eh_terminate.cc (__terminate_handler,
+	__unexpected_handler): Same.
+
+2002-07-29  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/os/mingw32/bits/os_defines.h
+	(_GLIBCPP_NO_LONG_DOUBLE_IO): Define.
+	* include/bits/locale_facets.tcc (num_get::do_get):
+	Use it. Cast long double to double.
+	(num_put::do_put): Likewise.
+	(money_get::do_get): Likewise.
+	(money_put::do_put): Likewise.
+	* src/locale.cc (__num_base::_S_format_int):
+	Replace "ll" format prefix with "I64" for mingw32.
+
+2002-07-22  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libsupc++/typeinfo (__GXX_MERGED_TYPEINFO_NAMES): Define to
+	0 for win32 targets to allow dynamic_cast to work across
+	dll boundaries.

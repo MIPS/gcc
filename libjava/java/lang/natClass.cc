@@ -343,7 +343,9 @@ java::lang::Class::_getDeclaredMethod (jstring name,
   while (--i >= 0)
     {
       if (_Jv_equalUtf8Consts (methods[i].name, utf_name)
-	  && _Jv_equaln (methods[i].signature, partial_sig, p_len))
+	  && _Jv_equaln (methods[i].signature, partial_sig, p_len)
+	  && (methods[i].accflags
+	      & java::lang::reflect::Modifier::INVISIBLE) == 0)
 	{
 	  // Found it.
 	  using namespace java::lang::reflect;
@@ -368,7 +370,9 @@ java::lang::Class::getDeclaredMethods (void)
       if (method->name == NULL
 	  || _Jv_equalUtf8Consts (method->name, clinit_name)
 	  || _Jv_equalUtf8Consts (method->name, init_name)
-	  || _Jv_equalUtf8Consts (method->name, finit_name))
+	  || _Jv_equalUtf8Consts (method->name, finit_name)
+	  || (methods[i].accflags
+	      & java::lang::reflect::Modifier::INVISIBLE) != 0)
 	continue;
       numMethods++;
     }
@@ -382,7 +386,9 @@ java::lang::Class::getDeclaredMethods (void)
       if (method->name == NULL
 	  || _Jv_equalUtf8Consts (method->name, clinit_name)
 	  || _Jv_equalUtf8Consts (method->name, init_name)
-	  || _Jv_equalUtf8Consts (method->name, finit_name))
+	  || _Jv_equalUtf8Consts (method->name, finit_name)
+	  || (methods[i].accflags
+	      & java::lang::reflect::Modifier::INVISIBLE) != 0)
 	continue;
       java::lang::reflect::Method* rmethod
 	= new java::lang::reflect::Method ();
@@ -514,7 +520,9 @@ java::lang::Class::_getMethod (jstring name, JArray<jclass> *param_types)
 	{
 	  // FIXME: access checks.
 	  if (_Jv_equalUtf8Consts (klass->methods[i].name, utf_name)
-	      && _Jv_equaln (klass->methods[i].signature, partial_sig, p_len))
+	      && _Jv_equaln (klass->methods[i].signature, partial_sig, p_len)
+	      && (klass->methods[i].accflags
+		  & java::lang::reflect::Modifier::INVISIBLE) == 0)
 	    {
 	      // Found it.
 	      using namespace java::lang::reflect;
@@ -565,7 +573,9 @@ java::lang::Class::_getMethods (JArray<java::lang::reflect::Method *> *result,
       if (method->name == NULL
 	  || _Jv_equalUtf8Consts (method->name, clinit_name)
 	  || _Jv_equalUtf8Consts (method->name, init_name)
-	  || _Jv_equalUtf8Consts (method->name, finit_name))
+	  || _Jv_equalUtf8Consts (method->name, finit_name)
+	  || (method->accflags
+	      & java::lang::reflect::Modifier::INVISIBLE) != 0)
 	continue;
       // Only want public methods.
       if (! java::lang::reflect::Modifier::isPublic (method->accflags))
@@ -954,14 +964,14 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
 {
   if (source == target)
     return true;
-     
+
   // If target is array, so must source be.  
-  if (target->isArray ())
+  while (target->isArray ())
     {
       if (! source->isArray())
 	return false;
-      return _Jv_IsAssignableFrom(target->getComponentType(), 
-                                  source->getComponentType());
+      target = target->getComponentType();
+      source = source->getComponentType();
     }
 
   if (target->isInterface())
@@ -971,7 +981,7 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
       if (__builtin_expect 
           (source->idt == NULL || source->isInterface(), false))
         return _Jv_InterfaceAssignableFrom (target, source);
-	
+
       _Jv_IDispatchTable *cl_idt = source->idt;
       _Jv_IDispatchTable *if_idt = target->idt;
 
@@ -987,23 +997,31 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
 	}
       return false;
     }
-     
+
   // Primitive TYPE classes are only assignable to themselves.
-  if (__builtin_expect (target->isPrimitive(), false))
+  if (__builtin_expect (target->isPrimitive() || source->isPrimitive(), false))
     return false;
-    
+
   if (target == &java::lang::Object::class$)
+    return true;
+  else if (source->ancestors == NULL || target->ancestors == NULL)
     {
-      if (source->isPrimitive())
-        return false;
-      return true;
+      // We need this case when either SOURCE or TARGET has not has
+      // its constant-time tables prepared.
+
+      // At this point we know that TARGET can't be Object, so it is
+      // safe to use that as the termination point.
+      while (source && source != &java::lang::Object::class$)
+	{
+	  if (source == target)
+	    return true;
+	  source = source->getSuperclass();
+	}
     }
-  else if (source->ancestors != NULL
-	   && target->ancestors != NULL
-	   && source->depth >= target->depth
+  else if (source->depth >= target->depth
 	   && source->ancestors[source->depth - target->depth] == target)
     return true;
-      
+
   return false;
 }
 
@@ -1342,7 +1360,7 @@ _Jv_AppendPartialITable (jclass klass, jclass iface, void **itable,
 }
 
 static _Jv_Mutex_t iindex_mutex;
-bool iindex_mutex_initialized = false;
+static bool iindex_mutex_initialized = false;
 
 // We need to find the correct offset in the Class Interface Dispatch 
 // Table for a given interface. Once we have that, invoking an interface 
@@ -1564,6 +1582,13 @@ isVirtualMethod (_Jv_Method *meth)
           && meth->name->data[0] != '<');
 }
 
+// This is put in empty vtable slots.
+static void
+_Jv_abstractMethodError (void)
+{
+  throw new java::lang::AbstractMethodError();
+}
+
 // Prepare virtual method declarations in KLASS, and any superclasses as 
 // required, by determining their vtable index, setting method->index, and
 // finally setting the class's vtable_method_count. Must be called with the
@@ -1594,13 +1619,16 @@ _Jv_LayoutVTableMethods (jclass klass)
 	continue;
 
       if (superclass != NULL)
-        super_meth = _Jv_LookupDeclaredMethod (superclass, meth->name, 
-					       meth->signature);
+	{
+	  super_meth = _Jv_LookupDeclaredMethod (superclass, meth->name, 
+						 meth->signature);
+	}
 
       if (super_meth)
         meth->index = super_meth->index;
-      else if (! (meth->accflags & java::lang::reflect::Modifier::FINAL))
-        meth->index = index++;
+      else if (! (meth->accflags & java::lang::reflect::Modifier::FINAL)
+	       && ! (klass->accflags & java::lang::reflect::Modifier::FINAL))
+	meth->index = index++;
     }
 
   klass->vtable_method_count = index;
@@ -1626,8 +1654,7 @@ _Jv_SetVTableEntries (jclass klass, _Jv_VTable *vtable, jboolean *flags)
 	continue;
       if ((meth->accflags & Modifier::ABSTRACT))
 	{
-	  // FIXME: we should set abstract slots to a function that
-	  // throws AbstractMethodError.  How can we do that on IA-64?
+	  vtable->set_method(meth->index, (void *) &_Jv_abstractMethodError);
 	  flags[meth->index] = false;
 	}
       else

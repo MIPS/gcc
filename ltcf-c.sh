@@ -38,17 +38,17 @@ lt_simple_compile_test_code="int some_variable = 0;"
 lt_simple_link_test_code='main(){return(0);}'
 
 ## Linker Characteristics
-case $host_os in
-cygwin* | mingw*)
+#case $host_os in
+#cygwin* | mingw*)
   # FIXME: the MSVC++ port hasn't been tested in a loooong time
   # When not using gcc, we currently assume that we are using
   # Microsoft Visual C++.
-  if test "$with_gcc" != yes; then
-    with_gnu_ld=no
-  fi
-  ;;
-
-esac
+#  if test "$with_gcc" != yes; then
+#    with_gnu_ld=no
+#  fi
+#  ;;
+#
+#esac
 
 ld_shlibs=yes
 if test "$with_gnu_ld" = yes; then

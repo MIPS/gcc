@@ -1,4 +1,4 @@
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -28,7 +28,10 @@ public class OutputStreamWriter extends Writer
   private char[] work;
   private int wcount;
 
-  public String getEncoding() { return converter.getName(); }
+  public String getEncoding()
+  {
+    return out != null ? converter.getName() : null;
+  }
 
   private OutputStreamWriter(OutputStream out, UnicodeToBytes encoder)
   {
@@ -103,7 +106,7 @@ public class OutputStreamWriter extends Writer
   private void writeChars(char[] buf, int offset, int count)
     throws IOException
   {
-    while (count > 0)
+    while (count > 0 || converter.havePendingBytes())
       {
 	// We must flush if out.count == out.buf.length.
 	// It is probably a good idea to flush if out.buf is almost full.
@@ -116,6 +119,13 @@ public class OutputStreamWriter extends Writer
 	  }
 	converter.setOutput(out.buf, out.count);
 	int converted = converter.write(buf, offset, count);
+	// Flush if we cannot make progress.
+	if (converted == 0 && out.count == converter.count)
+	  {
+	    out.flush();
+	    if (out.count != 0)
+	      throw new IOException("unable to flush output byte buffer");
+	  }
 	offset += converted;
 	count -= converted;
 	out.count = converter.count;

@@ -1,6 +1,6 @@
 // win32.h -- Helper functions for Microsoft-flavored OSs.
 
-/* Copyright (C) 2002  Free Software Foundation
+/* Copyright (C) 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -14,9 +14,7 @@ details.  */
 #include <windows.h>
 #undef STRICT
 
-#undef __INSIDE_CYGWIN__
-#include <winsock.h>
-#define IP_TOS 3
+#include <ws2tcpip.h>
 #include <gcj/cni.h>
 #include <java/util/Properties.h>
 
@@ -29,11 +27,16 @@ details.  */
 #ifndef DISABLE_JAVA_NET
 
 // these errors cannot occur on Win32
-#define ENOTCONN 0
-#define ECONNRESET 0
+#define ENOTCONN WSAENOTCONN
+#define ECONNRESET WSAECONNRESET
+
+/* This is incorrect, but allows java/net/natPlainDatagramSocketImpl.cc
+   to compile under MingW. This will be remedied in a subsequent gcj
+   release where the Win32 and Posix networking code have been forked.  */
+#define ECONNREFUSED WSAECONNREFUSED
 
 #ifndef ENOPROTOOPT
-#define ENOPROTOOPT 109
+#define ENOPROTOOPT WSAENOPROTOOPT
 #endif
 
 #endif // DISABLE_JAVA_NET
@@ -41,12 +44,28 @@ details.  */
 extern void _Jv_platform_initialize (void);
 extern void _Jv_platform_initProperties (java::util::Properties*);
 extern jlong _Jv_platform_gettimeofday ();
+extern int _Jv_select (int n, fd_set *, fd_set *, fd_set *, struct timeval *);
 
 inline void
 _Jv_platform_close_on_exec (jint)
 {
   // Ignore.
 }
+
+#ifdef JV_HASH_SYNCHRONIZATION
+/* Suspends the execution of the current thread for the specified
+   number of microseconds.  Tries to emulate the behaviour of usleep()
+   on UNIX and provides a granularity of 1 millisecond.  */
+inline void
+_Jv_platform_usleep (unsigned long usecs)
+{
+  if (usecs > 0UL)
+    {
+      unsigned long millis = ((usecs + 999UL) / 1000UL);
+      Sleep (millis);
+    }
+}
+#endif /* JV_HASH_SYNCHRONIZATION */
 
 #ifndef DISABLE_JAVA_NET
 
@@ -57,50 +76,48 @@ _Jv_socket (int domain, int type, int protocol)
 }
 
 inline int
-_Jv_connect (jint fd, sockaddr *ptr, int len)
+_Jv_connect (jint fd, struct sockaddr *ptr, int len)
 {
-   return ::connect (fd, ptr, len);
+  return ::connect ((SOCKET) fd, (const struct sockaddr*) ptr, len);
 }
 
 inline int
 _Jv_close (jint fd)
 {
-  return ::closesocket (fd);
+  return ::closesocket ((SOCKET) fd);
 }
 
 inline int
 _Jv_bind (int fd, struct sockaddr *addr, int addrlen)
 {
-  return ::bind (fd, addr, addrlen);
+  return ::bind ((SOCKET) fd, (const struct sockaddr *) addr, addrlen);
 }
 
 inline int
 _Jv_accept (int fd, struct sockaddr *addr, socklen_t *addrlen)
 {
-  return ::accept (fd, addr, addrlen);
+  return ::accept ((SOCKET) fd, addr, addrlen);
 }
 
 inline int
 _Jv_listen (int fd, int backlog)
 {
-  return ::listen (fd, backlog);
+  return ::listen ((SOCKET) fd, backlog);
 }
 
 inline int
 _Jv_write(int s, void *buf, int len)
 {
-  return ::send (s, (char*) buf, len, 0);
+  return ::send ((SOCKET) s, (char*) buf, len, 0);
 }
 
 inline int
 _Jv_read(int s, void *buf, int len)
 {
-  return ::recv (s, (char*) buf, len, 0);
+  return ::recv ((SOCKET) s, (char*) buf, len, 0);
 }
 
 #endif /* DISABLE_JAVA_NET */
-
-#define HAVE_BACKTRACE
 
 /* Store up to SIZE return address of the current program state in
    ARRAY and return the exact number of values stored.  */

@@ -64,7 +64,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define __GTHREADS 1
 
-#include <errno.h>
 #ifdef __MINGW32__
 #include <_mingw.h>
 #endif
@@ -365,7 +364,7 @@ __gthread_active_p (void)
 #endif
 }
 
-#ifdef __GTHREAD_HIDE_WIN32API
+#if __GTHREAD_HIDE_WIN32API
 
 /* The implementations are in config/i386/gthr-win32.c in libgcc.a.
    Only stubs are exposed to avoid polluting the C++ namespace with

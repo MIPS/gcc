@@ -1,3 +1,4 @@
+ # $Id: alpha_mach_dep.S,v 1.1 2003/07/28 03:46:09 jsturm Exp $
 	.arch ev6
 
         .text

@@ -90,6 +90,9 @@ static bool cp_var_mod_type_p PARAMS ((tree));
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
+#undef LANG_HOOKS_WRITE_GLOBALS
+#define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
+
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
@@ -259,8 +262,13 @@ static HOST_WIDE_INT
 cxx_get_alias_set (t)
      tree t;
 {
-  /* It's not yet safe to use alias sets for classes in C++.  */
-  if (!ok_to_generate_alias_set_for_type(t))
+  if (/* It's not yet safe to use alias sets for some classes in C++.  */
+      !ok_to_generate_alias_set_for_type (t)
+      /* Nor is it safe to use alias sets for pointers-to-member
+	 functions, due to the fact that there may be more than one
+	 RECORD_TYPE type corresponding to the same pointer-to-member
+	 type.  */
+      || TYPE_PTRMEMFUNC_P (t))
     return 0;
 
   return c_common_get_alias_set (t);

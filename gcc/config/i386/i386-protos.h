@@ -146,6 +146,7 @@ extern void ix86_split_ashrdi PARAMS ((rtx *, rtx));
 extern void ix86_split_lshrdi PARAMS ((rtx *, rtx));
 extern int ix86_address_cost PARAMS ((rtx));
 extern rtx ix86_find_base_term PARAMS ((rtx));
+extern int ix86_check_movabs PARAMS ((rtx, int));
 
 extern rtx assign_386_stack_local PARAMS ((enum machine_mode, int));
 extern int ix86_attr_length_immediate_default PARAMS ((rtx, int));
@@ -190,6 +191,9 @@ extern void x86_function_profiler PARAMS ((FILE *, int));
 #ifdef TREE_CODE
 extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx));
 extern rtx function_arg PARAMS ((CUMULATIVE_ARGS *, enum machine_mode, tree, int));
+extern int function_arg_pass_by_reference PARAMS ((CUMULATIVE_ARGS *,
+						   enum machine_mode,
+						   tree, int));
 extern void function_arg_advance PARAMS ((CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int));
 extern rtx ix86_function_value PARAMS ((tree));
@@ -229,3 +233,4 @@ extern void i386_pe_asm_file_end PARAMS ((FILE *));
 extern void i386_pe_encode_section_info PARAMS ((tree, int));
 extern const char *i386_pe_strip_name_encoding PARAMS ((const char *));
 extern const char *i386_pe_strip_name_encoding_full PARAMS ((const char *));
+extern void i386_pe_output_labelref PARAMS ((FILE *, const char *));

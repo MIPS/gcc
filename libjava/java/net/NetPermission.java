@@ -48,7 +48,6 @@ import java.security.BasicPermission;
  * @author Aaron M. Renn (arenn@urbanophile.com)
  */
 public final class NetPermission extends BasicPermission
-  implements java.io.Serializable
 {
   static final long serialVersionUID = -8343910153355041693L;
 
@@ -65,7 +64,7 @@ public final class NetPermission extends BasicPermission
 
   /**
    * Initializes a new instance of <code>NetPermission</code> with the 
-   * specified name and value.  Note that the value field is irrelevant and is 
+   * specified name and perms.  Note that the perms field is irrelevant and is 
    * ignored.  This constructor should never need to be used.
    *
    * @param name The name of this permission

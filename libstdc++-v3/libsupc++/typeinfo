@@ -44,7 +44,7 @@ namespace __cxxabiv1
   class __class_type_info;
 } // namespace __cxxabiv1
 
-#if !__GXX_WEAK__
+#if !__GXX_WEAK__ || defined (__MINGW32__) || defined (__CYGWIN__)
   // If weak symbols are not supported, typeinfo names are not merged.
   #define __GXX_MERGED_TYPEINFO_NAMES 0
 #else

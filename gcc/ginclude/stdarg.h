@@ -1,4 +1,5 @@
-/* Copyright (C) 1989, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1997, 1998, 1999, 2000, 2002
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -47,13 +48,25 @@ typedef __builtin_va_list __gnuc_va_list;
    if this invocation was from the user program.  */
 #ifdef _STDARG_H
 
-#define va_start(v,l)	__builtin_va_start(v,l)
-#define va_end(v)	__builtin_va_end(v)
-#define va_arg(v,l)	__builtin_va_arg(v,l)
+#if __cplusplus && _GLIBCPP_USE_NAMESPACES
+namespace std
+{
+  extern "C"
+    {
+#endif /* __cplusplus */
+
+/* Note that the type used in va_arg is supposed to match the
+   actual type **after default promotions**.
+   Thus, va_arg (..., short) is not valid.  */
+
+#define va_start(v,l)	__builtin_stdarg_start((v),l)
+#define va_end		__builtin_va_end
+#define va_arg		__builtin_va_arg
 #if !defined(__STRICT_ANSI__) || __STDC_VERSION__ + 0 >= 199900L
-#define va_copy(d,s)	__builtin_va_copy(d,s)
+#define va_copy(d,s)	__builtin_va_copy((d),(s))
 #endif
-#define __va_copy(d,s)	__builtin_va_copy(d,s)
+#define __va_copy(d,s)	__builtin_va_copy((d),(s))
+
 
 /* Define va_list, if desired, from __gnuc_va_list. */
 /* We deliberately do not define va_list when called from
@@ -127,7 +140,14 @@ typedef __gnuc_va_list va_list;
 
 #endif /* not __svr4__ */
 
+#if __cplusplus && _GLIBCPP_USE_NAMESPACES
+    }  /* extern "C" */
+} /* namespace std */
+#endif
+
 #endif /* _STDARG_H */
 
 #endif /* not _ANSI_STDARG_H_ */
 #endif /* not _STDARG_H */
+
+

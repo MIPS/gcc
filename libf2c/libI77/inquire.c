@@ -2,7 +2,7 @@
 #include "f2c.h"
 #include "fio.h"
 #include <string.h>
-#if defined (MSDOS) && !defined (GO32)
+#if (defined (MSDOS) && !defined (GO32)) || defined (_WIN32)
 #undef abs
 #undef min
 #undef max

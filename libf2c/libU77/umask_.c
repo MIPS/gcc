@@ -21,6 +21,9 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <io.h>
+#endif
 #include "f2c.h"
 
 integer

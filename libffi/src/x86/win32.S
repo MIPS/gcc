@@ -31,12 +31,13 @@
  
 .text
  
-.globl ffi_prep_args
+.globl _ffi_prep_args
  
         # This assumes we are using gas.
         .balign 16
 .globl _ffi_call_SYSV
- 
+ 	.def	_ffi_call_SYSV;	.scl	2;	.type	32;	.endef
+
 _ffi_call_SYSV:
         pushl %ebp
         movl  %esp,%ebp
@@ -133,6 +134,7 @@ epilogue:
         # This assumes we are using gas.
         .balign 16
 .globl _ffi_call_STDCALL
+	.def	_ffi_call_STDCALL;	.scl	2;	.type	32;	.endef
 
 _ffi_call_STDCALL:
         pushl %ebp

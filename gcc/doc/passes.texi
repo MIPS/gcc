@@ -206,7 +206,7 @@ the input file name.
 
 @cindex sibling call optimization
 @item
-Sibiling call optimization.   This pass performs tail recursion
+Sibling call optimization.   This pass performs tail recursion
 elimination, and tail and sibling call optimizations.  The purpose of
 these optimizations is to reduce the overhead of function calls,
 whenever possible.
@@ -286,10 +286,9 @@ the input file name.
 @opindex fssa-ccp
 @item
 SSA Conditional Constant Propagation.  Turned on by the @option{-fssa-ccp}
-SSA Aggressive Dead Code Elimination.  Turned on by the @option{-fssa-dce}
 option.  This pass performs conditional constant propagation to simplify
 instructions including conditional branches.  This pass is more aggressive
-than the constant propgation done by the CSE and GCSE pases, but operates
+than the constant propagation done by the CSE and GCSE passes, but operates
 in linear time.
 
 @opindex dW
@@ -461,7 +460,7 @@ appending @samp{.sched} to the input file name.
 
 @cindex register allocation
 @item
-Register allocation.  These passes make sure that all occurences of pseudo
+Register allocation.  These passes make sure that all occurrences of pseudo
 registers are eliminated, either by allocating them to a hard register,
 replacing them by an equivalent expression (e.g.@: a constant) or by placing
 them on the stack.  This is done in several subpasses:
@@ -550,17 +549,6 @@ various prediction routines are in @file{predict.c}.
 The option @option{-dB} causes a debugging dump of the RTL code after
 this pass.  This dump file's name is made by appending @samp{.bbro} to
 the input file name.
-
-@cindex cross-jumping
-@cindex no-op move instructions
-@item
-Jump optimization is repeated, this time including cross-jumping
-and deletion of no-op move instructions.
-
-@opindex dJ
-The option @option{-dJ} causes a debugging dump of the RTL code after
-this pass.  This dump file's name is made by appending @samp{.jump2}
-to the input file name.
 
 @cindex delayed branch scheduling
 @cindex scheduling, delayed branch

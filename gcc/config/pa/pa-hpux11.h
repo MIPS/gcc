@@ -72,10 +72,13 @@ Boston, MA 02111-1307, USA.  */
 #undef LINK_SPEC
 #if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & 1)
 #define LINK_SPEC \
-  "%{!mpa-risc-1-0:%{!shared:-L/lib/pa1.1 -L/usr/lib/pa1.1 }} -z %{mlinker-opt:-O} %{!shared:-u main} %{static:-a archive} %{shared:-b}"
+  "%{!mpa-risc-1-0:%{!shared:-L/lib/pa1.1 -L/usr/lib/pa1.1 }} -z\
+   %{mlinker-opt:-O} %{!shared:-u main -u __gcc_plt_call}\
+   %{static:-a archive} %{shared:-b}"
 #else
 #define LINK_SPEC \
-  "-z %{mlinker-opt:-O} %{!shared:-u main} %{static:-a archive} %{shared:-b}"
+  "-z %{mlinker-opt:-O} %{!shared:-u main -u __gcc_plt_call}\
+   %{static:-a archive} %{shared:-b}"
 #endif
 
 /* Like the default, except no -lg.  */
@@ -83,10 +86,12 @@ Boston, MA 02111-1307, USA.  */
 #define LIB_SPEC \
   "%{!shared:\
      %{!p:%{!pg:\
-       %{!threads:-lc}\
+       %{!threads:-lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}\
        %{threads:-lcma -lc_r}}}\
-     %{p: -L/lib/libp/ -lc}\
-     %{pg: -L/lib/libp/ -lc}}"
+     %{p: -L/lib/libp/ -lc\
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}\
+     %{pg: -L/lib/libp/ -lc\
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}"
 
 /* Under hpux11, the normal location of the `ld' and `as' programs is the
    /usr/ccs/bin directory.  */
@@ -117,3 +122,21 @@ Boston, MA 02111-1307, USA.  */
 
 #define SIZE_TYPE "long unsigned int"
 #define PTRDIFF_TYPE "long int"
+
+/* HP-UX 11.0 and above provides initialization and finalization function
+   support from linker command line.  We don't need to invoke __main to run
+   constructors.  We also don't need chatr to determine the dependencies of
+   dynamically linked executables and shared libraries.  */
+#undef LDD_SUFFIX
+#undef PARSE_LDD_OUTPUT
+#undef HAS_INIT_SECTION
+#define HAS_INIT_SECTION 1
+#undef LD_INIT_SWITCH
+#define LD_INIT_SWITCH "+init"
+#undef LD_FINI_SWITCH
+#define LD_FINI_SWITCH "+fini"
+
+/* The HP-UX 11.X SOM linker (ld32) can successfully link shared libraries
+   with secondary definition (weak) symbols.  */
+#undef TARGET_SOM_SDEF
+#define TARGET_SOM_SDEF 1

@@ -6,10 +6,10 @@
 @c @cropmarks
 @c @finalout
 
-@macro copyrightnotice
+@copying
 @c man begin COPYRIGHT
 Copyright @copyright{} 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996,
-1997, 1998, 1999, 2000, 2001, 2002
+1997, 1998, 1999, 2000, 2001, 2002, 2003
 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
@@ -23,9 +23,7 @@ section entitled ``GNU Free Documentation License''.
 man page gfdl(7).
 @c man end
 @end ignore
-@end macro
 
-@macro covertexts
 @c man begin COPYRIGHT
 This manual contains no Invariant Sections.  The Front-Cover Texts are
 (a) (see below), and the Back-Cover Texts are (b) (see below).
@@ -40,7 +38,7 @@ This manual contains no Invariant Sections.  The Front-Cover Texts are
      software.  Copies published by the Free Software Foundation raise
      funds for GNU development.
 @c man end
-@end macro
+@end copying
 
 @macro gcctabopt{body}
 @code{\body\}
@@ -70,8 +68,7 @@ This manual contains no Invariant Sections.  The Front-Cover Texts are
 @c There is a fill at the bottom of the page, so we need a filll to
 @c override it.
 @vskip 0pt plus 1filll
-@copyrightnotice{}
-@covertexts{}
+@insertcopying
 @end titlepage
 @contents
 @page
@@ -180,8 +177,7 @@ Obsolete Features
 @end detailmenu
 @end menu
 
-@copyrightnotice{}
-@covertexts{}
+@insertcopying
 @end ifnottex
 
 @node Overview
@@ -381,8 +377,9 @@ comment.
 @end group
 @end example
 
-Comments are not recognized within string literals.  @t{@w{"/* blah
-*/"}} is the string constant @samp{@w{/* blah */}}, not an empty string.
+Comments are not recognized within string literals.  
+@t{@w{"/* blah */"}} is the string constant @samp{@w{/* blah */}}, not
+an empty string.
 
 Line comments are not in the 1989 edition of the C standard, but they
 are recognized by GCC as an extension.  In C++ and in the 1999 edition
@@ -1735,7 +1732,7 @@ predefined macros, but you cannot undefine them.
 @subsection Standard Predefined Macros
 @cindex standard predefined macros.
 
-The standard predefined macros are specified by the C and/or C++
+The standard predefined macros are specified by the relevant
 language standards, so they are available with all compilers that
 implement those standards.  Older compilers may not provide all of
 them.  Their names all start with double underscores.
@@ -1854,6 +1851,15 @@ of the 1998 C++ standard will define this macro to @code{199711L}.  The
 GNU C++ compiler is not yet fully conforming, so it uses @code{1}
 instead.  We hope to complete our implementation in the near future.
 
+@item __OBJC__
+This macro is defined, with value 1, when the Objective-C compiler is in
+use.  You can use @code{__OBJC__} to test whether a header is compiled
+by a C compiler or a Objective-C compiler.
+
+@item __ASSEMBLER__
+This macro is defined with value 1 when preprocessing assembly
+language.
+
 @end table
 
 @node Common Predefined Macros
@@ -1915,11 +1921,6 @@ calculate a single number, then compare that against a threshold:
 @noindent
 Many people find this form easier to understand.
 
-@item __OBJC__
-This macro is defined, with value 1, when the Objective-C compiler is in
-use.  You can use @code{__OBJC__} to test whether a header is compiled
-by a C compiler or a Objective-C compiler.
-
 @item __GNUG__
 The GNU C++ compiler defines this.  Testing it is equivalent to
 testing @code{@w{(__GNUC__ && __cplusplus)}}.
@@ -1943,6 +1944,9 @@ depth of nesting in include files.  The value of this macro is
 incremented on every @samp{#include} directive and decremented at the
 end of every included file.  It starts out at 0, it's value within the
 base file specified on the command line.
+
+@item __ELF__
+This macro is defined if the target uses the ELF object format.
 
 @item __VERSION__
 This macro expands to a string constant which describes the version of
@@ -2035,6 +2039,12 @@ This macro is defined, with value 1, if (and only if) the NeXT runtime
 (as in @option{-fnext-runtime}) is in use for Objective-C.  If the GNU
 runtime is used, this macro is not defined, so that you can use this
 macro to determine which runtime (NeXT or GNU) is being used.
+
+@item __LP64__
+@item _LP64
+These macros are defined, with value 1, if (and only if) the compilation
+is for a target where @code{long int} and pointer both use 64-bits and
+@code{int} uses 32-bit.
 @end table
 
 @node System-specific Predefined Macros
@@ -3779,7 +3789,7 @@ The standard requires at least 15 levels.
 The C standard mandates this be at least 63.  CPP is limited only by
 available memory.
 
-@item Levels of parenthesised expressions within a full expression.
+@item Levels of parenthesized expressions within a full expression.
 
 The C standard requires this to be at least 63.  In preprocessor
 conditional expressions, it is limited only by available memory.
@@ -3892,9 +3902,9 @@ answers.  Subsequent assertions do not override previous ones for the
 same predicate.  All the answers for any given predicate are
 simultaneously true.
 
-@cindex assertions, cancelling
+@cindex assertions, canceling
 @findex #unassert
-Assertions can be cancelled with the @samp{#unassert} directive.  It
+Assertions can be canceled with the @samp{#unassert} directive.  It
 has the same syntax as @samp{#assert}.  In that form it cancels only the
 answer which was specified on the @samp{#unassert} line; other answers
 for that predicate remain true.  You can cancel an entire predicate by
@@ -3978,7 +3988,7 @@ GCC 3.0 evaluates @samp{#} and @samp{##} at the same time and strictly
 left to right.  Older versions evaluated all @samp{#} operators first,
 then all @samp{##} operators, in an unreliable order.
 
-@item The form of whitespace betwen tokens in preprocessor output
+@item The form of whitespace between tokens in preprocessor output
 
 @xref{Preprocessor Output}, for the current textual format.  This is
 also the format used by stringification.  Normally, the preprocessor

@@ -74,7 +74,7 @@ public abstract class SocketImpl implements SocketOptions
   /**
    * The port number the socket is bound to locally
    */
-  protected int localport;
+  protected int localport = -1;
 
   /**
    * The port number of the remote end of the socket connection
@@ -271,8 +271,9 @@ public abstract class SocketImpl implements SocketOptions
    */
   public String toString()
   {
-    return "[addr=" + address.toString() + ",port=" + Integer.toString(port)
-      + ",localport=" + Integer.toString(localport) + "]";
+    return "[addr=" + address
+	    + ",port=" + port
+	    + ",localport=" + localport + "]";
   }
 
   /**

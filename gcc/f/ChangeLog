@@ -1,3 +1,176 @@
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-07-09  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR Fortran/11301
+	* com.c (ffecom_sym_transform_): finish_decl should have
+	the same last argument as start_decl.
+
+Tue Jul  8 15:18:14 2003  Andreas Schwab  <schwab@suse.de>
+
+	* Make-lang.in (f/g77.dvi): Replace PWD with PWD_COMMAND.
+
+2003-07-05  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR Fortran/11301
+	* com.c (ffecom_sym_transform_): Only install
+	FFEINFO_whereGLOBAL symbols in the global binding
+	level if not -fno-globals.
+
+2003-06-13  Richard Henderson  <rth@redhat.com>
+
+        PR debug/9864
+        * com.c (ffecom_sym_transform_): Install FFEINFO_whereGLOBAL
+        symbols in the global binding level.
+
+2003-05-18  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/10726
+	* intdoc.in: Fix documentation of IDATE.
+	* intdoc.texi: Regenerate.
+	* news.texi: Update due to the above.
+
+2003-05-16  Wolfgang Bangerth <bangerth@dealii.org>
+
+	* g77.texi: Remove most of the preface of the bugs section.
+
+2003-05-15  Wolfgang Bangerth <bangerth@dealii.org>
+
+	* g77.texi: Remove most of the bug reporting instructions and
+	merge them into bugs.html.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-04-11  Bud Davis <bdavis9659@comcast.net>
+
+	PR Fortran/9263
+	* gcc/f/data.c (ffedata_advance_): Check initial, final and
+	increment values for INTEGER typeness.
+	* gcc/f/news.texi: Document these fixes.
+
+2003-03-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/9793
+	* target.h (ffetarget_divide_integer1): Perform division by -1
+	using negation to prevent possible overflow trap on the host.
+
+2003-03-25  Marcelo Abreu  <mmabreu@inf.ufrgs.br>
+
+	PR fortran/10204
+	* ffe.texi: Reference the GCC web site in the URL.
+
+2003-03-24  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/10197
+	* news.texi: Document PR fortran/10197 fixed.
+
+Sun Mar 23 23:43:45 2003  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7086
+	* com.c (ffecom_sym_transform_): Adjust calls to
+	put_var_into_stack.
+	(ffe_mark_addressable): Likewise.
+
+2003-03-22  Bud Davis  <bdavis9659@comcast.net>
+
+	* com.c (ffecom_constantunion_with_type): New function.
+	* com.h (ffecom_constantunion_with_type): Declare.
+	* stc.c (ffestc_R810): Check for kind type.
+	* ste.c (ffeste_R810): Use ffecom_constantunion_with_type
+	to discern SELECT CASE variables.
+
+2003-03-15  Andreas Jaeger  <aj@suse.de>
+
+	* g77spec.c (DEFAULT_SWITCH_TAKES_ARG): Remove.
+	(DEFAULT_WORD_SWITCH_TAKES_ARG): Remove.
+
+2003-02-21  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Document fixing PR fortran/9038.
+
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* g77.texi, invoke.texi: Update to GFDL 1.2.
+
+2003-01-30  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Document fixing PR fortran/7681
+	and PR optimization/9258.
+
+2003-01-26  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* lang-specs.h: Revert change to solve 9038.
+	* news.texi: Document this.
+
+2003-01-26  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Make-lang.in (f77.install-common, f77.install-info)
+	(f77.install-man, f77.uninstall): Prepend $(DESTDIR) to
+	destination paths in all (un)installation commands.
+
+2003-01-05  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	PR Fortran/9038
+	* lang-specs.h: Prevent -f<option> from being passed
+	to cc1.
+	* news.texi: Document this fix.
+
+2003-01-03  Bud Davis <bdavis11@directvinternet.com>
+
+	* stc.c (ffestc_R810): Allow any kind integer in
+	case statements.
+	* ste.c (ffeste_R810): Give error message when
+	case selector exceeds its valid values.
+
+2003-01-01  Andreas Jaeger  <aj@suse.de>
+
+	* f/Make-lang.in ($(srcdir)/f/BUGS): Add include path for
+	gcc-common.texi.
+	($(srcdir)/f/NEWS): Likewise.
+
+2002-12-28  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* g77.texi: Use @copying.
+
+2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* root.texi: Include gcc-common.texi.
+	* bugs.texi, news.texi: Don't include root.texi as part of full
+	manual.
+	* g77.texi: Update for use of gcc-common.texi.
+	* Make-lang.in ($(srcdir)/f/g77.info, f/g77.dvi): Depend on
+	$(srcdir)/doc/include/gcc-common.texi.
+
+2002-12-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* intdoc.in: Fix typos.
+
+2002-12-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* g77.texi: Fix typos.
+	* intdoc.texi: Likewise.
+	* news.texi: Follow spelling conventions.
+
+Mon Dec 16 13:55:24 2002  Mark Mitchell  <mark@codesourcery.com>
+
+	* root.texi (DEVELOPMENT): @clear it.
+
 2002-11-20  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* invoke.texi: Explain the purpose of -fmove-all-movables,
@@ -31,7 +204,7 @@
 
 2002-10-15  Richard Henderson  <rth@redhat.com>
 
-	* target.h (ffetarget_print_real1, ffetarget_print_real2): Use 
+	* target.h (ffetarget_print_real1, ffetarget_print_real2): Use
 	real_to_decimal directly, and with the new arguments.
 
 2002-09-23  Zack Weinberg  <zack@codesourcery.com>

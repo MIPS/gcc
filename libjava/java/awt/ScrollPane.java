@@ -41,6 +41,8 @@ package java.awt;
 import java.awt.peer.ScrollPanePeer;
 import java.awt.peer.ContainerPeer;
 import java.awt.peer.ComponentPeer;
+import java.io.Serializable;
+import javax.accessibility.Accessible;
 
 /**
   * This widget provides a scrollable region that allows a single 
@@ -48,7 +50,7 @@ import java.awt.peer.ComponentPeer;
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
-public class ScrollPane extends Container implements java.io.Serializable
+public class ScrollPane extends Container implements Accessible, Serializable
 {
 
 /*
@@ -113,6 +115,8 @@ private Point scrollPosition = new Point(0, 0);
 /**
   * Initializes a new instance of <code>ScrollPane</code> with a default
   * scrollbar policy of <code>SCROLLBARS_AS_NEEDED</code>.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 ScrollPane()
@@ -128,10 +132,15 @@ ScrollPane()
   *
   * @param scrollbarDisplayPolicy When to display scrollbars, which must
   * be one of the constants defined in this class.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 ScrollPane(int scrollbarDisplayPolicy)
 {
+  if (GraphicsEnvironment.isHeadless ())
+    throw new HeadlessException ();
+
   this.scrollbarDisplayPolicy = scrollbarDisplayPolicy;
 
   if (scrollbarDisplayPolicy != SCROLLBARS_ALWAYS

@@ -685,17 +685,17 @@ __gnat_initialize ()
 #elif defined (__MINGW32__)
 #include <windows.h>
 
-static LONG __gnat_error_handler PARAMS ((PEXCEPTION_POINTERS));
+static LONG  CALLBACK __gnat_error_handler PARAMS ((PEXCEPTION_POINTERS));
 
 /* __gnat_initialize (mingw32).  */
 
-static LONG
+static LONG  CALLBACK
 __gnat_error_handler (info)
      PEXCEPTION_POINTERS info;
 {
   static int recurse;
   struct Exception_Data *exception;
-  char *msg;
+  const char *msg;
 
   switch (info->ExceptionRecord->ExceptionCode)
     {
@@ -1633,6 +1633,22 @@ __gnat_initialize ()
   intConnect (INUM_TO_IVEC (IV_TRAP_VEC), &__gnat_int_handler, IV_TRAP_VEC);
 #endif
 #endif
+}
+
+/***************************************/
+/* __gnat_initialize (RTEMS version) */
+/***************************************/
+
+#elif defined(__rtems__)
+
+extern void __gnat_install_handler ();
+
+/* For RTEMS, each bsp will provide a custom __gnat_install_handler (). */
+
+void
+__gnat_initialize ()
+{
+   __gnat_install_handler ();
 }
 
 #else

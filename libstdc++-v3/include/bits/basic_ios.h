@@ -1,6 +1,7 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003 
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -38,6 +39,8 @@
 #pragma GCC system_header
 
 #include <bits/streambuf_iterator.h>
+#include <bits/localefwd.h>
+#include <bits/locale_classes.h>
 #include <bits/locale_facets.h>
 
 namespace std 
@@ -78,6 +81,8 @@ namespace std
       typedef istreambuf_iterator<_CharT, _Traits>   __istreambuf_iter;
       typedef num_get<_CharT, __istreambuf_iter>     __numget_type;
       //@}
+
+      friend void ios_base::Init::_S_ios_create(bool);
       
       // Data members:
     protected:
@@ -415,7 +420,9 @@ namespace std
        *  @brief  All setup is performed here.
        *
        *  This is called from the public constructor.  It is not virtual and
-       *  cannot be redefined.
+       *  cannot be redefined.  The second argument, __cache, is used
+       *  to initialize the standard streams without allocating
+       *  memory.
       */
       void 
       init(basic_streambuf<_CharT, _Traits>* __sb);
@@ -429,7 +436,18 @@ namespace std
       }
 
       void
+      _M_cache_locale(const locale& __loc);
+
+#if 1
+      // XXX GLIBCXX_ABI Deprecated, compatibility only.
+      void
       _M_cache_facets(const locale& __loc);
+#endif
+ 
+       // Internal state setter that won't throw, only set the state bits.
+       // Used to guarantee we don't throw when setting badbit.
+       void
+       _M_setstate(iostate __state) { _M_streambuf_state |= __state; }
     };
 } // namespace std
 
