@@ -259,6 +259,8 @@ struct tree_common GTY(())
            INTEGER_TYPE, ENUMERAL_TYPE, FIELD_DECL
        SAVE_EXPR_NOPLACEHOLDER in
 	   SAVE_EXPR
+       FUNCTION_RECEIVES_NONLOCAL_GOTO in
+	   FUNCTION_DECL
 
    asm_written_flag:
 
@@ -665,8 +667,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
    when the node is a type).  */
 #define TREE_READONLY(NODE) ((NODE)->common.readonly_flag)
 
-#define FUNCTION_RECEIVES_NONLOCAL_GOTO(NODE) ((NODE)->common.readonly_flag)
-
 /* In a LABEL_DECL, nonzero means this label is a jump target for
    a nonlocal goto.  */
 #define NONLOCAL_LABEL(NODE) ((NODE)->common.readonly_flag)
@@ -683,6 +683,12 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* In INTEGER_TYPE or ENUMERAL_TYPE nodes, means an unsigned type.
    In FIELD_DECL nodes, means an unsigned bit field.  */
 #define TREE_UNSIGNED(NODE) ((NODE)->common.unsigned_flag)
+
+/* In FUNCTION_DECL nodes, means that this function contains a label that is
+   a target of a non-local goto.  */
+/* ??? Why isn't this in struct function?  */
+#define FUNCTION_RECEIVES_NONLOCAL_GOTO(NODE) \
+  ((NODE)->common.unsigned_flag)
 
 #define TYPE_TRAP_SIGNED(NODE) \
   (flag_trapv && ! TREE_UNSIGNED (TYPE_CHECK (NODE)))

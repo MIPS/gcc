@@ -1,3 +1,7 @@
+2004-01-03  Richard Henderson  <rth@redhat.com>
+
+	* tree.h (FUNCTION_RECEIVES_NONLOCAL_GOTO): Use unsigned_flag.
+
 2004-01-02  Jan Hubicka  <jh@suse.cz>
 
 	* c-decl.c (duplicate_decls):  Output DIE of extern inline function
