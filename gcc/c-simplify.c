@@ -60,6 +60,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static void simplify_stmt            PARAMS ((tree *));
 static void simplify_expr_stmt       PARAMS ((tree, tree *, tree *));
+static void maybe_fixup_loop_cond    PARAMS ((tree *, tree *, tree *, tree));
 static void simplify_for_stmt        PARAMS ((tree, tree *));
 static void simplify_while_stmt      PARAMS ((tree, tree *));
 static void simplify_do_stmt         PARAMS ((tree));
@@ -392,6 +393,81 @@ simplify_expr_stmt (stmt, pre_p, post_p)
                  fb_rvalue);
 }
 
+/* Given pointers to the condition and body of a for or while loop,
+   reorganize things so that the condition is just an expression.
+
+   COND_P and BODY_P are pointers to the condition and body of the loop.
+   PRE_P is a list to which we can add effects that need to happen before
+   the loop begins (i.e. as part of the for-init-stmt).
+   STMT is the loop statement in question, for passing to subroutines.  */
+
+static void
+maybe_fixup_loop_cond (cond_p, body_p, pre_p, stmt)
+     tree *cond_p;
+     tree *body_p;
+     tree *pre_p;
+     tree stmt;
+{
+  if (TREE_CODE (*cond_p) == TREE_LIST)
+    {
+      /* In C++ a condition can be a declaration; to express this,
+	 the FOR_COND is a TREE_LIST.  The TREE_PURPOSE contains the
+	 SCOPE_STMT and DECL_STMT, if any, and the TREE_VALUE contains
+	 the actual value to test.  We want to transform
+
+	   for (; T u = init; ) { ... }
+
+	 into
+
+	   for (tmp = 1; tmp; )
+	     { T u = init; tmp = u; if (tmp) { ... } }
+
+	 The wackiest part of this is handling the SCOPE_STMTs; at first,
+	 one is in the FOR_COND and the other is after the COMPOUND_STMT in
+	 the body.  We will use the same SCOPE_STMTs to wrap our new
+	 block.  */
+
+      tree scope = TREE_PURPOSE (*cond_p);
+      tree val = TREE_VALUE (*cond_p);
+
+      if (TREE_CODE (scope) != SCOPE_STMT)
+	abort ();
+      if (TREE_CHAIN (scope) == NULL_TREE)
+	{
+	  /* There isn't actually a decl.  Just move the SCOPE_STMT
+	     down into the FOR_BODY.  */
+	  *cond_p = val;
+	  TREE_CHAIN (scope) = *body_p;
+	}
+      else
+	{
+	  /* There is a decl.  Do the transformation described
+	     above.  */
+
+	  tree if_s, mod, close_scope;
+	  /* tmp = 1;  */
+	  *cond_p = get_initialized_tmp_var (boolean_true_node,
+					     pre_p, stmt);
+	  /* tmp = u; */
+	  mod = build_modify_expr (*cond_p, NOP_EXPR, val);
+	  mod = build_stmt (EXPR_STMT, mod);
+
+	  /* Separate the actual body block from the SCOPE_STMT.  */
+	  close_scope = TREE_CHAIN (*body_p);
+	  TREE_CHAIN (*body_p) = NULL_TREE;
+
+	  /* if (tmp) { ... } */
+	  if_s = build_nt (IF_STMT, *cond_p, *body_p, NULL_TREE);
+
+	  /* Finally, tack it all together.  */
+	  chainon (scope, mod);
+	  TREE_CHAIN (mod) = if_s;
+	  TREE_CHAIN (if_s) = close_scope;
+	}
+      *body_p = build_nt (COMPOUND_STMT, scope);
+    }
+}
+
 /** Simplify a FOR_STMT node.  This will convert:
 
     	for (init; cond; expr)
@@ -470,11 +546,6 @@ simplify_for_stmt (stmt, pre_p)
       return;
     }
 
-  /* Unshare the header expressions.  */
-  walk_tree (&init_s, mostly_copy_tree_r, NULL, NULL);
-  walk_tree (&cond_s, mostly_copy_tree_r, NULL, NULL);
-  walk_tree (&expr_s, mostly_copy_tree_r, NULL, NULL);
-
   pre_init_s = NULL_TREE;
   post_init_s = NULL_TREE;
   pre_cond_s = NULL_TREE;
@@ -498,13 +569,18 @@ simplify_for_stmt (stmt, pre_p)
 	    to emit PRE_INIT_S, INIT_S, POST_INIT_S and PRE_COND_S into a
 	    COMPOUND_EXPR inside FOR_INIT_STMT.  However, this is not
 	    possible if any of these elements contains statement trees.  */
+  walk_tree (&init_s, mostly_copy_tree_r, NULL, NULL);
   simplify_expr (&init_s, &pre_init_s, &post_init_s, is_simple_expr,
 		 stmt, fb_rvalue);
 
   /* Simplify FOR_COND.  */
   if (!cond_is_simple)
-    simplify_expr (&cond_s, &pre_cond_s, NULL, is_simple_condexpr,
-		   stmt, fb_rvalue);
+    {
+      maybe_fixup_loop_cond (&cond_s, &FOR_BODY (stmt), &post_init_s, stmt);
+      walk_tree (&cond_s, mostly_copy_tree_r, NULL, NULL);
+      simplify_expr (&cond_s, &pre_cond_s, NULL, is_simple_condexpr,
+		     stmt, fb_rvalue);
+    }
 
   /* Simplify the body of the loop.  */
   simplify_stmt (&FOR_BODY (stmt));
@@ -513,9 +589,11 @@ simplify_for_stmt (stmt, pre_p)
      it's converted into a simple_expr because we need to move it out of
      the loop header (see previous FIXME note for future enhancement).  */
   if (!expr_is_simple)
-    simplify_expr (&expr_s, &pre_expr_s, &post_expr_s, is_simple_expr,
-		   stmt, fb_rvalue);
-  
+    {
+      walk_tree (&expr_s, mostly_copy_tree_r, NULL, NULL);
+      simplify_expr (&expr_s, &pre_expr_s, &post_expr_s, is_simple_expr,
+		     stmt, fb_rvalue);
+    }  
 
   /* Now that all the components are simplified, we have to build a new
      loop with all the side-effects in the right spots:
@@ -661,31 +739,35 @@ simplify_while_stmt (stmt, pre_p)
      tree *pre_p;
 {
   tree cond_s, stmt_chain;
+  tree pre_cond_s = NULL_TREE;
 
+  cond_s = WHILE_COND (stmt);
+  maybe_fixup_loop_cond (&cond_s, &WHILE_BODY (stmt), pre_p, stmt);
+  
   /* Make sure that the loop body has a scope.  */
   tree_build_scope (&WHILE_BODY (stmt));
   
+  /* Simplify the body of the loop.  */
+  simplify_stmt (&WHILE_BODY (stmt)); 
+
   /* Check wether the loop condition is already simplified.  */
   if (is_simple_condexpr (WHILE_COND (stmt)))
     {
-      /* Nothing to do.  Simplify the body and return.  */
-      simplify_stmt (&WHILE_BODY (stmt)); 
+      /* Nothing to do.  */
       return;
     }
     
   /* Simplify the loop conditional.  */
-  cond_s = WHILE_COND (stmt);
   walk_tree (&cond_s, mostly_copy_tree_r, NULL, NULL);
-  simplify_expr (&cond_s, pre_p, NULL, is_simple_condexpr, stmt, fb_rvalue);
+  simplify_expr (&cond_s, &pre_cond_s, NULL, is_simple_condexpr,
+		 stmt, fb_rvalue);
   WHILE_COND (stmt) = cond_s;
-
-  /* Simplify the body of the loop.  */
-  simplify_stmt (&WHILE_BODY (stmt)); 
+  add_tree (pre_cond_s, pre_p);
 
   /* Insert all the side-effects for the conditional before every
      wrap-around point in the loop body (i.e., before every first-level
      CONTINUE and before the end of the body).  */
-  stmt_chain = convert_to_stmt_chain (deep_copy_list (*pre_p), stmt);
+  stmt_chain = convert_to_stmt_chain (deep_copy_list (pre_cond_s), stmt);
   insert_before_continue_end (stmt_chain, WHILE_BODY (stmt),
                               STMT_LINENO (stmt));
 }

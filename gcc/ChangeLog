@@ -1,5 +1,8 @@
 2002-06-18  Jason Merrill  <jason@redhat.com>
 
+	* c-simplify.c (maybe_fixup_loop_cond): New fn for C++ conditions.
+	(simplify_for_stmt, simplify_while_stmt): Use it.
+	
 	* c-pretty-print.c (dump_c_node) [COMPONENT_REF]: Print "->" if
 	appropriate.
 
