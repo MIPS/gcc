@@ -69,7 +69,7 @@ enum machine_mode ptr_mode;	/* Mode whose width is POINTER_SIZE.  */
 /* This is *not* reset after each function.  It gives each CODE_LABEL
    in the entire compilation a unique label number.  */
 
-static GTY(()) int label_num = 1;
+static GTY(()) int label_num;
 
 /* Highest label number in current function.
    Zero means use the value of label_num instead.
@@ -5305,6 +5305,12 @@ gen_rtx_CONST_VECTOR (enum machine_mode mode, rtvec v)
     if (RTVEC_ELT (v, i) != inner_zero)
       return gen_rtx_raw_CONST_VECTOR (mode, v);
   return CONST0_RTX (mode);
+}
+
+void
+init_emit_eachasm (void)
+{
+  label_num = 1;
 }
 
 /* Create some permanent unique rtl objects shared between all functions.

@@ -1,3 +1,14 @@
+2003-12-08  Per Bothner  <per@bothner.com>
+
+	Reset some counters etc so compile-server output matches normal case.
+	* emit-rtl.c (init_emit_eachasm):  New function.
+	(label_num):  Initialization is now done in init_emit_eachasm.
+	* rtl.h  (init_emit_eachasm):  New declaration.
+	* toplev.c (backend_init):  Call init_emit_eachasm.
+	* varasm.c (init_varasm_once):  (Re-)init in_section here.
+	(in_section):  Remove initialization.
+	* config/darwin.c (darwin_file_end):  Reset current_pic_label_num.
+
 2003-12-08  Per Bothner  <pbothner@apple.com>
 
 	* c-incpath.c (add_path):  Add final '/' if missing.

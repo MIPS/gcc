@@ -195,7 +195,7 @@ enum in_section { no_section, in_text, in_data, in_named
   , EXTRA_SECTIONS
 #endif
 };
-static GTY(()) enum in_section in_section = no_section;
+static GTY(()) enum in_section in_section;
 
 /* Return a nonzero value if DECL has a section attribute.  */
 #ifndef IN_NAMED_SECTION
@@ -4452,6 +4452,8 @@ init_varasm_once (void)
 
   const_alias_set = new_alias_set ();
   const_labelno = 0;
+
+  in_section = no_section;
 }
 
 enum tls_model

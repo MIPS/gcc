@@ -1361,6 +1361,7 @@ darwin_file_end ()
       destructor_section ();
       ASM_OUTPUT_ALIGN (asm_out_file, 1);
     }
+  current_pic_label_num = 0;
 }
 
 void (*darwin_register_frameworks_cb)(int);

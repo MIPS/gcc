@@ -2016,6 +2016,7 @@ extern int get_max_uid (void);
 extern int in_sequence_p (void);
 extern void force_next_line_note (void);
 extern void init_emit (void);
+extern void init_emit_eachasm (void);
 extern void init_emit_once (int);
 extern void push_topmost_sequence (void);
 extern void pop_topmost_sequence (void);

@@ -4267,6 +4267,7 @@ process_options (void)
 static void
 backend_init (void)
 {
+  init_emit_eachasm ();
   init_regs ();
   init_fake_stack_mems ();
   init_alias_once ();
