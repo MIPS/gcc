@@ -312,6 +312,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_tree_false
 #define TARGET_ALIGN_ANON_BITFIELD hook_bool_void_false
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE hook_constcharptr_tree_null
 
 #ifndef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS hook_void_void
@@ -429,6 +430,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
+  TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
   TARGET_INIT_LIBFUNCS,				\
   TARGET_SECTION_TYPE_FLAGS,			\
   TARGET_CANNOT_MODIFY_JUMPS_P,			\
