@@ -1,3 +1,20 @@
+2004-06-25  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(GtkComponentPeer): Revert previous patch from 2004-06-22.
+	(setVisible): Likewise.
+	(show): Likewise.
+	(hide): Likewise.
+	(getArgs): Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(property_notify_predicate): Likewise.
+	(find_layout): Likewise.
+	(connectJObject): Likewise.
+	(connectSignals): Likewise.
+	(moveLayout): Likewise.
+	(gtkLayoutSetVisible): Likewise.
+
 2004-06-24  Graydon Hoare  <graydon@redhat.com>
 
 	* Makefile.am
