@@ -1,10 +1,7 @@
 2003-06-05  Jason Merrill  <jason@redhat.com>
 
 	* stmt.c (asm_op_is_mem_input): New fn.
-	(resolve_asm_operand_names): Rename from resolve_operand_names.  No longer 
-	static.  Avoid needless copying.  Don't build array of constraints.
-	(expand_asm_operands): Build it here.
-	* tree.h: Declare new fns.
+	* tree.h: Declare it.
 	* gimplify.c (simplify_asm_expr): Call resolve_asm_operand_names.
 	Use is_simple_modify_expr_lhs for mem input ops.
 
@@ -50,12 +47,6 @@
 	(dump_tree_ssa_stats): Remove old UNSSA code.
 	(rewrite_stmt): Return 1 if stmt should be deleted. Remove old
 	UNSSA code.
-
-2003-06-04  Jason Merrill  <jason@redhat.com>
-
-	* stmt.c (expand_decl): Fix merge error: again, put artificial
-	vars into registers even when not optimizing, and don't mark the
-	regs as user vars.
 
 2003-06-03  Diego Novillo  <dnovillo@redhat.com>
 
