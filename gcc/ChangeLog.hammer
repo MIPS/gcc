@@ -1,3 +1,7 @@
+Tue Jan  7 18:19:28 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* convert.c (convert_to_real):  Do conversion of floor and friends.
+
 Tue Jan  7 18:03:29 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* builtins.c (DEF_BUILTIN): Accept 10 arguments.

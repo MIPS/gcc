@@ -30,7 +30,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "convert.h"
 #include "toplev.h"
 #include "langhooks.h"
-static tree strip_float_extensions PARAMS ((tree));
 
 /* Convert EXPR to some pointer or reference type TYPE.
 
@@ -73,7 +72,7 @@ convert_to_pointer (type, expr)
 }
 
 /* Avoid any floating point extensions from EXP.  */
-static tree
+tree
 strip_float_extensions (exp)
      tree exp;
 {
@@ -139,58 +138,54 @@ convert_to_real (type, expr)
 	      || TYPE_MODE (newtype) == TYPE_MODE (float_type_node)))
 	{
 	  tree arglist;
-	  if (TYPE_MODE (type) == TYPE_MODE (float_type_node))
-	    switch (fcode)
-	      {
-	      case BUILT_IN_SQRT:
-	      case BUILT_IN_SQRTL:
-		fcode = BUILT_IN_SQRTF;
-		break;
-	      case BUILT_IN_SIN:
-	      case BUILT_IN_SINL:
-		fcode = BUILT_IN_SINF;
-		break;
-	      case BUILT_IN_COS:
-	      case BUILT_IN_COSL:
-		fcode = BUILT_IN_COSF;
-		break;
-	      case BUILT_IN_EXP:
-	      case BUILT_IN_EXPL:
-		fcode = BUILT_IN_EXPF;
-		break;
-	      default:
-		abort ();
-	      }
-	  else
-	    switch (fcode)
-	      {
-	      case BUILT_IN_SQRT:
-	      case BUILT_IN_SQRTL:
-		fcode = BUILT_IN_SQRT;
-		break;
-	      case BUILT_IN_SIN:
-	      case BUILT_IN_SINL:
-		fcode = BUILT_IN_SIN;
-		break;
-	      case BUILT_IN_COS:
-	      case BUILT_IN_COSL:
-		fcode = BUILT_IN_COS;
-		break;
-	      case BUILT_IN_EXP:
-	      case BUILT_IN_EXPL:
-		fcode = BUILT_IN_EXP;
-		break;
-	      default:
-		abort ();
-	      }
+	  tree fn = mathfn_built_in (type, fcode);
 
-	  /* ??? Fortran frontend does not initialize built_in_decls.
-	     For some reason creating the decl using builtin_function does not
-	     work as it should.   */
-	  if (built_in_decls [fcode])
+	  if (fn)
 	    {
 	      arglist = build_tree_list (NULL_TREE, fold (convert_to_real (newtype, arg0)));
-	      expr = build_function_call_expr (built_in_decls [fcode], arglist);
+	      expr = build_function_call_expr (fn, arglist);
+	      if (newtype == type)
+		return expr;
+	    }
+	}
+    }
+  if (optimize
+      && (((fcode == BUILT_IN_FLOORL
+	   || fcode == BUILT_IN_CEILL
+	   || fcode == BUILT_IN_ROUND
+	   || fcode == BUILT_IN_TRUNC
+	   || fcode == BUILT_IN_NEARBYINT)
+	  && (TYPE_MODE (type) == TYPE_MODE (double_type_node)
+	      || TYPE_MODE (type) == TYPE_MODE (float_type_node)))
+	  || ((fcode == BUILT_IN_FLOOR
+	       || fcode == BUILT_IN_CEIL
+	       || fcode == BUILT_IN_ROUND
+	       || fcode == BUILT_IN_TRUNC
+	       || fcode == BUILT_IN_NEARBYINT)
+	      && (TYPE_MODE (type) == TYPE_MODE (float_type_node)))))
+    {
+      tree arg0 = strip_float_extensions (TREE_VALUE (TREE_OPERAND (expr, 1)));
+      tree newtype = type;
+
+      /* We have (outertype)sqrt((innertype)x).  Choose the smaller mode from
+	 the both as the safe type for operation.  */
+      if (TYPE_PRECISION (TREE_TYPE (arg0)) < TYPE_PRECISION (type) && 0)
+	newtype = TREE_TYPE (arg0);
+
+      /* Be curefull about integer to fp conversions.
+	 These may overflow still.  */
+      if (FLOAT_TYPE_P (TREE_TYPE (arg0))
+	  && TYPE_PRECISION (newtype) <= TYPE_PRECISION (itype)
+	  && (TYPE_MODE (newtype) == TYPE_MODE (double_type_node)
+	      || TYPE_MODE (newtype) == TYPE_MODE (float_type_node)))
+	{
+	  tree arglist;
+	  tree fn = mathfn_built_in (type, fcode);
+
+	  if (fn)
+	    {
+	      arglist = build_tree_list (NULL_TREE, fold (convert_to_real (newtype, arg0)));
+	      expr = build_function_call_expr (fn, arglist);
 	      if (newtype == type)
 		return expr;
 	    }
