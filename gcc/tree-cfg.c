@@ -3017,12 +3017,16 @@ tree_verify_flow_info (void)
 		err = 1;
 	      }
 	    if (!has_label_p (true_edge->dest,
-			      GOTO_DESTINATION (COND_EXPR_THEN (stmt)))
-		|| !has_label_p (false_edge->dest,
-				 GOTO_DESTINATION (COND_EXPR_ELSE (stmt))))
+			      GOTO_DESTINATION (COND_EXPR_THEN (stmt))))
 	      {
-		error ("Label %s does not match edge at end of bb %d\n",
-		       IDENTIFIER_POINTER (DECL_NAME (stmt)),
+		error ("`then' label does not match edge at end of bb %d\n",
+		       bb->index);
+		err = 1;
+	      }
+	    if (!has_label_p (false_edge->dest,
+			      GOTO_DESTINATION (COND_EXPR_ELSE (stmt))))
+	      {
+		error ("`else' label does not match edge at end of bb %d\n",
 		       bb->index);
 		err = 1;
 	      }

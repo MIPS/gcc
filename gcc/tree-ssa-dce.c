@@ -1,8 +1,8 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002 Free Software Foundation, Inc.
-   Contributed by Ben Elliston <bje@redhat.com> and Andrew MacLeod 
-   <amacleod@redhat.com>
-   
+   Copyright (C) 2002, 2004, 2004 Free Software Foundation, Inc.
+   Contributed by Ben Elliston <bje@redhat.com>
+   and Andrew MacLeod <amacleod@redhat.com>
+ 
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
@@ -93,7 +93,7 @@ static void remove_dead_phis (basic_block);
 
 #define NECESSARY(stmt)	   stmt->common.asm_written_flag
 
-/* vector indicating an SSA name has already been processed and marked 
+/* vector indicating an SSA name has already been processed and marked
    as necessary.  */
 static sbitmap processed;
 
@@ -118,10 +118,10 @@ mark_necessary (tree def, tree stmt)
 {
   int ver;
 #ifdef ENABLE_CHECKING
-  if ((def == NULL && stmt == NULL) || stmt == error_mark_node 
+  if ((def == NULL && stmt == NULL) || stmt == error_mark_node
       || (stmt && DECL_P (stmt)))
     abort ();
-#endif 
+#endif
 
   if (def)
     {
@@ -132,7 +132,7 @@ mark_necessary (tree def, tree stmt)
       if (!stmt)
 	stmt = SSA_NAME_DEF_STMT (def);
     }
-  
+
   if (necessary_p (stmt))
     return;
 
@@ -146,7 +146,6 @@ mark_necessary (tree def, tree stmt)
   NECESSARY (stmt) = 1;
   VARRAY_PUSH_TREE (worklist, stmt);
 }
-
 
 
 /* Print out removed statement statistics.  */
@@ -190,7 +189,7 @@ need_to_preserve_store (tree var)
   /* Store to global variables must be preserved.  */
   if (decl_function_context (base_symbol) != current_function_decl)
     return true;
-  
+
   /* Static locals must be preserved as well.  */
   if (TREE_STATIC (base_symbol))
     return true;
@@ -218,7 +217,7 @@ find_useful_stmts (void)
 
       /* Check any PHI nodes in the block.  */
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-        {
+	{
 	  clear_necessary (phi);
 	  if (need_to_preserve_store (PHI_RESULT (phi)))
 	    mark_necessary (PHI_RESULT (phi), phi);
@@ -235,6 +234,7 @@ find_useful_stmts (void)
 	}
     }
 }
+
 
 /* Return true if STMT is necessary.  */
 

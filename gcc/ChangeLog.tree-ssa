@@ -1,3 +1,10 @@
+2004-01-05  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-ssa-dce.c: Clean up whitespace.
+
+	* tree-cfg.c (tree_verify_flow_info): Fix complaint about
+	missing or wrong labels in the targets of a conditional branch.
+
 2004-01-05  Richard Henderson  <rth@redhat.com>
 
 	* tree-ssa-dom.c (record_equivalences_from_incoming_edge): Check
