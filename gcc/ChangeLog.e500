@@ -1,5 +1,9 @@
 2003-06-12  Aldy Hernandez  <aldyh@redhat.com>
 
+        * config/rs6000/rs6000.h (MODES_TIEABLE_P): Add SPE vectors.
+
+2003-06-12  Aldy Hernandez  <aldyh@redhat.com>
+
         * config/rs6000/spe.md: Change all clobbers of the accumulator to sets.
 
 2003-05-09  Matt Kraai <kraai@alumni.cmu.edu>
