@@ -198,9 +198,6 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 #
 # Other keywords: "Build don't link:", "Build don't run:".
 
-    # FIXME: none of the current test cases use this, so It's not implemented
-    # set tmp [grep $prog "remove -sanitize"]
-
     set name "[file tail [file dirname $prog]]/[file tail $prog]"
 
     set tmp [grep $prog "FIXME -.*"]
@@ -230,7 +227,8 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 
     lappend cflags "compiler=$compiler"
 
-    set output "$tmpdir/a.out"
+    regsub -all "\[./\]" "$name" "-" output;
+    set output "$tmpdir/$output";
     set compile_type "executable"
 
     set tmp [lindex [grep $prog "Build don.t link:"] 0]
@@ -360,9 +358,15 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	set message [concat $message $tmp]
     }
 
-    set tmp [process-option $prog "execution test fails" "an execution failure" EXEC $text]
+    set tmp [process-option $prog "execution test fails" "an execution failure" EXECO $text]
     if ![string match "" $tmp] then {
 	set execbug_flag 1
+	set message [concat $message $tmp]
+	warning "please use execution test - XFAIL *-*-* in $prog instead"
+    }
+
+    set tmp [process-option $prog "execution test - " "an excess error failure" EXEC $text]
+    if ![string match "" $tmp] then {
 	set message [concat $message $tmp]
     }
 
@@ -405,6 +409,7 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
     #send_user "\nold_dejagnu.exp: message = :$message:\n\n"
     #send_user "\nold_dejagnu.exp: message length = [llength $message]\n\n"
 
+    set last_line 0
     foreach i $message {
 
 	#send_user "\nold_dejagnu.exp: i = :$i:\n\n"
@@ -413,7 +418,21 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	# in the source file.  If we find any, success!
 	set line [lindex $i 0]
 	set pattern [lindex $i 2]
-	if [regsub -all "(^|\n)\[^\n\]+:$line:\[^\n\]*" $comp_output "" comp_output] then {
+
+	# Multiple tests one one line don't work, because we remove all 
+	# messages on the line for the first test.  So skip later ones.
+	if { $line == $last_line } {
+	    continue
+	}
+	set last_line $line
+
+	# If we crashed on this line, all tests fail.
+	if [regexp "(^|\n)\[^\n\]+:$line: Internal compiler error\[^\n\]*" $comp_output ] {
+	    regsub -all "(^|\n)\[^\n\]+:$line:\[^\n\]*" $comp_output "" comp_output
+            set comp_output [string trimleft $comp_output]
+	    set ok fail
+	    set uhoh fail
+	} elseif [regsub -all "(^|\n)\[^\n\]+:$line:\[^\n\]*" $comp_output "" comp_output] {
             set comp_output [string trimleft $comp_output]
 	    set ok pass
 	    set uhoh fail
@@ -471,7 +490,9 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	    "XBADASM" {
 		x$uhoh "$name $pattern (test for bad assembler, line $line)"
 	    }
-	    "XEXEC" { }
+	    "XEXEC" {
+		set execbug_flag 1
+	    }
 	    "XEXCESS" {
 		set excessbug_flag 1
 	    }
@@ -483,6 +504,8 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
     #look to see if this is all thats left, if so, all messages have been handled
     #send_user "comp_output: $comp_output\n"
     regsub -all "(^|\n)\[^\n\]*: In (function|method) \[^\n\]*" $comp_output "" comp_output
+    regsub -all "(^|\n)\[^\n\]*: In instantiation of \[^\n\]*" $comp_output "" comp_output
+    regsub -all "(^|\n)\[^\n\]*:   instantiated from \[^\n\]*" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*: At top level:\[^\n\]*" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*file path prefix \[^\n\]* never used" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*linker input file unused since linking not done" $comp_output "" comp_output
@@ -522,7 +545,9 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	    set result [eval [format "%s_load %s" $tool $executable]]
 	    set status [lindex $result 0];
 	    set output [lindex $result 1];
-	    remote_file build delete $executable;
+	    if { $status == "pass" } {
+		remote_file build delete $executable;
+	    }
 	    if { $execbug_flag || $excessbug_flag } then {
 		setup_xfail "*-*-*"
 	    }

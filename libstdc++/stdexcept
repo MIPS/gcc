@@ -1,0 +1,8 @@
+#ifdef __HONOR_STD
+namespace std {
+#endif
+
+#ifdef __HONOR_STD
+} // namespace std
+#endif
+ 

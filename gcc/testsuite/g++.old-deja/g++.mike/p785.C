@@ -30,9 +30,6 @@
 //
 // See also "sumachine.h"
 //
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
 //
 // This file is expected to be included as the first #include file in
 // all .cc files This file should be included in each and every src file
@@ -1767,9 +1764,6 @@ extern "C" {
  *    CPU_TYPE		- the architecture (e.g. 68K)
  *    CPU_MODEL		- the architecture instance (e.g. 68010)
  *
- *    $Revision: 1.8 $
- *    $Date: 1995/05/07 18:57:48 $
- *    $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
  *
  *    This file should be #included as the 1st line of each and every .c file
  *
@@ -3163,10 +3157,6 @@ extern int           sigvec(int sig, struct sigvec* v, struct sigvec* prev);
 // Wendell Baker, Berkeley CAD Group, 1991 (wbaker@ic.Berkeley.EDU)
 //
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 // Make sure that we get all of the inline functions too but prevent duplicate
 // definition warnings.
@@ -3216,10 +3206,6 @@ extern int           sigvec(int sig, struct sigvec* v, struct sigvec* prev);
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "../../../../mips/include/Gct/Reference/GctReferenceCount.h" 1
 // -*- C++ -*-
@@ -3241,12 +3227,8 @@ extern int           sigvec(int sig, struct sigvec* v, struct sigvec* prev);
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
-#include <bool.h>
+
 
 //# 25 "../../../../mips/include/Gct/Reference/GctReferenceCount.h" 2
 
@@ -3271,10 +3253,6 @@ extern int           sigvec(int sig, struct sigvec* v, struct sigvec* prev);
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "/projects/gnu-cygnus/gnu-cygnus-8/common/g++-include/bool.h" 1
 
@@ -5211,10 +5189,6 @@ inline SubString String::_substr(int first, int l)
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 extern "C" {
 //# 1 "/sandbox/wbaker/wbaker0/source/mips/include/stuff.h" 1
@@ -5226,10 +5200,6 @@ extern "C" {
  */
 
 /*
- * $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
- * $Revision: 1.8 $
- * $Author: jason $
- * $Date: 1995/05/07 18:57:48 $
  */
 
 //# 1 "/sandbox/wbaker/wbaker0/source/mips/include/ansi.h" 1
@@ -5255,10 +5225,6 @@ extern "C" {
  */
 
 /*
- * $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
- * $Author: jason $
- * $Revision: 1.8 $
- * $Date: 1995/05/07 18:57:48 $
  *
  * Modifications
  * Wendell C Baker
@@ -5442,10 +5408,6 @@ extern ostream& operator<<(ostream&, bool);
 // Wendell Baker, Berkeley CAD Group, 1991 (wbaker@ic.Berkeley.EDU)
 //
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //
 // unit enum
@@ -5596,10 +5558,6 @@ extern void preserve_File_error_handler(const char *message);
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "/projects/gnu-cygnus/gnu-cygnus-8/common/g++-include/strstream.h" 1
 //    This is part of the iostream library, providing input/output for C++.
@@ -5739,10 +5697,6 @@ public:
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "/sandbox/wbaker/wbaker0/source/mips/include/tostrstream.h" 1
 // -*- C++ -*-
@@ -5771,10 +5725,6 @@ public:
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "/projects/gnu-cygnus/gnu-cygnus-8/common/g++-include/bool.h" 1
 
@@ -5820,7 +5770,7 @@ public:
     //
     // Error messages
     //     - an unacceptable, but expected and recoverable condition
-    //       was was detected (but the test fails)
+    //       was detected (but the test fails)
     //     - errors are for ``the expected environment was not found''
     //       rather than for ``file couldn't be opened''
     //     - these messages cannot be shut off
@@ -6050,7 +6000,7 @@ public:
     //
     // Error messages
     //     - an unacceptable, but expected and recoverable
-    //       condition was was detected
+    //       condition was detected
     //     - errors are for ``the expected environment was not found''
     //       rather than for ``file couldn't be opened''
     //     - these messages cannot be shut off
@@ -6207,10 +6157,6 @@ GctReferenceCount::zero() const
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "/projects/gnu-cygnus/gnu-cygnus-8/common/g++-include/bool.h" 1
 
@@ -6243,10 +6189,6 @@ GctReferenceCount::zero() const
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "../../../../mips/include/Gct/Object/GctObject.h" 1
 // -*- C++ -*-
@@ -6268,10 +6210,6 @@ GctReferenceCount::zero() const
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "/sandbox/wbaker/wbaker0/source/mips/include/tostrstream.h" 1
 // -*- C++ -*-
@@ -6508,10 +6446,6 @@ private:
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "/projects/gnu-cygnus/gnu-cygnus-8/common/g++-include/bool.h" 1
 
@@ -6631,10 +6565,6 @@ extern unsigned hash(GctRef&);
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "../../../../mips/include/Gct/Reference.h" 1
 // -*- C++ -*-
@@ -6654,10 +6584,6 @@ extern unsigned hash(GctRef&);
 // Wendell Baker, Berkeley CAD Group, 1992 (wbaker@ic.Berkeley.EDU)
 //
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //
 // GctAstType enum
@@ -6747,10 +6673,6 @@ protected:
 //#pragma interface
 
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //# 1 "../../../../mips/include/Gct/Reference.h" 1
 // -*- C++ -*-
@@ -6770,10 +6692,6 @@ protected:
 // Wendell Baker, Berkeley CAD Group, 1991 (wbaker@ic.Berkeley.EDU)
 //
 
-// $Source: /cvs/cvsfiles/devo/gcc/testsuite/g++.old-deja/g++.mike/p785.C,v $
-// $Author: jason $
-// $Revision: 1.8 $
-// $Date: 1995/05/07 18:57:48 $
 
 //
 // GctNameType enum
