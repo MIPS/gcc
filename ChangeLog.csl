@@ -1,3 +1,14 @@
+2004-10-25  Mark Mitchell <mark@codesourcery.com>
+
+	* gcc/crtstuff.c (IN_LIBGCC2): Define it.
+	(EH_FRAME_SECTION_CONST): Check EH_TABLES_CAN_BE_READ_ONLY
+	instead of HAVE_LD_RO_RW_SECTION_MIXING.
+	* gcc/defaults.h (EH_TABLES_CAN_BE_READ_ONLY): New macro.
+	* gcc/dwarf2out.c (named_section_eh_frame_section): Check
+	EH_TABLES_CANBE_READ_ONLY.
+	* gcc/except.c (default_exception_section): Likewise.
+	* gcc/config/i386/sol2.h (EH_TABLES_CAN_BE_READ_ONLY): Define.
+	
 2004-10-14  Mark Mitchell <mark@codesourcery.com>
 
 	* gcc/config/t-slibgcc-sld (SHLIB_LINK): Make symlinks entirely
