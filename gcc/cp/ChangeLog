@@ -1,3 +1,8 @@
+2003-08-21  Mike Stump  <mrs@apple.com>
+
+	* lex.c (init_cxx_once): Move pop_srcloc to here...
+	(init_cxx_eachsrc): from here.
+
 2003-08-15  Per Bothner  <pbothner@apple.com>
 
 	* cp-lang.c (LANG_HOOKS_INIT_ONCE):  New book definition.

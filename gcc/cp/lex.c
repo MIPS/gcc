@@ -442,6 +442,8 @@ init_cxx_once (void)
       cb_exit_fragment (parse_in, builtins_fragment);
       parse_in->current_fragment = NULL;
     }
+
+  pop_srcloc ();
 }
 
 int
@@ -471,13 +473,11 @@ init_cxx_eachsrc (void)
 
   if (init_c_common_eachsrc () == false)
     {
-      pop_srcloc();
       return false;
     }
 
   init_repo (main_input_filename);
 
-  pop_srcloc();
   return true;
 }
 
