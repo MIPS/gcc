@@ -4366,17 +4366,22 @@ find_decl_and_mark_needed (tree decl, tree target)
   struct cgraph_node *fnode = NULL;
   struct cgraph_varpool_node *vnode = NULL;
 
-  if (TREE_CODE (decl) == FUNCTION_DECL)
+  /* C++ thunk emitting code produces aliases late in the game.
+     Avoid confusing cgraph code in that case.  */
+  if (!cgraph_global_info_ready)
     {
-      fnode = cgraph_node_for_asm (target);
-      if (fnode == NULL)
-	vnode = cgraph_varpool_node_for_asm (target);
-    }
-  else
-    {
-      vnode = cgraph_varpool_node_for_asm (target);
-      if (vnode == NULL)
-	fnode = cgraph_node_for_asm (target);
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  fnode = cgraph_node_for_asm (target);
+	  if (fnode == NULL)
+	    vnode = cgraph_varpool_node_for_asm (target);
+	}
+      else
+	{
+	  vnode = cgraph_varpool_node_for_asm (target);
+	  if (vnode == NULL)
+	    fnode = cgraph_node_for_asm (target);
+	}
     }
 
   if (fnode)
@@ -4393,8 +4398,12 @@ find_decl_and_mark_needed (tree decl, tree target)
     return NULL_TREE;
 }
 
+/* Output the assembler code for a define (equate) using ASM_OUTPUT_DEF
+   or ASM_OUTPUT_DEF_FROM_DECLS.  The function defines the symbol whose
+   tree node is DECL to have the value of the tree node TARGET.  */
+
 static void
-do_assemble_alias (tree decl, tree target)
+do_assemble_alias (tree decl, tree target ATTRIBUTE_UNUSED)
 {
   TREE_ASM_WRITTEN (decl) = 1;
   TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)) = 1;

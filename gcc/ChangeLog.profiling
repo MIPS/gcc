@@ -1,3 +1,7 @@
+2005-03-21  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20050321)
+
 2005-03-21  Razya Ladelsky  <razya@il.ibm.com>
 
         * cgraphunit.c (cgraph_function_versioning): assign proper values to the 

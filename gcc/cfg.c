@@ -909,7 +909,6 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
 {
   int i;
   edge e;
-
   for (i = 0; i < nbbs; i++)
     {
       edge_iterator ei;

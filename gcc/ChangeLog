@@ -1,3 +1,511 @@
+2005-03-21  Richard Sandiford  <rsandifo@redhat.com>
+
+	* libgcc2.h (LIBGCC2_HAS_SF_MODE): New macro.
+	(LIBGCC2_HAS_DF_MODE, LIBGCC2_HAS_TF_MODE, LIBGCC2_HAS_XF_MODE): Make
+	the defaults false if BITS_PER_UNIT != 8.
+	(SFtype, SCtype, __fixsfdi, __floatdisf, __fixunssfSI, __fixunssfDI)
+	(__powisf2, __divsc3, __mulsc3): Guard with LIBGCC2_HAS_SF_MODE rather
+	than BITS_PER_UNIT != 8.
+	(L_fixdfdi, L_fixsfdi, L_fixtfdi, L_fixunsdfdi, L_fixunsdfsi)
+	(L_fixunssfdi, L_fixunssfsi, L_fixunstfdi, L_fixunsxfdi, L_fixunsxfsi)
+	(L_fixxfdi, L_floatdidf, L_floatdisf, L_floatditf, L_floatdixf): Remove
+	#undefs.
+	* libgcc2.c (__fixunssfDI, __fixsfdi, __floatdisf, __fixunssfSI)
+	(__powisf2, __divsc3, __mulsc3): Guard with LIBGCC2_HAS_SF_MODE.
+
+2005-03-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/20539
+	* fold-const.c (fold_binary): Fix type mismatch between
+	TRUTH_{AND,OR,XOR}_EXPR nodes an their operands' types.
+	(fold_binary) <TRUTH_XOR_EXPR>: Avoid calling invert_truthvalue
+	for non-truth-valued expressions.
+
+	* c-common.c (c_common_truthvalue_conversion): Handle ERROR_MARK
+	and FUNCTION_DECL in the main switch.
+	<TRUTH_ANDIF_EXPR, TRUTH_ORIF_EXPR, TRUTH_AND_EXPR, TRUTH_OR_EXPR,
+	TRUTH_XOR_EXPR>: When changing the result type of these tree nodes,
+	we also need to convert their operands to match.
+	<TRUTH_NOT_EXPR>: Likewise.
+
+2005-03-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-common.c (lvalue_or_else): Replace by lvalue_error; only give
+	diagnostic without checking whether an lvalue.
+	* c-common.h (lvalue_p): Remove.
+	(enum lvalue_use): Update comment.
+	(lvalue_or_else): Replace by lvalue_error.
+	* c-typeck.c (lvalue_p): Make static.
+	(lvalue_or_else): New.  Call lvalue_error.
+
+2005-03-21  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_parm_start): New function.
+	(function_arg_advance): Use rs6000_parm_start.
+	(function_arg, rs6000_arg_partial_bytes): Likewise.
+
+2005-03-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-common.c (check_case_value): Adjust comment about stripping
+	NOPs.
+	(handle_vector_size_attribute): Don't strip NON_LVALUE_EXPR.
+	* c-typeck.c (default_conversion, convert_arguments,
+	build_modify_expr, convert_for_assignment, store_init_value,
+	digest_init): Use STRIP_TYPE_NOPS instead of stripping nops
+	manually.  Remove inaccurate comments.
+
+2005-03-20  Roger Sayle  <roger@eyesopen.com>
+	    Joseph S. Myers  <joseph@codesourcery.com>
+
+	* varasm.c (do_assemble_alias): Restore comment describing function.
+	Annotate the target parameter as potentially unused.
+
+2005-03-20  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	PR target/18551
+	* config/avr/avr.c (avr_output_function_prologue): Do not use
+	current_function_name() in a label, use a local label instead.
+
+2005-03-20  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_generate_compare): Test
+	flag_finite_math_only, not flag_unsafe_math_optimizations.
+
+2005-03-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* builtins.c (fold_builtin_1): Update a call to
+	targetm.fold_builtin.
+	* hooks.c (hook_tree_tree_bool_null): Rename to
+	hook_tree_tree_tree_bool_null.  Take one more argument of type
+	tree.
+	* hooks.h: Update the prototype of hook_tree_tree_bool_null.
+	* target-def.h (TARGET_FOLD_BUILTIN): Define it as
+	hook_tree_tree_tree_bool_null.
+	* target.h (gcc_target): Update the prototype of fold_builtin.
+	* config/alpha/alpha.c (alpha_fold_builtin): Take decomposed
+	arguments of CALL_EXPR.
+	* doc/tm.texi (TARGET_FOLD_BUILTIN): Update.  Mention the
+	new prototype.
+
+2005-03-20  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_node): Add prev_clone pointer.
+	* cgraph.c (cgraph_remove_node): Remove from doubly linked chain.
+	(cgraph_clone_node): Produce doubly linked chain.
+
+2005-03-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-common.c (handle_aligned_attribute, check_function_sentinel,
+	get_nonnull_operand, handle_sentinel_attribute,
+	check_function_arguments_recurse): Do not strip NOPS from
+	INTEGER_CSTs.
+	* c-decl.c (check_bitfield_type_and_width, build_enumerator):
+	Likewise.
+	* c-format.c (get_constant): Likewise.
+	* c-parser.c (c_parser_postfix_expression): Likewise.
+	* c-typeck.c (set_init_index): Likewise.
+	(convert_arguments): Don't check for NOP_EXPR containing integer
+	constant.
+
+2005-03-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* builtins.c (fold_fixed_mathfn, fold_builtin_trunc,
+	fold_builtin_floor, fold_builtin_ceil, fold_builtin_lround):
+	Take decomposed arguments of CALL_EXPR.
+	(fold_builtin_1): Update calls to the functions mentioned
+	above.
+
+2005-03-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (check_bitfield_type_and_width): Require bit-field
+	width to have integer type.
+	(build_enumerator): Require enumerator value to have integer type.
+
+2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* doc/extend.texi (__builtin_inf): Move statement about INFINITY
+	to __builtin_inff.
+
+2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c.opt (ansi, std=iso9899:1990, std=iso9899:1999,
+	std=iso9899:199x): Correct descriptions.
+
+2005-03-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config.gcc: Consistently use solaris2.1[0-9]* instead of
+	solaris2.1[0-9].
+
+2005-03-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* builtins.c (fold_builtin_memcpy): Take decomposed arguments
+	of CALL_EXPR.
+	(expand_builtin_memcpy, fold_builtin_1): Update calls to
+	fold_builtin_memcpy.
+
+	* builtins.c (fold_trunc_transparent_mathfn): Take decomposed
+	arguments of CALL_EXPR.
+	(fold_builtin_trunc, fold_builtin_floor, fold_builtin_ceil,
+	fold_builtin_found, fold_builtin_1): Update calls to
+	fold_trunc_transparent_mathfn.
+
+2005-03-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/20493
+	* fold-const.c (fold_widened_comparison): Don't optimize casts of
+	function pointers on targets that require function pointer
+	canonicalization.
+	(fold_sign_changed_comparison): Likewise.
+
+2005-03-19  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* combine.c (try_combine): When changing the mode of a hard reg, make
+	sure that doing so is valid.
+
+2005-03-19  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/avr/avr.c (avr_init_stack, avr_mcu_name): Make static.
+	(TARGET_HANDLE_OPTION): Override default.
+	(avr_handle_option): New function.
+	* config/avr/avr.h (MASK_ALL_DEBUG, MASK_ORDER_1, MASK_INSN_SIZE_DUMP)
+	(MASK_ORDER_2, MASK_NO_TABLEJUMP, MASK_INT8, MASK_NO_INTERRUPTS)
+	(MASK_CALL_PROLOGUES, MASK_TINY_STACK, MASK_SHORT_CALLS)
+	(TARGET_ORDER_1, TARGET_ORDER_2, TARGET_INT8, TARGET_NO_INTERRUPTS)
+	(TARGET_INSN_SIZE_DUMP, TARGET_CALL_PROLOGUES, TARGET_TINY_STACK)
+	(TARGET_NO_TABLEJUMP, TARGET_SHORT_CALLS, TARGET_ALL_DEBUG)
+	(TARGET_SWITCHES, avr_init_stack, avr_mcu_name)
+	(TARGET_OPTIONS): Delete.
+	* config/avr/avr.opt: New file.
+
+2005-03-18  James E Wilson  <wilson@specifixinc.com>
+
+	PR c++/19769
+	* dwarf2out.c (declare_in_namespace): Ignore decls with an abstract
+	origin.
+
+2005-03-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/mn10300/mn10300-protos.h: Remove the prototypes for
+	call_address_operand, const_8bit_operand.
+	* config/mn10300/mn10300.c (call_address_operand,
+	const_8bit_operand, const_1f_operand): Move to predicates.md.
+	* config/mn10300/mn10300.h (PREDICATE_CODES): Remove.
+	* config/mn10300/mn10300.md: Include predicates.md.
+	* config/mn10300/predicates.md: New.
+
+2005-03-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* c-common.c, c-decl.c, c-format.c, c-typeck.c: Use %D for
+	declarations in diagnostics and %E for identifiers, not %s.
+
+2005-03-18  Jan Hubicka  <jh@suse.cz>
+	    Dale Johannesen  <dalej@apple.com>
+
+	* basic-block.h (scale_bbs_frequencies_int,
+	scale_bbs_frequencies_gcov_type): Declare.
+	* cfg.c (RDIV): New macro.
+	(update_bb_frequency_for_threading): Fix.
+	* basic-block.h (scale_bbs_frequencies_int,
+	scale_bbs_frequencies_gcov_type): New.
+	* cfgloopmanip.c (scale_bbs_frequencies): Kill.
+	(scale_loop_frequencies, duplicate_loop_to_header_edge): Use
+	scale_bbs_frequencies_int.
+	* tree-ssa-loop-ch.c (copy_loop_headers): Fix profiling info.
+
+2005-03-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/m32r/m32r-protos.h: Remove the prototypes for
+	call_address_operand, symbolic_operand, seth_add3_operand,
+	cmp_int16_operand, uint16_operand, reg_or_int16_operand,
+	reg_or_uint16_operand, reg_or_cmp_int16_operand,
+	two_insn_const_operand, move_src_operand,
+	move_double_src_operand, move_dest_operand,
+	eqne_comparison_operator, signed_comparison_operator,
+	large_insn_p, conditional_move_operand, carry_compare_operand,
+	m32r_block_immediate_operand, extend_operand,
+	reg_or_eq_int16_operand, int8_operand, and
+	reg_or_zero_operand.
+	* config/m32r/m32r.c (call_address_operand, symbolic_operand,
+	seth_add3_operand, int8_operand, cmp_int16_operand,
+	uint16_operand, reg_or_int16_operand, reg_or_uint16_operand,
+	reg_or_eq_int16_operand, reg_or_cmp_int16_operand,
+	reg_or_zero_operand, two_insn_const_operand, move_src_operand,
+	move_double_src_operand, move_dest_operand,
+	eqne_comparison_operator, signed_comparison_operator,
+	extend_operand, small_insn_p, large_insn_p,
+	conditional_move_operand, carry_compare_operand,
+	m32r_block_immediate_operand): Move to predicates.md.
+	(MAX_MOVE_BYTES): Move to m32r.h.
+	* config/m32r/m32r.h (PREDICATE_CODES): Remove.
+	* config/m32r/m32r.md: Include predicates.md.
+	* config/m32r/predicates.md: New.
+
+	* config/pa/pa-protos.h: Add prototypes for magic_milli and
+	shadd_constant_p.
+	* config/pa/pa.c (reg_or_0_operand, call_operand_address,
+	symbolic_operand, symbolic_memory_operand,
+	reg_or_0_or_nonsymb_mem_operand, reg_before_reload_operand,
+	indexed_memory_operand, move_dest_operand, move_src_operand,
+	prefetch_cc_operand, prefetch_nocc_operand,
+	reg_or_cint_move_operand, pic_label_operand, fp_reg_operand,
+	arith_operand, arith11_operand, pre_cint_operand,
+	post_cint_operan, arith_double_operand, ireg_or_int5_operand,
+	ireg_operand, int5_operand, uint5_operand, int11_operand,
+	uint32_operand, arith5_operand, and_operand, ior_operand,
+	lhs_lshift_operand, lhs_lshift_cint_operand, arith32_operand,
+	pc_or_label_operand, div_operand, plus_xor_ior_operator,
+	shadd_operand, movb_comparison_operator,
+	cmpib_comparison_operator): Move to predicates.md.
+	(magic_milli, shadd_constant_p): Make it extern.
+	* config/pa/pa.h (PREDICATE_CODES): Remove.
+	* config/pa/pa.md: Include predicates.md.
+	* config/pa/predicates.md: New.
+
+	* config/v850/v850.h (PREDICATE_CODES): Remove a nonexistent
+	predicate.
+
+2005-03-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* hooks.c, hooks.h, intl.c, opts.h, prefix.c, tree-gimple.c,
+	config/alpha/ev4.md, config/alpha/ev5.md, config/alpha/ev6.md,
+	config/alpha/freebsd.h, config/alpha/linux.h,
+	config/alpha/netbsd.h, config/alpha/osf5.h,
+	config/alpha/vms.h, config/arc/arc.c, config/arc/arc.h,
+	config/h8300/h8300-protos.h, config/h8300/h8300.c,
+	config/h8300/h8300.h, config/ia64/unwind-ia64.c,
+	doc/cppopts.texi: Update copyright.
+
+2005-03-18  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/20225
+	* cgraph.c (cgraph_mark_reachable_node): Assert that it is not called
+	too late.
+	* varasm.c (find_decl_and_mark_needed): Mark needed only when not
+	called too late.
+
+2005-03-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* tree-into-ssa.c (find_idf): Use VEC_quick_push instead of
+	VEC_safe_push.
+
+2005-03-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	* combine.c (gen_binary): Remove.
+	(known_cond, simplify_shift_const, find_split_point,
+	combine_simplify_rtx, simplify_if_then_else, simplify_set,
+	simplify_logical, expand_field_assignment, extract_left_shift,
+	force_to_mode, if_then_else_cond, apply_distributive_law,
+	simplify_and_const_int, simplify_shift_const, gen_lowpart_for_combine,
+	simplify_comparison, reversed_comparison): Replace with
+	simplify_gen_binary, simplify_gen_relational or
+	distribute_and_simplify_rtx.
+	(distribute_and_simplify_rtx): New function.
+
+2005-03-18  Alexey Neyman  <alex.neyman@auriga.ru>
+	    Paolo Bonzini  <gcc.gnu.org>
+
+	* calls.c (setjmp_call_p, special_function_p): Update comments
+	at the head of the functions.
+
+2005-03-18  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (fold_cond_expr_cond): Use boolean types for condition.
+
+	* cgraph.c (cgraph_remove_node): Avoid loop in code deciding whether 
+	function body should be released; do not proactively release function
+	bodies in non-unit-at-a-time mode.
+
+2005-03-18  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config/i386/t-rtems-i386 (MULTILIBS): Remove k6, athlon,
+	mno-fp-ret-in-387 multilib variants.
+
+2005-03-18  Richard Sandiford  <rsandifo@redhat.com>
+
+	* common.opt (m): Remove.
+	* opts.c (handle_option): Pass 'm' options to set_target_switch if
+	table lookup fails.
+	(common_handle_option): Remove OPT_m case.
+
+2005-03-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* builtins.c (fold_builtin_bitop): Take decomposed arguments
+	of CALL_EXPR.
+	(fold_builtin_1): Update a call to fold_builtin_bitop.
+
+	* builtins.c (fold_builtin_signbit): Take decomposed arguments
+	of CALL_EXPR.
+	(fold_builtin_1): Update a call to fold_builtin_signbit.
+
+2005-03-17  Dorit Naishlos  <dorit@il.ibm.com>
+
+	PR tree-optimization/20474
+	* tree-vect-analyze.c (vect_analyze_pointer_ref_access): Check the 
+	size_type of the relevant pointer. Check for COMPLETE_TYPE_P.
+
+2005-03-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300-protos.h: Remove prototypes for
+	general_operand_src, general_operand_dst, single_one_operand,
+	single_zero_operand, call_insn_operand,
+	two_insn_adds_subs_operand, small_call_insn_operand,
+	jump_address_operand, bit_operand, bit_memory_operand,
+	stack_pointer_operand, const_int_gt_2_operand,
+	const_int_ge_8_operand, const_int_qi_operand,
+	const_int_hi_operand, incdec_operand, bit_operator,
+	nshift_operator, eqne_operator, gtle_operator,
+	gtuleu_operator, iorxor_operator.
+	Add prototypes for h8sx_shift_type h8sx_classify_shift and
+	h8300_ldm_stm_parallel.
+	* config/h8300/h8300.c (h8sx_shift_type,): Move to
+	h8300-protos.h.
+	(SYMBOL_FLAG_FUNCVEC_FUNCTION, SYMBOL_FLAG_EIGHTBIT_DATA,
+	SYMBOL_FLAG_TINY_DATA): Move to h8300.h.
+	(h8300_ldm_stm_parallel): Make it extern.
+	(h8300_ldm_parallel, h8300_stm_parallel,
+	h8300_return_parallel, general_operand_src,
+	general_operand_dst, h8300_dst_operand, h8300_src_operand,
+	nibble_operand, reg_or_nibble_operand, single_one_operand,
+	single_zero_operand, call_insn_operand,
+	two_insn_adds_subs_operand, small_call_insn_operand,
+	jump_address_operand, bit_operand, bit_memory_operand,
+	stack_pointer_operand, const_int_gt_2_operand,
+	const_int_ge_8_operand, const_int_qi_operand,
+	const_int_hi_operand, incdec_operand, eqne_operator,
+	gtle_operator, gtuleu_operator, iorxor_operator, bit_operator,
+	h8sx_binary_memory_operator, h8sx_unary_memory_operator,
+	h8sx_unary_shift_operator, h8sx_binary_shift_operator,
+	nshift_operator): Move to predicates.md.
+	* config/h8300/h8300.h (PREDICATE_CODES): Remove.
+	* config/h8300/h8300.md: Include predicates.md.
+	* config/h8300/predicates.md: New.
+
+2005-03-17  Richard Henderson  <rth@redhat.com>
+
+	* config.gcc (ia64*-*-hpux*): Add extra_options.
+	* config/ia64/hpux.h (SUBTARGET_SWITCHES): Remove.
+	(TARGET_DEFAULT): Remove MASK_INLINE_FLOAT_DIV_THR.
+	* config/ia64/ia64.c (ia64_fixed_range_string): Remove.
+	(ia64_tls_size_string, ia64_tune_string): Remove.
+	(ia64_tune): Init to PROCESSOR_ITANIUM2.
+	(TARGET_DEFAULT_TARGET_FLAGS): New.
+	(TARGET_HANDLE_OPTION): New.
+	(ia64_override_options): Move options parsing ...
+	(ia64_handle_option): ... here.  New.
+	* config/ia64/ia64.h (target_flags, MASK_BIG_ENDIAN, MASK_GNU_AS,
+	MASK_GNU_LD, MASK_NO_PIC, MASK_VOL_ASM_STOP, MASK_ILP32, 
+	MASK_REG_NAMES, MASK_NO_SDATA, MASK_CONST_GP, MASK_AUTO_PIC,
+	MASK_INLINE_FLOAT_DIV_LAT, MASK_INLINE_FLOAT_DIV_THR,
+	MASK_INLINE_INT_DIV_LAT, MASK_INLINE_INT_DIV_THR,
+	MASK_INLINE_SQRT_LAT, MASK_INLINE_SQRT_THR, MASK_DWARF2_ASM, 
+	MASK_EARLY_STOP_BITS, TARGET_BIG_ENDIAN, TARGET_GNU_AS, TARGET_GNU_LD, 
+	TARGET_NO_PIC, TARGET_VOL_ASM_STOP, TARGET_ILP32, TARGET_REG_NAMES,
+	TARGET_NO_SDATA, TARGET_CONST_GP, TARGET_AUTO_PIC,
+	TARGET_INLINE_FLOAT_DIV_LAT, TARGET_INLINE_FLOAT_DIV_THR,
+	TARGET_INLINE_INT_DIV_LAT, TARGET_INLINE_INT_DIV_THR,
+	TARGET_INLINE_FLOAT_DIV, TARGET_INLINE_INT_DIV, TARGET_INLINE_SQRT_LAT,
+	TARGET_INLINE_SQRT_THR, TARGET_INLINE_SQRT, TARGET_DWARF2_ASM,
+	TARGET_EARLY_STOP_BITS): Remove.
+	(TARGET_ILP32): Default false.
+	(TARGET_SWITCHES, SUBTARGET_SWITCHES, TARGET_OPTIONS): Remove.
+	(enum ia64_inline_type): New.
+	(TARGET_DEFAULT): Remove MASK_INLINE_FLOAT_DIV_THR.
+	* config/ia64/ia64.md: Update for new definitions of
+	TARGET_INLINE_INT_DIV, TARGET_INLINE_FLOAT_DIV, TARGET_INLINE_SQRT.
+	* config/ia64/ia64.opt: New file.
+	* config/ia64/ilp32.opt: New file.
+
+2005-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/18380
+	* config/ia64/unwind-ia64.c (_Unwind_FindTableEntry): Removed.
+
+2005-03-17  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (h8300_init_once): Use MASK_H8300S_1
+	instead of MASK_H8300S.
+	* config/h8300/h8300.h (target_flags, MASK_H8300S, MASK_MAC,
+	MASK_INT32, MASK_ADDRESSES, MASK_QUICKCALL, MASK_SLOWBYTE,
+	MASK_NORMAL_MODE, MASK_RELAX, MASK_H8300H, MASK_ALIGN_300,
+	MASK_H8300SX, TARGET_INT32, TARGET_ADDRESSES,
+	TARGET_QUICKCALL, TARGET_SLOWBYTE, TARGET_H8300H,
+	TARGET_H8300XS, TARGET_NORMAL_MODE, TARGET_ALIGN_300,
+	TARGET_SWITCHES): Remove.
+	(TARGET_H8300S): Redefine interms of TARGET_H8300S_1 and
+	TARGET_H8300SX.
+	* config/h8300/h8300.opt: New.
+
+	* config/alpha/alpha.opt, config/arc/arc.opt,
+	config/h8300/h8300.opt, config/mips/mips.opt: Add copyright
+	notices.
+
+2005-03-17  Ian Lance Taylor  <ian@airs.com>
+
+	* gmon.c: Remove.
+
+2005-03-17  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/arc/arc.c (arc_cpu_string): Make static.  Default to "base"
+	(arc_text_string, arc_data_string, arc_rodata_string): Make static.
+	(TARGET_HANDLE_OPTION): Override default.
+	(arc_handle_option): New function.
+	(arc_init): Remove code to set arch_cpu_string.
+	* config/arc/arc.h (target_flags, TARGET_MASK_MANGLE_CPU)
+	(TARGET_MANGLE_CPU, TARGET_MASK_MANGLE_CPU_LIBGCC)
+	(TARGET_MANGLE_CPU_LIBGCC, TARGET_MASK_ALIGN_LOOPS, TARGET_ALIGN_LOOPS)
+	(TARGET_MASK_BIG_ENDIAN, TARGET_BIG_ENDIAN, TARGET_MASK_NO_COND_EXEC)
+	(TARGET_NO_COND_EXEC, TARGET_SWITCHES, TARGET_DEFAULT)
+	(SUBTARGET_SWITCHES, arc_cpu_string, arc_text_string, arc_data_string)
+	(arc_rodata_string, TARGET_OPTIONS): Delete.
+	* config/arc/arc.opt: New file.
+
+2005-03-17  Richard Henderson  <rth@redhat.com>
+
+	* doc/extend.texi (Weak Pragmas): New section.
+	(attribute alias): Clarify that target must be in the same
+	translation unit.
+
+2005-03-17  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.opt: New file.
+	* config/alpha/alpha.c (alpha_tune): New.  Rename all existing uses
+	of alpha_cpu.
+	(alpha_cpu_string, alpha_tune_string, alpha_tp_string, 
+	alpha_fprm_string, alpha_fptm_string): Make static.
+	(alpha_tls_size_string): Remove.
+	(alpha_handle_option): New.
+	(override_options): Update for alpha_cpu/alpha_tune split.
+	(alpha_file_start): Likewise.
+	(TARGET_DEFAULT_TARGET_FLAGS): New.
+	(TARGET_HANDLE_OPTION): New.
+	* config/alpha/alpha.h (alpha_tune): Declare.
+	(MASK_FP, MASK_FPREGS, TARGET_FPREGS, MASK_GAS, TARGET_GAS, 
+	MASK_IEEE_CONFORMANT, TARGET_IEEE_CONFORMANT, MASK_IEEE, TARGET_IEEE,
+	MASK_IEEE_WITH_INEXACT, TARGET_IEEE_WITH_INEXACT, MASK_BUILD_CONSTANTS,
+	TARGET_BUILD_CONSTANTS, MASK_FLOAT_VAX, TARGET_FLOAT_VAX, MASK_BWX,
+	TARGET_BWX, MASK_MAX, TARGET_MAX, MASK_FIX, TARGET_FIX, MASK_CIX,
+	TARGET_CIX, MASK_EXPLICIT_RELOCS, TARGET_EXPLICIT_RELOCS,
+	MASK_SMALL_DATA, TARGET_SMALL_DATA, MASK_TLS_KERNEL, TARGET_TLS_KERNEL,
+	MASK_SMALL_TEXT, TARGET_SMALL_TEXT, MASK_LONG_DOUBLE_128,
+	TARGET_LONG_DOUBLE_128, MASK_CPU_EV5, TARGET_CPU_EV5, MASK_CPU_EV6,
+	TARGET_CPU_EV6, MASK_SUPPORT_ARCH): Remove.
+	(TARGET_SWITCHES, TARGET_OPTIONS): Remove.
+	(TARGET_DEFAULT): Remove MASK_FP.
+	(TARGET_FP): Redefined based on TARGET_SOFT_FP.
+	(TARGET_SUPPORT_ARCH): Default on if HAVE_AS_EXPLICIT_RELOCS.
+	(alpha_cpu_string, alpha_tune_string, alpha_fprm_string,
+	alpha_fptm_string, alpha_tp_string, alpha_mlat_string,
+	alpha_tls_size_string): Remove.
+	* config/alpha/alpha.md (prefetch): Use alpha_cpu.
+	(attribute tune): Rename from attribute cpu.
+	* config/alpha/ev4.md: Update to match.
+	* config/alpha/ev5.md, config/alpha/ev6.md: Likewise.
+	* config/alpha/freebsd.h (TARGET_DEFAULT): Remove MASK_FP.
+	* config/alpha/linux.h (TARGET_DEFAULT): Likewise.
+	* config/alpha/netbsd.h (TARGET_DEFAULT): Likewise.
+	* config/alpha/osf5.h (TARGET_DEFAULT): Likewise.
+	* config/alpha/vms.h (TARGET_DEFAULT): Likewise.
+
 2005-03-16  James E. Wilson  <wilson@specifixinc.com>
 
 	* config/ia64/ia64.c (issue_nops_and_insn): Check first_insn attribute,

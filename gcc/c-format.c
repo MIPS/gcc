@@ -147,17 +147,12 @@ check_format_string (tree argument, unsigned HOST_WIDE_INT format_num,
   return true;
 }
 
-/* Strip any conversions from the expression, verify it is a constant,
-   and store its value. If validated_p is true, abort on errors.
+/* Verify EXPR is a constant, and store its value.
+   If validated_p is true, abort on errors.
    Returns true on success, false otherwise.  */
 static bool
 get_constant (tree expr, unsigned HOST_WIDE_INT *value, int validated_p)
 {
-  while (TREE_CODE (expr) == NOP_EXPR
-	 || TREE_CODE (expr) == CONVERT_EXPR
-	 || TREE_CODE (expr) == NON_LVALUE_EXPR)
-    expr = TREE_OPERAND (expr, 0);
-
   if (TREE_CODE (expr) != INTEGER_CST || TREE_INT_CST_HIGH (expr) != 0)
     {
       gcc_assert (!validated_p);
@@ -199,7 +194,8 @@ decode_format_attr (tree args, function_format_info *info, int validated_p)
       if (info->format_type == format_type_error)
 	{
 	  gcc_assert (!validated_p);
-	  warning ("%qs is an unrecognized format function type", p);
+	  warning ("%qE is an unrecognized format function type",
+		   format_type_id);
 	  return false;
 	}
     }

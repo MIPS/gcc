@@ -417,7 +417,7 @@ void
 cgraph_remove_node (struct cgraph_node *node)
 {
   void **slot;
-  bool check_dead = 1;
+  bool kill_body = false;
   struct cgraph_node *node2, *node2_next;
 
   cgraph_node_remove_callers (node);
@@ -452,54 +452,47 @@ cgraph_remove_node (struct cgraph_node *node)
   if (*slot == node)
     {
       if (node->next_clone)
-	{
-	  struct cgraph_node *new_node = node->next_clone;
-	  struct cgraph_node *n;
-	  *slot = new_node;
-	  
-	  /* Make the next clone be the master clone */
-	  for (n = new_node; n; n = n->next_clone) 
-	    n->master_clone = new_node;
+      {
+	struct cgraph_node *new_node = node->next_clone;
+	struct cgraph_node *n;
+
+	/* Make the next clone be the master clone */
+	for (n = new_node; n; n = n->next_clone) 
+	  n->master_clone = new_node;
 	
-	  new_node->master_clone = new_node;
-	}
+	*slot = new_node;
+	node->next_clone->prev_clone = NULL;
+      }
       else
 	{
           htab_clear_slot (cgraph_hash, slot);
-	  if (!dump_enabled_p (TDI_tree_all))
-	    {
-              DECL_SAVED_TREE (node->decl) = NULL;
-	      DECL_STRUCT_FUNCTION (node->decl) = NULL;
-	    }
-	  check_dead = false;
+	  kill_body = true;
 	}
     }
   else
     {
-      struct cgraph_node *n;
-
-      for (n = *slot; n->next_clone != node; n = n->next_clone)
-	continue;
-      n->next_clone = node->next_clone;
+      node->prev_clone->next_clone = node->next_clone;
+      if (node->next_clone)
+        node->next_clone->prev_clone = node->prev_clone;
     }
 
-  /* Work out whether we still need a function body (either there is inline
-     clone or there is out of line function whose body is not written).  */
-  if (check_dead && flag_unit_at_a_time)
+  /* While all the clones are removed after being proceeded, the function 
+     itself is kept in the cgraph even after it is compiled.  Check whether
+     we are done with this body and reclaim it proactively if this is the case.
+     */
+  if (!kill_body && *slot)
     {
-      struct cgraph_node *n;
+      struct cgraph_node *n = *slot;
+      if (!n->next_clone && !n->global.inlined_to
+	  && (TREE_ASM_WRITTEN (n->decl) || DECL_EXTERNAL (n->decl)))
+	kill_body = true;
+    }
 
-      for (n = *slot; n; n = n->next_clone)
-	if (n->global.inlined_to
-	    || (!n->global.inlined_to
-		&& !TREE_ASM_WRITTEN (n->decl) && !DECL_EXTERNAL (n->decl)))
-	  break;
-      if (!n && !dump_enabled_p (TDI_tree_all))
-	{
-	  DECL_SAVED_TREE (node->decl) = NULL;
-	  DECL_STRUCT_FUNCTION (node->decl) = NULL;
-          DECL_INITIAL (node->decl) = error_mark_node;
-	}
+  if (kill_body && !dump_enabled_p (TDI_tree_all) && flag_unit_at_a_time)
+    {
+      DECL_SAVED_TREE (node->decl) = NULL;
+      DECL_STRUCT_FUNCTION (node->decl) = NULL;
+      DECL_INITIAL (node->decl) = error_mark_node;
     }
   cgraph_n_nodes--;
   /* Do not free the structure itself so the walk over chain can continue.  */
@@ -514,6 +507,7 @@ cgraph_mark_reachable_node (struct cgraph_node *node)
     {
       notice_global_symbol (node->decl);
       node->reachable = 1;
+      gcc_assert (!cgraph_global_info_ready);
 
       node->next_needed = cgraph_nodes_queue;
       cgraph_nodes_queue = node;
@@ -960,7 +954,10 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest)
     cgraph_clone_edge (e, new, e->call_expr, count_scale, loop_nest);
 
   new->next_clone = n->next_clone;
+  new->prev_clone = n;
   n->next_clone = new;
+  if (new->next_clone)
+    new->next_clone->prev_clone = new;
 
   return new;
 }

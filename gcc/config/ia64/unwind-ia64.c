@@ -1,6 +1,6 @@
 /* Subroutines needed for unwinding IA-64 standard format stack frame
    info for exception handling.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@cygnus.com>
 	          Andrew Haley  <aph@cygnus.com>
@@ -2387,7 +2387,6 @@ uw_identify_context (struct _Unwind_Context *context)
 alias (_Unwind_Backtrace);
 alias (_Unwind_DeleteException);
 alias (_Unwind_FindEnclosingFunction);
-alias (_Unwind_FindTableEntry);
 alias (_Unwind_ForcedUnwind);
 alias (_Unwind_GetBSP);
 alias (_Unwind_GetCFA);

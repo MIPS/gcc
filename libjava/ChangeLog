@@ -1,3 +1,21 @@
+2005-03-16  Andrew Haley  <aph@redhat.com>
+
+	* boehm.cc (_Jv_MarkObj): Mark the interpreted method line_table.
+
+2005-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* link.cc (ensure_class_linked): Removed #ifdef.
+	(print_class_loaded): Likewise.
+	(wait_for_state): Likewise.
+	* java/lang/Class.h (_Jv_IsInterpretedClass): Always declare.
+	* include/jvm.h (_Jv_IsInterpretedClass): Moved from...
+	* include/java-interp.h: ... here.
+
+2005-03-16  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/lang/MainThread.java (run): Load main class using
+	system class loader.
+
 2005-03-16  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* testsuite/libjava.jni/jni.exp (gcj_jni_invocation_test_one): Add
@@ -57,6 +75,11 @@
 	Add flags to keep the Darwin linker quiet.
 	(gcj_jni_invocation_test_one): Use the same target check for Darwin.
 	Add -liconv for Darwin.
+
+2005-03-11  Tom Tromey  <tromey@redhat.com>
+
+	* include/jvm.h (GCJ_40_BC_ABI_VERSION): New define.
+	(_Jv_CheckABIVersion): Use it.
 
 2005-03-11  Tom Tromey  <tromey@redhat.com>
 

@@ -1,3 +1,34 @@
+2005-03-19  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* dump-parse-tree.c (gfc_show_expr): Dump name of namespace
+	in which the variable is declared.
+
+	PR fortran/18525
+	* resolve.c (was_declared): Also check for dummy attribute.
+
+2005-03-19  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.h (arith): Remove ARITH_0TO0.
+	* arith.c (gfc_arith_error): Remove handling of ARITH_0TO0.
+	(gfc_arith_power): Remove special casing of zero to integral
+	power zero.
+
+2005-03-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (fortran-warn): Remove -Wno-error.
+	(expr.o-warn, resolve.o-warn, simplify.o-warn,
+	trans-common.o-warn): Specify -Wno-error.
+
+2005-03-17  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-array.c (gfc_trans_static_array_pointer,
+	get_array_ctor_var_strlen, gfc_conv_array_index_offset): Fix
+	comment and formatting typos.
+
+2005-03-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* invoke.texi: Fix typos.
+
 2005-03-15  Zack Weinberg  <zack@codesourcery.com>
 
 	* Make-lang.in (GFORTRAN_TEXI): Add gcc-vers.texi.

@@ -126,6 +126,7 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   struct cgraph_node *next_needed;
   /* Pointer to the next clone.  */
   struct cgraph_node *next_clone;
+  struct cgraph_node *prev_clone;
   /* Pointer to next node in a recursive call graph cycle; */
   struct cgraph_node *next_cycle;
   /* Pointer to a single unique cgraph node for this function.  If the

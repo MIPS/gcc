@@ -1,3 +1,42 @@
+2005-03-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* cp-tree.h (lvalue_or_else, lvalue_p): New.
+	* typeck.c (lvalue_or_else): New.  Call lvalue_error.
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20240
+	* decl.c (decls_match): Compare context of VAR_DECL.
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20333
+	* parser.c (cp_parser_postfix_expression) <case RID_TYPENAME>:
+	Check the return value of cp_parser_nested_name_specifier.
+
+2005-03-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20463
+	* parser.c (cp_parser_diagnose_invalid_type_name):
+	Check TYPE_BINFO (current_class_type) before attempting
+	to emit inform messages.
+
+2005-03-17  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/19966
+	* cp-tree.h (grok_op_properties): Change return type to void.
+	* decl.c (grok_op_properties): Return early - don't check the
+	arity - in case of a static member or an operator that cannot
+	be non-member; tidy a bit.
+
+2005-03-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20186
+	* pt.c (contains_dependent_cast_p): Remove.
+	(fold_non_dependent_expr): Don't use it.
+	(value_dependent_expression_p): Use a switch statement.
+	reference_exprs can be dependent.
+
 2005-03-14  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/4403

@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -64,5 +64,5 @@ extern rtx hook_rtx_rtx_null (rtx);
 extern rtx hook_rtx_tree_int_null (tree, int);
 extern tree hook_tree_tree_identity (tree a);
 extern const char *hook_constcharptr_tree_null (tree);
-extern tree hook_tree_tree_bool_null (tree, bool);
+extern tree hook_tree_tree_tree_bool_null (tree, tree, bool);
 #endif
