@@ -870,7 +870,9 @@ simplify_decl_stmt (t, post_p)
       tree decl = DECL_STMT_DECL (t);
 
       if (DECL_INITIAL (decl)
-	  && !TREE_READONLY (decl))
+	  && !TREE_READONLY (decl)
+	  && !TREE_STATIC (decl)
+	  && !AGGREGATE_TYPE_P (TREE_TYPE (decl)))
 	{
 	  /* If there is an initializer for the variable, and the
 	     declaration is not a constant, queue it up to be processed

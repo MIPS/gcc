@@ -340,7 +340,9 @@ is_simple_compstmt (t)
 	 the variable.  */
   for (t = TREE_CHAIN (t); t && TREE_CODE (t) == DECL_STMT; t = TREE_CHAIN (t))
     if (DECL_INITIAL (DECL_STMT_DECL (t))
-	&& !TREE_READONLY (DECL_STMT_DECL (t)))
+	&& !TREE_READONLY (DECL_STMT_DECL (t))
+	&& !TREE_STATIC (DECL_STMT_DECL (t))
+	&& !AGGREGATE_TYPE_P (TREE_TYPE (DECL_STMT_DECL (t))))
       return 0;
 
   /* Test all the statements in the body.  */
