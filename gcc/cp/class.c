@@ -4097,9 +4097,9 @@ build_clone (fn, name)
        /* If this is subobject constructor or destructor, add the vtt
 	 parameter.  */
       TREE_TYPE (clone) 
-	= build_cplus_method_type (basetype,
-				   TREE_TYPE (TREE_TYPE (clone)),
-				   parmtypes);
+	= build_method_type_directly (basetype,
+				      TREE_TYPE (TREE_TYPE (clone)),
+				      parmtypes);
       if (exceptions)
 	TREE_TYPE (clone) = build_exception_variant (TREE_TYPE (clone),
 						     exceptions);
@@ -4282,9 +4282,9 @@ adjust_clone_args (decl)
 					   clone_parms);
 		  TREE_TYPE (clone_parms) = TREE_TYPE (orig_clone_parms);
 		}
-	      type = build_cplus_method_type (basetype,
-					      TREE_TYPE (TREE_TYPE (clone)),
-					      clone_parms);
+	      type = build_method_type_directly (basetype,
+						 TREE_TYPE (TREE_TYPE (clone)),
+						 clone_parms);
 	      if (exceptions)
 		type = build_exception_variant (type, exceptions);
 	      TREE_TYPE (clone) = type;

@@ -57,6 +57,7 @@
 #include "toplev.h"
 #include "varray.h"
 #include "ggc.h"
+#include "target.h"
 
 /* Debugging support.  */
 
@@ -1475,12 +1476,24 @@ write_type (type)
 	case BOOLEAN_TYPE:
 	case INTEGER_TYPE:  /* Includes wchar_t.  */
 	case REAL_TYPE:
+	{
+	  /* Handle any target-specific fundamental types.  */
+	  const char *target_mangling
+	    = targetm.mangle_fundamental_type (type);
+
+	  if (target_mangling)
+	    {
+	      write_string (target_mangling);
+	      return;
+	    }
+
 	  /* If this is a typedef, TYPE may not be one of
 	     the standard builtin type nodes, but an alias of one.  Use
 	     TYPE_MAIN_VARIANT to get to the underlying builtin type.  */
 	  write_builtin_type (TYPE_MAIN_VARIANT (type));
 	  ++is_builtin_type;
 	  break;
+	}
 
 	case COMPLEX_TYPE:
 	  write_char ('C');

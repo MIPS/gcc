@@ -11839,7 +11839,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		else if (TREE_CODE (type) == FUNCTION_TYPE)
 		  {
 		    if (current_class_type == NULL_TREE || friendp)
-		      type = build_cplus_method_type (ctype, TREE_TYPE (type),
+		      type
+			= build_method_type_directly (ctype,
+						      TREE_TYPE (type),
 						      TYPE_ARG_TYPES (type));
 		    else
 		      {
@@ -11881,7 +11883,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  /* In this case, we will deal with it later.  */
 		  ;
 		else if (TREE_CODE (type) == FUNCTION_TYPE)
-		  type = build_cplus_method_type (ctype, TREE_TYPE (type),
+		  type
+		    = build_method_type_directly (ctype,
+						  TREE_TYPE (type),
 						  TYPE_ARG_TYPES (type));
 	      }
 	  }
@@ -12314,7 +12318,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		      }
 		  }
 		else if (staticp < 2)
-		  type = build_cplus_method_type (ctype, TREE_TYPE (type),
+		  type
+		    = build_method_type_directly (ctype,
+						  TREE_TYPE (type),
 						  TYPE_ARG_TYPES (type));
 	      }
 
@@ -12559,8 +12565,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      }
 	  }
 	else if (TREE_CODE (type) == FUNCTION_TYPE && staticp < 2)
-	  type = build_cplus_method_type (ctype, TREE_TYPE (type),
-					  TYPE_ARG_TYPES (type));
+	  type = build_method_type_directly (ctype,
+					     TREE_TYPE (type),
+					     TYPE_ARG_TYPES (type));
 
 	/* Record presence of `static'.  */
 	publicp = (ctype != NULL_TREE
@@ -14238,9 +14245,9 @@ check_function_type (decl, current_function_parms)
 	{
 	  tree ctype = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (fntype)));
 	  TREE_TYPE (decl)
-	    = build_cplus_method_type (ctype,
-				       void_type_node,
-				       FUNCTION_ARG_CHAIN (decl));
+	    = build_method_type_directly (ctype,
+				          void_type_node,
+				          FUNCTION_ARG_CHAIN (decl));
 	}
       else
 	TREE_TYPE (decl)
@@ -14351,9 +14358,12 @@ start_function (declspecs, declarator, attrs, flags)
 	    fntype = build_function_type (integer_type_node,
 					  TYPE_ARG_TYPES (fntype));
 	  else
-	    fntype = build_cplus_method_type (build_type_variant (TYPE_METHOD_BASETYPE (fntype), TREE_READONLY (decl1), TREE_SIDE_EFFECTS (decl1)),
-					      integer_type_node,
-					      TYPE_ARG_TYPES (fntype));
+	    fntype = build_method_type_directly (
+		build_type_variant (TYPE_METHOD_BASETYPE (fntype),
+				    TREE_READONLY (decl1),
+				    TREE_SIDE_EFFECTS (decl1)),
+		integer_type_node,
+		TYPE_ARG_TYPES (fntype));
 	  TREE_TYPE (decl1) = fntype;
 	}
 
