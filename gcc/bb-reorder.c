@@ -128,6 +128,8 @@ find_traces ()
   basic_block bb0;
   fibheap_t heap;
   int *start_of_trace;
+  bool *connected;
+  int last_trace;
 
   /* There will be at most N_BASIC_BLOCKS traces because trace can start only
      in an original (not duplicated) basic block.  */
@@ -171,34 +173,50 @@ find_traces ()
     start_of_trace[traces[i].first->index] = i;
 
   /* Connect traces.  */
-  for (i = 0; i < n_traces - 1; i++)
+  connected = xcalloc (n_traces, sizeof (bool));
+  last_trace = -1;
+  for (i = 0; i < n_traces; i++)
     {
-      edge e, best = NULL;
-
-      for (e = traces[i].last->succ; e; e = e->succ_next)
-	if (e->dest != EXIT_BLOCK_PTR
-	    && (e->flags & EDGE_CAN_FALLTHRU)
-	    && start_of_trace[e->dest->index] >= i + 1
-	    && (!best || e->probability > best->probability))
-	  best = e;
-
-      if (best && start_of_trace[best->dest->index] != i + 1)
+      if (!connected[i])
 	{
-	  int t = start_of_trace[best->dest->index];
-	  struct trace temp;
+	  edge e, best;
 
-	  temp = traces[t];
-	  traces[t] = traces[i + 1];
-	  traces[i + 1] = temp;
-	  start_of_trace[traces[i + 1].first->index] = i + 1;
-	  start_of_trace[traces[t].first->index] = t;
+	  /* Connect actual trace to a chain of already connected traces.  */
+	  if (last_trace >= 0)
+	    RBI (traces[last_trace].last)->next = traces[i].first;
+	  connected[i] = true;
+	  last_trace = i;
+
+	  /* Connect a chain of traces that concur.  */
+	  for (;;)
+	    {
+	      int next_trace;
+
+	      best = NULL;
+	      for (e = traces[i].last->succ; e; e = e->succ_next)
+		{
+		  if (e->dest != EXIT_BLOCK_PTR
+		      && (e->flags & EDGE_CAN_FALLTHRU)
+		      && start_of_trace[e->dest->index] >= 0
+		      && !connected[start_of_trace[e->dest->index]]
+		      && (!best || e->probability > best->probability))
+		    best = e;
+		}
+
+	      if (!best)
+		break;
+
+	      next_trace = start_of_trace[best->dest->index];
+	      RBI (traces[last_trace].last)->next = traces[next_trace].first;
+	      connected[next_trace] = true;
+	      last_trace = next_trace;
+	    }
 	}
-
-      RBI (traces[i].last)->next = traces[i+1].first;
     }
 
-  free (traces);
+  free (connected);
   free (start_of_trace);
+  free (traces);
 }
 
 /* One round of finding traces. Find traces for BRANCH_TH and EXEC_TH i.e. do
