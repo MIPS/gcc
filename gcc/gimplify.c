@@ -2916,33 +2916,6 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
     *expr_p = body;
 }
 
-/* If the language requires some sort of exception protection of cleanup
-   actions (i.e. calling terminate in C++), modify the cleanup to reflect
-   that.  */
-
-tree
-maybe_protect_cleanup (tree cleanup)
-{
-#if 0
-  /* Ack!  We only want to protect the cleanup if it's run in the EH path.
-     There's currently no reasonable way to express this in GENERIC.  FIXME
-     FIXME FIXME!  Don't mess with this for now; it will still get handled
-     properly in the expander.  */
-  tree protect_cleanup_actions
-    = (lang_protect_cleanup_actions
-       ? (*lang_protect_cleanup_actions) ()
-       : NULL_TREE);
-
-  if (protect_cleanup_actions)
-    /* Wrap cleanups in MUST_NOT_THROW equivalent if appropriate.  FIXME
-       perhaps this should be done earlier in the frontend so we don't need
-       a hook.  */
-    cleanup = gimple_build_eh_filter (cleanup, NULL_TREE,
-				      protect_cleanup_actions);
-#endif
-  return cleanup;
-}
-
 /* Insert a cleanup marker for gimplify_cleanup_point_expr.  CLEANUP
    is the cleanup action required.  */
 
@@ -2950,8 +2923,6 @@ static void
 gimple_push_cleanup (tree cleanup, tree *pre_p)
 {
   tree wce;
-
-  cleanup = maybe_protect_cleanup (cleanup);
 
   if (gimple_conditional_context ())
     {

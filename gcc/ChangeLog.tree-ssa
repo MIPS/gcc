@@ -1,3 +1,9 @@
+2003-10-16  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (maybe_protect_cleanup): Remove.
+	* tree-simple.h (maybe_protect_cleanup): Remove.
+	* c-simplify.c (gimplify_cleanup): Don't call it.
+
 2003-10-16  Jeff Law  <law@redhat.com>
 
 	* tree-dfa.c (create_phi_node):  Clear PHI_REWRITTEN on all new PHIs

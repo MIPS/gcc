@@ -424,8 +424,6 @@ gimplify_cleanup (tree *stmt_p, tree *next_p)
   enum tree_code code
     = (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR : TRY_FINALLY_EXPR);
 
-  cleanup = maybe_protect_cleanup (cleanup);
-
   c_gimplify_stmt (&body);
 
   *stmt_p = build (code, void_type_node, body, cleanup);

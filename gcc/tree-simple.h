@@ -102,7 +102,6 @@ void mark_not_gimple (tree *);
 void unshare_all_trees (tree);
 tree voidify_wrapper_expr (tree);
 tree gimple_build_eh_filter (tree, tree, tree);
-tree maybe_protect_cleanup (tree);
 tree build_and_jump (tree *);
 
 
