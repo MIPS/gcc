@@ -4607,7 +4607,7 @@ pushcase (tree value, tree (*converter) (tree, tree), tree label,
 	  || ! int_fits_type_p (value, index_type)))
     return 3;
 
-  return add_case_node (value, value, label, duplicate);
+  return add_case_node (value, value, label, duplicate, false);
 }
 
 /* Like pushcase but this case applies to all values between VALUE1 and
@@ -4673,7 +4673,7 @@ pushcase_range (tree value1, tree value2, tree (*converter) (tree, tree),
       || ! int_fits_type_p (value2, index_type))
     return 3;
 
-  return add_case_node (value1, value2, label, duplicate);
+  return add_case_node (value1, value2, label, duplicate, false);
 }
 
 /* Do the actual insertion of a case label for pushcase and pushcase_range
@@ -4681,7 +4681,8 @@ pushcase_range (tree value1, tree value2, tree (*converter) (tree, tree),
    slowdown for large switch statements.  */
 
 int
-add_case_node (tree low, tree high, tree label, tree *duplicate)
+add_case_node (tree low, tree high, tree label, tree *duplicate,
+	       bool dont_expand_label)
 {
   struct case_node *p, **q, *r;
 
@@ -4700,7 +4701,8 @@ add_case_node (tree low, tree high, tree label, tree *duplicate)
 	  return 2;
 	}
       case_stack->data.case_stmt.default_label = label;
-      expand_label (label);
+      if (!dont_expand_label)
+        expand_label (label);
       return 0;
     }
 
@@ -4739,7 +4741,8 @@ add_case_node (tree low, tree high, tree label, tree *duplicate)
     r->high = high;
 
   r->code_label = label;
-  expand_label (label);
+  if (!dont_expand_label)
+    expand_label (label);
 
   *q = r;
   r->parent = p;
@@ -5866,6 +5869,7 @@ estimate_case_costs (case_node_ptr node)
 static bool
 same_case_target_p (rtx l1, rtx l2)
 {
+#if 0
   rtx i1, i2;
 
   if (l1 == l2)
@@ -5885,6 +5889,11 @@ same_case_target_p (rtx l1, rtx l2)
     {
       l2 = XEXP (SET_SRC (PATTERN (i2)), 0);
     }
+#endif
+  /* When coming from gimple, we usually won't have emitted either
+     the labels or the body of the switch statement.  The job being
+     done here should be done via jump threading at the tree level.
+     Cases that go the same place should have the same label.  */
   return l1 == l2;
 }
 
@@ -5918,8 +5927,10 @@ group_case_nodes (case_node_ptr head)
 
   while (node)
     {
-      rtx lab = label_rtx (node->code_label);
+      rtx lab;
       case_node_ptr np = node;
+
+      lab = label_rtx (node->code_label);
 
       /* Try to group the successors of NODE with NODE.  */
       while (((np = np->right) != 0)

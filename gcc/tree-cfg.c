@@ -92,7 +92,6 @@ static void create_block_annotation (basic_block);
 static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
 static basic_block make_blocks (tree *, tree, tree, basic_block, tree);
-static void make_switch_expr_blocks (tree *, tree, basic_block, tree);
 static basic_block make_bind_expr_blocks (tree *, tree, basic_block, tree,
 					  tree);
 static inline void add_stmt_to_bb (tree *, basic_block, tree);
@@ -105,14 +104,13 @@ static void make_edges (void);
 static void make_ctrl_stmt_edges (basic_block);
 static void make_exit_edges (basic_block);
 static void make_cond_expr_edges (basic_block);
+static void make_switch_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
-static void make_case_label_edges (basic_block);
 
 /* Various helpers.  */
 static void assign_vars_to_scope (tree);
 static basic_block successor_block (basic_block);
 static tree *first_exec_stmt (tree *);
-static basic_block switch_parent (basic_block);
 static inline bool stmt_starts_bb_p (tree, tree);
 static inline bool stmt_ends_bb_p (tree);
 static void find_contained_blocks (tree *, bitmap, tree **);
@@ -139,17 +137,14 @@ static bool blocks_unreachable_p (bitmap);
 static void remove_blocks (bitmap);
 static void cleanup_control_flow (void);
 static void thread_unconditional_jumps (void);
-static bool disconnect_unreachable_case_labels (basic_block, tree);
 static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
-static bool value_matches_some_label (edge, tree, edge *);
+static tree find_case_label_for_value (tree, tree);
 static void replace_stmt (tree *, tree *);
 static void move_outgoing_edges (basic_block, basic_block);
 static void merge_tree_blocks (basic_block, basic_block) ATTRIBUTE_UNUSED;
 static int phi_alternatives_equal (basic_block, edge, edge);
 static bool remap_stmts (basic_block, basic_block, tree *);
-static tree *handle_switch_split (basic_block, basic_block);
-static tree *handle_switch_fallthru (tree, basic_block, basic_block);
 
 /* Block iterator helpers.  */
 static void remove_bsi_from_block (block_stmt_iterator *, bool);
@@ -158,18 +153,6 @@ static inline void bsi_update_from_tsi
 		(block_stmt_iterator *, tree_stmt_iterator);
 static tree_stmt_iterator bsi_link_after
 		(tree_stmt_iterator *, tree, basic_block, tree);
-
-/* Values returned by location parameter of find_insert_location.  */
-
-enum find_location_action {
-  EDGE_INSERT_LOCATION_BEFORE,
-  EDGE_INSERT_LOCATION_AFTER,
-  EDGE_INSERT_LOCATION_THEN,
-  EDGE_INSERT_LOCATION_ELSE,
-  EDGE_INSERT_LOCATION_BSI_AFTER };
-
-static tree_stmt_iterator find_insert_location
-	(basic_block, basic_block, basic_block, enum find_location_action *);
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((tree)(e->insns))
@@ -535,9 +518,7 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
       if (is_computed_goto (*stmt_p))
 	found_computed_goto = true;
 
-      if (code == SWITCH_EXPR)
-	make_switch_expr_blocks (stmt_p, next_block_link, bb, scope);
-      else if (code == BIND_EXPR)
+      if (code == BIND_EXPR)
 	{
 	  int num_blocks_before;
 	  basic_block last_bb;
@@ -615,41 +596,6 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
 
   return NULL;
 }
-
-/* Create the blocks for the SWITCH_EXPR node pointed by SWITCH_E_P.
-
-   NEXT_BLOCK_LINK is the first statement of the successor basic block for
-      the block holding *SWITCH_E_P.  If *SWITCH_E_P is the last statement
-      inside a lexical scope, this will be the statement that comes after
-      *SWITCH_E_P's container (see the documentation for NEXT_BLOCK_LINK).
-
-   ENTRY is the block whose last statement is *SWITCH_E_P.
-   
-   SCOPE is the BIND_EXPR node holding *SWITCH_E_P.  */
-
-static void
-make_switch_expr_blocks (tree *switch_e_p, tree next_block_link,
-			 basic_block entry, tree scope)
-{
-  tree_stmt_iterator si;
-  tree switch_e = *switch_e_p;
-  entry->flags |= BB_CONTROL_STRUCTURE;
-
-  /* Determine NEXT_BLOCK_LINK for statements inside the SWITCH_EXPR body.  */
-  si = tsi_start (switch_e_p);
-  tsi_next (&si);
-
-  /* Ignore any empty statements at the tail of this tree.  */
-  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
-    tsi_next (&si);
-
-  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
-    next_block_link = *(tsi_container (si));
-
-  STRIP_CONTAINERS (switch_e);
-  make_blocks (&SWITCH_BODY (switch_e), next_block_link, switch_e, NULL, scope);
-}
-
 
 /* Create the blocks for the BIND_EXPR node pointed by BIND_P.  In contrast
    with the other make_*_blocks functions, this function will not start a
@@ -839,11 +785,6 @@ make_edges (void)
 	  /* Edges for statements that sometimes alter flow control.  */
 	  if (is_ctrl_altering_stmt (last))
 	    make_exit_edges (bb);
-
-	  /* Incoming edges for label blocks in switch statements.  It's
-	     easier to deal with these bottom-up than top-down.  */
-	  if (TREE_CODE (first) == CASE_LABEL_EXPR)
-	    make_case_label_edges (bb);
 	}
 
       /* Finally, if no edges were created above, this is a regular
@@ -890,40 +831,10 @@ find_contained_blocks (tree *stmt_p, bitmap my_blocks, tree **last_p)
 
       /* And recurse down into control structures.  */
       code = TREE_CODE (stmt);
-      if (code == CATCH_EXPR)
-	{
-	  find_contained_blocks (&CATCH_BODY (stmt), my_blocks, last_p);
-	}
-      else if (code == EH_FILTER_EXPR)
-	{
-	  find_contained_blocks (&EH_FILTER_FAILURE (stmt), my_blocks, last_p);
-	}
-      else if (code == TRY_CATCH_EXPR)
-	{
-	  tree *save_last_p;
-	  find_contained_blocks (&TREE_OPERAND (stmt, 0), my_blocks, last_p);
-
-	  /* We do not want to include statements in the CATCH block
-	     when determining the last executed statement.  FIXME,
-	     what would probably work better would be a to include
-	     an empty block at the end of each FINALLY block and
-	     use it as the last statement.
-
-	     I worry that we do the wrong thing with ELSE clauses,
-	     and other control structures.  */
-	  save_last_p = *last_p;
-	  find_contained_blocks (&TREE_OPERAND (stmt, 1), my_blocks, last_p);
-	  *last_p = save_last_p;
-	}
-      else if (code == TRY_FINALLY_EXPR
-	       || code == COMPOUND_EXPR)
+      if (code == COMPOUND_EXPR)
 	{
 	  find_contained_blocks (&TREE_OPERAND (stmt, 0), my_blocks, last_p);
 	  find_contained_blocks (&TREE_OPERAND (stmt, 1), my_blocks, last_p);
-	}
-      else if (code == SWITCH_EXPR)
-	{
-	  find_contained_blocks (&SWITCH_BODY (stmt), my_blocks, last_p);
 	}
       else if (code == BIND_EXPR)
 	{
@@ -969,6 +880,7 @@ make_ctrl_stmt_edges (basic_block bb)
       break;
 
     case SWITCH_EXPR:
+      make_switch_expr_edges (bb);
       break;
 
     case RESX_EXPR:
@@ -1042,18 +954,8 @@ make_exit_edges (basic_block bb)
     }
 }
 
-
-
 /* Create the edges for a COND_EXPR starting at block BB.
-
-   Create the following edges.
-
-	     COND_EXPR
-		/ \
-	       /   \
-	    THEN   ELSE
-
-   Either clause may be empty.  */
+   At this point, both clauses must contain only simple gotos.  */
 
 static void
 make_cond_expr_edges (basic_block bb)
@@ -1070,11 +972,33 @@ make_cond_expr_edges (basic_block bb)
   /* Entry basic blocks for each component.  */
   then_label = GOTO_DESTINATION (COND_EXPR_THEN (entry));
   else_label = GOTO_DESTINATION (COND_EXPR_ELSE (entry));
-  then_bb = VARRAY_BB (label_to_block_map, LABEL_DECL_INDEX (then_label));
-  else_bb = VARRAY_BB (label_to_block_map, LABEL_DECL_INDEX (else_label));
+  then_bb = label_to_block (then_label);
+  else_bb = label_to_block (else_label);
 
   make_edge (bb, then_bb, EDGE_TRUE_VALUE);
   make_edge (bb, else_bb, EDGE_FALSE_VALUE);
+}
+
+/* Create the edges for a SWITCH_EXPR starting at block BB.
+   At this point, the switch body has been lowered and the
+   SWITCH_LABELS filled in, so this is in effect a multi-way branch.  */
+
+static void
+make_switch_expr_edges (basic_block bb)
+{
+  tree entry = last_stmt (bb);
+  size_t i, n;
+  tree vec;
+
+  vec = SWITCH_LABELS (entry);
+  n = TREE_VEC_LENGTH (vec);
+
+  for (i = 0; i < n; ++i)
+    {
+      tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
+      basic_block label_bb = label_to_block (lab);
+      make_edge (bb, label_bb, 0);
+    }
 }
 
 basic_block
@@ -1152,24 +1076,6 @@ make_goto_expr_edges (basic_block bb)
 	}
     }
 }
-
-
-/* Create the edge between a case label at block BB and the block for the
-   associated SWITCH_EXPR node.  */
-
-static void
-make_case_label_edges (basic_block bb)
-{
-  basic_block switch_bb = switch_parent (bb);
-
-#if defined ENABLE_CHECKING
-  if (switch_bb == NULL)
-    abort ();
-#endif
-
-  make_edge (switch_bb, bb, 0);
-}
-
 
 
 /*---------------------------------------------------------------------------
@@ -1613,9 +1519,6 @@ remove_useless_stmts_and_vars_1 (tree *first_p, struct rusv_data *data)
 	case COND_EXPR:
 	  remove_useless_stmts_and_vars_cond (stmt_p, data);
 	  break;
-	case SWITCH_EXPR:
-	  remove_useless_stmts_and_vars_1 (&SWITCH_BODY (*stmt_p), data);
-	  break;
 	case TRY_FINALLY_EXPR:
 	  remove_useless_stmts_and_vars_tf (stmt_p, data);
 	  break;
@@ -1731,23 +1634,9 @@ remove_unreachable_block (basic_block bb)
 	 The entry block (line 2) is unreachable but its body isn't.  */
       find_contained_blocks (last_p, subblocks, &dummy_p);
       if (blocks_unreachable_p (subblocks))
-	{
-	  remove_blocks (subblocks);
-	}
+	remove_blocks (subblocks);
       else
-	{
-
-	  /* If we have reachable subblocks, then we can not remove
-	     control statements.  But we also can't simply leave them
-	     as-is since they may refer to SSA variables which will
-	     not get renamed since this block has become unreachable.
-
-	     So cleanup any variable references in toplevel control
-	     structures.  This may or may not be sufficient.  */
-	  if (TREE_CODE (*last_p) == SWITCH_EXPR)
-	    SWITCH_COND (*last_p) = integer_zero_node;
-	  remove_bb (bb, REMOVE_NON_CONTROL_STRUCTS);
-	}
+	remove_bb (bb, REMOVE_NON_CONTROL_STRUCTS);
 
       BITMAP_XFREE (subblocks);
     }
@@ -2278,7 +2167,6 @@ cleanup_control_flow (void)
     }
 }
 
-
 /* Disconnect an unreachable block in the conditional expression starting
    at block BB.  */
 
@@ -2299,15 +2187,12 @@ cleanup_cond_expr_graph (basic_block bb, block_stmt_iterator bsi)
 
   if (bb->succ->succ_next)
     {
+      edge e, next;
+
       val = COND_EXPR_COND (cond_expr);
       taken_edge = find_taken_edge (bb, val);
-    }
-  else
-    taken_edge = bb->succ;
-
-  if (taken_edge)
-    {
-      edge e, next;
+      if (!taken_edge)
+	return false;
 
       /* Remove all the edges except the one that is always executed.  */
       for (e = bb->succ; e; e = next)
@@ -2319,18 +2204,19 @@ cleanup_cond_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	      retval = true;
 	    }
 	}
-
-      if (taken_edge->flags & EDGE_TRUE_VALUE)
-	bsi_replace (bsi, COND_EXPR_THEN (cond_expr));
-      else if (taken_edge->flags & EDGE_FALSE_VALUE)
-	bsi_replace (bsi, COND_EXPR_ELSE (cond_expr));
-      else
-	abort ();
     }
+  else
+    taken_edge = bb->succ;
+
+  if (taken_edge->flags & EDGE_TRUE_VALUE)
+    bsi_replace (bsi, COND_EXPR_THEN (cond_expr));
+  else if (taken_edge->flags & EDGE_FALSE_VALUE)
+    bsi_replace (bsi, COND_EXPR_ELSE (cond_expr));
+  else
+    abort ();
 
   return retval;
 }
-
 
 /* Disconnect unreachable blocks in the 'switch' expression starting at
    block SWITCH_BB.
@@ -2340,84 +2226,57 @@ cleanup_cond_expr_graph (basic_block bb, block_stmt_iterator bsi)
    never be taken.  */
 
 bool
-cleanup_switch_expr_graph (basic_block switch_bb, block_stmt_iterator bsi)
+cleanup_switch_expr_graph (basic_block bb, block_stmt_iterator bsi)
 {
-  int found = 0;
-  edge e;
-  bool retval;
   tree switch_expr = bsi_stmt (bsi);
+  tree switch_val, taken_case;
+  basic_block dest_bb;
+  bool retval;
 
 #if defined ENABLE_CHECKING
   if (switch_expr == NULL_TREE || TREE_CODE (switch_expr) != SWITCH_EXPR)
     abort ();
 #endif
 
-  retval = disconnect_unreachable_case_labels (switch_bb, switch_expr);
-
-  /* If the switch() has a default label, remove the fallthru edge that was
-     created when we processed the entry block for the switch() statement.  */
-  for (e = switch_bb->succ; e && !found; e = e->succ_next)
-    {
-      block_stmt_iterator bsi;
-      for (bsi = bsi_start (e->dest); !bsi_end_p (bsi); bsi_next (&bsi))
-        {
-	  tree t = bsi_stmt (bsi);
-          if (TREE_CODE (t) != CASE_LABEL_EXPR)
-	    break;
-	  if (CASE_LOW (t) == NULL_TREE)
-	    {
-	      basic_block chain_bb = successor_block (switch_bb);
-	      edge e = find_edge (switch_bb, chain_bb);
-	      if (e)
-		{
-		  ssa_remove_edge (e);
-		  retval = true;
-		}
-	      found = 1;
-	      break;
-	    }
-	}
-    }
-  return retval;
-}
-
-
-/* Clean up the 'switch' expression at block BB.
-
-   If the switch() statement starting at basic block BB has a constant
-   condition, disconnect all the unreachable case labels.  */
-
-static bool
-disconnect_unreachable_case_labels (basic_block bb, tree t)
-{
-  edge taken_edge;
-  tree switch_val;
-  bool retval = false;
-
-  if (t == NULL_TREE)
-    return retval;
-
-  switch_val = SWITCH_COND (t);
-  taken_edge = find_taken_edge (bb, switch_val);
-  if (taken_edge)
+  retval = false;
+  if (bb->succ->succ_next)
     {
       edge e, next;
 
-      /* Remove all the edges that go to case labels that will never
-	 be taken.  */
-      for (e = bb->succ; e; e = next)
+      /* Multiple destination edges.  If we've got a integer constant,
+	 we can look up the value in the switch condition and replace.  */
+      switch_val = SWITCH_COND (switch_expr);
+      if (TREE_CODE (switch_val) != INTEGER_CST)
+	return retval;
+
+      taken_case = find_case_label_for_value (switch_expr, switch_val);
+      dest_bb = label_to_block (CASE_LABEL (taken_case));
+
+      /* Remove all the edges that will never be taken.  */
+      for (e = bb->succ; e ; e = next)
 	{
 	  next = e->succ_next;
-	  if (e != taken_edge)
-	    {
+	  if (e->dest != dest_bb)
+            {
 	      ssa_remove_edge (e);
 	      retval = true;
 	    }
 	}
     }
+  else
+    {
+      /* There is only one destination edge, which means that all of
+	 the labels go to the same place.  */
+      dest_bb = bb->succ->dest;
+      taken_case = TREE_VEC_ELT (SWITCH_LABELS (switch_expr), 0);
+    }
+
+  /* Simplify the SWITCH_EXPR itself.  */
+  taken_case = build (GOTO_EXPR, void_type_node, CASE_LABEL (taken_case));
+  bsi_replace (bsi, taken_case);
+
   return retval;
 }
-
 
 /* Given a control block BB and a constant value VAL, return the edge that
    will be taken out of the block.  If VAL does not match a unique edge,
@@ -2449,7 +2308,6 @@ find_taken_edge (basic_block bb, tree val)
   return bb->succ;
 }
 
-
 /* Given a constant value VAL and the entry block BB to a COND_EXPR
    statement, determine which of the two edges will be taken out of the
    block.  Return NULL if either edge may be taken.  */
@@ -2462,8 +2320,8 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
   edge e;
 
   /* Determine which branch of the if() will be taken.  */
-  always_false = (simple_cst_equal (val, integer_zero_node) == 1);
-  always_true = (simple_cst_equal (val, integer_one_node) == 1);
+  always_false = integer_zerop (val);
+  always_true = integer_nonzerop (val);
 
   /* If VAL is a constant but it can't be reduced to a 0 or a 1, then
      we don't really know which edge will be taken at runtime.  This
@@ -2480,7 +2338,6 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
   abort ();
 }
 
-
 /* Given a constant value VAL and the entry block BB to a SWITCH_EXPR
    statement, determine which edge will be taken out of the block.  Return
    NULL if any edge may be taken.  */
@@ -2488,75 +2345,56 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
 static edge
 find_taken_edge_switch_expr (basic_block bb, tree val)
 {
-  edge e, default_edge;
+  tree switch_expr, taken_case;
+  basic_block dest_bb;
+  edge e;
 
-  /* See if the switch() value matches one of the case labels.  */
-  default_edge = NULL;
-  for (e = bb->succ; e; e = e->succ_next)
-    {
-      edge dest_edge;
-      tree dest_t;
+  if (TREE_CODE (val) != INTEGER_CST)
+    return NULL;
 
-      dest_edge = e;
-      dest_t = first_stmt (dest_edge->dest);
+  switch_expr = last_stmt (bb);
+  taken_case = find_case_label_for_value (switch_expr, val);
+  dest_bb = label_to_block (CASE_LABEL (taken_case));
 
-      /* We are only interested in edges that go to CASE_LABEL_EXPRs.  */
-      if (dest_t == NULL_TREE || TREE_CODE (dest_t) != CASE_LABEL_EXPR)
-	continue;
-
-      if (value_matches_some_label (dest_edge, val, &default_edge))
-	return dest_edge;
-    }
-
-  /* If no case exists for the value used in the switch(), we use the
-     default label.  If the switch() has no default label, we use the edge
-     going out of the switch() body.  */
-  return default_edge ? default_edge : find_edge (bb, successor_block (bb));
+  e = find_edge (bb, dest_bb);
+  if (!e)
+    abort ();
+  return e;
 }
 
+/* Return the CASE_LABEL_EXPR that SWITCH_EXPR will take for VAL.  */
 
-/* Return true if VAL matches one of the labels in the destination block of
-   edge DEST_EDGE.  If one of the labels in the block is the DEFAULT label,
-   DEST_EDGE is stored into *DEFAULT_EDGE_P to indicate that this edge goes
-   to the DEFAULT label.  This is used by the caller when no other case
-   label is found to match VAL.  */
-
-static bool
-value_matches_some_label (edge dest_edge, tree val, edge *default_edge_p)
+static tree
+find_case_label_for_value (tree switch_expr, tree val)
 {
-  basic_block dest_bb = dest_edge->dest;
-  block_stmt_iterator i;
+  tree vec = SWITCH_LABELS (switch_expr);
+  size_t i, n = TREE_VEC_LENGTH (vec);
+  tree default_case = NULL;
 
-  for (i = bsi_start (dest_bb); !bsi_end_p (i); bsi_next (&i))
+  for (i = 0; i < n; ++i)
     {
-      tree stmt = bsi_stmt (i);
+      tree t = TREE_VEC_ELT (vec, i);
 
-      /* No more labels.  We haven't found a match.  */
-      if (TREE_CODE (stmt) != CASE_LABEL_EXPR)
-	return false;
-
-      /* Remember that we found a default label, just in case no other
-	 label matches the switch() value.  If we do find a match, we
-	 are done.  */
-      if (CASE_LOW (stmt) == NULL_TREE)
-	*default_edge_p = dest_edge;
-      else if (CASE_HIGH (stmt) == NULL_TREE)
+      if (CASE_LOW (t) == NULL)
+	default_case = t;
+      else if (CASE_HIGH (t) == NULL)
 	{
 	  /* A `normal' case label.  */
-	  tree label_val = CASE_LOW (stmt);
-	  if (simple_cst_equal (label_val, val) == 1)
-	    return true;
+	  if (simple_cst_equal (CASE_LOW (t), val) == 1)
+	    return t;
 	}
       else
 	{
 	  /* A case range.  We can only handle integer ranges.  */
-	  if (tree_int_cst_compare (CASE_LOW (stmt), val) <= 0
-	      && tree_int_cst_compare (CASE_HIGH (stmt), val) >= 0)
-	    return true;
+	  if (tree_int_cst_compare (CASE_LOW (t), val) <= 0
+	      && tree_int_cst_compare (CASE_HIGH (t), val) >= 0)
+	    return t;
 	}
     }
 
-  return false;
+  if (!default_case)
+    abort ();
+  return default_case;
 }
 
 /* If all the phi nodes in DEST have alternatives for E1 and E2 and
@@ -2931,18 +2769,9 @@ successor_block (basic_block bb)
 /* Return true if T represents a control structure.  */
 
 bool
-is_ctrl_structure (tree t)
+is_ctrl_structure (tree t ATTRIBUTE_UNUSED)
 {
-#if defined ENABLE_CHECKING
-  if (t == NULL)
-    abort ();
-#endif
-
-  return (TREE_CODE (t) == CATCH_EXPR
-	  || TREE_CODE (t) == EH_FILTER_EXPR
-	  || TREE_CODE (t) == TRY_CATCH_EXPR
-	  || TREE_CODE (t) == TRY_FINALLY_EXPR
-	  || TREE_CODE (t) == SWITCH_EXPR);
+  return false;
 }
 
 /* Return true if T represents a stmt that always transfers control.  */
@@ -2950,8 +2779,8 @@ is_ctrl_structure (tree t)
 bool
 is_ctrl_stmt (tree t)
 {
-  return (is_ctrl_structure (t)
-	  || TREE_CODE (t) == COND_EXPR
+  return (TREE_CODE (t) == COND_EXPR
+	  || TREE_CODE (t) == SWITCH_EXPR
 	  || TREE_CODE (t) == GOTO_EXPR
 	  || TREE_CODE (t) == RETURN_EXPR
 	  || TREE_CODE (t) == RESX_EXPR);
@@ -3120,21 +2949,6 @@ first_exec_stmt (tree *entry_p)
 
   return NULL;
 }
-
-/* Return the header block for the innermost switch statement containing
-   BB.  Return NULL if BB is not inside a switch statement.  */
-
-static basic_block
-switch_parent (basic_block bb)
-{
-  tree parent = parent_stmt (last_stmt (bb));
-
-  while (parent && TREE_CODE (parent) != SWITCH_EXPR)
-    parent = parent_stmt (parent);
-
-  return (parent) ? bb_for_stmt (parent) : NULL;
-}
-
 
 /* Return the first statement in basic block BB, stripped of any NOP
    containers.  */
@@ -3728,343 +3542,6 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
   return;
 }
 
-/* When inserting on a FALLTHRU edge from a switch, create a new default case
-   for the code. If there is a fallthru edge, there should be no default case.
-   Inputs are the SWITCH source block, the original DEST block, and the new
-   block which will contain the new default case.  The edge from src->dest
-   has already been split at this point.  */
-
-static tree *
-handle_switch_fallthru (tree sw_stmt, basic_block dest, basic_block new_bb)
-{
-  tree_stmt_iterator tsi;
-  block_stmt_iterator bsi;
-  tree goto_stmt, stmt, label, tmp;
-  basic_block src, tmp_bb;
-  edge e;
-
-
-  /* First, make all predecessors which don't explicitly goto the DEST block
-     do so, except for SRC->DEST.  */
-
-  bsi = bsi_start (dest);
-  stmt = bsi_stmt (bsi);
-  if (TREE_CODE (stmt) != LABEL_EXPR)
-    {
-      /* DEST does not start with a label, add one.  */
-      label = create_artificial_label ();
-      stmt = build1 (LABEL_EXPR, void_type_node, label);
-      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
-    }
-  else
-    label = LABEL_EXPR_LABEL (stmt);
-
-  src = bb_for_stmt (sw_stmt);
-  for (e = dest->pred; e; e = e->pred_next)
-    if (e->src != new_bb)
-      {
-        /* The only way stmt can be NULL is if we are in the process of
-	   handling a nested switch stmt when we get here, and haven't 
-	   fully constructed the default case for the other one yet.  This 
-	   ought to be safe to ignore at this point.  */
-        stmt = last_stmt (e->src);
-	if (stmt && TREE_CODE (stmt) != GOTO_EXPR)
-	  {
-	    goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
-	    tmp = PENDING_STMT (e);
-	    SET_PENDING_STMT (e, NULL_TREE);
-	    bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &tmp_bb);
-	    SET_PENDING_STMT (e, tmp);
-	    e->flags = e->flags & ~EDGE_FALLTHRU;
-	    /* Insertion should never cause a new block, unless STMT needs
-	       to be the last statement in E->SRC (e.g., STMT is a
-	       CALL_EXPR that may throw).  */
-	    if (tmp_bb && !stmt_ends_bb_p (stmt))
-	      abort ();
-	  }
-      }
-    else
-      /* This will no longer be a fallthru edge.  */
-      e->flags = e->flags & ~EDGE_FALLTHRU;
-
-  /* Now there are no fall throughs to the DEST block, so simple create
-     the default case, and insert there.  */
-
-  stmt = SWITCH_BODY (sw_stmt);
-  /* If the switch isn't inside a BIND_EXPR, make one.  */
-  if (TREE_CODE (stmt) != BIND_EXPR)
-    {
-      tree bind = build (BIND_EXPR, void_type_node, NULL_TREE, stmt, NULL_TREE);
-      set_bb_for_stmt (bind, bb_for_stmt (stmt));
-      SWITCH_BODY (sw_stmt) = bind;
-    }
-
-  tsi = tsi_last (&BIND_EXPR_BODY (SWITCH_BODY (sw_stmt)));
-  label = create_artificial_label ();
-  stmt = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE, label);
-
-  /* Update block in the new CE node.  */
-  tmp_bb = bb_for_stmt (tsi_stmt (tsi));
-  if (tmp_bb)
-    tsi = bsi_link_after (&tsi, stmt, tmp_bb, parent_stmt (tsi_stmt (tsi)));
-  else
-    {
-      tsi_link_after (&tsi, stmt, TSI_SAME_STMT);
-      append_stmt_to_bb (tsi_container (tsi), new_bb, sw_stmt);
-    }
-  tsi_next (&tsi);
-  append_stmt_to_bb (tsi_container (tsi), new_bb, sw_stmt);
-
-  new_bb->succ->flags = new_bb->succ->flags | EDGE_FALLTHRU;
-
-  return tsi_container (tsi);
-}
-
-/* Arrange for a place to insert a stmt when we are splitting a block which is
-   targeted by a switch stmt.  Return the container which is used to build
-   a TSI where the edge stmt should be inserted after.
-
-   Fallthrough code must be directed around the target label, and a target
-   label must be inserted on the other side of the code we are inserting.
-   ie:
-     case X:
-	// fallthrough
-  BB_a
-     case Y:
-       code;
-
-   will be turned into:
-
-     case X:
-       goto newlab;
-  BB_b
-     case Y:
-       inserted_code;
-  BB_a
-     newlab:
-       code;
-
-   Note that upon entry to this function, src is *not* the switch stmt's block
-   any more. bsi_insert_on_edge_immediate() has already split the edge from
-   src->dest, so we have   original_src -> src -> dest. This new src block
-   is currently empty.  */
-
-
-static tree *
-handle_switch_split (basic_block src, basic_block dest)
-{
-  block_stmt_iterator bsi, tmp;
-  tree_stmt_iterator tsi, end_tsi;
-  tree stmt, label, goto_stmt;
-  tree tmp_tree;
-  basic_block new_bb;
-  edge e;
-
-  /* The edge between SRC and DEST will always be a fallthru edge at this
-     point.  */
-  src->succ->flags |= EDGE_FALLTHRU;
-
-  label = create_artificial_label ();
-  TREE_USED (label) = 1;
-
-  /* Insert a goto on all edges except the one from src to this label. */
-
-restart_loop:
-  for (e = dest->pred; e ; e = e->pred_next)
-    {
-      if (e->src != src)
-        {
-	  tmp = bsi_last (e->src);
-	  goto_stmt = bsi_stmt (tmp);
-	  /* Dont issue a goto if it already goto's this label.  See below 
-	     for how this can happen to a new label.  */
-	  if (goto_stmt && TREE_CODE (goto_stmt) == GOTO_EXPR
-	      && GOTO_DESTINATION (goto_stmt) == label)
-	    continue;
-
-	  goto_stmt = build1 (GOTO_EXPR, void_type_node, label);
-	  tmp_tree = PENDING_STMT (e);
-	  SET_PENDING_STMT (e, NULL_TREE);
-	  bsi_insert_on_edge_immediate (e, goto_stmt, NULL, &new_bb);
-
-	  /* So splitting this edge *can* result in another basic block
-	     if there is a case label nested inside an if construct, for
-	     instance. Yes, this is allowed. blah. 
-	     So this is ugly. The edge may no longer be in the edge list we
-	     have been traversing, so we have to start over.  First attach any
-	     pending insertions to the new edge.  This is why we need to check 
-	     for existing GOTO's to our label above.  */
-	  if (new_bb)
-	    {
-#ifdef ENABLE_CHECKING
-	      /* There ought to be exactly one successor to the new block.  */
-	      if (new_bb->succ == NULL || new_bb->succ->succ_next != NULL)
-	        abort();
-#endif
-	      SET_PENDING_STMT (new_bb->succ, tmp_tree);
-	      new_bb->succ->flags = new_bb->succ->flags & ~EDGE_FALLTHRU;
-	      goto restart_loop;
-	    }
-	  SET_PENDING_STMT (e, tmp_tree);
-	  e->flags = e->flags & ~EDGE_FALLTHRU;
-
-	}
-    }
-
-  /* Find the last case label.  That will be where the code separation
-     between bb_c and bb_a will be formed.  Upon exit of the loop, bsi will
-     point to the first stmt in BB_a.  */
-
-  bsi = bsi_start (dest);
-  for (tmp = bsi; !bsi_end_p (bsi); bsi_next (&bsi))
-    {
-      stmt = bsi_stmt (bsi);
-      if (is_label_stmt (bsi_stmt (bsi)))
-	{
-	  if (TREE_CODE (stmt) != CASE_LABEL_EXPR)
-	    break;
-	}
-      else
-        break;
-      tmp = bsi;
-    }
-
-  /* Now the stmts delineating the new block are known. Change the basic
-     block for those stmts. It cannot be done in the above loop, for
-     changing the basic block of a stmt pointed to by an iterator will cause
-     the iterator to think its reached the end of a block. (It is now
-     pointing to BB_b, the next stmt is in BB_a, so it terminates.
-
-     We know at least one statement will need it's block changed, so a
-     "do" loop is appropriate here.
-
-     After the above loop, 'tmp' will be the last BSI stmt that should be in
-     the new block. We end our loop with the next tsi_stmt after that. Note
-     that 'bsi' is not the correct place to end the loop because block
-     iterators ignore certain stmts, like BIND_EXPR. These can have local
-     automatics, and we dont want to copy these stmts into the new block.  */
-
-  tsi = tsi_start (dest->head_tree_p);
-  end_tsi = tsi_from_bsi (tmp);
-  tsi_next (&end_tsi);
-  do
-    {
-      append_stmt_to_bb (tsi_container (tsi),
-			 src,
-			 parent_stmt (tsi_stmt (tsi)));
-      tsi_next (&tsi);
-    }
-  while (!tsi_end_p (tsi) && (tsi_container (tsi) != tsi_container (end_tsi)));
-
-  /* Issue the label at the beginning of DEST, and update DEST's head
-     and end pointers.  */
-
-  stmt = build1 (LABEL_EXPR, void_type_node, label);
-  if (bsi_end_p (bsi))
-    {
-      /* There are no stmts left, so we need to link an empty_stmt node
-	 after the last stmt in BB_c (which is pointed to by 'tmp'), and make
-	 it the only element of BB_a.  */
-      tsi = tsi_from_bsi (tmp);
-      tsi_link_after (&tsi, stmt, TSI_SAME_STMT);
-      /* If we're linking after the last stmt in the chain, we have to update
-         the container for the current stmt as well since we may have a new
-	 container.  */
-      set_bb_for_stmt (*tsi_container (tsi), bb_for_stmt (tsi_stmt (tsi)));
-      tsi_next (&tsi);
-      dest->head_tree_p = (tree *) NULL;
-      dest->end_tree_p = (tree *) NULL;
-      append_stmt_to_bb (tsi_container (tsi),
-			 dest,
-			 parent_stmt (bsi_stmt (tmp)));
-    }
-  else
-    {
-      dest->head_tree_p = bsi_container (bsi);
-      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
-    }
-
-  bsi = bsi_last (src);
-  return bsi_container (bsi);
-}
-
-/* Given an edge between src and dest, return a TSI representing the location
-   that any instructions on this edge should be inserted.
-   The location parameter returns a value indicating how this iterator is
-   to be used.  */
-
-static tree_stmt_iterator
-find_insert_location (basic_block src, basic_block dest, basic_block new_block,
-		      enum find_location_action *location)
-{
-  block_stmt_iterator bsi;
-  tree *ret, stmt;
-  edge e;
-
-  *location = EDGE_INSERT_LOCATION_BEFORE;
-  bsi = bsi_last (src);
-  if (!bsi_end_p (bsi))
-    {
-      stmt = bsi_stmt (bsi);
-      switch (TREE_CODE (stmt))
-	{
-	  case COND_EXPR:
-	    e = find_edge (src, new_block);
-	    if (!e)
-	      abort ();
-	    ret = src->end_tree_p;
-
-	    if (e->flags & EDGE_TRUE_VALUE)
-	      *location = EDGE_INSERT_LOCATION_THEN;
-	    else if (e->flags & EDGE_FALSE_VALUE)
-	      *location = EDGE_INSERT_LOCATION_ELSE;
-	    else
-	      abort ();
-	    break;
-
-	  case TRY_CATCH_EXPR:
-	  case TRY_FINALLY_EXPR:
-	    if (bb_for_stmt (TREE_OPERAND (stmt, 0)) == dest)	
-	      ret = &TREE_OPERAND (stmt, 0);
-	    else
-	      ret = &TREE_OPERAND (stmt, 1);
-	    *location = EDGE_INSERT_LOCATION_BEFORE;
-	    break;
-
-	  case SWITCH_EXPR:
-	    bsi = bsi_start (dest);
-	    if (TREE_CODE (bsi_stmt (bsi)) != CASE_LABEL_EXPR)
-	      {
-		ret = handle_switch_fallthru (stmt, dest, new_block);
-		*location = EDGE_INSERT_LOCATION_BSI_AFTER;
-	      }
-	    else
-	      {
-		ret = handle_switch_split (new_block, dest);
-		*location = EDGE_INSERT_LOCATION_AFTER;
-	      }
-	    break;
-
-	case CALL_EXPR:
-	case MODIFY_EXPR:
-	    /* The block ends in a CALL which has abnormal edges.  In
-	       that case, we simply create a new block right after this
-	       one, and then fall through to the destination block.  */
-	    ret = src->end_tree_p;
-	    *location = EDGE_INSERT_LOCATION_AFTER;
-	    break;
-
-	default:
-	    /* All cases ought to have been covered by now.  */
-	    abort ();
-	}
-    }
-  else
-    ret = src->end_tree_p;
-
- return tsi_start (ret);
-}
-
 /* This routine inserts a stmt on an edge. Every attempt is made to place the
    stmt in an existing basic block, but sometimes that isn't possible.  When
    it isn't possible, a new basic block is created, edges updated, and the
@@ -4083,8 +3560,7 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
   block_stmt_iterator bsi, tmp;
   tree_stmt_iterator tsi;
   int num_exit, num_entry;
-  enum find_location_action location;
-  tree first, last, inserted_stmt, parent, label, gto, old_gto;
+  tree last, parent, label, gto, old_gto;
   bb_ann_t ann;
   edge e2;
 
@@ -4093,7 +3569,6 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
   if (created_block)
     *created_block = (basic_block)NULL;
 
-  first = last = NULL_TREE;
   src = e->src;
   dest = e->dest;
 
@@ -4119,8 +3594,8 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
   if (num_exit == 1 && src != ENTRY_BLOCK_PTR)
     {
       bsi = bsi_last (src);
-      /* If it is an empty block, simply insert after this bsi, and the new stmt
-	 will become the only stmt in the block.  */
+      /* If it is an empty block, simply insert after this bsi, and the
+	 new stmt will become the only stmt in the block.  */
       if (bsi_end_p (bsi))
 	{
 	  bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
@@ -4176,8 +3651,8 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	}
     }
 
-  /* If dest is a single entry destination, and it isn't the exit block, the new
-     stmt can be inserted at the beginning of the destination block.  */
+  /* If dest is a single entry destination, and it isn't the exit block, the
+     new stmt can be inserted at the beginning of the destination block.  */
 
   if (num_entry == 1 && dest != EXIT_BLOCK_PTR)
     {
@@ -4222,81 +3697,115 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
   if (created_block)
     *created_block = new_bb;
 
-  tsi = find_insert_location (src, dest, new_bb, &location);
-  parent = parent_stmt (tsi_stmt (tsi));
-
-  switch (location)
+  bsi = bsi_last (src);
+  parent = NULL;
+  if (!bsi_end_p (bsi))
     {
-      case EDGE_INSERT_LOCATION_BEFORE:
-	tsi_link_before (&tsi, stmt, TSI_NEW_STMT);
-	break;
+      bool fixup;
 
-      case EDGE_INSERT_LOCATION_THEN:
-      case EDGE_INSERT_LOCATION_ELSE:
-	new_bb->succ->flags &= ~EDGE_FALLTHRU;
-	label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-	gto = build_and_jump (&LABEL_EXPR_LABEL (label));
-	if (location == EDGE_INSERT_LOCATION_THEN)
+      last = bsi_stmt (bsi);
+      label = old_gto = NULL;
+      tsi = tsi_start (src->end_tree_p);
+
+      switch (TREE_CODE (last))
+	{
+	case COND_EXPR:
+	  e = find_edge (src, new_bb);
+	  if (!e)
+	    abort ();
+
+	  label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+	  gto = build_and_jump (&LABEL_EXPR_LABEL (label));
+	  if (e->flags & EDGE_TRUE_VALUE)
+	    {
+	      old_gto = COND_EXPR_THEN (last);
+	      COND_EXPR_THEN (last) = gto;
+	    }
+	  else
+	    {
+	      old_gto = COND_EXPR_ELSE (last);
+	      COND_EXPR_ELSE (last) = gto;
+	    }
+	  break;
+
+	case SWITCH_EXPR:
 	  {
-	    old_gto = COND_EXPR_THEN (tsi_stmt (tsi));
-	    COND_EXPR_THEN (tsi_stmt (tsi)) = gto;
+	    tree vec = SWITCH_LABELS (last);
+	    size_t i, n = TREE_VEC_LENGTH (vec);
+	    tree dest_label = NULL;
+
+	    label = create_artificial_label ();
+	    for (i = 0; i < n; ++i)
+	      {
+		tree elt = TREE_VEC_ELT (vec, i);
+		if (label_to_block (CASE_LABEL (elt)) == dest)
+		  {
+		    dest_label = CASE_LABEL (elt);
+		    CASE_LABEL (elt) = label;
+		  }
+	      }
+
+	    label = build1 (LABEL_EXPR, void_type_node, label);
+	    old_gto = build_and_jump (&dest_label);
 	  }
-	else
-	  {
-	    old_gto = COND_EXPR_ELSE (tsi_stmt (tsi));
-	    COND_EXPR_ELSE (tsi_stmt (tsi)) = gto;
-	  }
-	tsi_link_after (&tsi, label, TSI_NEW_STMT);
-	append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
-	tsi_link_after (&tsi, stmt, TSI_NEW_STMT);
-	tsi_link_after (&tsi, old_gto, TSI_SAME_STMT);
-	break;
+	  break;
 
-      case EDGE_INSERT_LOCATION_AFTER:
-	tsi_link_after (&tsi, stmt, TSI_NEW_STMT);
-	break;
+	case CALL_EXPR:
+	case MODIFY_EXPR:
+	  /* The block ends in a CALL which has abnormal edges.  In
+	     that case, we simply create a new block right after this
+	     one, and then fall through to the destination block.  */
+	  e = find_edge (new_bb, dest);
+	  if (!e)
+	    abort ();
+	  e->flags |= EDGE_FALLTHRU;
+	  break;
 
-      case EDGE_INSERT_LOCATION_BSI_AFTER:
-        bsi = bsi_from_tsi (tsi);
-	bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-    }
+	default:
+	  /* All cases ought to have been covered by now.  */
+	  abort ();
+	}
 
-  if (location != EDGE_INSERT_LOCATION_BSI_AFTER)
-    {
+      /* When insertting our first statement, we may well create a new
+	 COMPOUND_EXPR container, and so we'll need to update the end
+	 of the old src block.  */
+      fixup = false;
+
+      if (label)
+	{
+	  tsi_link_after (&tsi, label, TSI_SAME_STMT);
+	  src->end_tree_p = tsi_container (tsi);
+	  fixup = true;
+	  tsi_next (&tsi);
+          append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+	}
+
+      tsi_link_after (&tsi, stmt, fixup ? TSI_NEW_STMT : TSI_SAME_STMT);
+      if (!fixup)
+	{
+	  src->end_tree_p = tsi_container (tsi);
+	  fixup = true;
+	  tsi_next (&tsi);
+	}
       append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
-      inserted_stmt = tsi_stmt (tsi);
-      bsi = bsi_from_tsi (tsi);
-    }
-  else
-    inserted_stmt = bsi_stmt (bsi);
 
-  switch (location)
-    {
-      case EDGE_INSERT_LOCATION_THEN:
-      case EDGE_INSERT_LOCATION_ELSE:
-	tsi_next (&tsi);
-	append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
-	break;
+      if (old_gto)
+	{
+          tsi_link_after (&tsi, old_gto, TSI_NEW_STMT);
+          append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+	}
 
-      case EDGE_INSERT_LOCATION_BEFORE:
-      case EDGE_INSERT_LOCATION_AFTER:
-	tsi_next (&tsi);
-	if (!tsi_end_p (tsi))
-	  {
-	    /* The container for the head of the dest block has been
-	       changed. (we've linked a new stmt in front of it.)  */
-	    if (dest->end_tree_p == dest->head_tree_p)
-	      dest->end_tree_p = tsi_container (tsi);
-	    dest->head_tree_p = tsi_container (tsi);
-	  }
-	break;
-
-      case EDGE_INSERT_LOCATION_BSI_AFTER:
-        break;
+      /* For the same reason of new containers, we have to wait until the
+	 end to initialize our return bsi value.  Fortunately we don't 
+	 need to search far to get it pointed to the real statement that
+	 we added.  */
+      bsi = bsi_start (new_bb);
+      if (label)
+	bsi_next (&bsi);
     }
 
   /* Now update the required SSA bits.  */
-  modify_stmt (inserted_stmt);
+  modify_stmt (stmt);
 
   return bsi;
 }
@@ -4312,7 +3821,7 @@ int
 bsi_commit_edge_inserts (int update_annotations, int *new_blocks)
 {
   basic_block bb;
-  block_stmt_iterator bsi, ret;
+  block_stmt_iterator bsi;
   edge e;
   tree stmt, next_stmt;
   int blocks, count = 0;
@@ -4328,7 +3837,7 @@ bsi_commit_edge_inserts (int update_annotations, int *new_blocks)
 	    SET_PENDING_STMT (e, NULL_TREE);
 	    next_stmt = TREE_CHAIN (stmt);
 	    /* The first insert will create a new basic block if needed.  */
-	    ret = bsi = bsi_insert_on_edge_immediate (e, stmt, NULL, NULL);
+	    bsi = bsi_insert_on_edge_immediate (e, stmt, NULL, NULL);
 	    count++;
 	    stmt = next_stmt;
 	    for ( ; stmt; stmt = next_stmt)
@@ -4648,7 +4157,7 @@ tree_split_edge (edge edge_in)
   new_bb = create_bb ();
   create_block_annotation (new_bb);
   redirect_edge_succ  (edge_in, new_bb);
-  new_edge = make_edge (new_bb, dest, EDGE_FALLTHRU);
+  new_edge = make_edge (new_bb, dest, 0);
 
   /* Find all the PHI arguments on the original edge, and change them to
      the new edge.  */

@@ -51,8 +51,6 @@ static void lower_stmt_body (tree *, struct lower_data *);
 static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
-static void lower_switch_expr (tree_stmt_iterator *, struct lower_data *);
-static void lower_case_label_expr (tree_stmt_iterator *, struct lower_data *);
 static bool simple_goto_p (tree);
 
 /* Lowers the BODY.  */
@@ -116,18 +114,11 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case LABEL_EXPR:
     case VA_ARG_EXPR:
     case RESX_EXPR:
+    case SWITCH_EXPR:
       break;
 
     case COND_EXPR:
       lower_cond_expr (tsi, data);
-      break;
-
-    case SWITCH_EXPR:
-      lower_switch_expr (tsi, data);
-      break;
-
-    case CASE_LABEL_EXPR:
-      lower_case_label_expr (tsi, data);
       break;
 
     default:
@@ -244,22 +235,4 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
   if (end_label)
     tsi_link_after (tsi, end_label, TSI_CONTINUE_LINKING);
-}
-
-/* Lowers a switch_expr TSI.  DATA is passed through the recursion.  */
-
-static void
-lower_switch_expr (tree_stmt_iterator *tsi, struct lower_data *data)
-{
-  tree stmt = tsi_stmt (*tsi);
-
-  lower_stmt_body (&SWITCH_BODY (stmt), data);
-}
-
-/* Lowers a case_label_expr TSI.  DATA is passed through the recursion.  */
-
-static void
-lower_case_label_expr (tree_stmt_iterator *tsi ATTRIBUTE_UNUSED,
-		       struct lower_data *data ATTRIBUTE_UNUSED)
-{
 }

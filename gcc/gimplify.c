@@ -905,18 +905,8 @@ gimplify_loop_expr (tree *expr_p)
 static enum gimplify_status
 gimplify_switch_expr (tree *expr_p, tree *pre_p)
 {
-  tree label_vec;
-  int i, len;
-  varray_type labels;
   tree switch_expr = *expr_p;
   enum gimplify_status ret;
-
-  varray_type saved_labels = gimplify_ctxp->case_labels;
-  if (SWITCH_LABELS (switch_expr))
-    /* Don't do this work again.  */
-    gimplify_ctxp->case_labels = NULL;
-  else
-    VARRAY_TREE_INIT (gimplify_ctxp->case_labels, 8, "case_labels");
 
   /* We don't want to risk changing the type of the switch condition,
      lest stmt.c get the wrong impression about enumerations.  */
@@ -927,27 +917,78 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
     ret = gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL,
 			 is_gimple_val, fb_rvalue);
 
-  gimplify_stmt (&SWITCH_BODY (switch_expr));
-
-  labels = gimplify_ctxp->case_labels;
-  if (labels)
+  if (SWITCH_BODY (switch_expr))
     {
+      varray_type labels, saved_labels;
+      bool saw_default;
+      tree label_vec, t;
+      size_t i, len;
+
+      /* If someone can be bothered to fill in the labels, they can
+	 be bothered to null out the body too.  */
+      if (SWITCH_LABELS (switch_expr))
+	abort ();
+
+      saved_labels = gimplify_ctxp->case_labels;
+      VARRAY_TREE_INIT (gimplify_ctxp->case_labels, 8, "case_labels");
+
+      gimplify_stmt (&SWITCH_BODY (switch_expr));
+
+      labels = gimplify_ctxp->case_labels;
+      gimplify_ctxp->case_labels = saved_labels;
+
       len = VARRAY_ACTIVE_SIZE (labels);
-      label_vec = make_tree_vec (len);
+      saw_default = false;
+
+      for (i = 0; i < len; ++i)
+	{
+	  t = VARRAY_TREE (labels, i);
+	  if (!CASE_LOW (t))
+	    {
+	      saw_default = true;
+	      break;
+	    }
+	}
+
+      label_vec = make_tree_vec (len + !saw_default);
+      SWITCH_LABELS (*expr_p) = label_vec;
+
       for (i = 0; i < len; ++i)
 	TREE_VEC_ELT (label_vec, i) = VARRAY_TREE (labels, i);
-      SWITCH_LABELS (*expr_p) = label_vec;
+
+      add_tree (switch_expr, pre_p);
+
+      /* If the switch has no default label, add one, so that we jump
+	 around the switch body.  */
+      if (!saw_default)
+	{
+	  t = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
+		     NULL_TREE, create_artificial_label ());
+	  TREE_VEC_ELT (label_vec, len) = t;
+	  add_tree (SWITCH_BODY (switch_expr), pre_p);
+	  *expr_p = build (LABEL_EXPR, void_type_node, CASE_LABEL (t));
+	}
+      else
+        *expr_p = SWITCH_BODY (switch_expr);
+
+      SWITCH_BODY (switch_expr) = NULL;
     }
-  gimplify_ctxp->case_labels = saved_labels;
+  else if (!SWITCH_LABELS (switch_expr))
+    abort ();
 
   return ret;
 }
 
-static void
-gimple_add_case_label (tree expr)
+static enum gimplify_status
+gimplify_case_label_expr (tree *expr_p)
 {
+  tree expr = *expr_p;
   if (gimplify_ctxp->case_labels)
-    VARRAY_PUSH_TREE (gimplify_ctxp->case_labels, CASE_LABEL (expr));
+    VARRAY_PUSH_TREE (gimplify_ctxp->case_labels, expr);
+  else
+    abort ();
+  *expr_p = build (LABEL_EXPR, void_type_node, CASE_LABEL (expr));
+  return GS_ALL_DONE;
 }
 
 /* Gimplify a LABELED_BLOCK_EXPR into a LABEL_EXPR following
@@ -2821,8 +2862,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case CASE_LABEL_EXPR:
-	  gimple_add_case_label (*expr_p);
-	  ret = GS_ALL_DONE;
+	  ret = gimplify_case_label_expr (expr_p);
 	  break;
 
 	case RETURN_EXPR:

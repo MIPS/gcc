@@ -799,11 +799,9 @@ record_equivalences_from_incoming_edge (basic_block bb,
 				       vrp_variables_p);
   /* Similarly when the parent block ended in a SWITCH_EXPR.  */
   else if (parent_block_last_stmt
-	   && TREE_CODE (parent_block_last_stmt) == SWITCH_EXPR
-	   && bb->pred->pred_next == NULL)
+	   && bb->pred->pred_next == NULL
+	   && TREE_CODE (parent_block_last_stmt) == SWITCH_EXPR)
     {
-      int case_count = 0;
-      tree case_value = NULL_TREE;
       tree switch_cond = SWITCH_COND (parent_block_last_stmt);
 
       /* Strip away any useless type conversions.  */
@@ -814,42 +812,35 @@ record_equivalences_from_incoming_edge (basic_block bb,
 	 know its value at each of the case labels.  */
       if (TREE_CODE (switch_cond) == SSA_NAME)
 	{
-	  block_stmt_iterator si;
+	  tree switch_vec = SWITCH_LABELS (parent_block_last_stmt);
+	  size_t i, n = TREE_VEC_LENGTH (switch_vec);
+	  int case_count = 0;
+	  tree match_case = NULL_TREE;
 
-	  /* Walk the statements at the start of this block.  */
-	  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	  /* Search the case labels for those whose destination is
+	     the current basic block.  */
+	  for (i = 0; i < n; ++i)
 	    {
-	      tree stmt = bsi_stmt (si);
-
-	      /* If we hit anything other than a CASE_LABEL_EXPR, then
-		 stop our search.  */
-	      if (TREE_CODE (stmt) != CASE_LABEL_EXPR)
-		break;
-
-	      /* If we encountered more than one CASE_LABEL_EXPR, then
-		 there are multiple values for the switch's condition
-		 which reach this particular destination.  We can not
-		 optimize in that case.  */
-	      case_count++;
-	      if (case_count > 1)
-		break;
-
-	      /* If this is the default case or any other abnormal
-		 situation, then stop the loop and do not optimize.  */
-	      if (! CASE_LOW (stmt) || CASE_HIGH (stmt))
-		break;
-
-	      /* Record this case's value.  */
-	      case_value = CASE_LOW (stmt);
+	      tree elt = TREE_VEC_ELT (switch_vec, i);
+	      if (label_to_block (CASE_LABEL (elt)) == bb)
+		{
+		  if (++case_count > 1)
+		    break;
+		  match_case = elt;
+		}
 	    }
 
 	  /* If we encountered precisely one CASE_LABEL_EXPR and it
-	     was not the default case, then we know the exact value
-	     of SWITCH_COND which caused us to get to this block.
-	     Record that equivalence in EQ_EXPR_VALUE.  */
-	  if (case_count == 1 && case_value)
-	    eq_expr_value = build (MODIFY_EXPR, TREE_TYPE (switch_cond),
-				   switch_cond, case_value);
+	     was not the default case, or a case range, then we know
+	     the exact value of SWITCH_COND which caused us to get to
+	     this block.  Record that equivalence in EQ_EXPR_VALUE.  */
+	  if (case_count == 1
+	      && CASE_LOW (match_case)
+	      && !CASE_HIGH (match_case))
+	    {
+	      eq_expr_value = build (MODIFY_EXPR, TREE_TYPE (switch_cond),
+				     switch_cond, CASE_LOW (match_case));
+	    }
 	}
     }
 

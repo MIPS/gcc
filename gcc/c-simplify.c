@@ -778,23 +778,18 @@ static void
 gimplify_switch_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
-  tree body = SWITCH_BODY (stmt);
-  tree break_block, switch_;
-  tree cond = SWITCH_COND (stmt);
+  tree break_block;
   location_t stmt_locus = input_location;
-
-  gimplify_condition (&cond);
 
   break_block = begin_bc_block (bc_break);
 
-  c_gimplify_stmt (&body);
+  gimplify_condition (&SWITCH_COND (stmt));
+  *stmt_p = build (SWITCH_EXPR, SWITCH_TYPE (stmt), SWITCH_COND (stmt),
+		   SWITCH_BODY (stmt), NULL_TREE);
+  annotate_with_locus (*stmt_p, stmt_locus);
+  gimplify_stmt (stmt_p);
 
-  switch_ = build (SWITCH_EXPR, SWITCH_TYPE (stmt), cond, body, NULL_TREE);
-  annotate_with_locus (switch_, stmt_locus);
-
-  switch_ = finish_bc_block (break_block, switch_);
-
-  *stmt_p = switch_;
+  *stmt_p = finish_bc_block (break_block, *stmt_p);
 }
 
 /* Genericize a RETURN_STMT by turning it into a RETURN_EXPR.  */

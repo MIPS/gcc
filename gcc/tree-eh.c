@@ -158,15 +158,9 @@ collect_finally_tree (tree t, tree region)
       collect_finally_tree (TREE_OPERAND (t, 1), region);
       break;
 
-    case LOOP_EXPR:
-      collect_finally_tree (LOOP_EXPR_BODY (t), region);
-      break;
     case COND_EXPR:
       collect_finally_tree (COND_EXPR_THEN (t), region);
       collect_finally_tree (COND_EXPR_ELSE (t), region);
-      break;
-    case SWITCH_EXPR:
-      collect_finally_tree (SWITCH_BODY (t), region);
       break;
     case BIND_EXPR:
       collect_finally_tree (BIND_EXPR_BODY (t), region);
@@ -354,9 +348,7 @@ replace_goto_queue_1 (tree *tp, int *walk_subtrees, void *data)
 	}
       break;
 
-    case LOOP_EXPR:
     case COND_EXPR:
-    case SWITCH_EXPR:
     case BIND_EXPR:
     case TRY_FINALLY_EXPR:
     case TRY_CATCH_EXPR:
@@ -457,6 +449,35 @@ maybe_record_in_goto_queue (struct leh_state *state, tree stmt)
   q->stmt = stmt;
   q->index = index;
 }
+
+#ifdef ENABLE_CHECKING
+/* We do not process SWITCH_EXPRs for now.  As long as the original source
+   was in fact structured, and we've not yet done jump threading, then none
+   of the labels will leave outer TRY_FINALLY_EXPRs.  Verify this.  */
+
+static void
+verify_norecord_switch_expr (struct leh_state *state, tree switch_expr)
+{
+  struct leh_tf_state *tf = state->tf;
+  size_t i, n;
+  tree vec;
+
+  if (!tf)
+    return;
+
+  vec = SWITCH_LABELS (switch_expr);
+  n = TREE_VEC_LENGTH (vec);
+
+  for (i = 0; i < n; ++i)
+    {
+      tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
+      if (outside_finally_tree (lab, tf->try_finally_expr))
+	abort ();
+    }
+}
+#else
+#define verify_norecord_switch_expr(state, switch_expr)
+#endif
 
 /* Redirect a RETURN_EXPR pointed to by STMT_P to FINLAB.  Place in CONT_P
    whatever is needed to finish the return.  If MOD is non-null, insert it
@@ -569,7 +590,6 @@ block_may_fallthru_last (tree stmt)
     {
     case GOTO_EXPR:
     case RETURN_EXPR:
-    case LOOP_EXPR:
     case RESX_EXPR:
       /* Easy cases.  If the last statement of the block implies 
 	 control transfer, then we can't fall through.  */
@@ -1031,7 +1051,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   tree_stmt_iterator i, i2;
   int return_index, eh_index, fallthru_index;
   int nlabels, ndests, j, last_case_index;
-  tree case_label_vec, switch_stmt, last_case;
+  tree case_label_vec, switch_stmt, last_case, switch_body;
   tree x;
 
   /* Mash the TRY block to the head of the chain.  */
@@ -1058,7 +1078,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   case_label_vec = make_tree_vec (ndests);
   switch_stmt = build (SWITCH_EXPR, integer_type_node, finally_tmp,
 		       NULL_TREE, case_label_vec);
-  i2 = tsi_start (&SWITCH_BODY (switch_stmt));
+  switch_body = NULL;
+  i2 = tsi_start (&switch_body);
   last_case = NULL;
   last_case_index = 0;
 
@@ -1087,7 +1108,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       TREE_VEC_ELT (case_label_vec, last_case_index) = last_case;
       last_case_index++;
 
-      tsi_link_after (&i2, last_case, TSI_NEW_STMT);
+      x = build (LABEL_EXPR, void_type_node, CASE_LABEL (last_case));
+      tsi_link_after (&i2, x, TSI_NEW_STMT);
       x = build1 (GOTO_EXPR, void_type_node, tf->fallthru_label);
       tsi_link_after (&i2, x, TSI_NEW_STMT);
     }
@@ -1107,7 +1129,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       TREE_VEC_ELT (case_label_vec, last_case_index) = last_case;
       last_case_index++;
 
-      tsi_link_after (&i2, last_case, TSI_NEW_STMT);
+      x = build (LABEL_EXPR, void_type_node, CASE_LABEL (last_case));
+      tsi_link_after (&i2, x, TSI_NEW_STMT);
       x = build1 (RESX_EXPR, void_type_node,
 		  build_int_2 (get_eh_region_number (tf->region), 0));
       tsi_link_after (&i2, x, TSI_NEW_STMT);
@@ -1151,7 +1174,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 			     create_artificial_label ());
 	  TREE_VEC_ELT (case_label_vec, case_index) = last_case;
 
-	  tsi_link_after (&i2, last_case, TSI_NEW_STMT);
+	  x = build (LABEL_EXPR, void_type_node, CASE_LABEL (last_case));
+	  tsi_link_after (&i2, x, TSI_NEW_STMT);
 	  tsi_link_after (&i2, q->cont_stmt, TSI_NEW_STMT);
 	  maybe_record_in_goto_queue (state, q->cont_stmt);
 	}
@@ -1162,6 +1186,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   /* Need to link switch_stmt after running replace_goto_queue due
      to not wanting to process the same goto stmts twice.  */
   tsi_link_after (&i, switch_stmt, TSI_NEW_STMT);
+  tsi_link_chain_after (&i, switch_body, TSI_CHAIN_END);
 
   /* Make sure that we have a default label, so that we don't 
      confuse flow analysis.  */
@@ -1475,15 +1500,9 @@ lower_eh_constructs_1 (struct leh_state *state, tree *top_p)
 
       switch (TREE_CODE (t))
 	{
-	case LOOP_EXPR:
-	  lower_eh_constructs_1 (state, &LOOP_EXPR_BODY (t));
-	  break;
 	case COND_EXPR:
 	  lower_eh_constructs_1 (state, &COND_EXPR_THEN (t));
 	  lower_eh_constructs_1 (state, &COND_EXPR_ELSE (t));
-	  break;
-	case SWITCH_EXPR:
-	  lower_eh_constructs_1 (state, &SWITCH_BODY (t));
 	  break;
 	case BIND_EXPR:
 	  lower_eh_constructs_1 (state, &BIND_EXPR_BODY (t));
@@ -1516,6 +1535,10 @@ lower_eh_constructs_1 (struct leh_state *state, tree *top_p)
 	case GOTO_EXPR:
 	case RETURN_EXPR:
 	  maybe_record_in_goto_queue (state, t);
+	  break;
+
+	case SWITCH_EXPR:
+	  verify_norecord_switch_expr (state, t);
 	  break;
 
 	case TRY_FINALLY_EXPR:

@@ -9258,7 +9258,23 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
     case SWITCH_EXPR:
       expand_start_case (0, SWITCH_COND (exp), integer_type_node,
 			 "switch");
-      expand_expr_stmt (SWITCH_BODY (exp));
+      if (SWITCH_BODY (exp))
+        expand_expr_stmt (SWITCH_BODY (exp));
+      if (SWITCH_LABELS (exp))
+	{
+	  tree duplicate = 0;
+	  tree vec = SWITCH_LABELS (exp);
+	  size_t i, n = TREE_VEC_LENGTH (vec);
+
+	  for (i = 0; i < n; ++i)
+	    {
+	      tree elt = TREE_VEC_ELT (vec, i);
+	      add_case_node (CASE_LOW (elt), CASE_HIGH (elt),
+			     CASE_LABEL (elt), &duplicate, true);
+	      if (duplicate)
+		abort ();
+	    }
+	}
       expand_end_case_type (SWITCH_COND (exp), TREE_TYPE (exp));
       return const0_rtx;
 
@@ -9270,7 +9286,7 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
       {
 	tree duplicate = 0;
 	add_case_node (CASE_LOW (exp), CASE_HIGH (exp), CASE_LABEL (exp),
-		       &duplicate);
+		       &duplicate, false);
 	if (duplicate)
 	  abort ();
 	return const0_rtx;

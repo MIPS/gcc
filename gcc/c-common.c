@@ -5836,29 +5836,8 @@ c_warn_unused_result (tree *top_p)
 
       switch (TREE_CODE (t))
 	{
-	case LOOP_EXPR:
-	  c_warn_unused_result (&LOOP_EXPR_BODY (t));
-	  break;
-	case COND_EXPR:
-	  c_warn_unused_result (&COND_EXPR_THEN (t));
-	  c_warn_unused_result (&COND_EXPR_ELSE (t));
-	  break;
-	case SWITCH_EXPR:
-	  c_warn_unused_result (&SWITCH_BODY (t));
-	  break;
 	case BIND_EXPR:
 	  c_warn_unused_result (&BIND_EXPR_BODY (t));
-	  break;
-	case TRY_FINALLY_EXPR:
-	case TRY_CATCH_EXPR:
-	  c_warn_unused_result (&TREE_OPERAND (t, 0));
-	  c_warn_unused_result (&TREE_OPERAND (t, 1));
-	  break;
-	case CATCH_EXPR:
-	  c_warn_unused_result (&CATCH_BODY (t));
-	  break;
-	case EH_FILTER_EXPR:
-	  c_warn_unused_result (&EH_FILTER_FAILURE (t));
 	  break;
 
 	case CALL_EXPR:

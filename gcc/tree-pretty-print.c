@@ -1184,8 +1184,25 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
 	{
 	  newline_and_indent (buffer, spc+2);
 	  pp_character (buffer, '{');
-	  newline_and_indent (buffer, spc+4);
-	  dump_generic_node (buffer, SWITCH_BODY (node), spc+4, flags);
+	  if (SWITCH_BODY (node))
+	    {
+	      newline_and_indent (buffer, spc+4);
+	      dump_generic_node (buffer, SWITCH_BODY (node), spc+4, flags);
+	    }
+	  else
+	    {
+	      tree vec = SWITCH_LABELS (node);
+	      size_t i, n = TREE_VEC_LENGTH (vec);
+	      for (i = 0; i < n; ++i)
+		{
+		  tree elt = TREE_VEC_ELT (vec, i);
+		  newline_and_indent (buffer, spc+4);
+		  dump_generic_node (buffer, elt, spc+4, flags);
+		  pp_string (buffer, " goto ");
+		  dump_generic_node (buffer, CASE_LABEL (elt), spc+4, flags);
+		  pp_character (buffer, ';');
+		}
+	    }
 	  newline_and_indent (buffer, spc+2);
 	  pp_character (buffer, '}');
 	}

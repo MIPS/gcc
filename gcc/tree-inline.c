@@ -1684,7 +1684,8 @@ expand_calls_inline (tree *tp, inline_data *id)
         {
 	  /* Dive into the SWITCH_EXPR.  */
 	  expand_calls_inline (&SWITCH_COND (*stmt_p), id);
-	  expand_calls_inline (&SWITCH_BODY (*stmt_p), id);
+	  if (SWITCH_BODY (*stmt_p))
+	    expand_calls_inline (&SWITCH_BODY (*stmt_p), id);
         }
       else if (code == BIND_EXPR)
         {

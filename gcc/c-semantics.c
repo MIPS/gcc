@@ -708,7 +708,7 @@ genrtl_case_label (tree case_label)
     }
 
   add_case_node (CASE_LOW (case_label), CASE_HIGH (case_label),
-		 CASE_LABEL_DECL (case_label), &duplicate);
+		 CASE_LABEL_DECL (case_label), &duplicate, false);
 }
 
 /* Generate the RTL for T, which is a COMPOUND_STMT.  */

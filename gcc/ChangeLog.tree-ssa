@@ -1,3 +1,59 @@
+2003-10-29  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (c_warn_unused_result): Remove lowered containers.
+	* c-semantics.c (genrtl_case_label): Update add_case_node call.
+	* c-simplify.c (gimplify_switch_stmt): Build SWITCH_EXPR and
+	gimplify it simultaneously with the body.
+	* expr.c (expand_expr_1): Handle SWITCH_BODY clear and 
+	SWITCH_LABELS set.  Update add_case_node calls.
+	* gimple-low.c (lower_stmt): Don't do anything for SWITCH_EXPR.
+	(lower_switch_expr, lower_case_label_expr): Remove.
+	* gimplify.c (gimplify_switch_expr): Zap SWITCH_BODY after
+	gimplification.  Force default entry for SWITCH_LABELS.
+	(gimplify_case_label_expr): Rename from gimple_add_case_label.
+	Assert switch in scope; lower to LABEL_EXPR.
+	* stmt.c (pushcase, pushcase_range) Update add_case_node calls.
+	(add_case_node): Add dont_expand_label argument.
+	(same_case_target_p): Don't search rtl.
+	* tree-cfg.c (enum find_location_action): Remove.
+	(make_switch_expr_blocks): Remove.
+	(make_blocks): Update.
+	(make_case_label_edges): Remove.
+	(make_edges): Update.
+	(find_contained_blocks): Remove lowered containers.
+	(make_switch_expr_edges): New.
+	(make_ctrl_stmt_edges): Call it.
+	(make_cond_expr_edges): Use label_to_block.
+	(remove_useless_stmts_and_vars_1): Don't go into SWITCH_BODY.
+	(remove_unreachable_block): Remove SWITCH_EXPR special case.
+	(cleanup_cond_expr_graph): Tidy.
+	(cleanup_switch_expr_graph): Rewrite.
+	(disconnect_unreachable_case_labels): Remove.
+	(find_taken_edge_cond_expr): Use integer_zerop/integer_nonzerop.
+	(find_taken_edge_switch_expr): Rewrite.
+	(value_matches_some_label): Remove.
+	(find_case_label_for_value): New.
+	(is_ctrl_structure): Remove lowered containers.
+	(is_ctrl_stmt): Add SWITCH_EXPR.
+	(switch_parent): Remove.
+	(handle_switch_fallthru): Remove.
+	(handle_switch_split): Remove.
+	(find_insert_location): Merge into ...
+	(bsi_insert_on_edge_immediate): ... here.  Simplify.
+	(tree_split_edge): Don't set EDGE_FALLTHRU.
+	* tree-eh.c (collect_finally_tree): Remove lowered containers.
+	(replace_goto_queue_1, block_may_fallthru_last): Likewise.
+	(lower_eh_constructs_1): Likewise.
+	(verify_norecord_switch_expr): New.
+	(lower_try_finally_switch): Generate lowered switches.
+	* tree-inline.c (expand_calls_inline): Don't search null SWITCH_BODY.
+	* tree-pretty-print.c (dump_generic_node): Do something sensible
+	with lowered switch_expr.
+	* tree-ssa-dom.c (record_equivalences_from_incoming_edge): Update
+	for lowered switch_expr.
+	* tree.def (SWITCH_EXPR): Update docs.
+	* tree.h (add_case_node): Update decl.
+
 2003-10-29  Daniel Berlin <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (n_phi_preds): New variable.
