@@ -1,3 +1,17 @@
+2004-09-26  Caroline Tice  <ctice@apple.com>
+	    Dale Johannesen  <dalej@apple.com>
+	    
+	* value-prof.c (insn_prefetch_values_to_profile): 
+	Don't instrument clobbers.
+
+2004-09-26  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c (default_compilers): Handle -fast, -fastcp same as -fast.
+	(process_command): Make -fastf, -fastcp imply -combine.
+	* tree-ssa-loop-ivopts.c (find_interesting_uses_stmt):  Roll in
+	fix from mainline.
+	* print-rtl.c (print_rtx):  Print REG_NOTES right (from mainline).
+
 2004-09-24  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3811274
