@@ -1610,7 +1610,7 @@ insert_range_assertions (void)
   if (update_ssa_p)
     {
       bsi_commit_edge_inserts ();
-      update_ssa (new_ssa_names, old_ssa_names);
+      update_ssa (new_ssa_names, old_ssa_names, false);
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))

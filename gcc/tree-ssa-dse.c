@@ -429,6 +429,7 @@ tree_ssa_dse (void)
   walk_data.after_dom_children_before_stmts = NULL;
   walk_data.after_dom_children_walk_stmts = NULL;
   walk_data.after_dom_children_after_stmts = dse_finalize_block;
+  walk_data.interesting_blocks = NULL;
 
   walk_data.block_local_data_size = sizeof (struct dse_block_local_data);
 

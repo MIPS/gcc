@@ -432,6 +432,7 @@ tree_ssa_dominator_optimize (void)
      structure.  */
   walk_data.global_data = NULL;
   walk_data.block_local_data_size = 0;
+  walk_data.interesting_blocks = NULL;
 
   /* Now initialize the dominator walker.  */
   init_walk_dominator_tree (&walk_data);

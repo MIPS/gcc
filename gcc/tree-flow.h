@@ -628,7 +628,7 @@ extern bool stmt_references_memory_p (tree);
 extern void rewrite_into_ssa (bool);
 extern void rewrite_ssa_into_ssa (void);
 extern void rewrite_def_def_chains (void);
-extern void update_ssa (VEC (tree_on_heap) *, VEC (tree_on_heap) *);
+extern void update_ssa (VEC (tree_on_heap) *, VEC (tree_on_heap) *, bool);
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
 

@@ -1,3 +1,39 @@
+2005-02-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* domwalk.c (walk_dominator_tree): If block BB is not in the
+	set of interesting blocks, do not traverse its statements.
+	* domwalk.h (struct dom_walk_data): Add field INTERESTING_BLOCKS.
+	* tree-flow.h (update_ssa): Add new bool argument.
+	* tree-into-ssa.c (struct mark_def_sites_global_data): Fix comment.
+	Add field interesting_blocks.
+	(compute_global_livein): Use last_basic_block to initialize
+	work lists.
+	(find_idf): Likewise.
+	(mark_def_sites): If the statement is going to be rewritten,
+	add the block to GD->INTERESTING_BLOCKS.
+	(rewrite_blocks): Add argument BLOCKS.  Initialize
+	WALK_DATA.INTERESTING_BLOCKS with it.
+	Update all callers.
+	Move debug dumping code from rewrite_into_ssa.
+	Only delete DEF_BLOCKS if it had been allocated.
+	(mark_def_site_blocks): Add argument INTERESTING_BLOCKS.
+	Initialize MARK_DEF_SITES_GLOBAL_DATA.INTERESTING_BLOCKS with
+	it.
+	Update all callers.
+	(prepare_block_for_update): Add arguments INSERT_PHI_P and
+	INTERESTING_BLOCKS.
+	Only call set_def_block/set_livein_block if INSERT_PHI_P is true.
+	Update all callers.
+	If the block contains at least one interesting statement, add
+	the block to INTERESTING_BLOCKS.
+	(update_ssa): Add argument INSERT_PHI_P.  Only add new PHI
+	nodes if INSERT_PHI_P is true.
+	Update all callers.
+	Initialize INTERESTING_BLOCKS.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Initialize
+	WALK_DATA.INTERESTING_BLOCKS to NULL.
+	* tree-ssa-dse.c (tree_ssa_dse): Likewise.
+
 2005-02-18  Diego Novillo  <dnovillo@redhat.com>
 
 	PR tree-optimization/18178

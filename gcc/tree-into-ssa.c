@@ -93,10 +93,10 @@ static htab_t def_blocks;
 
      An SSA_NAME indicates that the current definition of the underlying
      variable should be set to the given SSA_NAME.
-                                                                                
+
      A _DECL node indicates that the underlying variable has no current
      definition.
-                                                                                
+
      A NULL node is used to mark the last node associated with the
      current block. 
 
@@ -134,14 +134,16 @@ static htab_t new_to_old;
 /* Global data to attach to the main dominator walk structure.  */
 struct mark_def_sites_global_data
 {
-  /* This sbitmap contains the variables which are set before they
-     are used in a basic block.  We keep it as a global variable
-     solely to avoid the overhead of allocating and deallocating
-     the bitmap.  */
+  /* This bitmap contains the variables which are set before they
+     are used in a basic block.  */
   bitmap kills;
 
   /* Bitmap of names to rename.  */
   sbitmap names_to_rename;
+
+  /* Set of blocks that mark_def_sites deems interesting for the
+     renamer to process.  */
+  sbitmap interesting_blocks;
 };
 
 
@@ -271,7 +273,7 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
   bitmap_iterator bi;
 
   tos = worklist
-    = (basic_block *) xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
+    = (basic_block *) xmalloc (sizeof (basic_block) * (last_basic_block + 1));
 
   EXECUTE_IF_SET_IN_BITMAP (livein, 0, i, bi)
     {
@@ -601,6 +603,11 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	  REWRITE_THIS_STMT (stmt) = 1;
 	}
     }
+
+  /* If we found the statement interesting then also mark the block BB
+     as interesting.  */
+  if (REWRITE_THIS_STMT (stmt))
+    SET_BIT (gd->interesting_blocks, bb->index);
 }
 
 
@@ -621,7 +628,7 @@ find_idf (bitmap def_blocks, bitmap *dfs)
   VEC(basic_block) *work_stack;
   bitmap phi_insertion_points;
 
-  work_stack = VEC_alloc (basic_block, n_basic_blocks);
+  work_stack = VEC_alloc (basic_block, last_basic_block);
   phi_insertion_points = BITMAP_XMALLOC ();
 
   /* Seed the work list with all the blocks in DEF_BLOCKS.  */
@@ -1489,10 +1496,15 @@ rewrite_update_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       ENTRY will be rewritten.
 
    WHAT indicates what actions will be taken by the renamer (see enum
-      rewrite_mode).  */
+      rewrite_mode).
+
+   BLOCKS are the set of interesting blocks for the dominator walker
+      to process.  If this set is NULL, then all the nodes dominated
+      by ENTRY are walked.  Otherwise, blocks dominated by ENTRY that
+      are not present in BLOCKS are ignored.  */
 
 static void
-rewrite_blocks (basic_block entry, enum rewrite_mode what)
+rewrite_blocks (basic_block entry, enum rewrite_mode what, sbitmap blocks)
 {
   struct dom_walk_data walk_data;
   
@@ -1532,6 +1544,7 @@ rewrite_blocks (basic_block entry, enum rewrite_mode what)
     walk_data.after_dom_children_after_stmts =  rewrite_finalize_block;
   walk_data.global_data = NULL;
   walk_data.block_local_data_size = 0;
+  walk_data.interesting_blocks = blocks;
 
   block_defs_stack = VEC_alloc (tree_on_heap, 10);
 
@@ -1545,7 +1558,19 @@ rewrite_blocks (basic_block entry, enum rewrite_mode what)
   /* Finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
 
-  htab_delete (def_blocks);
+  /* Debugging dumps.  */
+  if (dump_file && (dump_flags & TDF_STATS))
+    {
+      dump_dfa_stats (dump_file);
+      if (def_blocks)
+	dump_tree_ssa_stats (dump_file);
+    }
+
+  if (def_blocks)
+    {
+      htab_delete (def_blocks);
+      def_blocks = NULL;
+    }
   
   VEC_free (tree_on_heap, block_defs_stack);
   block_defs_stack = NULL;
@@ -1567,11 +1592,15 @@ mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 }
 
 
-/* Mark the definition site blocks for each variable, so that we know where
-   the variable is actually live.  */
+/* Mark the definition site blocks for each variable, so that we know
+   where the variable is actually live.
 
-static void 
-mark_def_site_blocks (void)
+   INTERESTING_BLOCKS will be filled in with all the blocks that
+      should be processed by the renamer.  It is assumed to be
+      initialized and zeroed by the caller.  */
+
+static void
+mark_def_site_blocks (sbitmap interesting_blocks)
 {
   size_t i;
   struct dom_walk_data walk_data;
@@ -1587,7 +1616,6 @@ mark_def_site_blocks (void)
   /* Ensure that the dominance information is OK.  */
   calculate_dominance_info (CDI_DOMINATORS);
 
-
   /* Setup callbacks for the generic dominator tree walker to find and
      mark definition sites.  */
   walk_data.walk_stmts_backward = false;
@@ -1599,11 +1627,16 @@ mark_def_site_blocks (void)
   walk_data.after_dom_children_before_stmts =  NULL;
   walk_data.after_dom_children_walk_stmts =  NULL;
   walk_data.after_dom_children_after_stmts =  NULL;
+  walk_data.interesting_blocks = NULL;
 
   /* Notice that this bitmap is indexed using variable UIDs, so it must be
      large enough to accommodate all the variables referenced in the
      function, not just the ones we are renaming.  */
   mark_def_sites_global_data.kills = BITMAP_XMALLOC ();
+
+  /* Create the set of interesting blocks that will be filled by
+     mark_def_sites.  */
+  mark_def_sites_global_data.interesting_blocks = interesting_blocks;
   walk_data.global_data = &mark_def_sites_global_data;
 
   /* We do not have any local data.  */
@@ -1653,6 +1686,7 @@ rewrite_into_ssa (bool all)
   bitmap *dfs;
   basic_block bb;
   bitmap old_vars_to_rename = vars_to_rename;
+  sbitmap interesting_blocks;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -1676,7 +1710,13 @@ rewrite_into_ssa (bool all)
       remove_all_phi_nodes_for (vars_to_rename);
     }
 
-  mark_def_site_blocks ();
+  /* Initialize the set of interesting blocks.  The callback
+     mark_def_sites will add to this set those blocks that the renamer
+     should process.  */
+  interesting_blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (interesting_blocks);
+
+  mark_def_site_blocks (interesting_blocks);
 
   /* Initialize dominance frontier and immediate dominator bitmaps. 
      Also count the number of predecessors for each block.  Doing so
@@ -1691,19 +1731,13 @@ rewrite_into_ssa (bool all)
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
   insert_phi_nodes (dfs, NULL);
 
-  rewrite_blocks (ENTRY_BLOCK_PTR, REWRITE_ALL);
-
-  /* Debugging dumps.  */
-  if (dump_file && (dump_flags & TDF_STATS))
-    {
-      dump_dfa_stats (dump_file);
-      dump_tree_ssa_stats (dump_file);
-    }
+  rewrite_blocks (ENTRY_BLOCK_PTR, REWRITE_ALL, interesting_blocks);
 
   /* Free allocated memory.  */
   FOR_EACH_BB (bb)
     BITMAP_XFREE (dfs[bb->index]);
   free (dfs);
+  sbitmap_free (interesting_blocks);
 
   vars_to_rename = old_vars_to_rename;
   timevar_pop (TV_TREE_SSA_OTHER);
@@ -1742,14 +1776,26 @@ struct tree_opt_pass pass_build_ssa =
 void
 rewrite_def_def_chains (void)
 {
+  sbitmap interesting_blocks;
+
   /* Ensure that the dominance information is OK.  */
   calculate_dominance_info (CDI_DOMINATORS);
-  mark_def_site_blocks ();
-  rewrite_blocks (ENTRY_BLOCK_PTR, REWRITE_FIX_DEF_DEF_CHAINS);
+
+  /* Initialize the set of interesting blocks.  The callback
+     mark_def_sites will add to this set those blocks that the renamer
+     should process.  */
+  interesting_blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (interesting_blocks);
+
+  mark_def_site_blocks (interesting_blocks);
+  rewrite_blocks (ENTRY_BLOCK_PTR, REWRITE_FIX_DEF_DEF_CHAINS,
+		  interesting_blocks);
+
+  sbitmap_free (interesting_blocks);
 }
 
 
-/* Helper for prepare_blocks_for_update.  Recurse into the sub-graph
+/* Helper for prepare_block_for_update.  Recurse into the sub-graph
    rooted at BB processing statements that reference variables in
    OLD_SSA_NAMES.  Use BB_VISITED to avoid visiting the same block
    more than once.
@@ -1759,14 +1805,26 @@ rewrite_def_def_chains (void)
 
    If BB contains a use for a name in OLD_SSA_NAMES, mark it as
    locally live in BB, unless the name is defined in BB (which would
-   mean that its definition comes before the first use).  */
+   mean that its definition comes before the first use).
+
+   All the blocks that have definitions and/or uses of names in
+   NEW_SSA_NAMES and OLD_SSA_NAMES are marked in the bitmap
+   INTERESTING_BLOCKS.  Those are going to be the only blocks
+   interesting for the SSA renaming process.
+
+   If INSERT_PHI_P is true then local live-in information is recorded
+   for all the upward visible uses of names in OLD_SSA_NAMES.  This is
+   later used by the PHI placement algorithm to make PHI pruning
+   decisions.  */
 
 static void
-prepare_block_for_update (basic_block bb, sbitmap bb_visited)
+prepare_block_for_update (basic_block bb, sbitmap bb_visited, 
+			  bool insert_phi_p, sbitmap interesting_blocks)
 {
   basic_block son;
   block_stmt_iterator si;
   tree phi;
+  bool include_block_p = false;
 
   if (TEST_BIT (bb_visited, bb->index))
     return;
@@ -1786,8 +1844,10 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
 	 the current reaching definition when it finds it.  */
       if (pointer_set_contains (old_ssa_names, lhs))
 	{
-	  set_def_block (lhs, bb, true, true);
 	  REGISTER_DEFS_IN_THIS_STMT (phi) = 1;
+	  include_block_p = true;
+	  if (insert_phi_p)
+	    set_def_block (lhs, bb, true, true);
 	}
 
       /* If any of the arguments uses one of the names in
@@ -1800,7 +1860,9 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
 	      && pointer_set_contains (old_ssa_names, arg))
 	    {
 	      REWRITE_THIS_STMT (phi) = 1;
-	      set_livein_block (arg, bb);
+	      include_block_p = true;
+	      if (insert_phi_p)
+		set_livein_block (arg, bb);
 	    }
 	}
     }
@@ -1826,15 +1888,19 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
 	      /* If DEF is a new name, then this is a definition site
 		 for the name replaced by DEF.  */
 	      REGISTER_DEFS_IN_THIS_STMT (stmt) = 1;
-	      set_def_block (name_replaced_by (def, new_to_old), bb, false,
-			     true);
+	      include_block_p = true;
+	      if (insert_phi_p)
+		set_def_block (name_replaced_by (def, new_to_old), bb, false,
+			       true);
 	    }
 	  else if (pointer_set_contains (old_ssa_names, def))
 	    {
 	      /* If DEF is an old name, this is a definition site for
 		 DEF.  */
 	      REGISTER_DEFS_IN_THIS_STMT (stmt) = 1;
-	      set_def_block (def, bb, false, true);
+	      include_block_p = true;
+	      if (insert_phi_p)
+		set_def_block (def, bb, false, true);
 	    }
 	}
 
@@ -1845,16 +1911,23 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
 	  if (pointer_set_contains (old_ssa_names, use))
 	    {
 	      REWRITE_THIS_STMT (stmt) = 1;
+	      include_block_p = true;
 	      if (bb_for_stmt (stmt) != bb)
 		set_livein_block (use, bb);
 	    }
 	}
     }
 
+  /* If we found a def and/or use of a name in NEW_SSA_NAMES or
+     OLD_SSA_NAMES then this block should be processed by the renamer.  */
+  if (include_block_p)
+    SET_BIT (interesting_blocks, bb->index);
+
   for (son = first_dom_son (CDI_DOMINATORS, bb);
        son;
        son = next_dom_son (CDI_DOMINATORS, son))
-    prepare_block_for_update (son, bb_visited);
+    prepare_block_for_update (son, bb_visited, insert_phi_p,
+			      interesting_blocks);
 }
 
 
@@ -1943,46 +2016,66 @@ remove_non_dominated (bitmap set1, bitmap set2)
    *not* be replaced (this is why we cannot just mark symbol 'x' for
    renaming).
 
-   Additionally, we will need to insert a PHI node at line 11 because
+   Additionally, we may need to insert a PHI node at line 11 because
    that is a merge point for x_10 and x_11.  So the use of x_1 at line
-   11 will be replaced with the new PHI node.  */
+   11 will be replaced with the new PHI node.  The insertion of PHI
+   nodes is optional.  They are not strictly necessary to preserve the
+   SSA form, and depending on what the caller inserted, they may not
+   even be useful for the optimizers.  If INSERT_PHI_P is true, then
+   PHI nodes are inserted as necessary, otherwise they are not.  */
 
 void
-update_ssa (VEC (tree_on_heap) *new_names, VEC (tree_on_heap) *old_names)
+update_ssa (VEC (tree_on_heap) *new_names, VEC (tree_on_heap) *old_names,
+	    bool insert_phi_p)
 {
   bitmap *dfs, blocks;
   basic_block bb, start_bb;
   bitmap_iterator bi;
   unsigned i;
-  sbitmap bb_visited;
+  sbitmap bb_visited, interesting_blocks;
   tree name;
 
   timevar_push (TV_TREE_SSA_INCREMENTAL);
 
-  /* Ensure that the dominance information is up-to-date and compute
-     dominance frontiers.  */
+  /* Ensure that the dominance information is up-to-date.  */
   calculate_dominance_info (CDI_DOMINATORS);
-  dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
-  FOR_EACH_BB (bb)
-    dfs[bb->index] = BITMAP_XMALLOC ();
-  compute_dominance_frontiers (dfs);
 
-  /* For each SSA name N, the DEF_BLOCKS table describes where the name
-     is defined, which blocks have PHI nodes for N, and which blocks
-     have uses of N (i.e., N is live-on-entry in those blocks).  */
-  def_blocks = htab_create (num_ssa_names, def_blocks_hash, def_blocks_eq,
-			    def_blocks_free);
+  if (insert_phi_p)
+    {
+      /* If the caller requested PHI nodes to be added, compute
+	 dominance frontiers and initialize live-in information data
+	 structures (DEF_BLOCKS).  */
+      dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
+      FOR_EACH_BB (bb)
+	dfs[bb->index] = BITMAP_XMALLOC ();
+      compute_dominance_frontiers (dfs);
+
+      /* For each SSA name N, the DEF_BLOCKS table describes where the
+	 name is defined, which blocks have PHI nodes for N, and which
+	 blocks have uses of N (i.e., N is live-on-entry in those
+	 blocks).  */
+      def_blocks = htab_create (num_ssa_names, def_blocks_hash,
+				def_blocks_eq, def_blocks_free);
+    }
+  else
+    {
+      dfs = NULL;
+      def_blocks = NULL;
+    }
+
   blocks = BITMAP_XMALLOC ();
-  bb_visited = sbitmap_alloc (n_basic_blocks);
+  bb_visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (bb_visited);
   old_ssa_names = pointer_set_create ();
   new_ssa_names = pointer_set_create ();
   new_to_old = htab_create (VEC_length (tree_on_heap, new_names),
 			    new_to_old_hash, new_to_old_eq, free);
+  interesting_blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (interesting_blocks);
 
-  /* Determine the blocks that define each of the names in NEW_NAMES.
-     Build a replacement table to map between new and old SSA
-     names.  */
+  /* Determine the blocks that define each of the names in NEW_NAMES
+     and OLD_NAMES.  Build a replacement table to map between new and
+     old SSA names.  */
   for (i = 0; VEC_iterate (tree_on_heap, new_names, i, name); i++)
     {
       basic_block bb;
@@ -2009,37 +2102,39 @@ update_ssa (VEC (tree_on_heap) *new_names, VEC (tree_on_heap) *old_names)
      marking statements for renaming and setting local live-in
      information for the PHI placement heuristics.  */
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i, bi)
-    prepare_block_for_update (BASIC_BLOCK (i), bb_visited);
+    prepare_block_for_update (BASIC_BLOCK (i), bb_visited, insert_phi_p,
+			      interesting_blocks);
 
-  /* Insert PHI nodes at the iterated dominance frontier of every
-     block making new definitions for names in OLD_NAMES.  */
-  for (i = 0; VEC_iterate (tree_on_heap, old_names, i, name); i++)
-    {
-      struct def_blocks_d *db;
-      bitmap idf;
+  /* If requested, insert PHI nodes at the iterated dominance frontier
+     of every block making new definitions for names in OLD_NAMES.  */
+  if (insert_phi_p)
+    for (i = 0; VEC_iterate (tree_on_heap, old_names, i, name); i++)
+      {
+	struct def_blocks_d *db;
+	bitmap idf;
 
-      db = find_def_blocks_for (name);
-      idf = find_idf (db->def_blocks, dfs);
+	db = find_def_blocks_for (name);
+	idf = find_idf (db->def_blocks, dfs);
 
-      /* We are only interested in inserting PHI nodes on IDF blocks
-	 that dominate blocks where NAME is live-on-entry.  Otherwise,
-	 we would create unnecessary PHI nodes that could trigger
-	 false uninitialized use warnings.  */
-      remove_non_dominated (idf, db->livein_blocks);
+	/* We are only interested in inserting PHI nodes on IDF blocks
+	   that dominate blocks where NAME is live-on-entry.
+	   Otherwise, we would create unnecessary PHI nodes that could
+	   trigger false uninitialized use warnings.  */
+	remove_non_dominated (idf, db->livein_blocks);
 
-      if (!bitmap_empty_p (idf))
-	{
-	  insert_phi_nodes_for (name, idf, true);
+	if (!bitmap_empty_p (idf))
+	  {
+	    insert_phi_nodes_for (name, idf, true);
 
-	  /* Add the IDF blocks to BLOCKS to find a common dominator
-	     where to start renaming at.  Since blocks in the iterated
-	     dominance frontier may also dominate blocks in BLOCKS, we
-	     need to count them in.  */
-	  bitmap_ior_into (blocks, idf);
-	}
+	    /* Add the IDF blocks to BLOCKS to find a common dominator
+	       where to start renaming at.  Since blocks in the
+	       iterated dominance frontier may also dominate blocks in
+	       BLOCKS, we need to count them in.  */
+	    bitmap_ior_into (blocks, idf);
+	  }
 
-      BITMAP_FREE (idf);
-    }
+	BITMAP_FREE (idf);
+      }
 
   /* The renaming algorithm starts at the first block that
      dominates all the blocks in BLOCKS.  If the nearest common
@@ -2049,19 +2144,16 @@ update_ssa (VEC (tree_on_heap) *new_names, VEC (tree_on_heap) *old_names)
      node with a NULL argument.  To avoid this problem, we just move
      one level up to START_BB's dominator.  */
   start_bb = nearest_common_dominator_for_set (CDI_DOMINATORS, blocks);
-  if (EDGE_COUNT (start_bb->preds) > 1)
+  if (insert_phi_p && EDGE_COUNT (start_bb->preds) > 1)
     start_bb = get_immediate_dominator (CDI_DOMINATORS, start_bb);
 
   /* Reset the current definition for every symbol before renaming the
      sub-graph.  */
   for (i = 0; VEC_iterate (tree_on_heap, old_names, i, name); i++)
-    {
-      tree default_def = var_ann (SSA_NAME_VAR (name))->default_def;
-      set_current_def (name, (name != default_def) ? NULL_TREE : name);
-    }
+    set_current_def (name, name);
 
   /* Now start the renaming process at START_BB.  */
-  rewrite_blocks (start_bb, REWRITE_UPDATE);
+  rewrite_blocks (start_bb, REWRITE_UPDATE, interesting_blocks);
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2088,13 +2180,18 @@ update_ssa (VEC (tree_on_heap) *new_names, VEC (tree_on_heap) *old_names)
     }
 
   /* Free allocated memory.  */
-  FOR_EACH_BB (bb)
-    BITMAP_XFREE (dfs[bb->index]);
-  free (dfs);
+  if (insert_phi_p)
+    {
+      FOR_EACH_BB (bb)
+	BITMAP_XFREE (dfs[bb->index]);
+      free (dfs);
+    }
+
   BITMAP_FREE (blocks);
   sbitmap_free (bb_visited);
   sbitmap_free (old_ssa_names);
   free (new_to_old);
+  sbitmap_free (interesting_blocks);
 
   for (i = 0; VEC_iterate (tree_on_heap, new_names, i, name); i++)
     {
@@ -2451,6 +2548,7 @@ rewrite_ssa_into_ssa (void)
   walk_data.after_dom_children_before_stmts =  NULL;
   walk_data.after_dom_children_walk_stmts =  NULL;
   walk_data.after_dom_children_after_stmts =  NULL;
+  walk_data.interesting_blocks = NULL;
 
   snames_to_rename = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (snames_to_rename);
@@ -2462,6 +2560,7 @@ rewrite_ssa_into_ssa (void)
 
   mark_def_sites_global_data.kills = BITMAP_XMALLOC ();
   mark_def_sites_global_data.names_to_rename = snames_to_rename;
+  mark_def_sites_global_data.interesting_blocks = NULL;
   walk_data.global_data = &mark_def_sites_global_data;
 
   block_defs_stack = VEC_alloc (tree_on_heap, 10);
@@ -2499,6 +2598,7 @@ rewrite_ssa_into_ssa (void)
   walk_data.after_dom_children_after_stmts =  ssa_rewrite_finalize_block;
   walk_data.global_data = snames_to_rename;
   walk_data.block_local_data_size = 0;
+  walk_data.interesting_blocks = NULL;
 
   /* Initialize the dominator walker.  */
   init_walk_dominator_tree (&walk_data);
