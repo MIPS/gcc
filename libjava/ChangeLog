@@ -1,3 +1,10 @@
+2004-09-26  Andrew John Hughes  <address@hidden>
+
+	* javax/swing/JToggleButton.java:
+	Implemented additional constructors and accessibility
+	classes.  Added documentation and fixed a typo in
+	AbstractButton.
+
 2004-09-26  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/BandedSampleModel.java: Implement.
