@@ -3,7 +3,7 @@
    should be encoded as '*').  This is somewhat tricky wrt the NeXT runtime,
    where we have 'typedef char BOOL'.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
-/* { dg-options "-lobjc" } */
+/* { dg-options "-fnext-runtime -lobjc" } */
 /* { dg-do run } */
 
 #include <string.h>           

@@ -2992,12 +2992,8 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     mark_referenced (DECL_ASSEMBLER_NAME (decl));
 
   if (TREE_CODE (decl) == TYPE_DECL)
-    {
-      /* This is a no-op in c-lang.c or something real in objc-act.c.  */
-      if (c_dialect_objc ())
-	objc_check_decl (decl);
-      rest_of_decl_compilation (decl, NULL, C_DECL_FILE_SCOPE (decl), 0);
-    }
+    /* No need to call objc_check_decl() here -- it's a type.  */
+    rest_of_decl_compilation (decl, NULL, C_DECL_FILE_SCOPE (decl), 0);
 
   /* At the end of a declaration, throw away any variable type sizes
      of types defined inside that declaration.  There is no use

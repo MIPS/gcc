@@ -43,4 +43,3 @@ int main(void) {
   CHECK_IF([(Int1Alias *)int2typedef instanceMeth] == 1697);
   return 0;
 }
-
