@@ -1,3 +1,36 @@
+2004-05-06  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-chrec.h (build_chrec_top_type): New.
+	* tree-chrec.c (chrec_fold_multiply_ival_cst, 
+	chrec_fold_multiply_ival_ival, chrec_fold_plus_1): Use
+	build_chrec_top_type instead of returning chrec_top.
+
+	* tree-data-ref.c (dump_data_dependence_relation): Don't dump
+	direction per subscript.  
+	(analyze_array): Use an extra boolean parameter for the access
+	mode: read or write.
+	(analyze_array_top, finalize_ddr_dependent): New.
+	(compute_direction_vector, set_all_subscripts_to): Removed.
+	(initialize_data_dependence_relation): The dependence relation
+	is unknown when one of the references base name is NULL_TREE.
+	(subscript_dependence_tester, build_classic_dist_vector, 
+	build_classic_dir_vector, compute_affine_dependence): 
+	Use finalize_ddr_dependent.
+	(build_classic_dir_vector): When one of the directions is
+	dir_star, the subscript coupling cannot deduce independence.
+	(compute_all_dependences): Renamed compute_rw_wr_ww_dependences.
+	(compute_rw_wr_ww_dependences): Don't compute read-read
+	relations.  Don't compute the reversed dependence relation.
+	(find_data_references_in_loop): Use analyze_array_top when the
+	MODIFY_EXPR contains a VUSE/VDEF that is not an ARRAY_REF.
+	* tree-data-ref.h (data_reference): Add a field is_read.
+	(DR_IS_READ): New.
+	(DDR_SUBSCRIPTS_VECTOR_FINALIZE): Removed.
+	(analyze_array): Change declaration.
+	* tree-vectorizer.c (vect_analyze_data_refs): Adapt the use of 
+	analyze_array to the new prototype.  Pass in the read or write
+	mode.
+
 2004-04-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-niter.c: New file.

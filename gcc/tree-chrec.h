@@ -154,6 +154,19 @@ build_peeled_chrec (unsigned loop_num,
 		build_int_2 (loop_num, 0), left, right);
 }
 
+/* Build a chrec top interval for type.  */
+
+static inline tree 
+build_chrec_top_type (tree type)
+{
+  if (TYPE_MIN_VALUE (type) != NULL_TREE 
+      && TYPE_MAX_VALUE (type) != NULL_TREE)
+    return build_interval_chrec (TYPE_MIN_VALUE (type), 
+				 TYPE_MAX_VALUE (type));
+  else
+    return chrec_top;
+}
+
 
 
 /* Observers.  */

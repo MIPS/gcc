@@ -2693,6 +2693,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
       basic_block bb = bbs[j];
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
+	  bool is_read = false;
 	  tree stmt = bsi_stmt (si);
 	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
 	  vdef_optype vdefs = STMT_VDEF_OPS (stmt);
@@ -2750,6 +2751,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 		{
 		  ref = TREE_OPERAND (stmt, 1);
 		  datarefs = &(LOOP_VINFO_DATAREF_READS (loop_vinfo));
+		  is_read = true;
 		}
 	    }
 
@@ -2759,6 +2761,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 		{
 		  ref = TREE_OPERAND (stmt, 0);
 		  datarefs = &(LOOP_VINFO_DATAREF_WRITES (loop_vinfo));
+		  is_read = false;
 		}
 	    }
 
@@ -2774,7 +2777,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      return false;
 	    }
 
-	  dr = analyze_array (stmt, ref);
+	  dr = analyze_array (stmt, ref, is_read);
 
 	  array_base = TREE_OPERAND (ref, 0);
 

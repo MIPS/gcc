@@ -476,7 +476,7 @@ chrec_fold_multiply_ival_cst (tree type,
       || !evolution_function_is_constant_p (upm)
       || TREE_OVERFLOW (lowm)
       || TREE_OVERFLOW (upm))
-    return chrec_top;
+    return build_chrec_top_type (type);
 
   return build_interval_chrec (tree_fold_min (type, lowm, upm),
 			       tree_fold_max (type, lowm, upm));
@@ -706,7 +706,7 @@ chrec_fold_multiply_ival_ival (tree type,
       || TREE_OVERFLOW (ad)
       || TREE_OVERFLOW (bc)
       || TREE_OVERFLOW (bd))
-    return chrec_top;
+    return build_chrec_top_type (type);
 
   /* [a, b] * [c, d]  ->  [min (ac, ad, bc, bd), max (ac, ad, bc, bd)],
      for reference, see Moore's "Interval Arithmetic".  */
@@ -856,7 +856,7 @@ chrec_fold_plus_1 (enum tree_code code,
 	      || !evolution_function_is_constant_p (t2)
 	      || TREE_OVERFLOW (t1)
 	      || TREE_OVERFLOW (t2))
-	    return chrec_top;
+	    return build_chrec_top_type (type);
 
 	  return build_interval_chrec 
 	    (tree_fold_min (type, t1, t2),
@@ -876,7 +876,7 @@ chrec_fold_plus_1 (enum tree_code code,
 	      || !evolution_function_is_constant_p (t2)
 	      || TREE_OVERFLOW (t1)
 	      || TREE_OVERFLOW (t2))
-	    return chrec_top;
+	    return build_chrec_top_type (type);
 
 	  return build_interval_chrec 
 	    (tree_fold_min (type, t1, t2),
@@ -929,7 +929,7 @@ chrec_fold_plus_1 (enum tree_code code,
 	      || !evolution_function_is_constant_p (t2)
 	      || TREE_OVERFLOW (t1)
 	      || TREE_OVERFLOW (t2))
-	    return chrec_top;
+	    return build_chrec_top_type (type);
 
 	  return build_interval_chrec 
 	      (tree_fold_min (type, t1, t2),
