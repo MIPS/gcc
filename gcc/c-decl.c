@@ -4884,6 +4884,9 @@ start_struct (enum tree_code code, tree name)
   note_tag (ref);
   C_TYPE_BEING_DEFINED (ref) = 1;
   TYPE_PACKED (ref) = flag_pack_struct;
+
+  currently_nested++;
+
   return ref;
 }
 
@@ -5023,6 +5026,8 @@ finish_struct (tree t, tree fieldlist, tree attributes)
   tree x;
   int toplevel = global_scope == current_scope;
   int saw_named_field;
+
+  currently_nested--;
 
   /* If this type was previously laid out as a forward reference,
      make sure we lay it out again.  */
