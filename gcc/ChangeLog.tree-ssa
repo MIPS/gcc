@@ -36,6 +36,12 @@
 
 2003-10-14  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_block): Simplify interface slightly.
+	Use finalize_block.  Extract edge_flags from our block's
+	incoming edge as necessary.  Simplify recursive call.
+	(thread_through_successor): Extracted from optimize_block.
+	(finalize_block): Similarly.
+ 
 	* tree-ssa-dom.c (eliminate_redundant_computations): New function
 	extracted from optimize_stmt.
 	(record_equivalences): Similarly.

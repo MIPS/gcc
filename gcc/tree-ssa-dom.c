@@ -133,7 +133,7 @@ static varray_type redirection_targets;
 static varray_type vrp_data;
 
 /* Local functions.  */
-static void optimize_block (basic_block, tree, int, sbitmap, bool *);
+static void optimize_block (basic_block, tree, sbitmap, bool *);
 static bool optimize_stmt (block_stmt_iterator, varray_type *, bool *);
 static inline tree get_value_for (tree, varray_type);
 static inline void set_value_for (tree, tree, varray_type);
@@ -160,6 +160,9 @@ static bool eliminate_redundant_computations (tree, varray_type *,
 					      varray_type, stmt_ann_t);
 static void record_equivalences (tree, varray_type *, varray_type,
 				 int, stmt_ann_t);
+static void thread_through_successor (basic_block, varray_type *, varray_type);
+static void finalize_block (basic_block, varray_type *, varray_type,
+			    varray_type, varray_type, varray_type, sbitmap);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -222,7 +225,7 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename,
     {
       /* Optimize the dominator tree.  */
       cfg_altered = false;
-      optimize_block (ENTRY_BLOCK_PTR, NULL, 0, vars_to_rename, &cfg_altered);
+      optimize_block (ENTRY_BLOCK_PTR, NULL, vars_to_rename, &cfg_altered);
 
       /* Wipe the hash tables.  */
       htab_empty (avail_exprs);
@@ -356,6 +359,138 @@ thread_edge (edge e, basic_block dest)
     }
 }
 
+/* We are exiting BB, see if the target block begins with a conditional
+   jump which has a known value when reached via BB.  */
+
+static void
+thread_through_successor (basic_block bb, varray_type *block_avail_exprs,
+			  varray_type const_and_copies)
+{
+  /* If we have a single successor, then we may be able to thread
+     the edge out of our block to a destination of our successor.
+
+     To simplify the initial implementation we require that
+     our successor have no PHI nodes.  */
+  if (bb->succ && bb->succ->succ_next == NULL && ! phi_nodes (bb->succ->dest))
+    {
+      block_stmt_iterator i = bsi_start (bb->succ->dest);
+      tree stmt;
+
+      /* Get the successor's first real statement.  */
+      while (! bsi_end_p (i)
+	     && (IS_EMPTY_STMT (bsi_stmt (i))
+		 || TREE_CODE (bsi_stmt (i)) == LABEL_EXPR))
+	bsi_next (&i);
+      stmt = bsi_end_p (i) ? NULL : bsi_stmt (i);
+
+      /* If the successor's first real statement is a COND_EXPR, then
+	 see if we know which arm will be taken.  */
+      if (stmt && TREE_CODE (stmt) == COND_EXPR)
+	{
+	  tree cached_lhs = lookup_avail_expr (stmt, block_avail_exprs,
+					       const_and_copies, false);
+
+	  if (cached_lhs)
+	    {
+	      edge taken_edge = find_taken_edge (bb->succ->dest, cached_lhs);
+	      basic_block dest = (taken_edge ? taken_edge->dest : NULL);
+
+	      /* If we have a known destination for the conditional, then
+		 we can perform this optimization, which saves at least one
+		 conditional jump each time it applies since we get to
+		 bypass the conditional at our original destination.  */
+	      if (dest && ! phi_nodes (dest))
+		{
+		  VARRAY_PUSH_EDGE (edges_to_redirect, bb->succ);
+		  VARRAY_PUSH_BB (redirection_targets, dest);
+		}
+	    }
+	}
+    }
+}
+
+/* We have finished processing the dominator children of BB, perform
+   any finalization actions in preparation for leaving this node in
+   the dominator tree.  */
+
+static void
+finalize_block (basic_block bb,
+		varray_type *block_avail_exprs_p,
+		varray_type block_const_and_copies,
+		varray_type vrp_variables,
+		varray_type const_and_copies,
+		varray_type stmts_to_rescan,
+		sbitmap vars_to_rename)
+{
+  varray_type block_avail_exprs = *block_avail_exprs_p;
+
+  /* See if we can thread the edge from BB through its successor.
+     Do this before we remove entries from our equivalence tables.  */
+  thread_through_successor (bb, block_avail_exprs_p, const_and_copies);
+
+  /* Remove all the expressions made available in this block.  */
+  while (VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)
+    {
+      tree stmt = VARRAY_TOP_TREE (block_avail_exprs);
+      VARRAY_POP (block_avail_exprs);
+      htab_remove_elt (avail_exprs, stmt);
+    }
+
+  /* Also remove equivalences created by EQ_EXPR_VALUE.  */
+  while (VARRAY_ACTIVE_SIZE (block_const_and_copies) > 0)
+    {
+      tree prev_value, dest;
+
+      prev_value = VARRAY_TOP_TREE (block_const_and_copies);
+      VARRAY_POP (block_const_and_copies);
+      dest = VARRAY_TOP_TREE (block_const_and_copies);
+      VARRAY_POP (block_const_and_copies);
+
+      set_value_for (dest, prev_value, const_and_copies);
+    }
+
+  /* Remove VRP records associated with this basic block.  They are no
+     longer valid.
+
+     To be efficient, we note which variables have had their values
+     constrained in this block.  So walk over each variable in the
+     VRP_VARIABLEs array.  */
+  while (VARRAY_ACTIVE_SIZE (vrp_variables) > 0)
+    {
+      tree var = VARRAY_TOP_TREE (vrp_variables);
+
+      /* Each variable has a stack of value range records.  We want to
+	 invalidate those associated with our basic block.  So we walk
+	 the array backwards popping off records associated with our
+	 block.  Once we hit a record not associated with our block
+	 we are done.  */
+      varray_type var_vrp_records = VARRAY_GENERIC_PTR (vrp_data,
+							SSA_NAME_VERSION (var));
+
+      while (VARRAY_ACTIVE_SIZE (var_vrp_records) > 0)
+	{
+	  struct vrp_element *element
+	    = (struct vrp_element *)VARRAY_TOP_GENERIC_PTR (var_vrp_records);
+
+	  if (element->bb != bb)
+	    break;
+  
+	  VARRAY_POP (var_vrp_records);
+	}
+
+      VARRAY_POP (vrp_variables);
+    }
+
+  /* Re-scan operands in all statements that may have had new symbols
+     exposed.  */
+  while (VARRAY_ACTIVE_SIZE (stmts_to_rescan) > 0)
+    {
+      tree stmt = VARRAY_TOP_TREE (stmts_to_rescan);
+      VARRAY_POP (stmts_to_rescan);
+      mark_new_vars_to_rename (stmt, vars_to_rename);
+    }
+}
+
 /* Perform a depth-first traversal of the dominator tree looking for
    redundant expressions and copy/constant propagation opportunities. 
 
@@ -384,7 +519,7 @@ thread_edge (edge e, basic_block dest)
    CFG_ALTERED is set to true if cfg is altered.  */
 
 static void
-optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
+optimize_block (basic_block bb, tree parent_block_last_stmt,
                 sbitmap vars_to_rename, bool *cfg_altered)
 {
   varray_type block_avail_exprs;
@@ -397,6 +532,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
   tree eq_expr_value = NULL_TREE;
   edge e;
   tree phi;
+  int edge_flags;
 
   /* Initialize the local stacks.
      
@@ -418,6 +554,19 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
+
+  /* If we have a single predecessor, then extract EDGE_FLAGS from
+     our single incoming edge.  Otherwise clear EDGE_FLAGS and
+     PAREND_BLOCK_LAST_STMT since they're not needed.  */
+  if (bb->pred && !bb->pred->pred_next)
+    {
+      edge_flags = bb->pred->flags;
+    }
+  else
+    {
+      edge_flags = 0;
+      parent_block_last_stmt = NULL;
+    }
 
   /* If our parent block ended in a COND_EXPR, add any equivalences
      created by the COND_EXPR to the hash table and initialize
@@ -646,148 +795,29 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
   children = dom_children (bb);
   if (children)
     {
+      tree last;
+
+      /* If this block ends with a control structure, then get the
+	 control structure so we can pass it down.  */
       if (bb->flags & BB_CONTROL_STRUCTURE)
-	{
-	  tree last = last_stmt (bb);
-	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    {
-	      basic_block dest = BASIC_BLOCK (i);
-
-	      /* The destination block may have become unreachable, in
-		 which case there's no point in optimizing it.  */
-	      if (dest->pred)
-		{
-		  /* Ensure that we only take the condition into account
-		     if there is no other way how to reach the target basic
-		     block.  The fact that we have exactly one predecessor
-		     also ensures that the predecessor is BB.  */
-		  if (!dest->pred->pred_next)
-		    optimize_block (dest, last, dest->pred->flags,
-				    vars_to_rename, cfg_altered);
-		  else
-		    optimize_block (dest, NULL_TREE, 0, vars_to_rename,
-				    cfg_altered);
-		}
-	    });
-	}
+	last = last_stmt (bb);
       else
+	last = NULL;
+
+      EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
 	{
-	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    {
-	      basic_block dest = BASIC_BLOCK (i);
+	  basic_block dest = BASIC_BLOCK (i);
 
-	      /* The destination block may have become unreachable, in
-		 which case there's no point in optimizing it. */
-	      if (dest->pred)
-		optimize_block (dest, NULL_TREE, 0, vars_to_rename,
-				cfg_altered);
-	    });
-	}
+	  /* The destination block may have become unreachable, in
+	     which case there's no point in optimizing it.  */
+	  if (dest->pred)
+	    optimize_block (dest, last, vars_to_rename, cfg_altered);
+	});
     }
 
-  /* If we have a single successor, then we may be able to thread
-     the edge out of our block to a destination of our successor.
-
-     To simplify the initial implementation we require that
-     our successor have no PHI nodes.  */
-  if (bb->succ && bb->succ->succ_next == NULL && ! phi_nodes (bb->succ->dest))
-    {
-      block_stmt_iterator i = bsi_start (bb->succ->dest);
-      tree stmt;
-
-      /* Get the successor's first real statement.  */
-      while (! bsi_end_p (i)
-	     && (IS_EMPTY_STMT (bsi_stmt (i))
-		 || TREE_CODE (bsi_stmt (i)) == LABEL_EXPR))
-	bsi_next (&i);
-      stmt = bsi_end_p (i) ? NULL : bsi_stmt (i);
-
-      /* If the successor's first real statement is a COND_EXPR, then
-	 see if we know which arm will be taken.  */
-      if (stmt && TREE_CODE (stmt) == COND_EXPR)
-	{
-	  tree cached_lhs = lookup_avail_expr (stmt, &block_avail_exprs,
-					       const_and_copies, false);
-
-	  if (cached_lhs)
-	    {
-	      edge taken_edge = find_taken_edge (bb->succ->dest, cached_lhs);
-	      basic_block dest = (taken_edge ? taken_edge->dest : NULL);
-
-	      /* If we have a known destination for the conditional, then
-		 we can perform this optimization, which saves at least one
-		 conditional jump each time it applies since we get to
-		 bypass the conditional at our original destination.  */
-	      if (dest && ! phi_nodes (dest))
-		{
-		  VARRAY_PUSH_EDGE (edges_to_redirect, bb->succ);
-		  VARRAY_PUSH_BB (redirection_targets, dest);
-		}
-	    }
-	}
-    }
-
-  /* Remove all the expressions made available in this block.  */
-  while (VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)
-    {
-      tree stmt = VARRAY_TOP_TREE (block_avail_exprs);
-      VARRAY_POP (block_avail_exprs);
-      htab_remove_elt (avail_exprs, stmt);
-    }
-
-  /* Also remove equivalences created by EQ_EXPR_VALUE.  */
-  while (VARRAY_ACTIVE_SIZE (block_const_and_copies) > 0)
-    {
-      tree prev_value, dest;
-
-      prev_value = VARRAY_TOP_TREE (block_const_and_copies);
-      VARRAY_POP (block_const_and_copies);
-      dest = VARRAY_TOP_TREE (block_const_and_copies);
-      VARRAY_POP (block_const_and_copies);
-
-      set_value_for (dest, prev_value, const_and_copies);
-    }
-
-  /* Remove VRP records associated with this basic block.  They are no
-     longer valid.
-
-     To be efficient, we note which variables have had their values
-     constrained in this block.  So walk over each variable in the
-     VRP_VARIABLEs array.  */
-  while (VARRAY_ACTIVE_SIZE (vrp_variables) > 0)
-    {
-      tree var = VARRAY_TOP_TREE (vrp_variables);
-
-      /* Each variable has a stack of value range records.  We want to
-	 invalidate those associated with our basic block.  So we walk
-	 the array backwards popping off records associated with our
-	 block.  Once we hit a record not associated with our block
-	 we are done.  */
-      varray_type var_vrp_records = VARRAY_GENERIC_PTR (vrp_data,
-							SSA_NAME_VERSION (var));
-
-      while (VARRAY_ACTIVE_SIZE (var_vrp_records) > 0)
-	{
-	  struct vrp_element *element
-	    = (struct vrp_element *)VARRAY_TOP_GENERIC_PTR (var_vrp_records);
-
-	  if (element->bb != bb)
-	    break;
-  
-	  VARRAY_POP (var_vrp_records);
-	}
-
-      VARRAY_POP (vrp_variables);
-    }
-
-  /* Re-scan operands in all statements that may have had new symbols
-     exposed.  */
-  while (VARRAY_ACTIVE_SIZE (stmts_to_rescan) > 0)
-    {
-      tree stmt = VARRAY_TOP_TREE (stmts_to_rescan);
-      VARRAY_POP (stmts_to_rescan);
-      mark_new_vars_to_rename (stmt, vars_to_rename);
-    }
+  finalize_block (bb, &block_avail_exprs, block_const_and_copies,
+		  vrp_variables, const_and_copies,
+		  stmts_to_rescan, vars_to_rename);
 }
 
 /* Dump SSA statistics on FILE.  */
