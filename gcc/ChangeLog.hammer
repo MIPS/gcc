@@ -1,5 +1,9 @@
 2004-03-04  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (track_expr_p): Fix typo.
+
+2004-03-04  Josef Zlomek  <zlomekj@suse.cz>
+
 	Backport from mainline
 	2003-08-20  Jason Merrill  <jason@redhat.com>
 
