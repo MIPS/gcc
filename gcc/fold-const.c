@@ -6045,7 +6045,6 @@ try_move_mult_to_index (tree type, enum tree_code code, tree addr, tree mult)
   return build1 (ADDR_EXPR, type, ret);
 }
 
-/* APPLE LOCAL begin lno */
 /* Fold comparison ARG0 CODE ARG1 (with result in TYPE), where
    ARG0 is extended to a wider type.  */
 
@@ -6061,7 +6060,10 @@ fold_widened_comparison (enum tree_code code, tree type, tree arg0, tree arg1)
   if (arg0_unw == arg0)
     return NULL_TREE;
   shorter_type = TREE_TYPE (arg0_unw);
-  
+
+  if (TYPE_PRECISION (TREE_TYPE (arg0)) <= TYPE_PRECISION (shorter_type))
+    return NULL_TREE;
+
   arg1_unw = get_unwidened (arg1, shorter_type);
   if (!arg1_unw)
     return NULL_TREE;
@@ -6071,6 +6073,7 @@ fold_widened_comparison (enum tree_code code, tree type, tree arg0, tree arg1)
        || TYPE_UNSIGNED (TREE_TYPE (arg0)) == TYPE_UNSIGNED (shorter_type))
       && (TREE_TYPE (arg1_unw) == shorter_type
 	  || (TREE_CODE (arg1_unw) == INTEGER_CST
+	      && TREE_CODE (shorter_type) == INTEGER_TYPE
 	      && int_fits_type_p (arg1_unw, shorter_type))))
     return fold (build (code, type, arg0_unw,
 			fold_convert (shorter_type, arg1_unw)));
@@ -6093,27 +6096,27 @@ fold_widened_comparison (enum tree_code code, tree type, tree arg0, tree arg1)
     {
     case EQ_EXPR:
       if (above || below)
-	return constant_boolean_node (false, type);
+	return omit_one_operand (type, integer_zero_node, arg0);
       break;
 
     case NE_EXPR:
       if (above || below)
-	return constant_boolean_node (true, type);
+	return omit_one_operand (type, integer_one_node, arg0);
       break;
 
     case LT_EXPR:
     case LE_EXPR:
       if (above)
-	return constant_boolean_node (true, type);
+	return omit_one_operand (type, integer_one_node, arg0);
       else if (below)
-	return constant_boolean_node (false, type);;
+	return omit_one_operand (type, integer_zero_node, arg0);
 
     case GT_EXPR:
     case GE_EXPR:
       if (above)
-	return constant_boolean_node (false, type);
+	return omit_one_operand (type, integer_zero_node, arg0);
       else if (below)
-	return constant_boolean_node (true, type);;
+	return omit_one_operand (type, integer_one_node, arg0);
 
     default:
       break;
@@ -6129,9 +6132,8 @@ static tree
 fold_sign_changed_comparison (enum tree_code code, tree type,
 			      tree arg0, tree arg1)
 {
-  tree arg0_inner;
+  tree arg0_inner, tmp;
   tree inner_type, outer_type;
-  int ovflw;
 
   if (TREE_CODE (arg0) != NOP_EXPR)
     return NULL_TREE;
@@ -6148,25 +6150,25 @@ fold_sign_changed_comparison (enum tree_code code, tree type,
 	   && TREE_TYPE (TREE_OPERAND (arg1, 0)) == inner_type))
     return NULL_TREE;
 
-  if (TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type))
-    {
-      /* Not much to do.  */
-      ovflw = TREE_OVERFLOW (arg1);
-      arg1 = fold_convert (inner_type, arg1);
-      TREE_OVERFLOW (arg1) = ovflw;
-      return fold (build (code, type, arg0_inner, arg1));
-    }
-
-  /* TODO -- we still might do something if we compare with the constant.  */
-  if (code != NE_EXPR && code != EQ_EXPR)
+  if (TYPE_UNSIGNED (inner_type) != TYPE_UNSIGNED (outer_type)
+      && code != NE_EXPR
+      && code != EQ_EXPR)
     return NULL_TREE;
 
-  ovflw = TREE_OVERFLOW (arg1);
-  arg1 = fold_convert (inner_type, arg1);
-  TREE_OVERFLOW (arg1) = ovflw;
+  if (TREE_CODE (arg1) == INTEGER_CST)
+    {
+      tmp = build_int_cst_wide (inner_type,
+				TREE_INT_CST_LOW (arg1),
+				TREE_INT_CST_HIGH (arg1));
+      arg1 = force_fit_type (tmp, 0,
+			     TREE_OVERFLOW (arg1),
+			     TREE_CONSTANT_OVERFLOW (arg1));
+    }
+  else
+    arg1 = fold_convert (inner_type, arg1);
+
   return fold (build (code, type, arg0_inner, arg1));
 }
-/* APPLE LOCAL end lno */
 
 /* Perform constant folding and related simplification of EXPR.
    The related simplifications include x*1 => x, x*0 => 0, etc.,
@@ -8516,7 +8518,7 @@ fold (tree expr)
 	       && integer_zerop (arg1) && TREE_CODE (arg0) == MINUS_EXPR)
 	return fold (build2 (code, type,
 			     TREE_OPERAND (arg0, 0), TREE_OPERAND (arg0, 1)));
-      /* APPLE LOCAL begin lno */
+
       else if (TREE_CODE (TREE_TYPE (arg0)) == INTEGER_TYPE
 	       && TREE_CODE (arg0) == NOP_EXPR)
 	{
@@ -8532,7 +8534,6 @@ fold (tree expr)
 	  if (tem)
 	    return tem;
 	}
-      /* APPLE LOCAL end lno */
 
       /* If we are widening one operand of an integer comparison,
 	 see if the other operand is similarly being widened.  Perhaps we

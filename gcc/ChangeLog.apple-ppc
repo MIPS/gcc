@@ -1,3 +1,11 @@
+2005-01-11  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3903960
+	* fold-const.c (fold_widened_comparison) Replace it with the
+	one from FSF mainline.
+	(fold_sign_changed_comparison): Ditto.
+	(fold): Remove APPLE LOCAL lno marker.
+
 2005-01-10  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3943452
