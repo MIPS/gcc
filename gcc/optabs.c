@@ -2335,6 +2335,9 @@ expand_twoval_binop_libfunc (optab binoptab, rtx op0, rtx op1,
   if (!((targ0 != NULL_RTX) ^ (targ1 != NULL_RTX)))
     abort ();
 
+  op0 = protect_from_queue (op0, 0);
+  op1 = protect_from_queue (op1, 0);
+
   mode = GET_MODE (op0);
   if (!binoptab->handlers[(int) mode].libfunc)
     return false;

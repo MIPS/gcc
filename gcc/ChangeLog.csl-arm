@@ -1,3 +1,8 @@
+2005-03-30  Paul Brook  <paul@codesourcery.com>
+
+	* optabs.c (expand_twoval_binop_libfunc): Call protect_from_queue.
+	* testsuite/gcc.dg/divmod-1.c: New test.
+
 2005-03-29  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm-protos.h (arm_dbx_register_number): Add prototype.
