@@ -1079,7 +1079,7 @@ expand_call_inline (tp, walk_subtrees, data)
 
   /* Finally, mention the returned value so that the value of the
      statement-expression is the returned value of the function.  */
-  if (retvar)
+  if (retvar && TREE_TYPE (expr) != void_type_node)
     BIND_EXPR_BODY (expr) 
       = add_stmt_to_compound (BIND_EXPR_BODY (expr), 
 			      TREE_TYPE (retvar), retvar);

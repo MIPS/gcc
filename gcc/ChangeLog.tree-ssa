@@ -1,3 +1,9 @@
+2003-05-02  Jeff Law  <law@redhat.com>
+
+	* tree-inline.c (expand_call_inline): Avoid creating naked
+	_DECL nodes for inlined functions which had NRV optimizations
+	applied.
+
 2003-05-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (build_tree_cfg): Update comment.
