@@ -1,0 +1,5 @@
+2004-04-21  Robert Bowdidge <bowdidge@apple.com>
+
+	* build_gcc: Add --disable-libmudflap to the list of options to
+        configure.  Option needed to keep gcc building on recent internal
+	builds of the OS. [Radar 3630321]

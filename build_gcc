@@ -85,6 +85,7 @@ rm -rf $SRC_DIR/tcl $SRC_DIR/expect $SRC_DIR/dejagnu || exit 1
 # These are the configure and build flags that are used.
 CONFIGFLAGS="--disable-checking \
   --prefix=$DEST_ROOT \
+  --disable-libmudflap \
   --mandir=\${prefix}/share/man \
   --enable-languages=c,objc,c++ --disable-libada \
   --program-transform-name=/^[cg][^.-]*$/s/$/-$MAJ_VERS/ \
