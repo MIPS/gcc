@@ -1,3 +1,8 @@
+2003-09-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (find_referenced_vars): Re-enable .GLOBAL_VAR
+	optimization.
+
 2003-09-05  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree.h (tree_eref_common): Make stmt a tree, not a tree *.
@@ -5,10 +10,10 @@
 
 2003-09-05  Paul Brook  <paul@nowt.org>
 
-        * tree.h (enum tree_index): Delete TI_SIGNED_SIZE_TYPE here.
-        (signed_size_type_node): No longer a member of global_trees.
-        * c-common.h (enum c_tree_index): New member CTI_SIGNED_SIZE_TYPE.
-        (signed_size_type_node): Moved, now a member of c_global_trees.
+	* tree.h (enum tree_index): Delete TI_SIGNED_SIZE_TYPE here.
+	(signed_size_type_node): No longer a member of global_trees.
+	* c-common.h (enum c_tree_index): New member CTI_SIGNED_SIZE_TYPE.
+	(signed_size_type_node): Moved, now a member of c_global_trees.
 
 2003-09-05  Diego Novillo  <dnovillo@redhat.com>
 
