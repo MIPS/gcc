@@ -148,7 +148,7 @@ struct tree_ref_common GTY(())
 };
 
 /* Generic variable references.  */
-struct var_ref GTY(())
+struct var_ref_d GTY(())
 {
   struct tree_ref_common common;
 
@@ -196,9 +196,9 @@ struct var_ref GTY(())
 };
 
 /* Variable definitions.  */
-struct var_def GTY(())
+struct var_def_d GTY(())
 {
-  struct var_ref common;
+  struct var_ref_d common;
 
   /* M_DEFAULT is used to modify V_DEF references to indicate a default
      definition.  Default definitions are artificially created in the first
@@ -241,9 +241,9 @@ struct var_def GTY(())
 };
 
 /* Variable PHIs.  */
-struct var_phi GTY(())
+struct var_phi_d GTY(())
 {
-  struct var_def common;
+  struct var_def_d common;
 
   /* Array of PHI arguments.  The number of arguments to a PHI node is the
      number of incoming edges to the basic block where that PHI node
@@ -252,9 +252,9 @@ struct var_phi GTY(())
 };
 
 /* Variable uses.  */
-struct var_use GTY(())
+struct var_use_d GTY(())
 {
-  struct var_ref common;
+  struct var_ref_d common;
 
   /* M_ADDRESSOF modifies a V_USE reference to indicate that the address of
      the variable is needed.  This is not a memory load operation, just an
@@ -309,7 +309,7 @@ struct expr_ref_common GTY(())
 
 
 /* Expression PHIs.  */
-struct expr_phi GTY(())
+struct expr_phi_d GTY(())
 {
   struct expr_ref_common common;
   
@@ -337,7 +337,7 @@ struct expr_phi GTY(())
 
 
 /* Expressions uses.  */
-struct expr_use GTY(())
+struct expr_use_d GTY(())
 {
   struct expr_ref_common common;
 
@@ -350,13 +350,6 @@ struct expr_use GTY(())
   /* SSAPRE: True if this is an operand, and it has a real use. */
   int has_real_use;
 };
-
-/* Not used?  */
-#if 0
-#define EXPRUSE_DEF(r) (r)->euse.def
-#define EXPRUSE_PHIOP(r) (r)->euse.op_occurrence
-#define EXPRUSE_HAS_REAL_USE(r) (r)->euse.has_real_use
-#endif
 
 enum tree_ref_structure_enum {
     TR_COMMON,
@@ -374,13 +367,13 @@ enum tree_ref_structure_enum {
 union tree_ref_d GTY((desc ("tree_ref_structure (&%h)")))
 {
   struct tree_ref_common GTY((tag ("TR_COMMON"))) common;
-  struct var_ref GTY((tag ("TR_VAR_REF"))) vref;
-  struct var_def GTY((tag ("TR_VAR_DEF"))) vdef;
-  struct var_phi GTY((tag ("TR_VAR_PHI"))) vphi;
-  struct var_use GTY((tag ("TR_VAR_USE"))) vuse;
+  struct var_ref_d GTY((tag ("TR_VAR_REF"))) vref;
+  struct var_def_d GTY((tag ("TR_VAR_DEF"))) vdef;
+  struct var_phi_d GTY((tag ("TR_VAR_PHI"))) vphi;
+  struct var_use_d GTY((tag ("TR_VAR_USE"))) vuse;
   struct expr_ref_common GTY((tag ("TR_EXPR_REF_COMMON"))) ecommon;
-  struct expr_use GTY((tag ("TR_EXPR_USE"))) euse;
-  struct expr_phi GTY((tag ("TR_EXPR_PHI"))) ephi;
+  struct expr_use_d GTY((tag ("TR_EXPR_USE"))) euse;
+  struct expr_phi_d GTY((tag ("TR_EXPR_PHI"))) ephi;
 };
 
 typedef union tree_ref_d *tree_ref;
@@ -702,6 +695,8 @@ extern void add_list_to_list_end        PARAMS ((ref_list, ref_list));
 extern void add_list_to_list_begin      PARAMS ((ref_list, ref_list));
 extern void remove_ref_from_list	PARAMS ((ref_list, tree_ref));
 extern struct ref_list_node *find_list_node PARAMS ((ref_list, tree_ref));
+extern tree_ref get_last_ref		PARAMS ((ref_list));
+extern tree_ref get_first_ref		PARAMS ((ref_list));
 extern const char *ref_type_name	PARAMS ((tree_ref));
 extern bool ref_defines			PARAMS ((tree_ref, tree));
 extern bool is_killing_def		PARAMS ((tree_ref, tree_ref));

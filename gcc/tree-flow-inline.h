@@ -814,4 +814,18 @@ rli_ref (i)
   return i.node->ref;
 }
 
+static inline tree_ref
+get_last_ref (list)
+     ref_list list;
+{
+  return list->last->ref;
+}
+
+static inline tree_ref
+get_first_ref (list)
+     ref_list list;
+{
+  return list->first->ref;
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

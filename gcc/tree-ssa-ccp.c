@@ -149,7 +149,7 @@ tree_ssa_ccp (fndecl)
 	{
 	  /* Pull the next reference off the worklist.  The SSA edges
 	     worklist stores the origination definition for each edge.  */
-	  tree_ref def = ssa_edges->last->ref;
+	  tree_ref def = get_last_ref (ssa_edges);
 	  remove_ref_from_list (ssa_edges, def);
 	  simulate_def_use_chains (def);
 	}

@@ -52,6 +52,7 @@ struct clobber_data_d
 struct dfa_stats_d
 {
   unsigned long num_tree_refs;
+  unsigned long size_tree_refs;
   unsigned long num_tree_anns;
   unsigned long num_ref_list_nodes;
   unsigned long num_defs;
@@ -94,6 +95,7 @@ static void find_may_aliases_for	PARAMS ((tree));
 static void add_may_alias		PARAMS ((tree, tree));
 static bool may_alias_p			PARAMS ((tree, tree));
 static bool is_visible_to		PARAMS ((tree, tree));
+static size_t tree_ref_size		PARAMS ((enum tree_ref_type));
 
 
 /* Global declarations.  */
@@ -662,6 +664,32 @@ add_ref_to_list_after (list, node, ref)
 
 /* Create references and associations to variables and basic blocks.  */
 
+/* Return the size in bytes of a reference of type REF_TYPE.  */
+
+static size_t
+tree_ref_size (ref_type)
+     enum tree_ref_type ref_type;
+{
+  switch (ref_type)
+    {
+    case V_DEF:
+      return sizeof (struct var_def_d);
+    case V_USE:
+      return sizeof (struct var_use_d);
+    case V_PHI:
+      return sizeof (struct var_phi_d);
+    case E_PHI:
+      return sizeof (struct expr_phi_d);
+    case E_USE:
+      return sizeof (struct expr_use_d);
+    case E_KILL:
+      return sizeof (struct expr_ref_common);
+    }
+
+  abort ();
+}
+
+
 /* Create a new variable reference for variable VAR.
 
    REF_TYPE is the type of reference to create (V_DEF, V_USE, V_PHI, etc).
@@ -695,6 +723,7 @@ create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, parent_expr_p, operand_p,
      tree *operand_p;
      int add_to_bb;
 {
+  size_t size;
   tree_ref ref;
   tree parent_stmt = (parent_stmt_p) ? *parent_stmt_p : NULL_TREE;
   tree parent_expr = (parent_expr_p) ? *parent_expr_p : NULL_TREE;
@@ -716,8 +745,9 @@ create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, parent_expr_p, operand_p,
   if (var && TREE_THIS_VOLATILE (var))
     ref_mod |= TRM_VOLATILE;
 
-  ref = (tree_ref) ggc_alloc (sizeof (*ref));
-  memset ((void *) ref, 0, sizeof (*ref));
+  size = tree_ref_size (ref_type);
+  ref = (tree_ref) ggc_alloc (size);
+  memset ((void *) ref, 0, size);
 
   ref->common.id = next_tree_ref_id++;
   ref->common.var = var;
@@ -1330,7 +1360,7 @@ dump_dfa_stats (file)
   fprintf (file, fmt_str_1, "SSA links for may-aliases",
 	   dfa_stats.num_alias_imm_rdefs, SCALE (size), LABEL (size));
 
-  size = dfa_stats.num_tree_refs * sizeof (union tree_ref_d);
+  size = dfa_stats.size_tree_refs;
   total += size;
   fprintf (file, fmt_str_1, "Variable references", dfa_stats.num_tree_refs,
 	   SCALE (size), LABEL (size));
@@ -1504,6 +1534,7 @@ count_tree_refs (dfa_stats_p, list)
     {
       tree_ref ref = rli_ref (i);
       dfa_stats_p->num_tree_refs++;
+      dfa_stats_p->size_tree_refs += tree_ref_size (ref_type (ref));
 
       if (ref->vref.alias_imm_rdefs)
 	{

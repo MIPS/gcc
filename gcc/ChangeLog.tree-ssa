@@ -1,3 +1,20 @@
+2002-10-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (struct dfa_stats_d): Add field size_tree_refs.
+	(tree_ref_size): New function.
+	(create_ref): Call it.
+	(dump_dfa_stats): Get total size from dfa_stats.size_tree_refs.
+	(count_tree_refs): Call tree_ref_size.
+	* tree-flow-inline.h (get_last_ref): New function.
+	(get_first_ref): New function.
+	* tree-flow.h (struct var_ref_d): Rename from var_ref.
+	(struct var_def_d): Rename from var_def.
+	(struct var_phi_d): Rename from var_phi.
+	(struct var_use_d): Rename from var_use.
+	(struct expr_phi_d): Rename from expr_phi.
+	(struct expr_use_d): Rename from expr_use.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Call get_last_ref.
+
 2002-10-21  Daniel Berlin  <dberlin@dberlin.org>
 
 	* timevar.def: Add TV_TREE_{PRE,CCP,DCE,CFG,SSA}} timevars.
