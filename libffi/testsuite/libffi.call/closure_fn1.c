@@ -9,6 +9,7 @@
 /* { dg-do run { xfail mips*-*-* arm*-*-* strongarm*-*-* xscale*-*-* } } */
 #include "ffitest.h"
 
+
 static void closure_test_fn1(ffi_cif* cif,void* resp,void** args,
 			     void* userdata)
 {
@@ -40,9 +41,18 @@ typedef int (*closure_test_type1)(float, float, float, float, signed short,
 int main (void)
 {
   ffi_cif cif;
+#ifndef USING_MMAP
   static ffi_closure cl;
-  ffi_closure *pcl = &cl;
+#endif
+  ffi_closure *pcl;
   ffi_type * cl_arg_types[17];
+  int res;
+
+#ifdef USING_MMAP
+  pcl = allocate_mmap (sizeof(ffi_closure));
+#else
+  pcl = &cl;
+#endif
 
   cl_arg_types[0] = &ffi_type_float;
   cl_arg_types[1] = &ffi_type_float;
@@ -69,9 +79,11 @@ int main (void)
   CHECK(ffi_prep_closure(pcl, &cif, closure_test_fn1,
 			 (void *) 3 /* userdata */)  == FFI_OK);
 
-  (*((closure_test_type1)pcl))
-	(1.1, 2.2, 3.3, 4.4, 127, 5.5, 6.6, 8, 9, 10, 11, 12.0, 13,
-	 19, 21, 1);
+  res = (*((closure_test_type1)pcl))
+    (1.1, 2.2, 3.3, 4.4, 127, 5.5, 6.6, 8, 9, 10, 11, 12.0, 13,
+     19, 21, 1);
   /* { dg-output "1 2 3 4 127 5 6 8 9 10 11 12 13 19 21 1 3: 255" } */
+  printf("res: %d\n",res);
+  /* { dg-output "\nres: 255" } */
   exit(0);
 }

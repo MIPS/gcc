@@ -1,5 +1,5 @@
 /* URLConnection.java -- Abstract superclass for reading from URL's
-   Copyright (C) 1998, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,8 +41,8 @@ package java.net;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.security.Permission;
 import java.security.AllPermission;
+import java.security.Permission;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -165,9 +165,7 @@ public abstract class URLConnection
    */
   protected URL url;
 
-  private static ContentHandler contentHandler;
   private static Hashtable handlers = new Hashtable();
-  private static Locale locale; 
   private static SimpleDateFormat dateFormat1, dateFormat2, dateFormat3;
   private static boolean dateformats_initialized = false;
 
@@ -315,7 +313,7 @@ public abstract class URLConnection
   public Map getHeaderFields()
   {
     // Subclasses for specific protocols override this.
-    return null;
+    return Collections.EMPTY_MAP;
   }
 
   /**
@@ -419,16 +417,20 @@ public abstract class URLConnection
    */
   public Object getContent() throws IOException
   {
+    if (!connected)
+      connect();
+
     // FIXME: Doc indicates that other criteria should be applied as
     // heuristics to determine the true content type, e.g. see 
     // guessContentTypeFromName() and guessContentTypeFromStream methods
     // as well as FileNameMap class & fileNameMap field & get/set methods.
-    String cType = getContentType();
-    contentHandler = setContentHandler(cType);
-    if (contentHandler == null)
+    String type = getContentType();
+    ContentHandler ch = setContentHandler(type);
+
+    if (ch == null)
       return getInputStream();
 
-    return contentHandler.getContent(this);
+    return ch.getContent(this);
   }
 
   /**
@@ -463,7 +465,7 @@ public abstract class URLConnection
   public Permission getPermission() throws IOException
   {
     // Subclasses may override this.
-    return new java.security.AllPermission();
+    return new AllPermission();
   }
 
   /**
@@ -803,7 +805,7 @@ public abstract class URLConnection
    * @deprecated 1.3 The method setRequestProperty should be used instead.
    * This method does nothing now.
    *
-   * @see URLConnectionr#setRequestProperty(String key, String value)
+   * @see URLConnection#setRequestProperty(String key, String value)
    */
   public static void setDefaultRequestProperty (String key, String value)
   {
@@ -954,7 +956,7 @@ public abstract class URLConnection
     ContentHandler handler;
 
     // No content type so just handle it as the default.
-    if (contentType == null || contentType == "")
+    if (contentType == null || contentType.equals(""))
       return null;
 
     // See if a handler has been cached for this content type.
@@ -1036,7 +1038,8 @@ public abstract class URLConnection
   {
     if (dateformats_initialized)
       return;
-    locale = new Locale("En", "Us", "Unix");
+
+    Locale locale = new Locale("En", "Us", "Unix");
     dateFormat1 = new SimpleDateFormat("EEE, dd MMM yyyy hh:mm:ss 'GMT'", 
                                        locale);
     dateFormat2 = new SimpleDateFormat("EEEE, dd-MMM-yy hh:mm:ss 'GMT'", 
@@ -1044,5 +1047,4 @@ public abstract class URLConnection
     dateFormat3 = new SimpleDateFormat("EEE MMM d hh:mm:ss yyyy", locale);
     dateformats_initialized = true;
   }
-} // class URLConnection
-
+}

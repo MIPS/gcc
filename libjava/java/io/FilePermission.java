@@ -38,8 +38,7 @@ exception statement from your version. */
 
 package java.io;
 
-import java.security.*;
-
+import java.security.Permission;
 
 public final class FilePermission extends Permission implements Serializable
 {
@@ -272,9 +271,9 @@ public final class FilePermission extends Permission implements Serializable
       break;
 */
         default:
-          if(f2.charAt(f2.length()) == File.separatorChar) 
+          if(f2.charAt(f2.length() - 1) == File.separatorChar) 
             {
-              if(!f1.equals(f2.substring(0,f2.length()-1)))
+              if(!f1.equals(f2.substring(0,f2.length() - 1)))
 	        return false;
             } 
           else 

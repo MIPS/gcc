@@ -1,5 +1,5 @@
 /* JComponent.java -- Every component in swing inherits from this class.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -46,6 +46,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -56,13 +57,15 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.awt.image.ImageObserver;
 import java.awt.peer.LightweightPeer;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyVetoException;
 import java.beans.VetoableChangeListener;
 import java.io.Serializable;
-import java.util.Vector;
+import java.util.EventListener;
 import java.util.Hashtable;
+import java.util.Vector;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleExtendedComponent;
@@ -72,6 +75,7 @@ import javax.swing.event.AncestorListener;
 import javax.swing.event.EventListenerList;
 import javax.swing.border.Border;
 import javax.swing.plaf.ComponentUI;
+import javax.swing.event.SwingPropertyChangeSupport;
 
 /**
  * Every component in swing inherits from this class (JLabel, JButton, etc).
@@ -84,22 +88,27 @@ import javax.swing.plaf.ComponentUI;
 public abstract class JComponent extends Container implements Serializable
 {
   static final long serialVersionUID = -5242478962609715464L;
-        /**
-         * accessibleContext
-         */
-        protected AccessibleContext accessibleContext;
 
-	Dimension pref,min,max;
-	Border border;
-	JToolTip tooltip;
-	String tool_tip_text;
-	boolean use_double_buffer, opaque;
-	protected ComponentUI ui;
-
-	Vector ancestor_list;
-	Vector veto_list;
-	Vector change_list;
-	Hashtable prop_hash;
+  protected EventListenerList listenerList = new EventListenerList();
+  
+  /**
+   * accessibleContext
+   */
+  protected AccessibleContext accessibleContext;
+  
+  Dimension pref,min,max;
+  Border border;
+  JToolTip tooltip;
+  String tool_tip_text;
+  boolean use_double_buffer, opaque;
+  Image doubleBuffer;
+  int doubleBufferWidth = -1;
+  int doubleBufferHeight = -1;
+  ComponentUI ui;
+  private SwingPropertyChangeSupport changeSupport;
+  
+  Hashtable prop_hash;
+  
 
 	/**
 	 * AccessibleJComponent
@@ -192,7 +201,7 @@ public abstract class JComponent extends Container implements Serializable
 		 * addPropertyChangeListener
 		 * @param listener TODO
 		 */
-		public void addPropertyChangeListener(PropertyChangeListener listener) {
+		public void addPropertyChangeListener(PropertyChangeListener listener) { 
 			// TODO
 		} // addPropertyChangeListener()
 
@@ -272,12 +281,11 @@ public abstract class JComponent extends Container implements Serializable
 		super.setLayout(new FlowLayout());
 		
 		//eventMask |= AWTEvent.COMP_KEY_EVENT_MASK;
-		enableEvents( AWTEvent.KEY_EVENT_MASK );
+		// enableEvents( AWTEvent.KEY_EVENT_MASK );
 
 		//updateUI(); // get a proper ui
 	}
 
-	// protected EventListenerList listenerList
 	public boolean contains(int x, int y)
 	{
 		//return dims.contains(x,y);
@@ -296,24 +304,6 @@ public abstract class JComponent extends Container implements Serializable
 			prop_hash = new Hashtable();
 		return prop_hash;
 	}
-	public Vector get_veto_list()
-	{
-		if (veto_list == null)
-			veto_list = new Vector();
-		return veto_list;
-	}
-	public Vector get_change_list()
-	{
-		if (change_list == null)
-			change_list = new Vector();
-		return change_list;
-	}
-	public Vector get_ancestor_list()
-	{
-		if (ancestor_list == null)
-			ancestor_list = new Vector();
-		return ancestor_list;
-	}
 
 	public Object getClientProperty(Object key)
         {	return get_prop_hash().get(key);    }
@@ -321,77 +311,174 @@ public abstract class JComponent extends Container implements Serializable
 	public void putClientProperty(Object key, Object value)
 	{    get_prop_hash().put(key, value);   }
 
-	public void removeAncestorListener(AncestorListener listener)
-	{  get_ancestor_list().removeElement(listener);  }
+  /**
+   * Unregister an <code>AncestorListener</code>.
+   */
+  public void removeAncestorListener(AncestorListener listener)
+  {
+    listenerList.remove(AncestorListener.class, listener);
+  }
 
-        public void removePropertyChangeListener(PropertyChangeListener listener)
-	{  get_change_list().removeElement(listener);   }
+  /**
+   * Unregister a <code>PropertyChangeListener</code>.
+   */
+  public void removePropertyChangeListener(PropertyChangeListener listener)
+  {
+    if (changeSupport != null)
+      changeSupport.removePropertyChangeListener(listener);
+  }
 
-	public void removePropertyChangeListener(String propertyName, PropertyChangeListener listener)
-	{  /* FIXME */   get_change_list().removeElement(listener);   }
+  /**
+   * Unregister a <code>PropertyChangeListener</code>.
+   */
+  public void removePropertyChangeListener(String propertyName, PropertyChangeListener listener)
+  {
+    listenerList.remove(PropertyChangeListener.class, listener);
+  }
 
-	public void removeVetoableChangeListener(VetoableChangeListener listener)
-	{  get_veto_list().removeElement(listener);   }
+  /**
+   * Unregister a <code>VetoableChangeChangeListener</code>.
+   */
+  public void removeVetoableChangeListener(VetoableChangeListener listener)
+  {
+    listenerList.remove(VetoableChangeListener.class, listener);
+  }
 
-	public void addAncestorListener(AncestorListener listener)
-	{   get_ancestor_list().addElement(listener);  }
+  /**
+   * Register an <code>AncestorListener</code>.
+   */
+  public void addAncestorListener(AncestorListener listener)
+  {
+    listenerList.add(AncestorListener.class, listener);
+  }
 
-	public void addPropertyChangeListener(PropertyChangeListener listener)
-	{  get_change_list().addElement(listener);   }
+  /**
+   * Register a <code>PropertyChangeListener</code>.
+   */
+  public void addPropertyChangeListener(PropertyChangeListener listener)
+  {
+    if (changeSupport == null)
+      changeSupport = new SwingPropertyChangeSupport(this);
+    changeSupport.addPropertyChangeListener(listener);
+  }
 
-	public void addPropertyChangeListener(String propertyName, PropertyChangeListener listener)
-	{ /* FIXME */ get_change_list().addElement(listener);   }
+  /**
+   * Register a <code>PropertyChangeListener</code>.
+   */
+  public void addPropertyChangeListener(String propertyName, PropertyChangeListener listener)
+  {
+    listenerList.add(PropertyChangeListener.class, listener);
+  }
 
-	public void addVetoableChangeListener(VetoableChangeListener listener)
-	{  get_veto_list().addElement(listener);    }
+  /**
+   * Register a <code>VetoableChangeListener</code>.
+   */
+  public void addVetoableChangeListener(VetoableChangeListener listener)
+  {
+    listenerList.add(VetoableChangeListener.class, listener);
+  }
+
+  /**
+   * Return all registered listeners of a special type.
+   * 
+   * @since 1.3
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    return listenerList.getListeners (listenerType);
+  }
+  
+  /**
+   * Return all registered <code>Ancestor</code> objects.
+   * 
+   * @since 1.4
+   */
+  public AncestorListener[] getAncestorListeners()
+  {
+    return (AncestorListener[]) getListeners (AncestorListener.class);
+  }
+
+  /**
+   * Return all registered <code>VetoableChangeListener</code> objects.
+   * 
+   * @since 1.4
+   */
+  public VetoableChangeListener[] getVetoableChangeListeners()
+  {
+    return (VetoableChangeListener[]) getListeners (VetoableChangeListener.class);
+  }
 
 	public void computeVisibleRect(Rectangle rect)
 	{
 		//Returns the Component's "visible rect rectangle" - the intersection of the visible rectangles for this component and all of its ancestors.
 		//super.computeVisibleRect(rect);
 	}
+	
+        public PropertyChangeListener[] getPropertyChangeListeners(String property)
+        {
+          return changeSupport == null ? new PropertyChangeListener[0]
+                 : changeSupport.getPropertyChangeListeners(property);
+        }	
 
 	public void firePropertyChange(String propertyName, boolean oldValue, boolean newValue)
 	{
-		//Reports a bound property change.
+          if (changeSupport != null)
+            changeSupport.firePropertyChange(propertyName, new Boolean(oldValue), 
+	                                     new Boolean(newValue));
 	}
 	public void firePropertyChange(String propertyName, byte oldValue, byte newValue)
 	{
-		//    Reports a bound property change.
+          if (changeSupport != null)
+            changeSupport.firePropertyChange(propertyName, new Byte(oldValue), 
+	                                     new Byte(newValue));
 	}
 	public void firePropertyChange(String propertyName, char oldValue, char newValue)
 	{
-		//Reports a bound property change.
+          if (changeSupport != null)
+            changeSupport.firePropertyChange(propertyName, new Character(oldValue), 
+	                                     new Character(newValue));
 	}
 
 	public void firePropertyChange(String propertyName, double oldValue, double newValue)
 	{
-		//Reports a bound property change.
+          if (changeSupport != null)
+            changeSupport.firePropertyChange(propertyName, new Double(oldValue), 
+	                                     new Double(newValue));
 	}
 
 	public void firePropertyChange(String propertyName, float oldValue, float newValue)
 	{
-		//       Reports a bound property change.
+          if (changeSupport != null)
+            changeSupport.firePropertyChange(propertyName, new Float(oldValue), 
+	                                     new Float(newValue));
 	}
 	public void firePropertyChange(String propertyName, int oldValue, int newValue)
 	{
-		//       Reports a bound property change.
+          if (changeSupport != null)
+            changeSupport.firePropertyChange(propertyName, new Integer(oldValue), 
+	                                     new Integer(newValue));
 	}
 	public void firePropertyChange(String propertyName, long oldValue, long newValue)
 	{
-		//Reports a bound property change. protected
+          if (changeSupport != null)
+            changeSupport.firePropertyChange(propertyName, new Long(oldValue), 
+	                                     new Long(newValue));
 	}
 
-  protected void firePropertyChange(String propertyName, Object oldValue, Object newValue)
+        protected void firePropertyChange(String propertyName, Object oldValue, Object newValue)
 	{
-		//       Support for reporting bound property changes.
+          if (changeSupport != null)
+            changeSupport.firePropertyChange(propertyName, oldValue, newValue);
 	}
 	public void firePropertyChange(String propertyName, short oldValue, short newValue)
 	{
-		//       Reports a bound property change.
+          if (changeSupport != null)
+            changeSupport.firePropertyChange(propertyName, new Short(oldValue), 
+	                                     new Short(newValue));
 	}
 
 	protected  void fireVetoableChange(String propertyName, Object oldValue, Object newValue)
+          throws PropertyVetoException
 	{
 		//       Support for reporting constrained property changes.
 	}
@@ -701,11 +788,44 @@ public abstract class JComponent extends Container implements Serializable
 
 	public void paint(Graphics g)
 	{
-		//	System.out.println("SWING_PAINT:" + this);
+		Graphics g2 = g;
+		Rectangle r = getBounds ();
+		
+		if (use_double_buffer)
+		{
 
-		paintBorder(g);
-		paintComponent(g);
-		paintChildren(g);
+                  if (doubleBuffer == null 
+                      || doubleBufferWidth != r.width 
+                      || doubleBufferHeight != r.height)
+                    {
+                      doubleBuffer = createImage(r.width, r.height);
+                      doubleBufferWidth = r.width;
+                      doubleBufferHeight = r.height;
+                    }
+
+                  g2 = doubleBuffer.getGraphics ();
+                  if (this.getBackground() != null)
+                    {
+                      Color save = g2.getColor();
+                      g2.setColor(this.getBackground());
+                      g2.fillRect (0, 0, r.width, r.height);
+                      g2.setColor(save);
+                    }
+                  else
+                    g2.clearRect(0, 0, r.width, r.height);
+		}
+		
+		paintBorder(g2);
+		paintComponent(g2);
+		paintChildren(g2);
+
+		if (use_double_buffer)
+		{
+			// always draw at 0,0, because regardless of your current bounds,
+			// the graphics object you were passed was positioned so the origin
+			// was at the upper left corner of your bounds.
+			g.drawImage (doubleBuffer, 0, 0, (ImageObserver)null);
+		}
 	}
 
 	protected  void paintBorder(Graphics g)
@@ -729,7 +849,7 @@ public abstract class JComponent extends Container implements Serializable
 	protected  void paintChildren(Graphics g)
 	{
 	    //      Paint this component's children.
-	    //super.paintChildren(g);
+		super.paint(g);
 	}
 
 	protected  void paintComponent(Graphics g)
@@ -763,28 +883,6 @@ public abstract class JComponent extends Container implements Serializable
 	{
 		//      Returns a string representation of this JComponent.
 		return "JComponent";
-	}
-	protected  void processComponentKeyEvent(KeyEvent e)
-	{
-		//     Process any key events that the component itself recognizes.
-	    //System.out.println("COMP_KEY-EVENT: " + e);
-	}
-	protected  void processFocusEvent(FocusEvent e)
-	{
-		//      Processes focus events occurring on this component by dispatching them to any registered FocusListener objects.
-	    //System.out.println("FOCUS_EVENT: " + e);
-	}
-
-	protected  void processKeyEvent(KeyEvent e)
-	{
-		//      Override processKeyEvent to process events protected
-	    //System.out.println("KEY-EVENT: " + e);
-	}
-
-        public void processMouseMotionEvent(MouseEvent e)
-	{
-	    //      Processes mouse motion events occurring on this component by dispatching them to any registered MouseMotionListener objects.
-	    //System.out.println("COMP_MOUSE-EVENT: " + e + ", MEMORY = " + Runtime.getRuntime().freeMemory());
 	}
 
 	public void registerKeyboardAction(ActionListener anAction,
@@ -971,7 +1069,7 @@ public abstract class JComponent extends Container implements Serializable
         public String getUIClassID()
 	{
 		///          Return the UIDefaults key used to look up the name of the swing.
-		return "JComponent";
+		return "ComponentUI";
 	}
 
 	protected void setUI(ComponentUI newUI)

@@ -1,5 +1,5 @@
 /* Container.java -- parent container class in AWT
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation
+   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -41,6 +41,7 @@ import java.awt.event.AWTEventListener;
 import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
 import java.awt.event.MouseEvent;
+import java.awt.event.KeyEvent;
 import java.awt.peer.ContainerPeer;
 import java.awt.peer.LightweightPeer;
 import java.beans.PropertyChangeListener;
@@ -51,6 +52,7 @@ import java.io.Serializable;
 import java.util.EventListener;
 import java.util.Set;
 import javax.accessibility.Accessible;
+import javax.swing.SwingUtilities;
 
 /**
  * A generic window toolkit object that acts as a container for other objects.
@@ -105,7 +107,7 @@ public class Container extends Component
    */
   public int getComponentCount()
   {
-    return ncomponents;
+    return countComponents ();
   }
 
   /**
@@ -117,7 +119,7 @@ public class Container extends Component
    */
   public int countComponents()
   {
-    return getComponentCount();
+    return ncomponents;
   }
 
   /**
@@ -159,6 +161,25 @@ public class Container extends Component
   }
 
   /**
+   * Swaps the components at position i and j, in the container.
+   */
+
+  protected void swapComponents (int i, int j)
+  {   
+    synchronized (getTreeLock ())
+      {
+        if (i < 0 
+            || i >= component.length
+            || j < 0 
+            || j >= component.length)
+          throw new ArrayIndexOutOfBoundsException ();
+        Component tmp = component[i];
+        component[i] = component[j];
+        component[j] = tmp;
+      }
+  }
+
+  /**
    * Returns the insets for this container, which is the space used for
    * borders, the margin, etc.
    *
@@ -166,10 +187,7 @@ public class Container extends Component
    */
   public Insets getInsets()
   {
-    if (peer == null)
-      return new Insets(0, 0, 0, 0);
-    
-    return ((ContainerPeer) peer).getInsets();
+    return insets ();
   }
 
   /**
@@ -181,7 +199,10 @@ public class Container extends Component
    */
   public Insets insets()
   {
-    return getInsets();
+    if (peer == null)
+      return new Insets (0, 0, 0, 0);
+
+    return ((ContainerPeer) peer).getInsets ();
   }
 
   /**
@@ -443,8 +464,7 @@ public class Container extends Component
    */
   public void doLayout()
   {
-    if (layoutMgr != null)
-      layoutMgr.layoutContainer(this);
+    layout ();
   }
 
   /**
@@ -454,7 +474,8 @@ public class Container extends Component
    */
   public void layout()
   {
-    doLayout();
+    if (layoutMgr != null)
+      layoutMgr.layoutContainer (this);
   }
 
   /**
@@ -477,6 +498,20 @@ public class Container extends Component
           {
             validateTree();
           }
+      }
+  }
+
+  /**
+   * Recursively invalidates the container tree.
+   */
+  private void invalidateTree()
+  {
+    for (int i = 0; i < ncomponents; i++)
+      {
+        Component comp = component[i];
+        comp.invalidate();
+        if (comp instanceof Container)
+          ((Container) comp).invalidateTree();
       }
   }
 
@@ -525,7 +560,10 @@ public class Container extends Component
   public void setFont(Font f)
   {
     super.setFont(f);
-    // FIXME, should invalidate all children with font == null
+    // FIXME: Although it might make more sense to invalidate only
+    // those children whose font == null, Sun invalidates all children.
+    // So we'll do the same.
+    invalidateTree();
   }
 
   /**
@@ -535,7 +573,7 @@ public class Container extends Component
    */
   public Dimension getPreferredSize()
   {
-      return preferredSize();
+    return preferredSize ();
   }
 
   /**
@@ -547,10 +585,10 @@ public class Container extends Component
    */
   public Dimension preferredSize()
   {
-      if (layoutMgr != null)
-	  return layoutMgr.preferredLayoutSize(this);
-      else
-	  return super.preferredSize();
+    if (layoutMgr != null)
+      return layoutMgr.preferredLayoutSize (this);
+    else
+      return super.preferredSize ();
   }
 
   /**
@@ -560,7 +598,7 @@ public class Container extends Component
    */
   public Dimension getMinimumSize()
   {
-      return minimumSize();
+    return minimumSize ();
   }
 
   /**
@@ -572,10 +610,10 @@ public class Container extends Component
    */
   public Dimension minimumSize()
   {
-      if (layoutMgr != null)
-	  return layoutMgr.minimumLayoutSize(this);
-      else
-	  return super.minimumSize();
+    if (layoutMgr != null)
+      return layoutMgr.minimumLayoutSize (this);
+    else
+      return super.minimumSize ();
   }
 
   /**
@@ -643,8 +681,9 @@ public class Container extends Component
   {
     if (!isShowing())
       return;
-    super.paint(g);
-    visitChildren(g, GfxPaintVisitor.INSTANCE, true);
+    // Visit heavyweights as well, in case they were
+    // erased when we cleared the background for this container.
+    visitChildren(g, GfxPaintVisitor.INSTANCE, false);
   }
 
   /**
@@ -658,7 +697,6 @@ public class Container extends Component
    */
   public void update(Graphics g)
   {
-    g.clearRect(0, 0, width, height);
     super.update(g);
   }
 
@@ -813,23 +851,7 @@ public class Container extends Component
    */
   public Component getComponentAt(int x, int y)
   {
-    synchronized (getTreeLock ())
-      {
-        if (! contains(x, y))
-          return null;
-        for (int i = 0; i < ncomponents; ++i)
-          {
-            // Ignore invisible children...
-            if (!component[i].isVisible())
-              continue;
-
-            int x2 = x - component[i].x;
-            int y2 = y - component[i].y;
-            if (component[i].contains(x2, y2))
-              return component[i];
-          }
-        return this;
-      }
+    return locate (x, y);
   }
 
   /**
@@ -849,7 +871,23 @@ public class Container extends Component
    */
   public Component locate(int x, int y)
   {
-    return getComponentAt(x, y);
+    synchronized (getTreeLock ())
+      {
+        if (!contains (x, y))
+          return null;
+        for (int i = 0; i < ncomponents; ++i)
+          {
+            // Ignore invisible children...
+            if (!component[i].isVisible ())
+              continue;
+
+            int x2 = x - component[i].x;
+            int y2 = y - component[i].y;
+            if (component[i].contains (x2, y2))
+              return component[i];
+          }
+        return this;
+      }
   }
 
   /**
@@ -866,7 +904,7 @@ public class Container extends Component
    */
   public Component getComponentAt(Point p)
   {
-    return getComponentAt(p.x, p.y);
+    return getComponentAt (p.x, p.y);
   }
 
   public Component findComponentAt(int x, int y)
@@ -1177,11 +1215,15 @@ public class Container extends Component
   {
     synchronized (getTreeLock ())
       {
-        for (int i = 0; i < ncomponents; ++i)
+        for (int i = ncomponents - 1; i >= 0; --i)
           {
             Component comp = component[i];
+            // If we're visiting heavyweights as well,
+            // don't recurse into Containers here. This avoids
+            // painting the same nested child multiple times.
             boolean applicable = comp.isVisible()
-              && (comp.isLightweight() || !lightweightOnly);
+              && (comp.isLightweight()
+                  || !lightweightOnly && ! (comp instanceof Container));
 
             if (applicable)
               visitChild(gfx, visitor, comp);
@@ -1206,26 +1248,40 @@ public class Container extends Component
                           Component comp)
   {
     Rectangle bounds = comp.getBounds();
-    Rectangle clip = gfx.getClipBounds().intersection(bounds);
+    Rectangle oldClip = gfx.getClipBounds();
+    if (oldClip == null)
+      oldClip = bounds;
+
+    Rectangle clip = oldClip.intersection(bounds);
 
     if (clip.isEmpty()) return;
 
-    Graphics gfx2 = gfx.create();
+    boolean clipped = false;
+    boolean translated = false;
     try
       {
-	gfx2.setClip(clip.x, clip.y, clip.width, clip.height);
-	gfx2.translate(bounds.x, bounds.y);
-
-	visitor.visit(comp, gfx2);
+        gfx.setClip(clip.x, clip.y, clip.width, clip.height);
+        clipped = true;
+        gfx.translate(bounds.x, bounds.y);
+        translated = true;
+        visitor.visit(comp, gfx);
       }
     finally
       {
-	gfx2.dispose ();
+        if (translated)
+          gfx.translate (-bounds.x, -bounds.y);
+        if (clipped)
+          gfx.setClip (oldClip.x, oldClip.y, oldClip.width, oldClip.height);
       }
   }
 
   void dispatchEventImpl(AWTEvent e)
   {
+    // Give lightweight dispatcher a chance to handle it.
+    if (dispatcher != null 
+        && dispatcher.handleEvent (e))
+      return;
+
     if ((e.id <= ContainerEvent.CONTAINER_LAST
              && e.id >= ContainerEvent.CONTAINER_FIRST)
         && (containerListener != null
@@ -1296,6 +1352,17 @@ public class Container extends Component
             component[i].addNotify();
             if (component[i].isLightweight ())
 	      {
+
+                // If we're not lightweight, and we just got a lightweight
+                // child, we need a lightweight dispatcher to feed it events.
+                if (! this.isLightweight()) 
+                  {
+                    if (dispatcher == null)
+                      dispatcher = new LightweightDispatcher (this);
+                    dispatcher.enableEvents (component[i].eventMask);
+                  }	
+	  
+
 		enableEvents(component[i].eventMask);
 		if (peer != null && !isLightweight ())
 		  enableEvents (AWTEvent.PAINT_EVENT_MASK);
@@ -1468,68 +1535,176 @@ public class Container extends Component
           (ACCESSIBLE_CHILD_PROPERTY, e.getChild(), null);
       }
     } // class AccessibleContainerHandler
-  } // class AccessibleAWTPanel
+  } // class AccessibleAWTContainer
 } // class Container
 
 /**
- * Undocumented helper class.
- * STUBBED
+ * There is a helper class implied from stack traces called
+ * LightweightDispatcher, but since it is not part of the public API,
+ * rather than mimic it exactly we write something which does "roughly
+ * the same thing".
  */
-class LightweightDispatcher implements Serializable, AWTEventListener
+
+class LightweightDispatcher implements Serializable
 {
   private static final long serialVersionUID = 5184291520170872969L;
   private Container nativeContainer;
   private Component focus;
-  private transient Component mouseEventTarget;
-  private transient Component targetLastEntered;
-  private transient boolean isMouseInNativeContainer;
   private Cursor nativeCursor;
   private long eventMask;
   
+  private transient Component mouseEventTarget;
+  private transient Component pressedComponent;
+  private transient Component lastComponentEntered;
+  private transient int pressCount;
+  
   LightweightDispatcher(Container c)
   {
-  }
-
-  void dispose()
-  {
+    nativeContainer = c;
   }
 
   void enableEvents(long l)
   {
+    eventMask |= l;
   }
 
-  boolean dispatchEvent(AWTEvent e)
+  void acquireComponentForMouseEvent(MouseEvent me)
   {
-    return true;
+    int x = me.getX ();
+    int y = me.getY ();
+
+    // Find the candidate which should receive this event.
+    Component parent = nativeContainer;
+    Component candidate = null;
+    Point p = me.getPoint();
+    while (candidate == null && parent != null)
+      {
+        candidate =
+          SwingUtilities.getDeepestComponentAt(parent, p.x, p.y);
+        if (candidate == null)
+        {
+          p = SwingUtilities.convertPoint(parent, p.x, p.y, parent.parent);
+          parent = parent.parent;
+        }
+      }
+
+    // If the only candidate we found was the native container itself,
+    // don't dispatch any event at all.  We only care about the lightweight
+    // children here.
+    if (candidate == nativeContainer)
+      candidate = null;
+
+    // If our candidate is new, inform the old target we're leaving.
+    if (lastComponentEntered != null
+        && lastComponentEntered.isShowing()
+        && lastComponentEntered != candidate)
+      {
+        Point tp = 
+          SwingUtilities.convertPoint(nativeContainer, 
+                                      x, y, lastComponentEntered);
+        MouseEvent exited = new MouseEvent (lastComponentEntered, 
+                                            MouseEvent.MOUSE_EXITED,
+                                            me.getWhen (), 
+                                            me.getModifiers (), 
+                                            tp.x, tp.y,
+                                            me.getClickCount (),
+                                            me.isPopupTrigger (),
+                                            me.getButton ());
+        lastComponentEntered.dispatchEvent (exited); 
+        lastComponentEntered = null;
+      }
+
+    // If we have a candidate, maybe enter it.
+    if (candidate != null)
+      {
+        mouseEventTarget = candidate;
+        if (candidate.isLightweight() 
+            && candidate.isShowing()
+            && candidate != nativeContainer
+            && candidate != lastComponentEntered)
+	  {			
+            lastComponentEntered = mouseEventTarget;
+            Point cp = SwingUtilities.convertPoint(nativeContainer, 
+                                                   x, y, lastComponentEntered);
+            MouseEvent entered = new MouseEvent (lastComponentEntered, 
+                                                 MouseEvent.MOUSE_ENTERED,
+                                                 me.getWhen (), 
+                                                 me.getModifiers (), 
+                                                 cp.x, cp.y,
+                                                 me.getClickCount (),
+                                                 me.isPopupTrigger (),
+                                                 me.getButton ());
+            lastComponentEntered.dispatchEvent (entered);
+          }
+      }
+
+    if (me.getID() == MouseEvent.MOUSE_RELEASED
+        || me.getID() == MouseEvent.MOUSE_PRESSED && pressCount > 0
+        || me.getID() == MouseEvent.MOUSE_DRAGGED)
+      // If any of the following events occur while a button is held down,
+      // they should be dispatched to the same component to which the
+      // original MOUSE_PRESSED event was dispatched:
+      //   - MOUSE_RELEASED
+      //   - MOUSE_PRESSED: another button pressed while the first is held down
+      //   - MOUSE_DRAGGED
+      mouseEventTarget = pressedComponent;
+    else if (me.getID() == MouseEvent.MOUSE_CLICKED)
+      {
+        // Don't dispatch CLICKED events whose target is not the same as the
+        // target for the original PRESSED event.
+        if (candidate != pressedComponent)
+          mouseEventTarget = null;
+        else if (pressCount == 0)
+          pressedComponent = null;
+      }
   }
 
-  boolean isMouseGrab(MouseEvent e)
+  boolean handleEvent(AWTEvent e)
   {
-    return true;
+    if ((eventMask & e.getID()) == 0)
+      return false;
+
+    if (e instanceof MouseEvent)
+      {
+        MouseEvent me = (MouseEvent) e;
+
+        acquireComponentForMouseEvent(me);
+	
+        // Avoid dispatching ENTERED and EXITED events twice.
+        if (mouseEventTarget != null
+            && mouseEventTarget.isShowing()
+            && e.getID() != MouseEvent.MOUSE_ENTERED
+            && e.getID() != MouseEvent.MOUSE_EXITED)
+          {
+            MouseEvent newEvt = 
+              SwingUtilities.convertMouseEvent(nativeContainer, me, 
+                                               mouseEventTarget);
+            mouseEventTarget.dispatchEvent(newEvt);
+
+            switch (e.getID())
+              {
+                case MouseEvent.MOUSE_PRESSED:
+                  if (pressCount++ == 0)
+                    pressedComponent = mouseEventTarget;
+                  break;
+
+                case MouseEvent.MOUSE_RELEASED:
+                  // Clear our memory of the original PRESSED event, only if
+                  // we're not expecting a CLICKED event after this. If
+                  // there is a CLICKED event after this, it will do clean up.
+                  if (--pressCount == 0
+                      && mouseEventTarget != pressedComponent)
+                    pressedComponent = null;
+                  break;
+              }
+          }
+      }
+    else if (e instanceof KeyEvent && focus != null)
+      {
+        focus.processKeyEvent((KeyEvent) e);
+      }
+    
+    return e.isConsumed();
   }
 
-  boolean processMouseEvent(MouseEvent e)
-  {
-    return true;
-  }
-
-  void trackMouseEnterExit(Component c, MouseEvent e)
-  {
-  }
-
-  void startListeningForOtherDrags()
-  {
-  }
-
-  void stopListeningForOtherDrags()
-  {
-  }
-
-  public void eventDispatched(AWTEvent e)
-  {
-  }
-
-  void retargetMouseEvent(Component c, int i, MouseEvent e)
-  {
-  }
 } // class LightweightDispatcher

@@ -1,5 +1,5 @@
 /* Menu.java -- A Java AWT Menu
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,6 +41,7 @@ package java.awt;
 import java.awt.peer.MenuPeer;
 import java.io.Serializable;
 import java.util.Vector;
+import java.util.Enumeration;
 
 /**
   * This class represents a pull down or tear off menu in Java's AWT.
@@ -170,7 +171,7 @@ isTearOff()
 public int
 getItemCount()
 {
-  return(items.size());
+  return countItems ();
 }
 
 /**
@@ -182,7 +183,7 @@ getItemCount()
  */
 public int countItems ()
 {
-  return getItemCount ();
+  return items.size ();
 }
  
 /*************************************************************************/
@@ -294,7 +295,8 @@ insert(String label, int index)
 public void
 addSeparator()
 {
-  add(separator);
+  if (peer != null)
+    ((MenuPeer) peer).addSeparator();
 }
 
 /*************************************************************************/
@@ -376,8 +378,14 @@ removeAll()
 public void
 addNotify()
 {
-  if (peer != null)
+  if (peer == null)
     peer = getToolkit().createMenu(this);
+  Enumeration e = items.elements();
+  while (e.hasMoreElements())
+  {
+    MenuItem mi = (MenuItem)e.nextElement();
+    mi.addNotify();
+  }    
   super.addNotify ();
 }
 
@@ -389,6 +397,12 @@ addNotify()
 public void
 removeNotify()
 {
+  Enumeration e = items.elements();
+  while (e.hasMoreElements())
+  {
+    MenuItem mi = (MenuItem) e.nextElement();
+    mi.removeNotify();
+  }
   super.removeNotify();
 }
 

@@ -56,7 +56,7 @@ import java.util.Arrays;
 
 public final class Inet4Address extends InetAddress
 {
-  static final long serialVersionUID = 7615067291688066509L;
+  static final long serialVersionUID = 3286316764910316507L;
 
   /**
    * needed for serialization
@@ -258,7 +258,7 @@ public final class Inet4Address extends InetAddress
    */
   public boolean equals (Object obj)
   {
-    if (obj == null || ! (obj instanceof InetAddress))
+    if (! (obj instanceof InetAddress))
       return false;
     
     byte[] addr1 = addr;

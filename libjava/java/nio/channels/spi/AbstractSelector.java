@@ -1,5 +1,5 @@
 /* AbstractSelector.java -- 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,6 +39,7 @@ exception statement from your version. */
 package java.nio.channels.spi;
 
 import java.io.IOException;
+import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Set;
@@ -64,7 +65,7 @@ public abstract class AbstractSelector extends Selector
    * 
    * @exception IOException If an error occurs
    */
-  public final void close () throws IOException
+  public final synchronized void close () throws IOException
   {
     if (closed)
       return;
@@ -95,19 +96,35 @@ public abstract class AbstractSelector extends Selector
   {
   }
     
+  /**
+   * Returns the provider for this selector object.
+   */
   public final SelectorProvider provider ()
   {
     return provider;
   }
 
+  /**
+   * Returns the cancelled keys set.
+   */
   protected final Set cancelledKeys()
   {
+    if (!isOpen())
+      throw new ClosedSelectorException();
+
     return cancelledKeys;
   }
 
+  /**
+   * Cancels a selection key.
+   */
+  // This method is only called by AbstractSelectionKey.cancel().
   final void cancelKey (AbstractSelectionKey key)
   {
-    cancelledKeys.remove (key);
+    synchronized (cancelledKeys)
+      {
+	cancelledKeys.add(key);
+      }
   }
 
   /**
@@ -120,6 +137,6 @@ public abstract class AbstractSelector extends Selector
 
   protected final void deregister (AbstractSelectionKey key)
   {
-    // FIXME
+    ((AbstractSelectableChannel) key.channel()).removeSelectionKey(key);
   }
 }

@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.java.net.protocol.jar;
 
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -47,29 +49,129 @@ import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.net.URLStreamHandler;
+import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
- * Written using on-line Java Platform 1.2 API Specification.
+ * This subclass of java.net.JarURLConnection models a URLConnection via
+ * the "jar" protocol.
  *
  * @author Kresten Krab Thorup <krab@gnu.org>
- * @date Aug 10, 1999.
  */
-public class Connection extends JarURLConnection
+public final class Connection extends JarURLConnection
 {
-  static Hashtable file_cache = new Hashtable();
-  private JarFile jarfile;
+  private static Hashtable file_cache = new Hashtable();
+  private JarFile jar_file;
 
-  public Connection(URL url)
+  /**
+   * Cached JarURLConnection objects.
+   */
+  static HashMap connectionCache = new HashMap();
+
+  protected Connection(URL url)
     throws MalformedURLException
   {
     super(url);
   }
 
-  public synchronized JarFile getJarFile() throws java.io.IOException
+  public synchronized void connect() throws IOException
+  {
+    // Call is ignored if already connected.
+    if (connected)
+      return;
+
+    if (getUseCaches())
+      {
+	jarFileURLConnection =
+          (URLConnection) connectionCache.get(getJarFileURL());
+
+	if (jarFileURLConnection == null)
+	  {
+	    jarFileURLConnection = getJarFileURL().openConnection();
+	    jarFileURLConnection.setUseCaches(true);
+	    jarFileURLConnection.connect();
+	    connectionCache.put(getJarFileURL(), jarFileURLConnection);
+	  }
+      }
+    else
+      {
+	jarFileURLConnection = getJarFileURL().openConnection();
+	jarFileURLConnection.connect();
+      }
+
+    connected = true;
+  }
+
+  public InputStream getInputStream() throws IOException
+  {
+    if (!connected)
+      connect();
+
+    if (! doInput)
+      throw new ProtocolException("Can't open InputStream if doInput is false");
+
+    if (getEntryName() == null)
+      {
+	// This is a JarURLConnection for the entire jar file.  
+
+	InputStream in = new BufferedInputStream
+	  (jarFileURLConnection.getInputStream());
+	return new JarInputStream(in);
+      }
+
+    // Reaching this point, we're looking for an entry of a jar file.
+
+    JarFile jarfile = null;
+
+    try
+      {
+	jarfile = getJarFile ();
+      }
+    catch (IOException x)
+      {
+	/* ignore */
+      }
+    
+    if (jarfile != null)
+      {
+	// this is the easy way...
+	ZipEntry entry = jarfile.getEntry(getEntryName());
+        
+	if (entry != null)
+	  return jarfile.getInputStream (entry);
+	else
+	  return null;
+      }
+    else
+      {
+	// If the jar file is not local, ...
+	JarInputStream zis = new JarInputStream(
+			jarFileURLConnection.getInputStream ());
+
+	// This is hideous, we're doing a linear search...
+	for (ZipEntry entry = zis.getNextEntry(); 
+	     entry != null; 
+	     entry = zis.getNextEntry())
+	  {
+	    if (getEntryName().equals(entry.getName()))
+	      {
+		int size = (int) entry.getSize();
+		byte[] data = new byte[size];
+		zis.read (data, 0, size);
+		return new ByteArrayInputStream (data);
+	      }
+	  }
+      }
+
+    return null;
+  }
+
+  public synchronized JarFile getJarFile() throws IOException
   {
     if (!connected)
       connect();
@@ -77,8 +179,8 @@ public class Connection extends JarURLConnection
     if (! doInput)
       throw new ProtocolException("Can't open JarFile if doInput is false");
 
-    if (jarfile != null)
-      return jarfile;
+    if (jar_file != null)
+      return jar_file;
 
     URL jarFileURL = getJarFileURL();
 
@@ -87,15 +189,15 @@ public class Connection extends JarURLConnection
       {
 	if (getUseCaches())
 	  {
-	    jarfile = (JarFile) file_cache.get(jarFileURL);
-	    if (jarfile == null)
+	    jar_file = (JarFile) file_cache.get (jarFileURL);
+	    if (jar_file == null)
 	      {
-		jarfile = new JarFile (jarFileURL.getFile());
-		file_cache.put (jarFileURL, jarfile);
+		jar_file = new JarFile (jarFileURL.getFile());
+		file_cache.put (jarFileURL, jar_file);
 	      }
 	  }
 	else
-	  jarfile = new JarFile (jarFileURL.getFile());
+	  jar_file = new JarFile (jarFileURL.getFile());
       }
     else
       {
@@ -111,10 +213,24 @@ public class Connection extends JarURLConnection
 	// Always verify the Manifest, open read only and delete when done.
 	// XXX ZipFile.OPEN_DELETE not yet implemented.
 	// jf = new JarFile(f, true, ZipFile.OPEN_READ | ZipFile.OPEN_DELETE);
-	jarfile = new JarFile(f, true, ZipFile.OPEN_READ);
+	jar_file = new JarFile (f, true, ZipFile.OPEN_READ);
       }
 
-    return jarfile;
+    return jar_file;
   }
 
+  public int getContentLength()
+  {
+    if (!connected)
+      return -1;
+
+    try
+      {
+        return (int) getJarEntry().getSize();
+      }
+    catch (IOException e)
+      {
+	return -1;
+      }
+  }
 }

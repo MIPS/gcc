@@ -1,5 +1,5 @@
 /* AbstractSelectableChannel.java
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -48,11 +48,10 @@ import java.util.ListIterator;
 
 public abstract class AbstractSelectableChannel extends SelectableChannel
 {
-  private int registered;
   private boolean blocking = true;
   private Object LOCK = new Object();
   private SelectorProvider provider;
-  private LinkedList keys;
+  private LinkedList keys = new LinkedList();
 
   /**
    * Initializes the channel
@@ -60,7 +59,6 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
   protected AbstractSelectableChannel (SelectorProvider provider)
   {
     this.provider = provider;
-    this.keys = new LinkedList();
   }
 
   /**
@@ -75,13 +73,16 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
   /**
    * Adjusts this channel's blocking mode.
    */
-  public final SelectableChannel configureBlocking (boolean block)
+  public final SelectableChannel configureBlocking (boolean blocking)
     throws IOException
   {
-    synchronized (LOCK)
+    synchronized (blockingLock())
       {
-        blocking = true;
-        implConfigureBlocking (block);
+        if (this.blocking != blocking)
+          {
+            implConfigureBlocking(blocking);
+            this.blocking = blocking;
+          }
       }
     
     return this;
@@ -132,9 +133,15 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
    */
   public final SelectionKey keyFor(Selector selector)
   {
+    if (! isOpen())
+      return null;
+    
     try
       {
-        return register (selector, 0, null);
+        synchronized(blockingLock())
+	  {
+	    return locate (selector);
+	  }
       }
     catch (Exception e)
       {
@@ -152,9 +159,6 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
 
   private SelectionKey locate (Selector selector)
   {
-    if (keys == null)
-      return null;
-    
     ListIterator it = keys.listIterator ();
     
     while (it.hasNext ())
@@ -166,11 +170,6 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
       }
     
     return null;
-  }
-
-  private void add (SelectionKey key)
-  {
-    keys.add (key);
   }
 
   /**
@@ -187,23 +186,35 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
     SelectionKey key = null;
     AbstractSelector selector = (AbstractSelector) selin;
 
-    synchronized (LOCK)
+    synchronized (blockingLock())
       {
         key = locate (selector);
 
         if (key != null)
           {
-            key.attach (att);
+	    if (att != null)
+	      key.attach (att);
           }
         else
           {
             key = selector.register (this, ops, att);
     		
             if (key != null)
-              add (key);
+              addSelectionKey (key);
           }
       }
 
     return key;
+  }
+
+  void addSelectionKey(SelectionKey key)
+  {
+    keys.add(key);
+  }
+
+  // This method gets called by AbstractSelector.deregister().
+  void removeSelectionKey(SelectionKey key)
+  {
+    keys.remove(key);
   }
 }

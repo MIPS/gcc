@@ -51,6 +51,7 @@ import java.util.NoSuchElementException;
  * alt="A drawing of a QuadCurve2D" />
  *
  * @author Eric Blake (ebb9@email.byu.edu)
+ * @author Graydon Hoare (graydon@redhat.com)
  * @author Sascha Brawer (brawer@dandelis.ch)
  *
  * @since 1.2
@@ -129,7 +130,8 @@ public abstract class QuadCurve2D
 
 
   /**
-   * Changes the geometry of the curve.
+   * Changes the curve geometry, separately specifying each coordinate
+   * value.
    *
    * @param x1 the <i>x</i> coordinate of the curve&#x2019;s new start
    * point.
@@ -153,6 +155,23 @@ public abstract class QuadCurve2D
                                 double x2, double y2);
 
 
+  /**
+   * Changes the curve geometry, passing coordinate values in an
+   * array.
+   *
+   * @param coords an array containing the new coordinate values.  The
+   * <i>x</i> coordinate of the new start point is located at
+   * <code>coords[offset]</code>, its <i>y</i> coordinate at
+   * <code>coords[offset + 1]</code>.  The <i>x</i> coordinate of the
+   * new control point is located at <code>coords[offset + 2]</code>,
+   * its <i>y</i> coordinate at <code>coords[offset + 3]</code>. The
+   * <i>x</i> coordinate of the new end point is located at
+   * <code>coords[offset + 4]</code>, its <i>y</i> coordinate at
+   * <code>coords[offset + 5]</code>.
+   *
+   * @param offset the offset of the first coordinate value in
+   * <code>coords</code>.
+   */
   public void setCurve(double[] coords, int offset)
   {
     setCurve(coords[offset++], coords[offset++],
@@ -161,6 +180,22 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Changes the curve geometry, specifying coordinate values in
+   * separate Point objects.
+   *
+   * <p><img src="doc-files/QuadCurve2D-1.png" width="350" height="180"
+   * alt="A drawing of a QuadCurve2D" />
+   *
+   * <p>The curve does not keep any reference to the passed point
+   * objects. Therefore, a later change to <code>p1</code>,
+   * <code>c</code> <code>p2</code> will not affect the curve
+   * geometry.
+   *
+   * @param p1 the new start point.
+   * @param c the new control point.
+   * @param p2 the new end point.
+   */
   public void setCurve(Point2D p1, Point2D c, Point2D p2)
   {
     setCurve(p1.getX(), p1.getY(), c.getX(), c.getY(),
@@ -168,11 +203,29 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Changes the curve geometry, specifying coordinate values in an
+   * array of Point objects.
+   *
+   * <p><img src="doc-files/QuadCurve2D-1.png" width="350" height="180"
+   * alt="A drawing of a QuadCurve2D" />
+   *
+   * <p>The curve does not keep references to the passed point
+   * objects. Therefore, a later change to the <code>pts</code> array
+   * or any of its elements will not affect the curve geometry.
+   *
+   * @param pts an array containing the points. The new start point
+   * is located at <code>pts[offset]</code>, the new control
+   * point at <code>pts[offset + 1]</code>, and the new end point
+   * at <code>pts[offset + 2]</code>.
+   *
+   * @param offset the offset of the start point in <code>pts</code>.
+   */
   public void setCurve(Point2D[] pts, int offset)
   {
-    setCurve(pts[offset].getX(), pts[offset++].getY(),
-             pts[offset].getX(), pts[offset++].getY(),
-             pts[offset].getX(), pts[offset++].getY());
+    setCurve(pts[offset].getX(), pts[offset].getY(),
+             pts[offset + 1].getX(), pts[offset + 1].getY(),
+             pts[offset + 2].getX(), pts[offset + 2].getY());
   }
 
 
@@ -188,6 +241,26 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Calculates the squared flatness of a quadratic curve, directly
+   * specifying each coordinate value. The flatness is the distance of
+   * the control point to the line between start and end point.
+   *
+   * <p><img src="doc-files/QuadCurve2D-4.png" width="350" height="180"
+   * alt="A drawing that illustrates the flatness" />
+   *
+   * <p>In the above drawing, the straight line connecting start point
+   * P1 and end point P2 is depicted in gray.  The result will be the
+   * the square of the distance between C and the gray line, i.e.
+   * the squared length of the red line.
+   *
+   * @param x1 the <i>x</i> coordinate of the start point P1.
+   * @param y1 the <i>y</i> coordinate of the start point P1.
+   * @param cx the <i>x</i> coordinate of the control point C.
+   * @param cy the <i>y</i> coordinate of the control point C.
+   * @param x2 the <i>x</i> coordinate of the end point P2.
+   * @param y2 the <i>y</i> coordinate of the end point P2.
+   */
   public static double getFlatnessSq(double x1, double y1, double cx,
                                      double cy, double x2, double y2)
   {
@@ -195,6 +268,26 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Calculates the flatness of a quadratic curve, directly specifying
+   * each coordinate value. The flatness is the distance of the
+   * control point to the line between start and end point.
+   *
+   * <p><img src="doc-files/QuadCurve2D-4.png" width="350" height="180"
+   * alt="A drawing that illustrates the flatness" />
+   *
+   * <p>In the above drawing, the straight line connecting start point
+   * P1 and end point P2 is depicted in gray.  The result will be the
+   * the distance between C and the gray line, i.e. the length of
+   * the red line.
+   *
+   * @param x1 the <i>x</i> coordinate of the start point P1.
+   * @param y1 the <i>y</i> coordinate of the start point P1.
+   * @param cx the <i>x</i> coordinate of the control point C.
+   * @param cy the <i>y</i> coordinate of the control point C.
+   * @param x2 the <i>x</i> coordinate of the end point P2.
+   * @param y2 the <i>y</i> coordinate of the end point P2.
+   */
   public static double getFlatness(double x1, double y1, double cx, double cy,
                                    double x2, double y2)
   {
@@ -202,6 +295,32 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Calculates the squared flatness of a quadratic curve, specifying
+   * the coordinate values in an array. The flatness is the distance
+   * of the control point to the line between start and end point.
+   *
+   * <p><img src="doc-files/QuadCurve2D-4.png" width="350" height="180"
+   * alt="A drawing that illustrates the flatness" />
+   *
+   * <p>In the above drawing, the straight line connecting start point
+   * P1 and end point P2 is depicted in gray.  The result will be the
+   * the square of the distance between C and the gray line, i.e.
+   * the squared length of the red line.
+   *
+   * @param coords an array containing the coordinate values.  The
+   * <i>x</i> coordinate of the start point P1 is located at
+   * <code>coords[offset]</code>, its <i>y</i> coordinate at
+   * <code>coords[offset + 1]</code>.  The <i>x</i> coordinate of the
+   * control point C is located at <code>coords[offset + 2]</code>,
+   * its <i>y</i> coordinate at <code>coords[offset + 3]</code>. The
+   * <i>x</i> coordinate of the end point P2 is located at
+   * <code>coords[offset + 4]</code>, its <i>y</i> coordinate at
+   * <code>coords[offset + 5]</code>.
+   *
+   * @param offset the offset of the first coordinate value in
+   * <code>coords</code>.
+   */
   public static double getFlatnessSq(double[] coords, int offset)
   {
     return Line2D.ptSegDistSq(coords[offset], coords[offset + 1],
@@ -210,6 +329,32 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Calculates the flatness of a quadratic curve, specifying the
+   * coordinate values in an array. The flatness is the distance of
+   * the control point to the line between start and end point.
+   *
+   * <p><img src="doc-files/QuadCurve2D-4.png" width="350" height="180"
+   * alt="A drawing that illustrates the flatness" />
+   *
+   * <p>In the above drawing, the straight line connecting start point
+   * P1 and end point P2 is depicted in gray.  The result will be the
+   * the the distance between C and the gray line, i.e.  the length of
+   * the red line.
+   *
+   * @param coords an array containing the coordinate values.  The
+   * <i>x</i> coordinate of the start point P1 is located at
+   * <code>coords[offset]</code>, its <i>y</i> coordinate at
+   * <code>coords[offset + 1]</code>.  The <i>x</i> coordinate of the
+   * control point C is located at <code>coords[offset + 2]</code>,
+   * its <i>y</i> coordinate at <code>coords[offset + 3]</code>. The
+   * <i>x</i> coordinate of the end point P2 is located at
+   * <code>coords[offset + 4]</code>, its <i>y</i> coordinate at
+   * <code>coords[offset + 5]</code>.
+   *
+   * @param offset the offset of the first coordinate value in
+   * <code>coords</code>.
+   */
   public static double getFlatness(double[] coords, int offset)
   {
     return Line2D.ptSegDist(coords[offset], coords[offset + 1],
@@ -218,6 +363,19 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Calculates the squared flatness of this curve. The flatness is
+   * the distance of the control point to the line between start and
+   * end point.
+   *
+   * <p><img src="doc-files/QuadCurve2D-4.png" width="350" height="180"
+   * alt="A drawing that illustrates the flatness" />
+   *
+   * <p>In the above drawing, the straight line connecting start point
+   * P1 and end point P2 is depicted in gray.  The result will be the
+   * the square of the distance between C and the gray line, i.e. the
+   * squared length of the red line.
+   */
   public double getFlatnessSq()
   {
     return Line2D.ptSegDistSq(getX1(), getY1(),
@@ -226,6 +384,19 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Calculates the flatness of this curve. The flatness is the
+   * distance of the control point to the line between start and end
+   * point.
+   *
+   * <p><img src="doc-files/QuadCurve2D-4.png" width="350" height="180"
+   * alt="A drawing that illustrates the flatness" />
+   *
+   * <p>In the above drawing, the straight line connecting start point
+   * P1 and end point P2 is depicted in gray.  The result will be the
+   * the distance between C and the gray line, i.e.  the length of the
+   * red line.
+   */
   public double getFlatness()
   {
     return Line2D.ptSegDist(getX1(), getY1(),
@@ -379,44 +550,172 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Finds the non-complex roots of a quadratic equation, placing the
+   * results into the same array as the equation coefficients. The
+   * following equation is being solved:
+   *
+   * <blockquote><code>eqn[2]</code> &#xb7; <i>x</i><sup>2</sup>
+   * + <code>eqn[1]</code> &#xb7; <i>x</i>
+   * + <code>eqn[0]</code>
+   * = 0
+   * </blockquote>
+   *
+   * <p>For some background about solving quadratic equations, see the
+   * article <a href=
+   * "http://planetmath.org/encyclopedia/QuadraticFormula.html"
+   * >&#x201c;Quadratic Formula&#x201d;</a> in <a href=
+   * "http://planetmath.org/">PlanetMath</a>. For an extensive library
+   * of numerical algorithms written in the C programming language,
+   * see the <a href="http://www.gnu.org/software/gsl/">GNU Scientific
+   * Library</a>.
+   *
+   * @see #solveQuadratic(double[], double[])
+   * @see CubicCurve2D#solveCubic(double[], double[])
+   *
+   * @param eqn an array with the coefficients of the equation. When
+   * this procedure has returned, <code>eqn</code> will contain the
+   * non-complex solutions of the equation, in no particular order.
+   *
+   * @return the number of non-complex solutions. A result of 0
+   * indicates that the equation has no non-complex solutions. A
+   * result of -1 indicates that the equation is constant (i.e.,
+   * always or never zero).
+   *
+   * @author <a href="mailto:bjg@network-theory.com">Brian Gough</a>
+   * (original C implementation in the <a href=
+   * "http://www.gnu.org/software/gsl/">GNU Scientific Library</a>)
+   *
+   * @author <a href="mailto:brawer@dandelis.ch">Sascha Brawer</a>
+   * (adaptation to Java)
+   */
   public static int solveQuadratic(double[] eqn)
   {
     return solveQuadratic(eqn, eqn);
   }
 
 
+  /**
+   * Finds the non-complex roots of a quadratic equation. The
+   * following equation is being solved:
+   *
+   * <blockquote><code>eqn[2]</code> &#xb7; <i>x</i><sup>2</sup>
+   * + <code>eqn[1]</code> &#xb7; <i>x</i>
+   * + <code>eqn[0]</code>
+   * = 0
+   * </blockquote>
+   *
+   * <p>For some background about solving quadratic equations, see the
+   * article <a href=
+   * "http://planetmath.org/encyclopedia/QuadraticFormula.html"
+   * >&#x201c;Quadratic Formula&#x201d;</a> in <a href=
+   * "http://planetmath.org/">PlanetMath</a>. For an extensive library
+   * of numerical algorithms written in the C programming language,
+   * see the <a href="http://www.gnu.org/software/gsl/">GNU Scientific
+   * Library</a>.
+   *
+   * @see CubicCurve2D#solveCubic(double[],double[])
+   *
+   * @param eqn an array with the coefficients of the equation.
+   *
+   * @param res an array into which the non-complex roots will be
+   * stored.  The results may be in an arbitrary order. It is safe to
+   * pass the same array object reference for both <code>eqn</code>
+   * and <code>res</code>.
+   *
+   * @return the number of non-complex solutions. A result of 0
+   * indicates that the equation has no non-complex solutions. A
+   * result of -1 indicates that the equation is constant (i.e.,
+   * always or never zero).
+   *
+   * @author <a href="mailto:bjg@network-theory.com">Brian Gough</a>
+   * (original C implementation in the <a href=
+   * "http://www.gnu.org/software/gsl/">GNU Scientific Library</a>)
+   *
+   * @author <a href="mailto:brawer@dandelis.ch">Sascha Brawer</a>
+   * (adaptation to Java)
+   */
   public static int solveQuadratic(double[] eqn, double[] res)
   {
-    double c = eqn[0];
-    double b = eqn[1];
-    double a = eqn[2];
+    // Taken from poly/solve_quadratic.c in the GNU Scientific Library
+    // (GSL), cvs revision 1.7 of 2003-07-26. For the original source,
+    // see http://www.gnu.org/software/gsl/
+    //
+    // Brian Gough, the author of that code, has granted the
+    // permission to use it in GNU Classpath under the GNU Classpath
+    // license, and has assigned the copyright to the Free Software
+    // Foundation.
+    //
+    // The Java implementation is very similar to the GSL code, but
+    // not a strict one-to-one copy. For example, GSL would sort the
+    // result.
+
+    double a, b, c, disc;
+
+    c = eqn[0];
+    b = eqn[1];
+    a = eqn[2];
+
+    // Check for linear or constant functions. This is not done by the
+    // GNU Scientific Library.  Without this special check, we
+    // wouldn't return -1 for constant functions, and 2 instead of 1
+    // for linear functions.
     if (a == 0)
     {
       if (b == 0)
         return -1;
+      
       res[0] = -c / b;
       return 1;
     }
-    c /= a;
-    b /= a * 2;
-    double det = Math.sqrt(b * b - c);
-    if (det != det)
+
+    disc = b * b - 4 * a * c;
+
+    if (disc < 0)
       return 0;
-    // For fewer rounding errors, we calculate the two roots differently.
-    if (b > 0)
+
+    if (disc == 0)
     {
-      res[0] = -b - det;
-      res[1] = -c / (b + det);
+      // The GNU Scientific Library returns two identical results here.
+      // We just return one.
+      res[0] = -0.5 * b / a ;
+      return 1;
+    }
+
+    // disc > 0
+    if (b == 0)
+    {
+      double r;
+
+      r = Math.abs(0.5 * Math.sqrt(disc) / a);
+      res[0] = -r;
+      res[1] = r;
     }
     else
     {
-      res[0] = -c / (b - det);
-      res[1] = -b + det;
+      double sgnb, temp;
+      
+      sgnb = (b > 0 ? 1 : -1);
+      temp = -0.5 * (b + sgnb * Math.sqrt(disc));
+
+      // The GNU Scientific Library sorts the result here. We don't.
+      res[0] = temp / a;
+      res[1] = c / temp;
     }
     return 2;
   }
 
 
+  /**
+   * Determines whether a point lies inside the area that is bounded
+   * by the curve and the straight line connecting its end points.
+   *
+   * <p><img src="doc-files/QuadCurve2D-5.png" width="350" height="180"
+   * alt="A drawing of the area spanned by the curve" />
+   *
+   * <p>The above drawing illustrates in which area points are
+   * considered &#x201c;contained&#x201d; in a QuadCurve2D.
+   */
   public boolean contains(double x, double y)
   {
     // XXX Implement.
@@ -424,6 +723,16 @@ public abstract class QuadCurve2D
   }
 
 
+  /**
+   * Determines whether a point lies inside the area that is bounded
+   * by the curve and the straight line connecting its end points.
+   *
+   * <p><img src="doc-files/QuadCurve2D-5.png" width="350" height="180"
+   * alt="A drawing of the area spanned by the curve" />
+   *
+   * <p>The above drawing illustrates in which area points are
+   * considered &#x201c;contained&#x201d; in a QuadCurve2D.
+   */
   public boolean contains(Point2D p)
   {
     return contains(p.getX(), p.getY());
@@ -563,8 +872,7 @@ public abstract class QuadCurve2D
 
 
   /**
-   * Creates a new curve with the same contents as
-   * this one.
+   * Creates a new curve with the same contents as this one.
    *
    * @return the clone.
    */

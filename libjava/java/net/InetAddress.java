@@ -1,5 +1,5 @@
 /* InetAddress.java -- Class to model an Internet address
-   Copyright (C) 1998, 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -82,7 +82,7 @@ public class InetAddress implements Serializable
       }
     
     byte[] zeros = { 0, 0, 0, 0 };
-    ANY_IF = new InetAddress (zeros, null);
+    ANY_IF = new InetAddress (zeros, "0.0.0.0");
   }
 
   /**
@@ -476,8 +476,7 @@ public class InetAddress implements Serializable
    */
   public boolean equals (Object obj)
   {
-    if (obj == null
-        || ! (obj instanceof InetAddress))
+    if (! (obj instanceof InetAddress))
       return false;
     
     // "The Java Class Libraries" 2nd edition says "If a machine has
@@ -574,7 +573,7 @@ public class InetAddress implements Serializable
    * Returns an InetAddress object representing the IP address of the given
    * hostname.  This name can be either a hostname such as "www.urbanophile.com"
    * or an IP address in dotted decimal format such as "127.0.0.1".  If the
-   * hostname is null, the hostname of the local machine is supplied by
+   * hostname is null or "", the hostname of the local machine is supplied by
    * default.  This method is equivalent to returning the first element in
    * the InetAddress array returned from GetAllByName.
    *
@@ -595,7 +594,7 @@ public class InetAddress implements Serializable
       s.checkConnect (hostname, -1);
    
     // Default to current host if necessary
-    if (hostname == null)
+    if (hostname == null || hostname.length() == 0)
       return getLocalHost();
 
     // Assume that the host string is an IP address
@@ -663,6 +662,14 @@ public class InetAddress implements Serializable
     return lookup (hostname, null, true);
   }
 
+  /**
+   * This native method looks up the hostname of the local machine
+   * we are on.  If the actual hostname cannot be determined, then the
+   * value "localhost" will be used.  This native method wrappers the
+   * "gethostname" function.
+   *
+   * @return The local hostname.
+   */
   private static native String getLocalHostname();
 
   /**

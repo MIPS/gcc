@@ -555,6 +555,17 @@ public abstract class Component
    */
   transient BufferStrategy bufferStrategy;
 
+  /**
+   * The system properties that affect image updating.
+   */
+  private static transient boolean incrementalDraw;
+  private static transient Long redrawRate;
+
+  static
+  {
+    incrementalDraw = Boolean.getBoolean ("awt.image.incrementalDraw");
+    redrawRate = Long.getLong ("awt.image.redrawrate");
+  }
 
   // Public and protected API.
 
@@ -768,9 +779,7 @@ public abstract class Component
    */
   public void setEnabled(boolean b)
   {
-    this.enabled = b;
-    if (peer != null)
-      peer.setEnabled(b);
+    enable (b);
   }
 
   /**
@@ -780,7 +789,9 @@ public abstract class Component
    */
   public void enable()
   {
-    setEnabled(true);
+    this.enabled = true;
+    if (peer != null)
+      peer.setEnabled (true);
   }
 
   /**
@@ -791,7 +802,10 @@ public abstract class Component
    */
   public void enable(boolean b)
   {
-    setEnabled(b);
+    if (b)
+      enable ();
+    else
+      disable ();
   }
 
   /**
@@ -801,7 +815,9 @@ public abstract class Component
    */
   public void disable()
   {
-    setEnabled(false);
+    this.enabled = false;
+    if (peer != null)
+      peer.setEnabled (false);
   }
 
   /**
@@ -845,10 +861,7 @@ public abstract class Component
     // Inspection by subclassing shows that Sun's implementation calls
     // show(boolean) which then calls show() or hide(). It is the show()
     // method that is overriden in subclasses like Window.
-    if (b)
-      show();
-    else
-      hide();
+    show (b);
   }
 
   /**
@@ -858,9 +871,21 @@ public abstract class Component
    */
   public void show()
   {
-    if (peer != null)
-      peer.setVisible(true);
-    this.visible = true;
+    // We must set visible before showing the peer.  Otherwise the
+    // peer could post paint events before visible is true, in which
+    // case lightweight components are not initially painted --
+    // Container.paint first calls isShowing () before painting itself
+    // and its children.
+    if(!isVisible())
+      {
+        this.visible = true;
+        if (peer != null)
+          peer.setVisible(true);
+        invalidate();
+        ComponentEvent ce =
+          new ComponentEvent(this,ComponentEvent.COMPONENT_SHOWN);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -871,7 +896,10 @@ public abstract class Component
    */
   public void show(boolean b)
   {
-    setVisible(b);
+    if (b)
+      show ();
+    else
+      hide ();
   }
 
   /**
@@ -881,9 +909,16 @@ public abstract class Component
    */
   public void hide()
   {
-    if (peer != null)
-      peer.setVisible(false);
-    this.visible = false;
+    if (isVisible())
+      {
+        if (peer != null)
+          peer.setVisible(false);
+        this.visible = false;
+        invalidate();
+        ComponentEvent ce =
+          new ComponentEvent(this,ComponentEvent.COMPONENT_HIDDEN);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -951,8 +986,11 @@ public abstract class Component
    */
   public void setBackground(Color c)
   {
+    // If c is null, inherit from closest ancestor whose bg is set.
+    if (c == null && parent != null)
+      c = parent.getBackground();
     firePropertyChange("background", background, c);
-    if (peer != null)
+    if (peer != null && c != null)
       peer.setBackground(c);
     background = c;
   }
@@ -980,7 +1018,11 @@ public abstract class Component
   {
     if (font != null)
       return font;
-    return parent == null ? null : parent.getFont();
+
+    if (parent != null)
+      return parent.getFont ();
+    else
+      return new Font ("Fixed", Font.PLAIN, 12);
   }
 
   /**
@@ -995,6 +1037,7 @@ public abstract class Component
     firePropertyChange("font", font, f);
     if (peer != null)
       peer.setFont(f);
+    invalidate();
     font = f;
   }
 
@@ -1067,7 +1110,7 @@ public abstract class Component
    */
   public Point getLocation()
   {
-    return new Point(x, y);
+    return location ();
   }
 
   /**
@@ -1094,7 +1137,7 @@ public abstract class Component
    */
   public Point location()
   {
-    return getLocation();
+    return new Point (x, y);
   }
 
   /**
@@ -1109,13 +1152,7 @@ public abstract class Component
    */
   public void setLocation(int x, int y)
   {
-    if (this.x == x && this.y == y)
-      return;
-    invalidate();
-    this.x = x;
-    this.y = y;
-    if (peer != null)
-      peer.setBounds(x, y, width, height);
+    move (x, y);
   }
 
   /**
@@ -1129,7 +1166,30 @@ public abstract class Component
    */
   public void move(int x, int y)
   {
-    setLocation(x, y);
+    int oldx = this.x;
+    int oldy = this.y;
+
+    if (this.x == x && this.y == y)
+      return;
+    invalidate ();
+    this.x = x;
+    this.y = y;
+    if (peer != null)
+      peer.setBounds (x, y, width, height);
+
+    // Erase old bounds and repaint new bounds for lightweights.
+    if (isLightweight() && width != 0 && height !=0)
+      {
+        parent.repaint(oldx, oldy, width, height);
+        repaint();
+      }
+
+    if (oldx != x || oldy != y)
+      {
+        ComponentEvent ce = new ComponentEvent(this,
+                                               ComponentEvent.COMPONENT_MOVED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -1157,7 +1217,7 @@ public abstract class Component
    */
   public Dimension getSize()
   {
-    return new Dimension(width, height);
+    return size ();
   }
 
   /**
@@ -1168,7 +1228,7 @@ public abstract class Component
    */
   public Dimension size()
   {
-    return getSize();
+    return new Dimension (width, height);
   }
 
   /**
@@ -1181,13 +1241,7 @@ public abstract class Component
    */
   public void setSize(int width, int height)
   {
-    if (this.width == width && this.height == height)
-      return;
-    invalidate();
-    this.width = width;
-    this.height = height;
-    if (peer != null)
-      peer.setBounds(x, y, width, height);
+    resize (width, height);
   }
 
   /**
@@ -1199,7 +1253,32 @@ public abstract class Component
    */
   public void resize(int width, int height)
   {
-    setSize(width, height);
+    int oldwidth = this.width;
+    int oldheight = this.height;
+
+    if (this.width == width && this.height == height)
+      return;
+    invalidate ();
+    this.width = width;
+    this.height = height;
+    if (peer != null)
+      peer.setBounds (x, y, width, height);
+
+    // Erase old bounds and repaint new bounds for lightweights.
+    if (isLightweight())
+      {
+        if (oldwidth != 0 && oldheight != 0 && parent != null)
+          parent.repaint(x, y, oldwidth, oldheight);
+        if (width != 0 && height != 0)
+          repaint();
+      }
+
+    if (oldwidth != width || oldheight != height)
+      {
+        ComponentEvent ce =
+          new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -1213,7 +1292,7 @@ public abstract class Component
    */
   public void setSize(Dimension d)
   {
-    setSize(d.width, d.height);
+    resize (d);
   }
 
   /**
@@ -1225,7 +1304,7 @@ public abstract class Component
    */
   public void resize(Dimension d)
   {
-    setSize(d.width, d.height);
+    resize (d.width, d.height);
   }
 
   /**
@@ -1240,7 +1319,7 @@ public abstract class Component
    */
   public Rectangle getBounds()
   {
-    return new Rectangle(x, y, width, height);
+    return bounds ();
   }
 
   /**
@@ -1253,7 +1332,7 @@ public abstract class Component
    */
   public Rectangle bounds()
   {
-    return getBounds();
+    return new Rectangle (x, y, width, height);
   }
 
   /**
@@ -1273,15 +1352,7 @@ public abstract class Component
    */
   public void setBounds(int x, int y, int w, int h)
   {
-    if (this.x == x && this.y == y && width == w && height == h)
-      return;
-    invalidate();
-    this.x = x;
-    this.y = y;
-    width = w;
-    height = h;
-    if (peer != null)
-      peer.setBounds(x, y, w, h);
+    reshape (x, y, w, h);
   }
 
   /**
@@ -1290,13 +1361,49 @@ public abstract class Component
    *
    * @param x the X coordinate of the upper left corner of the rectangle
    * @param y the Y coordinate of the upper left corner of the rectangle
-   * @param w the width of the rectangle
-   * @param h the height of the rectangle
+   * @param width the width of the rectangle
+   * @param height the height of the rectangle
    * @deprecated use {@link #setBounds(int, int, int, int)} instead
    */
   public void reshape(int x, int y, int width, int height)
   {
-    setBounds(x, y, width, height);
+    int oldx = this.x;
+    int oldy = this.y;
+    int oldwidth = this.width;
+    int oldheight = this.height;
+
+    if (this.x == x && this.y == y
+        && this.width == width && this.height == height)
+      return;
+    invalidate ();
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    if (peer != null)
+      peer.setBounds (x, y, width, height);
+
+    // Erase old bounds and repaint new bounds for lightweights.
+    if (isLightweight())
+      {
+        if (oldwidth != 0 && oldheight != 0 && parent != null)
+          parent.repaint(oldx, oldy, oldwidth, oldheight);
+        if (width != 0 && height != 0)
+          repaint();
+      }
+
+    if (oldx != x || oldy != y)
+      {
+        ComponentEvent ce = new ComponentEvent(this,
+                                               ComponentEvent.COMPONENT_MOVED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
+    if (oldwidth != width || oldheight != height)
+      {
+        ComponentEvent ce = new ComponentEvent(this,
+                                               ComponentEvent.COMPONENT_RESIZED);
+        getToolkit().getSystemEventQueue().postEvent(ce);
+      }
   }
 
   /**
@@ -1313,7 +1420,7 @@ public abstract class Component
    */
   public void setBounds(Rectangle r)
   {
-    setBounds(r.x, r.y, r.width, r.height);
+    setBounds (r.x, r.y, r.width, r.height);
   }
 
   /**
@@ -1544,7 +1651,7 @@ public abstract class Component
    */
   public void doLayout()
   {
-    // nothing to do unless we're a container
+    layout ();
   }
 
   /**
@@ -1555,7 +1662,7 @@ public abstract class Component
    */
   public void layout()
   {
-    doLayout();
+    // Nothing to do unless we're a container.
   }
 
   /**
@@ -1686,6 +1793,9 @@ public abstract class Component
    */
   public void paint(Graphics g)
   {
+    // Paint the heavyweight peer
+    if (!isLightweight() && peer != null)
+      peer.paint(g);
   }
 
   /**
@@ -1703,6 +1813,15 @@ public abstract class Component
    */
   public void update(Graphics g)
   {
+    if (!isLightweight())
+      {
+        Rectangle clip = g.getClipBounds();
+        if (clip == null)
+          g.clearRect(0, 0, width, height);
+        else
+          g.clearRect(clip.x, clip.y, clip.width, clip.height);
+      }
+
     paint(g);
   }
 
@@ -1716,8 +1835,6 @@ public abstract class Component
   {
     if (! visible)
       return;
-    if (peer != null)
-      peer.paint(g);
     paint(g);
   }
 
@@ -1832,7 +1949,9 @@ public abstract class Component
    * @param y the Y coordinate
    * @param w the width
    * @param h the height
-   * @return true if the image has been fully loaded
+   * @return false if the image is completely loaded, loading has been
+   * aborted, or an error has occurred.  true if more updates are
+   * required.
    * @see ImageObserver
    * @see Graphics#drawImage(Image, int, int, Color, ImageObserver)
    * @see Graphics#drawImage(Image, int, int, ImageObserver)
@@ -1842,8 +1961,24 @@ public abstract class Component
    */
   public boolean imageUpdate(Image img, int flags, int x, int y, int w, int h)
   {
-    // XXX Implement.
-    throw new Error("not implemented");
+    if ((flags & (FRAMEBITS | ALLBITS)) != 0)
+      repaint ();
+    else if ((flags & SOMEBITS) != 0)
+      {
+	if (incrementalDraw)
+	  {
+	    if (redrawRate != null)
+	      {
+		long tm = redrawRate.longValue();
+		if (tm < 0)
+		  tm = 0;
+		repaint (tm);
+	      }
+	    else
+	      repaint (100);
+	  }
+      }
+    return (flags & (ALLBITS | ABORT | ERROR)) == 0;
   }
 
   /**
@@ -1854,8 +1989,11 @@ public abstract class Component
    */
   public Image createImage(ImageProducer producer)
   {
-    // XXX What if peer or producer is null?
-    return peer.createImage(producer);
+    // Sun allows producer to be null.
+    if (peer != null)
+      return peer.createImage(producer);
+    else
+      return getToolkit().createImage(producer);
   }
 
   /**
@@ -2029,7 +2167,7 @@ public abstract class Component
    */
   public boolean contains(int x, int y)
   {
-    return x >= 0 && y >= 0 && x < width && y < height;
+    return inside (x, y);
   }
 
   /**
@@ -2043,7 +2181,7 @@ public abstract class Component
    */
   public boolean inside(int x, int y)
   {
-    return contains(x, y);
+    return x >= 0 && y >= 0 && x < width && y < height;
   }
 
   /**
@@ -2058,7 +2196,7 @@ public abstract class Component
    */
   public boolean contains(Point p)
   {
-    return contains(p.x, p.y);
+    return contains (p.x, p.y);
   }
 
   /**
@@ -2073,7 +2211,7 @@ public abstract class Component
    */
   public Component getComponentAt(int x, int y)
   {
-    return contains(x, y) ? this : null;
+    return locate (x, y);
   }
 
   /**
@@ -2088,7 +2226,7 @@ public abstract class Component
    */
   public Component locate(int x, int y)
   {
-    return getComponentAt(x, y);
+    return contains (x, y) ? this : null;
   }
 
   /**
@@ -2104,7 +2242,7 @@ public abstract class Component
    */
   public Component getComponentAt(Point p)
   {
-    return getComponentAt(p.x, p.y);
+    return getComponentAt (p.x, p.y);
   }
 
   /**
@@ -2750,8 +2888,6 @@ public abstract class Component
 
     if (e instanceof FocusEvent)
       processFocusEvent((FocusEvent) e);
-    else if (e instanceof PaintEvent)
-      processPaintEvent((PaintEvent) e);
     else if (e instanceof MouseWheelEvent)
       processMouseWheelEvent((MouseWheelEvent) e);
     else if (e instanceof MouseEvent)
@@ -4115,6 +4251,8 @@ p   * <li>the set of backward traversal keys
       case MouseEvent.MOUSE_EXITED:
       case MouseEvent.MOUSE_PRESSED:
       case MouseEvent.MOUSE_RELEASED:
+      case MouseEvent.MOUSE_MOVED:
+      case MouseEvent.MOUSE_DRAGGED:
         return (mouseListener != null
                 || mouseMotionListener != null
                 || (eventMask & AWTEvent.MOUSE_EVENT_MASK) != 0);
@@ -4185,41 +4323,6 @@ p   * <li>the set of backward traversal keys
 
     newEvent.setUpdateRect(union);
     return newEvent;
-  }
-
-  /**
-   * Does the work for a paint event.
-   *
-   * @param event the event to process
-   */
-  private void processPaintEvent(PaintEvent event)
-  {
-    // Can't do graphics without peer
-    if (peer == null)
-      return;
-
-    Graphics gfx = getGraphics();
-    try
-      {
-	Shape clip = event.getUpdateRect();
-	gfx.setClip(clip);
-
-	switch (event.id)
-	  {
-	  case PaintEvent.PAINT:
-	    paint(gfx);
-	    break;
-	  case PaintEvent.UPDATE:
-	    update(gfx);
-	    break;
-	  default:
-	    throw new IllegalArgumentException("unknown paint event");
-	  }
-      }
-    finally
-      {
-	gfx.dispose();
-      }
   }
 
   /**

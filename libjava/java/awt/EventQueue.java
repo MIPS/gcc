@@ -231,10 +231,11 @@ public class EventQueue
   public static void invokeAndWait(Runnable runnable)
     throws InterruptedException, InvocationTargetException
   {
+    if (isDispatchThread ())
+      throw new Error("Can't call invokeAndWait from event dispatch thread");
+
     EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue(); 
     Thread current = Thread.currentThread();
-    if (current == eq.dispatchThread)
-      throw new Error("Can't call invokeAndWait from event dispatch thread");
 
     InvocationEvent ie = 
       new InvocationEvent(eq, runnable, current, true);
@@ -269,12 +270,17 @@ public class EventQueue
   }
 
   /**
-   * Return true if the current thread is the AWT event dispatch
+   * Return true if the current thread is the current AWT event dispatch
    * thread.
    */
   public static boolean isDispatchThread()
   {
-    EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue(); 
+    EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue();
+    
+    /* Find last EventQueue in chain */ 
+    while (eq.next != null)
+      eq = eq.next;
+
     return (Thread.currentThread() == eq.dispatchThread);
   }
 
@@ -288,16 +294,26 @@ public class EventQueue
   public static AWTEvent getCurrentEvent()
   {
     EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue(); 
-    if (Thread.currentThread() != eq.dispatchThread)
-      return null;
+    Thread ct = Thread.currentThread();
+    
+    /* Find out if this thread is the dispatch thread for any of the
+       EventQueues in the chain */ 
+    while (ct != eq.dispatchThread)
+      {
+        // Try next EventQueue, if any
+        if (eq.next == null)
+           return null;  // Not an event dispatch thread
+        eq = eq.next;
+      }
+
     return eq.currentEvent;
   }
 
   /**
    * Allows a custom EventQueue implementation to replace this one. 
    * All pending events are transferred to the new queue. Calls to postEvent,
-   * getNextEvent, and peekEvent are forwarded to the pushed queue until it
-   * is removed with a pop().
+   * getNextEvent, and peekEvent and others are forwarded to the pushed queue
+   * until it is removed with a pop().
    *
    * @exception NullPointerException if newEventQueue is null.
    */
@@ -305,6 +321,19 @@ public class EventQueue
   {
     if (newEventQueue == null)
       throw new NullPointerException ();
+
+    /* Make sure we are at the top of the stack because callers can
+       only get a reference to the one at the bottom using
+       Toolkit.getDefaultToolkit().getSystemEventQueue() */
+    if (next != null)
+      {
+        next.push (newEventQueue);
+        return;
+      }
+
+    /* Make sure we have a live dispatch thread to drive the queue */
+    if (dispatchThread == null)
+      dispatchThread = new EventDispatchThread(this);
 
     int i = next_out;
     while (i != next_in)
@@ -330,22 +359,33 @@ public class EventQueue
     if (prev == null)
       throw new EmptyStackException();
 
-    // Don't synchronize both this and prev at the same time, or deadlock could
-    // occur.
+    /* The order is important here, we must get the prev lock first,
+       or deadlock could occur as callers usually get here following
+       prev's next pointer, and thus obtain prev's lock before trying
+       to get this lock. */
     synchronized (prev)
       {
-        prev.next = null;
-      }
+        prev.next = next;
+        if (next != null)
+          next.prev = prev;
 
-    synchronized (this)
-      {
-        int i = next_out;
-        while (i != next_in)
+        synchronized (this)
           {
-            prev.postEvent(queue[i]);
-            next_out = i;
-            if (++i == queue.length)
-              i = 0;
+            int i = next_out;
+            while (i != next_in)
+              {
+                prev.postEvent(queue[i]);
+                next_out = i;
+                if (++i == queue.length)
+                  i = 0;
+              }
+	    // Empty the queue so it can be reused
+	    next_in = 0;
+	    next_out = 0;
+
+            // Tell our EventDispatchThread that it can end execution
+            dispatchThread.interrupt ();
+	    dispatchThread = null;
           }
       }
   }

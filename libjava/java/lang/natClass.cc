@@ -1,6 +1,7 @@
 // natClass.cc - Implementation of java.lang.Class native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  
+   Free Software Foundation
 
    This file is part of libgcj.
 
@@ -12,6 +13,7 @@ details.  */
 
 #include <limits.h>
 #include <string.h>
+#include <stddef.h>
 
 #pragma implementation "Class.h"
 
@@ -56,7 +58,7 @@ details.  */
 #include <gnu/gcj/RawData.h>
 
 #include <java-cpool.h>
-
+#include <java-interp.h>
 
 
 using namespace gcj;
@@ -70,7 +72,7 @@ java::lang::Class::forName (jstring className, jboolean initialize,
 
   jsize length = _Jv_GetStringUTFLength (className);
   char buffer[length];
-  _Jv_GetStringUTFRegion (className, 0, length, buffer);
+  _Jv_GetStringUTFRegion (className, 0, className->length(), buffer);
 
   _Jv_Utf8Const *name = _Jv_makeUtf8Const (buffer, length);
 
@@ -150,7 +152,7 @@ java::lang::Class::getClassLoader (void)
   // `null' instead.
   if (isPrimitive ())
     return NULL;
-  return loader ? loader : ClassLoader::getSystemClassLoader ();
+  return loader ? loader : ClassLoader::systemClassLoader;
 }
 
 java::lang::reflect::Constructor *
@@ -687,7 +689,7 @@ java::lang::Class::newInstance (void)
 
   _Jv_Method *meth = _Jv_GetMethodLocal (this, init_name, void_signature);
   if (! meth)
-    throw new java::lang::NoSuchMethodException (_Jv_NewStringUtf8Const (init_name));
+    throw new java::lang::InstantiationException (getName());
 
   jobject r = JvAllocObject (this);
   ((void (*) (jobject)) meth->ncode) (r);
@@ -795,6 +797,8 @@ java::lang::Class::initializeClass (void)
 
   if (otable || atable)
     _Jv_LinkSymbolTable(this);
+
+  _Jv_linkExceptionClassTable (this);
 
   // Steps 8, 9, 10, 11.
   try
@@ -1499,13 +1503,13 @@ java::lang::Class::getProtectionDomain0 ()
 JArray<jobject> *
 java::lang::Class::getSigners()
 {
-  return signers;
+  return hack_signers;
 }
 
 void
 java::lang::Class::setSigners(JArray<jobject> *s)
 {
-  signers = s;
+  hack_signers = s;
 }
 
 // Functions for indirect dispatch (symbolic virtual binding) support.
@@ -1541,14 +1545,18 @@ _Jv_LinkSymbolTable(jclass klass)
 
   for (index = 0; sym = klass->otable_syms[index], sym.name != NULL; index++)
     {
+      // FIXME: Why are we passing NULL as the class loader?
       jclass target_class = _Jv_FindClass (sym.class_name, NULL);
       _Jv_Method *meth = NULL;            
 
       const _Jv_Utf8Const *signature = sym.signature;
 
-      // FIXME: This should be special index for ThrowNoSuchMethod().
-      klass->otable->offsets[index] = -1;
-      
+      {
+	static char *bounce = (char *)_Jv_ThrowNoSuchMethodError;
+	ptrdiff_t offset = (char *)(klass->vtable) - bounce;
+	klass->otable->offsets[index] = offset;
+      }
+
       if (target_class == NULL)
 	continue;
 
@@ -1658,6 +1666,7 @@ _Jv_LinkSymbolTable(jclass klass)
 
   for (index = 0; sym = klass->atable_syms[index], sym.name != NULL; index++)
     {
+      // FIXME: Why are we passing NULL as the class loader?
       jclass target_class = _Jv_FindClass (sym.class_name, NULL);
       _Jv_Method *meth = NULL;            
       const _Jv_Utf8Const *signature = sym.signature;
@@ -1687,7 +1696,15 @@ _Jv_LinkSymbolTable(jclass klass)
 					  sym.signature);
 	  
 	  if (meth != NULL)
-	    klass->atable->addresses[index] = meth->ncode;
+	    {
+	      if (meth->ncode) // Maybe abstract?
+		klass->atable->addresses[index] = meth->ncode;
+#ifdef INTERPRETER
+	      else if (_Jv_IsInterpretedClass (target_class))
+		_Jv_Defer_Resolution (target_class, meth, 
+				      &klass->atable->addresses[index]);
+#endif
+	    }
 	  else
 	    klass->atable->addresses[index] = (void *)_Jv_ThrowNoSuchMethodError;
 
@@ -1743,15 +1760,26 @@ _Jv_LinkSymbolTable(jclass klass)
     }
 }
 
-// Returns true if METH should get an entry in a VTable.
-static jboolean
-isVirtualMethod (_Jv_Method *meth)
-{
-  using namespace java::lang::reflect;
-  return (((meth->accflags & (Modifier::STATIC | Modifier::PRIVATE)) == 0)
-          && meth->name->data[0] != '<');
-}
 
+// For each catch_record in the list of caught classes, fill in the
+// address field.
+void 
+_Jv_linkExceptionClassTable (jclass self)
+{
+  struct _Jv_CatchClass *catch_record = self->catch_classes;
+  if (!catch_record || catch_record->classname)
+    return;  
+  catch_record++;
+  while (catch_record->classname)
+    {
+      jclass target_class = _Jv_FindClass (catch_record->classname,  
+					   self->getClassLoaderInternal ());
+      *catch_record->address = target_class;
+      catch_record++;
+    }
+  self->catch_classes->classname = (_Jv_Utf8Const *)-1;
+}
+  
 // This is put in empty vtable slots.
 static void
 _Jv_abstractMethodError (void)
@@ -1772,6 +1800,26 @@ _Jv_LayoutVTableMethods (jclass klass)
 
   jclass superclass = klass->superclass;
 
+  typedef unsigned int uaddr __attribute__ ((mode (pointer)));
+
+  // If superclass looks like a constant pool entry,
+  // resolve it now.
+  if ((uaddr)superclass < (uaddr)klass->constants.size)
+    {
+      if (klass->state < JV_STATE_LINKED)
+	{
+	  _Jv_Utf8Const *name = klass->constants.data[(int)superclass].utf8;
+	  superclass = _Jv_FindClass (name, klass->loader);
+	  if (! superclass)
+	    {
+	      jstring str = _Jv_NewStringUTF (name->data);
+	      throw new java::lang::NoClassDefFoundError (str);
+	    }
+	}
+      else
+	superclass = klass->constants.data[(int)superclass].clazz;
+    }
+
   if (superclass != NULL && superclass->vtable_method_count == -1)
     {
       JvSynchronize sync (superclass);
@@ -1785,8 +1833,14 @@ _Jv_LayoutVTableMethods (jclass klass)
       _Jv_Method *meth = &klass->methods[i];
       _Jv_Method *super_meth = NULL;
 
-      if (! isVirtualMethod (meth))
+      if (! _Jv_isVirtualMethod (meth))
 	continue;
+
+      // FIXME: Must check that we don't override:
+      // - Package-private method where superclass is in different package.
+      // - Final or less-accessible declaration in superclass (check binary 
+      //   spec, do we allocate new vtable entry or put throw node in vtable?)
+      // - Static or private method in superclass.
 
       if (superclass != NULL)
 	{
@@ -1796,8 +1850,7 @@ _Jv_LayoutVTableMethods (jclass klass)
 
       if (super_meth)
         meth->index = super_meth->index;
-      else if (! (meth->accflags & java::lang::reflect::Modifier::FINAL)
-	       && ! (klass->accflags & java::lang::reflect::Modifier::FINAL))
+      else
 	meth->index = index++;
     }
 

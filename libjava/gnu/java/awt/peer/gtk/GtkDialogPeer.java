@@ -41,7 +41,6 @@ package gnu.java.awt.peer.gtk;
 import java.awt.AWTEvent;
 import java.awt.Component;
 import java.awt.Dialog;
-import java.awt.Insets;
 import java.awt.peer.DialogPeer;
 
 public class GtkDialogPeer extends GtkWindowPeer
@@ -50,17 +49,6 @@ public class GtkDialogPeer extends GtkWindowPeer
   public GtkDialogPeer (Dialog dialog)
   {
     super (dialog);
-  }
-
-  void initializeInsets ()
-  {
-    synchronized (latestInsets)
-      {
-	insets = new Insets (latestInsets.top,
-			     latestInsets.left,
-			     latestInsets.bottom,
-			     latestInsets.right);
-      }
   }
 
   void create ()
@@ -80,13 +68,4 @@ public class GtkDialogPeer extends GtkWindowPeer
     args.add ("allow_shrink", dialog.isResizable ());
     args.add ("allow_grow", dialog.isResizable ());
   }
-
-  public void handleEvent (AWTEvent event)
-  {
-//     int id = event.getID();
-    
-//     if (id == WindowEvent.WINDOW_CLOSING)
-//       System.out.println ("got a closing event");
-  }
-
 }

@@ -10,20 +10,28 @@
 static void cls_ret_uint_fn(ffi_cif* cif,void* resp,void** args,
 			     void* userdata)
  {
-   *(unsigned int*)resp = *(unsigned int *)args[0];
+   *(ffi_arg *)resp = *(unsigned int *)args[0];
 
    printf("%d: %d\n",*(unsigned int *)args[0],
-	  *(unsigned int *)resp);
+	  *(ffi_arg *)resp);
  }
 typedef unsigned int (*cls_ret_uint)(unsigned int);
 
 int main (void)
 {
   ffi_cif cif;
+#ifndef USING_MMAP
   static ffi_closure cl;
-  ffi_closure *pcl = &cl;
+#endif
+  ffi_closure *pcl;
   ffi_type * cl_arg_types[2];
+  unsigned int res;
 
+#ifdef USING_MMAP
+  pcl = allocate_mmap (sizeof(ffi_closure));
+#else
+  pcl = &cl;
+#endif
 
   cl_arg_types[0] = &ffi_type_uint32;
   cl_arg_types[1] = NULL;
@@ -34,8 +42,10 @@ int main (void)
 
   CHECK(ffi_prep_closure(pcl, &cif, cls_ret_uint_fn, NULL)  == FFI_OK);
 
-  (*((cls_ret_uint)pcl))(2147483647);
+  res = (*((cls_ret_uint)pcl))(2147483647);
   /* { dg-output "2147483647: 2147483647" } */
+  printf("res: %d\n",res);
+  /* { dg-output "\nres: 2147483647" } */
 
   exit(0);
 }
