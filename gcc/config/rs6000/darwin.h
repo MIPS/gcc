@@ -107,7 +107,7 @@ do {									\
    really right.  */
 #define ASM_SPEC " %(darwin_arch_asm_spec)\
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
-  %{!Zforce_cpusubtype_ALL:%{maltivec|faltivec|mcpu=*|mpowerpc64:-force_cpusubtype_ALL}}"
+  %{!Zforce_cpusubtype_ALL:%{maltivec|faltivec:-force_cpusubtype_ALL}}"
 
 #define DARWIN_ARCH_LD_SPEC                                        \
 "%{mcpu=601: %{!Zdynamiclib:-arch ppc601} %{Zdynamiclib:-arch_only ppc601}}    \
@@ -118,6 +118,7 @@ do {									\
  %{mcpu=7400: %{!Zdynamiclib:-arch ppc7400} %{Zdynamiclib:-arch_only ppc7400}} \
  %{mcpu=7450: %{!Zdynamiclib:-arch ppc7450} %{Zdynamiclib:-arch_only ppc7450}} \
  %{mcpu=970: %{!Zdynamiclib:-arch ppc970} %{Zdynamiclib:-arch_only ppc970}}    \
+ %{mcpu=G5: %{!Zdynamiclib:-arch ppc970} %{Zdynamiclib:-arch_only ppc970}}    \
  %{!mcpu*:%{!march*:%{!Zdynamiclib:-arch ppc} %{Zdynamiclib:-arch_only ppc}}}  "
 
 #define DARWIN_ARCH_ASM_SPEC                                        \
@@ -129,6 +130,7 @@ do {									\
  %{mcpu=7400: -arch ppc7400} \
  %{mcpu=7450: -arch ppc7450} \
  %{mcpu=970: -arch ppc970}   \
+ %{mcpu=G5: -arch ppc970}   \
  %{!mcpu*:%{!march*: -arch ppc}} "
 
 #undef SUBTARGET_EXTRA_SPECS
