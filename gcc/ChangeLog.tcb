@@ -1,5 +1,14 @@
 2005-02-02  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree.h (ASSERT_EXPR_VAR): Define.
+	(ASSERT_EXPR_COND): Define.
+	* tree-cfg.c (verify_expr): Use
+	* tree-pretty-print.c (dump_generic_node): Use.
+	* tree-scalar-evolution.c (follow_ssa_edge_in_rhs): Use.
+	(interpret_rhs_modify_expr): Use.
+
+2005-02-02  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-into-ssa.c: Reorganize internal functions.
 	(find_idf): Extract from ...
 	(insert_phi_nodes): ... here.

@@ -1285,6 +1285,10 @@ struct tree_vec GTY(())
 #define OBJ_TYPE_REF_OBJECT(NODE) TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 1)
 #define OBJ_TYPE_REF_TOKEN(NODE)  TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 2)
 
+/* ASSERT_EXPR accessors.  */
+#define ASSERT_EXPR_VAR(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 0)
+#define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
+
 struct tree_exp GTY(())
 {
   struct tree_common common;
@@ -1331,12 +1335,17 @@ struct tree_exp GTY(())
 #define SSA_NAME_VALUE(N) \
    SSA_NAME_CHECK (N)->ssa_name.value_handle
 
+/* Range information for SSA_NAMEs.  */
+#define SSA_NAME_VALUE_RANGE(N) \
+    SSA_NAME_CHECK (N)->ssa_name.value_range
+
 /* Auxiliary pass-specific data.  */
 #define SSA_NAME_AUX(N) \
    SSA_NAME_CHECK (N)->ssa_name.aux
 
 #ifndef _TREE_FLOW_H
 struct ptr_info_def;
+struct value_range_def;
 #endif
 
 struct tree_ssa_name GTY(())
@@ -1358,6 +1367,9 @@ struct tree_ssa_name GTY(())
      this field; in the future we will allow VALUE_HANDLEs to persist
      as well.  */
   tree value_handle;
+
+  /* Value range information.  */
+  struct value_range_def *value_range;
 
   /* Auxiliary information stored with the ssa name.  */
   PTR GTY((skip)) aux;

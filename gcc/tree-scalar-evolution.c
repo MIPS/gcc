@@ -1251,7 +1251,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
       {
 	/* This assignment is of the form: "a_1 = ASSERT_EXPR <a_2, ...>"
 	   It must be handled as a copy assignment of the form a_1 = a_2.  */
-	tree op0 = TREE_OPERAND (rhs, 0);
+	tree op0 = ASSERT_EXPR_VAR (rhs);
 	if (TREE_CODE (op0) == SSA_NAME)
 	  res = follow_ssa_edge (loop, SSA_NAME_DEF_STMT (op0),
 				 halting_phi, evolution_of_loop);
@@ -1717,7 +1717,7 @@ interpret_rhs_modify_expr (struct loop *loop,
       break;
 
     case ASSERT_EXPR:
-      opnd10 = TREE_OPERAND (opnd1, 0);
+      opnd10 = ASSERT_EXPR_VAR (opnd1);
       res = chrec_convert (type, analyze_scalar_evolution (loop, opnd10));
       break;
       

@@ -3302,10 +3302,10 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       break;
 
     case ASSERT_EXPR:
-      x = fold (TREE_OPERAND (t, 1));
+      x = fold (ASSERT_EXPR_COND (t));
       if (x == boolean_false_node)
 	{
-	  error ("ASSERT_EXPR with an always false condition");
+	  error ("ASSERT_EXPR with an always-false condition");
 	  return *tp;
 	}
       break;
