@@ -2495,7 +2495,7 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
       break;
 
     case GT_EXPR:
-      low = fold (build (PLUS_EXPR, TREE_TYPE (op1), op1, integer_one_node));
+      low = int_const_binop (PLUS_EXPR, op1, integer_one_node, 1);
       high = TYPE_MAX_VALUE (type);
       inverted = 0;
       break;
@@ -2507,7 +2507,7 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
       break;
 
     case LT_EXPR:
-      high = fold (build (MINUS_EXPR, TREE_TYPE (op1), op1, integer_one_node));
+      high = int_const_binop (MINUS_EXPR, op1, integer_one_node, 1);
       low = TYPE_MIN_VALUE (type);
       inverted = 0;
       break;

@@ -1,5 +1,8 @@
 2003-12-02  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (extract_range_from_cond): Use int_const_binop to
+	avoid creating useless tree nodes.
+
 	* tree-phinodes.c (add_phi_arg): If we receive a new node from
 	resize_phi_node, then release the old node and update the PHI
 	chain.
