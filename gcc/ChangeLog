@@ -1,3 +1,9 @@
+2003-11-12  Steve Woodford  <scw@wasabisystems.com>
+	    Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* config/arm/lib1funcs.asm (ARM_DIV_BODY, ARM_MOD_BODY): Add new
+	code for __ARM_ARCH__ >= 5 && ! defined (__OPTIMIZE_SIZE__).
+
 2003-11-05  Phil Edwards  <phil@codesourcery.com>
 
 	* config/arm/arm.md (insn):  Add new V6 instruction names.
