@@ -254,6 +254,9 @@ struct gcc_target
      Microsoft Visual C++ bitfield layout rules.  */
   bool (* ms_bitfield_layout_p) PARAMS ((tree record_type));
 
+  /* True if the insn X cannot be duplicated.  */
+  bool (* cannot_copy_insn_p) PARAMS ((rtx));
+
   /* Set up target-specific built-in functions.  */
   void (* init_builtins) PARAMS ((void));
 
