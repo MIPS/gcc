@@ -1,3 +1,8 @@
+2002-12-16  Josef Zlomek  <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* bb-reorder.c (bb_to_key): Fix accessing index -1 of array.
+	(connect_traces): Fix several bugs.
+
 2002-12-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* invoke.texi (-funroll-loops, -funroll-all-loops, -fpeel-loops,
