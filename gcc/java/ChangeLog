@@ -1,3 +1,14 @@
+2004-04-20  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* expr.c (java_create_object): Don't use size argument for 
+	_Jv_AllocObject call.
+
+2004-04-19  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* class.c (make_class_data): Add new field aux_info.
+	* decl.c (java_init_decl_processing): Push type and decl for 
+	`aux_info'.
+
 2004-04-16  Andrew Haley  <aph@redhat.com>
 
 	* verify.c (check_pending_block): Disable subroutine checks.

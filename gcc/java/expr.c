@@ -1184,12 +1184,10 @@ java_create_object (tree type)
   tree alloc_node = (class_has_finalize_method (type) 
 		     ? alloc_object_node
 		     : alloc_no_finalizer_node);
-  tree size = flag_indirect_dispatch ? integer_zero_node : size_in_bytes (type);
   
   return build (CALL_EXPR, promote_type (type),
 		build_address_of (alloc_node),
-		tree_cons (NULL_TREE, build_class_ref (type),
-			   build_tree_list (NULL_TREE, size)),
+		build_tree_list (NULL_TREE, build_class_ref (type)),
 		NULL_TREE);
 }
 
