@@ -1,3 +1,10 @@
+2004-05-27  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
+	(getGraphics): Return a new GdkGraphics instance.
+	* gnu/java/awt/peer/gtk/GtkContainerPeer.java
+	(getGraphics): Call super.getGraphics().
+
 2004-05-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
