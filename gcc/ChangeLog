@@ -1,5 +1,10 @@
 2003-09-08  Jakub Jelinek  <jakub@redhat.com>
 
+	* toplev.c (rest_of_compilation): Call split_all_insns before
+	regstack if optimizing but not scheduling after reload.
+
+2003-09-08  Jakub Jelinek  <jakub@redhat.com>
+
 	* config/sparc/sparc.c (tls_model_chars): New variable.
 	(struct machine_function): New type.
 	(TARGET_STRIP_NAME_ENCODING, TARGET_HAVE_TLS,
