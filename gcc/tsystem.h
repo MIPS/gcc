@@ -40,6 +40,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define HAVE_DECL_GETOPT 1
 #endif
 
+/* We want everything from the glibc headers.  */
+#define _GNU_SOURCE 1
+
 /* GCC supplies these headers.  */
 #include <stddef.h>
 #include <float.h>
@@ -64,6 +67,14 @@ extern void abort (void) __attribute__ ((__noreturn__));
 
 #ifndef strlen
 extern size_t strlen (const char *);
+#endif
+
+#ifndef memcpy
+extern void *memcpy (void *, const void *, size_t);
+#endif
+
+#ifndef memset
+extern void *memset (void *, int, size_t);
 #endif
 
 #else /* ! inhibit_libc */
@@ -105,5 +116,9 @@ extern int errno;
 #ifndef NULL
 #define NULL 0
 #endif
+
+/* GCC always provides __builtin_alloca(x).  */
+#undef alloca
+#define alloca(x) __builtin_alloca(x)
 
 #endif /* ! GCC_TSYSTEM_H */

@@ -183,9 +183,10 @@ enum optab_index
   /* Rounding functions */
   OTI_floor,
   OTI_ceil,
-  OTI_trunc,
+  OTI_btrunc,
   OTI_round,
   OTI_nearbyint,
+  OTI_rint,
   /* Tangent */
   OTI_tan,
   /* Inverse tangent */
@@ -227,6 +228,10 @@ enum optab_index
   OTI_vec_extract,
   /* Initialize vector operand.  */
   OTI_vec_init,
+  /* Extract specified elements from vectors, for vector store.  */
+  OTI_vec_realign_store,
+  /* Extract specified elements from vectors, for vector load.  */
+  OTI_vec_realign_load,
 
   OTI_MAX
 };
@@ -299,9 +304,10 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define log1p_optab (optab_table[OTI_log1p])
 #define floor_optab (optab_table[OTI_floor])
 #define ceil_optab (optab_table[OTI_ceil])
-#define btrunc_optab (optab_table[OTI_trunc])
+#define btrunc_optab (optab_table[OTI_btrunc])
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
+#define rint_optab (optab_table[OTI_rint])
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
 
@@ -328,6 +334,8 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_set_optab (optab_table[OTI_vec_set])
 #define vec_extract_optab (optab_table[OTI_vec_extract])
 #define vec_init_optab (optab_table[OTI_vec_init])
+#define vec_realign_store_optab (optab_table[OTI_vec_realign_store])
+#define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index
@@ -372,12 +380,12 @@ extern GTY(()) optab code_to_optab[NUM_RTX_CODE + 1];
 
 typedef rtx (*rtxfun) (rtx);
 
-/* Indexed by the rtx-code for a conditional (eg. EQ, LT,...)
+/* Indexed by the rtx-code for a conditional (e.g. EQ, LT,...)
    gives the gen_function to make a branch to test that condition.  */
 
 extern rtxfun bcc_gen_fctn[NUM_RTX_CODE];
 
-/* Indexed by the rtx-code for a conditional (eg. EQ, LT,...)
+/* Indexed by the rtx-code for a conditional (e.g. EQ, LT,...)
    gives the insn code to make a store-condition insn
    to test that condition.  */
 
@@ -390,11 +398,17 @@ extern enum insn_code setcc_gen_code[NUM_RTX_CODE];
 extern enum insn_code movcc_gen_code[NUM_MACHINE_MODES];
 #endif
 
+/* Indexed by the machine mode, gives the insn code for vector conditional
+   operation.  */
+
+extern enum insn_code vcond_gen_code[NUM_MACHINE_MODES];
+extern enum insn_code vcondu_gen_code[NUM_MACHINE_MODES];
+
 /* This array records the insn_code of insns to perform block moves.  */
-extern enum insn_code movstr_optab[NUM_MACHINE_MODES];
+extern enum insn_code movmem_optab[NUM_MACHINE_MODES];
 
 /* This array records the insn_code of insns to perform block clears.  */
-extern enum insn_code clrstr_optab[NUM_MACHINE_MODES];
+extern enum insn_code clrmem_optab[NUM_MACHINE_MODES];
 
 /* These arrays record the insn_code of two different kinds of insns
    to perform block compares.  */
@@ -402,6 +416,10 @@ extern enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
 extern enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
 
 /* Define functions given in optabs.c.  */
+
+extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab, 
+			      rtx op0, rtx op1, rtx op2, rtx target, 
+			      int unsignedp);
 
 /* Expand a binary operation given optab and rtx operands.  */
 extern rtx expand_binop (enum machine_mode, optab, rtx, rtx, rtx, int,
@@ -417,15 +435,17 @@ extern int expand_twoval_unop (optab, rtx, rtx, rtx, int);
 /* Generate code to perform an operation on two operands with two results.  */
 extern int expand_twoval_binop (optab, rtx, rtx, rtx, rtx, int);
 
+/* Generate code to perform an operation on two operands with two
+   results, using a library function.  */
+extern bool expand_twoval_binop_libfunc (optab, rtx, rtx, rtx, rtx,
+					 enum rtx_code);
+
 /* Expand a unary arithmetic operation given optab rtx operand.  */
 extern rtx expand_unop (enum machine_mode, optab, rtx, rtx, int);
 
 /* Expand the absolute value operation.  */
 extern rtx expand_abs_nojump (enum machine_mode, rtx, rtx, int);
 extern rtx expand_abs (enum machine_mode, rtx, rtx, int, int);
-
-/* Expand the complex absolute value operation.  */
-extern rtx expand_complex_abs (enum machine_mode, rtx, rtx, int);
 
 /* Generate an instruction with a given INSN_CODE with an output and
    an input.  */
@@ -434,12 +454,6 @@ extern void emit_unop_insn (int, rtx, rtx, enum rtx_code);
 /* Emit code to perform a series of operations on a multi-word quantity, one
    word at a time.  */
 extern rtx emit_no_conflict_block (rtx, rtx, rtx, rtx, rtx);
-
-/* Emit one rtl instruction to store zero in specified rtx.  */
-extern void emit_clr_insn (rtx);
-
-/* Emit one rtl insn to store 1 in specified rtx assuming it contains 0.  */
-extern void emit_0_to_1_insn (rtx);
 
 /* Emit one rtl insn to compare two rtx's.  */
 extern void emit_cmp_insn (rtx, rtx, enum rtx_code, rtx, enum machine_mode,
@@ -453,6 +467,10 @@ enum can_compare_purpose
   ccp_cmov,
   ccp_store_flag
 };
+
+/* Return the optab used for computing the given operation on the type
+   given by the second argument.  */
+extern optab optab_for_tree_code (enum tree_code, tree);
 
 /* Nonzero if a compare of mode MODE can be done straightforwardly
    (without splitting it into pieces).  */
@@ -485,5 +503,11 @@ extern void expand_float (rtx, rtx, int);
 
 /* Generate code for a FIX_EXPR.  */
 extern void expand_fix (rtx, rtx, int);
+
+/* Return tree if target supports vector operations for COND_EXPR.  */
+bool expand_vec_cond_expr_p (tree, enum machine_mode);
+
+/* Generate code for VEC_COND_EXPR.  */
+extern rtx expand_vec_cond_expr (tree, rtx);
 
 #endif /* GCC_OPTABS_H */

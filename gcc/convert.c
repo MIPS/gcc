@@ -43,8 +43,7 @@ convert_to_pointer (tree type, tree expr)
 {
   if (integer_zerop (expr))
     {
-      expr = build_int_2 (0, 0);
-      TREE_TYPE (expr) = type;
+      expr = build_int_cst (type, 0);
       return expr;
     }
 
@@ -99,7 +98,8 @@ strip_float_extensions (tree exp)
 	return build_real (type, real_value_truncate (TYPE_MODE (type), orig));
     }
 
-  if (TREE_CODE (exp) != NOP_EXPR)
+  if (TREE_CODE (exp) != NOP_EXPR
+      && TREE_CODE (exp) != CONVERT_EXPR)
     return exp;
 
   sub = TREE_OPERAND (exp, 0);
@@ -267,9 +267,9 @@ convert_to_real (tree type, tree expr)
 		    newtype = TREE_TYPE (arg1);
 		  if (TYPE_PRECISION (newtype) < TYPE_PRECISION (itype))
 		    {
-		      expr = build (TREE_CODE (expr), newtype,
-				    fold (convert_to_real (newtype, arg0)),
-				    fold (convert_to_real (newtype, arg1)));
+		      expr = build2 (TREE_CODE (expr), newtype,
+				     fold (convert_to_real (newtype, arg0)),
+				     fold (convert_to_real (newtype, arg1)));
 		      if (newtype == type)
 			return expr;
 		    }
@@ -397,32 +397,11 @@ convert_to_integer (tree type, tree expr)
     case BOOLEAN_TYPE:
     case CHAR_TYPE:
       /* If this is a logical operation, which just returns 0 or 1, we can
-	 change the type of the expression.  For some logical operations,
-	 we must also change the types of the operands to maintain type
-	 correctness.  */
+	 change the type of the expression.  */
 
-      if (TREE_CODE_CLASS (ex_form) == '<')
+      if (TREE_CODE_CLASS (ex_form) == tcc_comparison)
 	{
 	  expr = copy_node (expr);
-	  TREE_TYPE (expr) = type;
-	  return expr;
-	}
-
-      else if (ex_form == TRUTH_AND_EXPR || ex_form == TRUTH_ANDIF_EXPR
-	       || ex_form == TRUTH_OR_EXPR || ex_form == TRUTH_ORIF_EXPR
-	       || ex_form == TRUTH_XOR_EXPR)
-	{
-	  expr = copy_node (expr);
-	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
-	  TREE_OPERAND (expr, 1) = convert (type, TREE_OPERAND (expr, 1));
-	  TREE_TYPE (expr) = type;
-	  return expr;
-	}
-
-      else if (ex_form == TRUTH_NOT_EXPR)
-	{
-	  expr = copy_node (expr);
-	  TREE_OPERAND (expr, 0) = convert (type, TREE_OPERAND (expr, 0));
 	  TREE_TYPE (expr) = type;
 	  return expr;
 	}
@@ -524,7 +503,7 @@ convert_to_integer (tree type, tree expr)
 		  /* If the original expression had side-effects, we must
 		     preserve it.  */
 		  if (TREE_SIDE_EFFECTS (expr))
-		    return build (COMPOUND_EXPR, type, expr, t);
+		    return build2 (COMPOUND_EXPR, type, expr, t);
 		  else
 		    return t;
 		}
@@ -604,9 +583,9 @@ convert_to_integer (tree type, tree expr)
 		    else
 		      typex = lang_hooks.types.signed_type (typex);
 		    return convert (type,
-				    fold (build (ex_form, typex,
-						 convert (typex, arg0),
-						 convert (typex, arg1))));
+				    fold (build2 (ex_form, typex,
+						  convert (typex, arg0),
+						  convert (typex, arg1))));
 		  }
 	      }
 	  }
@@ -657,9 +636,9 @@ convert_to_integer (tree type, tree expr)
 	case COND_EXPR:
 	  /* It is sometimes worthwhile to push the narrowing down through
 	     the conditional and never loses.  */
-	  return fold (build (COND_EXPR, type, TREE_OPERAND (expr, 0),
-			      convert (type, TREE_OPERAND (expr, 1)),
-			      convert (type, TREE_OPERAND (expr, 2))));
+	  return fold (build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
+			       convert (type, TREE_OPERAND (expr, 1)),
+			       convert (type, TREE_OPERAND (expr, 2))));
 
 	default:
 	  break;
@@ -676,8 +655,7 @@ convert_to_integer (tree type, tree expr)
 				    TREE_TYPE (TREE_TYPE (expr)), expr)));
 
     case VECTOR_TYPE:
-      if (GET_MODE_SIZE (TYPE_MODE (type))
-	  != GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (expr))))
+      if (!tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (expr))))
 	{
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
@@ -704,8 +682,8 @@ convert_to_complex (tree type, tree expr)
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
     case CHAR_TYPE:
-      return build (COMPLEX_EXPR, type, convert (subtype, expr),
-		    convert (subtype, integer_zero_node));
+      return build2 (COMPLEX_EXPR, type, convert (subtype, expr),
+		     convert (subtype, integer_zero_node));
 
     case COMPLEX_TYPE:
       {
@@ -714,23 +692,22 @@ convert_to_complex (tree type, tree expr)
 	if (TYPE_MAIN_VARIANT (elt_type) == TYPE_MAIN_VARIANT (subtype))
 	  return expr;
 	else if (TREE_CODE (expr) == COMPLEX_EXPR)
-	  return fold (build (COMPLEX_EXPR,
-			      type,
-			      convert (subtype, TREE_OPERAND (expr, 0)),
-			      convert (subtype, TREE_OPERAND (expr, 1))));
+	  return fold (build2 (COMPLEX_EXPR, type,
+			       convert (subtype, TREE_OPERAND (expr, 0)),
+			       convert (subtype, TREE_OPERAND (expr, 1))));
 	else
 	  {
 	    expr = save_expr (expr);
 	    return
-	      fold (build (COMPLEX_EXPR,
-			   type, convert (subtype,
-					  fold (build1 (REALPART_EXPR,
-							TREE_TYPE (TREE_TYPE (expr)),
-							expr))),
-			   convert (subtype,
-				    fold (build1 (IMAGPART_EXPR,
-						  TREE_TYPE (TREE_TYPE (expr)),
-						  expr)))));
+	      fold (build2 (COMPLEX_EXPR, type,
+			    convert (subtype,
+				     fold (build1 (REALPART_EXPR,
+						   TREE_TYPE (TREE_TYPE (expr)),
+						   expr))),
+			    convert (subtype,
+				     fold (build1 (IMAGPART_EXPR,
+						   TREE_TYPE (TREE_TYPE (expr)),
+						   expr)))));
 	  }
       }
 
@@ -754,8 +731,7 @@ convert_to_vector (tree type, tree expr)
     {
     case INTEGER_TYPE:
     case VECTOR_TYPE:
-      if (GET_MODE_SIZE (TYPE_MODE (type))
-	  != GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (expr))))
+      if (!tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (expr))))
 	{
 	  error ("can't convert between vector values of different size");
 	  return error_mark_node;
@@ -764,6 +740,6 @@ convert_to_vector (tree type, tree expr)
 
     default:
       error ("can't convert value to a vector");
-      return convert_to_vector (type, integer_zero_node);
+      return error_mark_node;
     }
 }

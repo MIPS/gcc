@@ -1,5 +1,5 @@
 /* Utility to update paths from internal to external forms.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -157,11 +157,11 @@ lookup_key (char *key)
   size = 32;
   dst = xmalloc (size);
 
-  res = RegQueryValueExA (reg_key, key, 0, &type, dst, &size);
+  res = RegQueryValueExA (reg_key, key, 0, &type, (LPBYTE) dst, &size);
   if (res == ERROR_MORE_DATA && type == REG_SZ)
     {
       dst = xrealloc (dst, size);
-      res = RegQueryValueExA (reg_key, key, 0, &type, dst, &size);
+      res = RegQueryValueExA (reg_key, key, 0, &type, (LPBYTE) dst, &size);
     }
 
   if (type != REG_SZ || res != ERROR_SUCCESS)
@@ -238,16 +238,20 @@ tr (char *string, int c1, int c2)
   while (*string++);
 }
 
-/* Update PATH using KEY if PATH starts with PREFIX.  The returned
-   string is always malloc-ed, and the caller is responsible for
-   freeing it.  */
+/* Update PATH using KEY if PATH starts with PREFIX as a directory.
+   The returned string is always malloc-ed, and the caller is
+   responsible for freeing it.  */
 
 char *
 update_path (const char *path, const char *key)
 {
   char *result, *p;
+  const int len = strlen (std_prefix);
 
-  if (! strncmp (path, std_prefix, strlen (std_prefix)) && key != 0)
+  if (! strncmp (path, std_prefix, len)
+      && (IS_DIR_SEPARATOR(path[len])
+          || path[len] == '\0')
+      && key != 0)
     {
       bool free_key = false;
 
@@ -257,7 +261,7 @@ update_path (const char *path, const char *key)
 	  free_key = true;
 	}
 
-      result = concat (key, &path[strlen (std_prefix)], NULL);
+      result = concat (key, &path[len], NULL);
       if (free_key)
 	free ((char *) key);
       result = translate_name (result);

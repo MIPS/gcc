@@ -57,7 +57,7 @@ add_condition (const char *expr)
   if (expr[0] == 0)
     return;
 
-  test = xmalloc (sizeof (struct c_test));
+  test = XNEW (struct c_test);
   test->expr = expr;
 
   *(htab_find_slot (condition_table, test, INSERT)) = test;
@@ -138,7 +138,7 @@ extern rtx operands[];\n");
     MAYBE_EVAL (! optimize_size && ! TARGET_READ_MODIFY_WRITE) },  */
 
 static int
-write_one_condition (void **slot, void *dummy ATTRIBUTE_UNUSED)
+write_one_condition (void **slot, void * ARG_UNUSED (dummy))
 {
   const struct c_test *test = * (const struct c_test **) slot;
   const char *p;
@@ -188,10 +188,7 @@ main (int argc, char **argv)
 
   progname = "genconditions";
 
-  if (argc <= 1)
-    fatal ("No input file name.");
-
-  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+  if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
   condition_table = htab_create (1000, hash_c_test, cmp_c_test, NULL);

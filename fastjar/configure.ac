@@ -27,6 +27,8 @@ AC_HEADER_STDC
 AC_STRUCT_TM
 AC_CHECK_HEADERS(fcntl.h unistd.h sys/param.h stdlib.h limits.h)
 
+AC_CHECK_FUNCS(ftruncate _chsize)
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_OFF_T
 AC_STRUCT_TM
@@ -39,7 +41,7 @@ AC_COMPILE_CHECK_SIZEOF(char)
 AC_COMPILE_CHECK_SIZEOF(short)
 AC_COMPILE_CHECK_SIZEOF(int)
 AC_COMPILE_CHECK_SIZEOF(long)
-AC_COMPILE_CHECK_SIZEOF(long long)
+AC_CHECK_TYPES([long long],[AC_COMPILE_CHECK_SIZEOF(long long)])
 
 dnl Check byte order
 AC_C_BIGENDIAN_CROSS

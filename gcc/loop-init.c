@@ -35,12 +35,23 @@ loop_optimizer_init (FILE *dumpfile)
 {
   struct loops *loops = xcalloc (1, sizeof (struct loops));
   edge e;
+  edge_iterator ei;
+  static bool first_time = true;
+
+  if (first_time)
+    {
+      first_time = false;
+      init_set_costs ();
+    }
 
   /* Avoid annoying special cases of edges going to exit
      block.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
-    if ((e->flags & EDGE_FALLTHRU) && e->src->succ->succ_next)
+
+  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
+    if ((e->flags & EDGE_FALLTHRU) && EDGE_COUNT (e->src->succs) > 1)
       split_edge (e);
+    else
+      ei_next (&ei);
 
   /* Find the loops.  */
 
@@ -48,7 +59,6 @@ loop_optimizer_init (FILE *dumpfile)
     {
       /* No loops.  */
       flow_loops_free (loops);
-      free_dominance_info (CDI_DOMINATORS);
       free (loops);
 
       return NULL;
@@ -98,7 +108,6 @@ loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
 
   /* Clean up.  */
   flow_loops_free (loops);
-  free_dominance_info (CDI_DOMINATORS);
   free (loops);
 
   /* Checking.  */
