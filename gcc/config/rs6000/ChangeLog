@@ -1,3 +1,33 @@
+2000-02-05  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.md (eh_epilogue): New expander.
+	(eh_reg_restore): New expand/split/insn combination.
+	(return_eh_si): New insn.
+	(return_eh_di): New insn.
+
+	* eabi-ci.asm: Put a label at the start of the .eh_frame section.
+	* eabi-cn.asm: Put a zero at the end of the .eh_frame section.
+	* eabi-ctors.c (__do_global_ctors): Register this object's
+	frame.  Clean up.  Call atexit() after the constructors.
+	(__do_global_dtors): Deregister this object's frame.  Clean up.
+	Allow for recursive calls to exit().
+	* rs6000.c (fixuplabelno): New variable.
+	* sysv4.h (ASM_OUTPUT_INT): Don't do .fixup if not
+	TARGET_RELOCATABLE, it slows down exec() under linux.
+	(ASM_OUTPUT_DWARF_ADDR): Do .fixup if TARGET_RELOCATABLE.
+
+	* aix.h (ASM_OUTPUT_DWARF_ADDR_VAR): New macro.
+	(ASM_OUTPUT_DWARF_DELTA_VAR): New macro.
+	(ASM_OUTPUT_DWARF_DELTA2): New macro.
+	(ASM_OUTPUT_DWARF_DELTA4): New macro.
+	(ASM_OUTPUT_DWARF_ADDR_DELTA): New macro.
+	(ASM_OUTPUT_DWARF_ADDR): New macro.
+	(ASM_OUTPUT_DWARF_DATA4): New macro.
+	(ASM_OUTPUT_DWARF_DATA2): New macro.
+	(ASM_OUTPUT_DWARF_OFFSET4): New macro.
+	(ASM_OUTPUT_DWARF_OFFSET): New macro.
+	(UNALIGNED_INT_ASM_OP): New macro, fake definition.
+
 2000-02-03  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.c (rs6000_sr_alias_set): New variable.

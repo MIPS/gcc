@@ -92,6 +92,9 @@ enum rs6000_sdata_type rs6000_sdata = SDATA_DATA;
 
 /* Which small data model to use */
 const char *rs6000_sdata_name = (char *)0;
+
+/* Counter for labels which are to be placed in .fixup.  */
+int fixuplabelno = 0;
 #endif
 
 /* Whether a System V.4 varargs area was created.  */

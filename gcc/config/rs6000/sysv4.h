@@ -735,6 +735,8 @@ do {									\
 } while (0)
 
 
+extern int fixuplabelno;
+
 /* This is how to output an assembler line defining an `int' constant.
    For -mrelocatable, we mark all addresses that need to be fixed up
    in the .fixup section.  */
@@ -742,7 +744,7 @@ do {									\
 #define ASM_OUTPUT_INT(FILE,VALUE)					\
 do {									\
   static int recurse = 0;						\
-  if ((TARGET_RELOCATABLE || flag_pic)					\
+  if (TARGET_RELOCATABLE						\
       && in_section != in_toc						\
       && in_section != in_text						\
       && in_section != in_ctors						\
@@ -752,18 +754,18 @@ do {									\
       && GET_CODE (VALUE) != CONST_DOUBLE				\
       && CONSTANT_P (VALUE))						\
     {									\
-      static int labelno = 0;						\
       char buf[256];							\
       const char *p;							\
 									\
       recurse = 1;							\
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LCP", labelno++);		\
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LCP", fixuplabelno);		\
+      fixuplabelno++;							\
       STRIP_NAME_ENCODING (p, buf);					\
       fprintf (FILE, "%s:\n", p);					\
       fprintf (FILE, "\t.long (");					\
       output_addr_const (FILE, (VALUE));				\
       fprintf (FILE, ")@fixup\n");					\
-      fprintf (FILE, "\t.section\t\".fixup\",\"aw\"\n");			\
+      fprintf (FILE, "\t.section\t\".fixup\",\"aw\"\n");		\
       ASM_OUTPUT_ALIGN (FILE, 2);					\
       fprintf (FILE, "\t.long\t%s\n", p);				\
       fprintf (FILE, "\t.previous\n");					\
@@ -790,6 +792,35 @@ do {									\
     }									\
 } while (0)
 
+/* This is how to output an assembler line defining an address 
+   constant for the dwarf call unwinding information.
+   For -mrelocatable, we mark all addresses that need to be fixed up
+   in the .fixup section.  */
+
+#define ASM_OUTPUT_DWARF_ADDR(FILE,LABEL)				 \
+do {									 \
+  if (TARGET_RELOCATABLE)						 \
+    {									 \
+      char buf[256];							 \
+      const char *p;							 \
+									 \
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LCP", fixuplabelno);		 \
+      fixuplabelno++;							 \
+      STRIP_NAME_ENCODING (p, buf);					 \
+      fprintf (FILE, "%s:\t.%dbyte\t", p, POINTER_SIZE / BITS_PER_UNIT); \
+      assemble_name (FILE, LABEL);					 \
+      fprintf (FILE, "\n");						 \
+      fprintf (FILE, "\t.section \".fixup\",\"aw\"\n");			 \
+      ASM_OUTPUT_ALIGN (FILE, 2);					 \
+      fprintf (FILE, "\t.long\t%s\n", p);				 \
+      fprintf (FILE, "\t.previous");					 \
+    }									 \
+  else									 \
+    {									 \
+      fprintf (FILE, "\t.%dbyte\t", POINTER_SIZE / BITS_PER_UNIT);	 \
+      assemble_name (FILE, LABEL);					 \
+    }									 \
+} while (0)
 
 /* This is the end of what might become sysv4.h.  */
 
