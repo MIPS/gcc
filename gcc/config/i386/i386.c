@@ -1434,8 +1434,8 @@ ix86_comp_type_attributes (type1, type2)
     return 1;
 
   /*  Check for mismatched fastcall types */ 
-  if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type1))
-      != lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type2)))
+  if (!lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type1))
+      != !lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type2)))
     return 0; 
 
   /* Check for mismatched return types (cdecl vs stdcall).  */
