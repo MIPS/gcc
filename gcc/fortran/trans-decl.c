@@ -1611,6 +1611,9 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
   return fnbody;
 }
 
+
+/* Output an initialized decl for a module variable.  */
+
 static void
 gfc_create_module_variable (gfc_symbol * sym)
 {
@@ -1624,8 +1627,13 @@ gfc_create_module_variable (gfc_symbol * sym)
       internal_error ("module symbol %s in wrong namespace", sym->name);
     }
 
-  /* Only output variables.  */
-  if (sym->attr.flavor != FL_VARIABLE || sym->attr.common)
+  /* Don't ouptut symbols from common blocks.  */
+  if (sym->attr.common)
+    return;
+
+  /* Only output variables and array valued parametes.  */
+  if (sym->attr.flavor != FL_VARIABLE
+      && (sym->attr.flavor != FL_PARAMETER || sym->attr.dimension == 0))
     return;
 
   /* Don't generate variables from other modules.  */
