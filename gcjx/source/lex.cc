@@ -35,6 +35,7 @@ lexer::lexer (ucs2_reader *source, const char *file)
   : input_filter (source),
     backslash_count (0),
     unget_value (UNICODE_W_NONE),
+    was_return (false),
     cooked_unget_value (UNICODE_W_NONE),
     scratch (NULL),
     scratch_size (0),
@@ -293,8 +294,8 @@ lexer::read_handling_escapes ()
   return UNICODE_BACKSLASH;
 }
 
-// Get a single character, having already processed \u sequences and
-// collapsing line terminators.
+// Get a single character, having already processed \u sequences.
+// Collapse line terminators.
 unicode_w_t
 lexer::get ()
 {
@@ -307,16 +308,18 @@ lexer::get ()
   else
     c = read_handling_escapes ();
 
-  if (c == UNICODE_CARRIAGE_RETURN)
+  if (was_return && c == UNICODE_LINE_FEED)
     {
+      // Saw \r\n, so read again.
       c = read_handling_escapes ();
-      if (c != UNICODE_LINE_FEED)
-	{
-	  // Saw \r followed by something else, so unget and return the
-	  // line terminator that the rest of the lexer understands.
-	  unget (c);
-	  c = UNICODE_LINE_FEED;
-	}
+    }
+
+  was_return = (c == UNICODE_CARRIAGE_RETURN);
+  if (was_return)
+    {
+      // Return the kind of newline that the rest of the lexer
+      // understands.
+      c = UNICODE_LINE_FEED;
     }
 
   if (c == UNICODE_LINE_FEED)

@@ -41,6 +41,9 @@ class lexer
   // value is only used by escape processing.
   unicode_w_t unget_value;
 
+  // True if we previously saw a \r.  Use by get().
+  bool was_return;
+
   // There's a second layer of unget handling.  This field is used by
   // the more common get()/unget()/peek() set of methods.
   unicode_w_t cooked_unget_value;
