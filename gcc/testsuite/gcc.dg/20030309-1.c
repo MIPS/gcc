@@ -10,7 +10,8 @@ struct A4 { int x; int y[4]; };
 void *s;
 int u;
 
-int test (void)
+int
+main (void)
 {
   int x;
   void *t = s;
