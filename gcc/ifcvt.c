@@ -2474,6 +2474,8 @@ find_double_test_block (test_bb, then_edge, test2_edge)
 {
   int reverse_condition1 = 0;
 
+  return 0;
+
   /* Try both arms of the condition.  */
   for (reverse_condition1 = 0; reverse_condition1 <= 1; reverse_condition1++)
     {
