@@ -7363,7 +7363,7 @@ loc_descriptor (rtl)
          up an entire register.  For now, just assume that it is
          legitimate to make the Dwarf info refer to the whole register which
          contains the given subreg.  */
-      rtl = XEXP (rtl, 0);
+      rtl = SUBREG_REG (rtl);
 
       /* Fall through.  */
 

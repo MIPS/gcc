@@ -830,7 +830,7 @@ gen_lowpart_common (mode, x)
       if (REGNO (x) < FIRST_PSEUDO_REGISTER)
 	{
 	  int final_regno = REGNO (x) +
-	    SUBREG_REGNO_OFFSET(REGNO (x), GET_MODE (x), offset, mode);
+	    SUBREG_REGNO_OFFSET (REGNO (x), GET_MODE (x), offset, mode);
 
 	  /* If the final regno is not valid for MODE, punt.  */
 	  /* ??? We do allow it if the current REG is not valid for
@@ -1127,7 +1127,7 @@ gen_imagpart (mode, x)
     return XEXP (x, 1);
   else if (WORDS_BIG_ENDIAN)
     return gen_lowpart (mode, x);
-  else if (!WORDS_BIG_ENDIAN
+  else if (! WORDS_BIG_ENDIAN
 	   && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
 	   && REG_P (x)
 	   && REGNO (x) < FIRST_PSEUDO_REGISTER)
@@ -1266,7 +1266,7 @@ gen_highpart (mode, x)
       if (REGNO (x) < FIRST_PSEUDO_REGISTER)
 	{
 	  int final_regno = REGNO (x) +
-	    SUBREG_REGNO_OFFSET(REGNO (x), GET_MODE (x), offset, mode);
+	    SUBREG_REGNO_OFFSET (REGNO (x), GET_MODE (x), offset, mode);
 
 	  /* integrate.c can't handle parts of a return value register.
 	     ??? Then integrate.c should be fixed!
@@ -1377,7 +1377,7 @@ constant_subword (op, offset, mode)
       else if (BITS_PER_WORD == 16)
 	{
 	  val = k[offset >> 1];
-	  if ((offset & 1) == !WORDS_BIG_ENDIAN)
+	  if ((offset & 1) == ! WORDS_BIG_ENDIAN)
 	    val >>= 16;
 	  val &= 0xffff;
 	  return GEN_INT (val);
@@ -1405,9 +1405,9 @@ constant_subword (op, offset, mode)
 #if HOST_BITS_PER_WIDE_INT >= 64
       else if (BITS_PER_WORD >= 64 && offset <= 1)
 	{
-	  val = k[offset*2 + ! WORDS_BIG_ENDIAN];
+	  val = k[offset * 2 + ! WORDS_BIG_ENDIAN];
 	  val = (((val & 0xffffffff) ^ 0x80000000) - 0x80000000) << 32;
-	  val |= (HOST_WIDE_INT) k[offset*2 + WORDS_BIG_ENDIAN] & 0xffffffff;
+	  val |= (HOST_WIDE_INT) k[offset * 2 + WORDS_BIG_ENDIAN] & 0xffffffff;
 	  return GEN_INT (val);
 	}
 #endif
@@ -1456,7 +1456,7 @@ constant_subword (op, offset, mode)
 
       if (BITS_PER_WORD == 16)
 	{
-	  if ((offset & 1) == !WORDS_BIG_ENDIAN)
+	  if ((offset & 1) == ! WORDS_BIG_ENDIAN)
 	    val >>= 16;
 	  val &= 0xffff;
 	}
@@ -1602,7 +1602,7 @@ operand_subword (op, offset, validate_address, mode)
       if (REGNO (op) < FIRST_PSEUDO_REGISTER)
 	{
 	  int final_regno = REGNO (op) +
-	    SUBREG_REGNO_OFFSET(REGNO (op), GET_MODE (op),
+	    SUBREG_REGNO_OFFSET (REGNO (op), GET_MODE (op),
 				offset * UNITS_PER_WORD,
 				word_mode);
 
