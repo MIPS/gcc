@@ -1,3 +1,29 @@
+2003-05-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.h (struct loop_desc): Add mode and signed_p fields.
+	(SIE_SIMPLIFY, SIE_ONLY_SIMPLE): New.
+	(decide_unrolling_and_peeling): Declare.
+	(unroll_and_peel_loops): Declaration changed.
+	* cfgloopanal.c (iv_simple_condition_p): Follow new calling convention
+	of substitute_into_expr.  Fill in mode and signed_p fields.
+	* doloop.c (doloop_iterations_max, doloop_valid_p, doloop_modify,
+	doloop_modify_runtime, doloop_optimize): Use new iv infrastructure.
+	* loop-iv.c (simple_expr_p, expr_mentions_initial_value_p): New macros.
+	(iv_simplify_rtx): Speed up for simple expressions.
+	(substitute_into_expr, simplify_iv_using_values): Enhance simplification
+	possibilities.
+	(simulate_set, iv_make_initial_value, record_iv_occurences_1):
+	Follow new calling convention of substitute_into_expr.
+	* loop-unroll.c (decide_unrolling_and_peeling): Export.
+	(peel_loops_completely): Merge into decide_unrolling_and_peeling
+	and unroll_and_peel_loops.
+	(unroll_and_peel_loops): Take care of complete peeling. Remove decision
+	parts.
+	(unroll_loop_constant_iterations, unroll_loop_runtime_iterations,
+	unroll_loop_stupid, peel_loop_simple): Update the number of iterations.
+	* toplev.c (rest_of_compilation): Call unrolling/peeling decision
+	separately.
+
 2003-05-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloopanal.c (num_loop_insns, average_num_loop_insns): Count

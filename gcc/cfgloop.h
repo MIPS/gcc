@@ -61,6 +61,10 @@ struct loop_desc
   rtx noloop_assumptions; /* Condition under that the loop does not roll at all.  */
   rtx infinite;		/* Condition under that the loop is infinite.  */
   rtx niter_expr;	/* The expression to count the number of iterations.  */
+  enum machine_mode mode; /* The more in that the expression should be evaluated.  */
+  int signed_p;		/* And signedness of its operands (niter_expr itself
+			   must always be taken as unsigned, otherwise it would
+			   overflow on things like for (i = -max; i < max; i++).  */
   edge out_edge;	/* The exit edge.  */
   edge in_edge;		/* And the other one.  */
   int n_branches;	/* Number of branches inside the loop.  */
@@ -436,6 +440,12 @@ extern void iv_load_used_values		PARAMS ((rtx, rtx *));
 extern rtx get_def_value		PARAMS ((rtx, unsigned));
 extern rtx get_use_value		PARAMS ((rtx, unsigned));
 
+/* Flags for substitute_into_expr.  */
+enum
+{
+  SIE_SIMPLIFY = 1,	/* Simplify the resulting expression.  */
+  SIE_ONLY_SIMPLE = 2	/* Only substitute the simple expressions.  */
+};
 extern rtx substitute_into_expr		PARAMS ((rtx, rtx *, int));
 extern rtx iv_simplify_subreg		PARAMS ((rtx, enum machine_mode,
 						 enum machine_mode));
@@ -468,7 +478,8 @@ enum
   UAP_UNROLL_ALL = 4	/* Enables peeling of all loops.  */
 };
 
-extern void unroll_and_peel_loops	PARAMS ((struct loops *, int));
+extern void decide_unrolling_and_peeling PARAMS ((struct loops *, int));
+extern void unroll_and_peel_loops	PARAMS ((struct loops *));
 extern void doloop_optimize_loops	PARAMS ((struct loops *));
 extern void prefetch_loop_arrays	PARAMS ((struct loops *));
 extern bool reroll_loops		PARAMS ((void));

@@ -857,7 +857,7 @@ iv_simple_condition_p (loop, condition, values, desc)
      rtx *values;
      struct loop_desc *desc;
 {
-  rtx scond = substitute_into_expr (condition, values, true);
+  rtx scond = substitute_into_expr (condition, values, SIE_SIMPLIFY);
   rtx op0, op1, tmp, delta, base0, step0, base1, step1, step, bound, may_xform;
   rtx assumption;
   enum rtx_code cond;
@@ -955,6 +955,7 @@ iv_simple_condition_p (loop, condition, values, desc)
       op1 = iv_simplify_subreg (op1, mode, extend_mode);
     }
   mode = extend_mode;
+  desc->mode = mode;
 
   op0 = simplify_iv_using_values (op0, initial_values [loop->num]);
   op1 = simplify_iv_using_values (op1, initial_values [loop->num]);
@@ -982,6 +983,7 @@ iv_simple_condition_p (loop, condition, values, desc)
     }
   size = GET_MODE_BITSIZE (mode);
   get_mode_bounds (mode, (cond == LE || cond == LT), &mmin, &mmax);
+  desc->signed_p = (cond == LE || cond == LT);
 
   iv_split (op0, &base0, &step0);
   iv_split (op1, &base1, &step1);

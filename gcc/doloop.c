@@ -71,7 +71,7 @@ static bool doloop_valid_p
 static bool doloop_modify
   PARAMS ((const struct loop *, rtx, rtx, rtx, rtx));
 static bool doloop_modify_runtime
-  PARAMS ((struct loop *, rtx, rtx, rtx));
+  PARAMS ((struct loops *, struct loop *, rtx, rtx, rtx));
 static int get_loop_level
   PARAMS ((const struct loop *));
 
@@ -168,99 +168,51 @@ static unsigned HOST_WIDE_INT
 doloop_iterations_max (loop)
      const struct loop *loop;
 {
-  unsigned HOST_WIDE_INT n_iterations_max;
-  enum rtx_code code;
-  rtx min_value;
-  rtx max_value;
-  HOST_WIDE_INT abs_inc;
-  int neg_inc;
-  enum machine_mode mode = GET_MODE (loop->desc.var);
+  enum machine_mode mode = loop->desc.mode;
+  unsigned HOST_WIDE_INT n_iterations_max
+    = ((unsigned) 2 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
+  rtx left, right;
+  rtx min_value, max_value;
+  unsigned HOST_WIDE_INT inc;
+  rtx niter = loop->desc.niter_expr;
 
-  neg_inc = 0;
-  abs_inc = INTVAL (loop->desc.stride);
-  if (abs_inc < 0)
+  /* This code covers most of the cases coming from cfgloopanal.c and
+     loop-unroll.c, and is conservative in the other cases.  If it is
+     critical, we may improve it later.  */
+  if (GET_CODE (niter) == UDIV)
     {
-      abs_inc = -abs_inc;
-      neg_inc = 1;
-    }
-
-  if (neg_inc)
-    {
-      code = swap_condition (loop->desc.cond);
-      min_value = XEXP (loop->desc.lim_alts, 0);
-      max_value = XEXP (loop->desc.var_alts, 0);
+      if (GET_CODE (XEXP (niter, 1)) != CONST_INT)
+	return n_iterations_max;
+      inc = INTVAL (XEXP (niter, 1));
+      niter = XEXP (niter, 0);
     }
   else
+    inc = 1;
+
+  if (GET_CODE (niter) == PLUS)
     {
-      code = loop->desc.cond;
-      min_value = XEXP (loop->desc.var_alts, 0);
-      max_value = XEXP (loop->desc.lim_alts, 0);
-    }
-  if (loop->desc.neg)
-    code = reverse_condition (code);
+      left = XEXP (niter, 0);
+      right = XEXP (niter, 0);
 
-  /* The difference should always be positive and the code must be
-     LT, LE, LTU, LEU, or NE.  Otherwise the loop is not normal, e.g.,
-     `for (i = 0; i < 10; i--)', and it would not get here.  */
-  switch (code)
-    {
-    case LTU:
-    case LEU:
-      {
-	unsigned HOST_WIDE_INT umax;
-	unsigned HOST_WIDE_INT umin;
-
-	if (GET_CODE (min_value) == CONST_INT)
-	  umin = INTVAL (min_value);
-	else
-	  umin = 0;
-
-	if (GET_CODE (max_value) == CONST_INT)
-	  umax = INTVAL (max_value);
-	else
-	  umax = ((unsigned) 2 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
-
-	n_iterations_max = umax - umin;
-	break;
-      }
-
-    case LT:
-    case LE:
-      {
-	HOST_WIDE_INT smax;
-	HOST_WIDE_INT smin;
-
-	if (GET_CODE (min_value) == CONST_INT)
-	  smin = INTVAL (min_value);
-	else
-	  smin = -((unsigned) 1 << (GET_MODE_BITSIZE (mode) - 1));
-
-	if (GET_CODE (max_value) == CONST_INT)
-	  smax = INTVAL (max_value);
-	else
-	  smax = ((unsigned) 1 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
-
-	n_iterations_max = smax - smin;
-	break;
-      }
-
-    case NE:
-      if (GET_CODE (min_value) == CONST_INT
-	  && GET_CODE (max_value) == CONST_INT)
-	n_iterations_max = INTVAL (max_value) - INTVAL (min_value);
+      if (GET_CODE (right) == CONST_INT)
+	right = GEN_INT (-INTVAL (XEXP (niter, 1)));
+      else if (GET_CODE (right) == NEG)
+	right = XEXP (right, 0);
       else
-	/* We need to conservatively assume that we might have the maximum
-	   number of iterations without any additional knowledge.  */
-	n_iterations_max = ((unsigned) 2 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
-      break;
-
-    default:
-      abort ();
+	return n_iterations_max / inc;
     }
+  else
+    return n_iterations_max / inc;
 
-  n_iterations_max /= abs_inc;
+  get_mode_bounds (mode, loop->desc.signed_p, &min_value, &max_value);
+  if (GET_CODE (left) == CONST_INT)
+    max_value = left;
+  if (GET_CODE (right) == CONST_INT)
+    min_value = right;
 
-  return n_iterations_max;
+  n_iterations_max = INTVAL (left) - INTVAL (right);
+
+  return n_iterations_max / inc;
 }
 
 
@@ -268,13 +220,12 @@ doloop_iterations_max (loop)
    the use of special low-overhead looping instructions.  */
 static bool
 doloop_valid_p (loops, loop)
-     struct loops *loops;
+     struct loops *loops ATTRIBUTE_UNUSED;
      struct loop *loop;
 {
   basic_block *body = get_loop_body (loop), bb;
   rtx insn;
   unsigned i;
-  enum rtx_code cond;
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -310,9 +261,9 @@ doloop_valid_p (loops, loop)
   free (body);
 
   /* Check whether the loop is simple.  */
-  if (!loop->has_desc)
-    loop->simple = simple_loop_p (loops, loop, &loop->desc);
-  if (!loop->simple)
+  if (!loop->has_desc
+      || !loop->simple
+      || loop->desc.infinite != const0_rtx)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file,
@@ -321,17 +272,11 @@ doloop_valid_p (loops, loop)
     }
 
   /* Check for loops that may not terminate under special conditions.  */
-  cond = loop->desc.cond;
-  if (loop->desc.neg)
-    cond = reverse_condition (cond);
-  if (! loop->desc.const_iter
-      && (cond == LEU
-	  || cond == GEU
-	  || (cond == LTU && INTVAL (loop->desc.stride) > 1)
-	  || (cond == GTU && INTVAL (loop->desc.stride) < -1)))
+  if (loop->desc.assumptions)
     {
-      /* If the comparison is LEU and the comparison value is UINT_MAX
-	 then the loop will not terminate.  Similarly, if the
+      /* There are some cases that would require a special attention.
+	 For example if the comparison is LEU and the comparison value
+	 is UINT_MAX then the loop will not terminate.  Similarly, if the
 	 comparison code is GEU and the comparison value is 0, the
 	 loop will not terminate.
 
@@ -358,7 +303,20 @@ doloop_valid_p (loops, loop)
 	 enable count-register loops in this case.  */
       if (rtl_dump_file)
 	fprintf (rtl_dump_file,
-		 "Doloop: Possible infinite iteration case ignored.\n");
+		 "Doloop: Possible infinite iteration case.\n");
+      return false;
+    }
+  
+  if (loop->desc.noloop_assumptions)
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file,
+		 "Doloop: Possible nontrivial zero iterations case.\n");
+      /* We should emit a test for this in front of the loop.  Actually we
+	 do not do it, so we have to abort here to ensure safety. (??? In fact
+	 we might proceed as long as the condition in the doloop pattern
+	 is not NE.  */
+      return false;
     }
 
   return true;
@@ -508,12 +466,18 @@ doloop_modify (loop, iterations, iterations_max, doloop_seq, condition)
    the number of iterations.  We rely on the existence of a run-time
    guard to ensure that the loop executes at least once, i.e.,
    initial_value obeys the loop comparison condition.  If a guard is
-   not present, we emit one.  The loop to modify is described by LOOP.
+   not present, we emit one (???).  The loop to modify is described by LOOP.
    ITERATIONS_MAX is a CONST_INT specifying the estimated maximum
    number of loop iterations.  DOLOOP_SEQ is the low-overhead looping
-   insn to insert.  Returns nonzero if loop successfully modified.  */
+   insn to insert.  Returns nonzero if loop successfully modified.
+ 
+   ??? No actually we do not (this code got removed when I rewrote it to the
+   current state).  The things tend to work as the test is often here anyway,
+   but we should not rely on this.  I have added a test for it into
+   doloop_valid_p, I will disable it once I implement this again.  */
 static bool
-doloop_modify_runtime (loop, iterations_max, doloop_seq, condition)
+doloop_modify_runtime (loops, loop, iterations_max, doloop_seq, condition)
+     struct loops *loops;
      struct loop *loop;
      rtx iterations_max;
      rtx doloop_seq;
@@ -523,12 +487,14 @@ doloop_modify_runtime (loop, iterations_max, doloop_seq, condition)
   rtx iterations;
 
   start_sequence ();
-  iterations = count_loop_iterations (&loop->desc, NULL, NULL);
+  iterations =
+    force_operand (iv_omit_initial_values (loop->desc.niter_expr), NULL);
   if (!iterations)
     abort ();
   sequence = get_insns ();
   end_sequence ();
-  emit_insn_after (sequence, loop_preheader_edge (loop)->src->end);
+
+  loop_split_edge_with (loop_preheader_edge (loop), sequence, loops);
 
   return doloop_modify (loop, iterations, iterations_max,
 			doloop_seq, condition);
@@ -577,7 +543,7 @@ doloop_optimize (loops, loop)
 		 "Doloop: The loop is not suitable.\n");
       return false;
     }
-  mode = GET_MODE (loop->desc.var);
+  mode = loop->desc.mode;
 
   /* Determine or estimate the maximum number of loop iterations.  */
   if (loop->desc.const_iter)
@@ -659,7 +625,7 @@ doloop_optimize (loops, loop)
 			  condition);
   else
     /* Handle the harder case, where we must add additional runtime tests.  */
-    return doloop_modify_runtime (loop, iterations_max, doloop_seq, condition);
+    return doloop_modify_runtime (loops, loop, iterations_max, doloop_seq, condition);
 }
 
 /* This is the main entry point.  Process all LOOPS using doloop_optimize.  */

@@ -31,8 +31,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "expr.h"
 
-static void decide_unrolling_and_peeling PARAMS ((struct loops *, int));
-static void peel_loops_completely PARAMS ((struct loops *, int));
 static void decide_peel_simple PARAMS ((struct loops *, struct loop *, int));
 static void decide_peel_once_rolling PARAMS ((struct loops *, struct loop *, int));
 static void decide_peel_completely PARAMS ((struct loops *, struct loop *, int));
@@ -47,20 +45,14 @@ static void unroll_loop_constant_iterations PARAMS ((struct loops *,
 static void unroll_loop_runtime_iterations PARAMS ((struct loops *,
 						    struct loop *));
 
-/* Unroll and peel (depending on FLAGS) LOOPS.  */
+/* Unroll and peel LOOPS, according to decision already stored in
+   lpt_decision field of the loop structure.  */
 void
-unroll_and_peel_loops (loops, flags)
+unroll_and_peel_loops (loops)
      struct loops *loops;
-     int flags;
 {
   struct loop *loop, *next;
   int check;
-
-  /* First perform complete loop peeling.  */
-  peel_loops_completely (loops, flags);
-
-  /* Now decide rest of unrolling and peeling.  */
-  decide_unrolling_and_peeling (loops, flags);
 
   loop = loops->tree_root;
   while (loop->inner)
@@ -82,8 +74,8 @@ unroll_and_peel_loops (loops, flags)
       switch (loop->lpt_decision.decision)
 	{
 	case LPT_PEEL_COMPLETELY:
-	  /* Already done.  */
-	  abort ();
+	  peel_loop_completely (loops, loop);
+	  break;
 	case LPT_PEEL_SIMPLE:
 	  peel_loop_simple (loops, loop);
 	  break;
@@ -113,66 +105,19 @@ unroll_and_peel_loops (loops, flags)
     }
 }
 
-/* Check whether to peel loops completely and do so.  */
-static void
-peel_loops_completely (loops, flags)
-     struct loops *loops;
-     int flags;
-{
-  struct loop *loop, *next;
-
-  loop = loops->tree_root;
-  while (loop->inner)
-    loop = loop->inner;
-
-  while (loop != loops->tree_root)
-    {
-      if (loop->next)
-	{
-	  next = loop->next;
-	  while (next->inner)
-	    next = next->inner;
-	}
-      else
-	next = loop->outer;
-
-      loop->lpt_decision.decision = LPT_NONE;
-  
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Considering loop %d for complete peeling\n",
-		 loop->num);
-
-      loop->ninsns = num_loop_insns (loop);
-
-      decide_peel_once_rolling (loops, loop, flags);
-      if (loop->lpt_decision.decision == LPT_NONE)
-	decide_peel_completely (loops, loop, flags);
-
-      if (loop->lpt_decision.decision == LPT_PEEL_COMPLETELY)
-	{
-	  peel_loop_completely (loops, loop);
-#ifdef ENABLE_CHECKING
-	  verify_dominators (loops->cfg.dom);
-	  verify_loop_structure (loops);
-#endif
-	}
-      loop = next;
-    }
-}
-
 /* Decide whether unroll or peel and how much.  */
-static void
+void
 decide_unrolling_and_peeling (loops, flags)
      struct loops *loops;
      int flags;
 {
-  struct loop *loop = loops->tree_root, *next;
+  struct loop *loop = loops->tree_root, *next, *subloop;
 
   while (loop->inner)
     loop = loop->inner;
 
   /* Scan the loops, inner ones first.  */
-  while (loop != loops->tree_root)
+  for (; loop != loops->tree_root; loop = next)
     {
       if (loop->next)
 	{
@@ -184,16 +129,25 @@ decide_unrolling_and_peeling (loops, flags)
 	next = loop->outer;
 
       loop->lpt_decision.decision = LPT_NONE;
+      /* Unless we are asked to, we do nothing (just fill the "do nothing"
+	 decision so that other passes know it too).  */
+      if (!flags)
+	continue;
+      loop->ninsns = num_loop_insns (loop);
+      loop->av_ninsns = average_num_loop_insns (loop);
 
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Considering loop %d\n", loop->num);
 
-      /* Do not peel cold areas.  */
+      /* This is an exception; doing this is always a win and it also decreases
+	 a code size, so we want to try it always.  */
+      decide_peel_once_rolling (loops, loop, flags);
+
+      /* Do not optimize cold areas.  */
       if (!maybe_hot_bb_p (loop->header))
 	{
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, ";; Not considering loop, cold area\n");
-	  loop = next;
 	  continue;
 	}
 
@@ -203,34 +157,52 @@ decide_unrolling_and_peeling (loops, flags)
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file,
 		     ";; Not considering loop, cannot duplicate\n");
-	  loop = next;
 	  continue;
 	}
 
       /* Skip non-innermost loops.  */
       if (loop->inner)
 	{
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, ";; Not considering loop, is not innermost\n");
-	  loop = next;
-	  continue;
-	}
+	  /* An exception -- if the loops are completely peeled, consider
+	     it anyway, as they will be eliminated.  */
+	  for (subloop = loop->inner; subloop; subloop = subloop->next)
+	    if (subloop->lpt_decision.decision != LPT_PEEL_COMPLETELY)
+	      break;
+	  if (subloop)
+	    {
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file, ";; Not considering loop, is not innermost\n");
+	      continue;
+	    }
 
-      loop->ninsns = num_loop_insns (loop);
-      loop->av_ninsns = average_num_loop_insns (loop);
+	  /* But in this case we must add a size of the unrolled subloops
+	     to the size of the loop.  */
+	  for (subloop = loop->inner; subloop; subloop = subloop->next)
+	    {
+	      basic_block preheader = loop_preheader_edge (subloop)->src;
+	      unsigned ratio = loop->header->frequency == 0
+		? BB_FREQ_MAX
+		: (preheader->frequency * BB_FREQ_MAX) / loop->header->frequency;
+	      loop->ninsns += subloop->ninsns * subloop->lpt_decision.times;
+	      loop->av_ninsns +=
+		subloop->av_ninsns * subloop->lpt_decision.times
+		* ratio / BB_FREQ_MAX;
+	    }
+	}
 
       /* Try transformations one by one in decreasing order of
 	 priority.  */
 
-      decide_unroll_constant_iterations (loops, loop, flags);
+      if (loop->lpt_decision.decision == LPT_NONE)
+	decide_peel_completely (loops, loop, flags);
+      if (loop->lpt_decision.decision == LPT_NONE)
+	decide_unroll_constant_iterations (loops, loop, flags);
       if (loop->lpt_decision.decision == LPT_NONE)
 	decide_unroll_runtime_iterations (loops, loop, flags);
       if (loop->lpt_decision.decision == LPT_NONE)
 	decide_unroll_stupid (loops, loop, flags);
       if (loop->lpt_decision.decision == LPT_NONE)
 	decide_peel_simple (loops, loop, flags);
-
-      loop = next;
     }
 }
 
@@ -536,6 +508,7 @@ unroll_loop_constant_iterations (loops, loop)
 		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
 		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
 	abort ();
+      desc->niter -= exit_mod;
 
       SET_BIT (wont_exit, 1);
     }
@@ -561,6 +534,7 @@ unroll_loop_constant_iterations (loops, loop)
 		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
 		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
 	    abort ();
+	  desc->niter -= exit_mod + 1;
 
 	  SET_BIT (wont_exit, 0);
 	  SET_BIT (wont_exit, 1);
@@ -577,11 +551,31 @@ unroll_loop_constant_iterations (loops, loop)
     abort ();
 
   free (wont_exit);
+  if (!desc->postincr)
+    {
+      basic_block exit_block = RBI (desc->in_edge->src)->copy;
+      /* Find a new in and out edge; they are in the last copy we have made.  */
+      
+      if (exit_block->succ->dest == desc->out_edge->dest)
+	{
+	  desc->out_edge = exit_block->succ;
+	  desc->in_edge = exit_block->succ->succ_next;
+	}
+      else
+	{
+	  desc->out_edge = exit_block->succ->succ_next;
+	  desc->in_edge = exit_block->succ;
+	}
+    }
 
   /* Remove the edges.  */
   for (i = 0; i < n_remove_edges; i++)
     remove_path (loops, remove_edges[i]);
   free (remove_edges);
+
+  desc->niter /= max_unroll + 1;
+  desc->niter_expr = GEN_INT (desc->niter);
+  desc->noloop_assumptions = NULL_RTX;
 
   if (loop->histogram)
     {
@@ -670,7 +664,7 @@ unroll_loop_runtime_iterations (loops, loop)
      struct loops *loops;
      struct loop *loop;
 {
-  rtx niter, init_code, branch_code, jump, label;
+  rtx old_niter, niter, init_code, branch_code, jump, label;
   unsigned i, j, p;
   basic_block preheader, *body, *dom_bbs, swtch, ezc_swtch;
   unsigned n_dom_bbs;
@@ -722,8 +716,8 @@ unroll_loop_runtime_iterations (loops, loop)
   /* Normalization.  */
   start_sequence ();
   niter = iv_omit_initial_values (desc->niter_expr);
-  niter = force_operand (niter, NULL);
-  mode = GET_MODE (niter);
+  old_niter = niter = force_operand (niter, NULL);
+  mode = desc->mode;
 
   /* Count modulo by ANDing it with max_unroll.  */
   niter = expand_simple_binop (mode, AND,
@@ -744,7 +738,7 @@ unroll_loop_runtime_iterations (loops, loop)
 
   /* Peel the first copy of loop body (almost always we must leave exit test
      here; the only exception is when we have extra_zero_check and the number
-     of iterations is reliable.  Also record the place of (possible) extra
+     of iterations is reliable).  Also record the place of (possible) extra
      zero check.  */
   sbitmap_zero (wont_exit);
   if (extra_zero_check && !desc->noloop_assumptions)
@@ -758,7 +752,7 @@ unroll_loop_runtime_iterations (loops, loop)
 
   /* Record the place where switch will be built for preconditioning.  */
   swtch = loop_split_edge_with (loop_preheader_edge (loop),
-				    NULL_RTX, loops);
+				NULL_RTX, loops);
 
   for (i = 0; i < n_peel; i++)
     {
@@ -772,35 +766,32 @@ unroll_loop_runtime_iterations (loops, loop)
 		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
     	abort ();
 
-      if (i != n_peel)
-	{
-	  /* Create item for switch.  */
-	  j = n_peel - i - (extra_zero_check ? 0 : 1);
-	  p = REG_BR_PROB_BASE / (i + 2);
+      /* Create item for switch.  */
+      j = n_peel - i - (extra_zero_check ? 0 : 1);
+      p = REG_BR_PROB_BASE / (i + 2);
 
-	  preheader = loop_split_edge_with (loop_preheader_edge (loop),
-					    NULL_RTX, loops);
-	  label = block_label (preheader);
-	  start_sequence ();
-	  do_compare_rtx_and_jump (copy_rtx (niter), GEN_INT (j), EQ, 0,
-		    		   mode, NULL_RTX, NULL_RTX, label);
-	  jump = get_last_insn ();
-	  JUMP_LABEL (jump) = label;
-	  REG_NOTES (jump)
-		  = gen_rtx_EXPR_LIST (REG_BR_PROB,
-			    	       GEN_INT (p), REG_NOTES (jump));
+      preheader = loop_split_edge_with (loop_preheader_edge (loop),
+					NULL_RTX, loops);
+      label = block_label (preheader);
+      start_sequence ();
+      do_compare_rtx_and_jump (copy_rtx (niter), GEN_INT (j), EQ, 0,
+			       mode, NULL_RTX, NULL_RTX, label);
+      jump = get_last_insn ();
+      JUMP_LABEL (jump) = label;
+      REG_NOTES (jump)
+	= gen_rtx_EXPR_LIST (REG_BR_PROB,
+			     GEN_INT (p), REG_NOTES (jump));
 	
-	  LABEL_NUSES (label)++;
-	  branch_code = get_insns ();
-	  end_sequence ();
+      LABEL_NUSES (label)++;
+      branch_code = get_insns ();
+      end_sequence ();
 
-	  swtch = loop_split_edge_with (swtch->pred, branch_code, loops);
-	  set_immediate_dominator (loops->cfg.dom, preheader, swtch);
-	  swtch->succ->probability = REG_BR_PROB_BASE - p;
-	  e = make_edge (swtch, preheader,
-			 swtch->succ->flags & EDGE_IRREDUCIBLE_LOOP);
-	  e->probability = p;
-	}
+      swtch = loop_split_edge_with (swtch->pred, branch_code, loops);
+      set_immediate_dominator (loops->cfg.dom, preheader, swtch);
+      swtch->succ->probability = REG_BR_PROB_BASE - p;
+      e = make_edge (swtch, preheader,
+		     swtch->succ->flags & EDGE_IRREDUCIBLE_LOOP);
+      e->probability = p;
     }
 
   if (extra_zero_check)
@@ -848,10 +839,42 @@ unroll_loop_runtime_iterations (loops, loop)
 
   free (wont_exit);
 
+  if (!desc->postincr)
+    {
+      basic_block exit_block = RBI (desc->in_edge->src)->copy;
+      /* Find a new in and out edge; they are in the last copy we have made.  */
+      
+      if (exit_block->succ->dest == desc->out_edge->dest)
+	{
+	  desc->out_edge = exit_block->succ;
+	  desc->in_edge = exit_block->succ->succ_next;
+	}
+      else
+	{
+	  desc->out_edge = exit_block->succ->succ_next;
+	  desc->in_edge = exit_block->succ;
+	}
+    }
+
   /* Remove the edges.  */
   for (i = 0; i < n_remove_edges; i++)
     remove_path (loops, remove_edges[i]);
   free (remove_edges);
+
+  /* We must be careful when updating the number of iterations due to
+     preconditioning and the fact that the value must be valid at entry
+     of the loop.  After passing through the above code, we see that
+     the correct new number of iterations is this:  */
+  if (desc->const_iter)
+    abort ();
+  desc->niter_expr =
+    simplify_gen_binary (UDIV, mode, old_niter, GEN_INT (max_unroll + 1));
+  if (!desc->postincr)
+    {
+      desc->niter_expr =
+	simplify_gen_binary (MINUS, mode, desc->niter_expr, const1_rtx);
+      desc->noloop_assumptions = NULL_RTX;
+    }
 
   if (loop->histogram)
     {
@@ -999,6 +1022,16 @@ peel_loop_simple (loops, loop)
   
   free (wont_exit);
 
+  if (loop->has_desc && loop->simple)
+    {
+      if (loop->desc.const_iter)
+	loop->desc.niter -= npeel;
+      loop->desc.niter_expr =
+	simplify_gen_binary (MINUS, GET_MODE (loop->desc.niter_expr),
+			     loop->desc.niter_expr, GEN_INT (npeel));
+      loop->desc.noloop_assumptions = NULL_RTX;
+    }
+
   if (rtl_dump_file)
     fprintf (rtl_dump_file, ";; Peeling loop %d times\n", npeel);
 }
@@ -1090,7 +1123,18 @@ unroll_loop_stupid (loops, loop)
     abort ();
 
   free (wont_exit);
-  
+ 
+  if (loop->has_desc && loop->simple)
+    {
+      /* We indeed may get here provided that there are nontrivial assumptions
+	 for a loop to be really simple.  We could update the counts, but the
+	 problem is that we are unable to decide which exit will be taken
+	 (not really true in case the number of iterations is constant,
+	 but noone will do anything with this information, so we do not
+	 worry about it).  */
+      loop->simple = false;
+    }
+
   if (loop->histogram)
     {
       /* We could try to update histogram, but there is no sense as the information

@@ -85,7 +85,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* ??? I dislike a code with that much global variables.  It would be better to
    encalupsate them in a structure that would be passed when needed.  Perhaps
-   add it as new fields to loops?  */
+   add it as new fields to struct loops?  */
 
 /* Maximal register number.  */
 static unsigned max_regno;
@@ -145,18 +145,40 @@ static sbitmap suitable_code;		/* Bitmap of rtl codes we are able
 /* For each loop, a linklist of induction variable occurences.  */
 struct iv_occurence_step_class **iv_occurences;
 
-#define good_constant_p(EXPR) \
-  (GET_CODE (EXPR) == CONST_INT \
+/* A predicate for what we consider a constant.  */
+#define good_constant_p(EXPR)				\
+  (GET_CODE (EXPR) == CONST_INT				\
    || GET_CODE (EXPR) == SYMBOL_REF)
 
+/* A predicate for what we consider a simple expression.  */
+#define simple_expr_p(EXPR)				\
+  (good_constant_p (EXPR)				\
+   || (GET_CODE (EXPR) == PLUS				\
+       && GET_CODE (XEXP (EXPR, 1)) == SYMBOL_REF	\
+       && GET_CODE (XEXP (EXPR, 0)) == CONST_INT))
+
+/* A wrappers around expr_mentions_code_p for ITERATION and INITIAL_VALUE
+   to speed it up it on the most common cases.  They expect EXPR to be
+   in the iv_simplify_rtx form.  */
 #define expr_mentions_iteration_p(EXPR) 		\
   (GET_CODE(EXPR) == ITERATION				\
+   /* This catches base + iteration and step * iteration.
+      Perhaps we could also include the case base + step * iteration.  */ \
    || (GET_RTX_CLASS (GET_CODE (EXPR)) == 'c'		\
        && GET_CODE(XEXP (EXPR, 1)) == ITERATION)	\
    || (!good_constant_p (EXPR)				\
        && GET_CODE(EXPR) != VALUE_AT			\
        && expr_mentions_code_p ((EXPR), ITERATION)))
      
+#define expr_mentions_initial_value_p(EXPR) 		\
+  (GET_CODE(EXPR) == INITIAL_VALUE			\
+   /* This is here mostly for the constant + register case.  */ \
+   || (GET_RTX_CLASS (GET_CODE (EXPR)) == 'c'		\
+       && GET_CODE(XEXP (EXPR, 1)) == INITIAL_VALUE)	\
+   || (!good_constant_p (EXPR)				\
+       && GET_CODE(EXPR) != VALUE_AT			\
+       && expr_mentions_code_p ((EXPR), INITIAL_VALUE)))
+
 static rtx gen_initial_value		PARAMS ((unsigned));
 static rtx gen_iteration		PARAMS ((enum machine_mode));
 static rtx gen_value_at			PARAMS ((unsigned, rtx, int));
@@ -1040,7 +1062,7 @@ iv_simplify_rtx (expr)
   rtx tmp, *current;
   enum rtx_code code;
 
-  if (!expr)
+  if (!expr || simple_expr_p (expr))
     return expr;
   mode = GET_MODE (expr);
 
@@ -1095,6 +1117,9 @@ iv_simplify_rtx (expr)
 
     case CONST_INT:
     case SYMBOL_REF:
+      /* These take the shortcut above.  */
+      abort ();
+
     case INITIAL_VALUE:
     case REG:
     case ITERATION:
@@ -1292,24 +1317,25 @@ init_suitable_codes ()
   SET_BIT (suitable_code, ITERATION);
 }
 
-/* Substitutes values from SUBSTITUTION into EXPR.  If SIMPLIFY is true,
-   also simplify the resulting expression.  RESULT_MODE indicates the
+/* Substitutes values from SUBSTITUTION into EXPR.  If SIE_SIMPLIFY bit
+   is set in FLAGS, also simplify the resulting expression.  If SIE_ONLY_SIMPLE
+   is set, only substitute simple expressions.  RESULT_MODE indicates the
    real mode of target of resulting expression (used when simplifying).  */
 rtx
-substitute_into_expr (expr, substitution, simplify)
+substitute_into_expr (expr, substitution, flags)
      rtx expr;
      rtx *substitution;
-     int simplify;
+     int flags;
 {
-  rtx new_expr, sub_expr;
+  rtx old_expr, new_expr, sub_expr;
   unsigned regno;
   int i, length;
   const char *format;
   enum machine_mode mode, inner_mode = VOIDmode;
   enum rtx_code code;
  
-  if (!expr)
-    return NULL_RTX;
+  if (!expr || good_constant_p (expr))
+    return expr;
 
   mode = GET_MODE (expr);
   if (mode != VOIDmode
@@ -1317,6 +1343,7 @@ substitute_into_expr (expr, substitution, simplify)
       && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
     return NULL_RTX;
 
+  old_expr = expr;
   if (GET_CODE (expr) == INITIAL_VALUE)
     expr = XEXP (expr, 0);
 
@@ -1331,6 +1358,10 @@ substitute_into_expr (expr, substitution, simplify)
       val = substitution[regno];
       if (!val)
 	return NULL_RTX;
+
+      if ((flags & SIE_ONLY_SIMPLE)
+	  && !simple_expr_p (val))
+	return old_expr;
 
       /* Optimize some common cases that may be shared.  */
       switch (GET_CODE (val))
@@ -1351,10 +1382,6 @@ substitute_into_expr (expr, substitution, simplify)
   if (!TEST_BIT (suitable_code, code))
       return NULL_RTX;
 
-  /* Ensure that these constants are shared.  */
-  if (good_constant_p (expr))
-    return expr;
-
   if (code == SUBREG || code == ZERO_EXTEND || code == SIGN_EXTEND)
     inner_mode = GET_MODE (XEXP (expr, 0));
 
@@ -1366,7 +1393,8 @@ substitute_into_expr (expr, substitution, simplify)
       switch (format[i])
 	{
 	case 'e':
-	  sub_expr = substitute_into_expr (XEXP (expr, i), substitution, false);
+	  sub_expr = substitute_into_expr (XEXP (expr, i), substitution,
+					   flags & ~SIE_SIMPLIFY);
 	  if (!sub_expr)
 	    return NULL_RTX;
 	  XEXP (new_expr, i) = sub_expr;
@@ -1394,7 +1422,7 @@ substitute_into_expr (expr, substitution, simplify)
 				       XEXP (new_expr, 0), inner_mode);
     }
 
-  if (simplify)
+  if ((flags & SIE_SIMPLIFY) && !simple_expr_p (new_expr))
     new_expr = iv_simplify_rtx (new_expr);
 
   return new_expr;
@@ -1642,7 +1670,7 @@ simulate_set (reg, set, data)
   else
     {
       src = SET_SRC (set);
-      value = substitute_into_expr (src, values, true);
+      value = substitute_into_expr (src, values, SIE_SIMPLIFY);
     }
   if (!value)
     value = gen_value_at (regno, current_insn, true);
@@ -1652,10 +1680,6 @@ simulate_set (reg, set, data)
 /* Try to simplify induction variable VAR using register initial values stored
    in INITIAL_VALUES.  Returns the simplified form of VAR or VAR if no
    simplification is possible.  */
-/* ??? Now we only consider expressing base or step as a constant to be
-   "simplification".  Certainly it would make sense to at least always
-   propagate constants and also expressions like symbol + constant
-   should be considered simple.  */
 rtx
 simplify_iv_using_values (var, initial_values)
      rtx var;
@@ -1665,8 +1689,9 @@ simplify_iv_using_values (var, initial_values)
   int changed;
   enum machine_mode mode;
 
-  if (good_constant_p (var)
-      || GET_CODE (var) == VALUE_AT)
+  if (simple_expr_p (var)
+      || GET_CODE (var) == VALUE_AT
+      || GET_CODE (var) == ITERATION)
     return var;
 
   if (GET_CODE (var) == SIGN_EXTEND || GET_CODE (var) == ZERO_EXTEND)
@@ -1681,19 +1706,25 @@ simplify_iv_using_values (var, initial_values)
     return NULL_RTX;
 
   changed = false;
-  if (!good_constant_p (base))
+  if (expr_mentions_initial_value_p (base))
     {
-      sbase = substitute_into_expr (base, initial_values, true);
-      if (sbase && good_constant_p (sbase))
+      sbase = substitute_into_expr (base, initial_values, SIE_SIMPLIFY);
+      if (!sbase || !simple_expr_p (sbase))
+	sbase = substitute_into_expr (base, initial_values,
+				      SIE_ONLY_SIMPLE | SIE_SIMPLIFY);
+      if (sbase)
 	{
 	  base = sbase;
 	  changed = true;
 	}
     }
-  if (!good_constant_p (step))
+  if (expr_mentions_initial_value_p (step))
     {
-      sstep = substitute_into_expr (step, initial_values, true);
-      if (sstep && good_constant_p (sstep))
+      sstep = substitute_into_expr (step, initial_values, SIE_SIMPLIFY);
+      if (!sstep || !simple_expr_p (sstep))
+	sstep = substitute_into_expr (step, initial_values,
+				      SIE_ONLY_SIMPLE | SIE_SIMPLIFY);
+      if (sstep)
 	{
 	  step = sstep;
 	  changed = true;
@@ -1787,7 +1818,7 @@ iv_simplify_using_initial_values (op, expr, loop)
       return expr;
     }
 
-  tmp = substitute_into_expr (expr, initial_values[loop->num], true);
+  tmp = substitute_into_expr (expr, initial_values[loop->num], SIE_SIMPLIFY);
   if (tmp && good_constant_p (tmp))
     return tmp;
 
@@ -2390,9 +2421,10 @@ iv_make_initial_value (loop, insn, expr, regno)
 {
   int original = true;
 
-  if (expr_mentions_code_p (expr, INITIAL_VALUE))
+  if (expr_mentions_initial_value_p (expr))
     {
-      expr = substitute_into_expr (expr, initial_values[loop->num], true);
+      expr = substitute_into_expr (expr, initial_values[loop->num],
+				   SIE_SIMPLIFY);
       if (!expr)
 	return gen_value_at (regno, insn, true);
       original = false;
@@ -2560,7 +2592,7 @@ record_iv_occurences_1 (expr, data)
   else if (GET_CODE (*expr) == MEM)
     {
       val = XEXP (*expr, 0);
-      val = substitute_into_expr (val, iv_register_values, true);
+      val = substitute_into_expr (val, iv_register_values, SIE_SIMPLIFY);
     }
   else
     return 0;
@@ -2590,7 +2622,7 @@ record_iv_occurences_1 (expr, data)
     return 0;
 
   lbase = copy_rtx (base);
-  sbase = substitute_into_expr (base, initial_values[loop->num], true);
+  sbase = substitute_into_expr (base, initial_values[loop->num], SIE_SIMPLIFY);
   if (sbase)
     base = sbase;
 
