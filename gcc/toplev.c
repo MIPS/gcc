@@ -5113,7 +5113,7 @@ parse_options_and_default_flags (argc, argv)
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_copyprop = 1;
-      flag_tree_dom = 0;
+      flag_tree_dom = 1;
     }
 
   if (optimize >= 2)

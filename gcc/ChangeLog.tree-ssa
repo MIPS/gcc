@@ -1,5 +1,7 @@
 2003-06-10  Jeff Law  <law@redhat.com>
 
+	* toplev.c (parse_options_and_default_flags): Fix typo in last change.
+
 	* gimplify.c (simplify_expr, case BIT_FIELD_REF): Make sure
 	to call recalculate_side_effects after gimplifying the
 	operands.
