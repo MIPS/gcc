@@ -1,5 +1,8 @@
 2004-10-06  Tom Tromey  <tromey@redhat.com>
 
+	* link.cc (ensure_method_table_complete): Ensure superclass
+	Miranda methods installed.
+
 	* include/java-interp.h (class _Jv_JNIMethod): Added
 	JV_MARKOBJ_DECL as a friend.
 	* interpret.cc (ncode): Allocate jni_arg_types field with GC.

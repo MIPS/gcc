@@ -1565,6 +1565,10 @@ _Jv_Linker::ensure_method_table_complete (jclass klass)
 {
   if (klass->vtable != NULL || klass->isInterface())
     return;
+
+  // We need our superclass to have its own Miranda methods installed.
+  wait_for_state (klass->getSuperclass (), JV_STATE_LOADED);
+
   // A class might have so-called "Miranda methods".  This is a method
   // that is declared in an interface and not re-declared in an
   // abstract class.  Some compilers don't emit declarations for such
