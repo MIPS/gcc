@@ -1,3 +1,11 @@
+2005-01-25  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3970057
+	* config/rs6000/rs6000.c (rs6000_return_in_memory):
+	Implement Darwin 64-bit convention correctly.
+	(rs6000_darwin64_record_arg_flush_pending):
+	Compute correct reg for int field following doubles.
+
 2005-01-21  Stuart Hastings  <stuart@apple.com>
 
 	Radar 3959753
