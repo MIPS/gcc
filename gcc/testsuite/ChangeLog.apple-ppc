@@ -1,3 +1,15 @@
+2004-11-16  Devang Patel  <dpatel@apple.com>
+
+	From autovect-branch.
+
+	* gcc.dg/vect/vect-ifcvt-1.c: New test.
+	* gcc.dg/vect/vect-ifcvt-2.c: New test.
+	* gcc.dg/vect/vect-ifcvt-3.c: New test.
+	* gcc.dg/vect/vect-ifcvt-4.c: New test.
+	* gcc.dg/vect/vect-ifcvt-5.c: New test.
+	* gcc.dg/vect/vect-ifcvt-6.c: New test.
+	* gcc.dg/vect/vect-ifcvt-7.c: New test.
+
 2004-11-14  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3877761
