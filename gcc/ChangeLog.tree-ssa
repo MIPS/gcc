@@ -1,5 +1,9 @@
 2003-08-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* cfg.c (dump_edge_info): Add name for EDGE_LOOP_EXIT flag.
+
+2003-08-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-flow.h (struct var_ann_d): New field scope.
 	(struct stmt_ann_d): New field scope.
 	(propagate_copy): Declaration changed.
