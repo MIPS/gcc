@@ -3011,19 +3011,6 @@ rest_of_compilation (decl)
 
       ggc_collect ();
     }
-  if (flag_web)
-    {
-      open_dump_file (DFI_web, decl);
-      timevar_push (TV_WEB);
-      web_main ();
-      delete_trivially_dead_insns (get_insns (), max_reg_num ());
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-
-      timevar_pop (TV_WEB);
-      close_dump_file (DFI_web, print_rtl_with_bb, get_insns ());
-      reg_scan (get_insns (), max_reg_num (), 0);
-    }
-
   /* Do control and data flow analysis; wrote some of the results to
      the dump file.  */
 
@@ -3167,6 +3154,18 @@ rest_of_compilation (decl)
       close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_LOOP);
       ggc_collect ();
+    }
+  if (flag_web)
+    {
+      open_dump_file (DFI_web, decl);
+      timevar_push (TV_WEB);
+      web_main ();
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+
+      timevar_pop (TV_WEB);
+      close_dump_file (DFI_web, print_rtl_with_bb, get_insns ());
+      reg_scan (get_insns (), max_reg_num (), 0);
     }
 
   if (flag_rerun_cse_after_loop)
