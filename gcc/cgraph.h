@@ -83,6 +83,7 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   tree decl;
   struct cgraph_edge *callees;
   struct cgraph_edge *callers;
+  struct cgraph_edge *indirect_calls;
   struct cgraph_node *next;
   struct cgraph_node *previous;
   /* For nested functions points to function the node is nested in.  */
@@ -129,6 +130,9 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   struct cgraph_node *callee;
   struct cgraph_edge *next_caller;
   struct cgraph_edge *next_callee;
+  struct cgraph_edge *next_indirect_call;
+  tree indirect_call_var;
+  tree indirect_called_fns;
   tree call_expr;
   PTR GTY ((skip (""))) aux;
   /* When NULL, inline this call.  When non-NULL, points to the explanation
@@ -160,6 +164,11 @@ struct cgraph_varpool_node GTY(())
   bool output;
 };
 
+#define INDIRECT_CALLS(node)   (node)->indirect_calls
+#define NEXT_INDIRECT_CALL(edge)  (edge)->next_indirect_call
+#define INDIRECT_CALL_VAR(edge)   (edge)->indirect_call_var
+#define INDIRECT_CALLED_FNS(edge)   (edge)->indirect_called_fns
+
 extern GTY(()) struct cgraph_node *cgraph_nodes;
 extern GTY(()) int cgraph_n_nodes;
 extern GTY(()) int cgraph_max_uid;
@@ -178,6 +187,10 @@ void cgraph_remove_node (struct cgraph_node *);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
 				        tree);
+struct cgraph_edge *cgraph_indirect_assign_edge (struct cgraph_node *, 
+						 tree, tree);
+struct cgraph_edge *cgraph_indirect_call_edge (struct cgraph_node *, 
+					       tree, tree);
 struct cgraph_node *cgraph_node (tree);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree);
 bool cgraph_calls_p (tree, tree);

@@ -473,6 +473,36 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 		       visited_nodes);
 	    *walk_subtrees = 0;
 	  }
+      else
+        {
+          tree indirect_call = *tp;
+          decl = TREE_OPERAND (indirect_call, 0);
+          if (TREE_CODE (decl) == VAR_DECL
+              || TREE_CODE (decl) == PARM_DECL)
+            {
+              cgraph_indirect_call_edge (data, decl, *tp);
+            }
+        }
+	break;
+	
+      case MODIFY_EXPR:
+	{
+	  tree arg0 = TREE_OPERAND (t, 0);
+	  tree arg1 = TREE_OPERAND (t, 1);
+
+	  if ((TREE_CODE (arg0) == VAR_DECL
+	       || TREE_CODE (arg0) == PARM_DECL)
+	      && TREE_CODE (arg1) == ADDR_EXPR)
+	    {
+	      arg1 = TREE_OPERAND (arg1, 0);
+	      if (TREE_CODE (arg1) == FUNCTION_DECL)
+		{
+		    cgraph_indirect_assign_edge (data, arg0, arg1);
+		    cgraph_mark_needed_node (cgraph_node (arg1));
+		    *walk_subtrees = 0; 
+		}
+	    }
+	}
 	break;
 
       case STATEMENT_LIST:

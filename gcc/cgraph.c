@@ -213,6 +213,161 @@ cgraph_edge (struct cgraph_node *node, tree call_expr)
   return e;
 }
 
+/* Create a cgraph edge for an indirect call.  Attach the edge to the
+   caller.  */
+
+static struct cgraph_edge *
+cgraph_create_indirect_edge (struct cgraph_node *caller, 
+			     tree indirect_callee, tree call_expr,
+			     tree fn_decl)
+{
+  struct cgraph_edge *edge =  ggc_alloc (sizeof (struct cgraph_edge));
+
+  edge->inline_failed = N_("indirect call not inlinable");
+  edge->aux = NULL;
+  edge->caller = caller;
+  edge->callee = NULL;
+  edge->next_caller = NULL;
+  edge->next_callee = NULL;
+  edge->call_expr = call_expr;
+  edge->count = caller->current_basic_block ?
+    caller->current_basic_block->count : 0;
+	  
+  INDIRECT_CALL_VAR (edge) = indirect_callee;
+  if (fn_decl)
+    INDIRECT_CALLED_FNS (edge) = build_tree_list (NULL_TREE, fn_decl);
+  else
+    INDIRECT_CALLED_FNS (edge) = NULL;
+
+  NEXT_INDIRECT_CALL (edge) = INDIRECT_CALLS (caller);
+  INDIRECT_CALLS (caller) = edge;
+
+  return edge;
+}
+
+/* Unlike normal function calls, indirect function calls usually have
+   two parts: the assignment to the variable of the function to be called;
+   and the call made through the variable.  Therefore there are two separate 
+   corresponding functions for adding indirect function call data to the 
+   callgraph.
+
+   This function is called when an indirect function call is
+   encountered (one made through a variable).  It checks the list of
+   indirect calls currently attached to the caller, and looks for one
+   that uses the INDIRECT_CALLEE as the variable, but which has a blank
+   call_expr (i.e. no call site yet encountered).  If it finds such an
+   edge, it fills in the call_expr.  If there is an edge for INDIRECT_CALLEE,
+   but which already has a call site, assume this is a different call, so
+   create a new edge with CALL_EXPR as its call site, but copy the list
+   of potentially called functions (based on previously encountered assignments
+   to the variable) from the previous edge for INDIRECT_CALLEE.  If there
+   is no edge yet for INDIRECT_CALLEE (which can occur for calls through
+   parameter decls), create a new edge for INDIRECT_CALLEE with a blank
+   function list, and fill in the call site with CALL_EXPR.  */
+
+struct cgraph_edge *
+cgraph_indirect_call_edge (struct cgraph_node *caller,
+			   tree indirect_callee, tree call_expr)
+{
+  struct cgraph_edge *ind_calls = INDIRECT_CALLS (caller);
+  struct cgraph_edge *edge = NULL;
+  struct cgraph_edge *var_edge = NULL;
+
+  if (!call_expr || TREE_CODE (call_expr) != CALL_EXPR)
+    abort ();
+
+  /* Look through indirect call edges for current variable with blank
+     call site.  If no such edge exists, create new edge, otherwise
+     fill in call site.  */
+
+  for ( ; ind_calls && !edge; 
+	ind_calls = NEXT_INDIRECT_CALL (ind_calls))
+    {
+      tree ind_call_var = INDIRECT_CALL_VAR (ind_calls);
+      if (ind_call_var == indirect_callee)
+	{
+	  if (!ind_calls->call_expr)
+	    {
+	      ind_calls->call_expr = call_expr;
+	      edge = ind_calls;
+	    }
+	  else
+	    var_edge = ind_calls;
+	}
+    }
+
+  if (!edge)
+    {
+      edge = cgraph_create_indirect_edge (caller, indirect_callee,
+					  call_expr, NULL);
+      
+      /* If we found an existing edge for the same varible, but with
+	 call site filled in,  copy potential functions called from
+	 existing edge to new edge.  */
+      
+      if (var_edge)
+	INDIRECT_CALLED_FNS (edge) = INDIRECT_CALLED_FNS (var_edge);
+    }
+
+  return edge;
+}
+
+/* Unlike normal function calls, indirect function calls usually have
+   two parts: the assignment to the variable of the function to be called;
+   and the call made through the variable.  Therefore there are two separate 
+   corresponding functions for adding indirect function call data to the 
+   callgraph.
+
+   This function is called when an assignment of a function to a variable
+   or parameter is encountered.  It checks the list of indirect calls currently 
+   attached to the caller (if any), and looks for one that uses the 
+   INDIRECT_CALLEE as the variable, and a blank call site.  If it finds such an
+   edge, it adds FN_DECL to the list of potentially called functions.
+   Otherwise it creates a new edge.  */
+
+struct cgraph_edge *
+cgraph_indirect_assign_edge (struct cgraph_node *caller,
+			     tree indirect_callee, tree fn_decl)
+{
+  struct cgraph_edge *ind_calls = INDIRECT_CALLS (caller);
+  struct cgraph_edge *edge = NULL;
+
+  if (!fn_decl || TREE_CODE (fn_decl) != FUNCTION_DECL)
+    abort ();
+     
+  if (! INDIRECT_CALLS (caller))
+    edge = cgraph_create_indirect_edge (caller, indirect_callee, 
+					NULL, fn_decl);
+  else
+    {
+      /* Look through indirect calls for current variable with blank
+	 call site.  */
+      
+      for ( ; ind_calls && !edge; 
+	    ind_calls = NEXT_INDIRECT_CALL (ind_calls))
+	{
+	  tree ind_call_var = INDIRECT_CALL_VAR (ind_calls);
+	  if (ind_call_var == indirect_callee
+	      && !ind_calls->call_expr)
+	    {
+	      /* Edge already exists, so just add fn_decl to list.  */
+	      
+	      tree fn_list = INDIRECT_CALLED_FNS (ind_calls);
+	      tree new_list = build_tree_list (NULL_TREE, fn_decl);
+	      INDIRECT_CALLED_FNS (ind_calls) = chainon (new_list,
+							 fn_list);
+	      edge = ind_calls;  /* "edge" gets returned.  */
+	    }
+	}
+
+      if (!edge)
+	edge = cgraph_create_indirect_edge (caller, indirect_callee,
+					    NULL, fn_decl);
+    }
+
+  return edge;
+ }
+
 /* Create edge from CALLER to CALLEE in the cgraph.  */
 
 struct cgraph_edge *
@@ -245,9 +400,12 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
 
   edge->caller = caller;
   edge->callee = callee;
+  INDIRECT_CALL_VAR (edge) = NULL;
+  INDIRECT_CALLED_FNS (edge) = NULL;
   edge->call_expr = call_expr;
   edge->next_caller = callee->callers;
   edge->next_callee = caller->callees;
+  NEXT_INDIRECT_CALL (edge) = NULL;
   caller->callees = edge;
   callee->callers = edge;
   edge->count = caller->current_basic_block

@@ -1,4 +1,22 @@
-2004-10-15  Caroline Tice <ctice@apple.com>
+2004-10-21  Caroline Tice  <ctice@apple.com>
+
+	* cgraph.c (cgraph_create_indirect_edge) : New function.
+        (cgraph_indirect_call_edge):  New function.
+        (cgraph_indirect_assign_edge):  New function.
+        (cgraph_create_edge):  Initialize indirect function call fields.
+	* cgraph.h (struct cgraph_node):  Add new field, indirect_calls.
+        (struct cgraph_edge):  Add new fields, next_indirect_call, 
+	indirect_call_var, indirect_called_fns.
+        (INDIRECT_CALLS):  New accessor macro.
+        (NEXT_INDIRECT_CALL):  New accessor macro.
+        (INDIRECT_CALL_VAR):  New accessor macro.
+        (INDIRECT_CALLED_FNS):  New accessor macro.
+        (cgraph_indirect_assign_edge): New function declaration.
+        (cgraph_indirect_call_edge): New function declaration.
+	* cgraphunit.c (record_call_1):  Add code for recording indirect 
+	function calls.
+
+2004-10-15  Caroline Tice  <ctice@apple.com>
 
 	Add "global_export" attribute.
 	* c-common.c (handle_global_export_attribute): New function to handle
