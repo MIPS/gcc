@@ -1,5 +1,26 @@
 2004-05-02  Paolo Carlini  <pcarlini@suse.de>
 
+	* src/locale.cc (locale::operator==): Always avoid constructing
+	locale::name(), directly compare pairs of _M_names.
+
+2004-05-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/locale.cc (locale::operator==): When _M_impl == __rhs._M_impl
+	avoid constructing unnecessarily this->name().
+
+2004-05-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/locale.cc (locale::global(const locale&)): Save
+	the name in a temporary.
+
+2004-05-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14071
+	* src/locale.cc (locale::global(const locale&)): Use locale::name()
+	in order to decide whether calling setlocale.
+
+2004-05-02  Paolo Carlini  <pcarlini@suse.de>
+
 	PR libstdc++/15002 (continued)
 	* include/bits/istream.tcc (getline(basic_istream<>&,
 	basic_string<>&, _CharT)): Use a temporary buffer, thus

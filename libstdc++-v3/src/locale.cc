@@ -302,9 +302,16 @@ namespace std
   bool
   locale::operator==(const locale& __rhs) const throw()
   {
-    string __name = this->name();
-    return (_M_impl == __rhs._M_impl 
-	    || (__name != "*" && __name == __rhs.name()));
+    bool __ret = true;
+    if (_M_impl == __rhs._M_impl)
+      ;
+    else if (!std::strcmp(_M_impl->_M_names[0], "*"))
+      __ret = false;
+    else
+      for (size_t __i = 0; __ret && __i < _S_categories_size; ++__i)
+	__ret = !std::strcmp(_M_impl->_M_names[__i],
+			     __rhs._M_impl->_M_names[__i]);
+    return __ret;
   }
 
   const locale&
@@ -323,10 +330,10 @@ namespace std
     _S_initialize();
     _Impl* __old = _S_global;
     __other._M_impl->_M_add_reference();
-    _S_global = __other._M_impl; 
-    if (_S_global->_M_check_same_name() 
-	&& (strcmp(_S_global->_M_names[0], "*") != 0))
-      setlocale(LC_ALL, __other.name().c_str());
+    _S_global = __other._M_impl;
+    const string __other_name = __other.name();
+    if (__other_name != "*")
+      setlocale(LC_ALL, __other_name.c_str());
 
     // Reference count sanity check: one reference removed for the
     // subsition of __other locale, one added by return-by-value. Net
