@@ -308,9 +308,6 @@ extern void c_write_global_declarations (void);
 extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;
 
-/* In c-simplify.c */
-extern void c_genericize (tree);
-
 /* In c-call-graph.c  */
 extern void print_call_graph (FILE*, tree);
 extern void debug_call_graph (tree);

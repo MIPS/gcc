@@ -1,5 +1,10 @@
 2003-09-07  Steven Bosscher  <steven@gcc.gnu.org>
 
+	* c-tree.h: Don't declare c_genericize, it's already
+	declared in c-common.h.
+
+2003-09-07  Steven Bosscher  <steven@gcc.gnu.org>
+
 	Fix PR optimization/12198
 	* tree-cfg.c (value_matches_some_label): Handle integer
 	case ranges.
