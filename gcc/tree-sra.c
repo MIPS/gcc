@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
+#include "bitmap.h"
 
 
 /* Maximum number of fields that a structure should have to be scalarized.
@@ -69,7 +70,6 @@ static void scalarize_modify_expr (block_stmt_iterator *);
 static void scalarize_call_expr (block_stmt_iterator *);
 static void scalarize_asm_expr (block_stmt_iterator *);
 static void scalarize_return_expr (block_stmt_iterator *);
-static void scalarize_tree_list (tree, block_stmt_iterator *);
 
 /* The set of aggregate variables that are candidates for scalarization.  */
 static sbitmap sra_candidates;
@@ -871,10 +871,10 @@ scalarize_modify_expr (block_stmt_iterator *si_p)
 }
 
 
-/* Scalarize structure references in LIST.  */
+/* Scalarize structure references in LIST.  Use DONE to avoid duplicates.  */
 
 static inline void
-scalarize_tree_list (tree list, block_stmt_iterator *si_p)
+scalarize_tree_list (tree list, block_stmt_iterator *si_p, bitmap done)
 {
   tree op;
 
@@ -884,8 +884,13 @@ scalarize_tree_list (tree list, block_stmt_iterator *si_p)
 
       if (is_sra_candidate_decl (arg))
 	{
-	  tree list = create_scalar_copies (arg, arg, FIELD_SCALAR);
-	  bsi_insert_before (si_p, list, BSI_SAME_STMT);
+	  int index = var_ann (arg)->uid;
+	  if (!bitmap_bit_p (done, index))
+	    {
+	      tree list = create_scalar_copies (arg, arg, FIELD_SCALAR);
+	      bsi_insert_before (si_p, list, BSI_SAME_STMT);
+	      bitmap_set_bit (done, index);
+	    }
 	}
       else if (is_sra_candidate_ref (arg, false))
 	{
@@ -903,11 +908,14 @@ scalarize_call_expr (block_stmt_iterator *si_p)
 {
   tree stmt = bsi_stmt (*si_p);
   tree call = (TREE_CODE (stmt) == MODIFY_EXPR) ? TREE_OPERAND (stmt, 1) : stmt;
+  struct bitmap_head_def done_head;
 
   /* First scalarize the arguments.  Order is important, because the copy
      operations for the arguments need to go before the call.
      Scalarization of the return value needs to go after the call.  */
-  scalarize_tree_list (TREE_OPERAND (call, 1), si_p);
+  bitmap_initialize (&done_head, 1);
+  scalarize_tree_list (TREE_OPERAND (call, 1), si_p, &done_head);
+  bitmap_clear (&done_head);
 
   /* Scalarize the return value, if any.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
@@ -934,9 +942,14 @@ static void
 scalarize_asm_expr (block_stmt_iterator *si_p)
 {
   tree stmt = bsi_stmt (*si_p);
+  struct bitmap_head_def done_head;
 
-  scalarize_tree_list (ASM_INPUTS (stmt), si_p);
-  scalarize_tree_list (ASM_OUTPUTS (stmt), si_p);
+  bitmap_initialize (&done_head, 1);
+  scalarize_tree_list (ASM_INPUTS (stmt), si_p, &done_head);
+  scalarize_tree_list (ASM_OUTPUTS (stmt), si_p, &done_head);
+  bitmap_clear (&done_head);
+
+  /* ??? Process outputs after the asm.  */
 }
 
 
@@ -977,7 +990,12 @@ scalarize_return_expr (block_stmt_iterator *si_p)
 
       /* Handle 'return CALL_EXPR;'  */
       else if (TREE_CODE (rhs) == CALL_EXPR)
-	scalarize_tree_list (TREE_OPERAND (rhs, 1), si_p);
+	{
+	  struct bitmap_head_def done_head;
+	  bitmap_initialize (&done_head, 1);
+	  scalarize_tree_list (TREE_OPERAND (rhs, 1), si_p, &done_head);
+	  bitmap_clear (&done_head);
+	}
     }
 }
 
