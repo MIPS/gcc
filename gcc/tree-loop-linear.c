@@ -220,26 +220,8 @@ linear_transform_loops (struct loops *loops)
       compute_data_dependences_for_loop (depth, loop_nest,
 					 &datarefs, &dependence_relations);
       if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  unsigned int j;
-	  for (j = 0; j < VARRAY_ACTIVE_SIZE (dependence_relations); j++)
-	    {
-	      struct data_dependence_relation *ddr = 
-		(struct data_dependence_relation *) 
-		VARRAY_GENERIC_PTR (dependence_relations, j);
+	dump_dist_dir_vectors (dump_file, dependence_relations, loops->num);
 
-	      if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
-		{
-		  fprintf (dump_file, "DISTANCE_V (");
-		  print_lambda_vector (dump_file, DDR_DIST_VECT (ddr), loops->num);
-		  fprintf (dump_file, ")\n");
-		  fprintf (dump_file, "DIRECTION_V (");
-		  print_lambda_vector (dump_file, DDR_DIR_VECT (ddr), loops->num);
-		  fprintf (dump_file, ")\n");
-		}
-	    }
-	  fprintf (dump_file, "\n\n");
-	}
       /* Build the transformation matrix.  */
       trans = lambda_trans_matrix_new (depth, depth);
 #if 1

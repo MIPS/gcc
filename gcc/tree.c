@@ -5807,7 +5807,6 @@ int_cst_value (tree x)
 tree 
 tree_fold_gcd (tree a, tree b)
 {
-  tree a_mod_b;
   tree type = TREE_TYPE (a);
   
 #if defined ENABLE_CHECKING
@@ -5832,7 +5831,7 @@ tree_fold_gcd (tree a, tree b)
  
   while (1)
     {
-      a_mod_b = fold (build (CEIL_MOD_EXPR, type, a, b));
+      tree a_mod_b = fold (build (TRUNC_MOD_EXPR, type, a, b));
  
       if (!TREE_INT_CST_LOW (a_mod_b)
 	  && !TREE_INT_CST_HIGH (a_mod_b))

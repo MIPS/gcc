@@ -106,6 +106,10 @@ struct data_dependence_relation
   struct data_reference *a;
   struct data_reference *b;
 
+  /* When the dependence relation is affine, it can be represented by
+     a distance vector.  */
+  bool affine_p;
+
   /* A "yes/no/maybe" field for the dependence relation:
      
      - when "ARE_DEPENDENT == NULL_TREE", there exist a dependence
@@ -133,6 +137,7 @@ struct data_dependence_relation
 
 #define DDR_A(DDR) DDR->a
 #define DDR_B(DDR) DDR->b
+#define DDR_AFFINE_P(DDR) DDR->affine_p
 #define DDR_ARE_DEPENDENT(DDR) DDR->are_dependent
 #define DDR_SUBSCRIPTS(DDR) DDR->subscripts
 #define DDR_SUBSCRIPTS_VECTOR_INIT(DDR, N) \
@@ -153,6 +158,8 @@ extern void compute_data_dependences_for_loop (unsigned, struct loop *,
 extern struct data_reference * init_data_ref (tree, tree, tree, tree, bool);
 extern struct data_reference *analyze_array (tree, tree, bool);
 
+extern void dump_subscript (FILE *, struct subscript *);
+extern void dump_dist_dir_vectors (FILE *, varray_type, unsigned int);
 extern void dump_data_reference (FILE *, struct data_reference *);
 extern void dump_data_references (FILE *, varray_type);
 extern void dump_data_dependence_relation (FILE *, 

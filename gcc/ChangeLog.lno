@@ -1,3 +1,37 @@
+2004-08-19  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (tree-ssa-loop-manip.o): Depend on $(SCEV_H)
+	instead of tree-scalar-evolution.h.
+	* tree-data-ref.c (array_base_name_differ_p): Remove useless
+	initialization.
+	(tree_fold_bezout): Removed.
+	(dump_subscript): New.
+	(dump_data_dependence_relation): Use dump_subscript.
+	(dump_dist_dir_vectors): New.
+	(initialize_data_dependence_relation): Initialize DDR_AFFINE_P.
+	(non_affine_dependence_relation): New.
+	(analyze_subscript_affine_affine): Use lambda_matrix_right_hermite 
+	instead of tree_fold_bezout.  Add some more comments.  
+	(analyze_siv_subscript): Pass to analyze_subscript_affine_affine not
+	only univariate dependence relations, but also multivariate ones.
+	(analyze_miv_subscript): Same.  Add more comments.
+	(undetermined_conflicts_p, no_conflicts_p): New; in use...
+	(subscript_dependence_tester): ...here.
+	(build_classic_dist_vector, build_classic_dir_vector): Use
+	non_affine_dependence_relation for classifying relations that
+	cannot be represented as distance vectors.
+	(analyze_all_data_dependences): Use dump_dist_dir_vectors.
+	Restructure the dumping.
+	* tree-data-ref.h (data_dependence_relation): Add a boolean
+	field affine_p.
+	(DDR_AFFINE_P): And its accessor.
+	(dump_subscript, dump_dist_dir_vectors): Declared here.
+	* tree-loop-linear.c (linear_transform_loops): Use 
+	dump_dist_dir_vectors.
+	* tree-scalar-evolution.h: Include tree-chrec.h.
+	* tree.c (tree_fold_gcd): Use TRUNC_MOD_EXPR for computing the
+	modulo operation with C semantics.
+
 2004-08-15  Ira Rosen <irar@il.ibm.com>
 
 	* tree-vectorizer.h (stmt_vec_info): Add vect_dr_base field.
