@@ -1,3 +1,7 @@
+2004-02-29  Andreas Jaeger  <aj@suse.de>
+
+	* libcompat/radix-tree.c: Include <stdlib.h> for calloc.
+
 2004-02-03  Daniel Berlin  <dberlin@dberlin.org>
 	
 	Fix PR other/12220
