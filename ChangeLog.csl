@@ -1,3 +1,8 @@
+2005-03-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config.gcc: Consistently use solaris2.1[0-9]* instead of
+	solaris2.1[0-9].
+
 2004-11-17  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/cp/g++spec.c (lang_specific_driver): Add a -R option if
