@@ -1,3 +1,17 @@
+2004-04-02  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkMenuItemPeer.java
+	(GtkMenuItemPeer): Only connect signals if this isn't a Menu peer.
+	* java/awt/Component.java
+	(add): Set the parent of the popup as this component.
+	* java/awt/PopupMenu.java
+	(addNotify): Create popup menu when peer is null.
+	(show): Call addNotify() if peer is null.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkPopupMenuPeer_show): Set the button
+	argument for gtk_menu_popup() as zero. This causes the popup menu to
+	respond to any mouse button.
+
 2004-03-31  Olga Rodimina  <rodimina@redhat.com>
 
 	* Makefile.am: Added new file.

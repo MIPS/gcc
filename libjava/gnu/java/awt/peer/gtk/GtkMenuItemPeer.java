@@ -59,7 +59,7 @@ public class GtkMenuItemPeer extends GtkMenuComponentPeer
     setEnabled (item.isEnabled ());
     setParent (item);
 
-    if (item.getParent() instanceof Menu)
+    if (item.getParent() instanceof Menu && ! (item instanceof Menu))
       connectSignals();
   }
 
