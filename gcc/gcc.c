@@ -1259,6 +1259,10 @@ translate_options (argcp, argvp)
 	    nskip += 1;
 	  else if (! strcmp (p, "Xlinker"))
 	    nskip += 1;
+	  else if (! strcmp (p, "Xpreprocessor"))
+	    nskip += 1;
+	  else if (! strcmp (p, "Xassembler"))
+	    nskip += 1;
 
 	  /* Watch out for an option at the end of the command line that
 	     is missing arguments, and avoid skipping past the end of the
@@ -3182,6 +3186,8 @@ display_help ()
   fputs (_("  -Wa,<options>            Pass comma-separated <options> on to the assembler\n"), stdout);
   fputs (_("  -Wp,<options>            Pass comma-separated <options> on to the preprocessor\n"), stdout);
   fputs (_("  -Wl,<options>            Pass comma-separated <options> on to the linker\n"), stdout);
+  fputs (_("  -Xassembler <arg>        Pass <arg> on to the assembler\n"), stdout);
+  fputs (_("  -Xpreprocessor <arg>     Pass <arg> on to the preprocessor\n"), stdout);
   fputs (_("  -Xlinker <arg>           Pass <arg> on to the linker\n"), stdout);
   fputs (_("  -save-temps              Do not delete intermediate files\n"), stdout);
   fputs (_("  -pipe                    Use pipes rather than intermediate files\n"), stdout);
@@ -3647,6 +3653,20 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  n_infiles++;
 	  i++;
 	}
+      else if (strcmp (argv[i], "-Xpreprocessor") == 0)
+	{
+	  if (i + 1 == argc)
+	    fatal ("argument to `-Xpreprocessor' is missing");
+
+	  add_preprocessor_option (argv[i+1], strlen (argv[i+1]));
+	}
+      else if (strcmp (argv[i], "-Xassembler") == 0)
+	{
+	  if (i + 1 == argc)
+	    fatal ("argument to `-Xassembler' is missing");
+
+	  add_assembler_option (argv[i+1], strlen (argv[i+1]));
+	}
       else if (strcmp (argv[i], "-l") == 0)
 	{
 	  if (i + 1 == argc)
@@ -4070,6 +4090,16 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  infiles[n_infiles++].name = argv[i] + prev;
 	}
       else if (strcmp (argv[i], "-Xlinker") == 0)
+	{
+	  infiles[n_infiles].language = "*";
+	  infiles[n_infiles++].name = argv[++i];
+	}
+      else if (strcmp (argv[i], "-Xassembler") == 0)
+	{
+	  infiles[n_infiles].language = "*";
+	  infiles[n_infiles++].name = argv[++i];
+	}
+      else if (strcmp (argv[i], "-Xpreprocessor") == 0)
 	{
 	  infiles[n_infiles].language = "*";
 	  infiles[n_infiles++].name = argv[++i];

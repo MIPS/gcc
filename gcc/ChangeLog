@@ -1,3 +1,8 @@
+2002-11-12  Devang Patel <dpatel@apple.com>
+	*gcc.c (display_help): Two new options -Xpreprocessor and -Xassembler.
+	(process_command): Same.
+	*doc/invoke.texi: Info about these two new options.
+	
 2002-11-09  Zack Weinberg  <zack@codesourcery.com>
 
 	* doc/install.texi: Add *-*-vxworks* specific installation
