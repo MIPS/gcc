@@ -443,6 +443,7 @@ extern const char *progname;
 #define NODE_DIAGNOSTIC (1 << 3)	/* Possible diagnostic when lexed.  */
 #define NODE_WARN	(1 << 4)	/* Warn if redefined or undefined.  */
 #define NODE_DISABLED	(1 << 5)	/* A disabled macro.  */
+#define NODE_MACRO_ARG	(1 << 6)	/* Used during #define processing. */
 
 /* Different flavors of hash node.  */
 enum node_type
@@ -477,18 +478,18 @@ enum builtin_type
 struct cpp_hashnode
 {
   struct ht_identifier ident;
-  unsigned short arg_index;		/* Macro argument index.  */
-  unsigned char directive_index;	/* Index into directive table.  */
+  char directive_index;			/* Index into directive table.
+					   If negative, a NODE_OPERATOR. */
   unsigned char rid_code;		/* Rid code - for front ends.  */
   ENUM_BITFIELD(node_type) type : 8;	/* CPP node type.  */
   unsigned char flags;			/* CPP flags.  */
 
-  union
+  union _cpp_hashnode_value
   {
     cpp_macro *macro;			/* If a macro.  */
     struct answer *answers;		/* Answers to an assertion.  */
-    enum cpp_ttype operator;		/* Code for a named operator.  */
     enum builtin_type builtin;		/* Code for a builtin macro.  */
+    unsigned short arg_index;		/* Macro argument index.  */
   } value;
 };
 

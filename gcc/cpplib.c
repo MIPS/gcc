@@ -366,7 +366,7 @@ _cpp_handle_directive (pfile, indented)
 
   if (dname->type == CPP_NAME)
     {
-      if (dname->val.node->directive_index)
+      if (dname->val.node->directive_index > 0)
 	dir = &dtable[dname->val.node->directive_index - 1];
     }
   /* We do not recognize the # followed by a number extension in

@@ -1073,7 +1073,7 @@ _cpp_lex_direct (pfile)
       if (result->val.node->flags & NODE_OPERATOR)
 	{
 	  result->flags |= NAMED_OP;
-	  result->type = result->val.node->value.operator;
+	  result->type = - result->val.node->directive_index;
 	}
       break;
 

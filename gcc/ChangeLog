@@ -1,5 +1,21 @@
 2002-12-06  Per Bothner  <pbothner@apple.com>
 
+	* cpplib.h (NODE_MACRO_ARG):  New flag.
+	(struct cpp_hashnode):  Give _cpp_hashnode_value tag to value union.
+	Remove value.operator field.  Move arg_index field to value union.
+	(directive_index):  Make signed, since also used for C++ operators.
+	* cppmacro.c (_cpp_save_parameter):  Use NODE_MACRO_ARG flag to
+	check for duplicate parameter.  Set NODE_MACRO_ARG flag.
+	Save node->value, and set node->value.arg_index.
+	(_cpp_create_definition):  For each paramater, restore node->value.
+	(lex_expansion_token):  Use NODE_MACRO_ARG flag, and moved arg_index.
+	* cpptrad.c (scan_out_logical_line): Likewise.
+	(scan_out_logical_line): Check for directive > 0.
+	* cpplib.c (cpp_handle_directive):  Likewise.
+	* cpplex.c (_cpp_lex_direct):  Update as value.operator is replaced
+	by negative of directive_index.
+	* cppinit.c (mark_named_operators):  Likewise.
+
 	* hashtable.h (struct ht_identifier):  Swap fields, for better packing.
 
 Thu Dec  5 16:58:25 CET 2002  Jan Hubicka  <jh@suse.cz>
