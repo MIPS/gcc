@@ -1,3 +1,7 @@
+2002-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20021116-1.c: New test.
+
 Tue Sep  3 11:04:26 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 
 	* objc/execute/nil_method-1.m: New testcase.
