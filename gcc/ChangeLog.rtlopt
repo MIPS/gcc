@@ -1,3 +1,19 @@
+2003-04-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.h (iv_simplify_subreg, iv_simplify_rtx): Declare.
+	* cfgloopanal.c (iv_simple_condition_p): Use them.
+	(inverse): Workaround for shifting by size of mode.
+	* loop-iv.c (real_reg_mode, extend_type, determine_real_reg_mode,
+	fill_real_reg_modes): Removed.
+	(iv_simplify_subreg, iv_simplify_rtx): Exported.
+	(compare_with_mode_bounds, iv_simplify_relational): New.
+	(gen_value_at, iv_simplify_plus, iv_simplify_rtx,
+	substitute_into_expr, simulate_set, simplify_iv_using_values,
+	initialize_iv_analysis, finalize_iv_analysis,
+	analyse_induction_variables): Handle subregs differently.
+	* machmode.h (get_mode_bounds): Declare.
+	* stor-layout.c (get_mode_bounds): New.
+
 2003-04-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-iv.c (real_reg_mode, extend_type): New static variables.

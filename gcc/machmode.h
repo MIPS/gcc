@@ -173,5 +173,9 @@ extern enum machine_mode byte_mode;
 extern enum machine_mode word_mode;
 extern enum machine_mode ptr_mode;
 
+/* Return minimum and maximum values for mode.  */
+extern void get_mode_bounds	PARAMS ((enum machine_mode,
+					 int, rtx *, rtx *));
+
 #endif /* ! defined GET_MODE_WIDER_MODE || ! defined GET_MODE_ALIGNMENT
 	  || ! defined GET_CLASS_NARROWEST_MODE */

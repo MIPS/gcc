@@ -833,7 +833,8 @@ inverse (x, mod)
      unsigned HOST_WIDEST_INT x;
      int mod;
 {
-  unsigned HOST_WIDEST_INT mask = ((unsigned HOST_WIDEST_INT) 1 << mod) - 1;
+  unsigned HOST_WIDEST_INT mask =
+	  ((unsigned HOST_WIDEST_INT) 1 << (mod - 1) << 1) - 1;
   unsigned HOST_WIDEST_INT rslt = 1;
   int i;
 
@@ -861,6 +862,7 @@ iv_simple_condition_p (loop, condition, values, desc)
   rtx assumption;
   enum rtx_code cond;
   enum machine_mode mode = GET_MODE (XEXP (condition, 0));
+  enum machine_mode extend_mode;
   rtx mmin, mmax;
   unsigned HOST_WIDEST_INT s, size, d;
   int was_sharp = false;
@@ -868,7 +870,10 @@ iv_simple_condition_p (loop, condition, values, desc)
   /* The meaning of these assumptions is this:
      if !assumptions
        then the rest of information does not have to be valid
-     if noloop_assumptions then the loop does not roll
+     if noloop_assumptions then the loop does not have to roll
+       (but it is only conservative approximation, i.e. it only says that
+       if !noloop_assumptions, then the loop does not end through this
+       condition before niter_expr iterations)
      if infinite then this exit is never used
      */
   desc->assumptions = NULL_RTX;
@@ -881,14 +886,14 @@ iv_simple_condition_p (loop, condition, values, desc)
   if (!scond)
     return false;
 
-  /* The value of VALUE_AT may differ in each iteration, making most of
-     the checks below useless.  */
-  if (expr_mentions_code_p (scond, VALUE_AT))
-    return false;
-
   /* We only handle integers or pointers.  */
   if (GET_MODE_CLASS (mode) != MODE_INT
       && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
+    return false;
+
+  /* The value of VALUE_AT may differ in each iteration, making most of
+     the checks below useless.  */
+  if (expr_mentions_code_p (scond, VALUE_AT))
     return false;
 
   /* The simplification above could have proved that this condition is
@@ -914,6 +919,43 @@ iv_simple_condition_p (loop, condition, values, desc)
 
   op0 = XEXP (scond, 0);
   op1 = XEXP (scond, 1);
+
+  /* If one of the operands is {SIGN,ZERO}_EXTEND, we work in the narrower
+     mode instead.  If the second operand is not either extended in the
+     same way or constant, this may either mean that this exit is actually
+     never taken or that the loop does not roll at all.  */
+  if (GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
+    {
+      extend_mode = GET_MODE (XEXP (op0, 0));
+      if (GET_MODE (op1) != VOIDmode)
+	{
+	  if (GET_CODE (op0) != GET_CODE (op1)
+	      || GET_MODE (XEXP (op1, 0)) != extend_mode)
+	    desc->noloop_assumptions =
+		    alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+	}
+    }
+  else if (GET_CODE (op1) == SIGN_EXTEND || GET_CODE (op1) == ZERO_EXTEND)
+    {
+      extend_mode = GET_MODE (XEXP (op1, 0));
+      if (GET_MODE (op0) != VOIDmode)
+	{
+	  if (GET_CODE (op0) != GET_CODE (op1)
+	      || GET_MODE (XEXP (op0, 0)) != extend_mode)
+	    desc->noloop_assumptions =
+		    alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+	}
+    }
+  else
+    extend_mode = mode;
+
+  if (extend_mode != mode)
+    {
+      op0 = iv_simplify_subreg (op0, mode, extend_mode);
+      op1 = iv_simplify_subreg (op1, mode, extend_mode);
+    }
+  mode = extend_mode;
+
   op0 = simplify_iv_using_values (op0, initial_values [loop->num]);
   op1 = simplify_iv_using_values (op1, initial_values [loop->num]);
   if (!op0 || !op1)
@@ -939,16 +981,7 @@ iv_simple_condition_p (loop, condition, values, desc)
 	return false;
     }
   size = GET_MODE_BITSIZE (mode);
-  if (cond == LE || cond == LT)
-    {
-      mmax = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << (size - 1)) - 1);
-      mmin = GEN_INT (-((unsigned HOST_WIDEST_INT) 1 << (size - 1)));
-    }
-  else
-    {
-      mmax = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << size) - 1);
-      mmin = const0_rtx;
-    }
+  get_mode_bounds (mode, (cond == LE || cond == LT), &mmin, &mmax);
 
   iv_split (op0, &base0, &step0);
   iv_split (op1, &base1, &step1);
@@ -1007,7 +1040,8 @@ iv_simple_condition_p (loop, condition, values, desc)
 			alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
 		return true;
 	      }
-	    base0 = simplify_gen_binary (PLUS, mode, base0, const1_rtx);
+	    base0 = iv_simplify_rtx (gen_rtx_fmt_ee (PLUS, mode,
+						     base0, const1_rtx));
 	  }
 	else
 	  {
@@ -1022,7 +1056,8 @@ iv_simple_condition_p (loop, condition, values, desc)
 			alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
 		return true;
 	      }
-	    base1 = simplify_gen_binary (PLUS, mode, base1, constm1_rtx);
+	    base1 = iv_simplify_rtx (gen_rtx_fmt_ee (PLUS, mode,
+						     base1, constm1_rtx));
 	  }
 	desc->noloop_assumptions =
 		alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
@@ -1066,11 +1101,13 @@ iv_simple_condition_p (loop, condition, values, desc)
      there is not an overflow.  */
   if (cond != NE)
     {
-      step = step0;
-      if (step == const0_rtx)
-	step = simplify_gen_unary (NEG, mode, step1, mode);
-      delta = simplify_gen_binary (MINUS, mode, base1, base0);
-      delta = simplify_gen_binary (UMOD, mode, delta, step);
+      if (step0 == const0_rtx)
+	step = GEN_INT (-INTVAL (step1));
+      else
+	step = step0;
+      delta = gen_rtx_fmt_ee (MINUS, mode, copy_rtx (base1), copy_rtx (base0));
+      delta = gen_rtx_fmt_ee (UMOD, mode, delta, step);
+      delta = iv_simplify_rtx (delta);
       may_xform = const0_rtx;
 
       if (GET_CODE (delta) == CONST_INT)
@@ -1090,79 +1127,70 @@ iv_simple_condition_p (loop, condition, values, desc)
 	    }
 	  else if (step0 == const0_rtx)
 	    {
-	      bound = simplify_gen_binary (PLUS, mode, mmin, step);
-	      bound = simplify_gen_binary (MINUS, mode, bound, delta);
+	      bound = gen_rtx_fmt_ee (PLUS, mode, mmin, step);
+	      bound = gen_rtx_fmt_ee (MINUS, mode, bound, delta);
+	      bound = iv_simplify_rtx (bound);
 	      may_xform = simplify_gen_relational (cond, SImode, mode,
-						   bound, base0);
+						   bound, copy_rtx (base0));
 	    }
 	  else
 	    {
-	      bound = simplify_gen_binary (MINUS, mode, mmax, step);
-	      bound = simplify_gen_binary (PLUS, mode, bound, delta);
+	      bound = gen_rtx_fmt_ee (MINUS, mode, mmax, step);
+	      bound = gen_rtx_fmt_ee (PLUS, mode, bound, delta);
+	      bound = iv_simplify_rtx (bound);
 	      may_xform = simplify_gen_relational (cond, SImode, mode,
-						   base1, bound);
+						   copy_rtx (base1), bound);
 	    }
 	}
-      if (may_xform == const_true_rtx)
+
+      if (may_xform != const0_rtx)
 	{
+	  /* We perform the transformation always provided that it is not
+	     completely senseless.  This is OK, as we would need this assumption
+	     to determine the number of iterations anyway.  */
+	  if (may_xform != const_true_rtx)
+	    desc->assumptions = alloc_EXPR_LIST (0, may_xform,
+						 desc->assumptions);
 	  assumption = simplify_gen_relational (reverse_condition (cond),
 						SImode, mode,
-						base0, base1),
+						copy_rtx (base0),
+						copy_rtx (base1)),
 	  desc->noloop_assumptions =
 		  alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
 	  cond = NE;
 
 	  if (step0 == const0_rtx)
 	    {
-	      base0 = simplify_gen_binary (PLUS, mode, base0, delta);
-	      base0 = simplify_gen_binary (MINUS, mode, base0, step);
+	      base0 = gen_rtx_fmt_ee (PLUS, mode, base0, delta);
+	      base0 = gen_rtx_fmt_ee (MINUS, mode, base0, step);
+	      base0 = iv_simplify_rtx (base0);
 	    }
 	  else
 	    {
-	      base1 = simplify_gen_binary (MINUS, mode, base1, delta);
-	      base1 = simplify_gen_binary (PLUS, mode, base1, step);
+	      base1 = gen_rtx_fmt_ee (MINUS, mode, base1, delta);
+	      base1 = gen_rtx_fmt_ee (PLUS, mode, base1, step);
+	      base1 = iv_simplify_rtx (base1);
 	    }
 	}
     }
 
-  if (step0 == const0_rtx)
-    {
-      /* We would like to have number of iteration on left side of conditional.
-	 This is safe with NE, but unsafe with LE/LEU. If we want to transform
-	 a <= b - s * i into a + s * i <= b, we must know that
-	 a >= mmin + s and b <= mmax - s.  */
-      step0 = simplify_gen_unary (NEG, mode, step1, mode);
-      step1 = const0_rtx;
-      if (cond != NE)
-	{
-	  bound = simplify_gen_binary (PLUS, mode, mmin, step0);
-	  assumption = simplify_gen_relational (cond, SImode, mode,
-						bound, base0);
-	  desc->assumptions =
-		  alloc_EXPR_LIST (0, assumption, desc->assumptions);
-	  bound = simplify_gen_binary (MINUS, mode, mmax, step0);
-	  assumption = simplify_gen_relational (cond, SImode, mode,
-						base1, bound);
-	  desc->assumptions =
-		  alloc_EXPR_LIST (0, assumption, desc->assumptions);
-	}
-    }
-
-  /* Now the condition is in form a + s * i <cond> b.  Count the number of
-     iterations.  */
+  /* Count the number of iterations.  */
   if (cond == NE)
     {
       /* Everything we do here is just arithmetics modulo size of mode.  This
 	 makes us able to do more involved computations of number of iterations
 	 than in other cases.  First transform the condition into shape
 	 s * i <> c, with s positive.  */
-      base1 = simplify_gen_binary (MINUS, mode, base1, base0);
+      base1 = gen_rtx_fmt_ee (MINUS, mode, base1, base0);
       base0 = const0_rtx;
+      step0 = simplify_gen_binary (MINUS, mode, step0, step1);
+      step1 = const0_rtx;
       if (INTVAL (step0) < 0)
 	{
 	  step0 = simplify_gen_unary (NEG, mode, step0, mode);
-	  base1 = simplify_gen_unary (NEG, mode, base1, mode);
+	  base1 = gen_rtx_fmt_e (NEG, mode, base1);
 	}
+      base1 = iv_simplify_rtx (base1);
 
       /* Let nsd (s, size of mode) = d.  If d does not divide c, the loop
 	 is infinite.  Otherwise, the number of iterations is
@@ -1174,33 +1202,58 @@ iv_simple_condition_p (loop, condition, values, desc)
 	  d *= 2;
 	  size--;
 	}
-      bound = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << size) - 1);
-      tmp = simplify_gen_binary (UMOD, mode, base1, GEN_INT (d));
+      bound = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << (size - 1 ) << 1) - 1);
+      tmp = iv_simplify_rtx (gen_rtx_fmt_ee (UMOD, mode,
+					     copy_rtx (base1),
+					     GEN_INT (d)));
       desc->infinite = simplify_gen_relational (NE, SImode, mode,
 						tmp, const0_rtx);
-      tmp = simplify_gen_binary (UDIV, mode, base1, GEN_INT (d));
-      tmp = simplify_gen_binary (MULT, mode,
-				 tmp, GEN_INT (inverse (s, size)));
-      desc->niter_expr = simplify_gen_binary (AND, mode, tmp, bound);
+      tmp = gen_rtx_fmt_ee (UDIV, mode, base1, GEN_INT (d));
+      tmp = gen_rtx_fmt_ee (MULT, mode,
+			    tmp, GEN_INT (inverse (s, size)));
+      desc->niter_expr = iv_simplify_rtx (gen_rtx_fmt_ee (AND, mode,
+							  tmp, bound));
     }
   else
     {
-      /* We must know that b + s does not overflow and a <= b and then we
-         can compute number of iterations as (b - a) / s + 1.  */
-      bound = simplify_gen_binary (MINUS, mode, mmax, step0);
-      assumption = simplify_gen_relational (cond, SImode, mode, base1, bound);
-      desc->assumptions =
-	      alloc_EXPR_LIST (0, assumption, desc->assumptions);
+      if (step1 == const0_rtx)
+	/* Condition in shape a + s * i <= b
+	   We must know that b + s does not overflow and a <= b and then we
+	   can compute number of iterations as (b - a) / s + 1.  (It might
+	   seem that we in fact could be more clever about testing the b + s
+	   overflow condition using some information about b - a mod s,
+	   but it was already taken into account during LE -> NE transform).  */
+	{
+	  bound = simplify_gen_binary (MINUS, mode, mmax, step0);
+	  assumption = simplify_gen_relational (cond, SImode, mode,
+						copy_rtx (base1), bound);
+	  desc->assumptions =
+		  alloc_EXPR_LIST (0, assumption, desc->assumptions);
+	  step = step0;
+	}
+      else
+	{
+	  /* Condition in shape a <= b - s * i
+	     We must know that a - s does not overflow and a <= b and then we
+	     can again compute number of iterations as (b - a) / s + 1.  */
+	  bound = simplify_gen_binary (MINUS, mode, mmin, step1);
+	  assumption = simplify_gen_relational (cond, SImode, mode,
+						bound, copy_rtx (base0));
+	  desc->assumptions =
+		  alloc_EXPR_LIST (0, assumption, desc->assumptions);
+	  step = GEN_INT (-INTVAL (step1));
+	}
       assumption = simplify_gen_relational (reverse_condition (cond), SImode,
-					    mode, base0, base1);
+					    mode,
+					    copy_rtx (base0), copy_rtx (base1));
       desc->noloop_assumptions =
 	      alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
-      delta = simplify_gen_binary (MINUS, mode, base1, base0);
-
-      delta = simplify_gen_binary (UDIV, mode, delta, step0);
-      desc->niter_expr = simplify_gen_binary (PLUS, mode, delta, const1_rtx);
+      delta = gen_rtx_fmt_ee (MINUS, mode, base1, base0);
+      delta = gen_rtx_fmt_ee (UDIV, mode, delta, step);
+      delta = gen_rtx_fmt_ee (PLUS, mode, delta, const1_rtx);
+      desc->niter_expr = iv_simplify_rtx (delta);
     }
-      
+
   /* Attempt to make all the assumptions and other expressions simpler using
      the possible knowledge of initial values of the registers.  */
   if (desc->assumptions)

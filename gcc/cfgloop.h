@@ -380,6 +380,9 @@ extern rtx get_def_value		PARAMS ((rtx, unsigned));
 extern rtx get_use_value		PARAMS ((rtx, unsigned));
 
 extern rtx substitute_into_expr		PARAMS ((rtx, rtx *, int));
+extern rtx iv_simplify_subreg		PARAMS ((rtx, enum machine_mode,
+						 enum machine_mode));
+extern rtx iv_simplify_rtx		PARAMS ((rtx));
 extern rtx simplify_iv_using_values	PARAMS ((rtx, rtx *));
 extern rtx iv_simplify_using_initial_values PARAMS ((enum rtx_code, rtx,
 						     struct loop *));

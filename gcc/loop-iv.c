@@ -93,14 +93,6 @@ static rtx iteration_rtx[NUM_MACHINE_MODES];
 static sbitmap suitable_code;		/* Bitmap of rtl codes we are able
 					   to handle.  */
 
-/* A widest mode in that register operates.  This is always at most as wide
-   as its declared machine mode, but it may be shorter if the values that
-   are assigned to it go through {ZERO,SIGN}_EXTEND of shorter mode or
-   are constants that fit into that mode.  */
-
-static enum machine_mode *real_reg_mode;
-static enum rtx_code *extend_type;
-
 #define good_constant_p(EXPR) \
   (GET_CODE (EXPR) == CONST_INT \
    || GET_CODE (EXPR) == SYMBOL_REF)
@@ -122,9 +114,11 @@ static rtx iv_simplify_mult		PARAMS ((rtx));
 static bool combine_constants		PARAMS ((rtx, rtx, enum machine_mode,
 						 rtx *));
 static rtx iv_simplify_plus		PARAMS ((rtx));
-static rtx iv_simplify_rtx		PARAMS ((rtx));
-static rtx iv_simplify_subreg		PARAMS ((rtx, enum machine_mode,
+static rtx compare_with_mode_bounds	PARAMS ((enum rtx_code,
+						 rtx,
+						 enum machine_mode,
 						 enum machine_mode));
+static rtx iv_simplify_relational	PARAMS ((rtx, enum machine_mode));
 static void simplify_ivs_using_values	PARAMS ((rtx *, rtx *));
 static void clear_reg_values		PARAMS ((rtx));
 static rtx earliest_value_at_for	PARAMS ((basic_block, int));
@@ -137,8 +131,6 @@ static void simplify_register_values	PARAMS ((void));
 static void compute_loop_end_values	PARAMS ((struct loop *, rtx *));
 static void compute_initial_values	PARAMS ((struct loop *));
 static void fill_loop_rd_in_for_def	PARAMS ((struct ref *));
-static void determine_real_reg_mode	PARAMS ((rtx, rtx, void *));
-static void fill_real_reg_modes		PARAMS ((void));
 extern void dump_equations		PARAMS ((FILE *, rtx *));
 extern void dump_insn_ivs		PARAMS ((FILE *, rtx));
 
@@ -235,7 +227,7 @@ gen_value_at (regno, insn, after)
     place_number = INSN_UID (NEXT_INSN (insn));
   else
     place_number = -INSN_UID (insn);
-  return gen_rtx_fmt_ii (VALUE_AT, real_reg_mode[regno], regno,
+  return gen_rtx_fmt_ii (VALUE_AT, GET_MODE (regno_reg_rtx[regno]), regno,
 			 place_number);
 }
 
@@ -753,7 +745,7 @@ iv_simplify_plus (expr)
 
 /* Tries to simplify MODE subreg of EXPR of mode EXPR_MODE (important for
    constants).  The simplification is done in place.  */
-static rtx
+rtx
 iv_simplify_subreg (expr, expr_mode, mode)
      rtx expr;
      enum machine_mode expr_mode;
@@ -804,11 +796,148 @@ iv_simplify_subreg (expr, expr_mode, mode)
   return gen_rtx_fmt_ei (SUBREG, mode, expr, 0);
 }
 
+/* Return const0_rtx if the comparison CODE with constant argument PAR is
+   always false for operand in INNER_MODE extended to MODE, if the PAR is
+   on right side.  If it is always true, return const_true_rtx.  Otherwise
+   return NULL.  */
+static rtx
+compare_with_mode_bounds (code, par, mode, inner_mode)
+     enum rtx_code code;
+     rtx par;
+     enum machine_mode mode;
+     enum machine_mode inner_mode;
+{
+  rtx mmin, mmax, rlow, rhigh;
+  int sign;
+
+  switch (code)
+    {
+    case LTU:
+    case GTU:
+    case LEU:
+    case GEU:
+      sign = 0;
+    default:
+      sign = 1;
+    }
+  get_mode_bounds (inner_mode, sign, &mmin, &mmax);
+  switch (code)
+    {
+    case EQ:
+      if (simplify_gen_relational (LT, SImode, mode,
+				   par, mmin) == const_true_rtx
+	  || simplify_gen_relational (GT, SImode, mode,
+				      par, mmax) == const_true_rtx)
+	return const0_rtx;
+      break;
+    case NE:
+      if (simplify_gen_relational (LT, SImode, mode,
+				   par, mmin) == const_true_rtx
+	  || simplify_gen_relational (GT, SImode, mode,
+				      par, mmax) == const_true_rtx)
+	return const_true_rtx;
+      break;
+      
+    default:
+      rlow = simplify_gen_relational (code, SImode, mode, par, mmin);
+      rhigh = simplify_gen_relational (code, SImode, mode, par, mmax);
+      if (rlow == rhigh)
+	return rlow;
+    }
+
+  return NULL_RTX;
+}
+
+/* Attempt to simplify relational expression EXPR, whose operands are
+   in mode INNER_MODE.  The simplification is done in place.  */
+static rtx
+iv_simplify_relational (expr, inner_mode)
+     rtx expr;
+     enum machine_mode inner_mode;
+{
+  rtx left, right, comp;
+  enum rtx_code code, left_code, right_code, extend;
+  enum machine_mode result_mode, extended_mode;
+
+  /* If one of operands of comparison is {sign,zero}_extend and the other
+     one is either constant or the same extend, we simplify them to work
+     on the inner mode of extend instead.  */
+
+  if (GET_MODE_CLASS (inner_mode) != MODE_INT
+      && GET_MODE_CLASS (inner_mode) != MODE_PARTIAL_INT)
+    return expr;
+
+  code = GET_CODE (expr);
+  if (!TEST_BIT (suitable_code, code))
+      return NULL_RTX;
+  result_mode = GET_MODE (expr);
+  left = XEXP (expr, 0);
+  left_code = GET_CODE (left);
+  right = XEXP (expr, 1);
+  right_code = GET_CODE (right);
+
+  switch (left_code)
+    {
+    case CONST_INT:
+      extend = NIL;
+      extended_mode = VOIDmode;
+      break;
+
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      extend = left_code;
+      extended_mode = GET_MODE (XEXP (left, 0));
+      break;
+
+    default:
+     return expr; 
+    }
+
+  switch (right_code)
+    {
+    case CONST_INT:
+      if (extend == NIL)
+	return simplify_gen_relational (code, result_mode, VOIDmode,
+					left, right);
+      comp = compare_with_mode_bounds (swap_condition (code),
+				       right, inner_mode, extended_mode);
+      if (comp)
+	return comp;
+      XEXP (expr, 0) = XEXP (left, 0);
+      return expr;
+
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      if (extend == NIL)
+	{
+	  extended_mode = GET_MODE (XEXP (right, 0));
+	  comp = compare_with_mode_bounds (code, left,
+					   inner_mode, extended_mode);
+	  if (comp)
+	    return comp;
+	  XEXP (expr, 1) = XEXP (right, 0);
+	  return expr;
+	}
+
+      if (extend != right_code
+	  || extended_mode != GET_MODE (XEXP (right, 0)))
+	return expr;
+      break;
+
+    default:
+     return expr; 
+    }
+
+  XEXP (expr, 0) = XEXP (left, 0);
+  XEXP (expr, 1) = XEXP (right, 0);
+  return expr;
+}
+
 /* Attempt to bring EXPR into canonical shape described below.  It would
    be nice if we could use simplify_rtx for it; but it is too low level
    for our purposes, and does basically the reverse of transformations
    we want.  The simplification is partly done in-place.  */
-static rtx
+rtx
 iv_simplify_rtx (expr)
      rtx expr;
 {
@@ -831,7 +960,9 @@ iv_simplify_rtx (expr)
      Operands to commutative operations and comparisons are ordered
      according to iv_compare_rtx inside whatevers.  The list of mexp
      operands in expr, as well as list of whatever operands in mexp
-     is in this order as well.  */
+     is in this order as well.
+     
+     We do also a few other optimizations on subregs and extends.  */
 
   /* Do some canonicalization.  */
   code = GET_CODE (expr);
@@ -889,6 +1020,14 @@ iv_simplify_rtx (expr)
     }
   code = GET_CODE (expr);
 
+  if (GET_RTX_CLASS (code) == '<')
+    {
+      /* Remember the mode of operands, for purposes of constant folding.  */
+      inner_mode = GET_MODE (XEXP (expr, 0));
+      if (inner_mode == VOIDmode)
+	inner_mode = GET_MODE (XEXP (expr, 1));
+    }
+
   /* Simplify subexpressions.  */
   length = GET_RTX_LENGTH (code);
   format = GET_RTX_FORMAT (code);
@@ -936,9 +1075,24 @@ iv_simplify_rtx (expr)
       if (GET_CODE (expr) != SUBREG)
 	expr = iv_simplify_rtx (expr);
       return expr;
-      
-    default: ;
+
+    case DIV:
+    case UDIV:
+      if (XEXP (expr, 1) == const1_rtx)
+	expr = XEXP (expr, 0);
+      break;
+
+    case MOD:
+    case UMOD:
+      if (XEXP (expr, 1) == const1_rtx)
+	expr = const0_rtx;
+      break;
+
+    default:
+      if (GET_RTX_CLASS (code) == '<')
+	expr = iv_simplify_relational (expr, inner_mode);
     }
+  code = GET_CODE (expr);
 
   /* Fold constants.  */
   length = GET_RTX_LENGTH (code);
@@ -968,7 +1122,7 @@ iv_simplify_rtx (expr)
 	  tmp = simplify_gen_unary (code, mode, XEXP (expr, 0), inner_mode);
 	  break;
 	default:
-	  tmp = simplify_rtx (expr);
+	    tmp = simplify_rtx (expr);
 	}
       if (tmp && GET_CODE (tmp) == CONST_INT)
 	return tmp;
@@ -1061,7 +1215,6 @@ substitute_into_expr (expr, substitution, simplify)
   const char *format;
   enum machine_mode mode, inner_mode = VOIDmode;
   enum rtx_code code;
-  int expand_reg_mode = true;
  
   if (!expr)
     return NULL_RTX;
@@ -1073,10 +1226,7 @@ substitute_into_expr (expr, substitution, simplify)
     return NULL_RTX;
 
   if (GET_CODE (expr) == INITIAL_VALUE)
-    {
-      expand_reg_mode = false;
-      expr = XEXP (expr, 0);
-    }
+    expr = XEXP (expr, 0);
 
   code = GET_CODE (expr);
   if (code == REG)
@@ -1089,10 +1239,7 @@ substitute_into_expr (expr, substitution, simplify)
       val = substitution[regno];
       if (!val)
 	return NULL_RTX;
-      else if (expand_reg_mode && mode != real_reg_mode[regno])
-	return gen_rtx_fmt_e (extend_type[regno], mode, copy_rtx (val));
-      else
-	return copy_rtx (val);
+      return copy_rtx (val);
     }
   
   /* Just ignore the codes that do not seem to be good for further
@@ -1324,7 +1471,6 @@ simulate_set (reg, set, data)
   rtx *values = (rtx *) data;
   rtx src, value;
   unsigned regno;
-  enum machine_mode mode;
 
   if (!REG_P (reg))
     return;
@@ -1343,10 +1489,6 @@ simulate_set (reg, set, data)
     }
   if (!value)
     value = gen_value_at (regno, current_insn, true);
-  mode = GET_MODE (value);
-  if (mode == VOIDmode)
-    mode = GET_MODE (regno_reg_rtx[regno]);
-  value = iv_simplify_subreg (value, mode, real_reg_mode[regno]);
   record_def_value (current_insn, regno, value);
 }
 
@@ -1358,13 +1500,20 @@ simplify_iv_using_values (var, initial_values)
      rtx var;
      rtx *initial_values;
 {
-  rtx base, step, sbase, sstep, tmp;
+  rtx base, step, sbase, sstep, wrap = NULL_RTX;
   int changed;
-  enum machine_mode mode = GET_MODE (var);
+  enum machine_mode mode;
 
   if (good_constant_p (var)
       || GET_CODE (var) == VALUE_AT)
     return var;
+
+  if (GET_CODE (var) == SIGN_EXTEND || GET_CODE (var) == ZERO_EXTEND)
+    {
+      wrap = var;
+      var = XEXP (var, 0);
+    }
+  mode = GET_MODE (var);
 
   iv_split (var, &base, &step);
   if (!base)
@@ -1393,18 +1542,22 @@ simplify_iv_using_values (var, initial_values)
   if (changed)
     {
       if (step == const0_rtx)
-	tmp = base;
+	var = base;
       else
 	{
-	  tmp = gen_iteration (mode);
+	  var = gen_iteration (mode);
 	  if (step != const1_rtx)
-	    tmp = gen_rtx_fmt_ee (MULT, mode, step, tmp);
+	    var = gen_rtx_fmt_ee (MULT, mode, step, var);
 	  if (base != const0_rtx)
-	    tmp = gen_rtx_fmt_ee (PLUS, mode, base, tmp);
+	    var = gen_rtx_fmt_ee (PLUS, mode, base, var);
 	}
-      var = tmp;
     }
 
+  if (wrap && GET_MODE (var) == mode)
+    {
+      XEXP (wrap, 0) = var;
+      var = wrap;
+    }
   return var;
 }
 
@@ -1768,84 +1921,6 @@ fill_loop_rd_in_for_def (def)
   free (stack);
 }
 
-/* Called through note_stores from fill_real_reg_modes; determines the
-   shortest possible mode for a register.  */
-static void
-determine_real_reg_mode (reg, set, data)
-     rtx reg;
-     rtx set;
-     void *data ATTRIBUTE_UNUSED;
-{
-  rtx src;
-  unsigned regno;
-  enum machine_mode src_mode, mode;
-  enum mode_class class;
-  enum rtx_code code;
-  int bits;
-  HOST_WIDE_INT value;
-
-  if (!REG_P (reg))
-    return;
-  regno = REGNO (reg);
-
-  if (!TEST_BIT (interesting_reg, regno))
-    return;
-  mode = GET_MODE (regno_reg_rtx[regno]);
-
-  if (GET_CODE (set) == CLOBBER)
-    {
-      /* Clobber can set us to anything.  */
-      src_mode = mode;
-    }
-  else
-    {
-      src = SET_SRC (set);
-      code = GET_CODE (src);
-      if (code == ZERO_EXTEND || code == SIGN_EXTEND)
-	{
-	  if (extend_type[regno] != NIL
-	      && extend_type[regno] != code)
-	    {
-	      src_mode = mode;
-	      extend_type[regno] = NIL;
-	    }
-	  else
-	    {
-	      src_mode = GET_MODE (XEXP (src, 0));
-	      extend_type[regno] = code;
-	    }
-	}
-      else if (code == CONST_INT)
-	{
-	  class = GET_MODE_CLASS (mode);
-	  value = INTVAL (src);
-	  for (bits = 0; value != 0 && value != -1; bits++)
-	    value >>= 1;
-	  src_mode = smallest_mode_for_size (bits, class);
-	}
-      else
-	src_mode = GET_MODE (src);
-    }
-
-  if (real_reg_mode[regno] == VOIDmode
-      || GET_MODE_SIZE (real_reg_mode[regno]) < GET_MODE_SIZE (src_mode))
-    real_reg_mode[regno] = src_mode;
-}
-
-/* Traverse all defs and determine shortest possible modes for registers.  */
-static void
-fill_real_reg_modes ()
-{
-  unsigned i;
-  struct ref *def;
-
-  for (i = 0; i < df->n_defs; i++)
-    {
-      def = df->defs[i];
-      note_stores (PATTERN (def->insn), determine_real_reg_mode, NULL);
-    }
-}
-
 /* Initialize variables used by the analysis.  */
 void
 initialize_iv_analysis (loops)
@@ -1872,8 +1947,6 @@ initialize_iv_analysis (loops)
   max_regno = max_reg_num ();
 
   interesting_reg = sbitmap_alloc (max_regno);
-  real_reg_mode = xmalloc (max_regno * sizeof (enum machine_mode));
-  extend_type = xmalloc (max_regno * sizeof (enum rtx_code));
   sbitmap_zero (interesting_reg);
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
@@ -1881,23 +1954,18 @@ initialize_iv_analysis (loops)
       if (GET_MODE_CLASS (mode) == MODE_INT
 	  || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
 	SET_BIT (interesting_reg, i);
-      real_reg_mode[i] = VOIDmode;
-      extend_type[i] = NIL;
     }
-  fill_real_reg_modes ();
 
   initial_value_rtx = xmalloc (sizeof (rtx) * max_regno);
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
       mode = GET_MODE (regno_reg_rtx[i]);
-      if (mode != real_reg_mode[i] && extend_type[i] == NIL)
-	real_reg_mode[i] = mode;
 
       if (!TEST_BIT (interesting_reg, i))
 	initial_value_rtx[i] = NULL_RTX;
       else
 	initial_value_rtx[i] = gen_rtx_fmt_e (INITIAL_VALUE,
-					      real_reg_mode[i],
+					      GET_MODE (regno_reg_rtx[i]),
 					      regno_reg_rtx[i]);
     }
   for (i = 0; i < NUM_MACHINE_MODES; i++)
@@ -1932,8 +2000,6 @@ finalize_iv_analysis (loops)
   free (iv_register_values);
 
   sbitmap_free (interesting_reg);
-  free (real_reg_mode);
-  free (extend_type);
 
   for (i = 0; i < loops->num; i++)
     if (loops->parray[i])
@@ -2089,7 +2155,9 @@ analyse_induction_variables (loops)
   rtx eq;
   struct loop *loop;
   basic_block bb;
-  rtx insn;
+  rtx insn, value;
+  enum machine_mode mode, extended_mode;
+  enum rtx_code extend;
 
   /* Compute register values in the first iteration.  */
   for (i = 0; i < loops->num; i++)
@@ -2109,16 +2177,48 @@ analyse_induction_variables (loops)
 	continue;
 
       compute_loop_end_values (loop, loop_end_values[i]);
-      EXECUTE_IF_SET_IN_SBITMAP (modified_regs[i], 0, regno,
+/*      EXECUTE_IF_SET_IN_SBITMAP (modified_regs[i], 0, regno,*/
+      for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
 	{
-	  enum machine_mode mode = real_reg_mode[regno];
-	  if (!loop_end_values[i][regno])
+	  if (!TEST_BIT (modified_regs[i], regno))
+	      continue;
+	  value = loop_end_values[i][regno];
+	  if (!value)
 	    eq = NULL_RTX;
 	  else
 	    {
+	      mode = GET_MODE (value);
+	      extend = GET_CODE (value);
+
+	      /* We try to handle induction variables that in fact operate
+		 in different mode than their register modes suggest.  I am
+		 not really 100% sure that what we do here is correct (in
+		 fact I am sure that it is not, just I don't know whether we
+		 ever produce code that could cause us to behave incorrectly).
+
+		 So what we do: if we for example see that from
+		 INITIAL_VALUE:SI we got to SIGN_EXTEND:SI (something:HI),
+		 we check whether something:HI - SUBREG:HI (INITIAL_VALUE:SI, 0)
+		 is constant.  If it is, we assume this is such an induction
+		 variable.  This is almost right, except for that in the
+		 first iteration of the cycle, we did not have to have a value
+		 in range of the narrower mode.  For now we ignore this
+		 possibility; it should be easy to handle if it caused
+		 problems -- we would just have to be a bit more cautious
+		 about this first iteration.  */
+		 
+	      if (extend == SIGN_EXTEND || extend == ZERO_EXTEND)
+		extended_mode = GET_MODE (XEXP (value, 0));
+	      else
+		extended_mode = mode;
 	      eq = gen_rtx_fmt_ee (MINUS, mode,
-				   copy_rtx (loop_end_values[i][regno]),
+				   copy_rtx (value),
 				   gen_initial_value (regno));
+	      if (extended_mode != mode)
+		{
+		  eq = gen_rtx_fmt_ei (SUBREG, extended_mode, eq, 0);
+		  eq = gen_rtx_fmt_e (extend, mode, eq);
+		}
 	      eq = iv_simplify_rtx (eq);
 	      if (!invariant_wrto_ivs_p (eq, loop_end_values[i]))
 		eq = NULL_RTX;
@@ -2127,6 +2227,11 @@ analyse_induction_variables (loops)
 		  eq = gen_rtx_fmt_ee (MULT, mode, eq, gen_iteration (mode));
 		  eq = gen_rtx_fmt_ee (PLUS, mode,
 				       gen_initial_value (regno), eq);
+		  if (extended_mode != mode)
+		    {
+		      eq = gen_rtx_fmt_ei (SUBREG, extended_mode, eq, 0);
+		      eq = gen_rtx_fmt_e (extend, mode, eq);
+		    }
 		  eq = iv_simplify_rtx (eq);
 		  if (!eq)
 		    abort ();
@@ -2135,7 +2240,7 @@ analyse_induction_variables (loops)
 	  if (!eq)
 	    eq = gen_value_at (regno, loop->header->head, false);
 	  loop_entry_values[i][regno] = eq;
-	});
+	}/*);*/
     }
 
   /* Compute register values again, now including the ITERATION marks.  */
