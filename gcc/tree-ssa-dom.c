@@ -94,6 +94,8 @@ static tree get_eq_expr_value (tree, int, varray_type *, htab_t);
 static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
+static void record_cond_is_false (tree cond, varray_type *, htab_t);
+static void record_cond_is_true (tree cond, varray_type *, htab_t);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -409,6 +411,33 @@ htab_statistics (FILE *file, htab_t htab)
 	   htab_collisions (htab));
 }
 
+/* Enter a statement into the available expression hash table indicating
+   that the condition COND is true.  */
+
+static void
+record_cond_is_true (tree cond,
+		     varray_type *block_avail_exprs_p,
+		     htab_t const_and_copies)
+{
+  tree stmt;
+
+  stmt = build (MODIFY_EXPR, boolean_type_node, integer_one_node, cond);
+  lookup_avail_expr (stmt, block_avail_exprs_p, const_and_copies);
+}
+
+/* Enter a statement into the available expression hash table indicating
+   that the condition COND is false.  */
+
+static void
+record_cond_is_false (tree cond,
+		      varray_type *block_avail_exprs_p,
+		      htab_t const_and_copies)
+{
+  tree stmt;
+
+  stmt = build (MODIFY_EXPR, boolean_type_node, integer_zero_node, cond);
+  lookup_avail_expr (stmt, block_avail_exprs_p, const_and_copies);
+}
 
 /* Optimize the statement pointed by iterator SI into SSA form. 
    
@@ -504,7 +533,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	       GCC extensions.  */
 	    if (TREE_CODE (val) == SSA_NAME
 		&& !may_propagate_copy (*op_p, val))
-		continue;
+	      continue;
 
 	    /* Gather statistics.  */
 	    if (is_unchanging_value (val) || is_optimizable_addr_expr (val))
@@ -612,6 +641,50 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	      || is_unchanging_value (rhs)
 	      || is_optimizable_addr_expr (rhs))
 	    set_value_for (TREE_OPERAND (stmt, 0), rhs, const_and_copies);
+	}
+    }
+
+  /* If this is an assignment statement, look at both sides for pointer
+     dereferences.
+
+     If a pointer is dereferenced, then we know that the pointer must be
+     nonnull.  In which case we can enter some equivalences into the
+     hash tables.  */
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
+    {
+      int i;
+
+      for (i = 0; i < 2; i++)
+	{
+	  tree t = TREE_OPERAND (stmt, i);
+
+	  /* Strip away any COMPONENT_REFs.  */
+	  while (TREE_CODE (t) == COMPONENT_REF)
+	    t = TREE_OPERAND (t, 0);
+
+	  /* Now see if this is a pointer dereference.  */
+	  if (TREE_CODE (t) == INDIRECT_REF)
+	    {
+	      tree op = TREE_OPERAND (t, 0);
+	      tree cond;
+
+	      /* If the pointer is a SSA variable, then enter new
+		 equivalences into the hash table.  */
+	      if (TREE_CODE (op) == SSA_NAME)
+		{
+		  cond = build (EQ_EXPR, boolean_type_node,
+				op, null_pointer_node);
+		  record_cond_is_false (cond,
+					block_avail_exprs_p,
+					const_and_copies);
+
+		  cond = build (NE_EXPR, boolean_type_node,
+				op, null_pointer_node);
+		  record_cond_is_true (cond,
+				       block_avail_exprs_p,
+				       const_and_copies);
+		}
+	    }
 	}
     }
 
@@ -804,8 +877,6 @@ get_eq_expr_value (tree if_stmt, int true_arm,
      the available expression table.  */
   if (TREE_CODE_CLASS (TREE_CODE (cond)) == '<')
     {
-      tree temp;
-
       /* When we find an available expression in the hash table, we replace
 	 the expression with the LHS of the statement in the hash table.
 
@@ -816,35 +887,17 @@ get_eq_expr_value (tree if_stmt, int true_arm,
 	 condition into the hash table.  */
       if (true_arm)
 	{
-	  /* Insert 1 = cond into the available expression table.  */
-	  temp = build (MODIFY_EXPR, TREE_TYPE (cond),
-			integer_one_node, cond);
-	  temp = lookup_avail_expr (temp,
-				    block_avail_exprs_p,
-				    const_and_copies);
-
-	  /* Insert 0 = cond' into the hash table.  */
-	  temp = build (MODIFY_EXPR, TREE_TYPE (cond),
-			integer_zero_node, invert_truthvalue (cond));
-	  temp = lookup_avail_expr (temp,
-				    block_avail_exprs_p,
-				    const_and_copies);
+	  record_cond_is_true (cond, block_avail_exprs_p, const_and_copies);
+	  record_cond_is_false (invert_truthvalue (cond),
+				block_avail_exprs_p,
+				const_and_copies);
 	}
       else
 	{
-	  /* Insert 1 = cond' into the available expression table.  */
-	  temp = build (MODIFY_EXPR, TREE_TYPE (cond),
-			integer_one_node, invert_truthvalue (cond));
-	  temp = lookup_avail_expr (temp,
-				    block_avail_exprs_p,
-				    const_and_copies);
-
-	  /* Insert 0 = cond into the available expression table.  */
-	  temp = build (MODIFY_EXPR, TREE_TYPE (cond),
-			integer_zero_node, cond);
-	  temp = lookup_avail_expr (temp,
-				    block_avail_exprs_p,
-				    const_and_copies);
+	  record_cond_is_true (invert_truthvalue (cond),
+			       block_avail_exprs_p,
+			       const_and_copies);
+	  record_cond_is_false (cond, block_avail_exprs_p, const_and_copies);
 	}
     }
 

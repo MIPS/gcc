@@ -1,7 +1,19 @@
+2003-07-30  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (bsi_remove): Don't remove a COMPOUND_EXPR with empty
+	arms if the arms are in different basic blocks.
+                                                                                
+	* tree-ssa-dom.c (record_cond_is_false): New function.
+	(record_cond_is_true): Similarly.
+	(get_eq_expr_value): Use record_cond_expr_is_{true,false}.
+	(optimize_stmt): Fix minor formatting issue.  If we encounter an
+	INDIRECT_REF, record that the dereferenced pointer can not be
+	null.
+
 2003-07-30  Daniel Berlin  <dberlin@dberlin.org>
 
-	* tree-dump.c (dump_option_value_in): "all" is now everything but TDF_RAW
-	and TDF_SLIM.
+	* tree-dump.c (dump_option_value_in): "all" is now everything but
+	TDF_RAW and TDF_SLIM.
 
 2003-07-30  Diego Novillo  <dnovillo@redhat.com>
 

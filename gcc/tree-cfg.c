@@ -1988,10 +1988,14 @@ bsi_remove (block_stmt_iterator *i)
     {
       if (TREE_CODE (t) == COMPOUND_EXPR)
 	{
+	  basic_block bb = bb_for_stmt (TREE_OPERAND (t, 0));
+
 	  remove_stmt (&TREE_OPERAND (t, 0));
 
-	  /* If both operands are empty, delete the whole COMPOUND_EXPR.  */
-	  if (IS_EMPTY_STMT (TREE_OPERAND (t, 1)))
+	  /* If both operands are empty and they belong to the same basic
+	     block, then delete the whole COMPOUND_EXPR.  */
+	  if (IS_EMPTY_STMT (TREE_OPERAND (t, 1))
+	      && bb == bb_for_stmt (TREE_OPERAND (t, 1)))
 	    remove_stmt (i->tp);
 	}
       else
