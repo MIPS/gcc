@@ -1,5 +1,75 @@
 2004-08-16  Mark Mitchell  <mark@codesourcery.com>
 
+	Backport:
+	2004-07-26  Niall Douglas  <s_fsfeurope2@nedprod.com>
+		    Brian Ryner  <bryner@brianryner.com>
+	PR c++/9283
+	PR c++/15000
+	* c-common.c (c_common_attribute_table): Allow
+	handle_visibility_attribute to be called for types.
+	(handle_visibility_attribute) When given a type, set the visibility
+	bits on the TYPE_NAME.  When given a decl, don't set no_add_attrs
+	so that we can check later whether the attribute was present. Added
+	warning if attribute applied to non class type.
+	* c-decl.c (diagnose_mismatched_decls): Updated rules for merging
+	decls and checking that they are consistent.
+	* common.opt: Added -fvisibility.
+	* c.opt, c-opts.c: Added -fvisibility-inlines-hidden.
+	* c-pragma.h, c-pragma.c: Added handle_pragma_visibility().
+	* flags.h, tree.h: Added assorted support defines for overall patch
+	* opts.c: Added parsing support for -fvisibility.
+	* tree.c (build_decl): Set visibility for all decls to be whatever
+	is in force at that time.
+	* varasm.c (default_binds_local_p_1): Reworked logic determining
+	when to make a symbol locally bound.
+	* doc/invoke.texi: Added documentation for -fvisibility and
+	-fvisibility-inlines-hidden.
+
+	2004-07-26  Niall Douglas  <s_fsfeurope2@nedprod.com>
+		    Brian Ryner  <bryner@brianryner.com>
+	PR c++/15000
+	PR c++/9283
+	* class.c (check_field_decls): Apply hidden visibility if
+	-fvisibility-inlines-hidden and inlined unless otherwise specified
+	(build_vtable): Set vtable visibility to class visibility.
+	(check_field_decls): Default static member visibility to class
+	visibility.
+	(check_methods): Default method visibility to class visibility.
+	* cp-tree.h: Added CLASSTYPE_VISIBILITY and
+	CLASSTYPE_VISIBILITY_SPECIFIED macro.
+	* decl.c (duplicate_decls): New logic for merging definition decls
+	with declaration decls. Added ignore & warning when non default
+	applied to global operator new or delete.
+	* method.c, optimize.c, rtti.c: Added setting of VISIBILITY_SPECIFIED
+	wherever VISIBILITY was changed
+	* rtti.c (get_tinfo_decl): Set typeinfo visibility to class
+	visibility.
+	(tinfo_base_init): Set typeinfo name visibility to class visibility.
+
+	2004-07-26  Niall Douglas  <s_fsfeurope2@nedprod.com>
+		    Brian Ryner  <bryner@brianryner.com>
+	PR c++/9283
+	PR c++/15000
+	* gcc.dg/visibility-9.c, gcc.dg/visibility-a.c: New tests.
+	* g++.dg/ext/visibility/: New directory.
+	* g++.dg/ext/visibility-1.C, g++.dg/ext/visibility-2.C
+	g++.dg/ext/visibility-3.C, g++.dg/ext/visibility-4.C,
+	g++.dg/ext/visibility-5.C, g++.dg/ext/visibility-6.C,
+	g++.dg/ext/visibility-7.C: Move to g++.dg/ext/visibility/.
+	* g++.dg/ext/visibility/fvisibility.C,
+	g++.dg/ext/visibility/fvisibility-inlines-hidden.C,
+	g++.dg/ext/visibility/fvisibility-override1.C
+	g++.dg/ext/visibility/fvisibility-override2.C
+	g++.dg/ext/visibility/memfuncts.C
+	g++.dg/ext/visibility/noPLT.C
+	g++.dg/ext/visibility/pragma.C
+	g++.dg/ext/visibility/pragma-override1.C
+	g++.dg/ext/visibility/pragma-override2.C
+	g++.dg/ext/visibility/staticmemfuncts.C
+	g++.dg/ext/visibility/virtual.C: New tests.
+
+2004-08-16  Mark Mitchell  <mark@codesourcery.com>
+
 	* cp/decl.c (grokdeclarator): Make sure ctor_return_type is set
 	before calling check_special_function_return_type.  
  
