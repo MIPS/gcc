@@ -289,7 +289,11 @@ wrap_with_wfl (stmt_p)
     /* Put the line note inside the loop, for the benefit of debugging
        and gcov.  */
     stmt_p = &LOOP_EXPR_BODY (*stmt_p);
-  if (TREE_CODE (*stmt_p) != EXPR_WITH_FILE_LOCATION)
+  if (TREE_CODE (*stmt_p) == LABEL_EXPR)
+    /* Don't emit a line note for a label.  We particularly don't want to
+       emit one for the break label, since it doesn't actually correspond
+       to the beginning of the loop/switch.  */;
+  else if (TREE_CODE (*stmt_p) != EXPR_WITH_FILE_LOCATION)
     {
       *stmt_p = build_expr_wfl (*stmt_p, wfl_filename, wfl_lineno, 0);
       EXPR_WFL_EMIT_LINE_NOTE (*stmt_p) = 1;
@@ -616,6 +620,7 @@ begin_bc_block (bc)
      enum bc_t bc;
 {
   tree label = build_decl (LABEL_DECL, ctxp->bc_id[bc], NULL_TREE);
+  DECL_ARTIFICIAL (label) = 1;
   DECL_CONTEXT (label) = current_function_decl;
   TREE_CHAIN (label) = ctxp->current_bc_label;
   ctxp->current_bc_label = label;
