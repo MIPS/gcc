@@ -111,8 +111,6 @@
 	* tree-ssa.c (tree_ssa_useless_type_conversion_1): Use 
 	types_compatible_p langhook.
 	* tree.h (current_file_decl): New declaration.
-	* cp/cp-lang.c (cxx_types_compatible_p): New.
-	LANG_HOOKS_TYPES_COMPATIBLE_P: New.
 
 2004-03-16  Dale Johannesen  <dalej@apple.com>
 

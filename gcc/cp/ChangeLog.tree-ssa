@@ -1,3 +1,8 @@
+2004-03-16  Dale Johannesen  <dalej@apple.com>
+
+	* cp-lang.c (cxx_types_compatible_p): New.
+	LANG_HOOKS_TYPES_COMPATIBLE_P: New.
+
 2004-03-10  Jason Merrill  <jason@redhat.com>
 
 	PR c++/14452
