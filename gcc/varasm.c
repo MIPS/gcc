@@ -784,7 +784,7 @@ make_decl_rtl (tree decl, const char *asmspec)
 
       /* Make this function static known to the mudflap runtime.  */
       if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
-	mudflap_enqueue_decl (decl, name);
+	mudflap_enqueue_decl (decl);
 
       return;
     }
@@ -889,7 +889,7 @@ make_decl_rtl (tree decl, const char *asmspec)
 
   /* Make this function static known to the mudflap runtime.  */
   if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
-    mudflap_enqueue_decl (decl, name);
+    mudflap_enqueue_decl (decl);
 }
 
 /* Make the rtl for variable VAR be volatile.
@@ -2570,7 +2570,7 @@ output_constant_def_contents (rtx symbol)
   /* Output the value of EXP.  */
   output_constant (exp, size, align);
   if (flag_mudflap)
-    mudflap_enqueue_constant (exp, ggc_strdup (label));
+    mudflap_enqueue_constant (exp);
 }
 
 /* A constant which was deferred in its original location has been

@@ -25,8 +25,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Instrumentation. */
 extern void mudflap_c_function_decls (tree);
 extern void mudflap_c_function_ops (tree);
-extern void mudflap_enqueue_decl (tree, const char *);
-extern void mudflap_enqueue_constant (tree, const char *);
+extern void mudflap_enqueue_decl (tree);
+extern void mudflap_enqueue_constant (tree);
 extern void mudflap_finish_file (void);
 
 /* Tree node marking. */
@@ -35,7 +35,6 @@ extern tree mf_mark (tree);
 
 /* To be provided by a front-end interface module. */
 extern tree mflang_lookup_decl (const char *);
-extern tree mflang_register_call (const char*, tree, tree, tree);
 extern void mflang_flush_calls (tree);
 
 

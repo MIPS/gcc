@@ -1,3 +1,24 @@
+2003-12-31  Richard Henderson  <rth@redhat.com>
+
+	* c-mudflap.c (mflang_register_call): Remove.
+	(mflang_flush_calls): Use start_function/finish_function.
+	* tree-mudflap.c (mf_init_extern_trees): Tidy.
+	(mf_decl_cache_locals): Fix chaining for empty body.
+	(deferred_static_decl_labels): Remove.
+	(deferred_static_decls_init): Remove.
+	(mudflap_register_call): New.
+	(mudflap_enqueue_decl): Use it.  Remove label argument.
+	(mudflap_enqueue_constant): Likewise.
+	(mudflap_finish_file): Update to match.
+	* tree-mudflap.h (mudflap_enqueue_decl): Remove label argument.
+	(mudflap_enqueue_constant): Likewise.
+	(mflang_register_call): Remove.
+	* tree-nomudflap.c (mudflap_enqueue_decl): Remove label argument.
+	(mudflap_enqueue_constant): Likewise.
+	* tree-optimize.c (tree_ssa_finish): Don't create NULL bodies.
+	* varasm.c (make_decl_rtl): Update mudflap_enqueue_decl call.
+	(output_constant_def_contents): Similarly for mudflap_enqueue_constant.
+
 2003-12-26  Sebastian Pop  <s.pop@laposte.net>
 
 	* tree-cfg.c (print_loop, print_pred_bbs, print_succ_bbs, 

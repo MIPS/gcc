@@ -280,7 +280,7 @@ tree_ssa_finish (tree *chain)
   delete_tree_ssa ();
 
   /* Re-chain the statements from the blocks.  */
-  *chain = NULL;
+  *chain = alloc_stmt_list ();
   FOR_EACH_BB (bb)
     {
       append_to_statement_list_force (bb->stmt_list, chain);

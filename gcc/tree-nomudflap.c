@@ -67,16 +67,14 @@ mudflap_c_function_ops (tree t ATTRIBUTE_UNUSED)
 
 
 void
-mudflap_enqueue_decl (tree obj ATTRIBUTE_UNUSED,
-		      const char *label ATTRIBUTE_UNUSED)
+mudflap_enqueue_decl (tree obj ATTRIBUTE_UNUSED)
 {
   nogo ();
 }
 
 
 void
-mudflap_enqueue_constant (tree obj ATTRIBUTE_UNUSED,
-			  const char *label ATTRIBUTE_UNUSED)
+mudflap_enqueue_constant (tree obj ATTRIBUTE_UNUSED)
 {
   nogo ();
 }
