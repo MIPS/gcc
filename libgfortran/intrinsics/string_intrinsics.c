@@ -108,11 +108,13 @@ compare_string (G95_INTEGER_4 len1, const char * s1,
     {
       len = len2 - len1;
       s = &s2[len1];
+      res = -1;
     }
   else
     {
       len = len1 - len2;
       s = &s1[len2];
+      res = 1;
     }
 
   while (len--)
@@ -120,9 +122,9 @@ compare_string (G95_INTEGER_4 len1, const char * s1,
       if (*s != ' ')
         {
           if (*s > ' ')
-            return 1;
+            return res;
           else
-            return -1;
+            return -res;
         }
       s++;
     }
