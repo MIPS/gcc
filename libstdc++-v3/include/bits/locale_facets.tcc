@@ -1955,38 +1955,35 @@ namespace std
   template<typename _CharT, typename _OutIter>
     _OutIter
     time_put<_CharT, _OutIter>::
-    put(iter_type __s, ios_base& __io, char_type, const tm* __tm, 
+    put(iter_type __s, ios_base& __io, char_type __fill, const tm* __tm, 
 	const _CharT* __beg, const _CharT* __end) const
     {
-      locale __loc = __io.getloc();
+      const locale& __loc = __io._M_getloc();
       ctype<_CharT> const& __ctype = use_facet<ctype<_CharT> >(__loc);
-      while (__beg != __end)
-	{
-	  char __c = __ctype.narrow(*__beg, 0);
-	  ++__beg;
-	  if (__c == '%')
-	    {
-	      char __format;
-	      char __mod = 0;
-	      size_t __len = 1; 
-	      __c = __ctype.narrow(*__beg, 0);
-	      ++__beg;
-	      if (__c == 'E' || __c == 'O')
-		{
-		  __mod = __c;
-		  __format = __ctype.narrow(*__beg, 0);
-		  ++__beg;
-		}
-	      else
-		__format = __c;
-	      __s = this->do_put(__s, __io, _CharT(), __tm, __format, __mod);
-	    }
-	  else
-	    {
-	      *__s = __c;
-	      ++__s;
-	    }
-	}
+      for (; __beg != __end; ++__beg)
+	if (__ctype.narrow(*__beg, 0) != '%')
+	  {
+	    *__s = *__beg;
+	    ++__s;
+	  }
+	else if (++__beg != __end)
+	  {
+	    char __format;
+	    char __mod = 0;
+	    const char __c = __ctype.narrow(*__beg, 0);
+	    if (__c != 'E' && __c != 'O')
+	      __format = __c;
+	    else if (++__beg != __end)
+	      {
+		__mod = __c;
+		__format = __ctype.narrow(*__beg, 0);
+	      }
+	    else
+	      break;
+	    __s = this->do_put(__s, __io, __fill, __tm, __format, __mod);
+	  }
+	else
+	  break;
       return __s;
     }
 
@@ -2003,7 +2000,8 @@ namespace std
       // NB: This size is arbitrary. Should this be a data member,
       // initialized at construction?
       const size_t __maxlen = 64;
-      char_type* __res = static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __maxlen));
+      char_type* __res =
+	static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __maxlen));
 
       // NB: In IEE 1003.1-200x, and perhaps other locale models, it
       // is possible that the format character will be longer than one
@@ -2029,7 +2027,6 @@ namespace std
       // Write resulting, fully-formatted string to output iterator.
       return __write(__s, __res, char_traits<char_type>::length(__res));
     }
-
 
   // Generic version does nothing.
   template<typename _CharT>

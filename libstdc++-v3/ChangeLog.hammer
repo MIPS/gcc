@@ -1,3 +1,14 @@
+2004-08-01  Paolo Carlini  <pcarlini@suse.de>
+
+        * include/bits/locale_facets.tcc (time_put::put): Absolutely
+        avoid dereferencing end iterators; clean up.
+
+2004-08-01  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12439
+	* include/bits/locale_facets.tcc (time_put::put): Deal
+	with the three issues pointed out by the PR.
+
 2004-07-30  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (time_get::do_get_year):
