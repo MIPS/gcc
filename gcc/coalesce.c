@@ -44,14 +44,23 @@ struct mark_conflict_data
 /* Mark conflict betwen X and live registers.  */
 
 static void
-mark_conflict (x, setter, data)
+mark_conflict (x, set, data)
      rtx x;
-     rtx setter ATTRIBUTE_UNUSED;
+     rtx set;
      void *data;
 {
   struct mark_conflict_data *d = (struct mark_conflict_data *)data;
   regset live = d->live;
   cgraph graph = (cgraph) d->graph;
+  int skip = -1;
+
+  /* In the case of reg-reg copy, we may safely omit the conflict
+     between source and destination and coalesce both operands into
+     single register.  */
+  if (GET_CODE (set) == SET
+      && REG_P (XEXP (set, 0))
+      && REG_P (XEXP (set, 1)))
+    skip = REGNO (SET_SRC (set));
 
   if (GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
@@ -60,8 +69,11 @@ mark_conflict (x, setter, data)
       int regno = REGNO (x);
       int regno2;
       EXECUTE_IF_SET_IN_BITMAP (live, 0, regno2, 
-				SET_BIT (graph[regno], regno2);
-				SET_BIT (graph[regno2], regno););
+				if (regno2 != skip)
+				  {
+				    SET_BIT (graph[regno], regno2);
+				    SET_BIT (graph[regno2], regno);
+				  });
     }
 }
 
