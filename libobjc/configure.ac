@@ -21,7 +21,7 @@
 #02111-1307, USA.
 
 AC_PREREQ(2.59)
-AC_INIT
+AC_INIT(package-unused, version-unused,, libobjc)
 AC_CONFIG_SRCDIR([objc/objc.h])
 
 # We need the following definitions because AC_PROG_LIBTOOL relies on them
@@ -189,8 +189,6 @@ AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 AC_PROG_INSTALL
 
-# Disable shared libs by default
-AC_DISABLE_SHARED
 # Enable Win32 DLL on MS Windows - FIXME
 AC_LIBTOOL_WIN32_DLL
 

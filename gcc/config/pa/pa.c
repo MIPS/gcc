@@ -904,7 +904,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		       gen_rtx_LO_SUM (Pmode, tmp_reg,
 				       gen_rtx_UNSPEC (Pmode,
 						       gen_rtvec (1, orig),
-						       0)));
+						       UNSPEC_DLTIND14R)));
 
       current_function_uses_pic_offset_table = 1;
       MEM_NOTRAP_P (pic_ref) = 1;
@@ -5467,6 +5467,7 @@ pa_hpux_init_libfuncs (void)
   set_optab_libfunc (ge_optab, TFmode, "_U_Qfge");
   set_optab_libfunc (lt_optab, TFmode, "_U_Qflt");
   set_optab_libfunc (le_optab, TFmode, "_U_Qfle");
+  set_optab_libfunc (unord_optab, TFmode, "_U_Qfunord");
 
   set_conv_libfunc (sext_optab,   TFmode, SFmode, "_U_Qfcnvff_sgl_to_quad");
   set_conv_libfunc (sext_optab,   TFmode, DFmode, "_U_Qfcnvff_dbl_to_quad");

@@ -1200,7 +1200,40 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
           /* Avoid warnings redeclaring anticipated built-ins.  */
           if (DECL_ANTICIPATED (olddecl))
-            ;  /* Do nothing yet.  */
+	    {
+	      /* Deal with fileptr_type_node.  FILE type is not known
+		 at the time we create the builtins.  */
+	      tree t1, t2;
+
+	      for (t1 = TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
+		   t2 = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
+		   t1 || t2;
+		   t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2))
+		if (!t1 || !t2)
+		  break;
+		else if (TREE_VALUE (t2) == fileptr_type_node)
+		  {
+		    tree t = TREE_VALUE (t1);
+
+		    if (TREE_CODE (t) == POINTER_TYPE
+			&& TYPE_NAME (TREE_TYPE (t))
+			&& DECL_NAME (TYPE_NAME (TREE_TYPE (t)))
+			   == get_identifier ("FILE")
+			&& compparms (TREE_CHAIN (t1), TREE_CHAIN (t2)))
+		      {
+			tree oldargs = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
+
+			TYPE_ARG_TYPES (TREE_TYPE (olddecl))
+			  = TYPE_ARG_TYPES (TREE_TYPE (newdecl));
+			types_match = decls_match (newdecl, olddecl);
+			if (types_match)
+			  return duplicate_decls (newdecl, olddecl);
+			TYPE_ARG_TYPES (TREE_TYPE (olddecl)) = oldargs;
+		      }
+		  }
+		else if (! same_type_p (TREE_VALUE (t1), TREE_VALUE (t2)))
+		  break;
+	    }
 	  else if ((DECL_EXTERN_C_P (newdecl)
 		    && DECL_EXTERN_C_P (olddecl))
 		   || compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
@@ -7022,9 +7055,9 @@ grokdeclarator (tree declarator,
   
   staticp = 0;
   inlinep = !! RIDBIT_SETP (RID_INLINE, specbits);
-  virtualp = RIDBIT_SETP (RID_VIRTUAL, specbits);
+  virtualp = !! RIDBIT_SETP (RID_VIRTUAL, specbits);
   RIDBIT_RESET (RID_VIRTUAL, specbits);
-  explicitp = RIDBIT_SETP (RID_EXPLICIT, specbits) != 0;
+  explicitp = !! RIDBIT_SETP (RID_EXPLICIT, specbits);
   RIDBIT_RESET (RID_EXPLICIT, specbits);
 
   if (RIDBIT_SETP (RID_STATIC, specbits))
@@ -7036,7 +7069,7 @@ grokdeclarator (tree declarator,
 		dname);
       staticp = 0;
     }
-  friendp = RIDBIT_SETP (RID_FRIEND, specbits);
+  friendp = !! RIDBIT_SETP (RID_FRIEND, specbits);
   RIDBIT_RESET (RID_FRIEND, specbits);
 
   if (dependant_name && !friendp)

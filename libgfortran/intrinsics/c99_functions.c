@@ -24,8 +24,6 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 
-/* Note that if HAVE_FPCLASSIFY is not defined, then NaN is not handled */
-
 /* Algorithm by Steven G. Kargl.  */
 
 #ifndef HAVE_ROUND
@@ -36,12 +34,11 @@ double
 round(double x)
 {
    double t;
-#ifdef HAVE_FPCLASSIFY
    int i;
+
    i = fpclassify(x);
    if (i == FP_INFINITE || i == FP_NAN)
      return (x);
-#endif
 
    if (x >= 0.0) 
     {
@@ -68,13 +65,11 @@ float
 roundf(float x)
 {
    float t;
-#ifdef HAVE_FPCLASSIFY
    int i;
 
    i = fpclassify(x);
    if (i == FP_INFINITE || i == FP_NAN)
      return (x);
-#endif
 
    if (x >= 0.0) 
     {

@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "expr.h"
 #include "ggc.h"
+#include "target.h"
 
 static struct gimplify_ctx
 {
@@ -54,6 +55,7 @@ static struct gimplify_ctx
   tree conditional_cleanups;
   int conditions;
   tree exit_label;
+  tree return_temp;
   varray_type case_labels;
   /* The formal temporary table.  Should this be persistent?  */
   htab_t temp_htab;
@@ -234,6 +236,15 @@ void
 append_to_statement_list_force (tree t, tree *list_p)
 {
   append_to_statement_list_1 (t, list_p, t != NULL);
+}
+
+/* Both gimplify the statement T and append it to LIST_P.  */
+
+void
+gimplify_and_add (tree t, tree *list_p)
+{
+  gimplify_stmt (&t);
+  append_to_statement_list (t, list_p);
 }
 
 /* Add T to the end of a COMPOUND_EXPR pointed by LIST_P.  The type
@@ -667,13 +678,17 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   else
     {
       TREE_VISITED (t) = 1;
-      if (TREE_CODE (*tp) == VA_ARG_EXPR)
+      if (TREE_CODE (*tp) == VA_ARG_EXPR
+	  && targetm.calls.gimplify_va_arg_expr == NULL)
 	{
 	  /* Mark any _DECL inside the operand as volatile to avoid
 	     the optimizers messing around with it. We have to do this
 	     early, otherwise we might mark a variable as volatile
 	     after we gimplify other statements that use the variable
 	     assuming it's not volatile.  */
+
+	  /* FIXME once most targets define the above hook, this should
+	     go away (perhaps along with the #include "target.h").  */
 	  walk_tree (&TREE_OPERAND (*tp, 0), mark_decls_volatile_r,
 		     NULL, NULL);
 	}
@@ -888,7 +903,7 @@ static enum gimplify_status
 gimplify_return_expr (tree stmt, tree *pre_p)
 {
   tree ret_expr = TREE_OPERAND (stmt, 0);
-  tree result;
+  tree result_decl, result;
 
   if (!ret_expr || TREE_CODE (ret_expr) == RESULT_DECL)
     return GS_ALL_DONE;
@@ -897,24 +912,51 @@ gimplify_return_expr (tree stmt, tree *pre_p)
     return GS_ERROR;
 
   if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
-    result = NULL_TREE;
+    result_decl = NULL_TREE;
   else
     {
-      result = TREE_OPERAND (ret_expr, 0);
+      result_decl = TREE_OPERAND (ret_expr, 0);
 #ifdef ENABLE_CHECKING
       if ((TREE_CODE (ret_expr) != MODIFY_EXPR
 	   && TREE_CODE (ret_expr) != INIT_EXPR)
-	  || TREE_CODE (result) != RESULT_DECL)
+	  || TREE_CODE (result_decl) != RESULT_DECL)
 	abort ();
 #endif
     }
 
-  /* We need to pass the full MODIFY_EXPR down so that special handling
-     can replace it with something else.  */
+  /* If aggregate_value_p is true, then we can return the bare RESULT_DECL.
+     Recall that aggregate_value_p is FALSE for any aggregate type that is
+     returned in registers.  If we're returning values in registers, then
+     we don't want to extend the lifetime of the RESULT_DECL, particularly
+     across another call.  In addition, for those aggregates for which 
+     hard_function_value generates a PARALLEL, we'll abort during normal
+     expansion of structure assignments; there's special code in expand_return
+     to handle this case that does not exist in expand_expr.  */
+  if (!result_decl
+      || aggregate_value_p (result_decl, TREE_TYPE (current_function_decl)))
+    result = result_decl;
+  else if (gimplify_ctxp->return_temp)
+    result = gimplify_ctxp->return_temp;
+  else
+    {
+      result = create_tmp_var (TREE_TYPE (result_decl), NULL);
+      gimplify_ctxp->return_temp = result;
+    }
+
+  /* Smash the lhs of the MODIFY_EXPR to the temporary we plan to use.
+     Then gimplify the whole thing.  */
+  if (result != result_decl)
+    TREE_OPERAND (ret_expr, 0) = result;
   gimplify_stmt (&TREE_OPERAND (stmt, 0));
   append_to_statement_list (TREE_OPERAND (stmt, 0), pre_p);
 
-  TREE_OPERAND (stmt, 0) = result;
+  /* If we didn't use a temporary, then the result is just the result_decl.
+     Otherwise we need a simple copy.  This should already be gimple.  */
+  if (result == result_decl)
+    ret_expr = result;
+  else
+    ret_expr = build (MODIFY_EXPR, TREE_TYPE (result), result_decl, result);
+  TREE_OPERAND (stmt, 0) = ret_expr;
 
   return GS_ALL_DONE;
 }
@@ -1605,39 +1647,6 @@ gimplify_minimax_expr (tree *expr_p, tree *pre_p, tree *post_p)
     return GS_OK;
 }
 
-/*  Build an expression for the address of T.  Folds away INDIRECT_REF to
-    avoid confusing the gimplify process.  */
-
-static tree
-build_addr_expr_with_type (tree t, tree ptrtype)
-{
-  if (TREE_CODE (t) == INDIRECT_REF)
-    {
-      t = TREE_OPERAND (t, 0);
-      if (TREE_TYPE (t) != ptrtype)
-	t = build1 (NOP_EXPR, ptrtype, t);
-    }
-  else
-    {
-      tree base = t;
-      while (TREE_CODE (base) == COMPONENT_REF
-	     || TREE_CODE (base) == ARRAY_REF)
-	base = TREE_OPERAND (base, 0);
-      if (DECL_P (base))
-	TREE_ADDRESSABLE (base) = 1;
-
-      t = build1 (ADDR_EXPR, ptrtype, t);
-    }
-
-  return t;
-}
-
-static tree
-build_addr_expr (tree t)
-{
-  return build_addr_expr_with_type (t, build_pointer_type (TREE_TYPE (t)));
-}
-
 /* Subroutine of gimplify_compound_lval and gimplify_array_ref.
    Converts an ARRAY_REF to the equivalent *(&array + offset) form.  */
 
@@ -1688,7 +1697,7 @@ gimplify_array_ref_to_plus (tree *expr_p, tree *pre_p, tree *post_p)
   if (ret == GS_ERROR)
     return ret;
 
-  addr = build_addr_expr_with_type (array, ptrtype);
+  addr = build_fold_addr_expr_with_type (array, ptrtype);
   result = fold (build (add_code, ptrtype, addr, offset));
   *expr_p = build1 (INDIRECT_REF, elttype, result);
 
@@ -2484,12 +2493,16 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 
 	 FIXME this should be handled by the is_gimple_rhs predicate.  */
 
-      if (TREE_CODE (*from_p) == CALL_EXPR
-	  || (flag_non_call_exceptions && tree_could_trap_p (*from_p))
-	  /* If we're dealing with a renamable type, either source or dest
-	     must be a renamed variable.  */
-	  || (is_gimple_reg_type (TREE_TYPE (*from_p))
-	      && !is_gimple_reg (*to_p)))
+      if (aggregate_value_p (TREE_TYPE (*from_p), NULL_TREE))
+	/* Don't force a temp of a large aggregate type; the copy could be
+	   arbitrarily expensive.  Instead we will generate a V_MAY_DEF for
+	   the assignment.  */;
+      else if (TREE_CODE (*from_p) == CALL_EXPR
+	       || (flag_non_call_exceptions && tree_could_trap_p (*from_p))
+	       /* If we're dealing with a renamable type, either source or dest
+		  must be a renamed variable.  */
+	       || (is_gimple_reg_type (TREE_TYPE (*from_p))
+		   && !is_gimple_reg (*to_p)))
 	gimplify_expr (from_p, pre_p, post_p, is_gimple_val, fb_rvalue);
 
       /* If the value being copied is of variable width, expose the length
@@ -2505,9 +2518,9 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 	  t = TYPE_SIZE_UNIT (TREE_TYPE (*to_p));
 	  t = unshare_expr (t);
 	  args = tree_cons (NULL, t, NULL);
-	  t = build_addr_expr (*from_p);
+	  t = build_fold_addr_expr (*from_p);
 	  args = tree_cons (NULL, t, args);
-	  dest = build_addr_expr (*to_p);
+	  dest = build_fold_addr_expr (*to_p);
 	  args = tree_cons (NULL, dest, args);
 	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
 	  t = build_function_call_expr (t, args);
@@ -3211,14 +3224,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case VA_ARG_EXPR:
-	  /* Mark any _DECL inside the operand as volatile to avoid the
-	     optimizers messing around with it. FIXME: Remove this once
-	     VA_ARG_EXPRs are properly lowered.  */
-	  walk_tree (&TREE_OPERAND (*expr_p, 0), mark_decls_volatile_r,
-		     NULL, NULL);
-
-	  /* va_arg expressions are in GIMPLE form already.  */
-	  ret = GS_ALL_DONE;
+	  ret = gimplify_va_arg_expr (expr_p, pre_p, post_p);
 	  break;
 
 	case CONVERT_EXPR:
@@ -3558,7 +3564,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
       /* An lvalue will do.  Take the address of the expression, store it
 	 in a temporary, and replace the expression with an INDIRECT_REF of
 	 that temporary.  */
-      tmp = build_addr_expr (*expr_p);
+      tmp = build_fold_addr_expr (*expr_p);
       gimplify_expr (&tmp, pre_p, post_p, is_gimple_reg, fb_rvalue);
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
     }

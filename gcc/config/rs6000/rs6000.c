@@ -52,6 +52,7 @@
 #include "reload.h"
 #include "cfglayout.h"
 #include "sched-int.h"
+#include "tree-gimple.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -439,6 +440,7 @@ static tree get_prev_label (tree function_name);
 #endif
 
 static tree rs6000_build_builtin_va_list (void);
+static tree rs6000_gimplify_va_arg (tree, tree, tree *, tree *);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -646,6 +648,9 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST rs6000_build_builtin_va_list
+
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR rs6000_gimplify_va_arg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -5064,14 +5069,15 @@ rs6000_va_start (tree valist, rtx nextarg)
 
 /* Implement va_arg.  */
 
-rtx
-rs6000_va_arg (tree valist, tree type)
+tree
+rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 {
   tree f_gpr, f_fpr, f_res, f_ovf, f_sav;
   tree gpr, fpr, ovf, sav, reg, t, u;
   int indirect_p, size, rsize, n_reg, sav_ofs, sav_scale;
-  rtx lab_false, lab_over, addr_rtx, r;
+  tree lab_false, lab_over, addr;
   int align;
+  tree ptrtype = build_pointer_type (type);
 
   if (DEFAULT_ABI != ABI_V4)
     {
@@ -5082,20 +5088,12 @@ rs6000_va_arg (tree valist, tree type)
 	      && !TARGET_ALTIVEC_ABI
 	      && ALTIVEC_VECTOR_MODE (TYPE_MODE (type))))
 	{
-	  u = build_pointer_type (type);
-
 	  /* Args grow upward.  */
-	  t = build (POSTINCREMENT_EXPR, TREE_TYPE (valist), valist,
-		     build_int_2 (POINTER_SIZE / BITS_PER_UNIT, 0));
-	  TREE_SIDE_EFFECTS (t) = 1;
-
-	  t = build1 (NOP_EXPR, build_pointer_type (u), t);
-	  TREE_SIDE_EFFECTS (t) = 1;
-
-	  t = build1 (INDIRECT_REF, u, t);
-	  TREE_SIDE_EFFECTS (t) = 1;
-
-	  return expand_expr (t, NULL_RTX, VOIDmode, EXPAND_NORMAL);
+	  t = build2 (POSTINCREMENT_EXPR, TREE_TYPE (valist), valist,
+		      build_int_2 (POINTER_SIZE / BITS_PER_UNIT, 0));
+	  t = build1 (NOP_EXPR, build_pointer_type (ptrtype), t);
+	  t = build_fold_indirect_ref (t);
+	  return build_fold_indirect_ref (t);
 	}
       if (targetm.calls.split_complex_arg
 	  && TREE_CODE (type) == COMPLEX_TYPE)
@@ -5106,33 +5104,24 @@ rs6000_va_arg (tree valist, tree type)
 
 	  if (elem_size < UNITS_PER_WORD)
 	    {
-	      rtx real_part, imag_part, dest_real, rr;
+	      tree real_part, imag_part;
+	      tree post = NULL_TREE;
 
-	      real_part = rs6000_va_arg (valist, elem_type);
-	      imag_part = rs6000_va_arg (valist, elem_type);
+	      real_part = rs6000_gimplify_va_arg (valist, elem_type, pre_p,
+						  &post);
+	      /* Copy the value into a temporary, lest the formal temporary
+		 be reused out from under us.  */
+	      real_part = get_initialized_tmp_var (real_part, pre_p, &post);
+	      append_to_statement_list (post, pre_p);
 
-	      /* We're not returning the value here, but the address.
-		 real_part and imag_part are not contiguous, and we know
-		 there is space available to pack real_part next to
-		 imag_part.  float _Complex is not promoted to
-		 double _Complex by the default promotion rules that
-		 promote float to double.  */
-	      if (2 * elem_size > UNITS_PER_WORD)
-		abort ();
+	      imag_part = rs6000_gimplify_va_arg (valist, elem_type, pre_p,
+						  post_p);
 
-	      real_part = gen_rtx_MEM (elem_mode, real_part);
-	      imag_part = gen_rtx_MEM (elem_mode, imag_part);
-
-	      dest_real = adjust_address (imag_part, elem_mode, -elem_size);
-	      rr = gen_reg_rtx (elem_mode);
-	      emit_move_insn (rr, real_part);
-	      emit_move_insn (dest_real, rr);
-
-	      return XEXP (dest_real, 0);
+	      return build (COMPLEX_EXPR, type, real_part, imag_part);
 	    }
 	}
 
-      return std_expand_builtin_va_arg (valist, type);
+      return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
     }
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
@@ -5191,16 +5180,17 @@ rs6000_va_arg (tree valist, tree type)
 
   /* Pull the value out of the saved registers....  */
 
-  lab_over = NULL_RTX;
-  addr_rtx = gen_reg_rtx (Pmode);
+  lab_over = NULL;
+  addr = create_tmp_var (ptr_type_node, "addr");
+  DECL_POINTER_ALIAS_SET (addr) = get_varargs_alias_set ();
 
   /*  AltiVec vectors never go in registers when -mabi=altivec.  */
   if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (TYPE_MODE (type)))
     align = 16;
   else
     {
-      lab_false = gen_label_rtx ();
-      lab_over = gen_label_rtx ();
+      lab_false = create_artificial_label ();
+      lab_over = create_artificial_label ();
 
       /* Long long and SPE vectors are aligned in the registers.
 	 As are any other 2 gpr item such as complex int due to a
@@ -5208,49 +5198,43 @@ rs6000_va_arg (tree valist, tree type)
       u = reg;
       if (n_reg == 2)
 	{
-	  u = build (BIT_AND_EXPR, TREE_TYPE (reg), reg,
+	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), reg,
 		     build_int_2 (n_reg - 1, 0));
-	  u = build (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
-	  TREE_SIDE_EFFECTS (u) = 1;
+	  u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
 	}
 
-      emit_cmp_and_jump_insns
-	(expand_expr (u, NULL_RTX, QImode, EXPAND_NORMAL),
-	 GEN_INT (8 - n_reg + 1), GE, const1_rtx, QImode, 1,
-	 lab_false);
+      t = build_int_2 (8 - n_reg + 1, 0);
+      TREE_TYPE (t) = TREE_TYPE (reg);
+      t = build2 (GE_EXPR, boolean_type_node, u, t);
+      u = build1 (GOTO_EXPR, void_type_node, lab_false);
+      t = build3 (COND_EXPR, void_type_node, t, u, NULL_TREE);
+      gimplify_and_add (t, pre_p);
 
       t = sav;
       if (sav_ofs)
-	t = build (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
+	t = build2 (PLUS_EXPR, ptr_type_node, sav, build_int_2 (sav_ofs, 0));
 
-      u = build (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg,
+      u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg,
 		 build_int_2 (n_reg, 0));
-      TREE_SIDE_EFFECTS (u) = 1;
-
       u = build1 (CONVERT_EXPR, integer_type_node, u);
-      TREE_SIDE_EFFECTS (u) = 1;
+      u = build2 (MULT_EXPR, integer_type_node, u, build_int_2 (sav_scale, 0));
+      t = build2 (PLUS_EXPR, ptr_type_node, t, u);
 
-      u = build (MULT_EXPR, integer_type_node, u, build_int_2 (sav_scale, 0));
-      TREE_SIDE_EFFECTS (u) = 1;
+      t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+      gimplify_and_add (t, pre_p);
 
-      t = build (PLUS_EXPR, ptr_type_node, t, u);
-      TREE_SIDE_EFFECTS (t) = 1;
+      t = build1 (GOTO_EXPR, void_type_node, lab_over);
+      gimplify_and_add (t, pre_p);
 
-      r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-      if (r != addr_rtx)
-	emit_move_insn (addr_rtx, r);
+      t = build1 (LABEL_EXPR, void_type_node, lab_false);
+      append_to_statement_list (t, pre_p);
 
-      emit_jump_insn (gen_jump (lab_over));
-      emit_barrier ();
-
-      emit_label (lab_false);
       if (n_reg > 2)
 	{
 	  /* Ensure that we don't find any more args in regs.
 	     Alignment has taken care of the n_reg == 2 case.  */
 	  t = build (MODIFY_EXPR, TREE_TYPE (reg), reg, build_int_2 (8, 0));
-	  TREE_SIDE_EFFECTS (t) = 1;
-	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	  gimplify_and_add (t, pre_p);
 	}
     }
 
@@ -5260,31 +5244,33 @@ rs6000_va_arg (tree valist, tree type)
   t = ovf;
   if (align != 1)
     {
-      t = build (PLUS_EXPR, TREE_TYPE (t), t, build_int_2 (align - 1, 0));
-      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-align, -1));
+      t = build2 (PLUS_EXPR, TREE_TYPE (t), t, build_int_2 (align - 1, 0));
+      t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-align, -1));
     }
-  t = save_expr (t);
+  gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-  if (r != addr_rtx)
-    emit_move_insn (addr_rtx, r);
+  u = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  gimplify_and_add (u, pre_p);
 
-  t = build (PLUS_EXPR, TREE_TYPE (t), t, build_int_2 (size, 0));
-  t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  t = build2 (PLUS_EXPR, TREE_TYPE (t), t, build_int_2 (size, 0));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  gimplify_and_add (t, pre_p);
 
   if (lab_over)
-    emit_label (lab_over);
+    {
+      t = build1 (LABEL_EXPR, void_type_node, lab_over);
+      append_to_statement_list (t, pre_p);
+    }
 
   if (indirect_p)
     {
-      r = gen_rtx_MEM (Pmode, addr_rtx);
-      set_mem_alias_set (r, get_varargs_alias_set ());
-      emit_move_insn (addr_rtx, r);
+      addr = fold_convert (build_pointer_type (ptrtype), addr);
+      addr = build_fold_indirect_ref (addr);
     }
+  else
+    addr = fold_convert (ptrtype, addr);
 
-  return addr_rtx;
+  return build_fold_indirect_ref (addr);
 }
 
 /* Builtins.  */
@@ -9744,7 +9730,8 @@ print_operand (FILE *file, rtx x, int code)
 	{
 	  const char *name = XSTR (x, 0);
 #if TARGET_MACHO
-	  if (machopic_classify_name (name) == MACHOPIC_UNDEFINED_FUNCTION)
+	  if (MACHOPIC_INDIRECT
+	      && machopic_classify_name (name) == MACHOPIC_UNDEFINED_FUNCTION)
 	    name = machopic_stub_name (name);
 #endif
 	  assemble_name (file, name);

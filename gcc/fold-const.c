@@ -135,9 +135,10 @@ static bool reorder_operands_p (tree, tree);
 static bool tree_swap_operands_p (tree, tree, bool);
 
 static tree fold_negate_const (tree, tree);
-static tree fold_abs_const (tree, tree);
+static tree fold_not_const (tree, tree);
 static tree fold_relational_const (enum tree_code, tree, tree, tree);
-static tree fold_relational_hi_lo (enum tree_code *, const tree, tree *, tree *);
+static tree fold_relational_hi_lo (enum tree_code *, const tree,
+                                   tree *, tree *);
 
 /* We know that A1 + B1 = SUM1, using 2's complement arithmetic and ignoring
    overflow.  Suppose A, B and SUM have the same respective signs as A1, B1,
@@ -1911,7 +1912,8 @@ fold_convert (tree type, tree arg)
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (orig))
     return fold (build1 (NOP_EXPR, type, arg));
 
-  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
+  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type)
+      || TREE_CODE (type) == OFFSET_TYPE)
     {
       if (TREE_CODE (arg) == INTEGER_CST)
 	{
@@ -1919,7 +1921,8 @@ fold_convert (tree type, tree arg)
 	  if (tem != NULL_TREE)
 	    return tem;
 	}
-      if (INTEGRAL_TYPE_P (orig) || POINTER_TYPE_P (orig))
+      if (INTEGRAL_TYPE_P (orig) || POINTER_TYPE_P (orig)
+	  || TREE_CODE (orig) == OFFSET_TYPE)
         return fold (build1 (NOP_EXPR, type, arg));
       if (TREE_CODE (orig) == COMPLEX_TYPE)
 	{
@@ -2825,6 +2828,29 @@ pedantic_omit_one_operand (tree type, tree result, tree omitted)
 
   return pedantic_non_lvalue (t);
 }
+
+/* Return a tree for the case when the result of an expression is RESULT
+   converted to TYPE and OMITTED1 and OMITTED2 were previously operands
+   of the expression but are now not needed.
+
+   If OMITTED1 or OMITTED2 has side effects, they must be evaluated.
+   If both OMITTED1 and OMITTED2 have side effects, OMITTED1 is
+   evaluated before OMITTED2.  Otherwise, if neither has side effects,
+   just do the conversion of RESULT to TYPE.  */
+
+tree
+omit_two_operands (tree type, tree result, tree omitted1, tree omitted2)
+{
+  tree t = fold_convert (type, result);
+
+  if (TREE_SIDE_EFFECTS (omitted2))
+    t = build2 (COMPOUND_EXPR, type, omitted2, t);
+  if (TREE_SIDE_EFFECTS (omitted1))
+    t = build2 (COMPOUND_EXPR, type, omitted1, t);
+
+  return TREE_CODE (t) != COMPOUND_EXPR ? non_lvalue (t) : t;
+}
+
 
 /* Return a simplified tree node for the truth-negation of ARG.  This
    never alters ARG itself.  We assume that ARG is an operation that
@@ -5211,6 +5237,12 @@ fold_inf_compare (enum tree_code code, tree type, tree arg0, tree arg1)
       if (! HONOR_NANS (mode))
 	return fold (build2 (neg ? GE_EXPR : LE_EXPR, type,
 			     arg0, build_real (TREE_TYPE (arg0), max)));
+
+      /* The transformation below creates non-gimple code and thus is
+	 not appropriate if we are in gimple form.  */
+      if (in_gimple_form)
+	return NULL_TREE;
+	
       temp = fold (build2 (neg ? LT_EXPR : GT_EXPR, type,
 			   arg0, build_real (TREE_TYPE (arg0), max)));
       return fold (build1 (TRUTH_NOT_EXPR, type, temp));
@@ -6016,8 +6048,7 @@ fold (tree expr)
       return t;
 
     case ABS_EXPR:
-      if (wins
-	  && (TREE_CODE (arg0) == INTEGER_CST || TREE_CODE (arg0) == REAL_CST))
+      if (TREE_CODE (arg0) == INTEGER_CST || TREE_CODE (arg0) == REAL_CST)
 	return fold_abs_const (arg0, type);
       else if (TREE_CODE (arg0) == NEGATE_EXPR)
 	return fold (build1 (ABS_EXPR, type, TREE_OPERAND (arg0, 0)));
@@ -6056,16 +6087,8 @@ fold (tree expr)
       return t;
 
     case BIT_NOT_EXPR:
-      if (wins)
-	{
-	  tem = build_int_2 (~ TREE_INT_CST_LOW (arg0),
-			     ~ TREE_INT_CST_HIGH (arg0));
-	  TREE_TYPE (tem) = type;
-	  force_fit_type (tem, 0);
-	  TREE_OVERFLOW (tem) = TREE_OVERFLOW (arg0);
-	  TREE_CONSTANT_OVERFLOW (tem) = TREE_CONSTANT_OVERFLOW (arg0);
-	  return tem;
-	}
+      if (TREE_CODE (arg0) == INTEGER_CST)
+        return fold_not_const (arg0, type);
       else if (TREE_CODE (arg0) == BIT_NOT_EXPR)
 	return TREE_OPERAND (arg0, 0);
       return t;
@@ -9695,8 +9718,6 @@ tree
 nondestructive_fold_unary_to_constant (enum tree_code code, tree type,
 				       tree op0)
 {
-  tree t;
-
   /* Make sure we have a suitable constant argument.  */
   if (code == NOP_EXPR || code == FLOAT_EXPR || code == CONVERT_EXPR)
     {
@@ -9734,15 +9755,8 @@ nondestructive_fold_unary_to_constant (enum tree_code code, tree type,
 	return NULL_TREE;
 
     case BIT_NOT_EXPR:
-      if (TREE_CODE (op0) == INTEGER_CST || TREE_CODE (op0) == REAL_CST)
-	{
-	  t = build_int_2 (~ TREE_INT_CST_LOW (op0), ~ TREE_INT_CST_HIGH (op0));
-	  TREE_TYPE (t) = type;
-	  force_fit_type (t, 0);
-	  TREE_OVERFLOW (t) = TREE_OVERFLOW (op0);
-	  TREE_CONSTANT_OVERFLOW (t) = TREE_CONSTANT_OVERFLOW (op0);
-	  return t;
-	}
+      if (TREE_CODE (op0) == INTEGER_CST)
+	return fold_not_const (op0, type);
       else
 	return NULL_TREE;
 
@@ -9860,7 +9874,7 @@ fold_negate_const (tree arg0, tree type)
 
    TYPE is the type of the result.  */
 
-static tree
+tree
 fold_abs_const (tree arg0, tree type)
 {
   tree t = NULL_TREE;
@@ -9899,6 +9913,31 @@ fold_abs_const (tree arg0, tree type)
 	return build_real (type, REAL_VALUE_NEGATE (TREE_REAL_CST (arg0)));
       else
 	return arg0;
+    }
+#ifdef ENABLE_CHECKING
+  else
+    abort ();
+#endif
+    
+  return t;
+}
+
+/* Return the tree for not (ARG0) when ARG0 is known to be an integer
+   constant.  TYPE is the type of the result.  */
+
+static tree
+fold_not_const (tree arg0, tree type)
+{
+  tree t = NULL_TREE;
+
+  if (TREE_CODE (arg0) == INTEGER_CST)
+    {
+      t = build_int_2 (~ TREE_INT_CST_LOW (arg0),
+		       ~ TREE_INT_CST_HIGH (arg0));
+      TREE_TYPE (t) = type;
+      force_fit_type (t, 0);
+      TREE_OVERFLOW (t) = TREE_OVERFLOW (arg0);
+      TREE_CONSTANT_OVERFLOW (t) = TREE_CONSTANT_OVERFLOW (arg0);
     }
 #ifdef ENABLE_CHECKING
   else
@@ -9997,6 +10036,75 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
   if (TREE_CODE (type) == BOOLEAN_TYPE)
     return lang_hooks.truthvalue_conversion (tem);
   return tem;
+}
+
+/* Build an expression for the address of T.  Folds away INDIRECT_REF to
+   avoid confusing the gimplify process.  */
+
+tree
+build_fold_addr_expr_with_type (tree t, tree ptrtype)
+{
+  if (TREE_CODE (t) == INDIRECT_REF)
+    {
+      t = TREE_OPERAND (t, 0);
+      if (TREE_TYPE (t) != ptrtype)
+	t = build1 (NOP_EXPR, ptrtype, t);
+    }
+  else
+    {
+      tree base = t;
+      while (TREE_CODE (base) == COMPONENT_REF
+	     || TREE_CODE (base) == ARRAY_REF)
+	base = TREE_OPERAND (base, 0);
+      if (DECL_P (base))
+	TREE_ADDRESSABLE (base) = 1;
+
+      t = build1 (ADDR_EXPR, ptrtype, t);
+    }
+
+  return t;
+}
+
+tree
+build_fold_addr_expr (tree t)
+{
+  return build_fold_addr_expr_with_type (t, build_pointer_type (TREE_TYPE (t)));
+}
+
+/* Builds an expression for an indirection through T, simplifying some
+   cases.  */
+
+tree
+build_fold_indirect_ref (tree t)
+{
+  tree type = TREE_TYPE (TREE_TYPE (t));
+  tree sub = t;
+  tree subtype;
+
+  STRIP_NOPS (sub);
+  if (TREE_CODE (sub) == ADDR_EXPR)
+    {
+      tree op = TREE_OPERAND (sub, 0);
+      tree optype = TREE_TYPE (op);
+      /* *&p => p */
+      if (lang_hooks.types_compatible_p (type, optype))
+	return op;
+      /* *(foo *)&fooarray => fooarray[0] */
+      else if (TREE_CODE (optype) == ARRAY_TYPE
+	       && lang_hooks.types_compatible_p (type, TREE_TYPE (optype)))
+	return build2 (ARRAY_REF, type, op, size_zero_node);
+    }
+
+  /* *(foo *)fooarrptr => (*fooarrptr)[0] */
+  subtype = TREE_TYPE (sub);
+  if (TREE_CODE (TREE_TYPE (subtype)) == ARRAY_TYPE
+      && lang_hooks.types_compatible_p (type, TREE_TYPE (TREE_TYPE (subtype))))
+    {
+      sub = build_fold_indirect_ref (sub);
+      return build2 (ARRAY_REF, type, sub, size_zero_node);
+    }
+
+  return build1 (INDIRECT_REF, type, t);
 }
 
 #include "gt-fold-const.h"

@@ -40,12 +40,15 @@ typedef struct basic_block_def *basic_block;
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
-enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, STMT_ANN, SSA_NAME_ANN };
+enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, CST_ANN, EXPR_ANN, STMT_ANN };
 
 struct tree_ann_common_d GTY(())
 {
   /* Annotation type.  */
   enum tree_ann_type type;
+
+  /* The value handle for this expression.  Used by GVN-PRE.  */
+  tree GTY((skip)) value_handle;
 };
 
 /* It is advantageous to avoid things like life analysis for variables which
@@ -164,6 +167,11 @@ struct var_ann_d GTY(())
      live at the same time and this can happen for each call to the
      dominator optimizer.  */
   tree current_def;
+
+  /* The set of expressions represented by this variable if it is a
+     value handle.  This is used by GVN-PRE.  */
+  PTR GTY ((skip)) expr_set;
+  
 };
 
 
@@ -238,9 +246,10 @@ struct stmt_ann_d GTY(())
   struct def_optype_d * GTY (()) def_ops;
   struct use_optype_d * GTY (()) use_ops;
 
-  /* Virtual operands (VDEF and VUSE).  */
-  struct vdef_optype_d * GTY (()) vdef_ops;
+  /* Virtual operands (V_MAY_DEF, VUSE, and V_MUST_DEF).  */
+  struct v_may_def_optype_d * GTY (()) v_may_def_ops;
   struct vuse_optype_d * GTY (()) vuse_ops;
+  struct v_must_def_optype_d * GTY (()) v_must_def_ops;
 
   /* Dataflow information.  */
   dataflow_t df;
@@ -255,28 +264,16 @@ struct stmt_ann_d GTY(())
 };
 
 
-struct ssa_name_ann_d GTY(())
+struct cst_ann_d GTY (())
 {
   struct tree_ann_common_d common;
+  
+};
 
-  /* Nonzero if points-to analysis couldn't determine where this pointer
-     is pointing to.  */
-  unsigned int pt_anything : 1;
-
-  /* Nonzero if this pointer is the result of a call to malloc.  */
-  unsigned int pt_malloc : 1;
-
-  /* Nonzero if the value of this pointer escapes the current function.  */
-  unsigned int value_escapes_p : 1;
-
-  /* Set of variables that this pointer may point to.  */
-  bitmap pt_vars;
-
-  /* If this pointer has been dereferenced, and points-to information is
-     more precise than type-based aliasing, indirect references to this
-     pointer will be represented by this memory tag, instead of the type
-     tag computed by TBAA.  */
-  tree name_mem_tag;
+struct expr_ann_d GTY(())
+{
+  struct tree_ann_common_d common;
+  
 };
 
 
@@ -284,21 +281,25 @@ union tree_ann_d GTY((desc ("ann_type ((tree_ann)&%h)")))
 {
   struct tree_ann_common_d GTY((tag ("TREE_ANN_COMMON"))) common;
   struct var_ann_d GTY((tag ("VAR_ANN"))) decl;
+  struct expr_ann_d GTY((tag ("EXPR_ANN"))) expr;
+  struct cst_ann_d GTY((tag ("CST_ANN"))) cst;
   struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
-  struct ssa_name_ann_d GTY((tag ("SSA_NAME_ANN"))) ssa_name;
 };
 
 typedef union tree_ann_d *tree_ann;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
-typedef struct ssa_name_ann_d *ssa_name_ann_t;
+typedef struct expr_ann_d *expr_ann_t;
+typedef struct cst_ann_d *cst_ann_t;
 
+static inline cst_ann_t cst_ann (tree);
+static inline cst_ann_t get_cst_ann (tree);
+static inline expr_ann_t expr_ann (tree);
+static inline expr_ann_t get_expr_ann (tree);
 static inline var_ann_t var_ann (tree);
 static inline var_ann_t get_var_ann (tree);
 static inline stmt_ann_t stmt_ann (tree);
 static inline stmt_ann_t get_stmt_ann (tree);
-static inline ssa_name_ann_t ssa_name_ann (tree);
-static inline ssa_name_ann_t get_ssa_name_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann);
 static inline basic_block bb_for_stmt (tree);
 extern void set_bb_for_stmt (tree, basic_block);
@@ -310,7 +311,7 @@ static inline int get_lineno (tree);
 static inline const char *get_filename (tree);
 static inline bool is_exec_stmt (tree);
 static inline bool is_label_stmt (tree);
-static inline vdef_optype get_vdef_ops (stmt_ann_t);
+static inline v_may_def_optype get_v_may_def_ops (stmt_ann_t);
 static inline vuse_optype get_vuse_ops (stmt_ann_t);
 static inline use_optype get_use_ops (stmt_ann_t);
 static inline def_optype get_def_ops (stmt_ann_t);
@@ -375,6 +376,12 @@ extern GTY(()) varray_type referenced_vars;
 
 #define num_referenced_vars VARRAY_ACTIVE_SIZE (referenced_vars)
 #define referenced_var(i) VARRAY_TREE (referenced_vars, i)
+
+/* Array of all SSA_NAMEs used in the function.  */
+extern GTY(()) varray_type ssa_names;
+
+#define num_ssa_names VARRAY_ACTIVE_SIZE (ssa_names)
+#define ssa_name(i) VARRAY_TREE (ssa_names, i)
 
 /* Artificial variable used to model the effects of function calls.  */
 extern GTY(()) tree global_var;
@@ -486,8 +493,9 @@ extern void dump_generic_bb (FILE *, basic_block, int, int);
 
 /* In tree-dfa.c  */
 extern var_ann_t create_var_ann (tree);
+extern cst_ann_t create_cst_ann (tree);
+extern expr_ann_t create_expr_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
-extern ssa_name_ann_t create_ssa_name_ann (tree);
 extern tree create_phi_node (tree, basic_block);
 extern void add_phi_arg (tree *, tree, edge);
 extern void remove_phi_arg (tree, basic_block);
@@ -558,8 +566,6 @@ extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (void);
 
-extern unsigned int highest_ssa_version;
-
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre (tree, enum tree_dump_index);
 
@@ -591,6 +597,12 @@ extern bool tree_could_throw_p (tree);
 extern bool tree_can_throw_internal (tree);
 extern bool tree_can_throw_external (tree);
 extern void add_stmt_to_eh_region (tree, int);
+
+/* In tree-ssa-pre.c */
+tree get_value_handle (tree);
+void set_value_handle (tree, tree);
+void debug_value_expressions (tree);
+void print_value_expressions (FILE *, tree);
 
 #include "tree-flow-inline.h"
 

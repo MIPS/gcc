@@ -603,7 +603,7 @@ push_scope (void)
 	  scope->depth--;
 	  sorry ("GCC supports only %u nested scopes\n", scope->depth);
 	}
-      
+
       current_scope        = scope;
       keep_next_level_flag = false;
     }
@@ -688,7 +688,7 @@ pop_scope (void)
 	  /* Labels go in BLOCK_VARS.  */
 	  TREE_CHAIN (p) = BLOCK_VARS (block);
 	  BLOCK_VARS (block) = p;
- 
+
 #ifdef ENABLE_CHECKING
 	  if (I_LABEL_BINDING (b->id) != b) abort ();
 #endif
@@ -776,7 +776,7 @@ pop_scope (void)
 	}
     }
 
-  
+
   /* Dispose of the block that we just made inside some higher level.  */
   if ((scope->function_body || scope == file_scope) && context)
     {
@@ -936,7 +936,7 @@ diagnose_arglist_conflict (tree newdecl, tree olddecl,
   tree t;
 
   if (TREE_CODE (olddecl) != FUNCTION_DECL
-      || !comptypes (TREE_TYPE (oldtype), TREE_TYPE (newtype), COMPARE_STRICT)
+      || !comptypes (TREE_TYPE (oldtype), TREE_TYPE (newtype))
       || !((TYPE_ARG_TYPES (oldtype) == 0 && DECL_INITIAL (olddecl) == 0)
 	   ||
 	   (TYPE_ARG_TYPES (newtype) == 0 && DECL_INITIAL (newdecl) == 0)))
@@ -1008,7 +1008,7 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
 
       /* Type for passing arg must be consistent with that declared
 	 for the arg.  */
-      else if (! comptypes (oldargtype, newargtype, COMPARE_STRICT))
+      else if (! comptypes (oldargtype, newargtype))
 	{
 	  error ("%Jprototype for '%D' declares arg %d with incompatible type",
 		 newdecl, newdecl, i);
@@ -1090,7 +1090,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       return false;
     }
 
-  if (!comptypes (oldtype, newtype, COMPARE_STRICT))
+  if (!comptypes (oldtype, newtype))
     {
       if (TREE_CODE (olddecl) == FUNCTION_DECL
 	  && DECL_BUILT_IN (olddecl) && !C_DECL_DECLARED_BUILTIN (olddecl))
@@ -1099,7 +1099,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	     This is for the ffs and fprintf builtins.  */
 	  tree trytype = match_builtin_function_types (newtype, oldtype);
 
-	  if (trytype && comptypes (newtype, trytype, COMPARE_STRICT))
+	  if (trytype && comptypes (newtype, trytype))
 	    *oldtypep = oldtype = trytype;
 	  else
 	    {
@@ -1138,7 +1138,10 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	}
       else
 	{
-	  error ("%Jconflicting types for '%D'", newdecl, newdecl);
+	  if (TYPE_QUALS (newtype) != TYPE_QUALS (oldtype))
+	    error ("%J conflicting type qualifiers for '%D'", newdecl, newdecl);
+	  else
+	    error ("%Jconflicting types for '%D'", newdecl, newdecl);
 	  diagnose_arglist_conflict (newdecl, olddecl, newtype, oldtype);
 	  locate_old_decl (olddecl, error);
 	  return false;
@@ -1152,7 +1155,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
     {
       if (DECL_IN_SYSTEM_HEADER (newdecl) || DECL_IN_SYSTEM_HEADER (olddecl))
 	return true;  /* Allow OLDDECL to continue in use.  */
-      
+
       error ("%Jredefinition of typedef '%D'", newdecl, newdecl);
       locate_old_decl (olddecl, error);
       return false;
@@ -1182,7 +1185,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  /* Discard the old built-in function.  */
 	  return false;
 	}
-      
+
       if (DECL_INITIAL (newdecl))
 	{
 	  if (DECL_INITIAL (olddecl)
@@ -1364,28 +1367,6 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  error ("%Jredefinition of parameter '%D'", newdecl, newdecl);
 	  locate_old_decl (olddecl, error);
 	  return false;
-	}
-
-      /* These bits are only type qualifiers when applied to objects.  */
-      if (TREE_THIS_VOLATILE (newdecl) != TREE_THIS_VOLATILE (olddecl))
-	{
-	  if (TREE_THIS_VOLATILE (newdecl))
-	    pedwarn ("%Jvolatile declaration of '%D' follows "
-		     "non-volatile declaration", newdecl, newdecl);
-	  else
-	    pedwarn ("%Jnon-volatile declaration of '%D' follows "
-		     "volatile declaration", newdecl, newdecl);
-	  pedwarned = true;
-	}
-      if (TREE_READONLY (newdecl) != TREE_READONLY (olddecl))
-	{
-	  if (TREE_READONLY (newdecl))
-	    pedwarn ("%Jconst declaration of '%D' follows "
-		     "non-const declaration", newdecl, newdecl);
-	  else
-	    pedwarn ("%Jnon-const declaration of '%D' follows "
-		     "const declaration", newdecl, newdecl);
-	  pedwarned = true;
 	}
     }
 
@@ -1677,7 +1658,7 @@ duplicate_decls (tree newdecl, tree olddecl)
   merge_decls (newdecl, olddecl, newtype, oldtype);
   return true;
 }
-  
+
 
 /* Check whether decl-node NEW shadows an existing declaration.  */
 static void
@@ -2215,7 +2196,7 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only)
       /* For our purposes, a tag in the external scope is the same as
 	 a tag in the file scope.  (Primarily relevant to Objective-C
 	 and its builtin structure tags, which get pushed before the
-	 file scope is created.)  */ 
+	 file scope is created.)  */
       if (b->contour == current_scope
 	  || (current_scope == file_scope && b->contour == external_scope))
 	thislevel = 1;
@@ -3309,7 +3290,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
   if (TREE_CODE (*type) == ENUMERAL_TYPE)
     {
       struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
-      if (!lt 
+      if (!lt
           || w < min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
 	  || w < min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
 	warning ("`%s' is narrower than values of its type", name);
@@ -4842,7 +4823,7 @@ get_parm_info (bool ellipsis)
 		/* The %s will be one of 'struct', 'union', or 'enum'.  */
 		warning ("anonymous %s declared inside parameter list",
 			 keyword);
-	      
+
 	      if (! explained_incomplete_types)
 		{
 		  warning ("its scope is only this definition or declaration,"
@@ -6027,8 +6008,7 @@ store_parm_decls_oldstyle (tree fndecl, tree arg_info)
 	     declared for the arg.  ISO C says we take the unqualified
 	     type for parameters declared with qualified type.  */
 	  if (! comptypes (TYPE_MAIN_VARIANT (DECL_ARG_TYPE (parm)),
-			   TYPE_MAIN_VARIANT (TREE_VALUE (type)),
-			   COMPARE_STRICT))
+			   TYPE_MAIN_VARIANT (TREE_VALUE (type))))
 	    {
 	      if (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
 		  == TYPE_MAIN_VARIANT (TREE_VALUE (type)))
@@ -6336,7 +6316,7 @@ finish_function (void)
   /* Genericize before inlining.  Delay genericizing nested functions
      until their parent function is genericized.  Since finalizing
      requires GENERIC, delay that as well.  */
-     
+
   if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node)
     {
       if (!decl_function_context (fndecl))
@@ -6656,14 +6636,14 @@ c_write_global_declarations_1 (tree globals)
   tree *vec = xmalloc (sizeof (tree) * len);
   size_t i;
   tree decl;
-  
+
   /* Process the decls in the order they were written.  */
   for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
     vec[i] = decl;
 
   wrapup_global_declarations (vec, len);
   check_global_declarations (vec, len);
-      
+
   free (vec);
 }
 

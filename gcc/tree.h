@@ -1174,11 +1174,46 @@ struct tree_exp GTY(())
 #define SSA_NAME_OCCURS_IN_ABNORMAL_PHI(NODE) \
     SSA_NAME_CHECK (NODE)->common.asm_written_flag
 
-/* Nonzero if this SSA_NAME expression is currently on the freelist of
+/* Nonzero if this SSA_NAME expression is currently on the free list of
    SSA_NAMES.  Using NOTHROW_FLAG seems reasonably safe since throwing
    has no meaning for an SSA_NAME.  */
 #define SSA_NAME_IN_FREE_LIST(NODE) \
     SSA_NAME_CHECK (NODE)->common.nothrow_flag
+
+/* Attributes for SSA_NAMEs for pointer-type variables.  */
+#define SSA_NAME_PTR_INFO(N) \
+    SSA_NAME_CHECK (N)->ssa_name.ptr_info
+
+/* Get the value of this SSA_NAME, if available.  */
+#define SSA_NAME_VALUE(N) \
+   SSA_NAME_CHECK (N)->ssa_name.value_handle
+
+#ifndef GCC_BITMAP_H
+struct bitmap_head_def;
+#endif
+
+/* Aliasing information for SSA_NAMEs representing pointer variables.  */
+struct ptr_info_def GTY(())
+{
+  /* Nonzero if points-to analysis couldn't determine where this pointer
+     is pointing to.  */
+  unsigned int pt_anything : 1;
+
+  /* Nonzero if this pointer is the result of a call to malloc.  */
+  unsigned int pt_malloc : 1;
+
+  /* Nonzero if the value of this pointer escapes the current function.  */
+  unsigned int value_escapes_p : 1;
+
+  /* Set of variables that this pointer may point to.  */
+  struct bitmap_head_def *pt_vars;
+
+  /* If this pointer has been dereferenced, and points-to information is
+     more precise than type-based aliasing, indirect references to this
+     pointer will be represented by this memory tag, instead of the type
+     tag computed by TBAA.  */
+  tree name_mem_tag;
+};
 
 struct tree_ssa_name GTY(())
 {
@@ -1189,6 +1224,12 @@ struct tree_ssa_name GTY(())
 
   /* SSA version number.  */
   unsigned int version;
+
+  /* Pointer attributes used for alias analysis.  */
+  struct ptr_info_def *ptr_info;
+
+  /* Value for SSA name used by GVN.  */ 
+  tree GTY((skip)) value_handle;
 };
 
 /* In a PHI_NODE node.  */
@@ -1602,7 +1643,7 @@ struct tree_block GTY(())
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
   GET_MODE_NUNITS (VECTOR_TYPE_CHECK (VECTOR_TYPE)->type.mode)
 
-  /* Indicates that objects of this type must be initialized by calling a
+/* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
 #define TYPE_NEEDS_CONSTRUCTING(NODE) \
   (TYPE_CHECK (NODE)->type.needs_constructing_flag)
@@ -2474,6 +2515,7 @@ enum tree_index
   TI_PTRDIFF_TYPE,
   TI_VA_LIST_TYPE,
   TI_BOOLEAN_TYPE,
+  TI_FILEPTR_TYPE,
 
   TI_VOID_LIST_NODE,
 
@@ -2538,6 +2580,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define pid_type_node                   global_trees[TI_PID_TYPE]
 #define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
+/* The C type `FILE *'.  */
+#define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
 
 #define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
 #define boolean_false_node		global_trees[TI_BOOLEAN_FALSE]
@@ -3425,6 +3469,7 @@ extern tree fold (tree);
 extern tree fold_initializer (tree);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
+extern tree fold_abs_const (tree, tree);
 
 extern int force_fit_type (tree, int);
 extern int add_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
@@ -3463,11 +3508,15 @@ enum operand_equal_flag
 extern int operand_equal_p (tree, tree, unsigned int);
 
 extern tree omit_one_operand (tree, tree, tree);
+extern tree omit_two_operands (tree, tree, tree, tree);
 extern tree invert_truthvalue (tree);
 extern tree nondestructive_fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
 extern tree int_const_binop (enum tree_code, tree, tree, int);
+extern tree build_fold_addr_expr (tree);
+extern tree build_fold_addr_expr_with_type (tree, tree);
+extern tree build_fold_indirect_ref (tree);
 
 /* In builtins.c */
 extern tree fold_builtin (tree);

@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "langhooks.h"
 #include "cgraph.h"
+#include "tree-gimple.h"
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -877,6 +878,7 @@ static bool ix86_expand_carry_flag_compare (enum rtx_code, rtx, rtx, rtx*);
 static tree ix86_build_builtin_va_list (void);
 static void ix86_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
+static tree ix86_gimplify_va_arg (tree, tree, tree *, tree *);
 
 struct ix86_address
 {
@@ -1068,6 +1070,9 @@ static void init_ext_80387_constants (void);
 
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS ix86_setup_incoming_varargs
+
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3172,30 +3177,30 @@ ix86_va_start (tree valist, rtx nextarg)
 }
 
 /* Implement va_arg.  */
-rtx
-ix86_va_arg (tree valist, tree type)
+
+tree
+ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 {
   static const int intreg[6] = { 0, 1, 2, 3, 4, 5 };
   tree f_gpr, f_fpr, f_ovf, f_sav;
   tree gpr, fpr, ovf, sav, t;
   int size, rsize;
-  rtx lab_false, lab_over = NULL_RTX;
-  rtx addr_rtx, r;
+  tree lab_false, lab_over = NULL_TREE;
+  tree addr, t2;
   rtx container;
   int indirect_p = 0;
+  tree ptrtype;
 
   /* Only 64bit target needs something special.  */
   if (!TARGET_64BIT)
-    {
-      return std_expand_builtin_va_arg (valist, type);
-    }
+    return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
   f_fpr = TREE_CHAIN (f_gpr);
   f_ovf = TREE_CHAIN (f_fpr);
   f_sav = TREE_CHAIN (f_ovf);
 
-  valist = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (valist)), valist);
+  valist = build_fold_indirect_ref (valist);
   gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr);
   fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr);
   ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf);
@@ -3204,7 +3209,7 @@ ix86_va_arg (tree valist, tree type)
   size = int_size_in_bytes (type);
   if (size == -1)
     {
-      /* Passed by reference.  */
+      /* Variable-size types are passed by reference.  */
       indirect_p = 1;
       type = build_pointer_type (type);
       size = int_size_in_bytes (type);
@@ -3217,16 +3222,17 @@ ix86_va_arg (tree valist, tree type)
    * Pull the value out of the saved registers ...
    */
 
-  addr_rtx = gen_reg_rtx (Pmode);
+  addr = create_tmp_var (ptr_type_node, "addr");
+  DECL_POINTER_ALIAS_SET (addr) = get_varargs_alias_set ();
 
   if (container)
     {
-      rtx int_addr_rtx, sse_addr_rtx;
       int needed_intregs, needed_sseregs;
       int need_temp;
+      tree int_addr, sse_addr;
 
-      lab_over = gen_label_rtx ();
-      lab_false = gen_label_rtx ();
+      lab_false = create_artificial_label ();
+      lab_over = create_artificial_label ();
 
       examine_argument (TYPE_MODE (type), type, 0,
 		        &needed_intregs, &needed_sseregs);
@@ -3267,111 +3273,119 @@ ix86_va_arg (tree valist, tree type)
 	}
       if (!need_temp)
 	{
-	  int_addr_rtx = addr_rtx;
-	  sse_addr_rtx = addr_rtx;
+	  int_addr = addr;
+	  sse_addr = addr;
 	}
       else
 	{
-	  int_addr_rtx = gen_reg_rtx (Pmode);
-	  sse_addr_rtx = gen_reg_rtx (Pmode);
+	  int_addr = create_tmp_var (ptr_type_node, "int_addr");
+	  DECL_POINTER_ALIAS_SET (int_addr) = get_varargs_alias_set ();
+	  sse_addr = create_tmp_var (ptr_type_node, "sse_addr");
+	  DECL_POINTER_ALIAS_SET (sse_addr) = get_varargs_alias_set ();
 	}
       /* First ensure that we fit completely in registers.  */
       if (needed_intregs)
 	{
-	  emit_cmp_and_jump_insns (expand_expr
-				   (gpr, NULL_RTX, SImode, EXPAND_NORMAL),
-				   GEN_INT ((REGPARM_MAX - needed_intregs +
-					     1) * 8), GE, const1_rtx, SImode,
-				   1, lab_false);
+	  t = build_int_2 ((REGPARM_MAX - needed_intregs + 1) * 8, 0);
+	  TREE_TYPE (t) = TREE_TYPE (gpr);
+	  t = build2 (GE_EXPR, boolean_type_node, gpr, t);
+	  t2 = build1 (GOTO_EXPR, void_type_node, lab_false);
+	  t = build (COND_EXPR, void_type_node, t, t2, NULL_TREE);
+	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
-	  emit_cmp_and_jump_insns (expand_expr
-				   (fpr, NULL_RTX, SImode, EXPAND_NORMAL),
-				   GEN_INT ((SSE_REGPARM_MAX -
-					     needed_sseregs + 1) * 16 +
-					    REGPARM_MAX * 8), GE, const1_rtx,
-				   SImode, 1, lab_false);
+	  t = build_int_2 ((SSE_REGPARM_MAX - needed_sseregs + 1) * 16
+			   + REGPARM_MAX * 8, 0);
+	  TREE_TYPE (t) = TREE_TYPE (fpr);
+	  t = build2 (GE_EXPR, boolean_type_node, fpr, t);
+	  t2 = build1 (GOTO_EXPR, void_type_node, lab_false);
+	  t = build (COND_EXPR, void_type_node, t, t2, NULL_TREE);
+	  gimplify_and_add (t, pre_p);
 	}
 
       /* Compute index to start of area used for integer regs.  */
       if (needed_intregs)
 	{
-	  t = build (PLUS_EXPR, ptr_type_node, sav, gpr);
-	  r = expand_expr (t, int_addr_rtx, Pmode, EXPAND_NORMAL);
-	  if (r != int_addr_rtx)
-	    emit_move_insn (int_addr_rtx, r);
+	  /* int_addr = gpr + sav; */
+	  t = build2 (PLUS_EXPR, ptr_type_node, sav, gpr);
+	  t = build2 (MODIFY_EXPR, void_type_node, int_addr, t);
+	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
-	  t = build (PLUS_EXPR, ptr_type_node, sav, fpr);
-	  r = expand_expr (t, sse_addr_rtx, Pmode, EXPAND_NORMAL);
-	  if (r != sse_addr_rtx)
-	    emit_move_insn (sse_addr_rtx, r);
+	  /* sse_addr = fpr + sav; */
+	  t = build2 (PLUS_EXPR, ptr_type_node, sav, fpr);
+	  t = build2 (MODIFY_EXPR, void_type_node, sse_addr, t);
+	  gimplify_and_add (t, pre_p);
 	}
       if (need_temp)
 	{
 	  int i;
-	  rtx mem;
-	  rtx x;
+	  tree temp = create_tmp_var (type, "va_arg_tmp");
 
-	  /* Never use the memory itself, as it has the alias set.  */
-	  x = XEXP (assign_temp (type, 0, 1, 0), 0);
-	  mem = gen_rtx_MEM (BLKmode, x);
-	  force_operand (x, addr_rtx);
-	  set_mem_alias_set (mem, get_varargs_alias_set ());
-	  set_mem_align (mem, BITS_PER_UNIT);
-
+	  /* addr = &temp; */
+	  t = build1 (ADDR_EXPR, build_pointer_type (type), temp);
+	  t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+	  gimplify_and_add (t, pre_p);
+	  
 	  for (i = 0; i < XVECLEN (container, 0); i++)
 	    {
 	      rtx slot = XVECEXP (container, 0, i);
 	      rtx reg = XEXP (slot, 0);
 	      enum machine_mode mode = GET_MODE (reg);
-	      rtx src_addr;
-	      rtx src_mem;
+	      tree piece_type = lang_hooks.types.type_for_mode (mode, 1);
+	      tree addr_type = build_pointer_type (piece_type);
+	      tree src_addr, src;
 	      int src_offset;
-	      rtx dest_mem;
+	      tree dest_addr, dest;
 
 	      if (SSE_REGNO_P (REGNO (reg)))
 		{
-		  src_addr = sse_addr_rtx;
+		  src_addr = sse_addr;
 		  src_offset = (REGNO (reg) - FIRST_SSE_REG) * 16;
 		}
 	      else
 		{
-		  src_addr = int_addr_rtx;
+		  src_addr = int_addr;
 		  src_offset = REGNO (reg) * 8;
 		}
-	      src_mem = gen_rtx_MEM (mode, src_addr);
-	      set_mem_alias_set (src_mem, get_varargs_alias_set ());
-	      src_mem = adjust_address (src_mem, mode, src_offset);
-	      dest_mem = adjust_address (mem, mode, INTVAL (XEXP (slot, 1)));
-	      emit_move_insn (dest_mem, src_mem);
+	      src_addr = fold_convert (addr_type, src_addr);
+	      src_addr = fold (build2 (PLUS_EXPR, addr_type, src_addr,
+				       size_int (src_offset)));
+	      src = build_fold_indirect_ref (src_addr);
+
+	      dest_addr = fold_convert (addr_type, addr);
+	      dest_addr = fold (build2 (PLUS_EXPR, addr_type, dest_addr,
+					size_int (INTVAL (XEXP (slot, 1)))));
+	      dest = build_fold_indirect_ref (dest_addr);
+
+	      t = build2 (MODIFY_EXPR, void_type_node, dest, src);
+	      gimplify_and_add (t, pre_p);
 	    }
 	}
 
       if (needed_intregs)
 	{
-	  t =
-	    build (PLUS_EXPR, TREE_TYPE (gpr), gpr,
-		   build_int_2 (needed_intregs * 8, 0));
-	  t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr, t);
-	  TREE_SIDE_EFFECTS (t) = 1;
-	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	  t = build2 (PLUS_EXPR, TREE_TYPE (gpr), gpr,
+		      build_int_2 (needed_intregs * 8, 0));
+	  t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr, t);
+	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  t =
-	    build (PLUS_EXPR, TREE_TYPE (fpr), fpr,
+	    build2 (PLUS_EXPR, TREE_TYPE (fpr), fpr,
 		   build_int_2 (needed_sseregs * 16, 0));
-	  t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr, t);
-	  TREE_SIDE_EFFECTS (t) = 1;
-	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	  t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr, t);
+	  gimplify_and_add (t, pre_p);
 	}
 
-      emit_jump_insn (gen_jump (lab_over));
-      emit_barrier ();
-      emit_label (lab_false);
+      t = build1 (GOTO_EXPR, void_type_node, lab_over);
+      gimplify_and_add (t, pre_p);
+
+      t = build1 (LABEL_EXPR, void_type_node, lab_false);
+      append_to_statement_list (t, pre_p);
     }
 
   /* ... otherwise out of the overflow area.  */
@@ -3385,30 +3399,28 @@ ix86_va_arg (tree valist, tree type)
       t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf, build_int_2 (align - 1, 0));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t, build_int_2 (-align, -1));
     }
-  t = save_expr (t);
+  gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-  if (r != addr_rtx)
-    emit_move_insn (addr_rtx, r);
+  t2 = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  gimplify_and_add (t2, pre_p);
 
-  t =
-    build (PLUS_EXPR, TREE_TYPE (t), t,
-	   build_int_2 (rsize * UNITS_PER_WORD, 0));
-  t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  t = build2 (PLUS_EXPR, TREE_TYPE (t), t,
+	      build_int_2 (rsize * UNITS_PER_WORD, 0));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  gimplify_and_add (t, pre_p);
 
   if (container)
-    emit_label (lab_over);
-
-  if (indirect_p)
     {
-      r = gen_rtx_MEM (Pmode, addr_rtx);
-      set_mem_alias_set (r, get_varargs_alias_set ());
-      emit_move_insn (addr_rtx, r);
+      t = build1 (LABEL_EXPR, void_type_node, lab_over);
+      append_to_statement_list (t, pre_p);
     }
 
-  return addr_rtx;
+  ptrtype = build_pointer_type (type);
+  addr = fold_convert (ptrtype, addr);
+
+  if (indirect_p)
+    addr = build_fold_indirect_ref (addr);
+  return build_fold_indirect_ref (addr);
 }
 
 /* Return nonzero if OP is either a i387 or SSE fp register.  */
@@ -5823,7 +5835,8 @@ legitimate_constant_p (rtx x)
 	  && tls_symbolic_operand (XEXP (inner, 0), Pmode))
 	return false;
 
-      if (GET_CODE (inner) == PLUS)
+      if (GET_CODE (inner) == PLUS
+	  || GET_CODE (inner) == MINUS)
 	{
 	  if (GET_CODE (XEXP (inner, 1)) != CONST_INT)
 	    return false;
@@ -12224,7 +12237,7 @@ static int
 ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 {
   enum attr_type insn_type, dep_insn_type;
-  enum attr_memory memory, dep_memory;
+  enum attr_memory memory;
   rtx set, set2;
   int dep_insn_code_number;
 
@@ -12292,17 +12305,12 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 
     case PROCESSOR_K6:
       memory = get_attr_memory (insn);
-      dep_memory = get_attr_memory (dep_insn);
+
       /* The esp dependency is resolved before the instruction is really
          finished.  */
       if ((insn_type == TYPE_PUSH || insn_type == TYPE_POP)
 	  && (dep_insn_type == TYPE_PUSH || dep_insn_type == TYPE_POP))
 	return 1;
-
-      /* Since we can't represent delayed latencies of load+operation,
-	 increase the cost here for non-imov insns.  */
-      if (dep_memory == MEMORY_LOAD || dep_memory == MEMORY_BOTH)
-	cost += (dep_insn_type != TYPE_IMOV) ? 2 : 1;
 
       /* INT->FP conversion is expensive.  */
       if (get_attr_fp_int_src (dep_insn))
@@ -12329,7 +12337,6 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     case PROCESSOR_ATHLON:
     case PROCESSOR_K8:
       memory = get_attr_memory (insn);
-      dep_memory = get_attr_memory (dep_insn);
 
       /* Show ability of reorder buffer to hide latency of load by executing
 	 in parallel with previous instruction in case
@@ -12368,6 +12375,7 @@ ia32_use_dfa_pipeline_interface (void)
 {
   if (TARGET_PENTIUM
       || TARGET_PENTIUMPRO
+      || TARGET_K6
       || TARGET_ATHLON_K8)
     return 1;
   return 0;
@@ -12383,7 +12391,8 @@ ia32_multipass_dfa_lookahead (void)
   if (ix86_tune == PROCESSOR_PENTIUM)
     return 2;
 
-  if (ix86_tune == PROCESSOR_PENTIUMPRO)
+  if (ix86_tune == PROCESSOR_PENTIUMPRO
+      || ix86_tune == PROCESSOR_K6)
     return 1;
 
   else

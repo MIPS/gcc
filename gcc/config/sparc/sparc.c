@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "cfglayout.h"
+#include "tree-gimple.h"
 
 /* Global variables for machine-dependent things.  */
 
@@ -181,6 +182,7 @@ static bool sparc_promote_prototypes (tree);
 static rtx sparc_struct_value_rtx (tree, int);
 static bool sparc_return_in_memory (tree, tree);
 static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
+static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
 
 /* Option handling.  */
 
@@ -288,6 +290,9 @@ enum processor_type sparc_cpu;
 #define TARGET_EXPAND_BUILTIN_SAVEREGS sparc_builtin_saveregs
 #undef TARGET_STRICT_ARGUMENT_NAMING
 #define TARGET_STRICT_ARGUMENT_NAMING sparc_strict_argument_naming
+
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR sparc_gimplify_va_arg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -5937,13 +5942,13 @@ sparc_va_start (tree valist, rtx nextarg)
 
 /* Implement `va_arg' for stdarg.  */
 
-rtx
-sparc_va_arg (tree valist, tree type)
+tree
+sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 {
   HOST_WIDE_INT size, rsize, align;
   tree addr, incr;
-  rtx addr_rtx;
   bool indirect;
+  tree ptrtype = build_pointer_type (type);
 
   if (function_arg_pass_by_reference (0, TYPE_MODE (type), type, 0))
     {
@@ -5979,67 +5984,52 @@ sparc_va_arg (tree valist, tree type)
   incr = valist;
   if (align)
     {
-      incr = fold (build (PLUS_EXPR, ptr_type_node, incr,
-			 build_int_2 (align - 1, 0)));
-      incr = fold (build (BIT_AND_EXPR, ptr_type_node, incr,
-			  build_int_2 (-align, -1)));
+      incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
+			   ssize_int (align - 1)));
+      incr = fold (build2 (BIT_AND_EXPR, ptr_type_node, incr,
+			   ssize_int (-align)));
     }
 
-  addr = incr = save_expr (incr);
+  gimplify_expr (&incr, pre_p, post_p, is_gimple_val, fb_rvalue);
+  addr = incr;
+
   if (BYTES_BIG_ENDIAN && size < rsize)
+    addr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
+			 ssize_int (rsize - size)));
+
+  if (indirect)
     {
-      addr = fold (build (PLUS_EXPR, ptr_type_node, incr,
-			  build_int_2 (rsize - size, 0)));
+      addr = fold_convert (build_pointer_type (ptrtype), addr);
+      addr = build_fold_indirect_ref (addr);
     }
-  incr = fold (build (PLUS_EXPR, ptr_type_node, incr,
-		      build_int_2 (rsize, 0)));
-
-  incr = build (MODIFY_EXPR, ptr_type_node, valist, incr);
-  TREE_SIDE_EFFECTS (incr) = 1;
-  expand_expr (incr, const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-  addr_rtx = expand_expr (addr, NULL, Pmode, EXPAND_NORMAL);
-
   /* If the address isn't aligned properly for the type,
      we may need to copy to a temporary.  
      FIXME: This is inefficient.  Usually we can do this
      in registers.  */
-  if (align == 0
-      && TYPE_ALIGN (type) > BITS_PER_WORD
-      && !indirect)
+  else if (align == 0
+	   && TYPE_ALIGN (type) > BITS_PER_WORD)
     {
-      /* FIXME: We really need to specify that the temporary is live
-	 for the whole function because expand_builtin_va_arg wants
-	 the alias set to be get_varargs_alias_set (), but in this
-	 case the alias set is that for TYPE and if the memory gets
-	 reused it will be reused with alias set TYPE.  */
-      rtx tmp = assign_temp (type, 0, 1, 0);
-      rtx dest_addr;
+      tree tmp = create_tmp_var (type, "va_arg_tmp");
+      tree dest_addr = build_fold_addr_expr (tmp);
 
-      addr_rtx = force_reg (Pmode, addr_rtx);
-      addr_rtx = gen_rtx_MEM (BLKmode, addr_rtx);
-      set_mem_alias_set (addr_rtx, get_varargs_alias_set ());
-      set_mem_align (addr_rtx, BITS_PER_WORD);
-      tmp = shallow_copy_rtx (tmp);
-      PUT_MODE (tmp, BLKmode);
-      set_mem_alias_set (tmp, 0);
-      
-      dest_addr = emit_block_move (tmp, addr_rtx, GEN_INT (rsize),
-				   BLOCK_OP_NORMAL);
-      if (dest_addr != NULL_RTX)
-	addr_rtx = dest_addr;
-      else
-	addr_rtx = XCEXP (tmp, 0, MEM);
+      tree copy = build_function_call_expr
+	(implicit_built_in_decls[BUILT_IN_MEMCPY],
+	 tree_cons (NULL_TREE, dest_addr,
+		    tree_cons (NULL_TREE, addr,
+			       tree_cons (NULL_TREE, size_int (rsize),
+					  NULL_TREE))));
+
+      gimplify_and_add (copy, pre_p);
+      addr = dest_addr;
     }
+  else
+    addr = fold_convert (ptrtype, addr);
 
-  if (indirect)
-    {
-      addr_rtx = force_reg (Pmode, addr_rtx);
-      addr_rtx = gen_rtx_MEM (Pmode, addr_rtx);
-      set_mem_alias_set (addr_rtx, get_varargs_alias_set ());
-    }
+  incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr, ssize_int (rsize)));
+  incr = build2 (MODIFY_EXPR, ptr_type_node, valist, incr);
+  gimplify_and_add (incr, post_p);
 
-  return addr_rtx;
+  return build_fold_indirect_ref (addr);
 }
 
 /* Return the string to output a conditional branch to LABEL, which is

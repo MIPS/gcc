@@ -610,7 +610,8 @@ visit_stmt (tree stmt)
   size_t i;
   stmt_ann_t ann;
   def_optype defs;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
 
   /* If the statement has already been deemed to be VARYING, don't simulate
      it again.  */
@@ -669,10 +670,15 @@ visit_stmt (tree stmt)
 	add_outgoing_control_edges (bb_for_stmt (stmt));
     }
 
-  /* Mark all VDEF operands VARYING.  */
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
-    def_to_varying (VDEF_RESULT (vdefs, i));
+  /* Mark all V_MAY_DEF operands VARYING.  */
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+    def_to_varying (V_MAY_DEF_RESULT (v_may_defs, i));
+    
+  /* Mark all V_MUST_DEF operands VARYING.  */
+  v_must_defs = V_MUST_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    def_to_varying (V_MUST_DEF_OP (v_must_defs, i));
 }
 
 
@@ -953,7 +959,7 @@ ccp_fold (tree stmt)
   if (retval)
     {
       if (TREE_TYPE (retval) != TREE_TYPE (rhs))
-	retval = convert (TREE_TYPE (rhs), retval);
+	retval = fold_convert (TREE_TYPE (rhs), retval);
 
       if (TREE_TYPE (retval) == TREE_TYPE (rhs))
 	return retval;
@@ -1114,11 +1120,11 @@ initialize (void)
   bb_in_list = sbitmap_alloc (last_basic_block);
   sbitmap_zero (bb_in_list);
 
-  value_vector = (value *) xmalloc (highest_ssa_version * sizeof (value));
-  memset (value_vector, 0, highest_ssa_version * sizeof (value));
+  value_vector = (value *) xmalloc (num_ssa_names * sizeof (value));
+  memset (value_vector, 0, num_ssa_names * sizeof (value));
 
   /* 1 if ssa variable is used in a virtual variable context.  */
-  virtual_var = sbitmap_alloc (highest_ssa_version);
+  virtual_var = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (virtual_var);
 
   /* Initialize default values and simulation flags for PHI nodes, statements 
@@ -1129,7 +1135,8 @@ initialize (void)
       tree stmt;
       stmt_ann_t ann;
       def_optype defs;
-      vdef_optype vdefs;
+      v_may_def_optype v_may_defs;
+      v_must_def_optype v_must_defs;
       size_t x;
       int vary;
 
@@ -1149,13 +1156,22 @@ initialize (void)
 	    }
 	  DONT_SIMULATE_AGAIN (stmt) = vary;
 
-	  /* Mark all VDEF operands VARYING.  */
-	  vdefs = VDEF_OPS (ann);
-	  for (x = 0; x < NUM_VDEFS (vdefs); x++)
+	  /* Mark all V_MAY_DEF operands VARYING.  */
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (x = 0; x < NUM_V_MAY_DEFS (v_may_defs); x++)
 	    {
-	      tree res = VDEF_RESULT (vdefs, x);
+	      tree res = V_MAY_DEF_RESULT (v_may_defs, x);
 	      get_value (res)->lattice_val = VARYING;
 	      SET_BIT (virtual_var, SSA_NAME_VERSION (res));
+	    }
+	    
+	  /* Mark all V_MUST_DEF operands VARYING.  */
+	  v_must_defs = V_MUST_DEF_OPS (ann);
+	  for (x = 0; x < NUM_V_MUST_DEFS (v_must_defs); x++)
+	    {
+	      tree v_must_def = V_MUST_DEF_OP (v_must_defs, x);
+	      get_value (v_must_def)->lattice_val = VARYING;
+	      SET_BIT (virtual_var, SSA_NAME_VERSION (v_must_def));
 	    }
 	}
 
@@ -2064,7 +2080,8 @@ set_rhs (tree *stmt_p, tree expr)
       if (TREE_SIDE_EFFECTS (expr))
 	{
 	  def_optype defs;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
+	  v_must_def_optype v_must_defs;
 	  size_t i;
 
 	  /* Fix all the SSA_NAMEs created by *STMT_P to point to its new
@@ -2077,10 +2094,18 @@ set_rhs (tree *stmt_p, tree expr)
 		SSA_NAME_DEF_STMT (var) = *stmt_p;
 	    }
 
-	  vdefs = VDEF_OPS (ann);
-	  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
 	    {
-	      tree var = VDEF_RESULT (vdefs, i);
+	      tree var = V_MAY_DEF_RESULT (v_may_defs, i);
+	      if (TREE_CODE (var) == SSA_NAME)
+		SSA_NAME_DEF_STMT (var) = *stmt_p;
+	    }
+	    
+	  v_must_defs = V_MUST_DEF_OPS (ann);
+	  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+	    {
+	      tree var = V_MUST_DEF_OP (v_must_defs, i);
 	      if (TREE_CODE (var) == SSA_NAME)
 		SSA_NAME_DEF_STMT (var) = *stmt_p;
 	    }

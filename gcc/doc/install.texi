@@ -296,31 +296,40 @@ the @option{--with-gmp} or @option{--with-gmp-dir} configure option.
 
 @heading Tools/packages necessary for modifying GCC
 @table @asis
-
-@item autoconf versions 2.13 and 2.59
+@item autoconf versions 2.13, 2.57 and 2.59
 @itemx GNU m4 version 1.4 (or later)
 
 Necessary when modifying @file{configure.ac}, @file{aclocal.m4}, etc.@:
 to regenerate @file{configure} and @file{config.in} files.  Most
-directories require autoconf 2.59 (exactly), but the toplevel, @file{libf2c},
-@file{libobjc}, @file{zlib}, and @file{libjava} (except for 
-@file{libjava/libltdl}) still require autoconf 2.13 (exactly).
+directories require autoconf 2.59 (exactly), but the toplevel and
+@file{libjava} (but not @file{libjava/libltdl}) still require autoconf
+2.13 (exactly) and @file{libmudflap} requires autoconf 2.57 (exactly).
 
-@item automake versions 1.4-gcj and 1.7.9
+@item automake versions 1.4-gcj, 1.7.8, 1.7.9, 1.8.2, 1.8.4 and 1.8.5
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
 associated @file{Makefile.in}.
 
 Much of GCC does not use automake, so directly edit the @file{Makefile.in}
 file.  Specifically this applies to the @file{gcc}, @file{intl},
-@file{libf2c}, @file{libiberty}, @file{libobjc} directories as well as any
+@file{libiberty}, @file{libobjc} directories as well as any
 of their subdirectories.
 
-The @file{libstdc++-v3}, @file{libjava/libltdl}, @file{fastjar} and
-@file{libffi} directories require automake 1.7.9. However, the Java
-directories, which include @file{boehm-gc}, @file{libjava}, and @file{zlib},
+The Java directories @file{boehm-gc} and @file{libjava}
 require a modified version of automake 1.4 downloadable from
 @uref{ftp://gcc.gnu.org/pub/java/automake-gcj-1.4.tar.gz}.
+
+The @file{libmudflap} directory requires automake 1.7.8.
+
+The @file{fastjar}, @file{libbanshee}, @file{libffi},
+@file{libjava/libltdl} and @file{zlib} directories require automake
+1.7.9.
+
+The @file{libstdc++-v3} directory requires automake 1.8.2.
+
+The @file{libcpp} directory requires automake 1.8.4.
+
+The @file{libgfortran} directory requires automake 1.8.5.
 
 @item gettext version 0.12 (or later)
 
@@ -747,19 +756,15 @@ installing GCC creates the directory.
 @item --enable-shared[=@var{package}[,@dots{}]]
 Build shared versions of libraries, if shared libraries are supported on
 the target platform.  Unlike GCC 2.95.x and earlier, shared libraries
-are enabled by default on all platforms that support shared libraries,
-except for @samp{libobjc} which is built as a static library only by
-default.
+are enabled by default on all platforms that support shared libraries.
 
 If a list of packages is given as an argument, build shared libraries
 only for the listed packages.  For other packages, only static libraries
 will be built.  Package names currently recognized in the GCC tree are
 @samp{libgcc} (also known as @samp{gcc}), @samp{libstdc++} (not
-@samp{libstdc++-v3}), @samp{libffi}, @samp{zlib}, @samp{boehm-gc} and
-@samp{libjava}.  Note that @samp{libobjc} does not recognize itself by
-any name, so, if you list package names in @option{--enable-shared},
-you will only get static Objective-C libraries.  @samp{libf2c} and
-@samp{libiberty} do not support shared libraries at all.
+@samp{libstdc++-v3}), @samp{libffi}, @samp{zlib}, @samp{boehm-gc},
+@samp{ada}, @samp{libada}, @samp{libjava} and @samp{libobjc}.
+Note @samp{libiberty} does not support shared libraries at all.
 
 Use @option{--disable-shared} to build only static libraries.  Note that
 @option{--disable-shared} does not accept a list of package names as

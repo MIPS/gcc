@@ -21,8 +21,6 @@
 	In SET_SRC part of SET case, if dest is already set, pass it down
 	unchanged.
 
-	* sh.h (ALLOCATE_INITIAL_VALUE): Use return_address_pointer_rtx.
-
 	Reverse this patch:
 	2004-06-08  J"orn Rennecke <joern.rennecke@superh.com>
 	* basic-block.h (could_fall_through): Declare.
@@ -64,16 +62,6 @@
 
 2004-06-08  J"orn Rennecke <joern.rennecke@superh.com>
 
-	* sh.c (dump_table): New argument start.  Changed caller.
-	(fixup_mova): New function.
-	(find_barrier): Use it.
-	(sh_reorg): Likewise.  Check for CODE_FOR_casesi_worker_2.
-	If the label a mova refers to is above the mova itself, change
-	the mova into a load.
-	* sh.md (*casesi_worker): Rename to:
-	(casesi_worker_1).
-	(casesi_worker_2): New insn.
-
 	* version.c (version_string): Adjust.
 
 	* basic-block.h (could_fall_through): Declare.
@@ -89,12 +77,3 @@
 	require the block to come last.  Add sanity checks.
 	* cfgrtl.c (rtl_split_edge): Add special handling of fall through
 	edges to the exit block.
-
-	* sched-int.h (in_post_call_group_p): Change type to enum.
-	* sched-deps.c (sched_analyze_insn):
-	(sched_analyze): When in_post_call_group_p is post_call_initial,
-	don't add a dependency, but still set SCHED_GROUP_P and CANT_MOVE,
-	and also reset in_post_call_group_p to post_call.
-	(sched_analyze): When the previous basic block ended in a CALL_INSN,
-	initialize in_post_call_group_p as post_call_initial.
-	(init_deps): initialize in_post_call_group_p to not_post_call.

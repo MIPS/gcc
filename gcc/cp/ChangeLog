@@ -1,3 +1,64 @@
+2004-06-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* decl.c (grokdeclarator): Do not depend on C99's _Bool's behavior.
+
+2004-06-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15862
+	* name-lookup.c (unqualified_namespace_lookup): Do not ignore type
+	bindings for undeclared built-ins.
+
+2004-06-11  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* typeck2.c (abstract_virtual_errors): Reword diagnostics, make them
+	appear at the correct location.
+
+2004-06-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/15875
+	Revert:
+	2004-06-01  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+	* init.c (build_offset_ref): Build SCOPE_REF with non-null
+	TREE_TYPE for non-dependent names.
+	* pt.c (type_dependent_expression_p): Handle SCOPE_REF with
+	unknown_type_node as its TREE_TYPE.
+	* cxx-pretty_print.c (pp_cxx_unqualified_id): Handle BASELINK.
+	* error.c (dump_decl) <SCOPE_REF case>: Use pp_expression.
+	(dump_expr) <SCOPE_REF case>: Likewise.
+
+2004-06-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15227
+	* parser.c (cp_parser_direct_declarator): Robustify.
+
+	PR c++/15877
+	* pt.c (tsubst_copy): Use decl_constant_value on enumeration
+	constants in non-dependent contexts.
+
+	PR c++/14211
+	PR c++/15076
+	* typeck.c (build_static_cast): Wrap casts in NON_LVALUE_EXPR when
+	necessary.
+
+2004-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/14791
+	* decl.c (duplicate_decls): Handle fileptr_type_node arguments
+	specially.
+
+2004-06-09  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert:
+	PR c++/15815
+	2004-06-07  Mark Mitchell  <mark@codesourcery.com>
+	* lex.c (handle_pragma_interface): Deprecate.
+	(handle_pragma_implementation): Likewise.
+
+2004-06-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++spec.c (lang_specific_driver): Remove check for -lm
+	and -lmath when check it see if it was the math library.
+
 2004-06-08  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	PR c++/7841

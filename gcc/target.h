@@ -470,6 +470,10 @@ struct gcc_target
     /* Given a complex type T, return true if a parameter of type T
        should be passed as two scalars.  */
     bool (* split_complex_arg) (tree type);
+
+    /* Gimplifies a VA_ARG_EXPR.  */
+    tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
+				   tree *post_p);
   } calls;
 
   /* Leave the boolean fields at the end.  */

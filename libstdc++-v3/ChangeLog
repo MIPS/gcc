@@ -1,3 +1,71 @@
+2004-06-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::do_get_time,
+	time_get<>::do_get_date): Use only once _M_extract_via_format,
+	instead of going through "%X"/"%x" and calling it two times
+	(+ using widen).
+
+2004-06-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/algorithm: Trivial formatting fixes.
+	* include/ext/functional: Likewise.
+	* include/ext/hash_fun.h: Likewise.
+	* include/ext/iterator: Likewise.
+
+2004-06-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (find(const _CharT*, size_type,
+	size_type)): Reimplement using std::search.
+	* src/string-inst.cc: Instantiate std::search for char/wchar_t.
+
+2004-06-12  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* testsuite/performance/21_strings/string_find.cc: New.
+
+2004-06-10  Aaron W. LaFramboise  <aaronraolete36@aaronwl.com>
+
+	* include/bits/istream.tcc (istream::ignore): Fix for -Wuninitialized.
+
+2004-06-10  Jan van Dijk  <jan@etpmod.phys.tue.nl>
+
+	* include/std/std_complex.h (sin(const complex<_Tp>& __z)): Make
+	this function return a value.
+
+2004-06-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/15775
+	* include/bits/stl_deque.h: Consistently with stl_set.h, define
+	pointer as allocator's pointer, likewise for reference,
+	const_pointer, and const_reference.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_vector.h: Likewise.
+
+2004-06-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* crossconfig.m4: Remove signbit, signbitf, signbitl.	
+	* linkage.m4: Comment LIBMATHOBJS, tweak others.  AC_DEFINES for
+	builtin math functions instead of AC_DEFINE_UNQUOTED.
+	* configure: Regenerate.
+	
+2004-06-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/doxygen/filter.sed: Rename _GLIBCXX_STD to std.
+	* docs/doxygen/mainpage.html: Remove links.
+
+2004-06-08  Jason Merrill  <jason@redhat.com>
+
+	* config/linker-map.gnu: Use wildcards for
+	__basic_file::{xsgetn,xsputn,seekoff,xsputn_2}.
+
+2004-06-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/pool_allocator.h: Convert to a global free-list,
+	as per the original SGI/HP design: move the implementation
+	details to struct __pool_base, from which __pool_alloc derives.
+	* src/allocator.cc: Instantiate __pool_base.
+
 2004-06-07  Dhruv Matani  <dhruvbird@gmx.net>
 	    Paolo Carlini  <pcarlini@suse.de>
 
