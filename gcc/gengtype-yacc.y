@@ -62,26 +62,18 @@ start: /* empty */
        | externstatic start
        | yacc_union start
 
-typedef_struct: ENT_TYPEDEF_STRUCT options 
-		   { 
-		     $1->u.s.opt = $2;
-		     $1->u.s.line = lexer_line;
-		   }
-		 '{' struct_fields '}' ID
-		   { 
-		     $1->u.s.fields = $5;
-		     do_typedef ($7, $1, &lexer_line);
+typedef_struct: ENT_TYPEDEF_STRUCT options '{' struct_fields '}' ID
+		   {
+		     new_structure ($1->u.s.tag, UNION_P ($1), &lexer_line,
+				    $4, $2);
+		     do_typedef ($6, $1, &lexer_line);
 		     lexer_toplevel_done = 1;
 		   }
 		 ';'
-		| ENT_STRUCT options 
-		   { 
-		     $1->u.s.opt = $2;
-		     $1->u.s.line = lexer_line;
-		   }
-		  '{' struct_fields '}'
-		   { 
-		     $1->u.s.fields = $5;
+		| ENT_STRUCT options '{' struct_fields '}'
+		   {
+		     new_structure ($1->u.s.tag, UNION_P ($1), &lexer_line,
+				    $4, $2);
 		     lexer_toplevel_done = 1;
 		   }
 		 ';'
@@ -160,7 +152,7 @@ yacc_ids: /* empty */
 	  p->opt = xmalloc (sizeof (*(p->opt)));
 	  p->opt->name = "tag";
 	  p->opt->next = NULL;
-	  p->opt->info = $2;
+	  p->opt->info = (char *)$2;
 	  $$ = p;
 	}
      | yacc_ids CHAR
@@ -231,32 +223,18 @@ type: SCALAR
          { $$ = create_pointer ($1); }
       | STRUCT ID '{' struct_fields '}'
          {
-	   type_p t = find_structure ($2, 0, &lexer_line);
-	   t->u.s.fields = $4;
-	   if (t->u.s.line.file)
-	     {
-	       error_at_line (&lexer_line, "duplicate structure definition");
-	       error_at_line (&t->u.s.line, "previous definition here");
-	     }
-	   t->u.s.line = lexer_line;
-	   $$ = t;
+	   new_structure ($2, 0, &lexer_line, $4, NULL);
+           $$ = find_structure ($2, 0);
 	 }
       | STRUCT ID
-         { $$ = find_structure ($2, 0, &lexer_line); }
+         { $$ = find_structure ($2, 0); }
       | UNION ID '{' struct_fields '}'
          {
-	   type_p t = find_structure ($2, 1, &lexer_line);
-	   t->u.s.fields = $4;
-	   if (t->u.s.line.file)
-	     {
-	       error_at_line (&lexer_line, "duplicate structure definition");
-	       error_at_line (&t->u.s.line, "previous definition here");
-	     }
-	   t->u.s.line = lexer_line;
-	   $$ = t;
+	   new_structure ($2, 1, &lexer_line, $4, NULL);
+           $$ = find_structure ($2, 1);
 	 }
       | UNION ID
-         { $$ = find_structure ($2, 1, &lexer_line); }
+         { $$ = find_structure ($2, 1); }
       | ENUM ID
          { $$ = create_scalar_type ($2, strlen ($2)); }
       | ENUM ID '{' enum_items '}'

@@ -1,3 +1,30 @@
+2002-05-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gengtype.h (enum typekind): Add TYPE_LANG_STRUCT.
+	(lang_bitmap): New typedef.  Use where appropriate.
+	(struct type): Add gc_used field, lang_struct field.
+	(UNION_P): New macro.
+	(new_structure): New prototype.
+	(find_structure): Remove 'pos' parameter.  Change all callers.
+	* gengtype-lex.l: Update for changes to find_structure.
+	* gengtype-yacc.y (typedef_struct): Use new_structure.
+	(yacc_ids): Suppress warning.
+	(type): Use new_structure.
+	* gengtype.c (string_type): Update for changes to struct type.
+	(find_structure): Just find a structure, don't worry about
+	creating one.
+	(new_structure): New.
+	(note_yacc_type): Use new_structure.
+	(set_gc_used_type): New.
+	(set_gc_used): New.
+	(write_gc_structure_fields): Allow for pointers to TYPE_LANG_STRUCT.
+	(write_gc_types): Handle TYPE_LANG_STRUCT.
+	(write_gc_marker_routine_for_structure): New.
+	(main): Call set_gc_used.  Add some calls to set_gc_used_type
+	for places where GCC doesn't use gengtype properly yet.
+	* ggc.h (gt_ggc_m_rtx_def): Don't prototype.
+	(gt_ggc_m_tree_node): Likewise.
+
 2002-05-01  Geoffrey Keating  <geoffk@redhat.com>
 
 	* varasm.c (copy_constant): Call expand_constant if we hit

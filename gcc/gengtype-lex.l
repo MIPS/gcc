@@ -82,8 +82,7 @@ ITYPE	{IWORD}({WS}{IWORD})*
       is_pointer = 1;
   for (namelen = 1; IDchar (namestart[namelen]); namelen++)
     ;
-  t = find_structure (xmemdup (tagstart, taglen, taglen+1), union_p,
-		      &lexer_line);
+  t = find_structure (xmemdup (tagstart, taglen, taglen+1), union_p);
   if (is_pointer)
     t = create_pointer (t);
   do_typedef (xmemdup (namestart, namelen, namelen+1), t, &lexer_line);
@@ -155,8 +154,7 @@ ITYPE	{IWORD}({WS}{IWORD})*
   for (taglen = 1; IDchar (tagstart[taglen]); taglen++)
     ;
 
-  yylval.t = find_structure (xmemdup (tagstart, taglen, taglen + 1), union_p,
-			     &lexer_line);
+  yylval.t = find_structure (xmemdup (tagstart, taglen, taglen + 1), union_p);
   BEGIN(in_struct);
   update_lineno (yytext, yyleng);
   return typedef_p ? ENT_TYPEDEF_STRUCT : ENT_STRUCT;

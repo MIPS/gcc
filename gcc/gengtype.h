@@ -33,7 +33,8 @@ enum typekind {
   TYPE_UNION,
   TYPE_POINTER,
   TYPE_VARRAY,
-  TYPE_ARRAY
+  TYPE_ARRAY,
+  TYPE_LANG_STRUCT
 };
 
 /* A way to pass data through to the output end.  */
@@ -45,6 +46,7 @@ typedef struct options {
 
 typedef struct pair *pair_p;
 typedef struct type *type_p;
+typedef unsigned lang_bitmap;
 
 /* A name and a type.  */
 struct pair {
@@ -60,6 +62,11 @@ struct type {
   enum typekind kind;
   type_p next;
   type_p pointer_to;
+  enum gc_used_enum {
+    GC_UNUSED = 0,
+    GC_USED,
+    GC_POINTED_TO
+  } gc_used;
   union {
     type_p p;
     struct {
@@ -67,7 +74,8 @@ struct type {
       struct fileloc line;
       pair_p fields;
       options_p opt;
-      unsigned bitmap;
+      lang_bitmap bitmap;
+      type_p lang_struct;
     } s;
     char *sc;
     struct {
@@ -76,6 +84,11 @@ struct type {
     } a;
   } u;
 };
+
+#define UNION_P(x)					\
+ ((x)->kind == TYPE_UNION || 				\
+  ((x)->kind == TYPE_LANG_STRUCT 			\
+   && (x)->u.s.lang_struct->kind == TYPE_UNION))
 
 /* The one and only TYPE_STRING.  */
 extern struct type string_type;
@@ -91,8 +104,10 @@ extern void error_at_line
 /* Constructor routines for types.  */
 extern void do_typedef PARAMS ((const char *s, type_p t, struct fileloc *pos));
 extern type_p resolve_typedef PARAMS ((const char *s, struct fileloc *pos));
-extern type_p find_structure PARAMS ((const char *s, int isunion,
-				      struct fileloc *pos));
+extern void new_structure PARAMS ((const char *name, int isunion, 
+				   struct fileloc *pos, pair_p fields, 
+				   options_p o));
+extern type_p find_structure PARAMS ((const char *s, int isunion));
 extern type_p create_scalar_type PARAMS ((const char *name, size_t name_len));
 extern type_p create_pointer PARAMS ((type_p t));
 extern type_p create_varray PARAMS ((type_p t));
@@ -130,4 +145,4 @@ extern FILE *base_files[];
 /* A bitmap that specifies which of BASE_FILES should be used to
    output a definition that is different for each language and must be
    defined once in each language that uses INPUT_FILE.  */
-extern unsigned get_base_file_bitmap PARAMS ((const char *input_file));
+extern lang_bitmap get_base_file_bitmap PARAMS ((const char *input_file));

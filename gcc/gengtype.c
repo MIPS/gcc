@@ -40,7 +40,7 @@ error_at_line VPARAMS ((struct fileloc *pos, const char *msg, ...))
 }
 
 struct type string_type = {
-  TYPE_STRING, NULL, NULL
+  TYPE_STRING, NULL, NULL, GC_USED
   UNION_INIT_ZERO
 }; 
 
@@ -76,7 +76,7 @@ do_typedef (s, t, pos)
   typedefs = p;
 }
 
-extern type_p
+type_p
 resolve_typedef (s, pos)
      const char *s;
      struct fileloc *pos;
@@ -89,31 +89,97 @@ resolve_typedef (s, pos)
   return create_scalar_type ("char", 4);
 }
 
-type_p
-find_structure (name, isunion, pos)
+void
+new_structure (name, isunion, pos, fields, o)
      const char *name;
      int isunion;
      struct fileloc *pos;
+     pair_p fields;
+     options_p o;
+{
+  type_p si;
+  type_p s = NULL;
+  lang_bitmap bitmap = get_base_file_bitmap (pos->file);
+
+  for (si = structures; si != NULL; si = si->next)
+    if (strcmp (name, si->u.s.tag) == 0 
+	&& UNION_P (si) == isunion)
+      {
+	type_p ls = NULL;
+	if (si->kind == TYPE_LANG_STRUCT)
+	  {
+	    ls = si;
+	    
+	    for (si = ls->u.s.lang_struct; si != NULL; si = si->next)
+	      if (si->u.s.bitmap == bitmap)
+		s = si;
+	  }
+	else if (si->u.s.line.file != NULL && si->u.s.bitmap != bitmap)
+	  {
+	    ls = si;
+	    si = xcalloc (1, sizeof (struct type));
+	    memcpy (si, ls, sizeof (struct type));
+	    ls->kind = TYPE_LANG_STRUCT;
+	    ls->u.s.lang_struct = si;
+	    ls->u.s.fields = NULL;
+	    si->next = NULL;
+	    si->pointer_to = NULL;
+	    si->u.s.lang_struct = ls;
+	  }
+	else
+	  s = si;
+
+	if (ls != NULL && s == NULL)
+	  {
+	    s = xcalloc (1, sizeof (struct type));
+	    s->next = ls->u.s.lang_struct;
+	    ls->u.s.lang_struct = s;
+	    s->u.s.lang_struct = ls;
+	  }
+	break;
+      }
+  
+  if (s == NULL)
+    {
+      s = xcalloc (1, sizeof (struct type));
+      s->next = structures;
+      structures = s;
+    }
+
+  if (s->u.s.line.file != NULL
+      || (s->u.s.lang_struct && (s->u.s.lang_struct->u.s.bitmap & bitmap)))
+    {
+      error_at_line (pos, "duplicate structure definition");
+      error_at_line (&s->u.s.line, "previous definition here");
+    }
+
+  s->kind = isunion ? TYPE_UNION : TYPE_STRUCT;
+  s->u.s.tag = name;
+  s->u.s.line = *pos;
+  s->u.s.fields = fields;
+  s->u.s.opt = o;
+  s->u.s.bitmap = bitmap;
+  if (s->u.s.lang_struct)
+    s->u.s.lang_struct->u.s.bitmap |= bitmap;
+}
+
+type_p
+find_structure (name, isunion)
+     const char *name;
+     int isunion;
 {
   type_p s;
-  unsigned bitmap = get_base_file_bitmap (pos->file);
 
   for (s = structures; s != NULL; s = s->next)
     if (strcmp (name, s->u.s.tag) == 0 
-	&& (s->kind == TYPE_UNION) == isunion
-	&& ((s->u.s.line.file != NULL && (s->u.s.bitmap & bitmap) == bitmap)
-	    || s->u.s.bitmap == bitmap))
-      {
-	return s;
-      }
+	&& UNION_P (s) == isunion)
+      return s;
+
   s = xcalloc (1, sizeof (struct type));
-  s->kind = isunion ? TYPE_UNION : TYPE_STRUCT;
   s->next = structures;
+  structures = s;
+  s->kind = isunion ? TYPE_UNION : TYPE_STRUCT;
   s->u.s.tag = name;
-  s->u.s.line.file = NULL;
-  s->u.s.fields = NULL;
-  s->u.s.opt = NULL;
-  s->u.s.bitmap = bitmap;
   structures = s;
   return s;
 }
@@ -218,7 +284,6 @@ note_yacc_type (o, fields, typeinfo, pos)
      pair_p typeinfo;
      struct fileloc *pos;
 {
-  type_p t = find_structure ("yy_union", 1, pos);
   pair_p p;
   pair_p *p_p;
   
@@ -268,16 +333,63 @@ note_yacc_type (o, fields, typeinfo, pos)
 	p_p = &p->next;
     }
 
-  t->u.s.fields = typeinfo;
-  t->u.s.opt = o;
-  if (t->u.s.line.file)
+  new_structure ("yy_union", 1, pos, typeinfo, o);
+  do_typedef ("YYSTYPE", find_structure ("yy_union", 1), pos);
+}
+
+static void set_gc_used_type PARAMS ((type_p, enum gc_used_enum));
+static void set_gc_used PARAMS ((pair_p));
+
+static void
+set_gc_used_type (t, level)
+     type_p t;
+     enum gc_used_enum level;
+{
+  int seen = t->gc_used != GC_UNUSED;
+  if (t->gc_used < level)
+    t->gc_used = level;
+  if (seen)
+    return;
+
+  switch (t->kind)
     {
-      error_at_line (pos, 
-		     "duplicate structure definition");
-      error_at_line (&t->u.s.line, "previous definition here");
+    case TYPE_STRUCT:
+    case TYPE_UNION:
+      {
+	pair_p f;
+	for (f = t->u.s.fields; f; f = f->next)
+	  set_gc_used_type (f->type, GC_USED);
+	break;
+      }
+
+    case TYPE_POINTER:
+      set_gc_used_type (t->u.p, GC_POINTED_TO);
+      break;
+
+    case TYPE_ARRAY:
+      set_gc_used_type (t->u.a.p, GC_USED);
+      break;
+      
+    case TYPE_VARRAY:
+      set_gc_used_type (t->u.p, GC_USED);
+      break;
+
+    case TYPE_LANG_STRUCT:
+      for (t = t->u.s.lang_struct; t; t = t->next)
+	set_gc_used_type (t, level);
+
+    default:
+      break;
     }
-  t->u.s.line = lexer_line;
-  do_typedef ("YYSTYPE", t, pos);
+}
+
+static void
+set_gc_used (variables)
+     pair_p variables;
+{
+  pair_p p;
+  for (p = variables; p; p = p->next)
+    set_gc_used_type (p->type, GC_USED);
 }
 
 /* File mapping routines.  For each input file, there is one output .c file
@@ -608,6 +720,7 @@ close_output_files PARAMS ((void))
 static void write_gc_structure_fields 
   PARAMS ((FILE *, type_p, const char *, const char *, options_p, 
 	   int, struct fileloc *));
+static void write_gc_marker_routine_for_structure PARAMS ((type_p));
 static void write_gc_types PARAMS ((type_p structures));
 static void put_mangled_filename PARAMS ((FILE *, const char *));
 static void write_gc_root PARAMS ((FILE *, pair_p, type_p, const char *, int,
@@ -744,7 +857,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 		fprintf (of, "%*sgt_ggc_mr_%s (%s.%s);\n", indent, "", 
 			 really, val, f->name);
 	      else if (f->type->u.p->kind == TYPE_STRUCT
-		       || f->type->u.p->kind == TYPE_UNION)
+		       || f->type->u.p->kind == TYPE_UNION
+		       || f->type->u.p->kind == TYPE_LANG_STRUCT)
 		fprintf (of, "%*sgt_ggc_m_%s (%s.%s);\n", indent, "", 
 			 f->type->u.p->u.s.tag, val, f->name);
 	      else
@@ -984,41 +1098,60 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 }
 
 static void
-write_gc_types PARAMS ((type_p structures))
+write_gc_marker_routine_for_structure (s)
+     type_p s;
+{
+  FILE *f = get_output_file_with_visibility (s->u.s.line.file);
+  
+  fputc ('\n', f);
+  fputs ("void\n", f);
+  fprintf (f, "gt_ggc_m_%s (x_p)\n", s->u.s.tag);
+  fputs ("      void *x_p;\n", f);
+  fputs ("{\n", f);
+  fprintf (f, "  %s %s * const x = (%s %s *)x_p;\n",
+	   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
+	   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
+  fputs ("  if (! ggc_test_and_set_mark (x))\n", f);
+  fputs ("    return;\n", f);
+  
+  gc_counter = 0;
+  write_gc_structure_fields (f, s, "(*x)", "not valid postage",
+			     s->u.s.opt, 2, &s->u.s.line);
+  
+  fputs ("}\n", f);
+}
+     
+
+static void
+write_gc_types (structures)
+     type_p structures;
 {
   type_p s;
   
   fputs ("\n/* GC marker procedures.  */\n", header_file);
   for (s = structures; s; s = s->next)
-    if (s->u.s.line.file
-	&& (s->kind == TYPE_STRUCT || s->u.s.opt))
+    if (s->gc_used == GC_POINTED_TO)
       {
-	FILE *f;
-	
-	/* Declare the marker procedure.  */
+	/* Declare the marker procedure only once.  */
 	fprintf (header_file, 
 		 "extern void gt_ggc_m_%s PARAMS ((void *));\n",
 		 s->u.s.tag);
-
-	/* Output it.  */
-	f = get_output_file_with_visibility (s->u.s.line.file);
-	
-	fputc ('\n', f);
-	fputs ("void\n", f);
-	fprintf (f, "gt_ggc_m_%s (x_p)\n", s->u.s.tag);
-	fputs ("      void *x_p;\n", f);
-	fputs ("{\n", f);
-	fprintf (f, "  %s %s * const x = (%s %s *)x_p;\n",
-		 s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
-		 s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
-	fputs ("  if (! ggc_test_and_set_mark (x))\n", f);
-	fputs ("    return;\n", f);
-	
-	gc_counter = 0;
-	write_gc_structure_fields (f, s, "(*x)", "not valid postage",
-				   s->u.s.opt, 2, &s->u.s.line);
-	
-	fputs ("}\n", f);
+  
+	if (s->u.s.line.file == NULL)
+	  {
+	    fprintf (stderr, "warning: structure `%s' used but not defined\n", 
+		     s->u.s.tag);
+	    continue;
+	  }
+  
+	if (s->kind == TYPE_LANG_STRUCT)
+	  {
+	    type_p ss;
+	    for (ss = s->u.s.lang_struct; ss; ss = ss->next)
+	      write_gc_marker_routine_for_structure (ss);
+	  }
+	else
+	  write_gc_marker_routine_for_structure (s);
       }
 }
 
@@ -1058,7 +1191,7 @@ finish_root_table (struct flist *flp, const char *pfx, const char *name)
   for (fli2 = flp; fli2; fli2 = fli2->next)
     if (fli2->started_p)
       {
-	unsigned bitmap = get_base_file_bitmap (fli2->name);
+	lang_bitmap bitmap = get_base_file_bitmap (fli2->name);
 	int fnum;
 
 	for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
@@ -1075,7 +1208,7 @@ finish_root_table (struct flist *flp, const char *pfx, const char *name)
   for (fli2 = flp; fli2; fli2 = fli2->next)
     if (fli2->started_p)
       {
-	unsigned bitmap = get_base_file_bitmap (fli2->name);
+	lang_bitmap bitmap = get_base_file_bitmap (fli2->name);
 	int fnum;
 
 	fli2->started_p = 0;
@@ -1440,6 +1573,14 @@ main(argc, argv)
 
   if (hit_error != 0)
     exit (1);
+
+  set_gc_used (variables);
+  set_gc_used_type (find_structure ("mem_attrs", 0), GC_POINTED_TO);
+  set_gc_used_type (find_structure ("type_hash", 0), GC_POINTED_TO);
+  set_gc_used_type (find_structure ("deferred_string", 0), GC_POINTED_TO);
+  set_gc_used_type (find_structure ("lang_type", 0), GC_POINTED_TO);
+  set_gc_used_type (find_structure ("lang_decl", 0), GC_POINTED_TO);
+  set_gc_used_type (find_structure ("lang_id2", 0), GC_POINTED_TO);
 
   open_base_files ();
   write_gc_types (structures);

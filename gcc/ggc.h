@@ -83,10 +83,6 @@ extern void ggc_mark_roots		PARAMS ((void));
 
 extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));
 
-extern void gt_ggc_m_rtx_def		PARAMS ((void *));
-extern void gt_ggc_m_tree_node		PARAMS ((void *));
-
-
 /* If EXPR is not NULL and previously unmarked, mark it and evaluate
    to true.  Otherwise evaluate to false.  */
 #define ggc_test_and_set_mark(EXPR) \
