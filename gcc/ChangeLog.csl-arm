@@ -1,3 +1,12 @@
+2004-11-17  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/libunwind.S (__gnu_Unwind_Restore_VFP): New function.
+	(__gnu_Unwind_Save_VFP): New function.
+	* config/arm/unwind-arm.c (DEMAND_SAVE_VFP): Define.
+	(_Unwind_VRS_Pop): Handle VFP registers.
+	(__gnu_unwind_execute): Allow unwinding of VFP registers saved with
+	fstmd.
+
 2004-11-16  Paul Brook  <paul@codesourcery.com>
 
 	* target-def.h (TARGET_CXX_ATEXIT_NAME): Remove.

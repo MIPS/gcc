@@ -57,6 +57,17 @@ ARM_FUNC_START restore_core_regs
 	FUNC_END restore_core_regs
 	UNPREFIX restore_core_regs
 
+ARM_FUNC_START gnu_Unwind_Restore_VFP
+	/* Use the generic coprocessor form so that gas doesn't complain
+	   on soft-float targets.  */
+	ldc   p11,cr0,[r0],{0x21} /* fldmiax r0, {d0-d15} */
+	RET
+
+ARM_FUNC_START gnu_Unwind_Save_VFP
+	/* Use the generic coprocessor form so that gas doesn't complain
+	   on soft-float targets.  */
+	stc   p11,cr0,[r0],{0x21} /* fstmiax r0, {d0-d15} */
+	RET
 
 /* Wrappers to save core registers, then call the real routine.   */
 

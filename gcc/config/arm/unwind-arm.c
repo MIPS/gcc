@@ -108,6 +108,8 @@ typedef struct
   struct fpa_regs fpa;
 } phase1_vrs;
 
+#define DEMAND_SAVE_VFP 1
+
 /* This must match the structure created by the assembly wrappers.  */
 typedef struct
 {
@@ -132,10 +134,15 @@ void __attribute__((noreturn)) restore_core_regs (struct core_regs *);
 
 /* Register state manipulation functions.  */
 
+void __gnu_Unwind_Save_VFP (struct vfp_regs * p);
+void __gnu_Unwind_Restore_VFP (struct vfp_regs * p);
+
 /* Restore coprocessor state after phase1 unwinding.  */
 static void
-restore_non_core_regs (phase1_vrs * vrs __attribute__((unused)))
+restore_non_core_regs (phase1_vrs * vrs)
 {
+  if ((vrs->demand_save_flags & DEMAND_SAVE_VFP) == 0)
+    __gnu_Unwind_Restore_VFP (&vrs->vfp);
 }
 
 /* A better way to do this would probably be to compare the absolute address
@@ -254,6 +261,50 @@ _Unwind_VRS_Result _Unwind_VRS_Pop (_Unwind_Context *context,
       return _UVRSR_OK;
 
     case _UVRSC_VFP:
+      {
+	_uw start = descriminator >> 16;
+	_uw count = descriminator & 0xffff;
+	struct vfp_regs tmp;
+	_uw *sp;
+	_uw *dest;
+
+	if ((representation != _UVRSD_VFPX && representation != _UVRSD_DOUBLE)
+	    || start + count > 16)
+	  return _UVRSR_FAILED;
+
+	if (vrs->demand_save_flags & DEMAND_SAVE_VFP)
+	  {
+	    /* Demand-save resisters for stage1.  */
+	    vrs->demand_save_flags &= ~DEMAND_SAVE_VFP;
+	    __gnu_Unwind_Save_VFP (&vrs->vfp);
+	  }
+
+	/* Restore the registers from the stack.  Do this by saving the
+	   current VFP registers to a memory area, moving the in-memory
+	   values into that area, and restoring from the whole area.
+	   For _UVRSD_VFPX we assume FSTMX standard format 1.  */
+	__gnu_Unwind_Save_VFP (&tmp);
+
+	/* The stack address is only guaranteed to be word aligned, so
+	   we can't use doubleword copies.  */
+	sp = (_uw *) vrs->core.r[R_SP];
+	dest = (_uw *) &tmp.d[start];
+	count *= 2;
+	while (count--)
+	  *(dest++) = *(sp++);
+
+	/* Skip the pad word */
+	if (representation == _UVRSD_VFPX)
+	  sp++;
+
+	/* Set the new stack pointer.  */
+	vrs->core.r[R_SP] = (_uw) sp;
+
+	/* Reload the registers.  */
+	__gnu_Unwind_Restore_VFP (&tmp);
+      }
+      return _UVRSR_OK;
+
     case _UVRSC_FPA:
     case _UVRSC_WMMXD:
     case _UVRSC_WMMXC:
@@ -639,7 +690,7 @@ __gnu_unwind_execute (_Unwind_Context * context, __gnu_unwind_state * uws)
 	    }
 	  if (op == 0xb3)
 	    {
-	      /* Pop VFP registers.  */
+	      /* Pop VFP registers with fldmx.  */
 	      op = next_unwind_byte (uws);
 	      op = ((op & 0xf0) << 12) | (op & 0xf);
 	      if (_Unwind_VRS_Pop (context, _UVRSC_VFP, op, _UVRSD_VFPX)
@@ -657,7 +708,7 @@ __gnu_unwind_execute (_Unwind_Context * context, __gnu_unwind_state * uws)
 	      continue;
 	    }
 	  /* op & 0xf8 == 0xb8.  */
-	  /* Pop VFP D[8]-D[8+nnn].  */
+	  /* Pop VFP D[8]-D[8+nnn] with fldmx.  */
 	  op = 0x8000 | ((op & 7) + 1);
 	  if (_Unwind_VRS_Pop (context, _UVRSC_VFP, op, _UVRSD_VFPX)
 	      != _UVRSR_OK)
@@ -697,19 +748,38 @@ __gnu_unwind_execute (_Unwind_Context * context, __gnu_unwind_state * uws)
 		return _URC_FAILURE;
 	      continue;
 	    }
-	  if (op != 0xc8)
-	    /* Spare.  */
-	    return _URC_FAILURE;
-	  /* op == 0xc8.  */
-	  /* Pop FPA registers.  */
-	  op = next_unwind_byte (uws);
-	  op = ((op & 0xf0) << 12) | (op & 0xf);
-	  if (_Unwind_VRS_Pop (context, _UVRSC_FPA, op, _UVRSD_FPAX)
+	  if (op == 0xc8)
+	    {
+	      /* Pop FPA registers.  */
+	      op = next_unwind_byte (uws);
+	      op = ((op & 0xf0) << 12) | (op & 0xf);
+	      if (_Unwind_VRS_Pop (context, _UVRSC_FPA, op, _UVRSD_FPAX)
+		  != _UVRSR_OK)
+		return _URC_FAILURE;
+	      continue;
+	    }
+	  if (op == 0xc9)
+	    {
+	      /* Pop VFP registers with fldmd.  */
+	      op = next_unwind_byte (uws);
+	      op = ((op & 0xf0) << 12) | (op & 0xf);
+	      if (_Unwind_VRS_Pop (context, _UVRSC_VFP, op, _UVRSD_DOUBLE)
+		  != _UVRSR_OK)
+		return _URC_FAILURE;
+	      continue;
+	    }
+	  /* Spare.  */
+	  return _URC_FAILURE;
+	}
+      if ((op & 0xf8) == 0xd0)
+	{
+	  /* Pop VFP D[8]-D[8+nnn] with fldmd.  */
+	  op = 0x8000 | ((op & 7) + 1);
+	  if (_Unwind_VRS_Pop (context, _UVRSC_VFP, op, _UVRSD_DOUBLE)
 	      != _UVRSR_OK)
 	    return _URC_FAILURE;
 	  continue;
 	}
-      /* op & 0xf0 > 0xc0.  */
       /* Spare.  */
       return _URC_FAILURE;
     }
