@@ -1,5 +1,12 @@
 2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/Scrollbar.java (AccessibleAWTScrollbar,
+	getAccessibleContext): Implement.
+	* java/awt/ScrollPane.java (AccessibleAWTScrollPane,
+	getAccessibleContext): Implement.
+
+2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/Dialog.java (AccessibleAWTFrame, getAccessibleContext):
 	Implement.
 	* java/awt/Frame.java (AccessibleAWTFrame, getAccessibleContext):
