@@ -3147,6 +3147,29 @@ get_eq_expr_value (tree if_stmt,
       tree op0 = TREE_OPERAND (cond, 0);
       tree op1 = TREE_OPERAND (cond, 1);
 
+      /* Special case comparing booleans against a constant as we know
+	 the value of op0 on both arms of the branch.  */
+      if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
+	  && TREE_CODE (op0) == SSA_NAME
+	  && TREE_TYPE (op0) == boolean_type_node
+	  && is_gimple_min_invariant (op1))
+	{
+	  if ((TREE_CODE (cond) == EQ_EXPR && true_arm)
+	      || (TREE_CODE (cond) == NE_EXPR && ! true_arm))
+	    {
+	      retval.src = op1;
+	    }
+	  else
+	    {
+	      if (integer_zerop (op1))
+		retval.src = boolean_true_node;
+	      else
+		retval.src = boolean_false_node;
+	    }
+	  retval.dst = cond;
+	  return retval;
+	}
+
       if (TREE_CODE (op0) == SSA_NAME
 	  && (is_gimple_min_invariant (op1) || TREE_CODE (op1) == SSA_NAME))
 	{

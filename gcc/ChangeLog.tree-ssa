@@ -31,6 +31,9 @@
 
 2004-02-09  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (get_eq_expr_value): Improve handling of boolean
+	conditions.
+ 
 	* domwalk.c (walk_dominator_tree): Completely lose PARENT argument.
 	Callers updated.  No longer pass PARENT to callbacks.
 	* domwalk.h (struct dom_walk_data): Corresponding changes.
