@@ -1,3 +1,16 @@
+2003-07-23  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-flow-inline.h (remove_dom_child): New function.
+	(clear_dom_children): New function.
+	* tree-cfg.c (bsi_insert_on_edge_immediate)): Do not clear
+	the annotation for the new bb, it is already memset to zero
+	in alloc_aux_for_block().
+	(move_outgoing_edges): Use dom_children() instead of looking
+	at the dom_children field in the basic block annotation.
+	* tree-ssa.c (rewrite_into_ssa): Use clear_dom_children().
+
+	* tree-cfg.c (dump_tree_cfg): Dump to `file', not `dump_file'.
+
 2003-07-23  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree.h (DECL_ESTIMATED_INSNS): Move from c-common.h.

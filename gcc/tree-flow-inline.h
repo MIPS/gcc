@@ -315,6 +315,25 @@ add_dom_child (basic_block bb, basic_block child_bb)
   bitmap_set_bit (ann->dom_children, child_bb->index);
 }
 
+static inline void
+remove_dom_child (basic_block bb, basic_block child_bb)
+{
+  bb_ann_t ann = bb_ann (bb);
+
+#if defined ENABLE_CHECKING
+  if (ann->dom_children == NULL)
+    abort ();
+#endif
+
+  bitmap_clear_bit (ann->dom_children, child_bb->index);
+}
+
+static inline void
+clear_dom_children (basic_block bb)
+{
+  bb_ann (bb)->dom_children = NULL;
+}
+
 static inline bitmap
 dom_children (basic_block bb)
 {

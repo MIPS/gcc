@@ -2653,7 +2653,7 @@ dump_tree_cfg (FILE *file, int flags)
     }
 
   if (flags & TDF_STATS)
-    dump_cfg_stats (dump_file);
+    dump_cfg_stats (file);
 
   if (n_basic_blocks > 0)
     dump_function_to_file (current_function_decl, file, flags|TDF_BLOCKS);
@@ -4206,9 +4206,6 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
   /* Otherwise, create a new basic block, and split this edge.  */
   new_bb = split_edge (e);
   ann = bb_ann (new_bb);
-  ann->phi_nodes = NULL_TREE;
-  ann->ephi_nodes = NULL_TREE;
-  ann->dom_children = (bitmap) NULL;
 
   if (created_block)
     *created_block = new_bb;
@@ -4453,7 +4450,6 @@ replace_stmt (tree *tp1, tree *tp2)
 static void
 move_outgoing_edges (basic_block bb1, basic_block bb2)
 {
-  bb_ann_t ann1, ann2;
 
   while (bb2->succ)
     {
@@ -4480,14 +4476,13 @@ move_outgoing_edges (basic_block bb1, basic_block bb2)
 
   /* BB2's dominator children are now BB1's.  Also, remove BB2 as a
      dominator child of BB1.  */
-  ann1 = bb_ann (bb1);
-  ann2 = bb_ann (bb2);
-  if (ann1->dom_children)
+  if (dom_children (bb1))
     {
-      bitmap_clear_bit (ann1->dom_children, bb2->index);
-      if (ann2->dom_children)
-	bitmap_a_or_b (ann1->dom_children, ann1->dom_children,
-		       ann2->dom_children);
+      bitmap dom1 = dom_children (bb1);
+      bitmap dom2 = dom_children (bb2);
+      bitmap_clear_bit (dom1, bb2->index);
+      if (dom2)
+	bitmap_a_or_b (dom1, dom1, dom2);
     }
 }
 

@@ -314,7 +314,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   for (i = 0; i < n_basic_blocks; i++)
     {
       dfs[i] = BITMAP_XMALLOC ();
-      bb_ann (BASIC_BLOCK (i))->dom_children = NULL;
+      clear_dom_children (BASIC_BLOCK (i));
     }
 
   /* Compute immediate dominators.  */
