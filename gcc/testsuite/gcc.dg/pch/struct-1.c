@@ -9,4 +9,3 @@ void foo (ChainSearchPtr s)
 {
   s->identity = 0x6a73616d;
 }
-+

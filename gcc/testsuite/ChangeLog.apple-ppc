@@ -1,4 +1,9 @@
-2006-06-29  Aandrew Pinski  <apinski@apple.com>
+2006-06-29  Andrew Pinski  <apinski@apple.com>
+
+	Radar #: 3717673
+	* gcc.dg/pch/struct-1.c: Fix typo of adding a "+".
+
+2006-06-29  Andrew Pinski  <apinski@apple.com>
 
 	* testsuite/gcc.apple/loop-transpose-1.c: New test.
 
