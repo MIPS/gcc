@@ -22,7 +22,7 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-AUTOMAKE_OPTIONS = 1.3 gnits
+AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
@@ -61,14 +61,42 @@ INCLUDES = \
 	$(TOPLEVEL_INCLUDES)
 
 sources = \
-	globals.cc limits.cc \
-	basic_file.cc complex_io.cc ios.cc strstream.cc \
-	cmath.cc bitset.cc \
-	functexcept.cc stdexcept.cc vterminate.cc \
-	c++locale.cc locale.cc localename.cc codecvt.cc \
-	collate.cc ctype.cc messages.cc monetary.cc numeric.cc time.cc \
-	concept-inst.cc locale-inst.cc misc-inst.cc stl-inst.cc \
-	string-inst.cc wstring-inst.cc valarray-inst.cc  ext-inst.cc
+	basic_file.cc \
+	bitset.cc \
+	c++locale.cc \
+	cmath.cc \
+	codecvt.cc \
+	collate.cc \
+	complex_io.cc \
+	concept-inst.cc \
+	ctype.cc \
+	ext-inst.cc \
+	fstream-inst.cc \
+	functexcept.cc \
+	globals.cc \
+	io-inst.cc \
+	ios.cc \
+	istream-inst.cc \
+	limits.cc \
+	locale-inst.cc \
+	locale.cc \
+	localename.cc \
+	messages.cc \
+	misc-inst.cc \
+	monetary.cc \
+	numeric.cc \
+	ostream-inst.cc \
+	sstream-inst.cc \
+	stdexcept.cc \
+	stl-inst.cc \
+	streambuf-inst.cc \
+	string-inst.cc \
+	strstream.cc \
+	time.cc \
+	valarray-inst.cc \
+	vterminate.cc \
+	wstring-inst.cc
+
 
 VPATH = $(top_srcdir)/src:$(top_srcdir)
 
