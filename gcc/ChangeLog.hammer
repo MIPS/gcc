@@ -1,3 +1,12 @@
+2003-09-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* basic-block.h (debug_bb_n): Declaration changed.
+	* cfgrtl.c (debug_bb_n): Return the dumped bb.
+	* cfgloopmanip.c (prepare_for_recount_frequencies,
+	recount_frequencies): Don't run when !flag_guess_branch_prob.
+	* toplev.c (rest_of_compilation): Force profile estimation
+	when flag_guess_branch_prob.
+
 Tue Sep  9 20:47:09 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* regmove.c (regmove_optimize): Don't try to make src and dst match

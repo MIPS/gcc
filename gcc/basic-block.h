@@ -549,7 +549,7 @@ extern void init_flow                   PARAMS ((void));
 extern void reorder_basic_blocks	PARAMS ((void));
 extern void dump_bb			PARAMS ((basic_block, FILE *));
 extern void debug_bb			PARAMS ((basic_block));
-extern void debug_bb_n			PARAMS ((int));
+extern basic_block debug_bb_n		PARAMS ((int));
 extern void dump_regset			PARAMS ((regset, FILE *));
 extern void debug_regset		PARAMS ((regset));
 extern void allocate_reg_life_data      PARAMS ((void));

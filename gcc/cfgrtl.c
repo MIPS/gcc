@@ -1617,11 +1617,13 @@ debug_bb (bb)
   dump_bb (bb, stderr);
 }
 
-void
+basic_block
 debug_bb_n (n)
      int n;
 {
   dump_bb (BASIC_BLOCK (n), stderr);
+
+  return BASIC_BLOCK (n);
 }
 
 /* Like print_rtl, but also print out live information for the start of each

@@ -3084,7 +3084,10 @@ rest_of_compilation (decl)
 
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
   /* Do branch profiling and static profile estimation passes.  */
-  if (optimize > 0 || cfun->arc_profile || flag_branch_probabilities)
+  if (optimize > 0
+      || cfun->arc_profile
+      || flag_branch_probabilities
+      || flag_guess_branch_prob)
     {
       struct loops loops;
 

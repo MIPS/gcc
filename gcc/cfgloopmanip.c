@@ -1131,6 +1131,9 @@ prepare_for_recount_frequencies ()
   basic_block bb;
   edge e;
 
+  if (!flag_guess_branch_prob)
+    return;
+
   alloc_aux_for_edges (sizeof (struct edge_freq_info));
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
@@ -1151,17 +1154,21 @@ prepare_for_recount_frequencies ()
 void
 recount_frequencies (struct loops *loops)
 {
-  reorder_block_def *bb_aux =
-	  xmalloc (sizeof (reorder_block_def) * (last_basic_block + 2));
-  void **edge_aux =
-	  xmalloc (sizeof (void *) * n_edges);
+  reorder_block_def *bb_aux;
+  void **edge_aux;
   int n_stored_edges = 0;
-  basic_block bb, sb, *post =
-	  xmalloc (sizeof (basic_block) * (n_basic_blocks + 2));
+  basic_block bb, sb, *post;
   int i, n_post = 0;
   edge e, s;
   struct obstack block_aux_obstack, edge_aux_obstack;
   void *first_block_aux, *first_edge_aux;
+
+  if (!flag_guess_branch_prob)
+    return;
+
+  bb_aux = xmalloc (sizeof (reorder_block_def) * (last_basic_block + 2));
+  edge_aux = xmalloc (sizeof (void *) * n_edges);
+  post = xmalloc (sizeof (basic_block) * (n_basic_blocks + 2));
 
   /* We must store the values of bb->aux and edge->aux fields, as
      estimate_frequencies uses them as well.  Storing the former is
