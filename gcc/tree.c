@@ -4058,7 +4058,7 @@ build_qualified_type (type, type_quals)
       tree base = build_decl (FIELD_DECL, get_identifier ("base"), subtype);
       tree extent = build_decl (FIELD_DECL, get_identifier ("extent"), subtype);
       t = build_type_copy (type);
-      TREE_CODE (t) = RECORD_TYPE;
+      TREE_SET_CODE (t, RECORD_TYPE);
       TYPE_SIZE (t) = NULL_TREE;
       TYPE_SIZE_UNIT (t) = NULL_TREE;
       TYPE_FIELDS (t) = chainon (value, chainon (base, extent));

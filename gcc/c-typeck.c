@@ -1346,8 +1346,8 @@ build_bounded_ptr_check (bp, length)
   else
     {
       tree crash, maybe_crash, check;
-      int save_warn_unused = warn_unused;
-      warn_unused = 0;
+      int save_warn_unused_value = warn_unused_value;
+      warn_unused_value = 0;
       crash = build_compound_expr (tree_cons (NULL_TREE,
 					      build_function_call (trap_fndecl, NULL_TREE),
 					      tree_cons (NULL_TREE, integer_zero_node,
@@ -1361,7 +1361,7 @@ build_bounded_ptr_check (bp, length)
       if (integer_onep (compare))
 	warning ("bounds violation");
 #endif
-      warn_unused = save_warn_unused;
+      warn_unused_value = save_warn_unused_value;
       TREE_BOUNDS_CHECK (check) = 1;
       /* Save the original bp in case we later wish to toss the bounds
          check.  This can happen if we later build an ADDR_EXPR.  */
@@ -1553,54 +1553,6 @@ build_array_ref (array, index)
 	    | TREE_THIS_VOLATILE (array));
       TREE_BOUNDED (rval) = BOUNDED_POINTER_TYPE_P (type);
       rval = require_complete_type (fold (rval));
-#if 0
-      /* GKM FIXME: doesn't handle var-arrays properly.
-	 We need to use pointer bounds.  */
-      if (0 && flag_bounds_check && !skip_evaluation
-	  && TREE_CODE (index) != INTEGER_CST
-	  && TYPE_VALUES (TREE_TYPE (array)))
-	{
-	  /* GKM FIXME: factor out common code from this & from
-             build_bounded_ptr_check.  */
-	  tree bounds, compare, base, extent;
-
-	  if (TREE_SIDE_EFFECTS (index))
-	    index = save_expr (index);
-
-	  bounds = TYPE_VALUES (TREE_TYPE (array));
-	  base = TYPE_MIN_VALUE (bounds);
-	  extent = TYPE_MAX_VALUE (bounds);
-
-	  compare = fold (build_binary_op
-			  (TRUTH_ORIF_EXPR,
-			   fold (build_binary_op (LT_EXPR, index, base, 1)),
-			   fold (build_binary_op (GE_EXPR, index, extent, 1)), 1));
-	  if (! integer_zerop (compare))
-	    {
-	      tree crash, maybe_crash, check;
-	      int save_warn_unused = warn_unused;
-	      warn_unused = 0;
-	      crash = build_compound_expr
-		(tree_cons (NULL_TREE,
-			    build_function_call (trap_fndecl, NULL_TREE),
-			    tree_cons (NULL_TREE, integer_zero_node,
-				       NULL_TREE)));
-	      maybe_crash = fold (build_binary_op (TRUTH_ANDIF_EXPR, compare, crash, 1));
-	      check = build_compound_expr (tree_cons (NULL_TREE, maybe_crash,
-						      tree_cons (NULL_TREE, rval,
-								 NULL_TREE)));
-	      /* GKM FIXME: make this an error when it's reliable.  */
-	      if (integer_onep (compare))
-		warning ("bounds violation");
-	      warn_unused = save_warn_unused;
-	      TREE_BOUNDS_CHECK (check) = 1;
-	      /* Save the original bp in case we later wish to toss the bounds
-		 check.  This can happen if we later build an ADDR_EXPR.  */
-	      TREE_CHAIN (check) = array;
-	      return check;
-	    }
-	}
-#endif
       return rval;
     }
 
