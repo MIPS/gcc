@@ -1,3 +1,9 @@
+2004-08-22  Andrew Pinski  <apinski@apple.com>
+
+	PR tree-opt/17138
+	* tree-ssa-loop-ivopts.c (peel_address): Handle REALPART_EXPR
+	and IMAGPART_EXPR.
+
 2004-08-19  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-data-ref.c (dump_data_dependence_relation): Revert a
