@@ -6930,10 +6930,36 @@ force_to_mode (x, mode, mask, reg, just_select)
 	     ? mode : GET_MODE (x));
 
   /* It is not valid to do a right-shift in a narrower mode
-     than the one it came in with.  */
+     than the one it came in with, unless the bits forgotten due to
+     it are irrelevant.  */
   if ((code == LSHIFTRT || code == ASHIFTRT)
-      && GET_MODE_BITSIZE (mode) < GET_MODE_BITSIZE (GET_MODE (x)))
-    op_mode = GET_MODE (x);
+      && GET_MODE_BITSIZE (mode) < GET_MODE_BITSIZE (GET_MODE (x))
+      && op_mode != GET_MODE (x))
+    {
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && GET_MODE_BITSIZE (GET_MODE (x)) <= HOST_BITS_PER_WIDE_INT)
+	{
+	  unsigned HOST_WIDE_INT new_bits;
+	  
+	  if (code == LSHIFTRT)
+	    {
+	      new_bits = GET_MODE_MASK (GET_MODE (x)) & ~GET_MODE_MASK (mode);
+	      new_bits >>= INTVAL (XEXP (x, 1));
+	    }
+	  else if (GET_MODE_BITSIZE (GET_MODE (x)) < INTVAL (XEXP (x, 1)))
+	    new_bits = GET_MODE_MASK (GET_MODE (x));
+	  else
+	    {
+	      new_bits = GET_MODE_MASK (GET_MODE (x));
+	      new_bits &= ~(GET_MODE_MASK (mode) >> INTVAL (XEXP (x, 1)));
+	    }
+
+	  if ((new_bits & mask) != 0)
+	    op_mode = GET_MODE (x);
+	}
+      else
+	op_mode = GET_MODE (x);
+    }
 
   /* Truncate MASK to fit OP_MODE.  */
   if (op_mode)
@@ -7209,7 +7235,12 @@ force_to_mode (x, mode, mask, reg, just_select)
 						    mask, reg, next_select));
 
       if (op_mode != GET_MODE (x) || op0 != XEXP (x, 0))
-	x = gen_binary (code, op_mode, op0, XEXP (x, 1));
+	{
+	  x = gen_binary (code, op_mode, op0, XEXP (x, 1));
+	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+	    x = simplify_shift_const (x, GET_CODE (x), op_mode,
+				      XEXP (x, 0), INTVAL (XEXP (x, 1)));
+	}
       break;
 
     case LSHIFTRT:
