@@ -1,3 +1,13 @@
+2003-09-29  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (simplify_cond_and_lookup_avail_expr): New function.
+	(find_equivalent_equality_comparison): Likewise.
+	(optimize_block): Remove code to build a == c equivalence after
+	seeing a == b and b == c.  Remove code to walk backwards
+	though typecasts to record equivalences and move relevant parts
+	into find_equivalent_equality_comparison.
+	(optimize_stmt): Call simplify_cond_and_lookup_avail_expr.
+
 2003-09-28  Richard Henderson  <rth@redhat.com>
 
 	* gimplify.c (gimplify_call_expr): Annotate all call_exprs.	

@@ -94,6 +94,9 @@ static tree update_rhs_and_lookup_avail_expr (tree, tree, varray_type *,
 					      varray_type, stmt_ann_t, bool);
 static tree simplify_rhs_and_lookup_avail_expr (tree, varray_type *,
 						varray_type, stmt_ann_t, int);
+static tree simplify_cond_and_lookup_avail_expr (tree, varray_type *,
+						 varray_type, stmt_ann_t, int);
+static tree find_equivalent_equality_comparison (tree);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -433,71 +436,6 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
 	 reset them as we leave this block.  */
       VARRAY_PUSH_TREE (block_const_and_copies, dest);
       VARRAY_PUSH_TREE (block_const_and_copies, prev_value);
-
-      /* If the source is also an SSA_NAME, then we want to record
-	 DEST as the current value for SRC as well.  This allow us
-	 to detect that a == c will always be true in code like the
-	 following:
-
-	   if (a == b)
-	     {
-	       if (b == c)
-		 {
-		    if (a == c)
-		      {
-		      }
-		 }
-	     }
-
-	 This actually happens in real code.  */
-      if (TREE_CODE (src) == SSA_NAME)
-	{
-	  prev_value = get_value_for (src, const_and_copies);
-	  set_value_for (src, dest, const_and_copies);
-
-	  VARRAY_PUSH_TREE (block_const_and_copies, src);
-	  VARRAY_PUSH_TREE (block_const_and_copies, prev_value);
-	}
-
-      /* If the new value is a constant, then look at DEST's defining
-	 statement.  If DEST was defined as the result of a typecast,
-	 we may be able to record additional equivalences.  */
-      if (TREE_CONSTANT (src))
-	{
-	  tree def_stmt = SSA_NAME_DEF_STMT (dest);
-
-	  /* DEST might have been a parameter, so first make sure it
-	     was defined by a MODIFY_EXPR.  */
-	  if (def_stmt && TREE_CODE (def_stmt) == MODIFY_EXPR)
-	    {
-	      tree def_rhs = TREE_OPERAND (def_stmt, 1);
-
-	      /* Now make sure the RHS of the MODIFY_EXPR is a typecast.  */
-	      if (TREE_CODE (def_rhs) == NOP_EXPR
-		  && TREE_CODE (TREE_OPERAND (def_rhs, 0)) == SSA_NAME)
-		{
-		  tree def_rhs_inner = TREE_OPERAND (def_rhs, 0);
-		  tree def_rhs_inner_type = TREE_TYPE (def_rhs_inner);
-		  tree new;
-
-		  /* What we want to prove is that if we convert SRC to
-		     the type of the object inside the NOP_EXPR that the
-		     result is still equivalent to SRC.  */
-		  new = fold (build1 (NOP_EXPR, def_rhs_inner_type, src));
-		  if (is_gimple_val (new)
-		      && integer_onep (fold (build (EQ_EXPR, boolean_type_node,
-						    new, src))))
-		    {
-		      prev_value = get_value_for (def_rhs_inner,
-						  const_and_copies);
-		      set_value_for (def_rhs_inner, new, const_and_copies);
-
-		      VARRAY_PUSH_TREE (block_const_and_copies, def_rhs_inner);
-		      VARRAY_PUSH_TREE (block_const_and_copies, prev_value);
-		    }
-		}
-	    }
-	}
     }
 
   /* PHI nodes can create equivalences too.
@@ -1024,6 +962,113 @@ simplify_rhs_and_lookup_avail_expr (tree stmt,
   return result;
 }
 
+/* COND is a condition of the form:
+
+     x == const or x != const
+
+   Look back to x's defining statement and see if x is defined as
+
+     x = (type) y;
+
+   If const is unchanged if we convert it to type, then we can build
+   the equivalent expression:
+
+
+      y == const or y != const
+
+   Which may allow further optimizations.
+
+   Return the equivalent comparison or NULL if no such equivalent comparison
+   was found.  */
+
+static tree
+find_equivalent_equality_comparison (tree cond)
+{
+  tree op0 = TREE_OPERAND (cond, 0);
+  tree op1 = TREE_OPERAND (cond, 1);
+  tree def_stmt = SSA_NAME_DEF_STMT (op0);
+
+  /* OP0 might have been a parameter, so first make sure it
+     was defined by a MODIFY_EXPR.  */
+  if (def_stmt && TREE_CODE (def_stmt) == MODIFY_EXPR)
+    {
+      tree def_rhs = TREE_OPERAND (def_stmt, 1);
+
+      /* Now make sure the RHS of the MODIFY_EXPR is a typecast.  */
+      if (TREE_CODE (def_rhs) == NOP_EXPR
+	  && TREE_CODE (TREE_OPERAND (def_rhs, 0)) == SSA_NAME)
+	{
+	  tree def_rhs_inner = TREE_OPERAND (def_rhs, 0);
+	  tree def_rhs_inner_type = TREE_TYPE (def_rhs_inner);
+	  tree new;
+
+	  /* What we want to prove is that if we convert OP1 to
+	     the type of the object inside the NOP_EXPR that the
+	     result is still equivalent to SRC. 
+
+	     If that is true, the build and return new equivalent
+	     condition which uses the source of the typecast and the
+	     new constant (which has only changed its type).  */
+	  new = fold (build1 (NOP_EXPR, def_rhs_inner_type, op1));
+	  if (is_gimple_val (new)
+	      && integer_onep (fold (build (EQ_EXPR, boolean_type_node,
+					    new, op1))))
+	    return build (TREE_CODE (cond), TREE_TYPE (cond),
+			  def_rhs_inner, new);
+	}
+    }
+  return NULL;
+}
+
+/* STMT is a COND_EXPR for which we could not trivially determine its
+   result.  This routine attempts to find equivalent forms of the
+   condition which we may be able to optimize better.  It also 
+   uses simple value range propagation to optimize conditionals.  */
+
+static tree
+simplify_cond_and_lookup_avail_expr (tree stmt,
+				     varray_type *block_avail_exprs_p,
+				     varray_type const_and_copies,
+				     stmt_ann_t ann,
+				     int insert)
+{
+  tree cond = COND_EXPR_COND (stmt);
+
+  if (TREE_CODE_CLASS (TREE_CODE (cond)) == '<')
+    {
+      tree op0 = TREE_OPERAND (cond, 0);
+      tree op1 = TREE_OPERAND (cond, 1);
+
+      if (TREE_CODE (op0) == SSA_NAME && TREE_CONSTANT (op1))
+	{
+	  /* First see if we have test of an SSA_NAME against a constant
+	     where the SSA_NAME is defined by an earlier typecast which
+	     is irrelevant when performing tests against the given
+	     constant.  */
+	  if (TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
+	    {
+	      tree new_cond = find_equivalent_equality_comparison (cond);
+
+	      if (new_cond)
+		{
+		  /* Update the statement to use the new equivalent
+		     condition.  */
+		  COND_EXPR_COND (stmt) = new_cond;
+		  ann->modified = 1;
+
+		  /* Lookup the condition and return its known value if it
+		     exists.  */
+		  new_cond = lookup_avail_expr (stmt, block_avail_exprs_p,
+						const_and_copies, insert);
+		  if (new_cond)
+		    return new_cond;
+		}
+	    }
+	}
+    }
+  return 0;
+}
+
 /* Optimize the statement pointed by iterator SI into SSA form. 
    
    BLOCK_AVAIL_EXPRS_P points to a stack with all the expressions that have
@@ -1225,6 +1270,12 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 						const_and_copies,
 						ann,
 						insert);
+      else if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
+	cached_lhs = simplify_cond_and_lookup_avail_expr (stmt,
+							  block_avail_exprs_p,
+							  const_and_copies,
+							  ann,
+							  insert);
 
       opt_stats.num_exprs_considered++;
 
