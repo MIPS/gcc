@@ -1202,6 +1202,7 @@ reg_alloc ()
 	}
     }
   BITMAP_XFREE (use_insns);
+  rebuild_jump_labels (get_insns ());
   /* We might have deleted/moved dead stores, which could trap (mem accesses
      with flag_non_call_exceptions).  This might have made some edges dead.
      Get rid of them now.  No need to rebuild life info with that call,

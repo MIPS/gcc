@@ -1,4 +1,14 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	* ra-rewrite.c (uninit_webs_which_changed): New.
+	(insert_stores): Use validate_change.  Don't respill already spilled
+	refs.  Possibly mark the web as uninit but changed.  Clear the already
+	spilled mark.
+	(emit_loads): Try to do the load in-place.
+	(detect_web_parts_to_rebuild): Handle uninited webs which changed.
+	(actual_spill): Allocate/free uninit_webs_which_changed.
+	* ra.c (reg_alloc): Rebuild jump labels.
+
+2003-06-30  Michael Matz  <matz@suse.de>
 	* df.h (enum df_ref_flags, DF_REF_STRICTLY_PARTIAL_DEF): New.
 	* ra-build.c (live_out_1): Set this flag on some refs.
 	(select_regclass): Obey flag_caller_saves.
