@@ -33,13 +33,12 @@
    separately for each basic block and saves them to an array of micro
    operations.
    The micro operations of one instruction are ordered so that
-   pre-modifying stack adjustment < use < call insn < set < clobber <
-     < post-modifying stack adjustment
+   pre-modifying stack adjustment < use < use with no var < call insn <
+     < set < clobber < post-modifying stack adjustment
 
    Then, a forward dataflow analysis is performed to find out how locations
    of variables change through code and to propagate the variable locations
-   along control flow graph.  Hybrid Search Algorithm is used for dataflow
-   analysis (as well as in df.c).
+   along control flow graph.
    The IN set for basic block BB is computed as a union of OUT sets of BB's
    predecessors, the OUT set for BB is copied from the IN set for BB and
    is changed according to micro operations in BB.
