@@ -1,3 +1,8 @@
+2004-05-05  Michael Matz  <matz@suse.de>
+
+	* semantics.c (finish_handler_parms): No marking when
+	processing_template_decl.
+
 2004-02-21  Andreas Jaeger  <aj@suse.de>
 
 	* init.c: Include diagnostic.h for prototype of inform.

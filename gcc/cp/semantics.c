@@ -793,6 +793,10 @@ finish_handler_parms (decl, handler)
     type = expand_start_catch_block (decl);
 
   HANDLER_TYPE (handler) = type;
+
+  if (processing_template_decl)
+    return;
+
   if (type && TREE_CODE (type) == TREE_LIST)
     while (type)
       {
