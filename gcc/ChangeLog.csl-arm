@@ -1,5 +1,10 @@
 2004-08-19  Mark Mitchell  <mark@codesourcery.com>
 
+	* testsuite/lib/target-supports.exp (check_profiling_available): 
+	Return false for arm*-*-symbianelf* and arm*-*-eabi*.
+
+2004-08-19  Mark Mitchell  <mark@codesourcery.com>
+
 	* defaults.h (TARGET_LIBGCC_LIBFUNCS): Remove.
 	* optabs.c (init_optabs): Don't check it.
 	* config/arm/bpabi.h (TARGET_LIBGCC_LIBFUNCS): Do not define.

@@ -198,6 +198,8 @@ proc check_profiling_available { test_what } {
 	# missing other needed machinery.
 	if { [istarget mmix-*-*]
 	     || [istarget arm*-*-elf]
+	     || [istarget arm*-*-symbianelf*]
+	     || [istarget arm*-*-eabi*]
 	     || [istarget strongarm*-*-elf]
 	     || [istarget xscale*-*-elf]
 	     || [istarget cris-*-*]
