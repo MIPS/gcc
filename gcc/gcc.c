@@ -238,7 +238,7 @@ static int save_temps_flag;
 static int use_pipes;
 
 #ifdef ENABLE_SERVER
-static int use_server = 1;
+static int use_server;
 static int kill_server;
 static int kill_servercp;
 #endif
@@ -2796,10 +2796,16 @@ execute (void)
      and record info about each one.
      Also search for the programs that are to be run.  */
 
-  commands[0].prog = argbuf[0]; /* first command.  */
   commands[0].argv = &argbuf[0];
-  string = find_a_file (&exec_prefixes, commands[0].prog, X_OK, 0);
-
+  commands[0].prog = argbuf[0]; /* first command.  */
+  string = commands[0].prog;
+  if (use_server == 0 && string[0] == '@' && string[1] == '.')
+    {
+      string = string + 2;
+      string = xstrdup (string);
+      commands[0].argv[0] = string;
+    }
+  string = find_a_file (&exec_prefixes, string, X_OK, 0);
   if (string)
     commands[0].argv[0] = string;
 
@@ -2812,8 +2818,14 @@ execute (void)
 	argbuf[i] = 0;	/* termination of command args.  */
 	commands[n_commands].prog = argbuf[i + 1];
 	commands[n_commands].argv = &argbuf[i + 1];
-	string = find_a_file (&exec_prefixes, commands[n_commands].prog,
-			      X_OK, 0);
+	string = commands[n_commands].prog;
+	if (use_server == 0 && string[0] == '@' && string[1] == '.')
+	  {
+	    string = string + 2;
+	    string = xstrdup (string);
+	    commands[n_commands].argv[0] = string;
+	  }
+	string = find_a_file (&exec_prefixes, string, X_OK, 0);
 	if (string)
 	  commands[n_commands].argv[0] = string;
 	n_commands++;
@@ -2914,12 +2926,6 @@ execute (void)
     {
       char *errmsg_fmt, *errmsg_arg;
       const char *string = commands[i].argv[0];
-
-      if (use_server == 0 && string[0] == '@' && string[1] == '.')
-	{
-	  commands[i].argv[0] += 2;
-	  string = commands[i].argv[0];
-	}
 
       commands[i].server_socket = -1;
 #ifdef ENABLE_SERVER
@@ -3733,8 +3739,10 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	     use_server isn't set yet, and we can't delay unsetting
 	     use_pipes, this increases fragment reused by allowing
 	     more fragments to be valid, as we use ftell on the asm
-	     file to check to see if we can reuse fragments.  */
-	  if (0)
+	     file to check to see if we can reuse fragments.
+
+	     The GCCSERVER method can set it this early.  */
+	  if (! use_server)
 	    {
 	      /* -pipe has to go into the switches array as well as
 		 setting a flag.  */
@@ -6328,6 +6336,9 @@ main (int argc, const char *const *argv)
   char *specs_file;
   const char *p;
   struct user_specs *uptr;
+
+  if (getenv ("GCCSERVER") != 0)
+    use_server = 1;
 
   p = argv[0] + strlen (argv[0]);
   while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))

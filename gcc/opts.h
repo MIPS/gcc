@@ -23,6 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 extern void decode_options (unsigned int argc, const char **argv);
 extern void add_input_filename (const char *filename);
+extern void reinit_opts (void);
 
 struct cl_option
 {

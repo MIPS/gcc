@@ -1,3 +1,28 @@
+2004-01-23  Mike Stump  <mrs@apple.com>
+
+	* gcc.c (use_server): Default to off.
+	(main): Set use_server early from GCCSERVER.
+	(execute): Skip "@." earlier when compile server isn't in use.
+	(process_command): Only turn -pipe off when server is in use.
+
+	* opts.c (add_input_filename): Ensure input filenames are
+	allocated with malloc.
+
+	* toplev.c (server_loop): Remove code that handled 'I', as input
+	files are now processed normally.
+
+	* c-common.h (init_cmdline_fragment): Add.
+	(create_cmdline_fragment): Add.
+	(end_cmdline_fragment): Add.
+	(activate_cmdline_fragment): Add.
+
+	* config/darwin-c.c (reinit_frameworks): Add void to arglist.
+	* opts.c (reinit_opts): Likewise.
+	* c-common.c (init_cmdline_fragment): Likewise.
+	* opts.h (reinit_opts): Likewise.
+	* c-incpath.c (reinit_incpath): Likewise.
+	* c-opts.c (reinit_copts): Likewise.
+
 2004-01-21  Mike Stump  <mrs@apple.com>
 
 	Move options processing from server command line to client command

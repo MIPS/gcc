@@ -463,15 +463,15 @@ add_input_filename (const char *filename)
 {
   num_in_fnames++;
   if (strcmp (filename, "-") == 0)
-    filename = xstrdup ("");
+    filename = "";
   in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
-  in_fnames[num_in_fnames - 1] = filename;
+  in_fnames[num_in_fnames - 1] = xstrdup (filename);
 }
 
 /* Any option that can change, we have to re-initialize here.  */
 
 void
-reinit_opts ()
+reinit_opts (void)
 {
   pedantic = 0;
   profile_flag = 0;

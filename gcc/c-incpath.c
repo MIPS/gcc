@@ -62,7 +62,7 @@ enum { REASON_QUIET = 0, REASON_NOENT, REASON_DUP, REASON_DUP_SYS };
 /* Reinitialize for next compile.  */
 
 void
-reinit_incpath ()
+reinit_incpath (void)
 {
   memset (heads, 0, sizeof (heads));
   memset (tails, 0, sizeof (tails));

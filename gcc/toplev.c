@@ -4753,12 +4753,7 @@ server_get_command (int fd, char **bufp, int *posp, int *limp, int *blenp)
 	  limit += count;
 	  {
 	    if (buf[0] == 0)
-	      {
-		fatal_error ("kernel bug in 10.2.x, fixed in 10.3");
-		/* This looks to be a kernel bug with Jaguar.  */
-		fprintf (stderr, "bad read, got 0, assuming I\n");
-		buf[0] = 'I';
-	      }
+	      fatal_error ("kernel bug in 10.2.x, fixed in 10.3");
 	  }
 	}
       ch = buf[pos++];
@@ -5264,14 +5259,6 @@ server_loop (void)
 	     should be removed when the server works well.  */
 	  if (1 && (errorcount || sorrycount))
 	    done = 1;
-	}
-      else if (command == 'I') /* "input" */
-	{
-	  const char *filename;
-	  command_buffer[pos-2] = 0;
-	  filename = xstrdup (command_buffer + 2);
-	  fprintf (stderr, "Source file: '%s'\n", filename);
-	  add_input_filename (filename);
 	}
       else if (command == 'F') /* flags */
 	{

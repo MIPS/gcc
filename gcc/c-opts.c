@@ -1145,7 +1145,7 @@ c_common_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 /* Reinitialize for next compile.  */
 
 static void
-reinit_copts ()
+reinit_copts (void)
 {
   verbose = false;
 

@@ -460,11 +460,6 @@ int
 lang_clear_identifier (cpp_reader *pfile ATTRIBUTE_UNUSED,
 		       cpp_hashnode *node, void *v ATTRIBUTE_UNUSED)
 {
-  tree tnode = HT_IDENT_TO_GCC_IDENT (node);
-#if 0
-  IDENTIFIER_NAMESPACE_BINDINGS (tnode) = NULL;
-  IDENTIFIER_BINDING (tnode) = NULL;
-#endif
   reset_hashnode (node);
 
   return 1;

@@ -5097,7 +5097,7 @@ end_cmdline_fragment (void)
   parse_in->current_fragment = NULL;
 }
 
-void init_cmdline_fragment ()
+void init_cmdline_fragment (void)
 {
   cmdline_c_fragment = 0;
 }

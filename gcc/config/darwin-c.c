@@ -406,7 +406,7 @@ static const char *framework_defaults [] =
   };
 
 
-static void reinit_frameworks ()
+static void reinit_frameworks (void)
 {
   if (num_frameworks)
     {
