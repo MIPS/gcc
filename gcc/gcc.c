@@ -806,8 +806,7 @@ static const char *pch =
    file that happens to exist is up-to-date.  */
 static const char *cpp_unique_options =
 "%{C|CC:%{!E:%eGCC does not support -C or -CC without -E}}\
-"/* APPLE LOCAL frameworks */"\
- %{!traditional:%{!ftraditional:%{!traditional-cpp:%Q}}} %{F*}\
+ %{!traditional:%{!ftraditional:%{!traditional-cpp:%Q}}}\
  %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*&F*} %{P} %I\
  %{MD:-MD %{!o:%b.d}%{o*:%.d%*}}\
  %{MMD:-MMD %{!o:%b.d}%{o*:%.d%*}}\
@@ -1074,7 +1073,7 @@ static const int n_default_compilers = ARRAY_SIZE (default_compilers) - 1;
 /* -ObjC is not the same as -x objective-c, since it only affects the
    expectation of the language in files already thought to be source
    code.  */
-static char *default_language;
+static const char *default_language;
 /* APPLE LOCAL end -ObjC 2001-08-03 --sts */
 /* A vector of options to give to the linker.
    These options are accumulated by %x,
@@ -3303,7 +3302,7 @@ process_command (int argc, const char **argv)
   /* FSF patch pending. Move translate_options() call before -b processing
      so that -bundle like options can be translated, if required.  */
   /* Convert new-style -- options to old-style.  */
-  translate_options (&argc, &argv);
+  translate_options (&argc, (const char *const **) &argv);
   /* APPLE LOCAL end */
 
   /* If there is a -V or -b option (or both), process it now, before
