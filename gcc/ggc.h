@@ -97,6 +97,12 @@ extern const struct ggc_cache_tab * const gt_ggc_cache_rtab[];
 #define ggc_test_and_set_mark(EXPR) \
   ((EXPR) != NULL && ((void *) (EXPR)) != (void *) 1 && ! ggc_set_mark (EXPR))
 
+#define ggc_test(EXPR) \
+  ((EXPR) != NULL && ((void *) (EXPR)) != (void *) 1)
+
+#define gt_pch_test(EXPR, C, F) \
+  ((EXPR) != NULL && ((void *) (EXPR)) != (void *) 1)
+
 #define ggc_mark(EXPR)				\
   do {						\
     const void *const a__ = (EXPR);		\

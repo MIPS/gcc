@@ -200,47 +200,54 @@ struct bb_ann_d;
    basic blocks.  */
 
 /* Basic block information indexed by block number.  */
-typedef struct basic_block_def {
+struct basic_block_def GTY((fields_only ("")))
+{
   /* The first and last insns of the block.  */
-  rtx head, end;
+  rtx head;
+  rtx end;
 
   /* The first and last trees of the block.  */
-  struct tree_container *head_tree, *end_tree;
+  struct tree_container *head_tree;
+  struct tree_container *end_tree;
 
   /* The edges into and out of the block.  */
-  edge pred, succ;
+  struct edge_def * GTY((skip (""))) pred;
+  struct edge_def * GTY((skip (""))) succ;
 
   /* Liveness info.  */
 
   /* The registers that are modified within this in block.  */
-  regset local_set;
+  bitmap GTY((skip (""))) local_set;
   /* The registers that are conditionally modified within this block.
      In other words, registers that are set only as part of a
      COND_EXEC.  */
-  regset cond_local_set;
+  bitmap GTY((skip (""))) cond_local_set;
   /* The registers that are live on entry to this block.
 
      Note that in SSA form, global_live_at_start does not reflect the
      use of regs in phi functions, since the liveness of these regs
      may depend on which edge was taken into the block.  */
-  regset global_live_at_start;
+  bitmap GTY((skip (""))) global_live_at_start;
   /* The registers that are live on exit from this block.  */
-  regset global_live_at_end;
+  bitmap GTY((skip (""))) global_live_at_end;
 
   /* Auxiliary info specific to a pass.  */
-  void *aux;
+  PTR GTY((skip (""))) aux;
 
   /* The index of this block.  */
   int index;
 
-  /* Previous and next blocks in the chain.  */
-  struct basic_block_def *prev_bb, *next_bb;
+  /* Previous and next blocks in the chain.  The GTY((skip (""))) is necessary,
+     since the basic blocks themselves are not marked and we would cause a quadratic
+     behavior otherwise.  */
+  struct basic_block_def * GTY((skip (""))) prev_bb;
+  struct basic_block_def * GTY((skip (""))) next_bb;
 
   /* The loop depth of this block.  */
   int loop_depth;
 
   /* Innermost loop containing the block.  */
-  struct loop *loop_father;
+  struct loop * GTY((skip (""))) loop_father;
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -252,11 +259,13 @@ typedef struct basic_block_def {
   int flags;
 
   /* Additional data maintained by cfg_layout routines.  */
-  struct reorder_block_def *rbi;
+  struct reorder_block_def * GTY((skip (""))) rbi;
 
   /* Annotations used at the tree level.  */
   struct bb_ann_d *tree_annotations;
-} *basic_block;
+};
+
+typedef struct basic_block_def *basic_block;
 
 #define BB_FREQ_MAX 10000
 
@@ -282,7 +291,7 @@ extern int n_edges;
 
 /* Index by basic block number, get basic block struct info.  */
 
-extern varray_type basic_block_info;
+extern GTY(()) varray_type basic_block_info;
 
 #define BASIC_BLOCK(N)  (VARRAY_BB (basic_block_info, (N)))
 

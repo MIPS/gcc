@@ -57,8 +57,6 @@ tree_cell_alloc (tree t)
 
   nw->stmt = t;
   nw->prev = nw->next = NULL;
-  nw->next_in_gc_chain = cfun->tree_containers_root;
-  cfun->tree_containers_root = nw;
 
   return nw;
 }

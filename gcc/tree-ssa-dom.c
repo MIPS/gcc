@@ -276,7 +276,6 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename,
   htab_delete (avail_exprs);
 
   VARRAY_FREE (edges_to_redirect);
-  VARRAY_FREE (redirection_targets);
 
   timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
 }

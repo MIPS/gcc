@@ -124,7 +124,7 @@ typedef union varray_data_tag GTY (()) {
 				tag ("VARRAY_DATA_REG")))	reg[1];
   struct const_equiv_data GTY ((length ("%0.num_elements"),
 			tag ("VARRAY_DATA_CONST_EQUIV")))	const_equiv[1];
-  struct basic_block_def *GTY ((length ("%0.num_elements"), skip (""),
+  struct basic_block_def *GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_BB")))	bb[1];
   struct elt_list	 *GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_TE")))	te[1];

@@ -40,7 +40,6 @@ struct tree_container GTY (())
 {
   struct tree_container *prev;
   struct tree_container *next;
-  struct tree_container *next_in_gc_chain;
   tree stmt;
 };
 
@@ -296,7 +295,7 @@ static inline tree default_def (tree);
 /*---------------------------------------------------------------------------
 		  Block annotations stored in basic_block.tree_annotations
 ---------------------------------------------------------------------------*/
-struct bb_ann_d
+struct bb_ann_d GTY((fields_only ("")))
 {
   /* Chain of PHI nodes created in this block.  */
   tree phi_nodes;

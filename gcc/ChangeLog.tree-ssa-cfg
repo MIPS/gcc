@@ -1,3 +1,27 @@
+2003-10-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* basic-block.h (struct basic_block_def): Add GTY tags.
+	* cfg.c (compact_blocks): Zero unused entries.
+	* cfgbuild.c (find_basic_blocks): Don't free basic_block_info.
+	* flow.c (free_basic_block_vars): Ditto.
+	* function.h (struct function): Remove tree_containers_root field.
+	* gengtype.c (struct write_types_data): Add test_routine field.
+	(walk_type, write_func_for_structure): Handle "fields_only" option.
+	(ggc_wtd, pch_wtd): Add test routines.
+	(main): Add gcov_type as a scalar type.
+	* ggc.h (ggc_test, gt_pch_test): New macros.
+	* tree-flatten.c (tree_cell_alloc): Don't update chain of tree
+	containers.
+	* tree-flow-inline.h (add_dom_child, clear_dom_children): Make
+	dom_children gc allocated again.
+	* tree-flow.h (struct tree_container): Remove next_in_gc_chain
+	field.
+	(struct bb_ann_d): Add GTY tag.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Don't free
+	redirection_targets.
+	* varray.c (element): Make basic_block varray gc allocated.
+	* varray.h (union varray_data_tag): Don't skip bb field.
+
 2003-10-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-cfg.c (bsi_insert_on_edge_immediate): Handle non-critical edges

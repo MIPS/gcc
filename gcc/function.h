@@ -416,10 +416,6 @@ struct function GTY(())
   /* Array mapping insn uids to blocks.  */
   struct varray_head_tag *ib_boundaries_block;
 
-  /* Tree container cell list (so that garbage collector keeps them alive);
-     not really a great solution.  */
-  struct tree_container *tree_containers_root;
-
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address

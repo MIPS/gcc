@@ -270,6 +270,9 @@ compact_blocks (void)
   if (i != n_basic_blocks)
     abort ();
 
+  for (; i < last_basic_block; i++)
+    BASIC_BLOCK (i) = NULL;
+
   last_basic_block = n_basic_blocks;
 }
 

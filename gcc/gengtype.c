@@ -1345,6 +1345,7 @@ struct write_types_data
   const char *param_prefix;
   const char *subfield_marker_routine;
   const char *marker_routine;
+  const char *test_routine;
   const char *reorder_note_routine;
   const char *comment;
 };
@@ -1512,6 +1513,8 @@ walk_type (type_p t, struct walk_type_data *d)
       use_params_p = 1;
     else if (strcmp (oo->name, "desc") == 0)
       desc = (const char *)oo->info;
+    else if (strcmp (oo->name, "fields_only") == 0)
+      ;
     else if (strcmp (oo->name, "dot") == 0)
       ;
     else if (strcmp (oo->name, "tag") == 0)
@@ -1916,11 +1919,13 @@ write_func_for_structure  (type_p orig_s, type_p s, type_p *param,
 			   const struct write_types_data *wtd)
 {
   const char *fn = s->u.s.line.file;
+  const char *marker;
   int i;
   const char *chain_next = NULL;
   const char *chain_prev = NULL;
   options_p opt;
   struct walk_type_data d;
+  int fields_only = false;
 
   /* This is a hack, and not the good kind either.  */
   for (i = NUM_PARAM - 1; i >= 0; i--)
@@ -1932,10 +1937,14 @@ write_func_for_structure  (type_p orig_s, type_p s, type_p *param,
   d.of = get_output_file_with_visibility (fn);
 
   for (opt = s->u.s.opt; opt; opt = opt->next)
-    if (strcmp (opt->name, "chain_next") == 0)
-      chain_next = (const char *) opt->info;
-    else if (strcmp (opt->name, "chain_prev") == 0)
-      chain_prev = (const char *) opt->info;
+    {
+      if (strcmp (opt->name, "chain_next") == 0)
+	chain_next = (const char *) opt->info;
+      else if (strcmp (opt->name, "chain_prev") == 0)
+	chain_prev = (const char *) opt->info;
+      else if (strcmp (opt->name, "fields_only") == 0)
+	fields_only = true;
+    }
 
   if (chain_prev != NULL && chain_next == NULL)
     error_at_line (&s->u.s.line, "chain_prev without chain_next");
@@ -1970,9 +1979,14 @@ write_func_for_structure  (type_p orig_s, type_p s, type_p *param,
   if (chain_next != NULL)
     oprintf (d.of, "  %s %s * xlimit = x;\n",
 	     s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
+  if (fields_only)
+    marker = wtd->test_routine;
+  else
+    marker = wtd->marker_routine;
+
   if (chain_next == NULL)
     {
-      oprintf (d.of, "  if (%s (x", wtd->marker_routine);
+      oprintf (d.of, "  if (%s (x", marker);
       if (wtd->param_prefix)
 	{
 	  oprintf (d.of, ", x, gt_%s_", wtd->param_prefix);
@@ -1982,7 +1996,7 @@ write_func_for_structure  (type_p orig_s, type_p s, type_p *param,
     }
   else
     {
-      oprintf (d.of, "  while (%s (xlimit", wtd->marker_routine);
+      oprintf (d.of, "  while (%s (xlimit", marker);
       if (wtd->param_prefix)
 	{
 	  oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
@@ -2006,8 +2020,7 @@ write_func_for_structure  (type_p orig_s, type_p s, type_p *param,
 	  oprintf (d.of, ");\n");
 	  oprintf (d.of, "        if (xprev == NULL) break;\n");
 	  oprintf (d.of, "        x = xprev;\n");
-	  oprintf (d.of, "        (void) %s (xprev",
-		   wtd->marker_routine);
+	  oprintf (d.of, "        (void) %s (xprev", marker);
 	  if (wtd->param_prefix)
 	    {
 	      oprintf (d.of, ", xprev, gt_%s_", wtd->param_prefix);
@@ -2134,14 +2147,14 @@ write_types (type_p structures, type_p param_structs,
 
 static const struct write_types_data ggc_wtd =
 {
-  "ggc_m", NULL, "ggc_mark", "ggc_test_and_set_mark", NULL,
+  "ggc_m", NULL, "ggc_mark", "ggc_test_and_set_mark", "ggc_test", NULL,
   "GC marker procedures.  "
 };
 
 static const struct write_types_data pch_wtd =
 {
   "pch_n", "pch_p", "gt_pch_note_object", "gt_pch_note_object",
-  "gt_pch_note_reorder",
+  "gt_pch_test", "gt_pch_note_reorder",
   "PCH type-walking procedures.  "
 };
 
@@ -2915,6 +2928,7 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED)
   do_scalar_typedef ("uint8", &pos);
   do_scalar_typedef ("jword", &pos);
   do_scalar_typedef ("JCF_u2", &pos);
+  do_scalar_typedef ("gcov_type", &pos);
 
   do_typedef ("PTR", create_pointer (create_scalar_type ("void",
 							 strlen ("void"))),
