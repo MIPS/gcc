@@ -173,7 +173,7 @@ static bool vect_is_supportable_op (tree);
 static bool vect_is_supportable_store (tree);
 static bool vect_is_supportable_load (tree);
 static bool vect_is_supportable_assignment (tree);
-static bool vect_is_simple_use (tree , struct loop *);
+static bool vect_is_simple_use (tree , struct loop *, tree *);
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
 static bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *, bool);
 static void vect_mark_relevant (varray_type, tree);
@@ -436,35 +436,38 @@ static bool
 vect_force_dr_alignment_p (struct data_reference *dr)
 {
   tree ref = DR_REF (dr);
-  tree array_base;
+  tree array_base = DR_BASE_NAME (dr);
 
-  if (TREE_CODE (ref) != ARRAY_REF)
+  if ((TREE_CODE (ref) != ARRAY_REF)
+      || (TREE_CODE (TREE_TYPE (array_base)) != ARRAY_TYPE)
+      || (TREE_CODE (array_base) == VAR_DECL && DECL_EXTERNAL (array_base)))
     return false;
 
-  array_base = DR_BASE_NAME (dr);
+  if (TREE_CODE (array_base) == VAR_DECL)
+    return true;
 
-  if (TREE_CODE (TREE_TYPE (array_base)) != ARRAY_TYPE
-      || TREE_CODE (array_base) != VAR_DECL
-      || DECL_EXTERNAL (array_base))
+  if (TREE_CODE (array_base) == COMPONENT_REF)
     {
+      tree oprnd0 = TREE_OPERAND (array_base, 0);
+      tree oprnd1 = TREE_OPERAND (array_base, 1);
+      if (TREE_CODE (oprnd1) != FIELD_DECL
+          || TREE_CODE (TREE_TYPE (oprnd1)) != ARRAY_TYPE)
+	return false;
+
       if (vect_debug_details (NULL))
 	{
-	  if (TREE_CODE (array_base) != VAR_DECL) 
-	    fprintf (dump_file, "alignment of array can't be forced.");
-	  else
-	    {
-	      if (DECL_EXTERNAL (array_base))
-	        fprintf (dump_file, "alignment of extern array <");
-	      else
-	        fprintf (dump_file, "alignment of array <");
-	      print_generic_expr (dump_file, array_base, TDF_SLIM);
-	      fprintf (dump_file, "> can't be forced.");
-	    }
+	  fprintf (dump_file, "ok to force alignment? ");
+	  print_generic_expr (dump_file, array_base, TDF_SLIM);
 	}
-      return false;
+
+      /* CHECKME */
+      if (TREE_CODE (oprnd0) != VAR_DECL || DECL_EXTERNAL (oprnd0))
+        return false;
+
+      return true;
     }
 
-  return true;
+  return false;
 }
 
 
@@ -645,13 +648,21 @@ vect_align_data_ref (tree stmt)
 
   if (vect_force_dr_alignment_p (dr))
     {
-      if (DECL_ALIGN (array_base) < TYPE_ALIGN (vectype))
+      tree decl = NULL_TREE;
+      if (TREE_CODE (array_base) == VAR_DECL)
+	decl = array_base;
+      else if (TREE_CODE (array_base) == COMPONENT_REF)
+	decl = TREE_OPERAND (array_base, 1);
+#ifdef ENABLE_CHECKING
+      if (!decl || (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != FIELD_DECL))
+	abort ();
+#endif
+      if (DECL_ALIGN (decl) < TYPE_ALIGN (vectype))
 	{
 	  if (vect_debug_details (NULL))
             fprintf (dump_file, "force alignment. before: %d, after: %d",
-		DECL_ALIGN (array_base), TYPE_ALIGN (vectype));
-
-          DECL_ALIGN (array_base) = TYPE_ALIGN (vectype);
+		DECL_ALIGN (decl), TYPE_ALIGN (vectype));
+          DECL_ALIGN (decl) = TYPE_ALIGN (vectype);
         }
    }
 }
@@ -702,6 +713,7 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
   edge pe;
   basic_block new_bb;
   tree tag;
+  tree new_stmt, addr_expr;
 
   if (vect_debug_details (NULL))
     {
@@ -726,6 +738,17 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
       && TREE_CODE (addr_ref) != SSA_NAME)
     abort ();
 #endif
+
+  if (vect_debug_details (NULL))
+    {
+      if (TREE_CODE (addr_ref) == VAR_DECL)
+	fprintf (dump_file, "vectorizing an array ref: ");
+      else if (TREE_CODE (addr_ref) == SSA_NAME)
+	fprintf (dump_file, "vectorizing a pointer ref: ");
+      else if (TREE_CODE (addr_ref) == COMPONENT_REF)
+	fprintf (dump_file, "vectorizing a record ref: ");
+      print_generic_expr (dump_file, addr_ref, TDF_SLIM);
+    }
 
   /* Get base address:  */
   if (TREE_CODE (addr_ref) == VAR_DECL || TREE_CODE (addr_ref) == COMPONENT_REF)
@@ -766,14 +789,22 @@ vect_create_data_ref (tree stmt, block_stmt_iterator *bsi)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
     }
 
+  pe = loop_preheader_edge (loop);
+
   /*** create: p = (vectype *)&a; ***/
-  vec_stmt = build (MODIFY_EXPR, void_type_node, vect_ptr,
-    build1 (NOP_EXPR, ptr_type, base_addr));
   TREE_ADDRESSABLE (addr_ref) = 1;
+  vec_stmt = build1 (NOP_EXPR, ptr_type, base_addr);
+  addr_expr = create_tmp_var (ptr_type, "addr");
+  add_referenced_tmp_var (addr_expr);
+  new_temp = force_gimple_operand (vec_stmt, &new_stmt, false, addr_expr);
+  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
+#ifdef ENABLE_CHECKING
+  if (new_bb)
+    abort ();
+#endif
+  vec_stmt = build (MODIFY_EXPR, void_type_node, vect_ptr, new_temp);
   new_temp = make_ssa_name (vect_ptr, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
-
-  pe = loop_preheader_edge (loop);
   new_bb = bsi_insert_on_edge_immediate (pe, vec_stmt);
 #ifdef ENABLE_CHECKING
   if (new_bb)
@@ -969,23 +1000,29 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
   /** ==> Case 2.3: operand is defined outside the loop - 
                     it is a loop invariant.  */
 
-  if (TREE_CODE (def_stmt) == PHI_NODE)
-    def = PHI_RESULT (def_stmt);
-  else if (TREE_CODE (def_stmt) != NOP_EXPR)
-    def = TREE_OPERAND (def_stmt, 0);
-  else
+  switch (TREE_CODE (def_stmt))
     {
+    case PHI_NODE:
+      def = PHI_RESULT (def_stmt);
+      break;
+    case MODIFY_EXPR:
+      def = TREE_OPERAND (def_stmt, 0);
+      break;
+    case NOP_EXPR:
+      def = TREE_OPERAND (def_stmt, 0);
 #ifdef ENABLE_CHECKING
-      /* FORNOW: the kind of NOP_EXPR we expect:  */
-      tree arg = TREE_OPERAND (def_stmt, 0);        
-      if (TREE_CODE (arg) != INTEGER_CST && TREE_CODE (arg) != REAL_CST)
-	{
-	  if (vect_debug_details (NULL))
-	    fprintf (dump_file, "Unsupported NOP_EXPR.");
-	  abort ();
-	}
+      if (TREE_CODE (def) != INTEGER_CST && TREE_CODE (def) != REAL_CST)
+	abort ();
 #endif
       def = op;
+      break;
+    default:
+      if (vect_debug_details (NULL))
+	{
+          fprintf (dump_file, "unsupported defining stmt: ");
+	  print_generic_expr (dump_file, def_stmt, TDF_SLIM);
+	}
+      abort ();
     }
 
   /* Build a tree with vector elements. Create 'vec_inv = {inv,inv,..,inv}'  */
@@ -1969,6 +2006,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
    Input:
    LOOP - the loop that is being vectorized.
    OPERAND - operand of a stmt in LOOP.
+   DEF - the defining stmt in case OPERAND is an SSA_NAME.
 
    Returns whether a stmt with OPERAND can be vectorized.
    Supportable operands are constants, loop invariants, and operands that are
@@ -1977,10 +2015,13 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
    in reduction/induction computations).  */
 
 static bool
-vect_is_simple_use (tree operand, struct loop *loop)
+vect_is_simple_use (tree operand, struct loop *loop, tree *def)
 { 
   tree def_stmt;
   basic_block bb;
+
+  if (def)
+    *def = NULL_TREE;
 
   if (TREE_CODE (operand) == INTEGER_CST || TREE_CODE (operand) == REAL_CST)
     return true;
@@ -1989,7 +2030,30 @@ vect_is_simple_use (tree operand, struct loop *loop)
     return false;
 
   def_stmt = SSA_NAME_DEF_STMT (operand);
+  if (def_stmt == NULL_TREE )
+    {
+      if (vect_debug_details (NULL))
+        fprintf (dump_file, "no def_stmt.");
+      return false;
+    }
 
+  /* nop_expr is expected only in case of a function argument.
+     (Otherwise - we expect a phi_node or a modify_expr).  */
+  if (TREE_CODE (def_stmt) == NOP_EXPR)
+    {
+      tree arg = TREE_OPERAND (def_stmt, 0);
+      if (TREE_CODE (arg) == INTEGER_CST || TREE_CODE (arg) == REAL_CST)
+	return true;
+      if (vect_debug_details (NULL))
+	{
+	  fprintf (dump_file, "Unexpected form of NOP_EXPR: ");
+	  print_generic_expr (dump_file, def_stmt, TDF_SLIM);
+	}
+      return false;  
+    }
+
+  /* phi_node inside the loop indicates an induction/reduction pattern.
+     This is not supported yet.  */
   bb = bb_for_stmt (def_stmt);
   if (TREE_CODE (def_stmt) == PHI_NODE && flow_bb_inside_loop_p (loop, bb))
     {
@@ -1998,17 +2062,16 @@ vect_is_simple_use (tree operand, struct loop *loop)
       return false; /* FORNOW: not supported yet.  */
     }
 
-  if (TREE_CODE (def_stmt) == NOP_EXPR)
+  /* Expecting a modify_expr or a phi_node.  */
+  if (TREE_CODE (def_stmt) == MODIFY_EXPR
+      || TREE_CODE (def_stmt) == PHI_NODE)
     {
-      tree arg = TREE_OPERAND (def_stmt, 0);
-      if (TREE_CODE (arg) == INTEGER_CST || TREE_CODE (arg) == REAL_CST)
-	return true;
-      if (vect_debug_details (NULL))
-	fprintf (dump_file, "operand defind by a NOP expr - unsupported.");
-      return false;  
+      if (def)
+        *def = def_stmt; 	
+      return true;
     }
 
-  return true;
+  return false;
 }
 
 
@@ -2080,7 +2143,7 @@ vect_is_supportable_op (tree stmt)
   for (i = 0; i < op_type; i++)
     {
       op = TREE_OPERAND (operation, i);
-      if (!vect_is_simple_use (op, loop))
+      if (!vect_is_simple_use (op, loop, NULL))
 	{
 	  if (vect_debug_details (NULL))
 	    fprintf (dump_file, "use not simple.");
@@ -2138,7 +2201,7 @@ vect_is_supportable_store (tree stmt)
 
   op = TREE_OPERAND (stmt, 1);
 
-  if (!vect_is_simple_use (op, loop))
+  if (!vect_is_simple_use (op, loop, NULL))
     {
       if (vect_debug_details (NULL))
         fprintf (dump_file, "use not simple.");
@@ -2212,7 +2275,7 @@ vect_is_supportable_assignment (tree stmt)
 
   op = TREE_OPERAND (stmt, 1);
 
-  if (!vect_is_simple_use (op, loop))
+  if (!vect_is_simple_use (op, loop, NULL))
     {
       if (vect_debug_details (NULL))
         fprintf (dump_file, "use not simple.");
@@ -2280,13 +2343,11 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
 	  if (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))))
 	    {
-	      if (vect_debug_details (NULL))
+	      if (vect_debug_stats (loop) || vect_debug_details (loop))
 		{
-		  fprintf (dump_file, "vector stmt in loop!: ");
+                  fprintf (dump_file, "not vectorized: vector stmt in loop:");
 		  print_generic_expr (dump_file, stmt, TDF_SLIM);
 		}
-	      if (vect_debug_stats (loop) || vect_debug_details (loop))
-                fprintf (dump_file, "not vectorized: vector stmt in loop.");
 	      return false;
 	    }
 
@@ -2306,14 +2367,11 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	  vectype = get_vectype_for_scalar_type (scalar_type);
 	  if (!vectype)
 	    {
-	      if (vect_debug_details (NULL))
-		{
-		  fprintf (dump_file, "no vectype for stmt: ");
-		  print_generic_expr (dump_file, stmt, TDF_SLIM);
-		}
 	      if (vect_debug_stats (loop) || vect_debug_details (loop))
-                fprintf (dump_file, 
-		     "not vectorized: data-type not supported in vector form.");
+		{
+                  fprintf (dump_file, "not vectorized: unsupported data-type ");
+		  print_generic_expr (dump_file, scalar_type, TDF_SLIM);
+		}
 	      return false;
 	    }
 	  STMT_VINFO_VECTYPE (stmt_info) = vectype;
@@ -2325,11 +2383,6 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
 	  if (!ok)
 	    {
-	      if (vect_debug_details (NULL))
-		{
-		  fprintf (dump_file, "stmt not supported: ");
-		  print_generic_expr (dump_file, stmt, TDF_SLIM);
-		}
 	      if (vect_debug_stats (loop) || vect_debug_details (loop))
 		{
                   fprintf (dump_file, "not vectorized: stmt not supported: ");
@@ -2348,11 +2401,6 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	         This restriction will be relaxed in the future.  */
 	      if (nunits != vectorization_factor)
 		{
-		  if (vect_debug_details (NULL))
-		    {
-		      fprintf (dump_file, "mixed types unsupported: ");
-		      print_generic_expr (dump_file, stmt, TDF_SLIM);
-		    }
 	          if (vect_debug_stats (loop) || vect_debug_details (loop))
 		    fprintf (dump_file, "not vectorized: mixed data-types");
 		  return false;
@@ -2378,17 +2426,13 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
       || (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) 
           && !LOOP_VINFO_SYMB_NUM_OF_ITERS(loop_vinfo)))
     {
-      if (vect_debug_details (NULL))
-	fprintf (dump_file, "Complicated loop bound.");
       if (vect_debug_stats (loop) || vect_debug_details (loop))
-	fprintf (dump_file, "not vectorized: loop bound unsupported.");
+	fprintf (dump_file, "not vectorized: Complicated loop bound.");
       return false;
     }
 
   if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)) /* Disabled temporarily */
     {
-      if (vect_debug_details (NULL))
-        fprintf (dump_file, "unknown loop bound.");
       if (vect_debug_stats (loop) || vect_debug_details (loop))
         fprintf (dump_file, "not vectorized: unknown loop bound.");
       return false;
@@ -2397,9 +2441,6 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) 
       && LOOP_VINFO_NITERS (loop_vinfo) % vectorization_factor != 0)
     {
-      if (vect_debug_details (NULL))
-	fprintf (dump_file, "loop bound does not divided by %d.",
-		 vectorization_factor);
       if (vect_debug_stats (loop) || vect_debug_details (loop))
         fprintf (dump_file, "not vectorized: loop bound doesn't divided by %d.",
 		 vectorization_factor);
@@ -2596,8 +2637,6 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
       if (!access_fn)
 	{
-	  if (vect_debug_details (NULL))
-	    fprintf (dump_file, "No Access function for scalar var.");
 	  if (vect_debug_stats (loop) || vect_debug_details (loop))
 	    fprintf (dump_file, "not vectorized: unsupported scalar cycle.");
 	  return false;
@@ -2612,8 +2651,6 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
       if (!vect_is_simple_iv_evolution (loop->num, access_fn, &dummy, 
 					&dummy, false))
 	{
-	  if (vect_debug_details (NULL))
-	    fprintf (dump_file, "unsupported cross iteration cycle.");
 	  if (vect_debug_stats (loop) || vect_debug_details (loop))
 	    fprintf (dump_file, "not vectorized: unsupported scalar cycle.");
 	  return false;
@@ -2641,41 +2678,40 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
   tree ta = TREE_TYPE (ptra);
   tree tb = TREE_TYPE (ptrb);
 
-  /* Both refs are arrays:  */
-
-  if (TREE_CODE (refa) == ARRAY_REF && TREE_CODE (ptra) == VAR_DECL
-      && TREE_CODE (refb) == ARRAY_REF && TREE_CODE (ptrb) == VAR_DECL)
+  /* Both refs are array decls:  */
+  if (TREE_CODE (refa) == ARRAY_REF 
+      && (TREE_CODE (ptra) == VAR_DECL 
+	  || (TREE_CODE (ptra) == COMPONENT_REF 
+	      && TREE_CODE (TREE_OPERAND (ptra, 0)) == VAR_DECL))
+      && TREE_CODE (refb) == ARRAY_REF
+      && (TREE_CODE (ptrb) == VAR_DECL 
+	  || (TREE_CODE (ptrb) == COMPONENT_REF 
+	      && TREE_CODE (TREE_OPERAND (ptrb, 0)) == VAR_DECL)))
     {
       if (array_base_name_differ_p (dra, drb))
 	return false;
       else
-        {
+	{
 	  struct data_dependence_relation *ddr = 
-	    initialize_data_dependence_relation (dra, drb);
+		initialize_data_dependence_relation (dra, drb);
 	  compute_affine_dependence (ddr);
 
 	  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
 	    return false;
   
-	  if (vect_debug_details (NULL))
-	    {
-	      fprintf (dump_file, "same base for data-refs: ");
-	      print_generic_expr (dump_file, DR_BASE_NAME (dra), TDF_SLIM);
-	    }
 	  if (vect_debug_stats (loop) || vect_debug_details (loop))
 	    {
 	      fprintf (dump_file,
-		"not vectorized: dependence between refs to same array: ");
+		"not vectorized: dependence between refs to array <");
 	      print_generic_expr (dump_file, DR_BASE_NAME (dra), TDF_SLIM);
+	      fprintf (dump_file, ">");
 	    }
 
           return true;
-        }
+	}
     }
 
-
   /* At least one of the refs is a pointer access:  */
-
   if (TREE_CODE (ta) == POINTER_TYPE || TREE_CODE (tb) == POINTER_TYPE)
     {
       if (vect_debug_details (NULL))
@@ -2689,8 +2725,6 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
           if ((TREE_CODE (ta) == POINTER_TYPE && !TYPE_RESTRICT (ta)) 
 	      || (TREE_CODE (tb) == POINTER_TYPE && !TYPE_RESTRICT (tb))) 	
 	    {
-	      if (vect_debug_details (NULL))
-		fprintf (dump_file, "non restricted pointers. may alias.");
 	      if (vect_debug_stats (loop) || vect_debug_details (loop))
 		fprintf (dump_file,
 			"not vectorized: dependence between pointer-refs.");
@@ -2713,6 +2747,13 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
     }
 
   /* Not handling other cases at the moment.  */
+  if (vect_debug_stats (loop) || vect_debug_details (loop))
+    {
+      fprintf (dump_file, "not vectorized: data-refs unsupported: ");
+      print_generic_expr (dump_file, DR_REF (dra), TDF_SLIM);
+      fprintf (dump_file, " and ");
+      print_generic_expr (dump_file, DR_REF (drb), TDF_SLIM);
+    }
   return true;
 }
 
@@ -2778,9 +2819,10 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 /* Function vect_get_array_first_index.
 
    REF is an array reference. Find the lower bound of the array dimension and
-   return it in ARRAY_FIRST_INDEX (e.g, 0 in C arrays, 1 in Fortran arrays 
-   (unless defined otherwise).
-   Return TRUE if such lower bound was found, and FALSE otherwise.  */
+   return it in ARRAY_FIRST_INDEX. If REF is not of an ARRAY_TYPE or doesn't
+   have a TYPE_DOMAIN, then ARRAY_FIRST_INDEX will be 0, and the function 
+   returns TRUE. If a TYPE_DOMAIN is found, return TRUE if a simple (constant)
+   lower bound was found, and FALSE otherwise.  */ 
 
 static bool
 vect_get_array_first_index (tree ref, int *array_first_index)
@@ -2861,12 +2903,18 @@ vect_compute_data_ref_alignment (struct data_reference *dr,
 
 
   /* Check the base of the array_ref.   */
-
-  if (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (array_base))) /* CHECKME */
-	< TYPE_ALIGN (vectype))
+  /* CHECKME */
+  if (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (array_base))) < TYPE_ALIGN (vectype))
     {
       if (!vect_force_dr_alignment_p (dr))
-        return;
+	{
+	  if (vect_debug_details (NULL))
+	    {
+	      fprintf (dump_file, "can't force alignment of ref: "); 
+	      print_generic_expr (dump_file, array_base, TDF_SLIM);
+	    }
+          return;
+	}
     }
   if (!vect_get_array_first_index (ref, &array_start_val))
     return;
@@ -3074,11 +3122,9 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
       struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
       if (!aligned_access_p (dr))
 	{
-	  if (vect_debug_details (NULL))
-            fprintf (dump_file, "first access not aligned.");
 	  if (vect_debug_stats (LOOP_VINFO_LOOP (loop_vinfo))
 	      || vect_debug_details (LOOP_VINFO_LOOP (loop_vinfo)))
-	    fprintf (dump_file, "not vectorized: unaligned load.");
+	    fprintf (dump_file, "not vectorized: unaligned store.");
 	  return false;
 	}
     }
@@ -3088,11 +3134,9 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
       struct data_reference *dr = VARRAY_GENERIC_PTR (loop_read_datarefs, i);
       if (!aligned_access_p (dr))
 	{
-	  if (vect_debug_details (NULL))
-            fprintf (dump_file, "first access not aligned.");
 	  if (vect_debug_stats (LOOP_VINFO_LOOP (loop_vinfo))
 	      || vect_debug_details (LOOP_VINFO_LOOP (loop_vinfo)))
-	    fprintf (dump_file, "not vectorized: unaligned store.");
+	    fprintf (dump_file, "not vectorized: unaligned load.");
 	  return false;
 	}
     }
@@ -3212,10 +3256,8 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt)
 
   if (!access_fn)
     {
-      if (vect_debug_details (NULL))
-        fprintf (dump_file, "No Access function.");
       if (vect_debug_stats (loop) || vect_debug_details (loop))
-        fprintf (dump_file, "not vectorized: complicated pointer arithmetic.");	
+        fprintf (dump_file, "not vectorized: complicated pointer access.");	
       return NULL;
     }
 
@@ -3227,10 +3269,8 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt)
 
   if (!vect_is_simple_iv_evolution (loopnum, access_fn, &init, &step, false))
     {
-      if (vect_debug_details (NULL)) 
-	fprintf (dump_file, "Access_fn for ptr too complicated.");
       if (vect_debug_stats (loop) || vect_debug_details (loop)) 
-	fprintf (dump_file, "not vectorized: complicated pointer evolution.");	
+	fprintf (dump_file, "not vectorized: pointer access is not simple.");	
       return NULL;
     }
 		
@@ -3238,10 +3278,9 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt)
       || TREE_CODE (step) != INTEGER_CST
       || TREE_INT_CST_HIGH (step) != 0)
     {
-      if (vect_debug_details (NULL)) 
-	fprintf (dump_file, "Access_fn for ptr too complicated ");
       if (vect_debug_stats (loop) || vect_debug_details (loop)) 
-	fprintf (dump_file, "not vectorized: complicated pointer access.");	
+	fprintf (dump_file, 
+		"not vectorized: non constant init/step for pointer access.");	
       return NULL;
     }
 
@@ -3250,20 +3289,16 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt)
   reftype = TREE_TYPE (TREE_OPERAND (memref, 0));
   if (TREE_CODE (reftype) != POINTER_TYPE) 
     {
-      if (vect_debug_details (NULL)) 
-        fprintf (dump_file, "memref not pointer.");
       if (vect_debug_stats (loop) || vect_debug_details (loop))
-	fprintf (dump_file, "not vectorized: complicated pointer access.");	
+	fprintf (dump_file, "not vectorized: unexpected pointer access form.");	
       return NULL;
     }
 
   reftype = TREE_TYPE (init);
   if (TREE_CODE (reftype) != POINTER_TYPE) 
     {
-      if (vect_debug_details (NULL)) 
-        fprintf (dump_file, "init not pointer.");
       if (vect_debug_stats (loop) || vect_debug_details (loop)) 
-	fprintf (dump_file, "not vectorized: complicated pointer access.");
+	fprintf (dump_file, "not vectorized: unexpected pointer access form.");
       return NULL;
     }
 
@@ -3272,8 +3307,6 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt)
   if (GET_MODE_SIZE (innermode) != step_val) 
     {
       /* FORNOW: support only consecutive access */
-      if (vect_debug_details (NULL)) 
-	fprintf (dump_file, "Non consecutive access.");
       if (vect_debug_stats (loop) || vect_debug_details (loop)) 
 	fprintf (dump_file, "not vectorized: non consecutive access.");	
       return NULL;
@@ -3372,46 +3405,80 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      is_read = false;
 	    }
 
-	  if (TREE_CODE (memref) == ARRAY_REF)
+	  if (TREE_CODE (memref) == INDIRECT_REF)
+            {
+              dr = vect_analyze_pointer_ref_access (memref, stmt);
+              if (! dr)
+                return false; 
+	      symbl = DR_BASE_NAME (dr);	
+            }
+	  else if (TREE_CODE (memref) == ARRAY_REF)
 	    {
+	      tree base, oprnd0;		
 	      array_base = TREE_OPERAND (memref, 0);
    
               /* FORNOW: make sure that the array is one dimensional.
                  This restriction will be relaxed in the future.  */
               if (TREE_CODE (array_base) == ARRAY_REF)
                 {
-                  if (vect_debug_details (NULL))
-                    {
-                      fprintf (dump_file, "unhandled 2D-array data ref: ");
-                      print_generic_expr (dump_file, stmt, TDF_SLIM);
-                    }
                   if (vect_debug_stats (loop) || vect_debug_details (loop))
-                    fprintf (dump_file,
-                        "not vectorized: multi-dimensional array.");
+		    {
+                      fprintf (dump_file, 
+				"not vectorized: multi-dimensional array.");
+                      print_generic_expr (dump_file, stmt, TDF_SLIM);
+		    }
                   return false;
                 }
+
               dr = analyze_array (stmt, memref, is_read);
-	    }
-	  else if (TREE_CODE (memref) == INDIRECT_REF)
-	    {
-	      dr = vect_analyze_pointer_ref_access (memref, stmt);
-	      if (! dr)
-		return false;
+
+	      /* Find the relevant symbol for aliasing purposes.  */	
+	      base = DR_BASE_NAME (dr);
+	      switch (TREE_CODE (base))	
+		{
+		case VAR_DECL:
+		  symbl = base;
+		  break;
+		case INDIRECT_REF:
+		  symbl = TREE_OPERAND (base, 0); 
+		  break;
+		case COMPONENT_REF:
+		  oprnd0 = TREE_OPERAND (base, 0);
+		  if (TREE_CODE (oprnd0) == VAR_DECL)
+		    {	
+		      symbl = base;
+		      break;
+		    }	
+		  if (TREE_CODE (oprnd0) == INDIRECT_REF)
+		    {
+		      symbl = TREE_OPERAND (oprnd0, 0);
+		      break;
+		    }	
+		  /* fall through */	
+		default:
+                  if (vect_debug_stats (loop) || vect_debug_details (loop))
+		    {
+                      fprintf (dump_file,
+                        "not vectorized: unhandled struct/class field access ");
+                      print_generic_expr (dump_file, stmt, TDF_SLIM);
+		    }
+                  return false;
+		} /* switch */
 	    }
 	  else
 	    {
-	      if (vect_debug_details (NULL))
+	      if (vect_debug_stats (loop) || vect_debug_details (loop))
 		{
-		  fprintf (dump_file, "unhandled data ref: ");
+		  fprintf (dump_file, "not vectorized: unhandled data ref: ");
 		  print_generic_expr (dump_file, stmt, TDF_SLIM);
 		}
 	      return false;
 	    }
 	
 	  /* Find and record the memtag assigned to this data-ref.  */
-	  symbl = DR_BASE_NAME (dr);
-	  if (TREE_CODE (symbl) == VAR_DECL
-	      || TREE_CODE (symbl) == COMPONENT_REF)
+	  if (TREE_CODE (symbl) == VAR_DECL 
+	      || (TREE_CODE (symbl) == COMPONENT_REF 
+		  && TREE_CODE (TREE_OPERAND (symbl, 0)) == VAR_DECL))
 	    STMT_VINFO_MEMTAG (stmt_info) = symbl;
 	  else if (TREE_CODE (symbl) == SSA_NAME)
 	    {
@@ -3426,8 +3493,6 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 		}
 	      if (!tag)
 		{
-		  if (vect_debug_details (NULL))
-		    fprintf (dump_file, "no memtag for ref.");
 		  if (vect_debug_stats (loop) || vect_debug_details (loop))
 		    fprintf (dump_file, "not vectorized: no memtag for ref.");
 		  return false;
@@ -3436,11 +3501,6 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	    }
 	  else
 	    {
-	      if (vect_debug_details (NULL))
-		{
-		  fprintf (dump_file, "unexpected form of data-ref: ");
-		  print_generic_expr (dump_file, memref, TDF_SLIM);
-		}
 	      if (vect_debug_stats (loop) || vect_debug_details (loop))
 		{
 		  fprintf (dump_file, "not vectorized: unsupported data-ref: ");
@@ -3640,45 +3700,28 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	  for (j = 0; j < PHI_NUM_ARGS (stmt); j++)
 	    {
 	      tree arg = PHI_ARG_DEF (stmt, j);
-	      if (TREE_CODE (arg) == SSA_NAME)
+	      tree def_stmt = NULL_TREE;
+	      basic_block bb;
+	      if (!vect_is_simple_use (arg, loop, &def_stmt))
 		{
-		  tree def_stmt = NULL_TREE;
-		  basic_block bb;
-
-		  def_stmt = SSA_NAME_DEF_STMT (arg);
-		  if (def_stmt == NULL_TREE )
-		    {
-		      if (vect_debug_details (NULL))	
-		        fprintf (dump_file, "worklist: no def_stmt!");
-		      varray_clear (worklist);
-		      return false;
-		    }
-
-		  if (TREE_CODE (def_stmt) == NOP_EXPR)
-		    {
-          	      tree arg = TREE_OPERAND (def_stmt, 0);
-		      if (TREE_CODE (arg) != INTEGER_CST
-			  && TREE_CODE (arg) != REAL_CST)
-			{
-		          if (vect_debug_details (NULL))	
-		            fprintf (dump_file, "worklist: NOP def_stmt?");
-		          varray_clear (worklist);
-		          return false;
-			}
-		      continue;	
-		    }
-
-		  if (vect_debug_details (NULL))
-		    {
-		      fprintf (dump_file, "worklist: def_stmt: ");
-		      print_generic_expr (dump_file, def_stmt, TDF_SLIM);
-		    }
-
-		  bb = bb_for_stmt (def_stmt);
-		  if (flow_bb_inside_loop_p (loop, bb))
-		    vect_mark_relevant (worklist, def_stmt);
+		  if (vect_debug_details (NULL))	
+		    fprintf (dump_file, "worklist: unsupported use.");
+		  varray_clear (worklist);
+		  return false;
 		}
-	    } 
+	      if (!def_stmt)
+		continue;
+
+	      if (vect_debug_details (NULL))
+	        {
+	          fprintf (dump_file, "worklist: def_stmt: ");
+		  print_generic_expr (dump_file, def_stmt, TDF_SLIM);
+		}
+
+	      bb = bb_for_stmt (def_stmt);
+	      if (flow_bb_inside_loop_p (loop, bb))
+	        vect_mark_relevant (worklist, def_stmt);
+	    }
 	} 
 
       ann = stmt_ann (stmt);
@@ -3687,54 +3730,36 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
       for (i = 0; i < NUM_USES (use_ops); i++)
 	{
 	  tree use = USE_OP (use_ops, i);
-	  if (vect_debug_details (NULL))
-	    {
-	      fprintf (dump_file, "worklist: examine use %d: ", i);
-	      print_generic_expr (dump_file, use, TDF_SLIM);
-	    }
 
+	  /* We are only interested in uses that need to be vectorized. Uses 
+	     that are used for address computation are not considered relevant.
+	   */
 	  if (exist_non_indexing_operands_for_use_p (use, stmt))
 	    {
-	      tree def_stmt = NULL_TREE;
-	      basic_block bb;
-
-	      if (TREE_CODE (use) == SSA_NAME)
-		def_stmt = SSA_NAME_DEF_STMT (use);
-
-	      if (def_stmt == NULL_TREE)
-		{
-		  if (vect_debug_details (NULL))
-		    fprintf (dump_file, "worklist: no def_stmt!");
-		  varray_clear (worklist);
-		  return false;
-		}
-
-              if (TREE_CODE (def_stmt) == NOP_EXPR)
+              tree def_stmt = NULL_TREE;
+              basic_block bb;
+              if (!vect_is_simple_use (use, loop, &def_stmt))
                 {
-                  tree arg = TREE_OPERAND (def_stmt, 0);
-                  if (TREE_CODE (arg) != INTEGER_CST
-                      && TREE_CODE (arg) != REAL_CST)
-                    {
-		      if (vect_debug_details (NULL))
-                        fprintf (dump_file, "worklist: NOP def_stmt?");
-                      varray_clear (worklist);
-                      return false;
-                    }
-                  continue;
+                  if (vect_debug_details (NULL))        
+                    fprintf (dump_file, "worklist: unsupported use.");
+                  varray_clear (worklist);
+                  return false;
                 }
 
-	      if (vect_debug_details (NULL))
-		{
-	          fprintf (dump_file, "worklist: def_stmt:");
-	          print_generic_expr (dump_file, def_stmt, TDF_SLIM);
-		}
+	      if (!def_stmt)
+		continue;
+
+              if (vect_debug_details (NULL))
+                {
+                  fprintf (dump_file, "worklist: examine use %d: ", i);
+                  print_generic_expr (dump_file, use, TDF_SLIM);
+                }
 
 	      bb = bb_for_stmt (def_stmt);
 	      if (flow_bb_inside_loop_p (loop, bb))
 		vect_mark_relevant (worklist, def_stmt);
 	    }
 	}
-
     }				/* while worklist */
 
   varray_clear (worklist);
@@ -3895,13 +3920,6 @@ vect_analyze_loop_form (struct loop *loop)
       || loop->num_exits > 1 || loop->num_entries > 1 || loop->num_nodes != 2
       || !loop->pre_header || !loop->header || !loop->latch)
     {
-      if (vect_debug_details (NULL))	
-	{
-	  fprintf (dump_file, 
-	   "bad loop form (nested or nbbs!=2 or multiple enries/exists)\n");
-	  flow_loop_dump (loop, dump_file, NULL, 1);
-	}
-
       if (vect_debug_stats (loop) || vect_debug_details (loop))	
 	{
 	  fprintf (dump_file, "not vectorized: bad loop form. ");
@@ -3911,6 +3929,8 @@ vect_analyze_loop_form (struct loop *loop)
 	    fprintf (dump_file, "multiple entries or exits.");
 	  else if (loop->num_nodes != 2 || !loop->header || !loop->latch)
 	    fprintf (dump_file, "too many BBs in loop.");
+	  else if (!loop->pre_header)
+	    fprintf (dump_file, "no pre-header BB for loop.");
 	}
 
       return NULL;
@@ -3919,8 +3939,6 @@ vect_analyze_loop_form (struct loop *loop)
   loop_cond = vect_get_loop_niters (loop, &number_of_iterations);
   if (!loop_cond)
     {
-      if (vect_debug_details (NULL))
-	fprintf (dump_file, "Complicated exit condition.");
       if (vect_debug_stats (loop) || vect_debug_details (loop))
 	fprintf (dump_file, "not vectorized: complicated exit condition.");
       return NULL;
@@ -3929,25 +3947,20 @@ vect_analyze_loop_form (struct loop *loop)
   if (number_of_iterations < 0)
     {
       if (vect_debug_details (NULL))
-	fprintf (dump_file, "Can't determine num iters.");
+	fprintf (dump_file, "loop boun unknown.");
 
       /* Unknown loop bound.  */
       if (!vect_analyze_loop_with_symbolic_num_of_iters 
 					(&symb_num_of_iters, loop))
 	{
-          if (vect_debug_details (NULL))
-	    fprintf (dump_file, "Can't determine loop bound.");
           if (vect_debug_stats (loop) || vect_debug_details (loop))
-	    fprintf (dump_file, 
-		"not vectorized: can't compute number of iterations.");
+	    fprintf (dump_file, "not vectorized: can't determine loop bound.");
 	  return NULL;
 	}
     }
 
   if (number_of_iterations == 0) /* CHECKME: can this happen? */
     {
-      if (vect_debug_details (NULL))
-	fprintf (dump_file, "0 iterations??");
       if (vect_debug_stats (loop) || vect_debug_details (loop))
 	fprintf (dump_file, "not vectorized: number of iterations = 0.");
       return NULL;
@@ -4160,8 +4173,8 @@ vectorize_loops (struct loops *loops)
     }
 #endif
 
-  if (vect_debug_stats (NULL))
-    fprintf (dump_file, "vectorized %u loops in function.\n",
+  if (vect_debug_stats (NULL) || vect_debug_details (NULL))
+    fprintf (dump_file, "\nvectorized %u loops in function.\n",
 	     num_vectorized_loops);
 
   /*  ----------- Finalize. -----------  */
