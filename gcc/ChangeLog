@@ -1,3 +1,7 @@
+2003-05-22  Jeff Law  <law@redhat.com>
+
+	* expr.c (convert_move): Avoid making silly copies.
+
 2004-05-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/ia64/linux.h (ASM_FILE_END): Define.
