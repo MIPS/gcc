@@ -88,9 +88,9 @@
 
 STATIC bool read_pipe_timeout;
 
-STATIC tpChar def_args[] =
+STATIC t_pchar def_args[] =
 { (char *) NULL, (char *) NULL };
-STATIC tpfPair server_pair =
+STATIC t_pf_pair server_pair =
 { (FILE *) NULL, (FILE *) NULL };
 STATIC pid_t server_id = NULLPROCESS;
 /*
@@ -99,184 +99,7 @@ STATIC pid_t server_id = NULLPROCESS;
  *  the terminating output line.
  */
 tSCC z_done[] = "ShElL-OuTpUt-HaS-bEeN-cOmPlEtEd";
-STATIC tpChar p_cur_dir = (char *) NULL;
-
-/*
- *  chainOpen
- *
- *  Given an FD for an inferior process to use as stdin,
- *  start that process and return a NEW FD that that process
- *  will use for its stdout.  Requires the argument vector
- *  for the new process and, optionally, a pointer to a place
- *  to store the child's process id.
- */
-int
-chainOpen (stdin_fd, pp_args, p_child)
-     int stdin_fd;
-     tpChar *pp_args;
-     pid_t *p_child;
-{
-  tFdPair stdout_pair = {-1, -1};
-  pid_t ch_id;
-  char *pz_cmd;
-
-  /*
-   *  Create a pipe it will be the child process' stdout,
-   *  and the parent will read from it.
-   */
-  if (pipe ((int *) &stdout_pair) < 0)
-    {
-      if (p_child != (pid_t *) NULL)
-        *p_child = NOPROCESS;
-      return -1;
-    }
-
-  /*
-   *  If we did not get an arg list, use the default
-   */
-  if (pp_args == (tpChar *) NULL)
-    pp_args = def_args;
-
-  /*
-   *  If the arg list does not have a program,
-   *  assume the "SHELL" from the environment, or, failing
-   *  that, then sh.  Set argv[0] to whatever we decided on.
-   */
-  if (pz_cmd = *pp_args,
-      (pz_cmd == (char *) NULL) || (*pz_cmd == '\0'))
-    {
-
-      pz_cmd = getenv ("SHELL");
-      if (pz_cmd == (char *) NULL)
-        pz_cmd = "sh";
-    }
-
-#ifdef DEBUG_PRINT
-  printf ("START:  %s\n", pz_cmd);
-  {
-    int idx = 0;
-    
-    while (pp_args[++idx] != (char *) NULL)
-      printf ("  ARG %2d:  %s\n", idx, pp_args[idx]);
-  }
-#endif
-
-  /*
-   *  Call fork() and see which process we become
-   */
-  ch_id = fork ();
-  switch (ch_id)
-    {
-    case NOPROCESS:             /* parent - error in call */
-      close (stdout_pair.readFd);
-      close (stdout_pair.writeFd);
-      if (p_child != (pid_t *) NULL)
-        *p_child = NOPROCESS;
-      return -1;
-
-    default:                    /* parent - return opposite FD's */
-      if (p_child != (pid_t *) NULL)
-        *p_child = ch_id;
-#ifdef DEBUG_PRINT
-      printf ("for pid %d:  stdin from %d, stdout to %d\n"
-              "for parent:  read from %d\n",
-              ch_id, stdin_fd, stdout_pair.writeFd, stdout_pair.readFd);
-#endif
-      close (stdin_fd);
-      close (stdout_pair.writeFd);
-      return stdout_pair.readFd;
-
-    case NULLPROCESS:           /* child - continue processing */
-      break;
-    }
-
-  /*
-   *  Close the pipe end handed back to the parent process
-   */
-  close (stdout_pair.readFd);
-
-  /*
-   *  Close our current stdin and stdout
-   */
-  close (STDIN_FILENO);
-  close (STDOUT_FILENO);
-
-  /*
-   *  Make the fd passed in the stdin, and the write end of
-   *  the new pipe become the stdout.
-   */
-  fcntl (stdout_pair.writeFd, F_DUPFD, STDOUT_FILENO);
-  fcntl (stdin_fd, F_DUPFD, STDIN_FILENO);
-
-  if (*pp_args == (char *) NULL)
-    *pp_args = pz_cmd;
-
-  execvp (pz_cmd, pp_args);
-  fprintf (stderr, "Error %d:  Could not execvp( '%s', ... ):  %s\n",
-           errno, pz_cmd, strerror (errno));
-  exit (EXIT_PANIC);
-}
-
-
-/*
- *  p2open
- *
- *  Given a pointer to an argument vector, start a process and
- *  place its stdin and stdout file descriptors into an fd pair
- *  structure.  The "writeFd" connects to the inferior process
- *  stdin, and the "readFd" connects to its stdout.  The calling
- *  process should write to "writeFd" and read from "readFd".
- *  The return value is the process id of the created process.
- */
-pid_t
-p2open (p_pair, pp_args)
-     tFdPair *p_pair;
-     tpChar *pp_args;
-{
-  pid_t ch_id;
-
-  /*
-   *  Create a bi-directional pipe.  Writes on 0 arrive on 1
-   *  and vice versa, so the parent and child processes will
-   *  read and write to opposite FD's.
-   */
-  if (pipe ((int *) p_pair) < 0)
-    return NOPROCESS;
-
-  p_pair->readFd = chainOpen (p_pair->readFd, pp_args, &ch_id);
-  if (ch_id == NOPROCESS)
-    close (p_pair->writeFd);
-
-  return ch_id;
-}
-
-
-/*
- *  p2fopen
- *
- *  Identical to "p2open()", except that the "fd"'s are "fdopen(3)"-ed
- *  into file pointers instead.
- */
-pid_t
-p2fopen (pf_pair, pp_args)
-     tpfPair *pf_pair;
-     tpChar *pp_args;
-{
-  tFdPair fd_pair;
-  pid_t ch_id = p2open (&fd_pair, pp_args);
-
-  if (ch_id == NOPROCESS)
-    return ch_id;
-
-  pf_pair->pfRead = fdopen (fd_pair.readFd, "r");
-  pf_pair->pfWrite = fdopen (fd_pair.writeFd, "w");
-  return ch_id;
-}
-
-
-/*
- *  SHELL SERVER PROCESS CODE
- */
+STATIC t_pchar p_cur_dir = (char *) NULL;
 
 /*
  *  load_data
@@ -303,7 +126,7 @@ load_data (fp)
 
   for (;;)
     {
-      size_t usedCt;
+      size_t used_ct;
 
       alarm (10);
       read_pipe_timeout = BOOL_FALSE;
@@ -315,9 +138,9 @@ load_data (fp)
 
       strcpy (pz_scan, z_line);
       pz_scan += strlen (z_line);
-      usedCt = (size_t) (pz_scan - pz_text);
+      used_ct = (size_t) (pz_scan - pz_text);
 
-      if (text_size - usedCt < sizeof (z_line))
+      if (text_size - used_ct < sizeof (z_line))
         {
           size_t off = (size_t) (pz_scan - pz_text);
           void *p;
@@ -360,9 +183,9 @@ close_server ()
 {
   kill ((pid_t) server_id, SIGKILL);
   server_id = NULLPROCESS;
-  fclose (server_pair.pfRead);
-  fclose (server_pair.pfWrite);
-  server_pair.pfRead = server_pair.pfWrite = (FILE *) NULL;
+  fclose (server_pair.pf_read);
+  fclose (server_pair.pf_write);
+  server_pair.pf_read = server_pair.pf_write = (FILE *) NULL;
 }
 
 /*
@@ -396,14 +219,14 @@ server_setup ()
   signal (SIGPIPE, sig_handler);
   signal (SIGALRM, sig_handler);
 
-  fputs ("trap : 1\n", server_pair.pfWrite);
-  fflush (server_pair.pfWrite);
+  fputs ("trap : 1\n", server_pair.pf_write);
+  fflush (server_pair.pf_write);
   p_cur_dir = getcwd ((char *) NULL, MAXPATHLEN + 1);
 }
 
 
 /*
- *  runShell
+ *  run_shell
  *
  *  Run a shell command on the server.  The command string
  *  passed in is wrapped inside the sequence:
@@ -422,24 +245,19 @@ server_setup ()
  *     "ShElL-OuTpUt-HaS-bEeN-cOmPlEtEd"
  */
 char *
-runShell (pz_cmd)
+run_shell (pz_cmd)
      const char *pz_cmd;
 {
-  /*
-   *  IF the shell server process is not running yet,
-   *  THEN try to start it.
-   */
+  /*  IF the shell server process is not running yet,
+      THEN try to start it.  */
   if (server_id == NULLPROCESS)
     {
-      server_id = p2fopen (&server_pair, def_args);
+      server_id = proc2_fopen (&server_pair, def_args);
       if (server_id > 0)
         server_setup ();
     }
 
-  /*
-   *  IF it is still not running,
-   *  THEN return the nil string.
-   */
+  /*  IF it is still not running, THEN return the nil string.  */
   if (server_id <= 0)
     {
       char *pz = (char *) malloc (1);
@@ -449,19 +267,15 @@ runShell (pz_cmd)
       return pz;
     }
 
-  /*
-   *  Make sure the process will pay attention to us,
-   *  send the supplied command, and then
-   *  have it output a special marker that we can find.
-   */
-  fprintf (server_pair.pfWrite, "\\cd %s\n%s\n\necho\necho %s\n",
+  /*  Make sure the process will pay attention to us, send the
+     supplied command, and then have it output a special marker that
+     we can find.  */
+  fprintf (server_pair.pf_write, "\\cd %s\n%s\n\necho\necho %s\n",
            p_cur_dir, pz_cmd, z_done);
-  fflush (server_pair.pfWrite);
+  fflush (server_pair.pf_write);
 
-  /*
-   *  IF the server died and we received a SIGPIPE,
-   *  THEN return an empty string.
-   */
+  /*  IF the server died and we received a SIGPIPE,
+      THEN return an empty string.  */
   if (server_id == NULLPROCESS)
     {
       char *pz = (char *) malloc (1);
@@ -471,12 +285,10 @@ runShell (pz_cmd)
       return pz;
     }
 
-  /*
-   *  Now try to read back all the data.  If we fail due to either
-   *  a sigpipe or sigalrm (timeout), we will return the nil string.
-   */
+  /*  Now try to read back all the data.  If we fail due to either a
+     sigpipe or sigalrm (timeout), we will return the nil string.  */
   {
-    char *pz = load_data (server_pair.pfRead);
+    char *pz = load_data (server_pair.pf_read);
     
     if (pz == (char *) NULL)
       {

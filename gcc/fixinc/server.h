@@ -60,17 +60,17 @@
 
 typedef struct
 {
-  int readFd;
-  int writeFd;
-} tFdPair;
+  int read_fd;
+  int write_fd;
+} t_fd_pair;
 
 typedef struct
 {
-  FILE *pfRead;			/* parent read fp  */
-  FILE *pfWrite;		/* parent write fp */
-} tpfPair;
+  FILE *pf_read;		/* parent read fp  */
+  FILE *pf_write;		/* parent write fp */
+} t_pf_pair;
 
-typedef char *tpChar;
+typedef char *t_pchar;
 
 #define NOPROCESS	((pid_t) -1)
 #define NULLPROCESS	((pid_t)0)
@@ -84,11 +84,11 @@ typedef enum
 
 #define _P_(p)	()
 
-char *runShell _P_ ((const char *pzCmd));
-pid_t p2fopen _P_ ((tpfPair * pfPair, tpChar * ppArgs));
-pid_t p2open _P_ ((tFdPair * pPair, tpChar * ppArgs));
-int chainOpen _P_ ((int stdinFd,
-		    tpChar * ppArgs,
-		    pid_t * pChild));
+char *run_shell   _P_ (( const char *pzCmd));
+pid_t proc2_fopen _P_ (( t_pf_pair * p_pair, t_pchar * pp_args));
+pid_t proc2_open  _P_ (( t_fd_pair * p_pair, t_pchar * pp_args));
+int chain_open    _P_ (( int in_fd,
+                         t_pchar * pp_args,
+                         pid_t * p_child));
 
 #endif /* FIXINC_SERVER_H */

@@ -200,7 +200,7 @@ main (argc, argv)
           run_compiles ();
           sprintf (file_name_buf, zFmt, program_id);
           fputs (file_name_buf + 5, stdout);
-          exit (strcmp (runShell (file_name_buf), program_id));
+          exit (strcmp (run_shell (file_name_buf), program_id));
         }
       freopen (argv[1], "r", stdin);
       break;
@@ -536,7 +536,7 @@ run_compiles ()
           /*  Run the script.
               The result will start either with 's' or 'r'.  */
 
-          pz = runShell (file_name_buf);
+          pz = run_shell (file_name_buf);
           if (*pz == 's')
             {
               p_fixd->fd_flags |= FD_SKIP_TEST;
@@ -671,7 +671,7 @@ test_test (p_test, pz_file_name)
     "fi";
 
   sprintf (cmd_buf, cmd_fmt, pz_file_name, p_test->pz_test_text);
-  pz_res = runShell (cmd_buf);
+  pz_res = run_shell (cmd_buf);
   if (*pz_res == 'T')
     res = SUCCESS;
   free ((void *) pz_res);
@@ -799,7 +799,7 @@ process (pz_data, pz_file_name)
   static char env_current_file[1024] = { "file=" };
   tFixDesc *p_fixd = fixDescList;
   int todo_ct = FIX_COUNT;
-  tFdPair fdp = { -1, -1 };
+  t_fd_pair fdp = { -1, -1 };
 
   /*  IF this is the first time through,
       THEN put the 'file' environment variable into the environment.
@@ -920,10 +920,10 @@ process (pz_data, pz_file_name)
           the first fix.  Any subsequent fixes will use the
           stdout descriptor of the previous fix as its stdin.  */
 
-      if (fdp.readFd == -1)
+      if (fdp.read_fd == -1)
         {
-          fdp.readFd = open (pz_file_name, O_RDONLY);
-          if (fdp.readFd < 0)
+          fdp.read_fd = open (pz_file_name, O_RDONLY);
+          if (fdp.read_fd < 0)
             {
               fprintf (stderr, "Error %d (%s) opening %s\n", errno,
                        strerror (errno), pz_file_name);
@@ -932,21 +932,21 @@ process (pz_data, pz_file_name)
         }
 
       /*  This loop should only cycle for 1/2 of one loop.
-          "chain_open" starts a process that uses "fdp.readFd" as
+          "chain_open" starts a process that uses "fdp.read_fd" as
           its stdin and returns the new fd this process will use
           for stdout.  */
 
       for (;;)
         {
           static int failCt = 0;
-          int fd = chainOpen (fdp.readFd,
-                              (tpChar *) p_fixd->patch_args,
-                              (process_chain_head == -1)
-                              ? &process_chain_head : (pid_t *) NULL);
+          int fd = chain_open (fdp.read_fd,
+                               (t_pchar *) p_fixd->patch_args,
+                               (process_chain_head == -1)
+                               ? &process_chain_head : (pid_t *) NULL);
 
           if (fd != -1)
             {
-              fdp.readFd = fd;
+              fdp.read_fd = fd;
               break;
             }
 
@@ -966,7 +966,7 @@ process (pz_data, pz_file_name)
   /*  IF after all the tests we did not start any patch programs,
       THEN quit now.   */
 
-  if (fdp.readFd < 0)
+  if (fdp.read_fd < 0)
     return;
 
   /*  OK.  We have work to do.  Read back in the output
@@ -977,7 +977,7 @@ process (pz_data, pz_file_name)
       output of the filter chain.
       */
   {
-    FILE *in_fp = fdopen (fdp.readFd, "r");
+    FILE *in_fp = fdopen (fdp.read_fd, "r");
     FILE *out_fp = (FILE *) NULL;
     char *pz_cmp = pz_data;
 
@@ -1033,5 +1033,5 @@ process (pz_data, pz_file_name)
       }
     fclose (in_fp);
   }
-  close (fdp.readFd);  /* probably redundant, but I'm paranoid */
+  close (fdp.read_fd);  /* probably redundant, but I'm paranoid */
 }
