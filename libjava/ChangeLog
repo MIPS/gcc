@@ -1,5 +1,9 @@
 2004-05-27  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* java/awt/Component.java (getForeground): Return SystemColor if
+	parent is null.
+	(getBackground): Likewise.
+
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c
 	(item_highlighted): New function.
 	(connectSignals): Set item_highlighted as list's select
