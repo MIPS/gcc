@@ -1186,7 +1186,7 @@ enum reg_class
   "BASE_REGS",		\
   "HI_REGS",		\
   "CC_REG",		\
-  "VFPCC_REG"		\
+  "VFPCC_REG",		\
   "GENERAL_REGS",	\
   "ALL_REGS",		\
 }
