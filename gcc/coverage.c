@@ -503,8 +503,10 @@ compute_checksum (void)
   unsigned chksum = xloc.line;
 
   chksum = coverage_checksum_string (chksum, xloc.file);
+  /* Do not use DECL_ASSEMBLER_NAME here; with IMA names of static functions
+     get suffixes attached that differ between generate and use runs.  */
   chksum = coverage_checksum_string
-    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
+    (chksum, IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
 
   return chksum;
 }

@@ -838,10 +838,9 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_peel_loops = value;
       if (!flag_tracer_set)
         flag_tracer = value;
-/* These still don't work on trees ;(  */
-#if 0
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
+#if 0
 #ifdef HAVE_prefetch
       if (0 && !flag_speculative_prefetching_set)
 	flag_speculative_prefetching = value;
@@ -852,11 +851,11 @@ common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fprofile_generate:
       if (!profile_arc_flag_set)
         profile_arc_flag = value;
-#if 0
       if (!flag_profile_values_set)
         flag_profile_values = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
+#if 0
 #ifdef HAVE_prefetch
       if (0 && !flag_speculative_prefetching_set)
 	flag_speculative_prefetching = value;
