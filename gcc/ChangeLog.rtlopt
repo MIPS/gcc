@@ -1,3 +1,12 @@
+2003-02-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	* dwarf2out.c (output_loc_list): Location list terminators
+	should be DWARF2_ADDR_SIZE long.
+	Add comments.
+	(add_var_loc_to_decl): Remove dead code, fix formatting.
+ 	(add_location_or_const_value_attribute): Add comments.
+	(dwarf2out_var_location): Remove dead code.
+
 2003-02-02  Josef Zlomek  <zlomekj@suse.cz>
 
 	* Makefile.in (var-tracking.o): Added dependency on alloc-pool.h.

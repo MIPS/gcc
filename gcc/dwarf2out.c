@@ -5385,14 +5385,12 @@ add_var_loc_to_decl (decl, loc)
       /* If the current location is the same as the end of the list,
 	 just extend the range of the location at the end of the
 	 list.  */ 
-      if (rtx_equal_p (NOTE_VAR_LOCATION_LOC (temp->var_loc_note), NOTE_VAR_LOCATION_LOC (loc->var_loc_note)))
+      if (rtx_equal_p (NOTE_VAR_LOCATION_LOC (temp->var_loc_note), 
+		       NOTE_VAR_LOCATION_LOC (loc->var_loc_note)))
 	temp->label = loc->label;
       else
 	temp->next = loc;
     }
-  /*
-    loc->next = decl_loc_table[decl_id];
-    decl_loc_table[decl_id] = loc;*/
 }
 
 /* Keep track of the number of spaces used to indent the
@@ -6771,6 +6769,7 @@ output_loc_list (list_head)
 			     "Location list base address specifier base");
     }
 
+  /* Walk the location list, and output each range + expression. */
   for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
     {
       unsigned long size;
@@ -6802,10 +6801,10 @@ output_loc_list (list_head)
       output_loc_sequence (curr->expr);
     }
 
-  dw2_asm_output_data (DWARF_OFFSET_SIZE, 0,
+  dw2_asm_output_data (DWARF2_ADDR_SIZE, 0,
 		       "Location list terminator begin (%s)",
 		       list_head->ll_symbol);
-  dw2_asm_output_data (DWARF_OFFSET_SIZE, 0,
+  dw2_asm_output_data (DWARF2_ADDR_SIZE, 0,
 		       "Location list terminator end (%s)",
 		       list_head->ll_symbol);
 }
@@ -9647,36 +9646,75 @@ add_location_or_const_value_attribute (die, decl)
   else if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != PARM_DECL)
     abort ();
 
+  /* See if we possibly have multiple locations for this variable.  */
   multiloc = lookup_decl_loc (decl);
+
+  /* If it truly has multiple locations, it will have >1 list 
+     member.  */
   if (multiloc && multiloc->next)
     {     
-      const char * secname;
+      const char *secname;
       const char *endname;
       dw_loc_list_ref list;
+      rtx varloc;
       
-      
+      /* We need to figure out what section we should use as the base
+	 for the address ranges where a given location is valid.
+	 1. If this particular DECL has a section associated with it,
+	 use that.
+	 2. If this function has a section associated with it, use
+	 that.
+	 3. Otherwise, use the text section. 
+	 XXX: If you split a variable across multiple sections, this 
+	 won't notice.  */
+
       if (DECL_SECTION_NAME (decl))
-	secname = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+	{
+	  tree sectree = DECL_SECTION_NAME (decl);
+	  secname = TREE_STRING_POINTER (sectree);
+	}
       else if (current_function_decl
 	       && DECL_SECTION_NAME (current_function_decl))
-	secname = TREE_STRING_POINTER (DECL_SECTION_NAME (current_function_decl));
+	{
+	  tree sectree = DECL_SECTION_NAME (current_function_decl);  
+	  secname = TREE_STRING_POINTER (sectree);
+	}
       else
 	secname = TEXT_SECTION_NAME;
-     
-      list = new_loc_list (loc_descriptor (NOTE_VAR_LOCATION (multiloc->var_loc_note)), 
-			   multiloc->label, multiloc->next->label, secname, 1);
+      
+      /* Now that we know what section we are using for a base,
+         actually construct the list of locations.
+	 The first location information is what is passed to the 
+	 function that creates the location list, and the remaining
+	 locations just get added on to that list.
+	 Note that we only know the start address for a location
+	 (IE location changes), so to build the range, we use 
+	 the range [current location start, next location start].
+	 This means we have to special case the last node, and generate
+	 a range of [last location start, end of function label].  */
+	
+
+      varloc = NOTE_VAR_LOCATION (multiloc->var_loc_note);
+      
+      list = new_loc_list (loc_descriptor (varloc), multiloc->label, 
+			   multiloc->next->label, secname, 1);
       multiloc = multiloc->next;
+
       while (multiloc->next)
 	{
-	  add_loc_descr_to_loc_list (&list, loc_descriptor (NOTE_VAR_LOCATION (multiloc->var_loc_note)), 
-				     multiloc->label, multiloc->next->label, secname);
+	  varloc = NOTE_VAR_LOCATION (multiloc->var_loc_note);
+	  add_loc_descr_to_loc_list (&list, loc_descriptor (varloc),
+				     multiloc->label, multiloc->next->label,
+				     secname);
 	  multiloc = multiloc->next;
 	}
+      
       if (multiloc)
         {
 	  char label_id[MAX_ARTIFICIAL_LABEL_BYTES];
 
-	  if (separate_line_info_table_in_use == 0 || !current_function_decl)
+	  varloc = NOTE_VAR_LOCATION (multiloc->var_loc_note);
+	  if (!current_function_decl)
 	    endname = text_end_label;
 	  else
 	    {
@@ -9684,14 +9722,15 @@ add_location_or_const_value_attribute (die, decl)
 					   current_function_funcdef_no);
 	      endname = ggc_strdup (label_id);
 	    }
-	    add_loc_descr_to_loc_list (&list, loc_descriptor (NOTE_VAR_LOCATION (multiloc->var_loc_note)), 
-				       multiloc->label, endname, secname);
+	  add_loc_descr_to_loc_list (&list, loc_descriptor (varloc),
+				     multiloc->label, endname, secname);
 	}
+
+      /* Finally, add the location list to the DIE, and we are done.  */
       add_AT_loc_list (die, DW_AT_location, list);
       return;      
     }
 
-  
   rtl = rtl_for_decl_location (decl);
   if (rtl == NULL_RTX)
     return;
@@ -12558,9 +12597,6 @@ dwarf2out_var_location (loc_note)
   char loclabel[MAX_ARTIFICIAL_LABEL_BYTES];
   struct var_loc_node *newloc;
 
-/*  printf ("%p %p\n",
-	  NOTE_VAR_LOCATION_DECL (loc_note),
-	  NOTE_VAR_LOCATION_LOC (loc_note));*/
   if (!DECL_P (NOTE_VAR_LOCATION_DECL (loc_note)))
     return;
   newloc = ggc_alloc_cleared (sizeof (struct var_loc_node));
