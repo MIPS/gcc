@@ -35,7 +35,7 @@ struct dom_walk_data
      that allows your optimizer to re-use those arrays rather than
      creating new ones.  */
   void (*initialize_block_local_data) (struct dom_walk_data *,
-				       basic_block, tree);
+				       basic_block, bool);
 
   /* Function to call before the statement walk occurring before the
      recursive walk of the dominator children. 

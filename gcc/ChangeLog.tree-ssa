@@ -5,6 +5,38 @@
 
 2003-11-25  Jeff law  <law@redhat.com>
 
+	* domwalk.c (walk_dominator_tree): Indicate to the block local
+	data initializer if the block local data is new or recycled.
+	* domwalk.h (struct dom_walk_data): Corresponding changes.
+	* tree-ssa-dom.c (dom_opt_initialize_block_local_data): Accept and use
+	"recycled" argument.  For recycled structures, only clear varrays
+	that have been initialized.  For new blocks, do not initialize
+	varrays here.
+	(dom_opt_finalize_block): When threading across edges, if the
+	true/false varrays have not been initialized, then the limit is zero.
+	Only clear block local varrays that have been initialized.
+	(record_equivalences_from_incoming_edge): If necessary, initialize
+	block local const_and_copies.
+	(dom_opt_walk_stmts): If necessary, initialize block local
+	stmts_to_rescan.
+	(record_var_is_nonzero): If necessary, initialize block local
+	nonzero_vars.
+	(record_cond_is_true): If necessary, initialize block local
+	true_exprs.
+	(record_cond_is_false): If necessary, initialize block local
+	false_exprs.
+	(lookup_avail_expr): If necessary, initialize block local
+	avail_exprs.
+	(record_range): If necessary, initialize block local vrp_varaibles.
+	* tree-ssa.c
+	* tree-ssa.c (rewrite_initialize_block_local_data): Accept and use
+	"recycled" argument.  For recycled structures, only clear varrays
+	that have been initialized.  For new blocks, do not initialize
+	varrays here.
+	(rewrite_finalize_block): Only clear block local varrays that have
+	been initialized.
+	(register_new_def): If necessary, initialize block local defs.
+
 	* tree-ssa-dom.c (get_eq_expr_value): Return a struct rather than
 	a tree node.
 	(record_equivalences_from_incoming_edge): Corresponding changes.

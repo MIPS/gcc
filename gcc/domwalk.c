@@ -66,23 +66,27 @@ walk_dominator_tree (struct dom_walk_data *walk_data,
   /* Callback to initialize the local data structure.  */
   if (walk_data->initialize_block_local_data)
     {
+      bool recycled;
+
       /* First get some local data, reusing any local data pointer we may
 	 have saved.  */
       if (VARRAY_ACTIVE_SIZE (walk_data->free_block_data) > 0)
 	{
 	  bd = VARRAY_TOP_GENERIC_PTR (walk_data->free_block_data);
 	  VARRAY_POP (walk_data->free_block_data);
+	  recycled = 1;
 	}
       else
 	{
 	  bd = xcalloc (1, walk_data->block_local_data_size);
+	  recycled = 0;
 	}
 
       /* Push the local data into the local data stack.  */
       VARRAY_PUSH_GENERIC_PTR (walk_data->block_data_stack, bd);
 
       /* Call the initializer.  */
-      walk_data->initialize_block_local_data (walk_data, bb, last);
+      walk_data->initialize_block_local_data (walk_data, bb, recycled);
 
     }
 

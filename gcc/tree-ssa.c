@@ -173,7 +173,7 @@ static sbitmap vars_to_rename;
 /* Local functions.  */
 static void rewrite_finalize_block (struct dom_walk_data *, basic_block, tree);
 static void rewrite_initialize_block_local_data (struct dom_walk_data *,
-						 basic_block, tree);
+						 basic_block, bool);
 static void rewrite_initialize_block (struct dom_walk_data *,
 				      basic_block, tree);
 static void rewrite_walk_stmts (struct dom_walk_data *, basic_block, tree);
@@ -832,7 +832,7 @@ insert_phi_nodes (bitmap *dfs)
 static void
 rewrite_initialize_block_local_data (struct dom_walk_data *walk_data,
 				     basic_block bb ATTRIBUTE_UNUSED,
-				     tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+				     bool recycled)
 {
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
@@ -841,10 +841,8 @@ rewrite_initialize_block_local_data (struct dom_walk_data *walk_data,
      not cleared, then we are re-using a previously allocated entry.  In
      that case, we can also re-use the underlying virtal arrays.  Just
      make sure we clear them before using them!  */
-  if (bd->block_defs)
+  if (recycled && bd->block_defs)
     VARRAY_CLEAR (bd->block_defs);
-  else
-    VARRAY_TREE_INIT (bd->block_defs, 20, "block_defs");
 }
 
 /* SSA Rewriting Step 1.  Initialization, create a block local stack
@@ -938,7 +936,7 @@ rewrite_finalize_block (struct dom_walk_data *walk_data,
 
   /* Step 5.  Restore the current reaching definition for each variable
      referenced in the block (in reverse order).  */
-  while (VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
+  while (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
     {
       tree var;
       tree saved_def = VARRAY_TOP_TREE (bd->block_defs);
@@ -2934,6 +2932,9 @@ static void
 register_new_def (tree var, tree def, varray_type *block_defs_p)
 {
   tree currdef = get_value_for (var, currdefs);
+
+  if (! *block_defs_p)
+    VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
 
   /* If the current reaching definition is NULL, push the variable itself
      so that the dominator tree callbacks know what variable is associated

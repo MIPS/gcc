@@ -232,7 +232,7 @@ static void record_equivalences_from_stmt (tree, varray_type *, varray_type *,
 static void thread_across_edge (edge);
 static void dom_opt_finalize_block (struct dom_walk_data *, basic_block, tree);
 static void dom_opt_initialize_block_local_data (struct dom_walk_data *,
-						 basic_block, tree);
+						 basic_block, bool);
 static void dom_opt_initialize_block (struct dom_walk_data *,
 				      basic_block, tree);
 static void dom_opt_walk_stmts (struct dom_walk_data *, basic_block, tree);
@@ -635,7 +635,7 @@ thread_across_edge (edge e)
 static void
 dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
 				     basic_block bb ATTRIBUTE_UNUSED,
-			             tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+				     bool recycled)
 {
   struct dom_walk_block_data *bd
     = (struct dom_walk_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
@@ -644,27 +644,22 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
      cleared, then we are re-using a previously allocated entry.  In
      that case, we can also re-use the underlying virtual arrays.  Just
      make sure we clear them before using them!  */
-  if (bd->avail_exprs)
+  if (recycled)
     {
-      VARRAY_CLEAR (bd->avail_exprs);
-      VARRAY_CLEAR (bd->true_exprs);
-      VARRAY_CLEAR (bd->false_exprs);
-      VARRAY_CLEAR (bd->const_and_copies);
-      VARRAY_CLEAR (bd->nonzero_vars);
-      VARRAY_CLEAR (bd->stmts_to_rescan);
-      VARRAY_CLEAR (bd->vrp_variables);
-    }
-  else
-    {
-      /* The allocator gave us a new block data structure, so we must
-	 initialize new arrays.  */
-      VARRAY_TREE_INIT (bd->avail_exprs, 20, "block_avail_exprs");
-      VARRAY_TREE_INIT (bd->true_exprs, 2, "block_true_exprs");
-      VARRAY_TREE_INIT (bd->false_exprs, 2, "block_false_exprs");
-      VARRAY_TREE_INIT (bd->const_and_copies, 2, "block_const_and_copies");
-      VARRAY_TREE_INIT (bd->nonzero_vars, 2, "block_nonzero_vars");
-      VARRAY_TREE_INIT (bd->stmts_to_rescan, 20, "stmts_to_rescan");
-      VARRAY_TREE_INIT (bd->vrp_variables, 2, "vrp_variables");
+      if (bd->avail_exprs)
+	VARRAY_CLEAR (bd->avail_exprs);
+      if (bd->true_exprs)
+	VARRAY_CLEAR (bd->true_exprs);
+      if (bd->false_exprs)
+	VARRAY_CLEAR (bd->false_exprs);
+      if (bd->const_and_copies)
+	VARRAY_CLEAR (bd->const_and_copies);
+      if (bd->nonzero_vars)
+	VARRAY_CLEAR (bd->nonzero_vars);
+      if (bd->stmts_to_rescan)
+	VARRAY_CLEAR (bd->stmts_to_rescan);
+      if (bd->vrp_variables)
+	VARRAY_CLEAR (bd->vrp_variables);
     }
 }
 
@@ -751,8 +746,14 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
       if (! dom_children (bb)
 	  || ! bitmap_bit_p (dom_children (bb), true_edge->dest->index))
 	{
-	  unsigned true_limit = VARRAY_ACTIVE_SIZE (bd->true_exprs);
-	  unsigned false_limit = VARRAY_ACTIVE_SIZE (bd->true_exprs);
+	  unsigned true_limit;
+	  unsigned false_limit;
+
+	  true_limit
+	    = bd->true_exprs ? VARRAY_ACTIVE_SIZE (bd->true_exprs) : 0;
+	  false_limit
+	    = bd->false_exprs ? VARRAY_ACTIVE_SIZE (bd->false_exprs) : 0;
+
 	  record_cond_is_true (cond, &bd->true_exprs);
 	  record_cond_is_false (inverted, &bd->false_exprs);
 	  thread_across_edge (true_edge);
@@ -772,8 +773,14 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
       if (! dom_children (bb)
 	  || ! bitmap_bit_p (dom_children (bb), false_edge->dest->index))
 	{
-	  unsigned true_limit = VARRAY_ACTIVE_SIZE (bd->true_exprs);
-	  unsigned false_limit = VARRAY_ACTIVE_SIZE (bd->false_exprs);
+	  unsigned true_limit;
+	  unsigned false_limit;
+
+	  true_limit
+	    = bd->true_exprs ? VARRAY_ACTIVE_SIZE (bd->true_exprs) : 0;
+	  false_limit
+	    = bd->false_exprs ? VARRAY_ACTIVE_SIZE (bd->false_exprs) : 0;
+
 	  record_cond_is_false (cond, &bd->false_exprs);
 	  record_cond_is_true (inverted, &bd->true_exprs);
 	  thread_across_edge (false_edge);
@@ -791,21 +798,21 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
     }
 
   /* Remove all the expressions made available in this block.  */
-  while (VARRAY_ACTIVE_SIZE (block_true_exprs) > 0)
+  while (block_true_exprs && VARRAY_ACTIVE_SIZE (block_true_exprs) > 0)
     {
       tree cond = VARRAY_TOP_TREE (block_true_exprs);
       VARRAY_POP (block_true_exprs);
       htab_remove_elt (true_exprs, cond);
     }
 
-  while (VARRAY_ACTIVE_SIZE (block_false_exprs) > 0)
+  while (block_false_exprs && VARRAY_ACTIVE_SIZE (block_false_exprs) > 0)
     {
       tree cond = VARRAY_TOP_TREE (block_false_exprs);
       VARRAY_POP (block_false_exprs);
       htab_remove_elt (false_exprs, cond);
     }
 
-  while (VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)
+  while (block_avail_exprs && VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)
     {
       tree stmt = VARRAY_TOP_TREE (block_avail_exprs);
       VARRAY_POP (block_avail_exprs);
@@ -813,7 +820,8 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
     }
 
   /* Also remove equivalences created by EQ_EXPR_VALUE.  */
-  while (VARRAY_ACTIVE_SIZE (block_const_and_copies) > 0)
+  while (block_const_and_copies
+	 && VARRAY_ACTIVE_SIZE (block_const_and_copies) > 0)
     {
       tree prev_value, dest;
 
@@ -826,7 +834,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
     }
 
   /* Also remove block local expressions which created nonzero values.  */
-  while (VARRAY_ACTIVE_SIZE (block_nonzero_vars) > 0)
+  while (block_nonzero_vars && VARRAY_ACTIVE_SIZE (block_nonzero_vars) > 0)
     {
       tree prev_value, dest;
 
@@ -844,7 +852,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
      To be efficient, we note which variables have had their values
      constrained in this block.  So walk over each variable in the
      VRP_VARIABLEs array.  */
-  while (VARRAY_ACTIVE_SIZE (vrp_variables) > 0)
+  while (vrp_variables && VARRAY_ACTIVE_SIZE (vrp_variables) > 0)
     {
       tree var = VARRAY_TOP_TREE (vrp_variables);
 
@@ -872,7 +880,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data,
 
   /* Re-scan operands in all statements that may have had new symbols
      exposed.  */
-  while (VARRAY_ACTIVE_SIZE (stmts_to_rescan) > 0)
+  while (stmts_to_rescan && VARRAY_ACTIVE_SIZE (stmts_to_rescan) > 0)
     {
       tree stmt = VARRAY_TOP_TREE (stmts_to_rescan);
       VARRAY_POP (stmts_to_rescan);
@@ -1047,6 +1055,8 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 
       /* Record the destination and its previous value so that we can
 	 reset them as we leave this block.  */
+      if (! bd->const_and_copies)
+	VARRAY_TREE_INIT (bd->const_and_copies, 2, "block_const_and_copies");
       VARRAY_PUSH_TREE (bd->const_and_copies, dest);
       VARRAY_PUSH_TREE (bd->const_and_copies, prev_value);
     }
@@ -1101,7 +1111,11 @@ dom_opt_walk_stmts (struct dom_walk_data *walk_data,
       if (optimize_stmt (si,
 			 &bd->avail_exprs,
 			 &bd->nonzero_vars))
-	VARRAY_PUSH_TREE (bd->stmts_to_rescan, bsi_stmt (si));
+	{
+	  if (! bd->stmts_to_rescan)
+	    VARRAY_TREE_INIT (bd->stmts_to_rescan, 20, "stmts_to_rescan");
+	  VARRAY_PUSH_TREE (bd->stmts_to_rescan, bsi_stmt (si));
+	}
     }
 }
 
@@ -1260,6 +1274,8 @@ record_var_is_nonzero (tree var, varray_type *block_nonzero_vars_p)
 
   /* Record the destination and its previous value so that we can
      reset them as we leave this block.  */
+  if (! *block_nonzero_vars_p)
+    VARRAY_TREE_INIT (*block_nonzero_vars_p, 2, "block_nonzero_vars");
   VARRAY_PUSH_TREE (*block_nonzero_vars_p, var);
   VARRAY_PUSH_TREE (*block_nonzero_vars_p, prev_value);
 }
@@ -1277,6 +1293,8 @@ record_cond_is_true (tree cond, varray_type *block_true_exprs_p)
   if (*slot == NULL)
     {
       *slot = (void *) cond;
+      if (! *block_true_exprs_p)
+	VARRAY_TREE_INIT (*block_true_exprs_p, 2, "block_true_exprs");
       VARRAY_PUSH_TREE (*block_true_exprs_p, cond);
     }
 }
@@ -1293,6 +1311,8 @@ record_cond_is_false (tree cond, varray_type *block_false_exprs_p)
   if (*slot == NULL)
     {
       *slot = (void *) cond;
+      if (! *block_false_exprs_p)
+	VARRAY_TREE_INIT (*block_false_exprs_p, 2, "block_false_exprs");
       VARRAY_PUSH_TREE (*block_false_exprs_p, cond);
     }
 }
@@ -2412,6 +2432,8 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p, bool insert)
   if (*slot == NULL)
     {
       *slot = (void *) stmt;
+      if (! *block_avail_exprs_p)
+        VARRAY_TREE_INIT (*block_avail_exprs_p, 20, "block_avail_exprs");
       VARRAY_PUSH_TREE (*block_avail_exprs_p, stmt);
       return NULL_TREE;
     }
@@ -2529,6 +2551,8 @@ record_range (tree cond, basic_block bb, varray_type *vrp_variables_p)
 	}
       
       VARRAY_PUSH_GENERIC_PTR (*vrp_records_p, element);
+      if (! *vrp_variables_p)
+	VARRAY_TREE_INIT (*vrp_variables_p, 2, "vrp_variables");
       VARRAY_PUSH_TREE (*vrp_variables_p, TREE_OPERAND (cond, 0));
     }
 }
