@@ -174,7 +174,8 @@ typedef struct
 
   int *iostat, *exist, *opened, *number, *named, rec, *nextrec, *size;
 
-  offset_t recl_in, *recl_out;
+  int recl_in; 
+  int *recl_out;
 
   char *file;
   int file_len;

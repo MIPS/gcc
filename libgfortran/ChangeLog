@@ -1,3 +1,8 @@
+2004-04-09  Bud Davis  <bdavis9659@comcast.net>
+
+	* io.h (ioparm): Interface from FE is 32 bit, irregardless of offset_t.
+	Will need to change this later to support direct access files > 2gb.
+
 2004-04-03  Bud Davis  <bdavis9659@comcast.net>
 
 	PR gfortran/14762
