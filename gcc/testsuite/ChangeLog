@@ -1,3 +1,72 @@
+2004-01-02  Matthias Klose  <doko@debian.org>
+
+	Backport from mainline:
+	2003-12-28  Mark Mitchell  <mark@codesourcery.com>
+ 
+	PR c++/13081
+	* g++.dg/opt/inline6.C: New test.
+
+2004-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR optimization/13521
+	* gcc.c-torture/compile/20031231-1.c: New test.
+
+2003-12-31  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/12632
+	* g77.dg/12632.f: New test case.
+
+2003-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/13445
+	* g++.dg/template/scope2.C: New test.
+
+2003-12-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/13070
+	* g++.dg/warn/format3.C: New test case.
+
+2003-12-27  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	Backport from mainline:
+	2003-11-14  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/2294
+	* g++.dg/lookup/using9.C: New test.
+
+2003-12-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/noreturn-7.c: New test.
+
+2003-12-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/null-pointer-1.c: New test.
+
+2003-12-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/5050
+	* g++.dg/template/recurse1.C: New test.
+
+2003-12-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11554
+	* testsuite/g++.dg/warn/ctor-init-1.C: New test.
+
+2003-12-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/13400
+	* gcc.c-torture/execute/20031215-1.c: New test case.
+
+2003-12-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/13031
+	* gcc.c-torture/compile/20031220-1.c: New test case.
+
+2003-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/13239
+	* g++.dg/opt/expect1.C: New test.
+
 2003-12-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/13262
