@@ -167,7 +167,7 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_ATTRIBUTE_TABLE SOLARIS_ATTRIBUTE_TABLE
 
 /* Output a simple call for .init/.fini.  */
-#define ASM_OUTPUT_CALL(FILE, NAME)			        \
+#define ASM_OUTPUT_CALL(FILE, FN)			        \
   do								\
     {								\
       fprintf (FILE, "\tcall\t");				\
