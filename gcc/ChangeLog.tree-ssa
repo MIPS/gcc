@@ -1,5 +1,8 @@
 2003-08-11  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-ccp.c (fold_stmt): Strip unnecessary NOP_EXPRs from
+	the folded result.
+ 
 	* gimplify.c (gimplify_expr, case INDIRECT_REF): Copy the base
 	object into a temporary if it's in static memory or is addressable.
 

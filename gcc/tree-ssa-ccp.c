@@ -1301,6 +1301,10 @@ fold_stmt (tree *stmt_p)
       if (result == NULL_TREE)
 	result = fold (rhs);
 
+      /* Strip away useless type conversions.  */
+      if (result != rhs)
+	STRIP_MAIN_TYPE_NOPS (result);
+
       set_rhs (stmt_p, result);
     }
 }
