@@ -658,6 +658,10 @@ expand_generic_binop (code, op0, op1, target)
     case UMOD:
       return expand_divmod (1, TRUNC_MOD_EXPR, mode, op0, op1, target, 1);
       break;
+    case ASHIFTRT:
+      return expand_simple_binop (mode, code, op0, op1, target,
+				  0, OPTAB_LIB_WIDEN);
+      break;
     default:
       return expand_simple_binop (mode, code, op0, op1, target,
 				  1, OPTAB_LIB_WIDEN);
