@@ -123,9 +123,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
   cp_cannot_inline_tree_fn
-#undef LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS
-#define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
-  cp_add_pending_fn_decls
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
