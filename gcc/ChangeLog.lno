@@ -1,3 +1,16 @@
+2004-03-08  Andrew Pinski  <apinski@apple.com>
+
+	* tree-ssa-phiopt.c (make_temp): New function.
+	(tree_ssa_phiopt): Use absolute_replacement
+	and value_replacement.
+	(conditional_replacement): Handle the case
+	the conditional is not a variable and
+	the types do not match.
+	Handle the case where invert_truthvalue
+	would create non-gimple.
+	(absolute_replacement): New function.
+	(value_replacement): New function.
+
 2004-03-08  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
 	* tree-scalar-evolution.c (set_scalar_evolution,

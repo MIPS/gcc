@@ -1,3 +1,18 @@
+2004-03-03  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-phiopt.c (conditional_replacement): Clear EDGE_TRUE_VALUE
+	and EDGE_FALSE_VALUE on the remaining edge after eliminating a PHI.
+
+2004-02-27  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-phiopt.c (conditional_replacement): Do not create
+	non-gimple code.
+
+2004-02-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-phiopt.c (tree_ssa_phiopt): Split into ...
+	(conditional_replacement): Here.
+
 2004-02-21  Jan Hubicka  <jh@suse.cz>
 
 	* tree-cfg.c (cleanup_control_expr_graph): Update profile.
