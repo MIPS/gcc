@@ -1,3 +1,9 @@
+2003-02-25  Vladimir Makarov  <vmakarov@toke.toronto.redhat.com>
+            Richard Henderson  <rth@redhat.com>
+
+	* sched-ebb.c (add_deps_for_risky_insns): Add the dependence when
+	there is no similar load.
+
 2003-02-25  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* sched-ebb.c (add_deps_for_risky_insns): Fix a typo for
