@@ -76,9 +76,6 @@
 /* The number of rounds.  */
 #define N_ROUNDS 4
 
-/* The number of rounds which the code can grow in.  */
-#define N_CODEGROWING_ROUNDS 3
-
 /* Branch thresholds in thousandths (per milles) of the REG_BR_PROB_BASE.  */
 static int branch_threshold[N_ROUNDS] = {400, 200, 100, 0};
 
@@ -92,8 +89,12 @@ static int exec_threshold[N_ROUNDS] = {500, 200, 50, 0};
 /* Length of unconditional jump instruction.  */
 static int uncond_jump_length;
 
-/* Original number (before duplications) of basic blocks.  */
-static int original_last_basic_block;
+/* The current size of the following dynamic arrays.  */
+static int array_size;
+
+/* To avoid frequent reallocation the size of arrays is greater than needed,
+   the number of elements is (not less than) 1.25 * size_wanted.  */
+#define GET_ARRAY_SIZE(X) ((((X) / 4) + 1) * 5)
 
 /* Which trace is the bb start of (-1 means it is not a start of a trace).  */
 static int *start_of_trace;
@@ -102,6 +103,10 @@ static int *end_of_trace;
 /* Which heap and node is BB in?  */
 static fibheap_t *bb_heap;
 static fibnode_t *bb_node;
+
+/* Free the memory and set the pointer to NULL.  */
+#define FREE(P) \
+  do { if (P) { free (P); P = 0; } else { abort (); } } while (0)
 
 struct trace
 {
@@ -121,6 +126,7 @@ gcov_type max_entry_count;
 
 /* Local function prototypes.  */
 static void find_traces			PARAMS ((int *, struct trace *));
+static basic_block rotate_loop		PARAMS ((edge, struct trace *, int));
 static void mark_bb_visited		PARAMS ((basic_block, int));
 static void find_traces_1_round		PARAMS ((int, int, gcov_type,
 						 struct trace *, int *, int,
@@ -131,7 +137,7 @@ static fibheapkey_t bb_to_key		PARAMS ((basic_block));
 static bool better_edge_p		PARAMS ((basic_block, edge, int, int,
 						 int, int));
 static void connect_traces		PARAMS ((int, struct trace *));
-static bool copy_bb_p			PARAMS ((basic_block, int));
+static bool copy_bb_p			PARAMS ((basic_block));
 static int get_uncond_jump_length	PARAMS ((void));
 
 /* Find the traces for Software Trace Cache.  Chain each trace through
@@ -147,17 +153,13 @@ find_traces (n_traces, traces)
   edge e;
   fibheap_t heap;
 
-  /* We need to remember the old number of basic blocks because
-     while connecting traces, blocks can be copied and thus their
-     index can be higher than the size of arrays.  */
-  original_last_basic_block = last_basic_block;
-
   /* We need to know some information for each basic block.  */
-  start_of_trace = xmalloc (original_last_basic_block * sizeof (int));
-  end_of_trace = xmalloc (original_last_basic_block * sizeof (int));
-  bb_heap = xmalloc (original_last_basic_block * sizeof (fibheap_t));
-  bb_node = xmalloc (original_last_basic_block * sizeof (fibnode_t));
-  for (i = 0; i < original_last_basic_block; i++)
+  array_size = GET_ARRAY_SIZE (last_basic_block);
+  start_of_trace = xmalloc (array_size * sizeof (int));
+  end_of_trace = xmalloc (array_size * sizeof (int));
+  bb_heap = xmalloc (array_size * sizeof (fibheap_t));
+  bb_node = xmalloc (array_size * sizeof (fibnode_t));
+  for (i = 0; i < array_size; i++)
     {
       start_of_trace[i] = -1;
       end_of_trace[i] = -1;
@@ -197,8 +199,8 @@ find_traces (n_traces, traces)
 			   count_threshold, traces, n_traces, i, &heap);
     }
   fibheap_delete (heap);
-  free (bb_node);
-  free (bb_heap);
+  FREE (bb_node);
+  FREE (bb_heap);
 
   if (rtl_dump_file)
     {
@@ -213,6 +215,110 @@ find_traces (n_traces, traces)
 	}
       fflush (rtl_dump_file);
     }
+}
+
+/* Rotate loop in the tail of trace (with sequential number TRACE) beginning in
+   basic block BB.  */
+
+static basic_block
+rotate_loop (back_edge, trace, trace_n)
+     edge back_edge;
+     struct trace *trace;
+     int trace_n;
+{
+  basic_block bb;
+
+  /* Information about the best end (end after rotation) of the loop.  */
+  basic_block best_bb = NULL;
+  edge best_edge = NULL;
+  int best_freq = -1;
+  gcov_type best_count = -1;
+  /* The best edge is preferred when its destination is not visited yet
+     or is a start block of some trace.  */
+  bool is_preferred = false;
+
+  /* Find the most frequent edge that goes out from current trace.  */
+  bb = back_edge->dest;
+  do
+    {
+      edge e;
+      for (e = bb->succ; e; e = e->succ_next)
+	if (e->dest != EXIT_BLOCK_PTR
+	    && RBI (e->dest)->visited != trace_n
+	    && (e->flags & EDGE_CAN_FALLTHRU)
+	    && !(e->flags & EDGE_COMPLEX))
+	{
+	  if (is_preferred)
+	    {
+	      /* The best edge is preferred.  */
+	      if (!RBI (e->dest)->visited
+		  || start_of_trace[e->dest->index] >= 0)
+		{
+		  /* The current edge E is also preferred.  */
+		  int freq = EDGE_FREQUENCY (e);
+		  if (freq > best_freq || e->count > best_count)
+		    {
+		      best_freq = freq;
+		      best_count = e->count;
+		      best_edge = e;
+		      best_bb = bb;
+		    }
+		}
+	    }
+	  else
+	    {
+	      if (!RBI (e->dest)->visited
+		  || start_of_trace[e->dest->index] >= 0)
+		{
+		  /* The current edge E is preferred.  */
+		  is_preferred = true;
+		  best_freq = EDGE_FREQUENCY (e);
+		  best_count = e->count;
+		  best_edge = e;
+		  best_bb = bb;
+		}
+	      else
+		{
+		  int freq = EDGE_FREQUENCY (e);
+		  if (!best_edge || freq > best_freq || e->count > best_count)
+		    {
+		      best_freq = freq;
+		      best_count = e->count;
+		      best_edge = e;
+		      best_bb = bb;
+		    }
+		}
+	    }
+	}
+      bb = RBI (bb)->next;
+    }
+  while (bb != back_edge->dest);
+
+  if (best_bb)
+    {
+      /* Rotate the loop so that the BEST_EDGE goes out from the last block of
+	 the trace.  */
+      if (back_edge->dest == trace->first)
+	{
+	  trace->first = RBI (best_bb)->next;
+	}
+      else
+	{
+	  basic_block prev_bb;
+	  for (prev_bb = trace->first;
+	       RBI (prev_bb)->next != back_edge->dest;
+	       prev_bb = RBI (prev_bb)->next)
+	    ;
+	  RBI (prev_bb)->next = RBI (best_bb)->next;
+	}
+    }
+  else
+    {
+      /* We have not found suitable loop tail so do no rotation.  */
+      best_bb = back_edge->src;
+    }
+  RBI (best_bb)->next = NULL;
+  return best_bb;
 }
 
 /* This function marks BB that it was visited in trace number TRACE.  */
@@ -259,6 +365,8 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
       basic_block bb;
       struct trace *trace;
       edge best_edge, e;
+      int bb_index;
+      fibheapkey_t key;
 
       bb = fibheap_extract_min (*heap);
       bb_heap[bb->index] = NULL;
@@ -338,15 +446,13 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	  /* Add all nonselected successors to the heaps.  */
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
-	      int bb_index = e->dest->index;
-	      fibheapkey_t key;
-
 	      if (e == best_edge
 		  || e->dest == EXIT_BLOCK_PTR
 		  || RBI (e->dest)->visited)
 		continue;
 
 	      key = bb_to_key (e->dest);
+	      bb_index = e->dest->index;
 
 	      if (bb_heap[bb_index])
 		{
@@ -396,65 +502,45 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	    {
 	      if (RBI (best_edge->dest)->visited == *n_traces)
 		{
-                  edge other_edge;
-                  for (other_edge = bb->succ; other_edge;
-                       other_edge = other_edge->succ_next)
-                    if ((other_edge->flags & EDGE_CAN_FALLTHRU)
-                        && other_edge != best_edge)
-                      break;
+		  /* We do nothing with one basic block loops.  */
+		  if (best_edge->dest != bb)
+		    {
+		      if (EDGE_FREQUENCY (best_edge)
+			  > 4 * best_edge->dest->frequency / 5)
+			{
+			  /* The loop has at least 4 iterations.  If the loop
+			     header is not the first block of the function
+			     we can rotate the loop.  */
 
-                  /* In the case the edge is already not a fallthru, or there
-                     is other edge we can make fallhtru, we are happy.  */
-                  if (!(best_edge->flags & EDGE_FALLTHRU) || other_edge)
-                    ;
-                  else if (best_edge->dest != bb
-                           && best_edge->dest != ENTRY_BLOCK_PTR->next_bb)
-                    {
-                      if (EDGE_FREQUENCY (best_edge)
-                          > 4 * best_edge->dest->frequency / 5)
-                        {
-                           /* The loop has at least 4 iterations.  */
-                          edge e;
+			  if (best_edge->dest != ENTRY_BLOCK_PTR->next_bb)
+			    {
+			      if (rtl_dump_file)
+				{
+				  fprintf (rtl_dump_file, "Rotating loop %d - %d\n",
+					   best_edge->dest->index, bb->index);
+				}
+			      RBI (bb)->next = best_edge->dest;
+			      bb = rotate_loop (best_edge, trace, *n_traces);
+			    }
+			}
+		      else
+			{
+			  /* The loop has less than 4 iterations.  */
 
-                          /* Check whether the loop has not been rotated yet.  */
-                          for (e = best_edge->dest->succ; e; e = e->succ_next)
-                            if (e->dest == RBI (best_edge->dest)->next)
-                              break;
-                          if (e)
-                            /* The loop has not been rotated yet.  */
-                            {
-                              /* Rotate the loop.  */
-
-                              if (rtl_dump_file)
-                                fprintf (rtl_dump_file,
-                                         "Rotating loop %d - %d\n",
-                                         best_edge->dest->index, bb->index);
-
-			      /* ??? we need to find the basic block
-				 that is sensible end of the loop,
-				 not rotate to random one.  */
-                              if (best_edge->dest == trace->first)
-                                {
-                                  RBI (bb)->next = trace->first;
-                                  trace->first = RBI (trace->first)->next;
-                                  RBI (best_edge->dest)->next = NULL;
-                                  bb = best_edge->dest;
-                                }
-                              else
-                                {
-                                  basic_block temp;
-
-                                  for (temp = trace->first;
-                                       RBI (temp)->next != best_edge->dest;
-                                       temp = RBI (temp)->next);
-                                  RBI (temp)->next
-                                    = RBI (best_edge->dest)->next;
-                                  RBI (bb)->next = best_edge->dest;
-                                  RBI (best_edge->dest)->next = NULL;
-                                  bb = best_edge->dest;
-                                }
-                            }
-                        }
+			  /* Check whether there is another edge from BB.  */
+			  edge another_edge;
+			  for (another_edge = bb->succ;
+			       another_edge;
+			       another_edge = another_edge->succ_next)
+			    if (another_edge != best_edge)
+			      break;
+				
+			  if (!another_edge && copy_bb_p (best_edge->dest))
+			    {
+			      bb = copy_bb (best_edge->dest, best_edge, bb,
+					    *n_traces);
+			    }
+			}
 		    }
 
 		  /* Terminate the trace.  */
@@ -512,6 +598,33 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
       trace->last = bb;
       start_of_trace[trace->first->index] = *n_traces - 1;
       end_of_trace[trace->last->index] = *n_traces - 1;
+
+      /* The trace is terminated so we have to recount the keys in heap
+	 (some block can have a lower key because now one of its predecessors is
+	 an end of trace.  */
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (e->dest == EXIT_BLOCK_PTR
+	      || RBI (e->dest)->visited)
+	    continue;
+	  
+	  bb_index = e->dest->index;
+	  if (bb_heap[bb_index])
+	    {
+	      key = bb_to_key (e->dest);
+	      if (key != bb_node[bb_index]->key)
+		{
+		  if (rtl_dump_file)
+		    {
+		      fprintf (rtl_dump_file,
+			       "Changing key for bb %d from %ld to %ld.\n",
+			       bb_index, (long) bb_node[bb_index]->key, key);
+		    }
+		  fibheap_replace_key (bb_heap[bb_index], bb_node[bb_index],
+				       key);
+		}
+	    }
+	}
     }
 
   fibheap_delete (*heap);
@@ -525,11 +638,11 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
    (TRACE is a number of trace which OLD_BB is duplicated to).  */
 
 static basic_block
-copy_bb (old_bb, e, bb, n_traces)
+copy_bb (old_bb, e, bb, trace)
      basic_block old_bb;
      edge e;
      basic_block bb;
-     int n_traces;
+     int trace;
 {
   basic_block new_bb;
 
@@ -542,8 +655,43 @@ copy_bb (old_bb, e, bb, n_traces)
     fprintf (rtl_dump_file,
 	     "Duplicated bb %d (created bb %d)\n",
 	     old_bb->index, new_bb->index);
-  RBI (new_bb)->visited = n_traces;
+  RBI (new_bb)->visited = trace;
   RBI (bb)->next = new_bb;
+
+  if (new_bb->index >= array_size || last_basic_block > array_size)
+    {
+      int i;
+      int new_size;
+      
+      new_size = MAX (last_basic_block, new_bb->index + 1);
+      new_size = GET_ARRAY_SIZE (new_size);
+      
+      start_of_trace = xrealloc (start_of_trace, new_size * sizeof (int));
+      end_of_trace = xrealloc (end_of_trace, new_size * sizeof (int));
+      for (i = array_size; i < new_size; i++)
+	{
+	  start_of_trace[i] = -1;
+	  end_of_trace[i] = -1;
+	}
+      if (bb_heap)
+	{
+	  bb_heap = xrealloc (bb_heap, new_size * sizeof (fibheap_t));
+	  bb_node = xrealloc (bb_node, new_size * sizeof (fibnode_t));
+	  for (i = array_size; i < new_size; i++)
+	    {
+	      bb_heap[i] = NULL;
+	      bb_node[i] = NULL;
+	    }
+	}
+      array_size = new_size;
+      
+      if (rtl_dump_file)
+	{
+	  fprintf (rtl_dump_file,
+		   "Growing the dynamic arrays to %d elements.\n",
+		   array_size);
+	}
+    }
 
   return new_bb;
 }
@@ -676,7 +824,6 @@ connect_traces (n_traces, traces)
 		  if (e->src != ENTRY_BLOCK_PTR
 		      && (e->flags & EDGE_CAN_FALLTHRU)
 		      && !(e->flags & EDGE_COMPLEX)
-		      && si < original_last_basic_block
 		      && end_of_trace[si] >= 0
 		      && !connected[end_of_trace[si]]
 		      && (!best 
@@ -720,7 +867,6 @@ connect_traces (n_traces, traces)
 		  if (e->dest != EXIT_BLOCK_PTR
 		      && (e->flags & EDGE_CAN_FALLTHRU)
 		      && !(e->flags & EDGE_COMPLEX)
-		      && di < original_last_basic_block
 		      && start_of_trace[di] >= 0
 		      && !connected[start_of_trace[di]]
 		      && (!best
@@ -763,7 +909,6 @@ connect_traces (n_traces, traces)
 
 			    if (e2->dest == EXIT_BLOCK_PTR
 				|| ((e2->flags & EDGE_CAN_FALLTHRU)
-				    && di < original_last_basic_block
 				    && start_of_trace[di] >= 0
 				    && !connected[start_of_trace[di]]
 				    && (EDGE_FREQUENCY (e2) >= freq_threshold)
@@ -787,7 +932,7 @@ connect_traces (n_traces, traces)
 		      }
 		  if (best)
 		    {
-		      if (copy_bb_p (best->dest, !optimize_size))
+		      if (copy_bb_p (best->dest))
 			{
 			  basic_block new_bb;
 
@@ -844,19 +989,16 @@ connect_traces (n_traces, traces)
       fflush (rtl_dump_file);
     }
 
-  free (connected);
-  free (end_of_trace);
-  free (start_of_trace);
+  FREE (connected);
+  FREE (end_of_trace);
+  FREE (start_of_trace);
 }
 
-/* Return true when BB can and should be copied.  The trace with number TRACE
-   is now being built.  SIZE_CAN_GROW is the flag whether the code is permited
-   to grow.  */
+/* Return true when BB can and should be copied.  */
 
 static bool
-copy_bb_p (bb, size_can_grow)
+copy_bb_p (bb)
      basic_block bb;
-     int size_can_grow;
 {
   int size = 0;
   int max_size = uncond_jump_length;
@@ -869,7 +1011,7 @@ copy_bb_p (bb, size_can_grow)
   if (!cfg_layout_can_duplicate_bb_p (bb))
     return false;
 
-  if (size_can_grow && maybe_hot_bb_p (bb))
+  if (!optimize_size && maybe_hot_bb_p (bb))
     max_size *= 8;
 
   for (insn = bb->head; insn != NEXT_INSN (bb->end);
@@ -934,7 +1076,7 @@ reorder_basic_blocks ()
   n_traces = 0;
   find_traces (&n_traces, traces);
   connect_traces (n_traces, traces);
-  free (traces);
+  FREE (traces);
 
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);

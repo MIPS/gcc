@@ -1646,10 +1646,11 @@ predict.o: predict.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    $(PARAMS_H) $(TARGET_H) cfgloop.h
 lists.o: lists.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) $(GGC_H)
 bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
-   flags.h $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h $(TARGET_H)
+   flags.h $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h $(TARGET_H) \
+   profile.h $(FIBHEAP_H)
 tracer.o : tracer.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h flags.h \
-   $(PARAMS_H) profile.h
+   $(PARAMS_H) profile.h $(FIBHEAP_H)
 cfglayout.o : cfglayout.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    insn-config.h $(BASIC_BLOCK_H) hard-reg-set.h output.h function.h \
    cfglayout.h cfgloop.h
