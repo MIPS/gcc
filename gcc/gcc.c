@@ -5247,9 +5247,13 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		for (t = temp_names; t; t = t->next)
 		  if (t->length == suffix_length
 		      /* APPLE LOCAL begin IMA */
+#if 0
+                      /* This causes gcc.dg/cpp/trad/builtins.c to fail.
+                         Disable this for now.  */
 		      /* Create new temp file for each source file.  */
 		      && strcmp (suffix, ".i")
 		      && strcmp (suffix, ".ii")
+#endif
 		      /* APPLE LOCAL end IMA */
 		      && strncmp (t->suffix, suffix, suffix_length) == 0
 		      && t->unique == (c == 'u' || c == 'U' || c == 'j'))

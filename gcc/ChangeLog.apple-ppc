@@ -1,3 +1,9 @@
+2004-06-12  Devang Patel  <dpatel@apple.com>
+
+	Radar 3681611
+	* gcc.c (do_spec_1):  Disable local IMA patch that creats new temp. file for 
+	each source file. 
+
 2004-06-12  Dorit Naishlos  <DORIT@il.ibm.com>
 	    Olga Golovanevsky  <OLGA@il.ibm.com>
 	    Ayal Zaks  <ZAKS@il.ibm.com>
