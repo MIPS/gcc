@@ -1008,6 +1008,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
 	  var = gfc_conv_string_tmp (se, type, len);
 	  arglist = gfc_chainon_list (arglist, var);
+	  arglist = gfc_chainon_list (arglist, convert (gfc_strlen_type_node,
+							len));
 	}
       else      /* TODO: derived type function return values.  */
 	abort ();

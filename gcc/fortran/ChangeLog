@@ -1,3 +1,12 @@
+2004-02-15  Victor Leikehman  <lei@il.ibm.com>
+
+	PR gfortran/13433
+	* trans-decl.c (gfc_build_function_decl) For functions
+	returning CHARACTER pass an extra length argument,
+	following g77 calling conventions.
+	* trans-types.c (gfc_get_function_type) Ditto.
+	* trans-expr.c (gfc_conv_function_call) Ditto.
+
 2004-02-14  Paul Brook  <paul@codesourcery.com>
 
 	* f95-lang.c (gfc_init_builtin_functions): Build chain properly.

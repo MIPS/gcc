@@ -1025,21 +1025,41 @@ gfc_build_function_decl (gfc_symbol * sym)
 	  DECL_CONTEXT (parm) = fndecl;
 	  DECL_ARG_TYPE (parm) = type;
 	  TREE_READONLY (parm) = 1;
+	  gfc_finish_decl (parm, NULL_TREE);
+
+	  arglist = chainon (arglist, parm);
+	  typelist = TREE_CHAIN (typelist);
+
 	  if (sym->ts.type == BT_CHARACTER)
 	    {
 	      gfc_allocate_lang_decl (parm);
 	      GFC_DECL_STRING (parm) = 1;
 
-	      assert (sym->ts.cl && sym->ts.cl->length
-		      && sym->ts.cl->length->expr_type == EXPR_CONSTANT);
-	      GFC_DECL_STRING_LENGTH (parm) =
-		gfc_conv_mpz_to_tree (sym->ts.cl->length->value.integer, 4);
+	      /* Length of character result */
+	      type = TREE_VALUE (typelist);
+	      assert (type == gfc_strlen_type_node);
+	      length = build_decl (PARM_DECL,
+				   get_identifier (".__result"),
+				   type);
+	      arglist = chainon (arglist, length);
+	      typelist = TREE_CHAIN (typelist);
+	      DECL_CONTEXT (length) = fndecl;
+	      DECL_ARG_TYPE (length) = type;
+	      TREE_READONLY (length) = 1;
+	      gfc_finish_decl (length, NULL_TREE);
 
+	      if (sym->ts.cl
+		  && sym->ts.cl->length
+		  && sym->ts.cl->length->expr_type == EXPR_CONSTANT)
+		{
+		  length = gfc_conv_mpz_to_tree
+		    (sym->ts.cl->length->value.integer, 4);
+		}
+	      else
+		TREE_USED (length) = 1;
+
+	      GFC_DECL_STRING_LENGTH (parm) = length;
 	    }
-	  gfc_finish_decl (parm, NULL_TREE);
-
-	  arglist = chainon (arglist, parm);
-	  typelist = TREE_CHAIN (typelist);
 	}
 
       for (f = sym->formal; f; f = f->next)
