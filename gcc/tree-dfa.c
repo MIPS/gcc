@@ -2410,9 +2410,9 @@ add_referenced_var (var, sym, walk_state)
 	  VARRAY_PUSH_INT (aliased_objects_alias_set, get_alias_set (var));
 	  num_aliased_objects++;
 
-	  /* If the variable is not read-only, it may also be clobbered by
-	     function calls.  */
-	  if (!TREE_READONLY (var))
+	  /* If the variable is not read-only (or if var isn't a variable),
+	     it may also be clobbered by function calls.  */
+	  if (var != sym || !TREE_READONLY (var))
 	    {
 	      VARRAY_PUSH_TREE (call_clobbered_vars, var);
 	      num_call_clobbered_vars++;
