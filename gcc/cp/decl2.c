@@ -1611,7 +1611,7 @@ import_export_class (tree ctype)
       && TYPE_POLYMORPHIC_P (ctype))
     {
       tree method = CLASSTYPE_KEY_METHOD (ctype);
-      if (method)
+      if (method && ! DECL_DECLARED_INLINE_P (method))
 	import_export = (DECL_REALLY_EXTERN (method) ? -1 : 1);
     }
 

@@ -1,3 +1,8 @@
+2003-10-03  Mike Stump  <mrs@apple.com>
+
+	* decl2.c (import_export_class): Never export/import vtables
+	with inline key functions.
+
 2003-09-29  Mike Stump  <mrs@apple.com>
 
 	* call.c (add_function_candidate): Don't let functions from inactive fragments
