@@ -1,5 +1,14 @@
 2005-02-10  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 3993052
+	* parser.c (cp_parser_objc_interstitial_code): New routine.
+	(cp_parser_objc_method_prototype_list): Call
+	cp_parser_objc_interstitial_code() instead of doing
+	non-ObjC++ parsing locally.
+	(cp_parser_objc_method_definition_list): Likewise.
+
+2005-02-10  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3982256
 	* cp-objcp-common.h (cxx_get_alias_set, 
 	cxx_warn_unused_global_decl, cp_expr_size, cp_tree_size,

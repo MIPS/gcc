@@ -1,5 +1,11 @@
 2005-02-10  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 3993052
+	* obj-c++.dg/pragma-2.mm: New.
+	* objc.dg/pragma-1.m: New.
+
+2005-02-10  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3982256
 	* objc.dg/comp-types-7.m: Sync with FSF mainline.
 	* objc.dg/comp-types-8.m: New.

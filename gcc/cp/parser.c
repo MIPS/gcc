@@ -1711,6 +1711,8 @@ static tree cp_parser_objc_method_keyword_params
   (cp_parser *);
 static tree cp_parser_objc_method_tail_params_opt
   (cp_parser *);
+static void cp_parser_objc_interstitial_code
+  (cp_parser *);
 static tree cp_parser_objc_method_signature
   (cp_parser *);
 static void cp_parser_objc_method_prototype_list
@@ -17469,6 +17471,27 @@ cp_parser_objc_method_tail_params_opt (cp_parser* parser)
   return params;
 }
 
+static void
+cp_parser_objc_interstitial_code (cp_parser* parser)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  /* If the next token is `extern' and the following token is a string
+     literal, then we have a linkage specification.  */
+  if (token->keyword == RID_EXTERN
+      && cp_parser_is_string_literal (cp_lexer_peek_nth_token (parser->lexer, 2)))
+    cp_parser_linkage_specification (parser);
+  /* Handle #pragma, if any.  */
+  else if (token->type == CPP_PRAGMA)
+    cp_lexer_handle_pragma (parser->lexer);
+  /* Allow stray semicolons.  */
+  else if (token->type == CPP_SEMICOLON)
+    cp_lexer_consume_token (parser->lexer);
+  /* Finally, try to parse a block-declaration, or a function-definition.  */
+  else
+    cp_parser_block_declaration (parser, /*statement_p=*/false);
+}
+
 static tree
 cp_parser_objc_method_signature (cp_parser* parser)
 {
@@ -17496,19 +17519,8 @@ cp_parser_objc_method_prototype_list (cp_parser* parser)
 	  cp_parser_consume_semicolon_at_end_of_statement (parser);
 	}
       else
-	/* Try to parse a block-declaration, or a function-definition.  */
-	{
-	  /* Handle pragma, if any.  */
-	  cp_token *token1 = cp_lexer_peek_token (parser->lexer);
-
-	  if (token1->type == CPP_PRAGMA)
-	    cp_lexer_handle_pragma (parser->lexer);
-	  /* Allow stray semicolons.  */
-	  else if (token1->type == CPP_SEMICOLON)
-	    cp_lexer_consume_token (parser->lexer);
-	  else
-	    cp_parser_block_declaration (parser, /*statement_p=*/false);
-	}
+	/* Allow for interspersed non-ObjC++ code.  */
+	cp_parser_objc_interstitial_code (parser);
 
       token = cp_lexer_peek_token (parser->lexer);
     }
@@ -17521,7 +17533,6 @@ static void
 cp_parser_objc_method_definition_list (cp_parser* parser)
 {
   cp_token *token = cp_lexer_peek_token (parser->lexer);
-  cp_token *token2 = cp_lexer_peek_nth_token (parser->lexer, 2);
 
   while (token->keyword != RID_AT_END)
     {
@@ -17545,14 +17556,8 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
 	  objc_finish_method_definition (meth);
 	}
       else
-	/* If the next token is `extern' and the following token is a string
-	   literal, then we have a linkage specification.  */
-	if (token->keyword == RID_EXTERN
-	    && cp_parser_is_string_literal (token2))
-	  cp_parser_linkage_specification (parser);
-      else
-	/* Try to parse a block-declaration, or a function-definition.  */
-	cp_parser_block_declaration (parser, /*statement_p=*/false);
+	/* Allow for interspersed non-ObjC++ code.  */
+	cp_parser_objc_interstitial_code (parser);
 
       token = cp_lexer_peek_token (parser->lexer);
     }
