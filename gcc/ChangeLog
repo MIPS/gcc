@@ -1,5 +1,16 @@
 2003-12-31  Mark Mitchell  <mark@codesourcery.com>
 
+	* diagnostic.c (bug_report_request): Use email form.
+	* gcc.c (execute): Likewise.
+	* version.c (version_string): Modify.
+	(bug_report_url): Likewise.
+
+	* config/arm/arm.h (REGISTER_MOVE_COST): Prohibit moving a
+	register from LO_REGS to BASE_REGS on Thumb.
+	Revert this change:
+	* config/arm/arm.h (THUMB_LEGTITIMIZE_RELOAD_ADDRESS): Reload REG
+	+ REG addressing modes.
+
 	* regrename.c (find_oldest_value_reg): Handle HARD_REGNO_NREGS > 1
 	correctly.
 

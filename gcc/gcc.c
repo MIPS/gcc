@@ -2822,7 +2822,7 @@ execute (void)
 		    fatal ("\
 Internal error: %s (program %s)\n\
 Please submit a full bug report.\n\
-See %s for instructions.",
+Send email to %s for instructions.",
 			   strsignal (WTERMSIG (status)), commands[j].prog,
 			   bug_report_url);
 		  signal_count++;
