@@ -456,7 +456,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
         it had a single predecessor (the LOOP header), and now it became a merge
         point of two paths - the path that ends with the LOOP exit-edge, and
         the path that ends with GUARD_EDGE.
-   - MEW_EXIT_BB: New basic block that is added ny this function between LOOP
+   - NEW_EXIT_BB: New basic block that is added by this function between LOOP
 	and NEW_MERGE_BB. It is used to place loop-closed-ssa-form exit-phis.
 
    ===> The CFG before the guard-code was added:
@@ -497,7 +497,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
       1.1. Create phi nodes at NEW_MERGE_BB.
       1.2. Update the phi nodes at the successor of NEW_MERGE_BB (denoted
            UPDATE_BB).  UPDATE_BB was the exit-bb of LOOP before NEW_MERGE_BB
-   2. preserves loop-closed-ssa-form by creating the requured phi nodes
+   2. preserves loop-closed-ssa-form by creating the required phi nodes
       at the exit of LOOP (i.e, in NEW_EXIT_BB).
 
    There are two flavors to this function:
@@ -515,10 +515,10 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
    I.E., the overall structure is:
 
 	loop1_preheader_bb: 
-		guard1 (goto loop1/merg1_bb)
+		guard1 (goto loop1/merge1_bb)
 	loop1
 	loop1_exit_bb: 
-		guard2 (goto loop2/merge2_bb)
+		guard2 (goto merge1_bb/merge2_bb)
 	merge1_bb
 	loop2
 	loop2_exit_bb
@@ -531,7 +531,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
 
    slpeel_update_phi_nodes_for_guard2 takes care of creating phis in 
    loop2_exit_bb and merge2_bb. These are exit phis (phis for the vars
-   that have phis in next_bb). It also adds some of tehse phis to 
+   that have phis in next_bb). It also adds some of these phis to 
    loop1_exit_bb. 
     
    slpeel_update_phi_nodes_for_guard1 is always called before
@@ -582,10 +582,10 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
    In the context of the overall structure, we have:
 
 	loop1_preheader_bb: 
-		guard1 (goto loop1/merg1_bb)
+		guard1 (goto loop1/merge1_bb)
 LOOP->	loop1
 	loop1_exit_bb: 
-		guard2 (goto loop2/merge2_bb)
+		guard2 (goto merge1_bb/merge2_bb)
 	merge1_bb
 	loop2
 	loop2_exit_bb
@@ -699,10 +699,10 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
    In the context of the overall structure, we have:
 
 	loop1_preheader_bb: 
-		guard1 (goto loop1/merg1_bb)
+		guard1 (goto loop1/merge1_bb)
 	loop1
 	loop1_exit_bb: 
-		guard2 (goto loop2/merge2_bb)
+		guard2 (goto merg1_bb/merge2_bb)
 	merge1_bb
 LOOP->	loop2
 	loop2_exit_bb
@@ -728,7 +728,6 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
   basic_block new_merge_bb = guard_edge->dest;
   edge e = EDGE_SUCC (new_merge_bb, 0);
   basic_block update_bb = e->dest;
-  basic_block orig_bb = update_bb;
   edge new_exit_e;
   tree orig_def;
   tree new_name, new_name2;
@@ -741,10 +740,10 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
 
   new_exit_e = EDGE_SUCC (*new_exit_bb, 0);
 
-  for (orig_phi = phi_nodes (orig_bb), update_phi = phi_nodes (update_bb);
-       orig_phi && update_phi;
-       orig_phi = PHI_CHAIN (orig_phi), update_phi = PHI_CHAIN (update_phi))
+  for (update_phi = phi_nodes (update_bb); update_phi; 
+       update_phi = PHI_CHAIN (update_phi))
     {
+      orig_phi = update_phi;
       orig_def = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);
       new_name_ptr = SSA_NAME_AUX (orig_def);
       arg = NULL_TREE;
@@ -823,10 +822,9 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
 	 an indication that an exit-phi in GUARD_BB was not yet created, so we 
 	 take care of it here.
        */
-      if (guard_arg != new_name2)
-	arg = guard_arg;
-      if (!arg)
-	continue;
+      if (guard_arg == new_name2)
+        continue;
+      arg = guard_arg;
 
       /* 3.2. Generate new phi node in GUARD_BB:  */
       new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
@@ -1043,7 +1041,7 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond, basic_block exit_bb,
   cond_stmt = build3 (COND_EXPR, void_type_node, cond,
    		     then_label, else_label);
   bsi_insert_after (&bsi, cond_stmt, BSI_NEW_STMT);
-  /* Add new edge to connect entry block to the second loop.  */
+  /* Add new edge to connect guard block to the merge/loop-exit block.  */
   new_e = make_edge (guard_bb, exit_bb, EDGE_TRUE_VALUE);
   set_immediate_dominator (CDI_DOMINATORS, exit_bb, dom_bb);
   return new_e;

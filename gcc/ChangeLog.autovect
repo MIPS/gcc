@@ -1,3 +1,19 @@
+2005-03-16  Dorit Naishlos  <dorit@il.ibm.com>
+            Leehod Baruch  <leehod@il.ibm.com>
+            Keith Besaw  <kbesaw@us.ibm.com>
+
+	* tree-vect-analyze.c (vect_enhance_data_refs_alignment): Fix comment.
+	(vect_recog_unsigned_subsat_pattern): Likewise.
+	(vect_analyze_data_refs): Fix print message.
+	(vect_analyze_operations): Fix print message.
+	(vect_analyze_data_ref_dependence): Add print message.
+	(vect_analyze_data_refs): Fix verbosity level and print message.
+	* tree-vect-transform (vect_create_data_ref_ptr): Likewise.
+	* tree-vectorizer.c (slpeel_add_loop_guard): Likewise.
+	(slpeel_update_phi_nodes_for_guard1): Likewise.
+	(slpeel_update_phi_nodes_for_guard2): orig_bb not needed.
+	(vect_recog_unsigned_subsat_pattern): Likewise.
+
 2005-03-13  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vectorizer.h (enum verbosity_levels): Add new verbosity

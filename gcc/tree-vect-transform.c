@@ -300,7 +300,7 @@ vect_align_data_ref (tree stmt)
       where if ONLY_INIT is true:
          update = zero
       and otherwise
-         update = idx + vector_type_size
+         update = idx * vector_type_size
 
       Return the pointer vp'.
 

@@ -213,7 +213,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   stmt_vec_info stmt_info;
 
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-    fprintf (vect_dump, "\n<<vect_analyze_operations>>\n");
+    fprintf (vect_dump, "\n=== vect_analyze_operations ===\n");
 
   gcc_assert (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
   vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
@@ -530,7 +530,18 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
     return false;
 
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
-    return true;
+    {
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
+                                LOOP_LOC (loop_vinfo)))
+        {
+          fprintf (vect_dump, 
+                   "not vectorized: can't determine dependence between "); 
+          print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
+          fprintf (vect_dump, " and ");
+          print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
+        }
+      return true;
+    }
 
   if (!DDR_DIST_VECT (ddr))
     {
@@ -830,55 +841,55 @@ vect_verify_datarefs_alignment (loop_vec_info loop_vinfo)
      -- original loop, before alignment analysis:
         for (i=0; i<N; i++){
           x = q[i];                     # DR_MISALIGNMENT(q) = unknown
-          p[i] = y;                     # DR_MISALIGNMENT(p) = unknown
+          p[i] = x;                     # DR_MISALIGNMENT(p) = unknown
 
         }
 
      -- After vect_compute_data_refs_alignment:
         for (i=0; i<N; i++){
           x = q[i];                     # DR_MISALIGNMENT(q) = 3
-          p[i] = y;                     # DR_MISALIGNMENT(p) = unknown
+          p[i] = x;                     # DR_MISALIGNMENT(p) = unknown
         }
 
      -- Possibility 1: we do loop versioning:
      if (p is aligned) {
         for (i=0; i<N; i++){    # loop 1A
           x = q[i];                     # DR_MISALIGNMENT(q) = 3
-          p[i] = y;                     # DR_MISALIGNMENT(p) = 0
+          p[i] = x;                     # DR_MISALIGNMENT(p) = 0
         }
      }
      else {
         for (i=0; i<N; i++){    # loop 1B
           x = q[i];                     # DR_MISALIGNMENT(q) = 3
-          p[i] = y;                     # DR_MISALIGNMENT(p) = unaligned
+          p[i] = x;                     # DR_MISALIGNMENT(p) = unaligned
         }
      }
 
      -- Possibility 2: we do loop peeling:
      for (i = 0; i < 3; i++){   # (scalar loop, not to be vectorized).
         x = q[i];
-        p[i] = y;
+        p[i] = x;
      }
      for (i = 3; i < N; i++){   # loop 2A
         x = q[i];                       # DR_MISALIGNMENT(q) = 0
-        p[i] = y;                       # DR_MISALIGNMENT(p) = unknown
+        p[i] = x;                       # DR_MISALIGNMENT(p) = unknown
      }
 
      -- Possibility 3: combination of loop peeling and versioning:
      for (i = 0; i < 3; i++){   # (scalar loop, not to be vectorized).
         x = q[i];
-        p[i] = y;
+        p[i] = x;
      }
      if (p is aligned) {
         for (i = 3; i<N; i++){  # loop 3A
           x = q[i];                     # DR_MISALIGNMENT(q) = 0
-          p[i] = y;                     # DR_MISALIGNMENT(p) = 0
+          p[i] = x;                     # DR_MISALIGNMENT(p) = 0
         }
      }
      else {
         for (i = 3; i<N; i++){  # loop 3B
           x = q[i];                     # DR_MISALIGNMENT(q) = 0
-          p[i] = y;                     # DR_MISALIGNMENT(p) = unaligned
+          p[i] = x;                     # DR_MISALIGNMENT(p) = unaligned
 
      These loops are later passed to loop_transform to be vectorized. The
      vectorizer will use the alignment information to guide the transformation
@@ -1280,7 +1291,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	{
 	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
 				    LOOP_LOC (loop_vinfo)))
-	      fprintf (vect_dump, "not vectorized: not handled data-ref "); 
+	      fprintf (vect_dump, "not vectorized: unhandled data-ref "); 
 	  return false;
 	}
 
@@ -1290,9 +1301,11 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
       if (STMT_VINFO_DATA_REF (stmt_info))
 	{
-	  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS, 
+                                    LOOP_LOC (loop_vinfo)))
 	    {
-	      fprintf (vect_dump, "more than one data ref in stmt: ");
+	      fprintf (vect_dump, 
+                       "not vectorized: more than one data ref in stmt: ");
 	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
 	    }	  
 	  return false;
@@ -1329,7 +1342,8 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
 				    LOOP_LOC (loop_vinfo)))
 	    {
-	      fprintf (vect_dump, "no vectype for stmt: ");
+	      fprintf (vect_dump,
+                       "not vectorized: no vectype for stmt: ");
 	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
 	      fprintf (vect_dump, " scalar_type: ");
 	      print_generic_expr (vect_dump, scalar_type, TDF_DETAILS);
@@ -1665,7 +1679,7 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, varray_type *stmt_list)
      This is equivalent to: USAT (name, k).
    */
 
-  /* Starting from LAST_STMT, follow the defs of its ses in search
+  /* Starting from LAST_STMT, follow the defs of its uses in search
      of the above pattern.  */
 
   /* Expecting a cond_expr of one of the following forms:
