@@ -1,3 +1,14 @@
+2004-04-30  Caroline Tice  <ctice@apple.com>
+
+        * varasm.c (unlikely_section_label): New global variable.
+        (unlikely_text_section): Change variable name from 
+        'unlikely_section_name' to 'unlikely_section_label', make it a global
+        variable, and move the code to generate its value to 
+        assemble_start_function.
+        (assemble_start_function):  Add code to generate *correct* value for
+        'unlikely_section_label'.  Now makes use of value from 'fnname' 
+        parameter.
+
 2004-04-29  Devang Patel  <dpatel@apple.com>
 
 	gcc/loop-iv.c : Merge from lno-branch as of 2004:04:19 00:00.

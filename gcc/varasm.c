@@ -108,6 +108,13 @@ tree last_assemble_variable_decl;
    file.  */
 
 bool unlikely_section_label_printed = false;
+
+/* The following global variable indicates the label name to be put at
+   the start of the first cold section within each function, when
+   partitioning basic blocks into hot and cold sections.  */
+
+char *unlikely_section_label = NULL;
+
 /* APPLE LOCAL end hot/cold partitioning  */
 
 /* RTX_UNCHANGING_P in a MEM can mean it is stored into, for initialization.
@@ -234,15 +241,10 @@ unlikely_text_section (void)
 
       if (!unlikely_section_label_printed)
 	{
-	  char *unlikely_section_name;
-	  unlikely_section_name = xmalloc ((strlen (current_function_name ()) 
-					    + 20) *
-					   sizeof (char));
-	  sprintf (unlikely_section_name, "_%s_unlikely_section:",
-		   current_function_name ());
-	  ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_name);
+	  ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_label);
 	  unlikely_section_label_printed = true;
-	  free (unlikely_section_name);
+	  free (unlikely_section_label);
+	  unlikely_section_label = NULL;
 	}
     }
 }
@@ -1110,6 +1112,11 @@ assemble_start_function (tree decl, const char *fnname)
 
   /* APPLE LOCAL begin hot/cold partitioning  */
   unlikely_section_label_printed = false;
+  if (flag_reorder_blocks_and_partition)
+    {
+      unlikely_section_label = xmalloc ((strlen (fnname) + 18) * sizeof (char));
+      sprintf (unlikely_section_label, "%s_unlikely_section", fnname);
+    }
   /* APPLE LOCAL end hot/cold partitioning  */
 
   /* The following code does not need preprocessing in the assembler.  */
