@@ -132,6 +132,9 @@ f95.all.cross: gfortran-cross$(exeext)
 f95.start.encap: gfortran$(exeext)
 f95.rest.encap:
 
+f95.tags: force
+	cd $(srcdir)/fortran; etags *.c *.h
+
 f95.info: $(srcdir)/fortran/gfortran.info
 f95.dvi: fortran/gfortran.dvi
 f95.generated-manpages:
