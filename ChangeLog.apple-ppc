@@ -1,3 +1,7 @@
+2004-09-24  Stan Shebs  <shebs@apple.com>
+
+	* more-hdrs/ppc_intrinsics.h: Test __ppc64__ also.
+
 2004-09-23  Stan Shebs  <shebs@apple.com>
 
 	* build_gcc: Detect version 3.5.0, enable 64-bit bringup option

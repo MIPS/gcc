@@ -121,7 +121,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef _PPC_INTRINSICS_H_
 #define _PPC_INTRINSICS_H_
 
-#if defined(__ppc__) && ! defined(__MWERKS__)
+#if (defined(__ppc__) || defined(__ppc64__)) && ! defined(__MWERKS__)
 
 /*******************************************************************
  *                 Special Purpose Registers (SPRs)                *
@@ -934,6 +934,6 @@ astrcmp (const char *in_s1, const char *in_s2)
    */
 }
 
-#endif  /* defined(__ppc__) && ! defined(__MWERKS__) */
+#endif  /* (defined(__ppc__) || defined(__ppc64__)) && ! defined(__MWERKS__) */
 
 #endif /* _PPC_INTRINSICS_H_ */
