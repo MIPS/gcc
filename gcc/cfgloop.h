@@ -331,16 +331,52 @@ extern edge split_loop_bb (basic_block, rtx);
 
 /* Induction variable analysis.  */
 
+/* The description of induction variable.  The things are a bit complicated
+   due to need to handle subregs and extends.  The value of the object described
+   by it can be obtained as follows (all computations are done in extend_mode):
+
+   Value in i-th iteration is
+     delta + mult * extend_{extend_mode} (subreg_{mode} (base + i * step)).
+
+   If first_special is true, the value in the first iteration is
+     delta + mult * base
+     
+   If extend = NIL, first_special must be false, delta 0, mult 1 and value is
+     subreg_{mode} (base + i * step)
+
+   The get_iv_value function can be used to obtain these expressions.
+
+   ??? Add a third mode field that would specify the mode in that inner
+   computation is done, which would enable it to be different from the
+   outer one?  */
+
 struct rtx_iv
 {
+  /* Whether we have already filled the remaining fields.  */
   bool analysed;
 
+  /* The mode the variable iterates in.  */
   enum machine_mode mode;
+
+  /* Its base and step (mode of base and step is supposed to be extend_mode,
+     see the description above).  */
   rtx base, step;
+
+  /* Whether the first iteration needs to be handled specially.  */
+  bool first_special;
+
+  /* The type of extend applied to it (SIGN_EXTEND, ZERO_EXTEND or NIL).  */
+  enum rtx_code extend;
+
+  /* The mode it is extended to.  */
+  enum machine_mode extend_mode;
+
+  /* Operations applied in the extended mode.  */
+  rtx delta, mult;
 };
 
-/* This should replace struct loop_desc.  We need to handle this in unrolling,
-   so leave it this way for now.  */
+/* This should replace struct loop_desc.  We keep this just so that we are
+   able to compare the results.  */
 
 struct niter_desc
 {
@@ -387,6 +423,7 @@ struct niter_desc
 extern void iv_analysis_loop_init (struct loop *);
 extern rtx iv_get_reaching_def (rtx, rtx);
 extern bool iv_analyse (rtx, rtx, struct rtx_iv *);
+extern rtx get_iv_value (struct rtx_iv *, rtx);
 extern void find_simple_exit (struct loop *, struct niter_desc *);
 extern void iv_number_of_iterations (struct loop *, rtx, rtx,
 				     struct niter_desc *);

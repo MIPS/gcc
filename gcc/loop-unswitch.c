@@ -147,8 +147,9 @@ unswitch_loops (struct loops *loops)
 static rtx
 may_unswitch_on (basic_block bb, struct loop *loop)
 {
-  rtx test, at, insn, op0, op1;
+  rtx test, at, insn, op[2];
   struct rtx_iv iv;
+  unsigned i;
 
   /* BB must end in a simple conditional jump.  */
   if (!bb->succ || !bb->succ->succ_next || bb->succ->succ_next->succ_next)
@@ -171,39 +172,25 @@ may_unswitch_on (basic_block bb, struct loop *loop)
   if (!test)
     return NULL_RTX;
 
-  op0 = XEXP (test, 0);
-  if (!CONSTANT_P (op0))
+  for (i = 0; i < 2; i++)
     {
-      if (!REG_P (op0))
+      op[i] = XEXP (test, i);
+
+      if (CONSTANT_P (op[i]))
+	continue;
+
+      insn = iv_get_reaching_def (at, op[i]);
+      if (!iv_analyse (insn, op[i], &iv))
+	return NULL_RTX;
+      if (iv.step != const0_rtx
+	  || iv.first_special)
 	return NULL_RTX;
 
-      insn = iv_get_reaching_def (at, op0);
-      if (!iv_analyse (insn, op0, &iv))
-	return NULL_RTX;
-      if (!iv.base
-	  || iv.step != const0_rtx)
-	return NULL_RTX;
-
-      op0 = iv.base;
+      op[i] = get_iv_value (&iv, const0_rtx);
     }
 
-  op1 = XEXP (test, 1);
-  if (!CONSTANT_P (op1))
-    {
-      if (!REG_P (op1))
-	return NULL_RTX;
-
-      insn = iv_get_reaching_def (at, op1);
-      if (!iv_analyse (insn, op1, &iv))
-	return NULL_RTX;
-      if (!iv.base
-	  || iv.step != const0_rtx)
-	return NULL_RTX;
-
-      op1 = iv.base;
-    }
-
-  return canon_condition (gen_rtx_fmt_ee (GET_CODE (test), SImode, op0, op1));
+  return canon_condition (gen_rtx_fmt_ee (GET_CODE (test), SImode,
+					  op[0], op[1]));
 }
 
 /* Reverses CONDition; returns NULL if we cannot.  */

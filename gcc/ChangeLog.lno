@@ -1,3 +1,19 @@
+2004-02-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.h (struct niter_desc): Add first_special, extend,
+	extend_mode, delta and mult fields.
+	(get_iv_value): Declare.
+	* expr.c (force_operand): Handle subregs of expressions.
+	* loop-doloop.c (doloop_valid_p): Test desc->infinite properly.
+	* loop-iv.c (dump_iv_info): Dump new fields.
+	(lowpart_byte, lowpart_subreg_p, lowpart_subreg,
+	iv_constant, iv_subreg, iv_extend, iv_neg, iv_add, iv_mult,
+	get_biv_step_1, get_biv_step, shorten_into_mode,
+	canonicalize_iv_subregs): New functions.
+	(simple_reg_p, simple_set_p, iv_get_reaching_def, iv_analyse_biv,
+	iv_analyse_op, iv_analyse, iv_number_of_iterations): Handle subregs.
+	* loop-unswitch.c (may_unswitch_on): Handle subregs.
+
 2004-02-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (tree-ssa-loop-ivopts.o): Add RECOG_H and insn-config.h
