@@ -1,3 +1,9 @@
+2003-12-04  Jeff Law  <law@redhat.com>
+
+	* tree-ssa.c (rewrite_trees): Do not unconditionally overwrite
+	variables set by statements.  Let replace_variable do any
+	required rewriting.
+
 2003-12-04  Richard Henderson  <rth@redhat.com>
 
 	* c-parse.in (primary): Use annotate_with_locus instead of

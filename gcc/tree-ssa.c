@@ -2462,7 +2462,7 @@ rewrite_trees (var_map map, tree *values)
 	      for (i = 0; i < num_defs; i++)
 		{
 		  tree *def_p = VARRAY_TREE_PTR (ops, i);
-		  *def_p = var_to_partition_to_var (map, *def_p);
+
 		  if (replace_variable (map, def_p, NULL))
 		    changed = true;
 
