@@ -1,3 +1,8 @@
+2004-12-16  Stuart Hastings <stuart@apple.com>
+
+	Radar 3910248, 3915171
+	* gcc/config/rs6000/rs6000.c (output_call): correctly skip non-line-number notes.
+
 2004-12-16  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3921172
