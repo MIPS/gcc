@@ -1,3 +1,7 @@
+2004-11-07  Jerry Quinn  <jlquinn@optonline.net>
+
+	* java/awt/Button.java (AccessibleAWTButton): Implement.
+
 2004-11-07  Mark Wielaard  <mark@klomp.org>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c
