@@ -1,3 +1,17 @@
+2000-02-24  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm.c (thumb_expand_prologue): Make sure that stack
+	adjust is word aligned.
+	(thumb_expand_epilogue): Make sure that stack adjust is word
+	aligned.
+
+	* config/arm/elf.h (ASM_FILE_START): Fix type of version string.
+	
+2000-02-24  Bernd Schmidt <bernds@cygnus.com>
+
+	* config/arm/arm.h (THUMB_GO_IF_LEGITIMATE_ADDRESS): Allow frame
+	pointer relative addresses.
+
 2000-02-18  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/elf.h (ASM_OUTPUT_ALIGN): Do not generate

@@ -8411,6 +8411,8 @@ thumb_expand_prologue ()
 
   if (amount)
     {
+      amount = ROUND_UP (amount);
+      
       if (amount < 512)
 	emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
 			       GEN_INT (- amount)));
@@ -8492,6 +8494,8 @@ thumb_expand_epilogue ()
     emit_insn (gen_movsi (stack_pointer_rtx, hard_frame_pointer_rtx));
   else if (amount)
     {
+      amount = ROUND_UP (amount);
+      
       if (amount < 512)
 	emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
 			       GEN_INT (amount)));

@@ -2083,6 +2083,12 @@ typedef struct
 		   + GET_MODE_SIZE (MODE)) <= 1024			\
 	       && (INTVAL (XEXP (X, 1)) & 3) == 0)			\
 	goto WIN;							\
+      else if (GET_CODE (XEXP (X, 0)) == REG				\
+	       && REGNO (XEXP (X, 0)) == FRAME_POINTER_REGNUM		\
+	       && GET_MODE_SIZE (MODE) >= 4				\
+	       && GET_CODE (XEXP (X, 1)) == CONST_INT			\
+	       && (INTVAL (XEXP (X, 1)) & 3) == 0)			\
+	goto WIN;							\
     }									\
   else if (GET_MODE_CLASS (MODE) != MODE_FLOAT				\
 	   && GET_CODE (X) == SYMBOL_REF				\
