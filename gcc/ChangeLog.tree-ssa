@@ -1,5 +1,8 @@
 2004-02-26  Andrew Pinski  <pinskia@physics.uc.edu>
 
+	* tree-ssa-phiopt.c (conditional_replacement): 
+	s/tree_dump_flags/dump_flags/.
+
 	* tree-ssa-phiopt.c (tree_ssa_phiopt): Split into ...
 	(conditional_replacement): Here.
 
