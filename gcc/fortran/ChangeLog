@@ -1,3 +1,8 @@
+2004-01-01  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13432
+	* resolve.c (resolve_symbol): Allow assumed length function results.
+
 2004-01-01  Steve Kargl  <sgk@troutmask.apl.washington.edu>
 
 	* match.c (gfc_match_pause): Fix spelling.
