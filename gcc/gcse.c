@@ -5452,7 +5452,7 @@ delete_null_pointer_checks (f)
   if (delete_list)
     {
       for (i = 0; i < VARRAY_ACTIVE_SIZE (delete_list); i++)
-	delete_related_insns (VARRAY_RTX (delete_list, i));
+	delete_insn (VARRAY_RTX (delete_list, i));
       VARRAY_FREE (delete_list);
     }
 
