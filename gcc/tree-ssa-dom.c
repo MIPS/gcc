@@ -643,11 +643,11 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 	def = TREE_OPERAND (stmt, 0);
 
       opt_stats.num_exprs_considered++;
-      if (cached_lhs
-	  && (TREE_CODE (stmt) == COND_EXPR
-	      || TREE_TYPE (cached_lhs) == TREE_TYPE (def)
-	      || (TYPE_MAIN_VARIANT (TREE_TYPE (cached_lhs))
-		  == TYPE_MAIN_VARIANT (TREE_TYPE (def)))))
+      /* It is safe to ignore types here since we have already done
+	 type checking in the hashing and equality routines.  In fact
+	 type checking here merely gets in the way of constant
+	 propagation.  */
+      if (cached_lhs)
 	{
 	  if (TREE_CODE (stmt) == COND_EXPR)
 	    expr_p = &TREE_OPERAND (stmt, 0);
