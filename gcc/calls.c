@@ -2217,7 +2217,7 @@ expand_call (exp, target, ignore)
   int must_preallocate = !PUSH_ARGS;
 
   /* Size of the stack reserved for parameter registers.  */
-  int reg_parm_stack_space = 0;
+  HOST_WIDE_INT reg_parm_stack_space = 0;
 
   /* Address of space preallocated for stack parms
      (on machines that lack push insns), or 0 if space not preallocated.  */
@@ -2234,7 +2234,7 @@ expand_call (exp, target, ignore)
   rtx save_area = 0;		/* Place that it is saved */
 #endif
 
-  int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
+  HOST_WIDE_INT initial_highest_arg_in_use = highest_outgoing_arg_in_use;
   char *initial_stack_usage_map = stack_usage_map;
   int old_stack_arg_under_construction = 0;
 
@@ -3567,7 +3567,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 #endif
 
   /* Size of the stack reserved for parameter registers.  */
-  int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
+  HOST_WIDE_INT initial_highest_arg_in_use = highest_outgoing_arg_in_use;
   char *initial_stack_usage_map = stack_usage_map;
 
 #ifdef REG_PARM_STACK_SPACE
