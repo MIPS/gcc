@@ -1,5 +1,9 @@
 2004-02-21  Alan Modra  <amodra@bigpond.net.au>
 
+	* config/rs6000/rs6000.c (rs6000_override_options): Don't override
+	-msoft-float by -mcpu.  Consolidate similar code for MASK_MULTIPLE
+	and MASK_STRING.
+
 	* config/rs6000/linux.h (OS_MISSING_POWERPC64): Define.
 	* config/rs6000/linux64.h (OS_MISSING_POWERPC64): Define.
 
