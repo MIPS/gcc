@@ -127,7 +127,7 @@ init_ttree (void)
 
 
 int
-get_next_decl_uid ()
+get_next_decl_uid (void)
 {
   return next_decl_uid;
 }

@@ -1134,7 +1134,7 @@ c_common_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 
 /* Front end initialization common to C, ObjC and C++.  */
 void
-init_c_common_once ()
+init_c_common_once (void)
 {
   /* Set up preprocessor arithmetic.  Must be done after call to
      c_common_nodes_and_builtins for type nodes to be good.  */

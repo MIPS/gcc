@@ -681,9 +681,7 @@ read_file (cpp_reader *pfile, _cpp_file *file)
 }
 
 void
-_cpp_enter_fragment (pfile, fragment)
-     cpp_reader *pfile;
-     cpp_fragment *fragment;
+_cpp_enter_fragment (cpp_reader *pfile, cpp_fragment *fragment)
 {
   if (pfile->cb.enter_fragment != NULL)
     {
@@ -705,9 +703,7 @@ _cpp_enter_fragment (pfile, fragment)
 }
 
 void
-_cpp_exit_fragment (pfile, fragment)
-     cpp_reader *pfile;
-     cpp_fragment *fragment;
+_cpp_exit_fragment (cpp_reader *pfile, cpp_fragment *fragment)
 {
   if (pfile->cb.exit_fragment != NULL
       && ! pfile->state.skipping

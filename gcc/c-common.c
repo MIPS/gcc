@@ -4332,8 +4332,7 @@ create_builtins_fragment (void)
 /* Note that the current fragment depends on USED. */
 
 void
-register_decl_dependency (used)
-     tree used;
+register_decl_dependency (tree used)
 {
   struct c_include_fragment *fragment;
   const char *file = DECL_SOURCE_FILE (used);
@@ -4425,8 +4424,7 @@ int fragment_bindings_end;
 /* Reserve space in fragment_bindings_stack. */
 
 static void
-reserve_fragment_binding (space_needed)
-     int space_needed;
+reserve_fragment_binding (int space_needed)
 {
   if (fragment_bindings_stack == NULL_TREE)
     fragment_bindings_stack = make_tree_vec (50);
@@ -4461,8 +4459,7 @@ int count_fragment_declarations;
 int count_fragment_tags;
 
 void
-note_fragment_binding_1 (tree1)
-     tree tree1;
+note_fragment_binding_1 (tree tree1)
 {
   reserve_fragment_binding (1);
   TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 1) = tree1;
@@ -4470,8 +4467,7 @@ note_fragment_binding_1 (tree1)
 }
 
 void
-note_fragment_binding_2 (tree1, tree2)
-     tree tree1, tree2;
+note_fragment_binding_2 (tree tree1, tree tree2)
 {
   reserve_fragment_binding (2);
   TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 2) = tree1;
@@ -4479,8 +4475,7 @@ note_fragment_binding_2 (tree1, tree2)
 }
 
 void
-note_fragment_binding_3 (tree1, tree2, tree3)
-     tree tree1, tree2, tree3;
+note_fragment_binding_3 (tree tree1, tree tree2, tree tree3)
 {
   reserve_fragment_binding (3);
   TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 3) = tree1;
@@ -4492,8 +4487,7 @@ note_fragment_binding_3 (tree1, tree2, tree3)
 /* Note that the current fragment depends on (some binding from) USED. */
 
 void
-register_fragment_dependency (used)
-     struct c_include_fragment* used;
+register_fragment_dependency (struct c_include_fragment* used)
 {
   if (! track_dependencies)
     return;
@@ -4523,6 +4517,9 @@ register_fragment_dependency (used)
     }
 }
 
+#define warn_fragment_invalidation (! quiet_flag)
+#define gather_fragment_statistics (! quiet_flag)
+
 int track_dependencies;
 int track_declarations;
 int main_timestamp;
@@ -4532,8 +4529,7 @@ bool nonempty_fragment_reused;
 int currently_nested;
 
 void
-reset_hashnode (node)
-     cpp_hashnode *node;
+reset_hashnode (cpp_hashnode *node)
 {
   node->flags &= ~ NODE_POISONED; /* ??? also clear NODE_DIAGNOSTIC? */
   if (node->type == NT_MACRO && !(node->flags & NODE_BUILTIN))
@@ -4549,7 +4545,7 @@ reset_hashnode (node)
 }
 
 void
-reset_cpp_hashnodes ()
+reset_cpp_hashnodes (void)
 {
 #if 0
   /* Reset cpplib's macros and start a new file.  */
@@ -4568,6 +4564,13 @@ restore_fragment (cpp_fragment *fragment)
   cpp_do_macro_callbacks (parse_in, fragment);
   cpp_restore_macros (parse_in, fragment);
   restore_fragment_bindings (C_FRAGMENT (fragment)->bindings);
+  if (warn_fragment_invalidation)
+    {
+      int num_bind = C_FRAGMENT (fragment)->bindings == NULL_TREE ? 0
+	: TREE_VEC_LENGTH (C_FRAGMENT (fragment)->bindings);
+      fprintf (stderr, "- restoring approx %d decls and %d macros\n",
+	       num_bind, fragment->macro_notes_count);
+    }
   if (lang_hooks.uses_conditional_symtab)
     {
       asm_buf = C_FRAGMENT (fragment)->asm_buf;
@@ -4587,13 +4590,10 @@ restore_fragment (cpp_fragment *fragment)
 static inline bool
 dont_defeat_good_checking (void);
 static inline bool
-dont_defeat_good_checking ()
+dont_defeat_good_checking (void)
 {
   return !lang_hooks.uses_conditional_symtab;
 }
-
-#define warn_fragment_invalidation (! quiet_flag)
-#define gather_fragment_statistics (! quiet_flag)
 
 int count_new_fragments;
 int count_new_empty_fragments;
@@ -4738,8 +4738,8 @@ cb_enter_fragment (cpp_reader* reader, cpp_fragment *fragment)
 		  inform ("reusing cached fragment");
 		  fprintf(stderr, "reuse %d lines (start:%d, end:%d)\n", fragment->end_line - fragment->start_line, fragment->start_line, fragment->end_line);
 		}
+	      restore_fragment (fragment);
 	    }
-	  restore_fragment (fragment);
 	}
     }
   if (! lang_hooks.uses_conditional_symtab)
@@ -4790,11 +4790,11 @@ cb_enter_fragment (cpp_reader* reader, cpp_fragment *fragment)
   return valid;
 }
 
-/* Return a copy of the remebered bindings from fragment_bindings_stack,
+/* Return a copy of the remembered bindings from fragment_bindings_stack,
    and clear the latter. */
 
 tree
-save_fragment_bindings ()
+save_fragment_bindings (void)
 {
   int i;
   tree bindings = (fragment_bindings_end == 0 ? NULL_TREE
@@ -4825,9 +4825,8 @@ xfseek (FILE *fp, long offset, int whence) {
    future re-use. */
 
 void
-cb_exit_fragment (reader, fragment)
-     cpp_reader *reader ATTRIBUTE_UNUSED;
-     cpp_fragment *fragment;
+cb_exit_fragment (cpp_reader *reader ATTRIBUTE_UNUSED,
+		  cpp_fragment *fragment)
 {
   struct c_include_fragment* st = C_FRAGMENT (fragment);
   reader->do_note_macros = 0;
@@ -4854,10 +4853,6 @@ cb_exit_fragment (reader, fragment)
 	}
       st->uses_fragments = uses_fragments;
       current_fragment_deps_end = 0;
-      for (i = 0;  i < current_fragment_deps_end;  i++)
-	{
-	 ((struct c_include_fragment*)  TREE_VEC_ELT (current_fragment_deps_stack, i))->used_in_current = 1;
-	}
 
       fragment->macro_notes_count = reader->macro_notes_count;
       if (reader->macro_notes_count == 0)
@@ -4869,6 +4864,13 @@ cb_exit_fragment (reader, fragment)
 	  fragment->macro_notes = macro_notes;
 	  memcpy (macro_notes, reader->macro_notes, blen);
 	  reader->macro_notes_count = 0;
+	}
+
+      if (warn_fragment_invalidation)
+	{
+	  fprintf (stderr, "- new fragment has approx %d decls, %d macros, and %d dependencies\n",
+		   st->bindings ? TREE_VEC_LENGTH (st->bindings) : 0,
+		   fragment->macro_notes_count, uses_fragments_count);
 	}
 
       current_c_fragment = NULL;
@@ -5013,7 +5015,8 @@ end_output_fragment (void)
   output_fragment = 0;
 }
 
-void init_output_fragment ()
+void
+init_output_fragment (void)
 {
   output_c_fragment = 0;
 }

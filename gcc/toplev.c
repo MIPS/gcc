@@ -1850,7 +1850,7 @@ compile_file_parse (void)
    Only called once for each output file, even for many input files.  */
 
 static void
-compile_file_finish ()
+compile_file_finish (void)
 {
   if (flag_syntax_only)
     return;
@@ -5102,7 +5102,7 @@ static int server_argc;
    Read a server command and process it. */
 
 static void
-server_loop ()
+server_loop (void)
 {
   int blen = 200;
   char *command_buffer = xmalloc (blen);

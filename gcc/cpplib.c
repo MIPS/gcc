@@ -266,8 +266,7 @@ end_directive (cpp_reader *pfile, int skip_line)
 /* Called at the beginning of a "fragment". */
 
 void
-_cpp_start_fragment (pfile)
-     cpp_reader *pfile;
+_cpp_start_fragment (cpp_reader *pfile)
 {
   cpp_fragment *fragment;
   if ((fragment = pfile->current_fragment) != NULL
@@ -646,10 +645,8 @@ cpp_restore_macros (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_fragment *fragment)
 }
 
 void
-_cpp_note_macro (pfile, node, macro)
-     cpp_reader *pfile;
-     cpp_hashnode *node;
-     struct cpp_macro *macro;
+_cpp_note_macro (cpp_reader *pfile, cpp_hashnode *node,
+		 struct cpp_macro *macro)
 {
   int count, alloc;
   if (! pfile->do_note_macros)

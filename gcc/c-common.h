@@ -1415,7 +1415,7 @@ static inline struct c_include_fragment *alloc_include_fragment (void);
 extern GTY(()) tree include_fragments;
 
 static inline struct c_include_fragment *
-alloc_include_fragment ()
+alloc_include_fragment (void)
 {
   tree f = make_node (INCLUDE_FRAGMENT);
   /* We chain them all together so GC doesn't get rid of them as we

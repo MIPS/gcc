@@ -155,7 +155,7 @@ c_warn_unused_global_decl (tree decl)
 
 /* Initialization common to C and Objective-C front ends.  */
 void
-init_c_objc_common_once ()
+init_c_objc_common_once (void)
 {
   static const enum tree_code stmt_codes[] = {
     c_common_stmt_codes

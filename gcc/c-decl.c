@@ -475,10 +475,9 @@ restore_fragment_bindings (tree bindings)
 }
 
 int
-lang_clear_identifier (pfile, node, v)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-     cpp_hashnode *node;
-     void *v ATTRIBUTE_UNUSED;
+lang_clear_identifier (cpp_reader *pfile ATTRIBUTE_UNUSED,
+		       cpp_hashnode *node,
+		       void *v ATTRIBUTE_UNUSED)
 {
   tree tnode = HT_IDENT_TO_GCC_IDENT (node);
   tree t;
@@ -501,7 +500,7 @@ lang_clear_identifier (pfile, node, v)
   return 1;
 }
 
-void setup_globals ()
+void setup_globals (void)
 {
   truly_local_externals = NULL_TREE;
 
@@ -515,7 +514,7 @@ void setup_globals ()
 }
 
 void
-init_c_decl_processing_eachsrc ()
+init_c_decl_processing_eachsrc (void)
 {
   static int c_init_decl_done = 0;
 
@@ -995,7 +994,7 @@ match_builtin_function_types (tree oldtype, tree newtype)
 
 static int
 duplicate_decls (tree newdecl, tree olddecl, int different_binding_level,
-		 int different_tu)
+		 int different_tu ATTRIBUTE_UNUSED)
 {
   int types_match = comptypes (TREE_TYPE (newdecl), TREE_TYPE (olddecl),
 			       COMPARE_STRICT);

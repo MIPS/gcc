@@ -1,3 +1,28 @@
+2003-12-11  Per Bothner  <pbothner@apple.com>
+
+	* c-common.c (register_decl_dependency, reserve_fragment_binding,
+	reset_cpp_hashnodes, note_fragment_binding_1, note_fragment_binding_2,
+	note_fragment_binding_3, register_fragment_dependency, reset_hashnode,
+	dont_defeat_good_checking, save_fragment_bindings, cb_exit_fragment,
+	init_output_fragment):  Change function header to ISO prototypes.
+	* c-common.h (alloc_include_fragment):  Likewise.
+	* c-decl.c (lang_clear_identifier, init_c_decl_processing_eachsrc,
+	setup_globals):  Likewise.
+	* c-lex.c (register_cpp_callbacks):  Likewise.
+	* c-objc-common.c (init_c_objc_common_once):  Likewise.
+	* c-opts.c (init_c_common_once):  Likewise.
+	* cppfiles.c (_cpp_enter_fragment, _cpp_exit_fragment):  Likewise.
+	* cpplib.c (_cpp_start_fragment, _cpp_note_macro):  Likewise.
+	* toplev.c (compile_file_finish, server_loop):  Likewise.
+	* tree.c (get_next_decl_uid):  Likewise.
+
+	* c-decl.c (duplicate_decls):  Mark different_tu ATTRIBUTE_UNUSED.
+
+	* c-common.c (restore_fragment, cb_exit_fragment):  More statistics.
+	(warn_fragment_invalidation, gather_fragment_statistics): Move earlier.
+	* c-common.c (cb_enter_fragment):  Don't restore_fragment if empty.
+	* c-common.c (cb_exit_fragment):  Return never-executed loop.
+
 2003-12-10  Per Bothner  <pbothner@apple.com>
 
 	* cppfiles.c (open_file):  Tweak previous patch.  Only do extra

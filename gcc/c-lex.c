@@ -91,7 +91,7 @@ init_c_lex (void)
 }
 
 void
-register_cpp_callbacks ()
+register_cpp_callbacks (void)
 {
   struct cpp_callbacks *cb;
   cb = cpp_get_callbacks (parse_in);
