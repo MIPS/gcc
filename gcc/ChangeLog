@@ -1,3 +1,9 @@
+2004-02-02  Jan Hubicka  <jh@suse.cz>
+
+        * alias.c (find_base_term, get_addr):  Do not dereference NULL
+        pointer when all VALUE's locations has been invalidated.
+        (rtx_equal_for_memref_p): Simplify checking of VALUEs.
+
 2004-01-26  Jan Hubicka  <jh@suse.cz>
 
         * cselib.c (discard_useless_values):  Clear out value pointer pointing
