@@ -29,4 +29,5 @@ int main (void)
     
   if (b->flag1 != 0)
     abort ();
+  return 0;
 }
