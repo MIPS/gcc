@@ -1,3 +1,4 @@
+// Special g++ Options: -fpermissive
 // PRMS Id: 5353
 // This may be an extension, but it's a very common one...
 
@@ -6,7 +7,7 @@ extern "C" int printf (const char *, ...);
 class A {
 public:
   static A*func (int = 3);
-  static A*(*ptr)(int = 4);
+  static A*(*ptr)(int = 4);	// WARNING - default arg
 };
 
 A*(*A::ptr)(int) = &A::func;

@@ -8644,9 +8644,7 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
   tree t;
 
   if (raises)
-    {
-      type = build_exception_variant (type, raises);
-    }
+    type = build_exception_variant (type, raises);
 
   decl = build_lang_decl (FUNCTION_DECL, declarator, type);
   /* Propagate volatile out from type to decl. */
@@ -10519,9 +10517,6 @@ grokdeclarator (declarator, declspecs, decl_context,
 
 	    declarator = TREE_OPERAND (declarator, 0);
 
-	    /* FIXME: This is where default args should be fully
-	       processed.  */
-
 	    arg_types = grokparms (inner_parms);
 
 	    if (declarator && flags == DTOR_FLAG)
@@ -10545,14 +10540,21 @@ grokdeclarator (declarator, declspecs, decl_context,
 	       does not make the function foo const.  */
 	    type = build_function_type (type, arg_types);
 
-	    {
-	      /* FIXME: What is this?  */
-	      tree t;
-	      for (t = arg_types; t; t = TREE_CHAIN (t))
-		if (TREE_PURPOSE (t)
-		    && TREE_CODE (TREE_PURPOSE (t)) == DEFAULT_ARG)
-		  break;
-	    }
+	    if (!inner_decl || TREE_CODE (inner_decl) != IDENTIFIER_NODE)
+	      {
+		/* GCC allows default args on function types, not just
+		   on functions.  Remember those that are not also
+		   function decls.  */
+		tree t;
+		
+		for (t = arg_types; t; t = TREE_CHAIN (t))
+		  if (TREE_PURPOSE (t)
+		      && TREE_CODE (TREE_PURPOSE (t)) == DEFAULT_ARG)
+		    {
+		      cp_parser_save_default_arg_type (the_parser, type);
+		      break;
+		    }
+	      }
 	  }
 	  break;
 

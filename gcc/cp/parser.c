@@ -34,6 +34,8 @@
 
 /* Fixme: Remove parse.y.  */
 
+cp_parser *the_parser = NULL;
+
 /* Prototypes.  */
 
 static void ggc_mark_token_obstack 
@@ -1168,7 +1170,7 @@ cp_parser_context_delete (context)
 
 /* The cp_parser structure represents the C++ parser.  */
 
-typedef struct cp_parser
+struct cp_parser
 {
   /* The lexer from which we are obtaining tokens.  */
   cp_lexer *lexer;
@@ -1207,6 +1209,11 @@ typedef struct cp_parser
      template-parameter-list.  */
   bool greater_than_is_operator_p;
 
+  /* TRUE if default arguments are allowed within a parameter list
+     that starts at this point. FALSE if only a gnu extension makes
+     them permissable.  */
+  bool default_arg_ok_p;
+  
   /* TRUE if we are parsing an integral constant-expression.  See
      [expr.const] for a precise definition.  */
   /* FIXME: Need to implement code that checks this flag.  */
@@ -1226,6 +1233,12 @@ typedef struct cp_parser
      issued as an error message if a type is defined.  */
   const char *type_definition_forbidden_message;
 
+  /* List of FUNCTION_TYPEs which contain unprocessed DEFAULT_ARGs
+     during class parsing, and are not FUNCTION_DECLs.  G++ has an
+     awkward extension allowing default args on pointers to functions
+     etc.  */
+  tree default_arg_types;
+
   /* A queue of functions whose bodies have been lexed, but may not
      have been parsed.  These functions are friends of members defined
      within a class-specification; they are not procssed until the
@@ -1242,7 +1255,7 @@ typedef struct cp_parser
   /* The number of template parameter lists that apply directly to the
      current declaration.  */
   unsigned num_template_parameter_lists;
-} cp_parser;
+};
 
 /* The type of a function that parses some kind of expression  */
 typedef tree (*cp_parser_expression_fn) PARAMS ((cp_parser *));
@@ -1609,6 +1622,8 @@ static tree cp_parser_single_declaration
 static tree cp_parser_functional_cast
   PARAMS ((cp_parser *, tree));
 static void cp_parser_late_parsing_for_member
+  PARAMS ((cp_parser *, tree));
+static void cp_parser_late_parsing_default_args
   PARAMS ((cp_parser *, tree));
 static tree cp_parser_sizeof_operand
   PARAMS ((cp_parser *, enum rid));
@@ -1984,6 +1999,8 @@ cp_parser_new ()
   /* The `>' token is a greater-than operator, not the end of a
      template-id.  */
   parser->greater_than_is_operator_p = true;
+
+  parser->default_arg_ok_p = true;
   
   /* We are not parsing a constant-expression.  */
   parser->constant_expression_p = false;
@@ -8911,7 +8928,8 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
   cp_token *token;
   tree declarator;
   tree scope = NULL_TREE;
-
+  bool saved_default_arg_ok_p = parser->default_arg_ok_p;
+  
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
   /* Find the initial direct-declarator.  It might be a parenthesized
@@ -8947,6 +8965,8 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 	 occurred.  */
       else if (!abstract_p && declarator == error_mark_node)
 	return error_mark_node;
+      /* Default args cannot appear in an abstract decl.  */
+      parser->default_arg_ok_p = false;
     }
   /* Otherwise, for a non-abstract declarator, there should be a
      declarator-id.  */
@@ -9002,6 +9022,9 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
              are looked up in the containing scope.  */
 	  push_scope (scope);
 	}
+      else if (TREE_CODE (declarator) != IDENTIFIER_NODE)
+	/* Default args can only appear for a function decl.  */
+	parser->default_arg_ok_p = false;
       
       /* Check to see whether the declarator-id names a constructor, 
 	 destructor, or conversion.  */
@@ -9015,19 +9038,26 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 	  else
 	    unqualified_name = declarator;
 
-	  /* See if it names the constructor.  */
-	  if (ctor_dtor_or_conv_p
-	      && (TREE_CODE (unqualified_name) == BIT_NOT_EXPR
-		  || IDENTIFIER_TYPENAME_P (unqualified_name)
-		  || constructor_name_p (unqualified_name,
-					 current_class_type)))
-	    *ctor_dtor_or_conv_p = true;
+	  /* See if it names ctor, dtor or conv.  */
+	  if (TREE_CODE (unqualified_name) == BIT_NOT_EXPR
+	      || IDENTIFIER_TYPENAME_P (unqualified_name)
+	      || constructor_name_p (unqualified_name,
+				     current_class_type))
+	    {
+	      *ctor_dtor_or_conv_p = true;
+	      /* We would have cleared the default arg flag above, but
+		 they are ok.  */
+	      parser->default_arg_ok_p = saved_default_arg_ok_p;
+	    }
 	}
     }
   /* But for an abstract declarator, the initial direct-declarator can
      be omitted.  */
   else
-    declarator = NULL_TREE;
+    {
+      declarator = NULL_TREE;
+      parser->default_arg_ok_p = false;
+    }
 
   if (!scope)
     {
@@ -9130,6 +9160,9 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
       /* Otherwise, we're done with the declarator.  */
       else
 	break;
+      /* Any subsequent parameter lists are to do with return type, so
+	 are not those of the declared function.  */
+      parser->default_arg_ok_p = false;
     }
 
   /* For an abstract declarator, we might wind up with nothing at this
@@ -9141,6 +9174,8 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
   if (scope)
     pop_scope (scope);
 
+  parser->default_arg_ok_p = saved_default_arg_ok_p;
+  
   return declarator;
 }
 
@@ -9649,6 +9684,9 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
   /* Otherwise, there should be a declarator.  */
   else
     {
+      bool saved_default_arg_ok_p = parser->default_arg_ok_p;
+      parser->default_arg_ok_p = false;
+  
       /* We don't know whether the declarator will be abstract or
 	 not.  So, first we try an ordinary declarator.  */
       cp_parser_parse_tentatively (parser);
@@ -9660,6 +9698,7 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
 	declarator = cp_parser_declarator (parser,
 					   /*abstract_p=*/true,
 					   /*ctor_dtor_or_conv_p=*/NULL);
+      parser->default_arg_ok_p = saved_default_arg_ok_p;
     }
 
   /* The restriction on definining new types applies only to the type
@@ -9672,6 +9711,7 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
       bool saved_greater_than_is_operator_p;
       /* Consume the `='.  */
       cp_lexer_consume_token (parser->lexer);
+
       /* If we are defining a class, then the tokens that make up the
 	 default argument must be saved and processed later.  */
       if (at_class_scope_p () && TYPE_BEING_DEFINED (current_class_type))
@@ -9780,10 +9820,16 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
 	  parser->local_variables_forbidden_p 
 	    = saved_local_variables_forbidden_p; 
 	}
+      if (!parser->default_arg_ok_p)
+	{
+	  cp_pedwarn ("default arguments are only permitted on functions");
+	  if (flag_pedantic_errors)
+	    default_argument = NULL_TREE;
+	}
     }
   else
     default_argument = NULL_TREE;
-
+  
   /* FIXME: Issue an error message about attributes if they are
      present?  */
 
@@ -10392,6 +10438,13 @@ cp_parser_class_specifier (parser)
     {
       tree last_scope = NULL_TREE;
 
+      /* Process non FUNCTION_DECL related DEFAULT_ARGs.  */
+      for (parser->default_arg_types = nreverse (parser->default_arg_types);
+	   parser->default_arg_types;
+	   parser->default_arg_types = TREE_CHAIN (parser->default_arg_types))
+	cp_parser_late_parsing_default_args
+	  (parser, TREE_PURPOSE (parser->default_arg_types));
+      
       /* Reverse the queue, so that we process it in the order the
 	 functions were declared.  */
       parser->unparsed_functions_queue 
@@ -12591,6 +12644,21 @@ cp_parser_constructor_declarator_p (parser)
   return constructor_p;
 }
 
+/* TYPE is a FUNCTION_TYPE or METHOD_TYPE that contains a parameter
+   with an unprocessed DEFAULT_ARG.  We can only parse the DEFAULT_ARG
+   when all enclosing classes are completed.  If TYPE is the type of a
+   FUNCTION_DECL, it does not need to be marked here -- FUNCTION_DECLS
+   are dealt with anyway.  */
+
+void
+cp_parser_save_default_arg_type (parser, type)
+     cp_parser *parser;
+     tree type;
+{
+  parser->default_arg_types = tree_cons (type, NULL_TREE,
+					 parser->default_arg_types);
+}
+
 /* Parse the definition of the function given by the DECL_SPECIFIERS,
    ATTRIBUTES, and DECLARATOR.  The ACCESS_CHECKS have been deferred;
    they must be performed once we are in the scope of the function.
@@ -12902,7 +12970,6 @@ cp_parser_late_parsing_for_member (parser, member_function)
 {
   cp_lexer *saved_lexer;
   struct obstack *tokens;
-  tree parameters;
   tree saved_unparsed_functions_queue;
 
   /* If this member is a template, get the underlying
@@ -12929,51 +12996,7 @@ cp_parser_late_parsing_for_member (parser, member_function)
 
   /* If there are default arguments that have not yet been processed,
      take care of them now.  */
-  for (parameters = TYPE_ARG_TYPES (TREE_TYPE (member_function));
-       parameters;
-       parameters = TREE_CHAIN (parameters))
-    {
-      tree default_argument;
-      bool saved_local_variables_forbidden_p;
-
-      /* If there is no default argument, or the default argument has
-	 already been processed, then there is nothing for us to do.  */
-      default_argument = TREE_PURPOSE (parameters);
-      if (!default_argument 
-	  || TREE_CODE (default_argument) != DEFAULT_ARG)
-	continue;
-
-      /* Save away the current lexer.  */
-      saved_lexer = parser->lexer;
-      /* Create a new one, using the tokens we have saved.  */
-      tokens = (struct obstack *) DEFARG_POINTER (default_argument);
-      parser->lexer = cp_lexer_new_from_tokens (tokens);
-      /* We no longer need the saved tokens.  */
-      obstack_free (tokens, NULL);
-      free (tokens);
-
-      /* Set the current source position to be the location of the
-	 first token in the default argument.  */
-      cp_lexer_set_source_position_from_token 
-	(parser->lexer,
-	 cp_lexer_peek_token (parser->lexer));
-
-      /* Local variable names (and the `this' keyword) may not appear
-	 in a default argument.  */
-      saved_local_variables_forbidden_p 
-	= parser->local_variables_forbidden_p;
-      parser->local_variables_forbidden_p = true;
-      /* Parse the assignment-expression.  */
-      TREE_PURPOSE (parameters)
-	= cp_parser_assignment_expression (parser);
-
-      /* Destroy the lexer we created.  */
-      cp_lexer_delete (parser->lexer);
-      /* Restore saved state.  */
-      parser->lexer = saved_lexer;
-      parser->local_variables_forbidden_p 
-	= saved_local_variables_forbidden_p; 
-    }
+  cp_parser_late_parsing_default_args (parser, TREE_TYPE (member_function));
   
   /* If the body of the function has not yet been parsed, parse it
      now.  */
@@ -13032,6 +13055,56 @@ cp_parser_late_parsing_for_member (parser, member_function)
   /* Restore the queue.  */
   parser->unparsed_functions_queue = saved_unparsed_functions_queue;
   ggc_del_root (&saved_unparsed_functions_queue);
+}
+
+/* TYPE is a FUNCTION_TYPE or METHOD_TYPE which contains a parameter
+   with an unparsed DEFAULT_ARG.  Parse those default args now.  */
+
+static void
+cp_parser_late_parsing_default_args (parser, type)
+     cp_parser *parser;
+     tree type;
+{
+  cp_lexer *saved_lexer;
+  struct obstack *tokens;
+  bool saved_local_variables_forbidden_p;
+  tree parameters;
+  
+  for (parameters = TYPE_ARG_TYPES (type);
+       parameters;
+       parameters = TREE_CHAIN (parameters))
+    {
+      if (!TREE_PURPOSE (parameters)
+	  || TREE_CODE (TREE_PURPOSE (parameters)) != DEFAULT_ARG)
+	continue;
+  
+       /* Save away the current lexer.  */
+      saved_lexer = parser->lexer;
+       /* Create a new one, using the tokens we have saved.  */
+      tokens = (struct obstack *) DEFARG_POINTER (TREE_PURPOSE (parameters));
+      parser->lexer = cp_lexer_new_from_tokens (tokens);
+       /* We no longer need the saved tokens.  */
+      obstack_free (tokens, NULL);
+      free (tokens);
+
+       /* Set the current source position to be the location of the
+     	  first token in the default argument.  */
+      cp_lexer_set_source_position_from_token 
+	(parser->lexer, cp_lexer_peek_token (parser->lexer));
+
+       /* Local variable names (and the `this' keyword) may not appear
+     	  in a default argument.  */
+      saved_local_variables_forbidden_p = parser->local_variables_forbidden_p;
+      parser->local_variables_forbidden_p = true;
+       /* Parse the assignment-expression.  */
+      TREE_PURPOSE (parameters) = cp_parser_assignment_expression (parser);
+
+       /* Destroy the lexer we created.  */
+      cp_lexer_delete (parser->lexer);
+       /* Restore saved state.  */
+      parser->lexer = saved_lexer;
+      parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;
+    }
 }
 
 /* Parse the operand of `sizeof' (or a similar operator).  Returns

@@ -4351,9 +4351,13 @@ extern tree mangle_ref_init_variable            PARAMS ((tree));
 extern int cp_dump_tree                         PARAMS ((dump_info_p, tree));
 
 /* in parser.c */
+typedef struct cp_parser cp_parser;     /* Opaque parser type.  */
+extern cp_parser *the_parser;		/* The parser instance.  */
+
 extern int cp_parse_translation_unit            PARAMS ((void));
 extern void ggc_mark_inline_definition          PARAMS ((tree));
 extern void ggc_mark_default_arg                PARAMS ((tree));
+extern void cp_parser_save_default_arg_type 	PARAMS ((cp_parser *, tree));
 
 /* -- end of C++ */
 
