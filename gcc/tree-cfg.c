@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "timevar.h"
 #include "tree-dump.h"
+#include "toplev.h"
    
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -1003,6 +1004,7 @@ remove_bb (bb, remove_stmts)
      int remove_stmts;
 {
   block_stmt_iterator i;
+  int already_warned;
 
   dump_file = dump_begin (TDI_cfg, &dump_flags);
   if (dump_file)
@@ -1015,13 +1017,23 @@ remove_bb (bb, remove_stmts)
     }
 
   /* Remove all the instructions in the block.  */
+  already_warned = 0;
   for (i = bsi_start (bb); !bsi_end_p (i); )
     {
       tree stmt = bsi_stmt (i);
 
       set_bb_for_stmt (stmt, NULL);
       if (remove_stmts)
-	bsi_remove (&i);
+        {
+	  if (! already_warned && warn_notreached)
+	    {
+	      warning_with_file_and_line (get_filename (stmt),
+			      		  get_lineno (stmt), 
+			  	          "will never be executed");
+	      already_warned = 1;
+	    }
+	  bsi_remove (&i);
+        }
       else
         bsi_next (&i);
     }

@@ -1,5 +1,8 @@
 2003-03-12  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c: Include toplev.h.
+	(remove_bb): Warn about unreachable code.
+
 	* cfgrtl.c (verify_flow_info): Ignore EDGE_EXECUTABLE, it's for
 	the CCP optimizer only.
 
