@@ -113,7 +113,10 @@ private transient ActionListener action_listeners;
      */
     public String getAccessibleActionDescription(int i)
     {
-      // JDK 1.4.2 returns this.
+      // JDK 1.4.2 returns the string "click" for action 0.  However, the API
+      // docs don't say what the string to be returned is, beyond being a
+      // description of the action.  So we return the same thing for
+      // compatibility with 1.4.2.
       if (i == 0)
         return "click";
       return null;
