@@ -171,16 +171,9 @@ namespace std
 
       // Check for out_of_range and length_error exceptions.
       _Rep* __r = _Rep::_S_create(__n, __a);
-      try 
-	{ 
-	  if (__n) 
-	    traits_type::assign(__r->_M_refdata(), __n, __c); 
-	}
-      catch(...) 
-	{ 
-	  __r->_M_destroy(__a); 
-	  __throw_exception_again;
-	}
+      if (__n) 
+	traits_type::assign(__r->_M_refdata(), __n, __c);
+
       __r->_M_length = __n;
       __r->_M_refdata()[__n] = _Rep::_S_terminal;  // grrr
       return __r->_M_refdata();
@@ -396,9 +389,8 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     _M_mutate(size_type __pos, size_type __len1, size_type __len2)
     {
-      size_type       __old_size = this->size();
+      const size_type __old_size = this->size();
       const size_type __new_size = __old_size + __len2 - __len1;
-      const _CharT*        __src = _M_data()  + __pos + __len1;
       const size_type __how_much = __old_size - __pos - __len1;
       
       if (_M_rep()->_M_is_shared() || __new_size > capacity())
@@ -420,26 +412,21 @@ namespace std
 				  __new_size : 2*capacity(), __a);
 	  else
 	    __r = _Rep::_S_create(__new_size, __a);
-	  try 
-	    {
-	      if (__pos)
-		traits_type::copy(__r->_M_refdata(), _M_data(), __pos);
-	      if (__how_much)
-		traits_type::copy(__r->_M_refdata() + __pos + __len2, 
-				  __src, __how_much);
-	    }
-	  catch(...) 
-	    { 
-	      __r->_M_dispose(get_allocator()); 
-	      __throw_exception_again;
-	    }
+
+	  if (__pos)
+	    traits_type::copy(__r->_M_refdata(), _M_data(), __pos);
+	  if (__how_much)
+	    traits_type::copy(__r->_M_refdata() + __pos + __len2, 
+			      _M_data() + __pos + __len1, __how_much);
+
 	  _M_rep()->_M_dispose(__a);
 	  _M_data(__r->_M_refdata());
-      }
+	}
       else if (__how_much && __len1 != __len2)
 	{
 	  // Work in-place
-	  traits_type::move(_M_data() + __pos + __len2, __src, __how_much);
+	  traits_type::move(_M_data() + __pos + __len2,
+			    _M_data() + __pos + __len1, __how_much);
 	}
       _M_rep()->_M_set_sharable();
       _M_rep()->_M_length = __new_size;
@@ -583,15 +570,8 @@ namespace std
         __r = _Rep::_S_create(__requested_cap, __alloc);
       
       if (_M_length)
-	{
-	  try 
-	    { traits_type::copy(__r->_M_refdata(), _M_refdata(), _M_length); }
-	  catch(...)  
-	    { 
-	      __r->_M_destroy(__alloc); 
-	      __throw_exception_again;
-	    }
-	}
+	traits_type::copy(__r->_M_refdata(), _M_refdata(), _M_length);
+      
       __r->_M_length = _M_length;
       __r->_M_refdata()[_M_length] = _Rep::_S_terminal;
       return __r->_M_refdata();

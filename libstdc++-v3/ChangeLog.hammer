@@ -1,3 +1,16 @@
+2004-07-14  Paolo Carlini  <pcarlini@suse.de>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* include/bits/basic_string.tcc (_M_mutate): Don't compute
+	__src unnecessarily.
+
+2004-07-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_S_construct(size_type,
+	_CharT, const _Alloc&)): Remove redundant try/catch.
+	(_M_mutate(size_type, size_type, size_type)): Ditto.
+	(_M_clone(const _Alloc&, size_type)): Ditto.
+
 2004-07-13  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float,
