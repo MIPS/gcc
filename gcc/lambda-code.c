@@ -1044,25 +1044,31 @@ gcc_tree_to_linear_expression (int depth, tree expr,
 static bool
 invariant_in_loop (struct loop *loop, tree op)
 {
+  if (is_gimple_min_invariant (op))
+    return true;
   if (loop->depth == 0)
     return true;
   if (TREE_CODE (op) == SSA_NAME)
     {
+      tree def;
+      def = SSA_NAME_DEF_STMT (op);
       if (TREE_CODE (SSA_NAME_VAR (op)) == PARM_DECL
-	  && IS_EMPTY_STMT (SSA_NAME_DEF_STMT (op)))
+	  && IS_EMPTY_STMT (def))
 	return true;
-      if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (op)))
+      if (IS_EMPTY_STMT (def))
 	return false;
-      if (loop->outer)
-	if (!invariant_in_loop (loop->outer, op))
+      if (loop->outer 
+	  && !invariant_in_loop (loop->outer, op))
 	  return false;
-      return !flow_bb_inside_loop_p (loop, 
-				     bb_for_stmt (SSA_NAME_DEF_STMT (op)));
+      return !flow_bb_inside_loop_p (loop, bb_for_stmt (def));
     }
   return false;
 }
 
-    
+static bool perfect_nestify (struct loops *, 
+			     struct loop *, varray_type, varray_type, 
+			     varray_type, varray_type);
+
 
 /* Generate a lambda loop from a gcc loop.
    TODO: Get rid of most of this code in favor of
@@ -1073,7 +1079,10 @@ static lambda_loop
 gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 			 varray_type *invariants,
 			 tree *ourinductionvar,
-			 varray_type outerinductionvars)
+			 varray_type outerinductionvars,
+			 varray_type *lboundvars,
+			 varray_type *uboundvars,
+			 varray_type *steps)
 {
   tree phi;
   tree exit_cond;
@@ -1084,7 +1093,7 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   tree test;
   int stepint;
   int extra = 0;
-  tree uboundvar;
+  tree lboundvar, uboundvar;
 #if 0
   tree ev;
   tree nb_iter;
@@ -1094,13 +1103,9 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   
   use_optype uses;
   
-  
-  /* Find out induction var and set the pointer so that the caller can
-     append it to the outerinductionvars array later.  */
+  /* Find out induction var and exit condition.  */
   
   inductionvar = find_induction_var_from_exit_cond (loop);
-  *ourinductionvar = inductionvar;
-  
   exit_cond = get_loop_exit_condition (loop);
 
   if (inductionvar == NULL || exit_cond == NULL)
@@ -1165,7 +1170,7 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 	}
       
     }
-  
+  *ourinductionvar = PHI_RESULT (phi);
   access_fn = instantiate_parameters
     (loop,
      analyze_scalar_evolution (loop, PHI_RESULT (phi)));
@@ -1219,14 +1224,20 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
   
 
   if (flow_bb_inside_loop_p (loop, PHI_ARG_EDGE (phi, 0)->src))
-
-    lbound = gcc_tree_to_linear_expression (depth, PHI_ARG_DEF (phi, 1),
-					    outerinductionvars, *invariants,
-					    0);
+    {
+      lboundvar = PHI_ARG_DEF (phi, 1);    
+      lbound = gcc_tree_to_linear_expression (depth, lboundvar,
+					      outerinductionvars, *invariants,
+					      0);
+    }
   else
-    lbound = gcc_tree_to_linear_expression (depth, PHI_ARG_DEF (phi, 0),
-					    outerinductionvars, *invariants,
-					    0);
+    {
+      lboundvar = PHI_ARG_DEF (phi, 0);
+      lbound = gcc_tree_to_linear_expression (depth, lboundvar,
+					      outerinductionvars, *invariants,
+					      0);
+    }
+  
   if (!lbound)
     {
       
@@ -1269,6 +1280,12 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
 					  outerinductionvars,
 					  *invariants,
 					  extra);
+  VARRAY_PUSH_TREE (*uboundvars, build (PLUS_EXPR, integer_type_node,
+					uboundvar,
+					build_int_cst (integer_type_node, extra)));
+  VARRAY_PUSH_TREE (*lboundvars, lboundvar);
+  VARRAY_PUSH_INT (*steps, stepint);
+  
   if (!ubound)
     {
       
@@ -1277,7 +1294,6 @@ gcc_loop_to_lambda_loop (struct loop *loop, int depth,
       return NULL;
     }
   
-
   lloop = lambda_loop_new ();
   LL_STEP (lloop) = stepint;
   LL_LOWER_BOUND (lloop) = lbound;
@@ -1326,13 +1342,14 @@ find_induction_var_from_exit_cond (struct loop *loop)
  
   return ivarop;
 }
-
 /* Generate a lambda loopnest from a gcc loopnest. */
 
 lambda_loopnest 
-gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
+gcc_loopnest_to_lambda_loopnest (struct loops *currloops,
+				 struct loop *loop_nest,
 				 varray_type *inductionvars,
-				 varray_type *invariants)
+				 varray_type *invariants,
+				 bool need_perfect_nest)
 {
   lambda_loopnest ret;
   struct loop *temp;
@@ -1341,7 +1358,8 @@ gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
   varray_type loops;
   lambda_loop newloop;
   tree inductionvar = NULL;
-
+  varray_type uboundvars, lboundvars, steps;
+  
   temp = loop_nest;
   while (temp)
     {
@@ -1351,16 +1369,31 @@ gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
   VARRAY_GENERIC_PTR_INIT (loops, 1, "Loop nest");
   VARRAY_GENERIC_PTR_INIT (*inductionvars, 1, "induction vars");
   VARRAY_GENERIC_PTR_INIT (*invariants, 1, "Invariants");
+  VARRAY_GENERIC_PTR_INIT (lboundvars, 1, "Lower bound");
+  VARRAY_GENERIC_PTR_INIT (uboundvars, 1, "Upper bound");
+  VARRAY_INT_INIT (steps, 1, "Steps");
+  
   temp = loop_nest;
   while (temp)
     {
       newloop = gcc_loop_to_lambda_loop (temp, depth, invariants,
-					 &inductionvar, *inductionvars);
+					 &inductionvar, *inductionvars, 
+					 &lboundvars, &uboundvars,
+					 &steps);
       if (!newloop)
 	return NULL;
+      
       VARRAY_PUSH_GENERIC_PTR (*inductionvars, inductionvar);
       VARRAY_PUSH_GENERIC_PTR (loops, newloop);
       temp = temp->inner;
+    }
+  if (need_perfect_nest 
+      && !perfect_nestify (currloops, loop_nest, 
+			   lboundvars, uboundvars, steps, *inductionvars))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Not a perfect nest and couldn't convert to one.\n");    
+      return NULL;
     }
   ret = lambda_loopnest_new (depth, 2 * depth);
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loops); i++)
@@ -1384,7 +1417,7 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
   
   /* Create a statement list and a linear expression temporary.  */
   stmts = alloc_stmt_list ();
-  resvar = create_tmp_var (integer_type_node, "lletmp");
+  resvar = create_tmp_var (integer_type_node, "lbvtmp");
   add_referenced_tmp_var (resvar);
 
   /* Start at 0.  */
@@ -1642,9 +1675,9 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
   struct loop *temp;
   size_t i = 0;
   size_t depth = 0;
-  varray_type new_ivs;
+  varray_type new_ivs, new_ivsinced;
+  varray_type lowerbounds;
   block_stmt_iterator bsi;
-  basic_block *bbs;
   
   if (dump_file)
     {
@@ -1653,7 +1686,9 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       print_lambda_trans_matrix (dump_file, transform);
     }
   temp = old_loopnest;
-  VARRAY_GENERIC_PTR_INIT (new_ivs, 1, "New induction variables");
+  VARRAY_TREE_INIT (new_ivs, 1, "New induction variables");
+  VARRAY_TREE_INIT (lowerbounds, 1, "lowerbounds");
+  VARRAY_TREE_INIT (new_ivsinced, 1, "New incremented induction variables");
   while (temp)
     {
       temp = temp->inner;
@@ -1669,13 +1704,14 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       enum tree_code testtype;
       tree newupperbound, newlowerbound;
       lambda_linear_expression offset;
-      /* First, build the new induction variable temporary  */
-      
-      ivvar = create_tmp_var (integer_type_node, "lnivtmp");
+      char *name = alloca (512);
+      sprintf (name, "loop%dnewiv", temp->depth);
+      /* First, build the new induction variable temporary  */      
+      ivvar = create_tmp_var (integer_type_node, name);
       add_referenced_tmp_var (ivvar);
+  
+      VARRAY_PUSH_TREE (new_ivs, ivvar);
       
-      VARRAY_PUSH_GENERIC_PTR (new_ivs, ivvar);
-    
       newloop = LN_LOOPS (new_loopnest)[i];
       
       /* Linear offset is a bit tricky to handle.  Punt on the really
@@ -1693,6 +1729,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 					     new_ivs,
 					     invariants,
 					     MAX_EXPR, &stmts);
+      VARRAY_PUSH_TREE (lowerbounds, newlowerbound);
       bsi_insert_on_edge_immediate (loop_preheader_edge (temp), stmts);
 
       /* Build the new upper bound and insert its statements in the
@@ -1724,64 +1761,53 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 					 boolean_type_node, 
 					 ivvarinced, newupperbound);
       modify_stmt (exitcond);
-      VARRAY_GENERIC_PTR (new_ivs, i) = ivvar;
-
+      VARRAY_TREE (new_ivs, i) = ivvar;
+      VARRAY_PUSH_TREE (new_ivsinced, ivvarinced);
       i++;      
       temp = temp->inner;
     }
+  temp = old_loopnest;
 
-  /* Go through the loop and make iv replacements.  */
-  bbs = get_loop_body (old_loopnest);
-  for (i = 0; i < old_loopnest->num_nodes; i++)
-    for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-	tree stmt = bsi_stmt (bsi);
-	use_optype uses;
-	size_t j;
-	
-	get_stmt_operands (stmt);
-	uses = STMT_USE_OPS (stmt);
-	for (j = 0; j < NUM_USES (uses); j++)
-	  {
-	    size_t k;
-	    use_operand_p use = USE_OP_PTR (uses, j);
-	    for (k = 0; k < VARRAY_ACTIVE_SIZE (old_ivs); k++)
-	      {
-		tree oldiv = VARRAY_TREE (old_ivs, k);
-		if (USE_FROM_PTR (use) == oldiv)
-		  {
-		    tree newiv, stmts;
-		    lambda_body_vector lbv;
-
-		    /* Compute the new expression for the induction
-		       variable.  */
-		    depth = VARRAY_ACTIVE_SIZE (new_ivs);
-		    lbv = lambda_body_vector_new (depth);
-		    LBV_COEFFICIENTS (lbv)[k] = 1;
-		    lbv = lambda_body_vector_compute_new (transform, lbv);
-		    newiv = lbv_to_gcc_expression (lbv, new_ivs, &stmts);
-
-		    /* Insert the statements to build that
-		       expression.  */
-		    bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-		    
-		    /* Replace the use with the result of that
-		       expression.  */
-		    if (dump_file)
-		      {
-			fprintf (dump_file, 
-				 "Replacing induction variable use of ");
-			print_generic_stmt (dump_file, USE_FROM_PTR (use), 0);
-			fprintf (dump_file, " with ");
-			print_generic_stmt (dump_file, newiv, 0);
-			fprintf (dump_file, "\n");
-		      }
-		    SET_USE (use, newiv);
-		  }
-	      }
-	    
-	  }
-      }
+  /* Rewrite uses of the old ivs so that they are now specified in terms of
+     the new ivs.  */
+  temp = old_loopnest;
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (old_ivs); i++)
+    {
+      int j;
+      tree oldiv = VARRAY_TREE (old_ivs, i);
+      dataflow_t imm = get_immediate_uses (SSA_NAME_DEF_STMT (oldiv));
+      for (j = 0; j < num_immediate_uses (imm); j++)
+	{
+	  size_t k;
+	  tree stmt = immediate_use (imm, j);
+	  use_optype uses;
+	  get_stmt_operands (stmt);
+	  uses = STMT_USE_OPS (stmt);
+	  for (k = 0; k < NUM_USES (uses); k++)
+	    {
+	      use_operand_p use = USE_OP_PTR (uses, k);
+	      if (USE_FROM_PTR (use) == oldiv)
+		{
+		  tree newiv, stmts;
+		  lambda_body_vector lbv;
+		  /* Compute the new expression for the induction
+		     variable.  */
+		  depth = VARRAY_ACTIVE_SIZE (new_ivs);
+		  lbv = lambda_body_vector_new (depth);
+		  LBV_COEFFICIENTS (lbv)[i] = 1;
+		  lbv = lambda_body_vector_compute_new (transform, lbv);
+		  newiv = lbv_to_gcc_expression (lbv, new_ivs, &stmts);
+		  bsi = stmt_bsi (stmt);
+		  /* Insert the statements to build that
+		     expression.  */
+		  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
+		  SET_USE (use, newiv);
+		  modify_stmt (stmt);
+		  
+		}
+	    }
+	}
+    }
 }
 
 /* Returns true when the vector V is lexicographically positive, in
@@ -1801,6 +1827,412 @@ lambda_vector_lexico_pos (lambda_vector v,
       if (v[i] > 0)
 	return true;
     }
+  return true;
+}
+
+
+/* Return TRUE if this is not interesting statement from the perspective of
+   determining if we have a perfect loop nest.  */
+
+static bool
+not_interesting_stmt (tree stmt)
+{
+  /* Note that COND_EXPR's aren't interesting because if they were exiting the
+     loop, we would have already failed the number of exits tests.  */
+  if (TREE_CODE (stmt) == LABEL_EXPR
+      || TREE_CODE (stmt) == GOTO_EXPR
+      || TREE_CODE (stmt) == COND_EXPR)
+    return true;
+  return false;
+}
+
+/* Return TRUE if PHI uses DEF for it's in-the-loop edge for LOOP.  */
+
+static bool
+phi_loop_edge_uses_def (struct loop *loop, tree phi, tree def)
+{
+  int i;
+  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+    if (flow_bb_inside_loop_p (loop, PHI_ARG_EDGE (phi, i)->src))
+      if (PHI_ARG_DEF (phi, i) == def)
+	return true;
+  return false;
+}
+
+/* Return TRUE if STMT is a use of PHI_RESULT.  */
+
+static bool
+stmt_uses_phi_result (tree stmt, tree phi_result)
+{
+  use_optype uses = STMT_USE_OPS (stmt);
+  
+  /* This is conservatively true, because we only want SIMPLE bumpers
+     of the form x +- constant for our pass. */
+  if (NUM_USES (uses) != 1)
+    return false;
+  if (USE_OP (uses, 0) == phi_result)
+    return true;
+  
+  return false;
+}
+
+/* STMT is a bumper stmt for LOOP if the version it defines is used in the
+   in-loop-edge in a phi node, and the operand it uses is the result of that
+   phi node. 
+   I.E. i_29 = i_3 + 1
+        i_3 = PHI (0, i_29);  */
+
+static bool
+stmt_is_bumper_for_loop (struct loop *loop, tree stmt)
+{
+  tree use;
+  tree def;
+  def_optype defs = STMT_DEF_OPS (stmt);
+  dataflow_t imm;
+  int i;
+  
+  if (NUM_DEFS (defs) != 1)
+    return false;
+  def = DEF_OP (defs, 0);
+  imm = get_immediate_uses (stmt);
+  for (i = 0; i < num_immediate_uses (imm); i++)
+    {
+      use = immediate_use (imm, i);
+      if (TREE_CODE (use) == PHI_NODE)
+	{
+	  if (phi_loop_edge_uses_def (loop, use, def))
+	    if (stmt_uses_phi_result (stmt, PHI_RESULT (use)))
+	      return true;
+	} 
+    }
+  return false;
+}
+/* Return true if LOOP is a perfect loop nest.
+   Perfect loop nests are those loop nests where all code occurs in the
+   innermost loop body.
+   If S is a program statement, then
+
+   ie 
+   DO I = 1, 20
+       S1
+       DO J = 1, 20
+       ...
+       END DO
+   END DO
+   is not a perfect loop nest because of S1.
+   
+   DO I = 1, 20
+      DO J = 1, 20
+        S1
+	...
+      END DO
+   END DO 
+   is a perfect loop nest.  
+
+   Since we don't have high level loops anymore, we basically have to walk our
+   statements and ignore those that are there because the loop needs them (IE
+   the induction variable increment, and jump back to the top of the loop).  */
+
+bool
+perfect_nest_p (struct loop *loop)
+{
+  basic_block *bbs;
+  size_t i;
+  tree exit_cond;
+
+  if (!loop->inner)
+    return true;
+  bbs = get_loop_body (loop);
+  exit_cond = get_loop_exit_condition (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      if (bbs[i]->loop_father == loop)
+	{
+	  block_stmt_iterator bsi;
+	  for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi); bsi_next (&bsi))
+	    {
+	      tree stmt = bsi_stmt (bsi);
+	      if (stmt == exit_cond
+		  || not_interesting_stmt (stmt)
+		  || stmt_is_bumper_for_loop (loop, stmt))
+		continue;
+	      free (bbs);
+	      return false;
+	    }
+	}
+    }
+  free (bbs);
+  /* See if the inner loops are perfectly nested as well.  */
+  if (loop->inner)    
+    return perfect_nest_p (loop->inner);
+  return true;
+}
+
+/* Add phi args using PENDINT_STMT list.  */
+
+static void
+nestify_update_pending_stmts (edge e)
+{
+  basic_block dest;
+  tree phi, arg, def;
+
+  if (!PENDING_STMT (e))
+    return;
+
+  dest = e->dest;
+
+  for (phi = phi_nodes (dest), arg = PENDING_STMT (e);
+       phi;
+       phi = TREE_CHAIN (phi), arg = TREE_CHAIN (arg))
+    {
+      def = TREE_VALUE (arg);
+      add_phi_arg (&phi, def, e);
+    }
+
+  PENDING_STMT (e) = NULL;
+}
+
+/* Replace the USES of tree X in STMT with tree Y */
+
+static void
+replace_uses_of_x_with_y (tree stmt, tree x, tree y)
+{
+  use_optype uses = STMT_USE_OPS (stmt);
+  size_t i;
+  for (i = 0; i < NUM_USES (uses); i++)
+    {
+      if (USE_OP (uses, i) == x)
+	SET_USE_OP (uses, i, y);
+    }
+}
+
+/* Return TRUE if STMT uses tree OP in it's uses. */
+
+static bool
+stmt_uses_op (tree stmt, tree op)
+{
+  use_optype uses = STMT_USE_OPS (stmt);
+  size_t i;
+  for (i = 0; i < NUM_USES (uses); i++)
+    {
+      if (USE_OP (uses, i) == op)
+	return true;
+    }
+  return false;
+}
+
+/* Transform the loop nest into a perfect nest, if possible.
+   LOOPS is the current struct loops *
+   LOOP is the loop nest to transform into a perfect nest
+   LBOUNDS are the lower bounds for the loops to transform
+   UBOUNDS are the upper bounds for the loops to transform
+   STEPS is the STEPS for the loops to transform.
+   OLDIVS is the induction variables for the loops to transform.
+   
+   Basically, for the case of
+
+   FOR (i = 0; i < 50; i++)
+    {
+     FOR (j =0; j < 50; j++)
+     {
+        <whatever>
+     }
+     <some code>
+    }
+
+   This function will transform it into a perfect loop nest by splitting the
+   outer loop into two loops, like so:
+
+   FOR (i = 0; i < 50; i++)
+   {
+     FOR (j = 0; j < 50; j++)
+     {
+         <whatever>
+     }
+   }
+   
+   FOR (i = 0; i < 50; i ++)
+   {
+    <some code>
+   }
+
+   Return FALSE if we can't make this loop into a perfect nest.  */
+static bool
+perfect_nestify (struct loops *loops,
+		 struct loop *loop,
+		 varray_type lbounds,
+		 varray_type ubounds,
+		 varray_type steps,
+		 varray_type oldivs)
+{
+  basic_block *bbs;
+  tree exit_condition;
+  tree then_label, else_label, cond_stmt;
+  basic_block preheaderbb, headerbb, bodybb, latchbb, olddest;
+  size_t i;
+  block_stmt_iterator bsi;
+  edge e;
+  struct loop *newloop;
+  tree phi;
+  tree uboundvar;
+  tree stmt;
+  tree ivvar, ivvarinced;
+  varray_type phis;
+  /* Can't handle triply nested+ loops yet.  */
+  if (!loop->inner || loop->inner->inner)
+    return false;
+
+  VARRAY_TREE_INIT (phis, 1, "Phis");
+  
+  /* Create the new loop */
+
+  olddest = loop->single_exit->dest;
+  preheaderbb =  loop_split_edge_with (loop->single_exit, NULL);
+  headerbb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
+  
+  /* This is done because otherwise, it will release the ssa_name too early
+     when the edge gets redirected and it will get reused, causing the use of
+     the phi node to get rewritten.  */
+
+  for (phi = phi_nodes (olddest); phi; phi = PHI_CHAIN (phi))
+    {
+      /* These should be simple exit phi copies.  */
+      if (PHI_NUM_ARGS (phi) != 1)
+	return false;
+      VARRAY_PUSH_TREE (phis, PHI_RESULT (phi));
+      VARRAY_PUSH_TREE (phis, PHI_ARG_DEF (phi, 0));
+      mark_for_rewrite (PHI_RESULT (phi));
+    }
+  e = redirect_edge_and_branch (preheaderbb->succ, headerbb);
+  unmark_all_for_rewrite ();
+  bb_ann (olddest)->phi_nodes = NULL;
+  /* Add back the old exit phis.  */
+  while (VARRAY_ACTIVE_SIZE (phis) != 0)
+    {
+      tree def;
+      tree phiname;
+      def = VARRAY_TOP_TREE (phis);
+      VARRAY_POP (phis);
+      phiname = VARRAY_TOP_TREE (phis);
+      VARRAY_POP (phis);
+      
+      phi = create_phi_node (phiname, preheaderbb);
+      add_phi_arg (&phi, def, preheaderbb->pred);
+    } 
+      
+  nestify_update_pending_stmts (e);
+  bodybb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
+  latchbb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
+  make_edge (headerbb, bodybb, EDGE_FALLTHRU); 
+  then_label = build1 (GOTO_EXPR, void_type_node, tree_block_label (latchbb));
+  else_label = build1 (GOTO_EXPR, void_type_node, tree_block_label (olddest));
+  cond_stmt = build (COND_EXPR, void_type_node,
+		     build (NE_EXPR, boolean_type_node, 
+			    integer_one_node, 
+			    integer_zero_node), 
+		     then_label, else_label);
+  bsi = bsi_start (bodybb);
+  bsi_insert_after (&bsi, cond_stmt, BSI_NEW_STMT);
+  e = make_edge (bodybb, olddest, EDGE_FALSE_VALUE);
+  make_edge (bodybb, latchbb, EDGE_TRUE_VALUE);
+  make_edge (latchbb, headerbb, EDGE_FALLTHRU);
+
+  /* Update the loop structures.  */
+  newloop = duplicate_loop (loops, loop, olddest->loop_father);  
+  newloop->header = headerbb;
+  newloop->latch = latchbb;
+  newloop->single_exit = e;
+  add_bb_to_loop (latchbb, newloop);
+  add_bb_to_loop (bodybb, newloop);
+  add_bb_to_loop (headerbb, newloop);
+  add_bb_to_loop (preheaderbb, olddest->loop_father);
+  flow_loop_scan (newloop, LOOP_ALL);
+
+  /* Create the new iv.  */
+  ivvar = create_tmp_var (integer_type_node, "perfectiv");
+  add_referenced_tmp_var (ivvar);
+  bsi = bsi_last (newloop->latch->pred->src);
+  create_iv (VARRAY_TREE (lbounds, 0), 
+	     build_int_cst (integer_type_node, 
+			    VARRAY_INT (steps, 0)),
+	     ivvar, newloop, &bsi, false, &ivvar, &ivvarinced);	     
+
+  /* Create the new upper bound.  This may be not just a variable, so we copy
+     it to one just in case.  */
+
+  exit_condition = get_loop_exit_condition (newloop);
+  uboundvar = create_tmp_var (integer_type_node, "uboundvar");
+  add_referenced_tmp_var (uboundvar);
+  stmt = build (MODIFY_EXPR, void_type_node, uboundvar, 
+		VARRAY_TREE (ubounds, 0));
+  uboundvar = make_ssa_name (uboundvar, stmt);
+  TREE_OPERAND (stmt, 0) = uboundvar;
+  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
+  COND_EXPR_COND (exit_condition) = build (LE_EXPR, 
+					   boolean_type_node,
+					   ivvarinced, 
+					   uboundvar);
+
+  
+  /* Finally, move the statements from the old loop to the new.
+     XXX:  Note that we don't handle moving statements that occur before the
+     old inner loop right now.  That is a TODO.  */
+  bbs = get_loop_body (loop);
+  exit_condition = get_loop_exit_condition (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      if (bbs[i]->loop_father == loop)
+	{
+	  for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi); bsi_next (&bsi))
+	    { 
+	      size_t j;
+	      tree stmt = bsi_stmt (bsi);
+	      if (stmt == exit_condition
+		  || not_interesting_stmt (stmt)
+		  || stmt_is_bumper_for_loop (loop, stmt))
+		continue;
+	      /* If the statement uses inner loop ivs, we == screwed.  */
+	      for (j = 1; j < VARRAY_ACTIVE_SIZE (oldivs); j++)
+		if (stmt_uses_op (stmt, VARRAY_TREE (oldivs, j)))
+		  return false;
+	      /* If the bb of a statement we care about isn't dominated by 
+		 the header of the inner loop, then we are also screwed. */
+	      if (!dominated_by_p (CDI_DOMINATORS,
+				   bb_for_stmt (stmt), 
+				   loop->inner->header))
+		return false;
+	    }
+	}
+    }	  
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      block_stmt_iterator tobsi = bsi_last (bodybb);
+      if (bbs[i]->loop_father == loop)
+	{
+	  /* Note that the bsi only needs to be explicitly incremented
+	     when we don't move something, since it is automatically
+	     incremented when we do.  */
+	  for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi);)
+	    { 
+	      tree stmt = bsi_stmt (bsi);
+	      if (stmt == exit_condition
+		  || not_interesting_stmt (stmt)
+		  || stmt_is_bumper_for_loop (loop, stmt))
+		{
+		  bsi_next (&bsi);
+		  continue;
+		}
+	      replace_uses_of_x_with_y (stmt, 
+					VARRAY_TREE (oldivs, 0),
+					ivvar);
+	      bsi_move_before (&bsi, &tobsi);
+	    }
+	}
+    }
+  free (bbs);
+  free_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
+  flow_loops_find (loops, LOOP_ALL);
   return true;
 }
 
@@ -1841,7 +2273,6 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
     return false;
 
-
   distres = lambda_vector_new (nb_loops);
 
   /* For each distance vector in the dependence graph.  */
@@ -1869,6 +2300,5 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
       if (!lambda_vector_lexico_pos (distres, nb_loops))
 	return false;
     }
-
   return true;
 }

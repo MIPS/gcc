@@ -223,7 +223,6 @@ try_interchange_loops (lambda_trans_matrix trans,
 	    || access_strides_i < access_strides_j)
 	  {
 	    lambda_matrix_row_exchange (LTM_MATRIX (trans), loop_i, loop_j);
-	
 	    /* Validate the resulting matrix.  When the transformation
 	       is not valid, reverse to the previous transformation.  */
 	    if (!lambda_transform_legal_p (trans, depth, dependence_relations))
@@ -234,16 +233,18 @@ try_interchange_loops (lambda_trans_matrix trans,
   return trans;
 }
 
+  
 /* Perform a set of linear transforms on LOOPS.  */
 
 void
 linear_transform_loops (struct loops *loops)
 {
   unsigned int i;
-
+  compute_immediate_uses (TDFA_USE_OPS, NULL);
   for (i = 1; i < loops->num; i++)
     {
       unsigned int depth = 0;
+      bool need_perfect_nest = false;
       varray_type datarefs;
       varray_type dependence_relations;
       struct loop *loop_nest = loops->parray[i];
@@ -253,6 +254,9 @@ linear_transform_loops (struct loops *loops)
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
       bool problem = false;
+      flow_loop_scan (loop_nest, LOOP_ALL);
+      if (dump_file)
+	flow_loop_dump (loop_nest, dump_file, NULL, 0);
       /* If it's not a loop nest, we don't want it.
          We also don't handle sibling loops properly, 
          which are loops of the following form:
@@ -269,12 +273,14 @@ linear_transform_loops (struct loops *loops)
            } */
       if (!loop_nest->inner)
 	continue;
-      for (temp = loop_nest; temp; temp = temp->inner)
+      depth = 1;
+      for (temp = loop_nest->inner; temp; temp = temp->inner)
 	{
 	  flow_loop_scan (temp, LOOP_ALL);
+	  if (dump_file)
+	    flow_loop_dump (temp, dump_file, NULL, 0);
 	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if ((temp != loop_nest && temp->next)
-	      || temp->num_exits != 1)
+	  if (temp->next || temp->num_exits != 1)
 	    {
 	      problem = true;
 	      break;
@@ -309,6 +315,13 @@ linear_transform_loops (struct loops *loops)
       LTM_MATRIX (trans)[1][0] = 1;
       LTM_MATRIX (trans)[1][1] = 0;
 #endif
+      if (lambda_trans_matrix_id_p (trans))
+	{
+	  if (dump_file)
+	   fprintf (dump_file, "Won't transform loop. Optimal transform is the identity transform\n");
+	  continue;
+	}
+
       /* Check whether the transformation is legal.  */
       if (!lambda_transform_legal_p (trans, depth, dependence_relations))
 	{
@@ -316,7 +329,13 @@ linear_transform_loops (struct loops *loops)
 	    fprintf (dump_file, "Can't transform loop, transform is illegal:\n");
 	  continue;
 	}
-      before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs, &invariants);
+      
+      if (!perfect_nest_p (loop_nest))
+	need_perfect_nest = true;
+      before = gcc_loopnest_to_lambda_loopnest (loops, 
+						loop_nest, &oldivs, 
+						&invariants,
+						need_perfect_nest);
       if (!before)
 	continue;
             
@@ -338,5 +357,5 @@ linear_transform_loops (struct loops *loops)
       varray_clear (invariants);
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
-    }
+    }  
 }

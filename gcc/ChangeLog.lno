@@ -1,3 +1,31 @@
+2004-09-13  Daniel Berlin  <dberlin@dberlin.org>
+
+	* lambda-code.c (invariant_in_loop): is_gimple_min_invariant is
+	loop invariant as well.
+	(perfect_nestify): new function.
+	(gcc_loop_to_lambda_loop): New parameters to track lower bounds,
+	upper bounds, and steps. 
+	Set outerinductionvar properly.
+	(gcc_loopnest_to_lambda_loopnest): Add loops and need_perfect
+	parameters.
+	Return NULL if we need a perfect loop and can't make one.
+	(lambda_loopnest_to_gcc_loopnest): Correct algorithm.
+	(not_interesting_stmt): New function.
+	(phi_loop_edge_uses_def): Ditto.
+	(stmt_uses_phi_result): Ditto.
+	(stmt_is_bumper_for_loop): Ditto.
+	(perfect_nest_p): Ditto.
+	(nestify_update_pending_stmts): Ditto.
+	(replace_uses_of_x_with_y): Ditto.
+	(stmt_uses_op): Ditto.
+	(perfect_nestify): Ditto.
+	* lambda-mat.c (lambda_matrix_id_p): New function.
+	* lambda-trans.c (lambda_trans_matrix_id_p): Ditto.
+	* lambda.h: Update prototypes.
+	* tree-loop-linear (linear_transform_loop): Use new
+	perfect_nest_p. Detect and ignore identity transform.
+	* tree-ssa-loop.c (pass_linear_transform): Use TODO_write_loop_closed.
+
 2004-09-13  Ira Rosen <irar@il.ibm.com>
 
         * tree_chrec.c (chrec_component_in_loop_num): Fix for initial

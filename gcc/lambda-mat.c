@@ -69,6 +69,29 @@ lambda_matrix_id (lambda_matrix mat, int size)
       mat[i][j] = (i == j) ? 1 : 0;
 }
 
+/* Return true if MAT is the identity matrix of SIZE */
+
+bool
+lambda_matrix_id_p (lambda_matrix mat, int size)
+{
+  int i, j;
+  for (i = 0; i < size; i++)
+    for (j = 0; j < size; j++)
+      {
+	if (i == j)
+	  {
+	    if (mat[i][j] != 1)
+	      return false;
+	  }
+	else
+	  {
+	    if (mat[i][j] != 0)
+	      return false;
+	  }
+      }
+  abort ();
+}
+
 /* Negate the elements of the M x N matrix MAT1 and store it in MAT2.  */
 
 void
@@ -308,6 +331,8 @@ lambda_matrix_inverse (lambda_matrix mat, lambda_matrix inv, int n)
 	  inv[0][1] *= -1;
 	  inv[1][1] *= -1;
 	}
+      if (det == 0)
+	abort ();
       return det;
     }
   else
