@@ -1,5 +1,8 @@
 2003-11-10  Andreas Jaeger  <aj@suse.de>
 
+	* ada/7sosprim.adb: tv_usec of struct_timeval and time_t are
+	long integer.
+
 	Backport from mainline:
 	2003-06-23  Jakub Jelinek  <jakub@redhat.com>
 
