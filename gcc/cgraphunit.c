@@ -1752,8 +1752,6 @@ cgraph_decide_inlining_of_small_functions (void)
 
   for (node = cgraph_nodes; node; node = node->next)
     {
-      if (node->analyzed && !DECL_STRUCT_FUNCTION (node->decl))
-	abort ();
       if (!node->local.inlinable || !node->callers
 	  || node->local.disregard_inline_limits)
 	continue;
