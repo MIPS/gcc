@@ -71,7 +71,8 @@ cxx_abi::build_method_call (tree_builtins *builtins,
       func = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (meth_tree)),
 		     func);
     }
-  else if (is_super || meth->final_p () || meth->constructor_p ())
+  else if (is_super || meth->final_p () || meth->constructor_p ()
+	   || (meth->get_modifiers () & ACC_PRIVATE) != 0)
     {
       assert (obj != NULL_TREE);
 
@@ -237,7 +238,8 @@ tree
 cxx_abi::get_vtable_index (aot_class *klass, model_method *method)
 {
   assert (method->get_declaring_class () == klass->get ());
-  if (method->static_p () || method->constructor_p ())
+  if (method->static_p () || method->constructor_p ()
+      || (method->get_modifiers () & ACC_PRIVATE) != 0)
     return integer_minus_one_node;
   // A special case for methods that are never virtual.
   if (method->final_p ()
