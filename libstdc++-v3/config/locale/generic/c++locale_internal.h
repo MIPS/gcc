@@ -1,6 +1,6 @@
-// Locale support -*- C++ -*-
+// Locale internal implementation header -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,29 +27,4 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 22.1  Locales
-//
-  
-// Information as gleaned from /usr/include/ctype.h
-  
-  struct ctype_base
-  {
-    // Non-standard typedefs.
-    typedef const int* 		__to_type;
-
-    // NB: Offsets into ctype<char>::_M_table force a particular size
-    // on the mask type. Because of this, we don't use an enum.
-    typedef unsigned short 	mask;   
-    static const mask upper    	= _ISupper;
-    static const mask lower 	= _ISlower;
-    static const mask alpha 	= _ISalpha;
-    static const mask digit 	= _ISdigit;
-    static const mask xdigit 	= _ISxdigit;
-    static const mask space 	= _ISspace;
-    static const mask print 	= _ISprint;
-    static const mask graph 	= _ISgraph;
-    static const mask cntrl 	= _IScntrl;
-    static const mask punct 	= _ISpunct;
-    static const mask alnum 	= _ISalnum;
-  };
+// The generic locale code doesn't need to do anything here (yet)
