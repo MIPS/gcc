@@ -1,5 +1,4 @@
-/* APPLE LOCAL SDK 3886137 */
-/* Patch is waiting FSF review. */
+/* Used by gcc.dg/cpp/isysroot-2.c to test isysroot.  */ 
 void foo()
 {
 }

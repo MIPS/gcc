@@ -1,5 +1,9 @@
 2004-11-24  Devang Patel  <dpatel@apple.com>
 
+	* gcc.h: APPLE LOCAL marker cleanup.
+
+2004-11-24  Devang Patel  <dpatel@apple.com>
+
 	Radar 3876218
 	* gcc.c (process_command): Supply -v to linker.
 
@@ -15,13 +19,6 @@
 	Radar 3886137
 	* gcc.h (DEFAULT_WORD_SWITCH_TAKES_ARG): Add isysroot.
 	* config/darwin-c.c (darwin_register_frameworks): Use sysroot.
-
-	testsuite
-	* gcc.dg/cpp/isysroot-1.c: New test.
-	* gcc.dg/cpp/usr/include/stdio.h: New file.
-	* gcc.dg/cpp/isysroot-2.c: New test.
-	* gcc.dg/cpp/System/Library/Framewrok/Carbon.framework/Headers/Carbon.h:
-	New file.
 
 2004-11-22  Devang Patel  <dpatel@apple.com>
 

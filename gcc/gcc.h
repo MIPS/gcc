@@ -44,8 +44,6 @@ struct spec_function
 
 /* This defines which multi-letter switches take arguments.  */
 
-/* APPLE LOCAL begin Symbol Separation */
-/* Add save-repository in the list. */
 #define DEFAULT_WORD_SWITCH_TAKES_ARG(STR)		\
  (!strcmp (STR, "Tdata") || !strcmp (STR, "Ttext")	\
   || !strcmp (STR, "Tbss") || !strcmp (STR, "include")	\
@@ -53,13 +51,9 @@ struct spec_function
   || !strcmp (STR, "idirafter") || !strcmp (STR, "iprefix") \
   || !strcmp (STR, "iwithprefix") || !strcmp (STR, "iwithprefixbefore") \
   || !strcmp (STR, "iquote") || !strcmp (STR, "isystem") \
-  /* APPLE LOCAL SDK 3886137 */ \
-  /* Patch is waiting FSF review.  */ \
   || !strcmp (STR, "isysroot") \
   || !strcmp (STR, "-param") || !strcmp (STR, "specs") \
-  || !strcmp (STR, "save-repository") \
   || !strcmp (STR, "MF") || !strcmp (STR, "MT") || !strcmp (STR, "MQ"))
-/* APPLE LOCAL end Symbol Separation */
 
 /* These are exported by gcc.c.  */
 extern int do_spec (const char *);
