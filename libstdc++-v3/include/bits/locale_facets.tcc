@@ -1632,8 +1632,13 @@ namespace std
 					__wcs);
 		  break;
 		case 'S':
-		  // Seconds.
-		  _M_extract_num(__beg, __end, __tm->tm_sec, 0, 59, 2,
+		  // Seconds. [tm_sec]
+		  // [00, 60] in C99 (one leap-second), [00, 61] in C89.
+#ifdef _GLIBCXX_USE_C99
+		  _M_extract_num(__beg, __end, __tm->tm_sec, 0, 60, 2,
+#else
+		  _M_extract_num(__beg, __end, __tm->tm_sec, 0, 61, 2,
+#endif
 				 __ctype, __err);
 		  break;
 		case 't':
