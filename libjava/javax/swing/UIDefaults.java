@@ -71,7 +71,7 @@ public class UIDefaults extends Hashtable
   Set listeners;
   Locale defaultLocale;
 
-  interface ActiveValue
+  public interface ActiveValue
   {
     Object createValue(UIDefaults table);
   }
@@ -95,7 +95,7 @@ public class UIDefaults extends Hashtable
     }
   }
 
-  interface LazyValue
+  public interface LazyValue
   {
     Object createValue(UIDefaults table);
   }

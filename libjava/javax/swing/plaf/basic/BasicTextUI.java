@@ -35,14 +35,17 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.plaf.basic;
 
 import java.awt.Color;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.Shape;
 
 import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;
@@ -52,10 +55,12 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Caret;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.DefaultEditorKit;
+import javax.swing.text.Document;
 import javax.swing.text.EditorKit;
 import javax.swing.text.Element;
 import javax.swing.text.Highlighter;
 import javax.swing.text.JTextComponent;
+import javax.swing.text.PlainDocument;
 import javax.swing.text.Position;
 import javax.swing.text.View;
 import javax.swing.text.ViewFactory;
@@ -72,7 +77,51 @@ public abstract class BasicTextUI extends TextUI
     }
   }
 
-  View view;
+  private class RootView extends View
+  {
+    private JTextComponent textComponent;
+    private View view;
+    
+    public RootView(JTextComponent parent)
+    {
+      super(null);
+      textComponent = parent;
+    }
+
+    public void setView(View v)
+    {
+      if (view != null)
+	view.setParent(null);
+      
+      if (v != null)
+	v.setParent(null);
+
+      view = v;
+    }
+
+    public Container getContainer()
+    {
+      return textComponent;
+    }
+    
+    public float getPreferredSpan(int axis)
+    {
+      if (view != null)
+	return view.getPreferredSpan(axis);
+
+      return Integer.MAX_VALUE;
+    }
+
+    public void paint(Graphics g, Shape s)
+    {
+      System.out.println("Michael: BasicTextUI.RootView.paint");
+      
+      if (view != null)
+	view.paint(g, s);
+    }
+  }
+  
+  RootView rootView;
   JTextComponent textComponent;
   int gap = 3;
   EditorKit kit = new DefaultEditorKit();
@@ -96,6 +145,16 @@ public abstract class BasicTextUI extends TextUI
     super.installUI(c);
 
     textComponent = (JTextComponent) c;
+
+    Document doc = textComponent.getDocument();
+    if (doc == null)
+      {
+	doc = new PlainDocument();
+	textComponent.setDocument(doc);
+      }
+    
+    rootView = new RootView(textComponent);
+    setView(create(doc.getDefaultRootElement()));
     
     installDefaults();
     installListeners();
@@ -117,7 +176,7 @@ public abstract class BasicTextUI extends TextUI
   public void uninstallUI(final JComponent c)
   {
     super.uninstallUI(c);
-    view = null;
+    rootView = null;
 
     uninstallDefaults();
     uninstallListeners();
@@ -161,7 +220,7 @@ public abstract class BasicTextUI extends TextUI
     if (textComponent.isOpaque())
       paintBackground(g);
     
-    view.paint(g, getVisibleEditorRect());
+    rootView.paint(g, getVisibleEditorRect());
 
     if (highlighter != null)
       highlighter.paint(g);
@@ -201,7 +260,7 @@ public abstract class BasicTextUI extends TextUI
 
   public View getRootView(JTextComponent t)
   {
-    return view;
+    return rootView;
   }
 
   public Rectangle modelToView(JTextComponent t, int pos)
@@ -252,8 +311,9 @@ public abstract class BasicTextUI extends TextUI
 			 height - insets.top + insets.bottom);
   }
 
-  protected final void setView(View v)
+  protected final void setView(View view)
   {
-    view = v;
+    rootView.setView(view);
+    view.setParent(rootView);
   }
 }

@@ -71,39 +71,39 @@ public class DefaultCaret extends Rectangle
   boolean vis = true;
 
 
-  public void mouseDragged(MouseEvent evt)
+  public void mouseDragged(MouseEvent event)
   {
   }
 
-  public void mouseMoved(MouseEvent evt)
+  public void mouseMoved(MouseEvent event)
   {
   }
 
-  public void mouseClicked(MouseEvent evt)
+  public void mouseClicked(MouseEvent event)
   {
   }
 
-  public void mouseEntered(MouseEvent evt)
+  public void mouseEntered(MouseEvent event)
   {
   }
 
-  public void mouseExited(MouseEvent evt)
+  public void mouseExited(MouseEvent event)
   {
   }
 
-  public void mousePressed(MouseEvent evt)
+  public void mousePressed(MouseEvent event)
   {
   }
 
-  public void mouseReleased(MouseEvent evt)
+  public void mouseReleased(MouseEvent event)
   {
   }
 
-  public void focusGained(FocusEvent evt)
+  public void focusGained(FocusEvent event)
   {
   }
 
-  public void focusLost(FocusEvent evt)
+  public void focusLost(FocusEvent event)
   {
   }
 

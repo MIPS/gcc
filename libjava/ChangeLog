@@ -1,5 +1,22 @@
 2004-06-28  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/UIDefaults.java
+	(ActiveValue): Made public.
+	(LazyValue): Likewise.
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(RootView): Reintroduced.
+	(view): Removed.
+	(rootView): New field.
+	(installUI): Create document if needed, initialize rootView.
+	(uninstallUI): Hanle rootView.
+	(paint): Likewise.
+	(getRootView): Likewise.
+	(setView): Likewise.
+	* javax/swing/text/DefaultCaret.java:
+	Renamed all "evt" variables to "event".
+
+2004-06-28  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicRootPaneUI.java:
 	Import javax.swing.UIManager explicitely.
 	* javax/swing/plaf/basic/BasicTabbedPaneUI.java
