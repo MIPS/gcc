@@ -434,7 +434,12 @@ make_loop_expr_blocks (loop_p, next_block_link, entry)
     {
       si = tsi_start (loop_p);
       tsi_next (&si);
-      if (!tsi_end_p (si))
+
+      /* Ignore any empty statements at the tail of this tree.  */
+      while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
+	tsi_next (&si);
+
+      if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
 	next_block_link = *(tsi_container (si));
     }
 
@@ -464,7 +469,12 @@ make_cond_expr_blocks (cond_p, next_block_link, entry)
   /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
   si = tsi_start (cond_p);
   tsi_next (&si);
-  if (!tsi_end_p (si))
+
+  /* Ignore any empty statements at the tail of this tree.  */
+  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
+    tsi_next (&si);
+
+  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
     next_block_link = *(tsi_container (si));
 
   STRIP_CONTAINERS (cond);
@@ -495,7 +505,12 @@ make_switch_expr_blocks (switch_e_p, next_block_link, entry)
   /* Determine NEXT_BLOCK_LINK for statements inside the COND_EXPR body.  */
   si = tsi_start (switch_e_p);
   tsi_next (&si);
-  if (!tsi_end_p (si))
+
+  /* Ignore any empty statements at the tail of this tree.  */
+  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
+    tsi_next (&si);
+
+  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
     next_block_link = *(tsi_container (si));
 
   STRIP_CONTAINERS (switch_e);
@@ -534,7 +549,12 @@ make_bind_expr_blocks (bind_p, next_block_link, entry, parent_stmt)
      body.  */
   si = tsi_start (bind_p);
   tsi_next (&si);
-  if (!tsi_end_p (si))
+
+  /* Ignore any empty statements at the tail of this tree.  */
+  while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
+    tsi_next (&si);
+
+  if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
     next_block_link = *(tsi_container (si));
 
   /* By passing the current block ENTRY to make_blocks, we will keep adding

@@ -1,5 +1,11 @@
 2003-04-16  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (make_loop_expr_blocks): When determining the value for
+	NEXT_BLOCK_LINK, correctly handle empty statement nodes at the
+	end of the tree.
+	(make_cond_expr_blocks, make_switch_expr_blocks): Likewise.
+	(make_bind_expr_blocks): Likewise.
+
 	* gimplify.c (keep_function_tree_in_gimple_form): Move check of
 	flag_disable_simple here.  Include flags.h.
 	* Makefile.in (gimplify.o): Depends on flags.h
