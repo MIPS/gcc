@@ -152,6 +152,8 @@ public class GtkFramePeer extends GtkWindowPeer
       if (image != null)
         {
           GtkImage img = (GtkImage) image;
+          // FIXME: Image should be loaded, but if not, do image loading here.
+          // Also, can the image source be anything else than GdkPixbufDecoder?
           if (img.isLoaded() && img.getSource() instanceof GdkPixbufDecoder)
             nativeSetIconImage((GdkPixbufDecoder) img.getSource());
         }
