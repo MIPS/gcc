@@ -539,7 +539,7 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 	     TEMP3 to the insn that sets "x = a;"
 	     TEMP4 to the set of "x = b";  */
 
-	  if (this_is_simplejump
+	  if (0 && this_is_simplejump
 	      && (temp3 = prev_active_insn (insn)) != 0
 	      && GET_CODE (temp3) == INSN
 	      && (temp4 = single_set (temp3)) != 0
@@ -685,7 +685,7 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 	     TEMP3 to the insn that sets "x = a;"
 	     TEMP4 to the set of "x = a";  */
 
-	  if (this_is_simplejump
+	  if (0 && this_is_simplejump
 	      && (temp2 = next_active_insn (insn)) != 0
 	      && GET_CODE (temp2) == INSN
 	      && (temp4 = single_set (temp2)) != 0
