@@ -515,9 +515,7 @@ enum attribute_flags
   /* The type passed in is an array element type, and any attributes that
      should be passed in again to be applied to the array type rather
      than the element type should be returned.  */
-  ATTR_FLAG_ARRAY_NEXT = 4,
-  /* The type passed should be copied, and not altered directly.  */
-  ATTR_FLAG_COPY_TYPE = 8
+  ATTR_FLAG_ARRAY_NEXT = 4
 };
 
 extern tree decl_attributes			PARAMS ((tree *, tree, int));

@@ -729,7 +729,7 @@ int (*valid_lang_attribute) PARAMS ((tree, tree, tree, tree))
 
 /* Process the attributes listed in ATTRIBUTES and install them in *NODE,
    which is either a DECL (including a TYPE_DECL) or a TYPE.  If a DECL,
-   it should be modified in place; if a TYPE, it is copied.
+   it should be modified in place; if a TYPE, a copy should be created.
    FLAGS gives further information, in the form of a bitwise OR of flags
    in enum attribute_flags from c-common.h.  Depending on these flags,
    some attributes may be returned to be applied at a later stage (for
@@ -756,13 +756,7 @@ decl_attributes (node, attributes, flags)
     }
   else if (TYPE_P (*node))
     type = *node, is_type = 1;
-  if (flags & ATTR_FLAG_COPY_TYPE)
-    {
-      type = copy_node (type);
-      if (decl)
-	TREE_TYPE (decl) = type;
-    }
-  
+
   (*targetm.insert_attributes) (*node, &attributes);
 
   for (a = attributes; a; a = TREE_CHAIN (a))
@@ -782,6 +776,8 @@ decl_attributes (node, attributes, flags)
 	      && ! (* valid_lang_attribute) (name, args, decl, type))
 	    warning ("`%s' attribute directive ignored",
 		     IDENTIFIER_POINTER (name));
+	  else if (decl != 0)
+	    type = TREE_TYPE (decl);
 	  continue;
 	}
       else if (attrtab[i].decl_req && decl == 0)
@@ -1156,40 +1152,6 @@ decl_attributes (node, attributes, flags)
 	  break;
 	}
     }
-  if (flags & ATTR_FLAG_COPY_TYPE)
-    {
-      /* Now canonize type. */
-      tree canon_type;
-    
-      TYPE_POINTER_TO (type) = NULL_TREE;
-      TYPE_REFERENCE_TO (type) = NULL_TREE;
-      TYPE_MAIN_VARIANT (type) = type;
-      TYPE_NEXT_VARIANT (type) = 0;
-    
-      canon_type = type_hash_canon (type_hash_code (type), type);
-      if (canon_type == type)
-	{
-	  /* We created a new type. Make sure it has a main variant.  */
-	  tree main_variant;
-	
-	  main_variant = copy_node (canon_type);
-	  set_type_quals (main_variant, TYPE_UNQUALIFIED);
-	  main_variant = type_hash_canon (type_hash_code (main_variant),
-					  main_variant);
-	  if (main_variant != canon_type)
-	    {
-	      TYPE_NEXT_VARIANT (canon_type)
-		= TYPE_NEXT_VARIANT (main_variant);
-	      TYPE_NEXT_VARIANT (main_variant) = canon_type;
-	      TYPE_MAIN_VARIANT (canon_type) = main_variant;
-	    }
-	}
-      if (decl)
-	TREE_TYPE (decl) = canon_type;
-      else
-	*node = canon_type;
-    }
-  
   return NULL_TREE;
 }
 

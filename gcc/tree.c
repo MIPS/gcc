@@ -170,6 +170,7 @@ static void print_type_hash_statistics PARAMS((void));
 static int mark_hash_entry PARAMS((void **, void *));
 static void finish_vector_type PARAMS((tree));
 static int mark_tree_hashtable_entry PARAMS((void **, void *));
+static void set_type_quals PARAMS((tree, int));
 
 /* If non-null, these are language-specific helper functions for
    unsave_expr_now.  If present, LANG_UNSAVE is called before its
@@ -2676,7 +2677,27 @@ build_type_attribute_variant (ttype, attribute)
       TYPE_NEXT_VARIANT (ntype) = 0;
       set_type_quals (ntype, TYPE_UNQUALIFIED);
 
-      hashcode = type_hash_code (ntype);
+      hashcode = (TYPE_HASH (TREE_CODE (ntype))
+		  + TYPE_HASH (TREE_TYPE (ntype))
+		  + attribute_hash_list (attribute));
+
+      switch (TREE_CODE (ntype))
+	{
+	case FUNCTION_TYPE:
+	  hashcode += TYPE_HASH (TYPE_ARG_TYPES (ntype));
+	  break;
+	case ARRAY_TYPE:
+	  hashcode += TYPE_HASH (TYPE_DOMAIN (ntype));
+	  break;
+	case INTEGER_TYPE:
+	  hashcode += TYPE_HASH (TYPE_MAX_VALUE (ntype));
+	  break;
+	case REAL_TYPE:
+	  hashcode += TYPE_HASH (TYPE_PRECISION (ntype));
+	  break;
+	default:
+	  break;
+	}
 
       ntype = type_hash_canon (hashcode, ntype);
       ttype = build_qualified_type (ntype, TYPE_QUALS (ttype));
@@ -2727,10 +2748,7 @@ default_insert_attributes (decl, attr_ptr)
 
 /* Return 1 if ATTR_NAME and ATTR_ARGS is valid for either declaration
    DECL or type TYPE and 0 otherwise.  Validity is determined the
-   target functions valid_decl_attribute and valid_machine_attribute.
-   Apply the new attribute to DECL and/or TYPE. TYPE is a copied type
-   node that will be canonized later, so it is safe to modify in
-   place.  */
+   target functions valid_decl_attribute and valid_machine_attribute.  */
 
 int
 valid_machine_attribute (attr_name, attr_args, decl, type)
@@ -2780,45 +2798,61 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
 
       if (attr != NULL_TREE)
 	{
-	  /* We must copy the list before modifying it.  */
-	  type_attrs = copy_list (type_attrs);
-	  attr = lookup_attribute (IDENTIFIER_POINTER (attr_name), type_attrs);
+	  /* Override existing arguments.  ??? This currently
+	     works since attribute arguments are not included in
+	     `attribute_hash_list'.  Something more complicated
+	     may be needed in the future.  */
 	  TREE_VALUE (attr) = attr_args;
 	}
       else
-	type_attrs = tree_cons (attr_name, attr_args, type_attrs);
+	{
+	  /* If this is part of a declaration, create a type variant,
+	     otherwise, this is part of a type definition, so add it
+	     to the base type.  */
+	  type_attrs = tree_cons (attr_name, attr_args, type_attrs);
+	  if (decl != 0)
+	    type = build_type_attribute_variant (type, type_attrs);
+	  else
+	    TYPE_ATTRIBUTES (type) = type_attrs;
+	}
 
-      TYPE_ATTRIBUTES (type) = type_attrs;
+      if (decl)
+	TREE_TYPE (decl) = type;
+
       return 1;
     }
   /* Handle putting a type attribute on pointer-to-function-type
-     by putting the attribute on the function type. */
+     by putting the attribute on the function type.  */
   else if (POINTER_TYPE_P (type)
-	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
+	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
+	   && (*targetm.valid_type_attribute) (TREE_TYPE (type), type_attrs,
+					       attr_name, attr_args))
     {
       tree inner_type = TREE_TYPE (type);
-      
-      type_attrs = TYPE_ATTRIBUTES (inner_type);
-      if ((*targetm.valid_type_attribute) (inner_type, type_attrs,
-					       attr_name, attr_args))
-	{
-	  tree attr = lookup_attribute (IDENTIFIER_POINTER (attr_name),
-					type_attrs);
-	  if (attr != NULL_TREE)
-	    {
-	      /* We must copy the list before modifying it.  */
-	      type_attrs = copy_list (type_attrs);
-	      attr = lookup_attribute (IDENTIFIER_POINTER (attr_name),
-				       type_attrs);
-	      TREE_VALUE (attr) = attr_args;
-	    }
-	  else
-	    type_attrs = tree_cons (attr_name, attr_args, type_attrs);
-	  inner_type = build_type_attribute_variant (inner_type, type_attrs);
-	  TREE_TYPE (type) = inner_type;
+      tree inner_attrs = TYPE_ATTRIBUTES (inner_type);
+      tree attr = lookup_attribute (IDENTIFIER_POINTER (attr_name),
+				    type_attrs);
 
-	  return 1;
+      if (attr != NULL_TREE)
+	TREE_VALUE (attr) = attr_args;
+      else
+	{
+	  inner_attrs = tree_cons (attr_name, attr_args, inner_attrs);
+	  inner_type = build_type_attribute_variant (inner_type,
+						     inner_attrs);
 	}
+
+      if (decl)
+	TREE_TYPE (decl) = build_pointer_type (inner_type);
+      else
+	{
+	  /* Clear TYPE_POINTER_TO for the old inner type, since
+	     `type' won't be pointing to it anymore.  */
+	  TYPE_POINTER_TO (TREE_TYPE (type)) = NULL_TREE;
+	  TREE_TYPE (type) = inner_type;
+	}
+
+      return 1;
     }
 
   return 0;
@@ -3017,7 +3051,7 @@ merge_dllimport_decl_attributes (old, new)
 /* Set the type qualifiers for TYPE to TYPE_QUALS, which is a bitmask
    of the various TYPE_QUAL values.  */
 
-void
+static void
 set_type_quals (type, type_quals)
      tree type;
      int type_quals;
@@ -3094,39 +3128,6 @@ build_type_copy (type)
 
 /* Hashing of types so that we don't make duplicates.
    The entry point is `type_hash_canon'.  */
-
-/* Compute the hashcode of a type TYPE.  */
-
-int
-type_hash_code (type)
-     tree type;
-{
-  int hashcode = 0;
-  
-  hashcode += TYPE_HASH (TREE_CODE (type));
-  hashcode += TYPE_HASH (TREE_TYPE (type));
-  if (TYPE_ATTRIBUTES (type))
-    hashcode += attribute_hash_list (TYPE_ATTRIBUTES (type));
-
-  switch (TREE_CODE (type))
-    {
-    case FUNCTION_TYPE:
-      hashcode += TYPE_HASH (TYPE_ARG_TYPES (type));
-      break;
-    case ARRAY_TYPE:
-      hashcode += TYPE_HASH (TYPE_DOMAIN (type));
-      break;
-    case INTEGER_TYPE:
-      hashcode += TYPE_HASH (TYPE_MAX_VALUE (type));
-      break;
-    case REAL_TYPE:
-      hashcode += TYPE_HASH (TYPE_PRECISION (type));
-      break;
-    default:
-      break;
-    }
-  return hashcode;
-}
 
 /* Compute a hash code for a list of types (chain of TREE_LIST nodes
    with types in the TREE_VALUE slots), by adding the hash codes
