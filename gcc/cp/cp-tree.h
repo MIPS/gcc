@@ -1539,13 +1539,21 @@ struct lang_type
 #define CLASSTYPE_DECLARED_CLASS(NODE) \
   (TYPE_LANG_SPECIFIC (NODE)->declared_class)
 
-/* Nonzero if this class has const members which have no specified initialization.  */
-#define CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE) \
-  (TYPE_LANG_SPECIFIC (NODE)->const_needs_init)
+/* Nonzero if this class has const members
+   which have no specified initialization.  */
+#define CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE)	\
+  (TYPE_LANG_SPECIFIC (NODE)				\
+   ? TYPE_LANG_SPECIFIC (NODE)->const_needs_init : 0)
+#define SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE, VALUE) \
+  (TYPE_LANG_SPECIFIC (NODE)->const_needs_init = (VALUE))
 
-/* Nonzero if this class has ref members which have no specified initialization.  */
-#define CLASSTYPE_REF_FIELDS_NEED_INIT(NODE) \
-  (TYPE_LANG_SPECIFIC (NODE)->ref_needs_init)
+/* Nonzero if this class has ref members
+   which have no specified initialization.  */
+#define CLASSTYPE_REF_FIELDS_NEED_INIT(NODE)		\
+  (TYPE_LANG_SPECIFIC (NODE)				\
+   ? TYPE_LANG_SPECIFIC (NODE)->ref_needs_init : 0)
+#define SET_CLASSTYPE_REF_FIELDS_NEED_INIT(NODE, VALUE) \
+  (TYPE_LANG_SPECIFIC (NODE)->ref_needs_init = (VALUE))
 
 /* Nonzero if this class is included from a header file which employs
    `#pragma interface', and it is not included in its implementation file.  */
@@ -4205,7 +4213,6 @@ extern void end_input				PARAMS ((void));
 /* in tree.c */
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
-extern bool variably_modified_type_p            (tree);
 extern int zero_init_p				PARAMS ((tree));
 extern tree canonical_type_variant              PARAMS ((tree));
 extern void unshare_base_binfos			PARAMS ((tree));

@@ -3500,7 +3500,6 @@ duplicate_decls (newdecl, olddecl)
      except for any that we copy here from the old type.  */
   DECL_ATTRIBUTES (newdecl)
     = (*targetm.merge_decl_attributes) (olddecl, newdecl);
-  decl_attributes (&newdecl, DECL_ATTRIBUTES (newdecl), 0);
 
   if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
@@ -5760,6 +5759,12 @@ make_typename_type (context, name, complain)
 	  t = lookup_field (context, name, 0, 1);
 	  if (t)
 	    {
+	      if (TREE_CODE (t) != TYPE_DECL)
+		{
+		  if (complain & tf_error)
+		    error ("no type named `%#T' in `%#T'", name, context);
+		  return error_mark_node;
+		}
 	      if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
 		t = TREE_TYPE (t);
 	      if (IMPLICIT_TYPENAME_P (t))
@@ -8035,6 +8040,12 @@ maybe_inject_for_scope_var (decl)
      tree decl;
 {
   if (!DECL_NAME (decl))
+    return;
+  
+  /* Declarations of __FUNCTION__ and its ilk appear magically when
+     the variable is first used.  If that happens to be inside a
+     for-loop, we don't want to do anything special.  */
+  if (DECL_PRETTY_FUNCTION_P (decl))
     return;
 
   if (current_binding_level->is_for_scope)
@@ -11065,8 +11076,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      pop_decl_namespace ();
 	    else if (friendp && (TREE_COMPLEXITY (declarator) < 2))
 	      /* Don't fall out into global scope. Hides real bug? --eichin */ ;
-	    else if (! IS_AGGR_TYPE_CODE
-		     (TREE_CODE (TREE_OPERAND (declarator, 0))))
+	    else if (!TREE_OPERAND (declarator, 0)
+		     || !IS_AGGR_TYPE_CODE
+		          (TREE_CODE (TREE_OPERAND (declarator, 0))))
 	      ;
 	    else if (TREE_COMPLEXITY (declarator) == current_class_depth)
 	      {
@@ -14157,6 +14169,10 @@ finish_destructor_body ()
 {
   tree exprstmt;
 
+  /* Any return from a destructor will end up here; that way all base
+     and member cleanups will be run when the function returns.  */
+  add_stmt (build_stmt (LABEL_STMT, dtor_label));
+
   /* And perform cleanups for our bases and members.  */
   perform_base_cleanups ();
 
@@ -14232,14 +14248,7 @@ void
 finish_function_body (compstmt)
      tree compstmt;
 {
-  if (processing_template_decl)
-    /* Do nothing now.  */;
-  else if (DECL_DESTRUCTOR_P (current_function_decl))
-    /* Any return from a destructor will end up here.  Put it before the
-       cleanups so that an explicit return doesn't duplicate them.  */
-    add_stmt (build_stmt (LABEL_STMT, dtor_label));
-
-  /* Close the block; in a destructor, run the member cleanups.  */
+  /* Close the block.  */
   finish_compound_stmt (0, compstmt);
 
   if (processing_template_decl)

@@ -44,7 +44,7 @@ avr port		Denis Chertykov		denisc@overta.ru
 avr port		Marek Michalkiewicz	marekm@linux.org.pl
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 cris port		Hans-Peter Nilsson	hp@axis.com
-fr30 port		Nick Clifton		niclc@redhat.com
+fr30 port		Nick Clifton		nickc@redhat.com
 h8 port			Jeff Law		law@redhat.com
 h8 port			Kazu Hirata		kazu@cs.umass.edu
 hppa port		Jeff Law		law@redhat.com
@@ -99,7 +99,7 @@ c++                     Mark Mitchell		mark@codesourcery.com
 cpplib			Dave Brolley		brolley@redhat.com
 cpplib			Per Bothner		per@bothner.com
 cpplib			Zack Weinberg		zack@codesourcery.com
-cpplib			Neil Booth		neil@daikokuya.demon.co.uk
+cpplib			Neil Booth		neil@daikokuya.co.uk
 java			Per Bothner		per@bothner.com
 java			Alexandre Petit-Bianco	apbianco@redhat.com
 mercury			Fergus Henderson	fjh@cs.mu.oz.au
@@ -115,6 +115,7 @@ reorg			Jeff Law		law@redhat.com
 caller-save.c		Jeff Law		law@redhat.com
 debugging code		Jim Wilson		wilson@redhat.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
+c++ runtime libs	Paolo Carlini		pcarlini@unitus.it
 c++ runtime libs        Gabriel Dos Reis        dosreis@cmla.ens-cachan.fr
 c++ runtime libs	Ulrich Drepper		drepper@redhat.com
 c++ runtime libs	Phil Edwards		pme@gcc.gnu.org
@@ -156,7 +157,6 @@ Jim Blandy					jimb@redhat.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
 Andrew Cagney					cagney@redhat.com
-Paolo Carlini					pcarlini@unitus.it
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 Chris Demetriou					cgd@broadcom.com
@@ -201,6 +201,7 @@ Adam Megacz					adam@xwt.org
 Alan Modra					amodra@bigpond.net.au
 Toon Moene					toon@moene.indiv.nluug.nl
 Catherine Moore					clm@redhat.com
+Adam Nemet					anemet@lnxw.com
 Diego Novillo					dnovillo@redhat.com
 David O'Brien					obrien@FreeBSD.org
 Turly O'Connor					turly@apple.com

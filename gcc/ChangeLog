@@ -1,3 +1,172 @@
+2002-11-08  H.J. Lu <hjl@gnu.org>
+
+	Fix c/5351 and optimization/7591.
+
+	* calls.c (store_one_arg): Remove ATTRIBUTE_UNUSED on
+	variable_size. Mark any slots used for the argument as in-use
+	only if we can't pass all arguments to a library call in
+	registers.
+
+2002-11-07  H.J. Lu <hjl@gnu.org>
+
+	Fix bootstrap/8146 and
+	gcc.c-torture/execute/20020307-2.c with -march=i686.
+
+	* calls.c (PUSH_ARGS_REVERSED): Define only if not defined.
+	* expr.c (PUSH_ARGS_REVERSED): Likewise.
+
+	* config/i386/i386.h (PUSH_ARGS_REVERSED): Set to 1.
+
+2002-11-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	Fix c/8252.
+
+	* config/rs6000/rs6000.c (rs6000_legitimate_address): Disallow
+	vectors from PRE_INC/DEC.
+
+2002-11-06  Richard Henderson  <rth@redhat.com>
+
+	PR optimization/7520
+	* cfganal.c (flow_active_insn_p): New.
+	(forwarder_block_p): Use it.
+
+2002-11-06  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/contrib.texi: Merge in the list from the Java web pages.
+
+2002-11-06  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/sparc/freebsd.h: Fix typo.
+
+2002-11-05  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/elf.h (LIB_SPEC): Add "-lhal".
+
+2002-11-04  Aldy Hernandez  <aldyh@redhat.com>
+
+        Backport patch to fix PR c/8451.
+
+        2002-04-25  Richard Henderson  <rth@redhat.com>
+
+        * expmed.c (extract_bit_field): Fall through to generic code rather
+        than aborting on subreg special case.
+
+2002-11-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8391
+	* toplev.c (rest_of_compilation): Do not refuse to output code for
+	an inline function in a local class.
+
+2002-11-01  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/sparc/freebsd.h (CPP_CPU64_DEFAULT_SPEC): Define __arch64__.
+	Add comment.
+
+2002-11-01  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/sparc/freebsd.h (TRANSFER_FROM_TRAMPOLINE): Define
+	__enable_execute_stack function.
+
+2002-11-01  Richard Earnshaw  (rearnsha@arm.com)
+
+	PR target/7856
+	* arm.c (use_return_insn): Don't use a return insn if there are
+	saved integer regs, but LR is not one of them.
+
+Thu Oct 31 18:31:22 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (override_options): Set defaults for flag_omit_frame_pointer,
+	flag_asynchronous_unwind_tables, flag_pcc_struct_return.
+	* i386.c (optimization_options): Set flag_omit_frame_pointer,
+	flag_asynchronous_unwind_tables, flag_pcc_struct_return to 2.
+	Do not clear -momit-leaf-frame-pointer when profiling.
+	(ix86_frame_pointer_required): Frame pointer is allways required when
+	profiling.
+
+2002-10-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* varasm.c (asm_output_aligned_bss): Do not call
+	ASM_GLOBALIZE_LABEL.
+
+2002-10-29  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/invoke.texi (-profile-arcs): Remove references to -a and -ax.
+
+2002-10-29  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* expr.c (expand_expr) [PLUS]: Don't use simplify_binary_operation;
+	check for zero operands explicitly.
+
+2002-10-21  Dale Johannesen  <dalej@apple.com>
+
+	PR target/7133
+	* config/rs6000/rs6000.c (rs6000_reverse_condition): Handle
+	unsafe math reversals correctly for RTL generation.
+	(output_cbranch):  Replace rs6000_reverse_condition call
+	by its former definition.
+
+Sun Oct 27 10:12:27 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* linux64.h (DEFAULT_PCC_STRUCT_RETURN):  Define.
+
+	PR target/6890
+	* xmmintrin.h (_MM_TRANSPOSE4_PS): New.
+
+2002-10-25  Zack Weinberg  <zack@codesourcery.com>
+
+	PR middle-end/6994
+	* c-objc-common.c (inline_forbidden_p): Can not inline
+	functions containing structures or unions containing VLAs.
+	* tree-inline.c (walk_tree): For all class 't' nodes, walk
+	TYPE_SIZE and TYPE_SIZE_UNIT. #undef WALK_SUBTREE_TAIL at end.
+	(copy_tree_r): Copy types if they are variably modified.
+
+	* hooks.c (hook_tree_bool_false): New.
+	* hooks.h: Prototype it.
+	* langhooks.h (struct lang_hooks_for_tree_inlining): Add
+	var_mod_type_p.
+	* langhooks-def.h: Default for tree_inlining.var_mod_type_p is
+	hook_tree_bool_false.
+
+	* tree.c (variably_modified_type_p): Moved here from
+	cp/tree.c.  Use lang_hooks.tree_inlining.var_mod_type_p for
+	language-specific cases.  Due to this, must weaken some 'if
+	and only if' checks to merely 'if'.
+	* tree.h: Prototype variably_modified_type_p.
+
+2002-10-22  Jim Wilson  <wilson@redhat.com>
+
+	* config/i386/i386.md (subdi3_1): Add call to ix86_binary_operator_ok.
+
+2002-10-15  Jim Wilson  <wilson@redhat.com>
+
+	PR target/6981
+	* config/i386/i386.md (adddi3_1): Add call to ix86_binary_operator_ok.
+
+2002-10-24  Richard Henderson  <rth@redhat.com>
+
+	PR opt/7944
+	* reload.c (find_reloads_toplev): Use simplify_gen_subreg; mode
+	of X is not important when simplifying subregs of constants.
+
+2002-10-23  Robert Lipe  <robertlipe@usa.net>
+
+	* config.gcc (i[34567]86-*-sco3.2v5*): Fix tm_file.
+
+2002-10-23  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/761
+	* doc/invoke.texi: Fix some overfull hboxes in "make dvi".
+	Document --version, -fno-sched-interblock, -fno-sched-spec,
+	-fsched-spec-load, -fsched-spec-load-dangerous,
+	-fsched-verbose=n, -fno-branch-count-reg and -fbounds-check.
+
+2002-10-23  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("*movdi_64"): Fix op_type attribute.
+	("*movdf_64"): Likewise.
+	("*lshrdi3_64"): Likewise.
+
 Wed Oct  2 17:01:36 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (print_operand_address): Use RIP addressing for offsetted
@@ -7,14 +176,6 @@ Wed Oct  2 17:01:36 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* config/i386/i386.c (local_symbolic_operand): Move LABEL_REF test
 	after CONST test.
-
-2002-10-23  Jakub Jelinek  <jakub@redhat.com>
-
-	* config/i386/i386.md (subdi3_1): Add call to ix86_binary_operator_ok.
-
-2002-10-15  Jim Wilson  <wilson@redhat.com>
-
-	* config/i386/i386.md (adddi3_1): Add call to ix86_binary_operator_ok.
 
 2002-10-21  Matthias Klose  <doko@debian.org>
 

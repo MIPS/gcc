@@ -1,3 +1,83 @@
+2002-11-02  Zack Weinberg  <zack@codesourcery.com>
+
+	PR c/7353 redux
+	* decl2.c (grokfield): Reject TYPE_DECLs with initializers.
+
+2002-11-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR C++/2521
+	* typeck.c (build_x_unary_op): Handle pointer-to-member.
+
+2002-10-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8160
+	* typeck2.c (process_init_constructor): Call complete_array_type.
+
+	PR c++/8149
+	* decl.c (make_typename_type): Issue errors about invalid results.
+
+2002-10-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8287
+	* decl.c (finish_destructor_body): Create the label to jump to
+	when returning from a destructor here.
+	(finish_function_body): Rather than here.
+
+	* semantics.c (finish_alignof): Call complete_type before calling
+	c_alignof.
+	* decl2.c (build_expr_from_tree): Use
+	finish_sizeof/finish_alignof.
+
+2002-10-10  Jim Wilson  <wilson@redhat.com>
+
+	* decl.c (duplicate_decls): Don't call decl_attributes.
+
+2002-10-25  Zack Weinberg  <zack@codesourcery.com>
+
+	PR middle-end/6994
+	* cp-lang.c (cp_var_mod_type_p): New: C++ hook for
+	variably_modified_type_p.
+	* cp-tree.h: Remove prototype of variably_modified_type_p.
+	* tree.c (variably_modified_type_p): Remove; now implemented
+	in language-independent code.
+
+	PR c++/7266
+	* decl.c (grokdeclarator): Check that TREE_OPERAND 0 of a
+	SCOPE_REF is not null before dereferencing it.
+
+2002-10-24  David Edelsohn  <edelsohn@gnu.org>
+
+	PR c++/7228
+	* cp-tree.h (CLASSTYPE_READONLY_FIELDS_NEED_INIT): Check that
+	lang_type structure exists before accessing field.
+	(SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT): New macro.
+	(CLASSTYPE_REF_FIELDS_NEED_INIT): Similar.
+	(SET_CLASSTYPE_REF_FIELDS_NEED_INIT): New macro.
+	* class.c (check_field_decls): Use new macros.
+	* typeck2.c (process_init_constructor): Remove redundant check for
+	existence of lang_type structure.
+
+2002-10-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8067
+	* decl.c (maybe_inject_for_scope_var): Ignore __FUNCTION__ and
+	related variables.
+
+2002-10-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7679
+	* spew.c (next_token): Do not return an endless stream of
+	END_OF_SAVED_INPUT tokens.
+	(snarf_method): Add three END_OF_SAVED_INPUT tokens to the end of
+	the cached token stream.
+	(snarf_defarg): Likewise.
+
+2002-10-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6579
+	* spew.c (snarf_parenthesized_expression): New function.
+	(snarf_block): Use it.
+
 2002-10-21  Matthias Klose  <doko@debian.org>
 
 	* Backport, without whitespace change:

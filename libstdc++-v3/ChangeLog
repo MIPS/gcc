@@ -1,3 +1,108 @@
+2002-11-06  David Edelsohn  <edelsohn@gnu.org>
+
+	PR 8362
+	* testsuite/abi_check.cc: Add guards to prevent -mpower ICE.
+
+2002-11-05  Jonathan Wakely  <cow@compsoc.man.ac.uk>
+
+	* include/std/std_sstream.h
+	(basic_stringbuf::str(const __string_type&)):
+	Prefer data() to c_str() thus avoiding assigning the
+	unnecessary NULL-terminator.
+
+2002-11-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/8258
+	* include/bits/istream.tcc (istream::readsome): Don't set eofbit
+	for null buffer.
+	(istream::operator>>(_CharT*)): Use traits_type.
+	(istream::ws): Same.
+	(istream::operator>>(string)): Same.	
+	* testsuite/27_io/istream_unformatted.cc (test11): Add.
+
+2002-11-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/7219
+	* include/bits/ios_base.h (ios_base::streampos): Add.
+	(ios_base::streamoff): Add.
+	* testsuite/27_io/ios_base_type.cc: New.
+
+2002-11-05  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/8466
+	* include/std/std_sstream.h
+	(basic_stringbuf::str(const __string_type&)):
+	Cannot use simple assignment since the COW-nature of v3
+	basic_string is not taken into account in basic_stringbuf.
+	* testsuite/27_io/stringstream_members.cc: Add test04 from PR.
+
+2002-11-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Export string operator+.
+	Export __default_alloc_template::_S_force_new.
+	* testsuite/abi_check.cc: Output tweaks.
+
+2002-11-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+        PR libstdc++/8172
+        * src/string-inst.cc: Add instantiation.
+	
+2002-11-04  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	PR libstdc++/8197
+	* config/link-map.gnu: Export math stubbs.
+
+2002-11-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/8318
+	* include/std/std_iostream.h: Tweak.
+	* include/std/std_iosfwd.h: Add _GLIBCPP_USE_WCHAR_T.
+	* include/std/std_iomanip.h: Same.
+	* include/bits/stringfwd.h: Same.
+	* include/bits/basic_string.tcc: Same.
+	* include/bits/sstream.tcc: Same.
+	* include/bits/fstream.tcc: Same.
+	* include/bits/basic_ios.tcc: Same.
+	* include/bits/streambuf.tcc: Same.
+	* include/bits/locale_facets.tcc: Same.
+
+2002-11-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/8348
+	* include/bits/istream.tcc (istream::tellg): Remove sentry bits.
+	(istream::seekg): Same.
+	* testsuite/27_io/istream_seeks.cc (test06): New.
+
+2002-11-01  John Carter  <john.carter@tait.co.nz>
+
+	PR libstdc++/7961
+	* include/bits/basic_string.tcc
+	(compare(const _CharT* __s)): Don't access __s past its length.
+
+2002-11-01  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR other/3337
+	PR bootstrap/6763
+	PR bootstrap/8122
+	* testsuite/testsuite_hooks.h (__set_testsuite_memlimit): Use
+	__typeof__ (r.rlim_cur), not rlim_t in declaration of limit.
+
+2002-10-29  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/8347
+	* include/bits/basic_string.tcc
+	(string::_S_construct(_InIter, _InIter, const _Alloc&,
+	forward_iterator_tag)): Do not throw logic error if
+	__beg == NULL && __end == __beg.
+	(string::string(const _CharT*, const _Alloc&)): Tweak.
+	* testsuite/21_strings/ctor_copy_dtor.cc: Add test05 from PR.
+
+2002-10-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/22_locale/num_put_members_char.cc (test01): Swap size
+	and decimal_point arguments of find.
+	* testsuite/22_locale/num_put_members_wchar_t.cc (test01): Likewise.
+
 2002-10-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* Makefile.am (check-abi, new-abi-baseline): Use @glibcpp_srcdir@

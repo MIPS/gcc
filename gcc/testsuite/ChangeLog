@@ -1,3 +1,72 @@
+2002-11-07  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/wint_t-1.c, gcc.dg/wchar_t-1.c: Remove excess-errors
+	markers.
+
+2002-11-02  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.dg/ext/typedef-init.C, gcc.dg/typedef-init.C:
+	Add some more cases.
+
+2002-11-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8391
+	* g++.dg/opt/local1.C: New test.
+
+2002-10-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8160
+	* g++.dg/template/complit1.C: New test.
+
+	PR c++/8149
+	* g++.dg/template/typename4.C: Likewise.
+
+2002-10-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8287
+	* g++.dg/init/dtor2.C: New test.
+
+	* g++.dg/template/alignof1.C: New test.
+
+2002-10-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/20021014-1.c: Bypass errors on solaris2 and irix6.
+
+2002-10-27  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/20021014-1.c: Use dg-error, not dg-build.
+	* gcc.dg/20021014-1.c: Expect build failure on mmix-*-*.
+
+2002-10-25  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.dg/ext/vla1.C, gcc.dg/vla-2.c,
+	g++.dg/template/typename3.C: New tests.
+
+2002-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20021024-1.c: New test.
+
+2002-10-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8067
+	* g++.dg/lookup/pretty1.C: New test.
+
+2002-10-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7679
+	* g++.dg/parse/inline1.C: New test.
+
+2002-10-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6579
+	* g++.dg/parse/stmtexpr3.C: New test.
+
+2002-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7209
+	* g++.dg/expr: New directory.
+	* g++.dg/expr/cond1.C: New test.
+
 2002-10-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/20021023-1.c: New test.
