@@ -2672,6 +2672,7 @@ compute_iv_set_cost (bitmap set, bitmap used, unsigned *cost, unsigned *delta)
   struct iv_use *use;
   struct iv_cand *cand;
   unsigned size = 0;
+  bool infty = false;
 
   *cost = 0;
   *delta = 0;
@@ -2685,14 +2686,20 @@ compute_iv_set_cost (bitmap set, bitmap used, unsigned *cost, unsigned *delta)
 
       if (acost == INFTY)
 	{
-	  *cost = *delta = INFTY;
-	  return;
+	  infty = true;
+	  continue;
 	}
 
       bitmap_set_bit (used, cand->id);
 
       *cost += acost;
       *delta += acost - use->best_cost;
+    }
+
+  if (infty)
+    {
+      *cost = *delta = INFTY;
+      return;
     }
 
   /* Now add the candidate costs.  */
@@ -2729,25 +2736,27 @@ find_optimal_iv_set_1 (unsigned iv_num, bitmap actual, unsigned actual_cost,
       return;
     }
 
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    {
+      bitmap_print (tree_dump_file, actual, "Examining set ", "");
+      fprintf (tree_dump_file, " (cost %d)\n", actual_cost);
+    }
+
   bitmap_set_bit (actual, iv_num);
   used_cands = BITMAP_XMALLOC ();
   compute_iv_set_cost (actual, used_cands, &cost_with, &delta);
 
-  if (cost_with < *best_cost + delta)
+  if (cost_with < *best_cost + delta
+      /* If not all candidates are used, there is no point in trying
+	 the possibility.  */
+      && bitmap_equal_p (used_cands, actual))
     {
-      if (cost_with == INFTY)
+      if (cost_with == INFTY
+	  || cost_with < actual_cost)
 	find_optimal_iv_set_1 (iv_num + 1, actual, cost_with, best, best_cost);
-      else
-	{
-	  if (cost_with < actual_cost
-	      /* If not all candidates are used, there is no point in trying
-		 the possibility here.  */
-	      && bitmap_equal_p (used_cands, actual))
-	    find_optimal_iv_set_1 (iv_num + 1, actual, cost_with,
-				   best, best_cost);
-	}
     }
 
+  BITMAP_XFREE (used_cands);
   bitmap_clear_bit (actual, iv_num);
   find_optimal_iv_set_1 (iv_num + 1, actual, actual_cost, best, best_cost);
 }
@@ -2758,7 +2767,7 @@ find_optimal_iv_set_1 (unsigned iv_num, bitmap actual, unsigned actual_cost,
    
    1) If adding a variable would make the cost grow, it is not worthwhile
       (this is not true under some weird circumstances, but for any
-      practical example it is).
+      practical example it is so).
    2) When computing the costs of uses we also compute the minimum cost
       of uses we could reach by choosing the optimal iv as a base for them.
       We use this information to cut the imperspective branches.  */
@@ -3047,6 +3056,14 @@ free_loop_data (void)
 	      * (highest_ssa_version - old_highest_ssa_version));
     }
 
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (decl_rtl_to_reset); i++)
+    {
+      tree obj = VARRAY_GENERIC_PTR_NOGC (decl_rtl_to_reset, i);
+
+      SET_DECL_RTL (obj, NULL_RTX);
+    }
+  VARRAY_POP_ALL (decl_rtl_to_reset);
+  
   old_highest_ssa_version = highest_ssa_version;
 }
 
@@ -3057,7 +3074,6 @@ static void
 tree_ssa_iv_optimize_finalize (struct loops *loops)
 {
   unsigned i;
-  tree obj;
 
   for (i = 1; i < loops->num; i++)
     if (loops->parray[i])
@@ -3070,13 +3086,6 @@ tree_ssa_iv_optimize_finalize (struct loops *loops)
   free (ivs);
   free (outermost_usage);
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (decl_rtl_to_reset); i++)
-    {
-      obj = VARRAY_GENERIC_PTR_NOGC (decl_rtl_to_reset, i);
-
-      SET_DECL_RTL (obj, NULL_RTX);
-    }
-  
   VARRAY_FREE (decl_rtl_to_reset);
   VARRAY_FREE (iv_uses);
   VARRAY_FREE (iv_candidates);

@@ -1,5 +1,12 @@
 2004-01-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-ssa-loop-ivopts.c (find_optimal_iv_set_1, compute_iv_set_cost):
+	Fix memory leak, speed up.
+	(tree_ssa_iv_optimize_finalize): Move reseting of DECL_RTL...
+	(free_loop_data): ... here.
+
+2004-01-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* basic-block.h (FOR_BB_INSNS, FOR_BB_INSNS_REVERSE): New macros.
 	* cfgloop.c (num_loop_branches): New function.
 	* cfgloop.h (struct loop_desc): Add field strange.
