@@ -8297,7 +8297,11 @@ thumb_expand_prologue ()
 	  emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, reg));
 	  
 	  if ((live_regs_mask & 0xff) == 0)
-	    emit_insn (gen_movsi (reg, spare));
+	    {
+	      emit_insn (gen_movsi (reg, spare));
+	      /* Emit a USE (reg), so that it will not be deleted.  */
+	      emit_insn (gen_rtx_USE (VOIDmode, reg));
+	    }
 	}
     }
   
