@@ -390,7 +390,8 @@ defs_match_p (ei, t1, t2)
   FOR_EACH_REF (use1, tmp, tree_refs (t1))
     {
       tree use1expr = ref_expr (use1);
-      if (!(ref_type (use1) & V_USE) | !is_simple_modify_expr (use1expr))
+      if (!(ref_type (use1) & V_USE) 
+	  || !is_simple_modify_expr (use1expr))
         continue;
       use1expr = TREE_OPERAND (use1expr, 1);
       if (TREE_CODE (use1expr) != TREE_CODE (t2))
