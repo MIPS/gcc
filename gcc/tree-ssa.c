@@ -99,10 +99,10 @@ struct currdef_d
 /* Local functions.  */
 static void init_tree_ssa		PARAMS ((void));
 static void delete_tree_ssa		PARAMS ((tree));
-static void mark_def_sites		PARAMS ((void));
+static void mark_def_sites		PARAMS ((dominance_info));
 static void set_def_block		PARAMS ((tree, basic_block));
 static void insert_phi_nodes		PARAMS ((sbitmap *));
-static void rewrite_block		PARAMS ((basic_block, dominance_info));
+static void rewrite_block		PARAMS ((basic_block));
 static void rewrite_stmts		PARAMS ((basic_block, varray_type *));
 static void rewrite_stmt		PARAMS ((tree, varray_type *));
 static inline void rewrite_operand	PARAMS ((tree *));
@@ -226,14 +226,14 @@ rewrite_into_ssa (fndecl)
   compute_may_aliases ();
 
   /* Find variable references and mark definition sites.  */
-  mark_def_sites ();
+  mark_def_sites (idom);
 
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
   insert_phi_nodes (dfs);
 
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_BUILD_SSA);
-  rewrite_block (ENTRY_BLOCK_PTR, idom);
+  rewrite_block (ENTRY_BLOCK_PTR);
   timevar_pop (TV_TREE_BUILD_SSA);
 
   /* Free allocated memory.  */
@@ -260,10 +260,15 @@ rewrite_into_ssa (fndecl)
 
 
 /* Look for variable references in every block of the flowgraph, compute
-   aliasing information and collect definition sites for every variable.  */
+   aliasing information and collect definition sites for every variable.
+
+   Also, compute the set of dominator children for each block in the
+   flowgraph.  This will be used by rewrite_block when traversing the
+   flowgraph.  */
 
 static void
-mark_def_sites ()
+mark_def_sites (idom)
+     dominance_info idom;
 {
   basic_block bb;
   gimple_stmt_iterator si;
@@ -271,24 +276,31 @@ mark_def_sites ()
   /* Mark all the blocks that have definitions for each variable referenced
      in the function.  */
   FOR_EACH_BB (bb)
-    for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
-      {
-	varray_type ops;
-	size_t i;
-	tree stmt;
-	
-	stmt = gsi_stmt (si);
-	STRIP_NOPS (stmt);
+    {
+      basic_block idom_bb = get_immediate_dominator (idom, bb);
 
-	get_stmt_operands (stmt);
+      if (idom_bb)
+	add_dom_child (idom_bb, bb);
 
-	if (def_op (stmt))
-	  set_def_block (*(def_op (stmt)), bb);
+      for (si = gsi_start_bb (bb); !gsi_end_bb_p (si); gsi_step_bb (&si))
+	{
+	  varray_type ops;
+	  size_t i;
+	  tree stmt;
+	  
+	  stmt = gsi_stmt (si);
+	  STRIP_NOPS (stmt);
 
-	ops = vdef_ops (stmt);
-	for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	  set_def_block (VDEF_RESULT (VARRAY_TREE (ops, i)), bb);
-      }
+	  get_stmt_operands (stmt);
+
+	  if (def_op (stmt))
+	    set_def_block (*(def_op (stmt)), bb);
+
+	  ops = vdef_ops (stmt);
+	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	    set_def_block (VDEF_RESULT (VARRAY_TREE (ops, i)), bb);
+	}
+    }
 }
 
 
@@ -362,20 +374,16 @@ insert_phi_nodes (dfs)
 
 
 /* Perform a depth-first traversal of the dominator tree looking for
-   variables to rename.
-   
-   BB is the block where to start searching.
-   
-   IDOM contains dominance information for the flowgraph.  */
+   variables to rename.  BB is the block where to start searching.  */
 
 static void
-rewrite_block (bb, idom)
+rewrite_block (bb)
      basic_block bb;
-     dominance_info idom;
 {
-  basic_block child_bb;
   edge e;
   varray_type block_defs;
+  bitmap children;
+  unsigned long i;
 
   VARRAY_TREE_INIT (block_defs, 20, "block_defs");
 
@@ -397,9 +405,9 @@ rewrite_block (bb, idom)
     }
 
   /* Recursively search the dominator children of BB.  */
-  FOR_EACH_BB (child_bb)
-    if (get_immediate_dominator (idom, child_bb)->index == bb->index)
-      rewrite_block (child_bb, idom);
+  children = dom_children (bb);
+  if (children)
+    EXECUTE_IF_SET_IN_BITMAP (children, 0, i, rewrite_block (BASIC_BLOCK (i)));
 
   /* Restore the current reaching definition for each variable referenced
      in the block (in reverse order).  */

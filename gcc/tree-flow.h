@@ -197,6 +197,9 @@ struct bb_ann_d
 
   /* Chain of PHI nodes created in this block.  */
   tree phi_nodes;
+
+  /* Set of blocks immediately dominated by this node.  */
+  bitmap dom_children;
 };
 
 typedef struct bb_ann_d *bb_ann_t;
@@ -206,6 +209,8 @@ static inline bb_ann_t bb_ann		PARAMS ((basic_block));
 static inline basic_block parent_block	PARAMS ((basic_block));
 static inline void set_parent_block	PARAMS ((basic_block, basic_block));
 static inline tree phi_nodes		PARAMS ((basic_block));
+static inline void add_dom_child	PARAMS ((basic_block, basic_block));
+static inline bitmap dom_children	PARAMS ((basic_block));
 
 /* Some basic blocks are nothing but markers used to give structure to the
    flow graph (see make_while_stmt_blocks).  They contain no useful

@@ -269,8 +269,7 @@ static inline basic_block
 parent_block (bb)
      basic_block bb;
 {
-  bb_ann_t ann = bb_ann (bb);
-  return ann ? ann->parent_block : NULL;
+  return bb_ann (bb)->parent_block;
 }
 
 static inline void
@@ -278,18 +277,33 @@ set_parent_block (bb, parent)
      basic_block bb;
      basic_block parent;
 {
-  bb_ann_t ann = bb_ann (bb);
-  ann->parent_block = parent;
+  bb_ann (bb)->parent_block = parent;
 }
 
 static inline tree
 phi_nodes (bb)
      basic_block bb;
 {
-  bb_ann_t ann = bb_ann (bb);
-  return ann ? ann->phi_nodes : NULL_TREE;
+  return bb_ann (bb)->phi_nodes;
 }
 
+static inline void
+add_dom_child (bb, child_bb)
+     basic_block bb;
+     basic_block child_bb;
+{
+  bb_ann_t ann = bb_ann (bb);
+  if (ann->dom_children == NULL)
+    ann->dom_children = BITMAP_GGC_ALLOC ();
+  bitmap_set_bit (ann->dom_children, child_bb->index);
+}
+
+static inline bitmap
+dom_children (bb)
+     basic_block bb;
+{
+  return bb_ann (bb)->dom_children;
+}
 
 /* Similar to gsi_step() but stops at basic block boundaries and ignores
    empty_stmt_nodes inside a basic block.  */

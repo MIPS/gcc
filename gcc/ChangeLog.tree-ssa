@@ -1,5 +1,20 @@
 2003-01-28  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-flow-inline.h (parent_block, set_parent_block, phi_nodes):
+	Assume that blocks always have valid annotations.
+	(add_dom_child): New function.
+	(dominator_children): New function.
+
+	* tree-flow.h (struct bb_ann_d): Add field 'dom_children'.
+
+	* tree-ssa.c (mark_def_sites): Add parameter 'idom'.
+	Add each block BB to the set of dominator children of BB's
+	immediate dominator.
+	(rewrite_block): Remove 'idom' parameter.
+	Recurse into blocks set in the dominator children bitmap.
+
+2003-01-28  Diego Novillo  <dnovillo@redhat.com>
+
 	* flags.h (flag_disable_tree_ssa): New flag.
 	* c-decl.c (c_expand_body): Use it.
 	* toplev.c: Declare it.
