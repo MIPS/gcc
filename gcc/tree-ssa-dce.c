@@ -318,6 +318,12 @@ process_worklist (void)
   basic_block bb;
   tree i, j;
   edge e;
+  sbitmap cond_checked, goto_checked;
+
+  cond_checked = sbitmap_alloc (n_basic_blocks);
+  goto_checked = sbitmap_alloc (n_basic_blocks);
+  sbitmap_zero (cond_checked);
+  sbitmap_zero (goto_checked);
 
   while (VARRAY_ACTIVE_SIZE (worklist) > 0)
     {
@@ -333,18 +339,22 @@ process_worklist (void)
 	}
 
       /* Find any predecessor which 'goto's this block, and mark the goto
-	 as necessary since it is control flow.  */
+	 as necessary since it is control flow.  A block's predecessors only
+	 need to be checked once.  */
       bb = bb_for_stmt (i);
-      if (bb)
-	for (e = bb->pred; e != NULL; e = e->pred_next)
-	  {
-	    basic_block p = e->src;
-	    if (p == ENTRY_BLOCK_PTR)
-	      continue;
-	    j = last_stmt (p);
-	    if (j && TREE_CODE (j) == GOTO_EXPR)
-	      mark_necessary (j);
-	  }
+      if (bb && !TEST_BIT (goto_checked, bb->index))
+        {
+	  SET_BIT (goto_checked, bb->index);
+	  for (e = bb->pred; e != NULL; e = e->pred_next)
+	    {
+	      basic_block p = e->src;
+	      if (p == ENTRY_BLOCK_PTR)
+		continue;
+	      j = last_stmt (p);
+	      if (j && TREE_CODE (j) == GOTO_EXPR)
+		mark_necessary (j);
+	    }
+	}
       
       if (TREE_CODE (i) == PHI_NODE)
 	{
@@ -353,22 +363,28 @@ process_worklist (void)
 	  /* All the statements feeding this PHI node's arguments are
 	     necessary.  */
 	  for (k = 0; k < PHI_NUM_ARGS (i); k++)
-	    {
-	      mark_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
+	    mark_necessary (SSA_NAME_DEF_STMT (PHI_ARG_DEF (i, k)));
 
-	      /* Look at all the predecessors, and if this PHI is being fed
-	         from a conditional expression, mark that conditional
-		 as necessary.   Copies may be needed on an edge later.  */
+	  /* Look at all the predecessors, and if this PHI is being fed
+	     from a conditional expression, mark that conditional
+	     as necessary.   Copies may be needed on an edge later. 
+	     This only needs to be done once per block.  */
+
+	  k = bb_for_stmt (i)->index;
+	  if (!TEST_BIT (cond_checked, k))
+	    {
+	      SET_BIT (cond_checked, k);
 	      for (e = bb->pred; e; e = e->pred_next)
-	        {
+		{
 		  basic_block pred, par;
 		  pred = e->src;
 		  if (pred != ENTRY_BLOCK_PTR)
 		    {
 		      par = parent_block (pred);
 		      if (par)
-		        {
-			  tree last = last_stmt (par);
+			{
+			  tree last;
+			  last = last_stmt (par);
 			  if (last && (TREE_CODE (last) == COND_EXPR
 				       || TREE_CODE (last) == SWITCH_EXPR))
 			    {
@@ -377,7 +393,6 @@ process_worklist (void)
 			}
 		    }
 		}
-
 	    }
 	}
       else
@@ -415,6 +430,8 @@ process_worklist (void)
 	    }
 	}
     }
+  sbitmap_free (cond_checked);
+  sbitmap_free (goto_checked);
 }
 
 

@@ -3824,24 +3824,36 @@ bsi_commit_first_edge_insert (edge e, tree stmt)
   basic_block src, dest, new_bb;
   block_stmt_iterator bsi, tmp;
   tree_stmt_iterator tsi;
-  int single_exit, single_entry;
+  int num_exit, num_entry;
   enum find_location_action location;
   tree first, last, inserted_stmt, parent;
   bb_ann_t ann;
+  edge e2;
 
   first = last = NULL_TREE;
   src = e->src;
   dest = e->dest;
 
-  single_exit = (src->succ->succ_next == NULL);
-  single_entry = (dest->pred->pred_next == NULL);
+  /* Cannot insert on an abnormal edge.  */
+  if (e->flags & EDGE_ABNORMAL)
+    abort ();
+
+  num_exit = num_entry = 0;
+
+  /* Multiple successors on abnormal edges do not cause an edge to be split. 
+     A stmt can be inserted immediately following the last stmt in the block 
+     if there is only a single *normal* edge successor.  */
+  for (e2 = src->succ; e2; e2 = e2->succ_next)
+    if (!(e2->flags & EDGE_ABNORMAL))
+      num_exit++;
+
+  for (e2 = dest->pred; e2; e2 = e2->pred_next)
+    num_entry++;
 
   /* If it is a single exit block, and it isn't the entry block, and the edge 
      is not abnormal, then insert at the end of the block, if we can.  */
      
-  if (single_exit 
-      && src != ENTRY_BLOCK_PTR 
-      && ((e->flags & EDGE_ABNORMAL)) == 0)
+  if (num_exit == 1 && src != ENTRY_BLOCK_PTR)
     {
       bsi = bsi_last (src);
       /* If it is an empty block, simply insert after this bsi, and the new stmt
@@ -3875,7 +3887,7 @@ bsi_commit_first_edge_insert (edge e, tree stmt)
   /* If it is a single entry destination, and it isn't the exit block, the new
      stmt can be inserted at the beginning of the destination block.  */
 
-  if (single_entry && dest != EXIT_BLOCK_PTR)
+  if (num_entry == 1 && dest != EXIT_BLOCK_PTR)
     {
       bsi = bsi_start (dest);
       /* If it is an empty block, simply insert after this bsi, and the new stmt

@@ -1,3 +1,11 @@
+2003-06-13  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (bsi_commit_first_edge_insert): Only consider non-abnormal
+	edges when determining whether an edge needs to be split.
+
+	* tree-ssa-dce.c (process_worklist): When checking for GOTO and 
+	COND_EXPR's that are necessary, check each BB's predecessors only once.
+
 2003-06-12  Jeff Law  <law@redhat.com>
 
 	* tree-ssa.c (avail_expr_eq): Add some checking code to
