@@ -1,3 +1,13 @@
+2004-04-27  Devang Patel  <dpatel@apple.com>
+
+	* config/darwin.h (LINK_COMMAND_SPEC): Use darwin_arch_ld_spec.
+	* config/rs6000/darwin.h (DARWIN_ARCH_ASM_SPEC): New.
+	(DARWIN_ARCH_SPEC): Rename as...
+	(DARWIN_ARCH_LD_SPEC): New name.
+	* config/i386/darwin.h (DARWIN_ARCH_ASM_SPEC): New.
+	(DARWIN_ARCH_SPEC): Rename as...
+	(DARWIN_ARCH_LD_SPEC): New name.
+
 2004-04-26  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* configure.ac: Add test for -Wno-long-double.

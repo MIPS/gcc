@@ -98,17 +98,18 @@ do {									\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
 
+/* APPLE LOCAL begin 3492132 */
+
 /* It's virtually impossible to predict all the possible combinations
    of -mcpu and -maltivec and whatnot, so just supply
    -force_cpusubtype_ALL if any are seen.  Radar 3492132 against the
    assembler is asking for a .machine directive so we could get this
    really right.  */
-#define ASM_SPEC " %(darwin_arch_spec)\
+#define ASM_SPEC " %(darwin_arch_asm_spec)\
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
   %{!Zforce_cpusubtype_ALL:%{maltivec|faltivec:-force_cpusubtype_ALL}}"
 
-/* APPLE LOCAL begin 3492132 */
-#define DARWIN_ARCH_SPEC                                        \
+#define DARWIN_ARCH_LD_SPEC                                        \
 "%{mcpu=601: %{!Zdynamiclib:-arch ppc601} %{Zdynamiclib:-arch_only ppc601}}    \
  %{mcpu=603: %{!Zdynamiclib:-arch ppc603} %{Zdynamiclib:-arch_only ppc603}}    \
  %{mcpu=604: %{!Zdynamiclib:-arch ppc604} %{Zdynamiclib:-arch_only ppc604}}    \
@@ -118,12 +119,25 @@ do {									\
  %{mcpu=7450: %{!Zdynamiclib:-arch ppc7450} %{Zdynamiclib:-arch_only ppc7450}} \
  %{mcpu=970: %{!Zdynamiclib:-arch ppc970} %{Zdynamiclib:-arch_only ppc970}}    \
  %{!mcpu*:%{!march*:%{!Zdynamiclib:-arch ppc} %{Zdynamiclib:-arch_only ppc}}}  "
-/* APPLE LOCAL end 3492132 */
+
+#define DARWIN_ARCH_ASM_SPEC                                        \
+"%{mcpu=601: -arch ppc601}   \
+ %{mcpu=603: -arch ppc603}   \
+ %{mcpu=604: -arch ppc604}   \
+ %{mcpu=604e: -arch ppc604e} \
+ %{mcpu=750: -arch ppc750}   \
+ %{mcpu=7400: -arch ppc7400} \
+ %{mcpu=7450: -arch ppc7450} \
+ %{mcpu=970: -arch ppc970}   \
+ %{!mcpu*:%{!march*: -arch ppc}} "
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
-  { "darwin_arch_spec",	DARWIN_ARCH_SPEC },     \
+  { "darwin_arch_asm_spec",	DARWIN_ARCH_ASM_SPEC },     \
+  { "darwin_arch_ld_spec",	DARWIN_ARCH_LD_SPEC },     \
   { "darwin_arch", "ppc" },
+
+/* APPLE LOCAL end 3492132 */
 
 /* The "-faltivec" option should have been called "-maltivec" all along.  */
 #define SUBTARGET_OPTION_TRANSLATE_TABLE				\
@@ -389,3 +403,4 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 
 /* APPLE LOCAL OS pragma hook */
 /* Register generic Darwin pragmas as "OS" pragmas.  */
+
