@@ -6254,7 +6254,7 @@ output_millicode_call (insn, call_dest)
 	    {
 	      xoperands[1] = gen_label_rtx ();
 	      output_asm_insn ("addil L'%0-%l1,%%r1", xoperands);
-	      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 					 CODE_LABEL_NUMBER (xoperands[1]));
 	      output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
 	    }
