@@ -1,3 +1,7 @@
+2004-08-29  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (predict_loops): Use number_of_iterations_exit.
+
 2004-08-28  Razya Ladelsky  <razya@il.ibm.com>
 
         * ipa_prop.c: New File: IPA constant propagation. 

@@ -605,22 +605,37 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 	}
       else
 	{
-	  edge exit_edge;
-	  tree niter = find_loop_niter_by_eval (loop, &exit_edge);
+	  edge *exits;
+	  unsigned j, n_exits;
+	  struct tree_niter_desc niter_desc;
 
-	  if (TREE_CODE (niter) == INTEGER_CST)
+	  exits = get_loop_exit_edges (loop, &n_exits);
+	  for (j = 0; j < n_exits; j++)
 	    {
-	      int probability;
-	      if (tree_int_cst_lt (niter, build_int_2 (REG_BR_PROB_BASE - 1, 0)))
-		{
-	          HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
-		  probability = (REG_BR_PROB_BASE + nitercst / 2) / nitercst;
-		}
-	      else
-		probability = 1;
+	      tree niter = NULL;
 
-	      predict_edge (exit_edge, PRED_LOOP_ITERATIONS, probability);
+	      if (number_of_iterations_exit (loop, exits[j], &niter_desc))
+		niter = niter_desc.niter;
+	      if (!niter || TREE_CODE (niter_desc.niter) != INTEGER_CST)
+	        niter = loop_niter_by_eval (loop, exits[j]);
+
+	      if (TREE_CODE (niter) == INTEGER_CST)
+		{
+		  int probability;
+		  if (tree_int_cst_lt (niter,
+				       build_int_2 (REG_BR_PROB_BASE - 1, 0)))
+		    {
+		      HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
+		      probability = (REG_BR_PROB_BASE + nitercst / 2) / nitercst;
+		    }
+		  else
+		    probability = 1;
+
+		  predict_edge (exits[j], PRED_LOOP_ITERATIONS, probability);
+		}
 	    }
+
+	  free (exits);
 	}
 
       bbs = get_loop_body (loop);
