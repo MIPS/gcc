@@ -418,7 +418,7 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
 
   niter = number_of_iterations_in_loop (loop);
 
-  if (0 && TREE_CODE (niter) == INTEGER_CST)
+  if (TREE_CODE (niter) == INTEGER_CST)
     {
       tree nit;
       edge ex;
@@ -434,12 +434,14 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
 			   convert (TREE_TYPE (niter),
 				    integer_minus_one_node)));
 
+#ifdef ENABLE_CHECKING
       nit = find_loop_niter_by_eval (loop, &ex);
 
       if (ex == exit
 	  && TREE_CODE (nit) == INTEGER_CST
 	  && !operand_equal_p (niter, nit, 0))
 	abort ();
+#endif
     }
   else
     niter = find_loop_niter_by_eval (loop, &exit);

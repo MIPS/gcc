@@ -543,9 +543,11 @@ chrec_fold_multiply_expo_cst (tree expo,
 /* Fold the multiplication of an interval and a constant.  */
 
 static inline tree 
-chrec_fold_multiply_ival_cst (tree ival, 
-			      tree cst)
+chrec_fold_multiply_ival_cst (tree ival, tree cst)
 {
+  tree lowm, upm;
+  bool pos;
+
 #if defined ENABLE_CHECKING
   if (ival == NULL_TREE
       || cst == NULL_TREE
@@ -553,16 +555,23 @@ chrec_fold_multiply_ival_cst (tree ival,
       || is_not_constant_evolution (cst))
     abort ();
 #endif
-  
+ 
   /* Don't modify abstract values.  */
   if (ival == chrec_top)
     return chrec_top;
   if (ival == chrec_bot)
     return chrec_bot;
-  
-  return build_interval_chrec 
-    (chrec_fold_multiply (CHREC_LOW (ival), cst),
-     chrec_fold_multiply (CHREC_UP (ival), cst));
+
+  if (!chrec_is_positive (cst, &pos))
+    return chrec_top;
+
+  lowm = chrec_fold_multiply (CHREC_LOW (ival), cst);
+  upm = chrec_fold_multiply (CHREC_UP (ival), cst);
+
+  if (pos)
+    return build_interval_chrec (lowm, upm);
+  else
+    return build_interval_chrec (upm, lowm);
 }
 
 /* Fold the multiplication of two polynomial functions.  */
