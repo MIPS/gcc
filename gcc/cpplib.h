@@ -567,7 +567,7 @@ extern unsigned char *cpp_token_as_text (cpp_reader *, const cpp_token *);
 extern unsigned char *cpp_spell_token (cpp_reader *, const cpp_token *,
 				       unsigned char *);
 extern void cpp_register_pragma (cpp_reader *, const char *, const char *,
-				 void (*) (cpp_reader *));
+				 void (*) (cpp_reader *), int);
 extern int cpp_avoid_paste (cpp_reader *, const cpp_token *,
 			    const cpp_token *);
 extern const cpp_token *cpp_get_token (cpp_reader *);

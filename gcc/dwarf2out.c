@@ -10215,7 +10215,8 @@ scope_die_for (tree t, dw_die_ref context_die)
   if (containing_scope && TREE_CODE (containing_scope) == FUNCTION_TYPE)
     containing_scope = NULL_TREE;
 
-  if (containing_scope == NULL_TREE)
+  if (containing_scope == NULL_TREE 
+      || TREE_CODE (containing_scope) == TRANSLATION_UNIT_DECL)
     scope_die = comp_unit_die;
   else if (TYPE_P (containing_scope))
     {

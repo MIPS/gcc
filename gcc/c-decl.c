@@ -1829,6 +1829,7 @@ tree
 implicitly_declare (tree functionid)
 {
   tree decl = any_external_decl (functionid);
+  tree asmspec_tree;
 
   if (decl)
     {
@@ -1858,6 +1859,17 @@ implicitly_declare (tree functionid)
   TREE_PUBLIC (decl) = 1;
   C_DECL_IMPLICIT (decl) = 1;
   implicit_decl_warning (functionid);
+  asmspec_tree = maybe_apply_renaming_pragma (decl, /*asmname=*/NULL);
+  if (asmspec_tree)
+    {
+      /* ASMSPEC is given, and not the name of a register.  Mark the
+	 name with a star so assemble_name won't munge it.  */
+      const char *asmspec = TREE_STRING_POINTER (asmspec_tree);
+      char *starred = alloca (strlen (asmspec) + 2);
+      starred[0] = '*';
+      strcpy (starred + 1, asmspec);
+      change_decl_assembler_name (decl, get_identifier (starred));
+    }
 
   /* C89 says implicit declarations are in the innermost block.
      So we record the decl in the standard fashion.  */
@@ -2311,7 +2323,7 @@ builtin_function (const char *name, tree type, int function_code,
   TREE_PUBLIC (decl) = 1;
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-  make_decl_rtl (decl, NULL);
+
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
@@ -2688,7 +2700,9 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
   const char *asmspec = 0;
 
   /* If a name was specified, get the string.  */
-  if (current_scope == global_scope)
+  if ((TREE_CODE (decl) == FUNCTION_DECL 
+       || TREE_CODE (decl) == VAR_DECL)
+      && DECL_FILE_SCOPE_P (decl))
     asmspec_tree = maybe_apply_renaming_pragma (decl, asmspec_tree);
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);

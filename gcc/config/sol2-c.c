@@ -64,6 +64,7 @@ static const format_char_info cmn_err_char_table[] =
   { "oOxX",0, STD_C89, { T89_UI,  BADLEN,  BADLEN,  T89_UL,  T9L_ULL, BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "",   NULL },
   { "u",   0, STD_C89, { T89_UI,  BADLEN,  BADLEN,  T89_UL,  T9L_ULL, BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "",   NULL },
   { "c",   0, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "",   NULL },
+  { "p",   1, STD_C89, { T89_V,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w", "c",  NULL },
   { "s",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "w",  "cR", NULL },
   { "b",   0, STD_C89, { T89_I,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "",   "",   &bitfield_string_type },
   { NULL,  0, 0, NOLENGTHS, NULL, NULL, NULL }
@@ -90,7 +91,7 @@ solaris_pragma_align (cpp_reader *pfile ATTRIBUTE_UNUSED)
   if (c_lex (&x) != CPP_NUMBER
       || c_lex (&t) != CPP_OPEN_PAREN)
     {
-      warning ("malformed %<#pragma align%>, ignoring");
+      warning ("malformed '#pragma align', ignoring");
       return;
     }
 
@@ -99,23 +100,26 @@ solaris_pragma_align (cpp_reader *pfile ATTRIBUTE_UNUSED)
       || (low != 1 && low != 2 && low != 4 && low != 8 && low != 16
 	  && low != 32 && low != 64 && low != 128))
     {
-      warning ("invalid alignment for %<#pragma align%>, ignoring");
+      warning ("invalid alignment for '#pragma align', ignoring");
       return;
     }
 
   ttype = c_lex (&t);
   if (ttype != CPP_NAME)
     {
-      warning ("malformed %<#pragma align%>, ignoring");
+      warning ("malformed '#pragma align', ignoring");
       return;
     }
 
   while (1)
     {
       tree decl = identifier_global_value (t);
-      if (decl && DECL_P (decl))
-	warning ("%<#pragma align%> must appear before the declaration of "
-		 "%D, ignoring", decl);
+      if (decl && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+	{
+	  decl_attributes (&decl, build_tree_list (get_identifier ("aligned"),
+						   build_tree_list (NULL, x)),
+			   0);
+	}
       else
 	solaris_pending_aligns = tree_cons (t, build_tree_list (NULL, x),
 					    solaris_pending_aligns);
@@ -126,19 +130,19 @@ solaris_pragma_align (cpp_reader *pfile ATTRIBUTE_UNUSED)
 	  ttype = c_lex (&t);
 	  if (ttype != CPP_NAME)
 	    {
-	      warning ("malformed %<#pragma align%>");
+	      warning ("malformed '#pragma align'");
 	      return;
 	    }
 	}
       else if (ttype == CPP_CLOSE_PAREN)
 	{
 	  if (c_lex (&t) != CPP_EOF)
-	    warning ("junk at end of %<#pragma align%>");
+	    warning ("junk at end of '#pragma align'");
 	  return;
 	}
       else
 	{
-	  warning ("malformed %<#pragma align%>");
+	  warning ("malformed '#pragma align'");
 	  return;
 	}
     }
@@ -154,21 +158,21 @@ solaris_pragma_init (cpp_reader *pfile ATTRIBUTE_UNUSED)
 
   if (c_lex (&t) != CPP_OPEN_PAREN)
     {
-      warning ("malformed %<#pragma init%>, ignoring");
+      warning ("malformed '#pragma init', ignoring");
       return;
     }
 
   ttype = c_lex (&t);
   if (ttype != CPP_NAME)
     {
-      warning ("malformed %<#pragma init%>, ignoring");
+      warning ("malformed '#pragma init', ignoring");
       return;
     }
 
   while (1)
     {
       tree decl = identifier_global_value (t);
-      if (decl && DECL_P (decl))
+      if (decl && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
 	{
 	  tree init_list = build_tree_list (get_identifier ("init"),
 					    NULL);
@@ -184,19 +188,19 @@ solaris_pragma_init (cpp_reader *pfile ATTRIBUTE_UNUSED)
 	  ttype = c_lex (&t);
 	  if (ttype != CPP_NAME)
 	    {
-	      warning ("malformed %<#pragma init%>");
+	      warning ("malformed '#pragma init'");
 	      return;
 	    }
 	}
       else if (ttype == CPP_CLOSE_PAREN)
 	{
 	  if (c_lex (&t) != CPP_EOF)
-	    warning ("junk at end of %<#pragma init%>");
+	    warning ("junk at end of '#pragma init'");
 	  return;
 	}
       else
 	{
-	  warning ("malformed %<#pragma init%>");
+	  warning ("malformed '#pragma init'");
 	  return;
 	}
     }
@@ -212,21 +216,21 @@ solaris_pragma_fini (cpp_reader *pfile ATTRIBUTE_UNUSED)
 
   if (c_lex (&t) != CPP_OPEN_PAREN)
     {
-      warning ("malformed %<#pragma fini%>, ignoring");
+      warning ("malformed '#pragma fini', ignoring");
       return;
     }
 
   ttype = c_lex (&t);
   if (ttype != CPP_NAME)
     {
-      warning ("malformed %<#pragma fini%>, ignoring");
+      warning ("malformed '#pragma fini', ignoring");
       return;
     }
 
   while (1)
     {
       tree decl = identifier_global_value (t);
-      if (decl && DECL_P (decl))
+      if (decl && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
 	{
 	  tree fini_list = build_tree_list (get_identifier ("fini"),
 					    NULL);
@@ -242,19 +246,19 @@ solaris_pragma_fini (cpp_reader *pfile ATTRIBUTE_UNUSED)
 	  ttype = c_lex (&t);
 	  if (ttype != CPP_NAME)
 	    {
-	      warning ("malformed %<#pragma fini%>");
+	      warning ("malformed '#pragma fini'");
 	      return;
 	    }
 	}
       else if (ttype == CPP_CLOSE_PAREN)
 	{
 	  if (c_lex (&t) != CPP_EOF)
-	    warning ("junk at end of %<#pragma fini%>");
+	    warning ("junk at end of '#pragma fini'");
 	  return;
 	}
       else
 	{
-	  warning ("malformed %<#pragma fini%>");
+	  warning ("malformed '#pragma fini'");
 	  return;
 	}
     }
@@ -265,7 +269,7 @@ solaris_pragma_fini (cpp_reader *pfile ATTRIBUTE_UNUSED)
 void
 solaris_register_pragmas (void)
 {
-  c_register_pragma (0, "align", solaris_pragma_align);
+  c_register_pragma_with_expansion (0, "align", solaris_pragma_align);
   c_register_pragma (0, "init", solaris_pragma_init);
   c_register_pragma (0, "fini", solaris_pragma_fini);
 }

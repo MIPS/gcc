@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for any
    Solaris 2 system.
-   Copyright 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -72,6 +72,11 @@ Boston, MA 02111-1307, USA.  */
 	    builtin_define ("_LARGEFILE_SOURCE=1");	\
 	    builtin_define ("_LARGEFILE64_SOURCE=1");	\
 	    builtin_define ("__EXTENSIONS__");		\
+	  }						\
+	if (flag_pic)					\
+	  {						\
+	    builtin_define ("__PIC__");			\
+	    builtin_define ("__pic__");			\
 	  }						\
 	TARGET_SUB_OS_CPP_BUILTINS();			\
     } while (0)
@@ -149,6 +154,12 @@ Boston, MA 02111-1307, USA.  */
    %(link_arch) \
    %{Qy:} %{!Qn:-Qy}"
 
+/* The Solaris linker doesn't understand constructor priorities.  (The
+   GNU linker does support constructor priorities, so GNU ld
+   configuration files for Solaris override this setting.)  */
+#undef SUPPORTS_INIT_PRIORITY
+#define SUPPORTS_INIT_PRIORITY 0
+
 /* This defines which switch letters take arguments.
    It is as in svr4.h but with -R added.  */
 #undef SWITCH_TAKES_ARG
@@ -206,3 +217,35 @@ __enable_execute_stack (void *addr)					\
       perror ("mprotect of trampoline code");				\
   }									\
 }
+
+/* Support Solaris-specific format checking for cmn_err.  */
+#define TARGET_N_FORMAT_TYPES 1
+#define TARGET_FORMAT_TYPES solaris_format_types
+
+/* #pragma init and #pragma fini are implemented on top of init and
+   fini attributes.  */
+#define SOLARIS_ATTRIBUTE_TABLE						\
+  { "init",      0, 0, true,  false,  false, NULL },			\
+  { "fini",      0, 0, true,  false,  false, NULL }
+
+/* This is how to declare the size of a function.  For Solaris, we output
+   any .init or .fini entries here.  */
+#undef ASM_DECLARE_FUNCTION_SIZE
+#define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)		\
+  do								\
+    {								\
+      if (!flag_inhibit_size_directive)				\
+	ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
+      solaris_output_init_fini (FILE, DECL);			\
+    }								\
+  while (0)
+
+/* Register the Solaris-specific #pragma directives.  */
+#define REGISTER_TARGET_PRAGMAS() solaris_register_pragmas ()
+
+extern GTY(()) tree solaris_pending_aligns;
+extern GTY(()) tree solaris_pending_inits;
+extern GTY(()) tree solaris_pending_finis;
+
+/* Allow macro expansion in #pragma pack.  */
+#define HANDLE_PRAGMA_PACK_WITH_EXPANSION

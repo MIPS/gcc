@@ -3,6 +3,7 @@
 /* { dg-do run } */
 /* { dg-options "-O2" } */
 /* { dg-options "-O2 -frename-registers -fomit-frame-pointer -fPIC -mtune=i686" { target i?86-*-* } } */
+/* { dg-forbid-option "-m64" } */
 
 typedef struct
 {

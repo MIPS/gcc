@@ -412,3 +412,10 @@ cxx_initialize_diagnostics (diagnostic_context *context)
   /* It is safe to free this object because it was previously malloc()'d.  */
   free (base);
 }
+
+/* c-pragma.c needs to query whether a decl has extern "C" linkage.  */
+bool
+has_c_linkage (tree decl)
+{
+  return DECL_EXTERN_C_P (decl);
+}

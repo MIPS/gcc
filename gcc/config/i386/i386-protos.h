@@ -211,6 +211,7 @@ extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
 extern unsigned int i386_pe_section_type_flags (tree, const char *, int);
 extern void i386_pe_asm_named_section (const char *, unsigned int);
 extern int x86_field_alignment (tree, int);
+extern void i386_solaris_elf_named_section (const char *, unsigned int);
 #endif
 
 extern rtx ix86_tls_get_addr (void);

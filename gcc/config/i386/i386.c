@@ -1023,6 +1023,11 @@ static void init_ext_80387_constants (void);
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST ix86_build_builtin_va_list
 
+#ifdef SUBTARGET_INSERT_ATTRIBUTES
+#undef TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
+#endif
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* The svr4 ABI for the i386 says that records and unions are returned
@@ -1044,6 +1049,8 @@ void
 override_options (void)
 {
   int i;
+  int ix86_tune_defaulted = 0;
+
   /* Comes from final.c -- no real reason to change it.  */
 #define MAX_CODE_ALIGN 16
 
@@ -1139,6 +1146,10 @@ override_options (void)
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
+#ifdef SUBTARGET_OVERRIDE_OPTIONS
+  SUBTARGET_OVERRIDE_OPTIONS;
+#endif
+
   /* Set the default values for switches whose default depends on TARGET_64BIT
      in case they weren't overwritten by command line options.  */
   if (TARGET_64BIT)
@@ -1160,14 +1171,13 @@ override_options (void)
 	flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
     }
 
-#ifdef SUBTARGET_OVERRIDE_OPTIONS
-  SUBTARGET_OVERRIDE_OPTIONS;
-#endif
-
   if (!ix86_tune_string && ix86_arch_string)
     ix86_tune_string = ix86_arch_string;
   if (!ix86_tune_string)
-    ix86_tune_string = cpu_names [TARGET_CPU_DEFAULT];
+    {
+      ix86_tune_string = cpu_names [TARGET_CPU_DEFAULT];
+      ix86_tune_defaulted = 1;
+    }
   if (!ix86_arch_string)
     ix86_arch_string = TARGET_64BIT ? "x86-64" : "i386";
 
@@ -1251,7 +1261,20 @@ override_options (void)
       {
 	ix86_tune = processor_alias_table[i].processor;
 	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
-	  error ("CPU you selected does not support x86-64 instruction set");
+	  {
+	    if (ix86_tune_defaulted)
+	      {
+		ix86_tune_string = "x86-64";
+		for (i = 0; i < pta_size; i++)
+		  if (! strcmp (ix86_tune_string,
+				processor_alias_table[i].name))
+		    break;
+		ix86_tune = processor_alias_table[i].processor;
+	      }
+	    else
+	      error ("CPU you selected does not support x86-64 "
+		     "instruction set");
+	  }
 
 	/* Intel CPUs have always interpreted SSE prefetch instructions as
 	   NOPs; so, we can enable SSE prefetch instructions even when
@@ -1534,6 +1557,9 @@ const struct attribute_spec ix86_attribute_table[] =
 #endif
   { "ms_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
   { "gcc_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
+#ifdef SUBTARGET_ATTRIBUTE_TABLE
+  SUBTARGET_ATTRIBUTE_TABLE,
+#endif
   { NULL,        0, 0, false, false, false, NULL }
 };
 
@@ -16023,6 +16049,21 @@ ix86_expand_vector_init (rtx target, rtx vals)
       default:
 	abort ();
     }
+}
+
+void
+i386_solaris_elf_named_section (const char *name, unsigned int flags)
+{
+  /* The "@unwind" marker must be specified on every occurrence of the
+     ".eh_frame" section, not just the first one.  */
+  if (TARGET_64BIT
+      && strcmp (name, ".eh_frame") == 0)
+    {
+      fprintf (asm_out_file, "\t.section\t%s,\"%s\",@unwind\n", name,
+	       flags & SECTION_WRITE ? "aw" : "a");
+      return;
+    }
+  default_elf_asm_named_section (name, flags);
 }
 
 #include "gt-i386.h"

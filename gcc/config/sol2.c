@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "coretypes.h"
 #include "tree.h"
 #include "tm.h"
+#include "rtl.h"
 #include "tm_p.h"
 #include "toplev.h"
 #include "ggc.h"
@@ -50,13 +51,13 @@ solaris_insert_attributes (tree decl, tree *attributes)
 	  {
 	    if (lookup_attribute ("aligned", DECL_ATTRIBUTES (decl))
 		|| lookup_attribute ("aligned", *attributes))
-	      warning ("%Jignoring %<#pragma align%> for explicitly "
-		       "aligned %<%D%>", decl, decl);
+	      warning ("%Jignoring '#pragma align' for explicitly "
+		       "aligned '%D'", decl, decl);
 	    else
 	      *attributes = tree_cons (get_identifier ("aligned"), value,
 				       *attributes);
 	    next = TREE_CHAIN (*x);
-	    ggc_free (*x);
+	    /* ggc_free (*x); */
 	    *x = next;
 	    break;
 	  }
@@ -73,7 +74,7 @@ solaris_insert_attributes (tree decl, tree *attributes)
 	    *attributes = tree_cons (get_identifier ("used"), NULL,
 				     *attributes);
 	    next = TREE_CHAIN (*x);
-	    ggc_free (*x);
+	    /* ggc_free (*x); */
 	    *x = next;
 	    break;
 	  }
@@ -90,7 +91,7 @@ solaris_insert_attributes (tree decl, tree *attributes)
 	    *attributes = tree_cons (get_identifier ("used"), NULL,
 				     *attributes);
 	    next = TREE_CHAIN (*x);
-	    ggc_free (*x);
+	    /* ggc_free (*x); */
 	    *x = next;
 	    break;
 	  }
@@ -105,15 +106,14 @@ solaris_output_init_fini (FILE *file, tree decl)
   if (lookup_attribute ("init", DECL_ATTRIBUTES (decl)))
     {
       fprintf (file, "\t.pushsection\t\".init\"\n");
-      ASM_OUTPUT_CALL (file, IDENTIFIER_POINTER (DECL_NAME (decl)));
+      ASM_OUTPUT_CALL (file, decl);
       fprintf (file, "\t.popsection\n");
     }
 
   if (lookup_attribute ("fini", DECL_ATTRIBUTES (decl)))
     {
       fprintf (file, "\t.pushsection\t\".fini\"\n");
-      ASM_OUTPUT_CALL (file, IDENTIFIER_POINTER (DECL_NAME (decl)));
+      ASM_OUTPUT_CALL (file, decl);
       fprintf (file, "\t.popsection\n");
     }
 }
-

@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "output.h"
 #include "tm_p.h"
+#include "target.h"
 
 #define GCC_BAD(msgid) do { warning (msgid); return; } while (0)
 #define GCC_BAD2(msgid, arg) do { warning (msgid, arg); return; } while (0)
@@ -312,6 +313,33 @@ maybe_apply_pragma_weak (tree decl)
       }
 }
 
+/* Process all "#pragma weak A = B" directives where we have not seen
+   a decl for A.  */
+void
+maybe_apply_pending_pragma_weaks (void)
+{
+  tree *p, t, alias_id, id, decl, *next;
+
+  for (p = &pending_weaks; (t = *p) ; p = next)
+    {
+      next = &TREE_CHAIN (t);
+      alias_id = TREE_PURPOSE (t);
+      id = TREE_VALUE (t);
+
+      if (TREE_VALUE (t) == NULL)
+	continue;
+
+      decl = build_decl (FUNCTION_DECL, alias_id, default_function_type);
+
+      DECL_ARTIFICIAL (decl) = 1;
+      TREE_PUBLIC (decl) = 1;
+      DECL_EXTERNAL (decl) = 1;
+      DECL_WEAK (decl) = 1;
+
+      assemble_alias (decl, id);
+    }
+}
+
 /* #pragma weak name [= value] */
 static void
 handle_pragma_weak (cpp_reader *dummy ATTRIBUTE_UNUSED)
@@ -346,6 +374,11 @@ handle_pragma_weak (cpp_reader *dummy ATTRIBUTE_UNUSED)
 #else
 void
 maybe_apply_pragma_weak (tree decl ATTRIBUTE_UNUSED)
+{
+}
+
+void
+maybe_apply_pending_pragma_weaks (void)
 {
 }
 #endif /* HANDLE_PRAGMA_WEAK */
@@ -429,65 +462,104 @@ handle_pragma_extern_prefix (cpp_reader *dummy ATTRIBUTE_UNUSED)
 tree
 maybe_apply_renaming_pragma (tree decl, tree asmname)
 {
-  tree oldname;
+  tree *p, t;
 
-  /* Copied from the check in set_decl_assembler_name.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      || (TREE_CODE (decl) == VAR_DECL 
-          && (TREE_STATIC (decl) 
-              || DECL_EXTERNAL (decl) 
-              || TREE_PUBLIC (decl))))
-    oldname = DECL_ASSEMBLER_NAME (decl);
-  else
+  /* The renaming pragmas are only applied to declarations with
+     external linkage.  */
+  if ((TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
+      || (!TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
+      || !has_c_linkage (decl))
     return asmname;
 
-  /* If the name begins with a *, that's a sign of an asmname attached to
-     a previous declaration.  */
-  if (IDENTIFIER_POINTER (oldname)[0] == '*')
+  /* If the DECL_ASSEMBLER_NAME is already set, it does not change,
+     but we may warn about a rename that conflicts.  */
+  if (DECL_ASSEMBLER_NAME_SET_P (decl))
     {
-      const char *oldasmname = IDENTIFIER_POINTER (oldname) + 1;
-      if (asmname && strcmp (TREE_STRING_POINTER (asmname), oldasmname) != 0)
-	warning ("asm declaration conflicts with previous rename");
-      asmname = build_string (strlen (oldasmname), oldasmname);
+      const char *oldname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      oldname = targetm.strip_name_encoding (oldname);
+
+      if (asmname && strcmp (TREE_STRING_POINTER (asmname), oldname))
+	  warning ("asm declaration ignored due to "
+		   "conflict with previous rename");
+
+      /* Take any pending redefine_extname off the list.  */
+      for (p = &pending_redefine_extname; (t = *p); p = &TREE_CHAIN (t))
+	if (DECL_NAME (decl) == TREE_PURPOSE (t))
+	  {
+	    /* Only warn if there is a conflict.  */
+	    if (strcmp (IDENTIFIER_POINTER (TREE_VALUE (t)), oldname))
+	      warning ("#pragma redefine_extname ignored due to "
+		       "conflict with previous rename");
+
+	    *p = TREE_CHAIN (t);
+	    break;
+	  }
+      return 0;
     }
 
-  {
-    tree *p, t;
+  /* Find out if we have a pending #pragma redefine_extname.  */
+  for (p = &pending_redefine_extname; (t = *p); p = &TREE_CHAIN (t))
+    if (DECL_NAME (decl) == TREE_PURPOSE (t))
+      {
+	tree newname = TREE_VALUE (t);
+	*p = TREE_CHAIN (t);
 
-    for (p = &pending_redefine_extname; (t = *p) ; p = &TREE_CHAIN (t))
-      if (oldname == TREE_PURPOSE (t))
-	{
-	  const char *newname = IDENTIFIER_POINTER (TREE_VALUE (t));
+	/* If we already have an asmname, #pragma redefine_extname is
+ 	   ignored (with a warning if it conflicts).  */
+	if (asmname)
+	  {
+	    if (strcmp (TREE_STRING_POINTER (asmname),
+			IDENTIFIER_POINTER (newname)) != 0)
+	      warning ("#pragma redefine_extname ignored due to "
+		       "conflict with __asm__ declaration");
+	    return asmname;
+	  }
 
-	  if (asmname && strcmp (TREE_STRING_POINTER (asmname), newname) != 0)
-            warning ("#pragma redefine_extname conflicts with declaration");
-	  *p = TREE_CHAIN (t);
+	/* Otherwise we use what we've got; #pragma extern_prefix is
+	   silently ignored.  */
+	return build_string (IDENTIFIER_LENGTH (newname),
+			     IDENTIFIER_POINTER (newname));
+      }
 
-	  return build_string (strlen (newname), newname);
-	}
-  }
+  /* If we've got an asmname, #pragma extern_prefix is silently ignored.  */
+  if (asmname)
+    return asmname;
 
-#ifdef HANDLE_PRAGMA_EXTERN_PREFIX
-  if (pragma_extern_prefix && !asmname)
+  /* If #pragma extern_prefix is in effect, apply it.  */
+  if (pragma_extern_prefix)
     {
-      char *x = concat (TREE_STRING_POINTER (pragma_extern_prefix),
-			IDENTIFIER_POINTER (oldname), NULL);
-      asmname = build_string (strlen (x), x);
-      free (x);
-      return asmname;
-    }
-#endif
+      const char *prefix = TREE_STRING_POINTER (pragma_extern_prefix);
+      size_t plen = TREE_STRING_LENGTH (pragma_extern_prefix) - 1;
 
-  return asmname;
+      const char *id = IDENTIFIER_POINTER (DECL_NAME (decl));
+      size_t ilen = IDENTIFIER_LENGTH (DECL_NAME (decl));
+	
+      char *newname = (char *) alloca (plen + ilen + 1);
+
+      memcpy (newname,        prefix, plen);
+      memcpy (newname + plen, id, ilen + 1);
+
+      return build_string (plen + ilen, newname);
+    }
+
+  /* Nada.  */
+  return 0;
 }
 
-/* Front-end wrapper for pragma registration to avoid dragging
+/* Front-end wrappers for pragma registration to avoid dragging
    cpplib.h in almost everywhere.  */
 void
 c_register_pragma (const char *space, const char *name,
 		   void (*handler) (struct cpp_reader *))
 {
-  cpp_register_pragma (parse_in, space, name, handler);
+  cpp_register_pragma (parse_in, space, name, handler, 0);
+}
+
+void
+c_register_pragma_with_expansion (const char *space, const char *name,
+				  void (*handler) (struct cpp_reader *))
+{
+  cpp_register_pragma (parse_in, space, name, handler, 1);
 }
 
 /* Set up front-end pragmas.  */
@@ -495,7 +567,11 @@ void
 init_pragma (void)
 {
 #ifdef HANDLE_PRAGMA_PACK
+#ifdef HANDLE_PRAGMA_PACK_WITH_EXPANSION
+  c_register_pragma_with_expansion (0, "pack", handle_pragma_pack);
+#else
   c_register_pragma (0, "pack", handle_pragma_pack);
+#endif
 #endif
 #ifdef HANDLE_PRAGMA_WEAK
   c_register_pragma (0, "weak", handle_pragma_weak);

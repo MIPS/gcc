@@ -1,31 +1,36 @@
-/* Prove that HANDLE_SYSTEMV_PRAGMA alignment handling works somewhat. */
+/* On Solaris, #pragma pack should accept macro expansion.  */
 
-/* { dg-do run { target i?86-*-linux* i?86-*-*bsd* i?86-*-sco3.2v5* *-*-solaris2.* } } */
+/* { dg-do run { target *-*-solaris2.* } } */
 
 struct {
         char one;
         long two;
 } defaultalign;
 
-#pragma pack(16)
+#define ALIGNHIGH 16
+
+#pragma pack(ALIGNHIGH)
 struct {
         char one;
         long two;
 } sixteen;
 
-#pragma pack(1)
+#define ALIGN1(X) 1
+#pragma pack(ALIGN1(4))
 struct {
         char one;
         long two;
 } two;
 
-#pragma pack(2)
+#define ALIGN2(X) X
+#pragma pack(ALIGN2(2))
 struct {
         char one;
         long two;
 } three;
 
-#pragma pack()
+#define EMPTY
+#pragma pack(EMPTY)
 struct {
         char one;
         long two;

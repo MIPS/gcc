@@ -1329,13 +1329,13 @@ c-ppoutput.o : c-ppoutput.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) $(EXPR_H) $(C_TREE_H) \
     flags.h toplev.h tree-inline.h $(DIAGNOSTIC_H) $(VARRAY_H) \
-    langhooks.h $(GGC_H) $(TARGET_H) cgraph.h
+    langhooks.h $(GGC_H) $(TARGET_H) cgraph.h c-pragma.h
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) flags.h toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     flags.h toplev.h $(C_COMMON_H) real.h
 c-pragma.o: c-pragma.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
-    function.h c-pragma.h toplev.h output.h $(GGC_H) $(TM_P_H) $(C_COMMON_H) gt-c-pragma.h
+    function.h c-pragma.h toplev.h output.h $(GGC_H) $(TM_P_H) $(C_COMMON_H) gt-c-pragma.h $(TARGET_H)
 graph.o: graph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h flags.h output.h \
     $(RTL_H) function.h hard-reg-set.h $(BASIC_BLOCK_H) graph.h
 sbitmap.o: sbitmap.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
@@ -1385,7 +1385,7 @@ attribs.o : attribs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) flag
 	builtin-types.def $(TARGET_H) langhooks.h
 
 c-format.o : c-format.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) langhooks.h \
-	$(C_COMMON_H) flags.h toplev.h intl.h $(DIAGNOSTIC_H)
+	$(C_COMMON_H) flags.h toplev.h intl.h $(DIAGNOSTIC_H) c-format.h
 
 c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(C_TREE_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \

@@ -472,6 +472,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Vector Extensions::   Using vector instructions through built-in functions.
 * Other Builtins::      Other built-in functions.
 * Target Builtins::     Built-in functions specific to particular targets.
+* Target Format Checks:: Format checks specific to particular targets.
 * Pragmas::             Pragmas accepted by GCC.
 * Unnamed Fields::      Unnamed struct/union fields within structs/unions.
 * Thread-Local::        Per-thread variables.
@@ -2174,6 +2175,10 @@ modify the header file @file{stdio.h}.  In C99 mode, the functions
 standard modes, the X/Open function @code{strfmon} is also checked as
 are @code{printf_unlocked} and @code{fprintf_unlocked}.
 @xref{C Dialect Options,,Options Controlling C Dialect}.
+
+The target may provide additional types of format checks.
+@xref{Target Format Checks,,Format Checks Specific to Particular
+Target Machines}.
 
 @item format_arg (@var{string-index})
 @cindex @code{format_arg} function attribute
@@ -8009,6 +8014,25 @@ int vec_any_numeric (vector float);
 int vec_any_out (vector float, vector float);
 @end smallexample
 
+@node Target Format Checks
+@section Format Checks Specific to Particular Target Machines
+
+For some target machines, GCC supports additional options to the
+format attribute
+(@pxref{Function Attributes,,Declaring Attributes of Functions}).
+
+@menu
+* Solaris Format Checks::
+@end menu
+
+@node Solaris Format Checks
+@subsection Solaris Format Checks
+
+Solaris targets support the @code{cmn_err} (or @code{__cmn_err__}) format
+check.  @code{cmn_err} accepts a subset of the standard @code{printf}
+conversions, and the two-argument @code{%b} conversion for displaying
+bit-fields.  See the Solaris man page for @code{cmn_err} for more information.
+
 @node Pragmas
 @section Pragmas Accepted by GCC
 @cindex pragmas
@@ -8113,8 +8137,8 @@ anywhere within the variables' scopes.
 @node Solaris Pragmas
 @subsection Solaris Pragmas
 
-For compatibility with the SunPRO compiler, the following pragma
-is supported.
+For compatibility with the SunPRO compiler, the following pragmas
+are supported.
 
 @table @code
 @item redefine_extname @var{oldname} @var{newname}
@@ -8125,6 +8149,27 @@ This pragma gives the C function @var{oldname} the assembler label
 This pragma is equivalent to the asm labels extension (@pxref{Asm
 Labels}).  The preprocessor defines @code{__PRAGMA_REDEFINE_EXTNAME}
 if the pragma is available.
+
+@item align @var{alignment} (@var{variable} [, @var{variable}]...)
+@cindex pragma, align
+
+Increase the minimum alignment of each @var{variable} to @var{alignment}.
+This is the same as GCC's @code{aligned} attribute @pxref{Variable
+Attributes}).  Macro expansion occurs on the arguments to this pragma.
+
+@item fini (@var{function} [, @var{function}]...)
+@cindex pragma, fini
+
+This pragma causes each listed @var{function} to be called after
+main, or during shared module unloading, by adding a call to the
+@code{.fini} section.
+
+@item init (@var{function} [, @var{function}]...)
+@cindex pragma, init
+
+This pragma causes each listed @var{function} to be called during
+initialization (before @code{main}) or during shared module loading, by
+adding a call to the @code{.init} section.
 @end table
 
 @node Tru64 Pragmas

@@ -52,6 +52,7 @@ struct pragma_entry
   struct pragma_entry *next;
   const cpp_hashnode *pragma;	/* Name and length.  */
   int is_nspace;
+  int allow_expansion;
   union {
     pragma_cb handler;
     struct pragma_entry *space;
@@ -113,7 +114,7 @@ static struct pragma_entry *lookup_pragma_entry (struct pragma_entry *,
 static struct pragma_entry *insert_pragma_entry (cpp_reader *,
                                                  struct pragma_entry **,
                                                  const cpp_hashnode *,
-                                                 pragma_cb);
+                                                 pragma_cb, int);
 static int count_registered_pragmas (struct pragma_entry *);
 static char ** save_registered_pragmas (struct pragma_entry *, char **);
 static char ** restore_registered_pragmas (cpp_reader *, struct pragma_entry *,
@@ -968,7 +969,8 @@ lookup_pragma_entry (struct pragma_entry *chain, const cpp_hashnode *pragma)
    otherwise it is a pragma and its handler.  */
 static struct pragma_entry *
 insert_pragma_entry (cpp_reader *pfile, struct pragma_entry **chain,
-		     const cpp_hashnode *pragma, pragma_cb handler)
+		     const cpp_hashnode *pragma, pragma_cb handler,
+		     int allow_expansion)
 {
   struct pragma_entry *new;
 
@@ -986,6 +988,7 @@ insert_pragma_entry (cpp_reader *pfile, struct pragma_entry **chain,
       new->u.space = NULL;
     }
 
+  new->allow_expansion = allow_expansion;
   new->next = *chain;
   *chain = new;
   return new;
@@ -993,10 +996,11 @@ insert_pragma_entry (cpp_reader *pfile, struct pragma_entry **chain,
 
 /* Register a pragma NAME in namespace SPACE.  If SPACE is null, it
    goes in the global namespace.  HANDLER is the handler it will call,
-   which must be non-NULL.  */
+   which must be non-NULL.  If ALLOW_EXPANSION is set, allow macro
+   expansion while parsing pragma NAME.  */
 void
 cpp_register_pragma (cpp_reader *pfile, const char *space, const char *name,
-		     pragma_cb handler)
+		     pragma_cb handler, int allow_expansion)
 {
   struct pragma_entry **chain = &pfile->pragmas;
   struct pragma_entry *entry;
@@ -1010,7 +1014,7 @@ cpp_register_pragma (cpp_reader *pfile, const char *space, const char *name,
       node = cpp_lookup (pfile, U space, strlen (space));
       entry = lookup_pragma_entry (*chain, node);
       if (!entry)
-	entry = insert_pragma_entry (pfile, chain, node, NULL);
+	entry = insert_pragma_entry (pfile, chain, node, NULL, allow_expansion);
       else if (!entry->is_nspace)
 	goto clash;
       chain = &entry->u.space;
@@ -1033,7 +1037,7 @@ cpp_register_pragma (cpp_reader *pfile, const char *space, const char *name,
 	cpp_error (pfile, CPP_DL_ICE, "#pragma %s is already registered", name);
     }
   else
-    insert_pragma_entry (pfile, chain, node, handler);
+    insert_pragma_entry (pfile, chain, node, handler, allow_expansion);
 }
 
 /* Register the pragmas the preprocessor itself handles.  */
@@ -1041,12 +1045,12 @@ void
 _cpp_init_internal_pragmas (cpp_reader *pfile)
 {
   /* Pragmas in the global namespace.  */
-  cpp_register_pragma (pfile, 0, "once", do_pragma_once);
+  cpp_register_pragma (pfile, 0, "once", do_pragma_once, 0);
 
   /* New GCC-specific pragmas should be put in the GCC namespace.  */
-  cpp_register_pragma (pfile, "GCC", "poison", do_pragma_poison);
-  cpp_register_pragma (pfile, "GCC", "system_header", do_pragma_system_header);
-  cpp_register_pragma (pfile, "GCC", "dependency", do_pragma_dependency);
+  cpp_register_pragma (pfile, "GCC", "poison", do_pragma_poison, 0);
+  cpp_register_pragma (pfile, "GCC", "system_header", do_pragma_system_header, 0);
+  cpp_register_pragma (pfile, "GCC", "dependency", do_pragma_dependency, 0);
 }
 
 /* Return the number of registered pragmas in PE.  */
@@ -1156,6 +1160,9 @@ do_pragma (cpp_reader *pfile)
 	 numbers in place.  */
       if (pfile->cb.line_change)
 	(*pfile->cb.line_change) (pfile, pragma_token, false);
+
+      if (p->allow_expansion)
+	pfile->state.prevent_expansion--;
       (*p->u.handler) (pfile);
     }
   else if (pfile->cb.def_pragma)
@@ -1164,7 +1171,8 @@ do_pragma (cpp_reader *pfile)
       pfile->cb.def_pragma (pfile, pfile->directive_line);
     }
 
-  pfile->state.prevent_expansion--;
+  if (!p || !p->allow_expansion)
+    pfile->state.prevent_expansion--;
 }
 
 /* Handle #pragma once.  */

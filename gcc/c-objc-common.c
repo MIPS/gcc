@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "target.h"
 #include "cgraph.h"
+#include "c-pragma.h"
 
 static bool c_tree_printer (pretty_printer *, text_info *);
 static tree start_cdtor (int);
@@ -266,6 +267,8 @@ c_objc_common_finish_file (void)
       finish_cdtor (body);
     }
 
+  maybe_apply_pending_pragma_weaks ();
+
   {
     int flags;
     FILE *stream = dump_begin (TDI_all, &flags);
@@ -330,5 +333,12 @@ c_tree_printer (pretty_printer *pp, text_info *text)
     }
 
   pp_string (pp, n);
+  return true;
+}
+
+/* In C and ObjC, all decls have "C" linkage.  */
+bool
+has_c_linkage (tree decl ATTRIBUTE_UNUSED)
+{
   return true;
 }

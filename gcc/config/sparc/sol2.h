@@ -131,9 +131,6 @@ Boston, MA 02111-1307, USA.  */
   ((flag_pic || GLOBAL) ? DW_EH_PE_aligned : DW_EH_PE_absptr)
 #endif
 
-/* The Solaris linker doesn't understand constructor priorities.  */
-#undef SUPPORTS_INIT_PRIORITY
-#define SUPPORTS_INIT_PRIORITY 0
 
 /* ??? This does not work in SunOS 4.x, so it is not enabled in sparc.h.
    Instead, it is enabled here, because it does work under Solaris.  */
@@ -163,3 +160,18 @@ Boston, MA 02111-1307, USA.  */
    sparc_override_options will disable V8+ if not generating V9 code.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_V8PLUS + MASK_FPU + MASK_LONG_DOUBLE_128)
+
+/* Solaris-specific #pragmas are implemented on top of attributes.  Hook in
+   the bits from config/sol2.c.  */
+#define SUBTARGET_INSERT_ATTRIBUTES solaris_insert_attributes
+#define SUBTARGET_ATTRIBUTE_TABLE SOLARIS_ATTRIBUTE_TABLE
+
+/* Output a simple call for .init/.fini.  */
+#define ASM_OUTPUT_CALL(FILE, NAME)			        \
+  do								\
+    {								\
+      fprintf (FILE, "\tcall\t");				\
+      print_operand (FILE, XEXP (DECL_RTL (FN), 0), 0);	\
+      fprintf (FILE, "\n\tnop\n");				\
+    }								\
+  while (0)
