@@ -142,7 +142,7 @@ OUTPUT_OPTION = @OUTPUT_OPTION@
 objext = .o
 exeext =
 arext  = .a
-soext  = .so
+soext  = .so.1
 shext  =
 
 # Define this as & to perform parallel make on a Sequent.
@@ -824,7 +824,7 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
   system.ads<5lsystem.ads
 
   TOOLS_TARGET_PAIRS = mlib-tgt.adb<5lml-tgt.adb
-  SYMLIB = -laddr2line -lbfd -liberty $(LIBINTL)
+  SYMLIB = $(LIBINTL)
   THREADSLIB = -lpthread
   GNATLIB_SHARED = gnatlib-shared-dual
   GMEM_LIB = gmemlib
@@ -1263,6 +1263,46 @@ ifeq ($(strip $(filter-out %ia64 linux%,$(arch) $(osys))),)
 
   TOOLS_TARGET_PAIRS=mlib-tgt.adb<5lml-tgt.adb
   MISCLIB=
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  PREFIX_OBJS=$(PREFIX_REAL_OBJS)
+  LIBRARY_VERSION := $(LIB_VERSION)
+endif
+
+ifeq ($(strip $(filter-out alpha% linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS=mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  PREFIX_OBJS=$(PREFIX_REAL_OBJS)
+  LIBRARY_VERSION := $(LIB_VERSION)
+endif
+
+ifeq ($(strip $(filter-out sparc% linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS=mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  PREFIX_OBJS=$(PREFIX_REAL_OBJS)
+  LIBRARY_VERSION := $(LIB_VERSION)
+endif
+
+ifeq ($(strip $(filter-out ppc% linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS=mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  PREFIX_OBJS=$(PREFIX_REAL_OBJS)
+  LIBRARY_VERSION := $(LIB_VERSION)
+endif
+
+ifeq ($(strip $(filter-out powerpc% linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS=mlib-tgt.adb<5lml-tgt.adb
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  PREFIX_OBJS=$(PREFIX_REAL_OBJS)
+  LIBRARY_VERSION := $(LIB_VERSION)
+endif
+
+ifeq ($(strip $(filter-out s390% linux%,$(arch) $(osys))),)
+  TOOLS_TARGET_PAIRS=mlib-tgt.adb<5lml-tgt.adb
   THREADSLIB=-lpthread
   GNATLIB_SHARED=gnatlib-shared-dual
   PREFIX_OBJS=$(PREFIX_REAL_OBJS)
@@ -1767,6 +1807,9 @@ install-gnatlib: ../stamp-gnatlib
 # is guaranteed to overflow the buffer.
 
 gnatlib: ../stamp-gnatlib1 ../stamp-gnatlib2
+	$(RMDIR) save
+	$(MKDIR) save
+	$(MV) *.o save/
 	$(MAKE) -C rts CC="../../xgcc -B../../" \
 	        INCLUDES="$(INCLUDES_FOR_SUBDIR) -I./../.." \
                 CFLAGS="$(GNATLIBCFLAGS_FOR_C)" \
@@ -1779,6 +1822,8 @@ gnatlib: ../stamp-gnatlib1 ../stamp-gnatlib2
 		srcdir=$(fsrcdir) \
 	        -f ../Makefile \
 	        $(GNATRTL_OBJS)
+	$(MV) save/*.o .
+	$(RMDIR) save
 	$(RM) rts/libgnat$(arext) rts/libgnarl$(arext)
 	$(AR) $(AR_FLAGS) rts/libgnat$(arext) \
 	   $(addprefix rts/,$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS))
@@ -1891,14 +1936,15 @@ gnatlib-shared-default:
 	     THREAD_KIND="$(THREAD_KIND)" \
              gnatlib
 	$(RM) rts/libgnat$(soext) rts/libgnarl$(soext)
-	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
+	cd rts; ../../xgcc -B../../ -shared -shared-libgcc $(TARGET_LIBGCC2_CFLAGS) \
 		-o libgnat-$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) \
 		$(SO_OPTS)libgnat-$(LIBRARY_VERSION)$(soext) $(MISCLIB) -lm
 	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
 		-o libgnarl-$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_TASKING_OBJS) \
-		$(SO_OPTS)libgnarl-$(LIBRARY_VERSION)$(soext) $(THREADSLIB)
+		$(SO_OPTS)libgnarl-$(LIBRARY_VERSION)$(soext) $(THREADSLIB) \
+		./libgnat-$(LIBRARY_VERSION)$(soext)
 	cd rts; $(LN_S) libgnat-$(LIBRARY_VERSION)$(soext) libgnat$(soext)
 	cd rts; $(LN_S) libgnarl-$(LIBRARY_VERSION)$(soext) libgnarl$(soext)
 

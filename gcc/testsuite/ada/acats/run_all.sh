@@ -13,7 +13,7 @@ gccflags=""
 gnatflags="-gnatws"
 
 target_run () {
-$*
+LD_LIBRARY_PATH=$ADA_INCLUDE_PATH${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} $*
 }
 
 # End of customization section.
