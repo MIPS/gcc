@@ -1,3 +1,18 @@
+2004-04-23  Dale Johannesen  <dalej@apple.com>
+
+	Radars 3480058, 3178986
+
+	* c-decl.c (merge_decls): Preserve duplicate_decl bit.
+	(merge_translation_unit_decls):  Rewritten so -fno-common works.
+	* opts.c (decode_options):  Turn on flag_no_common with -fast or -fastcp.
+	* tree.h (struct tree_decl): Add duplicate_decl bit and DECL_DUPLICATE_DECL.
+	* varasm.c (assemble_variable): Use it.
+	* config/rs6000/rs6000.c (rs6000_override_options): Remove
+	reorder-blocks-and-partition from -fast*.  Enable align-natural with -fastcp.
+	* ../libstdc++-v3/include/std/std_fstream.h (basic_ifstream): Make
+	_M_filebuf 8-byte aligned.
+	(basic_ofstream): Ditto.
+	
 2004-04-22  Devang Patel  <dpatel@apple.com>
 
 	Radar 3401402 and 3511029
