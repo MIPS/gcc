@@ -9802,8 +9802,8 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	}
 
       cp_parser_check_for_invalid_template_id (parser, TREE_TYPE (type));
-    }
-    /* APPLE LOCAL end Objective-C++ */
+    } 
+  /* APPLE LOCAL end Objective-C++ */
 
   return type;
 }
@@ -9849,12 +9849,26 @@ cp_parser_type_name (cp_parser* parser)
 
       /* Look up the type-name.  */
       type_decl = cp_parser_lookup_name_simple (parser, identifier);
+
+      /* APPLE LOCAL begin Objective-C++ */
+      if (TREE_CODE (type_decl) != TYPE_DECL
+	  && (objc_is_id (identifier) || objc_is_class_name (identifier)))
+	{
+	  /* See if this is an Objective-C type.  */
+	  tree protos = cp_parser_objc_protocol_refs_opt (parser);
+	  tree type = objc_get_protocol_qualified_type (identifier, protos);
+	  if (type) 
+	    type_decl = TYPE_NAME (type);
+	}
+      /* APPLE LOCAL end Objective-C++ */
+
       /* Issue an error if we did not find a type-name.  */
       if (TREE_CODE (type_decl) != TYPE_DECL)
 	{
 	  if (!cp_parser_simulate_error (parser))
 	    cp_parser_name_lookup_error (parser, identifier, type_decl,
 					 "is not a type");
+
 	  type_decl = error_mark_node;
 	}
       /* Remember that the name was used in the definition of the
@@ -17367,10 +17381,16 @@ cp_parser_objc_method_prototype_list (cp_parser* parser)
 	   (cp_parser_objc_method_signature (parser));
 	  cp_parser_consume_semicolon_at_end_of_statement (parser);
 	}
-
       else
 	/* Try to parse a block-declaration, or a function-definition.  */
-	cp_parser_block_declaration (parser, /*statement_p=*/false);
+	{
+	  /* Handle pragma, if any.  */
+	  cp_token *token1 = cp_lexer_peek_token (parser->lexer);
+	  if (token1->type == CPP_PRAGMA)
+	    cp_lexer_handle_pragma (parser->lexer);
+	  else
+	    cp_parser_block_declaration (parser, /*statement_p=*/false);
+	}
 
       token = cp_lexer_peek_token (parser->lexer);
     }
