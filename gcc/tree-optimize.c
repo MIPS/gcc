@@ -345,6 +345,7 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_maybe_create_global_var);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -386,6 +387,10 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_fold_builtins);
+  /* FIXME: pass_may_alias should be a TODO.  It's needed after
+     pass_fold_builtins, because it can create arbitrary GIMPLE that
+     needs to be put in SSA form and scanned for aliases.  */
+  NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_calls);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_late_warn_uninitialized);
@@ -468,6 +473,8 @@ execute_todo (int properties, unsigned int flags)
     verify_flow_info ();
   if (flags & TODO_verify_stmts)
     verify_stmts ();
+  if (flags & TODO_verify_loops)
+    verify_loop_closed_ssa ();
 #endif
 }
 
@@ -650,12 +657,21 @@ tree_rest_of_compilation (tree fndecl)
   while (node->callees)
     cgraph_remove_edge (node->callees);
 
-  if (!vars_to_rename)
-    vars_to_rename = BITMAP_XMALLOC ();
 
+  /* Initialize the default bitmap obstack.  */
+  bitmap_obstack_initialize (NULL);
+  bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
+  
+  vars_to_rename = BITMAP_XMALLOC ();
+  
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
+  
+  bitmap_obstack_release (&reg_obstack);
 
+  /* Release the default bitmap obstack.  */
+  bitmap_obstack_release (NULL);
+  
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)
     {

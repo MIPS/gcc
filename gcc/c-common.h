@@ -838,8 +838,6 @@ extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
 extern tree c_staticp (tree);
 
-extern int c_common_unsafe_for_reeval (tree);
-
 extern void init_c_lex (void);
 
 extern void c_cpp_builtins (cpp_reader *);
@@ -874,6 +872,19 @@ extern void c_warn_unused_result (tree *);
 extern void verify_sequence_points (tree);
 
 extern tree fold_offsetof (tree);
+
+/* Places where an lvalue, or modifiable lvalue, may be required.
+   Used to select diagnostic messages in lvalue_or_else and
+   readonly_error.  */
+enum lvalue_use {
+  lv_assign,
+  lv_increment,
+  lv_decrement,
+  lv_addressof,
+  lv_asm
+};
+
+extern int lvalue_or_else (tree, enum lvalue_use);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);

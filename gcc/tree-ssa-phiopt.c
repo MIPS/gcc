@@ -384,7 +384,10 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
       /* If what we get back is a conditional expression, there is no
 	  way that it can be gimple.  */
       if (TREE_CODE (cond) == COND_EXPR)
-	return false; 
+	{
+	  release_ssa_name (new_var1);
+	  return false; 
+	}
 
       /* If what we get back is not gimple try to create it as gimple by
 	 using a temporary variable.  */
@@ -400,7 +403,10 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
       
       if (TREE_CODE (cond) == TRUTH_NOT_EXPR
 	  &&  !is_gimple_val (TREE_OPERAND (cond, 0)))
-	return false;
+	{
+	  release_ssa_name (new_var1);
+	  return false;
+	}
 
       new = build (MODIFY_EXPR, TREE_TYPE (new_var1), new_var1, cond);
     }
@@ -460,10 +466,10 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
      We now need to verify that the two arguments in the PHI node match
      the two arguments to the equality comparison.  */
   
-  if ((operand_equal_p (arg0, TREE_OPERAND (cond, 0), 0)
-       && operand_equal_p (arg1, TREE_OPERAND (cond, 1), 0))
-      || (operand_equal_p (arg1, TREE_OPERAND (cond, 0), 0)
-	  && operand_equal_p (arg0, TREE_OPERAND (cond, 1), 0)))
+  if ((operand_equal_for_phi_arg_p (arg0, TREE_OPERAND (cond, 0))
+       && operand_equal_for_phi_arg_p (arg1, TREE_OPERAND (cond, 1)))
+      || (operand_equal_for_phi_arg_p (arg1, TREE_OPERAND (cond, 0))
+	  && operand_equal_for_phi_arg_p (arg0, TREE_OPERAND (cond, 1))))
     {
       edge e;
       tree arg;

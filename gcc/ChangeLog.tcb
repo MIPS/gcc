@@ -1,3 +1,54 @@
+2004-12-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-phiopt.c (conditional_replacement): Release newly
+	created SSA name if we can't use it.
+
+2004-12-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-copy.c (copy_prop_visit_assignment): Return
+	SSA_PROP_VARYING when the RHS cannot be propagated into the
+	LHS.
+	(pass_store_copy_prop): Add TODO_cleanup_cfg to
+	todo_flags_finish.
+
+2004-12-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-alias.c (setup_pointers_and_addressables): If VAR
+	already had a type tag, mark the tag for renaming before
+	replacing it with a new one.
+	* tree-ssa.c (verify_ssa_name): Add argument 'mark_visited'.
+	If 'mark_visited' is true, set TREE_VISITED on the given SSA name.
+	Update all callers.
+
+2004-12-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (cleanup_tree_cfg_loop): Call
+	calculate_dominance_info before fixing loop structures.
+
+2004-12-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow.h (add_type_alias): Declare.
+	* tree-pass.h (TODO_verify_loops): Define.
+	* tree-loop-linear.c (linear_transform_loops): Don't call
+	verify_loop_closed_ssa.
+	* tree-optimize.c (execute_todo): Call verify_loop_closed_ssa
+	if TODO_verify_loops is set.
+	* tree-ssa-loop-ivopts.c (rewrite_address_base): Fix to call
+	add_type_alias if VAR didn't have one already.
+	Mark variables in the original statement for renaming.
+	(tree_ssa_iv_optimize): Do not called verify_loop_closed_ssa
+	nor verify_stmts before returning.
+	* tree-ssa-alias.c (add_type_alias): New function.
+	* tree-ssa-loop.c (pass_linear_transform): Add
+	TODO_verify_loops to todo_flags_finish.
+	(tree_ssa_loop_ivopts): Mark all statements modified before
+	returning.
+	(pass_iv_optimize): Add TODO_rename_vars, TODO_cleanup_cfg,
+	TODO_verify_ssa and TODO_verify_loops to todo_flags_finish.
+	* tree-vectorizer.c (vect_create_data_ref_ptr): Call
+	add_type_alias, if necessary.
+	(struct _stmt_vec_info): Fix documentation for field MEMTAG.
+
 2004-10-19  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-copy.c (copy_prop_visit_phi_node): Always

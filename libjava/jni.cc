@@ -42,6 +42,7 @@ details.  */
 #include <java/lang/Thread.h>
 #include <java/lang/IllegalAccessError.h>
 #include <java/nio/DirectByteBufferImpl.h>
+#include <java/nio/DirectByteBufferImpl$ReadWrite.h>
 #include <java/util/IdentityHashMap.h>
 #include <gnu/gcj/RawData.h>
 
@@ -562,11 +563,12 @@ _Jv_JNI_ThrowNew (JNIEnv *env, jclass clazz, const char *message)
 					       NULL);
 
       jclass *elts = elements (argtypes);
-      elts[0] = &StringClass;
+      elts[0] = &java::lang::String::class$;
 
       Constructor *cons = clazz->getConstructor (argtypes);
 
-      jobjectArray values = JvNewObjectArray (1, &StringClass, NULL);
+      jobjectArray values = JvNewObjectArray (1, &java::lang::String::class$,
+					      NULL);
       jobject *velts = elements (values);
       velts[0] = JvNewStringUTF (message);
 
@@ -1203,7 +1205,7 @@ _Jv_JNI_GetAnyFieldID (JNIEnv *env, jclass clazz,
 
 	      // The field might be resolved or it might not be.  It
 	      // is much simpler to always resolve it.
-	      _Jv_ResolveField (field, loader);
+	      _Jv_Linker::resolve_field (field, loader);
 	      if (_Jv_equalUtf8Consts (f_name, a_name)
 		  && field->getClass() == field_class)
 		return field;
@@ -1723,8 +1725,8 @@ _Jv_JNI_NewDirectByteBuffer (JNIEnv *, void *address, jlong length)
 {
   using namespace gnu::gcj;
   using namespace java::nio;
-  return new DirectByteBufferImpl (reinterpret_cast<RawData *> (address),
-				   length);
+  return new DirectByteBufferImpl$ReadWrite
+    (reinterpret_cast<RawData *> (address), length);
 }
 
 static void * JNICALL

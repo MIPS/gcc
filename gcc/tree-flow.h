@@ -166,6 +166,14 @@ struct var_ann_d GTY(())
      states.  */
   ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
+  /* Used during operand processing to determine if this variable is already 
+     in the vuse list.  */
+  unsigned in_vuse_list : 1;
+
+  /* Used during operand processing to determine if this variable is already 
+     in the v_may_def list.  */
+  unsigned in_v_may_def_list : 1;
+
   /* An artificial variable representing the memory location pointed-to by
      all the pointers that TBAA (type-based alias analysis) considers
      to be aliased.  If the variable is not a pointer or if it is never
@@ -475,9 +483,7 @@ extern tree *last_stmt_ptr (basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern void cfg_remove_useless_stmts (void);
-extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
-extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern void bsi_insert_on_edge (edge, tree);
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
 extern void bsi_commit_one_edge_insert (edge, basic_block *);
@@ -511,10 +517,10 @@ extern void dump_generic_bb (FILE *, basic_block, int, int);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
 extern tree_ann_t create_tree_ann (tree);
+extern void reserve_phi_args_for_new_edge (basic_block);
 extern tree create_phi_node (tree, basic_block);
-extern void add_phi_arg (tree *, tree, edge);
-extern void remove_phi_arg (tree, basic_block);
-extern void remove_phi_arg_num (tree, int);
+extern void add_phi_arg (tree, tree, edge);
+extern void remove_phi_args (edge);
 extern void remove_phi_node (tree, tree, basic_block);
 extern void remove_all_phi_nodes_for (bitmap);
 extern tree phi_reverse (tree);
@@ -560,28 +566,30 @@ extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
+extern void add_type_alias (tree, tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
 typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
+typedef tree tree_on_heap;
+DEF_VEC_MALLOC_P (tree_on_heap);
+
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
 extern void debug_tree_ssa (void);
 extern void debug_def_blocks (void);
 extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
-extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
-extern void register_new_def (tree, varray_type *);
+extern void register_new_def (tree, VEC (tree_on_heap) **);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool stmt_references_memory_p (tree);
 

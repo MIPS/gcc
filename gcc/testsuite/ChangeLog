@@ -1,3 +1,540 @@
+2004-12-01  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/18291
+	* testsuite/gcc.c-torture/compile/pr18291.c: New test.
+
+2004-12-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR C++/18729
+	* g++.dg/parse/crash20.C: New.
+
+	PR c++/17431
+	* g++.dg/overload/arg1.C: New.
+	* g++.dg/overload/arg2.C: New.
+	* g++.dg/overload/arg3.C: New.
+	* g++.dg/overload/arg4.C: New.
+
+2004-12-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c99-flex-array-4.c: Remove.
+
+2004-11-30  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/compat.exp (compat-get-options): Fix for use with dg-xfail-if.
+
+	* lib/target-supports.exp (is-effective-target): Simplify.
+
+	* lib/target-supports.exp (check_effective_target_vect_long):
+	Fix for powerpc64-*-*.
+
+2004-11-30  Loren James Rittle  <ljrittle@acm.org>
+
+        * g++.old-deja/g++.eh/badalloc1.C (arena_size): Bump up to 262144
+	to support new requirements on FreeBSD 5.
+
+2004-11-30  Devang Patel  <dpatel@apple.com>
+
+	PR 18702
+	* gcc.dg/cpp/isysroot-1.c: Make this test darwin specific.
+	
+2004-11-30  Janis Johnson  <janis187@us.ibm.com>
+
+	* g++.dg/ext/altivec-13.C: New test.
+
+2004-11-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/18298
+	* gcc.c-torture/execute/p18298.c: New test.
+
+2004-11-30  Ira Rosen  <irar@il.ibm.com>
+	    Dorit Naishlos  <dorit@il.ibm.com>
+
+	PR tree-opt/18607
+	* gcc.dg/vect/vect-89.c: New test.
+
+2004-11-30  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/pr18596-1.c: New test.
+
+2004-11-30  Ben Elliston  <bje@au.ibm.com>
+
+	* g++.old-deja/g++.other/decl5.C: Remove remaining XFAILs.
+
+2004-11-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/18479
+	* gcc.dg/pr18479.c: New test.
+
+2004-11-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18490
+	* g++.old-deja/g++.law/bit-fields2.C: Reinstate skip for
+	mmix-knuth-mmixware.
+
+	* g++.old-deja/g++.other/local-alloc1.C: Reinstate skip for
+	cris-*-elf* cris-*-aout* mmix-*-*
+
+2004-11-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/18725
+	* gcc.dg/pr18725.c: New test.
+
+2004-11-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18488
+	* g++.dg/opt/vt1.C: Skip for mmix-*-*.
+
+	PR target/18336
+	* gcc.dg/20040813-1.c: Skip for mmix-*-*.
+
+2004-11-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18368
+	* g++.old-deja/g++.brendan/crash16.C: Adjust error messages.
+	* g++.old-deja/g++.law/ctors5.C: Likewise.
+	* g++.old-deja/g++.other/crash25.C: Likewise.
+
+	PR c++/18674
+	* g++.dg/template/error16.C: New test.
+	
+	PR c++/18512
+	* g++.dg/template/crash29.C: New test.
+
+2004-11-29  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/18712
+	* gcc.c-torture/compile/pr18712.c: New test.
+
+2004-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/7544
+	* g++.dg/ext/weak1.C, gcc.dg/weak/weak-10.c, objc.dg/weak-1.m: New
+	tests.
+
+2004-11-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18652
+	* g++.dg/lookup/crash6.C: New test.
+
+2004-11-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR middle-end/18164
+	* gcc.dg/pr18164.c: Add dg-options "".  Correct typo in dg-error.
+
+2004-11-29  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/Wnested-externs-1.c, gcc.dg/decl-7.c, gcc.dg/decl-8.c,
+	gcc.dg/if-empty-1.c, gcc.dg/init-bad-1.c, gcc.dg/init-bad-2.c,
+	gcc.dg/init-bad-3.c, gcc.dg/parm-mismatch-1.c: New tests.
+
+2004-11-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/pr18164.c: New test.
+
+2004-11-28  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gcc.dg/funroll-loops-all.c: New.
+
+2004-11-28  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18489
+	* g++.dg/rtti/tinfo1.C: In pattern for label definition ending
+	delimeter, match space and TAB as well as ":".
+
+	PR target/18484
+	* g++.dg/abi/empty6.C: Xfail warning for mmix-*-*.
+
+	PR target/18348
+	* gcc.dg/uninit-H.c (ASM): For unknown targets, define to "= 0".
+
+	PR target/18345
+	* gcc.dg/intmax_t-1.c: Add mmix-*-* to dg-error.
+
+	PR target/18337
+	* gcc.dg/array-quals-1.c: Xfail for mmix-*-*.
+
+2004-11-28  Bud Davis  <bdavis9659@comcast.net>
+ 
+        * gfortran.dg/direct_io_2.f90: New test.
+
+2004-11-28  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18334
+	* gcc.dg/cpp/assert4.c: Remove mmix assertion tests.
+
+2004-11-28  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/20020227-1.x: Remove XFAIL.
+
+2004-11-28  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/builtin-choose-expr-2.c, gcc.dg/cast-1.c,
+	gcc.dg/cast-2.c, gcc.dg/cast-3.c, gcc.dg/format/opt-1.c,
+	gcc.dg/format/opt-2.c, gcc.dg/format/opt-3.c,
+	gcc.dg/format/opt-4.c, gcc.dg/format/opt-5.c,
+	gcc.dg/format/opt-6.c, gcc.dg/pointer-arith-5.c,
+	gcc.dg/pointer-arith-6.c, gcc.dg/pointer-arith-7.c,
+	gcc.dg/pointer-arith-8.c: New tests.
+
+2004-11-27  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/18364
+	* gfortran.dg/endfile.f90: New test.
+
+2004-11-27  Falk Hueffner  <falk@debian.org>
+
+	* gcc.dg/loop-6.c: New test.
+
+2004-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20041126-1.c: New test.
+
+2004-11-27  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/mips-args-1.c: Don't expect _R3000 or _R4000 to be defined
+	on IRIX.
+
+2004-11-27  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/mips-movcc-[123].c: Pass the ?: expressions to other
+	functions.
+
+2004-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/17825
+	* gcc.c-torture/compile/20041119-1.c: New test.
+
+2004-11-27  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* lib/target-libpath.exp (restore_ld_library_path_env_vars):
+	Check existence of ld library path variables before unsetting.
+
+2004-11-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.eh/badalloc1.C: Robustify.
+
+2004-11-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/sibcall-[34].c: Remove MIPS xfails.
+
+2004-11-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.old-deja/g++.jason/thunk3.C: Remove mips*-*-* xfail.
+
+2004-11-26  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/cpp/isysroot-2.c: Move target selector from dg-options to
+	dg-do directive.
+
+2004-11-26  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/pr17957.c: Pass --param, not -param.
+
+2004-11-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/17957
+	* testsuite/gcc.dg/pr17957.c: New test.
+
+2004-11-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18445
+	* g++.dg/template/crash28.C: Likewise.
+
+	PR c++/18001
+	* g++.dg/expr/unary2.C: Adjust lvalue messages.
+	* g++.dg/ext/lvaddr.C: Likewise.
+	* g++.dg/opt/pr7503-3.C: Likewise.
+
+	PR c++/18466
+	* g++.dg/parse/qualified3.C: New test.
+	* g++.old-deja/g++.other/friend7.C: Remove bogus qualification.
+	
+	PR c++/18545
+	* g++.dg/expr/return1.C: New test. 
+
+2004-11-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 3/n, PR c++/3332
+	* g++.dg/lookup/friend3.C: New test.
+	* g++.dg/lookup/friend4.C: Likewise.
+	* g++.dg/lookup/friend5.C: Likewise.
+
+2004-11-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 2/n, PR c++/14513, c++/15410
+	* g++.dg/lookup/friend2.C: New test.
+	* g++.dg/template/friend31.C: Likewise.
+
+2004-11-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* lib/target-libpath.exp (orig_ld_library_path_saved): Add missing set.
+
+2004-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17473
+	* g++.dg/tc1/dr56.C: Remove.
+	* g++.dg/template/typedef1.C: Add dg-error markers.
+	* g++.old-deja/g++.other/typedef7.C: Likewise.
+
+	PR c++/18285
+	* g++.dg/parse/typedef7.C: New test.
+
+2004-11-24  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20041124-1.c: New test.
+
+2004-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/deduce3.C: New test. 
+
+	PR c++/18586
+	* g++.dg/template/crash27.C: New test. 
+
+	PR c++/18530
+	* g++.dg/warn/Wshadow-3.C: New test.
+
+2004-11-24  Devang Patel  <dpatel@apple.com>
+
+	PR/18555
+	* gcc.dg/cpp/isysroot-1.c: New test.
+	* gcc.dg/cpp/usr/include/stdio.h: New file.
+	* gcc.dg/cpp/isysroot-2.c: New test.
+	* gcc.dg/cpp/System/Library/Framework/Carbon.framework/Headers/Carbon.h:
+	New file.
+
+2004-11-24  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/8929
+	* g++.old-deja/g++.oliva/template10.C: Remove xfail.
+
+2004-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.target/sparc/align.c: Do not include <stdint.h>.
+	* gcc.target/sparc/pdist.c: Likewise.
+
+2004-11-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/16882
+	* g++.dg/conversion/simd1.C: New test.
+
+2004-11-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* lib/target-libpath.exp: New file defining set_ld_library_path_env_vars
+	and restore_ld_library_path_env_vars.
+	* g++.dg/compat/compat.exp, lib/g++.exp, lib/gcc-dg.exp,
+	lib/gfortran.exp, lib/objc.exp, lib/treelang.exp: Use new procs.
+	* ada/acats/run_acats (LD_LIBRARY_PATH): Add previous LD_LIBRARY_PATH
+	to LD_LIBRARY_PATH.  Export LD_LIBRARY_PATH.
+
+2004-11-23  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc.dg/pragma-align-2.c: Test macro expansion.
+	* gcc.dg/pragma-pack-2.c: New test.
+
+2004-11-23  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/pr18425.c: Use effective target vect_long.
+	* gcc.dg/vect/vect-13.c, gcc.dg/vect/vect-17.c, gcc.dg/vect/vect-18.c,
+	gcc.dg/vect/vect-19.c, gcc.dg/vect/vect-20.c, gcc.dg/vect/vect-48a.c,
+	gcc.dg/vect/vect-56a.c, gcc.dg/vect/vect-7.c, gcc.dg/vect/vect-77.c,
+	gcc.dg/vect/vect-77a.c, gcc.dg/vect/vect-78.c, gcc.dg/vect/vect-86.c,
+	gcc.dg/vect/vect-87.c, gcc.dg/vect/vect-88.c: XFAIL for alpha.
+
+	* gcc.dg/vect/vect.exp: Add check for alpha.
+	* lib/target-supports.exp (check_alpha_max_hw_available): New.
+	(check_effective_target_vect_int): Enable for alpha.
+	(check_effective_target_vect_long): New.
+	(is-effective-target): Add it.
+
+2004-11-23  Uros Bizjak <uros@kss-loka.si>
+
+	* gcc.dg/pr18614-1.c: New test.
+
+2004-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/setjmp-2.c: New test.
+
+2004-11-22  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.target/sparc/align.c, gcc.target/sparc/combined-2.c,
+	gcc.target/sparc/fpack16.c, gcc.target/sparc/fpack32.c,
+	gcc.target/sparc/fpackfix.c, gcc.target/fexpand.c,
+	gcc.target/sparc/fpmerge.c, gcc.target/sparc/fpmul.c,
+	gcc.target/sparc/pdist.c: New tests.
+
+2004-11-22  Bob Wilson  <bob.wilson@acm.org>
+
+	* gcc.dg/uninit-H.c: Define ASM for Xtensa targets.
+
+2004-11-22  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/20041111-1.c:  New.
+
+2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
+
+	PR tree-opt/18536
+	* gcc.dg/vect/pr18536.c: New test.
+
+2004-11-22  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/18354
+	* g++.dg/template/nontype11.C: New test.
+
+2004-11-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18520
+	* gcc.dg/pr18520-1.c: New test case.
+
+2004-11-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/Wchar-subscripts-1.c, gcc.dg/array-8.c: New tests.
+	* gcc.dg/pointer-arith-1.c, gcc.dg/pointer-arith-2.c,
+	gcc.dg/pointer-arith-3.c, gcc.dg/pointer-arith-4.c: Update
+	expected diagnostics.
+
+2004-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/18580
+	* gcc.dg/vect/vect-13.c, vect-27.c, vect-27a.c, vect-29.c,
+	vect-29a.c, vect-48a.c, vect-56a.c, vect-72.c, vect-72a.c,
+	vect-77.c, vect-77a.c: XFAIL on the SPARC.
+
+2004-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/vect/vect.exp (sparc*-*-*): Fix a couple of nits.
+
+2004-11-19  Mark Mitchell  <mark@codesourcery.com>
+            Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp (check_visibility_available): Really
+	test the compiler.
+
+2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
+
+	PR tree-opt/18181
+	* gcc.dg/vect/vect-85.c: New test.
+	* gcc.dg/vect/vect-86.c: New test.
+	* gcc.dg/vect/vect-87.c: New test.
+	* gcc.dg/vect/vect-88.c: New test.
+
+2004-11-19  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/pr16286.c: Test __pixel and __bool keywords.
+
+2004-11-18  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/ppc-bitfield1.c: Skip if not LP64, don't specify -m64.
+	* gcc.dg/ppc-and-1.c: Ditto.
+	* gcc.dg/ppc-compare-1.c: Ditto.
+	* gcc.dg/ppc-mov-1.c: Ditto
+
+2004-11-18  Daniel Jacobowitz  <dan@codesourcery.com>
+            Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/gcc.dg/pragma-init-fini-2.c: New test.
+
+2004-11-17  Janis Johnson  <janis187@us.ibm.com>
+            Aldy Hernandez  <aldyh@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_int): New
+	(check_effective_target_vect_float): New
+	(check_effective_target_vect_double): New.
+	(is-effective-target): Support new effective targets keywords.
+	* gcc.dg/vect/vect.exp: Set target-dependent vector flags and
+	default action for dg-do.
+	* gcc.dg/vect/pr16105.c: Use new support.
+	* gcc.dg/vect/pr18400.c: Ditto.
+	* gcc.dg/vect/pr18425.c: Ditto.
+	* gcc.dg/vect/vect-1.c: Ditto.
+	* gcc.dg/vect/vect-10.c: Ditto.
+	* gcc.dg/vect/vect-11.c: Ditto.
+	* gcc.dg/vect/vect-12.c: Ditto.
+	* gcc.dg/vect/vect-13.c: Ditto.
+	* gcc.dg/vect/vect-14.c: Ditto.
+	* gcc.dg/vect/vect-15.c: Ditto.
+	* gcc.dg/vect/vect-16.c: Ditto.
+	* gcc.dg/vect/vect-17.c: Ditto.
+	* gcc.dg/vect/vect-18.c: Ditto.
+	* gcc.dg/vect/vect-19.c: Ditto.
+	* gcc.dg/vect/vect-2.c: Ditto.
+	* gcc.dg/vect/vect-20.c: Ditto.
+	* gcc.dg/vect/vect-21.c: Ditto.
+	* gcc.dg/vect/vect-22.c: Ditto.
+	* gcc.dg/vect/vect-23.c: Ditto.
+	* gcc.dg/vect/vect-24.c: Ditto.
+	* gcc.dg/vect/vect-25.c: Ditto.
+	* gcc.dg/vect/vect-26.c: Ditto.
+	* gcc.dg/vect/vect-27.c: Ditto.
+	* gcc.dg/vect/vect-27a.c: Ditto.
+	* gcc.dg/vect/vect-28.c: Ditto.
+	* gcc.dg/vect/vect-29.c: Ditto.
+	* gcc.dg/vect/vect-29a.c: Ditto.
+	* gcc.dg/vect/vect-3.c: Ditto.
+	* gcc.dg/vect/vect-30.c: Ditto.
+	* gcc.dg/vect/vect-31.c: Ditto.
+	* gcc.dg/vect/vect-32.c: Ditto.
+	* gcc.dg/vect/vect-33.c: Ditto.
+	* gcc.dg/vect/vect-34.c: Ditto.
+	* gcc.dg/vect/vect-35.c: Ditto.
+	* gcc.dg/vect/vect-36.c: Ditto.
+	* gcc.dg/vect/vect-37.c: Ditto.
+	* gcc.dg/vect/vect-38.c: Ditto.
+	* gcc.dg/vect/vect-4.c: Ditto.
+	* gcc.dg/vect/vect-40.c: Ditto.
+	* gcc.dg/vect/vect-41.c: Ditto.
+	* gcc.dg/vect/vect-42.c: Ditto.
+	* gcc.dg/vect/vect-43.c: Ditto.
+	* gcc.dg/vect/vect-44.c: Ditto.
+	* gcc.dg/vect/vect-45.c: Ditto.
+	* gcc.dg/vect/vect-46.c: Ditto.
+	* gcc.dg/vect/vect-47.c: Ditto.
+	* gcc.dg/vect/vect-48.c: Ditto.
+	* gcc.dg/vect/vect-48a.c: Ditto.
+	* gcc.dg/vect/vect-49.c: Ditto.
+	* gcc.dg/vect/vect-5.c: Ditto.
+	* gcc.dg/vect/vect-50.c: Ditto.
+	* gcc.dg/vect/vect-51.c: Ditto.
+	* gcc.dg/vect/vect-52.c: Ditto.
+	* gcc.dg/vect/vect-53.c: Ditto.
+	* gcc.dg/vect/vect-54.c: Ditto.
+	* gcc.dg/vect/vect-55.c: Ditto.
+	* gcc.dg/vect/vect-56.c: Ditto.
+	* gcc.dg/vect/vect-56a.c: Ditto.
+	* gcc.dg/vect/vect-57.c: Ditto.
+	* gcc.dg/vect/vect-58.c: Ditto.
+	* gcc.dg/vect/vect-59.c: Ditto.
+	* gcc.dg/vect/vect-6.c: Ditto.
+	* gcc.dg/vect/vect-60.c: Ditto.
+	* gcc.dg/vect/vect-61.c: Ditto.
+	* gcc.dg/vect/vect-62.c: Ditto.
+	* gcc.dg/vect/vect-63.c: Ditto.
+	* gcc.dg/vect/vect-64.c: Ditto.
+	* gcc.dg/vect/vect-65.c: Ditto.
+	* gcc.dg/vect/vect-66.c: Ditto.
+	* gcc.dg/vect/vect-67.c: Ditto.
+	* gcc.dg/vect/vect-68.c: Ditto.
+	* gcc.dg/vect/vect-69.c: Ditto.
+	* gcc.dg/vect/vect-7.c: Ditto.
+	* gcc.dg/vect/vect-72.c: Ditto.
+	* gcc.dg/vect/vect-72a.c: Ditto.
+	* gcc.dg/vect/vect-73.c: Ditto.
+	* gcc.dg/vect/vect-74.c: Ditto.
+	* gcc.dg/vect/vect-75.c: Ditto.
+	* gcc.dg/vect/vect-76.c: Ditto.
+	* gcc.dg/vect/vect-77.c: Ditto.
+	* gcc.dg/vect/vect-77a.c: Ditto.
+	* gcc.dg/vect/vect-78.c: Ditto.
+	* gcc.dg/vect/vect-79.c: Ditto.
+	* gcc.dg/vect/vect-8.c: Ditto.
+	* gcc.dg/vect/vect-80.c: Ditto.
+	* gcc.dg/vect/vect-82.c: Ditto.
+	* gcc.dg/vect/vect-82_64.c: Ditto.
+	* gcc.dg/vect/vect-83.c: Ditto.
+	* gcc.dg/vect/vect-83_64.c: Ditto.
+	* gcc.dg/vect/vect-9.c: Ditto.
+	* gcc.dg/vect/vect-all.c: Ditto.
+	* gcc.dg/vect/vect-none.c: Ditto.
+
 2004-11-17  Janis Johnson  <janis187@us.ibm.com>
 
 	* lib/gcc-dg.exp (dg-skip-if): New function.

@@ -483,7 +483,8 @@ ssa_prop_init (void)
     if (ssa_name (i))
       SSA_NAME_VALUE (ssa_name (i)) = NULL_TREE;
 
-  /* Initially assume that every edge in the CFG is not executable.  */
+  /* Initially assume that every edge in the CFG is not executable.
+     (including the edges coming out of ENTRY_BLOCK_PTR).  */
   FOR_ALL_BB (bb)
     {
       block_stmt_iterator si;

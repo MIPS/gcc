@@ -2421,7 +2421,9 @@ do { tree _node = (NODE); \
     {
       if (staticp (node))
 	;
-      else if (decl_function_context (node) == current_function_decl)
+      else if (decl_function_context (node) == current_function_decl
+	       /* Addresses of thread-local variables are invariant.  */
+	       || (TREE_CODE (node) == VAR_DECL && DECL_THREAD_LOCAL (node)))
 	tc = false;
       else
 	ti = tc = false;
@@ -3437,10 +3439,12 @@ type_hash_eq (const void *va, const void *vb)
     {
     case VOID_TYPE:
     case COMPLEX_TYPE:
-    case VECTOR_TYPE:
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       return 1;
+
+    case VECTOR_TYPE:
+      return TYPE_VECTOR_SUBPARTS (a->type) == TYPE_VECTOR_SUBPARTS (b->type);
 
     case ENUMERAL_TYPE:
       if (TYPE_VALUES (a->type) != TYPE_VALUES (b->type)
@@ -5542,9 +5546,12 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
 {
   tree t = make_node (VECTOR_TYPE);
 
-  TREE_TYPE (t) = innertype;
+  TREE_TYPE (t) = TYPE_MAIN_VARIANT (innertype);
   TYPE_VECTOR_SUBPARTS (t) = nunits;
   TYPE_MODE (t) = mode;
+  TYPE_READONLY (t) = TYPE_READONLY (innertype);
+  TYPE_VOLATILE (t) = TYPE_VOLATILE (innertype);
+
   layout_type (t);
 
   {
@@ -5562,6 +5569,16 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
        numbers equal.  */
     TYPE_UID (rt) = TYPE_UID (t);
   }
+
+  /* Build our main variant, based on the main variant of the inner type.  */
+  if (TYPE_MAIN_VARIANT (innertype) != innertype)
+    {
+      tree innertype_main_variant = TYPE_MAIN_VARIANT (innertype);
+      unsigned int hash = TYPE_HASH (innertype_main_variant);
+      TYPE_MAIN_VARIANT (t)
+        = type_hash_canon (hash, make_vector_type (innertype_main_variant,
+						   nunits, mode));
+    }
 
   return t;
 }
@@ -6061,19 +6078,6 @@ signed_type_for (tree type)
   return lang_hooks.types.signed_type (type);
 }
 
-/* Return the LABEL_DECL associated with T, which must be a 
-   CASE_LABEL_EXPR.  This will walk through any CASE_LABEL_EXPRs
-   appearing in operand 2 until it finds a CASE_LABEL_EXPR with
-   a LABEL_DECL in operand 2.  */
-
-tree
-get_case_label (tree t)
-{
-  while (TREE_CODE (CASE_LEADER_OR_LABEL (t)) == CASE_LABEL_EXPR)
-    t = CASE_LEADER_OR_LABEL (t);
-  return CASE_LEADER_OR_LABEL (t);
-}
-
 /* Returns the largest value obtainable by casting something in INNER type to
    OUTER type.  */
 
@@ -6144,6 +6148,22 @@ lower_bound_in_type (tree outer, tree inner)
 
   return fold_convert (outer,
 		       build_int_cst_wide (inner, lo, hi));
+}
+
+/* Return nonzero if two operands that are suitable for PHI nodes are
+   necessarily equal.  Specifically, both ARG0 and ARG1 must be either
+   SSA_NAME or invariant.  Note that this is strictly an optimization.
+   That is, callers of this function can directly call operand_equal_p
+   and get the same result, only slower.  */
+
+int
+operand_equal_for_phi_arg_p (tree arg0, tree arg1)
+{
+  if (arg0 == arg1)
+    return 1;
+  if (TREE_CODE (arg0) == SSA_NAME || TREE_CODE (arg1) == SSA_NAME)
+    return 0;
+  return operand_equal_p (arg0, arg1, 0);
 }
 
 #include "gt-tree.h"

@@ -115,7 +115,7 @@ struct tree_opt_pass pass_loop_init =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_TREE_LOOP_INIT,			/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -258,7 +258,7 @@ struct tree_opt_pass pass_linear_transform =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0				        /* letter */	
 };
 
@@ -368,6 +368,25 @@ tree_ssa_loop_ivopts (void)
     return;
 
   tree_ssa_iv_optimize (current_loops);
+
+  /* FIXME.  IV opts introduces new aliases and call-clobbered
+     variables, which need to be renamed.  However, when we call the
+     renamer, not all statements will be scanned for operands.  In
+     particular, the newly introduced aliases may appear in statements
+     that are considered "unmodified", so the renamer will not get a
+     chance to rename those operands.
+
+     Work around this problem by forcing an operand re-scan on every
+     statement.  This will not be necessary once the new operand
+     scanner is implemented.  */
+  if (!bitmap_empty_p (vars_to_rename))
+    {
+      basic_block bb;
+      block_stmt_iterator si;
+      FOR_EACH_BB (bb)
+	for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	  modify_stmt (bsi_stmt (si));
+    }
 }
 
 static bool
@@ -389,7 +408,11 @@ struct tree_opt_pass pass_iv_optimize =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_dump_func
+    | TODO_rename_vars
+    | TODO_cleanup_cfg
+    | TODO_verify_ssa
+    | TODO_verify_loops,		/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -420,7 +443,7 @@ struct tree_opt_pass pass_loop_done =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_TREE_LOOP_FINI,			/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

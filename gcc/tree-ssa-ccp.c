@@ -894,8 +894,8 @@ substitute_and_fold (prop_value_t *prop_value)
 	      if (replaced_address || changed)
 		mark_new_vars_to_rename (stmt, vars_to_rename);
 
-	      /* If we cleaned up EH information from the statement,
-		 remove EH edges.  */
+              /* If we cleaned up EH information from the statement,
+                 remove EH edges.  */
 	      if (maybe_clean_eh_stmt (stmt))
 		tree_purge_dead_eh_edges (bb);
 
@@ -1196,8 +1196,7 @@ ccp_fold (tree stmt)
 	    op0 = get_value (op0, true)->value;
 	}
 
-      retval = nondestructive_fold_unary_to_constant (code, TREE_TYPE (rhs),
-						      op0);
+      retval = fold_unary_to_constant (code, TREE_TYPE (rhs), op0);
 
       /* If we folded, but did not create an invariant, then we can not
 	 use this expression.  */
@@ -1248,9 +1247,7 @@ ccp_fold (tree stmt)
 	    op1 = val->value;
 	}
 
-      retval = nondestructive_fold_binary_to_constant (code,
-		     				       TREE_TYPE (rhs),
-						       op0, op1);
+      retval = fold_binary_to_constant (code, TREE_TYPE (rhs), op0, op1);
 
       /* If we folded, but did not create an invariant, then we can not
 	 use this expression.  */
@@ -1394,21 +1391,35 @@ visit_assignment (tree stmt, tree *output_p)
 	val = evaluate_stmt (stmt);
     }
   else
-    {
-      /* Evaluate the statement.  */
+    /* Evaluate the statement.  */
       val = evaluate_stmt (stmt);
-    }
 
-  /* FIXME: Hack.  If this was a definition of a bitfield, we need to widen
+  /* If the original LHS was a VIEW_CONVERT_EXPR, modify the constant
+     value to be a VIEW_CONVERT_EXPR of the old constant value.  This is
+     valid because a VIEW_CONVERT_EXPR is valid everywhere an operand of
+     aggregate type is valid.
+
+     ??? Also, if this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
   {
-    tree lhs = TREE_OPERAND (stmt, 0);
-    if (val.lattice_val == CONSTANT
-	&& TREE_CODE (lhs) == COMPONENT_REF
-	&& DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
+    tree orig_lhs = TREE_OPERAND (stmt, 0);
+
+    if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
+	&& val.lattice_val == CONSTANT)
       {
-	tree w = widen_bitfield (val.value, TREE_OPERAND (lhs, 1), lhs);
+	val.value = build1 (VIEW_CONVERT_EXPR,
+			    TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
+			    val.value);
+	orig_lhs = TREE_OPERAND (orig_lhs, 1);
+      }
+
+    if (val.lattice_val == CONSTANT
+	&& TREE_CODE (orig_lhs) == COMPONENT_REF
+	&& DECL_BIT_FIELD (TREE_OPERAND (orig_lhs, 1)))
+      {
+	tree w = widen_bitfield (val.value, TREE_OPERAND (orig_lhs, 1),
+				 orig_lhs);
 
 	if (w && is_gimple_min_invariant (w))
 	  val.value = w;

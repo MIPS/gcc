@@ -46,24 +46,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-pass.h"
 
-/* Remove edge E and remove the corresponding arguments from the PHI nodes
-   in E's destination block.  */
-
-void
-ssa_remove_edge (edge e)
-{
-  tree phi, next;
-
-  /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (phi = phi_nodes (e->dest); phi; phi = next)
-    {
-      next = PHI_CHAIN (phi);
-      remove_phi_arg (phi, e->src);
-    }
-
-  remove_edge (e);
-}
-
 /* Remove the corresponding arguments from the PHI nodes in E's
    destination block and redirect it to DEST.  Return redirected edge.
    The list of removed arguments is stored in PENDING_STMT (e).  */
@@ -82,7 +64,7 @@ ssa_redirect_edge (edge e, basic_block dest)
       next = PHI_CHAIN (phi);
 
       i = phi_arg_from_edge (phi, e);
-      if (i < 0)
+      if (PHI_ARG_DEF (phi, i) == NULL_TREE)
 	continue;
 
       src = PHI_ARG_DEF (phi, i);
@@ -90,8 +72,6 @@ ssa_redirect_edge (edge e, basic_block dest)
       node = build_tree_list (dst, src);
       *last = node;
       last = &TREE_CHAIN (node);
-
-      remove_phi_arg_num (phi, i);
     }
 
   e = redirect_edge_succ_nodup (e, dest);
@@ -116,7 +96,7 @@ flush_pending_stmts (edge e)
        phi = PHI_CHAIN (phi), arg = TREE_CHAIN (arg))
     {
       tree def = TREE_VALUE (arg);
-      add_phi_arg (&phi, def, e);
+      add_phi_arg (phi, def, e);
     }
 
   PENDING_STMT (e) = NULL;
@@ -125,12 +105,15 @@ flush_pending_stmts (edge e)
 /* Return true if SSA_NAME is malformed and mark it visited.
 
    IS_VIRTUAL is true if this SSA_NAME was found inside a virtual
-      operand.  */
+      operand.
+
+   MARK_VISITED is true if this SSA_NAME was found in the IL.  */
 
 static bool
-verify_ssa_name (tree ssa_name, bool is_virtual)
+verify_ssa_name (tree ssa_name, bool is_virtual, bool mark_visited)
 {
-  TREE_VISITED (ssa_name) = 1;
+  if (mark_visited)
+    TREE_VISITED (ssa_name) = 1;
 
   if (TREE_CODE (ssa_name) != SSA_NAME)
     {
@@ -182,7 +165,7 @@ static bool
 verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
 	    tree stmt, bool is_virtual)
 {
-  if (verify_ssa_name (ssa_name, is_virtual))
+  if (verify_ssa_name (ssa_name, is_virtual, bb != NULL))
     goto err;
 
   if (definition_block[SSA_NAME_VERSION (ssa_name)])
@@ -240,7 +223,7 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
 {
   bool err = false;
 
-  err = verify_ssa_name (ssa_name, is_virtual);
+  err = verify_ssa_name (ssa_name, is_virtual, true);
 
   if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
       && var_ann (SSA_NAME_VAR (ssa_name))->default_def == ssa_name)
@@ -287,8 +270,6 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
 /* Return true if any of the arguments for PHI node PHI at block BB is
    malformed.
 
-   IDOM contains immediate dominator information for the flowgraph.
-
    DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
       numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set, it means that the
       block in that array slot contains the definition of SSA_NAME.  */
@@ -298,18 +279,35 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 {
   edge e;
   bool err = false;
-  int i, phi_num_args = PHI_NUM_ARGS (phi);
-  edge_iterator ei;
+  unsigned i, phi_num_args = PHI_NUM_ARGS (phi);
 
-  /* Mark all the incoming edges.  */
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    e->aux = (void *) 1;
+  if (EDGE_COUNT (bb->preds) != phi_num_args)
+    {
+      error ("Incoming edge count does not match number of PHI arguments\n");
+      err = true;
+      goto error;
+    }
 
   for (i = 0; i < phi_num_args; i++)
     {
       tree op = PHI_ARG_DEF (phi, i);
 
-      e = PHI_ARG_EDGE (phi, i);
+      e = EDGE_PRED (bb, i);
+
+      if (op == NULL_TREE)
+	{
+	  error ("PHI argument is missing for edge %d->%d\n",
+	         e->src->index,
+		 e->dest->index);
+	  err = true;
+	  goto error;
+	}
+
+      if (TREE_CODE (op) != SSA_NAME && !is_gimple_min_invariant (op))
+	{
+	  error ("PHI argument is not SSA_NAME, or invariant");
+	  err = true;
+	}
 
       if (TREE_CODE (op) == SSA_NAME)
 	err = verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op,
@@ -324,40 +322,12 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	  err = true;
 	}
 
-      if (e->aux == (void *) 0)
-	{
-	  error ("PHI argument flowing through dead edge %d->%d\n",
-	         e->src->index, e->dest->index);
-	  err = true;
-	}
-
-      if (e->aux == (void *) 2)
-	{
-	  error ("PHI argument duplicated for edge %d->%d\n", e->src->index,
-	         e->dest->index);
-	  err = true;
-	}
-
       if (err)
 	{
 	  fprintf (stderr, "PHI argument\n");
 	  print_generic_stmt (stderr, op, TDF_VOPS);
 	  goto error;
 	}
-
-      e->aux = (void *) 2;
-    }
-
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      if (e->aux != (void *) 2)
-	{
-	  error ("No argument flowing through edge %d->%d\n", e->src->index,
-		 e->dest->index);
-	  err = true;
-	  goto error;
-	}
-      e->aux = (void *) 0;
     }
 
 error:
@@ -437,31 +407,34 @@ verify_flow_sensitive_alias_info (void)
 
   for (i = 1; i < num_ssa_names; i++)
     {
+      tree var;
       var_ann_t ann;
       struct ptr_info_def *pi;
+ 
 
       ptr = ssa_name (i);
       if (!ptr)
 	continue;
-      ann = var_ann (SSA_NAME_VAR (ptr));
-      pi = SSA_NAME_PTR_INFO (ptr);
 
       /* We only care for pointers that are actually referenced in the
 	 program.  */
-      if (!TREE_VISITED (ptr) || !POINTER_TYPE_P (TREE_TYPE (ptr)))
+      if (!POINTER_TYPE_P (TREE_TYPE (ptr)) || !TREE_VISITED (ptr))
 	continue;
 
       /* RESULT_DECL is special.  If it's a GIMPLE register, then it
 	 is only written-to only once in the return statement.
 	 Otherwise, aggregate RESULT_DECLs may be written-to more than
 	 once in virtual operands.  */
-      if (TREE_CODE (SSA_NAME_VAR (ptr)) == RESULT_DECL
+      var = SSA_NAME_VAR (ptr);
+      if (TREE_CODE (var) == RESULT_DECL
 	  && is_gimple_reg (ptr))
 	continue;
 
+      pi = SSA_NAME_PTR_INFO (ptr);
       if (pi == NULL)
 	continue;
 
+      ann = var_ann (var);
       if (pi->is_dereferenced && !pi->name_mem_tag && !ann->type_mem_tag)
 	{
 	  error ("Dereferenced pointers should have a name or a type tag");
@@ -600,65 +573,25 @@ verify_ssa (void)
 
   /* Keep track of SSA names present in the IL.  */
   for (i = 1; i < num_ssa_names; i++)
-    if (ssa_name (i))
-      TREE_VISITED (ssa_name (i)) = 0;
-
-  calculate_dominance_info (CDI_DOMINATORS);
-
-  /* Verify and register all the SSA_NAME definitions found in the
-     function.  */
-  FOR_EACH_BB (bb)
     {
-      tree phi;
-      block_stmt_iterator bsi;
-
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  int i;
-	  if (verify_def (bb, definition_block, PHI_RESULT (phi), phi,
-			!is_gimple_reg (PHI_RESULT (phi))))
-	  goto err;
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	    {
-	      tree def = PHI_ARG_DEF (phi, i);
-	      if (TREE_CODE (def) != SSA_NAME && !is_gimple_min_invariant (def))
-		{
-		  error ("PHI argument is not SSA_NAME, or invariant");
-		  print_generic_stmt (stderr, phi, TDF_VOPS);
-		  goto err;
-		}
-	    }
-	}
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      tree name = ssa_name (i);
+      if (name)
 	{
 	  tree stmt;
+	  TREE_VISITED (name) = 0;
 
-	  stmt = bsi_stmt (bsi);
-	  get_stmt_operands (stmt);
+	  stmt = SSA_NAME_DEF_STMT (name);
+	  if (!IS_EMPTY_STMT (stmt))
+	    {
+	      basic_block bb = bb_for_stmt (stmt);
+	      verify_def (bb, definition_block,
+			  name, stmt, !is_gimple_reg (name));
 
-	  if (stmt_ann (stmt)->makes_aliased_stores 
-	      && NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0)
-	    {
-	      error ("Statement makes aliased stores, but has no V_MAY_DEFS");
-	      print_generic_stmt (stderr, stmt, TDF_VOPS);
-	      goto err;
-	    }
-	    
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_DEFS)
-	    {
-	      if (verify_def (bb, definition_block, op, stmt, true))
-		goto err;
-	    }
-          
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF)
-	    {
-	      if (verify_def (bb, definition_block, op, stmt, false))
-		goto err;
 	    }
 	}
     }
 
+  calculate_dominance_info (CDI_DOMINATORS);
 
   /* Now verify all the uses and make sure they agree with the definitions
      found in the previous pass.  */
@@ -694,18 +627,20 @@ verify_ssa (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
-	    {
-	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, true,
-			      names_defined_in_bb))
-		goto err;
-	    }
+	      get_stmt_operands (stmt);
 
-	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
+	      if (stmt_ann (stmt)->makes_aliased_stores 
+		  && NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) == 0)
+		{
+		  error ("Statement makes aliased stores, but has no V_MAY_DEFS");
+		  print_generic_stmt (stderr, stmt, TDF_VOPS);
+		  goto err;
+		}
+
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
 	    {
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, false,
+			      op, stmt, false, !is_gimple_reg (op),
 			      names_defined_in_bb))
 		goto err;
 	    }
@@ -713,24 +648,6 @@ verify_ssa (void)
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_DEFS)
 	    {
 	      bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
-	    }
-	}
-
-      /* Verify the uses in arguments of PHI nodes at the exits from the
-	 block.  */
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
-	    {
-	      bool virtual = !is_gimple_reg (PHI_RESULT (phi));
-	      op = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	      if (TREE_CODE (op) != SSA_NAME)
-		continue;
-
-	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, phi, false, virtual,
-			      names_defined_in_bb))
-		goto err;
 	    }
 	}
 

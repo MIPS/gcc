@@ -22,13 +22,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "bitmap.h"
-#include "sbitmap.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
-#include "obstack.h"
 #include "fibheap.h"
 #include "output.h"
 #include "target.h"
@@ -1389,10 +1385,7 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
 	    }
 	}
       else
-	{
-	  if (def->live_range)
-	    BITMAP_XFREE (def->live_range);
-	}
+	BITMAP_XFREE (def->live_range);
     }
 
   free (btrs_live);

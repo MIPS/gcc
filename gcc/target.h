@@ -495,6 +495,15 @@ struct gcc_target
      the function is being declared as an int.  */
   int (* dwarf_calling_convention) (tree);
 
+  /* This target hook allows the backend to emit frame-related insns that
+     contain UNSPECs or UNSPEC_VOLATILEs.  The call frame debugging info
+     engine will invoke it on insns of the form
+       (set (reg) (unspec [...] UNSPEC_INDEX))
+     and
+       (set (reg) (unspec_volatile [...] UNSPECV_INDEX))
+     to let the backend emit the call frame instructions.  */
+  void (* dwarf_handle_frame_unspec) (const char *, rtx, int);
+
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
     bool (*promote_function_args) (tree fntype);
@@ -596,11 +605,6 @@ struct gcc_target
 
   /* True if #pragma extern_prefix is to be supported.  */
   bool handle_pragma_extern_prefix;
-
-  /* True if the RTL prologue and epilogue should be expanded after all
-     passes that modify the instructions (and not merely reorder them)
-     have been run.  */
-  bool late_rtl_prologue_epilogue;
 
   /* Leave the boolean fields at the end.  */
 };

@@ -58,29 +58,32 @@ static const int initial_cfg_capacity = 20;
    building of the CFG in code with lots of gotos.  */
 static GTY(()) varray_type label_to_block_map;
 
-/* This hash table allows us to efficiently lookup the one and only one
-   CASE_LABEL_EXPR which contains the LABEL_DECL for the target block
-   of one or more case statements.  Efficient access to this node
-   allows us to efficiently update the case vector in response to
-   edge redirections and similar operations. 
+/* This hash table allows us to efficiently lookup all CASE_LABEL_EXPRs
+   which use a particular edge.  The CASE_LABEL_EXPRs are chained together
+   via their TREE_CHAIN field, which we clear after we're done with the
+   hash table to prevent problems with duplication of SWITCH_EXPRs.
 
-   Right now this is only used to set up case label leaders.  In the
-   future we hope to make this table more persistent and use it to
-   more efficiently update case labels.  */
+   Access to this list of CASE_LABEL_EXPRs allows us to efficiently
+   update the case vector in response to edge redirections.
 
-struct edge_to_case_leader_elt
+   Right now this table is set up and torn down at key points in the
+   compilation process.  It would be nice if we could make the table
+   more persistent.  The key is getting notification of changes to
+   the CFG (particularly edge removal, creation and redirection).  */
+
+struct edge_to_cases_elt
 {
   /* The edge itself.  Necessary for hashing and equality tests.  */
   edge e;
 
-  /* The "leader" for all the CASE_LABEL_EXPRs which transfer control
-     to E->dest.  When we change the destination of E, we will need to
-     update the CASE_LEADER_OR_LABEL of this CASE_LABEL_EXPR (and no
-     others).  */
-  tree case_label;
+  /* The case labels associated with this edge.  We link these up via
+     their TREE_CHAIN field, then we wipe out the TREE_CHAIN fields
+     when we destroy the hash table.  This prevents problems when copying
+     SWITCH_EXPRs.  */
+  tree case_labels;
 };
 
-static htab_t edge_to_case_leader;
+static htab_t edge_to_cases;
 
 /* CFG statistics.  */
 struct cfg_stats_d
@@ -549,7 +552,7 @@ make_exit_edges (basic_block bb)
 	 such a bloody pain to avoid creating edges for this case since
 	 all we do is remove these edges when we're done building the
 	 CFG.  */
-      if (call_expr_flags (last) & (ECF_NORETURN | ECF_LONGJMP))
+      if (call_expr_flags (last) & ECF_NORETURN)
 	{
 	  make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 	  return;
@@ -601,27 +604,78 @@ make_cond_expr_edges (basic_block bb)
   make_edge (bb, else_bb, EDGE_FALSE_VALUE);
 }
 
-/* Hashing routine for EDGE_TO_CASE_LEADER.  */
+/* Hashing routine for EDGE_TO_CASES.  */
 
 static hashval_t
-edge_to_case_leader_hash (const void *p)
+edge_to_cases_hash (const void *p)
 {
-  edge e = ((struct edge_to_case_leader_elt *)p)->e;
+  edge e = ((struct edge_to_cases_elt *)p)->e;
 
   /* Hash on the edge itself (which is a pointer).  */
   return htab_hash_pointer (e);
 }
 
-/* Equality routine for EDGE_TO_CASE_LEADER, edges are unique, so testing
+/* Equality routine for EDGE_TO_CASES, edges are unique, so testing
    for equality is just a pointer comparison.  */
 
 static int
-edge_to_case_leader_eq (const void *p1, const void *p2)
+edge_to_cases_eq (const void *p1, const void *p2)
 {
-  edge e1 = ((struct edge_to_case_leader_elt *)p1)->e;
-  edge e2 = ((struct edge_to_case_leader_elt *)p2)->e;
+  edge e1 = ((struct edge_to_cases_elt *)p1)->e;
+  edge e2 = ((struct edge_to_cases_elt *)p2)->e;
 
   return e1 == e2;
+}
+
+/* Called for each element in the hash table (P) as we delete the
+   edge to cases hash table.
+
+   Clear all the TREE_CHAINs to prevent problems with copying of 
+   SWITCH_EXPRs and structure sharing rules, then free the hash table
+   element.  */
+
+static void
+edge_to_cases_cleanup (void *p)
+{
+  struct edge_to_cases_elt *elt = p;
+  tree t, next;
+
+  for (t = elt->case_labels; t; t = next)
+    {
+      next = TREE_CHAIN (t);
+      TREE_CHAIN (t) = NULL;
+    }
+  free (p);
+}
+
+/* Start recording information mapping edges to case labels.  */
+
+static void
+start_recording_case_labels (void)
+{
+  gcc_assert (edge_to_cases == NULL);
+
+  edge_to_cases = htab_create (37,
+			       edge_to_cases_hash,
+			       edge_to_cases_eq,
+			       edge_to_cases_cleanup);
+}
+
+/* Return nonzero if we are recording information for case labels.  */
+
+static bool
+recording_case_labels_p (void)
+{
+  return (edge_to_cases != NULL);
+}
+
+/* Stop recording information mapping edges to case labels and
+   remove any information we have recorded.  */
+static void
+end_recording_case_labels (void)
+{
+  htab_delete (edge_to_cases);
+  edge_to_cases = NULL;
 }
 
 /* Record that CASE_LABEL (a CASE_LABEL_EXPR) references edge E.  */
@@ -629,16 +683,16 @@ edge_to_case_leader_eq (const void *p1, const void *p2)
 static void
 record_switch_edge (edge e, tree case_label)
 {
-  struct edge_to_case_leader_elt *elt;
+  struct edge_to_cases_elt *elt;
   void **slot;
 
   /* Build a hash table element so we can see if E is already
      in the table.  */
-  elt = xmalloc (sizeof (struct edge_to_case_leader_elt));
+  elt = xmalloc (sizeof (struct edge_to_cases_elt));
   elt->e = e;
-  elt->case_label = case_label;
+  elt->case_labels = case_label;
 
-  slot = htab_find_slot (edge_to_case_leader, elt, INSERT);
+  slot = htab_find_slot (edge_to_cases, elt, INSERT);
 
   if (*slot == NULL)
     {
@@ -652,70 +706,56 @@ record_switch_edge (edge e, tree case_label)
       free (elt);
 
       /* Get the entry stored in the hash table.  */
-      elt = (struct edge_to_case_leader_elt *) *slot;
+      elt = (struct edge_to_cases_elt *) *slot;
 
-      /* Make ELT->case_label the leader for CASE_LABEL.  */
-      CASE_LEADER_OR_LABEL (case_label) = elt->case_label;
+      /* Add it to the chain of CASE_LABEL_EXPRs referencing E.  */
+      TREE_CHAIN (case_label) = elt->case_labels;
+      elt->case_labels = case_label;
     }
 }
 
-/* Subroutine of get_case_leader_for_edge; returns the case leader for the
-   chain of CASE_LABEL_EXPRs associated with E using a hash table lookup.  */
+/* If we are inside a {start,end}_recording_cases block, then return
+   a chain of CASE_LABEL_EXPRs from T which reference E.
+
+   Otherwise return NULL.  */
 
 static tree
-get_case_leader_for_edge_hash (edge e)
+get_cases_for_edge (edge e, tree t)
 {
-  struct edge_to_case_leader_elt elt, *elt_p;
+  struct edge_to_cases_elt elt, *elt_p;
   void **slot;
+  size_t i, n;
+  tree vec;
 
+  /* If we are not recording cases, then we do not have CASE_LABEL_EXPR
+     chains available.  Return NULL so the caller can detect this case.  */
+  if (!recording_case_labels_p ())
+    return NULL;
+  
+restart:
   elt.e = e;
-  elt.case_label = NULL;
-  slot = htab_find_slot (edge_to_case_leader, &elt, NO_INSERT);
+  elt.case_labels = NULL;
+  slot = htab_find_slot (edge_to_cases, &elt, NO_INSERT);
 
   if (slot)
     {
-      tree t;
-
-      elt_p = (struct edge_to_case_leader_elt *)*slot;
-      t = elt_p->case_label;
-
-      while (TREE_CODE (CASE_LEADER_OR_LABEL (t)) == CASE_LABEL_EXPR)
-	t = CASE_LEADER_OR_LABEL (t);
-      return t;
+      elt_p = (struct edge_to_cases_elt *)*slot;
+      return elt_p->case_labels;
     }
 
-  return NULL;
-}
+  /* If we did not find E in the hash table, then this must be the first
+     time we have been queried for information about E & T.  Add all the
+     elements from T to the hash table then perform the query again.  */
 
-/* Given an edge E, return the case leader for the chain of CASE_LABEL_EXPRs
-   which use E.  */
-
-static tree
-get_case_leader_for_edge (edge e)
-{
-  tree vec, stmt;
-  size_t i, n;
-
-  /* If we have a hash table, then use it as it's significantly faster.  */
-  if (edge_to_case_leader)
-    return get_case_leader_for_edge_hash (e);
-
-  /* No hash table.  We have to walk the case vector.  */
-  stmt = bsi_stmt (bsi_last (e->src));
-  vec = SWITCH_LABELS (stmt);
+  vec = SWITCH_LABELS (t);
   n = TREE_VEC_LENGTH (vec);
-
   for (i = 0; i < n; i++)
     {
-      tree elt = TREE_VEC_ELT (vec, i);
-      tree t = CASE_LEADER_OR_LABEL (elt);
-
-      if (TREE_CODE (t) == LABEL_DECL
-	  && label_to_block (t) == e->dest)
-	return elt;
+      tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
+      basic_block label_bb = label_to_block (lab);
+      record_switch_edge (find_edge (e->src, label_bb), TREE_VEC_ELT (vec, i));
     }
-
-  abort ();
+  goto restart;
 }
 
 /* Create the edges for a SWITCH_EXPR starting at block BB.
@@ -732,22 +772,12 @@ make_switch_expr_edges (basic_block bb)
   vec = SWITCH_LABELS (entry);
   n = TREE_VEC_LENGTH (vec);
 
-  edge_to_case_leader
-    = htab_create (n, edge_to_case_leader_hash, edge_to_case_leader_eq, free);
-
   for (i = 0; i < n; ++i)
     {
       tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
       basic_block label_bb = label_to_block (lab);
-      edge e = make_edge (bb, label_bb, 0);
-
-      if (!e)
-	e = find_edge (bb, label_bb);
-
-      record_switch_edge (e, TREE_VEC_ELT (vec, i));
+      make_edge (bb, label_bb, 0);
     }
-  htab_delete (edge_to_case_leader);
-  edge_to_case_leader = NULL;
 }
 
 
@@ -869,7 +899,13 @@ cleanup_tree_cfg (void)
 
   retval = cleanup_control_flow ();
   retval |= delete_unreachable_blocks ();
+
+  /* thread_jumps can redirect edges out of SWITCH_EXPRs, which can get
+     expensive.  So we want to enable recording of edge to CASE_LABEL_EXPR
+     mappings around the call to thread_jumps.  */
+  start_recording_case_labels ();
   retval |= thread_jumps ();
+  end_recording_case_labels ();
 
 #ifdef ENABLE_CHECKING
   if (retval)
@@ -882,7 +918,7 @@ cleanup_tree_cfg (void)
 
   /* Merging the blocks creates no new opportunities for the other
      optimizations, so do it here.  */
-  merge_seq_blocks ();
+  retval |= merge_seq_blocks ();
 
   compact_blocks ();
 
@@ -902,6 +938,7 @@ cleanup_tree_cfg_loop (void)
 
   cleanup_tree_cfg ();
 
+  calculate_dominance_info (CDI_DOMINATORS);
   fix_loop_structure (current_loops, changed_bbs);
 
   /* This usually does nothing.  But sometimes parts of cfg that originally
@@ -1042,7 +1079,7 @@ cleanup_dead_labels (void)
 	      {
 		tree elt = TREE_VEC_ELT (vec, i);
 		tree label = main_block_label (CASE_LABEL (elt));
-		CASE_LEADER_OR_LABEL (elt) = label;
+		CASE_LABEL (elt) = label;
 	      }
 	    break;
 	  }
@@ -1963,7 +2000,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
 
   /* Remove edges to BB's successors.  */
   while (EDGE_COUNT (bb->succs) > 0)
-    ssa_remove_edge (EDGE_SUCC (bb, 0));
+    remove_edge (EDGE_SUCC (bb, 0));
 }
 
 
@@ -2114,7 +2151,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	    {
 	      taken_edge->probability += e->probability;
 	      taken_edge->count += e->count;
-	      ssa_remove_edge (e);
+	      remove_edge (e);
 	      retval = true;
 	    }
 	  else
@@ -2283,7 +2320,7 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
       val1 = PHI_ARG_DEF (phi, n1);
       val2 = PHI_ARG_DEF (phi, n2);
 
-      if (!operand_equal_p (val1, val2, 0))
+      if (!operand_equal_for_phi_arg_p (val1, val2))
 	return false;
     }
 
@@ -2551,7 +2588,7 @@ is_ctrl_altering_stmt (tree t)
 	return true;
 
       /* A CALL_EXPR also alters control flow if it does not return.  */
-      if (call_expr_flags (call) & (ECF_NORETURN | ECF_LONGJMP))
+      if (call_expr_flags (call) & ECF_NORETURN)
 	return true;
     }
 
@@ -2654,11 +2691,9 @@ disband_implicit_edges (void)
 	     from cfg_remove_useless_stmts here since it violates the
 	     invariants for tree--cfg correspondence and thus fits better
 	     here where we do it anyway.  */
-	  FOR_EACH_EDGE (e, ei, bb->succs)
+	  e = find_edge (bb, bb->next_bb);
+	  if (e)
 	    {
-	      if (e->dest != bb->next_bb)
-		continue;
-
 	      if (e->flags & EDGE_TRUE_VALUE)
 		COND_EXPR_THEN (stmt) = build_empty_stmt ();
 	      else if (e->flags & EDGE_FALSE_VALUE)
@@ -3118,6 +3153,31 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
 	     Tree specific functions for CFG manipulation
 ---------------------------------------------------------------------------*/
 
+/* Reinstall those PHI arguments queued in OLD_EDGE to NEW_EDGE.  */
+
+static void
+reinstall_phi_args (edge new_edge, edge old_edge)
+{
+  tree var, phi;
+
+  if (!PENDING_STMT (old_edge))
+    return;
+  
+  for (var = PENDING_STMT (old_edge), phi = phi_nodes (new_edge->dest);
+       var && phi;
+       var = TREE_CHAIN (var), phi = PHI_CHAIN (phi))
+    {
+      tree result = TREE_PURPOSE (var);
+      tree arg = TREE_VALUE (var);
+
+      gcc_assert (result == PHI_RESULT (phi));
+
+      add_phi_arg (phi, arg, new_edge);
+    }
+
+  PENDING_STMT (old_edge) = NULL;
+}
+
 /* Split a (typically critical) edge EDGE_IN.  Return the new block.
    Abort on abnormal edges.  */
 
@@ -3126,9 +3186,6 @@ tree_split_edge (edge edge_in)
 {
   basic_block new_bb, after_bb, dest, src;
   edge new_edge, e;
-  tree phi;
-  int i, num_elem;
-  edge_iterator ei;
 
   /* Abnormal edges cannot be split.  */
   gcc_assert (!(edge_in->flags & EDGE_ABNORMAL));
@@ -3139,13 +3196,10 @@ tree_split_edge (edge edge_in)
   /* Place the new block in the block list.  Try to keep the new block
      near its "logical" location.  This is of most help to humans looking
      at debugging dumps.  */
-  FOR_EACH_EDGE (e, ei, dest->preds)
-    if (e->src->next_bb == dest)
-      break;
-  if (!e)
-    after_bb = dest->prev_bb;
-  else
+  if (dest->prev_bb && find_edge (dest->prev_bb, dest))
     after_bb = edge_in->src;
+  else
+    after_bb = dest->prev_bb;
 
   new_bb = create_empty_bb (after_bb);
   new_bb->frequency = EDGE_FREQUENCY (edge_in);
@@ -3154,23 +3208,9 @@ tree_split_edge (edge edge_in)
   new_edge->probability = REG_BR_PROB_BASE;
   new_edge->count = edge_in->count;
 
-  /* Find all the PHI arguments on the original edge, and change them to
-     the new edge.  Do it before redirection, so that the argument does not
-     get removed.  */
-  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
-    {
-      num_elem = PHI_NUM_ARGS (phi);
-      for (i = 0; i < num_elem; i++)
-	if (PHI_ARG_EDGE (phi, i) == edge_in)
-	  {
-	    PHI_ARG_EDGE (phi, i) = new_edge;
-	    break;
-	  }
-    }
-
   e = redirect_edge_and_branch (edge_in, new_bb);
   gcc_assert (e);
-  gcc_assert (!PENDING_STMT (edge_in));
+  reinstall_phi_args (new_edge, e);
 
   return new_bb;
 }
@@ -3240,9 +3280,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	 tree) and ensure that any variable used as a prefix is marked
 	 addressable.  */
       for (x = TREE_OPERAND (t, 0);
-	   (handled_component_p (x)
-	    || TREE_CODE (x) == REALPART_EXPR
-	    || TREE_CODE (x) == IMAGPART_EXPR);
+	   handled_component_p (x);
 	   x = TREE_OPERAND (x, 0))
 	;
 
@@ -3290,8 +3328,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	 that determine where to reference is either a constant or a variable,
 	 verify that the base is valid, and then show we've already checked
 	 the subtrees.  */
-      while (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR
-	     || handled_component_p (t))
+      while (handled_component_p (t))
 	{
 	  if (TREE_CODE (t) == COMPONENT_REF && TREE_OPERAND (t, 2))
 	    CHECK_OP (2, "Invalid COMPONENT_REF offset operator");
@@ -3428,7 +3465,8 @@ tree_node_can_be_shared (tree t)
 	 gimple invariants if they overflowed.  */
       || CONSTANT_CLASS_P (t)
       || is_gimple_min_invariant (t)
-      || TREE_CODE (t) == SSA_NAME)
+      || TREE_CODE (t) == SSA_NAME
+      || t == error_mark_node)
     return true;
 
   if (TREE_CODE (t) == CASE_LABEL_EXPR)
@@ -3814,7 +3852,7 @@ tree_verify_flow_info (void)
 
 		if (label_bb->aux != (void *)2)
 		  {
-		    error ("Missing edge %i->%i\n",
+		    error ("Missing edge %i->%i",
 			   bb->index, label_bb->index);
 		    err = 1;
 		  }
@@ -3860,7 +3898,7 @@ tree_make_forwarder_block (edge fallthru)
       new_phi = create_phi_node (var, bb);
       SSA_NAME_DEF_STMT (var) = new_phi;
       SET_PHI_RESULT (phi, make_ssa_name (SSA_NAME_VAR (var), phi));
-      add_phi_arg (&new_phi, PHI_RESULT (phi), fallthru);
+      add_phi_arg (new_phi, PHI_RESULT (phi), fallthru);
     }
 
   /* Ensure that the PHI node chain is in the same order.  */
@@ -3888,8 +3926,6 @@ static bool
 tree_forwarder_block_p (basic_block bb)
 {
   block_stmt_iterator bsi;
-  edge e;
-  edge_iterator ei;
 
   /* BB must have a single outgoing edge.  */
   if (EDGE_COUNT (bb->succs) != 1
@@ -3906,11 +3942,6 @@ tree_forwarder_block_p (basic_block bb)
 #if ENABLE_CHECKING
   gcc_assert (bb != ENTRY_BLOCK_PTR);
 #endif
-
-  /* Successors of the entry block are not forwarders.  */
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
-    if (e->dest == bb)
-      return false;
 
   /* Now walk through the statements.  We can ignore labels, anything else
      means this is not a forwarder block.  */
@@ -3929,6 +3960,7 @@ tree_forwarder_block_p (basic_block bb)
 	  return false;
 	}
     }
+
   if (current_loops)
     { 
       basic_block dest;
@@ -3940,6 +3972,10 @@ tree_forwarder_block_p (basic_block bb)
       if (dest->loop_father->header == dest)
 	return false;
     }
+
+  if (find_edge (ENTRY_BLOCK_PTR, bb))
+    return false;
+
   return true;
 }
 
@@ -4052,7 +4088,7 @@ thread_jumps_from_bb (basic_block bb)
 	    {
 	      arg = phi_arg_from_edge (phi, last);
 	      gcc_assert (arg >= 0);
-	      add_phi_arg (&phi, PHI_ARG_DEF (phi, arg), e);
+	      add_phi_arg (phi, PHI_ARG_DEF (phi, arg), e);
 	    }
 	}
 
@@ -4259,17 +4295,15 @@ static edge
 tree_try_redirect_by_replacing_jump (edge e, basic_block target)
 {
   basic_block src = e->src;
-  edge tmp;
   block_stmt_iterator b;
   tree stmt;
-  edge_iterator ei;
 
-  /* Verify that all targets will be TARGET.  */
-  FOR_EACH_EDGE (tmp, ei, src->succs)
-    if (tmp->dest != target && tmp != e)
-      break;
-
-  if (tmp)
+  /* We can replace or remove a complex jump only when we have exactly
+     two edges.  */
+  if (EDGE_COUNT (src->succs) != 2
+      /* Verify that all targets will be TARGET.  Specifically, the
+	 edge that is not E must also go to TARGET.  */
+      || EDGE_SUCC (src, EDGE_SUCC (src, 0) == e)->dest != target)
     return NULL;
 
   b = bsi_last (src);
@@ -4332,30 +4366,47 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
 
     case SWITCH_EXPR:
       {
-	edge e2;
+        tree cases = get_cases_for_edge (e, stmt);
 
-        /* We need to update the LABEL_DECL in the switch vector to
-	   reflect the edge redirection.
-
-	   There is precisely one CASE_LABEL_EXPR in the switch vector
-	   which needs updating.  Either its label needs to be updated
-	   or it needs to be directed to a new case leader.  */
-	e2 = find_edge (e->src, dest);
-	if (e2)
+	/* If we have a list of cases associated with E, then use it
+	   as it's a lot faster than walking the entire case vector.  */
+	if (cases)
 	  {
-	    /* In this case we need to change the case leader for the
-	       current leader of E to be the case leader for E2.  */
-	    tree e_leader = get_case_leader_for_edge (e);
-	    tree e2_leader = get_case_leader_for_edge (e2);
-	    CASE_LEADER_OR_LABEL (e_leader) = e2_leader;
+	    edge e2 = find_edge (e->src, dest);
+	    tree last, first;
+
+	    first = cases;
+	    while (cases)
+	      {
+		last = cases;
+		CASE_LABEL (cases) = label;
+		cases = TREE_CHAIN (cases);
+	      }
+
+	    /* If there was already an edge in the CFG, then we need
+	       to move all the cases associated with E to E2.  */
+	    if (e2)
+	      {
+		tree cases2 = get_cases_for_edge (e2, stmt);
+
+		TREE_CHAIN (last) = TREE_CHAIN (cases2);
+		TREE_CHAIN (cases2) = first;
+	      }
 	  }
 	else
 	  {
-	    /* No edge exists from E->src to DEST, so we will simply
-	       change E->dest.  The case leader does not change, but
-	       the LABEL_DECL for the leader does change.  */
-	    CASE_LEADER_OR_LABEL (get_case_leader_for_edge (e)) = label;
+	    tree vec = SWITCH_LABELS (stmt);
+	    size_t i, n = TREE_VEC_LENGTH (vec);
+
+	    for (i = 0; i < n; i++)
+	      {
+		tree elt = TREE_VEC_ELT (vec, i);
+
+		if (label_to_block (CASE_LABEL (elt)) == e->dest)
+		  CASE_LABEL (elt) = label;
+	      }
 	  }
+
 	break;
       }
 
@@ -4563,7 +4614,7 @@ add_phi_args_after_copy_bb (basic_block bb_copy)
 
 	  gcc_assert (PHI_RESULT (phi) == PHI_RESULT (phi_copy));
 	  def = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	  add_phi_arg (&phi_copy, def, e_copy);
+	  add_phi_arg (phi_copy, def, e_copy);
 	}
     }
 }
@@ -4885,8 +4936,8 @@ tree_duplicate_sese_region (edge entry, edge exit,
       tree name = ssa_name (ver);
 
       phi = create_phi_node (name, exit->dest);
-      add_phi_arg (&phi, name, exit);
-      add_phi_arg (&phi, name, exit_copy);
+      add_phi_arg (phi, name, exit);
+      add_phi_arg (phi, name, exit_copy);
 
       SSA_NAME_DEF_STMT (name) = phi;
     }
@@ -5145,8 +5196,7 @@ need_fake_edge_p (tree t)
      leads to different results from -fbranch-probabilities.  */
   call = get_call_expr_in (t);
   if (call
-      && !(call_expr_flags (call) & 
-	   (ECF_NORETURN | ECF_LONGJMP | ECF_ALWAYS_RETURN)))
+      && !(call_expr_flags (call) & (ECF_NORETURN | ECF_ALWAYS_RETURN)))
     return true;
 
   if (TREE_CODE (t) == ASM_EXPR
@@ -5195,7 +5245,6 @@ tree_flow_call_edges_add (sbitmap blocks)
      Handle this by adding a dummy instruction in a new last basic block.  */
   if (check_last_block)
     {
-      edge_iterator ei;
       basic_block bb = EXIT_BLOCK_PTR->prev_bb;
       block_stmt_iterator bsi = bsi_last (bb);
       tree t = NULL_TREE;
@@ -5206,13 +5255,12 @@ tree_flow_call_edges_add (sbitmap blocks)
 	{
 	  edge e;
 
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (e->dest == EXIT_BLOCK_PTR)
-	      {
-		bsi_insert_on_edge (e, build_empty_stmt ());
-		bsi_commit_edge_inserts ();
-		break;
-	      }
+	  e = find_edge (bb, EXIT_BLOCK_PTR);
+	  if (e)
+	    {
+	      bsi_insert_on_edge (e, build_empty_stmt ());
+	      bsi_commit_edge_inserts ();
+	    }
 	}
     }
 
@@ -5249,9 +5297,8 @@ tree_flow_call_edges_add (sbitmap blocks)
 #ifdef ENABLE_CHECKING
 		  if (stmt == last_stmt)
 		    {
-		      edge_iterator ei;
-		      FOR_EACH_EDGE (e, ei, bb->succs)
-			gcc_assert (e->dest != EXIT_BLOCK_PTR);
+		      e = find_edge (bb, EXIT_BLOCK_PTR);
+		      gcc_assert (e == NULL);
 		    }
 #endif
 
@@ -5292,7 +5339,7 @@ tree_purge_dead_eh_edges (basic_block bb)
     {
       if (e->flags & EDGE_EH)
 	{
-	  ssa_remove_edge (e);
+	  remove_edge (e);
 	  changed = true;
 	}
       else
@@ -5337,6 +5384,28 @@ tree_purge_all_dead_eh_edges (bitmap blocks)
   return changed;
 }
 
+/* This function is called whenever a new edge is created or
+   redirected.  */
+
+static void
+tree_execute_on_growing_pred (edge e)
+{
+  basic_block bb = e->dest;
+
+  if (phi_nodes (bb))
+    reserve_phi_args_for_new_edge (bb);
+}
+
+/* This function is called immediately before edge E is removed from
+   the edge vector E->dest->preds.  */
+
+static void
+tree_execute_on_shrinking_pred (edge e)
+{
+  if (phi_nodes (e->dest))
+    remove_phi_args (e);
+}
+
 struct cfg_hooks tree_cfg_hooks = {
   "tree",
   tree_verify_flow_info,
@@ -5358,7 +5427,9 @@ struct cfg_hooks tree_cfg_hooks = {
   NULL,				/* tidy_fallthru_edge  */
   tree_block_ends_with_call_p,	/* block_ends_with_call_p */
   tree_block_ends_with_condjump_p, /* block_ends_with_condjump_p */
-  tree_flow_call_edges_add      /* flow_call_edges_add */
+  tree_flow_call_edges_add,     /* flow_call_edges_add */
+  tree_execute_on_growing_pred,	/* execute_on_growing_pred */
+  tree_execute_on_shrinking_pred, /* execute_on_shrinking_pred */
 };
 
 
@@ -5371,6 +5442,10 @@ split_critical_edges (void)
   edge e;
   edge_iterator ei;
 
+  /* split_edge can redirect edges out of SWITCH_EXPRs, which can get
+     expensive.  So we want to enable recording of edge to CASE_LABEL_EXPR
+     mappings around the calls to split_edge.  */
+  start_recording_case_labels ();
   FOR_ALL_BB (bb)
     {
       FOR_EACH_EDGE (e, ei, bb->succs)
@@ -5379,6 +5454,7 @@ split_critical_edges (void)
 	    split_edge (e);
 	  }
     }
+  end_recording_case_labels ();
 }
 
 struct tree_opt_pass pass_split_crit_edges = 

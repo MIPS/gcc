@@ -2026,8 +2026,9 @@ default_assemble_integer (rtx x ATTRIBUTE_UNUSED,
 			  int aligned_p ATTRIBUTE_UNUSED)
 {
   const char *op = integer_asm_op (size, aligned_p);
-  /* Avoid GAS bugs for values > word size.  */
-  if (size > UNITS_PER_WORD)
+  /* Avoid GAS bugs for large values.  Specifically negative values whose
+     absolute value fits in a bfd_vma, but not in a bfd_signed_vma.  */
+  if (size > UNITS_PER_WORD && size > POINTER_SIZE / BITS_PER_UNIT)
     return false;
   return op && (assemble_integer_with_op (op, x), true);
 }
@@ -4896,6 +4897,7 @@ void
 default_elf_select_section_1 (tree decl, int reloc,
 			      unsigned HOST_WIDE_INT align, int shlib)
 {
+  const char *sname;
   switch (categorize_decl_for_section (decl, reloc, shlib))
     {
     case SECCAT_TEXT:
@@ -4903,56 +4905,61 @@ default_elf_select_section_1 (tree decl, int reloc,
       abort ();
     case SECCAT_RODATA:
       readonly_data_section ();
-      break;
+      return;
     case SECCAT_RODATA_MERGE_STR:
       mergeable_string_section (decl, align, 0);
-      break;
+      return;
     case SECCAT_RODATA_MERGE_STR_INIT:
       mergeable_string_section (DECL_INITIAL (decl), align, 0);
-      break;
+      return;
     case SECCAT_RODATA_MERGE_CONST:
       mergeable_constant_section (DECL_MODE (decl), align, 0);
-      break;
+      return;
     case SECCAT_SRODATA:
-      named_section (NULL_TREE, ".sdata2", reloc);
+      sname = ".sdata2";
       break;
     case SECCAT_DATA:
       data_section ();
-      break;
+      return;
     case SECCAT_DATA_REL:
-      named_section (NULL_TREE, ".data.rel", reloc);
+      sname = ".data.rel";
       break;
     case SECCAT_DATA_REL_LOCAL:
-      named_section (NULL_TREE, ".data.rel.local", reloc);
+      sname = ".data.rel.local";
       break;
     case SECCAT_DATA_REL_RO:
-      named_section (NULL_TREE, ".data.rel.ro", reloc);
+      sname = ".data.rel.ro";
       break;
     case SECCAT_DATA_REL_RO_LOCAL:
-      named_section (NULL_TREE, ".data.rel.ro.local", reloc);
+      sname = ".data.rel.ro.local";
       break;
     case SECCAT_SDATA:
-      named_section (NULL_TREE, ".sdata", reloc);
+      sname = ".sdata";
       break;
     case SECCAT_TDATA:
-      named_section (NULL_TREE, ".tdata", reloc);
+      sname = ".tdata";
       break;
     case SECCAT_BSS:
 #ifdef BSS_SECTION_ASM_OP
       bss_section ();
+      return;
 #else
-      named_section (NULL_TREE, ".bss", reloc);
-#endif
+      sname = ".bss";
       break;
+#endif
     case SECCAT_SBSS:
-      named_section (NULL_TREE, ".sbss", reloc);
+      sname = ".sbss";
       break;
     case SECCAT_TBSS:
-      named_section (NULL_TREE, ".tbss", reloc);
+      sname = ".tbss";
       break;
     default:
       abort ();
     }
+
+  if (!DECL_P (decl))
+    decl = NULL_TREE;
+  named_section (decl, sname, reloc);
 }
 
 /* Construct a unique section name based on the decl name and the
@@ -5090,10 +5097,10 @@ default_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
     flags |= SYMBOL_FLAG_FUNCTION;
   if (targetm.binds_local_p (decl))
     flags |= SYMBOL_FLAG_LOCAL;
-  if (targetm.in_small_data_p (decl))
-    flags |= SYMBOL_FLAG_SMALL;
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
     flags |= decl_tls_model (decl) << SYMBOL_FLAG_TLS_SHIFT;
+  else if (targetm.in_small_data_p (decl))
+    flags |= SYMBOL_FLAG_SMALL;
   /* ??? Why is DECL_EXTERNAL ever set for non-PUBLIC names?  Without
      being PUBLIC, the thing *must* be defined in this translation unit.
      Prevent this buglet from being propagated into rtl code as well.  */

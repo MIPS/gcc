@@ -1336,7 +1336,6 @@ extern int ceil_log2 (unsigned HOST_WIDE_INT);
 
 /* In builtins.c */
 extern rtx expand_builtin_expect_jump (tree, rtx, rtx);
-extern void purge_builtin_constant_p (void);
 
 /* In explow.c */
 extern void set_stack_check_libfunc (rtx);
@@ -1353,7 +1352,6 @@ extern rtx emit_copy_of_insn_after (rtx, rtx);
 extern void set_reg_attrs_from_mem (rtx, rtx);
 extern void set_mem_attrs_from_reg (rtx, rtx);
 extern void set_reg_attrs_for_parm (rtx, rtx);
-extern void set_reg_pointer_align (rtx, unsigned int);
 extern int mem_expr_equal_p (tree, tree);
 
 /* In rtl.c */
@@ -1377,7 +1375,6 @@ extern rtvec gen_rtvec_v (int, rtx *);
 extern rtx gen_reg_rtx (enum machine_mode);
 extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
 extern rtx gen_label_rtx (void);
-extern int subreg_hard_regno (rtx, int);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
 
 /* In cse.c */
@@ -1386,8 +1383,6 @@ extern rtx gen_lowpart_if_possible (enum machine_mode, rtx);
 /* In emit-rtl.c */
 extern rtx gen_highpart (enum machine_mode, rtx);
 extern rtx gen_highpart_mode (enum machine_mode, enum machine_mode, rtx);
-extern rtx gen_realpart (enum machine_mode, rtx);
-extern rtx gen_imagpart (enum machine_mode, rtx);
 extern rtx operand_subword (rtx, unsigned int, int, enum machine_mode);
 
 /* In emit-rtl.c */
@@ -1901,7 +1896,6 @@ extern int comparison_dominates_p (enum rtx_code, enum rtx_code);
 extern int condjump_p (rtx);
 extern int any_condjump_p (rtx);
 extern int any_uncondjump_p (rtx);
-extern int safe_to_remove_jump_p (rtx);
 extern rtx pc_set (rtx);
 extern rtx condjump_label (rtx);
 extern int simplejump_p (rtx);
@@ -1957,7 +1951,6 @@ extern void add_insn_before (rtx, rtx);
 extern void add_insn_after (rtx, rtx);
 extern void remove_insn (rtx);
 extern void emit_insn_after_with_line_notes (rtx, rtx, rtx);
-extern enum rtx_code classify_insn (rtx);
 extern rtx emit (rtx);
 extern void renumber_insns (FILE *);
 extern void remove_unnecessary_notes (void);
@@ -1969,6 +1962,8 @@ extern rtx delete_insn_and_edges (rtx);
 extern void delete_insn_chain_and_edges (rtx, rtx);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
+extern bool validate_subreg (enum machine_mode, enum machine_mode,
+			     rtx, unsigned int);
 
 /* In combine.c */
 extern int combine_instructions (rtx, unsigned int);

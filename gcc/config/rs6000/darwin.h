@@ -103,7 +103,7 @@ do {									\
 	while (base[-1] != 'm') base--;					\
 									\
 	if (*darwin_fix_and_continue_switch != '\0')			\
-	  error ("invalid option `%s'", base);				\
+	  error ("invalid option %qs", base);				\
 	darwin_fix_and_continue = (base[0] != 'n');			\
       }									\
   }									\
@@ -207,6 +207,10 @@ do {									\
 
 #undef	FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
+
+/* Darwin uses a function call if everything needs to be saved/restored.  */
+#undef WORLD_SAVE_P
+#define WORLD_SAVE_P(INFO) ((INFO)->world_save_p)
 
 /* The assembler wants the alternate register names, but without
    leading percent sign.  */

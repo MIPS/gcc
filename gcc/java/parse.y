@@ -347,7 +347,6 @@ static tree build_dot_class_method_invocation (tree, tree);
 static void create_new_parser_context (int);
 static tree maybe_build_class_init_for_field (tree, tree);
 
-static int attach_init_test_initialization_flags (void **, void *);
 static int emit_test_initialization (void **, void *);
 
 static char *string_convert_int_cst (tree);
@@ -3255,7 +3254,7 @@ find_expr_with_wfl (tree node)
 	  continue;
 
 	case LABELED_BLOCK_EXPR:
-	  node = TREE_OPERAND (node, 1);
+	  node = LABELED_BLOCK_BODY (node);
 	  continue;
 
 	default:
@@ -9690,8 +9689,8 @@ strip_out_static_field_access_decl (tree node)
 	   tree call = TREE_OPERAND (op1, 0);
 	   if (TREE_CODE (call) == CALL_EXPR
 	       && TREE_CODE (TREE_OPERAND (call, 0)) == ADDR_EXPR
-	       && TREE_OPERAND (TREE_OPERAND (call, 0), 0)
-	       == soft_initclass_node)
+	       && (TREE_OPERAND (TREE_OPERAND (call, 0), 0)
+		   == soft_initclass_node))
 	     return TREE_OPERAND (op1, 1);
 	 }
       else if (JDECL_P (op1))
@@ -11025,7 +11024,7 @@ patch_invoke (tree patch, tree method, tree args)
   if (TREE_CODE (original_call) == NEW_CLASS_EXPR)
     {
       tree class = DECL_CONTEXT (method);
-      tree c1, saved_new, size, new;
+      tree c1, saved_new, new;
       tree alloc_node;
 
       if (flag_emit_class_files || flag_emit_xref)
@@ -11035,7 +11034,6 @@ patch_invoke (tree patch, tree method, tree args)
 	}
       if (!TYPE_SIZE (class))
 	safe_layout_class (class);
-      size = size_in_bytes (class);
       alloc_node =
 	(class_has_finalize_method (class) ? alloc_object_node
 		  			   : alloc_no_finalizer_node);
@@ -11109,11 +11107,20 @@ invocation_mode (tree method, int super)
   if (DECL_CONSTRUCTOR_P (method))
     return INVOKE_STATIC;
 
-  if (access & ACC_FINAL || access & ACC_PRIVATE)
+  if (access & ACC_PRIVATE)
     return INVOKE_NONVIRTUAL;
 
-  if (CLASS_FINAL (TYPE_NAME (DECL_CONTEXT (method))))
-    return INVOKE_NONVIRTUAL;
+  /* Binary compatibility: just because it's final today, that doesn't
+     mean it'll be final tomorrow.  */
+  if (! flag_indirect_dispatch  
+      || DECL_CONTEXT (method) == object_type_node)
+    {
+      if (access & ACC_FINAL)
+	return INVOKE_NONVIRTUAL;
+
+      if (CLASS_FINAL (TYPE_NAME (DECL_CONTEXT (method))))
+	return INVOKE_NONVIRTUAL;
+    }
 
   if (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))))
     return INVOKE_INTERFACE;
@@ -11747,8 +11754,6 @@ java_complete_lhs (tree node)
       return node;
 
     case EXIT_BLOCK_EXPR:
-      /* We don't complete operand 1, because it's the return value of
-         the EXIT_BLOCK_EXPR which doesn't exist it Java */
       return patch_bc_statement (node);
 
     case CASE_EXPR:
@@ -15269,8 +15274,7 @@ build_bc_statement (int location, int is_break, tree name)
     }
   /* Unlabeled break/continue will be handled during the
      break/continue patch operation */
-  break_continue = build2 (EXIT_BLOCK_EXPR, NULL_TREE,
-			   label_block_expr, NULL_TREE);
+  break_continue = build1 (EXIT_BLOCK_EXPR, NULL_TREE, label_block_expr);
 
   IS_BREAK_STMT_P (break_continue) = is_break;
   TREE_SIDE_EFFECTS (break_continue) = 1;
@@ -16339,26 +16343,6 @@ init_src_parse (void)
 
 /* This section deals with the functions that are called when tables
    recording class initialization information are traversed.  */
-
-/* Attach to PTR (a block) the declaration found in ENTRY. */
-
-static int
-attach_init_test_initialization_flags (void **entry, void *ptr)
-{
-  tree block = (tree)ptr;
-  struct treetreehash_entry *ite = (struct treetreehash_entry *) *entry;
-
-  if (block != error_mark_node)
-    {
-      tree body = BLOCK_SUBBLOCKS (block);
-      TREE_CHAIN (ite->value) = BLOCK_EXPR_DECLS (block);
-      BLOCK_EXPR_DECLS (block) = ite->value;
-      body = build2 (COMPOUND_EXPR, void_type_node,
-                     build1 (DECL_EXPR, void_type_node, ite->value), body);
-      BLOCK_SUBBLOCKS (block) = body;
-    }
-  return true;
-}
 
 /* This function is called for each class that is known definitely
    initialized when a given static method was called. This function

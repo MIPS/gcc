@@ -1,3 +1,258 @@
+2004-12-01  Matt Austern  <austern@apple.com>
+
+	* name-lookup.c (namespace_binding): Omit alias check for global namespace.
+
+2004-12-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18729
+	* parser.c (cp_parser_class_name): Check decl's type is not
+	error_mark_node.
+
+	PR c++/17431
+	* call.c (standard_conversion): Add FLAGS parameter. Do not allow
+	derived to base conversion when checking constructor
+	accessibility.
+	(implicit_conversion): Pass FLAGS to standard_conversion.
+	(check_constructir_callable): Disallow conversion functions.
+
+2004-11-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* parser.c: Fix comment typos.
+
+2004-11-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18368
+	* parser.c (cp_parser_check_for_definition_in_return_type): Take
+	the defined type as a parameter, and inform the user about the
+	possibility of a missing semicolon.
+	(cp_parser_explicit_instantiation): Adjust call to
+	cp_parser_check_for_definition_in_return_type.
+	(cp_parser_init_declarator): Likewise.
+	(cp_parser_member_declaration): Likewise.
+
+	PR c++/18674
+	* cp-tree.def (TYPENAME_TYPE): Remove discussion of implicit
+	typename from comments.
+	* cp-tree.h (TYPENAME_IS_ENUM_P): New macro.
+	(TYPENAME_IS_CLASS_P): Likewise.
+	(make_typename_type): Change prototype.
+	* decl.c (struct_typename_info): New type.
+	(typename_compare): Expect the second argument to be a
+	typename_info, not a tree.
+	(build_typename_type): Add tag_type parameter.  Do not create a
+	new type until necessary.
+	(make_typename_type): Add tag_type parameter.
+	* error.c (TYPENAME_TYPE): Print tags other than "typename" if
+	appropriate.
+	* friend.c (make_friend_class): Adjust call to make_typename_type.
+	* parser.c (cp_parser_make_typename_type): Likewise.
+	(cp_parser_primary_expression): Adjust call to
+	cp_parser_lookup_name.
+	(cp_parser_unqualified_id): Adjust calls to cp_parser_class_name.
+	(cp_parser_class_or_namespace_name): Likewise.
+	(cp_parser_postfix_expression): Adjust calls to
+	make_typename_type.
+	(cp_parser_mem_initializer_id): Adjust calls to
+	cp_parser_class_name.
+	(cp_parser_type_parameter): Adjust calls to cp_parser_lookup_name.
+	(cp_parser_template_name): Likewise.
+	(cp_parser_template_argument): Likewise.
+	(cp_parser_type_name): Adjust call to cp_parser_class_name.
+	(cp_parser_elaborated_type_specifier): Adjust calls to
+	make_typename_type and cp_parser_lookup_name.
+	(cp_parser_namespace_name): Likewise.
+	(cp_parser_class_name): Replace type_p parameter with tag_type.
+	Adjust calls to make_typename_type and cp_parser_lookup_name.
+	(cp_parser_class_head): Adjust calls to cp_parser_class_name.
+	(cp_parser_base_specifier): Likewise.
+	(cp_parser_lookup_name): Replace is_type parameter with tag_type.
+	Adjust calls to make_typename_type and lookup_qualified_name.
+	(cp_parser_lookup_name_simple): Adjust call to
+	cp_parser_lookup_name.
+	(cp_parser_constructor_declarator_p): Adjust call to
+	cp_parser_class_name.
+	* pt.c (convert_template_argument): Adjust all to
+	make_typename_type.
+	(tsubst_decl): Do not pre-substitute the type of the declaration.
+	(tsubst): Hand off declarations more quickly.  Adjust call to
+	make_typename_type. 
+
+	PR c++/18512
+	* parser.c (cp_parser_postfix_dot_deref_expression): Robustify.
+
+2004-11-29  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	PR c/7544
+	* Make-lang.in (cp/decl2.o): Update dependencies.
+	* decl2.c (finish_file): Call maybe_apply_pending_pragma_weaks.
+
+2004-11-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18652
+	* name-lookup.c (pushtag): Change return type to tree.
+	* cp-tree.h (pushtag): Adjust declaration.
+	* decl.c (xref_tag, start_enum): Use return value of pushtag.
+	* pt.c (push_template_decl_real): Return immediately if
+	pushdecl_namespace_level returns error_mark_node.
+
+2004-11-27  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* pt.c: Fix a comment typo.
+
+2004-11-27  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 4/n
+	* class.c (pushclass): Don't call cxx_remember_type_decls.
+	* cp-tree.h (clear_anon_tags): Remove declaration.
+	* decl.c (grokdeclarator): Don't call lookup_tag_reverse.
+	* name-lookup.c (binding_entry_free, binding_table_free): Comment
+	out functions.
+	(binding_table_find_anon_type, binding_table_reverse_maybe_remap,
+	binding_table_remove_anonymous_types, cxx_remember_type_decls,
+	bt_print_entry, clear_anon_tags, follow_tag_typedef, lookup_tag,
+	lookup_tag_reverse): Remove
+	(begin_scope, leave_scope, kept_level_p, print_binding_level):
+	Don't use type_decls field in cp_binding_level.
+	(maybe_process_template_type_declaration, pushtag): Set
+	CLASSTYPE_NESTED_UTDS directly.
+	* name-lookup.h (binding_table_remove_anonymous_types,
+	cxx_remember_type_decls, lookup_tag, lookup_tag_reverse): Remove
+	declaration.
+	(cp_binding_level): Remove type_decls field.
+
+2004-11-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* typeck.c: Fix a comment typo.
+
+2004-11-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18445
+	* class.c (instantiate_type): Treat NON_DEPENDENT_EXPRs with
+	unknown_type as non matching.  Tidy up.
+	* pt.c (build_non_dependent_expr): Do not build a
+	NON_DEPENDENT_EXPR for a VAR_DECL.
+
+	PR c++/18001
+	* cp-tree.h (lvalue_or_else): Remove declaration.
+	* tree.c (lvalue_or_else): Remove.
+	* typeck.c (build_unary_op): Adjust call to lvalue_or_else.
+	(build_modify_expr): Likewise.
+
+	PR c++/18625
+	* decl.c (duplicate_decls): Return error_mark_node on error, as
+	specified.
+
+	PR c++/18466
+	* decl.c (grokvardecl): Keep track of whether or not a there was
+	explicit qualification.
+	* name-lookup.c (set_decl_namespace): Complain about explicit
+	qualification of a name within its own namespace.
+
+	PR c++/18545
+	* typeck.c (check_return_expr): Robustify.
+
+2004-11-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 3/n, PR c++/3332
+	* name-lookup.c (push_inner_scope, pop_inner_scope): New functions.
+	(lookup_type_scope): Don't deal with name from user declaration
+	specially.
+	* name-lookup.h (push_inner_scope, pop_inner_scope): Add declarations.
+	* parser.c (cp_parser_class_specifier): Use push_inner_scope and
+	pop_inner_scope.
+
+2004-11-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 2/n, PR c++/14513, c++/15410
+	* name-lookup.c (lookup_name_real): Simplify.
+	(lookup_type_scope): Add SCOPE parameter.  Handle friend class
+	lookup.
+	* name-lookup.h (tag_scope): New enum type.
+	(lookup_type_scope): Adjust declaration.
+	* decl.c (lookup_and_check_tag, xref_tag, xref_tag_from_type):
+	Change bool parameter GLOBALIZED to TAG_SCOPE parameter SCOPE.
+	(start_enum): Likewise.  Add assertion test that NAME is 
+	IDENTIFIER_NODE.  Use anonymous name for dummy ENUMERAL_TYPE in
+	case of error.
+	* cp-tree.h (xref_tag, xref_tag_from_type): Adjust declarations.
+	* parser.c (cp_parser_elaborated_type_specifier,
+	cp_parser_class_head): Adjust call to xref_tag.
+	* pt.c (lookup_template_class, instantiate_class_template):
+	Likewise.
+	* rtti.c (init_rtti_processing, build_dynamic_cast_1,
+	tinfo_base_init, emit_support_tinfos): Likewise.
+
+2004-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* g++spec.c, lex.c: Avoid ` as left quote in diagnostics.
+
+2004-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17473
+	* name-lookup.c (supplement_binding): Do not allow typedefs to be
+	redefined in class scope.
+
+	PR c++/18285
+	* parser.c (cp_parser_set_decl_type_spec): Do not try to allow
+	redefinitions of builtin types other that "bool" or "wchar_t".
+
+2004-11-24  Steven Bosscher  <stevenb@suse.de>
+
+	* decl.c (cxx_init_decl_processing): Don't clear
+	flag_inline_functions.
+
+2004-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (tsubst_function_type): Do not permit function types which
+	return arrays or functions.
+
+	PR c++/18586
+	* parser.c (cp_parser_init_declarator): Do not pop scope twice.
+
+	PR c++/18530
+	* cp-tree.h (CTOR_NAME): Remove.
+	(DTOR_NAME): Remove.
+	* decl.c (initialize_predefined_identifiers): Add spaces to the
+	end of constructor and destructor names.
+
+2004-11-24  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/8929
+	* decl.c (start_decl): Check for invalid specialization headers.
+
+2004-11-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/16882
+
+	* call.c (standard_conversion): Move check for conversions between
+	vector pointers...
+	* typeck.c (ptr_reasonably_similar): ... here.
+
+2004-11-23  Ben Elliston  <bje@au.ibm.com>
+
+	* cp-tree.h (context_as_string): Remove extern.
+	* error.c (context_as_string): Remove.
+
+	* cp-tree.h (cp_type_qual_from_rid): Remove extern.
+	* lex.c (cp_type_qual_from_rid): Remove.
+
+	* cp-tree.h (do_poplevel): Remove extern.
+	(check_multiple_declarators): Likewise.
+	* semantics.c (do_poplevel): Make static.
+	(check_multiple_declarators): Remove.
+
+	* cp-tree.h (check_final_overrider): Remove extern.
+	* search.c (check_final_overrider): Make static.
+
+	* cp-tree.h (build_artificial_parm): Remove extern.
+	* decl2.c (build_artificial_parm): Make static.
+
+2004-11-22  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/18354
+	* typeck.c (build_unary_op) <CONVERT_EXPR, NEGATE_EXPR>: Unify code.
+	Make sure the result is always a rvalue.
+
 2004-11-16  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
 
 	* decl.c (start_preparsed_function): Call check_function_type even

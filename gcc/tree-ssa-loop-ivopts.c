@@ -96,9 +96,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    this.  */
 #define AVG_LOOP_NITER(LOOP) 5
 
-/* Just to shorten the ugly names.  */
-#define EXEC_BINARY nondestructive_fold_binary_to_constant
-#define EXEC_UNARY nondestructive_fold_unary_to_constant
 
 /* Representation of the induction variable.  */
 struct iv
@@ -1364,12 +1361,13 @@ idx_find_step (tree base, tree *idx, void *data)
       return false;
     }
 
-  step = EXEC_BINARY (MULT_EXPR, type, step, iv_step);
+  step = fold_binary_to_constant (MULT_EXPR, type, step, iv_step);
 
   if (!*dta->step_p)
     *dta->step_p = step;
   else
-    *dta->step_p = EXEC_BINARY (PLUS_EXPR, type, *dta->step_p, step);
+    *dta->step_p = fold_binary_to_constant (PLUS_EXPR, type,
+					    *dta->step_p, step);
 
   return true;
 }
@@ -2049,8 +2047,7 @@ set_use_iv_cost (struct ivopts_data *data,
 
   if (cost == INFTY)
     {
-      if (depends_on)
-	BITMAP_XFREE (depends_on);
+      BITMAP_XFREE (depends_on);
       return;
     }
 
@@ -2165,10 +2162,9 @@ prepare_decl_rtl (tree *expr_p, int *ws, void *data)
     {
     case ADDR_EXPR:
       for (expr_p = &TREE_OPERAND (*expr_p, 0);
-	   (handled_component_p (*expr_p)
-	    || TREE_CODE (*expr_p) == REALPART_EXPR
-	    || TREE_CODE (*expr_p) == IMAGPART_EXPR);
-	   expr_p = &TREE_OPERAND (*expr_p, 0));
+	   handled_component_p (*expr_p);
+	   expr_p = &TREE_OPERAND (*expr_p, 0))
+	continue;
       obj = *expr_p;
       if (DECL_P (obj))
         x = produce_memory_decl_rtl (obj, regno);
@@ -4436,7 +4432,7 @@ unshare_and_remove_ssa_names (tree ref)
 static void
 rewrite_address_base (block_stmt_iterator *bsi, tree *op, tree with)
 {
-  tree bvar, var, new_var, new_name, copy, name;
+  tree bvar, var, new_name, copy, name;
   tree orig;
 
   var = bvar = get_base_address (*op);
@@ -4458,24 +4454,27 @@ rewrite_address_base (block_stmt_iterator *bsi, tree *op, tree with)
   else
     goto do_rewrite;
     
-  if (var_ann (var)->type_mem_tag)
-    var = var_ann (var)->type_mem_tag;
-
   /* We need to add a memory tag for the variable.  But we do not want
      to add it to the temporary used for the computations, since this leads
      to problems in redundancy elimination when there are common parts
      in two computations referring to the different arrays.  So we copy
      the variable to a new temporary.  */
   copy = build2 (MODIFY_EXPR, void_type_node, NULL_TREE, with);
+
   if (name)
     new_name = duplicate_ssa_name (name, copy);
   else
     {
-      new_var = create_tmp_var (TREE_TYPE (with), "ruatmp");
-      add_referenced_tmp_var (new_var);
-      var_ann (new_var)->type_mem_tag = var;
-      new_name = make_ssa_name (new_var, copy);
+      tree tag = var_ann (var)->type_mem_tag;
+      tree new_ptr = create_tmp_var (TREE_TYPE (with), "ruatmp");
+      add_referenced_tmp_var (new_ptr);
+      if (tag)
+	var_ann (new_ptr)->type_mem_tag = tag;
+      else
+	add_type_alias (new_ptr, var);
+      new_name = make_ssa_name (new_ptr, copy);
     }
+
   TREE_OPERAND (copy, 0) = new_name;
   bsi_insert_before (bsi, copy, BSI_SAME_STMT);
   with = new_name;
@@ -4495,6 +4494,10 @@ do_rewrite:
 
   /* Record the original reference, for purposes of alias analysis.  */
   REF_ORIGINAL (*op) = orig;
+
+  /* Virtual operands in the original statement may have to be renamed
+     because of the replacement.  */
+  mark_new_vars_to_rename (bsi_stmt (*bsi), vars_to_rename);
 }
 
 /* Rewrites USE (address that is an iv) using candidate CAND.  */
@@ -4594,7 +4597,7 @@ protect_loop_closed_ssa_form_use (edge exit, use_operand_p op_p)
 
       phi = create_phi_node (new_name, exit->dest);
       SSA_NAME_DEF_STMT (new_name) = phi;
-      add_phi_arg (&phi, use, exit);
+      add_phi_arg (phi, use, exit);
     }
 
   SET_USE (op_p, PHI_RESULT (phi));
@@ -5017,11 +5020,6 @@ tree_ssa_iv_optimize (struct loops *loops)
       else
 	loop = loop->outer;
     }
-
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-  verify_stmts ();
-#endif
 
   tree_ssa_iv_optimize_finalize (loops, &data);
 }

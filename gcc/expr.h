@@ -545,14 +545,13 @@ extern rtx expr_size (tree);
    if the size can vary or is larger than an integer.  */
 extern HOST_WIDE_INT int_expr_size (tree);
 
-/* Return the address of the trampoline for entering nested fn FUNCTION.  */
-extern rtx trampoline_address (tree);
-
 /* Return an rtx that refers to the value returned by a function
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_function_value (tree, tree, int);
 
 extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
+
+extern bool shift_return_value (enum machine_mode, bool, rtx);
 
 extern rtx expand_call (tree, rtx, int);
 
