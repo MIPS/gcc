@@ -1,3 +1,9 @@
+2004-10-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3833116 (fix from mainline)
+	* objc-act.c (finish_class): Do not synthesize bogus
+	'extern objc_object *_Foo;' declarations for @interface Foo.
+
 2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	Radar 3845826 (PR objc/17923)

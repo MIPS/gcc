@@ -1,3 +1,8 @@
+2004-10-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3833116 (fix from mainline)
+	* objc.dg/super-class-3.m: New test.
+
 2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	Radar 3845826 (PR objc/17923)
