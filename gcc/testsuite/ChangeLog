@@ -1,3 +1,8 @@
+2004-03-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/14230
+	* g++.dg/init/ref11.C: New test.
+
 2004-03-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/20040311-1.c: New test.
