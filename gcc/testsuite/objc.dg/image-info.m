@@ -5,6 +5,10 @@
 /* { dg-options "-freplace-objc-classes" } */
 /* { dg-do compile { target *-*-darwin* } } */
 
+#ifndef __NEXT_RUNTIME__
+#error Feature not currently supported by the GNU runtime
+#endif
+
 #include <objc/objc.h>
 #include <objc/Object.h>
 

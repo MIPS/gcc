@@ -1761,6 +1761,9 @@ In this example, G++ will synthesize a default @samp{A& operator =
 @cindex compiler options, Objective-C
 @cindex Objective-C options, command line
 @cindex options, Objective-C
+(NOTE: This manual does not describe the Objective-C language itself.  See
+@w{@uref{http://gcc.gnu.org/readings.html}} for references.)
+
 This section describes the command-line options that are only meaningful
 for Objective-C programs, but you can also use most of the GNU compiler
 options regardless of what language your program is in.  For example,

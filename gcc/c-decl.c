@@ -432,7 +432,7 @@ objc_mark_locals_volatile (enclosing_blk)
   struct c_scope *scope;
   
   for (scope = current_scope; 
-       scope && scope != enclosing_blk && !scope->parm_flag;
+       scope && scope != enclosing_blk;
        scope = scope->outer)
     {
       tree decl;
@@ -442,6 +442,9 @@ objc_mark_locals_volatile (enclosing_blk)
 	  DECL_REGISTER (decl) = 0;
 	  TREE_THIS_VOLATILE (decl) = 1;
 	}
+      /* Do not climb up past the current function.  */
+      if (scope->function_body)
+	break;
     }	
 }     
   

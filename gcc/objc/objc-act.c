@@ -9265,6 +9265,7 @@ generate_objc_image_info ()
   initlist = build_constructor (TREE_TYPE (decl), nreverse (initlist));
 
   TREE_USED (decl) = DECL_IGNORED_P (decl) = DECL_ARTIFICIAL (decl) = 1;
+  TREE_CONSTANT (initlist) = TREE_STATIC (initlist) = 1;
   finish_decl (decl, initlist, NULL_TREE);
 }
 
