@@ -26,12 +26,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "ggc.h"
 #include "tree-alias-type.h"
 
-alias_typevar
+alias_var
 alias_tvar_new_with_aterm (tree decl, struct aterm_ *term)
 {
-  alias_typevar ret = ggc_alloc (sizeof (struct alias_typevar_aterm));
-  ALIAS_TVAR_KIND (ret) = ATERM_ATVAR;
-  ALIAS_TVAR_DECL (ret) = decl;
-  ALIAS_TVAR_ATERM (ret) = term;
+  alias_var ret = ggc_alloc (sizeof (struct alias_var_aterm));
+  ALIAS_VAR_KIND (ret) = ATERM_AVAR;
+  ALIAS_VAR_DECL (ret) = decl;
+  ALIAS_VAR_ATERM (ret) = term;
   return ret;
 }

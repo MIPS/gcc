@@ -17,66 +17,66 @@ struct tree_alias_ops
   /* Add variable.
      Called when we want to inform the alias analyzer about a new
      variable we've found.  */
-  alias_typevar (*add_var) (struct tree_alias_ops *, tree);
+  alias_var (*add_var) (struct tree_alias_ops *, tree);
 
   /* Add variable equivalent to existing one.
      Called when we want to inform the alias analyzer about a new
      variable that has the same points-to set as an existing
      variable.  */ 
-  alias_typevar (*add_var_same) (struct tree_alias_ops *, tree,
-				 alias_typevar);
+  alias_var (*add_var_same) (struct tree_alias_ops *, tree,
+				 alias_var);
   
   /* Process a simple assignment (a = b).
      Called to process simple assignment statements of the form a = b,
      where a and b are both variables.  */
-  void (*simple_assign) (struct tree_alias_ops *, alias_typevar,
-			 alias_typevar);
+  void (*simple_assign) (struct tree_alias_ops *, alias_var,
+			 alias_var);
   /* Process an address assignment (a = &b).
      Called to process address assignment statements of the form a =
      &b, where a and b are both variables.  */
-  void (*addr_assign) (struct tree_alias_ops *, alias_typevar, alias_typevar);
+  void (*addr_assign) (struct tree_alias_ops *, alias_var, alias_var);
 
   /* Process a pointer assignment (a = *b).
      Called to process pointer assignment statements of the form a =
      *b, where a and b are both variables.  */
-  void (*ptr_assign) (struct tree_alias_ops *, alias_typevar, alias_typevar);
+  void (*ptr_assign) (struct tree_alias_ops *, alias_var, alias_var);
 
   /* Process an operator assignment (a = op (...))
      Called to process operators of the form a = op(...), where a is a
      variable.  */
-  void (*op_assign) (struct tree_alias_ops *, alias_typevar, varray_type, 
+  void (*op_assign) (struct tree_alias_ops *, alias_var, varray_type, 
 		     tree);
   /* Process a heap assignment (a = alloc (...))
      Called to process a heap assignment of the form a = alloc
      (...), where a is a variable, and *alloc is a function that
      returns new memory.  */
-  void (*heap_assign) (struct tree_alias_ops *, alias_typevar);
+  void (*heap_assign) (struct tree_alias_ops *, alias_var);
 
   /* Process an assignment to a pointer (*a = b)
      Called to process assignment to pointer statements of the form
      *a = b, where a and b are both variables.  */
-  void (*assign_ptr) (struct tree_alias_ops *, alias_typevar, alias_typevar);
+  void (*assign_ptr) (struct tree_alias_ops *, alias_var, alias_var);
 
   /* Process a function definition.
      Called to inform the alias analyzer about a new function
      definition.  */
-  void (*function_def) (struct tree_alias_ops *, alias_typevar,
-			varray_type, alias_typevar);
+  void (*function_def) (struct tree_alias_ops *, alias_var,
+			varray_type, alias_var);
 
   /* Process a function call.
      Return 1 if we need to assume conservative side-effects.  */
-  int (*function_call) (struct tree_alias_ops *, alias_typevar,
-			alias_typevar, varray_type, bitmap);
+  int (*function_call) (struct tree_alias_ops *, alias_var,
+			alias_var, varray_type, bitmap);
 
-  /* Determine if two typevars may alias.   */
-  bool (*may_alias) (struct tree_alias_ops *, alias_typevar, alias_typevar);
+  /* Determine if two vars may alias.   */
+  bool (*may_alias) (struct tree_alias_ops *, alias_var, alias_var);
 
-  /* Determine if two typevars have the same points-to set.  */
-  bool (*same_points_to_set) (struct tree_alias_ops *, alias_typevar, 
-			      alias_typevar);
+  /* Determine if two vars have the same points-to set.  */
+  bool (*same_points_to_set) (struct tree_alias_ops *, alias_var, 
+			      alias_var);
   
-  /* Determine if the typevar has an empty points-to set.  */
-  bool (*empty_points_to_set) (struct tree_alias_ops *, alias_typevar);
+  /* Determine if the var has an empty points-to set.  */
+  bool (*empty_points_to_set) (struct tree_alias_ops *, alias_var);
   
   /* Private data.  */
   void *data;
