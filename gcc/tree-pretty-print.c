@@ -1945,7 +1945,7 @@ print_call_name (pretty_printer *buffer, tree node)
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
 	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
       else
-	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
+	dump_generic_node (buffer, op0, 0, 0, false);
       break;
 
     case SSA_NAME:

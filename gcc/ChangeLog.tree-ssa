@@ -1,3 +1,39 @@
+2004-02-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* doc/invoke.texi: Add documentation for parameters
+	global-var-threshold and max-aliased-vops.
+	* params.def (PARAM_GLOBAL_VAR_THRESHOLD): Reformat help message.
+	(PARAM_MAX_ALIASED_VOPS): Rename from PARAM_MAX_ALIAS_SET_SIZE.
+	* params.h (MAX_ALIASED_VOPS): Rename from MAX_ALIAS_SET_SIZE.
+	Update all users.
+	* tree-ssa-alias.c (struct alias_map_d): Document fields.
+	Add fields total_alias_vops, grouped_p and may_aliases.
+	(struct alias_info): Change fields addressable_vars and
+	pointers to malloc'd arrays.  Update all users.
+	Add fields num_references and total_alias_vops.
+	(compute_may_aliases): Add more comments.
+	(init_alias_info): Initialize new fields in struct alias_info.
+	(delete_alias_info): Corresponding changes.
+	(compute_points_to_and_addr_escape): Count references to
+	potentially aliased variables and pointer dereferences.
+	(compute_flow_insensitive_aliasing): Remove old grouping
+	heuristic.
+	Count the number of virtual operands induced by all the alias
+	sets created and call group_aliases if the number exceeds the
+	threshold set by --param max-aliased-vops.
+	(total_alias_vops_cmp): New.
+	(group_aliases_into): New.
+	(group_aliases): New.
+	* tree-ssa-operands.c (get_expr_operands): Change dump file
+	message when no flow-sensitive alias information is available.
+	(add_stmt_operand): Reformat comment.
+	* tree-ssa.c (init_tree_ssa): Don't call bitmap_clear.
+
+	* tree-simple.c (get_base_decl): Fix typo in comment.
+
+	* tree-pretty-print.c (print_call_name): Handle matrices of
+	function pointers.
+
 2004-02-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (tree-ssa-loop.o): Add tree-inline.h dependency.

@@ -262,7 +262,7 @@ DEFPARAM(PARAM_MAX_CSE_PATH_LENGTH,
    use .GLOBAL_VAR.  See tree-dfa.c.  */
 DEFPARAM(PARAM_GLOBAL_VAR_THRESHOLD,
 	"global-var-threshold",
-	"Given N calls and V call-clobbered vars in a function.  Use .GLOBAL_VAR if NxV is larger  than this limit",
+	"Given N calls and V call-clobbered vars in a function.  Use .GLOBAL_VAR if NxV is larger than this limit",
 	500000)
 
 DEFPARAM(PARAM_MAX_CSELIB_MEMORY_LOCATIONS,
@@ -297,10 +297,10 @@ DEFPARAM(PARAM_MAX_RELOAD_SEARCH_INSNS,
 	 "The maximum number of instructions to search backward when looking for equivalent reload",
 	 100)
 
-DEFPARAM(PARAM_MAX_ALIAS_SET_SIZE,
-         "max-alias-set-size",
-	 "The maximum number of elements in a variable's alias set before triggering alias grouping",
-	 5)
+DEFPARAM(PARAM_MAX_ALIASED_VOPS,
+         "max-aliased-vops",
+	 "The maximum number of virtual operands allowed to represent aliases before triggering alias grouping.",
+	 500)
 
 /*
 Local variables:

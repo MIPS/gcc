@@ -932,7 +932,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 		      && ptr_ann == NULL)
 		    {
 		      fprintf (tree_dump_file,
-			  "WARNING: no flow-sensitive alias info for ");
+			  "NOTE: no flow-sensitive alias info for ");
 		      print_generic_expr (tree_dump_file, ptr, 0);
 		      fprintf (tree_dump_file, " in ");
 		      print_generic_stmt (tree_dump_file, stmt, 0);
@@ -1234,10 +1234,10 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 
 	  if (flags & opf_is_def)
 	    {
-	      /* If the variable is also an alias tag, add a virtual operand
-		for it, otherwise we will miss representing references to the
-		members of the variable's alias set.  This fixes the bug in
-		gcc.c-torture/execute/20020503-1.c.  */
+	      /* If the variable is also an alias tag, add a virtual
+		 operand for it, otherwise we will miss representing
+		 references to the members of the variable's alias set.
+		 This fixes the bug in gcc.c-torture/execute/20020503-1.c.  */
 	      if (v_ann->is_alias_tag)
 		append_vdef (var, stmt, prev_vops);
 

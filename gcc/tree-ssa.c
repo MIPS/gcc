@@ -3490,7 +3490,6 @@ init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
   call_clobbered_vars = BITMAP_XMALLOC ();
-  bitmap_clear (call_clobbered_vars);
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();

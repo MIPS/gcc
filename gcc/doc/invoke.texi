@@ -5077,19 +5077,21 @@ order to make tracer effective.
 
 Maximum number of basic blocks on path that cse considers.
 
-@item calls-threshold-global-var
+@item global-var-threshold
 
-Number of calls used in determining the threshold for treating all
-call-clobbered variables as a single object for aliasing purposes.
-The threshold is the product of this parameter and the next one
+Counts the number of function calls (N) and the number of
+call-clobbered variables (V).  If NxV is larger than this limit, a
+single artificial variable will be created to represent all the
+call-clobbered variables at function call sites.  This artificial
+variable will then be made to alias every call-clobbered variable.
 (done as int * size_t on the host machine; beware overflow).
 
-@item clobbered-vars-threshold-global-var
-  
-Number of variables used in determining the threshold for treating all
-call-clobbered variables as a single object for aliasing purposes.
-The threshold is the product of this parameter and the previous one
-(done as int * size_t on the host machine; beware overflow).
+@item max-aliased-vops
+
+Maxiumum number of virtual operands allowed to represent aliases
+before triggering the alias grouping heuristic.  Alias grouping
+reduces compile times and memory consumption needed for aliasing at
+the expense of precision loss in alias information.
 
 @item ggc-min-expand
 
