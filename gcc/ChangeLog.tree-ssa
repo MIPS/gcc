@@ -1,13 +1,11 @@
-2002-12-23  Steven Bosscher <Steven.Bosscher@usafa.af.mil>
+2002-12-23  Steven Bosscher <s.bosscher@student.tudelft.nl>
 
 	* tree-dfa.c: Add doxygen markers in comments.
 
 2002-12-22  Diego Novillo  <dnovillo@redhat.com>
 
-	* gimplify.c: Undo previous change:
-
+	* gimplify.c: Undo the following change:
 	    2002-12-11  Diego Novillo  <dnovillo@redhat.com>
-
 		* gimplify.c (simplify_return_expr): return statements should
 		  only have a GIMPLE value as argument.
 
@@ -53,12 +51,12 @@
 
 	* tree-dfa.c (find_refs_in_expr): Terminate comment.
 
-2002-12-12  Steven Bosscher <Steven.Bosscher@usafa.af.mil>
+2002-12-12  Steven Bosscher <s.bosscher@student.tudelft.nl>
 
 	* tree-cfg.c: Update doxygen documentation.
 	* tree-dfa.c: Add doxygen documentation.
 
-2002-12-11  Steven Bosscher <Steven.Bosscher@usafa.af.mil>
+2002-12-11  Steven Bosscher <s.bosscher@student.tudelft.nl>
 
 	* tree-cfg.c: Add doxygen markers in comments.
 	* tree-optimize.c: Likewise.
