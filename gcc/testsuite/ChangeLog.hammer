@@ -1,6 +1,6 @@
 2004-01-21  Alan Modra  <amodra@bigpond.net.au>
 
-	Merge from mainline.
+	Backport from mainline.
 	2003-07-16  Jakub Jelinek  <jakub@redhat.com>
 	* gcc.dg/cleanup-8.c: New test.
 	* gcc.dg/cleanup-9.c: New test.

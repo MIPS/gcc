@@ -1,3 +1,18 @@
+2004-01-24  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_assemble_integer): Replace
+	#ifdef RELOCATABLE_NEEDS_FIXUP with if.
+	* config/rs6000/linux.h (RELOCATABLE_NEEDS_FIXUP): Define in terms
+	of target_flags_explicit.
+	* config/rs6000/linux64.h (RELOCATABLE_NEEDS_FIXUP): Ditto for biarch
+	case.  Define as 0 for non-biarch.
+	(TARGET_RELOCATABLE): Don't define for biarch case.
+
+	* mbchar.c (local_mbtowc): Ignore CROSS_COMPILE if NATIVE_CROSS.
+	(local_mb_cur_max): Likewise.
+	* configure.in: Set NATIVE_CROSS for ppc64->ppc32 too.
+	* configure: Regenerate.
+
 2004-01-23  Andreas Jaeger  <aj@suse.de>
 
 	* config/rs6000/linux64.h (LINK_OS_LINUX_SPEC64): Fix.

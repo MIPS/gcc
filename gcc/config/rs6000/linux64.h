@@ -52,6 +52,12 @@ Boston, MA 02111-1307, USA.  */
 #undef PROCESSOR_DEFAULT64
 #define PROCESSOR_DEFAULT64 PROCESSOR_PPC630
 
+/* We don't need to generate entries in .fixup, except when
+   -mrelocatable or -mrelocatable-lib is given.  */
+#undef RELOCATABLE_NEEDS_FIXUP
+#define RELOCATABLE_NEEDS_FIXUP \
+  (target_flags & target_flags_explicit & MASK_RELOCATABLE)
+
 #undef	RS6000_ABI_NAME
 #define	RS6000_ABI_NAME (TARGET_64BIT ? "aixdesc" : "sysv")
 
@@ -202,6 +208,8 @@ Boston, MA 02111-1307, USA.  */
 #define	TARGET_EABI		0
 #undef	TARGET_PROTOTYPE
 #define	TARGET_PROTOTYPE	0
+#undef	RELOCATABLE_NEEDS_FIXUP
+#define	RELOCATABLE_NEEDS_FIXUP 0
 
 #endif
 
@@ -212,9 +220,6 @@ Boston, MA 02111-1307, USA.  */
     if (TARGET_64BIT && !TARGET_PROFILE_KERNEL)		\
       output_profile_hook (LABEL);			\
   } while (0)
-
-/* We don't need to generate entries in .fixup.  */
-#undef RELOCATABLE_NEEDS_FIXUP
 
 /* PowerPC64 Linux word-aligns FP doubles when -malign-power is given.  */
 #undef  ADJUST_FIELD_ALIGN

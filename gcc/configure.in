@@ -1262,7 +1262,8 @@ then
 	SYSTEM_HEADER_DIR='$(CROSS_SYSTEM_HEADER_DIR)'
 	case "$host","$target" in
 	    i?86-*-*,x86_64-*-* \
-	    | powerpc*-*-*,powerpc64*-*-*)
+	    | powerpc*-*-*,powerpc64*-*-* \
+	    | powerpc64*-*-*,powerpc*-*-*)
 		CROSS="$CROSS -DNATIVE_CROSS" ;;
 	esac
 elif test "x$TARGET_SYSTEM_ROOT" != x; then

@@ -273,7 +273,7 @@ local_mbtowc (pwc, s, n)
       return -1;  
     }
                
-#ifdef CROSS_COMPILE
+#if defined (CROSS_COMPILE) && !defined (NATIVE_CROSS)
   if (s == NULL)
     /* Not state-dependent.  */
     return 0;
@@ -320,7 +320,7 @@ local_mb_cur_max ()
   else if (! strcmp (literal_codeset, "C-JIS"))
     return 8; /* 3 + 2 + 3 */
 
-#ifdef CROSS_COMPILE
+#if defined (CROSS_COMPILE) && !defined (NATIVE_CROSS)
   return 1;
 #else
   if (MB_CUR_MAX > 0)
