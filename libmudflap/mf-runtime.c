@@ -372,7 +372,7 @@ __mf_usage ()
 	case set_option:
 	  fprintf (stderr, "-%-23.23s %s", opt->name, opt->description);
 	  if (default_p)
-	    fprintf (stderr, " [default]\n");
+	    fprintf (stderr, " [active]\n");
 	  else
 	    fprintf (stderr, "\n");
 	  break;

@@ -1,3 +1,13 @@
+2003-05-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks.c (LIBMUDFLAPTH_THREADS_MAX): New macro, replaces
+	PTHREAD_THREADS_MAX.  Update users.
+	* mf-runtime.c (__mf_usage): Print [active] instead of [default]
+	for active options.
+	* testsuite/Makefile.am (all-local): Prime dejagnu site.exp file
+	with libmudflapth presence indicator.
+	* testsuite/Makefile.in: Regenerated.
+
 2003-05-16  Frank Ch. Eigler  <fche@redhat.com>
 
 	* Makefile.am (AM_CFLAGS): Remove "-ansi".

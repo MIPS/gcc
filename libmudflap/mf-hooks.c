@@ -924,13 +924,10 @@ struct pthread_info
 };
 
 
-/* To avoid dynamic memory allocation, use static array.
-   This should be defined in <limits.h>.  */
-#ifndef PTHREAD_THREADS_MAX
-#define PTHREAD_THREADS_MAX 1000
-#endif
+/* To avoid dynamic memory allocation, use static array.  */
+#define LIBMUDFLAPTH_THREADS_MAX 1000
 
-static struct pthread_info __mf_pthread_info[PTHREAD_THREADS_MAX];
+static struct pthread_info __mf_pthread_info[LIBMUDFLAPTH_THREADS_MAX];
 /* XXX: needs a lock */
 
 
@@ -1001,7 +998,7 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 
   /* LOCKTH(); */
   /* Garbage collect dead thread stacks.  */
-  for (i = 0; i < PTHREAD_THREADS_MAX; i++)
+  for (i = 0; i < LIBMUDFLAPTH_THREADS_MAX; i++)
     {
       pi = & __mf_pthread_info [i];
       if (pi->used_p && pi->dead_p 
@@ -1017,7 +1014,7 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
     }
 
   /* Find a slot in __mf_pthread_info to track this thread.  */
-  for (i = 0; i < PTHREAD_THREADS_MAX; i++)
+  for (i = 0; i < LIBMUDFLAPTH_THREADS_MAX; i++)
     {
       pi = & __mf_pthread_info [i];
       if (! pi->used_p)
@@ -1028,7 +1025,7 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
     }
   /* UNLOCKTH(); */
 
-  if (i == PTHREAD_THREADS_MAX) /* no slots free - simulated out-of-memory.  */
+  if (i == LIBMUDFLAPTH_THREADS_MAX) /* no slots free - simulated out-of-memory.  */
     {
       errno = EAGAIN;
       pi->used_p = 0;
