@@ -1,5 +1,11 @@
 2004-06-18  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JButton.java
+	(removeNotify): Fixed javadoc.
+	(updateUI): Simplified.
+
+2004-06-18  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/Highlighter.java: New file.
 	* Makefile.am: Added javax/swing/text/Highlighter.java.
 	* Makefile.in: Regenerated.

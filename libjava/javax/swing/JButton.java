@@ -120,9 +120,14 @@ public class JButton extends AbstractButton
     return "JButton";
   }
 
+  /**
+   * Overrides JComponent.removeNotify to check if this button is currently
+   * set as the default button on the RootPane, and if so, sets the RootPane's
+   * default button to null to ensure the RootPane doesn't hold onto an invalid
+   * button reference.
+   */
   public void removeNotify()
   {
-    //Overrides JComponent.removeNotify to check if this button is currently set as the default button on the RootPane, and if so, sets the RootPane's default button to null to ensure the RootPane doesn't hold onto an invalid button reference.  
   }
 
   public void setDefaultCapable(boolean defaultCapable)
@@ -132,7 +137,6 @@ public class JButton extends AbstractButton
 
   public void updateUI()
   {
-    ButtonUI b = (ButtonUI) UIManager.getUI(this);
-    setUI(b);
+    setUI((ButtonUI) UIManager.getUI(this));
   }
 }
