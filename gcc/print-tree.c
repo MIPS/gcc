@@ -275,6 +275,7 @@ print_node (file, prefix, node, indent)
       indent_to (file, indent + 3);
     }
 
+#if 0
   /* If a permanent object is in the wrong obstack, or the reverse, warn.  */
   if (object_permanent_p (node) != TREE_PERMANENT (node))
     {
@@ -284,6 +285,7 @@ print_node (file, prefix, node, indent)
 	fputs (" !!non-permanent object in permanent obstack!!", file);
       indent_to (file, indent + 3);
     }
+#endif
 
   if (TREE_SIDE_EFFECTS (node))
     fputs (" side-effects", file);
