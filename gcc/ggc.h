@@ -67,8 +67,8 @@ extern void ggc_mark_roots		PARAMS ((void));
 #define ggc_test_and_set_mark(EXPR) \
   ((EXPR) != NULL && ((void *) (EXPR)) != (void *) 1 && ! ggc_set_mark (EXPR))
 
-#define ggc_mark_rtx gt_ggc_m_rtx_def
-#define ggc_mark_tree gt_ggc_m_tree_node
+#define ggc_mark_rtx gt_ggc_m_7rtx_def
+#define ggc_mark_tree gt_ggc_m_9tree_node
 
 #define ggc_mark(EXPR)				\
   do {						\
@@ -114,6 +114,13 @@ extern void *ggc_calloc		PARAMS ((size_t, size_t));
 
 #define htab_create_ggc(SIZE, HASH, EQ, DEL) \
   htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_calloc, NULL)
+
+#define splay_tree_new_ggc(COMPARE)					 \
+  splay_tree_new_with_allocator (COMPARE, NULL, NULL,			 \
+                                 &ggc_splay_alloc, &ggc_splay_dont_free, \
+				 NULL)
+extern PTR ggc_splay_alloc PARAMS ((int, void *));
+extern void ggc_splay_dont_free PARAMS ((void *, void *));
 
 /* Allocate a gc-able string, and fill it with LENGTH bytes from CONTENTS.
    If LENGTH is -1, then CONTENTS is assumed to be a

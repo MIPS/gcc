@@ -1,3 +1,11 @@
+2002-07-17  Geoffrey Keating  <geoffk@redhat.com>
+
+	* splay-tree.h (GTY): Define if undefined.
+	(splay_tree_allocate_fn): Return PTR for compatibility, not void *.
+	(struct splay_tree_node_s): Support gengtype.
+	(struct splay_tree_s): Likewise.  Make allocate_data a PTR,
+	not a void *.
+
 2002-06-06  DJ Delorie  <dj@redhat.com>
 
 	* hashtab.h (htab): Rearrange new members for backward

@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
+#include <splay-tree.h>
 
 /* Specify which cpu to schedule for.  */
 
@@ -8903,6 +8904,20 @@ alpha_elf_select_rtx_section (mode, x, align)
 
 #endif /* OBJECT_FORMAT_ELF */
 
+/* Structure to collect function names for final output
+   in link section.  */
+
+enum links_kind {KIND_UNUSED, KIND_LOCAL, KIND_EXTERN};
+
+struct alpha_links GTY(())
+{
+  rtx linkage;
+  enum links_kind kind;
+};
+
+static GTY ((param1_is (char *), param2_is (struct alpha_links *)))
+  splay_tree alpha_links;
+
 #if TARGET_ABI_OPEN_VMS
 
 /* Return the VMS argument type corresponding to MODE.  */
@@ -8938,44 +8953,7 @@ alpha_arg_info_reg_val (cum)
   return GEN_INT (regval);
 }
 
-#include <splay-tree.h>
-
-/* Structure to collect function names for final output
-   in link section.  */
-
-enum links_kind {KIND_UNUSED, KIND_LOCAL, KIND_EXTERN};
-
-struct alpha_links
-{
-  rtx linkage;
-  enum links_kind kind;
-};
-
-static splay_tree alpha_links;
-
-static int mark_alpha_links_node	PARAMS ((splay_tree_node, void *));
-static void mark_alpha_links		PARAMS ((void *));
 static int alpha_write_one_linkage	PARAMS ((splay_tree_node, void *));
-
-/* Protect alpha_links from garbage collection.  */
-
-static int
-mark_alpha_links_node (node, data)
-     splay_tree_node node;
-     void *data ATTRIBUTE_UNUSED;
-{
-  struct alpha_links *links = (struct alpha_links *) node->value;
-  ggc_mark_rtx (links->linkage);
-  return 0;
-}
-
-static void
-mark_alpha_links (ptr)
-     void *ptr;
-{
-  splay_tree tree = *(splay_tree *) ptr;
-  splay_tree_foreach (tree, mark_alpha_links_node, NULL);
-}
 
 /* Make (or fake) .linkage entry for function call.
 
@@ -9019,14 +8997,11 @@ alpha_need_linkage (name, is_local)
     }
   else
     {
-      alpha_links = splay_tree_new ((splay_tree_compare_fn) strcmp, 
-				    (splay_tree_delete_key_fn) free,
-				    (splay_tree_delete_key_fn) free);
-      ggc_add_root (&alpha_links, 1, 1, mark_alpha_links);
+      alpha_links = splay_tree_new_ggc ((splay_tree_compare_fn) strcmp);
     }
 
-  al = (struct alpha_links *) xmalloc (sizeof (struct alpha_links));
-  name = xstrdup (name);
+  al = (struct alpha_links *) ggc_alloc (sizeof (struct alpha_links));
+  name = ggc_strdup (name);
 
   /* Assume external if no definition.  */
   al->kind = (is_local ? KIND_UNUSED : KIND_EXTERN);

@@ -6777,7 +6777,7 @@ add_ranges (block)
 	ggc_realloc (ranges_table, (ranges_table_allocated
 				    * sizeof (struct dw_ranges_struct)));
       memset (ranges_table + ranges_table_in_use, 0,
-	      RANGES_TABLE_INCREMENT * sizeof (dw_die_ref));
+	      RANGES_TABLE_INCREMENT * sizeof (struct dw_ranges_struct));
     }
 
   ranges_table[in_use].block_num = (block ? BLOCK_NUMBER (block) : 0);

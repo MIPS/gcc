@@ -169,6 +169,26 @@ ggc_calloc (s1, s2)
   return ggc_alloc_cleared (s1 * s2);
 }
 
+/* These are for splay_tree_new_ggc.  */
+PTR 
+ggc_splay_alloc (sz, nl)
+     int sz;
+     PTR nl;
+{
+  if (nl != NULL)
+    abort ();
+  ggc_alloc (sz);
+}
+
+void
+ggc_splay_dont_free (x, nl)
+     PTR x;
+     PTR nl ATTRIBUTE_UNUSED;
+{
+  if (nl != NULL)
+    abort ();
+}
+
 /* Print statistics that are independent of the collector in use.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10 \
 		  ? (x) \

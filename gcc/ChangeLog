@@ -1,3 +1,50 @@
+2002-07-17  Geoffrey Keating  <geoffk@redhat.com>
+
+	* gengtype.h (NUM_PARAM): New definition.
+	(struct type): For TYPE_PARAM_STRUCT, allow multiple parameters.
+	* gengtype.c (find_param_structure): New.
+	(adjust_field_type): Handle param<n>_is option.
+	(process_gc_options): Detect use_params option.  Update callers.
+	(set_gc_used_type): Add 'param' parameter, update callers.  Handle
+	'use_params' option.
+	(open_base_files): Add splay-tree.h to list of files included.
+	(output_mangled_typename): New.
+	(write_gc_structure_fields): Update 'param' parameter to support
+	multiple parameters.  Change name mangling.  Allow parameterized
+	fields to have an apparent scalar type.  Handle param<n>_is options,
+	use_param option.
+	(write_gc_marker_routine_for_structure): Update for change to name
+	mangling.  Better guess the output file for parameterized types.
+	(write_gc_types): Update for change to name mangling.
+	(write_gc_root): Update for change to name mangling.  Handle (ignore)
+	param<n>_is options.
+	* doc/gty.texi (GTY Options): Add description of param<n>_is
+	options, use_params option.
+	* config/alpha/alpha.c (struct alpha_links): Use gengtype to mark;
+	move out of ifdef.
+	(alpha_links): Use gengtype to mark; move out of ifdef.
+	(mark_alpha_links_node): Delete.
+	(mark_alpha_links): Delete.
+	(alpha_need_linkage): Use GGC to allocate splay tree, struct
+	alpha_links, strings.  Don't use ggc_add_root.
+	* ggc-common.c (ggc_splay_alloc): New.
+	(ggc_splay_dont_free): New.
+	* ggc.h (ggc_mark_rtx): Update for changed name mangling.
+	(ggc_mark_tree): Likewise.
+	(splay_tree_new_ggc): New.
+	(ggc_splay_alloc): Declare.
+	(ggc_splay_dont_free): Declare.
+	* gengtype-lex.l: Produce token for param<n>_is.
+	* gengtype-yacc.y: Parse param<n>_is.
+	* dwarf2asm.c: Include gt-dwarf2asm.h.
+	(mark_indirect_pool_entry): Delete.
+	(mark_indirect_pool): Delete.
+	(indirect_pool): Use gengtype to mark.
+	(dw2_force_const_mem): Don't use ggc_add_root.
+	* Makefile.in (dwarf2asm.o): Depend on gt-dwarf2asm.h.
+	(GTFILES): Add SPLAY_TREE_H, dwarf2asm.c.
+	(gt-dwarf2asm.h): Depend on s-gtype.
+
 2002-07-08  Geoffrey Keating  <geoffk@redhat.com>
 
 	* tree.h (union tree_type_symtab): Mark `die' field.
