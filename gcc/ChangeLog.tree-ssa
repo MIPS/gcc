@@ -1,3 +1,7 @@
+2003-08-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (c-pretty-print.o): Add TREE_H and C_TREE_H dependencies.
+
 2003-08-01  Paul Brook  <paul@nowt.org>
 
 	* Makefile.in (GMPINC): Set and use.
