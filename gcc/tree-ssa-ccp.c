@@ -1531,8 +1531,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 	{
 	  idx = convert (TREE_TYPE (min_idx), idx);
 	  if (!integer_zerop (min_idx))
-	    idx = fold (build (PLUS_EXPR, TREE_TYPE (min_idx),
-			idx, min_idx));
+	    idx = int_const_binop (PLUS_EXPR, idx, min_idx, 1);
 	}
     }
 
@@ -1594,8 +1593,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 	  if (!DECL_SIZE_UNIT (f)
 	      || TREE_CODE (DECL_SIZE_UNIT (f)) != INTEGER_CST)
 	    continue;
-	  t = fold (build (MINUS_EXPR, TREE_TYPE (offset),
-			   offset, DECL_FIELD_OFFSET (f)));
+	  t = int_const_binop (MINUS_EXPR, offset, DECL_FIELD_OFFSET (f), 1);
 	  if (!tree_int_cst_lt (t, DECL_SIZE_UNIT (f)))
 	    continue;
 
@@ -1664,7 +1662,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	return NULL_TREE;
       base = TREE_OPERAND (base, 0);
 
-      offset = fold (build (PLUS_EXPR, TREE_TYPE (offset), offset, offset2));
+      offset = int_const_binop (PLUS_EXPR, offset, offset2, 1);
     }
 
   if (TREE_CODE (base) == ADDR_EXPR)
@@ -1760,8 +1758,45 @@ maybe_fold_stmt_plus (tree expr)
   /* The first operand should be an ADDR_EXPR.  */
   if (TREE_CODE (op0) != ADDR_EXPR)
     return NULL_TREE;
-
   op0 = TREE_OPERAND (op0, 0);
+
+  /* If the first operand is an ARRAY_REF, expand it so that we can fold
+     the offset into it.  */
+  while (TREE_CODE (op0) == ARRAY_REF)
+    {
+      tree array_obj = TREE_OPERAND (op0, 0);
+      tree array_idx = TREE_OPERAND (op0, 1);
+      tree elt_type = TREE_TYPE (op0);
+      tree elt_size = TYPE_SIZE_UNIT (elt_type);
+      tree min_idx;
+
+      if (TREE_CODE (array_idx) != INTEGER_CST)
+	break;
+      if (TREE_CODE (elt_size) != INTEGER_CST)
+	break;
+
+      /* Un-bias the index by the min index of the array type.  */
+      min_idx = TYPE_DOMAIN (TREE_TYPE (array_obj));
+      if (min_idx)
+	{
+	  min_idx = TYPE_MIN_VALUE (min_idx);
+	  if (min_idx)
+	    {
+	      array_idx = convert (TREE_TYPE (min_idx), array_idx);
+	      if (!integer_zerop (min_idx))
+		array_idx = int_const_binop (MINUS_EXPR, array_idx, min_idx, 0);
+	    }
+	}
+
+      /* Convert the index to a byte offset.  */
+      array_idx = convert (sizetype, array_idx);
+      array_idx = int_const_binop (MULT_EXPR, array_idx, elt_size, 0);
+
+      /* Update the operands for the next round, or for folding.  */
+      op1 = int_const_binop (PLUS_EXPR, array_idx, op1, 0);
+      op0 = array_obj;
+    }
+
   ptd_type = TREE_TYPE (ptr_type);
 
   /* At which point we can try some of the same things as for indirects.  */

@@ -65,7 +65,6 @@ static bool negate_expr_p (tree);
 static tree negate_expr (tree);
 static tree split_tree (tree, enum tree_code, tree *, tree *, tree *, int);
 static tree associate_trees (tree, tree, enum tree_code, tree);
-static tree int_const_binop (enum tree_code, tree, tree, int);
 static tree const_binop (enum tree_code, tree, tree, int);
 static hashval_t size_htab_hash (const void *);
 static int size_htab_eq (const void *, const void *);
@@ -1170,7 +1169,7 @@ associate_trees (tree t1, tree t2, enum tree_code code, tree type)
 
    If NOTRUNC is nonzero, do not truncate the result to fit the data type.  */
 
-static tree
+tree
 int_const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
 {
   unsigned HOST_WIDE_INT int1l, int2l;

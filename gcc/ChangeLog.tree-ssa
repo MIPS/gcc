@@ -1,3 +1,14 @@
+2003-12-01  Richard Henderson  <rth@redhat.com>
+
+	* tree-dfa.c (get_expr_operands): Don't handle PLUS_EXPR inside
+	INDIRECT_REF.
+	* tree-ssa-ccp.c (maybe_fold_offset_to_array_ref): Use int_const_binop.
+	(maybe_fold_offset_to_component_ref): Likewise.
+	(maybe_fold_stmt_indirect): Likewise.
+	(maybe_fold_stmt_plus): Expand ARRAY_REF when seen with addend.
+	* fold-const.c (int_const_binop): Export.
+	* tree.h (int_const_binop): Declare.
+
 2003-12-01  Jan Hubicka  <jh@suse.cz>
 
 	* basic-block.h (tree_phi_root): New variable.
