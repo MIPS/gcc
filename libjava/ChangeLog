@@ -1,3 +1,7 @@
+2004-08-08  Tom Tromey  <tromey@redhat.com>
+
+	* java/awt/image/Kernel.java (clone): Use super.clone().
+
 2004-08-05  David Jee  <djee@redhat.com>
 
 	PR AWT/16682
