@@ -6862,7 +6862,10 @@ cp_make_fname_decl (id, type_dep)
   TREE_USED (decl) = 1;
 
   cp_finish_decl (decl, init, NULL_TREE, LOOKUP_ONLYCONVERTING);
-      
+
+  if (!current_function_decl)
+    rest_of_decl_compilation (decl, 0, 1, 0);
+
   return decl;
 }
 
