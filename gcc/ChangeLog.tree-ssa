@@ -1,8 +1,7 @@
 2004-04-02  Fariborz Jahanian <fjahanian@apple.com>
 
-	* fold-const.c (fold): reassociate multiply expression
-	with an adjacent non-multiply expression to use
-	architecture's multiply-add instruction.
+        * c-convert.c (convert): Make convert work when converting 
+	to compatible types across translation unit.
 
 2004-04-02  Andrew Pinski  <pinskia@physics.uc.edu>
 
