@@ -6410,8 +6410,6 @@ grokdeclarator (const cp_declarator *declarator,
                 int initialized,
                 tree* attrlist)
 {
-  /* APPLE LOCAL CW asm blocks */
-  int cw_asm_specbit = 0;
 
   tree type = NULL_TREE;
   int longlong = 0;
@@ -6463,12 +6461,16 @@ grokdeclarator (const cp_declarator *declarator,
   cp_decl_spec ds;
   cp_storage_class storage_class;
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
+  /* APPLE LOCAL CW asm blocks */
+  bool cw_asm_p;
 
   signed_p = declspecs->specs[(int)ds_signed];
   unsigned_p = declspecs->specs[(int)ds_unsigned];
   short_p = declspecs->specs[(int)ds_short];
   long_p = declspecs->specs[(int)ds_long];
   thread_p = declspecs->specs[(int)ds_thread];
+  /* APPLE LOCAL CW asm blocks */
+  cw_asm_p = declspecs->specs[(int)ds_cw_asm];
 
   if (decl_context == FUNCDEF)
     funcdef_flag = 1, decl_context = NORMAL;
@@ -6692,7 +6694,6 @@ grokdeclarator (const cp_declarator *declarator,
      because it was not a user-defined typedef.  */
   if (type == NULL_TREE && (signed_p || unsigned_p || long_p || short_p))
     {
-      /* APPLE LOCAL MERGE FIXME cw asm code removed here because of conflicts */
       /* There were changes here for code warrior assembler, but they no
 	 longer work because of the new declspecs implementation */
       /* These imply 'int'.  */
@@ -6736,7 +6737,9 @@ grokdeclarator (const cp_declarator *declarator,
 	    "friend",
 	    "typedef",
 	    "__complex",
-	    "__thread"
+	    "__thread",
+	    /* APPLE LOCAL CW asm blocks. */
+	    "asm"
 	  };
 	  error ("duplicate `%s'", decl_spec_names[(int)ds]);
 	}
@@ -8171,7 +8174,7 @@ grokdeclarator (const cp_declarator *declarator,
       DECL_THIS_STATIC (decl) = 1;
 
     /* APPLE LOCAL begin CW asm blocks */
-    if (cw_asm_specbit)
+    if (cw_asm_p)
       {
 	/* Record that this is a decl of a CW-style asm function.  */
 	if (flag_cw_asm_blocks)

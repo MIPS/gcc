@@ -4,7 +4,7 @@
 /* { dg-do run } */
 /* { dg-options "-fasm-blocks -O2" } */
 
-void abort(void);
+extern "C" void abort(void);
 
 asm void normal_fn ()
 {

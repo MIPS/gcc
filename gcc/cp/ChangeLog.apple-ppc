@@ -1,3 +1,15 @@
+2004-09-14  Andrew Pinski  <apinski@apple.com>
+
+	Rest of Radar 3753405
+	* cp-tree.h (enum cp_decl_sepcs): Add ds_cw_asm.
+	* decl.c (grokdeclarator): Rename cw_asm_specbit to cw_asm_p to mirror
+	the other specbits.
+	Access specbits for cw_asm.
+	Add "asm" to decl_specs_names.
+	Remove MERGE FIXME comment.
+	* parser.c (cp_parser_decl_specifier_seq, <case RID_ASM>): Mirror the
+	other decl spec bits.
+	
 2004-08-22 Andrew Pinski  <apinski@apple.com>
 
 	Revert:

@@ -1,4 +1,12 @@
-2004-09-19  Andrew Pinski  <apinski@apple.com>
+2004-09-14  Andrew Pinski  <apinski@apple.com>
+
+	Rest of Radar 3753405
+	* g++.dg/asm-block-[12].C: Mark abort as extern "C".
+	* g++.dg/asm-function-[1-5].C: Likewise.
+	* g++.dg/asm-function-5.C (foo): Fix inline asm so that we load the right
+	saved link register.
+
+2004-09-13  Andrew Pinski  <apinski@apple.com>
 
 	Part of radar 3753405 and all of 3767339
 	* gcc.apple/asm-block-[1-2].c: Add prototype for abort.

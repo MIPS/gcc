@@ -7340,8 +7340,9 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	  /* APPLE LOCAL CW asm blocks */
 	  /* If we ever get here, we must be in CW asm mode.  */
 	case RID_ASM:
-	  /* APPLE LOCAL MERGE FIXME merge breakage */
-	  /* decl_spec = cp_parser_storage_class_specifier_opt (parser); */
+	  /* Consume the token.  */
+	  cp_lexer_consume_token (parser->lexer);
+	  ++decl_specs->specs[(int) ds_cw_asm];
 	  break;
 
 	default:

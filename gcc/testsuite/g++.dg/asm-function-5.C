@@ -11,7 +11,7 @@ void function_with_asm_stmts () {
   __asm__ __volatile__ ("nop");
 }
 
-void abort (void);
+extern "C" void abort (void);
 
 int glob = 0;
 
@@ -28,7 +28,7 @@ asm void foo(int arg)
   stwu r1,(-80)(r1)
   bl stubfn
   addi r1,r1,80
-  lwz r0,88(r1)
+  lwz r0,8(r1)
   lmw r30,(-8)(r1)
   mtlr r0
   b localfn

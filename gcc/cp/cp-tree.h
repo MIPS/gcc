@@ -3499,6 +3499,8 @@ typedef enum cp_decl_spec {
   ds_typedef,
   ds_complex,
   ds_thread,
+  /* APPLE LOCAL CW asm blocks. */
+  ds_cw_asm,
   ds_last
 } cp_decl_spec;
 

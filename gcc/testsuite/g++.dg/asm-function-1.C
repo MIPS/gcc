@@ -4,7 +4,7 @@
 /* { dg-do run } */
 /* { dg-options "-fasm-blocks -O2" } */
 
-void abort (void);
+extern "C" void abort (void);
 
 asm int
 foo (register int argx, register int argy)
