@@ -434,6 +434,17 @@ struct gcc_target
   /* Create the __builtin_va_list type.  */
   tree (* build_builtin_va_list) (void);
 
+  /* APPLE LOCAL begin AV misaligned -haifa  */
+  /* Functions relating to vectorization.  */
+  struct vect
+  {
+    bool (* support_misaligned_loads) (void);
+    bool (* permute_misaligned_loads) (void);
+    tree (* build_builtin_lvsl) (void);
+    tree (* build_builtin_vperm) (enum machine_mode);
+  } vect;
+  /* APPLE LOCAL end AV misaligned -haifa  */
+
   /* Validity-checking routines for PCH files, target-specific.
      get_pch_validity returns a pointer to the data to be stored,
      and stores the size in its argument.  pch_valid_p gets the same

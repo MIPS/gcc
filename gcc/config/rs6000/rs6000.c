@@ -450,6 +450,13 @@ static tree get_prev_label (tree);
 
 static tree rs6000_build_builtin_va_list (void);
 
+/* APPLE LOCAL begin AV misaligned -haifa  */
+static bool rs6000_support_misaligned_vloads (void);
+static bool rs6000_permute_misaligned_vloads (void);
+static tree rs6000_build_builtin_lvsl (void);
+static tree rs6000_build_builtin_vperm (enum machine_mode);
+/* APPLE LOCAL end AV misaligned -haifa  */
+
 /* Hash table stuff for keeping track of TOC entries.  */
 
 struct toc_hash_struct GTY(())
@@ -661,6 +668,20 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST rs6000_build_builtin_va_list
+
+/* APPLE LOCAL begin AV misaligned -haifa  */
+#undef TARGET_VECT_SUPPORT_MISALIGNED_LOADS
+#define TARGET_VECT_SUPPORT_MISALIGNED_LOADS rs6000_support_misaligned_vloads
+
+#undef TARGET_VECT_PERMUTE_MISALIGNED_LOADS
+#define TARGET_VECT_PERMUTE_MISALIGNED_LOADS rs6000_permute_misaligned_vloads
+
+#undef TARGET_VECT_BUILD_BUILTIN_LVSL
+#define TARGET_VECT_BUILD_BUILTIN_LVSL rs6000_build_builtin_lvsl
+
+#undef TARGET_VECT_BUILD_BUILTIN_VPERM
+#define TARGET_VECT_BUILD_BUILTIN_VPERM rs6000_build_builtin_vperm
+/* APPLE LOCAL end AV misaligned -haifa  */
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -4728,6 +4749,98 @@ rs6000_mixed_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
   return NULL_RTX;
 }
+
+/* APPLE LOCAL begin AV misaligned -haifa  */
+static bool
+rs6000_support_misaligned_vloads (void)
+{
+ return true;
+}
+
+static bool
+rs6000_permute_misaligned_vloads (void)
+{
+ return true;
+}
+
+static tree
+rs6000_build_builtin_lvsl (void)
+{
+  tree pcvoid_type_node = build_pointer_type (build_qualified_type (void_type_node, TYPE_QUAL_CONST));
+  tree v16qi_ftype_long_pcvoid
+    = build_function_type_list (V16QI_type_node,
+                      long_integer_type_node, pcvoid_type_node, NULL_TREE);
+
+  tree id = get_identifier ("__builtin_altivec_lvsl");
+  tree decl = build_decl (FUNCTION_DECL, id, v16qi_ftype_long_pcvoid);
+  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_MD;
+  DECL_FUNCTION_CODE (decl) = ALTIVEC_BUILTIN_LVSL;
+/* Should the following from c-decl.c/builtin_function be added?:
+  TREE_PUBLIC (decl) = 1;
+  DECL_EXTERNAL (decl) = 1;
+  DECL_LANG_SPECIFIC (decl) = ggc_alloc_cleared (sizeof (struct lang_decl));
+*/
+  return decl;
+/* Wish we could simply look it up as in c-decl.c:
+  return lookup_name (get_identifier ("__builtin_altivec_lvsl"));
+*/
+}
+
+static tree
+rs6000_build_builtin_vperm (enum machine_mode mode)
+{
+  tree v4sf_ftype_v4sf_v4sf_v16qi
+    = build_function_type_list (V4SF_type_node,
+                      V4SF_type_node, V4SF_type_node,
+                      V16QI_type_node, NULL_TREE);
+  tree v4si_ftype_v4si_v4si_v16qi
+    = build_function_type_list (V4SI_type_node,
+                      V4SI_type_node, V4SI_type_node,
+                      V16QI_type_node, NULL_TREE);
+  tree v8hi_ftype_v8hi_v8hi_v16qi
+    = build_function_type_list (V8HI_type_node,
+                      V8HI_type_node, V8HI_type_node,
+                      V16QI_type_node, NULL_TREE);
+  tree v16qi_ftype_v16qi_v16qi_v16qi
+    = build_function_type_list (V16QI_type_node,
+                      V16QI_type_node, V16QI_type_node,
+                      V16QI_type_node, NULL_TREE);
+  tree id, type, decl;
+  int function_code;
+
+  switch (mode)
+    {
+    case V4SImode:
+      type = v4si_ftype_v4si_v4si_v16qi;
+      id = get_identifier ("__builtin_altivec_vperm_4si");
+      function_code = ALTIVEC_BUILTIN_VPERM_4SI;
+      break;
+    case V4SFmode:
+      type = v4sf_ftype_v4sf_v4sf_v16qi;
+      id = get_identifier ("__builtin_altivec_vperm_4sf");
+      function_code = ALTIVEC_BUILTIN_VPERM_4SF;
+      break;
+    case V8HImode:
+      type = v8hi_ftype_v8hi_v8hi_v16qi;
+      id = get_identifier ("__builtin_altivec_vperm_8hi");
+      function_code = ALTIVEC_BUILTIN_VPERM_8HI;
+      break;
+    case V16QImode:
+      type = v16qi_ftype_v16qi_v16qi_v16qi;
+      id = get_identifier ("__builtin_altivec_vperm_16qi");
+      function_code = ALTIVEC_BUILTIN_VPERM_16QI;
+      break;
+    default:
+      abort();
+    }
+
+  decl = build_decl (FUNCTION_DECL, id, type);
+  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_MD;
+  DECL_FUNCTION_CODE (decl) = function_code;
+  return decl;
+}
+/* APPLE LOCAL end AV misaligned -haifa  */
+
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,

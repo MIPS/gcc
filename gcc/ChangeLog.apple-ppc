@@ -1,3 +1,26 @@
+2004-06-07  Ayal Zaks <zaks@il.ibm.com>
+
+	Radar 3619935 - Part 1	
+	* target-def.h (TARGET_VECT, TARGET_VECT_BUILD_BUILTIN_LVSL,
+	TARGET_VECT_SUPPORT_MISALIGNED_LOADS,
+	TARGET_VECT_PERMUTE_MISALIGNED_LOADS,
+	TARGET_VECT_BUILD_BUILTIN_VPERM): New macros for
+	TARGET_INITIALIZER.
+	* target.h (struct vect): New substruct of gcc_target.
+ 	* tree-vectorizer.c (vect_create_index_for_array_ref): Return also the
+ 	initial value of the iv.
+ 	(vect_create_data_ref): Return also the created pointer; don't call
+	vect_align_data_ref.
+	(vect_finish_stmt_generation): New.
+	(vect_transform_load): Handle misaligned loads too.
+	(vect_analyze_data_refs_alignment): Allow loads to be misaligned.
+	* config/rs6000/rs6000.c (TARGET_VECT_BUILD_BUILTIN_LVSL,
+	TARGET_VECT_SUPPORT_MISALIGNED_LOADS,
+	TARGET_VECT_PERMUTE_MISALIGNED_LOADS,
+	TARGET_VECT_BUILD_BUILTIN_VPERM): Redefine.
+	(rs6000_support_misaligned_vloads, rs6000_permute_misaligned_vloads,
+	rs6000_build_builtin_lvsl, rs6000_build_builtin_vperm): New.
+
 2004-06-07  Olga Golovanevsky  <OLGA@il.ibm.com>
 
 	* tree-vectorizer.c (vect_update_initial_conditions_of_duplicated_loop):

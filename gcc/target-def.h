@@ -264,6 +264,21 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_DFA_BUBBLE,                                     \
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
+/* APPLE LOCAL begin AV misaligned -haifa  */
+/* Vectorizer hooks.  All of these default to null pointers, which
+   tree-vectorizer.c looks for and handles.  */
+#define TARGET_VECT_SUPPORT_MISALIGNED_LOADS 0
+#define TARGET_VECT_PERMUTE_MISALIGNED_LOADS 0
+#define TARGET_VECT_BUILD_BUILTIN_LVSL 0
+#define TARGET_VECT_BUILD_BUILTIN_VPERM 0
+
+#define TARGET_VECT                                       \
+  {TARGET_VECT_SUPPORT_MISALIGNED_LOADS,                  \
+   TARGET_VECT_PERMUTE_MISALIGNED_LOADS,                  \
+   TARGET_VECT_BUILD_BUILTIN_LVSL,                        \
+   TARGET_VECT_BUILD_BUILTIN_VPERM}
+/* APPLE LOCAL end AV misaligned -haifa  */
+
 /* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
 #define TARGET_MERGE_TYPE_ATTRIBUTES merge_type_attributes
@@ -435,6 +450,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_CC_MODES_COMPATIBLE,			\
   TARGET_MACHINE_DEPENDENT_REORG,		\
   TARGET_BUILD_BUILTIN_VA_LIST,			\
+  /* APPLE LOCAL AV misaligned -haifa  */       \
+  TARGET_VECT,                                  \
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
   TARGET_DEFAULT_SHORT_ENUMS,			\
