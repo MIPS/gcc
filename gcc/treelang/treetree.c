@@ -891,6 +891,15 @@ print_call_graph (FILE *file ATTRIBUTE_UNUSED, tree t ATTRIBUTE_UNUSED)
   abort ();
 }
 
+/* Should not be called for treelang.  */
+
+tree
+find_reachable_label (exp)
+     tree exp ATTRIBUTE_UNUSED;
+{
+  abort ();
+}
+
 /* We're about to expand T, a statement.  Set up appropriate context
    for the substitution.  */
 
