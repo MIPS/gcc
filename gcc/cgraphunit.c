@@ -1134,7 +1134,8 @@ cgraph_optimize (void)
       dump_cgraph (cgraph_dump_file);
     }
 
-  cgraph_decide_inlining ();
+  if (flag_inline_trees)
+    cgraph_decide_inlining ();
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
     {
