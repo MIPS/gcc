@@ -489,7 +489,7 @@ count_loop_iterations (desc, niter, rniter)
     expand_simple_binop (GET_MODE (desc->var), PLUS,
 	  *rniter,
 	  GEN_INT (delta),
-	  NULL_RTX, 0, OPTAB_LIB_WIDEN);
+	  *rniter, 0, OPTAB_LIB_WIDEN);
 
   return 1;
 }
