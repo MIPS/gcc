@@ -2531,15 +2531,6 @@ output_constant_def_contents (rtx symbol)
     mudflap_enqueue_constant (exp);
 }
 
-/* A constant which was deferred in its original location has been
-   inserted by the RTL inliner into a different function.  The
-   current function's deferred constant count must be incremented.  */
-void
-notice_rtl_inlining_of_deferred_constant (void)
-{
-  n_deferred_constants++;
-}
-
 /* Look up EXP in the table of constant descriptors.  Return the rtl
    if it has been emitted, else null.  */
 

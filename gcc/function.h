@@ -506,13 +506,6 @@ struct function GTY(())
 
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
-
-  /* Flag for use by ther rtl inliner, to tell if the function has been
-     processed at least once.  */
-  unsigned int rtl_inline_init : 1;
-
-  /* Nonzero if the rtl inliner has saved the function for inlining.  */
-  unsigned int saved_for_inline : 1;
 };
 
 /* The function currently being compiled.  */
@@ -580,9 +573,6 @@ extern int trampolines_created;
 #define var_temp_slot_level (cfun->x_var_temp_slot_level)
 #define nonlocal_labels (cfun->x_nonlocal_labels)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
-
-/* The FUNCTION_DECL for an inline function currently being expanded.  */
-extern tree inline_function_decl;
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */

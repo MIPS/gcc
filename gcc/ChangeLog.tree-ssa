@@ -1,3 +1,81 @@
+2004-02-19  Steven Bosscher  <stevenb@suse.de>
+
+	Remove the RTL inliner.
+	* calls.c (try_to_integrate): Remove.
+	(expand_call): Do not try to expand calls inline.
+	* dbxout.c (dbxout_symbol_location): Don't mention integrate.c
+	in comments.
+	* expmed.c (extract_fixed_bit_field): Always propagate the
+	target for the shift if it is a REG.
+	* expr.c (emit_move_insn_1): Don't generate inline warnings.
+	(expand_expr_real_1): Don't look at inline_function_decl.
+	Don't output inlined functions here.
+	* expr.h (expand_inline_function): Remove prototype.
+	* emit-rtl.c (copy_most_rtx): Don't copy the integrated flag.
+	Copy the new return_val flag.
+	* final.c (final): Don't look at RTX_INTEGRATED_P.
+	* cfgrtl.c (create_basic_block_structure): Likewise.
+	* haifa-sched.c (priority): Likewise.
+	(restore_line_notes): Likewise.
+	* function.c (inline_function_decl): Remove.
+	(put_var_into_stack): Don't use it.
+	(fix_lexical_addr): Likewise.
+	* function.c (inline_function_decl): Remove extern declaration.
+	* genattrtab.c (ATTR_PERMANENT_P): Use the return_val flag
+	instead of the integrated flag.
+	* integrate.c (INTEGRATE_THRESHOLD): Remove.
+	(setup_initial_hard_reg_value_integration): Likewise.
+	(initialize_for_inline): Likewise.
+	(note_modified_parmregs): Likewise.
+	(integrate_parm_decls): Likewise.
+	(process_reg_param): Likewise.
+	(save_parm_insns): Likewise.
+	(copy_insn_list): Likewise.
+	(copy_insn_notes): Likewise.
+	(compare_blocks): Likewise.
+	(find_block): Likewise.
+	(inlining): Likewise.
+	(function_cannot_inline_p): Likewise.
+	(parmdecl_map): Likewise.
+	(in_nonparam_insns): Likewise.
+	(save_for_inline): Likewise.
+	(FIXED_BASE_PLUS): Likewise.
+	(expand_inline_function): Likewise.
+	(copy_rtx_and_substitute): Don't look at map->integrating,
+	map->inline_target, and inlining, since we are never copying
+	for integrating.
+	Don't abort on RTX_INTEGRATED_P.
+	(old_fun): Remove.
+	(output_inline_function): Remove.
+	* integrate.h (struct inline_map): Remove fields integrating,
+	block_map, leaf_reg_map, inline_target, and local_return_label.
+	* print-rtl.c (print_rtx): Don't print the integrated flag.
+	Print the return_val flag.
+	* rtl.h (struct rtx_def): Replace the integrated flag with the
+	return_val flag.
+	(RTX_INTEGRATED_P): Remove.
+	(notice_rtl_inlining_of_deferred_constant): Remove prototype.
+	* stmt.c (force_label_rtx): Don't look at inline_function_decl.
+	* toplev.c (rest_of_handle_inlining): Remove.
+	(rest_of_compilation): Don't call it, and never jump to exit.
+	Call convert_from_eh_region_ranges.
+	(wrapup_global_declarations): Don't output nested inlined functions.
+	* tree.h (function_cannot_inline_p): Remove prototype.
+	(save_for_inline): Ditto.
+	(output_inline_function): Ditto.
+	* unroll.c (unroll_loop): Don't clear map->inline_target.
+	* varasm.c (notice_rtl_inlining_of_deferred_constant): Remove.
+
+	* system.h: Poison INTEGRATE_THRESHOLD.
+	* config/avr/avr.h: Remove define.
+	* config/ip2k/ip2k.h: Likewise.
+
+	* unwind-sjlj.c (uw_install_context): Make a proper static inline
+	function.
+
+	* doc/rtl.texi: Remove references to the integrated flag.
+	* doc/tm.texi: Remove documentation of INTEGRATE_THRESHOLD.
+
 2004-02-17  Andrew Macleod  <amacleod@redhat.com>
 
 	* tree-ssa-live.c (coalesce_tpa_members): Don't coalesce partitions

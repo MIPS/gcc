@@ -263,7 +263,6 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
   basic_block bb;
 
   if (bb_note
-      && ! RTX_INTEGRATED_P (bb_note)
       && (bb = NOTE_BASIC_BLOCK (bb_note)) != NULL
       && bb->aux == NULL)
     {

@@ -142,7 +142,6 @@ static void load_register_parameters (struct arg_data *, int, rtx *, int,
 static rtx emit_library_call_value_1 (int, rtx, rtx, enum libcall_type,
 				      enum machine_mode, int, va_list);
 static int special_function_p (tree, int);
-static rtx try_to_integrate (tree, tree, rtx, int, tree, rtx);
 static int check_sibcall_argument_overlap_1 (rtx);
 static int check_sibcall_argument_overlap (rtx, struct arg_data *, int);
 
@@ -1730,124 +1729,6 @@ load_register_parameters (struct arg_data *args, int num_actuals,
     }
 }
 
-/* Try to integrate function.  See expand_inline_function for documentation
-   about the parameters.  */
-
-static rtx
-try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
-		  tree type, rtx structure_value_addr)
-{
-  rtx temp;
-  rtx before_call;
-  int i;
-  rtx old_stack_level = 0;
-  int reg_parm_stack_space = 0;
-
-#ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
-  reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
-#endif
-
-  before_call = get_last_insn ();
-
-  timevar_push (TV_INTEGRATION);
-
-  temp = expand_inline_function (fndecl, actparms, target,
-				 ignore, type,
-				 structure_value_addr);
-
-  timevar_pop (TV_INTEGRATION);
-
-  /* If inlining succeeded, return.  */
-  if (temp != (rtx) (size_t) - 1)
-    {
-      if (ACCUMULATE_OUTGOING_ARGS)
-	{
-	  /* If the outgoing argument list must be preserved, push
-	     the stack before executing the inlined function if it
-	     makes any calls.  */
-
-	  i = reg_parm_stack_space;
-	  if (i > highest_outgoing_arg_in_use)
-	    i = highest_outgoing_arg_in_use;
-	  while (--i >= 0 && stack_usage_map[i] == 0)
-	    ;
-
-	  if (stack_arg_under_construction || i >= 0)
-	    {
-	      rtx first_insn
-		= before_call ? NEXT_INSN (before_call) : get_insns ();
-	      rtx insn = NULL_RTX, seq;
-
-	      /* Look for a call in the inline function code.
-	         If DECL_STRUCT_FUNCTION (fndecl)->outgoing_args_size is
-	         nonzero then there is a call and it is not necessary
-	         to scan the insns.  */
-
-	      if (DECL_STRUCT_FUNCTION (fndecl)->outgoing_args_size == 0)
-		for (insn = first_insn; insn; insn = NEXT_INSN (insn))
-		  if (GET_CODE (insn) == CALL_INSN)
-		    break;
-
-	      if (insn)
-		{
-		  /* Reserve enough stack space so that the largest
-		     argument list of any function call in the inline
-		     function does not overlap the argument list being
-		     evaluated.  This is usually an overestimate because
-		     allocate_dynamic_stack_space reserves space for an
-		     outgoing argument list in addition to the requested
-		     space, but there is no way to ask for stack space such
-		     that an argument list of a certain length can be
-		     safely constructed.
-
-		     Add the stack space reserved for register arguments, if
-		     any, in the inline function.  What is really needed is the
-		     largest value of reg_parm_stack_space in the inline
-		     function, but that is not available.  Using the current
-		     value of reg_parm_stack_space is wrong, but gives
-		     correct results on all supported machines.  */
-
-		  int adjust
-		    = (DECL_STRUCT_FUNCTION (fndecl)->outgoing_args_size
-		       + reg_parm_stack_space);
-
-		  start_sequence ();
-		  emit_stack_save (SAVE_BLOCK, &old_stack_level, NULL_RTX);
-		  allocate_dynamic_stack_space (GEN_INT (adjust),
-						NULL_RTX, BITS_PER_UNIT);
-		  seq = get_insns ();
-		  end_sequence ();
-		  emit_insn_before (seq, first_insn);
-		  emit_stack_restore (SAVE_BLOCK, old_stack_level, NULL_RTX);
-		}
-	    }
-	}
-
-      /* If the result is equivalent to TARGET, return TARGET to simplify
-         checks in store_expr.  They can be equivalent but not equal in the
-         case of a function that returns BLKmode.  */
-      if (temp != target && rtx_equal_p (temp, target))
-	return target;
-      return temp;
-    }
-
-  /* If inlining failed, mark FNDECL as needing to be compiled
-     separately after all.  If function was declared inline,
-     give a warning.  */
-  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
-      && optimize > 0 && !TREE_ADDRESSABLE (fndecl))
-    {
-      warning ("%Jinlining failed in call to '%F'", fndecl, fndecl);
-      warning ("called from here");
-    }
-  (*lang_hooks.mark_addressable) (fndecl);
-  return (rtx) (size_t) - 1;
-}
-
 /* We need to pop PENDING_STACK_ADJUST bytes.  But, if the arguments
    wouldn't fill up an even multiple of PREFERRED_UNIT_STACK_BOUNDARY
    bytes, then we would need to push some additional bytes to pad the
@@ -2208,8 +2089,6 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Mask of ECF_ flags.  */
   int flags = 0;
-  /* Nonzero if this is a call to an inline function.  */
-  int is_integrable = 0;
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
      saved, if any.  */
@@ -2247,38 +2126,11 @@ expand_call (tree exp, rtx target, int ignore)
   if (TREE_NOTHROW (exp))
     flags |= ECF_NOTHROW;
 
-  /* See if we can find a DECL-node for the actual function.
-     As a result, decide whether this is a call to an integrable function.  */
-
+  /* See if we can find a DECL-node for the actual function, and get the
+     function attributes (flags) from the function decl or type node.  */
   fndecl = get_callee_fndecl (exp);
   if (fndecl)
-    {
-      if (!flag_no_inline
-	  && fndecl != current_function_decl
-	  && DECL_INLINE (fndecl)
-	  && DECL_STRUCT_FUNCTION (fndecl)
-	  && DECL_STRUCT_FUNCTION (fndecl)->inlinable)
-	is_integrable = 1;
-      else if (! TREE_ADDRESSABLE (fndecl))
-	{
-	  /* In case this function later becomes inlinable,
-	     record that there was already a non-inline call to it.
-
-	     Use abstraction instead of setting TREE_ADDRESSABLE
-	     directly.  */
-	  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
-	      && optimize > 0)
-	    {
-	      warning ("%Jcan't inline call to '%F'", fndecl, fndecl);
-	      warning ("called from here");
-	    }
-	  (*lang_hooks.mark_addressable) (fndecl);
-	}
-      flags |= flags_from_decl_or_type (fndecl);
-    }
-
-  /* If we don't have specific function to call, see if we have a
-     attributes set in the type.  */
+    flags |= flags_from_decl_or_type (fndecl);
   else
     flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
 
@@ -2339,15 +2191,6 @@ expand_call (tree exp, rtx target, int ignore)
 #ifdef PCC_STATIC_STRUCT_RETURN
       {
 	pcc_struct_value = 1;
-	/* Easier than making that case work right.  */
-	if (is_integrable)
-	  {
-	    /* In case this is a static function, note that it has been
-	       used.  */
-	    if (! TREE_ADDRESSABLE (fndecl))
-	      (*lang_hooks.mark_addressable) (fndecl);
-	    is_integrable = 0;
-	  }
       }
 #else /* not PCC_STATIC_STRUCT_RETURN */
       {
@@ -2378,17 +2221,6 @@ expand_call (tree exp, rtx target, int ignore)
 	  }
       }
 #endif /* not PCC_STATIC_STRUCT_RETURN */
-    }
-
-  /* If called function is inline, try to integrate it.  */
-
-  if (is_integrable)
-    {
-      rtx temp = try_to_integrate (fndecl, actparms, target,
-				   ignore, TREE_TYPE (exp),
-				   structure_value_addr);
-      if (temp != (rtx) (size_t) - 1)
-	return temp;
     }
 
   /* Figure out the amount to which the stack should be aligned.  */

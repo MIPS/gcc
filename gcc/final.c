@@ -1516,11 +1516,9 @@ final (rtx first, FILE *file, int optimize, int prescan)
       for (insn = first; insn; insn = NEXT_INSN (insn))
 	if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
 	  {
-	    if ((RTX_INTEGRATED_P (insn)
-		 && strcmp (NOTE_SOURCE_FILE (insn), main_input_filename) != 0)
-		|| (last != 0
-		    && NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last)
-		    && NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last)))
+	    if (last != 0
+		&& NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last)
+		&& NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last))
 	      {
 		delete_insn (insn);	/* Use delete_note.  */
 		continue;

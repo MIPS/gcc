@@ -3158,13 +3158,6 @@ extern tree decl_function_context (tree);
    this _DECL with its context, or zero if none.  */
 extern tree decl_type_context (tree);
 
-/* Given the FUNCTION_DECL for the current function,
-   return zero if it is ok for this function to be inline.
-   Otherwise return a warning message with a single %s
-   for the function's name.  */
-
-extern const char *function_cannot_inline_p (tree);
-
 /* Return 1 if EXPR is the real constant zero.  */
 extern int real_zerop (tree);
 
@@ -3471,9 +3464,7 @@ extern bool alloca_call_p (tree);
 extern tree decl_attributes (tree *, tree, int);
 
 /* In integrate.c */
-extern void save_for_inline (tree);
 extern void set_decl_abstract_flags (tree, int);
-extern void output_inline_function (tree);
 extern void set_decl_origin_self (tree);
 
 /* In stor-layout.c */
