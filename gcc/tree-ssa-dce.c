@@ -627,6 +627,11 @@ remove_conditional (basic_block bb)
   if (bb->succ)
     return;
 
+  /* If there is no post dominator, then this block is going to the
+     exit node.  */
+  if (pdom_bb == NULL)
+    pdom_bb = EXIT_BLOCK_PTR;
+
   /* If the post dominator has any PHI nodes in it at all, the 
      conditional has been marked as necessary. This means no PHI
      node updating is required. If there are any PHI nodes, its a bug
@@ -642,6 +647,5 @@ remove_conditional (basic_block bb)
 #endif
 
   /* Add an edge to BB's post dominator.  */
-  if (bb->succ == NULL)
-    make_edge (bb, pdom_bb,  EDGE_FALLTHRU);
+  make_edge (bb, pdom_bb,  EDGE_FALLTHRU);
 }
