@@ -725,10 +725,14 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setNativeBoun
   gdk_threads_enter ();
 
   widget = GTK_WIDGET (ptr);
+
+  /* We assume that -1 is a width or height and not a request for the
+     widget's natural size. */
+  width = width < 0 ? 0 : width;
+  height = height < 0 ? 0 : height;
+
   if (GTK_IS_VIEWPORT (widget->parent))
-    {
-      gtk_widget_set_size_request (widget, width, height);
-    }
+    gtk_widget_set_size_request (widget, width, height);
   else
     {
       gtk_widget_set_size_request (widget, width, height);
