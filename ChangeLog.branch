@@ -1,5 +1,8 @@
 2003-06-15  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* configure.in: Copy in -Werror support from gcc/configure.in.
+	* configure: Regenerate.
+
 	* Makefile.tpl: Add rudimentary bootstrap support.  Rip out
 	old bootstrap targets.
 	* Makefile.def: Comment out build-gcc, for now.
