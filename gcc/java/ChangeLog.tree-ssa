@@ -1,5 +1,13 @@
 2003-10-30  Richard Henderson  <rth@redhat.com>
 
+	* java-gimplify.c (cleanup_compound_expr): Remove.
+	(cleanup_try_finally_expr): Remove.
+	(java_gimplify_expr): Don't call them.
+	(java_gimplify_case_expr): Use create_artificial_label.
+	(java_gimplify_default_expr): Likewise.
+
+2003-10-30  Richard Henderson  <rth@redhat.com>
+
 	* expr.c (expand_java_switch, expand_java_add_case): New.
 	(LOOKUP_SWITCH, TABLE_SWITCH): Use them.
 

@@ -39,9 +39,6 @@ static tree java_gimplify_block (tree);
 static tree java_gimplify_new_array_init (tree);
 static tree java_gimplify_try_expr (tree);
 
-static void cleanup_compound_expr (tree *);
-static void cleanup_try_finally_expr (tree *);
-
 static void dump_java_tree (enum tree_dump_index, tree);
 
 /* Convert a Java tree to GENERIC.  */
@@ -116,14 +113,6 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
     case CLASS_LITERAL:
       abort ();
 
-    case COMPOUND_EXPR:
-      cleanup_compound_expr (expr_p);
-      break;
-
-    case TRY_FINALLY_EXPR:
-      cleanup_try_finally_expr (expr_p);
-      break;
-
     default:
       return GS_UNHANDLED;
     }
@@ -134,8 +123,7 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
 static tree
 java_gimplify_case_expr (tree expr)
 {
-  tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (label) = current_function_decl;
+  tree label = create_artificial_label ();
   return build (CASE_LABEL_EXPR, void_type_node,
 		TREE_OPERAND (expr, 0), NULL_TREE, label);
 }
@@ -143,8 +131,7 @@ java_gimplify_case_expr (tree expr)
 static tree
 java_gimplify_default_expr (tree expr ATTRIBUTE_UNUSED)
 {
-  tree label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-  DECL_CONTEXT (label) = current_function_decl;
+  tree label = create_artificial_label ();
   return build (CASE_LABEL_EXPR, void_type_node, NULL_TREE, NULL_TREE, label);
 }
 
@@ -245,57 +232,6 @@ java_gimplify_try_expr (tree try_expr)
       handler = TREE_CHAIN (handler);
     }
   return build (TRY_CATCH_EXPR, void_type_node, body, catch);
-}
-
-/* Ensure that every COMPOUND_EXPR has a type.  Also purge any
-   COMPOUND_EXPR with one or more empty statements.  */
-
-static void
-cleanup_compound_expr (tree *expr_p)
-{
-  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) == COMPOUND_EXPR)
-    cleanup_compound_expr (&TREE_OPERAND (*expr_p, 0));
-  if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == COMPOUND_EXPR)
-    cleanup_compound_expr (&TREE_OPERAND (*expr_p, 1));
-
-  if (TREE_OPERAND (*expr_p, 0) == NULL_TREE
-      || IS_EMPTY_STMT (TREE_OPERAND (*expr_p, 0)))
-    {
-      *expr_p = TREE_OPERAND (*expr_p, 1);
-      return;
-    }
-  if (TREE_OPERAND (*expr_p, 1) == NULL_TREE
-      || IS_EMPTY_STMT (TREE_OPERAND (*expr_p, 1)))
-    {
-      *expr_p = TREE_OPERAND (*expr_p, 0);
-      return;
-    }
-
-  if (TREE_TYPE (*expr_p) == NULL_TREE)
-    {
-      tree last = TREE_OPERAND (*expr_p, 1);
-      TREE_TYPE (*expr_p) = TREE_TYPE (last);
-    }
-}
-
-/* Ensure that every TRY_FINALLY_EXPR has at least one non-empty
-   statement in both its try and finally blocks.  */
-
-static void
-cleanup_try_finally_expr (tree *expr_p)
-{
-  if (TREE_OPERAND (*expr_p, 0) == NULL_TREE
-      || IS_EMPTY_STMT (TREE_OPERAND (*expr_p, 0)))
-    {
-      *expr_p = TREE_OPERAND (*expr_p, 1);
-      return;
-    }
-  if (TREE_OPERAND (*expr_p, 1) == NULL_TREE
-      || IS_EMPTY_STMT (TREE_OPERAND (*expr_p, 1)))
-    {
-      *expr_p = TREE_OPERAND (*expr_p, 0);
-      return;
-    }
 }
 
 /* Dump a tree of some kind.  This is a convenience wrapper for the
