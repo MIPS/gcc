@@ -52,6 +52,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "df.h"
+#include "function.h"
 
 
 /* This entry is allocated for each reference in the insn stream.  */
@@ -116,13 +117,17 @@ union_defs (df, use, def_entry, use_entry)
      struct web_entry *def_entry;
      struct web_entry *use_entry;
 {
+  rtx insn = DF_REF_INSN (use);
   struct df_link *link = DF_REF_CHAIN (use);
-  struct df_link *use_link = DF_INSN_USES (df, DF_REF_INSN (use));
+  struct df_link *use_link = DF_INSN_USES (df, insn);
+  struct df_link *def_link = DF_INSN_DEFS (df, insn);
+  rtx set = single_set (insn);
 
   /* Some instructions may use match_dup for it's operands.  In case the
      operands are dead, we will assign them different pseudos creating
      invalid instruction, so union all uses of the same operands for each
      insn.  */
+
   while (use_link)
     {
       if (use != use_link->ref
@@ -130,6 +135,23 @@ union_defs (df, use, def_entry, use_entry)
 	unionfind_union (use_entry + DF_REF_ID (use),
 		         use_entry + DF_REF_ID (use_link->ref));
       use_link = use_link->next;
+    }
+
+  /* Recognize trivial noop moves and attempt to keep them noop.
+     While most of noop moves should be removed we still keep some at
+     libcall boundaries and such.  */
+
+  if (set
+      && SET_SRC (set) == DF_REF_REG (use)
+      && SET_SRC (set) == SET_DEST (set))
+    {
+      while (def_link)
+	{
+	  if (DF_REF_REAL_REG (use) == DF_REF_REAL_REG (def_link->ref))
+	    unionfind_union (use_entry + DF_REF_ID (use),
+			     def_entry + DF_REF_ID (def_link->ref));
+	  def_link = def_link->next;
+	}
     }
   while (link)
     {
@@ -196,6 +218,11 @@ entry_register (entry, ref, used, use_addressof)
   else
     {
       newreg = gen_reg_rtx (GET_MODE (reg));
+      REG_USERVAR_P (newreg) = REG_USERVAR_P (reg);
+      REG_POINTER (newreg) = REG_POINTER (reg);
+      REG_LOOP_TEST_P (newreg) = REG_LOOP_TEST_P (reg);
+      RTX_UNCHANGING_P (newreg) = RTX_UNCHANGING_P (reg);
+      REGNO_DECL (REGNO (newreg)) = REGNO_DECL (REGNO (reg));
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Web oldreg=%i newreg=%i\n", REGNO (reg),
 		 REGNO (newreg));
