@@ -1177,8 +1177,9 @@ address_analysis (tree expr, tree stmt, bool is_read, tree alignment,
 
       if (alignment)
 	{
-	  if (TYPE_ALIGN_UNIT (TREE_TYPE (TREE_TYPE (expr))) 
-	      < tree_low_cst (alignment, 0))
+    	  if (tree_int_cst_compare (ssize_int (TYPE_ALIGN_UNIT (TREE_TYPE (
+							  TREE_TYPE (expr)))),
+				    alignment) < 0)
 	    {
 	      if (get_ptr_offset (expr, alignment, misalign))
 		*base_aligned = true;	  
@@ -1374,7 +1375,8 @@ object_analysis (tree memref, tree stmt, bool is_read, tree alignment,
       /* 2.1 check the alignment.  */
       if (alignment)
 	{
-	  if (DECL_ALIGN_UNIT (memref) >= tree_low_cst (alignment, 0))
+	  if (tree_int_cst_compare (ssize_int (DECL_ALIGN_UNIT (memref)),
+				    alignment) >= 0)
 	    object_base_aligned = true;
 	  else
 	    object_base_aligned = false;

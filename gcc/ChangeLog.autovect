@@ -1,3 +1,9 @@
+2005-03-22  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (address_analysis): Perform alignment
+	comparison in trees. 
+	(object_analysis): Likewise.
+
 2005-03-21  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-data-ref.c (address_analysis): Use TYPE_ALIGN_UNIT.
