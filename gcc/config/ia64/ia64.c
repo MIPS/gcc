@@ -193,7 +193,7 @@ static void finish_bundle_state_table PARAMS ((void));
 static int try_issue_nops PARAMS ((struct bundle_state *, int));
 static int try_issue_insn PARAMS ((struct bundle_state *, rtx));
 static void issue_nops_and_insn PARAMS ((struct bundle_state *, int,
-					     rtx, int));
+					 rtx, int));
 static int get_max_pos PARAMS ((state_t));
 static int get_template PARAMS ((state_t, int));
 
@@ -6043,7 +6043,6 @@ insert_bundle_state (bundle_state)
       *bundle_state = temp;
     }
   return FALSE;
-
 }
 
 /* Start work with the hash table.  */
@@ -6109,9 +6108,9 @@ try_issue_insn (curr_state, insn)
 
 /* The following function tries to issue BEFORE_NOPS_NUM nops and INSN
    starting with ORIGINATOR without advancing processor cycle.  If
-   TRY_BUNDLE_END_P is TRUE, the function tries to issue nops to fill
-   all bundle. If it was successful, the function creates new bundle
-   state and insert into the hash table and into
+   TRY_BUNDLE_END_P is TRUE, the function also tries to issue nops to
+   fill all bundle. If it was successful, the function creates new
+   bundle state and insert into the hash table and into
    `index_to_bundle_states'.  */
 
 static void
@@ -6182,12 +6181,23 @@ issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
   if (ia64_safe_type (insn) == TYPE_B)
     curr_state->branch_deviation
       += 2 - (curr_state->accumulated_insns_num - 1) % 3;
-  if (try_bundle_end_p)
+  if (try_bundle_end_p && curr_state->accumulated_insns_num % 3 != 0)
     {
-      if (curr_state->accumulated_insns_num % 3 == 0)
+      if (insert_bundle_state (curr_state))
 	{
-	  free_bundle_state (curr_state);
-	  return;
+	  state_t dfa_state;
+	  struct bundle_state *curr_state1;
+	  struct bundle_state *allocated_states_chain;
+
+	  curr_state1 = get_free_bundle_state ();
+	  dfa_state = curr_state1->dfa_state;
+	  allocated_states_chain = curr_state1->allocated_states_chain;
+	  *curr_state1 = *curr_state;
+	  curr_state1->dfa_state = dfa_state;
+	  curr_state1->allocated_states_chain = allocated_states_chain;
+	  memcpy (curr_state1->dfa_state, curr_state->dfa_state,
+		  dfa_state_size);
+	  curr_state = curr_state1;
 	}
       if (!try_issue_nops (curr_state,
 			   3 - curr_state->accumulated_insns_num % 3))
@@ -6198,10 +6208,8 @@ issue_nops_and_insn (originator, before_nops_num, insn, try_bundle_end_p)
 	+= 3 - curr_state->accumulated_insns_num % 3;
     }
   if (!insert_bundle_state (curr_state))
-    {
-      free_bundle_state (curr_state);
-      return;
-    }
+    free_bundle_state (curr_state);
+  return;
 }
 
 /* The following function returns position in the two window bundle
@@ -6322,10 +6330,11 @@ bundling (dump, verbose, prev_head_insn, tail)
   struct bundle_state *curr_state, *next_state, *best_state;
   rtx insn, next_insn;
   int insn_num;
-  int i;
+  int i, bundle_end_p;
   int pos, max_pos, template0, template1;
   rtx b;
   rtx nop;
+  enum attr_type type;
 
   insn_num = 0;
   for (insn = NEXT_INSN (prev_head_insn);
@@ -6392,24 +6401,18 @@ bundling (dump, verbose, prev_head_insn, tail)
 	   curr_state != NULL;
 	   curr_state = next_state)
 	{
+	  pos = curr_state->accumulated_insns_num % 3;
+	  type = ia64_safe_type (insn);
 	  next_state = curr_state->next;
-	  if (next_insn == NULL_RTX
-	      || (GET_MODE (next_insn) == TImode
-		  && INSN_CODE (insn) != CODE_FOR_insn_group_barrier))
-	    {
-	      if (ia64_safe_type (insn) == TYPE_F
-		  || ia64_safe_type (insn) == TYPE_L)
-		issue_nops_and_insn (curr_state, 2, insn, TRUE);
-	      issue_nops_and_insn (curr_state, 1, insn, TRUE);
-	      issue_nops_and_insn (curr_state, 0, insn, TRUE);
-	    }
-	  if (ia64_safe_type (insn) == TYPE_F
-	      || ia64_safe_type (insn) == TYPE_B
-	      || ia64_safe_type (insn) == TYPE_L
-	      || ia64_safe_type (insn) == TYPE_S)
-	    issue_nops_and_insn (curr_state, 2, insn, FALSE);
-	  issue_nops_and_insn (curr_state, 1, insn, FALSE);
-	  issue_nops_and_insn (curr_state, 0, insn, FALSE);
+	  bundle_end_p
+	    = (next_insn == NULL_RTX
+	       || (GET_MODE (next_insn) == TImode
+		   && INSN_CODE (insn) != CODE_FOR_insn_group_barrier));
+	  if (type == TYPE_F || type == TYPE_B || type == TYPE_L
+	      || type == TYPE_S)
+	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p);
+	  issue_nops_and_insn (curr_state, 1, insn, bundle_end_p);
+	  issue_nops_and_insn (curr_state, 0, insn, bundle_end_p);
 	}
       if (index_to_bundle_states [insn_num] == NULL)
 	abort ();

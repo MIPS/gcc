@@ -1,3 +1,16 @@
+2002-11-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* haifa-sched.c (choice_entry): New structure.
+	(choice_stack, cycle_issued_insns): New variables.
+	(max_issue): Rewrite it.
+	(choose_ready): Set up ready_try for unknown insns too.
+	(schedule_block): Allocate and free choice_stack.  Set up
+	and modify cycle_issued_insns.
+
+	* config/ia64/ia64.c (issue_nops_and_insn): Combine insn issue
+	with and without filling the bundle.
+	(bundling): Combine calls of issue_nops_and_insn.
+	
 2002-10-17  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/ia64/itanium1.md: New file.
