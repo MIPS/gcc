@@ -1,4 +1,11 @@
 2003-02-25  Jeff Law  <law@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* fold-const.c (nondestructive_fold_binary): Handle TRUTH_AND_EXPR
+	and TRUTH_OR_EXPR.  Placeholder for TRUTH_XOR_EXPR.
+	* tree-ssa-ccp.c (ccp_fold): Handle TRUTH_{AND,OR,XOR}_EXPR.
+	(def_to_undefined): Re-enable VARYING->UNDEFINED state transition
+	sanity check.
 
 	* tree-ssa-ccp.c (likely_value): Renamed from may_fold_p.  Now
 	returns a latticevalue indicating the likely value for the
