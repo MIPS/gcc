@@ -59,6 +59,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "output.h"
 #include "flags.h"
+#include "timevar.h"
 
 /* FIXME -- PROFILE-RESTRUCTURE: change comment from DECL_UID to var-ann. */    
 /* This splay tree contains all of the static variables that are
@@ -986,12 +987,13 @@ analyze_variable (struct cgraph_varpool_node *vnode)
 static void
 analyze_function (struct cgraph_node *fn)
 {
-  tree decl = fn->decl;
   ipa_static_vars_info_t info 
     = xcalloc (1, sizeof (struct ipa_static_vars_info_d));
   ipa_local_static_vars_info_t l
     = xcalloc (1, sizeof (struct ipa_local_static_vars_info_d));
   var_ann_t var_ann = get_var_ann (fn->decl);
+  tree step;
+  basic_block this_block;
 
   if (!memory_identifier_string) ipa_init();
 
@@ -1008,7 +1010,29 @@ analyze_function (struct cgraph_node *fn)
   if (dump_file)
     fprintf (dump_file, "\n local analysis of %s", cgraph_node_name (fn));
   
-  walk_tree (&DECL_SAVED_TREE (decl), scan_for_static_refs, fn, visited_nodes);
+  /* Walk over any private statics that may take addresses of functions.  */
+  if (TREE_CODE (DECL_INITIAL (fn->decl)) == BLOCK)
+    {
+      for (step = BLOCK_VARS (DECL_INITIAL (fn->decl));
+	   step;
+	   step = TREE_CHAIN (step))
+	if (DECL_INITIAL (step))
+	  walk_tree (&DECL_INITIAL (step), scan_for_static_refs, fn, visited_nodes);
+    }
+  /* Also look here for private statics.  */
+  if (DECL_STRUCT_FUNCTION (fn->decl))
+    for (step = DECL_STRUCT_FUNCTION (fn->decl)->unexpanded_var_list;
+	 step;
+	 step = TREE_CHAIN (step))
+      {
+	tree decl = TREE_VALUE (step);
+	if (DECL_INITIAL (decl) && TREE_STATIC (decl))
+	  walk_tree (&DECL_INITIAL (decl), scan_for_static_refs, fn, visited_nodes);
+      }
+  FOR_EACH_BB (this_block)
+    {
+      walk_tree (&this_block->stmt_list, scan_for_static_refs, fn, visited_nodes);
+    }
 }
 
 /* Produce the global information by preforming a transitive closure
@@ -1351,7 +1375,7 @@ struct tree_opt_pass pass_ipa_static =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,				        /* tv_id */
+  TV_IPA_STATIC_VAR,		        /* tv_id */
   0,	                                /* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

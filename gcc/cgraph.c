@@ -931,7 +931,7 @@ cgraph_function_body_availability (struct cgraph_node *node)
   
   else if (!(*targetm.binds_local_p) (node->decl)
 	   && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))
-    if (tree_inlinable_function_p (node->decl))
+    if (DECL_DECLARED_INLINE_P (node->decl))
       avail = AVAIL_OVERWRITTABLE_BUT_INLINABLE;
     else 
       avail = AVAIL_OVERWRITTABLE;

@@ -321,14 +321,6 @@ cgraph_build_cfg (tree fn)
       lower_function_body ();
       lower_eh_constructs ();
       build_tree_cfg (&DECL_SAVED_TREE (fn));
-      if (flag_tree_based_profiling
-	  && (profile_arc_flag || flag_test_coverage 
-	      || flag_branch_probabilities))
-	{
-	  tree_register_profile_hooks ();
-	  branch_prob ();
-	  coverage_end_function ();
-	}
       current_function_decl = saved_current_function_decl;
       pop_cfun ();
     }
@@ -799,6 +791,7 @@ static bool
 cgraph_varpool_analyze_pending_decls (void)
 {
   bool changed = false;
+  timevar_push (TV_IPA_ANALYSIS);
 
   while (cgraph_varpool_first_unanalyzed_node)
     {
@@ -811,6 +804,7 @@ cgraph_varpool_analyze_pending_decls (void)
 	cgraph_create_edges (NULL, DECL_INITIAL (decl));
       changed = true;
     }
+  timevar_pop (TV_IPA_ANALYSIS);
   return changed;
 }
 
@@ -851,9 +845,11 @@ cgraph_analyze_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
 
+  timevar_push (TV_IPA_ANALYSIS);
+  push_cfun (DECL_STRUCT_FUNCTION (decl));
   current_function_decl = decl;
 
-  cgraph_build_cfg (decl);
+  tree_early_local_passes (decl);
 
   /* First kill forward declaration so reverse inlining works properly.  */
   cgraph_create_edges (node, decl);
@@ -868,6 +864,8 @@ cgraph_analyze_function (struct cgraph_node *node)
 
   node->analyzed = true;
   current_function_decl = NULL;
+  pop_cfun ();
+  timevar_pop (TV_IPA_ANALYSIS);
 }
 
 /* Analyze the whole compilation unit once it is parsed completely.  */
@@ -2248,12 +2246,12 @@ cgraph_optimize (void)
       cgraph_varpool_assemble_pending_decls ();
       return;
     }
+  timevar_push (TV_IPA_OPT);
 
   cgraph_function_and_variable_visibility ();
 
   if (flag_ipa_cp && flag_ipa_no_cloning)
     ipcp_driver ();
-  timevar_push (TV_CGRAPHOPT);
   if (!quiet_flag)
     fprintf (stderr, "Performing intraprocedural optimizations\n");
   if (cgraph_dump_file)
@@ -2271,7 +2269,7 @@ cgraph_optimize (void)
       dump_cgraph (cgraph_dump_file);
       dump_varpool (cgraph_dump_file);
     }
-  timevar_pop (TV_CGRAPHOPT);
+  timevar_pop (TV_IPA_OPT);
 
   /* Output everything.  */
   if (!quiet_flag)
@@ -2372,7 +2370,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   /* ??? We will get called LATE in the compilation process.  */
   if (cgraph_global_info_ready)
     {
-      cgraph_build_cfg (decl);
+      tree_early_local_passes (decl);
       tree_rest_of_compilation (decl);
     }
   else
