@@ -1,5 +1,48 @@
 2004-06-16  J"orn Rennecke <joern.rennecke@superh.com>
 
+	* sh.h (SUPPORT_SH1, SUPPORT_SH2E, SUPPORT_SH4): Conditionanlly define.
+	(SUPPORT_SH4_SINGLE): Likewise.
+	(TARGET_SWITCHES): Break out switches for cpu subtargets:
+	(TARGET_SWITCH_SH1, TARGET_SWITCH_SH2, TARGET_SWITCH_SH2E): Define.
+	(TARGET_SWITCH_SH3, TARGET_SWITCH_SH3E): Likewise.
+	(TARGET_SWITCH_SH4_SINGLE_ONLY, TARGET_SWITCH_SH4_SINGLE): Likewise.
+	(TARGET_SWITCH_SH4_NOFPU, TARGET_SWITCH_SH4): Likewise.
+	(TARGET_SWITCH_SH5_64MEDIA, TARGET_SWITCH_SH5_64MEDIA_NOFPU): Likewise.
+	(TARGET_SWITCHES_SH5_32MEDIA): Likewise.
+	(TARGET_SWITCHES_SH5_32MEDIA_NOFPU): Likewise.
+	(SELECT_SH5_64, SELECT_SH5_64_NOFPU): Rename to:
+	(SELECT_SH5_64MEDIA, SELECT_SH5_64MEDIA_NOFPU)
+	(SELECT_SH5_32, SELECT_SH5_32_NOFPU): Rename to:
+	(SELECT_SH5_32MEDIA, SELECT_SH5_32MEDIA_NOFPU).
+	(SH_MULTILIB_CPU_DEFAULT, MULTILIB_DEFAULTS): Define.
+	* sh64.h (TARGET_DEFAULT): Use SELECT_SH5_32MEDIA.
+	* config/sh/t-elf: Amend comment.
+	* config/sh/t-1e, config/sh/t-mlib-sh1: New files.
+	* config/sh/t-mlib-sh2, config/sh/t-mlib-sh2e: Likewise.
+	* config/sh/t-mlib-sh3, config/sh/t-mlib-sh3e: Likewise.
+	* config/sh/t-mlib-sh4, config/sh/t-mlib-sh4-nofpu: Likewise.
+	* config/sh/t-mlib-sh4-single: Likewise.
+	* config/sh/t-mlib-sh4-single-only: Likewise.
+	* config/sh/t-mlib-sh5-32media: Likewise.
+	* config/sh/t-mlib-sh5-32media-nofpu: Likewise.
+	* config/sh/t-mlib-sh5-64media: Likewise.
+	* config/sh/t-mlib-sh5-64media-nofpu: Likewise.
+	* config/sh/t-mlib-sh5-compact: Likewise.
+	* config/sh/t-mlib-sh5-compact-nofpu: Likewise.
+	* config/sh/t-sh: (MULTILIB_ENDIAN): Add mb.
+	(MULTILIB_CPUS): Define.
+	(MULTILIB_OPTIONS): Use MULTILIB_CPUS.
+	(MULTILIB_MATCHES): Use some shell code to calculate it.
+	(MULTILIB_EXCEPTIONS): Change to ml/m1.
+	* config.gcc: Also set cpu_type / need_64bit_hwint for sh[be]*-*-*.
+	(sh*linux configurations): Merge into:
+	(sh*elf / sh*kaos configurations).  Support --with-endian, --with-cpu,
+	--with-multilib-list options.  Support sh-superh-elf configuration.
+	(sh*-netbsd*): Use SELECT_SH* macros.
+	(supported_defaults): sh[1234ble]-*-* | sh-*-* support "cpu".
+
+2004-06-16  J"orn Rennecke <joern.rennecke@superh.com>
+
 	* cfglayout.c (fixup_reorder_chain): Handle case where the
 	destination of E_FALL is EXIT_BLOCK_PTR.
 
