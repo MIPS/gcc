@@ -52,6 +52,8 @@ typedef struct gfc_intrinsic_map_t	GTY(())
      garbage collection/gengtype parsing mechanism.  */
   const enum gfc_generic_isym_id id;
   const char *name;
+  const int code4;
+  const int code8;
   tree GTY(()) real4_decl;
   tree GTY(()) real8_decl;
   tree GTY(()) complex4_decl;
@@ -59,41 +61,28 @@ typedef struct gfc_intrinsic_map_t	GTY(())
 }
 gfc_intrinsic_map_t;
 
-#define I_LIB(id, name) {id, name, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
+#define I_LIB(id, name) {GFC_ISYM_ ## id, name, \
+    END_BUILTINS, END_BUILTINS, \
+    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
+#define DEFINE_MATH_BUILTIN(id, name, nargs) {GFC_ISYM_ ## id, name, \
+    BUILT_IN_ ## id ## F, BUILT_IN_ ## id, \
+    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
 static GTY(()) gfc_intrinsic_map_t gfc_intrinsic_map[] =
 {
   /* Math functions.  These are in libm.  */
-  I_LIB (GFC_ISYM_SIN, "sin")
-  I_LIB (GFC_ISYM_COS, "cos")
-  I_LIB (GFC_ISYM_SQRT, "sqrt")
-  I_LIB (GFC_ISYM_TAN, "tan")
-  I_LIB (GFC_ISYM_ASIN, "asin")
-  I_LIB (GFC_ISYM_ACOS, "acos")
-  I_LIB (GFC_ISYM_ATAN, "atan")
-  I_LIB (GFC_ISYM_ATAN2, "atan2")
-  I_LIB (GFC_ISYM_SINH, "sinh")
-  I_LIB (GFC_ISYM_COSH, "cosh")
-  I_LIB (GFC_ISYM_TANH, "tanh")
-  I_LIB (GFC_ISYM_EXP, "exp")
-  I_LIB (GFC_ISYM_LOG, "log")
-  I_LIB (GFC_ISYM_LOG10, "log10") I_LIB (GFC_ISYM_NONE, NULL)
+  I_LIB	    (ACOS,  "acos")
+  I_LIB	    (ASIN,  "asin")
+  I_LIB	    (COSH,  "cosh")
+  I_LIB	    (LOG10, "log10")
+  I_LIB	    (SINH,  "sinh")
+  I_LIB	    (TANH,  "tanh")
+  /* Also the builtin math functions.  */
+#include "mathbuiltins.def"
+
+  I_LIB (NONE, NULL)
 };
 #undef I_LIB
-
-typedef struct
-{
-  const gfc_generic_isym_id id;
-  const int code4;
-  const int code8;
-}
-gfc_builtin_intrinsic_t;
-
-static const gfc_builtin_intrinsic_t gfc_builtin_intrinsics[] = {
-  {GFC_ISYM_SIN, BUILT_IN_SINF, BUILT_IN_SIN},
-  {GFC_ISYM_COS, BUILT_IN_COSF, BUILT_IN_COS},
-  {GFC_ISYM_SQRT, BUILT_IN_SQRTF, BUILT_IN_SQRT},
-  {GFC_ISYM_NONE, 0, 0}
-};
+#undef I_BUILTIN
 
 
 /* Evaluate the arguments to an intrinsic function.  */
@@ -404,21 +393,15 @@ gfc_conv_intrinsic_conjg (gfc_se * se, gfc_expr * expr)
 void
 gfc_build_intrinsic_lib_fndecls (void)
 {
-  const gfc_builtin_intrinsic_t *i;
   gfc_intrinsic_map_t *m;
 
   /* Add GCC builtin functions.  */
-  for (i = gfc_builtin_intrinsics; i->id != GFC_ISYM_NONE; i++)
+  for (m = gfc_intrinsic_map; m->id != GFC_ISYM_NONE; m++)
     {
-      for (m = gfc_intrinsic_map; m->id != GFC_ISYM_NONE; m++)
-	{
-	  if (m->id == i->id)
-	    break;
-	}
-      assert (m->id != GFC_ISYM_NONE);
-
-      m->real4_decl = built_in_decls[i->code4];
-      m->real8_decl = built_in_decls[i->code8];
+      if (m->code4 != END_BUILTINS)
+        m->real4_decl = built_in_decls[m->code4];
+      if (m->code8 != END_BUILTINS)
+	m->real8_decl = built_in_decls[m->code8];
     }
 }
 

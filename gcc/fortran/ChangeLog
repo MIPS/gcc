@@ -1,3 +1,16 @@
+2003-08-30  Paul Brook  <paul@nowt.org>
+
+	* f95-lang.c (builtin_function): Remove #if 0 code.
+	(gfc_define_builtin): New function.
+	(gfc_init_builtin_functions): Use mathbuiltins.def not ../builtins.def.
+	* mathbuiltins.def: New file.
+	* trans-intrinsic.c (gfc_intrinsic_map_t): Add builtin code fields.
+	(gfc_intrinsic_map): Use mathbuiltins.def.
+	(gfc_intrinsic_builtin_t): Remove.
+	(gfc_build_intrinsic_lib_fndecls): Update.
+	* trans-types.c (gfc_init_types): Remove redundant initilaization of
+	signed_size_type_node.
+
 2003-08-29  Paul Brook  <paul@nowt.org>
 
 	* arith.c (gfc_real_kinds): Use correct minimum exponents.
