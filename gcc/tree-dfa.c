@@ -74,7 +74,7 @@ static void add_ptr_may_refs PARAMS ((void));
 /* Global declarations.  */
 
 /* Array of all variables referenced in the function.  */
-size_t num_referenced_vars;
+unsigned long num_referenced_vars;
 varray_type referenced_vars;
 
 /* List of all call sites in the current function.  */
@@ -1071,7 +1071,9 @@ dump_ref (outf, prefix, ref, indent, details)
   else
     fprintf (outf, "nil");
 
-  fprintf (outf, "): line %d, bb %d, id %d, ", lineno, bbix, ref_id (ref));
+  fprintf (outf, "): line %d, bb %d, id ", lineno, bbix);
+  fprintf (outf, HOST_WIDE_INT_PRINT_DEC, ref_id (ref));
+  fprintf (outf, ", ");
 
   if (ref_expr (ref))
     print_c_node (outf, ref_expr (ref));
@@ -1224,7 +1226,7 @@ dump_referenced_vars (file)
 {
   size_t i;
 
-  fprintf (file, "\n;; Function %s: %d referenced variables\n\n", 
+  fprintf (file, "\n;; Function %s: %lu referenced variables\n\n", 
 	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)),
 	   num_referenced_vars);
 

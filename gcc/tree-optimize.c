@@ -77,13 +77,13 @@ optimize_function_tree (fndecl)
   /* Begin optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
-      if (flag_tree_ssa_pre)
+      if (flag_tree_pre)
 	tree_perform_ssapre ();
 
-      if (flag_tree_ssa_ccp)
+      if (flag_tree_ccp)
 	tree_ssa_ccp (fndecl);
 
-      if (flag_tree_ssa_dce)
+      if (flag_tree_dce)
 	tree_ssa_eliminate_dead_code (fndecl);
     }
 

@@ -45,7 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  
 void 
 mudflap_c_function (t)
-     tree t;
+     tree t ATTRIBUTE_UNUSED;
 {
   abort ();
 }
@@ -53,8 +53,8 @@ mudflap_c_function (t)
 
 void 
 mudflap_enqueue_decl (obj, label)
-     tree obj;
-     const char *label;
+     tree obj ATTRIBUTE_UNUSED;
+     const char *label ATTRIBUTE_UNUSED;
 {
   abort ();
 }
@@ -62,8 +62,8 @@ mudflap_enqueue_decl (obj, label)
 
 void 
 mudflap_enqueue_constant (obj, label)
-     tree obj;
-     const char *label;
+     tree obj ATTRIBUTE_UNUSED;
+     const char *label ATTRIBUTE_UNUSED;
 {
   abort ();
 }

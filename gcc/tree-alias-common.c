@@ -657,13 +657,14 @@ display_points_to_set_helper (tvar)
     }
   fprintf (stderr, " }\n");
 }
+
 static int
 display_points_to_set (node, data)
      splay_tree_node node;
      void *data ATTRIBUTE_UNUSED;
 {
-/* Display the points to set for the given alias_typevar (in the
-   splay tree node.) */
+  /* Display the points to set for the given alias_typevar
+     (in the splay tree node.) */
   display_points_to_set_helper ((alias_typevar)node->value); 
   return 0;
 }

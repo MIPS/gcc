@@ -204,12 +204,12 @@ compute_idfs (dfs, stmt)
   sbitmap_zero (inworklist);
   sbitmap_zero (idf);
   block = bb_for_stmt (stmt);
-  fibheap_insert (worklist, block->index, (void *)block->index);
+  fibheap_insert (worklist, block->index, (void *)(size_t)block->index);
   SET_BIT (inworklist, block->index);
  
   while (!fibheap_empty (worklist))
     {
-      int a = (int) fibheap_extract_min (worklist);
+      int a = (size_t) fibheap_extract_min (worklist);
       sbitmap_a_or_b (idf, idf, dfs[a]);
       EXECUTE_IF_SET_IN_SBITMAP (dfs[a], 0, i,
       {
@@ -1584,6 +1584,7 @@ down_safety (ei)
           reset_down_safe (phi_operand (phi, block2));
     }      
 } 
+
 static bool
 requires_edge_placement (phi)
      tree_ref phi;
@@ -2161,7 +2162,7 @@ tree_perform_ssapre ()
   sbitmap_vector_zero (pre_dfs, last_basic_block);
   compute_dominance_frontiers (pre_dfs, pre_idom);
 
-  dump_file = dump_begin (TDI_ssa_pre, &dump_flags);
+  dump_file = dump_begin (TDI_pre, &dump_flags);
   calculate_preorder ();
   FOR_EACH_BB (bb)
     {    
@@ -2257,7 +2258,7 @@ tree_perform_ssapre ()
       else
         print_c_tree (dump_file, fn);
 
-      dump_end (TDI_ssa_pre, dump_file);
+      dump_end (TDI_pre, dump_file);
     }
   
   for (j = 0; j < VARRAY_ACTIVE_SIZE (bexprs); j++)

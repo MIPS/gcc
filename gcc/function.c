@@ -3283,7 +3283,7 @@ insns_for_mem_hash (k)
 {
   /* Use the address of the key for the hash value.  */
   struct insns_for_mem_entry *m = (struct insns_for_mem_entry *) k;
-  return (hashval_t) m->key;
+  return (hashval_t)(size_t) m->key;
 }
 
 /* Return non-zero if K1 and K2 (two REGs) are the same.  */
