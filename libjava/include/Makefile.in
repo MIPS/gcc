@@ -123,6 +123,7 @@ ZINCS = @ZINCS@
 ZLIBS = @ZLIBS@
 ZLIBSPEC = @ZLIBSPEC@
 ZLIBTESTSPEC = @ZLIBTESTSPEC@
+gcc_version = @gcc_version@
 glibjava_CXX = @glibjava_CXX@
 here = @here@
 libgcj_basedir = @libgcj_basedir@

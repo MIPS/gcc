@@ -37,7 +37,7 @@
 
 namespace std
 {
-  // Specializations
+  // Specializations.
   template<>
     string
     messages<char>::do_get(catalog, int, int, const string& __dfault) const
@@ -48,9 +48,11 @@ namespace std
       __uselocale(__old);
       return string(__msg);
 #else
-      const char* __old = setlocale(LC_ALL, _M_name_messages);
+      char* __old = strdup(setlocale(LC_ALL, NULL));
+      setlocale(LC_ALL, _M_name_messages);
       const char* __msg = gettext(__dfault.c_str());
       setlocale(LC_ALL, __old);
+      free(__old);
       return string(__msg);
 #endif
     }

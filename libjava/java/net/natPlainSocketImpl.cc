@@ -46,11 +46,23 @@ read(int s, void *buf, int len)
 #define ENOPROTOOPT 109
 #endif
 #else /* WIN32 */
+
+#ifdef HAVE_SYS_IOCTL_H
+#define BSD_COMP /* Get FIONREAD on Solaris2. */
+#include <sys/ioctl.h>
+#endif
+
+// Pick up FIONREAD on Solaris 2.5.
+#ifdef HAVE_SYS_FILIO_H
+#include <sys/filio.h>
+#endif
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <errno.h>
 #include <string.h>
+
 #endif /* WIN32 */
 #endif /* DISABLE_JAVA_NET */
 
@@ -428,6 +440,7 @@ java::net::PlainSocketImpl::close()
     }
   // Safe place to reset the file pointer.
   fnum = -1;
+  timeout = 0;
 }
 
 // Write a byte to the socket.

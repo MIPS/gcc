@@ -1,3 +1,642 @@
+2002-05-20  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html (5.4):  Recommend against -I options for
+	finding the ext headers.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2002-05-19  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/23_containers/deque_operators.cc (test01):
+	Fix minor typo in last commit.
+
+2002-05-18  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/6503
+	* include/bits/stl_deque.h (_Deque_iterator::operator==,
+	operator!=, operator<, operator>, operator>=, operator<=):
+	Make non-member functions, to allow comparing const and
+	non-const iterators in any order.
+	* testsuite/23_containers/deque_operators.cc: New testfile.
+
+2002-05-16  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html:  Update not-a-bug list with basic_file.h.
+	* docs/html/faq/index.txt:  Regenerate.
+
+2002-05-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Makefile.am: Allow for PWDCMD to override hardcoded pwd.
+	* acinclude.m4: Likewise.
+	* docs/html/Makefile: Likewise.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2002-05-15  Loren J. Rittle <ljrittle@acm.org>
+
+	libstdc++/6641
+	* include/bits/c++config (__USE_MALLOC): Report case where
+	the user improperly defined it on the command line.
+
+2002-05-15  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/testsuite_hooks.h (__set_testsuite_memlimit):
+	Retrieve current limits before setting.
+
+2002-05-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6518
+	* include/bits/ostream.tcc (ostream::operator<<(const char*)): Fix
+	for null case.
+	(ostream::operator<<(const _CharT*)): Same.
+	(ostream<char>::operator<<(const char*)): Same.
+	* testsuite/27_io/ostream_inserter_char.cc (test07): Add test.
+	
+2002-05-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6594
+	* src/strstream.cc (strstreambuf): Fix leak.
+
+2002-05-15  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/6648
+	* include/bits/istream.tcc (istream::getline, ignore):
+	Upon __idelim (__delim) call sbumpc() not snextc().
+	* testsuite/27_io/narrow_stream_objects.cc:
+	Add test08 and test09.
+
+2002-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/ctype_scan_char.cc: Tweak.
+	* testsuite/22_locale/ctype_scan_wchar_t.cc: New.	
+
+	* docs/html/install.html: Fix.
+	
+2002-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/fstream.tcc
+	(basic_filebuf::_M_allocate_internal_buffer): Remove extraneous
+	try/catch blocks.
+	* src/localename.cc (locale::_Impl::_M_install_facet): Same.
+
+	* docs/html/install.html: Tweak, add bits about required locales
+	for the 22_locale tests when using the gnu model.
+
+	* testsuite/27_io/istream_sentry.cc: Tweak.
+	
+2002-05-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/os/irix/irix5.2/bits/ctype_inline.h (scan_is, scan_not):
+	Fix typo, use this->is() rather than manually (and perhaps
+	incorrectly) inlining it.
+	* config/os/irix/irix6.5/bits/ctype_inline.h (scan_is, scan_not):
+	Likewise.
+	* testsuite/22_locale/ctype_scan_char.cc: New file.
+
+2002-05-13  Paolo Carlini  <pcarlini@unitus.it>
+            Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/22_locale/money_get_members_char.cc
+	(test01, test02, test04): Use the de_DE@euro named locale
+	instead of de_DE to allow for an uniform behaviour with
+	both old and Euro-era localedata; tweak some tests.
+	* testsuite/22_locale/money_get_members_wchar_t.cc
+	(test01, test02, test04): Likewise.
+	* testsuite/22_locale/money_put_members_char.cc
+	(test01, test02, test04): Likewise.
+	* testsuite/22_locale/money_put_members_wchar_t.cc
+	(test01, test02, test04): Likewise.
+
+2002-05-13  Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/22_locale/codecvt_members_char_char.cc
+        (test03): Robustify wrt localedata.
+	* testsuite/22_locale/codecvt_members_wchar_t_char.cc (test03): Likewise.
+	* testsuite/22_locale/collate_members_char.cc (test04): Likewise.
+	* testsuite/22_locale/collate_members_wchar_t.cc (test04): Likewise.
+	* testsuite/22_locale/ctype_members_char.cc (test05): Likewise.
+	* testsuite/22_locale/ctype_members_wchar_t.cc (test04): Likewise.
+	* testsuite/22_locale/messages_members_char.cc (test03): Likewise.
+	* testsuite/22_locale/money_get_members_char.cc (test08): Likewise.
+	* testsuite/22_locale/money_get_members_wchar_t.cc (test08): Likewise.
+	* testsuite/22_locale/money_put_members_char.cc (test07): Likewise.
+	* testsuite/22_locale/money_put_members_wchar_t.cc (test07): Likewise.
+	* testsuite/22_locale/moneypunct_members_char.cc (test03): Likewise.
+	* testsuite/22_locale/moneypunct_members_wchar_t.cc (test03): Likewise.
+	* testsuite/22_locale/num_get_members_char.cc (test06): Likewise.
+	* testsuite/22_locale/num_get_members_wchar_t.cc (test06): Likewise.
+	* testsuite/22_locale/num_put_members_char.cc (test04): Add comment.
+	* testsuite/22_locale/num_put_members_wchar_t.cc (test04): Likewise.
+	* testsuite/22_locale/numpunct_members_char.cc (test03): Likewise.
+	* testsuite/22_locale/numpunct_members_wchar_t.cc (test03): Likewise.
+	* testsuite/22_locale/time_get_members_char.cc (test08): Likewise.
+	* testsuite/22_locale/time_get_members_wchar_t.cc (test08): Likewise.
+	* testsuite/22_locale/time_put_members_char.cc (test04): Likewise.
+	* testsuite/22_locale/time_put_members_wchar_t.cc (test04): Likewise.
+
+2002-05-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/os/irix/irix5.2/bits/os_defines.h: Revert 2002-05-06
+	change.
+
+2002-05-11  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* config/os/gnu-linux/bits/os_defines.h (__glibcpp_long_bits): Define
+	to 64 for hppa 64-bit port.
+	(__glibcpp_long_double_bits): Define to 64 for all hppa ports.
+
+2002-05-10  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* acinclude.m4 (enable_symvers): Quote $LD.
+	* aclocal.m4: Regenerate.
+	* configure: Likewise.
+
+2002-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init): Append all
+	multilib dirs containing libgcc_s*.so.1 below gcc object dir to
+	LD_LIBRARY_PATH.
+
+2002-05-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (ORIGINAL_LD_FOR_MULTILIBS): Preserve LD at
+	script entry, and set LD to it when configuring multilibs.
+	* configure: Rebuilt.
+
+2002-05-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.in: Add support for WindISS.
+	* configure: Regenerated.
+	* configure.target: Add support for WindISS.
+	* config/os/windiss/bits/ctype_base.h: New file.
+	* config/os/windiss/bits/ctype_inline.h: Likewise.
+	* config/os/windiss/bits/ctype_noninline.h: Likewise.
+	* config/os/windiss/bits/os_defines.h: Likewise.
+
+2002-05-06  Paolo Carlini  <pcarlini@unitus.it>
+
+	Test all the facets for the temporary "C" locale switch issue.
+	* testsuite/22_locale/codecvt_members_char_char.cc: Add test03.
+	* testsuite/22_locale/codecvt_members_wchar_t_char.cc: Likewise.
+	* testsuite/22_locale/collate_members_char.cc: Add test04.
+	* testsuite/22_locale/collate_members_wchar_t.cc: Likewise.
+	* testsuite/22_locale/ctype_members_char.cc: Add test05.
+	* testsuite/22_locale/ctype_members_wchar_t.cc: Add test04.
+	* testsuite/22_locale/messages_members_char.cc: Add test03.
+	* testsuite/22_locale/money_get_members_char.cc: Add test08.
+	* testsuite/22_locale/money_get_members_wchar_t.cc: Likewise.
+	* testsuite/22_locale/money_put_members_char.cc: Add test07. 
+	* testsuite/22_locale/money_put_members_wchar_t.cc: Likewise.
+	* testsuite/22_locale/moneypunct_members_char.cc: Add test03.
+	* testsuite/22_locale/moneypunct_members_wchar_t.cc: Likewise.
+	* testsuite/22_locale/num_get_members_char.cc: Add test06.
+	* testsuite/22_locale/num_get_members_wchar_t.cc: Likewise. 
+	* testsuite/22_locale/numpunct_members_char.cc: Add test03.
+	* testsuite/22_locale/numpunct_members_wchar_t.cc: Likewise. 
+	* testsuite/22_locale/time_get_members_char.cc: Add test08.
+	* testsuite/22_locale/time_get_members_wchar_t.cc: Likewise. 
+	* testsuite/22_locale/time_put_members_char.cc: Add test04.
+	* testsuite/22_locale/time_put_members_wchar_t.cc: Likewise.
+
+	* testsuite/22_locale/num_put_members_char.cc (test04): Add comment.
+	* testsuite/22_locale/num_put_members_wchar_t.cc (test04): Likewise.
+
+2002-05-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/os/irix/irix5.2/bits/os_defines.h (_SGI_SOURCE,
+	__EXTENSIONS__): Ensure they are always defined.
+
+2002-05-06  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/documentation.html:  Fix broken link.
+
+2002-05-04  Benjamin Kosnik  <bkoz@redhat.com>
+	    Paolo Carlini  <pcarlini@unitus.it>
+
+	* testsuite/22_locale/num_put_members_char.cc: Add test04(),
+	testing for the locale_facets.tcc entry of the previous commit.
+	* testsuite/22_locale/num_put_members_wchar_t.cc: Likewise.
+
+2002-05-04  Takeshi Kobayakawa  <tskoba@mte.biglobe.ne.jp>
+
+	* config/locale/generic/c_locale.cc
+	(__convert_to_v(float, double, long double)):
+	Fix the temporary switch to the "C" locale, saving and
+	restoring in the proper way the current locale.
+	* config/locale/generic/time_members.cc
+	(__timepunct<char, wchar_t>::_M_put): Likewise.
+	* config/locale/gnu/messages_members.cc
+	(messages<char>::do_get): Likewise.
+	* config/locale/gnu/messages_members.h
+	(messages<_CharT>::do_get): Likewise.
+	* config/locale/gnu/time_members.cc
+	(__timepunct<char, wchar_t>::_M_put): Likewise.
+	* include/bits/locale_facets.tcc (__convert_from_v): Likewise.
+
+2002-05-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (AC_CHECK_HEADERS): Check for string.h & stdlib.h.
+	* libsupc++/Makefile.am (LTCOMPILE): Add $(DEFS).
+
+	* Makefile.in, config.h.in, configure: Regenerate.
+
+2002-05-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6549.
+	* include/bits/fstream.tcc (filebuf::_M_underflow_common): Revert.
+	* testsuite/27_io/narrow_stream_objects.cc (test07): Add.
+	
+2002-05-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/os/irix/irix5.2/bits/ctype_noninline.h (classic_table):
+	Return __ctype + 1.
+	(ctype:_M_table): Initialize to classic_table(), not __ctype.
+
+2002-05-03  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Update local install.html, configopts.html paths.
+	* configure: Regenerate.
+
+2002-05-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/os/irix/irix5.2/bits/os_defines.h
+	(__glibcpp_long_double_bits, __glibcpp_long_bits): Define.
+
+	* config/os/irix/irix5.2/bits/ctype_inline.h: Cast to unsigned
+	char.
+
+2002-05-02  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/faq/index.html:  Update list in #4.1.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2002-05-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/17_intro/RELEASE-NOTES (New): Update.
+
+2002-05-01  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/std/std_bitset.h:  Fix doxygen comments.
+	* docs/html/documentation.html:  Minor tweaks for 3.1.
+	* docs/html/27_io/howto.html:  Likewise.
+	* docs/html/ext/howto.html:  Likewise, mention stdio_filebuf.
+	* docs/html/faq/index.html:  Likewise.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2002-05-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6533
+	* include/bits/streambuf_iterator.h (istreambuf_iterator::_M_get): New.
+	(istreambuf_iterator::equal): Use it.
+	(istreambuf_iterator::operator*): Use it.	
+
+2002-05-01  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/6513
+	* include/bits/stl_uninitialized.h
+	(uninitialized_copy(_InputIter, _InputIter, _ForwardIter)):
+	Fix typo in 2001-07-17 commit: typedef _ValueType to
+	iterator_traits<_ForwardIter> not <_InputIter>.
+	* testsuite/23_containers/vector_ctor.cc: Add test04.
+
+2002-04-30  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+	
+	PR libstdc++/6501
+	* include/c_std/std_cctype.h: Include bits/c++config.h.
+	* config/os/hpux/bits/os_defines.h (_SB_CTYPE_MACROS): Define.
+
+2002-04-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/stdio_filebuf.h: New file.
+	* include/ext/enc_filebuf.h: New file.	
+	* config/io/basic_file_stdio.h (__basic_file::sys_open): Add fd ctor.
+	* config/io/basic_file_stdio.cc: Same.	
+	* include/bits/fstream.tcc (filebuf::_M_allocate_internal_buffer):
+	Remove _M_unbuf hacks.
+	(filebuf::_M_destroy_internal_buffer): Same.
+	(filebuf::filebuf(cfile, openmode, int_type): Remove definition.
+	(filebuf::fd): Remove.
+	* include/std/std_fstream.h (filebuf::_M_unbuf): Remove.
+	(filebuf::filebuf(__c_file*, openmode, int_type)): Remove.
+	(filebuf::fd): Remove.	
+	* src/ios.cc (ios_base::_S_ios_create): Change to use specialized
+	filebufs.
+	(ios_base::_S_ios_destroy): Same.
+	* src/misc-inst.cc (file_filebuf<char>): Add instantiation.
+	* include/Makefile.am (ext_headers): Add ext_filebuf.h,
+	stdio_filebuf.h.  * include/Makefile.in: Regenerate.
+
+2002-04-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6511
+	* config/os/solaris/solaris2.7/bits/ctype_noninline.h: Fix typo.
+
+2002-04-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/5820
+	* include/bits/fstream.tcc (basic_filebuf::_M_underflow_common):
+	Check for eof.
+	* include/bits/streambuf_iterator.h: Match stream_iterator.h.
+	(istreambuf_iterator::operator++): Invalidate on eof.
+	(istreambuf_iterator::operator++(int)): Same.
+	(istreambuf_iterator::operator*): Same.
+	
+2002-04-29  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* testsuite/lib/libstdc++-v3-dg.exp (libstdc++-v3-init): Set all
+	of LD_LIBRARY_PATH, SHLIB_PATH, LD_LIBRARYN32_PATH,
+	LD_LIBRARY64_PATH. 
+
+2002-04-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/5820
+	* config/io/basic_file_stdio.h (__basic_file::sys_getc): Return int.
+	(__basic_file::sys_ungetc): Take int.
+	* config/io/basic_file_stdio.cc (__basic_file::sys_ungetc): Same.
+	* include/bits/fstream.tcc (basic_filebuf::_M_underflow_common):
+	Use sys_getc for unbuffered input.
+	* testsuite/27_io/narrow_stream_objects.cc (test06): New.
+	
+	* src/ios.cc (_M_grow_words): Adjust error checking.
+	* testsuite/27_io/ios_base_storage.cc: Same.
+
+2002-04-28  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* include/ext/stl_hashtable.h: Import __iterator_category
+
+2002-04-28  Paolo Carlini  <pcarlini@unitus.it>
+            Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	* testsuite/ext/hash_set.cc: New testfile.
+
+2002-04-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/os/solaris/solaris2.5/bits/os_defines.h: Remove
+	_G_USING_THUNKS.
+	* config/os/solaris/solaris2.6/bits/os_defines.h: Same.
+	* config/os/solaris/solaris2.7/bits/os_defines.h: Same.
+
+2002-04-26  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/basic_string.h (replace(__pos, __n1, __s, __n2):
+	Fix and tighten __throw_length_error check.
+	* testsuite/21_strings/replace.cc (test05): New.
+	* testsuite/21_strings/replace.cc (test02, test03, test04): Tweak.
+
+2002-04-23  Loren J. Rittle <ljrittle@acm.org>
+
+	* include/std/std_fstream.h (basic_filebuf::sync): Hoist
+	unconditional flush on lower-layer handle to here...
+	* include/bits/fstream.tcc (basic_filebuf::_M_really_overflow):
+	...from here.  Optimize remaining _M_file.sync() call pattern.
+	* testsuite/27_io/narrow_stream_objects.cc (test04): New test.
+	(test05): Likewise.
+
+2002-04-23  Jason Merrill  <jason@redhat.com>
+
+	* include/bits/fstream.tcc (basic_filebuf::seekoff): Fix for
+	output-only filebufs.
+	* include/std/std_fstream.h (basic_filebuf::_M_set_indeterminate):
+	Likewise.
+	(basic_filebuf::_M_set_determinate): Likewise.
+
+	PR libstdc++/6414
+	* include/bits/fstream.tcc (basic_filebuf::seekoff): Adjust return
+	value properly in the trivial case.
+	* testsuite/27_io/istream_seeks.cc (test04): Make sure that
+	tellg() returns the right value after a read.
+
+2002-04-23  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/cpu/mmix/bits/cpu_limits.h: New file.
+	* configure.target (CPULIMITSH): Use it.
+
+2002-04-22  Loren J. Rittle <ljrittle@acm.org>
+
+	* docs/html/17_intro/porting.texi (_GLIBCPP_AVOID_FSEEK): Remove.
+	* docs/html/17_intro/porting.html: Rebuilt.
+
+2002-04-20  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/4150
+	* include/std/std_streambuf.h (basic_streambuf::_M_set_indeterminate): 
+	Move to filebuf.
+	(basic_streambuf::_M_set_determinate): Likewise.
+	(basic_streambuf::_M_is_indeterminate): Likewise.
+	* include/bits/std_fstream.h (basic_filebuf::_M_filepos): New 
+	non-static data member.
+	(basic_filebuf::_M_underflow_common): New non-static member function.
+	(basic_filebuf::_M_underflow, _M_uflow): Call it.
+	(basic_filebuf::sync): Avoid useless seeking.
+	(basic_filebuf::_M_set_indeterminate): Move here from streambuf.
+	Set _M_filepos.
+	(basic_filebuf::_M_set_determinate): Likewise.
+	(basic_filebuf::_M_is_indeterminate): Likewise.
+	* include/bits/fstream.tcc (basic_filebuf::_M_really_overflow): Seek
+	back to _M_out_beg if necessary.
+	(basic_filebuf::seekoff): Likewise.
+	(basic_filebuf::_M_underflow_common): Generalization of old 
+	underflow().  Don't seek back to _M_in_beg.
+	* src/ios.cc: Lose _GLIBCPP_AVOID_FSEEK stuff.
+	* config/os/solaris/solaris2.?/bits/os_defines.h: Likewise.
+	* config/os/bsd/freebsd/bits/os_defines.h: Likewise.
+	* config/os/mingw32/bits/os_defines.h: Likewise.
+	* testsuite/27_io/filebuf_virtuals.cc (test05): Don't overspecify 
+	ungetc test.
+
+2002-04-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/istream.tcc (istream::read): Fix.
+	* testsuite/27_io/istream_unformatted.cc (main): Add.
+
+2002-04-20  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/6360
+	* include/bits/istream.tcc (istream::ignore): Streamline, use
+	delimiter as is.
+	* include/bits/streambuf.tcc: Use this->gptr.
+	* testsuite/27_io/istream_unformatted.cc (test08): Add test.
+	
+2002-04-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/localefwd.h (locale::id::_M_id): Do this correctly,
+	as type safety is important, especially on solaris.
+	* include/bits/istream.tcc (istream::read): Clean.
+	(istream::readsome): Same.
+	* locale.cc: Wrap lines.
+
+	* testsuite/21_strings/inserters_extractors.cc: Tweaks.
+	* testsuite/27_io/instantiations.cc (test): Add bool variable...
+	* testsuite/21_strings/capacity.cc: Clean.
+		
+2002-04-17  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/doxygroups.cc:  New group on binary searching.
+	* include/bits/stl_algo.h:  Document binary searches and merges.
+	* include/bits/stl_deque.h:  The 'map' member is not the 'map' class.
+
+2002-04-17  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/mainpage.html:  Doxygen logo is now a PNG file.
+	* docs/doxygen/run_doxygen:  Bump required version.
+	* docs/doxygen/user.cfg.in:  Revert accidental change.
+	* docs/html/faq/index.html:  Reindent a block of links.
+	(4.4):  New note on using dlsym.
+	* docs/html/faq/index.txt:  Regenerated.
+
+2002-04-17  Phil Edwards  <pme@gcc.gnu.org>
+
+	* testsuite_flags.in (cxxflags):  Also pass @EXTRA_CXX_FLAGS@.
+
+2002-04-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu (__malloc_alloc_template): Add.
+	(__default_alloc_template): Same.	
+	* include/bits/stl_alloc.h (__malloc_alloc_template): Add extern
+	template.
+	(__default_alloc_template): Same.
+	
+2002-04-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/filebuf_virtuals.cc: Add _S_pback_size instantiation.
+
+2002-04-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/concept-inst.cc (vector<locale::facet*>): Remove instantiations.
+	* src/stl-inst.cc (vector::_M_insert_aux): Remove instantiation.
+	(__malloc_alloc_template): Conditionalize.
+
+	* include/bits/istream.tcc: Remove sputbackc calls.
+
+	* testsuite/19_diagnostics/stdexceptions.cc: Fix comment.
+	
+2002-04-16  Paolo Carlini <pcarlini@unitus.it>
+
+ 	* testsuite/24_iterators/rel_ops.cc: New test.
+	
+2002-04-16  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* include/bits/type_traits.h (__normal_iterator): Declare in
+	__gnu_cxx.  Adjust use at global namespace.
+	* include/bits/stl_iterator.h (__normal_iterator): Move definition
+	into __gnu_cxx::. Add more operator overloads.  Tidy existing ones.
+	* include/bits/basic_string.h (basic_string): Adjust use of
+	__normal_iterator.
+	* include/bits/stl_vector.h (_Alloc>): Likewise.
+	* src/concept-inst.cc (__gnu_cxx): __normal_iterator<> is now here.
+	* src/string-inst.cc (operator==): Instantiate in __gnu_cxx.
+
+2002-04-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/4164
+	Valgrind fixes.
+	* config/io/basic_file_stdio.cc (__basic_file::~__basic_file):
+	Call close.
+	(__basic_file::close): Call fflush. Correct return if fclose ok. 
+	(__basic_file::is_open): Make const.
+	Change __c_file_type to __c_file.
+	* config/io/basic_file_stdio.h: Change __c_file_type to __c_file.
+	(__basic_file::is_open): Make const.	
+	* config/io/c_io_stdio.h: Change __c_file_type to __c_file.
+	* include/std/std_fstream.h (filebuf::_M_allocate_file): Remove.
+	(filebuf::_M_unbuf): Add.
+	(filebuf::_M_file): Change to non-pointer.
+	(filebuf::_M_allocate_pback_buffer): Remove.
+	* include/bits/fstream.tcc (filebuf::_M_allocate_file): Remove.
+	(filebuf::_M_allocate_internal_buffer): Use _M_unbuf.
+	Change initialization list for _M_file change.
+	(filebuf::_M_allocate_pback_buffer): Remove.
+	Change _M_file usage to reflect non-pointer data member.
+	
+	* config/locale/generic/c_locale.cc
+	(locale::facet::_S_create_c_locale): Add parameter.
+	* config/locale/generic/collate_members.cc: Change
+	_M_compare_helper to _M_compare.
+	Change _M_transform_helper to _M_transform.
+	* config/locale/generic/monetary_members.cc: Changeup data types.
+	Add dtors.
+	* config/locale/generic/numeric_members.cc: Add dtors.
+	* config/locale/generic/time_members.cc: Add dtors.
+	* config/locale/gnu/c_locale.cc: Add parameter.
+	* config/locale/gnu/collate_members.cc:Change
+	_M_compare_helper to _M_compare.
+	Change _M_transform_helper to _M_transform.
+	* config/locale/gnu/ctype_members.cc: Better error checking.
+	* config/os/gnu-linux/bits/ctype_noninline.h: Better error checking.
+	* config/locale/gnu/messages_members.cc: Tweak comment.
+	* config/locale/gnu/monetary_members.cc: Change data types.
+	Add dtors.
+	* config/locale/gnu/numeric_members.cc: Add dtors, better error
+	checking.
+	* config/locale/gnu/time_members.cc: Same.
+	* config/locale/ieee_1003.1-2001/c_locale.cc
+	(locale::facet::_S_create_c_locale): Add parameter.
+	* config/locale/ieee_1003.1-2001/c_locale.h: Correct typedef.
+	* config/locale/ieee_1003.1-2001/codecvt_specializations.h: Remove
+	bogus ctor.
+	
+	* include/bits/locale_facets.h (moneypunct): Use string literals.
+	Don't define dtor.
+	(numpunct): Same.
+	(__timepunct): Same.
+	(locale::_Impl::_M_facets): Change from vector to array.
+	(locale::_Impl::_M_names): Change from array of strings to array
+	of string literals.
+	(locale::facet::_S_create_c_locale): Add parameter.
+	(locale::locale::_S_num_facets): Move to...
+	(locale::_Impl::_M_facets_size): Here.
+	* include/bits/locale_facets.tcc: Fixups for _M_facets, _M_name
+	changes.
+	* include/bits/localefwd.h: (locale::id::_M_id): Add member function.
+	(locale::_Impl::_Impl(facet**, size_t, bool)): Add.
+	(locale::_Impl::_Impl(string, size_t)): Change to
+	(locale::_Impl::_Impl(const char*, size_t)): This.
+	
+	* include/bits/streambuf.tcc (streambuf::_S_pback_size): Define.
+	* include/std/std_streambuf.h (streambuf::_M_pback_size): Change to
+	(streambuf::_S_pback_size): This.
+
+	* src/globals.cc: Add pre-allocations for "C" facets.
+	* src/locale-inst.cc: Remove vector instantiations.
+	* src/locale.cc: Remove vector include. Fixups for _M_names,
+	_M_facets changes.
+	* src/localename.cc: Same.
+
+	* include/bits/stl_vector.h: Fix odd formatting.
+	
+	* include/bits/basic_string.tcc: Tweak comment.
+
+	* libsupc++/new: Make sure parameters are uglified.
+	* libsupc++/typeinfo: Same.
+		
+	* testsuite/22_locale/num_get_members_char.cc: Fixup.
+	* testsuite/22_locale/num_get_members_wchar_t.cc: Same.
+	* testsuite/27_io/filebuf_members.cc: Same.
+
+2002-04-12  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc/libstdc++-v3/config/os/hpux/bits/os_defines.h
+	(strtoll, strtoull): In 64 bit mode HP-UX (IA64 and HPPA)
+	does not define strtoll or strtoull, but does define strtol
+	and strtoul which are the same since in 64 bit mode
+	sizeof(long) == sizeof(long long).
+
+2002-04-12  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/std/std_bitset.h:  Doxygenate std::bitset<>.  Clean up
+	trailing spaces, indentation, and macro names.  Make exception
+	messages more informative.
+
+2002-04-11  Richard Henderson  <rth@redhat.com>
+
+	* include/bits/fstream.tcc (basic_filebuf<>::open): Fix & ordering.
+	* include/bits/ostream.tcc (basic_ostream<>::operator<<(long)): Same.
+	(basic_ostream<>::operator<<(long long)): Same.
+
+2002-04-11  Richard Henderson  <rth@redhat.com>
+
+	* config/linker-map.gnu: Add __gxx_personality_sj0.
+
 2002-04-09  Benjamin Kosnik  <bkoz@redhat.com>
 
 	libstdc++/1072

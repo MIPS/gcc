@@ -1,3 +1,38 @@
+2002-05-04  Mark Wielaard  <mark@klomp.org>
+
+	For PR java/6519:
+	* libjava.lang/emptystring.java: New.
+	* libjava.lang/emptystring.out: New.
+
+2002-04-21  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfail: Expect failures for PR java/6391 and
+	libgcj/6389.
+
+2002-04-16  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.lang/negzero.java: New.
+	* libjava.lang/negzero.out: New.
+
+2002-04-14  Mark Wielaard  <mark@klomp.org>
+
+        * libjava.mauve/xfails: Expect failures for PR libgcj/6302 and
+        libgcj/6298.
+
+2002-04-14  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Expect failures for PR libgcj/6293,
+	libgcj/6295, libgcj/6296 and libgcj/6297.
+
+2002-04-12  Anthony Green  <green@redhat.com>
+
+	* lib/libjava.exp: Use libgcj-VERSION.jar, not libgcj.jar.
+
+2002-04-12  Loren J. Rittle <ljrittle@acm.org>
+
+	* libjava.lang/SyncGlobal.java, libjava.lang/SyncGlobal.out:
+	New test case.
+
 2002-04-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* libjava.lang/PR6204.java, libjava.lang/PR6204.out: New test case.

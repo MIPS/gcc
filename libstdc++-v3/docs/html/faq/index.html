@@ -69,18 +69,19 @@
          <li><a href="#4_1">What works already?</a>
          <li><a href="#4_2">Bugs in gcc/g++ (not libstdc++-v3)</a>
          <li><a href="#4_3">Bugs in the C++ language/lib specification</a>
-         <li><a href="#4_4">Things in libstdc++ that look like bugs</a>
-           <ul>
-             <li><a href="#4_4_iostreamclear">reopening a stream fails</a>
-             <li><a href="#4_4_Weff">-Weffc++ complains too much</a>
-             <li><a href="#4_4_rel_ops">&quot;ambiguous overloads&quot;
-                                 after including an old-style header</a>
-             <li><a href="#4_4_interface">The g++-3 headers are
-                                 <strong>not ours</strong></a>
-             <li><a href="#4_4_glibc">compilation errors from streambuf.h</a>
-             <li><a href="#4_4_checks">errors about <em>*Cconcept</em> and
-                                 <em>constraints</em> in the STL...</a>
-           </ul>
+         <li><a href="#4_4">Things in libstdc++ that only look like bugs</a><ul>
+           <li><a href="#4_4_iostreamclear">reopening a stream fails</a>
+           <li><a href="#4_4_Weff">-Weffc++ complains too much</a>
+           <li><a href="#4_4_rel_ops">&quot;ambiguous overloads&quot;
+                               after including an old-style header</a>
+           <li><a href="#4_4_interface">The g++-3 headers are
+                               <strong>not ours</strong></a>
+           <li><a href="#4_4_glibc">compilation errors from streambuf.h</a>
+           <li><a href="#4_4_checks">errors about <em>*Concept</em> and
+                               <em>constraints</em> in the STL...</a>
+           <li><a href="#4_4_dlsym">program crashes when using library code
+                               in a dynamically-loaded library</a>
+         </ul>
          <li><a href="#4_5">Aw, that's easy to fix!</a>
       </ol>
 
@@ -141,7 +142,7 @@
          has recently been taken over by the 
          <a href="http://gcc.gnu.org/">GCC team</a>.  All of
          the rapid development and near-legendary
-         <a href="http://gcc.gnu.org/gcc-2.95/buildstat.html">portability</a>
+         <a href="http://gcc.gnu.org/gcc-3.0/buildstat.html">portability</a>
          that are the hallmarks of an open-source project are being
          applied to libstdc++.
       </p>
@@ -486,9 +487,7 @@ which is no longer available, thanks deja...-->
 
    <p>For 3.0.1, the most common &quot;bug&quot; is an apparently missing
       &quot;<code>../</code>&quot; in include/Makefile, resulting in files
-      like gthr.h and gthr-single.h not being found.
-   </p>
-   <p>Please read
+      like gthr.h and gthr-single.h not being found.  Please read
       <a href="http://gcc.gnu.org/install/configure.html">the configuration
       instructions for GCC</a>,
       specifically the part about configuring in a separate build directory,
@@ -496,6 +495,18 @@ which is no longer available, thanks deja...-->
       is fragile, is rarely tested, and tends to break, as in this case.
       This was fixed for 3.0.2.
    </p>
+
+   <p>For 3.1, the most common &quot;bug&quot; is a parse error when using
+      <code>&lt;fstream&gt;</code>, ending with a message,
+      &quot;<code>bits/basic_file.h:52: parse error before `{'
+      token</code>.&quot;  Please read
+      <a href="http://gcc.gnu.org/install/">the installation instructions for
+      GCC</a>, specifically the part about not installing newer versions on
+      top of older versions.  If you install 3.1 over a 3.0.x release, then
+      the wrong basic_file.h header will be found (its location changed
+      between releases).
+   </p>
+
    <p><strong>Please do not report these as bugs.  We know about them.</strong>
       Reporting this -- or any other problem that's already been fixed --
       hinders the development of GCC, because we have to take time to
@@ -511,13 +522,51 @@ which is no longer available, thanks deja...-->
 <!-- Yeah, I meant that "verbatim clip" thing literally... :-)  -->
 
 <pre>
-New in 3.0.97:
+New:
 ---
+(post 3.0.97)
+- more doxygen documentation
+- more named locale fixups
+- stdio_filebuf that takes fd, FILE
+- io performance tuning
+- allocation tuning, valgrind fixups
+- __cxa_demangle now supported
+(3.0.97)
 - more doxygen documentation.
 - more named locale bug fixes
 - support for symbol versioning when using GNU ld &gt;= 2.12
 - wide-io
 - tuning for executable size
+(3.0.96)
+- more doxygen documentation.
+- extensions moved out of namespace std
+- HPUX long long support
+- more string optimizations
+- support for NetBSD cross compiles
+- concept_check merge from boost
+- header simplification
+- named locale bug shakeout
+- thread testsuite
+(3.0.95)
+- add S390, m68k, x86-64 support.
+- doxygen documentation has been extended, including man pages.
+- verbose terminate handling has been added.
+- some libsupc++ tweaks
+- warnings for deprecated headers now active.
+- dejagnu testsuite preliminary documentation.
+- dejagnu testsuite default.
+- dejagnu testsuite cross compiler, multilib safe.
+- long long iostreams on by default, rework of ISO C99 support.
+- iterator re-write and testsuites.
+- container testsuites.
+- allocator revamp and testsuites.
+- more concept-checking work.
+- basic_string optimization and MT fixes.
+- new limits implementation.
+- update -fno-exceptions code, verify it works.
+- full named locale support fpr all facets, choice of gnu,
+  ieee_1003.1-200x (POSIX 2), or generic models. Full support depends
+  on target OS and underlying &quot;C&quot; library support.
 </pre>
 
 
@@ -566,7 +615,7 @@ New in 3.0.97:
       </p>
 
 <hr>
-   <h2><a name="4_4">4.4 Things in libstdc++ that look like bugs</a></h2>
+   <h2><a name="4_4">4.4 Things in libstdc++ that only look like bugs</a></h2>
       <p>There are things which are not bugs in the compiler (4.2) nor
          the language specification (4.3), but aren't really bugs in
          libstdc++, either.  Really!  Please do not report these as bugs.
@@ -616,7 +665,8 @@ New in 3.0.97:
            then you will suddenly be faced with huge numbers of ambiguity
            errors.  This was discussed on the -v3 list; Nathan Myers
            <a href="http://gcc.gnu.org/ml/libstdc++/2001-01/msg00247.html">sums
-           things up here</a>.
+           things up here</a>.  The collisions with vector/string iterator
+           types have been fixed for 3.1.  <!-- more links to email here -->
         </p>
       </a>
       <a name="4_4_interface"><h3>The g++-3 headers are
@@ -675,6 +725,24 @@ http://clisp.cons.org/~haible/gccinclude-glibc-2.2-compat.diff
            checks, is available
            <a href="../19_diagnostics/howto.html#3">here</a>.
         </p>
+      </a>
+      <a name="4_4_dlsym">
+        <p><strong>dlopen/dlsym</strong>
+           If you are using the C++ library across dynamically-loaded
+           objects, make certain that you are passing the correct options
+           when compiling and linking:
+           <pre>
+    // compile the library components
+    g++ -fPIC -c a.cc
+    g++ -fPIC -c b.cc
+    ...
+    g++ -fPIC -c z.cc
+
+    // create the library
+    g++ -fPIC -shared -rdynamic -o libfoo.so a.o b.o ... z.o
+
+    // link the executable
+    g++ -fPIC -rdynamic -o foo ... -L. -lfoo -ldl</pre></p>
       </a>
 
 <hr>
@@ -739,7 +807,7 @@ http://clisp.cons.org/~haible/gccinclude-glibc-2.2-compat.diff
          expansion in container classes and buffer usage in synchronized
          stream objects.
       </p>
-      <li><p>An ABI for libstdc++ will eventually be developed, so that
+      <li><p>An ABI for libstdc++ is being developed, so that
          multiple binary-incompatible copies of the library can be replaced
          with a single backwards-compatible library, like libgcc_s.so is.
       </p>
@@ -777,14 +845,16 @@ http://clisp.cons.org/~haible/gccinclude-glibc-2.2-compat.diff
 
 <hr>
    <h2><a name="5_4">5.4 Extensions and Backward Compatibility</a></h2>
-      <p>Although you can specify <code>-I</code> options to make the
-         preprocessor search the g++-v3/ext and /backward directories,
-         it is better to refer to files there by their path, as in:
+      <p>Headers in the <code>ext</code> and <code>backward</code>
+         subdirectories should be referred to by their relative paths:
          <!-- Careful, the leading spaces in PRE show up directly. -->
-      </p>
          <pre>
-       #include &lt;ext/hash_map&gt;
-         </pre>
+      #include &lt;ext/hash_map&gt; </pre>
+         rather than using <code>-I</code> or other options.  This is more
+         portable and forward-compatible.  (The situation is the same as
+         that of other headers whose directories are not searched directly,
+         e.g., <code>&lt;sys/stat.h&gt;</code>, <code>&lt;X11/Xlib.h&gt;</code>.
+      </p>
       <p>Extensions to the library have
          <a href="../ext/howto.html">their own page</a>.
       </p>
