@@ -728,7 +728,7 @@ extern int arm_structure_size_boundary;
 /* Used when parsing command line option -mstructure_size_boundary.  */
 extern const char * structure_size_string;
 
-/* Non-zero if move instructions will actually fail to work
+/* Nonzero if move instructions will actually fail to work
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 1
 
@@ -2472,25 +2472,6 @@ extern int making_const_table;
 #undef  ASM_APP_OFF
 #define ASM_APP_OFF (TARGET_THUMB ? "\t.code\t16\n" : "")
 
-/* Output an internal label definition.  */
-#ifndef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(STREAM, PREFIX, NUM)		\
-  do								\
-    {								\
-      char * s = (char *) alloca (40 + strlen (PREFIX));	\
-								\
-      if (arm_ccfsm_state == 3 && arm_target_label == (NUM)	\
-	  && !strcmp (PREFIX, "L"))				\
-	{							\
-	  arm_ccfsm_state = 0;					\
-	  arm_target_insn = NULL;				\
-	}							\
-      ASM_GENERATE_INTERNAL_LABEL (s, (PREFIX), (NUM));		\
-      ASM_OUTPUT_LABEL (STREAM, s);		                \
-    }								\
-  while (0)
-#endif
-
 /* Output a push or a pop instruction (only used when profiling).  */
 #define ASM_OUTPUT_REG_PUSH(STREAM, REGNO)		\
   if (TARGET_ARM)					\
@@ -2515,7 +2496,7 @@ extern int making_const_table;
     {								\
       if (TARGET_THUMB)						\
         ASM_OUTPUT_ALIGN (FILE, 2);				\
-      ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM);		\
+      (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
     }								\
   while (0)
 

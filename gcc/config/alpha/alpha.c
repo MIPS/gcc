@@ -88,7 +88,7 @@ const char *alpha_tls_size_string; /* -mtls-size=[16|32|64] */
 
 struct alpha_compare alpha_compare;
 
-/* Non-zero if inside of a function, because the Alpha asm can't
+/* Nonzero if inside of a function, because the Alpha asm can't
    handle .files inside of functions.  */
 
 static int inside_function = FALSE;
@@ -3478,7 +3478,7 @@ alpha_emit_setcc (code)
 /* Rewrite a comparison against zero CMP of the form
    (CODE (cc0) (const_int 0)) so it can be written validly in
    a conditional move (if_then_else CMP ...).
-   If both of the operands that set cc0 are non-zero we must emit
+   If both of the operands that set cc0 are nonzero we must emit
    an insn to perform the compare (it can't be done within
    the conditional move).  */
 rtx
@@ -3510,7 +3510,7 @@ alpha_emit_conditional_move (cmp, mode)
 
       /* If we have fp<->int register move instructions, do a cmov by
 	 performing the comparison in fp registers, and move the
-	 zero/non-zero value to integer registers, where we can then
+	 zero/nonzero value to integer registers, where we can then
 	 use a normal cmov, or vice-versa.  */
 
       switch (code)
@@ -4042,7 +4042,7 @@ alpha_split_tfmode_frobsign (operands, operation)
 
   alpha_split_tfmode_pair (operands);
 
-  /* Detect three flavours of operand overlap.  */
+  /* Detect three flavors of operand overlap.  */
   move = 1;
   if (rtx_equal_p (operands[0], operands[2]))
     move = 0;
@@ -8880,83 +8880,6 @@ alpha_reorg (insns)
     }
 }
 
-/* Check a floating-point value for validity for a particular machine mode.  */
-
-static const char * const float_strings[] =
-{
-  /* These are for FLOAT_VAX.  */
-   "1.70141173319264430e+38", /* 2^127 (2^24 - 1) / 2^24 */
-  "-1.70141173319264430e+38",
-   "2.93873587705571877e-39", /* 2^-128 */
-  "-2.93873587705571877e-39",
-  /* These are for the default broken IEEE mode, which traps
-     on infinity or denormal numbers.  */
-   "3.402823466385288598117e+38", /* 2^128 (1 - 2^-24) */
-  "-3.402823466385288598117e+38",
-   "1.1754943508222875079687e-38", /* 2^-126 */
-  "-1.1754943508222875079687e-38",
-};
-
-static REAL_VALUE_TYPE float_values[8];
-static int inited_float_values = 0;
-
-int
-check_float_value (mode, d, overflow)
-     enum machine_mode mode;
-     REAL_VALUE_TYPE *d;
-     int overflow ATTRIBUTE_UNUSED;
-{
-
-  if (TARGET_IEEE || TARGET_IEEE_CONFORMANT || TARGET_IEEE_WITH_INEXACT)
-    return 0;
-
-  if (inited_float_values == 0)
-    {
-      int i;
-      for (i = 0; i < 8; i++)
-	float_values[i] = REAL_VALUE_ATOF (float_strings[i], DFmode);
-
-      inited_float_values = 1;
-    }
-
-  if (mode == SFmode)
-    {
-      REAL_VALUE_TYPE r;
-      REAL_VALUE_TYPE *fvptr;
-
-      if (TARGET_FLOAT_VAX)
-	fvptr = &float_values[0];
-      else
-	fvptr = &float_values[4];
-
-      memcpy (&r, d, sizeof (REAL_VALUE_TYPE));
-      if (REAL_VALUES_LESS (fvptr[0], r))
-	{
-	  memcpy (d, &fvptr[0], sizeof (REAL_VALUE_TYPE));
-	  return 1;
-	}
-      else if (REAL_VALUES_LESS (r, fvptr[1]))
-	{
-	  memcpy (d, &fvptr[1], sizeof (REAL_VALUE_TYPE));
-	  return 1;
-	}
-      else if (REAL_VALUES_LESS (dconst0, r)
-		&& REAL_VALUES_LESS (r, fvptr[2]))
-	{
-	  memcpy (d, &dconst0, sizeof (REAL_VALUE_TYPE));
-	  return 1;
-	}
-      else if (REAL_VALUES_LESS (r, dconst0)
-		&& REAL_VALUES_LESS (fvptr[3], r))
-	{
-	  memcpy (d, &dconst0, sizeof (REAL_VALUE_TYPE));
-	  return 1;
-	}
-    }
-
-  return 0;
-}
-
 #ifdef OBJECT_FORMAT_ELF
 
 /* Switch to the section to which we should output X.  The only thing
@@ -9710,7 +9633,7 @@ unicosmk_output_addr_vec (file, vec)
   int vlen = XVECLEN (body, 0);
   int idx;
 
-  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (lab));
+  (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (lab));
 
   for (idx = 0; idx < vlen; idx++)
     {

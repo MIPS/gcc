@@ -1,3 +1,70 @@
+2002-09-19  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassLoader.java (resolveClass0): Set cause for
+	newly-created exception.
+
+2002-09-18  Michael Koch  <konqueror@gmx.de>
+
+	* java/util/regex/Matcher.java, java/util/regex/Pattern.java,
+	java/util/regex/PatternSyntaxException.java:
+	Merge with classpath, new files.
+	* Makefile.am (core_java_source_files):
+	Added java/util/regex/Matcher.java,
+	java/util/regex/Pattern.java,
+	java/util/regex/PatternSyntaxException.java
+	* Makefile.in: Regenerated.
+	* include/config.h.in: Added HAVE_NET_IF_H.
+	* java/net/natNetworkInterface.cc (getRealNetworkInterfaces):
+	Removed #if 0 ... #endif.
+	
+2002-09-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/natNetworkInterface.cc:
+	Removed unneed and yet wrong includes.
+
+2002-09-17  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/NetworkInterface.java: New file.
+	* java/net/natNetworkInterface.java: New file.
+	* configure.in: Added check for net/if.h.
+	* configure: Regenerated.
+	* Makefile.am
+	(ordinary_java_source_files): Added NetworkInterface.java.
+	(nat_source_files): Added natNetworkInterface.cc.
+	* Makefile.in: Regenerated.
+
+2002-09-16  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (findClass): Code source for a
+	class from a jar is not necessarily a jar: URL.
+
+2002-09-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/lang/AssertionError.java:
+	Merge with classpath, fixes HTML.
+	* java/rmi/server/LogStream.java:
+	Merge with classpath, fixes some constants.
+	* java/net/server/RemoteServer.java:
+	Merge with classpath, adds serialVersionUID.
+	* javax/naming/BinaryRefAddr.java:
+	Merge with classpath, s/equal/equals/.
+	* javax/naming/NamingException.java:
+	Merge with classpath, fixed typo.
+	* javax/naming/RefAddr.java:
+	Merge with classpath, s/equal/equals/.
+	* java/awt/Toolkit.java:
+	s/gnu.java.awt.peer.gtk.GtkToolkit/gnu.awt.gtk.GtkToolkit/
+	and typo fixed.
+
+2002-09-15  Adam Megacz <adam@xwt.org>
+	
+	* java/net/natPlainSocketImpl.cc: fixed typo.
+
+2002-09-15  Adam Megacz <adam@xwt.org>
+	
+	* java/net/natPlainSocketImpl.cc: #ifdef-shielded socket timeouts,
+	which don't work on Win32 (yet).
+
 2002-09-14  Adam Megacz <adam@xwt.org>
 	
 	* java/net/natPlainDatagramSocket.cc: removed #include
@@ -10,8 +77,8 @@
 	* java/net/DatagramPacket.java (DatagramPacket):
 	Added linebreak for 80 chars per line.
 	* java/net/JarURLConection.java
-	(getInputStream, getJarEntry): Likewise.
-	* java/net/SocketPermission.java
+	(getInputStreami, getJarEntry): Likewise.
+	* java/net/SocketPErmission.java
 	(SocketPermission class docu, implies): Likewise.
 	* java/net/URLClassLoader.java (findResources): Likewise.
 	* java/net/URLConnection.java: Reindendet remark for 80 chars per line

@@ -530,7 +530,7 @@ extern int target_flags;
    LEVEL is the optimization level specified; 2 if `-O2' is specified, 1 if
    `-O' is specified, and 0 if neither is specified.
 
-   SIZE is non-zero if `-Os' is specified, 0 otherwise.
+   SIZE is nonzero if `-Os' is specified, 0 otherwise.
 
    You should not use this macro to change options that are not
    machine-specific.  These should uniformly selected by the same optimization
@@ -1776,7 +1776,7 @@ struct machine_function GTY(())
   {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}				\
 }
 
-/* A C expression that returns non-zero if the compiler is allowed to try to
+/* A C expression that returns nonzero if the compiler is allowed to try to
    replace register number FROM with register number TO.  This macro need only
    be defined if `ELIMINABLE_REGS' is defined, and will usually be the constant
    1, since most of the cases preventing register elimination are things that
@@ -1892,7 +1892,7 @@ struct machine_function GTY(())
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)                    \
@@ -2202,7 +2202,7 @@ frv_asm_output_mi_thunk (FILE, THUNK_FNDECL, (long)DELTA, FUNCTION)
   frv_setup_incoming_varargs (& ARGS_SO_FAR, (int) MODE, TYPE, 	\
 			      & PRETEND_ARGS_SIZE, SECOND_TIME)
 
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is non-zero if this
+/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  If not defined, a standard
@@ -2568,7 +2568,7 @@ __asm__("\n"								\
 
 
 /* Returns a mode from class `MODE_CC' to be used when comparison operation
-   code OP is applied to rtx X and Y.  For example, on the Sparc,
+   code OP is applied to rtx X and Y.  For example, on the SPARC,
    `SELECT_CC_MODE' is defined as (see *note Jump Patterns::.  for a
    description of the reason for this definition)
 
@@ -2594,7 +2594,7 @@ __asm__("\n"								\
 
    You need not define this macro if it would always returns zero or if the
    floating-point format is anything other than `IEEE_FLOAT_FORMAT'.  For
-   example, here is the definition used on the Sparc, where floating-point
+   example, here is the definition used on the SPARC, where floating-point
    inequality comparisons are always given `CCFPEmode':
 
         #define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)  */
@@ -2956,7 +2956,7 @@ do {									\
    from the string PREFIX and the number NUM.
 
    This string, when output subsequently by `assemble_name', should produce the
-   output that `ASM_OUTPUT_INTERNAL_LABEL' would produce with the same PREFIX
+   output that `(*targetm.asm_out.internal_label)' would produce with the same PREFIX
    and NUM.
 
    If the string begins with `*', then `assemble_name' will output the rest of
@@ -2971,27 +2971,6 @@ do {									\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)			\
 do {									\
   sprintf (LABEL, "*.%s%ld", PREFIX, (long)NUM);			\
-} while (0)
-
-/* A C expression to assign to OUTVAR (which is a variable of type `char *') a
-   newly allocated string made from the string NAME and the number NUMBER, with
-   some suitable punctuation added.  Use `alloca' to get space for the string.
-
-   The string will be used as an argument to `ASM_OUTPUT_LABELREF' to produce
-   an assembler label for an internal static variable whose name is NAME.
-   Therefore, the string must be such as to result in valid assembler code.
-   The argument NUMBER is different each time this macro is executed; it
-   prevents conflicts between similarly-named internal static variables in
-   different scopes.
-
-   Ideally this string should not be a valid C identifier, to prevent any
-   conflict with the user's own symbols.  Most assemblers allow periods or
-   percent signs in assembler symbols; putting at least one of these between
-   the name and the number will suffice.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR, NAME, NUMBER)			\
-do {									\
-  (OUTVAR) = (char *) alloca (strlen ((NAME)) + 12);			\
-  sprintf ((OUTVAR), "%s.%ld", (NAME), (long)(NUMBER));			\
 } while (0)
 
 
@@ -3183,7 +3162,7 @@ do {									\
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a difference between two labels.
    VALUE and REL are the numbers of two internal labels.  The definitions of
-   these labels are output using `ASM_OUTPUT_INTERNAL_LABEL', and they must be
+   these labels are output using `(*targetm.asm_out.internal_label)', and they must be
    printed in the same way here.  For example,
 
         fprintf (STREAM, "\t.word L%d-L%d\n", VALUE, REL)  */
@@ -3196,14 +3175,14 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a reference to a label.  VALUE
    is the number of an internal label whose definition is output using
-   `ASM_OUTPUT_INTERNAL_LABEL'.  For example,
+   `(*targetm.asm_out.internal_label)'.  For example,
 
         fprintf (STREAM, "\t.word L%d\n", VALUE)  */
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) \
 fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
 /* Define this if the label before a jump-table needs to be output specially.
-   The first three arguments are the same as for `ASM_OUTPUT_INTERNAL_LABEL';
+   The first three arguments are the same as for `(*targetm.asm_out.internal_label)';
    the fourth argument is the jump-table which follows (a `jump_insn'
    containing an `addr_vec' or `addr_diff_vec').
 
@@ -3211,7 +3190,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    table.
 
    If this macro is not defined, these labels are output with
-   `ASM_OUTPUT_INTERNAL_LABEL'.
+   `(*targetm.asm_out.internal_label)'.
 
    Defined in svr4.h.  */
 /* When generating embedded PIC or mips16 code we want to put the jump
@@ -3226,7 +3205,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 do {                                                                    \
   if (flag_pic)                                                         \
     function_section (current_function_decl);                           \
-  ASM_OUTPUT_INTERNAL_LABEL (STREAM, PREFIX, NUM);                      \
+  (*targetm.asm_out.internal_label) (STREAM, PREFIX, NUM);                      \
 } while (0)
 
 /* Define this to determine whether case statement labels are relative to

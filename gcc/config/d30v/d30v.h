@@ -823,7 +823,7 @@ extern enum reg_class reg_class_from_letter[256];
    registers, but not memory.  Some machines allow copying all registers to and
    from memory, but require a scratch register for stores to some memory
    locations (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In some cases,
+   certain symbolic address on the SPARC when compiling PIC).  In some cases,
    both an intermediate and a scratch register are required.
 
    You should define these macros to indicate to the reload phase that it may
@@ -880,7 +880,7 @@ extern enum reg_class reg_class_from_letter[256];
 
 /* Certain machines have the property that some registers cannot be copied to
    some other registers without using memory.  Define this macro on those
-   machines to be a C expression that is non-zero if objects of mode M in
+   machines to be a C expression that is nonzero if objects of mode M in
    registers of CLASS1 can only be copied to registers of class CLASS2 by
    storing a register of CLASS1 into memory and loading that memory location
    into a register of CLASS2.
@@ -923,15 +923,15 @@ extern enum reg_class reg_class_from_letter[256];
    few registers of certain classes that there would not be enough registers to
    use as spill registers if this were done.
 
-   Define `SMALL_REGISTER_CLASSES' to be an expression with a non-zero value on
-   these machines.  When this macro has a non-zero value, the compiler allows
+   Define `SMALL_REGISTER_CLASSES' to be an expression with a nonzero value on
+   these machines.  When this macro has a nonzero value, the compiler allows
    registers explicitly used in the rtl to be used as spill registers but
    avoids extending the lifetime of these registers.
 
-   It is always safe to define this macro with a non-zero value, but if you
+   It is always safe to define this macro with a nonzero value, but if you
    unnecessarily define it, you will reduce the amount of optimizations that
    can be performed in some cases.  If you do not define this macro with a
-   non-zero value when it is required, the compiler will run out of spill
+   nonzero value when it is required, the compiler will run out of spill
    registers and print a fatal error message.  For most machines, you should
    not define this macro at all.  */
 /* #define SMALL_REGISTER_CLASSES */
@@ -1109,7 +1109,7 @@ typedef struct d30v_stack {
 
 /* If defined, a C expression that produces the machine-specific code to setup
    the stack so that arbitrary frames can be accessed.  For example, on the
-   Sparc, we must flush all of the register windows to the stack before we can
+   SPARC, we must flush all of the register windows to the stack before we can
    access arbitrary stack frames.  This macro will seldom need to be defined.  */
 /* #define SETUP_FRAME_ADDRESSES() */
 
@@ -1355,7 +1355,7 @@ typedef struct d30v_stack {
   { FRAME_POINTER_REGNUM,	STACK_POINTER_REGNUM }			\
 }
 
-/* A C expression that returns non-zero if the compiler is allowed to try to
+/* A C expression that returns nonzero if the compiler is allowed to try to
    replace register number FROM-REG with register number TO-REG.  This macro
    need only be defined if `ELIMINABLE_REGS' is defined, and will usually be
    the constant 1, since most of the cases preventing register elimination are
@@ -1535,7 +1535,7 @@ typedef struct d30v_stack {
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
 
@@ -2007,7 +2007,7 @@ typedef struct machine_function GTY(())
   (VALIST) = d30v_build_va_list ()
 
 
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is non-zero if this
+/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  If not defined, a standard
@@ -2415,7 +2415,7 @@ do {									\
 /* #define EXTRA_CC_MODES */
 
 /* Returns a mode from class `MODE_CC' to be used when comparison operation
-   code OP is applied to rtx X and Y.  For example, on the Sparc,
+   code OP is applied to rtx X and Y.  For example, on the SPARC,
    `SELECT_CC_MODE' is defined as (see *note Jump Patterns::.  for a
    description of the reason for this definition)
 
@@ -2453,7 +2453,7 @@ do {									\
 
    You need not define this macro if it would always returns zero or if the
    floating-point format is anything other than `IEEE_FLOAT_FORMAT'.  For
-   example, here is the definition used on the Sparc, where floating-point
+   example, here is the definition used on the SPARC, where floating-point
    inequality comparisons are always given `CCFPEmode':
 
         #define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)  */
@@ -2610,10 +2610,10 @@ extern const char *d30v_branch_cost_string;
    times greater than aligned accesses, for example if they are emulated in a
    trap handler.
 
-   When this macro is non-zero, the compiler will act as if `STRICT_ALIGNMENT'
-   were non-zero when generating code for block moves.  This can cause
+   When this macro is nonzero, the compiler will act as if `STRICT_ALIGNMENT'
+   were nonzero when generating code for block moves.  This can cause
    significantly more instructions to be produced.  Therefore, do not set this
-   macro non-zero if unaligned accesses only add a cycle or two to the time for
+   macro nonzero if unaligned accesses only add a cycle or two to the time for
    a memory access.
 
    If the value of this macro is always zero, it need not be defined.  */
@@ -2821,7 +2821,7 @@ extern const char *d30v_branch_cost_string;
 /* #define ASM_OUTPUT_ASCII(STREAM, PTR, LEN) */
 
 /* You may define this macro as a C expression.  You should define the
-   expression to have a non-zero value if GNU CC should output the
+   expression to have a nonzero value if GNU CC should output the
    constant pool for a function before the code for the function, or
    a zero value if GNU CC should output the constant pool after the
    function.  If you do not define this macro, the usual case, GNU CC
@@ -2853,7 +2853,7 @@ extern const char *d30v_branch_cost_string;
    outputting the label definition at the proper place.  Here is how to do
    this:
 
-        ASM_OUTPUT_INTERNAL_LABEL (FILE, "LC", LABELNO);
+        (*targetm.asm_out.internal_label) (FILE, "LC", LABELNO);
 
    When you output a pool entry specially, you should end with a `goto' to the
    label JUMPTO.  This will prevent the same pool entry from being output a
@@ -3109,31 +3109,11 @@ extern const char *d30v_branch_cost_string;
    is in most Berkeley Unix systems.  This macro is used in `assemble_name'.  */
 /* #define ASM_OUTPUT_LABELREF(STREAM, NAME) */
 
-/* A C statement to output to the stdio stream STREAM a label whose name is
-   made from the string PREFIX and the number NUM.
-
-   It is absolutely essential that these labels be distinct from the labels
-   used for user-level functions and variables.  Otherwise, certain programs
-   will have name conflicts with internal labels.
-
-   It is desirable to exclude internal labels from the symbol table of the
-   object file.  Most assemblers have a naming convention for labels that
-   should be excluded; on many systems, the letter `L' at the beginning of a
-   label has this effect.  You should find out what convention your system
-   uses, and follow it.
-
-   The usual definition of this macro is as follows:
-
-        fprintf (STREAM, "L%s%d:\n", PREFIX, NUM)
-
-   Defined in svr4.h.  */
-/* #define ASM_OUTPUT_INTERNAL_LABEL(STREAM, PREFIX, NUM) */
-
 /* A C statement to store into the string STRING a label whose name is made
    from the string PREFIX and the number NUM.
 
    This string, when output subsequently by `assemble_name', should produce the
-   output that `ASM_OUTPUT_INTERNAL_LABEL' would produce with the same PREFIX
+   output that `(*targetm.asm_out.internal_label)' would produce with the same PREFIX
    and NUM.
 
    If the string begins with `*', then `assemble_name' will output the rest of
@@ -3151,28 +3131,6 @@ do {									\
   sprintf (LABEL, "*.%s%d", PREFIX, NUM);				\
 } while (0)
 */
-
-/* A C expression to assign to OUTVAR (which is a variable of type `char *') a
-   newly allocated string made from the string NAME and the number NUMBER, with
-   some suitable punctuation added.  Use `alloca' to get space for the string.
-
-   The string will be used as an argument to `ASM_OUTPUT_LABELREF' to produce
-   an assembler label for an internal static variable whose name is NAME.
-   Therefore, the string must be such as to result in valid assembler code.
-   The argument NUMBER is different each time this macro is executed; it
-   prevents conflicts between similarly-named internal static variables in
-   different scopes.
-
-   Ideally this string should not be a valid C identifier, to prevent any
-   conflict with the user's own symbols.  Most assemblers allow periods or
-   percent signs in assembler symbols; putting at least one of these between
-   the name and the number will suffice.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR, NAME, NUMBER)			\
-do {									\
-  (OUTVAR) = (char *) alloca (strlen ((NAME)) + 12);			\
-  sprintf ((OUTVAR), "%s.%ld", (NAME), (long)(NUMBER));			\
-} while (0)
 
 /* A C statement to output to the stdio stream STREAM assembler code which
    defines (equates) the symbol NAME to have the value VALUE.
@@ -3529,7 +3487,7 @@ do {									\
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a difference between two labels.
    VALUE and REL are the numbers of two internal labels.  The definitions of
-   these labels are output using `ASM_OUTPUT_INTERNAL_LABEL', and they must be
+   these labels are output using `(*targetm.asm_out.internal_label)', and they must be
    printed in the same way here.  For example,
 
         fprintf (STREAM, "\t.word L%d-L%d\n", VALUE, REL)  */
@@ -3543,7 +3501,7 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
    The definition should be a C statement to output to the stdio stream STREAM
    an assembler pseudo-instruction to generate a reference to a label.  VALUE
    is the number of an internal label whose definition is output using
-   `ASM_OUTPUT_INTERNAL_LABEL'.  For example,
+   `(*targetm.asm_out.internal_label)'.  For example,
 
         fprintf (STREAM, "\t.word L%d\n", VALUE)  */
 
@@ -3551,7 +3509,7 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
 fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
 /* Define this if the label before a jump-table needs to be output specially.
-   The first three arguments are the same as for `ASM_OUTPUT_INTERNAL_LABEL';
+   The first three arguments are the same as for `(*targetm.asm_out.internal_label)';
    the fourth argument is the jump-table which follows (a `jump_insn'
    containing an `addr_vec' or `addr_diff_vec').
 
@@ -3559,7 +3517,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    table.
 
    If this macro is not defined, these labels are output with
-   `ASM_OUTPUT_INTERNAL_LABEL'.
+   `(*targetm.asm_out.internal_label)'.
 
    Defined in svr4.h.  */
 /* #define ASM_OUTPUT_CASE_LABEL(STREAM, PREFIX, NUM, TABLE) */
@@ -4123,7 +4081,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 /* A C expression that is nonzero if on this machine the number of bits
    actually used for the count of a shift operation is equal to the number of
    bits needed to represent the size of the object being shifted.  When this
-   macro is non-zero, the compiler will assume that it is safe to omit a
+   macro is nonzero, the compiler will assume that it is safe to omit a
    sign-extend, zero-extend, and certain bitwise `and' instructions that
    truncates the count of a shift operation.  On machines that have
    instructions that act on bitfields at variable positions, which may include
@@ -4234,7 +4192,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    instructions.  */
 /* #define STORE_FLAG_VALUE */
 
-/* A C expression that gives a non-zero floating point value that is returned
+/* A C expression that gives a nonzero floating point value that is returned
    when comparison operators with floating-point results are true.  Define this
    macro on machine that have comparison operations that return floating-point
    values.  If there are no such operations, do not define this macro.  */

@@ -1470,7 +1470,7 @@ CUMULATIVE_ARGS;
 
    Note that we return, rather than break so that rtx_cost doesn't
    include CONST_COSTS otherwise expand_mult will think that it is
-   cheaper to synthesise a multiply rather than to use a multiply
+   cheaper to synthesize a multiply rather than to use a multiply
    instruction.  I think this is because the algorithm synth_mult
    doesn't take into account the loading of the operands, whereas the
    calculation of mult_cost does. 
@@ -1724,12 +1724,6 @@ c4x_file_end (FILE)
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-	fprintf (FILE, "%s%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -1737,14 +1731,6 @@ c4x_file_end (FILE)
 
 #define ASM_GENERATE_INTERNAL_LABEL(BUFFER, PREFIX, NUM) \
     sprintf (BUFFER, "*%s%d", PREFIX, NUM)
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)  \
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),    \
-  sprintf ((OUTPUT), "%s$%d", (NAME), (LABELNO)))
 
 /* A C statement to output to the stdio stream STREAM assembler code which
    defines (equates) the symbol NAME to have the value VALUE.  */

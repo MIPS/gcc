@@ -30,14 +30,14 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   {"@f77-cpp-input",
    "cc1 -E -traditional-cpp -D_LANGUAGE_FORTRAN %(cpp_options) \
         %{E|M|MM:%(cpp_debug_options)}\
-        %{!M:%{!MM:%{!E:%{!pipe:%g.f} |\n\
-    f771 %{!pipe:%g.f} %(cc1_options) %{I*} %{!fsyntax-only:%(invoke_as)}}}}", 0},
+        %{!M:%{!MM:%{!E: %|.f |\n\
+    f771 %|.f %(cc1_options) %{I*} %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {".r", "@ratfor", 0},
   {"@ratfor",
    "%{C:%{!E:%eGNU C does not support -C without using -E}}\
     %{CC:%{!E:%eGNU C does not support -CC without using -E}}\
     ratfor %{C} %{CC} %{v} %i %{E:%W{o*}} %{!E: %{!pipe:-o %g.f} |\n\
-    f771 %{!pipe:%g.f} %(cc1_options) %{I*} %{!fsyntax-only:%(invoke_as)}}", 0},
+    f771 %m.f %(cc1_options) %{I*} %{!fsyntax-only:%(invoke_as)}}", 0},
   {".f",   "@f77", 0},
   {".for", "@f77", 0},
   {".FOR", "@f77", 0},

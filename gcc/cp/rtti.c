@@ -1137,8 +1137,7 @@ create_pseudo_type_info VPARAMS((const char *real_name, int ident, ...))
 {
   tree pseudo_type;
   char *pseudo_name;
-  int ix;
-  tree fields[10];
+  tree fields;
   tree field_decl;
   tree result;
 
@@ -1154,15 +1153,18 @@ create_pseudo_type_info VPARAMS((const char *real_name, int ident, ...))
     sprintf (pseudo_name + strlen (pseudo_name), "%d", ident);
   
   /* First field is the pseudo type_info base class.  */
-  fields[0] = build_decl (FIELD_DECL, NULL_TREE, ti_desc_type_node);
+  fields = build_decl (FIELD_DECL, NULL_TREE, ti_desc_type_node);
   
   /* Now add the derived fields.  */
-  for (ix = 0; (field_decl = va_arg (ap, tree));)
-    fields[++ix] = field_decl;
+  while ((field_decl = va_arg (ap, tree)))
+    {
+      TREE_CHAIN (field_decl) = fields;
+      fields = field_decl;
+    }
   
   /* Create the pseudo type.  */
   pseudo_type = make_aggr_type (RECORD_TYPE);
-  finish_builtin_type (pseudo_type, pseudo_name, fields, ix, ptr_type_node);
+  finish_builtin_struct (pseudo_type, pseudo_name, fields, NULL_TREE);
   TYPE_HAS_CONSTRUCTOR (pseudo_type) = 1;
 
   result = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
@@ -1272,13 +1274,18 @@ create_tinfo_types ()
   /* Create the internal type_info structure. This is used as a base for
      the other structures.  */
   {
-    tree fields[2];
+    tree field, fields;
 
     ti_desc_type_node = make_aggr_type (RECORD_TYPE);
-    fields[0] = build_decl (FIELD_DECL, NULL_TREE, const_ptr_type_node);
-    fields[1] = build_decl (FIELD_DECL, NULL_TREE, const_string_type_node);
-    finish_builtin_type (ti_desc_type_node, "__type_info_pseudo",
-                         fields, 1, ptr_type_node);
+    field = build_decl (FIELD_DECL, NULL_TREE, const_ptr_type_node);
+    fields = field;
+    
+    field = build_decl (FIELD_DECL, NULL_TREE, const_string_type_node);
+    TREE_CHAIN (field) = fields;
+    fields = field;
+    
+    finish_builtin_struct (ti_desc_type_node, "__type_info_pseudo",
+			   fields, NULL_TREE);
     TYPE_HAS_CONSTRUCTOR (ti_desc_type_node) = 1;
   }
   
@@ -1313,13 +1320,18 @@ create_tinfo_types ()
   /* Base class internal helper. Pointer to base type, offset to base,
      flags.  */
   {
-    tree fields[2];
+    tree field, fields;
     
-    fields[0] = build_decl (FIELD_DECL, NULL_TREE, type_info_ptr_type);
-    fields[1] = build_decl (FIELD_DECL, NULL_TREE, integer_types[itk_long]);
+    field = build_decl (FIELD_DECL, NULL_TREE, type_info_ptr_type);
+    fields = field;
+    
+    field = build_decl (FIELD_DECL, NULL_TREE, integer_types[itk_long]);
+    TREE_CHAIN (field) = fields;
+    fields = field;
+  
     base_desc_type_node = make_aggr_type (RECORD_TYPE);
-    finish_builtin_type (base_desc_type_node, "__base_class_type_info_pseudo",
-                         fields, 1, ptr_type_node);
+    finish_builtin_struct (base_desc_type_node, "__base_class_type_info_pseudo",
+			   fields, NULL_TREE);
     TYPE_HAS_CONSTRUCTOR (base_desc_type_node) = 1;
   }
   

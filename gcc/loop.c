@@ -169,10 +169,6 @@ struct loop **uid_loop;
 
 int max_uid_for_loop;
 
-/* 1 + luid of last insn.  */
-
-static int max_luid;
-
 /* Number of loops detected in current function.  Used as index to the
    next few tables.  */
 
@@ -522,7 +518,7 @@ loop_optimize (f, dumpfile, flags)
   /* find_and_verify_loops has already called compute_luids, but it
      might have rearranged code afterwards, so we need to recompute
      the luids now.  */
-  max_luid = compute_luids (f, NULL_RTX, 0);
+  compute_luids (f, NULL_RTX, 0);
 
   /* Don't leave gaps in uid_luid for insns that have been
      deleted.  It is possible that the first or last insn
@@ -616,8 +612,6 @@ scan_loop (loop, flags)
   /* 1 if we are scanning insns that might never be executed
      due to a subroutine call which might exit before they are reached.  */
   int call_passed = 0;
-  /* Jump insn that enters the loop, or 0 if control drops in.  */
-  rtx loop_entry_jump = 0;
   /* Number of insns in the loop.  */
   int insn_count;
   int tem;
@@ -685,24 +679,20 @@ scan_loop (loop, flags)
      Start scan from there.
      But record in LOOP->TOP the place where the end-test jumps
      back to so we can scan that after the end of the loop.  */
-  if (GET_CODE (p) == JUMP_INSN)
-    {
-      loop_entry_jump = p;
-
+  if (GET_CODE (p) == JUMP_INSN
       /* Loop entry must be unconditional jump (and not a RETURN)  */
-      if (any_uncondjump_p (p)
-	  && JUMP_LABEL (p) != 0
-	  /* Check to see whether the jump actually
-	     jumps out of the loop (meaning it's no loop).
-	     This case can happen for things like
-	     do {..} while (0).  If this label was generated previously
-	     by loop, we can't tell anything about it and have to reject
-	     the loop.  */
-	  && INSN_IN_RANGE_P (JUMP_LABEL (p), loop_start, loop_end))
-	{
-	  loop->top = next_label (loop->scan_start);
-	  loop->scan_start = JUMP_LABEL (p);
-	}
+      && any_uncondjump_p (p)
+      && JUMP_LABEL (p) != 0
+      /* Check to see whether the jump actually
+	 jumps out of the loop (meaning it's no loop).
+	 This case can happen for things like
+	 do {..} while (0).  If this label was generated previously
+	 by loop, we can't tell anything about it and have to reject
+	 the loop.  */
+      && INSN_IN_RANGE_P (JUMP_LABEL (p), loop_start, loop_end))
+    {
+      loop->top = next_label (loop->scan_start);
+      loop->scan_start = JUMP_LABEL (p);
     }
 
   /* If LOOP->SCAN_START was an insn created by loop, we don't know its luid
@@ -830,7 +820,7 @@ scan_loop (loop, flags)
 			  the loop starts, or the value before the set is
 			  needed before the set occurs...
 
-			  ??? Note we have quadratic behaviour here, mitigated
+			  ??? Note we have quadratic behavior here, mitigated
 			  by the fact that the previous test will often fail for
 			  large loops.  Rather than re-scanning the entire loop
 			  each time for register usage, we should build tables
@@ -5937,11 +5927,7 @@ check_final_value (loop, v)
      const struct loop *loop;
      struct induction *v;
 {
-  struct loop_ivs *ivs = LOOP_IVS (loop);
-  struct iv_class *bl;
   rtx final_value = 0;
-
-  bl = REG_IV_CLASS (ivs, REGNO (v->src_reg));
 
   /* DEST_ADDR givs will never reach here, because they are always marked
      replaceable above in record_giv.  */
@@ -9292,6 +9278,9 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
       if (set)
 	{
 	  enum machine_mode inner_mode = GET_MODE (SET_DEST (set));
+#ifdef FLOAT_STORE_FLAG_VALUE
+	  REAL_VALUE_TYPE fsfv;
+#endif
 
 	  /* ??? We may not combine comparisons done in a CCmode with
 	     comparisons not done in a CCmode.  This is to aid targets
@@ -9319,8 +9308,8 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		     || (code == LT
 			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			 && (REAL_VALUE_NEGATIVE
-			     (FLOAT_STORE_FLAG_VALUE (inner_mode))))
+			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
+			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
 		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'))
@@ -9339,8 +9328,8 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		     || (code == GE
 			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			 && (REAL_VALUE_NEGATIVE
-			     (FLOAT_STORE_FLAG_VALUE (inner_mode))))
+			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
+			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
 		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'

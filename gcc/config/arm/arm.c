@@ -126,6 +126,7 @@ static void	 arm_encode_section_info	PARAMS ((tree, int));
 #ifdef AOF_ASSEMBLER
 static void	 aof_globalize_label		PARAMS ((FILE *, const char *));
 #endif
+static void	 arm_internal_label		PARAMS ((FILE *, const char *, unsigned long));
 
 #undef Hint
 #undef Mmode
@@ -187,6 +188,9 @@ static void	 aof_globalize_label		PARAMS ((FILE *, const char *));
 
 #undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING arm_strip_name_encoding
+
+#undef TARGET_ASM_INTERNAL_LABEL
+#define TARGET_ASM_INTERNAL_LABEL arm_internal_label
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -831,7 +835,7 @@ arm_isr_value (argument)
     if (streq (arg, ptr->arg))
       return ptr->return_value;
 
-  /* An unrecognised interrupt type.  */
+  /* An unrecognized interrupt type.  */
   return ARM_FT_UNKNOWN;
 }
 
@@ -1034,7 +1038,7 @@ arm_split_constant (code, mode, val, target, source, subtargets)
 	  && REGNO (target) != REGNO (source)))
     {
       /* After arm_reorg has been called, we can't fix up expensive
-	 constants by pushing them into memory so we must synthesise
+	 constants by pushing them into memory so we must synthesize
 	 them in-line, regardless of the cost.  This is only likely to
 	 be more costly on chips that have load delay slots and we are
 	 compiling without running the scheduler (so no splitting
@@ -2207,7 +2211,7 @@ current_file_function_operand (sym_ref)
   return 0;
 }
 
-/* Return non-zero if a 32 bit "long_call" should be generated for
+/* Return nonzero if a 32 bit "long_call" should be generated for
    this call.  We generate a long_call if the function:
 
         a.  has an __attribute__((long call))
@@ -2260,7 +2264,7 @@ arm_is_longcall_p (sym_ref, call_cookie, call_symbol)
     || TARGET_LONG_CALLS;
 }
 
-/* Return non-zero if it is ok to make a tail-call to DECL.  */
+/* Return nonzero if it is ok to make a tail-call to DECL.  */
 
 int
 arm_function_ok_for_sibcall (decl)
@@ -7325,6 +7329,8 @@ output_return_instruction (operand, really_return, reverse)
 	  /* Generate the load multiple instruction to restore the registers.  */
 	  if (frame_pointer_needed)
 	    sprintf (instr, "ldm%sea\t%%|fp, {", conditional);
+	  else if (live_regs_mask & (1 << SP_REGNUM))
+	    sprintf (instr, "ldm%sfd\t%%|sp, {", conditional);
 	  else
 	    sprintf (instr, "ldm%sfd\t%%|sp!, {", conditional);
 
@@ -7736,7 +7742,16 @@ arm_output_epilogue (really_return)
 	    asm_fprintf (f, "\tldr\t%r, [%r], #4\n", LR_REGNUM, SP_REGNUM);
 	}
       else if (saved_regs_mask)
-	print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, saved_regs_mask);
+	{
+	  if (saved_regs_mask & (1 << SP_REGNUM))
+	    /* Note - write back to the stack register is not enabled
+	       (ie "ldmfd sp!...").  We know that the stack pointer is
+	       in the list of registers and if we add writeback the
+	       instruction becomes UNPREDICTABLE.  */
+	    print_multi_reg (f, "ldmfd\t%r", SP_REGNUM, saved_regs_mask);
+	  else
+	    print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, saved_regs_mask);
+	}
 
       if (current_function_pretend_args_size)
 	{
@@ -7859,7 +7874,7 @@ emit_multi_reg_push (mask)
     num_dwarf_regs--;
 
   /* For the body of the insn we are going to generate an UNSPEC in
-     parallel with several USEs.  This allows the insn to be recognised
+     parallel with several USEs.  This allows the insn to be recognized
      by the push_multi pattern in the arm.md file.  The insn looks
      something like this:
 
@@ -8048,7 +8063,7 @@ emit_sfm (base_reg, count)
   may not be needed, giving rise to the possibility of
   eliminating some of the registers.
 
-  The values returned by this function must reflect the behaviour
+  The values returned by this function must reflect the behavior
   of arm_expand_prologue() and arm_compute_save_reg_mask().
 
   The sign of the number returned reflects the direction of stack
@@ -8720,7 +8735,7 @@ arm_assemble_integer (x, size, aligned_p)
    0 -> 2 final_prescan_insn if the `target' is an unconditional branch
    1 -> 3 ASM_OUTPUT_OPCODE after not having output the conditional branch
    2 -> 4 ASM_OUTPUT_OPCODE after not having output the conditional branch
-   3 -> 0 ASM_OUTPUT_INTERNAL_LABEL if the `target' label is reached
+   3 -> 0 (*targetm.asm_out.internal_label) if the `target' label is reached
           (the target label has CODE_LABEL_NUMBER equal to arm_target_label).
    4 -> 0 final_prescan_insn if the `target' unconditional branch is reached
           (the target insn is arm_target_insn).
@@ -9861,7 +9876,7 @@ thumb_shiftable_const (val)
   return 0;
 }
 
-/* Returns non-zero if the current function contains,
+/* Returns nonzero if the current function contains,
    or might contain a far jump.  */
 
 int
@@ -9931,7 +9946,7 @@ thumb_far_jump_used_p (in_prologue)
   return 0;
 }
 
-/* Return non-zero if FUNC must be entered in ARM mode.  */
+/* Return nonzero if FUNC must be entered in ARM mode.  */
 
 int
 is_called_in_ARM_mode (func)
@@ -11116,3 +11131,18 @@ arm_encode_section_info (decl, first)
     }
 }
 #endif /* !ARM_PE */
+
+static void
+arm_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  if (arm_ccfsm_state == 3 && (unsigned) arm_target_label == labelno
+      && !strcmp (prefix, "L"))
+    {
+      arm_ccfsm_state = 0;
+      arm_target_insn = NULL;
+    }
+  default_internal_label (stream, prefix, labelno);
+}

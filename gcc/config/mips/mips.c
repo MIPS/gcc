@@ -6897,7 +6897,6 @@ save_restore_insns (store_p, large_reg, large_offset)
   HOST_WIDE_INT gp_offset;
   HOST_WIDE_INT fp_offset;
   HOST_WIDE_INT end_offset;
-  rtx insn;
 
   if (frame_pointer_needed
       && ! BITSET_P (mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
@@ -6951,11 +6950,9 @@ save_restore_insns (store_p, large_reg, large_offset)
 	  base_reg_rtx = gen_rtx_REG (Pmode, MIPS_TEMP2_REGNUM);
 	  base_offset = large_offset;
 	  if (Pmode == DImode)
-	    insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_adddi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	  else
-	    insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_addsi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	}
       else
 	{
@@ -7060,11 +7057,9 @@ save_restore_insns (store_p, large_reg, large_offset)
 	  base_reg_rtx = gen_rtx_REG (Pmode, MIPS_TEMP2_REGNUM);
 	  base_offset = large_offset;
 	  if (Pmode == DImode)
-	    insn = emit_insn (gen_adddi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_adddi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	  else
-	    insn = emit_insn (gen_addsi3 (base_reg_rtx, large_reg,
-					  stack_pointer_rtx));
+	    emit_insn (gen_addsi3 (base_reg_rtx, large_reg, stack_pointer_rtx));
 	}
       else
 	{
@@ -10130,7 +10125,7 @@ mips_output_conditional_branch (insn,
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	output_asm_insn ("%>%)", 0);
-        ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+        (*targetm.asm_out.internal_label) (asm_out_file, "L",
                                    CODE_LABEL_NUMBER (target));
         return "";
       }

@@ -206,13 +206,6 @@ do {									\
 #undef  LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX  "."
 
-/* This is how to output a definition of an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, ".L%s%d:\n", PREFIX, NUM)
-
 /* This is how to output a reference to an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
 
@@ -231,7 +224,7 @@ do {									\
 
 
 /* Define for support of TFmode long double.
-   Sparc ABI says that long double is 4 words.  */
+   SPARC ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
 
 /* Constant which presents upper bound of the above value.  */

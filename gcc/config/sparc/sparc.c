@@ -455,7 +455,7 @@ v9_regcmp_p (code)
 
 /* Operand constraints.  */
 
-/* Return non-zero only if OP is a register of mode MODE,
+/* Return nonzero only if OP is a register of mode MODE,
    or const0_rtx.  */
 
 int
@@ -476,7 +476,7 @@ reg_or_0_operand (op, mode)
   return 0;
 }
 
-/* Return non-zero only if OP is const1_rtx.  */
+/* Return nonzero only if OP is const1_rtx.  */
 
 int
 const1_operand (op, mode)
@@ -1410,7 +1410,7 @@ sparc_emit_set_const32 (op0, op1)
 }
 
 
-/* Sparc-v9 code-model support.  */
+/* SPARC-v9 code-model support.  */
 void
 sparc_emit_set_symbolic_const64 (op0, op1, temp1)
      rtx op0;
@@ -3074,7 +3074,7 @@ short_branch (uid1, uid2)
   return 0;
 }
 
-/* Return non-zero if REG is not used after INSN.
+/* Return nonzero if REG is not used after INSN.
    We assume REG is a reload reg, and therefore does
    not live past labels or calls or jumps.  */
 int
@@ -3287,7 +3287,7 @@ load_pic_register ()
       align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
       if (align > 0)
 	ASM_OUTPUT_ALIGN (asm_out_file, align);
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LGETPC", 0);
+      (*targetm.asm_out.internal_label) (asm_out_file, "LGETPC", 0);
       fputs ("\tretl\n\tadd\t%o7, %l7, %l7\n", asm_out_file);
     }
 
@@ -4757,7 +4757,7 @@ function_arg_record_value_2 (type, startbitpos, parms)
 }
 
 /* Used by function_arg and function_value to implement the complex
-   Sparc64 structure calling conventions.  */
+   SPARC64 structure calling conventions.  */
 
 static rtx
 function_arg_record_value (type, mode, slotno, named, regbase)
@@ -5370,11 +5370,11 @@ sparc_va_arg (valist, type)
    XEXP (OP, 0) is assumed to be a condition code register (integer or
    floating point) and its mode specifies what kind of comparison we made.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   ANNUL is non-zero if we should generate an annulling branch.
+   ANNUL is nonzero if we should generate an annulling branch.
 
-   NOOP is non-zero if we have to follow this branch by a noop.
+   NOOP is nonzero if we have to follow this branch by a noop.
 
    INSN, if set, is the insn.  */
 
@@ -5803,11 +5803,11 @@ sparc_emit_floatunsdi (operands)
    operand number of the reg.  OP is the conditional expression.  The mode
    of REG says what kind of comparison we made.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   ANNUL is non-zero if we should generate an annulling branch.
+   ANNUL is nonzero if we should generate an annulling branch.
 
-   NOOP is non-zero if we have to follow this branch by a noop.  */
+   NOOP is nonzero if we have to follow this branch by a noop.  */
 
 char *
 output_v9branch (op, dest, reg, label, reversed, annul, noop, insn)
@@ -7813,7 +7813,7 @@ sparc_output_addr_vec (vec)
   ASM_OUTPUT_CASE_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (lab),
 			 NEXT_INSN (lab));
 #else
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
 #endif
 
   for (idx = 0; idx < vlen; idx++)
@@ -7843,7 +7843,7 @@ sparc_output_addr_diff_vec (vec)
   ASM_OUTPUT_CASE_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (lab),
 			 NEXT_INSN (lab));
 #else
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
 #endif
 
   for (idx = 0; idx < vlen; idx++)

@@ -1838,7 +1838,8 @@
 		(match_operand:SI 1 "s_register_operand" "r")
 		(match_operand:SI 2 "const_int_operand" "n")
 		(match_operand:SI 3 "const_int_operand" "n"))
-	       (const_int 0)))]
+	       (const_int 0)))
+   (clobber (reg:CC CC_REGNUM))]
   "TARGET_ARM
    && (INTVAL (operands[3]) >= 0 && INTVAL (operands[3]) < 32
        && INTVAL (operands[2]) > 0 
@@ -3913,7 +3914,7 @@
 ;;  DONE;
 ;;}")
 
-;; Recognise garbage generated above.
+;; Recognize garbage generated above.
 
 ;;(define_insn ""
 ;;  [(set (match_operand:TI 0 "general_operand" "=r,r,r,<,>,m")
@@ -4205,7 +4206,7 @@
    (use (label_ref (match_operand 1 "" "")))]
   "TARGET_THUMB && flag_pic"
   "*
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+  (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 			     CODE_LABEL_NUMBER (operands[1]));
   return \"add\\t%0, %|pc\";
   "
@@ -4218,7 +4219,7 @@
    (use (label_ref (match_operand 1 "" "")))]
   "TARGET_ARM && flag_pic"
   "*
-    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, \"L\",
+    (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 			       CODE_LABEL_NUMBER (operands[1]));
     return \"add%?\\t%0, %|pc, %0\";
   "
@@ -4682,7 +4683,7 @@
   "
 )
 
-;; Pattern to recognise insn generated default case above
+;; Pattern to recognize insn generated default case above
 (define_insn "*movhi_insn_arch4"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r,m,r")    
 	(match_operand:HI 1 "general_operand"      "rI,K,r,m"))]
@@ -8427,7 +8428,7 @@
 ; We must watch to see that the source/destination register isn't also the
 ; same as the base address register, and that if the index is a register,
 ; that it is not the same as the base address register.  In such cases the
-; instruction that we would generate would have UNPREDICTABLE behaviour so 
+; instruction that we would generate would have UNPREDICTABLE behavior so 
 ; we cannot use it.
 
 (define_peephole

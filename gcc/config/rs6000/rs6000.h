@@ -69,6 +69,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=401: -mppc} \
 %{mcpu=403: -m403} \
 %{mcpu=405: -m405} \
+%{mcpu=405f: -m405} \
 %{mcpu=505: -mppc} \
 %{mcpu=601: -m601} \
 %{mcpu=602: -mppc} \
@@ -876,6 +877,7 @@ extern int rs6000_default_long_calls;
 #define SPE_VECTOR_MODE(MODE)		\
 	((MODE) == V4HImode          	\
          || (MODE) == V2SFmode          \
+         || (MODE) == V1DImode          \
          || (MODE) == V2SImode)
 
 /* Define this macro to be nonzero if the port is prepared to handle
@@ -2797,14 +2799,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (LOG))
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Pick up the return address upon entry to a procedure. Used for
    dwarf2 unwind information.  This also enables the table driven

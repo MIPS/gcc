@@ -630,7 +630,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    || GET_CODE (X) == CONST_INT)
 
 
-/* Non-zero if X is an address which can be indirected.  External symbols
+/* Nonzero if X is an address which can be indirected.  External symbols
    could be in a sharable image library, so we disallow those.  */
 
 #define INDIRECTABLE_ADDRESS_P(X)  \
@@ -645,7 +645,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define INDIRECTABLE_CONSTANT_ADDRESS_P(X) CONSTANT_ADDRESS_P(X)
 
-/* Non-zero if X is an address which can be indirected.  */
+/* Nonzero if X is an address which can be indirected.  */
 #define INDIRECTABLE_ADDRESS_P(X)  \
   (CONSTANT_ADDRESS_P (X)						\
    || (GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))			\
@@ -885,32 +885,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define UDIVSI3_LIBCALL "*udiv"
 #define UMODSI3_LIBCALL "*urem"
-
-/* Check a `double' value for validity for a particular machine mode.  */
-
-/* note that it is very hard to accidentally create a number that fits in a
-   double but not in a float, since their ranges are almost the same */
-
-#define CHECK_FLOAT_VALUE(MODE, D, OVERFLOW) \
-  ((OVERFLOW) = check_float_value (MODE, &D, OVERFLOW))
-
-/* For future reference:
-   D Float: 9 bit, sign magnitude, excess 128 binary exponent
-            normalized 56 bit fraction, redundant bit not represented
-            approximately 16 decimal digits of precision
-
-   The values to use if we trust decimal to binary conversions:
-#define MAX_D_FLOAT 1.7014118346046923e+38
-#define MIN_D_FLOAT .29387358770557188e-38
-
-   G float: 12 bit, sign magnitude, excess 1024 binary exponent
-            normalized 53 bit fraction, redundant bit not represented
-            approximately 15 decimal digits precision
-
-   The values to use if we trust decimal to binary conversions:
-#define MAX_G_FLOAT .898846567431157e+308
-#define MIN_G_FLOAT .556268464626800e-308
-*/
 
 /* Tell final.c how to eliminate redundant test instructions.  */
 
@@ -1061,12 +1035,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -1127,14 +1095,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 ( fputs (".lcomm ", (FILE)),			\
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), ",%u\n", (ROUNDED)))
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.

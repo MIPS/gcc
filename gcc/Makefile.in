@@ -47,7 +47,7 @@ SUBDIRS =@subdirs@
 # Selection of languages to be made.
 # This is overridden by configure.
 CONFIG_LANGUAGES = @all_languages@
-LANGUAGES = c gcov$(exeext) $(CONFIG_LANGUAGES)
+LANGUAGES = c gcov$(exeext) gcov-dump$(exeext) $(CONFIG_LANGUAGES)
 
 # Selection of languages to be made during stage1 build.
 # This is overridden by configure.
@@ -74,7 +74,7 @@ BOOT_CFLAGS = -g -O2
 # without optimization. The -dumpbase $@ makes sure that the auxilary
 # files end up near the object files.
 COVERAGE_FLAGS = @coverage_flags@
-coverageexts = .{da,bb,bbg}
+coverageexts = .{da,bbg}
 
 # The warning flags are separate from BOOT_CFLAGS because people tend to
 # override optimization flags and we'd like them to still have warnings
@@ -780,7 +780,8 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
  specs collect2$(exeext) $(USE_COLLECT2) \
- gcov$(exeext) *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
+ gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
+ *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
  $(LANG_STAGESTUFF)
 
 # Library members defined in libgcc2.c.
@@ -794,7 +795,7 @@ LIB2FUNCS_2 = _floatdixf _fixunsxfsi _fixtfdi _fixunstfdi _floatditf \
     _addvdi3 _subvsi3 _subvdi3 _mulvsi3 _mulvdi3 _negvsi2 _negvdi2 _ctors
 
 # Defined in libgcc2.c, included only in the static library.
-LIB2FUNCS_ST = _eprintf _bb __gcc_bcmp
+LIB2FUNCS_ST = _eprintf _gcov __gcc_bcmp
 
 FPBIT_FUNCS = _pack_sf _unpack_sf _addsub_sf _mul_sf _div_sf \
     _fpcmp_parts_sf _compare_sf _eq_sf _ne_sf _gt_sf _ge_sf \
@@ -1495,7 +1496,7 @@ dbxout.o : dbxout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
 debug.o : debug.c debug.h $(CONFIG_H) $(SYSTEM_H)
 sdbout.o : sdbout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    function.h $(EXPR_H) output.h hard-reg-set.h $(REGS_H) real.h \
-   insn-config.h xcoffout.h c-pragma.h ggc.h \
+   insn-config.h xcoffout.h c-pragma.h ggc.h $(TARGET_H) \
    sdbout.h toplev.h $(TM_P_H) except.h debug.h langhooks.h gt-sdbout.h
 dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf.h \
    flags.h insn-config.h reload.h output.h toplev.h $(TM_P_H) \
@@ -1507,7 +1508,7 @@ dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf2.h \
 dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) flags.h $(RTL_H) $(TREE_H) \
    output.h dwarf2asm.h $(TM_P_H) $(GGC_H)
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
-   output.h vmsdbg.h debug.h langhooks.h function.h
+   output.h vmsdbg.h debug.h langhooks.h function.h $(TARGET_H)
 xcoffout.o : xcoffout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) xcoffout.h \
    flags.h toplev.h output.h dbxout.h $(GGC_H) $(TARGET_H)
 emit-rtl.o : emit-rtl.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
@@ -1525,7 +1526,7 @@ jump.o : jump.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h hard-reg-set.h $(REGS_H
 
 simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
-   output.h function.h $(GGC_H) $(OBSTACK_H) $(TM_P_H)
+   output.h function.h $(GGC_H) $(OBSTACK_H) $(TM_P_H) $(TREE_H)
 cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h function.h cselib.h $(GGC_H) $(TM_P_H) gt-cselib.h
@@ -1564,8 +1565,8 @@ conflict.o : conflict.c $(CONFIG_H) $(SYSTEM_H) $(OBSTACK_H) $(HASHTAB_H) \
    $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
 profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h output.h $(REGS_H) $(EXPR_H) function.h \
-   gcov-io.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TARGET_H) \
-   langhooks.h profile.h libfuncs.h gt-profile.h
+   gcov-io.h gcov-iov.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H) \
+   $(TARGET_H) langhooks.h profile.h libfuncs.h gt-profile.h
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
@@ -1664,8 +1665,9 @@ sched-vis.o : sched-vis.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) sched-int.h \
    $(TARGET_H) real.h
 final.o : final.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h intl.h \
    $(REGS_H) $(RECOG_H) conditions.h insn-config.h $(INSN_ATTR_H) function.h \
-   real.h output.h hard-reg-set.h except.h debug.h xcoffout.h profile.h \
-   toplev.h reload.h dwarf2out.h $(BASIC_BLOCK_H) $(TM_P_H) $(TARGET_H) $(EXPR_H)
+   real.h output.h hard-reg-set.h except.h debug.h xcoffout.h \
+   toplev.h reload.h dwarf2out.h $(BASIC_BLOCK_H) $(TM_P_H) $(TARGET_H) \
+   $(EXPR_H)
 recog.o : recog.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) function.h $(BASIC_BLOCK_H) \
    $(REGS_H) $(RECOG_H) $(EXPR_H) hard-reg-set.h flags.h insn-config.h \
    $(INSN_ATTR_H) real.h toplev.h output.h reload.h $(TM_P_H)
@@ -1860,7 +1862,7 @@ s-attrtab : $(md_file) genattrtab$(build_exeext) $(srcdir)/move-if-change
 insn-output.o : insn-output.c $(CONFIG_H) $(RTL_H) $(GGC_H) $(REGS_H) real.h \
     conditions.h hard-reg-set.h insn-config.h $(INSN_ATTR_H) $(EXPR_H) \
     output.h $(RECOG_H) function.h $(SYSTEM_H) toplev.h flags.h \
-    insn-codes.h $(TM_P_H)
+    insn-codes.h $(TM_P_H) $(TARGET_H)
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) -c insn-output.c \
 	  $(OUTPUT_OPTION)
 
@@ -2117,7 +2119,8 @@ gengtype$(build_exeext) : gengtype.o gengtype-lex.o gengtype-yacc.o \
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
 	 gengtype.o gengtype-lex.o gengtype-yacc.o $(HOST_LIBS)
 
-gengtype.o : gengtype.c gengtype.h $(HCONFIG_H) $(SYSTEM_H) real.h gtyp-gen.h
+gengtype.o : gengtype.c gengtype.h $(HCONFIG_H) $(SYSTEM_H) real.h rtl.def \
+  gtyp-gen.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
 	  $(srcdir)/gengtype.c $(OUTPUT_OPTION)
 
@@ -2339,13 +2342,25 @@ test-protoize-simple: ./protoize ./unprotoize $(GCC_PASSES)
 	diff $(srcdir)/protoize.c tmp-proto.c | cat
 	-rm -f tmp-proto.[cs] tmp-proto$(objext)
 
-gcov.o: gcov.c gcov-io.h intl.h $(SYSTEM_H) $(CONFIG_H)
+# gcov-iov.c is run on the build machine to generate gcov-iov.h from version.c
+gcov-iov.o: gcov-iov.c version.c $(HCONFIG_H) $(SYSTEM_H)
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/gcov-iov.c $(OUTPUT_OPTION)
+gcov-iov$(build_exeext): gcov-iov.o
+	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) gcov-iov.o -o $@
+gcov-iov.h: gcov-iov$(build_exeext)
+	./$< > $@
+
+gcov.o: gcov.c gcov-io.h gcov-iov.h intl.h $(SYSTEM_H) $(CONFIG_H)
+gcov-dump.o: gcov-dump.c gcov-io.h gcov-iov.h $(SYSTEM_H) $(CONFIG_H)
 
 # Only one of 'gcov' or 'gcov.exe' is actually built, depending
 # upon whether $(exeext) is empty or not.
 GCOV_OBJS = gcov.o intl.o version.o
 gcov$(exeext): $(GCOV_OBJS) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) $(GCOV_OBJS) $(LIBS) -o $@
+GCOV_DUMP_OBJS = gcov-dump.o version.o
+gcov-dump$(exeext): $(GCOV_DUMP_OBJS) $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) $(GCOV_DUMP_OBJS) $(LIBS) -o $@
 #
 # Build the include directory.  The stamp files are stmp-* rather than
 # s-* so that mostlyclean does not force the include directory to
@@ -2734,7 +2749,7 @@ distclean: clean $(INTL_DISTCLEAN) lang.distclean
 	-rm -f site.exp site.bak testsuite/site.exp testsuite/site.bak
 	-rm -f testsuite/*.log testsuite/*.sum
 	-cd testsuite && rm -f x *.x *.x? *.exe *.rpo *.o *.s *.S *.c
-	-cd testsuite && rm -f *.out *.gcov *.bb *.bbg
+	-cd testsuite && rm -f *.out *.gcov *$(coverageexts)
 	-rm -rf ${QMTEST_DIR} stamp-qmtest
 	-rm -f intl/libintl.h libintl.h
 	-rm -f cxxmain.c
@@ -3324,6 +3339,15 @@ ${QMTEST_DIR}/gpp-expected.qmr: ${QMTEST_DIR}/context
 
 .PHONY: qmtest-g++
 
+# Run Paranoia on real.c.
+
+paranoia.o: $(srcdir)/../contrib/paranoia.cc $(CONFIG_H) $(SYSTEM_H) \
+  real.h $(TREE_H)
+	g++ -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
+
+paranoia: paranoia.o real.o $(LIBIBERTY)
+	g++ -o $@ paranoia.o real.o $(LIBIBERTY)
+
 # These exist for maintenance purposes.
 
 # Update the tags table.
@@ -3589,6 +3613,10 @@ stage1-start:
 	else true; \
 	fi; done
 stage1: force stage1-start lang.stage1
+	-for dir in . $(SUBDIRS) ; \
+	do \
+	  rm -f $$dir/*$(coverageexts) ; \
+	done
 
 stage2-start:
 	-if [ -d stage2 ] ; then true ; else mkdir stage2 ; fi

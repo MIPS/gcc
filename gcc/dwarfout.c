@@ -43,7 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
  The generation of DWARF debugging information by the GNU version 2.x C
  compiler has now been tested rather extensively for m88k, i386, i860, and
- Sparc targets.  The DWARF output of the GNU C compiler appears to inter-
+ SPARC targets.  The DWARF output of the GNU C compiler appears to inter-
  operate well with the standard SVR4 SDB debugger on these kinds of target
  systems (but of course, there are no guarantees).
 
@@ -1015,7 +1015,7 @@ static void retry_incomplete_types	PARAMS ((void));
    stock m88k/svr4 assembler, both of which need to see .L at the start of
    a label in order to prevent that label from going into the linker symbol
    table).  When I get time, I'll have to fix this the right way so that we
-   will use ASM_GENERATE_INTERNAL_LABEL and ASM_OUTPUT_INTERNAL_LABEL herein,
+   will use ASM_GENERATE_INTERNAL_LABEL and (*targetm.asm_out.internal_label) herein,
    but that will require a rather massive set of changes.  For the moment,
    the following definitions out to produce the right results for all svr4
    and svr3 assemblers. -- rfg

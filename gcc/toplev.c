@@ -66,6 +66,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "reload.h"
 #include "dwarf2asm.h"
 #include "integrate.h"
+#include "real.h"
 #include "debug.h"
 #include "target.h"
 #include "langhooks.h"
@@ -2194,14 +2195,11 @@ compile_file ()
 
     wrapup_global_declarations (vec, len);
 
-    /* This must occur after the loop to output deferred functions.  Else
-       the profiler initializer would not be emitted if all the functions
-       in this compilation unit were deferred.
-
-       output_func_start_profiler can not cause any additional functions or
-       data to need to be output, so it need not be in the deferred function
-       loop above.  */
-    output_func_start_profiler ();
+    if (profile_arc_flag)
+      /* This must occur after the loop to output deferred functions.
+         Else the profiler initializer would not be emitted if all the
+         functions in this compilation unit were deferred.  */
+      create_profiler ();
 
     check_global_declarations (vec, len);
 
@@ -2227,8 +2225,6 @@ compile_file ()
   /* Output some stuff at end of file if nec.  */
 
   dw2_output_indirect_constants ();
-
-  end_final (aux_base_name);
 
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
@@ -4047,7 +4043,7 @@ decode_f_option (arg)
   else if (!strcmp (arg, "no-stack-limit"))
     stack_limit_rtx = NULL_RTX;
   else if (!strcmp (arg, "preprocessed"))
-    /* Recognise this switch but do nothing.  This prevents warnings
+    /* Recognize this switch but do nothing.  This prevents warnings
        about an unrecognized switch if cpplib has not been linked in.  */
     ;
   else
@@ -5369,6 +5365,11 @@ do_compile ()
      says if we run timers or not.  */
   init_timevar ();
   timevar_start (TV_TOTAL);
+
+  /* We need to initialize real.c in order to define __FLT_MIN__ etc,
+     which must happen even with -E.  But with -E we'll suppress the
+     rest of backend_init.  */
+  init_real_once ();
 
   /* Set up the back-end if requested.  */
   if (!no_backend)

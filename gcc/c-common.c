@@ -303,7 +303,7 @@ int warn_char_subscripts;
 
 int warn_conversion;
 
-/* Warn about #pragma directives that are not recognised.  */      
+/* Warn about #pragma directives that are not recognized.  */      
 
 int warn_unknown_pragmas; /* Tri state variable.  */  
 
@@ -1826,7 +1826,7 @@ verify_tree (x, pbefore_sp, pno_sp, writer)
     }
 }
 
-/* Try to warn for undefined behaviour in EXPR due to missing sequence
+/* Try to warn for undefined behavior in EXPR due to missing sequence
    points.  */
 
 static void
@@ -2029,6 +2029,8 @@ c_common_type_for_mode (mode, unsignedp)
       return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
     case V8QImode:
       return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
+    case V1DImode:
+      return unsignedp ? unsigned_V1DI_type_node : V1DI_type_node;
     case V16SFmode:
       return V16SF_type_node;
     case V4SFmode:
@@ -4947,7 +4949,7 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
   sprintf (name, "__%s_DIG__", name_prefix);
   builtin_define_with_int_value (name, dig);
 
-  /* The minimum negative int x such that b**(x-1) is a normalised float.  */
+  /* The minimum negative int x such that b**(x-1) is a normalized float.  */
   sprintf (name, "__%s_MIN_EXP__", name_prefix);
   sprintf (buf, "(%d)", min_exp);
   builtin_define_with_value (name, buf, 0);
@@ -5047,6 +5049,13 @@ builtin_define_float_constants (name_prefix, fp_suffix, type)
      representable in the given floating point type, b**(1-p).  */
   sprintf (name, "__%s_EPSILON__", name_prefix);
   sprintf (buf, "0x1p%d", (1 - mant_dig) * log2_b);
+  builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
+
+  /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
+     positive floating-point number, b**(min_exp-p).  Winds up being zero
+     for targets that don't support denormals.  */
+  sprintf (name, "__%s_DENORM_MIN__", name_prefix);
+  sprintf (buf, "0x1p%d", (min_exp - mant_dig) * log2_b);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
 }
 
@@ -5266,7 +5275,7 @@ builtin_define_with_int_value (macro, value)
 static void
 builtin_define_with_hex_fp_value (macro, type, digits, hex_str, fp_suffix)
      const char *macro;
-     tree type;
+     tree type ATTRIBUTE_UNUSED;
      int digits;
      const char *hex_str;
      const char *fp_suffix;
@@ -5284,8 +5293,8 @@ builtin_define_with_hex_fp_value (macro, type, digits, hex_str, fp_suffix)
      it's easy to get the exact correct value), parse it as a real,
      then print it back out as decimal.  */
 
-  real = REAL_VALUE_HTOF (hex_str, TYPE_MODE (type));
-  REAL_VALUE_TO_DECIMAL (real, dec_str, digits);
+  real_from_string (&real, hex_str);
+  real_to_decimal (dec_str, &real, digits);
 
   sprintf (buf, "%s=%s%s", macro, dec_str, fp_suffix);
   cpp_define (parse_in, buf);

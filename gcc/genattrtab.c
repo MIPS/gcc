@@ -2562,11 +2562,10 @@ simplify_cond (exp, insn_code, insn_index)
   int len = XVECLEN (exp, 0);
   rtx *tests = (rtx *) xmalloc (len * sizeof (rtx));
   int allsame = 1;
-  char *first_spacer;
   rtx ret;
 
   /* This lets us free all storage allocated below, if appropriate.  */
-  first_spacer = (char *) obstack_finish (rtl_obstack);
+  obstack_finish (rtl_obstack);
 
   memcpy (tests, XVEC (exp, 0)->elem, len * sizeof (rtx));
 

@@ -267,10 +267,6 @@ do {					\
 #define ASM_GENERATE_INTERNAL_LABEL(STRING,PREFIX,NUM)	\
   sprintf ((STRING), "*|%s..%ld|", (PREFIX), (long)(NUM))
 
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR,NAME,NUMBER)	\
- ((OUTVAR) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTVAR), "%s.%d", (NAME), (NUMBER)))
-
 /* How initialization functions are handled */
 
 #define CTORS_SECTION_ASM_OP "\tAREA\t|C$$gnu_ctorsvec|, DATA, READONLY"

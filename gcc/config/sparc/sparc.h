@@ -323,8 +323,10 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 /* Special flags to the Sun-4 assembler when using pipe for input.  */
 
 #define ASM_SPEC "\
-%| %{R} %{!pg:%{!p:%{fpic:-k} %{fPIC:-k}}} %{keep-local-as-symbols:-L} \
+%{R} %{!pg:%{!p:%{fpic:-k} %{fPIC:-k}}} %{keep-local-as-symbols:-L} \
 %(asm_cpu) %(asm_relax)"
+
+#define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -411,7 +413,7 @@ extern int target_flags;
 #define MASK_V9 0x40
 #define TARGET_V9 (target_flags & MASK_V9)
 
-/* Non-zero to generate code that uses the instructions deprecated in
+/* Nonzero to generate code that uses the instructions deprecated in
    the v9 architecture.  This option only applies to v9 systems.  */
 /* ??? This isn't user selectable yet.  It's used to enable such insns
    on 32 bit v9 systems and for the moment they're permanently disabled
@@ -423,7 +425,7 @@ extern int target_flags;
 #define MASK_ISA \
 (MASK_V8 + MASK_SPARCLITE + MASK_SPARCLET + MASK_V9 + MASK_DEPRECATED_V8_INSNS)
 
-/* Non-zero means don't pass `-assert pure-text' to the linker.  */
+/* Nonzero means don't pass `-assert pure-text' to the linker.  */
 #define MASK_IMPURE_TEXT 0x100
 #define TARGET_IMPURE_TEXT (target_flags & MASK_IMPURE_TEXT)
 
@@ -434,7 +436,7 @@ extern int target_flags;
 #define MASK_FLAT 0x200
 #define TARGET_FLAT (target_flags & MASK_FLAT)
 
-/* Nonzero means use the registers that the Sparc ABI reserves for
+/* Nonzero means use the registers that the SPARC ABI reserves for
    application software.  This must be the default to coincide with the
    setting in FIXED_REGISTERS.  */
 #define MASK_APP_REGS 0x400
@@ -446,7 +448,7 @@ extern int target_flags;
 #define MASK_HARD_QUAD 0x800
 #define TARGET_HARD_QUAD (target_flags & MASK_HARD_QUAD)
 
-/* Non-zero on little-endian machines.  */
+/* Nonzero on little-endian machines.  */
 /* ??? Little endian support currently only exists for sparclet-aout and
    sparc64-elf configurations.  May eventually want to expand the support
    to all targets, but for now it's kept local to only those two.  */
@@ -467,14 +469,14 @@ extern int target_flags;
 
 /* 0x20000,0x40000 unused */
 
-/* Non-zero means use a stack bias of 2047.  Stack offsets are obtained by
+/* Nonzero means use a stack bias of 2047.  Stack offsets are obtained by
    adding 2047 to %sp.  This option is for v9 only and is the default.  */
 #define MASK_STACK_BIAS 0x80000
 #define TARGET_STACK_BIAS (target_flags & MASK_STACK_BIAS)
 
 /* 0x100000,0x200000 unused */
 
-/* Non-zero means -m{,no-}fpu was passed on the command line.  */
+/* Nonzero means -m{,no-}fpu was passed on the command line.  */
 #define MASK_FPU_SET 0x400000
 #define TARGET_FPU_SET (target_flags & MASK_FPU_SET)
 
@@ -560,15 +562,15 @@ extern int target_flags;
     {"cypress", 0,							\
      N_("Optimize for Cypress processors") }, 				\
     {"sparclite", 0,							\
-     N_("Optimize for SparcLite processors") }, 			\
+     N_("Optimize for SPARCLite processors") }, 			\
     {"f930", 0,								\
      N_("Optimize for F930 processors") }, 				\
     {"f934", 0,								\
      N_("Optimize for F934 processors") }, 				\
     {"v8", 0,								\
-     N_("Use V8 Sparc ISA") }, 						\
+     N_("Use V8 SPARC ISA") }, 						\
     {"supersparc", 0,							\
-     N_("Optimize for SuperSparc processors") }, 			\
+     N_("Optimize for SuperSPARC processors") }, 			\
     /* End of deprecated options.  */					\
     {"ptr64", MASK_PTR64,						\
      N_("Pointers are 64-bit") }, 					\
@@ -634,7 +636,7 @@ extern enum processor_type sparc_cpu;
   { "tune=", &sparc_select[2].string,				\
     N_("Schedule code for given CPU") },			\
   { "cmodel=", &sparc_cmodel_string,				\
-    N_("Use given Sparc code model") },				\
+    N_("Use given SPARC code model") },				\
   SUBTARGET_OPTIONS 						\
 }
 
@@ -700,7 +702,7 @@ extern struct sparc_cpu_select sparc_select[];
 /* ??? This does not work in SunOS 4.x, so it is not enabled here.
    Instead, it is enabled in sol2.h, because it does work under Solaris.  */
 /* Define for support of TFmode long double.
-   Sparc ABI says that long double is 4 words.  */
+   SPARC ABI says that long double is 4 words.  */
 #define LONG_DOUBLE_TYPE_SIZE 128
 #endif
 
@@ -948,7 +950,7 @@ do								\
 	call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
       }								\
     /* If the user has passed -f{fixed,call-{used,saved}}-g5 */	\
-    /* then honour it.  */					\
+    /* then honor it.  */					\
     if (TARGET_ARCH32 && fixed_regs[5])				\
       fixed_regs[5] = 1;					\
     else if (TARGET_ARCH64 && fixed_regs[5] == 2)		\
@@ -973,7 +975,7 @@ do								\
 	  fixed_regs[regno] = 1;				\
       }								\
     /* If the user has passed -f{fixed,call-{used,saved}}-g2 */	\
-    /* then honour it.  Likewise with g3 and g4.  */		\
+    /* then honor it.  Likewise with g3 and g4.  */		\
     if (fixed_regs[2] == 2)					\
       fixed_regs[2] = ! TARGET_APP_REGS;			\
     if (fixed_regs[3] == 2)					\
@@ -1118,7 +1120,7 @@ extern int sparc_mode_class[];
 
 #define DEFAULT_PCC_STRUCT_RETURN -1
 
-/* Sparc ABI says that quad-precision floats and all structures are returned
+/* SPARC ABI says that quad-precision floats and all structures are returned
    in memory.
    For v9: unions <= 32 bytes in size are returned in int regs,
    structures up to 32 bytes are returned in int and fp regs.  */
@@ -1723,8 +1725,8 @@ extern char leaf_reg_remap[];
 
 struct sparc_args {
   int words;       /* number of words passed so far */
-  int prototype_p; /* non-zero if a prototype is present */
-  int libcall_p;   /* non-zero if a library call */
+  int prototype_p; /* nonzero if a prototype is present */
+  int libcall_p;   /* nonzero if a library call */
 };
 #define CUMULATIVE_ARGS struct sparc_args
 
@@ -1817,7 +1819,7 @@ extern GTY(()) rtx sparc_compare_op1;
 /* Generate the special assembly code needed to tell the assembler whatever
    it might need to know about the return value of a function.
 
-   For Sparc assemblers, we need to output a .proc pseudo-op which conveys
+   For SPARC assemblers, we need to output a .proc pseudo-op which conveys
    information to the assembler relating to peephole optimization (done in
    the assembler).  */
 
@@ -2373,7 +2375,7 @@ do {									\
    operand.  If we find one, push the reload and jump to WIN.  This
    macro is used in only one place: `find_reloads_address' in reload.c.
 
-   For Sparc 32, we wish to handle addresses by splitting them into
+   For SPARC 32, we wish to handle addresses by splitting them into
    HIGH+LO_SUM pairs, retaining the LO_SUM in the memory reference. 
    This cuts the number of extra insns by one.
 
@@ -2493,8 +2495,8 @@ do {                                                                    \
    processing is needed.  */
 #define SELECT_CC_MODE(OP,X,Y)  select_cc_mode ((OP), (X), (Y))
 
-/* Return non-zero if MODE implies a floating point inequality can be
-   reversed.  For Sparc this is always true because we have a full
+/* Return nonzero if MODE implies a floating point inequality can be
+   reversed.  For SPARC this is always true because we have a full
    compliment of ordered and unordered comparisons, but until generic
    code knows how to reverse it correctly we keep the old definition.  */
 #define REVERSIBLE_CC_MODE(MODE) ((MODE) != CCFPEmode && (MODE) != CCFPmode)
@@ -2736,12 +2738,6 @@ case LABEL_REF: case SYMBOL_REF: case CONST_DOUBLE:
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output a definition of an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
@@ -2812,6 +2808,13 @@ do {									\
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (1<<(LOG)))
 
+/* This is how to output an assembler line that says to advance
+   the location counter to a multiple of 2**LOG bytes using the
+   "nop" instruction as padding.  */
+#define ASM_OUTPUT_ALIGN_WITH_NOP(FILE,LOG)   \
+  if ((LOG) != 0)                             \
+    fprintf (FILE, "\t.align %d,0x1000000\n", (1<<(LOG)))
+
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.skip %u\n", (SIZE))
 
@@ -2844,14 +2847,6 @@ do {									\
     fputs ("\n", (FILE));					\
     ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);		\
   } while (0)
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
 #define IDENT_ASM_OP "\t.ident\t"
 

@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
+#include "optabs.h"
 
 static bool s390_assemble_integer PARAMS ((rtx, unsigned int, int));
 static int s390_adjust_cost PARAMS ((rtx, rtx, rtx, int));
@@ -796,7 +797,7 @@ s390_extract_qi (op, mode, part)
    LEVEL is the optimization level specified; 2 if `-O2' is
    specified, 1 if `-O' is specified, and 0 if neither is specified.
 
-   SIZE is non-zero if `-Os' is specified and zero otherwise.  */
+   SIZE is nonzero if `-Os' is specified and zero otherwise.  */
 
 void
 optimization_options (level, size)
@@ -1047,6 +1048,19 @@ q_constraint (op)
     return 0;
 
   return 1;
+}
+
+/* Return the cost of an address rtx ADDR.  */
+
+int
+s390_address_cost (addr)
+     rtx addr;
+{
+  struct s390_address ad;
+  if (!s390_decompose_address (addr, &ad))
+    return 1000;
+
+  return ad.indx? COSTS_N_INSNS (1) + 1 : COSTS_N_INSNS (1);
 }
 
 /* Return true if OP is a valid operand for the BRAS instruction.
@@ -1458,8 +1472,7 @@ s390_expand_plus_operand (target, src, scratch)
   /* Emit the LOAD ADDRESS pattern.  Note that reload of PLUS
      is only ever performed on addresses, so we can mark the
      sum as legitimate for LA in any case.  */
-  src = legitimize_la_operand (src);
-  emit_insn (gen_rtx_SET (VOIDmode, target, src));
+  s390_load_address (target, src);
 }
 
 
@@ -1548,6 +1561,9 @@ s390_decompose_address (addr, out)
 	  || ((reload_completed || reload_in_progress)
 	      && frame_pointer_needed
 	      && REGNO (base) == HARD_FRAME_POINTER_REGNUM)
+	  || REGNO (base) == ARG_POINTER_REGNUM
+	  || (REGNO (base) >= FIRST_VIRTUAL_REGISTER
+	      && REGNO (base) <= LAST_VIRTUAL_REGISTER)
           || (flag_pic
               && REGNO (base) == PIC_OFFSET_TABLE_REGNUM))
         pointer = TRUE;
@@ -1573,6 +1589,9 @@ s390_decompose_address (addr, out)
 	  || ((reload_completed || reload_in_progress)
 	      && frame_pointer_needed
 	      && REGNO (indx) == HARD_FRAME_POINTER_REGNUM)
+	  || REGNO (indx) == ARG_POINTER_REGNUM
+	  || (REGNO (indx) >= FIRST_VIRTUAL_REGISTER
+	      && REGNO (indx) <= LAST_VIRTUAL_REGISTER)
           || (flag_pic
               && REGNO (indx) == PIC_OFFSET_TABLE_REGNUM))
         pointer = TRUE;
@@ -1737,30 +1756,19 @@ legitimate_la_operand_p (op)
   return FALSE;
 }
 
-/* Return a modified variant of OP that is guaranteed to
-   be accepted by legitimate_la_operand_p.  */
+/* Emit a forced load-address operation to load SRC into DST.
+   This will use the LOAD ADDRESS instruction even in situations
+   where legitimate_la_operand_p (SRC) returns false.  */
 
-rtx
-legitimize_la_operand (op)
-     register rtx op;
+void
+s390_load_address (dst, src)
+     rtx dst;
+     rtx src;
 {
-  struct s390_address addr;
-  if (!s390_decompose_address (op, &addr))
-    abort ();
-
-  if (TARGET_64BIT || addr.pointer)
-    return op;
-
-  if (!addr.base)
-    abort ();
-
-  op = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr.base), 101);
-  if (addr.indx)
-    op = gen_rtx_PLUS (Pmode, op, addr.indx);
-  if (addr.disp)
-    op = gen_rtx_PLUS (Pmode, op, addr.disp);
-
-  return op; 
+  if (TARGET_64BIT)
+    emit_move_insn (dst, src);
+  else
+    emit_insn (gen_force_la_31 (dst, src));
 }
 
 /* Return a legitimate reference for ORIG (an address) using the
@@ -2148,6 +2156,312 @@ legitimize_address (x, oldx, mode)
   return x;
 }
 
+/* Emit code to move LEN bytes from DST to SRC.  */
+
+void
+s390_expand_movstr (dst, src, len)
+     rtx dst;
+     rtx src;
+     rtx len;
+{
+  rtx (*gen_short) PARAMS ((rtx, rtx, rtx)) = 
+    TARGET_64BIT ? gen_movstr_short_64 : gen_movstr_short_31;
+  rtx (*gen_long) PARAMS ((rtx, rtx, rtx, rtx)) = 
+    TARGET_64BIT ? gen_movstr_long_64 : gen_movstr_long_31;
+
+
+  if (GET_CODE (len) == CONST_INT && INTVAL (len) >= 0 && INTVAL (len) <= 256)
+    {
+      if (INTVAL (len) > 0)
+        emit_insn ((*gen_short) (dst, src, GEN_INT (INTVAL (len) - 1)));
+    }
+
+  else if (TARGET_MVCLE)
+    {
+      enum machine_mode double_mode = TARGET_64BIT ? TImode : DImode;
+      enum machine_mode single_mode = TARGET_64BIT ? DImode : SImode;
+      rtx reg0 = gen_reg_rtx (double_mode);
+      rtx reg1 = gen_reg_rtx (double_mode);
+
+      emit_move_insn (gen_highpart (single_mode, reg0), 
+		      force_operand (XEXP (dst, 0), NULL_RTX));
+      emit_move_insn (gen_highpart (single_mode, reg1), 
+		      force_operand (XEXP (src, 0), NULL_RTX));
+
+      convert_move (gen_lowpart (single_mode, reg0), len, 1);
+      convert_move (gen_lowpart (single_mode, reg1), len, 1);
+
+      emit_insn ((*gen_long) (reg0, reg1, reg0, reg1));
+    }
+
+  else
+    {
+      rtx dst_addr, src_addr, count, blocks, temp;
+      rtx end_label = gen_label_rtx ();
+      enum machine_mode mode;
+      tree type;
+
+      mode = GET_MODE (len);
+      if (mode == VOIDmode)
+        mode = word_mode;
+
+      type = (*lang_hooks.types.type_for_mode) (mode, 1);
+      if (!type)
+        abort ();
+
+      dst_addr = gen_reg_rtx (Pmode);
+      src_addr = gen_reg_rtx (Pmode);
+      count = gen_reg_rtx (mode);
+      blocks = gen_reg_rtx (mode);
+
+      convert_move (count, len, 1);
+      emit_cmp_and_jump_insns (count, const0_rtx, 
+			       EQ, NULL_RTX, mode, 1, end_label);
+
+      emit_move_insn (dst_addr, force_operand (XEXP (dst, 0), NULL_RTX));
+      emit_move_insn (src_addr, force_operand (XEXP (src, 0), NULL_RTX));
+      dst = change_address (dst, VOIDmode, dst_addr);
+      src = change_address (src, VOIDmode, src_addr);
+     
+      temp = expand_binop (mode, add_optab, count, constm1_rtx, count, 1, 0);
+      if (temp != count)
+        emit_move_insn (count, temp);
+
+      temp = expand_binop (mode, ashr_optab, count, GEN_INT (8), blocks, 1, 0);
+      if (temp != blocks)
+        emit_move_insn (blocks, temp);
+
+      expand_start_loop (1);
+      expand_exit_loop_top_cond (0, build (NE_EXPR, type,
+					   make_tree (type, blocks),
+					   make_tree (type, const0_rtx)));
+
+      emit_insn ((*gen_short) (dst, src, GEN_INT (255)));
+      s390_load_address (dst_addr, 
+			 gen_rtx_PLUS (Pmode, dst_addr, GEN_INT (256)));
+      s390_load_address (src_addr, 
+			 gen_rtx_PLUS (Pmode, src_addr, GEN_INT (256)));
+      
+      temp = expand_binop (mode, add_optab, blocks, constm1_rtx, blocks, 1, 0);
+      if (temp != blocks)
+        emit_move_insn (blocks, temp);
+
+      expand_end_loop ();
+
+      emit_insn ((*gen_short) (dst, src, convert_to_mode (word_mode, count, 1)));
+      emit_label (end_label);
+    }
+}
+
+/* Emit code to clear LEN bytes at DST.  */
+
+void
+s390_expand_clrstr (dst, len)
+     rtx dst;
+     rtx len;
+{
+  rtx (*gen_short) PARAMS ((rtx, rtx)) = 
+    TARGET_64BIT ? gen_clrstr_short_64 : gen_clrstr_short_31;
+  rtx (*gen_long) PARAMS ((rtx, rtx, rtx)) = 
+    TARGET_64BIT ? gen_clrstr_long_64 : gen_clrstr_long_31;
+
+
+  if (GET_CODE (len) == CONST_INT && INTVAL (len) >= 0 && INTVAL (len) <= 256)
+    {
+      if (INTVAL (len) > 0)
+        emit_insn ((*gen_short) (dst, GEN_INT (INTVAL (len) - 1)));
+    }
+
+  else if (TARGET_MVCLE)
+    {
+      enum machine_mode double_mode = TARGET_64BIT ? TImode : DImode;
+      enum machine_mode single_mode = TARGET_64BIT ? DImode : SImode;
+      rtx reg0 = gen_reg_rtx (double_mode);
+      rtx reg1 = gen_reg_rtx (double_mode);
+
+      emit_move_insn (gen_highpart (single_mode, reg0), 
+		      force_operand (XEXP (dst, 0), NULL_RTX));
+      convert_move (gen_lowpart (single_mode, reg0), len, 1);
+
+      emit_move_insn (gen_highpart (single_mode, reg1), const0_rtx);
+      emit_move_insn (gen_lowpart (single_mode, reg1), const0_rtx);
+
+      emit_insn ((*gen_long) (reg0, reg1, reg0));
+    }
+
+  else
+    {
+      rtx dst_addr, src_addr, count, blocks, temp;
+      rtx end_label = gen_label_rtx ();
+      enum machine_mode mode;
+      tree type;
+
+      mode = GET_MODE (len);
+      if (mode == VOIDmode)
+        mode = word_mode;
+
+      type = (*lang_hooks.types.type_for_mode) (mode, 1);
+      if (!type)
+        abort ();
+
+      dst_addr = gen_reg_rtx (Pmode);
+      src_addr = gen_reg_rtx (Pmode);
+      count = gen_reg_rtx (mode);
+      blocks = gen_reg_rtx (mode);
+
+      convert_move (count, len, 1);
+      emit_cmp_and_jump_insns (count, const0_rtx, 
+			       EQ, NULL_RTX, mode, 1, end_label);
+
+      emit_move_insn (dst_addr, force_operand (XEXP (dst, 0), NULL_RTX));
+      dst = change_address (dst, VOIDmode, dst_addr);
+     
+      temp = expand_binop (mode, add_optab, count, constm1_rtx, count, 1, 0);
+      if (temp != count)
+        emit_move_insn (count, temp);
+
+      temp = expand_binop (mode, ashr_optab, count, GEN_INT (8), blocks, 1, 0);
+      if (temp != blocks)
+        emit_move_insn (blocks, temp);
+
+      expand_start_loop (1);
+      expand_exit_loop_top_cond (0, build (NE_EXPR, type,
+					   make_tree (type, blocks),
+					   make_tree (type, const0_rtx)));
+
+      emit_insn ((*gen_short) (dst, GEN_INT (255)));
+      s390_load_address (dst_addr, 
+			 gen_rtx_PLUS (Pmode, dst_addr, GEN_INT (256)));
+      
+      temp = expand_binop (mode, add_optab, blocks, constm1_rtx, blocks, 1, 0);
+      if (temp != blocks)
+        emit_move_insn (blocks, temp);
+
+      expand_end_loop ();
+
+      emit_insn ((*gen_short) (dst, convert_to_mode (word_mode, count, 1)));
+      emit_label (end_label);
+    }
+}
+
+/* Emit code to compare LEN bytes at OP0 with those at OP1,
+   and return the result in TARGET.  */
+
+void
+s390_expand_cmpstr (target, op0, op1, len)
+     rtx target;
+     rtx op0;
+     rtx op1;
+     rtx len;
+{
+  rtx (*gen_short) PARAMS ((rtx, rtx, rtx)) = 
+    TARGET_64BIT ? gen_cmpstr_short_64 : gen_cmpstr_short_31;
+  rtx (*gen_long) PARAMS ((rtx, rtx, rtx, rtx)) = 
+    TARGET_64BIT ? gen_cmpstr_long_64 : gen_cmpstr_long_31;
+  rtx (*gen_result) PARAMS ((rtx)) =
+    GET_MODE (target) == DImode ? gen_cmpint_di : gen_cmpint_si;
+
+  op0 = protect_from_queue (op0, 0);
+  op1 = protect_from_queue (op1, 0);
+  len = protect_from_queue (len, 0);
+
+  if (GET_CODE (len) == CONST_INT && INTVAL (len) >= 0 && INTVAL (len) <= 256)
+    {
+      if (INTVAL (len) > 0)
+        {
+          emit_insn ((*gen_short) (op0, op1, GEN_INT (INTVAL (len) - 1)));
+          emit_insn ((*gen_result) (target));
+        }
+      else
+        emit_move_insn (target, const0_rtx);
+    }
+
+  else if (TARGET_MVCLE)
+    {
+      enum machine_mode double_mode = TARGET_64BIT ? TImode : DImode;
+      enum machine_mode single_mode = TARGET_64BIT ? DImode : SImode;
+      rtx reg0 = gen_reg_rtx (double_mode);
+      rtx reg1 = gen_reg_rtx (double_mode);
+
+      emit_move_insn (gen_highpart (single_mode, reg0), 
+		      force_operand (XEXP (op0, 0), NULL_RTX));
+      emit_move_insn (gen_highpart (single_mode, reg1), 
+		      force_operand (XEXP (op1, 0), NULL_RTX));
+
+      convert_move (gen_lowpart (single_mode, reg0), len, 1);
+      convert_move (gen_lowpart (single_mode, reg1), len, 1);
+
+      emit_insn ((*gen_long) (reg0, reg1, reg0, reg1));
+      emit_insn ((*gen_result) (target));
+    }
+
+  else
+    {
+      rtx addr0, addr1, count, blocks, temp;
+      rtx end_label = gen_label_rtx ();
+      enum machine_mode mode;
+      tree type;
+
+      mode = GET_MODE (len);
+      if (mode == VOIDmode)
+        mode = word_mode;
+
+      type = (*lang_hooks.types.type_for_mode) (mode, 1);
+      if (!type)
+        abort ();
+
+      addr0 = gen_reg_rtx (Pmode);
+      addr1 = gen_reg_rtx (Pmode);
+      count = gen_reg_rtx (mode);
+      blocks = gen_reg_rtx (mode);
+
+      convert_move (count, len, 1);
+      emit_cmp_and_jump_insns (count, const0_rtx, 
+			       EQ, NULL_RTX, mode, 1, end_label);
+
+      emit_move_insn (addr0, force_operand (XEXP (op0, 0), NULL_RTX));
+      emit_move_insn (addr1, force_operand (XEXP (op1, 0), NULL_RTX));
+      op0 = change_address (op0, VOIDmode, addr0);
+      op1 = change_address (op1, VOIDmode, addr1);
+     
+      temp = expand_binop (mode, add_optab, count, constm1_rtx, count, 1, 0);
+      if (temp != count)
+        emit_move_insn (count, temp);
+
+      temp = expand_binop (mode, ashr_optab, count, GEN_INT (8), blocks, 1, 0);
+      if (temp != blocks)
+        emit_move_insn (blocks, temp);
+
+      expand_start_loop (1);
+      expand_exit_loop_top_cond (0, build (NE_EXPR, type,
+					   make_tree (type, blocks),
+					   make_tree (type, const0_rtx)));
+
+      emit_insn ((*gen_short) (op0, op1, GEN_INT (255)));
+      temp = gen_rtx_NE (VOIDmode, gen_rtx_REG (CCSmode, 33), const0_rtx);
+      temp = gen_rtx_IF_THEN_ELSE (VOIDmode, temp, 
+			gen_rtx_LABEL_REF (VOIDmode, end_label), pc_rtx);
+      temp = gen_rtx_SET (VOIDmode, pc_rtx, temp);
+      emit_jump_insn (temp);
+
+      s390_load_address (addr0, 
+			 gen_rtx_PLUS (Pmode, addr0, GEN_INT (256)));
+      s390_load_address (addr1, 
+			 gen_rtx_PLUS (Pmode, addr1, GEN_INT (256)));
+      
+      temp = expand_binop (mode, add_optab, blocks, constm1_rtx, blocks, 1, 0);
+      if (temp != blocks)
+        emit_move_insn (blocks, temp);
+
+      expand_end_loop ();
+
+      emit_insn ((*gen_short) (op0, op1, convert_to_mode (word_mode, count, 1)));
+      emit_label (end_label);
+
+      emit_insn ((*gen_result) (target));
+    }
+}
+
 /* In the name of slightly smaller debug output, and to cater to
    general assembler losage, recognize various UNSPEC sequences
    and turn them back into a direct symbol reference.  */
@@ -2498,7 +2812,11 @@ addr_generation_dependency_p (dep_rtx, insn)
   if (GET_CODE (dep_rtx) == SET)
     {
       target = SET_DEST (dep_rtx);
-      
+      if (GET_CODE (target) == STRICT_LOW_PART)
+	target = XEXP (target, 0);
+      while (GET_CODE (target) == SUBREG)
+	target = SUBREG_REG (target);
+
       if (GET_CODE (target) == REG)
 	{
 	  int regno = REGNO (target);
@@ -4706,7 +5024,7 @@ s390_function_profiler (file, labelno)
       output_asm_insn ("bras\t%2,%l6", op);
       output_asm_insn (".long\t%4", op);
       output_asm_insn (".long\t%3", op);
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
+      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (op[6]));
       output_asm_insn ("l\t%0,0(%2)", op);
       output_asm_insn ("l\t%2,4(%2)", op);
       output_asm_insn ("basr\t%0,%0", op);
@@ -4719,10 +5037,10 @@ s390_function_profiler (file, labelno)
 
       output_asm_insn ("st\t%0,%1", op);
       output_asm_insn ("bras\t%2,%l6", op);
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[5]));
+      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (op[5]));
       output_asm_insn (".long\t%4-%l5", op);
       output_asm_insn (".long\t%3-%l5", op);
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
+      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (op[6]));
       output_asm_insn ("lr\t%0,%2", op);
       output_asm_insn ("a\t%0,0(%2)", op);
       output_asm_insn ("a\t%2,4(%2)", op);

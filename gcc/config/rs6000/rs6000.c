@@ -450,6 +450,9 @@ rs6000_override_options (default_cpu)
 	 {"405", PROCESSOR_PPC405,
 	    MASK_POWERPC | MASK_SOFT_FLOAT | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
+	 {"405f", PROCESSOR_PPC405,
+	    MASK_POWERPC | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
 	 {"505", PROCESSOR_MPCCORE,
 	    MASK_POWERPC | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
@@ -1772,6 +1775,8 @@ build_mask64_2_operands (in, out)
   out[2] = GEN_INT (shift);
   out[3] = GEN_INT (m2);
 #else
+  (void)in;
+  (void)out;
   abort ();
 #endif
 }
@@ -2643,6 +2648,7 @@ rs6000_emit_move (dest, source, mode)
     case V4HImode:
     case V2SFmode:
     case V2SImode:
+    case V1DImode:
       if (CONSTANT_P (operands[1])
 	  && !easy_vector_constant (operands[1]))
 	operands[1] = force_const_mem (mode, operands[1]);
@@ -8529,7 +8535,7 @@ rs6000_emit_cmove (dest, op, true_cond, false_cond)
      would treat EQ different to UNORDERED, we can't do it.  */
   if (! flag_unsafe_math_optimizations
       && code != GT && code != UNGE
-      && (GET_CODE (op1) != CONST_DOUBLE || target_isinf (c1))
+      && (GET_CODE (op1) != CONST_DOUBLE || real_isinf (&c1))
       /* Constructs of the form (a OP b ? a : b) are safe.  */
       && ((! rtx_equal_p (op0, false_cond) && ! rtx_equal_p (op1, false_cond))
 	  || (! rtx_equal_p (op0, true_cond) 
@@ -11298,7 +11304,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	  /* Set up a TOC entry for the function.  */
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "Lthunk", labelno);
 	  toc_section ();
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "Lthunk", labelno);
+	  (*targetm.asm_out.internal_label) (file, "Lthunk", labelno);
 	  labelno++;
 
 	  if (TARGET_MINIMAL_TOC)
@@ -11608,7 +11614,7 @@ output_toc (file, x, labelno, mode)
     ASM_OUTPUT_ALIGN (file, 3);
   }
 
-  ASM_OUTPUT_INTERNAL_LABEL (file, "LC", labelno);
+  (*targetm.asm_out.internal_label) (file, "LC", labelno);
 
   /* Handle FP constants specially.  Note that if we have a minimal
      TOC, things we put here aren't actually in the TOC, so we can allow

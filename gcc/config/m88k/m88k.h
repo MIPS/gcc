@@ -389,14 +389,6 @@ extern int flag_pic;				/* -fpic */
 /* Maximum size (in bits) to use for the largest integral type that
    replaces a BLKmode type. */
 /* #define MAX_FIXED_MODE_SIZE 0 */
-
-/* Check a `double' value for validity for a particular machine mode.
-   This is defined to avoid crashes outputting certain constants.
-   Since we output the number in hex, the assembler won't choke on it.  */
-/* #define CHECK_FLOAT_VALUE(MODE,VALUE) */
-
-/* A code distinguishing the floating point format of the target machine.  */
-/* #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT */
 
 /*** Register Usage ***/
 
@@ -1112,7 +1104,7 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
   fprintf (FILE, "\tor\t %s,%s,0\n", reg_names[11], reg_names[1]);	\
   /* Locate this block; transfer to the next instruction.  */		\
   fprintf (FILE, "\tbsr\t %s\n", &buf[1]);					\
-  ASM_OUTPUT_INTERNAL_LABEL (FILE, "LTRMP", labelno);			\
+  (*targetm.asm_out.internal_label) (FILE, "LTRMP", labelno);			\
   /* Save r10; use it as the relative pointer; restore r1.  */		\
   fprintf (FILE, "\tst\t %s,%s,24\n", reg_names[10], reg_names[1]);	\
   fprintf (FILE, "\tor\t %s,%s,0\n", reg_names[10], reg_names[1]);	\
@@ -1885,25 +1877,11 @@ do {									 \
     fputs (NAME, FILE);					\
   }
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.
-   For V.4, labels use `.' rather than `@'.  */
-
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#ifdef AS_BUG_DOT_LABELS /* The assembler requires a declaration of local.  */
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
-  fprintf (FILE, TARGET_SVR4 ? ".%s%d:\n%s.%s%d\n" : "@%s%d:\n", \
-	   PREFIX, NUM, INTERNAL_ASM_OP, PREFIX, NUM)
-#else
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
-  fprintf (FILE, TARGET_SVR4 ? ".%s%d:\n" : "@%s%d:\n", PREFIX, NUM)
-#endif /* AS_BUG_DOT_LABELS */
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
    This is suitable for output with `assemble_name'.  This must agree
-   with ASM_OUTPUT_INTERNAL_LABEL above, except for being prefixed
+   with (*targetm.asm_out.internal_label) above, except for being prefixed
    with an `*'.  */
 
 #undef ASM_GENERATE_INTERNAL_LABEL
@@ -1925,7 +1903,7 @@ do {									 \
         readonly_data_section ();					\
         ASM_OUTPUT_ALIGN (FILE, 2);					\
       }									\
-    ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM);			\
+    (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);			\
   } while (0)
 
 /* Epilogue for case labels.  This jump instruction is called by casesi
@@ -2000,13 +1978,6 @@ do {									 \
   assemble_name ((FILE), (NAME)),			\
   fprintf ((FILE), ",%u,%d\n", (SIZE) ? (SIZE) : 1, (SIZE) <= 4 ? 4 : 8))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */
 #define ASM_OUTPUT_REG_PUSH(FILE,REGNO)  \
@@ -2038,10 +2009,10 @@ do {									 \
 #define OCS_END_PREFIX		"Lte"
 
 #define PUT_OCS_FUNCTION_START(FILE) \
-  { ASM_OUTPUT_INTERNAL_LABEL (FILE, OCS_START_PREFIX, m88k_function_number); }
+  { (*targetm.asm_out.internal_label) (FILE, OCS_START_PREFIX, m88k_function_number); }
 
 #define PUT_OCS_FUNCTION_END(FILE) \
-  { ASM_OUTPUT_INTERNAL_LABEL (FILE, OCS_END_PREFIX, m88k_function_number); }
+  { (*targetm.asm_out.internal_label) (FILE, OCS_END_PREFIX, m88k_function_number); }
 
 /* Macros for debug information */
 #define DEBUGGER_AUTO_OFFSET(X) \

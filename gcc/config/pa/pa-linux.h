@@ -164,7 +164,7 @@ Boston, MA 02111-1307, USA.  */
 /* Use the default.  */
 #undef ASM_OUTPUT_LABEL
 
-/* NOTE: ASM_OUTPUT_INTERNAL_LABEL() is defined for us by elfos.h, and
+/* NOTE: (*targetm.asm_out.internal_label)() is defined for us by elfos.h, and
    does what we want (i.e. uses colons).  It must be compatible with
    ASM_GENERATE_INTERNAL_LABEL(), so do not define it here.  */
 

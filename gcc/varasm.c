@@ -1871,7 +1871,7 @@ assemble_trampoline_template ()
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LTRAMP", 0);
+  (*targetm.asm_out.internal_label) (asm_out_file, "LTRAMP", 0);
   TRAMPOLINE_TEMPLATE (asm_out_file);
 
   /* Record the rtl to refer to it.  */
@@ -2868,7 +2868,7 @@ output_constant_def_contents (exp, reloc, labelno)
     }
 
   /* Output the label itself.  */
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", labelno);
+  (*targetm.asm_out.internal_label) (asm_out_file, "LC", labelno);
 
   /* Output the value of EXP.  */
   output_constant (exp,
@@ -3427,7 +3427,7 @@ output_constant_pool (fnname, fndecl)
       assemble_align (pool->align);
 
       /* Output the label.  */
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", pool->labelno);
+      (*targetm.asm_out.internal_label) (asm_out_file, "LC", pool->labelno);
 
       /* Output the value of the constant itself.  */
       switch (GET_MODE_CLASS (pool->mode))
@@ -4510,7 +4510,9 @@ weak_finish ()
   for (t = weak_decls; t; t = TREE_CHAIN (t))
     {
       tree decl = TREE_VALUE (t);
-      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+#if defined (ASM_WEAKEN_DECL) || defined (ASM_WEAKEN_LABEL)
+      const char *const name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+#endif
 
       if (! TREE_USED (decl))
 	continue;
@@ -5336,4 +5338,18 @@ default_globalize_label (stream, name)
 }
 #endif /* GLOBAL_ASM_OP */
   
+/* This is how to output an internal numbered label where PREFIX is
+   the class of label and LABELNO is the number within the class.  */
+
+void
+default_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  char *const buf = alloca (40 + strlen (prefix));
+  ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
+  ASM_OUTPUT_LABEL (stream, buf);
+}
+
 #include "gt-varasm.h"

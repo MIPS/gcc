@@ -1012,12 +1012,12 @@ output_far_jump (insn, op)
   if (far && flag_pic && TARGET_SH2)
     {
       braf_base_lab = gen_label_rtx ();
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+      (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				 CODE_LABEL_NUMBER (braf_base_lab));
     }
   if (far)
     output_asm_insn (".align	2", 0);
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (this.lab));
+  (*targetm.asm_out.internal_label) (asm_out_file, "L", CODE_LABEL_NUMBER (this.lab));
   this.op = op;
   if (far && flag_pic)
     {
@@ -1076,7 +1076,7 @@ output_branch (logic, insn, operands)
     
 	  output_asm_insn ("bra\t%l0", &op0);
 	  fprintf (asm_out_file, "\tnop\n");
-	  ASM_OUTPUT_INTERNAL_LABEL(asm_out_file, "LF", label);
+	  (*targetm.asm_out.internal_label)(asm_out_file, "LF", label);
     
 	  return "";
 	}
@@ -2508,7 +2508,7 @@ dump_table (scan)
   pool_window_last = 0;
 }
 
-/* Return non-zero if constant would be an ok source for a
+/* Return nonzero if constant would be an ok source for a
    mov.w instead of a mov.l.  */
 
 static int
@@ -2520,7 +2520,7 @@ hi_const (src)
 	  && INTVAL (src) <= 32767);
 }
 
-/* Non-zero if the insn is a move instruction which needs to be fixed.  */
+/* Nonzero if the insn is a move instruction which needs to be fixed.  */
 
 /* ??? For a DImode/DFmode moves, we don't need to fix it if each half of the
    CONST_DOUBLE input value is CONST_OK_FOR_I.  For a SFmode move, we don't
@@ -4174,7 +4174,7 @@ final_prescan_insn (insn, opvec, noperands)
 	    asm_fprintf (asm_out_file, "\t.uses %LL%d\n",
 			 CODE_LABEL_NUMBER (XEXP (note, 0)));
 	  else if (GET_CODE (pattern) == SET)
-	    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	    (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				       CODE_LABEL_NUMBER (XEXP (note, 0)));
 	  else
 	    abort ();
@@ -4197,7 +4197,7 @@ output_jump_label_table ()
 	{
 	  pool_node *p = &pool_vector[i];
 
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
+	  (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				     CODE_LABEL_NUMBER (p->label));
 	  output_asm_insn (".long	%O0", &p->value);
 	}
@@ -6429,7 +6429,7 @@ branch_dest (branch)
   return INSN_ADDRESSES (dest_uid);
 }
 
-/* Return non-zero if REG is not used after INSN.
+/* Return nonzero if REG is not used after INSN.
    We assume REG is a reload reg, and therefore does
    not live past labels.  It may live past calls or jumps though.  */
 int
@@ -6971,7 +6971,7 @@ sh_can_redirect_branch (branch1, branch2)
   return 0;
 }
 
-/* Return non-zero if register old_reg can be renamed to register new_reg.  */
+/* Return nonzero if register old_reg can be renamed to register new_reg.  */
 int
 sh_hard_regno_rename_ok (old_reg, new_reg)
      unsigned int old_reg ATTRIBUTE_UNUSED;

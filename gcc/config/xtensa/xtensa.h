@@ -1640,15 +1640,6 @@ typedef struct xtensa_args {
     goto JUMPTO;							\
   } while (0)
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)			\
-  do {									\
-    (OUTPUT) = (char *) alloca (strlen (NAME) + 10);			\
-    sprintf ((OUTPUT), "%s.%u", (NAME), (LABELNO));			\
-  } while (0)
-
 /* How to start an assembler comment. */
 #define ASM_COMMENT_START "#"
 

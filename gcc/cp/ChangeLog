@@ -1,3 +1,49 @@
+2002-09-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (grokdeclarator): Use assert, not internal_error. Don't
+	ICE with invalid pointers & references.
+
+2002-09-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* Make-lang.in: Remove all references to the demangler.
+	* cxxfilt.c: Moved to binutils.
+
+2002-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7718
+	* pt.c (tsubst_decl): Remove assert.
+
+	Remove DR 295 implementation.
+	* pt.c (check_cv_quals_for_unify): Disable function & method cases.
+	* tree.c (cp_build_qualified_type_real): Likewise. Don't warn
+	about ignoring volatile qualifiers.
+
+	* search.c (lookup_member): Correct documentation.
+
+2002-09-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* cp-tree.h (union lang_tree_node): Add chain_next option.
+
+2002-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parse.y (parse_finish_call_expr): Check lookup_member result.
+
+	PR c++/7015
+	* semantic.c (finish_asm_stmt): Fix operand/output_operands
+	thinko.
+	* typeck.c (c_expand_asm_operands): Protect from error_mark_node.
+
+2002-09-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7919
+	* call.c (build_over_call): Convert this pointer for fns found by
+	using decls.
+
+2002-09-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Follow spelling conventions.
+	* ChangeLog.1: Likewise.
+
 2002-09-14  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/7768
@@ -69,6 +115,14 @@
 	* decl.c (start_cleanup_fn): Clear interface_only before
 	start_function, restore it afterwards.
 
+2002-09-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (finish_builtin_type): Remove.
+	* decl2.c (finish_builtin_type): Move to common code.
+	* decl.c (build_ptrmemfunc_type): Adjust.
+	* rtti.c (create_pseudo_type_info): Adjust.
+	(create_tinfo_types): Adjust.
+
 2002-08-31  Jason Merrill  <jason@redhat.com>
 
 	* cp-lang.c (cp_expr_size): Allow initialization from a
@@ -87,7 +141,7 @@
 	* class.c (layout_virtual_bases): Warn about bugs in G++ that
 	result in incorrect object layouts.
 	(layout_class_type): Likewise.
-	
+
 2002-08-24  Matt Austern  <austern@apple.com>
 
 	* tree.c (lvalue_p_1): Add argument for whether casts of lvalues
@@ -96,7 +150,7 @@
 	(lvalue_p): Ditto.
 	(non_cast_lvalue_or_else): New.
 	* tree.h: Declare it.
-        * typeck.c (build_unary_op): Use non_cast_lvalue_or_else.
+	* typeck.c (build_unary_op): Use non_cast_lvalue_or_else.
 
 2002-08-22  Mark Mitchell  <mark@codesourcery.com>
 
@@ -185,7 +239,7 @@
 	* search.c (adjust_result_of_qualified_name_lookup): New function.
 	* typeck.c (qualify_type_recursive): Use TYPE_PTRMEM_* rather than
 	accessing OFFSET_TYPEs directly.
-	
+
 2002-08-08  Mike Stump  <mrs@apple.com>
 
 	* call.c (add_builtin_candidate): legal -> valid, illegal -> invalid.
@@ -505,8 +559,8 @@
 
 	* call.c (build_over_call): Likewise.
 	(cp_convert_parm_for_inlining): New fn.
-        (convert_for_arg_passing): New fn.
-        (convert_default_arg, build_over_call): Use it.
+	(convert_for_arg_passing): New fn.
+	(convert_default_arg, build_over_call): Use it.
 	(type_passed_as): New fn.
 	* pt.c (tsubst_decl): Use it.
 	* decl2.c (cp_build_parm_decl): New fn.
@@ -908,8 +962,8 @@
 2002-06-20  Richard Henderson  <rth@redhat.com>
 
 	PR c++/6747
-        * typeck.c (mark_addressable): Don't test TREE_ADDRESSABLE early.
-        Call put_var_into_stack.
+	* typeck.c (mark_addressable): Don't test TREE_ADDRESSABLE early.
+	Call put_var_into_stack.
 
 2002-06-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
@@ -1144,7 +1198,7 @@
 	(processing_these_inlines): Likewise.
 	(token_obstack): Make static.
 	(first_token): Likewise.
-	(init_spew): Don't initialise deleted things; use gengtype for roots.
+	(init_spew): Don't initialize deleted things; use gengtype for roots.
 	(clear_inline_text_obstack): Delete.
 	(feed_input): Use GC for struct feed.  Update for changes to
 	struct unparsed_text.
@@ -4306,7 +4360,7 @@ Fri Sep 21 08:16:19 2001  J"orn Rennecke <amylaar@redhat.com>
 
 2001-07-23  Graham Stott  <grahams@redhat.com>
 
-	* cp/class.c (type_requires_array_cookie): Fix use of uninitialised
+	* cp/class.c (type_requires_array_cookie): Fix use of uninitialized
 	variable has_two_argument_delete_p.
 
 2001-07-21  Nathan Sidwell  <nathan@codesourcery.com>
@@ -7294,7 +7348,7 @@ Thu Nov 23 02:16:47 2000  J"orn Rennecke <amylaar@redhat.com>
 
 2000-11-17  Nathan Sidwell  <nathan@codesourcery.com>
 
-	* typeck2.c (incomplete_type_error): Reorganise to avoid
+	* typeck2.c (incomplete_type_error): Reorganize to avoid
 	excessive diagnostics.
 
 2000-11-16  Zack Weinberg  <zack@wolery.stanford.edu>

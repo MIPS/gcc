@@ -505,7 +505,8 @@ enum cp_tree_node_structure_enum {
 };
 
 /* The resulting tree type.  */
-union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)")))
+union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
+       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   struct tree_common GTY ((tag ("TS_CP_COMMON"))) common;
   union tree_node GTY ((tag ("TS_CP_GENERIC"),
@@ -3723,6 +3724,9 @@ typedef int (*walk_globals_fn)                  PARAMS ((tree *, void *));
 extern int walk_globals                         PARAMS ((walk_globals_pred,
 						       walk_globals_fn,
 						       void *));
+extern int walk_vtables                         PARAMS ((walk_globals_pred, 
+                                                       walk_globals_fn, 
+						       void *));
 typedef int (*walk_namespaces_fn)               PARAMS ((tree, void *));
 extern int walk_namespaces                      PARAMS ((walk_namespaces_fn,
 						       void *));
@@ -3762,8 +3766,6 @@ extern bool constructor_name_p                  (tree, tree);
 extern void defer_fn            		PARAMS ((tree));
 extern void finish_anon_union			PARAMS ((tree));
 extern tree finish_table			PARAMS ((tree, tree, tree, int));
-extern void finish_builtin_type			PARAMS ((tree, const char *,
-						       tree *, int, tree));
 extern tree coerce_new_type			PARAMS ((tree));
 extern tree coerce_delete_type			PARAMS ((tree));
 extern void comdat_linkage			PARAMS ((tree));
