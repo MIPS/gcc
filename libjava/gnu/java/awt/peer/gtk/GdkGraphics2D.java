@@ -384,6 +384,12 @@ public class GdkGraphics2D extends Graphics2D
     
   }
 
+  private void updateBufferedImage()
+  {
+    int[] pixels = getImagePixels();
+    updateImagePixels(pixels);
+  }
+
   
   private boolean isBufferedImageGraphics ()
   {
@@ -467,6 +473,10 @@ public class GdkGraphics2D extends Graphics2D
       translate (-0.5,-0.5);
       
     stateRestore ();
+    
+    if (isBufferedImageGraphics ()) 
+      updateBufferedImage();   
+
   }
 
   public void fill (Shape s)
@@ -482,6 +492,10 @@ public class GdkGraphics2D extends Graphics2D
       walkPath (s.getPathIterator (null));
     cairoFill ();
     stateRestore ();
+    
+   if (isBufferedImageGraphics ()) 
+     updateBufferedImage();   
+
   }
 
   public void clip (Shape s)
@@ -774,6 +788,10 @@ public class GdkGraphics2D extends Graphics2D
     cairoStroke ();
     
     stateRestore ();    
+    
+    if (isBufferedImageGraphics ()) 
+      updateBufferedImage();   
+
   }
 
   public void fill3DRect(int x, int y, int width, 
@@ -800,6 +818,10 @@ public class GdkGraphics2D extends Graphics2D
     cairoClosePath ();
     cairoFill ();
     stateRestore ();
+    
+    if (isBufferedImageGraphics ()) 
+      updateBufferedImage();   
+
   }
 
 
@@ -825,6 +847,10 @@ public class GdkGraphics2D extends Graphics2D
     cairoClosePath ();
     cairoFill ();
     stateRestore ();
+       
+    if (isBufferedImageGraphics ()) 
+      updateBufferedImage();   
+
   }
 
   public void setBackground(Color c)
@@ -945,6 +971,10 @@ public class GdkGraphics2D extends Graphics2D
     translate (x, y);
     drawPixels (pixels, r.getWidth (), r.getHeight (), r.getWidth (), i2u);
     stateRestore ();    
+    
+    if (isBufferedImageGraphics ()) 
+      updateBufferedImage();   
+
     return true;
   }
 
@@ -974,6 +1004,10 @@ public class GdkGraphics2D extends Graphics2D
         // we are being asked to flush a double buffer from Gdk
         GdkGraphics2D g2 = (GdkGraphics2D) img.getGraphics ();
         gdkDrawDrawable (g2, (int)xform.getTranslateX(), (int)xform.getTranslateY());
+        
+        if (isBufferedImageGraphics ()) 
+          updateBufferedImage();   
+	 
         return true;
       }
     else
@@ -1236,6 +1270,10 @@ public class GdkGraphics2D extends Graphics2D
     int codes[] = g.getGlyphCodes (0, nglyphs, (int []) null);
     float posns[] = g.getGlyphPositions (0, nglyphs, (float []) null);
     cairoShowGlyphs (codes, posns);
+    
+    if (isBufferedImageGraphics ()) 
+      updateBufferedImage();   
+
     stateRestore ();
   }
 

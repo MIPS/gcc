@@ -1,3 +1,19 @@
+2004-02-27  Olga Rodimina <rodimina@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
+	(updateBufferedImage): New helper function.
+	Updates BufferedImage in memory if it was changed.
+	(draw): changed to update BufferedImage in memory after
+	this drawing operation
+	(fill): Ditto.
+	(draw3DRect): Ditto.
+	(fill3DRect): Ditto.
+	(clearRect): Ditto.
+	(drawRaster): Ditto.
+	(drawImage) : Ditto. Update only in case of GtkOffScreenImage with 
+	no affine transformation.
+	(drawGlyphVector): Ditto.
+
 2004-02-26  Olga Rodimina <rodimina@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java
