@@ -1613,6 +1613,8 @@ reemit_other_notes (head, tail)
 	  if (NEXT_INSN (insert_after))
 	    PREV_INSN (NEXT_INSN (insert_after)) = note_tail;
 	  NEXT_INSN (insert_after) = note_tail;
+	  if (insert_after == get_last_insn ())
+	    set_last_insn (note_tail);
 	}
       else
 	{

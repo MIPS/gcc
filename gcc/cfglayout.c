@@ -310,15 +310,10 @@ build_scope_tree ()
 static void
 remove_scope_notes ()
 {
-  rtx x, next;
-  basic_block currbb = NULL;
+  rtx x;
 
-  for (x = get_insns (); x; x = next)
+  for (x = get_insns (); x; x = NEXT_INSN (x))
     {
-      next = NEXT_INSN (x);
-      if (NOTE_INSN_BASIC_BLOCK_P (x))
-	currbb = NOTE_BASIC_BLOCK (x);
-
       if (GET_CODE (x) == NOTE
 	  && (NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_BEG
 	      || NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_END))
@@ -615,9 +610,7 @@ fixup_reorder_chain ()
   if (rtl_dump_file)
     {
       fprintf (rtl_dump_file, "Reordered sequence:\n");
-      bb = BASIC_BLOCK (0);
-      index = 0;
-      while (bb)
+      for (bb = BASIC_BLOCK (0), index = 0; bb; bb = RBI (bb)->next, index ++)
 	{
 	  fprintf (rtl_dump_file, " %i ", index);
 	  if (RBI (bb)->original)
@@ -628,14 +621,10 @@ fixup_reorder_chain ()
 	  else
 	    fprintf (rtl_dump_file, "bb %i ", bb->index);
 	  fprintf (rtl_dump_file, " [%i]\n", bb->frequency);
-	  bb = RBI (bb)->next;
-	  index++;
 	}
     }
 
-  bb = BASIC_BLOCK (0);
-  index = 0;
-  while (bb)
+  for (bb = BASIC_BLOCK (0), index = 0; bb; bb = RBI (bb)->next, index ++)
     {
       bb->index = index;
       BASIC_BLOCK (index) = bb;
