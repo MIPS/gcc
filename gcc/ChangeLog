@@ -13,6 +13,99 @@ Tue Nov  5 14:34:36 CET 2002  Jan Hubicka  <jh@suse.cz>
 	LIB2FUNCS_EXTRA here too, because of clash with
 	config/rs6000/t-ppccomm.
 
+2002-11-04  Dale Johannesen  <dalej@apple.com>
+
+	* doloop.c (doloop_modify_runtime):  Fix loop count computation
+	for unrolled loops.
+	* loop.c (loop_invariant_p):  Support calling from unroller.
+
+2002-11-04  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_decompose_address): Use arg_pointer_rtx
+	for comparison.
+
+2002-11-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	* hard-reg-set.h (REG_CANNOT_CHANGE_MODE_P): New.
+
+	* config/rs6000/rs6000.h (CLASS_CANNOT_CHANGE_MODE_P): Remove.
+	(CLASS_CANNOT_CHANGE_MODE): Remove.
+	(CANNOT_CHANGE_MODE_CLASS): New.
+
+	* config/alpha/alpha.h: Same.
+
+	* config/ia64/ia64.h: Same.
+
+	* config/mips/mips.h: Same.
+
+	* config/s390/s390.h: Same.
+
+	* config/sh/sh.h: Same.
+
+	* config/pa/pa64-regs.h: Same.
+
+	* config/sh/sh-protos.h (sh_cannot_change_mode_class): Add prototype.
+
+	* config/sh/sh.c (sh_cannot_change_mode_class): New.
+
+	* config/mips/mips-protos.h (mips_cannot_change_mode_class): Add
+	prototype.
+
+	* config/mips/mips.c (mips_cannot_change_mode_class): New.
+
+	* doc/tm.texi (Register Classes): Remove
+	CLASS_CANNOT_CHANGE_MODE and CLASS_CANNOT_CHANGE_MODE_P.
+	Document CANNOT_CHANGE_MODE_CLASS.
+
+	* reload.c (push_reload): Use CANNOT_CHANGE_MODE_CLASS.
+	(push_reload): Same.
+
+	* simplify-rtx.c (simplify_subreg): Same.
+
+	* reload1.c (choose_reload_regs): Same.
+
+	* recog.c (register_operand): Same.
+
+	* regrename.c (mode_change_ok): Change to use new
+	CANNOT_CHANGE_MODE_CLASS infrastructure.
+
+	* regclass.c (cannot_change_mode_set_regs): New.
+	Declare subregs_of_mode.
+	(regclass): Use subregs_of_mode.
+	Remove references to reg_changes_mode.
+	(init_reg_sets_1): Remove class_can_change_mode and
+	reg_changes_mode code.
+	(invalid_mode_change_p): New.
+	(dump_regclass): Use invalid_mode_change_p instead of
+	class_can_change_mode.
+	(regclass): Same.
+	(record_operand_costs): Do not set reg_changes_mode.
+
+	* local-alloc.c (struct qty): Remove changes_mode field.
+	(alloc_qty): Remove changes_mode initialization.
+	(update_qty_class): Remove set of changes_mode.
+	(find_free_reg): Use subregs_of_mode.
+
+	* global.c (find_reg): Use subregs_of_mode info.
+
+	* rtl.h (cannot_change_mode_set_regs): New prototype.
+	(invalid_mode_change_p): Same.
+	(REG_CANNOT_CHANGE_MODE_P): New macro.
+
+	* flow.c (mark_used_regs): Calculate subregs_of_mode.  Remove
+	REG_CHANGES_MODE.
+	(life_analysis): Clear subregs_of_mode.
+
+	* combine.c (subst): Pass class to CLASS_CANNOT_CHANGE_MODE_P.
+	Remove use of CLASS_CANNOT_CHANGE_MODE.
+	(simplify_set): Same.
+	(gen_lowpart_for_combine): Calculate subregs_of_mode.  Remove
+	REG_CHANGES_MODE.
+
+	* regs.h: Add extern for subregs_of_mode;
+	Include hard-reg-set and basic-block.
+	(REG_CHANGES_MODE): Delete.
+
 2002-11-03  Roger Sayle  <roger@eyesopen.com>
 
 	* real.c (real_sqrt): New function to calculate square roots.
@@ -20,6 +113,127 @@ Tue Nov  5 14:34:36 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* builtins.c (fold_builtin): Fold sqrt of constant argument.
 	* simplify-rtx.c (simplify_unary_operation): Simplify sqrt
 	of constant argument.
+
+2002-11-03  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* jump.c (never_reached_warning): Don't set contains_insn until the
+	first line note is seen.
+
+2002-11-03  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.md (movti_string): Use string instructions.
+
+2002-11-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/7128
+	* c-typeck.c (c_expand_asm_operands): Defend against
+	error_mark_nodes in the output argument to avoid ICE.
+
+2002-11-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR middle-end/8408
+	* genrecog.c (preds): Handle ADDRESSOF.
+	(validate_pattern): Mark it as an lvalue.
+
+2002-11-02  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Use string
+	instructions when optimizing for size.
+
+2002-11-02  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h: Fix comment typos.
+	* config/h8300/h8300.md: Likewise.
+	* config/h8300/lib1funcs.asm: Likewise.
+
+2002-11-02  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	Revert this change:
+
+	*doc/install.texi (Installing GCC: Configuration): Clarify
+	the only supported ways to configure gcc.
+
+2002-11-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md (anonymous and:QI pattern): Use 'n'
+	instead of 'O' for the constraint for the second operand.
+
+2002-11-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8391
+	* toplev.c (rest_of_compilation): Do not refuse to output code for
+	an inline function in a local class.
+
+2002-11-01  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/sparc/freebsd.h (CPP_CPU64_DEFAULT_SPEC): Define __arch64__.
+	(TRANSFER_FROM_TRAMPOLINE): Reformat.
+	Add comment.
+
+2002-11-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (CAN_ELIMINATE): Simplify.
+
+2002-11-01  Toshiyasu Morita  <toshiyasu.morita@hsa.hitachi.com>
+
+	* config/h8300/h8300.h (OPTIMIZATION_OPTIONS): New.
+
+2002-11-01  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.h (MASK_INLINE_DIV_LAT): Remove.
+	(MASK_INLINE_DIV_THR): Remove.
+	(TARGET_INLINE_DIV_LAT): Remove.
+	(TARGET_INLINE_DIV_THR): Remove.
+	(TARGET_INLINE_DIV): Remove.
+	(MASK_INLINE_FLOAT_DIV_LAT): New macro.
+	(MASK_INLINE_FLOAT_DIV_THR): New macro.
+	(MASK_INLINE_INT_DIV_LAT): New macro.
+	(MASK_INLINE_INT_DIV_THR): New macro.
+	(TARGET_INLINE_FLOAT_DIV_LAT): New macro.
+	(TARGET_INLINE_FLOAT_DIV_THR): New macro.
+	(TARGET_INLINE_INT_DIV_LAT): New macro.
+	(TARGET_INLINE_INT_DIV_THR): New macro.
+	(TARGET_INLINE_FLOAT_DIV): New macro.
+	(TARGET_INLINE_INT_DIV): New macro.
+	* config/ia64/ia64.md (divsi3): Change to use new macros.
+	(modsi3): Ditto.
+	(udivsi3): Ditto.
+	(umodsi3): Ditto.
+	(divsi3_internal): Ditto.
+	(divdi3): Ditto.
+	(moddi3): Ditto.
+	(udivdi3): Ditto.
+	(umoddi3): Ditto.
+	(divdi3_internal_lat): Ditto.
+	(divdi3_internal_thr): Ditto.
+	(divsf3): Ditto.
+	(divsf3_internal_lat): Ditto.
+	(divsf3_internal_thr): Ditto.
+	(divdf3): Ditto.
+	(divdf3_internal_lat): Ditto.
+	(divdf3_internal_thr): Ditto.
+	(divtf3): Ditto.
+	(divtf3_internal_lat): Ditto.
+	(divtf3_internal_thr): Ditto.
+	* config/ia64/ia64.c (ia64_override_options): Change
+	to check new macros for conflicts in settings.
+	* doc/invoke.texi (-minline-divide-min-latency): Remove.
+	(-minline-divide-max-throughput): Remove.
+	(-minline-float-divide-min-latency): New.
+	(-minline-float-divide-max-throughput): New.
+	(-minline-int-divide-min-latency): New.
+	(-minline-int-divide-max-throughput): New.
+
+2002-11-01  Richard Earnshaw  (rearnsha@arm.com)
+
+	PR target/7856
+	* arm.c (use_return_insn): Don't use a return insn if there are
+	saved integer regs, but LR is not one of them.
+
+Fri Nov  1 10:33:15 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* expr.c (emit_move_insn):  Use SCALAR_FLOAT_MODE_P
+	* machmode.h (SCALAR_FLOAT_MODE_P): New macro.
 
 Thu Oct 31 18:20:50 CET 2002  Jan Hubicka  <jh@suse.cz>
 
@@ -31,12 +245,137 @@ Thu Oct 31 16:22:31 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (negdf2_ifs_rex64): Don't allow GPR operand.
 
+2002-10-31  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR optimization/6162
+	* doc/md.texi: Document restriction on commutative operand
+	specification.
+
+2002-10-31  Eric Christopher  <echristo@redhat.com>
+
+	* explow.c (convert_memory_address): Use shallow_copy_rtx.
+
+2002-10-31  Steve Ellcey  <sje@cup.hp.com>
+
+	* expmed.c (store_bit_field): Check FUNCTION_ARG_REG_LITTLE_ENDIAN.
+
+2002-10-31  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/hpux.h (MEMBER_TYPE_FORCES_BLK): Set for non-floats.
+
+Thu Oct 31  Dale Johannesen  <dalej@apple.com>
+
+	* config/rs6000/darwin.h:  Correct formatting in previous.
+
+Thu Oct 31  Dale Johannesen  <dalej@apple.com>
+
+	* config/rs6000/darwin.h:  Enable -falign-xxx options.
+
+Thu Oct 31 18:08:00 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (override_options): Set defaults for flag_omit_frame_pointer,
+	flag_asynchronous_unwind_tables, flag_pcc_struct_return.
+	* i386.c (optimization_options): Set flag_omit_frame_pointer,
+	flag_asynchronous_unwind_tables, flag_pcc_struct_return to 2.
+	Do not clear -momit-leaf-frame-pointer when profiling.
+	(ix86_frame_pointer_required): Frame pointer is allways required when
+	profiling.
+
+Thu Oct 31 16:09:44 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (negdf2_ifs_rex64): Don't allow GPR operand.
+
+Thu Oct 31 12:45:55 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (binary_logical_operator): Declare.
+	* sh.c (binary_logical_operator): New function.
+	* sh.md (xordi3+1): New combiner splitter pattern.
+
+2002-10-31  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/sparc/freebsd.h (TRANSFER_FROM_TRAMPOLINE): Define
+	__enable_execute_stack function.
+
 2002-10-30  Zack Weinberg  <zack@codesourcery.com>
 
 	* gthr.h, gthr-dce.h, gthr-posix.h, gthr-rtems.h,
 	gthr-solaris.h, gthr-win32.h: Remove __gthread_key_dtor.
 	* unwind-sjlj.c (fc_key_dtor): Delete.
 	(fc_key_init): Adjust __gthread_key_create call to match.
+
+2002-10-30  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-common.c: Add GTY to vector_type_node_list.
+
+2002-10-30  John David Anglin  <dave@hiauly.hia.nrc.ca>
+
+	* pa-linux.h (ASM_OUTPUT_EXTERNAL_LIBCALL): Define.
+	* pa-protos.h (attr_length_millicode_call, attr_length_call,
+	pa_init_machine_status): Declare new global functions.
+	* pa.c (void copy_fp_args, length_fp_args, get_plabel): Declare and
+	implement new functions.
+	(attr_length_millicode_call, attr_length_call): Implement.
+	(total_code_bytes): Change type to long.
+	(pa_output_function_prologue): Compute total_code_bytes on TARGET_64BIT.
+	Reset counter if flag_function_sections.
+	(output_deferred_plabels): Set output alignment to 3 for TARGET_64BIT.
+	(output_cbranch): Move call to gen_label_rtx.
+	(output_millicode_call): Rewrite adding long TARGET_64BIT call, expose
+	delay slot in all variants, shorten pc-relative calls.
+	(output_call): Rewrite adding long TARGET_64BIT call, improved delay
+	slot usage and exposure, various new call variants, and shortened
+	sequences for some variants on TARGET_PA_20.
+	Miscellaneous format changes.
+	* pa.h (total_code_bytes): Change type to long.
+	(MASK_LONG_CALLS, TARGET_LONG_CALLS, TARGET_LONG_ABS_CALL,
+	TARGET_LONG_PIC_SDIFF_CALL, TARGET_LONG_PIC_PCREL_CALL): Define.
+	(TARGET_SWITCHES): Add "-mlong-calls" and "-mno-long-calls" options.
+	(EXTRA_CONSTRAINT, GO_IF_LEGITIMATE_ADDRESS,
+	LEGITIMIZE_RELOAD_ADDRESS): Don't use long floating point loads and
+	stores on TARGET_ELF32.
+	*pa.md (define_delay): Allow insns in delay on TARGET_PORTABLE_RUNTIME.
+	(unnamed patterns for mulsi3, divsi3, udivsi3, modsi3, umodsi3 and
+	canonicalize_funcptr_for_compare expanders): Calculate attribute length
+	attr_length_millicode_call().
+	(call_internal_symref, call_value_internal_symref): Clobber register 1.
+	Calculate attribute length using attr_length_call().
+	(call_internal_reg_64bit, call_value_internal_reg_64bit): Move gp load
+	to delay slot.
+	(sibcall, sibcall_value): Rewrite.
+	(sibcall_internal_symref, sibcall_value_internal_symref): Clobber
+	register 1.  Use attr_length_call().
+	(sibcall_internal_symref_64bit, sibcall_value_internal_symref_64bit):
+	New patterns.
+	(unamed pattern for canonicalize_funcptr_for_compare): Rewrite.
+	* som.h (MEMBER_TYPE_FORCES_BLK): Define.
+	* t-pa64 (TARGET_LIBGCC2_CFLAGS): Add "-mlong-calls".
+	* doc/invoke.texi (mlong-calls): Document.
+
+2002-10-30  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold_binary_op_with_conditional_arg):  Improve
+	handling of cases where one or both branches of the conditional
+	have void type, i.e. throw an exception or don't return.
+	(fold): Only apply (and undo) type conversion to the non-void
+	branches of a COND_EXPR.
+
+2002-10-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8333
+	* varasm.c (asm_output_aligned_bss): Do not call
+	ASM_GLOBALIZE_LABEL.
+
+2002-10-30  David Edelsohn  <edelsohn@gnu.org>
+	    Torbjorn Granlund  <tege@swox.com>
+
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_1): Use preferred form
+	for addressibility.
+	(load_toc_v4_PIC_1b): Same.
+
+2002-10-30  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (h8300_eightbit_constant_address_p):
+	Truncate the addresses for H8/300 using HImode.
 
 Tue Oct 29 23:28:10 CET 2002  Jan Hubicka  <jh@suse.cz>
 
@@ -66,6 +405,89 @@ Tue Oct 29 15:37:39 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* toplev.c (rest_of_compilation): Reorganize way reg_scan is called
 	before final pass.
 
+2002-10-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* toplev.c (rest_of_type_compilation): Return early in case of
+	errors.
+	(check_global_declarations): Don't call debug_hooks->global_decl
+	in case of errors.
+
+2002-10-28  Andreas Bauer  <baueran@in.tum.de>
+
+	* doc/c-tree.texi (Tree overview): Fix typos.
+
+2002-10-29  Phil Edwards  <pme@gcc.gnu.org>
+
+	* Makefile.in (gnucompare*):  Only record bad comparisons
+	if there really was a bad comparison.
+
+Tue Oct 29 19:32:16 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (CONST_DOUBLE_OK_FOR_LETTER_P): Remove 'H'
+	* i386.md (movsf*, movdf*): Use 'C' instead of 'H'
+	* md.texi (machine dependent constraints): Document 'C'
+
+	* simplify-rtx.c (simplify_subreg): Fix const_int->vector subregging.
+
+	* i386.c (ix86_expand_vector_move): Fix.
+
+	* i386.c (ix86_expand_builtin): Use sse2_maskmovdqu_rex64.
+	* i386.md (sse2_maskmovdqu_rex64): New pattern
+
+	PR target/8322
+	* xmmintrin.h (_mm_stream_pi, _mm_stream_pd): Fix cast.
+	(ix86_init_mmx_sse_builtins): Fix type.
+
+2002-10-29  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* gthr-posix.h: Include <unistd.h> for feature tests.
+	(sched_get_priority_max, sched_get_priority_min)
+	(pthread_getschedparam, pthread_setschedparam): Only use
+	if _POSIX_THREAD_PRIORITY_SCHEDULING is defined.
+	(__gthread_objc_thread_set_priority): Don't treat all non-zero
+	returns from sched_get_priority_max and sched_get_priority_min
+	as an error.
+
+2002-10-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (TARGET_DEFAULT): Make it
+	MASK_QUICKCALL.
+
+2002-10-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (h8300_eightbit_constant_address_p): New.
+	(h8300_tiny_constant_address_p): Likewise.
+	* config/h8300/h8300.h (EIGHTBIT_CONSTANT_ADDRESS_P): Use
+	h8300_eightbit_constant_address_p.
+	(TINY_CONSTANT_ADDRESS_P): Use h8300_tiny_constant_address_p.
+	* config/h8300/h8300-protos.h: Add the prototypes for the two
+	new functions.
+
+2002-10-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* reload1.c (update_eliminables): Unconditionally check if
+	frame_pointer_needed has changed.
+
+Tue Oct 29 15:37:39 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (rest_of_compilation): Reorganize way reg_scan is called
+	before final pass.
+
+2002-10-29  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* expr.c (expand_expr) [PLUS]: Don't use simplify_binary_operation;
+	check for zero operands explicitly.
+
+2002-10-29  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md (extv, extzv, insv): Set size of referenced
+	memory after adjusting to BLKmode.
+
+2002-10-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.h (MASK_*): New.
+	(TARGET_*): Use MASK_*.
+
 2002-10-28  Zack Weinberg  <zack@codesourcery.com>
 
 	* config.gcc (*-*-vxworks, powerpc-wrs-vxworks*): New stanzas.
@@ -89,6 +511,19 @@ Tue Oct 29 15:37:39 CET 2002  Jan Hubicka  <jh@suse.cz>
 	config/sparc/t-vxsparc, config/sparc/t-vxsparc64,
 	config/sparc/vxsim.h, config/sparc/vxsparc.h,
 	config/sparc/vxsparc64.h: Delete files.
+
+2002-10-28  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* config.gcc (*-*-netbsd*): Add NETBSD_ENABLE_PTHREADS to
+	tm_defines if pthreads are enabled.
+	* config/netbsd.h (LIB_SPEC): Only support the -pthread option
+	if NETBSD_ENABLE_PTHREADS is defined.
+
+2002-10-28  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog.1: Fix typos.
+	* cse.c: Fix a comment typo.
+	* reload1.c: Likewise.
 
 2002-10-27  Hans-Peter Nilsson  <hp@bitrange.com>
 

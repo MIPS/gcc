@@ -1372,14 +1372,8 @@ extern const enum reg_class reg_class_from_letter[];
 /* ??? We need to renumber the internal numbers for the frnn registers
    when in little endian in order to allow mode size changes.  */
 
-#define CLASS_CANNOT_CHANGE_MODE (TARGET_LITTLE_ENDIAN ? DF_REGS : DF_HI_REGS)
-
-/* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
-
-#define CLASS_CANNOT_CHANGE_MODE_P(FROM,TO) \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) \
-   && ((TARGET_LITTLE_ENDIAN  && GET_MODE_SIZE (TO) < 8) \
-       || GET_MODE_SIZE (FROM) < 8))
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO) 			    \
+  sh_cannot_change_mode_class (FROM, TO)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -3211,6 +3205,7 @@ extern int rtx_equal_function_value_matters;
   {"arith_reg_operand", {SUBREG, REG}},					\
   {"arith_reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_VECTOR}},	\
   {"binary_float_operator", {PLUS, MINUS, MULT, DIV}},			\
+  {"binary_logical_operator", {AND, IOR, XOR}},				\
   {"commutative_float_operator", {PLUS, MULT}},				\
   {"equality_comparison_operator", {EQ,NE}},				\
   {"extend_reg_operand", {SUBREG, REG, TRUNCATE}},			\

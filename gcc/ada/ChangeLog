@@ -1,4 +1,28 @@
-Nathanael Nerode  <neroden@gcc.gnu.org>
+2002-11-05  Graham Stott  <graham.stott@btinternet.com>
+	PR ada/8358
+	* trans.c (gnu_pending_elaboration_lists): New GC root.
+	(build_unit_elab): Use.. 
+
+2002-10-30   Geert Bosch <bosch@gnat.com>
+	PR ada/6558
+	* misc.c : Include optabs.h
+
+	* Make-lang.in (misc.o): Add dependency on optabs.h
+
+2002-10-29   Geert Bosch <bosch@gnat.com>
+        PR ada/6558
+	* Make-lang.in (gnatbind): Depend on CONFIG_H
+
+2002-10-29  Geert bosch  <bosch@gnat.com>
+        PR ada/6558
+        * misc.c: Unrevert misc.c (1.13)
+
+2002-10-28  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* a-chlat9.ads a-cwila9.ads a-dynpri.adb a-retide.adb: Update
+	maintainership comments.
+
+2002-09-25  Nathanael Nerode  <neroden@gcc.gnu.org>
 	PR ada/5904
 	* 5ataprop.adb 5atpopsp.adb 5bosinte.adb 5ftaprop.adb 
 	5gtaprop.adb 5htaprop.adb 5rosinte.ads 5staprop.adb 
