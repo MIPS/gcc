@@ -1413,6 +1413,8 @@ vect_gen_if_guard (edge ee, tree cond, basic_block exit_bb, edge e)
 
   block_stmt_iterator interm_bb_last_bsi;
 
+  basic_block src = ee->src; 
+
   new_bb = vect_tree_split_edge (ee); 
   if(!new_bb)
     {
@@ -1440,9 +1442,11 @@ vect_gen_if_guard (edge ee, tree cond, basic_block exit_bb, edge e)
 
   /* Generate new edges according to condition.  */
   true_edge = make_edge (new_bb, exit_bb, EDGE_TRUE_VALUE);
-  set_immediate_dominator (CDI_DOMINATORS, exit_bb, new_bb);
+  if (e->src == get_immediate_dominator (CDI_DOMINATORS, exit_bb))
+    set_immediate_dominator (CDI_DOMINATORS, exit_bb, new_bb);
   false_edge = make_edge (new_bb, header_of_loop, EDGE_FALSE_VALUE);
   set_immediate_dominator (CDI_DOMINATORS, header_of_loop, new_bb);
+  set_immediate_dominator (CDI_DOMINATORS, new_bb, src);
 
   /* Update phis in loop header as coming from false edge.  */
   for (phi = phi_nodes (header_of_loop); phi; phi = TREE_CHAIN (phi))
@@ -1638,7 +1642,7 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
 	      {
 		num_elem2 = PHI_NUM_ARGS (phi1);
 		for (j = 0; j < num_elem2; j++)
-		  if (PHI_ARG_DEF (phi1, i) == def)
+		  if (PHI_ARG_DEF (phi1, j) == def)
 		    {
 		      for (k = 0; k < num_elem2; k++)
 			if (PHI_ARG_EDGE (phi1, k) == new_loop_latch)
@@ -1891,6 +1895,11 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 	 if ( ni_name < vf) goto epilog loop.  */
       prolog_bb = vect_gen_if_guard (loop->pre_header_edges[0], cond, 
 				     new_loop_header, phead_epilog);
+
+      /* Now prolog_bb is immediate dominator of exit_bb
+       if inter_bb was immediate dominator of exit_bb before.  */
+      if (get_immediate_dominator (CDI_DOMINATORS, exit_bb) == inter_bb)
+	set_immediate_dominator (CDI_DOMINATORS, exit_bb, prolog_bb);
 
       loop->pre_header = prolog_bb;
       add_bb_to_loop (prolog_bb, outer_loop);
@@ -2428,13 +2437,6 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
     {
       if (vect_debug_stats (loop) || vect_debug_details (loop))
 	fprintf (dump_file, "not vectorized: Complicated loop bound.");
-      return false;
-    }
-
-  if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)) /* Disabled temporarily */
-    {
-      if (vect_debug_stats (loop) || vect_debug_details (loop))
-        fprintf (dump_file, "not vectorized: unknown loop bound.");
       return false;
     }
 

@@ -1,3 +1,18 @@
+2004-07-19  Olga Golovanevsky <olga@il.ibm.com>
+
+	* tree-ssa-loop-manip.c (tdlte_copy_phi_nodes): Do not create phi nodes.
+	(tree_duplicate_loop_to_exit_cfg): Fix in treating dominators. 
+	* tree-vectorizer.c (vect_gen_if_guard, vect_transform_loop): The same.
+
+2004-07-19  Olga Golovanevsky <olga@il.ibm.com>
+
+	* tree-ssa-loop-manip.c (tree_duplicate_loop_to_exit):
+	Execute tdlte_rename_variables_in_loop after fixing phi nodes.
+	* tree-vectorizer.c (vect_update_initial_conditions_of_duplic):
+	Bug fix (index j instead of index i).
+	(vect_analyze_operations): Re-enable unknown loop bound support 
+	in vectorizer.  
+
 2004-07-19  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* tree-vectorizer.c (vect_create_data_ref): Added arguments when

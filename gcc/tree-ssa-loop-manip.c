@@ -1018,20 +1018,18 @@ tdlte_copy_phi_nodes (struct loop *loop, struct loop *new_loop)
   tree phi, new_phi, def;
   edge new_e;
   edge latch = loop_latch_edge (loop);
-  tree nlist;
 
      
-  for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (loop->header), 
+	 new_phi = phi_nodes (new_loop->header); 
+       phi; 
+       phi = TREE_CHAIN (phi), 
+	 new_phi = TREE_CHAIN (new_phi))
     {
-      new_phi = create_phi_node (PHI_RESULT (phi), new_loop->header);
       new_e = new_loop->header->pred;
       def = PHI_ARG_DEF_FROM_EDGE (phi, latch);
       add_phi_arg (&new_phi, def, new_e);
     }
-
-  /* neverse phi nodes to keep them in original order.  */
-  nlist = nreverse (phi_nodes (new_loop->header));
-  set_phi_nodes (new_loop->header, nlist);
 
 }
 
@@ -1058,7 +1056,12 @@ tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
   unsigned i; 
   unsigned  n = loop->num_nodes;
   struct loop *new_loop;
-  basic_block exit_dest; 
+  basic_block exit_dest = loop->exit_edges[0]->dest;
+  bool was_imm_dom;
+  
+  was_imm_dom = (get_immediate_dominator 
+		       (CDI_DOMINATORS, exit_dest) == loop->header ? 
+		       true : false);
 
   bbs = get_loop_body (loop);
 
@@ -1120,7 +1123,6 @@ tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
     new_bbs[i]->rbi->copy_number = 1;
 
   /* Redirect the special edges.  */
-  exit_dest = loop->exit_edges[0]->dest;
   if(!exit_dest)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1133,7 +1135,8 @@ tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
   redirect_edge_and_branch_force (loop->exit_edges[0],
 				  new_bbs[0]);
   set_immediate_dominator (CDI_DOMINATORS, new_bbs[0], loop->exit_edges[0]->src); 
-  set_immediate_dominator (CDI_DOMINATORS, exit_dest, new_loop->header);
+  if (was_imm_dom)
+    set_immediate_dominator (CDI_DOMINATORS, exit_dest, new_loop->header);
   
   free (new_bbs);
   free (bbs);
@@ -1178,8 +1181,6 @@ tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops)
   /* Copy phis from loop->header to new_loop->header.  */
   tdlte_copy_phi_nodes (loop, new_loop);
 
-  /* Rename the variables.  */
-  tdlte_rename_variables_in_loop (new_loop);
 
   /* Fix phis to inherit values from loop exit edge.  */
   for (phi = phi_nodes (new_loop->header); phi; phi = TREE_CHAIN (phi))
@@ -1202,6 +1203,8 @@ tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops)
       add_phi_arg (&phi, new_var, loop_latch_edge(new_loop));
     }
 
+  /* Rename the variables.  */
+  tdlte_rename_variables_in_loop (new_loop);
 
   free_new_names (definitions, false);
 
