@@ -6834,8 +6834,8 @@ arm_output_epilogue ()
 	      asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
 	    }
 	  else if (lr_save_eliminated)
-	    asm_fprintf (f, "\tmov%c\t%r, %r\n",
-			 TARGET_APCS_32 ? ' ' : 's',
+	    asm_fprintf (f, 
+			 TARGET_APCS_32 ? "\tmov\t%r, %r\n" : "\tmovs\t%r, %r\n",
 			 PC_REGNUM, LR_REGNUM);
 	  else
 	    print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM,
