@@ -1,3 +1,16 @@
+2004-11-23  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3894717
+	* build_gcc: Don't install any header from more-hdrs 
+	that Libc has already provided.
+	
+	* fixincludes/inclhack.def (darwin_stdint_guards_intn): Remove
+	_DECLARED from end of guard macro names.
+	(darwin_stdint_guards_intptr): Likewise.
+	(darwin_stdint_guards_uintptr): Likewise.
+	* more-hdrs/stdint.h: Likewise.
+	* fixincludes/fixincl.x: Regenerate.
+
 2004-11-13  Stan Shebs  <shebs@apple.com>
 
 	* fixincludes/fixinc.in: Revive 64-bit bandaid.
