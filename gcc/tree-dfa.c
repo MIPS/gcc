@@ -1121,17 +1121,6 @@ debug_immediate_uses_for (stmt)
   dump_immediate_uses_for (stderr, stmt);
 }
 
-/* Macros for dump_dfa_stats.  */
-#define SCALE(x) ((unsigned long) ((x) < 1024*10	\
-		  ? (x)					\
-		  : ((x) < 1024*1024*10			\
-		     ? (x) / 1024			\
-		     : (x) / (1024*1024))))
-
-#define LABEL(x) ((x) < 1024*10 ? 'b' : ((x) < 1024*1024*10 ? 'k' : 'M'))
-
-#define PERCENT(x,y) ((float)(x) * 100.0 / (float)(y))
-
 /* Dump various DFA statistics to FILE.  */
 
 void

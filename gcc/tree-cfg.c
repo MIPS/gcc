@@ -48,8 +48,8 @@ Boston, MA 02111-1307, USA.  */
 static const int initial_cfg_capacity = 20;
 
 /* Dump files and flags.  */
-static FILE *dump_file;		/*< CFG dump file. */
-static int dump_flags;		/*< CFG dump flags.  */
+static FILE *dump_file;		/* CFG dump file. */
+static int dump_flags;		/* CFG dump flags.  */
 
 /* Array with control flow parents.  */
 static varray_type parent_array;
@@ -58,6 +58,14 @@ static varray_type parent_array;
    building of the CFG in code with lots of gotos.  */
 static varray_type label_to_block_map;
 
+/* CFG statistics.  */
+struct cfg_stats_d
+{
+  long num_merged_cases;
+  long num_merged_labels;
+};
+
+static struct cfg_stats_d cfg_stats;
 
 /* Basic blocks and flowgraphs.  */
 static void make_blocks			PARAMS ((tree *, basic_block));
@@ -119,11 +127,14 @@ build_tree_cfg (fnbody)
 {
   tree *first_p;
 
+  timevar_push (TV_TREE_CFG);
+
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
   last_basic_block = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
   VARRAY_BB_INIT (parent_array, initial_cfg_capacity, "parent_array");
+  memset ((void *) &cfg_stats, 0, sizeof (cfg_stats));
 
   /* Build a mapping of labels to their associated blocks.  */
   VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
@@ -137,9 +148,10 @@ build_tree_cfg (fnbody)
      we'll end up with an empty basic block 0, which is useless.  */
 
   if (fnbody == empty_stmt_node || TREE_CODE (fnbody) != BIND_EXPR)
-    return;
-
-  timevar_push (TV_TREE_CFG);
+    {
+      timevar_pop (TV_TREE_CFG);
+      return;
+    }
 
   first_p = first_exec_stmt (&BIND_EXPR_BODY (fnbody));
   if (first_p)
@@ -170,7 +182,6 @@ build_tree_cfg (fnbody)
 	{
 	  tree_cfg2dot (dump_file);
 	  dump_end (TDI_dot, dump_file);
-	  dump_file = NULL;
 	}
 
       /* Dump a textual representation of the flowgraph.  */
@@ -179,7 +190,6 @@ build_tree_cfg (fnbody)
 	{
 	  dump_tree_cfg (dump_file, dump_flags);
 	  dump_end (TDI_cfg, dump_file);
-	  dump_file = NULL;
 	}
     }
 }
@@ -241,7 +251,13 @@ make_blocks (first_p, parent_block)
 	  if ((code == LABEL_EXPR || code == CASE_LABEL_EXPR)
 	      && prev_stmt
 	      && code == TREE_CODE (prev_stmt))
-	    start_new_block = false;
+	    {
+	      if (code == LABEL_EXPR)
+		cfg_stats.num_merged_labels++;
+	      else
+		cfg_stats.num_merged_cases++;
+	      start_new_block = false;
+	    }
 	  else
 	    start_new_block = true;
 	}
@@ -1489,8 +1505,8 @@ dump_tree_cfg (file, flags)
   if (flags & TDF_DETAILS)
     {
       fputc ('\n', file);
-      fprintf (file, "Function %s\n\n", current_function_name);
-      fprintf (file, "\n%d basic blocks, %d edges, last basic block %d.\n",
+      fprintf (file, ";; Function %s\n\n", current_function_name);
+      fprintf (file, ";; \n%d basic blocks, %d edges, last basic block %d.\n",
 	       n_basic_blocks, n_edges, last_basic_block);
 
       FOR_EACH_BB (bb)
@@ -1500,8 +1516,86 @@ dump_tree_cfg (file, flags)
 	}
     }
 
+  if (flags & TDF_STATS)
+    dump_cfg_stats (dump_file);
+
   if (n_basic_blocks > 0)
     dump_function_to_file (current_function_decl, file, flags|TDF_BLOCKS);
+}
+
+
+/* Dump CFG statistics on FILE.  */
+
+void
+dump_cfg_stats (file)
+     FILE *file;
+{
+  static long max_num_merged_cases = 0;
+  static long max_num_merged_labels = 0;
+  unsigned long size, total = 0;
+  long n_edges;
+  basic_block bb;
+  const char * const fmt_str   = "%-30s%-13s%12s\n";
+  const char * const fmt_str_1 = "%-30s%13lu%11lu%c\n";
+  const char * const fmt_str_3 = "%-43s%11lu%c\n";
+
+  fprintf (file, "\nCFG Statistics for %s\n\n", current_function_name);
+
+  fprintf (file, "---------------------------------------------------------\n");
+  fprintf (file, fmt_str, "", "  Number of  ", "Memory");
+  fprintf (file, fmt_str, "", "  instances  ", "used ");
+  fprintf (file, "---------------------------------------------------------\n");
+
+  size = n_basic_blocks * sizeof (struct basic_block_def);
+  total += size;
+  fprintf (file, fmt_str_1, "Basic blocks", n_basic_blocks, SCALE (size),
+	   LABEL (size));
+
+  n_edges = 0;
+  FOR_EACH_BB (bb)
+    {
+      edge e;
+      for (e = bb->succ; e; e = e->succ_next)
+	n_edges++;
+    }
+  size = n_edges * sizeof (struct edge_def);
+  total += size;
+  fprintf (file, fmt_str_1, "Edges", n_edges, SCALE (size), LABEL (size));
+
+  size = n_basic_blocks * sizeof (struct bb_ann_d);
+  total += size;
+  fprintf (file, fmt_str_1, "Basic block annotations", n_basic_blocks,
+	   SCALE (size), LABEL (size));
+
+  fprintf (file, "---------------------------------------------------------\n");
+  fprintf (file, fmt_str_3, "Total memory used by CFG data", SCALE (total),
+	   LABEL (total));
+  fprintf (file, "---------------------------------------------------------\n");
+  fprintf (file, "\n");
+
+  if (cfg_stats.num_merged_labels > max_num_merged_labels)
+    max_num_merged_labels = cfg_stats.num_merged_labels;
+
+  fprintf (file, "Coalesced label blocks: %ld (Max so far: %ld)\n",
+	   cfg_stats.num_merged_labels, max_num_merged_labels);
+
+
+  if (cfg_stats.num_merged_cases > max_num_merged_cases)
+    max_num_merged_cases = cfg_stats.num_merged_cases;
+
+  fprintf (file, "Coalesced case label blocks: %ld (Max so far: %ld)\n",
+	   cfg_stats.num_merged_cases, max_num_merged_cases);
+
+  fprintf (file, "\n");
+}
+
+
+/* Dump CFG statistics on stderr.  */
+
+void
+debug_cfg_stats ()
+{
+  dump_cfg_stats (stderr);
 }
 
 

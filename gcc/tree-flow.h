@@ -268,6 +268,18 @@ referenced_var (i)
   return VARRAY_TREE (referenced_vars, i);
 }
 
+/* Macros for showing usage statistics.  */
+#define SCALE(x) ((unsigned long) ((x) < 1024*10	\
+		  ? (x)					\
+		  : ((x) < 1024*1024*10			\
+		     ? (x) / 1024			\
+		     : (x) / (1024*1024))))
+
+#define LABEL(x) ((x) < 1024*10 ? 'b' : ((x) < 1024*1024*10 ? 'k' : 'M'))
+
+#define PERCENT(x,y) ((float)(x) * 100.0 / (float)(y))
+
+
 /*---------------------------------------------------------------------------
 			      Function prototypes
 ---------------------------------------------------------------------------*/
@@ -286,6 +298,8 @@ extern void dump_tree_bb		PARAMS ((FILE *, const char *,
 extern void debug_tree_bb		PARAMS ((basic_block));
 extern void dump_tree_cfg		PARAMS ((FILE *, int));
 extern void debug_tree_cfg		PARAMS ((int));
+extern void dump_cfg_stats		PARAMS ((FILE *));
+extern void debug_cfg_stats		PARAMS ((void));
 extern void tree_cfg2dot		PARAMS ((FILE *));
 extern void insert_bb_before		PARAMS ((basic_block, basic_block));
 extern void cleanup_tree_cfg		PARAMS ((void));

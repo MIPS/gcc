@@ -1,3 +1,17 @@
+2003-01-30  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (struct cfg_stats_d): New.
+	(cfg_stats): New file local.
+	(build_tree_cfg): Start TV_TREE_CFG timer before allocating memory.
+	Initialize cfg_stats.
+	(make_blocks): Count coalesced label blocks.
+	(dump_tree_cfg): Call dump_cfg_stats if TDF_STATS is enabled.
+	(dump_cfg_stats): New.
+	(debug_cfg_stats): New.
+
+	* tree-dfa.c (SCALE, LABEL, PERCENT): Move ...
+	* tree-flow.h: ... here
+
 2003-01-29  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (make_blocks): Do not start a new block if the
