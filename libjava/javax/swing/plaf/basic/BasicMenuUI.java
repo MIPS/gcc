@@ -51,6 +51,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import javax.swing.JComponent;
 import javax.swing.JMenu;
+import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
@@ -73,7 +74,7 @@ import javax.swing.plaf.MenuItemUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision: 1.1.2.7 $
+ * @version $Revision: 1.1.2.1 $
  */
 public class BasicMenuUI extends BasicMenuItemUI
 {
@@ -274,7 +275,7 @@ public class BasicMenuUI extends BasicMenuItemUI
   * DOCUMENT ME!
   *
   * @author $author$
-  * @version $Revision: 1.1.2.7 $
+  * @version $Revision: 1.1.2.1 $
   */
   protected class MouseInputHandler implements MouseInputListener
   {
@@ -305,8 +306,14 @@ public class BasicMenuUI extends BasicMenuItemUI
 
       // location of the popup menu is relative to the invoker
       if (subMenu.isTopLevelMenu())
-	y = subMenu.getHeight();
+        {
+	  JMenuBar mb = (JMenuBar) subMenu.getParent();
 
+	  // Take into account menu bar margin when calculating y coordinate
+	  // of the popup menu.
+	  y = subMenu.getHeight() - mb.getInsets().bottom
+	      + mb.getMargin().bottom;
+        }
       else
 	x = subMenu.getWidth();
 

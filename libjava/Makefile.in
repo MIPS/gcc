@@ -957,6 +957,7 @@ javax/swing/plaf/basic/BasicGraphicsUtils.java \
 javax/swing/plaf/basic/BasicLabelUI.java \
 javax/swing/plaf/basic/BasicListUI.java \
 javax/swing/plaf/basic/BasicMenuUI.java \
+javax/swing/plaf/basic/BasicMenuBarUI.java \
 javax/swing/plaf/basic/BasicMenuItemUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
@@ -3004,6 +3005,7 @@ javax/swing/plaf/basic/BasicGraphicsUtils.lo \
 javax/swing/plaf/basic/BasicLabelUI.lo \
 javax/swing/plaf/basic/BasicListUI.lo \
 javax/swing/plaf/basic/BasicMenuUI.lo \
+javax/swing/plaf/basic/BasicMenuBarUI.lo \
 javax/swing/plaf/basic/BasicMenuItemUI.lo \
 javax/swing/plaf/basic/BasicOptionPaneUI.lo \
 javax/swing/plaf/basic/BasicPanelUI.lo \
@@ -5098,6 +5100,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicLabelUI.P \
 .deps/javax/swing/plaf/basic/BasicListUI.P \
 .deps/javax/swing/plaf/basic/BasicLookAndFeel.P \
+.deps/javax/swing/plaf/basic/BasicMenuBarUI.P \
 .deps/javax/swing/plaf/basic/BasicMenuItemUI.P \
 .deps/javax/swing/plaf/basic/BasicMenuUI.P \
 .deps/javax/swing/plaf/basic/BasicOptionPaneUI.P \
