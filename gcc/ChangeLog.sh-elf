@@ -1,5 +1,7 @@
 2004-06-11  J"orn Rennecke <joern.rennecke@superh.com>
 
+	* sh.h (ALLOCATE_INITIAL_VALUE): Use return_address_pointer_rtx.
+
 	Reverse this patch:
 	2004-06-08  J"orn Rennecke <joern.rennecke@superh.com>
 	* basic-block.h (could_fall_through): Declare.
