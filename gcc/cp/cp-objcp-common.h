@@ -162,4 +162,8 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR cp_gimplify_expr
 
+/* APPLE LOCAL begin kext identify vtables */
+#undef LANG_HOOKS_VTABLE_P
+#define LANG_HOOKS_VTABLE_P cp_vtable_p
+
 #endif /* GCC_CP_OBJCP_COMMON */
