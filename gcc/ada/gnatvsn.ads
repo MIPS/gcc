@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.2.12.2.2.22 $
+--                            $Revision: 1.2.12.46 $
 --                                                                          --
 --          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --

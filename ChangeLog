@@ -1,3 +1,19 @@
+2002-07-08  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.in (gxx_include_dir):  Change to match versioned
+	C++ headers if --enable-version-specific-runtime-libs is used.
+
+2002-06-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config.if (libstdcxx_incdir): Version C++ headers.
+	(cxx_incdir): Remove. 
+
+2002-06-24  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure:  Revert in-srcdir redirect upon request.
+	* .cvsignore:  Add Makefile.
+	* Makefile:  Removed.
+
 2002-06-18  Phil Edwards  <pme@gcc.gnu.org>
 
 	* configure:  Remove garbage from previous commit.
