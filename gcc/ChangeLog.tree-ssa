@@ -1,3 +1,20 @@
+2003-08-25  Jason Merrill  <jason@redhat.com>
+
+	* c-simplify.c (mark_labels_r): New fn.
+	(gimplify_decl_stmt): Use it to mark labels in static initializers.
+	* tree-simple.c (is_gimple_initializer): Remove.
+	(is_gimple_reg_type): New fn.
+	(is_gimple_reg): Use it.  Handle SSA_NAMEs properly.
+	* tree-simple.h: Adjust.
+	* gimplify.c (gimplify_expr) <CONSTRUCTOR>: Do nothing here.
+
+	* gimplify.c (create_tmp_var): Set DECL_IGNORED_P.
+
+	* tree-inline.c (initialize_inlined_parameters): Improve error
+	recovery.
+
+	* gimplify.c (gimplify_boolean_expr): Just replace with a COND_EXPR.
+
 2003-08-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (get_expr_operands): Don't create shared operands when
@@ -106,6 +123,7 @@
 	the argument list here.
 	(gimplify_tree_list): Remove.
 	(gimplify_addr_expr): Use fb_either.
+	* tree-simple.h: Adjust.
 	* tree-alias-common.c (find_func_aliases): Update use of predicates.
 
 2003-08-21  Andrew Pinski  <pinskia@physics.uc.edu>

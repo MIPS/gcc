@@ -53,7 +53,7 @@ static void gimplify_save_expr (tree *, tree *, tree *);
 static void gimplify_addr_expr (tree *, tree *, tree *);
 static void gimplify_self_mod_expr (tree *, tree *, tree *, int);
 static void gimplify_cond_expr (tree *, tree *, tree);
-static void gimplify_boolean_expr (tree *, tree *);
+static void gimplify_boolean_expr (tree *);
 static void gimplify_return_expr (tree, tree *);
 static tree build_addr_expr (tree);
 static tree build_addr_expr_with_type (tree, tree);
@@ -444,7 +444,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case TRUTH_ANDIF_EXPR:
 	case TRUTH_ORIF_EXPR:
-	  gimplify_boolean_expr (expr_p, pre_p);
+	  gimplify_boolean_expr (expr_p);
 	  break;
 
 	case TRUTH_NOT_EXPR:
@@ -571,10 +571,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case CONSTRUCTOR:
-	  if (gimple_test_f != is_gimple_rhs)
-	    /* Don't reduce this yet if we're on the rhs of an assignment.
-	       Let gimplify_init_constructor work its magic.  */
-	    gimplify_constructor (*expr_p, pre_p, post_p);
+	  /* Don't reduce this in place; let gimplify_init_constructor work
+	     its magic.  */
 	  break;
 
 	  /* The following are special cases that are not handled by the
@@ -2029,69 +2027,21 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
 
     Expressions of the form 'a && b' are gimplified to:
 
-	T = a;
-	if (T)
-	  T = b;
+        a && b ? true : false
 
-    Expressions of the form 'a || b' are gimplified to:
-
-	T = a;
-	if (!T)
-	  T = b;
-
-    In both cases, the expression is re-written as 'T != 0'.
+    gimplify_cond_expr will do the rest.
 
     PRE_P points to the list where side effects that must happen before
-	*EXPR_P should be stored.
-
-    POST_P points to the list where side effects that must happen after
         *EXPR_P should be stored.  */
 
 static void
-gimplify_boolean_expr (tree *expr_p, tree *pre_p)
+gimplify_boolean_expr (tree *expr_p)
 {
-  tree t, lhs, rhs, if_body, if_cond, if_stmt;
-
-  enum tree_code code = TREE_CODE (*expr_p);
-
-#if defined ENABLE_CHECKING
-  if (code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR)
-    abort ();
-#endif
-
-  /* Make this expression right-associative so that gimplification will
-     produce nested ifs.  */
-  *expr_p = right_assocify_expr (*expr_p);
-
-  /* First, make sure that our operands have boolean type.  */
-  lhs = gimple_boolify (TREE_OPERAND (*expr_p, 0));
-  rhs = gimple_boolify (TREE_OPERAND (*expr_p, 1));
-
-  /* Build 'T = a'  */
-  t = get_initialized_tmp_var (lhs, pre_p);
-
-  /* Build the body for the if() statement that conditionally evaluates the
-     RHS of the expression.  */
-  if_body = build (MODIFY_EXPR, TREE_TYPE (t), t, rhs);
-
-  /* Build the condition.  */
-  if (code == TRUTH_ANDIF_EXPR)
-    if_cond = t;
-  else
-    if_cond = build1 (TRUTH_NOT_EXPR, TREE_TYPE (t), t);
-
-  if_stmt = build (COND_EXPR, void_type_node, if_cond, if_body,
-		   build_empty_stmt ());
-  /* Gimplify the IF_STMT and insert it in the PRE_P chain.  */
-  gimplify_stmt (&if_stmt);
-  add_tree (if_stmt, pre_p);
-
-  /* If we're not actually looking for a boolean result, convert now.  */
-  if (TREE_TYPE (t) != TREE_TYPE (*expr_p))
-    t = convert (TREE_TYPE (*expr_p), t);
-
-  /* Re-write the original expression to use T.  */
-  *expr_p = t;
+  /* Preserve the original type of the expression.  */
+  tree type = TREE_TYPE (*expr_p);
+  *expr_p = build (COND_EXPR, type, *expr_p,
+		   convert (type, boolean_true_node),
+		   convert (type, boolean_false_node));
 }
 
 
@@ -2369,6 +2319,8 @@ create_tmp_var (tree type, const char *prefix)
 
   /* The variable was declared by the compiler.  */
   DECL_ARTIFICIAL (tmp_var) = 1;
+  /* And we don't want debug info for it.  */
+  DECL_IGNORED_P (tmp_var) = 1;
 
   /* Make the variable writable.  */
   TREE_READONLY (tmp_var) = 0;
@@ -2456,7 +2408,7 @@ get_name (tree t)
 }
 
 /* Formal (expression) temporary table handling: Multiple occurrences of
-   the same expression are evaluated into the same temporary.  */
+   the same scalar expression are evaluated into the same temporary.  */
 
 typedef struct gimple_temp_hash_elt
 {

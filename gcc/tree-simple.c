@@ -231,17 +231,6 @@ is_gimple_constructor_elt (tree t)
 	  || TREE_CODE (t) == CONSTRUCTOR);
 }
 
-/* Returns nonzero if T is a GIMPLE initializer for a decl.  This is the
-   same as the right side of a MODIFY_EXPR, but uses a different function
-   so that we will actually simplify a CONSTRUCTOR.  */
-
-int
-is_gimple_initializer (tree t)
-{
-  return (is_gimple_rhs (t));
-}
-
-
 /*  Return nonzero if T is a valid LHS for a GIMPLE assignment expression.  */
 
 int
@@ -423,15 +412,29 @@ is_gimple_id (tree t)
 	  || TREE_CODE (t) == STRING_CST);
 }
 
+/* Return nonzero if TYPE is a suitable type for a scalar register
+   variable.  */
+
+bool
+is_gimple_reg_type (tree type)
+{
+  return (TYPE_MODE (type) != BLKmode
+	  && TREE_CODE (type) != ARRAY_TYPE
+	  && !TREE_ADDRESSABLE (type));
+}
+
 /* Return nonzero if T is a scalar register variable.  */
 
 int
 is_gimple_reg (tree t)
 {
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
   return (is_gimple_variable (t)
-	  && TYPE_MODE (TREE_TYPE (t)) != BLKmode
+	  && is_gimple_reg_type (TREE_TYPE (t))
 	  && ! TREE_STATIC (t)
-	  && (! DECL_P (t) || ! DECL_EXTERNAL (t))
+	  && ! DECL_EXTERNAL (t)
 	  && ! TREE_ADDRESSABLE (t)
 	  /* A volatile decl is not acceptable because we can't reuse it as
 	     needed.  We need to copy it into a temp first.  */
@@ -447,8 +450,8 @@ is_gimple_val (tree t)
 #if 0
   /* Make loads from volatiles and memory vars explicit.  */
   if (is_gimple_variable (t)
-      && !(is_gimple_reg (t)
-	   || TYPE_MODE (TREE_TYPE (t)) == BLKmode))
+      && is_gimple_reg_type (TREE_TYPE (t))
+      && !is_gimple_reg (t))
     return 0;
 #else
   /* A volatile decl or _REF is not a valid operand, because we can't reuse

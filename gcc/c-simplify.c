@@ -782,6 +782,19 @@ gimplify_return_stmt (tree *stmt_p)
   *stmt_p = expr;
 }
 
+/* walk_tree helper function for gimplify_decl_stmt.  */
+
+static tree
+mark_labels_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  if (TREE_CODE (*tp) == LABEL_DECL)
+    FORCED_LABEL (*tp) = 1;
+
+  return NULL_TREE;
+}
+
 /* Gimplifies a DECL_STMT node T.
 
    If a declaration V has an initial value I, create an expression 'V = I'
@@ -863,16 +876,8 @@ gimplify_decl_stmt (tree *stmt_p, tree *next_p)
 	  else
 	    {
 	      /* We must still examine initializers for static variables
-		 as they may contain a label address.  However, we must not
-		 make any changes to the node or the queues.  So we
-		 make a copy of the node before calling the gimplifier
-		 and we use throw-away queues.  */
-	      tree pre = NULL;
-	      tree post = NULL;
-	      tree dummy_init = unshare_expr (init);
-	      gimplify_expr (&dummy_init, &pre, &post,
-			     is_gimple_initializer,
-			     fb_rvalue);
+		 as they may contain a label address.  */
+	      walk_tree (&init, mark_labels_r, NULL, NULL);
 	    }
 	}
 

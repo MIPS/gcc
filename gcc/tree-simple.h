@@ -43,6 +43,8 @@ extern void annotate_all_with_file_line (tree *, const char *, int);
 /* Returns 1 iff T is a valid GIMPLE statement.  */
 int is_gimple_stmt (tree);
 
+/* Returns 1 iff TYPE is a valid type for a scalar register variable.  */
+bool is_gimple_reg_type (tree);
 /* Returns 1 iff T is a scalar register variable.  */
 int is_gimple_reg (tree);
 /* Returns 1 iff T is any sort of variable.  */
@@ -69,9 +71,6 @@ int is_gimple_cast (tree);
 /* Returns 1 iff T is a valid CONSTRUCTOR element (either an rvalue or
    another CONSTRUCTOR).  */
 int is_gimple_constructor_elt (tree);
-/* Returns 1 iff T is a valid initializer for a variable (like _rhs, but
-   without the magic treatment of CONSTRUCTOR).  */
-int is_gimple_initializer (tree);
 
 void recalculate_side_effects (tree);
 

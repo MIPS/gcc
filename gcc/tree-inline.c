@@ -635,6 +635,9 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
 	{
 	  tree rhs = convert (TREE_TYPE (var), value);
 
+	  if (rhs == error_mark_node)
+	    continue;
+
 	  /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
 	     keep our trees in gimple form.  */
 	  init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
