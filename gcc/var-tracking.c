@@ -310,6 +310,7 @@ static bool dataflow_set_different	PARAMS ((dataflow_set *,
 						 dataflow_set *));
 static void dataflow_set_destroy	PARAMS ((dataflow_set *));
 
+static bool contains_symbol_ref		PARAMS ((rtx));
 static bool track_expr_p		PARAMS ((tree));
 static void count_uses			PARAMS ((rtx, void *));
 static void count_stores		PARAMS ((rtx, rtx, void *));
@@ -1355,6 +1356,42 @@ dataflow_set_destroy (set)
   set->vars = NULL;
 }
 
+/* Return true if RTL X contains a SYMBOL_REF.  */
+
+static bool
+contains_symbol_ref (x)
+     rtx x;
+{
+  const char *fmt;
+  RTX_CODE code = GET_CODE (x);
+  int i;
+
+  if (!x)
+    return false;
+
+  if (code == SYMBOL_REF)
+    return true;
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	{
+	  if (contains_symbol_ref (XEXP (x, i)))
+	    return true;
+	}
+      else if (fmt[i] == 'E')
+	{
+	  int j;
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    if (contains_symbol_ref (XVECEXP (x, i, j)))
+	      return true;
+	}
+    }
+
+  return false;
+}
+
 /* Shall EXPR be tracked?  */
 
 static bool
@@ -1379,6 +1416,18 @@ track_expr_p (expr)
   /* Do not track global variables until we are able to emit correct location
      list for them.  */
   if (TREE_STATIC (expr))
+    return 0;
+
+  /* When the EXPR is a DECL for alias of some variable (see example)
+     the TREE_STATIC flag is not used.  Disable tracking all DECLs whose
+     DECL_RTL contains SYMBOL_REF.
+
+     Example:
+     extern char **_dl_argv_internal __attribute__ ((alias ("_dl_argv")));
+     char **_dl_argv;
+  */
+  if (GET_CODE (decl_rtl) == MEM
+      && contains_symbol_ref (XEXP (decl_rtl, 0)))
     return 0;
 
   /* If RTX is a memory it should not be very large (because it would be

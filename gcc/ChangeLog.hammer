@@ -1,3 +1,10 @@
+2003-10-19  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (contains_symbol_ref): New function.
+	(track_expr_p): Do not track MEMs which contain SYMBOL_REF.
+	* config/s390/s390.c (s390_machine_dependent_reorg): Revert my last
+	patch.
+
 2003-10-16  Josef Zlomek  <zlomekj@suse.cz>
 
 	* config/s390/s390.c (s390_machine_dependent_reorg): Get rid of UNSPEC
