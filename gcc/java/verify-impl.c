@@ -634,7 +634,9 @@ init_type_from_class (type *t, vfy_jclass k)
 {
   t->key = reference_type;
   t->klass = make_ref ();
+  t->klass->is_resolved = true;
   t->klass->data.klass = k;
+  t->klass->ref_next = NULL;
   t->pc = UNINIT;
 }
 
@@ -651,7 +653,9 @@ init_type_from_string (type *t, vfy_string n)
 {
   t->key = reference_type;
   t->klass = make_ref ();
+  t->klass->is_resolved = false;
   t->klass->data.name = n;
+  t->klass->ref_next = NULL;
   t->pc = UNINIT;
 }
 

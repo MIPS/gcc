@@ -1,3 +1,9 @@
+2004-10-19  Tom Tromey  <tromey@redhat.com>
+
+	* verify-impl.c (init_type_from_class): Set is_resolved and
+	ref_next on new ref_intersection.
+	(init_type_from_string): Likewise.
+
 2004-10-15  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* expr.c (expand_bytecode): Use verify_jvm_instructions_new
