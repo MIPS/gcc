@@ -3708,7 +3708,7 @@ rest_of_compilation (decl)
 #endif
   compute_alignments ();
 
-  if (0 && flag_var_tracking)
+  if (flag_var_tracking)
     {
       /* Track the variables, ie. compute where the variable is stored
        in each position in function.  */

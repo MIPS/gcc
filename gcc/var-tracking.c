@@ -754,7 +754,7 @@ track_expr_p (expr)
     return 0;
 
   /* ... and a RTL assigned to it.  */
-  decl_rtl = DECL_RTL (expr);
+  decl_rtl = DECL_RTL_IF_SET (expr);
   if (!decl_rtl)
     return 0;
 
@@ -1636,13 +1636,13 @@ insert_function_parameters ()
   for (parm = DECL_ARGUMENTS (current_function_decl);
        parm; parm = TREE_CHAIN (parm))
     {
-      rtx decl_rtl = DECL_RTL (parm);
+      rtx decl_rtl = DECL_RTL_IF_SET (parm);
       rtx incoming = DECL_INCOMING_RTL (parm);
       tree decl;
       HOST_WIDE_INT offset;
 
       if (!decl_rtl || !incoming)
-	abort ();
+	continue;
 
       if (!get_decl_and_offset (incoming, &decl, &offset))
 	if (!get_decl_and_offset (decl_rtl, &decl, &offset))

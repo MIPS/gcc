@@ -1,3 +1,10 @@
+2003-09-04  Josef Zlomek  <zlomekj@suse.cz>
+
+	* toplev.c (rest_of_compilation): Enable var tracking.
+	* var-tracking.c (track_expr_p): Use DECL_RTL_IF_SET instead of
+	DECL_RTL.
+	(insert_function_parameters): Likewise.
+
 2003-07-30  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from mainline:
