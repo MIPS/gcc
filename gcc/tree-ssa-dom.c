@@ -419,14 +419,14 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 	  && TREE_CODE (last) != COND_EXPR
 	  && TREE_CODE (last) != SWITCH_EXPR)
 	{
-	  e = EDGE_0 (e->dest->succ);
-
 #ifdef ENABLE_CHECKING
 	  /* There should only be a single successor if the
 	     original edge was split.  */
 	  if (EDGE_COUNT (e->dest->succ) != 1)
 	    abort ();
 #endif
+	  e = EDGE_0 (e->dest->succ);
+
 	  /* Replace the edge in REDIRECTION_EDGES for the
 	     loop below.  */
 	  VARRAY_EDGE (redirection_edges, i) = e;

@@ -1,3 +1,19 @@
+2004-07-22  Andrew Pinski  <apinski@apple.com>
+
+	* basic-block.h (FOR_EACH_EDGE): Set e at the begining too.
+	* gcse.c (bypass_block): e2 is the iterator for the edges.
+	* ifcvt.c (find_cond_trap): Use EDGE_COUNT.
+	(block_has_only_trap): Likewise.
+	(find_if_case_2): Set else_edge and not else_succ.
+	Use else_succ when we used to.
+	* sched-rgn.c (find_rgns): Use EDGE_COUNT.
+	* tree-cfg.c (make_ctrl_stmt_edges): Likewise.
+	(make_goto_expr_edges): Likewise.
+	(thread_jumps): Likewise.
+	(execute_warn_function_return): Likewise.
+	* tree-ssa-dom.c (redirect_edges_and_update_ssa_graph):
+	Check the number of edges of e before setting e again.
+
 2004-07-22  Ben Elliston  <bje@au.ibm.com>
 
 	* ifcvt.c (find_if_block): Check else_succ edge count.

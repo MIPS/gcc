@@ -519,7 +519,7 @@ struct edge_list
 
 /* FIXME: this is bloody awful. */
 #define FOR_EACH_EDGE(e, vec, iter) \
-  for ((iter) = 0; \
+  for ((e) = NULL, (iter) = 0; \
        ((e) = VEC_iterate (edge, (vec), (iter)) \
          ? *(VEC_iterate (edge, (vec), (iter))) : NULL); \
        (iter)++)

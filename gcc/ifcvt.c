@@ -2730,7 +2730,7 @@ find_cond_trap (basic_block test_bb, edge then_edge, edge else_edge)
 
   /* Delete the trap block if possible.  */
   remove_edge (trap_bb == then_bb ? then_edge : else_edge);
-  if (trap_bb->pred == NULL)
+  if (EDGE_COUNT (trap_bb->pred) == 0)
     delete_basic_block (trap_bb);
 
   /* If the non-trap block and the test are now adjacent, merge them.
@@ -2775,7 +2775,7 @@ block_has_only_trap (basic_block bb)
     return NULL_RTX;
 
   /* The block must have no successors.  */
-  if (bb->succ)
+  if (EDGE_COUNT (bb->succ) == 0)
     return NULL_RTX;
 
   /* The only instruction in the THEN block must be the trap.  */
@@ -2970,16 +2970,16 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
   if (EDGE_COUNT (else_bb->succ) != 1)
     return FALSE;
   else
-    else_edge = EDGE_0 (else_bb->succ);
+    else_succ = EDGE_0 (else_bb->succ);
 
   /* ELSE outgoing edge is not complex.  */
-  if (else_edge->flags & EDGE_COMPLEX)
+  if (else_succ->flags & EDGE_COMPLEX)
     return FALSE;
 
   /* ELSE has one predecessor.  */
   if (EDGE_COUNT (else_bb->pred) != 1)
     return FALSE;
-
+  
   /* THEN is not EXIT.  */
   if (then_bb->index < 0)
     return FALSE;

@@ -4056,7 +4056,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    {
 	      edge e2;
 	      unsigned ix;
-	      FOR_EACH_EDGE (e, e->src->succ, ix)
+	      FOR_EACH_EDGE (e2, e->src->succ, ix)
 		if (e2->dest == dest)
 		  {
 		    dest = NULL;

@@ -863,9 +863,8 @@ find_rgns (struct edge_list *edge_list)
 		  FOR_EACH_BB (jbb)
 		    /* Leaf nodes have only a single successor which must
 		       be EXIT_BLOCK.  */
-		    if (jbb->succ
-			&& EDGE_0 (jbb->succ)->dest == EXIT_BLOCK_PTR
-			&& EDGE_COUNT (jbb->succ) == 1)
+		    if (EDGE_COUNT (jbb->succ) == 1
+			&& EDGE_0 (jbb->succ)->dest == EXIT_BLOCK_PTR)
 		      {
 			queue[++tail] = jbb->index;
 			SET_BIT (in_queue, jbb->index);

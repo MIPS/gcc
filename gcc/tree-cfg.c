@@ -491,7 +491,7 @@ make_ctrl_stmt_edges (basic_block bb)
     case RESX_EXPR:
       make_eh_edges (last);
       /* Yet another NORETURN hack.  */
-      if (bb->succ == NULL)
+      if (EDGE_COUNT (bb->succ) == 0)
 	make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
       break;
 
@@ -710,7 +710,7 @@ make_goto_expr_edges (basic_block bb)
     }
 
   /* Degenerate case of computed goto with no labels.  */
-  if (!for_call && !bb->succ)
+  if (!for_call && EDGE_COUNT (bb->succ) == 0)
     make_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 }
 
@@ -4017,7 +4017,7 @@ thread_jumps (void)
 		{
 		  tmp = EDGE_0 (old_dest->succ)->dest;
 
-		  if (old_dest->pred)
+		  if (EDGE_COUNT (old_dest->pred) != 0)
 		    break;
 
 		  delete_basic_block (old_dest);
@@ -4805,14 +4805,14 @@ execute_warn_function_return (void)
 
   if (warn_missing_noreturn
       && !TREE_THIS_VOLATILE (cfun->decl)
-      && EXIT_BLOCK_PTR->pred == NULL
+      && EDGE_COUNT (EXIT_BLOCK_PTR->pred) == 0
       && !lang_hooks.function.missing_noreturn_ok_p (cfun->decl))
     warning ("%Jfunction might be possible candidate for attribute `noreturn'",
 	     cfun->decl);
 
   /* If we have a path to EXIT, then we do return.  */
   if (TREE_THIS_VOLATILE (cfun->decl)
-      && EXIT_BLOCK_PTR->pred != NULL)
+      && EDGE_COUNT (EXIT_BLOCK_PTR->pred) != 0)
     {
 #ifdef USE_MAPPED_LOCATION
       location = UNKNOWN_LOCATION;
@@ -4844,7 +4844,7 @@ execute_warn_function_return (void)
   /* If we see "return;" in some basic block, then we do reach the end
      without returning a value.  */
   else if (warn_return_type
-	   && EXIT_BLOCK_PTR->pred != NULL
+	   && EDGE_COUNT (EXIT_BLOCK_PTR->pred) != 0
 	   && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (cfun->decl))))
     {
       FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
