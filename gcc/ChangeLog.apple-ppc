@@ -1,5 +1,10 @@
 2004-12-09  Stuart Hastings <stuart@apple.com>
 
+	Radar 3910248
+	* gcc/config/rs6000/rs6000.c (output_call): correctly skip non-line-number notes.
+
+2004-12-09  Stuart Hastings <stuart@apple.com>
+
 	Radar 3855246
 	* gcc/config/rs6000/rs6000.c (init_cumulative_args): Remove APPLE LOCAL.
 	(macho_branch_islands): branch island formatting fixes.

@@ -18124,7 +18124,9 @@ output_call (rtx insn, rtx *operands, int dest_operand_number, int cookie_operan
 				       CODE_LABEL_NUMBER (label_rtx));
 	  label_buf = temp_buf[0] == '*' ? temp_buf + 1 : temp_buf;
 	  labelname = get_identifier (label_buf);
-	  for (; insn && GET_CODE (insn) != NOTE; insn = PREV_INSN (insn));
+ 	  for (;	/* APPLE LOCAL 3910248 */
+ 	       insn && (GET_CODE (insn) != NOTE || NOTE_LINE_NUMBER (insn) < 0);
+ 	       insn = PREV_INSN (insn));
 	  if (insn)
 	    line_number = NOTE_LINE_NUMBER (insn);
 	  /* APPLE LOCAL branch island */
