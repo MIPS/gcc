@@ -1,5 +1,24 @@
 2003-09-14  Paul Brook  <paul@nowt.org>
 
+	* check.c (dim_rank_check): Allow assumed bounds if requested.
+	(gfc_check_lbound): Call it.
+	(gfc_check_ubound): Ditto.
+	(gfc_check_size): Change to match.
+	* simplify.c (gfc_simplify_bound): New function.
+	(gfc_simplify_lbound): New function.
+	(gfc_simplify_ubound): New function.
+	* intrinsic.h: Declare them.
+	* intrinsic.c (add_functions): Use them.
+
+2003-09-14  Paul Brook  <paul@nowt.org>
+
+	* io.c (format_lex): Initialize negative_flag.
+	(check_format): Intialize repeat.
+	* trans-io.c (gfc_new_nml_name_expr): Declare static.
+	(gfc_new_var_expr): Ditto.
+
+2003-09-14  Paul Brook  <paul@nowt.org>
+
 	* trans-array.c (gfc_conv_array_initializer): Handle derived types.
 	* trans-decl.c (gfc_get_symbol_decl): Only do local scalar values.
 

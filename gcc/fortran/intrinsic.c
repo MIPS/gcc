@@ -1085,7 +1085,7 @@ add_functions (void)
   make_generic ("kind", GFC_ISYM_NONE);
 
   add_sym_2 ("lbound", 0, 1, BT_INTEGER, di,
-	     gfc_check_lbound, NULL, gfc_resolve_lbound,
+	     gfc_check_lbound, gfc_simplify_lbound, gfc_resolve_lbound,
 	     ar, BT_REAL, dr, 0, dm, BT_INTEGER, di, 1);
 
   make_generic ("lbound", GFC_ISYM_LBOUND);
@@ -1556,7 +1556,7 @@ add_functions (void)
   make_generic ("trim", GFC_ISYM_TRIM);
 
   add_sym_2 ("ubound", 0, 1, BT_INTEGER, di,
-	     gfc_check_ubound, NULL, gfc_resolve_ubound,
+	     gfc_check_ubound, gfc_simplify_ubound, gfc_resolve_ubound,
 	     ar, BT_REAL, dr, 0, dm, BT_INTEGER, ii, 1);
 
   make_generic ("ubound", GFC_ISYM_UBOUND);

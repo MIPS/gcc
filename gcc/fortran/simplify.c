@@ -1898,6 +1898,50 @@ gfc_simplify_kind (gfc_expr * e)
 }
 
 
+static gfc_expr *
+gfc_simplify_bound (gfc_expr * array, gfc_expr * dim, int upper)
+{
+  gfc_ref *ref;
+  gfc_array_spec *as;
+  int i;
+
+  if (array->expr_type != EXPR_VARIABLE)
+      return NULL;
+
+  if (dim == NULL)
+    return NULL;
+
+  if (dim->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  /* Follow any component references.  */
+  as = array->symtree->n.sym->as;
+  ref = array->ref;
+  while (ref->next != NULL)
+    {
+      if (ref->type == REF_COMPONENT)
+	as = ref->u.c.sym->as;
+      ref = ref->next;
+    }
+
+  if (ref->type != REF_ARRAY || ref->u.ar.type != AR_FULL)
+    return NULL;
+  
+  i = mpz_get_si (dim->value.integer);
+  if (upper) 
+    return as->upper[i-1];
+  else
+    return as->lower[i-1];
+}
+
+
+gfc_expr *
+gfc_simplify_lbound (gfc_expr * array, gfc_expr * dim)
+{
+  return gfc_simplify_bound (array, dim, 0);
+}
+
+
 gfc_expr *
 gfc_simplify_len (gfc_expr * e)
 {
@@ -3741,6 +3785,13 @@ gfc_simplify_trim (gfc_expr * e)
   result->value.character.string[lentrim] = '\0';	/* For debugger */
 
   return result;
+}
+
+
+gfc_expr *
+gfc_simplify_ubound (gfc_expr * array, gfc_expr * dim)
+{
+  return gfc_simplify_bound (array, dim, 1);
 }
 
 
