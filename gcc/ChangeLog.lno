@@ -1,3 +1,7 @@
+2004-04-10  Daniel Berlin  <dberlin@dberlin.org>
+
+	* lambda-code.c (lambda_loopnest_transform): Add comments.
+	
 2004-04-09  David Edelsohn  <edelsohn@gnu.org>
 
 	Backport from mainline:

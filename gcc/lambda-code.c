@@ -44,6 +44,8 @@
 #include "varray.h"
 #include "lambda.h"
 
+/* This loop nest code generation is based on non-singular matrix
+   math.  */
 
 /* Lattice stuff that is internal to the code generation algorithm.  */
 
@@ -102,7 +104,6 @@ lambda_body_vector_compute_new (lambda_trans_matrix transform,
   
   temp = lambda_body_vector_new (depth);
   LBV_DENOMINATOR (temp) = LBV_DENOMINATOR (vect) * LTM_DENOMINATOR (transform); 
-
   lambda_vector_matrix_mult (LBV_COEFFICIENTS (vect), depth,
 			     LTM_MATRIX (transform),
 			     depth, LBV_COEFFICIENTS (temp));
@@ -914,7 +915,8 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
   
   depth = LN_DEPTH (nest);
   invariants = LN_INVARIANTS (nest);
-  
+
+  /* Keep track of the signs of the loop steps.  */  
   stepsigns = lambda_vector_new (depth);
   for (i = 0; i < depth; i++)
     {
@@ -923,21 +925,34 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
       else
 	stepsigns[i] = -1;
     }
+
+  /* Compute the lattice base.  */
   lattice = lambda_lattice_compute_base (nest);
   trans1 = lambda_trans_matrix_new (depth, depth);
+  
+  /* Multiply the transformation matrix by the lattice base.  */
+
   lambda_matrix_mult (LTM_MATRIX (trans), LATTICE_BASE (lattice), 
 		      LTM_MATRIX (trans1),
 		      depth, depth, depth);
+
+  /* Compute the hermite normal form for the new transformation matrix.  */
   H = lambda_trans_matrix_new (depth, depth);
   U = lambda_trans_matrix_new (depth, depth);
   lambda_matrix_hermite (LTM_MATRIX (trans1), depth, LTM_MATRIX (H), LTM_MATRIX (U));
   
+  /* Compute the auxillary loop nest's space from the unimodular
+     portion.  */
   auxillary_nest = lambda_compute_auxillary_space (nest, U);
   
+
+  /* Compute the loop step signs from the old step signs and the
+     transformation matrix.  */
   stepsigns = lambda_compute_step_signs (trans1, stepsigns);
   
-  target_nest = lambda_compute_target_space (auxillary_nest, H, stepsigns);
-  
+  /* Compute the target loop nest space from the auxillary nest and
+     the lower triangular matrix H.  */
+  target_nest = lambda_compute_target_space (auxillary_nest, H, stepsigns);  
   origin = lambda_vector_new (depth);
   origin_invariants = lambda_matrix_new (depth, invariants);
   lambda_matrix_vector_mult (LTM_MATRIX (trans), depth, depth, 
@@ -1453,7 +1468,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
       VARRAY_PUSH_TREE (results, name);
     }
 
-  /* Again, out of lazyness, we don't handle this case yet.  It's not
+  /* Again, out of laziness, we don't handle this case yet.  It's not
      hard, it just hasn't occurred.  */
   if (VARRAY_ACTIVE_SIZE (results) > 2)
     abort ();
