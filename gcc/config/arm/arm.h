@@ -1570,36 +1570,26 @@ enum reg_class
    SP+large_offset address, then reload won't know how to fix it.  It sees
    only that SP isn't valid for HImode, and so reloads the SP into an index
    register, but the resulting address is still invalid because the offset
-   is too big.  We fix it here instead by reloading the entire address.
-
-   If we get an illegitimate address of the form (PLUS (REG) (REG))
-   here, we reload that as well.  That can happen if a pseudo-register
-   is replaced by a hard register that is not in LO_REGS.  */
+   is too big.  We fix it here instead by reloading the entire address.  */
 /* We could probably achieve better results by defining PROMOTE_MODE to help
    cope with the variances between the Thumb's signed and unsigned byte and
    halfword load instructions.  */
 #define THUMB_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)	\
-{									      \
-  if (GET_CODE (X) == PLUS						      \
-      && ((GET_MODE_SIZE (MODE) < 4					      \
-           && GET_CODE (XEXP (X, 0)) == REG				      \
-           && XEXP (X, 0) == stack_pointer_rtx				      \
-           && GET_CODE (XEXP (X, 1)) == CONST_INT			      \
-           && ! thumb_legitimate_offset_p (MODE, INTVAL (XEXP (X, 1))))	      \
-          || (GET_CODE (XEXP (X, 0)) == REG				      \
-	      && GET_CODE (XEXP (X, 1)) == REG))			      \
-              && ((REGNO (XEXP (X, 0)) < FIRST_PSEUDO_REGISTER		      \
-		   && !THUMB_REG_MODE_OK_FOR_BASE_P (XEXP (X, 0), MODE))      \
-                  || (REGNO (XEXP (X, 1)) < FIRST_PSEUDO_REGISTER	      \
-		      && !THUMB_REG_MODE_OK_FOR_BASE_P (XEXP (X, 1), MODE)))) \
-    {									      \
-      rtx orig_X = X;							      \
-      X = copy_rtx (X);							      \
-      push_reload (orig_X, NULL_RTX, &X, NULL,				      \
-		   MODE_BASE_REG_CLASS (MODE),				      \
-		   Pmode, VOIDmode, 0, 0, OPNUM, TYPE);			      \
-      goto WIN;								      \
-    }									      \
+{									\
+  if (GET_CODE (X) == PLUS						\
+      && GET_MODE_SIZE (MODE) < 4					\
+      && GET_CODE (XEXP (X, 0)) == REG					\
+      && XEXP (X, 0) == stack_pointer_rtx				\
+      && GET_CODE (XEXP (X, 1)) == CONST_INT				\
+      && ! thumb_legitimate_offset_p (MODE, INTVAL (XEXP (X, 1))))	\
+    {									\
+      rtx orig_X = X;							\
+      X = copy_rtx (X);							\
+      push_reload (orig_X, NULL_RTX, &X, NULL,				\
+		   MODE_BASE_REG_CLASS (MODE),				\
+		   Pmode, VOIDmode, 0, 0, OPNUM, TYPE);			\
+      goto WIN;								\
+    }									\
 }
 
 #define LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)   \
@@ -1618,18 +1608,19 @@ enum reg_class
    operand of a SUBREG that changes the mode of the object illegally.  */
 
 /* Moves between FPA_REGS and GENERAL_REGS are two memory insns.  */
-#define REGISTER_MOVE_COST(MODE, FROM, TO)		\
-  (TARGET_ARM ?						\
-   ((FROM) == FPA_REGS && (TO) != FPA_REGS ? 20 :	\
-    (FROM) != FPA_REGS && (TO) == FPA_REGS ? 20 :	\
-    (FROM) == IWMMXT_REGS && (TO) != IWMMXT_REGS ? 4 :  \
-    (FROM) != IWMMXT_REGS && (TO) == IWMMXT_REGS ? 4 :  \
-    (FROM) == IWMMXT_GR_REGS || (TO) == IWMMXT_GR_REGS ? 20 :  \
-    (FROM) == CIRRUS_REGS && (TO) != CIRRUS_REGS ? 20 :	\
-    (FROM) != CIRRUS_REGS && (TO) == CIRRUS_REGS ? 20 :	\
-   2)							\
-   :							\
-   ((FROM) == HI_REGS || (TO) == HI_REGS) ? 4 : 2)
+#define REGISTER_MOVE_COST(MODE, FROM, TO)			\
+  (TARGET_ARM ?							\
+   ((FROM) == FPA_REGS && (TO) != FPA_REGS ? 20 :		\
+    (FROM) != FPA_REGS && (TO) == FPA_REGS ? 20 :		\
+    (FROM) == IWMMXT_REGS && (TO) != IWMMXT_REGS ? 4 :		\
+    (FROM) != IWMMXT_REGS && (TO) == IWMMXT_REGS ? 4 :		\
+    (FROM) == IWMMXT_GR_REGS || (TO) == IWMMXT_GR_REGS ? 20 :	\
+    (FROM) == CIRRUS_REGS && (TO) != CIRRUS_REGS ? 20 :		\
+    (FROM) != CIRRUS_REGS && (TO) == CIRRUS_REGS ? 20 :		\
+   2)								\
+   :								\
+   ((FROM) == HI_REGS || (TO) == HI_REGS ? 4 : 			\
+    (FROM) == LO_REGS && (TO) == BASE_REGS ? 65536 : 2))
 
 /* Stack layout; function entry, exit and calling.  */
 
