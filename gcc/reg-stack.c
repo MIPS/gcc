@@ -236,8 +236,6 @@ static rtx
   ((INSN_UID (INSN) > max_uid)				\
    ? (abort() , -1) : block_number[INSN_UID (INSN)])
 
-extern rtx forced_labels;
-
 /* Forward declarations */
 
 static int stack_regs_mentioned_p	PROTO((rtx pat));
