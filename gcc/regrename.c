@@ -1339,15 +1339,20 @@ find_oldest_value_reg (enum reg_class class, rtx reg, struct value_data *vd)
     {
       enum machine_mode oldmode = vd->e[i].mode;
       rtx new;
-
-    if (TEST_HARD_REG_BIT (reg_class_contents[class], i)
-	&& (new = maybe_mode_change (oldmode, vd->e[regno].mode, mode, i,
-				     regno)))
-      {
-	ORIGINAL_REGNO (new) = ORIGINAL_REGNO (reg);
-        REG_ATTRS (new) = REG_ATTRS (reg);
-	return new;
-      }
+      int j;
+      
+      for (j = 0; j < HARD_REGNO_NREGS (regno, mode); ++j)
+	if (!TEST_HARD_REG_BIT (reg_class_contents[class], i + j))
+	  return NULL_RTX;
+      
+      new = maybe_mode_change (oldmode, vd->e[regno].mode, mode, i,
+			       regno);
+      if (new)
+	{
+	  ORIGINAL_REGNO (new) = ORIGINAL_REGNO (reg);
+	  REG_ATTRS (new) = REG_ATTRS (reg);
+	  return new;
+	}
     }
 
   return NULL_RTX;

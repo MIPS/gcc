@@ -1,3 +1,11 @@
+2003-12-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* regrename.c (find_oldest_value_reg): Handle HARD_REGNO_NREGS > 1
+	correctly.
+
+	* config/arm/arm.h (THUMB_LEGTITIMIZE_RELOAD_ADDRESS): Reload REG
+	+ REG addressing modes.
+
 2003-12-30  Mark Mitchell  <mark@codesourcery.com>
 
 	* config/arm/arm.h (THUMB_LEGITIMATE_CONSTANT_P): Accept
