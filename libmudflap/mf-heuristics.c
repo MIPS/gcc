@@ -33,7 +33,8 @@ __mf_register_ro_sections ()
 	  fprintf (stderr, "mf: (heuristics) cannot open /proc/self/maps\n");
 	  fprintf (stderr, "mf: (heuristics) registering 00-%p\n", &_end);
 	}
-      __mf_register (0, &_end, __MF_TYPE_GUESS, 
+      __mf_register ((uintptr_t) 0, (uintptr_t) &_end,
+		     __MF_TYPE_GUESS, 
 		     "(heuristic) static 0-__end region");
       return;
     }
@@ -50,7 +51,8 @@ __mf_register_ro_sections ()
 		  fprintf (stderr, "mf: (heuristics) registering static region %p-%p\n",
 			  low, high);
 		}
-	      __mf_register (low, (high-low), __MF_TYPE_GUESS, 
+	      __mf_register ((uintptr_t) low, (uintptr_t) (high-low),
+			     __MF_TYPE_GUESS, 
 			     "(heuristic) static read-only segment");
 	    } 
 

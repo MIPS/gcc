@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4-p4 from Makefile.am
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -83,7 +83,7 @@ libtool_VERSION = @libtool_VERSION@
 AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
-TESTS_ENVIRONMENT = MUDFLAP_OPTIONS='-mode-check -viol-abort'
+TESTS_ENVIRONMENT = MUDFLAP_OPTIONS='-mode-check -viol-abort -no-heur-proc-map'
 
 TESTS = test/fail1.x test/fail10.x test/fail11.x test/fail12.x				 test/fail13.x test/fail14.x test/fail15.x test/fail16.x test/fail17.x			 test/fail2.x test/fail3.x test/fail4.x test/fail5.x test/fail6.x			 test/fail7.x test/fail8.x test/fail9.x test/pass1.x test/pass10.x			 test/pass11.x test/pass12.x test/pass13.x test/pass14.x test/pass15.x			 test/pass16.x test/pass17.x test/pass2.x test/pass3.x test/pass4.x test/pass5.x	 test/pass6.x test/pass7.x test/pass8.x test/pass9.x
 
@@ -96,18 +96,14 @@ lib_LTLIBRARIES = libmudflap.la
 
 # Compile flags that should be constant throughout the build, both for
 # SUBDIRS and for libmudflap in general.
-CFLAGS = -O2 -g
+CFLAGS = -O2 -g -freorder-blocks
 WARN_CFLAGS = $(WERROR) -fdiagnostics-show-location=once
 
 # Use common includes from acinclude.m4/LIBMUDFLAP_EXPORT_INCLUDES
 LIBMUDFLAP_INCLUDES = 
 TOPLEVEL_INCLUDES = 
 
-MFCONFIG_CFLAGS = -I $(srcdir) -include mf-config.h
-
 libmudflap_la_SOURCES =  	mf-runtime.c 	mf-hooks.c 	mf-heuristics.c
-
-INCLUDES =  	$(MFCONFIG_CFLAGS)
 
 
 # libmudflap_la_LIBADD =
@@ -138,7 +134,7 @@ config.h.in configure configure.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = tar
+TAR = gtar
 GZIP_ENV = --best
 SOURCES = $(libmudflap_la_SOURCES)
 OBJECTS = $(libmudflap_la_OBJECTS)
@@ -156,7 +152,7 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ configure.in 
 	cd $(srcdir) && $(ACLOCAL)
 
-config.status: $(srcdir)/configure.in $(CONFIG_STATUS_DEPENDENCIES)
+config.status: $(srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	$(SHELL) ./config.status --recheck
 $(srcdir)/configure: @MAINTAINER_MODE_TRUE@$(srcdir)/configure.in $(ACLOCAL_M4) $(CONFIGURE_DEPENDENCIES)
 	cd $(srcdir) && $(AUTOCONF)
@@ -406,7 +402,7 @@ mostlyclean-am:  mostlyclean-hdr mostlyclean-libLTLIBRARIES \
 mostlyclean: mostlyclean-am
 
 clean-am:  clean-hdr clean-libLTLIBRARIES clean-compile clean-libtool \
-		clean-tags clean-generic mostlyclean-am
+		clean-tags clean-generic mostlyclean-am clean-local
 
 clean: clean-am
 
@@ -452,18 +448,18 @@ test/%.c: test/%-frag.c test/mf-driver.c test/buildtest.sh
 	@cat $< >> $@
 	@echo '}' >> $@
 
+clean-local:
+	rm -f $(TESTS)
+
 test/fail%.x: test/fail%.c
-	$(CC) -DSHOULD_FAIL -fmudflap -o $@ $<
+	$(CC) -DSHOULD_FAIL -rdynamic -fmudflap -g -o $@ $<
 
 test/pass%.x: test/pass%.c
-	$(CC) -DSHOULD_PASS -fmudflap -o $@ $<
+	$(CC) -DSHOULD_PASS -rdynamic -fmudflap -g -o $@ $<
 
 mf-runtime.o: mf-runtime.h
 mf-hooks.o: mf-runtime.h
 mf-heuristics.o: mf-runtime.h
-
-# COMPILE = $(LIBTOOL) --tag CC --mode=compile $(CC) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(CFLAGS) $(AM_CFLAGS) $(WARN_CFLAGS) $(MFCONFIG_CFLAGS)
-# LINK = $(LIBTOOL) --tag CC --mode=link $(CC) $(AM_CFLAGS) $(LDFLAGS) -o $@
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -7,7 +7,7 @@
 AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
 
-TESTS_ENVIRONMENT = MUDFLAP_OPTIONS='-mode-check -viol-abort'
+TESTS_ENVIRONMENT = MUDFLAP_OPTIONS='-mode-check -viol-abort -no-heur-proc-map'
 
 TESTS = test/fail1.x test/fail10.x test/fail11.x test/fail12.x				\
  test/fail13.x test/fail14.x test/fail15.x test/fail16.x test/fail17.x			\
@@ -25,11 +25,14 @@ test/%.c: test/%-frag.c test/mf-driver.c test/buildtest.sh
 	@cat $< >> $@
 	@echo '}' >> $@
 
+clean-local:
+	rm -f $(TESTS)
+
 test/fail%.x: test/fail%.c
-	$(CC) -DSHOULD_FAIL -fmudflap -o $@ $<
+	$(CC) -DSHOULD_FAIL -rdynamic -fmudflap -g -o $@ $<
 
 test/pass%.x: test/pass%.c
-	$(CC) -DSHOULD_PASS -fmudflap -o $@ $<
+	$(CC) -DSHOULD_PASS -rdynamic -fmudflap -g -o $@ $<
 
 
 # SUBDIRS = 
@@ -40,15 +43,12 @@ lib_LTLIBRARIES = libmudflap.la
 
 # Compile flags that should be constant throughout the build, both for
 # SUBDIRS and for libmudflap in general.
-CFLAGS = -O2 -g
+CFLAGS = -O2 -g -freorder-blocks
 WARN_CFLAGS = $(WERROR) -fdiagnostics-show-location=once
 
 # Use common includes from acinclude.m4/LIBMUDFLAP_EXPORT_INCLUDES
 LIBMUDFLAP_INCLUDES =
 TOPLEVEL_INCLUDES =
-
-
-MFCONFIG_CFLAGS = -I $(srcdir) -include mf-config.h
 
 mf-runtime.o: mf-runtime.h
 mf-hooks.o: mf-runtime.h
@@ -58,13 +58,9 @@ libmudflap_la_SOURCES = \
 	mf-runtime.c \
 	mf-hooks.c \
 	mf-heuristics.c
-INCLUDES = \
-	$(MFCONFIG_CFLAGS)
 
 # libmudflap_la_LIBADD =
 # libmudflap_la_LDFLAGS = 
 
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
 
-# COMPILE = $(LIBTOOL) --tag CC --mode=compile $(CC) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(CFLAGS) $(AM_CFLAGS) $(WARN_CFLAGS) $(MFCONFIG_CFLAGS)
-# LINK = $(LIBTOOL) --tag CC --mode=link $(CC) $(AM_CFLAGS) $(LDFLAGS) -o $@

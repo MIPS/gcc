@@ -73,6 +73,7 @@ __mf_set_default_options ()
   __mf_opts.backtrace = 4;
   __mf_opts.mudflap_mode = mode_check;
   __mf_opts.violation_mode = viol_nop;
+  __mf_opts.heur_proc_map = 1;
 }
 
 static struct option
@@ -96,14 +97,14 @@ options [] =
      "mudflaps populate object tree", 
      set_option, (int)mode_populate, (int *)&__mf_opts.mudflap_mode},    
     {"mode-check", 
-     "mudflaps check for memory violations (default)",
+     "mudflaps check for memory violations",
      set_option, (int)mode_check, (int *)&__mf_opts.mudflap_mode},
     {"mode-violate", 
      "mudflaps always cause violations (diagnostic)",
      set_option, (int)mode_violate, (int *)&__mf_opts.mudflap_mode},
     
     {"viol-nop", 
-     "violations do not change program execution (default)",
+     "violations do not change program execution",
      set_option, (int)viol_nop, (int *)&__mf_opts.violation_mode},
     {"viol-abort", 
      "violations cause a call to abort()",
@@ -133,9 +134,13 @@ options [] =
     {"optimize-object-tree", 
      "periodically optimize memory object tracking tree",
      set_option, 1, &__mf_opts.optimize_object_tree},
+    /* XXX: this should be sensitive to gcc --enable-threading= setting */
     {"multi-threaded", 
      "support multiple threads",
      set_option, 1, &__mf_opts.multi_threaded},
+    {"heur-proc-map", 
+     "support /proc/self/map heuristics",
+     set_option, 1, &__mf_opts.heur_proc_map},
 
     {"free-queue-length", 
      "queue N deferred free() calls before performing them",
@@ -168,22 +173,30 @@ __mf_usage ()
 	   "$ <mudflapped_program>\n"
 	   "\n"
 	   "where <options> is a space-separated list of \n"
-	   "any of the following:\n"
+	   "any of the following options.  Use `-no-OPTION' to disable options.\n"
 	   "\n");
 
   for (opt = options; opt->name; opt++)
     {
+      int default_p = (opt->value == * opt->target);
+
       switch (opt->type)
 	{
 	  char buf[128];
 	case set_option:
-	  fprintf (stderr, "-%-23.23s %s\n", opt->name, opt->description);
+	  fprintf (stderr, "-%-23.23s %s", opt->name, opt->description);
+	  if (default_p)
+	    fprintf (stderr, " [default]\n", opt->value);
+	  else
+	    fprintf (stderr, "\n");
 	  break;
 	case read_integer_option:
 	  strncpy (buf, opt->name, 128);
 	  strncpy (buf + strnlen (opt->name, 128), "=N", 2);
-	  fprintf (stderr, "-%-23.23s %s\n", buf, opt->description);
+	  fprintf (stderr, "-%-23.23s %s", buf, opt->description);
+	  fprintf (stderr, " [%d]\n", * opt->target);
 	  break;	  
+	default: abort();
 	}
     }
 
@@ -220,6 +233,14 @@ __mf_process_opts (char *optstr)
 	    
 	    for (opts = options; opts->name; opts++)
 	      {
+		int negate = 0;
+
+		if (strncmp (optstr, "no-", 3) == 0)
+		  {
+		    negate = 1;
+		    optstr = & optstr[3];
+		  }
+
 		if (strncmp (optstr, opts->name, 
 				     strlen (opts->name)) == 0)
 		  {
@@ -228,10 +249,13 @@ __mf_process_opts (char *optstr)
 		    switch (opts->type) 
 		      {
 		      case set_option:
-			*(opts->target) = opts->value;
+			if (negate)
+			  *(opts->target) = 0;
+			else
+			  *(opts->target) = opts->value;
 			break;
 		      case read_integer_option:
-			if (*optstr == '=' && *(optstr+1))
+			if (! negate && (*optstr == '=' && *(optstr+1)))
 			  {
 			    optstr++;
 			    tmp = strtol (optstr, &nxt, 10);
@@ -241,6 +265,8 @@ __mf_process_opts (char *optstr)
 				*(opts->target) = (int)tmp;
 			      }
 			  }
+			else if (negate)
+			  * opts->target = 0;
 			break;
 		      }
 		  }
@@ -278,6 +304,7 @@ void __mf_init ()
 	  fprintf (stderr, 
 		   "mudflap error: unknown options in "
 		   "environment variable MUDFLAP_OPTIONS\n");
+	  __mf_usage ();
 	  exit (1);
 	}
     }
@@ -529,8 +556,11 @@ __mf_remove_old_object (__mf_object_tree_t *old_obj)
 void
 __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 {
-
   if (UNLIKELY (! __mf_active_p)) return;
+
+  if (__mf_opts.trace_mf_calls)
+    fprintf (stderr, "mf reg p=%08lx s=%lu t=%d n=`%s'\n", 
+	     ptr, sz, type, name ? name : "");
 
   switch (__mf_opts.mudflap_mode)
     {
@@ -593,50 +623,54 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		  {
 		    if (ovr_obj[i]->data.type == __MF_TYPE_GUESS)
 		      {
-
-			/* We're going to split our existing guess into 2
-			   and put this new region in the middle */
+			/* We're going to split our existing guess
+			   into 2 and put this new region in the
+			   middle. */
 			
 			uintptr_t guess1_low, guess1_high;
 			uintptr_t guess2_low, guess2_high;
 			uintptr_t guess_pc;
 			const char *guess_name;
-			
+			extern void  __real_free (void *);
+		
 			guess_pc = ovr_obj[i]->data.alloc_pc;
 			guess_name = ovr_obj[i]->data.name;
 
 			guess1_low = ovr_obj[i]->data.low;
-			guess1_high = low - (1 + __mf_opts.crumple_zone);
+			guess1_high = CLAMPSUB (low, (1 + __mf_opts.crumple_zone));
 
-			guess2_low = high + (1 + __mf_opts.crumple_zone);
+			guess2_low = CLAMPADD (high, (1 + __mf_opts.crumple_zone));
 			guess2_high = ovr_obj[i]->data.high;
-
-			/* Correct for possible over-shoot on crumple zones. */
-			guess2_low = min (guess2_low, guess2_high);
-			guess1_high = max (guess1_high, guess1_low);
+			/* NB: split regions may disappear if low > high. */
 			
 			if (__mf_opts.trace_mf_calls)
 			  {
 			    fprintf (stderr, 
-				     "mf: splitting guess region from %p-%p to %p-%p and %p-%p\n", 
-				     guess1_low, 
-				     guess2_high, 
-				     guess1_low, 
-				     guess1_high, 
-				     guess2_low, 
-				     guess2_high);
+				     "mf: splitting guess region %08lx-%08lx\n",
+				     guess1_low, guess2_high);
 			  }
-			
-			__mf_remove_old_object (ovr_obj[i]);
 
-			__mf_insert_new_object (guess1_low, guess1_high, 
-						__MF_TYPE_GUESS, 
-						guess_name, guess_pc);
+			__mf_unlink_object (ovr_obj[i]);
+			__real_free (ovr_obj[i]->data.alloc_backtrace);
+			/* __real_free (ovr_obj[i]->data.dealloc_backtrace); */
+			__real_free (ovr_obj[i]);
+			ovr_obj[i] = NULL;
 
-			__mf_insert_new_object (guess2_low, guess2_high, 
-						__MF_TYPE_GUESS, 
-						guess_name, guess_pc);
+			/* XXX: preserve other information: stats? backtraces */
 
+			if (guess1_low <= guess1_high)
+			  {
+			    __mf_insert_new_object (guess1_low, guess1_high, 
+						    __MF_TYPE_GUESS, 
+						    guess_name, guess_pc);
+			  }
+
+			if (guess2_low <= guess2_high)
+			  {
+			    __mf_insert_new_object (guess2_low, guess2_high, 
+						    __MF_TYPE_GUESS, 
+						    guess_name, guess_pc);
+			  }
 		      }
 		    else
 		      {
@@ -667,10 +701,6 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 				(type > __MF_TYPE_GUESS) ? 0 : 
 				type] += sz;
     }
-
-  if (__mf_opts.trace_mf_calls)
-    fprintf (stderr, "mf reg p=%08lx s=%lu t=%d n=`%s'\n", 
-	     ptr, sz, type, name ? name : "");
 }
 
 /* }}} */
@@ -743,7 +773,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 
 	if (__mf_opts.trace_mf_calls)
 	  {
-	    fprintf (stderr, "mf: removing region %p-%p\n", old_obj->data.low, old_obj->data.high); 
+	    fprintf (stderr, "mf: removing region %08lx-%08lx\n", old_obj->data.low, old_obj->data.high); 
 	  }
 
 	__mf_remove_old_object (old_obj);
@@ -1068,7 +1098,7 @@ __mf_unlink_object2 (__mf_object_tree_t *ptr, __mf_object_tree_t **link)
   else if (ptr->data.low > node->data.high)
     return __mf_unlink_object2 (ptr, & node->right);
   else
-    abort (); /* XXX: missing object */
+    abort (); /* XXX: missing object; should fail more gracefully. */
 }
 
 static void
@@ -1148,11 +1178,10 @@ __mf_find_dead_objects (uintptr_t low, uintptr_t high,
 static void
 __mf_describe_object (__mf_object_t *obj)
 {
-
   if (UNLIKELY (! __mf_active_p)) return;
 
   fprintf (stderr,
-	   "mudflap object %p: name=`%s'\n"
+	   "mudflap object %08lx: name=`%s'\n"
 	   "bounds=[%08lx,%08lx] area=%s access-count=%u\n"
 	   "alloc time=%lu.%06lu pc=%08lx\n",
 	   obj, (obj->name ? obj->name : ""), obj->low, obj->high,
@@ -1302,8 +1331,10 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 			  type] ++;
 
   /* Print out a basic warning message.  */
-  /* XXX: should even this be conditional?  */
+  if (__mf_opts.verbose_violations)
   {
+    unsigned dead_p;
+    unsigned num_helpful = 0;
     struct timeval now;
     gettimeofday (& now, NULL);
 
@@ -1317,39 +1348,34 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 	      (type == __MF_VIOL_REGISTER) ? "register" :
 	      (type == __MF_VIOL_UNREGISTER) ? "unregister" :
 	      "unknown"));
-  }
 
-  if (__mf_opts.backtrace > 0)
-    {
-      void *array [__mf_opts.backtrace];
-      size_t bt_size;
-      char ** symbols;
-      int i;
-
-      bt_size = backtrace (array, __mf_opts.backtrace);
-      /* Note: backtrace_symbols calls malloc().  But since we're in
-	 __mf_violation and presumably __mf_check, it'll detect
-	 recursion, and not put the new string into the database.  */
-      symbols = backtrace_symbols (array, bt_size);
-
-      for (i=0; i<bt_size; i++)
-	fprintf (stderr, "      %s\n", symbols[i]);
-
-      /* Calling free() here would trigger a violation.  */
-      __real_free (symbols);
-    }
-
-  if (__mf_opts.verbose_violations)
-  {
-    unsigned dead_p;
-    unsigned num_helpful = 0;
-
+    if (__mf_opts.backtrace > 0)
+      {
+	void *array [__mf_opts.backtrace];
+	size_t bt_size;
+	char ** symbols;
+	int i;
+	
+	bt_size = backtrace (array, __mf_opts.backtrace);
+	/* Note: backtrace_symbols calls malloc().  But since we're in
+	   __mf_violation and presumably __mf_check, it'll detect
+	   recursion, and not put the new string into the database.  */
+	symbols = backtrace_symbols (array, bt_size);
+	
+	for (i=0; i<bt_size; i++)
+	  fprintf (stderr, "      %s\n", symbols[i]);
+	
+	/* Calling free() here would trigger a violation.  */
+	__real_free (symbols);
+      }
+    
+    
     /* Look for nearby objects.  For this, we start with s_low/s_high
        pointing to the given area, looking for overlapping objects.
        If none show up, widen the search area and keep looking. */
-
+    
     if (sz == 0) sz = 1;
-
+    
     for (dead_p = 0; dead_p <= 1; dead_p ++) /* for dead_p in 0 1 */
       {
 	enum {max_objs = 3}; /* magic */
@@ -1358,7 +1384,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 	uintptr_t s_low, s_high;
 	unsigned tries = 0;
 	unsigned i;
-
+	
 	s_low = ptr;
 	s_high = CLAMPSZ (ptr, sz);
 

@@ -105,7 +105,9 @@ struct __mf_options
     viol_gdb         /* Fork a debugger on self */
   }
   violation_mode;
-  
+
+  /* Violation heuristics selection. */
+  int heur_proc_map;  /* Register /proc/self/map regions.  */
 };
 
 extern struct __mf_options __mf_opts;

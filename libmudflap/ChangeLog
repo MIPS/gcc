@@ -1,3 +1,26 @@
+2002-08-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	Option parsing improvements, region splitting bug fixes:
+	* mf-heuristics.c (__mf_register_ro_sections): Add warned casts.
+	* mf-runtime.h (heur_proc_map): New libmudflap option.
+	* mf-runtime.c (__mf_set_default_options): Set it.
+	(__mf_usage): Print default values/status.
+	(__mf_process_opts): Support general "no-" option string prefix.
+	(__mf_init): Print __mf_usage on unknown-option error.
+	(__mf_register): Print trace message up front.
+	Correct region splitting logic for case where a subregion disappears.
+	Correct memory leak.
+	(__mf_violation): Make even basic message conditional on option.
+
+	Build cleanup:
+	* Makefile.am (TESTS_ENVIRONMENT): Add -no-heur-proc-map.
+	(clean-local): New target.
+	(test/*x rules): Add -g CFLAGS.
+	(CFLAGS): Add -freorder-blocks.
+	(MFCONFIG_CFLAGS, INCLUDE): Remove unneeded settings.
+	* Makefile.in: Regenerated.
+	* Makefile, mf-config.h: Removed files.
+
 2002-08-16  Graydon Hoare  <graydon@redhat.com>
 
 	* mf-runtime.c (__mf_insert_new_object): Factor out of
