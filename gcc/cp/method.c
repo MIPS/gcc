@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "tm_p.h"
+#include "target.h"
 
 /* Various flags to control the mangling process.  */
 
@@ -339,6 +340,51 @@ make_thunk (function, delta, vcall_index)
   return thunk;
 }
 
+/* Create a static alias to function.  */
+
+static tree
+make_alias_for_thunk (tree function)
+{
+  tree alias;
+  static int thunk_labelno;
+  char buf[256];
+
+  ASM_GENERATE_INTERNAL_LABEL (buf, "LTHUNK", thunk_labelno);
+  thunk_labelno++;
+  alias = build_decl (FUNCTION_DECL, get_identifier (buf),
+		      TREE_TYPE (function));
+  DECL_LANG_SPECIFIC (alias) = DECL_LANG_SPECIFIC (function);
+  copy_lang_decl (alias);
+  DECL_CONTEXT (alias) = NULL;
+  TREE_READONLY (alias) = TREE_READONLY (function);
+  TREE_THIS_VOLATILE (alias) = TREE_THIS_VOLATILE (function);
+  TREE_PUBLIC (alias) = 0;
+  DECL_INTERFACE_KNOWN (alias) = 1;
+  DECL_NOT_REALLY_EXTERN (alias) = 1;
+  DECL_THIS_STATIC (alias) = 1;
+  DECL_SAVED_FUNCTION_DATA (alias) = NULL;
+  DECL_DESTRUCTOR_P (alias) = 0;
+  DECL_CONSTRUCTOR_P (alias) = 0;
+  DECL_CLONED_FUNCTION (alias) = NULL_TREE;
+  DECL_EXTERNAL (alias) = 0;
+  DECL_ARTIFICIAL (alias) = 1;
+  DECL_NO_STATIC_CHAIN (alias) = 1;
+  DECL_PENDING_INLINE_P (alias) = 0;
+  DECL_INLINE (alias) = 0;
+  DECL_DECLARED_INLINE_P (alias) = 0;
+  DECL_DEFERRED_FN (alias) = 0;
+  DECL_USE_TEMPLATE (alias) = 0;
+  DECL_TEMPLATE_INSTANTIATED (alias) = 0;
+  DECL_TEMPLATE_INFO (alias) = NULL;
+  TREE_ADDRESSABLE (alias) = 1;
+  TREE_USED (alias) = 1;
+  SET_DECL_ASSEMBLER_NAME (alias, DECL_NAME (alias));
+  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (alias)) = 1;
+  if (!flag_syntax_only)
+    assemble_alias (alias, DECL_ASSEMBLER_NAME (function));
+  return alias;
+}
+
 /* Emit the definition of a C++ multiple inheritance vtable thunk.  If
    EMIT_P is non-zero, the thunk is emitted immediately.  */
 
@@ -348,7 +394,7 @@ use_thunk (thunk_fndecl, emit_p)
      int emit_p;
 {
   tree fnaddr;
-  tree function;
+  tree function, alias;
   tree vcall_offset;
   HOST_WIDE_INT delta;
 
@@ -373,6 +419,12 @@ use_thunk (thunk_fndecl, emit_p)
   if (!emit_p)
     return;
 
+#ifdef ASM_OUTPUT_DEF
+  alias = make_alias_for_thunk (function);
+#else
+  alias = function;
+#endif
+
   delta = THUNK_DELTA (thunk_fndecl);
   vcall_offset = THUNK_VCALL_OFFSET (thunk_fndecl);
 
@@ -392,6 +444,21 @@ use_thunk (thunk_fndecl, emit_p)
 
   push_to_top_level ();
 
+#ifdef ASM_OUTPUT_DEF
+  if (targetm.have_named_sections)
+    {
+      resolve_unique_section (function, 0, flag_function_sections);
+
+      if (DECL_SECTION_NAME (function) != NULL && DECL_ONE_ONLY (function))
+	{
+	  resolve_unique_section (thunk_fndecl, 0, flag_function_sections);
+
+	  /* Output the thunk into the same section as function.  */
+	  DECL_SECTION_NAME (thunk_fndecl) = DECL_SECTION_NAME (function);
+	}
+    }
+#endif
+
   /* The back-end expects DECL_INITIAL to contain a BLOCK, so we
      create one.  */
   DECL_INITIAL (thunk_fndecl) = make_node (BLOCK);
@@ -409,7 +476,7 @@ use_thunk (thunk_fndecl, emit_p)
       init_function_start (thunk_fndecl, input_filename, lineno);
       current_function_is_thunk = 1;
       assemble_start_function (thunk_fndecl, fnname);
-      ASM_OUTPUT_MI_THUNK (asm_out_file, thunk_fndecl, delta, function);
+      ASM_OUTPUT_MI_THUNK (asm_out_file, thunk_fndecl, delta, alias);
       assemble_end_function (thunk_fndecl, fnname);
       current_function_decl = 0;
       cfun = 0;
@@ -479,7 +546,7 @@ use_thunk (thunk_fndecl, emit_p)
       for (a = TREE_CHAIN (a); a; a = TREE_CHAIN (a))
 	t = tree_cons (NULL_TREE, a, t);
       t = nreverse (t);
-      t = build_call (function, t);
+      t = build_call (alias, t);
       if (VOID_TYPE_P (TREE_TYPE (t)))
 	finish_expr_stmt (t);
       else

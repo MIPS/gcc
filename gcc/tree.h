@@ -3111,7 +3111,8 @@ extern void make_decl_rtl		PARAMS ((tree, const char *));
 extern void make_decl_one_only		PARAMS ((tree));
 extern int supports_one_only		PARAMS ((void));
 extern void variable_section		PARAMS ((tree, int));
-enum tls_model decl_tls_model		PARAMS ((tree));
+extern enum tls_model decl_tls_model	PARAMS ((tree));
+extern void resolve_unique_section	PARAMS ((tree, int, int));
 
 /* In fold-const.c */
 extern int div_and_round_double		PARAMS ((enum tree_code, int,

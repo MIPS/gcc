@@ -13619,7 +13619,7 @@ x86_output_mi_thunk (file, delta, function)
       int n = aggregate_value_p (TREE_TYPE (TREE_TYPE (function))) != 0;
       xops[1] = gen_rtx_REG (DImode, x86_64_int_parameter_registers[n]);
       output_asm_insn ("add{q} {%0, %1|%1, %0}", xops);
-      if (flag_pic)
+      if (flag_pic && !(*targetm.binds_local_p) (function))
 	{
 	  fprintf (file, "\tjmp *");
 	  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
@@ -13642,7 +13642,7 @@ x86_output_mi_thunk (file, delta, function)
 	xops[1] = gen_rtx_MEM (SImode, plus_constant (stack_pointer_rtx, 4));
       output_asm_insn ("add{l} {%0, %1|%1, %0}", xops);
 
-      if (flag_pic)
+      if (flag_pic && !(*targetm.binds_local_p) (function))
 	{
 	  xops[0] = pic_offset_table_rtx;
 	  xops[1] = gen_label_rtx ();

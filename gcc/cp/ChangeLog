@@ -1,3 +1,11 @@
+2003-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* method.c: Include target.h.
+	(make_alias_for_thunk): New function.
+	(use_thunk): Use it if defined ASM_OUTPUT_DEF.  Put the thunk
+	into the same section as the function it is calling.
+	* Make-lang.in (cp/method.o): Depend on $(TARGET_H).
+
 2003-05-07  Richard Henderson  <rth@redhat.com>
 
 	PR c++/10570

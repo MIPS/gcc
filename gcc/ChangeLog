@@ -1,3 +1,12 @@
+2003-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (x86_output_mi_thunk): Use simple jmp
+	if function binds local even if flag_pic.
+
+	* varasm.c (resolve_unique_section): Remove prototype.  No longer
+	static.
+	* tree.h (resolve_unique_section): New prototype.
+
 2003-06-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* builtins.c (c_strlen): Add only_value argument.
