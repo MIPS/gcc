@@ -617,18 +617,32 @@ fixup_reorder_chain ()
     }
 
   /* Put basic_block_info in the new order.  */
-  bb = BASIC_BLOCK (0);
-  index = 0;
 
   if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Reordered sequence:\n");
+    {
+      fprintf (rtl_dump_file, "Reordered sequence:\n");
+      bb = BASIC_BLOCK (0);
+      index = 0;
+      while (bb)
+	{
+	  fprintf (rtl_dump_file, " %i ", index);
+	  if (RBI (bb)->original)
+	    fprintf (rtl_dump_file, "duplicate of %i ",
+		     RBI (bb)->original->index);
+	  else if (forwarder_block_p (bb) && GET_CODE (bb->head) != CODE_LABEL)
+	    fprintf (rtl_dump_file, "compensation ");
+	  else
+	    fprintf (rtl_dump_file, "bb %i ", bb->index);
+	  fprintf (rtl_dump_file, " [%i]\n", bb->frequency);
+	  bb = RBI (bb)->next;
+	  index++;
+	}
+    }
+
+  bb = BASIC_BLOCK (0);
+  index = 0;
   while (bb)
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, " %i %sbb %i freq %i\n", index,
-		 bb->index >= old_n_basic_blocks ? "compensation " : "",
-		 bb->index,
-	   	 bb->frequency);
       bb->index = index;
       BASIC_BLOCK (index) = bb;
 
@@ -646,11 +660,8 @@ fixup_reorder_chain ()
 void
 verify_insn_chain ()
 {
-  rtx x,
-      prevx,
-      nextx;
-  int insn_cnt1,
-      insn_cnt2;
+  rtx x, prevx, nextx;
+  int insn_cnt1, insn_cnt2;
 
   prevx = NULL;
   insn_cnt1 = 1;
@@ -1041,6 +1052,7 @@ cfg_layout_duplicate_bb (bb, e)
   RBI (new_bb)->eff_head = NEXT_INSN (last);
   RBI (new_bb)->eff_end = get_last_insn ();
   RBI (new_bb)->scope = RBI (bb)->scope;
+  RBI (new_bb)->original = bb;
   return new_bb;
 }
 
