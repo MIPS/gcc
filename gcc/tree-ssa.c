@@ -150,19 +150,9 @@ struct ssa_stats_d
   long num_const_prop;
   long num_copy_prop;
   long num_re;
-  /* FIXME.  [UNSSA] Not needed after SSA->normal pass is working.  */
-#if 1
-  long blocked_optimizations;
-  long blocked_by_life_crossing;
-#endif
 };
 
 static struct ssa_stats_d ssa_stats;
-
-#if 1
-/* FIXME: [UNSSA] Remove this once overlapping live ranges are allowed.  */
-static struct loops *loops = NULL;
-#endif
 
 /* Local functions.  */
 static void init_tree_ssa		PARAMS ((void));
@@ -174,7 +164,7 @@ static void set_livein_block		PARAMS ((tree, basic_block));
 static void insert_phi_nodes		PARAMS ((bitmap *, sbitmap));
 static void insert_phis_for_deferred_variables PARAMS ((varray_type));
 static void rewrite_block		PARAMS ((basic_block, tree));
-static void rewrite_stmt		PARAMS ((block_stmt_iterator,
+static int rewrite_stmt			PARAMS ((block_stmt_iterator,
 						 varray_type *,
 						 varray_type *));
 static inline void rewrite_operand	PARAMS ((tree *));
@@ -213,12 +203,7 @@ static void coalesce_ssa_name		PARAMS ((var_map));
 static void assign_vars			PARAMS ((var_map));
 static inline void set_if_valid		PARAMS ((var_map, sbitmap, tree));
 static inline void add_conflicts_if_valid	PARAMS ((root_var_p, conflict_graph, var_map, sbitmap, tree));
-
-/* FIXME: [UNSSA] Remove once the real unSSA pass is implemented.  */
-#if 1
-static bool var_is_live			PARAMS ((tree, basic_block));
-#endif
-
+static void replace_variable		PARAMS ((var_map, tree *));
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
    to convert.
@@ -312,12 +297,6 @@ rewrite_into_ssa (fndecl)
   
   timevar_push (TV_TREE_SSA_OTHER);
 
-#if 1
-  /* FIXME: [UNSSA] Remove once overlapping live ranges are allowed.  */
-  if (loops == NULL)
-    loops = loop_optimizer_init (NULL);
-#endif
-
   /* Initialize common SSA structures.  */
   init_tree_ssa ();
 
@@ -359,15 +338,6 @@ rewrite_into_ssa (fndecl)
   htab_delete (currdefs);
   htab_delete (avail_exprs);
   htab_delete (const_and_copies);
-
-#if 1
-  /* FIXME: [UNSSA] Remove this once overlapping live ranges are allowed.  */
-  if (loops)
-    {
-      loop_optimizer_finalize (loops, NULL);
-      loops = NULL;
-    }
-#endif
 
   /* Debugging dumps.  */
   if (tree_ssa_dump_file)
@@ -784,8 +754,11 @@ rewrite_block (bb, eq_expr_value)
   /* Step 2.  Rewrite every variable used in each statement the block with
      its immediate reaching definitions.  Update the current definition of
      a variable when a new real or virtual definition is found.  */
-  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-    rewrite_stmt (si, &block_defs, &block_avail_exprs);
+  for (si = bsi_start (bb); !bsi_end_p (si); )
+    if (!rewrite_stmt (si, &block_defs, &block_avail_exprs))
+      bsi_next (&si);
+    else
+      bsi_remove (&si);
 
   /* Step 3.  Visit all the successor blocks of BB looking for PHI nodes.
      For every PHI node found, add a new argument containing the current
@@ -1547,11 +1520,6 @@ assign_vars (map)
 	      print_generic_expr (tree_ssa_dump_file, var, TDF_SLIM);
 	    }
 
-	  /* FIXME. Since we still don't have passes that create overlapping 
-	  live ranges, the code above should've coalesced all the versions of
-	  the variable together.  */
-	  abort ();
-
 	  var = create_temp (t);
 	  change_partition_var (map, var, i);
 	  ann = var_ann (var);
@@ -1568,16 +1536,38 @@ assign_vars (map)
   delete_root_var (rv);
 }
 
+/* Replace *p with whatever variable it has been rewritten to.  */
 
-/* Take function FNDECL out of SSA form.
+static void
+replace_variable (map, p)
+     var_map map;
+     tree *p;
+{
+  tree new_var;
+  tree var = *p;
+  tree copy;
 
-   FIXME: Need to support overlapping live ranges for different versions of
-	  the same variable.  At the moment, we will silently generate
-	  wrong code if an optimizer pass moves code so that two versions
-	  of the same variable have overlapping live ranges.
+  new_var = var_to_partition_to_var (map, var);
+  if (new_var)
+    *p = new_var;
+  else
+    {
+      /* Replace (*var)_version with just (*var).  */
+      if (TREE_CODE (SSA_NAME_VAR (var)) == INDIRECT_REF)
+	{
+	  tree var2 = TREE_OPERAND (SSA_NAME_VAR (var), 0);
+	  new_var = var_to_partition_to_var (map, var2);
+	  copy = copy_node (SSA_NAME_VAR (var));
+	  if (new_var)
+	    TREE_OPERAND (copy, 0) = new_var;
+	  else
+	    TREE_OPERAND (copy, 0) = var2;
+	  *p = copy;
+	}
+    }
+}
 
-	  NOTE: Look for the string '[UNSSA]' to re-enable code that
-	  depends on a properly working unSSA pass.  */
+/* Take function FNDECL out of SSA form.  */
 
 void
 rewrite_out_of_ssa (fndecl)
@@ -1648,15 +1638,16 @@ rewrite_out_of_ssa (fndecl)
 	  for (i = 0; i < num_ops; i++)
 	    {
 	      use_p = VARRAY_GENERIC_PTR (ops, i);
-	      *use_p = var_to_partition_to_var (map, *use_p);
+	      replace_variable (map, use_p);
 	    }
 
 	  if (def_op (stmt))
 	    {
 	      tree *def_p = def_op (stmt);
 	      *def_p = var_to_partition_to_var (map, *def_p);
+	      replace_variable (map, def_p);
 
-	      if (is_copy && num_ops == 1 && use_p && (*def_p == *use_p))
+	      if (is_copy && num_ops == 1 && use_p && def_p && (*def_p == *use_p))
 		remove = 1;
 	    }
 
@@ -1761,7 +1752,7 @@ void
 dump_tree_ssa_stats (file)
      FILE *file;
 {
-  long tmp, n_exprs;
+  long n_exprs;
 
   fprintf (file, "Total number of statements:                   %6ld\n\n",
 	   ssa_stats.num_stmts);
@@ -1781,17 +1772,6 @@ dump_tree_ssa_stats (file)
   fprintf (file, "    Redundant expressions eliminated:         %6ld (%.0f%%)\n",
 	   ssa_stats.num_re, PERCENT (ssa_stats.num_re,
 				      n_exprs));
-
-  /* FIXME.  [UNSSA] Not needed after SSA->normal pass is working.  */
-#if 1
-  fprintf (file, "    Optimizations blocked by lack of unSSA:   %6ld (%.0f%%)\n",
-	   ssa_stats.blocked_optimizations,
-	   PERCENT (ssa_stats.blocked_optimizations, n_exprs));
-
-  tmp = ssa_stats.blocked_optimizations - ssa_stats.blocked_by_life_crossing;
-  fprintf (file, "    Optimizations blocked due to pruned SSA:  %6ld (%.0f%%)\n",
-	   tmp, PERCENT (tmp, n_exprs));
-#endif
 
   fprintf (file, "\nHash table statistics:\n");
 
@@ -1979,7 +1959,8 @@ insert_phi_nodes_for (var, dfs, def_maps)
 }
 
 
-/* Rewrite the statement pointed by iterator SI into SSA form.
+/* Rewrite the statement pointed by iterator SI into SSA form.  Return 1 if
+   the stmt is to be deleted.  
    
    BLOCK_DEFS_P points to a stack with all the definitions found in the
       block.  This is used by rewrite_block to restore the current reaching
@@ -2025,7 +2006,7 @@ insert_phi_nodes_for (var, dfs, def_maps)
       replace the constant and copy propagation passes.  It only does very
       simplistic propagation while renaming.  */
 
-static void
+static int
 rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
      block_stmt_iterator si;
      varray_type *block_defs_p;
@@ -2039,7 +2020,7 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
 
   stmt = bsi_stmt (si);
   if (IS_EMPTY_STMT (stmt))
-    return;
+    return 0;
 
   ann = stmt_ann (stmt);
   ssa_stats.num_stmts++;
@@ -2086,18 +2067,6 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
       val = get_value_for (*op_p, const_and_copies);
       if (val)
 	{
-#if 1
-	  /* FIXME: [UNSSA] Remove the following check after implementing
-	     SSA->normal.  For the time being, avoid doing copy propagation
-	     if that would make two versions of VAL to be live at the same
-	     time.  */
-	  if (TREE_CODE (val) == SSA_NAME && !var_is_live (val, ann->bb))
-	    {
-	      ssa_stats.blocked_optimizations++;
-	      continue;
-	    }
-#endif
-
 	  /* Gather statistics.  */
 	  if (TREE_CONSTANT (val))
 	    ssa_stats.num_const_prop++;
@@ -2156,40 +2125,18 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
 	      fprintf (tree_ssa_dump_file, "'\n");
 	    }
 
-	  /* FIXME: [UNSSA] Re-enable this once the SSA->normal pass is
-	     implemented.  Otherwise, this leads to cases where a PHI node
-	     contains arguments from different variables, which is
-	     something we can't handle with the current unSSA pass.  It may
-	     also lead to cases where we re-use the LHS of a computation at
-	     a point where more than one version of the LHS is live at the
-	     same time.  */
-#if 0
-	  ssa_stats.num_re++;
-	  TREE_OPERAND (stmt, 1) = cached_lhs;
-	  ann->modified = 1;
-#else
-	  if (cached_lhs
-	      && get_value_for (*def_p, currdefs) == cached_lhs
-	      && var_is_live (cached_lhs, ann->bb))
+	  if (cached_lhs && get_value_for (*def_p, currdefs) == cached_lhs)
 	    {
 	      /* A redundant assignment to the same lhs, perhaps a new
                  evaluation of an expression temporary that is still live.
                  Just discard it.  */
 	      ssa_stats.num_re++;
-	      bsi_remove (&si);
-	      return;
+	      return 1;
 	    }
 
-	  if (var_is_live (cached_lhs, ann->bb))
-	    {
-	      register_new_def (*def_p, cached_lhs, block_defs_p);
-	      TREE_OPERAND (stmt, 1) = cached_lhs;
-	      ann->modified = 1;
-	      ssa_stats.num_re++;
-	    }
-	  else
-	    ssa_stats.blocked_optimizations++;
-#endif
+	  ssa_stats.num_re++;
+	  TREE_OPERAND (stmt, 1) = cached_lhs;
+	  ann->modified = 1;
 	}
     }
 
@@ -2222,6 +2169,8 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
 			VDEF_RESULT (vdef), block_defs_p);
     }
+
+  return 0;
 }
 
 
@@ -2692,76 +2641,3 @@ get_def_blocks_for (var)
   dm.var = var;
   return (struct def_blocks_d *) htab_find (def_blocks, (void *) &dm);
 }
-
-#if 1
-/* Return true if the variable VAR is live at this point of the
-   dominator tree walk.  This means that the current reaching definition
-   for VAR is itself and that VAR is livein at basic block BB.
-
-   FIXME: [UNSSA] This will not be necessary when the unSSA pass is
-   implemented.  */
-
-static bool
-var_is_live (var, bb)
-     tree var;
-     basic_block bb;
-{
-  int i;
-  basic_block def_bb;
-  struct def_blocks_d *def_map;
-  tree real_var = SSA_NAME_VAR (var);
-
-  if (get_value_for (real_var, currdefs) != var)
-    {
-      ssa_stats.blocked_by_life_crossing++;
-      return false;
-    }
-
-  /* This is gross, but since it's temporary, close your eyes.  It's needed
-     to avoid miscompiling java/jcf-write.c:generate_classfile, where the
-     fully pruned SSA form is not inserting PHI nodes in the main loop of
-     the function for variable 'ptr'.  This makes two versions of 'ptr'
-     live at the same time.
-
-     If there are any blocks between VAR's definition block and BB where
-     VAR is defined again, then two versions of VAR are live at the same
-     time.  Notice that this heuristic assumes that blocks in the path from
-     DEF_BB to BB will be numbered in ascending order.  This is only true
-     when the CFG is initially built.  But since we only use this in the
-     SSA renaming pass, it should still be safe to assume.  Another
-     limitation is that if there exists another overlapping definition for
-     VAR in block BB, this code will not realize that.  */
-  def_map = get_def_blocks_for (real_var);
-  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
-  if (def_bb && bitmap_first_set_bit (def_map->def_blocks) >= 0)
-    EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, def_bb->index + 1, i,
-      { if (i < bb->index) return false; });
-
-  /* VAR doesn't have definitions between DEF_BB and BB.  If BB is inside a
-     loop but DEF_BB is outside BB's loop, we may still have definitions
-     below BB wrapping around in cases where the pruned SSA form has
-     removed a PHI function for VAR at the header block for the loop.  */
-  {
-    if (def_bb
-	&& loops
-	&& bb->loop_depth > 0
-	&& (def_bb->loop_depth == 0
-	    || !flow_bb_inside_loop_p (bb->loop_father, def_bb)))
-      EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, bb->index + 1, i,
-	{
-	  basic_block other_def_bb = BASIC_BLOCK (i);
-
-	  /* If BB is inside the same loop L as the other definition block
-	     (OTHER_DEF_BB), definition at OTHER_DEF_BB wraps around and
-	     reaches VAR at BB.  Meaning that the other definition at
-	     OTHER_DEF_BB overlaps with VAR at DEF_BB.  */
-	  if (flow_bb_inside_loop_p (other_def_bb->loop_father, bb)
-	      || flow_bb_inside_loop_p (bb->loop_father, other_def_bb))
-	    return false;
-	});
-  }
-
-
-  return true;
-}
-#endif

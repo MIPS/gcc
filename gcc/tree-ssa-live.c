@@ -490,7 +490,6 @@ calculate_live_on_entry (map)
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
 	  var = PHI_RESULT (phi);
-	  set_if_valid (map, saw_def, var);
 	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
 	    {
 	      var = PHI_ARG_DEF (phi, i);
@@ -503,6 +502,19 @@ calculate_live_on_entry (map)
 		add_livein_if_notdef (live, saw_def, var, e->src);
 	    }
         }
+
+      /* Don't mark PHI results as defined until all the PHI nodes have
+	 been processed. If the PHI sequence is:
+	    a_3 = PHI <a_1, a_2>
+	    b_3 = PHI <b_1, a_3>
+	 The a_3 referred to in b_3's PHI node is the one incoming on the
+	 edge, *not* the PHI node just seen.  */
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+        {
+	  var = PHI_RESULT (phi);
+	  set_if_valid (map, saw_def, var);
+	}
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {

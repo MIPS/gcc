@@ -5107,6 +5107,7 @@ parse_options_and_default_flags (argc, argv)
       flag_if_conversion2 = 1;
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
+      flag_tree_copyprop = 1;
     }
 
   if (optimize >= 2)

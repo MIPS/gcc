@@ -1,3 +1,31 @@
+2003-06-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (add_stmt_operand): Always consider non-scalar types
+	virtual operands.
+
+2003-06-04  Andrew MacLeod  <amacleod@redhat.com>
+
+	* toplev.c (parse_options_and_default_flags): Turn tree_copyprop on by 
+	default.
+	* tree-cfg.c (linearize_control_structures, linearize_cond_expr,
+	replace_stmt, merge_tree_blocks, remap_stmts): Fix PROTOS.
+	(find_insert_location): Add additional basic block parameter. Handle
+	switch stmts.
+	(handle_switch_split): New. Split edges to switch labels.
+	(bsi_commit_first_edge_insert): Add extra parameter to
+	find_insert_location call. Fix split block chaining in THEN & ELSE.
+	* tree-ssa-live.c (calculate_live_on_entry): Process all PHI def's
+	after all the arguments have been processed.
+	* tree-ssa.c (struct ssa_stats_d, struct loops *loops, var_is_live,
+	rewrite_into_ssa): Remove old UNSSA code.
+	(rewrite_block): Remove stmt is rewrite_stmt returns 1.
+	(assign_vars): Remove abort and enable overlapping live ranges.
+	(replace_variable): New. Replace SSA name with the partition variable.
+	(rewrite_out_of_ssa): Use replace_variable().
+	(dump_tree_ssa_stats): Remove old UNSSA code.
+	(rewrite_stmt): Return 1 if stmt should be deleted. Remove old
+	UNSSA code.
+
 2003-06-04  Jason Merrill  <jason@redhat.com>
 
 	* stmt.c (expand_decl): Fix merge error: again, put artificial

@@ -127,11 +127,12 @@ static void disconnect_unreachable_case_labels PARAMS ((basic_block));
 static edge find_taken_edge_cond_expr	PARAMS ((basic_block, tree));
 static edge find_taken_edge_switch_expr	PARAMS ((basic_block, tree));
 static bool value_matches_some_label	PARAMS ((edge, tree, edge *));
-static void linearize_control_structures (void);
-static bool linearize_cond_expr		(tree *, basic_block);
-static void replace_stmt		(tree *, tree *);
-static void merge_tree_blocks		(basic_block, basic_block);
-static bool remap_stmts			(basic_block, basic_block, tree *);
+static void linearize_control_structures	PARAMS ((void));
+static bool linearize_cond_expr		PARAMS ((tree *, basic_block));
+static void replace_stmt		PARAMS ((tree *, tree *));
+static void merge_tree_blocks		PARAMS ((basic_block, basic_block));
+static bool remap_stmts			PARAMS ((basic_block, basic_block, tree *));
+static tree *handle_switch_split	PARAMS ((basic_block, basic_block));
 
 /* Block iterator helpers.  */
 
@@ -149,7 +150,7 @@ enum find_location_action {
   EDGE_INSERT_LOCATION_ELSE,
   EDGE_INSERT_LOCATION_NEW_ELSE };
 
-static tree_stmt_iterator find_insert_location	PARAMS ((basic_block, basic_block, enum find_location_action *));
+static tree_stmt_iterator find_insert_location	PARAMS ((basic_block, basic_block, basic_block, enum find_location_action *));
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((tree)(e->insns))
@@ -3622,15 +3623,166 @@ bsi_insert_before (curr_bsi, t, mode)
   return;
 }
 
+
+/* Arrange for a place to insert a stmt when we are splitting a block which is
+   targetting by a switch stmt.  Return the container which is used to build
+   a TSI where the edge stmt should be inserted after. 
+
+   Fallthrough code must be directed around the target label, and a target 
+   label must be inserted on the other side of the code we are inserting.  
+   ie:
+     case X:
+	// fallthrough 
+  BB_a
+     case Y:
+       code;
+   
+   will be turned into:
+
+     case X:
+  BB_b
+       goto newlab;
+  BB_c
+     case Y:
+       inserted_code;
+  BB_a
+     newlab:
+       code;
+  
+   This will cause the creation of 2 new basic blocks, and require some 
+   edges to be redirected.  
+
+   Note that upon entry to this function, src is *not* the switch stmt's block
+   any more. commit_one_edge_insertion() has already split the edge from
+   src->dest, so we have   original_src -> src -> dest. This new src block 
+   is currently empty. 
+   
+   This routine will create BB_b. BB_c will be the SRC block passed in.
+   BB_a will remain the DEST block.  */
+
+static tree *
+handle_switch_split (src, dest)
+     basic_block src;
+     basic_block dest;
+{
+  block_stmt_iterator bsi, tmp;
+  tree_stmt_iterator tsi;
+  tree stmt, label, parent;
+  basic_block new_bb;
+  edge e;
+  bb_ann_t bb_ann;
+
+
+  /* 1.  Insert the goto immediately preceeding the labels that are targeted. 
+     This should place the goto in the correct location in the tree.  */
+
+  tsi = tsi_start (dest->head_tree_p);
+  parent = parent_stmt (tsi_stmt (tsi));
+
+  label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  TREE_USED (label) = 1;
+  stmt = build1 (GOTO_EXPR, void_type_node, label);
+
+  tsi_link_before (&tsi, stmt, TSI_NEW_STMT);
+  modify_stmt (stmt);
+
+  /* 2.  Make a new basic block of which this stmt is the sole member.  */
+
+  new_bb = create_bb ();
+  alloc_aux_for_block (new_bb, sizeof (struct bb_ann_d));
+  bb_ann = (bb_ann_t) xmalloc (sizeof (struct bb_ann_d));
+  new_bb->aux = bb_ann;
+  bb_ann->phi_nodes = NULL_TREE;
+  bb_ann->ephi_nodes = NULL_TREE;
+  bb_ann->dom_children = (bitmap) NULL;
+  append_stmt_to_bb (tsi_container (tsi), new_bb, parent);
+
+  /* Reset the head of dest since the container might be different now.  */
+  tsi_next (&tsi);
+  dest->head_tree_p = tsi_container (tsi);
+
+  /* 3. Redirect all the edges except the one from src to point to this
+	block.  */
+    
+  for (e = dest->pred; e ; e = e->pred_next)
+    {
+      if (e->src == src)
+	continue;
+      redirect_edge_succ (e, new_bb);
+    }
+
+  /* 4. Now make dest the target of the new block.  */
+
+  make_edge (new_bb, dest, 0);
+
+  /* 5. Find the last case label.  That will be where the code seperation
+     between bb_c and bb_a will be formed.  Upon exit of the loop, bsi will
+     point to the first stmt in BB_a.  */
+
+  bsi = bsi_start (dest);
+  for (tmp = bsi; !bsi_end_p (bsi); bsi_next (&bsi))
+    {
+      stmt = bsi_stmt (bsi);
+      if (is_label_stmt (bsi_stmt (bsi)))
+	{
+	  /* FIXME.  This block may also be the target of a GOTO.  Hopefully 
+	     there are no case stmts after the label. ick.  */
+	  if (TREE_CODE (stmt) != CASE_LABEL_EXPR)
+	    break;
+	}
+      else
+        break;
+      tmp = bsi;
+    }
+
+  /* 6. Now the stmts delinieating the new block are known. Change the basic
+	block for those stmts. It cannot be done in the above loop, for 
+	changing the basic block of a stmt pointed to by an iterator will cause
+	the iterator to think its reached the end of a block. (It is now 
+	pointing to BB_c, the next stmt is in BB_a, so it terminates.  */
+
+  for (tsi = tsi_start (dest->head_tree_p); 
+       !tsi_end_p (tsi) && (tsi_container (tsi) != bsi_container (bsi));
+       tsi_next (&tsi))
+    append_stmt_to_bb (tsi_container (tsi), src, parent_stmt (tsi_stmt (tsi)));
+
+
+  /* 7. Issue the label at the beginning of DEST, and update DEST's head
+	and end pointers.  */
+
+  stmt = build1 (LABEL_EXPR, void_type_node, label);
+  if (bsi_end_p (bsi))
+    {
+      /* There are no stmts left, so we need to link an empty_stmt node
+	 after the last stmt in BB_c (which is pointed to by 'tmp'), and make 
+	 it the only element of BB_a.  */
+      tsi = tsi_from_bsi (tmp);
+      tsi_link_after (&tsi, stmt, TSI_NEW_STMT);
+      dest->head_tree_p = (tree *) NULL;
+      dest->end_tree_p = (tree *) NULL;
+      append_stmt_to_bb (tsi_container (tsi), 
+			 dest, 
+			 parent_stmt (bsi_stmt (tmp)));
+    }
+  else
+    {
+      dest->head_tree_p = bsi_container (bsi);
+      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+    }
+
+  return bsi_container (tmp);
+}
+
 /* Given an edge between src and dest, return a TSI representing the location
    that any instructions on this edge should be inserted.  
    The location parameter returns a value indicating how this iterator is
    to be used.  */
 
 static tree_stmt_iterator
-find_insert_location (src, dest, location)
+find_insert_location (src, dest, new_block, location)
      basic_block src;
      basic_block dest;
+     basic_block new_block;
      enum find_location_action *location;
 {
   block_stmt_iterator bsi;
@@ -3676,7 +3828,12 @@ find_insert_location (src, dest, location)
 	    ret = src->end_tree_p;
 	    *location = EDGE_INSERT_LOCATION_AFTER;
 	    break;
-	  
+
+	  case SWITCH_EXPR:
+	    ret = handle_switch_split (new_block, dest);
+	    *location = EDGE_INSERT_LOCATION_AFTER;
+	    break;
+
 	  default:
 	    ret = dest->head_tree_p;
 	    break;
@@ -3797,7 +3954,7 @@ bsi_commit_first_edge_insert (e, stmt)
   bb_ann->ephi_nodes = NULL_TREE;
   bb_ann->dom_children = (bitmap) NULL;
 
-  tsi = find_insert_location (src, dest, &location);
+  tsi = find_insert_location (src, dest, new_bb, &location);
   parent = parent_stmt (tsi_stmt (tsi));
 
   switch (location)
@@ -3824,9 +3981,9 @@ bsi_commit_first_edge_insert (e, stmt)
       case EDGE_INSERT_LOCATION_ELSE:
 	stmt = last_stmt (src);
 	if (location == EDGE_INSERT_LOCATION_THEN)
-	  COND_EXPR_THEN (stmt) = inserted_stmt;
+	  COND_EXPR_THEN (stmt) = *tsi_container (tsi);
 	else
-	  COND_EXPR_ELSE (stmt) = inserted_stmt;
+	  COND_EXPR_ELSE (stmt) = *tsi_container (tsi);
 	/* Fallthru.  */
 
       case EDGE_INSERT_LOCATION_BEFORE:
