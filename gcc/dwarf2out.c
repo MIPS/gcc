@@ -121,24 +121,29 @@ void
 named_section_eh_frame_section (void)
 {
 #ifdef EH_FRAME_SECTION_NAME
-#ifdef HAVE_LD_RO_RW_SECTION_MIXING
-  int fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
-  int per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
-  int lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
   int flags;
 
-  flags = (! flag_pic
-	   || ((fde_encoding & 0x70) != DW_EH_PE_absptr
-	       && (fde_encoding & 0x70) != DW_EH_PE_aligned
-	       && (per_encoding & 0x70) != DW_EH_PE_absptr
-	       && (per_encoding & 0x70) != DW_EH_PE_aligned
-	       && (lsda_encoding & 0x70) != DW_EH_PE_absptr
-	       && (lsda_encoding & 0x70) != DW_EH_PE_aligned))
-	  ? 0 : SECTION_WRITE;
+  if (EH_TABLES_CAN_BE_READ_ONLY)
+    {
+      int fde_encoding;
+      int per_encoding;
+      int lsda_encoding;
+
+      fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
+      per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
+      lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
+      flags = (! flag_pic
+	       || ((fde_encoding & 0x70) != DW_EH_PE_absptr
+		   && (fde_encoding & 0x70) != DW_EH_PE_aligned
+		   && (per_encoding & 0x70) != DW_EH_PE_absptr
+		   && (per_encoding & 0x70) != DW_EH_PE_aligned
+		   && (lsda_encoding & 0x70) != DW_EH_PE_absptr
+		   && (lsda_encoding & 0x70) != DW_EH_PE_aligned))
+	      ? 0 : SECTION_WRITE;
+    }
+  else
+    flags = SECTION_WRITE;
   named_section_flags (EH_FRAME_SECTION_NAME, flags);
-#else
-  named_section_flags (EH_FRAME_SECTION_NAME, SECTION_WRITE);
-#endif
 #endif
 }
 
@@ -358,7 +363,7 @@ static void initial_return_save (rtx);
 static HOST_WIDE_INT stack_adjust_offset (rtx);
 static void output_cfi (dw_cfi_ref, dw_fde_ref, int);
 static void output_call_frame_info (int);
-static void dwarf2out_stack_adjust (rtx);
+static void dwarf2out_stack_adjust (rtx, bool);
 static void flush_queued_reg_saves (void);
 static bool clobbers_queued_reg_save (rtx);
 static void dwarf2out_frame_debug_expr (rtx, const char *);
@@ -1046,7 +1051,7 @@ stack_adjust_offset (rtx pattern)
    much extra space it needs to pop off the stack.  */
 
 static void
-dwarf2out_stack_adjust (rtx insn)
+dwarf2out_stack_adjust (rtx insn, bool after_p)
 {
   HOST_WIDE_INT offset;
   const char *label;
@@ -1059,26 +1064,31 @@ dwarf2out_stack_adjust (rtx insn)
   if (prologue_epilogue_contains (insn) || sibcall_epilogue_contains (insn))
     return;
 
-  if (!flag_asynchronous_unwind_tables && CALL_P (insn))
+  /* If only calls can throw, and we have a frame pointer,
+     save up adjustments until we see the CALL_INSN.  */
+  if (!flag_asynchronous_unwind_tables && cfa.reg != STACK_POINTER_REGNUM)
     {
-      /* Extract the size of the args from the CALL rtx itself.  */
-      insn = PATTERN (insn);
-      if (GET_CODE (insn) == PARALLEL)
-	insn = XVECEXP (insn, 0, 0);
-      if (GET_CODE (insn) == SET)
-	insn = SET_SRC (insn);
-      gcc_assert (GET_CODE (insn) == CALL);
-
-      dwarf2out_args_size ("", INTVAL (XEXP (insn, 1)));
+      if (CALL_P (insn) && !after_p)
+	{
+	  /* Extract the size of the args from the CALL rtx itself.  */
+	  insn = PATTERN (insn);
+	  if (GET_CODE (insn) == PARALLEL)
+	    insn = XVECEXP (insn, 0, 0);
+	  if (GET_CODE (insn) == SET)
+	    insn = SET_SRC (insn);
+	  gcc_assert (GET_CODE (insn) == CALL);
+	  dwarf2out_args_size ("", INTVAL (XEXP (insn, 1)));
+	}
       return;
     }
 
-  /* If only calls can throw, and we have a frame pointer,
-     save up adjustments until we see the CALL_INSN.  */
-  else if (!flag_asynchronous_unwind_tables && cfa.reg != STACK_POINTER_REGNUM)
-    return;
-
-  if (BARRIER_P (insn))
+  if (CALL_P (insn) && !after_p)
+    {
+      if (!flag_asynchronous_unwind_tables)
+	dwarf2out_args_size ("", args_size);
+      return;
+    }
+  else if (BARRIER_P (insn))
     {
       /* When we see a BARRIER, we know to reset args_size to 0.  Usually
 	 the compiler will have already emitted a stack adjustment, but
@@ -1119,7 +1129,8 @@ dwarf2out_stack_adjust (rtx insn)
 
   label = dwarf2out_cfi_label ();
   def_cfa_1 (label, &cfa);
-  dwarf2out_args_size (label, args_size);
+  if (flag_asynchronous_unwind_tables)
+    dwarf2out_args_size (label, args_size);
 }
 
 #endif
@@ -1430,7 +1441,11 @@ static dw_cfa_location cfa_temp;
   (set (mem (postinc <reg1>:cfa_temp <const_int>)) <reg2>)
   effects: cfa.reg = <reg1>
 	   cfa.base_offset = -cfa_temp.offset
-	   cfa_temp.offset -= mode_size(mem)  */
+	   cfa_temp.offset -= mode_size(mem)
+
+  Rule 15:
+  (set <reg> {unspec, unspec_volatile})
+  effects: target-dependent  */
 
 static void
 dwarf2out_frame_debug_expr (rtx expr, const char *label)
@@ -1494,7 +1509,10 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	    {
 	      /* Saving a register in a register.  */
 	      gcc_assert (call_used_regs [REGNO (dest)]
-			  && !fixed_regs [REGNO (dest)]);
+			  && (!fixed_regs [REGNO (dest)]
+			      /* For the SPARC and its register window.  */
+			      || DWARF_FRAME_REGNUM (REGNO (src))
+				   == DWARF_FRAME_RETURN_COLUMN));
 	      queue_reg_save (label, src, dest, 0);
 	    }
 	  break;
@@ -1619,6 +1637,13 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	     which will fill in all of the bits.  */
 	  /* Rule 8 */
 	case HIGH:
+	  break;
+
+	  /* Rule 15 */
+	case UNSPEC:
+	case UNSPEC_VOLATILE:
+	  gcc_assert (targetm.dwarf_handle_frame_unspec);
+	  targetm.dwarf_handle_frame_unspec (label, expr, XINT (src, 1));
 	  break;
 
 	default:
@@ -1767,10 +1792,13 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 
 /* Record call frame debugging information for INSN, which either
    sets SP or FP (adjusting how we calculate the frame address) or saves a
-   register to the stack.  If INSN is NULL_RTX, initialize our state.  */
+   register to the stack.  If INSN is NULL_RTX, initialize our state.
+
+   If AFTER_P is false, we're being called before the insn is emitted,
+   otherwise after.  Call instructions get invoked twice.  */
 
 void
-dwarf2out_frame_debug (rtx insn)
+dwarf2out_frame_debug (rtx insn, bool after_p)
 {
   const char *label;
   rtx src;
@@ -1807,8 +1835,7 @@ dwarf2out_frame_debug (rtx insn)
   if (! RTX_FRAME_RELATED_P (insn))
     {
       if (!ACCUMULATE_OUTGOING_ARGS)
-	dwarf2out_stack_adjust (insn);
-
+	dwarf2out_stack_adjust (insn, after_p);
       return;
     }
 
@@ -3936,7 +3963,6 @@ static tree member_declared_type (tree);
 static const char *decl_start_label (tree);
 #endif
 static void gen_array_type_die (tree, dw_die_ref);
-static void gen_set_type_die (tree, dw_die_ref);
 #if 0
 static void gen_entry_point_die (tree, dw_die_ref);
 #endif
@@ -8004,7 +8030,6 @@ is_base_type (tree type)
     case CHAR_TYPE:
       return 1;
 
-    case SET_TYPE:
     case ARRAY_TYPE:
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -10786,16 +10811,6 @@ gen_array_type_die (tree type, dw_die_ref context_die)
   add_type_attribute (array_die, element_type, 0, 0, context_die);
 }
 
-static void
-gen_set_type_die (tree type, dw_die_ref context_die)
-{
-  dw_die_ref type_die
-    = new_die (DW_TAG_set_type, scope_die_for (type, context_die), type);
-
-  equate_type_number_to_die (type, type_die);
-  add_type_attribute (type_die, TREE_TYPE (type), 0, 0, context_die);
-}
-
 #if 0
 static void
 gen_entry_point_die (tree decl, dw_die_ref context_die)
@@ -12062,11 +12077,6 @@ gen_type_die (tree type, dw_die_ref context_die)
       /* Now output a DIE to represent this pointer-to-data-member type
 	 itself.  */
       gen_ptr_to_mbr_type_die (type, context_die);
-      break;
-
-    case SET_TYPE:
-      gen_type_die (TYPE_DOMAIN (type), context_die);
-      gen_set_type_die (type, context_die);
       break;
 
     case FILE_TYPE:

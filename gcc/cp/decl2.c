@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-mudflap.h"
 #include "cgraph.h"
 #include "tree-inline.h"
+#include "c-pragma.h"
 
 extern cpp_reader *parse_in;
 
@@ -157,7 +158,7 @@ cp_build_parm_decl (tree name, tree type)
 /* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
    indicated NAME.  */
 
-tree
+static tree
 build_artificial_parm (tree name, tree type)
 {
   tree parm = cp_build_parm_decl (name, type);
@@ -417,8 +418,6 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
       TREE_SIDE_EFFECTS (t) = 1;
       return t;
     }
-
-  exp = convert_from_reference (exp);
 
   /* An array can't have been allocated by new, so complain.  */
   if (TREE_CODE (exp) == VAR_DECL
@@ -1743,7 +1742,7 @@ import_export_decl (tree decl)
      vague linkage, maybe_commonize_var is used.
 
      Therefore, the only declarations that should be provided to this
-     function are those with external linkage that:
+     function are those with external linkage that are:
 
      * implicit instantiations of function templates
 
@@ -3061,6 +3060,9 @@ cp_finish_file (void)
   /* We're done with the splay-tree now.  */
   if (priority_info_map)
     splay_tree_delete (priority_info_map);
+
+  /* Generate any missing aliases.  */
+  maybe_apply_pending_pragma_weaks ();
 
   /* We're done with static constructors, so we can go back to "C++"
      linkage now.  */

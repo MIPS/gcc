@@ -96,9 +96,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    this.  */
 #define AVG_LOOP_NITER(LOOP) 5
 
-/* Just to shorten the ugly names.  */
-#define EXEC_BINARY nondestructive_fold_binary_to_constant
-#define EXEC_UNARY nondestructive_fold_unary_to_constant
 
 /* Representation of the induction variable.  */
 struct iv
@@ -677,6 +674,9 @@ determine_base_object (tree expr)
 
       if (!base)
 	return fold_convert (ptr_type_node, expr);
+
+      if (TREE_CODE (base) == INDIRECT_REF)
+	return fold_convert (ptr_type_node, TREE_OPERAND (base, 0));
 
       return fold (build1 (ADDR_EXPR, ptr_type_node, base));
 
@@ -1270,7 +1270,7 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
   if (!EXPR_P (expr))
     return false;
 
-  len = first_rtl_op (TREE_CODE (expr));
+  len = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < len; i++)
     if (!expr_invariant_in_loop_p (loop, TREE_OPERAND (expr, i)))
       return false;
@@ -1302,7 +1302,7 @@ idx_find_step (tree base, tree *idx, void *data)
     return false;
 
   /* If base is a component ref, require that the offset of the reference
-     is invariant.  */
+     be invariant.  */
   if (TREE_CODE (base) == COMPONENT_REF)
     {
       off = component_ref_field_offset (base);
@@ -1361,12 +1361,13 @@ idx_find_step (tree base, tree *idx, void *data)
       return false;
     }
 
-  step = EXEC_BINARY (MULT_EXPR, type, step, iv_step);
+  step = fold_binary_to_constant (MULT_EXPR, type, step, iv_step);
 
   if (!*dta->step_p)
     *dta->step_p = step;
   else
-    *dta->step_p = EXEC_BINARY (PLUS_EXPR, type, *dta->step_p, step);
+    *dta->step_p = fold_binary_to_constant (PLUS_EXPR, type,
+					    *dta->step_p, step);
 
   return true;
 }
@@ -2046,8 +2047,7 @@ set_use_iv_cost (struct ivopts_data *data,
 
   if (cost == INFTY)
     {
-      if (depends_on)
-	BITMAP_XFREE (depends_on);
+      BITMAP_XFREE (depends_on);
       return;
     }
 
@@ -2162,10 +2162,9 @@ prepare_decl_rtl (tree *expr_p, int *ws, void *data)
     {
     case ADDR_EXPR:
       for (expr_p = &TREE_OPERAND (*expr_p, 0);
-	   (handled_component_p (*expr_p)
-	    || TREE_CODE (*expr_p) == REALPART_EXPR
-	    || TREE_CODE (*expr_p) == IMAGPART_EXPR);
-	   expr_p = &TREE_OPERAND (*expr_p, 0));
+	   handled_component_p (*expr_p);
+	   expr_p = &TREE_OPERAND (*expr_p, 0))
+	continue;
       obj = *expr_p;
       if (DECL_P (obj))
         x = produce_memory_decl_rtl (obj, regno);
@@ -2613,7 +2612,7 @@ get_address_cost (bool symbol_present, bool var_present,
 	addr = gen_rtx_fmt_ee (MULT, Pmode, addr, GEN_INT (rat));
 
       if (var_present)
-	addr = gen_rtx_fmt_ee (PLUS, Pmode, reg1, addr);
+	addr = gen_rtx_fmt_ee (PLUS, Pmode, addr, reg1);
 
       if (symbol_present)
 	{
@@ -2630,7 +2629,7 @@ get_address_cost (bool symbol_present, bool var_present,
 	base = NULL_RTX;
     
       if (base)
-	addr = gen_rtx_fmt_ee (PLUS, Pmode, base, addr);
+	addr = gen_rtx_fmt_ee (PLUS, Pmode, addr, base);
   
       start_sequence ();
       addr = memory_address (Pmode, addr);
@@ -2672,7 +2671,7 @@ find_depends (tree *expr_p, int *ws ATTRIBUTE_UNUSED, void *data)
   return NULL_TREE;
 }
 
-/* Estimates cost of forcing EXPR into variable.  DEPENDS_ON is a set of the
+/* Estimates cost of forcing EXPR into a variable.  DEPENDS_ON is a set of the
    invariants the computation depends on.  */
 
 static unsigned
@@ -2683,6 +2682,9 @@ force_var_cost (struct ivopts_data *data,
   static unsigned integer_cost;
   static unsigned symbol_cost;
   static unsigned address_cost;
+  tree op0, op1;
+  unsigned cost0, cost1, cost;
+  enum machine_mode mode;
 
   if (!costs_initialized)
     {
@@ -2744,8 +2746,60 @@ force_var_cost (struct ivopts_data *data,
       return address_cost;
     }
 
-  /* Just an arbitrary value, FIXME.  */
-  return target_spill_cost;
+  switch (TREE_CODE (expr))
+    {
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+      op0 = TREE_OPERAND (expr, 0);
+      op1 = TREE_OPERAND (expr, 1);
+
+      if (is_gimple_val (op0))
+	cost0 = 0;
+      else
+	cost0 = force_var_cost (data, op0, NULL);
+
+      if (is_gimple_val (op1))
+	cost1 = 0;
+      else
+	cost1 = force_var_cost (data, op1, NULL);
+
+      break;
+
+    default:
+      /* Just an arbitrary value, FIXME.  */
+      return target_spill_cost;
+    }
+
+  mode = TYPE_MODE (TREE_TYPE (expr));
+  switch (TREE_CODE (expr))
+    {
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      cost = add_cost (mode);
+      break;
+
+    case MULT_EXPR:
+      if (cst_and_fits_in_hwi (op0))
+	cost = multiply_by_cost (int_cst_value (op0), mode);
+      else if (cst_and_fits_in_hwi (op1))
+	cost = multiply_by_cost (int_cst_value (op1), mode);
+      else
+	return target_spill_cost;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  cost += cost0;
+  cost += cost1;
+
+  /* Bound the cost by target_spill_cost.  The parts of complicated
+     computations often are either loop invariant or at least can
+     be shared between several iv uses, so letting this grow without
+     limits would not give reasonable results.  */
+  return cost < target_spill_cost ? cost : target_spill_cost;
 }
 
 /* Estimates cost of expressing address ADDR  as var + symbol + offset.  The
@@ -2809,9 +2863,7 @@ ptr_difference_cost (struct ivopts_data *data,
 
   gcc_assert (TREE_CODE (e1) == ADDR_EXPR);
 
-  if (TREE_CODE (e2) == ADDR_EXPR
-      && ptr_difference_const (TREE_OPERAND (e1, 0),
-			       TREE_OPERAND (e2, 0), &diff))
+  if (ptr_difference_const (e1, e2, &diff))
     {
       *offset += diff;
       *symbol_present = false;
@@ -2994,7 +3046,7 @@ get_computation_cost_at (struct ivopts_data *data,
      (symbol/var/const parts may be omitted).  If we are looking for an address,
      find the cost of addressing this.  */
   if (address_p)
-    return get_address_cost (symbol_present, var_present, offset, ratio);
+    return cost + get_address_cost (symbol_present, var_present, offset, ratio);
 
   /* Otherwise estimate the costs for computing the expression.  */
   aratio = ratio > 0 ? ratio : -ratio;
@@ -4538,7 +4590,7 @@ protect_loop_closed_ssa_form_use (edge exit, use_operand_p op_p)
 
       phi = create_phi_node (new_name, exit->dest);
       SSA_NAME_DEF_STMT (new_name) = phi;
-      add_phi_arg (&phi, use, exit);
+      add_phi_arg (phi, use, exit);
     }
 
   SET_USE (op_p, PHI_RESULT (phi));
@@ -4603,7 +4655,7 @@ compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
 
   for (phi = phi_nodes (exit->dest); phi; phi = next)
     {
-      next = TREE_CHAIN (phi);
+      next = PHI_CHAIN (phi);
 
       if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == op)
 	{

@@ -1536,7 +1536,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 
 		      x0 = i1 * tau1 + i0;
 		      y0 = j1 * tau1 + j0;
-		      
+
 		      /* At this point (x0, y0) is one of the
 			 solutions to the Diophantine equation.  The
 			 next step has to compute the smallest
@@ -1952,12 +1952,12 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	  struct loop *loop_b = current_loops->parray[loop_nb_b];
 	  struct loop *loop_first = current_loops->parray[first_loop];
 
-	  /* If the loops for both variables are at a lower depth than 
-	     the first_loop's depth, then they can't possibly have a
+	  /* If the loop for either variable is at a lower depth than 
+	     the first_loop's depth, then we can't possibly have a
 	     dependency at this level of the loop.  */
 	     
 	  if (loop_a->depth < loop_first->depth
-	      && loop_b->depth < loop_first->depth)
+	      || loop_b->depth < loop_first->depth)
 	    return false;
 
 	  if (loop_nb_a != loop_nb_b
@@ -2128,11 +2128,12 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
 	  struct loop *loop_b = current_loops->parray[loop_nb_b];
 	  struct loop *loop_first = current_loops->parray[first_loop];
  
-	  /* If the loops for both variables are at a lower depth than 
-	     the first_loop's depth, then they can't possibly matter */
+	  /* If the loop for either variable is at a lower depth than 
+	     the first_loop's depth, then we can't possibly have a
+	     dependency at this level of the loop.  */
 	     
 	  if (loop_a->depth < loop_first->depth
-	      && loop_b->depth < loop_first->depth)
+	      || loop_b->depth < loop_first->depth)
 	    return false;
 
 	  if (loop_nb_a != loop_nb_b
@@ -2663,8 +2664,12 @@ free_data_refs (varray_type datarefs)
     {
       struct data_reference *dr = (struct data_reference *) 
 	VARRAY_GENERIC_PTR (datarefs, i);
-      if (dr && DR_ACCESS_FNS (dr))
-	varray_clear (DR_ACCESS_FNS (dr));
+      if (dr)
+	{
+	  if (DR_ACCESS_FNS (dr))
+	    varray_clear (DR_ACCESS_FNS (dr));
+	  free (dr);
+	}
     }
   varray_clear (datarefs);
 }

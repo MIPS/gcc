@@ -705,6 +705,50 @@ fix = {
 		"#endif";
 };
 
+/*
+ * Compaq Tru64 v5.1 defines all of its PTHREAD_*_INITIALIZER macros
+ * incorrectly, specifying less fields in the initializers than are
+ * defined in the corresponding structure types.  Use of these macros
+ * in user code results in spurious warnings.
+ */
+fix = {
+    hackname  = alpha_pthread_init;
+    files     = pthread.h;
+    select    = ' \* @\(#\).RCSfile: pthread\.h,v \$'
+                ' .Revision: 1\.1\.33\.21 \$ \(DEC\)'
+                ' .Date: 2000/08/15 15:30:13 \$';
+    mach      = "alpha*-dec-osf*";
+    sed       = "s@MVALID\\(.*\\)A}@MVALID\\1A, 0, 0, 0, 0, 0, 0 }@\n"
+                "s@MVALID\\(.*\\)_}@MVALID\\1_, 0, 0, 0, 0 }@\n"
+                "s@CVALID\\(.*\\)A}@CVALID\\1A, 0, 0, 0, 0 }@\n"
+                "s@CVALID\\(.*\\)_}@CVALID\\1_, 0, 0 }@\n"
+                "s@WVALID\\(.*\\)A}@WVALID\\1A, 0, 0, 0, 0, 0, 0, 0, 0, 0 }@\n"
+                "s@WVALID\\(.*\\)_}@WVALID\\1_, 0, 0, 0, 0, 0, 0, 0 }@\n";
+    test_text = "/*\n"
+                " * @(#)_RCSfile: pthread.h,v \\$ "
+                "_Revision: 1.1.33.21 \\$ (DEC) "
+                "_Date: 2000/08/15 15:30:13 \\$\n"
+                " */\n"
+"#ifndef _PTHREAD_NOMETER_STATIC\n"
+"# define PTHREAD_MUTEX_INITIALIZER \\\n"
+"    {_PTHREAD_MSTATE_CONFIG, _PTHREAD_MVALID | _PTHREAD_MVF_STA}\n"
+"# define PTHREAD_COND_INITIALIZER \\\n"
+"    {_PTHREAD_CSTATE_SLOW, _PTHREAD_CVALID | _PTHREAD_CVF_STA}\n"
+"# define PTHREAD_MUTEX_INITWITHNAME_NP(_n_,_a_) \\\n"
+"    {_PTHREAD_MSTATE_CONFIG, _PTHREAD_MVALID | _PTHREAD_MVF_STA, _n_, _a_}\n"
+"# define PTHREAD_COND_INITWITHNAME_NP(_n_,_a_) \\\n"
+"    {_PTHREAD_CSTATE_SLOW, _PTHREAD_CVALID | _PTHREAD_CVF_STA, _n_, _a_}\n"
+"#else\n"
+"# define PTHREAD_MUTEX_INITIALIZER {0, _PTHREAD_MVALID | _PTHREAD_MVF_STA}\n"
+"# define PTHREAD_MUTEX_INITWITHNAME_NP(_n_,_a_) \\\n"
+"    {0, _PTHREAD_MVALID | _PTHREAD_MVF_STA, _n_, _a_}\n"
+"# define PTHREAD_COND_INITWITHNAME_NP(_n_,_a_) \\\n"
+"    {0, _PTHREAD_CVALID | _PTHREAD_CVF_STA, _n_, _a_}\n"
+"#endif\n\n"
+"#define PTHREAD_RWLOCK_INITIALIZER {_PTHREAD_RWVALID | _PTHREAD_RWVF_STA}\n"
+"#define PTHREAD_RWLOCK_INITWITHNAME_NP(_n_,_a_) \\\n"
+"        {_PTHREAD_RWVALID | _PTHREAD_RWVF_STA, _n_, _a_}\n";
+};
 
 /*
  *  Fix return value of sbrk in unistd.h on Alpha OSF/1 V2.0
@@ -1133,6 +1177,9 @@ fix = {
     bypass    = '_GCC_(PTRDIFF|SIZE|WCHAR)_T';
     select    = "^[ \t]*typedef[ \t]+.*[ \t](ptrdiff|size|wchar)_t;";
     c_fix     = gnu_type;
+    /* The Solaris 10 headers already define these types correctly.  */
+    mach   = '*-*-solaris2.1[0-9]*';
+    not_machine = true;
 
     test_text = "typedef long int ptrdiff_t; /* long int */\n"
                 "typedef uint_t size_t; /* uint_t */\n"
@@ -1477,26 +1524,6 @@ fix = {
 		"     } long_double;\n"
 		"#  endif /* _LONG_DOUBLE */\n"
 		"extern long_double strtold(const char *, char **);\n";
-};
-
-
-/*
- *  HPUX 10.x sys/param.h defines MAXINT which clashes with values.h
- */
-fix = {
-    hackname  = hpux_maxint;
-    files     = sys/param.h;
-    files     = values.h;
-    select    = "^#[ \t]*define[ \t]+MAXINT[ \t]";
-    bypass    = "^#[ \t]*ifndef[ \t]+MAXINT";
-    test =
-    "-n \"`egrep '#[ \t]*define[ \t]+MAXINT[ \t]' sys/param.h`\"";
-
-    c_fix     = format;
-    c_fix_arg = "#ifndef MAXINT\n%0\n#endif";
-    c_fix_arg = "^#[ \t]*define[ \t]+MAXINT[ \t].*";
-
-    test_text = '#define MAXINT 0x7FFFFFFF';
 };
 
 
@@ -1863,34 +1890,6 @@ fix = {
 };
 
 
-/*
- *  In limits.h, put #ifndefs around things that are supposed to be defined
- *  in float.h to avoid redefinition errors if float.h is included first.
- *  On HP/UX this patch does not work, because on HP/UX limits.h uses
- *  multi line comments and the inserted #endif winds up inside the
- *  comment.  Fortunately, HP/UX already uses #ifndefs in limits.h; if
- *  we find a #ifndef FLT_MIN we assume that all the required #ifndefs
- *  are there, and we do not add them ourselves.
- *
- *  QNX Software Systems also guards the defines, but doesn't define
- *  FLT_MIN.  Therefore, bypass the fix for *either* guarded FLT_MIN
- *  or guarded FLT_MAX.
- */
-fix = {
-    hackname = limits_ifndefs;
-    files  = "sys/limits.h";
-    files  = "limits.h";
-    select = "^[ \t]*#[ \t]*define[ \t]+"
-             "((FLT|DBL)_(MIN|MAX|DIG))[ \t].*";
-    bypass = "ifndef[ \t]+FLT_(MIN|MAX)";
-
-    c_fix     = format;
-    c_fix_arg = "#ifndef %1\n%0\n#endif";
-    /* Second arg is select expression */
-    test_text = " #\tdefine\tDBL_DIG \t 0  /* somthin' */";
-};
-
-
 /* The /usr/include/sys/ucontext.h on ia64-*linux-gnu systems defines
  * an _SC_GR0_OFFSET macro using an idiom that isn't a compile time
  * constant on recent versions of g++.
@@ -2056,23 +2055,6 @@ fix = {
     test_text =
     "`echo '#define DBL_MAX\t3.1415e+9 /* really big */' >> float.h`\n"
     "#define HUGE_VAL DBL_MAX";
-};
-
-
-/*
- * In any case, put #ifndef .. #endif around #define HUGE_VAL in math.h.
- */
-fix = {
-    hackname = math_huge_val_ifndef;
-    files    = math.h;
-    files    = math/math.h;
-    select   = "define[ \t]+HUGE_VAL";
-
-    c_fix     = format;
-    c_fix_arg = "#ifndef HUGE_VAL\n%0\n#endif";
-    c_fix_arg = "^[ \t]*#[ \t]*define[ \t]+HUGE_VAL[ \t].*";
-
-    test_text = "# define\tHUGE_VAL 3.4e+40";
 };
 
 
@@ -2431,6 +2413,7 @@ fix = {
     files    = ods_30_compat/math.h;
     files    = oldstyle/math.h;
     select   = "inline double abs";
+    bypass   = "__GNUG__";
     sed      = "/#define.*__fp_class(a) \\\\/i\\\n"
 	       "#ifndef __GNUC__\n";
     sed      =
@@ -2619,6 +2602,9 @@ fix = {
     files    = stdio_tag.h;
 
     select   = '__cplusplus < 54321L';
+    /* In Solaris 10, the code in stdio_tag.h is conditionalized on 
+       "!defined(__GNUC__)" so we no longer need to fix it.  */
+    bypass   = '__GNUC__';
     sed      = 's/defined(__cplusplus) && (__cplusplus < 54321L)/0/';
 
     test_text = "#if\tdefined(__cplusplus) && (__cplusplus < 54321L)";
@@ -2684,6 +2670,12 @@ fix = {
     hackname = stdio_stdarg_h;
     files    = stdio.h;
     bypass   = "include.*(stdarg\.h|machine/ansi\.h)";
+    /*
+     * On Solaris 10, this fix is unncessary; <stdio.h> includes
+     * <iso/stdio_iso.h>, which includes <sys/va_list.h>.
+      */
+    mach     = '*-*-solaris2.1[0-9]';
+    not_machine = true;
 
     c_fix     = wrap;
 
@@ -2709,6 +2701,13 @@ fix = {
     files    = internal/stdio_core.h;
     files    = internal/wchar_core.h;
     bypass   = '__gnuc_va_list|_BSD_VA_LIST_|__DJ_va_list|_G_va_list';
+    /* 
+     * On Solaris 10, the definition in 
+     * <stdio.h> is guarded appropriately by the _XPG4 feature macro; 
+     * there is therefore no need for this fix there.
+     */
+    mach = '*-*-solaris2.1[0-9]';
+    not_machine = true;
 
     /*
      * Use __gnuc_va_list in arg types in place of va_list.
@@ -3032,23 +3031,6 @@ fix = {
     c_fix     = format;
     c_fix_arg = "__SIZE_TYPE__ strlen();%1";
     test_text = " int\tstrlen(); /* string length */";
-};
-
-
-/*
- *  Solaris math.h and floatingpoint.h define __P without protection,
- *  which conflicts with the fixproto definition.  The fixproto
- *  definition and the Solaris definition are used the same way.
- */
-fix = {
-    hackname = svr4__p;
-    files    = math.h;
-    files    = floatingpoint.h;
-    select   = "^#define[ \t]+__P.*";
-    c_fix     = format;
-    c_fix_arg = "#ifndef __P\n%0\n#endif";
-
-    test_text = "#define __P(a) a";
 };
 
 
@@ -3519,6 +3501,7 @@ fix = {
 fix = {
     hackname = sysz_stdlib_for_sun;
     files    = stdlib.h;
+    bypass   = "_CLASSIC_ANSI_TYPES";
 
     select    = "char[ \t]*\\*[ \t]*(calloc|malloc|realloc|bsearch)[ \t]*\\(";
     c_fix     = format;
@@ -3904,25 +3887,6 @@ fix = {
     "\tfork(),\n";
 };
 
-
-/*
- *  Fix multiple defines for NULL.  Sometimes, we stumble into \r\n
- *  terminated lines, so accommodate these.  Test both ways.
- *  Don't bother to reproduce the \r\n termination, as GCC has to
- *  recognize \n termination anyway.
- */
-fix = {
-    hackname  = undefine_null;
-    select    = "^#[ \t]*define[ \t]+NULL[ \t]";
-    bypass    = "#[ \t]*(ifn|un)def[ \t]+NULL($|[ \t\r])";
-
-    c_fix     = format;
-    c_fix_arg = "#ifndef NULL\n#define NULL%1\n#endif\n";
-    c_fix_arg = "^#[ \t]*define[ \t]+NULL([^\r\n]+)[\r]*\n";
-
-    test_text = "#define NULL 0UL\r\n"
-                "#define NULL\t((void*)0)\n";
-};
 
 /*
  * On Cray Unicos/Mk some standard headers use the C99 keyword "restrict"

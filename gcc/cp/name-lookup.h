@@ -46,10 +46,8 @@ struct binding_entry_s GTY(())
 #define NAMESPACE_STD_HT_SIZE                        (1 << 8)
 #define GLOBAL_SCOPE_HT_SIZE                         (1 << 8)
 
-extern void binding_table_remove_anonymous_types (binding_table);
 extern void binding_table_foreach (binding_table, bt_foreach_proc, void *);
 extern binding_entry binding_table_find (binding_table, tree);
-extern void cxx_remember_type_decls (binding_table);
 
 /* Datatype that represents binding established by a declaration between
    a name and a C++ entity.  */
@@ -125,6 +123,22 @@ typedef enum scope_kind {
 			"template <>", this scope is always empty.  */
 } scope_kind;
 
+/* The scope where the class/struct/union/enum tag applies.  */
+typedef enum tag_scope {
+  ts_current = 0,	/* Current scope only.  This is for the
+			     class-key identifier;
+			   case mentioned in [basic.lookup.elab]/2,
+			   or the class/enum definition
+			     class-key identifier { ... };  */
+  ts_global = 1,	/* All scopes.  This is the 3.4.1
+			   [basic.lookup.unqual] lookup mentioned
+			   in [basic.lookup.elab]/2.  */
+  ts_within_enclosing_non_class = 2	/* Search within enclosing non-class
+					   only, for friend class lookup
+					   according to [namespace.memdef]/3
+					   and [class.friend]/9.  */
+} tag_scope;
+
 typedef struct cp_class_binding GTY(())
 {
   cxx_binding base;
@@ -177,9 +191,6 @@ struct cp_binding_level GTY(())
 
     /* A chain of VTABLE_DECL nodes.  */
     tree vtables; 
-
-    /* A dictionary for looking up user-defined-types.  */
-    binding_table type_decls;
 
     /* A list of USING_DECL nodes.  */
     tree usings;
@@ -290,6 +301,8 @@ extern void keep_next_level (bool);
 extern bool is_ancestor (tree, tree);
 extern bool push_scope (tree);
 extern void pop_scope (tree);
+extern tree push_inner_scope (tree);
+extern void pop_inner_scope (tree, tree);
 extern void push_binding_level (struct cp_binding_level *);
 
 extern void push_namespace (tree);
@@ -299,10 +312,9 @@ extern void pop_nested_namespace (tree);
 extern void pushlevel_class (void);
 extern void poplevel_class (void);
 extern tree pushdecl_with_scope (tree, cxx_scope *);
-extern tree lookup_tag (enum tree_code, tree, cxx_scope *, int);
-extern tree lookup_tag_reverse (tree, tree);
 extern tree lookup_name	(tree, int);
 extern tree lookup_name_real (tree, int, int, bool, int, int);
+extern tree lookup_type_scope (tree, tag_scope);
 extern tree namespace_binding (tree, tree);
 extern void set_namespace_binding (tree, tree, tree);
 extern tree lookup_namespace_name (tree, tree);

@@ -176,13 +176,13 @@ find_opt (const char *input, int lang_mask)
     {
       const struct cl_option *opt = &cl_options[mn];
 
-      /* Is this switch a prefix of the input?  */
-      if (!strncmp (input, opt->opt_text + 1, opt->opt_len))
+      /* Is the input either an exact match or a prefix that takes a
+	 joined argument?  */
+      if (!strncmp (input, opt->opt_text + 1, opt->opt_len)
+	  && (input[opt->opt_len] == '\0' || (opt->flags & CL_JOINED)))
 	{
-	  /* If language is OK, and the match is exact or the switch
-	     takes a joined argument, return it.  */
-	  if ((opt->flags & lang_mask)
-	      && (input[opt->opt_len] == '\0' || (opt->flags & CL_JOINED)))
+	  /* If language is OK, return it.  */
+	  if (opt->flags & lang_mask)
 	    return mn;
 
 	  /* If we haven't remembered a prior match, remember this
@@ -387,6 +387,15 @@ handle_option (const char **argv, unsigned int lang_mask)
   return result;
 }
 
+/* Handle FILENAME from the command line.  */
+static void
+add_input_filename (const char *filename)
+{
+  num_in_fnames++;
+  in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
+  in_fnames[num_in_fnames - 1] = filename;
+}
+
 /* Decode and handle the vector of command line options.  LANG_MASK
    contains has a single bit set representing the current
    language.  */
@@ -417,15 +426,6 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
 	  error ("unrecognized command line option \"%s\"", opt);
 	}
     }
-}
-
-/* Handle FILENAME from the command line.  */
-void
-add_input_filename (const char *filename)
-{
-  num_in_fnames++;
-  in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
-  in_fnames[num_in_fnames - 1] = filename;
 }
 
 /* Parse command line options and set default flag values.  Do minimal
@@ -572,7 +572,6 @@ decode_options (unsigned int argc, const char **argv)
       /* Inlining of very small functions usually reduces total size.  */
       set_param_value ("max-inline-insns-single", 5);
       set_param_value ("max-inline-insns-auto", 5);
-      set_param_value ("max-inline-insns-rtl", 10);
       flag_inline_functions = 1;
 
       /* We want to crossjump as much as possible.  */
@@ -808,7 +807,6 @@ common_handle_option (size_t scode, const char *arg, int value)
     case OPT_finline_limit_eq:
       set_param_value ("max-inline-insns-single", value / 2);
       set_param_value ("max-inline-insns-auto", value / 2);
-      set_param_value ("max-inline-insns-rtl", value);
       break;
 
     case OPT_fmessage_length_:

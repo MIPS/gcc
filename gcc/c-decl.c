@@ -634,7 +634,7 @@ push_scope (void)
       if (current_scope && scope->depth == 0)
 	{
 	  scope->depth--;
-	  sorry ("GCC supports only %u nested scopes\n", scope->depth);
+	  sorry ("GCC supports only %u nested scopes", scope->depth);
 	}
 
       current_scope        = scope;
@@ -3809,10 +3809,6 @@ grokdeclarator (const struct c_declarator *declarator,
       && TREE_CODE (type) == INTEGER_TYPE)
     type = c_common_unsigned_type (type);
 
-  /* Check the type and width of a bit-field.  */
-  if (bitfield)
-    check_bitfield_type_and_width (&type, width, orig_name);
-
   /* Figure out the type qualifiers for the declaration.  There are
      two ways a declaration can become qualified.  One is something
      like `const int i' where the `const' is explicit.  Another is
@@ -4252,6 +4248,10 @@ grokdeclarator (const struct c_declarator *declarator,
 
   /* Now TYPE has the actual type.  */
 
+  /* Check the type and width of a bit-field.  */
+  if (bitfield)
+    check_bitfield_type_and_width (&type, width, orig_name);
+
   /* Did array size calculations overflow?  */
 
   if (TREE_CODE (type) == ARRAY_TYPE
@@ -4428,8 +4428,15 @@ grokdeclarator (const struct c_declarator *declarator,
       }
     else if (TREE_CODE (type) == FUNCTION_TYPE)
       {
+	decl = build_decl (FUNCTION_DECL, declarator->u.id, type);
+	decl = build_decl_attribute_variant (decl, decl_attr);
+
 	if (storage_class == csc_register || threadp)
-	  error ("invalid storage class for function %qs", name);
+	  {
+	    error ("invalid storage class for function %qs", name);
+	    if (DECL_INITIAL (decl) != NULL_TREE)
+	      DECL_INITIAL (decl) = error_mark_node;
+	   }
 	else if (current_scope != file_scope)
 	  {
 	    /* Function declaration not at file scope.  Storage
@@ -4443,11 +4450,12 @@ grokdeclarator (const struct c_declarator *declarator,
 		  pedwarn ("invalid storage class for function %qs", name);
 	      }
 	    if (storage_class == csc_static)
-	      error ("invalid storage class for function %qs", name);
+	      {
+	        error ("invalid storage class for function %qs", name);
+		if (DECL_INITIAL (decl) != NULL_TREE)
+		  DECL_INITIAL (decl) = error_mark_node;
+	      }
 	  }
-
-	decl = build_decl (FUNCTION_DECL, declarator->u.id, type);
-	decl = build_decl_attribute_variant (decl, decl_attr);
 
 	DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
 

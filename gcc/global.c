@@ -24,13 +24,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-
 #include "machmode.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "insn-config.h"
@@ -695,7 +693,7 @@ global_conflicts (void)
 	 since one hard reg can be used with various sizes.
 	 Therefore, we must require that all the hard regs
 	 implicitly live as part of a multi-word hard reg
-	 are explicitly marked in basic_block_live_at_start.  */
+	 be explicitly marked in basic_block_live_at_start.  */
 
       {
 	regset old = b->global_live_at_start;
@@ -1806,9 +1804,8 @@ build_insn_chain (rtx first)
   struct insn_chain **p = &reload_insn_chain;
   struct insn_chain *prev = 0;
   basic_block b = ENTRY_BLOCK_PTR->next_bb;
-  regset_head live_relevant_regs_head;
 
-  live_relevant_regs = INITIALIZE_REG_SET (live_relevant_regs_head);
+  live_relevant_regs = ALLOC_REG_SET (&reg_obstack);
 
   for (; first; first = NEXT_INSN (first))
     {

@@ -161,10 +161,7 @@ bool
 is_gimple_addressable (tree t)
 {
   return (is_gimple_id (t) || handled_component_p (t)
-	  || TREE_CODE (t) == REALPART_EXPR
-	  || TREE_CODE (t) == IMAGPART_EXPR
 	  || INDIRECT_REF_P (t));
-
 }
 
 /* Return true if T is function invariant.  Or rather a restricted
@@ -422,16 +419,12 @@ get_call_expr_in (tree t)
   return NULL_TREE;
 }
 
-/* Given a memory reference expression, return the base address.  Note that,
-   in contrast with get_base_var, this will not recurse inside INDIRECT_REF
-   expressions.  Therefore, given the reference PTR->FIELD, this function
-   will return *PTR.  Whereas get_base_var would've returned PTR.  */
+/* Given a memory reference expression T, return its base address.  */
 
 tree
 get_base_address (tree t)
 {
-  while (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR
-	 || handled_component_p (t))
+  while (handled_component_p (t))
     t = TREE_OPERAND (t, 0);
   
   if (SSA_VAR_P (t)
@@ -447,7 +440,7 @@ void
 recalculate_side_effects (tree t)
 {
   enum tree_code code = TREE_CODE (t);
-  int fro = first_rtl_op (code);
+  int len = TREE_CODE_LENGTH (code);
   int i;
 
   switch (TREE_CODE_CLASS (code))
@@ -476,7 +469,7 @@ recalculate_side_effects (tree t)
     case tcc_binary:      /* a binary arithmetic expression */
     case tcc_reference:   /* a reference */
       TREE_SIDE_EFFECTS (t) = TREE_THIS_VOLATILE (t);
-      for (i = 0; i < fro; ++i)
+      for (i = 0; i < len; ++i)
 	{
 	  tree op = TREE_OPERAND (t, i);
 	  if (op && TREE_SIDE_EFFECTS (op))

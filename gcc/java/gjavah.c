@@ -61,10 +61,10 @@ int flag_jni = 0;
 int flag_newer = 1;
 
 /* Directory to place resulting files in. Set by -d option. */
-const char *output_directory = "";
+static const char *output_directory = "";
 
 /* Directory to place temporary file.  Set by -td option.  Currently unused. */
-const char *temp_directory = "/tmp";
+static const char *temp_directory = "/tmp";
 
 /* Number of friend functions we have to declare.  */
 static int friend_count;
@@ -111,6 +111,9 @@ static JCF_u2 last_access;
    method is native.  */
 #define METHOD_IS_NATIVE(Method) \
    ((Method) & ACC_NATIVE)
+
+#define METHOD_IS_PRIVATE(Class, Method) \
+  (((Method) & ACC_PRIVATE) != 0)
 
 /* We keep a linked list of all method names we have seen.  This lets
    us determine if a method name and a field name are in conflict.  */
@@ -885,7 +888,7 @@ print_method_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
 	{
 	  /* FIXME: i18n bug here.  Order of prints should not be
 	     fixed.  */
-	  fprintf (stderr, _("ignored method `"));
+	  fprintf (stderr, _("ignored method '"));
 	  jcf_print_utf8 (stderr, str, length);
 	  fprintf (stderr, _("' marked virtual\n"));
 	  found_error = 1;
@@ -937,7 +940,7 @@ print_method_info (FILE *stream, JCF* jcf, int name_index, int sig_index,
       fputs ("  ", out);
       if ((flags & ACC_STATIC))
 	fputs ("static ", out);
-      else if (! METHOD_IS_FINAL (jcf->access_flags, flags))
+      else if (! METHOD_IS_PRIVATE (jcf->access_flags, flags))
 	{
 	  /* Don't print `virtual' if we have a constructor.  */
 	  if (! is_init)
@@ -1468,7 +1471,7 @@ print_c_decl (FILE* stream, JCF* jcf, int name_index, int signature_index,
 	  next = decode_signature_piece (stream, str, limit, &need_space);
 	  if (! next)
 	    {
-	      error ("unparseable signature: `%s'", str0);
+	      error ("unparseable signature: '%s'", str0);
 	      return;
 	    }
 	}
@@ -1570,7 +1573,7 @@ print_full_cxx_name (FILE* stream, JCF* jcf, int name_index,
 	  next = decode_signature_piece (stream, str, limit, &need_space);
 	  if (! next)
 	    {
-	      error ("unparseable signature: `%s'", str0);
+	      error ("unparseable signature: '%s'", str0);
 	      return;
 	    }
 	  
@@ -1645,7 +1648,7 @@ print_stub_or_jni (FILE* stream, JCF* jcf, int name_index,
 	  next = decode_signature_piece (stream, str, limit, &need_space);
 	  if (! next)
 	    {
-	      error ("unparseable signature: `%s'", str0);
+	      error ("unparseable signature: '%s'", str0);
 	      return;
 	    }
 	}
@@ -2316,7 +2319,7 @@ static const struct option options[] =
 static void
 usage (void)
 {
-  fprintf (stderr, _("Try `gcjh --help' for more information.\n"));
+  fprintf (stderr, _("Try 'gcjh --help' for more information.\n"));
   exit (1);
 }
 
@@ -2330,7 +2333,7 @@ help (void)
   printf ("\n");
   printf (_("  -add TEXT               Insert TEXT into class body\n"));
   printf (_("  -append TEXT            Insert TEXT after class declaration\n"));
-  printf (_("  -friend TEXT            Insert TEXT as `friend' declaration\n"));
+  printf (_("  -friend TEXT            Insert TEXT as 'friend' declaration\n"));
   printf (_("  -prepend TEXT           Insert TEXT before start of class\n"));
   printf ("\n");
   printf (_("  --classpath PATH        Set path to find .class files\n"));
@@ -2474,7 +2477,7 @@ main (int argc, char** argv)
 	  break;
 
 	case OPT_MG:
-	  error ("`-MG' option is unimplemented");
+	  error ("'-MG' option is unimplemented");
 	  exit (1);
 
 	case OPT_MD:

@@ -313,7 +313,7 @@ to regenerate @file{configure} and @file{config.in} files.  Most
 directories require autoconf 2.59 (exactly), but the toplevel
 still requires autoconf 2.13 (exactly).
 
-@item automake versions 1.8.5 and 1.9.1
+@item automake versions 1.9.3
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
 associated @file{Makefile.in}.
@@ -323,10 +323,10 @@ file.  Specifically this applies to the @file{gcc}, @file{intl},
 @file{libcpp}, @file{libiberty}, @file{libobjc} directories as well
 as any of their subdirectories.
 
-The Java directory @file{libjava} and the @file{libstdc++-v3} directory
-require automake 1.9.1.  Every other directory should work with either
-automake 1.8.5 and automake 1.9.1, but most of them have been tested only
-with automake 1.8.5 so far.
+For directories that use automake, GCC requires the latest release in
+the 1.9.x series, which is currently 1.9.3.  When regenerating a directory
+to a newer version, please update all the directories using an older 1.9.x
+to the latest released version.
 
 @item gettext version 0.12 (or later)
 
@@ -926,7 +926,9 @@ missing and thus this setting will cause a known bootstrap failure.)
 @item no
 This is an alias for @samp{single}.
 @item posix
-Generic POSIX thread support.
+Generic POSIX/Unix98 thread support.
+@item posix95
+Generic POSIX/Unix95 thread support.
 @item rtems
 RTEMS thread support.
 @item single
@@ -2015,6 +2017,10 @@ printing with programs such as @command{dvips}.  You can also
 @uref{http://www.gnu.org/order/order.html,,buy printed manuals from the
 Free Software Foundation}, though such manuals may not be for the most
 recent version of GCC@.
+
+If you would like to generate online HTML documentation, do @samp{cd
+@var{objdir}; make html} and HTML will be generated for the manuals in
+@file{@var{objdir}/HTML}.
 
 @html
 <hr />

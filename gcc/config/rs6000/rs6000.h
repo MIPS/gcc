@@ -1096,9 +1096,9 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define BRANCH_COST 3
 
 /* Override BRANCH_COST heuristic which empirically produces worse
-   performance for fold_range_test().  */
+   performance for removing short circuiting from the logical ops.  */
 
-#define RANGE_TEST_NON_SHORT_CIRCUIT 0
+#define LOGICAL_OP_NON_SHORT_CIRCUIT 0
 
 /* A fixed register used at prologue and epilogue generation to fix
    addressing modes.  The SPE needs heavy addressing fixes at the last
@@ -1397,13 +1397,13 @@ enum reg_class
  */
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  (((GET_CODE (X) == CONST_DOUBLE			\
-     && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)	\
-    ? NO_REGS 						\
-    : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
-       && (CLASS) == NON_SPECIAL_REGS)			\
-    ? GENERAL_REGS					\
-    : (CLASS)))
+  ((CONSTANT_P (X)					\
+    && reg_classes_intersect_p ((CLASS), FLOAT_REGS))	\
+   ? NO_REGS 						\
+   : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
+      && (CLASS) == NON_SPECIAL_REGS)			\
+   ? GENERAL_REGS					\
+   : (CLASS))
 
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in CLASS in MODE.  If it can be done directly,
@@ -1627,6 +1627,10 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 #define CALL_LONG		0x00000008	/* always call indirect */
 #define CALL_LIBCALL		0x00000010	/* libcall */
 
+/* We don't have prologue and epilogue functions to save/restore
+   everything for most ABIs.  */
+#define WORLD_SAVE_P(INFO) 0
+
 /* 1 if N is a possible register number for a function value
    as seen by the caller.
 
@@ -1713,7 +1717,7 @@ typedef struct rs6000_args
    (TYPE is null for libcalls where that information may not be available.)  */
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
-  function_arg_advance (&CUM, MODE, TYPE, NAMED)
+  function_arg_advance (&CUM, MODE, TYPE, NAMED, 0)
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,

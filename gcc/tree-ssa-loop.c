@@ -116,7 +116,7 @@ struct tree_opt_pass pass_loop_init =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_TREE_LOOP_INIT,			/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -411,7 +411,6 @@ tree_ssa_loop_done (void)
   loop_optimizer_finalize (current_loops,
 			   (dump_flags & TDF_DETAILS ? dump_file : NULL));
   current_loops = NULL;
-  cleanup_tree_cfg ();
 }
   
 struct tree_opt_pass pass_loop_done = 
@@ -422,12 +421,12 @@ struct tree_opt_pass pass_loop_done =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,					/* tv_id */
+  TV_TREE_LOOP_FINI,			/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_dump_func,	/* todo_flags_finish */
   0					/* letter */
 };
 

@@ -345,6 +345,7 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_maybe_create_global_var);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -371,6 +372,10 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_ccp);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_fold_builtins);
+  /* FIXME: May alias should a TODO but for 4.0.0,
+     we add may_alias right after fold builtins
+     which can create arbitrary GIMPLE.  */
+  NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_loop);
@@ -426,6 +431,9 @@ execute_todo (int properties, unsigned int flags)
       rewrite_def_def_chains ();
       bitmap_clear (vars_to_rename);
     }
+
+  if (flags & TODO_cleanup_cfg)
+    cleanup_tree_cfg ();
 
   if ((flags & TODO_dump_func) && dump_file)
     {
@@ -634,12 +642,21 @@ tree_rest_of_compilation (tree fndecl)
   while (node->callees)
     cgraph_remove_edge (node->callees);
 
-  if (!vars_to_rename)
-    vars_to_rename = BITMAP_XMALLOC ();
 
+  /* Initialize the default bitmap obstack.  */
+  bitmap_obstack_initialize (NULL);
+  bitmap_obstack_initialize (&reg_obstack); /* FIXME, only at RTL generation*/
+  
+  vars_to_rename = BITMAP_XMALLOC ();
+  
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
+  
+  bitmap_obstack_release (&reg_obstack);
 
+  /* Release the default bitmap obstack.  */
+  bitmap_obstack_release (NULL);
+  
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)
     {

@@ -37,7 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
+#include "regs.h"
 #include "timevar.h"
 #include "output.h"
 #include "insn-config.h"
@@ -48,7 +48,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "tm_p.h"
 #include "target.h"
-#include "regs.h"
 #include "cfglayout.h"
 #include "emit-rtl.h"
 
@@ -1354,7 +1353,6 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   /* Generic case - we are seeing a computed jump, table jump or trapping
      instruction.  */
 
-#ifndef CASE_DROPS_THROUGH
   /* Check whether there are tablejumps in the end of BB1 and BB2.
      Return true if they are identical.  */
     {
@@ -1428,7 +1426,6 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	  return false;
 	}
     }
-#endif
 
   /* First ensure that the instructions match.  There may be many outgoing
      edges so this test is generally cheaper.  */
@@ -1566,7 +1563,6 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
       && (newpos1 != BB_HEAD (src1)))
     return false;
 
-#ifndef CASE_DROPS_THROUGH
   /* Here we know that the insns in the end of SRC1 which are common with SRC2
      will be deleted.
      If we have tablejumps in the end of SRC1 and SRC2
@@ -1597,7 +1593,6 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 	    }
 	}
     }
-#endif
 
   /* Avoid splitting if possible.  */
   if (newpos2 == BB_HEAD (src2))

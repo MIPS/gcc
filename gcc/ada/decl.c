@@ -83,7 +83,7 @@ static struct incomplete
 static void copy_alias_set (tree, tree);
 static tree substitution_list (Entity_Id, Entity_Id, tree, bool);
 static bool allocatable_size_p (tree, bool);
-static struct attrib *build_attr_list (Entity_Id);
+static void prepend_attributes (Entity_Id, struct attrib **);
 static tree elaborate_expression (Node_Id, Entity_Id, tree, bool, bool, bool);
 static bool is_variable_size (tree);
 static tree elaborate_expression_1 (Node_Id, Entity_Id, tree, tree,
@@ -298,9 +298,17 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  && (kind == E_Function || kind == E_Procedure)))
     force_global++, this_global = true;
 
-  /* Handle any attributes.  */
+  /* Handle any attributes directly attached to the entity.  */
   if (Has_Gigi_Rep_Item (gnat_entity))
-    attr_list = build_attr_list (gnat_entity);
+    prepend_attributes (gnat_entity, &attr_list);
+
+  /* Machine_Attributes on types are expected to be propagated to subtypes.
+     The corresponding Gigi_Rep_Items are only attached to the first subtype
+     though, so we handle the propagation here.  */
+  if (Is_Type (gnat_entity) && Base_Type (gnat_entity) != gnat_entity
+      && !Is_First_Subtype (gnat_entity)
+      && Has_Gigi_Rep_Item (First_Subtype (Base_Type (gnat_entity))))
+    prepend_attributes (First_Subtype (Base_Type (gnat_entity)), &attr_list);
 
   switch (kind)
     {
@@ -3598,7 +3606,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    attr->next = attr_list;
 	    attr->type = ATTR_MACHINE_ATTRIBUTE;
 	    attr->name = get_identifier ("stdcall");
-	    attr->arg = NULL_TREE;
+	    attr->args = NULL_TREE;
 	    attr->error_point = gnat_entity;
 	    attr_list = attr;
 	  }
@@ -4365,12 +4373,11 @@ allocatable_size_p (tree gnu_size, bool static_p)
   return (int) our_size == our_size;
 }
 
-/* Return a list of attributes for GNAT_ENTITY, if any.  */
+/* Prepend to ATTR_LIST the list of attributes for GNAT_ENTITY, if any.  */
 
-static struct attrib *
-build_attr_list (Entity_Id gnat_entity)
+static void
+prepend_attributes (Entity_Id gnat_entity, struct attrib ** attr_list)
 {
-  struct attrib *attr_list = 0;
   Node_Id gnat_temp;
 
   for (gnat_temp = First_Rep_Item (gnat_entity); Present (gnat_temp);
@@ -4378,7 +4385,7 @@ build_attr_list (Entity_Id gnat_entity)
     if (Nkind (gnat_temp) == N_Pragma)
       {
 	struct attrib *attr;
-	tree gnu_arg0 = 0, gnu_arg1 = 0;
+	tree gnu_arg0 = NULL_TREE, gnu_arg1 = NULL_TREE;
 	Node_Id gnat_assoc = Pragma_Argument_Associations (gnat_temp);
 	enum attr_type etype;
 
@@ -4424,17 +4431,23 @@ build_attr_list (Entity_Id gnat_entity)
 	  }
 
 	attr = (struct attrib *) xmalloc (sizeof (struct attrib));
-	attr->next = attr_list;
+	attr->next = *attr_list;
 	attr->type = etype;
 	attr->name = gnu_arg0;
-	attr->arg = gnu_arg1;
+
+	/* If we have an argument specified together with an attribute name,
+	   make it a single TREE_VALUE entry in a list of arguments, as GCC
+	   expects it.  */
+	if (gnu_arg1 != NULL_TREE)
+	  attr->args = build_tree_list (NULL_TREE, gnu_arg1);
+	else
+	  attr->args = NULL_TREE;
+
 	attr->error_point
 	  = Present (Next (First (gnat_assoc)))
 	    ? Expression (Next (First (gnat_assoc))) : gnat_temp;
-	attr_list = attr;
+	*attr_list = attr;
       }
-
-  return attr_list;
 }
 
 /* Get the unpadded version of a GNAT type.  */
@@ -4605,7 +4618,6 @@ make_aligning_type (tree type, int align, tree size)
   /* The bit position is obtained by "and"ing the alignment minus 1
      with the two's complement of the address and  multiplying
      by the number of bits per unit.  Do all this in sizetype.  */
-
   pos = size_binop (MULT_EXPR,
 		    convert (bitsizetype,
 			     size_binop (BIT_AND_EXPR,
@@ -4615,9 +4627,13 @@ make_aligning_type (tree type, int align, tree size)
 						    - 1))),
 		    bitsize_unit_node);
 
-  field = create_field_decl (get_identifier ("F"), type, record_type,
-			     1, size, pos, 1);
-  DECL_BIT_FIELD (field) = 0;
+  /* Create the field, with -1 as the 'addressable' indication to avoid the
+     creation of a bitfield.  We don't need one, it would have damaging
+     consequences on the alignment computation, and create_field_decl would
+     make one without this special argument, for instance because of the
+     complex position expression.  */
+  field = create_field_decl (get_identifier ("F"), type, record_type, 1, size,
+			     pos, -1);
 
   finish_record_type (record_type, field, true, false);
   TYPE_ALIGN (record_type) = BIGGEST_ALIGNMENT;
@@ -4809,9 +4825,10 @@ maybe_pad_type (tree type, tree size, unsigned int align,
   DECL_INTERNAL_P (field) = 1;
   TYPE_SIZE (record) = size ? size : orig_size;
   TYPE_SIZE_UNIT (record)
-    = convert (sizetype,
-	       size_binop (CEIL_DIV_EXPR, TYPE_SIZE (record),
-			   bitsize_unit_node));
+    = (size ? convert (sizetype,
+		       size_binop (CEIL_DIV_EXPR, size, bitsize_unit_node))
+       : TYPE_SIZE_UNIT (type));
+
   TYPE_ALIGN (record) = align;
   TYPE_IS_PADDING_P (record) = 1;
   TYPE_VOLATILE (record)
@@ -6259,7 +6276,6 @@ gnat_substitute_in_type (tree t, tree f, tree r)
     case OFFSET_TYPE:
     case METHOD_TYPE:
     case FILE_TYPE:
-    case SET_TYPE:
     case FUNCTION_TYPE:
     case LANG_TYPE:
       /* Don't know how to do these yet.  */

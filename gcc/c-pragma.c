@@ -294,6 +294,33 @@ maybe_apply_pragma_weak (tree decl)
       }
 }
 
+/* Process all "#pragma weak A = B" directives where we have not seen
+   a decl for A.  */
+void
+maybe_apply_pending_pragma_weaks (void)
+{
+  tree *p, t, alias_id, id, decl, *next;
+
+  for (p = &pending_weaks; (t = *p) ; p = next)
+    {
+      next = &TREE_CHAIN (t);
+      alias_id = TREE_PURPOSE (t);
+      id = TREE_VALUE (t);
+
+      if (TREE_VALUE (t) == NULL)
+	continue;
+
+      decl = build_decl (FUNCTION_DECL, alias_id, default_function_type);
+
+      DECL_ARTIFICIAL (decl) = 1;
+      TREE_PUBLIC (decl) = 1;
+      DECL_EXTERNAL (decl) = 1;
+      DECL_WEAK (decl) = 1;
+
+      assemble_alias (decl, id);
+    }
+}
+
 /* #pragma weak name [= value] */
 static void
 handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
@@ -328,6 +355,11 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
 #else
 void
 maybe_apply_pragma_weak (tree ARG_UNUSED (decl))
+{
+}
+
+void
+maybe_apply_pending_pragma_weaks (void)
 {
 }
 #endif /* HANDLE_PRAGMA_WEAK */
@@ -627,13 +659,20 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
 
 #endif
 
-/* Front-end wrapper for pragma registration to avoid dragging
+/* Front-end wrappers for pragma registration to avoid dragging
    cpplib.h in almost everywhere.  */
 void
 c_register_pragma (const char *space, const char *name,
 		   void (*handler) (struct cpp_reader *))
 {
-  cpp_register_pragma (parse_in, space, name, handler);
+  cpp_register_pragma (parse_in, space, name, handler, 0);
+}
+
+void
+c_register_pragma_with_expansion (const char *space, const char *name,
+				  void (*handler) (struct cpp_reader *))
+{
+  cpp_register_pragma (parse_in, space, name, handler, 1);
 }
 
 /* Set up front-end pragmas.  */
@@ -641,7 +680,11 @@ void
 init_pragma (void)
 {
 #ifdef HANDLE_PRAGMA_PACK
+#ifdef HANDLE_PRAGMA_PACK_WITH_EXPANSION
+  c_register_pragma_with_expansion (0, "pack", handle_pragma_pack);
+#else
   c_register_pragma (0, "pack", handle_pragma_pack);
+#endif
 #endif
 #ifdef HANDLE_PRAGMA_WEAK
   c_register_pragma (0, "weak", handle_pragma_weak);

@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.net;
 
 import java.io.ByteArrayOutputStream;
@@ -53,6 +54,8 @@ import java.security.SecureClassLoader;
 import java.security.cert.Certificate;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.StringTokenizer;
 import java.util.Vector;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -143,9 +146,10 @@ public class URLClassLoader extends SecureClassLoader
   private final Vector urls = new Vector();
 
   /**
-   * Store pre-parsed information for each url into this vector
-   * each element is a URL loader, corresponding to the URL of
-   * the same index in "urls"
+   * Store pre-parsed information for each url into this vector: each
+   * element is a URL loader.  A jar file has its own class-path
+   * attribute which adds to the URLs that will be searched, but this
+   * does not add to the list of urls.
    */
   private final Vector urlinfos = new Vector();
 
@@ -188,9 +192,14 @@ public class URLClassLoader extends SecureClassLoader
 
     URLLoader(URLClassLoader classloader, URL baseURL)
     {
+      this(classloader, baseURL, baseURL);
+    }
+
+    URLLoader(URLClassLoader classloader, URL baseURL, URL overrideURL)
+    {
       this.classloader = classloader;
       this.baseURL = baseURL;
-      this.noCertCodeSource = new CodeSource(baseURL, null);
+      this.noCertCodeSource = new CodeSource(overrideURL, null);
     }
 
     /**
@@ -217,6 +226,11 @@ public class URLClassLoader extends SecureClassLoader
      * <code>null</code> there is no such <code>Manifest</code>.
      */
     Manifest getManifest()
+    {
+      return null;
+    }
+
+    Vector getClassPath()
     {
       return null;
     }
@@ -248,9 +262,9 @@ public class URLClassLoader extends SecureClassLoader
     {
       Certificate[] certs = getCertificates();
       if (certs == null)
-	return loader.noCertCodeSource;
+        return loader.noCertCodeSource;
       else
-	return new CodeSource(loader.baseURL, certs);
+        return new CodeSource(loader.baseURL, certs);
     }
 
     /**
@@ -289,6 +303,10 @@ public class URLClassLoader extends SecureClassLoader
     final JarFile jarfile; // The jar file for this url
     final URL baseJarURL; // Base jar: url for all resources loaded from jar
 
+    Vector classPath;	// The "Class-Path" attribute of this Jar's manifest
+
+    SoURLLoader soURLLoader;
+
     public JarURLLoader(URLClassLoader classloader, URL baseURL)
     {
       super(classloader, baseURL);
@@ -301,16 +319,71 @@ public class URLClassLoader extends SecureClassLoader
       sb.append("!/");
       String jarURL = sb.toString();
 
+      this.soURLLoader = null;
+      this.classPath = null;
       URL baseJarURL = null;
       JarFile jarfile = null;
       try
-        {
-	  baseJarURL =
-	    new URL(null, jarURL, classloader.getURLStreamHandler("jar"));
+	{
+	  baseJarURL
+	    = new URL(null, jarURL, classloader.getURLStreamHandler("jar"));
+	  jarfile
+	    = ((JarURLConnection) baseJarURL.openConnection()).getJarFile();
 
-	  jarfile =
-	    ((JarURLConnection) baseJarURL.openConnection()).getJarFile();
-        }
+	  if (jarfile != null)
+	    {
+	      String fileName = baseURL.getFile();
+	      if (fileName != null)
+		{
+		  File f = new File(fileName);
+		  String libDirName = f.getCanonicalFile().getParent()
+		    + File.separator + "GCJLIBS";
+		  File libDir = new File(libDirName);
+		  if (libDir != null && (libDir.isDirectory()))
+		    {
+		      File soFile = new File (libDirName 
+					      + File.separator + f.getName() 
+					      + ".so");
+		      if (soFile != null && soFile.isFile())
+			this.soURLLoader
+			  = new SoURLLoader (classloader, soFile.toURL(),
+					     baseURL);
+		    }
+		}
+
+	      Manifest manifest;
+	      Attributes attributes;
+	      String classPathString;
+
+	      if ((manifest = jarfile.getManifest()) != null
+		  && (attributes = manifest.getMainAttributes()) != null
+		  && ((classPathString 
+		       = attributes.getValue(Attributes.Name.CLASS_PATH)) 
+		      != null))
+		{
+		  this.classPath = new Vector();
+
+		  StringTokenizer st
+		    = new StringTokenizer 
+		      (classPathString,
+		       System.getProperty ("path.separator", ":"));
+      
+		  while (st.hasMoreElements ()) 
+		    {  
+		      String e = st.nextToken ();
+		      try
+			{
+			  URL url = new URL(baseURL, e);
+			  this.classPath.add(url);
+			} 
+		      catch (java.net.MalformedURLException xx)
+			{
+			  // Give up
+			}
+		    }
+		}
+ 	    }
+	}
       catch (IOException ioe)
         {
 	  /* ignored */
@@ -320,32 +393,49 @@ public class URLClassLoader extends SecureClassLoader
       this.jarfile = jarfile;
     }
 
+    Class getClass(String className)
+    {
+      if (soURLLoader != null)
+	return soURLLoader.getClass(className);
+      return null;
+    }
+
     /** get resource with the name "name" in the jar url */
     Resource getResource(String name)
     {
       if (jarfile == null)
-	return null;
+        return null;
 
       if (name.startsWith("/"))
-	name = name.substring(1);
+        name = name.substring(1);
 
       JarEntry je = jarfile.getJarEntry(name);
       if (je != null)
-	return new JarURLResource(this, name, je);
+        return new JarURLResource(this, name, je);
       else
-	return null;
+        return null;
+    }
+
+    public String toString ()
+    {
+	return "jarfile " + jarfile.getName();
     }
 
     Manifest getManifest()
     {
       try
         {
-	  return (jarfile == null) ? null : jarfile.getManifest();
+          return (jarfile == null) ? null : jarfile.getManifest();
         }
       catch (IOException ioe)
         {
-	  return null;
+          return null;
         }
+    }
+
+    Vector getClassPath()
+    {
+      return classPath;
     }
   }
 
@@ -378,14 +468,14 @@ public class URLClassLoader extends SecureClassLoader
     {
       try
         {
-	  return new URL(((JarURLLoader) loader).baseJarURL, name,
-	                 loader.classloader.getURLStreamHandler("jar"));
+          return new URL(((JarURLLoader) loader).baseJarURL, name,
+                         loader.classloader.getURLStreamHandler("jar"));
         }
       catch (MalformedURLException e)
         {
-	  InternalError ie = new InternalError();
-	  ie.initCause(e);
-	  throw ie;
+          InternalError ie = new InternalError();
+          ie.initCause(e);
+          throw ie;
         }
     }
   }
@@ -411,32 +501,32 @@ public class URLClassLoader extends SecureClassLoader
     {
       try
         {
-	  URL url =
-	    new URL(baseURL, name, classloader.getURLStreamHandler(protocol));
-	  URLConnection connection = url.openConnection();
+          URL url =
+            new URL(baseURL, name, classloader.getURLStreamHandler(protocol));
+          URLConnection connection = url.openConnection();
 
-	  // Open the connection and check the stream
-	  // just to be sure it exists.
-	  int length = connection.getContentLength();
-	  InputStream stream = connection.getInputStream();
+          // Open the connection and check the stream
+          // just to be sure it exists.
+          int length = connection.getContentLength();
+          InputStream stream = connection.getInputStream();
 
-	  // We can do some extra checking if it is a http request
-	  if (connection instanceof HttpURLConnection)
-	    {
-	      int response =
-		((HttpURLConnection) connection).getResponseCode();
-	      if (response / 100 != 2)
-		return null;
-	    }
+          // We can do some extra checking if it is a http request
+          if (connection instanceof HttpURLConnection)
+            {
+              int response =
+                ((HttpURLConnection) connection).getResponseCode();
+              if (response / 100 != 2)
+                return null;
+            }
 
-	  if (stream != null)
-	    return new RemoteResource(this, name, url, stream, length);
-	  else
-	    return null;
+          if (stream != null)
+            return new RemoteResource(this, name, url, stream, length);
+          else
+            return null;
         }
       catch (IOException ioe)
         {
-	  return null;
+          return null;
         }
     }
   }
@@ -485,7 +575,12 @@ public class URLClassLoader extends SecureClassLoader
 
     SoURLLoader(URLClassLoader classloader, URL url)
     {
-      super(classloader, url);
+      this(classloader, url, url);
+    }
+
+    SoURLLoader(URLClassLoader classloader, URL url, URL overrideURL)
+    {
+      super(classloader, url, overrideURL);
       helper = SharedLibHelper.findHelper(classloader, url.getFile(),
 					  noCertCodeSource);
     }
@@ -551,7 +646,7 @@ public class URLClassLoader extends SecureClassLoader
     {
       File file = new File(dir, name);
       if (file.exists() && ! file.isDirectory())
-	return new FileResource(this, name, file);
+        return new FileResource(this, name, file);
       return null;
     }
   }
@@ -576,18 +671,23 @@ public class URLClassLoader extends SecureClassLoader
       return (int) file.length();
     }
 
+    public String toString ()
+    {
+	return "file " +file.getAbsolutePath();
+    }
+
     public URL getURL()
     {
       try
         {
-	  return new URL(loader.baseURL, name,
-	                 loader.classloader.getURLStreamHandler("file"));
+          return new URL(loader.baseURL, name,
+                         loader.classloader.getURLStreamHandler("file"));
         }
       catch (MalformedURLException e)
         {
-	  InternalError ie = new InternalError();
-	  ie.initCause(e);
-	  throw ie;
+          InternalError ie = new InternalError();
+          ie.initCause(e);
+          throw ie;
         }
     }
   }
@@ -711,12 +811,12 @@ public class URLClassLoader extends SecureClassLoader
     addURLs(urls);
 
     // If this factory is still not in factoryCache, add it,
-    //   since we only support three protocols so far, 5 is enough 
+    //   since we only support three protocols so far, 5 is enough
     //   for cache initial size
     synchronized (factoryCache)
       {
-	if (factory != null && factoryCache.get(factory) == null)
-	  factoryCache.put(factory, new HashMap(5));
+        if (factory != null && factoryCache.get(factory) == null)
+          factoryCache.put(factory, new HashMap(5));
       }
   }
 
@@ -728,6 +828,7 @@ public class URLClassLoader extends SecureClassLoader
    */
   protected void addURL(URL newUrl)
   {
+    urls.add(newUrl);
     addURLImpl(newUrl);
   }
 
@@ -735,32 +836,46 @@ public class URLClassLoader extends SecureClassLoader
   {
     synchronized (urlloaders)
       {
-	if (newUrl == null)
-	  return; // Silently ignore...
+        if (newUrl == null)
+          return; // Silently ignore...
 
-	// Check global cache to see if there're already url loader
-	// for this url.
-	URLLoader loader = (URLLoader) urlloaders.get(newUrl);
-	if (loader == null)
-	  {
-	    String file = newUrl.getFile();
-	    String protocol = newUrl.getProtocol();
-	    // Check that it is not a directory
+        // Check global cache to see if there're already url loader
+        // for this url.
+        URLLoader loader = (URLLoader) urlloaders.get(newUrl);
+        if (loader == null)
+          {
+            String file = newUrl.getFile();
+            String protocol = newUrl.getProtocol();
+
+            // Check that it is not a directory
 	    if ("gcjlib".equals(protocol))
 	      loader = new SoURLLoader(this, newUrl);
 	    else if (! (file.endsWith("/") || file.endsWith(File.separator)))
-	      loader = new JarURLLoader(this, newUrl);
-	    else if ("file".equals(protocol))
-	      loader = new FileURLLoader(this, newUrl);
-	    else
-	      loader = new RemoteURLLoader(this, newUrl);
+              loader = new JarURLLoader(this, newUrl);
+            else if ("file".equals(protocol))
+              loader = new FileURLLoader(this, newUrl);
+            else
+              loader = new RemoteURLLoader(this, newUrl);
 
-	    // Cache it.
-	    urlloaders.put(newUrl, loader);
+            // Cache it.
+            urlloaders.put(newUrl, loader);
+          }
+
+	urlinfos.add(loader);
+
+	Vector extraUrls = loader.getClassPath();
+	if (extraUrls != null)
+	  {
+	    Iterator it = extraUrls.iterator();
+	    while (it.hasNext())
+	      {
+		URL url = (URL)it.next();
+		URLLoader extraLoader = (URLLoader) urlloaders.get(url);
+		if (! urlinfos.contains (extraLoader))
+		  addURLImpl(url);
+	      }
 	  }
 
-	urls.add(newUrl);
-	urlinfos.add(loader);
       }
   }
 
@@ -771,7 +886,7 @@ public class URLClassLoader extends SecureClassLoader
   private void addURLs(URL[] newUrls)
   {
     for (int i = 0; i < newUrls.length; i++)
-      addURLImpl(newUrls[i]);
+      addURL(newUrls[i]);
   }
 
   /**
@@ -828,7 +943,7 @@ public class URLClassLoader extends SecureClassLoader
   {
     // Just try to find the resource by the (almost) same name
     String resourceName = className.replace('.', '/') + ".class";
-    int max = urls.size();
+    int max = urlinfos.size();
     Resource resource = null;
     for (int i = 0; i < max && resource == null; i++)
       {
@@ -849,8 +964,8 @@ public class URLClassLoader extends SecureClassLoader
     // construct the class (and watch out for those nasty IOExceptions)
     try
       {
-	byte[] data;
-	InputStream in = resource.getInputStream();
+        byte[] data;
+        InputStream in = resource.getInputStream();
 	int length = resource.getLength();
 	if (length != -1)
 	  {
@@ -881,50 +996,50 @@ public class URLClassLoader extends SecureClassLoader
 		  out.write(b, 0, l);
 	      }
 	    data = out.toByteArray();
-	  }
-	final byte[] classData = data;
+          }
+        final byte[] classData = data;
 
-	// Now get the CodeSource
-	final CodeSource source = resource.getCodeSource();
+        // Now get the CodeSource
+        final CodeSource source = resource.getCodeSource();
 
-	// Find out package name
-	String packageName = null;
-	int lastDot = className.lastIndexOf('.');
-	if (lastDot != -1)
-	  packageName = className.substring(0, lastDot);
+        // Find out package name
+        String packageName = null;
+        int lastDot = className.lastIndexOf('.');
+        if (lastDot != -1)
+          packageName = className.substring(0, lastDot);
 
-	if (packageName != null && getPackage(packageName) == null)
-	  {
-	    // define the package
-	    Manifest manifest = resource.loader.getManifest();
-	    if (manifest == null)
-	      definePackage(packageName, null, null, null, null, null, null,
-	                    null);
-	    else
-	      definePackage(packageName, manifest, resource.loader.baseURL);
-	  }
+        if (packageName != null && getPackage(packageName) == null)
+          {
+            // define the package
+            Manifest manifest = resource.loader.getManifest();
+            if (manifest == null)
+              definePackage(packageName, null, null, null, null, null, null,
+                            null);
+            else
+              definePackage(packageName, manifest, resource.loader.baseURL);
+          }
 
-	// And finally construct the class!
-	SecurityManager sm = System.getSecurityManager();
-	if (sm != null && securityContext != null)
-	  {
+        // And finally construct the class!
+        SecurityManager sm = System.getSecurityManager();
+        if (sm != null && securityContext != null)
+          {
 	    return (Class)AccessController.doPrivileged
-	      (new PrivilegedAction()
-		{
-		  public Object run()
-		  {
-		    return defineClass(className, classData,
-				       0, classData.length,
-				       source);
-		  }
-		}, securityContext);
-	  }
-	else
+              (new PrivilegedAction()
+                {
+                  public Object run()
+                  {
+                    return defineClass(className, classData,
+                                       0, classData.length,
+                                       source);
+                  }
+                }, securityContext);
+          }
+        else
 	  return defineClass(className, classData, 0, classData.length, source);
       }
     catch (IOException ioe)
       {
-	throw new ClassNotFoundException(className, ioe);
+        throw new ClassNotFoundException(className, ioe);
       }
   }
 
@@ -937,16 +1052,16 @@ public class URLClassLoader extends SecureClassLoader
    */
   private Resource findURLResource(String resourceName)
   {
-    int max = urls.size();
+    int max = urlinfos.size();
     for (int i = 0; i < max; i++)
       {
-	URLLoader loader = (URLLoader) urlinfos.elementAt(i);
-	if (loader == null)
-	  continue;
+        URLLoader loader = (URLLoader) urlinfos.elementAt(i);
+        if (loader == null)
+          continue;
 
-	Resource resource = loader.getResource(resourceName);
-	if (resource != null)
-	  return resource;
+        Resource resource = loader.getResource(resourceName);
+        if (resource != null)
+          return resource;
       }
     return null;
   }
@@ -982,15 +1097,15 @@ public class URLClassLoader extends SecureClassLoader
     URLStreamHandler handler;
     synchronized (factoryCache)
       {
-	// Check if there're handler for the same protocol in cache.
-	HashMap cache = (HashMap) factoryCache.get(factory);
-	handler = (URLStreamHandler) cache.get(protocol);
-	if (handler == null)
-	  {
-	    // Add it to cache.
-	    handler = factory.createURLStreamHandler(protocol);
-	    cache.put(protocol, handler);
-	  }
+        // Check if there're handler for the same protocol in cache.
+        HashMap cache = (HashMap) factoryCache.get(factory);
+        handler = (URLStreamHandler) cache.get(protocol);
+        if (handler == null)
+          {
+            // Add it to cache.
+            handler = factory.createURLStreamHandler(protocol);
+            cache.put(protocol, handler);
+          }
       }
     return handler;
   }
@@ -1008,13 +1123,13 @@ public class URLClassLoader extends SecureClassLoader
     throws IOException
   {
     Vector resources = new Vector();
-    int max = urls.size();
+    int max = urlinfos.size();
     for (int i = 0; i < max; i++)
       {
-	URLLoader loader = (URLLoader) urlinfos.elementAt(i);
-	Resource resource = loader.getResource(resourceName);
-	if (resource != null)
-	  resources.add(resource.getURL());
+        URLLoader loader = (URLLoader) urlinfos.elementAt(i);
+        Resource resource = loader.getResource(resourceName);
+        if (resource != null)
+          resources.add(resource.getURL());
       }
     return resources.elements();
   }
@@ -1051,28 +1166,28 @@ public class URLClassLoader extends SecureClassLoader
     String protocol = url.getProtocol();
     if (protocol.equals("file"))
       {
-	String file = url.getFile();
+        String file = url.getFile();
 
-	// If the file end in / it must be an directory.
-	if (file.endsWith("/") || file.endsWith(File.separator))
-	  {
-	    // Grant permission to read everything in that directory and
-	    // all subdirectories.
-	    permissions.add(new FilePermission(file + "-", "read"));
-	  }
-	else
-	  {
-	    // It is a 'normal' file.
-	    // Grant permission to access that file.
-	    permissions.add(new FilePermission(file, "read"));
-	  }
+        // If the file end in / it must be an directory.
+        if (file.endsWith("/") || file.endsWith(File.separator))
+          {
+            // Grant permission to read everything in that directory and
+            // all subdirectories.
+            permissions.add(new FilePermission(file + "-", "read"));
+          }
+        else
+          {
+            // It is a 'normal' file.
+            // Grant permission to access that file.
+            permissions.add(new FilePermission(file, "read"));
+          }
       }
     else
       {
-	// Grant permission to connect to and accept connections from host
-	String host = url.getHost();
-	if (host != null)
-	  permissions.add(new SocketPermission(host, "connect,accept"));
+        // Grant permission to connect to and accept connections from host
+        String host = url.getHost();
+        if (host != null)
+          permissions.add(new SocketPermission(host, "connect,accept"));
       }
 
     return permissions;
@@ -1097,6 +1212,8 @@ public class URLClassLoader extends SecureClassLoader
    * @param urls the initial URLs used to resolve classes and
    * resources
    *
+   * @return the class loader
+   *
    * @exception SecurityException when the calling code does not have
    * permission to access the given <code>URL</code>s
    */
@@ -1115,6 +1232,8 @@ public class URLClassLoader extends SecureClassLoader
    * resources
    * @param parent the parent class loader
    *
+   * @return the class loader
+   *
    * @exception SecurityException when the calling code does not have
    * permission to access the given <code>URL</code>s
    */
@@ -1126,24 +1245,24 @@ public class URLClassLoader extends SecureClassLoader
       return new URLClassLoader(urls, parent);
     else
       {
-	final Object securityContext = sm.getSecurityContext();
+        final Object securityContext = sm.getSecurityContext();
 
-	// XXX - What to do with anything else then an AccessControlContext?
-	if (! (securityContext instanceof AccessControlContext))
-	  throw new SecurityException("securityContext must be AccessControlContext: "
-	                              + securityContext);
+        // XXX - What to do with anything else then an AccessControlContext?
+        if (! (securityContext instanceof AccessControlContext))
+          throw new SecurityException("securityContext must be AccessControlContext: "
+                                      + securityContext);
 
-	URLClassLoader loader =
-	  (URLClassLoader) AccessController.doPrivileged(new PrivilegedAction()
-	      {
-		public Object run()
-		{
-		  return new URLClassLoader(parent,
-		                            (AccessControlContext) securityContext);
-		}
-	      });
-	loader.addURLs(urls);
-	return loader;
+        URLClassLoader loader =
+          (URLClassLoader) AccessController.doPrivileged(new PrivilegedAction()
+              {
+                public Object run()
+                {
+                  return new URLClassLoader(parent,
+                                            (AccessControlContext) securityContext);
+                }
+              });
+        loader.addURLs(urls);
+        return loader;
       }
   }
 }

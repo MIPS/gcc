@@ -367,11 +367,11 @@ int flag_evaluation_order = 0;
 const char *user_label_prefix;
 
 static const param_info lang_independent_params[] = {
-#define DEFPARAM(ENUM, OPTION, HELP, DEFAULT) \
-  { OPTION, DEFAULT, HELP },
+#define DEFPARAM(ENUM, OPTION, HELP, DEFAULT, MIN, MAX) \
+  { OPTION, DEFAULT, MIN, MAX, HELP },
 #include "params.def"
 #undef DEFPARAM
-  { NULL, 0, NULL }
+  { NULL, 0, 0, 0, NULL }
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch
@@ -537,20 +537,23 @@ read_integral_parameter (const char *p, const char *pname, const int  defval)
 }
 
 /* Given X, an unsigned number, return the largest int Y such that 2**Y <= X.
-   If X is 0, return -1.
-
-   This should be used via the floor_log2 macro.  */
+   If X is 0, return -1.  */
 
 int
-floor_log2_wide (unsigned HOST_WIDE_INT x)
+floor_log2 (unsigned HOST_WIDE_INT x)
 {
-  int t=0;
+  int t = 0;
+
   if (x == 0)
     return -1;
-  if (sizeof (HOST_WIDE_INT) * 8 > 64)
+
+#ifdef CLZ_HWI
+  t = HOST_BITS_PER_WIDE_INT - 1 - (int) CLZ_HWI (x);
+#else
+  if (HOST_BITS_PER_WIDE_INT > 64)
     if (x >= (unsigned HOST_WIDE_INT) 1 << (t + 64))
       t += 64;
-  if (sizeof (HOST_WIDE_INT) * 8 > 32)
+  if (HOST_BITS_PER_WIDE_INT > 32)
     if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 32))
       t += 32;
   if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 16))
@@ -563,21 +566,24 @@ floor_log2_wide (unsigned HOST_WIDE_INT x)
     t += 2;
   if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 1))
     t += 1;
+#endif
+
   return t;
 }
 
 /* Return the logarithm of X, base 2, considering X unsigned,
-   if X is a power of 2.  Otherwise, returns -1.
-
-   This should be used via the `exact_log2' macro.  */
+   if X is a power of 2.  Otherwise, returns -1.  */
 
 int
-exact_log2_wide (unsigned HOST_WIDE_INT x)
+exact_log2 (unsigned HOST_WIDE_INT x)
 {
-  /* Test for 0 or a power of 2.  */
-  if (x == 0 || x != (x & -x))
+  if (x != (x & -x))
     return -1;
-  return floor_log2_wide (x);
+#ifdef CTZ_HWI
+  return x ? CTZ_HWI (x) : -1;
+#else
+  return floor_log2 (x);
+#endif
 }
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
@@ -813,13 +819,13 @@ check_global_declarations (tree *vec, int len)
     {
       decl = vec[i];
 
-      if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl)
-	  && ! TREE_ASM_WRITTEN (decl))
-	/* Cancel the RTL for this decl so that, if debugging info
-	   output for global variables is still to come,
-	   this one will be omitted.  */
-	SET_DECL_RTL (decl, NULL_RTX);
-
+      /* Do not emit debug information about variables that are in
+	 static storage, but not defined.  */
+      if (TREE_CODE (decl) == VAR_DECL
+	  && TREE_STATIC (decl)
+	  && !TREE_ASM_WRITTEN (decl))
+	DECL_IGNORED_P (decl) = 1;
+ 
       /* Warn about any function
 	 declared static but not defined.
 	 We don't warn about variables,

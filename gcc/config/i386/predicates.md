@@ -474,11 +474,10 @@
 {
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
-  return !(op == stack_pointer_rtx
-	   || op == arg_pointer_rtx
-	   || op == frame_pointer_rtx
-	   || (REGNO (op) >= FIRST_PSEUDO_REGISTER
-	       && REGNO (op) <= LAST_VIRTUAL_REGISTER));
+  if (reload_in_progress || reload_completed)
+    return REG_OK_FOR_INDEX_STRICT_P (op);
+  else
+    return REG_OK_FOR_INDEX_NONSTRICT_P (op);
 })
 
 ;; Return false if this is any eliminable register.  Otherwise general_operand.
@@ -795,6 +794,10 @@
 (define_predicate "div_operator"
   (match_code "div"))
 
+;; Return true if this is a float extend operation.
+(define_predicate "float_operator"
+  (match_code "float"))
+
 ;; Return true for ARITHMETIC_P.
 (define_predicate "arith_or_logical_operator"
   (match_code "PLUS,MULT,AND,IOR,XOR,SMIN,SMAX,UMIN,UMAX,COMPARE,MINUS,DIV,
@@ -829,3 +832,6 @@
 (define_predicate "cmpsi_operand"
   (ior (match_operand 0 "nonimmediate_operand")
        (match_operand 0 "cmpsi_operand_1")))
+
+(define_predicate "compare_operator"
+  (match_code "compare"))

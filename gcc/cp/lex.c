@@ -616,8 +616,8 @@ unqualified_fn_lookup_error (tree name)
 	  static bool hint;
 	  if (!hint)
 	    {
-	      error ("(if you use `-fpermissive', G++ will accept your code, "
-		     "but allowing the use of an undeclared name is "
+	      error ("(if you use %<-fpermissive%>, G++ will accept your "
+		     "code, but allowing the use of an undeclared name is "
 		     "deprecated)");
 	      hint = true;
 	    }
@@ -795,21 +795,4 @@ make_aggr_type (enum tree_code code)
     SET_IS_AGGR_TYPE (t, 1);
 
   return t;
-}
-
-/* Return the type-qualifier corresponding to the identifier given by
-   RID.  */
-
-int
-cp_type_qual_from_rid (tree rid)
-{
-  if (rid == ridpointers[(int) RID_CONST])
-    return TYPE_QUAL_CONST;
-  else if (rid == ridpointers[(int) RID_VOLATILE])
-    return TYPE_QUAL_VOLATILE;
-  else if (rid == ridpointers[(int) RID_RESTRICT])
-    return TYPE_QUAL_RESTRICT;
-
-  gcc_unreachable ();
-  return TYPE_UNQUALIFIED;
 }

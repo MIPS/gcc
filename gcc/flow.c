@@ -567,15 +567,15 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
    unless the caller resets it to zero.  */
 
 int
-update_life_info (sbitmap blocks, enum update_life_extent extent, int prop_flags)
+update_life_info (sbitmap blocks, enum update_life_extent extent,
+		  int prop_flags)
 {
   regset tmp;
-  regset_head tmp_head;
   unsigned i;
   int stabilized_prop_flags = prop_flags;
   basic_block bb;
 
-  tmp = INITIALIZE_REG_SET (tmp_head);
+  tmp = ALLOC_REG_SET (&reg_obstack);
   ndead = 0;
 
   if ((prop_flags & PROP_REG_INFO) && !reg_deaths)
@@ -1016,8 +1016,6 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 {
   basic_block *queue, *qhead, *qtail, *qend, bb;
   regset tmp, new_live_at_end, invalidated_by_call;
-  regset_head tmp_head, invalidated_by_call_head;
-  regset_head new_live_at_end_head;
 
   /* The registers that are modified within this in block.  */
   regset *local_sets;
@@ -1035,9 +1033,9 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
     gcc_assert (!bb->aux);
 #endif
 
-  tmp = INITIALIZE_REG_SET (tmp_head);
-  new_live_at_end = INITIALIZE_REG_SET (new_live_at_end_head);
-  invalidated_by_call = INITIALIZE_REG_SET (invalidated_by_call_head);
+  tmp = ALLOC_REG_SET (&reg_obstack);
+  new_live_at_end = ALLOC_REG_SET (&reg_obstack);
+  invalidated_by_call = ALLOC_REG_SET (&reg_obstack);
 
   /* Inconveniently, this is only readily available in hard reg set form.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
@@ -1191,8 +1189,10 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 
       if (local_sets[bb->index - (INVALID_BLOCK + 1)] == NULL)
 	{
-	  local_sets[bb->index - (INVALID_BLOCK + 1)] = XMALLOC_REG_SET ();
-	  cond_local_sets[bb->index - (INVALID_BLOCK + 1)] = XMALLOC_REG_SET ();
+	  local_sets[bb->index - (INVALID_BLOCK + 1)]
+	    = ALLOC_REG_SET (&reg_obstack);
+	  cond_local_sets[bb->index - (INVALID_BLOCK + 1)]
+	    = ALLOC_REG_SET (&reg_obstack);
 	  rescan = 1;
 	}
       else
@@ -1296,16 +1296,16 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       EXECUTE_IF_SET_IN_SBITMAP (blocks_out, 0, i,
 	{
 	  basic_block bb = BASIC_BLOCK (i);
-	  XFREE_REG_SET (local_sets[bb->index - (INVALID_BLOCK + 1)]);
-	  XFREE_REG_SET (cond_local_sets[bb->index - (INVALID_BLOCK + 1)]);
+	  FREE_REG_SET (local_sets[bb->index - (INVALID_BLOCK + 1)]);
+	  FREE_REG_SET (cond_local_sets[bb->index - (INVALID_BLOCK + 1)]);
 	});
     }
   else
     {
       FOR_EACH_BB (bb)
 	{
-	  XFREE_REG_SET (local_sets[bb->index - (INVALID_BLOCK + 1)]);
-	  XFREE_REG_SET (cond_local_sets[bb->index - (INVALID_BLOCK + 1)]);
+	  FREE_REG_SET (local_sets[bb->index - (INVALID_BLOCK + 1)]);
+	  FREE_REG_SET (cond_local_sets[bb->index - (INVALID_BLOCK + 1)]);
 	}
     }
 
@@ -1438,11 +1438,11 @@ allocate_bb_life_data (void)
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
-      bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
-      bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
     }
 
-  regs_live_at_setjmp = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+  regs_live_at_setjmp = ALLOC_REG_SET (&reg_obstack);
 }
 
 void
@@ -1845,8 +1845,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
   if (JUMP_P (BB_END (bb))
       && any_condjump_p (BB_END (bb)))
     {
-      regset_head diff_head;
-      regset diff = INITIALIZE_REG_SET (diff_head);
+      regset diff = ALLOC_REG_SET (&reg_obstack);
       basic_block bb_true, bb_false;
       unsigned i;
 
@@ -2634,7 +2633,7 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 	invalidate_mems_from_set (pbi, reg);
 
       /* If the memory reference had embedded side effects (autoincrement
-	 address modes.  Then we may need to kill some entries on the
+	 address modes) then we may need to kill some entries on the
 	 memory set list.  */
       if (insn && MEM_P (reg))
 	for_each_rtx (&PATTERN (insn), invalidate_mems_from_autoinc, pbi);

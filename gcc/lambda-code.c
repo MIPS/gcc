@@ -53,7 +53,7 @@
 
  A loop iteration space represents the points traversed by the loop.  A point in the
  iteration space can be represented by a vector of size <loop depth>.  You can
- therefore represent the iteration space as a integral combinations of a set
+ therefore represent the iteration space as an integral combinations of a set
  of basis vectors. 
 
  A loop iteration space is dense if every integer point between the loop
@@ -1867,6 +1867,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
     {
       lambda_loop newloop;
       basic_block bb;
+      edge exit;
       tree ivvar, ivvarinced, exitcond, stmts;
       enum tree_code testtype;
       tree newupperbound, newlowerbound;
@@ -1900,7 +1901,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 					     new_ivs,
 					     invariants, MAX_EXPR, &stmts);
       bsi_insert_on_edge (loop_preheader_edge (temp), stmts);
-      bsi_commit_edge_inserts (NULL);
+      bsi_commit_edge_inserts ();
       /* Build the new upper bound and insert its statements in the
          basic block of the exit condition */
       newupperbound = lle_to_gcc_expression (LL_UPPER_BOUND (newloop),
@@ -1908,6 +1909,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 					     type,
 					     new_ivs,
 					     invariants, MIN_EXPR, &stmts);
+      exit = temp->single_exit;
       exitcond = get_loop_exit_condition (temp);
       bb = bb_for_stmt (exitcond);
       bsi = bsi_start (bb);
@@ -1928,14 +1930,13 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       
       testtype = LL_STEP (newloop) >= 0 ? LE_EXPR : GE_EXPR;
       
-      /* Since we don't know which cond_expr part currently points to each
-	 edge, check which one is invariant and make sure we reverse the
-	 comparison if we are trying to replace a <= 50 with 50 >= newiv.
-	 This ensures that we still canonicalize to <invariant> <test>
-	 <induction variable>.  */
-      if (!expr_invariant_in_loop_p (temp, TREE_OPERAND (exitcond, 0)))
+      /* We want to build a conditional where true means exit the loop, and
+	 false means continue the loop.
+	 So swap the testtype if this isn't the way things are.*/
+
+      if (exit->flags & EDGE_FALSE_VALUE)
 	testtype = swap_tree_comparison (testtype);
-	
+
       COND_EXPR_COND (exitcond) = build (testtype,
 					 boolean_type_node,
 					 newupperbound, ivvarinced);
@@ -2329,7 +2330,7 @@ perfect_nestify (struct loops *loops,
       def = VEC_pop (tree, phis);
       phiname = VEC_pop (tree, phis);      
       phi = create_phi_node (phiname, preheaderbb);
-      add_phi_arg (&phi, def, EDGE_PRED (preheaderbb, 0));
+      add_phi_arg (phi, def, EDGE_PRED (preheaderbb, 0));
     }       
   flush_pending_stmts (e);
   unmark_all_for_rewrite ();

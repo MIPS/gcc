@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "flags.h"
@@ -526,11 +525,7 @@ schedule_ebb (rtx head, rtx tail)
 
       for (note = REG_NOTES (head); note; note = XEXP (note, 1))
 	if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
-	  {
-	    remove_note (head, note);
-	    note = XEXP (note, 1);
-	    remove_note (head, note);
-	  }
+	  remove_note (head, note);
     }
 
   /* Remove remaining note insns from the block, save them in

@@ -116,6 +116,8 @@ Boston, MA 02111-1307, USA.  */
   { "-dynamic", "-Zdynamic" },  \
   { "-dynamiclib", "-Zdynamiclib" },  \
   { "-exported_symbols_list", "-Zexported_symbols_list" },  \
+  { "-gfull", "-g -fno-eliminate-unused-debug-symbols" }, \
+  { "-gused", "-g -feliminate-unused-debug-symbols" }, \
   { "-segaddr", "-Zsegaddr" }, \
   { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
   { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
@@ -316,8 +318,8 @@ extern const char *darwin_fix_and_continue_switch;
 #define REAL_LIBGCC_SPEC \
    "%{static|static-libgcc:-lgcc -lgcc_eh}\
     %{!static:%{!static-libgcc:\
-      %{!Zdynamiclib:%{!shared-libgcc:-lgcc  -lgcc_eh}\
-      %{shared-libgcc:-lgcc_s -lgcc} } %{Zdynamiclib:-lgcc_s}}}"
+      %{!Zdynamiclib:%{!shared-libgcc:-lgcc -lgcc_eh}\
+      %{shared-libgcc:-lgcc_s -lgcc}} %{Zdynamiclib:-lgcc_s -lgcc}}}"
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 
@@ -407,10 +409,6 @@ extern const char *darwin_fix_and_continue_switch;
 /* Darwin has the pthread routines in libSystem, which every program
    links to, so there's no need for weak-ness for that.  */
 #define GTHREAD_USE_WEAK 0
-
-/* We support hidden visibility */
-#undef TARGET_SUPPORTS_HIDDEN
-#define TARGET_SUPPORTS_HIDDEN 1
 
 /* The Darwin linker imposes two limitations on common symbols: they 
    can't have hidden visibility, and they can't appear in dylibs.  As
@@ -1003,6 +1001,12 @@ enum machopic_addr_class {
 	goto DONE;									\
       }
 
+/* Experimentally, putting jump tables in text is faster on SPEC.
+   Also this is needed for correctness for coalesced functions.  */
+
+#ifndef JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION 1
+#endif
 
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 

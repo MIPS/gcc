@@ -1780,7 +1780,7 @@ package body Exp_Ch4 is
    --            end loop;
    --         end if;
 
-   --         ...
+   --         . . .
 
    --         if Sn'Length /= 0 then
    --            P := Sn'First;
@@ -2914,7 +2914,7 @@ package body Exp_Ch4 is
       --         Cnn := else-expr
       --      end if;
 
-      --  and replace the conditional expression by a reference to Cnn.
+      --  and replace the conditional expression by a reference to Cnn
 
       if Present (Then_Actions (N)) or else Present (Else_Actions (N)) then
          Cnn := Make_Defining_Identifier (Loc, New_Internal_Name ('C'));
@@ -3273,9 +3273,7 @@ package body Exp_Ch4 is
       --  was necessary, but it cleans up the code to do it all the time.
 
       if Is_Access_Type (T) then
-         Rewrite (P,
-           Make_Explicit_Dereference (Sloc (N),
-             Prefix => Relocate_Node (P)));
+         Insert_Explicit_Dereference (P);
          Analyze_And_Resolve (P, Designated_Type (T));
       end if;
 
@@ -3921,7 +3919,7 @@ package body Exp_Ch4 is
                --     Obj1 : Enclosing_UU_Type;
                --     Obj2 : Enclosing_UU_Type (1);
 
-               --     . . . Obj1 = Obj2 . . .
+               --     [. . .] Obj1 = Obj2 [. . .]
 
                --     Generated code:
 
@@ -5900,22 +5898,13 @@ package body Exp_Ch4 is
                      elsif Nkind (Parent (N)) = N_Case_Statement
                        and then Etype (Node (Dcon)) /= Etype (Disc)
                      then
-                        --  RBKD is suspicious of the following code. The
-                        --  call to New_Copy instead of New_Copy_Tree is
-                        --  suspicious, and the call to Analyze instead
-                        --  of Analyze_And_Resolve is also suspicious ???
-
-                        --  Wouldn't it be good enough to do a perfectly
-                        --  normal Analyze_And_Resolve call using the
-                        --  subtype of the discriminant here???
-
                         Rewrite (N,
                           Make_Qualified_Expression (Loc,
                             Subtype_Mark =>
                               New_Occurrence_Of (Etype (Disc), Loc),
                             Expression   =>
-                              New_Copy (Node (Dcon))));
-                        Analyze (N);
+                              New_Copy_Tree (Node (Dcon))));
+                        Analyze_And_Resolve (N, Etype (Disc));
 
                         --  In case that comes out as a static expression,
                         --  reset it (a selected component is never static).
@@ -5924,13 +5913,15 @@ package body Exp_Ch4 is
                         return;
 
                      --  Otherwise we can just copy the constraint, but the
-                     --  result is certainly not static!
-
-                     --  Again the New_Copy here and the failure to even
-                     --  to an analyze call is uneasy ???
+                     --  result is certainly not static! In some cases the
+                     --  discriminant constraint has been analyzed in the
+                     --  context of the original subtype indication, but for
+                     --  itypes the constraint might not have been analyzed
+                     --  yet, and this must be done now.
 
                      else
-                        Rewrite (N, New_Copy (Node (Dcon)));
+                        Rewrite (N, New_Copy_Tree (Node (Dcon)));
+                        Analyze_And_Resolve (N);
                         Set_Is_Static_Expression (N, False);
                         return;
                      end if;
@@ -6742,7 +6733,7 @@ package body Exp_Ch4 is
 
          --     ityp (x)
 
-         --  with the Float_Truncate flag set. This is clearly more efficient.
+         --  with the Float_Truncate flag set. This is clearly more efficient
 
          if Nkind (Operand) = N_Attribute_Reference
            and then Attribute_Name (Operand) = Name_Truncation

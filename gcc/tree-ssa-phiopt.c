@@ -137,11 +137,6 @@ tree_ssa_phiopt (void)
 	      }
 	}
     }
-
-  /* If we removed any PHIs, then we have unreachable blocks and blocks
-     which need to be merged in the CFG.  */
-  if (removed_phis)
-    cleanup_tree_cfg ();
 }
 
 /* Return TRUE if block BB has no executable statements, otherwise return
@@ -455,10 +450,10 @@ value_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
      We now need to verify that the two arguments in the PHI node match
      the two arguments to the equality comparison.  */
   
-  if ((operand_equal_p (arg0, TREE_OPERAND (cond, 0), 0)
-       && operand_equal_p (arg1, TREE_OPERAND (cond, 1), 0))
-      || (operand_equal_p (arg1, TREE_OPERAND (cond, 0), 0)
-	  && operand_equal_p (arg0, TREE_OPERAND (cond, 1), 0)))
+  if ((operand_equal_for_phi_arg_p (arg0, TREE_OPERAND (cond, 0))
+       && operand_equal_for_phi_arg_p (arg1, TREE_OPERAND (cond, 1)))
+      || (operand_equal_for_phi_arg_p (arg1, TREE_OPERAND (cond, 0))
+	  && operand_equal_for_phi_arg_p (arg0, TREE_OPERAND (cond, 1))))
     {
       edge e;
       tree arg;
@@ -668,7 +663,7 @@ struct tree_opt_pass pass_phiopt =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
     | TODO_verify_ssa | TODO_rename_vars
     | TODO_verify_flow,
   0					/* letter */

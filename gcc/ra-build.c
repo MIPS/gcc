@@ -1022,13 +1022,12 @@ livethrough_conflicts_bb (basic_block bb)
   struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
   rtx insn;
   bitmap all_defs;
-  int first;
   unsigned use_id;
   unsigned int deaths = 0;
   unsigned int contains_call = 0;
 
   /* If there are no deferred uses, just return.  */
-  if ((first = bitmap_first_set_bit (info->live_throughout)) < 0)
+  if (bitmap_empty_p (info->live_throughout))
     return;
 
   /* First collect the IDs of all defs, count the number of death
@@ -1061,7 +1060,7 @@ livethrough_conflicts_bb (basic_block bb)
     {
       bitmap_iterator bi;
 
-      EXECUTE_IF_SET_IN_BITMAP (info->live_throughout, first, use_id, bi)
+      EXECUTE_IF_SET_IN_BITMAP (info->live_throughout, 0, use_id, bi)
 	{
 	  struct web_part *wp = &web_parts[df->def_id + use_id];
 	  unsigned int bl = rtx_to_bits (DF_REF_REG (wp->ref));
@@ -3126,10 +3125,7 @@ ra_build_free (void)
     {
       struct tagged_conflict *cl;
       for (cl = web_parts[i].sub_conflicts; cl; cl = cl->next)
-	{
-	  if (cl->conflicts)
-	    BITMAP_XFREE (cl->conflicts);
-	}
+	BITMAP_XFREE (cl->conflicts);
       web_parts[i].sub_conflicts = NULL;
     }
 
@@ -3155,10 +3151,7 @@ ra_build_free_all (struct df *df)
     {
       struct tagged_conflict *cl;
       for (cl = web_parts[i].sub_conflicts; cl; cl = cl->next)
-	{
-	  if (cl->conflicts)
-	    BITMAP_XFREE (cl->conflicts);
-	}
+	BITMAP_XFREE (cl->conflicts);
       web_parts[i].sub_conflicts = NULL;
     }
   sbitmap_free (live_over_abnormal);

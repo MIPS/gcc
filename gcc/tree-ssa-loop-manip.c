@@ -110,8 +110,8 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 
   stmt = create_phi_node (vb, loop->header);
   SSA_NAME_DEF_STMT (vb) = stmt;
-  add_phi_arg (&stmt, initial, loop_preheader_edge (loop));
-  add_phi_arg (&stmt, va, loop_latch_edge (loop));
+  add_phi_arg (stmt, initial, loop_preheader_edge (loop));
+  add_phi_arg (stmt, va, loop_latch_edge (loop));
 }
 
 /* Add exit phis for the USE on EXIT.  */
@@ -140,7 +140,7 @@ add_exit_phis_edge (basic_block exit, tree use)
   phi = create_phi_node (use, exit);
 
   FOR_EACH_EDGE (e, ei, exit->preds)
-    add_phi_arg (&phi, use, e);
+    add_phi_arg (phi, use, e);
 
   SSA_NAME_DEF_STMT (use) = def_stmt;
 }
@@ -274,7 +274,7 @@ find_uses_to_rename (bitmap *use_blocks)
     {
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	  find_uses_to_rename_use (PHI_ARG_EDGE (phi, i)->src,
+	  find_uses_to_rename_use (EDGE_PRED (bb, i)->src,
 				   PHI_ARG_DEF (phi, i), use_blocks);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -420,7 +420,7 @@ split_loop_exit_edge (edge exit)
       new_name = duplicate_ssa_name (name, NULL);
       new_phi = create_phi_node (new_name, bb);
       SSA_NAME_DEF_STMT (new_name) = new_phi;
-      add_phi_arg (&new_phi, name, exit);
+      add_phi_arg (new_phi, name, exit);
       SET_USE (op_p, new_name);
     }
 }
@@ -571,7 +571,7 @@ set_phi_def_stmts (basic_block bb)
     SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = phi;
 }
 
-/* The same ad cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
+/* The same as cfgloopmanip.c:duplicate_loop_to_header_edge, but also updates
    ssa.  In order to achieve this, only loops whose exits all lead to the same
    location are handled.
    
@@ -665,23 +665,21 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
 
   for (phi2 = phi_nodes (second), phi1 = phi_nodes (first); 
        phi2 && phi1; 
-       phi2 = TREE_CHAIN (phi2),  phi1 = TREE_CHAIN (phi1))
+       phi2 = PHI_CHAIN (phi2),  phi1 = PHI_CHAIN (phi1))
     {
-      int i;
-      for (i = 0; i < PHI_NUM_ARGS (phi2); i++)
+      edge e2 = find_edge (new_head, second);
+
+      if (e2)
 	{
-	  if (PHI_ARG_EDGE (phi2, i)->src == new_head)
-	    {
-	      tree def = PHI_ARG_DEF (phi2, i);
-	      add_phi_arg (&phi1, def, e);
-	    }
+	  tree def = PHI_ARG_DEF (phi2, e2->dest_idx);
+	  add_phi_arg (phi1, def, e);
 	}
     }
 }
 
 /* Adjust entry edge for lv.
    
-  e is a incoming edge. 
+  e is an incoming edge. 
 
   --- edge e ---- > [second_head]
 

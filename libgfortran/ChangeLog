@@ -1,3 +1,211 @@
+2004-12-12  Richard Henderson  <rth@redhat.com>
+
+	* intrinsics/cshift0.c, intrinsics/eoshift0.c, intrinsics/eoshift2.c,
+	intrinsics/pack_generic.c, intrinsics/reshape_generic.c,
+	intrinsics/spread_generic.c, intrinsics/transpose_generic.c,
+	intrinsics/unpack_generic.c, m4/cshift1.m4, m4/dotprod.m4,
+	m4/dotprodc.m4, m4/dotprodl.m4, m4/eoshift1.m4, m4/eoshift3.m4,
+	m4/iforeach.m4, m4/ifunction.m4, m4/matmul.m4, m4/matmull.m4,
+	m4/reshape.m4, m4/shape.m4, m4/transpose.m4: Use standard prefix
+	instead of "__".
+	* generated/*: Rebuild.
+
+2004-12-12  Richard Henderson  <rth@redhat.com>
+
+	* acinclude.m4 (LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY): New.
+	(LIBGFOR_CHECK_ATTRIBUTE_DLLEXPORT): New.
+	(LIBGFOR_CHECK_ATTRIBUTE_ALIAS): New.
+	* configure.ac: Use them.
+	* configure, config.h.in, aclocal.m4: Rebuild.
+	* libgfortran.h (prefix): Remove.
+	(PREFIX, IPREFIX): New.
+	(sym_rename, sym_rename1, sym_rename2): New.
+	(internal_proto, export_proto, export_proto_np): New.
+	(iexport_proto, iexport): New.
+	(iexport_data_proto, iexport_data): New.
+	* intrinsics/abort.c, intrinsics/args.c, intrinsics/associated.c,
+	intrinsics/cpu_time.c, intrinsics/cshift0.c,
+	intrinsics/date_and_time.c, intrinsics/env.c, intrinsics/eoshift0.c,
+	intrinsics/eoshift2.c, intrinsics/etime.c, intrinsics/exit.c,
+	intrinsics/flush.c, intrinsics/fnum.c, intrinsics/getXid.c,
+	intrinsics/getcwd.c, intrinsics/ishftc.c, intrinsics/mvbits.c,
+	intrinsics/pack_generic.c, intrinsics/rand.c, intrinsics/random.c,
+	intrinsics/reshape_generic.c, intrinsics/size.c,
+	intrinsics/spread_generic.c, intrinsics/stat.c,
+	intrinsics/string_intrinsics.c, intrinsics/system.c,
+	intrinsics/system_clock.c, intrinsics/transpose_generic.c,
+	intrinsics/umask.c, intrinsics/unlink.c, intrinsics/unpack_generic.c,
+	io/backspace.c, io/close.c, io/endfile.c, io/inquire.c, io/io.h,
+	io/open.c, io/rewind.c, io/transfer.c, libgfortran.h, m4/cshift1.m4,
+	m4/dotprod.m4, m4/dotprodc.m4, m4/dotprodl.m4, m4/eoshift1.m4,
+	m4/eoshift3.m4, m4/exponent.m4, m4/fraction.m4, m4/iforeach.m4,
+	m4/ifunction.m4, m4/matmul.m4, m4/matmull.m4, m4/nearest.m4,
+	m4/pow.m4, m4/reshape.m4, m4/set_exponent.m4, m4/shape.m4,
+	m4/transpose.m4, runtime/environ.c, runtime/error.c,
+	runtime/in_pack_generic.c, runtime/in_unpack_generic.c,
+	runtime/main.c, runtime/memory.c, runtime/pause.c, runtime/select.c,
+	runtime/stop.c: Use them to mark symbols internal or external.
+	* generated/*: Rebuild.
+
+2004-12-09  David Edelsohn  <edelsohn@gnu.org>
+
+	PR bootstrap/18895
+	Revert 2004-12-07 change.
+	* Makefile.am (AM_MAKEFLAGS): Delete.
+	* Makefile.in: Regenerate.
+
+2004-12-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* libgfortran/Makefile.am (AM_MAKEFLAGS): New.
+	* libgfortran/Makefile.in: Regenerate
+
+2004-12-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* io/io.h (open_external): Change prototype.
+	* io/unix.c (regular_file): Change prototype and set flags->action if
+	needed.
+	(open_external): Ditto.
+	* io/open.c (new_unit): Let open_external set flags->action.
+
+2004-12-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* configure.ac: Check for ieeefp.h.  Check for fabsf in libm.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+	* c99_protos.h: New file.
+	* libgfortran.h: Include c99_protos.h and conditionally ieeefp.h.
+	* intrinsics/c99_functions.c (fabsf): New function.
+
+2004-12-06  Richard Henderson  <rth@redhat.com>
+
+	* intrinsics/cshift0.c, intrinsics/eoshift0.c, intrinsics/eoshift2.c,
+	intrinsics/pack_generic.c, intrinsics/string_intrinsics.c,
+	intrinsics/transpose_generic.c, m4/ifunction.m4, m4/matmul.m4,
+	m4/matmull.m4, m4/transpose.m4: Use internal_malloc_size instead
+	of internal_malloc.
+	* generated/*: Rebuild.
+
+2004-12-06  Richard Henderson  <rth@redhat.com>
+
+	* intrinsics/c99_functions.c, intrinsics/eoshift0.c,
+	intrinsics/eoshift2.c, intrinsics/exit.c, intrinsics/flush.c,
+	intrinsics/ishftc.c, intrinsics/mvbits.c, intrinsics/pack_generic.c,
+	intrinsics/random.c, intrinsics/reshape_generic.c, intrinsics/size.c,
+	intrinsics/spread_generic.c, intrinsics/stat.c,
+	intrinsics/string_intrinsics.c, intrinsics/system_clock.c,
+	intrinsics/transpose_generic.c, intrinsics/unlink.c,
+	intrinsics/unpack_generic.c, io/backspace.c, io/format.c,
+	io/list_read.c, io/lock.c, io/open.c, io/transfer.c, io/unix.c,
+	io/write.c, runtime/environ.c, runtime/error.c,
+	runtime/in_pack_generic.c, runtime/in_unpack_generic.c, runtime/main.c,
+	runtime/memory.c, runtime/pause.c, runtime/stop.c,
+	runtime/string.c: Whitespace fixes.
+
+2004-12-06  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.am: Generate all m4 output under $(srcdir).
+	* Makefile.in: Regenerate.
+
+2004-12-02  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18710
+	* io/transfer.c (unformatted_read, unformatted_write): width of
+	a COMPLEX is twice its kind.
+
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.ac: Use TL_AC_GCC_VERSION to set gcc_version.
+	* configure, aclocal.m4, Makefile.in: Regenerate.
+
+2004-12-02  Bud Davis  <bdavis9659@comcast.net>
+
+	PR libfortran/18284
+	* io/unix.c (fd_alloc_w_at): Update file_length when extending.
+	* io/backspace.c (formatted_backspace): Reset endfile after backspace.
+
+2004-12-02  Bud Davis  <bdavis9659@comcast.net>
+
+	* io/inquire.c (inquire_via_unit): do not allow a direct access
+	file to be opened for sequential I/O.
+
+2004-12-02  Steven G. Kargl  <kargls@comcast.net>
+	Paul Brook  <paul@codesourcery.com>
+
+	* intrinsics/flush.c: New file.
+	* intrinsics/fnum.c: ditto
+	* intrinsics/stat.c: ditto
+	* io/io.h (unit_to_fd): Add prototype.
+	* io/unix.c (unit_to_fd): New function.
+	* configure.ac: Add test for members of struct stat.  Check for
+	sys/types.h and sys/stat.h
+	* Makefile.am: Add intrinsics/{flush.c,fnum.c,stat.c}
+	* configure.in: Regenerate.
+	* config.h.in: Regenerate.
+	* Makefile.in: Regenerate.
+
+2004-12-01  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* Makefile.am (AM_CPPFLAGS): Use -iquote instead of -I.
+
+2004-11-28  Bud Davis  <bdavis9659@comcast.net>
+
+	* io/unix.c (mmap_alloc_w_a): check for a write to a location
+	less than the mapped area.
+
+2004-11-27  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/18364
+	*  io/endfile.c (st_endfile): flush the stream before truncating.
+
+2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure: Regenerate for libtool change.
+
+2004-11-22  Steven Bosscher  <stevenb@suse.de>
+
+	PR libfortran/15960
+	* configure.ac: Check for finite in libm.
+	* libgfortran.h: Define isfinite macro if not defined.
+	* intrinsics/c99_functions.c: Use defined(fpclassify) instead of
+	HAVE_FPCLASSIFY.
+	* io/write.c (write_float): Use isfinite instead of finite.
+	* configure, config.h.in: Rebuilt.
+
+2004-11-20  Roger Sayle  <roger@eyesopen.com>
+
+	* io/write.c (write_float, list_formatted_write): Fix indentation.
+
+2004-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/16135
+	* acinclude.m4 (LIBGFOR_TARGET_ILP32): New check.
+	* configure.ac: Include LIBGFOR_TARGET_ILP32.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+	* libgfortran.h: Provide default definitions for C99 types
+	on ILP32 targets that don't have them.
+
+	PR target/17999
+	* configure.ac: Check for snprintf.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+	* intrinsics/date_and_time.c (date_and_time): Do not
+	use snprinf if it is not available.
+	* io/write.c (output_float): Likewise.
+
+2004-11-20  Steven G. Kargl  <kargls@comcast.net>
+
+	* Makefile.am: Add intrinsics/{umask.c,unlink.c,exit.c}
+	* Makefile.in: Regenerated
+	* intrinsics/umask.c: New file
+	* intrinsics/unlink.c: ditto
+	* intrinsics/exit.c: ditto
+
+2004-11-18  Victor Leikehman  <lei@il.ibm.com>
+
+	* m4/matmul.m4: Loops reordered to improve cache behavior.
+	* generated/matmul_??.c: Regenerated.
+	
 2004-11-10  Paul Brook  <paul@codesourcery.com>
 
 	PR fortran/18218
@@ -268,7 +476,7 @@
 
 	PR fortran/17143	
 	* runtime/error.c (itoa): keep from overflowing during
-        mod operation by using unsigned variable.
+	mod operation by using unsigned variable.
 
 2004-08-24  Bud Davis  <bdavis9659@comcast.net>
 
@@ -540,9 +748,9 @@
 
 	PR gfortran/14897
 	* io/transfer.c (formatted_transfer): position is unique
-         for T and TL edit descriptors.
+	 for T and TL edit descriptors.
 	(data_transfer_init): set record length to size of internal
-         file.
+	 file.
 
 2004-06-09  Bud Davis  <bdavis9659@comcast.net>
 
@@ -738,7 +946,7 @@
 
 	PR fortran/14906
 	* io/format.c (format_item): gracefully handle a ')'
-        when it is the first character encountered in the string.
+	when it is the first character encountered in the string.
 
 2004-04-11  Bud Davis  <bdavis9659@comcast.net>
 
@@ -804,7 +1012,7 @@
 	PR 13919
 	* io/io.h (global_t):
 	* io/list_read.c (next_char,list_formatted_read,ist_formatted_read):
-          Move eof_jmp to a global structure.
+	  Move eof_jmp to a global structure.
 	* io/transfer.c(finalize_transfer) : Set up eof_jump for callers.
 
 2004-03-24  Bud Davis  <bdavis9659@comcast.net>
@@ -1228,14 +1436,14 @@
 
 2003-04-11  Xiaoqiang Zhang <zhangapache@yahoo.com>
 
-        * io/write.c (extract_real): Ouput floating point value.
-        (write_float): New Function.
-        (write_e, write_f, write_en, write_es): Modified
-        * io/transfer.c (formatted_transfer): Modified.
-        * libgfor.h (default_rtoa): Declaration.
-        (rtoa): Declaration.
-        * runtime/error.c (default_rtoa): New Function.
-        (rtoa): New Function.
+	* io/write.c (extract_real): Ouput floating point value.
+	(write_float): New Function.
+	(write_e, write_f, write_en, write_es): Modified
+	* io/transfer.c (formatted_transfer): Modified.
+	* libgfor.h (default_rtoa): Declaration.
+	(rtoa): Declaration.
+	* runtime/error.c (default_rtoa): New Function.
+	(rtoa): New Function.
 
 2003-04-05  Paul Brook  <paul@nowt.org>
 

@@ -1,3 +1,63 @@
+2004-12-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.ac: Use TL_AC_GCC_VERSION to set gcc_version.
+	* aclocal.m4: Include ../config/gcc-version.m4.
+	* configure: Regenerate.
+
+2004-11-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* inclhack.def (gnu_types): Do not use on Solaris 2.1x.
+	(stdio_va_list): Likewise.
+	(stdio_stdarg.h): Likewise.
+	(solaris_stdio_tag): Add bypass.
+	* fixincl.x: Regenerated.
+
+2004-11-23  Geoffrey Keating  <geoffk@apple.com>
+
+	* mkfixinc.sh: Check error code from 'cat'.  Don't try running
+	built fixincl program.
+	* mkheaders.in: Use @SHELL@ rather than ${SHELL} to avoid picking
+	up csh from user.
+
+2004-11-20  Roger Sayle  <roger@eyesopen.com>
+
+	* inclhack.def (alpha_pthread_init): Fix technical problems with
+	the last check-in caused by CVS variable substitution.
+	* fixincl.x: Likewise.
+	* tests/base/pthread.h: Likewise.
+
+2004-11-20  Roger Sayle  <roger@eyesopen.com>
+	    Bruce Korb  <bkorb@gnu.org>
+
+	* inclhack.def (alpha_pthread_init): New fix.
+	* fixincl.x: Regenerate.
+	* tests/base/pthread.h: Update for new test.
+
+2004-11-15  Bruce Korb  <bkorb@gnu.org>
+
+	* fixincl.c(fix_with_system): correct misuse of variables and
+	incorrect application of "sizeof()".
+
+2004-11-13  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* inclhack.def (hpux_maxint, limits_ifndefs, math_huge_val_ifndef,
+	svr4__p, undefine_null): Remove.
+	* fixincl.x: Regenerate.
+	* tests/base/AvailabilityMacros.h, tests/base/com_err.h: New.
+	* tests/base/sys/param.h: Remove.
+	* tests/base/curses.h, tests/base/math.h, tests/base/testing.h,
+	tests/base/sys/limits.h: Update.
+
+2004-11-12  Mike Stump  <mrs@apple.com>
+
+	* Makefile.in (html): Add html generation support.
+
+2004-11-12  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* inclhack.def (sco_math): Bypass on __GNUG__.
+	(sysz_stdlib_for_sun): Bypass on _CLASSIC_ANSI_TYPES.
+	* fixincl.x: Regenerate.
+
 2004-11-09  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* inclhack.def (hpux8_bogus_inlines): Bypass on __GNUG__.

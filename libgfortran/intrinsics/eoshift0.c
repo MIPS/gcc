@@ -32,8 +32,8 @@ static const char zeros[16] =
    sizeof(int) < sizeof (index_type).  */
 
 static void
-__eoshift0 (gfc_array_char * ret, const gfc_array_char * array,
-    int shift, const char * pbound, int which)
+eoshift0 (gfc_array_char * ret, const gfc_array_char * array,
+	  int shift, const char * pbound, int which)
 {
   /* r.* indicates the return array.  */
   index_type rstride[GFC_MAX_DIMENSIONS - 1];
@@ -64,7 +64,7 @@ __eoshift0 (gfc_array_char * ret, const gfc_array_char * array,
     {
       int i;
 
-      ret->data = internal_malloc (size * size0 ((array_t *)array));
+      ret->data = internal_malloc_size (size * size0 ((array_t *)array));
       ret->base = 0;
       ret->dtype = array->dtype;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
@@ -187,21 +187,28 @@ __eoshift0 (gfc_array_char * ret, const gfc_array_char * array,
     }
 }
 
+extern void eoshift0_4 (gfc_array_char *, const gfc_array_char *,
+			const GFC_INTEGER_4 *, const char *,
+			const GFC_INTEGER_4 *);
+export_proto(eoshift0_4);
 
 void
-__eoshift0_4 (gfc_array_char * ret, const gfc_array_char * array,
-    const GFC_INTEGER_4 * pshift, const char * pbound,
-    const GFC_INTEGER_4 * pdim)
+eoshift0_4 (gfc_array_char *ret, const gfc_array_char *array,
+	    const GFC_INTEGER_4 *pshift, const char *pbound,
+	    const GFC_INTEGER_4 *pdim)
 {
-  __eoshift0 (ret, array, *pshift, pbound, pdim ? *pdim : 1);
+  eoshift0 (ret, array, *pshift, pbound, pdim ? *pdim : 1);
 }
 
+extern void eoshift0_8 (gfc_array_char *, const gfc_array_char *,
+			const GFC_INTEGER_8 *, const char *,
+			const GFC_INTEGER_8 *);
+export_proto(eoshift0_8);
 
 void
-__eoshift0_8 (gfc_array_char * ret, const gfc_array_char * array,
-    const GFC_INTEGER_8 * pshift, const char * pbound,
-    const GFC_INTEGER_8 * pdim)
+eoshift0_8 (gfc_array_char *ret, const gfc_array_char *array,
+	    const GFC_INTEGER_8 *pshift, const char *pbound,
+	    const GFC_INTEGER_8 *pdim)
 {
-  __eoshift0 (ret, array, *pshift, pbound, pdim ? *pdim : 1);
+  eoshift0 (ret, array, *pshift, pbound, pdim ? *pdim : 1);
 }
-

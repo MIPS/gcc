@@ -579,16 +579,18 @@ substitute_and_fold (void)
 	    {
 	      bool changed = fold_stmt (bsi_stmt_ptr (i));
 	      stmt = bsi_stmt(i);
+
 	      /* If we folded a builtin function, we'll likely
 		 need to rename VDEFs.  */
 	      if (replaced_address || changed)
-		{
-		  mark_new_vars_to_rename (stmt, vars_to_rename);
-		  if (maybe_clean_eh_stmt (stmt))
-		    tree_purge_dead_eh_edges (bb);
-		}
-	      else
-		modify_stmt (stmt);
+		mark_new_vars_to_rename (stmt, vars_to_rename);
+
+              /* If we cleaned up EH information from the statement,
+                 remove EH edges.  */
+	      if (maybe_clean_eh_stmt (stmt))
+		tree_purge_dead_eh_edges (bb);
+
+	      modify_stmt (stmt);
 	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -628,9 +630,6 @@ ccp_finalize (void)
 {
   /* Perform substitutions based on the known constant values.  */
   substitute_and_fold ();
-
-  /* Now cleanup any unreachable code.  */
-  cleanup_tree_cfg ();
 
   free (value_vector);
 }
@@ -850,9 +849,7 @@ ccp_fold (tree stmt)
 	    op0 = get_value (op0)->const_val;
 	}
 
-      retval = nondestructive_fold_unary_to_constant (code,
-		     				      TREE_TYPE (rhs),
-						      op0);
+      retval = fold_unary_to_constant (code, TREE_TYPE (rhs), op0);
 
       /* If we folded, but did not create an invariant, then we can not
 	 use this expression.  */
@@ -903,9 +900,7 @@ ccp_fold (tree stmt)
 	    op1 = val->const_val;
 	}
 
-      retval = nondestructive_fold_binary_to_constant (code,
-		     				       TREE_TYPE (rhs),
-						       op0, op1);
+      retval = fold_binary_to_constant (code, TREE_TYPE (rhs), op0, op1);
 
       /* If we folded, but did not create an invariant, then we can not
 	 use this expression.  */
@@ -1060,21 +1055,35 @@ visit_assignment (tree stmt, tree *output_p)
       val = *nval;
     }
   else
-    {
-      /* Evaluate the statement.  */
+    /* Evaluate the statement.  */
       val = evaluate_stmt (stmt);
-    }
 
-  /* FIXME: Hack.  If this was a definition of a bitfield, we need to widen
+  /* If the original LHS was a VIEW_CONVERT_EXPR, modify the constant
+     value to be a VIEW_CONVERT_EXPR of the old constant value.  This is
+     valid because a VIEW_CONVERT_EXPR is valid everywhere an operand of
+     aggregate type is valid.
+
+     ??? Also, if this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
   {
-    tree lhs = TREE_OPERAND (stmt, 0);
-    if (val.lattice_val == CONSTANT
-	&& TREE_CODE (lhs) == COMPONENT_REF
-	&& DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
+    tree orig_lhs = TREE_OPERAND (stmt, 0);
+
+    if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
+	&& val.lattice_val == CONSTANT)
       {
-	tree w = widen_bitfield (val.const_val, TREE_OPERAND (lhs, 1), lhs);
+	val.const_val = build1 (VIEW_CONVERT_EXPR,
+				TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
+				val.const_val);
+	orig_lhs = TREE_OPERAND (orig_lhs, 1);
+      }
+
+    if (val.lattice_val == CONSTANT
+	&& TREE_CODE (orig_lhs) == COMPONENT_REF
+	&& DECL_BIT_FIELD (TREE_OPERAND (orig_lhs, 1)))
+      {
+	tree w = widen_bitfield (val.const_val, TREE_OPERAND (orig_lhs, 1),
+				 orig_lhs);
 
 	if (w && is_gimple_min_invariant (w))
 	  val.const_val = w;
@@ -1229,7 +1238,7 @@ struct tree_opt_pass pass_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_rename_vars
+  TODO_cleanup_cfg | TODO_dump_func | TODO_rename_vars
     | TODO_ggc_collect | TODO_verify_ssa
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */

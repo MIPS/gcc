@@ -37,8 +37,14 @@ typedef bitmap_head regset_head;
 /* A pointer to a regset_head.  */
 typedef bitmap regset;
 
+/* Allocate a register set with oballoc.  */
+#define ALLOC_REG_SET(OBSTACK) BITMAP_ALLOC (OBSTACK)
+
+/* Do any cleanup needed on a regset when it is no longer used.  */
+#define FREE_REG_SET(REGSET) BITMAP_FREE (REGSET)
+
 /* Initialize a new regset.  */
-#define INIT_REG_SET(HEAD) bitmap_initialize (HEAD, 1)
+#define INIT_REG_SET(HEAD) bitmap_initialize (HEAD, &reg_obstack)
 
 /* Clear a register set by freeing up the linked list.  */
 #define CLEAR_REG_SET(HEAD) bitmap_clear (HEAD)
@@ -101,29 +107,6 @@ typedef bitmap_iterator reg_set_iterator;
 #define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, RSI) \
   EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, RSI)	\
 
-/* Allocate a register set with oballoc.  */
-#define OBSTACK_ALLOC_REG_SET(OBSTACK) BITMAP_OBSTACK_ALLOC (OBSTACK)
-
-/* Initialize a register set.  Returns the new register set.  */
-#define INITIALIZE_REG_SET(HEAD) bitmap_initialize (&HEAD, 1)
-
-/* Do any cleanup needed on a regset when it is no longer used.  */
-#define FREE_REG_SET(REGSET) BITMAP_FREE(REGSET)
-
-/* Allocate a register set with xmalloc.  */
-#define XMALLOC_REG_SET() BITMAP_XMALLOC ()
-
-/* Free a register set.  */
-#define XFREE_REG_SET(REGSET) BITMAP_XFREE (REGSET)
-
-/* Do any one-time initializations needed for regsets.  */
-#define INIT_ONCE_REG_SET() BITMAP_INIT_ONCE ()
-
-/* Grow any tables needed when the number of registers is calculated
-   or extended.  For the linked list allocation, nothing needs to
-   be done, other than zero the statistics on the first allocation.  */
-#define MAX_REGNO_REG_SET(NUM_REGS, NEW_P, RENUMBER_P)
-
 /* Type we use to hold basic block counters.  Should be at least
    64bit.  Although a counter cannot be negative, we use a signed
    type, because erroneous negative counts can be generated when the
@@ -154,6 +137,10 @@ struct edge_def GTY(())
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
 				   in profile.c  */
+
+  /* The index number corresponding to this edge in the edge vector
+     dest->preds.  */
+  unsigned int dest_idx;
 };
 
 typedef struct edge_def *edge;
@@ -384,7 +371,7 @@ extern regset regs_live_at_setjmp;
 
 extern GTY(()) rtx label_value_list;
 
-extern struct obstack flow_obstack;
+extern bitmap_obstack reg_obstack;
 
 /* Indexed by n, gives number of basic block that  (REG n) is used in.
    If the value is REG_BLOCK_GLOBAL (-2),
@@ -452,7 +439,6 @@ extern void compute_dominance_frontiers (bitmap *);
 extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
-extern void mark_critical_edges (void);
 extern rtx first_insn_after_basic_block_note (basic_block);
 
 /* Structure to group all of the information to process IF-THEN and
@@ -629,7 +615,7 @@ ei_safe_edge (edge_iterator i)
    FOR (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
      {
 	IF (e != taken_edge)
-	  ssa_remove_edge (e);
+	  remove_edge (e);
 	ELSE
 	  ei_next (&ei);
      }
@@ -715,10 +701,6 @@ extern struct edge_list *pre_edge_rev_lcm (FILE *, int, sbitmap *,
 					   sbitmap **);
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 extern int optimize_mode_switching (FILE *);
-
-/* In emit-rtl.c.  */
-extern rtx emit_block_insn_after (rtx, rtx, basic_block);
-extern rtx emit_block_insn_before (rtx, rtx, basic_block);
 
 /* In predict.c */
 extern void estimate_probability (struct loops *);

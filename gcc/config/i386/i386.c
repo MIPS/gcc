@@ -578,7 +578,7 @@ const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPR
 /* Some CPU cores are not able to predict more than 4 branch instructions in
    the 16 byte window.  */
 const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K8 | m_PENT;
+const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K6 | m_PENT;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -924,9 +924,9 @@ static bool ix86_must_pass_in_stack (enum machine_mode mode, tree type);
 static bool ix86_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
 
-#if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
-static void ix86_svr3_asm_out_constructor (rtx, int);
-#endif
+/* This function is only used on Solaris.  */
+static void i386_solaris_elf_named_section (const char *, unsigned int, tree)
+  ATTRIBUTE_UNUSED;
 
 /* Register class used for passing given 64bit part of the argument.
    These represent classes as documented by the PS ABI, with the exception
@@ -1203,6 +1203,10 @@ override_options (void)
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
+#ifdef SUBTARGET_OVERRIDE_OPTIONS
+  SUBTARGET_OVERRIDE_OPTIONS;
+#endif
+
   /* Set the default values for switches whose default depends on TARGET_64BIT
      in case they weren't overwritten by command line options.  */
   if (TARGET_64BIT)
@@ -1223,10 +1227,6 @@ override_options (void)
       if (flag_pcc_struct_return == 2)
 	flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
     }
-
-#ifdef SUBTARGET_OVERRIDE_OPTIONS
-  SUBTARGET_OVERRIDE_OPTIONS;
-#endif
 
   if (!ix86_tune_string && ix86_arch_string)
     ix86_tune_string = ix86_arch_string;
@@ -1306,6 +1306,19 @@ override_options (void)
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
 	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
+	  error ("CPU you selected does not support x86-64 "
+		 "instruction set");
+	break;
+      }
+
+  if (i == pta_size)
+    error ("bad value (%s) for -march= switch", ix86_arch_string);
+
+  for (i = 0; i < pta_size; i++)
+    if (! strcmp (ix86_tune_string, processor_alias_table[i].name))
+      {
+	ix86_tune = processor_alias_table[i].processor;
+	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
 	  {
 	    if (ix86_tune_defaulted)
 	      {
@@ -1320,19 +1333,6 @@ override_options (void)
 	      error ("CPU you selected does not support x86-64 "
 		     "instruction set");
 	  }
-	break;
-      }
-
-  if (i == pta_size)
-    error ("bad value (%s) for -march= switch", ix86_arch_string);
-
-  for (i = 0; i < pta_size; i++)
-    if (! strcmp (ix86_tune_string, processor_alias_table[i].name))
-      {
-	ix86_tune = processor_alias_table[i].processor;
-	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
-	  error ("CPU you selected does not support x86-64 instruction set");
-
         /* Intel CPUs have always interpreted SSE prefetch instructions as
 	   NOPs; so, we can enable SSE prefetch instructions even when
 	   -mtune (rather than -march) points us to a processor that has them.
@@ -1466,7 +1466,9 @@ override_options (void)
     }
 
   /* Keep nonleaf frame pointers.  */
-  if (TARGET_OMIT_LEAF_FRAME_POINTER)
+  if (flag_omit_frame_pointer)
+    target_flags &= ~MASK_OMIT_LEAF_FRAME_POINTER;
+  else if (TARGET_OMIT_LEAF_FRAME_POINTER)
     flag_omit_frame_pointer = 1;
 
   /* If we're doing fast math, we don't care about comparison order
@@ -1478,6 +1480,11 @@ override_options (void)
      since the insns won't need emulation.  */
   if (x86_arch_always_fancy_math_387 & (1 << ix86_arch))
     target_flags &= ~MASK_NO_FANCY_MATH_387;
+
+  /* Likewise, if the target doesn't have a 387, or we've specified
+     software floating point, don't use 387 inline instrinsics.  */
+  if (!TARGET_80387)
+    target_flags |= MASK_NO_FANCY_MATH_387;
 
   /* Turn on SSE2 builtins for -msse3.  */
   if (TARGET_SSE3)
@@ -1540,6 +1547,10 @@ override_options (void)
 	error ("bad value (%s) for -mfpmath= switch", ix86_fpmath_string);
     }
 
+  /* If fpmath doesn't include 387, disable use of x87 intrinsics.  */
+  if (! (ix86_fpmath & FPMATH_387))
+    target_flags |= MASK_NO_FANCY_MATH_387;
+
   /* It makes no sense to ask for just SSE builtins, so MMX is also turned
      on by -msse.  */
   if (TARGET_SSE)
@@ -1594,6 +1605,9 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
     flag_omit_frame_pointer = 2;
   flag_pcc_struct_return = 2;
   flag_asynchronous_unwind_tables = 2;
+#ifdef SUBTARGET_OPTIMIZATION_OPTIONS
+  SUBTARGET_OPTIMIZATION_OPTIONS;
+#endif
 }
 
 /* Table of valid machine attributes.  */
@@ -2117,10 +2131,10 @@ classify_argument (enum machine_mode mode, tree type,
 	  if (TYPE_BINFO (type))
 	    {
 	      tree binfo, base_binfo;
-	      int i;
+	      int basenum;
 
-	      for (binfo = TYPE_BINFO (type), i = 0;
-		   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	      for (binfo = TYPE_BINFO (type), basenum = 0;
+		   BINFO_BASE_ITERATE (binfo, basenum, base_binfo); basenum++)
 		{
 		   int num;
 		   int offset = tree_low_cst (BINFO_OFFSET (base_binfo), 0) * 8;
@@ -2204,10 +2218,10 @@ classify_argument (enum machine_mode mode, tree type,
 	  if (TYPE_BINFO (type))
 	    {
 	      tree binfo, base_binfo;
-	      int i;
+	      int basenum;
 
-	      for (binfo = TYPE_BINFO (type), i = 0;
-		   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	      for (binfo = TYPE_BINFO (type), basenum = 0;
+		   BINFO_BASE_ITERATE (binfo, basenum, base_binfo); basenum++)
 		{
 		   int num;
 		   int offset = tree_low_cst (BINFO_OFFSET (base_binfo), 0) * 8;
@@ -2239,31 +2253,6 @@ classify_argument (enum machine_mode mode, tree type,
 		  for (i = 0; i < num; i++)
 		    classes[i] = merge_classes (subclasses[i], classes[i]);
 		}
-	    }
-	}
-      else if (TREE_CODE (type) == SET_TYPE)
-	{
-	  if (bytes <= 4)
-	    {
-	      classes[0] = X86_64_INTEGERSI_CLASS;
-	      return 1;
-	    }
-	  else if (bytes <= 8)
-	    {
-	      classes[0] = X86_64_INTEGER_CLASS;
-	      return 1;
-	    }
-	  else if (bytes <= 12)
-	    {
-	      classes[0] = X86_64_INTEGER_CLASS;
-	      classes[1] = X86_64_INTEGERSI_CLASS;
-	      return 2;
-	    }
-	  else
-	    {
-	      classes[0] = X86_64_INTEGER_CLASS;
-	      classes[1] = X86_64_INTEGER_CLASS;
-	      return 2;
 	    }
 	}
       else
@@ -3379,6 +3368,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	  sse_addr = create_tmp_var (ptr_type_node, "sse_addr");
 	  DECL_POINTER_ALIAS_SET (sse_addr) = get_varargs_alias_set ();
 	}
+
       /* First ensure that we fit completely in registers.  */
       if (needed_intregs)
 	{
@@ -3404,14 +3394,16 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (needed_intregs)
 	{
 	  /* int_addr = gpr + sav; */
-	  t = build2 (PLUS_EXPR, ptr_type_node, sav, gpr);
+	  t = fold_convert (ptr_type_node, gpr);
+	  t = build2 (PLUS_EXPR, ptr_type_node, sav, t);
 	  t = build2 (MODIFY_EXPR, void_type_node, int_addr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  /* sse_addr = fpr + sav; */
-	  t = build2 (PLUS_EXPR, ptr_type_node, sav, fpr);
+	  t = fold_convert (ptr_type_node, fpr);
+	  t = build2 (PLUS_EXPR, ptr_type_node, sav, t);
 	  t = build2 (MODIFY_EXPR, void_type_node, sse_addr, t);
 	  gimplify_and_add (t, pre_p);
 	}
@@ -3464,14 +3456,14 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       if (needed_intregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (gpr), gpr,
-		      build_int_cst (NULL_TREE, needed_intregs * 8));
+		      build_int_cst (TREE_TYPE (gpr), needed_intregs * 8));
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (fpr), fpr,
-		      build_int_cst (NULL_TREE, needed_sseregs * 16));
+		      build_int_cst (TREE_TYPE (fpr), needed_sseregs * 16));
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr, t);
 	  gimplify_and_add (t, pre_p);
 	}
@@ -3492,9 +3484,9 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     {
       HOST_WIDE_INT align = FUNCTION_ARG_BOUNDARY (VOIDmode, type) / 8;
       t = build (PLUS_EXPR, TREE_TYPE (ovf), ovf,
-		 build_int_cst (NULL_TREE, align - 1));
+		 build_int_cst (TREE_TYPE (ovf), align - 1));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
-		 build_int_cst (NULL_TREE, -align));
+		 build_int_cst (TREE_TYPE (t), -align));
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
@@ -3502,7 +3494,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   gimplify_and_add (t2, pre_p);
 
   t = build2 (PLUS_EXPR, TREE_TYPE (t), t,
-	      build_int_cst (NULL_TREE, rsize * UNITS_PER_WORD));
+	      build_int_cst (TREE_TYPE (t), rsize * UNITS_PER_WORD));
   t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
@@ -3701,23 +3693,12 @@ symbolic_reference_mentioned_p (rtx op)
    body of a function.  Do this only if the epilogue is simple, needing a
    couple of insns.  Prior to reloading, we can't tell how many registers
    must be saved, so return 0 then.  Return 0 if there is no frame
-   marker to de-allocate.
-
-   If NON_SAVING_SETJMP is defined and true, then it is not possible
-   for the epilogue to be simple, so return 0.  This is a special case
-   since NON_SAVING_SETJMP will not cause regs_ever_live to change
-   until final, but jump_optimize may need to know sooner if a
-   `return' is OK.  */
+   marker to de-allocate.  */
 
 int
 ix86_can_use_return_insn_p (void)
 {
   struct ix86_frame frame;
-
-#ifdef NON_SAVING_SETJMP
-  if (NON_SAVING_SETJMP && current_function_calls_setjmp)
-    return 0;
-#endif
 
   if (! reload_completed || frame_pointer_needed)
     return 0;
@@ -5914,26 +5895,6 @@ output_pic_addr_const (FILE *file, rtx x, int code)
     }
 }
 
-/* This is called from dwarfout.c via ASM_OUTPUT_DWARF_ADDR_CONST.
-   We need to handle our special PIC relocations.  */
-
-void
-i386_dwarf_output_addr_const (FILE *file, rtx x)
-{
-#ifdef ASM_QUAD
-  fprintf (file, "%s", TARGET_64BIT ? ASM_QUAD : ASM_LONG);
-#else
-  if (TARGET_64BIT)
-    abort ();
-  fprintf (file, "%s", ASM_LONG);
-#endif
-  if (flag_pic)
-    output_pic_addr_const (file, x, '\0');
-  else
-    output_addr_const (file, x);
-  fputc ('\n', file);
-}
-
 /* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
@@ -6918,7 +6879,7 @@ output_387_binary_op (rtx insn, rtx *operands)
   static char buf[30];
   const char *p;
   const char *ssep;
-  int is_sse = SSE_REG_P (operands[0]) | SSE_REG_P (operands[1]) | SSE_REG_P (operands[2]);
+  int is_sse = SSE_REG_P (operands[0]) || SSE_REG_P (operands[1]) || SSE_REG_P (operands[2]);
 
 #ifdef ENABLE_CHECKING
   /* Even if we do not want to check the inputs, this documents input
@@ -7225,25 +7186,24 @@ output_fix_trunc (rtx insn, rtx *operands)
 }
 
 /* Output code for INSN to compare OPERANDS.  EFLAGS_P is 1 when fcomi
-   should be used and 2 when fnstsw should be used.  UNORDERED_P is true
-   when fucom should be used.  */
+   should be used.  UNORDERED_P is true when fucom should be used.  */
 
 const char *
 output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 {
   int stack_top_dies;
   rtx cmp_op0, cmp_op1;
-  int is_sse = SSE_REG_P (operands[0]) | SSE_REG_P (operands[1]);
+  int is_sse = SSE_REG_P (operands[0]) || SSE_REG_P (operands[1]);
 
-  if (eflags_p == 2)
-    {
-      cmp_op0 = operands[1];
-      cmp_op1 = operands[2];
-    }
-  else
+  if (eflags_p)
     {
       cmp_op0 = operands[0];
       cmp_op1 = operands[1];
+    }
+  else
+    {
+      cmp_op0 = operands[1];
+      cmp_op1 = operands[2];
     }
 
   if (is_sse)
@@ -7285,7 +7245,7 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 	 is also a stack register that dies, then this must be a
 	 `fcompp' float compare */
 
-      if (eflags_p == 1)
+      if (eflags_p)
 	{
 	  /* There is no double popping fcomi variant.  Fortunately,
 	     eflags is immune from the fstp's cc clobbering.  */
@@ -7297,35 +7257,25 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 	}
       else
 	{
-	  if (eflags_p == 2)
-	    {
-	      if (unordered_p)
-		return "fucompp\n\tfnstsw\t%0";
-	      else
-		return "fcompp\n\tfnstsw\t%0";
-	    }
+	  if (unordered_p)
+	    return "fucompp\n\tfnstsw\t%0";
 	  else
-	    {
-	      if (unordered_p)
-		return "fucompp";
-	      else
-		return "fcompp";
-	    }
+	    return "fcompp\n\tfnstsw\t%0";
 	}
     }
   else
     {
       /* Encoded here as eflags_p | intmode | unordered_p | stack_top_dies.  */
 
-      static const char * const alt[24] =
+      static const char * const alt[16] =
       {
-	"fcom%z1\t%y1",
-	"fcomp%z1\t%y1",
-	"fucom%z1\t%y1",
-	"fucomp%z1\t%y1",
+	"fcom%z2\t%y2\n\tfnstsw\t%0",
+	"fcomp%z2\t%y2\n\tfnstsw\t%0",
+	"fucom%z2\t%y2\n\tfnstsw\t%0",
+	"fucomp%z2\t%y2\n\tfnstsw\t%0",
 
-	"ficom%z1\t%y1",
-	"ficomp%z1\t%y1",
+	"ficom%z2\t%y2\n\tfnstsw\t%0",
+	"ficomp%z2\t%y2\n\tfnstsw\t%0",
 	NULL,
 	NULL,
 
@@ -7337,16 +7287,6 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 	NULL,
 	NULL,
 	NULL,
-	NULL,
-
-	"fcom%z2\t%y2\n\tfnstsw\t%0",
-	"fcomp%z2\t%y2\n\tfnstsw\t%0",
-	"fucom%z2\t%y2\n\tfnstsw\t%0",
-	"fucomp%z2\t%y2\n\tfnstsw\t%0",
-
-	"ficom%z2\t%y2\n\tfnstsw\t%0",
-	"ficomp%z2\t%y2\n\tfnstsw\t%0",
-	NULL,
 	NULL
       };
 
@@ -7354,11 +7294,11 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
       const char *ret;
 
       mask  = eflags_p << 3;
-      mask |= (GET_MODE_CLASS (GET_MODE (operands[1])) == MODE_INT) << 2;
+      mask |= (GET_MODE_CLASS (GET_MODE (cmp_op1)) == MODE_INT) << 2;
       mask |= unordered_p << 1;
       mask |= stack_top_dies;
 
-      if (mask >= 24)
+      if (mask >= 16)
 	abort ();
       ret = alt[mask];
       if (ret == NULL)
@@ -7963,7 +7903,7 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
   enum machine_mode fpcmp_mode = ix86_fp_compare_mode (code);
   rtx op0 = *pop0, op1 = *pop1;
   enum machine_mode op_mode = GET_MODE (op0);
-  int is_sse = SSE_REG_P (op0) | SSE_REG_P (op1);
+  int is_sse = SSE_REG_P (op0) || SSE_REG_P (op1);
 
   /* All of the unordered compare instructions only work on registers.
      The same is true of the fcomi compare instructions.  The same is
@@ -8475,7 +8415,7 @@ ix86_expand_branch (enum rtx_code code, rtx label)
 	  {
 	    ix86_split_fp_branch (code, ix86_compare_op0, ix86_compare_op1,
 				  gen_rtx_LABEL_REF (VOIDmode, label),
-				  pc_rtx, NULL_RTX);
+				  pc_rtx, NULL_RTX, NULL_RTX);
 	  }
 	else
 	  {
@@ -8623,7 +8563,7 @@ ix86_expand_branch (enum rtx_code code, rtx label)
 /* Split branch based on floating point condition.  */
 void
 ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
-		      rtx target1, rtx target2, rtx tmp)
+		      rtx target1, rtx target2, rtx tmp, rtx pushed)
 {
   rtx second, bypass;
   rtx label = NULL_RTX;
@@ -8641,6 +8581,10 @@ ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
 
   condition = ix86_expand_fp_compare (code, op1, op2,
 				      tmp, &second, &bypass);
+
+  /* Remove pushed operand from stack.  */
+  if (pushed)
+    ix86_free_from_memory (GET_MODE (pushed));
 
   if (split_branch_probability >= 0)
     {
@@ -14366,17 +14310,6 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
     }
 }
 
-#if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
-static void
-ix86_svr3_asm_out_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
-{
-  init_section ();
-  fputs ("\tpushl $", asm_out_file);
-  assemble_name (asm_out_file, XSTR (symbol, 0));
-  fputc ('\n', asm_out_file);
-}
-#endif
-
 #if TARGET_MACHO
 
 static int current_machopic_label_num;
@@ -15268,6 +15201,26 @@ void ix86_emit_i387_log1p (rtx op0, rtx op1)
   emit_insn (gen_fyl2x_xf3 (op0, tmp2, tmp));
 
   emit_label (label2);
+}
+
+/* Solaris named-section hook.  Parameters are as for
+   named_section_real.  */
+
+static void
+i386_solaris_elf_named_section (const char *name, unsigned int flags,
+				tree decl)
+{
+  /* With Binutils 2.15, the "@unwind" marker must be specified on
+     every occurrence of the ".eh_frame" section, not just the first
+     one.  */
+  if (TARGET_64BIT
+      && strcmp (name, ".eh_frame") == 0)
+    {
+      fprintf (asm_out_file, "\t.section\t%s,\"%s\",@unwind\n", name,
+	       flags & SECTION_WRITE ? "aw" : "a");
+      return;
+    }
+  default_elf_asm_named_section (name, flags, decl);
 }
 
 #include "gt-i386.h"

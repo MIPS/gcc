@@ -67,7 +67,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "function.h"
 #include "insn-config.h"
@@ -2012,7 +2011,7 @@ reg_is_born (rtx reg, int birth)
     {
       regno = REGNO (SUBREG_REG (reg));
       if (regno < FIRST_PSEUDO_REGISTER)
-	regno = subreg_hard_regno (reg, 1);
+	regno = subreg_regno (reg);
     }
   else
     regno = REGNO (reg);

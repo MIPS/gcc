@@ -248,6 +248,10 @@ squeeze_notes (rtx* startp, rtx* endp)
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END))
 	{
+	  /* BLOCK_BEG or BLOCK_END notes only exist in the `final' pass.  */
+	  gcc_assert (NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_BEG
+		      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_END);
+
 	  if (insn == start)
 	    start = next;
 	  else
@@ -766,8 +770,6 @@ condjump_p (rtx insn)
 		|| (GET_CODE (XEXP (x, 1)) == PC
 		    && (GET_CODE (XEXP (x, 2)) == LABEL_REF
 			|| GET_CODE (XEXP (x, 2)) == RETURN))));
-
-  return 0;
 }
 
 /* Return nonzero if INSN is a (possibly) conditional jump inside a

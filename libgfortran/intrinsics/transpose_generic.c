@@ -25,8 +25,11 @@ Boston, MA 02111-1307, USA.  */
 #include <assert.h>
 #include "libgfortran.h"
 
+extern void transpose (gfc_array_char *, gfc_array_char *);
+export_proto(transpose);
+
 void
-__transpose (gfc_array_char * ret, gfc_array_char * source)
+transpose (gfc_array_char *ret, gfc_array_char *source)
 {
   /* r.* indicates the return array.  */
   index_type rxstride, rystride;
@@ -56,7 +59,7 @@ __transpose (gfc_array_char * ret, gfc_array_char * source)
       ret->dim[1].ubound = source->dim[0].ubound - source->dim[0].lbound;
       ret->dim[1].stride = ret->dim[0].ubound+1;
 
-      ret->data = internal_malloc (size * size0 ((array_t*)ret));
+      ret->data = internal_malloc_size (size * size0 ((array_t*)ret));
       ret->base = 0;
     }
 
@@ -88,4 +91,3 @@ __transpose (gfc_array_char * ret, gfc_array_char * source)
       rptr += rxstride - (rystride * xcount);
     }
 }
-

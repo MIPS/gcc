@@ -177,7 +177,7 @@ tree_predicted_by_p (basic_block bb, enum br_predictor predictor)
   return false;
 }
 
-void
+static void
 predict_insn (rtx insn, enum br_predictor predictor, int probability)
 {
   if (!any_condjump_p (insn))
@@ -669,13 +669,15 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 
 	  /* Loop branch heuristics - predict an edge back to a
 	     loop's head as taken.  */
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (e->dest == loop->header
-		&& e->src == loop->latch)
-	      {
-		header_found = 1;
-		predict_edge_def (e, PRED_LOOP_BRANCH, TAKEN);
-	      }
+	  if (bb == loop->latch)
+	    {
+	      e = find_edge (loop->latch, loop->header);
+	      if (e)
+		{
+		  header_found = 1;
+		  predict_edge_def (e, PRED_LOOP_BRANCH, TAKEN);
+		}
+	    }
 
 	  /* Loop exit heuristics - predict an edge exiting the loop if the
 	     conditional has no loop header successors as not taken.  */
@@ -919,7 +921,7 @@ expr_expected_value (tree expr, bitmap visited)
 
 	      /* If this PHI has itself as an argument, we cannot
 		 determine the string length of this argument.  However,
-		 if we can find a expected constant value for the other
+		 if we can find an expected constant value for the other
 		 PHI args then we can still be sure that this is
 		 likely a constant.  So be optimistic and just
 		 continue with the next argument.  */
@@ -1660,21 +1662,20 @@ propagate_freq (struct loop *loop, bitmap tovisit)
 
       bitmap_clear_bit (tovisit, bb->index);
 
-      /* Compute back edge frequencies.  */
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->dest == head)
-	  {
-	    sreal tmp;
+      e = find_edge (bb, head);
+      if (e)
+	{
+	  sreal tmp;
 	    
-	    /* EDGE_INFO (e)->back_edge_prob
-	       = ((e->probability * BLOCK_INFO (bb)->frequency)
-	       / REG_BR_PROB_BASE); */
+	  /* EDGE_INFO (e)->back_edge_prob
+	     = ((e->probability * BLOCK_INFO (bb)->frequency)
+	     / REG_BR_PROB_BASE); */
 	    
-	    sreal_init (&tmp, e->probability, 0);
-	    sreal_mul (&tmp, &tmp, &BLOCK_INFO (bb)->frequency);
-	    sreal_mul (&EDGE_INFO (e)->back_edge_prob,
-		       &tmp, &real_inv_br_prob_base);
-	  }
+	  sreal_init (&tmp, e->probability, 0);
+	  sreal_mul (&tmp, &tmp, &BLOCK_INFO (bb)->frequency);
+	  sreal_mul (&EDGE_INFO (e)->back_edge_prob,
+		     &tmp, &real_inv_br_prob_base);
+	}
 
       /* Propagate to successor blocks.  */
       FOR_EACH_EDGE (e, ei, bb->succs)

@@ -1,3 +1,1297 @@
+2004-12-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/17564
+	* gcc.c-torture/execute/20041212-1.c: New test.
+
+2004-12-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18869
+	* gfortran.dg/common_1.f90: New test.
+
+2004-12-12  Steven G. Kargl  <kargls@comcast.net>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/16222
+	* gfortran.dg/real_do_1.f90: New test.
+
+2004-12-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/18040
+	* g++.dg/opt/ptrmem6.C: New test.
+
+2004-12-11  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18921
+	* gcc.dg/pr18921-1.c: New test case.
+
+2004-12-11  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/17175
+	* gfortran.dg/scale_1.f90: New test.
+
+2004-12-10  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/18903
+	* gcc.c-torture/compile/pr18903.c: New test.
+
+2004-12-10  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20041210-1.c: New test.
+
+2004-12-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/18731
+	* g++.dg/parser/struct-1.C: New test.
+	* g++.dg/parser/struct-2.C: New test.
+	* g++.dg/parser/struct-3.C: New test.
+
+2004-12-09  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/loop-3.c: Don't use i386 tuning for amd64.
+
+	* gcc.c-torture/execute/ieee/fp-cmp-4q.c: Remove.
+	* gcc.c-torture/execute/ieee/fp-cmp-8q.c: Remove.
+
+2004-12-09  Matt Austern  <austern@apple.com>
+
+	PR c++/18514
+	* g++.dg/ext/builtin1.C: New
+	* g++.dg/ext/builtin2.C: New
+	* g++.dg/ext/builtin3.C: New
+	* g++.dg/ext/builtin4.C: New
+	* g++.dg/ext/builtin5.C: New
+
+2004-12-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/18904
+	* g++.dg/opt/ptrmem5.C: New test.
+
+2004-12-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/parse/typename5.C: Adjust for new error.
+	* g++.dg/parse/typename7.C: New.
+
+2004-12-09  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/18073
+	* g++.dg/other/mmintrin.C: New test.
+
+2004-12-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/16681
+	* g++.dg/init/array15.C: New.
+	* g++.dg/init/array16.C: New.
+
+2004-12-08  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18826
+	* gfortran.dg/assign_1.f90: New test.
+
+2004-12-08  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.target/xstormy16/bss_below100: New directory containing tests.
+	* gcc.target/xstormy16/data_below100: Likewise.
+	* gcc.target/xstormy16/sfr: Likewise.
+	* gcc.target/xstormy16/below100.S: New test source file.
+	* gcc.target/xstormy16/below100.ld: New test linker script.
+	* gcc.target/xstormy16/xstormy16.exp: Run the new tests.
+	* gcc.target/xstormy16/below_100.c: Fix scan to allow for bn or
+	bp instructions.
+	* gcc.target/xstormy16/bp.c: Likewise.
+
+	* gcc.target/xstormy16/bss_below100: New files:
+	01_const_to_b100b.c, 02_const_to_b100w.c, 03_var_to_b100b.c,
+	04_var_to_b100w.c, 05_b100b_to_var.c, 06_b100w_to_var.c,
+	10_set_b100b_bit_0.c, 10_set_b100b_bit_7.c, 11_clr_b100b_bit_0.c,
+	11_clr_b100b_bit_7.c, 12_if1_b100b_bit_0.c, 12_if1_b100b_bit_3.c,
+	12_if1_b100b_bit_7.c, 13_if0_b100b_bit_0.c, 13_if0_b100b_bit_3.c,
+	13_if0_b100b_bit_7.c, 14_set_b100w_bit_0.c, 14_set_b100w_bit_7.c,
+	14_set_b100w_bit_8.c, 14_set_b100w_bit_f.c, 15_clr_b100w_bit_0.c,
+	15_clr_b100w_bit_7.c, 15_clr_b100w_bit_8.c, 15_clr_b100w_bit_f.c,
+	16_if1_b100w_bit_0.c, 16_if1_b100w_bit_3.c, 16_if1_b100w_bit_7.c,
+	16_if1_b100w_bit_8.c, 16_if1_b100w_bit_b.c, 16_if1_b100w_bit_f.c,
+	17_if0_b100w_bit_0.c, 17_if0_b100w_bit_3.c, 17_if0_b100w_bit_7.c,
+	17_if0_b100w_bit_8.c, 17_if0_b100w_bit_b.c, 17_if0_b100w_bit_f.c,
+	20_set_b100b_bitfield_0.c, 20_set_b100b_bitfield_7.c,
+	21_clr_b100b_bitfield_0.c, 21_clr_b100b_bitfield_7.c,
+	22_if1_b100b_bitfield_0.c, 22_if1_b100b_bitfield_3.c,
+	22_if1_b100b_bitfield_7.c, 23_if0_b100b_bitfield_0.c,
+	23_if0_b100b_bitfield_3.c, 23_if0_b100b_bitfield_7.c,
+	24_set_b100w_bitfield_0.c, 24_set_b100w_bitfield_7.c,
+	24_set_b100w_bitfield_8.c, 24_set_b100w_bitfield_f.c,
+	25_clr_b100w_bitfield_0.c, 25_clr_b100w_bitfield_7.c,
+	25_clr_b100w_bitfield_8.c, 25_clr_b100w_bitfield_f.c,
+	26_if1_b100w_bitfield_0.c, 26_if1_b100w_bitfield_3.c,
+	26_if1_b100w_bitfield_7.c, 26_if1_b100w_bitfield_8.c,
+	26_if1_b100w_bitfield_b.c, 26_if1_b100w_bitfield_f.c,
+	27_if0_b100w_bitfield_0.c, 27_if0_b100w_bitfield_3.c,
+	27_if0_b100w_bitfield_7.c, 27_if0_b100w_bitfield_8.c,
+	27_if0_b100w_bitfield_b.c, 27_if0_b100w_bitfield_f.c
+
+	* gcc.target/xstormy16/data_below100: New files:
+	01_const_to_b100b.c, 02_const_to_b100w.c, 03_var_to_b100b.c,
+	04_var_to_b100w.c, 05_b100b_to_var.c, 06_b100w_to_var.c,
+	10_set_b100b_bit_0.c, 10_set_b100b_bit_7.c, 11_clr_b100b_bit_0.c,
+	11_clr_b100b_bit_7.c, 12_if1_b100b_bit_0.c, 12_if1_b100b_bit_3.c,
+	12_if1_b100b_bit_7.c, 13_if0_b100b_bit_0.c, 13_if0_b100b_bit_3.c,
+	13_if0_b100b_bit_7.c, 14_set_b100w_bit_0.c, 14_set_b100w_bit_7.c,
+	14_set_b100w_bit_8.c, 14_set_b100w_bit_f.c, 15_clr_b100w_bit_0.c,
+	15_clr_b100w_bit_7.c, 15_clr_b100w_bit_8.c, 15_clr_b100w_bit_f.c,
+	16_if1_b100w_bit_0.c, 16_if1_b100w_bit_3.c, 16_if1_b100w_bit_7.c,
+	16_if1_b100w_bit_8.c, 16_if1_b100w_bit_b.c, 16_if1_b100w_bit_f.c,
+	17_if0_b100w_bit_0.c, 17_if0_b100w_bit_3.c, 17_if0_b100w_bit_7.c,
+	17_if0_b100w_bit_8.c, 17_if0_b100w_bit_b.c, 17_if0_b100w_bit_f.c,
+	20_set_b100b_bitfield_0.c, 20_set_b100b_bitfield_7.c,
+	21_clr_b100b_bitfield_0.c, 21_clr_b100b_bitfield_7.c,
+	22_if1_b100b_bitfield_0.c, 22_if1_b100b_bitfield_3.c,
+	22_if1_b100b_bitfield_7.c, 23_if0_b100b_bitfield_0.c,
+	23_if0_b100b_bitfield_3.c, 23_if0_b100b_bitfield_7.c,
+	24_set_b100w_bitfield_0.c, 24_set_b100w_bitfield_7.c,
+	24_set_b100w_bitfield_8.c, 24_set_b100w_bitfield_f.c,
+	25_clr_b100w_bitfield_0.c, 25_clr_b100w_bitfield_7.c,
+	25_clr_b100w_bitfield_8.c, 25_clr_b100w_bitfield_f.c,
+	26_if1_b100w_bitfield_0.c, 26_if1_b100w_bitfield_3.c,
+	26_if1_b100w_bitfield_7.c, 26_if1_b100w_bitfield_8.c,
+	26_if1_b100w_bitfield_b.c, 26_if1_b100w_bitfield_f.c,
+	27_if0_b100w_bitfield_0.c, 27_if0_b100w_bitfield_3.c,
+	27_if0_b100w_bitfield_7.c, 27_if0_b100w_bitfield_8.c,
+	27_if0_b100w_bitfield_b.c, 27_if0_b100w_bitfield_f.c
+
+	* gcc.target/xstormy16/sfr: New files:
+	01_const_to_sfrb.c, 02_const_to_sfrw.c, 03_var_to_sfrb.c,
+	04_var_to_sfrw.c, 05_sfrb_to_var.c, 06_sfrw_to_var.c,
+	10_set_sfrb_bit_0.c, 10_set_sfrb_bit_7.c, 11_clr_sfrb_bit_0.c,
+	11_clr_sfrb_bit_7.c, 12_if1_sfrb_bit_0.c, 12_if1_sfrb_bit_3.c,
+	12_if1_sfrb_bit_7.c, 13_if0_sfrb_bit_0.c, 13_if0_sfrb_bit_3.c,
+	13_if0_sfrb_bit_7.c, 14_set_sfrw_bit_0.c, 14_set_sfrw_bit_3.c,
+	14_set_sfrw_bit_7.c, 14_set_sfrw_bit_8.c, 14_set_sfrw_bit_b.c,
+	14_set_sfrw_bit_f.c, 15_clr_sfrw_bit_0.c, 15_clr_sfrw_bit_3.c,
+	15_clr_sfrw_bit_7.c, 15_clr_sfrw_bit_8.c, 15_clr_sfrw_bit_b.c,
+	15_clr_sfrw_bit_f.c, 16_if1_sfrw_bit_0.c, 16_if1_sfrw_bit_3.c,
+	16_if1_sfrw_bit_7.c, 16_if1_sfrw_bit_8.c, 16_if1_sfrw_bit_b.c,
+	16_if1_sfrw_bit_f.c, 17_if0_sfrw_bit_0.c, 17_if0_sfrw_bit_3.c,
+	17_if0_sfrw_bit_7.c, 17_if0_sfrw_bit_8.c, 17_if0_sfrw_bit_b.c,
+	17_if0_sfrw_bit_f.c, 20_set_sfrb_bitfield_0.c,
+	20_set_sfrb_bitfield_7.c, 21_clr_sfrb_bitfield_0.c,
+	21_clr_sfrb_bitfield_7.c, 22_if1_sfrb_bitfield_0.c,
+	22_if1_sfrb_bitfield_3.c, 22_if1_sfrb_bitfield_7.c,
+	23_if0_sfrb_bitfield_0.c, 23_if0_sfrb_bitfield_3.c,
+	23_if0_sfrb_bitfield_7.c, 24_set_sfrw_bitfield_0.c,
+	24_set_sfrw_bitfield_7.c, 24_set_sfrw_bitfield_8.c,
+	24_set_sfrw_bitfield_f.c, 25_clr_sfrw_bitfield_0.c,
+	25_clr_sfrw_bitfield_7.c, 25_clr_sfrw_bitfield_8.c,
+	25_clr_sfrw_bitfield_f.c, 26_if1_sfrw_bitfield_0.c,
+	26_if1_sfrw_bitfield_3.c, 26_if1_sfrw_bitfield_7.c,
+	26_if1_sfrw_bitfield_8.c, 26_if1_sfrw_bitfield_b.c,
+	26_if1_sfrw_bitfield_f.c, 27_if0_sfrw_bitfield_0.c,
+	27_if0_sfrw_bitfield_3.c, 27_if0_sfrw_bitfield_7.c,
+	27_if0_sfrw_bitfield_8.c, 27_if0_sfrw_bitfield_b.c,
+	27_if0_sfrw_bitfield_f.c
+
+2004-12-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18100
+	* g++.dg/lookup/name-clash4.C: New test.
+
+2004-12-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18672
+	* g++.dg/opt/array1.C: New.
+	
+	PR c++/18803
+	* g++.dg/template/operator5.C: New.
+
+2004-12-08  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR c/18867
+	* gcc.dg/noncompile/20041207.c: Fix typo in dg directive.
+
+2004-12-07  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/noncompile/20041207.c: New test.
+
+2004-12-07  Volker Reichelt  <reichelt@gcc.gnu.org>
+
+	* g++.dg/other/unreachable-1.C: New test.
+
+2004-12-06  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.dg/builtins-config.h: Use <sys/types.h> instead of
+	<limits.h> because the latter comes from gcc's include/ directory
+	and not the newlib/libc/include directory.
+
+2004-12-04  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/loop-5.c: Use long instead of int.
+
+2004-12-04  Richard Henderson  <rth@redhat.com>
+
+	* lib/target-supports.exp (check_gc_sections_available): Disable
+	for alpha and ia64.
+
+2004-12-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/17909
+	* g++.dg/other/vararg-2.C: New test.
+
+2004-12-04  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/17011, c++/17971
+	* g++.dg/template/error15.C: Adjust expected error.
+	* g++.dg/template/instantiate3.C: Likewise.
+
+2004-12-03  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/altivec-18.c: Fix for darwin
+
+2004-12-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/18782
+	* g++.dg/parse/ptrmem2.C: New.
+
+	PR c++/18318
+	* g++.dg/template/new1.C: New.
+
+2004-12-02  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18710
+	* gfortran.dg/direct_io_3.f90: New test.
+
+2004-12-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR 18758
+	* g++.dg/parse/crash21.C: New.
+
+2004-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/15664, c++/18276
+	* g++.dg/template/ttp13.C: New test.
+	* g++.dg/template/ttp14.C: Likewise.
+
+2004-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18123
+	* g++.dg/parse/enum2.C: New test.
+	* g++.old-deja/g++.pt/enum5.C: Adjust error location.
+
+2004-12-02  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.target/xstormy16: New test directory.
+	* gcc.target/xstormy16/xstormy16.exp: Run the new tests.
+	* gcc.target/xstormy16/bp.c: Check the generation of bp
+	instructions.
+	* gcc.target/xstormy16/below_100.c: Check the generation of bp and
+	bn instructions and the BELOW100 attribute.
+
+2004-12-02  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/16952
+	* gcc.dg/ppc-eabi.c: New.
+
+2004-12-02  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/18284
+	* gfortran.dg/backspace.f90
+
+2004-12-02  Bud Davis  <bdavis9659@comcast.net>
+
+	* gfortran.dg/inquire.f90: New test.
+
+2004-12-01  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/gcc-dg.exp (dg-process-target): Wrapper for dg function to
+	handle effective-target-keyword.
+	(dg-skip-if): Support effective-target keyword as target list.
+	(dg-xfail-if): Ditto.
+	* lib/target-supports.exp (is-effective-target-keyword): New proc.
+
+2004-12-01  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/18291
+	* testsuite/gcc.c-torture/compile/pr18291.c: New test.
+
+2004-12-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR C++/18729
+	* g++.dg/parse/crash20.C: New.
+
+	PR c++/17431
+	* g++.dg/overload/arg1.C: New.
+	* g++.dg/overload/arg2.C: New.
+	* g++.dg/overload/arg3.C: New.
+	* g++.dg/overload/arg4.C: New.
+
+2004-12-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c99-flex-array-4.c: Remove.
+
+2004-11-30  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/compat.exp (compat-get-options): Fix for use with dg-xfail-if.
+
+	* lib/target-supports.exp (is-effective-target): Simplify.
+
+	* lib/target-supports.exp (check_effective_target_vect_long):
+	Fix for powerpc64-*-*.
+
+2004-11-30  Loren James Rittle  <ljrittle@acm.org>
+
+        * g++.old-deja/g++.eh/badalloc1.C (arena_size): Bump up to 262144
+	to support new requirements on FreeBSD 5.
+
+2004-11-30  Devang Patel  <dpatel@apple.com>
+
+	PR 18702
+	* gcc.dg/cpp/isysroot-1.c: Make this test darwin specific.
+	
+2004-11-30  Janis Johnson  <janis187@us.ibm.com>
+
+	* g++.dg/ext/altivec-13.C: New test.
+
+2004-11-30  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/18298
+	* gcc.c-torture/execute/p18298.c: New test.
+
+2004-11-30  Ira Rosen  <irar@il.ibm.com>
+	    Dorit Naishlos  <dorit@il.ibm.com>
+
+	PR tree-opt/18607
+	* gcc.dg/vect/vect-89.c: New test.
+
+2004-11-30  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.dg/pr18596-1.c: New test.
+
+2004-11-30  Ben Elliston  <bje@au.ibm.com>
+
+	* g++.old-deja/g++.other/decl5.C: Remove remaining XFAILs.
+
+2004-11-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/18479
+	* gcc.dg/pr18479.c: New test.
+
+2004-11-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18490
+	* g++.old-deja/g++.law/bit-fields2.C: Reinstate skip for
+	mmix-knuth-mmixware.
+
+	* g++.old-deja/g++.other/local-alloc1.C: Reinstate skip for
+	cris-*-elf* cris-*-aout* mmix-*-*
+
+2004-11-29  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/18725
+	* gcc.dg/pr18725.c: New test.
+
+2004-11-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18488
+	* g++.dg/opt/vt1.C: Skip for mmix-*-*.
+
+	PR target/18336
+	* gcc.dg/20040813-1.c: Skip for mmix-*-*.
+
+2004-11-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18368
+	* g++.old-deja/g++.brendan/crash16.C: Adjust error messages.
+	* g++.old-deja/g++.law/ctors5.C: Likewise.
+	* g++.old-deja/g++.other/crash25.C: Likewise.
+
+	PR c++/18674
+	* g++.dg/template/error16.C: New test.
+	
+	PR c++/18512
+	* g++.dg/template/crash29.C: New test.
+
+2004-11-29  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/18712
+	* gcc.c-torture/compile/pr18712.c: New test.
+
+2004-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/7544
+	* g++.dg/ext/weak1.C, gcc.dg/weak/weak-10.c, objc.dg/weak-1.m: New
+	tests.
+
+2004-11-29  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18652
+	* g++.dg/lookup/crash6.C: New test.
+
+2004-11-29  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR middle-end/18164
+	* gcc.dg/pr18164.c: Add dg-options "".  Correct typo in dg-error.
+
+2004-11-29  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/Wnested-externs-1.c, gcc.dg/decl-7.c, gcc.dg/decl-8.c,
+	gcc.dg/if-empty-1.c, gcc.dg/init-bad-1.c, gcc.dg/init-bad-2.c,
+	gcc.dg/init-bad-3.c, gcc.dg/parm-mismatch-1.c: New tests.
+
+2004-11-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/pr18164.c: New test.
+
+2004-11-28  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gcc.dg/funroll-loops-all.c: New.
+
+2004-11-28  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18489
+	* g++.dg/rtti/tinfo1.C: In pattern for label definition ending
+	delimeter, match space and TAB as well as ":".
+
+	PR target/18484
+	* g++.dg/abi/empty6.C: Xfail warning for mmix-*-*.
+
+	PR target/18348
+	* gcc.dg/uninit-H.c (ASM): For unknown targets, define to "= 0".
+
+	PR target/18345
+	* gcc.dg/intmax_t-1.c: Add mmix-*-* to dg-error.
+
+	PR target/18337
+	* gcc.dg/array-quals-1.c: Xfail for mmix-*-*.
+
+2004-11-28  Bud Davis  <bdavis9659@comcast.net>
+ 
+        * gfortran.dg/direct_io_2.f90: New test.
+
+2004-11-28  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18334
+	* gcc.dg/cpp/assert4.c: Remove mmix assertion tests.
+
+2004-11-28  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/20020227-1.x: Remove XFAIL.
+
+2004-11-28  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/builtin-choose-expr-2.c, gcc.dg/cast-1.c,
+	gcc.dg/cast-2.c, gcc.dg/cast-3.c, gcc.dg/format/opt-1.c,
+	gcc.dg/format/opt-2.c, gcc.dg/format/opt-3.c,
+	gcc.dg/format/opt-4.c, gcc.dg/format/opt-5.c,
+	gcc.dg/format/opt-6.c, gcc.dg/pointer-arith-5.c,
+	gcc.dg/pointer-arith-6.c, gcc.dg/pointer-arith-7.c,
+	gcc.dg/pointer-arith-8.c: New tests.
+
+2004-11-27  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/18364
+	* gfortran.dg/endfile.f90: New test.
+
+2004-11-27  Falk Hueffner  <falk@debian.org>
+
+	* gcc.dg/loop-6.c: New test.
+
+2004-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20041126-1.c: New test.
+
+2004-11-27  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/mips-args-1.c: Don't expect _R3000 or _R4000 to be defined
+	on IRIX.
+
+2004-11-27  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/mips-movcc-[123].c: Pass the ?: expressions to other
+	functions.
+
+2004-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/17825
+	* gcc.c-torture/compile/20041119-1.c: New test.
+
+2004-11-27  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* lib/target-libpath.exp (restore_ld_library_path_env_vars):
+	Check existence of ld library path variables before unsetting.
+
+2004-11-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.eh/badalloc1.C: Robustify.
+
+2004-11-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/sibcall-[34].c: Remove MIPS xfails.
+
+2004-11-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.old-deja/g++.jason/thunk3.C: Remove mips*-*-* xfail.
+
+2004-11-26  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/cpp/isysroot-2.c: Move target selector from dg-options to
+	dg-do directive.
+
+2004-11-26  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/pr17957.c: Pass --param, not -param.
+
+2004-11-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/17957
+	* testsuite/gcc.dg/pr17957.c: New test.
+
+2004-11-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18445
+	* g++.dg/template/crash28.C: Likewise.
+
+	PR c++/18001
+	* g++.dg/expr/unary2.C: Adjust lvalue messages.
+	* g++.dg/ext/lvaddr.C: Likewise.
+	* g++.dg/opt/pr7503-3.C: Likewise.
+
+	PR c++/18466
+	* g++.dg/parse/qualified3.C: New test.
+	* g++.old-deja/g++.other/friend7.C: Remove bogus qualification.
+	
+	PR c++/18545
+	* g++.dg/expr/return1.C: New test. 
+
+2004-11-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 3/n, PR c++/3332
+	* g++.dg/lookup/friend3.C: New test.
+	* g++.dg/lookup/friend4.C: Likewise.
+	* g++.dg/lookup/friend5.C: Likewise.
+
+2004-11-25  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 2/n, PR c++/14513, c++/15410
+	* g++.dg/lookup/friend2.C: New test.
+	* g++.dg/template/friend31.C: Likewise.
+
+2004-11-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* lib/target-libpath.exp (orig_ld_library_path_saved): Add missing set.
+
+2004-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17473
+	* g++.dg/tc1/dr56.C: Remove.
+	* g++.dg/template/typedef1.C: Add dg-error markers.
+	* g++.old-deja/g++.other/typedef7.C: Likewise.
+
+	PR c++/18285
+	* g++.dg/parse/typedef7.C: New test.
+
+2004-11-24  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20041124-1.c: New test.
+
+2004-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/deduce3.C: New test. 
+
+	PR c++/18586
+	* g++.dg/template/crash27.C: New test. 
+
+	PR c++/18530
+	* g++.dg/warn/Wshadow-3.C: New test.
+
+2004-11-24  Devang Patel  <dpatel@apple.com>
+
+	PR/18555
+	* gcc.dg/cpp/isysroot-1.c: New test.
+	* gcc.dg/cpp/usr/include/stdio.h: New file.
+	* gcc.dg/cpp/isysroot-2.c: New test.
+	* gcc.dg/cpp/System/Library/Framework/Carbon.framework/Headers/Carbon.h:
+	New file.
+
+2004-11-24  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/8929
+	* g++.old-deja/g++.oliva/template10.C: Remove xfail.
+
+2004-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.target/sparc/align.c: Do not include <stdint.h>.
+	* gcc.target/sparc/pdist.c: Likewise.
+
+2004-11-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/16882
+	* g++.dg/conversion/simd1.C: New test.
+
+2004-11-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* lib/target-libpath.exp: New file defining set_ld_library_path_env_vars
+	and restore_ld_library_path_env_vars.
+	* g++.dg/compat/compat.exp, lib/g++.exp, lib/gcc-dg.exp,
+	lib/gfortran.exp, lib/objc.exp, lib/treelang.exp: Use new procs.
+	* ada/acats/run_acats (LD_LIBRARY_PATH): Add previous LD_LIBRARY_PATH
+	to LD_LIBRARY_PATH.  Export LD_LIBRARY_PATH.
+
+2004-11-23  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc.dg/pragma-align-2.c: Test macro expansion.
+	* gcc.dg/pragma-pack-2.c: New test.
+
+2004-11-23  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/vect/pr18425.c: Use effective target vect_long.
+	* gcc.dg/vect/vect-13.c, gcc.dg/vect/vect-17.c, gcc.dg/vect/vect-18.c,
+	gcc.dg/vect/vect-19.c, gcc.dg/vect/vect-20.c, gcc.dg/vect/vect-48a.c,
+	gcc.dg/vect/vect-56a.c, gcc.dg/vect/vect-7.c, gcc.dg/vect/vect-77.c,
+	gcc.dg/vect/vect-77a.c, gcc.dg/vect/vect-78.c, gcc.dg/vect/vect-86.c,
+	gcc.dg/vect/vect-87.c, gcc.dg/vect/vect-88.c: XFAIL for alpha.
+
+	* gcc.dg/vect/vect.exp: Add check for alpha.
+	* lib/target-supports.exp (check_alpha_max_hw_available): New.
+	(check_effective_target_vect_int): Enable for alpha.
+	(check_effective_target_vect_long): New.
+	(is-effective-target): Add it.
+
+2004-11-23  Uros Bizjak <uros@kss-loka.si>
+
+	* gcc.dg/pr18614-1.c: New test.
+
+2004-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/setjmp-2.c: New test.
+
+2004-11-22  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.target/sparc/align.c, gcc.target/sparc/combined-2.c,
+	gcc.target/sparc/fpack16.c, gcc.target/sparc/fpack32.c,
+	gcc.target/sparc/fpackfix.c, gcc.target/fexpand.c,
+	gcc.target/sparc/fpmerge.c, gcc.target/sparc/fpmul.c,
+	gcc.target/sparc/pdist.c: New tests.
+
+2004-11-22  Bob Wilson  <bob.wilson@acm.org>
+
+	* gcc.dg/uninit-H.c: Define ASM for Xtensa targets.
+
+2004-11-22  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/20041111-1.c:  New.
+
+2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
+
+	PR tree-opt/18536
+	* gcc.dg/vect/pr18536.c: New test.
+
+2004-11-22  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/18354
+	* g++.dg/template/nontype11.C: New test.
+
+2004-11-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/18520
+	* gcc.dg/pr18520-1.c: New test case.
+
+2004-11-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/Wchar-subscripts-1.c, gcc.dg/array-8.c: New tests.
+	* gcc.dg/pointer-arith-1.c, gcc.dg/pointer-arith-2.c,
+	gcc.dg/pointer-arith-3.c, gcc.dg/pointer-arith-4.c: Update
+	expected diagnostics.
+
+2004-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/18580
+	* gcc.dg/vect/vect-13.c, vect-27.c, vect-27a.c, vect-29.c,
+	vect-29a.c, vect-48a.c, vect-56a.c, vect-72.c, vect-72a.c,
+	vect-77.c, vect-77a.c: XFAIL on the SPARC.
+
+2004-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/vect/vect.exp (sparc*-*-*): Fix a couple of nits.
+
+2004-11-19  Mark Mitchell  <mark@codesourcery.com>
+            Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp (check_visibility_available): Really
+	test the compiler.
+
+2004-11-19  Dorit Naishlos  <dorit@il.ibm.com>
+
+	PR tree-opt/18181
+	* gcc.dg/vect/vect-85.c: New test.
+	* gcc.dg/vect/vect-86.c: New test.
+	* gcc.dg/vect/vect-87.c: New test.
+	* gcc.dg/vect/vect-88.c: New test.
+
+2004-11-19  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/pr16286.c: Test __pixel and __bool keywords.
+
+2004-11-18  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/ppc-bitfield1.c: Skip if not LP64, don't specify -m64.
+	* gcc.dg/ppc-and-1.c: Ditto.
+	* gcc.dg/ppc-compare-1.c: Ditto.
+	* gcc.dg/ppc-mov-1.c: Ditto
+
+2004-11-18  Daniel Jacobowitz  <dan@codesourcery.com>
+            Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/gcc.dg/pragma-init-fini-2.c: New test.
+
+2004-11-17  Janis Johnson  <janis187@us.ibm.com>
+            Aldy Hernandez  <aldyh@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_int): New
+	(check_effective_target_vect_float): New
+	(check_effective_target_vect_double): New.
+	(is-effective-target): Support new effective targets keywords.
+	* gcc.dg/vect/vect.exp: Set target-dependent vector flags and
+	default action for dg-do.
+	* gcc.dg/vect/pr16105.c: Use new support.
+	* gcc.dg/vect/pr18400.c: Ditto.
+	* gcc.dg/vect/pr18425.c: Ditto.
+	* gcc.dg/vect/vect-1.c: Ditto.
+	* gcc.dg/vect/vect-10.c: Ditto.
+	* gcc.dg/vect/vect-11.c: Ditto.
+	* gcc.dg/vect/vect-12.c: Ditto.
+	* gcc.dg/vect/vect-13.c: Ditto.
+	* gcc.dg/vect/vect-14.c: Ditto.
+	* gcc.dg/vect/vect-15.c: Ditto.
+	* gcc.dg/vect/vect-16.c: Ditto.
+	* gcc.dg/vect/vect-17.c: Ditto.
+	* gcc.dg/vect/vect-18.c: Ditto.
+	* gcc.dg/vect/vect-19.c: Ditto.
+	* gcc.dg/vect/vect-2.c: Ditto.
+	* gcc.dg/vect/vect-20.c: Ditto.
+	* gcc.dg/vect/vect-21.c: Ditto.
+	* gcc.dg/vect/vect-22.c: Ditto.
+	* gcc.dg/vect/vect-23.c: Ditto.
+	* gcc.dg/vect/vect-24.c: Ditto.
+	* gcc.dg/vect/vect-25.c: Ditto.
+	* gcc.dg/vect/vect-26.c: Ditto.
+	* gcc.dg/vect/vect-27.c: Ditto.
+	* gcc.dg/vect/vect-27a.c: Ditto.
+	* gcc.dg/vect/vect-28.c: Ditto.
+	* gcc.dg/vect/vect-29.c: Ditto.
+	* gcc.dg/vect/vect-29a.c: Ditto.
+	* gcc.dg/vect/vect-3.c: Ditto.
+	* gcc.dg/vect/vect-30.c: Ditto.
+	* gcc.dg/vect/vect-31.c: Ditto.
+	* gcc.dg/vect/vect-32.c: Ditto.
+	* gcc.dg/vect/vect-33.c: Ditto.
+	* gcc.dg/vect/vect-34.c: Ditto.
+	* gcc.dg/vect/vect-35.c: Ditto.
+	* gcc.dg/vect/vect-36.c: Ditto.
+	* gcc.dg/vect/vect-37.c: Ditto.
+	* gcc.dg/vect/vect-38.c: Ditto.
+	* gcc.dg/vect/vect-4.c: Ditto.
+	* gcc.dg/vect/vect-40.c: Ditto.
+	* gcc.dg/vect/vect-41.c: Ditto.
+	* gcc.dg/vect/vect-42.c: Ditto.
+	* gcc.dg/vect/vect-43.c: Ditto.
+	* gcc.dg/vect/vect-44.c: Ditto.
+	* gcc.dg/vect/vect-45.c: Ditto.
+	* gcc.dg/vect/vect-46.c: Ditto.
+	* gcc.dg/vect/vect-47.c: Ditto.
+	* gcc.dg/vect/vect-48.c: Ditto.
+	* gcc.dg/vect/vect-48a.c: Ditto.
+	* gcc.dg/vect/vect-49.c: Ditto.
+	* gcc.dg/vect/vect-5.c: Ditto.
+	* gcc.dg/vect/vect-50.c: Ditto.
+	* gcc.dg/vect/vect-51.c: Ditto.
+	* gcc.dg/vect/vect-52.c: Ditto.
+	* gcc.dg/vect/vect-53.c: Ditto.
+	* gcc.dg/vect/vect-54.c: Ditto.
+	* gcc.dg/vect/vect-55.c: Ditto.
+	* gcc.dg/vect/vect-56.c: Ditto.
+	* gcc.dg/vect/vect-56a.c: Ditto.
+	* gcc.dg/vect/vect-57.c: Ditto.
+	* gcc.dg/vect/vect-58.c: Ditto.
+	* gcc.dg/vect/vect-59.c: Ditto.
+	* gcc.dg/vect/vect-6.c: Ditto.
+	* gcc.dg/vect/vect-60.c: Ditto.
+	* gcc.dg/vect/vect-61.c: Ditto.
+	* gcc.dg/vect/vect-62.c: Ditto.
+	* gcc.dg/vect/vect-63.c: Ditto.
+	* gcc.dg/vect/vect-64.c: Ditto.
+	* gcc.dg/vect/vect-65.c: Ditto.
+	* gcc.dg/vect/vect-66.c: Ditto.
+	* gcc.dg/vect/vect-67.c: Ditto.
+	* gcc.dg/vect/vect-68.c: Ditto.
+	* gcc.dg/vect/vect-69.c: Ditto.
+	* gcc.dg/vect/vect-7.c: Ditto.
+	* gcc.dg/vect/vect-72.c: Ditto.
+	* gcc.dg/vect/vect-72a.c: Ditto.
+	* gcc.dg/vect/vect-73.c: Ditto.
+	* gcc.dg/vect/vect-74.c: Ditto.
+	* gcc.dg/vect/vect-75.c: Ditto.
+	* gcc.dg/vect/vect-76.c: Ditto.
+	* gcc.dg/vect/vect-77.c: Ditto.
+	* gcc.dg/vect/vect-77a.c: Ditto.
+	* gcc.dg/vect/vect-78.c: Ditto.
+	* gcc.dg/vect/vect-79.c: Ditto.
+	* gcc.dg/vect/vect-8.c: Ditto.
+	* gcc.dg/vect/vect-80.c: Ditto.
+	* gcc.dg/vect/vect-82.c: Ditto.
+	* gcc.dg/vect/vect-82_64.c: Ditto.
+	* gcc.dg/vect/vect-83.c: Ditto.
+	* gcc.dg/vect/vect-83_64.c: Ditto.
+	* gcc.dg/vect/vect-9.c: Ditto.
+	* gcc.dg/vect/vect-all.c: Ditto.
+	* gcc.dg/vect/vect-none.c: Ditto.
+
+2004-11-17  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/gcc-dg.exp (dg-skip-if): New function.
+	(dg-forbid-option): Remove.
+	* g++.dg/abi/bitfield3.C: Use dg-skip-if i?86 -m64.
+	* g++.dg/abi/bitfield8.C: Likewise.
+	* g++.dg/abi/dtor1.C: Likewise.
+	* g++.dg/abi/empty10.C: Likewise.
+	* g++.dg/abi/empty7.C: Likewise.
+	* g++.dg/abi/empty9.C: Likewise.
+	* g++.dg/abi/layout3.C: Likewise.
+	* g++.dg/abi/layout4.C: Likewise.
+	* g++.dg/abi/thunk1.C: Likewise.
+	* g++.dg/abi/thunk2.C: Likewise.
+	* g++.dg/abi/vbase11.C: Likewise.
+	* g++.dg/abi/vthunk2.C: Likewise.
+	* g++.dg/abi/vthunk3.C: Likewise.
+	* g++.dg/ext/attrib8.C: Likewise.
+	* g++.dg/opt/longbranch2.C: Likewise.
+	* g++.dg/opt/reg-stack4.C: Likewise.
+	* g++.old-deja/g++.ext/attrib1.C: Likewise.
+	* g++.old-deja/g++.ext/attrib2.C: Likewise.
+	* g++.old-deja/g++.ext/attrib3.C: Likewise.
+	* g++.old-deja/g++.other/store-expr1.C: Likewise.
+	* g++.old-deja/g++.other/store-expr2.C: Likewise.
+	* gcc.dg/20000609-1.c: Likewise.
+	* gcc.dg/20000720-1.c: Likewise.
+	* gcc.dg/20011107-1.c: Likewise.
+	* gcc.dg/20011119-1.c: Likewise.
+	* gcc.dg/20020108-1.c: Likewise.
+	* gcc.dg/20020122-2.c: Likewise.
+	* gcc.dg/20020122-3.c: Likewise.
+	* gcc.dg/20020201-3.c: Likewise.
+	* gcc.dg/20020206-1.c: Likewise.
+	* gcc.dg/20020218-1.c: Likewise.
+	* gcc.dg/20020310-1.c: Likewise.
+	* gcc.dg/20020411-1.c: Likewise.
+	* gcc.dg/20020418-2.c: Likewise.
+	* gcc.dg/20020426-1.c: Likewise.
+	* gcc.dg/20020426-2.c: Likewise.
+	* gcc.dg/20020517-1.c: Likewise.
+	* gcc.dg/20020523-1.c: Likewise.
+	* gcc.dg/20020523-2.c: Likewise.
+	* gcc.dg/20020729-1.c: Likewise.
+	* gcc.dg/20030204-1.c: Likewise.
+	* gcc.dg/20030826-2.c: Likewise.
+	* gcc.dg/20030926-1.c: Likewise.
+	* gcc.dg/20031202-1.c: Likewise.
+	* gcc.dg/980312-1.c: Likewise.
+	* gcc.dg/980313-1.c: Likewise.
+	* gcc.dg/990117-1.c: Likewise.
+	* gcc.dg/990424-1.c: Likewise.
+	* gcc.dg/990524-1.c: Likewise.
+	* gcc.dg/991230-1.c: Likewise.
+	* gcc.dg/i386-387-1.c: Likewise.
+	* gcc.dg/i386-387-2.c: Likewise.
+	* gcc.dg/i386-387-3.c: Likewise.
+	* gcc.dg/i386-387-4.c: Likewise.
+	* gcc.dg/i386-387-5.c: Likewise.
+	* gcc.dg/i386-387-6.c: Likewise.
+	* gcc.dg/i386-asm-1.c: Likewise.
+	* gcc.dg/i386-bitfield1.c: Likewise.
+	* gcc.dg/i386-bitfield2.c: Likewise.
+	* gcc.dg/i386-loop-1.c: Likewise.
+	* gcc.dg/i386-loop-2.c: Likewise.
+	* gcc.dg/i386-loop-3.c: Likewise.
+	* gcc.dg/i386-pentium4-not-mull.c: Likewise.
+	* gcc.dg/i386-pic-1.c: Likewise.
+	* gcc.dg/i386-regparm.c: Likewise.
+	* gcc.dg/i386-signbit-1.c: Likewise.
+	* gcc.dg/i386-signbit-2.c: Likewise.
+	* gcc.dg/i386-signbit-3.c: Likewise.
+	* gcc.dg/i386-sse-5.c: Likewise.
+	* gcc.dg/i386-sse-8.c: Likewise.
+	* gcc.dg/i386-unroll-1.c: Likewise.
+	* gcc.dg/tls/opt-1.c: Likewise.
+	* gcc.dg/tls/opt-2.c: Likewise.
+	* gcc.dg/unroll-1.c: Likewise.
+	* gcc.misc-tests/i386-pf-3dnow-1.c: Likewise.
+	* gcc.misc-tests/i386-pf-athlon-1.c: Likewise.
+	* gcc.misc-tests/i386-pf-none-1.c: Likewise.
+	* gcc.misc-tests/i386-pf-sse-1.c: Likewise.
+
+2004-11-16  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/template/incomplete1.C: New test.
+
+2004-11-16  Nick Clifton  <nickc@redhat.com>
+
+	Revert patches accidentally commited during checkin of fixes for
+	xstormy16 tests:
+	gcc.c-torture/execute/simd-4.c: Revert
+	gcc.dg/20040910-1.c: Revert.
+
+2004-11-16  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13010
+	* gfortran.dg/der_pointer_1.f90: New test.
+
+2004-11-15  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/18498
+	* gcc.dg/bitfld-13.c: New test.
+
+2004-11-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/vect/tree-vect.h: (check_vect): Test symbols defined for
+	powerpc*-*-linux*.
+
+	* gcc.dg/ppc64-abi-1.c: Skip if not lp64.
+	* gcc.dg/ppc64-abi-2.c: Ditto.
+	* gcc.dg/ppc64-abi-3.c: Ditto.
+
+	* lib/gcc-dg.exp (dg-target-list): Remove.
+
+2004-11-15  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/ia64-postinc.c: New test.
+
+2004-11-15  Mark Mitchell <mark@codesourcery.com>
+
+	* gcc.dg/format/cmn-err-1.c: Add tests for "%p".
+
+2004-11-15  Nick Clifton  <nickc@redhat.com>
+
+	* g++.dg/opt/strength-reduce.C: Replace 0x7fffffff with
+	__INT_MAX__ so that the test can be compiled by toolchains
+	targeted at 16-bit processors.
+
+	* gcc.dg/20040625-1.c: Use long constants rather than integers
+	when performing arithmetic that will overflow 16-bits.
+
+	* gcc.dg/i386-sse-8.c: Expect this test to fail for the
+	xstormy16.  It does not support 128-bit vector operations.
+
+	* gcc.dg/ultrasp4.c: Replace all occurrences of the type 'long'
+	with the macro PTR_TYPE.  Define this macro to an integer type
+	suitable for holding a pointer.
+
+	* gcc.dg/compat/struct-align-1_x.c: Use shorter integers if
+	the target is a 16-bit processor.
+
+	* gcc.dg/cpp/if-2.c: Expect a different warning message from
+	16-bit targets where the character constant will be too long.
+
+	* g++.dg/opt/asm1.C: Expect this test to fail on the xstormy16
+	where the double will not be directly addressable.
+
+2004-11-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	Friend class name lookup 1/n, PR c++/18471
+	* g++.dg/template/crash26.C: New test.
+	* g++.dg/lookup/struct1.C: Adjust expected error.
+	* g++.dg/parse/elab1.C: Likewise.
+	* g++.dg/parse/elab2.C: Likewise.
+	* g++.dg/parse/int-as-enum1.C: Likewise.
+	* g++.dg/parse/struct-as-enum1.C: Likewise.
+	* g++.dg/parse/typedef1.C: Likewise.
+	* g++.dg/parse/typedef3.C: Likewise.
+	* g++.dg/parse/typedef4.C: Likewise.
+	* g++.dg/parse/typedef5.C: Likewise.
+	* g++.dg/template/nontype4.C: Likewise.
+	* g++.old-deja/g++.benjamin/typedef01.C: Likewise.
+	* g++.old-deja/g++.other/elab1.C: Likewise.
+	* g++.old-deja/g++.other/syntax4.C: Likewise.
+
+2004-11-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/intmax_t-1.c: XFAIL on Solaris 2.5.1.
+
+2004-11-14  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* gcc.c-torture/execute/20041114-1.c: New test.
+
+2004-11-14  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c99-flex-array-5.c, gcc.dg/c99-fordecl-3.c,
+	gcc.dg/comp-goto-1.c, gcc.dg/comp-goto-2.c, gcc.dg/comp-goto-3.c,
+	gcc.dg/format/strfmon-2.c, gcc.dg/pointer-arith-1.c,
+	gcc.dg/pointer-arith-2.c, gcc.dg/pointer-arith-3.c,
+	gcc.dg/pointer-arith-4.c, gcc.dg/switch-5.c, gcc.dg/switch-6.c,
+	gcc.dg/switch-7.c: New tests.
+
+2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-78.c: Now vectorized on powerpc*.
+
+2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+
+	PR tree-opt/18400
+	* gcc.dg/vect/pr18400.c: New test.
+
+2004-11-14  Dorit Naishlos  <dorit@il.ibm.com>
+            Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/18425
+	* gcc.dg/vect/pr18425.c: New test.
+
+2004-11-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/tls/alias-1.c: Remove dg-warning on the SPARC.
+	Guard with dg-require-alias and dg-require-visibility.
+
+2004-11-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/other/packed1.C: UnXFAIL on SPARC, PA, MIPS and PowerPC.
+
+2004-11-14  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/expr/unary1.C, g++.dg/expr/unary2.C: New tests.
+
+2004-11-14  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/17344
+	* g++.dg/template/defarg5.C: New test.
+
+2004-11-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/parse/cast1.C: Run only on ILP32.
+	* g++.old-deja/g++.mike/p784.C: Likewise.
+
+2004-11-13  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* gcc.c-torture/execute/20041113-1.c: New test.
+
+2004-11-13  James A. Morrison  <phython@gcc.gnu.org>
+
+	PR target/18230
+	* gcc.dg/vect/tree-vect.h (check_vect): Add SPARC-specific test.
+	* gcc.dg/vect/vect-2.c, gcc.dg/vect/vect-7.c, gcc.dg/vect/vect-9.c,
+	gcc.dg/vect/vect-10.c, gcc.dg/vect/vect-12.c, gcc.dg/vect/vect-14.c,
+	gcc.dg/vect/vect-15.c, gcc.dg/vect/vect-17.c, gcc.dg/vect/vect-18.c,
+	gcc.dg/vect/vect-19.c, gcc.dg/vect/vect-20.c, gcc.dg/vect/vect-21.c,
+	gcc.dg/vect/vect-22.c, gcc.dg/vect/vect-23.c, gcc.dg/vect/vect-24.c,
+	gcc.dg/vect/vect-25.c, gcc.dg/vect/vect-26.c, gcc.dg/vect/vect-32.c,
+	gcc.dg/vect/vect-33.c, gcc.dg/vect/vect-34.c, gcc.dg/vect/vect-35.c,
+	gcc.dg/vect/vect-36.c, gcc.dg/vect/vect-37.c, gcc.dg/vect/vect-62.c,
+	gcc.dg/vect/vect-63.c, gcc.dg/vect/vect-64.c, gcc.dg/vect/vect-65.c,
+	gcc.dg/vect/vect-66.c, gcc.dg/vect/vect-67.c, gcc.dg/vect/vect-68.c,
+	gcc.dg/vect/vect-69.c, gcc.dg/vect/vect-73.c, gcc.dg/vect/vect-75.c,
+	gcc.dg/vect/vect-76.c, gcc.dg/vect/vect-78.c: Enable for SPARC.
+
+2004-11-13  James A. Morrison  <phython@gcc.gnu.org>
+
+	* gcc.target/sparc/fand.c, gcc.target/sparc/fands,
+	gcc.target/sparc/fnand.c, gcc.target/sparc/fnands.c,
+	gcc.target/sparc/fxor.c, gcc.target/sparc/fxors.c,
+	gcc.target/sparc/fxnor.c, gcc.target/sparc/fxnors.c,
+	gcc.target/sparc/fandnot.c, gcc.target/sparc/fandnots.c,
+	gcc.target/sparc/fornot.c, gcc.target/sparc/fornots.c,
+	gcc.target/sparc/fnot.c, gcc.target/sparc/fnots.c,
+	gcc.target/sparc/for.c, gcc.target/sparc/fors.c,
+	gcc.target/sparc/combined-1.c: New tests.
+
+2004-11-12  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc.dg/const-str-8.m, objc.dg/const-str-9.m:
+	New tests.
+
+2004-11-12  Mark Mitchell <mark@codesourcery.com>
+
+	* lib/gcc-dg.exp (dg-forbid-option): New function.
+	* g++.dg/abi/bitfield3.C: Use dg-forbid-option -m64.
+	* g++.dg/abi/bitfield8.C: Likewise.
+	* g++.dg/abi/dtor1.C: Likewise.
+	* g++.dg/abi/empty10.C: Likewise.
+	* g++.dg/abi/empty7.C: Likewise.
+	* g++.dg/abi/empty9.C: Likewise.
+	* g++.dg/abi/layout3.C: Likewise.
+	* g++.dg/abi/layout4.C: Likewise.
+	* g++.dg/abi/thunk1.C: Likewise.
+	* g++.dg/abi/thunk2.C: Likewise.
+	* g++.dg/abi/vbase11.C: Likewise.
+	* g++.dg/abi/vthunk2.C: Likewise.
+	* g++.dg/abi/vthunk3.C: Likewise.
+	* g++.dg/ext/attrib8.C: Likewise.
+	* g++.dg/opt/longbranch2.C: Likewise.
+	* g++.dg/opt/reg-stack4.C: Likewise.
+	* g++.old-deja/g++.ext/attrib1.C: Likewise.
+	* g++.old-deja/g++.ext/attrib2.C: Likewise.
+	* g++.old-deja/g++.ext/attrib3.C: Likewise.
+	* g++.old-deja/g++.other/store-expr1.C: Likewise.
+	* g++.old-deja/g++.other/store-expr2.C: Likewise.
+	* gcc.dg/20000609-1.c: Likewise.
+	* gcc.dg/20000720-1.c: Likewise.
+	* gcc.dg/20011107-1.c: Likewise.
+	* gcc.dg/20011119-1.c: Likewise.
+	* gcc.dg/20020108-1.c: Likewise.
+	* gcc.dg/20020122-2.c: Likewise.
+	* gcc.dg/20020122-3.c: Likewise.
+	* gcc.dg/20020201-3.c: Likewise.
+	* gcc.dg/20020206-1.c: Likewise.
+	* gcc.dg/20020218-1.c: Likewise.
+	* gcc.dg/20020310-1.c: Likewise.
+	* gcc.dg/20020411-1.c: Likewise.
+	* gcc.dg/20020418-2.c: Likewise.
+	* gcc.dg/20020426-1.c: Likewise.
+	* gcc.dg/20020426-2.c: Likewise.
+	* gcc.dg/20020517-1.c: Likewise.
+	* gcc.dg/20020523-1.c: Likewise.
+	* gcc.dg/20020523-2.c: Likewise.
+	* gcc.dg/20020729-1.c: Likewise.
+	* gcc.dg/20030204-1.c: Likewise.
+	* gcc.dg/20030826-2.c: Likewise.
+	* gcc.dg/20030926-1.c: Likewise.
+	* gcc.dg/20031202-1.c: Likewise.
+	* gcc.dg/980312-1.c: Likewise.
+	* gcc.dg/980313-1.c: Likewise.
+	* gcc.dg/990117-1.c: Likewise.
+	* gcc.dg/990424-1.c: Likewise.
+	* gcc.dg/990524-1.c: Likewise.
+	* gcc.dg/991230-1.c: Likewise.
+	* gcc.dg/i386-387-1.c: Likewise.
+	* gcc.dg/i386-387-2.c: Likewise.
+	* gcc.dg/i386-387-3.c: Likewise.
+	* gcc.dg/i386-387-4.c: Likewise.
+	* gcc.dg/i386-387-5.c: Likewise.
+	* gcc.dg/i386-387-6.c: Likewise.
+	* gcc.dg/i386-asm-1.c: Likewise.
+	* gcc.dg/i386-bitfield1.c: Likewise.
+	* gcc.dg/i386-bitfield2.c: Likewise.
+	* gcc.dg/i386-loop-1.c: Likewise.
+	* gcc.dg/i386-loop-2.c: Likewise.
+	* gcc.dg/i386-loop-3.c: Likewise.
+	* gcc.dg/i386-pentium4-not-mull.c: Likewise.
+	* gcc.dg/i386-pic-1.c: Likewise.
+	* gcc.dg/i386-regparm.c: Likewise.
+	* gcc.dg/i386-signbit-1.c: Likewise.
+	* gcc.dg/i386-signbit-2.c: Likewise.
+	* gcc.dg/i386-signbit-3.c: Likewise.
+	* gcc.dg/i386-sse-5.c: Likewise.
+	* gcc.dg/i386-sse-8.c: Likewise.
+	* gcc.dg/i386-unroll-1.c: Likewise.
+	* gcc.dg/tls/opt-1.c: Likewise.
+	* gcc.dg/tls/opt-2.c: Likewise.
+	* gcc.dg/unroll-1.c: Likewise.
+	* gcc.misc-tests/i386-pf-3dnow-1.c: Likewise.
+	* gcc.misc-tests/i386-pf-athlon-1.c: Likewise.
+	* gcc.misc-tests/i386-pf-none-1.c: Likewise.
+	* gcc.misc-tests/i386-pf-sse-1.c: Likewise.
+	* gcc.c-torture/execute/20010129-1.x: Do not use -mtune=i686 when
+	-m64 is specified.
+
+2004-11-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18389
+	* g++.dg/parse/cond1.C: New test.
+
+	PR c++/18429
+	* g++.dg/template/array9.C: New test.
+	* g++.dg/ext/vla1.C: Adjust error messages.
+	* g++.dg/ext/vlm1.C: Likewise.
+	* g++.dg/template/crash2.C: Likewise.
+
+	PR c++/18436
+	* g++.dg/template/call3.C: New test.
+
+	PR c++/18407
+	* g++.dg/template/ptrmem11.C: New test.
+
+2004-11-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR other/14264
+	* lib/g++.exp: Set LC_ALL and LANG to C.
+	* lib/gcc-dg.exp: Likewise.
+	* lib/gfortran.exp: Likewise.
+	* lib/objc.exp: Likewise.
+	* lib/treelang.exp: Likewise.
+
+2004-11-12  Andreas Schwab  <schwab@suse.de>
+
+	* gcc.dg/pr16286.c: Fix last change.
+
+2004-11-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18416
+	* g++.dg/init/global1.C: New test.
+
+2004-11-12  Eric Botcazou  <ebotcazou@act-europe.fr>
+
+	* gcc.c-torture/execute/20041112-1.c: New test.
+
+2004-11-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/gcc-dg.exp (dg-target-list): New.
+
+2004-11-11  Janis Johnson  <janis187@us.ibm.com>
+	    Richard Sandiford  <rsandifo@redhat.com>
+
+	* lib/target-supports.exp (get-compiler_messages): New.
+	(check_named_sections_available): Use it.
+	(check_effective_target_ilp32): New.
+	(check_effective_target_lp64): New.
+	(is-effective-target): New.
+	* lib/gcc-dg.exp (dg-require-effective-target): New.
+
+2004-11-11  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/precedence-1.c: New test.
+
+2004-11-11  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.misc-tests/linkage.exp: Handle biarch GCC for powerpc64.
+
+	* gcc.misc-tests/linkage.exp: Prepend directory name to pass/fail
+	message, delete generated files, use more descriptive name for
+	executable, and make the test unsupported when it cannot be run.
+
+	* lib/gcc-dg.exp (skip_test_and_clear_xfail): New procedure.
+	(dg-require-weak, dg-require-visibility, dg-require-alias,
+	dg-require-gc-sections, dg-require-profiling, dg-require-dll,
+	dg-require-iconv, dg-require-named-sections): Use it.
+
+	* lib/gcc-dg.exp (dg-xfail-if): Ignore if skipping the test.
+
+2004-11-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR target/16457
+	* gcc.dg/ppc-and-1: New
+
+	PR target/16796
+	* gcc.dg/ppc-mov-1.c: New.
+
+	PR target/16458
+	* gcc.dg/ppc-compare-1.c: New.
+
+2004-11-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* objc.dg/desig-init-2.m: New test.
+
+2004-11-10  Adam Nemet  <anemet@lnxw.com>
+
+	PR middle-end/18160  
+	* g++.dg/warn/register-var-1.C: New test.
+	* g++.dg/warn/register-var-2.C: New test.
+
+2004-11-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/union-2.c: New test.
+
+2004-11-10  Fariborz Jahanian <fjahanian@apple.com>
+
+        * gcc.c-torture/execute/ieee/unsafe-fp-assoc-1.c: 
+	New test for PR tree-optimization/17892.
+
+2004-11-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/18369
+	* g++.dg/init/new12.C: New test.
+
 2004-11-10  James A. Morrison  <phython@gcc.gnu.org>
 
 	* gcc.target/sparc: New directory.

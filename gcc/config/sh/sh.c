@@ -1042,9 +1042,16 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	    case TLS_MODEL_INITIAL_EXEC:
 	      if (! flag_pic)
 		{
+		  /* Don't schedule insns for getting GOT address when
+		     the first scheduling is enabled, to avoid spill
+		     failures for R0.  */
+		  if (flag_schedule_insns)
+		    emit_insn (gen_blockage ());
 		  emit_insn (gen_GOTaddr2picreg ());
 		  emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode,
 								 PIC_REG)));
+		  if (flag_schedule_insns)
+		    emit_insn (gen_blockage ());
 		}
 	      tga_op1 = no_new_pseudos ? op0 : gen_reg_rtx (Pmode);
 	      tmp = gen_sym2GOTTPOFF (op1);
@@ -9814,6 +9821,9 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
+      /* Initialize the bitmap obstacks.  */
+      bitmap_obstack_initialize (NULL);
+      bitmap_obstack_initialize (&reg_obstack);
       if (! basic_block_info)
 	init_flow ();
       rtl_register_cfg_hooks ();
@@ -9839,8 +9849,9 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       /* Release all memory allocated by flow.  */
       free_basic_block_vars ();
 
-      /* Release all memory held by regsets now.  */
-      regset_release_memory ();
+      /* Release the bitmap obstacks.  */
+      bitmap_obstack_release (&reg_obstack);
+      bitmap_obstack_release (NULL);
     }
 
   reload_completed = 0;

@@ -1815,7 +1815,9 @@ package VMS_Data is
                                             "SPECS "                       &
                                                "-gnatys "                  &
                                             "TOKEN "                       &
-                                               "-gnatyt ";
+                                               "-gnatyt "                  &
+                                            "XTRA_PARENS "                 &
+                                               "-gnatyx ";
    --        /NOSTYLE_CHECKS (D)
    --        /STYLE_CHECKS[=(keyword,[...])]
    --
@@ -4049,22 +4051,6 @@ package VMS_Data is
    -- Switches for GNAT METRIC --
    ------------------------------
 
-   S_Metric_Config  : aliased constant S := "/CONFIGURATION_PRAGMAS_FILE=<" &
-                                              "-gnatec>";
-   --        /CONFIGURATION_PRAGMAS_FILE=file
-   --
-   --   Specify a configuration pragmas file that need to be taken into account
-
-   S_Metric_Current : aliased constant S := "/CURRENT_DIRECTORY "           &
-                                             "!-I-";
-   --        /CURRENT_DIRECTORY (D)
-   --
-   --   Look for files in the directory where GNAT METRIC was invoked
-   --
-   --        /NOCURRENT_DIRECTORY
-   --
-   --   Do not look for files in the directory where GNAT METRIC was invoked
-
    S_Metric_Debug    : aliased constant S := "/DEBUG_OUTPUT "               &
                                              "-dv";
    --      /DEBUG_OUTPUT
@@ -4080,8 +4066,9 @@ package VMS_Data is
 
    S_Metric_Element : aliased constant S := "/ELEMENT_METRICS="             &
                                              "ALL "                         &
-                                              "!-ed,!-es,!-enl,!-eis,"      &
-                                              "!-eas,!-eit,!-eat,!-enu "    &
+                                              "!-ed,!-es,!-enl,!-eps,"      &
+                                              "!-eas,!-ept,!-eat,!-enu,"    &
+                                              "!-ec "                       &
                                              "DECLARATION_TOTAL "           &
                                               "-ed "                        &
                                              "STATEMENT_TOTAL "             &
@@ -4089,15 +4076,17 @@ package VMS_Data is
                                              "LOOP_NESTING_MAX "            &
                                               "-enl "                       &
                                              "INT_SUBPROGRAMS "             &
-                                              "-eis "                       &
+                                              "-eps "                       &
                                              "SUBPROGRAMS_ALL "             &
                                               "-eas "                       &
                                              "INT_TYPES "                   &
-                                              "-eit "                       &
+                                              "-ept "                       &
                                              "TYPES_ALL "                   &
                                               "-eat "                       &
                                              "PROGRAM_NESTING_MAX "         &
-                                              "-enu";
+                                              "-enu "                       &
+                                             "CONSTRUCT_NESTING_MAX "       &
+                                              "-ec";
    --       /ELEMENT_METRICS=(option, option ...)
    --
    --   Specifies the element metrics to be computed (if not set, all the
@@ -4230,12 +4219,6 @@ package VMS_Data is
    --   the number of program units left to be processed. This option turns
    --   this trace off.
 
-   S_Metric_Search  : aliased constant S := "/SEARCH=*"                     &
-                                             "-I*";
-   --        /SEARCH=(directory, ...)
-   --
-   --   When looking for source files also look in the specified directories.
-
    S_Metric_Suffix  : aliased constant S := "/SUFFIX_DETAILS=" & '"'        &
                                              "-o" & '"';
    --        /SUFFIX_DETAILS=suffix
@@ -4288,9 +4271,7 @@ package VMS_Data is
    --   Place the XML output into the specified file
 
    Metric_Switches : aliased constant Switches :=
-     (S_Metric_Config   'Access,
-      S_Metric_Current  'Access,
-      S_Metric_Debug    'Access,
+     (S_Metric_Debug    'Access,
       S_Metric_Direct   'Access,
       S_Metric_Element  'Access,
       S_Metric_Ext      'Access,
@@ -4301,7 +4282,6 @@ package VMS_Data is
       S_Metric_Mess     'Access,
       S_Metric_Project  'Access,
       S_Metric_Quiet    'Access,
-      S_Metric_Search   'Access,
       S_Metric_Suffix   'Access,
       S_Metric_Suppress 'Access,
       S_Metric_Verbose  'Access,

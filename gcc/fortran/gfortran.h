@@ -96,7 +96,7 @@ typedef struct
 mstring;
 
 
-/* Flags to specify which standardi/extension contains a feature.  */
+/* Flags to specify which standard/extension contains a feature.  */
 #define GFC_STD_GNU                (1<<5)    /* GNU Fortran extension.  */
 #define GFC_STD_F2003             (1<<4)    /* New in F2003.  */
 /* Note that no features were obsoleted nor deleted in F2003.  */
@@ -315,7 +315,9 @@ enum gfc_generic_isym_id
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
   GFC_ISYM_FLOOR,
+  GFC_ISYM_FNUM,
   GFC_ISYM_FRACTION,
+  GFC_ISYM_FSTAT,
   GFC_ISYM_GETCWD,
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
@@ -379,6 +381,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_SPREAD,
   GFC_ISYM_SQRT,
   GFC_ISYM_SR_KIND,
+  GFC_ISYM_STAT,
   GFC_ISYM_SUM,
   GFC_ISYM_SYSTEM,
   GFC_ISYM_TAN,
@@ -387,6 +390,8 @@ enum gfc_generic_isym_id
   GFC_ISYM_TRANSPOSE,
   GFC_ISYM_TRIM,
   GFC_ISYM_UBOUND,
+  GFC_ISYM_UMASK,
+  GFC_ISYM_UNLINK,
   GFC_ISYM_UNPACK,
   GFC_ISYM_VERIFY,
   GFC_ISYM_CONVERSION
@@ -1738,7 +1743,7 @@ void gfc_resolve (gfc_namespace *);
 int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);
-try gfc_resolve_iterator (gfc_iterator *);
+try gfc_resolve_iterator (gfc_iterator *, bool);
 try gfc_resolve_index (gfc_expr *, int);
 
 /* array.c */

@@ -1926,14 +1926,6 @@ use_register_for_decl (tree decl)
   if (DECL_ARTIFICIAL (decl))
     return true;
 
-#ifdef NON_SAVING_SETJMP
-  /* Protect variables not declared "register" from setjmp.  */
-  if (NON_SAVING_SETJMP
-      && current_function_calls_setjmp
-      && !DECL_REGISTER (decl))
-    return false;
-#endif
-
   return (optimize || DECL_REGISTER (decl));
 }
 
@@ -2536,10 +2528,14 @@ assign_parm_setup_block_p (struct assign_parm_data_one *data)
    present and valid in DATA->STACK_RTL.  */
 
 static void
-assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
+assign_parm_setup_block (struct assign_parm_data_all *all,
+			 tree parm, struct assign_parm_data_one *data)
 {
   rtx entry_parm = data->entry_parm;
   rtx stack_parm = data->stack_parm;
+
+  if (GET_CODE (entry_parm) == PARALLEL)
+    entry_parm = emit_group_move_into_temps (entry_parm);
 
   /* If we've a non-block object that's nevertheless passed in parts,
      reconstitute it in register operations rather than on the stack.  */
@@ -2549,6 +2545,8 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
       && use_register_for_decl (parm))
     {
       rtx parmreg = gen_reg_rtx (data->nominal_mode);
+
+      push_to_sequence (all->conversion_insns);
 
       /* For values returned in multiple registers, handle possible
 	 incompatible calls to emit_group_store.
@@ -2572,6 +2570,10 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
       else
 	emit_group_store (parmreg, entry_parm, data->nominal_type,
 			  int_size_in_bytes (data->nominal_type));
+
+      all->conversion_insns = get_insns ();
+      end_sequence ();
+
       SET_DECL_RTL (parm, parmreg);
       return;
     }
@@ -2609,7 +2611,12 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
 
       /* Handle values in multiple non-contiguous locations.  */
       if (GET_CODE (entry_parm) == PARALLEL)
-	emit_group_store (mem, entry_parm, data->passed_type, size);
+	{
+	  push_to_sequence (all->conversion_insns);
+	  emit_group_store (mem, entry_parm, data->passed_type, size);
+	  all->conversion_insns = get_insns ();
+	  end_sequence ();
+	}
 
       else if (size == 0)
 	;
@@ -2648,7 +2655,7 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
 	    {
 	      rtx tem, x;
 	      int by = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
-	      rtx reg = gen_rtx_REG (word_mode, REGNO (data->entry_parm));
+	      rtx reg = gen_rtx_REG (word_mode, REGNO (entry_parm));
 
 	      x = expand_shift (LSHIFT_EXPR, word_mode, reg,
 				build_int_cst (NULL_TREE, by),
@@ -2657,11 +2664,11 @@ assign_parm_setup_block (tree parm, struct assign_parm_data_one *data)
 	      emit_move_insn (tem, x);
 	    }
 	  else
-	    move_block_from_reg (REGNO (data->entry_parm), mem,
+	    move_block_from_reg (REGNO (entry_parm), mem,
 				 size_stored / UNITS_PER_WORD);
 	}
       else
-	move_block_from_reg (REGNO (data->entry_parm), mem,
+	move_block_from_reg (REGNO (entry_parm), mem,
 			     size_stored / UNITS_PER_WORD);
     }
 
@@ -2782,7 +2789,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	  emit_move_insn (tempreg, DECL_RTL (parm));
 	  tempreg = convert_to_mode (GET_MODE (parmreg), tempreg, unsigned_p);
 	  emit_move_insn (parmreg, tempreg);
-	  all->conversion_insns = get_insns();
+	  all->conversion_insns = get_insns ();
 	  end_sequence ();
 
 	  did_conversion = true;
@@ -2862,10 +2869,11 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	{
 	  enum machine_mode submode
 	    = GET_MODE_INNER (GET_MODE (parmreg));
-	  int regnor = REGNO (gen_realpart (submode, parmreg));
-	  int regnoi = REGNO (gen_imagpart (submode, parmreg));
-	  rtx stackr = gen_realpart (submode, data->stack_parm);
-	  rtx stacki = gen_imagpart (submode, data->stack_parm);
+	  int regnor = REGNO (XEXP (parmreg, 0));
+	  int regnoi = REGNO (XEXP (parmreg, 1));
+	  rtx stackr = adjust_address_nv (data->stack_parm, submode, 0);
+	  rtx stacki = adjust_address_nv (data->stack_parm, submode,
+					  GET_MODE_SIZE (submode));
 
 	  /* Scan backwards for the set of the real and
 	     imaginary parts.  */
@@ -3083,7 +3091,7 @@ assign_parms (tree fndecl)
       assign_parm_adjust_stack_rtl (&data);
 
       if (assign_parm_setup_block_p (&data))
-	assign_parm_setup_block (parm, &data);
+	assign_parm_setup_block (&all, parm, &data);
       else if (data.passed_pointer || use_register_for_decl (parm))
 	assign_parm_setup_reg (&all, parm, &data);
       else
@@ -4052,22 +4060,31 @@ expand_function_start (tree subr)
     {
       /* Compute the return values into a pseudo reg, which we will copy
 	 into the true return register after the cleanups are done.  */
-
-      /* In order to figure out what mode to use for the pseudo, we
-	 figure out what the mode of the eventual return register will
-	 actually be, and use that.  */
-      rtx hard_reg
-	= hard_function_value (TREE_TYPE (DECL_RESULT (subr)),
-			       subr, 1);
-
-      /* Structures that are returned in registers are not aggregate_value_p,
-	 so we may see a PARALLEL or a REG.  */
-      if (REG_P (hard_reg))
-	SET_DECL_RTL (DECL_RESULT (subr), gen_reg_rtx (GET_MODE (hard_reg)));
+      tree return_type = TREE_TYPE (DECL_RESULT (subr));
+      if (TYPE_MODE (return_type) != BLKmode
+	  && targetm.calls.return_in_msb (return_type))
+	/* expand_function_end will insert the appropriate padding in
+	   this case.  Use the return value's natural (unpadded) mode
+	   within the function proper.  */
+	SET_DECL_RTL (DECL_RESULT (subr),
+		      gen_reg_rtx (TYPE_MODE (return_type)));
       else
 	{
-	  gcc_assert (GET_CODE (hard_reg) == PARALLEL);
-	  SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
+	  /* In order to figure out what mode to use for the pseudo, we
+	     figure out what the mode of the eventual return register will
+	     actually be, and use that.  */
+	  rtx hard_reg = hard_function_value (return_type, subr, 1);
+
+	  /* Structures that are returned in registers are not
+	     aggregate_value_p, so we may see a PARALLEL or a REG.  */
+	  if (REG_P (hard_reg))
+	    SET_DECL_RTL (DECL_RESULT (subr),
+			  gen_reg_rtx (GET_MODE (hard_reg)));
+	  else
+	    {
+	      gcc_assert (GET_CODE (hard_reg) == PARALLEL);
+	      SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
+	    }
 	}
 
       /* Set DECL_REGISTER flag so that expand_function_end will copy the
@@ -4317,13 +4334,8 @@ expand_function_end (void)
      is computed.  */
   clobber_after = get_last_insn ();
 
-  /* Output the label for the actual return from the function,
-     if one is expected.  This happens either because a function epilogue
-     is used instead of a return instruction, or because a return was done
-     with a goto in order to run local cleanups, or because of pcc-style
-     structure returning.  */
-  if (return_label)
-    emit_label (return_label);
+  /* Output the label for the actual return from the function.  */
+  emit_label (return_label);
 
   /* Let except.c know where it should emit the call to unregister
      the function context for sjlj exceptions.  */
@@ -4366,10 +4378,22 @@ expand_function_end (void)
 	  if (GET_MODE (real_decl_rtl) == BLKmode)
 	    PUT_MODE (real_decl_rtl, GET_MODE (decl_rtl));
 
+	  /* If a non-BLKmode return value should be padded at the least
+	     significant end of the register, shift it left by the appropriate
+	     amount.  BLKmode results are handled using the group load/store
+	     machinery.  */
+	  if (TYPE_MODE (TREE_TYPE (decl_result)) != BLKmode
+	      && targetm.calls.return_in_msb (TREE_TYPE (decl_result)))
+	    {
+	      emit_move_insn (gen_rtx_REG (GET_MODE (decl_rtl),
+					   REGNO (real_decl_rtl)),
+			      decl_rtl);
+	      shift_return_value (GET_MODE (decl_rtl), true, real_decl_rtl);
+	    }
 	  /* If a named return value dumped decl_return to memory, then
 	     we may need to re-do the PROMOTE_MODE signed/unsigned
 	     extension.  */
-	  if (GET_MODE (real_decl_rtl) != GET_MODE (decl_rtl))
+	  else if (GET_MODE (real_decl_rtl) != GET_MODE (decl_rtl))
 	    {
 	      int unsignedp = TYPE_UNSIGNED (TREE_TYPE (decl_result));
 

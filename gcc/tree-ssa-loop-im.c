@@ -283,7 +283,7 @@ outermost_invariant_loop_expr (tree expr, struct loop *loop)
       && class != tcc_comparison)
     return NULL;
 
-  nops = first_rtl_op (TREE_CODE (expr));
+  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < nops; i++)
     {
       aloop = outermost_invariant_loop_expr (TREE_OPERAND (expr, i), loop);
@@ -365,9 +365,7 @@ stmt_cost (tree stmt)
   rhs = TREE_OPERAND (stmt, 1);
 
   /* Hoisting memory references out should almost surely be a win.  */
-  if (!is_gimple_variable (lhs))
-    cost += 20;
-  if (is_gimple_addressable (rhs) && !is_gimple_variable (rhs))
+  if (stmt_references_memory_p (stmt))
     cost += 20;
 
   switch (TREE_CODE (rhs))
@@ -598,7 +596,7 @@ loop_commit_inserts (void)
   basic_block bb;
 
   old_last_basic_block = last_basic_block;
-  bsi_commit_edge_inserts (NULL);
+  bsi_commit_edge_inserts ();
   for (i = old_last_basic_block; i < (unsigned) last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
@@ -745,7 +743,7 @@ force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
       && class != tcc_comparison)
     return;
 
-  nops = first_rtl_op (TREE_CODE (expr));
+  nops = TREE_CODE_LENGTH (TREE_CODE (expr));
   for (i = 0; i < nops; i++)
     force_move_till_expr (TREE_OPERAND (expr, i), orig_loop, loop);
 }
@@ -1253,6 +1251,9 @@ determine_lsm (struct loops *loops)
 {
   struct loop *loop;
   basic_block bb;
+
+  if (!loops->tree_root->inner)
+    return;
 
   /* Create a UID for each statement in the function.  Ordering of the
      UIDs is not important for this pass.  */

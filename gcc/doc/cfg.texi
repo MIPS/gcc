@@ -145,11 +145,70 @@ a predecessor of B, and B is a successor of A@.  Edges are represented
 in GCC with the @code{edge} data type.  Each @code{edge} acts as a
 link between two basic blocks: the @code{src} member of an edge
 points to the predecessor basic block of the @code{dest} basic block.
-The members @code{pred} and @code{succ} of the @code{basic_block} data
-type point to singly linked lists of edges to the predecessors and
-successors of the block.  The edges are linked via the
-@code{succ_next} and @code{pred_next} members of the @code{edge} data
-type.
+The members @code{preds} and @code{succs} of the @code{basic_block} data
+type point to type-safe vectors of edges to the predecessors and
+successors of the block.
+
+@cindex edge iterators
+When walking the edges in an edge vector, @dfn{edge iterators} should
+be used.  Edge iterators are constructed using the
+@code{edge_iterator} data structure and several methods are available
+to operate on them:
+
+@ftable @code
+@item ei_start
+This function initializes an @code{edge_iterator} that points to the
+first edge in a vector of edges.
+
+@item ei_last
+This function initializes an @code{edge_iterator} that points to the
+last edge in a vector of edges.
+
+@item ei_end_p
+This predicate is @code{true} if an @code{edge_iterator} represents
+the last edge in an edge vector.
+
+@item ei_one_before_end_p
+This predicate is @code{true} if an @code{edge_iterator} represents
+the second last edge in an edge vector.
+
+@item ei_next
+This function takes a pointer to an @code{edge_iterator} and makes it
+point to the next edge in the sequence.
+
+@item ei_prev
+This function takes a pointer to an @code{edge_iterator} and makes it
+point to the previous edge in the sequence.
+
+@item ei_edge
+This function returns the @code{edge} currently pointed to by an
+@code{edge_iterator}.
+
+@item ei_safe_safe
+This function returns the @code{edge} currently pointed to by an
+@code{edge_iterator}, but returns @code{NULL} if the iterator is
+pointing at the end of the sequence.  This function has been provided
+for existing code makes the assumption that a @code{NULL} edge
+indicates the end of the sequence.
+
+@end ftable
+
+The convenience macro @code{FOR_EACH_EDGE} can be used to visit all of
+the edges in a sequence of predecessor or successor edges.  It must
+not be used when an element might be removed during the traversal,
+otherwise elements will be missed.  Here is an example of how to use
+the macro:
+
+@smallexample
+edge e;
+edge_iterator ei;
+
+FOR_EACH_EDGE (e, ei, bb->succs)
+  @{
+     if (e->flags & EDGE_FALLTHRU)
+       break;
+  @}
+@end smallexample
 
 @findex fall-thru
 There are various reasons why control flow may transfer from one block
@@ -457,41 +516,34 @@ instruction stream.  Block statement iterators iterators are
 constructed using the @code{block_stmt_iterator} data structure and
 several modifier are available, including the following:
 
-@table @code
+@ftable @code
 @item bsi_start
-@findex bsi_start
 This function initializes a @code{block_stmt_iterator} that points to
 the first non-empty statement in a basic block.
 
 @item bsi_last
-@findex bsi_last
 This function initializes a @code{block_stmt_iterator} that points to
 the last statement in a basic block.
 
 @item bsi_end_p
-@findex bsi_end_p
 This predicate is @code{true} if a @code{block_stmt_iterator}
 represents the end of a basic block.
 
 @item bsi_next
-@findex bsi_next
 This function takes a @code{block_stmt_iterator} and makes it point to
 its successor.
 
-@item bsi_prev
 @item bsi_prev
 This function takes a @code{block_stmt_iterator} and makes it point to
 its predecessor.
 
 @item bsi_insert_after
-@findex bsi_insert_after
 This function inserts a statement after the @code{block_stmt_iterator}
 passed in.  The final parameter determines whether the statement
 iterator is updated to point to the newly inserted statement, or left
 pointing to the original statement.
 
 @item bsi_insert_before
-@findex bsi_insert_before
 This function inserts a statement before the @code{block_stmt_iterator}
 passed in.  The final parameter determines whether the statement
 iterator is updated to point to the newly inserted statement, or left
@@ -500,8 +552,7 @@ pointing to the original  statement.
 @item bsi_remove
 This function removes the @code{block_stmt_iterator} passed in and
 rechains the remaining statements in a basic block, if any.
-
-@end table
+@end ftable
 
 @findex BB_HEAD, BB_END
 In the RTL representation, the macros @code{BB_HEAD} and @code{BB_END}
@@ -540,8 +591,10 @@ and add necessary edges.  The CFG hook @code{split_block} may be used
 when an instruction in the middle of a basic block has to become the
 target of a jump or branch instruction.
 
-@findex insert_insn_on_edge, commit_edge_insertions
-@findex bsi_insert_on_edge, bsi_commit_edge_inserts
+@findex insert_insn_on_edge
+@findex commit_edge_insertions
+@findex bsi_insert_on_edge
+@findex bsi_commit_edge_inserts
 @cindex edge splitting
 For a global optimizer, a common operation is to split edges in the
 flow graph and insert instructions on them.  In the RTL

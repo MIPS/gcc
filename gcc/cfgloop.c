@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "obstack.h"
 #include "basic-block.h"
 #include "toplev.h"
 #include "cfgloop.h"
@@ -1498,14 +1499,7 @@ verify_loop_structure (struct loops *loops)
 edge
 loop_latch_edge (const struct loop *loop)
 {
-  edge e;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, loop->header->preds)
-    if (e->src == loop->latch)
-      break;
-
-  return e;
+  return find_edge (loop->latch, loop->header);
 }
 
 /* Returns preheader edge of LOOP.  */

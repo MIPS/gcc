@@ -143,6 +143,8 @@ recursive_targets = { make_target= info;
                       depend=configure; };
 recursive_targets = { make_target= dvi; 
                       depend=configure; };
+recursive_targets = { make_target= html; 
+                      depend=configure; };
 recursive_targets = { make_target= TAGS; 
                       depend=configure; };
 recursive_targets = { make_target= install-info; 
@@ -225,6 +227,7 @@ flags_to_pass = { flag= LD_FOR_TARGET ; };
 flags_to_pass = { flag= LIBCFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= LIBCXXFLAGS_FOR_TARGET ; };
 flags_to_pass = { flag= NM_FOR_TARGET ; };
+flags_to_pass = { flag= PICFLAG_FOR_TARGET ; };
 flags_to_pass = { flag= RANLIB_FOR_TARGET ; };
 flags_to_pass = { flag= WINDRES_FOR_TARGET ; };
 
@@ -261,6 +264,7 @@ dependencies = { module=all-gcc; on=all-zlib; };
 dependencies = { module=all-gcc; on=all-libcpp; hard=true; };
 dependencies = { module=all-gcc; on=all-libiberty; };
 dependencies = { module=all-gcc; on=all-fixincludes; };
+dependencies = { module=install-gcc ; on=install-fixincludes; };
 
 dependencies = { module=configure-libcpp; on=configure-libiberty; hard=true; };
 dependencies = { module=configure-libcpp; on=configure-intl; };
