@@ -1,3 +1,186 @@
+2004-10-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_M_mutate): Do not reallocate
+	unnecessarily when _M_rep() == &_S_empty_rep() and __new_size
+	== capacity() (== 0): is ok to just leave everything unchanged.
+
+	* include/bits/basic_string.h: Minor formatting fixes.
+	* include/bits/basic_string.tcc: Likewise.
+
+2004-10-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/mt_allocator.h (__pool::_M_get_align): New.
+	(__mt_alloc::allocate): Use it.
+	* src/mt_allocator.cc (__pool::_M_reclaim_block): Use it.
+	(__pool::_M_reserve_block): Simplify block allocation.
+	
+2004-10-17  Dhruv Matani  <dhruvbird@gmx.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+		
+	* include/ext/bitmap_allocator.h: Change unsigned int -> size_t: this
+	makes the code 64-bit correct and also fixes (together with using at
+	the beginning a bitmap 2 * size_t bytes wide) alignment issues: now
+	8 is guaranteed, easily tunable to 16 via _BALLOC_ALIGN_BYTES.
+	Fix pthread-rope7.cc fail by nulling out __mini_vector<> destructor.
+	* src/bitmap_allocator.cc: Change to size_t.
+	* config/linker-map.gnu: Adjust.
+
+2004-10-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1/array: Don't use layout_type.
+
+2004-10-16  Sashan Govender  <sashang@gmail.com>
+
+	* include/tr1/array (array::end const): Fix casting from iterator
+	to const_iterator.
+	
+2004-10-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/bitmap_allocator.h: Qualify ::operator delete.
+	* src/bitmap_allocator.cc: Likewise.
+	* src/mt_allocator.cc: Use ::operator delete, not delete,
+	consistently with ::operator new.
+
+	* include/ext/bitmap_allocator.h (deallocate): Check for null
+	pointer.
+	* testsuite/ext/bitmap_allocator/check_deallocate_null.cc: New.
+	* testsuite/testsuite_allocator.h (check_deallocate_null): Add test.
+
+2004-10-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/mt_allocator.h (__mt_alloc::deallocate): Check for
+	null pointer.
+	* include/ext/pool_allocator.h (debug_allocator::deallocate):
+	Check pointer value.
+	* include/ext/debug_allocator.h (debug_allocator::deallocate):
+	Throw exceptions, don't abort.
+	* include/ext/array_allocator.h
+	(array_allocator_base::deallocate): Remove unused parameters.
+	* testsuite/testsuite_allocator.h (check_deallocate_null): New.
+	* testsuite/ext/mt_allocator/check_deallocate_null.cc: New.
+	* testsuite/ext/mt_allocator/check_deallocate_null_thread.cc: New.
+	* testsuite/ext/array_allocator/check_deallocate_null.cc: New.
+	* testsuite/ext/debug_allocator/check_deallocate_null.cc: New.
+	* testsuite/ext/malloc_allocator/check_deallocate_null.cc: New.
+	* testsuite/ext/new_allocator/check_deallocate_null.cc: New.
+	* testsuite/ext/pool_allocator/check_deallocate_null.cc: New.
+
+	* testsuite/testsuite_allocator.h (check_new): Add instance argument.
+	* testsuite/ext/array_allocator/check_new.cc: New.
+	
+2004-10-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/bitmap_allocator.h (bitmap_allocator::_Alloc_block):
+	Rename __unused to __M_unused.
+
+2004-10-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/ext/headers.cc: Add includes, compile only.
+	* testsuite/ext/hash_map.cc: Move to...
+	* testsuite/ext/hash_map/1.cc: ...here.
+	* testsuite/ext/14648.cc: Move to...
+	* testsuite/ext/hash_map/14648.cc: ...here.
+	* testsuite/ext/hash_map/instantiate.cc: Add.
+	* testsuite/ext/hash_set.cc: Move to...
+	* testsuite/ext/hash_set/1.cc: ...here.
+	* testsuite/ext/hash_set_explicit_instantiation.cc: Move to...
+	* testsuite/ext/hash_set/instantiate.cc: ...here.
+	* testsuite/ext/hash_check_construct_destroy.cc: Move to...
+	* testsuite/ext/hash_set/check_construct_destroy.cc: ...here.
+	* testsuite/ext/slist_check_construct_destroy.cc: Move to...
+	* testsuite/ext/slist/check_construct_destroy.cc: ...here.
+	* testsuite/ext/slist_explicit_instantiation.cc: Move to...
+	* testsuite/ext/slist/instantiate.cc: ...here.
+	
+2004-10-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/mt_allocator.h: Tweaks.
+	* src/mt_allocator.cc: Same.
+
+2004-10-14  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* ext/bitmap_allocator.h: Clean-up add/remove functions.
+	* src/bitmap_allocator.cc: New file. Contains the out-of-line
+	function definitions, static initialization of variables, and
+	explicit instantiations needed for the allocator.
+	* src/Makefile.am: Add.
+	* src/Makefile.in: Regenerate.
+	* config/linker.map.gnu: Add the necessary symbols.
+
+2004-10-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (_S_create): Use consistently
+	the exponential policy, simplify.
+	* testsuite/performance/21_strings/string_append_2.cc: New.
+
+	* include/ext/array_allocator.h (allocate): Fix bad_alloc check.
+	* testsuite/ext/array_allocator/2.cc: Fix wrt 64-bit archs (in
+	that case sizeof(_Rep) == 24).
+
+2004-10-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/17948
+	* include/bits/stl_tree.h (erase(iterator, iterator)): Revert
+	wrong commit of 2004-10-07.
+	
+2004-10-12  Scott Snyder  <snyder@fnal.gov>
+
+	PR libstdc++/17948
+	* testsuite/23_containers/set/modifiers/17948.cc: New.
+
+2004-10-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/stl_deque.h: Correct for over-long lines.
+
+2004-10-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/17937
+	* include/ext/mt_allocator.h (__pool::_M_destroy): New.
+	* src/mt_allocator.cc (__pool::~__pool): Change definitions to
+	_M_destroy.
+	* acconfig.h: Remove _GLIBCXX_USE___CXA_ATEXIT.
+	* acinclude.m4 (GLIBCXX_ENABLE_CXA_ATEXIT): Remove.
+	* configure.ac: Remove call to GLIBCXX_ENABLE_CXA_EXIT.
+	* configure: Regenerate.
+	* config/linker-map.gnu: Tweak exports.
+	* docs/html/ext/mt_allocator.html: Update docs.
+	* testsuite/ext/mt_allocator/deallocate_global-2.cc: Fix.
+	* testsuite/ext/mt_allocator/deallocate_global-4.cc: Fix.	
+	* testsuite/ext/mt_allocator/deallocate_global_thread-1.cc: Fix.
+	* testsuite/ext/mt_allocator/deallocate_global_thread-3.cc: Fix.
+	* testsuite/ext/mt_allocator/deallocate_local-2.cc: Fix.
+	* testsuite/ext/mt_allocator/deallocate_local-4.cc: Fix.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-3.cc: Fix.
+	* testsuite/ext/mt_allocator/deallocate_local_thread-1.cc: Fix.
+
+2004-10-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/16614 continued.
+	* include/ext/mt_allocator.h
+	(__per_type_pool_policy::_S_get_pool): Use saner defaults based on
+	specific type characteristics.
+	(__pool_base): Add constructor that takes a _Tune argument.
+	(__pool): Same.
+	* testsuite/ext/mt_allocator/tune-2.cc: Adjust default.
+	* testsuite/ext/mt_allocator/tune-4.cc: Same.
+	* testsuite/ext/mt_allocator/tune-3.cc: Same.
+
+2004-10-11  Joachim Kuebart  <kuebart@mathematik.uni-ulm.de>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* src/pool_allocator.cc (__pool_alloc_base::_M_allocate_chunk):
+	Deal properly with exceptions thrown by ::operator new(size_t).
+	* testsuite/ext/pool_allocator/allocate_chunk.cc: New.
+
+	* include/ext/pool_allocator.h: Include <cstdlib>.
+
+2004-10-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/functexcept.h: Add guards.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_THREADS): Tweak test.
+	* configure: Regenerate.
+	
 2004-10-10  Paolo Carlini  <pcarlini@suse.de>
 
 	* config/locale/gnu/monetary_members.cc (_S_construct_pattern):

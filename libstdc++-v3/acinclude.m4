@@ -611,21 +611,6 @@ AC_DEFUN([GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING], [
   fi
 ])
 
-dnl
-dnl Check for --enable-__cxa_atexit
-dnl
-dnl --enable-__cxa_atexit defines _GLIBCXX_USE___CXA_ATEXIT
-dnl --disable-__cxa_atexit doesn't define _GLIBCXX_USE___CXA_ATEXIT
-dnl  +  Usage:  GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING[(DEFAULT)]
-dnl       Where DEFAULT is either `yes' or `no'.
-dnl
-AC_DEFUN([GLIBCXX_ENABLE_CXA_ATEXIT], [
-  GLIBCXX_ENABLE(__cxa_atexit,$1,,
-                 [Define if __cxa_atexit is to be used instead of atexit.])
-  if test $enable___cxa_atexit = yes; then
-    AC_DEFINE(_GLIBCXX_USE___CXA_ATEXIT)
-  fi
-])
 
 dnl
 dnl Does any necessary configuration of the testsuite directory.  Generates
@@ -1726,13 +1711,20 @@ AC_DEFUN([GLIBCXX_ENABLE_THREADS], [
   target_thread_file=`$CXX -v 2>&1 | sed -n 's/^Thread model: //p'`
   AC_MSG_RESULT([$target_thread_file])
 
-  enable_thread=no
   if test $target_thread_file != single; then
     AC_DEFINE(HAVE_GTHR_DEFAULT)
-    enable_thread=yes
   fi
 
   glibcxx_thread_h=gthr-$target_thread_file.h
+
+  dnl Check for __GTHREADS define.
+  gthread_file=${toplevel_srcdir}/gcc/${glibcxx_thread_h}
+  if grep __GTHREADS $gthread_file >/dev/null 2>&1 ; then
+    enable_thread=yes
+  else
+   enable_thread=no
+  fi
+
   AC_SUBST(glibcxx_thread_h)
 ])
 

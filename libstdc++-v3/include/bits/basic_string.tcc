@@ -373,7 +373,8 @@ namespace std
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
-    basic_string<_CharT, _Traits, _Alloc>::_M_leak_hard()
+    basic_string<_CharT, _Traits, _Alloc>::
+    _M_leak_hard()
     {
 #ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
       if (_M_rep() == &_S_empty_rep())
@@ -393,16 +394,11 @@ namespace std
       const size_type __new_size = __old_size + __len2 - __len1;
       const size_type __how_much = __old_size - __pos - __len1;
 
-#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
-      if (_M_rep() == &_S_empty_rep()
-	  || _M_rep()->_M_is_shared() || __new_size > capacity())
-#else
-      if (_M_rep()->_M_is_shared() || __new_size > capacity())
-#endif
+      if (__new_size > this->capacity() || _M_rep()->_M_is_shared())
 	{
 	  // Must reallocate.
 	  const allocator_type __a = get_allocator();
-	  _Rep* __r = _Rep::_S_create(__new_size, capacity(), __a);
+	  _Rep* __r = _Rep::_S_create(__new_size, this->capacity(), __a);
 
 	  if (__pos)
 	    traits_type::copy(__r->_M_refdata(), _M_data(), __pos);
@@ -427,7 +423,8 @@ namespace std
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
-    basic_string<_CharT, _Traits, _Alloc>::reserve(size_type __res)
+    basic_string<_CharT, _Traits, _Alloc>::
+    reserve(size_type __res)
     {
       if (__res != this->capacity() || _M_rep()->_M_is_shared())
         {
@@ -444,7 +441,9 @@ namespace std
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
-    void basic_string<_CharT, _Traits, _Alloc>::swap(basic_string& __s)
+    void
+    basic_string<_CharT, _Traits, _Alloc>::
+    swap(basic_string& __s)
     {
       if (_M_rep()->_M_is_leaked())
 	_M_rep()->_M_set_sharable();
@@ -503,9 +502,8 @@ namespace std
       // low-balling it (especially when this algorithm is used with
       // malloc implementations that allocate memory blocks rounded up
       // to a size which is a power of 2).
-      const size_type __pagesize = 4096; // must be 2^i * __subpagesize
-      const size_type __subpagesize = 128; // should be >> __malloc_header_size
-      const size_type __malloc_header_size = 4 * sizeof (void*);
+      const size_type __pagesize = 4096;
+      const size_type __malloc_header_size = 4 * sizeof(void*);
 
       // The below implements an exponential growth policy, necessary to
       // meet amortized linear time requirements of the library: see
@@ -513,14 +511,7 @@ namespace std
       // It's active for allocations requiring an amount of memory above
       // system pagesize. This is consistent with the requirements of the
       // standard: http://gcc.gnu.org/ml/libstdc++/2001-07/msg00130.html
-
-      // The biggest string which fits in a memory page
-      const size_type __page_capacity = ((__pagesize - __malloc_header_size
-					  - sizeof(_Rep) - sizeof(_CharT))
-					 / sizeof(_CharT));
-
-      if (__capacity > __old_capacity && __capacity < 2 * __old_capacity
-	  && __capacity > __page_capacity)
+      if (__capacity > __old_capacity && __capacity < 2 * __old_capacity)
 	__capacity = 2 * __old_capacity;
 
       // NB: Need an array of char_type[__capacity], plus a terminating
@@ -536,12 +527,6 @@ namespace std
 	  // Never allocate a string bigger than _S_max_size.
 	  if (__capacity > _S_max_size)
 	    __capacity = _S_max_size;
-	  __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
-	}
-      else if (__size > __subpagesize)
-	{
-	  const size_type __extra = __subpagesize - __adj_size % __subpagesize;
-	  __capacity += __extra / sizeof(_CharT);
 	  __size = (__capacity + 1) * sizeof(_CharT) + sizeof(_Rep);
 	}
 
@@ -575,7 +560,8 @@ namespace std
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
-    basic_string<_CharT, _Traits, _Alloc>::resize(size_type __n, _CharT __c)
+    basic_string<_CharT, _Traits, _Alloc>::
+    resize(size_type __n, _CharT __c)
     {
       if (__n > max_size())
 	__throw_length_error(__N("basic_string::resize"));
