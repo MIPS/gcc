@@ -42,14 +42,14 @@ static void print_callee PARAMS ((output_buffer *, tree, int));
 
 /* Print the call graph associated to the tree T, in the file FILE.  */
 
-void 
+void
 print_call_graph (file, t)
      FILE *file;
      tree t;
 {
   output_buffer buffer_rec;
   output_buffer *buffer = &buffer_rec;
-  
+
   init_output_buffer (buffer, /* prefix */NULL, /* line-width */0);
   output_clear_message_text (buffer);
   output_printf (buffer, "<file>\n");
@@ -60,7 +60,7 @@ print_call_graph (file, t)
 
 /* Print the call graph on stderr.  */
 
-void 
+void
 debug_call_graph (t)
      tree t;
 {
@@ -68,12 +68,12 @@ debug_call_graph (t)
 }
 
 
-/* Scan the tree T searching for callee/caller functions, then output found 
-   function calls/callers in the output_buffer BUFFER under the DTD format 
-   described above.  
+/* Scan the tree T searching for callee/caller functions, then output found
+   function calls/callers in the output_buffer BUFFER under the DTD format
+   described above.
    Not Yet Implemented : the dump of global variables and their use.  */
 
-static void 
+static void
 construct_call_graph (buffer, t, spc)
      output_buffer *buffer;
      tree t;
@@ -100,7 +100,7 @@ construct_call_graph (buffer, t, spc)
 	case PARM_DECL:
 	  /* Some nodes on which we need to stop the recursion.  */
 	  return;
-	  
+
 	case FUNCTION_DECL:
 	  if (BUILT_IN_FRONTEND)
 
@@ -118,11 +118,11 @@ construct_call_graph (buffer, t, spc)
 
 	  /* Statements based statistics.  */
 	  INDENT (spc+1);
-	  output_printf (buffer, "<stats calls=\"%d\" decisions=\"%d\" stmts=\"%d\" Gilb=\"%d\"", 
-			 nb_calls, decision_points, nb_statements, 
-			 ((nb_statements == 0) ? 0 : 
+	  output_printf (buffer, "<stats calls=\"%d\" decisions=\"%d\" stmts=\"%d\" Gilb=\"%f\"",
+			 nb_calls, decision_points, nb_statements,
+			 ((nb_statements == 0) ? 0.0 :
 			  ((float)decision_points / (float)nb_statements)));
-	  
+
 	  /* Control flow statistics.  */
 	  init_flow ();
 	  build_tree_cfg (DECL_SAVED_TREE (node));
@@ -149,12 +149,12 @@ construct_call_graph (buffer, t, spc)
 	      case VAR_DECL:
 	      case PARM_DECL:
 		/* if (TREE_CODE (op0) == PARM_DECL)
-		   This function pointer was received in parameter.  
-		   I think that this should not enter in the call graph.  
+		   This function pointer was received in parameter.
+		   I think that this should not enter in the call graph.
 		   Or otherwise it enters but with a special mark
-		   saying that the name of this function is a parameter, 
+		   saying that the name of this function is a parameter,
 		   and thus for this name we don't expect a declaration.
-		   Example: 
+		   Example:
 		   /gcc/libiberty/splay_tree.c:splay_tree_foreach_helper ().  */
 		print_callee (buffer, op0, spc);
 		break;
@@ -180,12 +180,12 @@ construct_call_graph (buffer, t, spc)
 		  print_callee (buffer, TREE_OPERAND (op0, 1), spc);
 #if 0
 		else
-		/* We can have several levels of structures and a function 
+		/* We can have several levels of structures and a function
 		   pointer inside.  This is not implemented yet...  */
 		  NIY;
 #endif
 		break;
-	      
+
 	      case ARRAY_REF:
 		if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
 		  print_callee (buffer, TREE_OPERAND (op0, 0), spc);
@@ -197,7 +197,7 @@ construct_call_graph (buffer, t, spc)
 		NIY;
 	      }
 	    /* Walk through function's arguments.  */
-	    construct_call_graph (buffer, TREE_OPERAND (node, 1), spc);	  
+	    construct_call_graph (buffer, TREE_OPERAND (node, 1), spc);
 	    node = TREE_CHAIN (node);
 	    break;
 	  }
@@ -217,7 +217,7 @@ construct_call_graph (buffer, t, spc)
 	case ARRAY_REF:
 	  if (TREE_CODE (TREE_OPERAND (node, 0)) == ARRAY_REF)
 	    construct_call_graph (buffer, TREE_OPERAND (node, 0), spc);
-	  
+
 	  construct_call_graph (buffer, TREE_OPERAND (node, 1), spc);
 	  node = TREE_CHAIN (node);
 	  break;
@@ -305,7 +305,7 @@ construct_call_graph (buffer, t, spc)
 
 /* Print the callee function declaration.  */
 
-static void 
+static void
 print_callee (buffer, node, spc)
      output_buffer *buffer;
      tree node;
@@ -314,7 +314,7 @@ print_callee (buffer, node, spc)
   int i;
 
   /* Indent.  */
-  for (i = 0; i<spc; i++) 
+  for (i = 0; i<spc; i++)
     output_add_space (buffer);
 
   /* Print the node.  */
