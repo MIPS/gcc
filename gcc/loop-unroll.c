@@ -390,10 +390,10 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 	make_edge (preheader, fake, 0);
 
       /* We must be a bit careful here, as we might have negative
-	 number of iterations.  Also, in case of postincrement we do
+	 number of iterations.  Also, in case of preincrement we do
 	 not know whether we should not exit before reaching the loop.  */
       sbitmap_zero (wont_exit);
-      if (!desc->postincr && (i || desc->cond == NE))
+      if (desc->postincr && (i || desc->cond == NE))
 	SET_BIT (wont_exit, 1);
 
       if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
@@ -520,6 +520,9 @@ unroll_or_peel_loop (loops, loop, flags)
   unsigned HOST_WIDE_INT nunroll, npeel, npeel_completely, peel_once, niter = 0;
   struct loop_desc desc;
   bool simple, exact;
+
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, ";; Considering loop %d\n", loop->num);
 
   /* Do not unroll/peel cold areas.  */
   if (!maybe_hot_bb_p (loop->header))

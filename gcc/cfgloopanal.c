@@ -567,7 +567,7 @@ count_loop_iterations (desc, init, lim)
     case LEU:
     case GEU:
       exp = simplify_gen_binary (PLUS, GET_MODE (desc->var),
-				 exp, const1_rtx);
+				 exp, stride);
       break;
     default:
       abort ();

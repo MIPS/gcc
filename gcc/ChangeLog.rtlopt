@@ -1,3 +1,11 @@
+2002-10-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloopanal.c (count_loop_iterations): Use stride instead of
+	const1_rtx.
+	* loop-unroll.c (unroll_loop_runtime_iterations): Revert the wrong
+	fix, fix misleading comment.
+	(unroll_or_peel_loop): Add debugging info.
+
 Sat Oct 26 00:04:54 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* loop-unroll.c (unroll_loop_runtime_iterations):  Compute edge probabilities properly.
