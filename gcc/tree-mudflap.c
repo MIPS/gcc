@@ -798,7 +798,8 @@ mx_xfn_indirect_ref (tree *t, int *continue_p, void *data)
     last_lineno = (STMT_LINENO (*t) > 0 ? STMT_LINENO (*t) : last_lineno);
   if (TREE_CODE (*t) == FILE_STMT)
     last_filename = FILE_STMT_FILENAME (*t);
-  if (TREE_LOCUS (*t))
+  /* Try also the LOCUS, but ignore a simply referenced decl.  */
+  if (! DECL_P (*t) && TREE_LOCUS (*t)) 
     {
       last_filename = TREE_FILENAME (*t);
       last_lineno = (TREE_LINENO (*t) > 0 ? TREE_LINENO (*t) : last_lineno);
