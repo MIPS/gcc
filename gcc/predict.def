@@ -56,6 +56,8 @@ DEF_PREDICTOR (PRED_UNCONDITIONAL, "unconditional jump", PROB_ALWAYS,
 /* Use number of loop iterations determined by loop unroller to set
    probability.  We don't want to use Dempster-Shaffer theory here,
    as the predictions is exact.  */
+DEF_PREDICTOR (PRED_CFG_LOOP_ITERATIONS, "cfgloop iterations", 0,
+	       PRED_FLAG_FIRST_MATCH)
 DEF_PREDICTOR (PRED_LOOP_ITERATIONS, "loop iterations", 0,
 	       PRED_FLAG_FIRST_MATCH)
 

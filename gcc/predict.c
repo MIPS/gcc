@@ -49,6 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "params.h"
 #include "target.h"
+#include "loop.h"
 
 /* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE, 0.5,
                    REAL_BB_FREQ_MAX.  */
@@ -434,8 +435,18 @@ estimate_probability (loops_info)
 	{
 	  int header_found = 0;
 	  edge e;
+	  struct loop_desc desc;
 
 	  bb = bbs[j];
+
+	  if (simple_loop_p (loops_info, loop, &desc)
+	      && desc.const_iter)
+	    {
+	      predict_edge (desc.in_edge, PRED_CFG_LOOP_ITERATIONS,
+			    REG_BR_PROB_BASE
+			    - (REG_BR_PROB_BASE + (desc.niter + 1) /2)
+			    / (desc.niter + 1));
+	    }
 
 	  /* Bypass loop heuristics on continue statement.  These
 	     statements construct loops via "non-loop" constructs
