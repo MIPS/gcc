@@ -525,13 +525,13 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   /* Note that the folders should only create gimple expressions.
      This is a hack until the new folder is ready.  */
-  in_gimple_form = 1;
+  in_gimple_form = true;
 
   /* Perform all tree transforms and optimizations.  */
   execute_pass_list (all_passes);
 
   /* Note that the folders can create non-gimple expressions again.  */
-  in_gimple_form = 1;
+  in_gimple_form = false;
 
   /* If the function has a variably modified type, there may be
      SAVE_EXPRs in the parameter types.  Their context must be set to

@@ -1,3 +1,8 @@
+2004-04-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-optimize.c (tree_rest_of_compilation): Fix typo in 
+	setting of in_gimple_form.
+
 2004-04-01  Jeff Law  <law@redhat.com>
 
 	* fold-const.c (fold_relational_hi_lo): Do not return non-gimple
