@@ -1,3 +1,7 @@
+2005-03-24  Tom Tromey  <tromey@redhat.com>
+
+	* abi.cc (build_method_call): Strip abstract methods.
+
 2005-03-23  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (visit_switch_block): Annotate case exprs.  Link label

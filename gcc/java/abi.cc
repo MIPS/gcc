@@ -44,6 +44,17 @@ cxx_abi::build_method_call (tree_builtins *builtins,
   assert (! meth->static_initializer_p ());
   tree meth_tree = builtins->map_method (meth);
 
+  // An abstract method can itself be derived from an abstract method.
+  // We strip them all off to get the method as actually declared.  We
+  // have to do this here because the abstract method might wrap a
+  // 'final' method from Object, and we use a different invocation
+  // mode for those.
+  while (dynamic_cast<model_abstract_method *> (meth))
+    {
+      model_abstract_method *mam = assert_cast<model_abstract_method *> (meth);
+      meth = mam->get_original ();
+    }
+
   tree func;
   if (meth->static_p ())
     {
