@@ -2714,7 +2714,7 @@ get_memory_tag_for (tree ptr)
 
       /* Create a new MT.* artificial variable representing the memory
 	 location pointed-to by PTR.  */
-      tag = create_tmp_alias_var (tag_type, "MT");
+      tag = create_tmp_var_raw (tag_type, "MT");
       tag_ann = get_var_ann (tag);
       tag_ann->is_mem_tag = 1;
       tag_ann->mem_tag = NULL_TREE;

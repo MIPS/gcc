@@ -1,3 +1,7 @@
+2003-11-28  Richard Henderson  <rth@redhat.com>
+
+	* trans.c (gfc_create_var_np): Use create_tmp_var_raw.
+
 2003-11-28 Huang Chun <chunhuang73@hotmail.com>
 
 	* trans.h (has_alternate_specifier): New global variable.

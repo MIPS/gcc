@@ -265,11 +265,11 @@ create_artificial_label (void)
   return lab;
 }
 
-/*  Create a new temporary variable declaration of type TYPE.  Returns the
-    newly created decl and pushes it into the current binding.  */
+/* Create a new temporary variable declaration of type TYPE.
+   Does NOT push it into the current binding.  */
 
 tree
-create_tmp_var (tree type, const char *prefix)
+create_tmp_var_raw (tree type, const char *prefix)
 {
   static unsigned int id_num = 1;
   char *tmp_name;
@@ -285,15 +285,6 @@ create_tmp_var (tree type, const char *prefix)
     }
 
   ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
-
-#if defined ENABLE_CHECKING
-  /* If the type is an array or a type which must be created by the
-     frontend, something is wrong.  */
-  if (TREE_CODE (type) == ARRAY_TYPE || TREE_ADDRESSABLE (type))
-    abort ();
-  if (!COMPLETE_TYPE_P (type))
-    abort ();
-#endif
 
   /* Make the type of the variable writable.  */
   new_type = build_type_variant (type, 0, 0);
@@ -313,54 +304,30 @@ create_tmp_var (tree type, const char *prefix)
   TREE_STATIC (tmp_var) = 0;
   TREE_USED (tmp_var) = 1;
 
-  gimple_add_tmp_var (tmp_var);
-
   return tmp_var;
 }
 
-/* Create a new temporary alias variable declaration of type TYPE.  Returns
-   the newly created decl.  Does NOT push it into the current binding.  */
+/* Create a new temporary variable declaration of type TYPE.  DOES push the
+   variable into the current binding.  Further, assume that this is called
+   only from gimplification or optimization, at which point the creation of
+   certain types are bugs.  */
 
 tree
-create_tmp_alias_var (tree type, const char *prefix)
+create_tmp_var (tree type, const char *prefix)
 {
-  static unsigned int id_num = 1;
-  char *tmp_name;
-  char *preftmp = NULL;
   tree tmp_var;
 
-  if (prefix)
-    {
-      preftmp = ASTRDUP (prefix);
-      remove_suffix (preftmp, strlen (preftmp));
-      prefix = preftmp;
-    }
-
-  ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
-
-#if 0
-  /* FIXME: build_decl tries to layout the decl again.  This is causing a
-     miscompilation of g++.dg/debug/debug5.C because at this point CFUN
-     doesn't exist anymore.  Besides, laying the decl again seems to be
-     unnecessary work.  */
-  tmp_var = build_decl (VAR_DECL, get_identifier (tmp_name), type);
+#if defined ENABLE_CHECKING
+  /* If the type is an array or a type which must be created by the
+     frontend, something is wrong.  */
+  if (TREE_CODE (type) == ARRAY_TYPE || TREE_ADDRESSABLE (type))
+    abort ();
+  if (!COMPLETE_TYPE_P (type))
+    abort ();
 #endif
-  tmp_var = make_node (VAR_DECL);
-  DECL_NAME (tmp_var) = get_identifier (tmp_name);
-  TREE_TYPE (tmp_var) = type;
 
-  /* The variable was declared by the compiler.  */
-  DECL_ARTIFICIAL (tmp_var) = 1;
-
-  /* Make the variable writable.  */
-  TREE_READONLY (tmp_var) = 0;
-
-  DECL_EXTERNAL (tmp_var) = 0;
-  DECL_CONTEXT (tmp_var) = current_function_decl;
-  TREE_STATIC (tmp_var) = 0;
-  TREE_USED (tmp_var) = 1;
-  TREE_THIS_VOLATILE (tmp_var) = TYPE_VOLATILE (type);
-
+  tmp_var = create_tmp_var_raw (type, prefix);
+  gimple_add_tmp_var (tmp_var);
   return tmp_var;
 }
 

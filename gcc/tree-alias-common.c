@@ -273,7 +273,7 @@ get_alias_var (tree expr)
       {
 	/* Otherwise, we need a new temporary alias variable for this
 	   expression. */
-	tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
+	tree temp = create_tmp_var_raw (void_type_node, "aliastmp");
 	alias_typevar tempvar;
 	tempvar = current_alias_ops->add_var (current_alias_ops,
 					      temp);
@@ -589,7 +589,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    {
 	      /* This becomes temp = &y and *x = temp . */
 	      alias_typevar tempvar;
-	      tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
+	      tree temp = create_tmp_var_raw (void_type_node, "aliastmp");
 	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	      current_alias_ops->addr_assign (current_alias_ops, tempvar,
 					      rhsAV);
@@ -607,7 +607,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      /* This becomes temp = *y and *x = temp . */
 	      alias_typevar tempvar;
 	      tree temp;
-	      temp = create_tmp_alias_var (void_type_node, "aliastmp");
+	      temp = create_tmp_var_raw (void_type_node, "aliastmp");
 	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	      current_alias_ops->ptr_assign (current_alias_ops, tempvar,
 					     rhsAV);
@@ -626,7 +626,7 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 		  /* This becomes temp = (cast) y and  *x = temp. */
 		  alias_typevar tempvar;
 		  tree temp;
-		  temp = create_tmp_alias_var (void_type_node, "aliastmp");
+		  temp = create_tmp_var_raw (void_type_node, "aliastmp");
 		  tempvar = current_alias_ops->add_var (current_alias_ops,
 							temp);
 		  current_alias_ops->simple_assign (current_alias_ops,
@@ -738,7 +738,7 @@ create_fun_alias_var (tree decl, int force)
 	   arg && TREE_VALUE (arg) != void_type_node;
 	   arg = TREE_CHAIN (arg))
 	{
-	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "normarg");
+	  tree fakedecl = create_tmp_var_raw (TREE_VALUE (arg), "normarg");
 	  alias_typevar tvar;
 	  tvar = get_alias_var (fakedecl);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
@@ -763,7 +763,7 @@ create_fun_alias_var (tree decl, int force)
      passed to our function.  */
   else
     {
-      tree fakedecl = create_tmp_alias_var (void_type_node, "fakearg");
+      tree fakedecl = create_tmp_var_raw (void_type_node, "fakearg");
       alias_typevar fakevar;
       fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
@@ -771,7 +771,7 @@ create_fun_alias_var (tree decl, int force)
 
   if (!DECL_RESULT (decl))
     {
-      rdecl = create_tmp_alias_var (TREE_TYPE (TREE_TYPE (decl)), "_rv_");
+      rdecl = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (decl)), "_rv_");
       retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
     }
   else
@@ -820,7 +820,7 @@ create_fun_alias_var_ptf (tree decl, tree type)
 	   arg && TREE_VALUE (arg) != void_type_node;
 	   arg = TREE_CHAIN (arg))
 	{
-	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "ptfarg");
+	  tree fakedecl = create_tmp_var_raw (TREE_VALUE (arg), "ptfarg");
 	  alias_typevar tvar;
 	  tvar = get_alias_var (fakedecl);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
@@ -832,13 +832,13 @@ create_fun_alias_var_ptf (tree decl, tree type)
      passed to our function.  */
   else
     {
-      tree fakedecl = create_tmp_alias_var (void_type_node, "fakearg");
+      tree fakedecl = create_tmp_var_raw (void_type_node, "fakearg");
       alias_typevar fakevar;
       fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
 
-  rdecl = create_tmp_alias_var (TREE_TYPE (type), "_rv_");
+  rdecl = create_tmp_var_raw (TREE_TYPE (type), "_rv_");
   retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
 
