@@ -977,7 +977,7 @@ save_fixed_argument_area (reg_parm_stack_space, argblock,
 	     library call which in turn gets into this place again and deadly
 	     infinite recursion happens.  */
 	  move_by_pieces (validize_mem (save_area), stack_area, num_to_save,
-			  PARM_BOUNDARY);
+			  PARM_BOUNDARY, 0);
 	}
       else
 	{
@@ -1018,7 +1018,7 @@ restore_fixed_argument_area (save_area, argblock, high_to_save, low_to_save)
        call which in turn gets into this place again and deadly infinite
        recursion happens.  */
     move_by_pieces (stack_area, validize_mem (save_area),
-		    high_to_save - low_to_save + 1, PARM_BOUNDARY);
+		    high_to_save - low_to_save + 1, PARM_BOUNDARY, 0);
 }
 #endif /* REG_PARM_STACK_SPACE */
 

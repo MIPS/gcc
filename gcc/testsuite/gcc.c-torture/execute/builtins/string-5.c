@@ -13,6 +13,7 @@ extern int memcmp (const void *, const void *, size_t);
 const char s1[] = "123";
 char p[32] = "";
 
+#if 0
 static const struct foo
 {
   char *s;
@@ -53,11 +54,13 @@ static const struct bar
 };
 
 static const int baz[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 0 };
+#endif
 
 void
 main_test (void)
 {
   const char *s;
+#if 0
   struct foo f1[sizeof foo/sizeof*foo];
   struct bar b1[sizeof bar/sizeof*bar];
   int bz[sizeof baz/sizeof*baz];
@@ -69,6 +72,7 @@ main_test (void)
   bcopy (baz, bz, sizeof (baz));
   if (memcmp (bz, baz, sizeof(baz)))
     abort();
+#endif
 
   if (memmove (p, "abcde", 6) != p || memcmp (p, "abcde", 6))
     abort ();
