@@ -135,7 +135,7 @@ AC_SUBST(PREFIX_OBJS)
 PREFIX_OBJS=
 
 # Library version, extracted from sources
-lib_version=`grep ' Library_version : ' ${srcdir}/gnatvsn.ads \
+lib_version=`grep ' Library_Version : ' ${srcdir}/gnatvsn.ads \
              | sed -e 's/.*"\(.*\)".*/\1/'`
 AC_SUBST(LIBRARY_VERSION)
 
@@ -1050,12 +1050,7 @@ alpha*-dec-vms* | alpha*-dec-openvms* | alpha*-dec-vms* \
 
   EXTRA_GNATRTL_TASKING_OBJS="s-tpopde.o"
 
-  # NCN MAKEISMS
-  # This command transforms (YYYYMMDD) into YY,MMDD
-  # GSMATCH_VERSION :=$(shell grep "^ *Gnat_Static_Version_String" $(fsrcpfx)gnatvsn.ads | sed -e 's/.*(\(.*\)).*/\1/' -e 's/\(..\)\(..\)\(....\)/\2,\3/')
-  # TOOLS_LIBS_LO :=--for-linker=sys\\$$\$$library:trace.exe
-
-  # Mangle library version differently.
+  # Mangle library version differently; replace dots with underscores.
   LIBRARY_VERSION=`echo ${lib_version} | sed -s 's/\./\_/g'`
   ;;
 

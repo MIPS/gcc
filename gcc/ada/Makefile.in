@@ -692,6 +692,11 @@ gnatlib-shared-darwin:
 	cd rts; $(LN_S) libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		libgnarl$(soext)
 
+# I swear, this is what was being used before for VMS targets.
+# It makes NO SENSE, since there's no number in Gnat_Static_Version string!
+# FIXME.
+# "This command transforms (YYYYMMDD) into YY,MMDD"
+GSMATCH_VERSION :=$(shell grep "^ *Gnat_Static_Version_String" $(fsrcpfx)gnatvsn.ads | sed -e 's/.*(\(.*\)).*/\1/' -e 's/\(..\)\(..\)\(....\)/\2,\3/')
 gnatlib-shared-vms:
 	$(MAKE) $(FLAGS_TO_PASS) \
              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
