@@ -1,3 +1,7 @@
+2004-09-23  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jni/gtk-peer/gtkpeer.h: Remove duplicated copyright string.
+
 2004-09-23  Sven de Marothy  <sven@physto.se>
 
 	* java/awt/geom/Arc2D.java: Reformatted.
