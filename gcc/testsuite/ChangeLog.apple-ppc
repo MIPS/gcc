@@ -1,3 +1,14 @@
+2004-11-10  Devang Patel  <dpatel@apple.com>
+
+	Radar 384609
+	More FSF merge cleanup.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-13.c: Remove test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-34.c: Remove test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-36.c: Remove test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-44.c: Remove test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-48.c: Remove test.
+	* gcc.dg/tree-ssa-vect/tree-ssa-vect-60.c: Remove test.
+
 2004-11-08  Ziemowit Laski  <zlaski@apple.com>
 
         Radar 3853429
