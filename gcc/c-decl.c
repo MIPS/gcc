@@ -1198,6 +1198,19 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  C_FUNCTION_IMPLICIT_INT (newdecl) = 0;
 	  pedwarned = true;
 	}
+      /* In the intermodule mode we may run into the opposite order when file
+         with implicit declaration is comming later.  */
+      else if (TREE_CODE (olddecl) == FUNCTION_DECL && DECL_INITIAL (olddecl)
+	       && TYPE_MAIN_VARIANT (TREE_TYPE (newtype)) == void_type_node
+	       && TYPE_MAIN_VARIANT (TREE_TYPE (oldtype)) == integer_type_node
+	       && C_FUNCTION_IMPLICIT_INT (olddecl))
+	{
+	  pedwarn ("%Jconflicting types for %qD", newdecl, newdecl);
+	  /* Make sure we keep void as the return type.  */
+	  TREE_TYPE (olddecl) = *oldtypep = oldtype = newtype;
+	  C_FUNCTION_IMPLICIT_INT (olddecl) = 0;
+	  pedwarned = true;
+	}
       else
 	{
 	  if (TYPE_QUALS (newtype) != TYPE_QUALS (oldtype))

@@ -336,7 +336,7 @@ cgraph_maybe_hot_edge_p (struct cgraph_edge *edge)
 static int
 cgraph_edge_badness (struct cgraph_edge *edge)
 {
-  if (profile_info && flag_branch_probabilities && max_count)
+  if (max_count)
     {
       int growth =
 	cgraph_estimate_size_after_inlining (1, edge->caller, edge->callee);
@@ -604,6 +604,34 @@ cgraph_decide_inlining_of_small_functions (void)
       if (!edge->inline_failed)
 	continue;
 
+      /* When not having profile info ready we don't weight by any way the
+         possition of call in procedure itself.  This means if call of
+	 function A from function B seems profitable to inline, the recursive
+	 call of function A in inline copy of A in B will look profitable too
+	 and we end up inlining until reaching maximal function growth.  This
+	 is not good idea so prohibit the recursive inlining.
+
+	 ??? When the frequencies are taken into account we might not need this
+	 restriction.   */
+      if (!max_count)
+	{
+	  where = edge->caller;
+	  while (where->global.inlined_to)
+	    {
+	      if (where->decl == edge->callee->decl)
+		break;
+	      where = where->callers->caller;
+	    }
+	  if (where->global.inlined_to)
+	    {
+	      edge->inline_failed
+		= (edge->callee->local.disregard_inline_limits ? N_("recursive inlining") : "");
+	      if (dump_file)
+		fprintf (dump_file, " inline_failed:Recursive inlining perfomed only for function itself.\n");
+	      continue;
+	    }
+	}
+
       if (!cgraph_maybe_hot_edge_p (edge) && growth > 0)
 	{
           if (!cgraph_recursive_inlining_p (edge->caller, edge->callee,
@@ -711,6 +739,7 @@ cgraph_decide_inlining (void)
 	  max_count = e->count;
     }
   overall_insns = initial_insns;
+  gcc_assert (!max_count || (profile_info && flag_branch_probabilities));
 
   max_insns = ((HOST_WIDEST_INT) overall_insns
 	       * (100 + PARAM_VALUE (PARAM_INLINE_UNIT_GROWTH)) / 100);

@@ -1088,6 +1088,7 @@ cgraph_function_and_variable_visibility (void)
 	  gcc_assert (flag_whole_program || !TREE_PUBLIC (vnode->decl));
 	  TREE_PUBLIC (vnode->decl) = 0;
 	}
+     gcc_assert (TREE_STATIC (vnode->decl));
     }
 
   /* Because we have to be conservative on the boundaries of source

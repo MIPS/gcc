@@ -1,3 +1,10 @@
+2004-12-08  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_edge_badness): Simplify.
+	(cgraph_decide_inlining_of_small_functions): Avoid recursive inlining.
+	(cgraph_decide_inlining): Sanity check.
+	* tree-inline.c (optimize_inline_calls): Recount frequencies.
+
 2004-12-07  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
 	* ipa-static-vars-anal.c (get_asm_expr_operands): keep any function		with volatile asm from being marked const or pure.
 	(static_execute): turn off pure if the function contains backedges.
