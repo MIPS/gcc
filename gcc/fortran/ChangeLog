@@ -1,3 +1,8 @@
+2003-09-04  Jeff Law  <law@redhat.com>
+
+	* f95-lang.c (DEFINE_MATH_BUILTIN): C arrays start at
+	index zero!
+
 2003-09-04  Paul Brook  <paul@nowt.org>
 
 	* f95-lang.c (gfc_define_builtin): Also set implicit_built_in_decls.

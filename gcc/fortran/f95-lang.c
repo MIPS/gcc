@@ -787,9 +787,9 @@ gfc_define_builtin (const char * name,
 
 
 #define DEFINE_MATH_BUILTIN(code, name, nargs) \
-    gfc_define_builtin ("__builtin_" name, mfunc_double[nargs], \
+    gfc_define_builtin ("__builtin_" name, mfunc_double[nargs-1], \
 			BUILT_IN_ ## code, name); \
-    gfc_define_builtin ("__builtin_" name "f", mfunc_float[nargs], \
+    gfc_define_builtin ("__builtin_" name "f", mfunc_float[nargs-1], \
 			BUILT_IN_ ## code ## F, name "f");
 
 /* Initialisation of builtin function nodes.  */
