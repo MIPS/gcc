@@ -6217,6 +6217,8 @@ restore_conflicts_from_coalesce (web)
 	}
     }
 
+  /* We must restore usable_regs because record_conflict will use it.  */
+  COPY_HARD_REG_SET (web->usable_regs, web->orig_usable_regs); 
   /* We might have deleted some conflicts above, which really are still
      there (diamond pattern coalescing).  This is because we don't reference
      count interference edges but some of them were the result of different

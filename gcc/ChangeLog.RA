@@ -1,3 +1,8 @@
+Thu Mar 21 22:31:53 2002  Denis Chertykov  <denisc@overta.ru>
+
+	* ra.c (restore_conflicts_from_coalesce): Restore usable_regs before
+	call to record_conflict.
+
 2001-03-21  Michael Matz  <matz@suse.de>
 
 	* reload.c: Include <pre-reload.h> after <hard-reg-set.h>.
