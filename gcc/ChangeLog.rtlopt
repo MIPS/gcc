@@ -1,3 +1,7 @@
+Sat Jan 25 12:42:13 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (rtlopt-merge-20030125 tag)
+
 2003-01-25  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (DEBUG_REG_LOC): Deleted.

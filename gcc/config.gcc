@@ -2207,6 +2207,7 @@ sh-*-elf* | sh[2346l]*-*-elf*)
 	sh4*)  target_cpu_default="SELECT_SH4" ;;
 	sh3e*) target_cpu_default="SELECT_SH3E" ;;
 	sh3*)  target_cpu_default="SELECT_SH3" ;;
+	sh2e*) target_cpu_default="SELECT_SH2E" ;;
 	sh2*)  target_cpu_default="SELECT_SH2" ;;
 	esac
 	case $machine in
@@ -2251,6 +2252,9 @@ sh-*-linux* | sh[2346lbe]*-*-linux*)
 	sh3e[lb]*) target_cpu_default="SELECT_SH3" ;;
 	sh3e*) target_cpu_default="SELECT_SH3E" ;;
 	sh3*) target_cpu_default="SELECT_SH3" ;;
+	sh2e[lb]e*) target_cpu_default="SELECT_SH2E" ;;
+	sh2e[lb]*) target_cpu_default="SELECT_SH2" ;;
+	sh2e*) target_cpu_default="SELECT_SH2E" ;;
 	sh2*) target_cpu_default="SELECT_SH2" ;;
 	esac
 	case $machine in
@@ -2273,7 +2277,7 @@ sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
 	case $machine in
 	sh5*-*)
 		# SHmedia, 32-bit ABI
-		target_cpu_default="SH5_BIT|SH4_BIT|SH3E_BIT"
+		target_cpu_default="SH5_BIT|SH4_BIT|SH3_BIT|SH_E_BIT"
 		tmake_file="${tmake_file} sh/t-sh64 sh/t-netbsd-sh5"
 		;;
 	sh64*-*)
@@ -2662,14 +2666,11 @@ xstormy16-*-elf)
 	;;
 xtensa-*-elf*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h xtensa/elf.h"
-	with_newlib=yes
-	tmake_file=xtensa/t-xtensa
-	extra_parts="crtbegin.o crtend.o"
-	fixincludes=Makefile.in # newlib headers should be OK
+	tmake_file="xtensa/t-xtensa xtensa/t-elf"
 	;;
 xtensa-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h xtensa/linux.h"
-	tmake_file="t-linux xtensa/t-xtensa"
+	tmake_file="t-linux xtensa/t-xtensa xtensa/t-linux"
 	;;
 *)
 	echo "*** Configuration $machine not supported" 1>&2
