@@ -4295,12 +4295,14 @@ reported by the assembler.
 Also note that the use of literal registers (such as r3) in functions
 may not work properly with functions that are being inlined.
 
-The following instructions insert memory clobbers: @code{l...} except
-@code{la}, @code{li} and @code{lis} (all memory loads), @code{st...} (all
-memory stores), @code{sc}, @code{td...}, @code{trap}, @code{tw...}.
+The following instructions are assumed to affect memory: @code{l...}
+except @code{la}, @code{li} and @code{lis} (all memory loads),
+@code{st...} (all memory stores), @code{sc}, @code{td...},
+@code{trap}, @code{tw...}.  All other instructions are assumed to not
+affect memory.
 
-The following instructions take a memory operand (address operand),
-all other are assumed to not:
+The following instructions take a memory operand (address operand) as
+their second operand, all other instructions are assumed to not:
 
 @code{la}, @code{lbzu}, @code{ld}, @code{ldu}, @code{lfd},
 @code{lfdu}, @code{lfs}, @code{lfsu}, @code{lha}, @code{lhau},
