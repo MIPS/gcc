@@ -52,6 +52,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "profile.h"
 #include "libfuncs.h"
 #include "gthr.h"
+#include "langhooks.h"
 
 /* Additional information about the edges we need.  */
 struct edge_info
@@ -1429,14 +1430,14 @@ output_func_start_profiler ()
 
   DECL_RESULT (fndecl) = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
 
-  fndecl = pushdecl (fndecl);
+  fndecl = (*lang_hooks.decls.pushdecl) (fndecl);
   rest_of_decl_compilation (fndecl, 0, 1, 0);
   announce_function (fndecl);
   current_function_decl = fndecl;
   DECL_INITIAL (fndecl) = error_mark_node;
   make_decl_rtl (fndecl, NULL);
   init_function_start (fndecl, input_filename, lineno);
-  pushlevel (0);
+  (*lang_hooks.decls.pushlevel) (0);
   expand_function_start (fndecl, 0);
   cfun->no_profile = 1;
 
@@ -1460,7 +1461,7 @@ output_func_start_profiler ()
 		     offset_address, Pmode);
 
   expand_function_end (input_filename, lineno, 0);
-  poplevel (1, 0, 1);
+  (*lang_hooks.decls.poplevel) (1, 0, 1);
 
   /* Since fndecl isn't in the list of globals, it would never be emitted
      when it's considered to be 'safe' for inlining, so turn off

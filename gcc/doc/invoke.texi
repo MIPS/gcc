@@ -3173,10 +3173,11 @@ perform loop unrolling or function inlining when you specify @option{-O2}.
 As compared to @option{-O}, this option increases both compilation time
 and the performance of the generated code.
 
-@option{-O2} turns on all optional optimizations except for loop unrolling,
-function inlining, and register renaming.  It also turns on the
-@option{-fforce-mem} option on all machines and frame pointer elimination
-on machines where doing so does not interfere with debugging.
+@option{-O2} turns on all optional optimizations except for loop
+unrolling, function inlining, and register renaming.  It also turns on
+the @option{-fforce-mem} and @option{-fstrict-aliasing} option on all
+machines and frame pointer elimination on machines where doing so does
+not interfere with debugging.
 
 Please note the warning under @option{-fgcse} about
 invoking @option{-O2} on programs that use computed gotos.
@@ -3719,6 +3720,9 @@ node, an alias set for the node.  Nodes in different alias sets are not
 allowed to alias.  For an example, see the C front-end function
 @code{c_get_alias_set}.
 
+For all machines, optimization level 2 and higher enables this flag by
+default.
+
 @item -falign-functions
 @itemx -falign-functions=@var{n}
 @opindex falign-functions
@@ -3862,6 +3866,11 @@ needlessly consume memory and resources.
 If an function contains more than this many instructions, it
 will not be inlined.  This option is precisely equivalent to
 @option{-finline-limit}.
+
+@item max-unrolled-insns
+The maximum number of instructions that a loop should have if that loop
+is unrolled, and if the loop is unrolled, it determines how many times
+the loop code is unrolled.
 
 @end table
 @end table

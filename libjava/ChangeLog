@@ -1,3 +1,99 @@
+2002-03-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* posix-threads.cc (_Jv_ThreadSelf_out_of_line): Use write_barrier,
+	not release_set.
+	* sysdep/powerpc/locks.h (write_barrier): New function.
+	* sysdep/i386/locks.h (write_barrier): New function.
+
+2002-03-19  Martin Kahlert  <martin.kahlert@infineon.com>
+
+	* include/jni.h Use correct C comments.
+
+2002-03-18  Tom Tromey  <tromey@redhat.com>
+
+	* include/jni.h (JNIIMPORT): New macro.
+	(JNIEXPORT): Likewise.
+	(JNICALL): Likewise.
+
+2002-03-18  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.host (i?86-*): Use -fuse-divide-subroutine on Solaris
+	systems.
+
+2002-03-18  Andrew Haley  <aph@cambridge.redhat.com>
+
+	* include/i386-signal.h (old_i386_kernel_sigaction): New.
+	INIT_SEGV: Use old_i386_kernel_sigaction.
+	INIT_FP: Likewise.
+
+2002-03-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/lang/natSystem.cc (init_properties): Update VM version
+	properties.
+	* configure.in: Set GCJVERSION.
+	* acconfig.h: Add GCJVERSION.
+	* configure: Rebuilt.
+	* include/config.h.in: Rebuilt.
+
+2002-03-17  Anthony Green  <green@redhat.com>
+
+	* java/lang/ieeefp.h: Add ARM thumb support (copied from newlib).
+
+2002-03-17  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	Build a single libgcj.so, without separate gc and zlib libraries.
+	* configure.in: Use convenience libraries for boehm-gc and zlib. Set
+	SYS_ZLIBS if system zlib is used.
+	* configure: Rebuilt.
+	* Makefile.am: Use boehm-gc and zlib convenience libraries.
+	* Makefile.in: Rebuilt.
+	* libtool-version: Increment .so version number.
+
+	* Makefile.am: Escape quotes in echo.
+	* Makefile.in: Rebuilt.
+
+2002-03-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: Use empty -classpath flag in addition to -bootclasspath.
+	* Makefile.in: Rebuilt.
+
+2002-03-15  Anthony Green  <green@redhat.com>
+
+	* configure.host (FILE): New macro for specifing File
+	implementation.
+	* configure: Rebuilt.
+	* configure.in: Use FILE.  Define HAVE_TIME for newlib targets.
+
+2002-03-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.am (jv_convert_LDADD): Don't list libraries that are
+	already implicitly brought in from libgcj.la.
+	(gij_LDADD, rmic_LDADD, rmiregistry_LDADD): Likewise.
+	* Makefile.in: Rebuilt.
+
+2002-03-15  Eric Blake  <ebb9@email.byu.edu>
+
+	* THANKS: Fix punctuation, alphabetization.
+
+2002-03-15  Tom Tromey  <tromey@redhat.com>
+	    Rainer Orth <ro@TechFak.Uni-Bielefeld.DE>
+	
+	Fix for PR libgcj/5944.
+	* gnu/gcj/io/shs.h: Define uint8_t and uint32_t.
+
+2002-03-15  Anthony Green  <green@redhat.com>
+
+	* configure.in (tool_include_dir): Define.
+	* configure: Rebuilt.
+	* gcj/Makefile.am: Install libgcj-config.h relative to
+	tool_include_dir.
+	* gcj/Makefile: Rebuilt.
+	* gcj/libgcj-config.h: Add warning comment.
+
+2002-03-12  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.host (powerpc*-darwin*): Enable interpreter.
+
 2002-03-10  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* include/posix.h: Add multiple include header protection.
@@ -64,7 +160,6 @@
 	* java/lang/natObject.cc: Move thread synchronization primitives to
 	system-dependent headers.
 
->>>>>>> 1.1231
 2002-03-09  Adam Megacz  <adam@xwt.org>
 
         * java/io/natFileDescriptorWin32.cc (read): Return -1 if zero

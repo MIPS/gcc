@@ -1,5 +1,5 @@
 /* Default macros to initialize the lang_hooks data structure.
-   Copyright 2001 Free Software Foundation, Inc.
+   Copyright 2001, 2002 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GNU CC.
@@ -46,6 +46,7 @@ extern int lhd_safe_from_p PARAMS ((rtx, tree));
 extern int lhd_staticp PARAMS ((tree));
 extern void lhd_clear_binding_stack PARAMS ((void));
 extern void lhd_print_tree_nothing PARAMS ((FILE *, tree, int));
+extern const char *lhd_decl_printable_name PARAMS ((tree, int));
 extern void lhd_set_yydebug PARAMS ((int));
 
 /* Declarations of default tree inlining hooks.  */
@@ -63,11 +64,13 @@ tree lhd_tree_inlining_copy_res_decl_for_inlining PARAMS ((tree, tree,
 int lhd_tree_inlining_anon_aggr_type_p		PARAMS ((tree));
 int lhd_tree_inlining_start_inlining		PARAMS ((tree));
 void lhd_tree_inlining_end_inlining		PARAMS ((tree));
+tree lhd_tree_inlining_convert_parm_for_inlining PARAMS ((tree, tree, tree));
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
 #define LANG_HOOKS_INIT			lhd_do_nothing
 #define LANG_HOOKS_FINISH		lhd_do_nothing
+#define LANG_HOOKS_PARSE_FILE		lhd_do_nothing
 #define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_clear_binding_stack
 #define LANG_HOOKS_INIT_OPTIONS		lhd_do_nothing
 #define LANG_HOOKS_DECODE_OPTION	lhd_decode_option
@@ -84,6 +87,7 @@ void lhd_tree_inlining_end_inlining		PARAMS ((tree));
 #define LANG_HOOKS_PRINT_DECL		lhd_print_tree_nothing
 #define LANG_HOOKS_PRINT_TYPE		lhd_print_tree_nothing
 #define LANG_HOOKS_PRINT_IDENTIFIER	lhd_print_tree_nothing
+#define LANG_HOOKS_DECL_PRINTABLE_NAME	lhd_decl_printable_name
 #define LANG_HOOKS_SET_YYDEBUG		lhd_set_yydebug
 
 /* Tree inlining hooks.  */
@@ -106,6 +110,8 @@ void lhd_tree_inlining_end_inlining		PARAMS ((tree));
   lhd_tree_inlining_start_inlining
 #define LANG_HOOKS_TREE_INLINING_END_INLINING \
   lhd_tree_inlining_end_inlining
+#define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
+  lhd_tree_inlining_convert_parm_for_inlining
 
 #define LANG_HOOKS_TREE_INLINING_INITIALIZER { \
   LANG_HOOKS_TREE_INLINING_WALK_SUBTREES, \
@@ -117,7 +123,8 @@ void lhd_tree_inlining_end_inlining		PARAMS ((tree));
   LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING, \
   LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P, \
   LANG_HOOKS_TREE_INLINING_START_INLINING, \
-  LANG_HOOKS_TREE_INLINING_END_INLINING \
+  LANG_HOOKS_TREE_INLINING_END_INLINING, \
+  LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
 } \
 
 /* Tree dump hooks.  */
@@ -130,7 +137,26 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
 #define LANG_HOOKS_TREE_DUMP_INITIALIZER { \
   LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN, \
   LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN \
-} \
+}
+
+/* Declaration hooks.  */
+#define LANG_HOOKS_PUSHLEVEL	pushlevel
+#define LANG_HOOKS_POPLEVEL	poplevel
+#define LANG_HOOKS_GLOBAL_BINDINGS_P global_bindings_p
+#define LANG_HOOKS_INSERT_BLOCK	insert_block
+#define LANG_HOOKS_SET_BLOCK	set_block
+#define LANG_HOOKS_PUSHDECL	pushdecl
+#define LANG_HOOKS_GETDECLS	getdecls
+
+#define LANG_HOOKS_DECLS { \
+  LANG_HOOKS_PUSHLEVEL, \
+  LANG_HOOKS_POPLEVEL, \
+  LANG_HOOKS_GLOBAL_BINDINGS_P, \
+  LANG_HOOKS_INSERT_BLOCK, \
+  LANG_HOOKS_SET_BLOCK, \
+  LANG_HOOKS_PUSHDECL, \
+  LANG_HOOKS_GETDECLS \
+}
 
 /* The whole thing.  The structure is defined in langhooks.h.  */
 #define LANG_HOOKS_INITIALIZER { \
@@ -141,6 +167,7 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_POST_OPTIONS, \
   LANG_HOOKS_INIT, \
   LANG_HOOKS_FINISH, \
+  LANG_HOOKS_PARSE_FILE, \
   LANG_HOOKS_CLEAR_BINDING_STACK, \
   LANG_HOOKS_GET_ALIAS_SET, \
   LANG_HOOKS_EXPAND_CONSTANT, \
@@ -154,9 +181,11 @@ int lhd_tree_dump_type_quals			PARAMS ((tree));
   LANG_HOOKS_PRINT_DECL, \
   LANG_HOOKS_PRINT_TYPE, \
   LANG_HOOKS_PRINT_IDENTIFIER, \
+  LANG_HOOKS_DECL_PRINTABLE_NAME, \
   LANG_HOOKS_SET_YYDEBUG, \
   LANG_HOOKS_TREE_INLINING_INITIALIZER, \
-  LANG_HOOKS_TREE_DUMP_INITIALIZER \
+  LANG_HOOKS_TREE_DUMP_INITIALIZER, \
+  LANG_HOOKS_DECLS \
 }
 
 #endif /* GCC_LANG_HOOKS_DEF_H */

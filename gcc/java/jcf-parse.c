@@ -347,16 +347,12 @@ get_constant (jcf, index)
 	tree name = get_name_constant (jcf, JPOOL_USHORT1 (jcf, index));
 	const char *utf8_ptr = IDENTIFIER_POINTER (name);
 	int utf8_len = IDENTIFIER_LENGTH (name);
-	unsigned char *str_ptr;
-	unsigned char *str;
 	const unsigned char *utf8;
-	int i, str_len;
+	int i;
 
-	/* Count the number of Unicode characters in the string,
-	   while checking for a malformed Utf8 string. */
+	/* Check for a malformed Utf8 string.  */
 	utf8 = (const unsigned char *) utf8_ptr;
 	i = utf8_len;
-	str_len = 0;
 	while (i > 0)
 	  {
 	    int char_len = UT8_CHAR_LENGTH (*utf8);
@@ -365,48 +361,10 @@ get_constant (jcf, index)
 
 	    utf8 += char_len;
 	    i -= char_len;
-	    str_len++;
 	  }
 
-	/* Allocate a scratch buffer, convert the string to UCS2, and copy it
-	   into the new space.  */
-	str_ptr = (unsigned char *) alloca (2 * str_len);
-	str = str_ptr;
-	utf8 = (const unsigned char *)utf8_ptr;
-
-	for (i = 0; i < str_len; i++)
-	  {
-	    int char_value;
-	    int char_len = UT8_CHAR_LENGTH (*utf8);
-	    switch (char_len)
-	      {
-	      case 1:
-		char_value = *utf8++;
-		break;
-	      case 2:
-		char_value = *utf8++ & 0x1F;
-		char_value = (char_value << 6) | (*utf8++ & 0x3F);
-		break;
-	      case 3:
-		char_value = *utf8++ & 0x0F;
-		char_value = (char_value << 6) | (*utf8++ & 0x3F);
-		char_value = (char_value << 6) | (*utf8++ & 0x3F);
-		break;
-	      default:
-		goto bad;
-	      }
-	    if (BYTES_BIG_ENDIAN)
-	      {
-		*str++ = char_value >> 8;
-		*str++ = char_value & 0xFF;
-	      }
-	    else
-	      {
-		*str++ = char_value & 0xFF;
-		*str++ = char_value >> 8;
-	      }
-	  }
-	value = build_string (str - str_ptr, str_ptr);
+	/* Allocate a new string value.  */
+	value = build_string (utf8_len, utf8_ptr);
 	TREE_TYPE (value) = build_pointer_type (string_type_node);
       }
       break;
@@ -953,8 +911,8 @@ predefined_filename_p (node)
   return 0;
 }
 
-int
-yyparse ()
+void
+java_parse_file ()
 {
   int filename_count = 0;
   char *list, *next;
@@ -1093,11 +1051,8 @@ yyparse ()
 
       resource_filename = IDENTIFIER_POINTER (TREE_VALUE (current_file_list));
       compile_resource_file (resource_name, resource_filename);
-      
-      java_expand_classes ();
-      if (!java_report_errors ())
-	emit_register_classes ();
-      return 0;
+
+      return;
     }
 
   current_jcf = main_jcf;
@@ -1199,7 +1154,6 @@ yyparse ()
       if (flag_indirect_dispatch)
 	emit_offset_symbol_table ();
     }
-  return 0;
 }
 
 /* Process all class entries found in the zip file.  */

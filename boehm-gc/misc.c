@@ -483,9 +483,9 @@ int sig;
 #endif
 
 #ifdef MSWIN32
-  extern GC_bool GC_is_win32s();
+extern GC_bool GC_no_win32_dlls;
 #else
-# define GC_is_win32s() FALSE
+# define GC_no_win32_dlls FALSE
 #endif
 
 void GC_init_inner()
@@ -499,6 +499,10 @@ void GC_init_inner()
 #   ifdef PRINTSTATS
       GC_print_stats = 1;
 #   endif
+#   if defined(MSWIN32) || defined(MSWINCE)
+	InitializeCriticalSection(&GC_write_cs);
+#   endif
+
     if (0 != GETENV("GC_PRINT_STATS")) {
       GC_print_stats = 1;
     } 
@@ -536,9 +540,6 @@ void GC_init_inner()
     if (ALIGNMENT > GC_DS_TAGS && EXTRA_BYTES != 0) {
       GC_obj_kinds[NORMAL].ok_descriptor = ((word)(-ALIGNMENT) | GC_DS_LENGTH);
     }
-#   if defined(MSWIN32) || defined(MSWINCE)
-	InitializeCriticalSection(&GC_write_cs);
-#   endif
     GC_setpagesize();
     GC_exclude_static_roots(beginGC_arrays, endGC_arrays);
     GC_exclude_static_roots(beginGC_obj_kinds, endGC_obj_kinds);
@@ -637,7 +638,7 @@ void GC_init_inner()
       GC_pcr_install();
 #   endif
 #   if !defined(SMALL_CONFIG)
-      if (!GC_is_win32s() && 0 != GETENV("GC_ENABLE_INCREMENTAL")) {
+      if (!GC_no_win32_dlls && 0 != GETENV("GC_ENABLE_INCREMENTAL")) {
 	GC_ASSERT(!GC_incremental);
         GC_setpagesize();
 #       ifndef GC_SOLARIS_THREADS
@@ -681,7 +682,7 @@ void GC_enable_incremental GC_PROTO(())
     LOCK();
     if (GC_incremental) goto out;
     GC_setpagesize();
-    if (GC_is_win32s()) goto out;
+    if (GC_no_win32_dlls) goto out;
 #   ifndef GC_SOLARIS_THREADS
         GC_dirty_init();
 #   endif

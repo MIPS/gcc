@@ -59,6 +59,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "recog.h"
 #include "expr.h"
+#include "insn-config.h"
 
 /* Stubs in case we don't have a return insn.  */
 #ifndef HAVE_return
@@ -562,6 +563,15 @@ split_block (bb, insn)
       propagate_block (new_bb, new_bb->global_live_at_start, NULL, NULL, 0);
       COPY_REG_SET (bb->global_live_at_end,
 		    new_bb->global_live_at_start);
+#ifdef HAVE_conditional_execution
+      /* In the presence of conditional execution we are not able to update
+	 liveness precisely.  */
+      if (reload_completed)
+	{
+	  bb->flags |= BB_DIRTY;
+	  new_bb->flags |= BB_DIRTY;
+	}
+#endif
     }
 
   return new_edge;
@@ -1761,14 +1771,9 @@ verify_flow_info ()
       rtx note;
 
       if (INSN_P (bb->end)
-	  && (note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX)))
+	  && (note = find_reg_note (bb->end, REG_BR_PROB, NULL_RTX))
+	  && any_condjump_p (bb->end))
 	{
-	  if (!any_condjump_p (bb->end))
-	    {
-	      error ("verify_flow_info: REG_BR_PROB on non-condjump",
-		     bb->index);
-	      err = 1;
-	    }
 	  if (INTVAL (XEXP (note, 0)) != BRANCH_EDGE (bb)->probability)
 	    {
 	      error ("verify_flow_info: REG_BR_PROB does not match cfg %i %i",

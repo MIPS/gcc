@@ -119,6 +119,12 @@ DEFPARAM(MAX_UNSWITCH_LEVEL,
 	"max-unswitch-level",
 	"The maximum number of unswitchings in a single loop",
 	3)
+/* This parameter limits the number of insns in a loop that will be unrolled,
+   and by how much the loop is unrolled.  */
+DEFPARAM(PARAM_MAX_UNROLLED_INSNS,
+	 "max-unrolled-insns",
+	 "The maximum number of instructions to consider to unroll in a loop",
+	 100)
 /*
 Local variables:
 mode:c

@@ -483,7 +483,7 @@ rs6000_override_options (default_cpu)
 	}
     }
 
-  if (flag_pic && DEFAULT_ABI == ABI_AIX)
+  if (flag_pic && DEFAULT_ABI == ABI_AIX && extra_warnings)
     {
       warning ("-f%s ignored (all code is position independent)",
 	       (flag_pic > 1) ? "PIC" : "pic");
@@ -934,8 +934,9 @@ reg_or_add_cint64_operand (op, mode)
 {
   return (gpc_reg_operand (op, mode)
 	  || (GET_CODE (op) == CONST_INT
+#if HOST_BITS_PER_WIDE_INT == 32
 	      && INTVAL (op) < 0x7fff8000
-#if HOST_BITS_PER_WIDE_INT != 32
+#else
 	      && ((unsigned HOST_WIDE_INT) (INTVAL (op) + 0x80008000)
 		  < 0x100000000ll)
 #endif
@@ -952,8 +953,9 @@ reg_or_sub_cint64_operand (op, mode)
 {
   return (gpc_reg_operand (op, mode)
 	  || (GET_CODE (op) == CONST_INT
+#if HOST_BITS_PER_WIDE_INT == 32
 	      && (- INTVAL (op)) < 0x7fff8000
-#if HOST_BITS_PER_WIDE_INT != 32
+#else
 	      && ((unsigned HOST_WIDE_INT) ((- INTVAL (op)) + 0x80008000)
 		  < 0x100000000ll)
 #endif
@@ -1035,20 +1037,16 @@ num_insns_constant_wide (value)
 #if HOST_BITS_PER_WIDE_INT == 64
   else if (TARGET_POWERPC64)
     {
-      HOST_WIDE_INT low  = value & 0xffffffff;
-      HOST_WIDE_INT high = value >> 32;
+      HOST_WIDE_INT low  = ((value & 0xffffffff) ^ 0x80000000) - 0x80000000;
+      HOST_WIDE_INT high = value >> 31;
 
-      low = (low ^ 0x80000000) - 0x80000000;  /* sign extend */
-
-      if (high == 0 && (low & 0x80000000) == 0)
+      if (high == 0 || high == -1)
 	return 2;
 
-      else if (high == -1 && (low & 0x80000000) != 0)
-	return 2;
+      high >>= 1;
 
-      else if (! low)
+      if (low == 0)
 	return num_insns_constant_wide (high) + 1;
-
       else
 	return (num_insns_constant_wide (high)
 		+ num_insns_constant_wide (low) + 1);
@@ -1171,8 +1169,8 @@ easy_fp_constant (op, mode)
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
 
-      return (num_insns_constant_wide ((HOST_WIDE_INT)k[0]) == 1
-	      && num_insns_constant_wide ((HOST_WIDE_INT)k[1]) == 1);
+      return (num_insns_constant_wide ((HOST_WIDE_INT) k[0]) == 1
+	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1);
     }
 
   else if (mode == SFmode)
@@ -1782,10 +1780,8 @@ rs6000_legitimize_address (x, oldx, mode)
     { 
       HOST_WIDE_INT high_int, low_int;
       rtx sum;
-      high_int = INTVAL (XEXP (x, 1)) & (~ (HOST_WIDE_INT) 0xffff);
-      low_int = INTVAL (XEXP (x, 1)) & 0xffff;
-      if (low_int & 0x8000)
-	high_int += 0x10000, low_int |= ((HOST_WIDE_INT) -1) << 16;
+      low_int = ((INTVAL (XEXP (x, 1)) & 0xffff) ^ 0x8000) - 0x8000;
+      high_int = INTVAL (XEXP (x, 1)) - low_int;
       sum = force_operand (gen_rtx_PLUS (Pmode, XEXP (x, 0),
 					 GEN_INT (high_int)), 0);
       return gen_rtx_PLUS (Pmode, sum, GEN_INT (low_int));
@@ -2181,8 +2177,7 @@ rs6000_emit_move (dest, source, mode)
       /* FIXME.  This should never happen.  */
       /* Since it seems that it does, do the safe thing and convert
 	 to a CONST_INT.  */
-      operands[1] = 
-	GEN_INT (trunc_int_for_mode (CONST_DOUBLE_LOW (operands[1]), mode));
+      operands[1] = gen_int_mode (CONST_DOUBLE_LOW (operands[1]), mode);
     }
   if (GET_CODE (operands[1]) == CONST_DOUBLE
       && ! FLOAT_MODE_P (mode)
@@ -2907,8 +2902,6 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   if (DEFAULT_ABI == ABI_V4)
     {
       /* Indicate to allocate space on the stack for varargs save area.  */
-      /* ??? Does this really have to be located at a magic spot on the
-	 stack, or can we allocate this with assign_stack_local instead.  */
       cfun->machine->sysv_varargs_p = 1;
       if (! no_rtl)
 	save_area = plus_constant (virtual_stack_vars_rtx,
@@ -3100,48 +3093,8 @@ rs6000_va_arg (valist, type)
   int indirect_p, size, rsize, n_reg, sav_ofs, sav_scale;
   rtx lab_false, lab_over, addr_rtx, r;
 
-  /* For AIX, the rule is that structures are passed left-aligned in
-     their stack slot.  However, GCC does not presently do this:
-     structures which are the same size as integer types are passed
-     right-aligned, as if they were in fact integers.  This only
-     matters for structures of size 1 or 2, or 4 when TARGET_64BIT.  */
   if (DEFAULT_ABI != ABI_V4)
-    {
-      HOST_WIDE_INT align, rounded_size;
-      enum machine_mode mode;
-      tree addr_tree;
-
-      /* Compute the rounded size of the type.  */
-      align = PARM_BOUNDARY / BITS_PER_UNIT;
-      rounded_size = (((int_size_in_bytes (type) + align - 1) / align)
-		      * align);
-
-      addr_tree = valist;
-
-      mode = TYPE_MODE (type);
-      if (mode != BLKmode)
-	{
-	  HOST_WIDE_INT adj;
-	  adj = TREE_INT_CST_LOW (TYPE_SIZE (type)) / BITS_PER_UNIT;
-	  if (rounded_size > align)
-	    adj = rounded_size;
-	  
-	  addr_tree = build (PLUS_EXPR, TREE_TYPE (addr_tree), addr_tree,
-			     build_int_2 (rounded_size - adj, 0));
-	}
-
-      addr_rtx = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
-      addr_rtx = copy_to_reg (addr_rtx);
-      
-      /* Compute new value for AP.  */
-      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-		 build (PLUS_EXPR, TREE_TYPE (valist), valist,
-			build_int_2 (rounded_size, 0)));
-      TREE_SIDE_EFFECTS (t) = 1;
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-      
-      return addr_rtx;
-    }
+    return std_expand_builtin_va_arg (valist, type);
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
   f_fpr = TREE_CHAIN (f_gpr);
@@ -8358,10 +8311,8 @@ rs6000_emit_eh_toc_restore (stacksize)
 			       bottom_of_stack, stacksize,
 			       NULL_RTX, 1, OPTAB_WIDEN);
 
-  emit_move_insn (tocompare, 
-		  GEN_INT (trunc_int_for_mode (TARGET_32BIT 
-					       ? 0x80410014 
-					       : 0xE8410028, SImode)));
+  emit_move_insn (tocompare, gen_int_mode (TARGET_32BIT ? 0x80410014 
+					   : 0xE8410028, SImode));
 
   if (insn_after_throw == NULL_RTX)
     abort ();
@@ -10836,6 +10787,11 @@ rs6000_select_rtx_section (mode, x)
 {
   if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (x, mode))
     toc_section ();
+  else if (flag_pic
+	   && (GET_CODE (x) == SYMBOL_REF
+	       || GET_CODE (x) == LABEL_REF
+	       || GET_CODE (x) == CONST))
+    data_section ();
   else
     const_section ();
 }

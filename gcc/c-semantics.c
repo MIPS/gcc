@@ -856,6 +856,10 @@ expand_stmt (t)
 	  genrtl_scope_stmt (t);
 	  break;
 
+	case CLEANUP_STMT:
+	  genrtl_decl_cleanup (CLEANUP_DECL (t), CLEANUP_EXPR (t));
+	  break;
+
 	default:
 	  if (lang_expand_stmt)
 	    (*lang_expand_stmt) (t);

@@ -39,6 +39,8 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_SPEC \
   "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Wa,*:%*} -s"
 
+#define CMOV_SUN_AS_SYNTAX 1
+
 #else /* GAS_REJECTS_MINUS_S */
 
 /* Same as above, except for -s, unsupported by GNU as.  */
@@ -152,3 +154,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX "."
+
+/* The Solaris assembler does not support .quad.  Do not use it.  */
+#undef ASM_QUAD

@@ -1,3 +1,73 @@
+2002-03-21  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (build_access_to_thisn): Stop when FROM is not an inner
+	class.
+
+2002-03-21  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-tree.h (pushdecl, pushlevel, poplevel, set_block,
+	insert_block, getdecls, kept_level_p, global_bindings_p): New.
+
+2002-03-20  Nic Ferrier  <nferrier@tapsellferrier.co.uk>
+
+       	* gcj.texi: @code{gcj} becomes @command{gcj}. 
+	@code{gcc} becomes @command{gcc}. 
+        GcjRaw changed to gnu.gcc.RawData.
+	
+2002-03-20  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* decl.c (start_java_method): Use new hook.
+	* lang.c (LANG_HOOKS_DECL_PRINTABLE_NAME): Redefine.
+	(java_init): Remove old hook.
+
+2002-03-18  Alexandre Petit-Bianco  <apbianco@redhat.com>
+
+	* builtins.c (define_builtin): Do nothing if `type' is null.
+	Fixes PR java/5876.
+
+2002-03-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* parse.y (parser_check_super_interface): Fix error message
+	grammar/order.
+
+2002-03-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-parse.c (get_constant): Delete unused variables.
+
+2002-03-17  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* java-tree.h (java_parse_file): New.
+	* jcf-parse.c (yyparse): Rename java_parse_file.
+	* lang.c (LANG_HOOKS_PARSE_FILE): Redefine.
+
+2002-03-16  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* parse.y (craft_constructor): Return the constructor decl.
+	(java_expand_classes): Update comments.
+	(lookup_method_invoke): Call fix_constructors immediately for
+	anonymous class. Fixes PR java/5935.
+
+2002-03-15  Anthony Green  <green@redhat.com>
+
+	* jcf-parse.c (yyparse): Don't emit class registration
+	constructor when compiling resource files.
+
+2002-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* lang.c (java_tree_code_type, java_tree_code_length,
+	tree_code_name): Delete.
+	(tree_code_type, tree_code_length, tree_code_name): Define.
+	(java_init): Don't try to copy into the various tree_code
+	arrays.
+
+2002-03-12  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-parse.c (get_constant) [CONSTANT_String]: String values are
+	UTF-8, not UCS-2.  Fixes PR java/5923.
+
+	* parse.y (qualify_ambiguous_name): Handle case where QUAL_WFL is
+	a call_expr wrapped in a convert.  Fixes PR java/5848.
+
 2002-03-12  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* jcf-write.c (write_classfile): Improve error strings.

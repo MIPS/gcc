@@ -176,7 +176,7 @@ LIBFFI=
 LIBFFIINCS=
 if test "$with_libffi" != no; then
    AC_DEFINE(USE_LIBFFI)
-   LIBFFI=../libffi/libfficonvenience.la
+   LIBFFI=../libffi/libffi_convenience.la
    LIBFFIINCS='-I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include'
 fi
 AC_SUBST(LIBFFI)
@@ -241,8 +241,8 @@ dnl to create the link will fail.
 test -d java || mkdir java
 test -d java/io || mkdir java/io
 test -d gnu || mkdir gnu
-AC_LINK_FILES(java/io/natFile${PLATFORM}.cc, java/io/natFile.cc)
-AC_LINK_FILES(java/io/natFileDescriptor${PLATFORM}.cc, java/io/natFileDescriptor.cc)
+AC_LINK_FILES(java/io/natFile${FILE-${PLATFORM}}.cc, java/io/natFile.cc)
+AC_LINK_FILES(java/io/natFileDescriptor${FILE-${PLATFORM}}.cc, java/io/natFileDescriptor.cc)
 
 dnl Likewise for ConcreteProcess.java and natConcreteProcess.cc.
 test -d java/lang || mkdir java/lang
@@ -290,14 +290,11 @@ GCTESTSPEC=
 case "$GC" in
  boehm)
     AC_MSG_RESULT(boehm)
-    GCDEPS='$(top_builddir)/../boehm-gc/libgcjgc.la'
-    # We include the path to the boehm-gc build directory.
-    # See Makefile.am to understand why.
-    GCLIBS="$GCDEPS -L\$(here)/../boehm-gc/$libsubdir"
+    GCLIBS=../boehm-gc/libgcjgc_convenience.la
     GCINCS='-I$(top_srcdir)/../boehm-gc/include'
-    GCSPEC='-lgcjgc'
     JC1GCSPEC='-fuse-boehm-gc'
     GCTESTSPEC="-L`pwd`/../boehm-gc/.libs -rpath `pwd`/../boehm-gc/.libs"
+
     dnl We also want to pick up some cpp flags required when including
     dnl boehm-config.h.  Yuck.
     GCINCS="$GCINCS `cat ../boehm-gc/boehm-cflags`"
@@ -441,6 +438,15 @@ NATIVE=yes
 # We're in the tree with gcc, and need to include some of its headers.
 GCC_UNWIND_INCLUDE='-I$(libgcj_basedir)/../gcc'
 
+# Figure out where generated headers like libgcj-config.h get installed.
+changequote(,)dnl
+gcc_version_trigger=${srcdir}/../gcc/version.c
+gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([^\"]*\)\".*/\1/'`
+gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
+tool_include_dir='$(libdir)/gcc-lib/$(target_alias)/'${gcc_version}/include
+changequote([,])dnl
+AC_SUBST(tool_include_dir)
+
 if test -n "${with_cross_host}"; then
    # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
    # may not work correctly, because the compiler may not be able to
@@ -451,6 +457,7 @@ if test -n "${with_cross_host}"; then
    AC_DEFINE(HAVE_MEMMOVE)
    AC_DEFINE(HAVE_MEMCPY)
    AC_DEFINE(HAVE_STRERROR)
+   AC_DEFINE(HAVE_TIME)
    AC_DEFINE(HAVE_GMTIME_R)
    AC_DEFINE(HAVE_LOCALTIME_R)
    dnl This is only for POSIX threads.
@@ -460,9 +467,6 @@ if test -n "${with_cross_host}"; then
 
    dnl Assume we do not have getuid and friends.
    AC_DEFINE(NO_GETUID)
-
-   ZLIBSPEC=-lzgcj
-   ZLIBTESTSPEC="-L`pwd`/../zlib/.libs -rpath `pwd`/../zlib/.libs"
 
    # If Canadian cross, then don't pick up tools from the build
    # directory.
@@ -660,10 +664,7 @@ else
    SYSTEMSPEC="$SYSTEMSPEC $gcj_cv_lib_sockets"
 
    if test "$with_system_zlib" = yes; then
-      AC_CHECK_LIB(z, deflate, ZLIBSPEC=-lz, ZLIBSPEC=-lzgcj)
-   else
-      ZLIBSPEC=-lzgcj
-      ZLIBTESTSPEC="-L`pwd`/../zlib/.libs -rpath `pwd`/../zlib/.libs"
+      AC_CHECK_LIB(z, deflate, ZLIBSPEC=-lz, ZLIBSPEC=)
    fi
 
    # On Solaris, and maybe other architectures, the Boehm collector
@@ -720,19 +721,19 @@ CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 AC_COMPILE_CHECK_SIZEOF(void *)
 
 ZLIBS=
-ZDEPS=
+SYS_ZLIBS=
 ZINCS=
-if test "x$ZLIBSPEC" = "x-lzgcj"; then
-   # We include the path to the zlib build directory.
-   # See Makefile.am to understand why.
-   ZDEPS='$(top_builddir)/../zlib/libzgcj.la'
-   ZLIBS="$ZDEPS -L\$(here)/../zlib/$libsubdir"
+
+if test -z "$ZLIBSPEC"; then
+   # Use zlib from the GCC tree.
    ZINCS='-I$(top_srcdir)/../zlib'
+   ZLIBS=../zlib/libzgcj_convenience.la
 else
-   ZLIBS="$ZLIBSPEC"
+   # System's zlib.
+   SYS_ZLIBS="$ZLIBSPEC"
 fi
 AC_SUBST(ZLIBS)
-AC_SUBST(ZDEPS)
+AC_SUBST(SYS_ZLIBS)
 AC_SUBST(ZINCS)
 AC_SUBST(DIVIDESPEC)
 AC_SUBST(EXCEPTIONSPEC)
@@ -745,6 +746,14 @@ AM_CONDITIONAL(NEEDS_DATA_START, test "$NEEDS_DATA_START" = yes && test "$NATIVE
 AC_SUBST(GCC_UNWIND_INCLUDE)
 
 AC_SUBST(AM_RUNTESTFLAGS)
+
+# Determine gcj version number.
+changequote(<<,>>)
+gcjversion=`$GCJ -v 2>&1 | sed -n 's/^.*version \([^ ]*\).*$/\1/p'`
+changequote([,])
+GCJVERSION=$gcjversion
+AC_SUBST(GCJVERSION)
+AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
 
 dnl Work around a g++ bug.  Reported to gcc-bugs@gcc.gnu.org on Jan 22, 2000.
 AC_MSG_CHECKING([for g++ -ffloat-store bug])

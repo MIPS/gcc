@@ -392,6 +392,15 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
       }
   }
 
+  /* We may be accessing data outside the field, which means
+     we can alias adjacent data.  */
+  if (GET_CODE (op0) == MEM)
+    {
+      op0 = shallow_copy_rtx (op0);
+      set_mem_alias_set (op0, 0);
+      set_mem_expr (op0, 0);
+    }
+
   /* If OP0 is a register, BITPOS must count within a word.
      But as we have it, it counts within whatever size OP0 now has.
      On a bigendian machine, these are not the same, so convert.  */
@@ -647,7 +656,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
 		value1 = gen_lowpart (maxmode, value1);
 	    }
 	  else if (GET_CODE (value) == CONST_INT)
-	    value1 = GEN_INT (trunc_int_for_mode (INTVAL (value), maxmode));
+	    value1 = gen_int_mode (INTVAL (value), maxmode);
 	  else if (!CONSTANT_P (value))
 	    /* Parse phase is supposed to make VALUE's data type
 	       match that of the component reference, which is a type
@@ -1068,6 +1077,15 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 	  abort ();
       }
   }
+
+  /* We may be accessing data outside the field, which means
+     we can alias adjacent data.  */
+  if (GET_CODE (op0) == MEM)
+    {
+      op0 = shallow_copy_rtx (op0);
+      set_mem_alias_set (op0, 0);
+      set_mem_expr (op0, 0);
+    }
 
   /* ??? We currently assume TARGET is at least as big as BITSIZE.
      If that's wrong, the solution is to test for it and set TARGET to 0
@@ -2771,7 +2789,7 @@ expand_mult_highpart (mode, op0, cnst1, target, unsignedp, max_cost)
   if (size > HOST_BITS_PER_WIDE_INT)
     abort ();
 
-  op1 = GEN_INT (trunc_int_for_mode (cnst1, mode));
+  op1 = gen_int_mode (cnst1, mode);
 
   wide_op1
     = immed_double_const (cnst1,
@@ -3255,7 +3273,7 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 		if (rem_flag && d < 0)
 		  {
 		    d = abs_d;
-		    op1 = GEN_INT (trunc_int_for_mode (abs_d, compute_mode));
+		    op1 = gen_int_mode (abs_d, compute_mode);
 		  }
 
 		if (d == 1)
@@ -3294,8 +3312,8 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 			t1 = copy_to_mode_reg (compute_mode, op0);
 			do_cmp_and_jump (t1, const0_rtx, GE,
 					 compute_mode, label);
-			expand_inc (t1, GEN_INT (trunc_int_for_mode
-						 (abs_d - 1, compute_mode)));
+			expand_inc (t1, gen_int_mode (abs_d - 1,
+						      compute_mode));
 			emit_label (label);
 			quotient = expand_shift (RSHIFT_EXPR, compute_mode, t1,
 						 build_int_2 (lgup, 0),
@@ -3835,8 +3853,7 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 	    t1 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
 			       build_int_2 (pre_shift, 0), NULL_RTX, unsignedp);
 	    quotient = expand_mult (compute_mode, t1,
-				    GEN_INT (trunc_int_for_mode
-					     (ml, compute_mode)),
+				    gen_int_mode (ml, compute_mode),
 				    NULL_RTX, 0);
 
 	    insn = get_last_insn ();

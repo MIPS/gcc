@@ -1,3 +1,33 @@
+2002-03-21  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/private/gcconfig.h: Add unified test for FreeBSD.
+	Support FreeBSD/alpha.
+	* os_dep.c: Do not include <machine/trap.h> unless available.
+	(GC_freebsd_stack_base): Fix types.
+
+2002-03-17  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: Make a convenience library.
+	* Makefile.in: Rebuilt.
+
+2002-03-15  Anthony Green  <green@redhat.com>
+
+	* misc.c (GC_init_inner): Initialize GC_write_cs before use.
+	* configure.in: Disable use of getenv for win32 targets (some of
+	which have broken implementations).
+	* configure: Rebuilt.
+
+2002-03-12  Adam Megacz  <adam@xwt.org>
+
+        * dyn_load.c: Renamed GC_win32s to GC_no_win32_dlls.
+        * misc.c: Renamed GC_is_win32s() to GC_no_win32_dlls
+        * os_dep.c: Renamed GC_win32s to GC_no_win32_dlls and
+        statically initialized it to TRUE if compiling with GCC.
+        * win32_threads.c (thread_start): We no longer use SEH if
+        compiling with GCC.
+        * mark.c (GC_mark_some): We no longer use SEH if
+        compiling with GCC.
+	
 2002-03-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* include/gc_priv.h: Define ALIGN_DOUBLE on 32 bit targets if GCJ 

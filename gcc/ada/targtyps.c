@@ -6,7 +6,6 @@
  *                                                                          *
  *                                  Body                                    *
  *                                                                          *
- *                             $Revision: 1.2 $
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *

@@ -16,7 +16,7 @@ details.  */
 
 #include <gcj/libgcj-config.h>
 
-// We include <stdio.h> for compatibility with Sun's <jni.h>.
+/* We include <stdio.h> for compatibility with Sun's <jni.h>.  */
 #include <stdio.h>
 
 #include <stdarg.h>
@@ -171,6 +171,12 @@ typedef void *jmethodID;
 #define JNI_ERR          -1
 #define JNI_EDETACHED    -2
 #define JNI_EVERSION     -3
+
+/* Linkage and calling conventions.  This will need updating when we
+   support Windows DLLs.  */
+#define JNIIMPORT
+#define JNIEXPORT
+#define JNICALL
 
 #ifdef __cplusplus
 extern "C"

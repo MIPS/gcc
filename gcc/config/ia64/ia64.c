@@ -24,7 +24,6 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 #include "tree.h"
-#include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "real.h"
@@ -46,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "target.h"
 #include "target-def.h"
+#include "tm_p.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -138,7 +138,6 @@ static rtx ia64_expand_compare_and_swap PARAMS ((enum machine_mode, int,
 static rtx ia64_expand_lock_test_and_set PARAMS ((enum machine_mode,
 						  tree, rtx));
 static rtx ia64_expand_lock_release PARAMS ((enum machine_mode, tree, rtx));
-const struct attribute_spec ia64_attribute_table[];
 static bool ia64_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void ia64_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void ia64_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
@@ -156,6 +155,14 @@ static int ia64_variable_issue PARAMS ((FILE *, int, rtx, int));
 static rtx ia64_cycle_display PARAMS ((int, rtx));
 
 
+/* Table of valid machine attributes.  */
+static const struct attribute_spec ia64_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  { "syscall_linkage", 0, 0, false, true,  true,  NULL },
+  { NULL,              0, 0, false, false, false, NULL }
+};
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ia64_attribute_table
@@ -1664,9 +1671,10 @@ ia64_initial_elimination_offset (from, to)
       /* Arguments start above the 16 byte save area, unless stdarg
 	 in which case we store through the 16 byte save area.  */
       if (to == HARD_FRAME_POINTER_REGNUM)
-	offset = 16;
+	offset = 16 - current_function_pretend_args_size;
       else if (to == STACK_POINTER_REGNUM)
-	offset = current_frame_info.total_size + 16;
+	offset = (current_frame_info.total_size
+		  + 16 - current_function_pretend_args_size);
       else
 	abort ();
       break;
@@ -2872,7 +2880,7 @@ hfa_element_mode (type, nested)
 	return VOIDmode;
 
     case ARRAY_TYPE:
-      return TYPE_MODE (TREE_TYPE (type));
+      return hfa_element_mode (TREE_TYPE (type), 1);
 
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -3219,7 +3227,7 @@ ia64_va_start (stdarg_p, valist, nextarg)
   else
     ofs = (arg_words >= MAX_ARGUMENT_SLOTS ? -UNITS_PER_WORD : 0);
 
-  nextarg = plus_constant (nextarg, ofs - current_function_pretend_args_size);
+  nextarg = plus_constant (nextarg, ofs);
   std_expand_builtin_va_start (1, valist, nextarg);
 }
 
@@ -5478,32 +5486,6 @@ ia64_emit_insn_before (insn, before)
   emit_insn_before (insn, before);
 }
 
-#if 0
-/* Generate a nop insn of the given type.  Note we never generate L type
-   nops.  */
-
-static rtx
-gen_nop_type (t)
-     enum attr_type t;
-{
-  switch (t)
-    {
-    case TYPE_M:
-      return gen_nop_m ();
-    case TYPE_I:
-      return gen_nop_i ();
-    case TYPE_B:
-      return gen_nop_b ();
-    case TYPE_F:
-      return gen_nop_f ();
-    case TYPE_X:
-      return gen_nop_x ();
-    default:
-      abort ();
-    }
-}
-#endif
-
 /* When rotating a bundle out of the issue window, insert a bundle selector
    insn in front of it.  DUMP is the scheduling dump file or NULL.  START
    is either 0 or 3, depending on whether we want to emit a bundle selector
@@ -5568,8 +5550,8 @@ cycle_end_fill_slots (dump)
 	  if (slot > sched_data.split)
 	    abort ();
 	  if (dump)
-	    fprintf (dump, "// Packet needs %s, have %s\n", type_names[packet->t[slot]],
-		     type_names[t]);
+	    fprintf (dump, "// Packet needs %s, have %s\n",
+		     type_names[packet->t[slot]], type_names[t]);
 	  sched_data.types[slot] = packet->t[slot];
 	  sched_data.insns[slot] = 0;
 	  sched_data.stopbit[slot] = 0;
@@ -5581,15 +5563,22 @@ cycle_end_fill_slots (dump)
 
 	  slot++;
 	}
+
       /* Do _not_ use T here.  If T == TYPE_A, then we'd risk changing the
 	 actual slot type later.  */
       sched_data.types[slot] = packet->t[slot];
       sched_data.insns[slot] = tmp_insns[i];
       sched_data.stopbit[slot] = 0;
       slot++;
+
       /* TYPE_L instructions always fill up two slots.  */
       if (t == TYPE_L)
-	slot++;
+	{
+	  sched_data.types[slot] = packet->t[slot];
+	  sched_data.insns[slot] = 0;
+	  sched_data.stopbit[slot] = 0;
+	  slot++;
+	}
     }
 
   /* This isn't right - there's no need to pad out until the forced split;
@@ -5632,6 +5621,8 @@ rotate_one_bundle (dump)
       memmove (sched_data.insns,
 	       sched_data.insns + 3,
 	       sched_data.cur * sizeof *sched_data.insns);
+      sched_data.packet
+	= &packets[(sched_data.packet->t2 - bundle) * NR_BUNDLES];
     }
   else
     {
@@ -6063,6 +6054,7 @@ static void
 maybe_rotate (dump)
      FILE *dump;
 {
+  cycle_end_fill_slots (dump);
   if (sched_data.cur == 6)
     rotate_two_bundles (dump);
   else if (sched_data.cur >= 3)
@@ -6113,7 +6105,7 @@ nop_cycles_until (clock_var, dump)
 	  for (i = sched_data.cur; i < split; i++)
 	    {
 	      rtx t = sched_emit_insn (gen_nop_type (sched_data.packet->t[i]));
-	      sched_data.types[i] = sched_data.packet->t[sched_data.cur];
+	      sched_data.types[i] = sched_data.packet->t[i];
 	      sched_data.insns[i] = t;
 	      sched_data.stopbit[i] = 0;
 	    }
@@ -6127,7 +6119,7 @@ nop_cycles_until (clock_var, dump)
 	  for (i = sched_data.cur; i < 6; i++)
 	    {
 	      rtx t = sched_emit_insn (gen_nop_type (sched_data.packet->t[i]));
-	      sched_data.types[i] = sched_data.packet->t[sched_data.cur];
+	      sched_data.types[i] = sched_data.packet->t[i];
 	      sched_data.insns[i] = t;
 	      sched_data.stopbit[i] = 0;
 	    }
@@ -6731,9 +6723,10 @@ ia64_reorg (insns)
   if (optimize == 0)
     split_all_insns_noflow ();
 
-  /* Make sure the CFG and global_live_at_start are correct
-     for emit_predicate_relation_info.  */
-  find_basic_blocks (insns, max_reg_num (), NULL);
+  /* We are freeing block_for_insn in the toplev to keep compatibility
+     with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
+  compute_bb_for_insn (get_max_uid ());
+  /* update_life_info_in_dirty_blocks should be enought here.  */
   life_analysis (insns, NULL, PROP_DEATH_NOTES);
 
   if (ia64_flag_schedule_insns2)
@@ -6824,13 +6817,33 @@ ia64_epilogue_uses (regno)
     }
 }
 
-/* Table of valid machine attributes.  */
-const struct attribute_spec ia64_attribute_table[] =
+/* Return true if REGNO is used by the frame unwinder.  */
+
+int
+ia64_eh_uses (regno)
+     int regno;
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "syscall_linkage", 0, 0, false, true,  true,  NULL },
-  { NULL,              0, 0, false, false, false, NULL }
-};
+  if (! reload_completed)
+    return 0;
+
+  if (current_frame_info.reg_save_b0
+      && regno == current_frame_info.reg_save_b0)
+    return 1;
+  if (current_frame_info.reg_save_pr
+      && regno == current_frame_info.reg_save_pr)
+    return 1;
+  if (current_frame_info.reg_save_ar_pfs
+      && regno == current_frame_info.reg_save_ar_pfs)
+    return 1;
+  if (current_frame_info.reg_save_ar_unat
+      && regno == current_frame_info.reg_save_ar_unat)
+    return 1;
+  if (current_frame_info.reg_save_ar_lc
+      && regno == current_frame_info.reg_save_ar_lc)
+    return 1;
+
+  return 0;
+}
 
 /* For ia64, SYMBOL_REF_FLAG set means that it is a function.
 

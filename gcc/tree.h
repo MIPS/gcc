@@ -46,7 +46,7 @@ enum tree_code {
    and `x' for anything else (TREE_LIST, IDENTIFIER, etc).  */
 
 #define MAX_TREE_CODES 256
-extern char tree_code_type[MAX_TREE_CODES];
+extern const char tree_code_type[];
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
 /* Returns non-zero iff CLASS is the tree-code class of an
@@ -57,12 +57,12 @@ extern char tree_code_type[MAX_TREE_CODES];
 
 /* Number of argument-words in each kind of tree-node.  */
 
-extern int tree_code_length[MAX_TREE_CODES];
+extern const unsigned char tree_code_length[];
 #define TREE_CODE_LENGTH(CODE)	tree_code_length[(int) (CODE)]
 
 /* Names of tree components.  */
 
-extern const char *tree_code_name[MAX_TREE_CODES];
+extern const char *const tree_code_name[];
 
 /* Classify which part of the compiler has defined a given builtin function.
    Note that we assume below that this is no more than two bits.  */
@@ -2713,16 +2713,6 @@ extern tree current_function_func_begin_label;
 
 extern int all_types_permanent;
 
-/* Pointer to function to compute the name to use to print a declaration.
-   DECL is the declaration in question.
-   VERBOSITY determines what information will be printed:
-     0: DECL_NAME, demangled as necessary.
-     1: and scope information.
-     2: and any other information that might be interesting, such as function
-        parameter types in C++.  */
-
-extern const char *(*decl_printable_name)	PARAMS ((tree, int));
-
 /* Pointer to function to finish handling an incomplete decl at the
    end of compilation.  */
 
@@ -2857,32 +2847,6 @@ extern tree invert_truthvalue	PARAMS ((tree));
 extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
-/* The language front-end must define these functions.  */
-
-/* Function called with no arguments to parse and compile the input.  */
-extern int yyparse				PARAMS ((void));
-/* Functions for processing symbol declarations.  */
-/* Function to enter a new lexical scope.
-   Takes one argument: always zero when called from outside the front end.  */
-extern void pushlevel				PARAMS ((int));
-/* Function to exit a lexical scope.  It returns a BINDING for that scope.
-   Takes three arguments:
-     KEEP -- nonzero if there were declarations in this scope.
-     REVERSE -- reverse the order of decls before returning them.
-     FUNCTIONBODY -- nonzero if this level is the body of a function.  */
-extern tree poplevel				PARAMS ((int, int, int));
-/* Set the BLOCK node for the current scope level.  */
-extern void set_block				PARAMS ((tree));
-/* Function to add a decl to the current scope level.
-   Takes one argument, a decl to add.
-   Returns that decl, or, if the same symbol is already declared, may
-   return a different decl for that name.  */
-extern tree pushdecl				PARAMS ((tree));
-/* Function to return the chain of decls so far in the current scope level.  */
-extern tree getdecls				PARAMS ((void));
-/* Function to return the chain of structure tags in the current scope level.  */
-extern tree gettags				PARAMS ((void));
-
 extern tree build_range_type PARAMS ((tree, tree, tree));
 
 /* In alias.c */
@@ -3036,8 +3000,6 @@ extern int lang_attribute_common;
 extern int mark_addressable		PARAMS ((tree));
 extern void incomplete_type_error	PARAMS ((tree, tree));
 extern tree truthvalue_conversion	PARAMS ((tree));
-extern int global_bindings_p		PARAMS ((void));
-extern void insert_block		PARAMS ((tree));
 
 /* In integrate.c */
 extern void save_for_inline		PARAMS ((tree));

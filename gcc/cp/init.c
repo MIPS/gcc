@@ -56,26 +56,6 @@ static tree build_dtor_call PARAMS ((tree, special_function_kind, int));
 static tree build_field_list PARAMS ((tree, tree, int *));
 static tree build_vtbl_address PARAMS ((tree));
 
-/* Set up local variable for this file.  MUST BE CALLED AFTER
-   INIT_DECL_PROCESSING.  */
-
-static tree BI_header_type;
-
-void init_init_processing ()
-{
-  tree fields[1];
-
-  /* Define the structure that holds header information for
-     arrays allocated via operator new.  */
-  BI_header_type = make_aggr_type (RECORD_TYPE);
-  fields[0] = build_decl (FIELD_DECL, nelts_identifier, sizetype);
-
-  finish_builtin_type (BI_header_type, "__new_cookie", fields,
-		       0, double_type_node);
-
-  ggc_add_tree_root (&BI_header_type, 1);
-}
-
 /* We are about to generate some complex initialization code.
    Conceptually, it is all a single expression.  However, we may want
    to include conditionals, loops, and other such statement-level
@@ -1839,9 +1819,7 @@ resolve_offset_ref (exp)
   if (TREE_CODE (member) == FIELD_DECL
       && (base == current_class_ref || is_dummy_object (base)))
     {
-      tree expr;
-
-      basetype = DECL_CONTEXT (member);
+      tree binfo = TYPE_BINFO (current_class_type);
 
       /* Try to get to basetype from 'this'; if that doesn't work,
          nothing will.  */
@@ -1849,30 +1827,15 @@ resolve_offset_ref (exp)
 
       /* First convert to the intermediate base specified, if appropriate.  */
       if (TREE_CODE (exp) == OFFSET_REF && TREE_CODE (type) == OFFSET_TYPE)
-	base = build_scoped_ref (base, TYPE_OFFSET_BASETYPE (type));
-
-      /* Don't check access on the conversion; we might be after a member
-	 promoted by an access- or using-declaration, and we have already
-	 checked access for the member itself.  */
-      basetype = lookup_base (TREE_TYPE (base), basetype, ba_ignore, NULL);
-      expr = build_base_path (PLUS_EXPR, base, basetype, 1);
-
-      if (expr == error_mark_node)
-	return error_mark_node;
-
-      type = TREE_TYPE (member);
-      if (TREE_CODE (type) != REFERENCE_TYPE)
 	{
-	  int quals = cp_type_quals (type) | cp_type_quals (TREE_TYPE (expr));
-
-	  if (DECL_MUTABLE_P (member))
-	    quals &= ~TYPE_QUAL_CONST;
-	  
-	  type = cp_build_qualified_type (type, quals);
+	  binfo = binfo_or_else (TYPE_OFFSET_BASETYPE (type),
+				 current_class_type);
+	  if (!binfo)
+	    return error_mark_node;
+	  base = build_base_path (PLUS_EXPR, base, binfo, 1);
 	}
-      
-      expr = build (COMPONENT_REF, type, expr, member);
-      return convert_from_reference (expr);
+
+      return build_component_ref (base, member, binfo, 1);
     }
 
   /* Ensure that we have an object.  */
@@ -2280,7 +2243,7 @@ build_new_1 (exp)
 
   size = size_in_bytes (true_type);
   if (has_array)
-    size = fold (cp_build_binary_op (MULT_EXPR, size, nelts));
+    size = size_binop (MULT_EXPR, size, convert (sizetype, nelts));
 
   if (TREE_CODE (true_type) == VOID_TYPE)
     {
@@ -2308,7 +2271,7 @@ build_new_1 (exp)
     use_cookie = 0;
   /* When using placement new, users may not realize that they need
      the extra storage.  We require that the operator called be
-     the global placement operator delete[].  */
+     the global placement operator new[].  */
   else if (placement && !TREE_CHAIN (placement) 
 	   && same_type_p (TREE_TYPE (TREE_VALUE (placement)),
 			   ptr_type_node))
@@ -2493,13 +2456,22 @@ build_new_1 (exp)
 	  tree cleanup;
 	  int flags = (LOOKUP_NORMAL 
 		       | (globally_qualified_p * LOOKUP_GLOBAL));
+	  tree delete_node;
+
+	  if (use_cookie)
+	    /* Subtract the padding back out to get to the pointer returned
+	       from operator new.  */
+	    delete_node = fold (build (MINUS_EXPR, TREE_TYPE (alloc_node),
+				       alloc_node, cookie_size));
+	  else
+	    delete_node = alloc_node;
 
 	  /* The Standard is unclear here, but the right thing to do
              is to use the same method for finding deallocation
              functions that we use for finding allocation functions.  */
 	  flags |= LOOKUP_SPECULATIVELY;
 
-	  cleanup = build_op_delete_call (dcode, alloc_node, size, flags,
+	  cleanup = build_op_delete_call (dcode, delete_node, size, flags,
 					  (placement_allocation_fn_p 
 					   ? alloc_call : NULL_TREE));
 
@@ -3219,6 +3191,14 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 					    NULL_TREE);
 	  /* Call the complete object destructor.  */
 	  auto_delete = sfk_complete_destructor;
+	}
+      else if (auto_delete == sfk_deleting_destructor
+	       && TYPE_GETS_REG_DELETE (type))
+	{
+	  /* Make sure we have access to the member op delete, even though
+	     we'll actually be calling it from the destructor.  */
+	  build_op_delete_call (DELETE_EXPR, addr, c_sizeof_nowarn (type),
+				LOOKUP_NORMAL, NULL_TREE);
 	}
 
       expr = build_dtor_call (build_indirect_ref (addr, NULL),

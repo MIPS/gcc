@@ -1,3 +1,16 @@
+2002-03-21  Loren J. Rittle  <ljrittle@acm.org>
+
+	* configure.in: Enable alpha*-*-freebsd*.
+	* configure: Rebuilt.
+
+2002-03-17  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am: libfficonvenience -> libffi_convenience.
+	* Makefile.in: Rebuilt.
+	
+	* Makefile.am: Define ffitest_OBJECTS.
+	* Makefile.in: Rebuilt.
+
 2002-03-07  Andreas Tobler  <toa@pop.agri.ch>
 	    David Edelsohn  <edelsohn@gnu.org>
 

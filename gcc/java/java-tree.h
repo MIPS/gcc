@@ -1037,6 +1037,7 @@ struct lang_type
 #define JCF_u2 unsigned short
 
 extern void java_set_yydebug PARAMS ((int));
+extern void java_parse_file PARAMS ((void));
 extern void add_assume_compiled PARAMS ((const char *, int));
 extern tree lookup_class PARAMS ((tree));
 extern tree lookup_java_constructor PARAMS ((tree, tree));
@@ -1071,6 +1072,14 @@ extern tree ident_subst PARAMS ((const char*, int,
 				const char*, int, int, const char*));
 extern tree identifier_subst PARAMS ((const tree,
 				     const char *, int, int, const char *));
+extern int global_bindings_p			PARAMS ((void));
+extern int kept_level_p				PARAMS ((void));
+extern tree getdecls				PARAMS ((void));
+extern void pushlevel				PARAMS ((int));
+extern tree poplevel				PARAMS ((int,int, int));
+extern void insert_block			PARAMS ((tree));
+extern void set_block				PARAMS ((tree));
+extern tree pushdecl				PARAMS ((tree));
 extern void java_init_decl_processing PARAMS ((void));
 extern void java_dup_lang_specific_decl PARAMS ((tree));
 extern tree build_java_signature PARAMS ((tree));
