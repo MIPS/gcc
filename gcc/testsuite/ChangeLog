@@ -1,3 +1,102 @@
+2002-11-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/empty10.C: Don't run on non-x86 targets.
+
+2002-11-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.dg/abi/empty11.C: New test.
+	* testsuite/g++.dg/rtti/cv1.C: New test.
+
+2002-11-25  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* lib/prune.exp: Prune more -fpic/-fPIC warnings.
+
+2002-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/empty10.C: New test.
+
+2002-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021124-1.c: New test.
+
+2002-11-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/rtti2.C: New test.
+
+2002-11-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-unroll-1.c: New test.
+
+2002-11-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021120-1.c: New test.
+	* gcc.c-torture/compile/20021120-2.c: New test.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/bitfld-5.c: New test.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021120-3.c: New test.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021120-2.c: New test.
+
+2002-11-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021120-1.c: New test.
+
+2002-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20021118-3.c: New test.
+
+2002-11-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021119-1.c: New test.
+
+2002-11-19  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* gcc.dg/duff-1.c: New test.
+	* gcc.dg/duff-2.c: New test.
+	* gcc.dg/duff-3.c: New test.
+
+2002-11-18  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/_Pragma5.c: New test.
+
+2002-11-18  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021118-2.c: New test.
+
+2002-11-18  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20021118-1.c: New test.
+
+2002-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20021116-1.c: New test.
+
+2002-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/vcall1.C: New test.
+
+2002-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20021029-1.c: New test.
+	* gcc.dg/20021029-2.c: New test.
+
+2002-11-13  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* g++.dg/abi/vague1.C (dg-final): Return if target is hppa*-*-hpux*.
+
+2002-11-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8439
+	* gcc.dg/20021110.c: Move to ...
+	* gcc.c-torture/compile/20021110.c: .... here.
+
 2002-11-11  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
 	PR c/8467
@@ -6,7 +105,7 @@
 2002-11-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	PR c/8439
-	* gcc.dg/testsuite/20021110.c: New test.
+	* gcc.dg/20021110.c: New test.
 	
 2002-11-10  Mark Mitchell  <mark@codesourcery.com>
 

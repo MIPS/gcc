@@ -1,3 +1,68 @@
+2002-11-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (DECL_LANG_FLAG_4): Document more uses.
+	(template_parms_equal): Remove prototype.
+	* typeck.c (buuld_indirect_ref): Reformat.
+
+2002-11-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* tree.c (cp_build_qualified_type_real): Correct handling of
+	array types.
+	* class.c (walk_subobject_offsets): Fix thinko.
+	(build_base_field): Record offsets of empty bases in primary
+	virtual bases.
+	(layout_class_type): Record offsets of empty bases in fields.
+	
+	* search.c (is_subobject_of_p_1): Fix thinko.
+	(lookup_field_queue_p): Likewise.
+
+2002-11-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (layout_class_type): Reuse tail padding when laying out
+	virtual bases.
+
+2002-11-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* rtti.c (qualifier_flags): Fix thinko.
+
+2002-11-21  Glen Nakamura  <glen@imodulo.com>
+
+	PR c++/8342
+	* typeck.c (get_member_function_from_ptrfunc): Make sure that a
+	SAVE_EXPR for instance_ptr doesn't get evaluated first inside one
+	of the branches of a COND_EXPR.
+
+2002-11-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (for_each_template_parm): Free allocated memory.
+	* search.c (is_subobject_of_p_1): New function.
+	(is_subobject_of_p): Avoid walking virtual bases multiple times.
+
+2002-11-19  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* g++spec.c (lang_specific_spec_functions): New.
+
+2002-11-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Follow spelling conventions.
+	* class.c: Likewise.
+	* decl2.c: Likewise.
+
+2002-11-14  Zack Weinberg  <zack@codesourcery.com>
+
+	* search.c (dfs_push_decls): Do not try to reorder elements
+	3..n of method_vec if method_vec has only two elements.
+	Reverse order of two tests to avoid accessing unallocated
+	memory.
+
+2002-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (dfs_find_final_overrider): Adjust so that the most
+	derived object is a binfo, rather than a class type.
+	(find_final_overrider): Likewise.
+	(add_vcall_offset_vtbl_entries_1): Simplify accordingly.
+	(add_vcall_offset): Likewise.
+
 2002-11-09  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/8389
@@ -222,7 +287,7 @@
 	(layout_nonempty_base_or_field): Do not check for conflicts when
 	laying out a virtual base using the GCC 3.2 ABI.
 	(build_base_field): Correct checking for presence of empty classes
-	at non-zero offsets when clearing CLASSTYPE_NEARLY_EMPTY_P.
+	at nonzero offsets when clearing CLASSTYPE_NEARLY_EMPTY_P.
 
 	* class.c (include_empty_classes): Use normalize_rli.
 	(layout_class_type): Likewise.
@@ -7594,7 +7659,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(cp_make_fname_decl): Use size_int, not build_int_2.
 	(push_inline_template_parms_recursive): Likewise.
 	(end_template_parm_list): Likewise.
-	(for_each_tempalte_parm): Do not use walk_tree_without_duplicates.
+	(for_each_template_parm): Do not use walk_tree_without_duplicates.
 	(tsubst_template_parms): Use size_int, not build_int_2.
 	(tsubst): Likewise.
 	* rtti.c (get_vmi_pseudo_type_info): Likewise.

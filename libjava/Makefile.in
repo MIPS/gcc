@@ -1621,6 +1621,15 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/nio/charset/ISO_8859_1.java \
+gnu/java/nio/charset/Provider.java \
+gnu/java/nio/charset/US_ASCII.java \
+gnu/java/nio/charset/UTF_16.java \
+gnu/java/nio/charset/UTF_16BE.java \
+gnu/java/nio/charset/UTF_16Decoder.java \
+gnu/java/nio/charset/UTF_16Encoder.java \
+gnu/java/nio/charset/UTF_16LE.java \
+gnu/java/nio/charset/UTF_8.java \
 gnu/java/security/der/DEREncodingException.java \
 gnu/java/security/provider/DERReader.java \
 gnu/java/security/provider/DERWriter.java \
@@ -1713,15 +1722,32 @@ java/nio/BufferOverflowException.java \
 java/nio/BufferUnderflowException.java \
 java/nio/ByteBuffer.java \
 java/nio/ByteOrder.java \
+java/nio/CharBuffer.java \
+java/nio/InvalidMarkException.java \
 java/nio/MappedByteBuffer.java \
+java/nio/ReadOnlyBufferException.java \
 java/nio/channels/AlreadyConnectedException.java \
+java/nio/channels/AsynchronousCloseException.java \
 java/nio/channels/ByteChannel.java \
+java/nio/channels/CancelledKeyException.java \
 java/nio/channels/Channel.java \
+java/nio/channels/ClosedByInterruptException.java \
 java/nio/channels/ClosedChannelException.java \
+java/nio/channels/ClosedSelectorException.java \
+java/nio/channels/ConnectionPendingException.java \
 java/nio/channels/DatagramChannel.java \
+java/nio/channels/FileChannel.java \
+java/nio/channels/FileLockInterruptionException.java \
 java/nio/channels/GatheringByteChannel.java \
 java/nio/channels/IllegalBlockingModeException.java \
+java/nio/channels/IllegalSelectorException.java \
 java/nio/channels/InterruptibleChannel.java \
+java/nio/channels/NoConnectionPendingException.java \
+java/nio/channels/NonReadableChannelException.java \
+java/nio/channels/NonWritableChannelException.java \
+java/nio/channels/NotYetBoundException.java \
+java/nio/channels/NotYetConnectedException.java \
+java/nio/channels/OverlappingFileLockException.java \
 java/nio/channels/Pipe.java \
 java/nio/channels/ReadableByteChannel.java \
 java/nio/channels/ScatteringByteChannel.java \
@@ -1730,16 +1756,20 @@ java/nio/channels/SelectionKey.java \
 java/nio/channels/Selector.java \
 java/nio/channels/ServerSocketChannel.java \
 java/nio/channels/SocketChannel.java \
+java/nio/channels/UnresolvedAddressException.java \
+java/nio/channels/UnsupportedAddressTypeException.java \
 java/nio/channels/WritableByteChannel.java \
 java/nio/channels/spi/AbstractSelectableChannel.java \
-java/nio/channels/spi/AbstractChannel.java \
 java/nio/channels/spi/AbstractInterruptibleChannel.java \
 java/nio/channels/spi/AbstractSelectionKey.java \
 java/nio/channels/spi/AbstractSelector.java \
 java/nio/channels/spi/SelectorProvider.java \
 java/nio/charset/Charset.java \
 java/nio/charset/CharacterCodingException.java \
+java/nio/charset/CharsetDecoder.java \
+java/nio/charset/CharsetEncoder.java \
 java/nio/charset/CoderMalfunctionError.java \
+java/nio/charset/CoderResult.java \
 java/nio/charset/CodingErrorAction.java \
 java/nio/charset/IllegalCharsetNameException.java \
 java/nio/charset/MalformedInputException.java \
@@ -2514,7 +2544,15 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/locale/LocaleInformation_zh_HK.P \
 .deps/gnu/java/locale/LocaleInformation_zh_SG.P \
 .deps/gnu/java/locale/LocaleInformation_zh_TW.P \
-.deps/gnu/java/math/MPN.P \
+.deps/gnu/java/math/MPN.P .deps/gnu/java/nio/charset/ISO_8859_1.P \
+.deps/gnu/java/nio/charset/Provider.P \
+.deps/gnu/java/nio/charset/US_ASCII.P \
+.deps/gnu/java/nio/charset/UTF_16.P \
+.deps/gnu/java/nio/charset/UTF_16BE.P \
+.deps/gnu/java/nio/charset/UTF_16Decoder.P \
+.deps/gnu/java/nio/charset/UTF_16Encoder.P \
+.deps/gnu/java/nio/charset/UTF_16LE.P \
+.deps/gnu/java/nio/charset/UTF_8.P \
 .deps/gnu/java/rmi/RMIMarshalledObjectInputStream.P \
 .deps/gnu/java/rmi/RMIMarshalledObjectOutputStream.P \
 .deps/gnu/java/rmi/dgc/DGCImpl.P .deps/gnu/java/rmi/dgc/DGCImpl_Skel.P \
@@ -2981,14 +3019,31 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/net/natPlainSocketImpl.P .deps/java/nio/Buffer.P \
 .deps/java/nio/BufferOverflowException.P \
 .deps/java/nio/BufferUnderflowException.P .deps/java/nio/ByteBuffer.P \
-.deps/java/nio/ByteOrder.P .deps/java/nio/MappedByteBuffer.P \
+.deps/java/nio/ByteOrder.P .deps/java/nio/CharBuffer.P \
+.deps/java/nio/InvalidMarkException.P .deps/java/nio/MappedByteBuffer.P \
+.deps/java/nio/ReadOnlyBufferException.P \
 .deps/java/nio/channels/AlreadyConnectedException.P \
-.deps/java/nio/channels/ByteChannel.P .deps/java/nio/channels/Channel.P \
+.deps/java/nio/channels/AsynchronousCloseException.P \
+.deps/java/nio/channels/ByteChannel.P \
+.deps/java/nio/channels/CancelledKeyException.P \
+.deps/java/nio/channels/Channel.P \
+.deps/java/nio/channels/ClosedByInterruptException.P \
 .deps/java/nio/channels/ClosedChannelException.P \
+.deps/java/nio/channels/ClosedSelectorException.P \
+.deps/java/nio/channels/ConnectionPendingException.P \
 .deps/java/nio/channels/DatagramChannel.P \
+.deps/java/nio/channels/FileChannel.P \
+.deps/java/nio/channels/FileLockInterruptionException.P \
 .deps/java/nio/channels/GatheringByteChannel.P \
 .deps/java/nio/channels/IllegalBlockingModeException.P \
+.deps/java/nio/channels/IllegalSelectorException.P \
 .deps/java/nio/channels/InterruptibleChannel.P \
+.deps/java/nio/channels/NoConnectionPendingException.P \
+.deps/java/nio/channels/NonReadableChannelException.P \
+.deps/java/nio/channels/NonWritableChannelException.P \
+.deps/java/nio/channels/NotYetBoundException.P \
+.deps/java/nio/channels/NotYetConnectedException.P \
+.deps/java/nio/channels/OverlappingFileLockException.P \
 .deps/java/nio/channels/Pipe.P \
 .deps/java/nio/channels/ReadableByteChannel.P \
 .deps/java/nio/channels/ScatteringByteChannel.P \
@@ -2997,8 +3052,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/nio/channels/Selector.P \
 .deps/java/nio/channels/ServerSocketChannel.P \
 .deps/java/nio/channels/SocketChannel.P \
+.deps/java/nio/channels/UnresolvedAddressException.P \
+.deps/java/nio/channels/UnsupportedAddressTypeException.P \
 .deps/java/nio/channels/WritableByteChannel.P \
-.deps/java/nio/channels/spi/AbstractChannel.P \
 .deps/java/nio/channels/spi/AbstractInterruptibleChannel.P \
 .deps/java/nio/channels/spi/AbstractSelectableChannel.P \
 .deps/java/nio/channels/spi/AbstractSelectionKey.P \
@@ -3006,7 +3062,10 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/nio/channels/spi/SelectorProvider.P \
 .deps/java/nio/charset/CharacterCodingException.P \
 .deps/java/nio/charset/Charset.P \
+.deps/java/nio/charset/CharsetDecoder.P \
+.deps/java/nio/charset/CharsetEncoder.P \
 .deps/java/nio/charset/CoderMalfunctionError.P \
+.deps/java/nio/charset/CoderResult.P \
 .deps/java/nio/charset/CodingErrorAction.P \
 .deps/java/nio/charset/IllegalCharsetNameException.P \
 .deps/java/nio/charset/MalformedInputException.P \

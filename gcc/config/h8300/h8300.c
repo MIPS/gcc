@@ -312,7 +312,13 @@ h8300_init_once ()
   if (!TARGET_H8300S && TARGET_MAC)
     {
       error ("-ms2600 is used without -ms");
-      target_flags |= 1;
+      target_flags |= MASK_H8300S;
+    }
+  
+  if (TARGET_H8300 && TARGET_NORMAL_MODE)
+    {
+      error ("-mn is used without -mh or -ms");
+      target_flags ^= MASK_NORMAL_MODE;
     }
 
   /* Some of the shifts are optimized for speed by default.
@@ -763,7 +769,9 @@ single_one_operand (operand, mode)
       /* We really need to do this masking because 0x80 in QImode is
 	 represented as -128 for example.  */
       unsigned HOST_WIDE_INT mask =
-	((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1;
+	(GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
+	? ((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1
+	: ~0;
       unsigned HOST_WIDE_INT value = INTVAL (operand);
 
       if (exact_log2 (value & mask) >= 0)
@@ -786,7 +794,9 @@ single_zero_operand (operand, mode)
       /* We really need to do this masking because 0x80 in QImode is
 	 represented as -128 for example.  */
       unsigned HOST_WIDE_INT mask =
-	((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1;
+	(GET_MODE_BITSIZE (mode) < HOST_BITS_PER_WIDE_INT)
+	? ((unsigned HOST_WIDE_INT) 1 << GET_MODE_BITSIZE (mode)) - 1
+	: ~0;
       unsigned HOST_WIDE_INT value = INTVAL (operand);
 
       if (exact_log2 (~value & mask) >= 0)
@@ -1430,12 +1440,6 @@ print_operand (file, x, code)
 	case MEM:
 	  {
 	    rtx addr = XEXP (x, 0);
-	    int eightbit_ok = ((GET_CODE (addr) == SYMBOL_REF
-				&& SYMBOL_REF_FLAG (addr))
-			       || EIGHTBIT_CONSTANT_ADDRESS_P (addr));
-	    int tiny_ok = ((GET_CODE (addr) == SYMBOL_REF
-			    && TINY_DATA_NAME_P (XSTR (addr, 0)))
-			   || TINY_CONSTANT_ADDRESS_P (addr));
 
 	    fprintf (file, "@");
 	    output_address (addr);
@@ -1446,7 +1450,7 @@ print_operand (file, x, code)
 	      {
 	      case 'R':
 		/* Used for mov.b and bit operations.  */
-		if (eightbit_ok)
+		if (h8300_eightbit_constant_address_p (addr))
 		  {
 		    fprintf (file, ":8");
 		    break;
@@ -1460,7 +1464,7 @@ print_operand (file, x, code)
 	      case 'T':
 	      case 'S':
 		/* Used for mov.w and mov.l.  */
-		if (tiny_ok)
+		if (h8300_tiny_constant_address_p (addr))
 		  fprintf (file, ":16");
 		break;
 	      default:
@@ -1635,6 +1639,10 @@ h8300_initial_elimination_offset (from, to)
       if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
 	offset += UNITS_PER_WORD;	/* Skip saved PC */
     }
+
+  if ((TARGET_H8300H || TARGET_H8300S) && TARGET_NORMAL_MODE)
+    offset -= 2;
+
   return offset;
 }
 
@@ -3085,6 +3093,14 @@ compute_a_shift_length (insn, operands)
 	{
 	case SHIFT_SPECIAL:
 	  wlength += h8300_asm_insn_count (info.special);
+
+	  /* Every assembly instruction used in SHIFT_SPECIAL case
+	     takes 2 bytes except xor.l, which takes 4 bytes, so if we
+	     see xor.l, we just pretend that xor.l counts as two insns
+	     so that the insn length will be computed correctly.  */
+	  if (strstr (info.special, "xor.l") != NULL)
+	    wlength++;
+
 	  /* Fall through.  */
 
 	case SHIFT_INLINE:
@@ -3717,8 +3733,7 @@ h8300_adjust_insn_length (insn, length)
 
 	  /* @aa:8 is 2 bytes shorter than the longest.  */
 	  if (GET_MODE (SET_SRC (pat)) == QImode
-	      && ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_FLAG (addr))
-		  || EIGHTBIT_CONSTANT_ADDRESS_P (addr)))
+	      && h8300_eightbit_constant_address_p (addr))
 	    return -2;
 	}
       else
@@ -3741,14 +3756,11 @@ h8300_adjust_insn_length (insn, length)
 
 	  /* @aa:8 is 6 bytes shorter than the longest.  */
 	  if (GET_MODE (SET_SRC (pat)) == QImode
-	      && ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_FLAG (addr))
-		  || EIGHTBIT_CONSTANT_ADDRESS_P (addr)))
+	      && h8300_eightbit_constant_address_p (addr))
 	    return -6;
 
 	  /* @aa:16 is 4 bytes shorter than the longest.  */
-	  if ((GET_CODE (addr) == SYMBOL_REF
-	       && TINY_DATA_NAME_P (XSTR (addr, 0)))
-	      || TINY_CONSTANT_ADDRESS_P (addr))
+	  if (h8300_tiny_constant_address_p (addr))
 	    return -4;
 
 	  /* @aa:24 is 2 bytes shorter than the longest.  */
@@ -3857,6 +3869,9 @@ h8300_asm_named_section (name, flags)
 }
 #endif /* ! OBJECT_FORMAT_ELF */
 
+/* Nonzero if X is a constant address suitable as an 8-bit absolute,
+   which is a special case of the 'R' operand.  */
+
 int
 h8300_eightbit_constant_address_p (x)
      rtx x;
@@ -3871,16 +3886,23 @@ h8300_eightbit_constant_address_p (x)
 
   unsigned HOST_WIDE_INT addr;
 
+  /* We accept symbols declared with eightbit_data.  */
+  if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FLAG (x))
+    return 1;
+
   if (GET_CODE (x) != CONST_INT)
     return 0;
 
   addr = INTVAL (x);
 
   return (0
-	  || (TARGET_H8300  && IN_RANGE (addr, n1, n2))
+	  || ((TARGET_H8300 || TARGET_NORMAL_MODE) && IN_RANGE (addr, n1, n2))
 	  || (TARGET_H8300H && IN_RANGE (addr, h1, h2))
 	  || (TARGET_H8300S && IN_RANGE (addr, s1, s2)));
 }
+
+/* Nonzero if X is a constant address suitable as an 16-bit absolute
+   on H8/300H and H8S.  */
 
 int
 h8300_tiny_constant_address_p (x)
@@ -3898,14 +3920,18 @@ h8300_tiny_constant_address_p (x)
 
   unsigned HOST_WIDE_INT addr;
 
+  /* We accept symbols declared with tiny_data.  */
+  if (GET_CODE (x) == SYMBOL_REF && TINY_DATA_NAME_P (XSTR (x, 0)))
+    return 1;
+
   if (GET_CODE (x) != CONST_INT)
     return 0;
 
   addr = INTVAL (x);
 
   return (0
-	  || (TARGET_H8300H
-	      && IN_RANGE (addr, h1, h2) || IN_RANGE (addr, h3, h4))
-	  || (TARGET_H8300S
-	      && IN_RANGE (addr, s1, s2) || IN_RANGE (addr, s3, s4)));
+	  || ((TARGET_H8300H && !TARGET_NORMAL_MODE)
+	      && (IN_RANGE (addr, h1, h2) || IN_RANGE (addr, h3, h4)))
+	  || ((TARGET_H8300S && !TARGET_NORMAL_MODE)
+	      && (IN_RANGE (addr, s1, s2) || IN_RANGE (addr, s3, s4))));
 }

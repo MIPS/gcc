@@ -1430,7 +1430,7 @@ enum reg_class
    constraint, the value returned should be 0 regardless of VALUE.  */
 
 #define EXTRA_CONSTRAINT(VALUE, D)				\
-  ((D) == 'e' ? x86_64_sign_extended_value (VALUE, 0)		\
+  ((D) == 'e' ? x86_64_sign_extended_value (VALUE)		\
    : (D) == 'Z' ? x86_64_zero_extended_value (VALUE)		\
    : (D) == 'C' ? standard_sse_constant_p (VALUE)		\
    : 0)
@@ -1758,20 +1758,11 @@ typedef struct ix86_args {
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
-#define FUNCTION_PROFILER(FILE, LABELNO)				\
-do {									\
-  if (flag_pic)								\
-    {									\
-      fprintf ((FILE), "\tleal\t%sP%d@GOTOFF(%%ebx),%%edx\n",		\
-	       LPREFIX, (LABELNO));					\
-      fprintf ((FILE), "\tcall\t*_mcount@GOT(%%ebx)\n");		\
-    }									\
-  else									\
-    {									\
-      fprintf ((FILE), "\tmovl\t$%sP%d,%%edx\n", LPREFIX, (LABELNO));	\
-      fprintf ((FILE), "\tcall\t_mcount\n");				\
-    }									\
-} while (0)
+#define FUNCTION_PROFILER(FILE, LABELNO) x86_function_profiler (FILE, LABELNO)
+
+#define MCOUNT_NAME "_mcount"
+
+#define PROFILE_COUNT_REGISTER "edx"
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -2575,7 +2566,7 @@ do {							\
   case CONST:							\
   case LABEL_REF:						\
   case SYMBOL_REF:						\
-    if (TARGET_64BIT && !x86_64_sign_extended_value (RTX, 0))	\
+    if (TARGET_64BIT && !x86_64_sign_extended_value (RTX))	\
       return 3;							\
     if (TARGET_64BIT && !x86_64_zero_extended_value (RTX))	\
       return 2;							\

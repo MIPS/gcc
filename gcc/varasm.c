@@ -582,20 +582,6 @@ variable_section (decl, reloc)
     (*targetm.asm_out.select_section) (decl, reloc, DECL_ALIGN (decl));
 }
 
-/* Tell assembler to switch to the section for the exception handling
-   table.  */
-
-void
-default_exception_section ()
-{
-  if (targetm.have_named_sections)
-    named_section (NULL_TREE, ".gcc_except_table", 0);
-  else if (flag_pic)
-    data_section ();
-  else
-    readonly_data_section ();
-}
-
 /* Tell assembler to switch to the section for string merging.  */
 
 void
@@ -3513,6 +3499,13 @@ output_constant_pool (fnname, fndecl)
 	  abort ();
 	}
 
+      /* Make sure all constants in SECTION_MERGE and not SECTION_STRINGS
+	 sections have proper size.  */
+      if (pool->align > GET_MODE_BITSIZE (pool->mode)
+	  && in_section == in_named
+	  && get_named_section_flags (in_named_name) & SECTION_MERGE)
+	assemble_align (pool->align);
+
 #ifdef ASM_OUTPUT_SPECIAL_POOL_ENTRY
     done: ;
 #endif
@@ -3679,7 +3672,7 @@ static int
 output_addressed_constants (exp)
      tree exp;
 {
-  int reloc = 0;
+  int reloc = 0, reloc2;
   tree tem;
 
   /* Give the front-end a chance to convert VALUE to something that
@@ -3708,9 +3701,18 @@ output_addressed_constants (exp)
       break;
 
     case PLUS_EXPR:
-    case MINUS_EXPR:
       reloc = output_addressed_constants (TREE_OPERAND (exp, 0));
       reloc |= output_addressed_constants (TREE_OPERAND (exp, 1));
+      break;
+
+    case MINUS_EXPR:
+      reloc = output_addressed_constants (TREE_OPERAND (exp, 0));
+      reloc2 = output_addressed_constants (TREE_OPERAND (exp, 1));
+      /* The difference of two local labels is computable at link time.  */
+      if (reloc == 1 && reloc2 == 1)
+	reloc = 0;
+      else
+	reloc |= reloc2;
       break;
 
     case NOP_EXPR:
@@ -5076,7 +5078,7 @@ categorize_decl_for_section (decl, reloc, shlib)
 	ret = SECCAT_DATA_REL_RO;
       else if (shlib && reloc)
 	ret = SECCAT_DATA_REL_RO_LOCAL;
-      else if (flag_merge_constants < 2)
+      else if (reloc || flag_merge_constants < 2)
 	/* C and C++ don't allow different variables to share the same
 	   location.  -fmerge-all-constants allows even that (at the
 	   expense of not conforming).  */

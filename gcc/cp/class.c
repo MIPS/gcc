@@ -2220,9 +2220,11 @@ dfs_find_final_overrider (binfo, data)
       method = NULL_TREE;
       /* We've found a path to the declaring base.  Walk down the path
 	 looking for an overrider for FN.  */
-      for (path = reverse_path (binfo);
-	   path;
-	   path = TREE_CHAIN (path))
+      path = reverse_path (binfo);
+      while (!same_type_p (BINFO_TYPE (TREE_VALUE (path)),
+			   ffod->most_derived_type))
+	path = TREE_CHAIN (path);
+      while (path)
 	{
 	  method = look_for_overrides_here (BINFO_TYPE (TREE_VALUE (path)),
 					    ffod->fn);
@@ -2231,6 +2233,8 @@ dfs_find_final_overrider (binfo, data)
 	      path = TREE_VALUE (path);
 	      break;
 	    }
+
+	  path = TREE_CHAIN (path);
 	}
 
       /* If we found an overrider, record the overriding function, and
@@ -2264,12 +2268,12 @@ dfs_find_final_overrider (binfo, data)
 
 /* Returns a TREE_LIST whose TREE_PURPOSE is the final overrider for
    FN and whose TREE_VALUE is the binfo for the base where the
-   overriding occurs.  BINFO (in the hierarchy dominated by T) is the
-   base object in which FN is declared.  */
+   overriding occurs.  BINFO (in the hierarchy dominated by the binfo
+   DERIVED) is the base object in which FN is declared.  */
 
 static tree
-find_final_overrider (t, binfo, fn)
-     tree t;
+find_final_overrider (derived, binfo, fn)
+     tree derived;
      tree binfo;
      tree fn;
 {
@@ -2295,10 +2299,10 @@ find_final_overrider (t, binfo, fn)
      different overriders along any two, then there is a problem.  */
   ffod.fn = fn;
   ffod.declaring_base = binfo;
-  ffod.most_derived_type = t;
+  ffod.most_derived_type = BINFO_TYPE (derived);
   ffod.candidates = NULL_TREE;
 
-  dfs_walk (TYPE_BINFO (t),
+  dfs_walk (derived,
 	    dfs_find_final_overrider,
 	    NULL,
 	    &ffod);
@@ -2306,7 +2310,8 @@ find_final_overrider (t, binfo, fn)
   /* If there was no winner, issue an error message.  */
   if (!ffod.candidates || TREE_CHAIN (ffod.candidates))
     {
-      error ("no unique final overrider for `%D' in `%T'", fn, t);
+      error ("no unique final overrider for `%D' in `%T'", fn, 
+	     BINFO_TYPE (derived));
       return error_mark_node;
     }
 
@@ -2365,7 +2370,7 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
   first_defn = b;
 
   /* Find the final overrider.  */
-  overrider = find_final_overrider (t, b, fn);
+  overrider = find_final_overrider (TYPE_BINFO (t), b, fn);
   if (overrider == error_mark_node)
     return;
 
@@ -3385,8 +3390,8 @@ check_subobject_offset (type, offset, offsets)
 
 /* Walk through all the subobjects of TYPE (located at OFFSET).  Call
    F for every subobject, passing it the type, offset, and table of
-   OFFSETS.  If VBASES_P is nonzero, then even virtual non-primary
-   bases should be traversed; otherwise, they are ignored.  
+   OFFSETS.  If VBASES_P is one, then virtual non-primary bases should
+   be traversed.
 
    If MAX_OFFSET is non-NULL, then subobjects with an offset greater
    than MAX_OFFSET will not be walked.
@@ -3474,6 +3479,8 @@ walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
 					  offsets,
 					  max_offset,
 					  /*vbases_p=*/0);
+	      if (r)
+		return r;
 	    }
 	}
 
@@ -3667,7 +3674,7 @@ layout_nonempty_base_or_field (record_layout_info rli,
   /* Now that we know where it will be placed, update its
      BINFO_OFFSET.  */
   if (binfo && CLASS_TYPE_P (BINFO_TYPE (binfo)))
-    /* Indirect virtual bases may have a non-zero BINFO_OFFSET at
+    /* Indirect virtual bases may have a nonzero BINFO_OFFSET at
        this point because their BINFO_OFFSET is copied from another
        hierarchy.  Therefore, we may not need to add the entire
        OFFSET.  */
@@ -3678,7 +3685,7 @@ layout_nonempty_base_or_field (record_layout_info rli,
 			     t);
 }
 
-/* Returns true if TYPE is empty and OFFSET is non-zero.  */
+/* Returns true if TYPE is empty and OFFSET is nonzero.  */
 
 static int
 empty_base_at_nonzero_offset_p (tree type,
@@ -3811,7 +3818,7 @@ build_base_field (record_layout_info rli, tree binfo,
 	    CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
 	  /* The check above (used in G++ 3.2) is insufficient  because
 	     an empty class placed at offset zero might itself have an
-	     empty base at a non-zero offset.  */
+	     empty base at a nonzero offset.  */
 	  else if (walk_subobject_offsets (basetype, 
 					   empty_base_at_nonzero_offset_p,
 					   size_zero_node,
@@ -3844,6 +3851,27 @@ build_base_field (record_layout_info rli, tree binfo,
 			    BINFO_OFFSET (binfo),
 			    offsets, 
 			    /*vbases_p=*/0);
+
+  if (abi_version_at_least (2))
+    {
+      /* If BINFO has a primary virtual base that is really going to
+	 be located at the same offset as binfo, it will have been
+	 skipped -- but we should record empty bases from there too.  */
+      while (true) 
+	{
+	  tree b;
+
+	  b = get_primary_binfo (binfo);
+	  if (!b || BINFO_PRIMARY_BASE_OF (b) != binfo)
+	    break;
+	  if (TREE_VIA_VIRTUAL (b))
+	    record_subobject_offsets (BINFO_TYPE (b),
+				      BINFO_OFFSET (b),
+				      offsets,
+				      /*vbases_p=*/0);
+	  binfo = b;
+	}
+    }
 
   return next_field;
 }
@@ -4934,6 +4962,13 @@ layout_class_type (tree t, tree *virtuals_p)
       layout_nonempty_base_or_field (rli, field, NULL_TREE,
 				     empty_base_offsets);
 
+      /* Remember the location of any empty classes in FIELD.  */
+      if (abi_version_at_least (2))
+	record_subobject_offsets (TREE_TYPE (field), 
+				  byte_position(field),
+				  empty_base_offsets,
+				  /*vbases_p=*/1);
+
       /* If a bit-field does not immediately follow another bit-field,
 	 and yet it starts in the middle of a byte, we have failed to
 	 comply with the ABI.  */
@@ -4987,9 +5022,10 @@ layout_class_type (tree t, tree *virtuals_p)
       normalize_rli (rli);
     }
 
-  /* Make sure that empty classes are reflected in RLI at this 
-     point.  */
-  include_empty_classes(rli);
+  /* G++ 3.2 does not allow virtual bases to be overlaid with tail
+     padding.  */
+  if (!abi_version_at_least (2))
+    include_empty_classes(rli);
 
   /* Delete all zero-width bit-fields from the list of fields.  Now
      that the type is laid out they are no longer important.  */
@@ -5016,8 +5052,17 @@ layout_class_type (tree t, tree *virtuals_p)
 	}
       else
 	{
-	  TYPE_SIZE (base_t) = rli_size_so_far (rli);
-	  TYPE_SIZE_UNIT (base_t) = rli_size_unit_so_far (rli);
+	  TYPE_SIZE_UNIT (base_t) 
+	    = size_binop (MAX_EXPR,
+			  rli_size_unit_so_far (rli),
+			  end_of_class (t, /*include_virtuals_p=*/0));
+	  TYPE_SIZE (base_t) 
+	    = size_binop (MAX_EXPR,
+			  rli_size_so_far (rli),
+			  size_binop (MULT_EXPR,
+				      convert (bitsizetype,
+					       TYPE_SIZE_UNIT (base_t)),
+				      bitsize_int (BITS_PER_UNIT)));
 	}
       TYPE_ALIGN (base_t) = rli->record_align;
       TYPE_USER_ALIGN (base_t) = TYPE_USER_ALIGN (t);
@@ -7911,14 +7956,6 @@ add_vcall_offset_vtbl_entries_1 (binfo, vid)
      tree binfo;
      vtbl_init_data* vid;
 {
-  tree binfo_in_rtti;
-
-  if (vid->ctor_vtbl_p)
-    binfo_in_rtti = (get_original_base
-		     (binfo, TYPE_BINFO (BINFO_TYPE (vid->rtti_binfo))));
-  else
-    binfo_in_rtti = binfo;
-
   /* Make entries for the rest of the virtuals.  */
   if (abi_version_at_least (2))
     {
@@ -7930,7 +7967,7 @@ add_vcall_offset_vtbl_entries_1 (binfo, vid)
 	   orig_fn;
 	   orig_fn = TREE_CHAIN (orig_fn))
 	if (DECL_VINDEX (orig_fn))
-	  add_vcall_offset (orig_fn, binfo_in_rtti, vid);
+	  add_vcall_offset (orig_fn, binfo, vid);
     }
   else
     {
@@ -7995,18 +8032,15 @@ add_vcall_offset_vtbl_entries_1 (binfo, vid)
 	  if (!same_type_p (DECL_CONTEXT (orig_fn), BINFO_TYPE (binfo)))
 	    continue;
 
-	  add_vcall_offset (orig_fn, binfo_in_rtti, vid);
+	  add_vcall_offset (orig_fn, binfo, vid);
 	}
     }
 }
 
-/* Add a vcall offset entry for ORIG_FN to the vtable.  In a
-   construction vtable, BINFO_IN_RTTI is the base corresponding to the
-   vtable base in VID->RTTI_BINFO.  */
+/* Add a vcall offset entry for ORIG_FN to the vtable.  */
 
 static void
-add_vcall_offset (tree orig_fn, tree binfo_in_rtti,
-		  vtbl_init_data *vid)
+add_vcall_offset (tree orig_fn, tree binfo, vtbl_init_data *vid)
 {
   size_t i;
   tree vcall_offset;
@@ -8047,35 +8081,23 @@ add_vcall_offset (tree orig_fn, tree binfo_in_rtti,
   if (vid->generate_vcall_entries)
     {
       tree base;
-      tree base_binfo;
       tree fn;
 
       /* Find the overriding function.  */
-      fn = find_final_overrider (BINFO_TYPE (vid->rtti_binfo), 
-				 binfo_in_rtti, orig_fn);
+      fn = find_final_overrider (vid->rtti_binfo, binfo, orig_fn);
       if (fn == error_mark_node)
 	vcall_offset = build1 (NOP_EXPR, vtable_entry_type,
 			       integer_zero_node);
       else
 	{
-	  fn = TREE_PURPOSE (fn);
-	  /* The FN comes from BASE.  So, we must calculate the
-	     adjustment from vid->vbase to BASE.  We can just look for
-	     BASE in the complete object because we are converting
-	     from a virtual base, so if there were multiple copies,
-	     there would not be a unique final overrider and
-	     vid->derived would be ill-formed.  */
-	  base = DECL_CONTEXT (fn);
-	  base_binfo = lookup_base (vid->derived, base, ba_any, NULL);
+	  base = TREE_VALUE (fn);
 
-	  /* Compute the vcall offset.  */
-	  /* As mentioned above, the vbase we're working on is a
-	     primary base of vid->binfo.  But it might be a lost
-	     primary, so its BINFO_OFFSET might be wrong, so we just
-	     use the BINFO_OFFSET from vid->binfo.  */
-	  vcall_offset = BINFO_OFFSET (vid->binfo);
-	  vcall_offset = size_diffop (BINFO_OFFSET (base_binfo),
-				      vcall_offset);
+	  /* The vbase we're working on is a primary base of
+	     vid->binfo.  But it might be a lost primary, so its
+	     BINFO_OFFSET might be wrong, so we just use the
+	     BINFO_OFFSET from vid->binfo.  */
+	  vcall_offset = size_diffop (BINFO_OFFSET (base),
+				      BINFO_OFFSET (vid->binfo));
 	  vcall_offset = fold (build1 (NOP_EXPR, vtable_entry_type,
 				       vcall_offset));
 	}

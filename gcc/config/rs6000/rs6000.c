@@ -3173,10 +3173,7 @@ function_arg (cum, mode, type, named)
 		  && SPE_VECTOR_MODE (mode) && !named)
 		{
 		  rtx r1, r2;
-		  enum machine_mode m = GET_MODE_INNER (mode);
-
-		  if (mode == V1DImode)
-		    m = SImode;
+		  enum machine_mode m = SImode;
 
 		  r1 = gen_rtx_REG (m, gregno);
 		  r1 = gen_rtx_EXPR_LIST (m, r1, const0_rtx);
@@ -3931,16 +3928,8 @@ static struct builtin_description bdesc_2arg[] =
   { 0, CODE_FOR_spe_evmwhssfa, "__builtin_spe_evmwhssfa", SPE_BUILTIN_EVMWHSSFA },
   { 0, CODE_FOR_spe_evmwhumi, "__builtin_spe_evmwhumi", SPE_BUILTIN_EVMWHUMI },
   { 0, CODE_FOR_spe_evmwhumia, "__builtin_spe_evmwhumia", SPE_BUILTIN_EVMWHUMIA },
-  { 0, CODE_FOR_spe_evmwlsmf, "__builtin_spe_evmwlsmf", SPE_BUILTIN_EVMWLSMF },
-  { 0, CODE_FOR_spe_evmwlsmfa, "__builtin_spe_evmwlsmfa", SPE_BUILTIN_EVMWLSMFA },
-  { 0, CODE_FOR_spe_evmwlsmfaaw, "__builtin_spe_evmwlsmfaaw", SPE_BUILTIN_EVMWLSMFAAW },
-  { 0, CODE_FOR_spe_evmwlsmfanw, "__builtin_spe_evmwlsmfanw", SPE_BUILTIN_EVMWLSMFANW },
   { 0, CODE_FOR_spe_evmwlsmiaaw, "__builtin_spe_evmwlsmiaaw", SPE_BUILTIN_EVMWLSMIAAW },
   { 0, CODE_FOR_spe_evmwlsmianw, "__builtin_spe_evmwlsmianw", SPE_BUILTIN_EVMWLSMIANW },
-  { 0, CODE_FOR_spe_evmwlssf, "__builtin_spe_evmwlssf", SPE_BUILTIN_EVMWLSSF },
-  { 0, CODE_FOR_spe_evmwlssfa, "__builtin_spe_evmwlssfa", SPE_BUILTIN_EVMWLSSFA },
-  { 0, CODE_FOR_spe_evmwlssfaaw, "__builtin_spe_evmwlssfaaw", SPE_BUILTIN_EVMWLSSFAAW },
-  { 0, CODE_FOR_spe_evmwlssfanw, "__builtin_spe_evmwlssfanw", SPE_BUILTIN_EVMWLSSFANW },
   { 0, CODE_FOR_spe_evmwlssiaaw, "__builtin_spe_evmwlssiaaw", SPE_BUILTIN_EVMWLSSIAAW },
   { 0, CODE_FOR_spe_evmwlssianw, "__builtin_spe_evmwlssianw", SPE_BUILTIN_EVMWLSSIANW },
   { 0, CODE_FOR_spe_evmwlumi, "__builtin_spe_evmwlumi", SPE_BUILTIN_EVMWLUMI },
@@ -6388,6 +6377,64 @@ store_multiple_operation (op, mode)
     }
 
   return 1;
+}
+
+/* Return a string to perform a load_multiple operation.
+   operands[0] is the vector.
+   operands[1] is the source address.
+   operands[2] is the first destination register.  */
+
+const char *
+rs6000_output_load_multiple (operands)
+     rtx operands[2];
+{
+  /* We have to handle the case where the pseudo used to contain the address
+     is assigned to one of the output registers.  */
+  int i, j;
+  int words = XVECLEN (operands[0], 0);
+  rtx xop[10];
+
+  if (XVECLEN (operands[0], 0) == 1)
+    return "{l|lwz} %2,0(%1)";
+
+  for (i = 0; i < words; i++)
+    if (refers_to_regno_p (REGNO (operands[2]) + i,
+			   REGNO (operands[2]) + i + 1, operands[1], 0))
+      {
+	if (i == words-1)
+	  {
+	    xop[0] = GEN_INT (4 * (words-1));
+	    xop[1] = operands[1];
+	    xop[2] = operands[2];
+	    output_asm_insn ("{lsi|lswi} %2,%1,%0\n\t{l|lwz} %1,%0(%1)", xop);
+	    return "";
+	  }
+	else if (i == 0)
+	  {
+	    xop[0] = GEN_INT (4 * (words-1));
+	    xop[1] = operands[1];
+	    xop[2] = gen_rtx_REG (SImode, REGNO (operands[2]) + 1);
+	    output_asm_insn ("{cal %1,4(%1)|addi %1,%1,4}\n\t{lsi|lswi} %2,%1,%0\n\t{l|lwz} %1,-4(%1)", xop);
+	    return "";
+	  }
+	else
+	  {
+	    for (j = 0; j < words; j++)
+	      if (j != i)
+		{
+		  xop[0] = GEN_INT (j * 4);
+		  xop[1] = operands[1];
+		  xop[2] = gen_rtx_REG (SImode, REGNO (operands[2]) + j);
+		  output_asm_insn ("{l|lwz} %2,%0(%1)", xop);
+		}
+	    xop[0] = GEN_INT (i * 4);
+	    xop[1] = operands[1];
+	    output_asm_insn ("{l|lwz} %1,%0(%1)", xop);
+	    return "";
+	  }
+      }
+
+  return "{lsi|lswi} %2,%1,%N0";
 }
 
 /* Return 1 for a parallel vrsave operation.  */

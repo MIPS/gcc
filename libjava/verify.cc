@@ -459,7 +459,6 @@ private:
 	return key == k.key;
 
       // The `null' type is convertible to any reference type.
-      // FIXME: is this correct for THIS?
       if (key == null_type || k.key == null_type)
 	return true;
 

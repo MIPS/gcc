@@ -82,6 +82,7 @@ struct vbase_info
 
 static tree lookup_field_1 PARAMS ((tree, tree));
 static int is_subobject_of_p PARAMS ((tree, tree, tree));
+static int is_subobject_of_p_1 PARAMS ((tree, tree, tree));
 static tree dfs_check_overlap PARAMS ((tree, void *));
 static tree dfs_no_overlap_yet PARAMS ((tree, void *));
 static base_kind lookup_base_r
@@ -1099,13 +1100,11 @@ accessible_p (type, decl)
   return t != NULL_TREE;
 }
 
-/* Routine to see if the sub-object denoted by the binfo PARENT can be
-   found as a base class and sub-object of the object denoted by
-   BINFO.  MOST_DERIVED is the most derived type of the hierarchy being
-   searched.  */
+/* Recursive helper funciton for is_subobject_of_p; see that routine
+   for documentation of the parameters.  */
 
 static int
-is_subobject_of_p (parent, binfo, most_derived)
+is_subobject_of_p_1 (parent, binfo, most_derived)
      tree parent, binfo, most_derived;
 {
   tree binfos;
@@ -1117,21 +1116,52 @@ is_subobject_of_p (parent, binfo, most_derived)
   binfos = BINFO_BASETYPES (binfo);
   n_baselinks = binfos ? TREE_VEC_LENGTH (binfos) : 0;
 
-  /* Iterate the base types.  */
+  /* Iterate through the base types.  */
   for (i = 0; i < n_baselinks; i++)
     {
       tree base_binfo = TREE_VEC_ELT (binfos, i);
-      if (!CLASS_TYPE_P (TREE_TYPE (base_binfo)))
+      tree base_type;
+
+      base_type = TREE_TYPE (base_binfo);
+      if (!CLASS_TYPE_P (base_type))
 	/* If we see a TEMPLATE_TYPE_PARM, or some such, as a base
 	   class there's no way to descend into it.  */
 	continue;
 
-      if (is_subobject_of_p (parent, 
-                             CANONICAL_BINFO (base_binfo, most_derived),
-                             most_derived))
+      /* Avoid walking into the same virtual base more than once.  */
+      if (TREE_VIA_VIRTUAL (base_binfo))
+	{
+	  if (CLASSTYPE_MARKED4 (base_type))
+	    continue;
+	  SET_CLASSTYPE_MARKED4 (base_type);
+	  base_binfo = binfo_for_vbase (base_type, most_derived);
+	}
+
+      if (is_subobject_of_p_1 (parent, base_binfo, most_derived))
 	return 1;
     }
   return 0;
+}
+
+/* Routine to see if the sub-object denoted by the binfo PARENT can be
+   found as a base class and sub-object of the object denoted by
+   BINFO.  MOST_DERIVED is the most derived type of the hierarchy being
+   searched.  */
+
+static int
+is_subobject_of_p (tree parent, tree binfo, tree most_derived)
+{
+  int result;
+  tree vbase;
+
+  result = is_subobject_of_p_1 (parent, binfo, most_derived);
+  /* Clear the mark bits on virtual bases.  */
+  for (vbase = CLASSTYPE_VBASECLASSES (most_derived);
+       vbase;
+       vbase = TREE_CHAIN (vbase))
+    CLEAR_CLASSTYPE_MARKED4 (TREE_TYPE (TREE_VALUE (vbase)));
+
+  return result;
 }
 
 struct lookup_field_info {
@@ -1172,11 +1202,12 @@ lookup_field_queue_p (binfo, data)
 
   /* If this base class is hidden by the best-known value so far, we
      don't need to look.  */
+  binfo = CANONICAL_BINFO (binfo, lfi->type);
   if (!lfi->from_dep_base_p && lfi->rval_binfo
       && is_subobject_of_p (binfo, lfi->rval_binfo, lfi->type))
     return NULL_TREE;
 
-  return CANONICAL_BINFO (binfo, lfi->type);
+  return binfo;
 }
 
 /* Within the scope of a template class, you can refer to the to the
@@ -2544,7 +2575,8 @@ dfs_push_decls (binfo, data)
 	  
       method_vec = (CLASS_TYPE_P (type) 
 		    ? CLASSTYPE_METHOD_VEC (type) : NULL_TREE);
-      if (method_vec)
+
+      if (method_vec && TREE_VEC_LENGTH (method_vec) >= 3)
 	{
 	  tree *methods;
 	  tree *end;
@@ -2553,7 +2585,7 @@ dfs_push_decls (binfo, data)
 	  end = TREE_VEC_END (method_vec);
 
 	  for (methods = &TREE_VEC_ELT (method_vec, 2);
-	       *methods && methods != end;
+	       methods < end && *methods;
 	       methods++)
 	    setup_class_bindings (DECL_NAME (OVL_CURRENT (*methods)), 
 				  /*type_binding_p=*/0);
