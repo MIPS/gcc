@@ -6419,13 +6419,15 @@ output_return_instruction (operand, really_return, reverse)
   if (live_regs == 1
       && regs_ever_live[LR_REGNUM]
       && ! lr_save_eliminated
-      /* FIXME: We ought to handle the case TARGET_APCS_32 is true,
-	 really_return is true, and only the PC needs restoring.  */
       && ! really_return)
-    {
-      output_asm_insn (reverse ? "ldr%?%D0\t%|lr, [%|sp], #4" 
-		       : "ldr%?%d0\t%|lr, [%|sp], #4", &operand);
-    }
+    output_asm_insn (reverse ? "ldr%?%D0\t%|lr, [%|sp], #4" 
+		     : "ldr%?%d0\t%|lr, [%|sp], #4", &operand);
+  else if (live_regs == 1
+	   && regs_ever_live[LR_REGNUM]
+	   && ! lr_save_eliminated
+	   && TARGET_APCS_32)
+    output_asm_insn (reverse ? "ldr%?%D0\t%|pc, [%|sp], #4"
+		     : "ldr%?%d0\t%|pc, [%|sp], #4", &operand);
   else if (live_regs)
     {
       if (lr_save_eliminated || ! regs_ever_live[LR_REGNUM])
@@ -6828,15 +6830,23 @@ arm_output_epilogue ()
 	      if (! lr_save_eliminated)
 		live_regs_mask |= 1 << LR_REGNUM;
 
-	      if (live_regs_mask != 0)
-		print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, live_regs_mask, FALSE);
+	      /* Handle LR on its own.  */
+	      if (live_regs_mask == (1 << LR_REGNUM))
+		asm_fprintf (f, "ldr\t%r, [%r], #4\n", LR_REGNUM, SP_REGNUM);
+	      else if (live_regs_mask != 0)
+		print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, live_regs_mask,
+				 FALSE);
 	      
 	      asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
 	    }
 	  else if (lr_save_eliminated)
-	    asm_fprintf (f, 
-			 TARGET_APCS_32 ? "\tmov\t%r, %r\n" : "\tmovs\t%r, %r\n",
+	    asm_fprintf (f, (TARGET_APCS_32
+			     ? "\tmov\t%r, %r\n"
+			     : "\tmovs\t%r, %r\n"),
 			 PC_REGNUM, LR_REGNUM);
+	  else if (TARGET_APCS_32
+		   && live_regs_mask == 0)
+	    asm_fprintf (f, "ldr\t%r, [%r], #4\n", PC_REGNUM, SP_REGNUM);
 	  else
 	    print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM,
 			     live_regs_mask | (1 << PC_REGNUM),
@@ -6846,12 +6856,15 @@ arm_output_epilogue ()
 	{
 	  if (live_regs_mask || regs_ever_live[LR_REGNUM])
 	    {
-	      /* Restore the integer regs, and the return address into lr */
+	      /* Restore the integer regs, and the return address into lr.  */
 	      if (! lr_save_eliminated)
 		live_regs_mask |= 1 << LR_REGNUM;
 
-	      if (live_regs_mask != 0)
-		print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, live_regs_mask, FALSE);
+	      if (live_regs_mask == (1 << LR_REGNUM))
+		asm_fprintf(f, "ldr\t%r, [%r], #4\n", LR_REGNUM, SP_REGNUM);
+	      else if (live_regs_mask != 0)
+		print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, live_regs_mask,
+				 FALSE);
 	    }
 
 	  if (current_function_pretend_args_size)
@@ -7247,6 +7260,7 @@ arm_print_operand (stream, x, code)
     case 'd':
       if (! x)
 	return;
+
       if (TARGET_ARM)
         fputs (arm_condition_codes[get_arm_condition_code (x)],
 	       stream);
