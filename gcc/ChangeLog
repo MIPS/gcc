@@ -1,3 +1,7 @@
+2000-02-09  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/arm-protos.h: Replace PROTO with PARAMS.
+
 2000-02-09  Scott Bambrough  <scottb@netwinder.org>
 
         * config/arm/arm.md (movsi): In PIC mode, make sure that a
