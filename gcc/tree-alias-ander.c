@@ -25,9 +25,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "coretypes.h"
 #include "tm.h"
 #include "ggc.h"
+#include "bitmap.h"
 #include "tree-alias-type.h"
 #include "tree-alias-ander.h"
-
 #include "flags.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -111,7 +111,7 @@ static void andersen_assign_ptr (struct tree_alias_ops *,
 static void andersen_function_def (struct tree_alias_ops *, alias_typevar,
 				   varray_type, alias_typevar);
 static int andersen_function_call (struct tree_alias_ops *, alias_typevar,
-				   alias_typevar, varray_type);
+				   alias_typevar, varray_type, bitmap);
 static void andersen_init (struct tree_alias_ops *);
 static int print_out_result (splay_tree_node, void *);
 static void andersen_cleanup (struct tree_alias_ops *);
@@ -446,7 +446,7 @@ static int initted = 0;
 static void
 andersen_init (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 {
-  if (!initted || !flag_unit_at_a_time)
+  if (!initted || !flag_unit_at_a_time )
     {
       pta_init ();
       andersen_rgn = newregion ();
@@ -456,7 +456,7 @@ andersen_init (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
   dump_file = dump_begin (TDI_pta, &dump_flags);
   ptamap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   /* Don't claim we can do ip partial unless the user requests it. */
-  if (!flag_unit_at_a_time)
+  if (!flag_unit_at_a_time) 
     andersen_ops.ip_partial = 0;
 
 }
@@ -488,7 +488,7 @@ andersen_cleanup (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
       dump_end (TDI_pta, dump_file);
     }
 
-  if (!flag_unit_at_a_time)
+  if (!flag_unit_at_a_time) 
     {
       pta_reset ();
       splay_tree_delete (ptamap);
@@ -780,7 +780,7 @@ andersen_function_def (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 static int
 andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 			alias_typevar lhs, alias_typevar func,
-			varray_type args)
+			varray_type args, bitmap addrargs)
 {
   aterm_list actuals = new_aterm_list (andersen_rgn);
   aterm ftype = ALIAS_TVAR_ATERM (func);
@@ -796,7 +796,10 @@ andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
     {
       alias_typevar argtv = VARRAY_GENERIC_PTR (args, i);
       aterm arg = ALIAS_TVAR_ATERM (argtv);
-      aterm_list_cons (pta_rvalue (arg), actuals);
+      if (bitmap_bit_p (addrargs, i))
+	aterm_list_cons (pta_rvalue (pta_address (arg)), actuals);
+      else
+	aterm_list_cons (pta_rvalue (arg), actuals);
     }
   aterm_list_reverse (actuals);
   
@@ -814,7 +817,7 @@ andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
      necessary. */
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_PTA_TYPEVAR (decl)
-      && flag_unit_at_a_time
+      && flag_unit_at_a_time 
       && (!TREE_PUBLIC (decl) && TREE_STATIC (decl)))
     {
       return 0;

@@ -66,7 +66,7 @@ struct tree_alias_ops
   /* Process a function call.
      Return 1 if we need to assume conservative side-effects.  */
   int (*function_call) (struct tree_alias_ops *, alias_typevar,
-			alias_typevar, varray_type);
+			alias_typevar, varray_type, bitmap);
 
   /* Determine if two typevars may alias.   */
   bool (*may_alias) (struct tree_alias_ops *, alias_typevar, alias_typevar);

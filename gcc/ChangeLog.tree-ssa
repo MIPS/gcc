@@ -1,3 +1,41 @@
+2003-11-30  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-config-lang.in: Move tree-alias-* from here
+	* Makefile.in (GTFILES): To here.
+	* tree-alias-ander.c: Include bitmap.h
+	(andersen_function_call): Updated to take address of variables
+	in an ADDR_EXPR in a CALL_EXPR.
+	* tree-alias-common.h (struct tree_alias_ops): Update arguments to
+	function_call.
+	* tree-alias-type.h (struct alias_typevar_common): Add varnum.
+	* tree-alias-common.c: Include bitmap.h, and function.h.
+	s/global_var/pta_global_var/g.
+	(addrargs): New static variable.
+	(pta_global_var): Ditto.
+	(find_func_decls): Remove.
+	(find_func_aliases): Take one argument, update all callers.
+	Handle (cast) [addr-expr] [var].
+	Handle COMPONENT_REF of an  INDIRECT_REF.
+	Pass info about ADDR_EXPR arguments to function_call function.
+	(deal_with_call_aliasing): New function.
+	(call_may_return): New function.
+	(get_alias_var_decl): Call find_func_aliases on the DECL_INITIAL
+	of a global var.
+	Use ALIAS_TVAR_VARNUM, instead of VARRAY_ACTIVE_SIZE (alias_vars) - 1.
+	(get_alias_var): Handle REALPART_EXPR and IMAGPART_EXPR.
+	Return NULL in default case.
+	(intra_function_call): Remove wrong code.
+	(create_fun_alias_var): Use simple_assign, not addr_assign.
+	Set up ALIAS_TVAR_VARNUM when creating an alias var.
+	(create_fun_alis_var_ptf): Ditto on ALIAS_TVAR_VARNUM.
+	(create_alias_var): Ditto.
+	(create_alias_vars):  Build pta_global_var here.
+	Walk unexpanded_var_list.
+	Walk the statements in basic blocks.
+	(delete_alias_vars): Correct ip_partial case.
+	Free addrargs.
+	(init_alias_vars): Create addrargs.
+
 2003-11-29  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (tree-ssanames.o): Depend on gt-tree-ssanames.h.

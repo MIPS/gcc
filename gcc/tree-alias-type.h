@@ -13,6 +13,7 @@ enum alias_typevar_kind
 struct alias_typevar_common  GTY (())
 {
   enum alias_typevar_kind kind;
+  unsigned int varnum;
   tree decl;
 };
 struct alias_typevar_aterm GTY (())
@@ -29,6 +30,7 @@ union alias_typevar_def GTY ((desc ("%0.common.kind")))
 typedef union alias_typevar_def *alias_typevar;
 
 #define ALIAS_TVAR_KIND(x) ((x)->common.kind)
+#define ALIAS_TVAR_VARNUM(x) ((x)->common.varnum)
 #define ALIAS_TVAR_DECL(x) ((x)->common.decl)
 #define ALIAS_TVAR_ATERM(x) ((x)->aterm.term)
 #define ALIAS_TVAR_PTSET(x) ((x)->aterm.ptset)

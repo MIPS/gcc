@@ -2205,6 +2205,8 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/varasm.c $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c \
   $(srcdir)/tree-ssa.c $(srcdir)/tree-dfa.c $(srcdir)/tree-ssa-ccp.c \
   $(srcdir)/tree-ssa-pre.c $(srcdir)/tree-iterator.c $(out_file) \
+  $(srcdir)/tree-alias-type.h $(srcdir)/tree-alias-common.h \
+  $(srcdir)/tree-alias-type.c \$(srcdir)/tree-alias-common.c \
   @all_gtfiles@
 
 GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
