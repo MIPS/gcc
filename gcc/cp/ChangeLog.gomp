@@ -1,0 +1,4 @@
+2004-10-13  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Make-lang.in (CXX_C_OBJS): Add dependence on c-gomp.o.
+	* ChangeLog.gomp: New file.

@@ -1,3 +1,16 @@
+2004-10-13  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* Makefile.in (C_AND_OBJC_OBJS): Add dependence on c-gomp.o.
+	(c-gomp.o): New rule.
+	* c-gomp.c: New file.
+	* c-common.h (c_gomp_parallel_pragma, c_gomp_for_pragma,
+	c_gomp_parallel_for_pragma, c_gomp_parallel_sections_pragma,
+	c_gomp_sections_pragma, c_gomp_section_pragma, c_gomp_single_pragma,
+	c_gomp_master_pragma, c_gomp_critical_pragma, c_gomp_barrier_pragma,
+	c_gomp_atomic_pragma, c_gomp_flush_pragma, c_gomp_ordered_pragma,
+	c_gomp_threadprivate_pragma): Declared.
+	* c-pragma.c (init_pragma): Register all the above functions.
+
 2004-10-08  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	Merge from mainline (gomp-merge-2004-10-08).

@@ -655,6 +655,20 @@ init_pragma (void)
 
   c_register_pragma ("GCC", "pch_preprocess", c_common_pch_pragma);
 
+  /* Register pragmas defined in the OpenMP name space.  */
+  c_register_pragma ("omp", "parallel", c_gomp_parallel_pragma);
+  c_register_pragma ("omp", "for", c_gomp_for_pragma);
+  c_register_pragma ("omp", "sections", c_gomp_sections_pragma);
+  c_register_pragma ("omp", "section", c_gomp_section_pragma);
+  c_register_pragma ("omp", "single", c_gomp_single_pragma);
+  c_register_pragma ("omp", "master", c_gomp_master_pragma);
+  c_register_pragma ("omp", "critical", c_gomp_critical_pragma);
+  c_register_pragma ("omp", "barrier", c_gomp_barrier_pragma);
+  c_register_pragma ("omp", "atomic", c_gomp_atomic_pragma);
+  c_register_pragma ("omp", "flush", c_gomp_flush_pragma);
+  c_register_pragma ("omp", "ordered", c_gomp_ordered_pragma);
+  c_register_pragma ("omp", "threadprivate", c_gomp_threadprivate_pragma);
+
 #ifdef REGISTER_TARGET_PRAGMAS
   REGISTER_TARGET_PRAGMAS ();
 #endif

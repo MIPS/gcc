@@ -896,6 +896,22 @@ extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
+/* In c-gomp.c  */
+extern void c_gomp_parallel_pragma (cpp_reader *pfile);
+extern void c_gomp_for_pragma (cpp_reader *pfile);
+extern void c_gomp_parallel_for_pragma (cpp_reader *pfile);
+extern void c_gomp_parallel_sections_pragma (cpp_reader *pfile);
+extern void c_gomp_sections_pragma (cpp_reader *pfile);
+extern void c_gomp_section_pragma (cpp_reader *pfile);
+extern void c_gomp_single_pragma (cpp_reader *pfile);
+extern void c_gomp_master_pragma (cpp_reader *pfile);
+extern void c_gomp_critical_pragma (cpp_reader *pfile);
+extern void c_gomp_barrier_pragma (cpp_reader *pfile);
+extern void c_gomp_atomic_pragma (cpp_reader *pfile);
+extern void c_gomp_flush_pragma (cpp_reader *pfile);
+extern void c_gomp_ordered_pragma (cpp_reader *pfile);
+extern void c_gomp_threadprivate_pragma (cpp_reader *pfile);
+
 /* Objective-C / Objective-C++ entry points.  */
 
 /* The following ObjC/ObjC++ functions are called by the C and/or C++
