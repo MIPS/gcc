@@ -1,3 +1,7 @@
+2003-07-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* opts.c (decode_options): Re-enable must-alias optimizations.
+
 2003-07-25  Daniel Berlin  <dberlin@dberlin.org>
     
 	* configure.in:  Update BANSHEEREBUILD for PWD change.
