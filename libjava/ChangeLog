@@ -1,5 +1,8 @@
 2004-11-04  Tom Tromey  <tromey@redhat.com>
 
+	* java/lang/natClass.cc (_Jv_getInterfaceMethod): Indentation
+	fix.
+
 	* interpret.cc (do_verify): Don't verify abstract methods.
 
 2004-11-01  Tom Tromey  <tromey@redhat.com>
