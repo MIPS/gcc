@@ -77,6 +77,8 @@ extern int lhd_tree_inlining_cannot_inline_tree_fn (tree *);
 extern int lhd_tree_inlining_disregard_inline_limits (tree);
 extern tree lhd_tree_inlining_add_pending_fn_decls (void *, tree);
 extern int lhd_tree_inlining_auto_var_in_fn_p (tree, tree);
+extern tree lhd_tree_inlining_copy_res_decl_for_inlining (tree, tree, tree,
+							  void *, int *, tree);
 extern int lhd_tree_inlining_anon_aggr_type_p (tree);
 extern int lhd_tree_inlining_start_inlining (tree);
 extern void lhd_tree_inlining_end_inlining (tree);
@@ -147,6 +149,8 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
   lhd_tree_inlining_add_pending_fn_decls
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   lhd_tree_inlining_auto_var_in_fn_p
+#define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
+  lhd_tree_inlining_copy_res_decl_for_inlining
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
   lhd_tree_inlining_anon_aggr_type_p
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P \
@@ -164,6 +168,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
   LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS, \
   LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS, \
   LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P, \
+  LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING, \
   LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P, \
   LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P, \
   LANG_HOOKS_TREE_INLINING_START_INLINING, \
@@ -189,6 +194,7 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 
 /* Hooks for tree gimplification.  */
 #define LANG_HOOKS_GIMPLIFY_EXPR lhd_gimplify_expr
+#define LANG_HOOKS_GIMPLE_BEFORE_INLINING true
 #define LANG_HOOKS_FOLD_OBJ_TYPE_REF NULL
 
 /* Tree dump hooks.  */
@@ -298,8 +304,9 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
   LANG_HOOKS_GIMPLIFY_EXPR, \
-  LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
+  LANG_HOOKS_GIMPLE_BEFORE_INLINING, \
   LANG_HOOKS_BUILTIN_FUNCTION, \
+  LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
 }
 
 #endif /* GCC_LANG_HOOKS_DEF_H */

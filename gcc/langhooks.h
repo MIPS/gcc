@@ -40,6 +40,8 @@ struct lang_hooks_for_tree_inlining
   int (*disregard_inline_limits) (tree);
   tree (*add_pending_fn_decls) (void *, tree);
   int (*auto_var_in_fn_p) (tree, tree);
+  tree (*copy_res_decl_for_inlining) (tree, tree, tree,
+				      void *, int *, tree);
   int (*anon_aggr_type_p) (tree);
   bool (*var_mod_type_p) (tree, tree);
   int (*start_inlining) (tree);
@@ -398,9 +400,9 @@ struct lang_hooks
      enum gimplify_status, though we can't see that type here.  */
   int (*gimplify_expr) (tree *, tree *, tree *);
 
-  /* Fold an OBJ_TYPE_REF expression to the address of a function.
-     KNOWN_TYPE carries the true type of the OBJ_TYPE_REF_OBJECT.  */
-  tree (*fold_obj_type_ref) (tree, tree);
+  /* True if the front end has gimplified the function before running the
+     inliner, false if the fron end generates GENERIC directly.  */
+  bool gimple_before_inlining;
 
   /* Return a definition for a builtin function named NAME and whose data type
      is TYPE.  TYPE should be a function type with argument types.
@@ -413,6 +415,10 @@ struct lang_hooks
   tree (*builtin_function) (const char *name, tree type, int function_code,
 			    enum built_in_class class,
 			    const char *library_name, tree attrs);
+
+  /* Fold an OBJ_TYPE_REF expression to the address of a function.
+     KNOWN_TYPE carries the true type of the OBJ_TYPE_REF_OBJECT.  */
+  tree (*fold_obj_type_ref) (tree, tree);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

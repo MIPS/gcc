@@ -44,6 +44,8 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "cfgloop.h"
 
+#define max(A,B)      ((A) > (B) ? (A) : (B))
+
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
 
@@ -110,9 +112,12 @@ static bool phi_alternatives_equal (basic_block, edge, edge);
 /* Entry point to the CFG builder for trees.  TP points to the list of
    statements to be added to the flowgraph.  */
 
-static void
+void
 build_tree_cfg (tree *tp)
 {
+  /* If CFG already built, do nothing.  */
+  if (basic_block_info)
+    return;
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
 
@@ -128,6 +133,10 @@ build_tree_cfg (tree *tp)
   VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
 		  "label to block map");
 
+  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
+  ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
+  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
+  EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 
@@ -323,6 +332,7 @@ make_blocks (tree stmt_list)
   bool first_stmt_of_list = true;
   basic_block bb = ENTRY_BLOCK_PTR;
 
+  VARRAY_POP_ALL (basic_block_info);
   while (!tsi_end_p (i))
     {
       tree prev_stmt;
@@ -336,7 +346,10 @@ make_blocks (tree stmt_list)
       if (start_new_block || stmt_starts_bb_p (stmt, prev_stmt))
 	{
 	  if (!first_stmt_of_list)
+	    {
 	    stmt_list = tsi_split_statement_list_before (&i);
+	      TREE_CHAIN (prev_stmt) = stmt;
+	    }
 	  bb = create_basic_block (stmt_list, NULL, bb);
 	  start_new_block = false;
 	}
@@ -356,6 +369,8 @@ make_blocks (tree stmt_list)
       tsi_next (&i);
       first_stmt_of_list = false;
     }
+  if (VARRAY_ACTIVE_SIZE (basic_block_info) != (size_t) (last_basic_block))
+    error ("miscounted basic blocks");
 }
 
 
@@ -378,21 +393,24 @@ create_bb (void *h, void *e, basic_block after)
   bb->stmt_list = h ? h : alloc_stmt_list ();
 
   /* Add the new block to the linked list of blocks.  */
+  if (after)
   link_block (bb, after);
 
   /* Grow the basic block array if needed.  */
-  if ((size_t) last_basic_block == VARRAY_SIZE (basic_block_info))
+  if ((size_t) last_basic_block >= VARRAY_SIZE (basic_block_info))
     {
       size_t new_size = last_basic_block + (last_basic_block + 3) / 4;
       VARRAY_GROW (basic_block_info, new_size);
     }
 
+  n_basic_blocks++;
   /* Add the newly created block to the array.  */
+  if (VARRAY_ACTIVE_SIZE (basic_block_info) < (size_t) n_basic_blocks)
+    VARRAY_ACTIVE_SIZE (basic_block_info) = (size_t) n_basic_blocks;
   BASIC_BLOCK (last_basic_block) = bb;
 
   create_block_annotation (bb);
 
-  n_basic_blocks++;
   last_basic_block++;
 
   initialize_bb_rbi (bb);
@@ -608,7 +626,7 @@ make_switch_expr_edges (basic_block bb)
 /* Return the basic block holding label DEST.  */
 
 basic_block
-label_to_block (tree dest)
+label_to_block_fn (struct function *ifun, tree dest)
 {
   int uid = LABEL_DECL_UID (dest);
 
@@ -624,9 +642,8 @@ label_to_block (tree dest)
       bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
       uid = LABEL_DECL_UID (dest);
     }
-  return VARRAY_BB (label_to_block_map, uid);
+  return VARRAY_BB (ifun->cfg->x_label_to_block_map, uid);
 }
-
 
 /* Create edges for a goto statement at block BB.  */
 
@@ -1616,13 +1633,15 @@ static void
 remove_useless_stmts (void)
 {
   struct rus_data data;
+  basic_block bb;
 
   clear_special_calls ();
 
   do
     {
       memset (&data, 0, sizeof (data));
-      remove_useless_stmts_1 (&DECL_SAVED_TREE (current_function_decl), &data);
+      FOR_EACH_BB (bb)
+	remove_useless_stmts_1 (&bb->stmt_list, &data);
     }
   while (data.repeat);
 }
@@ -2783,7 +2802,11 @@ set_bb_for_stmt (tree t, basic_block bb)
 	    {
 	      LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
 	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
-		VARRAY_GROW (label_to_block_map, 3 * uid / 2);
+		{
+		  unsigned tmp_u = 3 * max (uid, 2);
+		  /* Force the multiply to happen before the divide.  */
+		  VARRAY_GROW (label_to_block_map, tmp_u / 2);
+		}
 	    }
 	  else
 	    {
@@ -3526,27 +3549,36 @@ tree_verify_flow_info (void)
   FOR_EACH_BB (bb)
     {
       bool found_ctrl_stmt = false;
+      basic_block tmp_bb;
+      tree tmp_t;
 
       /* Skip labels on the start of basic block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  if (TREE_CODE (bsi_stmt (bsi)) != LABEL_EXPR)
 	    break;
-
-	  if (label_to_block (LABEL_EXPR_LABEL (bsi_stmt (bsi))) != bb)
+	  if ((tmp_bb = label_to_block (tmp_t = LABEL_EXPR_LABEL (bsi_stmt (bsi)))) != bb)
 	    {
-	      error ("Label %s to block does not match in bb %d\n",
-		     IDENTIFIER_POINTER (DECL_NAME (bsi_stmt (bsi))),
-		     bb->index);
+	      /* this is a clumsy diagnostic; it's necessary becuase
+		 printing a tree-based label is non-trivial (see LABEL_DECL 
+		 case in tree-pretty-print.c:print_generic_node()).  Ideal
+		 fix would be a shallow tree dump that returned a 
+		 garbage-collected char *; then error () could processx this 
+		 with a '%s'.  */
+	      print_generic_expr (stderr, tmp_t, /* flags= */ 0);
+	      error ("label_to_block() of this label (%p) is bb %d (%p), and does not match bb %d (%p).\n",
+		     (void *) tmp_t, tmp_bb ? tmp_bb->index : -1,
+		     (void *) tmp_bb, bb ? bb->index : -1, (void *) bb);
 	      err = 1;
 	    }
 
 	  if (decl_function_context (LABEL_EXPR_LABEL (bsi_stmt (bsi)))
 	      != current_function_decl)
 	    {
-	      error ("Label %s has incorrect context in bb %d\n",
+	      print_generic_expr (stderr, bsi_stmt (bsi), /* flags= */ 0);
+	      error ("this label has incorrect context in bb %d (%p).\n",
 		     IDENTIFIER_POINTER (DECL_NAME (bsi_stmt (bsi))),
-		     bb->index);
+		     bb->index, (void *) bb);
 	      err = 1;
 	    }
 	}
@@ -5005,4 +5037,5 @@ struct tree_opt_pass pass_warn_function_return =
   0,					/* todo_flags_start */
   0					/* todo_flags_finish */
 };
+
 

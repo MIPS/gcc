@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "flags.h"
 #include "hard-reg-set.h"
+#include "alloc-pool.h"
 #include "basic-block.h"
 #include "tm_p.h"
 

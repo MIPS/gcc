@@ -35,7 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "flags.h"
-
+#include "function.h"
 
 /* Extract the real or imaginary part of a complex variable or constant.
    Make sure that it's a proper gimple_val and gimplify it if not.

@@ -75,6 +75,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "cfgloop.h"
 #include "hosthooks.h"
+#include "tree-iterator.h"
 #include "cgraph.h"
 #include "opts.h"
 #include "coverage.h"

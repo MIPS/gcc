@@ -799,6 +799,10 @@ common_handle_option (size_t scode, const char *arg, int value)
       flag_peel_loops_set = true;
       break;
 
+    case OPT_fpeel_structs:
+      flag_peel_structs = true;
+      break;
+
     case OPT_fprofile_arcs:
       profile_arc_flag_set = true;
       break;

@@ -5434,7 +5434,7 @@ check_insn_for_givs (struct loop *loop, rtx p, int not_every_iteration,
       rtx ext_val;
       int benefit;
       rtx regnote = 0;
-      rtx last_consec_insn;
+      rtx last_consec_insn = (rtx) 0;
 
       dest_reg = SET_DEST (set);
       if (REGNO (dest_reg) < FIRST_PSEUDO_REGISTER)
