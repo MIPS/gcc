@@ -5,9 +5,8 @@
 
 2003-09-04  Diego Novillo  <dnovillo@redhat.com>
 
-	* tree-cfg.c (remove_stmt): Also invalidate the statement's code 
-	when removing annotations.
-	(cleanup_tree_cfg): Traverse basic blocks with FOR_EACH_BB.
+	* tree-cfg.c (cleanup_tree_cfg): Traverse basic blocks
+	with FOR_EACH_BB.
 	(remove_useless_stmts_and_vars): Likewise.
 	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Likewise.
 	* tree-ssa.c (rewrite_into_ssa): Likewise.
