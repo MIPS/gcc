@@ -1,3 +1,13 @@
+2004-12-15  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-92.c: New test.
+	* gcc.dg/vect/vect-93.c: New test.
+	* gcc.dg/vect/vect-subsat.c: New test.
+	* gcc.dg/vect/pr18557.c: New test.
+	* gcc.dg/vect/vect-54.c: Now vectorizable on targets that don't support
+	misaligned accesses.
+	* gcc.dg/vect/vect-58.c: Likewise.
+
 2004-12-14  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/18179

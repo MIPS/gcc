@@ -1,3 +1,49 @@
+2004-12-15  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* tree-vectorizer.h (same_align_refs): New field in struct 
+	_stmt_vec_info.
+	(STMT_VINFO_SAME_ALIGN_REFS): New macro to access above new field.
+	(unknown_alignment_for_access_p): Replaced by 
+	known_alignment_for_access_p.
+	(known_alignment_for_access_p): New.
+	(do_peeling_for_alignment): Field made int instead of bool and renamed
+	to peeling_for_alignment.
+	(LOOP_DO_PEELING_FOR_ALIGNMENT): Renamed to LOOP_PEELING_FOR_ALIGNMENT.
+
+	* tree-vectorizer.c (vect_determine_vectorization_factor): New. This
+	functionality used to be in vect_analyze_operations.
+	(vect_analyze_operations): Code to determine vectorization factor was
+	moved to vect_determine_vectorization_factor.
+	(vect_gen_niters_for_prolog_loop): Handle known alignment case more
+	efficiently. Use LOOP_PEELING_FOR_ALIGNMENT.
+	(vect_do_peeling_for_alignment): Use fold.
+	(vect_transform_loop): Use new name of LOOP_DO_PEELING_FOR_ALIGNMENT.
+	
+	(vect_enhance_data_refs_alignment): Function made bool instead of void.
+	Documentation moved before the function. Consider datarefs with same
+	alignment. Update to correct alignment when it is known instead of -1.
+	Set peeling factor in LOOP_PEELING_FOR_ALIGNMENT.
+	Check if there remain unsupported datarefs  - this was moved from
+	vect_analyze_data_refs_alignment.
+	(vect_analyze_data_refs_alignment): Some of the functionality moved to
+	vect_enhance_data_refs_alignment.
+	(new_stmt_vec_info): Initialize same_align_datarefs varray.
+	(destroy_loop_vec_info): Clear same_align_datarefs varray.
+	(vect_analyze_data_ref_dependence): Push drs into the 
+	same_align_datarefs varray in case the dependence distance is 0.
+
+	(vect_analyze_loop): Call vect_determine_vectorization_factor (used to
+	be part of vect_analyze_operations).  
+	Call vect_enhance_data_refs_alignment (used to be in 
+	vect_analyze_data_refs_alignment).
+	
+	(vect_update_inits_of_dr): Renamed to vect_update_init_of_dr.
+	(vect_update_inits_of_drs): Use new name of vect_update_inits_of_dr.
+	(vectorizable_store): Fix assertion to use == instead of =.
+	(vect_do_peeling_for_loop_bound, vect_analyze_loop): Change debug 
+	printing.
+	
+
 2004-12-15  Daniel Berlin  <dberlin@dberlin.org>
 
 	* Makefile.in (tree-chrec.o): Add cfgloop.h
