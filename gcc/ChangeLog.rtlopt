@@ -1,3 +1,20 @@
+2003-06-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (algebraic.o): Add ggc.h dependency.
+	* algebraic.c: Include ggc.h and gt-algebraic.h
+	(iteration_rtx): Make a ggc root.
+	(equal_when_iteration_zero_p, float_if_then_else,
+	simplify_alg_expr_one_level): New static functions.
+	(simplify_alg_expr_subreg): Do not rewrite shared iteration rtxes.
+	(simplify_alg_expr, init_algebraic, simplify_alg_expr_using_values):
+	Handle bivals.
+	(substitute_into_expr): Enable to substitute for iteration.
+	(gen_bival): New function.
+	* algebraic.h (bival_p): New macro.
+	(gen_bival): Declare.
+	* cfgloopanal.c (iv_simple_condition_p): Handle bivals.
+	* loop-iv.c (analyse_induction_variables): Fix handling of subregs.
+
 2003-05-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* algebraic.c, algebraic.h: New files.

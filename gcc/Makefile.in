@@ -1695,7 +1695,7 @@ loop-iv.o : loop-iv.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(EXPR_H) coretypes.h $(TM_H) function.h df.h algebraic.h
 algebraic.o : algebraic.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
-   $(EXPR_H) coretypes.h $(TM_H) algebraic.h sbitmap.h
+   $(EXPR_H) coretypes.h $(TM_H) algebraic.h sbitmap.h $(GGC_H)
 loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(EXPR_H) coretypes.h $(TM_H)
@@ -2016,7 +2016,7 @@ GTFILES = $(srcdir)/location.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h $(srcdir)/hashtable.h $(srcdir)/real.h \
   $(srcdir)/varray.h $(srcdir)/ssa.h $(srcdir)/insn-addr.h $(srcdir)/cselib.h \
   $(srcdir)/basic-block.h $(srcdir)/location.h \
-  $(srcdir)/c-common.h $(srcdir)/c-tree.h \
+  $(srcdir)/c-common.h $(srcdir)/c-tree.h $(srcdir)/algebraic.c \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
   $(srcdir)/dbxout.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
@@ -2037,7 +2037,7 @@ GTFILES_SRCDIR = @srcdir@
 gt-cgraph.h gtype-desc.h gtype-desc.c gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
-gt-alias.h gt-cselib.h gt-fold-const.h gt-profile.h : s-gtype; @true
+gt-alias.h gt-cselib.h gt-fold-const.h gt-profile.h gt-algebraic.h: s-gtype; @true
 gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
 gt-ra-build.h gt-reg-stack.h gt-dwarf2asm.h gt-dbxout.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true

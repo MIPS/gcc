@@ -1667,10 +1667,7 @@ analyse_induction_variables ()
 	      extend = GET_CODE (value);
 
 	      /* We try to handle induction variables that in fact operate
-		 in different mode than their register modes suggest.  I am
-		 not really 100% sure that what we do here is correct (in
-		 fact I am sure that it is not, just I don't know whether we
-		 ever produce code that could cause us to behave incorrectly).
+		 in different mode than their register modes suggest.
 
 		 So what we do: if we for example see that from
 		 INITIAL_VALUE:SI we got to SIGN_EXTEND:SI (something:HI),
@@ -1678,10 +1675,10 @@ analyse_induction_variables ()
 		 is constant.  If it is, we assume this is such an induction
 		 variable.  This is almost right, except for that in the
 		 first iteration of the cycle, we did not have to have a value
-		 in range of the narrower mode.  For now we ignore this
-		 possibility; it should be easy to handle if it caused
-		 problems -- we would just have to be a bit more cautious
-		 about this first iteration.  */
+		 in range of the narrower mode.  To take care of this possiblity,
+		 we then produce a if_then_else checking for this case; we hope
+		 it will get reduced later when we have an information about
+		 the initial value of the register.  */
 		 
 	      if (extend == SIGN_EXTEND || extend == ZERO_EXTEND)
 		extended_mode = GET_MODE (XEXP (value, 0));
@@ -1707,6 +1704,9 @@ analyse_induction_variables ()
 		    {
 		      eq = gen_rtx_fmt_ei (SUBREG, extended_mode, eq, 0);
 		      eq = gen_rtx_fmt_e (extend, mode, eq);
+		      eq = gen_bival (mode,
+				      gen_initial_value (regno),
+				      eq);
 		    }
 		  eq = simplify_alg_expr (eq);
 		  if (!eq)

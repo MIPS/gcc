@@ -48,13 +48,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "sbitmap.h"
 #include "algebraic.h"
+#include "ggc.h"
 
 static sbitmap suitable_code;		/* Bitmap of rtl codes we are able
 					   to handle.  */
 
 /* Shared iteration rtxes in different modes.  */
-static rtx iteration_rtx[NUM_MACHINE_MODES];
+static GTY (()) rtx iteration_rtx[NUM_MACHINE_MODES];
 
+static bool equal_when_iteration_zero_p	PARAMS ((rtx, rtx));
 static rtx straighten_ops		PARAMS ((rtx));
 static rtx sort_ops			PARAMS ((rtx));
 static int alg_compare_rtx		PARAMS ((rtx, rtx));
@@ -62,12 +64,29 @@ static rtx use_distributive_law		PARAMS ((rtx));
 static rtx simplify_alg_expr_mult	PARAMS ((rtx));
 static rtx simplify_alg_expr_plus	PARAMS ((rtx));
 static rtx simplify_alg_expr_relational	PARAMS ((rtx, enum machine_mode));
+static rtx float_if_then_else		PARAMS ((rtx));
+static rtx simplify_alg_expr_one_level	PARAMS ((rtx, enum machine_mode));
 static bool combine_constants		PARAMS ((rtx, rtx, enum machine_mode,
 						 rtx *));
 static rtx compare_with_mode_bounds	PARAMS ((enum rtx_code,
 						 rtx,
 						 enum machine_mode,
 						 enum machine_mode));
+
+/* Checks whether EXPR1 == EXPR2, provided that iteration == 0.  */
+static bool
+equal_when_iteration_zero_p (expr1, expr2)
+     rtx expr1;
+     rtx expr2;
+{
+  rtx e1, e2;
+
+  /* ??? It might be better to have a specialized version, in order not to
+     copy the rtl unnecesarily.  */
+  e1 = substitute_into_expr (expr1, NULL, &const0_rtx, SIE_SIMPLIFY);
+  e2 = substitute_into_expr (expr2, NULL, &const0_rtx, SIE_SIMPLIFY);
+  return e1 && e2 && rtx_equal_p (e1, e2);
+}
 
 /* Returns EXPR1 <=> EXPR2 in order given by lexicografical extension
    of the following ordering:
@@ -517,8 +536,7 @@ simplify_alg_expr_subreg (expr, expr_mode, mode)
       return expr;
 
     case ITERATION:
-      PUT_MODE (expr, mode);
-      return expr;
+      return gen_iteration (mode);
 
     case CONST_INT:
       return simplify_gen_subreg (mode, expr, expr_mode, 0);
@@ -686,6 +704,191 @@ simplify_alg_expr_relational (expr, inner_mode)
   return expr;
 }
 
+/* Float if_then_else (iteration == 0) to the outer level of the EXPR,
+   eliminating the superfluous ones.  ??? Hopefully later we could be able
+   to extend it to more general class of if_then_else transformations,
+   so that this special case is not that ugly.  Done in-place.  */
+static rtx
+float_if_then_else (expr)
+     rtx expr;
+{
+  int i, length;
+  const char *format;
+  rtx right;
+  enum rtx_code code = GET_CODE (expr);
+
+  if (bival_p (expr))
+    {
+      if (bival_p (XEXP (expr, 1)))
+	XEXP (expr, 1) = XEXP (XEXP (expr, 1), 1);
+      if (bival_p (XEXP (expr, 2)))
+	XEXP (expr, 2) = XEXP (XEXP (expr, 2), 2);
+    }
+  else
+    {
+      length = GET_RTX_LENGTH (code);
+      format = GET_RTX_FORMAT (code);
+      for (i = 0; i < length; i++)
+	if (format[i] == 'e' && bival_p (XEXP (expr, i)))
+	  break;
+      if (i == length)
+	return expr;
+
+      right = shallow_copy_rtx (expr);
+      for (i = 0; i < length; i++)
+	switch (format[i])
+	  {
+	  case 'e':
+	    if (format[i] == 'e' && bival_p (XEXP (expr, i)))
+	      {
+		XEXP (right, i) = XEXP (XEXP (expr, i), 2);
+		XEXP (expr, i) = XEXP (XEXP (expr, i), 1);
+	      }
+	    else
+	      XEXP (right, i) = copy_rtx (XEXP (expr, i));
+	    break;
+	  default: ;
+	  }
+
+      expr = gen_bival (GET_MODE (expr), expr, right);
+    }
+
+  return expr;
+}
+
+/* Attempt to bring EXPR into canonical shape described in simplify_alg_expr.
+   We are expecting the parameters of the topmost operation to already be
+   in a canonical shape.  INNER_MODE is senseful for subregs and conditionals
+   and stands for the original mode of the operands before simplification
+   (it might become VOIDmode due to it). The simplification is partly done
+   in-place.  */
+static rtx
+simplify_alg_expr_one_level (expr, inner_mode)
+     rtx expr;
+     enum machine_mode inner_mode;
+{
+  int i, length;
+  const char *format;
+  enum rtx_code code = GET_CODE (expr);
+  rtx *current, tmp;
+  enum machine_mode mode = GET_MODE (expr);
+
+  switch (code)
+    {
+    case MULT:
+      expr = use_distributive_law (expr);
+      current = &expr;
+      while (GET_CODE (*current) == PLUS)
+	{
+	  XEXP (*current, 1) = simplify_alg_expr_mult (XEXP (*current, 1));
+	  current = &XEXP (*current, 0);
+	}
+      *current = simplify_alg_expr_mult (*current);
+
+      if (GET_CODE (expr) != PLUS)
+	return expr;
+
+      /* Fallthru.  */
+    case PLUS:
+      /* Straighten the list of summands.  */
+      expr = straighten_ops (expr);
+      expr = simplify_alg_expr_plus (expr);
+      return expr;
+
+    case SUBREG:
+      if (GET_MODE_SIZE (mode) >= GET_MODE_SIZE (inner_mode)
+	  || XINT (expr, 1) != 0)
+	break;
+
+      expr = simplify_alg_expr_subreg (XEXP (expr, 0), inner_mode, mode);
+      if (GET_CODE (expr) != SUBREG)
+	expr = simplify_alg_expr (expr);
+      return expr;
+
+    case DIV:
+    case UDIV:
+      if (XEXP (expr, 1) == const1_rtx)
+	expr = XEXP (expr, 0);
+      break;
+
+    case MOD:
+    case UMOD:
+      if (XEXP (expr, 1) == const1_rtx)
+	expr = const0_rtx;
+      break;
+
+    case IF_THEN_ELSE:
+      if (bival_p (expr)
+	  && equal_when_iteration_zero_p (XEXP (expr, 1), XEXP (expr, 2)))
+	expr = XEXP (expr, 2);
+      break;
+
+    default:
+      if (GET_RTX_CLASS (code) == '<')
+	expr = simplify_alg_expr_relational (expr, inner_mode);
+    }
+  code = GET_CODE (expr);
+
+  /* Fold constants.  */
+  length = GET_RTX_LENGTH (code);
+  format = GET_RTX_FORMAT (code);
+  for (i = 0; i < length; i++)
+    switch (format[i])
+      {
+      case 'e':
+	if (GET_CODE (XEXP (expr, i)) != CONST_INT)
+	  i = length + 1;
+	break;
+      case 'i':
+	break;
+      default:
+	i = length + 1;
+      }
+  if (i == length)
+    {
+      switch (code)
+	{
+	case SUBREG:
+	  tmp = simplify_gen_subreg (mode, XEXP (expr, 0),
+				     inner_mode, XINT (expr, 1));
+	  break;
+	case SIGN_EXTEND:
+	case ZERO_EXTEND:
+	  tmp = simplify_gen_unary (code, mode, XEXP (expr, 0), inner_mode);
+	  break;
+	default:
+	    tmp = simplify_rtx (expr);
+	}
+      if (tmp && GET_CODE (tmp) == CONST_INT)
+	return tmp;
+    }
+
+  /* Sort the operands if possible.  */
+  if (GET_RTX_CLASS (code) == 'c')
+    {
+      if (alg_compare_rtx (XEXP (expr, 0), XEXP (expr, 1)) > 0)
+	{
+     	  tmp = XEXP (expr, 0);
+	  XEXP (expr, 0) = XEXP (expr, 1);
+	  XEXP (expr, 1) = tmp;
+	}
+    }
+  else if (GET_RTX_CLASS (code) == '<')
+    {
+      code = swap_condition (code);
+      if (code != UNKNOWN
+	  && alg_compare_rtx (XEXP (expr, 0), XEXP (expr, 1)) > 0)
+	{
+	  PUT_CODE (expr, code);
+     	  tmp = XEXP (expr, 0);
+	  XEXP (expr, 0) = XEXP (expr, 1);
+	  XEXP (expr, 1) = tmp;
+	}
+    }
+
+  return expr;
+}
+
 /* Attempt to bring EXPR into canonical shape described below.  It would
    be nice if we could use simplify_rtx for it; but it is too low level
    for our purposes, and does basically the reverse of transformations
@@ -696,9 +899,9 @@ simplify_alg_expr (expr)
 {
   enum machine_mode mode, inner_mode = VOIDmode;
   HOST_WIDE_INT val;
-  int i, length;
+  int i, length, was_bival;
   const char *format;
-  rtx tmp, *current;
+  rtx tmp;
   enum rtx_code code;
 
   if (!expr || simple_expr_p (expr))
@@ -707,8 +910,13 @@ simplify_alg_expr (expr)
 
   /* The shape of the resulting expression is
 
-     expr = mexp | expr + mexp
+     expr = exp | if_then_else (iteration == 0) exp exp
+     exp = mexp | expr + mexp
      mexp = whatever | nexp * whatever
+
+     The (ugly) special case with the iteration is here in order
+     to be able to cope with induction variables that are done
+     in wider mode register.
 
      Operands to commutative operations and comparisons are ordered
      according to alg_compare_rtx inside whatevers.  The list of mexp
@@ -800,114 +1008,15 @@ simplify_alg_expr (expr)
 	}
     }
 
-  switch (code)
+  was_bival = bival_p (expr);
+  expr = float_if_then_else (expr);
+  if (!was_bival && bival_p (expr))
     {
-    case MULT:
-      expr = use_distributive_law (expr);
-      current = &expr;
-      while (GET_CODE (*current) == PLUS)
-	{
-	  XEXP (*current, 1) = simplify_alg_expr_mult (XEXP (*current, 1));
-	  current = &XEXP (*current, 0);
-	}
-      *current = simplify_alg_expr_mult (*current);
-
-      if (GET_CODE (expr) != PLUS)
-	return expr;
-
-      /* Fallthru.  */
-    case PLUS:
-      /* Straighten the list of summands.  */
-      expr = straighten_ops (expr);
-      expr = simplify_alg_expr_plus (expr);
-      return expr;
-
-    case SUBREG:
-      if (GET_MODE_SIZE (mode) >= GET_MODE_SIZE (inner_mode)
-	  || XINT (expr, 1) != 0)
-	break;
-
-      expr = simplify_alg_expr_subreg (XEXP (expr, 0), inner_mode, mode);
-      if (GET_CODE (expr) != SUBREG)
-	expr = simplify_alg_expr (expr);
-      return expr;
-
-    case DIV:
-    case UDIV:
-      if (XEXP (expr, 1) == const1_rtx)
-	expr = XEXP (expr, 0);
-      break;
-
-    case MOD:
-    case UMOD:
-      if (XEXP (expr, 1) == const1_rtx)
-	expr = const0_rtx;
-      break;
-
-    default:
-      if (GET_RTX_CLASS (code) == '<')
-	expr = simplify_alg_expr_relational (expr, inner_mode);
-    }
-  code = GET_CODE (expr);
-
-  /* Fold constants.  */
-  length = GET_RTX_LENGTH (code);
-  format = GET_RTX_FORMAT (code);
-  for (i = 0; i < length; i++)
-    switch (format[i])
-      {
-      case 'e':
-	if (GET_CODE (XEXP (expr, i)) != CONST_INT)
-	  i = length + 1;
-	break;
-      case 'i':
-	break;
-      default:
-	i = length + 1;
-      }
-  if (i == length)
-    {
-      switch (code)
-	{
-	case SUBREG:
-	  tmp = simplify_gen_subreg (mode, XEXP (expr, 0),
-				     inner_mode, XINT (expr, 1));
-	  break;
-	case SIGN_EXTEND:
-	case ZERO_EXTEND:
-	  tmp = simplify_gen_unary (code, mode, XEXP (expr, 0), inner_mode);
-	  break;
-	default:
-	    tmp = simplify_rtx (expr);
-	}
-      if (tmp && GET_CODE (tmp) == CONST_INT)
-	return tmp;
+      XEXP (expr, 1) = simplify_alg_expr_one_level (XEXP (expr, 1), inner_mode);
+      XEXP (expr, 2) = simplify_alg_expr_one_level (XEXP (expr, 2), inner_mode);
     }
 
-  /* Sort the operands if possible.  */
-  if (GET_RTX_CLASS (code) == 'c')
-    {
-      if (alg_compare_rtx (XEXP (expr, 0), XEXP (expr, 1)) > 0)
-	{
-     	  tmp = XEXP (expr, 0);
-	  XEXP (expr, 0) = XEXP (expr, 1);
-	  XEXP (expr, 1) = tmp;
-	}
-    }
-  else if (GET_RTX_CLASS (code) == '<')
-    {
-      code = swap_condition (code);
-      if (code != UNKNOWN
-	  && alg_compare_rtx (XEXP (expr, 0), XEXP (expr, 1)) > 0)
-	{
-	  PUT_CODE (expr, code);
-     	  tmp = XEXP (expr, 0);
-	  XEXP (expr, 0) = XEXP (expr, 1);
-	  XEXP (expr, 1) = tmp;
-	}
-    }
-
-  return expr;
+  return simplify_alg_expr_one_level (expr, inner_mode);
 }
 
 /* Initialize table of codes we are able to process.  */
@@ -953,6 +1062,7 @@ init_algebraic ()
   SET_BIT (suitable_code, INITIAL_VALUE);
   SET_BIT (suitable_code, VALUE_AT);
   SET_BIT (suitable_code, ITERATION);
+  SET_BIT (suitable_code, IF_THEN_ELSE);
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     iteration_rtx[i] = gen_rtx (ITERATION, i);
@@ -961,11 +1071,15 @@ init_algebraic ()
 /* Substitutes values from SUBSTITUTION (i-th element corresponds to a value
    of reg i) into EXPR.  Only values of registers specified by a
    INTERESTING_REG bitmap are considered valid.
-   If SIE_SIMPLIFY bit is set in FLAGS, also simplify the resulting expression.
+   If SIE_SIMPLIFY bit is set in FLAGS, also simplify the resulting expression
+   (the substituted expressions are assumed to be already simplified).
    If SIE_ONLY_SIMPLE is set, only substitute simple expressions.
    RESULT_MODE indicates the real mode of target of resulting expression
    (used when simplifying).  If the substitution fails to be performed,
-   NULL_RTX is returned instead.  */
+   NULL_RTX is returned instead.
+ 
+   If INTERESTING_REG is NULL, then we replace iteration rtl by *substitution
+   instead (??? this should be done in a cleaner way!).  */
 rtx
 substitute_into_expr (expr, interesting_reg, substitution, flags)
      rtx expr;
@@ -979,7 +1093,8 @@ substitute_into_expr (expr, interesting_reg, substitution, flags)
   const char *format;
   enum machine_mode mode, inner_mode = VOIDmode;
   enum rtx_code code;
- 
+  rtx val = NULL_RTX;
+
   if (!expr || good_constant_p (expr))
     return expr;
 
@@ -990,13 +1105,12 @@ substitute_into_expr (expr, interesting_reg, substitution, flags)
     return NULL_RTX;
 
   old_expr = expr;
-  if (GET_CODE (expr) == INITIAL_VALUE)
+  if (interesting_reg && GET_CODE (expr) == INITIAL_VALUE)
     expr = XEXP (expr, 0);
 
   code = GET_CODE (expr);
-  if (code == REG)
+  if (interesting_reg && code == REG)
     {
-      rtx val;
       regno = REGNO (expr);
       if (!TEST_BIT (interesting_reg, regno))
 	return NULL_RTX;
@@ -1004,7 +1118,17 @@ substitute_into_expr (expr, interesting_reg, substitution, flags)
       val = substitution[regno];
       if (!val)
 	return NULL_RTX;
+    }
+  else if (!interesting_reg && code == ITERATION)
+    {
+      val = *substitution;
+      if (GET_MODE (val) != VOIDmode
+	  && GET_MODE (val) != GET_MODE (expr))
+	abort ();
+    }
 
+  if (val)
+    {
       if ((flags & SIE_ONLY_SIMPLE)
 	  && !simple_expr_p (val))
 	return old_expr;
@@ -1078,17 +1202,43 @@ substitute_into_expr (expr, interesting_reg, substitution, flags)
 /* Try to simplify expression VAR using register initial values stored
    in INITIAL_VALUES; only registers in INTERESTING_REG are considered
    to have a valid value in INITIAL_VALUES.  Returns the simplified form
-   of VAR or VAR if no simplification is possible.  Strongly biassed
-   for an induction variable analysis.  */
+   of VAR or VAR if no simplification is possible.  Strongly biased
+   for an induction variable analysis.  Partially done in-place.  */
 rtx
 simplify_alg_expr_using_values (var, interesting_reg, initial_values)
      rtx var;
      sbitmap interesting_reg;
      rtx *initial_values;
 {
-  rtx base, step, sbase, sstep, wrap = NULL_RTX;
+  rtx base, step, sbase, sstep, wrap = NULL_RTX, svar;
   int changed;
   enum machine_mode mode;
+
+  /* Simplify the bival.  If it is simplified out using initial values,
+     we may omit it; otherwise we just attempt to simplify the single
+     fields.  */
+  if (bival_p (var))
+    {
+      svar = substitute_into_expr (var, interesting_reg, initial_values,
+				   SIE_SIMPLIFY);
+      if (bival_p (svar))
+	{
+	  rtx thn, els;
+	  
+	  thn = simplify_alg_expr_using_values (XEXP (var, 1), interesting_reg,
+						initial_values);
+	  els = simplify_alg_expr_using_values (XEXP (var, 2), interesting_reg,
+						initial_values);
+	  if (!thn || !els)
+	    return NULL_RTX;
+
+	  XEXP (var, 1) = thn;
+	  XEXP (var, 2) = els;
+	  return var;
+	}
+      else
+	var = XEXP (var, 2);
+    }
 
   if (simple_expr_p (var)
       || GET_CODE (var) == VALUE_AT
@@ -1266,3 +1416,22 @@ gen_iteration (mode)
   return iteration_rtx[mode];
 }
 
+/* Generate a rtl to represent an expression in MODE that has value
+   FIRST_ITERATION in the first iteration of the enclosing loop and
+   OTHER_ITERATIONS in the remaining ones.  ITMODE is a mode in that
+   iteration count is measured.  */
+rtx
+gen_bival (mode, first_iteration, other_iterations)
+     enum machine_mode mode;
+     rtx first_iteration;
+     rtx other_iterations;
+{
+  return gen_rtx_fmt_eee (IF_THEN_ELSE, mode,
+			  gen_rtx_fmt_ee (EQ, SImode,
+					  const0_rtx,
+					  gen_iteration (SImode)),
+			  first_iteration,
+			  other_iterations);
+}
+
+#include "gt-algebraic.h"

@@ -43,6 +43,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
        && GET_CODE(EXPR) != VALUE_AT			\
        && expr_mentions_code_p ((EXPR), CODE)))
      
+/* Recognizes the special case of if_then_else we use to enable handling of 
+   the induction variables that are represented in a wider mode register
+   than the mode in that they iterate.  */
+#define bival_p(EXPR)						\
+  (GET_CODE (EXPR) == IF_THEN_ELSE				\
+   && GET_CODE (XEXP ((EXPR), 0)) == EQ				\
+   && GET_CODE (XEXP (XEXP ((EXPR), 0), 1)) == ITERATION	\
+   && XEXP (XEXP ((EXPR), 0), 0) == const0_rtx)
+
 /* Flags for substitute_into_expr.  */
 enum
 {
@@ -60,4 +69,5 @@ extern rtx simplify_alg_expr_using_values PARAMS ((rtx, sbitmap, rtx *));
 /* These functions are directly specific to induction variable analysis,
    but it is easier to include them here due to a common code shared.  */
 extern rtx gen_iteration		PARAMS ((enum machine_mode));
+extern rtx gen_bival			PARAMS ((enum machine_mode, rtx, rtx));
 extern void iv_split			PARAMS ((rtx, rtx *, rtx *));

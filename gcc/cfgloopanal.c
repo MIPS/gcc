@@ -898,6 +898,16 @@ iv_simple_condition_p (loop, condition, values, desc)
   if (expr_mentions_code_p (scond, VALUE_AT))
     return false;
 
+  /* We may be unsure about the first iteration.  ??? We certainly could
+     handle this case, it would require some non-trivial effort (for example
+     the second iteration is special due to need to handle overflows, so
+     desc structure would have to be enhanced).  The easiest way seems to
+     be use the first argument of scond for noloop_assumptions, replace
+     iteration by iteration + 1 in the second argument, rerun and shift the
+     result by one.  */
+  if (bival_p (scond))
+    return false;
+
   /* The simplification above could have proved that this condition is
      always true or always false.  */
   if (scond == const0_rtx)
@@ -922,30 +932,38 @@ iv_simple_condition_p (loop, condition, values, desc)
   op0 = XEXP (scond, 0);
   op1 = XEXP (scond, 1);
 
+  if (!fast_expr_mentions_code_p (op0, ITERATION))
+    {
+      tmp = op0; op0 = op1; op1 = tmp;
+      cond = swap_condition (cond);
+    }
+  /* This condition is invariant in the loop; this is a work for unswitching,
+     not for us.  */
+  if (!fast_expr_mentions_code_p (op0, ITERATION))
+    return false;
+
   /* If one of the operands is {SIGN,ZERO}_EXTEND, we work in the narrower
      mode instead.  If the second operand is not either extended in the
-     same way or constant, this may either mean that this exit is actually
-     never taken or that the loop does not roll at all.  */
+     same way or constant, this may mean that this exit is actually
+     never taken or that the loop does not roll at all.  The cases
+     where we are comparing with out of range constant etc. are already
+     handled in the simplification above.  */
   if (GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
     {
       extend_mode = GET_MODE (XEXP (op0, 0));
-      if (GET_MODE (op1) != VOIDmode)
+      if (GET_MODE (op1) != VOIDmode
+	  && (GET_CODE (op0) != GET_CODE (op1)
+	      || GET_MODE (XEXP (op1, 0)) != extend_mode))
 	{
-	  if (GET_CODE (op0) != GET_CODE (op1)
-	      || GET_MODE (XEXP (op1, 0)) != extend_mode)
-	    desc->noloop_assumptions =
-		    alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
-	}
-    }
-  else if (GET_CODE (op1) == SIGN_EXTEND || GET_CODE (op1) == ZERO_EXTEND)
-    {
-      extend_mode = GET_MODE (XEXP (op1, 0));
-      if (GET_MODE (op0) != VOIDmode)
-	{
-	  if (GET_CODE (op0) != GET_CODE (op1)
-	      || GET_MODE (XEXP (op0, 0)) != extend_mode)
-	    desc->noloop_assumptions =
-		    alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+	  if (fast_expr_mentions_code_p (op1, ITERATION))
+	    {
+	      /* We might try to handle this case if the comparison
+		 is NE; it of course would not work.  */
+	      return false;
+	    }
+	    
+	  desc->noloop_assumptions =
+		  alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
 	}
     }
   else
