@@ -1461,10 +1461,18 @@ remove_useless_stmts_and_vars (first_p)
 	      *stmt_p = then_clause;
 	       repeat = 1;
 	    }
-	  if (integer_zerop (cond) && IS_EMPTY_STMT (then_clause))
+	  else if (integer_zerop (cond) && IS_EMPTY_STMT (then_clause))
 	    {
 	      *stmt_p = else_clause;
 	       repeat = 1;
+	    }
+	  else if (TREE_CODE (then_clause) == GOTO_EXPR
+	      && TREE_CODE (else_clause) == GOTO_EXPR
+	      && (GOTO_DESTINATION (then_clause)
+		  == GOTO_DESTINATION (else_clause)))
+	    {
+	      *stmt_p = then_clause;
+	      repeat = 1;
 	    }
 	}
       else if (code == SWITCH_EXPR)

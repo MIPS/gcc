@@ -1,3 +1,12 @@
+2003-05-16  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (remove_useless_stmts_and_vars): Handle case where
+	both arms of an if-then-else simply jump to the same location.
+ 
+	* tree-cfg.c (get_rhs): Correctly handle MODIFY_EXPR embedded in
+	a RETURN_EXPR.
+	(set_rhs): Likewise.
+
 2003-05-15  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (enum find_location_action): Enum for find_insert_location.
