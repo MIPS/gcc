@@ -1,3 +1,22 @@
+2004-02-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-invariant.c: New file.
+	* Makefile.in (loop-invariant.o): New.
+	* cfgloop.h (init_set_costs, global_cost_for_size,
+	move_loop_invariants): Declare.
+	* toplev.c (rest_of_handle_loop2): Call move_loop_invariants.
+	(lang_dependent_init): Call init_set_costs.
+	* tree-ssa-loop-ivopts.c (avail_regs, res_regs, small_cost, pres_cost,
+	spill_cost): Made static.
+	(global_cost_for_size): Export.
+	(ivopts_global_cost_for_size, init_set_costs): New functions.
+	(determine_set_costs): Do not initialize set cost constants.
+	Use ivopts_global_cost_for_size.
+	(try_candidate, find_optimal_iv_set_1, set_cost): Use
+	ivopts_global_cost_for_size.
+
+	* cfgloop.c (fill_sons_in_loop): Fix typo in comment.
+
 2004-02-17  Devang Patel  <dpatel@apple.com>
 
 	* tree-vectorize.c (vect_create_data_ref): Set TREE_ADDRESSABLE bit.

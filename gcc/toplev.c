@@ -3070,6 +3070,8 @@ rest_of_handle_loop2 (tree decl, rtx insns)
   if (loops)
     {
       /* The optimizations:  */
+      move_loop_invariants (loops);
+
       if (flag_unswitch_loops)
 	unswitch_loops (loops);
 
@@ -4523,6 +4525,7 @@ lang_dependent_init (const char *name)
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expr_once ();
+  init_set_costs ();
   expand_dummy_function_end ();
 
   /* If dbx symbol table desired, initialize writing it and output the

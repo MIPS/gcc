@@ -1007,7 +1007,7 @@ fill_sons_in_loop (const struct loop *loop, basic_block bb,
 
 /* Gets body of a LOOP (that must be different from the outermost loop)
    sorted by dominance relation.  Additionally, if a basic block s dominates
-   the latch, then only blocks dominated by s are be after it.  */
+   the latch, then only blocks dominated by s are after it.  */
 
 basic_block *
 get_loop_body_in_dom_order (const struct loop *loop)

@@ -207,12 +207,12 @@ static bool consider_all_candidates;
 
 /* The properties of the target.  */
 
-unsigned avail_regs;	/* Number of available registers.  */
-unsigned res_regs;	/* Number of reserved registers.  */
-unsigned small_cost;	/* The cost for register when there is a free one.  */
-unsigned pres_cost;	/* The cost for register when there are not too many
-			   free ones.  */
-unsigned spill_cost;	/* The cost for register when we need to spill.  */
+static unsigned avail_regs;	/* Number of available registers.  */
+static unsigned res_regs;	/* Number of reserved registers.  */
+static unsigned small_cost;	/* The cost for register when there is a free one.  */
+static unsigned pres_cost;	/* The cost for register when there are not too many
+				   free ones.  */
+static unsigned spill_cost;	/* The cost for register when we need to spill.  */
 
 /* The list of trees for that the decl_rtl field must be reset is stored
    here.  */
@@ -3263,13 +3263,15 @@ if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
       fprintf (tree_dump_file, "\n");
 }
 
-/* Calculates cost for having SIZE induction variables.  */
+/* Calculates cost for having SIZE new loop global variables.  REGS_USED is the
+   number of global registers used in loop.  N_USES is the number of relevant
+   variable uses.  */
 
-static unsigned
-global_cost_for_size (unsigned size)
+unsigned
+global_cost_for_size (unsigned size, unsigned regs_used, unsigned n_uses)
 {
-  unsigned regs_needed = LOOP_DATA (current_loop)->regs_used + size;
-  unsigned cost = 0, n_uses;
+  unsigned regs_needed = regs_used + size;
+  unsigned cost = 0;
 
   if (regs_needed + res_regs <= avail_regs)
     cost += small_cost * size;
@@ -3278,11 +3280,55 @@ global_cost_for_size (unsigned size)
   else
     {
       cost += pres_cost * size;
-      n_uses = VARRAY_ACTIVE_SIZE (iv_uses);
       cost += spill_cost * n_uses * (regs_needed - avail_regs) / regs_needed;
     }
 
   return cost;
+}
+
+/* Calculates cost for having SIZE induction variables.  */
+
+static unsigned
+ivopts_global_cost_for_size (unsigned size)
+{
+  return global_cost_for_size (size, LOOP_DATA (current_loop)->regs_used,
+			       VARRAY_ACTIVE_SIZE (iv_uses));
+}
+
+/* Initialize the constants for computing set costs.  */
+
+void
+init_set_costs (void)
+{
+  rtx seq;
+  rtx reg1 = gen_raw_REG (SImode, FIRST_PSEUDO_REGISTER);
+  rtx reg2 = gen_raw_REG (SImode, FIRST_PSEUDO_REGISTER + 1);
+  rtx addr = gen_raw_REG (Pmode, FIRST_PSEUDO_REGISTER + 2);
+  rtx mem = validize_mem (gen_rtx_MEM (SImode, addr));
+  unsigned i;
+
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (TEST_HARD_REG_BIT (reg_class_contents[GENERAL_REGS], i)
+	&& !fixed_regs[i])
+      avail_regs++;
+
+  res_regs = 3;
+
+  /* These are really just heuristic values.  */
+  
+  start_sequence ();
+  emit_move_insn (reg1, reg2);
+  seq = get_insns ();
+  end_sequence ();
+  small_cost = seq_cost (seq);
+  pres_cost = 2 * small_cost;
+
+  start_sequence ();
+  emit_move_insn (mem, reg1);
+  emit_move_insn (reg2, mem);
+  seq = get_insns ();
+  end_sequence ();
+  spill_cost = seq_cost (seq);
 }
 
 /* For each size of the induction variable set determine the penalty.  */
@@ -3315,37 +3361,6 @@ determine_set_costs (void)
      -- if A - R < U + I <= A, the cost is I * PRES_COST
      -- if U + I > A, the cost is I * PRES_COST and
         number of uses * SPILL_COST * (U + I - A) / (U + I) is added.  */
-
-  static bool fst = true;
-
-  if (fst)
-    {
-      tree var1 = create_tmp_var_raw (integer_type_node, "ivtmp");
-      tree var2 = create_tmp_var_raw (integer_type_node, "ivtmp");
-      tree var3 = create_tmp_var_raw (integer_ptr_type_node, "ivtmp");
-
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (TEST_HARD_REG_BIT (reg_class_contents[GENERAL_REGS], i)
-	    && !fixed_regs[i])
-	  avail_regs++;
-
-      res_regs = 3;
-
-      /* These are really just heuristic values.  */
-      small_cost = computation_cost (build (MODIFY_EXPR, void_type_node,
-					    var1, var2));
-      pres_cost = 2 * small_cost;
-      spill_cost = computation_cost (build (MODIFY_EXPR, void_type_node,
-					    build1 (INDIRECT_REF,
-						    integer_type_node, var3),
-					    var1));
-      spill_cost += computation_cost (build (MODIFY_EXPR, void_type_node,
-					     var1,
-					     build1 (INDIRECT_REF,
-						     integer_type_node, var3)));
-
-      fst = false;
-    }
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
@@ -3400,7 +3415,8 @@ determine_set_costs (void)
       fprintf (tree_dump_file, "  cost for size:\n");
       fprintf (tree_dump_file, "  ivs\tcost\n");
       for (j = 0; j <= 2 * avail_regs; j++)
-	fprintf (tree_dump_file, "  %d\t%d\n", j, global_cost_for_size (j));
+	fprintf (tree_dump_file, "  %d\t%d\n", j,
+		 ivopts_global_cost_for_size (j));
       fprintf (tree_dump_file, "\n");
     }
 }
@@ -3684,7 +3700,8 @@ try_candidate (unsigned n_selected, unsigned use_cost,
   n_set += size_cost;
   delta = min_remaining_cost ();
 
-  actual_cost = (use_cost + iv_cost + global_cost_for_size (n_set) + delta);
+  actual_cost = (use_cost + iv_cost
+		 + ivopts_global_cost_for_size (n_set) + delta);
   if (actual_cost < *best_cost)
     find_optimal_iv_set_1 (n_selected + 1, use_cost,
 			   set, n_set, iv_cost, best, best_cost);
@@ -3712,8 +3729,7 @@ find_optimal_iv_set_1 (unsigned n_selected, unsigned use_cost,
 
   if (n_selected == VARRAY_ACTIVE_SIZE (iv_uses))
     {
-      actual_cost = use_cost + iv_cost + global_cost_for_size (n_set);
-
+      actual_cost = use_cost + iv_cost + ivopts_global_cost_for_size (n_set);
       if (actual_cost < *best_cost)
 	{
 	  bitmap_copy (best, set);
@@ -3764,7 +3780,7 @@ set_cost (bitmap sol)
       cost += cand->cost;
     });
 
-  cost += global_cost_for_size (size);
+  cost += ivopts_global_cost_for_size (size);
 
   return cost;
 }
