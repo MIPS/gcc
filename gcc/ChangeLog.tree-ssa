@@ -1,3 +1,8 @@
+2002-12-03  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa.c (delete_tree_ssa):  Move call to delete_alias_vars
+	above resetting num_referenced_vars.
+
 2002-12-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in: Add dependencies on $(TM_H) and coretypes.h for the
