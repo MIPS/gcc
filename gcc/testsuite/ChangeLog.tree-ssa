@@ -1,3 +1,12 @@
+2003-11-06  Dan Nicolaescu  <dann@ics.uci.edu>
+
+	* gcc.dg/tree-ssa/20031106-1.c: New test.
+	* gcc.dg/tree-ssa/20031106-2.c: New test.
+	* gcc.dg/tree-ssa/20031106-3.c: New test.
+	* gcc.dg/tree-ssa/20031106-4.c: New test.
+	* gcc.dg/tree-ssa/20031106-5.c: New test.
+	* gcc.dg/tree-ssa/20031106-6.c: New test.
+
 2003-11-06  Steven Bosscher  <stevenb@suse.de>
 
 	* gcc.dg/tree-ssa/ssa-ccp-2.c: Fix overoptimistic expectations
