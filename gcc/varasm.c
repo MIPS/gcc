@@ -2139,12 +2139,12 @@ struct rtx_const GTY(())
       HOST_WIDE_INT low;
     } GTY ((tag ("0"))) di;
 
-    /* The max vector size we have is 8 wide; two variants for
+    /* The max vector size we have is 16 wide; two variants for
        integral and floating point vectors.  */
     struct rtx_const_int_vec {
       HOST_WIDE_INT high;
       HOST_WIDE_INT low;
-    } GTY ((tag ("2"))) int_vec[8];
+    } GTY ((tag ("2"))) int_vec[16];
 
     REAL_VALUE_TYPE GTY ((tag ("3"))) fp_vec[8];
 
@@ -4800,6 +4800,17 @@ default_section_type_flags_1 (decl, name, reloc, shlib)
       || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_TLS;
 
+  /* These three sections have special ELF types.  They are neither
+     SHT_PROGBITS nor SHT_NOBITS, so when changing sections we don't
+     want to print a section type (@progbits or @nobits).  If someone
+     is silly enough to emit code or TLS variables to one of these
+     sections, then don't handle them specially.  */
+  if (!(flags & (SECTION_CODE | SECTION_BSS | SECTION_TLS))
+      && (strcmp (name, ".init_array") == 0
+	  || strcmp (name, ".fini_array") == 0
+	  || strcmp (name, ".preinit_array") == 0))
+    flags |= SECTION_NOTYPE;
+
   return flags;
 }
 
@@ -4822,7 +4833,6 @@ default_elf_asm_named_section (name, flags)
      unsigned int flags;
 {
   char flagchars[10], *f = flagchars;
-  const char *type;
 
   if (! named_section_first_declaration (name))
     {
@@ -4846,17 +4856,24 @@ default_elf_asm_named_section (name, flags)
     *f++ = 'T';
   *f = '\0';
 
-  if (flags & SECTION_BSS)
-    type = "nobits";
-  else
-    type = "progbits";
+  fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
 
-  if (flags & SECTION_ENTSIZE)
-    fprintf (asm_out_file, "\t.section\t%s,\"%s\",@%s,%d\n",
-	     name, flagchars, type, flags & SECTION_ENTSIZE);
-  else
-    fprintf (asm_out_file, "\t.section\t%s,\"%s\",@%s\n",
-	     name, flagchars, type);
+  if (!(flags & SECTION_NOTYPE))
+    {
+      const char *type;
+
+      if (flags & SECTION_BSS)
+	type = "nobits";
+      else
+	type = "progbits";
+
+      fprintf (asm_out_file, ",@%s", type);
+
+      if (flags & SECTION_ENTSIZE)
+	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
+    }
+
+  putc ('\n', asm_out_file);
 }
 
 void

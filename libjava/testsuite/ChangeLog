@@ -1,3 +1,14 @@
+2002-10-24  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/Primes.java: Removed.
+	* libjava.lang/Primes.out: Removed.
+
+2002-10-23  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6388:
+	* libjava.lang/pr6388.java: New file.
+	* libjava.lang/pr6388.out: New file.
+
 2002-10-15  Andrew Haley  <aph@redhat.com>
 
 	* libjava.lang/EvaluationOrder.java (EvaluationOrder): New.

@@ -103,7 +103,6 @@ varray_type local_classes;
 
 static tree get_vfield_name PARAMS ((tree));
 static void finish_struct_anon PARAMS ((tree));
-static tree build_vtable_entry PARAMS ((tree, tree, tree));
 static tree get_vtable_name PARAMS ((tree));
 static tree get_basefndecls PARAMS ((tree, tree));
 static int build_primary_vtable PARAMS ((tree, tree));
@@ -117,8 +116,8 @@ static int alter_access PARAMS ((tree, tree, tree));
 static void handle_using_decl PARAMS ((tree, tree));
 static void check_for_override PARAMS ((tree, tree));
 static tree dfs_modify_vtables PARAMS ((tree, void *));
-static tree modify_all_vtables PARAMS ((tree, int *, tree));
-static void determine_primary_base PARAMS ((tree, int *));
+static tree modify_all_vtables PARAMS ((tree, tree));
+static void determine_primary_base PARAMS ((tree));
 static void finish_struct_methods PARAMS ((tree));
 static void maybe_warn_about_overly_private_class PARAMS ((tree));
 static int field_decl_cmp PARAMS ((const tree *, const tree *));
@@ -143,10 +142,10 @@ static void check_bases PARAMS ((tree, int *, int *, int *));
 static void check_bases_and_members (tree);
 static tree create_vtable_ptr (tree, tree *);
 static void include_empty_classes (record_layout_info);
-static void layout_class_type (tree, int *, tree *);
+static void layout_class_type (tree, tree *);
 static void fixup_pending_inline PARAMS ((tree));
 static void fixup_inline_methods PARAMS ((tree));
-static void set_primary_base PARAMS ((tree, tree, int *));
+static void set_primary_base PARAMS ((tree, tree));
 static void propagate_binfo_offsets PARAMS ((tree, tree, tree));
 static void layout_virtual_bases (record_layout_info, splay_tree);
 static tree dfs_set_offset_for_unshared_vbases PARAMS ((tree, void *));
@@ -174,7 +173,6 @@ static bool layout_empty_base PARAMS ((tree, tree, splay_tree, tree));
 static void accumulate_vtbl_inits PARAMS ((tree, tree, tree, tree, tree));
 static tree dfs_accumulate_vtbl_inits PARAMS ((tree, tree, tree, tree,
 					       tree));
-static void set_vindex PARAMS ((tree, int *));
 static void build_rtti_vtbl_entries PARAMS ((tree, vtbl_init_data *));
 static void build_vcall_and_vbase_vtbl_entries PARAMS ((tree, 
 							vtbl_init_data *));
@@ -209,6 +207,8 @@ static bool type_requires_array_cookie PARAMS ((tree));
 static bool contains_empty_class_p (tree);
 static tree dfs_base_derived_from (tree, void *);
 static bool base_derived_from (tree, tree);
+static int empty_base_at_nonzero_offset_p (tree, tree, splay_tree);
+static tree end_of_base (tree);
 
 /* Macros for dfs walking during vtt construction. See
    dfs_ctor_vtable_bases_queue_p, dfs_build_secondary_vptr_vtt_inits
@@ -737,37 +737,9 @@ modify_vtable_entry (t, binfo, fndecl, delta, virtuals)
       BV_DELTA (v) = delta;
       BV_VCALL_INDEX (v) = NULL_TREE;
       BV_FN (v) = fndecl;
-
-      /* Now assign virtual dispatch information, if unset.  We can
-	 dispatch this through any overridden base function.
-
-	 FIXME this can choose a secondary vtable if the primary is not
-	 also lexically first, leading to useless conversions.
-	 In the V3 ABI, there's no reason for DECL_VIRTUAL_CONTEXT to
-	 ever be different from DECL_CONTEXT.  */
-      if (TREE_CODE (DECL_VINDEX (fndecl)) != INTEGER_CST)
-	{
-	  DECL_VINDEX (fndecl) = DECL_VINDEX (base_fndecl);
-	  DECL_VIRTUAL_CONTEXT (fndecl) = DECL_VIRTUAL_CONTEXT (base_fndecl);
-	}
     }
 }
 
-/* Set DECL_VINDEX for DECL.  VINDEX_P is the number of virtual
-   functions present in the vtable so far.  */
-
-static void
-set_vindex (decl, vfuns_p)
-     tree decl;
-     int *vfuns_p;
-{
-  int vindex;
-
-  vindex = *vfuns_p;
-  *vfuns_p += (TARGET_VTABLE_USES_DESCRIPTORS
-	       ? TARGET_VTABLE_USES_DESCRIPTORS : 1);
-  DECL_VINDEX (decl) = build_shared_int_cst (vindex);
-}
 
 /* Add method METHOD to class TYPE.  If ERROR_P is true, we are adding
    the method after the class has already been defined because a
@@ -1352,6 +1324,8 @@ check_bases (t, cant_have_default_ctor_p, cant_have_const_ctor_p,
       TYPE_OVERLOADS_ARRAY_REF (t) |= TYPE_OVERLOADS_ARRAY_REF (basetype);
       TYPE_OVERLOADS_ARROW (t) |= TYPE_OVERLOADS_ARROW (basetype);
       TYPE_POLYMORPHIC_P (t) |= TYPE_POLYMORPHIC_P (basetype);
+      CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) 
+	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
     }
 }
 
@@ -1574,10 +1548,9 @@ mark_primary_bases (type)
 /* Make the BINFO the primary base of T.  */
 
 static void
-set_primary_base (t, binfo, vfuns_p)
+set_primary_base (t, binfo)
      tree t;
      tree binfo;
-     int *vfuns_p;
 {
   tree basetype;
 
@@ -1587,15 +1560,13 @@ set_primary_base (t, binfo, vfuns_p)
   TYPE_BINFO_VIRTUALS (t) = TYPE_BINFO_VIRTUALS (basetype);
   TYPE_VFIELD (t) = TYPE_VFIELD (basetype);
   CLASSTYPE_RTTI (t) = CLASSTYPE_RTTI (basetype);
-  *vfuns_p = CLASSTYPE_VSIZE (basetype);
 }
 
 /* Determine the primary class for T.  */
 
 static void
-determine_primary_base (t, vfuns_p)
+determine_primary_base (t)
      tree t;
-     int *vfuns_p;
 {
   int i, n_baseclasses = CLASSTYPE_N_BASECLASSES (t);
   tree vbases;
@@ -1627,7 +1598,7 @@ determine_primary_base (t, vfuns_p)
 
 	  if (!CLASSTYPE_HAS_PRIMARY_BASE_P (t))
 	    {
-	      set_primary_base (t, base_binfo, vfuns_p);
+	      set_primary_base (t, base_binfo);
 	      CLASSTYPE_VFIELDS (t) = copy_list (CLASSTYPE_VFIELDS (basetype));
 	    }
 	  else
@@ -1729,7 +1700,7 @@ determine_primary_base (t, vfuns_p)
       /* If we've got a primary base, use it.  */
       if (candidate)
 	{
-	  set_primary_base (t, candidate, vfuns_p);
+	  set_primary_base (t, candidate);
 	  CLASSTYPE_VFIELDS (t) 
 	    = copy_list (CLASSTYPE_VFIELDS (BINFO_TYPE (candidate)));
 	}	
@@ -2541,9 +2512,8 @@ dfs_modify_vtables (binfo, data)
    should therefore be appended to the end of the vtable for T.  */
 
 static tree
-modify_all_vtables (t, vfuns_p, virtuals)
+modify_all_vtables (t, virtuals)
      tree t;
-     int *vfuns_p;
      tree virtuals;
 {
   tree binfo = TYPE_BINFO (t);
@@ -2567,12 +2537,6 @@ modify_all_vtables (t, vfuns_p, virtuals)
       if (!value_member (fn, BINFO_VIRTUALS (binfo))
 	  || DECL_VINDEX (fn) == error_mark_node)
 	{
-	  /* Set the vtable index.  */
-	  set_vindex (fn, vfuns_p);
-	  /* We don't need to convert to a base class when calling
-	     this function.  */
-	  DECL_VIRTUAL_CONTEXT (fn) = t;
-
 	  /* We don't need to adjust the `this' pointer when
 	     calling this function.  */
 	  BV_DELTA (*fnsp) = integer_zero_node;
@@ -2585,7 +2549,7 @@ modify_all_vtables (t, vfuns_p, virtuals)
 	/* We've already got an entry for this function.  Skip it.  */
 	*fnsp = TREE_CHAIN (*fnsp);
     }
-  
+
   return virtuals;
 }
 
@@ -3167,10 +3131,18 @@ check_field_decls (tree t, tree *access_decls,
 	    ;
 	  else
 	    {
+	      tree element_type;
+
 	      /* The class is non-empty.  */
 	      CLASSTYPE_EMPTY_P (t) = 0;
 	      /* The class is not even nearly empty.  */
 	      CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
+	      /* If one of the data members contains an empty class,
+		 so does T.  */
+	      element_type = strip_array_types (type);
+	      if (CLASS_TYPE_P (element_type) 
+		  && CLASSTYPE_CONTAINS_EMPTY_CLASS_P (element_type))
+		CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) = 1;
 	    }
 	}
 
@@ -3252,7 +3224,7 @@ check_field_decls (tree t, tree *access_decls,
  	{
 	  CLASSTYPE_NON_POD_P (t) = 1;
 	  if (DECL_INITIAL (x) == NULL_TREE)
-	    CLASSTYPE_REF_FIELDS_NEED_INIT (t) = 1;
+	    SET_CLASSTYPE_REF_FIELDS_NEED_INIT (t, 1);
 
 	  /* ARM $12.6.2: [A member initializer list] (or, for an
 	     aggregate, initialization by a brace-enclosed list) is the
@@ -3287,7 +3259,7 @@ check_field_decls (tree t, tree *access_decls,
 	{
 	  C_TYPE_FIELDS_READONLY (t) = 1;
 	  if (DECL_INITIAL (x) == NULL_TREE)
-	    CLASSTYPE_READONLY_FIELDS_NEED_INIT (t) = 1;
+	    SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t, 1);
 
 	  /* ARM $12.6.2: [A member initializer list] (or, for an
 	     aggregate, initialization by a brace-enclosed list) is the
@@ -3304,8 +3276,9 @@ check_field_decls (tree t, tree *access_decls,
       else if (IS_AGGR_TYPE (type))
 	{
 	  C_TYPE_FIELDS_READONLY (t) |= C_TYPE_FIELDS_READONLY (type);
-	  CLASSTYPE_READONLY_FIELDS_NEED_INIT (t) 
-	    |= CLASSTYPE_READONLY_FIELDS_NEED_INIT (type);
+	  SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t,
+	    CLASSTYPE_READONLY_FIELDS_NEED_INIT (t)
+	    | CLASSTYPE_READONLY_FIELDS_NEED_INIT (type));
 	}
 
       /* Core issue 80: A nonstatic data member is required to have a
@@ -3440,6 +3413,10 @@ walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
       tree binfo;
       int i;
 
+      /* Avoid recursing into objects that are not interesting.  */
+      if (!CLASSTYPE_CONTAINS_EMPTY_CLASS_P (type))
+	return 0;
+
       /* Record the location of TYPE.  */
       r = (*f) (type, offset, offsets);
       if (r)
@@ -3523,8 +3500,14 @@ walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
+      tree element_type = strip_array_types (type);
       tree domain = TYPE_DOMAIN (type);
       tree index;
+
+      /* Avoid recursing into objects that are not interesting.  */
+      if (!CLASS_TYPE_P (element_type)
+	  || !CLASSTYPE_CONTAINS_EMPTY_CLASS_P (element_type))
+	return 0;
 
       /* Step through each of the elements in the array.  */
       for (index = size_zero_node;
@@ -3654,6 +3637,10 @@ layout_nonempty_base_or_field (record_layout_info rli,
 	 empty class, have nonzero size, any overlap can happen only
 	 with a direct or indirect base-class -- it can't happen with
 	 a data member.  */
+      /* G++ 3.2 did not check for overlaps when placing a non-empty
+	 virtual base.  */
+      if (!abi_version_at_least (2) && binfo && TREE_VIA_VIRTUAL (binfo))
+	break;
       if (layout_conflict_p (type, offset, offsets, field_p))
 	{
 	  /* Strip off the size allocated to this field.  That puts us
@@ -3686,6 +3673,16 @@ layout_nonempty_base_or_field (record_layout_info rli,
 					  convert (ssizetype, 
 						   BINFO_OFFSET (binfo))),
 			     t);
+}
+
+/* Returns true if TYPE is empty and OFFSET is non-zero.  */
+
+static int
+empty_base_at_nonzero_offset_p (tree type,
+				tree offset,
+				splay_tree offsets ATTRIBUTE_UNUSED)
+{
+  return is_empty_class (type) && !integer_zerop (offset);
 }
 
 /* Layout the empty base BINFO.  EOC indicates the byte currently just
@@ -3796,14 +3793,37 @@ build_base_field (record_layout_info rli, tree binfo,
   else
     {
       tree eoc;
+      bool atend;
 
       /* On some platforms (ARM), even empty classes will not be
 	 byte-aligned.  */
       eoc = round_up (rli_size_unit_so_far (rli),
 		      CLASSTYPE_ALIGN_UNIT (basetype));
-      if (layout_empty_base (binfo, eoc, offsets, t))
-	CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
-
+      atend = layout_empty_base (binfo, eoc, offsets, t);
+      /* A nearly-empty class "has no proper base class that is empty,
+	 not morally virtual, and at an offset other than zero."  */
+      if (!TREE_VIA_VIRTUAL (binfo) && CLASSTYPE_NEARLY_EMPTY_P (t))
+	{
+	  if (atend)
+	    CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
+	  /* The check above (used in G++ 3.2) is insufficient  because
+	     an empty class placed at offset zero might itself have an
+	     empty base at a non-zero offset.  */
+	  else if (walk_subobject_offsets (basetype, 
+					   empty_base_at_nonzero_offset_p,
+					   size_zero_node,
+					   /*offsets=*/NULL,
+					   /*max_offset=*/NULL_TREE,
+					   /*vbases_p=*/true))
+	    {
+	      if (abi_version_at_least (2))
+		CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
+	      else if (warn_abi)
+		warning ("class `%T' will be considered nearly empty in a "
+			 "future version of GCC", t);
+	    }
+	}
+	
       /* We do not create a FIELD_DECL for empty base classes because
 	 it might overlap some other field.  We want to be able to
 	 create CONSTRUCTORs for the class by iterating over the
@@ -4641,6 +4661,25 @@ layout_virtual_bases (record_layout_info rli, splay_tree offsets)
 }
 
 /* Returns the offset of the byte just past the end of the base class
+   BINFO.  */
+
+static tree
+end_of_base (tree binfo)
+{
+  tree size;
+
+  if (is_empty_class (BINFO_TYPE (binfo)))
+    /* An empty class has zero CLASSTYPE_SIZE_UNIT, but we need to
+       allocate some space for it. It cannot have virtual bases, so
+       TYPE_SIZE_UNIT is fine.  */
+    size = TYPE_SIZE_UNIT (BINFO_TYPE (binfo));
+  else
+    size = CLASSTYPE_SIZE_UNIT (BINFO_TYPE (binfo));
+
+  return size_binop (PLUS_EXPR, BINFO_OFFSET (binfo), size);
+}
+
+/* Returns the offset of the byte just past the end of the base class
    with the highest offset in T.  If INCLUDE_VIRTUALS_P is zero, then
    only non-virtual bases are included.  */
 
@@ -4650,34 +4689,34 @@ end_of_class (t, include_virtuals_p)
      int include_virtuals_p;
 {
   tree result = size_zero_node;
+  tree binfo;
+  tree offset;
   int i;
 
   for (i = 0; i < CLASSTYPE_N_BASECLASSES (t); ++i)
     {
-      tree base_binfo;
-      tree offset;
-      tree size;
-
-      base_binfo = BINFO_BASETYPE (TYPE_BINFO (t), i);
+      binfo = BINFO_BASETYPE (TYPE_BINFO (t), i);
 
       if (!include_virtuals_p
-	  && TREE_VIA_VIRTUAL (base_binfo) 
-	  && !BINFO_PRIMARY_P (base_binfo))
+	  && TREE_VIA_VIRTUAL (binfo) 
+	  && !BINFO_PRIMARY_P (binfo))
 	continue;
 
-      if (is_empty_class (BINFO_TYPE (base_binfo)))
-	/* An empty class has zero CLASSTYPE_SIZE_UNIT, but we need to
-	   allocate some space for it. It cannot have virtual bases,
-	   so TYPE_SIZE_UNIT is fine.  */
-	size = TYPE_SIZE_UNIT (BINFO_TYPE (base_binfo));
-      else
-	size = CLASSTYPE_SIZE_UNIT (BINFO_TYPE (base_binfo));
-      offset = size_binop (PLUS_EXPR, 
-			   BINFO_OFFSET (base_binfo),
-			   size);
+      offset = end_of_base (binfo);
       if (INT_CST_LT_UNSIGNED (result, offset))
 	result = offset;
     }
+
+  /* G++ 3.2 did not check indirect virtual bases.  */
+  if (abi_version_at_least (2) && include_virtuals_p)
+    for (binfo = CLASSTYPE_VBASECLASSES (t); 
+	 binfo; 
+	 binfo = TREE_CHAIN (binfo))
+      {
+	offset = end_of_base (TREE_VALUE (binfo));
+	if (INT_CST_LT_UNSIGNED (result, offset))
+	  result = offset;
+      }
 
   return result;
 }
@@ -4741,6 +4780,7 @@ static void
 include_empty_classes (record_layout_info rli)
 {
   tree eoc;
+  tree rli_size;
 
   /* It might be the case that we grew the class to allocate a
      zero-sized base class.  That won't be reflected in RLI, yet,
@@ -4749,11 +4789,20 @@ include_empty_classes (record_layout_info rli)
      to reflect the entire class.  */
   eoc = end_of_class (rli->t, 
 		      CLASSTYPE_AS_BASE (rli->t) != NULL_TREE);
-  if (TREE_CODE (rli_size_unit_so_far (rli)) == INTEGER_CST
-      && INT_CST_LT_UNSIGNED (rli_size_unit_so_far (rli), eoc))
+  rli_size = rli_size_unit_so_far (rli);
+  if (TREE_CODE (rli_size) == INTEGER_CST
+      && INT_CST_LT_UNSIGNED (rli_size, eoc))
     {
-      rli->offset = size_binop (MAX_EXPR, rli->offset, eoc);
-      rli->bitpos = bitsize_zero_node;
+      rli->bitpos = round_up (rli->bitpos, BITS_PER_UNIT);
+      rli->bitpos 
+	= size_binop (PLUS_EXPR, 
+		      rli->bitpos,
+		      size_binop (MULT_EXPR,
+				  convert (bitsizetype,
+					   size_binop (MINUS_EXPR,
+						       eoc, rli_size)),
+				  bitsize_int (BITS_PER_UNIT)));
+      normalize_rli (rli);
     }
 }
 
@@ -4762,7 +4811,7 @@ include_empty_classes (record_layout_info rli)
    pointer.  Accumulate declared virtual functions on VIRTUALS_P.  */
 
 static void
-layout_class_type (tree t, int *vfuns_p, tree *virtuals_p)
+layout_class_type (tree t, tree *virtuals_p)
 {
   tree non_static_data_members;
   tree field;
@@ -4786,7 +4835,7 @@ layout_class_type (tree t, int *vfuns_p, tree *virtuals_p)
 
   /* If possible, we reuse the virtual function table pointer from one
      of our base classes.  */
-  determine_primary_base (t, vfuns_p);
+  determine_primary_base (t);
 
   /* Create a pointer to our virtual function table.  */
   vptr = create_vtable_ptr (t, virtuals_p);
@@ -4927,10 +4976,13 @@ layout_class_type (tree t, int *vfuns_p, tree *virtuals_p)
     }
 
   if (abi_version_at_least (2) && !integer_zerop (rli->bitpos))
-    /* Make sure that we are on a byte boundary so that the size of
-       the class without virtual bases will always be a round number
-       of bytes.  */
-    rli->bitpos = round_up (rli->bitpos, BITS_PER_UNIT);
+    {
+      /* Make sure that we are on a byte boundary so that the size of
+	 the class without virtual bases will always be a round number
+	 of bytes.  */
+      rli->bitpos = round_up (rli->bitpos, BITS_PER_UNIT);
+      normalize_rli (rli);
+    }
 
   /* Make sure that empty classes are reflected in RLI at this 
      point.  */
@@ -4987,6 +5039,10 @@ layout_class_type (tree t, int *vfuns_p, tree *virtuals_p)
     }
   else
     CLASSTYPE_AS_BASE (t) = t;
+
+  /* Every empty class contains an empty class.  */
+  if (CLASSTYPE_EMPTY_P (t))
+    CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) = 1;
 
   /* Set the TYPE_DECL for this type to contain the right
      value for DECL_OFFSET, so that we can use it as part
@@ -5050,7 +5106,6 @@ finish_struct_1 (t)
      tree t;
 {
   tree x;
-  int vfuns;
   /* A TREE_LIST.  The TREE_VALUE of each node is a FUNCTION_DECL.  */
   tree virtuals = NULL_TREE;
   int n_fields = 0;
@@ -5071,22 +5126,22 @@ finish_struct_1 (t)
   TYPE_SIZE (t) = NULL_TREE;
   CLASSTYPE_GOT_SEMICOLON (t) = 0;
   CLASSTYPE_PRIMARY_BINFO (t) = NULL_TREE;
-  vfuns = 0;
   CLASSTYPE_RTTI (t) = NULL_TREE;
 
   fixup_inline_methods (t);
   
-  /* Assume that the class is both empty and nearly empty; we'll clear
-     these flag if necessary.  */
+  /* Make assumptions about the class; we'll reset the flags if
+     necessary.  */
   CLASSTYPE_EMPTY_P (t) = 1;
   CLASSTYPE_NEARLY_EMPTY_P (t) = 1;
+  CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) = 0;
 
   /* Do end-of-class semantic processing: checking the validity of the
      bases and members and add implicitly generated methods.  */
   check_bases_and_members (t);
 
   /* Layout the class itself.  */
-  layout_class_type (t, &vfuns, &virtuals);
+  layout_class_type (t, &virtuals);
 
   /* Make sure that we get our own copy of the vfield FIELD_DECL.  */
   vfield = TYPE_VFIELD (t);
@@ -5110,7 +5165,7 @@ finish_struct_1 (t)
   else
     my_friendly_assert (!vfield || DECL_FIELD_CONTEXT (vfield) == t, 20010726);
 
-  virtuals = modify_all_vtables (t, &vfuns, nreverse (virtuals));
+  virtuals = modify_all_vtables (t, nreverse (virtuals));
 
   /* If we created a new vtbl pointer for this class, add it to the
      list.  */
@@ -5150,6 +5205,9 @@ finish_struct_1 (t)
 
   if (TYPE_CONTAINS_VPTR_P (t))
     {
+      int vindex;
+      tree fn;
+
       if (TYPE_BINFO_VTABLE (t))
 	my_friendly_assert (DECL_VIRTUAL_P (TYPE_BINFO_VTABLE (t)),
 			    20000116);
@@ -5157,9 +5215,17 @@ finish_struct_1 (t)
 	my_friendly_assert (TYPE_BINFO_VIRTUALS (t) == NULL_TREE,
 			    20000116);
 
-      CLASSTYPE_VSIZE (t) = vfuns;
       /* Add entries for virtual functions introduced by this class.  */
       TYPE_BINFO_VIRTUALS (t) = chainon (TYPE_BINFO_VIRTUALS (t), virtuals);
+
+      /* Set DECL_VINDEX for all functions declared in this class.  */
+      for (vindex = 0, fn = BINFO_VIRTUALS (TYPE_BINFO (t)); 
+	   fn; 
+	   fn = TREE_CHAIN (fn), 
+	     vindex += (TARGET_VTABLE_USES_DESCRIPTORS
+			? TARGET_VTABLE_USES_DESCRIPTORS : 1))
+	if (TREE_CODE (DECL_VINDEX (BV_FN (fn))) != INTEGER_CST)
+	  DECL_VINDEX (BV_FN (fn)) = build_shared_int_cst (vindex);
     }
 
   finish_struct_bits (t);
@@ -7576,7 +7642,6 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
       tree delta;
       tree vcall_index;
       tree fn;
-      tree pfn;
       tree init = NULL_TREE;
       
       fn = BV_FN (v);
@@ -7627,15 +7692,13 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
 	     So, we replace these functions with __pure_virtual.  */
 	  if (DECL_PURE_VIRTUAL_P (fn))
 	    fn = abort_fndecl;
-
+	  else if (!integer_zerop (delta) || vcall_index)
+	    fn = make_thunk (fn, delta, vcall_index);
 	  /* Take the address of the function, considering it to be of an
 	     appropriate generic type.  */
-	  pfn = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
+	  init = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
 	  /* The address of a function can't change.  */
-	  TREE_CONSTANT (pfn) = 1;
-
-	  /* Enter it in the vtable.  */
-	  init = build_vtable_entry (delta, vcall_index, pfn);
+	  TREE_CONSTANT (init) = 1;
 	}
 
       /* And add it to the chain of initializers.  */
@@ -8066,34 +8129,4 @@ build_rtti_vtbl_entries (binfo, vid)
   TREE_CONSTANT (init) = 1;
   *vid->last_init = build_tree_list (NULL_TREE, init);
   vid->last_init = &TREE_CHAIN (*vid->last_init);
-}
-
-/* Build an entry in the virtual function table.  DELTA is the offset
-   for the `this' pointer.  VCALL_INDEX is the vtable index containing
-   the vcall offset; NULL_TREE if none.  ENTRY is the virtual function
-   table entry itself.  It's TREE_TYPE must be VFUNC_PTR_TYPE_NODE,
-   but it may not actually be a virtual function table pointer.  (For
-   example, it might be the address of the RTTI object, under the new
-   ABI.)  */
-
-static tree
-build_vtable_entry (delta, vcall_index, entry)
-     tree delta;
-     tree vcall_index;
-     tree entry;
-{
-  tree fn = TREE_OPERAND (entry, 0);
-  
-  if ((!integer_zerop (delta) || vcall_index != NULL_TREE)
-      && fn != abort_fndecl)
-    {
-      entry = make_thunk (entry, delta, vcall_index);
-      entry = build1 (ADDR_EXPR, vtable_entry_type, entry);
-      TREE_READONLY (entry) = 1;
-      TREE_CONSTANT (entry) = 1;
-    }
-#ifdef GATHER_STATISTICS
-  n_vtable_entries += 1;
-#endif
-  return entry;
 }

@@ -121,11 +121,15 @@ struct diagnostic_context;
      For a FUNCTION_TYPE or METHOD_TYPE, this is TYPE_RAISES_EXCEPTIONS
 
   BINFO_VIRTUALS
-     For a binfo, this is a TREE_LIST.  The BV_DELTA of each node
-     gives the amount by which to adjust the `this' pointer when
-     calling the function.  If the method is an overriden version of a
-     base class method, then it is assumed that, prior to adjustment,
-     the this pointer points to an object of the base class.
+     For a binfo, this is a TREE_LIST.  There is an entry for each
+     virtual function declared either in BINFO or its direct and
+     indirect primary bases.
+
+     The BV_DELTA of each node gives the amount by which to adjust the
+     `this' pointer when calling the function.  If the method is an
+     overriden version of a base class method, then it is assumed
+     that, prior to adjustment, the this pointer points to an object
+     of the base class.
 
      The BV_VCALL_INDEX of each node, if non-NULL, gives the vtable
      index of the vcall offset for this entry.  If
@@ -1135,6 +1139,7 @@ struct lang_type_class GTY(())
   unsigned anon_aggr : 1;
   unsigned non_zero_init : 1;
   unsigned empty_p : 1;
+  unsigned contains_empty_class_p : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1143,9 +1148,7 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 5;
-
-  int vsize;
+  unsigned dummy : 4;
 
   tree primary_base;
   tree vfields;
@@ -1370,10 +1373,6 @@ struct lang_type GTY(())
 #define CLASSTYPE_PRIMARY_BINFO(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->primary_base)
 
-/* The number of virtual functions present in this class' virtual
-   function table.  */
-#define CLASSTYPE_VSIZE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->vsize)
-
 /* A chain of BINFOs for the direct and indirect virtual base classes
    that this type uses in a post-order depth-first left-to-right
    order.  (In other words, these bases appear in the order that they
@@ -1457,6 +1456,10 @@ struct lang_type GTY(())
 #define CLASSTYPE_NEARLY_EMPTY_P(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->nearly_empty_p)
 
+/* Nonzero if this class contains an empty subobject.  */
+#define CLASSTYPE_CONTAINS_EMPTY_CLASS_P(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->contains_empty_class_p)
+
 /* A list of class types of which this type is a friend.  The
    TREE_VALUE is normally a TYPE, but will be a TEMPLATE_DECL in the
    case of a template friend.  */
@@ -1471,13 +1474,21 @@ struct lang_type GTY(())
 #define CLASSTYPE_DECLARED_CLASS(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->declared_class)
 
-/* Nonzero if this class has const members which have no specified initialization.  */
-#define CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE) \
-  (LANG_TYPE_CLASS_CHECK (NODE)->h.const_needs_init)
+/* Nonzero if this class has const members
+   which have no specified initialization.  */
+#define CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE)	\
+  (TYPE_LANG_SPECIFIC (NODE)				\
+   ? LANG_TYPE_CLASS_CHECK (NODE)->h.const_needs_init : 0)
+#define SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE, VALUE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->h.const_needs_init = (VALUE))
 
-/* Nonzero if this class has ref members which have no specified initialization.  */
-#define CLASSTYPE_REF_FIELDS_NEED_INIT(NODE) \
-  (LANG_TYPE_CLASS_CHECK (NODE)->h.ref_needs_init)
+/* Nonzero if this class has ref members
+   which have no specified initialization.  */
+#define CLASSTYPE_REF_FIELDS_NEED_INIT(NODE)		\
+  (TYPE_LANG_SPECIFIC (NODE)				\
+   ? LANG_TYPE_CLASS_CHECK (NODE)->h.ref_needs_init : 0)
+#define SET_CLASSTYPE_REF_FIELDS_NEED_INIT(NODE, VALUE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->h.ref_needs_init = (VALUE))
 
 /* Nonzero if this class is included from a header file which employs
    `#pragma interface', and it is not included in its implementation file.  */
@@ -1749,10 +1760,11 @@ struct lang_decl GTY(())
       {
 	tree befriending_classes;
 	
-	/* For a virtual FUNCTION_DECL, this is DECL_VIRTUAL_CONTEXT.  For a
-	   non-virtual FUNCTION_DECL, this is DECL_FRIEND_CONTEXT.  */
+	/* For a non-virtual FUNCTION_DECL, this is
+	   DECL_FRIEND_CONTEXT.  For a virtual FUNCTION_DECL for which
+	   DECL_THUNK_P does not hold, this is DECL_THUNKS.  */
 	tree context;
-	
+
 	/* In a FUNCTION_DECL, this is DECL_CLONED_FUNCTION.  */
 	tree cloned_function;
 	
@@ -2036,6 +2048,11 @@ struct lang_decl GTY(())
 #define DECL_NEEDS_FINAL_OVERRIDER_P(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->decl_flags.needs_final_overrider)
 
+/* The thunks associated with NODE, a FUNCTION_DECL that is not itself
+   a thunk.  */
+#define DECL_THUNKS(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->u.f.context)
+
 /* Nonzero if NODE is a thunk, rather than an ordinary function.  */
 #define DECL_THUNK_P(NODE)			\
   (TREE_CODE (NODE) == FUNCTION_DECL		\
@@ -2087,11 +2104,6 @@ struct lang_decl GTY(())
 #define CP_DECL_CONTEXT(NODE) \
   (DECL_CONTEXT (NODE) ? DECL_CONTEXT (NODE) : global_namespace)
 #define FROB_CONTEXT(NODE)   ((NODE) == global_namespace ? NULL_TREE : (NODE))
-
-/* For a virtual function, the base where we find its vtable entry.
-   For a non-virtual function, the base where it is defined.  */
-#define DECL_VIRTUAL_CONTEXT(NODE) \
-  (DECL_LANG_SPECIFIC (NODE)->u.f.context)
 
 /* 1 iff NODE has namespace scope, including the global namespace.  */
 #define DECL_NAMESPACE_SCOPE_P(NODE)				\
@@ -4184,7 +4196,6 @@ extern tree cxx_unsave_expr_now			PARAMS ((tree));
 extern tree cxx_maybe_build_cleanup		PARAMS ((tree));
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
-extern bool variably_modified_type_p            (tree);
 extern int zero_init_p				PARAMS ((tree));
 extern tree canonical_type_variant              PARAMS ((tree));
 extern void unshare_base_binfos			PARAMS ((tree));

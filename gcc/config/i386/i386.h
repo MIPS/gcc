@@ -1434,9 +1434,10 @@ enum reg_class
    the constraint letter C.  If C is not defined as an extra
    constraint, the value returned should be 0 regardless of VALUE.  */
 
-#define EXTRA_CONSTRAINT(VALUE, C)				\
-  ((C) == 'e' ? x86_64_sign_extended_value (VALUE)		\
-   : (C) == 'Z' ? x86_64_zero_extended_value (VALUE)		\
+#define EXTRA_CONSTRAINT(VALUE, D)				\
+  ((D) == 'e' ? x86_64_sign_extended_value (VALUE, 0)		\
+   : (D) == 'Z' ? x86_64_zero_extended_value (VALUE)		\
+   : (D) == 'C' ? standard_sse_constant_p (VALUE)		\
    : 0)
 
 /* Place additional restrictions on the register class to use when it
@@ -2081,6 +2082,16 @@ enum ix86_builtins
   IX86_BUILTIN_MOVNTPS,
   IX86_BUILTIN_MOVNTQ,
 
+  IX86_BUILTIN_LOADDQA,
+  IX86_BUILTIN_LOADDQU,
+  IX86_BUILTIN_STOREDQA,
+  IX86_BUILTIN_STOREDQU,
+  IX86_BUILTIN_MOVQ,
+  IX86_BUILTIN_LOADD,
+  IX86_BUILTIN_STORED,
+
+  IX86_BUILTIN_CLRTI,
+
   IX86_BUILTIN_PACKSSWB,
   IX86_BUILTIN_PACKSSDW,
   IX86_BUILTIN_PACKUSWB,
@@ -2327,6 +2338,7 @@ enum ix86_builtins
   IX86_BUILTIN_MOVMSKPD,
   IX86_BUILTIN_PMOVMSKB128,
   IX86_BUILTIN_MOVQ2DQ,
+  IX86_BUILTIN_MOVDQ2Q,
 
   IX86_BUILTIN_PACKSSWB128,
   IX86_BUILTIN_PACKSSDW128,
@@ -2407,9 +2419,11 @@ enum ix86_builtins
   IX86_BUILTIN_PUNPCKHBW128,
   IX86_BUILTIN_PUNPCKHWD128,
   IX86_BUILTIN_PUNPCKHDQ128,
+  IX86_BUILTIN_PUNPCKHQDQ128,
   IX86_BUILTIN_PUNPCKLBW128,
   IX86_BUILTIN_PUNPCKLWD128,
   IX86_BUILTIN_PUNPCKLDQ128,
+  IX86_BUILTIN_PUNPCKLQDQ128,
 
   IX86_BUILTIN_CLFLUSH,
   IX86_BUILTIN_MFENCE,
@@ -2544,7 +2558,7 @@ do {							\
   case CONST:							\
   case LABEL_REF:						\
   case SYMBOL_REF:						\
-    if (TARGET_64BIT && !x86_64_sign_extended_value (RTX))	\
+    if (TARGET_64BIT && !x86_64_sign_extended_value (RTX, 0))	\
       return 3;							\
     if (TARGET_64BIT && !x86_64_zero_extended_value (RTX))	\
       return 2;							\
