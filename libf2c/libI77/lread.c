@@ -21,14 +21,17 @@ int (*f__lioproc)(), (*l_getc)(), (*l_ungetc)();
 #undef min
 #undef max
 #include "stdlib.h"
-int (*f__lioproc)(ftnint*, char*, ftnlen, ftnint), (*l_getc)(void),
-	(*l_ungetc)(int,FILE*);
 #endif
 
 #include "fmt.h"
 #include "lio.h"
 #include "ctype.h"
 #include "fp.h"
+
+#ifndef KR_headers
+int (*f__lioproc)(ftnint*, char*, ftnlen, ftnint), (*l_getc)(void),
+	(*l_ungetc)(int,FILE*);
+#endif
 
 int l_eof;
 
