@@ -1,3 +1,9 @@
+2003-10-21  Jan Hubicka  <jh@suse.cz>
+
+	* haifa-sched.c (choose_ready): Initialize index.
+	* tree-tailcall.c (bb_optimize_tail_calls): Initialize has_return.
+	* f/lex.c (ffelex_cfelex_): Initialize d.
+
 2003-10-20  Diego Novillo  <dnovillo@redhat.com>
 
 	Fix PR optimization/12688

@@ -231,7 +231,7 @@ static void
 bb_optimize_tail_calls (basic_block bb, tree *tmp_vars)
 {
   block_stmt_iterator bsi;
-  bool has_return;
+  bool has_return = 0;
   tree tmp_var, param;
 
   /* Find the tail call.  Again, this should be more involved, catching
