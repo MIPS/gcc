@@ -1,5 +1,27 @@
 2004-02-08  Richard Henderson  <rth@redhat.com>
 
+	* flow.c (regno_uninitialized): Remove.
+	* output.h (regno_uninitialized): Remove.
+	* function.c (setjmp_vars_warning): Rename from
+	uninitialized_vars_warning, remove uninitialized vars warning.
+	* toplev.c (rest_of_handle_life): Update to match.
+	* tree.h (setjmp_vars_warning): Likewise.
+
+	* tree-sra.c (lookup_scalar): Set DECL_NAME to something descriptive.
+
+	* tree-ssa.c (warn_uninit): New.
+	(warn_uninitialized_var, warn_uninitialized_phi): New.
+	(execute_early_warn_uninitialized): New.
+	(execute_late_warn_uninitialized): New.
+	(gate_warn_uninitialized): New.
+	(pass_early_warn_uninitialized): New.
+	(pass_late_warn_uninitialized): New.
+	* tree-pass.h (pass_early_warn_uninitialized): New.
+	(pass_late_warn_uninitialized): New.
+	* tree-optimize.c (init_tree_optimization_passes): Add them.
+	
+2004-02-08  Richard Henderson  <rth@redhat.com>
+
 	* cppexp.c (append_digit): Rearrange unsignedp/overflow setting.
 	(eval_token, num_binary_op, num_part_mul, num_div_op): Likewise.
 	* ra-rewrite.c (rewrite_program2): Zero info.

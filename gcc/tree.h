@@ -3368,7 +3368,7 @@ extern void init_function_start (tree);
 extern void assign_parms (tree);
 extern void put_var_into_stack (tree, int);
 extern void flush_addressof (tree);
-extern void uninitialized_vars_warning (tree);
+extern void setjmp_vars_warning (tree);
 extern void setjmp_args_warning (void);
 extern void mark_all_temps_used (void);
 extern void init_temp_slots (void);

@@ -3819,5 +3819,152 @@ kill_redundant_phi_nodes (void)
   free (eq_to);
   free (ssa_names);
 }
+
+/* Emit warnings for uninitialized variables.  This is done in two passes.
+
+   The first pass notices real uses of SSA names with default definitions.
+   Such uses are unconditionally uninitialized, and we can be certain that
+   such a use is a mistake.  This pass is run before most optimizations,
+   so that we catch as many as we can.
+
+   The second pass follows PHI nodes to find uses that are potentially
+   uninitialized.  In this case we can't necessarily prove that the use
+   is really uninitialized.  This pass is run after most optimizations,
+   so that we thread as many jumps and possible, and delete as much dead
+   code as possible, in order to reduce false positives.  We also look
+   again for plain uninitialized variables, since optimization may have
+   changed conditionally uninitialized to unconditionally uninitialized.  */
+
+/* Emit a warning for T, an SSA_NAME, being uninitialized.  The exact
+   warning text is in MSGID and LOCUS may contain a location or be null.  */
+
+static void
+warn_uninit (tree t, const char *msgid, location_t *locus)
+{
+  tree var = SSA_NAME_VAR (t);
+  tree def = SSA_NAME_DEF_STMT (t);
+
+  /* Default uses (indicated by an empty definition statement), are
+     uninitialized.  Except for PARMs of course, which are always
+     initialized.  TREE_NO_WARNING either means we already warned,
+     or the front end wishes to suppress the warning.  */
+  if (IS_EMPTY_STMT (def)
+      && TREE_CODE (var) != PARM_DECL
+      && !TREE_NO_WARNING (var))
+    {
+      if (!locus)
+	locus = &DECL_SOURCE_LOCATION (var);
+      warning (msgid, locus, var);
+      TREE_NO_WARNING (var) = 1;
+    }
+}
+   
+/* Called via walk_tree, look for SSA_NAMEs that have empty definitions
+   and warn about them.  */
+
+static tree
+warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
+{
+  location_t *locus = data;
+  tree t = *tp;
+
+  /* We only do data flow with SSA_NAMEs, so that's all we can warn about.  */
+  if (TREE_CODE (t) == SSA_NAME)
+    {
+      warn_uninit (t, "%H'%D' is used uninitialized in this function", locus);
+      *walk_subtrees = 0;
+    }
+  else if (DECL_P (t) || TYPE_P (t))
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
+/* Look for inputs to PHI that are SSA_NAMEs that have empty definitions
+   and warn about them.  */
+
+static void
+warn_uninitialized_phi (tree phi)
+{
+  int i, n = PHI_NUM_ARGS (phi);
+
+  /* Don't look at memory tags.  */
+  if (!is_gimple_reg (PHI_RESULT (phi)))
+    return;
+
+  for (i = 0; i < n; ++i)
+    {
+      tree op = PHI_ARG_DEF (phi, i);
+      if (TREE_CODE (op) == SSA_NAME)
+	warn_uninit (op, "%H'%D' may be used uninitialized in this function",
+		     NULL);
+    }
+}
+
+static void
+execute_early_warn_uninitialized (void)
+{
+  block_stmt_iterator bsi;
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      walk_tree (bsi_stmt_ptr (bsi), warn_uninitialized_var,
+		 EXPR_LOCUS (bsi_stmt (bsi)), NULL);
+}
+
+static void
+execute_late_warn_uninitialized (void)
+{
+  basic_block bb;
+  tree phi;
+
+  /* Re-do the plain uninitialized variable check, as optimization may have
+     straightened control flow.  Do this first so that we don't accidentally
+     get a "may be" warning when we'd have seen an "is" warning later.  */
+  execute_early_warn_uninitialized ();
+
+  FOR_EACH_BB (bb)
+    for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      warn_uninitialized_phi (phi);
+}
+
+static bool
+gate_warn_uninitialized (void)
+{
+  return warn_uninitialized != 0;
+}
+
+struct tree_opt_pass pass_early_warn_uninitialized =
+{
+  NULL,					/* name */
+  gate_warn_uninitialized,		/* gate */
+  execute_early_warn_uninitialized,	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_ssa,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+struct tree_opt_pass pass_late_warn_uninitialized =
+{
+  NULL,					/* name */
+  gate_warn_uninitialized,		/* gate */
+  execute_late_warn_uninitialized,	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_ssa,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
 
 #include "gt-tree-ssa.h"

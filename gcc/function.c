@@ -5659,43 +5659,30 @@ pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree siz
 }
 
 /* Walk the tree of blocks describing the binding levels within a function
-   and warn about uninitialized variables.
+   and warn about variables the might be killed by setjmp or vfork.
    This is done after calling flow_analysis and before global_alloc
    clobbers the pseudo-regs to hard regs.  */
 
 void
-uninitialized_vars_warning (tree block)
+setjmp_vars_warning (tree block)
 {
   tree decl, sub;
+
   for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
     {
-      if (warn_uninitialized
-	  && TREE_CODE (decl) == VAR_DECL
-	  /* These warnings are unreliable for and aggregates
-	     because assigning the fields one by one can fail to convince
-	     flow.c that the entire aggregate was initialized.
-	     Unions are troublesome because members may be shorter.  */
-	  && ! AGGREGATE_TYPE_P (TREE_TYPE (decl))
-	  && DECL_RTL_SET_P (decl)
-	  && GET_CODE (DECL_RTL (decl)) == REG
-	  /* Do not warn for decls which do not want the warning.   */
-	  && !TREE_NO_WARNING (decl)
-	  && regno_uninitialized (REGNO (DECL_RTL (decl))))
-	warning ("%J'%D' might be used uninitialized in this function",
-		 decl, decl);
-      if (extra_warnings
-	  && TREE_CODE (decl) == VAR_DECL
+      if (TREE_CODE (decl) == VAR_DECL
 	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
 	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
 	warning ("%Jvariable '%D' might be clobbered by `longjmp' or `vfork'",
 		 decl, decl);
     }
+
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    uninitialized_vars_warning (sub);
+    setjmp_vars_warning (sub);
 }
 
-/* Do the appropriate part of uninitialized_vars_warning
+/* Do the appropriate part of setjmp_vars_warning
    but for arguments instead of local variables.  */
 
 void

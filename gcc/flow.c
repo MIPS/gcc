@@ -660,8 +660,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent, int prop_flags
 
 	  /* Zap the life information from the last round.  If we don't
 	     do this, we can wind up with registers that no longer appear
-	     in the code being marked live at entry, which twiggs bogus
-	     warnings from regno_uninitialized.  */
+	     in the code being marked live at entry.  */
 	  FOR_EACH_BB (bb)
 	    {
 	      CLEAR_REG_SET (bb->global_live_at_start);
@@ -2297,24 +2296,6 @@ libcall_dead_p (struct propagate_block_info *pbi, rtx note, rtx insn)
 	}
     }
   return 1;
-}
-
-/* Return 1 if register REGNO was used before it was set, i.e. if it is
-   live at function entry.  Don't count global register variables, variables
-   in registers that can be used for function arg passing, or variables in
-   fixed hard registers.  */
-
-int
-regno_uninitialized (unsigned int regno)
-{
-  if (n_basic_blocks == 0
-      || (regno < FIRST_PSEUDO_REGISTER
-	  && (global_regs[regno]
-	      || fixed_regs[regno]
-	      || FUNCTION_ARG_REGNO_P (regno))))
-    return 0;
-
-  return REGNO_REG_SET_P (ENTRY_BLOCK_PTR->global_live_at_end, regno);
 }
 
 /* 1 if register REGNO was alive at a place where `setjmp' was called

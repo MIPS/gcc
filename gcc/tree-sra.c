@@ -195,6 +195,33 @@ lookup_scalar (struct sra_elt *key, tree type)
       *slot = res;
       *res = *key;
       res->replace = make_temp (type, "SR");
+
+      if (DECL_NAME (key->base))
+	{
+	  char *name;
+	  switch (key->kind)
+	    {
+	    case COMPONENT_REF:
+	      name = concat (IDENTIFIER_POINTER (DECL_NAME (key->base)),
+			     "$",
+			     IDENTIFIER_POINTER (DECL_NAME (key->field)),
+			     NULL);
+	      break;
+	    case REALPART_EXPR:
+	      name = concat (IDENTIFIER_POINTER (DECL_NAME (key->base)),
+			     "$real", NULL);
+	      break;
+	    case IMAGPART_EXPR:
+	      name = concat (IDENTIFIER_POINTER (DECL_NAME (key->base)),
+			     "$imag", NULL);
+	      break;
+	    default:
+	      abort ();
+	    }
+	  DECL_NAME (res->replace) = get_identifier (name);
+	  free (name);
+	}
+      DECL_SOURCE_LOCATION (res->replace) = DECL_SOURCE_LOCATION (key->base);
     }
 
   return res->replace;

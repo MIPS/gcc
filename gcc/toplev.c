@@ -2838,11 +2838,10 @@ rest_of_handle_life (tree decl, rtx insns)
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
-  if (warn_uninitialized)
+  if (extra_warnings)
     {
-      uninitialized_vars_warning (DECL_INITIAL (decl));
-      if (extra_warnings)
-	setjmp_args_warning ();
+      setjmp_vars_warning (DECL_INITIAL (decl));
+      setjmp_args_warning ();
     }
 
   if (optimize)
