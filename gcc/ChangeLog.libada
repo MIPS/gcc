@@ -1,6 +1,10 @@
+2005-02-02  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* libada-mk.in: Remove cc_set_by_configure, CC.
+
 2004-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
-	* gcc/libada-mk.in: Add some substitutions for gcc/ada/Makefile.
+	* libada-mk.in: Add some substitutions for gcc/ada/Makefile.
 
 Copyright 2004 Free Software Foundation, Inc.
 This ChangeLog is free software; the Free Software Foundation gives

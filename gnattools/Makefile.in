@@ -145,7 +145,7 @@ TOOLS_FLAGS_TO_PASS_NATIVE= \
 
 # Variables for gnattools, cross
 TOOLS_FLAGS_TO_PASS_CROSS= \
-	"CC=$(cc_set_by_configure)" \
+	"CC=$(CC)" \
 	"CFLAGS=$(CFLAGS) $(WARN_CFLAGS)" \
 	"LDFLAGS=$(LDFLAGS)" \
 	"ADAFLAGS=$(ADAFLAGS)"	\

@@ -26,12 +26,8 @@ libdir=@libdir@
 gcc_version=@gcc_version@
 NOCOMMON_FLAG=@nocommon_flag@
 WARN_CFLAGS=@warn_cflags@
-cc_set_by_configure=@cc_set_by_configure@
 gcc_tmake_file=@tmake_file@
 gcc_xmake_file=@xmake_file@
-
-# This really shouldn't be needed, but for now...
-CC=@CC@
 
 # Needed for ada/Makefile.in, along with tmake_file and xmake_file
 # This is all hackery, of course
