@@ -1,7 +1,19 @@
+2003-11-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (compute_dominance_frontiers_1,
+	compute_dominance_frontiers): Move from ssa.c.
+	* tree-flow.h (compute_dominance_frontiers): Declare.
+	* Makefile.in (tree-ssa.o, tree-ssa-live.o, tree-ssa-pre.o,
+	tree-optimize.o): Don't depend on ssa.h.
+	* tree-ssa.c: Don't include ssa.h.
+	* tree-ssa-live.c: Likewise.
+	* tree-ssa-pre.c: Likewise.
+	* tree-optimize.c: Likewise.
+
 2003-11-24  Jan Hubicka  <jh@suse.cz>
 
-	* fold-const.c (fold):  Do not return early when optimizing COMPONENT_REF
-	and constant.
+	* fold-const.c (fold):  Do not return early when
+	optimizing COMPONENT_REF and constant.
 
 2003-11-24  Richard Henderson  <rth@redhat.com>
 
