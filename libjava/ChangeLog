@@ -1,3 +1,9 @@
+2004-10-12  Mark Wielaard  <mark@klomp.org>
+
+	Workaround for bug #17952.
+	*  jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(request_frame_extents): Check window->window != NULL.
+
 2004-10-10  Mark Wielaard  <mark@klomp.org>
 
 	* jni/gtk-peer/gdkfont.h: Include gtkpeer.h not gtkcairopeer.h.
