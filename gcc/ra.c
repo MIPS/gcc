@@ -620,22 +620,7 @@ undef_to_bitmap (wp, undefined)
       case 0xff00 : *undefined = 0; return get_sub_conflicts (wp, 8, 8);
       case 0xfff0 : *undefined = 0xf0; return get_sub_conflicts (wp, 8, 8);
       case 0xffff : *undefined = 0; return get_sub_conflicts (wp, 16, 0);
-      default :
-	{
-	  unsigned HOST_WIDE_INT u = *undefined;
-	  int word;
-	  int size;
-	  
-	  for (word = 0; ! (u & 1); ++word)
-	    u >>= 1;
-	  for (size = 0; u & 1; ++size)
-	    u >>= 1;
-	  if (u)
-	    abort ();
-	  *undefined = u;
-	  return get_sub_conflicts (wp, size, word);
-	}
-	break;
+      default : break;
     }
   /* XXX */
   abort ();
@@ -2813,7 +2798,6 @@ ok (target, source)
      struct web *target, *source;
 {
   struct conflict_link *wl;
-  int i;
 
   /* Source is PRECOLORED.  We test here, if it isn't one of the fixed
      registers.  In this case we disallow the coalescing.
@@ -2827,11 +2811,11 @@ ok (target, source)
   if (TEST_HARD_REG_BIT (never_use_colors, source->color))
     return 0;
 
-  /* We can't coalesce target with the precolored registers which isn't in
-     usable_regs.  */
-  for (i = target->add_hardregs; i >= 0; --i)
-    if (!TEST_HARD_REG_BIT (usable_regs[target->regclass], source->color + i))
-      return 0;
+  /* XXX we can't right now combine a web with a hard-reg to a web
+     with a multi-word pseudo, cause we get the conflicts wrong (we forget
+     to add the other hard-regs to the conflicts, and only see the first).  */
+  if (source->add_hardregs != target->add_hardregs)
+    return 0;
 
   for (wl = target->conflict_list; wl; wl = wl->next)
     {
@@ -2942,64 +2926,30 @@ combine (u, v)
   u->is_coalesced = 1;
   v->is_coalesced = 1;
   merge_moves (u, v);
-  /* combine add_hardregs's of U and V.  */
-  if (u->type == PRECOLORED)
+  /* XXX combine add_hardregs's of U and V.  */
+  for (wl = v->conflict_list; wl; wl = wl->next)
     {
-      int i;
-      struct web *web;
-
-      for (i = 0; i <= v->add_hardregs; ++i)
-	{
-	  web = hardreg2web [i + u->color];
-	  for (wl = v->conflict_list; wl; wl = wl->next)
+      struct web *pweb = wl->t;
+      if (pweb->type != SELECT && pweb->type != COALESCED)
+        {
+	  if (wl->sub == NULL)
+	    record_conflict (u, pweb);
+	  else
 	    {
-	      struct web *pweb = wl->t;
-	      if (pweb->type != SELECT && pweb->type != COALESCED)
-		{
-		  if (wl->sub == NULL)
-		    record_conflict (pweb, web);
-		  else
-		    {
-		      struct sub_conflict *sl;
-		      for (sl = wl->sub; sl; sl = sl->next)
-			record_conflict (u, sl->t);
-		    }
-		}
+	      struct sub_conflict *sl;
+	      /* So, between V and PWEB there are sub_conflicts.  We need
+		 to relocate those conflicts to be between U and PWEB.
+		 In the case only a part of V conflicted with (part of) PWEB
+		 we nevertheless make the new conflict between the whole U and
+		 the (part of) PWEB.  Later we might try to find in U the
+		 correct subpart corresponding (by size and offset) to the
+		 part of V (sl->s) which was the source of the conflict.  */
+	      for (sl = wl->sub; sl; sl = sl->next)
+		record_conflict (u, sl->t);
 	    }
-	}
-
-      for (wl = v->conflict_list; wl; wl = wl->next)
-	{
-	  struct web *pweb = wl->t;
-	  if (pweb->type != SELECT && pweb->type != COALESCED)
-	    decrement_degree (pweb, 1 + v->add_hardregs);
-	}
+	  decrement_degree (pweb, 1 + v->add_hardregs);
+        }
     }
-  else
-    for (wl = v->conflict_list; wl; wl = wl->next)
-      {
-	struct web *pweb = wl->t;
-	if (pweb->type != SELECT && pweb->type != COALESCED)
-	  {
-	    if (wl->sub == NULL)
-	      record_conflict (u, pweb);
-	    else
-	      {
-		struct sub_conflict *sl;
-		/* So, between V and PWEB there are sub_conflicts.  We need
-		   to relocate those conflicts to be between U and PWEB.
-		   In the case only a part of V conflicted with (part of) PWEB
-		   we nevertheless make the new conflict between the whole U
-		   and the (part of) PWEB.  Later we might try to find in U the
-		   correct subpart corresponding (by size and offset) to the
-		   part of V (sl->s) which was the source of the conflict.  */
-		for (sl = wl->sub; sl; sl = sl->next)
-		  record_conflict (u, sl->t);
-	      }
-	    decrement_degree (pweb, 1 + v->add_hardregs);
-	  }
-      }
-  
   if (u->num_conflicts >= NUM_REGS (u) && u->type == FREEZE)
     {
       remove_list (u->dlink, &freeze_wl);
@@ -3048,7 +2998,7 @@ coalesce (void)
       add_worklist (target);
     }
   else if ((source->type == PRECOLORED && ok (target, source))
-	   || (source->type != PRECOLORED && conservative (target, source)))
+	   || (source->type != PRECOLORED /*&& conservative (target, source) */))
     {
       remove_move (source, m);
       remove_move (target, m);
@@ -3691,18 +3641,8 @@ rewrite_program (void)
 		  dest = gen_rtx_MEM (GET_MODE (source),
 				      plus_constant (XEXP (dest, 0),
 						     SUBREG_BYTE (source)));
-		  emit_insn (gen_move_insn (dest, source));
 		}
-	      else
-		{
-		  rtx reg = gen_reg_rtx (GET_MODE (source));
-		  if (validate_change (insn, DF_REF_LOC (web->defs[j]),
-					reg, 0))
-		    emit_insn (gen_move_insn (dest, reg));
-		  else
-		    emit_insn (gen_move_insn (dest, source));
-		}
-		
+	      emit_insn (gen_move_insn (dest, source));
 	      insns = get_insns ();
 	      end_sequence ();
 	      emit_insns_after (insns, insn);
@@ -3763,19 +3703,8 @@ rewrite_program (void)
 		  source = gen_rtx_MEM (GET_MODE (target),
 					plus_constant (XEXP (source, 0),
 						       SUBREG_BYTE (target)));
-		  emit_insn (gen_move_insn (target, source));
 		}
-	      else
-		{
-		  rtx reg = gen_reg_rtx (GET_MODE (target));
-
-		  if (validate_change (insn, DF_REF_LOC (web->uses[j]),
-					reg, 0))
-		    emit_insn (gen_move_insn (reg ,source));
-		  else
-		    emit_insn (gen_move_insn (target, source));
-		}
-
+	      emit_insn (gen_move_insn (target, source));
 	      insns = get_insns ();
 	      end_sequence ();
 	      emit_insns_before (insns, insn);

@@ -1,3 +1,8 @@
+2001-08-03  Daniel Berlin  <dan@cgsoftware.com>
+
+	* ra.c (coalesce): Comment out conservative test, in preparation
+	for optimistic coalescing. Also fixes x86 (though this is a side effect).
+
 Wed Aug  1 23:40:05 2001  Denis Chertykov  <denisc@overta.ru>
 
 	* ra.c (undef_to_bitmap): Handle more variants of *undefined.
