@@ -28,6 +28,7 @@ if [ "${shared}" = "yes" ]; then
     powerpc*-*-aix*)	;;
     powerpc*-*-*)	frags="${frags} ../../config/mh-ppcpic" ;;
     sparc*-*-*)		frags="${frags} ../../config/mh-sparcpic" ;;
+    s390*-*-*)		frags="${frags} ../../config/mh-s390pic" ;;
     *-*-*)		frags="${frags} ../../config/mh-${host_cpu}pic" ;;
   esac
 fi

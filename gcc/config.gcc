@@ -2971,7 +2971,7 @@ rs6000-*-lynxos*)
 	;;
 s390-*-linux*)
 	tm_file="s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
-	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	;;
 s390x-*-linux*)
@@ -2979,7 +2979,7 @@ s390x-*-linux*)
 	tm_p_file=s390/s390-protos.h
 	md_file=s390/s390.md
 	out_file=s390/s390.c
-	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux s390/t-linux64"
+	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux64"
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	;;
 sh-*-elf*)
