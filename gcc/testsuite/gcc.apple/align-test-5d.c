@@ -1,8 +1,11 @@
 /* APPLE LOCAL file Macintosh alignment */
 /* align-test-5*.c are all the same code but with different options.  */
 
-/* { dg-do run { target "powerpc-*-darwin*" } } */
-/* { dg-options "-malign-natural -DSIZE=16" } */
+/* { dg-do run { target "i?86-*-darwin*" } } */
+/* { dg-options "-malign-natural -DSIZE=12" } */
+
+/* This is for Intel only. */
+/* { dg-xfail-if "" { powerpc*-*-darwin* } { "" } { "" } } */
 
 /*
  * GCC alignment test for command line options for setting alignment modes.

@@ -1,3 +1,15 @@
+2005-03-03  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3897244
+	* gcc.apple/align-test-1.c:  Adjust for x86.
+	* gcc.apple/align-test-2.c:  Adjust for x86.
+	* gcc.apple/align-test-3.c:  Adjust for x86.
+	* gcc.apple/align-test-4.c:  Adjust for x86.
+	* gcc.apple/align-test-5a.c:  Adjust for x86.
+	* gcc.apple/align-test-5d.c:  New.
+	* g++.dg/align-test-1.C:  Adjust for x86.
+	* g++.old-deja/g++.abi/align.C:  Enable for darwin x86.
+
 2005-03-02  Robert Bowdidge <bowdidge@apple.com>
 	Radar 4025923
 	* g++.dg/kext11.C: add new test for ptmf casts in kexts
