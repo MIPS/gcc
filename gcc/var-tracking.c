@@ -22,23 +22,17 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-
 #include "rtl.h"
-#include "basic-block.h"
 #include "tree.h"
+#include "basic-block.h"
 #include "output.h"
 #include "sbitmap.h"
 #include "fibheap.h"
 #include "hashtab.h"
 
-#define IN_OUT_SIZE (FIRST_PSEUDO_REGISTER + 1)
-#define MEMORY_VAR FIRST_PSEUDO_REGISTER
-
-#define DEBUG_REG_LOC 1
-#define DEBUG_MEM_LOC 1
-
-#define VARIABLE_P(DECL) (TREE_CODE (DECL) == VAR_DECL		\
-			  || TREE_CODE (DECL) == PARM_DECL)
+#define DEBUG_REG_LOC 0
+#define DEBUG_MEM_LOC 0
+/*#define DEBUG_LENGTH 10*/
 
 /* The purpose that the location (REG or MEM) has in RTL.  */
 enum location_type
@@ -104,9 +98,9 @@ typedef struct emit_note_data_def
 /* The variables that are stored in a register are remembered in a link-list
    because there should not be many variables in one register so
    the link-list would be the fastest solution.  */
-/* The variables stored in memory are NOW also remembered in a link-list.
-   This will be changed to some better data structure because there can be
-   many variables in function (stored in memory).  */
+/* The variables stored in memory are remembered in a hash table, locations for
+   each variable are remembered in a link-list.  */
+/* TODO: Replace the link-lists by splay-trees?  */
 
 /* The node of the link-list for describing the attributes of a variable.  */
 typedef struct attrs_list_def
@@ -134,16 +128,18 @@ typedef struct var_tracking_info_def
   /* The array of locations.  */
   location *locs;
 
-  /* Input attributes (lists of attrs).  */
-  attrs_list in[IN_OUT_SIZE];
+  /* Input attributes for registers (lists of attrs).  */
+  attrs_list in[FIRST_PSEUDO_REGISTER];
 
-  /* Output attributes.  */
-  attrs_list out[IN_OUT_SIZE];
+  /* Input attributes for memory.  */
+  htab_t mem_in;
+
+  /* Output attributes for registers.  */
+  attrs_list out[FIRST_PSEUDO_REGISTER];
+
+  /* Output attributes for memory.  */
+  htab_t mem_out;
 } *var_tracking_info;
-
-#define VTI(BB) ((var_tracking_info) (BB)->aux)
-
-#define MAX_LOC 16
 
 /* Structure for description of one part of variable location.  */
 typedef struct location_part_def
@@ -158,6 +154,9 @@ typedef struct location_part_def
   bool delete_p;
 } location_part;
 
+/* Maximum number of location parts.  */
+#define MAX_LOC_PARTS 16
+
 /* Structure for description where the variable is located.  */
 typedef struct variable_def
 {
@@ -168,7 +167,7 @@ typedef struct variable_def
   int n_location_parts;
 
   /* The locations.  */
-  location_part location_part[MAX_LOC];
+  location_part location_part[MAX_LOC_PARTS];
 
   /* Changed?  */
   bool changed;
@@ -177,55 +176,135 @@ typedef struct variable_def
 /* The hashtable of STRUCT VARIABLE_DEF.  */
 static htab_t variable_htab;
 
+/* Is DECL a named variable or parameter of function?  */
+#define VARIABLE_P(DECL) ((TREE_CODE (DECL) == VAR_DECL			\
+			   || TREE_CODE (DECL) == PARM_DECL)		\
+			  && DECL_NAME (DECL))
+
+/* Hash function for MEM_IN and MEM_OUT.  */
+#define MEM_HASH_VAL(mem) ((size_t) MEM_ALIAS_SET (mem))
+
+/* Hash function for VARIABLE_HTAB.  */
+#define VARIABLE_HASH_VAL(decl) ((size_t) decl)
+
+/* Get the pointer to the BB's information specific to var-tracking pass.  */
+#define VTI(BB) ((var_tracking_info) (BB)->aux)
+
 /* Local function prototypes.  */
+static hashval_t mem_htab_hash		PARAMS ((const void *));
+static int mem_htab_eq			PARAMS ((const void *, const void *));
+static hashval_t variable_htab_hash	PARAMS ((const void *));
+static int variable_htab_eq		PARAMS ((const void *, const void *));
+
 static void init_attrs_list_set		PARAMS ((attrs_list *));
 static void attrs_list_clear		PARAMS ((attrs_list *));
 static attrs_list attrs_list_member	PARAMS ((attrs_list, tree,
 						 HOST_WIDE_INT));
-static attrs_list attrs_list_member_alias	PARAMS ((attrs_list,
-							 HOST_WIDE_INT,
-							 HOST_WIDE_INT));
 static void attrs_list_insert		PARAMS ((attrs_list *, tree,
-                                               HOST_WIDE_INT, rtx));
+						 HOST_WIDE_INT, rtx));
 static void attrs_list_delete		PARAMS ((attrs_list *, tree,
-                                               HOST_WIDE_INT));
-static void attrs_list_delete_alias	PARAMS ((attrs_list *, HOST_WIDE_INT,
-                                               HOST_WIDE_INT));
+						 HOST_WIDE_INT));
 static void attrs_list_copy		PARAMS ((attrs_list *, attrs_list));
+static void attrs_list_union		PARAMS ((attrs_list *,attrs_list));
 static bool attrs_list_different	PARAMS ((attrs_list, attrs_list));
-static bool attrs_list_different_alias	PARAMS ((attrs_list, attrs_list));
+
+static void attrs_htab_insert		PARAMS ((htab_t, rtx));
+static void attrs_htab_delete		PARAMS ((htab_t, rtx));
+static int attrs_htab_different_1	PARAMS ((void **, void *));
+static bool attrs_htab_different	PARAMS ((htab_t, htab_t));
+static int attrs_htab_copy_1		PARAMS ((void **, void *));
+static void attrs_htab_copy		PARAMS ((htab_t, htab_t));
+static int attrs_htab_union_1		PARAMS ((void **, void *));
+static void attrs_htab_union		PARAMS ((htab_t, htab_t));
+static void attrs_htab_clear		PARAMS ((htab_t));
+static void attrs_htab_cleanup		PARAMS ((void *));
 
 static int scan_for_locations		PARAMS ((rtx *, void *));
 static bool compute_bb_dataflow		PARAMS ((basic_block));
 static void hybrid_search		PARAMS ((basic_block, sbitmap,
-                                               sbitmap));
+						 sbitmap));
 static void iterative_dataflow		PARAMS ((int *));
+static inline void dump_attrs_list	PARAMS ((attrs_list));
+static int dump_mem_attrs_list		PARAMS ((void **, void *));
 static void dump_attrs_list_sets	PARAMS ((void));
 
-static hashval_t variable_htab_hash	PARAMS ((const void *));
-static int variable_htab_eq		PARAMS ((const void *, const void *));
 static void note_insn_var_location_emit	PARAMS ((rtx, enum where_emit_note,
-                                               variable));
+						 variable));
 static void set_location_part		PARAMS ((tree, HOST_WIDE_INT, rtx,
-                                               rtx, enum where_emit_note));
+						 rtx, enum where_emit_note));
 static void delete_location_part	PARAMS ((tree, HOST_WIDE_INT, rtx,
-                                               enum where_emit_note));
+						 enum where_emit_note));
 static int process_location_parts	PARAMS ((void **, void *));
 static void emit_note_if_var_changed	PARAMS ((void **, void *));
+static inline void process_bb_delete	PARAMS ((attrs_list *, htab_t, int,
+						 rtx, rtx,
+						 enum where_emit_note));
 static void process_bb			PARAMS ((basic_block));
+static int mark_variables_for_deletion	PARAMS ((void **, void *));
+static int add_and_unmark_variables	PARAMS ((void **, void *));
 static void var_tracking_emit_notes	PARAMS ((void));
 
 static void var_tracking_initialize	PARAMS ((void));
 static void var_tracking_finalize	PARAMS ((void));
 
+/* Return the hash value for X.  */
+
+static hashval_t
+mem_htab_hash (x)
+     const void *x;
+{
+  const attrs_list list = (const attrs_list) x;
+
+  return (MEM_HASH_VAL (list->loc));
+}
+
+/* Shall X and Y go to the same hash slot?  */
+
+static int
+mem_htab_eq (x, y)
+     const void *x;
+     const void *y;
+{
+  const attrs_list list = (const attrs_list) x;
+  const rtx mem = (const rtx) y;
+
+  return (MEM_HASH_VAL (list->loc) == MEM_HASH_VAL (mem));
+}
+
+/* The hash function for variable_htab, computes the hash value
+   of the variable X declaration.  */
+
+static hashval_t
+variable_htab_hash (x)
+     const void *x;
+{
+  const variable v = (const variable) x;
+
+  return (VARIABLE_HASH_VAL (v->decl));
+}
+
+/* Compare the declaration of variable X with declaration Y.  */
+
+static int
+variable_htab_eq (x, y)
+     const void *x;
+     const void *y;
+{
+  const variable v = (const variable) x;
+  const tree decl = (const tree) y;
+
+  return (VARIABLE_HASH_VAL (v->decl) == VARIABLE_HASH_VAL (decl));
+}
+
 /* Initialize the set (array) SET of the attrs_lists to empty lists.  */
 
-static void init_attrs_list_set (set)
+static void
+init_attrs_list_set (set)
      attrs_list *set;
 {
   int i;
 
-  for (i = 0; i < IN_OUT_SIZE; i++)
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     set[i] = NULL;
 }
 
@@ -255,21 +334,6 @@ attrs_list_member (list, decl, offset)
 {
   for (; list; list = list->next)
     if (list->decl == decl && list->offset == offset)
-      return list;
-  return NULL;
-}
-
-/* Return true if there is a node in the list LIST that has the memory alias
-   set of node->loc same as ALIAS and the offset equal to OFFSET.  */
-
-static attrs_list
-attrs_list_member_alias (list, alias, offset)
-     attrs_list list;
-     HOST_WIDE_INT alias;
-     HOST_WIDE_INT offset;
-{
-  for (; list; list = list->next)
-    if (MEM_ALIAS_SET (list->loc) == alias && list->offset == offset)
       return list;
   return NULL;
 }
@@ -319,33 +383,6 @@ attrs_list_delete (listp, decl, offset)
     }
 }
 
-/* Delete all occurences from the list *LISTP that have the offset equal to
-   OFFSET and memory alias set of node->loc equal to ALIAS.  */
-
-static void
-attrs_list_delete_alias (listp, alias, offset)
-     attrs_list *listp;
-     HOST_WIDE_INT alias;
-     HOST_WIDE_INT offset;
-{
-  attrs_list list, next_list, prev_list = NULL;
-
-  for (list = *listp; list; list = next_list)
-    {
-      next_list = list->next;
-      if (MEM_ALIAS_SET (list->loc) == alias && list->offset == offset)
-	{
-	  if (prev_list)
-	    prev_list->next = next_list;
-	  else
-	    *listp = next_list;
-	  free (list);
-	}
-      else
-	prev_list = list;
-    }
-}
-
 /* Make a copy of all nodes from SRC and make a list *DSTP of the copies.  */
 
 static void
@@ -366,7 +403,24 @@ attrs_list_copy (dstp, src)
       n->next = *dstp;
       *dstp = n;
     }
-  /*printf ("%d\n", i);*/
+#ifdef DEBUG_LENGTH
+  if (i >= DEBUG_LENGTH)
+    printf ("l=%d\n", i);
+#endif
+}
+
+/* Add all nodes from SRC which are not in *DSTP to *DSTP.  */
+
+static void
+attrs_list_union (dstp, src)
+     attrs_list *dstp;
+     attrs_list src;
+{
+  for (; src; src = src->next)
+    {
+      if (!attrs_list_member (*dstp, src->decl, src->offset))
+	attrs_list_insert (dstp, src->decl, src->offset, src->loc);
+    }
 }
 
 /* Return true if the lists A and B do not have the same DECL and OFFSET values
@@ -390,25 +444,243 @@ attrs_list_different (a, b)
   return false;
 }
 
-/* Return true if the lists A and B do not have the same OFFSETs
-   and memory alias sets loc in nodes.  */
+/* Insert MEM attributes to appropriate list in HTAB.  */
+
+static void
+attrs_htab_insert (htab, mem)
+     htab_t htab;
+     rtx mem;
+{
+  attrs_list list, *listp;
+
+  listp = (attrs_list *) htab_find_slot_with_hash (htab, mem,
+						   MEM_HASH_VAL (mem),
+						   NO_INSERT);
+  if (!listp)
+    {
+      listp = (attrs_list *) htab_find_slot_with_hash (htab, mem,
+						       MEM_HASH_VAL (mem),
+						       INSERT);
+    }
+
+  list = xmalloc (sizeof (*list));
+  list->loc = mem;
+  list->decl = MEM_EXPR (mem);
+  list->offset = MEM_OFFSET (mem) ? INTVAL (MEM_OFFSET (mem)) : 0;
+  list->next = *listp;
+  *listp = list;
+}
+
+/* Delete MEM attributes from HTAB.  */
+
+static void
+attrs_htab_delete (htab, mem)
+     htab_t htab;
+     rtx mem;
+{
+  attrs_list list, next_list, prev_list;
+  attrs_list *listp;
+  HOST_WIDE_INT offset;
+  tree decl;
+
+  listp = (attrs_list *) htab_find_slot_with_hash (htab, mem,
+						   MEM_HASH_VAL (mem),
+						   NO_INSERT);
+  if (!listp)
+    return;
+
+  offset = MEM_OFFSET (mem) ? INTVAL (MEM_OFFSET (mem)) : 0;
+  decl = MEM_EXPR (mem);
+
+  for (list = *listp; list; list = list->next)
+    if (list->decl != decl || list->offset != offset)
+      break;
+
+  if (list)	/* There is at least 1 node that will not be deleted.  */
+    {
+      prev_list = NULL;
+      for (list = *listp; list; list = next_list)
+	{
+	  next_list = list->next;
+	  if (list->decl == decl && list->offset == offset)
+	    {
+	      if (prev_list)
+		prev_list->next = next_list;
+	      else
+		*listp = next_list;
+	      free (list);
+	    }
+	  else
+	    prev_list = list;
+	}
+    }
+  else
+    {
+      htab_clear_slot (htab, (void **) listp);
+    }
+}
+
+/* Flag whether two hash-tables being compared contain different data.  */
+static bool
+attrs_htab_different_value;
+
+/* Compare one SLOT with the corresponding slot from hash-table DATA.  */
+   
+static int
+attrs_htab_different_1 (slot, data)
+     void **slot;
+     void *data;
+{
+  htab_t htab = (htab_t) data;
+  attrs_list list1, list2, list;
+
+  list1 = *(attrs_list *) slot;
+  list2 = (attrs_list) htab_find_with_hash (htab, list1->loc,
+					    MEM_HASH_VAL (list1->loc));
+
+  if (!list1)
+    abort ();
+  for (; list1; list1 = list1->next)
+    {
+      for (list = list2; list; list = list->next)
+	if (list->decl == list1->decl && list->offset == list1->offset)
+	  break;
+      if (!list)
+	{
+	  attrs_htab_different_value = true;
+	  return 0;
+	}
+    }
+  return 1;
+}
+
+/* Return true if HTAB1 and HTAB2 contain different data.  */
 
 static bool
-attrs_list_different_alias (a, b)
-     attrs_list a;
-     attrs_list b;
+attrs_htab_different (htab1, htab2)
+     htab_t htab1;
+     htab_t htab2;
 {
-  attrs_list i;
+  attrs_htab_different_value = false;
+  htab_traverse (htab1, attrs_htab_different_1, htab2);
+  if (!attrs_htab_different_value)
+    htab_traverse (htab2, attrs_htab_different_1, htab1);
 
-  for (i = a; i; i = i->next)
-    if (!attrs_list_member_alias (b, MEM_ALIAS_SET (i->loc), i->offset))
-      return true;
+  return attrs_htab_different_value;
+}
 
-  for (i = b; i; i = i->next)
-    if (!attrs_list_member_alias (a, MEM_ALIAS_SET (i->loc), i->offset))
-      return true;
+/* Copy one SLOT to hash-table DATA.  */
 
-  return false;
+static int
+attrs_htab_copy_1 (slot, data)
+     void **slot;
+     void *data;
+{
+  htab_t dst = (htab_t) data;
+  attrs_list src, *dstp, list;
+  int i;
+
+  src = *(attrs_list *) slot;
+  dstp = (attrs_list *) htab_find_slot_with_hash (dst, src->loc,
+						  MEM_HASH_VAL (src->loc),
+						  INSERT);
+  for (i = 0; src; src = src->next, i++)
+    {
+      list = xmalloc (sizeof (*list));
+      list->loc = src->loc;
+      list->decl = src->decl;
+      list->offset = src->offset;
+      list->next = *dstp;
+      *dstp = list;
+    }
+#ifdef DEBUG_LENGTH
+  if (i >= DEBUG_LENGTH)
+    printf ("L=%d\n", i);
+#endif
+  return 1;
+}
+
+/* Copy the content of hash-table SRC to DST.  */
+
+static void
+attrs_htab_copy (dst, src)
+     htab_t dst;
+     htab_t src;
+{
+  attrs_htab_clear (dst);
+  htab_traverse (src, attrs_htab_copy_1, dst);
+}
+
+/* Add all nodes from list in SLOT which are not in hash DATA to DATA.  */
+
+static int
+attrs_htab_union_1 (slot, data)
+     void **slot;
+     void *data;
+{
+  htab_t htab = (htab_t) data;
+  attrs_list src, *dstp, list;
+
+  src = *(attrs_list *) slot;
+  dstp = (attrs_list *) htab_find_slot_with_hash (htab, src->loc,
+						  MEM_HASH_VAL (src->loc),
+						  NO_INSERT);
+  if (!dstp)
+    {
+      dstp = (attrs_list *) htab_find_slot_with_hash (htab, src->loc,
+						      MEM_HASH_VAL (src->loc),
+						      INSERT);
+    }
+  for (; src; src = src->next)
+    {
+      for (list = *dstp; list; list = list->next)
+	if (list->decl == src->decl && list->offset == src->offset)
+	  break;
+      if (!list)
+	{
+	  list = xmalloc (sizeof (*list));
+	  list->loc = src->loc;
+	  list->decl = src->decl;
+	  list->offset = src->offset;
+	  list->next = *dstp;
+	  *dstp = list;
+	}
+    }
+  return 1;
+}
+
+/* Add all nodes from SRC which are not in hash DST to DST.  */
+
+static void
+attrs_htab_union (dst, src)
+     htab_t dst;
+     htab_t src;
+{
+  htab_traverse (src, attrs_htab_union_1, dst);
+}
+
+/* Delete all data from HTAB.  */
+
+static void
+attrs_htab_clear (htab)
+     htab_t htab;
+{
+  htab_empty (htab);
+}
+
+/* Delete data from SLOT.  */
+
+static void
+attrs_htab_cleanup (slot)
+     void *slot;
+{
+  attrs_list list, next_list;
+
+  for (list = (attrs_list) slot; list; list = next_list)
+    {
+      next_list = list->next;
+      free (list);
+    }
 }
 
 /* Scan rtx X for registers and memory references. Other parameters are
@@ -435,8 +707,10 @@ scan_for_locations (x, data)
 	switch (GET_CODE (*x))
 	  {
 	    case REG:
+#ifdef ENABLE_CHECKING
 	      if (REGNO (*x) >= FIRST_PSEUDO_REGISTER)
 		abort ();
+#endif
 	      VTI (bb)->n_locs++;
 	      /* Continue traversing.  */
 	      return 0;
@@ -458,12 +732,12 @@ scan_for_locations (x, data)
 	  {
 	    case SET:
 	      old_type = d->type;
-	      d->type = LT_SET_DEST;
-	      for_each_rtx (&SET_DEST (*x), scan_for_locations, data);
 	      d->type = LT_PARAM;
 	      for_each_rtx (&SET_SRC (*x), scan_for_locations, data);
+	      d->type = LT_SET_DEST;
+	      for_each_rtx (&SET_DEST (*x), scan_for_locations, data);
 	      d->type = old_type;
-	      /* Stop traversing.  */
+	      /* Do not traverse sub-expressions.  */
 	      return -1;
 
 	    case CLOBBER:
@@ -471,7 +745,7 @@ scan_for_locations (x, data)
 	      d->type = LT_CLOBBERED;
 	      for_each_rtx (&SET_DEST (*x), scan_for_locations, data);
 	      d->type = old_type;
-	      /* Stop traversing.  */
+	      /* Do not traverse sub-expressions.  */
 	      return -1;
 
 	    case REG:
@@ -479,7 +753,7 @@ scan_for_locations (x, data)
 	      l->loc = *x;
 	      l->insn = d->insn;
 	      l->type = d->type;
-	      /* Stop traversing.  */
+	      /* Do not traverse sub-expressions.  */
 	      return -1;
 
 	    case MEM:
@@ -497,7 +771,7 @@ scan_for_locations (x, data)
 		      d->type = LT_PARAM;
 		      for_each_rtx (x, scan_for_locations, data);
 		      d->type = old_type;
-		      /* Stop traversing.  */
+		      /* Do not traverse sub-expressions.  */
 		      return -1;
 		    }
 		}
@@ -523,16 +797,21 @@ compute_bb_dataflow (bb)
   int i, n;
   bool changed;
 
-  attrs_list old_out[IN_OUT_SIZE];
+  attrs_list old_out[FIRST_PSEUDO_REGISTER];
+  htab_t old_mem_out;
   attrs_list *in = VTI (bb)->in;
   attrs_list *out = VTI (bb)->out;
 
   init_attrs_list_set (old_out);
-  for (i = 0; i < IN_OUT_SIZE; i++)
+  old_mem_out = htab_create (htab_elements (VTI (bb)->mem_out) + 3,
+			     mem_htab_hash, mem_htab_eq, attrs_htab_cleanup);
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       attrs_list_copy (&old_out[i], out[i]);
       attrs_list_copy (&out[i], in[i]);
     }
+  attrs_htab_copy (old_mem_out, VTI (bb)->mem_out);
+  attrs_htab_copy (VTI (bb)->mem_out, VTI (bb)->mem_in);
 
   n = VTI (bb)->n_locs;
   for (i = 0; i < n; i++)
@@ -545,17 +824,18 @@ compute_bb_dataflow (bb)
 	  if (VTI (bb)->locs[i].type == LT_PARAM
 	      || VTI (bb)->locs[i].type == LT_SET_DEST)
 	    {
-	      if (REG_EXPR (loc))
+	      if (REG_EXPR (loc) && VARIABLE_P (REG_EXPR (loc)))
 		{
-		  tree decl = REG_EXPR (loc);
 		  attrs_list_insert (&out[REGNO (loc)], REG_EXPR (loc),
 				     REG_OFFSET (loc), loc);
 #if DEBUG_REG_LOC
 		  if (rtl_dump_file)
 		    {
+		      HOST_WIDE_INT offset = REG_OFFSET (loc);
+
 		      print_mem_expr (rtl_dump_file, REG_EXPR (loc));
+		      fprintf (rtl_dump_file, " O%ld ", offset);
 		      print_rtl_single (rtl_dump_file, loc);
-		      fprintf (rtl_dump_file, "\n");
 		    }
 #endif
 		}
@@ -573,19 +853,18 @@ compute_bb_dataflow (bb)
 	  if (rtl_dump_file)
 	    {
 	      print_mem_expr (rtl_dump_file, decl);
+	      fprintf (rtl_dump_file, " A%ld O%ld ", MEM_ALIAS_SET (loc), offset);
 	      print_rtl_single (rtl_dump_file, loc);
-	      fprintf (rtl_dump_file, "\n");
 	    }
 #endif
-	  attrs_list_delete_alias (&out[MEMORY_VAR], MEM_ALIAS_SET (loc),
-				   offset);
+	  attrs_htab_delete (VTI (bb)->mem_out, loc);
 	  if (VTI (bb)->locs[i].type == LT_PARAM
 	      || VTI (bb)->locs[i].type == LT_SET_DEST)
 	    {
 	      /* The variable is no longer in any register.  */
 	      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 		attrs_list_delete (&out[j], decl, offset);
-	      attrs_list_insert (&out[MEMORY_VAR], decl, offset, loc);
+	      attrs_htab_insert (VTI (bb)->mem_out, loc);
 	    }
 	}
     }
@@ -598,9 +877,11 @@ compute_bb_dataflow (bb)
 	break;
       }
   if (!changed)
-    changed = attrs_list_different_alias (old_out[MEMORY_VAR],
-					  out[MEMORY_VAR]);
+    changed = attrs_htab_different (old_mem_out, VTI (bb)->mem_out);
+
   attrs_list_clear (old_out);
+  attrs_htab_clear (old_mem_out);
+  htab_delete (old_mem_out);
   return changed;
 }
 
@@ -623,51 +904,32 @@ hybrid_search (bb, visited, pending)
   if (TEST_BIT (pending, bb->index))
     {
       /* Clear the IN list set.  */
-      for (i = 0; i < IN_OUT_SIZE; i++)
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	attrs_list_clear (&VTI (bb)->in[i]);
+      attrs_htab_clear (VTI (bb)->mem_in);
 
       /* Calculate the union of predecessor outs.  */
       for (e = bb->pred; e; e = e->pred_next)
 	{
 	  attrs_list *bb_in = VTI (bb)->in;
 	  attrs_list *pred_out = VTI (e->src)->out;
-	  attrs_list l;
 
 	  if (e->src == ENTRY_BLOCK_PTR)
 	    continue;
 
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	    {
-	      for (l = pred_out[i]; l; l = l->next)
-		{
-		  if (!attrs_list_member (bb_in[i], l->decl, l->offset))
-		    attrs_list_insert (&bb_in[i], l->decl, l->offset, l->loc);
-		}
-	    }
-	  for (l = pred_out[MEMORY_VAR]; l; l = l->next)
-	    {
-	      if (!attrs_list_member_alias (bb_in[MEMORY_VAR],
-					    MEM_ALIAS_SET (l->loc), l->offset))
-		attrs_list_insert (&bb_in[MEMORY_VAR], l->decl, l->offset,
-				   l->loc);
-	    }
+	    attrs_list_union (&bb_in[i], pred_out[i]);
+	  attrs_htab_union (VTI (bb)->mem_in, VTI (e->src)->mem_out);
 	}
-
-      if (0 && rtl_dump_file)
-	fprintf (rtl_dump_file, "Clearing pending %d\n", bb->index);
 
       RESET_BIT (pending, bb->index);
       changed = compute_bb_dataflow (bb);
       if (changed)
 	{
-	  if (0 && rtl_dump_file)
-	    fprintf (rtl_dump_file, "BB %d changed\n", bb->index);
 	  for (e = bb->succ; e != 0; e = e->succ_next)
 	    {
 	      if (e->dest == EXIT_BLOCK_PTR || e->dest->index == bb->index)
 		continue;
-	      if (0 && rtl_dump_file)
-		fprintf (rtl_dump_file, "Setting  pending %d\n", e->dest->index);
 	      SET_BIT (pending, e->dest->index);
 	    }
 	}
@@ -684,7 +946,7 @@ hybrid_search (bb, visited, pending)
 /* This function will perform iterative dataflow, producing the in and out
    sets.  It is the same as iterative_dataflow_bitmap in df.c but modified
    for different data structures.
-   BB_ORDER is the order to iterate in (Should map block numbers-> order).
+   BB_ORDER is the order to iterate in (Should map block numbers -> order).
    Because this is a forward dataflow problem we pass in a mapping of block
    number to rc_order (like df->inverse_rc_map).  */
 
@@ -709,8 +971,6 @@ iterative_dataflow (bb_order)
     }
   while (sbitmap_first_set_bit (pending) != -1)
     {
-      if (0 && rtl_dump_file)
-	fprintf (rtl_dump_file, "Iterative dataflow\n");
       while (!fibheap_empty (worklist))
 	{
 	  bb = fibheap_extract_min (worklist);
@@ -735,12 +995,38 @@ iterative_dataflow (bb_order)
   fibheap_delete (worklist);
 }
 
+/* Print the content of the LIST to dump file.  */
+
+static inline void
+dump_attrs_list (list)
+     attrs_list list;
+{
+  for (; list; list = list->next)
+    {
+      print_mem_expr (rtl_dump_file, list->decl);
+      fprintf (rtl_dump_file, "{%p}[", (void*) list->decl);
+      fprintf (rtl_dump_file, HOST_WIDE_INT_PRINT_DEC, list->offset);
+      fprintf (rtl_dump_file, "], ");
+    }
+}
+
+/* Print the content of the list in SLOT to dump file.  */
+
+static int
+dump_mem_attrs_list (slot, data)
+     void **slot;
+     void *data ATTRIBUTE_UNUSED;
+{
+  dump_attrs_list (*(attrs_list *) slot);
+  return 1;
+}
+
 /* Print the IN and OUT sets for each basic block to dump file.  */
 
 static void
 dump_attrs_list_sets ()
 {
-  int j;
+  int i;
   basic_block bb;
 
   FOR_EACH_BB (bb)
@@ -748,75 +1034,39 @@ dump_attrs_list_sets ()
       fprintf (rtl_dump_file, "\nBasic block %d:\n", bb->index);
 
       fprintf (rtl_dump_file, "  IN: ");
-      for (j = 0; j < IN_OUT_SIZE; j++)
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	{
-	  attrs_list l = VTI (bb)->in[j];
-
-	  if (l)
+	  if (VTI (bb)->in[i])
 	    {
-	      if (j < FIRST_PSEUDO_REGISTER)
-		fprintf (rtl_dump_file, "Reg %d:", j);
-	      else
-		fprintf (rtl_dump_file, "Mem:");
-	      for (; l; l = l->next)
-		{
-		  print_mem_expr (rtl_dump_file, l->decl);
-		  fprintf (rtl_dump_file, "[%d], ", l->offset);
-		}
+	      fprintf (rtl_dump_file, "Reg %d:", i);
+	      dump_attrs_list (VTI (bb)->in[i]);
 	      fprintf (rtl_dump_file, "; ");
 	    }
+	}
+      if (htab_elements (VTI (bb)->mem_in) > 0)
+	{
+	  fprintf (rtl_dump_file, "Mem:");
+	  htab_traverse (VTI (bb)->mem_in, dump_mem_attrs_list, NULL);
 	}
       fprintf (rtl_dump_file, "\n");
 
       fprintf (rtl_dump_file, "  OUT: ");
-      for (j = 0; j < IN_OUT_SIZE; j++)
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	{
-	  attrs_list l = VTI (bb)->out[j];
-
-	  if (l)
+	  if (VTI (bb)->out[i])
 	    {
-	      if (j < FIRST_PSEUDO_REGISTER)
-		fprintf (rtl_dump_file, "Reg %d:", j);
-	      else
-		fprintf (rtl_dump_file, "Mem:");
-	      for (; l; l = l->next)
-		{
-		  print_mem_expr (rtl_dump_file, l->decl);
-		  fprintf (rtl_dump_file, "[%d], ", l->offset);
-		}
+	      fprintf (rtl_dump_file, "Reg %d:", i);
+	      dump_attrs_list (VTI (bb)->out[i]);
 	      fprintf (rtl_dump_file, "; ");
 	    }
 	}
+      if (htab_elements (VTI (bb)->mem_out) > 0)
+	{
+	  fprintf (rtl_dump_file, "Mem:");
+	  htab_traverse (VTI (bb)->mem_out, dump_mem_attrs_list, NULL);
+	}
       fprintf (rtl_dump_file, "\n");
     }
-}
-
-/* Computes the hash value for DECL.  */
-#define HASH_VAL(decl) ((size_t) decl)
-
-/* The hash function for variable_htab, computes the hash value
-   of the variable X declaration.  */
-
-static hashval_t
-variable_htab_hash (x)
-     const void *x;
-{
-  const variable v = x;
-
-  return (HASH_VAL (v->decl));
-}
-
-/* Compare the declaration of variable X with declaration Y.  */
-
-static int
-variable_htab_eq (x, y)
-     const void *x;
-     const void *y;
-{
-  const variable v = x;
-  const tree decl = y;
-
-  return (v->decl == decl);
 }
 
 /* Emit the NOTE_INSN_VAR_LOCATION for variable VAR. WHERE specifies
@@ -830,8 +1080,11 @@ note_insn_var_location_emit (insn, where, var)
 {
   rtx note;
 
+#ifdef ENABLE_CHECKING
   if (!var->decl)
     abort ();
+#endif
+
   if (where == EMIT_NOTE_AFTER_INSN)
     note = emit_note_after (NOTE_INSN_VAR_LOCATION, insn);
   else
@@ -849,7 +1102,7 @@ note_insn_var_location_emit (insn, where, var)
   else if (var->n_location_parts)
     {
       int i;
-      rtx argp[MAX_LOC];
+      rtx argp[MAX_LOC_PARTS];
       rtx parallel;
       rtx var_location;
 
@@ -880,7 +1133,8 @@ set_location_part (decl, offset, loc, insn, where)
      enum where_emit_note where;
 {
   int k;
-  variable var = htab_find_with_hash (variable_htab, decl, HASH_VAL (decl));
+  variable var = htab_find_with_hash (variable_htab, decl,
+				      VARIABLE_HASH_VAL (decl));
   if (!var)
     {
       void **slot;
@@ -889,10 +1143,12 @@ set_location_part (decl, offset, loc, insn, where)
       var->decl = decl;
       var->n_location_parts = 0;
 
-      slot = htab_find_slot_with_hash (variable_htab, decl, HASH_VAL (decl),
-				       INSERT);
+      slot = htab_find_slot_with_hash (variable_htab, decl,
+				       VARIABLE_HASH_VAL (decl), INSERT);
+#ifdef ENABLE_CHECKING
       if (*slot)
 	abort ();
+#endif
       *slot = (void *) var;
       k = 0;
     }
@@ -906,12 +1162,14 @@ set_location_part (decl, offset, loc, insn, where)
   if (k == var->n_location_parts)
     {
       /* Did not find the part, create new one.  */
-      if (var->n_location_parts >= MAX_LOC)
+      if (var->n_location_parts >= MAX_LOC_PARTS)
 	return;
       var->n_location_parts++;
       var->location_part[k].offset = offset;
       var->location_part[k].loc = NULL;
     }
+
+  /* Mark the location part that it should not be deleted.  */
   var->location_part[k].delete_p = false;
   if (var->location_part[k].loc != loc)
     {
@@ -938,11 +1196,12 @@ delete_location_part (decl, offset, insn, where)
      enum where_emit_note where;
 {
   int i;
-  void **slot = htab_find_slot_with_hash (variable_htab, decl, HASH_VAL (decl),
-					  NO_INSERT);
+  void **slot = htab_find_slot_with_hash (variable_htab, decl,
+					  VARIABLE_HASH_VAL (decl), NO_INSERT);
   if (slot && *slot)
     {
-      variable var = *slot;
+      variable var = (variable) *slot;
+
       /* Delete the location part.  */
       for (i = 0; i < var->n_location_parts; i++)
 	if (var->location_part[i].offset == offset)
@@ -995,8 +1254,10 @@ emit_note_if_var_changed (slot, aux)
 {
   variable var = *slot;
   emit_note_data *data = (emit_note_data *) aux;
+
   if (var->n_location_parts == 0)
     var->changed = false;
+
   if (var->changed)
     {
       var->changed = false;
@@ -1004,6 +1265,45 @@ emit_note_if_var_changed (slot, aux)
     }
   if (var->n_location_parts == 0)
     htab_clear_slot (variable_htab, slot);
+}
+
+/* Delete the location part of variable corresponding to LOC from all
+   register locations (in LISTS) and memory locations (in HTAB) and emit
+   notes before/after (parameter WHERE) INSN. The location part which
+   has the same decl and offset as LOC is deleted from HTAB only when
+   DELETE_LOC_FROM_HTAB is true.  */
+
+static inline void
+process_bb_delete (lists, htab, delete_loc_from_htab, loc, insn, where)
+     attrs_list *lists;
+     htab_t htab;
+     int delete_loc_from_htab;
+     rtx loc;
+     rtx insn;
+     enum where_emit_note where;
+{
+  attrs_list list;
+  int i;
+
+  tree decl = MEM_EXPR (loc);
+  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
+
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    {
+      for (list = lists[i]; list; list = list->next)
+	if (list->offset == offset && list->decl == decl)
+	  delete_location_part (list->decl, list->offset, insn, where);
+      attrs_list_delete (&lists[i], decl, offset);
+    }
+
+  if (delete_loc_from_htab)
+    {
+      list = (attrs_list) htab_find_with_hash (htab, loc, MEM_HASH_VAL (loc));
+      for (; list; list = list->next)
+	if (list->offset == offset && list->decl == decl)
+	  delete_location_part (list->decl, list->offset, insn, where);
+      attrs_htab_delete (htab, loc);
+    }
 }
 
 /* Emit the notes for changes of location parts of a variable in the basic
@@ -1014,11 +1314,15 @@ process_bb (bb)
      basic_block bb;
 {
   int i, n;
-  attrs_list attrs[IN_OUT_SIZE];
+  attrs_list reg[FIRST_PSEUDO_REGISTER];
+  htab_t mem;
 
-  init_attrs_list_set (attrs);
-  for (i = 0; i < IN_OUT_SIZE; i++)
-    attrs_list_copy (&attrs[i], VTI (bb)->in[i]);
+  init_attrs_list_set (reg);
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    attrs_list_copy (&reg[i], VTI (bb)->in[i]);
+  mem = htab_create (htab_elements (VTI (bb)->mem_in) + 3, mem_htab_hash,
+			   mem_htab_eq, attrs_htab_cleanup);
+  attrs_htab_copy (mem, VTI (bb)->mem_in);
 
   n = VTI (bb)->n_locs;
   for (i = 0; i < n; i++)
@@ -1038,22 +1342,24 @@ process_bb (bb)
 	      case LT_PARAM:
 		where = EMIT_NOTE_BEFORE_INSN;
 	      case LT_SET_DEST:
-		for (l = attrs[REGNO (loc)]; l; l = l->next)
+		for (l = reg[REGNO (loc)]; l; l = l->next)
 		  if (l->decl != decl || l->offset != offset)
 		    delete_location_part (l->decl, l->offset, insn, where);
-		attrs_list_clear (&attrs[REGNO (loc)]);
-		if (decl)
+		attrs_list_clear (&reg[REGNO (loc)]);
+		if (decl && VARIABLE_P (decl))
 		  {
 		    set_location_part (decl, offset, loc, insn, where);
-		    attrs_list_insert (&attrs[REGNO (loc)], decl, offset, loc);
+		    attrs_list_insert (&reg[REGNO (loc)], decl, offset, loc);
 		  }
+		else
+		  delete_location_part (decl, offset, insn, where);
 		break;
 
 	      case LT_CLOBBERED:
-		for (l = attrs[REGNO (loc)]; l; l = l->next)
+		for (l = reg[REGNO (loc)]; l; l = l->next)
 		  delete_location_part (l->decl, l->offset, insn,
 					EMIT_NOTE_AFTER_INSN);
-		attrs_list_clear (&attrs[REGNO (loc)]);
+		attrs_list_clear (&reg[REGNO (loc)]);
 		break;
 	    }
 	}
@@ -1061,36 +1367,75 @@ process_bb (bb)
 	       && MEM_EXPR (loc)
 	       && VARIABLE_P (MEM_EXPR (loc)))
 	{
-	  attrs_list l;
-	  tree decl = MEM_EXPR (loc);
-	  HOST_WIDE_INT alias = MEM_ALIAS_SET (loc);
-	  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 	  enum where_emit_note where = EMIT_NOTE_AFTER_INSN;
+	  tree decl = MEM_EXPR (loc);
+	  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 
 	  switch (VTI (bb)->locs[i].type)
 	    {
 	      case LT_PARAM:
 		where = EMIT_NOTE_BEFORE_INSN;
 	      case LT_SET_DEST:
-		for (l = attrs[MEMORY_VAR]; l; l = l->next)
-		  if (MEM_ALIAS_SET (l->loc) == alias && l->offset == offset
-		      && l->decl != decl)
-		    delete_location_part (l->decl, l->offset, insn, where);
-		attrs_list_delete_alias (&attrs[MEMORY_VAR], alias, offset);
+		process_bb_delete (reg, mem, false, loc, insn, where);
 		set_location_part (decl, offset, loc, insn, where);
-		attrs_list_insert (&attrs[MEMORY_VAR], decl, offset, loc);
+		attrs_htab_insert (mem, loc);
 		break;
 
 	      case LT_CLOBBERED:
-		for (l = attrs[MEMORY_VAR]; l; l = l->next)
-		  if (MEM_ALIAS_SET (l->loc) == alias && l->offset == offset)
-		    delete_location_part (l->decl, l->offset, insn,
-					  EMIT_NOTE_AFTER_INSN);
-		attrs_list_delete_alias (&attrs[MEMORY_VAR], alias, offset);
+		process_bb_delete (reg, mem, true, loc, insn,
+				   EMIT_NOTE_AFTER_INSN);
 		break;
 	    }
 	}
     }
+  htab_delete (mem);
+}
+
+/* Mark the location parts for the variables from the list *SLOT
+   to be deleted.  */
+
+static int
+mark_variables_for_deletion (slot, data)
+     void **slot;
+     void *data ATTRIBUTE_UNUSED;
+{
+  attrs_list l;
+
+  for (l = *(attrs_list *) slot; l; l = l->next)
+    {
+      variable var = htab_find_with_hash (variable_htab, l->decl,
+					  VARIABLE_HASH_VAL (l->decl));
+      if (var)
+	{
+	  int k;
+	  for (k = 0; k < var->n_location_parts; k++)
+	    if (var->location_part[k].offset == l->offset)
+	      {
+		var->location_part[k].delete_p = true;
+		break;
+	      }
+	}
+    }
+  return 1;
+}
+
+/* Add the location parts for variables from the list *SLOT and emit notes
+   before insn DATA.  */
+
+static int
+add_and_unmark_variables (slot, data)
+     void **slot;
+     void *data;
+{
+  attrs_list l;
+  rtx insn = (rtx) data;
+
+  for (l = *(attrs_list *) slot; l; l = l->next)
+    {
+      set_location_part (l->decl, l->offset, l->loc, insn,
+			 EMIT_NOTE_BEFORE_INSN);
+    }
+  return 1;
 }
 
 /* Emit notes for the whole function.  */
@@ -1098,47 +1443,34 @@ process_bb (bb)
 static void
 var_tracking_emit_notes ()
 {
-  int j;
-  attrs_list *last_out, *in;
-  attrs_list empty[IN_OUT_SIZE];
   basic_block bb;
+  int i;
+  attrs_list *last_out, *in;
+  attrs_list empty[FIRST_PSEUDO_REGISTER];
+  htab_t last_htab;
 
   init_attrs_list_set (empty);
   last_out = empty;
+  last_htab = htab_create (7, mem_htab_hash, mem_htab_eq, attrs_htab_cleanup);
 
   FOR_EACH_BB (bb)
     {
-      attrs_list l;
       emit_note_data emit_note_data;
 
       /* Emit the notes for changes of variable locations between two
 	 sequential basic blocks.  */
       /* Mark the variables of previous OUT set.  */
-      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-	for (l = last_out[j]; l; l = l->next)
-	  {
-	    variable var = htab_find_with_hash (variable_htab, l->decl,
-						HASH_VAL (l->decl));
-	    if (var)
-	      {
-		int k;
-		for (k = 0; k < var->n_location_parts; k++)
-		  if (var->location_part[k].offset == last_out[j]->offset)
-		    {
-		      var->location_part[k].delete_p = true;
-		      break;
-		    }
-	      }
-	  }
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	mark_variables_for_deletion ((void **) &last_out[i], NULL);
+      htab_traverse (last_htab, mark_variables_for_deletion, NULL);
+
       /* Add the variables of IN set and unmark them.  */
       in = VTI (bb)->in;
-      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-	for (l = in[j]; l; l = l->next)
-	  {
-	    set_location_part (l->decl, l->offset, l->loc, bb->head,
-			       EMIT_NOTE_BEFORE_INSN);
-	  }
-      /* Emit the notes and delete the marked location parts.  */
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	add_and_unmark_variables ((void **) &in[i], bb->head);
+      htab_traverse (last_htab, add_and_unmark_variables, bb->head);
+
+      /* Delete the marked location parts and emit the notes.  */
       emit_note_data.insn = bb->head;
       emit_note_data.where = EMIT_NOTE_BEFORE_INSN;
       htab_traverse (variable_htab, process_location_parts, &emit_note_data);
@@ -1147,7 +1479,9 @@ var_tracking_emit_notes ()
       process_bb (bb);
 
       last_out = VTI (bb)->out;
+      attrs_htab_copy (last_htab, VTI (bb)->mem_out);
     }
+  htab_delete (last_htab);
 }
 
 /* Allocate and initialize the data structures for variable tracking
@@ -1194,8 +1528,8 @@ var_tracking_initialize ()
 	      data.insn = insn;
 	      n1 = VTI (bb)->n_locs;
 	      for_each_rtx (&PATTERN (insn), scan_for_locations, &data);
-
 	      n2 = VTI (bb)->n_locs - 1;
+
 	      /* Order the locations so that the locations of type LT_PARAM are
 		 before others.  */
 	      while (n1 < n2)
@@ -1212,6 +1546,7 @@ var_tracking_initialize ()
 		      VTI (bb)->locs[n2] = sw;
 		    }
 		}
+
 	      /* Now the LT_PARAMs are first, order the rest so that the
 		 LT_SET_DESTs are before LT_CLOBBEREDs.  */
 	      n2 = VTI (bb)->n_locs - 1;
@@ -1235,6 +1570,10 @@ var_tracking_initialize ()
       /* Init the IN and OUT arrays.  */
       init_attrs_list_set (VTI (bb)->in);
       init_attrs_list_set (VTI (bb)->out);
+      VTI (bb)->mem_in = htab_create (7, mem_htab_hash, mem_htab_eq,
+				      attrs_htab_cleanup);
+      VTI (bb)->mem_out = htab_create (7, mem_htab_hash, mem_htab_eq,
+				       attrs_htab_cleanup);
     }
 
   variable_htab = htab_create (37, variable_htab_hash, variable_htab_eq, free);
@@ -1252,11 +1591,13 @@ var_tracking_finalize ()
     {
       free (VTI (bb)->locs);
 
-      for (i = 0; i < IN_OUT_SIZE; i++)
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	{
 	  attrs_list_clear (&VTI (bb)->in[i]);
 	  attrs_list_clear (&VTI (bb)->out[i]);
 	}
+      htab_delete (VTI (bb)->mem_in);
+      htab_delete (VTI (bb)->mem_out);
     }
   free_aux_for_blocks ();
 }

@@ -1,5 +1,36 @@
 2003-01-16  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (IN_OUT_SIZE): Deleted.
+	(MEMORY_VAR): Deleted.
+	(struct var_tracking_info_def): Add new fields (hash tables).
+	(VARIABLE_P): New test for DECL_NAME.
+	(attrs_list_member_alias): Delete.
+	(attrs_list_delete_alias): Delete.
+	(attrs_list_different_alias): Delete.
+	(MEM_HASH_VAL): New macro.
+	(mem_htab_hash): New function.
+	(mem_htab_eq): New function.
+	(attrs_list_union): New function.
+	(attrs_htab_insert): New function.
+	(attrs_htab_delete): New function.
+	(attrs_htab_different_1): New function.
+	(attrs_htab_different): New function.
+	(attrs_htab_copy_1): New function.
+	(attrs_htab_copy): New function.
+	(attrs_htab_union_1): New function.
+	(attrs_htab_union): New function.
+	(attrs_htab_clear): New function.
+	(attrs_htab_cleanup): New function.
+	(dump_attrs_list): New function.
+	(dump_mem_attrs_list): New function.
+	(process_bb_delete): New function.
+	(mark_variables_for_deletion): New function.
+	(add_and_unmark_variables): New function.
+	(scan_for_locations): Scan SET_SRC before SET_DEST.
+	(*): Use hash tables from MEMs.
+
+2003-01-16  Josef Zlomek  <zlomekj@suse.cz>
+
 	* bb-reorder.c (copy_bb_p): Fix prototype and function header.
 
 2003-01-16  Josef Zlomek  <zlomekj@suse.cz>
