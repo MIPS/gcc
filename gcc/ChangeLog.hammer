@@ -1,3 +1,21 @@
+Mon Mar  3 16:35:42 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	Merge from mainline:
+	2003-02-24  Jeff Law  <law@redhat.com>
+
+		* i386.md (testdi_1_rex64): Discourage reload from using the %eax
+		alternative.
+		(testsi_1, testhi_1, testqi_1): Likewise.
+
+	2003-02-22  Josef Zlomek  <zlomekj@suse.cz>
+
+		* config/i386/i386.md: Use gen_lowpart instead of gen_rtx_REG
+		for copying a register.
+
+	Wed Feb 19 17:22:51 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+		* i386.md (movsfcc_1, movdfcc_1): Fix constrains.
+
 2003-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* profile.c (compute_value_histograms): Fix.
