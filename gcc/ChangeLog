@@ -1,3 +1,8 @@
+Fri Nov 12 13:28:58 1999  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* config/arm/arm.h (ARM_LEGITIMIZE_RELOAD_ADDRESS): Treat QImode
+	addresses the same way GO_IF_LEGITIMATE_INDEX does. 
+
 Wed Nov  3 10:04:07 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/semi.h (TARGET_VERSION): Do not define if already
