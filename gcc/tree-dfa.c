@@ -205,7 +205,7 @@ find_refs_in_stmt (t, bb)
   else
     {
       prep_stmt (t);
-      error ("Unhandled statement node in find_refs_in_stmt():");
+      error ("unhandled statement node in find_refs_in_stmt():");
       fprintf (stderr, "\n");
       tree_debug_bb (bb);
       fprintf (stderr, "\n");
@@ -438,7 +438,7 @@ find_refs_in_expr (expr, ref_type, bb, parent_stmt, parent_expr)
     default:
       {
 	prep_stmt (parent_stmt);
-	error ("Unhandled expression in find_refs_in_expr():");
+	error ("unhandled expression in find_refs_in_expr():");
 	debug_tree (expr);
 	fputs ("\n", stderr);
 	abort ();
