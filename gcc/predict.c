@@ -75,7 +75,6 @@ static void dump_prediction (FILE *, enum br_predictor, int, basic_block, int);
 static void estimate_loops_at_level (struct loop *loop);
 static void propagate_freq (struct loop *);
 static void estimate_bb_frequencies (struct loops *);
-static int counts_to_freqs (void);
 static void process_note_predictions (basic_block, int *);
 static void predict_paths_leading_to (basic_block, int *, enum br_predictor, enum prediction);
 static bool last_basic_block_p (basic_block);
@@ -448,11 +447,14 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
      this later.  */
   if (nedges != 2)
     {
-      for (e = bb->succ; e; e = e->succ_next)
-	if (!(e->flags & (EDGE_EH | EDGE_FAKE)))
-	  e->probability = (REG_BR_PROB_BASE + nedges / 2) / nedges;
-	else
-	  e->probability = 0;
+      if (!bb->count)
+	{
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (!(e->flags & (EDGE_EH | EDGE_FAKE)))
+	      e->probability = (REG_BR_PROB_BASE + nedges / 2) / nedges;
+	    else
+	      e->probability = 0;
+	}
       bb_ann (bb)->predictions = NULL;
       if (file)
 	fprintf (file, "%i edges in bb %i predicted to even probabilities\n",
@@ -523,8 +525,11 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
     }
   bb_ann (bb)->predictions = NULL;
 
-  first->probability = combined_probability;
-  second->probability = REG_BR_PROB_BASE - combined_probability;
+  if (!bb->count)
+    {
+      first->probability = combined_probability;
+      second->probability = REG_BR_PROB_BASE - combined_probability;
+    }
 }
 
 /* Predict edge probabilities by exploiting loop structure.
@@ -1662,7 +1667,7 @@ estimate_loops_at_level (struct loop *first_loop)
 /* Convert counts measured by profile driven feedback to frequencies.
    Return nonzero iff there was any nonzero execution count.  */
 
-static int
+int
 counts_to_freqs (void)
 {
   gcov_type count_max, true_count_max = 0;
