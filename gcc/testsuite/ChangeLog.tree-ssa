@@ -1,3 +1,8 @@
+2003-05-06  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-18.x: Expect execution
+	failures.
+
 2003-05-01  Jeff Law  <law@redhat.com>
 
 	* gcc.c-torture/execute/20030501-1.c: New test for tree-ssa bug.
