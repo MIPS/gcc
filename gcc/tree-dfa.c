@@ -236,7 +236,6 @@ get_stmt_operands (tree stmt)
       break;
 
       /* These nodes contain no variable references.  */
-    case LOOP_EXPR:
     case BIND_EXPR:
     case CASE_LABEL_EXPR:
     case TRY_CATCH_EXPR:

@@ -584,7 +584,7 @@ gimplify_c_loop (tree cond, tree body, tree incr, int cond_is_first)
   tree exit, cont_block, break_block, loop;
   const char *stmt_filename;
   int stmt_lineno;
-  tree stuff;
+  tree stuff, entry = NULL_TREE;
 
   stmt_filename = input_filename;
   stmt_lineno = input_line;
@@ -612,9 +612,19 @@ gimplify_c_loop (tree cond, tree body, tree incr, int cond_is_first)
   stuff = NULL_TREE;
   if (cond_is_first)
     {
-      add_tree (exit, &stuff);
-      add_tree (body, &stuff);
-      add_tree (incr, &stuff);
+      if (exit)
+	{
+	  entry = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+	  add_tree (body, &stuff);
+	  add_tree (incr, &stuff);
+	  add_tree (entry, &stuff);
+	  add_tree (exit, &stuff);
+	}
+      else
+	{
+	  add_tree (body, &stuff);
+	  add_tree (incr, &stuff);
+	}
     }
   else
     {
@@ -628,6 +638,12 @@ gimplify_c_loop (tree cond, tree body, tree incr, int cond_is_first)
   LOOP_EXPR_BODY (loop) = rationalize_compound_expr (stuff);
 
   loop = finish_bc_block (break_block, loop);
+  if (entry)
+    {
+      stuff = build_and_jump (&LABEL_EXPR_LABEL (entry));
+      add_tree (loop, &stuff);
+      loop = stuff;
+    }
 
   /* This catches do ... while (0) loops and eliminates their looping
      structure.  Conditions for detecting these loops:

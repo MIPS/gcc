@@ -272,9 +272,6 @@ typedef struct basic_block_def {
 /* Block contains a control flow expression.  */
 #define BB_CONTROL_EXPR		16
 
-/* Block contains a control flow expression for a loop.  */
-#define BB_LOOP_CONTROL_EXPR	32
-
 /* Number of basic blocks in the current function.  */
 
 extern int n_basic_blocks;

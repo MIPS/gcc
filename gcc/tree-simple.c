@@ -53,7 +53,6 @@ Boston, MA 02111-1307, USA.  */
    stmt: compound-stmt | non-compound-stmt
    non-compound-stmt:
      block
-     | loop-stmt
      | if-stmt
      | switch-stmt
      | jump-stmt
@@ -61,11 +60,6 @@ Boston, MA 02111-1307, USA.  */
      | try-stmt
      | modify-stmt
      | call-stmt
-   loop-stmt:
-     LOOP_EXPR
-       LOOP_EXPR_BODY -> stmt | NULL_TREE
-     | DO_LOOP_EXPR
-       (to be defined later)
    if-stmt:
      COND_EXPR
        op0 -> condition
@@ -359,7 +353,6 @@ is_gimple_stmt (tree t)
       /* These are only valid if they're void.  */
       return VOID_TYPE_P (TREE_TYPE (t));
 
-    case LOOP_EXPR:
     case SWITCH_EXPR:
     case GOTO_EXPR:
     case RETURN_EXPR:

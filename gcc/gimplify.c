@@ -83,7 +83,6 @@ static hashval_t gimple_tree_hash (const void *);
 static int gimple_tree_eq (const void *, const void *);
 static tree lookup_tmp_var (tree, bool);
 static tree internal_get_tmp_var (tree, tree *, bool);
-static tree build_and_jump (tree *);
 static tree shortcut_cond_expr (tree);
 static tree gimple_boolify (tree);
 static void gimplify_conversion (tree *);
@@ -1003,18 +1002,23 @@ gimplify_return_expr (tree stmt, tree *pre_p)
     }
 }
 
-/* Gimplify a LOOP_EXPR.  Normally this just involves gimplifying the body,
-   but if the loop contains an EXIT_EXPR, we need to append a label for it
-   to jump to.  */
+/* Gimplify a LOOP_EXPR.  Normally this just involves gimplifying the body
+   and replacing the LOOP_EXPR with goto, but if the loop contains an EXIT_EXPR,
+   we need to append a label for it to jump to.  */
 
 static void
 gimplify_loop_expr (tree *expr_p)
 {
   tree saved_label = gimplify_ctxp->exit_label;
+  tree start_label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+
   gimplify_ctxp->exit_label = NULL_TREE;
 
   gimplify_stmt (&LOOP_EXPR_BODY (*expr_p));
+  *expr_p = LOOP_EXPR_BODY (*expr_p);
 
+  add_tree (build_and_jump (&LABEL_EXPR_LABEL (start_label)), expr_p);
+  *expr_p = add_stmt_to_compound (start_label, *expr_p);
   if (gimplify_ctxp->exit_label)
     {
       tree expr = build1 (LABEL_EXPR, void_type_node,
@@ -1105,7 +1109,7 @@ gimplify_exit_block_expr (tree *expr_p)
 /* Build a GOTO to the LABEL_DECL pointed to by LABEL_P, building it first
    if necessary.  */
 
-static tree
+tree
 build_and_jump (tree *label_p)
 {
   if (label_p == NULL)

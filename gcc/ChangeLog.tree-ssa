@@ -1,3 +1,34 @@
+2003-09-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* basic-block.h (BB_LOOP_CONTROL_EXPR): Remove.
+	* c-simplify.c (gimplify_c_loop): Create loops in a better shape.
+	* cfgloop.h (create_loop_notes): Declare.
+	* cfgloopmanip.c (create_loop_notes): New.
+	* explow.c (probe_stack_range): Don't produce loop notes when we
+	recreate them.
+	* expr.c (emit_block_move_via_loop): Ditto.
+	* gimplify.c (build_and_jump): Export.
+	(gimplify_loop_expr): Don't produce LOOP_EXPRs.
+	* toplev.c (rest_of_compilation): Recreate loop notes if needed.
+	* tree-cfg.c (make_loop_expr_edges, make_loop_expr_blocks): Removed.
+	(find_contained_blocks, make_ctrl_stmt_edges,
+	remove_useless_stmts_and_vars, stmt_ends_bb_p, bsi_insert_before,
+	find_insert_location, bsi_insert_on_edge_immediate,
+	merge_tree_blocks): Remove handling of LOOP_EXPRs.
+	(remove_stmt): Remove handling of BB_LOOP_CONTROL_EXPR.
+	(find_taken_edge): Remove comment on LOOP_EXPRs.
+	(dump_tree_bb): Don't dump loop-related information.
+	(is_loop_stmt, is_latch_block_for): Removed.
+	(find_insert_location): Handle TRY_CATCH and TRY_FINALLY.
+	* tree-flow.h (is_loop_stmt, loop_body, set_loop_body,
+	is_latch_block_for): Removed.
+	* tree-dfa.c (get_stmt_operands): Don't handle LOOP_EXPRs.
+	* tree-simple.c (is_gimple_stmt): Remove handling of LOOP_EXPRs.
+	* tree-simple.h: Remove LOOP_EXPRs from gimple grammar comment.
+	(build_and_jump): Declare.
+	* tree-ssa.c (remove_annotations_r): Don't handle LOOP_EXPRs.
+
 2003-08-29  Daniel Berlin  <dberlin@dberlin.org>
 
 	* opts.c (decode_options): Turn on SSAPRE by default.

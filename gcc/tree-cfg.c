@@ -85,7 +85,6 @@ static void create_block_annotation (basic_block);
 static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
 static basic_block make_blocks (tree *, tree, tree, basic_block, tree);
-static void make_loop_expr_blocks (tree *, basic_block, tree);
 static void make_cond_expr_blocks (tree *, tree, basic_block, tree);
 static void make_catch_expr_blocks (tree *, tree, basic_block, tree);
 static void make_eh_filter_expr_blocks (tree *, tree, basic_block, tree);
@@ -101,7 +100,6 @@ static inline void set_parent_stmt (tree *, tree);
 static void make_edges (void);
 static void make_ctrl_stmt_edges (basic_block);
 static void make_exit_edges (basic_block);
-static void make_loop_expr_edges (basic_block);
 static void make_cond_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
 static void make_case_label_edges (basic_block);
@@ -136,7 +134,6 @@ static void remove_bb (basic_block, int);
 static void remove_stmt (tree *, bool);
 static bool blocks_unreachable_p (bitmap);
 static void remove_blocks (bitmap);
-static bool is_parent (basic_block, basic_block);
 static void cleanup_control_flow (void);
 static void cleanup_cond_expr_graph (basic_block);
 static void cleanup_switch_expr_graph (basic_block);
@@ -436,9 +433,7 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
       append_stmt_to_bb (stmt_p, bb, parent_stmt);
       get_stmt_ann (stmt)->scope = scope;
 
-      if (code == LOOP_EXPR)
-	make_loop_expr_blocks (stmt_p, bb, scope);
-      else if (code == COND_EXPR)
+      if (code == COND_EXPR)
 	make_cond_expr_blocks (stmt_p, next_block_link, bb, scope);
       else if (code == SWITCH_EXPR)
 	make_switch_expr_blocks (stmt_p, next_block_link, bb, scope);
@@ -549,56 +544,6 @@ could_trap_p (tree expr)
 	  || (TREE_CODE (expr) == COMPONENT_REF
 	      && (TREE_CODE (TREE_OPERAND (expr, 0)) == INDIRECT_REF)));
 }
-
-/* Create the blocks for the LOOP_EXPR node pointed by LOOP_P.
-
-   NEXT_BLOCK_LINK is the first statement of the successor basic block for
-      the block holding *LOOP_P.  If *LOOP_P is the last statement inside a
-      lexical scope, this will be the statement that comes after LOOP_P's
-      container (see the documentation for NEXT_BLOCK_LINK).
-
-   ENTRY is the block whose last statement is *LOOP_P.
-   
-   SCOPE is the BIND_EXPR node holding *LOOP_P. */
-
-static void
-make_loop_expr_blocks (tree *loop_p, basic_block entry, tree scope)
-{
-  tree_stmt_iterator si;
-  tree loop = *loop_p;
-  tree next_block_link;
-
-  entry->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
-
-  /* Determine NEXT_BLOCK_LINK for statements inside the LOOP_EXPR body.
-     Note that in the case of a loop, NEXT_BLOCK_LINK should be the
-     first statement of the LOOP_EXPR body.  This is because LOOP_EXPR
-     statements are actually infinite loops, so they can only be left with a
-     'goto' statement.  Any other statement that reaches the end of the
-     LOOP_EXPR body, will naturally loop back.  */
-  STRIP_CONTAINERS (loop);
-  si = tsi_start (&LOOP_EXPR_BODY (loop));
-  next_block_link = *(tsi_container (si));
-
-  /* If the loop body is empty, point NEXT_BLOCK_LINK to the statement
-     following the LOOP_EXPR node, as we do with the other control
-     structures.  */
-  if (body_is_empty (LOOP_EXPR_BODY (loop)))
-    {
-      si = tsi_start (loop_p);
-      tsi_next (&si);
-
-      /* Ignore any empty statements at the tail of this tree.  */
-      while (!tsi_end_p (si) && tsi_stmt (si) == NULL)
-	tsi_next (&si);
-
-      if (!tsi_end_p (si) && tsi_stmt (si) != NULL_TREE)
-	next_block_link = *(tsi_container (si));
-    }
-
-  make_blocks (&LOOP_EXPR_BODY (loop), next_block_link, loop, NULL, scope);
-}
-
 
 /* Create the blocks for the COND_EXPR node pointed by COND_P.
 
@@ -1114,11 +1059,7 @@ find_contained_blocks (tree *stmt_p, bitmap my_blocks, tree **last_p)
 
       /* And recurse down into control structures.  */
       code = TREE_CODE (stmt);
-      if (code == LOOP_EXPR)
-	{
-	  find_contained_blocks (&LOOP_EXPR_BODY (stmt), my_blocks, last_p);
-	}
-      else if (code == COND_EXPR)
+      if (code == COND_EXPR)
 	{
 	  find_contained_blocks (&COND_EXPR_THEN (stmt), my_blocks, last_p);
 	  find_contained_blocks (&COND_EXPR_ELSE (stmt), my_blocks, last_p);
@@ -1180,10 +1121,6 @@ make_ctrl_stmt_edges (basic_block bb)
 
   switch (TREE_CODE (last))
     {
-    case LOOP_EXPR:
-      make_loop_expr_edges (bb);
-      break;
-
     case COND_EXPR:
       make_cond_expr_edges (bb);
       break;
@@ -1349,32 +1286,6 @@ make_exit_edges (basic_block bb)
     }
 }
 
-
-/* Create the edges for the LOOP_EXPR structure starting at block BB.
-   Only create the edge that join the LOOP_EXPR header block to the loop
-   body.  The edge out of the loop and back into the LOOP_EXPR header will
-   be naturally created by the main loop in create_edges().
-
-               LOOP_EXPR
-	           |
-                   v
-             LOOP_EXPR_BODY  */
-
-static void
-make_loop_expr_edges (basic_block bb)
-{
-  tree entry = last_stmt (bb);
-  basic_block body_bb;
-
-#if defined ENABLE_CHECKING
-  if (entry == NULL_TREE || TREE_CODE (entry) != LOOP_EXPR)
-    abort ();
-#endif
-
-  body_bb = bb_for_stmt (LOOP_EXPR_BODY (entry));
-  if (body_bb)
-    make_edge (bb, body_bb, 0);
-}
 
 
 /* Create the edges for a COND_EXPR starting at block BB.
@@ -1587,10 +1498,7 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
       /* Dive into control structures.  */
       stmt_p = tsi_stmt_ptr (i);
       code = TREE_CODE (*stmt_p);
-      if (code == LOOP_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&LOOP_EXPR_BODY (*stmt_p),
-						 remove_unused_vars);
-      else if (code == COND_EXPR)
+      if (code == COND_EXPR)
 	{
 	  tree then_clause, else_clause, cond;
 	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_THEN (*stmt_p),
@@ -2064,39 +1972,6 @@ blocks_unreachable_p (bitmap blocks)
   return true;
 }
 
-/* Return true if BB is a control parent for CHILD_BB.
-
-   Notice that this property is not the same as dominance.  This
-   is a test for containment.  Given two blocks A and B, A DOM B
-   does not imply A is-parent-of B.  For instance,
-
-	    1	{
-	    2	  s1;
-	    3	}
-	    4	{
-	    5	  s2;
-	    6	}
-
-   The block at line 1 dominates the block at line 4, but line 4
-   is not contained in 1's compound structure.  */
-
-static bool
-is_parent (basic_block bb, basic_block child_bb)
-{
-  basic_block parent;
-
-  if (bb == child_bb)
-    return true;
-
-  for (parent = parent_block (child_bb);
-       parent && parent->index != INVALID_BLOCK;
-       parent = parent_block (parent))
-    if (parent == bb)
-      return true;
-
-  return false;
-}
-
 /* Remove statement pointed by iterator I.
 
     Note that this function will wipe out control statements that
@@ -2217,11 +2092,7 @@ remove_stmt (tree *stmt_p, bool remove_annotations)
   /* If the statement is a control structure, clear the appropriate BB_*
      flags from the basic block.  */
   if (bb && is_ctrl_stmt (stmt))
-    {
-      bb->flags &= ~BB_CONTROL_EXPR;
-      if (TREE_CODE (stmt) == LOOP_EXPR)
-	bb->flags &= ~BB_LOOP_CONTROL_EXPR;
-    }
+    bb->flags &= ~BB_CONTROL_EXPR;
 
   /* If the statement is a LABEL_EXPR, remove the LABEL_DECL from
      the symbol table.  */
@@ -2476,7 +2347,6 @@ find_taken_edge (basic_block bb, tree val)
   if (TREE_CODE (stmt) == SWITCH_EXPR)
     return find_taken_edge_switch_expr (bb, val);
 
-  /* LOOP_EXPR nodes are always followed by their successor block.  */
   return bb->succ;
 }
 
@@ -2787,7 +2657,6 @@ dump_tree_bb (FILE *outf, const char *prefix, basic_block bb, int indent)
 {
   edge e;
   char *s_indent;
-  basic_block loop_bb;
   block_stmt_iterator si;
   tree phi;
 
@@ -2795,13 +2664,7 @@ dump_tree_bb (FILE *outf, const char *prefix, basic_block bb, int indent)
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  fprintf (outf, "%s%sBLOCK       %d", s_indent, prefix, bb->index);
-
-  loop_bb = is_latch_block_for (bb);
-  if (loop_bb)
-    fprintf (outf, " (latch for #%d)\n", loop_bb->index);
-  else
-    fprintf (outf, "\n");
+  fprintf (outf, "%s%sBLOCK       %d\n", s_indent, prefix, bb->index);
 
   fprintf (outf, "%s%sPRED:      ", s_indent, prefix);
   for (e = bb->pred; e; e = e->pred_next)
@@ -3221,15 +3084,6 @@ call_expr_flags (tree t)
 }
 
 
-/* Return true if T represent a loop statement.  */
-
-bool
-is_loop_stmt (tree t)
-{
-  return (TREE_CODE (t) == LOOP_EXPR);
-}
-
-
 /* Return true if T is a computed goto.  */
 
 bool
@@ -3293,7 +3147,6 @@ stmt_ends_bb_p (tree t)
 
   return (code == COND_EXPR
 	  || code == SWITCH_EXPR
-	  || code == LOOP_EXPR
 	  || code == EH_FILTER_EXPR
 	  || code == TRY_CATCH_EXPR
 	  || code == TRY_FINALLY_EXPR
@@ -3311,26 +3164,6 @@ delete_tree_cfg (void)
     free_blocks_annotations ();
 
   free_basic_block_vars (0);
-}
-
-
-/* If BB is a latch block, return the header block controlling the loop.
-   FIXME: the name of this function stinks, but I can't think of a better
-   one at the moment.  */
-
-basic_block
-is_latch_block_for (basic_block bb)
-{
-  edge e;
-
-  /* BB is a latch if one of its successors is a loop entry block and BB is
-     a block in that loop's body.  */
-  for (e = bb->succ; e; e = e->succ_next)
-    if (e->dest->flags & BB_LOOP_CONTROL_EXPR
-	&& is_parent (e->dest, bb))
-      return e->dest;
-
-  return NULL;
 }
 
 
@@ -3955,7 +3788,7 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
   if (curr_container == curr_bb->head_tree_p)
     {
       curr_bb->head_tree_p = tsi_container (inserted_tsi);
-      /* If the parent block is a COND_EXPR or LOOP_EXPR, check if this
+      /* If the parent block is a COND_EXPR, check if this
 	 is the block which they point to and update if necessary.  */
       if (parent)
         {
@@ -3968,11 +3801,6 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
 		else
 		  if (bb_for_stmt (COND_EXPR_ELSE (parent)) == curr_bb)
 		    COND_EXPR_ELSE (parent) = insert_container;
-		break;
-
-	      case LOOP_EXPR:
-		if (bb_for_stmt (LOOP_EXPR_BODY (parent)) == curr_bb)
-		  LOOP_EXPR_BODY (parent) = insert_container;
 		break;
 
 	      default:
@@ -4274,10 +4102,13 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
 	      }
 	    break;
 
-
-	  case LOOP_EXPR:
-	    ret = src->end_tree_p;
-	    *location = EDGE_INSERT_LOCATION_AFTER;
+	  case TRY_CATCH_EXPR:
+	  case TRY_FINALLY_EXPR:
+	    if (bb_for_stmt (TREE_OPERAND (stmt, 0)) == dest)	
+	      ret = &TREE_OPERAND (stmt, 0);
+	    else
+	      ret = &TREE_OPERAND (stmt, 1);
+	    *location = EDGE_INSERT_LOCATION_BEFORE;
 	    break;
 
 	  case SWITCH_EXPR:
@@ -4409,7 +4240,7 @@ bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
 	}
 
       /* If the last stmt is a GOTO, the we can simply insert before it.  */
-      if (TREE_CODE (last) == GOTO_EXPR || TREE_CODE (last) == LOOP_EXPR)
+      if (TREE_CODE (last) == GOTO_EXPR)
 	{
 	  bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
 	  if (old_bsi)
@@ -4790,8 +4621,7 @@ merge_tree_blocks (basic_block bb1, basic_block bb2)
 	 C's body.  In this case we don't need to insert statements from
 	 BB2 into BB1, we can simply replace C with the first statement of
 	 BB2.  */
-      if (TREE_CODE (t1) == COND_EXPR
-	  || TREE_CODE (t1) == LOOP_EXPR)
+      if (TREE_CODE (t1) == COND_EXPR)
 	replace_stmt (bb1->end_tree_p, bb2->head_tree_p);
       else if (TREE_CODE (t1) == SWITCH_EXPR)
 	{
