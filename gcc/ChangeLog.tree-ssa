@@ -1,3 +1,24 @@
+2002-08-27  Frank Ch. Eigler  <fche@redhat.com>
+
+	Better static registration:
+	* varasm.c (make_decl_rtl): Handle DECL_RTL_SET_P case for
+	mudflap static registration.
+	* tree-mudflap.c (mudflap_enqueue_decl): Rewrite to handle
+	deferred statics.
+	(mudflap_finish_file): Call above fn back for deferred statics.
+
+	Cleanup:
+	* tree-mudflap.c (mf_varname_tree, mf_file_function_line_tree):
+	Reorganize output_buffer reuse mechanism.
+	(mf_build_check_statement_for): Set TREE_SIDE_EFFECTS.
+	(mx_xfn_indirect_ref): Correct file/line collection tests.
+
+	Dynamic linking support:
+	* gcc.c (MFWRAP_SPEC): Make conditional on -static.  Add the	
+	newer wrapped functions dlopen/mmap/munmap.
+	(MFLIB_SPEC): Be sensitive to -static.  Partial support for
+	dynamic linking.
+
 2002-08-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa.o): Add dependency on ggc.h

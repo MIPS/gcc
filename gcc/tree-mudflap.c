@@ -116,17 +116,66 @@ mudflap_c_function (t)
    label is given.
 */
 
+
+/* A list of globals whose incomplete declarations we encountered.
+   Instead of emitting the __mf_register call for them here, it's
+   delayed until program finish time.  If they're still incomplete by
+   then, warnings are emitted.  */
+
+static varray_type GTY ((param_is(union tree_node))) deferred_static_decls;
+static varray_type GTY ((skip(""))) deferred_static_decl_labels;
+static int deferred_static_decls_init;
+
+/* What I really want is a std::map<union tree_node,std::string> .. :-(  */
+
+
 void 
 mudflap_enqueue_decl (obj, label)
      tree obj;
      const char *label;
 {
-  if (! TREE_MUDFLAPPED_P (obj))
+  if (TREE_MUDFLAPPED_P (obj))
+    return;
+
+  /*
+  fprintf (stderr, "enqueue_decl obj=`");
+  print_c_tree (stderr, obj);
+  fprintf (stderr, "' label=`%s'\n", label);
+  */
+
+  if (COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (obj)))
     {
       mf_enqueue_register_call (label,
 				c_size_in_bytes (TREE_TYPE (obj)),
 				build_int_2 (3, 0), /* __MF_TYPE_STATIC */
 				mf_varname_tree (obj));
+    }
+  else
+    {
+      unsigned i;
+      int found_p;
+      
+      if (! deferred_static_decls_init)
+	{
+	  deferred_static_decls_init = 1;
+	  VARRAY_TREE_INIT (deferred_static_decls, 10, "deferred static list");
+	  VARRAY_CHAR_PTR_INIT (deferred_static_decl_labels, 10, "label list");
+	}
+      
+      /* Ugh, linear search... */
+      found_p = 0;
+      for (i=0; i < VARRAY_SIZE (deferred_static_decls); i++)
+	if (VARRAY_TREE (deferred_static_decls, i) == obj)
+	  found_p = 1;
+      
+      if (found_p)
+	warning_with_decl (obj, "mudflap cannot track lifetime of `%s'", 
+			   IDENTIFIER_POINTER (DECL_NAME (obj)));
+      else
+	{
+	  VARRAY_PUSH_TREE (deferred_static_decls, obj);
+	  VARRAY_PUSH_CHAR_PTR (deferred_static_decl_labels, label);
+	}
     }
 }
 
@@ -136,8 +185,10 @@ mudflap_enqueue_constant (obj, label)
      tree obj;
      const char *label;
 {
-  if ((TREE_CODE (obj) == STRING_CST) &&
-      ! TREE_MUDFLAPPED_P (obj))
+  if (TREE_MUDFLAPPED_P (obj))
+    return;
+
+  if (TREE_CODE (obj) == STRING_CST)
     {
       mf_enqueue_register_call (label,
 				build_int_2 (TREE_STRING_LENGTH (obj), 0),
@@ -145,14 +196,40 @@ mudflap_enqueue_constant (obj, label)
 				mx_flag (fix_string_type
 					 (build_string (15, "string literal"))));
     }
+  else
+    {
+      warning (obj, "mudflap cannot track object lifetime");
+      print_c_tree (stderr, obj);
+    }
   /* XXX: what about other object types? */
 }
+
 
 
 /* Emit any file-wide instrumentation.  */
 void 
 mudflap_finish_file ()
 {
+  /* Try to give the deferred objects one final try.  */
+  if (deferred_static_decls_init)
+    {
+      unsigned i;
+
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_static_decls); i++)
+	{
+	  tree obj = VARRAY_TREE (deferred_static_decls, i);
+	  const char *label = VARRAY_CHAR_PTR (deferred_static_decl_labels, i);
+
+	  /* Call enqueue_decl again on the same object it has previously
+	     put into the table.  (It won't modify the table this time, so
+	     infinite iteration is not a problem.)  */
+	  mudflap_enqueue_decl (obj, label);
+	}
+
+      VARRAY_CLEAR (deferred_static_decls);
+      VARRAY_CLEAR (deferred_static_decl_labels);
+    }
+	     
   mf_flush_enqueued_calls ();
 }
 
@@ -329,10 +406,10 @@ static tree
 mf_varname_tree (decl)
      tree decl;
 {
-  output_buffer buf_rec;
+  static output_buffer buf_rec;
+  static int initialized = 0;
   output_buffer *buf = & buf_rec;
   const char *buf_contents;
-  static int initialized = 0;
   tree result;
 
   if (decl == NULL_TREE)
@@ -343,6 +420,7 @@ mf_varname_tree (decl)
       init_output_buffer (buf, /* prefix */ NULL, /* line-width */ 0);
       initialized = 1;
     }
+  output_clear_message_text (buf);
 
   /* Add FILENAME[:LINENUMBER]. */
   {
@@ -401,12 +479,18 @@ mf_file_function_line_tree (file, line)
      const char * file;
      int line;
 {
-  output_buffer buf_rec;
+  static output_buffer buf_rec;
+  static int initialized = 0;
   output_buffer *buf = & buf_rec;
   const char *buf_contents;
   tree result;
 
-  init_output_buffer (buf, /* prefix */ NULL, /* line-width */ 0);
+  if (!initialized)
+    {
+      init_output_buffer (buf, /* prefix */ NULL, /* line-width */ 0);
+      initialized = 1;
+    }
+  output_clear_message_text (buf);
 
   /* Add FILENAME[:LINENUMBER]. */
   if (file == NULL && current_function_decl != NULL_TREE)
@@ -628,6 +712,7 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
   
   t1 = build1 (COMPOUND_STMT, return_type, t1_1);
   t0 = build1 (STMT_EXPR, return_type, t1);
+  TREE_SIDE_EFFECTS (t0) = 1;
 
   return t0;
 }
@@ -680,9 +765,9 @@ mx_xfn_indirect_ref (t, continue_p, data)
   /* Track file-name/line-numbers.  */
   if (statement_code_p (TREE_CODE (*t)))
     last_lineno = STMT_LINENO (*t);
-  else if (TREE_CODE (*t) == FILE_STMT)
+  if (TREE_CODE (*t) == FILE_STMT)
     last_filename = FILE_STMT_FILENAME (*t);
-  else if (TREE_CODE (*t) == EXPR_WITH_FILE_LOCATION)
+  if (TREE_CODE (*t) == EXPR_WITH_FILE_LOCATION)
     {
       last_filename = EXPR_WFL_FILENAME (*t);
       last_lineno = EXPR_WFL_LINENO (*t);

@@ -834,6 +834,11 @@ make_decl_rtl (decl, asmspec)
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
       (* targetm.encode_section_info) (decl, false);
+
+      /* Make this function static known to the mudflap runtime.  */
+      if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
+	mudflap_enqueue_decl (decl, name);
+      
       return;
     }
 

@@ -549,7 +549,7 @@ proper position among the other output files.  */
 /* XXX: valid only if linking with static libmudflap.a */
 /* XXX: valid only for GNU ld */
 /* XXX: should exactly match hooks provided by libmudflap.a */
-#define MFWRAP_SPEC " %{fmudflap:\
+#define MFWRAP_SPEC " %{fmudflap: %{static:\
  --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
  --wrap=memcpy --wrap=memmove\
  --wrap=memset --wrap=memcmp --wrap=memchr --wrap=memrchr\
@@ -558,10 +558,11 @@ proper position among the other output files.  */
  --wrap=strdup --wrap=strndup --wrap=strchr --wrap=strrchr\
  --wrap=strstr --wrap=memmem --wrap=strlen --wrap=strnlen\
  --wrap=bzero --wrap=bcopy --wrap=bcmp --wrap=index --wrap=rindex\
-}"
+ --wrap=dlopen --wrap=mmap --wrap=munmap\
+}}"
 #endif
 #ifndef MFLIB_SPEC
-#define MFLIB_SPEC " %{fmudflap: -lmudflap}"
+#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{!static:-ldl} %{static:%(link_gcc_c_sequence) -lmudflap}}"
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
