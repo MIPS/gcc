@@ -671,7 +671,7 @@ static bool
 track_expr_p (expr)
      tree expr;
 {
-  rtx rtx;
+  rtx decl_rtl;
 
   /* If EXPR is not a parameter or a variable do not track it.  */
   if (TREE_CODE (expr) != VAR_DECL && TREE_CODE (expr) != PARM_DECL)
@@ -682,15 +682,15 @@ track_expr_p (expr)
     return 0;
   
   /* ... and a RTL assigned to it.  */
-  rtx = DECL_RTL (expr);
-  if (!rtx)
+  decl_rtl = DECL_RTL (expr);
+  if (!decl_rtl)
     return 0;
     
   /* If RTX is a memory it should not be very large (because it would be an array
      or struct).  */
-  if (GET_CODE (rtx) == MEM)
+  if (GET_CODE (decl_rtl) == MEM)
     {
-      if (MEM_SIZE (rtx) && INTVAL (MEM_SIZE (rtx)) > MAX_LOC_PARTS)
+      if (MEM_SIZE (decl_rtl) && INTVAL (MEM_SIZE (decl_rtl)) > MAX_LOC_PARTS)
 	return 0;
     }
  

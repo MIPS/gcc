@@ -1,3 +1,8 @@
+2003-01-27  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (track_expr_p): Variable rtx renamed to decl_rtl
+	because its original name caused some problems.
+
 2003-01-26  Josef Zlomek  <zlomekj@suse.cz>
 
 	* predict.c (real_inv_br_prob_base): New variable.
