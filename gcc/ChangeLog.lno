@@ -1,3 +1,9 @@
+2004-06-22  Devang Patel  <dpatel@apple.com>
+		
+        PR 16105	
+        * tree-vectorizer.c (vect_analyze_operations): Type of MODIFY_EXPR is
+        not reliable. Use LHS's type.
+
 2004-06-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	PR rtl-optimization/16001
