@@ -11,6 +11,9 @@ struct A;
 typedef struct A *A_def;
 static A_def *data;
 
+extern void abort (void);
+extern void exit (int);
+
 #define N 128
 
 int main1 ()
@@ -43,4 +46,4 @@ int main (void)
 } 
 
 
-/* { dg-final { scan-tree-dump-times "Applying if-conversion" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Applying if-conversion" 1 "vect" { xfail *-*-* } } } */

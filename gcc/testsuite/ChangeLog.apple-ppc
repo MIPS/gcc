@@ -1,5 +1,15 @@
 2004-10-29  Devang Patel  <dpatel@apple.com>
 
+        FSF merge cleanup.
+	* gcc.dg/tree-ssa-vect/ifc-03.c: Remove test.
+	* gcc.dg/tree-ssa-vect/ifc-03.c: Remove.test.
+	* gcc.dg/tree-ssa-vect/tree-vect.h (exit): Add extern decl.
+	(abort): Same.
+	* gcc.dg/tree-ssa-vect/ifc-01.c: XFAIL.
+	* gcc.dg/tree-ssa-vect/ifc-02.c: XFAIL.
+
+2004-10-29  Devang Patel  <dpatel@apple.com>
+
 	FSF merge cleanup. These tests now live in gcc.dg/vect directory.
 	* gcc.dg/tree-ssa-vect/tree-ssa-vect-1.c: Remove.
 	* gcc.dg/tree-ssa-vect/tree-ssa-vect-10.c: Remove.
