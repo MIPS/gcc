@@ -1,3 +1,8 @@
+2002-07-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-simple.c (is_simplifiable_builtin): Don't simplify target
+	builtins.
+
 2002-07-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (simplify_decl_stmt): Unshare the

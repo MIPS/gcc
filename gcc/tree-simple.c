@@ -1017,6 +1017,12 @@ is_simplifiable_builtin (expr)
   if (decl == NULL_TREE || !DECL_BUILT_IN (decl))
     return 1;
 
+  /* Do not simplify target-defined builtin functions.
+     FIXME: Maybe we should add a target hook for allowing this in the
+	    future.  */
+  if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD)
+    return 0;
+
   fcode = DECL_FUNCTION_CODE (decl);
 
   switch (fcode)
