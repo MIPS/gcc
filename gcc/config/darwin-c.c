@@ -295,6 +295,30 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
     warning ("junk at end of '#pragma unused'");
 }
 
+/* APPLE LOCAL begin pragma reverse_bitfields */
+/* Handle the reverse_bitfields pragma.  */
+
+void
+darwin_pragma_reverse_bitfields (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  const char* arg;
+  tree t;
+
+  if (c_lex (&t) != CPP_NAME)
+    BAD ("malformed '#pragma options', ignoring");
+  arg = IDENTIFIER_POINTER (t);
+
+  if (!strcmp (arg, "on"))
+    darwin_reverse_bitfields = true;
+  else if (!strcmp (arg, "off") || !strcmp (arg, "reset"))
+    darwin_reverse_bitfields = false;
+  else
+    warning ("malformed '#pragma reverse_bitfields {on|off|reset}', ignoring");
+  if (c_lex (&t) != CPP_EOF)
+    warning ("junk at end of '#pragma reverse_bitfields'");
+}
+/* APPLE LOCAL end pragma reverse_bitfields */
+
 static struct {
   size_t len;
   const char *name;

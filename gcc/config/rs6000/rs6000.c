@@ -694,6 +694,8 @@ static void rs6000_xcoff_file_end (void);
 #endif
 #if TARGET_MACHO
 static bool rs6000_binds_local_p (tree);
+/* APPLE LOCAL pragma reverse_bitfield */
+static bool rs6000_reverse_bitfields_p (tree);
 #endif
 static int rs6000_variable_issue (FILE *, int, rtx, int);
 static bool rs6000_rtx_costs (rtx, int, int, int *);
@@ -1007,6 +1009,10 @@ static const char alt_reg_names[][8] =
 #if TARGET_MACHO
 #undef TARGET_BINDS_LOCAL_P
 #define TARGET_BINDS_LOCAL_P rs6000_binds_local_p
+/* APPLE LOCAL begin pragma reverse_bitfields */
+#undef TARGET_REVERSE_BITFIELDS_P
+#define TARGET_REVERSE_BITFIELDS_P rs6000_reverse_bitfields_p
+/* APPLE LOCAL end pragma reverse_bitfields */
 #endif
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
@@ -1505,6 +1511,8 @@ rs6000_override_options (const char *default_cpu)
       /* Setting to empty string is same as "-mone-byte-bool".  */
 #if TARGET_MACHO
       darwin_one_byte_bool = "";
+      /* APPLE LOCAL pragma reverse_bitfields */
+      darwin_reverse_bitfields = 0;
 #endif
       /* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
       /* Default to natural alignment, for better performance.  */
@@ -20432,6 +20440,19 @@ rs6000_binds_local_p (tree decl)
 	flag_apple_kext && lang_hooks.vtable_p (decl));
   /* APPLE LOCAL end kext treat vtables as overridable  */
 }
+
+/* APPLE LOCAL begin pragma reverse_bitfields */
+/* Pragma reverse_bitfields.  For compatibility with CW.
+   This feature is not well defined by CW, and results in
+   code that does not work in some cases!  Bug compatibility
+   is the requirement, however.  */
+
+static bool
+rs6000_reverse_bitfields_p (tree record_type ATTRIBUTE_UNUSED)
+{
+  return darwin_reverse_bitfields;
+}
+/* APPLE LOCAL end prgama reverse_bitfields */
 #endif
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete

@@ -323,6 +323,12 @@ struct gcc_target
      Microsoft Visual C++ bitfield layout rules.  */
   bool (* ms_bitfield_layout_p) (tree record_type);
 
+  /* APPLE LOCAL begin pragma reverse_bitfields */
+  /* Return true if bitfields in RECORD_TYPE should be allocated
+     reversed (e.g. right to left on a big-endian machine).  */
+  bool (* reverse_bitfields_p) (tree record_type);
+  /* APPLE LOCAL end pragma reverse_bitfields */
+
   /* Return true if anonymous bitfields affect structure alignment.  */
   bool (* align_anon_bitfield) (void);
 

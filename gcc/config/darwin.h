@@ -181,6 +181,11 @@ extern int darwin_running_cxx;
    that this switch has no "no-" variant. */
 extern const char *darwin_one_byte_bool;
   
+/* APPLE LOCAL begin pragma reverse_bitfields */
+/* True if pragma reverse_bitfields is in effect. */
+extern int darwin_reverse_bitfields;
+/* APPLE LOCAL end pragma reverse_bitfields */
+
 extern int darwin_fix_and_continue;
 extern const char *darwin_fix_and_continue_switch;
 
@@ -1258,6 +1263,10 @@ enum machopic_addr_class {
     /* APPLE LOCAL pragma fenv */                               \
     c_register_pragma ("GCC", "fenv", darwin_pragma_fenv);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
+    /* APPLE LOCAL begin pragma reverse_bitfields */		\
+    c_register_pragma (0, "reverse_bitfields",			\
+			darwin_pragma_reverse_bitfields);	\
+    /* APPLE LOCAL end pragma reverse_bitfields */		\
   } while (0)
 
 /* APPLE LOCAL begin insert assembly ".abort" directive on fatal error   */

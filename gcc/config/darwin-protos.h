@@ -85,6 +85,8 @@ extern void darwin_pragma_options (struct cpp_reader *);
 extern void darwin_pragma_unused (struct cpp_reader *);
 /* APPLE LOCAL pragma fenv */
 extern void darwin_pragma_fenv (struct cpp_reader *);
+/* APPLE LOCAL pragma reverse_bitfields */
+extern void darwin_pragma_reverse_bitfields (struct cpp_reader *);
 
 /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
 extern void darwin_pragma_pack (struct cpp_reader *);

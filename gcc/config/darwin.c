@@ -94,6 +94,9 @@ enum darwin_builtins
    sizeof(bool) to be 1. */
 const char *darwin_one_byte_bool = 0;
 
+/* APPLE LOCAL pragma reverse_bitfields */
+int darwin_reverse_bitfields = 0;
+
 int
 name_needs_quotes (const char *name)
 {

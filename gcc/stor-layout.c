@@ -1176,8 +1176,27 @@ place_field (record_layout_info rli, tree field)
 
   /* Offset so far becomes the position of this field after normalizing.  */
   normalize_rli (rli);
+  /* APPLE LOCAL begin reverse_bitfields */
+  if (targetm.reverse_bitfields_p (rli->t) && DECL_BIT_FIELD_TYPE (field))
+    {
+      /* If we've gone into the next word, move "offset" forward and
+	 adjust "bitpos" to compensate.  */
+      while ( !INT_CST_LT_UNSIGNED (rli->bitpos, TYPE_SIZE (TREE_TYPE (field))))
+	{
+	  rli->offset = size_binop (PLUS_EXPR, rli->offset, 
+				    TYPE_SIZE_UNIT (TREE_TYPE (field)));
+	  rli->bitpos = size_binop (MINUS_EXPR, rli->bitpos,
+				    TYPE_SIZE (TREE_TYPE (field)));
+	}
+      DECL_FIELD_BIT_OFFSET (field) = size_binop (MINUS_EXPR, 
+	    size_binop (MINUS_EXPR, 
+			TYPE_SIZE (TREE_TYPE (field)), DECL_SIZE (field)),
+	    rli->bitpos);
+    }
+  else
+    DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
   DECL_FIELD_OFFSET (field) = rli->offset;
-  DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
+  /* APPLE LOCAL end reverse bitfields */
   SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
 
   /* If this field ended up more aligned than we thought it would be (we

@@ -1,3 +1,18 @@
+2005-03-29  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3955567
+	* stor-layout.c (place_field):  Reverse bitfields if pragma was set.
+	* target-def.h (TARGET_REVERSE_BITFIELDS_P):  New, defaults to false.
+	* target.h (struct gcc_target):  Add reverse_bitfields_p.
+	* config/darwin-c.c (darwin_pragma_reverse_bitfields):  New.
+	* config/darwin-protos.h:  Declare it.
+	* config/darwin.c (darwin_reverse_bitfields):  Define, initialize to 0.
+	* config/darwin.h:  Declare it.
+	(DARWIN_REGISTER_TARGET_PRAGMAS):  Add reverse_bitfields.
+	* config/rs6000/rs6000.c (rs6000_reverse_bitfields_p):  New.
+	(TARGET_REVERSE_BITFIELDS_P):  Use it.
+	(rs6000_override_options):  Set darwin_reverse_bitfields to 0.
+
 2005-03-24  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3982365
