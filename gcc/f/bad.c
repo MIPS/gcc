@@ -421,8 +421,8 @@ ffebad_finish ()
 		   /* the trailing space on the <file>:<line>: line
 		      fools emacs19 compilation mode into finding the
 		      report */
-		   "%s:%" ffewhereLineNumber_f "u: %s",
-		   fn, rn,
+		   "g77:%s:%" ffewhereLineNumber_f "uc%u: %s",
+		   fn, rn, cn,
 #endif
 		   s);
 	  last_line_num = ln;

@@ -2248,30 +2248,74 @@ ffelex_run (ffewhereFile wf, FILE *f, int free_form, int is_vxt,
 	  /* Begin multi-character lexeme.  Its type is already in `type'.  */
 	  if (! text)
 	    {
-	      ~~~~Make room for more text.
+	      /* ~~~~Make room for more text. */
+	      text_end_ptr = &text->ffelex_text_p_[text_size];
 	    }
 	  lexeme->u.text = text;
 	  lexeme->u.type = type;
 	  lexeme->spaced = spaced;
 	  ptr = &text->ffelex_text_p_[0];
 
-	  *ptr = (char) c;
+	  *ptr++ = (char) c;
 	  c = GETC ();
-	  while ((c >= '0' && c <= '9')
-		 || ((type == 'A')
-		     && ((c >= 'A' && c <= 'Z')
-			 || (c >= 'a' && c <= 'z')
-			 || (c == '_')
-			 || (c == dollar))))
+	  for (;;)
 	    {
-	      *ptr = (char) c;
-	      ++wc;
-	      c = GETC ();
+	      /* Read first contiguous "slug" of text.  */
+	      while ((c >= '0' && c <= '9')
+		     || ((type == 'A')
+			 && ((c >= 'A' && c <= 'Z')
+			     || (c >= 'a' && c <= 'z')
+			     || (c == '_')
+			     || (c == dollar))))
+		{
+		  if (ptr == text_end_ptr)
+		    {
+		      /* Make more room for text.  */
+		      notyet ();
+		    }
+		  *ptr++ = (char) c;
+		  ++wc;
+		  c = GETC ();
+		}
+
+	      if (c == ' ')
+		++wc;
+	      else if (c == '\t')
+		wc = ffelex_next_tabstop_ (wc);
+	      else
+		break;
+
+	      /* We stopped due to whitespace.  Get past that.  */
+	      for (c = GETC ();
+		   ;
+		   c = GETC ())
+		{
+		  if (c == ' ')
+		    ++wc;
+		  else if (c == '\t')
+		    wc = ffelex_next_tabstop_ (wc);
+		  else
+		    break;
+		}
+
+	      /* Is this another "slug" of the same kind of text?  */
+	      if ((c >= '0' && c <= '9')
+		  || ((type == 'A')
+		      && ((c >= 'A' && c <= 'Z')
+			  || (c >= 'a' && c <= 'z')
+			  || (c == '_')
+			  || (c == dollar))))
+		{
+		  /* Yes, so we must create a new chunk of tracking info
+		     for it.  */
+		  notyet ();
+		}
+	      else
+		{
+		  done = 1;
+		  break;
+		}
 	    }
-	  if (c == ' ')
-	    ++wc;
-	  else if (c == '\t')
-	    ~~~~~
 	}
       else if (c == '!')
 	{
