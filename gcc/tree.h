@@ -2283,6 +2283,11 @@ extern tree merge_attributes		PARAMS ((tree, tree));
 extern tree merge_dllimport_decl_attributes PARAMS ((tree, tree));
 #endif
 
+/* Return true if DECL will be always resolved to a symbol defined in the
+   same module (shared library or program).  */
+#define MODULE_LOCAL_P(DECL) \
+  (lookup_attribute ("visibility", DECL_ATTRIBUTES (DECL)) != NULL)
+
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
@@ -2853,9 +2858,6 @@ extern tree (*lang_type_promotes_to)	PARAMS ((tree));
 extern tree fold_builtin		PARAMS ((tree));
 
 /* The language front-end must define these functions.  */
-
-/* Function to replace the DECL_LANG_SPECIFIC field of a DECL with a copy.  */
-extern void copy_lang_decl			PARAMS ((tree));
 
 /* Function called with no arguments to parse and compile the input.  */
 extern int yyparse				PARAMS ((void));

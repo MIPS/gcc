@@ -1,3 +1,13 @@
+Thu Feb 28 07:53:46 2002  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* com.c (copy_lang_decl): Delete.
+
+2002-02-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* com.c, lex.c, top.c: Delete traditional-mode-related code
+	copied from the C front end but not used, or used only to
+	permit the compiler to link.
+
 2002-02-13  Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	* news.texi: List Problem Reports fixed in 3.1.

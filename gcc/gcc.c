@@ -691,7 +691,7 @@ static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
  %{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*} %{ansi}\
- %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
+ %{v:-version} %{pg:-p} %{p} %{f*}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
@@ -822,18 +822,16 @@ static const struct compiler default_compilers[] =
   {".c", "@c", 0},
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
-      external preprocessor if -save-temps or -traditional is given.  */
+      external preprocessor if -save-temps is given.  */
      "%{E|M|MM:%(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)}\
       %{!E:%{!M:%{!MM:\
-	  %{save-temps:%(trad_capable_cpp) -lang-c %{ansi:-std=c89}\
-		%(cpp_options) %b.i \n\
+          %{traditional|ftraditional:\
+%eGNU C no longer supports -traditional without -E}\
+	  %{save-temps|traditional-cpp:%(trad_capable_cpp) \
+		-lang-c %{ansi:-std=c89} %(cpp_options) %b.i \n\
 		    cc1 -fpreprocessed %b.i %(cc1_options)}\
-	  %{!save-temps:\
-	    %{traditional|ftraditional|traditional-cpp:\
-		tradcpp0 -lang-c %{ansi:-std=c89} %(cpp_options) %{!pipe:%g.i} |\n\
-		    cc1 -fpreprocessed %{!pipe:%g.i} %(cc1_options)}\
-	    %{!traditional:%{!ftraditional:%{!traditional-cpp:\
-		cc1 -lang-c %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}}}\
+	  %{!save-temps:%{!traditional-cpp:\
+		cc1 -lang-c %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
@@ -1414,31 +1412,23 @@ init_gcc_specs (obstack, shared_name, static_name, eh_name)
      const char *static_name;
      const char *eh_name;
 {
-  char buffer[128];
-  const char *p;
+  char *buf;
 
-  /* If we see -shared-libgcc, then use the shared version.  */
-  sprintf (buffer, "%%{shared-libgcc:%s %s}", shared_name, static_name);
-  obstack_grow (obstack, buffer, strlen (buffer));
-  /* If we see -static-libgcc, then use the static version.  */
-  sprintf (buffer, "%%{static-libgcc:%s %s}", static_name, eh_name);
-  obstack_grow (obstack, buffer, strlen (buffer));
-  /* Otherwise, if we see -shared, then use the shared version
-     if using EH registration routines or static version without
-     exception handling routines otherwise.  */
-  p = "%{!shared-libgcc:%{!static-libgcc:%{shared:";
-  obstack_grow (obstack, p, strlen (p));
+  buf = concat ("%{!shared:%{!shared-libgcc:", static_name, " ",
+		eh_name, "}%{shared-libgcc:", shared_name, " ",
+		static_name, "}}",
+		"%{shared:%{static-libgcc:", static_name, " ",
+		eh_name, "}%{!static-libgcc:",
 #ifdef LINK_EH_SPEC
-  sprintf (buffer, "%s}}}", static_name);
+		"%{shared-libgcc:", shared_name,
+		"}%{!shared-libgcc:", static_name, "}",
 #else
-  sprintf (buffer, "%s}}}", shared_name);
+		shared_name,
 #endif
-  obstack_grow (obstack, buffer, strlen (buffer));
-  /* Otherwise, use the static version.  */
-  sprintf (buffer, 
-	   "%%{!shared-libgcc:%%{!static-libgcc:%%{!shared:%s %s}}}", 
-	   static_name, eh_name);
-  obstack_grow (obstack, buffer, strlen (buffer));
+		"}}", NULL);
+
+  obstack_grow (obstack, buf, strlen (buf));
+  free (buf);
 }
 #endif /* ENABLE_SHARED_LIBGCC */
 

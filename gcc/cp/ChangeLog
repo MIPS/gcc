@@ -1,3 +1,60 @@
+2002-02-28  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* class.c (build_clone): Update.
+	* cp-lang.c (LANG_HOOKS_DUP_LANG_SPECIFIC_DECL): Redefine.
+	* cp-tree.h (cxx_dup_lang_specific_decl): New.
+	* lex.c (copy_lang_decl): Rename cxx_dup_lang_specific_decl.
+	(copy_decl): Update.
+	* method.c (make_thunk): Update.
+
+2002-02-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* decl2.c: Delete traditional-mode-related code copied from
+	the C front end but not used, or used only to permit the
+	compiler to link.
+
+2002-02-24 Craig Rodrigues  <rodrigc@gcc.gnu.org> 
+
+	PR c++/4093
+	* cp-tree.h (SET_BINFO_MARKED): Cast false part of condition
+	to void.
+
+2002-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/5746
+	* semantics.c (finish_switch_cond): Don't call get_unwidened
+	if error_mark_node.
+
+2002-02-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/2645, DR 295
+	* cp-tree.h (tsubst_flags_t): Add tf_ignore_bad_quals,
+	tf_keep_type_decl.
+	(make_typename_type): Use tsubst_flags_t.
+	* decl.c (make_typename_type): Adjust. Return non-artificial
+	TYPE_DECLs, if required.
+	(grokdeclarator): Simplify CVR qualification handling. Allow bad
+	qualifiers on typedef types.
+	* decl2.c (handle_class_head): Adjust make_typename_type call.
+	* parse.y (nested_name_specifier): Likewise.
+	(typename_sub0): Likewise.
+	(typename_sub1): Likewise.
+	* pt.c (convert_template_argument): Adjust make_typename_type
+	return value.
+	(tsubst): Adjust cp_build_qualified_type_real calls.
+	(check_cv_quals_for_unify): Cope with alowing bad qualifications
+	on template type parms.
+	(instantiate_decl): Recheck substitutions to give warnings on bad
+	qualifications.
+	* tree.c (cp_build_qualified_type_real): Use tf_allow_bad_quals.
+
+2002-02-21  Aldy Hernandez  <aldyh@redhat.com>
+
+        * cp/decl.c (duplicate_decls): Merge always_inline attribute.
+
+        * cp/tree.c (cp_cannot_inline_tree_fn): Do not inline at -O0
+        unless DECL_ALWAYS_INLINE.
+
 2002-02-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* typeck.c (cp_pointer_int_sum): Renamed from

@@ -157,6 +157,9 @@ int flag_optimize_sci = 1;
    in order to improve binary compatibility. */
 int flag_indirect_dispatch = 0;
 
+/* When zero, don't generate runtime array store checks. */
+int flag_store_check = 1;
+
 /* When non zero, print extra version information.  */
 static int version_flag = 0;
 
@@ -179,7 +182,8 @@ lang_f_options[] =
   {"check-references", &flag_check_references, 1},
   {"force-classes-archive-check", &flag_force_classes_archive_check, 1},
   {"optimize-static-class-initialization", &flag_optimize_sci, 1 },
-  {"indirect-dispatch", &flag_indirect_dispatch, 1}
+  {"indirect-dispatch", &flag_indirect_dispatch, 1},
+  {"store-check", &flag_store_check, 1}
 };
 
 static const struct string_option
@@ -214,6 +218,8 @@ static int dependency_tracking = 0;
 #define LANG_HOOKS_DECODE_OPTION java_decode_option
 #undef LANG_HOOKS_SET_YYDEBUG
 #define LANG_HOOKS_SET_YYDEBUG java_set_yydebug
+#undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
+#define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL java_dup_lang_specific_decl
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

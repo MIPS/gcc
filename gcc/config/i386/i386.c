@@ -1466,12 +1466,25 @@ ix86_return_pops_args (fundecl, funtype, size)
       return size;
   }
 
-  /* Lose any fake structure return argument.  */
+  /* Lose any fake structure return argument if it is passed on the stack.  */
   if (aggregate_value_p (TREE_TYPE (funtype))
       && !TARGET_64BIT)
-    return GET_MODE_SIZE (Pmode);
+    {
+      int nregs = ix86_regparm;
 
-    return 0;
+      if (funtype)
+	{
+	  tree attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (funtype));
+
+	  if (attr)
+	    nregs = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+	}
+
+      if (!nregs)
+	return GET_MODE_SIZE (Pmode);
+    }
+
+  return 0;
 }
 
 /* Argument support functions.  */
@@ -4986,11 +4999,15 @@ legitimize_pic_address (orig, reg)
       if (GET_CODE (addr) == CONST)
 	{
 	  addr = XEXP (addr, 0);
-	  if (GET_CODE (addr) == UNSPEC)
-	    {
-	      /* Check that the unspec is one of the ones we generate?  */
-	    }
-	  else if (GET_CODE (addr) != PLUS)
+
+	  /* We must match stuff we generate before.  Assume the only
+	     unspecs that can get here are ours.  Not that we could do
+	     anything with them anyway...  */
+	  if (GET_CODE (addr) == UNSPEC
+	      || (GET_CODE (addr) == PLUS
+		  && GET_CODE (XEXP (addr, 0)) == UNSPEC))
+	    return orig;
+	  if (GET_CODE (addr) != PLUS)
 	    abort ();
 	}
       if (GET_CODE (addr) == PLUS)
@@ -5714,11 +5731,14 @@ print_operand (file, x, code)
 	case 'z':
 	  /* 387 opcodes don't get size suffixes if the operands are
 	     registers.  */
-
 	  if (STACK_REG_P (x))
 	    return;
 
-	  /* this is the size of op from size of operand */
+	  /* Likewise if using Intel opcodes.  */
+	  if (ASSEMBLER_DIALECT == ASM_INTEL)
+	    return;
+
+	  /* This is the size of op from size of operand.  */
 	  switch (GET_MODE_SIZE (GET_MODE (x)))
 	    {
 	    case 2:

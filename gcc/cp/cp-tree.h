@@ -1586,7 +1586,7 @@ struct lang_type
 #define SET_BINFO_MARKED(NODE)			\
   (TREE_VIA_VIRTUAL(NODE)			\
    ? SET_CLASSTYPE_MARKED (BINFO_TYPE (NODE))	\
-   : (TREE_LANG_FLAG_0 (NODE) = 1))
+   : (void)(TREE_LANG_FLAG_0 (NODE) = 1))
 #define CLEAR_BINFO_MARKED(NODE)		\
   (TREE_VIA_VIRTUAL (NODE)			\
    ? CLEAR_CLASSTYPE_MARKED (BINFO_TYPE (NODE))	\
@@ -3070,7 +3070,10 @@ typedef enum tsubst_flags_t {
   tf_warning = 1 << 1,       /* give warnings too  */
   tf_no_attributes = 1 << 2, /* ignore attributes on comparisons
 				(instantiate_type use) */
-  tf_ptrmem_ok = 1 << 3      /* pointers to member ok (internal
+  tf_ignore_bad_quals = 1 << 3, /* ignore bad cvr qualifiers */
+  tf_keep_type_decl = 1 << 4,	/* retain typedef type decls
+				   (make_typename_type use) */
+  tf_ptrmem_ok = 1 << 5      /* pointers to member ok (internal
 				instantiate_type use) */
 } tsubst_flags_t;
 
@@ -3693,7 +3696,7 @@ extern tree namespace_binding                   PARAMS ((tree, tree));
 extern void set_namespace_binding               PARAMS ((tree, tree, tree));
 extern tree lookup_namespace_name		PARAMS ((tree, tree));
 extern tree build_typename_type                 PARAMS ((tree, tree, tree, tree));
-extern tree make_typename_type			PARAMS ((tree, tree, int));
+extern tree make_typename_type			PARAMS ((tree, tree, tsubst_flags_t));
 extern tree make_unbound_class_template		PARAMS ((tree, tree, int));
 extern tree lookup_name_nonclass		PARAMS ((tree));
 extern tree lookup_function_nonclass            PARAMS ((tree, tree));
@@ -3919,6 +3922,7 @@ extern tree build_java_class_ref                PARAMS ((tree));
 /* in input.c */
 
 /* in lex.c */
+extern void cxx_dup_lang_specific_decl		PARAMS ((tree));
 extern tree make_pointer_declarator		PARAMS ((tree, tree));
 extern tree make_reference_declarator		PARAMS ((tree, tree));
 extern tree make_call_declarator		PARAMS ((tree, tree, tree, tree));

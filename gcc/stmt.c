@@ -2305,10 +2305,6 @@ warn_if_unused_value (exp)
   if (VOID_TYPE_P (TREE_TYPE (exp)))
     return 0;
 
-  /* If this is an expression with side effects, don't warn.  */
-  if (TREE_SIDE_EFFECTS (exp))
-    return 0;
-
   switch (TREE_CODE (exp))
     {
     case PREINCREMENT_EXPR:
@@ -2368,7 +2364,7 @@ warn_if_unused_value (exp)
 	    || TREE_CODE (tem) == CALL_EXPR)
 	  return 0;
       }
-      goto warn;
+      goto maybe_warn;
 
     case INDIRECT_REF:
       /* Don't warn about automatic dereferencing of references, since
@@ -2391,7 +2387,11 @@ warn_if_unused_value (exp)
 	  && TREE_CODE_LENGTH (TREE_CODE (exp)) == 0)
 	return 0;
 
-    warn:
+    maybe_warn:
+      /* If this is an expression with side effects, don't warn.  */
+      if (TREE_SIDE_EFFECTS (exp))
+	return 0;
+
       warning_with_file_and_line (emit_filename, emit_lineno,
 				  "value computed is not used");
       return 1;
@@ -4248,6 +4248,11 @@ expand_anon_union_decl (decl, cleanup, decl_elts)
       tree decl_elt = TREE_VALUE (t);
       tree cleanup_elt = TREE_PURPOSE (t);
       enum machine_mode mode = TYPE_MODE (TREE_TYPE (decl_elt));
+
+      /* If any of the elements are addressable, so is the entire
+	 union.  */
+      if (TREE_USED (decl_elt))
+	TREE_USED (decl) = 1;
 
       /* Propagate the union's alignment to the elements.  */
       DECL_ALIGN (decl_elt) = DECL_ALIGN (decl);

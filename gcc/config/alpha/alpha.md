@@ -518,31 +518,14 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 	(sign_extend:DI (match_dup 1)))]
   "")
 
-;; Do addsi3 the way expand_binop would do if we didn't have one.  This
-;; generates better code.  We have the anonymous addsi3 pattern below in
-;; case combine wants to make it.
+;; Don't say we have addsi3 if optimizing.  This generates better code.  We
+;; have the anonymous addsi3 pattern below in case combine wants to make it.
 (define_expand "addsi3"
   [(set (match_operand:SI 0 "register_operand" "")
 	(plus:SI (match_operand:SI 1 "reg_or_0_operand" "")
 		 (match_operand:SI 2 "add_operand" "")))]
-  ""
-{
-  if (optimize)
-    {
-      rtx op1 = gen_lowpart (DImode, operands[1]);
-      rtx op2 = gen_lowpart (DImode, operands[2]);
-
-      if (! cse_not_expected)
-        {
-          rtx tmp = gen_reg_rtx (DImode);
-          emit_insn (gen_adddi3 (tmp, op1, op2));
-          emit_move_insn (gen_lowpart (DImode, operands[0]), tmp);
-        }
-      else
-        emit_insn (gen_adddi3 (gen_lowpart (DImode, operands[0]), op1, op2));
-      DONE;
-    }
-})
+  "! optimize"
+  "")
 
 (define_insn "*addsi_internal"
   [(set (match_operand:SI 0 "register_operand" "=r,r,r,r")
@@ -576,6 +559,17 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 	(sign_extend:DI
 	 (plus:SI (match_operand:SI 1 "reg_or_0_operand" "%rJ,rJ")
 		  (match_operand:SI 2 "sext_add_operand" "rI,O"))))]
+  ""
+  "@
+   addl %r1,%2,%0
+   subl %r1,%n2,%0")
+
+(define_insn "*addsi_se2"
+  [(set (match_operand:DI 0 "register_operand" "=r,r")
+	(sign_extend:DI
+	 (subreg:SI (plus:DI (match_operand:DI 1 "reg_or_0_operand" "%rJ,rJ")
+			     (match_operand:DI 2 "sext_add_operand" "rI,O"))
+		    0)))]
   ""
   "@
    addl %r1,%2,%0
@@ -844,24 +838,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   [(set (match_operand:SI 0 "register_operand" "")
 	(minus:SI (match_operand:SI 1 "reg_or_0_operand" "")
 		  (match_operand:SI 2 "reg_or_8bit_operand" "")))]
-  ""
-{
-  if (optimize)
-    {
-      rtx op1 = gen_lowpart (DImode, operands[1]);
-      rtx op2 = gen_lowpart (DImode, operands[2]);
-
-      if (! cse_not_expected)
-        {
-          rtx tmp = gen_reg_rtx (DImode);
-          emit_insn (gen_subdi3 (tmp, op1, op2));
-          emit_move_insn (gen_lowpart (DImode, operands[0]), tmp);
-        }
-      else
-        emit_insn (gen_subdi3 (gen_lowpart (DImode, operands[0]), op1, op2));
-      DONE;
-    }
-})
+  "! optimize"
+  "")
 
 (define_insn "*subsi_internal"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -874,6 +852,15 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(sign_extend:DI (minus:SI (match_operand:SI 1 "reg_or_0_operand" "rJ")
 				  (match_operand:SI 2 "reg_or_8bit_operand" "rI"))))]
+  ""
+  "subl %r1,%2,%0")
+
+(define_insn "*subsi_se2"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(sign_extend:DI
+	 (subreg:SI (minus:DI (match_operand:DI 1 "reg_or_0_operand" "rJ")
+			      (match_operand:DI 2 "reg_or_8bit_operand" "rI"))
+		    0)))]
   ""
   "subl %r1,%2,%0")
 
@@ -1610,23 +1597,20 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 }
   [(set_attr "type" "iadd,shift")])
 
-;; ??? The following pattern is made by combine, but earlier phases
-;; (specifically flow) can't handle it.  This occurs in jump.c.  Deal
-;; with this in a better way at some point.
-;;(define_insn ""
-;;  [(set (match_operand:DI 0 "register_operand" "=r")
-;;	(sign_extend:DI
-;;	 (subreg:SI (ashift:DI (match_operand:DI 1 "reg_or_0_operand" "rJ")
-;;			       (match_operand:DI 2 "const_int_operand" "P"))
-;;		    0)))]
-;;  "INTVAL (operands[2]) >= 1 && INTVAL (operands[2]) <= 3"
-;;{
-;;  if (operands[2] == const1_rtx)
-;;    return "addl %r1,%r1,%0";
-;;  else
-;;    return "s%P2addl %r1,0,%0";
-;;}
-;;  [(set_attr "type" "iadd")])
+(define_insn "*ashldi_se"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(sign_extend:DI
+	 (subreg:SI (ashift:DI (match_operand:DI 1 "reg_or_0_operand" "rJ")
+			       (match_operand:DI 2 "const_int_operand" "P"))
+		    0)))]
+  "INTVAL (operands[2]) >= 1 && INTVAL (operands[2]) <= 3"
+{
+  if (operands[2] == const1_rtx)
+    return "addl %r1,%r1,%0";
+  else
+    return "s%P2addl %r1,0,%0";
+}
+  [(set_attr "type" "iadd")])
 
 (define_insn "lshrdi3"
   [(set (match_operand:DI 0 "register_operand" "=r")

@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"
+#include "flags.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
 
@@ -35,6 +36,14 @@ Boston, MA 02111-1307, USA.  */
 
 void
 lhd_do_nothing ()
+{
+}
+
+/* Do nothing.  */
+
+void
+lhd_do_nothing_t (t)
+     tree t ATTRIBUTE_UNUSED;
 {
 }
 
@@ -153,8 +162,12 @@ lhd_tree_inlining_walk_subtrees (tp,subtrees,func,data,htab)
 
 int
 lhd_tree_inlining_cannot_inline_tree_fn (fnp)
-     tree *fnp ATTRIBUTE_UNUSED;
+     tree *fnp;
 {
+  if (optimize == 0
+      && lookup_attribute ("always_inline", DECL_ATTRIBUTES (*fnp)) == NULL)
+    return 1;
+
   return 0;
 }
 
@@ -164,8 +177,11 @@ lhd_tree_inlining_cannot_inline_tree_fn (fnp)
 
 int
 lhd_tree_inlining_disregard_inline_limits (fn)
-     tree fn ATTRIBUTE_UNUSED;
+     tree fn;
 {
+  if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
+    return 1;
+
   return 0;
 }
 

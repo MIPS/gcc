@@ -73,7 +73,7 @@ static void push_array_bounds		PARAMS ((int));
 static int spelling_length		PARAMS ((void));
 static char *print_spelling		PARAMS ((char *));
 static void warning_init		PARAMS ((const char *));
-static tree digest_init			PARAMS ((tree, tree, int, int));
+static tree digest_init			PARAMS ((tree, tree, int));
 static void output_init_element		PARAMS ((tree, tree, tree, int));
 static void output_pending_init_elements PARAMS ((int));
 static int set_designator		PARAMS ((int));
@@ -996,9 +996,8 @@ default_conversion (exp)
     {
       type = type_for_size (MAX (TYPE_PRECISION (type),
 				 TYPE_PRECISION (integer_type_node)),
-			    ((flag_traditional
-			      || (TYPE_PRECISION (type)
-				  >= TYPE_PRECISION (integer_type_node)))
+			    ((TYPE_PRECISION (type)
+			      >= TYPE_PRECISION (integer_type_node))
 			     && TREE_UNSIGNED (type)));
 
       return convert (type, exp);
@@ -1010,25 +1009,17 @@ default_conversion (exp)
 	 c_promoting_integer_type_p, otherwise leave it alone.  */
       && 0 > compare_tree_int (DECL_SIZE (TREE_OPERAND (exp, 1)),
 			       TYPE_PRECISION (integer_type_node)))
-    return convert (flag_traditional && TREE_UNSIGNED (type)
-		    ? unsigned_type_node : integer_type_node,
-		    exp);
+    return convert (integer_type_node, exp);
 
   if (c_promoting_integer_type_p (type))
     {
-      /* Traditionally, unsignedness is preserved in default promotions.
-         Also preserve unsignedness if not really getting any wider.  */
+      /* Preserve unsignedness if not really getting any wider.  */
       if (TREE_UNSIGNED (type)
-	  && (flag_traditional
-	      || TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)))
+	  && TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node))
 	return convert (unsigned_type_node, exp);
 
       return convert (integer_type_node, exp);
     }
-
-  if (flag_traditional && !flag_allow_single_precision
-      && TYPE_MAIN_VARIANT (type) == float_type_node)
-    return convert (double_type_node, exp);
 
   if (code == VOID_TYPE)
     {
@@ -2120,18 +2111,14 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		}
 	    }
 
-	  /* Use the type of the value to be shifted.
-	     This is what most traditional C compilers do.  */
+	  /* Use the type of the value to be shifted.  */
 	  result_type = type0;
-	  /* Unless traditional, convert the shift-count to an integer,
-	     regardless of size of value being shifted.  */
-	  if (! flag_traditional)
-	    {
-	      if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
-		op1 = convert (integer_type_node, op1);
-	      /* Avoid converting op1 to result_type later.  */
-	      converted = 1;
-	    }
+	  /* Convert the shift-count to an integer, regardless of size
+	     of value being shifted.  */
+	  if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
+	    op1 = convert (integer_type_node, op1);
+	  /* Avoid converting op1 to result_type later.  */
+	  converted = 1;
 	}
       break;
 
@@ -2147,18 +2134,14 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		warning ("left shift count >= width of type");
 	    }
 
-	  /* Use the type of the value to be shifted.
-	     This is what most traditional C compilers do.  */
+	  /* Use the type of the value to be shifted.  */
 	  result_type = type0;
-	  /* Unless traditional, convert the shift-count to an integer,
-	     regardless of size of value being shifted.  */
-	  if (! flag_traditional)
-	    {
-	      if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
-		op1 = convert (integer_type_node, op1);
-	      /* Avoid converting op1 to result_type later.  */
-	      converted = 1;
-	    }
+	  /* Convert the shift-count to an integer, regardless of size
+	     of value being shifted.  */
+	  if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
+	    op1 = convert (integer_type_node, op1);
+	  /* Avoid converting op1 to result_type later.  */
+	  converted = 1;
 	}
       break;
 
@@ -2174,18 +2157,14 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		warning ("shift count >= width of type");
 	    }
 
-	  /* Use the type of the value to be shifted.
-	     This is what most traditional C compilers do.  */
+	  /* Use the type of the value to be shifted.  */
 	  result_type = type0;
-	  /* Unless traditional, convert the shift-count to an integer,
-	     regardless of size of value being shifted.  */
-	  if (! flag_traditional)
-	    {
-	      if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
-		op1 = convert (integer_type_node, op1);
-	      /* Avoid converting op1 to result_type later.  */
-	      converted = 1;
-	    }
+	  /* Convert the shift-count to an integer, regardless of size
+	     of value being shifted.  */
+	  if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
+	    op1 = convert (integer_type_node, op1);
+	  /* Avoid converting op1 to result_type later.  */
+	  converted = 1;
 	}
       break;
 
@@ -2239,14 +2218,12 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  result_type = type0;
-	  if (! flag_traditional)
-	    pedwarn ("comparison between pointer and integer");
+	  pedwarn ("comparison between pointer and integer");
 	}
       else if (code0 == INTEGER_TYPE && code1 == POINTER_TYPE)
 	{
 	  result_type = type1;
-	  if (! flag_traditional)
-	    pedwarn ("comparison between pointer and integer");
+	  pedwarn ("comparison between pointer and integer");
 	}
       break;
 
@@ -2315,14 +2292,12 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  result_type = type0;
-	  if (! flag_traditional)
-	    pedwarn ("comparison between pointer and integer");
+	  pedwarn ("comparison between pointer and integer");
 	}
       else if (code0 == INTEGER_TYPE && code1 == POINTER_TYPE)
 	{
 	  result_type = type1;
-	  if (! flag_traditional)
-	    pedwarn ("comparison between pointer and integer");
+	  pedwarn ("comparison between pointer and integer");
 	}
       break;
 
@@ -3684,8 +3659,7 @@ build_c_cast (type, expr)
 	  else
 	    name = "";
 	  t = digest_init (type, build (CONSTRUCTOR, type, NULL_TREE,
-					build_tree_list (field, value)),
-			   0, 0);
+					build_tree_list (field, value)), 0);
 	  TREE_CONSTANT (t) = TREE_CONSTANT (value);
 	  return t;
 	}
@@ -4370,8 +4344,7 @@ store_init_value (decl, init)
 
   /* Digest the specified initializer into an expression.  */
 
-  value = digest_init (type, init, TREE_STATIC (decl),
-		       TREE_STATIC (decl) || (pedantic && !flag_isoc99));
+  value = digest_init (type, init, TREE_STATIC (decl));
 
   /* Store the expression if valid; else report error.  */
 
@@ -4632,14 +4605,13 @@ warning_init (msgid)
 /* Digest the parser output INIT as an initializer for type TYPE.
    Return a C expression of type TYPE to represent the initial value.
 
-   The arguments REQUIRE_CONSTANT and CONSTRUCTOR_CONSTANT request errors
-   if non-constant initializers or elements are seen.  CONSTRUCTOR_CONSTANT
-   applies only to elements of constructors.  */
+   REQUIRE_CONSTANT requests an error if non-constant initializers or
+   elements are seen.  */
 
 static tree
-digest_init (type, init, require_constant, constructor_constant)
+digest_init (type, init, require_constant)
      tree type, init;
-     int require_constant, constructor_constant;
+     int require_constant;
 {
   enum tree_code code = TREE_CODE (type);
   tree inside_init = init;
@@ -4818,44 +4790,6 @@ digest_init (type, init, require_constant, constructor_constant)
       return error_mark_node;
     }
 
-  /* Traditionally, you can write  struct foo x = 0;
-     and it initializes the first element of x to 0.  */
-  if (flag_traditional)
-    {
-      tree top = 0, prev = 0, otype = type;
-      while (TREE_CODE (type) == RECORD_TYPE
-	     || TREE_CODE (type) == ARRAY_TYPE
-	     || TREE_CODE (type) == QUAL_UNION_TYPE
-	     || TREE_CODE (type) == UNION_TYPE)
-	{
-	  tree temp = build (CONSTRUCTOR, type, NULL_TREE, NULL_TREE);
-	  if (prev == 0)
-	    top = temp;
-	  else
-	    TREE_OPERAND (prev, 1) = build_tree_list (NULL_TREE, temp);
-	  prev = temp;
-	  if (TREE_CODE (type) == ARRAY_TYPE)
-	    type = TREE_TYPE (type);
-	  else if (TYPE_FIELDS (type))
-	    type = TREE_TYPE (TYPE_FIELDS (type));
-	  else
-	    {
-	      error_init ("invalid initializer");
-	      return error_mark_node;
-	    }
-	}
-
-      if (otype != type)
-	{
-	  TREE_OPERAND (prev, 1)
-	    = build_tree_list (NULL_TREE,
-			       digest_init (type, init, require_constant,
-					    constructor_constant));
-	  return top;
-	}
-      else
-	return error_mark_node;
-    }
   error_init ("invalid initializer");
   return error_mark_node;
 }
@@ -5235,7 +5169,7 @@ really_start_incremental_init (type)
       /* Vectors are like simple fixed-size arrays.  */
       constructor_max_index =
 	build_int_2 (TYPE_VECTOR_SUBPARTS (constructor_type) - 1, 0);
-      constructor_index = convert (bitsizetype, integer_zero_node);
+      constructor_index = convert (bitsizetype, bitsize_zero_node);
       constructor_unfilled_index = constructor_index;
     }
   else
@@ -5383,6 +5317,14 @@ push_init_level (implicit)
 
       constructor_unfilled_fields = constructor_fields;
       constructor_bit_index = bitsize_zero_node;
+    }
+  else if (TREE_CODE (constructor_type) == VECTOR_TYPE)
+    {
+      /* Vectors are like simple fixed-size arrays.  */
+      constructor_max_index =
+	build_int_2 (TYPE_VECTOR_SUBPARTS (constructor_type) - 1, 0);
+      constructor_index = convert (bitsizetype, integer_zero_node);
+      constructor_unfilled_index = constructor_index;
     }
   else if (TREE_CODE (constructor_type) == ARRAY_TYPE)
     {
@@ -6244,8 +6186,7 @@ output_init_element (value, type, field, pending)
 		  || TREE_CHAIN (field)))))
     return;
 
-  value = digest_init (type, value, require_constant_value,
-		       require_constant_elements);
+  value = digest_init (type, value, require_constant_value);
   if (value == error_mark_node)
     {
       constructor_erroneous = 1;

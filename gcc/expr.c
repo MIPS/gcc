@@ -3659,7 +3659,7 @@ expand_assignment (to, from, want_value, suggest_reg)
 
       if (offset != 0)
 	{
-	  rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, 0);
+	  rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
 
 	  if (GET_CODE (to_rtx) != MEM)
 	    abort ();
@@ -3682,15 +3682,7 @@ expand_assignment (to, from, want_value, suggest_reg)
 	      && (bitsize % GET_MODE_ALIGNMENT (mode1)) == 0
 	      && MEM_ALIGN (to_rtx) == GET_MODE_ALIGNMENT (mode1))
 	    {
-	      rtx temp
-		= adjust_address (to_rtx, mode1, bitpos / BITS_PER_UNIT);
-
-	      if (GET_CODE (XEXP (temp, 0)) == REG)
-	        to_rtx = temp;
-	      else
-		to_rtx = (replace_equiv_address
-			  (to_rtx, force_reg (GET_MODE (XEXP (temp, 0)),
-					      XEXP (temp, 0))));
+	      to_rtx = adjust_address (to_rtx, mode1, bitpos / BITS_PER_UNIT);
 	      bitpos = 0;
 	    }
 
@@ -3997,6 +3989,8 @@ store_expr (exp, target, want_value)
        and then convert to the wider mode.  Our value is the computed
        expression.  */
     {
+      rtx inner_target = 0;
+
       /* If we don't want a value, we can do the conversion inside EXP,
 	 which will often result in some optimizations.  Do the conversion
 	 in two steps: first change the signedness, if needed, then
@@ -4017,9 +4011,11 @@ store_expr (exp, target, want_value)
 	  exp = convert (type_for_mode (GET_MODE (SUBREG_REG (target)),
 					SUBREG_PROMOTED_UNSIGNED_P (target)),
 			 exp);
+
+	  inner_target = SUBREG_REG (target);
 	}
 
-      temp = expand_expr (exp, NULL_RTX, VOIDmode, 0);
+      temp = expand_expr (exp, inner_target, VOIDmode, 0);
 
       /* If TEMP is a volatile MEM and we want a result value, make
 	 the access now so it gets done only once.  Likewise if
@@ -5143,18 +5139,16 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode, unsignedp, type,
 	      tree count;
 	      enum machine_mode tmode;
 
-	      if (unsignedp)
-		return expand_and (temp,
-				   GEN_INT
-				   (trunc_int_for_mode
-				    (width_mask,
-				     GET_MODE (temp) == VOIDmode
-				     ? value_mode
-				     : GET_MODE (temp))), NULL_RTX);
-
 	      tmode = GET_MODE (temp);
 	      if (tmode == VOIDmode)
 		tmode = value_mode;
+
+	      if (unsignedp)
+		return expand_and (tmode, temp,
+				   GEN_INT (trunc_int_for_mode (width_mask,
+								tmode)),
+				   NULL_RTX);
+
 	      count = build_int_2 (GET_MODE_BITSIZE (tmode) - bitsize, 0);
 	      temp = expand_shift (LSHIFT_EXPR, tmode, temp, count, 0, 0);
 	      return expand_shift (RSHIFT_EXPR, tmode, temp, count, 0, 0);
@@ -6785,16 +6779,16 @@ expand_expr (exp, target, tmode, modifier)
 		  {
 		    HOST_WIDE_INT bitsize
 		      = TREE_INT_CST_LOW (DECL_SIZE (TREE_PURPOSE (elt)));
+		    enum machine_mode imode
+		      = TYPE_MODE (TREE_TYPE (TREE_PURPOSE (elt)));
 
 		    if (TREE_UNSIGNED (TREE_TYPE (TREE_PURPOSE (elt))))
 		      {
 			op1 = GEN_INT (((HOST_WIDE_INT) 1 << bitsize) - 1);
-			op0 = expand_and (op0, op1, target);
+			op0 = expand_and (imode, op0, op1, target);
 		      }
 		    else
 		      {
-			enum machine_mode imode
-			  = TYPE_MODE (TREE_TYPE (TREE_PURPOSE (elt)));
 			tree count
 			  = build_int_2 (GET_MODE_BITSIZE (imode) - bitsize,
 					 0);
@@ -6854,7 +6848,7 @@ expand_expr (exp, target, tmode, modifier)
 
 	if (offset != 0)
 	  {
-	    rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, 0);
+	    rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
 
 	    /* If this object is in a register, put it into memory.
 	       This case can't occur in C, but can in Ada if we have
@@ -6904,15 +6898,7 @@ expand_expr (exp, target, tmode, modifier)
 		&& (bitsize % GET_MODE_ALIGNMENT (mode1)) == 0
 		&& MEM_ALIGN (op0) == GET_MODE_ALIGNMENT (mode1))
 	      {
-		rtx temp = adjust_address (op0, mode1, bitpos / BITS_PER_UNIT);
-
-		if (GET_CODE (XEXP (temp, 0)) == REG)
-		  op0 = temp;
-		else
-		  op0 = (replace_equiv_address
-			 (op0,
-			  force_reg (GET_MODE (XEXP (temp, 0)),
-				     XEXP (temp, 0))));
+		op0 = adjust_address (op0, mode1, bitpos / BITS_PER_UNIT);
 		bitpos = 0;
 	      }
 
@@ -7624,23 +7610,20 @@ expand_expr (exp, target, tmode, modifier)
 	 indexed address, for machines that support that.  */
 
       if (modifier == EXPAND_SUM && mode == ptr_mode
-	  && TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST
-	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+	  && host_integerp (TREE_OPERAND (exp, 1), 0))
 	{
 	  op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode,
 			     EXPAND_SUM);
 
-	  /* Apply distributive law if OP0 is x+c.  */
-	  if (GET_CODE (op0) == PLUS
-	      && GET_CODE (XEXP (op0, 1)) == CONST_INT)
-	    return
-	      gen_rtx_PLUS
-		(mode,
-		 gen_rtx_MULT
-		 (mode, XEXP (op0, 0),
-		  GEN_INT (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)))),
-		 GEN_INT (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1))
-			  * INTVAL (XEXP (op0, 1))));
+	  /* If we knew for certain that this is arithmetic for an array
+	     reference, and we knew the bounds of the array, then we could
+	     apply the distributive law across (PLUS X C) for constant C.
+	     Without such knowledge, we risk overflowing the computation
+	     when both X and C are large, but X+C isn't.  */
+	  /* ??? Could perhaps special-case EXP being unsigned and C being
+	     positive.  In that case we are certain that X+C is no smaller
+	     than X and so the transformed expression will overflow iff the
+	     original would have.  */
 
 	  if (GET_CODE (op0) != REG)
 	    op0 = force_operand (op0, NULL_RTX);
@@ -7649,7 +7632,7 @@ expand_expr (exp, target, tmode, modifier)
 
 	  return
 	    gen_rtx_MULT (mode, op0,
-			  GEN_INT (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1))));
+			  GEN_INT (tree_low_cst (TREE_OPERAND (exp, 1), 0)));
 	}
 
       if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
@@ -10222,7 +10205,7 @@ do_store_flag (exp, target, mode, only_cheap)
 
       /* Put the AND last so it can combine with more things.  */
       if (bitnum != TYPE_PRECISION (type) - 1)
-	op0 = expand_and (op0, const1_rtx, subtarget);
+	op0 = expand_and (mode, op0, const1_rtx, subtarget);
 
       return op0;
     }

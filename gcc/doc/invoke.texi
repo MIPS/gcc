@@ -1144,75 +1144,13 @@ options for strict ISO C conformance) implies @option{-trigraphs}.
 @cindex traditional C language
 @cindex C language, traditional
 @item -traditional
-@opindex traditional
-Attempt to support some aspects of traditional C compilers.
-Specifically:
-
-@itemize @bullet
-@item
-All @code{extern} declarations take effect globally even if they
-are written inside of a function definition.  This includes implicit
-declarations of functions.
-
-@item
-The newer keywords @code{typeof}, @code{inline}, @code{signed}, @code{const}
-and @code{volatile} are not recognized.  (You can still use the
-alternative keywords such as @code{__typeof__}, @code{__inline__}, and
-so on.)
-
-@item
-Comparisons between pointers and integers are always allowed.
-
-@item
-Integer types @code{unsigned short} and @code{unsigned char} promote
-to @code{unsigned int}.
-
-@item
-Out-of-range floating point literals are not an error.
-
-@item
-Certain constructs which ISO regards as a single invalid preprocessing
-number, such as @samp{0xe-0xd}, are treated as expressions instead.
-
-@item
-String ``constants'' are not necessarily constant; they are stored in
-writable space, and identical looking constants are allocated
-separately.  (This is the same as the effect of
-@option{-fwritable-strings}.)
-
-@cindex @code{longjmp} and automatic variables
-@item
-All automatic variables not declared @code{register} are preserved by
-@code{longjmp}.  Ordinarily, GNU C follows ISO C: automatic variables
-not declared @code{volatile} may be clobbered.
-
-@item
-@cindex @samp{\x}
-@cindex @samp{\a}
-@cindex escape sequences, traditional
-The character escape sequences @samp{\x} and @samp{\a} evaluate as the
-literal characters @samp{x} and @samp{a} respectively.  Without
-@w{@option{-traditional}}, @samp{\x} is a prefix for the hexadecimal
-representation of a character, and @samp{\a} produces a bell.
-@end itemize
-
-This option is deprecated and may be removed.
-
-You may wish to use @option{-fno-builtin} as well as @option{-traditional}
-if your program uses names that are normally GNU C built-in functions for
-other purposes of its own.
-
-You cannot use @option{-traditional} if you include any header files that
-rely on ISO C features.  Some vendors are starting to ship systems with
-ISO C header files and you cannot use @option{-traditional} on such
-systems to compile files that include any system headers.
-
-The @option{-traditional} option also enables @option{-traditional-cpp}.
-
-@item -traditional-cpp
+@itemx -traditional-cpp
 @opindex traditional-cpp
-Attempt to support some aspects of traditional C preprocessors.
-See the GNU CPP manual for details.
+@opindex traditional
+Formerly, these options caused GCC to attempt to emulate a pre-standard
+C compiler.  They are now only supported with the @option{-E} switch.
+The preprocessor continues to support a pre-standard mode.  See the GNU
+CPP manual for details.
 
 @item -fcond-mismatch
 @opindex fcond-mismatch
@@ -1260,31 +1198,14 @@ declaration does not use either @code{signed} or @code{unsigned}.  By
 default, such a bit-field is signed, because this is consistent: the
 basic integer types such as @code{int} are signed types.
 
-However, when @option{-traditional} is used, bit-fields are all unsigned
-no matter what.
-
 @item -fwritable-strings
 @opindex fwritable-strings
 Store string constants in the writable data segment and don't uniquize
 them.  This is for compatibility with old programs which assume they can
-write into string constants.  The option @option{-traditional} also has
-this effect.
+write into string constants.
 
 Writing into string constants is a very bad idea; ``constants'' should
 be constant.
-
-@item -fallow-single-precision
-@opindex fallow-single-precision
-Do not promote single precision math operations to double precision,
-even when compiling with @option{-traditional}.
-
-Traditional K&R C promotes all floating point operations to double
-precision, regardless of the sizes of the operands.   On the
-architecture for which you are compiling, single precision may be faster
-than double precision.   If you must use @option{-traditional}, but want
-to use single precision operations when the operands are single
-precision, use this option.   This option has no effect when compiling
-with ISO or GNU C conventions (the default).
 
 @item -fshort-wchar
 @opindex fshort-wchar
@@ -2586,7 +2507,7 @@ appropriate may not be detected.  This option has no effect unless
 @item -Wno-deprecated-declarations
 @opindex Wno-deprecated-declarations
 Do not warn about uses of functions, variables, and types marked as
-deprecated by using the @code{deprecated} attribute. 
+deprecated by using the @code{deprecated} attribute.
 (@pxref{Function Attributes}, @pxref{Variable Attributes},
 @pxref{Type Attributes}.)
 
@@ -2935,7 +2856,7 @@ Annotate the assembler output with miscellaneous debugging information.
 Dump after computing branch probabilities, to @file{@var{file}.15.bp}.
 @item B
 @opindex dB
-Dump after block reordering, to @file{@var{file}.29.bbro}.
+Dump after block reordering, to @file{@var{file}.30.bbro}.
 @item c
 @opindex dc
 Dump after instruction combination, to the file @file{@var{file}.17.combine}.
@@ -2958,19 +2879,19 @@ Dump after SSA optimizations, to @file{@var{file}.04.ssa} and
 Dump after the second if conversion, to @file{@var{file}.27.ce2}.
 @item f
 @opindex df
-Dump after life analysis, to @file{@var{file}.15.life}.
+Dump after life analysis, to @file{@var{file}.16.life}.
 @item F
 @opindex dF
-Dump after purging @code{ADDRESSOF} codes, to @file{@var{file}.09.addressof}.
+Dump after purging @code{ADDRESSOF} codes, to @file{@var{file}.10.addressof}.
 @item g
 @opindex dg
-Dump after global register allocation, to @file{@var{file}.21.greg}.
+Dump after global register allocation, to @file{@var{file}.22.greg}.
 @item h
 @opindex dh
 Dump after finalization of EH handling code, to @file{@var{file}.02.eh}.
 @item k
 @opindex dk
-Dump after reg-to-stack conversion, to @file{@var{file}.28.stack}.
+Dump after reg-to-stack conversion, to @file{@var{file}.29.stack}.
 @item o
 @opindex do
 Dump after post-reload optimizations, to @file{@var{file}.23.postreload}.
@@ -2985,10 +2906,10 @@ Dump after sibling call optimizations, to @file{@var{file}.01.sibling}.
 Dump after the first jump optimization, to @file{@var{file}.03.jump}.
 @item k
 @opindex dk
-Dump after conversion from registers to stack, to @file{@var{file}.32.stack}.
+Dump after conversion from registers to stack, to @file{@var{file}.33.stack}.
 @item l
 @opindex dl
-Dump after local register allocation, to @file{@var{file}.20.lreg}.
+Dump after local register allocation, to @file{@var{file}.21.lreg}.
 @item L
 @opindex dL
 Dump after loop optimization, to @file{@var{file}.12.loop}.
@@ -2998,7 +2919,7 @@ Dump after performing the machine dependent reorganisation pass, to
 @file{@var{file}.31.mach}.
 @item n
 @opindex dn
-Dump after register renumbering, to @file{@var{file}.25.rnreg}.
+Dump after register renumbering, to @file{@var{file}.26.rnreg}.
 @item N
 @opindex dN
 Dump after the register move pass, to @file{@var{file}.19.regmove}.
@@ -3007,21 +2928,24 @@ Dump after the register move pass, to @file{@var{file}.19.regmove}.
 Dump after RTL generation, to @file{@var{file}.00.rtl}.
 @item R
 @opindex dR
-Dump after the second scheduling pass, to @file{@var{file}.27.sched2}.
+Dump after the second scheduling pass, to @file{@var{file}.28.sched2}.
 @item s
 @opindex ds
 Dump after CSE (including the jump optimization that sometimes follows
-CSE), to @file{@var{file}.08.cse}.
+CSE), to @file{@var{file}.09.cse}.
 @item S
 @opindex dS
 Dump after the first scheduling pass, to @file{@var{file}.21.sched}.
 @item t
 @opindex dt
 Dump after the second CSE pass (including the jump optimization that
-sometimes follows CSE), to @file{@var{file}.12.cse2}.
+sometimes follows CSE), to @file{@var{file}.13.cse2}.
+@item u
+@opindex du
+Dump after null pointer ellimination pass ti @file{@var{file}.08.null}.
 @item w
 @opindex dw
-Dump after the second flow pass, to @file{@var{file}.23.flow2}.
+Dump after the second flow pass, to @file{@var{file}.24.flow2}.
 @item X
 @opindex dX
 Dump after SSA dead code elimination, to @file{@var{file}.06.ssadce}.
@@ -4057,9 +3981,14 @@ Passing @option{-M} to the driver implies @option{-E}.
 
 @item -MM
 @opindex MM
-Like @option{-M}, but mention only the files included with @samp{#include
-"@var{file}"}.  System header files included with @samp{#include
-<@var{file}>} are omitted.
+Like @option{-M} but do not mention header files that are found in
+system header directories, nor header files that are included,
+directly or indirectly, from such a header.
+
+This implies that the choice of angle brackets or double quotes in an
+@samp{#include} directive does not in itself determine whether that
+header will appear in @option{-MM} dependency output.  This is a
+slight change in semantics from GCC versions 3.0 and earlier.
 
 @item -MD
 @opindex MD
@@ -4435,15 +4364,26 @@ of these is when the application wishes to throw and catch exceptions
 across different shared libraries.  In that case, each of the libraries
 as well as the application itself should use the shared @file{libgcc}.
 
-Therefore, whenever you specify the @option{-shared} option, the GCC
-driver automatically adds @option{-shared-libgcc}, unless you explicitly
-specify @option{-static-libgcc}.  The G++ driver automatically adds
-@option{-shared-libgcc} when you build a main executable as well because
-for C++ programs that is typically the right thing to do.
-(Exception-handling will not work reliably otherwise.)
+Therefore, the G++ and GCJ drivers automatically add
+@option{-shared-libgcc} whenever you build a shared library or a main
+executable, because C++ and Java programs typically use exceptions, so
+this is the right thing to do.
 
-However, when linking a main executable written in C, you must
-explicitly say @option{-shared-libgcc} if you want to use the shared
+If, instead, you use the GCC driver to create shared libraries, you may
+find that they will not always be linked with the shared @file{libgcc}.
+If GCC finds, at its configuration time, that you have a GNU linker that
+does not support option @option{--eh-frame-hdr}, it will link the shared
+version of @file{libgcc} into shared libraries by default.  Otherwise,
+it will take advantage of the linker and optimize away the linking with
+the shared version of @file{libgcc}, linking with the static version of
+libgcc by default.  This allows exceptions to propagate through such
+shared libraries, without incurring relocation costs at library load
+time.
+
+However, if a library or main executable is supposed to throw or catch
+exceptions, you must link it using the G++ or GCJ driver, as appropriate
+for the languages used in the program, or using the option
+@option{-shared-libgcc}, such that it is linked with the shared
 @file{libgcc}.
 
 @item -symbolic
@@ -8331,7 +8271,7 @@ arithmetic instead of IEEE single and double precision.
 @opindex mexplicit-relocs
 @opindex mno-explicit-relocs
 Older Alpha assemblers provided no way to generate symbol relocations
-except via assembler macros.  Use of these macros does not allow 
+except via assembler macros.  Use of these macros does not allow
 optimial instruction scheduling.  GNU binutils as of version 2.12
 supports a new syntax that allows the compiler to explicitly mark
 which relocations should apply to which instructions.  This option
@@ -8342,7 +8282,7 @@ the assembler when it is built and sets the default accordingly.
 @itemx -mlarge-data
 @opindex msmall-data
 @opindex mlarge-data
-When @option{-mexplicit-relocs} is in effect, static data is 
+When @option{-mexplicit-relocs} is in effect, static data is
 accessed via @dfn{gp-relative} relocations.  When @option{-msmall-data}
 is used, objects 8 bytes long or smaller are placed in a @dfn{small data area}
 (the @code{.sdata} and @code{.sbss} sections) and are accessed via
@@ -9333,7 +9273,7 @@ generates IEEE floating-point instructions.  This is the default.
 @itemx -mno-backchain
 @opindex mbackchain
 @opindex mno-backchain
-Generate (or do not generate) code which maintains an explicit 
+Generate (or do not generate) code which maintains an explicit
 backchain within the stack frame that points to the caller's frame.
 This is currently needed to allow debugging.  The default is to
 generate the backchain.
@@ -9342,8 +9282,8 @@ generate the backchain.
 @itemx -mno-small-exec
 @opindex msmall-exec
 @opindex mno-small-exec
-Generate (or do not generate) code using the @code{bras} instruction 
-to do subroutine calls. 
+Generate (or do not generate) code using the @code{bras} instruction
+to do subroutine calls.
 This only works reliably if the total executable size does not
 exceed 64k.  The default is to use the @code{basr} instruction instead,
 which does not have this limitation.
@@ -9356,14 +9296,14 @@ When @option{-m31} is specified, generate code compliant to the
 Linux for S/390 ABI@.  When @option{-m64} is specified, generate
 code compliant to the Linux for zSeries ABI@.  This allows GCC in
 particular to generate 64-bit instructions.  For the @samp{s390}
-targets, the default is @option{-m31}, while the @samp{s390x} 
+targets, the default is @option{-m31}, while the @samp{s390x}
 targets default to @option{-m64}.
 
 @item -mmvcle
 @itemx -mno-mvcle
 @opindex mmvcle
 @opindex mno-mvcle
-Generate (or do not generate) code using the @code{mvcle} instruction 
+Generate (or do not generate) code using the @code{mvcle} instruction
 to perform block moves.  When @option{-mno-mvcle} is specifed,
 use a @code{mvc} loop instead.  This is the default.
 

@@ -204,7 +204,7 @@ static int reg_attrs_htab_eq            PARAMS ((const void *,
 static void reg_attrs_mark		PARAMS ((const void *));
 static reg_attrs *get_reg_attrs		PARAMS ((tree, int));
 static tree component_ref_for_mem_expr	PARAMS ((tree));
-static rtx gen_const_vector_0 PARAMS ((enum mode_class, enum machine_mode));
+static rtx gen_const_vector_0		PARAMS ((enum machine_mode));
 
 /* Probability of the conditional branch currently proceeded by try_split.
    Set to -1 otherwise.  */
@@ -2198,9 +2198,26 @@ offset_address (memref, offset, pow2)
      rtx offset;
      HOST_WIDE_INT pow2;
 {
-  rtx new = change_address_1 (memref, VOIDmode,
-			      gen_rtx_PLUS (Pmode, XEXP (memref, 0),
-					    force_reg (Pmode, offset)), 1);
+  rtx new, addr = XEXP (memref, 0);
+
+  new = simplify_gen_binary (PLUS, Pmode, addr, offset);
+
+  /* At this point we don't know _why_ the address is invalid.  It 
+     could have secondary memory refereces, multiplies or anything.
+
+     However, if we did go and rearrange things, we can wind up not
+     being able to recognize the magic around pic_offset_table_rtx.
+     This stuff is fragile, and is yet another example of why it is
+     bad to expose PIC machinery too early.  */
+  if (! memory_address_p (GET_MODE (memref), new)
+      && GET_CODE (addr) == PLUS
+      && XEXP (addr, 0) == pic_offset_table_rtx)
+    {
+      addr = force_reg (GET_MODE (addr), addr);
+      new = simplify_gen_binary (PLUS, Pmode, addr, offset);
+    }
+
+  new = change_address_1 (memref, VOIDmode, new, 1);
 
   /* Update the alignment to reflect the offset.  Reset the offset, which
      we don't know.  */
@@ -4984,12 +5001,10 @@ mark_emit_status (es)
   ggc_mark_rtx (es->x_first_insn);
 }
 
-/* Generate the constant 0.  The first argument is MODE_VECTOR_INT for
-   integers or MODE_VECTOR_FLOAT for floats.  */
+/* Generate the constant 0.  */
 
 static rtx
-gen_const_vector_0 (type, mode)
-     enum mode_class type;
+gen_const_vector_0 (mode)
      enum machine_mode mode;
 {
   rtx tem;
@@ -5160,14 +5175,12 @@ init_emit_once (line_numbers)
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    const_tiny_rtx[0][(int) mode]
-      = gen_const_vector_0 (MODE_VECTOR_INT, mode);
+    const_tiny_rtx[0][(int) mode] = gen_const_vector_0 (mode);
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    const_tiny_rtx[0][(int) mode]
-      = gen_const_vector_0 (MODE_VECTOR_FLOAT, mode);
+    const_tiny_rtx[0][(int) mode] = gen_const_vector_0 (mode);
 
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)
     if (GET_MODE_CLASS ((enum machine_mode) i) == MODE_CC)

@@ -48,9 +48,6 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 #include "debug.h"
 
-/* External data.  */
-extern int rtx_equal_function_value_matters;
-
 /* Specify which cpu to schedule for.  */
 
 enum processor_type alpha_cpu;
@@ -1569,6 +1566,7 @@ alpha_encode_section_info (decl)
 	 don't know that they exist in this unit of translation.  */
       if (TREE_PUBLIC (decl))
 	return;
+
       /* Do not mark functions that are not in .text; otherwise we
 	 don't know that they are near enough for a direct branch.  */
       if (! decl_in_text_section (decl))
@@ -1592,11 +1590,16 @@ alpha_encode_section_info (decl)
 
   /* A variable is considered "local" if it is defined in this module.  */
 
-  if (DECL_EXTERNAL (decl))
+  /* Local binding occurs for any non-default visibility.  */
+  if (MODULE_LOCAL_P (decl))
+    is_local = true;
+  /* Otherwise, variables defined outside this object may not be local.  */
+  else if (DECL_EXTERNAL (decl))
     is_local = false;
   /* Linkonce and weak data is never local.  */
   else if (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
     is_local = false;
+  /* Static variables are always local.  */
   else if (! TREE_PUBLIC (decl))
     is_local = true;
   /* If PIC, then assume that any global name can be overridden by
@@ -2231,15 +2234,29 @@ alpha_emit_set_const (target, mode, c, n)
      HOST_WIDE_INT c;
      int n;
 {
-  rtx pat;
+  rtx result = 0;
+  rtx orig_target = target;
   int i;
 
-  /* Try 1 insn, then 2, then up to N.  */
-  for (i = 1; i <= n; i++)
-    if ((pat = alpha_emit_set_const_1 (target, mode, c, i)) != 0)
-      return pat;
+  /* If we can't make any pseudos, TARGET is an SImode hard register, we
+     can't load this constant in one insn, do this in DImode.  */
+  if (no_new_pseudos && mode == SImode
+      && GET_CODE (target) == REG && REGNO (target) < FIRST_PSEUDO_REGISTER
+      && (result = alpha_emit_set_const_1 (target, mode, c, 1)) == 0)
+    {
+      target = gen_lowpart (DImode, target);
+      mode = DImode;
+    }
 
-  return 0;
+  /* Try 1 insn, then 2, then up to N.  */
+  for (i = 1; i <= n && result == 0; i++)
+    result = alpha_emit_set_const_1 (target, mode, c, i);
+
+  /* Allow for the case where we changed the mode of TARGET.  */
+  if (result == target)
+    result = orig_target;
+
+  return result;
 }
 
 /* Internal routine for the above to check for N or below insns.  */
@@ -2255,8 +2272,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
   int i, bits;
   /* Use a pseudo if highly optimizing and still generating RTL.  */
   rtx subtarget
-    = (flag_expensive_optimizations && rtx_equal_function_value_matters
-       ? 0 : target);
+    = (flag_expensive_optimizations && !no_new_pseudos ? 0 : target);
   rtx temp;
 
 #if HOST_BITS_PER_WIDE_INT == 64
@@ -2321,8 +2337,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
      we can't make pseudos, we can't do anything since the expand_binop
      and expand_unop calls will widen and try to make pseudos.  */
 
-  if (n == 1
-      || (mode == SImode && ! rtx_equal_function_value_matters))
+  if (n == 1 || (mode == SImode && no_new_pseudos))
     return 0;
 
   /* Next, see if we can load a related constant and then shift and possibly
@@ -5503,12 +5518,13 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt, fnofs, cxtofs, jmpofs)
 			   OPTAB_WIDEN);
       temp = expand_shift (RSHIFT_EXPR, Pmode, temp,
 		           build_int_2 (2, 0), NULL_RTX, 1);
-      temp = expand_and (gen_lowpart (SImode, temp), GEN_INT (0x3fff), 0);
+      temp = expand_and (SImode, gen_lowpart (SImode, temp),
+			 GEN_INT (0x3fff), 0);
 
       /* Merge in the hint.  */
       addr = memory_address (SImode, plus_constant (tramp, jmpofs));
       temp1 = force_reg (SImode, gen_rtx_MEM (SImode, addr));
-      temp1 = expand_and (temp1, GEN_INT (0xffffc000), NULL_RTX);
+      temp1 = expand_and (SImode, temp1, GEN_INT (0xffffc000), NULL_RTX);
       temp1 = expand_binop (SImode, ior_optab, temp1, temp, temp1, 1,
 			    OPTAB_WIDEN);
       emit_move_insn (gen_rtx_MEM (SImode, addr), temp1);
@@ -5856,7 +5872,7 @@ alpha_sa_mask (imaskP, fmaskP)
      the regular part of the compiler.  In the ASM_OUTPUT_MI_THUNK case
      we don't have valid register life info, but assemble_start_function
      wants to output .frame and .mask directives.  */
-  if (current_function_is_thunk && rtx_equal_function_value_matters)
+  if (current_function_is_thunk && !no_new_pseudos)
     {
       *imaskP = 0;
       *fmaskP = 0;

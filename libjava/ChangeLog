@@ -1,3 +1,113 @@
+2002-02-27  Adam Megacz <adam@xwt.org>
+
+	* java/net/natInetAddress.cc: Changed USE_WINSOCK to WIN32, added
+	'#undef STRICT'.
+
+2002-02-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natSystem.cc (init_properties): Use __VERSION__.
+	* gij.cc (version): Use __VERSION__.
+	* include/config.h.in: Rebuilt.
+	* acconfig.h (GCJVERSION): Removed.
+	* configure: Rebuilt.
+	* configure.in (GCJVERSION): Removed.
+
+2002-02-26  Andreas Schwab  <schwab@suse.de>
+
+	* acinclude.m4 (LIB_AC_PROG_CXX): Use glibjava_CXX instead of
+	glibcpp_CXX, since libjava uses even another CXX.
+	* aclocal.m4, configure: Regenerated.
+
+2002-02-26  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natPosixProcess.cc (startProcess): Use FD_CLOEXEC, not
+	`1'.
+
+2002-02-25  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.am (GCJCOMPILE): Use -fCLASSPATH not -fclasspath. Fixes
+	dependency tracking for .java files.
+	* Makefile.in: Rebuilt.
+
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* java/net/natPlainDatagramSocketImpl.cc: whops; removed 'make'
+	typo. Sorry.
+
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* java/net/natPlainDatagramSocketImpl.cc: Updated #includes
+	for Win32, changed #ifdefs to check WIN32 instead of the
+	(now-obsolete) USE_WINSOCK, and removed support for socket
+	timeouts on Win32 pending further discussion.
+
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* win32-threads.cc (_Jv_ThreadInitData): _Jv_Malloc instead of new
+	* win32-threads.cc (_Jv_ThreadDestroyData): _Jv_Free instead of
+	delete
+
+2002-02-24  Adam Megacz  <adam@xwt.org>
+
+	* java/lang/Win32Process.java: Created a dummy class to allow
+	build process to run to completion.
+
+2002-02-24  Jeff Sturm  <jsturm@one-point.com>
+
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA):
+	Define ffi_result union for ffi_call result.  Cast
+	ffi_result members to jvalue.
+ 
+2002-02-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in, gcj/Makefile.in, include/Makefile.in: Rebuilt.
+	* testsuite/Makefile.in: Likewise.
+
+2002-02-20  Per Bothner  <per@bothner.com>
+
+	* java/net/URL.java (getPath):  New JDK 1.3 method.
+
+	* java/net/URLStreamHandler.java (parseURL):
+	It is wrong to prepend '/' to the file part of a relative url.
+
+	* java/net/URLStreamHandler.java (parseURL):
+	Minor optizations - append '/' rather than "/".
+
+	* java/net/URLStreamHandler.java (parseURL):
+	Don't canonicalize "xx/.." or "./" URLs - JDK doesn't.
+	We probably should canonicalize for a context-relative url, though.
+	* java/net/URL.java (sameFile):  Delegate to URLStreamHandler.
+	* java/net/URLStreamHandler.java (canonicalizeFilename):  New helper.
+	(sameFile):  New method.  Uses canonicalizeFilename.
+
+2002-02-22  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natSystem.cc (init_properties): Include the `Inc.' in
+	java.vendor and java.vm.vendor.
+	* gnu/java/rmi/rmic/RMIC.java (parseOptions): Only print most
+	recent copyright date.
+	* gnu/gcj/convert/Convert.java (version): Print `Inc'.
+	* gij.cc (version): Print `Inc'.
+
+2002-02-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* acinclude.m4 (CXX): AC_SUBST it, instead of glibcpp_CXX.
+	* aclocal.m4, configure: Rebuilt.
+
+2002-02-20  Per Bothner  <per@bothner.com>
+
+	* gnu/gcj/protocol/file/Connection.java (conect):  Open the input
+	and/or output streams immediately here, instead of using File.exists.
+	(inputStream, outputStream):  New fields to save open streams.
+	(getInputStream, getOutputStream):  Use already-opened streams.
+
+2002-02-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* acinclude.m4 (LIB_AC_PROG_CXX): Copied from libstdc++-v3.
+	Use it.
+	* Makefile.am (LIBLINK): Use CXX (and its tag) for linking.
+	* aclocal.m4, configure, Makefile.in: Rebuilt.
+
 2002-02-19  Tom Tromey  <tromey@redhat.com>
 
 	Fix for PR libgcj/5696:

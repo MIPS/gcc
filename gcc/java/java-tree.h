@@ -213,6 +213,9 @@ extern int flag_optimize_sci;
    in order to improve binary compatibility. */
 extern int flag_indirect_dispatch;
 
+/* When zero, don't generate runtime array store checks. */
+extern int flag_store_check;
+
 /* Encoding used for source files.  */
 extern const char *current_encoding;
 
@@ -1069,6 +1072,7 @@ extern tree ident_subst PARAMS ((const char*, int,
 extern tree identifier_subst PARAMS ((const tree,
 				     const char *, int, int, const char *));
 extern void java_init_decl_processing PARAMS ((void));
+extern void java_dup_lang_specific_decl PARAMS ((tree));
 extern tree build_java_signature PARAMS ((tree));
 extern tree build_java_argument_signature PARAMS ((tree));
 extern void set_java_signature PARAMS ((tree, tree));
@@ -1106,6 +1110,7 @@ extern tree build_java_binop PARAMS ((enum tree_code, tree, tree, tree));
 extern tree build_java_soft_divmod PARAMS ((enum tree_code, tree, tree, tree));
 extern tree binary_numeric_promotion PARAMS ((tree, tree, tree *, tree *));
 extern tree build_java_arrayaccess PARAMS ((tree, tree, tree));
+extern tree build_java_arraystore_check PARAMS ((tree, tree));
 extern tree build_newarray PARAMS ((int, tree));
 extern tree build_anewarray PARAMS ((tree, tree));
 extern tree build_new_array PARAMS ((tree, tree));

@@ -51,6 +51,8 @@ static tree handle_noreturn_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_noinline_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
+static tree handle_always_inline_attribute PARAMS ((tree *, tree, tree, int,
+						    bool *));
 static tree handle_used_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_unused_attribute	PARAMS ((tree *, tree, tree, int,
@@ -72,6 +74,8 @@ static tree handle_aligned_attribute	PARAMS ((tree *, tree, tree, int,
 static tree handle_weak_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_alias_attribute	PARAMS ((tree *, tree, tree, int,
+						 bool *));
+static tree handle_visibility_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_no_instrument_function_attribute PARAMS ((tree *, tree,
 							     tree, int,
@@ -112,6 +116,8 @@ static const struct attribute_spec c_common_attribute_table[] =
 			      handle_noreturn_attribute },
   { "noinline",               0, 0, true,  false, false,
 			      handle_noinline_attribute },
+  { "always_inline",          0, 0, true,  false, false,
+			      handle_always_inline_attribute },
   { "used",                   0, 0, true,  false, false,
 			      handle_used_attribute },
   { "unused",                 0, 0, false, false, false,
@@ -149,6 +155,8 @@ static const struct attribute_spec c_common_attribute_table[] =
 			      handle_deprecated_attribute },
   { "vector_size",	      1, 1, false, true, false,
 			      handle_vector_size_attribute },
+  { "visibility",	      1, 1, true,  false, false,
+			      handle_visibility_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -387,7 +395,9 @@ decl_attributes (node, attributes, flags)
 
       /* Layout the decl in case anything changed.  */
       if (spec->type_required && DECL_P (*node)
-	  && TREE_CODE (*node) == VAR_DECL)
+	  && (TREE_CODE (*node) == VAR_DECL
+	      || TREE_CODE (*node) == PARM_DECL
+	      || TREE_CODE (*node) == RESULT_DECL))
 	{
 	  /* Force a recalculation of mode and size.  */
 	  DECL_MODE (*node) = VOIDmode;
@@ -559,6 +569,31 @@ handle_noinline_attribute (node, name, args, flags, no_add_attrs)
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
     DECL_UNINLINABLE (*node) = 1;
+  else
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "always_inline" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_always_inline_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args ATTRIBUTE_UNUSED;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      /* Do nothing else, just set the attribute.  We'll get at
+	 it later with lookup_attribute.  */
+    }
   else
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
@@ -1068,6 +1103,50 @@ handle_no_instrument_function_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
+/* Handle an "visibility" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_visibility_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree decl = *node;
+
+  if (decl_function_context (decl) != 0 || ! TREE_PUBLIC (decl))
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else
+    {
+      tree id;
+
+      id = TREE_VALUE (args);
+      if (TREE_CODE (id) != STRING_CST)
+	{
+	  error ("visibility arg not a string");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+      if (strcmp (TREE_STRING_POINTER (id), "hidden")
+	  && strcmp (TREE_STRING_POINTER (id), "protected")
+	  && strcmp (TREE_STRING_POINTER (id), "internal"))
+	{
+	  error ("visibility arg must be one of \"hidden\", \"protected\" or \"internal\"");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+
+      assemble_visibility (decl, TREE_STRING_POINTER (id));
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "no_profile" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -1312,12 +1391,33 @@ handle_vector_size_attribute (node, name, args, flags, no_add_attrs)
     error ("no vector mode with the size and type specified could be found");
   else
     {
+      tree index, array, rt;
+
       new_type = type_for_mode (new_mode, TREE_UNSIGNED (type));
+
       if (!new_type)
-	error ("no vector mode with the size and type specified could be found");
-      else
-	/* Build back pointers if needed.  */
-	*node = vector_size_helper (*node, new_type);
+	{
+	  error ("no vector mode with the size and type specified could be found");
+	  return NULL_TREE;
+	}
+
+      new_type = build_type_copy (new_type);
+
+      /* Set the debug information here, because this is the only
+	 place where we know the underlying type for a vector made
+	 with vector_size.  For debugging purposes we pretend a vector
+	 is an array within a structure.  */
+      index = build_int_2 (TYPE_VECTOR_SUBPARTS (new_type) - 1, 0);
+      array = build_array_type (type, build_index_type (index));
+      rt = make_node (RECORD_TYPE);
+
+      TYPE_FIELDS (rt) = build_decl (FIELD_DECL, get_identifier ("f"), array);
+      DECL_CONTEXT (TYPE_FIELDS (rt)) = rt;
+      layout_type (rt);
+      TYPE_DEBUG_REPRESENTATION_TYPE (new_type) = rt;
+
+      /* Build back pointers if needed.  */
+      *node = vector_size_helper (*node, new_type);
     }
     
   return NULL_TREE;
@@ -1467,3 +1567,4 @@ strip_attrs (specs_attrs)
 
   return specs;
 }
+

@@ -1080,7 +1080,7 @@ num_insns_constant (op, mode)
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_SINGLE (rv, l);
-      return num_insns_constant_wide ((HOST_WIDE_INT)l);
+      return num_insns_constant_wide ((HOST_WIDE_INT) l);
     }
 
   else if (GET_CODE (op) == CONST_DOUBLE)
@@ -1110,10 +1110,10 @@ num_insns_constant (op, mode)
 
       else
 	{
-	  if (high == 0 && (low & 0x80000000) == 0)
+	  if (high == 0 && low >= 0)
 	    return num_insns_constant_wide (low);
 
-	  else if (high == -1 && (low & 0x80000000) != 0)
+	  else if (high == -1 && low < 0)
 	    return num_insns_constant_wide (low);
 
 	  else if (mask64_operand (op, mode))
@@ -1312,8 +1312,8 @@ add_operand (op, mode)
     enum machine_mode mode;
 {
   if (GET_CODE (op) == CONST_INT)
-    return (CONST_OK_FOR_LETTER_P (INTVAL(op), 'I')
-	    || CONST_OK_FOR_LETTER_P (INTVAL(op), 'L'));
+    return (CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
+	    || CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'));
 
   return gpc_reg_operand (op, mode);
 }
@@ -1326,8 +1326,8 @@ non_add_cint_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
-	  && (unsigned HOST_WIDE_INT) (INTVAL (op) + 0x8000) >= 0x10000
-	  && ! CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'));
+	  && !CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
+	  && !CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'));
 }
 
 /* Return 1 if the operand is a non-special register or a constant that
@@ -1398,6 +1398,11 @@ mask_operand (op, mode)
     return 0;
 
   c = INTVAL (op);
+
+  /* Fail in 64-bit mode if the mask wraps around because the upper
+     32-bits of the mask will all be 1s, contrary to GCC's internal view.  */
+  if (TARGET_POWERPC64 && (c & 0x80000001) == 0x80000001)
+    return 0;
 
   /* We don't change the number of transitions by inverting,
      so make sure we start with the LS bit zero.  */
@@ -7878,8 +7883,7 @@ rs6000_stack_info ()
     info_ptr->push_p = 1;
 
   else if (abi == ABI_V4)
-    info_ptr->push_p = (total_raw_size > info_ptr->fixed_size
-			|| info_ptr->calls_p);
+    info_ptr->push_p = total_raw_size > info_ptr->fixed_size;
 
   else
     info_ptr->push_p = (frame_pointer_needed
@@ -8052,10 +8056,7 @@ rs6000_return_addr (count, frame)
   /* Currently we don't optimize very well between prolog and body
      code and for PIC code the code can be actually quite bad, so
      don't try to be too clever here.  */
-  if (count != 0
-      || flag_pic != 0
-      || DEFAULT_ABI == ABI_AIX
-      || DEFAULT_ABI == ABI_AIX_NODESC)
+  if (count != 0 || flag_pic != 0)
     {
       cfun->machine->ra_needs_full_frame = 1;
 
@@ -8735,7 +8736,10 @@ rs6000_emit_prologue ()
       /* Get VRSAVE onto a GPR.  */
       reg = gen_rtx_REG (SImode, 12);
       vrsave = gen_rtx_REG (SImode, VRSAVE_REGNO);
-      emit_insn (gen_rtx_SET (VOIDmode, reg, vrsave));
+      if (TARGET_MACHO)
+	emit_insn (gen_get_vrsave_internal (reg));
+      else
+	emit_insn (gen_rtx_SET (VOIDmode, reg, vrsave));
 
       /* Save VRSAVE.  */
       offset = info->vrsave_save_offset + sp_offset;
@@ -10210,7 +10214,7 @@ output_toc (file, x, labelno, mode)
 	  if (TARGET_MINIMAL_TOC)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
-	    fprintf (file, "\t.tc ID_%lx_%lx[TC],", (long)high, (long)low);
+	    fprintf (file, "\t.tc ID_%lx_%lx[TC],", (long) high, (long) low);
 	  fprintf (file, "0x%lx%08lx\n", (long) high, (long) low);
 	  return;
 	}
@@ -10222,7 +10226,7 @@ output_toc (file, x, labelno, mode)
 		fputs ("\t.long ", file);
 	      else
 		fprintf (file, "\t.tc ID_%lx_%lx[TC],",
-			 (long)high, (long)low);
+			 (long) high, (long) low);
 	      fprintf (file, "0x%lx,0x%lx\n", (long) high, (long) low);
 	    }
 	  else

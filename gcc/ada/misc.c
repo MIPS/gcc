@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *                             $Revision$
+ *                             $Revision: 1.19 $
  *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
@@ -152,7 +152,6 @@ extern char **gnat_argv;
 
 /* Global Variables Expected by gcc: */
 
-int flag_traditional;		/* Used by dwarfout.c.  */
 int ggc_p = 1;
 
 static void internal_error_function	PARAMS ((const char *, va_list *));
@@ -405,15 +404,6 @@ maybe_build_cleanup (decl)
 {
   /* There are no cleanups in C.  */
   return NULL_TREE;
-}
-
-/* integrate_decl_tree calls this function, but since we don't use the
-   DECL_LANG_SPECIFIC field, this is a no-op.  */
-
-void
-copy_lang_decl (node)
-     tree node ATTRIBUTE_UNUSED;
-{
 }
 
 /* Hooks for print-tree.c:  */

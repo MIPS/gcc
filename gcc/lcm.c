@@ -1399,6 +1399,8 @@ optimize_mode_switching (file)
   if (!need_commit && !emited)
     return 0;
 
+  max_regno = max_reg_num ();
+  allocate_reg_info (max_regno, FALSE, FALSE);
   update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
 				    (PROP_DEATH_NOTES | PROP_KILL_DEAD_CODE
 				     | PROP_SCAN_DEAD_CODE));

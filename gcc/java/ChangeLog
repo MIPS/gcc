@@ -1,3 +1,62 @@
+2002-02-28  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* expr.c (java_array_data_offset): Removed function.
+	(JAVA_ARRAY_LENGTH_OFFSET): Removed macro.
+	(build_java_array_length_access): Obtain "length" value using a
+	COMPONENT_REF, instead of INDIRECT_REF and arithmetic.
+	(build_java_arrayaccess): Correct comment. Access "data" using a
+	COMPONENT_REF, and return an ARRAY_REF instead of an INDIRECT_REF.
+	(build_java_arraystore_check): New function.
+	(expand_java_arraystore): Use build_java_arraystore_check.
+	* parse.y (patch_assignment): Simplify code to insert a store check
+	when lvalue is an ARRAY_REF. Use build_java_arraystore_check.
+	* check-init.c (check_init): Update to reflect that an array length
+	access is now a COMPONENT_REF.
+	* gcj.texi (Code Generation): Improve documentation of
+	-fno-bounds-check. Add documentation for -fno-store-check.
+	* java-tree.h (flag_store_check): Declare.
+	(build_java_arraystore_check): Declare.
+	* lang.c (flag_store_check): Initialize to 1.
+	(lang_f_options): Add store-check option.
+	* jvspec.c: Don't pass store-check option to jvgenmain.
+	* lang-options.h: Add help string for -fno-store-check.
+
+2002-02-28  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* decl.c (copy_lang_decl): Rename java_dup_lang_specific_decl.
+	* java-tree.h (java_dup_lang_specific_decl): New.
+	* lang.c (LANG_HOOKS_DUP_LANG_SPECIFIC_DECL): Redefine.
+
+2002-02-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* builtins.c, decl.c: Delete traditional-mode-related code
+	copied from the C front end but not used, or used only to
+	permit the compiler to link.
+
+2002-02-22  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/2369:
+	* jvspec.c (verify_class_name): New function.
+	(lang_specific_driver): Call it.
+	(JAVA_START_CHAR_P): New macro.
+	(JAVA_PART_CHAR_P): Likewise.
+
+2002-02-22  Per Bothner  <per@bothner.com>
+
+	* class.c:  Change vtable to be more compatible with g++ v3 abi.
+	(get_dispatch_table):  Prepend offset-to-top (always 0) and
+	type_info pointer (currently unimplemented hence NULL) to vtable.
+	Specifically, prepend offset-to-top and typeinfo ptr (currently null).
+	(make_class_data):  Variable dtable_start_offset is sizeof 2 pointers.
+	Adjust vtable pointers by dtable_start_offse - i.e. skip new words.
+	(build_dtable_decl):  Add declarations for new fields.
+
+2002-02-20  Per Bothner  <per@bothner.com>
+
+	* parse.y (patch_method_invocation): Set CAN_COMPLETE_NORMALLY on call
+	to finit$ (otherwise generate_bytecode_insns drops it). However, we
+	don't need to set it on the COMPOUND_EXPR - the caller does that.
+
 2002-02-20  Nic Ferrier  <nferrier@tapsellferrier.co.uk>
 
 	* gcj.texi: Option `--classpath' becomes `--CLASSPATH.'Option 
