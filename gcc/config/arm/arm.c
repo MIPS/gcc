@@ -24,6 +24,8 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
+#include "tree.h"
+#include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "real.h"
@@ -34,19 +36,22 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "flags.h"
 #include "reload.h"
-#include "tree.h"
 #include "function.h"
 #include "expr.h"
 #include "toplev.h"
 #include "recog.h"
 #include "ggc.h"
-#include "tm_p.h"
+#include "except.h"
+
+/* Forward definitions of types.  */
+typedef struct minipool_node    Mnode;
+typedef struct minipool_fixup   Mfix;
 
 /* In order to improve the layout of the prototypes below
    some short type abbreviations are defined here.  */
-#define Hint  HOST_WIDE_INT
-#define Mmode enum machine_mode
-#define Ulong unsigned long
+#define Hint     HOST_WIDE_INT
+#define Mmode    enum machine_mode
+#define Ulong    unsigned long
 
 /* Forward function declarations.  */
 static void      arm_add_gc_roots 		PARAMS ((void));
@@ -62,44 +67,33 @@ static int       function_really_clobbers_lr	PARAMS ((rtx));
 static arm_cc    get_arm_condition_code		PARAMS ((rtx));
 static void      init_fpa_table			PARAMS ((void));
 static Hint      int_log2			PARAMS ((Hint));
+static rtx       is_jump_table 			PARAMS ((rtx));
 static char *    output_multi_immediate		PARAMS ((rtx *, char *, char *, int, Hint));
 static int       pattern_really_clobbers_lr	PARAMS ((rtx));
 static void      print_multi_reg		PARAMS ((FILE *, char *, int, int, int));
 static Mmode     select_dominance_cc_mode	PARAMS ((rtx, rtx, Hint));
 static char *    shift_op			PARAMS ((rtx, Hint *));
-
-static void   arm_init_machine_status	PARAMS ((struct function *));
-static void   arm_mark_machine_status   PARAMS ((struct function *));
-static int    number_of_first_bit_set   PARAMS ((int));
-static void   replace_symbols_in_block  PARAMS ((tree, rtx, rtx));
-static void   thumb_exit                PARAMS ((FILE *, int));
-static void   thumb_pushpop             PARAMS ((FILE *, int, int));
-static char * thumb_condition_code      PARAMS ((rtx, int));
-/* Functions in the constant pool handling code.  */
-typedef struct minipool_nd minipool_node;
-typedef struct minipool_fixup minipool_fix;
-
-static rtx	      is_jump_table		     PARAMS ((rtx));
-static Hint	      get_jump_table_size	     PARAMS ((rtx));
-static minipool_node *move_minipool_fix_forward_ref  PARAMS ((minipool_node *,
-							      minipool_node *,
-							      Hint));
-static minipool_node *add_minipool_forward_ref	     PARAMS ((minipool_fix *));
-static minipool_node *move_minipool_fix_backward_ref PARAMS ((minipool_node *,
-							      minipool_node *,
-							      Hint));
-static minipool_node *add_minipool_backward_ref	     PARAMS ((minipool_fix *));
-static void	      assign_minipool_offsets	     PARAMS ((minipool_fix *));
-static void	      arm_print_value		     PARAMS ((FILE *, rtx));
-static void	      dump_minipool		     PARAMS ((rtx));
-static int	      arm_barrier_cost		     PARAMS ((rtx));
-static minipool_fix  *create_fix_barrier	     PARAMS ((minipool_fix *,
-							      Hint));
-static void	      push_minipool_barrier	     PARAMS ((rtx, Hint));
-static void	      push_minipool_fix		     PARAMS ((rtx, Hint, rtx *,
-							      Mmode, rtx));
-static void	      note_invalid_constants	     PARAMS ((rtx, Hint));
-
+static void      arm_init_machine_status	PARAMS ((struct function *));
+static void      arm_mark_machine_status        PARAMS ((struct function *));
+static int       number_of_first_bit_set        PARAMS ((int));
+static void      replace_symbols_in_block       PARAMS ((tree, rtx, rtx));
+static void      thumb_exit                     PARAMS ((FILE *, int));
+static void      thumb_pushpop                  PARAMS ((FILE *, int, int));
+static char *    thumb_condition_code           PARAMS ((rtx, int));
+static rtx	 is_jump_table		        PARAMS ((rtx));
+static Hint	 get_jump_table_size	        PARAMS ((rtx));
+static Mnode *   move_minipool_fix_forward_ref  PARAMS ((Mnode *, Mnode *, Hint));
+static Mnode *   add_minipool_forward_ref	PARAMS ((Mfix *));
+static Mnode *   move_minipool_fix_backward_ref PARAMS ((Mnode *, Mnode *, Hint));
+static Mnode *   add_minipool_backward_ref      PARAMS ((Mfix *));
+static void	 assign_minipool_offsets	PARAMS ((Mfix *));
+static void	 arm_print_value		PARAMS ((FILE *, rtx));
+static void	 dump_minipool		        PARAMS ((rtx));
+static int	 arm_barrier_cost		PARAMS ((rtx));
+static Mfix *    create_fix_barrier		PARAMS ((Mfix *, Hint));
+static void	 push_minipool_barrier	        PARAMS ((rtx, Hint));
+static void	 push_minipool_fix		PARAMS ((rtx, Hint, rtx *, Mmode, rtx));
+static void	 note_invalid_constants	        PARAMS ((rtx, Hint));
 
 #undef Hint
 #undef Mmode
@@ -1466,16 +1460,18 @@ arm_return_in_memory (type)
      tree type;
 {
   if (! AGGREGATE_TYPE_P (type))
-    {
-      /* All simple types are returned in registers. */
-      return 0;
-    }
-  else if (int_size_in_bytes (type) > 4)
-    {
-      /* All structures/unions bigger than one word are returned in memory. */
-      return 1;
-    }
-  else if (TREE_CODE (type) == RECORD_TYPE)
+    /* All simple types are returned in registers.  */
+    return 0;
+  
+  /* For the arm-wince targets we choose to be compitable with Microsoft's
+     ARM and Thumb compilers, which always return aggregates in memory.  */
+#ifndef ARM_WINCE
+  
+  if (int_size_in_bytes (type) > 4)
+    /* All structures/unions bigger than one word are returned in memory.  */
+    return 1;
+  
+  if (TREE_CODE (type) == RECORD_TYPE)
     {
       tree field;
 
@@ -1493,9 +1489,9 @@ arm_return_in_memory (type)
 	continue;
       
       if (field == NULL)
-	return 0; /* An empty structure.  Allowed by an extension to ANSI C. */
+	return 0; /* An empty structure.  Allowed by an extension to ANSI C.  */
 
-      /* Check that the first field is valid for returning in a register...  */
+      /* Check that the first field is valid for returning in a register.  */
 
       /* ... Floats are not allowed */
       if (FLOAT_TYPE_P (TREE_TYPE (field)))
@@ -1505,7 +1501,7 @@ arm_return_in_memory (type)
 	 a register are not allowed.  */
       if (RETURN_IN_MEMORY (TREE_TYPE (field)))
 	return 1;
-
+      
       /* Now check the remaining fields, if any.  Only bitfields are allowed,
 	 since they are not addressable.  */
       for (field = TREE_CHAIN (field);
@@ -1521,7 +1517,8 @@ arm_return_in_memory (type)
 
       return 0;
     }
-  else if (TREE_CODE (type) == UNION_TYPE)
+  
+  if (TREE_CODE (type) == UNION_TYPE)
     {
       tree field;
 
@@ -1543,9 +1540,9 @@ arm_return_in_memory (type)
       
       return 0;
     }
+#endif /* not ARM_WINCE */  
   
-  /* XXX Not sure what should be done for other aggregates, so put them in
-     memory. */
+  /* Return all other types in memory.  */
   return 1;
 }
 
@@ -2424,7 +2421,7 @@ arm_adjust_cost (insn, link, dep, cost)
 {
   rtx i_pat, d_pat;
 
-  /* XXX This is not strictly true for the FPA.  a*/
+  /* XXX This is not strictly true for the FPA.  */
   if (REG_NOTE_KIND (link) == REG_DEP_ANTI
       || REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
     return 0;
@@ -2795,7 +2792,7 @@ power_of_two_operand (op, mode)
 {
   if (GET_CODE (op) == CONST_INT)
     {
-      HOST_WIDE_INT value = INTVAL(op);
+      HOST_WIDE_INT value = INTVAL (op);
       return value != 0  &&  (value & (value - 1)) == 0;
     }
   return FALSE;
@@ -2916,8 +2913,8 @@ index_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  return (s_register_operand(op, mode)
-	  || (immediate_operand (op, mode)	
+  return (s_register_operand (op, mode)
+	  || (immediate_operand (op, mode)
 	      && (GET_CODE (op) != CONST_INT
 		  || (INTVAL (op) < 4096 && INTVAL (op) > -4096))));
 }
@@ -3182,8 +3179,7 @@ adjacent_mem_locations (a, b)
 }
 
 /* Return 1 if OP is a load multiple operation.  It is known to be
-   parallel and the first section will be tested. */
-
+   parallel and the first section will be tested.  */
 int
 load_multiple_operation (op, mode)
      rtx op;
@@ -3199,13 +3195,13 @@ load_multiple_operation (op, mode)
       || GET_CODE (XVECEXP (op, 0, 0)) != SET)
     return 0;
 
-  /* Check to see if this might be a write-back */
+  /* Check to see if this might be a write-back.  */
   if (GET_CODE (SET_SRC (elt = XVECEXP (op, 0, 0))) == PLUS)
     {
       i++;
       base = 1;
 
-      /* Now check it more carefully */
+      /* Now check it more carefully.  */
       if (GET_CODE (SET_DEST (elt)) != REG
           || GET_CODE (XEXP (SET_SRC (elt), 0)) != REG
           || REGNO (XEXP (SET_SRC (elt), 0)) != REGNO (SET_DEST (elt))
@@ -3251,8 +3247,7 @@ load_multiple_operation (op, mode)
 }
 
 /* Return 1 if OP is a store multiple operation.  It is known to be
-   parallel and the first section will be tested. */
-
+   parallel and the first section will be tested.  */
 int
 store_multiple_operation (op, mode)
      rtx op;
@@ -3268,13 +3263,13 @@ store_multiple_operation (op, mode)
       || GET_CODE (XVECEXP (op, 0, 0)) != SET)
     return 0;
 
-  /* Check to see if this might be a write-back */
+  /* Check to see if this might be a write-back.  */
   if (GET_CODE (SET_SRC (elt = XVECEXP (op, 0, 0))) == PLUS)
     {
       i++;
       base = 1;
 
-      /* Now check it more carefully */
+      /* Now check it more carefully.  */
       if (GET_CODE (SET_DEST (elt)) != REG
           || GET_CODE (XEXP (SET_SRC (elt), 0)) != REG
           || REGNO (XEXP (SET_SRC (elt), 0)) != REGNO (SET_DEST (elt))
@@ -3349,7 +3344,7 @@ load_multiple_sequence (operands, nops, regs, base, load_offset)
 
       /* Convert a subreg of a mem into the mem itself.  */
       if (GET_CODE (operands[nops + i]) == SUBREG)
-	operands[nops + i] = alter_subreg(operands[nops + i]);
+	operands[nops + i] = alter_subreg (operands[nops + i]);
 
       if (GET_CODE (operands[nops + i]) != MEM)
 	abort ();
@@ -3374,7 +3369,7 @@ load_multiple_sequence (operands, nops, regs, base, load_offset)
 	{
 	  if (i == 0)
 	    {
-	      base_reg = REGNO(reg);
+	      base_reg = REGNO (reg);
 	      unsorted_regs[0] = (GET_CODE (operands[i]) == REG
 				  ? REGNO (operands[i])
 				  : REGNO (SUBREG_REG (operands[i])));
@@ -3584,7 +3579,7 @@ store_multiple_sequence (operands, nops, regs, base, load_offset)
 
       /* Convert a subreg of a mem into the mem itself.  */
       if (GET_CODE (operands[nops + i]) == SUBREG)
-	operands[nops + i] = alter_subreg(operands[nops + i]);
+	operands[nops + i] = alter_subreg (operands[nops + i]);
 
       if (GET_CODE (operands[nops + i]) != MEM)
 	abort ();
@@ -3767,7 +3762,6 @@ multi_register_push (op, mode)
      Always assume that this function will be entered in ARM mode,
      not Thumb mode, and that the caller wishes to be returned to in
      ARM mode.  */
-
 int
 arm_valid_machine_decl_attribute (decl, attr, args)
      tree decl;
@@ -4077,7 +4071,7 @@ arm_gen_movstrqi (operands)
    into the top 16 bits of the word.  We can assume that the address is
    known to be alignable and of the form reg, or plus (reg, const).  */
 rtx
-gen_rotated_half_load (memref)
+arm_gen_rotated_half_load (memref)
      rtx memref;
 {
   HOST_WIDE_INT offset = 0;
@@ -4292,7 +4286,7 @@ arm_select_cc_mode (op, x, y)
    floating point compare: I don't think that it is needed on the arm.  */
 
 rtx
-gen_compare_reg (code, x, y)
+arm_gen_compare_reg (code, x, y)
      enum rtx_code code;
      rtx x, y;
 {
@@ -4585,6 +4579,54 @@ arm_reload_out_hi (operands)
     }
 }
 
+/* Print a symbolic form of X to the debug file, F.  */
+static void
+arm_print_value (f, x)
+     FILE * f;
+     rtx x;
+{
+  switch (GET_CODE (x))
+    {
+    case CONST_INT:
+      fprintf (f, HOST_WIDE_INT_PRINT_HEX, INTVAL (x));
+      return;
+
+    case CONST_DOUBLE:
+      fprintf (f, "<0x%lx,0x%lx>", (long)XWINT (x, 2), (long)XWINT (x, 3));
+      return;
+
+    case CONST_STRING:
+      fprintf (f, "\"%s\"", XSTR (x, 0));
+      return;
+
+    case SYMBOL_REF:
+      fprintf (f, "`%s'", XSTR (x, 0));
+      return;
+
+    case LABEL_REF:
+      fprintf (f, "L%d", INSN_UID (XEXP (x, 0)));
+      return;
+
+    case CONST:
+      arm_print_value (f, XEXP (x, 0));
+      return;
+
+    case PLUS:
+      arm_print_value (f, XEXP (x, 0));
+      fprintf (f, "+");
+      arm_print_value (f, XEXP (x, 1));
+      return;
+
+    case PC:
+      fprintf (f, "pc");
+      return;
+
+    default:
+      fprintf (f, "????");
+      return;
+    }
+}
+
 /* Routines for manipulation of the constant pool.  */
 
 /* Arm instructions cannot load a large constant directly into a
@@ -4642,15 +4684,21 @@ arm_reload_out_hi (operands)
    1) For some processors and object formats, there may be benefit in
    aligning the pools to the start of cache lines; this alignment
    would need to be taken into account when calculating addressability
-   of a pool.
+   of a pool.  */
 
- */
+/* These typedefs are located at the start of this file, so that
+   they can be used in the prototypes there.  This comment is to
+   remind readers of that fact so that the following structures
+   can be understood more easily.
 
-struct minipool_nd
+     typedef struct minipool_node    Mnode;
+     typedef struct minipool_fixup   Mfix;  */
+
+struct minipool_node
 {
   /* Doubly linked chain of entries.  */
-  struct minipool_nd *next;
-  struct minipool_nd *prev;
+  Mnode * next;
+  Mnode * prev;
   /* The maximum offset into the code that this entry can be placed.  While
      pushing fixes for forward references, all entries are sorted in order
      of increasing max_address.  */
@@ -4672,34 +4720,34 @@ struct minipool_nd
 
 struct minipool_fixup
 {
-  struct minipool_fixup *next;
-  rtx insn;
-  HOST_WIDE_INT address;
-  rtx *loc;
+  Mfix *            next;
+  rtx               insn;
+  HOST_WIDE_INT     address;
+  rtx *             loc;
   enum machine_mode mode;
-  int fix_size;
-  rtx value;
-  minipool_node *minipool;
-  HOST_WIDE_INT forwards;
-  HOST_WIDE_INT backwards;
+  int               fix_size;
+  rtx               value;
+  Mnode *           minipool;
+  HOST_WIDE_INT     forwards;
+  HOST_WIDE_INT     backwards;
 };
 
 /* Fixes less than a word need padding out to a word boundary.  */
 #define MINIPOOL_FIX_SIZE(mode) \
-  (GET_MODE_SIZE((mode)) >= 4 ? GET_MODE_SIZE((mode)) : 4)
-  
-static minipool_node* minipool_vector_head;
-static minipool_node* minipool_vector_tail;
-static rtx minipool_vector_label;
+  (GET_MODE_SIZE ((mode)) >= 4 ? GET_MODE_SIZE ((mode)) : 4)
+
+static Mnode *	minipool_vector_head;
+static Mnode *	minipool_vector_tail;
+static rtx	minipool_vector_label;
 
 /* The linked list of all minipool fixes required for this function.  */
-minipool_fix *minipool_fix_head;
-minipool_fix *minipool_fix_tail;
+Mfix * 		minipool_fix_head;
+Mfix * 		minipool_fix_tail;
 /* The fix entry for the current minipool, once it has been placed.  */
-minipool_fix *minipool_barrier;
+Mfix *		minipool_barrier;
 
 /* Determines if INSN is the start of a jump table.  Returns the end
-   of the TABLE or NULL.  */
+   of the TABLE or NULL_RTX.  */
 static rtx
 is_jump_table (insn)
      rtx insn;
@@ -4716,7 +4764,7 @@ is_jump_table (insn)
 	  || GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC))
     return table;
 
-  return NULL;
+  return NULL_RTX;
 }
 
 static HOST_WIDE_INT
@@ -4732,10 +4780,10 @@ get_jump_table_size (insn)
 /* Move a minipool fix MP from its current location to before MAX_MP.
    If MAX_MP is NULL, then MP doesn't need moving, but the addressing
    contrains may need updating.  */
-static minipool_node *
+static Mnode *
 move_minipool_fix_forward_ref (mp, max_mp, max_address)
-     minipool_node *mp;
-     minipool_node *max_mp;
+     Mnode *       mp;
+     Mnode *       max_mp;
      HOST_WIDE_INT max_address;
 {
   /* This should never be true and the code below assumes these are
@@ -4767,6 +4815,7 @@ move_minipool_fix_forward_ref (mp, max_mp, max_address)
       mp->next = max_mp;
       mp->prev = max_mp->prev;
       max_mp->prev = mp;
+      
       if (mp->prev != NULL)
 	mp->prev->next = mp;
       else
@@ -4787,17 +4836,18 @@ move_minipool_fix_forward_ref (mp, max_mp, max_address)
 
   return max_mp;
 }
+
 /* Add a constant to the minipool for a forward reference.  Returns the
    node added or NULL if the constant will not fit in this pool.  */
-static minipool_node *
+static Mnode *
 add_minipool_forward_ref (fix)
-     minipool_fix *fix;
+     Mfix * fix;
 {
   /* If set, max_mp is the first pool_entry that has a lower
      constraint than the one we are trying to add.  */
-  minipool_node *max_mp = NULL;
+  Mnode *       max_mp = NULL;
   HOST_WIDE_INT max_address = fix->address + fix->forwards;
-  minipool_node *mp;
+  Mnode *       mp;
   
   /* If this fix's address is greater than the address of the first
      entry, then we can't put the fix in this pool.  We subtract the
@@ -4838,8 +4888,7 @@ add_minipool_forward_ref (fix)
      any existing entry.  Otherwise, we insert the new fix before
      MAX_MP and, if neceesary, adjust the constraints on the other
      entries.  */
-
-  mp = xmalloc (sizeof (minipool_node));
+  mp = xmalloc (sizeof (* mp));
   mp->fix_size = fix->fix_size;
   mp->mode = fix->mode;
   mp->value = fix->value;
@@ -4894,11 +4943,11 @@ add_minipool_forward_ref (fix)
   return max_mp;
 }
 
-static minipool_node *
+static Mnode *
 move_minipool_fix_backward_ref (mp, min_mp, min_address)
-     minipool_node *mp;
-     minipool_node *min_mp;
-     HOST_WIDE_INT min_address;
+     Mnode *        mp;
+     Mnode *        min_mp;
+     HOST_WIDE_INT  min_address;
 {
   HOST_WIDE_INT offset;
 
@@ -4958,16 +5007,16 @@ move_minipool_fix_backward_ref (mp, min_mp, min_address)
    somewhat confusing because the calculated offsets for each fix do
    not take into account the size of the pool (which is still under
    construction.  */
-static minipool_node *
+static Mnode *
 add_minipool_backward_ref (fix)
-     minipool_fix *fix;
+     Mfix * fix;
 {
   /* If set, min_mp is the last pool_entry that has a lower constraint
      than the one we are trying to add.  */
-  minipool_node *min_mp = NULL;
+  Mnode *        min_mp = NULL;
   /* This can be negative, since it is only a constraint.  */
-  HOST_WIDE_INT min_address = fix->address - fix->backwards;
-  minipool_node *mp;
+  HOST_WIDE_INT  min_address = fix->address - fix->backwards;
+  Mnode *        mp;
 
   /* If we can't reach the current pool from this insn, or if we can't
      insert this entry at the end of the pool without pushing other
@@ -5011,10 +5060,10 @@ add_minipool_backward_ref (fix)
 	  else if (mp->max_address
 		   < minipool_barrier->address + mp->offset + fix->fix_size)
 	    {
-	  /* Inserting before this entry would push the fix beyond
-	     its maximum address (which can happen if we have
-	     re-located a forwards fix); force the new fix to come
-	     after it.  */
+	      /* Inserting before this entry would push the fix beyond
+		 its maximum address (which can happen if we have
+		 re-located a forwards fix); force the new fix to come
+		 after it.  */
 	      min_mp = mp;
 	      min_address = mp->min_address + fix->fix_size;
 	    }
@@ -5022,7 +5071,7 @@ add_minipool_backward_ref (fix)
     }
 
   /* We need to create a new entry.  */
-  mp = xmalloc (sizeof (minipool_node));
+  mp = xmalloc (sizeof (* mp));
   mp->fix_size = fix->fix_size;
   mp->mode = fix->mode;
   mp->value = fix->value;
@@ -5051,6 +5100,7 @@ add_minipool_backward_ref (fix)
       mp->next = min_mp->next;
       mp->prev = min_mp;
       min_mp->next = mp;
+      
       if (mp->next != NULL)
 	mp->next->prev = mp;
       else
@@ -5084,66 +5134,19 @@ add_minipool_backward_ref (fix)
 
 static void
 assign_minipool_offsets (barrier)
-     minipool_fix *barrier;
+     Mfix * barrier;
 {
   HOST_WIDE_INT offset = 0;
-  minipool_node *mp;
+  Mnode * mp;
 
   minipool_barrier = barrier;
 
   for (mp = minipool_vector_head; mp != NULL; mp = mp->next)
     {
       mp->offset = offset;
+      
       if (mp->refcount > 0)
 	offset += mp->fix_size;
-    }
-}
-
-/* Print a symbolic form of X to the debug file, F.  */
-static void
-arm_print_value (f, x)
-     FILE *f;
-     rtx x;
-{
-  switch (GET_CODE (x))
-    {
-    case CONST_INT:
-      fprintf (f, HOST_WIDE_INT_PRINT_HEX, INTVAL (x));
-      return;
-
-    case CONST_DOUBLE:
-      fprintf (f, "<0x%lx,0x%lx>", (long)XWINT (x, 2), (long)XWINT (x, 3));
-      return;
-
-    case CONST_STRING:
-      fprintf (f, "\"%s\"", XSTR (x, 0));
-      return;
-
-    case SYMBOL_REF:
-      fprintf (f, "`%s'", XSTR (x, 0));
-      return;
-
-    case LABEL_REF:
-      fprintf (f, "L%d", INSN_UID (XEXP (x, 0)));
-      return;
-
-    case CONST:
-      arm_print_value (f, XEXP (x, 0));
-      return;
-
-    case PLUS:
-      arm_print_value (f, XEXP (x, 0));
-      fprintf (f, "+");
-      arm_print_value (f, XEXP (x, 1));
-      return;
-
-    case PC:
-      fprintf (f, "pc");
-      return;
-
-    default:
-      fprintf (f, "????");
-      return;
     }
 }
 
@@ -5152,7 +5155,8 @@ static void
 dump_minipool (scan)
      rtx scan;
 {
-  minipool_node *mp, *nmp;
+  Mnode * mp;
+  Mnode * nmp;
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file,
@@ -5255,9 +5259,9 @@ arm_barrier_cost (insn)
    (FIX->address,MAX_ADDRESS) to forcibly insert a minipool barrier.
    Create the barrier by inserting a jump and add a new fix entry for
    it.  */
-static minipool_fix *
+static Mfix *
 create_fix_barrier (fix, max_address)
-     minipool_fix *fix;
+     Mfix * fix;
      HOST_WIDE_INT max_address;
 {
   HOST_WIDE_INT count = 0;
@@ -5266,7 +5270,7 @@ create_fix_barrier (fix, max_address)
   rtx selected = from;
   int selected_cost;
   HOST_WIDE_INT selected_address;
-  minipool_fix *new_fix;
+  Mfix * new_fix;
   HOST_WIDE_INT max_count = max_address - fix->address;
   rtx label = gen_label_rtx ();
 
@@ -5283,7 +5287,7 @@ create_fix_barrier (fix, max_address)
       if (GET_CODE (from) == BARRIER)
 	abort ();
 
-      /* Count the length of this insn */
+      /* Count the length of this insn.  */
       count += get_attr_length (from);
 
       /* If there is a jump table, add its length.  */
@@ -5310,6 +5314,7 @@ create_fix_barrier (fix, max_address)
 	}
 
       new_cost = arm_barrier_cost (from);
+      
       if (count < max_count && new_cost <= selected_cost)
 	{
 	  selected = from;
@@ -5327,7 +5332,7 @@ create_fix_barrier (fix, max_address)
   emit_label_after (label, barrier);
 
   /* Create a minipool barrier entry for the new barrier.  */
-  new_fix = (minipool_fix *) oballoc (sizeof (minipool_fix));
+  new_fix = (Mfix *) oballoc (sizeof (* new_fix));
   new_fix->insn = barrier;
   new_fix->address = selected_address;
   new_fix->next = fix->next;
@@ -5343,7 +5348,7 @@ push_minipool_barrier (insn, address)
      rtx insn;
      HOST_WIDE_INT address;
 {
-  minipool_fix *fix = (minipool_fix *) oballoc (sizeof (minipool_fix));
+  Mfix * fix = (Mfix *) oballoc (sizeof (* fix));
 
   fix->insn = insn;
   fix->address = address;
@@ -5366,11 +5371,11 @@ static void
 push_minipool_fix (insn, address, loc, mode, value)
      rtx insn;
      HOST_WIDE_INT address;
-     rtx *loc;
+     rtx * loc;
      enum machine_mode mode;
      rtx value;
 {
-  minipool_fix *fix = (minipool_fix *) oballoc (sizeof (minipool_fix));
+  Mfix * fix = (Mfix *) oballoc (sizeof (* fix));
 
 #ifdef AOF_ASSEMBLER
   /* PIC symbol refereneces need to be converted into offsets into the
@@ -5407,9 +5412,9 @@ push_minipool_fix (insn, address, loc, mode, value)
       fprintf (rtl_dump_file, "\n");
     }
 
-
   /* Add it to the chain of fixes.  */
   fix->next = NULL;
+  
   if (minipool_fix_head != NULL)
     minipool_fix_tail->next = fix;
   else
@@ -5479,7 +5484,7 @@ arm_reorg (first)
 {
   rtx insn;
   HOST_WIDE_INT address = 0;
-  minipool_fix *fix;
+  Mfix * fix;
 
   minipool_fix_head = minipool_fix_tail = NULL;
 
@@ -5493,7 +5498,7 @@ arm_reorg (first)
     {
 
       if (GET_CODE (insn) == BARRIER)
-	push_minipool_barrier(insn, address);
+	push_minipool_barrier (insn, address);
       else if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN
 	       || GET_CODE (insn) == JUMP_INSN)
 	{
@@ -5512,15 +5517,16 @@ arm_reorg (first)
 	}
     }
 
-  fix = minipool_fix_head; 
+  fix = minipool_fix_head;
+  
   /* Now scan the fixups and perform the required changes.  */
   while (fix)
     {
-      minipool_fix *ftmp;
-      minipool_fix *fdel;
-      minipool_fix *last_added_fix;
-      minipool_fix *last_barrier = NULL;
-      minipool_fix *this_fix;
+      Mfix * ftmp;
+      Mfix * fdel;
+      Mfix *  last_added_fix;
+      Mfix * last_barrier = NULL;
+      Mfix * this_fix;
 
       /* Skip any further barriers before the next fix.  */
       while (fix && GET_CODE (fix->insn) == BARRIER)
@@ -5594,7 +5600,7 @@ arm_reorg (first)
       while (ftmp)
 	{
 	  if (GET_CODE (ftmp->insn) != BARRIER
-	      && ((ftmp->minipool = add_minipool_backward_ref(ftmp))
+	      && ((ftmp->minipool = add_minipool_backward_ref (ftmp))
 		  == NULL))
 	    break;
 
@@ -5948,8 +5954,8 @@ output_move_double (operands)
 	      bcopy ((char *) &CONST_DOUBLE_LOW (operands[1]), (char *) &u,
 		     sizeof (u));
 	      REAL_VALUE_TO_TARGET_DOUBLE (u.d, l);
-	      otherops[1] = GEN_INT(l[1]);
-	      operands[1] = GEN_INT(l[0]);
+	      otherops[1] = GEN_INT (l[1]);
+	      operands[1] = GEN_INT (l[0]);
 	    }
 	  else if (GET_MODE (operands[1]) != VOIDmode)
 	    abort ();
@@ -6178,11 +6184,9 @@ output_mov_immediate (operands)
       n_ones++;
 
   if (n_ones > 16)  /* Shorter to use MVN with BIC in this case. */
-    output_multi_immediate(operands, "mvn%?\t%0, %1", "bic%?\t%0, %0, %1", 1,
-			   ~n);
+    output_multi_immediate (operands, "mvn%?\t%0, %1", "bic%?\t%0, %0, %1", 1, ~n);
   else
-    output_multi_immediate(operands, "mov%?\t%0, %1", "orr%?\t%0, %0, %1", 1,
-			   n);
+    output_multi_immediate (operands, "mov%?\t%0, %1", "orr%?\t%0, %0, %1", 1, n);
 
   return "";
 }
@@ -6679,6 +6683,8 @@ output_return_instruction (operand, really_return, reverse)
   if (live_regs == 1
       && regs_ever_live[LR_REGNUM]
       && ! lr_save_eliminated
+      /* FIXME: We ought to handle the case TARGET_APCS_32 is true,
+	 really_return is true, and only the PC needs restoring.  */
       && ! really_return)
     output_asm_insn (reverse ? "ldr%?%D0\t%|lr, [%|sp], #4" 
 		     : "ldr%?%d0\t%|lr, [%|sp], #4", &operand);
@@ -7100,12 +7106,10 @@ arm_output_epilogue ()
 	      asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
 	    }
 	  else if (lr_save_eliminated)
-	    asm_fprintf (f, (TARGET_APCS_32
-			     ? "\tmov\t%r, %r\n"
-			     : "\tmovs\t%r, %r\n"),
+	    asm_fprintf (f,
+			 TARGET_APCS_32 ? "\tmov\t%r, %r\n" : "\tmovs\t%r, %r\n",
 			 PC_REGNUM, LR_REGNUM);
-	  else if (TARGET_APCS_32
-		   && live_regs_mask == 0)
+	  else if (TARGET_APCS_32 && live_regs_mask == 0)
 	    asm_fprintf (f, "ldr\t%r, [%r], #4\n", PC_REGNUM, SP_REGNUM);
 	  else
 	    print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM,
@@ -7121,7 +7125,7 @@ arm_output_epilogue ()
 		live_regs_mask |= 1 << LR_REGNUM;
 
 	      if (live_regs_mask == (1 << LR_REGNUM))
-		asm_fprintf(f, "ldr\t%r, [%r], #4\n", LR_REGNUM, SP_REGNUM);
+		asm_fprintf (f, "ldr\t%r, [%r], #4\n", LR_REGNUM, SP_REGNUM);
 	      else if (live_regs_mask != 0)
 		print_multi_reg (f, "ldmfd\t%r!", SP_REGNUM, live_regs_mask,
 				 FALSE);
@@ -7520,7 +7524,7 @@ arm_print_operand (stream, x, code)
     case 'd':
       if (! x)
 	return;
-
+      
       if (TARGET_ARM)
         fputs (arm_condition_codes[get_arm_condition_code (x)],
 	       stream);
@@ -8126,7 +8130,7 @@ arm_debugger_arg_offset (value, addr)
 
      then... */
   
-  for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       if (   GET_CODE (insn) == INSN 
 	  && GET_CODE (PATTERN (insn)) == SET
@@ -8208,8 +8212,8 @@ number_of_first_bit_set (mask)
   return bit;
 }
 
-/* Generate code to return from a thumb function.  If
-   'reg_containing_return_addr' is -1, then the return address is
+/* Generate code to return from a thumb function.
+   If 'reg_containing_return_addr' is -1, then the return address is
    actually on the stack, at the stack pointer.  */
 static void
 thumb_exit (f, reg_containing_return_addr)
@@ -8250,7 +8254,6 @@ thumb_exit (f, reg_containing_return_addr)
 
       return;
     }
-
   /* Otherwise if we are not supporting interworking and we have not created
      a backtrace structure and the function was not entered in ARM mode then
      just pop the return address straight into the PC.  */
@@ -8371,7 +8374,8 @@ thumb_exit (f, reg_containing_return_addr)
       frame_pointer = number_of_first_bit_set (regs_available_for_popping);
 
       /* Move it into the correct place.  */
-      asm_fprintf (f, "\tmov\t%r, %r\n", ARM_HARD_FRAME_POINTER_REGNUM, frame_pointer);
+      asm_fprintf (f, "\tmov\t%r, %r\n",
+		   ARM_HARD_FRAME_POINTER_REGNUM, frame_pointer);
 
       /* (Temporarily) remove it from the mask of popped registers.  */
       regs_available_for_popping &= ~ (1 << frame_pointer);
@@ -8381,8 +8385,8 @@ thumb_exit (f, reg_containing_return_addr)
 	{
 	  int stack_pointer;
 	  
-	  /* We popped the stack pointer as well, find the register that
-	     contains it.*/
+	  /* We popped the stack pointer as well,
+	     find the register that contains it.  */
 	  stack_pointer = number_of_first_bit_set (regs_available_for_popping);
 
 	  /* Move it into the stack register.  */
@@ -8519,7 +8523,7 @@ thumb_pushpop (f, mask, push)
       if (TARGET_INTERWORK || TARGET_BACKTRACE)
 	{
 	  /* The PC is never poped directly, instead
-	     it is popped into r3 and then BX is used. */
+	     it is popped into r3 and then BX is used.  */
 	  fprintf (f, "}\n");
 
 	  thumb_exit (f, -1);
@@ -8763,7 +8767,7 @@ thumb_unexpanded_epilogue ()
 		    || thumb_far_jump_used_p (1));
   
   if (TARGET_BACKTRACE
-      && (live_regs_mask & 0xFF) == 0
+      && ((live_regs_mask & 0xFF) == 0)
       && regs_ever_live [LAST_ARG_REGNUM] != 0)
     {
       /* The stack backtrace structure creation code had to
@@ -8781,7 +8785,6 @@ thumb_unexpanded_epilogue ()
       /* Either no argument registers were pushed or a backtrace
 	 structure was created which includes an adjusted stack
 	 pointer, so just pop everything.  */
-      
       if (live_regs_mask)
 	thumb_pushpop (asm_out_file, live_regs_mask, FALSE);
       
@@ -8789,7 +8792,6 @@ thumb_unexpanded_epilogue ()
 	 PC or it is was kept in LR for the entire function or
 	 it is still on the stack because we do not want to
 	 return by doing a pop {pc}.  */
-      
       if ((live_regs_mask & (1 << PC_REGNUM)) == 0)
 	thumb_exit (asm_out_file,
 		    (had_to_push_lr
@@ -8805,10 +8807,8 @@ thumb_unexpanded_epilogue ()
 	thumb_pushpop (asm_out_file, live_regs_mask, FALSE);
 
       if (had_to_push_lr)
-	{
-	  /* Get the return address into a temporary register.  */
-	  thumb_pushpop (asm_out_file, 1 << LAST_ARG_REGNUM, 0);
-	}
+	/* Get the return address into a temporary register.  */
+	thumb_pushpop (asm_out_file, 1 << LAST_ARG_REGNUM, 0);
       
       /* Remove the argument registers that were pushed onto the stack.  */
       asm_fprintf (asm_out_file, "\tadd\t%r, %r, #%d\n",
@@ -8825,16 +8825,16 @@ thumb_unexpanded_epilogue ()
 
 static void
 arm_mark_machine_status (p)
-     struct function *p;
+     struct function * p;
 {
   struct machine_function *machine = p->machine;
 
-  ggc_mark_rtx(machine->ra_rtx);
+  ggc_mark_rtx (machine->ra_rtx);
 }
 
 static void
 arm_init_machine_status (p)
-     struct function *p;
+     struct function * p;
 {
   p->machine =
     (struct machine_function *) xcalloc (1, sizeof (struct machine_function));
@@ -8847,18 +8847,22 @@ arm_return_addr (count, frame)
      int count;
      rtx frame ATTRIBUTE_UNUSED;
 {
-  rtx init, reg;
+  rtx reg;
 
   if (count != 0)
     return NULL_RTX;
 
   reg = cfun->machine->ra_rtx;
+  
   if (reg == NULL)
     {
+      rtx init;
+      
       /* No rtx yet.  Invent one, and initialize it for r14 (lr) in 
 	 the prologue.  */
       reg = gen_reg_rtx (Pmode);
       cfun->machine->ra_rtx = reg;
+      
       if (! TARGET_APCS_32)
 	init = gen_rtx_AND (Pmode, gen_rtx_REG (Pmode, LR_REGNUM),
 			    GEN_INT (RETURN_ADDR_MASK26));
@@ -8891,7 +8895,7 @@ thumb_expand_prologue ()
 {
   HOST_WIDE_INT amount = (get_frame_size ()
 			  + current_function_outgoing_args_size);
-
+  
   /* Naked functions don't have prologues.  */
   if (arm_naked_function_p (current_function_decl))
     return;
@@ -9001,8 +9005,8 @@ thumb_expand_epilogue ()
 	}
     }
       
-  /* Emit a USE (stack_pointer_rtx), so that the stack adjustment will
-     not be deleted.  */
+  /* Emit a USE (stack_pointer_rtx), so that
+     the stack adjustment will not be deleted.  */
   emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
 
   if (profile_flag || profile_block_flag || TARGET_NO_SCHED_PRO)
@@ -9026,9 +9030,9 @@ output_thumb_prologue (f)
       char * name;
 
       if (GET_CODE (DECL_RTL (current_function_decl)) != MEM)
-	abort();
+	abort ();
       if (GET_CODE (XEXP (DECL_RTL (current_function_decl), 0)) != SYMBOL_REF)
-	abort();
+	abort ();
       name = XSTR  (XEXP (DECL_RTL (current_function_decl), 0), 0);
       
       /* Generate code sequence to switch us into Thumb mode.  */
@@ -9128,22 +9132,20 @@ output_thumb_prologue (f)
       if (work_register == 0)
 	{
 	  /* Select a register from the list that will be pushed to
-             use as our work register. */
-
+             use as our work register.  */
 	  for (work_register = (LAST_LO_REGNUM + 1); work_register--;)
 	    if ((1 << work_register) & live_regs_mask)
 	      break;
 	}
       
-      asm_fprintf (f,
-		   "\tsub\t%r, %r, #16\t%@ Create stack backtrace structure\n",
-		   SP_REGNUM, SP_REGNUM);
+      asm_fprintf
+	(f, "\tsub\t%r, %r, #16\t%@ Create stack backtrace structure\n",
+	 SP_REGNUM, SP_REGNUM);
       
       if (live_regs_mask)
 	thumb_pushpop (f, live_regs_mask, 1);
       
-      for (offset = 0, wr = 1 << 15; wr != 0;
-	   wr >>= 1)
+      for (offset = 0, wr = 1 << 15; wr != 0; wr >>= 1)
 	if (wr & live_regs_mask)
 	  offset += 4;
       
@@ -9155,7 +9157,6 @@ output_thumb_prologue (f)
 
       /* Make sure that the instruction fetching the PC is in the right place
 	 to calculate "start of backtrace creation code + 12".  */
-      
       if (live_regs_mask)
 	{
 	  asm_fprintf (f, "\tmov\t%r, %r\n", work_register, PC_REGNUM);
@@ -9307,7 +9308,7 @@ thumb_load_double_from_address (operands)
       /* Compute <address> + 4 for the high order load.  */
       operands[2] = gen_rtx (MEM, SImode,
 			     plus_constant (XEXP (operands[1], 0), 4));
-	  
+      
       output_asm_insn ("ldr\t%0, %1", operands);
       output_asm_insn ("ldr\t%H0, %2", operands);
       break;

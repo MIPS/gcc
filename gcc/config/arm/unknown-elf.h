@@ -104,6 +104,8 @@ rdata_section ()						\
         fprintf (STREAM, "\t.section %s,\"ax\",@progbits\n", (NAME));	\
       else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))		\
         fprintf (STREAM, "\t.section %s,\"a\"\n", (NAME));		\
+      else if (! strncmp (NAME, ".bss", 4))      			\
+	fprintf (STREAM, "\t.section %s,\"aw\",@nobits\n", (NAME));	\
       else								\
         fprintf (STREAM, "\t.section %s,\"aw\"\n", (NAME));		\
     }									\
@@ -135,20 +137,19 @@ rdata_section ()						\
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL)	\
    && DECL_SECTION_NAME (DECL) != NULL_TREE)
 
-
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-     
+
 #define UNIQUE_SECTION_P(DECL) (DECL_ONE_ONLY (DECL) || flag_data_sections)
-     
+
 #define UNIQUE_SECTION(DECL, RELOC)					\
   do									\
     {									\
       int len;								\
       int sec;								\
-      char *name;							\
-      char *string;							\
-      char *prefix;							\
-      static char *prefixes[4][2] =					\
+      const char * name;						\
+      char * string;							\
+      char * prefix;							\
+      static char * prefixes[4][2] =					\
       {									\
 	{ ".text.",   ".gnu.linkonce.t." },				\
 	{ ".rodata.", ".gnu.linkonce.r." },				\

@@ -1,3 +1,49 @@
+2000-03-24  Nick Clifton  <nickc@cygnus.com>
+
+	Various formating tidyups, elimination of compile time
+	warnings and synchronisation with internal sources:
+	
+	* config/arm/arm-protos.h (assemble_align): Add prototype.
+	(gen_rotated_half_load): Rename to arm_gen_rotated_half_load.
+	(gen_comapre_reg): Rename to arm_gen_compare_reg.
+	(arm_return_addr_rtx): Rename to arm_return_addr.
+
+	* config/arm/arm.c: Include except.h.
+	Define shorter typenames for strict minipool_node and struct
+	minipool_fix.
+	(arm_return_in_memory): For WinCE return all structures <= 32 bits
+	in memory.
+	(gen_rotated_half_load): Rename to arm_gen_rotated_half_load.
+	(gen_comapre_reg): Rename to arm_gen_compare_reg.
+
+	* config/arm/arm.h (SUBTARGET_EXTRA_ASM_SPEC): Define if not
+	already defined.
+	(ASM_SPEC): Define if not already defined.
+	(ASM_OUTPUT_DEF_FROM_DECLS): Define.
+
+	* config/arm/arm.md: Rename references to gen_rotated_half_load to
+	arm_gen_rotated_half_load, and references to gen_comapre_reg to
+	arm_gen_compare_reg.
+	(indirect_jump):  Only accept register operands.
+	(load_indirect_jump): Keep this pattern since combine can generate
+	it.
+
+	* config/arm/coff.h: Include aout.h.
+	(MULTILIB_DEFAULTS): Only define if not already defined.
+
+	* config/arm/elf.h (ASM_OUTPUT_DEF_FROM_DECLS): Move definition
+	into arm.h (so that COFF ports can support thumb based aliases).
+	(ASM_SPEC): Move definition into arm.h
+	
+	* config/arm/linux-elf.h (SUBTARGET_EXTRA_ASM_SPEC): Remove
+	redundant apcs spec.
+	(ASM_SPEC): Move definition to arm.h
+
+	* config/arm/semi.h (ASM_SPEC): Move definition to arm.h
+
+	* config/arm/unknown-elf.h (ASM_OUTPUT_SECTION_NAME): Add support
+	for entries in the .bss section
+
 2000-03-23  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.h (THUMB_INITIAL_ELIMINATION_OFFSET): Pass 0

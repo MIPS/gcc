@@ -21,6 +21,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "semi.h"
+#include "aout.h"
 
 /* Note - it is important that this definition matches the one in tcoff.h */
 #undef  USER_LABEL_PREFIX
@@ -34,8 +35,10 @@ Boston, MA 02111-1307, USA.  */
 #undef  TARGET_DEFAULT
 #define TARGET_DEFAULT (ARM_FLAG_SOFT_FLOAT | ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
 
+#ifndef MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS \
   { "marm", "mlittle-endian", "msoft-float", "mapcs-32", "mno-thumb-interwork" }
+#endif
 
 /* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
    is a valid machine specific attribute for DECL.

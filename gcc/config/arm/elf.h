@@ -146,36 +146,10 @@ Boston, MA 02111-1307, USA.  */
     }								\
   while (0)
 
-/* For aliases of functions we use .thumb_set instead.  */
-#define ASM_OUTPUT_DEF_FROM_DECLS(FILE, DECL1, DECL2)		\
-  do						   		\
-    {								\
-      char * LABEL1 = XSTR (XEXP (DECL_RTL (decl), 0), 0);	\
-      char * LABEL2 = IDENTIFIER_POINTER (DECL2);		\
-								\
-      if (TARGET_THUMB && TREE_CODE (DECL1) == FUNCTION_DECL)	\
-	{							\
-	  fprintf (FILE, "\t.thumb_set ");			\
-	  assemble_name (FILE, LABEL1);			   	\
-	  fprintf (FILE, ",");			   		\
-	  assemble_name (FILE, LABEL2);		   		\
-	  fprintf (FILE, "\n");					\
-	}							\
-      else							\
-	ASM_OUTPUT_DEF (FILE, LABEL1, LABEL2);			\
-    }								\
-  while (0)
-
 /* Define this macro if jump tables (for `tablejump' insns) should be
    output in the text section, along with the assembler instructions.
    Otherwise, the readonly data section is used.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
-
-#ifndef ASM_SPEC
-#define ASM_SPEC "%{mbig-endian:-EB} %{mcpu=*:-m%*} %{march=*:-m%*} \
- %{mapcs-*:-mapcs-%*} %{mthumb-interwork:-mthumb-interwork} \
- %{mapcs-float:mfloat}"
-#endif
 
 #ifndef LINK_SPEC
 #define LINK_SPEC "%{mbig-endian:-EB} -X"

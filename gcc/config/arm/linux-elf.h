@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
 	" %{mapcs-26:-m armelf_linux26} %{!mapcs-26:-m armelf_linux} -p"
 # endif
 # define SUBTARGET_EXTRA_ASM_SPEC	\
-	" %{mapcs-26:-mapcs-26} %(!mapcs-26:-mapcs-32}"
+	" %{!mapcs-26:-mapcs-32}"
 # define MULTILIB_DEFAULTS \
 	{ "marm", "mlittle-endian", "mhard-float", "mapcs-32", "mno-thumb-interwork" }
 # define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"
@@ -50,7 +50,7 @@ Boston, MA 02111-1307, USA.  */
 	" %{mapcs-32:-m armelf_linux} %{!mapcs-32:-m armelf_linux26} -p"
 # endif
 # define SUBTARGET_EXTRA_ASM_SPEC	\
-	" %{mapcs-32:-mapcs-32} %(!mapcs-32:-mapcs-26}"
+	" %{!mapcs-32:-mapcs-26}"
 # define MULTILIB_DEFAULTS \
 	{ "marm", "mlittle-endian", "mhard-float", "mapcs-26", "mno-thumb-interwork" }
 #endif
@@ -102,13 +102,6 @@ Boston, MA 02111-1307, USA.  */
    -X \
    %{mbig-endian:-EB}" \
    SUBTARGET_EXTRA_LINK_SPEC
-
-#define ASM_SPEC "%{mbig-endian:-EB} \
-   %{mcpu=*:-m%*} %{march=*:-m%*} \
-   %{mthumb-interwork:-mthumb-interwork} \
-   %{msoft-float:-mno-fpu} \
-   %{mapcs-float:-mfloat}" \
-   SUBTARGET_EXTRA_ASM_SPEC
 
 #undef  CPP_PREDEFINES
 #define CPP_PREDEFINES \

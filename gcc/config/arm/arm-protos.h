@@ -30,9 +30,10 @@ extern int    arm_process_pragma	PARAMS ((int (*)(void), void (*) (int),
 extern void   arm_finalize_pic		PARAMS ((void));
 extern int    arm_volatile_func		PARAMS ((void));
 extern char * arm_output_epilogue	PARAMS ((void));
-
 extern void   output_func_epilogue	PARAMS ((int));
 extern void   arm_expand_prologue	PARAMS ((void));
+/* Used in arm.md, but defined in output.c.  */
+extern void   assemble_align		PARAMS ((int)); 
 extern const char * arm_strip_name_encoding	PARAMS ((const char *));
 
 #ifdef TREE_CODE
@@ -103,9 +104,9 @@ extern rtx    arm_gen_load_multiple	PARAMS ((int, int, rtx, int, int, int,
 extern rtx    arm_gen_store_multiple	PARAMS ((int, int, rtx, int, int, int,
 						int, int));
 extern int    arm_gen_movstrqi		PARAMS ((rtx *));
-extern rtx    gen_rotated_half_load	PARAMS ((rtx));
+extern rtx    arm_gen_rotated_half_load	PARAMS ((rtx));
 extern enum machine_mode arm_select_cc_mode PARAMS ((RTX_CODE, rtx, rtx));
-extern rtx    gen_compare_reg		PARAMS ((RTX_CODE, rtx, rtx));
+extern rtx    arm_gen_compare_reg	PARAMS ((RTX_CODE, rtx, rtx));
 extern void   arm_reload_in_hi		PARAMS ((rtx *));
 extern void   arm_reload_out_hi		PARAMS ((rtx *));
 extern void   arm_reorg			PARAMS ((rtx));
@@ -150,7 +151,7 @@ extern void   aof_dump_imports		PARAMS ((FILE *));
 
 #endif /* RTX_CODE */
 
-/* Thumb functions */
+/* Thumb functions.  */
 extern void   arm_init_expanders	PARAMS ((void));
 extern int    thumb_far_jump_used_p	PARAMS ((int));
 extern char * thumb_unexpanded_epilogue	PARAMS ((void));
@@ -173,12 +174,12 @@ extern rtx *  thumb_legitimize_pic_address
 					PARAMS ((rtx, enum machine_mode, rtx));
 extern int    thumb_go_if_legitimate_address
 					PARAMS ((enum machine_mode, rtx));
-extern rtx    arm_return_addr_rtx	PARAMS ((int, rtx));
+extern rtx    arm_return_addr		PARAMS ((int, rtx));
 extern void   thumb_reload_out_hi	PARAMS ((rtx *));
 extern void   thumb_reload_in_hi	PARAMS ((rtx *));
 #endif
 
-/* Defined in pe.c */
+/* Defined in pe.c.  */
 extern int  arm_dllexport_name_p 	PARAMS ((char *));
 extern int  arm_dllimport_name_p 	PARAMS ((char *));
 

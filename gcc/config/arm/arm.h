@@ -267,6 +267,21 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 #define SUBTARGET_CPP_SPEC      ""
 #endif
 
+#ifndef SUBTARGET_EXTRA_ASM_SPEC
+#define SUBTARGET_EXTRA_ASM_SPEC
+#endif
+
+#ifndef ASM_SPEC
+#define ASM_SPEC "\
+%{mbig-endian:-EB} \
+%{mcpu=*:-m%*} \
+%{march=*:-m%*} \
+%{mapcs-*:-mapcs-%*} \
+%{mapcs-float:-mfloat} \
+%{msoft-float:-mno-fpu} \
+%{mthumb-interwork:-mthumb-interwork} \
+" SUBTARGET_EXTRA_ASM_SPEC
+#endif
 
 /* Run-time Target Specification.  */
 #ifndef TARGET_VERSION
@@ -433,7 +448,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
   {"no-thumb-interwork",       -ARM_FLAG_INTERWORK, "" },	\
   {"abort-on-noreturn",         ARM_FLAG_ABORT_NORETURN,	\
      "Generate a call to abort if a noreturn function returns"},\
-  {"no-abort-on-noreturn",     -ARM_FLAG_ABORT_NORETURN, ""},	\
+  {"no-abort-on-noreturn",     -ARM_FLAG_ABORT_NORETURN, "" },	\
   {"sched-prolog",             -ARM_FLAG_NO_SCHED_PRO,		\
      "Do not move instructions into a function's prologue" },	\
   {"no-sched-prolog",           ARM_FLAG_NO_SCHED_PRO, "" },	\
@@ -441,8 +456,8 @@ Unrecognized value in TARGET_CPU_DEFAULT.
      "Do not load the PIC register in function prologues" },	\
   {"no-single-pic-base",       -ARM_FLAG_SINGLE_PIC_BASE, "" },	\
   {"long-calls",		ARM_FLAG_LONG_CALLS,		\
-     "Generate call insns as indirect calls, if necessary"},	\
-  {"no-long-calls",	       -ARM_FLAG_LONG_CALLS, ""},	\
+     "Generate call insns as indirect calls, if necessary" },	\
+  {"no-long-calls",	       -ARM_FLAG_LONG_CALLS, "" },	\
   {"thumb",                     ARM_FLAG_THUMB,			\
      "Compile for the Thumb not the ARM" },			\
   {"no-thumb",                 -ARM_FLAG_THUMB, "" },		\
@@ -1786,7 +1801,7 @@ typedef struct
    
    When generating pic allow anything.  */
 #define ARM_LEGITIMATE_CONSTANT_P(X)	(flag_pic || ! label_mentioned_p (X))
-     
+
 #define THUMB_LEGITIMATE_CONSTANT_P(X)	\
  (   GET_CODE (X) == CONST_INT		\
   || GET_CODE (X) == CONST_DOUBLE	\
@@ -2566,6 +2581,26 @@ extern int making_const_table;
       if (TARGET_POKE_FUNCTION_NAME)			\
         arm_poke_function_name (STREAM, NAME);		\
     }							\
+  while (0)
+
+/* For aliases of functions we use .thumb_set instead.  */
+#define ASM_OUTPUT_DEF_FROM_DECLS(FILE, DECL1, DECL2)		\
+  do						   		\
+    {								\
+      char * LABEL1 = XSTR (XEXP (DECL_RTL (decl), 0), 0);	\
+      char * LABEL2 = IDENTIFIER_POINTER (DECL2);		\
+								\
+      if (TARGET_THUMB && TREE_CODE (DECL1) == FUNCTION_DECL)	\
+	{							\
+	  fprintf (FILE, "\t.thumb_set ");			\
+	  assemble_name (FILE, LABEL1);			   	\
+	  fprintf (FILE, ",");			   		\
+	  assemble_name (FILE, LABEL2);		   		\
+	  fprintf (FILE, "\n");					\
+	}							\
+      else							\
+	ASM_OUTPUT_DEF (FILE, LABEL1, LABEL2);			\
+    }								\
   while (0)
 
 /* Target characters.  */

@@ -25,8 +25,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define SUBTARGET_CPP_SPEC "-D__semi__"
 
-#define ASM_SPEC "%{mbig-endian:-EB}"
-
 #define LINK_SPEC "%{mbig-endian:-EB} -X"
 
 #ifndef TARGET_VERSION

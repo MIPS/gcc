@@ -3088,7 +3088,7 @@
    (set (match_dup 0) (lshiftrt:SI (match_dup 2) (const_int 16)))]
   "
 {
-  if ((operands[1] = gen_rotated_half_load (operands[1])) == NULL)
+  if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
     FAIL;
 }")
 
@@ -3105,7 +3105,7 @@
 	 [(lshiftrt:SI (match_dup 2) (const_int 16)) (match_dup 4)]))]
   "
 {
-  if ((operands[1] = gen_rotated_half_load (operands[1])) == NULL)
+  if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
     FAIL;
 }")
 
@@ -3351,7 +3351,7 @@
   [(set (match_dup 2) (match_dup 1))
    (set (match_dup 0) (ashiftrt:SI (match_dup 2) (const_int 16)))]
   "
-  if ((operands[1] = gen_rotated_half_load (operands[1])) == NULL)
+  if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
     FAIL;
   "
 )
@@ -3367,7 +3367,7 @@
    (set (match_dup 0)
 	(match_op_dup 3
 	 [(ashiftrt:SI (match_dup 2) (const_int 16)) (match_dup 4)]))]
-  "if ((operands[1] = gen_rotated_half_load (operands[1])) == NULL)
+  "if ((operands[1] = arm_gen_rotated_half_load (operands[1])) == NULL)
      FAIL;
   "
 )
@@ -5442,8 +5442,9 @@
   [(set (match_operand 0 "cc_register" "") (match_dup 0))]
   "TARGET_ARM"
   "\\t%@ deleted compare"
-[(set_attr "conds" "set")
- (set_attr "length" "0")])
+  [(set_attr "conds" "set")
+   (set_attr "length" "0")]
+)
 
 
 ;; Conditional branch insns
@@ -5454,7 +5455,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (EQ, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (EQ, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "bne"
@@ -5463,7 +5464,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (NE, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (NE, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "bgt"
@@ -5472,7 +5473,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (GT, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (GT, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "ble"
@@ -5481,7 +5482,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (LE, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (LE, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "bge"
@@ -5490,7 +5491,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (GE, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (GE, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "blt"
@@ -5499,7 +5500,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (LT, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (LT, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "bgtu"
@@ -5508,7 +5509,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (GTU, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (GTU, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "bleu"
@@ -5517,7 +5518,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (LEU, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (LEU, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "bgeu"
@@ -5526,7 +5527,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (GEU, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (GEU, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "bltu"
@@ -5535,7 +5536,7 @@
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (LTU, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (LTU, arm_compare_op0, arm_compare_op1);"
 )
 
 ;; patterns to match conditional branch insns
@@ -5584,70 +5585,70 @@
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(eq:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (EQ, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (EQ, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "sne"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(ne:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (NE, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (NE, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "sgt"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(gt:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (GT, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (GT, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "sle"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(le:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (LE, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (LE, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "sge"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(ge:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (GE, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (GE, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "slt"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(lt:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (LT, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (LT, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "sgtu"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(gtu:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (GTU, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (GTU, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "sleu"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(leu:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (LEU, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (LEU, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "sgeu"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(geu:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (GEU, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (GEU, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_expand "sltu"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(ltu:SI (match_dup 1) (const_int 0)))]
   "TARGET_ARM"
-  "operands[1] = gen_compare_reg (LTU, arm_compare_op0, arm_compare_op1);"
+  "operands[1] = arm_gen_compare_reg (LTU, arm_compare_op0, arm_compare_op1);"
 )
 
 (define_insn "*mov_scc"
@@ -5692,7 +5693,7 @@
   "
 {
   enum rtx_code code = GET_CODE (operands[1]);
-  rtx ccreg = gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
+  rtx ccreg = arm_gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
 
   operands[1] = gen_rtx (code, VOIDmode, ccreg, const0_rtx);
 }")
@@ -5714,7 +5715,7 @@
       || (! fpu_add_operand (operands[3], SFmode)))
     operands[3] = force_reg (SFmode, operands[3]);
 
-  ccreg = gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
+  ccreg = arm_gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
 
   operands[1] = gen_rtx (code, VOIDmode, ccreg, const0_rtx);
 }")
@@ -5728,7 +5729,7 @@
   "
 {
   enum rtx_code code = GET_CODE (operands[1]);
-  rtx ccreg = gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
+  rtx ccreg = arm_gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
 
   operands[1] = gen_rtx (code, VOIDmode, ccreg, const0_rtx);
 }")
@@ -6194,27 +6195,25 @@
 
 (define_expand "indirect_jump"
   [(set (pc)
-	(match_operand:SI 0 "general_operand" ""))]
+	(match_operand:SI 0 "s_register_operand" ""))]
   "TARGET_EITHER"
-  "if (TARGET_THUMB && GET_CODE (operands[0]) != REG)
-     operands[0] = force_reg (SImode, operands[0]);
-   else if (TARGET_ARM && GET_CODE (operands[0]) == CONST_INT)
-     operands[0] = force_reg (SImode, operands[0]);
-  "
+  ""
 )
 
 (define_insn "*arm_indirect_jump"
   [(set (pc)
 	(match_operand:SI 0 "s_register_operand" "r"))]
   "TARGET_ARM"
-  "mov%?\\t%|pc, %0\\t%@ indirect jump"
+  "mov%?\\t%|pc, %0\\t%@ indirect register jump"
 )
 
+;; Although not supported by the define_expand above,
+;; cse/combine may generate this form.
 (define_insn "*load_indirect_jump"
   [(set (pc)
 	(match_operand:SI 0 "memory_operand" "m"))]
   "TARGET_ARM"
-  "ldr%?\\t%|pc, %0\\t%@ indirect jump"
+  "ldr%?\\t%|pc, %0\\t%@ indirect memory jump"
   [(set_attr "type" "load")]
 )
 
@@ -8126,7 +8125,7 @@
       strcat (pattern, \"}\");
       output_asm_insn (pattern, operands);
     }
-    
+  
   return \"\";
 }"
 [(set_attr "type" "store4")])
