@@ -1,5 +1,35 @@
 2004-09-12  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JMenu.java
+	(getMenuListeners): New method.
+	(fireMenuSelected): Simplified.
+	* javax/swing/JRootPane.java
+	(NONE): New static field.
+	(FRAME): Likewise.
+	(PLAIN_DIALOG): Likewise.
+	(INFORMATION_DIALOG): Likewise.
+	(ERROR_DIALOG): Likewise.
+	(COLOR_CHOOSER_DIALOG): Likewise.
+	(FILE_CHOOSER_DIALOG): Likewise.
+	(QUESTION_DIALOG): Likewise.
+	(WARNING_DIALOG): Likewise.
+	(defaultButton): New field.
+	(getDefaultButton): New method.
+	(setDefaultButton): Likewise.
+	* javax/swing/JScrollPane.java
+	(getUI): New method.
+	(setUI): Likewise.
+	* javax/swing/JTable.java
+	(getUI): Javadoc added.
+	(setUI): New method.
+	* javax/swing/JViewport.java
+	(getUI): New method.
+	(setUI): Likewise.
+	* javax/swing/UIDefaults.java
+	(removePropertyChangeListener): Made public.
+
+2004-09-12  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JApplet.java, javax/swing/JFrame.java:
 	Re-indented.
 

@@ -1540,15 +1540,29 @@ public class JTable extends JComponent
     doLayout();
   }
 
-
   public String getUIClassID()
   {
     return "TableUI";
   }
 
+  /**
+   * This method returns the table's UI delegate.
+   *
+   * @return The table's UI delegate.
+   */
   public TableUI getUI()
   {
     return (TableUI) ui;
+  }
+
+  /**
+   * This method sets the table's UI delegate.
+   *
+   * @param ui The table's UI delegate.
+   */
+  public void setUI(TableUI ui)
+  {
+    super.setUI(ui);
   }
 
   public void updateUI()
