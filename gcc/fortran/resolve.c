@@ -81,6 +81,10 @@ resolve_formal_arglist (gfc_symbol * proc)
 	    gfc_error ("Alternate return specifier in elemental subroutine "
 		       "'%s' at %L is not allowed", proc->name,
 		       &proc->declared_at);
+          if (proc->attr.function)
+            gfc_error ("Alternate return specifier in function "
+                       "'%s' at %L is not allowed", proc->name,
+                       &proc->declared_at);
 	  continue;
 	}
 
@@ -471,7 +475,19 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 
       e = arg->expr;
       if (e == NULL)
-	continue;
+        {
+          /* Check the label is a valid branching target.  */
+          if (arg->label)
+            {
+              if (arg->label->defined == ST_LABEL_UNKNOWN)
+                {
+                  gfc_error ("Label %d referenced at %L is never defined",
+                             arg->label->value, &arg->label->where);
+                  return FAILURE;
+                }
+            }
+          continue;
+        }
 
       if (e->ts.type != BT_PROCEDURE)
 	{

@@ -1,3 +1,18 @@
+2003-11-28 Huang Chun <chunhuang73@hotmail.com>
+
+	* trans.h (has_alternate_specifier): New global variable.
+	* match.c (gfc_match_call): Handle actual arguments associated with
+	alternate return indicators.
+	* trans-expr.c (gfc_conv_function_call): Ditto
+	* trans-stmt.c (gfc_trans_call): Ditto
+	(gfc_trans_return): Handle return statement with value.
+	* trans-decl.c (gfc_generate_function_code): Handle functions with
+	asterisk dummy.
+	(gfc_get_fake_result_decl): Ditto
+	* trans-types.c (gfc_get_function_type): Ditto
+	* resolve.c (resolve_actual_arglist): Check alternate return indicators.
+	(resolve_formal_arglist): Check asterisk dummy.
+
 2003-11-27  Paul Brook  <paul@nowt.org>
 
 	* trans-array.c (gfc_tran_allocate_array_storage): Use new memory

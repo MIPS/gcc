@@ -1937,9 +1937,24 @@ gfc_match_call (void)
 
   if (i)
     {
+      gfc_symtree *select_st;
+      gfc_symbol *select_sym;
+      char name[GFC_MAX_SYMBOL_LEN + 1];
+
       new_st.next = c = gfc_get_code ();
       c->op = EXEC_SELECT;
-      c->expr = gfc_int_expr (0);	/* For now */
+      sprintf (name, "_result_%s",sym->name);
+      gfc_get_ha_sym_tree (name, &select_st);  /* Can't fail */
+
+      select_sym = select_st->n.sym;
+      select_sym->ts.type = BT_INTEGER;
+      select_sym->ts.kind = gfc_default_integer_kind ();
+      gfc_set_sym_referenced (select_sym);
+      c->expr = gfc_get_expr ();
+      c->expr->expr_type = EXPR_VARIABLE;
+      c->expr->symtree = select_st;
+      c->expr->ts = select_sym->ts;
+      c->expr->where = *gfc_current_locus ();
 
       i = 0;
       for (a = arglist; a; a = a->next)

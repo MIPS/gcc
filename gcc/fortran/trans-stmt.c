@@ -40,6 +40,8 @@ Boston, MA 02111-1307, USA.  */
 #include "trans-const.h"
 #include "arith.h"
 
+int has_alternate_specifier;
+
 typedef struct iter_info
 {
   tree var;
@@ -104,6 +106,7 @@ gfc_trans_call (gfc_code * code)
   gfc_start_block (&se.pre);
 
   assert (code->resolved_sym);
+  has_alternate_specifier = 0;
 
   /* Translate the call.  */
   gfc_conv_function_call (&se, code->resolved_sym, code->ext.actual);
@@ -112,7 +115,19 @@ gfc_trans_call (gfc_code * code)
   TREE_SIDE_EFFECTS (se.expr) = 1;
 
   /* Chain the pieces together and return the block.  */
-  gfc_add_expr_to_block (&se.pre, se.expr);
+  if (has_alternate_specifier)
+    {
+      gfc_code *select_code;
+      gfc_symbol *sym;
+      select_code = code->next;
+      assert(select_code->op == EXEC_SELECT);
+      sym = select_code->expr->symtree->n.sym;
+      se.expr = convert (gfc_typenode_for_spec (&sym->ts), se.expr);
+      gfc_add_modify_expr (&se.pre, sym->backend_decl, se.expr);
+    }
+  else
+    gfc_add_expr_to_block (&se.pre, se.expr);
+
   gfc_add_block_to_block (&se.pre, &se.post);
   return gfc_finish_block (&se.pre);
 }
@@ -123,7 +138,40 @@ gfc_trans_call (gfc_code * code)
 tree
 gfc_trans_return (gfc_code * code ATTRIBUTE_UNUSED)
 {
-  return build1_v (GOTO_EXPR, gfc_get_return_label ());
+  if (code->expr)
+    {
+      gfc_se se;
+      tree tmp;
+      tree result;
+
+      /* if code->expr is not NULL, this return statement must appear
+         in a subroutine and current_fake_result_decl has already
+	 been generated.  */
+
+      result = gfc_get_fake_result_decl (NULL);
+      if (!result)
+        {
+          gfc_warning ("An alternate return at %L without a * dummy argument",
+                        &code->expr->where);
+          return build1_v (GOTO_EXPR, gfc_get_return_label ());
+        }
+
+      /* Start a new block for this statement.  */
+      gfc_init_se (&se, NULL);
+      gfc_start_block (&se.pre);
+
+      gfc_conv_expr (&se, code->expr);
+
+      tmp = build (MODIFY_EXPR, TREE_TYPE (result), result, se.expr);
+      gfc_add_expr_to_block (&se.pre, tmp);
+
+      tmp = build1_v (GOTO_EXPR, gfc_get_return_label ());
+      gfc_add_expr_to_block (&se.pre, tmp);
+      gfc_add_block_to_block (&se.pre, &se.post);
+      return gfc_finish_block (&se.pre);
+    }
+  else
+    return build1_v (GOTO_EXPR, gfc_get_return_label ());
 }
 
 

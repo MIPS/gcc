@@ -522,4 +522,6 @@ struct lang_decl		GTY(())
 #define build1_v(code, arg) build(code, void_type_node, arg)
 #define build_v(code, args...) build(code, void_type_node, args)
 
+/* flag for alternative return labels.  */
+extern int has_alternate_specifier;  /* for caller */
 #endif /* GFC_TRANS_H */

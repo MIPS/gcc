@@ -1132,6 +1132,7 @@ gfc_get_function_type (gfc_symbol * sym)
   gfc_formal_arglist *f;
   gfc_symbol *arg;
   int nstr;
+  int alternate_return;
 
   /* make sure this symbol is a function or a subroutine.  */
   assert (sym->attr.function || sym->attr.subroutine);
@@ -1140,6 +1141,7 @@ gfc_get_function_type (gfc_symbol * sym)
     return TREE_TYPE (sym->backend_decl);
 
   nstr = 0;
+  alternate_return = 0;
   typelist = NULL_TREE;
   /* Some functions we use an extra parameter for the return value.  */
   if (gfc_return_by_reference (sym))
@@ -1187,6 +1189,11 @@ gfc_get_function_type (gfc_symbol * sym)
             nstr++;
 	  typelist = gfc_chainon_list (typelist, type);
 	}
+      else
+        {
+          if (sym->attr.subroutine)
+            alternate_return = 1;
+        }
     }
 
   /* Add hidden string length parameters.  */
@@ -1195,7 +1202,9 @@ gfc_get_function_type (gfc_symbol * sym)
 
   typelist = gfc_chainon_list (typelist, void_type_node);
 
-  if (sym->attr.subroutine || gfc_return_by_reference (sym))
+  if (alternate_return)
+    type = integer_type_node;
+  else if (sym->attr.subroutine || gfc_return_by_reference (sym))
     type = void_type_node;
   else
     type = gfc_sym_type (sym);

@@ -1161,6 +1161,11 @@ gfc_get_fake_result_decl (gfc_symbol * sym)
   if (current_fake_result_decl != NULL_TREE)
     return current_fake_result_decl;
 
+  /* Only when gfc_get_fake_result_decl is called by gfc_trans_return,
+     sym is NULL.  */
+  if (!sym)
+    return NULL_TREE;
+
   if (gfc_return_by_reference (sym))
     {
       decl = DECL_ARGUMENTS (sym->backend_decl);
@@ -1895,6 +1900,14 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* Now generate the code for the body of this function.  */
   gfc_init_block (&body);
 
+  if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node
+      && sym->attr.subroutine)
+    {
+      tree alternate_return;
+      alternate_return = gfc_get_fake_result_decl (sym);
+      gfc_add_modify_expr (&body, alternate_return, integer_zero_node);
+    }
+
   tmp = gfc_trans_code (ns->code);
   gfc_add_expr_to_block (&body, tmp);
 
@@ -1912,7 +1925,7 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node)
     {
-      if (sym == sym->result)
+      if (sym->attr.subroutine ||sym == sym->result)
 	{
 	  result = current_fake_result_decl;
 	  current_fake_result_decl = NULL_TREE;

@@ -1050,8 +1050,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    }
 	  else if (arg->label)
 	    {
-	      /* We don't do alternate returns yet.  */
-	      abort ();
+              has_alternate_specifier = 1;
+              continue;
 	    }
 	  else
 	    {
@@ -1109,6 +1109,11 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
   /* Generate the actual call.  */
   gfc_conv_function_val (se, sym);
+  /* If there are alternate return labels, function type should be
+     integer.  */
+  if (has_alternate_specifier)
+    TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) = integer_type_node;
+
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
   se->expr = build (CALL_EXPR, TREE_TYPE (fntype), se->expr, arglist);
 
