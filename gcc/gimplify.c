@@ -1522,8 +1522,11 @@ shortcut_cond_expr (tree expr)
   tree pred = TREE_OPERAND (expr, 0);
   tree then_ = TREE_OPERAND (expr, 1);
   tree else_ = TREE_OPERAND (expr, 2);
-  tree false_label, end_label;
-  bool emit_end;
+  tree true_label, false_label, end_label;
+  tree *true_label_p;
+  tree *false_label_p;
+  bool emit_end, emit_false;
+  tree_stmt_iterator si;
 
   /* First do simple transformations.  */
   if (!TREE_SIDE_EFFECTS (else_))
@@ -1567,35 +1570,71 @@ shortcut_cond_expr (tree expr)
        no: d; end:
      and recursively simplify the condition.  */
 
-  false_label = end_label = NULL_TREE;
-  emit_end = true;  
+  true_label = false_label = end_label = NULL_TREE;
 
-  /* If our subexpression already has a terminal label, reuse it.  */
+  /* If our arms just jump somewhere, hijack those labels so we don't
+     generate jumps to jumps.  */
+  si = tsi_start (&then_);
+  expr = tsi_stmt (si);
+  if (TREE_CODE (expr) == GOTO_EXPR
+      && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL)
+    {
+      true_label = GOTO_DESTINATION (expr);
+      tsi_delink (&si);
+    }
+  si = tsi_start (&else_);
+  expr = tsi_stmt (si);
+  if (TREE_CODE (expr) == GOTO_EXPR
+      && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL)
+    {
+      false_label = GOTO_DESTINATION (expr);
+      tsi_delink (&si);
+    }
+
+  /* If we aren't hijacking a label for the 'then' branch, it falls through. */
+  if (true_label)
+    true_label_p = &true_label;
+  else
+    true_label_p = NULL;
+
+  /* The 'else' branch also needs a label if it contains interesting code.  */
+  if (false_label || TREE_SIDE_EFFECTS (else_))
+    false_label_p = &false_label;
+  else
+    false_label_p = NULL;
+
+  /* If there was nothing else in our arms, just forward the label(s).  */
+  if (!TREE_SIDE_EFFECTS (then_) && !TREE_SIDE_EFFECTS (else_))
+    return shortcut_cond_r (pred, true_label_p, false_label_p);
+
+  /* If our last subexpression already has a terminal label, reuse it.  */
   if (TREE_SIDE_EFFECTS (else_))
     expr = expr_last (else_);
   else
     expr = expr_last (then_);
   if (TREE_CODE (expr) == LABEL_EXPR)
-    {
-      emit_end = false;
-      end_label = LABEL_EXPR_LABEL (expr);
-      if (!TREE_SIDE_EFFECTS (else_))
-	false_label = end_label;
-    }
+    end_label = LABEL_EXPR_LABEL (expr);
 
-  expr = shortcut_cond_r (pred, NULL, &false_label);
+  /* If we don't care about jumping to the 'else' branch, jump to the end
+     if the condition is false.  */
+  if (!false_label_p)
+    false_label_p = &end_label;
+
+  /* We only want to emit these labels if we aren't hijacking them.  */
+  emit_end = (end_label == NULL_TREE);
+  emit_false = (false_label == NULL_TREE);
+
+  expr = shortcut_cond_r (pred, true_label_p, false_label_p);
 
   add_tree (then_, &expr);
   if (TREE_SIDE_EFFECTS (else_))
     {
       add_tree (build_and_jump (&end_label), &expr);
-      add_tree (build1 (LABEL_EXPR, void_type_node, false_label), &expr);
+      if (emit_false)
+	add_tree (build1 (LABEL_EXPR, void_type_node, false_label), &expr);
       add_tree (else_, &expr);
     }
-  else
-    end_label = false_label;
-
-  if (emit_end)
+  if (emit_end && end_label)
     add_tree (build1 (LABEL_EXPR, void_type_node, end_label), &expr);
 
   return expr;
