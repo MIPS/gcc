@@ -270,8 +270,6 @@ yylexstring (t)
 
       t->yylval.ttype = combine_strings (strings);
       last_token_id = t->yylval.ttype;
-
-      VARRAY_FREE (strings);
     }
 
   /* We will have always read one token too many.  */

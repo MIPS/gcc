@@ -32,7 +32,6 @@ enum typekind {
   TYPE_STRUCT,
   TYPE_UNION,
   TYPE_POINTER,
-  TYPE_VARRAY,
   TYPE_ARRAY,
   TYPE_LANG_STRUCT,
   TYPE_PARAM_STRUCT
@@ -117,7 +116,6 @@ extern void new_structure PARAMS ((const char *name, int isunion,
 extern type_p find_structure PARAMS ((const char *s, int isunion));
 extern type_p create_scalar_type PARAMS ((const char *name, size_t name_len));
 extern type_p create_pointer PARAMS ((type_p t));
-extern type_p create_varray PARAMS ((type_p t));
 extern type_p create_array PARAMS ((type_p t, const char *len));
 extern type_p adjust_field_type PARAMS ((type_p, options_p));
 extern void note_variable PARAMS ((const char *s, type_p t, options_p o,

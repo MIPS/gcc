@@ -747,7 +747,7 @@ struct saved_scope GTY(())
   tree class_type;
   tree access_specifier;
   tree function_decl;
-  varray_type GTY ((varray_type (tree))) lang_base;
+  varray_type lang_base;
   tree lang_name;
   tree template_parms;
   tree x_previous_class_type;
@@ -848,7 +848,7 @@ struct language_function GTY(())
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
   struct cp_binding_level *bindings;
-  varray_type GTY ((varray_type (tree))) x_local_names;
+  varray_type x_local_names;
 
   const char *cannot_inline;
   struct unparsed_text *unparsed_inlines;
@@ -3264,7 +3264,7 @@ extern int current_class_depth;
 
 /* An array of all local classes present in this translation unit, in
    declaration order.  */
-extern varray_type local_classes;
+extern GTY(()) varray_type local_classes;
 
 /* Here's where we control how name mangling takes place.  */
 
@@ -3893,7 +3893,6 @@ extern tmpl_spec_kind current_tmpl_spec_kind    PARAMS ((int));
 extern tree cp_fname_init			PARAMS ((const char *));
 
 /* in decl2.c */
-extern void init_decl2				PARAMS ((void));
 extern int check_java_method			PARAMS ((tree));
 extern int cxx_decode_option			PARAMS ((int, char **));
 extern int grok_method_quals			PARAMS ((tree, tree, tree));

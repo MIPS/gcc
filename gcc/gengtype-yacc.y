@@ -43,7 +43,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 %token ENUM "enum"
 %token ALIAS "ptr_alias"
 %token PARAM_IS "param_is"
-%token VARRAY_TYPE "varray_type"
 %token NUM
 %token PERCENTPERCENT "%%"
 %token <t>SCALAR
@@ -186,7 +185,7 @@ struct_fields: { $$ = NULL; }
 	       | type optionsopt ID ARRAY ';' struct_fields
 	          {
 	            pair_p p = xmalloc (sizeof (*p));
-		    p->type = create_array ($1, $4);
+		    p->type = adjust_field_type (create_array ($1, $4), $2);
 		    p->opt = $2;
 		    p->name = $3;
 		    p->next = $6;
@@ -209,18 +208,6 @@ bitfieldopt: /* empty */
 
 type: SCALAR
          { $$ = $1; }
-      | VARRAY_TYPE options
-         {
-	   if ($2 == NULL || $2->next != NULL 
-	       || strcmp ($2->name, "varray_type") != 0)
-	     {
-	       error_at_line (&lexer_line, 
-			      "expected only `varray_type' option");
-	       $$ = create_varray (&string_type);
-	     }
-	   else
-	     $$ = create_varray ((type_p) $2->info);
-	 }
       | ID
          { $$ = resolve_typedef ($1, &lexer_line); }
       | type '*'
@@ -258,9 +245,7 @@ optionsopt: { $$ = NULL; }
 
 options: GTY_TOKEN '(' '(' optionseqopt ')' ')' { $$ = $4; }
 
-type_option : VARRAY_TYPE
-	        { $$ = "varray_type"; }
-	      | ALIAS
+type_option : ALIAS
 	        { $$ = "ptr_alias"; }
 	      | PARAM_IS
 	        { $$ = "param_is"; }

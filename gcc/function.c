@@ -438,7 +438,7 @@ void
 free_after_compilation (f)
      struct function *f;
 {
-  free_eh_status (f);
+  f->eh = NULL;
   f->expr = NULL;
   f->emit = NULL;
   f->varasm = NULL;
@@ -5910,8 +5910,6 @@ reorder_blocks ()
 
   /* Remove deleted blocks from the block fragment chains.  */
   reorder_fix_fragments (block);
-
-  VARRAY_FREE (block_stack);
 }
 
 /* Helper function for reorder_blocks.  Reset TREE_ASM_WRITTEN.  */

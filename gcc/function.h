@@ -97,16 +97,16 @@ struct emit_status GTY(())
   /* Indexed by pseudo register number, if nonzero gives the known alignment
      for that pseudo (if REG_POINTER is set in x_regno_reg_rtx).
      Allocated in parallel with x_regno_reg_rtx.  */
-  unsigned char * GTY ((length ("%.regno_pointer_align_length"))) 
+  unsigned char * GTY ((length ("%h.regno_pointer_align_length"))) 
     regno_pointer_align;
 
   /* Indexed by pseudo register number, if nonzero gives the decl
      corresponding to that register.  */
-  tree * GTY ((length ("%.regno_pointer_align_length"))) regno_decl;
+  tree * GTY ((length ("%h.regno_pointer_align_length"))) regno_decl;
 
   /* Indexed by pseudo register number, gives the rtx for that pseudo.
      Allocated in parallel with regno_pointer_align.  */
-  rtx * GTY ((length ("%.regno_pointer_align_length"))) x_regno_reg_rtx;
+  rtx * GTY ((length ("%h.regno_pointer_align_length"))) x_regno_reg_rtx;
 };
 
 /* For backward compatibility... eventually these should all go away.  */
@@ -333,7 +333,7 @@ struct function GTY(())
      to put the parm which is nominally in pseudo register REGNO,
      if we discover that that parm must go in the stack.  The highest
      element in this vector is one less than MAX_PARM_REG, above.  */
-  rtx * GTY ((length ("%.x_max_parm_reg"))) x_parm_reg_stack_loc;
+  rtx * GTY ((length ("%h.x_max_parm_reg"))) x_parm_reg_stack_loc;
 
   /* List of all temporaries allocated, both available and in use.  */
   struct temp_slot *x_temp_slots;
@@ -596,7 +596,6 @@ extern void free_after_parsing		PARAMS ((struct function *));
 extern void free_after_compilation	PARAMS ((struct function *));
 
 extern void init_varasm_status		PARAMS ((struct function *));
-extern void free_eh_status		PARAMS ((struct function *));
 
 extern rtx get_first_block_beg		PARAMS ((void));
 

@@ -342,8 +342,6 @@ scope_to_insns_finalize ()
 	}
     }
 
-  VARRAY_FREE (insn_scopes);
-
   /* change_scope emits before the insn, not after.  */
   note = emit_note (NULL, NOTE_INSN_DELETED);
   change_scope (note, cur_block, DECL_INITIAL (cfun->decl));

@@ -95,13 +95,13 @@ static tree get_guard_bits PARAMS ((tree));
 /* A list of static class variables.  This is needed, because a
    static class variable can be declared inside the class without
    an initializer, and then initialized, statically, outside the class.  */
-static varray_type pending_statics;
+static GTY(()) varray_type pending_statics;
 #define pending_statics_used \
   (pending_statics ? pending_statics->elements_used : 0)
 
 /* A list of functions which were declared inline, but which we
    may need to emit outline anyway.  */
-static varray_type deferred_fns;
+static GTY(()) varray_type deferred_fns;
 #define deferred_fns_used \
   (deferred_fns ? deferred_fns->elements_used : 0)
 
@@ -2773,7 +2773,7 @@ static GTY(()) tree ssdf_decl;
 
 /* All the static storage duration functions created in this
    translation unit.  */
-static varray_type ssdf_decls;
+static GTY(()) varray_type ssdf_decls;
 
 /* A map from priority levels to information about that priority
    level.  There may be many such levels, so efficient lookup is
@@ -5273,16 +5273,6 @@ handle_class_head (aggr, scope, id, defn_p, new_type_p)
     }
 
   return decl;
-}
-
-/* Initialize decl2.c.  */
-
-void
-init_decl2 ()
-{
-  ggc_add_tree_varray_root (&deferred_fns, 1);
-  ggc_add_tree_varray_root (&pending_statics, 1);
-  ggc_add_tree_varray_root (&ssdf_decls, 1);
 }
 
 #include "gt-cp-decl2.h"

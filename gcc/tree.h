@@ -815,7 +815,7 @@ struct tree_vec GTY(())
 {
   struct tree_common common;
   int length;
-  tree GTY ((length ("TREE_VEC_LENGTH ((tree)&%)"))) a[1];
+  tree GTY ((length ("TREE_VEC_LENGTH ((tree)&%h)"))) a[1];
 };
 
 /* Define fields and accessors for some nodes that represent expressions.  */
@@ -886,7 +886,8 @@ struct tree_exp GTY(())
   struct tree_common common;
   int complexity;
   tree GTY ((special ("tree_exp"), 
-	     length ("TREE_CODE_LENGTH (TREE_CODE ((tree) &%))"))) operands[1];
+	     length ("TREE_CODE_LENGTH (TREE_CODE ((tree) &%h))"))) 
+    operands[1];
 };
 
 /* In a BLOCK node.  */

@@ -35,8 +35,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static ggc_statistics *ggc_stats;
 
 static void ggc_mark_rtx_children_1 PARAMS ((rtx));
-static void ggc_mark_rtx_varray_ptr PARAMS ((void *));
-static void ggc_mark_tree_varray_ptr PARAMS ((void *));
 static int ggc_htab_delete PARAMS ((void **, void *));
 
 /* Maintain global roots that are preserved during GC.  */
@@ -75,28 +73,6 @@ ggc_add_root (base, nelt, size, cb)
   x->cb = cb;
 
   roots = x;
-}
-
-/* Register a varray of rtxs as a GC root.  */
-
-void
-ggc_add_rtx_varray_root (base, nelt)
-     varray_type *base;
-     int nelt;
-{
-  ggc_add_root (base, nelt, sizeof (varray_type), 
-		ggc_mark_rtx_varray_ptr);
-}
-
-/* Register a varray of trees as a GC root.  */
-
-void
-ggc_add_tree_varray_root (base, nelt)
-     varray_type *base;
-     int nelt;
-{
-  ggc_add_root (base, nelt, sizeof (varray_type), 
-		ggc_mark_tree_varray_ptr);
 }
 
 /* Process a slot of an htab by deleting it if it has not been marked.  */
@@ -282,52 +258,6 @@ ggc_mark_rtx_children_1 (r)
 	}
     }
   while ((r = next_rtx) != NULL);
-}
-
-/* Mark all the elements of the varray V, which contains rtxs.  */
-
-void
-ggc_mark_rtx_varray (v)
-     varray_type v;
-{
-  int i;
-
-  if (v)
-    for (i = v->num_elements - 1; i >= 0; --i) 
-      ggc_mark_rtx (VARRAY_RTX (v, i));
-}
-
-/* Mark all the elements of the varray V, which contains trees.  */
-
-void
-ggc_mark_tree_varray (v)
-     varray_type v;
-{
-  int i;
-
-  if (v)
-    for (i = v->num_elements - 1; i >= 0; --i) 
-      ggc_mark_tree (VARRAY_TREE (v, i));
-}
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   ELT (which is really a varray_type *) to ggc_mark_rtx_varray.  */
-
-static void
-ggc_mark_rtx_varray_ptr (elt)
-     void *elt;
-{
-  ggc_mark_rtx_varray (*(varray_type *) elt);
-}
-
-/* Type-correct function to pass to ggc_add_root.  It just forwards
-   ELT (which is really a varray_type *) to ggc_mark_tree_varray.  */
-
-static void
-ggc_mark_tree_varray_ptr (elt)
-     void *elt;
-{
-  ggc_mark_tree_varray (*(varray_type *) elt);
 }
 
 /* Various adaptor functions.  */

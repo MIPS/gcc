@@ -214,7 +214,7 @@ struct rtx_def
 
 struct rtvec_def GTY(()) {
   int num_elem;		/* number of elements */
-  rtx GTY ((length ("%.num_elem"))) elem[1];
+  rtx GTY ((length ("%h.num_elem"))) elem[1];
 };
 
 #define NULL_RTVEC (rtvec) 0

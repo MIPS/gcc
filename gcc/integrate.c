@@ -75,7 +75,7 @@ typedef struct initial_value_pair GTY(()) {
 typedef struct initial_value_struct GTY(()) {
   int num_entries;
   int max_entries;
-  initial_value_pair * GTY((length("%.num_entries"))) entries;
+  initial_value_pair * GTY ((length ("%h.num_entries"))) entries;
 } initial_value_struct;
 
 static void setup_initial_hard_reg_value_integration PARAMS ((struct function *, struct inline_remap *));
@@ -1286,7 +1286,6 @@ expand_inline_function (fndecl, parms, target, ignore, type,
     free (real_label_map);
   VARRAY_FREE (map->const_equiv_varray);
   free (map->reg_map);
-  VARRAY_FREE (map->block_map);
   free (map->insn_map);
   free (map);
   free (arg_vals);

@@ -5471,7 +5471,6 @@ init_class_processing ()
     = (class_stack_node_t) xmalloc (current_class_stack_size 
 				    * sizeof (struct class_stack_node));
   VARRAY_TREE_INIT (local_classes, 8, "local_classes");
-  ggc_add_tree_varray_root (&local_classes, 1);
 
   access_default_node = build_int_2 (0, 0);
   access_public_node = build_int_2 (ak_public, 0);
@@ -7512,8 +7511,6 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
   VARRAY_TREE_INIT (vid.fns, 32, "fns");
   /* Add the vcall and vbase offset entries.  */
   build_vcall_and_vbase_vtbl_entries (binfo, &vid);
-  /* Clean up.  */
-  VARRAY_FREE (vid.fns);
   /* Clear BINFO_VTABLE_PATH_MARKED; it's set by
      build_vbase_offset_vtbl_entries.  */
   for (vbase = CLASSTYPE_VBASECLASSES (t); 

@@ -1,3 +1,26 @@
+2002-05-22  Geoffrey Keating  <geoffk@redhat.com>
+
+	* mangle.c (start_mangling): Allocate G.substitutions here...
+	(init_mangle): ... rather than here.
+	(finish_mangling): Clear the varray pointer when done with it.
+	* spew.c (yylexstring): Don't use VARRAY_FREE. 
+	* search.c (bfs_walk): Don't use VARRAY_FREE. 
+	* decl2.c (pending_statics): Use gengtype to mark.
+	(deferred_fns): Likewise.
+	(ssdf_decls): Likewise.
+	(init_decl2): Delete.
+	* decl.c (pop_from_top_level): Don't use VARRAY_FREE.
+	(cxx_init_decl_processing): Don't call init_decl2.
+	(cxx_pop_function_context): Don't use VARRAY_FREE.
+	* cp-tree.h (struct saved_scope): No need for special marking
+	of varrays.
+	(struct language_function): Likewise.
+	(local_classes): Use gengtype to mark.
+	(init_decl2): Delete prototype.
+	* class.c (init_class_processing): Don't use
+	ggc_add_tree_varray_root.
+	(build_vtbl_initializer): Don't use VARRAY_FREE.
+
 2002-05-16  Geoffrey Keating  <geoffk@redhat.com>
 
 	* decl.c (typename_compare): Don't use same_type_p.

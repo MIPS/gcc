@@ -2214,7 +2214,7 @@ convert_from_ssa ()
   count_or_remove_death_notes (NULL, 1);
 
   /* Deallocate the data structures.  */
-  VARRAY_FREE (ssa_definition);
+  ssa_definition = 0;
   ssa_rename_from_free ();
 }
 

@@ -222,7 +222,7 @@ struct eh_status GTY(())
   struct eh_region *region_tree;
 
   /* The same information as an indexable array.  */
-  struct eh_region ** GTY ((length ("%.last_region_number"))) region_array;
+  struct eh_region ** GTY ((length ("%h.last_region_number"))) region_array;
 
   /* The most recently open region.  */
   struct eh_region *cur_region;
@@ -236,13 +236,13 @@ struct eh_status GTY(())
   int built_landing_pads;
   int last_region_number;
 
-  varray_type GTY ((varray_type (tree))) ttype_data;
-  varray_type GTY ((varray_type (unsigned char))) ehspec_data;
-  varray_type GTY ((varray_type (unsigned char))) action_record_data;
+  varray_type ttype_data;
+  varray_type ehspec_data;
+  varray_type action_record_data;
 
   htab_t GTY ((param_is (struct ehl_map_entry))) exception_handler_label_map;
 
-  struct call_site_record * GTY ((length ("%.call_site_data_used"))) 
+  struct call_site_record * GTY ((length ("%h.call_site_data_used"))) 
     call_site_data;
   int call_site_data_used;
   int call_site_data_size;
@@ -479,20 +479,6 @@ init_eh_for_function ()
   cfun->eh = (struct eh_status *) 
     ggc_alloc_cleared (sizeof (struct eh_status));
 }
-
-void
-free_eh_status (f)
-     struct function *f;
-{
-  struct eh_status *eh = f->eh;
-
-  VARRAY_FREE (eh->ttype_data);
-  VARRAY_FREE (eh->ehspec_data);
-  VARRAY_FREE (eh->action_record_data);
-
-  f->eh = NULL;
-}
-
 
 /* Start an exception handling region.  All instructions emitted
    after this point are considered to be part of the region until

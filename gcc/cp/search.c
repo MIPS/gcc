@@ -1674,9 +1674,6 @@ bfs_walk (binfo, fn, qfn, data)
 	}
     }
 
-  /* Clean up.  */
-  VARRAY_FREE (bfs_bases);
-
   return rval;
 }
 

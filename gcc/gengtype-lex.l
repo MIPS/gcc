@@ -197,7 +197,6 @@ ITYPE	{IWORD}({WS}{IWORD})*
 
 "const"/[^[:alnum:]_]		/* don't care */
 
-"varray_type"/[^[:alnum:]_]	{ return VARRAY_TYPE; }
 "GTY"/[^[:alnum:]_]		{ return GTY_TOKEN; }
 "union"/[^[:alnum:]_]		{ return UNION; }
 "struct"/[^[:alnum:]_]		{ return STRUCT; }

@@ -3724,8 +3724,6 @@ end ifc
 	     || (next_type == CPP_NAME && yylexname () == STRING));
 
       yylval.ttype = combine_strings (strings);
-
-      VARRAY_FREE (strings);
     }
   else
     yylval.ttype = orig;

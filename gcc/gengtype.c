@@ -47,7 +47,6 @@ struct type string_type = {
 static pair_p typedefs;
 static type_p structures;
 static type_p param_structs;
-static type_p varrays;
 static pair_p variables;
 
 void
@@ -211,23 +210,6 @@ create_pointer (t)
 }
 
 type_p
-create_varray (t)
-     type_p t;
-{
-  type_p v;
-  
-  for (v = varrays; v; v = v->next)
-    if (v->u.p == t)
-      return v;
-  v = xcalloc (1, sizeof (*v));
-  v->kind = TYPE_VARRAY;
-  v->next = varrays;
-  v->u.p = t;
-  varrays = v;
-  return v;
-}
-
-type_p
 create_array (t, len)
      type_p t;
      const char *len;
@@ -278,6 +260,12 @@ adjust_field_type (t, opt)
       && (strcmp (t->u.p->u.sc, "char") == 0
 	  || strcmp (t->u.p->u.sc, "unsigned char") == 0))
     return &string_type;
+  if (t->kind == TYPE_ARRAY && t->u.a.p->kind == TYPE_POINTER
+      && t->u.a.p->u.p->kind == TYPE_SCALAR
+      && (strcmp (t->u.a.p->u.p->u.sc, "char") == 0
+	  || strcmp (t->u.a.p->u.p->u.sc, "unsigned char") == 0))
+    return create_array (&string_type, t->u.a.len);
+
   return t;
 }
 
@@ -372,8 +360,6 @@ process_gc_options (opt, level, maybe_undef)
   for (o = opt; o; o = o->next)
     if (strcmp (o->name, "ptr_alias") == 0 && level == GC_POINTED_TO)
       set_gc_used_type ((type_p) o->info, GC_POINTED_TO);
-    else if (strcmp (o->name, "varray_type") == 0)
-      set_gc_used_type ((type_p) o->info, GC_POINTED_TO);
     else if (strcmp (o->name, "maybe_undef") == 0)
       *maybe_undef = 1;
 }
@@ -419,10 +405,6 @@ set_gc_used_type (t, level)
       set_gc_used_type (t->u.a.p, GC_USED);
       break;
       
-    case TYPE_VARRAY:
-      set_gc_used_type (t->u.p, GC_USED);
-      break;
-
     case TYPE_LANG_STRUCT:
       for (t = t->u.s.lang_struct; t; t = t->next)
 	set_gc_used_type (t, level);
@@ -684,6 +666,9 @@ get_output_file_with_visibility (input_file)
 	  fputs ("#include \"function.h\"\n", fm->output);
 	  fputs ("#include \"insn-config.h\"\n", fm->output);
 	  fputs ("#include \"expr.h\"\n", fm->output);
+	  fputs ("#include \"hard-reg-set.h\"\n", fm->output);
+	  fputs ("#include \"basic-block.h\"\n", fm->output);
+	  fputs ("#include \"ssa.h\"\n", fm->output);
 	  fputs ("#include \"optabs.h\"\n", fm->output);
 	  fputs ("#include \"libfuncs.h\"\n", fm->output);
 	  fputs ("#include \"debug.h\"\n", fm->output);
@@ -781,6 +766,9 @@ struct flist {
   FILE *f;
 };
 
+static void output_escaped_param PARAMS ((FILE *, const char *, const char *,
+					  const char *, const char *,
+					  struct fileloc *));
 static void write_gc_structure_fields 
   PARAMS ((FILE *, type_p, const char *, const char *, options_p, 
 	   int, struct fileloc *, lang_bitmap, type_p));
@@ -795,6 +783,31 @@ static void write_gc_root PARAMS ((FILE *, pair_p, type_p, const char *, int,
 static void write_gc_roots PARAMS ((pair_p));
 
 static int gc_counter;
+
+static void
+output_escaped_param (of, param, val, prev_val, oname, line)
+     FILE *of;
+     const char *param;
+     const char *val;
+     const char *prev_val;
+     const char *oname;
+     struct fileloc *line;
+{
+  const char *p;
+  
+  for (p = param; *p; p++)
+    if (*p != '%')
+      fputc (*p, of);
+    else if (*++p == 'h')
+      fprintf (of, "(%s)", val);
+    else if (*p == '0')
+      fputs ("(*x)", of);
+    else if (*p == '1')
+      fprintf (of, "(%s)", prev_val);
+    else
+      error_at_line (line, "`%s' option contains bad escape %c%c",
+		     oname, '%', *p);
+}
 
 static void
 write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
@@ -823,7 +836,6 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
   if (s->kind == TYPE_UNION)
     {
       const char *tagexpr = NULL;
-      const char *p;
       options_p oo;
       
       tagcounter = ++gc_counter;
@@ -839,18 +851,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
       fprintf (of, "%*s{\n", indent, "");
       indent += 2;
       fprintf (of, "%*sunsigned int tag%d = (", indent, "", tagcounter);
-      for (p = tagexpr; *p; p++)
-	if (*p != '%')
-	  fputc (*p, of);
-	else if (*++p == 'h')
-	  fprintf (of, "(%s)", val);
-	else if (*p == '0')
-	  fputs ("(*x)", of);
-	else if (*p == '1')
-	  fprintf (of, "(%s)", prev_val);
-	else
-	  error_at_line (line, "`desc' option contains bad escape %c%c",
-			 '%', *p);
+      output_escaped_param (of, tagexpr, val, prev_val, "desc", line);
       fputs (");\n", of);
     }
   
@@ -862,6 +863,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
       int skip_p = 0;
       int always_p = 0;
       int maybe_undef_p = 0;
+      int use_param_p = 0;
       options_p oo;
       type_p t = f->type;
       
@@ -890,23 +892,26 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
  	else if (strcmp (oo->name, "param_is") == 0)
 	  ;
 	else if (strcmp (oo->name, "use_param") == 0)
-	  {
-	    if (param == NULL)
-	      error_at_line (&f->line, "no parameter defined");
-	    else
-	      {
-		type_p t1;
-		type_p nt = param;
-		for (t1 = t; t->kind == TYPE_POINTER; t = t->u.p)
-		  nt = create_pointer (nt);
-		t = nt;
-	      }
-	  }
+	  use_param_p = 1;
 	else
 	  error_at_line (&f->line, "unknown field option `%s'\n", oo->name);
 
       if (skip_p)
 	continue;
+      
+      if (use_param_p)
+	{
+	  if (param != NULL)
+	    {
+	      type_p t1;
+	      type_p nt = param;
+	      for (t1 = t; t->kind == TYPE_POINTER; t = t->u.p)
+		nt = create_pointer (nt);
+	      t = nt;
+	    }
+	  else
+	    error_at_line (&f->line, "no parameter defined");
+	}
 
       if (maybe_undef_p
 	  && (t->kind != TYPE_POINTER
@@ -985,12 +990,12 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 			       f->name);
 	      break;
 	    }
-	  else if (t->u.p->kind == TYPE_SCALAR)
+	  else if (t->u.p->kind == TYPE_SCALAR
+		   || t->u.p->kind == TYPE_STRING)
 	    fprintf (of, "%*sggc_mark (%s.%s);\n", indent, "", 
 		     val, f->name);
 	  else
 	    {
-	      const char *p;
 	      int loopcounter = ++gc_counter;
 	      
 	      fprintf (of, "%*sif (%s.%s != NULL) {\n", indent, "",
@@ -1001,11 +1006,7 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 		       val, f->name);
 	      fprintf (of, "%*sfor (i%d = 0; i%d < (", indent, "", 
 		       loopcounter, loopcounter);
-	      for (p = length; *p; p++)
-		if (*p != '%')
-		  fputc (*p, of);
-		else
-		  fprintf (of, "(%s)", val);
+	      output_escaped_param (of, length, val, prev_val, "length", line);
 	      fprintf (of, "); i%d++) {\n", loopcounter);
 	      indent += 2;
 	      switch (t->u.p->kind)
@@ -1048,31 +1049,6 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	    }
 	  break;
 
-	case TYPE_VARRAY:
-	  if (t->u.p->kind == TYPE_SCALAR)
-	    ;
-	  else if (t->u.p->kind == TYPE_POINTER
-		   && (t->u.p->u.p->kind == TYPE_STRUCT
-		       || t->u.p->u.p->kind == TYPE_UNION))
-	    {
-	      const char *name = t->u.p->u.p->u.s.tag;
-	      if (strcmp (name, "rtx_def") == 0)
-		fprintf (of, "%*sggc_mark_rtx_varray (%s.%s);\n",
-			 indent, "", val, f->name);
-	      else if (strcmp (name, "tree_node") == 0)
-		fprintf (of, "%*sggc_mark_tree_varray (%s.%s);\n",
-			 indent, "", val, f->name);
-	      else
-		error_at_line (&f->line, 
-			       "field `%s' is unimplemented varray type",
-			       f->name);
-	    }
-	  else
-	    error_at_line (&f->line, 
-			   "field `%s' is complicated varray type",
-			   f->name);
-	  break;
-
 	case TYPE_ARRAY:
 	  {
 	    int loopcounter = ++gc_counter;
@@ -1089,7 +1065,8 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 	    /* Arrays of scalars can be ignored.  */
 	    for (ta = t; ta->kind == TYPE_ARRAY; ta = ta->u.a.p)
 	      ;
-	    if (ta->kind == TYPE_SCALAR)
+	    if (ta->kind == TYPE_SCALAR
+		|| ta->kind == TYPE_STRING)
 	      break;
 
 	    fprintf (of, "%*s{\n", indent, "");
@@ -1097,34 +1074,24 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line, bitmap,
 
 	    if (special != NULL && strcmp (special, "tree_exp") == 0)
 	      {
-		const char *p;
 		fprintf (of, "%*sconst size_t tree_exp_size = (",
                          indent, "");
-		for (p = length; *p; p++)
-		  if (*p != '%')
-		    fputc (*p, of);
-		  else
-		    fprintf (of, "(%s)", val);
+		output_escaped_param (of, length, val, prev_val,
+				      "length", line);
 		fputs (");\n", of);
 
-		length = "first_rtl_op (TREE_CODE ((tree)&%))";
+		length = "first_rtl_op (TREE_CODE ((tree)&%h))";
 	      }
 
 	    for (ta = t, i = 0; ta->kind == TYPE_ARRAY; ta = ta->u.a.p, i++)
 	      {
-		const char *p;
 		fprintf (of, "%*ssize_t i%d_%d;\n", 
 			 indent, "", loopcounter, i);
 		fprintf (of, "%*sconst size_t ilimit%d_%d = (",
 			 indent, "", loopcounter, i);
 		if (i == 0 && length != NULL)
-		  {
-		    for (p = length; *p; p++)
-		      if (*p != '%')
-			fputc (*p, of);
-		      else
-			fprintf (of, "(%s)", val);
-		  }
+		  output_escaped_param (of, length, val, prev_val, 
+					"length", line);
 		else
 		  fputs (ta->u.a.len, of);
 		fputs (");\n", of);
@@ -1698,13 +1665,13 @@ write_gc_roots (variables)
     {
       FILE *f = get_output_file_with_visibility (v->line.file);
       struct flist *fli;
-      const char *length = NULL;
       int skip_p = 0;
+      int length_p = 0;
       options_p o;
       
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
-	  length = (const char *)o->info;
+	  length_p = 1;
 	else if (strcmp (o->name, "deletable") == 0
 		 || strcmp (o->name, "if_marked") == 0)
 	  skip_p = 1;
@@ -1724,7 +1691,7 @@ write_gc_roots (variables)
 	  fputs ("[] = {\n", f);
 	}
 
-      write_gc_root (f, v, v->type, v->name, length != NULL, &v->line, NULL);
+      write_gc_root (f, v, v->type, v->name, length_p, &v->line, NULL);
     }
 
   finish_root_table (flp, "r", "LAST_GGC_ROOT_TAB", "ggc_root_tab", 
@@ -1770,12 +1737,12 @@ write_gc_roots (variables)
       FILE *f = get_output_file_with_visibility (v->line.file);
       struct flist *fli;
       const char *if_marked = NULL;
-      const char *length = NULL;
+      int length_p = 0;
       options_p o;
       
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
-	  length = (const char *)o->info;
+	  length_p = 1;
 	else if (strcmp (o->name, "if_marked") == 0)
 	  if_marked = (const char *) o->info;
 
@@ -1803,7 +1770,7 @@ write_gc_roots (variables)
 	}
       
       write_gc_root (f, v, create_pointer (v->type->u.p->u.param_struct.param),
-		     v->name, length != NULL, &v->line, if_marked);
+		     v->name, length_p, &v->line, if_marked);
     }
   
   finish_root_table (flp, "rc", "LAST_GGC_CACHE_TAB", "ggc_cache_tab",

@@ -2432,7 +2432,7 @@ pop_from_top_level ()
   if (previous_class_type)
     invalidate_class_lookup_cache ();
 
-  VARRAY_FREE (current_lang_base);
+  current_lang_base = 0;
 
   scope_chain = s->prev;
   for (t = s->old_bindings; t; t = TREE_CHAIN (t))
@@ -6386,8 +6386,6 @@ cxx_init_decl_processing ()
 
   /* Fill in back-end hooks.  */
   lang_missing_noreturn_ok_p = &cp_missing_noreturn_ok_p;
-
-  init_decl2 ();
 
   /* Create the global variables.  */
   push_to_top_level ();
@@ -14532,12 +14530,6 @@ void
 cxx_pop_function_context (f)
      struct function *f;
 {
-  if (f->language)
-    {
-      struct language_function *cp = f->language;
-      if (cp->x_local_names)
-	VARRAY_FREE (cp->x_local_names);
-    }
   f->language = 0;
 }
 

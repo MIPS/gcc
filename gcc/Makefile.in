@@ -1174,7 +1174,7 @@ c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) c-lex.h \
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
     $(C_TREE_H) $(RTL_H) insn-config.h integrate.h $(EXPR_H) $(C_TREE_H) \
     flags.h toplev.h tree-inline.h diagnostic.h integrate.h $(VARRAY_H) \
-    langhooks.h $(GGC_H)
+    langhooks.h $(GGC_H) gt-c-objc-common.h
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
     flags.h toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h toplev.h \
@@ -1312,8 +1312,9 @@ dumpvers: dumpvers.c
 version.o: version.c version.h
 
 gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) varray.h $(HASHTAB_H) \
-	$(TREE_H) $(RTL_H) function.h insn-config.h expr.h $(OPTABS_H) \
-	libfuncs.h debug.h $(GGC_H) bitmap.h
+	$(TREE_H) $(RTL_H) function.h insn-config.h $(EXPR_H) $(OPTABS_H) \
+	libfuncs.h debug.h $(GGC_H) bitmap.h $(BASIC_BLOCK_H) hard-reg-set.h \
+	ssa.h
 
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 	flags.h $(GGC_H) varray.h $(HASHTAB_H) $(TM_P_H) langhooks.h
@@ -1444,7 +1445,7 @@ dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf.h \
 dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf2.h \
    debug.h flags.h insn-config.h reload.h output.h diagnostic.h \
    hard-reg-set.h $(REGS_H) $(EXPR_H) libfuncs.h toplev.h dwarf2out.h varray.h \
-   $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h
+   $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h gt-dwarf2out.h
 dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) flags.h $(RTL_H) $(TREE_H) \
    output.h dwarf2asm.h $(TM_P_H) $(GGC_H)
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
@@ -1546,8 +1547,7 @@ bitmap.o : bitmap.c $(GCONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h \
 global.o : global.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h reload.h function.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h insn-config.h output.h toplev.h \
    $(TM_P_H)
-varray.o : varray.c $(CONFIG_H) $(SYSTEM_H) varray.h $(RTL_H) $(TREE_H) bitmap.h \
-   errors.h
+varray.o : varray.c $(CONFIG_H) $(SYSTEM_H) varray.h $(GGC_H) errors.h
 reload.o : reload.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h output.h \
    $(EXPR_H) $(OPTABS_H) reload.h $(RECOG_H) hard-reg-set.h insn-config.h \
    $(REGS_H) function.h real.h toplev.h $(TM_P_H)
@@ -1797,15 +1797,17 @@ GTFILES = $(GCONFIG_H) \
   $(HASHTAB_H) \
   $(srcdir)/bitmap.h $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h $(srcdir)/hashtable.h \
+  $(srcdir)/varray.h $(srcdir)/ssa.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c \
-  $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
+  $(srcdir)/dwarf2out.c $(srcdir)/emit-rtl.c $(srcdir)/except.c \
+  $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/fold-const.c $(srcdir)/function.c \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
   $(srcdir)/profile.c $(srcdir)/regclass.c $(srcdir)/sdbout.c \
   $(srcdir)/stmt.c $(srcdir)/stor-layout.c $(srcdir)/tree.c \
   $(srcdir)/varasm.c \
-  $(srcdir)/c-common.c $(srcdir)/c-parse.in \
+  $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(out_file) \
   $(srcdir)/c-decl.c $(srcdir)/c-pragma.c \
   @all_gtfiles@
@@ -1814,9 +1816,9 @@ gtype-desc.h gtype-desc.c gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
 gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
-gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h : s-gtype ; @true
+gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
-gtype-c.h : s-gtype ; @true
+gt-c-objc-common.h gtype-c.h : s-gtype ; @true
 
 s-gtype: gengtype$(build_exeext) $(GTFILES)
 	./gengtype $(GTFILES)

@@ -125,7 +125,7 @@ struct lang_decl GTY(())
 struct lang_type GTY(())
 {
   int len;
-  tree GTY((length ("%.len"))) elts[1];
+  tree GTY((length ("%h.len"))) elts[1];
 };
 
 /* Record whether a type or decl was written with nonconstant size.

@@ -1231,8 +1231,6 @@ build_objc_string_object (strings)
 	VARRAY_PUSH_TREE (vstrings, strings);
 
       string = combine_strings (vstrings);
-
-      VARRAY_FREE (vstrings);
     }
   else
     string = strings;

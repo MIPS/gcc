@@ -1,5 +1,87 @@
 2002-05-22  Geoffrey Keating  <geoffk@redhat.com>
 
+	* varray.c: Use only necessary headers.
+	(element_size): New.
+	(uses_ggc): New.
+	(varray_init): Take type, not size.  Use GGC if appropriate.
+	(varray_grow): Update for change to struct varray_head_tag.
+	Use GGC if appropriate.
+	* varray.h (struct const_equiv_data): Use gengtype.
+	(enum varray_data_enum): New.
+	(union varray_data_tag): Use gengtype.
+	(struct varray_head_tag): Use gengtype.  Replace size field with
+	enum varray_data_enum.
+	(varray_init): Update prototype.
+	(VARRAY_SCHED_INIT): Delete.
+	(VARRAY_*_INIT): Update for change to varray_init.
+	(VARRAY_SCHED): Delete.
+	(VARRAY_PUSH_SCHED): Delete.
+	(VARRAY_TOP_SCHED): Delete.
+	* tree.h: Update for change to length specifier.
+	* tree-inline.c (optimize_inline_calls): Don't use VARRAY_FREE.
+	(clone_body): Likewise.
+	* ssa.h (ssa_definition): Use gengtype to mark.
+	* ssa.c (convert_from_ssa): Don't use VARRAY_FREE.
+	* ssa-dce.c (ssa_eliminate_dead_code): Don't use VARRAY_FREE.
+	* rtl.h (struct rtvec_def): Update for change to length specifier.
+	* integrate.c (expand_inline_function): Don't use VARRAY_FREE.
+	(struct initial_value_struct): Update for change to length specifier.
+	* ggc.h (ggc_add_rtx_varray_root): Delete prototype.
+	(ggc_add_tree_varray_root): Delete prototype.
+	(ggc_mark_rtx_varray): Delete prototype.
+	(ggc_mark_tree_varray): Delete prototype.
+	* ggc-common.c (ggc_add_rtx_varray_root): Delete.
+	(ggc_add_tree_varray_root): Delete.
+	(ggc_mark_rtx_varray): Delete.
+	(ggc_mark_tree_varray): Delete.
+	(ggc_mark_rtx_varray_ptr): Delete.
+	(ggc_mark_tree_varray_ptr): Delete.
+	* gengtype.h (enum typekind): Remove TYPE_VARRAY.
+	(create_varray): Delete prototype.
+	* gengtype.c (varrays): Delete.
+	(create_varray): Delete.
+	(adjust_field_type): Detect array of string pointers.
+	(process_gc_options): Remove code to handle varray_type option.
+	(set_gc_used_type): Remove TYPE_VARRAY case.
+	(output_escaped_param): New.
+	(write_gc_structure_fields): Use output_escaped_param on all
+	parameters.  Handle 'skip' with 'use_param' option.  Handle
+	arrays of strings.  Remove TYPE_VARRAY handling.
+	(write_gc_roots): Use boolean to detect 'length' option.
+	* gengtype-yacc.y (VARRAY_TYPE): Delete token.
+	(struct_fields): Call adjust_field_type on array fields.
+	(type): Remove VARRAY_TYPE case.
+	(type_option): Likewise.
+	* gengtype-lex.l: Don't consider varray_type a keyword.
+	* function.h: Update for change to length specifier.
+	(free_eh_status): Delete prototype.
+	* function.c (free_after_compilation): Don't call free_eh_status.
+	(reorder_blocks): Don't use VARRAY_FREE.
+	* except.c (struct eh_status): Update for change to length specifier.
+	remove varray_type specifier.
+	(free_eh_status): Delete.
+	* dwarf2out.c: Include gt-dwarf2out.h.
+	(used_rtx_varray): Use gengtype to mark, move
+	outside ifdefs.
+	(incomplete_types): Likewise.
+	(decl_scope_table): Likewise.
+	(dwarf2out_init): Don't call ggc_add_tree_varray_root.	
+	* cfglayout.c (scope_to_insns_finalize): Don't use VARRAY_FREE.
+	* c-tree.h (struct lang_type): Update for change to length specifier.
+	* c-parse.in (yylexstring): Don't use VARRAY_FREE.
+	* c-objc-common.c: Include gt-c-objc-common.h.
+	(deferred_fns): Mark for gengtype.
+	(c_objc_common_init): Don't call ggc_add_tree_varray_root.
+	(expand_deferred_fns): Just set deferred_fns to 0 to free it.
+	* Makefile.in (c-objc-common.o): Add gt-c-objc-common.h.
+	(gtype-desc.o): Update dependencies.
+	(dwarf2out.o): Add gt-dwarf2out.h.
+	(varray.o): Update dependencies.
+	(GTFILES): Add varray.h, ssa.h, dwarf2out.c, c-objc-common.c.
+	(gt-c-objc-common.h): New rule.
+	(gt-dwarf2out.h): New rule.
+	* objc/objc-act.c (build_objc_string_object): Don't use VARRAY_FREE.
+
 	* doc/gty.texi (GTY Options): Correct spelling.
 	(GGC Roots): Likewise.
 	* Makefile.in (TEXI_CPP_FILES): New.

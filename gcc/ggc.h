@@ -32,10 +32,6 @@ extern const char digit_vector[];	/* "0" .. "9" */
 /* Manipulate global roots that are needed between calls to gc.  */
 extern void ggc_add_root		PARAMS ((void *base, int nelt,
 						 int size, void (*)(void *)));
-extern void ggc_add_rtx_varray_root	PARAMS ((struct varray_head_tag **,
-						 int nelt));
-extern void ggc_add_tree_varray_root	PARAMS ((struct varray_head_tag **,
-						 int nelt));
 
 /* Structures for the easy way to mark roots.  
    In an array, terminated by having base == NULL.*/
@@ -63,10 +59,6 @@ struct ggc_cache_tab {
 /* Pointers to arrays of ggc_cache_tab, terminated by NULL.  */
 extern const struct ggc_cache_tab * const gt_ggc_cache_rtab[];
 
-/* Mark nodes from the gc_add_root callback.  These functions follow
-   pointers to mark other objects too.  */
-extern void ggc_mark_rtx_varray		PARAMS ((struct varray_head_tag *));
-extern void ggc_mark_tree_varray	PARAMS ((struct varray_head_tag *));
 extern void ggc_mark_roots		PARAMS ((void));
 
 extern void ggc_mark_rtx_children	PARAMS ((struct rtx_def *));
