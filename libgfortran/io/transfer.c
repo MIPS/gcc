@@ -1296,7 +1296,8 @@ next_record (int done)
 
   current_unit->current_record = 0;
   if (current_unit->flags.access == ACCESS_DIRECT)
-    current_unit->last_record = ioparm.rec;
+    current_unit->last_record = file_position (current_unit->s) 
+                               / current_unit->recl;
   else
     current_unit->last_record++;
 

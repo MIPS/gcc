@@ -1,7 +1,12 @@
 2004-04-11  Bud Davis  <bdavis9659@comcast.net>
 
+	PR fortran/14904
+	* gfortran.fortran-torture/execute/inquire_4.f90: New test.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
 	PR fortran/14901
-	* gfortran.fortran-torture/execute/internal_write.f90 : New test.
+	* gfortran.fortran-torture/execute/internal_write.f90: New test.
 
 2004-04-11  Bud Davis  <bdavis9659@comcast.net>
 

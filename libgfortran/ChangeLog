@@ -1,5 +1,12 @@
 2004-04-11  Bud Davis  <bdavis9659@comcast.net>
 
+	PR fortran/14904
+	* io/transfer.c (next_record): Update last_record when
+	more than one record is written to a direct access file
+	with one write statement.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
 	PR fortran/14901
 	* io/transfer.c (next_record_w) : No '\n' if internal.
 	* io/unix.c (empty_internal_buffer) : Init to spaces, not '\n'.
