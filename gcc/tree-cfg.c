@@ -1322,15 +1322,21 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	  if (!ann
 	      || ann->may_aliases
 	      || TREE_ADDRESSABLE (var))
-	    var = NULL_TREE;
+	    {
+	      var = NULL_TREE;
+	      val = NULL_TREE;
+	    }
 
-	  if (! TREE_CONSTANT (val))
+	  if (var && ! TREE_CONSTANT (val))
 	    {
 	      ann = var_ann (val);
 	      if (!ann
 		  || ann->may_aliases
 		  || TREE_ADDRESSABLE (val))
-		val = NULL_TREE;
+		{
+		  val = NULL_TREE;
+		  var = NULL_TREE;
+		}
 	    }
 	}
 
@@ -1338,7 +1344,10 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	 them.  */
       if (var
 	  && FLOAT_TYPE_P (TREE_TYPE (var)))
-	var = NULL_TREE;
+	{
+	  var = NULL_TREE;
+	  val = NULL_TREE;
+	}
     }
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi);)
@@ -1369,7 +1378,10 @@ cfg_remove_useless_stmts_bb (basic_block bb)
 	      && (TREE_OPERAND (stmt, 0) == var
 		  || TREE_OPERAND (stmt, 0) == val
 		  || TREE_CODE (TREE_OPERAND (stmt, 1)) == VA_ARG_EXPR)))
-	var = NULL_TREE;
+	{
+	  var = NULL_TREE;
+	  val = NULL_TREE;
+	}
   
       bsi_next (&bsi);
     }

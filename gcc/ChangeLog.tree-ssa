@@ -1,3 +1,8 @@
+2003-11-21  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (cfg_remove_useless_stmts): Set both VAR and VAL to
+	NULL anytime one of them is determined to be invalid.
+                                                                                
 2003-11-21  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-live.c (compact_var_map): Fix typo.  Clear correct field.
