@@ -1,5 +1,10 @@
 2004-12-01  Jan Hubicka  <jh@suse.cz>
 
+	* tree-inline.c (copy_body_r): Do not alter source stmt when
+	removing return of void.
+
+2004-12-01  Jan Hubicka  <jh@suse.cz>
+
 	* cfg.c (update_bb_profile_for_threading): Watch for overflow.
 
 2004-12-01  Jan Hubicka  <jh@suse.cz>

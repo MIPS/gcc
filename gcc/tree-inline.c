@@ -543,6 +543,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      /* Replace the RETURN_EXPR with (a copy of) the
 		 MODIFY_EXPR hangning underneath.  */
 	      *tp = copy_node (assignment);
+	      /* If we're working on CFGs, add an outgoing CFG edge to the
+		 return block.  */
+		make_edge (id->copy_basic_block, id->return_block,
+			   EDGE_FALLTHRU);
 	    }
       else /* Else the RETURN_EXPR returns no value.  */
 	{
@@ -552,11 +556,13 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		 it to iterate through the statemetns of this
 		 block.  */
 	      tsi_delink (&id->copy_tsi);
+	      /* If we're working on CFGs, add an outgoing CFG edge to the
+		 return block.  */
+		make_edge (id->copy_basic_block, id->return_block,
+			   EDGE_FALLTHRU);
+		/* Return something to stop iterating.  */
+	      return (void *)1;
 	    }
-      /* If we're working on CFGs, add an outgoing CFG edge to the
-	 return block.  */
-	make_edge (id->copy_basic_block, id->return_block,
-		   EDGE_FALLTHRU);
     }
   /* Local variables and labels need to be replaced by equivalent
      variables.  We don't want to copy static variables; there's only
