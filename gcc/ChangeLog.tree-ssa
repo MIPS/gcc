@@ -1,3 +1,10 @@
+2003-11-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-optimize.c (optimize_function_tree): Removed duplicate call of
+	lower_function_body.  Moved call of reset_block_changes ...
+	(tree_rest_of_compilation) ... here.  Reset the scope to top before
+	expanding function end.
+
 2003-11-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* basic-block.h (BB_CONTROL_STRUCTURE): Removed.

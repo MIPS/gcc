@@ -61,11 +61,6 @@ optimize_function_tree (tree fndecl)
   /* Build the flowgraph.  */
   init_flow ();
 
-  lower_function_body (&DECL_SAVED_TREE (fndecl));
-  /* Avoid producing notes for blocks.  */
-  cfun->dont_emit_block_notes = 1;
-  reset_block_changes ();
-
   build_tree_cfg (DECL_SAVED_TREE (fndecl));
 
   /* Begin analysis and optimization passes.  After the function is
@@ -295,6 +290,11 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   /* Lower the structured statements.  */
   lower_function_body (&DECL_SAVED_TREE (fndecl));
+
+  /* Avoid producing notes for blocks.  */
+  cfun->dont_emit_block_notes = 1;
+  reset_block_changes ();
+
   dump_function (TDI_lower, fndecl);
 
   /* Invoke the SSA tree optimizer.  */
@@ -341,6 +341,9 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   if (cfun->function_end_locus.file)
     input_location = cfun->function_end_locus;
 
+  /* The following insns belong to the top scope.  */
+  record_block_change (DECL_INITIAL (current_function_decl));
+  
   /* Allow language dialects to perform special processing.  */
   (*lang_hooks.rtl_expand.end) ();
 
