@@ -1,3 +1,10 @@
+2003-03-04  Josef Zlomek  <zlomekj@suse.cz>
+
+	Merge from mainline:
+	* emit-rtl.c (set_reg_attrs_for_parm): New function.
+	* rtl.h (set_reg_attrs_for_parm): New exported function.
+	* function.c (assign_parms): Set reg_attrs for parameters in registers.
+
 2003-02-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* gcse-pre.c (compute_pre_data): Add debug dump.
