@@ -417,27 +417,17 @@ do								\
    differently depending on something about the variable or
    function named by the symbol (such as what section it is in).
 
-   On s390, if using PIC, mark a SYMBOL_REF for a non-global symbol
-   so that we may access it directly in the GOT.  */
+   On s390, encode symbol attributes (local vs. global, tls model)
+   of a SYMBOL_REF into its name and SYMBOL_REF_FLAG.  */
 
-#define ENCODE_SECTION_INFO(DECL)                               \
-do                                                              \
-  {                                                             \
-    if (flag_pic)                                               \
-      {                                                         \
-        rtx rtl = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'    \
-                   ? TREE_CST_RTL (DECL) : DECL_RTL (DECL));    \
-                                                                \
-        if (GET_CODE (rtl) == MEM)                              \
-          {                                                     \
-            SYMBOL_REF_FLAG (XEXP (rtl, 0))                     \
-              = (TREE_CODE_CLASS (TREE_CODE (DECL)) != 'd'      \
-                 || ! TREE_PUBLIC (DECL));                      \
-          }                                                     \
-      }                                                         \
-  }                                                             \
-while (0)
-  
+#define ENCODE_SECTION_INFO(DECL) s390_encode_section_info (DECL)
+#define REDO_SECTION_INFO_P(DECL) 1
+
+#define STRIP_NAME_ENCODING(VAR,STR) ((VAR) = s390_strip_name_encoding (STR))
+
+/* Output a reference to a user-level label named NAME.  */
+#define ASM_OUTPUT_LABELREF(FILE, NAME) \
+  asm_fprintf ((FILE), "%U%s", s390_strip_name_encoding (NAME))
 
 /* This is an array of structures.  Each structure initializes one pair
    of eliminable registers.  The "from" register number is given first,
@@ -782,6 +772,10 @@ CUMULATIVE_ARGS;
    from the stack. 
    S/390 has already space on the stack for args coming in registers, 
    they are pushed in prologue, if needed.  */  
+
+#define TLS_SYMBOLIC_CONST(X)     \
+((GET_CODE (X) == SYMBOL_REF && tls_symbolic_operand (X)) \
+ || (GET_CODE (X) == CONST && tls_symbolic_reference_mentioned_p (X)))
 
 
 /* Define the `__builtin_va_list' type.  */
@@ -1376,10 +1370,9 @@ extern int s390_pool_overflow;
 									    \
     case MODE_INT:							    \
     case MODE_PARTIAL_INT:						    \
-      if (flag_pic							    \
-	  && (GET_CODE (EXP) == CONST					    \
-	      || GET_CODE (EXP) == SYMBOL_REF				    \
-	      || GET_CODE (EXP) == LABEL_REF ))				    \
+      if (GET_CODE (EXP) == CONST					    \
+	  || GET_CODE (EXP) == SYMBOL_REF				    \
+	  || GET_CODE (EXP) == LABEL_REF)				    \
         {								    \
 	  fputs (integer_asm_op (UNITS_PER_WORD, TRUE), FILE);		    \
           s390_output_symbolic_const (FILE, EXP);			    \
