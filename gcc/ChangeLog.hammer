@@ -1,3 +1,31 @@
+2003-11-26  Josef Zlomek  <zlomekj@suse.cz>
+
+	* toplev.c (enum dump_file_index): Move DFI_vrp after DFI_life.
+	(dump_file): Move "vrp" after "life".
+	(rest_of_compilation): Run VRP after life analysis.
+	* vrp.c (struct range_def): Add field dead.
+	(enum oper_type): Add REG_IS_DEAD.
+	(copy_dead_registers): New variable.
+	(union_ranges): Copy dead registers only if copy_dead_registers.
+	Delete the result range if it is a full range.
+	(copy_range): Copy dead register only if copy_dead_registers.
+	(copy_register_table): Set the target register to be live.
+	(process_ranges_eq): Set the new range to be live.
+	(process_ranges_lt): Likewise.
+	(process_ranges_ltu): Likewise.
+	(update_outgoing_edges): Delete debug dumps.  Enable copying dead
+	registers.
+	(find_operations): Add REG_IS_DEAD operations.
+	(compute_ranges_for_bb): Disable copying dead registers.
+	Process REG_IS_DEAD.  Set the target register to be live.  Delete debug
+	dump.
+	(compute_ranges): Disable copying dead registers when computing union.
+	Do not add block whose successor is the block itself to worklist.
+	Mark the blocks which are the destination of dead edge dirty.
+	(dump_range): Print DEAD if register is dead.
+	(dump_operation_list): Print REG_IS_DEAD.
+	(value_range_propagation): Update life information for dirty blocks.
+
 2003-11-25  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Sync with 3.3-branch:

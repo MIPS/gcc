@@ -94,7 +94,10 @@ typedef struct range_def
   value to;
 
   /* Type of the range, see RANGE_* below.  */
-  int type;
+  char type;
+
+  /* Is REG_DEAD note attached to REG?  */
+  bool dead;
 } range_t;
 
 /* Range types.  */
@@ -107,7 +110,8 @@ enum oper_type
   CONST_INT_TO_REG,			/* REG <- CONST_INT.  */
   REG_TO_REG,				/* REG <- REG.  */
   UNKNOWN_TO_REG,			/* REG <- anything else.  */
-  CLOBBER_CALL_USED_REGS		/* CALL_INSN.  */
+  CLOBBER_CALL_USED_REGS,		/* CALL_INSN.  */
+  REG_IS_DEAD				/* REG_DEAD(REG).  */
 };
 
 /* Information about operation.  */
@@ -170,10 +174,13 @@ typedef struct bb_info_def
   } while (0)
   
 /* Alloc pool for range_t.  */
-alloc_pool range_pool;
+static alloc_pool range_pool;
 
 /* Alloc pool for operation.  */
-alloc_pool operation_pool;
+static alloc_pool operation_pool;
+
+/* Shall we copy randes for dead registers?  */
+static bool copy_dead_registers;
 
 /* Local function prototypes.  */
 static hashval_t range_hash		PARAMS ((const void *));
@@ -342,6 +349,9 @@ union_ranges (slot, data)
   range_t *r1 = *slot;
   range_t *r2;
 
+  if (!copy_dead_registers && r1->dead)
+    return 1;
+
   r2 = htab_find_with_hash (t2, r1->reg, HASH_REG (r1->reg));
   if (!r2)
     {
@@ -404,6 +414,17 @@ union_ranges (slot, data)
 	  if (r1->to.ui < r2->to.ui)
 	    r1->to.ui = r2->to.ui;
 	}
+    }
+
+  if (((r1->type & RANGE_SIGNED_INT) == 0
+       || (r1->from.si == MIN_SINT_VALUE (r1->reg)
+	   && r1->to.si == MAX_SINT_VALUE (r1->reg)))
+      && ((r1->type & RANGE_UNSIGNED_INT) == 0
+	  || (r1->from.ui == 0
+	      && r1->to.ui == MAX_UINT_VALUE (r1->reg))))
+    {
+      /* Delete the range if it is full range for all its types.  */
+      htab_clear_slot (t1, slot);
     }
 
   return 1;
@@ -542,6 +563,12 @@ copy_range (src_slot, data)
   htab_t dst = data;
   void **dst_slot;
 
+  if (!copy_dead_registers && src_r->dead)
+    {
+      /* Do not copy this range and continue traversing the hash table.  */
+      return 1;
+    }
+
   dst_r = pool_alloc (range_pool);
   *dst_r = *src_r;
 
@@ -592,6 +619,7 @@ copy_register_table (dst, src)
     (RANGE).from.si = INTVAL (CONST);					      \
     (RANGE).to.si = INTVAL (CONST);					      \
     (RANGE).type = RANGE_UNSIGNED_INT;					      \
+    (RANGE).dead = false;						      \
   } while (0)
 
 /* Initialize the range RANGE to be a unsigned integer constant CONST
@@ -604,6 +632,7 @@ copy_register_table (dst, src)
     (RANGE).from.ui = (unsigned HOST_WIDE_INT) INTVAL (CONST) & (MAX_VAL);    \
     (RANGE).to.ui = (unsigned HOST_WIDE_INT) INTVAL (CONST) & (MAX_VAL);      \
     (RANGE).type = RANGE_UNSIGNED_INT;					      \
+    (RANGE).dead = false;						      \
   } while (0)
 
 /* Update the ranges for OP0 and OP1 on edge E according to
@@ -711,6 +740,7 @@ process_ranges_eq (op0, op1, e)
 	  CREATE_RANGE (r1, op1, e);
 	  *r1 = *r0;
 	  r1->reg = op1;
+	  r1->dead = false;
 	}
     }
   else if (r1)
@@ -719,6 +749,7 @@ process_ranges_eq (op0, op1, e)
       CREATE_RANGE (r0, op0, e);
       *r0 = *r1;
       r0->reg = op0;
+      r0->dead = false;
     }
 }
 
@@ -861,6 +892,7 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
 	  CREATE_RANGE (r1e, op1, else_edge);
 
 	  r1t->reg = r1e->reg = op1;
+	  r1t->dead = r1e->dead = false;
 	  r1t->type = r1e->type = RANGE_SIGNED_INT;
 	  r0t->type = r0e->type = RANGE_SIGNED_INT;
 
@@ -893,6 +925,7 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
       CREATE_RANGE (r0e, op0, else_edge);
 
       r0t->reg = r0e->reg = op0;
+      r0t->dead = r0e->dead = false;
       r0t->type = r0e->type = RANGE_SIGNED_INT;
       r1t->type = r1e->type = RANGE_SIGNED_INT;
 
@@ -1058,6 +1091,7 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
 	  CREATE_RANGE (r1e, op1, else_edge);
 
 	  r1t->reg = r1e->reg = op1;
+	  r1t->dead = r1e->dead = false;
 	  r1t->type = r1e->type = RANGE_UNSIGNED_INT;
 	  r0t->type = r0e->type = RANGE_UNSIGNED_INT;
 
@@ -1090,6 +1124,7 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
       CREATE_RANGE (r0e, op0, else_edge);
 
       r0t->reg = r0e->reg = op0;
+      r0t->dead = r0e->dead = false;
       r0t->type = r0e->type = RANGE_UNSIGNED_INT;
       r1t->type = r1e->type = RANGE_UNSIGNED_INT;
 
@@ -1127,6 +1162,7 @@ update_outgoing_edges (bb, changed)
   htab_t old_then = NULL;	/* Set it to something to avoid a warning.  */
   htab_t old_else = NULL;
 
+  copy_dead_registers = true;
   if (!changed && BBI (bb)->cond != NULL)
     {
       edge then_edge = BRANCH_EDGE (bb);
@@ -1223,28 +1259,8 @@ update_outgoing_edges (bb, changed)
       if (!changed)
 	{
 	  changed = compare_register_tables (old_then, EI (then_edge)->htab);
-	  if (rtl_dump_file && changed)
-	    {
-	      fprintf (rtl_dump_file, "\nEdge %d->%d:\n",
-		       then_edge->src->index, then_edge->dest->index);
-	      fprintf (rtl_dump_file, "OLD\n");
-	      dump_all_ranges (rtl_dump_file, old_then);
-	      fprintf (rtl_dump_file, "NEW\n");
-	      dump_all_ranges (rtl_dump_file, EI (then_edge)->htab);
-	    }
 	  if (!changed)
-	    {
 	      changed = compare_register_tables (old_else, EI (else_edge)->htab);
-	  if (rtl_dump_file && changed)
-	    {
-	      fprintf (rtl_dump_file, "\nEdge %d->%d:\n",
-		       else_edge->src->index, else_edge->dest->index);
-	      fprintf (rtl_dump_file, "OLD\n");
-	      dump_all_ranges (rtl_dump_file, old_else);
-	      fprintf (rtl_dump_file, "NEW\n");
-	      dump_all_ranges (rtl_dump_file, EI (else_edge)->htab);
-	    }
-	    }
 
 	  htab_delete (old_then);
 	  htab_delete (old_else);
@@ -1328,6 +1344,18 @@ find_operations (bb)
     {
       if (INSN_P (insn))
 	{
+	  rtx link;
+
+	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+	    if (REG_NOTE_KIND (link) == REG_DEAD)
+	      {
+		oper = pool_alloc (operation_pool);
+		oper->next = BBI (bb)->operation_list;
+		oper->type = REG_IS_DEAD;
+		oper->dst = XEXP (link, 0);
+		BBI (bb)->operation_list = oper;
+	      }
+
 	  note_stores (PATTERN (insn), find_operations_1, BBI (bb));
 	}
 
@@ -1382,6 +1410,7 @@ compute_ranges_for_bb (bb)
   unsigned HOST_WIDE_INT mask;
   void **slot;
 
+  copy_dead_registers = false;
   new_out = htab_create (BBI (bb)->in->n_elements, range_hash, range_eq,
 			 range_del);
   copy_register_table (new_out, BBI (bb)->in);
@@ -1390,6 +1419,12 @@ compute_ranges_for_bb (bb)
     {
       switch (oper->type)
 	{
+	  case REG_IS_DEAD:
+	    dst_r = htab_find_with_hash (new_out, oper->dst,
+					 HASH_REG (oper->dst));
+	    if (dst_r)
+	      dst_r->dead = true;
+	    break;
 
 	  case CLOBBER_CALL_USED_REGS:
 	    htab_traverse (new_out, delete_call_used_regs, new_out);
@@ -1425,6 +1460,7 @@ compute_ranges_for_bb (bb)
 
 		*dst_r = *src_r;
 		dst_r->reg = oper->dst;
+		dst_r->dead = false;
 	      }
 	    else
 	      {
@@ -1454,6 +1490,7 @@ compute_ranges_for_bb (bb)
 	    /* We do not know whether the constant is signed or unsigned.  */
 	    mask = MAX_UINT_VALUE (oper->dst);
 	    dst_r->type = RANGE_SIGNED_INT | RANGE_UNSIGNED_INT;
+	    dst_r->dead = false;
 	    dst_r->reg = oper->dst;
 	    dst_r->from.si = INTVAL (oper->src);
 	    dst_r->to.si = INTVAL (oper->src);
@@ -1464,14 +1501,6 @@ compute_ranges_for_bb (bb)
     }
 
   changed = compare_register_tables (new_out, BBI (bb)->out);
-  if (rtl_dump_file && changed)
-    {
-      fprintf (rtl_dump_file, "\nBasic block %d:\n", bb->index);
-      fprintf (rtl_dump_file, "OLD\n");
-      dump_all_ranges (rtl_dump_file, BBI (bb)->out);
-      fprintf (rtl_dump_file, "NEW\n");
-      dump_all_ranges (rtl_dump_file, new_out);
-    }
 
   htab_delete (BBI (bb)->out);
   BBI (bb)->out = new_out;
@@ -1541,6 +1570,7 @@ compute_ranges ()
 	      /* Calculate the IN set as union of predecessor OUT sets.  */
 	      if ((e = bb->pred) != NULL)
 		{
+		  copy_dead_registers = false;
 		  copy_register_table (BBI (bb)->in, EI (e)->htab);
 		  for (e = e->pred_next; e; e = e->pred_next)
 		    union_all_ranges (BBI (bb)->in, EI (e)->htab);
@@ -1552,6 +1582,9 @@ compute_ranges ()
 		  for (e = bb->succ; e; e = e->succ_next)
 		    {
 		      if (e->dest == EXIT_BLOCK_PTR)
+			continue;
+
+		      if (e->dest == bb)
 			continue;
 
 		      if (TEST_BIT (visited, e->dest->index))
@@ -1666,6 +1699,7 @@ redirect_edges ()
 	  else_dead = edge_is_dead (else_edge);
 	  if (then_dead && !else_dead)
 	    {
+	      then_edge->dest->flags |= BB_DIRTY;
 	      if (rtl_dump_file)
 		{
 		  fprintf (rtl_dump_file, "Redirecting edge %d->%d to %d\n",
@@ -1680,6 +1714,7 @@ redirect_edges ()
 	    }
 	  else if (!then_dead && else_dead)
 	    {
+	      else_edge->dest->flags |= BB_DIRTY;
 	      if (rtl_dump_file)
 		{
 		  fprintf (rtl_dump_file, "Redirecting edge %d->%d to %d\n",
@@ -1733,6 +1768,9 @@ dump_range (slot, data)
       fprintf (file, HOST_WIDE_INT_PRINT_UNSIGNED, r->to.ui);
       fprintf (file, "]\n");
     }
+
+  if (r->dead)
+    fprintf (file, "  DEAD\n");
 
   return 1;
 }
@@ -1798,6 +1836,10 @@ dump_operation_list (file, bb)
 
 	  case CLOBBER_CALL_USED_REGS:
 	    fprintf (file, "CALL\n");
+	    break;
+
+	  case REG_IS_DEAD:
+	    fprintf (file, "REG %d is DEAD\n", REGNO (l->dst));
 	    break;
 
 	  default:
@@ -1890,5 +1932,9 @@ value_range_propagation ()
   free_alloc_pool (range_pool);
   free_alloc_pool (operation_pool);
 
+  if (modified)
+    update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
+				      PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
+				      | PROP_KILL_DEAD_CODE | PROP_LOG_LINKS);
   return modified;
 }

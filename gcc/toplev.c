@@ -231,7 +231,6 @@ enum dump_file_index
   DFI_null,
   DFI_cse,
   DFI_addressof,
-  DFI_vrp,
   DFI_gcse,
   DFI_loop,
   DFI_cfg,
@@ -243,6 +242,7 @@ enum dump_file_index
   DFI_web,
   DFI_cse2,
   DFI_life,
+  DFI_vrp,
   DFI_combine,
   DFI_ce2,
   DFI_regmove,
@@ -285,7 +285,6 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "null",	'u', 0, 0, 0 },
   { "cse",	's', 0, 0, 0 },
   { "addressof", 'F', 0, 0, 0 },
-  { "vrp",	'V', 1, 0, 0 },
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
@@ -297,6 +296,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "web",      'Z', 0, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
+  { "vrp",	'V', 1, 0, 0 },
   { "combine",	'c', 1, 0, 0 },
   { "ce2",	'C', 1, 0, 0 },
   { "regmove",	'N', 1, 0, 0 },
@@ -2954,23 +2954,6 @@ rest_of_compilation (decl)
 
   ggc_collect ();
 
-  /* Perform value range propagation and dead blocks removal.  */
-  if (flag_vrp)
-    {
-      timevar_push (TV_VRP);
-      open_dump_file (DFI_vrp, decl);
-
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-      if (value_range_propagation ())
-	cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-
-      if (rtl_dump_file)
-	dump_flow_info (rtl_dump_file);
-
-      close_dump_file (DFI_vrp, print_rtl_with_bb, insns);
-      timevar_pop (TV_VRP);
-    }
-
   /* Perform global cse.  */
 
   if (optimize > 0 && flag_gcse)
@@ -3312,6 +3295,23 @@ rest_of_compilation (decl)
       uninitialized_vars_warning (DECL_INITIAL (decl));
       if (extra_warnings)
 	setjmp_args_warning ();
+    }
+
+  /* Perform value range propagation and dead blocks removal.  */
+  if (optimize > 0 && flag_vrp)
+    {
+      timevar_push (TV_VRP);
+      open_dump_file (DFI_vrp, decl);
+
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+      if (value_range_propagation ())
+	cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+
+      close_dump_file (DFI_vrp, print_rtl_with_bb, insns);
+      timevar_pop (TV_VRP);
     }
 
   if (optimize)
