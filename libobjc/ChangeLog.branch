@@ -1,3 +1,17 @@
+2004-01-27  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* Protocol.m ([-conformsTo:]): If the argument is nil, return NO.
+	([-hash], [-isEqual:]): New methods.
+
+2004-01-27  Richard Frith-Macdonald <rfm@gnu.org>
+
+	* sarray.c (sarray_free): Add a better comment.
+
+2004-01-27  Adam Fedor  <fedor@gnu.org>
+
+	* hash.c (hash_add): Cast cachep to int.
+	* selector.c (__sel_register_typed_name): Cast soffset_decode to int.
+
 2004-01-27  Alexander Malmberg  <alexander@malmberg.org>
 
 	* selector.c: Rename register_selectors_from_list to
@@ -30,7 +44,7 @@
 
 	* encoding.c: Remove FIXME about the warning
 	about unused variable.
-	* sendmsg: Add a FIXME comment saying that
+	* sendmsg.c: Add a FIXME comment saying that
 	this should be using libffi.
 
 	* Makefile.in (LIBTOOL): Use @LIBTOOL@ now as it works.

@@ -1,5 +1,5 @@
 /* GNU Objective C Runtime selector related functions
-   Copyright (C) 1993, 1995, 1996, 1997, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 1996, 1997, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Kresten Krab Thorup
 
 This file is part of GCC.
@@ -435,7 +435,7 @@ __sel_register_typed_name (const char *name, const char *types,
     }
 
   DEBUG_PRINTF ("Record selector %s[%s] as: %ld\n", name, types, 
-		soffset_decode (i));
+		(long) soffset_decode (i));
   
   {
     int is_new = (l == 0);
