@@ -1,3 +1,9 @@
+2004-03-29  Aldy Hernandez  <aldyh@redhat.com>
+ 
+        PR 14219
+        * c-typeck.c (build_binary_op): Do not allow comparisons of
+        vectors.
+
 2004-03-07  Aldy Hernandez  <aldyh@redhat.com>
  
         * config/rs6000/rs6000.md (ashrdi3): Do not call ashrdi3_no_power
