@@ -1719,11 +1719,11 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	}
     }
 
-  /* If the function is "const", then clear TREE_SIDE_EFFECTS on its
+  /* If the function is "const" or "pure", then clear TREE_SIDE_EFFECTS on its
      decl.  This allows us to eliminate redundant or useless
      calls to "const" functions.  */
   if (TREE_CODE (*expr_p) == CALL_EXPR
-      && (call_expr_flags (*expr_p) & ECF_CONST))
+      && (call_expr_flags (*expr_p) & (ECF_CONST | ECF_PURE)))
     TREE_SIDE_EFFECTS (*expr_p) = 0;
 
   return ret;

@@ -1,5 +1,15 @@
 2003-11-11  Jan Hubicka  <jh@suse.cz>
 
+	* gimplify.c (gimplify_call_expr):  Unset side effects for
+	pure functions too.
+	* tree-cfg.c (update-call_expr_flags): New function.
+	(remove_useless_stmts_and_vars_1): Use it.
+	(is_ctrl_altering_stmt):  Pure/const calls never alter the CFG.
+	* tree-ssa-dce.c (stmt_useful_p): Check side effects flag
+	on call exprs.
+
+2003-11-11  Jan Hubicka  <jh@suse.cz>
+
 	* tree-cfg.c (has_label_p): New function.
 	(tree_verify_flow_info): New checks.
 	* tree-optimize.c (optimize_function_tree): Call verify_flow_info

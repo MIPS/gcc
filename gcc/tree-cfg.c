@@ -1108,6 +1108,25 @@ remove_useless_stmts_goto (tree_stmt_iterator i, tree *stmt_p,
   data->may_branch = true;
 }
 
+/* If the function is "const" or "pure", then clear TREE_SIDE_EFFECTS on its
+   decl.  This allows us to eliminate redundant or useless
+   calls to "const" functions. 
+
+   Gimplifier already does the same operation, but we may notice functions
+   being const and pure once their calls has been gimplified, so we need
+   to update the flag.  */
+static void
+update_call_expr_flags (tree call)
+{
+  tree decl = get_callee_fndecl (call);
+  if (!decl)
+    return;
+  if (call_expr_flags (call) & (ECF_CONST | ECF_PURE))
+    TREE_SIDE_EFFECTS (call) = 0;
+  if (!TREE_NOTHROW (decl))
+    TREE_NOTHROW (call) = 0;
+}
+
 static void
 remove_useless_stmts_1 (tree *first_p, struct rus_data *data)
 {
@@ -1154,8 +1173,14 @@ remove_useless_stmts_1 (tree *first_p, struct rus_data *data)
 	case RETURN_EXPR:
 	  data->may_branch = true;
 	  break;
-	case MODIFY_EXPR:
 	case CALL_EXPR:
+	  update_call_expr_flags (*stmt_p);
+	  if (tree_could_throw_p (*stmt_p))
+	    data->may_throw = true;
+	  break;
+	case MODIFY_EXPR:
+	  if (TREE_CODE (TREE_OPERAND (*stmt_p, 1)) == CALL_EXPR)
+	    update_call_expr_flags (TREE_OPERAND (*stmt_p, 1));
 	  if (tree_could_throw_p (*stmt_p))
 	    data->may_throw = true;
 	  break;
@@ -2167,9 +2192,10 @@ is_ctrl_altering_stmt (tree t)
       /* FALLTHRU */
 
     case CALL_EXPR:
-      /* A CALL_EXPR alters flow control if the current function has
-	 nonlocal labels.  */
-      if (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
+      /* A non-pure/const CALL_EXPR alters flow control if the current function
+         has nonlocal labels.  */
+      if (TREE_SIDE_EFFECTS (t)
+	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
 	return true;
 
       /* A CALL_EXPR also alters flow control if it does not return.  */

@@ -236,7 +236,6 @@ find_useful_stmts (void)
     }
 }
 
-
 /* Return true if STMT is necessary.  */
 
 static bool
@@ -258,12 +257,14 @@ stmt_useful_p (tree stmt)
     case CASE_LABEL_EXPR:
     case LABEL_EXPR:
     case BIND_EXPR:
-    case CALL_EXPR:
     case RESX_EXPR:
       return true;
+    case CALL_EXPR:
+      return TREE_SIDE_EFFECTS (stmt);
 
     case MODIFY_EXPR:
-      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR
+	  && TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)))
 	return true;
 
       /* These values are mildly magic bits of the EH runtime.  We can't
