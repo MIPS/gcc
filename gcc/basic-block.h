@@ -532,6 +532,7 @@ do {									\
   VEC(edge) *__ev = (EDGE_VEC);						\
   edge __check_edge;							\
   unsigned int __ix;							\
+  unsigned int  __num_edges = EDGE_COUNT (__ev);			\
   (EDGE) = NULL;							\
   for (__ix = 0; VEC_iterate (edge, __ev, __ix, (EDGE)); __ix++)	\
     {									\
@@ -540,10 +541,19 @@ do {									\
 
 #define END_FOR_EACH_EDGE						\
       if (ENABLE_CHECKING						\
-	  && (__ix >= EDGE_COUNT (__ev)					\
-	      || EDGE_I (__ev, __ix) != __check_edge))			\
-	internal_error ("edge modified in FOR_EACH_EDGE: %s:%s", __FILE__, __FUNCTION__); \
+	&& (__ix >= EDGE_COUNT (__ev)					\
+	    || EDGE_I (__ev, __ix) != __check_edge))			\
+	internal_error ("edge modified in FOR_EACH_EDGE: %s:%s",	\
+			__FILE__, __FUNCTION__);			\
     }									\
+  if (ENABLE_CHECKING							\
+	  && __num_edges > EDGE_COUNT (__ev))				\
+	internal_error ("insufficient edges FOR_EACH_EDGE: %s:%s", 	\
+			__FILE__, __FUNCTION__);			\
+  if (ENABLE_CHECKING							\
+          && __num_edges < EDGE_COUNT (__ev))				\
+  	internal_error ("excess edges FOR_EACH_EDGE: %s:%s",		\
+			__FILE__, __FUNCTION__);			\
 }									\
 while (0)
 

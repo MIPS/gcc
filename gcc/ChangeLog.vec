@@ -1,5 +1,10 @@
 2004-08-17  Ben Elliston  <bje@au.ibm.com>
 
+	* basic-block.h (FOR_EACH_EDGE): Record initial edge count.
+	(END_FOR_EACH_EDGE): Test it.
+
+2004-08-17  Ben Elliston  <bje@au.ibm.com>
+
 	* basic-block.h (FOR_EACH_EDGE): Output file and function names
 	when throwing an internal error.
 
