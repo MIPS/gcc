@@ -1727,7 +1727,7 @@ pre_part_1_trav (slot, data)
       type_of_expr = TREE_TYPE (VARRAY_TREE (ei->reals, 0));
 
     pushlevel (0);
-    temp = create_tmp_var (type_of_expr);
+    temp = create_tmp_var (type_of_expr, "pretmp");
     declare_tmp_vars (getdecls(), 
 		      COMPOUND_BODY (DECL_SAVED_TREE (current_function_decl)));
     poplevel (1, 1, 0);

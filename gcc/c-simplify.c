@@ -95,6 +95,8 @@ static tree convert_to_stmt_chain    PARAMS ((tree, tree));
 static int  stmt_has_effect          PARAMS ((tree));
 static int  expr_has_effect          PARAMS ((tree));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
+static inline void strip_off_ending  PARAMS ((char *, int));
+static const char *get_name          PARAMS ((tree));
 static tree build_addr_expr	     PARAMS ((tree));
 
 /* Local variables.  */
@@ -108,6 +110,26 @@ static int dump_flags;
 static int stmt_expr_level;
 
 
+/* Strip off a legitimate source ending from the input string NAME of
+   length LEN.  Rather than having to know the names used by all of
+   our front ends, we strip off an ending of a period followed by
+   up to five characters.  (Java uses ".class".)  */
+
+static inline void 
+strip_off_ending (name, len)
+     char *name;
+     int len;
+{
+  int i;
+  for (i = 2;  i < 8 && len > i;  i++)
+    {
+      if (name[len - i] == '.')
+	{
+	  name[len - i] = '\0';
+	  break;
+	}
+    }
+}
 
 /* Simplification of statement trees.  */
 
@@ -1489,7 +1511,7 @@ simplify_cond_expr (expr_p, pre_p, stmt)
   expr_type = TREE_TYPE (*expr_p);
 
   if (!VOID_TYPE_P (expr_type))
-    tmp = create_tmp_var (TREE_TYPE (*expr_p));
+    tmp = create_tmp_var (TREE_TYPE (*expr_p), "iftmp");
   else
     tmp = void_zero_node;
 
@@ -2029,14 +2051,23 @@ insert_before_continue (node, reeval)
     newly created decl and pushes it into the current binding.  */
 
 tree
-create_tmp_var (type)
+create_tmp_var (type, prefix)
      tree type;
+     const char *prefix;
 {
   static unsigned int id_num = 1;
   char *tmp_name;
+  char *preftmp = NULL;
   tree tmp_var;
 
-  ASM_FORMAT_PRIVATE_NAME (tmp_name, "T", id_num++);
+  if (prefix)
+    {
+      preftmp = ASTRDUP (prefix);
+      strip_off_ending (preftmp, strlen (preftmp));
+      prefix = preftmp;
+    }
+  
+  ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
 
   /* If the type is an array, something is wrong.  */
   if (TREE_CODE (type) == ARRAY_TYPE)
@@ -2062,6 +2093,31 @@ create_tmp_var (type)
   return tmp_var;
 }
 
+/** Given a tree, try to return a useful variable name that we can use
+    to prefix a temporary that is being assigned the value of the tree. 
+    I.E. given  <temp> = &A, return A.  */
+static const char *
+get_name (t)
+     tree t;
+{
+  tree stripped_decl;
+
+  stripped_decl = t;
+  STRIP_NOPS (stripped_decl);
+  if (DECL_P (stripped_decl))
+    return IDENTIFIER_POINTER (DECL_NAME (stripped_decl));
+  else
+    {
+      switch (TREE_CODE (stripped_decl))
+	{
+	case ADDR_EXPR:
+	  return get_name (TREE_OPERAND (stripped_decl, 0));
+	  break;
+	default:
+	  return NULL;
+	}
+    }
+}
 
 /** Returns a new temporary variable, initialized with VAL.  PRE_P and STMT
     are as in simplify_expr.  */
@@ -2073,9 +2129,11 @@ get_initialized_tmp_var (val, pre_p, stmt)
      tree stmt;
 {
   tree t, mod;
-
+  const char *prefix = NULL;
+  
+  prefix = get_name (val);
   simplify_expr (&val, pre_p, NULL, is_simple_rhs, stmt, fb_rvalue);
-  t = create_tmp_var (TREE_TYPE (val));
+  t = create_tmp_var (TREE_TYPE (val), prefix);
   mod = build_modify_expr (t, NOP_EXPR, val);
   add_tree (mod, pre_p);
 

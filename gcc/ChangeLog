@@ -1,3 +1,15 @@
+2002-06-16  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-simplify.c (get_name): New function.
+	(get_initialized_tmp_var): Use it to try to get a prefix for
+	create_tmp_var from the value we are initializing to.
+	(simplify_cond_expr): Add prefix for create_tmp_var.
+	(create_tmp_var): Add prefix argument.
+	
+	* tree-simple.h: Change create_tmp_var prototype to match.
+
+	* tree-ssa-pre.c: Change create_tmp_var call.
+
 2002-06-16  Alan Modra  <amodra@bigpond.net.au>
 
 	* gcc.c (main): Correct startfile_prefix_spec check.
