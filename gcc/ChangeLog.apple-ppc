@@ -1,3 +1,8 @@
+2004-08-30  Fariborz Jahanian <fjahanian@apple.com>
+
+	* c-common.c (vector_constructor_from_expr): Adapt to new representation
+	of comma-expression in c.
+
 2004-08-29  Andrew Pinski  <apinski@apple.com>
 
 	* loop-doloop.c (add_test): Take the mainline change.

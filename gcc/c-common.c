@@ -5660,7 +5660,6 @@ vector_constructor_from_expr (tree expr, tree vector_type)
   tree list = NULL_TREE, elttype = TREE_TYPE (vector_type);
   int index, max_index = TYPE_VECTOR_SUBPARTS (vector_type);
   int all_constant = TREE_CONSTANT (expr);
-  bool cxx = (c_dialect_cxx () != 0);  /* Impedance matching.  */
 
   /* If we already have a vector expression, then the user probably
      wants to convert it to another.  */
@@ -5674,9 +5673,8 @@ vector_constructor_from_expr (tree expr, tree vector_type)
       
       if (TREE_CODE (expr) == COMPOUND_EXPR)
 	{
-	  elem
-	    = (cxx ? TREE_OPERAND (expr, 1) : TREE_OPERAND (expr, 0));
-	  expr = (cxx ? TREE_OPERAND (expr, 0) : TREE_OPERAND (expr, 1));
+	  elem = TREE_OPERAND (expr, 1);
+	  expr = TREE_OPERAND (expr, 0);
 	}
       else
 	elem = expr;
@@ -5691,11 +5689,10 @@ vector_constructor_from_expr (tree expr, tree vector_type)
 				       convert (elttype, elem)));
     }
 
-  if (cxx)                                                                                                                        
-    list = nreverse (list);
+  list = nreverse (list);
 
   list = build_constructor (vector_type, list);
-  if (cxx)
+  if (c_dialect_cxx ())
     TREE_LANG_FLAG_4 (list) = 1;  /* TREE_HAS_CONSTRUCTOR */
 
   TREE_CONSTANT (list) = all_constant;
