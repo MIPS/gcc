@@ -1,3 +1,10 @@
+2002-09-13  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-dump.c (dump_switch_p): Get longest match, not first one.
+	
+	* tree.h: Put TDI_* back in order, now that we do longest match
+	matching.
+
 2002-09-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (add_call_site_clobbers): Call decl_function_context

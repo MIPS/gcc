@@ -663,9 +663,9 @@ static struct dump_file_info dump_files[TDI_end] =
   {".simple", "dump-tree-simple", 0, 0},
   {".cfg", "dump-tree-cfg", 0, 0},
   {".dot", "dump-tree-dot", 0, 0},
-  {".ssapre", "dump-tree-ssapre", 0, 0},
   {".ssa", "dump-tree-ssa", 0, 0},
   {".ccp", "dump-tree-ccp", 0, 0},
+  {".ssapre", "dump-tree-ssapre", 0, 0},
   {".optimized", "dump-tree-optimized", 0, 0},
   {".xml", "dump-call-graph", 0, 0},
 };
@@ -777,44 +777,58 @@ dump_switch_p (arg)
 {
   unsigned ix;
   const char *option_value;
-
+  signed best=-1;
+  unsigned bestlen=-1;
+ 
+  /* Use < because the option_value is the remainder of the string,
+     not the prefix it found. Thus, to get the longest string, look
+     for the shortest remainder. */
   for (ix = 0; ix != TDI_end; ix++)
     if ((option_value = skip_leading_substring (arg, dump_files[ix].swtch)))
-      {
-	const char *ptr = option_value;
-	int flags = 0;
-
-	while (*ptr)
-	  {
-	    const struct dump_option_value_info *option_ptr;
-	    const char *end_ptr;
-	    unsigned length;
-
-	    while (*ptr == '-')
-	      ptr++;
-	    end_ptr = strchr (ptr, '-');
-	    if (!end_ptr)
-	      end_ptr = ptr + strlen (ptr);
-	    length = end_ptr - ptr;
-
-	    for (option_ptr = dump_options; option_ptr->name;
-		 option_ptr++)
-	      if (strlen (option_ptr->name) == length
-		  && !memcmp (option_ptr->name, ptr, length))
-		{
-		  flags |= option_ptr->value;
-		  goto found;
-		}
-	    warning ("ignoring unknown option `%.*s' in `-f%s'",
-		     length, ptr, dump_files[ix].swtch);
-	  found:;
-	    ptr = end_ptr;
-	  }
-
-	dump_files[ix].state = -1;
-	dump_files[ix].flags = flags;
-
-	return 1;
-      }
+      if (strlen (option_value) < bestlen)
+	{
+	  best = ix;
+	  bestlen = strlen (option_value);
+	}
+  if (best >= 0)
+    {
+      if ((option_value = skip_leading_substring (arg, dump_files[best].swtch)))
+	{
+	  const char *ptr = option_value;
+	  int flags = 0;
+	  
+	  while (*ptr)
+	    {
+	      const struct dump_option_value_info *option_ptr;
+	      const char *end_ptr;
+	      unsigned length;
+	      
+	      while (*ptr == '-')
+		ptr++;
+	      end_ptr = strchr (ptr, '-');
+	      if (!end_ptr)
+		end_ptr = ptr + strlen (ptr);
+	      length = end_ptr - ptr;
+	      
+	      for (option_ptr = dump_options; option_ptr->name;
+		   option_ptr++)
+		if (strlen (option_ptr->name) == length
+		    && !memcmp (option_ptr->name, ptr, length))
+		  {
+		    flags |= option_ptr->value;
+		    goto found;
+		  }
+	      warning ("ignoring unknown option `%.*s' in `-f%s'",
+		       length, ptr, dump_files[best].swtch);
+	    found:;
+	      ptr = end_ptr;
+	    }
+	  
+	  dump_files[best].state = -1;
+	  dump_files[best].flags = flags;
+	  
+	  return 1;
+	}
+    }
   return 0;
 }
