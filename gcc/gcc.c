@@ -467,6 +467,8 @@ or with constant text in a single argument.
  %G     process LIBGCC_SPEC as a spec.
  %M     output multilib_dir with directory separators replaced with "_";
 	if multilib_dir is not set or is ".", output "".
+ %R     Output the concatenation of target_system_root and
+        target_sysroot_suffix. 
  %S     process STARTFILE_SPEC as a spec.  A capital S is actually used here.
  %E     process ENDFILE_SPEC as a spec.  A capital E is actually used here.
  %C     process CPP_SPEC as a spec.
@@ -696,6 +698,10 @@ proper position among the other output files.  */
 # define STARTFILE_PREFIX_SPEC ""
 #endif
 
+#ifndef SYSROOT_SPEC
+# define SYSROOT_SPEC "--sysroot=%R"
+#endif
+
 #ifndef SYSROOT_SUFFIX_SPEC
 # define SYSROOT_SUFFIX_SPEC ""
 #endif
@@ -721,6 +727,7 @@ static const char *linker_name_spec = LINKER_NAME;
 static const char *link_command_spec = LINK_COMMAND_SPEC;
 static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
+static const char *sysroot_spec = SYSROOT_SPEC;
 static const char *sysroot_suffix_spec = SYSROOT_SUFFIX_SPEC;
 static const char *sysroot_hdrs_suffix_spec = SYSROOT_HEADERS_SUFFIX_SPEC;
 
@@ -1487,6 +1494,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix_1",	&md_startfile_prefix_1),
   INIT_STATIC_SPEC ("startfile_prefix_spec",	&startfile_prefix_spec),
+  INIT_STATIC_SPEC ("sysroot_spec",             &sysroot_spec),
   INIT_STATIC_SPEC ("sysroot_suffix_spec",	&sysroot_suffix_spec),
   INIT_STATIC_SPEC ("sysroot_hdrs_suffix_spec",	&sysroot_hdrs_suffix_spec),
 };
@@ -1698,12 +1706,6 @@ init_spec (void)
 #ifdef LINK_EH_SPEC
   /* Prepend LINK_EH_SPEC to whatever link_spec we had before.  */
   obstack_grow (&obstack, LINK_EH_SPEC, sizeof(LINK_EH_SPEC) - 1);
-  obstack_grow0 (&obstack, link_spec, strlen (link_spec));
-  link_spec = obstack_finish (&obstack);
-#endif
-#ifdef SYSROOT_SUFFIX_LINK_SPEC
-  obstack_grow (&obstack, SYSROOT_SUFFIX_LINK_SPEC, 
-		sizeof (SYSROOT_SUFFIX_LINK_SPEC) - 1);
   obstack_grow0 (&obstack, link_spec, strlen (link_spec));
   link_spec = obstack_finish (&obstack);
 #endif
@@ -6104,6 +6106,17 @@ main (int argc, const char **argv)
         error ("spec failure: more than one arg to SYSROOT_SUFFIX_SPEC.");
       else if (argbuf_index == 1)
         target_sysroot_suffix = xstrdup (argbuf[argbuf_index -1]);
+    }
+
+  /* Pass the --sysroot option to the linker, which is assumed to be
+     GNU ld.  If there is a sysroot_suffix_spec, it has already been
+     processed by this point, so target_system_root really is the
+     system root we should be using.  */
+  if (target_system_root)
+    {
+      obstack_grow (&obstack, "%(sysroot_spec) ", strlen ("%(sysroot_spec) "));
+      obstack_grow0 (&obstack, link_spec, strlen (link_spec));
+      link_spec = obstack_finish (&obstack);
     }
 
   /* Process sysroot_hdrs_suffix_spec.  */

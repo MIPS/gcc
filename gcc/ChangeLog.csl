@@ -1,3 +1,23 @@
+2005-01-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.c (SYSROOT_SPEC): New macro.
+	(sysroot_spec): New variable.
+	(static_specs): Add sysroot_spec.
+	(main): Pass --sysroot to the linker. 
+	
+	Revert:
+	2005-01-16  Mark Mitchell  <mark@codesourcery.com>
+	* gcc.c (init_spec): Handle SYSROOT_SUFFIX_LINK_SPEC.
+
+	Revert:
+	2005-01-24  Mark Mitchell  <mark@codesourcery.com>
+	* config.gcc (arm-wrs-linux-gnu): Use wrs-linux.h and t-wrs-linux.
+	(i?86-wrs-linux-gnu): Likewise.
+	(mips-wrs-linux-gnu): Likewise.
+	(powerpc-wrs-linux-gnu): Likewise.
+	* config/t-wrs-linux: New file.
+	* config/wrs-linux.h: Likewise.
+
 2005-01-24  Mark Mitchell  <mark@codesourcery.com>
 
 	* config.gcc (arm-wrs-linux-gnu): Use wrs-linux.h and t-wrs-linux.

@@ -681,8 +681,8 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	    default_use_cxa_atexit=yes
 	    case  ${target} in
 	    arm-wrs-linux-gnu) 
-		tm_file="$tm_file wrs-linux.h arm/wrs-linux.h"
-		tmake_file="$tmake_file t-wrs-linux arm/t-wrs-linux"
+		tm_file="$tm_file arm/wrs-linux.h"
+		tmake_file="$tmake_file arm/t-wrs-linux"
 		;;
             *) ;;
             esac
@@ -1037,12 +1037,6 @@ i[34567]86-*-linux*)	# Intel 80386's running GNU/Linux
 			# aka GNU/Linux C library 6
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h i386/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux i386/t-crtstuff"
-	case ${target} in
-	i?86-wrs-linux-gnu)
-		tm_file="$tm_file wrs-linux.h"
-		tmake_file="$tmake_file t-wrs-linux"
-		;;
-	esac
 	;;
 x86_64-*-linux*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h \
@@ -1608,8 +1602,8 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 	tmake_file="t-slibgcc-elf-ver t-linux"
 	case ${target} in
 	mips-wrs-linux-gnu) 
-		tmake_file="$tmake_file t-wrs-linux mips/t-wrs-linux"
-		tm_file="$tm_file wrs-linux.h mips/wrs-linux.h"
+		tmake_file="$tmake_file mips/t-wrs-linux"
+		tm_file="$tm_file mips/wrs-linux.h"
 		;;
 	esac
 	;;
@@ -1825,8 +1819,6 @@ powerpc-*-linux*)
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos t-slibgcc-elf-ver t-linux rs6000/t-ppccomm"
 	case ${target} in
 	powerpc-wrs-linux-gnu) 
-		tm_file="$tm_file wrs-linux.h"
-		tmake_file="$tmake_file t-wrs-linux"
 	  	target_cpu_default="\\\"603\\\""
 	        ;;
 	esac
