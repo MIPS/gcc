@@ -3448,8 +3448,8 @@ invoking @option{-O2} on programs that use computed gotos.
 @item -O3
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
-@option{-O2} and also turns on the @option{-finline-functions} and
-@option{-frename-registers} options.
+@option{-O2} and also turns on the @option{-finline-functions}, @option{-fweb},
+@option{-funit-at-time}, @option{-ftracer} and @option{-frename-registers} options.
 
 @item -O0
 @opindex O0

@@ -1,5 +1,8 @@
 Fri Feb  7 12:59:54 CET 2003  Jan Hubicka  <jh@suse.cz>
 
+	* passes.texi (web construction):  Document.
+	* invoke.texi (-O3): Document that -fweb is enabled.
+
 	* combine.c (combine_simplify_rtx):  Use reversed_comparison_code_parts.
 
 	* toplev.c (rest_of_compilation): Move -fweb past new loop.
@@ -141,7 +144,7 @@ Wed Feb  5 11:08:53 CET 2003  Jan Hubicka  <jh@suse.cz>
 	(struct lang_hooks): Add callgraph field.
 	* toplev.c (flag_unit_at_time): New.
 	(lang_independent_options): Add flag_unit_at_time.
-	(parse_options_and_default_flags): Set flag_unit_at_time for -O2.
+	(parse_options_and_default_flags): Set flag_unit_at_time for -O3.
 	(process_options): Disable unit-at-time mode for frontends not
 	supporting callgraph.
 	* tree-inline.c (typedef struct inline_data): Add "decl"

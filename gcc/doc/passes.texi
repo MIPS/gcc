@@ -370,6 +370,18 @@ The option @option{-dL} causes a debugging dump of the RTL code after
 this pass.  This dump file's name is made by appending @samp{.loop} to
 the input file name.
 
+@cindex web construction
+@item
+Simple optimization pass that splits indepdendent uses of each pseudo
+increasing effectivity of other optimizations.  This can improve effect of the
+other transformation, such as CSE or register allocation.
+Its source files are @file{web.c}.
+
+@opindex dZ
+The option @option{-dZ} causes a debugging dump of the RTL code after
+this pass.  This dump file's name is made by appending @samp{.web} to
+the input file name.
+
 @item
 @opindex frerun-cse-after-loop
 If @option{-frerun-cse-after-loop} was enabled, a second common
