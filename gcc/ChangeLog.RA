@@ -1,3 +1,12 @@
+2001-02-01  Richard Henderson  <rth@redhat.com>
+
+	* toplev.c (NEW_REGISTER_ALLOCATOR): Remove.
+	(dump_file_index, dump_file): Remove lreg dump file.
+	(rest_of_compilation): Don't ifdef NEW_REGISTER_ALLOCATOR.
+	Use the global register time var and dump files for the
+	new allocator.
+	* timevar.def (TV_LOCAL_ALLOC): Remove.
+
 2001-02-01  Daniel Berlin  <dberlin@redhat.com>
 
 	* new-regalloc.c (coalesce): Fixed test for constrainedness.
@@ -5,15 +14,11 @@
 	
 2001-01-31  Daniel Berlin  <dberlin@redhat.com>
 
-
 	* new-regalloc.c (precolored_OK): Fix heuristic.
 	(reg_freedom): Cache register freedoms, they don't change.
 	(find_reg_given_constraints): Remove backwards direction, it's useless.
 	(assign_regs): Start to implement biased coloring.
-
-	Also, dump debug info to rtl_dump_file, if it's not NULL, rather
-	than stderr.
-	
+	(*): Dump debug info to rtl_dump_file, rather than stderr.
 
 2001-01-30  Daniel Berlin  <dberlin@redhat.com>
 
