@@ -1,5 +1,12 @@
 2004-10-16  Jeroen Frijters  <jeroen@frijters.net>
 
+	* javax/swing/JDialog.java
+	(decorated): Likewise.
+	* javax/swing/JFrame.java
+	(defaultLookAndFeelDecorated): Likewise.
+
+2004-10-16  Jeroen Frijters  <jeroen@frijters.net>
+
 	* javax/swing/plaf/basic/BasicToolBarUI.java
 	(offset, regular): Made final.
 	* javax/swing/plaf/basic/BasicScrollBarUI.java
