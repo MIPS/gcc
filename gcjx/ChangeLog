@@ -1,3 +1,12 @@
+2005-02-08  Tom Tromey  <tromey@redhat.com>
+
+	* model/method.cc (model_method): Updated.
+	* source/parse.cc (any_method_declarator): Call set_method_end.
+	* model/method.hh (model_method::method_end): New field.
+	(model_method::set_method_end): New method.
+	(model_method::get_method_end): Likewise.
+	(model_method): Updated.
+
 2005-02-06  Tom Tromey  <tromey@redhat.com>
 
 	* bytecode/generate.cc (write): Don't print note about

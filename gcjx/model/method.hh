@@ -1,6 +1,6 @@
 // Represent a method.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -77,7 +77,12 @@ protected:
   // Meaningless for static methods and constructors.
   bool overrides;
 
+  // True if this is an instance initializer method, aka 'finit$'.
   bool is_instance_initializer;
+
+  // We keep track of the end of the method as well as the beginning;
+  // this is used by GCC for debugging information.
+  location method_end;
 
   void massage_modifiers (const ref_modifier_list &);
   bool return_type_substitutable_p (model_type *, model_type *) const;
@@ -98,7 +103,9 @@ public:
       varargs (false),
       used (false),
       overrides (false),
-      is_instance_initializer (false)
+      is_instance_initializer (false),
+      // By default we set the end location to the start location.
+      method_end (w)
   {
   }
 
@@ -326,6 +333,16 @@ public:
   std::string get_signature ();
 
   void check_definite_assignment ();
+
+  void set_method_end (const location &w)
+  {
+    method_end = w;
+  }
+
+  location get_method_end () const
+  {
+    return method_end;
+  }
 };
 
 const format &operator% (const format &, model_method *);

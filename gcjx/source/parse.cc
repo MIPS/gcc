@@ -2545,6 +2545,7 @@ parse::any_method_declarator (const std::list<ref_annotation> &annos,
 	result->set_body (constructor_body ());
       else
 	result->set_body (method_body ());
+      result->set_method_end (peek ());
     }
   else if (t == TOKEN_SEMI)
     assume (TOKEN_SEMI);

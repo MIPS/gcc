@@ -1,3 +1,9 @@
+2005-02-08  Tom Tromey  <tromey@redhat.com>
+
+	* glue.hh: Include function.h.
+	* treegen.cc (generate): Call allocate_struct_function.  Set
+	function_end_locus.
+
 2005-02-07  Tom Tromey  <tromey@redhat.com>
 
 	* glue.hh: Include tree-dump.h.

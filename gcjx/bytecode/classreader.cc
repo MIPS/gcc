@@ -750,6 +750,7 @@ class_reader::parse_method ()
       current_method->set_modifiers (flags);
       if ((flags & ACC_VARARGS) != 0)
 	current_method->set_varargs ();
+      // FIXME: call set_method_end here?  Or ... ?
     }
 
   current_exceptions.clear ();

@@ -59,6 +59,16 @@ tree_code_generator::generate (model_class *the_class)
       tree_generator gen (builtins, wrapper);
       tree method = gen.generate ((*i).get ());
 
+      current_function_decl = method;
+      allocate_struct_function (method);
+
+      location end_loc = (*i)->get_method_end ();
+      // FIXME: most likely bogus.
+      location_t gcc_loc;
+      LOCATION_FILE (gcc_loc) = end_loc.get_file ();
+      LOCATION_LINE (gcc_loc) = end_loc.get_line ();
+      cfun->function_end_locus = gcc_loc;
+
       dump_function (TDI_original, method);
       gimplify_function_tree (method);
       dump_function (TDI_generic, method);

@@ -73,6 +73,7 @@ extern "C"
 // tree-iterator.h?
 #include "tree-gimple.h"
 #include "tree-dump.h"
+#include "function.h"
 }
 
 // gcc's system.h defines these unconditionally, but they make life

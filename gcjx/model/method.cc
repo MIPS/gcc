@@ -43,7 +43,8 @@ model_method::model_method (model_method *other,
     IDeprecatable (other),
     IAnnotatable (other),
     IModifiable (other),
-    IMember (enclosing)
+    IMember (enclosing),
+    method_end (other->method_end)
 {
   set_name (other->name);
 
