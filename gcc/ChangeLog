@@ -1,3 +1,14 @@
+Wed Oct 27 19:26:12 1999  Nick Clifton  <nickc@cygnus.com>
+
+	* config/arm/coff.h (STRUCTURE_SIZE_BOUNDARY): Delete
+	definition. 
+
+	* config/arm/elf.h (STRUCTURE_SIZE_BOUNDARY): Delete
+	definition.
+
+	* config/arm/arm.h (STRUCTURE_SIZE_BOUNDARY): Define in terms
+	of the variable arm_structure_size_boundary.
+
 Wed Oct 27 14:40:48 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/linux-gas.h: oops - this file was missed out when the
