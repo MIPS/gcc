@@ -1085,7 +1085,14 @@ outgoing_edges_match (mode, bb1, bb2)
 	  /* Fail if the difference in probabilities is
 	     greater than 5%.  */
 	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 20)
-	    return false;
+	    {
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file,
+			 "Outcomes of branch in bb %i and %i differs to much (%i %i)\n",
+			 bb1->index, bb2->index, b1->probability, prob2);
+
+	      return false;
+	    }
 	}
 
       if (rtl_dump_file && match)

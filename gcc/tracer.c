@@ -58,16 +58,6 @@ static bool ignore_bb_p			PARAMS ((basic_block));
    important.  They are just meant to rule out cold regions of code
    that are usually easy to recognize.  */
 
-/* When profile feedback is available, do not trace blocks with fewer
-   executions than this constant.  */
-
-#define MIN_COUNT	100
-
-/* Trace only blocks executed maximally 1000 times fewer times than the
-   most frequent block in the function.  */
-
-#define MIN_FREQUENCY  BB_FREQ_MAX/1000
-
 /* Stop tracing after at least 95% of instructions has been convered
    by constructed superblocks.  */
 
@@ -80,9 +70,22 @@ static bool ignore_bb_p			PARAMS ((basic_block));
 
 #define MAXIMAL_CODE_GROWTH 2.0
 
-/* Stop growth if the best edge probability is less than
-   this threshold (ie there are many edges with small probabilities).  */
+/* Stop reverse growth if the reverse probability of best edge is less than
+   this threshold (ie there are many predecessors with small probabilities).  */
+
 #define MIN_BRANCH_RATIO 0.1
+
+/* Stop forward growth if the best edge do have probability lower than this
+   threshold.  For statically estimated profiles the probabilities do have
+   different meaning than for measured profiles.  Low probability for estimated
+   profile signalized that compiler is uncertain about the branch outcome, while
+   low probability from profile feedback signals badly predictable branch.
+
+   We do not want to trace in both cases, as tracing in wrong direction is
+   wastefull and overactive tracing of badly predictable jumps interfere
+   badly with if converison pass.  The thresholds needs to be different.  */
+
+#define MIN_BRANCH_PROBABILITY (flag_branch_probabilities ? 0.8 : 0.7)
 
 /* Return true if BB has been seen - it is connected to some trace
    already.  */
@@ -146,7 +149,7 @@ find_best_successor (basic_block bb)
       best = e;
   if (!best || ignore_bb_p (best->dest))
     return NULL;
-  if (best->probability < (int)(REG_BR_PROB_BASE * MIN_BRANCH_RATIO))
+  if (best->probability < (int)(REG_BR_PROB_BASE * MIN_BRANCH_PROBABILITY))
     return NULL;
   return best;
 }
