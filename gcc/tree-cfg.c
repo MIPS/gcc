@@ -104,6 +104,9 @@ static void cleanup_control_flow	PARAMS ((void));
 static void cleanup_cond_expr_graph	PARAMS ((basic_block));
 static void cleanup_switch_expr_graph	PARAMS ((basic_block));
 static void disconnect_unreachable_case_labels PARAMS ((basic_block));
+static edge find_taken_edge_cond_expr	PARAMS ((basic_block, tree));
+static edge find_taken_edge_switch_expr	PARAMS ((basic_block, tree));
+static bool value_matches_some_label	PARAMS ((edge, tree, edge *));
 
 
 /* Remove any COMPOUND_EXPR container from NODE.  */
@@ -1263,7 +1266,6 @@ find_taken_edge (bb, val)
      tree val;
 {
   tree stmt;
-  edge e, taken_edge;
 
   stmt = first_stmt (bb);
 
@@ -1277,88 +1279,124 @@ find_taken_edge (bb, val)
   if (val == NULL || !really_constant_p (val))
     return NULL;
 
-  taken_edge = NULL;
   if (TREE_CODE (stmt) == COND_EXPR)
+    return find_taken_edge_cond_expr (bb, val);
+
+  if (TREE_CODE (stmt) == SWITCH_EXPR)
+    return find_taken_edge_switch_expr (bb, val);
+
+  /* LOOP_EXPR nodes are always followed by their successor block.  */
+  return bb->succ;
+}
+
+
+/* Given a constant value VAL and the entry block BB to a COND_EXPR
+   statement, determine which of the two edges will be taken out of the
+   block.  Return NULL if either edge may be taken.  */
+
+static edge
+find_taken_edge_cond_expr (bb, val)
+     basic_block bb;
+     tree val;
+{
+  bool always_false;
+  bool always_true;
+  edge e;
+
+  /* Determine which branch of the if() will be taken.  */
+  always_false = (simple_cst_equal (val, integer_zero_node) == 1);
+  always_true = (simple_cst_equal (val, integer_one_node) == 1);
+
+  /* If VAL is a constant but it can't be reduced to a 0 or a 1, then
+     we don't really know which edge will be taken at runtime.  This
+     may happen when comparing addresses (e.g., if (&var1 == 4))  */
+  if (!always_false && !always_true)
+    return NULL;
+
+  for (e = bb->succ; e; e = e->succ_next)
+    if (((e->flags & EDGE_TRUE_VALUE) && always_true)
+	|| ((e->flags & EDGE_FALSE_VALUE) && always_false))
+      return e;
+
+  /* If E is not going to the THEN nor the ELSE clause, then it's
+     the fallthru edge to the successor block of the if() block.  */
+  return find_edge (bb, successor_block (bb));
+}
+
+
+/* Given a constant value VAL and the entry block BB to a SWITCH_EXPR
+   statement, determine which edge will be taken out of the block.  Return
+   NULL if any edge may be taken.  */
+
+static edge
+find_taken_edge_switch_expr (bb, val)
+     basic_block bb;
+     tree val;
+{
+  edge e, default_edge;
+
+  /* See if the switch() value matches one of the case labels.  */
+  default_edge = NULL;
+  for (e = bb->succ; e; e = e->succ_next)
     {
-      bool always_false;
-      bool always_true;
+      edge dest_edge;
+      tree dest_t;
 
-      /* Determine which branch of the if() will be taken.  */
-      always_false = (simple_cst_equal (val, integer_zero_node) == 1);
-      always_true = (simple_cst_equal (val, integer_one_node) == 1);
+      dest_edge = e;
+      dest_t = first_stmt (dest_edge->dest);
 
-      /* If VAL is a constant but it can't be reduced to a 0 or a 1, then
-	 we don't really know which edge will be taken at runtime.  This
-	 may happen when comparing addresses (e.g., if (&var1 == 4))  */
-      if (!always_false && !always_true)
-	return NULL;
+      /* We are only interested in edges that go to CASE_LABEL_EXPRs.  */
+      if (dest_t == NULL_TREE || TREE_CODE (dest_t) != CASE_LABEL_EXPR)
+	continue;
 
-      for (e = bb->succ; e; e = e->succ_next)
-	{
-	  if (((e->flags & EDGE_TRUE_VALUE) && always_true)
-	      || ((e->flags & EDGE_FALSE_VALUE) && always_false))
-	    {
-	      taken_edge = e;
-	      break;
-	    }
-	}
-
-      if (taken_edge == NULL)
-	{
-	  /* If E is not going to the THEN nor the ELSE clause, then it's
-	     the fallthru edge to the successor block of the if() block.  */
-	  taken_edge = find_edge (bb, successor_block (bb));
-	}
-    }
-  else if (TREE_CODE (stmt) == SWITCH_EXPR)
-    {
-      edge default_edge = NULL;
-
-      /* See if the switch() value matches one of the case labels.  */
-      for (e = bb->succ; e; e = e->succ_next)
-	{
-	  tree label_val;
-	  edge dest_edge = e;
-	  tree dest_t = first_stmt (dest_edge->dest);
-
-	  /* Remember the edge out of the switch() just in case there is no
-	     matching label in the body.  */
-	  if (dest_t == NULL_TREE || TREE_CODE (dest_t) != CASE_LABEL_EXPR)
-	    continue;
-
-	  label_val = CASE_LOW (dest_t);
-	  if (label_val == NULL_TREE)
-	    {
-	      /* Remember that we found a default label, just in case no other
-	         label matches the switch() value.  */
-	      default_edge = dest_edge;
-	    }
-	  else if (simple_cst_equal (label_val, val) == 1)
-	    {
-	      /* We found the unique label that will be taken by the switch.
-	         No need to keep looking.  All the other labels are never
-	         reached directly from the switch().  */
-	      taken_edge = dest_edge;
-	      break;
-	    }
-	}
-
-      /* If no case exists for the value used in the switch(), we use the
-         default label.  If the switch() has no label, we use the edge
-	 going out of the switch() body.  */
-      if (taken_edge == NULL)
-	taken_edge = default_edge 
-		     ? default_edge
-		     : find_edge (bb, successor_block (bb));
-    }
-  else
-    {
-      /* LOOP_EXPR nodes are always followed by their successor block.  */
-      taken_edge = bb->succ;
+      if (value_matches_some_label (dest_edge, val, &default_edge))
+	return dest_edge;
     }
 
+  /* If no case exists for the value used in the switch(), we use the
+     default label.  If the switch() has no default label, we use the edge
+     going out of the switch() body.  */
+  return default_edge ? default_edge : find_edge (bb, successor_block (bb));
+}
 
-  return taken_edge;
+
+/* Return true if VAL matches one of the labels in the destination block of
+   edge DEST_EDGE.  If one of the labels in the block is the DEFAULT label,
+   DEST_EDGE is stored into *DEFAULT_EDGE_P to indicate that this edge goes
+   to the DEFAULT label.  This is used by the caller when no other case
+   label is found to match VAL.  */
+
+static bool
+value_matches_some_label (dest_edge, val, default_edge_p)
+     edge dest_edge;
+     tree val;
+     edge *default_edge_p;
+{
+  basic_block dest_bb = dest_edge->dest;
+  gimple_stmt_iterator i;
+
+  for (i = gsi_start_bb (dest_bb); !gsi_end_p (i); gsi_step (&i))
+    {
+      tree stmt = gsi_stmt (i);
+
+      /* No more labels.  We haven't found a match.  */
+      if (TREE_CODE (stmt) != CASE_LABEL_EXPR)
+	return false;
+
+      /* Remember that we found a default label, just in case no other
+	  label matches the switch() value.  */
+      if (CASE_LOW (stmt) == NULL_TREE)
+	*default_edge_p = dest_edge;
+      else
+	{
+	  /* If we found a match, we are done.  */
+	  tree label_val = CASE_LOW (stmt);
+	  if (simple_cst_equal (label_val, val) == 1)
+	    return true;
+	}
+    }
+
+  return false;
 }
 
 

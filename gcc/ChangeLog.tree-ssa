@@ -1,3 +1,10 @@
+2003-01-31  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (find_taken_edge_cond_expr): New function.
+	(find_taken_edge_switch_expr): New function.
+	(value_matches_some_label): New function.
+	(find_taken_edge): Re-structure to use the three new functions.
+
 2003-01-30  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (simplify_function_tree): Set TREE_SIDE_EFFECTS on
