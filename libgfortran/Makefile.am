@@ -262,6 +262,7 @@ hyp_c8.lo
 
 # Machine generated specifics
 gfor_built_specific_src= \
+generated/_abs_i4.f90 \
 generated/_abs_r4.f90 \
 generated/_abs_r8.f90 \
 generated/_exp_r4.f90 \
