@@ -1,5 +1,10 @@
 2004-10-20  Tom Tromey  <tromey@redhat.com>
 
+	* java-tree.h (verify_jvm_instructions_new): Declare.
+
+	* jvspec.c (jvgenmain_spec): Remove -fnew-verifier from cc1
+	command line.
+
 	* verify-impl.c (verify_instructions): Correctly handle wide
 	types on the stack.
 	* verify-glue.c (vfy_get_class_name): Use DECL_NAME.

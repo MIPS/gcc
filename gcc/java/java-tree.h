@@ -1309,6 +1309,8 @@ extern void init_class_processing (void);
 extern int can_widen_reference_to (tree, tree);
 extern int class_depth (tree);
 extern int verify_jvm_instructions (struct JCF *, const unsigned char *, long);
+extern int verify_jvm_instructions_new (struct JCF *, const unsigned char *,
+					long);
 extern void maybe_pushlevels (int);
 extern void maybe_poplevels (int);
 extern void force_poplevels (int);
