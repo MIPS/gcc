@@ -1,3 +1,7 @@
+2004-12-17  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.in: Remove tools-specific and unused stuff.
+
 2004-12-16  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Remove unused MLIB_TGT.

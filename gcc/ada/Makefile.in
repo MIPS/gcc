@@ -71,8 +71,6 @@ RANLIB_FLAGS = @ranlib_flags@
 
 # How to copy preserving the date
 INSTALL_DATA_DATE = cp -p
-GNATBIND = $(STAGE_PREFIX)gnatbind
-GNATBIND_FLAGS = -static -x
 ADA_CFLAGS =
 ADAFLAGS = -W -Wall -gnatpg -gnata
 SOME_ADAFLAGS =-gnata
@@ -90,9 +88,6 @@ THREAD_KIND = native
 THREADSLIB = @THREADSLIB@
 GMEM_LIB = @GMEM_LIB@
 MISCLIB = @MISCLIB@
-SYMLIB = @SYMLIB@
-ADDR2LINE_SYMLIB = -laddr2line -lbfd -liberty $(LIBINTL)
-SYMDEPS = $(LIBINTL_DEP)
 
 objext = .o
 exeext =
@@ -113,26 +108,12 @@ target=@target@
 # subdirectory
 include ../libada-mk
 
-#version=`sed -e 's/.*\"\([^ \"]*\)[ \"].*/\1/' < $(srcdir)/version.c`
-#mainversion=`sed -e 's/.*\"\([0-9]*\.[0-9]*\).*/\1/' < $(srcdir)/version.c`
-
 # Directory where sources are, from where we are.
 srcdir = @srcdir@
 VPATH = $(srcdir)
 
 fsrcdir := $(shell cd $(srcdir);${PWD_COMMAND})
 fsrcpfx := $(shell cd $(srcdir);${PWD_COMMAND})/
-fcurdir := $(shell ${PWD_COMMAND})
-fcurpfx := $(shell ${PWD_COMMAND})/
-
-# Any system libraries needed just for GNAT.
-SYSLIBS = @GNAT_LIBEXC@
-
-# List of extra object files linked in with various programs.
-EXTRA_GNATTOOLS_OBJS = ../../prefix.o ../../version.o
-
-# Type of tools build we are doing; default is not compiling tools.
-TOOLSCASE =
 
 # End of variables for you to override.
 
@@ -178,16 +159,6 @@ ALL_CFLAGS = $(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(LOOSE_CFLAGS) \
 
 # Likewise.
 ALL_CPPFLAGS = $(CPPFLAGS) $(X_CPPFLAGS) $(T_CPPFLAGS)
-
-# This is where we get libiberty.a from.
-LIBIBERTY = ../../libiberty/libiberty.a
-
-# How to link with both our special library facilities
-# and the system's installed libraries.
-LIBS = $(LIBINTL) $(LIBIBERTY) $(SYSLIBS)
-LIBDEPS = $(LIBINTL_DEP) $(LIBIBERTY)
-TOOLS_LIBS = $(LIBGNAT) $(EXTRA_GNATTOOLS_OBJS) link.o \
-	../../../libiberty/libiberty.a $(SYSLIBS) $(TGT_LIB)
 
 # Specify the directories to be searched for header files.
 # Both . and srcdir are used, in that order,
@@ -245,28 +216,6 @@ PREFIX_REAL_OBJS= ../prefix.o \
   ../../libiberty/xstrdup.o    \
   ../../libiberty/xexit.o
 
-GNATLINK_OBJS = gnatlink.o \
- a-except.o ali.o alloc.o butil.o casing.o csets.o debug.o fmap.o fname.o gnatvsn.o \
- hostparm.o indepsw.o interfac.o i-c.o i-cstrin.o namet.o opt.o osint.o output.o rident.o \
- s-exctab.o s-secsta.o s-stalib.o s-stoele.o sdefault.o stylesw.o switch.o system.o \
- table.o tree_io.o types.o validsw.o widechar.o
-
-GNATMAKE_OBJS = a-except.o ctrl_c.o ali.o ali-util.o s-casuti.o \
- alloc.o atree.o binderr.o butil.o casing.o csets.o debug.o elists.o einfo.o\
- erroutc.o errutil.o err_vars.o fmap.o fname.o fname-uf.o fname-sf.o \
- gnatmake.o gnatvsn.o hostparm.o interfac.o i-c.o i-cstrin.o krunch.o lib.o \
- make.o makeusg.o makeutl.o mlib.o mlib-fil.o mlib-prj.o mlib-tgt.o mlib-utl.o \
- namet.o nlists.o opt.o osint.o osint-m.o output.o \
- prj.o prj-attr.o prj-attr-pm.o prj-com.o prj-dect.o prj-env.o prj-err.o prj-ext.o prj-nmsc.o \
- prj-pars.o prj-part.o prj-proc.o prj-strt.o prj-tree.o prj-util.o \
- rident.o s-exctab.o s-secsta.o s-stalib.o s-stoele.o \
- scans.o scng.o sdefault.o sfn_scan.o s-purexc.o s-htable.o \
- sinfo.o sinput.o sinput-c.o sinput-p.o \
- snames.o stand.o stringt.o styleg.o stylesw.o system.o validsw.o switch.o switch-m.o \
- table.o targparm.o tempdir.o tree_io.o types.o \
- uintp.o  uname.o urealp.o usage.o widechar.o \
- $(EXTRA_GNATMAKE_OBJS)
-
 # The runtime library for gnat comprises two directories.  One contains the
 # Ada source files that the compiler (gnat1) needs -- these files are listed
 # by ADA_INCLUDE_SRCS -- and the other contains the object files and their
@@ -310,155 +259,9 @@ ADA_INCLUDE_SRCS =\
  s-[a-o]*.adb s-[p-z]*.adb \
  s-[a-o]*.ads s-[p-z]*.ads
 
-LIBGNAT=../rts/libgnat.a 
-
-# when compiling the tools, the runtime has to be first on the path so that
-# it hides the runtime files lying with the rest of the sources
-ifeq ($(TOOLSCASE),native)
-  vpath %.ads ../rts ../
-  vpath %.adb ../rts ../
-  vpath %.c   ../rts ../
-  vpath %.h   ../rts ../
-endif
-
-# in the cross tools case, everything is compiled with the native 
-# gnatmake/link. Therefore only -I needs to be modified in ADA_INCLUDES
-ifeq ($(TOOLSCASE),cross)
-  vpath %.ads ../
-  vpath %.adb ../
-  vpath %.c   ../
-  vpath %.h   ../
-endif
-
-# NCN deleted stuff to gnattools/
-
-../../gnatchop$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatchop --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatchop 
-	$(GNATLINK) -v gnatchop -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		$(TOOLS_LIBS)
-
-../../gnat$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatcmd --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatcmd 
-	$(GNATLINK) -v gnatcmd -o $@ --GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
-
-../../gnatkr$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatkr --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatkr 
-	$(GNATLINK) -v gnatkr -o $@ --GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
-
-../../gnatls$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatls --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatls 
-	$(GNATLINK) -v gnatls -o $@ --GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
-
-../../gnatname$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatname --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatname 
-	$(GNATLINK) -v gnatname -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
-
-../../gprmake$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gprmake --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gprmake
-	$(GNATLINK) -v gprmake -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
-
-../../gpr2make$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gpr2make --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gpr2make 
-	$(GNATLINK) -v gpr2make -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
-
-../../gnatprep$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatprep --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatprep 
-	$(GNATLINK) -v gnatprep -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
-
-../../gnatxref$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatxref --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatxref 
-	$(GNATLINK) -v gnatxref -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
-
-../../gnatfind$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatfind --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatfind 
-	$(GNATLINK) -v gnatfind -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
-
-../../gnatclean$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatclean --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatclean
-	$(GNATLINK) -v gnatclean -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-	            $(TOOLS_LIBS)
-
-../../gnatsym$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatsym --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatsym
-	$(GNATLINK) -v gnatsym -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-                    $(TOOLS_LIBS)
-
-../../gnatmem$(exeext):  gmem.o $(SYMDEPS)
-ifeq ($(GMEM_LIB),gmemlib)
-	   $(GNATMAKE) -c $(ADA_INCLUDES) gnatmem --GCC="$(CC) $(ALL_ADAFLAGS)"
-	   $(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatmem 
-	   $(GNATLINK) -v gnatmem -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-	            gmem.o $(SYMLIB) $(TOOLS_LIBS)
-endif 
-
-../../gnatdll$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatdll --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) $(GNATBIND_FLAGS) gnatdll
-	$(GNATLINK) -v gnatdll -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		$(TOOLS_LIBS)
-
-../../gprcmd$(exeext): 
-	$(GNATMAKE) -c $(ADA_INCLUDES) gprcmd --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gprcmd 
-	$(GNATLINK) -v gprcmd -o $@ --GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
-
-../../vxaddr2line$(exeext): 
-	$(GNATMAKE) -c  $(ADA_INCLUDES) vxaddr2line --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) vxaddr2line 
-	$(GNATLINK) -v vxaddr2line -o $@ --GCC="$(CC) $(ADA_INCLUDES)" $(CLIB)
-
-gnatmake-re:  link.o
-	$(GNATMAKE) $(ADA_INCLUDES) -u sdefault --GCC="$(CC) $(MOST_ADA_FLAGS)"
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatmake --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatmake 
-	$(GNATLINK) -v gnatmake -o ../../gnatmake$(exeext) \
-		--GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
-
-# Note the use of the "mv" command in order to allow gnatlink to be linked with
-# with the former version of gnatlink itself which cannot override itself.
-gnatlink-re:  link.o
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatlink --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatlink 
-	$(GNATLINK) -v gnatlink -o ../../gnatlinknew$(exeext) \
-		    --GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
-	$(MV)  ../../gnatlinknew$(exeext)  ../../gnatlink$(exeext)
-  
 # Needs to be built with CC=gcc
 # Since the RTL should be built with the latest compiler, remove the
 #  stamp target in the parent directory whenever gnat1 is rebuilt
-
-# Likewise for the tools
-../../gnatmake$(exeext): $(P) b_gnatm.o link.o $(GNATMAKE_OBJS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ b_gnatm.o $(GNATMAKE_OBJS) \
-	      $(TOOLS_LIBS)
-
-../../gnatlink$(exeext): $(P) b_gnatl.o link.o $(GNATLINK_OBJS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ b_gnatl.o $(GNATLINK_OBJS) \
-	      $(TOOLS_LIBS)
-
-../../gnatbl$(exeext): gnatbl.o
-	$(CC) -o $@ $(ALL_CFLAGS) $(LDFLAGS) gnatbl.o $(TOOLS_LIBS)
-
-gnatbl.o: gnatbl.c adaint.h
-	$(CC) $(ALL_CFLAGS) $(INCLUDES) -c $< $(OUTPUT_OPTION)
 
 ../stamp-gnatlib:
 	@if [ ! -f stamp-gnatlib ] ; \
@@ -759,14 +562,6 @@ gnatlib-zcx: ../stamp-gnatlib1
 # because all that file does, when not compiling with GCC,
 # is include the system varargs.h.
 
-b_gnatl.c : $(GNATLINK_OBJS)
-	$(GNATBIND) -C $(ADA_INCLUDES) -o b_gnatl.c gnatlink.ali
-b_gnatl.o : b_gnatl.c
-
-b_gnatm.c : $(GNATMAKE_OBJS)
-	$(GNATBIND) -C $(ADA_INCLUDES) -o b_gnatm.c gnatmake.ali
-b_gnatm.o : b_gnatm.c
-
 ADA_INCLUDE_DIR = $(libsubdir)/adainclude
 ADA_RTL_OBJ_DIR = $(libsubdir)/adalib
 ADA_SHARE_MAKE_DIR = $(prefix)/share/gnat
@@ -810,17 +605,13 @@ s-assert.o  : s-assert.adb s-assert.ads a-except.ads
 	$(CC) -c $(ALL_ADAFLAGS) $(FORCE_DEBUG_ADAFLAGS) -O2 $(ADA_INCLUDES) \
 	      $< $(OUTPUT_OPTION)
 
-adadecode.o : adadecode.c adadecode.h
 aux-io.o  : aux-io.c
 argv.o    : argv.c
 cal.o     : cal.c
-deftarg.o  : deftarg.c
 errno.o   : errno.c
 exit.o    : raise.h exit.c
 expect.o  : expect.c
 final.o   : raise.h final.c
-gmem.o    : gmem.c
-link.o    : link.c
 mkdir.o   : mkdir.c
 socket.o  : socket.c
 sysdep.o  : sysdep.c
@@ -845,13 +636,3 @@ tracebak.o  : tracebak.c tb-alvms.c tb-alvxw.c
 
 # In GNU Make, ignore whether 'clean' exists
 .PHONY: clean realclean TAGS
-
-force:
-
-# Gnatlbr is only used on VMS
-
-../../gnatlbr$(exeext): ../../prefix.o
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatlbr --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatlbr
-	$(GNATLINK) -v gnatlbr -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		$(TOOLS_LIBS)
