@@ -131,6 +131,15 @@ class tree_generator : public visitor
   tree build_array_reference (tree, tree, tree, bool = true);
   tree build_exception_object_ref (tree);
 
+  void stringbuffer_append (model_expression *, tree &, model_class *,
+			    tree = NULL_TREE);
+  void handle_string_plus (model_plus *, const ref_expression &,
+			   const ref_expression &, tree &, model_class *);
+  model_method *find_method (const char *, model_class *,
+			     model_type *, model_type *,
+			     model_element *);
+  tree create_stringbuffer (model_class **, model_element *);
+  tree finish_stringbuffer (model_class *, tree, model_element *);
 
   // This class also includes code to transform bytecode to trees.
   // This is kept in a separate file, lower.cc, because it makes the

@@ -1099,13 +1099,182 @@ tree_generator::visit_arith_binary (model_xor *elt,
   binary_operator (elt, BIT_XOR_EXPR, lhs, rhs);
 }
 
+// FIXME: this is copied from bytecode_generator.
+model_method *
+tree_generator::find_method (const char *mname, model_class *klass,
+			     model_type *argtype, model_type *result_type,
+			     model_element *request)
+{
+  std::set<model_method *> methods;
+  klass->find_members (mname, methods, method->get_declaring_class (), klass);
+  model_method *result = NULL;
+  for (std::set<model_method *>::const_iterator i = methods.begin ();
+       i != methods.end ();
+       ++i)
+    {
+      model_method *meth = *i;
+      std::list<ref_variable_decl> params = meth->get_parameters ();
+      int len = params.size ();
+      if (! argtype && len == 0)
+	{
+	  result = meth;
+	  break;
+	}
+      if (! argtype || len != 1)
+	continue;
+      ref_variable_decl var = params.front ();
+      if (var->type () == argtype)
+	{
+	  result = meth;
+	  break;
+	}
+    }
+
+  if (! result)
+    {
+      throw request->error ("couldn't find method %1 with argument of type "
+			    "%2 in class %3 -- perhaps you have the wrong "
+			    "class library?")
+	% mname % argtype % klass;
+    }
+
+  if (result->get_return_type () != result_type)
+    {
+      throw request->error ("method %1 doesn't have expected return type"
+			    " of %2")
+	% result % result_type;
+    }
+  return result;
+}
+
+void
+tree_generator::stringbuffer_append (model_expression *expr,
+				     tree &buffer_tree,
+				     model_class *sb_class,
+				     tree expr_override)
+{
+  if (! expr->type ()->primitive_p () && dynamic_cast<model_plus *> (expr))
+    {
+      assert (! expr_override);
+      // We have another String '+'.  So recurse, using the same
+      // StringBuffer.  Note that it is simpler to handle this
+      // recursion explicitly here than it is to do more bookkeeping
+      // so we can reuse visitor.
+      model_plus *plus = assert_cast<model_plus *> (expr);
+      handle_string_plus (plus, plus->get_lhs (), plus->get_rhs (),
+			  buffer_tree, sb_class);
+    }
+  else
+    {
+      // Generate code for the expression.
+      tree expr_tree;
+      if (expr_override)
+	expr_tree = expr_override;
+      else
+	{
+	  expr->visit (this);
+	  expr_tree = current;
+	}
+
+      // Maybe promote the expression -- StringBuffer doesn't have
+      // every possible overload.
+      model_type *expr_type = expr->type ();
+      if (expr_type == primitive_byte_type
+	  || expr_type == primitive_short_type)
+	{
+	  expr_type = primitive_int_type;
+	  expr_tree = convert (type_jint, expr_tree);
+	}
+      else if (! expr_type->primitive_p ()
+	       && expr_type != global->get_compiler ()->java_lang_String ())
+	{
+	  expr_type = global->get_compiler ()->java_lang_Object ();
+	  expr_tree = convert (type_object_ptr, expr_tree);
+	}
+
+      tree args = build_tree_list (NULL_TREE, expr_tree);
+
+      model_method *append = find_method ("append", sb_class, expr_type,
+					  sb_class, expr);
+      tree ap_tree = gcc_builtins->map_method_call (class_wrapper,
+						    buffer_tree, args,
+						    append, false);
+      buffer_tree = save_expr (ap_tree);
+    }
+}
+
+void
+tree_generator::handle_string_plus (model_plus *model,
+				    const ref_expression &lhs,
+				    const ref_expression &rhs,
+				    tree &buffer_tree,
+				    model_class *sb_class)
+{
+  stringbuffer_append (lhs.get (), buffer_tree, sb_class);
+  stringbuffer_append (rhs.get (), buffer_tree, sb_class);
+}
+
+tree
+tree_generator::create_stringbuffer (model_class **sb_class_r,
+				     model_element *model)
+{
+  // Our StringBuffer is unsynchronized, but unlike StringBuilder does
+  // not allocate any garbage.
+  model_class *sb_class
+    = global->get_compiler ()->gnu_gcj_runtime_StringBuffer ();
+  gcc_builtins->lay_out_class (sb_class);
+
+  // Create the StringBuffer.
+  // FIXME: could optimize ""+foo if we wanted ...
+  // FIXME: could call a different constructor if the LHS is a String.
+  model_method *init = find_method ("<init>", sb_class, NULL,
+				    primitive_void_type, model);
+  tree init_tree = gcc_builtins->map_method (init);
+
+  tree buffer_tree = gcc_builtins->map_new (class_wrapper, sb_class,
+					    init_tree, NULL_TREE);
+  buffer_tree = save_expr (buffer_tree);
+
+  *sb_class_r = sb_class;
+  return buffer_tree;
+}
+
+tree
+tree_generator::finish_stringbuffer (model_class *sb_class,
+				     tree buffer_tree,
+				     model_element *model)
+{
+  // At this point we have a big expression to create a StringBuffer
+  // and append all the contents.  So now we just convert it into a
+  // String.
+  model_method *tostring
+    = find_method ("toString", sb_class, NULL,
+		   global->get_compiler ()->java_lang_String (),
+		   model);
+  tree result = gcc_builtins->map_method_call (class_wrapper, buffer_tree,
+					       NULL_TREE, tostring, false);
+  TREE_SIDE_EFFECTS (result) = 1;
+  return result;
+}
+
 void
 tree_generator::visit_arith_binary (model_plus *model,
 				    const ref_expression &lhs,
 				    const ref_expression &rhs)
 {
-  //  FIXME: String '+'.
-  binary_operator (model, PLUS_EXPR, lhs, rhs);
+  if (model->type ()->primitive_p ())
+    {
+      binary_operator (model, PLUS_EXPR, lhs, rhs);
+      return;
+    }
+
+  // String '+'.
+  model_class *sb_class;
+  tree buffer_tree = create_stringbuffer (&sb_class, model);
+  handle_string_plus (model, lhs, rhs, buffer_tree, sb_class);
+  current = finish_stringbuffer (sb_class, buffer_tree, model);
+  TREE_SIDE_EFFECTS (current) = 1;
+  annotate (current, model);
 }
 
 tree
@@ -1364,7 +1533,32 @@ tree_generator::visit_op_assignment (model_plus_equal *elt,
 				     const ref_expression &lhs,
 				     const ref_expression &rhs)
 {
-  handle_op_assignment (elt, PLUS_EXPR, lhs, rhs);
+  if (elt->type ()->primitive_p ())
+    {
+      handle_op_assignment (elt, PLUS_EXPR, lhs, rhs);
+      return;
+    }
+
+  // String '+='.
+  model_class *sb_class;
+  tree buffer_tree = create_stringbuffer (&sb_class, elt);
+
+  // Wrap the LHS in a SAVE_EXPR so we only evaluate it once.
+  lhs->visit (this);
+  tree lhs_tree = save_expr (current);
+
+  // Add the LHS and RHS to the StringBuffer.
+  stringbuffer_append (lhs.get (), buffer_tree, sb_class, lhs_tree);
+  stringbuffer_append (rhs.get (), buffer_tree, sb_class);
+
+  tree result = finish_stringbuffer (sb_class, buffer_tree, elt);
+
+  // Note that the LHS might not have String type.  So, we make sure
+  // to cast everything to the actual type.
+  current = build2 (MODIFY_EXPR, TREE_TYPE (lhs_tree), lhs_tree,
+		    convert (TREE_TYPE (lhs_tree), result));
+  TREE_SIDE_EFFECTS (current) = 1;
+  annotate (current, elt);
 }
 
 void

@@ -1,3 +1,19 @@
+2005-03-25  Tom Tromey  <tromey@redhat.com>
+
+	* builtins.cc (lay_out_class): Resolve class members.
+	* tree.hh (tree_generator::stringbuffer_append): Declare.
+	(tree_generator::handle_string_plus): Likewise.
+	(tree_generator::find_method): Likewise.
+	(tree_generator::create_stringbuffer): Likewise.
+	(tree_generator::finish_stringbuffer): Likewise.
+	* tree.cc (stringbuffer_append): New method.
+	(handle_string_plus): Likewise.
+	(visit_arith_binary): Handle String '+'.
+	(visit_op_assignment): Added assertion.
+	(find_method): New method.
+	(create_stringbuffer): Likewise.
+	(finish_stringbuffer): Likewise.
+
 2005-03-24  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (visit_switch): Annotate case label expression.

@@ -579,6 +579,9 @@ tree_builtins::lay_out_class (model_class *klass)
 
   tree klass_record = TREE_TYPE (klass_tree);
 
+  // The class itself must be resolved for layout to work.
+  klass->resolve_members ();
+
   // Lay out superclasses and interfaces.
   tree super_record = NULL_TREE;
   if (klass->get_superclass () != NULL)
