@@ -137,10 +137,10 @@ public class JApplet extends Applet implements RootPaneContainer
     {    return close_action;   }
 
     
-    JMenuBar getJMenuBar()
+    public JMenuBar getJMenuBar()
     {    return getRootPane().getJMenuBar();   }
     
-    void setJMenuBar(JMenuBar menubar)
+    public void setJMenuBar(JMenuBar menubar)
     {    getRootPane().setJMenuBar(menubar); }
     
     

@@ -1,3 +1,15 @@
+2004-06-10  Olga Rodimina <rodimina@redhat.com>
+
+	* javax/swing/JApplet.java:
+	(getJMenuBar): Made public.
+	(setJMenuBar): Likewise.
+	* javax/swing/JFrame.java:
+	(getJMenuBar): Made public.
+	(setJMenuBar): Likewise.
+	* javax/swing/JWindow.java:
+	(getJMenuBar): Removed.
+	(setJMenuBar): Removed.
+
 2004-06-10  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JEditorPane.java

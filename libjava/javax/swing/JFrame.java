@@ -113,10 +113,10 @@ public class JFrame extends Frame implements WindowConstants, RootPaneContainer
     return d;
   }
 
-    JMenuBar getJMenuBar()
+  public JMenuBar getJMenuBar()
     {    return getRootPane().getJMenuBar();   }
     
-    void setJMenuBar(JMenuBar menubar)
+  public void setJMenuBar(JMenuBar menubar)
     {    getRootPane().setJMenuBar(menubar); }
     
 

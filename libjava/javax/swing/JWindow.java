@@ -116,13 +116,6 @@ public class JWindow extends Window implements Accessible, RootPaneContainer
     return d;
   }
 
-    JMenuBar getJMenuBar()
-    {    return getRootPane().getJMenuBar();   }
-    
-    void setJMenuBar(JMenuBar menubar)
-    {    getRootPane().setJMenuBar(menubar); }
-    
-
   public  void setLayout(LayoutManager manager)
   {    super.setLayout(manager);  }
 
