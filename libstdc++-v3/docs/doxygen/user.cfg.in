@@ -113,7 +113,7 @@ INPUT                  = @srcdir@/docs/doxygen/doxygroups.cc \
                          include/ext/slist \
                          include/tr1/array \
                          include/tr1/tuple \
-			 include/i686-pc-linux-gnu/bits
+			 include/@host_alias@/bits
 FILE_PATTERNS          = *.h \
                          *.tcc
 RECURSIVE              = NO

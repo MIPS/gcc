@@ -1,3 +1,67 @@
+2004-11-16  Matthias Klose  <doko@debian.org>
+
+	* docs/doxygen/user.cfg.in: Set HAVE_DOT to NO.
+
+2004-11-16  Matthias Klose  <doko@debian.org>
+
+	* Makefile.am (doxygen, doxygen-maint, doxygen-man): Use host_alias
+	instead of build_alias.
+	* docs/doxygen/run_doxygen: Likewise.
+	* docs/doxygen/user.cfg.in: Likewise.
+	* Makefile.in: Regenerate.
+
+2004-11-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/streambuf.tcc (__copy_streambufs): Provide
+	a generic version of the function, not using the protected
+	members of basic_streambuf.
+	* include/std/std_streambuf.h (__copy_streambufs): Declare
+	optimized specializations for char and wchar_t.
+	* src/streambuf.cc: New file, define the latter.
+	* src/Makefile.am: Add.
+	* src/Makefile.in: Regenerate.
+
+2004-11-15  Matthias Klose  <doko@debian.org>
+
+	* docs/doxygen/run_doxygen: Add --build_alias option,
+	substitute it in docs/doxygen/user.cfg.in.
+	* docs/doxygen/user.cfg.in: Use build_alias.
+	* Makefile.am: Pass --build_alias to run_doxygen
+	* Makefile.in: Regenerate.
+
+2004-11-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.4.
+
+2004-11-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 33.
+
+2004-11-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/streambuf_iterator.h (istreambuf_iterator::_M_get):
+	Slightly tweak for clarity (also leads to measurably better code).
+
+2004-11-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR other/14264
+	* testsuite/lib/libstdc++.exp: Set LC_ALL and LANG to C.
+
+2004-11-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::do_get_weekday,
+	time_get<>::do_get_monthname): Absolutely avoid dereferencing
+	end iterators.
+
+	* include/bits/locale_facets.tcc (time_get<>::_M_extract_name):
+	Minor tweak.	
+
+2004-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+	    Doug Gregor  <dgregor@cs.indiana.edu>
+
+	PR libstdc++/17664
+	* src/debug.cc : Just use one mutex.
+
 2004-11-08  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* configure.ac (libtool_VERSION): To 6:4:0.
@@ -118,7 +182,7 @@
 2004-11-02  Benjamin Kosnik  <bkoz@redhat.com>
   	    Lothar Werzinger  <lothar@xcerla.com>
 	
-	PR libstdc++/17627
+	PR libstdc++/17664
 	* src/debug.cc: Include concurrence, use mutexes.
 	(_Safe_iterator_base::_M_attach): Here.	
 	(_Safe_iterator_base::_M_detach): Here.	
