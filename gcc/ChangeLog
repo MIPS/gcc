@@ -1,3 +1,9 @@
+2002-10-10  Roger Sayle  <roger@eyesopen.com>
+	    Nathan Sidwell <nathan@codesourcery.com>
+
+	* fold-const.c (fold) [RSHIFT_EXPR]: Optimize arithmetic right
+	shifts of the form -1 >> x.
+
 Thu Oct 10 16:52:55 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* cfgcleanup.c (insn_match_p): Verify sibcall flag for calls to.

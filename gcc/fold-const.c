@@ -5775,11 +5775,16 @@ fold (expr)
     case RROTATE_EXPR:
       if (integer_all_onesp (arg0))
 	return omit_one_operand (type, arg0, arg1);
+      goto shift;
 
+    case RSHIFT_EXPR:
+      /* Optimize -1 >> x for arithmetic right shifts.  */
+      if (integer_all_onesp (arg0) && ! TREE_UNSIGNED (type))
+	return omit_one_operand (type, arg0, arg1);
       /* ... fall through ...  */
 
     case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
+    shift:
       if (integer_zerop (arg1))
 	return non_lvalue (convert (type, arg0));
       if (integer_zerop (arg0))
