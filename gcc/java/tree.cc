@@ -851,6 +851,7 @@ tree_generator::visit_try (model_try *trystmt,
     }
 
   current = result;
+  annotate (current, trystmt);
 }
 
 void
