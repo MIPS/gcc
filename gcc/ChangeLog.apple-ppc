@@ -1,3 +1,10 @@
+2004-06-24  Andrew Pinski  <apinski@apple.com>
+
+	Radar #: 3699721
+	* config/darwin.c (machopic_indirect_data_reference): Copy
+	the SYMBOL_REF_DECL from the original RTX for the new
+	non-lazy pointer RTX.
+
 2004-06-24  Ayal Zaks <zaks@il.ibm.com>
 
 	* target-def.h (TARGET_VECT_BUILD_BUILTIN_LVSR): New macro.
