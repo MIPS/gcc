@@ -1,3 +1,76 @@
+2002-09-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* target.h (gcc_target): Add members
+	`first_cycle_multipass_dfa_lookahead_guard' and `dfa_new_cycle'.
+
+	* target-def.h (TARGET_SCHED_DFA_NEW_CYCLE,
+	TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD): New
+	macros.
+	(TARGET_SCHED): Add initiatialization of the new members.
+
+	* haifa-sched.c (schedule_insn): Update last_clock_var for the 1st
+	insn scheduling too.
+	(choose_ready): Use `first_cycle_multipass_dfa_lookahead_guard' to
+	initialize `ready_try'.
+	(schedule_block): Use `dfa_new_cycle'.  Sort `ready' only unless
+	`dfa_new_cycle' says not to do it.
+	
+	* config/ia64/ia64.md: Add DFA Itanium 1 description for insn
+	bundling.
+
+	* config/ia64/ia64.h (CPU_UNITS_QUERY): New macro.
+
+	* config/ia64/ia64.c: Include `hashtab.h'.
+	(ia64_first_cycle_multipass_dfa_lookahead_guard,
+	ia64_dfa_new_cycle, final_emit_insn_group_barriers,
+	ia64_dfa_sched_reorder, get_free_bundle_state, free_bundle_state,
+	initiate_bundle_states, finish_bundle_states, bundle_state_hash,
+	bundle_state_eq_p, insert_bundle_state,
+	initiate_bundle_state_table, finish_bundle_state_table,
+	try_issue_nops, try_issue_insn, issue_nops_and_insn, get_max_pos,
+	get_template, get_next_important_insn, bundling): New functions.
+	(ia64_internal_sched_reorder): Remove it.
+	(TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD,
+	TARGET_SCHED_DFA_NEW_CYCLE): New macros.
+	(ia64_safe_itanium_requires_unit0): Remove it.
+	(group_barrier_needed_p): Place group barrier right before a real
+	insn.
+	(bundle, ia64_packet, NR_PACKETS, type_names, packets, packets):
+	Remove them.
+	(bundle_name): New variable.
+	(_0mii_, _0mmi_, _0mfi_, _0mmf_, _0bbb_, _0mbb_, _0mib_, _0mmb_,
+	_0mfb_, _0mlx_, _1mii_, _1mmi_, _1mfi_, _1mmf_, _1bbb_, _1mbb_,
+	_1mib_, _1mmb_, _1mfb_, _1mlx_, pos_1, pos_2, pos_3, pos_4, pos_5,
+	pos_6, dfa_stop_insn, last_scheduled_insn, dfa_state_size,
+	temp_dfa_state, prev_cycle_state): New global variables.
+	(insn_matches_slot, maybe_rotate, finish_last_head,
+	rotate_one_bundle, rotate_one_bundles, nop_cycles_until,
+	cycle_end_fill_slots, packet_matches_p, get_split, find_best_insn,
+	find_best_packet, itanium_reorder, dump_current_packet,
+	schedule_stop, gen_nop_type, ia64_emit_nops): Remove them.
+	(sched_data, sched_ready, sched_types): Remove them.
+	(ia64_sched_init): Initiate only `last_scheduled_insn' and call
+	`init_insn_group_barriers'.
+	(ia64_sched_reorder, ia64_sched_reorder2): Call
+	ia64_dfa_sched_reorder.
+	(ia64_variable_issue): Rewrite it.
+	(bundle_state): New structure.
+	(index_to_bundle_states, bundle_states_num,
+	allocated_bundle_states_chain, free_bundle_state_chain): New
+	global variables.
+	(ia64_sched_finish): Add stop bits and call `bundling' after the
+	2nd insn scheduling.
+	(ia64_use_dfa_pipeline_interface): Return zero always.
+	(ia64_first_cycle_multipass_dfa_lookahead): Return 6 for the 2nd
+	insn scheduling.
+	(ia64_init_dfa_pre_cycle_insn): Initialize `dfa_state_size',
+	`temp_dfa_state', `prev_cycle_state', and `dfa_stop_insn'.
+	(ia64_reorg): Add bundling insns.
+
+	* doc/tm.texi
+	(TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD,
+	TARGET_SCHED_DFA_NEW_CYCLE): Describe the new hooks.
+	
 2002-09-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/ia64/ia64.md: Add Itanium1 DFA description.

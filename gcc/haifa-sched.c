@@ -1193,11 +1193,12 @@ schedule_insn (insn, ready, clock)
      to issue on the same cycle as the previous insn.  A machine
      may use this information to decide how the instruction should
      be aligned.  */
-  if (reload_completed && issue_rate > 1
+  if (issue_rate > 1
       && GET_CODE (PATTERN (insn)) != USE
       && GET_CODE (PATTERN (insn)) != CLOBBER)
     {
-      PUT_MODE (insn, clock > last_clock_var ? TImode : VOIDmode);
+      if (reload_completed)
+	PUT_MODE (insn, clock > last_clock_var ? TImode : VOIDmode);
       last_clock_var = clock;
     }
 }
@@ -1871,8 +1872,17 @@ choose_ready (ready)
   else
     {
       /* Try to choose the better insn.  */
-      int index;
+      int index, i;
+      rtx insn;
 
+      if (targetm.sched.first_cycle_multipass_dfa_lookahead_guard)
+	for (i = 1; i < ready->n_ready; i++)
+	  {
+	    insn = ready_element (ready, i);
+	    ready_try [i]
+	      = !((*targetm.sched.first_cycle_multipass_dfa_lookahead_guard)
+		  (insn));
+	  }
       if (max_issue (ready, curr_state, &index) == 0)
 	return ready_remove_first (ready);
       else
@@ -1904,6 +1914,7 @@ schedule_block (b, rgn_n_insns)
   int first_cycle_insn_p;
   int can_issue_more;
   state_t temp_state = NULL;  /* It is used for multipass scheduling.  */
+  int sort_p;
 
   /* Head/tail info for this block.  */
   rtx prev_head = current_sched_info->prev_head;
@@ -1983,6 +1994,7 @@ schedule_block (b, rgn_n_insns)
   /* Start just before the beginning of time.  */
   clock_var = -1;
 
+  sort_p = TRUE;
   /* Loop until all the insns in BB are scheduled.  */
   while ((*current_sched_info->schedule_more_p) ())
     {
@@ -2005,8 +2017,17 @@ schedule_block (b, rgn_n_insns)
 	  debug_ready_list (&ready);
 	}
 
-      /* Sort the ready list based on priority.  */
-      ready_sort (&ready);
+      if (sort_p)
+	{
+	  /* Sort the ready list based on priority.  */
+	  ready_sort (&ready);
+	  
+	  if (sched_verbose >= 2)
+	    {
+	      fprintf (sched_dump, ";;\t\tReady list after ready_sort:  ");
+	      debug_ready_list (&ready);
+	    }
+	}
 
       /* Allow the target to reorder the list, typically for
 	 better instruction bundling.  */
@@ -2048,8 +2069,21 @@ schedule_block (b, rgn_n_insns)
 		break;
 	      
 	      /* Select and remove the insn from the ready list.  */
-	      insn = choose_ready (&ready);
+	      if (sort_p)
+		insn = choose_ready (&ready);
+	      else
+		insn = ready_remove_first (&ready);
 	      
+	      if (targetm.sched.dfa_new_cycle
+		  && (*targetm.sched.dfa_new_cycle) (sched_dump, sched_verbose,
+						     insn, last_clock_var,
+						     clock_var, &sort_p))
+		{
+		  ready_add (&ready, insn);
+		  break;
+		}
+	    
+	      sort_p = TRUE;
 	      memcpy (temp_state, curr_state, dfa_state_size);
 	      if (recog_memoized (insn) < 0)
 		{
@@ -2176,7 +2210,7 @@ schedule_block (b, rgn_n_insns)
 	      if (ready.n_ready > 0)
 		ready_sort (&ready);
 	      can_issue_more =
-		(*targetm.sched.reorder2) (sched_dump,sched_verbose,
+		(*targetm.sched.reorder2) (sched_dump, sched_verbose,
 					   ready.n_ready
 					   ? ready_lastpos (&ready) : NULL,
 					   &ready.n_ready, clock_var);

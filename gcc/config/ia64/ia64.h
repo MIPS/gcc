@@ -2522,4 +2522,9 @@ enum fetchop_code {
 #undef  PROFILE_BEFORE_PROLOGUE
 #define PROFILE_BEFORE_PROLOGUE 1
 
+
+
+/* Switch on code for querying unit reservations.  */
+#define CPU_UNITS_QUERY 1
+
 /* End of ia64.h */
