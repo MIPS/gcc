@@ -53,6 +53,20 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
    @file tree-alias-common.c
    This file contains the implementation of the common parts of the
    tree points-to analysis infrastructure.
+
+   Overview:
+
+   This file contains the points-to analysis driver.  It does two main things:
+   1. Keeps track of the PTA data for each variable (IE the data each
+      specific PTA implementation wants to keep associated with a
+      variable).
+   2. Walks the function trees, calling the approriate functions that
+      each PTA implementation has implemented.
+
+   In order to speed up PTA queries, the PTA specific data is stored
+   in the tree for *_DECL's, in DECL_PTA_TYPEVAR.  This way, we only
+   need to use the hash table for non-DECL's.
+   
 */
 #define FIELD_BASED 0
 
@@ -91,6 +105,7 @@ static void get_values_from_constructor (tree, varray_type *);
 static bool call_may_clobber (tree);
 bool we_created_global_var = false;
 
+/* Return true if a EXPR, which is a CALL_EXPR, may clobber variables.  */
 static bool
 call_may_clobber (tree expr)
 {
@@ -348,8 +363,7 @@ intra_function_call (varray_type args)
     }
 }
 
-/** @brief Put all pointers in a constructor in an array.
- */
+/** @brief Put all pointers in a constructor in an array.  */
 static void
 get_values_from_constructor (tree constructor, varray_type *vals)
 {

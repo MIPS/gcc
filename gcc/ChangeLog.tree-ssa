@@ -1,3 +1,9 @@
+2003-09-04  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-common.c:  Add overview.
+	* tree-alias-ander.c: Add overview and more specific comments on what
+	each function does.
+	
 2003-09-04  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-optimize.c (tree_rest_of_compilation): Return if errorcount
