@@ -797,14 +797,8 @@ extern const char * structure_size_string;
 #define SUBTARGET_CONDITIONAL_REGISTER_USAGE
 #endif
 
-/* If doing stupid life analysis, avoid a bug causing a return value r0 to be
-   trampled.  This effectively reduces the number of available registers by 1.
-   XXX It is a hack, I know.
-   XXX Is this still needed?  */
 #define CONDITIONAL_REGISTER_USAGE				\
 {								\
-  if (obey_regdecls)						\
-    fixed_regs[0] = 1;						\
   if (TARGET_SOFT_FLOAT || TARGET_THUMB)			\
     {								\
       int regno;						\
@@ -1783,9 +1777,11 @@ typedef struct
 
    On the ARM, allow any integer (invalid ones are removed later by insn
    patterns), nice doubles and symbol_refs which refer to the function's
-   constant pool XXX.  */
-#define ARM_LEGITIMATE_CONSTANT_P(X)	(! label_mentioned_p (X))
-
+   constant pool XXX.
+   
+   When generating pic allow anything.  */
+#define ARM_LEGITIMATE_CONSTANT_P(X)	(flag_pic || ! label_mentioned_p (X))
+     
 #define THUMB_LEGITIMATE_CONSTANT_P(X)	\
  (   GET_CODE (X) == CONST_INT		\
   || GET_CODE (X) == CONST_DOUBLE	\
@@ -2351,10 +2347,12 @@ extern const char * arm_pic_register_string;
 
 /* We can't directly access anything that contains a symbol,
    nor can we indirect via the constant pool.  */
-#define LEGITIMATE_PIC_OPERAND_P(X)				\
-	(! symbol_mentioned_p (X)				\
-	 && (! CONSTANT_POOL_ADDRESS_P (X)			\
-	     || ! symbol_mentioned_p (get_pool_constant (X))))
+#define LEGITIMATE_PIC_OPERAND_P(X)					\
+	(   ! symbol_mentioned_p (X)					\
+	 && ! label_mentioned_p (X)					\
+	 && (! CONSTANT_POOL_ADDRESS_P (X)				\
+	     || (   ! symbol_mentioned_p (get_pool_constant (X)))  	\
+	         && ! label_mentioned_p (get_pool_constant (X))))
      
 /* We need to know when we are making a constant pool; this determines
    whether data needs to be in the GOT or can be referenced via a GOT

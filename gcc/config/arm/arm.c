@@ -54,43 +54,43 @@ typedef struct minipool_fixup * minifix;
 #define Ulong unsigned long
 
 /* Forward function declarations.  */
-static void      arm_add_gc_roots 		PROTO ((void));
-static void      arm_add_minipool_constant	PROTO ((rtx, Mmode));
-static void      arm_compute_minipool_offsets	PROTO ((void));
-static Ulong     arm_dump_minipool		PROTO ((rtx));
-static rtx       arm_find_barrier		PROTO ((rtx, Ulong, Ulong, Ulong, Ulong *, Ulong *));
-static Hint      arm_find_minipool_constant	PROTO ((rtx, Mmode));
-static int       arm_gen_constant		PROTO ((enum rtx_code, Mmode, Hint, rtx, rtx, int, int));
-static int       arm_naked_function_p		PROTO ((tree));
-static Ulong     bit_count 			PROTO ((signed int));
-static int       const_ok_for_op 		PROTO ((Hint, enum rtx_code));
-static int       eliminate_lr2ip		PROTO ((rtx *));
-static void      emit_multi_reg_push		PROTO ((int));
-static void      emit_sfm			PROTO ((int, int));
-static int       fixup_compare			PROTO ((const void *, const void *));
-static char *    fp_const_from_val		PROTO ((REAL_VALUE_TYPE *));
-static int       function_really_clobbers_lr	PROTO ((rtx));
-static arm_cc    get_arm_condition_code		PROTO ((rtx));
-static Ulong     get_jump_table_size		PROTO ((rtx));
-static void      init_fpa_table			PROTO ((void));
-static Hint      int_log2			PROTO ((Hint));
-static rtx       is_jump_table 			PROTO ((rtx));
-static void      note_invalid_constants		PROTO ((rtx, Ulong));
-static char *    output_multi_immediate		PROTO ((rtx *, char *, char *, int, Hint));
-static int       pattern_really_clobbers_lr	PROTO ((rtx));
-static void      print_multi_reg		PROTO ((FILE *, char *, int, int, int));
-static void      push_minipool_fix		PROTO ((rtx, Ulong, rtx *, Mmode, rtx));
-static Mmode     select_dominance_cc_mode	PROTO ((rtx, rtx, Hint));
-static char *    shift_op			PROTO ((rtx, Hint *));
-static minifix * sort_fixups			PROTO ((void));
+static void      arm_add_gc_roots 		PARAMS ((void));
+static void      arm_add_minipool_constant	PARAMS ((rtx, Mmode));
+static void      arm_compute_minipool_offsets	PARAMS ((void));
+static Ulong     arm_dump_minipool		PARAMS ((rtx));
+static rtx       arm_find_barrier		PARAMS ((rtx, Ulong, Ulong, Ulong, Ulong *, Ulong *));
+static Hint      arm_find_minipool_constant	PARAMS ((rtx, Mmode));
+static int       arm_gen_constant		PARAMS ((enum rtx_code, Mmode, Hint, rtx, rtx, int, int));
+static int       arm_naked_function_p		PARAMS ((tree));
+static Ulong     bit_count 			PARAMS ((signed int));
+static int       const_ok_for_op 		PARAMS ((Hint, enum rtx_code));
+static int       eliminate_lr2ip		PARAMS ((rtx *));
+static void      emit_multi_reg_push		PARAMS ((int));
+static void      emit_sfm			PARAMS ((int, int));
+static int       fixup_compare			PARAMS ((const void *, const void *));
+static char *    fp_const_from_val		PARAMS ((REAL_VALUE_TYPE *));
+static int       function_really_clobbers_lr	PARAMS ((rtx));
+static arm_cc    get_arm_condition_code		PARAMS ((rtx));
+static Ulong     get_jump_table_size		PARAMS ((rtx));
+static void      init_fpa_table			PARAMS ((void));
+static Hint      int_log2			PARAMS ((Hint));
+static rtx       is_jump_table 			PARAMS ((rtx));
+static void      note_invalid_constants		PARAMS ((rtx, Ulong));
+static char *    output_multi_immediate		PARAMS ((rtx *, char *, char *, int, Hint));
+static int       pattern_really_clobbers_lr	PARAMS ((rtx));
+static void      print_multi_reg		PARAMS ((FILE *, char *, int, int, int));
+static void      push_minipool_fix		PARAMS ((rtx, Ulong, rtx *, Mmode, rtx));
+static Mmode     select_dominance_cc_mode	PARAMS ((rtx, rtx, Hint));
+static char *    shift_op			PARAMS ((rtx, Hint *));
+static minifix * sort_fixups			PARAMS ((void));
 
-static void   arm_init_machine_status	PROTO ((struct function *));
-static void   arm_mark_machine_status   PROTO ((struct function *));
-static int    number_of_first_bit_set   PROTO ((int));
-static void   replace_symbols_in_block  PROTO ((tree, rtx, rtx));
-static void   thumb_exit                PROTO ((FILE *, int));
-static void   thumb_pushpop             PROTO ((FILE *, int, int));
-static char * thumb_condition_code      PROTO ((rtx, int));
+static void   arm_init_machine_status	PARAMS ((struct function *));
+static void   arm_mark_machine_status   PARAMS ((struct function *));
+static int    number_of_first_bit_set   PARAMS ((int));
+static void   replace_symbols_in_block  PARAMS ((tree, rtx, rtx));
+static void   thumb_exit                PARAMS ((FILE *, int));
+static void   thumb_pushpop             PARAMS ((FILE *, int, int));
+static char * thumb_condition_code      PARAMS ((rtx, int));
 
 #undef Hint
 #undef Mmode
@@ -1594,8 +1594,8 @@ arm_function_arg (pcum, mode, type, named)
 
 int
 arm_process_pragma (p_getc, p_ungetc, pname)
-     int (*  p_getc)   PROTO ((void)) ATTRIBUTE_UNUSED;
-     void (* p_ungetc) PROTO ((int))  ATTRIBUTE_UNUSED;
+     int (*  p_getc)   PARAMS ((void)) ATTRIBUTE_UNUSED;
+     void (* p_ungetc) PARAMS ((int))  ATTRIBUTE_UNUSED;
      char *  pname;
 {
   /* Should be pragma 'far' or equivalent for callx/balx here.  */
@@ -1769,7 +1769,20 @@ legitimize_pic_address (orig, mode, reg)
       return gen_rtx_PLUS (Pmode, base, offset);
     }
   else if (GET_CODE (orig) == LABEL_REF)
-    current_function_uses_pic_offset_table = 1;
+    {
+      current_function_uses_pic_offset_table = 1;
+      
+      if (NEED_GOT_RELOC)
+	{
+	  rtx pic_ref, address = gen_reg_rtx (Pmode);
+	  
+	  emit_insn (gen_pic_load_addr (address, orig));
+	  pic_ref = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, address);
+	  
+	  emit_move_insn (address, pic_ref);
+	  return address;
+	}
+    }
 
   return orig;
 }
