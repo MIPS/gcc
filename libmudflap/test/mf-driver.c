@@ -24,12 +24,12 @@ abort_handler ()
 {
   if (should_fail)
     {
-      printf ("PASS \t %s aborted as expected\n", __FILE__);
+      /* printf ("PASS \t %s aborted as expected\n", __FILE__); */
       exit (0);
     }
   else
     {
-      printf ("FAIL \t %s aborted unexpectedly (should have completed)\n", __FILE__);
+      /* printf ("FAIL \t %s aborted unexpectedly (should have completed)\n", __FILE__); */
       exit (1);
     }
 }
@@ -53,12 +53,12 @@ main ()
 
   if (should_fail)
     {
-      printf ("FAIL \t %s completed unexpectedly (should have aborted)\n", __FILE__);
+      /* printf ("FAIL \t %s completed unexpectedly (should have aborted)\n", __FILE__); */
       exit (1);
     }
   else
     {
-      printf ("PASS \t %s completed as expected\n", __FILE__);
+      /* printf ("PASS \t %s completed as expected\n", __FILE__); */
       exit (0);
     }
 }

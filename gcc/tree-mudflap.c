@@ -580,11 +580,11 @@ mf_offset_expr_of_array_ref (t, offset, base)
     {
       /* It's a sub-array-ref; recurse. */
 
-      tree factor = build (PLUS_EXPR, 
-			   integer_type_node, 
-			   integer_one_node, 
-			   TYPE_MAX_VALUE 
-			   (TYPE_DOMAIN (TREE_TYPE (t))));
+      tree factor = fold (build (PLUS_EXPR, 
+				 integer_type_node, 
+				 integer_one_node, 
+				 TYPE_MAX_VALUE 
+				 (TYPE_DOMAIN (TREE_TYPE (t)))));
       tree child = TREE_OPERAND (t, 0);
       tree next_offset = TREE_OPERAND (t, 1);
 
@@ -595,9 +595,11 @@ mf_offset_expr_of_array_ref (t, offset, base)
       mx_flag (t);
       
       return 
-	build (PLUS_EXPR, integer_type_node, offset, 
-	       build (MULT_EXPR, integer_type_node, factor, 
-		      mf_offset_expr_of_array_ref (child, next_offset, base)));
+	fold (build (PLUS_EXPR, integer_type_node, offset, 
+		     fold (build (MULT_EXPR, integer_type_node, factor, 
+				  mf_offset_expr_of_array_ref (child, 
+							       next_offset,
+							       base)))));
     } 
   else if ( TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE )
     {
@@ -695,16 +697,16 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, filename, lineno)
   /* Quick validity check.  */
   t1_4_1 = build (BIT_IOR_EXPR, integer_type_node,
 		  build (GT_EXPR, integer_type_node,
-			 build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->low */
-				mx_flag (build1 (INDIRECT_REF, 
-						 mf_cache_struct_type, t1_3_1)),
-				TYPE_FIELDS (mf_cache_struct_type)),
+			 mx_flag (build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->low */
+					 mx_flag (build1 (INDIRECT_REF, 
+							  mf_cache_struct_type, t1_3_1)),
+					 TYPE_FIELDS (mf_cache_struct_type))),
 			 t1_2a_1), /* __mf_base */
 		  build (LT_EXPR, integer_type_node,
-			 build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->high */
-				mx_flag (build1 (INDIRECT_REF, 
-						 mf_cache_struct_type, t1_3_1)),
-				TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type))),
+			 mx_flag (build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->high */
+					 mx_flag (build1 (INDIRECT_REF, 
+							  mf_cache_struct_type, t1_3_1)),
+					 TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type)))),
 			 build (PLUS_EXPR, mf_uintptr_type, /* __mf_elem + sizeof(T) - 1 */
 				t1_2a_1,
 				fold (build (MINUS_EXPR, mf_uintptr_type,
@@ -774,6 +776,12 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, filename, lineno)
    (2) (ARRAY_REF ({ARRAY_REF ... (tree, indexM)}, indexN))  //  tree[N][M][O]...
        ==> (as if)
        (INDIRECT_REF (tree + (.... + sizeM*sizeO*indexO + sizeM*indexM + indexN))
+       ... except the base value for the check is &tree[0], not &tree[N][M][O]
+
+   (3) (COMPONENT_REF (INDIRECT_REF (tree), field))
+       ==> (as if)
+       (COMPONENT_REF (INDIRECT_REF (tree), field))
+       ... except the size value for the check is offsetof(field)+sizeof(field)-1
 */
 
 
@@ -788,9 +796,11 @@ mx_xfn_indirect_ref (t, continue_p, data)
   htab_t verboten = (htab_t) data;
 
 #if 0
-  fprintf (stderr, "expr=%s\n", tree_code_name [TREE_CODE (*t)]);
+  fprintf (stderr, "expr=%s: ", tree_code_name [TREE_CODE (*t)]);
+  print_c_tree (stderr, *t);
+  fprintf (stderr, "\n");
 #endif
-  
+
   *continue_p = 1;
 
   /* Track file-name/line-numbers.  */
@@ -838,6 +848,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	offset_expr = mf_offset_expr_of_array_ref (TREE_OPERAND (*t,0), 
 						   TREE_OPERAND (*t,1), 
 						   &base_array);
+	/* walk_tree (& offset_expr, mf_mostly_copy_tree_r, NULL, NULL); */
 	
 	/* We now have a tree representing the array in base_array, 
 	   and a tree representing the complete desired offset in
@@ -846,12 +857,13 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	base_obj_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND(*t,0)));
 	base_ptr_type = build_pointer_type (base_obj_type);
 
+	/* NB: Previously, this was (& base_array[0]) */
+	/* XXX: subset of default_conversion() for arrays */
 	check_ptr = mx_flag (build1 (ADDR_EXPR, 
-				    base_ptr_type, 
-				    mx_flag (build (ARRAY_REF, 
-						    base_obj_type, 
-						    base_array, integer_zero_node))));
-	walk_tree (& check_ptr, mf_mostly_copy_tree_r, NULL, NULL);
+				     base_ptr_type, 
+				     base_array));
+	/* walk_tree (& check_ptr, mf_mostly_copy_tree_r, NULL, NULL); */
+	TREE_ADDRESSABLE (base_array) = 1;
 
 	value_ptr = mx_flag (build1 (ADDR_EXPR,
 				     base_ptr_type,
@@ -859,13 +871,12 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	walk_tree (& value_ptr, mf_mostly_copy_tree_r, NULL, NULL);
 	TREE_ADDRESSABLE (*t) = 1;
 
-	check_size = build (MULT_EXPR, 
-			    integer_type_node,
-			    TYPE_SIZE_UNIT (base_obj_type),
-			    build (PLUS_EXPR, c_size_type_node,
-				   integer_one_node,
-				   offset_expr));
-	walk_tree (& check_size, mf_mostly_copy_tree_r, NULL, NULL);
+	check_size = fold (build (MULT_EXPR, 
+				  integer_type_node,
+				  TYPE_SIZE_UNIT (base_obj_type),
+				  fold (build (PLUS_EXPR, c_size_type_node,
+					       integer_one_node,
+					       offset_expr))));
 
 	/* In case we're instrumenting an expression like a[b[c]], the
 	   following call is meant to eliminate the
@@ -896,6 +907,28 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	   Note that we do not prevent recusion in walk_tree toward
 	   subtrees of this node, in case of nested pointer expressions.  */
       mx_flag (*t);
+      break;
+
+    case COMPONENT_REF:
+      if (TREE_CODE (TREE_OPERAND (*t, 0)) == INDIRECT_REF)
+	{
+	  tree *pointer = & TREE_OPERAND (TREE_OPERAND (*t, 0), 0);
+
+	  tree field_offset = byte_position (TREE_OPERAND (*t, 1));
+	  tree field_size = size_in_bytes (TREE_TYPE (TREE_OPERAND (*t, 1)));
+	  tree check_size = fold (build (PLUS_EXPR, c_size_type_node,
+					 field_offset, field_size));
+
+	  *pointer = 
+	    mf_build_check_statement_for (*pointer,
+					  *pointer,
+					  check_size,
+					  last_filename, last_lineno);
+	  
+	  /* Don't instrument the nested INDIRECT_REF. */ 
+	  mx_flag (TREE_OPERAND (*t, 0));
+	  mx_flag (*t);
+	}
       break;
     }
 

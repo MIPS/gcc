@@ -1,3 +1,10 @@
+2002-09-09  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile.am: Create test sources with #include, not cat>>.
+	* Makefile.in: Regenerated.
+	* test/buildtest.sh: Removed.
+	* test/driver.c (abort_handler, main): Be quiet.
+
 2002-09-06  Frank Ch. Eigler  <fche@redhat.com>
 
 	* test/pass18-frag.c, pass19-frag.c: New tests.

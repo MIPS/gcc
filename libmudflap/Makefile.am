@@ -18,12 +18,13 @@ TESTS = test/fail1.x test/fail10.x test/fail11.x test/fail12.x				\
  test/pass6.x test/pass7.x test/pass8.x test/pass9.x
 
 
-test/%.c: test/%-frag.c test/mf-driver.c test/buildtest.sh
+test/%.c: test/%-frag.c test/mf-driver.c
 	@mkdir -p test
-	@cat $(srcdir)/test/mf-driver.c > $@
+	@echo '#include "'$(srcdir)/test/mf-driver.c'"' > $@
 	@echo 'void test() {' >> $@
-	@cat $< >> $@
+	@echo '#include "'$<'"' >> $@
 	@echo '}' >> $@
+	@echo created $@
 
 clean-local:
 	rm -f $(TESTS)

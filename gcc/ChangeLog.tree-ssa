@@ -1,3 +1,11 @@
+2002-09-09  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mf_offset_expr_of_array_ref): Fold constants along
+	the way.
+	(mf_build_check_statement_for): Ditto.  Flag new COMPONENT_REFs.
+	(mx_xfn_indirect_ref): Instrument COMPONENT_REFs specially.  Tweak
+	ARRAY_REF instrumentation to reduce need of copying and recursion.
+
 2002-09-09  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa.c (analyze_rdefs): Disable uninitialized variable warnings.
