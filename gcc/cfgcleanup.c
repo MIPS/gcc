@@ -1390,6 +1390,8 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   rtx newpos1, newpos2;
   edge s;
 
+  newpos1 = newpos2 = NULL_RTX;
+
   /* Search backward through forwarder blocks.  We don't need to worry
      about multiple entry or chained forwarders, as they will be optimized
      away.  We do this to look past the unconditional jump following a
