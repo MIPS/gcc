@@ -90,8 +90,6 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL c_dup_lang_specific_decl
-#undef LANG_HOOKS_DECL_UNINIT
-#define LANG_HOOKS_DECL_UNINIT c_decl_uninit
 
 #undef LANG_HOOKS_RTL_EXPAND_STMT
 #define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt_toplev

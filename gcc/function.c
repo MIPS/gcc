@@ -5678,14 +5678,8 @@ uninitialized_vars_warning (tree block)
 	  && ! AGGREGATE_TYPE_P (TREE_TYPE (decl))
 	  && DECL_RTL_SET_P (decl)
 	  && GET_CODE (DECL_RTL (decl)) == REG
-	  /* Global optimizations can make it difficult to determine if a
-	     particular variable has been initialized.  However, a VAR_DECL
-	     with a nonzero DECL_INITIAL had an initializer, so do not
-	     claim it is potentially uninitialized.
-
-	     When the DECL_INITIAL is NULL call the language hook to tell us
-	     if we want to warn.  */
-	  && (DECL_INITIAL (decl) == NULL_TREE || lang_hooks.decl_uninit (decl))
+	  /* Do not warn for decls which do not want the warning.   */
+	  && !TREE_NO_WARNING (decl)
 	  && regno_uninitialized (REGNO (DECL_RTL (decl))))
 	warning ("%J'%D' might be used uninitialized in this function",
 		 decl, decl);

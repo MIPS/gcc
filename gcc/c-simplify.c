@@ -891,6 +891,12 @@ gimplify_decl_stmt (tree *stmt_p)
 	{
 	  if (!TREE_STATIC (decl))
 	    {
+              /* Do not warn about int x = x; as it is a GCC extension
+                 to turn off this warning but only if warn_init_self
+		 is zero.  */
+              if (init == decl && !warn_init_self)
+                TREE_NO_WARNING (decl) = 1;
+              
 	      DECL_INITIAL (decl) = NULL_TREE;
 	      init = build (MODIFY_EXPR, void_type_node, decl, init);
 	      if (stmts_are_full_exprs_p ())

@@ -127,7 +127,6 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	lhd_decl_printable_name
 #define LANG_HOOKS_GET_CALLEE_FNDECL	lhd_return_null_tree
 #define LANG_HOOKS_EXPR_SIZE		lhd_expr_size
-#define LANG_HOOKS_DECL_UNINIT		lhd_decl_uninit
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 
 #define LANG_HOOKS_FUNCTION_INIT	lhd_do_nothing_f
@@ -312,7 +311,6 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_GET_CALLEE_FNDECL, \
   LANG_HOOKS_PRINT_ERROR_FUNCTION, \
   LANG_HOOKS_EXPR_SIZE, \
-  LANG_HOOKS_DECL_UNINIT, \
   LANG_HOOKS_ATTRIBUTE_TABLE, \
   LANG_HOOKS_COMMON_ATTRIBUTE_TABLE, \
   LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE, \

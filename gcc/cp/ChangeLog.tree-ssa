@@ -1,3 +1,8 @@
+2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/13863
+	* cp-lang.c (LANG_HOOKS_DECL_UNINIT): Remove.
+
 2004-02-03  Richard Henderson  <rth@redhat.com>
 
 	PR middle-end/13325

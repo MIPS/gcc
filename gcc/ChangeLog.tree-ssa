@@ -1,3 +1,21 @@
+2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/13863
+	* c-common.c (c_decl_uninit_1): Remove.
+	(c_decl_uninit): Remove.
+	* c-common.h (c_decl_uninit): Remove prototype.
+	* c-lang.c (LANG_HOOKS_DECL_UNINIT): Delete.
+	* objc/objc-lang.c (LANG_HOOKS_DECL_UNINIT): Delete.
+	* c-simplify.c (gimplify_decl_stmt): Set TREE_NO_WARNING
+	on the decl where the initial is itself.
+	* function.c (uninitialized_vars_warning): Remove old comment
+	and check for DECL_INITIAL, replace with a check of TREE_NO_WARNING
+	and do not call the langhook.
+	* langhooks-def.h (LANG_HOOKS_DECL_UNINIT): Remove.
+	(LANG_HOOKS_INITIALIZER): Remove usage of LANG_HOOKS_DECL_UNINIT.
+	* langhooks.c (lhd_decl_uninit): Remove.
+	* langhooks.h (lhd_decl_uninit): Remove prototype.
+
 2004-02-05  Richard Henderson  <rth@redhat.com>
 
 	* tree-ssa-dom.c (record_const_or_copy_1): New.

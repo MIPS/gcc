@@ -5986,37 +5986,6 @@ c_estimate_num_insns (tree decl)
   return num;
 }
 
-/* Used by c_decl_uninit to find where expressions like x = x + 1; */
-
-static tree
-c_decl_uninit_1 (tree *t, int *walk_sub_trees, void *x)
-{
-  /* If x = EXP(&x)EXP, then do not warn about the use of x.  */
-  if (TREE_CODE (*t) == ADDR_EXPR && TREE_OPERAND (*t, 0) == x)
-    {
-      *walk_sub_trees = 0;
-      return NULL_TREE;
-    }
-  if (*t == x)
-    return *t;
-  return NULL_TREE;
-}
-
-/* Find out if a variable is uninitialized based on DECL_INITIAL.  */
-
-bool
-c_decl_uninit (tree t)
-{
-  /* int x = x; is GCC extension to turn off this warning, only if warn_init_self is zero.  */
-  if (DECL_INITIAL (t) == t)
-    return warn_init_self ? true : false;
-
-  /* Walk the trees looking for the variable itself.  */
-  if (walk_tree_without_duplicates (&DECL_INITIAL (t), c_decl_uninit_1, t))
-    return true;
-  return false;
-}
-
 /* Issue the error given by MSGID, indicating that it occurred before
    TOKEN, which had the associated VALUE.  */
 
