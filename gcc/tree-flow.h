@@ -435,5 +435,8 @@ extern void analyze_rdefs PARAMS ((void));
 extern int is_upward_exposed PARAMS ((tree, sbitmap, int));
 extern void delete_ssa PARAMS ((void));
 
+/* Functions in tree-alias-steen.c  */
+extern void create_alias_vars PARAMS ((void));
+
 
 #endif /* _TREE_FLOW_H  */

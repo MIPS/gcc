@@ -599,7 +599,7 @@ simplify_for_stmt (stmt, pre_p)
   add_tree (post_init_s, pre_p);
   add_tree (deep_copy_list (pre_cond_s), pre_p);
 
-  EXPR_STMT_EXPR (FOR_INIT_STMT (stmt)) = tail_expression (pre_p, 0);
+  EXPR_STMT_EXPR (FOR_INIT_STMT (stmt)) = deep_copy_list (tail_expression (pre_p, 0));
 
   /* Build the new FOR_COND.  */
   FOR_COND (stmt) = cond_s;
@@ -615,7 +615,7 @@ simplify_for_stmt (stmt, pre_p)
     add_tree (post_expr_s, &expr_chain);
     add_tree (pre_cond_s, &expr_chain);
 
-    FOR_EXPR (stmt) = tail_expression (&expr_chain, 1);
+    FOR_EXPR (stmt) = deep_copy_list (tail_expression (&expr_chain, 1));
 
     if (expr_chain)
       insert_before_continue_end (expr_chain, FOR_BODY (stmt));

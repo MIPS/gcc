@@ -3,7 +3,7 @@
 #include "varray.h"
 
 
-struct disjoint_set_def GTY (()) 
+struct disjoint_set_def GTY ((ptr_alias (struct ECR_def))) 
 {
   struct disjoint_set_def *parent;
   int rank;

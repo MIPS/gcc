@@ -640,12 +640,25 @@ get_alias_var_decl (decl)
      tree decl;
 {
   splay_tree_node node;
+  alias_typevar newvar;
+
   node = splay_tree_lookup (alias_annot, (splay_tree_key) decl);
   if (node != NULL && node->value != 0)
     return (alias_typevar) node->value; 
 /* For debugging, remove this, and re-enable the find_func_decls call. */
-  return create_alias_var (decl);
-  abort ();
+  newvar = create_alias_var (decl);
+  if (!TREE_PUBLIC (decl))
+    {
+#if STEEN_DEBUG
+      fprintf (stderr, "adding ");
+      print_c_node (stderr, decl);
+      fprintf (stderr, " to list of local alias vars.\n");
+#endif
+      VARRAY_PUSH_INT (local_alias_varnums, VARRAY_ACTIVE_SIZE (alias_vars) - 1);
+      VARRAY_PUSH_GENERIC_PTR (local_alias_vars, decl);
+    }
+  return newvar;
+										    abort ();
 }
 
 static alias_typevar
@@ -1008,16 +1021,6 @@ create_fun_alias_var (decl, force)
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
 
   steen_alias_ops->function_def (steen_alias_ops, avar, params, retvar);
-#if 0
-  if (node)
-    {
-	    ECR tau1, tau2;
-	    tau1 = alias_tvar_get_ECR ((alias_typevar)node->value);
-	    tau2 = alias_tvar_get_ECR (avar);
-	    if (!ECR_equiv (tau1, tau2))
-		    ECR_join (tau1, tau2);
-    } 
-#endif
   splay_tree_insert (alias_annot, (splay_tree_key) decl, 
 		     (splay_tree_value) avar);
   /* FIXME: Also, if this is a defining declaration then add the annotation
@@ -1123,7 +1126,33 @@ create_alias_var (decl)
 
 static unsigned int splaycount = 0;
 static int splay_tree_count PARAMS ((splay_tree_node, void *));
+static int display_points_to_set PARAMS ((splay_tree_node, void *));
 unsigned int splay_tree_size PARAMS ((splay_tree));
+
+/* Display the points to set for the given alias_typevar (in the
+   splay tree node.) */
+static int
+display_points_to_set (node, data)
+     splay_tree_node node;
+     void *data ATTRIBUTE_UNUSED;
+{
+  varray_type tmp;
+  size_t i;
+  
+  tmp = alias_tvar_pointsto ((alias_typevar) node->value);
+  if (VARRAY_ACTIVE_SIZE (tmp) <= 0)
+    return 0;
+  print_c_node (stderr, (tree) node->key);
+  fprintf (stderr, " => { ");
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (tmp); i++)
+    {
+      alias_typevar tmpatv = (alias_typevar) VARRAY_GENERIC_PTR (tmp, i);
+      print_c_node  (stderr, tmpatv->decl);
+      fprintf (stderr, ", ");
+    }
+  fprintf (stderr, " }\n");
+  return 0;
+}
 
 static int 
 splay_tree_count (node, data)
@@ -1157,15 +1186,17 @@ create_alias_vars ()
       currdecl = TREE_CHAIN (currdecl);
     }
   create_fun_alias_var (current_function_decl, 1);
-  /* For debugging, disable the on-the-fly variable creation, and reenable this. */
-/*  walk_tree_without_duplicates (&DECL_SAVED_TREE (current_function_decl),
-			        find_func_decls, NULL);*/
+  /* For debugging, disable the on-the-fly variable creation, 
+     and reenable this. */
+  /*  walk_tree_without_duplicates (&DECL_SAVED_TREE (current_function_decl),
+      find_func_decls, NULL);*/
   walk_tree_without_duplicates (&DECL_SAVED_TREE (current_function_decl),
 				find_func_aliases, NULL);
+  splay_tree_foreach (alias_annot, display_points_to_set, NULL);
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
      splay_tree_remove (alias_annot, (splay_tree_key) VARRAY_GENERIC_PTR (local_alias_vars, i));
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_varnums); i ++)
-	  VARRAY_GENERIC_PTR (alias_vars, VARRAY_INT (local_alias_varnums, i)) = NULL;
+    VARRAY_GENERIC_PTR (alias_vars, VARRAY_INT (local_alias_varnums, i)) = NULL;
 }
 void
 init_alias_vars ()
