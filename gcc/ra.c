@@ -2215,7 +2215,11 @@ get_free_reg (free_colors, mode)
      enum machine_mode mode;
 {
   int c;
-  int last_resort = -1;
+  int last_resort_reg = -1;
+  int pref_reg = -1;
+  int pref_reg_order = INT_MAX;
+  int last_resort_reg_order = INT_MAX;
+  
   for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
     if (TEST_HARD_REG_BIT (free_colors, c) && HARD_REGNO_MODE_OK (c, mode))
       {
@@ -2225,14 +2229,23 @@ get_free_reg (free_colors, mode)
 	if (i == size)
 	  {
 	    if (size < 2 || (c & 1) == 0)
-	      return c;
-	    else if (last_resort < 0)
-	      last_resort = c;
+	      {
+		if (inv_reg_alloc_order[c] < pref_reg_order)
+		  {
+		    pref_reg = c;
+		    pref_reg_order = inv_reg_alloc_order[c];
+		  }
+	      }
+	    else if (inv_reg_alloc_order[c] < last_resort_reg_order)
+	      {
+		last_resort_reg = c;
+		last_resort_reg_order = inv_reg_alloc_order[c];
+	      }
 	  }
 	else
 	  c += i;
       }
-  return last_resort;
+  return pref_reg >= 0 ? pref_reg : last_resort_reg;
 }
 
 /* Counts the number of non-overlapping bitblocks of length LEN
@@ -2302,19 +2315,44 @@ colorize_one_web (web)
   while (1)
     {
       int long_blocks;
+      HARD_REG_SET call_clobbered;
+	
+      /* Here we choose a hard-reg for the current web.  For non spill
+         temporaries we first search in the hardregs for it's prefered
+	 class, then, if we found nothing appropriate, in those of the
+	 alternate class.  For spill tempraries we only search in
+	 usable_regs of this web (which is probably larger than that of
+	 the preferred or alternate class).  All searches first try to
+	 find a non-call-clobbered hard-reg.  
+         XXX this should be more finegraned... First look into preferred
+         non-callclobbered hardregs, then _if_ the web crosses calls, in
+         alternate non-cc hardregs, and only _then_ also in preferred cc
+         hardregs (and alternate ones).  Currently we don't track the number
+         of calls crossed for webs.  We should.  */
       if (web->use_my_regs)
 	COPY_HARD_REG_SET (colors, web->usable_regs);
       else
         COPY_HARD_REG_SET (colors,
 			   usable_regs[reg_preferred_class (web->regno)]);
       AND_COMPL_HARD_REG_SET (colors, conflict_colors);
-      c = get_free_reg (colors, PSEUDO_REGNO_MODE (web->regno));
+      COPY_HARD_REG_SET (call_clobbered, colors);
+      AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
+
+      c = get_free_reg (call_clobbered, PSEUDO_REGNO_MODE (web->regno));
+      if (c < 0)
+	c = get_free_reg (colors, PSEUDO_REGNO_MODE (web->regno));
+      
       if (!web->use_my_regs && c < 0)
 	{
 	  IOR_HARD_REG_SET (colors, usable_regs
 			    [reg_alternate_class (web->regno)]);
 	  AND_COMPL_HARD_REG_SET (colors, conflict_colors);
-	  c = get_free_reg (colors, PSEUDO_REGNO_MODE (web->regno));
+	  COPY_HARD_REG_SET (call_clobbered, colors);
+	  AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
+	  
+	  c = get_free_reg (call_clobbered, PSEUDO_REGNO_MODE (web->regno));
+	  if (c < 0)
+	    c = get_free_reg (colors, PSEUDO_REGNO_MODE (web->regno));
 	}
       if (c < 0)
 	break;
@@ -2722,14 +2760,21 @@ init_ra (void)
   /* FIXME: Choose spill heuristic for platform if we have one */
   spill_heuristic = default_spill_heuristic;
 
-  CLEAR_HARD_REG_SET (never_use_colors);
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (fixed_regs[i]
-	|| i == HARD_FRAME_POINTER_REGNUM
-	|| i == STACK_POINTER_REGNUM
-	|| i == FRAME_POINTER_REGNUM
-	|| i == ARG_POINTER_REGNUM)
-      SET_HARD_REG_BIT (never_use_colors, i);
+  COPY_HARD_REG_SET (never_use_colors, fixed_reg_set);
+
+#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
+  for (i = HARD_REGNO_NREGS (HARD_FRAME_POINTER_REGNUM, Pmode); i--;)
+    SET_HARD_REG_BIT (never_use_colors, HARD_FRAME_POINTER_REGNUM + i);
+#endif
+
+  for (i = HARD_REGNO_NREGS (FRAME_POINTER_REGNUM, Pmode); i--;)
+    SET_HARD_REG_BIT (never_use_colors, FRAME_POINTER_REGNUM + i);
+
+  for (i = HARD_REGNO_NREGS (STACK_POINTER_REGNUM, Pmode); i--;)
+    SET_HARD_REG_BIT (never_use_colors, STACK_POINTER_REGNUM + i);
+
+  for (i = HARD_REGNO_NREGS (ARG_POINTER_REGNUM, Pmode); i--;)
+    SET_HARD_REG_BIT (never_use_colors, ARG_POINTER_REGNUM + i);
 	
   for (i = 0; i < N_REG_CLASSES; i++)
     {

@@ -1,3 +1,14 @@
+2001-02-25  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* ra.c (colorize_one_web): comment about our strategy.
+	(get_free_reg): return also a pref_reg==0.
+
+Sun Feb 25 22:14:13 2001  Denis Chertykov  <denisc@overta.ru>
+ 
+         * ra.c (get_free_reg): Use preferred register order for selection.
+         (colorize_one_web): Use call_used_reg_set as preference.
+         (init_ra): arg,frame,stack pointers can use few hard regs.
+
 2001-02-24  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	* ra.c (conflicts_between_web): new function, split out from ...
