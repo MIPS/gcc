@@ -7322,19 +7322,15 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
     case INDIRECT_REF:
       {
 	tree exp1 = TREE_OPERAND (exp, 0);
-	tree index;
-	tree string = string_constant (exp1, &index);
 
-	/* Try to optimize reads from const strings.  */
-	if (string
-	    && TREE_CODE (string) == STRING_CST
-	    && TREE_CODE (index) == INTEGER_CST
-	    && compare_tree_int (index, TREE_STRING_LENGTH (string)) < 0
-	    && GET_MODE_CLASS (mode) == MODE_INT
-	    && GET_MODE_SIZE (mode) == 1
-	    && modifier != EXPAND_WRITE)
-	  return gen_int_mode (TREE_STRING_POINTER (string)
-			       [TREE_INT_CST_LOW (index)], mode);
+	if (modifier != EXPAND_WRITE)
+	  {
+	    tree t;
+
+	    t = fold_read_from_constant_string (exp);
+	    if (t)
+	      return expand_expr (t, target, tmode, modifier);
+	  }
 
 	op0 = expand_expr (exp1, NULL_RTX, VOIDmode, EXPAND_SUM);
 	op0 = memory_address (mode, op0);
@@ -7351,8 +7347,11 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
       }
 
     case ARRAY_REF:
+
+#ifdef ENABLE_CHECKING
       if (TREE_CODE (TREE_TYPE (TREE_OPERAND (exp, 0))) != ARRAY_TYPE)
 	abort ();
+#endif
 
       {
 	tree array = TREE_OPERAND (exp, 0);
@@ -7379,14 +7378,13 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
 
 	if (modifier != EXPAND_CONST_ADDRESS
 	    && modifier != EXPAND_INITIALIZER
-	    && modifier != EXPAND_MEMORY
-	    && TREE_CODE (array) == STRING_CST
-	    && TREE_CODE (index) == INTEGER_CST
-	    && compare_tree_int (index, TREE_STRING_LENGTH (array)) < 0
-	    && GET_MODE_CLASS (mode) == MODE_INT
-	    && GET_MODE_SIZE (mode) == 1)
-	  return gen_int_mode (TREE_STRING_POINTER (array)
-			       [TREE_INT_CST_LOW (index)], mode);
+	    && modifier != EXPAND_MEMORY)
+	  {
+	    tree t = fold_read_from_constant_string (exp);
+
+	    if (t)
+	      return expand_expr (t, target, tmode, modifier);
+	  }
 
 	/* If this is a constant index into a constant array,
 	   just get the value from the array.  Handle both the cases when

@@ -9215,4 +9215,53 @@ nondestructive_fold_unary_to_constant (enum tree_code code, tree type,
     }
 }
 
+/* If EXP represents referencing an element in a constant string
+   (either via pointer arithmetic or array indexing), return the
+   tree representing the value accessed, otherwise return NULL.  */
+
+tree
+fold_read_from_constant_string (tree exp)
+{
+  if (TREE_CODE (exp) == INDIRECT_REF || TREE_CODE (exp) == ARRAY_REF)
+    {
+      tree exp1 = TREE_OPERAND (exp, 0);
+      tree index;
+      tree string;
+
+      if (TREE_CODE (exp) == INDIRECT_REF)
+	{
+	  string = string_constant (exp1, &index);
+	}
+      else
+	{
+	  tree domain = TYPE_DOMAIN (TREE_TYPE (exp1));
+	  tree low_bound = domain ? TYPE_MIN_VALUE (domain) : integer_zero_node;
+	  index = convert (sizetype, TREE_OPERAND (exp, 1));
+	  
+	  /* Optimize the special-case of a zero lower bound.
+
+	     We convert the low_bound to sizetype to avoid some problems
+	     with constant folding.  (E.g. suppose the lower bound is 1,
+	     and its mode is QI.  Without the conversion,l (ARRAY
+	     +(INDEX-(unsigned char)1)) becomes ((ARRAY+(-(unsigned char)1))
+	     +INDEX), which becomes (ARRAY+255+INDEX).  Opps!)  */
+	  if (! integer_zerop (low_bound))
+	    index = size_diffop (index, convert (sizetype, low_bound));
+
+	  string = exp1;
+	}
+
+      if (string
+	  && TREE_CODE (string) == STRING_CST
+	  && TREE_CODE (index) == INTEGER_CST
+	  && compare_tree_int (index, TREE_STRING_LENGTH (string)) < 0
+	  && (GET_MODE_CLASS (TYPE_MODE (TREE_TYPE (TREE_TYPE (string))))
+	      == MODE_INT)
+	  && (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (string)))) == 1))
+	return build_int_2 ((TREE_STRING_POINTER (string)
+			     [TREE_INT_CST_LOW (index)]), 0);
+    }
+  return NULL;
+}
+
 #include "gt-fold-const.h"

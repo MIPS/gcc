@@ -1411,25 +1411,8 @@ fold_stmt (tree *stmt_p)
 
       /* Optimize *"foo" into 'f'.  This is done here rather than
          in fold to avoid problems with stuff like &*"foo".  */
-      if (TREE_CODE (rhs) == INDIRECT_REF)
-	{
-	  tree exp1 = TREE_OPERAND (rhs, 0);
-	  tree index;
-	  tree string = string_constant (exp1, &index);
-
-	  if (string
-	      && TREE_CODE (string) == STRING_CST
-	      && TREE_CODE (index) == INTEGER_CST
-	      && compare_tree_int (index, TREE_STRING_LENGTH (string)) < 0
-	      && TREE_CODE (TREE_TYPE (string)) == ARRAY_TYPE
-	      && (GET_MODE_CLASS (TYPE_MODE (TREE_TYPE (TREE_TYPE (string))))
-		  == MODE_INT)
-	      && (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (string))))
-		  == 1))
-	    result = build_int_2 ((TREE_STRING_POINTER (string)
-				   [TREE_INT_CST_LOW (index)]), 0);
-	}
-	  
+      if (TREE_CODE (rhs) == INDIRECT_REF || TREE_CODE (rhs) == ARRAY_REF)
+	result = fold_read_from_constant_string (rhs);
 
       /* If we couldn't fold the RHS, hand it over to the generic fold
 	 routines.  */

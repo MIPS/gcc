@@ -3167,6 +3167,7 @@ extern tree omit_one_operand (tree, tree, tree);
 extern tree invert_truthvalue (tree);
 extern tree nondestructive_fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree nondestructive_fold_binary_to_constant (enum tree_code, tree, tree, tree);
+extern tree fold_read_from_constant_string (tree);
 
 /* In builtins.c */
 extern tree fold_builtin (tree);

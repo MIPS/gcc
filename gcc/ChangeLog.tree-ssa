@@ -1,3 +1,13 @@
+2003-09-24  Jeff Law  <law@redhat.com>
+
+	* fold-const.c (fold_read_from_constant_string): New function.
+	* tree.h (fold_read_from_constant_string): Prototype.
+	* expr.c (expand_expr, case INDIRECT_REF):  Use it.
+	(expand_expr, case ARRAY_REF): Likewise.  Put checking code
+	inside an ENABLE_CHECKING.
+	* tree-ssa-ccp.c (fold_stmt): Use fold_read_from_constant_string.
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Likewise.
+
 2003-09-23  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_block): Ignore "useless" type
