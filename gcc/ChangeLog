@@ -1,3 +1,22 @@
+2002-10-28  Zack Weinberg  <zack@codesourcery.com>
+
+	* config.gcc (alpha*-*-vxworks*, arm-*-vxworks*,
+	i?86-wrs-vxworks*, i960-wrs-vxworks* [all],
+	m68k-wrs-vxworks*, mips-wrs-vxworks, powerpc-wrs-vxworks*,
+	powerpcle-wrs-vxworks*, sparc*-wrs-vxworks* [all],
+	sparc-*-vxsim*): Delete stanzas.
+	* gthr-vxworks.h: Rip out all substantive code and just
+	include gthr-single.h.
+
+	* config/alpha/vxworks.h, config/arm/vxarm.h,
+	config/i386/vxi386.h, config/i960/t-vxworks960,
+	config/i960/vx960-coff.h, config/i960/vx960.h,
+	config/m68k/t-vxworks68, config/m68k/vxm68k.h,
+	config/mips/vxworks.h, config/rs6000/vxppc.h,
+	config/sparc/t-vxsparc, config/sparc/t-vxsparc64,
+	config/sparc/vxsim.h, config/sparc/vxsparc.h,
+	config/sparc/vxsparc64.h: Delete files.
+
 2002-10-27  Hans-Peter Nilsson  <hp@bitrange.com>
 
 	* fixinc/inclhack.def (libc1_G_va_list): Correct test_text.
