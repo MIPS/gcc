@@ -1,5 +1,5 @@
 /* Search an insn for pseudo regs that must be in reg_class and are not.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Denis Chertykov <denisc@overta.ru>
 
 This file is part of GNU CC.
@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "except.h"
 #include "df.h"
+#include "ra.h"
 #include "pre-reload.h"
 
 /* Disable this because i386 port has a strange abort inside it.  */
@@ -2077,6 +2078,7 @@ scan_addr_create_ref (ra_info, loc, scan_state, ref_type)
   else
     COPY_HARD_REG_SET (ref->hardregs, reg_class_contents[ref->class]);
   ref->constraints = scan_state->constraints;
+  ref->alt_link = NULL;
 
   if (RA_REF_WRITE_P (ref))
     *scan_state->defs++ = ref;
@@ -2368,7 +2370,12 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	    break;
 		
 	  case '*':
-	    reject += 4;
+          /* Ignore next constraint because it's reloading.
+             It's not a regclass.  */
+          c = *++p;
+          len = 0;
+          if (c && c != ',')
+            len = CONSTRAINT_LEN (c, p);
 	    break;
 
 	  case '%':
@@ -2389,13 +2396,10 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 	  case '#':
 	    /* Ignore rest of this alternative as far as
 	       reloading is concerned.  */
-	    if (match_seen)
-	      {
-		do
-		  p++;
-		while (*p && *p != ',');
-		len = 0;
-	      }
+          do
+            p++;
+          while (*p && *p != ',');
+          len = 0;
 	    break;
 
 	  case '0':  case '1':  case '2':  case '3':  case '4':
@@ -2890,7 +2894,6 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 
   struct alternative_info goal_alt[MAX_RECOG_OPERANDS];
   
-  int goal_alternative_number = 0;
   int operand_reloadnum[MAX_RECOG_OPERANDS];
   int goal_alternative_swapped;
   int best;
@@ -2899,14 +2902,18 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
   int commutative;
   char operands_match[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
   rtx substed_operand[MAX_RECOG_OPERANDS];
-  rtx set = single_set (insn);
   enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
+  struct alt_link *alt_list[MAX_RECOG_OPERANDS];
+
+  rtx set = single_set (insn);
   int ind_levels = indirect_levels;
+  int goal_alternative_number = 0;
   ra_ref **orig_def_refs = def_refs;
   ra_ref **orig_use_refs = use_refs;
 
   *n_defs = 0;
   *n_uses = 0;
+  memset (alt_list, 0, sizeof (alt_list));
   
   extract_insn (insn);
 
@@ -3134,7 +3141,21 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
       int freeness = 0;
       int losers = scan_alternative (this_alt, constraints, modified,
 				     address_reloaded, operands_match,
-				     swapped, &commutative, &freeness, &reject);
+                                   swapped, &commutative,
+                                   &freeness, &reject);
+      if (losers == 0)
+      for (i = 0; i < noperands; i++)
+        if (this_alt[i].reg
+            && REGNO (this_alt[i].reg) >= FIRST_PSEUDO_REGISTER)
+          {
+            struct alt_link *alt = obstack_alloc (&ra_info->obstack,
+                                                  sizeof (struct alt_link));
+            alt->class = this_alt[i].class;
+            alt->alt = this_alternative_number;
+            alt->reject = reject;
+            alt->next = alt_list[i];
+            alt_list[i] = alt;
+          }
       
       /* If this alternative can be made to work by reloading,
 	 and it needs less reloading than the others checked so far,
@@ -3563,6 +3584,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	      COPY_HARD_REG_SET (ref->hardregs,
 				 reg_class_contents[goal_alt[i].class]);
 
+          ref->alt_link = alt_list[i];
 	    /* Fields for debugging.  */
 	    ref->alt = goal_alternative_number;
 	    ref->constraints = goal_alt[i].constraints;
@@ -4467,38 +4489,6 @@ pre_reload_collect (ra_info, modified)
 		bb->end = PREV_INSN (next);
 	      else
 		bb->end = get_last_insn ();
-	    }
-	}
-    }
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      /* FIXME: denisc@overta.ru */
-      if (0)
-	{
-	  if (RA_INSN_REFS (ra_info, insn))
-	    {
-	      debug_rtx (insn);
-	      debug_ra_insn_refs (ra_info, insn);
-	    }
-	  else
-	    {
-	      enum rtx_code pat_code;
-	      enum rtx_code code = GET_CODE (insn);
-
-	      if (GET_RTX_CLASS (code) != 'i')
-		continue;
-
-	      pat_code = GET_CODE (PATTERN (insn));
-	      if (pat_code == USE
-		  || pat_code == CLOBBER
-		  || pat_code == ASM_INPUT
-		  || pat_code == ADDR_VEC
-		  || pat_code == ADDR_DIFF_VEC)
-		continue;
-
-	      debug_rtx (insn);
-	      fprintf (stderr, "---- NOREFS ----\n");
 	    }
 	}
     }

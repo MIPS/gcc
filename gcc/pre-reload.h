@@ -1,5 +1,5 @@
 /* Communication between reload.c, reload1.c, pre-reload.c and ra.c.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Denis Chertykov <denisc@overta.ru>
 
 This file is part of GNU CC.
@@ -92,6 +92,15 @@ enum ra_ref_type {RA_REF_NONE    = 0,
 #define RA_REF_ID(RA_REF)        ((RA_REF)->id)
 #define RA_REF_REGNO(REF)        (REGNO (REG_P ((REF)->reg) ? (REF)->reg : SUBREG_REG ((REF)->reg)))
 
+/* List of all correct alternatives.  */
+struct alt_link
+{
+  struct alt_link *next;
+  ENUM_BITFIELD (reg_class) class:8;
+  unsigned char alt;
+  short reject;
+};
+
 struct ra_ref
 {
   int id;			/* ra_ref unique identifier */
@@ -109,6 +118,8 @@ struct ra_ref
   int alt;			/* selected constraints alternative  */
   enum reg_class class;		/* Register class */
   char *constraints;		/* constraints terminated by ',' or '\0' */
+  struct alt_link *alt_link;  /* Pointer to list of all correct
+                                 alternatives.  */
 };
 
 typedef struct ra_ref ra_ref;

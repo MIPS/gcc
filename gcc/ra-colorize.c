@@ -1549,7 +1549,9 @@ colorize_one_web (struct web *web, int hard)
 		     becoming recolored higher up in the recursion stack.
 		     This would screw up the roll back of the neighbors
 		     of _that_ web, when some got a color in between.  */
-		  || bitmap_bit_p (webs_in_recoloring, aw->id))
+                || bitmap_bit_p (webs_in_recoloring, aw->id)
+                /* We can't spill dead webs.  */
+                || find_web_for_subweb (w)->num_uses == 0)
 		continue;
 	      else
 		{

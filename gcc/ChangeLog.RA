@@ -1,3 +1,41 @@
+2004-03-03  Denis Chertykov  <denisc@overta.ru>
+
+	* ra-build.c (flags.h): Include new file.
+	(long_blocks_for_mode) New array. The number of
+	non-overlapping blocks of hardregs required for MODE. 
+	(select_regclass): Use web_class_costs for calculation of
+	reg_class costs for each web. Use web_class_insn_alt to select
+	right insn alternative for each insn. Use we_class_spill to
+	generate spill code for refs with wrong reg_class.
+	(class_ok_for_mode): Removed. Better to use long_blocks_for_mode.
+	(web_class): Removed.
+	(init_long_blocks_for_classes): New function. Initialize
+	long_blocks_for_mode.
+	(calc_pref_class): New function. Calculate preferred class for web.
+	(web_class_costs): New function. Calculate reg_class costs for web.
+	(web_class_insn_alt): New function. Select insn alternatives
+	according to costs of register classes.
+	(web_class_spill): New function. Add spill code for refs with
+	wrong reg_class.
+
+	* ra-colorize.c (colorize_one_web): Add code to disable
+	spilling of dead webs.
+
+	* ra.c (one_pass): Remember last max uid of insn and use it
+	after spilling introduced by web_class...
+
+	* ra.h (costs): New structure. Records the cost of using a
+	hard register of each class.
+	(init_long_blocks_for_classes): Declare prototype.
+
+	* pre-reload.h (alt_link): New structure. Used for list of correct
+	alternatives.
+	(struct ra_ref): Use alt_link.
+
+	* pre-reload.c (scan_addr_create_ref): Initialize alt_link field.
+	(scan_alternative): Right hanlde '*' and '#' constraint modifiers.
+	(collect_insn_info): Record list of correct alternatives.
+
 2003-11-13  Michael Matz  <matz@suse.de>
 
 	* ra-rewrite.c (assign_stack_slots_1): Don't substitute rematerial-

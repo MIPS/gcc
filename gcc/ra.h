@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -86,6 +86,16 @@ struct web_part
   unsigned int crosses_bb : 1;
   /* If this part is live over an insn changing memory.  */
   unsigned int crosses_memset : 1;
+};
+
+/* The `costs' struct records the cost of using a hard register of each class
+   and of using memory for each pseudo.  We use this data to set up
+   register class preferences.  */
+
+struct costs
+{
+  int cost[N_REG_CLASSES];
+  int mem_cost;
 };
 
 /* Web structure used to store info about connected live ranges.
@@ -669,6 +679,7 @@ extern int subst_to_stack_p (void);
 extern int copy_insn_p (rtx ,rtx *,rtx *);
 extern int hard_regs_combinable_p (struct web *,struct web *);
 extern void debug_colorized_spills (void);
+extern void init_long_blocks_for_classes (void);
 
 #define SPILL_SLOT_P(REGNO) bitmap_bit_p (spill_slot_regs, (REGNO))
 

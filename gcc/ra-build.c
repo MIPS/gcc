@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>
 
@@ -36,6 +36,7 @@
 #include "ggc.h"
 #include "obstack.h"
 #include "reload.h"
+#include "flags.h"
 #include "pre-reload.h"
 #include "ra.h"
 
@@ -126,7 +127,9 @@ static void free_bb_info (void);
 static void build_web_parts_and_conflicts (struct df *);
 static void select_regclass (void);
 static void detect_spanned_deaths (unsigned int *spanned_deaths);
-static void web_class (struct web*);
+static void web_class_spill (struct web*, char *);
+static void web_class_costs (struct web *, char *, struct costs *);
+static void web_class_insn_alt (rtx, char *, struct costs *);
 
 /* A sbitmap of DF_REF_IDs of uses, which are live over an abnormal
    edge.  */
@@ -176,6 +179,9 @@ struct ra_bb_info
      structure there.  */
   void *old_aux;
 };
+
+/* The number of non-overlapping blocks of hardregs required for MODE.  */
+static int long_blocks_for_mode[N_REG_CLASSES][MAX_MACHINE_MODE];
 
 /* We need a fast way to describe a certain part of a register.
    Therefore we put together the size and offset (in bytes) in one
@@ -2980,7 +2986,62 @@ static void
 select_regclass ()
 {
   struct dlist *d, *d_next;
+  char *insn_alternative;
+  basic_block bb;
+  struct costs *web_costs = xcalloc (sizeof (struct costs), num_webs);
 
+  /* First pass of web_class.  Choose the best reg_class for each web.  */
+  for (d = WEBS (INITIAL); d; d = d_next)
+    {
+      struct web *web = DLIST_WEB (d);
+      d_next = d->next;
+      if (web->regno < FIRST_PSEUDO_REGISTER)
+      continue;
+      web_class_costs (web, NULL, web_costs);
+    }
+  insn_alternative = xmalloc (get_max_uid ());
+  memset (insn_alternative, -1, get_max_uid ());
+  /* Second pass of web_class.  Select a better alternative for each insn
+     depending on reg_class of each web.  */
+  FOR_EACH_BB (bb)
+    {
+      rtx end = bb->end;
+      rtx insn;
+
+      for (insn = bb->head;
+         insn && PREV_INSN (insn) != end;
+         insn = NEXT_INSN (insn))
+      {
+        enum rtx_code pat_code;
+        enum rtx_code code = GET_CODE (insn);
+        
+        if (GET_RTX_CLASS (code) != 'i')
+          continue;
+
+        pat_code = GET_CODE (PATTERN (insn));
+        if (pat_code == USE
+            || pat_code == CLOBBER
+            || pat_code == ASM_INPUT
+            || pat_code == ADDR_VEC
+            || pat_code == ADDR_DIFF_VEC)
+          continue;
+        web_class_insn_alt (insn, insn_alternative, web_costs);
+      }
+    }
+  memset (web_costs, 0, sizeof (struct costs) * num_webs);
+  /* Third pass of web_class. Select better reg_class for each web according
+     to selected insn alternatives.  */
+  for (d = WEBS (INITIAL); d; d = d_next)
+    {
+      struct web *web = DLIST_WEB (d);
+      d_next = d->next;
+      if (web->regno < FIRST_PSEUDO_REGISTER)
+      continue;
+      web_class_costs (web, insn_alternative, web_costs);
+    }
+
+  free (web_costs);
+  
   for (d = WEBS (INITIAL); d; d = d_next)
     {
       int i;
@@ -2995,7 +3056,9 @@ select_regclass ()
       
       if (flag_ra_pre_reload)
 	{
-	  web_class (web);
+        /* Fourth pass of web_class. Emit a spill code for such refs of web
+         which have wrong reg_class. */
+        web_class_spill (web, insn_alternative);
 	  if (WEBS (SPILLED))
 	    continue;
 	}
@@ -3143,6 +3206,7 @@ found:
 	  COPY_HARD_REG_SET (sweb->orig_usable_regs, web->orig_usable_regs);
 	}
     }
+  free (insn_alternative);
 }  
 
 /* Second top-level function of this file.
@@ -3909,39 +3973,245 @@ detect_spanned_deaths (spanned_deaths)
   sbitmap_free (defs_per_insn);
 }
 
-static int class_ok_for_mode PARAMS ((enum reg_class, enum machine_mode));
-     
-/* Returns true if at least one of the hardregs in CLASS is OK
-   for MODE.  */
-static int
-class_ok_for_mode (class, mode)
-     enum reg_class class;
-     enum machine_mode mode;
+void
+init_long_blocks_for_classes (void)
 {
-  int i;
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (TEST_HARD_REG_BIT (reg_class_contents[(int) class], i)
-	&& HARD_REGNO_MODE_OK (i, mode))
-      return 1;
-  return 0;
+  enum machine_mode m;
+  enum reg_class class;
+  for (class = 0; class < N_REG_CLASSES; ++class)
+    for (m = 0; m < MAX_MACHINE_MODE; ++m)
+      long_blocks_for_mode[class][m]
+      = count_long_blocks (usable_regs[class], CLASS_MAX_NREGS (class, m));
 }
 
-/* Select a reg_class for the WEB. Split the WEB if single reg_class
-   can't be selected.  */
+/* Calculates the preferred reg_class for web WEB. The calculation based on
+   costs array.  */
+static enum reg_class
+calc_pref_class (struct costs *p, struct web *web)
+{
+  int class;
+  int best_cost = (1 << (HOST_BITS_PER_INT - 2)) - 1;
+  enum reg_class best = ALL_REGS;
+  enum machine_mode mode = PSEUDO_REGNO_MODE (web->regno);
+
+  for (class = (int) ALL_REGS - 1; class > 0; class--)
+    {
+      /* Ignore classes that are too small for this operand or
+       invalid for an operand that was auto-incremented.  */
+      if (!long_blocks_for_mode [class][mode]
+#ifdef FORBIDDEN_INC_DEC_CLASSES
+        || (in_inc_dec[web->regno] && forbidden_inc_dec_class[class])
+#endif
+#ifdef CANNOT_CHANGE_MODE_CLASS
+        || (web->mode_changed
+            && invalid_mode_change_p (web->regno, (enum reg_class) class,
+                                      mode))
+#endif
+        )
+      ;
+      else if (p->cost[class] < best_cost)
+      {
+        best_cost = p->cost[class];
+        best = (enum reg_class) class;
+      }
+      else if (p->cost[class] == best_cost
+             && reg_class_size[class] > reg_class_size[best])
+      best = class;
+    }
+  return best;
+}
+
+/* Calculate reg_class costs for web WEB.  */
 static void
-web_class (web)
-     struct web *web;
+web_class_costs (struct web *web, char *insn_alternative,
+               struct costs *web_costs)
+{
+  struct costs q;
+  struct costs *p;
+  struct ref **refs;
+  struct ra_ref *rref;
+  unsigned int i,j;
+  int n;
+  unsigned int num_refs;
+
+  p = &web_costs[web->id];
+  
+  for (n = 0, refs = web->uses, num_refs = web->num_uses;
+       n < 2;
+       refs = web->defs, num_refs = web->num_defs, n++)
+    for (i = 0; i < num_refs; i++)
+      {
+      struct ref *ref = refs[i];
+      enum machine_mode mode = GET_MODE (DF_REF_REG (ref));
+      rref = DF2RA (df2ra, ref);
+      if (rref)
+        {
+          int frequency;
+          
+          for (j = 0; j < N_REG_CLASSES; j++)
+            q.cost[j] = 10000;
+          
+          if (rref->alt_link)
+            {
+              struct alt_link *alt;
+              int altno = (insn_alternative
+                           ? insn_alternative[INSN_UID (rref->insn)]
+                           : -2);
+              /* Check for insns without alternatives.  */
+              if (altno == -1)
+                abort ();
+              
+              for (alt = rref->alt_link; alt; alt = alt->next)
+                if (altno < 0 || altno == alt->alt)
+                  for (j = 0; j < N_REG_CLASSES; ++j)
+                    {
+                      int c;
+                      if (n == 0) /* It's use.  */
+                        c = may_move_in_cost[mode][j][(int) alt->class];
+                      else
+                        c = may_move_out_cost[mode][(int) alt->class][j];
+                      q.cost[j] = MIN (c + alt->reject, q.cost[j]);
+                    }
+            }
+          else
+            for (j = 0; j < N_REG_CLASSES; ++j)
+              {
+                int c;
+                if (n == 0) /* It's use.  */
+                  c = may_move_in_cost[mode][j][(int) rref->class];
+                else
+                  c = may_move_out_cost[mode][(int) rref->class][j];
+                q.cost[j] = MIN (c, q.cost[j]);
+              }
+          frequency = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (rref->insn));
+          for (j = 0; j < N_REG_CLASSES; ++j)
+            p->cost[j] += q.cost[j] * frequency;
+        }
+      }
+
+  web->regclass = calc_pref_class (p, web);
+}
+
+/* Correct reg-class preferences according to insn alternatives.  */
+static void
+web_class_insn_alt (rtx insn, char * insn_alternative, struct costs *web_costs)
+{
+  unsigned int d, best_alt;
+  int best_cost, freeness;
+  int j;
+  struct costs *p;
+  struct ra_ref *rref;
+  int alt_costs[MAX_RECOG_ALTERNATIVES];
+  int alt_init_p[MAX_RECOG_ALTERNATIVES];
+  int alt_freeness[MAX_RECOG_ALTERNATIVES];
+  struct ra_insn_info info = insn_df[INSN_UID (insn)];
+
+  memset (&alt_init_p, 0, sizeof (alt_init_p));
+  memset (&alt_freeness, 0, sizeof (alt_freeness));
+  for (d = 0; d < MAX_RECOG_ALTERNATIVES; ++d)
+    alt_costs[d] = (1 << (HOST_BITS_PER_INT - 2)) - 1;
+      
+  for (d = 0; d < info.num_defs; d++)
+    {
+      struct ref *ref = info.defs[d];
+      enum machine_mode mode = GET_MODE (DF_REF_REG (ref));
+
+      if (REGNO (DF_REF_REAL_REG (ref)) <= FIRST_PSEUDO_REGISTER)
+      continue;
+      
+      rref = DF2RA (df2ra, ref);
+      if (rref)
+      {
+        struct web *web = def2web[DF_REF_ID (ref)];
+        p = &web_costs[web->id];
+          
+        if (rref->alt_link)
+          {
+            struct alt_link *alt;
+            for (alt = rref->alt_link; alt; alt = alt->next)
+              {
+                if (p->cost[web->regclass] != p->cost[alt->class])
+                  j = may_move_out_cost[mode][web->regclass][alt->class];
+                else
+                  j = 0;
+                alt_costs[alt->alt] = (j * 1000 + alt->reject
+                                       + (alt_init_p[alt->alt]
+                                          ? alt_costs[alt->alt] : 0));
+                alt_init_p[alt->alt] = 1;
+                alt_freeness[alt->alt] += reg_class_size[alt->class];
+              }
+          }
+      }
+    }
+  for (d = 0; d < info.num_uses; d++)
+    {
+      struct ref *ref = info.uses[d];
+      enum machine_mode mode = GET_MODE (DF_REF_REG (ref));
+
+      if (REGNO (DF_REF_REAL_REG (ref)) <= FIRST_PSEUDO_REGISTER)
+      continue;
+      
+      rref = DF2RA (df2ra, ref);
+      if (rref)
+      {
+        struct web *web = use2web[DF_REF_ID (ref)];
+        p = &web_costs[web->id];
+          
+        if (rref->alt_link)
+          {
+            struct alt_link *alt;
+            for (alt = rref->alt_link; alt; alt = alt->next)
+              {
+                if (p->cost[web->regclass] != p->cost[alt->class])
+                  j = may_move_in_cost[mode][alt->class][web->regclass];
+                else
+                  j = 0;
+                alt_costs[alt->alt] = (j * 1000 + alt->reject
+                                       + (alt_init_p[alt->alt]
+                                          ? alt_costs[alt->alt] : 0));
+                alt_init_p[alt->alt] = 1;
+                alt_freeness[alt->alt] += reg_class_size[alt->class];
+              }
+          }
+      }
+    }  
+  best_alt = 0;
+  best_cost = (1 << (HOST_BITS_PER_INT - 2)) - 1;
+  freeness = 0;
+  for (d = 0; d < MAX_RECOG_ALTERNATIVES; ++d)
+    if (alt_costs[d] <= best_cost && alt_freeness[d] > freeness)
+      {
+      best_cost = alt_costs[d];
+      best_alt = d;
+      freeness = alt_freeness[d];
+      }
+  insn_alternative[INSN_UID (insn)] = best_alt;
+}
+
+/* Add spill code for refs with wrong reg_class.  */
+static void
+web_class_spill (struct web *web, char *insn_alternative)
 {
   unsigned int i, n, num_refs;
   struct ref *dref;
   struct ref **refs;
   struct ra_ref *rref;
-  enum reg_class class;
-  int web_size;
+  enum reg_class class = NO_REGS; /* Initialize to prevent warning.  */
   int spilled_web = 0;
   bitmap already_insn = NULL;
 
-  class = ALL_REGS;
+  if (web->num_defs == 0 && web->num_uses == 0)
+    {
+      web->regclass = GENERAL_REGS;
+      COPY_HARD_REG_SET (web->usable_regs, usable_regs[GENERAL_REGS]);
+      return;
+    }
+  COPY_HARD_REG_SET (web->usable_regs, usable_regs[web->regclass]);
+
+  /* FIXME: denisc@overta.ru  */
+  if (ra_pass != 1)
+    return;
+  
   for (n = 0, refs = web->uses, num_refs = web->num_uses;
        n < 2;
        refs = web->defs, num_refs = web->num_defs, n++)
@@ -3954,52 +4224,47 @@ web_class (web)
 	rref = DF2RA (df2ra, dref);
 	if (rref)
 	  {
-	    int blocks;
-	    enum reg_class c = NO_REGS;
-
-	    if (reg_class_subset_p (rref->class, class))
-	      c = rref->class;
-	    else if (reg_class_subset_p (class, rref->class))
-	      c = class;
-	    
-	    if (c != NO_REGS)
+          if (rref->alt_link)
 	      {
-		web_size = CLASS_MAX_NREGS (c, PSEUDO_REGNO_MODE (web->regno));
-		blocks = count_long_blocks (usable_regs[c], web_size);
+              struct alt_link *alt;
+              int altno = (insn_alternative
+                           ? insn_alternative[INSN_UID (rref->insn)]
+                           : -2);
+              /* Check for insns without alternatives.  */
+              if (altno == -1)
+                abort ();
+              
+              for (alt = rref->alt_link; alt; alt = alt->next)
+                if (altno == alt->alt)
+                  class = alt->class;
 	      }
 	    else
+            class = rref->class;
+
+          if (!reg_class_subset_p (web->regclass, class))
 	      {
-		blocks = 0;
-		c = class;
-		/* FIXME denisc@overta.ru
-		   I have disabled the `web_class_spill_ref'.  */
-		class = GENERAL_REGS;
-		break;
-	      }
-	    if (!blocks)
-	      {
+              static const char *const reg_class_names[] = REG_CLASS_NAMES;
+              fprintf (stderr, "%s pass: %d Web %d class %s insn class %s\n",
+                       cfun->name, ra_pass,
+                       web->id, reg_class_names[web->regclass],
+                       reg_class_names[class]);
+              fprintf (stderr, "Spill out reg %d from insn:\n",
+                       DF_REF_REGNO (dref));
+              debug_rtx (DF_REF_INSN (dref));
+              
 		web_class_spill_ref (web, dref);
 		spilled_web = 1;
 		if (!already_insn)
 		  already_insn = BITMAP_XMALLOC ();
 		bitmap_set_bit (already_insn, INSN_UID (DF_REF_INSN (dref)));
 	      }
-	    else
-	      class = c;
 	  }
       }
+
   if (spilled_web)
     {
       remove_list (web->dlink, &WEBS(INITIAL));
       put_web (web, SPILLED);
-    }
-  else
-    {
-      /* XXX Ugly hack to suppress repeated spilling tries for such webs.  */
-      if (!class_ok_for_mode (class, PSEUDO_REGNO_MODE (web->regno)))
-	class = GENERAL_REGS;
-      web->regclass = class;
-      COPY_HARD_REG_SET (web->usable_regs, usable_regs[class]);
     }
 
   if (already_insn)

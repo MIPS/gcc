@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -461,8 +461,9 @@ extern int have_splits_p (void);
 static int
 one_pass (struct df *df, int rebuild)
 {
-  long ticks = clock ();
   int something_spilled;
+  int last_uid = get_max_uid ();
+  long ticks = clock ();
   remember_conflicts = 0;
 
   /* Build the complete interference graph, or if this is not the first
@@ -516,7 +517,7 @@ one_pass (struct df *df, int rebuild)
       detect_web_parts_to_rebuild ();
       last_changed_insns = NULL;
       something_spilled = 1;
-      last_max_uid = get_max_uid ();
+      last_max_uid = last_uid;
     }
   else
     abort ();
@@ -654,6 +655,7 @@ init_ra (void)
       break;
   if (an_unusable_color == FIRST_PSEUDO_REGISTER)
     abort ();
+  init_long_blocks_for_classes ();
   compute_bb_for_insn ();
   ra_reg_renumber = NULL;
   insns_with_deaths = NULL;
