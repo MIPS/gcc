@@ -48,6 +48,13 @@
 #include "expr.h"
 #include "predict.h"
 
+/* Minimal number of executions of the basic block per execution
+   of program to make it "hot".  */
+#define MIN_COUNT	100
+
+/* Minimal frequency of the basic block to make it "hot".  */
+#define MIN_FREQUENCY	BB_FREQ_MAX/1000
+
 /* Random guesstimation given names.  */
 #define PROB_NEVER		(0)
 #define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 10 - 1)
@@ -71,6 +78,7 @@ static void process_note_predictions	 PARAMS ((basic_block, int *, int *,
 static void process_note_prediction	 PARAMS ((basic_block, int *, int *,
                                                   sbitmap *, int, int));
 static bool last_basic_block_p           PARAMS ((basic_block));
+static void compute_function_frequency	 PARAMS ((void));
 
 /* Information we hold about each branch predictor.
    Filled using information from predict.def.  */
@@ -99,6 +107,43 @@ static const struct predictor_info predictor_info[] = {
 };
 #undef DEF_PREDICTOR
 
+/* Return true in case BB can be CPU intensive and should be optimized
+   for maximal perofmrance.  */
+
+bool
+maybe_hot_bb_p (bb)
+	basic_block bb;
+{
+  if (flag_branch_probabilities && bb->count < MIN_COUNT)
+    return false;
+  if (bb->frequency < MIN_FREQUENCY)
+    return false;
+  return true;
+}
+
+/* Return true in case BB is cold and should be optimized for size.  */
+
+bool
+probably_cold_bb_p (bb)
+     basic_block bb;
+{
+  if (flag_branch_probabilities && bb->count < MIN_COUNT)
+    return true;
+  if (bb->frequency < MIN_FREQUENCY)
+    return true;
+  return false;
+}
+
+/* Return true in case BB is probably never executed.  */
+bool
+probably_never_executed_bb_p (bb)
+	basic_block bb;
+{
+  if (flag_branch_probabilities)
+    return bb->count == 0;
+  return false;
+}
+
 /* Return true if the one of outgoing edges is already predicted by
    PREDICTOR.  */
 
@@ -112,7 +157,7 @@ predicted_by_p (bb, predictor)
     return false;
   for (note = REG_NOTES (bb->end); note; note = XEXP (note, 1))
     if (REG_NOTE_KIND (note) == REG_BR_PRED
-	&& INTVAL (XEXP (XEXP (note, 0), 0)) == predictor)
+	&& INTVAL (XEXP (XEXP (note, 0), 0)) == (int)predictor)
       return true;
   return false;
 }
@@ -554,6 +599,7 @@ estimate_probability (loops_info)
   sbitmap_vector_free (dominators);
 
   estimate_bb_frequencies (loops_info);
+  compute_function_frequency ();
 }
 
 /* __builtin_expect dropped tokens into the insn stream describing
@@ -1159,4 +1205,25 @@ estimate_bb_frequencies (loops)
 
   free_aux_for_blocks ();
   free_aux_for_edges ();
+}
+
+/* Decide whether function is hot, cold or unlikely executed.  */
+static void
+compute_function_frequency ()
+{
+  int i;
+  if (!flag_branch_probabilities)
+    return;
+  cfun->function_frequency = FUNCTION_FREQUENCY_UNLIKELY_EXECUTED;
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      if (maybe_hot_bb_p (bb))
+	{
+	  cfun->function_frequency = FUNCTION_FREQUENCY_HOT;
+	  return;
+	}
+      if (!probably_never_executed_bb_p (bb))
+	cfun->function_frequency = FUNCTION_FREQUENCY_COLD;
+    }
 }

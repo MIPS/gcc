@@ -93,12 +93,9 @@ static bool ignore_bb_p			PARAMS ((basic_block));
 static bool
 ignore_bb_p (basic_block bb)
 {
-  if (flag_branch_probabilities && bb->count < MIN_COUNT)
-    return true;
-  if (bb->frequency < MIN_FREQUENCY)
-    return true;
-  /* Rule out entry and exit blocks.  */
   if (bb->index < 0)
+    return true;
+  if (!maybe_hot_bb_p (bb))
     return true;
   return false;
 }

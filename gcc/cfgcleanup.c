@@ -1045,29 +1045,21 @@ outgoing_edges_match (mode, bb1, bb2)
 	 we will only have one branch prediction bit to work with.  Thus
 	 we require the existing branches to have probabilities that are
 	 roughly similar.  */
-      /* ??? We should use bb->frequency to allow merging in infrequently
-	 executed blocks, but at the moment it is not available when
-	 cleanup_cfg is run.  */
-      if (match && !optimize_size)
+      if (match
+	  && (!optimize_size
+	      || !maybe_hot_bb_p (bb1)
+	      || !maybe_hot_bb_p (bb2)))
 	{
-	  rtx note1, note2;
-	  int prob1, prob2;
-	  note1 = find_reg_note (bb1->end, REG_BR_PROB, 0);
-	  note2 = find_reg_note (bb2->end, REG_BR_PROB, 0);
+	  int prob2;
 
-	  if (note1 && note2)
-	    {
-	      prob1 = INTVAL (XEXP (note1, 0));
-	      prob2 = INTVAL (XEXP (note2, 0));
-	      if (reverse)
-		prob2 = REG_BR_PROB_BASE - prob2;
+	  if (b1->dest == b2->dest)
+	    prob2 = b2->probability;
+	  else
+	    prob2 = f2->probability;
 
-	      /* Fail if the difference in probabilities is
-		 greater than 5%.  */
-	      if (abs (prob1 - prob2) > REG_BR_PROB_BASE / 20)
-		return false;
-	    }
-	  else if (note1 || note2)
+	  /* Fail if the difference in probabilities is
+	     greater than 5%.  */
+	  if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 20)
 	    return false;
 	}
 

@@ -190,8 +190,11 @@ static int const_str_htab_eq		PARAMS ((const void *x, const void *y));
 static void const_str_htab_del		PARAMS ((void *));
 static void asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
 static void resolve_unique_section	PARAMS ((tree, int));
+static void unlikely_executed_text_section PARAMS ((void));
+static void hot_text_section		PARAMS ((void));
 
-static enum in_section { no_section, in_text, in_data, in_named
+static enum in_section { no_section, in_text, in_text_hot, in_text_unlikely,
+  in_data, in_named
 #ifdef BSS_SECTION_ASM_OP
   , in_bss
 #endif
@@ -245,6 +248,46 @@ text_section ()
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
 #endif
       in_section = in_text;
+    }
+}
+
+/* Tell assembler to switch to text section.  */
+
+static void
+hot_text_section ()
+{
+  if (in_section != in_text_hot)
+    {
+#ifdef HOT_TEXT_SECTION
+      HOT_TEXT_SECTION ();
+      in_section = in_text_het;
+#else
+#ifdef HOT_TEXT_SECTION_ASM_OP
+      fprintf (asm_out_file, "%s\n", HOT_TEXT_SECTION_ASM_OP);
+      in_section = in_text_hot;
+#else
+      text_section ();
+#endif
+#endif
+    }
+}
+
+static void
+unlikely_executed_text_section ()
+{
+  if (in_section != in_text_unlikely)
+    {
+#ifdef UNLIKELY_EXECUTED_TEXT_SECTION
+      UNLIKELY_EXECUTED_TEXT_SECTION ();
+      in_section = in_text_unlikely;
+#else
+#ifdef UNLIKELY_EXECUTED_TEXT_SECTION_ASM_OP
+      fprintf (asm_out_file, "%s\n", UNLIKELY_EXECUTED_TEXT_SECTION_ASM_OP);
+      in_section = in_text_unlikely;
+#else
+      text_section ();
+#endif
+#endif
     }
 }
 
@@ -562,6 +605,21 @@ function_section (decl)
   if (decl != NULL_TREE
       && DECL_SECTION_NAME (decl) != NULL_TREE)
     named_section (decl, (char *) 0, 0);
+  else if (decl == current_function_decl)
+    {
+      switch (cfun->function_frequency)
+	{
+	  case FUNCTION_FREQUENCY_HOT:
+	    hot_text_section ();
+	    break;
+	  case FUNCTION_FREQUENCY_COLD:
+	    text_section ();
+	    break;
+	  case FUNCTION_FREQUENCY_UNLIKELY_EXECUTED:
+	    unlikely_executed_text_section ();
+	    break;
+	}
+    }
   else
     text_section ();
 }

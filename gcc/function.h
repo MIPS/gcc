@@ -472,6 +472,12 @@ struct function
 
   /* Nonzero if code to initialize arg_pointer_save_area has been emited.  */
   unsigned int arg_pointer_save_area_init : 1;
+
+  enum function_frequency {
+    FUNCTION_FREQUENCY_COLD,
+    FUNCTION_FREQUENCY_HOT,
+    FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
+  } function_frequency;
 };
 
 /* The function currently being compiled.  */
