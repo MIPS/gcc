@@ -317,7 +317,7 @@ fix_basic_block_boundaries (bb, last, head, tail)
 		       emit_barrier_after (prev_nonnote_insn (head));
 		       delete_insn (next);
 		     }
-		  insn = PREV_INSN (aftertail);
+		  insn = NULL;
 		}
 	    }
 	  else
@@ -331,6 +331,8 @@ fix_basic_block_boundaries (bb, last, head, tail)
 	  update_bb_for_insn (curr_bb);
 	  bb = curr_bb->next_bb;
 	  last_inside = NULL;
+	  if (!insn)
+	     break;
 	}
     }
   add_missing_bbs (last->next_bb->head, bb, last);
