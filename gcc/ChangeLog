@@ -1,3 +1,29 @@
+2004-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (expand_assignment): Reenable bitfield += optimizations.
+	Use alias set 0 for memory, do proper mode calculations and adjust
+	address for memories.
+
+2004-07-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (expand_assignment): Disable the bitfield += optimizations.
+
+2004-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* expr.c (expand_assignment): Optimize bitfld += cst for 1 bit
+	bitfields as well.  STRIP_NOPS from src operand and PLUS_EXPR's
+	first operand.  Don't optimize if the bitfield is volatile.
+
+2004-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* simplify-rtx.c (simplify_binary_operation): Simplify
+	((A & N) + B) & M -> (A + B) & M if M is pow2 minus 1 constant and
+	N has at least all bits in M set as well.
+
+	PR tree-optimization/15310
+	* expr.c (expand_assignment): Optimize += or -= on a bit field in
+	most significant bits.
+
 2004-08-14  Roger Sayle  <roger@eyesopen.com>
 	    David Billinghurst  <David.Billinghurst@riotinto.com>
 
