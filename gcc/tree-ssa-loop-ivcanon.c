@@ -190,9 +190,6 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
   tree niter;
 
   niter = number_of_iterations_in_loop (loop);
-  if (chrec_contains_undetermined (niter))
-    return;
-
   if (TREE_CODE (niter) == INTEGER_CST)
     {
       exit = loop->exit_edges[0];

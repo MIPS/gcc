@@ -1,3 +1,8 @@
+2004-07-07  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivcanon.c (canonicalize_loop_induction_variables):
+	Remove bogus check for chrec_contains_undetermined.
+
 2004-07-06  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* basic-block.h (edge_source, edge_destination): Removed.
