@@ -1,3 +1,15 @@
+1999-07-08  Richard Henderson  <rth@cygnus.com>
+
+	* i386.md (movstricthi_1): Fix parenthesis in conditional.
+	(movstrictqi_1): Likewise.
+
+1999-07-08  Jan Hubicka  <hubicka@freesoft.cz>
+
+	* i386.md: New peep2 patterns for TEST to AND conversion.
+	(testsi_1): Recognize "test imm,eax" as uv pairable.
+	(testhi_1, testqi_1): Likewise.
+	(andqi_ext_0_cc): New pattern.
+
 1999-07-01  Richard Henderson  <rth@cygnus.com>
 
 	* i386.c (ix86_aligned_reg_p): Delete.
