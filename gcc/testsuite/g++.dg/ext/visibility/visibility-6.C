@@ -1,7 +1,7 @@
 /* Test visibility attribute on definition of global variable that has
    already had a forward declaration. */
-/* { dg-require-visibility "" }
-/* { dg-final { scan-hidden "xyzzy" } } */
+/* { dg-do compile { target *86-*-linux* } } */
+/* { dg-final { scan-assembler "\\.hidden.*xyzzy" } } */
 
 extern int xyzzy;
 
