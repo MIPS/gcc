@@ -1788,7 +1788,12 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "interfaces", interfaces);
   PUSH_FIELD_VALUE (cons, "loader", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "interface_count", build_int_2 (interface_len, 0));
-  PUSH_FIELD_VALUE (cons, "state", integer_zero_node);
+  PUSH_FIELD_VALUE (cons, "state",
+		    convert (byte_type_node,
+			     build_int_2 (flag_indirect_dispatch
+					  ? JV_STATE_PRELOADING
+					  : JV_STATE_COMPILED,
+					  0)));
 
   PUSH_FIELD_VALUE (cons, "thread", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "depth", integer_zero_node);
@@ -1809,6 +1814,7 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "hack_signers", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "aux_info", null_pointer_node);
+  PUSH_FIELD_VALUE (cons, "engine", null_pointer_node);
 
   FINISH_RECORD_CONSTRUCTOR (cons);
 

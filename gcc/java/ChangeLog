@@ -1,3 +1,9 @@
+2004-09-14  Tom Tromey  <tromey@redhat.com>
+
+	* class.c (make_class_data): Correctly initialize "state" field.
+	Initialize "engine" field.
+	* decl.c (java_init_decl_processing): Add "engine" field.
+
 2004-09-10  Andrew Haley  <aph@redhat.com>
 
 	PR java/12760
