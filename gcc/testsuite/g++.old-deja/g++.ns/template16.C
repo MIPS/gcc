@@ -6,7 +6,7 @@
 namespace N {
   template <class T> void f () { }
   template <class T> struct A { friend void f<T>(); };
-};
+}
 
 namespace M {
   struct B;

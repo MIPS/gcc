@@ -6,7 +6,7 @@
 namespace A
 {
   void swap () {}
-};
+}
 
 template <class T> void f()
 {
@@ -28,7 +28,7 @@ namespace B
     return foo (1);
   }
   template int baz<float> ();
-};
+}
 
 int main ()
 {

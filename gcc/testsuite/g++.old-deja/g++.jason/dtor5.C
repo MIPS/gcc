@@ -12,13 +12,15 @@ template <class T> struct A {
   ~A() { p[--i].~T(); r = i; }
 };
 
+typedef int I;
+
 int main()
 {
   { A<int> a; }
 
   int* p = (int*) new char[sizeof (int)];
   new (p + r++) int;
-  p[--r].~int();
+  p[--r].~I ();
   
   return r;
 }

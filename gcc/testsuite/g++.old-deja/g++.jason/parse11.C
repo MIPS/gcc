@@ -3,7 +3,7 @@
 
 class aClass 
 { 
-  ;
+  ; // ERROR - does not declare anything
 private: 
-  ;   // This line causes problems 
+  ; // ERROR - does not declare anything
 }; 

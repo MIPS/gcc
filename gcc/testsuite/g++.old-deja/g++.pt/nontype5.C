@@ -1,6 +1,6 @@
 // Build don't link:
 
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 10 Jan 2001 <nathan@codesourcery.com>
 
 // Bug 1509. We ICE'd on trying to coerce a non-type template parm
@@ -20,4 +20,4 @@ int f() { return 0; };
 
 int main() {
 return B<int,&f>::g();  // ERROR - could not convert arg
-};
+}

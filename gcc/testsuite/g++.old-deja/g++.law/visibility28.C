@@ -21,4 +21,4 @@ main()
         B * pb = pd;
         delete pb;
         return 0;
-};
+}

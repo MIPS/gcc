@@ -2136,6 +2136,13 @@ build_component_ref (datum, component, basetype_path, protect)
   else
     {
       tree name = component;
+
+      /* In a template, we may not be able to resolve template-ids.
+	 Leave that for instantiation-time.  */
+      if (TREE_CODE (component) == TEMPLATE_ID_EXPR)
+	return build (COMPONENT_REF, unknown_type_node,
+		      datum, component);
+
       if (DECL_P (component))
 	name = DECL_NAME (component);
       else if (TREE_CODE (component) == OVERLOAD)
@@ -2738,16 +2745,22 @@ build_x_function_call (function, params, decl)
     {
       /* Undo what we did in build_component_ref.  */
       decl = TREE_OPERAND (function, 0);
-      function = OVL_CURRENT (TREE_OPERAND (function, 1));
-      if (DECL_DESTRUCTOR_P (function))
-	function = build1 (BIT_NOT_EXPR, NULL_TREE, DECL_NAME (function));
-      else
-	function = DECL_NAME (function);
+      function = TREE_OPERAND (function, 1);
 
-      if (template_id)
+      if (TREE_CODE (function) != TEMPLATE_ID_EXPR)
 	{
-	  TREE_OPERAND (template_id, 0) = function;
-	  function = template_id;
+	  function = OVL_CURRENT (function);
+
+	  if (DECL_DESTRUCTOR_P (function))
+	    function = build1 (BIT_NOT_EXPR, NULL_TREE, DECL_NAME (function));
+	  else
+	    function = DECL_NAME (function);
+	  
+	  if (template_id)
+	    {
+	      TREE_OPERAND (template_id, 0) = function;
+	      function = template_id;
+	    }
 	}
 
       return build_method_call (decl, function, params,

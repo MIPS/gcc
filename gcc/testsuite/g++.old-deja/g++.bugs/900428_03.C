@@ -24,8 +24,8 @@ struct struct_1 : public struct_0 {
   struct_1 ();
 };
 
-struct_1::struct_1 () : struct_0 (8,9)
-{				// ERROR - 
+struct_1::struct_1 () : struct_0 (8,9) // ERROR - 
+{				
 }
 
 struct struct_2 {
@@ -37,8 +37,8 @@ struct struct_2 {
 // g++ catches the following error (but does so only at the line with the 
 // closing curly brace).
 
-struct_2::struct_2 () : struct_2_data_member (8,9)
-{				// ERROR - should be up one line
+struct_2::struct_2 () : struct_2_data_member (8,9) // ERROR - 
+{				
 }
 
 int main () { return 0; }

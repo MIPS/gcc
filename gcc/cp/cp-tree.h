@@ -276,13 +276,10 @@ struct lang_identifier
 };
 
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
-   keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
-   and C_RID_YYCODE is the token number wanted by Yacc.  */
+   keyword.  C_RID_CODE (node) is then the RID_* value of the
+   keyword.  */
 
 #define C_IS_RESERVED_WORD(id) TREE_LANG_FLAG_5 (id)
-
-extern const short rid_to_yy[RID_MAX];
-#define C_RID_YYCODE(id) rid_to_yy[C_RID_CODE (id)]
 
 #define LANG_IDENTIFIER_CAST(NODE) \
 	((struct lang_identifier*)IDENTIFIER_NODE_CHECK (NODE))
@@ -292,12 +289,6 @@ struct lang_id2
   tree label_value, implicit_decl;
   tree error_locus;
 };
-
-typedef struct
-{
-  tree t;
-  int new_type_flag;
-} flagged_type_tree;
 
 typedef struct
 {
@@ -3809,6 +3800,7 @@ extern tree make_typename_type			PARAMS ((tree, tree, int));
 extern tree lookup_name_nonclass		PARAMS ((tree));
 extern tree lookup_function_nonclass            PARAMS ((tree, tree));
 extern tree lookup_name				PARAMS ((tree, int));
+extern tree lookup_qualified_name               PARAMS ((tree, tree, bool));
 extern tree lookup_name_current_level		PARAMS ((tree));
 extern tree lookup_type_current_level		PARAMS ((tree));
 extern tree lookup_name_namespace_only          PARAMS ((tree));
@@ -3826,7 +3818,7 @@ extern tree push_void_library_fn		PARAMS ((tree, tree));
 extern tree push_throw_library_fn		PARAMS ((tree, tree));
 extern int init_type_desc			PARAMS ((void));
 extern tree check_tag_decl			PARAMS ((tree, bool *));
-extern void shadow_tag				PARAMS ((tree));
+extern tree shadow_tag				PARAMS ((tree, bool *));
 extern tree groktypename			PARAMS ((tree));
 extern tree start_decl				PARAMS ((tree, tree, int, tree, tree));
 extern void start_decl_1			PARAMS ((tree));
@@ -4477,7 +4469,6 @@ extern tree build_scoped_ref			PARAMS ((tree, tree));
 extern tree build_x_arrow			PARAMS ((tree));
 extern tree build_m_component_ref		PARAMS ((tree, tree));
 extern tree build_functional_cast		PARAMS ((tree, tree));
-extern void check_for_new_type			PARAMS ((const char *, flagged_type_tree));
 extern tree add_exception_specifier             PARAMS ((tree, tree, int));
 extern tree merge_exception_specifiers          PARAMS ((tree, tree));
 

@@ -22,10 +22,10 @@ int main ()
   int i;
   cp c;
 
-  i.~int();
-  i.int::~int();
-  (&i)->~int();
-  (&i)->int::~int();
+  i.~int(); // ERROR - expected type-name
+  i.int::~int(); // ERROR - expected type-name
+  (&i)->~int(); // ERROR - expected type-name
+  (&i)->int::~int(); // ERROR - expected type-name
   c.~cp();
   c.cp::~cp();
   (&c)->~cp();

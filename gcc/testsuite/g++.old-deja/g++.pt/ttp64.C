@@ -12,7 +12,7 @@ public:
    template <class other> A2 & operator=(const A2<other> o) {
       i=o.i;
       return *this;
-   };
+   }
    T i;
    T j;
 };
@@ -24,11 +24,11 @@ public:
    template <class other> A1 & operator=(const A1<other> o) {
       i=o.i;
       return *this;
-   };
+   }
    template <class other> A1 & operator=(const A2<other> o) {
       i=o.i;
       return *this;
-   };
+   }
    T i;
 };
 
@@ -40,7 +40,7 @@ public:
    template <template <class U2> class O> B & operator=(const B<O> o) {
       i=o.i;
       return *this;
-   };
+   }
    T<int> i;
 };
 

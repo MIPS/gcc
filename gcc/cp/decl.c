@@ -5781,9 +5781,10 @@ warn_about_implicit_typename_lookup (typename, binding)
 }
 
 tree
-lookup_qualified_name (scope, name)
+lookup_qualified_name (scope, name, is_type_p)
      tree scope;
      tree name;
+     bool is_type_p;
 {
   tree val;
 
@@ -5793,6 +5794,8 @@ lookup_qualified_name (scope, name)
 
       val = make_node (CPLUS_BINDING);
       flags = LOOKUP_COMPLAIN;
+      if (is_type_p)
+	flags |= LOOKUP_PREFER_TYPES;
       if (!qualified_lookup_using_namespace (name, scope, val, flags))
 	return NULL_TREE;
       return select_decl (val, flags);
@@ -6922,11 +6925,12 @@ check_tag_decl (declspecs, friend_p)
    C++: may have to grok the declspecs to learn about static,
    complain for anonymous unions.  */
 
-void
-shadow_tag (declspecs)
+tree
+shadow_tag (declspecs, friend_p)
      tree declspecs;
+     bool *friend_p;
 {
-  tree t = check_tag_decl (declspecs, NULL);
+  tree t = check_tag_decl (declspecs, friend_p);
 
   if (t)
     maybe_process_partial_specialization (t);
@@ -6947,6 +6951,8 @@ shadow_tag (declspecs)
 	  finish_anon_union (decl);
 	}
     }
+
+  return t;
 }
 
 /* Decode a "typename", such as "int **", returning a ..._TYPE node.  */
@@ -12997,7 +13003,7 @@ start_function (declspecs, declarator, attrs, flags)
       if (CLASS_TYPE_P (restype) && !CLASSTYPE_GOT_SEMICOLON (restype))
 	{
 	  cp_error ("semicolon missing after declaration of `%#T'", restype);
-	  shadow_tag (build_tree_list (NULL_TREE, restype));
+	  shadow_tag (build_tree_list (NULL_TREE, restype), NULL);
 	  CLASSTYPE_GOT_SEMICOLON (restype) = 1;
 	  if (TREE_CODE (fntype) == FUNCTION_TYPE)
 	    fntype = build_function_type (integer_type_node,

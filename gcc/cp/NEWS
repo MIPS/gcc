@@ -1,5 +1,16 @@
 *** Changes since GCC 3.0:
 
+* G++ previously allowed attributes in some places that it should not have,
+  e.g.:
+
+    S s (7) __attribute__ ((init_priority (3)));
+
+  The attributes should come after the declarator, as in:
+
+    S s __attribute__ ((init_priority (3))) s (7);
+
+  The old syntax is no longer allowed.
+
 * Support for anachronistic initialization in constructors, e.g.:
    
     struct A { A(int); };

@@ -1105,7 +1105,7 @@ expand_member_init (exp, name, init)
 	  else
 	    cp_error ("type `%T' is not an immediate basetype for `%T'",
 		      basetype, type);
-	  basetype = error_mark_node;
+	  return error_mark_node;
 	}
 
       init = build_tree_list (basetype, init);

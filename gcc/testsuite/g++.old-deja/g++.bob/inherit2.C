@@ -17,7 +17,7 @@ public:
 };
 
 void f(B b) {
-};
+}
 
 void g() {
   B h;

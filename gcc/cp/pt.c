@@ -34,7 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
-#include "parse.h"
 #include "lex.h"
 #include "output.h"
 #include "except.h"
@@ -671,14 +670,17 @@ end_explicit_instantiation ()
   --processing_explicit_instantiation;
 }
 
-/* The TYPE is being declared.  If it is a template type, that means it
-   is a partial specialization.  Do appropriate error-checking.  */
+/* The TYPE is being declared.  If it is a template type, that means
+   it might be a partial specialization.  Do appropriate
+   error-checking.  */
 
 void 
 maybe_process_partial_specialization (type)
      tree type;
 {
-  if (IS_AGGR_TYPE (type) && CLASSTYPE_USE_TEMPLATE (type))
+  if ((processing_template_decl || processing_specialization)
+      && IS_AGGR_TYPE (type) 
+      && CLASSTYPE_USE_TEMPLATE (type))
     {
       if (CLASSTYPE_IMPLICIT_INSTANTIATION (type)
 	  && !COMPLETE_TYPE_P (type))
@@ -9334,10 +9336,11 @@ mark_class_instantiated (t, extern_p)
     }
 }     
 
-/* Perform an explicit instantiation of template class T.  STORAGE, if
-   non-null, is the RID for extern, inline or static.  COMPLAIN is
-   non-zero if this is called from the parser, zero if called recursively,
-   since the standard is unclear (as detailed below).  */
+/* Perform an explicit instantiation of template class T, which is
+   either a RECORD_TYPE or a UNION_TYPE.  STORAGE, if non-null, is the
+   RID for extern, inline or static.  COMPLAIN is non-zero if this is
+   called from the parser, zero if called recursively, since the
+   standard is unclear (as detailed below).  */
  
 void
 do_type_instantiation (t, storage, complain)
@@ -9347,9 +9350,6 @@ do_type_instantiation (t, storage, complain)
   int extern_p = 0;
   int nomem_p = 0;
   int static_p = 0;
-
-  if (TREE_CODE (t) == TYPE_DECL)
-    t = TREE_TYPE (t);
 
   if (! CLASS_TYPE_P (t) || ! CLASSTYPE_TEMPLATE_INFO (t))
     {
@@ -9476,7 +9476,8 @@ do_type_instantiation (t, storage, complain)
     for (tmp = CLASSTYPE_TAGS (t); tmp; tmp = TREE_CHAIN (tmp))
       if (IS_AGGR_TYPE (TREE_VALUE (tmp))
 	  && !uses_template_parms (CLASSTYPE_TI_ARGS (TREE_VALUE (tmp))))
-	do_type_instantiation (TYPE_MAIN_DECL (TREE_VALUE (tmp)), storage, 0);
+	do_type_instantiation (TREE_TYPE (TYPE_MAIN_DECL (TREE_VALUE (tmp))),
+			       storage, 0);
   }
 }
 

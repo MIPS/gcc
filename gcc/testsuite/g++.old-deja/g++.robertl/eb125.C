@@ -18,6 +18,6 @@ class test_square
 template <class BOX> void test(BOX *the_box)  // ERROR - semicolon missing
     {
     the_box->print();
-    };
+    }
 
 template void test<> (test_box *);

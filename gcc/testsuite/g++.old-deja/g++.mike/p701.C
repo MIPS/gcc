@@ -4,11 +4,11 @@
 extern "C" 
 {
   int printf(const char *, ...);
-};
+}
 
 
-void Munge(int& x) 
-{				// ERROR - referenced below
+void Munge(int& x) // ERROR - referenced below
+{				
    x = 2;
 }
 

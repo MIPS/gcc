@@ -140,7 +140,7 @@ public:
     ListD<T>::length;
     ListD<T>::empty;
     ListD<T>::clear;
-    typedef ListD<T>::Vix Vix;
+    typedef typename ListD<T>::Vix Vix;
     ListD<T>::first;
     ListD<T>::next;
     ListD<T>::operator();

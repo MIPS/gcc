@@ -523,14 +523,14 @@ public:
 };
 
 char *
-X::stringify() const
-{ // ERROR - ok
+X::stringify() const // ERROR - ok
+{ 
     return "stringify";
 }
 
 const char *
-X::stringify2()
-{ // ERROR - ok
+X::stringify2() // ERROR - ok
+{ 
     return "stringify2";
 }
 

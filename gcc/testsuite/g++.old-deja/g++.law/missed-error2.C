@@ -8,8 +8,8 @@
 
 #include <iostream>
 
-inline int max(int a, int b) {return a > b ? a : b;}; // ERROR - candidate
-inline double max(double a, double b) {return a > b ? a : b;}; // ERROR - candidate
+inline int max(int a, int b) {return a > b ? a : b;} // ERROR - candidate
+inline double max(double a, double b) {return a > b ? a : b;} // ERROR - candidate
 
 int main() {
    static void foo(int i, int j, double x, double y) ;// ERROR - .*
