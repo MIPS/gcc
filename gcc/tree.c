@@ -637,7 +637,7 @@ build_vector (tree type, tree vals)
   tree link;
   /* APPLE LOCAL begin AltiVec */
   int max_index, count = 0;
-  tree list;
+  tree list = NULL_TREE;
   /* APPLE LOCAL end AltiVec */
 
   TREE_VECTOR_CST_ELTS (v) = vals;
