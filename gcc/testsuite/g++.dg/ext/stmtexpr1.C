@@ -1,6 +1,4 @@
-// XFAIL on branch only -- PR 12453
-// { dg-do run { xfail *-*-* } }
-// { dg-excess-errors "" }
+// { dg-do run }
 // { dg-options "" }
 
 // Copyright (C) 2003 Free Software Foundation, Inc.
