@@ -28,9 +28,9 @@
 3665098: 23:is 2:should be 1
 3665098: g++.dg/gcov/gcov-2.C gcov: 1 failures in line counts, 0 in branch percentages, 0 in return percentages
 3223598: g++.dg/special/conpr-3.C execution test
-3665098: g++.old-deja/g++.abi/cxa_vec.C execution test
+#3665098: g++.old-deja/g++.abi/cxa_vec.C execution test
 #3665098: g++.old-deja/g++.brendan/crash13.C  (test for errors, line 34)
-3665098: g++.old-deja/g++.brendan/new3.C execution test
+#3665098: g++.old-deja/g++.brendan/new3.C execution test
 3222135: g++.old-deja/g++.bugs/900404_02.C  (test for warnings, line 25)
 3222698: g++.old-deja/g++.ext/pretty4.C execution test
 #3665098: g++.old-deja/g++.law/friend5.C  (test for errors, line 19)
@@ -210,3 +210,12 @@
 3904186: g++.dg/pch/uninst.C -g assembly comparison
 3904186: g++.dg/pch/uninst.C -O2 -g assembly comparison
 3904186: g++.dg/pch/uninst.C -O2 assembly comparison
+#
+3961370: g++.dg/ext/visibility/fvisibility-override1.C (test for excess errors)
+3961370: g++.dg/ext/visibility/fvisibility-override1.C scan-assembler \\.internal.*Foo.methodEv
+3961370: g++.dg/ext/visibility/fvisibility-override2.C (test for excess errors)
+3961370: g++.dg/ext/visibility/fvisibility-override2.C scan-assembler \\.internal.*Foo.methodEv
+3961370: g++.dg/ext/visibility/pragma-override1.C (test for excess errors)
+3961370: g++.dg/ext/visibility/pragma-override1.C scan-assembler \\.internal.*Foo.methodEv
+3961370: g++.dg/ext/visibility/pragma-override2.C (test for excess errors)
+3961370: g++.dg/ext/visibility/pragma-override2.C scan-assembler \\.internal.*Foo.methodEv
