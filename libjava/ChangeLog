@@ -1,3 +1,16 @@
+2004-05-17  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/JRootPane.java
+	(JRootPane.RootLayout): Reimplemented to 
+	set bounds of contentPane and menuBar.
+	(setJMenuBar): Add menu bar to the layered pane.
+	(createLayeredPane): Set layout of layeredPane
+	to null.
+	* javax/swing/JLayeredPane.java:
+	(addImpl): Calculate index of the component in the
+	layeredPane according to the specified position within 
+	the layer.	
+
 2004-05-17  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkImagePainter.java

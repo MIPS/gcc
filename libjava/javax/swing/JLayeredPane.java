@@ -563,7 +563,7 @@ public class JLayeredPane extends JComponent implements Accessible
     else
 	    layer = DEFAULT_LAYER;
 
-    int newIdx = insertIndexForLayer(layer.intValue (), -1);
+    int newIdx = insertIndexForLayer(layer.intValue (), index);
 
     componentToLayer.put (comp, layer);
     incrLayer (layer);

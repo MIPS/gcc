@@ -68,17 +68,146 @@ public class JRootPane extends JComponent
     static protected class AccessibleJRootPane
     {
     }
-  
-    //A custom layout manager  
-    static protected class RootLayout extends BorderLayout
+
+    // Custom Layout Manager for JRootPane. It positions contentPane and 
+    // menuBar withing its layeredPane.
+    protected class RootLayout extends Object implements LayoutManager2
     {
-      public Dimension preferredLayoutSize ( Container c )
-	{	    
-	  Dimension p = super.preferredLayoutSize(c);
-	  return p;
-	}        
+      public void addLayoutComponent(Component comp, Object constraints)
+      {
+      }
+
+      public void addLayoutComponent(String name, Component comp)
+      {
+      }
+
+      public float getLayoutAlignmentX(Container target)
+      {
+        return target.getAlignmentX();
+      }
+
+      public float getLayoutAlignmentY(Container target)
+      {
+        return target.getAlignmentY();
+      }
+
+      public void invalidateLayout(Container target)
+      {
+      }
+
+      public void layoutContainer(Container c)
+      {
+        Dimension menuBarSize;
+        Dimension containerSize = c.getSize(null);
+        Dimension contentPaneSize = contentPane.getPreferredSize();
+
+        /*
+         if size of top-level window wasn't set then just set
+         contentPane and menuBar to its preferred sizes.
+         Otherwise, if the size of top-level window was specified then
+         set menuBar to its preferred size and make content pane
+         to fit into the remaining space
+
+
+         +-------------------------------+
+         |  JLayeredPane                 |  
+         |  +--------------------------+ |
+         |  | menuBar                  | |
+         |  +--------------------------+ |
+         |  +--------------------------+ |
+         |  |contentPane               | |
+         |  |                          | |
+         |  |                          | |
+         |  |                          | |
+         |  +--------------------------+ |
+         +-------------------------------+
+
+        */
+        if (containerSize.width == 0 && containerSize.height == 0)
+          {
+	      if (menuBar != null)
+	      {
+	        int maxWidth;
+	        menuBarSize = menuBar.getPreferredSize();
+	        maxWidth = Math.max(menuBarSize.width, contentPaneSize.width);
+	        menuBar.setBounds(0, 0, maxWidth, menuBarSize.height);
+	        contentPane.setBounds(0, menuBarSize.height, maxWidth,
+	                              contentPaneSize.height);
+	        layeredPane.setSize(maxWidth,
+	                            menuBarSize.height + contentPaneSize.height);
+	      }
+	    else
+	      {
+	        contentPane.setBounds(0, 0, contentPaneSize.width,
+	                              contentPaneSize.height);
+	        layeredPane.setSize(contentPaneSize.width, contentPaneSize.height);
+	      }
+          }
+        else
+          {
+	    if (menuBar != null)
+	      {
+	        menuBarSize = menuBar.getPreferredSize();
+	        if (menuBarSize.height > containerSize.height)
+		   menuBarSize.height = containerSize.height;
+	        menuBar.setBounds(0, 0, containerSize.width, menuBarSize.height);
+	        int remainingHeight = containerSize.height - menuBarSize.height;
+	        contentPane.setBounds(0, menuBarSize.height,
+	                              containerSize.width,
+	                              (containerSize.height - menuBarSize.height));
+	      }
+	    else
+	      contentPane.setBounds(0, 0, containerSize.width,
+	                            containerSize.height);
+
+	    layeredPane.setSize(containerSize.width, containerSize.height);
+          }
+      }
+      
+      public Dimension maximumLayoutSize(Container target)
+      {
+        return preferredLayoutSize(target);
+      }
+
+      public Dimension minimumLayoutSize(Container target)
+      {
+        return preferredLayoutSize(target);
+      }
+
+      public Dimension preferredLayoutSize(Container c)
+      {
+        Dimension menuBarSize;
+        Dimension prefSize;
+
+        Dimension containerSize = c.getSize();
+        Dimension contentPaneSize = contentPane.getPreferredSize();
+
+        if (containerSize.width == 0 && containerSize.height == 0)
+          {
+	    if (menuBar != null)
+	      {
+	        int maxWidth;
+	        menuBarSize = menuBar.getPreferredSize();
+	        maxWidth = Math.max(menuBarSize.width, contentPaneSize.width);
+	        prefSize = new Dimension(maxWidth,
+	                               contentPaneSize.height
+	                               + menuBarSize.height);
+	      }
+	    else
+	      prefSize = contentPaneSize;
+          }
+        else
+          prefSize = c.getSize();
+
+        return prefSize;
+      }
+
+      public void removeLayoutComponent(Component comp)
+      {
+      }
     }
-  
+    
+     
     /***********************************************************/
 
   
@@ -100,7 +229,10 @@ public class JRootPane extends JComponent
 
     
     void setJMenuBar(JMenuBar m)
-    {  menuBar = m; }
+    {  
+      menuBar = m; 
+      getLayeredPane().add(menuBar, JLayeredPane.FRAME_CONTENT_LAYER);
+    }
 
     JMenuBar getJMenuBar()
     {  return menuBar; }
@@ -206,6 +338,7 @@ public class JRootPane extends JComponent
     JLayeredPane createLayeredPane()
     {
 	JLayeredPane l = new JLayeredPane();
+	l.setLayout(null);
 	return l;
     }    
 }
