@@ -6,7 +6,6 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *                                                                          *
  *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
@@ -65,11 +64,10 @@ extern Char_Code *String_Chars_Ptr;
 
 
 /* String_Length returns the length of the specified string.  */
-INLINE Int String_Length PARAMS ((String_Id));
+INLINE Int String_Length (String_Id);
 
 INLINE Int
-String_Length (Id)
-     String_Id Id;
+String_Length (String_Id Id)
 {
   return Strings_Ptr[Id - First_String_Id].Length;
 }
@@ -78,12 +76,10 @@ String_Length (Id)
 /* Get_String_Char obtains the specified character from a stored string.  The
    lower bound of stored strings is always 1, so the range of values is 1 to
    String_Length (Id).  */
-INLINE Char_Code Get_String_Char PARAMS ((String_Id, Int));
+INLINE Char_Code Get_String_Char (String_Id, Int);
 
 INLINE Char_Code
-Get_String_Char (Id, Index)
-     String_Id Id;
-     Int Index;
+Get_String_Char (String_Id Id, Int Index)
 {
   return
     String_Chars_Ptr

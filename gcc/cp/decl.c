@@ -2605,7 +2605,7 @@ make_typename_type (tree context, tree name, tsubst_flags_t complain)
       return error_mark_node;
     }
 
-  if (! uses_template_parms (context)
+  if (!dependent_type_p (context)
       || currently_open_class (context))
     {
       if (TREE_CODE (fullname) == TEMPLATE_ID_EXPR)
@@ -2664,7 +2664,7 @@ make_typename_type (tree context, tree name, tsubst_flags_t complain)
 
   /* If the CONTEXT is not a template type, then either the field is
      there now or its never going to be.  */
-  if (!uses_template_parms (context))
+  if (!dependent_type_p (context))
     {
       if (complain & tf_error)
 	error ("no type named `%#T' in `%#T'", name, context);
@@ -2693,7 +2693,7 @@ make_unbound_class_template (tree context, tree name, tsubst_flags_t complain)
   if (TREE_CODE (name) != IDENTIFIER_NODE)
     abort ();
 
-  if (!uses_template_parms (context)
+  if (!dependent_type_p (context)
       || currently_open_class (context))
     {
       tree tmpl = NULL_TREE;
@@ -3099,11 +3099,11 @@ cxx_init_decl_processing (void)
 }
 
 /* Generate an initializer for a function naming variable from
-   NAME. NAME may be NULL, in which case we generate a special
-   ERROR_MARK node which should be replaced later.  */
+   NAME. NAME may be NULL, to indicate a dependent name.  TYPE_P is
+   filled in with the type of the init. */
 
 tree
-cp_fname_init (const char* name)
+cp_fname_init (const char* name, tree *type_p)
 {
   tree domain = NULL_TREE;
   tree type;
@@ -3120,12 +3120,12 @@ cp_fname_init (const char* name)
   type = build_qualified_type (char_type_node, TYPE_QUAL_CONST);
   type = build_cplus_array_type (type, domain);
 
+  *type_p = type;
+  
   if (init)
     TREE_TYPE (init) = type;
   else
-    /* We don't know the value until instantiation time. Make
-       something which will be digested now, but replaced later.  */
-    init = build (ERROR_MARK, type);
+    init = error_mark_node;
   
   return init;
 }
@@ -3141,8 +3141,9 @@ cp_make_fname_decl (tree id, int type_dep)
 {
   const char *const name = (type_dep && processing_template_decl
 			    ? NULL : fname_as_string (type_dep));
-  tree init = cp_fname_init (name);
-  tree decl = build_decl (VAR_DECL, id, TREE_TYPE (init));
+  tree type;
+  tree init = cp_fname_init (name, &type);
+  tree decl = build_decl (VAR_DECL, id, type);
 
   /* As we're using pushdecl_with_scope, we must set the context.  */
   DECL_CONTEXT (decl) = current_function_decl;
@@ -3790,6 +3791,8 @@ start_decl (tree declarator,
 
   if (processing_template_decl)
     tem = push_template_decl (tem);
+  if (tem == error_mark_node)
+    return error_mark_node;
 
 #if ! defined (ASM_OUTPUT_BSS) && ! defined (ASM_OUTPUT_ALIGNED_BSS)
   /* Tell the back-end to use or not use .common as appropriate.  If we say
@@ -3879,7 +3882,7 @@ start_decl_1 (tree decl)
 /* Handle initialization of references.  DECL, TYPE, and INIT have the
    same meaning as in cp_finish_decl.  *CLEANUP must be NULL on entry,
    but will be set to a new CLEANUP_STMT if a temporary is created
-   that must be destroeyd subsequently.
+   that must be destroyed subsequently.
 
    Returns an initializer expression to use to initialize DECL, or
    NULL if the initialization can be performed statically.
@@ -4660,7 +4663,9 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   const char *asmspec = NULL;
   int was_readonly = 0;
 
-  if (! decl)
+  if (decl == error_mark_node)
+    return;
+  else if (! decl)
     {
       if (init)
 	error ("assignment (not initialization) in declaration");
@@ -4675,7 +4680,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
   /* If a name was specified, get the string.  */
   if (global_scope_p (current_binding_level))
     asmspec_tree = maybe_apply_renaming_pragma (decl, asmspec_tree);
-  if (asmspec_tree)
+  if (asmspec_tree) 
     asmspec = TREE_STRING_POINTER (asmspec_tree);
 
   if (init && TREE_CODE (init) == NAMESPACE_DECL)
@@ -4761,15 +4766,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
       TREE_READONLY (decl) = 0;
     }
 
-  if (TREE_CODE (decl) == FIELD_DECL && asmspec)
-    {
-      /* This must override the asm specifier which was placed by
-	 grokclassfn.  Lay this out fresh.  */
-      SET_DECL_RTL (TREE_TYPE (decl), NULL_RTX);
-      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (asmspec));
-      make_decl_rtl (decl, asmspec);
-    }
-  else if (TREE_CODE (decl) == VAR_DECL)
+  if (TREE_CODE (decl) == VAR_DECL)
     {
       /* Only PODs can have thread-local storage.  Other types may require
 	 various kinds of non-trivial initialization.  */
@@ -5073,6 +5070,8 @@ start_cleanup_fn (void)
      it is only called via a function pointer, but we avoid unnecessary
      emissions this way.  */
   DECL_INLINE (fndecl) = 1;
+  DECL_DECLARED_INLINE_P (fndecl) = 1;
+  DECL_INTERFACE_KNOWN (fndecl) = 1;
   /* Build the parameter.  */
   if (flag_use_cxa_atexit)
     {

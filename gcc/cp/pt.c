@@ -2698,7 +2698,10 @@ push_template_decl_real (tree decl, int is_friend)
 	       || TREE_CODE (decl) == FUNCTION_DECL)
 	/* OK */;
       else
-	error ("template declaration of `%#D'", decl);
+	{
+	  error ("template declaration of `%#D'", decl);
+	  return error_mark_node;
+	}
     }
 
   /* Check to see that the rules regarding the use of default
@@ -3636,7 +3639,7 @@ coerce_template_parms (tree parms,
       if (i < nargs)
 	arg = TREE_VEC_ELT (inner_args, i);
       else if (require_all_arguments)
-	/* There must be a default arg in this case. */
+	/* There must be a default arg in this case.  */
 	arg = tsubst_template_arg (TREE_PURPOSE (parm), new_args,
 				   complain, in_decl);
       else
@@ -4171,14 +4174,12 @@ lookup_template_class (tree d1,
 	      tree ctx;
 	      
 	      for (ctx = current_class_type; 
-		   ctx; 
-		   ctx = TYPE_CONTEXT (ctx))
-		{
-		  if (TREE_CODE (ctx) == NAMESPACE_DECL)
-		    break;
-		  if (same_type_p (ctx, template_type))
-		    goto found_ctx;
-		}
+		   ctx && TREE_CODE (ctx) != NAMESPACE_DECL;
+		   ctx = (TYPE_P (ctx)
+			  ? TYPE_CONTEXT (ctx)
+			  : DECL_CONTEXT (ctx)))
+		if (TYPE_P (ctx) && same_type_p (ctx, template_type))
+		  goto found_ctx;
 	      
 	      /* We're not in the scope of the class, so the
 		 TEMPLATE_TYPE is not the type we want after all.  */
@@ -5303,10 +5304,10 @@ instantiate_class_template (tree type)
 	      tree r;
 	      
 	      if (TREE_CODE (t) == TEMPLATE_DECL)
-		processing_template_decl++;
+		++processing_template_decl;
 	      r = tsubst (t, args, tf_error, NULL_TREE);
 	      if (TREE_CODE (t) == TEMPLATE_DECL)
-		processing_template_decl--;
+		--processing_template_decl;
 	      set_current_access_from_decl (r);
 	      grok_special_member_properties (r);
 	      finish_member_declaration (r);
@@ -5326,10 +5327,10 @@ instantiate_class_template (tree type)
 		  input_location = DECL_SOURCE_LOCATION (t);
 
 		  if (TREE_CODE (t) == TEMPLATE_DECL)
-		    processing_template_decl++;
+		    ++processing_template_decl;
 		  r = tsubst (t, args, tf_error | tf_warning, NULL_TREE);
 		  if (TREE_CODE (t) == TEMPLATE_DECL)
-		    processing_template_decl--;
+		    --processing_template_decl;
 		  if (TREE_CODE (r) == VAR_DECL)
 		    {
 		      tree init;
@@ -5421,9 +5422,17 @@ instantiate_class_template (tree type)
 		--processing_template_decl;
 	    }
 	  else
-	    /* Build new DECL_FRIENDLIST.  */
-	    add_friend (type, tsubst_friend_function (t, args),
-			/*complain=*/false);
+	    {
+	      /* Build new DECL_FRIENDLIST.  */
+	      tree r;
+
+	      if (TREE_CODE (t) == TEMPLATE_DECL)
+		++processing_template_decl;
+	      r = tsubst_friend_function (t, args);
+	      if (TREE_CODE (t) == TEMPLATE_DECL)
+		--processing_template_decl;
+	      add_friend (type, r, /*complain=*/false);
+	    }
 	}
     }
 
@@ -7045,7 +7054,7 @@ tsubst_baselink (tree baselink, tree object_type,
        class, rather than the instantiated class.  
 
        In addition, lookups that were not ambiguous before may be
-       ambiguous now.  Therefore, we perform the lookup again. */
+       ambiguous now.  Therefore, we perform the lookup again.  */
     qualifying_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (baselink));
     fns = BASELINK_FUNCTIONS (baselink);
     if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
@@ -7627,8 +7636,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 			   initializer.  */
 			const char *const name
 			  = cxx_printable_name (current_function_decl, 2);
-			init = cp_fname_init (name);
-			TREE_TYPE (decl) = TREE_TYPE (init);
+			init = cp_fname_init (name, &TREE_TYPE (decl));
 		      }
 		    else
 		      init = tsubst_expr (init, args, complain, in_decl);
@@ -7902,7 +7910,7 @@ tsubst_copy_and_build (tree t,
     {
     case USING_DECL:
       t = DECL_NAME (t);
-      /* Fallthrough. */
+      /* Fallthrough.  */
     case IDENTIFIER_NODE:
       {
 	tree decl;
@@ -11254,9 +11262,11 @@ get_mostly_instantiated_function_type (tree decl)
 	 specialized or not.  */
       push_access_scope (decl);
 
+      ++processing_template_decl;
       /* Now, do the (partial) substitution to figure out the
 	 appropriate function type.  */
       fn_type = tsubst (fn_type, partial_args, tf_error, NULL_TREE);
+      --processing_template_decl;
 
       /* Substitute into the template parameters to obtain the real
 	 innermost set of parameters.  This step is important if the
@@ -11380,7 +11390,7 @@ dependent_type_p_r (tree type)
   if (TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
     return true;
   /* ... or any of the template arguments is a dependent type or
-	an expression that is type-dependent or value-dependent.   */
+	an expression that is type-dependent or value-dependent.  */
   else if (CLASS_TYPE_P (type) && CLASSTYPE_TEMPLATE_INFO (type)
 	   && (any_dependent_template_arguments_p 
 	       (INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (type)))))

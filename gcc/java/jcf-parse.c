@@ -1137,6 +1137,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	    (get_identifier ("atable"), 
 	     atable_decl, atable_methods, atable_syms_decl, ptr_type_node);
 	}
+      emit_catch_table ();
     }
 
   write_resource_constructor ();

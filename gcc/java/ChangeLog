@@ -1,3 +1,86 @@
+2003-10-24  David S. Miller  <davem@redhat.com>
+
+	* jcf-parse.c (jcf_parse): Fix args to fatal_error().
+
+2003-10-22  Andrew Haley  <aph@redhat.com>
+
+	* lang.c (LANG_HOOKS_GET_CALLEE_FNDECL): New.
+	(java_get_callee_fndecl): New.
+
+	* jcf-parse.c (java_parse_file): Call emit_catch_table().
+
+	* java-tree.h (ctable_decl): New.
+	(catch_classes):  New.
+	(java_tree_index): Add JTI_CTABLE_DECL, JTI_CATCH_CLASSES.
+
+	* decl.c (java_init_decl_processing): Add catch_class_type.
+	Add ctable_decl.
+	Add catch_classes field.
+
+	* class.c (build_indirect_class_ref): Break out from
+	build_class_ref.
+	(make_field_value): Check flag_indirect_dispatch.
+	(make_class_data): Ditto.
+	Tidy uses of PUSH_FIELD_VALUE.
+	Add field catch_classes.
+	(make_catch_class_record): New.
+
+	* java-tree.h (PUSH_FIELD_VALUE): Tidy.
+
+2003-10-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* jcf-write.c: Follow spelling conventions.
+	* parse.y: Likewise.
+
+2003-10-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Fix typos.
+	* expr.c: Fix comment typos.
+	* jcf-write.c: Likewise.
+	* lang.c: Likewise.
+	* lex.c: Likewise.
+	* mangle.c: Likewise.
+	* parse-scan.y: Likewise.
+	* parse.y: Likewise.
+
+2003-10-22  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (expand_byte_code): Only warn about dead bytecode when
+	extra_warnings is set.
+
+2003-10-22  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	Fix for	PR java/12586.
+	* mangle.c (find_compression_record_match): Don't iterate through
+	package namespace elements unless they all match compression_table
+	entries.
+
+2003-10-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (info): Honor $(parsedir) and $(docobjdir).
+	(generate-manpages): Likewise.
+	(java.maintainer-clean): Likewise.
+	(gcj.info): Likewise.
+	(gcj.1): Likewise.
+	(gcjh.1): Likewise.
+	(jv-scan.1): Likewise.
+	(jcf-dump.1): Likewise.
+	(gij.1): Likewise.
+	(jv-convert.1): Likewise.
+	(rmic.1): Likewise.
+	(rmiregistry.1): Likewise.
+	(java.install-man): Likewise.
+	(parse-scan.o): Move and define complete compile line.
+	(parse.o): Likewise.
+	(jcf-tree-inline.o): Move.
+
+2003-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (info): Update dependencies.
+	(java.install-info): Remove.
+	($(srcdir)/java/gcj.info): Replace with ...
+	($(docobjdir)/gcj.info): ... this.
+
 2003-10-14  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Make-lang.in: Replace uses of $(target_alias) with
@@ -3420,7 +3503,7 @@
 
 2001-08-31  Per Bothner  <per@bothner.com>
 
-	* class.c (set_constant_value):  When not emiting class files, then a
+	* class.c (set_constant_value):  When not emitting class files, then a
 	String ConstantValue is a utf8const_ptr_type.
 
 2001-08-30  Per Bothner  <per@bothner.com>
@@ -3688,7 +3771,7 @@
 	`finish_class' when compiling to native.
 	(resolve_expression_name): Use `orig' after building outer class
 	field access.
-	(patch_invoke): Remember static method invokations.
+	(patch_invoke): Remember static method invocations.
 
 2001-08-06  Richard Henderson  <rth@redhat.com>
 
@@ -4148,7 +4231,7 @@
 	(add_instance_initializer): Use it.
 	(java_fix_constructors): Set `current_class' before fix pass.
 	(fix_constructors): Just return if already fixed. Move `super()'
-	invokation ahead. Use `build_instance_initializer.'
+	invocation ahead. Use `build_instance_initializer.'
 	Fixes PR java/1315.
 
 2001-04-04  Alexandre Petit-Bianco  <apbianco@redhat.com>
@@ -4156,7 +4239,7 @@
 	* parse.y (resolve_qualified_expression_name): Pass field's
 	DECL_CONTEXT to `not_accessible_p.'
 	(not_accessible_p): Changed parameters order in `inherits_from_p'
-	invokation.
+	invocation.
 
 2001-03-27  Andrew Haley  <aph@cambridge.redhat.com>
 
@@ -6995,7 +7078,7 @@
 
 2000-04-05  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
-	* jcf-write.c (generate_bytecode_insns): At invokation time,
+	* jcf-write.c (generate_bytecode_insns): At invocation time,
 	always relate an interface method to the type of its selector.
 
 2000-04-05  Tom Tromey  <tromey@cygnus.com>
@@ -7566,7 +7649,7 @@
 2000-02-12  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* parse.y (outer_field_access_fix): First parameter now a tree
-	node. Check for assignement to final. First argument to
+	node. Check for assignment to final. First argument to
 	build_outer_field_access_fix modified to accommodate prototype.
 	(build_outer_field_access): Don't check for assignment to final
 	here.
@@ -8484,7 +8567,7 @@
 
 1999-12-10  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
-	* parse.y (java_complete_lhs): Force convertion of array
+	* parse.y (java_complete_lhs): Force conversion of array
 	dimensions to int_type_node, that's what runtime's ABI expects.
 
 1999-12-10  Alexandre Petit-Bianco  <apbianco@cygnus.com>
@@ -9505,7 +9588,7 @@
 1999-05-24  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* lex.c (java_lex): Accepts `+' or `-' after the beginning of a
-	floating point litteral only when the exponent indicator has been
+	floating point literal only when the exponent indicator has been
 	parsed.
 
 1999-05-22  Alexandre Petit-Bianco  <apbianco@cygnus.com>
@@ -10227,7 +10310,7 @@
 	non accessible fields.
 	(java_stabilize_reference): New function.
 	(java_complete_lhs): Fixed indentation. Use
-	java_stabilize_reference in compound assignement. Insert the
+	java_stabilize_reference in compound assignment. Insert the
 	cast. If not processing `+' fix string constants before processing
 	binop.
 
@@ -10855,7 +10938,7 @@
 	with assembler temp labels.
 
 	* parse.y (patch_synchronized_statement): Set TREE_SIDE_EFFECTS on
-	MODIFY_EXPR.  Without this, code for the assignement may not be
+	MODIFY_EXPR.  Without this, code for the assignment may not be
 	generated at all and the synchronized statement will read an
 	uninitialized variable.
 
@@ -14578,7 +14661,7 @@
 	(block:): Likewise.
 	(labeled_statement_nsi:): Generate debug info when reducing
 	expression_statement:.
-	(check_pkg_class_access): get_access_flags_from_decl invokation
+	(check_pkg_class_access): get_access_flags_from_decl invocation
 	fixed for new CLASS_* flags location.
 	(source_end_java_method): Save/restore parser context when
 	entering/leaving this routine. Restore lineno to its right value

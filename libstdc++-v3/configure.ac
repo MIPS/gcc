@@ -134,6 +134,12 @@ if $GLIBCXX_IS_NATIVE; then
   AC_CHECK_HEADERS(sys/uio.h)
   GLIBCXX_CHECK_WRITEV
 
+  # For the __streamoff_base_type typedef.
+  GLIBCXX_CHECK_INT64_T
+
+  # For LFS support.
+  GLIBCXX_CHECK_LFS
+
   AC_LC_MESSAGES
 
   AC_TRY_COMPILE(
@@ -297,7 +303,7 @@ AC_SUBST(LIBSUPCXX_PICFLAGS)
 
 dnl In autoconf 2.5x, AC_OUTPUT is replaced by four AC_CONFIG_* macros,
 dnl which can all be called multiple times as needed, plus one (different)
-dnl AC_OUPUT macro.  This one lists the files to be created:
+dnl AC_OUTPUT macro.  This one lists the files to be created:
 AC_CONFIG_FILES( \
   Makefile \
   AC_FOREACH([DIR], glibcxx_SUBDIRS, [DIR/Makefile ])

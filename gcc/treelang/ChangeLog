@@ -1,3 +1,27 @@
+2003-10-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (treelang.o): Depend on $(parsedir)/treelang/parse.h.
+	(lex.o): Likewise.
+
+2003-10-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (parse.o): Honor $(parsedir).
+	(lex.o): Likewise.
+	(lex.c): Likewise
+	(parse.c, parse.h): Likewise.
+	($(docobjdir)/treelang.info): Replace $(srcdir)/doc with $(docdir).
+	(dvi): Likewise.
+
+2003-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in ($(docobjdir)/treelang/treelang.info): Depend on
+	stmp-docobjdir.
+
+	* Make-lang.in (info): Use docobjdir.
+	($(srcdir)/treelang/treelang.info): Replace with ...
+	($(docobjdir)/treelang/treelang.info): ... this.
+	(install-info): New target.
+
 2003-10-12  Andreas Jaeger  <aj@suse.de>
 
 	* Make-lang.in (treelang.install-info): Remove reference to

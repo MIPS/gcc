@@ -1,4 +1,4 @@
-# generated automatically by aclocal 1.7.8 -*- Autoconf -*-
+# generated automatically by aclocal 1.7.7 -*- Autoconf -*-
 
 # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
 # Free Software Foundation, Inc.
@@ -553,7 +553,7 @@ dnl Check whether poll is available in <poll.h>, and define HAVE_POLL.
 dnl
 AC_DEFUN(GLIBCXX_CHECK_POLL, [
   AC_CACHE_VAL(glibcxx_cv_POLL, [
-    AC_TRY_COMPILE(
+    AC_TRY_LINK(
       [#include <poll.h>],
       [struct pollfd pfd[1];
        pfd[0].events = POLLIN;
@@ -572,7 +572,7 @@ dnl Check whether writev is available in <sys/uio.h>, and define HAVE_WRITEV.
 dnl
 AC_DEFUN(GLIBCXX_CHECK_WRITEV, [
   AC_CACHE_VAL(glibcxx_cv_WRITEV, [
-    AC_TRY_COMPILE(
+    AC_TRY_LINK(
       [#include <sys/uio.h>],
       [struct iovec iov[2];
        writev(0, iov, 0);],
@@ -581,6 +581,41 @@ AC_DEFUN(GLIBCXX_CHECK_WRITEV, [
   ])
   if test $glibcxx_cv_WRITEV = yes; then
     AC_DEFINE(HAVE_WRITEV)
+  fi
+])
+
+
+dnl
+dnl Check whether int64_t is available in <stdint.h>, and define HAVE_INT64_T.
+dnl
+AC_DEFUN(GLIBCXX_CHECK_INT64_T, [
+  AC_CACHE_VAL(glibcxx_cv_INT64_T, [
+    AC_TRY_COMPILE(
+      [#include <stdint.h>],
+      [int64_t var;],
+      [glibcxx_cv_INT64_T=yes],
+      [glibcxx_cv_INT64_T=no])
+  ])
+  if test $glibcxx_cv_INT64_T = yes; then
+    AC_DEFINE(HAVE_INT64_T)
+  fi
+])
+
+
+dnl
+dnl Check whether LFS support is available.
+dnl
+AC_DEFUN(GLIBCXX_CHECK_LFS, [
+  AC_CACHE_VAL(glibcxx_cv_LFS, [
+    AC_TRY_LINK(
+      [#include <unistd.h>],
+      [fopen64("t", "w");
+       lseek64(1, 0, SEEK_CUR);],	
+      [glibcxx_cv_LFS=yes],
+      [glibcxx_cv_LFS=no])
+  ])
+  if test $glibcxx_cv_LFS = yes; then
+    AC_DEFINE(_GLIBCXX_USE_LFS)
   fi
 ])
 
@@ -969,7 +1004,7 @@ AC_DEFUN(GLIBCXX_ENABLE_CLOCALE, [
   # Default to "generic".
   if test $enable_clocale_flag = auto; then
     case x${target_os} in
-      xlinux* | xgnu*)
+      xlinux* | xgnu* | xkfreebsd*-gnu | xknetbsd*-gnu)
         AC_EGREP_CPP([_GLIBCXX_ok], [
         #include <features.h>
         #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 2)
@@ -1969,7 +2004,7 @@ AC_DEFUN([AM_AUTOMAKE_VERSION],[am__api_version="1.7"])
 # Call AM_AUTOMAKE_VERSION so it can be traced.
 # This function is AC_REQUIREd by AC_INIT_AUTOMAKE.
 AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION],
-	 [AM_AUTOMAKE_VERSION([1.7.8])])
+	 [AM_AUTOMAKE_VERSION([1.7.7])])
 
 # Helper functions for option handling.                    -*- Autoconf -*-
 

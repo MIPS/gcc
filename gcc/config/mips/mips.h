@@ -2524,10 +2524,8 @@ typedef struct mips_args {
 									    \
   func_addr = plus_constant (ADDR, 32);					    \
   chain_addr = plus_constant (func_addr, GET_MODE_SIZE (ptr_mode));	    \
-  emit_move_insn (gen_rtx_MEM (ptr_mode, func_addr),			    \
-		  gen_lowpart (ptr_mode, force_reg (Pmode, FUNC)));	    \
-  emit_move_insn (gen_rtx_MEM (ptr_mode, chain_addr),			    \
-		  gen_lowpart (ptr_mode, force_reg (Pmode, CHAIN)));	    \
+  emit_move_insn (gen_rtx_MEM (ptr_mode, func_addr), FUNC);		    \
+  emit_move_insn (gen_rtx_MEM (ptr_mode, chain_addr), CHAIN);		    \
 									    \
   /* Flush both caches.  We need to flush the data cache in case	    \
      the system has a write-back cache.  */				    \
@@ -3467,7 +3465,7 @@ while (0)
    we need to load our GP.  We don't preserve $gp or $ra, since each
    init/fini chunk is supposed to initialize $gp, and crti/crtn
    already take care of preserving $ra and, when appropriate, $gp.  */
-#if _MIPS_SIM == _MIPS_SIM_ABI32
+#if (defined _ABIO32 && _MIPS_SIM == _ABIO32)
 #define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
    asm (SECTION_OP "\n\
 	.set noreorder\n\

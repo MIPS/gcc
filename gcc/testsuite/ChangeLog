@@ -1,3 +1,90 @@
+2003-10-26  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10371
+	* g++.dg/lookup/scoped8.C: New test.
+
+2003-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/reg-stack3.C: New test.
+
+2003-10-24  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c99-arraydecl-2.c: New test.  PR c/11943.
+
+2003-10-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11076
+	* g++.dg/template/crash13.C: New test.
+
+2003-10-24  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/c99-restrict-2.c: New test.
+
+2003-10-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/12698, c++/12699, c++/12700, c++/12566
+	* g++.dg/inherit/covariant9.C: New test.
+	* g++.dg/inherit/covariant10.C: New test.
+	* g++.dg/inherit/covariant11.C: New test.
+
+2003-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/old-style-asm-1.c: Also check for (set (pc) on lines
+	following the jump_insn.
+
+2003-10-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/cast-lvalue-1.c: New test.
+
+2003-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11962
+	* g++.dg/template/cond2.C: New test.
+
+2003-10-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/builtins-28.c: New test.
+
+2003-10-20  Jan Hubicka  <jh@suse.cz>
+
+	* testsuite/g++.dg/opt/inline4.C: Do not use min-inline-insns
+	parameter.
+	* testsuite/gcc.dg/inline-2.c: Likewise.
+
+2003-10-20  Phil Edwards  <phil@codesourcery.com>
+
+	* gcc.dg/20021014-1.c:  XFAIL for *-*-windiss targets.
+	* gcc.dg/nest.c:  Likewise.
+
+2003-10-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9781, c++/10583, c++/11862
+	* g++.dg/parse/crash13.C: New test.
+
+2003-10-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/old-style-asm-1.c: Count jump_insns instead of labels.
+
+2003-10-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/builtins-18.c: Wrap C99 tests with HAVE_C99_RUNTIME.
+	Define HAVE_C99_RUNTIME except on Solaris.
+	* gcc.dg/builtins-20.c: Likewise.
+
+2003-10-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/old-style-asm-1.c: Use scan-assembler-times.
+
+2003-10-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12495
+	* g++.dg/template/crash21.C: New test.
+
+2003-10-17  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/2513
+	* g++.dg/template/typename5.C: New test.
+
 2003-10-17  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/12369

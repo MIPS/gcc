@@ -392,7 +392,12 @@ m68k_initial_elimination_offset (int from, int to)
   abort();
 }
 
-/* Return true if we need to save REGNO. */
+/* Refer to the array `regs_ever_live' to determine which registers
+   to save; `regs_ever_live[I]' is nonzero if register number I
+   is ever used in the function.  This function is responsible for
+   knowing which registers should not be saved even if used.
+   Return true if we need to save REGNO.  */
+
 static bool
 m68k_save_reg (unsigned int regno, bool interrupt_handler)
 {
@@ -442,15 +447,7 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
 
 /* This function generates the assembly code for function entry.
    STREAM is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This function is responsible for
-   knowing which registers should not be saved even if used.  */
-
-
-/* Note that the order of the bit mask for fmovem is the opposite
-   of the order for movem!  */
+   SIZE is an int: how many units of temporary storage to allocate.  */
 
 static void
 m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
@@ -475,7 +472,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 #endif
     }
 
-  /* on ColdFire add register save into initial stack frame setup, if possible */
+  /* On ColdFire add register save into initial stack frame setup, if possible.  */
   num_saved_regs = 0;
   if (TARGET_COLDFIRE && current_frame.reg_no > 2)
     num_saved_regs = current_frame.reg_no;
@@ -548,7 +545,6 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	    {
 	      if (!TARGET_COLDFIRE)
 		{
-		  /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 		  asm_fprintf (stream, "\tsubq.w %I%wd,%Rsp\n", fsize_with_regs);
 #else
@@ -557,7 +553,6 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 		}
 	      else
 		{
-		  /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 		  asm_fprintf (stream, "\tsubq.l %I%wd,%Rsp\n", fsize_with_regs);
 #else
@@ -569,7 +564,6 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	    {
 	      /* On the CPU32 it is faster to use two subqw instructions to
 		 subtract a small integer (8 < N <= 16) to a register.  */
-	      /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	      asm_fprintf (stream,
 			   "\tsubq.w %I8,%Rsp\n\tsubq.w %I%wd,%Rsp\n",
@@ -582,7 +576,6 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	  else if (TARGET_68040)
 	    {
 	      /* Adding negative number is faster on the 68040.  */
-	      /* asm_fprintf() cannot handle %.  */
 #ifdef MOTOROLA
 	      asm_fprintf (stream, "\tadd.w %I%wd,%Rsp\n", -fsize_with_regs);
 #else
@@ -661,7 +654,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
       /* Store each separately in the same order moveml uses.
          Using two movel instructions instead of a single moveml
          is about 15% faster for the 68020 and 68030 at no expense
-         in code size */
+         in code size.  */
 
       int i;
 
@@ -807,14 +800,14 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	     || (! current_function_calls_alloca && leaf_function_p ());
 
   /* fsize_with_regs is the size we need to adjust the sp when
-     popping the frame */
+     popping the frame.  */
   fsize_with_regs = fsize;
 
   /* Because the ColdFire doesn't support moveml with
      complex address modes, we must adjust the stack manually
      after restoring registers. When the frame pointer isn't used,
      we can merge movem adjustment into frame unlinking
-     made immediately after it. */
+     made immediately after it.  */
   if (TARGET_COLDFIRE && restore_from_sp && (current_frame.reg_no > 2))
     fsize_with_regs += current_frame.reg_no * 4;
 
@@ -823,7 +816,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
       && (current_frame.reg_mask || current_frame.fpu_mask))
     {
       /* Because the ColdFire doesn't support moveml with
-         complex address modes we make an extra correction here */
+         complex address modes we make an extra correction here.  */
       if (TARGET_COLDFIRE)
         {
 #ifdef MOTOROLA
@@ -868,7 +861,8 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 #else
 		asm_fprintf (stream, "\tmovel %s@(-%wd,%Ra1:l),%s\n",
 			     reg_names[FRAME_POINTER_REGNUM],
-			     offset);
+			     offset,
+			     reg_names[i]);
 #endif
 	      }
             else if (restore_from_sp)
@@ -900,7 +894,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
     }
   else if (current_frame.reg_mask)
     {
-      /* The ColdFire requires special handling due to its limited moveml insn */
+      /* The ColdFire requires special handling due to its limited moveml insn.  */
       if (TARGET_COLDFIRE)
         {
           if (big)
@@ -1665,7 +1659,7 @@ const_method (rtx constant)
     return MOVQ;
 
   /* The ColdFire doesn't have byte or word operations.  */
-  /* FIXME: This may not be useful for the m68060 either */
+  /* FIXME: This may not be useful for the m68060 either.  */
   if (!TARGET_COLDFIRE) 
     {
       /* if -256 < N < 256 but N is not in range for a moveq
@@ -2467,7 +2461,7 @@ output_addsi3 (rtx *operands)
       /* These insns can result from reloads to access
 	 stack slots over 64k from the frame pointer.  */
       if (GET_CODE (operands[2]) == CONST_INT
-	  && INTVAL (operands[2]) + 0x8000 >= (unsigned) 0x10000)
+	  && (INTVAL (operands[2]) < -32768 || INTVAL (operands[2]) > 32767))
         return "move%.l %2,%0\n\tadd%.l %1,%0";
 #ifdef SGS
       if (GET_CODE (operands[2]) == REG)

@@ -1211,6 +1211,25 @@ fix = {
 
 
 /*
+ *  Fix hpux 11.00 broken snprintf declaration
+ *  (third argument is char *, needs to be const char * to prevent
+ *  spurious warnings with -Wwrite-strings or in C++).
+ */
+fix = {
+    hackname = hpux11_snprintf;
+    files    = stdio.h;
+    select   = '(extern int snprintf *\(char *\*, *(|__|_hpux_)size_t,)'
+                                    ' *(char *\*, *\.\.\.\);)';
+    c_fix     = format;
+    c_fix_arg = '%1 const %3';
+
+    test_text = "extern int snprintf(char *, size_t, char *, ...);\n"
+                "extern int snprintf(char *, __size_t, char *, ...);\n"
+                "extern int snprintf(char *, _hpux_size_t, char *, ...);";
+};
+
+
+/*
  * In inttypes.h on HPUX 11, the use of __CONCAT__ in the definition
  * of UINT32_C has undefined behavior according to ISO/ANSI:
  * the arguments to __CONCAT__ are not macro expanded before the
@@ -1974,6 +1993,31 @@ fix = {
     c_fix     = format;
     c_fix_arg = "%0;";
     test_text = "char *na_addr\t";
+};
+
+
+/*
+ *  obstack.h used casts as lvalues.
+ *
+ *  We need to change postincrements of casted pointers (which are
+ *  then dereferenced and assigned into) of the form
+ *
+ *    *((TYPE*)PTRVAR)++ = (VALUE)
+ *
+ *  into expressions like
+ *
+ *    ((*((TYPE*)PTRVAR) = (VALUE)), (PTRVAR += sizeof (TYPE)))
+ *
+ *  which is correct for the cases used in obstack.h since PTRVAR is
+ *  of type char * and the value of the expression is not used.
+ */
+fix = {
+    hackname  = obstack_lvalue_cast;
+    files     = obstack.h;
+    select    = '\*\(\(([^()]*)\*\)(.*)\)\+\+ = \(([^()]*)\)';
+    c_fix     = format;
+    c_fix_arg = "((*((%1*)%2) = (%3)), (%2 += sizeof (%1)))";
+    test_text = "*((void **) (h)->next_free)++ = (aptr)";
 };
 
 

@@ -79,6 +79,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "opts.h"
 #include "coverage.h"
+#include "value-prof.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -138,6 +139,7 @@ static void rest_of_handle_null_pointer (tree, rtx);
 static void rest_of_handle_addressof (tree, rtx);
 static void rest_of_handle_cfg (tree, rtx);
 static void rest_of_handle_branch_prob (tree, rtx);
+static void rest_of_handle_value_profile_transformations (tree, rtx);
 static void rest_of_handle_if_conversion (tree, rtx);
 static void rest_of_handle_if_after_combine (tree, rtx);
 static void rest_of_handle_tracer (tree, rtx);
@@ -265,6 +267,7 @@ enum dump_file_index
   DFI_bypass,
   DFI_cfg,
   DFI_bp,
+  DFI_vpt,
   DFI_ce1,
   DFI_tracer,
   DFI_web,
@@ -297,7 +300,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"            m   q         "
-	"         JK   O Q    V  Y "
+	"         JK   O Q       Y "
 */
 
 static struct dump_file_info dump_file[DFI_MAX] =
@@ -319,6 +322,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "bypass",   'G', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
+  { "vpt",	'V', 1, 0, 0 },
   { "ce1",	'C', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
   { "web",      'Z', 0, 0, 0 },
@@ -404,6 +408,9 @@ int profile_arc_flag = 0;
 /* Nonzero if value histograms should be measured.  */
 
 int flag_profile_values = 0;
+
+/* Nonzero if value histograms should be used to optimize code.  */
+int flag_value_profile_transformations = 0;
 
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 
@@ -697,6 +704,11 @@ int flag_gcse_lm = 1;
    flag_gcse_lm.  */
 
 int flag_gcse_sm = 1;
+
+/* Nonzero if we want to perfrom redundant load after store elimination
+   in gcse.  */
+
+int flag_gcse_las = 1;
 
 /* Perform target register optimization before prologue / epilogue
    threading.  */
@@ -1105,6 +1117,7 @@ static const lang_independent_options f_options[] =
   {"gcse", &flag_gcse, 1 },
   {"gcse-lm", &flag_gcse_lm, 1 },
   {"gcse-sm", &flag_gcse_sm, 1 },
+  {"gcse-las", &flag_gcse_las, 1 },
   {"branch-target-load-optimize", &flag_branch_target_load_optimize, 1 },
   {"branch-target-load-optimize2", &flag_branch_target_load_optimize2, 1 },
   {"loop-optimize", &flag_loop_optimize, 1 },
@@ -1134,6 +1147,8 @@ static const lang_independent_options f_options[] =
   {"asynchronous-unwind-tables", &flag_asynchronous_unwind_tables, 1 },
   {"non-call-exceptions", &flag_non_call_exceptions, 1 },
   {"profile-arcs", &profile_arc_flag, 1 },
+  {"profile-values", &flag_profile_values, 1 },
+  {"vpt", &flag_value_profile_transformations, 1 },
   {"test-coverage", &flag_test_coverage, 1 },
   {"branch-probabilities", &flag_branch_probabilities, 1 },
   {"profile", &profile_flag, 1 },
@@ -1469,8 +1484,14 @@ output_quoted_string (FILE *asm_file, const char *string)
 void
 output_file_directive (FILE *asm_file, const char *input_name)
 {
-  int len = strlen (input_name);
-  const char *na = input_name + len;
+  int len;
+  const char *na;
+  
+  if (input_name == NULL)
+    input_name = "<stdin>";
+
+  len = strlen (input_name);
+  na = input_name + len;
 
   /* NA gets INPUT_NAME sans directory names.  */
   while (na > input_name)
@@ -2503,6 +2524,7 @@ rest_of_handle_branch_prob (tree decl, rtx insns)
 
   timevar_push (TV_BRANCH_PROB);
   open_dump_file (DFI_bp, decl);
+
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     branch_prob ();
 
@@ -2520,6 +2542,20 @@ rest_of_handle_branch_prob (tree decl, rtx insns)
   flow_loops_free (&loops);
   close_dump_file (DFI_bp, print_rtl_with_bb, insns);
   timevar_pop (TV_BRANCH_PROB);
+}
+
+/* Do optimizations based on expression value profiles.  */
+static void
+rest_of_handle_value_profile_transformations (tree decl, rtx insns)
+{
+  open_dump_file (DFI_vpt, decl);
+  timevar_push (TV_VPT);
+
+  if (value_profile_transformations ())
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+
+  timevar_pop (TV_VPT);
+  close_dump_file (DFI_vpt, print_rtl_with_bb, insns);
 }
 
 /* Do control and data flow analysis; write some of the results to the
@@ -3199,7 +3235,7 @@ rest_of_compilation (tree decl)
   /* We are now committed to emitting code for this function.  Do any
      preparation, such as emitting abstract debug info for the inline
      before it gets mangled by optimization.  */
-  if (DECL_INLINE (decl))
+  if (cgraph_function_possibly_inlined_p (decl))
     (*debug_hooks->outlining_inline_function) (decl);
 
   /* Remove any notes we don't need.  That will make iterating
@@ -3389,12 +3425,20 @@ rest_of_compilation (tree decl)
 
   rest_of_handle_cfg (decl, insns);
 
-  if (flag_web)
-    rest_of_handle_web (decl, insns);
-
   if (optimize > 0
       || profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
-    rest_of_handle_branch_prob (decl, insns);
+    {
+      rest_of_handle_branch_prob (decl, insns);
+
+      if (flag_branch_probabilities
+	  && flag_profile_values
+	  && flag_value_profile_transformations)
+	rest_of_handle_value_profile_transformations (decl, insns);
+
+      /* Remove the death notes created for vpt.  */
+      if (flag_profile_values)
+	count_or_remove_death_notes (NULL, 1);
+    }
 
   if (optimize > 0)
     rest_of_handle_if_conversion (decl, insns);
@@ -3407,6 +3451,9 @@ rest_of_compilation (tree decl)
 	  || flag_peel_loops
 	  || flag_unroll_loops))
     rest_of_handle_loop2 (decl, insns);
+
+  if (flag_web)
+    rest_of_handle_web (decl, insns);
 
   if (flag_rerun_cse_after_loop)
     rest_of_handle_cse2 (decl, insns);
@@ -4107,6 +4154,121 @@ init_asm_output (const char *name)
     }
 }
 
+/* Default version of get_pch_validity.
+   By default, every flag difference is fatal; that will be mostly right for
+   most targets, but completely right for very few.  */
+
+void *
+default_get_pch_validity (size_t *len)
+{
+  size_t i;
+  char *result, *r;
+  
+  *len = sizeof (target_flags) + 2;
+#ifdef TARGET_OPTIONS
+  for (i = 0; i < ARRAY_SIZE (target_options); i++)
+    {
+      *len += 1;
+      if (*target_options[i].variable)
+	*len += strlen (*target_options[i].variable);
+    }
+#endif
+
+  result = r = xmalloc (*len);
+  r[0] = flag_pic;
+  r[1] = flag_pie;
+  r += 2;
+  memcpy (r, &target_flags, sizeof (target_flags));
+  r += sizeof (target_flags);
+  
+#ifdef TARGET_OPTIONS
+  for (i = 0; i < ARRAY_SIZE (target_options); i++)
+    {
+      const char *str = *target_options[i].variable;
+      size_t l;
+      if (! str)
+	str = "";
+      l = strlen (str) + 1;
+      memcpy (r, str, l);
+      r += l;
+    }
+#endif
+
+  return result;
+}
+
+/* Default version of pch_valid_p.  */
+
+const char *
+default_pch_valid_p (const void *data_p, size_t len)
+{
+  const char *data = (const char *)data_p;
+  const char *flag_that_differs = NULL;
+  size_t i;
+  
+  /* -fpic and -fpie also usually make a PCH invalid.  */
+  if (data[0] != flag_pic)
+    return _("created and used with different settings of -fpic");
+  if (data[1] != flag_pie)
+    return _("created and used with different settings of -fpie");
+  data += 2;
+
+  /* Check target_flags.  */
+  if (memcmp (data, &target_flags, sizeof (target_flags)) != 0)
+    {
+      for (i = 0; i < ARRAY_SIZE (target_switches); i++)
+	{
+	  int bits;
+	  int tf;
+
+	  memcpy (&tf, data, sizeof (target_flags));
+
+	  bits = target_switches[i].value;
+	  if (bits < 0)
+	    bits = -bits;
+	  if ((target_flags & bits) != (tf & bits))
+	    {
+	      flag_that_differs = target_switches[i].name;
+	      goto make_message;
+	    }
+	}
+      abort ();
+    }
+  data += sizeof (target_flags);
+  len -= sizeof (target_flags);
+  
+  /* Check string options.  */
+#ifdef TARGET_OPTIONS
+  for (i = 0; i < ARRAY_SIZE (target_options); i++)
+    {
+      const char *str = *target_options[i].variable;
+      size_t l;
+      if (! str)
+	str = "";
+      l = strlen (str) + 1;
+      if (len < l || memcmp (data, str, l) != 0)
+	{
+	  flag_that_differs = target_options[i].prefix;
+	  goto make_message;
+	}
+      data += l;
+      len -= l;
+    }
+#endif
+
+  return NULL;
+  
+ make_message:
+  {
+    char *r;
+    asprintf (&r, _("created and used with differing settings of `-m%s'"),
+		  flag_that_differs);
+    if (r == NULL)
+      return _("out of memory");
+    return r;
+  }
+}
+
 /* Default tree printer.   Handles declarations only.  */
 static bool
 default_tree_printer (pretty_printer * pp, text_info *text)
@@ -4276,6 +4438,9 @@ process_options (void)
      interface.  */
   if (flag_unit_at_a_time && ! lang_hooks.callgraph.expand_function)
     flag_unit_at_a_time = 0;
+
+  if (flag_value_profile_transformations)
+    flag_profile_values = 1;
 
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING

@@ -211,6 +211,7 @@ static int s390_short_displacement (rtx);
 static int s390_decompose_address (rtx, struct s390_address *);
 static rtx get_thread_pointer (void);
 static rtx legitimize_tls_address (rtx, rtx);
+static void print_shift_count_operand (FILE *, rtx);
 static const char *get_some_local_dynamic_name (void);
 static int get_some_local_dynamic_name_1 (rtx *, void *);
 static int reg_used_in_mem_p (int, rtx);
@@ -1274,6 +1275,45 @@ s_imm_operand (register rtx op, enum machine_mode mode)
   return general_s_operand (op, mode, 1);
 }
 
+/* Return true if OP a valid shift count operand.
+   OP is the current operation.
+   MODE is the current operation mode.  */
+
+int
+shift_count_operand (rtx op, enum machine_mode mode)
+{
+  HOST_WIDE_INT offset = 0;
+
+  if (! check_mode (op, &mode))
+    return 0;
+
+  /* We can have an integer constant, an address register,
+     or a sum of the two.  Note that reload already checks
+     that any register present is an address register, so
+     we just check for any register here.  */
+  if (GET_CODE (op) == CONST_INT)
+    {
+      offset = INTVAL (op);
+      op = NULL_RTX;
+    }
+  if (op && GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
+    {
+      offset = INTVAL (XEXP (op, 1));
+      op = XEXP (op, 0);
+    }
+  while (op && GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+  if (op && GET_CODE (op) != REG)
+    return 0;
+
+  /* Unfortunately we have to reject constants that are invalid
+     for an address, or else reload will get confused.  */
+  if (!DISP_IN_RANGE (offset))
+    return 0;
+
+  return 1;
+}
+
 /* Return true if DISP is a valid short displacement.  */
 
 static int
@@ -1382,6 +1422,9 @@ s390_extra_constraint (rtx op, int c)
 	  && s390_short_displacement (addr.disp))
 	return 0;
       break;
+
+    case 'Y':
+      return shift_count_operand (op, VOIDmode);
 
     default:
       return 0;
@@ -1512,6 +1555,7 @@ tls_symbolic_operand (register rtx op)
 int
 load_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
+  enum machine_mode elt_mode;
   int count = XVECLEN (op, 0);
   unsigned int dest_regno;
   rtx src_addr;
@@ -1527,6 +1571,7 @@ load_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 
   dest_regno = REGNO (SET_DEST (XVECEXP (op, 0, 0)));
   src_addr = XEXP (SET_SRC (XVECEXP (op, 0, 0)), 0);
+  elt_mode = GET_MODE (SET_DEST (XVECEXP (op, 0, 0)));
 
   /* Check, is base, or base + displacement.  */
 
@@ -1551,15 +1596,15 @@ load_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 
       if (GET_CODE (elt) != SET
 	  || GET_CODE (SET_DEST (elt)) != REG
-	  || GET_MODE (SET_DEST (elt)) != Pmode
+	  || GET_MODE (SET_DEST (elt)) != elt_mode
 	  || REGNO (SET_DEST (elt)) != dest_regno + i
 	  || GET_CODE (SET_SRC (elt)) != MEM
-	  || GET_MODE (SET_SRC (elt)) != Pmode
+	  || GET_MODE (SET_SRC (elt)) != elt_mode
 	  || GET_CODE (XEXP (SET_SRC (elt), 0)) != PLUS
 	  || ! rtx_equal_p (XEXP (XEXP (SET_SRC (elt), 0), 0), src_addr)
 	  || GET_CODE (XEXP (XEXP (SET_SRC (elt), 0), 1)) != CONST_INT
 	  || INTVAL (XEXP (XEXP (SET_SRC (elt), 0), 1))
-	     != off + i * UNITS_PER_WORD)
+	     != off + i * GET_MODE_SIZE (elt_mode))
 	return 0;
     }
 
@@ -1574,6 +1619,7 @@ load_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 int
 store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
+  enum machine_mode elt_mode;
   int count = XVECLEN (op, 0);
   unsigned int src_regno;
   rtx dest_addr;
@@ -1588,6 +1634,7 @@ store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 
   src_regno = REGNO (SET_SRC (XVECEXP (op, 0, 0)));
   dest_addr = XEXP (SET_DEST (XVECEXP (op, 0, 0)), 0);
+  elt_mode = GET_MODE (SET_SRC (XVECEXP (op, 0, 0)));
 
   /* Check, is base, or base + displacement.  */
 
@@ -1612,15 +1659,15 @@ store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 
       if (GET_CODE (elt) != SET
 	  || GET_CODE (SET_SRC (elt)) != REG
-	  || GET_MODE (SET_SRC (elt)) != Pmode
+	  || GET_MODE (SET_SRC (elt)) != elt_mode
 	  || REGNO (SET_SRC (elt)) != src_regno + i
 	  || GET_CODE (SET_DEST (elt)) != MEM
-	  || GET_MODE (SET_DEST (elt)) != Pmode
+	  || GET_MODE (SET_DEST (elt)) != elt_mode
 	  || GET_CODE (XEXP (SET_DEST (elt), 0)) != PLUS
 	  || ! rtx_equal_p (XEXP (XEXP (SET_DEST (elt), 0), 0), dest_addr)
 	  || GET_CODE (XEXP (XEXP (SET_DEST (elt), 0), 1)) != CONST_INT
 	  || INTVAL (XEXP (XEXP (SET_DEST (elt), 0), 1))
-	     != off + i * UNITS_PER_WORD)
+	     != off + i * GET_MODE_SIZE (elt_mode))
 	return 0;
     }
   return 1;
@@ -2927,34 +2974,15 @@ legitimize_address (register rtx x, register rtx oldx ATTRIBUTE_UNUSED,
 void
 s390_expand_movstr (rtx dst, rtx src, rtx len)
 {
-  rtx (*gen_short) (rtx, rtx, rtx) =
-    TARGET_64BIT ? gen_movstr_short_64 : gen_movstr_short_31;
-  rtx (*gen_long) (rtx, rtx, rtx, rtx) =
-    TARGET_64BIT ? gen_movstr_long_64 : gen_movstr_long_31;
-
-
   if (GET_CODE (len) == CONST_INT && INTVAL (len) >= 0 && INTVAL (len) <= 256)
     {
       if (INTVAL (len) > 0)
-        emit_insn (gen_short (dst, src, GEN_INT (INTVAL (len) - 1)));
+        emit_insn (gen_movstr_short (dst, src, GEN_INT (INTVAL (len) - 1)));
     }
 
   else if (TARGET_MVCLE)
     {
-      enum machine_mode double_mode = TARGET_64BIT ? TImode : DImode;
-      enum machine_mode single_mode = TARGET_64BIT ? DImode : SImode;
-      rtx reg0 = gen_reg_rtx (double_mode);
-      rtx reg1 = gen_reg_rtx (double_mode);
-
-      emit_move_insn (gen_highpart (single_mode, reg0),
-		      force_operand (XEXP (dst, 0), NULL_RTX));
-      emit_move_insn (gen_highpart (single_mode, reg1),
-		      force_operand (XEXP (src, 0), NULL_RTX));
-
-      convert_move (gen_lowpart (single_mode, reg0), len, 1);
-      convert_move (gen_lowpart (single_mode, reg1), len, 1);
-
-      emit_insn (gen_long (reg0, reg1, reg0, reg1));
+      emit_insn (gen_movstr_long (dst, src, convert_to_mode (Pmode, len, 1)));
     }
 
   else
@@ -2966,7 +2994,7 @@ s390_expand_movstr (rtx dst, rtx src, rtx len)
 
       mode = GET_MODE (len);
       if (mode == VOIDmode)
-        mode = word_mode;
+        mode = Pmode;
 
       type = lang_hooks.types.type_for_mode (mode, 1);
       if (!type)
@@ -2999,7 +3027,7 @@ s390_expand_movstr (rtx dst, rtx src, rtx len)
 					   make_tree (type, blocks),
 					   make_tree (type, const0_rtx)));
 
-      emit_insn (gen_short (dst, src, GEN_INT (255)));
+      emit_insn (gen_movstr_short (dst, src, GEN_INT (255)));
       s390_load_address (dst_addr,
 			 gen_rtx_PLUS (Pmode, dst_addr, GEN_INT (256)));
       s390_load_address (src_addr,
@@ -3011,7 +3039,8 @@ s390_expand_movstr (rtx dst, rtx src, rtx len)
 
       expand_end_loop ();
 
-      emit_insn (gen_short (dst, src, convert_to_mode (word_mode, count, 1)));
+      emit_insn (gen_movstr_short (dst, src, 
+				   convert_to_mode (Pmode, count, 1)));
       emit_label (end_label);
     }
 }
@@ -3021,33 +3050,15 @@ s390_expand_movstr (rtx dst, rtx src, rtx len)
 void
 s390_expand_clrstr (rtx dst, rtx len)
 {
-  rtx (*gen_short) (rtx, rtx) =
-    TARGET_64BIT ? gen_clrstr_short_64 : gen_clrstr_short_31;
-  rtx (*gen_long) (rtx, rtx, rtx) =
-    TARGET_64BIT ? gen_clrstr_long_64 : gen_clrstr_long_31;
-
-
   if (GET_CODE (len) == CONST_INT && INTVAL (len) >= 0 && INTVAL (len) <= 256)
     {
       if (INTVAL (len) > 0)
-        emit_insn (gen_short (dst, GEN_INT (INTVAL (len) - 1)));
+        emit_insn (gen_clrstr_short (dst, GEN_INT (INTVAL (len) - 1)));
     }
 
   else if (TARGET_MVCLE)
     {
-      enum machine_mode double_mode = TARGET_64BIT ? TImode : DImode;
-      enum machine_mode single_mode = TARGET_64BIT ? DImode : SImode;
-      rtx reg0 = gen_reg_rtx (double_mode);
-      rtx reg1 = gen_reg_rtx (double_mode);
-
-      emit_move_insn (gen_highpart (single_mode, reg0),
-		      force_operand (XEXP (dst, 0), NULL_RTX));
-      convert_move (gen_lowpart (single_mode, reg0), len, 1);
-
-      emit_move_insn (gen_highpart (single_mode, reg1), const0_rtx);
-      emit_move_insn (gen_lowpart (single_mode, reg1), const0_rtx);
-
-      emit_insn (gen_long (reg0, reg1, reg0));
+      emit_insn (gen_clrstr_long (dst, convert_to_mode (Pmode, len, 1)));
     }
 
   else
@@ -3059,7 +3070,7 @@ s390_expand_clrstr (rtx dst, rtx len)
 
       mode = GET_MODE (len);
       if (mode == VOIDmode)
-        mode = word_mode;
+        mode = Pmode;
 
       type = lang_hooks.types.type_for_mode (mode, 1);
       if (!type)
@@ -3090,7 +3101,7 @@ s390_expand_clrstr (rtx dst, rtx len)
 					   make_tree (type, blocks),
 					   make_tree (type, const0_rtx)));
 
-      emit_insn (gen_short (dst, GEN_INT (255)));
+      emit_insn (gen_clrstr_short (dst, GEN_INT (255)));
       s390_load_address (dst_addr,
 			 gen_rtx_PLUS (Pmode, dst_addr, GEN_INT (256)));
 
@@ -3100,7 +3111,7 @@ s390_expand_clrstr (rtx dst, rtx len)
 
       expand_end_loop ();
 
-      emit_insn (gen_short (dst, convert_to_mode (word_mode, count, 1)));
+      emit_insn (gen_clrstr_short (dst, convert_to_mode (Pmode, count, 1)));
       emit_label (end_label);
     }
 }
@@ -3111,10 +3122,6 @@ s390_expand_clrstr (rtx dst, rtx len)
 void
 s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 {
-  rtx (*gen_short) (rtx, rtx, rtx) =
-    TARGET_64BIT ? gen_cmpmem_short_64 : gen_cmpmem_short_31;
-  rtx (*gen_long) (rtx, rtx, rtx, rtx) =
-    TARGET_64BIT ? gen_cmpmem_long_64 : gen_cmpmem_long_31;
   rtx (*gen_result) (rtx) =
     GET_MODE (target) == DImode ? gen_cmpint_di : gen_cmpint_si;
 
@@ -3126,7 +3133,7 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
     {
       if (INTVAL (len) > 0)
         {
-          emit_insn (gen_short (op0, op1, GEN_INT (INTVAL (len) - 1)));
+          emit_insn (gen_cmpmem_short (op0, op1, GEN_INT (INTVAL (len) - 1)));
           emit_insn (gen_result (target));
         }
       else
@@ -3135,20 +3142,7 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 
   else /* if (TARGET_MVCLE) */
     {
-      enum machine_mode double_mode = TARGET_64BIT ? TImode : DImode;
-      enum machine_mode single_mode = TARGET_64BIT ? DImode : SImode;
-      rtx reg0 = gen_reg_rtx (double_mode);
-      rtx reg1 = gen_reg_rtx (double_mode);
-
-      emit_move_insn (gen_highpart (single_mode, reg0),
-		      force_operand (XEXP (op0, 0), NULL_RTX));
-      emit_move_insn (gen_highpart (single_mode, reg1),
-		      force_operand (XEXP (op1, 0), NULL_RTX));
-
-      convert_move (gen_lowpart (single_mode, reg0), len, 1);
-      convert_move (gen_lowpart (single_mode, reg1), len, 1);
-
-      emit_insn (gen_long (reg0, reg1, reg0, reg1));
+      emit_insn (gen_cmpmem_long (op0, op1, convert_to_mode (Pmode, len, 1)));
       emit_insn (gen_result (target));
     }
 
@@ -3164,7 +3158,7 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 
       mode = GET_MODE (len);
       if (mode == VOIDmode)
-        mode = word_mode;
+        mode = Pmode;
 
       type = lang_hooks.types.type_for_mode (mode, 1);
       if (!type)
@@ -3197,7 +3191,7 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 					   make_tree (type, blocks),
 					   make_tree (type, const0_rtx)));
 
-      emit_insn (gen_short (op0, op1, GEN_INT (255)));
+      emit_insn (gen_cmpmem_short (op0, op1, GEN_INT (255)));
       temp = gen_rtx_NE (VOIDmode, gen_rtx_REG (CCSmode, 33), const0_rtx);
       temp = gen_rtx_IF_THEN_ELSE (VOIDmode, temp,
 			gen_rtx_LABEL_REF (VOIDmode, end_label), pc_rtx);
@@ -3215,7 +3209,8 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
 
       expand_end_loop ();
 
-      emit_insn (gen_short (op0, op1, convert_to_mode (word_mode, count, 1)));
+      emit_insn (gen_cmpmem_short (op0, op1, 
+				   convert_to_mode (Pmode, count, 1)));
       emit_label (end_label);
 
       emit_insn (gen_result (target));
@@ -3279,6 +3274,40 @@ s390_delegitimize_address (rtx orig_x)
     }
 
   return orig_x;
+}
+
+/* Output shift count operand OP to stdio stream FILE.  */
+
+static void
+print_shift_count_operand (FILE *file, rtx op)
+{
+  HOST_WIDE_INT offset = 0;
+
+  /* We can have an integer constant, an address register,
+     or a sum of the two.  */
+  if (GET_CODE (op) == CONST_INT)
+    {
+      offset = INTVAL (op);
+      op = NULL_RTX;
+    }
+  if (op && GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
+    {
+      offset = INTVAL (XEXP (op, 1));
+      op = XEXP (op, 0);
+    }
+  while (op && GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  /* Sanity check.  */
+  if (op && (GET_CODE (op) != REG
+	     || REGNO (op) >= FIRST_PSEUDO_REGISTER
+	     || REGNO_REG_CLASS (REGNO (op)) != ADDR_REGS))
+    abort ();
+
+  /* Shift counts are truncated to the low six bits anyway.  */
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC, offset & 63);
+  if (op)
+    fprintf (file, "(%s)", reg_names[REGNO (op)]);
 }
 
 /* Locate some local-dynamic symbol still in use by this function
@@ -3451,6 +3480,7 @@ print_operand_address (FILE *file, rtx addr)
     'R': print only the base register of a memory reference.
     'N': print the second word of a DImode operand.
     'M': print the second word of a TImode operand.
+    'Y': print shift count operand.
 
     'b': print integer X as if it's an unsigned byte.
     'x': print integer X as if it's an unsigned word.
@@ -3540,6 +3570,10 @@ print_operand (FILE *file, rtx x, int code)
       else
         abort ();
       break;
+
+    case 'Y':
+      print_shift_count_operand (file, x);
+      return;
     }
 
   switch (GET_CODE (x))

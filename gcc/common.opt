@@ -370,6 +370,10 @@ fgcse-sm
 Common
 Perform store motion after global common subexpression elimination
 
+fgcse-las
+Common
+Perform redundant load after store elimination in global common subexpression elimination
+
 fgnu-linker
 Common
 Output GNU ld formatted global initializers
@@ -524,6 +528,10 @@ Enable basic program profiling code
 fprofile-arcs
 Common
 Insert arc-based program profiling code
+
+fprofile-values
+Common
+Insert code to profile values of expressions
 
 frandom-seed
 Common
@@ -757,6 +765,10 @@ Just generate unwind tables for exception handling
 fverbose-asm
 Common
 Add extra commentary to assembler output
+
+fvpt
+Common
+Use expression value profiles in optimizations
 
 fweb
 Common

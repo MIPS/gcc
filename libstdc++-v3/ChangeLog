@@ -1,3 +1,259 @@
+2003-10-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/money_put/put/char/1.cc: Clean up.
+	* testsuite/22_locale/money_put/put/wchar_t/1.cc: Ditto.
+
+2003-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get::_M_extract_int):
+	__pos in only incremented, never used its value, remove it.
+
+2003-10-24  Robert Millan  <robertmh@gnu.org>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_CLOCALE): Add kfreebsd*-gnu
+	and knetbsd*-gnu.
+	* aclocal.m4:  Regenerated.
+	* configure:  Regenerated.
+
+2003-10-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get::do_get(...,
+	long double&): Properly size the temporary buffer.
+	* testsuite/22_locale/money_get/get/char/11.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/11.cc: Ditto.
+
+	* include/bits/locale_facets.tcc (num_put::_M_group_int,
+	num_put::_M_group_float, money_put::do_put(..., const
+	string_type&), collate::do_compare, collate::do_transform):
+	Prefer basic_string::data() to c_str() when the '\0'
+	terminator is not really needed.
+
+2003-10-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (__verify_grouping):
+	Prefer '=' to an unnecessary '&='.
+
+2003-10-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_ios.tcc (copyfmt(const basic_ios&)):
+	Tweak my fix for libstdc++/12657.
+
+2003-10-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get::do_get(...,
+	string_type&): Minor tweak to the previous commit.
+
+2003-10-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get::do_get(...,
+	string_type&): Disregard the previous commit: doesn't hurt but
+	doesn't accomplish anything useful either. This is the right
+	one, speeding up greatly the function in case of early fail.
+
+2003-10-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get::do_get(...,
+	string_type&): Move an if block, thus minimizing the amount
+	of code processed anyway when __tmp_units.size() == 0.
+
+2003-10-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc
+	(time_get<>::_M_extract_via_format): Deal with case 'C' too,
+	equivalent to 'y'.
+
+2003-10-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/documentation.html: Add a pointer to the doxygen style
+	guide.
+	* docs/html/17_intro/TODO: Update.
+	* docs/html/test.html: Add instructions for running a subset of
+	tests, update.
+
+2003-10-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::do_get(...,
+	string_type&)): Use find_first_not_of to strip leading
+	zeros; if __tmp_units == "0" never prefix it with '-';
+	always fail if __tmp_units is empty.
+	* testsuite/22_locale/money_get/get/char/10.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/10.cc: Ditto.
+
+2003-10-23  Phil Edwards  <phil@codesourcery.com>
+
+	* config/os/vxworks/ctype_noninline.h:  Adjust ctor to match
+	2003-10-21 change.
+
+2003-10-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (__int_to_char): Remove
+	the const int parameter.
+	(_M_insert_int): Update caller.
+	* src/locale-inst.cc (__int_to_char): Update instantiations.	
+
+2003-10-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.h: Correct byname facets for "C"
+	locale.
+	* config/locale/generic/ctype_members.cc: Same.
+	* config/locale/generic/messages_members.h: Same.
+	* config/locale/gnu/ctype_members.cc: Same.
+	* config/locale/gnu/messages_members.h: Same.
+	* include/bits/codecvt.h: Same.
+	* src/ctype.cc: Same.
+	* testsuite/22_locale/codecvt_byname/1.cc: New.
+	* testsuite/22_locale/collate/1.cc: Edit.
+	* testsuite/22_locale/collate_byname/1.cc: Derivation tests, move to...
+	* testsuite/22_locale/collate_byname/named_equivalence.cc: ...here.
+	* testsuite/22_locale/ctype/1.cc: Derivation tests.
+	* testsuite/22_locale/ctype/11844.cc: Move...
+	* testsuite/22_locale/ctype_base/11844.cc: ...here.
+	* testsuite/22_locale/ctype_base/1.cc: Move mask bits here.
+	* testsuite/22_locale/ctype_byname/1.cc: Name.
+	* testsuite/22_locale/messages_byname/1.cc: New.
+	* testsuite/22_locale/messages_byname/named_equivalence.cc: New.
+	* testsuite/22_locale/moneypunct_byname/1.cc: Derivation test.
+	* testsuite/22_locale/moneypunct_byname/named_equivalence.cc: New.
+	* testsuite/22_locale/numpunct/1.cc: Edit.
+	* testsuite/22_locale/numpunct_byname/2.cc: Move...
+	* testsuite/22_locale/numpunct/members/char/3.cc: ...here.
+	* testsuite/22_locale/numpunct_byname/1.cc: Derivation tests.
+	* testsuite/22_locale/numpunct_byname/named_equivalence.cc: New.
+
+2003-10-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/8610
+	* acinclude.m4 (GLIBCXX_CHECK_INT64_T): New macro,
+	checking for the availability of int64_t.
+	(GLIBCXX_CHECK_LFS): New macro, checking for LFS support.
+	* configure.ac: Call here.
+	* acconfig.h: Add undef for the corresponding symbols.
+	* config/io/basic_file_stdio.cc	(__basic_file<char>::open):
+	Depending on _GLIBCXX_USE_LFS, call fopen64 or fopen.
+	(__basic_file<char>::seekoff): Likewise, call lseek64 when
+	available, otherwise lseek, checking the __off parameter.
+	* include/bits/postypes.h: Typedef __streamoff_base_type
+	to int64_t if available, otherwise long long.
+	* aclocal.m4: Regenerate.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+
+	* acinclude.m4 (GLIBCXX_CHECK_POLL, GLIBCXX_CHECK_WRITEV):
+	Use AC_TRY_LINK instead of AC_TRY_COMPILE.
+	
+2003-10-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12657
+	* include/bits/basic_ios.tcc (copyfmt(const basic_ios&)):
+	Implement resolution of DR 292 (WP).
+	* docs/html/ext/howto.html: Add entry for DR 292.
+
+2003-10-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/mt_allocator.h: Change include to gthr.h.
+	* include/ext/rope: Same. Add _Refcount_base definitions.
+	* include/ext/pool_allocator.h: Adjust namespaces.
+	* include/bits/stl_threads.h (_Refcount_base): Move.
+	Put remaining into namespace __gnu_cxx.
+	
+2003-10-21  Benjamin Kosnik  <bkoz@redhat.com>
+ 
+	PR libstdc++/9858
+	* include/bits/locale_facets.h (ctype<char>): Remove
+	__ctype_abstract_base.
+	(ctype<char>::do_is): Remove.
+	(ctype<char>::do_scan_is): Remove.
+	* src/ctype.cc: Same. Inline the rest.
+	* testsuite/22_locale/ctype/is/char/9858.cc: New.
+	* config/os/aix/ctype_noninline.h: Adjust ctor.
+	* config/os/bsd/freebsd/ctype_noninline.h: Same.
+	* config/os/bsd/netbsd/ctype_noninline.h: Same.
+	* config/os/djgpp/ctype_noninline.h: Same.
+	* config/os/generic/ctype_noninline.h: Same.
+	* config/os/gnu-linux/ctype_noninline.h: Same.
+	* config/os/hpux/ctype_noninline.h: Same.
+	* config/os/irix/irix5.2/ctype_noninline.h: Same.
+	* config/os/irix/irix6.5/ctype_noninline.h: Same.
+	* config/os/mingw32/ctype_noninline.h: Same.
+	* config/os/newlib/ctype_noninline.h: Same.
+	* config/os/qnx/qnx6.1/ctype_noninline.h: Same.
+	* config/os/solaris/solaris2.5/ctype_noninline.h: Same.
+	* config/os/solaris/solaris2.6/ctype_noninline.h: Same.
+	* config/os/solaris/solaris2.7/ctype_noninline.h: Same.
+	* config/os/windiss/ctype_noninline.h: Same.
+
+2003-10-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/locale.cc: Tweak a comment.
+	* src/localename.cc: Move a comment.
+
+2003-10-20  Benjamin Kosnik  <bkoz@redhat.com>
+ 
+	PR libstdc++/10081
+	* testsuite_hooks.h: Add pod_type, ctype and numpunct specializations.
+	* testsuite_hooks.cc: Same.
+	* 22_locale/numpunct/members/pod/1.cc: Edit.
+	* 22_locale/numpunct/members/pod/2.cc: Same.
+	* 27_io/basic_istream/sentry/char/3983-fstream.cc: Move ...
+	* 27_io/basic_istream/sentry/char/3983-sstream.cc: Move ...
+	* 27_io/basic_istream/extractors_arithmetic/pod/3983-1.cc: Here.
+	* 27_io/basic_istream/extractors_character/pod/3983-2.cc: Here.
+	* 27_io/basic_istream/extractors_other/pod/3983-3.cc: Here.
+	* 27_io/basic_ostream/sentry/char/3983-fstream.cc: Remove.
+	* 27_io/basic_ostream/sentry/char/3983-sstream.cc: Remove.
+	* 27_io/basic_istream/sentry/pod/1.cc: New.
+	* 27_io/basic_ostream/sentry/pod/1.cc: New.
+	* 21_strings/basic_string/inserters_extractors/pod/10081-in.cc: New.
+	* 21_strings/basic_string/inserters_extractors/pod/10081-out.cc: New.
+
+2003-10-20  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/cpu/mips/atomicity.h (__atomic_add): Use _ABIO32 instead
+	of external _MIPS_SIM_ABI32.
+
+2003-10-20  Phil Edwards  <phil@codesourcery.com>
+
+	* configure.ac:  Fix comment typo.
+	* configure.host:  Add vxworks to host_os switch.
+	* crossconfig.m4:  Remove old commented os_include_dir variables
+	left over from autotools transition.
+	(*-vxworks):  New stanza.
+	(*-windiss):  Add missing symbols.
+	* configure:  Regenerate.
+	* config/os/vxworks/ctype_base.h, config/os/vxworks/ctype_inline.h,
+	config/os/vxworks/ctype_noninline.h, config/os/vxworks/os_defines.h:
+	New files.
+	* config/os/windiss/os_defines.h:  Define __C9X__.
+
+2003-10-19  David Edelsohn  <edelsohn@gnu.org>
+
+	PR other/12506
+	* configure.host (aix4,aix*): Define os_include_dir to os/generic.
+
+2003-10-18  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* src/locale.cc (locale::_S_initialize): Re-apply workaround a
+	confusion of the use of the gthr API when __gthread_active_p()
+	returns true.
+
+2003-10-17  Benjamin Kosnik  <bkoz@redhat.com>
+ 
+	* src/Makefile.am: Add new files.
+	* src/Makefile.in: Regenerate.
+	* src/globals.cc: Split into..
+	* src/globals_io.cc: New.
+	* src/globals_locale.cc: New.
+	* src/ios.cc: Split into...
+	* src/ios_init.cc: New.
+	* src/ios_locale.cc: New.
+	* src/locale-inst.cc: Split into..
+	* src/wlocale-inst.cc: New.
+	* src/locale-misc-inst.cc: New.
+	* src/locale.cc, src/localename: Split into...
+	* src/locale_facets.cc: New.
+	* src/locale_init.cc: New.
+	* src/wstring-inst.cc: Add copyright info.
+
 2003-10-16  Petur Runolfsson  <peturr02@ru.is>
 
 	PR libstdc++/11450
@@ -38,35 +294,35 @@
 	* testsuite/27_io/types/3.cc: New test.
 
 2003-10-16  Benjamin Kosnik  <bkoz@redhat.com>
- 
-        * configure.host: Remove fpos_include_dir.
-        * configure.ac: Remove FPOS_INC_SRCDIR.
-        * configure: Regenerate.
-        * acinclude.m4 (GLIBCXX_ENABLE_CSTDIO): Remove FPOS_H.
-        * aclocal.m4: Regenerate.
-        * include/Makefile.am (host_headers): Remove fpos.h.
-        (bits_headers): Add postypes.h.
-        * include/Makefile.in: Regenerate.
-        * config/os/gnu-linux/fposh: Remove.
-        * config/os/generic/fpos.h: Remove.
- 
-        * testsuite/27_io/basic_filebuf/seekoff/char/1-in.cc: Fixup.
-        * testsuite/27_io/basic_filebuf/seekoff/char/1-io.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekoff/char/1-out.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekoff/char/2-in.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekoff/char/2-io.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekoff/char/2-out.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekpos/char/1-in.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekpos/char/1-io.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekpos/char/1-out.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekpos/char/2-in.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekpos/char/2-io.cc: Same.
-        * testsuite/27_io/basic_filebuf/seekpos/char/2-out.cc: Same.
-        * testsuite/27_io/basic_istream/seekg/char/2.cc: Same.
-        * testsuite/27_io/basic_stringbuf/seekoff/char/1.cc: Same.
-        * testsuite/27_io/basic_stringbuf/seekpos/char/1.cc: Same.
-        * testsuite/27_io/fpos/mbstate_t/3.cc: Same.
-        * testsuite/27_io/objects/char/10.cc: Same.
+
+	* configure.host: Remove fpos_include_dir.
+	* configure.ac: Remove FPOS_INC_SRCDIR.
+	* configure: Regenerate.
+	* acinclude.m4 (GLIBCXX_ENABLE_CSTDIO): Remove FPOS_H.
+	* aclocal.m4: Regenerate.
+	* include/Makefile.am (host_headers): Remove fpos.h.
+	(bits_headers): Add postypes.h.
+	* include/Makefile.in: Regenerate.
+	* config/os/gnu-linux/fposh: Remove.
+	* config/os/generic/fpos.h: Remove.
+
+	* testsuite/27_io/basic_filebuf/seekoff/char/1-in.cc: Fixup.
+	* testsuite/27_io/basic_filebuf/seekoff/char/1-io.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekoff/char/1-out.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekoff/char/2-in.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekoff/char/2-io.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekoff/char/2-out.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/char/1-in.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/char/1-io.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/char/1-out.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/char/2-in.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/char/2-io.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/char/2-out.cc: Same.
+	* testsuite/27_io/basic_istream/seekg/char/2.cc: Same.
+	* testsuite/27_io/basic_stringbuf/seekoff/char/1.cc: Same.
+	* testsuite/27_io/basic_stringbuf/seekpos/char/1.cc: Same.
+	* testsuite/27_io/fpos/mbstate_t/3.cc: Same.
+	* testsuite/27_io/objects/char/10.cc: Same.
 
 2003-10-16  Paolo Carlini  <pcarlini@suse.de>
 

@@ -56,9 +56,11 @@ extern const char tree_code_type[];
 /* Returns nonzero iff CLASS is the tree-code class of an
    expression.  */
 
-#define IS_EXPR_CODE_CLASS(CLASS) \
-  ((CLASS) == '<' || (CLASS) == '1' || (CLASS) == '2' || (CLASS) == 'e' \
-   || (CLASS) == 'r' || (CLASS) == 's')
+#define IS_EXPR_CODE_CLASS(CLASS) (strchr ("<12ers", (CLASS)) != 0)
+
+/* Returns nonzero iff NODE is an expression of some kind.  */
+
+#define EXPR_P(NODE) IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))
 
 /* Number of argument-words in each kind of tree-node.  */
 
@@ -3459,7 +3461,7 @@ extern char *dwarf2out_cfi_label (void);
 
 /* Entry point to update the canonical frame address (CFA).  */
 
-extern void dwarf2out_def_cfa (const char *, unsigned, long);
+extern void dwarf2out_def_cfa (const char *, unsigned, HOST_WIDE_INT);
 
 /* Add the CFI for saving a register window.  */
 
@@ -3468,15 +3470,15 @@ extern void dwarf2out_window_save (const char *);
 /* Add a CFI to update the running total of the size of arguments pushed
    onto the stack.  */
 
-extern void dwarf2out_args_size (const char *, long);
+extern void dwarf2out_args_size (const char *, HOST_WIDE_INT);
 
 /* Entry point for saving a register to the stack.  */
 
-extern void dwarf2out_reg_save (const char *, unsigned, long);
+extern void dwarf2out_reg_save (const char *, unsigned, HOST_WIDE_INT);
 
 /* Entry point for saving the return address in the stack.  */
 
-extern void dwarf2out_return_save (const char *, long);
+extern void dwarf2out_return_save (const char *, HOST_WIDE_INT);
 
 /* Entry point for saving the return address in a register.  */
 

@@ -295,7 +295,7 @@ build_default_init (tree type, tree nelts)
     return NULL_TREE;
       
   /* At this point, TYPE is either a POD class type, an array of POD
-     classes, or something even more inoccuous.  */
+     classes, or something even more innocuous.  */
   return build_zero_init (type, nelts, /*static_storage_p=*/false);
 }
 
@@ -2713,7 +2713,7 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
 
   stmt_expr = finish_init_stmts (is_global, stmt_expr, compound_stmt);
 
-  /* Now convert make the result have the correct type. */
+  /* Now convert make the result have the correct type.  */
   atype = build_pointer_type (atype);
   stmt_expr = build1 (NOP_EXPR, atype, stmt_expr);
   stmt_expr = build_indirect_ref (stmt_expr, NULL);

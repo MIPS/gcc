@@ -1521,23 +1521,16 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       rtx real0 = 0, imag0 = 0;
       rtx real1 = 0, imag1 = 0;
       rtx realr, imagr, res;
-      rtx seq;
-      rtx equiv_value;
+      rtx seq, result;
       int ok = 0;
 
       /* Find the correct mode for the real and imaginary parts.  */
-      enum machine_mode submode = GET_MODE_INNER(mode);
+      enum machine_mode submode = GET_MODE_INNER (mode);
 
       if (submode == BLKmode)
 	abort ();
 
-      if (! target)
-	target = gen_reg_rtx (mode);
-
       start_sequence ();
-
-      realr = gen_realpart (submode, target);
-      imagr = gen_imagpart (submode, target);
 
       if (GET_MODE (op0) == mode)
 	{
@@ -1557,6 +1550,10 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
       if (real0 == 0 || real1 == 0 || ! (imag0 != 0 || imag1 != 0))
 	abort ();
+
+      result = gen_reg_rtx (mode);
+      realr = gen_realpart (submode, result);
+      imagr = gen_imagpart (submode, result);
 
       switch (binoptab->code)
 	{
@@ -1749,16 +1746,10 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
       if (ok)
 	{
-	  if (binoptab->code != UNKNOWN)
-	    equiv_value
-	      = gen_rtx_fmt_ee (binoptab->code, mode,
-				copy_rtx (op0), copy_rtx (op1));
-	  else
-	    equiv_value = 0;
-
-	  emit_no_conflict_block (seq, target, op0, op1, equiv_value);
-
-	  return target;
+	  rtx equiv = gen_rtx_fmt_ee (binoptab->code, mode,
+				      copy_rtx (op0), copy_rtx (op1));
+	  emit_no_conflict_block (seq, result, op0, op1, equiv);
+	  return result;
 	}
     }
 
@@ -5019,18 +5010,7 @@ init_integral_libfuncs (optab optable, const char *opname, int suffix)
 static void
 init_floating_libfuncs (optab optable, const char *opname, int suffix)
 {
-  enum machine_mode fmode, dmode, lmode;
-
-  fmode = float_type_node ? TYPE_MODE (float_type_node) : VOIDmode;
-  dmode = double_type_node ? TYPE_MODE (double_type_node) : VOIDmode;
-  lmode = long_double_type_node ? TYPE_MODE (long_double_type_node) : VOIDmode;
-
-  if (fmode != VOIDmode)
-    init_libfuncs (optable, fmode, fmode, opname, suffix);
-  if (dmode != fmode && dmode != VOIDmode)
-    init_libfuncs (optable, dmode, dmode, opname, suffix);
-  if (lmode != dmode && lmode != VOIDmode)
-    init_libfuncs (optable, lmode, lmode, opname, suffix);
+  init_libfuncs (optable, MIN_MODE_FLOAT, MAX_MODE_FLOAT, opname, suffix);
 }
 
 /* Initialize the libfunc fields of an entire group of entries of an

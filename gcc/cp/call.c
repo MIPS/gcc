@@ -619,7 +619,7 @@ standard_conversion (tree to, tree from, tree expr)
   else if (fromref || (expr && lvalue_p (expr)))
     conv = build_conv (RVALUE_CONV, from, conv);
 
-   /* Allow conversion between `__complex__' data types  */
+   /* Allow conversion between `__complex__' data types.  */
   if (tcode == COMPLEX_TYPE && fcode == COMPLEX_TYPE)
     {
       /* The standard conversion sequence to convert FROM to TO is
@@ -3805,7 +3805,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
        the lookup selects a placement deallocation function, the
        program is ill-formed.
   
-       Therefore, we ask lookup_fnfields to complain ambout ambiguity.  */
+       Therefore, we ask lookup_fnfields to complain about ambiguity.  */
     {
       fns = lookup_fnfields (TYPE_BINFO (type), fnname, 1);
       if (fns == error_mark_node)
@@ -5262,7 +5262,7 @@ compare_ics (tree ics1, tree ics2)
     {
       /* XXX Isn't this an extension? */
       /* Both ICS are bad.  We try to make a decision based on what
-	 would have happenned if they'd been good.  */
+	 would have happened if they'd been good.  */
       if (ICS_USER_FLAG (ics1) > ICS_USER_FLAG (ics2)
 	  || ICS_STD_RANK (ics1) > ICS_STD_RANK (ics2))
 	return -1;

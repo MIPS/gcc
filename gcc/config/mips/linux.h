@@ -81,7 +81,8 @@ Boston, MA 02111-1307, USA.  */
       }								\
      else							\
       {								\
-        builtin_define ("_MIPS_SIM=_MIPS_SIM_ABI32");		\
+	builtin_define ("_ABIO32=1");			\
+	builtin_define ("_MIPS_SIM=_ABIO32");		\
         builtin_define ("_MIPS_SZLONG=32");			\
         builtin_define ("_MIPS_SZPTR=32");			\
       }								\
@@ -171,6 +172,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Tell function_prologue in mips.c that we have already output the .ent/.end
    pseudo-ops.  */
+#undef FUNCTION_NAME_ALREADY_DECLARED
 #define FUNCTION_NAME_ALREADY_DECLARED 1
 
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)       		\
@@ -191,6 +193,7 @@ Boston, MA 02111-1307, USA.  */
 %{!shared: %{pthread:-lpthread} \
   %{profile:-lc_p} %{!profile: -lc}}"
 
+#ifndef inhibit_libc
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 #ifdef IN_LIBGCC2
@@ -260,3 +263,4 @@ typedef struct _sig_ucontext {
                                                                      \
     goto SUCCESS;                                                    \
   } while (0)
+#endif

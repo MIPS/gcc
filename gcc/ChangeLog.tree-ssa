@@ -17,35 +17,35 @@
 
 2003-10-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
-        * Makefile.in (gimple-low.o): Add function.h dependency.
-        * gimple-low.c (struct lower_data): New field block.
-        (lower_function_body, lower_stmt, lower_bind_expr): Record
-        the block at statements.
-        * cfglayout.c (insn_locators_initialize): Use new info about
-        * blocks.
-        * expr.c (expand_expr): Record block changes.
-        * function.c (blocks_nreverse): Export.
-        (uninitialized_vars_warning): Use DECL_RTL_SET_P to test for presence
-        of rtl.
-        (reset_block_changes, record_block_change, finalize_block_changes,
-        check_block_change, free_block_changes): New functions.
-        * function.h (struct function): New bitfield dont_emit_block_notes.
-        New field ib_boundaries_block.
-        (blocks_nreverse, reset_block_changes, record_block_change,
-        finalize_block_changes, check_block_change, free_block_changes):
-        Declare.
-        * sibcall.c (optimize_sibling_and_tail_recursive_call): Don't call
-        reorder_blocks when dont_emit_block_notes.
-        * stmt.c (expand_start_bindings_and_block, expand_end_bindings):
-        Don't emit block notes when dont_emit_block_notes.
-        * toplev.c (rest_of_compilation): Don't call reorder_blocks when
-        dont_emit_block_notes.
-        * tree.c (build1): Initialize TREE_BLOCK field.
-        * tree-flow.h (lower_function_body): Declare.
-        * tree-optimize.c: Include function.h.
-        (optimize_function_tree): Call lower_function_body.
-        * tree.h (struct tree_exp): Add block field.
-        (TREE_BLOCK): New macro.
+	* Makefile.in (gimple-low.o): Add function.h dependency.
+	* gimple-low.c (struct lower_data): New field block.
+	(lower_function_body, lower_stmt, lower_bind_expr): Record
+	the block at statements.
+	* cfglayout.c (insn_locators_initialize): Use new info about
+	* blocks.
+	* expr.c (expand_expr): Record block changes.
+	* function.c (blocks_nreverse): Export.
+	(uninitialized_vars_warning): Use DECL_RTL_SET_P to test for presence
+	of rtl.
+	(reset_block_changes, record_block_change, finalize_block_changes,
+	check_block_change, free_block_changes): New functions.
+	* function.h (struct function): New bitfield dont_emit_block_notes.
+	New field ib_boundaries_block.
+	(blocks_nreverse, reset_block_changes, record_block_change,
+	finalize_block_changes, check_block_change, free_block_changes):
+	Declare.
+	* sibcall.c (optimize_sibling_and_tail_recursive_call): Don't call
+	reorder_blocks when dont_emit_block_notes.
+	* stmt.c (expand_start_bindings_and_block, expand_end_bindings):
+	Don't emit block notes when dont_emit_block_notes.
+	* toplev.c (rest_of_compilation): Don't call reorder_blocks when
+	dont_emit_block_notes.
+	* tree.c (build1): Initialize TREE_BLOCK field.
+	* tree-flow.h (lower_function_body): Declare.
+	* tree-optimize.c: Include function.h.
+	(optimize_function_tree): Call lower_function_body.
+	* tree.h (struct tree_exp): Add block field.
+	(TREE_BLOCK): New macro.
 
 2003-10-26  Richard Henderson  <rth@redhat.com>
 
@@ -62,7 +62,7 @@
 	* c-lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
 	* cp-lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
 	* objc-lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
-	* lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
+	* java/lang.c (LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS): Kill.
 	(java_estimate_num_insns_1, java_estimate_num_insns): Kill.
 	* cgraphunit (cgraph_analyze_function): Use estimate_num_insns.
 	* tree-eh.c (decide_copy_try_finally): Likewise.
@@ -744,9 +744,9 @@
 
 2003-10-12  Richard Henderson  <rth@redhat.com>
 
-        * gimplify.c (gimplify_array_ref_to_plus): Be prepared for
+	* gimplify.c (gimplify_array_ref_to_plus): Be prepared for
         null TYPE_DOMAIN or TYPE_MIN_VALUE for the array.
-        * tree-ssa-ccp.c (fold_indirect_refs_r): Likewise.
+	* tree-ssa-ccp.c (fold_indirect_refs_r): Likewise.
 
 2003-10-12  Richard Henderson  <rth@redhat.com>
 
@@ -1001,14 +1001,14 @@
 
 2003-09-25  Jeff Law  <law@redhat.com>
 
-        * tree-ssa-dom.c (optimize_block): When EQ_EXPR_VALUE has the
-        form DEST = SRC where both DEST and SRC are SSA_NAMEs also
-        record SRC = DEST into the const and copies table.
+	* tree-ssa-dom.c (optimize_block): When EQ_EXPR_VALUE has the
+	form DEST = SRC where both DEST and SRC are SSA_NAMEs also
+	record SRC = DEST into the const and copies table.
  
-        * tree-ssa-dom.c (optimize_block): Change tests which checked
-        for SSA_VAR_P to only allow SSA_NAMEs.
-        (get_value_for, set_value_for): Likewise.
-        (lookup_avail_expr, get_eq_expr_value): Likewise.
+	* tree-ssa-dom.c (optimize_block): Change tests which checked
+	for SSA_VAR_P to only allow SSA_NAMEs.
+	(get_value_for, set_value_for): Likewise.
+	(lookup_avail_expr, get_eq_expr_value): Likewise.
 
 2003-09-25  Andrew MacLeod  <amacleod@redhat.com>
 
@@ -2360,14 +2360,14 @@
 
 2003-08-12  Jeff Law  <law@redhat.com>
 
- 	* tree-ssa-dom.c (optimize_stmt): Optimize ABS_EXPR when we know
+	* tree-ssa-dom.c (optimize_stmt): Optimize ABS_EXPR when we know
 	the sign of the source operand.
-                                                                                
+
 	* tree-ssa-dom.c (optimize_stmt): Rewrite TRUNC_DIV_EXPR and
 	TRUNC_MOD_EXPR even if the LHS is not an SSA variable.  Do not
 	enter the new expression in the hash tables if !may_optimize_p.
 	Also try GE_EXPR to see if this transformation is safe.
-                                                                                
+
 	* tree-ssa-dom.c (optimize_stmt): Fix typo in last change which
 	prevented recording equivalences created by IOR_EXPR.
 
@@ -2579,8 +2579,8 @@
 	(process_worklist): Handle any incoming abnormal edges the first
 	time a statement in each block becomes executable.
 
-        * tree-ssa-ccp.c (substitute_and_fold): Substitute known
-        constants into PHI nodes.
+	* tree-ssa-ccp.c (substitute_and_fold): Substitute known
+	constants into PHI nodes.
 
 2003-08-04  Sebastian Pop  <s.pop@laposte.net>
 
@@ -2682,7 +2682,7 @@
 
 	* tree-cfg.c (bsi_remove): Don't remove a COMPOUND_EXPR with empty
 	arms if the arms are in different basic blocks.
-                                                                                
+
 	* tree-ssa-dom.c (record_cond_is_false): New function.
 	(record_cond_is_true): Similarly.
 	(get_eq_expr_value): Use record_cond_expr_is_{true,false}.
@@ -3209,14 +3209,14 @@
 	(avail_expr_eq): Likewise.  If one statement has virtual operands
 	and the other does not, then the expressions are not equal.
 
-        * tree-ssa.c (rewrite_into_ssa): If we have done dominator
+	* tree-ssa.c (rewrite_into_ssa): If we have done dominator
         optimizations, then call cleanup_tree_cfg after rewriting is
         complete.
-        * tree-ssa-dom.c (optimize_block): Get eq_expr_value for the
+	* tree-ssa-dom.c (optimize_block): Get eq_expr_value for the
         current block rather than having it passed in by the caller.
         Propagate eq_expr_value into the false arm of a COND_EXPR.
-        (get_eq_expr_value): Return equivalences for the false
-        arm of a COND_EXPR if requested.
+	(get_eq_expr_value): Return equivalences for the false
+	arm of a COND_EXPR if requested.
 
 2003-07-16  Daniel Berlin  <dberlin@dberlin.org>
 
@@ -4083,8 +4083,8 @@
 
 2003-06-10  Andrew Haley  <aph@redhat.com>
 
-        * c-simplify.c (c_simplify_stmt): case ASM_STMT: Ensure qualifiers
-        come from input statement.
+	* c-simplify.c (c_simplify_stmt): case ASM_STMT: Ensure qualifiers
+	come from input statement.
 
 2003-06-09  Andrew MacLeod  <amacleod@redhat.com>
 
@@ -5253,7 +5253,7 @@
 	    Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-inline.c (initialize_inlined_parameters): Cast argument
-        types appropriately when emitting initialization assignments.
+	types appropriately when emitting initialization assignments.
 
 2003-04-01  Andrew MacLeod  <amacleod@redhat.com>
 
@@ -6147,7 +6147,7 @@
 	(compute_dominance_frontiers_1): Use the sparse bitmap
 	of dominator children from the basic block's annotation
 	if it's available.  Otherwise build the sparse bitmap
-        using the result of get_dominated_by.
+	using the result of get_dominated_by.
 	* tree-ssa.c (rewrite_into_ssa): Reorder things slightly so
 	that we can use the cached dominator children computed
 	by mark_def_sites in compute_dominance_frontiers.
@@ -7068,9 +7068,9 @@
 
 2003-01-21  Jose Renau  <renau@uiuc.edu>
 
-        * tree-flow-inline.h (get_lineno): Return -1 for nodes without
+	* tree-flow-inline.h (get_lineno): Return -1 for nodes without
         locus information.
-        (get_filename): Return "???" for nodes without locus information.
+	(get_filename): Return "???" for nodes without locus information.
 
 2003-01-21  Jeff Law <law@redhat.com>
 
@@ -7284,7 +7284,7 @@
 
 2002-12-31  Steven Bosscher  <s.bosscher@student.tudelft.nl>
 
-        * gimplify.c (create_tmp_var_noc): Remove unused function.
+	* gimplify.c (create_tmp_var_noc): Remove unused function.
 	* tree-simple.h: Kill prototype.
 
 2002-12-30  Diego Novillo  <dnovillo@redhat.com>
@@ -9457,7 +9457,7 @@
 
 2002-09-19  Daniel Berlin <dberlin@dberlin.org>
 
-        * toplev.c: tree-ssa-* -> tree-*.
+	* toplev.c: tree-ssa-* -> tree-*.
 
 	* doc/invoke.texi: Ditto.
 
@@ -10170,10 +10170,10 @@
 
 2002-08-22  Jeffrey A Law  (law@redhat.com)
 
-        * Makefile.in (tree-optimize.o): Depend on tree-dchain.o
-        * tree-optimize.c: Include tree-dchain.h.
-        (optimize_function_tree): Unconditionally build and tear down
-        the backpointers for the statement chain.
+	* Makefile.in (tree-optimize.o): Depend on tree-dchain.o
+	* tree-optimize.c: Include tree-dchain.h.
+	(optimize_function_tree): Unconditionally build and tear down
+	the backpointers for the statement chain.
 
 2002-08-22  Diego Novillo  <dnovillo@redhat.com>
 
@@ -10858,15 +10858,15 @@
 2002-06-29  Aldy Hernandez  <aldyh@quesejoda.com>
             Diego Novillo  <dnovillo@redhat.com>
 
-        * c-simplify.c (simplify_call_expr): Do not bail on all builtins.
-        (is_simple_call_expr): Same.
+	* c-simplify.c (simplify_call_expr): Do not bail on all builtins.
+	(is_simple_call_expr): Same.
 	(simplify_addr_expr): New function.
 	(simplify_expr): Call it.
 
-        * tree-simple.c (is_simplifiable_builtin): New.
-        (is_simple_compound_lval): Do not bail on INDIRECT_REF.
+	* tree-simple.c (is_simplifiable_builtin): New.
+	(is_simple_compound_lval): Do not bail on INDIRECT_REF.
 
-        * tree-simple.h: New prototype for is_simplifiable_builtin.
+	* tree-simple.h: New prototype for is_simplifiable_builtin.
 
 2002-06-26  Daniel Berlin  <dberlin@dberlin.org>
 
@@ -11001,7 +11001,7 @@
 	(process_options): Warn if -fdisable-simple is used with
 	optimization enabled.
 	* tree-simple.c (is_simple_addr_expr_arg): New function.
-        (is_simple_unary_expr): Call it.
+	(is_simple_unary_expr): Call it.
 	* tree-simple.h (is_simple_addr_expr_arg): Declare.
 	* doc/invoke.texi: Document -fdisable-simple.
 
@@ -11925,14 +11925,14 @@
 
 2002-03-18  Sebastian Pop  <s.pop@laposte.net>
 
-        * c-simplify.c (insert_stmt_chain): Delete.
-        (simplified_condition_p, insert_after_case_labels): New.
+	* c-simplify.c (insert_stmt_chain): Delete.
+	(simplified_condition_p, insert_after_case_labels): New.
 	(simplify_stmt, simplify_for_stmt, simplify_while_stmt,
 	simplify_do_stmt, new_simplified_if, simplify_switch_stmt):
 	Returns a single node, generate a chain of statements to be executed
 	before the if, and a list of new variables.
-        (new_simplified_if): Simplify clauses.
-        (simplify_expr): Remove unused parameter scope.
+	(new_simplified_if): Simplify clauses.
+	(simplify_expr): Remove unused parameter scope.
 
 2002-03-14  Sebastian Pop  <s.pop@laposte.net>
 
@@ -12050,9 +12050,9 @@
 
 2002-01-23  Sebastian Pop  <s.pop@laposte.net>
 
-        * c-pretty-print.c: Clean C++ comments.
+	* c-pretty-print.c: Clean C++ comments.
 	(debug_output_buffer): Remove declaration and definition.
-        * diagnostic.h (debug_output_buffer): Add declaration.
+	* diagnostic.h (debug_output_buffer): Add declaration.
 	* diagnostic.c (debug_output_buffer): Add definition.
 
 2002-01-21  Diego Novillo  <dnovillo@redhat.com>
@@ -12256,7 +12256,7 @@
 	(make_switch_stmt_blocks): Ditto.
 	(create_maximal_bb): Ditto.
 	(make_edges): If a statement expression is in the last basic
-        block create an edge to EXIT_BLOCK_PTR and not the next block.
+	block create an edge to EXIT_BLOCK_PTR and not the next block.
 	(insert_before_normal_stmt): Pass the appropriate binding scope to
 	create_bb.
 

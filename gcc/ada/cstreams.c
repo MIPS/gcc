@@ -6,8 +6,7 @@
  *                                                                          *
  *              Auxiliary C functions for Interfaces.C.Streams              *
  *                                                                          *
- *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -65,14 +64,16 @@
 #ifdef stdout
 #  undef stdout
 #endif
+
 #endif
 
-/* The _IONBF value in CYGNUS or MINGW32 stdio.h is wrong.  */
+/* The _IONBF value in MINGW32 stdio.h is wrong.  */
 #if defined (WINNT) || defined (_WINNT)
+#if OLD_MINGW
 #undef _IONBF
 #define _IONBF 0004
 #endif
-
+#endif
 
 int
 __gnat_feof (stream)
@@ -139,30 +140,26 @@ int    __gnat_constant_seek_end = SEEK_END;
 int    __gnat_constant_seek_set = SEEK_SET;
 
 FILE *
-__gnat_constant_stderr ()
+__gnat_constant_stderr (void)
 {
   return stderr;
 }
 
 FILE *
-__gnat_constant_stdin ()
+__gnat_constant_stdin (void)
 {
   return stdin;
 }
 
 FILE *
-__gnat_constant_stdout ()
+__gnat_constant_stdout (void)
 {
   return stdout;
 }
 
 char *
-__gnat_full_name (nam, buffer)
-     char *nam;
-     char *buffer;
+__gnat_full_name (char *nam, char *buffer)
 {
-  char *p;
-
 #if defined(__EMX__) || defined (__MINGW32__)
   /* If this is a device file return it as is; under Windows NT and
      OS/2 a device file end with ":".  */
@@ -170,6 +167,8 @@ __gnat_full_name (nam, buffer)
     strcpy (buffer, nam);
   else
     {
+      char *p;
+
       _fullpath (buffer, nam, __gnat_max_path_len);
 
       for (p = buffer; *p; p++)
@@ -189,27 +188,27 @@ __gnat_full_name (nam, buffer)
   realpath (nam, buffer);
 
 #elif defined (VMS)
-  strcpy (buffer, __gnat_to_canonical_file_spec (nam));
+  strncpy (buffer, __gnat_to_canonical_file_spec (nam), __gnat_max_path_len);
 
-  if (buffer[0] == '/')
-    strcpy (buffer, __gnat_to_host_file_spec (buffer));
+  if (buffer[0] == '/' || strchr (buffer, '!'))  /* '!' means decnet node */
+    strncpy (buffer, __gnat_to_host_file_spec (buffer), __gnat_max_path_len);
   else
     {
       char *nambuffer = alloca (__gnat_max_path_len);
 
-      strcpy (nambuffer, buffer);
-      strcpy (buffer, getcwd (buffer, __gnat_max_path_len, 0));
-      strcat (buffer, "/");
-      strcat (buffer, nambuffer);
-      strcpy (buffer, __gnat_to_host_file_spec (buffer));
+      strncpy (nambuffer, buffer, __gnat_max_path_len);
+      strncpy
+	(buffer, getcwd (buffer, __gnat_max_path_len, 0), __gnat_max_path_len);
+      strncat (buffer, "/", __gnat_max_path_len);
+      strncat (buffer, nambuffer, __gnat_max_path_len);
+      strncpy (buffer, __gnat_to_host_file_spec (buffer), __gnat_max_path_len);
     }
-
-  return buffer;
 
 #else
   if (nam[0] != '/')
     {
-      p = getcwd (buffer, __gnat_max_path_len);
+      char *p = getcwd (buffer, __gnat_max_path_len);
+
       if (p == 0)
 	{
 	  buffer[0] = '\0';
@@ -225,7 +224,7 @@ __gnat_full_name (nam, buffer)
     }
   else
     strcpy (buffer, nam);
+#endif
 
   return buffer;
-#endif
 }

@@ -98,6 +98,10 @@
 #define TARGET_CPU_xscale       0x0100
 #define TARGET_CPU_ep9312	0x0200
 #define TARGET_CPU_iwmmxt	0x0400
+#define TARGET_CPU_arm926ej_s   0x0800
+#define TARGET_CPU_arm1026ej_s  0x1000
+#define TARGET_CPU_arm1136j_s   0x2000
+#define TARGET_CPU_arm1136jf_s  0x4000
 /* Configure didn't specify.  */
 #define TARGET_CPU_generic	0x8000
 
@@ -799,7 +803,7 @@ extern int arm_is_6_or_7;
   (TYPE_NEEDS_IWMMXT_ALIGNMENT (TYPE) ? IWMMXT_ALIGNMENT : ALIGN)
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
-#define CONSTANT_ALIGNMENT_FACTOR (TARGET_THUMB || ! arm_arch_xscale ? 1 : 2)
+#define CONSTANT_ALIGNMENT_FACTOR (TARGET_THUMB || ! arm_tune_xscale ? 1 : 2)
     
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)				\
   ((TARGET_REALLY_IWMMXT && TREE_CODE (EXP) == VECTOR_TYPE) ? IWMMXT_ALIGNMENT : \
@@ -945,6 +949,16 @@ extern const char * structure_size_string;
 	fixed_regs[regno] = call_used_regs[regno] = 1;		\
     }								\
 								\
+  if (TARGET_THUMB && optimize_size)				\
+    {								\
+      /* When optimizing for size, it's better not to use	\
+	 the HI regs, because of the overhead of stacking 	\
+	 them. */						\
+      for (regno = FIRST_HI_REGNUM;				\
+	   regno <= LAST_HI_REGNUM; ++regno)			\
+	fixed_regs[regno] = call_used_regs[regno] = 1;		\
+    }								\
+								\
   if (TARGET_CIRRUS)						\
     {								\
       for (regno = FIRST_ARM_FP_REGNUM;				\
@@ -1051,8 +1065,11 @@ extern const char * structure_size_string;
 /* The number of the last argument register.  */
 #define LAST_ARG_REGNUM 	ARG_REGISTER (NUM_ARG_REGS)
 
-/* The number of the last "lo" register (thumb).  */
+/* The numbers of the Thumb register ranges.  */
+#define FIRST_LO_REGNUM  	0
 #define LAST_LO_REGNUM  	7
+#define FIRST_HI_REGNUM		8
+#define LAST_HI_REGNUM		11
 
 /* The register that holds the return address in exception handlers.  */
 #define EXCEPTION_LR_REGNUM	2
@@ -2283,7 +2300,7 @@ do {							\
 #define MOVE_MAX 4
 
 #undef  MOVE_RATIO
-#define MOVE_RATIO (arm_arch_xscale ? 4 : 2)
+#define MOVE_RATIO (arm_tune_xscale ? 4 : 2)
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
@@ -2689,6 +2706,7 @@ extern int making_const_table;
   {"reg_or_int_operand", {SUBREG, REG, CONST_INT}},			\
   {"index_operand",      {SUBREG, REG, CONST_INT}},			\
   {"thumb_cmp_operand",  {SUBREG, REG, CONST_INT}},			\
+  {"thumb_cmpneg_operand", {CONST_INT}},				\
   {"thumb_cbrch_target_operand", {SUBREG, REG, MEM}},			\
   {"offsettable_memory_operand", {MEM}},				\
   {"bad_signed_byte_operand", {MEM}},					\

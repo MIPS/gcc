@@ -91,10 +91,11 @@ sh-linux-gnu		Kaz Kojima		kkojima@gcc.gnu.org
 
 			Various Maintainers
 
-C front end/ISO C99	Joseph Myers		jsm28@cam.ac.uk
+C front end/ISO C99	Joseph Myers		jsm@polyomino.org.uk
 C front end/ISO C99	Richard Henderson	rth@redhat.com
 Ada front end		Geert Bosch		bosch@gnat.com
 Ada front end		Robert Dewar		dewar@gnat.com
+Ada front end		Arnaud Charlet		charlet@act-europe.fr
 fortran			Richard Henderson	rth@redhat.com
 fortran			Toon Moene		toon@moene.indiv.nluug.nl
 fortran 95		Paul Brook		paul@nowt.org
@@ -149,7 +150,7 @@ build machinery (*.in)	DJ Delorie		dj@redhat.com
 build machinery (*.in)	Nathanael Nerode	neroden@gcc.gnu.org
 build machinery (*.in)	Alexandre Oliva		aoliva@redhat.com
 docs co-maintainer	Gerald Pfeifer		gerald@pfeifer.com
-docs co-maintainer	Joseph Myers		jsm28@cam.ac.uk
+docs co-maintainer	Joseph Myers		jsm@polyomino.org.uk
 Pico-Java port		Steve Chamberlain	sac@transmeta.com
 RTEMS Ports		Joel Sherrill		joel@oarcorp.com
 VxWorks	ports		Zack Weinberg		zack@codesourcery.com
@@ -243,6 +244,7 @@ Nicola Pero					n.pero@mi.flashnet.it
 Graeme Peterson					gp@qnx.com
 Alexandre Petit-Bianco				apbianco@redhat.com
 Andrew Pinski					pinskia@physics.uc.edu
+Nicolas Pitre					nico@cam.org
 Sebastian Pop                                   s.pop@laposte.net
 Clinton Popetz					cpopetz@cpopetz.com
 Rolf Rasmussen					rolfwr@gcc.gnu.org

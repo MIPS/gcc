@@ -1028,7 +1028,7 @@ write_conversion_operator_name (const tree type)
   write_type (type);
 }
 
-/* Non-termial <source-name>.  IDENTIFIER is an IDENTIFIER_NODE.  
+/* Non-terminal <source-name>.  IDENTIFIER is an IDENTIFIER_NODE.  
 
      <source-name> ::= </length/ number> <identifier>  */
 
@@ -1329,7 +1329,7 @@ discriminator_for_local_entity (tree entity)
 }
 
 /* Return the discriminator for STRING, a string literal used inside
-   FUNCTION.  The disciminator is the lexical ordinal of STRING among
+   FUNCTION.  The discriminator is the lexical ordinal of STRING among
    string literals used in FUNCTION.  */
 
 static int
@@ -2041,7 +2041,21 @@ write_expression (tree expr)
 
 	default:
 	  for (i = 0; i < TREE_CODE_LENGTH (code); ++i)
-	    write_expression (TREE_OPERAND (expr, i));
+	    {
+	      tree operand = TREE_OPERAND (expr, i);
+	      /* As a GNU expression, the middle operand of a
+		 conditional may be omitted.  Since expression
+		 manglings are supposed to represent the input token
+		 stream, there's no good way to mangle such an
+		 expression without extending the C++ ABI.  */
+	      if (code == COND_EXPR && i == 1 && !operand)
+		{
+		  error ("omitted middle operand to `?:' operand "
+			 "cannot be mangled");
+		  continue;
+		}
+	      write_expression (operand);
+	    }
 	}
     }
 }

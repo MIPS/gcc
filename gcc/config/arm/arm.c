@@ -281,6 +281,9 @@ int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 #define FL_XSCALE     (1 << 10)	      /* XScale */
 #define FL_CIRRUS     (1 << 11)	      /* Cirrus/DSP.  */
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
+#define FL_ARCH6J     (1 << 12)       /* Architecture rel 6.  Adds
+					 media instructions.  */
+#define FL_VFPV2      (1 << 13)       /* Vector Floating Point V2.  */
 
 /* The bits in this mask specify which
    instructions we are allowed to generate.  */
@@ -406,6 +409,7 @@ static const struct processors all_cores[] =
   {"arm7500",	             FL_MODE26 | FL_MODE32 },
   /* Doesn't have an external co-proc, but does have embedded fpa.  */
   {"arm7500fe",	FL_CO_PROC | FL_MODE26 | FL_MODE32 },
+  /* V4 Architecture Processors */
   {"arm7tdmi",	FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
   {"arm710t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
   {"arm720t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
@@ -423,11 +427,16 @@ static const struct processors all_cores[] =
   {"strongarm110",           FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
   {"strongarm1100",          FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
   {"strongarm1110",          FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 |            FL_LDSCHED | FL_STRONG },
+  /* V5 Architecture Processors */
   {"arm10tdmi",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
   {"arm1020t",	                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED             | FL_ARCH5 },
+  {"arm926ejs",                          FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E },
+  {"arm1026ejs",                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E },
   {"xscale",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE },
   {"iwmmxt",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT },
-
+  /* V6 Architecture Processors */
+  {"arm1136js",                          FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J },
+  {"arm1136jfs",                         FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB                          | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J | FL_VFPV2 },
   {NULL, 0}
 };
 
@@ -446,6 +455,7 @@ static const struct processors all_architectures[] =
   { "armv5",     FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
   { "armv5t",    FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
   { "armv5te",   FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E },
+  { "armv6j",    FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J },
   { "ep9312",				  FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_LDSCHED | FL_CIRRUS },
   {"iwmmxt",                             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT },
   { NULL, 0 }
@@ -546,6 +556,10 @@ arm_override_options (void)
 	{ TARGET_CPU_xscale,    "xscale" },
 	{ TARGET_CPU_ep9312,    "ep9312" },
 	{ TARGET_CPU_iwmmxt,    "iwmmxt" },
+	{ TARGET_CPU_arm926ej_s, "arm926ej-s" },
+	{ TARGET_CPU_arm1026ej_s, "arm1026ej-s" },
+	{ TARGET_CPU_arm1136j_s, "arm1136j_s" },
+	{ TARGET_CPU_arm1136jf_s, "arm1136jf_s" },
 	{ TARGET_CPU_generic,   "arm" },
 	{ 0, 0 }
       };
@@ -831,23 +845,37 @@ arm_override_options (void)
       flag_schedule_insns = 0;
     }
 
-  /* If optimizing for space, don't synthesize constants.
-     For processors with load scheduling, it never costs more than 2 cycles
-     to load a constant, and the load scheduler may well reduce that to 1.  */
-  if (optimize_size || (tune_flags & FL_LDSCHED))
-    arm_constant_limit = 1;
-  
-  if (arm_arch_xscale)
-    arm_constant_limit = 2;
-
-  /* If optimizing for size, bump the number of instructions that we
-     are prepared to conditionally execute (even on a StrongARM). 
-     Otherwise for the StrongARM, which has early execution of branches,
-     a sequence that is worth skipping is shorter.  */
   if (optimize_size)
-    max_insns_skipped = 6;
-  else if (arm_is_strong)
-    max_insns_skipped = 3;
+    {
+      /* If optimizing for space, we let the compiler synthesize constants
+         with up to 2 insns, which uses the same space as a load from memory.
+         This gives the opportunity to take even less space when different
+         offsets can be factorized into multiple pre-indexed loads or stores. */
+      arm_constant_limit = 2;
+
+      /* If optimizing for size, bump the number of instructions that we
+         are prepared to conditionally execute (even on a StrongARM). */
+      max_insns_skipped = 6;
+    }
+  else
+    {
+      /* For processors with load scheduling, it never costs more than
+         2 cycles to load a constant, and the load scheduler may well
+	 reduce that to 1.  */
+      if (tune_flags & FL_LDSCHED)
+        arm_constant_limit = 1;
+
+      /* On XScale the longer latency of a load makes it more difficult
+         to achieve a good schedule, so it's faster to synthesize
+	 constants that can be done in two insns. */
+      if (arm_tune_xscale)
+        arm_constant_limit = 2;
+
+      /* StrongARM has early execution of branches, so a sequence
+         that is worth skipping is shorter.  */
+      if (arm_is_strong)
+        max_insns_skipped = 3;
+    }
 
   /* Register global variables with the garbage collector.  */
   arm_add_gc_roots ();
@@ -986,7 +1014,11 @@ use_return_insn (int iscond)
   /* Never use a return instruction before reload has run.  */
   if (!reload_completed)
     return 0;
-      
+
+  /* We need two instructions when there's a frame pointer. */
+  if (frame_pointer_needed)
+    return 0;
+  
   func_type = arm_current_func_type ();
 
   /* Naked functions and volatile functions need special
@@ -3099,12 +3131,12 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 		return COSTS_N_INSNS (2);				
 	      return COSTS_N_INSNS (3);				
 	    }								
-	  else if (outer == PLUS					
+	  else if ((outer == PLUS || outer == COMPARE)
 		   && INTVAL (x) < 256 && INTVAL (x) > -256)		
-	    return 0;							
-	  else if (outer == COMPARE					
-		   && (unsigned HOST_WIDE_INT) INTVAL (x) < 256)	
-	    return 0;							
+	    return 0;
+	  else if (outer == AND
+		   && INTVAL (x) < 256 && INTVAL (x) >= -256)
+	    return COSTS_N_INSNS (1);
 	  else if (outer == ASHIFT || outer == ASHIFTRT		
 		   || outer == LSHIFTRT)				
 	    return 0;							
@@ -6862,9 +6894,21 @@ note_invalid_constants (rtx insn, HOST_WIDE_INT address, int do_pushes)
 		   && CONSTANT_POOL_ADDRESS_P (XEXP (op, 0)))
 	    {
 	      if (do_pushes)
-		push_minipool_fix (insn, address, recog_data.operand_loc[opno],
-				   recog_data.operand_mode[opno],
-				   get_pool_constant (XEXP (op, 0)));
+		{
+		  rtx cop = avoid_constant_pool_reference (op);
+
+		  /* Casting the address of something to a mode narrower
+		     than a word can cause avoid_constant_pool_reference()
+		     to return the pool reference itself.  That's no good to
+		     us here.  Lets just hope that we can use the 
+		     constant pool value directly.  */
+		  if (op == cop)
+		    cop = get_pool_constant (XEXP (op, 0));
+
+		  push_minipool_fix (insn, address,
+				     recog_data.operand_loc[opno],
+				     recog_data.operand_mode[opno], cop);
+		}
 
 	      result = true;
 	    }
@@ -8500,8 +8544,18 @@ arm_output_epilogue (int really_return)
 	saved_regs_mask &= ~ (1 << LR_REGNUM);
       else
 	saved_regs_mask &= ~ (1 << PC_REGNUM);
-      
-      print_multi_reg (f, "ldmea\t%r", FP_REGNUM, saved_regs_mask);
+
+      /* We must use SP as the base register, because SP is one of the
+         registers being restored.  If an interrupt or page fault
+         happens in the ldm instruction, the SP might or might not
+         have been restored.  That would be bad, as then SP will no
+         longer indicate the safe area of stack, and we can get stack
+         corruption.  Using SP as the base register means that it will
+         be reset correctly to the original value, should an interrupt
+         occur.  */
+      asm_fprintf (f, "\tsub\t%r,%r,#%d\n", SP_REGNUM, FP_REGNUM,
+		   4 * bit_count (saved_regs_mask));
+      print_multi_reg (f, "ldmfd\t%r", SP_REGNUM, saved_regs_mask);
 
       if (IS_INTERRUPT (func_type))
 	/* Interrupt handlers will have pushed the
@@ -12591,8 +12645,17 @@ int
 thumb_cmp_operand (rtx op, enum machine_mode mode)
 {
   return ((GET_CODE (op) == CONST_INT
-	   && (unsigned HOST_WIDE_INT) (INTVAL (op)) < 256)
+	   && INTVAL (op) < 256
+	   && INTVAL (op) >= 0)
 	  || s_register_operand (op, mode));
+}
+
+int
+thumb_cmpneg_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return (GET_CODE (op) == CONST_INT
+	  && INTVAL (op) < 0
+	  && INTVAL (op) > -256);
 }
 
 /* Return TRUE if a result can be stored in OP without clobbering the

@@ -99,7 +99,7 @@ lvalue_p_1 (tree ref,
 	  /* Clear the ordinary bit.  If this object was a class
 	     rvalue we want to preserve that information.  */
 	  op1_lvalue_kind &= ~clk_ordinary;
-	  /* The lvalue is for a btifield.  */
+	  /* The lvalue is for a bitfield.  */
 	  op1_lvalue_kind |= clk_bitfield;
 	}
       else if (DECL_PACKED (TREE_OPERAND (ref, 1)))
@@ -311,10 +311,12 @@ build_target_expr_with_type (tree init, tree type)
   if (TREE_CODE (init) == TARGET_EXPR)
     return init;
   else if (CLASS_TYPE_P (type) && !TYPE_HAS_TRIVIAL_INIT_REF (type)
-	   && TREE_CODE (init) != COND_EXPR)
+	   && TREE_CODE (init) != COND_EXPR
+	   && TREE_CODE (init) != CONSTRUCTOR)
     /* We need to build up a copy constructor call.  COND_EXPR is a special
        case because we already have copies on the arms and we don't want
-       another one here.  */
+       another one here.  A CONSTRUCTOR is aggregate initialization, which
+       is handled separately.  */
     return force_rvalue (init);
 
   slot = build_decl (VAR_DECL, NULL_TREE, type);
@@ -1353,7 +1355,7 @@ build_min_non_dep (enum tree_code code, tree non_dep, ...)
 
   if (code == COMPOUND_EXPR && TREE_CODE (non_dep) != COMPOUND_EXPR)
     /* This should not be considered a COMPOUND_EXPR, because it
-       resolves to an overload. */
+       resolves to an overload.  */
     COMPOUND_EXPR_OVERLOADED (t) = 1;
   
   va_end (p);

@@ -1034,6 +1034,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_gcse_sm = value;
       break;
 
+    case OPT_fgcse_las:
+      flag_gcse_las = value;
+      break;
+
     case OPT_fgnu_linker:
       flag_gnu_linker = value;
       break;
@@ -1072,13 +1076,6 @@ common_handle_option (size_t scode, const char *arg,
       set_param_value ("max-inline-insns-single", value / 2);
       set_param_value ("max-inline-insns-auto", value / 2);
       set_param_value ("max-inline-insns-rtl", value);
-      if (value / 4 < MIN_INLINE_INSNS)
-	{
-	  if (value / 4 > 10)
-	    set_param_value ("min-inline-insns", value / 4);
-	  else
-	    set_param_value ("min-inline-insns", 10);
-	}
       break;
 
     case OPT_finstrument_functions:
@@ -1195,6 +1192,14 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fprofile_arcs:
       profile_arc_flag = value;
+      break;
+
+    case OPT_fprofile_values:
+      flag_profile_values = value;
+      break;
+
+    case OPT_fvpt:
+      flag_value_profile_transformations = value;
       break;
 
     case OPT_frandom_seed:
@@ -1470,6 +1475,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fverbose_asm:
       flag_verbose_asm = value;
+      break;
+
+    case OPT_fweb:
+      flag_web = value;
       break;
       
     case OPT_fwrapv:

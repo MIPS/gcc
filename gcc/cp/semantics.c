@@ -1011,7 +1011,7 @@ begin_compound_stmt (bool has_no_scope)
   return r;
 }
 
-/* Finish a compound-statement, which is given by COMPOUND_STMT. */
+/* Finish a compound-statement, which is given by COMPOUND_STMT.  */
 
 tree
 finish_compound_stmt (tree compound_stmt)
@@ -1216,7 +1216,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
       return error_mark_node;
     }
   TREE_USED (current_class_ptr) = 1;
-  if (processing_template_decl)
+  if (processing_template_decl && !qualifying_scope)
     {
       tree type = TREE_TYPE (decl);
 
@@ -1254,6 +1254,13 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	      return error_mark_node;
 	    }
 	}
+
+      /* If PROCESSING_TEMPLATE_DECL is non-zero here, then
+	 QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
+	 for now.  */
+      if (processing_template_decl)
+	return build_min (SCOPE_REF, TREE_TYPE (decl),
+			  qualifying_scope, DECL_NAME (decl));
 
       perform_or_defer_access_check (TYPE_BINFO (access_type), decl);
 
@@ -1431,7 +1438,7 @@ finish_stmt_expr_expr (tree expr)
 
 	  /* Build a TARGET_EXPR for this aggregate.  finish_stmt_expr
 	     will then pull it apart so the lifetime of the target is
-	     within the scope of the expresson containing this statement
+	     within the scope of the expression containing this statement
 	     expression.  */
 	  if (TREE_CODE (expr) == TARGET_EXPR)
 	    ;
@@ -2232,7 +2239,7 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
 }
 
 /* Called when multiple declarators are processed.  If that is not
-   premitted in this context, an error is issued.  */
+   permitted in this context, an error is issued.  */
 
 void
 check_multiple_declarators (void)
@@ -2444,7 +2451,7 @@ finish_id_expression (tree id_expression,
 	    }
 
 	  /* If there are no dependent template arguments, go through
-	     the overlaoded functions.  */
+	     the overloaded functions.  */
 	  while (fns && !dependent_p)
 	    {
 	      tree fn = OVL_CURRENT (fns);
@@ -2819,15 +2826,20 @@ emit_associated_thunks (tree fn)
       
       for (thunk = DECL_THUNKS (fn); thunk; thunk = TREE_CHAIN (thunk))
 	{
-	  use_thunk (thunk, /*emit_p=*/1);
-	  if (DECL_RESULT_THUNK_P (thunk))
+	  if (!THUNK_ALIAS_P (thunk))
 	    {
-	      tree probe;
-
-	      for (probe = DECL_THUNKS (thunk);
-		   probe; probe = TREE_CHAIN (probe))
-		use_thunk (probe, /*emit_p=*/1);
+	      use_thunk (thunk, /*emit_p=*/1);
+	      if (DECL_RESULT_THUNK_P (thunk))
+		{
+		  tree probe;
+		  
+		  for (probe = DECL_THUNKS (thunk);
+		       probe; probe = TREE_CHAIN (probe))
+		    use_thunk (probe, /*emit_p=*/1);
+		}
 	    }
+	  else
+	    my_friendly_assert (!DECL_THUNKS (thunk), 20031023);
 	}
     }
 }

@@ -1,7 +1,140 @@
+2003-10-26  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10371
+	* semantics.c (finish_non_static_data_member): Handle when
+	both processing_template_decl and qualifying_scope are true.
+
+2003-10-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11076
+	* class.c (handle_using_decl): Swap arguments of error_not_base_type.
+	* parser.c (cp_parser_direct_declarator): Only resolve typename for
+	namespace scope declarations.
+
+2003-10-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/12698, c++/12699, c++/12700, c++/12566
+	* cp-tree.h (THUNK_ALIAS_P, THUNK_ALIAS): New.
+	(debug_class, debug_thunks): New.
+	* class.c (dump_class_hierarchy_1): New break out from ...
+	(dump_class_hierarchy): ... here.
+	(dump_thunk, debug_thunks, debug_class): New.
+	(update_vtable_entry_for_fn): Add ssizetype casts. Correct
+	continued search for primary binfo via virtual.
+	(build_vtbl_initializer): Follow covariant thunk alias.
+	* method.c (make_thunk): Clear DECL_THUNKS of the thunk.
+	(finish_thunk): Look for an alias of the covariant thunk and point
+	to it.
+	(use_thunk): We should never use an alias.
+	* semantics.c (emit_associated_thunks): Do not emit aliases.
+
+	PR c++/12566
+	* cp-tree.h (cp_fname_init): Add TYPE pointer param.
+	* decl.c (cp_fname_init): Add TYPE pointer param. Set it. Don't
+	create an ad-hoc ERROR_MARK.
+	(cp_make_fname_decl): Adjust.
+	* pt.c (tsubst_expr): Adjust.
+
+2003-10-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/12726
+	* tree.c (build_target_expr_with_type): Don't call force_rvalue
+	for CONSTRUCTORs.
+
+2003-10-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* call.c: Fix comment formatting.
+	* class.c: Likewise.
+	* cxx-pretty-print.c: Likewise.
+	* init.c: Likewise.
+	* parser.c: Likewise.
+	* pt.c: Likewise.
+	* semantics.c: Likewise.
+	* tree.c: Likewise.
+	* typeck.c: Likewise.
+	* typeck2.c: Likewise.
+
+2003-10-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11962
+	* typeck.c (build_x_conditional_expr): Handle missing middle
+	operands in templates.
+	* mangle.c (write_expression): Issue errors about attempts to
+	mangle a non-existant middle operator to the ?: operator.
+
+2003-10-21  Robert Bowdidge   <bowdidge@apple.com>
+	* decl.c (cp_finish_decl): Remove clause intended for asm directives 
+          in struct or class fields: this code is never executed.
+
+2003-10-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* decl.c (start_decl): Exit if push_template_decl returns
+	error_mark_node.
+
+2003-10-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* ChangeLog: Fix typos.
+	* call.c: Fix comment typos.
+	* class.c: Likewise.
+	* cp-tree.h: Likewise.
+	* cvt.c: Likewise.
+	* cxx-pretty-print.c: Likewise.
+	* decl.c: Likewise.
+	* decl2.c: Likewise.
+	* init.c: Likewise.
+	* mangle.c: Likewise.
+	* name-lookup.c: Likewise.
+	* parser.c: Likewise.
+	* search.c: Likewise.
+	* semantics.c: Likewise.
+	* tree.c: Likewise.
+	* typeck.c: Likewise.
+
+2003-10-20  Jan Hubicka  <jh@suse.cz>
+
+	* decl.c (start_cleanup_fn):  Set DECL_DECLARED_INLINE_P to deffer
+	the expansion.
+
+2003-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (c++.install-info): Remove.
+
+2003-10-20  Jason Merrill  <jason@redhat.com>
+
+	* class.c (layout_class_type): Set DECL_ARTIFICIAL on padding
+	field.
+
+2003-10-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9781, c++/10583, c++/11862
+	* decl.c (cp_finish_decl): Exit immediately if decl is an
+	error_mark_node.
+	* pt.c (push_template_decl_real): Return error_mark_node for
+	invalid template declaration of variable.
+
+2003-10-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12495
+	* pt.c (lookup_template_class): Handle when current_class_type
+	is a local class.
+
+2003-10-17  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/2513
+	* decl.c (make_typename_type): Use dependent_type_p.
+	(make_unbound_class_template): Likewise.
+	* pt.c (instantiate_class_template): Increment
+	processing_template_decl during substitution of template friend
+	function.  Preincrement processing_template_decl rather than
+	postincrement.
+	(get_mostly_instantiated_function_type): Increment
+	processing_template_decl during partial substitution of function
+	type.
+
 2003-10-15  Jan Hubicka  <jh@suse.cz>
 
-	pr c++/12574
-        * decl2.c (cxx_callgraph_analyze_expr): deal with baselink.
+	PR c++/12574
+	* decl2.c (cxx_callgraph_analyze_expr): Deal with baselink.
 
 2003-10-14  Jason Merrill  <jason@redhat.com>
 
@@ -1165,7 +1298,7 @@
 	* typeck2.c (build_functional_cast): Do not perform name lookups.
 
 	PR c++/10717
-	* decl.c (expand_static_init): Remove unncessary code.
+	* decl.c (expand_static_init): Remove unnecessary code.
 
 2003-08-19  Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -1653,7 +1786,7 @@
 	(decay_conversion): Use convert_to_integer.
 	(build_unary_op): Use build_nop.
 	(get_delta_difference): Use convert_to_integer.
-	(build_ptrmemfunc): Avoid unncessary conversions.
+	(build_ptrmemfunc): Avoid unnecessary conversions.
 
 2003-07-28  Jan Hubicka  <jh@suse.cz>
 
@@ -4509,7 +4642,7 @@
 	* decl2.c (is_namespace_ancestor): Rename to ...
 	(namespace_anecestor): ... this.
 	(set_decl_namespace): Adjust accordingly.
-	(handle_class_head): Remove unncessary parameters.
+	(handle_class_head): Remove unnecessary parameters.
 	* parser.c (cp_parser_class_head): Check that
 	nested-name-specifiers are used appropriately.
 
@@ -8528,7 +8661,7 @@
 	(instantiate_class_template): Adjust call to xref_basetypes.
 	* semantics.c (begin_mem_initializers): New function.
 	* tree.c (is_overloaded_fn): Use BASELINK_FUNCTIONS.
-	(really_overlaoded_fn): Likewise.
+	(really_overloaded_fn): Likewise.
 	(get_overloaded_fn): New function.'
 	(get_first_fn): USe BASELINK_FUNCTIONS.
 

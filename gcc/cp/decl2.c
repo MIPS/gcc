@@ -2083,7 +2083,7 @@ start_static_storage_duration_function (unsigned count)
   /* Put the function in the global scope.  */
   pushdecl (ssdf_decl);
 
-  /* Start the function itself.  This is equivalent to declarating the
+  /* Start the function itself.  This is equivalent to declaring the
      function as:
 
        static void __ssdf (int __initialize_p, init __priority_p);

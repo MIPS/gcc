@@ -1,3 +1,287 @@
+2003-10-26  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* java/lang/reflect/AccessibleObject.java (secureSetAccessible):
+	Don't check for AccessibleObject. Update javadocs.
+	
+	* java/util/TreeMap.java: Doc fixes. HashMap -> TreeMap.
+
+2003-10-26  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* java/lang/reflect/Constructor.java (toString): Avoid extra 
+	whitespace on constructor with no modifiers.
+	* java/lang/reflect/natConstructor.java (newInstance): Look up
+	caller and perform accessibility check only if constructor is
+	non-public and accessible flag is not set.
+
+2003-10-26  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* jni.cc (_Jv_JNI_CallAnyMethodV, _Jv_JNI_CallAnyMethodA,
+	_Jv_JNI_CallAnyVoidMethodV, _Jv_JNI_CallAnyVoidMethodA): Don't
+	use _Jv_LookupDeclaredMethod(). Call _Jv_CallAnyMethodA with 
+	is_virtual_call argument.
+	* include/jvm.h (_Jv_isVirtualMethod): Moved and renamed from 
+	natClass.cc.
+	* java/lang/natClass.cc (_Jv_LayoutVTableMethods): Use 
+	_Jv_isVirtualMethod.
+	* java/lang/reflect/natMethod.cc (invoke): Don't use 
+	_Jv_LookupDeclaredMethod.
+	(_Jv_CallAnyMethodA): New is_virtual_call argument. If specified,
+	look up method in target object's vtable.
+
+2003-10-25  Graydon Hoare  <graydon@redhat.com>
+
+	* gnu/java/awt/ClasspathToolkit.java: New abstract class.
+	* gnu/java/awt/peer/ClasspathFontPeer.java: New abstract class.
+	* gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c:
+	New concrete implementation of ClasspathFontPeer, with native part.
+	* gnu/java/awt/peer/gtk/GdkGlyphVector.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c:
+	New class, with native part.
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c:
+	implement setFont, cairoSetFont, drawGlyphVector, cairoShowGlyphs.
+
+2003-10-25  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* java/lang/reflect/Method.java (toString): Avoid extra whitespace
+	on method with no modifiers.
+
+2003-10-25  Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	PR libgcj/11780:
+	* java/lang/reflect/natMethod.cc (invoke): Look up caller and perform
+	accessibility check only if target is non-public and accessible flag
+	is not set.
+	* java/lang/reflect/natField.cc (getAddr): Likewise.
+
+2003-10-24  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkDialogPeer.java (handleEvent):
+	Remove method.
+	* gnu/java/awt/peer/gtk/GtkWindowPeer.java (postWindowEvent):
+	New method.
+	* java/awt/Window.java (Window(Window,GraphicsConfiguration),
+	show, hide, dispose, getOwnedWindows): Synchronize on tree lock.
+	(dispose): Post WINDOW_CLOSED event.
+	(addWindowFocusListener, addWindowStateListener): Assign result
+	of multicaster add back to window listener.
+	(removeWindowFocusListener, removeWindowStateListener): Assign
+	result of multicaster remove back to window listener.
+	(dispatchEventImpl): Add null checks for focus and state
+	listeners.
+	(processWindowEvent): Handle case where windowListener is null
+	but state or focus listeners exist.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c: Add JNI
+	glue for postWindowEvent.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	(window_delete_cb, window_destroy_cb, window_show_cb,
+	window_focus_in_cb, window_focus_out_cb, window_window_state_cb,
+	window_get_new_state): New functions.
+	* jni/gtk-peer/gtkpeer.h: Define window event and frame state
+	macros.  Declare postWindowEventID.
+
+2003-10-24  Anthony Green  <green@redhat.com>
+
+	* java/lang/natClass.cc (_Jv_LinkSymbolTable): Fix case where
+	we have no interpreter.
+
+2003-10-22  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClass.cc (initializeClass): Call
+	_Jv_linkExceptionClassTable.
+	(_Jv_LinkSymbolTable): Call )_Jv_ThrowNoSuchMethodError.  Call
+	_Jv_Defer_Resolution on a method whose ncode is NULL.
+	(_Jv_linkExceptionClassTable): New function.
+	(_Jv_LayoutVTableMethods): If superclass looks like a constant pool
+	entry, look it up.
+	* java/lang/Class.h (struct _Jv_CatchClass): New.
+	(_Jv_linkExceptionClassTable): New friend.
+	(_Jv_Defer_Resolution): New friend.
+	(class Class.catch_classes): New field.
+	* include/java-interp.h (Jv_Defer_Resolution): New method.
+	(_Jv_PrepareClass): Make a friend of _Jv_MethodBase.
+	(_Jv_MethodBase.deferred): New field.
+	(_Jv_Defer_Resolution): New function.
+	* resolve.cc (_Jv_PrepareClass): Resolve deferred handlers.
+	* exception.cc (get_ttype_entry): Change return type to void**.
+	(PERSONALITY_FUNCTION): Remove all code related to using a
+	Utf8Const* for a match type.  Change match type to be a pointer to
+	a pointer, rather than a pointer to a Class.
+	* defineclass.cc (handleCodeAttribute): Initialize
+	method->deferred.
+	(handleMethodsEnd): Likewise.
+
+2003-10-23  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* java/lang/natObject.cc (_Jv_ObjectCheckMonitor): Use
+	_Jv_MutexCheckMonitor instead of accessing mutex.owner directly.
+
+2003-10-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/12416:
+	* java/lang/Class.h: Updated.
+	* java/lang/natClass.cc (_getFields): Removed.
+	(getFields): Likewise.
+	(getDeclaredFields): Added `public_only' parameter.
+	* java/lang/Class.java (getFields): Now implemented in java; from
+	Classpath.
+	(getDeclaredFields): Likewise.
+	(getDeclaredFields(boolean)): Declare.
+	(_getFields): Removed.
+	(internalGetFields): New method, from Classpath.
+
+	PR libgcj/12656:
+	* gnu/gcj/runtime/natFirstThread.cc (call_main): Use
+	_Jv_LookupDeclaredMethod, not _Jv_GetMethodLocal.
+
+2003-10-22  David Daney  <ddaney@avtrex.com)
+
+	* include/mips-signal.h: New file.
+	* sysdep/dwarf2-backtrace.cc: New file.
+	* sysdep/mips: New directory.
+	* sysdep/mips/locks.h: New file.
+	* Makefile.am(extra_cc_files): New, to allow extra c++ files to be
+	added to libgcj.
+	(extra_cc_source_files): Ditto.
+	* configure.host(disable_dladdr):  New shell variable passed to
+	configure.
+	(mips*-*-linux*): sysdeps_dir=mips,
+	can_unwind_signal=yes, disable_dladdr=yes, use -mxgot.
+	(mipsel*-linux* | mipsisa32el*-linux*): Enable hash synchronization.
+	* configure.in:(mips*-*-linux*): Use sysdep/dwarf2-backtrace.cc to
+	generate backtrace, and include/mips-signal.h as SIGNAL_HANDLER
+	(HAVE_DLADDR): Make it depend on setting of disable_dladdr.
+	(EXTRA_CC_FILES): New, to support conditional addition of
+	sysdep/dwarf2-backtrace.cc.
+	* configure: Regenerated.
+	* Makefile.in: Regenerated.
+	* gcj/Makefile.in: Regenerated.
+	* include/config.h.in: Regenerated.
+	* include/Makefile.in: Regenerated.
+	* testsuite/Makefile.in: Regenerated.
+	
+2003-10-22  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/geom/QuadCurve2D.java (subdivide): Added documentation.
+	java/awt/geom/doc-files/QuadCurve2D-3.png: New illustration.
+
+2003-10-22  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/geom/QuadCurve2D.java: Reformatted, wrote Javadoc.
+	* java/awt/geom/doc-files: New directory.
+	* java/awt/geom/doc-files/QuadCurve2D-1.png,
+	java/awt/geom/doc-files/QuadCurve2D-2.png: New illustrations.
+	
+2003-10-22  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/geom/QuadCurve2D.java (subdivide): Implement.
+
+2003-10-22  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/geom/QuadCurve2D.java (getFlatness, getFlatnessSq): Implement.
+
+2003-10-22  Michael Koch  <konqueror@gmx.de>
+
+	* java/io/File.java
+	(equals): Removed redundant obj == null check.
+	(createTempFile): Merged comments from classpath.
+
+2003-10-21  Sascha Brawer  <brawer@dandelis.ch>
+
+	Fix for bug #2944, reported by David Holmes <dholmes@dltech.com.au>
+        * java/util/logging/ErrorManager.java (everUsed): Made volatile.
+        (error): Synchronize on instance, not class.
+
+2003-10-21  Mark Wielaard  <mark@klomp.org>
+
+	Reported by M.Negovanovic
+	* java/beans/Introspector.java (getBeanInfo(ClassLoader, String)): New
+	method.
+	(reallyFindExplicitBeanInfo): Use new getBeanInfo() method.
+
+2003-10-21  Sascha Brawer  <brawer@dandelis.ch>
+
+	Fix for Classpath bug #6076.
+	* java/awt/geom/GeneralPath.java (append): Re-written.
+
+2003-10-21  Sascha Brawer  <brawer@dandelis.ch>
+
+	Fix for Classpath bug #6089.
+	* java/awt/geom/GeneralPath.java (curveTo): Set correct segment type.
+	(getPathIterator, GeneralPathIterator): Re-written from scratch.
+
+2003-10-21  Sascha Brawer  <brawer@dandelis.ch>
+
+	* java/awt/geom/GeneralPath.java (getCurrentPoint): Return last
+	point, not start of subpath.  Fixes Classpath bug #6075.
+
+2003-10-21  Michael Koch  <konqueror@gmx.de>
+
+	* java/nio/ByteOrder.java,
+	java/nio/DirectByteBufferImpl.java,
+	java/nio/channels/FileChannelImpl.java:
+	Add code to load library with code for native methods if needed.
+
+2003-10-21  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/PlainDatagramSocketImpl.java,
+	gnu/java/net/PlainSocketImpl.java,
+	gnu/java/net/natPlainDatagramSocketImplPosix.cc,
+	gnu/java/net/natPlainDatagramSocketImplWin32.cc,
+	gnu/java/net/natPlainSocketImplPosix.cc,
+	gnu/java/net/natPlainSocketImplWin32.cc:
+	Renamed fnum to native_fd to match classpath more.
+
+2003-10-21  Jerry Quinn  <jlquinn@optonline.net>
+
+        * posix-threads.cc (_Jv_CondNotify,_Jv_CondNotifyAll): Rename
+        _Jv_PthreadCheckMonitor to _Jv_MutexCheckMonitor.
+	* include/no-threads.h (_Jv_MutexCheckMonitor): New.
+	* include/posix-threads.h (_Jv_MutexCheckMonitor): Rename from
+        _Jv_PthreadCheckMonitor.  Simplify code.
+	(_Jv_MutexUnlock): Use _Jv_MutexCheckMonitor.
+	* include/win32-threads.h (_Jv_MutexCheckMonitor): New.
+	* java/lang/Object.h (_Jv_ObjectCheckMonitor): Declare.
+	* java/lang/Thread.java (holdsLock): New.
+	* java/lang/natObject.cc (_Jv_ObjectCheckMonitor): New, with and
+        without JV_HASH_SYNCHRONIZATION.
+	* java/lang/natThread.cc (java::lang::Thread::holdsLock): New.
+
+2003-10-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/text/RuleBasedCollator.java
+	(RuleBasedCollator): Check rules not empty, fixed search in already
+	existing collation elements.
+	(is_special): Removed common whitespace characters.
+	(text_argument): Dont return on whitespaces, add characters between
+	two ' to string buffer.
+
+2003-10-18  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Connection.java,
+	gnu/java/net/protocol/file/Handler.java,
+	gnu/java/net/protocol/http/Connection.java,
+	gnu/java/net/protocol/http/Handler.java,
+	gnu/java/net/protocol/jar/Connection.java,
+	gnu/java/net/protocol/jar/Handler.java:
+	Merged copyright text from classpath to make
+	it possible to merge the classes.
+
+2003-10-18  Mark Wielaard  <mark@klomp.org>
+
+	Reported by M.Negovanovic
+	* java/beans/IndexedPropertyDescriptor.java
+	(IndexedPropertyDescriptor): this.setIndex = setIndex, not getIndex.
+
+2003-10-17  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* win32.cc (_Jv_pipe): Implemented.
+	* gnu/java/nio/natPipeImpl.cc (nativeInit): Use
+	_Jv_pipe instead of ::pipe.
+	* include/posix.h (_Jv_pipe): New inline.
+	* include/win32.h (_Jv_pipe): New declaration.
+	
 2003-10-17  Ralph Loader  <rcl@ihug.co.nz>
 
 	* java/lang/StringBuffer.java (getChars): Fix array index checks.

@@ -25,6 +25,7 @@
    ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
    OTHER DEALINGS IN THE SOFTWARE.
    ----------------------------------------------------------------------- */
+
 #include <ffi.h>
 #include <ffi_common.h>
 
@@ -81,6 +82,7 @@ enum { ASM_NEEDS_REGISTERS = 4 };
 void ffi_prep_args(extended_cif *ecif, unsigned *const stack)
 /*@=exportheader@*/
 {
+  const unsigned bytes = ecif->cif->bytes;
   const unsigned flags = ecif->cif->flags;
 
   /* 'stacktop' points at the previous backchain pointer.  */

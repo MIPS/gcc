@@ -271,14 +271,14 @@ in the following sections.
 @gccoptlist{-falign-functions=@var{n}  -falign-jumps=@var{n} @gol
 -falign-labels=@var{n}  -falign-loops=@var{n}  @gol
 -fbounds-check -fmudflap @gol
--fbranch-probabilities -fprofile-values -fbranch-target-load-optimize @gol
+-fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fcaller-saves  -fcprop-registers @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
 -fforce-addr  -fforce-mem  -ffunction-sections @gol
--fgcse  -fgcse-lm  -fgcse-sm  -floop-optimize  -fcrossjumping @gol
--fif-conversion  -fif-conversion2 @gol
+-fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -floop-optimize @gol
+-fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmove-all-movables  -fnew-ra  -fno-branch-count-reg @gol
@@ -444,6 +444,7 @@ in the following sections.
 -mdynamic-no-pic @gol
 -mprioritize-restricted-insns=@var{priority} @gol
 -msched-costly-dep=@var{dependence_type} @gol
+-minsert-sched-nops=@var{scheme} @gol
 -mcall-sysv  -mcall-netbsd @gol
 -maix-struct-return  -msvr4-struct-return @gol
 -mabi=altivec  -mabi=no-altivec @gol
@@ -1918,7 +1919,7 @@ run time instead.  This is used in conjunction with the Fix-and-Continue
 debugging mode, where the object file in question may be recompiled and 
 dynamically reloaded in the course of program execution, without the need
 to restart the program itself.  Currently, Fix-and-Continue functionality
-is only available in conjunciton withthe NeXT runtime on Mac OS X 10.3 
+is only available in conjunction with the NeXT runtime on Mac OS X 10.3 
 and later.
 
 @item -fzero-link
@@ -1972,8 +1973,10 @@ while @code{-Wselector} only performs its checks in the final stage of
 compilation.  This also enforces the coding style convention
 that methods and selectors must be declared before being used.
 
-@c not documented because only avail via -Wp
-@c @item -print-objc-runtime-info
+@item -print-objc-runtime-info
+@opindex -print-objc-runtime-info
+Generate C header describing the largest structure that is passed by
+value, if any.
 
 @end table
 
@@ -3772,17 +3775,17 @@ also turns on the following optimization flags:
 -fstrength-reduce @gol
 -fcse-follow-jumps  -fcse-skip-blocks @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
--fgcse   -fgcse-lm   -fgcse-sm @gol
+-fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las @gol
 -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations @gol
--fregmove -@gol
+-fregmove @gol
 -fschedule-insns  -fschedule-insns2 @gol
 -fsched-interblock  -fsched-spec @gol
 -fcaller-saves @gol
 -fpeephole2 @gol
 -freorder-blocks  -freorder-functions @gol
 -fstrict-aliasing @gol
--funit-at-a-time @gol
+-funit-at-a-time -fweb @gol
 -falign-functions  -falign-jumps @gol
 -falign-loops  -falign-labels}
 
@@ -4114,10 +4117,19 @@ Enabled by default when gcse is enabled.
 
 @item -fgcse-sm
 @opindex fgcse-sm
-When @option{-fgcse-sm} is enabled, A store motion pass is run after global common
-subexpression elimination.  This pass will attempt to move stores out of loops.
-When used in conjunction with @option{-fgcse-lm}, loops containing a load/store sequence
-can be changed to a load before the loop and a store after the loop.
+When @option{-fgcse-sm} is enabled, a store motion pass is run after
+global common subexpression elimination.  This pass will attempt to move
+stores out of loops.  When used in conjunction with @option{-fgcse-lm},
+loops containing a load/store sequence can be changed to a load before
+the loop and a store after the loop.
+
+Enabled by default when gcse is enabled.
+
+@item -fgcse-las
+@opindex fgcse-las
+When @option{-fgcse-las} is enabled, the global common subexpression
+elimination pass eliminates redundant loads that come after stores to the
+same memory location (both partial and full redundancies).
 
 Enabled by default when gcse is enabled.
 
@@ -4543,6 +4555,15 @@ will most benefit processors with lots of registers.  It can, however,
 make debugging impossible, since variables will no longer stay in
 a ``home register''.
 
+@item -fweb
+@opindex fweb
+Constructs webs as commonly used for register allocation purposes and assign
+each web individual pseudo register.  This allows our register allocation pass
+to operate on pseudos directly, but also strengthens several other optimization
+passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
+however, make debugging impossible, since variables will no longer stay in a
+``home register''.
+
 Enabled at levels @option{-O3}.
 
 @item -fno-cprop-registers
@@ -4719,6 +4740,16 @@ data about values of expressions in the program is gathered.
 With @option{-fbranch-probabilities}, it reads back the data gathered
 from profiling values of expressions and adds @samp{REG_VALUE_PROFILE}
 notes to instructions for their later usage in optimizations.
+
+@item -fvpt
+@opindex fvpt
+If combined with @option{-fprofile-arcs}, it instructs the compiler to add
+a code to gather information about values of expressions.
+
+With @option{-fbranch-probabilities}, it reads back the data gathered
+and actually performs the optimizations based on them.
+Currently the optimizations include specialization of division operation
+using the knowledge about the value of the denominator.
 
 @item -fnew-ra
 @opindex fnew-ra
@@ -4928,22 +4959,6 @@ compile-time resource (CPU time, memory) requirements and result in
 larger binaries.  Very high values are not advisable, as too large
 binaries may adversely affect runtime performance.
 The default value is 200.
-
-@item max-inline-slope
-After exceeding the maximum number of inlined instructions by repeated
-inlining, a linear function is used to decrease the allowable size
-for single functions.  The slope of that function is the negative
-reciprocal of the number specified here.
-This parameter is ignored when @option{-funit-at-a-time} is used.
-The default value is 32.
-
-@item min-inline-insns
-The repeated inlining is throttled more and more by the linear function
-after exceeding the limit.  To avoid too much throttling, a minimum for
-this function is specified here to allow repeated inlining for very small
-functions even when a lot of repeated inlining already has been done.
-This parameter is ignored when @option{-funit-at-a-time} is used.
-The default value is 10.
 
 @item large-function-insns
 The limit specifying really large functions.  For functions greater than this
@@ -6787,8 +6802,10 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm7500}, @samp{arm7500fe}, @samp{arm7tdmi}, @samp{arm8},
 @samp{strongarm}, @samp{strongarm110}, @samp{strongarm1100},
 @samp{arm8}, @samp{arm810}, @samp{arm9}, @samp{arm9e}, @samp{arm920},
-@samp{arm920t}, @samp{arm940t}, @samp{arm9tdmi}, @samp{arm10tdmi},
-@samp{arm1020t}, @samp{xscale}, @samp{iwmmxt}, @samp{ep9312}.
+@samp{arm920t}, @samp{arm926ejs}, @samp{arm940t}, @samp{arm9tdmi},
+@samp{arm10tdmi}, @samp{arm1020t}, @samp{arm1026ejs},
+@samp{arm1136js}, @samp{arm1136jfs} ,@samp{xscale}, @samp{iwmmxt},
+@samp{ep9312}.
 
 @itemx -mtune=@var{name}
 @opindex mtune
@@ -6808,7 +6825,8 @@ name to determine what kind of instructions it can emit when generating
 assembly code.  This option can be used in conjunction with or instead
 of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv2a}, @samp{armv3}, @samp{armv3m}, @samp{armv4}, @samp{armv4t},
-@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{iwmmxt}, @samp{ep9312}.
+@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{armv6j},
+@samp{iwmmxt}, @samp{ep9312}.
 
 @item -mfpe=@var{number}
 @itemx -mfp=@var{number}
@@ -7736,6 +7754,20 @@ by the target during instruction scheduling.  The argument
 @var{store_to_load}: any dependence from store to load is costly,
 @var{number}: any dependence which latency >= @var{number} is costly.
  
+@item -minsert-sched-nops=@var{scheme}
+@opindex minsert-sched-nops
+This option controls which nop insertion scheme will be used during
+the second scheduling pass. The argument @var{scheme} takes one of the
+following values:
+@var{no}: Don't insert nops.
+@var{pad}: Pad with nops any dispatch group which has vacant issue slots,
+according to the scheduler's grouping.
+@var{regroup_exact}: Insert nops to force costly dependent insns into
+separate groups.  Insert exactly as many nops as needed to force an insn
+to a new group, according to the estimatied processor grouping.
+@var{number}: Insert nops to force costly dependent insns into 
+separate groups.  Insert @var{number} nops to force an insn to a new group.
+
 @item -mcall-sysv
 @opindex mcall-sysv
 On System V.4 and embedded PowerPC systems compile code using calling

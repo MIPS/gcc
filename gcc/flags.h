@@ -675,6 +675,14 @@ extern int flag_gcse_lm;
 
 extern int flag_gcse_sm;
 
+/* Nonzero if we want to perform redundant load-after-store elimination
+   in gcse.  */
+
+extern int flag_gcse_las;
+
+/* Nonzero if value histograms should be used to optimize code.  */
+extern int flag_value_profile_transformations;
+
 /* Perform branch target register optimization before prologue / epilogue
    threading.  */
 
@@ -746,6 +754,10 @@ extern int flag_signaling_nans;
 extern int flag_unit_at_a_time;
 
 extern int flag_web;
+
+/* Nonzero means that we defer emitting functions until they are actually
+   used.  */
+extern int flag_remove_unreachable_functions;
 
 /* A string that's used when a random name is required.  NULL means
    to make it really random.  */

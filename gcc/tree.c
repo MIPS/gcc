@@ -2505,6 +2505,24 @@ build1 (enum tree_code code, tree type, tree node)
 	      if (DECL_P (node))
 	        TREE_INVARIANT (t) = 1;
 	    }
+
+	  /* The address of a volatile decl or reference does not have
+	     side-effects.  But be careful not to ignore side-effects from
+	     other sources deeper in the expression--if node is a _REF and
+	     one of its operands has side-effects, so do we.  */
+	  if (TREE_THIS_VOLATILE (node))
+	    {
+	      TREE_SIDE_EFFECTS (t) = 0;
+	      if (!DECL_P (node))
+		{
+		  int i = first_rtl_op (TREE_CODE (node)) - 1;
+		  for (; i >= 0; --i)
+		    {
+		      if (TREE_SIDE_EFFECTS (TREE_OPERAND (node, i)))
+			TREE_SIDE_EFFECTS (t) = 1;
+		    }
+		}
+	    }
 	}
       break;
 

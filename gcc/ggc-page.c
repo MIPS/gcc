@@ -171,7 +171,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define NUM_EXTRA_ORDERS ARRAY_SIZE (extra_order_size_table)
 
 #define RTL_SIZE(NSLOTS) \
-  (sizeof (struct rtx_def) + ((NSLOTS) - 1) * sizeof (rtunion))
+  (RTX_HDR_SIZE + (NSLOTS) * sizeof (rtunion))
 
 #if 0
 #define TREE_EXP_SIZE(OPS) \

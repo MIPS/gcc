@@ -362,7 +362,7 @@ typedef enum cp_id_kind
   CP_ID_KIND_NONE,
   /* An unqualified-id that is not a template-id.  */
   CP_ID_KIND_UNQUALIFIED,
-  /* An uqualified-id that is a dependent name.  */
+  /* An unqualified-id that is a dependent name.  */
   CP_ID_KIND_UNQUALIFIED_DEPENDENT,
   /* An unqualified template-id.  */
   CP_ID_KIND_TEMPLATE_ID,
@@ -1474,7 +1474,7 @@ struct lang_type GTY(())
 #define BINFO_PUSHDECLS_MARKED(NODE) BINFO_VTABLE_PATH_MARKED (NODE)
 
 /* Nonzero if this BINFO is a primary base class.  Note, this can be
-   set for non-canononical virtual bases. For a virtual primary base
+   set for non-canonical virtual bases. For a virtual primary base
    you might also need to check whether it is canonical.  */
 
 #define BINFO_PRIMARY_P(NODE) \
@@ -2855,7 +2855,11 @@ struct lang_decl GTY(())
 
    The constant adjustment is given by THUNK_FIXED_OFFSET.  If the
    vcall or vbase offset is required, the index into the vtable is given by
-   THUNK_VIRTUAL_OFFSET.  */
+   THUNK_VIRTUAL_OFFSET.
+
+   Due to ordering constraints in class layout, it is possible to have
+   equivalent covariant thunks. THUNK_ALIAS_P and THUNK_ALIAS are used
+   in those cases.  */
 
 /* An integer indicating how many bytes should be subtracted from the
    this or result pointer when this function is called.  */
@@ -2868,12 +2872,20 @@ struct lang_decl GTY(())
    binfo of the relevant virtual base.  If NULL, then there is no
    virtual adjust.  (The vptr is always located at offset zero from
    the this or result pointer.)  (If the covariant type is within the
-   class hierarchy being layed out, the vbase index is not yet known
+   class hierarchy being laid out, the vbase index is not yet known
    at the point we need to create the thunks, hence the need to use
    binfos.)  */
 
 #define THUNK_VIRTUAL_OFFSET(DECL) \
   (LANG_DECL_U2_CHECK (VAR_OR_FUNCTION_DECL_CHECK (DECL), 0)->virtual_offset)
+
+/* A thunk which is equivalent to another thunk. */
+#define THUNK_ALIAS_P(DECL) \
+  (THUNK_VIRTUAL_OFFSET (DECL) && DECL_P (THUNK_VIRTUAL_OFFSET (DECL)))
+
+/* When THUNK_ALIAS_P is true, this indicates the thunk which is
+   aliased.  */
+#define THUNK_ALIAS(DECL) THUNK_VIRTUAL_OFFSET (DECL)
 
 /* For thunk NODE, this is the FUNCTION_DECL thunked to.  */
 #define THUNK_TARGET(NODE)				\
@@ -3563,6 +3575,8 @@ extern void note_name_declared_in_class         (tree, tree);
 extern tree get_vtbl_decl_for_binfo             (tree);
 extern tree get_vtt_name                        (tree);
 extern tree get_primary_binfo                   (tree);
+extern void debug_class				(tree);
+extern void debug_thunks 			(tree);
 
 /* in cvt.c */
 extern tree convert_to_reference (tree, tree, int, int, tree);
@@ -3678,7 +3692,7 @@ extern int nonstatic_local_decl_p               (tree);
 extern tree declare_global_var                  (tree, tree);
 extern void register_dtor_fn                    (tree);
 extern tmpl_spec_kind current_tmpl_spec_kind    (int);
-extern tree cp_fname_init			(const char *);
+extern tree cp_fname_init			(const char *, tree *);
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
 extern tree cxx_builtin_type_decls              (void);
 extern void warn_extern_redeclared_static (tree, tree);

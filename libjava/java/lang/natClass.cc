@@ -12,6 +12,7 @@ details.  */
 
 #include <limits.h>
 #include <string.h>
+#include <stddef.h>
 
 #pragma implementation "Class.h"
 
@@ -56,7 +57,7 @@ details.  */
 #include <gnu/gcj/RawData.h>
 
 #include <java-cpool.h>
-
+#include <java-interp.h>
 
 
 using namespace gcj;
@@ -295,16 +296,32 @@ java::lang::Class::getDeclaredField (jstring name)
 }
 
 JArray<java::lang::reflect::Field *> *
-java::lang::Class::getDeclaredFields (void)
+java::lang::Class::getDeclaredFields (jboolean public_only)
 {
-  memberAccessCheck(java::lang::reflect::Member::DECLARED);
+  int size;
+  if (public_only)
+    {
+      size = 0;
+      for (int i = 0; i < field_count; ++i)
+	{
+	  _Jv_Field *field = &fields[i];
+	  if ((field->flags & java::lang::reflect::Modifier::PUBLIC))
+	    ++size;
+	}
+    }
+  else
+    size = field_count;
+
   JArray<java::lang::reflect::Field *> *result
     = (JArray<java::lang::reflect::Field *> *)
-    JvNewObjectArray (field_count, &java::lang::reflect::Field::class$, NULL);
+    JvNewObjectArray (size, &java::lang::reflect::Field::class$, NULL);
   java::lang::reflect::Field** fptr = elements (result);
   for (int i = 0;  i < field_count;  i++)
     {
       _Jv_Field *field = &fields[i];
+      if (public_only
+	  && ! (field->flags & java::lang::reflect::Modifier::PUBLIC))
+	continue;
       java::lang::reflect::Field* rfield = new java::lang::reflect::Field ();
       rfield->offset = (char*) field - (char*) fields;
       rfield->declaringClass = this;
@@ -459,60 +476,6 @@ java::lang::Class::getDeclaringClass (void)
   // Until we have inner classes, it makes sense to always return
   // NULL.
   return NULL;
-}
-
-jint
-java::lang::Class::_getFields (JArray<java::lang::reflect::Field *> *result,
-			       jint offset)
-{
-  int count = 0;
-  for (int i = 0;  i < field_count;  i++)
-    {
-      _Jv_Field *field = &fields[i];
-      if (! (field->getModifiers() & java::lang::reflect::Modifier::PUBLIC))
-	continue;
-      ++count;
-
-      if (result != NULL)
-	{
-	  java::lang::reflect::Field *rfield
-	    = new java::lang::reflect::Field ();
-	  rfield->offset = (char *) field - (char *) fields;
-	  rfield->declaringClass = this;
-	  rfield->name = _Jv_NewStringUtf8Const (field->name);
-	  (elements (result))[offset++] = rfield;
-	}
-    }
-  jclass superclass = getSuperclass();
-  if (superclass != NULL)
-    {
-      int s_count = superclass->_getFields (result, offset);
-      count += s_count;
-      offset += s_count;
-    }
-  for (int i = 0; i < interface_count; ++i)
-    {
-      int f_count = interfaces[i]->_getFields (result, offset);
-      count += f_count;
-      offset += f_count;
-    }
-  return count;
-}
-
-JArray<java::lang::reflect::Field *> *
-java::lang::Class::getFields (void)
-{
-  memberAccessCheck(java::lang::reflect::Member::PUBLIC);
-
-  int count = _getFields (NULL, 0);
-
-  JArray<java::lang::reflect::Field *> *result
-    = ((JArray<java::lang::reflect::Field *> *)
-       JvNewObjectArray (count, &java::lang::reflect::Field::class$, NULL));
-
-  _getFields (result, 0);
-
-  return result;
 }
 
 JArray<jclass> *
@@ -833,6 +796,8 @@ java::lang::Class::initializeClass (void)
 
   if (otable || atable)
     _Jv_LinkSymbolTable(this);
+
+  _Jv_linkExceptionClassTable (this);
 
   // Steps 8, 9, 10, 11.
   try
@@ -1579,14 +1544,18 @@ _Jv_LinkSymbolTable(jclass klass)
 
   for (index = 0; sym = klass->otable_syms[index], sym.name != NULL; index++)
     {
+      // FIXME: Why are we passing NULL as the class loader?
       jclass target_class = _Jv_FindClass (sym.class_name, NULL);
       _Jv_Method *meth = NULL;            
 
       const _Jv_Utf8Const *signature = sym.signature;
 
-      // FIXME: This should be special index for ThrowNoSuchMethod().
-      klass->otable->offsets[index] = -1;
-      
+      {
+	static char *bounce = (char *)_Jv_ThrowNoSuchMethodError;
+	ptrdiff_t offset = (char *)(klass->vtable) - bounce;
+	klass->otable->offsets[index] = offset;
+      }
+
       if (target_class == NULL)
 	continue;
 
@@ -1696,6 +1665,7 @@ _Jv_LinkSymbolTable(jclass klass)
 
   for (index = 0; sym = klass->atable_syms[index], sym.name != NULL; index++)
     {
+      // FIXME: Why are we passing NULL as the class loader?
       jclass target_class = _Jv_FindClass (sym.class_name, NULL);
       _Jv_Method *meth = NULL;            
       const _Jv_Utf8Const *signature = sym.signature;
@@ -1725,7 +1695,15 @@ _Jv_LinkSymbolTable(jclass klass)
 					  sym.signature);
 	  
 	  if (meth != NULL)
-	    klass->atable->addresses[index] = meth->ncode;
+	    {
+	      if (meth->ncode) // Maybe abstract?
+		klass->atable->addresses[index] = meth->ncode;
+#ifdef INTERPRETER
+	      else if (_Jv_IsInterpretedClass (target_class))
+		_Jv_Defer_Resolution (target_class, meth, 
+				      &klass->atable->addresses[index]);
+#endif
+	    }
 	  else
 	    klass->atable->addresses[index] = (void *)_Jv_ThrowNoSuchMethodError;
 
@@ -1781,15 +1759,26 @@ _Jv_LinkSymbolTable(jclass klass)
     }
 }
 
-// Returns true if METH should get an entry in a VTable.
-static jboolean
-isVirtualMethod (_Jv_Method *meth)
-{
-  using namespace java::lang::reflect;
-  return (((meth->accflags & (Modifier::STATIC | Modifier::PRIVATE)) == 0)
-          && meth->name->data[0] != '<');
-}
 
+// For each catch_record in the list of caught classes, fill in the
+// address field.
+void 
+_Jv_linkExceptionClassTable (jclass self)
+{
+  struct _Jv_CatchClass *catch_record = self->catch_classes;
+  if (!catch_record || catch_record->classname)
+    return;  
+  catch_record++;
+  while (catch_record->classname)
+    {
+      jclass target_class = _Jv_FindClass (catch_record->classname,  
+					   self->getClassLoaderInternal ());
+      *catch_record->address = target_class;
+      catch_record++;
+    }
+  self->catch_classes->classname = (_Jv_Utf8Const *)-1;
+}
+  
 // This is put in empty vtable slots.
 static void
 _Jv_abstractMethodError (void)
@@ -1810,6 +1799,26 @@ _Jv_LayoutVTableMethods (jclass klass)
 
   jclass superclass = klass->superclass;
 
+  typedef unsigned int uaddr __attribute__ ((mode (pointer)));
+
+  // If superclass looks like a constant pool entry,
+  // resolve it now.
+  if ((uaddr)superclass < (uaddr)klass->constants.size)
+    {
+      if (klass->state < JV_STATE_LINKED)
+	{
+	  _Jv_Utf8Const *name = klass->constants.data[(int)superclass].utf8;
+	  superclass = _Jv_FindClass (name, klass->loader);
+	  if (! superclass)
+	    {
+	      jstring str = _Jv_NewStringUTF (name->data);
+	      throw new java::lang::NoClassDefFoundError (str);
+	    }
+	}
+      else
+	superclass = klass->constants.data[(int)superclass].clazz;
+    }
+
   if (superclass != NULL && superclass->vtable_method_count == -1)
     {
       JvSynchronize sync (superclass);
@@ -1823,7 +1832,7 @@ _Jv_LayoutVTableMethods (jclass klass)
       _Jv_Method *meth = &klass->methods[i];
       _Jv_Method *super_meth = NULL;
 
-      if (! isVirtualMethod (meth))
+      if (! _Jv_isVirtualMethod (meth))
 	continue;
 
       if (superclass != NULL)
