@@ -964,7 +964,7 @@ fatal_io_error VPARAMS ((const char *msgid, ...))
   output_format (&global_dc->buffer, &text);
   output_flush (&global_dc->buffer);
   VA_CLOSE (ap);
-  exit (FATAL_EXIT_CODE);
+  exit (ICE_EXIT_CODE);
 }
 
 /* Issue a pedantic warning MSGID.  */
@@ -1208,7 +1208,7 @@ internal_error VPARAMS ((const char *msgid, ...))
 "Please submit a full bug report,\n\
 with preprocessed source if appropriate.\n\
 See %s for instructions.\n", bug_report_url);
-  exit (FATAL_EXIT_CODE);
+  exit (ICE_EXIT_CODE);
 }
 
 void
@@ -1316,7 +1316,7 @@ error_recursion (context)
 "Please submit a full bug report,\n\
 with preprocessed source if appropriate.\n\
 See %s for instructions.\n", bug_report_url);
-  exit (FATAL_EXIT_CODE);
+  exit (ICE_EXIT_CODE);
 }
 
 /* Given a partial pathname as input, return another pathname that
