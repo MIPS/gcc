@@ -185,6 +185,7 @@ public abstract class BasicTextUI extends TextUI
 	textComponent.setDocument(doc);
       }
     
+    textComponent.addPropertyChangeListener(eventHandler);
     modelChanged();
     
     installDefaults();
@@ -194,20 +195,26 @@ public abstract class BasicTextUI extends TextUI
 
   protected void installDefaults()
   {
+    // Do nothing here.
   }
 
   protected void installListeners()
   {
+    // Do nothing here.
   }
 
   protected void installKeyboardActions()
   {
+    // Do nothing here.
   }
   
-  public void uninstallUI(final JComponent c)
+  public void uninstallUI(final JComponent component)
   {
-    super.uninstallUI(c);
-    rootView = null;
+    super.uninstallUI(component);
+    rootView.setView(null);
+
+    textComponent.removePropertyChangeListener(eventHandler);
+    textComponent = null;
 
     uninstallDefaults();
     uninstallListeners();
@@ -216,14 +223,17 @@ public abstract class BasicTextUI extends TextUI
 
   protected void uninstallDefaults()
   {
+    // Do nothing here.
   }
 
   protected void uninstallListeners()
   {
+    // Do nothing here.
   }
 
   protected void uninstallKeyboardActions()
   {
+    // Do nothing here.
   }
   
   protected abstract String getPropertyPrefix();

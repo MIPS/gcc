@@ -1,5 +1,17 @@
 2004-08-12  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(installUI): Add eventHandler as property listener.
+	(uninstallUI): remove eventHandler as propert listener.
+	(installDefaults): Added comment.
+	(installListeners): Likewise.
+	(installKeyboardActions): Likewise.
+	(uninstallDefaults): Likewise.
+	(uninstallListeners): Likewise.
+	(uninstallKeyboardActions): Likewise.
+
+2004-08-12  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/text/AbstractDocument.java:
 	Fixed some typos in comments.
 	(insertString): Reimplemented.
