@@ -79,6 +79,12 @@ ifneq ($(tmake_file),)
 include $(tmake_file)
 endif
 
+# Get possible host-specific override for libsubdir (ick).
+xmake_file=$(subst /config,/../gcc/config,$(gcc_xmake_file))
+ifneq ($(xmake_file),)
+include $(xmake_file)
+endif
+
 FLAGS_TO_PASS = \
         "MAKEOVERRIDES=" \
         "LDFLAGS=$(LDFLAGS)" \

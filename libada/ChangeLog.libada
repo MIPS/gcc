@@ -1,5 +1,7 @@
 2004-04-04  Nathanael Nerode  <neroden@gcc.gnu.org>
 
+	* Makefile.in: Use GCC xmake_file.
+
 	* Makefile.in: Add rts-zfp, rts-ravenscar targets from
 	gcc/ada/Make-lang.in.
 
