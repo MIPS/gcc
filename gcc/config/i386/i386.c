@@ -14915,11 +14915,9 @@ ix86_pad_returns (void)
 	  edge_iterator ei;
 
 	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    {
-	      if (EDGE_FREQUENCY (e) && e->src->index >= 0
-		  && !(e->flags & EDGE_FALLTHRU))
-		replace = true;
-	    }
+	    if (EDGE_FREQUENCY (e) && e->src->index >= 0
+		&& !(e->flags & EDGE_FALLTHRU))
+	      replace = true;
 	}
       if (!replace)
 	{
