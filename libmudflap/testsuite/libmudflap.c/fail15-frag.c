@@ -12,8 +12,8 @@ struct derived {
   char extra;
 };
 
-struct base b;
-struct base *bp;
+volatile struct base b;
+volatile struct base *bp;
 
 bp = (struct base *)&b;
 

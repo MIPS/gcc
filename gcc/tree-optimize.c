@@ -54,13 +54,6 @@ optimize_function_tree (fndecl)
   if (errorcount || sorrycount)
     return;
   
-#if 1
-  /* FIXME  Temporary hack.  Mudflap generates code that we can't deal with yet
-     (TRY_FINALLY_EXPR).  */
-  if (flag_mudflap)
-    return;
-#endif
-
   fnbody = DECL_SAVED_TREE (fndecl);
 
   /* Build the flowgraph.  */

@@ -6593,21 +6593,13 @@ c_expand_body_1 (fndecl, nested_p)
       /* Debugging dump after simplification.  */
       dump_function (TDI_simple, fndecl);
 
-      if (flag_mudflap)
-	{
-	  mudflap_c_function (fndecl);
-
-	  /* Simplify mudflap instrumentation.  FIXME  Long term: Would it
-	     be better for mudflap to simplify each tree as it generates
-	     them?  It definitely would be good if mudflap didn't
-	     require another simplification pass.  simplification is
-	     the single most expensive part of the tree-ssa path! */
-	  simplify_function_tree (fndecl);
-	}
-
       /* Invoke the SSA tree optimizer.  */
       if (optimize >= 1 && !flag_disable_tree_ssa)
 	optimize_function_tree (fndecl);
+
+      /* Add mudflap instrumentation.  */
+      if (flag_mudflap)
+	mudflap_c_function (fndecl);
     }
 
   timevar_push (TV_EXPAND);

@@ -1557,7 +1557,8 @@ tree-simple.o : tree-simple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 	$(RTL_H) $(TREE_SIMPLE_H) $(TM_H) coretypes.h
 tree-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
    $(C_TREE_H) $(C_COMMON_H) $(TREE_SIMPLE_H) diagnostic.h $(HASHTAB_H) \
-   output.h varray.h langhooks.h tree-mudflap.h $(TM_H) coretypes.h
+   output.h varray.h langhooks.h tree-mudflap.h $(TM_H) coretypes.h \
+   $(TREE_DUMP_H)
 c-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
    $(C_TREE_H) $(C_COMMON_H) $(TREE_SIMPLE_H) diagnostic.h $(HASHTAB_H) \
    output.h varray.h langhooks.h tree-mudflap.h $(TM_H) coretypes.h

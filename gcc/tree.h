@@ -3508,6 +3508,7 @@ enum tree_dump_index
   TDI_dce,                      /* dump SSA DCE information for each
 				   function.  */
   TDI_optimized,		/* dump each function after optimizing it.  */
+  TDI_mudflap,			/* dump each function after mudflap.  */
   TDI_xml,                      /* dump function call graph.   */
   TDI_all,			/* enable all the dumps above.  */
   TDI_end

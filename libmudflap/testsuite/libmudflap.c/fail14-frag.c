@@ -14,8 +14,8 @@ struct b {
   int y;
 };
 
-struct b k;
-struct a *p;
+volatile struct b k;
+volatile struct a *p;
 
 p = (struct a*) &k;
 

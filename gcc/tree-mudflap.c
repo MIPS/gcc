@@ -43,7 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "function.h"
 #include "demangle.h"
-
+#include "tree-dump.h"
 
 /* Internal function decls */
 
@@ -64,6 +64,10 @@ static tree mf_build_check_statement_for PARAMS ((tree, tree, tree, tree, tree,
 						  const char *, int));
 static void mx_register_decls PARAMS ((tree, tree *));
 
+/* Debugging dumps.  */
+static FILE *dump_file;
+static int dump_flags;
+
 
 /* These macros are used to mark tree nodes, so that they are not
    repeatedly transformed.  The `bounded' flag is not otherwise used.  */
@@ -79,16 +83,8 @@ void
 mudflap_c_function (t)
      tree t;
 {
-  if (getenv ("UNPARSE"))  /* XXX */
-    {
-      print_generic_expr (stderr, DECL_RESULT (t), 0);
-      fprintf (stderr, " ");
-      print_generic_expr (stderr, DECL_NAME (t), 0);
-      fprintf (stderr, " (");
-      print_generic_expr (stderr, DECL_ARGUMENTS (t), 0);
-      fprintf (stderr, " )\n");
-      print_generic_stmt (stderr, DECL_SAVED_TREE (t), 0);
-    }
+  /* Initialize debugging dumps.  */
+  dump_file = dump_begin (TDI_mudflap, &dump_flags);
 
   mf_init_extern_trees ();
 
@@ -97,10 +93,15 @@ mudflap_c_function (t)
   mf_xform_decls (DECL_SAVED_TREE (t), DECL_ARGUMENTS (t));
   mf_xform_derefs (DECL_SAVED_TREE (t));
 
-  if (getenv ("UNPARSE"))  /* XXX */
+  /* Simplify mudflap instrumentation.  FIXME  It definitely would be good
+     if mudflap didn't require another simplification pass.  simplification
+     is the single most expensive part of the tree-ssa path! */
+  simplify_function_tree (t);
+
+  if (dump_file)
     {
-      fprintf (stderr, "/* after -fmudflap: */\n");
-      print_generic_stmt (stderr, DECL_SAVED_TREE (t), 0);
+      dump_end (TDI_mudflap, dump_file);
+      dump_function (TDI_mudflap, t);
     }
 
   mf_decl_clear_locals ();
@@ -159,6 +160,7 @@ mf_init_extern_trees ()
 /* Create and initialize local shadow variables for the lookup cache
    globals.  Put their decls in the *_l globals for use by
    mf_build_check_statement_for. */
+
 static void 
 mf_decl_cache_locals (body)
      tree* body;
@@ -170,11 +172,13 @@ mf_decl_cache_locals (body)
 					       get_identifier ("__mf_lookup_shift_l"),
 					       TREE_TYPE (mf_cache_shift_decl)));
   DECL_ARTIFICIAL (mf_cache_shift_decl_l) = 1;
+  DECL_CONTEXT (mf_cache_shift_decl_l) = current_function_decl;
 
   mf_cache_mask_decl_l = mx_flag (build_decl (VAR_DECL,
 					      get_identifier ("__mf_lookup_mask_l"),
 					      TREE_TYPE (mf_cache_mask_decl)));
   DECL_ARTIFICIAL (mf_cache_mask_decl_l) = 1;
+  DECL_CONTEXT (mf_cache_mask_decl_l) = current_function_decl;
   TREE_CHAIN (mf_cache_shift_decl_l) = mf_cache_mask_decl_l;
 
   /* Build initialization nodes for them.  */
@@ -435,6 +439,7 @@ mf_offset_expr_of_array_ref (t, offset, base, decls)
 			    TREE_TYPE (idxexpr));
       DECL_ARTIFICIAL (newdecl) = 1;
       DECL_INITIAL (newdecl) = idxexpr;
+      DECL_CONTEXT (newdecl) = current_function_decl;
 
       /* Accumulate this new decl. */
       *decls = tree_cons (NULL_TREE, newdecl, *decls);
@@ -503,7 +508,6 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, acctype,
   tree t1_2b_1;
   tree t1_3_1;
   tree t1_4_1, t1_4_2;
-  tree t0;
 
   /* Provide a default access type number */
   if (acctype == NULL_TREE)
@@ -513,13 +517,11 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, acctype,
   while (chkdecls != NULL_TREE)
     {
       tree decl = TREE_VALUE (chkdecls);
-      tree init = DECL_INITIAL (decl);
-      tree type = TREE_TYPE (init);
-      tree declstmt = build (INIT_EXPR, type, decl, init);
-
-      DECL_INITIAL (decl) = NULL_TREE; /* use INIT_EXPR instead */
-      TREE_CHAIN (decl) = bind_decls; bind_decls = decl;
-      add_tree (declstmt, & bind_exprs);
+      tree declstmt = build_stmt (DECL_STMT, decl);
+      DECL_ARTIFICIAL (decl) = 1;
+      DECL_CONTEXT (decl) = current_function_decl;
+      bind_decls = chainon (bind_decls, decl);
+      bind_exprs = chainon (bind_exprs, declstmt);
 
       chkdecls = TREE_CHAIN (chkdecls);
     }
@@ -527,119 +529,180 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize, acctype,
   /* <TYPE> const __mf_value = <EXPR>; */
   t1_2_1 = build_decl (VAR_DECL, get_identifier ("__mf_value"), myptrtype);
   DECL_ARTIFICIAL (t1_2_1) = 1;
-  TREE_CHAIN (t1_2_1) = bind_decls; bind_decls = t1_2_1;
-  add_tree (build (INIT_EXPR, myptrtype, 
-		   t1_2_1,
-		   ptrvalue), 
-	    & bind_exprs);
+  DECL_INITIAL (t1_2_1) = ptrvalue;
+  DECL_CONTEXT (t1_2_1) = current_function_decl;
+  bind_decls = chainon (bind_decls, t1_2_1);
+  bind_exprs = chainon (bind_exprs, build_stmt (DECL_STMT, t1_2_1));
 
   /* uintptr_t __mf_base = <EXPR2>; */
-  t1_2a_1 = build_decl (VAR_DECL, get_identifier ("__mf_base"), mf_uintptr_type);
+  t1_2a_1 = build_decl (VAR_DECL, get_identifier ("__mf_base"),
+                        mf_uintptr_type);
   DECL_ARTIFICIAL (t1_2a_1) = 1;
-  TREE_CHAIN (t1_2a_1) = bind_decls; bind_decls = t1_2a_1;
-  add_tree (build (INIT_EXPR, mf_uintptr_type,
-		   t1_2a_1, 
-		   convert (mf_uintptr_type, ((chkbase == ptrvalue) ? t1_2_1 : chkbase))),
-	    & bind_exprs);
+  DECL_INITIAL (t1_2a_1) = convert (mf_uintptr_type,
+	                            ((chkbase == ptrvalue) ? t1_2_1 : chkbase));
+  DECL_CONTEXT (t1_2a_1) = current_function_decl;
+  bind_exprs = chainon (bind_exprs, build_stmt (DECL_STMT, t1_2a_1));
+  bind_decls = chainon (bind_decls, t1_2a_1);
 
   /* uintptr_t __mf_size = <EXPR>; */
-  t1_2b_1 = build_decl (VAR_DECL, get_identifier ("__mf_size"), mf_uintptr_type);
+  t1_2b_1 = build_decl (VAR_DECL, get_identifier ("__mf_size"),
+                        mf_uintptr_type);
   DECL_ARTIFICIAL (t1_2b_1) = 1;
-  TREE_CHAIN (t1_2b_1) = bind_decls; bind_decls = t1_2b_1;
-  add_tree (build (INIT_EXPR, mf_uintptr_type,
-		   t1_2b_1, 
-		   convert (mf_uintptr_type,
-			    ((chksize == NULL_TREE) ? integer_one_node : chksize))),
-	    & bind_exprs);
+  DECL_INITIAL (t1_2b_1) = convert (mf_uintptr_type,
+				    ((chksize == NULL_TREE)
+				     ? integer_one_node
+				     : chksize));
+  DECL_CONTEXT (t1_2b_1) = current_function_decl;
+  bind_decls = chainon (bind_decls, t1_2b_1);
+  bind_exprs = chainon (bind_exprs, build_stmt (DECL_STMT, t1_2b_1));
 
   /* struct __mf_cache * const __mf_elem = [...] */
-  t1_3_1 = build_decl (VAR_DECL, get_identifier ("__mf_elem"), mf_cache_structptr_type);
+  t1_3_1 = build_decl (VAR_DECL, get_identifier ("__mf_elem"),
+                       mf_cache_structptr_type);
   DECL_ARTIFICIAL (t1_3_1) = 1;
-  TREE_CHAIN (t1_3_1) = bind_decls; bind_decls = t1_3_1;
+  DECL_CONTEXT (t1_3_1) = current_function_decl;
+  bind_decls = chainon (bind_decls, t1_3_1);
+  bind_exprs = chainon (bind_exprs, build_stmt (DECL_STMT, t1_3_1));
 
-    /* & __mf_lookup_cache [(((uintptr_t)__mf_base) >> __mf_shift) & __mf_mask] */
-  add_tree (build (INIT_EXPR, mf_cache_structptr_type,
-		   t1_3_1, 
-		   mx_flag (build1 (ADDR_EXPR, mf_cache_structptr_type,
-				    mx_flag (build (ARRAY_REF, TYPE_MAIN_VARIANT (TREE_TYPE
-										  (TREE_TYPE
-										   (mf_cache_array_decl))),
-						    mf_cache_array_decl,
-						    build (BIT_AND_EXPR, mf_uintptr_type,
-							   build (RSHIFT_EXPR, mf_uintptr_type,
-								  convert (mf_uintptr_type, t1_2a_1),
-								  mf_cache_shift_decl_l),
-							   mf_cache_mask_decl_l)))))),
-	    & bind_exprs);
+  /* & __mf_lookup_cache [(((uintptr_t)__mf_base) >> __mf_shift) & __mf_mask] */
+  {
+    tree t0, t1, t2, t3;
+
+    t0 = build (RSHIFT_EXPR, mf_uintptr_type,
+		convert (mf_uintptr_type, t1_2a_1),
+		mf_cache_shift_decl_l);
+
+    t1 = build (BIT_AND_EXPR, mf_uintptr_type, t0, mf_cache_mask_decl_l);
+
+    t2 = mx_flag (build (ARRAY_REF,
+			 TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (mf_cache_array_decl))),
+			 mf_cache_array_decl,
+			 t1));
+
+    t3 = mx_flag (build1 (ADDR_EXPR, mf_cache_structptr_type, t2));
+
+    bind_exprs = chainon (bind_exprs,
+			  build_stmt (EXPR_STMT,
+				      build (INIT_EXPR, mf_cache_structptr_type,
+					     t1_3_1, t3)));
+  }
   
-  /* Quick validity check.  */
-  t1_4_1 = build (BIT_IOR_EXPR /* is faster than TRUTH_OR_EXPR */, integer_type_node,
-		  build (GT_EXPR, integer_type_node,
-			 mx_flag (build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->low */
-					 mx_flag (build1 (INDIRECT_REF, 
-							  mf_cache_struct_type, t1_3_1)),
-					 TYPE_FIELDS (mf_cache_struct_type))),
-			 t1_2a_1), /* __mf_base */
-		  build (LT_EXPR, integer_type_node,
-			 mx_flag (build (COMPONENT_REF, mf_uintptr_type, /* __mf_elem->high */
-					 mx_flag (build1 (INDIRECT_REF, 
-							  mf_cache_struct_type, t1_3_1)),
-					 TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type)))),
-			 build (PLUS_EXPR, mf_uintptr_type, /* __mf_elem + sizeof(T) - 1 */
-				t1_2a_1,
-				fold (build (MINUS_EXPR, mf_uintptr_type,
-					     t1_2b_1,
-					     integer_one_node)))));
+  /* Quick validity check.
+     if (__builtin_expect ((__mf_elem->low > __mf_base)
+                           | (__mf_elem_high < __mf_base + __mf_size - 1),
+			   0))
+	{
+	  __mf_check ();
+	  __mf_lookup_shift_1 = ...;
+	  __mf_lookup_mask_l = ...;
+	}  */
+  {
+    tree t0, t1, t2;
+
+    /* __mf_elem->low  */
+    t0 = mx_flag (build (COMPONENT_REF, mf_uintptr_type,
+			 mx_flag (build1 (INDIRECT_REF, mf_cache_struct_type,
+			                  t1_3_1)),
+			 TYPE_FIELDS (mf_cache_struct_type)));
+
+    /* __mf_elem->high  */
+    t1 = mx_flag (build (COMPONENT_REF, mf_uintptr_type,
+			 mx_flag (build1 (INDIRECT_REF, mf_cache_struct_type,
+			                  t1_3_1)),
+		         TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type))));
+
+    /* __mf_elem + sizeof (T) - 1  */
+    t2 = build (PLUS_EXPR, mf_uintptr_type,
+		t1_2a_1,
+		fold (build (MINUS_EXPR, mf_uintptr_type,
+		             t1_2b_1,
+			     integer_one_node)));
+
+    /* Note that we use BIT_IOR_EXPR instead of TRUTH_ORIF_EXPR.  Although,
+       TRUTH_ORIF_EXPR generates short-circuit logic, it also generates
+       more branches.  Using TRUTH_ORIF_EXPR was found to be faster on
+       ia32, but slower on powerpc and x86-64.  */
+    t1_4_1 = build (BIT_IOR_EXPR, integer_type_node,
+		    build (GT_EXPR, integer_type_node, t0, t1_2a_1),
+		    build (LT_EXPR, integer_type_node, t1, t2));
+
+    /* Mark condition as UNLIKELY using __builtin_expect.  */
+    t1_4_1 = build_function_call (built_in_decls[BUILT_IN_EXPECT],
+				  tree_cons (NULL_TREE,
+					     convert (long_integer_type_node,
+					              t1_4_1),
+					     tree_cons (NULL_TREE,
+					  	        integer_zero_node,
+						        NULL_TREE)));
+  }
   
-  /* Mark condition as UNLIKELY using __builtin_expect.  */
-  t1_4_1 = build_function_call (built_in_decls[BUILT_IN_EXPECT],
-				tree_cons (NULL_TREE,
-					   convert (long_integer_type_node, t1_4_1),
-					   tree_cons (NULL_TREE,
-						      integer_zero_node,
-						      NULL_TREE)));
+  /* Build up the body of the cache-miss handling:
+     __mf_check(); refresh *_l vars.  */
+  {
+    tree t0, t1;
 
-  /* Build up the body of the cache-miss handling: __mf_check(); refresh *_l vars.  */
-  t1_4_2 = NULL_TREE;
-  add_tree (build_function_call (mf_check_fndecl,
-				 tree_cons (NULL_TREE,
-					    convert (ptr_type_node, t1_2a_1),
-					    tree_cons (NULL_TREE, 
-						       convert (size_type_node, t1_2b_1),
-						       tree_cons (NULL_TREE,
-								  acctype,
-								  tree_cons (NULL_TREE,
-									     location_string,
-									     NULL_TREE))))),
-	    & t1_4_2);
-  add_tree (build (MODIFY_EXPR, TREE_TYPE (mf_cache_shift_decl_l),
-		   mf_cache_shift_decl_l, mf_cache_shift_decl),
-	    & t1_4_2);
-  add_tree (build (MODIFY_EXPR, TREE_TYPE (mf_cache_mask_decl_l),
-		   mf_cache_mask_decl_l, mf_cache_mask_decl),
-	    & t1_4_2);
-  t1_4_2 = rationalize_compound_expr (t1_4_2);
+    t1_4_2 = NULL_TREE;
+    t0 = build_tree_list (NULL_TREE, convert (ptr_type_node, t1_2a_1));
+    t0 = chainon (t0, build_tree_list (NULL_TREE,
+	                               convert (size_type_node, t1_2b_1)));
+    t0 = chainon (t0, build_tree_list (NULL_TREE, acctype));
+    t0 = chainon (t0, build_tree_list (NULL_TREE, location_string));
+    t1_4_2 = chainon (t1_4_2, 
+	              build_stmt (EXPR_STMT,
+				  build_function_call (mf_check_fndecl, t0)));
 
-  add_tree (build (COND_EXPR, void_type_node,
-		   t1_4_1,
-		   t1_4_2,
-		   empty_stmt_node),
-	    & bind_exprs);
+    t1_4_2 = chainon (t1_4_2,
+		      build_stmt (EXPR_STMT,
+				  build (MODIFY_EXPR,
+					TREE_TYPE (mf_cache_shift_decl_l),
+					mf_cache_shift_decl_l,
+					mf_cache_shift_decl)));
+
+    t1_4_2 = chainon (t1_4_2,
+		      build_stmt (EXPR_STMT,
+				  build (MODIFY_EXPR,
+					TREE_TYPE (mf_cache_mask_decl_l),
+					mf_cache_mask_decl_l,
+					mf_cache_mask_decl)));
+
+    t0 = build_stmt (SCOPE_STMT, NULL_TREE);
+    SCOPE_BEGIN_P (t0) = 1;
+
+    t1 = build_stmt (SCOPE_STMT, NULL_TREE);
+    SCOPE_BEGIN_P (t1) = 0;
+
+    t0 = chainon (t0, t1_4_2);
+    t0 = chainon (t0, t1);
+    t1_4_2 = build_stmt (COMPOUND_STMT, t0);
+  }
+
+  bind_exprs = chainon (bind_exprs,
+		        build_stmt (IF_STMT, t1_4_1, t1_4_2, NULL_TREE));
 
   /* "return" __mf_value, or provided finale.  */
-  TREE_SIDE_EFFECTS (t1_2_1) = 1; /* add_tree antifreak */
-  add_tree (t1_2_1, & bind_exprs);
+  bind_exprs = chainon (bind_exprs, build_stmt (EXPR_STMT, t1_2_1));
 
-  /* Turn the tree into right-recursive form. */
-  bind_exprs = rationalize_compound_expr (bind_exprs);
+  /* Build the body of the statement-expression ({ decls; exprs; })  */
+  {
+    tree t0, t1, block;
 
-  t0 = build (BIND_EXPR, myptrtype, 
-	      nreverse (bind_decls),
-	      bind_exprs, 
-	      NULL_TREE); /* XXX: BLOCK == NULL */
-  TREE_SIDE_EFFECTS (t0) = 1;
+    block = build (BLOCK, void_type_node, NULL_TREE);
+    BLOCK_VARS (block) = bind_decls;
 
-  return t0;
+    t0 = build_stmt (SCOPE_STMT, block);
+    SCOPE_BEGIN_P (t0) = 1;
+
+    t1 = build_stmt (SCOPE_STMT, block);
+    SCOPE_BEGIN_P (t1) = 0;
+
+    t0 = chainon (t0, bind_exprs);
+    t0 = chainon (t0, t1);
+    t0 = build_stmt (COMPOUND_STMT, t0);
+    t0 = build1 (STMT_EXPR, myptrtype, t0);
+    TREE_SIDE_EFFECTS (t0) = 1;
+
+    return t0;
+  }
 }
 
 
@@ -694,11 +757,12 @@ mx_xfn_indirect_ref (t, continue_p, data)
   htab_t verboten = (htab_t) data;
   tree tree_role;
 
-#if 0
-  fprintf (stderr, "expr=%s: ", tree_code_name [TREE_CODE (*t)]);
-  print_generic_expr (stderr, *t, 0);
-  fprintf (stderr, "\n");
-#endif
+  if (dump_flags & TDF_DETAILS)
+    {
+      fprintf (dump_file, "expr=%s: ", tree_code_name [TREE_CODE (*t)]);
+      print_generic_expr (dump_file, *t, 0);
+      fprintf (dump_file, "\n");
+    }
 
   /* Track lvalue/rvalue status for this subtree.  */
   if (! tree_roles_init)
@@ -1183,11 +1247,12 @@ mudflap_enqueue_decl (obj, label)
       return;
     }
 
-  /*
-  fprintf (stderr, "enqueue_decl obj=`");
-  print_generic_expr (stderr, obj, 0);
-  fprintf (stderr, "' label=`%s'\n", label);
-  */
+  if (dump_flags & TDF_DETAILS)
+    {
+      fprintf (dump_file, "enqueue_decl obj=`");
+      print_generic_expr (dump_file, obj, 0);
+      fprintf (dump_file, "' label=`%s'\n", label);
+    }
 
   if (COMPLETE_TYPE_P (TREE_TYPE (obj))) 
     {

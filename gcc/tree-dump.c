@@ -689,6 +689,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".copyprop", "dump-tree-copyprop", 0, 0},
   {".dce", "dump-tree-dce", 0, 0},
   {".optimized", "dump-tree-optimized", 0, 0},
+  {".mudflap", "dump-tree-mudflap", 0, 0},
   {".xml", "dump-call-graph", 0, 0},
   {NULL, "dump-tree-all", 0, 0},
 };

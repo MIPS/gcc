@@ -3,7 +3,7 @@
 #include <string.h>
 int main ()
 {
-int foo [10][10];
+volatile int foo [10][10];
 foo[10][0] = 0;
 return 0;
 }

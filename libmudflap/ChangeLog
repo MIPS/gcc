@@ -1,3 +1,15 @@
+2003-04-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/libmudflap.c/fail1-frag.c: Add volatile
+	modifiers to prevent being optimized away.
+	* testsuite/libmudflap.c/fail10-frag.c: Likewise.
+	* testsuite/libmudflap.c/fail13-frag.c: Likewise.
+	* testsuite/libmudflap.c/fail14-frag.c: Likewise.
+	* testsuite/libmudflap.c/fail15-frag.c: Likewise.
+	* testsuite/libmudflap.c/fail2-frag.c: Likewise.
+	* testsuite/libmudflap.c/fail20-frag.c: Likewise.
+	* testsuite/libmudflap.c/fail3-frag.c: Likewise.
+
 2003-04-15  Frank Ch. Eigler  <fche@redhat.com>
 
 	* Makefile.am (libmudflap_la_LIBADD): Remove -ldl.

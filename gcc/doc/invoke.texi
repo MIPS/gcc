@@ -254,7 +254,7 @@ in the following sections.
 -fdump-tree-cfg -fdump-tree-dot @gol
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
--fdump-tree-simple@r{[}-raw@r{]} @gol
+-fdump-tree-simple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
 -fmem-report @gol
 -feliminate-dwarf2-dups  -fmem-report @gol
 -fprofile-arcs  -fsched-verbose=@var{n} @gol
@@ -3384,8 +3384,13 @@ appending @file{.copyprop} to the source file name.
 
 @item dce
 @opindex fdump-tree-dce
-Dump each function before and after DCE.  The file name is made by appending
-@file{.dce} to the source file name.
+Dump each function after dead code elimination.  The file name is made by
+appending @file{.dce} to the source file name.
+
+@item mudflap
+@opindex fdump-tree-mudflap
+Dump each function after adding mudflap instrumentation.  The file name is
+made by appending @file{.mudflap} to the source file name.
 
 @item all
 @opindex fdump-tree-all

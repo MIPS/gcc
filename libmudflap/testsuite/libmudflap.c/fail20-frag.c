@@ -3,7 +3,7 @@
 #include <string.h>
 int main ()
 {
-char *p = (char *) 0;
+volatile char *p = (char *) 0;
 *p = 5;
 return 0;
 }

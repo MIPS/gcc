@@ -1,3 +1,27 @@
+2003-04-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-mudflap.o): Add dependency on $(TREE_DUMP_H).
+	* c-decl.c (c_expand_body_1): Don't call simplify_function_tree
+	after mudflap_c_function.
+	Move mudflap instrumentation after SSA optimizers.
+	* tree-dump.c (dump_files): Add entry for -fdump-tree-mudflap.
+	* tree.h (enum tree_dump_index): Add TDI_mudflap.
+	* doc/invoke.texi: Document -fdump-tree-mudflap.
+	* tree-mudflap.c: Include tree-dump.h.
+	(dump_file): New local variable.
+	(dump_flags): New local variable.
+	(mudflap_c_function): Call dump_begin, dump_end and dump_function.
+	(mf_decl_cache_locals): Set DECL_CONTEXT for __mf_lookup_shift_l
+	and __mf_lookup_mask_l to current_function_decl.
+	(mf_offset_expr_of_array_ref): Likewise for __mf_index_X.
+	(mf_build_check_statement_for): Re-implement to emit a proper
+	STMT_EXPR.
+	(mx_xfn_indirect_ref): Emit detailed debugging info if
+	-fdump-tree-mudflap-details is given.
+	(mudflap_enqueue_decl): Likewise
+	* tree-optimize.c (optimize_function_tree): Don't check for
+	-fmudflap.
+
 2003-04-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (build_bc_goto): If the target label couldn't be
