@@ -1496,21 +1496,6 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
   else if (TREE_CODE (olddecl) == FUNCTION_DECL
 	   && DECL_BUILT_IN (olddecl))
     {
-      if (!types_match
-	  && TYPE_BOUNDED (oldtype) != TYPE_BOUNDED (newtype)
-	  && comptypes_logically (newtype, oldtype))
-	{
-	  /* Newdecl and olddecl were parsed with different values
-	     of default_pointer_boundedness.  */
-	  /* GKM FIXME: we can lose arg types if the newdecl isn't
-	     a prototype.  It might work better to convert the
-	     boundedness of olddecl's arg types.  */
-	  TREE_TYPE (olddecl) = newtype;
-	  if (!comptypes_physically (newtype, oldtype))
-	    remake_function_rtl (olddecl);
-	  types_match = 1;
-	}
-
       /* A function declaration for a built-in function.  */
       if (!TREE_PUBLIC (newdecl))
 	{
@@ -3102,9 +3087,9 @@ init_decl_processing ()
   boolean_true_node = integer_one_node;
   boolean_false_node = integer_zero_node;
 
-  string_type_node = build_default_pointer_type (char_type_node);
+  string_type_node = build_default_ptr_type (char_type_node);
   const_string_type_node
-    = build_default_pointer_type (build_qualified_type (char_type_node,
+    = build_default_ptr_type (build_qualified_type (char_type_node,
 							TYPE_QUAL_CONST));
 
   /* Make a type to be the domain of a few array types
@@ -4776,7 +4761,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, asmspec)
 	  {
 	    /* Force pointers to va_list arrays to be unbounded.  */
 	    enum tree_code code = ((TYPE_POINTER_DEPTH (type) == VA_LIST_POINTER_DEPTH)
-				   ? POINTER_TYPE : VOID_TYPE);
+				   ? POINTER_TYPE
+				   : default_pointer_type_code (TREE_TYPE (type)));
 	    type = TREE_TYPE (type);
 	    if (type_quals)
 	      /* Transfer const-ness of array into that of type pointed to.  */

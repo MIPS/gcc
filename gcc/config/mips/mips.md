@@ -10460,23 +10460,29 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
 (define_insn "trap"
   [(trap_if (const_int 1) (const_int 0))]
   ""
-  "teq\\t$0,$0")
+  "*
+{
+  if (ISA_HAS_COND_TRAP)
+    return \"teq\\t$0,$0\";
+  else
+    return \"break\";
+}")
 
 (define_expand "conditional_trap"
   [(trap_if (match_operator 0 "cmp_op"
 			    [(match_dup 2) (match_dup 3)])
 	    (match_operand 1 "const_int_operand" ""))]
-  ""
+  "ISA_HAS_COND_TRAP"
   "
 {
-  mips_gen_conditional_trap (operands, GET_CODE (operands[0]));
+  mips_gen_conditional_trap (operands);
   DONE;
 }")
 
 (define_insn ""
-  [(trap_if (match_operator:SI 0 "cmp_op"
-                            [(match_operand:SI 1 "reg_or_0_operand" "")
-                             (match_operand:SI 2 "reg_or_0_operand" "")])
+  [(trap_if (match_operator 0 "trap_cmp_op"
+                            [(match_operand:SI 1 "reg_or_0_operand" "d,d")
+                             (match_operand:SI 2 "general_operand" "d,I")])
 	    (const_int 0))]
-  ""
+  "ISA_HAS_COND_TRAP"
   "t%C0\\t%z1,%z2")

@@ -1167,7 +1167,7 @@ expand_builtin_constant_p (exp)
 	 false-positive for the test that immediately follows.  */
       if (TREE_CODE (arg) == CONSTRUCTOR && TREE_BOUNDED (arg))
 	{
-	  arg = build_bounded_ptr_value_ref (arg);
+	  arg = build_bounded_ptr_field_ref (arg, 0);
 	  STRIP_NOPS (arg);
 	}
 
@@ -1357,7 +1357,7 @@ expand_builtin_strlen (exp, target, mode)
       if (len != 0)
 	return expand_expr (len, target, mode, EXPAND_MEMORY_USE_BAD);
 
-      /* GKM FIXME: check if length goes beyond extent of string.  */
+      /* GKM FIXME: check if length goes beyond high_bound of string.  */
       /* If SRC is not a pointer type, don't do this operation inline.  */
       if (align == 0)
 	return 0;
@@ -1444,9 +1444,9 @@ bounded_ptr_dest (dest, dest_addr, target)
      rtx dest_addr;
      rtx target;
 {
-  rtx low_bound_rtx = expand_expr (build_low_bound_ref (dest),
+  rtx low_bound_rtx = expand_expr (build_bounded_ptr_field_ref (dest, 1),
 			      NULL_RTX, Pmode, 0);
-  rtx high_bound_rtx = expand_expr (build_high_bound_ref (dest),
+  rtx high_bound_rtx = expand_expr (build_bounded_ptr_field_ref (dest, 2),
 				NULL_RTX, Pmode, 0);
   if (!target)
     target = assign_temp (TREE_TYPE (dest), 1, 0, 0);
@@ -1564,7 +1564,7 @@ expand_builtin_strcpy (exp, target)
 
       if (TREE_BOUNDED (src))
 	/* Don't check bounds here.  Do it in expand_builtin_memcpy.  */
-	src = build_bounded_ptr_value_ref (src);
+	src = build_bounded_ptr_field_ref (src, 0);
       len = c_strlen (src);
       if (len == 0)
 	return 0;
@@ -1830,14 +1830,14 @@ expand_builtin_strcmp (exp, target)
     len = c_strlen (arg1);
     if (len)
       len = size_binop (PLUS_EXPR, ssize_int (1), len);
-    /* GKM FIXME: check if length goes beyond extent of string.  */
+    /* GKM FIXME: check if length goes beyond high_bound of string.  */
 
     if (TREE_BOUNDED (arg2))
       arg2 = build_bounded_ptr_check (arg2, NULL_TREE);
     len2 = c_strlen (arg2);
     if (len2)
       len2 = size_binop (PLUS_EXPR, ssize_int (1), len2);
-    /* GKM FIXME: check if length goes beyond extent of string.  */
+    /* GKM FIXME: check if length goes beyond high_bound of string.  */
 
     /* If we don't have a constant length for the first, use the length
        of the second, if we know it.  We don't require a constant for
@@ -2387,7 +2387,7 @@ expand_builtin_alloca (exp, target)
 
   if (TREE_BOUNDED (exp))
     {
-      TREE_TYPE (exp) = TYPE_BOUNDED_SUBTYPE (TREE_TYPE (exp));
+      TREE_TYPE (exp) = TYPE_UNBOUNDED_TYPE (TREE_TYPE (exp));
       TREE_BOUNDED (exp) = 0;
       if (TREE_SIDE_EFFECTS (arg))
 	TREE_VALUE (arglist) = arg = save_expr (arg);
@@ -2557,9 +2557,9 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	     __builtin_apply_args in bounded-pointer variables, we
 	     must strip away the bounds.  */
 	  if (TREE_BOUNDED (func))
-	    func = build_bounded_ptr_value_ref (func);
+	    func = build_bounded_ptr_field_ref (func, 0);
 	  if (TREE_BOUNDED (args))
-	    args = build_bounded_ptr_value_ref (args);
+	    args = build_bounded_ptr_field_ref (args, 0);
 
 	  if (! POINTER_TYPE_P (TREE_TYPE (func))
 	      || TREE_CODE (TREE_TYPE (args)) != POINTER_TYPE

@@ -188,8 +188,8 @@ int num_refs[3];
 /* registers to check for load delay */
 rtx mips_load_reg, mips_load_reg2, mips_load_reg3, mips_load_reg4;
 
-/* Cached operands, and operator to compare for use in set/branch on
-   condition codes.  */
+/* Cached operands, and operator to compare for use in set/branch/trap
+   on condition codes.  */
 rtx branch_cmp[2];
 
 /* what type of branch to use */
@@ -962,6 +962,34 @@ cmp_op (op, mode)
     return 0;
 
   return GET_RTX_CLASS (GET_CODE (op)) == '<';
+}
+
+/* Return nonzero if the code is a relational operation suitable for a
+   conditional trap instructuion (only EQ, NE, LT, LTU, GE, GEU).
+   We need this in the insn that expands `trap_if' in order to prevent
+   combine from erroneously altering the condition.  */
+
+int
+trap_cmp_op (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (mode != GET_MODE (op))
+    return 0;
+
+  switch (GET_CODE (op))
+    {
+    case EQ:
+    case NE:
+    case LT:
+    case LTU:
+    case GE:
+    case GEU:
+      return 1;
+
+    default:
+      return 0;
+    }
 }
 
 /* Return nonzero if the operand is either the PC or a label_ref.  */
@@ -2975,25 +3003,26 @@ gen_int_relational (test_code, result, cmp0, cmp1, p_invert)
    operand[0] is the label to jump to.
    The comparison operands are saved away by cmp{si,di,sf,df}.  */
 
-static rtx
-gen_conditional (test_code, p_invert)
+void
+gen_conditional_branch (operands, test_code)
+     rtx operands[];
      enum rtx_code test_code;
-     int *p_invert;
 {
   enum cmp_type type = branch_type;
   rtx cmp0 = branch_cmp[0];
   rtx cmp1 = branch_cmp[1];
   enum machine_mode mode;
   rtx reg;
+  int invert;
+  rtx label1, label2;
 
-  if (p_invert)
-    *p_invert = 0;
   switch (type)
     {
     case CMP_SI:
     case CMP_DI:
       mode = type == CMP_SI ? SImode : DImode;
-      reg = gen_int_relational (test_code, NULL_RTX, cmp0, cmp1, p_invert);
+      invert = 0;
+      reg = gen_int_relational (test_code, NULL_RTX, cmp0, cmp1, &invert);
 
       if (reg)
 	{
@@ -3027,26 +3056,17 @@ gen_conditional (test_code, p_invert)
       mode = CCmode;
       cmp0 = reg;
       cmp1 = const0_rtx;
+      invert = 0;
       break;
 
     default:
       abort_with_insn (gen_rtx (test_code, VOIDmode, cmp0, cmp1), "bad test");
     }
 
-  return gen_rtx (test_code, mode, cmp0, cmp1);
-}
-
-void
-gen_conditional_branch (operands, test_code)
-     rtx operands[];
-     enum rtx_code test_code;
-{
-  int invert;
-  rtx cond_rtx = gen_conditional (test_code, &invert);
-  rtx label1 = gen_rtx_LABEL_REF (VOIDmode, operands[0]);
-  rtx label2 = pc_rtx;
-
   /* Generate the branch.  */
+
+  label1 = gen_rtx_LABEL_REF (VOIDmode, operands[0]);
+  label2 = pc_rtx;
 
   if (invert)
     {
@@ -3055,20 +3075,10 @@ gen_conditional_branch (operands, test_code)
     }
 
   emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_IF_THEN_ELSE (VOIDmode, cond_rtx,
+			       gen_rtx_IF_THEN_ELSE (VOIDmode,
+						     gen_rtx (test_code, mode,
+							      cmp0, cmp1),
 						     label1, label2)));
-}
-
-/* Emit the common code for conditional traps.  OPERANDS is the array
-   of operands passed to the conditional_trap define_expand.  */
-
-void
-mips_gen_conditional_trap (operands, test_code)
-     rtx operands[];
-     enum rtx_code test_code;
-{
-  emit_insn (gen_rtx_TRAP_IF (VOIDmode, gen_conditional (test_code, (int *) 0),
-			      operands[1]));
 }
 
 /* Emit the common code for conditional moves.  OPERANDS is the array
@@ -3156,6 +3166,46 @@ gen_conditional_move (operands)
 							 cmp_reg,
 							 CONST0_RTX (SImode)),
 						operands[2], operands[3])));
+}
+
+/* Emit the common code for conditional moves.  OPERANDS is the array
+   of operands passed to the conditional move defined_expand.  */
+
+void
+mips_gen_conditional_trap (operands)
+     rtx operands[];
+{
+  rtx op0, op1;
+  enum rtx_code cmp_code = GET_CODE (operands[0]);
+  enum machine_mode mode = GET_MODE (branch_cmp[0]);
+
+  /* MIPS conditional trap machine instructions don't have GT or LE
+     flavors, so we must invert the comparison and convert to LT and
+     GE, respectively.  */
+  switch (cmp_code)
+    {
+    case GT: cmp_code = LT; break;
+    case LE: cmp_code = GE; break;
+    case GTU: cmp_code = LTU; break;
+    case LEU: cmp_code = GEU; break;
+    default: break;
+    }
+  if (cmp_code == GET_CODE (operands[0]))
+    {
+      op0 = force_reg (mode, branch_cmp[0]);
+      op1 = branch_cmp[1];
+    }
+  else
+    {
+      op0 = force_reg (mode, branch_cmp[1]);
+      op1 = branch_cmp[0];
+    }
+  if (GET_CODE (op1) == CONST_INT && ! SMALL_INT (op1))
+    op1 = force_reg (mode, op1);
+
+  emit_insn (gen_rtx_TRAP_IF (VOIDmode,
+			      gen_rtx (cmp_code, GET_MODE (operands[0]), op0, op1),
+			      operands[1]));
 }
 
 /* Write a loop to move a constant number of bytes.

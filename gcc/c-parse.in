@@ -524,11 +524,11 @@ unary_expr:
 	| IMAGPART cast_expr %prec UNARY
 		{ $$ = build_unary_op (IMAGPART_EXPR, $2, 0); }
 	| PTR_VALUE cast_expr %prec UNARY
-		{ $$ = build_bounded_ptr_value_ref (default_conversion ($2)); }
+		{ $$ = build_bounded_ptr_field_ref (default_conversion ($2), 0); }
 	| PTR_LOW_BOUND cast_expr %prec UNARY
-		{ $$ = build_low_bound_ref (default_conversion ($2)); }
+		{ $$ = build_bounded_ptr_field_ref (default_conversion ($2), 1); }
 	| PTR_HIGH_BOUND cast_expr %prec UNARY
-		{ $$ = build_high_bound_ref (default_conversion ($2)); }
+		{ $$ = build_bounded_ptr_field_ref (default_conversion ($2), 2); }
 	| VA_ARG '(' expr_no_commas ',' typename ')'
 		{ $$ = build_va_arg ($3, groktypename ($5)); }
 	;
@@ -1972,7 +1972,7 @@ stmt:
 		  stmt_count++;
 		  emit_line_note ($<filename>-1, $<lineno>0);
 		  if (TREE_BOUNDED ($3))
-		    $3 = build_bounded_ptr_value_ref ($3);
+		    $3 = build_bounded_ptr_field_ref ($3, 0);
 		  expand_computed_goto (convert (unbounded_ptr_type_node, $3)); }
 	| ';'
 	;

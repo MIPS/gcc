@@ -50,12 +50,9 @@ static int missing_braces_mentioned;
 /* 1 if we explained undeclared var errors.  */
 static int undeclared_variable_notice;
 
-static int comp_target_types_how	PARAMS ((tree, tree, int));
-#define comp_target_types(a, b) comp_target_types_physically ((a), (b))
-#define comp_target_types_physically(a, b) comp_target_types_how ((a), (b), 0)
-#define comp_target_types_logically(a, b) comp_target_types_how ((a), (b), 1)
-static int function_types_compatible_p	PARAMS ((tree, tree, int));
-static int type_lists_compatible_p	PARAMS ((tree, tree, int));
+static int comp_target_types		PARAMS ((tree, tree));
+static int function_types_compatible_p	PARAMS ((tree, tree));
+static int type_lists_compatible_p	PARAMS ((tree, tree));
 static tree decl_constant_value		PARAMS ((tree));
 static tree lookup_field		PARAMS ((tree, tree, tree *));
 static tree convert_arguments		PARAMS ((tree, tree, tree, tree, tree));
@@ -427,9 +424,8 @@ common_type (t1, t2)
    pointer types.  */
 
 int
-comptypes_how (type1, type2, logicalp)
+comptypes (type1, type2)
      tree type1, type2;
-     int logicalp;
 {
   register tree t1 = type1;
   register tree t2 = type2;
@@ -464,9 +460,7 @@ comptypes_how (type1, type2, logicalp)
 
   /* Different classes of types can't be compatible.  */
 
-  if (TREE_CODE (t1) != TREE_CODE (t2)
-      && !(logicalp && MAYBE_BOUNDED_POINTER_TYPE_P (t1)
-	   && MAYBE_BOUNDED_POINTER_TYPE_P (t2)))
+  if (TREE_CODE (t1) != TREE_CODE (t2))
     return 0;
 
   /* Qualifiers other than BOUNDED must match.  */
@@ -478,16 +472,8 @@ comptypes_how (type1, type2, logicalp)
      definition.  Note that we already checked for equality of the type
      qualifiers (just above).  */
 
-  if (logicalp)
-    {
-      if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
-	return 1;
-    }
-  else
-    {
-      if (TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (t1, t2))
-	return 1;
-    }
+  if (TYPE_MAIN_VARIANTS_PHYSICALLY_EQUAL_P (t1, t2))
+    return 1;
 
 #ifndef COMP_TYPE_ATTRIBUTES
 #define COMP_TYPE_ATTRIBUTES(t1,t2)	1
@@ -508,7 +494,7 @@ comptypes_how (type1, type2, logicalp)
       break;
 
     case FUNCTION_TYPE:
-      val = function_types_compatible_p (t1, t2, logicalp);
+      val = function_types_compatible_p (t1, t2);
       break;
 
     case ARRAY_TYPE:
@@ -539,8 +525,8 @@ comptypes_how (type1, type2, logicalp)
 
     case RECORD_TYPE:
       if (BOUNDED_POINTER_TYPE_P (t1) && BOUNDED_POINTER_TYPE_P (t2))
-	return comptypes (TYPE_BOUNDED_SUBTYPE (t1),
-			  TYPE_BOUNDED_SUBTYPE (t2));
+	return comptypes (TYPE_UNBOUNDED_TYPE (t1),
+			  TYPE_UNBOUNDED_TYPE (t2));
       if (maybe_objc_comptypes (t1, t2, 0) == 1)
 	val = 1;
       break;
@@ -555,9 +541,8 @@ comptypes_how (type1, type2, logicalp)
    ignoring their qualifiers.  */
 
 static int
-comp_target_types_how (ttl, ttr, logicalp)
+comp_target_types (ttl, ttr)
      tree ttl, ttr;
-     int logicalp;
 {
   int val;
 
@@ -565,8 +550,8 @@ comp_target_types_how (ttl, ttr, logicalp)
   if ((val = maybe_objc_comptypes (ttl, ttr, 1)) >= 0)
     return val;
 
-  val = comptypes_how (TYPE_MAIN_VARIANT (TREE_TYPE (ttl)),
-		       TYPE_MAIN_VARIANT (TREE_TYPE (ttr)), logicalp);
+  val = comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (ttl)),
+		   TYPE_MAIN_VARIANT (TREE_TYPE (ttr)));
 
   if (val == 2 && pedantic)
     pedwarn ("types are not quite compatible");
@@ -583,9 +568,8 @@ comp_target_types_how (ttl, ttr, logicalp)
    Otherwise, the argument types must match.  */
 
 static int
-function_types_compatible_p (f1, f2, logicalp)
+function_types_compatible_p (f1, f2)
      tree f1, f2;
-     int logicalp;
 {
   tree args1, args2;
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
@@ -593,7 +577,7 @@ function_types_compatible_p (f1, f2, logicalp)
   int val1;
 
   if (!(TREE_TYPE (f1) == TREE_TYPE (f2)
-	|| (val = comptypes_how (TREE_TYPE (f1), TREE_TYPE (f2), logicalp))))
+	|| (val = comptypes (TREE_TYPE (f1), TREE_TYPE (f2)))))
     return 0;
 
   args1 = TYPE_ARG_TYPES (f1);
@@ -610,7 +594,7 @@ function_types_compatible_p (f1, f2, logicalp)
 	 compare that with the other type's arglist.
 	 If they don't match, ask for a warning (but no error).  */
       if (TYPE_ACTUAL_ARG_TYPES (f1)
-	  && 1 != type_lists_compatible_p (args2, TYPE_ACTUAL_ARG_TYPES (f1), logicalp))
+	  && 1 != type_lists_compatible_p (args2, TYPE_ACTUAL_ARG_TYPES (f1)))
 	val = 2;
       return val;
     }
@@ -619,13 +603,13 @@ function_types_compatible_p (f1, f2, logicalp)
       if (!self_promoting_args_p (args1))
 	return 0;
       if (TYPE_ACTUAL_ARG_TYPES (f2)
-	  && 1 != type_lists_compatible_p (args1, TYPE_ACTUAL_ARG_TYPES (f2), logicalp))
+	  && 1 != type_lists_compatible_p (args1, TYPE_ACTUAL_ARG_TYPES (f2)))
 	val = 2;
       return val;
     }
 
   /* Both types have argument lists: compare them and propagate results.  */
-  val1 = type_lists_compatible_p (args1, args2, logicalp);
+  val1 = type_lists_compatible_p (args1, args2);
   return val1 != 1 ? val1 : val;
 }
 
@@ -634,9 +618,8 @@ function_types_compatible_p (f1, f2, logicalp)
    or 2 for compatible with warning.  */
 
 static int
-type_lists_compatible_p (args1, args2, logicalp)
+type_lists_compatible_p (args1, args2)
      tree args1, args2;
-     int logicalp;
 {
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
   int val = 1;
@@ -664,7 +647,7 @@ type_lists_compatible_p (args1, args2, logicalp)
 	  if (simple_type_promotes_to (TREE_VALUE (args1)) != NULL_TREE)
 	    return 0;
 	}
-      else if (! (newval = comptypes_how (TREE_VALUE (args1), TREE_VALUE (args2), logicalp)))
+      else if (! (newval = comptypes (TREE_VALUE (args1), TREE_VALUE (args2))))
 	{
 	  /* Allow  wait (union {union wait *u; int *i} *)
 	     and  wait (union wait *)  to be compatible.  */
@@ -989,7 +972,7 @@ default_conversion (exp)
 	{
 	  tree op0 = TREE_OPERAND (exp, 0);
 	  op0 = build_bounded_ptr_constructor (op0);
-	  return convert (build_default_pointer_type (restype), op0);
+	  return convert (build_default_ptr_type (restype), op0);
 	}
 
       if (TREE_CODE (exp) == COMPOUND_EXPR)
@@ -1028,7 +1011,7 @@ default_conversion (exp)
 	    if (!TREE_BOUNDED (addr))
 	      addr = build_bounded_ptr_constructor (addr);
 	  }
-	return convert (build_default_pointer_type (restype), addr);
+	return convert (build_default_ptr_type (restype), addr);
       }
     }
   return exp;
@@ -1239,7 +1222,7 @@ build_bounded_ptr_field_ref (bp, field_number)
   if (! BOUNDED_POINTER_TYPE_P (TREE_TYPE (bp)))
     abort ();
 
-  subtype = TYPE_BOUNDED_SUBTYPE (TREE_TYPE (bp));
+  subtype = TYPE_UNBOUNDED_TYPE (TREE_TYPE (bp));
   field = TYPE_FIELDS (TREE_TYPE (bp));
 
   for (i = 0; i < field_number && field; i++)
@@ -1276,7 +1259,7 @@ build_bounded_ptr_field_ref (bp, field_number)
       /* If the underlaying value is an integer type, keep it that way
          for enclosing arithmetic.  */
       if (TREE_CODE (TREE_TYPE (value)) != INTEGER_TYPE
-	  && subtype != TYPE_BOUNDED_SUBTYPE (TREE_TYPE (bp)))
+	  && subtype != TYPE_UNBOUNDED_TYPE (TREE_TYPE (bp)))
 	value = convert (subtype, value);
       return value;
     }
@@ -1295,7 +1278,7 @@ build_bounded_ptr_field_ref (bp, field_number)
 }
 
 
-/* This is just like build_bounded_ptr_value_ref except with the
+/* This is just like build_bounded_ptr_field_ref except with the
    side-effect of generating bounds checks.  Strip away bounds, check
    pointer value against low_bound & high_bound, then return a
    COMPONENT_REF to the pointer value, or return the pointer value
@@ -1319,18 +1302,18 @@ build_bounded_ptr_check (bp, length)
     abort ();
 
   if (skip_evaluation || ! flag_bounds_check)
-    return build_bounded_ptr_value_ref (bp);
+    return build_bounded_ptr_field_ref (bp, 0);
 
   if (TREE_SIDE_EFFECTS (bp) && TREE_CODE (bp) != CONSTRUCTOR)
     bp = save_expr (bp);
 
-  value = build_bounded_ptr_value_ref (bp);
+  value = build_bounded_ptr_field_ref (bp, 0);
   /* The type of value might be integer, but since we're not doing
      arithmetic, coerce it back to pointer.  */
   if (TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE)
-    value = convert (TYPE_BOUNDED_SUBTYPE (TREE_TYPE (bp)), value);
-  low_bound = build_low_bound_ref (bp);
-  high_bound = build_high_bound_ref (bp);
+    value = convert (TYPE_UNBOUNDED_TYPE (TREE_TYPE (bp)), value);
+  low_bound = build_bounded_ptr_field_ref (bp, 1);
+  high_bound = build_bounded_ptr_field_ref (bp, 2);
 
   if (TREE_CODE (bp) == CONSTRUCTOR)
     {
@@ -1397,7 +1380,7 @@ build_indirect_ref (ptr, errorstring)
   if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (ptr))
       && (TREE_CODE (ptr) == CONSTRUCTOR
 	  && (TREE_CODE (TREE_VALUE (CONSTRUCTOR_ELTS (ptr))) == ADDR_EXPR)))
-    ptr = build_bounded_ptr_value_ref (ptr);
+    ptr = build_bounded_ptr_field_ref (ptr, 0);
 
   pointer = default_conversion (ptr);
   if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (pointer)))
@@ -1561,7 +1544,7 @@ build_array_ref (array, index)
 
   /* Index might be a int-casted pointer, so toss its bounds.  */
   if (TREE_BOUNDED (index))
-    index = build_bounded_ptr_value_ref (index);
+    index = build_bounded_ptr_field_ref (index, 0);
   {
     tree ar = default_conversion (array);
     tree ind = default_conversion (index);
@@ -1862,7 +1845,7 @@ convert_arguments (typelist, values, name, fundecl, funtype)
 		   || DECL_FUNCTION_CODE (fundecl) == BUILT_IN_VARARGS_START)))
 	/* Silently strip away bounds if arg-type or funtype expects
 	   unbounded pointers.  */
-	val = build_bounded_ptr_value_ref (val);
+	val = build_bounded_ptr_field_ref (val, 0);
       /* GKM FIXME: silently add permissive bounds if arg-type or
 	 funtype expects bounded pointers?  */
 
@@ -2238,13 +2221,13 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     {
       if (TREE_CODE (bp0) == BIND_EXPR)
 	bp0 = save_expr (bp0);
-      op0 = build_bounded_ptr_value_ref (bp0);
+      op0 = build_bounded_ptr_field_ref (bp0, 0);
       /* BP constructors shadow scalar-type conversions, so we must
 	 take care to restore them.  */
       if (TREE_CODE (TREE_TYPE (op0)) != POINTER_TYPE)
 	type0 = TREE_TYPE (op0);
       else if (BOUNDED_POINTER_TYPE_P (type0))
-	type0 = TYPE_BOUNDED_SUBTYPE (type0);
+	type0 = TYPE_UNBOUNDED_TYPE (type0);
       /* Convert back to scalar type, if op0 was a int-casted pointer */
       op0 = convert (type0, op0);
     }
@@ -2263,13 +2246,13 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     {
       if (TREE_CODE (bp1) == BIND_EXPR)
 	bp1 = save_expr (bp1);
-      op1 = build_bounded_ptr_value_ref (bp1);
+      op1 = build_bounded_ptr_field_ref (bp1, 0);
       /* BP constructors shadow scalar-type conversions, so we must
 	 take care to restore them.  */
       if (TREE_CODE (TREE_TYPE (op1)) != POINTER_TYPE)
 	type1 = TREE_TYPE (op1);
       else if (BOUNDED_POINTER_TYPE_P (type1))
-	type1 = TYPE_BOUNDED_SUBTYPE (type1);
+	type1 = TYPE_UNBOUNDED_TYPE (type1);
       /* Convert back to scalar type, if op1 was a int-casted pointer */
       op1 = convert (type1, op1);
     }
@@ -3231,7 +3214,7 @@ build_unary_op (code, xarg, noconvert)
     case TRUTH_NOT_EXPR:
       if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (arg)))
 	{
-	  arg = build_bounded_ptr_value_ref (arg);
+	  arg = build_bounded_ptr_field_ref (arg, 0);
 	  typecode = TREE_CODE (TREE_TYPE (arg));
 	}
       if (typecode != INTEGER_TYPE
@@ -3274,7 +3257,7 @@ build_unary_op (code, xarg, noconvert)
 	{
 	  tree expr, rec, ref;
 	  arg = stabilize_reference (arg);
-	  ref = build_bounded_ptr_value_ref (arg);
+	  ref = build_bounded_ptr_field_ref (arg, 0);
 	  rec = TREE_OPERAND (ref, 0);
 	  while (TREE_CODE (rec) == NOP_EXPR || TREE_CODE (rec) == CONVERT_EXPR)
 	    {
@@ -3291,11 +3274,11 @@ build_unary_op (code, xarg, noconvert)
 	  TREE_OPERAND (ref, 0) = rec;
 	  expr = build_unary_op (code, ref, noconvert);
 	  val = build (CONSTRUCTOR, argtype, NULL_TREE,
-		       tree_cons (TYPE_BOUNDED_VALUE_FIELD (argtype), expr,
-				  tree_cons (TYPE_LOW_BOUND_FIELD (argtype),
-					     build_low_bound_ref (arg),
-					     tree_cons (TYPE_HIGH_BOUND_FIELD (argtype),
-							build_high_bound_ref (arg),
+		       tree_cons (BOUNDED_PTR_VALUE_FIELD (argtype), expr,
+				  tree_cons (BOUNDED_PTR_LOW_FIELD (argtype),
+					     build_bounded_ptr_field_ref (arg, 1),
+					     tree_cons (BOUNDED_PTR_HIGH_FIELD (argtype),
+							build_bounded_ptr_field_ref (arg, 2),
 							NULL_TREE))));
 	  TREE_THIS_VOLATILE (val) = TREE_THIS_VOLATILE (expr);
 	  TREE_SIDE_EFFECTS (val) = TREE_SIDE_EFFECTS (expr);
@@ -3482,7 +3465,7 @@ build_unary_op (code, xarg, noconvert)
 	case FIX_CEIL_EXPR:
 	  if (pedantic)
 	    pedwarn ("ISO C forbids the address of a cast expression");
-	  return convert (build_default_pointer_type (TREE_TYPE (arg)),
+	  return convert (build_default_ptr_type (TREE_TYPE (arg)),
 			  build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0),
 					  0));
 	}
@@ -3547,8 +3530,8 @@ build_unary_op (code, xarg, noconvert)
 		/* GKM FIXME: is this test sufficent to identify the
                    final field?  */
 		if (FINAL_FIELD_P (field))
-		  high_bound = build_high_bound_ref (addr);
-		addr = build_bounded_ptr_value_ref (addr);
+		  high_bound = build_bounded_ptr_field_ref (addr, 2);
+		addr = build_bounded_ptr_field_ref (addr, 0);
 	      }
 
 	    addr = fold (build (PLUS_EXPR, argtype,
@@ -3664,7 +3647,7 @@ build_high_bound (addr)
     {
       tree datum = TREE_OPERAND (deep, 0);
       if (TREE_CODE (datum) == FUNCTION_DECL)
-	return build_high_bound_ref (permissive_null_bounded_ptr_node);
+	return build_bounded_ptr_field_ref (null_bounded_ptr_node, 2);
       if (TREE_CODE (datum) == VAR_DECL && DECL_EXTERNAL (datum)
 	  && (! COMPLETE_TYPE_P (TREE_TYPE (datum))
 	      || variable_high_bound_p (TREE_TYPE (datum))))
@@ -3682,13 +3665,6 @@ build_high_bound (addr)
 	abort ();
     }
   return build_binary_op (PLUS_EXPR, addr, integer_one_node, 0);
-#if 0
-  {
-    ... if (variable_high_bound_p (TREE_TYPE (datum)))
-  }
-  warning ("unknown high_bound for bounded pointer");
-  return build_high_bound_ref (permissive_null_bounded_ptr_node);
-#endif
 }
 
 /* Build a phony VAR_DECL to represent the end address of VAR.
@@ -3740,8 +3716,8 @@ build_bounded_ptr_constructor_2 (addr, bounds)
       || !default_pointer_boundedness)
     return addr;
 
-  low_bound = build_low_bound_ref (bounds);
-  high_bound = build_high_bound_ref (bounds);
+  low_bound = build_bounded_ptr_field_ref (bounds, 1);
+  high_bound = build_bounded_ptr_field_ref (bounds, 2);
   return build_bounded_ptr_constructor_3 (addr, low_bound, high_bound);
 }
 
@@ -3766,14 +3742,14 @@ build_bounded_ptr_constructor_3 (addr, low_bound, high_bound)
 
   if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     {
-      low_bound = build_low_bound_ref (strict_null_bounded_ptr_node);
-      high_bound = build_high_bound_ref (strict_null_bounded_ptr_node);
+      low_bound = build_bounded_ptr_field_ref (null_bounded_ptr_node, 1);
+      high_bound = build_bounded_ptr_field_ref (null_bounded_ptr_node, 2);
     }
 
-  value = build_tree_list (TYPE_BOUNDED_VALUE_FIELD (bptype), addr);
-  low_bound = build_tree_list (TYPE_LOW_BOUND_FIELD (bptype),
+  value = build_tree_list (BOUNDED_PTR_VALUE_FIELD (bptype), addr);
+  low_bound = build_tree_list (BOUNDED_PTR_LOW_FIELD (bptype),
 			  convert (type, low_bound));
-  high_bound = build_tree_list (TYPE_HIGH_BOUND_FIELD (bptype),
+  high_bound = build_tree_list (BOUNDED_PTR_HIGH_FIELD (bptype),
 			    convert (type, high_bound));
 
   result  = build (CONSTRUCTOR, bptype, NULL_TREE,
@@ -4184,7 +4160,7 @@ build_conditional_expr (ifexp, op1, op2)
       else
 	{
 	  op2 = (BOUNDED_POINTER_TYPE_P (type1)
-		 ? strict_null_bounded_ptr_node : null_unbounded_ptr_node);
+		 ? null_bounded_ptr_node : null_unbounded_ptr_node);
 #if 0  /* The spec seems to say this is permitted.  */
 	  if (pedantic && TREE_CODE (type1) == FUNCTION_TYPE)
 	    pedwarn ("ANSI C forbids conditional expr between 0 and function pointer");
@@ -4199,7 +4175,7 @@ build_conditional_expr (ifexp, op1, op2)
       else
 	{
 	  op1 = (BOUNDED_POINTER_TYPE_P (type2)
-		 ? strict_null_bounded_ptr_node : null_unbounded_ptr_node);
+		 ? null_bounded_ptr_node : null_unbounded_ptr_node);
 #if 0  /* The spec seems to say this is permitted.  */
 	  if (pedantic && TREE_CODE (type2) == FUNCTION_TYPE)
 	    pedwarn ("ANSI C forbids conditional expr between 0 and function pointer");
@@ -4467,7 +4443,7 @@ build_c_cast (type, expr)
 	{
 	  /* GKM FIXME: print better diagnostic message */
 	  warning ("cast to bounded pointer from unbounded type");
-	  type = TYPE_BOUNDED_SUBTYPE (type);
+	  type = TYPE_UNBOUNDED_TYPE (type);
 	}
 
       ovalue = value;
@@ -4574,7 +4550,7 @@ build_modify_expr (lhs, modifycode, rhs)
       if (modifycode != NOP_EXPR && BOUNDED_POINTER_TYPE_P (lhstype))
 	{
 	  bplhs = lhs;
-	  lhs = build_bounded_ptr_value_ref (bplhs);
+	  lhs = build_bounded_ptr_field_ref (bplhs, 0);
 	  lhstype = TREE_TYPE (lhs);
 	}
       newrhs = build_binary_op (modifycode, lhs, rhs, 1);
@@ -4809,7 +4785,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 		  && integer_zerop (TREE_OPERAND (rhs, 0))))
 	    {
 	      rhs = (BOUNDED_POINTER_TYPE_P (rhstype)
-		     ? strict_null_bounded_ptr_node : null_unbounded_ptr_node);
+		     ? null_bounded_ptr_node : null_unbounded_ptr_node);
 	      break;
 	    }
 	}
@@ -4909,16 +4885,13 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 				     errtype, funname, parmnum);
 	    }
 	}
-      else if (comp_target_types_logically (type, rhstype))
-	error_for_assignment ("%s between pointer types of different boundedness",
-			      errtype, funname, parmnum);
       else
 	warn_for_assignment ("%s from incompatible pointer type",
 			     errtype, funname, parmnum);
 
       /* Strip away bounds here so convert_to_pointer won't complain.  */
       if (TREE_BOUNDED (rhs) && !BOUNDED_POINTER_TYPE_P (type))
-	rhs = build_bounded_ptr_value_ref (rhs);
+	rhs = build_bounded_ptr_field_ref (rhs, 0);
       return convert (type, rhs);
     }
   else if (MAYBE_BOUNDED_POINTER_TYPE_P (type) && coder == INTEGER_TYPE)
@@ -4938,7 +4911,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	  return convert (type, rhs);
 	}
       return (BOUNDED_POINTER_TYPE_P (type)
-	      ? strict_null_bounded_ptr_node : null_unbounded_ptr_node);
+	      ? null_bounded_ptr_node : null_unbounded_ptr_node);
     }
   else if (codel == INTEGER_TYPE && MAYBE_BOUNDED_POINTER_TYPE_P (rhstype))
     {
@@ -6643,7 +6616,7 @@ output_init_element (value, type, field, pending)
   if (TREE_CODE (val) == CONVERT_EXPR
       && BOUNDED_POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (val, 0))))
     value = convert (TREE_TYPE (value),
-		     build_bounded_ptr_value_ref (TREE_OPERAND (val, 0)));
+		     build_bounded_ptr_field_ref (TREE_OPERAND (val, 0), 0));
 
   if (TREE_CODE (TREE_TYPE (value)) == FUNCTION_TYPE
       || (TREE_CODE (TREE_TYPE (value)) == ARRAY_TYPE
@@ -7069,7 +7042,7 @@ process_init_element (value)
 	      if (string_flag)
 		value = build_bounded_ptr_constructor (value);
 	      else if (integer_zerop (value))
-		value = strict_null_bounded_ptr_node;
+		value = null_bounded_ptr_node;
 	    }
 
 	  /* Accept a string constant to initialize a subarray.  */
@@ -7154,7 +7127,7 @@ process_init_element (value)
 	      if (string_flag)
 		value = build_bounded_ptr_constructor (value);
 	      else if (integer_zerop (value))
-		value = strict_null_bounded_ptr_node;
+		value = null_bounded_ptr_node;
 	    }
 
 	  /* Accept a string constant to initialize a subarray.  */
@@ -7313,7 +7286,7 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       tree output = TREE_VALUE (tail);
 
       if (TREE_BOUNDED (output))
-	output = TREE_VALUE (tail) = build_bounded_ptr_value_ref (output);
+	output = TREE_VALUE (tail) = build_bounded_ptr_field_ref (output, 0);
 
       /* We can remove conversions that just change the type, not the mode.  */
       STRIP_NOPS (output);
@@ -7345,7 +7318,7 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	  || TREE_CODE (TREE_TYPE (input)) == FUNCTION_TYPE)
 	input = default_conversion (input);
       if (TREE_BOUNDED (input))
-	input = build_bounded_ptr_value_ref (input);
+	input = build_bounded_ptr_field_ref (input, 0);
       TREE_VALUE (tail) = input;
     }
 

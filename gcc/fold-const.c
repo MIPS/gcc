@@ -5113,11 +5113,11 @@ fold (expr)
 	    {
 	      if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (a0)))
 		arg0 = convert (TREE_TYPE (arg0),
-				convert (TYPE_BOUNDED_SUBTYPE (TREE_TYPE (a0)),
+				convert (TYPE_UNBOUNDED_TYPE (TREE_TYPE (a0)),
 					 a0));
 	      if (BOUNDED_POINTER_TYPE_P (TREE_TYPE (a1)))
 		arg1 = convert (TREE_TYPE (arg1),
-				convert (TYPE_BOUNDED_SUBTYPE (TREE_TYPE (a1)),
+				convert (TYPE_UNBOUNDED_TYPE (TREE_TYPE (a1)),
 					 a1));
 	      return fold (build (MINUS_EXPR, type, arg0, arg1));
 	    }
@@ -5238,7 +5238,7 @@ fold (expr)
 	  /* Don't fold consecutive conversions from integer to
              unbounded pointer to bounded pointer.  */
 	  if (BOUNDED_INDIRECT_TYPE_P (final_type)
-	      && TYPE_BOUNDED_SUBTYPE (final_type) == inter_type)
+	      && TYPE_UNBOUNDED_TYPE (final_type) == inter_type)
 	    return t;
 	}
 

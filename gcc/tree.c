@@ -4062,7 +4062,7 @@ build_qualified_type (type, type_quals)
       layout_type (t);
     }
   else if (BOUNDED_INDIRECT_TYPE_P (type) && !(type_quals & TYPE_QUAL_BOUNDED))
-    t = build_type_copy (TYPE_BOUNDED_SUBTYPE (type));
+    t = build_type_copy (TYPE_UNBOUNDED_TYPE (type));
   else
     t = build_type_copy (type);
 
@@ -4700,6 +4700,34 @@ default_pointer_type_code (to_type)
 }
 
 tree
+build_pointer_type (to_type)
+     tree to_type;
+{
+  return build_pointer_type_2 (POINTER_TYPE, to_type);
+}
+
+tree
+build_unbounded_ptr_type (to_type)
+     tree to_type;
+{
+  return build_pointer_type_2 (POINTER_TYPE, to_type);
+}
+
+tree
+build_bounded_ptr_type (to_type)
+     tree to_type;
+{
+  return build_pointer_type_2 (RECORD_TYPE, to_type);
+}
+
+tree
+build_default_ptr_type (to_type)
+     tree to_type;
+{
+  return build_pointer_type_2 (default_pointer_type_code (to_type), to_type);
+}
+
+tree
 build_pointer_type_2 (code, to_type)
      enum tree_code code;
      tree to_type;
@@ -4730,8 +4758,6 @@ build_pointer_type_2 (code, to_type)
      caller thinks s/he wants.  */
   if (TREE_CODE (to_type) == FUNCTION_TYPE)
     code = POINTER_TYPE;
-  else if (code == VOID_TYPE)
-    code = default_pointer_type_code (to_type);
 
   if (code == RECORD_TYPE)
     t = build_qualified_type (t, TYPE_QUAL_BOUNDED);
@@ -4763,10 +4789,10 @@ build_null_pointer_node (type)
   tree null = build_int_2 (0, 0);
   if (BOUNDED_POINTER_TYPE_P (type))
     {
-      tree value = build_tree_list (TYPE_BOUNDED_VALUE_FIELD (type), null);
-      tree low_bound = build_tree_list (TYPE_LOW_BOUND_FIELD (type), null);
-      tree high_bound = build_tree_list (TYPE_HIGH_BOUND_FIELD (type), null);
-      TREE_TYPE (null) = TYPE_BOUNDED_SUBTYPE (type);
+      tree value = build_tree_list (BOUNDED_PTR_VALUE_FIELD (type), null);
+      tree low_bound = build_tree_list (BOUNDED_PTR_LOW_FIELD (type), null);
+      tree high_bound = build_tree_list (BOUNDED_PTR_HIGH_FIELD (type), null);
+      TREE_TYPE (null) = TYPE_UNBOUNDED_TYPE (type);
       null = build (CONSTRUCTOR, type, NULL_TREE,
 		    chainon (value, chainon (low_bound, high_bound)));
       TREE_CONSTANT (null) = 1;
@@ -4933,7 +4959,7 @@ build_array_type (elt_type, index_type)
     }
 
   /* Make sure TYPE_POINTER_TO (elt_type) is filled in.  */
-  build_default_pointer_type (elt_type);
+  build_default_ptr_type (elt_type);
 
   /* Allocate the array after the pointer type,
      in case we free it in type_hash_canon.  */
@@ -5969,20 +5995,17 @@ build_common_tree_nodes_2 (short_double)
 
   unbounded_ptr_type_node = build_pointer_type_2 (POINTER_TYPE, void_type_node);
   bounded_ptr_type_node = build_pointer_type_2 (RECORD_TYPE, void_type_node);
-  ptr_type_node = build_pointer_type_2 (VOID_TYPE, void_type_node);
+  ptr_type_node = build_default_ptr_type (void_type_node);
   {
     tree to_type = build_qualified_type (void_type_node, TYPE_QUAL_CONST);
     const_bounded_ptr_type_node = build_pointer_type_2 (RECORD_TYPE, to_type);
     const_unbounded_ptr_type_node = build_pointer_type_2 (POINTER_TYPE, to_type);
-    const_ptr_type_node =  build_pointer_type_2 (VOID_TYPE, to_type);
+    const_ptr_type_node =  build_default_ptr_type (to_type);
   }
 
   null_unbounded_ptr_node = build_null_pointer_node (unbounded_ptr_type_node);
-  strict_null_bounded_ptr_node = build_null_pointer_node (bounded_ptr_type_node);
+  null_bounded_ptr_node = build_null_pointer_node (bounded_ptr_type_node);
   null_pointer_node = build_null_pointer_node (ptr_type_node);
-  permissive_null_bounded_ptr_node = build_null_pointer_node (bounded_ptr_type_node);
-  TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CONSTRUCTOR_ELTS (permissive_null_bounded_ptr_node))))
-    = build_int_2 (~0, ~0);
 
   float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (float_type_node) = FLOAT_TYPE_SIZE;

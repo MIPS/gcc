@@ -270,10 +270,10 @@ extern void assemble_end_function	PARAMS ((tree, const char *));
    initial value (that will be done by the caller).  */
 extern void assemble_variable		PARAMS ((tree, int, int, int));
 
-/* Output a set directive for the extent of a global variable which
-   can have variable size, i.e., any variable having a type whose
-   layout terminates with an array type (e.g., a simple array, or a
-   record or union type with a terminating array member.  */
+/* Output a .set directive for the high bound of a global variable
+   which can have variable size, i.e., any variable having a type
+   whose layout terminates with an array type (e.g., a simple array,
+   or a record or union type with a terminating array member.  */
 extern void assemble_high_bound		PARAMS ((tree));
 
 /* Output something to declare an external symbol to the assembler.

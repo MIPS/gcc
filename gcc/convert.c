@@ -65,7 +65,7 @@ convert_to_pointer (type, expr)
 	expr = convert (type_for_size (POINTER_SIZE, 0), expr);
       if (BOUNDED_POINTER_TYPE_P (type))
 	{
-	  expr = build1 (CONVERT_EXPR, TYPE_BOUNDED_SUBTYPE (type), expr);
+	  expr = build1 (CONVERT_EXPR, TYPE_UNBOUNDED_TYPE (type), expr);
 	  TREE_CONSTANT (expr) = TREE_CONSTANT (TREE_OPERAND (expr, 0));
 	  return build_bounded_ptr_constructor (expr);
 	}
@@ -81,7 +81,7 @@ convert_to_pointer (type, expr)
 	      return expr;
 	    }
 	  else
-	    return convert (type, build_bounded_ptr_value_ref (expr));
+	    return convert (type, build_bounded_ptr_field_ref (expr, 0));
 	}
       /* else FALL THROUGH */
 

@@ -222,10 +222,7 @@ extern tree xref_tag                            PARAMS ((enum tree_code, tree));
 /* in c-typeck.c */
 extern tree require_complete_type		PARAMS ((tree));
 extern void incomplete_type_error		PARAMS ((tree, tree));
-extern int comptypes_how			PARAMS ((tree, tree, int));
-#define comptypes_logically(a, b) comptypes_how ((a), (b), 1)
-#define comptypes_physically(a, b) comptypes_how ((a), (b), 0)
-#define comptypes(a, b) comptypes_physically (a, b)
+extern int comptypes				PARAMS ((tree, tree));
 extern tree c_sizeof                            PARAMS ((tree));
 extern tree c_sizeof_nowarn                     PARAMS ((tree));
 extern tree c_size_in_bytes                     PARAMS ((tree));

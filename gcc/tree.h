@@ -415,7 +415,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 
 #define BOUNDED_POINTER_TYPE_P(TYPE) \
   (BOUNDED_INDIRECT_TYPE_P (TYPE) \
-   && TREE_CODE (TYPE_BOUNDED_SUBTYPE (TYPE)) == POINTER_TYPE)
+   && TREE_CODE (TYPE_UNBOUNDED_TYPE (TYPE)) == POINTER_TYPE)
 
 /* Nonzero if TYPE represents a bounded reference type.  Bounded
    reference types have two specific uses: (1) When a reference is
@@ -431,7 +431,7 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 
 #define BOUNDED_REFERENCE_TYPE_P(TYPE) \
   (BOUNDED_INDIRECT_TYPE_P (TYPE) \
-   && TREE_CODE (TYPE_BOUNDED_SUBTYPE (TYPE)) == REFERENCE_TYPE)
+   && TREE_CODE (TYPE_UNBOUNDED_TYPE (TYPE)) == REFERENCE_TYPE)
 
 /* Nonzero if TYPE represents a pointer or reference type, either
    bounded or unbounded.  */
@@ -1064,17 +1064,12 @@ struct tree_block
    of such chains is always the unbounded type.  */
 
 /* Access the field decls of a bounded-pointer type.  */
-#define TYPE_BOUNDED_VALUE_FIELD(TYPE) TYPE_FIELDS (TYPE)
-#define TYPE_LOW_BOUND_FIELD(TYPE) TREE_CHAIN (TYPE_BOUNDED_VALUE_FIELD (TYPE))
-#define TYPE_HIGH_BOUND_FIELD(TYPE) TREE_CHAIN (TYPE_LOW_BOUND_FIELD (TYPE))
+#define BOUNDED_PTR_VALUE_FIELD(TYPE) TYPE_FIELDS (TYPE)
+#define BOUNDED_PTR_LOW_FIELD(TYPE) TREE_CHAIN (BOUNDED_PTR_VALUE_FIELD (TYPE))
+#define BOUNDED_PTR_HIGH_FIELD(TYPE) TREE_CHAIN (BOUNDED_PTR_LOW_FIELD (TYPE))
 
 /* Access the simple-pointer subtype of a bounded-pointer type.  */
-#define TYPE_BOUNDED_SUBTYPE(TYPE) TREE_TYPE (TYPE_BOUNDED_VALUE_FIELD (TYPE))
-
-/* Find the unbounded counterpart to a type, or return TYPE if it is
-   already unbounded.  */
-#define TYPE_UNBOUNDED_VARIANT(TYPE) \
-  (BOUNDED_POINTER_TYPE_P (TYPE) ? TYPE_BOUNDED_SUBTYPE (TYPE) : (TYPE))
+#define TYPE_UNBOUNDED_TYPE(TYPE) TREE_TYPE (BOUNDED_PTR_VALUE_FIELD (TYPE))
 
 /* This field comprises two bits, for values in the range 0..3:
 
@@ -1731,8 +1726,7 @@ enum tree_index
   TI_INTEGER_ONE,
   TI_NULL_POINTER,
   TI_NULL_UNBOUNDED_PTR,
-  TI_STRICT_NULL_BOUNDED_PTR,
-  TI_PERMISSIVE_NULL_BOUNDED_PTR,
+  TI_NULL_BOUNDED_PTR,
 
   TI_SIZE_ZERO,
   TI_SIZE_ONE,
@@ -1767,9 +1761,7 @@ enum tree_index
   TI_V2SI_TYPE,
 
   TI_MAIN_IDENTIFIER,
-
-  TI_CHECK_BOUNDS_FUNC,
-  TI_TRAP_FUNC,
+  TI_TRAP_FUNC_DECL,
 
   TI_MAX
 };
@@ -1803,12 +1795,9 @@ extern tree global_trees[TI_MAX];
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 /* null_unbounded_ptr_node is always unbounded.  */
 #define null_unbounded_ptr_node		global_trees[TI_NULL_UNBOUNDED_PTR]
-/* strict_null_bounded_ptr_node has an extent of 0, so that dereferencing
+/* null_bounded_ptr_node has an extent of 0, so that dereferencing
    it is disallowed and raises a bounds violation.  */
-#define strict_null_bounded_ptr_node	global_trees[TI_STRICT_NULL_BOUNDED_PTR]
-/* permissive_null_bounded_ptr_node has bounds of ~0, so that dereferencing
-   it is permissable and raises no bounds violation.  */
-#define permissive_null_bounded_ptr_node	global_trees[TI_PERMISSIVE_NULL_BOUNDED_PTR]
+#define null_bounded_ptr_node		global_trees[TI_NULL_BOUNDED_PTR]
 
 #define float_type_node			global_trees[TI_FLOAT_TYPE]
 #define double_type_node		global_trees[TI_DOUBLE_TYPE]
@@ -1826,7 +1815,7 @@ extern tree global_trees[TI_MAX];
 #define ptr_type_node			global_trees[TI_PTR_TYPE]
 /* null_unbounded_ptr_node is always an unbounded pointer type.  */
 #define unbounded_ptr_type_node		global_trees[TI_UNBOUNDED_PTR_TYPE]
-/* strict_null_bounded_ptr_node is always a bounded pointer type.  */
+/* null_bounded_ptr_node is always a bounded pointer type.  */
 #define bounded_ptr_type_node		global_trees[TI_BOUNDED_PTR_TYPE]
 /* The C type `const void *'.  */
 #define const_ptr_type_node		global_trees[TI_CONST_PTR_TYPE]
@@ -1838,7 +1827,7 @@ extern tree global_trees[TI_MAX];
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
 #define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
 
-#define trap_fndecl			global_trees[TI_TRAP_FUNC]
+#define trap_fndecl			global_trees[TI_TRAP_FUNC_DECL]
 
 #define V4SF_type_node			global_trees[TI_V4SF_TYPE]
 #define V4SI_type_node			global_trees[TI_V4SI_TYPE]
@@ -1956,18 +1945,13 @@ extern tree build_decl			PARAMS ((enum tree_code, tree, tree));
 extern tree build_block			PARAMS ((tree, tree, tree, tree, tree));
 extern tree build_expr_wfl              PARAMS ((tree, const char *, int, int));
 
-/* Construct nodes for use by bounded pointers */
-
 extern tree build_va_list_type		PARAMS ((void));
 extern tree build_null_pointer_node	PARAMS ((tree));
 extern tree build_bounded_ptr_constructor PARAMS ((tree));
 extern tree build_bounded_ptr_constructor_2 PARAMS ((tree, tree));
 extern tree build_bounded_ptr_constructor_3 PARAMS ((tree, tree, tree));
-extern tree build_bounded_ptr_field_ref PARAMS ((tree, int));
-#define build_bounded_ptr_value_ref(T) build_bounded_ptr_field_ref ((T), 0)
-#define build_low_bound_ref(T) build_bounded_ptr_field_ref ((T), 1)
-#define build_high_bound_ref(T) build_bounded_ptr_field_ref ((T), 2)
-extern tree build_bounded_ptr_check PARAMS ((tree, tree));
+extern tree build_bounded_ptr_field_ref	PARAMS ((tree, int));
+extern tree build_bounded_ptr_check	PARAMS ((tree, tree));
 
 extern tree make_signed_type		PARAMS ((int));
 extern tree make_unsigned_type		PARAMS ((int));
@@ -1976,13 +1960,11 @@ extern void set_sizetype		PARAMS ((tree));
 extern tree signed_or_unsigned_type 	PARAMS ((int, tree));
 extern void fixup_unsigned_type		PARAMS ((tree));
 extern tree build_pointer_type_2	PARAMS ((enum tree_code, tree));
+extern tree build_pointer_type		PARAMS ((tree));
+extern tree build_bounded_ptr_type	PARAMS ((tree));
+extern tree build_unbounded_ptr_type	PARAMS ((tree));
+extern tree build_default_ptr_type	PARAMS ((tree));
 extern enum tree_code default_pointer_type_code PARAMS ((tree));
-#define build_pointer_type(TYPE) \
-  build_pointer_type_2 (POINTER_TYPE, (TYPE))
-#define build_bounded_ptr_pointer_type(TYPE) \
-  build_pointer_type_2 (RECORD_TYPE, (TYPE))
-#define build_default_pointer_type(TYPE) \
-  build_pointer_type_2 (VOID_TYPE, (TYPE))
 extern tree build_reference_type 	PARAMS ((tree));
 extern tree build_index_type		PARAMS ((tree));
 extern tree build_index_2_type		PARAMS ((tree, tree));

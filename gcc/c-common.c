@@ -1894,7 +1894,7 @@ check_format_info (info, params)
   while (TREE_CODE (format_tree) == NOP_EXPR)
     format_tree = TREE_OPERAND (format_tree, 0);
   if (TREE_BOUNDED (format_tree))
-    format_tree = build_bounded_ptr_value_ref (format_tree);
+    format_tree = build_bounded_ptr_field_ref (format_tree, 0);
   while (TREE_CODE (format_tree) == NOP_EXPR)
     format_tree = TREE_OPERAND (format_tree, 0);
 
@@ -3920,7 +3920,7 @@ lang_get_alias_set (t)
 	 the pointed-to types.  This issue has been reported to the
 	 C++ committee.  */
       if (BOUNDED_INDIRECT_TYPE_P (t))
-	t = TYPE_BOUNDED_SUBTYPE (t);
+	t = TYPE_UNBOUNDED_TYPE (t);
       t1 = TYPE_MAIN_VARIANT (TREE_TYPE (t));
       t1 = ((TREE_CODE (t) == POINTER_TYPE)
 	   ? build_pointer_type (t1) : build_reference_type (t1));

@@ -1253,11 +1253,11 @@ unary_expr:
 		{ $$ = build_x_unary_op (IMAGPART_EXPR, $2); }
 	| PTR_VALUE cast_expr %prec UNARY
 		{ $$ = (TREE_BOUNDED ($2)
-			? build_bounded_ptr_value_ref ($2) : $2); }
+			? build_bounded_ptr_field_ref ($2, 0) : $2); }
 	| PTR_LOW_BOUND cast_expr %prec UNARY
-		{ $$ = build_low_bound_ref ($2); }
+		{ $$ = build_bounded_ptr_field_ref ($2, 1); }
 	| PTR_HIGH_BOUND cast_expr %prec UNARY
-		{ $$ = build_high_bound_ref ($2); }
+		{ $$ = build_bounded_ptr_field_ref ($2, 2); }
 	| VA_ARG '(' expr_no_commas ',' type_id ')'
 		{ $$ = build_x_va_arg ($3, groktypename ($5.t));
 		  check_for_new_type ("__builtin_va_arg", $5); }

@@ -7102,7 +7102,7 @@ expand_expr (exp, target, tmode, modifier)
       if (BOUNDED_POINTER_TYPE_P (type) && ! TREE_BOUNDED (TREE_OPERAND (exp, 0)))
 	{
 	  tree exp0 = TREE_OPERAND (exp, 0);
-	  exp = convert (TYPE_BOUNDED_SUBTYPE (type), exp0);
+	  exp = convert (TYPE_UNBOUNDED_TYPE (type), exp0);
 	  if (TREE_CODE (TREE_TYPE (exp0)) == POINTER_TYPE)
 	    exp = build_bounded_ptr_constructor (exp);
 	  else
@@ -7111,7 +7111,7 @@ expand_expr (exp, target, tmode, modifier)
 		       (TREE_CODE (TREE_TYPE (exp0)) == INTEGER_TYPE
 			&& !integer_zerop (exp0))
 		       ? "integer" : "non-pointer");
-	      exp = build_bounded_ptr_constructor_2 (exp, strict_null_bounded_ptr_node);
+	      exp = build_bounded_ptr_constructor_2 (exp, null_bounded_ptr_node);
 	    }
 	  return expand_expr (exp, target, tmode, modifier);
 	}
@@ -7122,7 +7122,7 @@ expand_expr (exp, target, tmode, modifier)
 	       && TREE_BOUNDED (TREE_OPERAND (exp, 0)))
 	{
 	  warning ("discarding pointer bounds in type conversion");
-	  exp = build_bounded_ptr_value_ref (TREE_OPERAND (exp, 0));
+	  exp = build_bounded_ptr_field_ref (TREE_OPERAND (exp, 0), 0);
 	  exp = convert (type, exp);
 	  return expand_expr (exp, target, tmode, modifier);
 	}
