@@ -1,5 +1,7 @@
 2003-12-29  Mark Mitchell  <mark@codesourcery.com>
 
+	* g++.old-deja/g++.pt/static11.C: Correct XFAIL syntax.
+
 	* gcc.dg/builtins-config.h: Include <ctype.h>, not <limits.h>.
 
 2003-12-28  Mark Mitchell  <mark@codesourcery.com>
