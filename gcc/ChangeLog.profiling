@@ -1,3 +1,8 @@
+2004-05-25  Steven Bosscher  <stevenb@suse.de>
+
+	* cfgexpand.c (expand_block): Expect an edge that has been removed
+	to point to free()ed memory.
+
 2004-05-21  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-mudflap.c (mf_decl_cache_locals): Skip labels before

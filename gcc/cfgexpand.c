@@ -116,8 +116,11 @@ expand_block (basic_block bb, FILE * dump_file)
 
   NOTE_BASIC_BLOCK (note) = bb;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  e = bb->succ;
+  while (e)
     {
+      edge next = e->succ_next;
+
       /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
 
@@ -126,6 +129,8 @@ expand_block (basic_block bb, FILE * dump_file)
          rediscover them.  In the future we should get this fixed properly.  */
       if (e->flags & EDGE_ABNORMAL)
 	remove_edge (e);
+
+      e = next;
     }
 
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
@@ -230,22 +235,29 @@ expand_block (basic_block bb, FILE * dump_file)
 		  gcov_type count = 0;
 
 		  do_pending_stack_adjust ();
-		  for (e = bb->succ; e; e = e->succ_next)
-		    if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
-		      {
-			if (e->dest != EXIT_BLOCK_PTR)
-			  {
-			    e->dest->count -= e->count;
-			    e->dest->frequency -= EDGE_FREQUENCY (e);
-			    if (e->dest->count < 0)
-			      e->dest->count = 0;
-			    if (e->dest->frequency < 0)
-			      e->dest->frequency = 0;
-			  }
-			count += e->count;
-			probability += e->probability;
-			remove_edge (e);
-		      }
+		  e = bb->succ;
+		  while (e)
+		    {
+		      edge next = e->succ_next;
+
+		      if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
+			{
+			  if (e->dest != EXIT_BLOCK_PTR)
+			    {
+			      e->dest->count -= e->count;
+			      e->dest->frequency -= EDGE_FREQUENCY (e);
+			      if (e->dest->count < 0)
+			        e->dest->count = 0;
+			      if (e->dest->frequency < 0)
+			        e->dest->frequency = 0;
+			    }
+			  count += e->count;
+			  probability += e->probability;
+			  remove_edge (e);
+			}
+
+		      e = next;
+		    }
 
 		  /* This is somewhat ugly:  the call_expr expander often emits instructions
 		     after the sibcall (to perform the function return).  These confuse the 
