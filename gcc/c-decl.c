@@ -3291,10 +3291,13 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
   else
     w = tree_low_cst (*width, 1);
 
-  if (TREE_CODE (*type) == ENUMERAL_TYPE
-      && (w < min_precision (TYPE_MIN_VALUE (*type), TREE_UNSIGNED (*type))
-	  || w < min_precision (TYPE_MAX_VALUE (*type), TREE_UNSIGNED (*type))))
-    warning ("`%s' is narrower than values of its type", name);
+  if (TREE_CODE (*type) == ENUMERAL_TYPE)
+    {
+      struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
+      if (w < min_precision (lt->enum_min, TREE_UNSIGNED (*type))
+	  || w < min_precision (lt->enum_max, TREE_UNSIGNED (*type)))
+	warning ("`%s' is narrower than values of its type", name);
+    }
 }
 
 /* Given declspecs and a declarator,
@@ -5140,7 +5143,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
           ensure that this lives as long as the rest of the struct decl.
           All decls in an inline function need to be saved.  */
 
-        space = ggc_alloc (sizeof (struct lang_type));
+        space = ggc_alloc_cleared (sizeof (struct lang_type));
         space2 = ggc_alloc (sizeof (struct sorted_fields_type) + len * sizeof (tree));
 
         len = 0;
@@ -5274,10 +5277,10 @@ start_enum (tree name)
 tree
 finish_enum (tree enumtype, tree values, tree attributes)
 {
-  tree pair, tem;
-  tree minnode = 0, maxnode = 0, enum_value_type;
-  int precision, unsign;
+  tree pair, tem, minnode = 0, maxnode = 0;
   int toplevel = (global_scope == current_scope);
+  int precision, unsign;
+  struct lang_type *lt;
 
   if (in_parm_level_p ())
     warning ("enum defined inside parms");
@@ -5310,27 +5313,20 @@ finish_enum (tree enumtype, tree values, tree attributes)
 		   min_precision (maxnode, unsign));
   if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
-      tree narrowest = c_common_type_for_size (precision, unsign);
-      if (narrowest == 0)
+      tem = c_common_type_for_size (precision, unsign);
+      if (tem == NULL)
 	{
 	  warning ("enumeration values exceed range of largest integer");
-	  narrowest = long_long_integer_type_node;
+	  tem = long_long_integer_type_node;
 	}
-
-      precision = TYPE_PRECISION (narrowest);
     }
   else
-    precision = TYPE_PRECISION (integer_type_node);
+    tem = unsign ? unsigned_type_node : integer_type_node;
 
-  if (precision == TYPE_PRECISION (integer_type_node))
-    enum_value_type = c_common_type_for_size (precision, 0);
-  else
-    enum_value_type = enumtype;
-
-  TYPE_MIN_VALUE (enumtype) = minnode;
-  TYPE_MAX_VALUE (enumtype) = maxnode;
-  TYPE_PRECISION (enumtype) = precision;
-  TREE_UNSIGNED (enumtype) = unsign;
+  TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (tem);
+  TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (tem);
+  TYPE_PRECISION (enumtype) = TYPE_PRECISION (tem);
+  TREE_UNSIGNED (enumtype) = TREE_UNSIGNED (tem);
   TYPE_SIZE (enumtype) = 0;
   layout_type (enumtype);
 
@@ -5346,6 +5342,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       for (pair = values; pair; pair = TREE_CHAIN (pair))
 	{
 	  tree enu = TREE_PURPOSE (pair);
+	  tree ini = DECL_INITIAL (enu);
 
 	  TREE_TYPE (enu) = enumtype;
 
@@ -5356,17 +5353,26 @@ finish_enum (tree enumtype, tree values, tree attributes)
 	     when comparing integers with enumerators that fit in the
 	     int range.  When -pedantic is given, build_enumerator()
 	     would have already taken care of those that don't fit.  */
-	  if (int_fits_type_p (DECL_INITIAL (enu), enum_value_type))
-	    DECL_INITIAL (enu) = convert (enum_value_type, DECL_INITIAL (enu));
+	  if (int_fits_type_p (ini, integer_type_node))
+	    tem = integer_type_node;
 	  else
-	    DECL_INITIAL (enu) = convert (enumtype, DECL_INITIAL (enu));
+	    tem = enumtype;
+	  ini = convert (tem, ini);
 
+	  DECL_INITIAL (enu) = ini;
 	  TREE_PURPOSE (pair) = DECL_NAME (enu);
-	  TREE_VALUE (pair) = DECL_INITIAL (enu);
+	  TREE_VALUE (pair) = ini;
 	}
 
       TYPE_VALUES (enumtype) = values;
     }
+
+  /* Record the min/max values so that we can warn about bit-field
+     enumerations that are too small for the values.  */
+  lt = ggc_alloc_cleared (sizeof (struct lang_type));
+  lt->enum_min = minnode;
+  lt->enum_max = maxnode;
+  TYPE_LANG_SPECIFIC (enumtype) = lt;
 
   /* Fix up all variant types of this enum type.  */
   for (tem = TYPE_MAIN_VARIANT (enumtype); tem; tem = TYPE_NEXT_VARIANT (tem))
@@ -5383,6 +5389,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       TYPE_ALIGN (tem) = TYPE_ALIGN (enumtype);
       TYPE_USER_ALIGN (tem) = TYPE_USER_ALIGN (enumtype);
       TREE_UNSIGNED (tem) = TREE_UNSIGNED (enumtype);
+      TYPE_LANG_SPECIFIC (tem) = TYPE_LANG_SPECIFIC (enumtype);
     }
 
   /* Finish debugging output for this type.  */

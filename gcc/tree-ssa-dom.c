@@ -991,9 +991,6 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
     {
       tree switch_cond = SWITCH_COND (parent_block_last_stmt);
 
-      /* Strip away any useless type conversions.  */
-      STRIP_USELESS_TYPE_CONVERSION (switch_cond);
-
       /* If the switch's condition is an SSA variable, then we may
 	 know its value at each of the case labels.  */
       if (TREE_CODE (switch_cond) == SSA_NAME)

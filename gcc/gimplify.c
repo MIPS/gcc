@@ -944,14 +944,8 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
   tree switch_expr = *expr_p;
   enum gimplify_status ret;
 
-  /* We don't want to risk changing the type of the switch condition,
-     lest stmt.c get the wrong impression about enumerations.  */
-  if (TREE_CODE (SWITCH_COND (switch_expr)) == NOP_EXPR)
-    ret = gimplify_expr (&TREE_OPERAND (SWITCH_COND (switch_expr), 0),
-			 pre_p, NULL, is_gimple_val, fb_rvalue);
-  else
-    ret = gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL,
-			 is_gimple_val, fb_rvalue);
+  ret = gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL,
+		       is_gimple_val, fb_rvalue);
 
   if (SWITCH_BODY (switch_expr))
     {

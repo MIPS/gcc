@@ -110,10 +110,13 @@ struct lang_decl GTY(())
    and C_RID_YYCODE is the token number wanted by Yacc.  */
 #define C_IS_RESERVED_WORD(ID) TREE_LANG_FLAG_0 (ID)
 
-/* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type GTY(())
 {
+  /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
   struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields"))) s;
+  /* In an ENUMERAL_TYPE, the min and max values.  */
+  tree enum_min;
+  tree enum_max;
 };
 
 /* Record whether a type or decl was written with nonconstant size.

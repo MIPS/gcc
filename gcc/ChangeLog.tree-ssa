@@ -1,3 +1,14 @@
+2004-01-05  Richard Henderson  <rth@redhat.com>
+
+	* c-tree.h (struct lang_type): Add enum_min, enum_max.
+	* c-decl.c (finish_enum): Set them.  Set TYPE_MIN/MAX_VALUE to 
+	the limits of the compatible type, not to the enumerators.
+	(check_bitfield_type_and_width): Use them.
+	(finish_struct): Clear allocated struct lang_type.
+	* gimplify.c (gimplify_switch_expr): Remove special handling of
+	outer cast in a switch.
+	* tree-ssa-dom.c (record_equivalences_from_incoming_edge): Likewise.
+
 2004-01-05  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (added_phis): Removed.
