@@ -2030,12 +2030,14 @@ may_alias_p (v1, v2)
 
   /* One of the two variables needs to be an INDIRECT_REF or GLOBAL_VAR,
      otherwise they can't possibly alias each other.  */
-  if (TREE_CODE (v1) == INDIRECT_REF || v1 == global_var)
+  if (TREE_CODE (v1) == INDIRECT_REF
+      || v1 == global_var)
     {
       ptr = v1;
       var = v2;
     }
-  else if (TREE_CODE (v2) == INDIRECT_REF || v2 == global_var)
+  else if (TREE_CODE (v2) == INDIRECT_REF
+           || v2 == global_var)
     {
       ptr = v2;
       var = v1;
@@ -2060,6 +2062,7 @@ may_alias_p (v1, v2)
   /* Obvious reasons why PTR_SYM and VAR_SYM can't possibly alias
      each other.  */
   if (var_sym == ptr_sym
+      || DECL_ARTIFICIAL (var_sym)
       /* Only check for addressability on non-pointers.  Even if VAR is 
 	 a non-addressable pointer, it may still alias with ptr.  */
       || (DECL_P (var) && !TREE_ADDRESSABLE (var)))

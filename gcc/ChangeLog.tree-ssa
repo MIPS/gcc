@@ -1,3 +1,13 @@
+2002-12-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c: Undo this change that causes bootstrap
+	failures:
+
+	2002-12-02  Diego Novillo  <dnovillo@redhat.com>
+
+		* tree-dfa.c (may_alias_p): Artificial variables
+		can also be aliased.
+
 2002-12-03  Andreas Jaeger  <aj@suse.de>
 
 	* tree-simple.c (right_assocify_expr): Remove unused variable.
