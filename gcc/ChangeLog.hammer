@@ -1,3 +1,9 @@
+Thu Jun  5 18:20:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* function.c (FLOOR_ROUND, CEIL_ROUND): Fix.
+	* i386.md (gen_pro_epilogue_adjust_stack): Deal with gigantic stack frames.
+	(pro_epilogue_adjust_stack_rex64_2): New pattern
+
 Thu Jun  5 14:29:16 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* expr.h (assemble_static_space): Update prototype.
