@@ -295,10 +295,6 @@ fdiagnostics-show-location=
 Common Joined RejectNegative
 -fdiagnostics-show-location=[once|every-line]	How often to emit source location at the beginning of line-wrapped diagnostics
 
-fdisable-tree-ssa
-Common RejectNegative
-Disable SSA optimizations on trees
-
 fdump-
 Common Joined RejectNegative
 -fdump-<type>	Dump various compiler internals to a file

@@ -116,7 +116,7 @@ static struct tree_opt_pass pass_rebuild_bind =
 static bool
 gate_all_optimizations (void)
 {
-  return (optimize >= 1 && !flag_disable_tree_ssa
+  return (optimize >= 1
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !(errorcount || sorrycount));
 }

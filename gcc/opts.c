@@ -966,10 +966,6 @@ common_handle_option (size_t scode, const char *arg,
 	return 0;
       break;
 
-    case OPT_fdisable_tree_ssa:
-      flag_disable_tree_ssa = value;
-      break;
-
     case OPT_fdump_:
       if (!dump_switch_p (arg))
 	return 0;

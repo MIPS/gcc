@@ -711,9 +711,6 @@ extern int flag_mudflap;
 extern int flag_mudflap_threads;
 extern int flag_mudflap_ignore_reads;
 
-/* Disable SSA optimizations on trees.  */
-extern int flag_disable_tree_ssa;
-
 /* Enable SSA-PRE on trees.  */
 extern int flag_tree_pre;
 

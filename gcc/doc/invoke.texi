@@ -304,7 +304,7 @@ in the following sections.
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
--fdisable-tree-ssa -ftree-dominator-opts @gol
+-ftree-dominator-opts @gol
 -ftree-loop-optimize -ftree-sra @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -4261,10 +4261,6 @@ This option is always enabled by default on certain machines, usually
 those which have no call-preserved registers to use instead.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
-
-@item -fdisable-tree-ssa
-Do not apply SSA optimizations to the tree representation.  @emph{Note:}
-This option is only useful when debugging the tree SSA optimizers in GCC.
 
 @item -ftree-pre
 Perform Partial Redundancy Elimination (PRE) on trees.  @emph{Note:} This

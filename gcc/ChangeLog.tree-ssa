@@ -1,5 +1,14 @@
 2004-02-06  Richard Henderson  <rth@redhat.com>
 
+	* common.opt (fdisable-tree-ssa): Remove.
+	* flags.h (flag_disable_tree_ssa): Remove.
+	* toplev.c (flag_disable_tree_ssa): Remove.
+	(f_options): Don't set it.
+	* opts.c (common_handle_option): Likewise.
+	* doc/invoke.texi (fdisable-tree-ssa): Remove.
+
+2004-02-06  Richard Henderson  <rth@redhat.com>
+
         * tree-ssa-dom.c (record_equivalences_from_phis): Use
         record_const_or_copy.
         (record_equivalences_from_stmt): Likewise.  Replace 

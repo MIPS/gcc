@@ -956,9 +956,6 @@ int flag_renumber_insns = 1;
 /* If nonzero, use the graph coloring register allocator.  */
 int flag_new_regalloc = 0;
 
-/* Disable SSA on trees optimizations.  */
-int flag_disable_tree_ssa = 0;
-
 /* Enable SSA-GVN on trees.  */
 int flag_tree_gvn = 0;
 
@@ -1176,7 +1173,6 @@ static const lang_independent_options f_options[] =
   { "trapv", &flag_trapv, 1 },
   { "wrapv", &flag_wrapv, 1 },
   { "new-ra", &flag_new_regalloc, 1 },
-  { "disable-tree-ssa", &flag_disable_tree_ssa, 1 },
   { "tree-gvn", &flag_tree_gvn, 1 },
   { "tree-pre", &flag_tree_pre, 1 },
   { "tree-ccp", &flag_tree_ccp, 1 },
