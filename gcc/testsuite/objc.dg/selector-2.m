@@ -11,6 +11,8 @@
 -(void) foo
 {
   SEL a;
+  /* APPLE LOCAL Objective-C */
   a = @selector(b1ar); /* { dg-warning "creating selector for nonexistent method .b1ar." } */
 }
+/* APPLE LOCAL Objective-C */
 @end
