@@ -69,6 +69,7 @@ Boston, MA 02111-1307, USA.  */
 %{mcpu=401: -mppc} \
 %{mcpu=403: -m403} \
 %{mcpu=405: -m405} \
+%{mcpu=405f: -m405} \
 %{mcpu=505: -mppc} \
 %{mcpu=601: -m601} \
 %{mcpu=602: -mppc} \
