@@ -1,5 +1,21 @@
 2004-09-13  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/JTextField.java
+	(action): New field.
+	(actionCommand): Likewise.
+	(actionPropertyChangeListener): Likewise.
+	(setHorizontalAlignment): Abort soon if new value == old value. Fire
+	event before repainting.
+	(postActionEvent): New method.
+	(getAction): Likewise.
+	(setAction): Likewise.
+	(getActionCommand): Likewise.
+	(setActionCommand): Likewise.
+	(createActionPropertyChangeListener): Likewise.
+	(configurePropertiesFromAction): Likewise.
+
+2004-09-13  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/DebugGraphics.java:
 	Re-formatted. Fixed some javadocs.
 	* javax/swing/JApplet.java
