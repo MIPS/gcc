@@ -1,5 +1,14 @@
 2004-08-12  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(RootView.paint): Removed debug output.
+	(paintSafely): Draw highlighter before text.
+	(paintBackground): Use background color of text component.
+	* javax/swing/plaf/basic/BasicToggleButtonUI.java:
+	Reformatted.
+
+2004-08-12  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/plaf/basic/BasicToolBarUI.java
 	(BasicToolBarUI): Fixed arguments for constructor.
 	(createUI): Fixed creation of object.

@@ -123,8 +123,6 @@ public abstract class BasicTextUI extends TextUI
 
     public void paint(Graphics g, Shape s)
     {
-      System.out.println("Michael: BasicTextUI.RootView.paint");
-      
       if (view != null)
 	view.paint(g, s);
     }
@@ -235,10 +233,10 @@ public abstract class BasicTextUI extends TextUI
     if (textComponent.isOpaque())
       paintBackground(g);
     
-    rootView.paint(g, getVisibleEditorRect());
-
     if (highlighter != null)
       highlighter.paint(g);
+
+    rootView.paint(g, getVisibleEditorRect());
 
     if (caret != null)
       caret.paint(g);
@@ -246,7 +244,7 @@ public abstract class BasicTextUI extends TextUI
 
   protected void paintBackground(Graphics g)
   {
-    g.setColor(Color.WHITE); // FIXME: set background color
+    g.setColor(textComponent.getBackground());
     g.fillRect(0, 0, textComponent.getWidth(), textComponent.getHeight());
   }
 
