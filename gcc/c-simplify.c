@@ -97,7 +97,6 @@ static void make_type_writable       PARAMS ((tree));
 static tree add_tree                 PARAMS ((tree, tree *));
 static tree insert_before_continue   PARAMS ((tree, tree));
 static tree tree_last_decl           PARAMS ((tree));
-static tree convert_to_stmt_chain    PARAMS ((tree));
 static int  stmt_has_effect          PARAMS ((tree));
 static int  expr_has_effect          PARAMS ((tree));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
@@ -270,27 +269,14 @@ simplify_stmt (stmt_p)
 	  goto cont;
 
 	default:
-	  prep_stmt (stmt);
 	  fprintf (stderr, "unhandled statement node in simplify_stmt ():\n");
 	  debug_tree (stmt);
 	  abort ();
 	  break;
 	}
 
-      /* PRE and POST contain a list of expressions for all the
-	 side-effects in STMT.  Each expression must be converted into a
-	 statement and chained so that:
-
-	 	PREV -> STMT -> NEXT
-
-         is re-written as:
-
-	 	PREV -> PRE -> STMT -> POST -> NEXT
-
-	 However, if STMT has been nullified, it is bypassed.  */
-
-      pre = convert_to_stmt_chain (pre);
-      post = convert_to_stmt_chain (post);
+      /* PRE and POST now contain a list of statements for all the
+	 side-effects in STMT.  */
 
       /* Before re-chaining the side effects, determine if we are going to
 	 keep the original statement or not.  If the statement had no
@@ -629,10 +615,7 @@ simplify_for_stmt (stmt, pre_p)
     FOR_EXPR (stmt) = tail_expression (&expr_chain, 1);
 
     if (expr_chain)
-      {
-	tree stmt_chain = convert_to_stmt_chain (expr_chain);
-	insert_before_continue_end (stmt_chain, FOR_BODY (stmt));
-      }
+      insert_before_continue_end (expr_chain, FOR_BODY (stmt));
   }
 }
 
@@ -703,7 +686,7 @@ simplify_while_stmt (stmt, pre_p)
   /* Insert all the side-effects for the conditional before every
      wrap-around point in the loop body (i.e., before every first-level
      CONTINUE and before the end of the body).  */
-  stmt_chain = convert_to_stmt_chain (deep_copy_list (pre_cond_s));
+  stmt_chain = deep_copy_list (pre_cond_s);
   insert_before_continue_end (stmt_chain, WHILE_BODY (stmt));
 }
 
@@ -762,7 +745,7 @@ simplify_do_stmt (stmt)
 		 fb_rvalue);
   DO_COND (stmt) = cond_s;
 
-  stmt_chain = convert_to_stmt_chain (deep_copy_list (pre_cond_s));
+  stmt_chain = deep_copy_list (pre_cond_s);
   insert_before_continue_end (stmt_chain, DO_BODY (stmt));
 }
 
@@ -1830,10 +1813,10 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
 {
   tree op;
   const char *file;
-  tree fstmt = NULL_TREE;
   int line, col;
   tree pre = NULL_TREE;
   tree post = NULL_TREE;
+  int saw_other;
   
   if (TREE_CODE (*expr_p) != EXPR_WITH_FILE_LOCATION)
     abort ();
@@ -1849,28 +1832,38 @@ simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
   simplify_expr (&EXPR_WFL_NODE (*expr_p), &pre, &post, simple_test_f,
 		 fb_rvalue);
 
+  saw_other = 0;
   for (op = pre; op; op = TREE_CHAIN (op))
     {
-      if (!statement_code_p (TREE_CODE (TREE_VALUE (op))))
-	TREE_VALUE (op) = build_expr_wfl (TREE_VALUE (op), file, line, col);
-      else if (strcmp (file, input_filename) != 0)
-	{
-	  fstmt = build_stmt (FILE_STMT, get_identifier (input_filename));
-	  pre = tree_cons (NULL_TREE, fstmt, pre);
-	}
+      if (TREE_CODE (op) == EXPR_STMT)
+	EXPR_STMT_EXPR (op)
+	  = build_expr_wfl (EXPR_STMT_EXPR (op), file, line, col);
+      else
+	saw_other = 1;
     }
 
   for (op = post; op; op = TREE_CHAIN (op))
-    TREE_VALUE (op) = build_expr_wfl (TREE_VALUE (op), file, line, col);
+    EXPR_STMT_EXPR (op)
+      = build_expr_wfl (EXPR_STMT_EXPR (op), file, line, col);
+
+  if (saw_other && strcmp (file, input_filename) != 0)
+    {
+      /* There are non-EXPR_STMT statements, so we need to wrap them in
+	 FILE_STMTs.  */
+      /* FIXME this causes some stuff from the expression containing an
+	 inline call to be grouped with the code from the inline
+	 function.  */
+
+      tree fstmt = build_stmt (FILE_STMT, get_identifier (input_filename));
+      /* Use pre_p here so it precedes the contents of our local 'pre'.  */
+      add_tree (fstmt, pre_p);
+  
+      fstmt = build_stmt (FILE_STMT, get_identifier (file));
+      add_tree (fstmt, &post);
+    }
 
   lineno = line;
   input_filename = file;
-
-  if (fstmt)
-    {
-      fstmt = build_stmt (FILE_STMT, get_identifier (input_filename));
-      add_tree (fstmt, &post);
-    }
 
   add_tree (pre, pre_p);
   add_tree (post, post_p);
@@ -2037,33 +2030,25 @@ add_tree (t, list_p)
     tree t;
     tree *list_p;
 {
-  tree n;
-  
   if (t == NULL_TREE)
     return NULL_TREE;
 
-  if (TREE_CODE (t) != TREE_LIST)
+  /* Do nothing if T has no effect.  */
+  if (statement_code_p (TREE_CODE (t)))
     {
-      /* Do nothing if T has no effect.  */
-      if (statement_code_p (TREE_CODE (t)))
-	{
-	  if (!stmt_has_effect (t))
-	    return NULL_TREE;
-	}
-      else
-	{
-	  if (!expr_has_effect (t))
-	    return NULL_TREE;
-	}
-
-      n = build_tree_list (NULL_TREE, t);
+      if (!stmt_has_effect (t))
+	return NULL_TREE;
     }
   else
-    n = t;
+    {
+      if (!expr_has_effect (t))
+	return NULL_TREE;
+      t = build_stmt (EXPR_STMT, t);
+    }
 
-  *list_p = chainon (*list_p, n);
+  *list_p = chainon (*list_p, t);
 
-  return n;
+  return t;
 }
 
 
@@ -2550,33 +2535,6 @@ deep_copy_node (node)
   return res;
 }
 
-/*  Convert the list of expressions LIST into a list of statements.  Each
-    statement in the new list gets line number information from STMT.  */
-
-static tree
-convert_to_stmt_chain (list)
-     tree list;
-{
-  tree op, stmt_list;
-
-  stmt_list = NULL;
-  for (op = list; op; op = TREE_CHAIN (op))
-    {
-      tree t, n;
-      
-      /* Only create a new statement for expression trees.  */
-      t = TREE_VALUE (op);
-      n = (statement_code_p (TREE_CODE (t))) ? t : build_stmt (EXPR_STMT, t);
-
-      /* Only add statements that have an effect.  */
-      if (stmt_has_effect (n))
-	stmt_list = chainon (stmt_list, n);
-    }
-
-  return stmt_list;
-}
-
-
 /*  Return nonzero if STMT has some effect (i.e., if it's not of the form
     'a;' where a is a non-volatile variable).  */
     
@@ -2673,24 +2631,24 @@ tail_expression (chain, decl_is_bad)
 
       for (; *chain; chain = &TREE_CHAIN (*chain))
 	{
-	  tree elt = TREE_VALUE (*chain);
-	  if (statement_code_p (TREE_CODE (elt)))
+	  tree elt = *chain;
+	  if (TREE_CODE (elt) == EXPR_STMT)
+	    first_expr = chain;
+	  else
 	    {
 	      if (decl_is_bad && (TREE_CODE (elt) == DECL_STMT))
 		return NULL_TREE;
 	      first_expr = 0;
 	    }
-	  else if (!first_expr)
-	    first_expr = chain;
 	}
 
       if (first_expr)
 	{
 	  tree exprs = nreverse (*first_expr);
-	  tree compexpr = TREE_VALUE (exprs);
+	  tree compexpr = EXPR_STMT_EXPR (exprs);
 	  for (exprs = TREE_CHAIN (exprs); exprs; exprs = TREE_CHAIN (exprs))
 	    compexpr = build (COMPOUND_EXPR, TREE_TYPE (compexpr),
-			      TREE_VALUE (exprs), compexpr);
+			      EXPR_STMT_EXPR (exprs), compexpr);
 	  *first_expr = 0;
 	  return compexpr;
 	}

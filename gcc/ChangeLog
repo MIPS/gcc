@@ -1,3 +1,10 @@
+2002-07-16  Jason Merrill  <jason@redhat.com>
+
+	* c-simplify.c (add_tree): Build an EXPR_STMT immediately.
+	(convert_to_stmt_chain): Remove.
+	(simplify_stmt, simplify_for_stmt, simplify_while_stmt, 
+	simplify_do_stmt, simplify_expr_wfl, tail_expression): Adjust.
+
 2002-07-17  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-ecr.c: New file. Equivalence Class Representation.
