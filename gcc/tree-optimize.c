@@ -51,6 +51,7 @@ optimize_tree (t)
     {
       tree_find_varrefs ();
       tree_build_ssa ();
+      tree_compute_rdefs ();
     }
 
   /* Flush out DFA and SSA data.  */

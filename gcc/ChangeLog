@@ -1,5 +1,10 @@
 2001-09-30  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-optimize.c (optimize_tree): Compute reaching definitions
+	after building SSA.
+
+2001-09-30  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-cfg.c (insert_after_ctrl_stmt): Remove unused argument.
 	(make_blocks): Pop top element from scope binding stack when an end
 	of scope statement is found.
