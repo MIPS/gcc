@@ -428,6 +428,7 @@ estimate_probability (loops_info)
       int exits;
       struct loop *loop = loops_info->parray[i];
       struct loop_desc desc;
+      unsigned HOST_WIDE_INT niter;
 
       flow_loop_scan (loops_info, loop, LOOP_EXIT_EDGES);
       exits = loop->num_exits;
@@ -435,10 +436,14 @@ estimate_probability (loops_info)
       if (simple_loop_p (loops_info, loop, &desc)
 	  && desc.const_iter)
 	{
+	  niter = desc.niter + 1;
+	  if (niter == 0)        /* We might overflow here.  */
+	    niter = desc.niter;
+
 	  predict_edge (desc.in_edge, PRED_CFG_LOOP_ITERATIONS,
 			REG_BR_PROB_BASE
-			- (REG_BR_PROB_BASE + (desc.niter + 1) /2)
-			/ (desc.niter + 1));
+			- (REG_BR_PROB_BASE + niter /2)
+			/ niter);
 	}
 
       bbs = get_loop_body (loop);
