@@ -1,3 +1,67 @@
+2002-10-02  Andreas Jaeger  <aj@suse.de>
+ 
+	* src/x86/ffi64.c (ffi_prep_cif_machdep): Remove debug output.
+
+2002-10-01  Bo Thorsen  <bo@smetana.suse.de>
+
+	* include/ffi.h.in: Fix i386 win32 compilation.
+
+2002-09-30  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.in: Add s390x-*-linux-* target.
+	* configure: Regenerate.
+	* include/ffi.h.in: Define S390X for s390x targets.
+	(FFI_CLOSURES): Define for s390/s390x.
+	(FFI_TRAMPOLINE_SIZE): Likewise.
+	(FFI_NATIVE_RAW_API): Likewise.
+	* src/prep_cif.c (ffi_prep_cif): Do not compute stack space for s390.
+	* src/types.c (FFI_TYPE_POINTER): Use 8-byte pointers on s390x.
+	* src/s390/ffi.c: Major rework of existing code.  Add support for 
+	s390x targets.  Add closure support.
+	* src/s390/sysv.S: Likewise.
+
+2002-09-27  Bo Thorsen  <bo@suse.de>
+
+	* include/ffi.h.in: Fix multilib x86-64 support.
+
+2002-09-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.am (all-multi): Fix multilib parallel build.
+
+2002-07-16  Bo Thorsen  <bo@suse.de>
+
+	* src/x86/ffi64.c: New file that adds x86-64 support.
+	* src/x86/unix64.S: New file that handles argument setup for
+	x86-64.
+	* src/x86/sysv.S: Don't use this on x86-64.
+	* src/x86/ffi.c: Don't use this on x86-64.
+	Remove unused vars.
+	* src/prep_cif.c (ffi_prep_cif): Don't do stack size calculation
+	for x86-64.
+	* src/ffitest.c (struct6): New test that tests a special case in
+	the x86-64 ABI.
+	(struct7): Likewise.
+	(struct8): Likewise.
+	(struct9): Likewise.
+	(closure_test_fn): Silence warning about this when it's not used.
+	(main): Add the new tests.
+	(main): Fix a couple of wrong casts and silence some compiler warnings.
+	* include/ffi.h.in: Add x86-64 ABI definition.
+	* fficonfig.h.in: Regenerate.
+	* Makefile.am: Add x86-64 support.
+	* configure.in: Likewise.
+	* Makefile.in: Regenerate.
+	* configure: Likewise.
+
+2002-06-24  Bo Thorsen  <bo@suse.de>
+
+	* src/types.c: Merge settings for similar architectures.
+	Add x86-64 sizes and alignments.
+ 
+2002-06-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* src/s390/sysv.S: Save/restore %r6.  Add DWARF-2 unwind info.
+
 2002-04-29  Gerhard Tonn  <GerhardTonn@swol.de>
 
 	* Makefile.am: Add Linux for S/390 support.

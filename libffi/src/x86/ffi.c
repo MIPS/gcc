@@ -23,6 +23,8 @@
    OTHER DEALINGS IN THE SOFTWARE.
    ----------------------------------------------------------------------- */
 
+#ifndef __x86_64__
+
 #include <ffi.h>
 #include <ffi_common.h>
 
@@ -490,3 +492,5 @@ ffi_raw_call(/*@dependent@*/ ffi_cif *cif,
 }
 
 #endif
+
+#endif /* __x86_64__  */
