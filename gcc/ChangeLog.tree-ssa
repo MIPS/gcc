@@ -1,3 +1,8 @@
+2003-08-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (stmt_starts_bb_p): Nonlocal and computed GOTO targets
+	always start a new block.
+
 2003-08-20  Jason Merrill  <jason@redhat.com>
 
 	* tree-pretty-print.c (dump_generic_node): Just print "<retval>"

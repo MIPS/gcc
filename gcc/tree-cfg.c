@@ -3261,6 +3261,12 @@ stmt_starts_bb_p (tree t, tree prev_t)
   code = TREE_CODE (t);
   if (code == LABEL_EXPR || code == CASE_LABEL_EXPR)
     {
+      /* Nonlocal and computed GOTO targets always start a new block.  */
+      if (code == LABEL_EXPR
+	  && (NONLOCAL_LABEL (LABEL_EXPR_LABEL (t))
+	      || FORCED_LABEL (LABEL_EXPR_LABEL (t))))
+	return true;
+
       if (prev_t && TREE_CODE (prev_t) == code)
 	{
 	  if (code == LABEL_EXPR)
