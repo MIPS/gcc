@@ -184,6 +184,8 @@ static int dump_range			PARAMS ((void **, void *));
 static void dump_all_ranges		PARAMS ((FILE *, htab_t));
 void debug_range			PARAMS ((range_t *));
 void debug_all_ranges			PARAMS ((htab_t));
+static void dump_operation_list		PARAMS ((FILE *, basic_block));
+void debug_operation_list		PARAMS ((basic_block));
 
 /* Hash function for register R.  */
 #define HASH_REG(R) (REGNO (R))
@@ -666,6 +668,11 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
 					 HASH_REG (op0), NO_INSERT);
       if (slot0e)
 	r0e = *slot0e;
+
+      /* If the type of one range is not signed int we do not know how
+	 to shorten ranges so we leave them as they are.  */
+      if (r0t && (r0t->type & RANGE_SIGNED_INT) == 0)
+	return;
     }
   if (GET_CODE (op1) == REG)
     {
@@ -682,6 +689,11 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
 					 HASH_REG (op1), NO_INSERT);
       if (slot1e)
 	r1e = *slot1e;
+
+      /* If the type of one range is not signed int we do not know how
+	 to shorten ranges so we leave them as they are.  */
+      if (r1t && (r1t->type & RANGE_SIGNED_INT) == 0)
+	return;
     }
 
   if (GET_CODE (op0) == CONST_INT)
@@ -713,12 +725,13 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
   if (!r0t && !r1t)
     return;
 
-  /* If the type of one range is not signed int we do not know how
-     to shorten ranges so we leave them as they are.  */
-  if (r0t && (r0t->type & RANGE_SIGNED_INT) == 0)
-    return;
-
-  if (r1t && (r1t->type & RANGE_SIGNED_INT) == 0)
+  /* If both operands are registers we may shorten their ranges by changing
+     the bounds by 1 in some situations (PR 11559).
+     So when both ranges are large (here: not empty or constant) do not shorten
+     the ranges to avoid consuming too much time.  */
+  if (GET_CODE (op0) == REG && GET_CODE (op1) == REG
+      && (!r0t || r0t->from.si < r0t->to.si)
+      && (!r1t || r1t->from.si < r1t->to.si))
     return;
 
   if (r0t)
@@ -898,6 +911,11 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
 					 HASH_REG (op0), NO_INSERT);
       if (slot0e)
 	r0e = *slot0e;
+
+      /* If the type of one range is not unsigned int we do not know how
+	 to shorten ranges so we leave them as they are.  */
+      if (r0t && (r0t->type & RANGE_UNSIGNED_INT) == 0)
+	return;
     }
   if (GET_CODE (op1) == REG)
     {
@@ -912,6 +930,11 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
 					 HASH_REG (op1), NO_INSERT);
       if (slot1e)
 	r1e = *slot1e;
+
+      /* If the type of one range is not unsigned int we do not know how
+	 to shorten ranges so we leave them as they are.  */
+      if (r1t && (r1t->type & RANGE_UNSIGNED_INT) == 0)
+	return;
     }
 
   if (GET_CODE (op0) == CONST_INT)
@@ -943,12 +966,13 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
   if (!r0t && !r1t)
     return;
 
-  /* If the type of one range is not unsigned int we do not know how
-     to shorten ranges so we leave them as they are.  */
-  if (r0t && (r0t->type & RANGE_UNSIGNED_INT) == 0)
-    return;
-
-  if (r1t && (r1t->type & RANGE_UNSIGNED_INT) == 0)
+  /* If both operands are registers we may shorten their ranges by changing
+     the bounds by 1 in some situations (PR 11559).
+     So when both ranges are large (here: not empty or constant) do not shorten
+     the ranges to avoid consuming too much time.  */
+  if (GET_CODE (op0) == REG && GET_CODE (op1) == REG
+      && (!r0t || r0t->from.ui < r0t->to.ui)
+      && (!r1t || r1t->from.ui < r1t->to.ui))
     return;
 
   if (r0t)
@@ -1678,11 +1702,60 @@ debug_range (r)
   dump_range (&x, stderr);
 }
 
+/* Print all ranges in table HTAB to STDERR.  */
+
 void
 debug_all_ranges (htab)
      htab_t htab;
 {
   dump_all_ranges (stderr, htab);
+}
+
+/* Print the operations in basic block BB to file FILE.  */
+
+static void
+dump_operation_list (file, bb)
+     FILE *file;
+     basic_block bb;
+{
+  operation l;
+
+  for (l = BBI (bb)->operation_list; l; l = l->next)
+    {
+      switch (l->type)
+	{
+	  case CONST_INT_TO_REG:
+	    fprintf (file, "REG %d <- ", REGNO (l->dst));
+	    fprintf (file, HOST_WIDE_INT_PRINT_UNSIGNED, INTVAL (l->src));
+	    fprintf (file, "\n");
+	    break;
+
+	  case REG_TO_REG:
+	    fprintf (file, "REG %d <- REG %d\n", REGNO (l->dst),
+		     REGNO (l->src));
+	    break;
+
+	  case UNKNOWN_TO_REG:
+	    fprintf (file, "REG %d <- UNKNOWN\n", REGNO (l->dst));
+	    break;
+
+	  case CLOBBER_CALL_USED_REGS:
+	    fprintf (file, "CALL\n");
+	    break;
+
+	  default:
+	    abort ();
+	}
+    }
+}
+
+/* Print the operations in basic block BB to STDERR.  */
+
+void
+debug_operation_list (bb)
+     basic_block bb;
+{
+  dump_operation_list (stderr, bb);
 }
 
 /* Compute the value ranges and remove unreachable edges.

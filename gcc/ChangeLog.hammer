@@ -1,3 +1,13 @@
+2003-07-17  Josef Zlomek  <zlomekj@suse.cz>
+
+	PR/11559:
+	* vrp.c (process_ranges_lt): If both operands are registers and their
+	ranges are not constant or empty do not shorten the ranges.
+	Minor speedup.
+	(process_ranges_ltu): Likewise.
+	(dump_operation_list): New function.
+	(debug_operation_list): New function.
+
 2003-07-14  Andreas Jaeger  <aj@suse.de>
 	Merge from mainline:
 
