@@ -1,3 +1,12 @@
+2004-12-06  Mike Stump  <mrs@apple.com>
+
+	Radar 3891870
+	* more-hdrs/machine/limits.h: Instead of fixincluding files we own,
+	just fix it.
+	* build_gcc (more-hdrs): Fix up nested header support.
+	* fixincludes/fixinc.in: Add apple local markers, avoid 64bit hack
+	when possible.
+
 2004-11-27  Stan Shebs  <shebs@apple.com>
 
 	libstdc++-v3/configure.ac: Always treat Darwin 8.x targets as if they
