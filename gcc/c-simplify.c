@@ -764,9 +764,12 @@ gimplify_do_stmt (tree *stmt_p)
 static enum gimplify_status
 gimplify_if_stmt (tree *stmt_p)
 {
-  tree stmt = *stmt_p;
-  tree then_ = THEN_CLAUSE (stmt);
-  tree else_ = ELSE_CLAUSE (stmt);
+  tree stmt, then_, else_;
+
+  stmt = *stmt_p;
+ restart:
+  then_ = THEN_CLAUSE (stmt);
+  else_ = ELSE_CLAUSE (stmt);
 
   if (!then_)
     then_ = build_empty_stmt ();
@@ -775,8 +778,19 @@ gimplify_if_stmt (tree *stmt_p)
 
   stmt = build (COND_EXPR, void_type_node, IF_COND (stmt), then_, else_);
   gimplify_condition (& TREE_OPERAND (stmt, 0));
-
   *stmt_p = stmt;
+
+  /* Handle properly nested if-else chains via iteration instead of
+     mutual recursion between gimplify.c and c-simplify.c.  */
+  annotate_with_locus (stmt, input_location);
+  if (TREE_CODE (else_) == IF_STMT && !TREE_CHAIN (else_))
+    {
+      stmt_p = &COND_EXPR_ELSE (stmt);
+      stmt = else_;
+      prep_stmt (stmt);
+      goto restart;
+    }
+
   return GS_OK;
 }
 
