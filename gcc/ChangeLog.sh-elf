@@ -1,3 +1,8 @@
+2004-06-21  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* cfglayout.c (fixup_reorder_chain): Don't do anything for
+	e_fall->dest == EXIT_BLOCK_PTR.
+
 2004-06-17  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* config.gcc: Properly set sh_multilibs for sh64*.  Merge
