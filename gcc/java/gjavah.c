@@ -146,6 +146,7 @@ static void help PARAMS ((void)) ATTRIBUTE_NORETURN;
 static void version PARAMS ((void)) ATTRIBUTE_NORETURN;
 static int overloaded_jni_method_exists_p PARAMS ((const unsigned char *, int,
 						   const char *, int));
+static void jni_print_char PARAMS ((FILE *, int));
 
 JCF_u2 current_field_name;
 JCF_u2 current_field_value;
@@ -203,7 +204,7 @@ static int decompiled = 0;
 
 /* Some useful constants.  */
 #define F_NAN_MASK 0x7f800000
-#if (1 == HOST_FLOAT_WORDS_BIG_ENDIAN)
+#if (1 == HOST_FLOAT_WORDS_BIG_ENDIAN) && ! defined (HOST_WORDS_BIG_ENDIAN)
 #define D_NAN_MASK 0x000000007ff00000LL
 #else
 #define D_NAN_MASK 0x7ff0000000000000LL

@@ -342,7 +342,7 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 	  if (nlabel != JUMP_LABEL (insn))
 	    changed |= redirect_jump (insn, nlabel);
 
-	  if (! optimize || ! minimal)
+	  if (! optimize || minimal)
 	    continue;
 
 	  /* If a dispatch table always goes to the same place,
@@ -2265,6 +2265,15 @@ mark_all_labels (f, cross_jump)
   for (insn = f; insn; insn = NEXT_INSN (insn))
     if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
       {
+	if (GET_CODE (insn) == CALL_INSN
+	    && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
+	  {
+	    mark_all_labels (XEXP (PATTERN (insn), 0), cross_jump);
+	    mark_all_labels (XEXP (PATTERN (insn), 1), cross_jump);
+	    mark_all_labels (XEXP (PATTERN (insn), 2), cross_jump);
+	    continue;
+	  }
+	
 	mark_jump_label (PATTERN (insn), insn, cross_jump, 0);
 	if (! INSN_DELETED_P (insn) && GET_CODE (insn) == JUMP_INSN)
 	  {
@@ -4998,7 +5007,8 @@ mark_modified_reg (dest, x, data)
      rtx x ATTRIBUTE_UNUSED;
      void *data ATTRIBUTE_UNUSED;
 {
-  int regno, i;
+  int regno;
+  unsigned int i;
 
   if (GET_CODE (dest) == SUBREG)
     dest = SUBREG_REG (dest);
@@ -5286,7 +5296,7 @@ rtx_equal_for_thread_p (x, y, yinsn)
 	  return 1;
 	}
       else
-	return (same_regs[REGNO (x)] == REGNO (y));
+	return (same_regs[REGNO (x)] == (int) REGNO (y));
 
       break;
 
@@ -5310,7 +5320,7 @@ rtx_equal_for_thread_p (x, y, yinsn)
       if (GET_CODE (SET_DEST (x)) == REG
           && GET_CODE (SET_DEST (y)) == REG)
 	{
-          if (same_regs[REGNO (SET_DEST (x))] == REGNO (SET_DEST (y)))
+          if (same_regs[REGNO (SET_DEST (x))] == (int) REGNO (SET_DEST (y)))
 	    {
 	      same_regs[REGNO (SET_DEST (x))] = -1;
 	      num_same_regs--;

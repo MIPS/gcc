@@ -539,6 +539,7 @@ mark_goto_fixup (g)
 {
   while (g)
     {
+      ggc_mark (g);
       ggc_mark_rtx (g->before_jump);
       ggc_mark_tree (g->target);
       ggc_mark_tree (g->context);
@@ -1002,7 +1003,7 @@ expand_fixup (tree_label, rtl_label, last_insn)
     {
       /* Ok, a fixup is needed.  Add a fixup to the list of such.  */
       struct goto_fixup *fixup
-	= (struct goto_fixup *) oballoc (sizeof (struct goto_fixup));
+	= (struct goto_fixup *) ggc_alloc_obj (sizeof (struct goto_fixup), 0);
       /* In case an old stack level is restored, make sure that comes
 	 after any pending stack adjust.  */
       /* ?? If the fixup isn't to come at the present position,
@@ -2618,7 +2619,10 @@ expand_exit_loop_if_false (whichloop, cond)
 int
 stmt_loop_nest_empty ()
 {
-  return (loop_stack == NULL);
+  /* cfun->stmt can be NULL if we are building a call to get the
+     EH context for a setjmp/longjmp EH target and the current
+     function was a deferred inline function.  */
+  return (cfun->stmt == NULL || loop_stack == NULL);
 }
 
 /* Return non-zero if we should preserve sub-expressions as separate
@@ -2722,7 +2726,7 @@ expand_value_return (val)
 #endif
       if (GET_CODE (return_reg) == PARALLEL)
 	emit_group_load (return_reg, val, int_size_in_bytes (type),
-			 TYPE_ALIGN (type) / BITS_PER_UNIT);
+			 TYPE_ALIGN (type));
       else
 	emit_move_insn (return_reg, val);
     }
@@ -2872,7 +2876,14 @@ expand_return (retval)
     }
 
   /* Attempt to optimize the call if it is tail recursive.  */
-  if (optimize_tail_recursion (retval_rhs, last_insn))
+  if (flag_optimize_sibling_calls
+      && retval_rhs != NULL_TREE
+      && frame_offset == 0
+      && TREE_CODE (retval_rhs) == CALL_EXPR
+      && TREE_CODE (TREE_OPERAND (retval_rhs, 0)) == ADDR_EXPR
+      && (TREE_OPERAND (TREE_OPERAND (retval_rhs, 0), 0)
+	  == current_function_decl)
+      && optimize_tail_recursion (TREE_OPERAND (retval_rhs, 1), last_insn))
     return;
 
 #ifdef HAVE_return
@@ -2952,12 +2963,14 @@ expand_return (retval)
       && TYPE_MODE (TREE_TYPE (retval_rhs)) == BLKmode
       && GET_CODE (result_rtl) == REG)
     {
-      int i, bitpos, xbitpos;
-      int big_endian_correction = 0;
-      int bytes = int_size_in_bytes (TREE_TYPE (retval_rhs));
+      int i;
+      unsigned HOST_WIDE_INT bitpos, xbitpos;
+      unsigned HOST_WIDE_INT big_endian_correction = 0;
+      unsigned HOST_WIDE_INT bytes
+	= int_size_in_bytes (TREE_TYPE (retval_rhs));
       int n_regs = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
-      int bitsize = MIN (TYPE_ALIGN (TREE_TYPE (retval_rhs)),
-			 (unsigned int)BITS_PER_WORD);
+      unsigned int bitsize
+	= MIN (TYPE_ALIGN (TREE_TYPE (retval_rhs)), BITS_PER_WORD);
       rtx *result_pseudos = (rtx *) alloca (sizeof (rtx) * n_regs);
       rtx result_reg, src = NULL_RTX, dst = NULL_RTX;
       rtx result_val = expand_expr (retval_rhs, NULL_RTX, VOIDmode, 0);
@@ -3002,11 +3015,9 @@ expand_return (retval)
 	  store_bit_field (dst, bitsize, xbitpos % BITS_PER_WORD, word_mode,
 			   extract_bit_field (src, bitsize,
 					      bitpos % BITS_PER_WORD, 1,
-					      NULL_RTX, word_mode,
-					      word_mode,
-					      bitsize / BITS_PER_UNIT,
-					      BITS_PER_WORD),
-			   bitsize / BITS_PER_UNIT, BITS_PER_WORD);
+					      NULL_RTX, word_mode, word_mode,
+					      bitsize, BITS_PER_WORD),
+			   bitsize, BITS_PER_WORD);
 	}
 
       /* Find the smallest integer mode large enough to hold the
@@ -3082,33 +3093,20 @@ drop_through_at_end_p ()
   return insn && GET_CODE (insn) != BARRIER;
 }
 
-/* Test CALL_EXPR to determine if it is a potential tail recursion call
-   and emit code to optimize the tail recursion.  LAST_INSN indicates where
-   to place the jump to the tail recursion label.  Return TRUE if the
-   call was optimized into a goto.
-
-   This is only used by expand_return, but expand_call is expected to
-   use it soon.  */
+/* Attempt to optimize a potential tail recursion call into a goto.
+   ARGUMENTS are the arguments to a CALL_EXPR; LAST_INSN indicates
+   where to place the jump to the tail recursion label. 
+   
+   Return TRUE if the call was optimized into a goto.  */
 
 int
-optimize_tail_recursion (call_expr, last_insn)
-     tree call_expr;
+optimize_tail_recursion (arguments, last_insn)
+     tree arguments;
      rtx last_insn;
 {
-  /* For tail-recursive call to current function,
-     just jump back to the beginning.
-     It's unsafe if any auto variable in this function
-     has its address taken; for simplicity,
-     require stack frame to be empty.  */
-  if (optimize && call_expr != 0
-      && frame_offset == 0
-      && TREE_CODE (call_expr) == CALL_EXPR
-      && TREE_CODE (TREE_OPERAND (call_expr, 0)) == ADDR_EXPR
-      && TREE_OPERAND (TREE_OPERAND (call_expr, 0), 0) == current_function_decl
-      /* Finish checking validity, and if valid emit code
-	 to set the argument variables for the new call.  */
-      && tail_recursion_args (TREE_OPERAND (call_expr, 1),
-			      DECL_ARGUMENTS (current_function_decl)))
+  /* Finish checking validity, and if valid emit code to set the
+     argument variables for the new call.  */
+  if (tail_recursion_args (arguments, DECL_ARGUMENTS (current_function_decl)))
     {
       if (tail_recursion_label == 0)
 	{
@@ -3121,7 +3119,6 @@ optimize_tail_recursion (call_expr, last_insn)
       emit_barrier ();
       return 1;
     }
-
   return 0;
 }
 
@@ -3795,8 +3792,8 @@ expand_decl (decl)
 
       if (POINTER_TYPE_P (type))
 	mark_reg_pointer (DECL_RTL (decl),
-			  (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl)))
-			   / BITS_PER_UNIT));
+			  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
+			  
     }
 
   else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST
@@ -4905,8 +4902,8 @@ add_case_node (low, high, label, duplicate)
 
 
 /* Returns the number of possible values of TYPE.
-   Returns -1 if the number is unknown or variable.
-   Returns -2 if the number does not fit in a HOST_WIDE_INT.
+   Returns -1 if the number is unknown, variable, or if the number does not
+   fit in a HOST_WIDE_INT.
    Sets *SPARENESS to 2 if TYPE is an ENUMERAL_TYPE whose values
    do not increase monotonically (there may be duplicates);
    to 1 if the values increase monotonically, but not always by 1;
@@ -4917,72 +4914,59 @@ all_cases_count (type, spareness)
      tree type;
      int *spareness;
 {
-  HOST_WIDE_INT count;
+  tree t;
+  HOST_WIDE_INT count, minval, lastval;
+
   *spareness = 0;
 
   switch (TREE_CODE (type))
     {
-      tree t;
     case BOOLEAN_TYPE:
       count = 2;
       break;
+
     case CHAR_TYPE:
       count = 1 << BITS_PER_UNIT;
       break;
+
     default:
     case INTEGER_TYPE:
-      if (TREE_CODE (TYPE_MIN_VALUE (type)) != INTEGER_CST
-	  || TYPE_MAX_VALUE (type) == NULL
-	  || TREE_CODE (TYPE_MAX_VALUE (type)) != INTEGER_CST)
-	return -1;
+      if (TYPE_MAX_VALUE (type) != 0
+	  && 0 != (t = fold (build (MINUS_EXPR, type, TYPE_MAX_VALUE (type),
+				    TYPE_MIN_VALUE (type))))
+	  && 0 != (t = fold (build (PLUS_EXPR, type, t,
+				    convert (type, integer_zero_node))))
+	  && host_integerp (t, 1))
+	count = tree_low_cst (t, 1);
       else
-	{
-	  /* count
-	     = TREE_INT_CST_LOW (TYPE_MAX_VALUE (type))
-	     - TREE_INT_CST_LOW (TYPE_MIN_VALUE (type)) + 1
-	     but with overflow checking.  */
-	  tree mint = TYPE_MIN_VALUE (type);
-	  tree maxt = TYPE_MAX_VALUE (type);
-	  HOST_WIDE_INT lo, hi;
-	  neg_double(TREE_INT_CST_LOW (mint), TREE_INT_CST_HIGH (mint),
-		     &lo, &hi);
-	  add_double(TREE_INT_CST_LOW (maxt), TREE_INT_CST_HIGH (maxt),
-		     lo, hi, &lo, &hi);
-	  add_double (lo, hi, 1, 0, &lo, &hi);
-	  if (hi != 0 || lo < 0)
-	    return -2;
-	  count = lo;
-	}
+	return -1;
       break;
+
     case ENUMERAL_TYPE:
+      /* Don't waste time with enumeral types with huge values.  */
+      if (! host_integerp (TYPE_MIN_VALUE (type), 0)
+	  || TYPE_MAX_VALUE (type) == 0
+	  || ! host_integerp (TYPE_MAX_VALUE (type), 0))
+	return -1;
+
+      lastval = minval = tree_low_cst (TYPE_MIN_VALUE (type), 0);
       count = 0;
+
       for (t = TYPE_VALUES (type); t != NULL_TREE; t = TREE_CHAIN (t))
 	{
-	  if (TREE_CODE (TYPE_MIN_VALUE (type)) != INTEGER_CST
-	      || TREE_CODE (TREE_VALUE (t)) != INTEGER_CST
-	      || (TREE_INT_CST_LOW (TYPE_MIN_VALUE (type)) + count
-		  != TREE_INT_CST_LOW (TREE_VALUE (t))))
+	  HOST_WIDE_INT thisval = tree_low_cst (TREE_VALUE (t), 0);
+
+	  if (*spareness == 2 || thisval < lastval)
+	    *spareness = 2;
+	  else if (thisval != minval + count)
 	    *spareness = 1;
+
 	  count++;
 	}
-      if (*spareness == 1)
-	{
-	  tree prev = TREE_VALUE (TYPE_VALUES (type));
-	  for (t = TYPE_VALUES (type); t = TREE_CHAIN (t), t != NULL_TREE; )
-	    {
-	      if (! tree_int_cst_lt (prev, TREE_VALUE (t)))
-		{
-		  *spareness = 2;
-		  break;
-		}
-	      prev = TREE_VALUE (t);
-	    }
-	  
-	}
     }
+
   return count;
 }
-
 
 #define BITARRAY_TEST(ARRAY, INDEX) \
   ((ARRAY)[(unsigned) (INDEX) / HOST_BITS_PER_CHAR]\
@@ -5003,21 +4987,22 @@ void
 mark_seen_cases (type, cases_seen, count, sparseness)
      tree type;
      unsigned char *cases_seen;
-     long count;
+     HOST_WIDE_INT count;
      int sparseness;
 {
   tree next_node_to_try = NULL_TREE;
-  long next_node_offset = 0;
+  HOST_WIDE_INT next_node_offset = 0;
 
   register struct case_node *n, *root = case_stack->data.case_stmt.case_list;
   tree val = make_node (INTEGER_CST);
+
   TREE_TYPE (val) = type;
   if (! root)
     ; /* Do nothing */
   else if (sparseness == 2)
     {
       tree t;
-      HOST_WIDE_INT xlo;
+      unsigned HOST_WIDE_INT xlo;
 
       /* This less efficient loop is only needed to handle
 	 duplicate case values (multiple enum constants
@@ -5053,6 +5038,7 @@ mark_seen_cases (type, cases_seen, count, sparseness)
     {
       if (root->left)
 	case_stack->data.case_stmt.case_list = root = case_tree2list (root, 0);
+
       for (n = root; n; n = n->right)
 	{
 	  TREE_INT_CST_LOW (val) = TREE_INT_CST_LOW (n->low);
@@ -5063,8 +5049,10 @@ mark_seen_cases (type, cases_seen, count, sparseness)
 		 The element with lowest value has offset 0, the next smallest
 		 element has offset 1, etc.  */
 
-	      HOST_WIDE_INT xlo, xhi;
+	      unsigned HOST_WIDE_INT xlo;
+	      HOST_WIDE_INT xhi;
 	      tree t;
+
 	      if (sparseness && TYPE_VALUES (type) != NULL_TREE)
 		{
 		  /* The TYPE_VALUES will be in increasing order, so
@@ -5107,8 +5095,9 @@ mark_seen_cases (type, cases_seen, count, sparseness)
 			      &xlo, &xhi);
 		}
 	      
-	      if (xhi == 0 && xlo >= 0 && xlo < count)
+	      if (xhi == 0 && xlo < (unsigned HOST_WIDE_INT) count)
 		BITARRAY_SET (cases_seen, xlo);
+
 	      add_double (TREE_INT_CST_LOW (val), TREE_INT_CST_HIGH (val),
 			  1, 0,
 			  &TREE_INT_CST_LOW (val), &TREE_INT_CST_HIGH (val));
@@ -5150,7 +5139,7 @@ check_for_full_enumeration_handling (type)
   unsigned char *cases_seen;
 
   /* The allocated size of cases_seen, in chars.  */
-  long bytes_needed;
+  HOST_WIDE_INT bytes_needed;
 
   if (! warn_switch)
     return;
@@ -5164,7 +5153,7 @@ check_for_full_enumeration_handling (type)
 	 aborting, as xmalloc would do.  */
       && (cases_seen = (unsigned char *) calloc (bytes_needed, 1)) != NULL)
     {
-      long i;
+      HOST_WIDE_INT i;
       tree v = TYPE_VALUES (type);
 
       /* The time complexity of this code is normally O(N), where
@@ -5174,12 +5163,10 @@ check_for_full_enumeration_handling (type)
 
       mark_seen_cases (type, cases_seen, size, sparseness);
 
-      for (i = 0;  v != NULL_TREE && i < size; i++, v = TREE_CHAIN (v))
-	{
-	  if (BITARRAY_TEST(cases_seen, i) == 0)
-	    warning ("enumeration value `%s' not handled in switch",
-		     IDENTIFIER_POINTER (TREE_PURPOSE (v)));
-	}
+      for (i = 0; v != NULL_TREE && i < size; i++, v = TREE_CHAIN (v))
+	if (BITARRAY_TEST(cases_seen, i) == 0)
+	  warning ("enumeration value `%s' not handled in switch",
+		   IDENTIFIER_POINTER (TREE_PURPOSE (v)));
 
       free (cases_seen);
     }

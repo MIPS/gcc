@@ -1,3 +1,78 @@
+2000-04-08  Neil Booth  <NeilB@earthling.net>
+	
+	* gcc.dg/cpp-nullchar.c: Remove test as
+	embedded nulls cause problems.
+
+2000-04-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/compare2.c: New test.
+
+2000-04-08  Neil Booth  <NeilB@earthling.net>
+	
+	* gcc.dg/cpp-nullchar.c: New test.
+
+2000-04-07  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp-mi2.c: New test.
+	* gcc.dg/cpp-mi2[abc].h: New files.
+
+2000-04-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.abi/vmihint.C: Adjust __vmi_class_type_info
+	member name.
+
+2000-04-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.abi/vmihint.C: New test.
+
+2000-04-06  Neil Booth  <NeilB@earthling.net>
+
+	* cpp-ifparen.c, cpp-missingop.c, cpp-missingparen.c,
+	cpp-shift.c, cpp-shortcircuit.c, cpp-unary.c:  Add FSF
+	copyright.	  
+
+2000-04-04  Geoff Keating  <geoffk@cygnus.com>
+
+	* gcc.dg/cast-qual-1.c: Revert last change.
+
+2000-04-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/cast-qual-1.c: Check casts through a pointer typedef.
+
+2000-04-03  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp-redef-2.c, gcc.dg/cpp-tradwarn1.c,
+	gcc.dg/cpp-unc.c: Add -fno-show-column to compiler options.
+
+Mon Apr  3 02:35:34 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/20000403-2.c: New test.
+	* gcc.c-torture/compile/20000403-1.c: New test.
+
+2000-04-02  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.c-torture/compile/981211-1.c: Move to...
+	* gcc.dg/cpp-as1.c: ...here.
+	* gcc.dg/cpp-as2.c: New file.
+
+	* gcc.dg/cpp-tradwarn1.c: Change warning regexps to match the
+	compiler.
+
+2000-04-02  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp-cond.c  New tests.
+	* gcc.dg/cpp-ifparen.c New tests.  Amend existing tests to make
+	accidental success less likely.
+	* gcc.dg/cpp-missingop.c  New tests.
+	* gcc.dg/cpp-missingparen.c  New tests.
+	* gcc.dg/cpp-shift.c  New tests.
+	* gcc.dg/cpp-shortcircuit.c  New tests.
+	* gcc.dg/cpp-unary.c  New tests.
+
+Wed Mar 29 13:44:23 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/compile/20000329-1.c: New test.
+
 2000-03-23  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.old-deja/g++.ext/array4.C: New test.

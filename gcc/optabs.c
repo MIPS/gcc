@@ -829,7 +829,7 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
       && GET_MODE_SIZE (mode) > UNITS_PER_WORD
       && binoptab->handlers[(int) word_mode].insn_code != CODE_FOR_nothing)
     {
-      int i;
+      unsigned int i;
       rtx insns;
       rtx equiv_value;
 
@@ -1120,10 +1120,10 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
       && GET_MODE_SIZE (mode) >= 2 * UNITS_PER_WORD
       && binoptab->handlers[(int) word_mode].insn_code != CODE_FOR_nothing)
     {
-      int i;
+      unsigned int i;
       rtx carry_tmp = gen_reg_rtx (word_mode);
       optab otheroptab = binoptab == add_optab ? sub_optab : add_optab;
-      int nwords = GET_MODE_BITSIZE (mode) / BITS_PER_WORD;
+      unsigned int nwords = GET_MODE_BITSIZE (mode) / BITS_PER_WORD;
       rtx carry_in = NULL_RTX, carry_out = NULL_RTX;
       rtx xop0, xop1;
 
@@ -2090,7 +2090,7 @@ expand_unop (mode, unoptab, op0, target, unsignedp)
       && GET_MODE_SIZE (mode) > UNITS_PER_WORD
       && unoptab->handlers[(int) word_mode].insn_code != CODE_FOR_nothing)
     {
-      int i;
+      unsigned int i;
       rtx insns;
 
       if (target == 0 || target == op0)
@@ -2699,7 +2699,16 @@ emit_no_conflict_block (insns, target, op0, op1, equiv)
 	set_unique_reg_note (last, REG_EQUAL, equiv);
     }
   else
-    last = get_last_insn ();
+    {
+      last = get_last_insn ();
+
+      /* Remove any existing REG_EQUAL note from "last", or else it will
+	 be mistaken for a note referring to the full contents of the
+	 alleged libcall value when found together with the REG_RETVAL
+	 note added below.  An existing note can come from an insn
+	 expansion at "last".  */
+      remove_note (last, find_reg_note (last, REG_EQUAL, NULL_RTX));
+    }
 
   if (prev == 0)
     first = get_insns ();
@@ -2810,6 +2819,15 @@ emit_libcall_block (insns, target, result, equiv)
   if (mov_optab->handlers[(int) GET_MODE (target)].insn_code
       != CODE_FOR_nothing)
     set_unique_reg_note (last, REG_EQUAL, copy_rtx (equiv));
+  else
+    {
+      /* Remove any existing REG_EQUAL note from "last", or else it will
+	 be mistaken for a note referring to the full contents of the
+	 libcall value when found together with the REG_RETVAL note added
+	 below.  An existing note can come from an insn expansion at
+	 "last".  */
+      remove_note (last, find_reg_note (last, REG_EQUAL, NULL_RTX));
+    }
 
   if (prev == 0)
     first = get_insns ();
@@ -2916,6 +2934,7 @@ prepare_cmp_insn (px, py, pcomparison, size, pmode, punsignedp, align,
   rtx x = *px, y = *py;
   int unsignedp = *punsignedp;
   enum mode_class class;
+  rtx opalign ATTRIBUTE_UNUSED = GEN_INT (align / BITS_PER_UNIT);;
 
   class = GET_MODE_CLASS (mode);
 
@@ -2932,10 +2951,12 @@ prepare_cmp_insn (px, py, pcomparison, size, pmode, punsignedp, align,
 
   /* If we are inside an appropriately-short loop and one operand is an
      expensive constant, force it into a register.  */
-  if (CONSTANT_P (x) && preserve_subexpressions_p () && rtx_cost (x, COMPARE) > 2)
+  if (CONSTANT_P (x) && preserve_subexpressions_p ()
+      && rtx_cost (x, COMPARE) > 2)
     x = force_reg (mode, x);
 
-  if (CONSTANT_P (y) && preserve_subexpressions_p () && rtx_cost (y, COMPARE) > 2)
+  if (CONSTANT_P (y) && preserve_subexpressions_p ()
+      && rtx_cost (y, COMPARE) > 2)
     y = force_reg (mode, y);
 
 #ifdef HAVE_cc0
@@ -2970,7 +2991,7 @@ prepare_cmp_insn (px, py, pcomparison, size, pmode, punsignedp, align,
 	{
 	  result_mode = insn_data[(int) CODE_FOR_cmpstrqi].operand[0].mode;
 	  result = gen_reg_rtx (result_mode);
-	  emit_insn (gen_cmpstrqi (result, x, y, size, GEN_INT (align)));
+	  emit_insn (gen_cmpstrqi (result, x, y, size, opalign));
 	}
       else
 #endif
@@ -2981,7 +3002,7 @@ prepare_cmp_insn (px, py, pcomparison, size, pmode, punsignedp, align,
 	{
 	  result_mode = insn_data[(int) CODE_FOR_cmpstrhi].operand[0].mode;
 	  result = gen_reg_rtx (result_mode);
-	  emit_insn (gen_cmpstrhi (result, x, y, size, GEN_INT (align)));
+	  emit_insn (gen_cmpstrhi (result, x, y, size, opalign));
 	}
       else
 #endif
@@ -2993,7 +3014,7 @@ prepare_cmp_insn (px, py, pcomparison, size, pmode, punsignedp, align,
 	  size = protect_from_queue (size, 0);
 	  emit_insn (gen_cmpstrsi (result, x, y,
 				   convert_to_mode (SImode, size, 1),
-				   GEN_INT (align)));
+				   opalign));
 	}
       else
 #endif
@@ -3190,7 +3211,7 @@ emit_cmp_and_jump_insns (x, y, comparison, size, mode, unsignedp, align, label)
      rtx size;
      enum machine_mode mode;
      int unsignedp;
-     int align;
+     unsigned int align;
      rtx label;
 {
   rtx op0;
@@ -3227,6 +3248,7 @@ emit_cmp_and_jump_insns (x, y, comparison, size, mode, unsignedp, align, label)
 }
 
 /* Like emit_cmp_and_jump_insns, but generate only the comparison.  */
+
 void
 emit_cmp_insn (x, y, comparison, size, mode, unsignedp, align)
      rtx x, y;
@@ -3234,7 +3256,7 @@ emit_cmp_insn (x, y, comparison, size, mode, unsignedp, align)
      rtx size;
      enum machine_mode mode;
      int unsignedp;
-     int align;
+     unsigned int align;
 {
   emit_cmp_and_jump_insns (x, y, comparison, size, mode, unsignedp, align, 0);
 }

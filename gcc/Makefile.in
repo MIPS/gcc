@@ -197,7 +197,9 @@ AR_FOR_TARGET = ` \
        t='$(program_transform_cross_name)'; echo ar | sed -e $$t ; \
     fi; \
   fi`
-AR_FLAGS_FOR_TARGET = rc
+AR_FLAGS_FOR_TARGET = 
+AR_CREATE_FOR_TARGET = $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) rc
+AR_EXTRACT_FOR_TARGET = $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) x
 RANLIB_FOR_TARGET = ` \
   if [ -f $(objdir)/../binutils/ranlib ] ; then \
     echo $(objdir)/../binutils/ranlib ; \
@@ -215,6 +217,10 @@ RANLIB_TEST_FOR_TARGET = \
 
 # Dir to search for system headers.  Overridden by cross-make.
 SYSTEM_HEADER_DIR = /usr/include
+
+# Where to find some libiberty headers.
+HASHTAB_H   = $(srcdir)/../include/hashtab.h
+OBSTACK_H   = $(srcdir)/../include/obstack.h
 
 # Default cross SYSTEM_HEADER_DIR, to be overridden by targets.
 CROSS_SYSTEM_HEADER_DIR = $(tooldir)/sys-include
@@ -613,6 +619,8 @@ LANG_EXTRA_HEADERS = @all_headers@
 # ??? The choices here will need some experimenting with.
 ORDINARY_FLAGS_TO_PASS = \
 	"AR_FLAGS_FOR_TARGET=$(AR_FLAGS_FOR_TARGET)" \
+	"AR_CREATE_FOR_TARGET=$(AR_CREATE_FOR_TARGET)" \
+	"AR_EXTRACT_FOR_TARGET=$(AR_EXTRACT_FOR_TARGET)" \
 	"AR_FOR_TARGET=$(AR_FOR_TARGET)" \
 	"BISON=$(BISON)" \
 	"BISONFLAGS=$(BISONFLAGS)" \
@@ -671,12 +679,12 @@ OBJS = diagnostic.o \
  dbxout.o sdbout.o dwarfout.o dwarf2out.o xcoffout.o bitmap.o alias.o gcse.o \
  integrate.o jump.o cse.o loop.o unroll.o flow.o combine.o varray.o \
  regclass.o regmove.o local-alloc.o global.o reload.o reload1.o caller-save.o \
- insn-peep.o reorg.o haifa-sched.o final.o recog.o reg-stack.o \
+ insn-peep.o reorg.o haifa-sched.o final.o recog.o reg-stack.o regrename.o \
  insn-opinit.o insn-recog.o insn-extract.o insn-output.o insn-emit.o lcm.o \
  profile.o insn-attrtab.o $(out_object_file) $(EXTRA_OBJS) convert.o \
  mbchar.o dyn-string.o splay-tree.o graph.o sbitmap.o resource.o hash.o \
  predict.o lists.o ggc-common.o $(GGC) simplify-rtx.o ssa.o bb-reorder.o \
- sibcall.o
+ sibcall.o conflict.o
 
 # GEN files are listed separately, so they can be built before doing parallel
 #  makes for cc1 or cc1plus.  Otherwise sequent parallel make attempts to load
@@ -692,7 +700,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  insn-attr.h insn-attrtab.c insn-opinit.c tree-check.h \
  s-flags s-config s-codes s-mlib s-unders s-genrtl \
  s-output s-recog s-emit s-extract s-peep s-check \
- s-attr s-attrtab s-opinit s-crt s-$(T)crtS s-crt0 \
+ s-attr s-attrtab s-opinit s-crt0 \
  genemit$(build_exeext) genoutput$(build_exeext) genrecog$(build_exeext) \
  genextract$(build_exeext) genflags$(build_exeext) gencodes$(build_exeext) \
  genconfig$(build_exeext) genpeep$(build_exeext) genattrtab$(build_exeext) \
@@ -703,11 +711,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  $(CCCP)$(exeext) cc1obj$(exeext) enquire$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
  specs collect2$(exeext) $(USE_COLLECT2) underscore.c \
- gcov$(exeext) *.bp \
- *.greg *.lreg *.combine *.flow *.cse *.jump *.rtl *.tree *.loop \
- *.dbr *.jump2 *.sched *.cse2 *.sched2 *.stack *.gcse *.flow2 *.peephole2 \
- *.ssa *.ussa \
- *.[si] libcpp.a \
+ gcov$(exeext) *.[0-9][0-9].* *.[si] libcpp.a \
  $(LANG_STAGESTUFF)
 
 # Members of libgcc1.a.
@@ -762,6 +766,7 @@ REGS_H = regs.h varray.h $(MACHMODE_H)
 INTEGRATE_H = integrate.h varray.h
 LOOP_H = loop.h varray.h basic-block.h
 GCC_H = gcc.h version.h
+GGC_H = ggc.h varray.h
 #
 # Language makefile fragments.
 
@@ -802,6 +807,9 @@ Makefile: $(srcdir)/Makefile.in config.status $(srcdir)/version.c \
 
 $(srcdir)/configure: $(srcdir)/configure.in
 	cd $(srcdir); autoconf
+
+gccbug:	$(srcdir)/gccbug.in
+	CONFIG_FILES=gccbug CONFIG_HEADERS= ./config.status 
 
 # cstamp-h.in controls rebuilding of config.in.
 # It is named cstamp-h.in and not stamp-h.in so the mostlyclean rule doesn't
@@ -936,7 +944,7 @@ libgcc1.conv: libgcc1.a
 libgcc1.null: $(GCC_PASSES)
 	echo "void __foo () {}" > dummy.c
 	$(GCC_FOR_TARGET) $(GCC_CFLAGS) -c dummy.c
-	$(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) libgcc1.null dummy$(objext)
+	$(AR_CREATE_FOR_TARGET) libgcc1.null dummy$(objext)
 	rm -f dummy$(objext) dummy.c
 
 # This is $(LIBGCC1) for a cross-compiler.
@@ -1021,7 +1029,7 @@ libgcc1-asm.a: libgcc2.ready config.status $(srcdir)/config/$(LIB1ASMSRC)
 	  $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) -c -DL$${name} libgcc1.S; \
 	  if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
 	  mv libgcc1$(objext) $${name}$(objext); \
-	  $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) tmplibgcc1.a $${name}$(objext); \
+	  $(AR_CREATE_FOR_TARGET) tmplibgcc1.a $${name}$(objext); \
 	  rm -f $${name}$(objext); \
 	done
 	-rm -f libgcc1.S
@@ -1073,7 +1081,7 @@ libgcc2.a: libgcc2.c libgcc2.ready $(CONFIG_H) $(FPBIT) $(DPBIT) $(LIB2ADD) \
 	  $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) -c -DL$${name} \
 	      $(MAYBE_USE_COLLECT2) $(srcdir)/libgcc2.c -o $${name}$(objext); \
 	  if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
-	  $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) tmplibgcc2.a $${name}$(objext); \
+	  $(AR_CREATE_FOR_TARGET) tmplibgcc2.a $${name}$(objext); \
 	  rm -f $${name}$(objext); \
 	done
 	for name in $(LIB2FUNCS_EH); \
@@ -1082,7 +1090,7 @@ libgcc2.a: libgcc2.c libgcc2.ready $(CONFIG_H) $(FPBIT) $(DPBIT) $(LIB2ADD) \
 	  $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) -fexceptions $(INCLUDES) -c \
 	      -DL$${name} $(srcdir)/libgcc2.c -o $${name}$(objext); \
 	  if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
-	  $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) tmplibgcc2.a $${name}$(objext); \
+	  $(AR_CREATE_FOR_TARGET) tmplibgcc2.a $${name}$(objext); \
 	  rm -f $${name}$(objext); \
 	done
 	if [ x$(FPBIT) != x ]; then \
@@ -1092,7 +1100,7 @@ libgcc2.a: libgcc2.c libgcc2.ready $(CONFIG_H) $(FPBIT) $(DPBIT) $(LIB2ADD) \
 	    $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) -c -DL$${name} \
 	        -DFINE_GRAINED_LIBRARIES $(FPBIT) -o $${name}$(objext); \
 	    if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
-	    $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) tmplibgcc2.a $${name}$(objext); \
+	    $(AR_CREATE_FOR_TARGET) tmplibgcc2.a $${name}$(objext); \
 	    rm -f $${name}$(objext); \
 	  done; \
 	else true; fi;
@@ -1103,7 +1111,7 @@ libgcc2.a: libgcc2.c libgcc2.ready $(CONFIG_H) $(FPBIT) $(DPBIT) $(LIB2ADD) \
 	    $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) -c -DL$${name} \
 	        -DFINE_GRAINED_LIBRARIES $(DPBIT) -o _dp$${name}$(objext); \
 	    if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
-	    $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) tmplibgcc2.a _dp$${name}$(objext); \
+	    $(AR_CREATE_FOR_TARGET) tmplibgcc2.a _dp$${name}$(objext); \
 	    rm -f _dp$${name}$(objext); \
 	  done; \
 	else true; fi;
@@ -1120,13 +1128,15 @@ libgcc2.a: libgcc2.c libgcc2.ready $(CONFIG_H) $(FPBIT) $(DPBIT) $(LIB2ADD) \
 	    for f in .. `cat $${file}`; do if [ x$${f} != x.. ]; then \
 	      $(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 		AR_FOR_TARGET="$(AR_FOR_TARGET)" \
+		AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
+		AR_EXTRACT_FOR_TARGET="$(AR_EXTRACT_FOR_TARGET)" \
 		AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" CC="$(CC)" \
 		CFLAGS="$(CFLAGS)" HOST_PREFIX="$(HOST_PREFIX)" \
 		HOST_PREFIX_1="$(HOST_PREFIX_1)" \
 		LANGUAGES="$(LANGUAGES)" \
 		LIBGCC2_CFLAGS="$(LIBGCC2_CFLAGS)" $${f}; \
 	      if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
-	      $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) tmplibgcc2.a $${f}; \
+	      $(AR_CREATE_FOR_TARGET) tmplibgcc2.a $${f}; \
 	      rm -f $${f}; \
 	    else true; \
 	    fi; done; \
@@ -1137,7 +1147,7 @@ libgcc2.a: libgcc2.c libgcc2.ready $(CONFIG_H) $(FPBIT) $(DPBIT) $(LIB2ADD) \
 	    else true; fi; \
 	    $(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) -c $${file}; \
 	    if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
-	    $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) tmplibgcc2.a $${oname}$(objext); \
+	    $(AR_CREATE_FOR_TARGET) tmplibgcc2.a $${oname}$(objext); \
 	    rm -f $${name}.s $${oname}$(objext); \
 	  fi; \
 	done
@@ -1156,17 +1166,17 @@ libgcc2.a: libgcc2.c libgcc2.ready $(CONFIG_H) $(FPBIT) $(DPBIT) $(LIB2ADD) \
 libgcc.a: $(LIBGCC1) $(LIBGCC2)
 	-rm -rf tmplibgcc.a libgcc.a tmpcopy
 	mkdir tmpcopy
-	(cd tmpcopy; $(AR_FOR_TARGET) x ../$(LIBGCC2))
+	(cd tmpcopy; $(AR_EXTRACT_FOR_TARGET) ../$(LIBGCC2))
 # Some versions of ar (specifically the one in RISC/os 5.x), create an
 # unwritable table of contents file, and then print an error message when
 # the second ar command tries to overwrite this file.  To avoid the error
 # message from ar, we make sure all files are writable.
 	-(cd tmpcopy; chmod +w * > /dev/null 2>&1)
 	-if [ x$(LIBGCC1) != x ];			\
-	then (cd tmpcopy; $(AR_FOR_TARGET) x ../$(LIBGCC1));	\
+	then (cd tmpcopy; $(AR_EXTRACT_FOR_TARGET) ../$(LIBGCC1));	\
 	else true;					\
 	fi
-	(cd tmpcopy; $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) ../tmplibgcc.a *$(objext))
+	(cd tmpcopy; $(AR_CREATE_FOR_TARGET) ../tmplibgcc.a *$(objext))
 	rm -rf tmpcopy
 	-if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) tmplibgcc.a; \
@@ -1199,6 +1209,8 @@ stmp-multilib: $(LIBGCC1) libgcc2.c libgcc2.ready $(CONFIG_H) \
 	  flags=`echo $$i | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`; \
 	  $(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	    AR_FOR_TARGET="$(AR_FOR_TARGET)" \
+	    AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
+	    AR_EXTRACT_FOR_TARGET="$(AR_EXTRACT_FOR_TARGET)" \
 	    AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
 	    CC="$(CC)" CFLAGS="$(CFLAGS)" \
 	    RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)" \
@@ -1223,6 +1235,8 @@ stmp-multilib-sub:
 	fi
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
+	  AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
+	  AR_EXTRACT_FOR_TARGET="$(AR_EXTRACT_FOR_TARGET)" \
 	  AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
 	  CC="$(CC)" CFLAGS="$(CFLAGS)" \
 	  HOST_PREFIX="$(HOST_PREFIX)" HOST_PREFIX_1="$(HOST_PREFIX_1)" \
@@ -1237,6 +1251,8 @@ stmp-multilib-sub:
 	else \
 	  $(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	    AR_FOR_TARGET="$(AR_FOR_TARGET)" \
+	    AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
+	    AR_EXTRACT_FOR_TARGET="$(AR_EXTRACT_FOR_TARGET)" \
 	    AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
 	    CC="$(CC)" CFLAGS="$(CFLAGS)" \
 	    HOST_PREFIX="$(HOST_PREFIX)" HOST_PREFIX_1="$(HOST_PREFIX_1)" \
@@ -1245,17 +1261,17 @@ stmp-multilib-sub:
 	fi
 	rm -rf tmplibgcc.a tmpcopy
 	mkdir tmpcopy
-	(cd tmpcopy; $(AR_FOR_TARGET) x ../$(LIBGCC2))
+	(cd tmpcopy; $(AR_EXTRACT_FOR_TARGET) ../$(LIBGCC2))
 # Some versions of ar (specifically the one in RISC/os 5.x), create an
 # unwritable table of contents file, and then print an error message when
 # the second ar command tries to overwrite this file.  To avoid the error
 # message from ar, we make sure all files are writable.
 	-(cd tmpcopy; chmod +w * > /dev/null 2>&1)
 	if [ x$(LIBGCC1) != x ]; \
-	then (cd tmpcopy; $(AR_FOR_TARGET) x ../$(LIBGCC1)); \
+	then (cd tmpcopy; $(AR_EXTRACT_FOR_TARGET) ../$(LIBGCC1)); \
 	else true; \
 	fi
-	(cd tmpcopy; $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) ../tmplibgcc.a *$(objext))
+	(cd tmpcopy; $(AR_CREATE_FOR_TARGET) ../tmplibgcc.a *$(objext))
 	rm -rf libgcc2.a tmpcopy
 	if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) tmplibgcc.a; \
@@ -1265,6 +1281,8 @@ stmp-multilib-sub:
 	for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  $(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	    AR_FOR_TARGET="$(AR_FOR_TARGET)" \
+	    AR_CREATE_FOR_TARGET="$(AR_CREATE_FOR_TARGET)" \
+	    AR_EXTRACT_FOR_TARGET="$(AR_EXTRACT_FOR_TARGET)" \
 	    AR_FLAGS_FOR_TARGET="$(AR_FLAGS_FOR_TARGET)" \
 	    CC="$(CC)" CFLAGS="$(CFLAGS)" \
 	    HOST_PREFIX="$(HOST_PREFIX)" HOST_PREFIX_1="$(HOST_PREFIX_1)" \
@@ -1291,21 +1309,22 @@ $(T)crtend.o: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
 	  -fno-exceptions $(CRTSTUFF_T_CFLAGS) @inhibit_libc@ \
 	  -c $(srcdir)/crtstuff.c -DCRT_END -o $(T)crtend$(objext)
 
-# On some systems we also want to install versions of these files
-# compiled using PIC for use in shared libraries.
-$(T)crtbeginS.o $(T)crtendS.o: s-$(T)crtS ; @true
-
-s-$(T)crtS: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
+# These are versions of crtbegin and crtend for shared libraries.
+$(T)crtbeginS.o: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
   defaults.h frame.h gbl-ctors.h stmp-int-hdrs tsystem.h
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(CRTSTUFF_T_CFLAGS_S) \
-	  -DCRT_BEGIN -DCRTSTUFFS_O -finhibit-size-directive \
-	  -fno-inline-functions -fno-exceptions @inhibit_libc@ -g0 \
-	  -c $(srcdir)/crtstuff.c -o $(T)crtbeginS$(objext)
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(CRTSTUFF_T_CFLAGS_S) \
-	  -DCRT_END -DCRTSTUFFS_O -finhibit-size-directive \
-	  -fno-inline-functions -fno-exceptions @inhibit_libc@ -g0 \
-	  -c $(srcdir)/crtstuff.c -o $(T)crtendS$(objext)
-	touch s-$(T)crtS
+	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
+	  -finhibit-size-directive -fno-inline-functions \
+	  -fno-exceptions $(CRTSTUFF_T_CFLAGS_S) @inhibit_libc@ \
+	  -c $(srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFS_O \
+	  -o $(T)crtbeginS$(objext)
+
+$(T)crtendS.o: crtstuff.c $(GCC_PASSES) $(CONFIG_H) \
+  defaults.h frame.h gbl-ctors.h stmp-int-hdrs tsystem.h
+	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
+	  -finhibit-size-directive -fno-inline-functions \
+	  -fno-exceptions $(CRTSTUFF_T_CFLAGS_S) @inhibit_libc@ \
+	  -c $(srcdir)/crtstuff.c -DCRT_END -DCRTSTUFFS_O \
+	  -o $(T)crtendS$(objext)
 
 # Compile the start modules crt0.o and mcrt0.o that are linked with every program
 crt0.o: s-crt0 ; @true
@@ -1325,7 +1344,7 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 
 # C language specific files.
 
-c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h ggc.h \
+c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h $(GGC_H) \
     $(srcdir)/c-parse.h c-tree.h c-common.h input.h flags.h system.h toplev.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) -c $(srcdir)/c-parse.c
 $(srcdir)/c-parse.h: $(srcdir)/c-parse.c
@@ -1345,20 +1364,20 @@ $(srcdir)/c-gperf.h: c-parse.gperf
 	exit 1 )
 	 $(SHELL) $(srcdir)/move-if-change tmp-gperf.h $(srcdir)/c-gperf.h
 
-c-decl.o : c-decl.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h ggc.h \
+c-decl.o : c-decl.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h $(GGC_H) \
     c-lex.h flags.h function.h output.h toplev.h defaults.h
 c-typeck.o : c-typeck.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h \
     flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h
-c-lang.o : c-lang.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h ggc.h \
+c-lang.o : c-lang.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-common.h $(GGC_H) \
     c-lex.h toplev.h output.h function.h
 c-lex.o : c-lex.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) c-lex.h c-tree.h \
     c-common.h $(srcdir)/c-parse.h $(srcdir)/c-gperf.h c-pragma.h input.h \
-    intl.h flags.h toplev.h output.h mbchar.h ggc.h
+    intl.h flags.h toplev.h output.h mbchar.h $(GGC_H)
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) system.h $(TREE_H) c-tree.h \
     c-common.h flags.h toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) system.h $(TREE_H) flags.h toplev.h
 c-pragma.o: c-pragma.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) function.h \
-    defaults.h c-pragma.h toplev.h ggc.h
+    defaults.h c-pragma.h toplev.h $(GGC_H)
 c-iterate.o: c-iterate.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) c-tree.h \
     c-common.h flags.h toplev.h $(EXPR_H)
 mbchar.o: mbchar.c $(CONFIG_H) system.h mbchar.h
@@ -1373,7 +1392,7 @@ collect2$(exeext): $(COLLECT2_OBJS) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(COLLECT2_OBJS) $(LIBS)
 
 collect2.o : collect2.c $(CONFIG_H) system.h gstab.h intl.h \
-	$(srcdir)/../include/obstack.h $(DEMANGLE_H) collect2.h version.h
+	$(OBSTACK_H) $(DEMANGLE_H) collect2.h version.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES)  \
 	-DTARGET_MACHINE=\"$(target_alias)\" $(MAYBE_USE_COLLECT2) \
 	-c `echo $(srcdir)/collect2.c | sed 's,^\./,,'`
@@ -1410,7 +1429,7 @@ s-under: $(GCC_PASSES)
 # A file used by all variants of C.
 
 c-common.o : c-common.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-lex.h \
-	c-common.h flags.h toplev.h output.h c-pragma.h $(RTL_H) ggc.h \
+	c-common.h flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H)
 
 # Language-independent files.
@@ -1451,17 +1470,17 @@ dumpvers: dumpvers.c
 version.o: version.c version.h
 
 ggc-common.o: ggc-common.c $(CONFIG_H) $(RTL_H) $(TREE_H) \
-	flags.h ggc.h varray.h hash.h
+	flags.h $(GGC_H) varray.h hash.h
 
 ggc-simple.o: ggc-simple.c $(CONFIG_H) $(RTL_H) $(TREE_H) flags.h \
-	ggc.h varray.h
+	$(GGC_H) varray.h
 
 ggc-page.o: ggc-page.c $(CONFIG_H) $(RTL_H) $(TREE_H) flags.h \
-	ggc.h varray.h
+	$(GGC_H) varray.h
 
-ggc-none.o: ggc-none.c $(CONFIG_H) $(RTL_H) ggc.h
+ggc-none.o: ggc-none.c $(CONFIG_H) $(RTL_H) $(GGC_H)
 
-ggc-callbacks.o: ggc-callbacks.c $(CONFIG_H) $(RTL_H) $(TREE_H) ggc.h
+ggc-callbacks.o: ggc-callbacks.c $(CONFIG_H) $(RTL_H) $(TREE_H) $(GGC_H)
 
 obstack.o: $(srcdir)/../libiberty/obstack.c $(CONFIG_H)
 	rm -f obstack.c
@@ -1476,13 +1495,13 @@ prefix.o: prefix.c $(CONFIG_H) system.h Makefile prefix.h
 convert.o: convert.c $(CONFIG_H) system.h $(TREE_H) flags.h convert.h toplev.h
 
 tree.o : tree.c $(CONFIG_H) system.h $(TREE_H) flags.h function.h toplev.h \
-   ggc.h $(HASHTAB_H)
-print-tree.o : print-tree.c $(CONFIG_H) system.h $(TREE_H) ggc.h
+   $(GGC_H) $(HASHTAB_H)
+print-tree.o : print-tree.c $(CONFIG_H) system.h $(TREE_H) $(GGC_H)
 stor-layout.o : stor-layout.c $(CONFIG_H) system.h $(TREE_H) flags.h \
-   function.h $(EXPR_H) $(RTL_H) toplev.h ggc.h
+   function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H)
 fold-const.o : fold-const.c $(CONFIG_H) system.h $(TREE_H) flags.h toplev.h \
-   $(RTL_H) ggc.h
-diagnostic.o : $(CONFIG_H) system.h $(TREE_H) $(RTL_H) tm_p.h flags.h \
+   $(RTL_H) $(GGC_H)
+diagnostic.o : diagnostic.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) tm_p.h flags.h \
    input.h insn-attr.h insn-codes.h insn-config.h toplev.h intl.h 
 toplev.o : toplev.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) function.h \
    flags.h input.h insn-attr.h xcoffout.h defaults.h output.h \
@@ -1493,7 +1512,7 @@ toplev.o : toplev.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) function.h \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -c `echo $(srcdir)/toplev.c | sed 's,^\./,,'`
 
-rtl.o : rtl.c $(CONFIG_H) system.h $(RTL_H) bitmap.h ggc.h toplev.h
+rtl.o : rtl.c $(CONFIG_H) system.h $(RTL_H) bitmap.h $(GGC_H) toplev.h
 
 print-rtl.o : print-rtl.c $(CONFIG_H) system.h $(RTL_H) $(BASIC_BLOCK_H)
 rtlanal.o : rtlanal.c $(CONFIG_H) system.h $(RTL_H)
@@ -1501,20 +1520,20 @@ errors.o : errors.c $(CONFIG_H) system.h errors.h
 
 varasm.o : varasm.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) flags.h \
    function.h defaults.h $(EXPR_H) hard-reg-set.h $(REGS_H) \
-   xcoffout.h output.h c-pragma.h toplev.h dbxout.h sdbout.h ggc.h
+   xcoffout.h output.h c-pragma.h toplev.h dbxout.h sdbout.h $(GGC_H)
 function.o : function.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    function.h insn-flags.h insn-codes.h $(EXPR_H) $(REGS_H) hard-reg-set.h \
-   insn-config.h $(RECOG_H) output.h toplev.h except.h hash.h ggc.h
+   insn-config.h $(RECOG_H) output.h toplev.h except.h hash.h $(GGC_H)
 stmt.o : stmt.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h function.h  \
    insn-flags.h insn-config.h insn-codes.h hard-reg-set.h $(EXPR_H) except.h \
-   $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h ggc.h
+   $(LOOP_H) $(RECOG_H) toplev.h output.h varray.h $(GGC_H)
 except.o : except.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    function.h insn-flags.h $(EXPR_H) $(REGS_H) hard-reg-set.h \
-   insn-config.h $(RECOG_H) output.h except.h toplev.h intl.h ggc.h
+   insn-config.h $(RECOG_H) output.h except.h toplev.h intl.h $(GGC_H)
 expr.o : expr.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h function.h \
    $(REGS_H) insn-flags.h insn-codes.h $(EXPR_H) insn-config.h $(RECOG_H) \
    output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h except.h \
-   ggc.h intl.h
+   $(GGC_H) intl.h
 builtins.o : builtins.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    function.h $(REGS_H) insn-flags.h insn-codes.h $(EXPR_H) insn-config.h \
    $(RECOG_H) output.h typeclass.h hard-reg-set.h toplev.h hard-reg-set.h \
@@ -1528,25 +1547,26 @@ explow.o : explow.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    insn-codes.h toplev.h function.h
 optabs.o : optabs.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h  \
    insn-flags.h insn-config.h insn-codes.h $(EXPR_H) $(RECOG_H) reload.h \
-   toplev.h ggc.h real.h
+   toplev.h $(GGC_H) real.h
 dbxout.o : dbxout.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) flags.h $(REGS_H) \
    insn-config.h reload.h gstab.h xcoffout.h defaults.h output.h dbxout.h \
    toplev.h
 sdbout.o : sdbout.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) flags.h except.h \
    function.h $(EXPR_H) output.h hard-reg-set.h $(REGS_H) defaults.h real.h \
-   insn-config.h $(srcdir)/../include/obstack.h xcoffout.h c-pragma.h \
+   insn-config.h $(OBSTACK_H) xcoffout.h c-pragma.h \
    sdbout.h toplev.h
 dwarfout.o : dwarfout.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) dwarf.h \
    flags.h insn-config.h reload.h output.h defaults.h toplev.h dwarfout.h
 dwarf2out.o : dwarf2out.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) dwarf2.h \
    flags.h insn-config.h reload.h output.h defaults.h \
    hard-reg-set.h $(REGS_H) $(EXPR_H) toplev.h dwarf2out.h varray.h \
-   ggc.h except.h
+   $(GGC_H) except.h
 xcoffout.o : xcoffout.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) xcoffout.h \
-   flags.h toplev.h output.h dbxout.h ggc.h
+   flags.h toplev.h output.h dbxout.h $(GGC_H)
 emit-rtl.o : emit-rtl.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
-   function.h $(REGS_H) insn-config.h $(RECOG_H) real.h ggc.h \
-   $(EXPR_H) $(srcdir)/../include/obstack.h hard-reg-set.h bitmap.h toplev.h
+   function.h $(REGS_H) insn-config.h $(RECOG_H) real.h $(GGC_H) \
+   $(EXPR_H) $(srcdir)/../include/obstack.h hard-reg-set.h bitmap.h toplev.h \
+   $(HASHTAB_H)
 real.o : real.c $(CONFIG_H) system.h $(TREE_H) toplev.h
 integrate.o : integrate.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    $(INTEGRATE_H) insn-flags.h insn-config.h $(EXPR_H) real.h $(REGS_H) \
@@ -1557,9 +1577,9 @@ jump.o : jump.c $(CONFIG_H) system.h $(RTL_H) flags.h hard-reg-set.h $(REGS_H) \
 
 simplify-rtx.o : simplify-rtx.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
-   output.h function.h cselib.h ggc.h $(srcdir)/../include/obstack.h
+   output.h function.h cselib.h ggc.h $(OBSTACK_H)
 cse.o : cse.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) hard-reg-set.h flags.h \
-   real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h output.h function.h ggc.h
+   real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h output.h function.h $(GGC_H)
 gcse.o : gcse.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) hard-reg-set.h \
    flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) \
    function.h output.h toplev.h
@@ -1572,9 +1592,11 @@ lcm.o : lcm.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) hard-reg-set.h flags.h \
    real.h insn-config.h insn-attr.h $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H)
 ssa.o : ssa.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) $(BASIC_BLOCK_H) \
    output.h insn-config.h
+conflict.o : conflict.c $(CONFIG_H) system.h $(OBSTACK_H) $(HASHTAB_H) \
+   $(RTL_H) $(BASIC_BLOCK_H)
 profile.o : profile.c $(CONFIG_H) system.h $(RTL_H) flags.h insn-flags.h \
    gcov-io.h $(TREE_H) output.h $(REGS_H) toplev.h function.h insn-config.h \
-   ggc.h
+   $(GGC_H)
 loop.o : loop.c $(CONFIG_H) system.h $(RTL_H) flags.h $(LOOP_H) insn-config.h \
    insn-flags.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) real.h \
    $(BASIC_BLOCK_H) function.h toplev.h varray.h except.h cselib.h
@@ -1589,7 +1611,7 @@ combine.o : combine.c $(CONFIG_H) system.h $(RTL_H) flags.h function.h \
    $(BASIC_BLOCK_H) $(RECOG_H) real.h hard-reg-set.h toplev.h
 regclass.o : regclass.c $(CONFIG_H) system.h $(RTL_H) hard-reg-set.h flags.h \
    $(BASIC_BLOCK_H) $(REGS_H) insn-config.h $(RECOG_H) reload.h real.h \
-   toplev.h function.h output.h ggc.h
+   toplev.h function.h output.h $(GGC_H)
 local-alloc.o : local-alloc.c $(CONFIG_H) system.h $(RTL_H) flags.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h insn-config.h $(RECOG_H) \
    output.h function.h insn-attr.h toplev.h
@@ -1611,8 +1633,8 @@ reorg.o : reorg.c $(CONFIG_H) system.h $(RTL_H) conditions.h hard-reg-set.h \
    $(BASIC_BLOCK_H) $(REGS_H) insn-config.h insn-attr.h insn-flags.h \
    $(RECOG_H) function.h flags.h output.h $(EXPR_H) toplev.h
 alias.o : alias.c $(CONFIG_H) system.h $(RTL_H) flags.h hard-reg-set.h \
-   $(REGS_H) toplev.h output.h $(EXPR_H) insn-flags.h ggc.h function.h \
-   cselib.h
+   $(REGS_H) toplev.h output.h $(EXPR_H) insn-flags.h $(GGC_H) function.h \
+   cselib.h $(TREE_H)
 regmove.o : regmove.c $(CONFIG_H) system.h $(RTL_H) insn-config.h \
    $(RECOG_H) output.h reload.h $(REGS_H) hard-reg-set.h flags.h function.h \
    $(EXPR_H) insn-flags.h $(BASIC_BLOCK_H) toplev.h
@@ -1634,12 +1656,16 @@ dyn-string.o: dyn-string.c dyn-string.h $(CONFIG_H) system.h
 predict.o: predict.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
    $(RECOG_H) insn-flags.h function.h except.h $(EXPR_H)
-lists.o: lists.c $(CONFIG_H) system.h toplev.h $(RTL_H) ggc.h
+lists.o: lists.c $(CONFIG_H) system.h toplev.h $(RTL_H) $(GGC_H)
 bb-reorder.o : bb-reorder.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
    $(RECOG_H) insn-flags.h function.h except.h $(EXPR_H)
 
-$(out_object_file): $(out_file) $(CONFIG_H) $(TREE_H) ggc.h \
+regrename.o : regrename.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
+   insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h \
+   $(RECOG_H) function.h resource.h
+
+$(out_object_file): $(out_file) $(CONFIG_H) $(TREE_H) $(GGC_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h real.h insn-config.h conditions.h \
    insn-flags.h output.h insn-attr.h insn-codes.h system.h toplev.h function.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(out_file)
@@ -1779,7 +1805,7 @@ s-attrtab : $(md_file) genattrtab $(srcdir)/move-if-change
 	$(SHELL) $(srcdir)/move-if-change tmp-attrtab.c insn-attrtab.c
 	touch s-attrtab
 
-insn-output.o : insn-output.c $(CONFIG_H) $(RTL_H) ggc.h $(REGS_H) real.h \
+insn-output.o : insn-output.c $(CONFIG_H) $(RTL_H) $(GGC_H) $(REGS_H) real.h \
     conditions.h hard-reg-set.h insn-config.h insn-flags.h insn-attr.h \
     output.h $(RECOG_H) function.h insn-codes.h system.h toplev.h flags.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) -c insn-output.c
@@ -1790,7 +1816,7 @@ s-output : $(md_file) genoutput $(srcdir)/move-if-change
 	$(SHELL) $(srcdir)/move-if-change tmp-output.c insn-output.c
 	touch s-output
 
-genrtl.o : genrtl.c $(CONFIG_H) $(RTL_H) system.h ggc.h
+genrtl.o : genrtl.c $(CONFIG_H) $(RTL_H) system.h $(GGC_H)
 genrtl.c genrtl.h : s-genrtl
 	@true	# force gnu make to recheck modification times.
 
@@ -1884,7 +1910,7 @@ genattrtab : genattrtab.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEP
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
 	 genattrtab.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBS)
 
-genattrtab.o : genattrtab.c $(RTL_H)  $(build_xm_file) system.h errors.h ggc.h
+genattrtab.o : genattrtab.c $(RTL_H)  $(build_xm_file) system.h errors.h $(GGC_H)
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/genattrtab.c
 
 genoutput : genoutput.o $(HOST_RTL) $(HOST_PRINT) $(HOST_ERRORS) $(HOST_LIBDEPS)
@@ -1906,7 +1932,7 @@ gengenrtl.o : gengenrtl.c $(RTL_BASE_H) system.h real.h
 # and HOST_PREFIX_1 is `foobar', just to ensure these rules don't conflict
 # with the rules for rtl.o, alloca.o, etc.
 $(HOST_PREFIX_1)rtl.o: $(srcdir)/rtl.c $(CONFIG_H) system.h $(RTL_H) \
-  bitmap.h ggc.h toplev.h
+  bitmap.h $(GGC_H) toplev.h
 	rm -f $(HOST_PREFIX)rtl.c
 	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/rtl.c > $(HOST_PREFIX)rtl.c
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)rtl.c
@@ -2037,7 +2063,6 @@ LIBCPP_OBJS =	cpplib.o cpphash.o cpperror.o cppexp.o cppfiles.o \
 		prefix.o version.o mbchar.o @extra_cpp_objs@
 
 LIBCPP_DEPS = cpplib.h cpphash.h intl.h system.h
-HASHTAB_H   = $(srcdir)/../include/hashtab.h
 
 # All the other archives built/used by this makefile are for targets.  This
 # one is strictly for the host.
@@ -2153,6 +2178,7 @@ stmp-int-hdrs: $(STMP_FIXINC) $(USER_H) xlimits.h
 # this is necessary because VPATH could add a dirname.
 # Using basename would be simpler, but some systems don't have it.
 # The touch command is here to workaround an AIX/Linux NFS bug.
+	-if [ -d include ] ; then true; else mkdir include; chmod a+rx include; fi
 	for file in .. $(USER_H); do \
 	  if [ X$$file != X.. ]; then \
 	    realfile=`echo $$file | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
@@ -2267,7 +2293,7 @@ fix-header: fix-header.o scan-decls.o scan.o xsys-protos.h $(HOST_LIBDEPS) \
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ fix-header.o \
 	   scan-decls.o scan.o libcpp.a $(HOST_LIBS) ../libiberty/libiberty.a
 
-fix-header.o: fix-header.c $(srcdir)/../include/obstack.h scan.h \
+fix-header.o: fix-header.c $(OBSTACK_H) scan.h \
 	xsys-protos.h $(build_xm_file) system.h cpplib.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/fix-header.c
 
@@ -2290,7 +2316,6 @@ fixhdr.ready: fix-header
 # if it has already been run on the files in `include'.
 stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 	@echo "Various warnings and error messages from fixproto are normal"
-	-if [ -d include ] ; then true; else mkdir include; chmod a+rx include; fi
 	-if [ -f include/fixed ] ; then true; \
 	else \
 	  : This line works around a 'make' bug in BSDI 1.1.; \
@@ -2306,7 +2331,7 @@ stmp-fixproto: fixhdr.ready fixproto stmp-int-hdrs
 #
 # Remake the info files.
 
-doc: info
+doc: info gccbug
 info: cpp.info gcc.info lang.info
 
 cpp.info: $(srcdir)/cpp.texi
@@ -2366,13 +2391,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 	-rm -f s-* tmp-* stamp-* stmp-*
 	-rm -f */stamp-* */tmp-*
 # Delete debugging dump files.
-	-rm -f *.greg *.lreg *.combine *.flow *.cse *.jump *.rtl *.tree *.loop
-	-rm -f *.dbr *.jump2 *.sched *.cse2 *.sched2 *.stack *.addressof
-	-rm -f *.regmove *.mach *.bp *.gcse *.flow2 *.peephole2 *.ssa *.ussa
-	-rm -f */*.greg */*.lreg */*.combine */*.flow */*.cse */*.jump */*.rtl
-	-rm -f */*.tree */*.loop */*.dbr */*.jump2 */*.sched */*.cse2
-	-rm -f */*.sched2 */*.stack */*.regmove */*.gcse */*.flow2
-	-rm -f */*.peephole2 */*.ssa */*.ussa
+	-rm -f *.[0-9][0-9].* */*.[0-9][0-9].*
 # Delete some files made during installation.
 	-rm -f specs float.h-* enquire SYSCALLS.c.X SYSCALLS.c
 	-rm -f collect collect2 mips-tfile mips-tdump alloca.s
@@ -2386,7 +2405,6 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 	-rm -f gcc.vrs gcc.kys gcc.tps gcc.pgs gcc.fns
 # Delete core dumps.
 	-rm -f core */core
-	-rm -f *.bp */*.bp
 
 # Delete all files made by compilation
 # that don't exist in the distribution.

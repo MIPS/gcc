@@ -1105,7 +1105,7 @@ determine_specialization (template_id, decl, targs_out,
     }
 
   /* It was a specialization of a template.  */
-  targs = DECL_TI_ARGS (DECL_RESULT (TREE_VALUE (templates)));
+  targs = DECL_TI_ARGS (DECL_TEMPLATE_RESULT (TREE_VALUE (templates)));
   if (TMPL_ARGS_HAVE_MULTIPLE_LEVELS (targs))
     {
       *targs_out = copy_node (targs);
@@ -3699,7 +3699,7 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope)
       d1 = DECL_NAME (template);
     }
   else if (TREE_CODE (d1) == TEMPLATE_DECL
-	   && TREE_CODE (DECL_RESULT (d1)) == TYPE_DECL)
+	   && TREE_CODE (DECL_TEMPLATE_RESULT (d1)) == TYPE_DECL)
     {
       template = d1;
       d1 = DECL_NAME (template);
@@ -4460,9 +4460,9 @@ tsubst_friend_function (decl, args)
 	  DECL_PRIMARY_TEMPLATE (new_friend) = new_friend;
 	  
 	  new_friend_is_defn 
-	    = DECL_INITIAL (DECL_RESULT (new_friend)) != NULL_TREE;
+	    = DECL_INITIAL (DECL_TEMPLATE_RESULT (new_friend)) != NULL_TREE;
 	  new_friend_result_template_info
-	    = DECL_TEMPLATE_INFO (DECL_RESULT (new_friend));
+	    = DECL_TEMPLATE_INFO (DECL_TEMPLATE_RESULT (new_friend));
 	}
       else
 	{
@@ -4535,7 +4535,7 @@ tsubst_friend_function (decl, args)
 		  tree t;
 		  tree new_friend_args;
 
-		  DECL_TEMPLATE_INFO (DECL_RESULT (old_decl)) 
+		  DECL_TEMPLATE_INFO (DECL_TEMPLATE_RESULT (old_decl)) 
 		    = new_friend_result_template_info;
 		    
 		  new_friend_args = TI_ARGS (new_friend_template_info);
@@ -4757,7 +4757,7 @@ instantiate_class_template (type)
       CLASSTYPE_TAGS (type) = CLASSTYPE_TAGS (pattern);
       /* Pretend that the type is complete, so that we will look
 	 inside it during name lookup and such.  */
-      TYPE_SIZE (type) = integer_zero_node;
+      TYPE_SIZE (type) = bitsize_zero_node;
       return type;
     }
 
@@ -5416,7 +5416,7 @@ tsubst_decl (t, args, type, in_decl)
 	       plus the innermost args from the template decl.  */
 	    tree tmpl_args = DECL_CLASS_TEMPLATE_P (t) 
 	      ? CLASSTYPE_TI_ARGS (TREE_TYPE (t))
-	      : DECL_TI_ARGS (DECL_RESULT (t));
+	      : DECL_TI_ARGS (DECL_TEMPLATE_RESULT (t));
 	    tree full_args;
 	    
 	    full_args = tsubst_template_arg_vector (tmpl_args, args,
@@ -5448,7 +5448,7 @@ tsubst_decl (t, args, type, in_decl)
 	if (is_template_template_parm)
 	  {
 	    tree new_decl = tsubst (decl, args, /*complain=*/1, in_decl);
-	    DECL_RESULT (r) = new_decl;
+	    DECL_TEMPLATE_RESULT (r) = new_decl;
 	    TREE_TYPE (r) = TREE_TYPE (new_decl);
 	    break;
 	  }
@@ -5469,13 +5469,14 @@ tsubst_decl (t, args, type, in_decl)
 				    /*complain=*/1, in_decl);
 	    TREE_TYPE (r) = new_type;
 	    CLASSTYPE_TI_TEMPLATE (new_type) = r;
-	    DECL_RESULT (r) = TYPE_MAIN_DECL (new_type);
+	    DECL_TEMPLATE_RESULT (r) = TYPE_MAIN_DECL (new_type);
 	    DECL_TI_ARGS (r) = CLASSTYPE_TI_ARGS (new_type);
 	  }
 	else
 	  {
 	    tree new_decl = tsubst (decl, args, /*complain=*/1, in_decl);
-	    DECL_RESULT (r) = new_decl;
+
+	    DECL_TEMPLATE_RESULT (r) = new_decl;
 	    DECL_TI_TEMPLATE (new_decl) = r;
 	    TREE_TYPE (r) = TREE_TYPE (new_decl);
 	    DECL_TI_ARGS (r) = DECL_TI_ARGS (new_decl);
@@ -5546,8 +5547,9 @@ tsubst_decl (t, args, type, in_decl)
 
 	    spec_args = tsubst (DECL_TI_ARGS (fn), args,
 				/*complain=*/1, in_decl); 
-	    new_fn = tsubst (DECL_RESULT (most_general_template (fn)), 
-			     spec_args, /*complain=*/1, in_decl); 
+	    new_fn
+	      = tsubst (DECL_TEMPLATE_RESULT (most_general_template (fn)), 
+			spec_args, /*complain=*/1, in_decl); 
 	    DECL_TI_TEMPLATE (new_fn) = fn;
 	    register_specialization (new_fn, r, 
 				     innermost_args (spec_args));
@@ -5555,7 +5557,7 @@ tsubst_decl (t, args, type, in_decl)
 
 	/* Record this partial instantiation.  */
 	register_specialization (r, t, 
-				 DECL_TI_ARGS (DECL_RESULT (r)));
+				 DECL_TI_ARGS (DECL_TEMPLATE_RESULT (r)));
 
       }
       break;
@@ -5699,7 +5701,7 @@ tsubst_decl (t, args, type, in_decl)
 	DECL_ARGUMENTS (r) = tsubst (DECL_ARGUMENTS (t), args,
 				     /*complain=*/1, t);
 	DECL_MAIN_VARIANT (r) = r;
-	DECL_RESULT (r) = NULL_TREE;
+	DECL_TEMPLATE_RESULT (r) = NULL_TREE;
 
 	TREE_STATIC (r) = 0;
 	TREE_PUBLIC (r) = TREE_PUBLIC (t);
@@ -7434,7 +7436,8 @@ instantiate_template (tmpl, targ_ptr)
     }
 
   /* substitute template parameters */
-  fndecl = tsubst (DECL_RESULT (gen_tmpl), targ_ptr, /*complain=*/1, gen_tmpl);
+  fndecl = tsubst (DECL_TEMPLATE_RESULT (gen_tmpl),
+		   targ_ptr, /*complain=*/1, gen_tmpl);
   /* The DECL_TI_TEMPLATE should always be the immediate parent
      template, not the most general template.  */
   DECL_TI_TEMPLATE (fndecl) = tmpl;
@@ -7860,7 +7863,8 @@ resolve_overloaded_unification (tparms, targs, parm, arg, strict,
 	  if (TREE_CODE (fn) != TEMPLATE_DECL)
 	    continue;
 
-	  subargs = get_bindings_overload (fn, DECL_RESULT (fn), expl_subargs);
+	  subargs = get_bindings_overload (fn, DECL_TEMPLATE_RESULT (fn),
+					   expl_subargs);
 	  if (subargs)
 	    {
 	      elem = tsubst (TREE_TYPE (fn), subargs, /*complain=*/0,
@@ -8684,7 +8688,7 @@ mark_decl_instantiated (result, extern_p)
 	maybe_make_one_only (result);
     }
   else if (TREE_CODE (result) == FUNCTION_DECL)
-    mark_inline_for_output (result);
+    defer_fn (result);
 }
 
 /* Given two function templates PAT1 and PAT2, and explicit template
@@ -8701,11 +8705,13 @@ more_specialized (pat1, pat2, explicit_args)
   tree targs;
   int winner = 0;
 
-  targs = get_bindings_overload (pat1, DECL_RESULT (pat2), explicit_args);
+  targs
+    = get_bindings_overload (pat1, DECL_TEMPLATE_RESULT (pat2), explicit_args);
   if (targs)
     --winner;
 
-  targs = get_bindings_overload (pat2, DECL_RESULT (pat1), explicit_args);
+  targs
+    = get_bindings_overload (pat2, DECL_TEMPLATE_RESULT (pat1), explicit_args);
   if (targs)
     ++winner;
 
@@ -9123,7 +9129,7 @@ do_decl_instantiation (declspecs, declarator, storage)
   mark_decl_instantiated (result, extern_p);
   repo_template_instantiated (result, extern_p);
   if (! extern_p)
-    instantiate_decl (result);
+    instantiate_decl (result, /*defer_ok=*/1);
 }
 
 void
@@ -9259,7 +9265,7 @@ do_type_instantiation (t, storage)
 	    mark_decl_instantiated (tmp, extern_p);
 	    repo_template_instantiated (tmp, extern_p);
 	    if (! extern_p)
-	      instantiate_decl (tmp);
+	      instantiate_decl (tmp, /*defer_ok=*/1);
 	  }
 
     for (tmp = TYPE_FIELDS (t); tmp; tmp = TREE_CHAIN (tmp))
@@ -9268,7 +9274,7 @@ do_type_instantiation (t, storage)
 	  mark_decl_instantiated (tmp, extern_p);
 	  repo_template_instantiated (tmp, extern_p);
 	  if (! extern_p)
-	    instantiate_decl (tmp);
+	    instantiate_decl (tmp, /*defer_ok=*/1);
 	}
 
     for (tmp = CLASSTYPE_TAGS (t); tmp; tmp = TREE_CHAIN (tmp))
@@ -9370,11 +9376,14 @@ regenerate_decl_from_template (decl, tmpl)
   register_specialization (decl, gen_tmpl, args);
 }
 
-/* Produce the definition of D, a _DECL generated from a template.  */
+/* Produce the definition of D, a _DECL generated from a template.  If
+   DEFER_OK is non-zero, then we don't have to actually do the
+   instantiation now; we just have to do it sometime.  */
 
 tree
-instantiate_decl (d)
+instantiate_decl (d, defer_ok)
      tree d;
+     int defer_ok;
 {
   tree tmpl = DECL_TI_TEMPLATE (d);
   tree args = DECL_TI_ARGS (d);
@@ -9382,11 +9391,9 @@ instantiate_decl (d)
   tree code_pattern;
   tree spec;
   tree gen_tmpl;
-  int nested = in_function_p ();
   int pattern_defined;
   int line = lineno;
   char *file = input_filename;
-  tree old_fn = current_function_decl;
 
   /* This function should only be used to instantiate templates for
      functions and static member variables.  */
@@ -9507,20 +9514,18 @@ instantiate_decl (d)
       && ! (TREE_CODE (d) == FUNCTION_DECL && DECL_INLINE (d)))
     goto out;
 
+  /* We need to set up DECL_INITIAL regardless of pattern_defined if
+     the variable is a static const initialized in the class body.  */
   if (TREE_CODE (d) == VAR_DECL 
       && TREE_READONLY (d)
       && DECL_INITIAL (d) == NULL_TREE
       && DECL_INITIAL (code_pattern) != NULL_TREE)
-    /* We need to set up DECL_INITIAL regardless of pattern_defined if
-       the variable is a static const initialized in the class body.  */;
-  else if (pattern_defined && nested
-	   && TREE_CODE (d) == FUNCTION_DECL && DECL_INLINE (d))
-    /* An inline function used in another function; instantiate it now so
-       we can inline it.  */;
-  else if (! pattern_defined || ! at_eof)
+    ;
+  /* Defer all other templates, unless we have been explicitly
+     forbidden from doing so.  We restore the source position here
+     because it's used by add_pending_template.  */
+  else if (! pattern_defined || defer_ok)
     {
-      /* Defer all other templates.  We restore the source position
-         here because it's used by add_pending_template.  */
       lineno = line;
       input_filename = file;
 
@@ -9539,25 +9544,6 @@ instantiate_decl (d)
       add_pending_template (d);
       goto out;
     }
-
-  /* If this instantiation is COMDAT, we don't know whether or not we
-     will really need to write it out.  If we can't be sure, mark it
-     DECL_DEFER_OUTPUT.  NOTE: This increases memory consumption,
-     since we keep some instantiations in memory rather than write
-     them out immediately and forget them.  A better approach would be
-     to wait until we know we need them to do the instantiation, but
-     that would break templates with static locals, because we
-     generate the functions to destroy statics before we determine
-     which functions are needed.  A better solution would be to
-     generate the ctor and dtor functions as we go.  */
-
-  if (TREE_CODE (d) == FUNCTION_DECL
-      && DECL_COMDAT (d)
-      && ! DECL_NEEDED_P (d)
-      /* If the function that caused us to be instantiated is needed, we
-	 will be needed, too.  */
-      && (! nested || (old_fn && ! DECL_NEEDED_P (old_fn))))
-    DECL_DEFER_OUTPUT (d) = 1;
 
   /* We're now committed to instantiating this template.  Mark it as
      instantiated so that recursive calls to instantiate_decl do not
@@ -9651,7 +9637,7 @@ instantiate_pending_templates ()
 			 fn;
 			 fn = TREE_CHAIN (fn))
 		      if (! DECL_ARTIFICIAL (fn))
-			instantiate_decl (fn);
+			instantiate_decl (fn, /*defer_ok=*/0);
 		  if (COMPLETE_TYPE_P (instantiation))
 		    {
 		      instantiated_something = 1;
@@ -9668,10 +9654,11 @@ instantiate_pending_templates ()
 	    }
 	  else
 	    {
-	      if (DECL_TEMPLATE_INSTANTIATION (instantiation)
+	      if (!DECL_TEMPLATE_SPECIALIZATION (instantiation)
 		  && !DECL_TEMPLATE_INSTANTIATED (instantiation))
 		{
-		  instantiation = instantiate_decl (instantiation);
+		  instantiation = instantiate_decl (instantiation,
+						    /*defer_ok=*/0);
 		  if (DECL_TEMPLATE_INSTANTIATED (instantiation))
 		    {
 		      instantiated_something = 1;
@@ -9679,7 +9666,7 @@ instantiate_pending_templates ()
 		    }
 		}
 
-	      if (!DECL_TEMPLATE_INSTANTIATION (instantiation)
+	      if (DECL_TEMPLATE_SPECIALIZATION (instantiation)
 		  || DECL_TEMPLATE_INSTANTIATED (instantiation))
 		/* If INSTANTIATION has been instantiated, then we don't
 		   need to consider it again in the future.  */
@@ -9711,7 +9698,7 @@ instantiate_pending_templates ()
 	      template = TREE_PURPOSE (*t);
 	      args = get_bindings (template, fn, NULL_TREE);
 	      fn = instantiate_template (template, args);
-	      instantiate_decl (fn);
+	      instantiate_decl (fn, /*defer_ok=*/0);
 	      reconsider = 1;
 	    }
 	

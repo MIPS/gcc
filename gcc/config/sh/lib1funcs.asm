@@ -1,4 +1,4 @@
-/* Copyright (C) 1994, 1995, 1997, 1998 Free Software Foundation, Inc.
+/* Copyright (C) 1994, 95, 97, 98, 1999, 2000 Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -1044,6 +1044,9 @@ trivial:
 	lds r4,fpul
 
 	.align 2
+#ifdef FMOVD_WORKS
+	.align 3	! make double below 8 byte aligned.
+#endif
 L1:
 	.double 2147483648
 
@@ -1083,13 +1086,16 @@ ___udivsi3_i4:
 	rts
 	lds.l @r15+,fpscr
 
+#ifdef FMOVD_WORKS
+	.align 3	! make double below 8 byte aligned.
+#endif
 trivial:
 	rts
 	lds r4,fpul
 
 	.align 2
 L1:
-#if defined (__LITTLE_ENDIAN__) || ! defined (FMOVD_WORKS)
+#ifndef FMOVD_WORKS
 	.long 0x80000
 #else
 	.long 0x180000

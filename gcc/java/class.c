@@ -48,6 +48,9 @@ static tree mangle_static_field PARAMS ((tree));
 static void add_interface_do PARAMS ((tree, tree, int));
 static tree maybe_layout_super_class PARAMS ((tree, tree));
 static int assume_compiled PARAMS ((const char *));
+static struct hash_entry *init_test_hash_newfunc PARAMS ((struct hash_entry *,
+							  struct hash_table *,
+							  hash_table_key));
 
 static rtx registerClass_libfunc;
 
@@ -589,21 +592,24 @@ init_test_hash_newfunc (entry, table, string)
   return (struct hash_entry *) ret;
 }
 
-static unsigned long
-decl_hash (k)
+/* Hash table helpers. Also reused in find_applicable_accessible_methods_list
+   (parse.y). The hash of a tree node is it's pointer value,
+   comparison is direct. */
+
+unsigned long
+java_hash_hash_tree_node (k)
      hash_table_key k;
 {
   return (long) k;
 }
 
-static boolean
-decl_compare (k1, k2)
+boolean
+java_hash_compare_tree_node (k1, k2)
      hash_table_key k1;
      hash_table_key k2;
 {
   return ((char*) k1 == (char*) k2);
 }
-
 
 tree
 add_method_1 (handle_class, access_flags, name, function_type)
@@ -627,8 +633,8 @@ add_method_1 (handle_class, access_flags, name, function_type)
 
   /* Initialize the static initializer test table.  */
   hash_table_init (&DECL_FUNCTION_INIT_TEST_TABLE (fndecl),
-		   init_test_hash_newfunc, decl_hash,
-		   decl_compare);
+		   init_test_hash_newfunc, java_hash_hash_tree_node, 
+		   java_hash_compare_tree_node);
 
   TREE_CHAIN (fndecl) = TYPE_METHODS (handle_class);
   TYPE_METHODS (handle_class) = fndecl;
@@ -1071,7 +1077,7 @@ static tree
 make_field_value (fdecl)
   tree fdecl;
 {
-  tree finit, info;
+  tree finit;
   int flags;
   tree type = TREE_TYPE (fdecl);
   int resolved = is_compiled_class (type);
@@ -1083,33 +1089,30 @@ make_field_value (fdecl)
   else
     {
       tree signature = build_java_signature (type);
+
       type = build_utf8_ref (unmangle_classname 
-			     (IDENTIFIER_POINTER(signature),
-			      IDENTIFIER_LENGTH(signature)));
+			     (IDENTIFIER_POINTER (signature),
+			      IDENTIFIER_LENGTH (signature)));
     }
   PUSH_FIELD_VALUE (finit, "type", type);
+
   flags = get_access_flags_from_decl (fdecl);
   if (! resolved)
     flags |= 0x8000 /* FIELD_UNRESOLVED_FLAG */;
 
   PUSH_FIELD_VALUE (finit, "accflags", build_int_2 (flags, 0));
   PUSH_FIELD_VALUE (finit, "bsize", TYPE_SIZE_UNIT (TREE_TYPE (fdecl)));
-  if (FIELD_STATIC (fdecl))
-    {
-      tree cfield = TREE_CHAIN (TYPE_FIELDS (field_info_union_node));
-      tree faddr = build_address_of (build_static_field_ref (fdecl));
 
-      info = build (CONSTRUCTOR, field_info_union_node, NULL_TREE,
-		    build_tree_list (cfield, faddr));
-    }
-  else
-    info = build (CONSTRUCTOR, field_info_union_node, NULL_TREE,
-		  build_tree_list (TYPE_FIELDS (field_info_union_node),
-				   build_int_2 ((int_bit_position (fdecl)
-						 / BITS_PER_UNIT),
-						0)));
-
-  PUSH_FIELD_VALUE (finit, "info", info);
+  PUSH_FIELD_VALUE
+    (finit, "info",
+     build (CONSTRUCTOR, field_info_union_node, NULL_TREE,
+	    build_tree_list
+	    ((FIELD_STATIC (fdecl)
+	      ? TREE_CHAIN (TYPE_FIELDS (field_info_union_node))
+	      : TYPE_FIELDS (field_info_union_node)),
+	     (FIELD_STATIC (fdecl)
+	      ? build_address_of (build_static_field_ref (fdecl))
+	      : byte_position (fdecl)))));
 
   FINISH_RECORD_CONSTRUCTOR (finit);
   return finit;

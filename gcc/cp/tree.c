@@ -921,11 +921,12 @@ debug_binfo (elem)
   debug_tree (BINFO_TYPE (elem));
   if (BINFO_VTABLE (elem))
     fprintf (stderr, "vtable decl \"%s\"\n",
-	     IDENTIFIER_POINTER (DECL_NAME (BINFO_VTABLE (elem))));
+	     IDENTIFIER_POINTER (DECL_NAME (get_vtbl_decl_for_binfo (elem))));
   else
     fprintf (stderr, "no vtable decl yet\n");
   fprintf (stderr, "virtuals:\n");
-  virtuals = skip_rtti_stuff (elem, BINFO_TYPE (elem), &n);
+  virtuals = BINFO_VIRTUALS (elem);
+  n = first_vfun_index (BINFO_TYPE (elem));
 
   while (virtuals)
     {

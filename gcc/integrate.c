@@ -186,7 +186,8 @@ function_cannot_inline_p (fndecl)
     return N_("inline functions not supported for this return value type");
 
   /* We can't inline functions that return structures of varying size.  */
-  if (int_size_in_bytes (TREE_TYPE (TREE_TYPE (fndecl))) < 0)
+  if (TREE_CODE (TREE_TYPE (TREE_TYPE (fndecl))) != VOID_TYPE
+      && int_size_in_bytes (TREE_TYPE (TREE_TYPE (fndecl))) < 0)
     return N_("function with varying-size return value cannot be inline");
 
   /* Cannot inline a function with a varying size argument or one that
@@ -755,8 +756,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
       if (arg_vals[i] != 0 && GET_CODE (arg_vals[i]) == REG
 	  && POINTER_TYPE_P (TREE_TYPE (formal)))
 	mark_reg_pointer (arg_vals[i],
-			  (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (formal)))
-			   / BITS_PER_UNIT));
+			  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (formal))));
     }
 	
   /* Allocate the structures we use to remap things.  */
@@ -1760,8 +1760,7 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 		= force_reg (Pmode, force_operand (loc, NULL_RTX));
 
 #ifdef STACK_BOUNDARY
-	      mark_reg_pointer (map->reg_map[regno],
-				STACK_BOUNDARY / BITS_PER_UNIT);
+	      mark_reg_pointer (map->reg_map[regno], STACK_BOUNDARY);
 #endif
 
 	      SET_CONST_EQUIV_DATA (map, temp, loc, CONST_AGE_PARM);
@@ -1794,8 +1793,7 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 		= force_reg (Pmode, force_operand (loc, NULL_RTX));
 
 #ifdef STACK_BOUNDARY
-	      mark_reg_pointer (map->reg_map[regno],
-				STACK_BOUNDARY / BITS_PER_UNIT);
+	      mark_reg_pointer (map->reg_map[regno], STACK_BOUNDARY);
 #endif
 
 	      SET_CONST_EQUIV_DATA (map, temp, loc, CONST_AGE_PARM);
@@ -2572,15 +2570,16 @@ mark_stores (dest, x, data)
 
   if (regno >= 0)
     {
-      int last_reg = (regno >= FIRST_PSEUDO_REGISTER ? regno
-		      : regno + HARD_REGNO_NREGS (regno, mode) - 1);
-      int i;
+      unsigned int uregno = regno;
+      unsigned int last_reg = (uregno >= FIRST_PSEUDO_REGISTER ? uregno
+			      : uregno + HARD_REGNO_NREGS (uregno, mode) - 1);
+      unsigned int i;
 
       /* Ignore virtual stack var or virtual arg register since those
 	 are handled separately.  */
-      if (regno != VIRTUAL_INCOMING_ARGS_REGNUM
-	  && regno != VIRTUAL_STACK_VARS_REGNUM)
-	for (i = regno; i <= last_reg; i++)
+      if (uregno != VIRTUAL_INCOMING_ARGS_REGNUM
+	  && uregno != VIRTUAL_STACK_VARS_REGNUM)
+	for (i = uregno; i <= last_reg; i++)
 	  if ((size_t) i < VARRAY_SIZE (global_const_equiv_varray))
 	    VARRAY_CONST_EQUIV (global_const_equiv_varray, i).rtx = 0;
     }

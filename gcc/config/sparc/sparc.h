@@ -1454,6 +1454,8 @@ extern char leaf_reg_remap[];
 /* - We can't load constants into FP registers.
    - We can't load FP constants into integer registers when soft-float,
      because there is no soft-float pattern with a r/F constraint.
+   - We can't load FP constants into integer registers for TFmode unless
+     it is 0.0L, because there is no movtf pattern with a r/F constraint.
    - Try and reload integer constants (symbolic or otherwise) back into
      registers directly, rather than having them dumped to memory.  */
 
@@ -1461,7 +1463,9 @@ extern char leaf_reg_remap[];
   (CONSTANT_P (X)					\
    ? ((FP_REG_CLASS_P (CLASS)				\
        || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
-	   && ! TARGET_FPU))				\
+	   && ! TARGET_FPU)				\
+       || (GET_MODE (X) == TFmode			\
+	   && ! fp_zero_operand (X, TFmode)))		\
       ? NO_REGS						\
       : (!FP_REG_CLASS_P (CLASS)			\
          && GET_MODE_CLASS (GET_MODE (X)) == MODE_INT)	\
@@ -1606,7 +1610,7 @@ extern char leaf_reg_remap[];
    This is both an optimization and a necessity: longjmp
    doesn't behave itself when the stack pointer moves within
    the function!  */
-#define ACCUMULATE_OUTGOING_ARGS
+#define ACCUMULATE_OUTGOING_ARGS 1
 
 /* Value is the number of bytes of arguments automatically
    popped when returning from a subroutine call.
@@ -2298,7 +2302,7 @@ LFLGRET"ID":\n\
 #define REG_OK_FOR_BASE_P(X) \
   (((unsigned) REGNO (X)) - 32 >= (FIRST_PSEUDO_REGISTER - 32))
 
-/* 'T', 'U' are for aligned memory loads which aren't needed for v9.  */
+/* 'T', 'U' are for aligned memory loads which aren't needed for arch64.  */
 
 #define EXTRA_CONSTRAINT(OP, C)				\
    (EXTRA_CONSTRAINT_BASE(OP, C)                        \
@@ -2359,7 +2363,7 @@ LFLGRET"ID":\n\
       && REG_OK_FOR_INDEX_P (SUBREG_REG (X))))
 
 #define RTX_OK_FOR_OFFSET_P(X)						\
-  (GET_CODE (X) == CONST_INT && INTVAL (X) >= -0x1000 && INTVAL (X) < 0x1000)
+  (GET_CODE (X) == CONST_INT && INTVAL (X) >= -0x1000 && INTVAL (X) < 0x1000 - 8)
   
 #define RTX_OK_FOR_OLO10_P(X)						\
   (GET_CODE (X) == CONST_INT && INTVAL (X) >= -0x1000 && INTVAL (X) < 0xc00 - 8)
@@ -2396,10 +2400,19 @@ LFLGRET"ID":\n\
 		 REG+REG address, then only one of them	\
 		 gets converted to an offsetable	\
 		 address. */				\
- 	      && (MODE != TFmode			\
-		  || (TARGET_FPU && TARGET_ARCH64	\
-		      && TARGET_V9			\
-		      && TARGET_HARD_QUAD)))		\
+ 	       && (MODE != TFmode			\
+		   || (TARGET_FPU && TARGET_ARCH64	\
+		       && TARGET_V9			\
+		       && TARGET_HARD_QUAD))		\
+	      /* We prohibit REG + REG on ARCH32 if	\
+		 not optimizing for DFmode/DImode	\
+		 because then mem_min_alignment is	\
+		 likely to be zero after reload and the \
+		 forced split would lack a matching	\
+		 splitter pattern. */			\
+	       && (TARGET_ARCH64 || optimize		\
+		   || (MODE != DFmode			\
+		       && MODE != DImode)))		\
 	      || RTX_OK_FOR_OFFSET_P (op1))		\
 	    goto ADDR;					\
 	}						\
@@ -2407,10 +2420,13 @@ LFLGRET"ID":\n\
 	{						\
 	  if ((RTX_OK_FOR_INDEX_P (op0)			\
  	      /* See the previous comment. */		\
- 	      && (MODE != TFmode			\
+ 	       && (MODE != TFmode			\
 		  || (TARGET_FPU && TARGET_ARCH64	\
 		      && TARGET_V9			\
-		      && TARGET_HARD_QUAD)))		\
+		      && TARGET_HARD_QUAD))		\
+	       && (TARGET_ARCH64 || optimize		\
+		   || (MODE != DFmode			\
+		       && MODE != DImode)))		\
 	      || RTX_OK_FOR_OFFSET_P (op0))		\
 	    goto ADDR;					\
 	}						\

@@ -1270,7 +1270,7 @@ extern int ia64_local_regs;
    be computed and placed into the variable
    `current_function_outgoing_args_size'.  */
 
-#define ACCUMULATE_OUTGOING_ARGS
+#define ACCUMULATE_OUTGOING_ARGS 1
 
 /* A C expression that should indicate the number of bytes of its own arguments
    that a function pops on returning, or 0 if the function pops no arguments
@@ -2588,6 +2588,25 @@ do {									\
 
 /* Define to enable software floating point emulation. */
 #define REAL_ARITHMETIC
+
+
+/* Register Renaming Parameters.  */
+
+/* A C expression that is nonzero if hard register number REGNO2 can be
+   considered for use as a rename register for REGNO1 */
+
+#define HARD_REGNO_RENAME_OK(REGNO1,REGNO2) \
+  ((! PR_REGNO_P (REGNO1) && ! PR_REGNO_P (REGNO2)) 			\
+    ? (!call_fixed_regs [REGNO1] && !call_fixed_regs [REGNO2])		\
+      ? 1 : 0    							\
+    : ((REGNO2) > 256 && ((REGNO2 & 1) == 0))				\
+      ? 1 : 0)
+
+/* Define this macro if the compiler should use extended basic blocks
+   when renaming registers.  Define this macro if the target has predicate
+   registers.  */
+
+#define RENAME_EXTENDED_BLOCKS
 
 
 /* Miscellaneous Parameters.  */

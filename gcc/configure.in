@@ -225,16 +225,17 @@ if test x$enable_cpplib = xno; then
   cpp_main=cccp
 fi)
 
-# Link cpplib into the compiler proper, for C/C++/ObjC.
-AC_ARG_ENABLE(c-cpplib,
-[  --enable-c-cpplib       link cpplib directly into C and C++ compilers
-                          (EXPERIMENTAL) (implies --enable-cpplib).],
-if test x$enable_c_cpplib != xno; then
-  extra_c_objs="${extra_c_objs} libcpp.a"
-  extra_cxx_objs="${extra_cxx_objs} ../libcpp.a"
-  extra_c_flags="${extra_c_flags} -DUSE_CPPLIB=1"
-  cpp_main=cppmain
-fi)
+dnl Disable this for the moment; the library interface is changing.
+dnl # Link cpplib into the compiler proper, for C/C++/ObjC.
+dnl AC_ARG_ENABLE(c-cpplib,
+dnl [  --enable-c-cpplib       link cpplib directly into C and C++ compilers
+dnl                           (EXPERIMENTAL) (implies --enable-cpplib).],
+dnl if test x$enable_c_cpplib != xno; then
+dnl  extra_c_objs="${extra_c_objs} libcpp.a"
+dnl  extra_cxx_objs="${extra_cxx_objs} ../libcpp.a"
+dnl  extra_c_flags="${extra_c_flags} -DUSE_CPPLIB=1"
+dnl  cpp_main=cppmain
+dnl fi)
 
 # Enable Multibyte Characters for C/C++
 AC_ARG_ENABLE(c-mbchar,
@@ -2991,79 +2992,57 @@ changequote([,])dnl
 		tmake_file=rs6000/t-beos
 		xmake_file=rs6000/x-beos
 		;;
-	powerpc-*-sysv* | powerpc-*-elf*)
+	powerpc-*-sysv*)
 		tm_file=rs6000/sysv4.h
 		xm_file="rs6000/xm-sysv4.h"
 		xm_defines="USG POSIX"
 		extra_headers=ppc-asm.h
-		if test x$gas = xyes
-		then
-			tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
-		else
-			tmake_file="rs6000/t-ppc rs6000/t-ppccomm"
-		fi
+		tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
 		xmake_file=rs6000/x-sysv4
 		;;
 	powerpc-*-eabiaix*)
-		tm_file=rs6000/eabiaix.h
+		tm_file="rs6000/sysv4.h rs6000/eabi.h rs6000/eabiaix.h"
 		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
 		extra_headers=ppc-asm.h
 		;;
 	powerpc-*-eabisim*)
-		tm_file=rs6000/eabisim.h
+		tm_file="rs6000/sysv4.h rs6000/eabi.h rs6000/eabisim.h"
+		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
+		extra_headers=ppc-asm.h
+		;;
+	powerpc-*-elf*)
+		tm_file="rs6000/sysv4.h"
 		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
 		extra_headers=ppc-asm.h
 		;;
 	powerpc-*-eabi*)
-		tm_file=rs6000/eabi.h
-		if test x$gas = xyes
-		then
-			tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
-		else
-			tmake_file="rs6000/t-ppc rs6000/t-ppccomm"
-		fi
+		tm_file="rs6000/sysv4.h rs6000/eabi.h"
+		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
 		extra_headers=ppc-asm.h
 		;;
 	powerpc-*-rtems*)
-		tm_file=rs6000/rtems.h
-		if test x$gas = xyes
-		then
-		     tmake_file="rs6000/t-ppcgas t-rtems rs6000/t-ppccomm"
-		else
-		     tmake_file="rs6000/t-ppc t-rtems rs6000/t-ppccomm"
-		fi
+		tm_file="rs6000/sysv4.h rs6000/eabi.h rs6000/rtems.h"
+		tmake_file="rs6000/t-ppcgas t-rtems rs6000/t-ppccomm"
 		extra_headers=ppc-asm.h
 		;;
 	powerpc-*-linux-gnulibc1)
-		tm_file=rs6000/linux.h
+		tm_file="rs6000/sysv4.h rs6000/linux.h"
 		xm_file=rs6000/xm-sysv4.h
 		out_file=rs6000/rs6000.c
-		if test x$gas = xyes
-		then
-			tmake_file="rs6000/t-ppcos t-linux t-linux-gnulibc1 rs6000/t-ppccomm"
-		else
-			tmake_file="rs6000/t-ppc t-linux t-linux-gnulibc1 rs6000/t-ppccomm"
-		fi
+		tmake_file="rs6000/t-ppcos t-linux t-linux-gnulibc1 rs6000/t-ppccomm"
 		xmake_file=x-linux
-		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 		extra_headers=ppc-asm.h
 		if test x$enable_threads = xyes; then
 			thread_file='posix'
 		fi
 		;;
 	powerpc-*-linux-gnu*)
-		tm_file=rs6000/linux.h
+		tm_file="rs6000/sysv4.h rs6000/linux.h"
 		xm_file="rs6000/xm-sysv4.h"
 		xm_defines="USG ${xm_defines}"
 		out_file=rs6000/rs6000.c
-		if test x$gas = xyes
-		then
-			tmake_file="rs6000/t-ppcos t-linux rs6000/t-ppccomm"
-		else
-			tmake_file="rs6000/t-ppc t-linux rs6000/t-ppccomm"
-		fi
+		tmake_file="rs6000/t-ppcos t-linux rs6000/t-ppccomm"
 		xmake_file=x-linux
-		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 		extra_headers=ppc-asm.h
 		if test x$enable_threads = xyes; then
 			thread_file='posix'
@@ -3073,7 +3052,7 @@ changequote([,])dnl
                 cpu_type=rs6000
 		xm_file="rs6000/xm-sysv4.h"
 		xm_defines="USG POSIX"
-                tm_file=rs6000/vxppc.h
+                tm_file="rs6000/sysv4.h rs6000/vxppc.h"
                 tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
 		extra_headers=ppc-asm.h
 		thread_file='vxworks'
@@ -3082,49 +3061,39 @@ changequote([,])dnl
                 cpu_type=rs6000
 		xm_file="rs6000/xm-sysv4.h"
 		xm_defines="USG POSIX"
-                tm_file=rs6000/vxppcle.h
+                tm_file="rs6000/sysv4.h rs6000/sysv4le.h rs6000/vxppc.h"
                 tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
 		extra_headers=ppc-asm.h
 		thread_file='vxworks'
                 ;;
-	powerpcle-*-sysv* | powerpcle-*-elf*)
-		tm_file=rs6000/sysv4le.h
+	powerpcle-*-sysv*)
+		tm_file="rs6000/sysv4.h rs6000/sysv4le.h"
 		xm_file="rs6000/xm-sysv4.h"
 		xm_defines="USG POSIX"
-		if test x$gas = xyes
-		then
-			tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
-		else
-			tmake_file="rs6000/t-ppc rs6000/t-ppccomm"
-		fi
+		tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
 		xmake_file=rs6000/x-sysv4
 		extra_headers=ppc-asm.h
 		;;
+	powerpcle-*-elf*)
+		tm_file="rs6000/sysv4.h rs6000/sysv4le.h"
+		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
+		extra_headers=ppc-asm.h
+		;;
 	powerpcle-*-eabisim*)
-		tm_file=rs6000/eabilesim.h
+		tm_file="rs6000/sysv4.h rs6000/sysv4le.h rs6000/eabi.h rs6000/eabisim.h"
 		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
 		extra_headers=ppc-asm.h
 		;;
 	powerpcle-*-eabi*)
-		tm_file=rs6000/eabile.h
-		if test x$gas = xyes
-		then
-			tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
-		else
-			tmake_file="rs6000/t-ppc rs6000/t-ppccomm"
-		fi
+		tm_file="rs6000/sysv4.h rs6000/sysv4le.h rs6000/eabi.h"
+		tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
 		extra_headers=ppc-asm.h
 		;;
 	powerpcle-*-solaris2*)
-		tm_file=rs6000/sol2.h
+		tm_file="rs6000/sysv4.h rs6000/sysv4le.h rs6000/sol2.h"
 		xm_file="rs6000/xm-sysv4.h"
 		xm_defines="USG POSIX"
-		if test x$gas = xyes
-		then
-			tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
-		else
-			tmake_file="rs6000/t-ppc rs6000/t-ppccomm"
-		fi
+		tmake_file="rs6000/t-ppcos rs6000/t-ppccomm"
 		xmake_file=rs6000/x-sysv4
 		extra_headers=ppc-asm.h
 		;;
@@ -4376,6 +4345,20 @@ if test x$gcc_cv_as != x; then
 fi
 AC_MSG_RESULT($gcc_cv_as_weak)
 
+AC_MSG_CHECKING(assembler hidden support)
+gcc_cv_as_hidden=
+if test x$gcc_cv_as != x; then
+	# Check if we have .hidden
+	echo "	.hidden foobar" > conftest.s
+	echo "foobar:" >> conftest.s
+	if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1; then
+		AC_DEFINE(HAVE_GAS_HIDDEN)
+		gcc_cv_as_hidden="yes"
+	fi
+	rm -f conftest.s conftest.o conftest.nm1 conftest.nm2
+fi
+AC_MSG_RESULT($gcc_cv_as_hidden)
+
 case "$target" in 
   sparc*-*-*)
     AC_CACHE_CHECK([assembler .register pseudo-op support],
@@ -4580,6 +4563,21 @@ GXX_ABI_FLAG='-fnew-abi'
 echo "Building a new-abi g++ compiler."
 ])
 AC_SUBST(GXX_ABI_FLAG)
+
+# Build a new-libstdc++ system (ie libstdc++-v3)
+AC_MSG_CHECKING([for libstdc++ to install])
+AC_ARG_ENABLE(libstdcxx-v3,
+[  --enable-libstdcxx-v3 
+			  enable libstdc++-v3 for building and installation],
+  [enable_libstdcxx_v3=yes], [enable_libstdcxx_v3=no])
+
+if test x$enable_libstdcxx_v3 = xyes; then
+  AC_MSG_RESULT(v3)
+  AC_DEFINE(ENABLE_STD_NAMESPACE)
+else
+  AC_MSG_RESULT(v2)
+fi
+
 
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.

@@ -592,7 +592,25 @@ do {									\
    where the address is passed.  If it returns 0, the address is
    passed as an "invisible" first argument.  */
 
-/*#define STRUCT_VALUE ((rtx)0)*/
+/* The Hitachi calling convention doesn't quite fit into this scheme since
+   the address is passed like an invisible argument, but one that is always
+   passed in memory.  We approximate this by saying where the pointer is;
+   however, this will put any actual arguments that are passed in memory
+   in the wrong place.
+   If we wanted to implement this exactly, we'd need a STRUCT_VALUE of 0,
+   an extra field in CUMULATIVE_ARGS, initialize it in INIT_CUMULATIVE_ARGS,
+   and hack FUNCTION_ARG (actually PASS_IN_REG_P) / FUNCTION_ARG_ADVANCE
+   to look directly at DECL_RESULT of the current function in conjunction
+   with CUM to determine if the argument in question it is a struct value
+   pointer, and if it is, pass it in memory.  */
+#define STRUCT_VALUE \
+  (TARGET_HITACHI \
+   ? gen_rtx_MEM (Pmode, arg_pointer_rtx) \
+   : gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM))
+
+#define RETURN_IN_MEMORY(TYPE) \
+  (TYPE_MODE (TYPE) == BLKmode \
+   || TARGET_HITACHI && TREE_CODE (TYPE) == RECORD_TYPE)
 
 /* Don't default to pcc-struct-return, because we have already specified
    exactly how to return structures in the RETURN_IN_MEMORY macro.  */
@@ -1066,7 +1084,7 @@ struct sh_args {
 	+ ((MODE) != BLKmode					\
 	   ? ROUND_ADVANCE (GET_MODE_SIZE (MODE))		\
 	   : ROUND_ADVANCE (int_size_in_bytes (TYPE)))		\
-	- NPARM_REGS (MODE) > 0))				\
+	> NPARM_REGS (MODE)))					\
    ? NPARM_REGS (MODE) - ROUND_REG ((CUM), (MODE))		\
    : 0)
 
@@ -1183,7 +1201,7 @@ extern int current_function_anonymous_args;
 
 #define MOVE_BY_PIECES_P(SIZE, ALIGN)  (move_by_pieces_ninsns (SIZE, ALIGN) \
                                         < (TARGET_SMALLCODE ? 2 :           \
-                                           ((ALIGN >= 4) ? 16 : 2)))
+                                           ((ALIGN >= 32) ? 16 : 2)))
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -2122,20 +2140,12 @@ extern int rtx_equal_function_value_matters;
 extern struct rtx_def *fpscr_rtx;
 
 
-/* Instructions with unfilled delay slots take up an extra two bytes for
-   the nop in the delay slot.  */
+/* Instructions with unfilled delay slots take up an
+   extra two bytes for the nop in the delay slot.
+   sh-dsp parallel processing insns are four bytes long.  */
 
 #define ADJUST_INSN_LENGTH(X, LENGTH)				\
-  if (((GET_CODE (X) == INSN					\
-	&& GET_CODE (PATTERN (X)) != USE			\
-	&& GET_CODE (PATTERN (X)) != CLOBBER)			\
-       || GET_CODE (X) == CALL_INSN				\
-       || (GET_CODE (X) == JUMP_INSN				\
-	   && GET_CODE (PATTERN (X)) != ADDR_DIFF_VEC		\
-	   && GET_CODE (PATTERN (X)) != ADDR_VEC))		\
-      && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (X)))) != SEQUENCE \
-      && get_attr_needs_delay_slot (X) == NEEDS_DELAY_SLOT_YES)	\
-    (LENGTH) += 2;
+  (LENGTH) += sh_insn_length_adjustment (X);
 
 /* Define the codes that are matched by predicates in sh.c.  */
 #define PREDICATE_CODES \

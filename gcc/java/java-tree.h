@@ -541,9 +541,12 @@ struct lang_decl_var
   if (TYPE_LANG_SPECIFIC ((T)) == NULL)					\
     {									\
       TYPE_LANG_SPECIFIC ((T)) = 					\
-	(struct lang_type *)xmalloc (sizeof (struct lang_type));	\
-      bzero (TYPE_LANG_SPECIFIC ((T)), sizeof (struct lang_type));	\
+	(struct lang_type *) xmalloc (sizeof (struct lang_type));	\
+									\
+      bzero ((char *) TYPE_LANG_SPECIFIC ((T)),				\
+	     sizeof (struct lang_type));				\
     }
+
 #define TYPE_FINIT_STMT_LIST(T)  (TYPE_LANG_SPECIFIC(T)->finit_stmt_list)
 #define TYPE_CLINIT_STMT_LIST(T) (TYPE_LANG_SPECIFIC(T)->clinit_stmt_list)
 #define TYPE_II_STMT_LIST(T)     (TYPE_LANG_SPECIFIC(T)->ii_block)
@@ -750,6 +753,9 @@ void java_debug_context PARAMS ((void));
 void safe_layout_class PARAMS ((tree));
 
 extern tree get_boehm_type_descriptor PARAMS ((tree));
+extern unsigned long java_hash_hash_tree_node PARAMS ((hash_table_key));
+extern boolean java_hash_compare_tree_node PARAMS ((hash_table_key, 
+						    hash_table_key));
 
 /* We use ARGS_SIZE_RTX to indicate that gcc/expr.h has been included
    to declare `enum expand_modifier'. */

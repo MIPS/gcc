@@ -575,11 +575,8 @@ build_java_ret (location)
 
 /* Array core info access macros */
 
-#define JAVA_ARRAY_LENGTH_OFFSET(A)					   \
-  size_binop (CEIL_DIV_EXPR, 						   \
-	      (DECL_FIELD_BITPOS					   \
-		  (TREE_CHAIN (TYPE_FIELDS (TREE_TYPE (TREE_TYPE (A)))))), \
-              bitsize_int (BITS_PER_UNIT))
+#define JAVA_ARRAY_LENGTH_OFFSET(A) \
+  byte_position (TREE_CHAIN (TYPE_FIELDS (TREE_TYPE (TREE_TYPE (A)))))
 
 tree
 decode_newarray_type (atype)
@@ -690,10 +687,11 @@ java_array_data_offset (array)
 {
   tree array_type = TREE_TYPE (TREE_TYPE (array));
   tree data_fld = TREE_CHAIN (TREE_CHAIN (TYPE_FIELDS (array_type)));
+
   if (data_fld == NULL_TREE)
     return size_in_bytes (array_type);
   else
-    return build_int_2 (int_bit_position (data_fld) / BITS_PER_UNIT, 0);
+    return byte_position (data_fld);
 }
 
 /* Implement array indexing (either as l-value or r-value).
@@ -2024,8 +2022,10 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	if (TREE_CONSTANT (init)
 	    && ilength >= 10 && JPRIMITIVE_TYPE_P (element_type))
 	  {
-	    tree init_decl = build_decl (VAR_DECL, generate_name (),
-					 TREE_TYPE (init));
+	    tree init_decl;
+	    push_obstacks (&permanent_obstack, &permanent_obstack);
+	    init_decl = build_decl (VAR_DECL, generate_name (),
+				    TREE_TYPE (init));
 	    pushdecl_top_level (init_decl);
 	    TREE_STATIC (init_decl) = 1;
 	    DECL_INITIAL (init_decl) = init;
@@ -2033,12 +2033,12 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	    TREE_READONLY (init_decl) = 1;
 	    TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (init_decl)) = 1;
 	    make_decl_rtl (init_decl, NULL, 1);
+	    pop_obstacks ();
 	    init = init_decl;
 	  }
 	expand_assignment (build (COMPONENT_REF, TREE_TYPE (data_fld),
-				  build1 (INDIRECT_REF, array_type, array_decl),
-				  data_fld),
-			   init, 0, 0);
+				  build1 (INDIRECT_REF, array_type, 
+					  array_decl), data_fld), init, 0, 0);
 	return tmp;
       }
     case BLOCK:

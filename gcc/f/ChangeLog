@@ -1,3 +1,21 @@
+Wed Apr  5 17:46:39 2000  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.in (GGC_H): Add varray.h.
+
+2000-04-03  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* lang-specs.h: Pass -fno-show-column to the preprocessor.
+
+2000-03-28  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* com.c (ffecom_decl_field): Use DECL_ALIGN for a FIELD_DECL.
+	(ffecom_init_0): Likewise.
+
+Sat Mar 25 09:12:10 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* com.c (ffecom_tree_canonize_ptr_): Use bitsize_zero_node.
+	(ffecom_tree_canonize_ref_): Likewise.
+
 Mon Mar 20 15:49:40 2000  Jim Wilson  <wilson@cygnus.com>
 
 	* f/target.h (FFETARGET_32bit_longs): New.  Define for alpha, sparc64,

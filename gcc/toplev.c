@@ -61,6 +61,10 @@ Boston, MA 02111-1307, USA.  */
 #include "loop.h"
 #include "regs.h"
 
+#ifndef ACCUMULATE_OUTGOING_ARGS
+#define ACCUMULATE_OUTGOING_ARGS 0
+#endif
+
 #ifdef DWARF_DEBUGGING_INFO
 #include "dwarfout.h"
 #endif
@@ -158,19 +162,16 @@ static void pipe_closed PARAMS ((int)) ATTRIBUTE_NORETURN;
 /* This might or might not be used in ASM_IDENTIFY_LANGUAGE. */
 static void output_lang_identify PARAMS ((FILE *)) ATTRIBUTE_UNUSED;
 #endif
-static void open_dump_file PARAMS ((const char *, const char *));
-static void close_dump_file PARAMS ((void (*) (FILE *, rtx), rtx));
-static void dump_rtl PARAMS ((const char *, tree, void (*) (FILE *, rtx), rtx));
-static void clean_dump_file PARAMS ((const char *));
 static void compile_file PARAMS ((char *));
 static void display_help PARAMS ((void));
 static void mark_file_stack PARAMS ((void *));
 
 static void decode_d_option PARAMS ((const char *));
-static int  decode_f_option PARAMS ((const char *));
-static int  decode_W_option PARAMS ((const char *));
-static int  decode_g_option PARAMS ((const char *));
-static unsigned independent_decode_option PARAMS ((int, char **, unsigned));
+static int decode_f_option PARAMS ((const char *));
+static int decode_W_option PARAMS ((const char *));
+static int decode_g_option PARAMS ((const char *));
+static unsigned int independent_decode_option PARAMS ((int, char **,
+						       unsigned int));
 
 static void print_version PARAMS ((FILE *, const char *));
 static int print_single_switch PARAMS ((FILE *, int, int, const char *,
@@ -225,42 +226,101 @@ const char *dump_base_name;
 
 extern int target_flags;
 
-/* Flags saying which kinds of debugging dump have been requested.  */
+/* Describes a dump file.  */
 
-int rtl_dump = 0;
-int rtl_dump_and_exit = 0;
-int jump_opt_dump = 0;
-int addressof_dump = 0;
-int cse_dump = 0;
-int gcse_dump = 0;
-int loop_dump = 0;
-int cse2_dump = 0;
-int branch_prob_dump = 0;
-int flow_dump = 0;
-int combine_dump = 0;
-int regmove_dump = 0;
-int sched_dump = 0;
-int local_reg_dump = 0;
-int global_reg_dump = 0;
-int flow2_dump = 0;
-int peephole2_dump = 0;
-int sched2_dump = 0;
-int jump2_opt_dump = 0;
-#ifdef DELAY_SLOTS
-int dbr_sched_dump = 0;
-#endif
-int reorder_blocks_dump = 0;
-int flag_print_asm_name = 0;
-#ifdef STACK_REGS
-int stack_reg_dump = 0;
-#endif
-#ifdef MACHINE_DEPENDENT_REORG
-int mach_dep_reorg_dump = 0;
-#endif
-int ssa_dump = 0;
-static int flag_print_mem = 0;
-static int version_flag = 0;
-static char * filename = 0;
+struct dump_file_info
+{
+  /* The unique extension to apply, e.g. ".jump".  */
+  const char * const extension;
+
+  /* The -d<c> character that enables this dump file.  */
+  char const debug_switch;
+
+  /* True if there is a corresponding graph dump file.  */
+  char const graph_dump_p;
+
+  /* True if the user selected this dump.  */
+  char enabled;
+
+  /* True if the files have been initialized (ie truncated).  */
+  char initialized;
+};
+
+/* Enumerate the extant dump files.  */
+
+enum dump_file_index
+{
+  DFI_rtl,
+  DFI_jump,
+  DFI_cse,
+  DFI_addressof,
+  DFI_ssa,
+  DFI_ussa,
+  DFI_gcse,
+  DFI_loop,
+  DFI_cse2,
+  DFI_bp,
+  DFI_flow,
+  DFI_combine,
+  DFI_regmove,
+  DFI_sched,
+  DFI_lreg,
+  DFI_greg,
+  DFI_flow2,
+  DFI_peephole2,
+  DFI_sched2,
+  DFI_bbro,
+  DFI_rnreg,
+  DFI_jump2,
+  DFI_mach,
+  DFI_dbr,
+  DFI_stack,
+  DFI_MAX
+};
+
+/* Describes all the dump files.  Should be kept in order of the
+   pass and in sync with dump_file_index above.  */
+
+struct dump_file_info dump_file[DFI_MAX] = 
+{
+  { "rtl",	'r', 0, 0, 0 },
+  { "jump",	'j', 0, 0, 0 },
+  { "cse",	's', 0, 0, 0 },
+  { "addressof", 'F', 0, 0, 0 },
+  { "ssa",	'e', 1, 0, 0 },
+  { "ussa",	'e', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
+  { "gcse",	'G', 1, 0, 0 },
+  { "loop",	'L', 1, 0, 0 },
+  { "cse2",	't', 1, 0, 0 },
+  { "bp",	'b', 1, 0, 0 },
+  { "flow",	'f', 1, 0, 0 },
+  { "combine",	'c', 1, 0, 0 },
+  { "regmove",	'N', 1, 0, 0 },
+  { "sched",	'S', 1, 0, 0 },
+  { "lreg",	'l', 1, 0, 0 },
+  { "greg",	'g', 1, 0, 0 },
+  { "flow2",	'w', 1, 0, 0 },
+  { "peephole2", 'z', 1, 0, 0 },
+  { "sched2",	'R', 1, 0, 0 },
+  { "bbro",	'B', 1, 0, 0 },
+  { "rnreg",	'n', 1, 0, 0 },
+  { "jump2",	'J', 1, 0, 0 },
+  { "mach",	'M', 1, 0, 0 },
+  { "dbr",	'd', 0, 0, 0 },
+  { "stack",	'k', 1, 0, 0 },
+};
+
+static int open_dump_file PARAMS ((enum dump_file_index, tree));
+static void close_dump_file PARAMS ((enum dump_file_index,
+				     void (*) (FILE *, rtx), rtx));
+
+/* Other flags saying which kinds of debugging dump have been requested.  */
+
+int rtl_dump_and_exit;
+int flag_print_asm_name;
+static int flag_print_mem;
+static int version_flag;
+static char * filename;
 enum graph_dump_types graph_dump_format;
 
 /* Name for output file of assembly code, specified with -o.  */
@@ -364,6 +424,10 @@ int flag_branch_probabilities = 0;
 /* Nonzero if basic blocks should be reordered. */
 
 int flag_reorder_blocks = 0;
+
+/* Nonzero if registers should be renamed */
+
+int flag_rename_registers = 0;
 
 /* Nonzero for -pedantic switch: warn about anything
    that standard spec forbids.  */
@@ -517,6 +581,10 @@ int flag_no_peephole = 0;
    faster code for sqrt to be generated.  */
 
 int flag_fast_math = 0;
+
+/* Nonzero allows GCC to optimize sibling and tail recursive calls.  */
+
+int flag_optimize_sibling_calls = 0;
 
 /* Nonzero means the front end generally wants `errno' maintained by math
    operations, like built-in SQRT, unless overridden by flag_fast_math.  */
@@ -862,6 +930,8 @@ lang_independent_options f_options[] =
    "Defer popping functions args from stack until later" },
   {"omit-frame-pointer", &flag_omit_frame_pointer, 1,
    "When possible do not generate stack frames"},
+  {"optimize-sibling-calls", &flag_optimize_sibling_calls, 1,
+   "Optimize sibling and tail recursive calls" },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    "When running CSE, follow jumps to their targets" },
   {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
@@ -955,6 +1025,8 @@ lang_independent_options f_options[] =
    "Use profiling information for branch probabilities" },
   {"reorder-blocks", &flag_reorder_blocks, 1,
    "Reorder basic blocks to improve code placement" },
+  {"rename-registers", &flag_rename_registers, 1,
+   "Do the register renaming optimization pass"},
   {"fast-math", &flag_fast_math, 1,
    "Improve FP speed by violating ANSI & IEEE rules" },
   {"common", &flag_no_common, 0,
@@ -1351,8 +1423,11 @@ int peephole2_time;
 int sched2_time;
 int dbr_sched_time;
 int reorder_blocks_time;
+int rename_registers_time;
 int shorten_branch_time;
 int stack_reg_time;
+int to_ssa_time;
+int from_ssa_time;
 int final_time;
 int symout_time;
 int dump_time;
@@ -1437,9 +1512,9 @@ print_time (str, total)
      int total;
 {
   fprintf (stderr,
-	   "time in %s: %d.%06d (%.0f%%)\n",
+	   "time in %s: %d.%06d (%d%%)\n",
 	   str, total / 1000000, total % 1000000,
-	   all_time == 0 ? 0.00 : (double) total / (double) all_time * 100.0);
+	   all_time == 0 ? 0 : (100 * total) / all_time);
 }
 
 /* This is the default decl_printable_name function.  */
@@ -1725,46 +1800,89 @@ output_lang_identify (asm_out_file)
 }
 #endif
 
-/* Routine to open a dump file.  */
-static void
-open_dump_file (suffix, function_name)
-     const char *suffix;
-     const char *function_name;
+/* Routine to open a dump file.  Return true if the dump file is enabled.  */
+
+static int
+open_dump_file (index, decl)
+     enum dump_file_index index;
+     tree decl;
 {
-  char *dumpname;
+  char *dump_name;
+  const char *open_arg;
+  char seq[16];
+
+  if (! dump_file[index].enabled)
+    return 0;
 
   TIMEVAR
     (dump_time,
-     {
-       dumpname = concat (dump_base_name, suffix, NULL);
-
-       if (rtl_dump_file != NULL)
-	 fclose (rtl_dump_file);
+      {
+	if (rtl_dump_file != NULL)
+	  fclose (rtl_dump_file);
   
-       rtl_dump_file = fopen (dumpname, "a");
-       
-       if (rtl_dump_file == NULL)
-	 pfatal_with_name (dumpname);
-       
-       free (dumpname);
+	sprintf (seq, ".%02d.", index);
 
-       if (function_name)
-	 fprintf (rtl_dump_file, "\n;; Function %s\n\n", function_name);
-     });
+	if (! dump_file[index].initialized)
+	  {
+	    /* If we've not initialized the files, do so now.  */
+	    if (graph_dump_format != no_graph
+		&& dump_file[index].graph_dump_p)
+	      {
+		dump_name = concat (seq, dump_file[index].extension, NULL);
+		clean_graph_dump_file (dump_base_name, dump_name);
+		free (dump_name);
+	      }
+	    dump_file[index].initialized = 1;
+	    open_arg = "w";
+	  }
+	else
+	  open_arg = "a";
+
+	dump_name = concat (dump_base_name, seq,
+			    dump_file[index].extension, NULL);
+
+	rtl_dump_file = fopen (dump_name, open_arg);
+	if (rtl_dump_file == NULL)
+	  pfatal_with_name (dump_name);
+       
+	free (dump_name);
+
+	if (decl)
+	  fprintf (rtl_dump_file, "\n;; Function %s\n\n",
+		   decl_printable_name (decl, 2));
+      });
   
-  return;
+  return 1;
 }
 
 /* Routine to close a dump file.  */
+
 static void
-close_dump_file (func, insns)
+close_dump_file (index, func, insns)
+     enum dump_file_index index;
      void (*func) PARAMS ((FILE *, rtx));
      rtx    insns;
 {
+  if (! rtl_dump_file)
+    return;
+
   TIMEVAR
     (dump_time,
-     {
-       if (func)
+      {
+	if (insns
+	    && graph_dump_format != no_graph
+	    && dump_file[index].graph_dump_p)
+	  {
+	    char seq[16];
+	    char *suffix;
+
+	    sprintf (seq, ".%02d.", index);
+	    suffix = concat (seq, dump_file[index].extension, NULL);
+	    print_rtl_graph_with_bb (dump_base_name, suffix, insns);
+	    free (suffix);
+	  }
+
+       if (func && insns)
 	 func (rtl_dump_file, insns);
        
        fflush (rtl_dump_file);
@@ -1772,40 +1890,6 @@ close_dump_file (func, insns)
        
        rtl_dump_file = NULL;
      });
-
-  return;
-}
-
-/* Routine to dump rtl into a file.  */
-static void
-dump_rtl (suffix, decl, func, insns)
-     const char *suffix;
-     tree   decl;
-     void (*func) PARAMS ((FILE *, rtx));
-     rtx    insns;
-{
-  open_dump_file (suffix, decl_printable_name (decl, 2));
-  close_dump_file (func, insns);
-}
-
-/* Routine to empty a dump file.  */
-static void
-clean_dump_file (suffix)
-  const char *suffix;
-{
-  char * const dumpname = concat (dump_base_name, suffix, NULL);
-
-  rtl_dump_file = fopen (dumpname, "w");
-
-  if (rtl_dump_file == NULL)
-    pfatal_with_name (dumpname);       
-
-  free (dumpname);
-
-  fclose (rtl_dump_file);
-  rtl_dump_file = NULL;
-  
-  return;
 }
 
 /* Do any final processing required for the declarations in VEC, of
@@ -2091,8 +2175,11 @@ compile_file (name)
   sched2_time = 0;
   dbr_sched_time = 0;
   reorder_blocks_time = 0;
+  rename_registers_time = 0;
   shorten_branch_time = 0;
   stack_reg_time = 0;
+  to_ssa_time = 0;
+  from_ssa_time = 0;
   final_time = 0;
   symout_time = 0;
   dump_time = 0;
@@ -2136,153 +2223,6 @@ compile_file (name)
       if (aux_info_file == 0)
 	pfatal_with_name (aux_info_file_name);
     }
-
-  /* Clear the dump files.  */
-  if (rtl_dump)
-    clean_dump_file (".00.rtl");
-  if (jump_opt_dump)
-    {
-      clean_dump_file (".01.jump");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".01.jump");
-    }
-  if (cse_dump)
-    {
-      clean_dump_file (".02.cse");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".02.cse");
-    }
-  if (addressof_dump)
-    {
-      clean_dump_file (".03.addressof");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".03.addressof");
-    }
-  if (ssa_dump)
-    {
-      clean_dump_file (".033.ssa");
-      clean_dump_file (".037.ussa");
-    }
-  if (gcse_dump)
-    {
-      clean_dump_file (".04.gcse");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".04.gcse");
-    }
-  if (loop_dump)
-    {
-      clean_dump_file (".05.loop");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".05.loop");
-    }
-  if (cse2_dump)
-    {
-      clean_dump_file (".06.cse2");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".06.cse2");
-    }
-  if (branch_prob_dump)
-    {
-      clean_dump_file (".07.bp");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".07.bp");
-    }
-  if (flow_dump)
-    {
-      clean_dump_file (".08.flow");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".08.flow");
-    }
-  if (combine_dump)
-    {
-      clean_dump_file (".09.combine");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".09.combine");
-    }
-  if (regmove_dump)
-    {
-      clean_dump_file (".10.regmove");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".10.regmove");
-    }
-#ifdef INSN_SCHEDULING
-  if (sched_dump)
-    {
-      clean_dump_file (".11.sched");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".11.sched");
-    }
-#endif
-  if (local_reg_dump)
-    {
-      clean_dump_file (".12.lreg");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".12.lreg");
-    }
-  if (global_reg_dump)
-    {
-      clean_dump_file (".13.greg");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".13.greg");
-    }
-  if (flow2_dump)
-    {
-      clean_dump_file (".14.flow2");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".14.flow2");
-    }
-#ifdef HAVE_peephole2
-  if (peephole2_dump)
-    {
-      clean_dump_file (".15.peephole2");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".15.peephole2");
-    }
-#endif
-#ifdef INSN_SCHEDULING
-  if (sched2_dump)
-    {
-      clean_dump_file (".16.sched2");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".16.sched2");
-    }
-#endif
-  if (reorder_blocks_dump)
-    {
-      clean_dump_file (".bbro");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".bbro");
-    }
-  if (jump2_opt_dump)
-    {
-      clean_dump_file (".17.jump2");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".17.jump2");
-    }
-#ifdef MACHINE_DEPENDENT_REORG
-  if (mach_dep_reorg_dump)
-    {
-      clean_dump_file (".18.mach");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".18.mach");
-    }
-#endif
-#ifdef DELAY_SLOTS
-  if (dbr_sched_dump)
-    {
-      clean_dump_file (".19.dbr");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".19.dbr");
-    }
-#endif
-#ifdef STACK_REGS
-  if (stack_reg_dump)
-    {
-      clean_dump_file (".20.stack");
-      if (graph_dump_format != no_graph)
-	clean_graph_dump_file (dump_base_name, ".20.stack");
-    }
-#endif
 
   /* Open assembler code output file.  */
 
@@ -2548,18 +2488,18 @@ compile_file (name)
 
   end_final (dump_base_name);
    
-  if (branch_prob_dump)
-    open_dump_file (".07.bp", NULL);
+  if (flag_test_coverage || flag_branch_probabilities)
+    {
+      open_dump_file (DFI_bp, NULL);
    
-  TIMEVAR (dump_time, end_branch_prob (rtl_dump_file));
+      TIMEVAR (dump_time, end_branch_prob (rtl_dump_file));
    
-  if (branch_prob_dump)
-    close_dump_file (NULL, NULL_RTX);
+      close_dump_file (DFI_bp, NULL, NULL_RTX);
+    }
    
 #ifdef ASM_FILE_END
   ASM_FILE_END (asm_out_file);
 #endif
-
 
   /* Language-specific end of compilation actions.  */
  finish_syntax:
@@ -2574,11 +2514,10 @@ compile_file (name)
 	unlink (aux_info_file_name);
     }
 
-  if (combine_dump)
+  if (optimize > 0 && open_dump_file (DFI_combine, NULL))
     {
-      open_dump_file (".09.combine", NULL);
       TIMEVAR (dump_time, dump_combine_total_stats (rtl_dump_file));
-      close_dump_file (NULL, NULL_RTX);
+      close_dump_file (DFI_combine, NULL, NULL_RTX);
     }
 
   /* Close non-debugging input and output files.  Take special care to note
@@ -2594,60 +2533,19 @@ compile_file (name)
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)
     {
-      if (jump_opt_dump)
-	finish_graph_dump_file (dump_base_name, ".01.jump");
-      if (cse_dump)
-	finish_graph_dump_file (dump_base_name, ".02.cse");
-      if (addressof_dump)
-	finish_graph_dump_file (dump_base_name, ".03.addressof");
-      if (gcse_dump)
-	finish_graph_dump_file (dump_base_name, ".04.gcse");
-      if (loop_dump)
-	finish_graph_dump_file (dump_base_name, ".05.loop");
-      if (cse2_dump)
-	finish_graph_dump_file (dump_base_name, ".06.cse2");
-      if (branch_prob_dump)
-	finish_graph_dump_file (dump_base_name, ".07.bp");
-      if (flow_dump)
-	finish_graph_dump_file (dump_base_name, ".08.flow");
-      if (combine_dump)
-	finish_graph_dump_file (dump_base_name, ".09.combine");
-      if (regmove_dump)
-	finish_graph_dump_file (dump_base_name, ".10.regmove");
-#ifdef INSN_SCHEDULING
-      if (sched_dump)
-	finish_graph_dump_file (dump_base_name, ".11.sched");
-#endif
-      if (local_reg_dump)
-	finish_graph_dump_file (dump_base_name, ".12.lreg");
-      if (global_reg_dump)
-	finish_graph_dump_file (dump_base_name, ".13.greg");
-      if (flow2_dump)
-	finish_graph_dump_file (dump_base_name, ".14.flow2");
-#ifdef HAVE_peephole2
-      if (flow2_dump)
-	finish_graph_dump_file (dump_base_name, ".15.peephole2");
-#endif
-#ifdef INSN_SCHEDULING
-      if (sched2_dump)
-	finish_graph_dump_file (dump_base_name, ".16.sched2");
-#endif
-      if (reorder_blocks_dump)
-	finish_graph_dump_file (dump_base_name, ".bbro");
-      if (jump2_opt_dump)
-	finish_graph_dump_file (dump_base_name, ".17.jump2");
-#ifdef MACHINE_DEPENDENT_REORG
-      if (mach_dep_reorg_dump)
-	finish_graph_dump_file (dump_base_name, ".18.mach");
-#endif
-#ifdef DELAY_SLOTS
-      if (dbr_sched_dump)
-	finish_graph_dump_file (dump_base_name, ".19.dbr");
-#endif
-#ifdef STACK_REGS
-      if (stack_reg_dump)
-	finish_graph_dump_file (dump_base_name, ".20.stack");
-#endif
+      int i;
+
+      for (i = 0; i < DFI_MAX; ++i)
+	if (dump_file[i].initialized && dump_file[i].graph_dump_p)
+	  {
+	    char seq[16];
+	    char *suffix;
+
+	    sprintf (seq, ".%02d.", i);
+	    suffix = concat (seq, dump_file[i].extension, NULL);
+	    finish_graph_dump_file (dump_base_name, suffix);
+	    free (suffix);
+	  }
     }
 
   /* Free up memory for the benefit of leak detectors.  */
@@ -2665,6 +2563,8 @@ compile_file (name)
       print_time ("integration", integration_time);
       print_time ("jump", jump_time);
       print_time ("cse", cse_time);
+      print_time ("to ssa", to_ssa_time);
+      print_time ("from ssa", from_ssa_time);
       print_time ("gcse", gcse_time);
       print_time ("loop", loop_time);
       print_time ("cse2", cse2_time);
@@ -2688,6 +2588,7 @@ compile_file (name)
       print_time ("dbranch", dbr_sched_time);
 #endif
       print_time ("bbro", reorder_blocks_time);
+      print_time ("rnreg", rename_registers_time);
       print_time ("shorten-branch", shorten_branch_time);
 #ifdef STACK_REGS
       print_time ("stack-reg", stack_reg_time);
@@ -2925,14 +2826,11 @@ rest_of_compilation (decl)
 
       /* Dump the rtl code if we are dumping rtl.  */
 
-      if (rtl_dump)
+      if (open_dump_file (DFI_rtl, decl))
 	{
-	  open_dump_file (".00.rtl", decl_printable_name (decl, 2));
-	  
 	  if (DECL_SAVED_INSNS (decl))
 	    fprintf (rtl_dump_file, ";; (integrable)\n\n");
-	  
-	  close_dump_file (print_rtl, insns);
+	  close_dump_file (DFI_rtl, print_rtl, insns);
 	}
 
       /* If function is inline, and we don't yet know whether to
@@ -2963,7 +2861,7 @@ rest_of_compilation (decl)
 	      int saved_optimize = optimize;
 	      optimize = 0;
 	      find_exception_handler_labels ();
-	      jump_optimize (get_insns(), !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
+	      jump_optimize (insns, !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
 			     !JUMP_AFTER_REGSCAN);
 	      optimize = saved_optimize;
 	    }
@@ -2990,7 +2888,7 @@ rest_of_compilation (decl)
   /* We may have potential sibling or tail recursion sites.  Select one
      (of possibly multiple) methods of performing the call.  */
   init_EXPR_INSN_LIST_cache ();
-  if (optimize)
+  if (flag_optimize_sibling_calls)
     optimize_sibling_and_tail_recursive_calls ();
   
   if (ggc_p)
@@ -3009,9 +2907,7 @@ rest_of_compilation (decl)
 
   /* Don't return yet if -Wreturn-type; we need to do jump_optimize.  */
   if ((rtl_dump_and_exit || flag_syntax_only) && !warn_return_type)
-    {
-      goto exit_rest_of_compilation;
-    }
+    goto exit_rest_of_compilation;
 
   /* Emit code to get eh context, if needed. */
   emit_eh_context ();
@@ -3037,7 +2933,6 @@ rest_of_compilation (decl)
   insns = get_insns ();
 
   /* Copy any shared structure that should not be shared.  */
-
   unshare_all_rtl (current_function_decl, insns);
 
 #ifdef SETJMP_VIA_SAVE_AREA
@@ -3047,45 +2942,49 @@ rest_of_compilation (decl)
 #endif
 
   /* Instantiate all virtual registers.  */
-
-  instantiate_virtual_regs (current_function_decl, get_insns ());
-
-  /* See if we have allocated stack slots that are not directly addressable.
-     If so, scan all the insns and create explicit address computation
-     for all references to such slots.  */
-  /* fixup_stack_slots (); */
+  instantiate_virtual_regs (current_function_decl, insns);
 
   /* Find all the EH handlers.  */
   find_exception_handler_labels ();
 
-  if (jump_opt_dump)
-    open_dump_file (".01.jump", decl_printable_name (decl, 2));
+  open_dump_file (DFI_jump, decl);
 
   /* Always do one jump optimization pass to ensure that JUMP_LABEL fields
      are initialized and to compute whether control can drop off the end
      of the function.  */
-  TIMEVAR (jump_time, reg_scan (insns, max_reg_num (), 0));
-  TIMEVAR (jump_time, jump_optimize (insns, !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
-				     JUMP_AFTER_REGSCAN));
-
-  /* Jump optimization, and the removal of NULL pointer checks, may
-     have reduced the number of instructions substantially.  CSE, and
-     future passes, allocate arrays whose dimensions involve the maximum
-     instruction UID, so if we can reduce the maximum UID we'll save big on
-     memory.  */
-  renumber_insns (rtl_dump_file);
-
-  /* Dump rtl code after jump, if we are doing that.  */
-  if (jump_opt_dump)
-    close_dump_file (print_rtl, insns);
+  TIMEVAR (jump_time,
+	   {
+	     reg_scan (insns, max_reg_num (), 0);
+	     jump_optimize (insns, !JUMP_CROSS_JUMP, !JUMP_NOOP_MOVES,
+			    JUMP_AFTER_REGSCAN);
+	   });
 
   /* Now is when we stop if -fsyntax-only and -Wreturn-type.  */
   if (rtl_dump_and_exit || flag_syntax_only || DECL_DEFER_OUTPUT (decl))
-    goto exit_rest_of_compilation;
+    {
+      close_dump_file (DFI_jump, print_rtl, insns);
+      goto exit_rest_of_compilation;
+    }
 
-  /* Try to identify useless null pointer tests and delete them.  */
-  if (flag_delete_null_pointer_checks)
-    TIMEVAR (jump_time, delete_null_pointer_checks (get_insns ()));
+  TIMEVAR (jump_time,
+	   {
+	     /* Try to identify useless null pointer tests and delete them.  */
+	     if (flag_delete_null_pointer_checks)
+	       {
+		 find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+		 cleanup_cfg (insns);
+		 delete_null_pointer_checks (insns);
+	       }
+
+	     /* Jump optimization, and the removal of NULL pointer checks,
+		may have reduced the number of instructions substantially. 
+		CSE, and future passes, allocate arrays whose dimensions
+		involve the maximum instruction UID, so if we can reduce
+		the maximum UID we'll save big on memory.  */
+	     renumber_insns (rtl_dump_file);
+	   });
+
+  close_dump_file (DFI_jump, print_rtl, insns);
 
   if (ggc_p)
     ggc_collect ();
@@ -3097,8 +2996,7 @@ rest_of_compilation (decl)
 
   if (optimize > 0)
     {
-      if (cse_dump)
-	open_dump_file (".02.cse", decl_printable_name (decl, 2));
+      open_dump_file (DFI_cse, decl);
 
       TIMEVAR (cse_time, reg_scan (insns, max_reg_num (), 1));
 
@@ -3107,6 +3005,7 @@ rest_of_compilation (decl)
 
       TIMEVAR (cse_time, tem = cse_main (insns, max_reg_num (),
 					 0, rtl_dump_file));
+
       /* If we are not running the second CSE pass, then we are no longer
 	 expecting CSE to be run.  */
       cse_not_expected = !flag_rerun_cse_after_loop;
@@ -3122,53 +3021,59 @@ rest_of_compilation (decl)
 
       /* Try to identify useless null pointer tests and delete them.  */
       if (flag_delete_null_pointer_checks)
-	TIMEVAR (jump_time, delete_null_pointer_checks (get_insns ()));
+	TIMEVAR (jump_time,
+		 {
+		   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+		   cleanup_cfg (insns);
+		   delete_null_pointer_checks (insns);
+		 });
 
       /* The second pass of jump optimization is likely to have
          removed a bunch more instructions.  */
       renumber_insns (rtl_dump_file);
 
-      /* Dump rtl code after cse, if we are doing that.  */
-      if (cse_dump)
-	{
-	  close_dump_file (print_rtl, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".02.cse", insns);
-	}
+      close_dump_file (DFI_cse, print_rtl, insns);
     }
+
+  open_dump_file (DFI_addressof, decl);
 
   purge_addressof (insns);
   reg_scan (insns, max_reg_num (), 1);
 
-  if (addressof_dump)
-    {
-      dump_rtl (".03.addressof", decl, print_rtl, insns);
-      if (graph_dump_format != no_graph)
-	print_rtl_graph_with_bb (dump_base_name, ".03.addressof", insns);
-    }
+  close_dump_file (DFI_addressof, print_rtl, insns);
 
   if (ggc_p)
     ggc_collect ();
 
-  if (flag_ssa)
+  if (optimize > 0 && flag_ssa)
     {
-      if (ssa_dump)
-	open_dump_file (".033.ssa", decl_printable_name (decl, 2));
-      convert_to_ssa ();
-      if (ssa_dump)
-	close_dump_file (print_rtl_with_bb, insns);
+      open_dump_file (DFI_ssa, decl);
 
-      if (ssa_dump)
-	open_dump_file (".037.ussa", decl_printable_name (decl, 2));
-      convert_from_ssa ();
-      /* New registers have been created.  Rescan their usage.  */
-      reg_scan (insns, max_reg_num (), 1);
-      if (ssa_dump)
-	close_dump_file (print_rtl_with_bb, insns);
+      TIMEVAR (to_ssa_time,
+	       {
+		 find_basic_blocks (insns, max_reg_num(), rtl_dump_file);
+		 cleanup_cfg (insns);
+		 convert_to_ssa ();
+	       });
 
-      /* Life analysis used in SSA adds log_links but these shouldn't
-	 be there until the flow stage, so clear them away.  */
-      clear_log_links (insns);
+      close_dump_file (DFI_ssa, print_rtl_with_bb, insns);
+
+      open_dump_file (DFI_ussa, decl);
+
+      TIMEVAR (from_ssa_time,
+	       {
+		 convert_from_ssa ();
+
+		 /* New registers have been created.  Rescan their usage.  */
+		 reg_scan (insns, max_reg_num (), 1);
+
+		 /* Life analysis used in SSA adds log_links but these
+		    shouldn't be there until the flow stage, so clear
+		    them away.  */
+		 clear_log_links (insns);
+	       });
+
+      close_dump_file (DFI_ussa, print_rtl_with_bb, insns);
 
       if (ggc_p)
 	ggc_collect ();
@@ -3178,10 +3083,14 @@ rest_of_compilation (decl)
 
   if (optimize > 0 && flag_gcse)
     {
-      if (gcse_dump)
-	open_dump_file (".04.gcse", decl_printable_name (decl, 2));
+      open_dump_file (DFI_gcse, decl);
 
-      TIMEVAR (gcse_time, tem = gcse_main (insns, rtl_dump_file));
+      TIMEVAR (gcse_time,
+	       {
+		 find_basic_blocks (insns, max_reg_num(), rtl_dump_file);
+		 cleanup_cfg (insns);
+		 tem = gcse_main (insns, rtl_dump_file);
+	       });
 
       /* If gcse altered any jumps, rerun jump optimizations to clean
 	 things up.  */
@@ -3192,23 +3101,18 @@ rest_of_compilation (decl)
 					     !JUMP_AFTER_REGSCAN));
         }
 
-      if (gcse_dump)
-	{
-	  close_dump_file (print_rtl, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".04.gcse", insns);
-	}
+      close_dump_file (DFI_gcse, print_rtl, insns);
 
       if (ggc_p)
 	ggc_collect ();
     }
+
   /* Move constant computations out of loops.  */
 
   if (optimize > 0)
     {
-      if (loop_dump)
-	open_dump_file (".05.loop", decl_printable_name (decl, 2));
-	
+      open_dump_file (DFI_loop, decl);
+
       TIMEVAR
 	(loop_time,
 	 {
@@ -3217,8 +3121,7 @@ rest_of_compilation (decl)
 	       /* We only want to perform unrolling once.  */
 	       
 	       loop_optimize (insns, rtl_dump_file, 0, 0);
-	       
-	
+
 	       /* The first call to loop_optimize makes some instructions
 		  trivially dead.  We delete those instructions now in the
 		  hope that doing so will make the heuristics in loop work
@@ -3232,14 +3135,7 @@ rest_of_compilation (decl)
 	   loop_optimize (insns, rtl_dump_file, flag_unroll_loops, 1);
 	 });
 
-      /* Dump rtl code after loop opt, if we are doing that.  */
-
-      if (loop_dump)
-	{
-	  close_dump_file (print_rtl, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".05.loop", insns);
-	}
+      close_dump_file (DFI_loop, print_rtl, insns);
 
       if (ggc_p)
 	ggc_collect ();
@@ -3252,8 +3148,7 @@ rest_of_compilation (decl)
 
   if (optimize > 0)
     {
-      if (cse2_dump)
-	open_dump_file (".06.cse2", decl_printable_name (decl, 2));
+      open_dump_file (DFI_cse2, decl);
 
       if (flag_rerun_cse_after_loop)
 	{
@@ -3262,14 +3157,20 @@ rest_of_compilation (decl)
 	     the second CSE pass to do a better job.  Jump_optimize can change
 	     max_reg_num so we must rerun reg_scan afterwards.
 	     ??? Rework to not call reg_scan so often.  */
-	  TIMEVAR (jump_time, reg_scan (insns, max_reg_num (), 0));
-	  TIMEVAR (jump_time, jump_optimize (insns, !JUMP_CROSS_JUMP,
-					     !JUMP_NOOP_MOVES,
-					     JUMP_AFTER_REGSCAN));
+	  TIMEVAR (jump_time,
+		   {
+		     reg_scan (insns, max_reg_num (), 0);
+		     jump_optimize (insns, !JUMP_CROSS_JUMP,
+				    !JUMP_NOOP_MOVES, JUMP_AFTER_REGSCAN);
+		   });
 	  
-	  TIMEVAR (cse2_time, reg_scan (insns, max_reg_num (), 0));
-	  TIMEVAR (cse2_time, tem = cse_main (insns, max_reg_num (),
-					      1, rtl_dump_file));
+	  TIMEVAR (cse2_time,
+		   {
+		     reg_scan (insns, max_reg_num (), 0);
+		     tem = cse_main (insns, max_reg_num (),
+				     1, rtl_dump_file);
+		   });
+
 	  if (tem)
 	    TIMEVAR (jump_time, jump_optimize (insns, !JUMP_CROSS_JUMP,
 					       !JUMP_NOOP_MOVES,
@@ -3280,17 +3181,14 @@ rest_of_compilation (decl)
 	{
 	  /* This pass of jump threading straightens out code
 	     that was kinked by loop optimization.  */
-	  TIMEVAR (jump_time, reg_scan (insns, max_reg_num (), 0));
-	  TIMEVAR (jump_time, thread_jumps (insns, max_reg_num (), 0));
+	  TIMEVAR (jump_time,
+		   {
+		     reg_scan (insns, max_reg_num (), 0);
+		     thread_jumps (insns, max_reg_num (), 0);
+		   });
 	}
 
-      /* Dump rtl code after cse, if we are doing that.  */
-      if (cse2_dump)
-	{
-	  close_dump_file (print_rtl, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".06.cse2", insns);
-	}
+      close_dump_file (DFI_cse2, print_rtl, insns);
 
       if (ggc_p)
 	ggc_collect ();
@@ -3298,21 +3196,14 @@ rest_of_compilation (decl)
 
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
-      if (branch_prob_dump)
-	open_dump_file (".07.bp", decl_printable_name (decl, 2));
+      open_dump_file (DFI_bp, decl);
 
-      TIMEVAR
-	(branch_prob_time,
-	 {
-	   branch_prob (insns, rtl_dump_file);
-	 });
+      TIMEVAR (branch_prob_time,
+	       {
+		 branch_prob (insns, rtl_dump_file);
+	       });
 
-      if (branch_prob_dump)
-	{
-	  close_dump_file (print_rtl, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".07.bp", insns);
-	}
+      close_dump_file (DFI_bp, print_rtl, insns);
 
       if (ggc_p)
 	ggc_collect ();
@@ -3323,8 +3214,7 @@ rest_of_compilation (decl)
   /* Print function header into flow dump now
      because doing the flow analysis makes some of the dump.  */
 
-  if (flow_dump)
-    open_dump_file (".08.flow", decl_printable_name (decl, 2));
+  open_dump_file (DFI_flow, decl);
   
   /* Do control and data flow analysis; wrote some of the results to
      the dump file.  */
@@ -3347,14 +3237,7 @@ rest_of_compilation (decl)
 	setjmp_args_warning ();
     }
 
-  /* Dump rtl after flow analysis.  */
-
-  if (flow_dump)
-    {
-      close_dump_file (print_rtl_with_bb, insns);
-      if (graph_dump_format != no_graph)
-	print_rtl_graph_with_bb (dump_base_name, ".08.flow", insns);
-    }
+  close_dump_file (DFI_flow, print_rtl_with_bb, insns);
 
   if (ggc_p)
     ggc_collect ();
@@ -3368,6 +3251,8 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       int rebuild_jump_labels_after_combine = 0;
+
+      open_dump_file (DFI_combine, decl);
 
       TIMEVAR (combine_time, 
 	       {
@@ -3383,14 +3268,7 @@ rest_of_compilation (decl)
 	  TIMEVAR (jump_time, rebuild_jump_labels (insns));
 	}
 
-      /* Dump rtl code after insn combination.  */
-
-      if (combine_dump)
-	{
-	  dump_rtl (".09.combine", decl, print_rtl_with_bb, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".09.combine", insns);
-	}
+      close_dump_file (DFI_combine, print_rtl_with_bb, insns);
 
       if (ggc_p)
 	ggc_collect ();
@@ -3400,18 +3278,12 @@ rest_of_compilation (decl)
      necessary for two-address machines.  */
   if (optimize > 0 && (flag_regmove || flag_expensive_optimizations))
     {
-      if (regmove_dump)
-	open_dump_file (".10.regmove", decl_printable_name (decl, 2));
+      open_dump_file (DFI_regmove, decl);
 
       TIMEVAR (regmove_time, regmove_optimize (insns, max_reg_num (),
 					       rtl_dump_file));
 
-      if (regmove_dump)
-	{
-	  close_dump_file (print_rtl_with_bb, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".10.regmove", insns);
-	}
+      close_dump_file (DFI_regmove, print_rtl_with_bb, insns);
 
       if (ggc_p)
 	ggc_collect ();
@@ -3428,22 +3300,14 @@ rest_of_compilation (decl)
      because doing the sched analysis makes some of the dump.  */
   if (optimize > 0 && flag_schedule_insns)
     {
-      if (sched_dump)
-	open_dump_file (".11.sched", decl_printable_name (decl, 2));
+      open_dump_file (DFI_sched, decl);
 
       /* Do control and data sched analysis,
 	 and write some of the results to dump file.  */
 
       TIMEVAR (sched_time, schedule_insns (rtl_dump_file));
 
-      /* Dump rtl after instruction scheduling.  */
-
-      if (sched_dump)
-	{
-	  close_dump_file (print_rtl_with_bb, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".11.sched", insns);
-	}
+      close_dump_file (DFI_sched, print_rtl_with_bb, insns);
 
       if (ggc_p)
 	ggc_collect ();
@@ -3455,8 +3319,7 @@ rest_of_compilation (decl)
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
 
-  if (local_reg_dump)
-    open_dump_file (".12.lreg", decl_printable_name (decl, 2));
+  open_dump_file (DFI_lreg, decl);
 
   /* Allocate pseudo-regs that are used only within 1 basic block. 
 
@@ -3473,23 +3336,21 @@ rest_of_compilation (decl)
 	     rebuild_label_notes_after_reload = local_alloc ();
 	   });
 
-  /* Dump rtl code after allocating regs within basic blocks.  */
-
-  if (local_reg_dump)
+  if (dump_file[DFI_lreg].enabled)
     {
-      TIMEVAR (dump_time, dump_flow_info (rtl_dump_file));
-      TIMEVAR (dump_time, dump_local_alloc (rtl_dump_file));
+      TIMEVAR (dump_time,
+	       {
+		 dump_flow_info (rtl_dump_file);
+		 dump_local_alloc (rtl_dump_file);
+	       });
 
-      close_dump_file (print_rtl_with_bb, insns);
-      if (graph_dump_format != no_graph)
-	print_rtl_graph_with_bb (dump_base_name, ".12.lreg", insns);
+      close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
     }
 
   if (ggc_p)
     ggc_collect ();
 
-  if (global_reg_dump)
-    open_dump_file (".13.greg", decl_printable_name (decl, 2));
+  open_dump_file (DFI_greg, decl);
 
   /* If optimizing, allocate remaining pseudo-regs.  Do the reload
      pass fixing up any insns that are invalid.  */
@@ -3515,13 +3376,9 @@ rest_of_compilation (decl)
   if (optimize > 0)
     reload_cse_regs (insns);
 
-  /* If optimizing and we are performing instruction scheduling after
-     reload, then go ahead and split insns now since we are about to
-     recompute flow information anyway.
-
-     reload_cse_regs may expose more splitting opportunities, expecially
-     for double-word operations.  */
-  if (optimize > 0 && flag_schedule_insns_after_reload)
+  /* If optimizing, then go ahead and split insns now since we are about
+     to recompute flow information anyway.  */
+  if (optimize > 0)
     split_all_insns (0);
 
   /* Register allocation and reloading may have turned an indirect jump into
@@ -3530,20 +3387,18 @@ rest_of_compilation (decl)
   if (rebuild_label_notes_after_reload)
     TIMEVAR (jump_time, rebuild_jump_labels (insns));
 
-  if (global_reg_dump)
+  if (dump_file[DFI_greg].enabled)
     {
       TIMEVAR (dump_time, dump_global_regs (rtl_dump_file));
-      close_dump_file (print_rtl_with_bb, insns);
-      if (graph_dump_format != no_graph)
-	print_rtl_graph_with_bb (dump_base_name, ".13.greg", insns);
+      close_dump_file (DFI_greg, print_rtl_with_bb, insns);
     }
 
   /* Re-create the death notes which were deleted during reload.  */
-  if (flow2_dump)
-    open_dump_file (".14.flow2", decl_printable_name (decl, 2));
+  open_dump_file (DFI_flow2, decl);
   
   TIMEVAR (flow2_time,
 	   {
+	     jump_optimize_minimal (insns);
 	     find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	   });
 
@@ -3561,9 +3416,14 @@ rest_of_compilation (decl)
 		 life_analysis (insns, max_reg_num (), rtl_dump_file, 1);
 	       });
 
-#ifndef ACCUMULATE_OUTGOING_ARGS
-      TIMEVAR (flow2_time, { combine_stack_adjustments (); });
+      /* This is kind of heruistics.  We need to run combine_stack_adjustments
+         even for machines with possibly nonzero RETURN_POPS_ARGS
+         and ACCUMULATE_OUTGOING_ARGS.  We expect that only ports having
+         push instructions will have popping returns.  */
+#ifndef PUSH_ROUNDING
+      if (!ACCUMULATE_OUTGOING_ARGS)
 #endif
+	TIMEVAR (flow2_time, { combine_stack_adjustments (); });
 
       if (ggc_p)
 	ggc_collect ();
@@ -3571,49 +3431,30 @@ rest_of_compilation (decl)
 
   flow2_completed = 1;
 
-  if (flow2_dump)
-    {
-      close_dump_file (print_rtl_with_bb, insns);
-      if (graph_dump_format != no_graph)
-	print_rtl_graph_with_bb (dump_base_name, ".14.flow2", insns);
-    }
+  close_dump_file (DFI_flow2, print_rtl_with_bb, insns);
 
 #ifdef HAVE_peephole2
   if (optimize > 0 && flag_peephole2)
     {
-      if (peephole2_dump)
-	open_dump_file (".15.peephole2", decl_printable_name (decl, 2));
+      open_dump_file (DFI_peephole2, decl);
 
       TIMEVAR (peephole2_time, peephole2_optimize (rtl_dump_file));
 
-      if (peephole2_dump)
-	{
-	  close_dump_file (print_rtl_with_bb, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".15.peephole2", insns);
-	}
+      close_dump_file (DFI_peephole2, print_rtl_with_bb, insns);
     }
 #endif
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
-      if (sched2_dump)
-	open_dump_file (".16.sched2", decl_printable_name (decl, 2));
+      open_dump_file (DFI_sched2, decl);
 
       /* Do control and data sched analysis again,
 	 and write some more of the results to dump file.  */
 
       TIMEVAR (sched2_time, schedule_insns (rtl_dump_file));
 
-      /* Dump rtl after post-reorder instruction scheduling.  */
-
-      if (sched2_dump)
-	{
-	  close_dump_file (print_rtl_with_bb, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".16.sched2", insns);
-	}
+      close_dump_file (DFI_sched2, print_rtl_with_bb, insns);
 
       if (ggc_p)
 	ggc_collect ();
@@ -3627,17 +3468,20 @@ rest_of_compilation (decl)
 
   if (optimize > 0 && flag_reorder_blocks)
     {
-      if (reorder_blocks_dump)
-	open_dump_file (".bbro", decl_printable_name (decl, 2));
+      open_dump_file (DFI_bbro, decl);
 
       TIMEVAR (reorder_blocks_time, reorder_basic_blocks ());
 
-      if (reorder_blocks_dump)
-	{
-	  close_dump_file (print_rtl_with_bb, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".bbro", insns);
-	}
+      close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
+    }    
+
+  if (optimize > 0 && flag_rename_registers)
+    {
+      open_dump_file (DFI_rnreg, decl);
+
+      TIMEVAR (rename_registers_time, regrename_optimize ());
+
+      close_dump_file (DFI_rnreg, print_rtl_with_bb, insns);
     }    
 
   /* One more attempt to remove jumps to .+1 left by dead-store elimination. 
@@ -3645,36 +3489,25 @@ rest_of_compilation (decl)
 
   if (optimize > 0)
     {
+      open_dump_file (DFI_jump2, decl);
+
       TIMEVAR (jump_time, jump_optimize (insns, JUMP_CROSS_JUMP,
 					 JUMP_NOOP_MOVES,
 					 !JUMP_AFTER_REGSCAN));
 
-      /* Dump rtl code after jump, if we are doing that.  */
-
-      if (jump2_opt_dump)
-	{
-	  dump_rtl (".17.jump2", decl, print_rtl_with_bb, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".17.jump2", insns);
-	}
+      close_dump_file (DFI_jump2, print_rtl_with_bb, insns);
     }
 
   /* If a machine dependent reorganization is needed, call it.  */
 #ifdef MACHINE_DEPENDENT_REORG
-  if (mach_dep_reorg_dump)
-    open_dump_file (".18.mach", decl_printable_name (decl, 2));
+  open_dump_file (DFI_mach, decl);
 
-   MACHINE_DEPENDENT_REORG (insns);
+  MACHINE_DEPENDENT_REORG (insns);
 
-   if (mach_dep_reorg_dump)
-     {
-       close_dump_file (print_rtl_with_bb, insns);
-       if (graph_dump_format != no_graph)
-	 print_rtl_graph_with_bb (dump_base_name, ".18.mach", insns);
-     }
+  close_dump_file (DFI_mach, print_rtl_with_bb, insns);
 
-   if (ggc_p)
-     ggc_collect ();
+  if (ggc_p)
+    ggc_collect ();
 #endif
 
   /* If a scheduling pass for delayed branches is to be done,
@@ -3683,8 +3516,7 @@ rest_of_compilation (decl)
 #ifdef DELAY_SLOTS
   if (optimize > 0 && flag_delayed_branch)
     {
-      if (dbr_sched_dump)
-	open_dump_file (".19.dbr", decl_printable_name (decl, 2));
+      open_dump_file (DFI_dbr, decl);
 
       TIMEVAR
 	(dbr_sched_time,
@@ -3692,39 +3524,25 @@ rest_of_compilation (decl)
            dbr_schedule (insns, rtl_dump_file);
 	 });
 
-      if (dbr_sched_dump)
-	{
-	  close_dump_file (print_rtl_with_bb, insns);
-	  if (graph_dump_format != no_graph)
-	    print_rtl_graph_with_bb (dump_base_name, ".19.dbr", insns);
-	}
-    }
+      close_dump_file (DFI_dbr, print_rtl_with_bb, insns);
 
-   if (ggc_p)
-     ggc_collect ();
+      if (ggc_p)
+	ggc_collect ();
+    }
 #endif
 
   /* Shorten branches. 
 
      Note this must run before reg-stack because of death note (ab)use
      in the ia32 backend.  */
-  TIMEVAR (shorten_branch_time,
-	   {
-	     shorten_branches (get_insns ());
-	   });
+  TIMEVAR (shorten_branch_time, shorten_branches (get_insns ()));
 
 #ifdef STACK_REGS
-  if (stack_reg_dump)
-    open_dump_file (".20.stack", decl_printable_name (decl, 2));
+  open_dump_file (DFI_stack, decl);
 
   TIMEVAR (stack_reg_time, reg_to_stack (insns, rtl_dump_file));
 
-  if (stack_reg_dump)
-    {
-      close_dump_file (print_rtl_with_bb, insns);
-      if (graph_dump_format != no_graph)
-	print_rtl_graph_with_bb (dump_base_name, ".20.stack", insns);
-    }
+  close_dump_file (DFI_stack, print_rtl_with_bb, insns);
 
   if (ggc_p)
     ggc_collect ();
@@ -4041,123 +3859,26 @@ static void
 decode_d_option (arg)
      const char * arg;
 {
-  while (* arg)
-    switch (* arg ++)
+  int i, c, matched;
+
+  while (*arg)
+    switch (c = *arg++)
       {
       case 'a':
-	branch_prob_dump = 1;
-	combine_dump = 1;
-#ifdef DELAY_SLOTS
-	dbr_sched_dump = 1;
-#endif
-	reorder_blocks_dump = 1;
-	flow_dump = 1;
-	flow2_dump = 1;
-	global_reg_dump = 1;
-	jump_opt_dump = 1;
-	addressof_dump = 1;
-	jump2_opt_dump = 1;
-	local_reg_dump = 1;
-	loop_dump = 1;
-	regmove_dump = 1;
-	rtl_dump = 1;
-	cse_dump = 1;
-	cse2_dump = 1;
-	gcse_dump = 1;
-	sched_dump = 1;
-	sched2_dump = 1;
-#ifdef STACK_REGS
-	stack_reg_dump = 1;
-#endif
-#ifdef MACHINE_DEPENDENT_REORG
-	mach_dep_reorg_dump = 1;
-#endif
-	peephole2_dump = 1;
-	ssa_dump = 1;
+	for (i = 0; i < DFI_MAX; ++i)
+	  dump_file[i].enabled = 1;
 	break;
       case 'A':
 	flag_debug_asm = 1;
 	break;
-      case 'b':
-	branch_prob_dump = 1;
-	break;
-      case 'B':
-	reorder_blocks_dump = 1;
-	break;
-      case 'c':
-	combine_dump = 1;
-	break;
-#ifdef DELAY_SLOTS
-      case 'd':
-	dbr_sched_dump = 1;
-	break;
-#endif
-      case 'e':
-	ssa_dump = 1;
-	break;
-      case 'f':
-	flow_dump = 1;
-	break;
-      case 'F':
-	addressof_dump = 1;
-	break;
-      case 'g':
-	global_reg_dump = 1;
-	break;
-      case 'G':
-	gcse_dump = 1;
-	break;
-      case 'j':
-	jump_opt_dump = 1;
-	break;
-      case 'J':
-	jump2_opt_dump = 1;
-	break;
-#ifdef STACK_REGS		    
-      case 'k':
-	stack_reg_dump = 1;
-	break;
-#endif
-      case 'l':
-	local_reg_dump = 1;
-	break;
-      case 'L':
-	loop_dump = 1;
-	break;
       case 'm':
 	flag_print_mem = 1;
 	break;
-#ifdef MACHINE_DEPENDENT_REORG
-      case 'M':
-	mach_dep_reorg_dump = 1;
-	break;
-#endif
       case 'p':
 	flag_print_asm_name = 1;
 	break;
-      case 'r':
-	rtl_dump = 1;
-	break;
-      case 'R':
-	sched2_dump = 1;
-	break;
-      case 's':
-	cse_dump = 1;
-	break;
-      case 'S':
-	sched_dump = 1;
-	break;
-      case 't':
-	cse2_dump = 1;
-	break;
-      case 'N':
-	regmove_dump = 1;
-	break;
       case 'v':
 	graph_dump_format = vcg;
-	break;
-      case 'w':
-	flow2_dump = 1;
 	break;
       case 'x':
 	rtl_dump_and_exit = 1;
@@ -4165,14 +3886,21 @@ decode_d_option (arg)
       case 'y':
 	set_yydebug (1);
 	break;
-      case 'z':
-	peephole2_dump = 1;
-	break;
       case 'D':	/* These are handled by the preprocessor.  */
       case 'I':
 	break;
+
       default:
-	warning ("unrecognized gcc debugging option: %c", arg[-1]);
+	matched = 0;
+	for (i = 0; i < DFI_MAX; ++i)
+	  if (c == dump_file[i].debug_switch)
+	    {
+	      dump_file[i].enabled = 1;
+	      matched = 1;
+	    }
+
+	if (! matched)
+	  warning ("unrecognized gcc debugging option: %c", c);
 	break;
       }
 }
@@ -4434,13 +4162,13 @@ ignoring option `%s' due to invalid debug level specification",
    number of strings that have already been decoded in a language
    specific fashion before this function was invoked.  */
    
-static unsigned
+static unsigned int
 independent_decode_option (argc, argv, strings_processed)
      int argc;
-     char ** argv;
-     unsigned strings_processed ATTRIBUTE_UNUSED;
+     char **argv;
+     unsigned int strings_processed;
 {
-  char * arg = argv[0];
+  char *arg = argv[0];
   
   if (arg[0] != '-' || arg[1] == 0)
     {
@@ -4463,7 +4191,7 @@ independent_decode_option (argc, argv, strings_processed)
   if (* arg == 'Y')
     arg ++;
   
-  switch (* arg)
+  switch (*arg)
     {
     default:
       return 0;
@@ -4480,7 +4208,10 @@ independent_decode_option (argc, argv, strings_processed)
       return decode_f_option (arg + 1);
 	    
     case 'g':
-      return decode_g_option (arg + 1);
+      if (strings_processed == 0)
+	return decode_g_option (arg + 1);
+      else
+	return strings_processed;
 
     case 'd':
       if (!strcmp (arg, "dumpbase"))
@@ -4729,6 +4460,7 @@ main (argc, argv)
 
   if (optimize >= 2)
     {
+      flag_optimize_sibling_calls = 1;
       flag_cse_follow_jumps = 1;
       flag_cse_skip_blocks = 1;
       flag_gcse = 1;
@@ -4777,8 +4509,8 @@ main (argc, argv)
   /* Perform normal command line switch decoding.  */
   for (i = 1; i < argc;)
     {
-      unsigned lang_processed;
-      unsigned indep_processed;
+      unsigned int lang_processed;
+      unsigned int indep_processed;
 
       /* Give the language a chance to decode the option for itself.  */
       lang_processed = lang_decode_option (argc - i, argv + i);
@@ -4786,7 +4518,7 @@ main (argc, argv)
       /* Now see if the option also has a language independent meaning.
 	 Some options are both language specific and language independent,
 	 eg --help.  It is possible that there might be options that should
-	 only be decoded in a language independent way if the were not
+	 only be decoded in a language independent way if they were not
 	 decoded in a langauge specific way, which is why 'lang_processed'
 	 is passed in.  */
       indep_processed = independent_decode_option (argc - i, argv + i,

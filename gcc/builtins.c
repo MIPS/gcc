@@ -135,6 +135,7 @@ get_pointer_alignment (exp, max_align)
 	  exp = TREE_OPERAND (exp, 0);
 	  if (TREE_CODE (TREE_TYPE (exp)) != POINTER_TYPE)
 	    return align;
+
 	  inner = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (exp)));
 	  align = MIN (inner, max_align);
 	  break;
@@ -143,10 +144,10 @@ get_pointer_alignment (exp, max_align)
 	  /* If sum of pointer + int, restrict our maximum alignment to that
 	     imposed by the integer.  If not, we can't do any better than
 	     ALIGN.  */
-	  if (TREE_CODE (TREE_OPERAND (exp, 1)) != INTEGER_CST)
+	  if (! host_integerp (TREE_OPERAND (exp, 1), 1))
 	    return align;
 
-	  while (((TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)) * BITS_PER_UNIT)
+	  while (((tree_low_cst (TREE_OPERAND (exp, 1), 1) * BITS_PER_UNIT)
 		  & (max_align - 1))
 		 != 0)
 	    max_align >>= 1;
@@ -870,8 +871,6 @@ expand_builtin_apply (function, arguments, argsize)
   /* Create a block where the return registers can be saved.  */
   result = assign_stack_local (BLKmode, apply_result_size (), -1);
 
-  /* ??? The argsize value should be adjusted here.  */
-
   /* Fetch the arg pointer from the ARGUMENTS block.  */
   incoming_args = gen_reg_rtx (Pmode);
   emit_move_insn (incoming_args,
@@ -900,11 +899,10 @@ expand_builtin_apply (function, arguments, argsize)
      haven't figured out how the calling convention macros effect this,
      but it's likely that the source and/or destination addresses in
      the block copy will need updating in machine specific ways.  */
-  dest = allocate_dynamic_stack_space (argsize, 0, 0);
+  dest = allocate_dynamic_stack_space (argsize, 0, BITS_PER_UNIT);
   emit_block_move (gen_rtx_MEM (BLKmode, dest),
 		   gen_rtx_MEM (BLKmode, incoming_args),
-		   argsize,
-		   PARM_BOUNDARY / BITS_PER_UNIT);
+		   argsize, PARM_BOUNDARY);
 
   /* Refer to the argument block.  */
   apply_args_size ();
@@ -1390,7 +1388,8 @@ expand_builtin_strlen (exp, target, mode)
 
       /* Now that we are assured of success, expand the source.  */
       start_sequence ();
-      pat = expand_expr (src, src_reg, ptr_mode, EXPAND_SUM);
+      pat = memory_address (BLKmode, 
+		expand_expr (src, src_reg, ptr_mode, EXPAND_SUM));
       if (pat != src_reg)
 	emit_move_insn (src_reg, pat);
       pat = gen_sequence ();
@@ -1435,10 +1434,8 @@ expand_builtin_memcpy (arglist)
       tree src = TREE_VALUE (TREE_CHAIN (arglist));
       tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
 
-      int src_align
-	= get_pointer_alignment (src, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
-      int dest_align
-	= get_pointer_alignment (dest, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
+      int src_align = get_pointer_alignment (src, BIGGEST_ALIGNMENT);
+      int dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
       rtx dest_mem, src_mem, dest_addr, len_rtx;
 
       /* If either SRC or DEST is not a pointer type, don't do
@@ -1531,8 +1528,7 @@ expand_builtin_memset (exp)
       tree val = TREE_VALUE (TREE_CHAIN (arglist));
       tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
 
-      int dest_align
-	= get_pointer_alignment (dest, BIGGEST_ALIGNMENT) / BITS_PER_UNIT;
+      int dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
       rtx dest_mem, dest_addr, len_rtx;
 
       /* If DEST is not a pointer type, don't do this 
@@ -1901,66 +1897,44 @@ expand_builtin_next_arg (arglist)
    from multiple evaluations.  */
 
 static tree
-stabilize_va_list (valist, was_ptr)
+stabilize_va_list (valist, needs_lvalue)
      tree valist;
-     int was_ptr;
+     int needs_lvalue;
 {
   if (TREE_CODE (va_list_type_node) == ARRAY_TYPE)
     {
-      /* If stdarg.h took the address of an array-type valist that was passed
-         as a parameter, we'll have taken the address of the parameter itself
-         rather than the array as we'd intended.  Undo this mistake.  */
+      if (TREE_SIDE_EFFECTS (valist))
+	valist = save_expr (valist);
 
-      if (was_ptr)
+      /* For this case, the backends will be expecting a pointer to
+	 TREE_TYPE (va_list_type_node), but it's possible we've
+	 actually been given an array (an actual va_list_type_node).
+	 So fix it.  */
+      if (TREE_CODE (TREE_TYPE (valist)) == ARRAY_TYPE)
 	{
-	  STRIP_NOPS (valist);
+ 	  tree p1 = build_pointer_type (TREE_TYPE (va_list_type_node));
+ 	  tree p2 = build_pointer_type (va_list_type_node);
 
-	  /* Two cases: either &array, which decomposed to 
-	        <ptr <array <record> valist>>
-	     or &ptr, which turned into
-		<ptr <ptr <record>>>
-	     In the first case we'll need to put the ADDR_EXPR back
-	     after frobbing the types as if &array[0].  */
-
-	  if (TREE_CODE (valist) != ADDR_EXPR)
-	    abort ();
-	  valist = TREE_OPERAND (valist, 0);
+ 	  valist = build1 (ADDR_EXPR, p2, valist);
+	  valist = fold (build1 (NOP_EXPR, p1, valist));
 	}
+    }
+  else
+    {
+      tree pt;
 
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (valist))
-	  == TYPE_MAIN_VARIANT (va_list_type_node))
+      if (! needs_lvalue)
 	{
-	  tree pt = build_pointer_type (TREE_TYPE (va_list_type_node));
-	  valist = build1 (ADDR_EXPR, pt, valist);
-	  TREE_SIDE_EFFECTS (valist)
-	    = TREE_SIDE_EFFECTS (TREE_OPERAND (valist, 0));
-	}
-      else
-	{
-	  if (! POINTER_TYPE_P (TREE_TYPE (valist))
-	      || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (valist)))
-		  != TYPE_MAIN_VARIANT (TREE_TYPE (va_list_type_node))))
-	    abort ();
+	  if (! TREE_SIDE_EFFECTS (valist))
+	    return valist;
+	  
+	  pt = build_pointer_type (va_list_type_node);
+	  valist = fold (build1 (ADDR_EXPR, pt, valist));
+	  TREE_SIDE_EFFECTS (valist) = 1;
 	}
 
       if (TREE_SIDE_EFFECTS (valist))
 	valist = save_expr (valist);
-    }
-  else
-    {
-      if (! was_ptr)
-	{
-	  tree pt;
-
-	  if (! TREE_SIDE_EFFECTS (valist))
-	    return valist;
-
-	  pt = build_pointer_type (va_list_type_node);
-          valist = fold (build1 (ADDR_EXPR, pt, valist));
-	  TREE_SIDE_EFFECTS (valist) = 1;
-	}
-      if (TREE_SIDE_EFFECTS (valist))
-        valist = save_expr (valist);
       valist = fold (build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (valist)),
 			     valist));
     }
@@ -2213,8 +2187,7 @@ expand_builtin_va_copy (arglist)
       MEM_ALIAS_SET (srcb) = get_alias_set (TREE_TYPE (TREE_TYPE (src)));
 
       /* Copy.  */
-      emit_block_move (dstb, srcb, size, 
-		       TYPE_ALIGN (va_list_type_node) / BITS_PER_UNIT);
+      emit_block_move (dstb, srcb, size, TYPE_ALIGN (va_list_type_node));
     }
 
   return const0_rtx;

@@ -487,7 +487,7 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 #define STACK_BOUNDARY 64
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
-#define FUNCTION_BOUNDARY 256
+#define FUNCTION_BOUNDARY 128
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 64
@@ -519,7 +519,7 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 
 /* For atomic access to objects, must have at least 32-bit alignment
    unless the machine has byte operations.  */
-#define MINIMUM_ATOMIC_ALIGNMENT (TARGET_BWX ? 8 : 32)
+#define MINIMUM_ATOMIC_ALIGNMENT ((unsigned int) (TARGET_BWX ? 8 : 32))
 
 /* Align all constants and variables to at least a word boundary so
    we can pick up pieces of them faster.  */
@@ -919,7 +919,7 @@ extern int alpha_memory_latency;
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
    found in the variable current_function_outgoing_args_size.  */
-#define ACCUMULATE_OUTGOING_ARGS
+#define ACCUMULATE_OUTGOING_ARGS 1
 
 /* Offset of first parameter from the argument pointer register value.  */
 

@@ -2316,9 +2316,11 @@ during virtual register instantiation.
 
 The default value for this macro is @code{FIRST_PARM_OFFSET (fundecl)},
 which is correct for most machines; in general, the arguments are found
-immediately before the stack frame.  See @file{function.c} for details.
+immediately before the stack frame.  Note that this is not the case on
+some targets that save registers into the caller's frame, such as SPARC
+and rs6000, and so such targets need to define this macro.
 
-You only need to define this macro if this default is incorrect, and you
+You only need to define this macro if the default is incorrect, and you
 want to support call frame debugging information like that provided by
 DWARF 2.
 
@@ -2628,15 +2630,24 @@ errors in certain cases of mismatch, it also makes for better
 code on certain machines.  If the macro is not defined in target
 header files, it defaults to 0.
 
+@findex PUSH_ARGS
+@item PUSH_ARGS
+A C expression. If nonzero, push insns will be used to pass
+outgoing arguments.
+If the target machine does not have a push instruction, set it to zero.
+That directs GCC to use an alternate strategy: to
+allocate the entire argument block and then store the arguments into
+it.  When PUSH_ARGS is nonzero, PUSH_ROUNDING must be defined too.
+On some machines, the definition
+
 @findex PUSH_ROUNDING
 @item PUSH_ROUNDING (@var{npushed})
 A C expression that is the number of bytes actually pushed onto the
 stack when an instruction attempts to push @var{npushed} bytes.
-
-If the target machine does not have a push instruction, do not define
-this macro.  That directs GCC to use an alternate strategy: to
-allocate the entire argument block and then store the arguments into
-it.
+@findex PUSH_ROUNDING
+@item PUSH_ROUNDING (@var{npushed})
+A C expression that is the number of bytes actually pushed onto the
+stack when an instruction attempts to push @var{npushed} bytes.
 
 On some machines, the definition
 
@@ -2656,13 +2667,13 @@ alignment.  Then the definition should be
 @findex ACCUMULATE_OUTGOING_ARGS
 @findex current_function_outgoing_args_size
 @item ACCUMULATE_OUTGOING_ARGS
-If defined, the maximum amount of space required for outgoing arguments
+A C expression. If nonzero, the maximum amount of space required for outgoing arguments
 will be computed and placed into the variable
 @code{current_function_outgoing_args_size}.  No space will be pushed
 onto the stack for each call; instead, the function prologue should
 increase the stack frame size by this amount.
 
-Defining both @code{PUSH_ROUNDING} and @code{ACCUMULATE_OUTGOING_ARGS}
+Setting both @code{PUSH_ARGS} and @code{ACCUMULATE_OUTGOING_ARGS}
 is not proper.
 
 @findex REG_PARM_STACK_SPACE
@@ -7931,4 +7942,12 @@ Note that this functionality is part of POSIX.
 Defining @code{TARGET_HAS_F_SETLKW} will enable the test coverage code
 to use file locking when exiting a program, which avoids race conditions
 if the program has forked.
+
+@findex MAX_CONDITIONAL_EXECUTE
+@item MAX_CONDITIONAL_EXECUTE
+
+A C expression for the maximum number of instructions to execute via
+conditional execution instructions instead of a branch.  A value of
+@code{BRANCH_COST}+1 is the default if the machine does not use cc0, and
+1 if it does use cc0.
 @end table

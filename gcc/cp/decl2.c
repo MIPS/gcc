@@ -108,9 +108,9 @@ static varray_type pending_statics;
 
 /* A list of functions which were declared inline, but which we
    may need to emit outline anyway.  */
-static varray_type saved_inlines;
-#define saved_inlines_used \
-  (saved_inlines ? saved_inlines->elements_used : 0)
+static varray_type deferred_fns;
+#define deferred_fns_used \
+  (deferred_fns ? deferred_fns->elements_used : 0)
 
 /* Same, but not reset.  Local temp variables and global temp variables
    can have the same name.  */
@@ -452,7 +452,7 @@ int flag_use_cxa_atexit;
 
 /* Nonzero to not ignore namespace std. */
 
-int flag_honor_std;
+int flag_honor_std = ENABLE_STD_NAMESPACE;
 
 /* Nonzero if we should expand functions calls inline at the tree
    level, rather than at the RTL level.  */
@@ -572,7 +572,6 @@ lang_decode_option (argc, argv)
 #endif
   ;
      char **argv;
-
 {
   int strings_processed;
   char *p = argv[0];
@@ -1010,9 +1009,16 @@ grokclassfn (ctype, function, flags, quals)
       /* Right now we just make this a pointer.  But later
 	 we may wish to make it special.  */
       tree type = TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (function)));
+      tree qual_type;
+      tree parm;
 
-      tree parm = build_decl (PARM_DECL, this_identifier,
-                         cp_build_qualified_type (type, this_quals | TYPE_QUAL_CONST));
+      /* The `this' parameter is implicitly `const'; it cannot be
+	 assigned to.  */
+      this_quals |= TYPE_QUAL_CONST;
+      qual_type = cp_build_qualified_type (type, this_quals);
+      parm = build_decl (PARM_DECL, this_identifier, qual_type);
+      c_apply_type_quals_to_decl (this_quals, parm);
+
       /* Mark the artificial `this' parameter as "artificial".  */
       SET_DECL_ARTIFICIAL (parm);
       DECL_ARG_TYPE (parm) = type;
@@ -1970,20 +1976,20 @@ constructor_name (thing)
   return t;
 }
 
-/* Record the existence of an addressable inline function.  */
+/* Defer the compilation of the FN until the end of compilation.  */
 
 void
-mark_inline_for_output (decl)
-     tree decl;
+defer_fn (fn)
+     tree fn;
 {
-  decl = DECL_MAIN_VARIANT (decl);
-  if (DECL_SAVED_INLINE (decl))
+  fn = DECL_MAIN_VARIANT (fn);
+  if (DECL_DEFERRED_FN (fn))
     return;
-  DECL_SAVED_INLINE (decl) = 1;
-  if (!saved_inlines)
-    VARRAY_TREE_INIT (saved_inlines, 32, "saved_inlines");
+  DECL_DEFERRED_FN (fn) = 1;
+  if (!deferred_fns)
+    VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
 
-  VARRAY_PUSH_TREE (saved_inlines, decl);
+  VARRAY_PUSH_TREE (deferred_fns, fn);
 }
 
 /* Hand off a unique name which can be used for variable we don't really
@@ -2545,7 +2551,7 @@ output_vtable_inherit (vars)
     op[1] = const0_rtx;
   else if (parent)
     {
-      parent = TYPE_BINFO_VTABLE (BINFO_TYPE (parent));
+      parent = get_vtbl_decl_for_binfo (TYPE_BINFO (BINFO_TYPE (parent)));
       op[1] = XEXP (DECL_RTL (parent), 0);  /* strip the mem ref  */
     }
   else
@@ -3531,9 +3537,9 @@ finish_file ()
       
       /* Go through the various inline functions, and see if any need
 	 synthesizing.  */
-      for (i = 0; i < saved_inlines_used; ++i)
+      for (i = 0; i < deferred_fns_used; ++i)
 	{
-	  tree decl = VARRAY_TREE (saved_inlines, i);
+	  tree decl = VARRAY_TREE (deferred_fns, i);
 	  import_export_decl (decl);
 	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
 	      && TREE_USED (decl)
@@ -3563,9 +3569,9 @@ finish_file ()
 	 from being put out unncessarily.  But, we must stop lying
 	 when the functions are referenced, or if they are not comdat
 	 since they need to be put out now.  */
-      for (i = 0; i < saved_inlines_used; ++i)
+      for (i = 0; i < deferred_fns_used; ++i)
 	{
-	  tree decl = VARRAY_TREE (saved_inlines, i);
+	  tree decl = VARRAY_TREE (deferred_fns, i);
       
 	  if (DECL_NOT_REALLY_EXTERN (decl)
 	      && DECL_INITIAL (decl)
@@ -3603,9 +3609,9 @@ finish_file ()
 	    }
 	}
 
-      if (saved_inlines_used
-	  && wrapup_global_declarations (&VARRAY_TREE (saved_inlines, 0),
-					 saved_inlines_used))
+      if (deferred_fns_used
+	  && wrapup_global_declarations (&VARRAY_TREE (deferred_fns, 0),
+					 deferred_fns_used))
 	reconsider = 1;
       if (walk_namespaces (wrapup_globals_for_namespace, /*data=*/0))
 	reconsider = 1;
@@ -5231,7 +5237,7 @@ mark_used (decl)
       && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
       && (!DECL_EXPLICIT_INSTANTIATION (decl)
 	  || (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))))
-    instantiate_decl (decl);
+    instantiate_decl (decl, /*defer_ok=*/1);
 }
 
 /* Helper function for named_class_head_sans_basetype nonterminal.  We
@@ -5296,7 +5302,7 @@ void
 init_decl2 ()
 {
   ggc_add_tree_root (&decl_namespace_list, 1);
-  ggc_add_tree_varray_root (&saved_inlines, 1);
+  ggc_add_tree_varray_root (&deferred_fns, 1);
   ggc_add_tree_varray_root (&pending_statics, 1);
   ggc_add_tree_varray_root (&ssdf_decls, 1);
   ggc_add_tree_root (&ssdf_decl, 1);

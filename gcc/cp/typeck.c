@@ -2577,11 +2577,11 @@ build_x_function_call (function, params, decl)
   if ((TREE_CODE (function) == FUNCTION_DECL
        && DECL_STATIC_FUNCTION_P (function))
       || (TREE_CODE (function) == TEMPLATE_DECL
-	  && DECL_STATIC_FUNCTION_P (DECL_RESULT (function))))
-      return build_member_call(DECL_CONTEXT (function), 
-			       template_id 
-			       ? template_id : DECL_NAME (function), 
-			       params);
+	  && DECL_STATIC_FUNCTION_P (DECL_TEMPLATE_RESULT (function))))
+      return build_member_call (DECL_CONTEXT (function), 
+				template_id 
+				? template_id : DECL_NAME (function), 
+				params);
 
   is_method = ((TREE_CODE (function) == TREE_LIST
 		&& current_class_type != NULL_TREE
@@ -3960,11 +3960,10 @@ build_binary_op (code, orig_op0, orig_op1)
 	    /* OK */;
 	  /* Do not warn if the signed quantity is an unsuffixed
 	     integer literal (or some static constant expression
+	     involving such literals or a conditional expression
 	     involving such literals) and it is non-negative.  */
-	  else if ((op0_signed && TREE_CODE (orig_op0) == INTEGER_CST
-		    && tree_int_cst_sgn (orig_op0) >= 0)
-		   || (op1_signed && TREE_CODE (orig_op1) == INTEGER_CST
-		       && tree_int_cst_sgn (orig_op1) >= 0))
+	  else if ((op0_signed && tree_expr_nonnegative_p (orig_op0))
+		   || (op1_signed && tree_expr_nonnegative_p (orig_op1)))
 	    /* OK */;
 	  /* Do not warn if the comparison is an equality operation,
 	     the unsigned quantity is an integral constant and it does
@@ -4279,18 +4278,8 @@ build_component_addr (arg, argtype)
     /* This conversion is harmless.  */
     rval = convert_force (argtype, rval, 0);
 
-  if (! integer_zerop (bit_position (field)))
-    {
-      tree offset = size_binop (EASY_DIV_EXPR, bit_position (field),
-				bitsize_int (BITS_PER_UNIT));
-      int flag = TREE_CONSTANT (rval);
-
-      offset = convert (sizetype, offset);
-      rval = fold (build (PLUS_EXPR, argtype,
-			  rval, cp_convert (argtype, offset)));
-      TREE_CONSTANT (rval) = flag;
-    }
-  return rval;
+  return fold (build (PLUS_EXPR, argtype, rval,
+		      cp_convert (argtype, byte_position (field))));
 }
    
 /* Construct and perhaps optimize a tree representation

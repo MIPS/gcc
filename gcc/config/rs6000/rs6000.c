@@ -3325,6 +3325,8 @@ print_operand (file, x, code)
       putc ((DEFAULT_ABI == ABI_SOLARIS) ? '.' : '$', file);
       return;
 
+      /* %a is output_address.  */
+
     case 'A':
       /* If X is a constant integer whose low-order 5 bits are zero,
 	 write 'l'.  Otherwise, write 'r'.  This is a kludge to fix a bug
@@ -3349,6 +3351,9 @@ print_operand (file, x, code)
 	 for 64-bit mask direction.  */
       putc (((INT_LOWPART(x) & 1) == 0 ? 'r' : 'l'), file);
       return;
+
+      /* %c is output_addr_const if a CONSTANT_ADDRESS_P, otherwise
+	 output_operand.  */
 
     case 'C':
       {
@@ -3496,7 +3501,7 @@ print_operand (file, x, code)
       fprintf (file, HOST_WIDE_INT_PRINT_DEC, ~ INT_LOWPART (x));
       return;
 
-    case 'l':
+    case 'K':
       /* X must be a symbolic constant on ELF.  Write an
 	 expression suitable for an 'addi' that adds in the low 16
 	 bits of the MEM.  */
@@ -3516,6 +3521,9 @@ print_operand (file, x, code)
 	  fputs ("@l", file);
 	  print_operand (file, XEXP (XEXP (x, 0), 1), 0);
 	}
+      return;
+
+      /* %l is output_asm_label.  */
 
     case 'L':
       /* Write second word of DImode or DFmode reference.  Works on register
@@ -3609,6 +3617,8 @@ print_operand (file, x, code)
 
       fprintf (file, "%d", i);
       return;
+
+      /* %n outputs the negative of its operand.  */
 
     case 'N':
       /* Write the number of elements in the vector times 4.  */
@@ -3918,11 +3928,11 @@ print_operand (file, x, code)
 	  /* We need to handle PRE_INC and PRE_DEC here, since we need to
 	     know the width from the mode.  */
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC)
-	    fprintf (file, "%d(%d)", GET_MODE_SIZE (GET_MODE (x)),
-		     REGNO (XEXP (XEXP (x, 0), 0)));
+	    fprintf (file, "%d(%s)", GET_MODE_SIZE (GET_MODE (x)),
+		     reg_names[REGNO (XEXP (XEXP (x, 0), 0))]);
 	  else if (GET_CODE (XEXP (x, 0)) == PRE_DEC)
-	    fprintf (file, "%d(%d)", - GET_MODE_SIZE (GET_MODE (x)),
-		     REGNO (XEXP (XEXP (x, 0), 0)));
+	    fprintf (file, "%d(%s)", - GET_MODE_SIZE (GET_MODE (x)),
+		     reg_names[REGNO (XEXP (XEXP (x, 0), 0))]);
 	  else
 	    output_address (XEXP (x, 0));
 	}

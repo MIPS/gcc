@@ -1,5 +1,5 @@
 /* An expandable hash tables datatype.  
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov (vmakarov@cygnus.com).
 
 This file is part of the libiberty library.
@@ -55,8 +55,10 @@ Boston, MA 02111-1307, USA.  */
 
 #define DELETED_ENTRY  ((void *) 1)
 
+static unsigned long higher_prime_number PARAMS ((unsigned long));
+
 /* The following function returns the nearest prime number which is
-   greater than given source number. */
+   greater than a given source number. */
 
 static unsigned long
 higher_prime_number (n)
@@ -153,10 +155,10 @@ htab_empty (htab)
 static void **
 find_empty_slot_for_expand (htab, hash)
      htab_t htab;
-     unsigned int hash;
+     hashval_t hash;
 {
   size_t size = htab->size;
-  unsigned int hash2 = 1 + hash % (size - 2);
+  hashval_t hash2 = 1 + hash % (size - 2);
   unsigned int index = hash % size;
 
   for (;;)
@@ -219,28 +221,35 @@ void *
 htab_find_with_hash (htab, element, hash)
      htab_t htab;
      const void *element;
-     unsigned int hash;
+     hashval_t hash;
 {
-  unsigned int index, hash2;
+  unsigned int index;
+  hashval_t hash2;
   size_t size;
+  void *entry;
 
   htab->searches++;
   size = htab->size;
-  hash2 = 1 + hash % (size - 2);
   index = hash % size;
+
+  entry = htab->entries[index];
+  if (entry == EMPTY_ENTRY
+      || (entry != DELETED_ENTRY && (*htab->eq_f) (entry, element)))
+    return entry;
+
+  hash2 = 1 + hash % (size - 2);
 
   for (;;)
     {
-      void *entry = htab->entries[index];
-      if (entry == EMPTY_ENTRY)
-	return NULL;
-      else if (entry != DELETED_ENTRY && (*htab->eq_f) (entry, element))
-	return entry;
-
       htab->collisions++;
       index += hash2;
       if (index >= size)
 	index -= size;
+
+      entry = htab->entries[index];
+      if (entry == EMPTY_ENTRY
+	  || (entry != DELETED_ENTRY && (*htab->eq_f) (entry, element)))
+	return entry;
     }
 }
 
@@ -264,11 +273,12 @@ void **
 htab_find_slot_with_hash (htab, element, hash, insert)
      htab_t htab;
      const void *element;
-     unsigned int hash;
+     hashval_t hash;
      int insert;
 {
   void **first_deleted_slot;
-  unsigned int index, hash2;
+  unsigned int index;
+  hashval_t hash2;
   size_t size;
 
   if (insert && htab->size * 3 <= htab->n_elements * 4)

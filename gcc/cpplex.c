@@ -25,11 +25,16 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "cpphash.h"
 
-#define PEEKN(N) (CPP_BUFFER (pfile)->rlimit - CPP_BUFFER (pfile)->cur >= (N) \
-		  ? CPP_BUFFER (pfile)->cur[N] : EOF)
-#define FORWARD(N) CPP_FORWARD (CPP_BUFFER (pfile), (N))
-#define GETC() CPP_BUF_GET (CPP_BUFFER (pfile))
-#define PEEKC() CPP_BUF_PEEK (CPP_BUFFER (pfile))
+#define PEEKBUF(BUFFER, N) \
+  ((BUFFER)->rlimit - (BUFFER)->cur > (N) ? (BUFFER)->cur[N] : EOF)
+#define GETBUF(BUFFER) \
+  ((BUFFER)->cur < (BUFFER)->rlimit ? *(BUFFER)->cur++ : EOF)
+#define FORWARDBUF(BUFFER, N) ((BUFFER)->cur += (N))
+
+#define PEEKN(N) PEEKBUF (CPP_BUFFER (pfile), N)
+#define FORWARD(N) FORWARDBUF (CPP_BUFFER (pfile), (N))
+#define GETC() GETBUF (CPP_BUFFER (pfile))
+#define PEEKC() PEEKBUF (CPP_BUFFER (pfile), 0)
 
 static void skip_block_comment	PARAMS ((cpp_reader *));
 static void skip_line_comment	PARAMS ((cpp_reader *));
@@ -40,6 +45,7 @@ static void skip_string		PARAMS ((cpp_reader *, int));
 static void parse_string	PARAMS ((cpp_reader *, int));
 static U_CHAR *find_position	PARAMS ((U_CHAR *, U_CHAR *, unsigned long *));
 static int null_cleanup		PARAMS ((cpp_buffer *, cpp_reader *));
+static void null_warning        PARAMS ((cpp_reader *, unsigned int));
 
 /* Re-allocates PFILE->token_buffer so it will hold at least N more chars.  */
 
@@ -87,9 +93,9 @@ cpp_push_buffer (pfile, buffer, length)
   new->if_stack = pfile->if_stack;
   new->cleanup = null_cleanup;
   new->buf = new->cur = buffer;
-  new->alimit = new->rlimit = buffer + length;
+  new->rlimit = buffer + length;
   new->prev = buf;
-  new->mark = -1;
+  new->mark = NULL;
   new->line_base = NULL;
 
   CPP_BUFFER (pfile) = new;
@@ -119,7 +125,7 @@ cpp_scan_buffer (pfile)
 {
   cpp_buffer *buffer = CPP_BUFFER (pfile);
   enum cpp_token token;
-  if (CPP_OPTIONS (pfile)->no_output)
+  if (CPP_OPTION (pfile, no_output))
     {
       long old_written = CPP_WRITTEN (pfile);
       /* In no-output mode, we can ignore everything but directives.  */
@@ -193,12 +199,12 @@ cpp_expand_to_buffer (pfile, buf, length)
   ip->has_escapes = 1;
 
   /* Scan the input, create the output.  */
-  save_no_output = CPP_OPTIONS (pfile)->no_output;
-  CPP_OPTIONS (pfile)->no_output = 0;
-  CPP_OPTIONS (pfile)->no_line_commands++;
+  save_no_output = CPP_OPTION (pfile, no_output);
+  CPP_OPTION (pfile, no_output) = 0;
+  CPP_OPTION (pfile, no_line_commands)++;
   cpp_scan_buffer (pfile);
-  CPP_OPTIONS (pfile)->no_line_commands--;
-  CPP_OPTIONS (pfile)->no_output = save_no_output;
+  CPP_OPTION (pfile, no_line_commands)--;
+  CPP_OPTION (pfile, no_output) = save_no_output;
 
   CPP_NUL_TERMINATE (pfile);
 }
@@ -264,7 +270,7 @@ skip_block_comment (pfile)
       else if (c == '/' && prev_c == '*')
 	return;
       else if (c == '*' && prev_c == '/'
-	       && CPP_OPTIONS (pfile)->warn_comments)
+	       && CPP_OPTION (pfile, warn_comments))
 	cpp_warning (pfile, "`/*' within comment");
 
       prev_c = c;
@@ -294,7 +300,7 @@ skip_line_comment (pfile)
 	  /* \r cannot be a macro escape marker here. */
 	  if (!ACTIVE_MARK_P (pfile))
 	    CPP_BUMP_LINE (pfile);
-	  if (CPP_OPTIONS (pfile)->warn_comments)
+	  if (CPP_OPTION (pfile, warn_comments))
 	    cpp_warning (pfile, "backslash-newline within line comment");
 	}
     }
@@ -325,9 +331,9 @@ skip_comment (pfile, m)
 	  skip_line_comment (pfile);
 	  return ' ';
 	}
-      else if (CPP_OPTIONS (pfile)->cplusplus_comments)
+      else if (CPP_OPTION (pfile, cplusplus_comments))
 	{
-	  if (CPP_OPTIONS (pfile)->c89
+	  if (CPP_OPTION (pfile, c89)
 	      && CPP_PEDANTIC (pfile)
 	      && ! CPP_BUFFER (pfile)->warned_cplusplus_comments)
 	    {
@@ -344,7 +350,7 @@ skip_comment (pfile, m)
 	return m;
     }
   else if (m == '-' && PEEKC() == '-'
-	   && CPP_OPTIONS (pfile)->chill)
+	   && CPP_OPTION (pfile, chill))
     {
       skip_line_comment (pfile);
       return ' ';
@@ -376,23 +382,38 @@ copy_comment (pfile, m)
   return ' ';
 }
 
+static void
+null_warning (pfile, count)
+     cpp_reader *pfile;
+     unsigned int count;
+{
+  if (count == 1)
+    cpp_warning (pfile, "embedded null character ignored");
+  else
+    cpp_warning (pfile, "embedded null characters ignored");
+}
+
 /* Skip whitespace \-newline and comments.  Does not macro-expand.  */
 
 void
 _cpp_skip_hspace (pfile)
      cpp_reader *pfile;
 {
+  unsigned int null_count = 0;
   int c;
+
   while (1)
     {
       c = GETC();
       if (c == EOF)
-	return;
+	goto out;
       else if (is_hspace(c))
 	{
 	  if ((c == '\f' || c == '\v') && CPP_PEDANTIC (pfile))
 	    cpp_pedwarn (pfile, "%s in preprocessing directive",
 			 c == '\f' ? "formfeed" : "vertical tab");
+	  else if (c == '\0')
+	    null_count++;
 	}
       else if (c == '\r')
 	{
@@ -418,6 +439,9 @@ _cpp_skip_hspace (pfile)
 	break;
     }
   FORWARD(-1);
+ out:
+  if (null_count)
+    null_warning (pfile, null_count);
 }
 
 /* Read and discard the rest of the current line.  */
@@ -500,8 +524,9 @@ skip_string (pfile, c)
      int c;
 {
   long start_line, start_column;
-  cpp_buf_line_and_col (cpp_file_buffer (pfile), &start_line, &start_column);
+  unsigned int null_count = 0;
 
+  cpp_buf_line_and_col (cpp_file_buffer (pfile), &start_line, &start_column);
   while (1)
     {
       int cc = GETC();
@@ -516,19 +541,23 @@ skip_string (pfile, c)
 				 pfile->multiline_string_line, -1,
 			 "possible real start of unterminated constant");
 	  pfile->multiline_string_line = 0;
-	  return;
+	  goto out;
 
+	case '\0':
+	  null_count++;
+	  break;
+	  
 	case '\n':
 	  CPP_BUMP_LINE (pfile);
 	  /* In Fortran and assembly language, silently terminate
 	     strings of either variety at end of line.  This is a
 	     kludge around not knowing where comments are in these
 	     languages.  */
-	  if (CPP_OPTIONS (pfile)->lang_fortran
-	      || CPP_OPTIONS (pfile)->lang_asm)
+	  if (CPP_OPTION (pfile, lang_fortran)
+	      || CPP_OPTION (pfile, lang_asm))
 	    {
 	      FORWARD(-1);
-	      return;
+	      goto out;
 	    }
 	  /* Character constants may not extend over multiple lines.
 	     In Standard C, neither may strings.  We accept multiline
@@ -538,7 +567,7 @@ skip_string (pfile, c)
 	      cpp_error_with_line (pfile, start_line, start_column,
 				   "unterminated character constant");
 	      FORWARD(-1);
-	      return;
+	      goto out;
 	    }
 	  if (CPP_PEDANTIC (pfile) && pfile->multiline_string_line == 0)
 	    cpp_pedwarn_with_line (pfile, start_line, start_column,
@@ -565,10 +594,16 @@ skip_string (pfile, c)
 	case '\"':
 	case '\'':
 	  if (cc == c)
-	    return;
+	    goto out;
 	  break;
 	}
     }
+
+ out:
+  if (null_count == 1)
+    cpp_warning (pfile, "null character in string or character constant");
+  else if (null_count > 1)
+    cpp_warning (pfile, "null characters in string or character constant");
 }
 
 /* Parse a string and copy it to the output.  */
@@ -604,7 +639,12 @@ _cpp_parse_assertion (pfile)
   int c, dropwhite;
   _cpp_skip_hspace (pfile);
   c = PEEKC();
-  if (! is_idstart(c))
+  if (c == '\n')
+    {
+      cpp_error (pfile, "assertion without predicate");
+      return 0;
+    }
+  else if (! is_idstart(c))
     {
       cpp_error (pfile, "assertion predicate is not an identifier");
       return 0;
@@ -662,7 +702,6 @@ _cpp_parse_assertion (pfile)
   else
     CPP_PUTC (pfile, ')');
 
-  CPP_NUL_TERMINATE (pfile);
   return 2;
 }
 
@@ -675,7 +714,6 @@ _cpp_lex_token (pfile)
 {
   register int c, c2, c3;
   enum cpp_token token;
-  struct cpp_options *opts = CPP_OPTIONS (pfile);
 
  get_next:
   c = GETC();
@@ -689,7 +727,7 @@ _cpp_lex_token (pfile)
 	goto op2;
 
     comment:
-      if (opts->discard_comments)
+      if (CPP_OPTION (pfile, discard_comments))
 	c = skip_comment (pfile, c);
       else
 	c = copy_comment (pfile, c);
@@ -698,8 +736,16 @@ _cpp_lex_token (pfile)
 	  
       /* Comments are equivalent to spaces.
 	 For -traditional, a comment is equivalent to nothing.  */
-      if (opts->traditional || !opts->discard_comments)
+      if (!CPP_OPTION (pfile, discard_comments))
 	return CPP_COMMENT;
+      else if (CPP_TRADITIONAL (pfile)
+	       && ! is_space (PEEKC ()))
+	{
+	  if (pfile->parsing_define_directive)
+	    return CPP_COMMENT;
+	  else
+	    goto get_next;
+	}
       else
 	{
 	  CPP_PUTC (pfile, c);
@@ -709,9 +755,9 @@ _cpp_lex_token (pfile)
     case '#':
       if (pfile->parsing_if_directive)
 	{
-	  _cpp_skip_hspace (pfile);
-	  _cpp_parse_assertion (pfile);
-	  return CPP_ASSERTION;
+	  if (_cpp_parse_assertion (pfile))
+	    return CPP_ASSERTION;
+	  goto randomchar;
 	}
 
       if (pfile->parsing_define_directive && ! CPP_TRADITIONAL (pfile))
@@ -730,27 +776,20 @@ _cpp_lex_token (pfile)
 
       if (!pfile->only_seen_white)
 	goto randomchar;
-      /* -traditional directives are recognized only with the # in
-	 column 1.
-	 XXX Layering violation.  */
-      if (CPP_TRADITIONAL (pfile)
-	  && CPP_BUFFER (pfile)->cur - CPP_BUFFER (pfile)->line_base != 1)
-	goto randomchar;
       return CPP_DIRECTIVE;
 
     case '\"':
     case '\'':
       parse_string (pfile, c);
-      pfile->only_seen_white = 0;
       return c == '\'' ? CPP_CHAR : CPP_STRING;
 
     case '$':
-      if (!opts->dollars_in_ident)
+      if (!CPP_OPTION (pfile, dollars_in_ident))
 	goto randomchar;
       goto letter;
 
     case ':':
-      if (opts->cplusplus && PEEKC () == ':')
+      if (CPP_OPTION (pfile, cplusplus) && PEEKC () == ':')
 	goto op2;
       goto randomchar;
 
@@ -775,7 +814,7 @@ _cpp_lex_token (pfile)
       c2 = PEEKC ();
       if (c2 == '-')
 	{
-	  if (opts->chill)
+	  if (CPP_OPTION (pfile, chill))
 	    goto comment;  /* Chill style comment */
 	  else
 	    goto op2;
@@ -784,11 +823,10 @@ _cpp_lex_token (pfile)
 	goto op2;
       else if (c2 == '>')
 	{
-	  if (opts->cplusplus && PEEKN (1) == '*')
+	  if (CPP_OPTION (pfile, cplusplus) && PEEKN (1) == '*')
 	    {
 	      /* In C++, there's a ->* operator.  */
 	      token = CPP_OTHER;
-	      pfile->only_seen_white = 0;
 	      CPP_RESERVE (pfile, 4);
 	      CPP_PUTC_Q (pfile, c);
 	      CPP_PUTC_Q (pfile, GETC ());
@@ -842,7 +880,7 @@ _cpp_lex_token (pfile)
       if (c2 == '=')
 	goto op2;
       /* GNU C++ supports MIN and MAX operators <? and >?.  */
-      if (c2 != c && (!opts->cplusplus || c2 != '?'))
+      if (c2 != c && (!CPP_OPTION (pfile, cplusplus) || c2 != '?'))
 	goto randomchar;
       FORWARD(1);
       CPP_RESERVE (pfile, 4);
@@ -852,7 +890,6 @@ _cpp_lex_token (pfile)
       if (c3 == '=')
 	CPP_PUTC_Q (pfile, GETC ());
       CPP_NUL_TERMINATE_Q (pfile);
-      pfile->only_seen_white = 0;
       return CPP_OTHER;
 
     case '.':
@@ -866,7 +903,7 @@ _cpp_lex_token (pfile)
 	}
 
       /* In C++ there's a .* operator.  */
-      if (opts->cplusplus && c2 == '*')
+      if (CPP_OPTION (pfile, cplusplus) && c2 == '*')
 	goto op2;
 
       if (c2 == '.' && PEEKN(1) == '.')
@@ -877,14 +914,12 @@ _cpp_lex_token (pfile)
 	  CPP_PUTC_Q (pfile, '.');
 	  FORWARD (2);
 	  CPP_NUL_TERMINATE_Q (pfile);
-	  pfile->only_seen_white = 0;
 	  return CPP_3DOTS;
 	}
       goto randomchar;
 
     op2:
       token = CPP_OTHER;
-      pfile->only_seen_white = 0;
       CPP_RESERVE(pfile, 3);
       CPP_PUTC_Q (pfile, c);
       CPP_PUTC_Q (pfile, GETC ());
@@ -898,7 +933,6 @@ _cpp_lex_token (pfile)
 	  CPP_PUTC (pfile, c);
 	  c = GETC ();
 	  parse_string (pfile, c);
-	  pfile->only_seen_white = 0;
 	  return c == '\'' ? CPP_WCHAR : CPP_WSTRING;
 	}
       goto letter;
@@ -917,20 +951,18 @@ _cpp_lex_token (pfile)
 	if (!is_numchar(c) && c != '.'
 	    && ((c2 != 'e' && c2 != 'E'
 		 && ((c2 != 'p' && c2 != 'P')
-		     || CPP_OPTIONS (pfile)->c89))
+		     || CPP_OPTION (pfile, c89)))
 		|| (c != '+' && c != '-')))
 	  break;
 	FORWARD(1);
 	c2= c;
       }
     CPP_NUL_TERMINATE_Q (pfile);
-    pfile->only_seen_white = 0;
     return CPP_NUMBER;
     case 'b': case 'c': case 'd': case 'h': case 'o':
     case 'B': case 'C': case 'D': case 'H': case 'O':
-      if (opts->chill && PEEKC () == '\'')
+      if (CPP_OPTION (pfile, chill) && PEEKC () == '\'')
 	{
-	  pfile->only_seen_white = 0;
 	  CPP_RESERVE (pfile, 2);
 	  CPP_PUTC_Q (pfile, c);
 	  CPP_PUTC_Q (pfile, '\'');
@@ -971,20 +1003,28 @@ _cpp_lex_token (pfile)
     case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
     case 'Y': case 'Z':
     letter:
-    pfile->only_seen_white = 0;
     _cpp_parse_name (pfile, c);
     return CPP_MACRO;
 
-    case ' ':  case '\t':  case '\v':
-      for (;;)
-	{
-	  CPP_PUTC (pfile, c);
-	  c = PEEKC ();
-	  if (c == EOF || !is_hspace(c))
-	    break;
-	  FORWARD(1);
-	}
-      return CPP_HSPACE;
+    case ' ':  case '\t':  case '\v': case '\f': case '\0':
+      {
+	int null_count = 0;
+
+	for (;;)
+	  {
+	    if (c == '\0')
+	      null_count++;
+	    else
+	      CPP_PUTC (pfile, c);
+	    c = PEEKC ();
+	    if (c == EOF || !is_hspace(c))
+	      break;
+	    FORWARD(1);
+	  }
+	if (null_count)
+	  null_warning (pfile, null_count);
+	return CPP_HSPACE;
+      }
 
     case '\r':
       if (CPP_BUFFER (pfile)->has_escapes)
@@ -999,6 +1039,8 @@ _cpp_lex_token (pfile)
 	    }
 	  else if (c == ' ')
 	    {
+	      /* "\r " means a space, but only if necessary to prevent
+		 accidental token concatenation.  */
 	      CPP_RESERVE (pfile, 2);
 	      if (pfile->output_escapes)
 		CPP_PUTC_Q (pfile, '\r');
@@ -1020,15 +1062,6 @@ _cpp_lex_token (pfile)
 
     case '\n':
       CPP_PUTC (pfile, c);
-      if (pfile->only_seen_white == 0)
-	pfile->only_seen_white = 1;
-      CPP_BUMP_LINE (pfile);
-      if (! CPP_OPTIONS (pfile)->no_line_commands)
-	{
-	  pfile->lineno++;
-	  if (CPP_BUFFER (pfile)->lineno != pfile->lineno)
-	    _cpp_output_line_command (pfile, same_file);
-	}
       return CPP_VSPACE;
 
     case '(': token = CPP_LPAREN;    goto char1;
@@ -1042,7 +1075,6 @@ _cpp_lex_token (pfile)
     default:
       token = CPP_OTHER;
     char1:
-      pfile->only_seen_white = 0;
       CPP_PUTC (pfile, c);
       return token;
     }
@@ -1075,6 +1107,13 @@ maybe_macroexpand (pfile, written)
 	  macro[1] = '-';
 	}
       return 0;
+    }
+  if (hp->type == T_EMPTY)
+    {
+      /* Special case optimization: macro expands to nothing.  */
+      CPP_SET_WRITTEN (pfile, written);
+      CPP_PUTC_Q (pfile, ' ');
+      return 1;
     }
 
   /* If macro wants an arglist, verify that a '(' follows.  */
@@ -1147,9 +1186,28 @@ cpp_get_token (pfile)
   switch (token)
     {
     default:
+      pfile->potential_control_macro = 0;
+      pfile->only_seen_white = 0;
+      return token;
+
+    case CPP_VSPACE:
+      if (pfile->only_seen_white == 0)
+	pfile->only_seen_white = 1;
+      CPP_BUMP_LINE (pfile);
+      if (! CPP_OPTION (pfile, no_line_commands))
+	{
+	  pfile->lineno++;
+	  if (CPP_BUFFER (pfile)->lineno != pfile->lineno)
+	    _cpp_output_line_command (pfile, same_file);
+	}
+      return token;
+
+    case CPP_HSPACE:
+    case CPP_COMMENT:
       return token;
 
     case CPP_DIRECTIVE:
+      pfile->potential_control_macro = 0;
       if (_cpp_handle_directive (pfile))
 	return CPP_DIRECTIVE;
       pfile->only_seen_white = 0;
@@ -1157,6 +1215,8 @@ cpp_get_token (pfile)
       return CPP_OTHER;
 
     case CPP_MACRO:
+      pfile->potential_control_macro = 0;
+      pfile->only_seen_white = 0;
       if (! pfile->no_macro_expand
 	  && maybe_macroexpand (pfile, written))
 	goto get_next;
@@ -1193,57 +1253,96 @@ cpp_get_non_space_token (pfile)
   for (;;)
     {
       enum cpp_token token = cpp_get_token (pfile);
-      if (token != CPP_COMMENT && token != CPP_POP
-	  && token != CPP_HSPACE && token != CPP_VSPACE)
+      if (token != CPP_COMMENT && token != CPP_HSPACE && token != CPP_VSPACE)
 	return token;
       CPP_SET_WRITTEN (pfile, old_written);
     }
 }
 
-/* Like cpp_get_token, except that it does not read past end-of-line.
-   Also, horizontal space is skipped, and macros are popped.  */
+/* Like cpp_get_token, except that it does not execute directives,
+   does not consume vertical space, and automatically pops off macro
+   buffers.
+
+   XXX This function will exist only till collect_expansion doesn't
+   need to see whitespace anymore, then it'll be merged with
+   _cpp_get_directive_token (below).  */
+enum cpp_token
+_cpp_get_define_token (pfile)
+     cpp_reader *pfile;
+{
+  long old_written;
+  enum cpp_token token;
+
+ get_next:
+  old_written = CPP_WRITTEN (pfile);
+  token = _cpp_lex_token (pfile);
+  switch (token)
+    {
+    default:
+      return token;
+
+    case CPP_VSPACE:
+      /* Put it back and return VSPACE.  */
+      FORWARD(-1);
+      CPP_ADJUST_WRITTEN (pfile, -1);
+      return CPP_VSPACE;
+
+    case CPP_HSPACE:
+      if (CPP_PEDANTIC (pfile))
+	{
+	  U_CHAR *p, *limit;
+	  p = pfile->token_buffer + old_written;
+	  limit = CPP_PWRITTEN (pfile);
+	  while (p < limit)
+	    {
+	      if (*p == '\v' || *p == '\f')
+		cpp_pedwarn (pfile, "%s in preprocessing directive",
+			     *p == '\f' ? "formfeed" : "vertical tab");
+	      p++;
+	    }
+	}
+      return CPP_HSPACE;
+
+    case CPP_DIRECTIVE:
+      /* Don't execute the directive, but don't smash it to OTHER either.  */
+      CPP_PUTC (pfile, '#');
+      return CPP_DIRECTIVE;
+
+    case CPP_MACRO:
+      if (! pfile->no_macro_expand
+	  && maybe_macroexpand (pfile, old_written))
+	goto get_next;
+      return CPP_NAME;
+
+    case CPP_EOF:
+      if (CPP_IS_MACRO_BUFFER (CPP_BUFFER (pfile)))
+	{
+	  cpp_pop_buffer (pfile);
+	  goto get_next;
+	}
+      else
+	/* This can happen for files that don't end with a newline,
+	   and for cpp_define and friends.  Pretend they do, so
+	   callers don't have to deal.  A warning will be issued by
+	   someone else, if necessary.  */
+	return CPP_VSPACE;
+    }
+}
+
+/* Just like _cpp_get_define_token except that it discards horizontal
+   whitespace.  */
 
 enum cpp_token
 _cpp_get_directive_token (pfile)
      cpp_reader *pfile;
 {
-  long old_written = CPP_WRITTEN (pfile);
-  enum cpp_token token;
-
+  int old_written = CPP_WRITTEN (pfile);
   for (;;)
     {
-      _cpp_skip_hspace (pfile);
-      if (PEEKC () == '\n')
-	return CPP_VSPACE;
-
-      token = cpp_get_token (pfile);
-      /* token could be hspace at the beginning of a macro.  */
-      if (token == CPP_HSPACE || token == CPP_COMMENT)
-	{
-	  CPP_SET_WRITTEN (pfile, old_written);
-	  continue;
-	}
-
-      /* token cannot be vspace, it would have been caught above.  */
-      if (token == CPP_VSPACE)
-	{
-	  cpp_ice (pfile, "VSPACE in get_directive_token");
-	  return token;
-	}
-
-      /* token cannot be POP unless the buffer is a macro buffer.  */
-      if (token != CPP_POP)
+      enum cpp_token token = _cpp_get_define_token (pfile);
+      if (token != CPP_COMMENT && token != CPP_HSPACE)
 	return token;
-
-      if (! CPP_IS_MACRO_BUFFER (CPP_BUFFER (pfile)))
-	{
-	  cpp_ice (pfile, "POP of file buffer in get_directive_token");
-	  return token;
-	}
-
-      /* We must pop the buffer by hand, or else cpp_get_token might
-	 hand us white space or newline on the next invocation.  */
-      cpp_pop_buffer (pfile);
+      CPP_SET_WRITTEN (pfile, old_written);
     }
 }
 
@@ -1269,6 +1368,51 @@ find_position (start, limit, linep)
   return lbase;
 }
 
+/* The following table is used by _cpp_read_and_prescan.  If we have
+   designated initializers, it can be constant data; otherwise, it is
+   set up at runtime by _cpp_init_input_buffer.  */
+
+#ifndef UCHAR_MAX
+#define UCHAR_MAX 255	/* assume 8-bit bytes */
+#endif
+
+#if (GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L)
+#define init_chartab()  /* nothing */
+#define CHARTAB static const unsigned char chartab[UCHAR_MAX + 1] = {
+#define END };
+#define s(p, v) [p] = v,
+#else
+#define CHARTAB static unsigned char chartab[UCHAR_MAX + 1] = { 0 }; \
+ static void init_chartab PARAMS ((void)) { \
+ unsigned char *x = chartab;
+#define END }
+#define s(p, v) x[p] = v;
+#endif
+
+/* Table of characters that can't be handled in the inner loop.
+   Also contains the mapping between trigraph third characters and their
+   replacements.  */
+#define SPECCASE_CR        1
+#define SPECCASE_BACKSLASH 2
+#define SPECCASE_QUESTION  3
+ 
+CHARTAB
+  s('\r', SPECCASE_CR)
+  s('\\', SPECCASE_BACKSLASH)
+  s('?',  SPECCASE_QUESTION)
+
+  s('=', '#')	s(')', ']')	s('!', '|')
+  s('(', '[')	s('\'', '^')	s('>', '}')
+  s('/', '\\')	s('<', '{')	s('-', '~')
+END
+
+#undef CHARTAB
+#undef END
+#undef s
+
+#define NORMAL(c) ((chartab[c]) == 0 || (chartab[c]) > SPECCASE_QUESTION)
+#define NONTRI(c) ((c) <= SPECCASE_QUESTION)
+
 /* Read the entire contents of file DESC into buffer BUF.  LEN is how
    much memory to allocate initially; more will be allocated if
    necessary.  Convert end-of-line markers (\n, \r, \r\n, \n\r) to
@@ -1292,17 +1436,19 @@ find_position (start, limit, linep)
    at the end of reload1.c is about 60%.  (reload1.c is 329k.)
 
    If your file has more than one kind of end-of-line marker, you
-   will get messed-up line numbering.  */
-
-/* Table of characters that can't be handled in the inner loop.
-   Keep these contiguous to optimize the performance of the code generated
-   for the switch that uses them.  */
-#define SPECCASE_EMPTY     0
-#define SPECCASE_NUL       1
-#define SPECCASE_CR        2
-#define SPECCASE_BACKSLASH 3
-#define SPECCASE_QUESTION  4
-
+   will get messed-up line numbering.
+   
+   So that the cases of the switch statement do not have to concern
+   themselves with the complications of reading beyond the end of the
+   buffer, the buffer is guaranteed to have at least 3 characters in
+   it (or however many are left in the file, if less) on entry to the
+   switch.  This is enough to handle trigraphs and the "\\\n\r" and
+   "\\\r\n" cases.
+   
+   The end of the buffer is marked by a '\\', which, being a special
+   character, guarantees we will exit the fast-scan loops and perform
+   a refill. */
+ 
 long
 _cpp_read_and_prescan (pfile, fp, desc, len)
      cpp_reader *pfile;
@@ -1313,243 +1459,182 @@ _cpp_read_and_prescan (pfile, fp, desc, len)
   U_CHAR *buf = (U_CHAR *) xmalloc (len);
   U_CHAR *ip, *op, *line_base;
   U_CHAR *ibase;
-  U_CHAR *speccase = pfile->input_speccase;
   unsigned long line;
   unsigned int deferred_newlines;
-  int count;
   size_t offset;
+  int count = 0;
 
   offset = 0;
+  deferred_newlines = 0;
   op = buf;
   line_base = buf;
   line = 1;
-  ibase = pfile->input_buffer + 2;
-  deferred_newlines = 0;
+  ibase = pfile->input_buffer + 3;
+  ip = ibase;
+  ip[-1] = '\0';  /* Guarantee no match with \n for SPECCASE_CR */
 
   for (;;)
     {
-    read_next:
+      U_CHAR *near_buff_end;
 
-      count = read (desc, pfile->input_buffer + 2, pfile->input_buffer_len);
+      /* Copy previous char plus unprocessed (at most 2) chars
+	 to beginning of buffer, refill it with another
+	 read(), and continue processing */
+      memcpy(ip - count - 1, ip - 1, 3);
+      ip -= count;
+
+      count = read (desc, ibase, pfile->input_buffer_len);
       if (count < 0)
 	goto error;
-      else if (count == 0)
-	break;
-
-      offset += count;
-      ip = ibase;
-      ibase = pfile->input_buffer + 2;
-      ibase[count] = ibase[count+1] = '\0';
-
-      if (offset > len)
+      
+      ibase[count] = '\\';  /* Marks end of buffer */
+      if (count)
 	{
-	  size_t delta_op;
-	  size_t delta_line_base;
-	  len *= 2;
+	  near_buff_end = pfile->input_buffer + count;
+	  offset += count;
 	  if (offset > len)
-	    /* len overflowed.
-	       This could happen if the file is larger than half the
-	       maximum address space of the machine. */
-	    goto too_big;
+	    {
+	      size_t delta_op;
+	      size_t delta_line_base;
+	      len *= 2;
+	      if (offset > len)
+		/* len overflowed.
+		   This could happen if the file is larger than half the
+		   maximum address space of the machine. */
+		goto too_big;
 
-	  delta_op = op - buf;
-	  delta_line_base = line_base - buf;
-	  buf = (U_CHAR *) xrealloc (buf, len);
-	  op = buf + delta_op;
-	  line_base = buf + delta_line_base;
+	      delta_op = op - buf;
+	      delta_line_base = line_base - buf;
+	      buf = (U_CHAR *) xrealloc (buf, len);
+	      op = buf + delta_op;
+	      line_base = buf + delta_line_base;
+	    }
+	}
+      else
+	{
+	  if (ip == ibase)
+	    break;
+	  /* Allow normal processing of the (at most 2) remaining
+	     characters.  The end-of-buffer marker is still present
+	     and prevents false matches within the switch. */
+	  near_buff_end = ibase - 1;
 	}
 
       for (;;)
 	{
-	  unsigned int span = 0;
+	  unsigned int span;
 
-	  /* Deal with \-newline in the middle of a token. */
+	  /* Deal with \-newline, potentially in the middle of a token. */
 	  if (deferred_newlines)
 	    {
-	      while (speccase[ip[span]] == SPECCASE_EMPTY
-		     && ip[span] != '\n'
-		     && ip[span] != '\t'
-		     && ip[span] != ' ')
-		span++;
-	      memcpy (op, ip, span);
-	      op += span;
-	      ip += span;
-	      /* If ip[0] is SPECCASE_EMPTY, we have hit white space.
-		 Dump out the remaining deferred \-newlines.  */
-	      if (speccase[ip[0]] == SPECCASE_EMPTY)
-		while (deferred_newlines)
-		  deferred_newlines--, *op++ = '\r';
-	      span = 0;
+	      if (op != buf && ! is_space (op[-1]) && op[-1] != '\r')
+		{
+		  /* Previous was not white space.  Skip to white
+		     space, if we can, before outputting the \r's */
+		  span = 0;
+		  while (ip[span] != ' '
+			 && ip[span] != '\t'
+			 && ip[span] != '\n'
+			 && NORMAL(ip[span]))
+		    span++;
+		  memcpy (op, ip, span);
+		  op += span;
+		  ip += span;
+		  if (! NORMAL(ip[0]))
+		    goto do_speccase;
+		}
+	      while (deferred_newlines)
+		deferred_newlines--, *op++ = '\r';
 	    }
 
 	  /* Copy as much as we can without special treatment. */
-	  while (speccase[ip[span]] == SPECCASE_EMPTY) span++;
+	  span = 0;
+	  while (NORMAL (ip[span])) span++;
 	  memcpy (op, ip, span);
 	  op += span;
 	  ip += span;
 
-	  switch (speccase[*ip++])
+	do_speccase:
+	  if (ip > near_buff_end) /* Do we have enough chars? */
+	    break;
+	  switch (chartab[*ip++])
 	    {
-	    case SPECCASE_NUL:  /* \0 */
-	      ibase[-1] = op[-1];
-	      goto read_next;
-
 	    case SPECCASE_CR:  /* \r */
-	      if (ip[-2] == '\n')
-		continue;
-	      else if (*ip == '\n')
-		ip++;
-	      else if (*ip == '\0')
+	      if (ip[-2] != '\n')
 		{
-		  *--ibase = '\r';
-		  goto read_next;
+		  if (*ip == '\n')
+		    ip++;
+		  *op++ = '\n';
 		}
-	      *op++ = '\n';
 	      break;
 
 	    case SPECCASE_BACKSLASH:  /* \ */
-	    backslash:
-	    {
-	      /* If we're at the end of the intermediate buffer,
-		 we have to shift the backslash down to the start
-		 and come back next pass. */
-	      if (*ip == '\0')
+	      if (*ip == '\n')
 		{
-		  *--ibase = '\\';
-		  goto read_next;
-		}
-	      else if (*ip == '\n')
-		{
+		  deferred_newlines++;
 		  ip++;
 		  if (*ip == '\r') ip++;
-		  if (*ip == '\n' || *ip == '\t' || *ip == ' ')
-		    *op++ = '\r';
-		  else if (op[-1] == '\t' || op[-1] == ' '
-			   || op[-1] == '\r' || op[-1] == '\n')
-		    *op++ = '\r';
-		  else
-		    deferred_newlines++;
 		}
 	      else if (*ip == '\r')
 		{
+		  deferred_newlines++;
 		  ip++;
 		  if (*ip == '\n') ip++;
-		  else if (*ip == '\0')
-		    {
-		      *--ibase = '\r';
-		      *--ibase = '\\';
-		      goto read_next;
-		    }
-		  else if (*ip == '\r' || *ip == '\t' || *ip == ' ')
-		    *op++ = '\r';
-		  else
-		    deferred_newlines++;
 		}
 	      else
 		*op++ = '\\';
-	    }
-	    break;
+	      break;
 
 	    case SPECCASE_QUESTION: /* ? */
 	      {
 		unsigned int d, t;
-		/* If we're at the end of the intermediate buffer,
-		   we have to shift the ?'s down to the start and
-		   come back next pass. */
-		d = ip[0];
-		if (d == '\0')
-		  {
-		    *--ibase = '?';
-		    goto read_next;
-		  }
-		if (d != '?')
-		  {
-		    *op++ = '?';
-		    break;
-		  }
-		d = ip[1];
-		if (d == '\0')
-		  {
-		    *--ibase = '?';
-		    *--ibase = '?';
-		    goto read_next;
-		  }
 
-		/* Trigraph map:
-		 *	from	to	from	to	from	to
-		 *	?? =	#	?? )	]	?? !	|
-		 *	?? (	[	?? '	^	?? >	}
-		 *	?? /	\	?? <	{	?? -	~
-		 */
-		if (d == '=') t = '#';
-		else if (d == ')') t = ']';
-		else if (d == '!') t = '|';
-		else if (d == '(') t = '[';
-		else if (d == '\'') t = '^';
-		else if (d == '>') t = '}';
-		else if (d == '/') t = '\\';
-		else if (d == '<') t = '{';
-		else if (d == '-') t = '~';
-		else
-		  {
-		    *op++ = '?';
-		    break;
-		  }
-		ip += 2;
-		if (CPP_OPTIONS (pfile)->warn_trigraphs)
+		*op++ = '?'; /* Normal non-trigraph case */
+		if (ip[0] != '?')
+		  break;
+		    
+		d = ip[1];
+		t = chartab[d];
+		if (NONTRI (t))
+		  break;
+
+		if (CPP_OPTION (pfile, warn_trigraphs))
 		  {
 		    unsigned long col;
 		    line_base = find_position (line_base, op, &line);
 		    col = op - line_base + 1;
-		    if (CPP_OPTIONS (pfile)->trigraphs)
+		    if (CPP_OPTION (pfile, trigraphs))
 		      cpp_warning_with_line (pfile, line, col,
-			     "trigraph ??%c converted to %c", d, t);
+					     "trigraph ??%c converted to %c", d, t);
 		    else
 		      cpp_warning_with_line (pfile, line, col,
-			     "trigraph ??%c ignored", d);
+					     "trigraph ??%c ignored", d);
 		  }
-		if (CPP_OPTIONS (pfile)->trigraphs)
+
+		ip += 2;
+		if (CPP_OPTION (pfile, trigraphs))
 		  {
+		    op[-1] = t;	    /* Overwrite '?' */
 		    if (t == '\\')
-		      goto backslash;
-		    else
-		      *op++ = t;
+		      {
+			op--;
+			*--ip = '\\';
+			goto do_speccase; /* May need buffer refill */
+		      }
 		  }
 		else
 		  {
 		    *op++ = '?';
-		    *op++ = '?';
 		    *op++ = d;
 		  }
 	      }
+	      break;
 	    }
 	}
     }
 
   if (offset == 0)
     return 0;
-
-  /* Deal with pushed-back chars at true EOF.
-     This may be any of:  ?? ? \ \r \n \\r \\n.
-     \r must become \n, \\r or \\n must become \r.
-     We know we have space already. */
-  if (ibase == pfile->input_buffer)
-    {
-      if (*ibase == '?')
-	{
-	  *op++ = '?';
-	  *op++ = '?';
-	}
-      else
-	*op++ = '\r';
-    }
-  else if (ibase == pfile->input_buffer + 1)
-    {
-      if (*ibase == '\r')
-	*op++ = '\n';
-      else
-	*op++ = *ibase;
-    }
 
   if (op[-1] != '\n')
     {
@@ -1582,39 +1667,25 @@ _cpp_read_and_prescan (pfile, fp, desc, len)
   return -1;
 }
 
-/* Initialize the `input_buffer' and `input_speccase' tables.
-   These are only used by read_and_prescan, but they're large and
-   somewhat expensive to set up, so we want them allocated once for
-   the duration of the cpp run.  */
-
+/* Allocate pfile->input_buffer, and initialize chartab[]
+   if it hasn't happened already.  */
+ 
 void
 _cpp_init_input_buffer (pfile)
      cpp_reader *pfile;
 {
   U_CHAR *tmp;
 
-  /* Table of characters that cannot be handled by the
-     read_and_prescan inner loop.  The number of non-EMPTY entries
-     should be as small as humanly possible.  */
-
-  tmp = (U_CHAR *) xmalloc (1 << CHAR_BIT);
-  memset (tmp, SPECCASE_EMPTY, 1 << CHAR_BIT);
-  tmp['\0'] = SPECCASE_NUL;
-  tmp['\r'] = SPECCASE_CR;
-  tmp['\\'] = SPECCASE_BACKSLASH;
-  if (CPP_OPTIONS (pfile)->trigraphs || CPP_OPTIONS (pfile)->warn_trigraphs)
-    tmp['?'] = SPECCASE_QUESTION;
-
-  pfile->input_speccase = tmp;
+  init_chartab ();
 
   /* Determine the appropriate size for the input buffer.  Normal C
      source files are smaller than eight K.  */
-  /* 8Kbytes of buffer proper, 2 to detect running off the end without
-     address arithmetic all the time, and 2 for pushback in the case
-     there's a potential trigraph or end-of-line digraph at the end of
-     a block. */
+  /* 8Kbytes of buffer proper, 1 to detect running off the end without
+     address arithmetic all the time, and 3 for pushback during buffer
+     refill, in case there's a potential trigraph or end-of-line
+     digraph at the end of a block. */
 
-  tmp = (U_CHAR *) xmalloc (8192 + 2 + 2);
+  tmp = (U_CHAR *) xmalloc (8192 + 1 + 3);
   pfile->input_buffer = tmp;
   pfile->input_buffer_len = 8192;
 }

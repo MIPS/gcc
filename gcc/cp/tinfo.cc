@@ -66,7 +66,7 @@ convert_to_base (void *addr, bool is_virtual, myint32 offset)
 bool std::type_info::
 operator== (const std::type_info& arg) const
 {
-  return (&arg == this) || (strcmp (name (), arg.name ()) == 0);
+  return (&arg == this) || (__builtin_strcmp (name (), arg.name ()) == 0);
 }
 
 extern "C" void
@@ -590,6 +590,21 @@ adjust_pointer (const void *base, ptrdiff_t offset)
     (reinterpret_cast <const char *> (base) + offset);
 }
 
+// ADDR is a pointer to an object.  Convert it to a pointer to a base,
+// using OFFSET. IS_VIRTUAL is true, if we are getting a virtual base.
+inline void const *
+convert_to_base (void const *addr, bool is_virtual, ptrdiff_t offset)
+{
+  if (is_virtual)
+    {
+      const void *vtable = *static_cast <const void *const *> (addr);
+      
+      offset = *adjust_pointer<ptrdiff_t> (vtable, offset);
+    }
+
+  return adjust_pointer<void> (addr, offset);
+}
+
 // some predicate functions for __class_type_info::sub_kind
 inline bool contained_p (__class_type_info::sub_kind access_path)
 {
@@ -652,7 +667,7 @@ do_catch (const type_info *thr_type, void **thr_obj,
 bool __class_type_info::
 do_upcast (const __class_type_info *dst_type, void **obj_ptr) const
 {
-  upcast_result result (details);
+  upcast_result result (__vmi_class_type_info::flags_unknown_mask);
   
   if (do_upcast (contained_public, dst_type, *obj_ptr, result))
     return false;
@@ -706,29 +721,27 @@ do_find_public_src (ptrdiff_t src2dst,
   if (obj_ptr == src_ptr && *this == *src_type)
     return contained_public;
   
-  for (size_t i = n_bases; i--;)
+  for (size_t i = vmi_base_count; i--;)
     {
-      if (!base_list[i].is_public_p ())
+      if (!vmi_bases[i].is_public_p ())
         continue; // Not public, can't be here.
       
       const void *base = obj_ptr;
-      ptrdiff_t offset = base_list[i].offset;
+      ptrdiff_t offset = vmi_bases[i].offset ();
+      bool is_virtual = vmi_bases[i].is_virtual_p ();
       
-      if (base_list[i].is_virtual_p ())
+      if (is_virtual)
         {
           if (src2dst == -3)
             continue; // Not a virtual base, so can't be here.
-  	  const ptrdiff_t *vtable = *static_cast <const ptrdiff_t *const *> (base);
-          
-	  offset = vtable[offset];
         }
-      base = adjust_pointer <void> (base, offset);
+      base = convert_to_base (base, is_virtual, offset);
       
-      sub_kind base_kind = base_list[i].base->do_find_public_src
+      sub_kind base_kind = vmi_bases[i].base->do_find_public_src
                               (src2dst, base, src_type, src_ptr);
       if (contained_p (base_kind))
         {
-          if (base_list[i].is_virtual_p ())
+          if (is_virtual)
             base_kind = sub_kind (base_kind | contained_virtual_mask);
           return base_kind;
         }
@@ -831,27 +844,23 @@ do_dyncast (ptrdiff_t src2dst,
       return false;
     }
   bool result_ambig = false;
-  for (size_t i = n_bases; i--;)
+  for (size_t i = vmi_base_count; i--;)
     {
       dyncast_result result2;
       void const *base = obj_ptr;
       sub_kind base_access = access_path;
-      ptrdiff_t offset = base_list[i].offset;
+      ptrdiff_t offset = vmi_bases[i].offset ();
+      bool is_virtual = vmi_bases[i].is_virtual_p ();
       
-      if (base_list[i].is_virtual_p ())
-        {
-          base_access = sub_kind (base_access | contained_virtual_mask);
-  	  const ptrdiff_t *vtable = *static_cast <const ptrdiff_t *const *> (base);
-          
-	  offset = vtable[offset];
-	}
-      base = adjust_pointer <void> (base, offset);
+      if (is_virtual)
+        base_access = sub_kind (base_access | contained_virtual_mask);
+      base = convert_to_base (base, is_virtual, offset);
 
-      if (!base_list[i].is_public_p ())
+      if (!vmi_bases[i].is_public_p ())
         base_access = sub_kind (base_access & ~contained_public_mask);
       
       bool result2_ambig
-          = base_list[i].base->do_dyncast (src2dst, base_access,
+          = vmi_bases[i].base->do_dyncast (src2dst, base_access,
                                            dst_type, base,
                                            src_type, src_ptr, result2);
       result.whole2src = sub_kind (result.whole2src | result2.whole2src);
@@ -1018,44 +1027,40 @@ do_upcast (sub_kind access_path,
       return contained_nonpublic_p (access_path);
     }
   
-  for (size_t i = n_bases; i--;)
+  int src_details = result.src_details;
+  if (src_details & flags_unknown_mask)
+    src_details = vmi_flags;
+  
+  for (size_t i = vmi_base_count; i--;)
     {
-      upcast_result result2 (result.src_details);
+      upcast_result result2 (src_details);
       const void *base = obj_ptr;
       sub_kind sub_access = access_path;
-      ptrdiff_t offset = base_list[i].offset;
+      ptrdiff_t offset = vmi_bases[i].offset ();
+      bool is_virtual = vmi_bases[i].is_virtual_p ();
       
-      if (!base_list[i].is_public_p ())
+      if (!vmi_bases[i].is_public_p ())
         {
-          if (!(result.src_details & multiple_base_mask))
+          if (!(src_details & non_diamond_repeat_mask))
             // original cannot have an ambiguous base
             continue;
           sub_access = sub_kind (sub_access & ~contained_public_mask);
         }
-      if (base_list[i].is_virtual_p ())
-        {
-      	  sub_access = sub_kind (sub_access | contained_virtual_mask);
-          
-          if (base)
-            {
-    	      const ptrdiff_t *vtable = *static_cast <const ptrdiff_t *const *> (base);
-	      offset = vtable[offset];
-	    }
-        }
+      if (is_virtual)
+    	  sub_access = sub_kind (sub_access | contained_virtual_mask);
       if (base)
-        base = adjust_pointer <void> (base, offset);
+        base = convert_to_base (base, is_virtual, offset);
       
-      if (base_list[i].base->do_upcast (sub_access, dst, base, result2))
+      if (vmi_bases[i].base->do_upcast (sub_access, dst, base, result2))
         return true; // must fail
       if (result2.base_type)
         {
-          if (result2.base_type == nonvirtual_base_type
-              && base_list[i].is_virtual_p ())
-            result2.base_type = base_list[i].base;
+          if (result2.base_type == nonvirtual_base_type && is_virtual)
+            result2.base_type = vmi_bases[i].base;
           if (!result.base_type)
             {
               result = result2;
-              if (!(details & multiple_base_mask))
+              if (!(vmi_flags & non_diamond_repeat_mask))
                 // cannot have an ambiguous other base
                 return false;
             }
@@ -1100,9 +1105,8 @@ __dynamic_cast (const void *src_ptr,    // object started from
 {
   const void *vtable = *static_cast <const void *const *> (src_ptr);
   const vtable_prefix *prefix =
-      adjust_pointer <vtable_prefix> (vtable, 0);
-  // FIXME: the above offset should be -offsetof (vtable_prefix, origin));
-  // but we don't currently layout vtables correctly.
+      adjust_pointer <vtable_prefix> (vtable, 
+				      -offsetof (vtable_prefix, origin));
   const void *whole_ptr =
       adjust_pointer <void> (src_ptr, prefix->whole_object);
   const __class_type_info *whole_type = prefix->whole_type;
@@ -1120,9 +1124,11 @@ __dynamic_cast (const void *src_ptr,    // object started from
   if (contained_nonvirtual_p (result.whole2src))
     // Found an invalid cross cast, which cannot also be a down cast
     return NULL;
+  #if 0 // FIXME: we need to discover this lazily
   if (!(whole_type->details & __class_type_info::private_base_mask))
     // whole type has no private bases
     return const_cast <void *> (result.dst_ptr);
+  #endif
   if (result.dst2src == __class_type_info::unknown)
     result.dst2src = dst_type->find_public_src (src2dst, result.dst_ptr,
                                                 src_type, src_ptr);

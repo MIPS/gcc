@@ -583,11 +583,11 @@ memory_address (mode, x)
   if (oldx == x)
     return x;
   else if (GET_CODE (x) == REG)
-    mark_reg_pointer (x, 1);
+    mark_reg_pointer (x, BITS_PER_UNIT);
   else if (GET_CODE (x) == PLUS
 	   && GET_CODE (XEXP (x, 0)) == REG
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT)
-    mark_reg_pointer (XEXP (x, 0), 1);
+    mark_reg_pointer (XEXP (x, 0), BITS_PER_UNIT);
 
   /* OLDX may have been the address on a temporary.  Update the address
      to indicate that X is now used.  */
@@ -852,6 +852,11 @@ adjust_stack (adjust)
   if (adjust == const0_rtx)
     return;
 
+  /* We expect all variable sized adjustments to be multiple of
+     PREFERRED_STACK_BOUNDARY.  */
+  if (GET_CODE (adjust) == CONST_INT)
+    stack_pointer_delta -= INTVAL (adjust);
+
   temp = expand_binop (Pmode,
 #ifdef STACK_GROWS_DOWNWARD
 		       add_optab,
@@ -877,6 +882,11 @@ anti_adjust_stack (adjust)
 
   if (adjust == const0_rtx)
     return;
+
+  /* We expect all variable sized adjustments to be multiple of
+     PREFERRED_STACK_BOUNDARY.  */
+  if (GET_CODE (adjust) == CONST_INT)
+    stack_pointer_delta += INTVAL (adjust);
 
   temp = expand_binop (Pmode,
 #ifdef STACK_GROWS_DOWNWARD
@@ -1295,6 +1305,13 @@ allocate_dynamic_stack_space (size, target, known_align)
 
   do_pending_stack_adjust ();
 
+ /* We ought to be called always on the toplevel and stack ought to be aligned
+    propertly.  */
+#ifdef PREFERRED_STACK_BOUNDARY
+  if (stack_pointer_delta % (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT))
+    abort ();
+#endif
+
   /* If needed, check that we have the required amount of stack.  Take into
      account what has already been checked.  */
   if (flag_stack_check && ! STACK_CHECK_BUILTIN)
@@ -1305,7 +1322,7 @@ allocate_dynamic_stack_space (size, target, known_align)
       || REGNO (target) < FIRST_PSEUDO_REGISTER)
     target = gen_reg_rtx (Pmode);
 
-  mark_reg_pointer (target, known_align / BITS_PER_UNIT);
+  mark_reg_pointer (target, known_align);
 
   /* Perform the required allocation from the stack.  Some systems do
      this differently than simply incrementing/decrementing from the
@@ -1584,17 +1601,20 @@ hard_function_value (valtype, func, outgoing)
      int outgoing ATTRIBUTE_UNUSED;
 {
   rtx val;
+
 #ifdef FUNCTION_OUTGOING_VALUE
   if (outgoing)
     val = FUNCTION_OUTGOING_VALUE (valtype, func);
   else
 #endif
     val = FUNCTION_VALUE (valtype, func);
+
   if (GET_CODE (val) == REG
       && GET_MODE (val) == BLKmode)
     {
-      int bytes = int_size_in_bytes (valtype);
+      unsigned HOST_WIDE_INT bytes = int_size_in_bytes (valtype);
       enum machine_mode tmpmode;
+
       for (tmpmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
            tmpmode != VOIDmode;
            tmpmode = GET_MODE_WIDER_MODE (tmpmode))

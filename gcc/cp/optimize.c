@@ -463,10 +463,6 @@ inlinable_function_p (fn, id)
      it.  */
   else if (!DECL_INLINE (fn))
     ;
-  /* If we don't have the function body available, we can't inline
-     it.  */
-  else if (!DECL_SAVED_TREE (fn))
-    ;
   /* We can't inline varargs functions.  */
   else if (varargs_function_p (fn))
     ;
@@ -481,6 +477,21 @@ inlinable_function_p (fn, id)
   /* Squirrel away the result so that we don't have to check again.  */
   DECL_UNINLINABLE (fn) = !inlinable;
 
+  /* We can inline a template instantiation only if it's fully
+     instantiated.  */
+  if (inlinable 
+      && DECL_TEMPLATE_INFO (fn) 
+      && TI_PENDING_TEMPLATE_FLAG (DECL_TEMPLATE_INFO (fn)))
+    {
+      fn = instantiate_decl (fn, /*defer_ok=*/0);
+      inlinable = !TI_PENDING_TEMPLATE_FLAG (DECL_TEMPLATE_INFO (fn));
+    }
+
+  /* If we don't have the function body available, we can't inline
+     it.  */
+  if (!DECL_SAVED_TREE (fn))
+    inlinable = 0;
+
   /* Don't do recursive inlining, either.  We don't record this in
      DECL_UNLINABLE; we may be able to inline this function later.  */
   if (inlinable)
@@ -490,16 +501,6 @@ inlinable_function_p (fn, id)
       for (i = 0; i < id->fns->elements_used; ++i)
 	if (VARRAY_TREE (id->fns, i) == fn)
 	  inlinable = 0;
-    }
-
-  /* We can inline a template instantiation only if it's fully
-     instantiated.  */
-  if (inlinable
-      && DECL_TEMPLATE_INFO (fn) 
-      && TI_PENDING_TEMPLATE_FLAG (DECL_TEMPLATE_INFO (fn)))
-    {
-      fn = instantiate_decl (fn);
-      inlinable = !TI_PENDING_TEMPLATE_FLAG (DECL_TEMPLATE_INFO (fn));
     }
 
   /* Return the result.  */
@@ -748,20 +749,11 @@ calls_setjmp_r (tp, walk_subtrees, data)
      int *walk_subtrees ATTRIBUTE_UNUSED;
      void *data ATTRIBUTE_UNUSED;
 {
-  int setjmp_p;
-  int longjmp_p;
-  int fork_or_exec_p;
-  int malloc_p;
-  int alloca_p;
-
   /* We're only interested in FUNCTION_DECLS.  */
   if (TREE_CODE (*tp) != FUNCTION_DECL)
     return NULL_TREE;
 
-  special_function_p (*tp, &setjmp_p, &longjmp_p, &fork_or_exec_p, &malloc_p,
-		      &alloca_p);
-
-  return setjmp_p ? *tp : NULL_TREE;
+  return setjmp_call_p (*tp) ? *tp : NULL_TREE;
 }
 
 /* Returns non-zero if FN calls `setjmp' or some other function that

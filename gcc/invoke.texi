@@ -164,8 +164,8 @@ in the following sections.
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions
 -fmove-all-movables  -fno-default-inline  -fno-defer-pop
 -fno-function-cse  -fno-inline  -fno-peephole
--fomit-frame-pointer  -foptimize-register-moves  -fregmove
--frerun-cse-after-loop  -frerun-loop-opt  -freduce-all-givs
+-fomit-frame-pointer  -foptimize-register-moves -foptimize-sibling-calls
+-fregmove -frerun-cse-after-loop  -frerun-loop-opt  -freduce-all-givs
 -fschedule-insns  -fschedule-insns2  -fstrength-reduce
 -fstrict-aliasing  -fthread-jumps  -funroll-all-loops
 -funroll-loops
@@ -362,6 +362,7 @@ in the following sections.
 -malign-jumps=@var{num}  -malign-loops=@var{num}
 -malign-functions=@var{num} -mpreferred-stack-boundary=@var{num}
 -mthreads -mno-align-stringops -minline-all-stringops
+-mpush-args -maccumulate-outgoing-args
 
 @emph{HPPA Options}
 -march=@var{architecture type}
@@ -2461,6 +2462,9 @@ restore frame pointers; it also makes an extra register available
 in many functions.  @strong{It also makes debugging impossible on
 some machines.}
 
+@item -foptimize-sibling-calls
+Optimize sibling and tail recursive calls.
+
 @ifset INTERNALS
 On some machines, such as the Vax, this flag has no effect, because
 the standard calling sequence automatically handles the frame pointer
@@ -3585,6 +3589,12 @@ text, including the space.  Thus two arguments would be generated.
 @item %@{^@code{S}*@}
 Like %@{@code{S}*@}, but don't put a blank between a switch and its
 argument.  Thus %@{^o*@} would only generate one argument, not two.
+
+@item %@{<@code{S}@}
+Remove all occurences of @code{S} from the command line.  Note - this
+command is position dependent.  @samp{%} commands in the spec string
+before this option will see @code{S}, @samp{%} commands in the spec
+string after this option will not.
 
 @item %@{@code{S}*:@code{X}@}
 Substitutes @code{X} if one or more switches whose names start with
@@ -6014,6 +6024,21 @@ This extra alignment does consume extra stack space.  Code that is sensitive
 to stack space usage, such as embedded systems and operating system kernels,
 may want to reduce the preferred alignment to
 @samp{-mpreferred-stack-boundary=2}.
+
+@item -mpush-args
+@kindex -mpush-args
+Use PUSH operations to store outgoing parameters. This method is shorter
+and usually equally fast as method using SUB/MOV operations and is enabled
+by default. In some cases disabling it may improve performance because of
+improved scheduling and reduced dependencies.
+
+@item -maccumulate-outgoing-args
+@kindex -maccumulate-outgoing-args
+If enabled, the maximum amount of space required for outgoing arguments will be
+computed in the function prologue. This in faster on most modern CPUs
+because of reduced dependecies, improved scheduling and reduced stack usage
+when preferred stack boundary is not equal to 2.  The drawback is a notable
+increase in code size. This switch implies -mno-push-args.
 
 @item -mthreads
 @kindex -mthreads

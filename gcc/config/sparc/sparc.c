@@ -155,6 +155,7 @@ static void ultra_build_types_avail PARAMS ((rtx *, int));
 static void ultra_flush_pipeline PARAMS ((void));
 static void ultra_rescan_pipeline_state PARAMS ((rtx *, int));
 static int set_extends PARAMS ((rtx, rtx));
+static void output_restore_regs PARAMS ((FILE *, int));
 
 /* Option handling.  */
 
@@ -341,6 +342,16 @@ sparc_override_options ()
       target_flags &= ~MASK_FPU_SET;
     }
 
+  /* Don't allow -mvis if FPU is disabled.  */
+  if (! TARGET_FPU)
+    target_flags &= ~MASK_VIS;
+
+  /* -mvis assumes UltraSPARC+, so we are sure v9 instructions
+     are available.
+     -m64 also implies v9.  */
+  if (TARGET_VIS || TARGET_ARCH64)
+    target_flags |= MASK_V9;
+
   /* Use the deprecated v8 insns for sparc64 in 32 bit mode.  */
   if (TARGET_V9 && TARGET_ARCH32)
     target_flags |= MASK_DEPRECATED_V8_INSNS;
@@ -353,10 +364,6 @@ sparc_override_options ()
   if (TARGET_ARCH32)
     target_flags &= ~MASK_STACK_BIAS;
     
-  /* Don't allow -mvis if FPU is disabled.  */
-  if (! TARGET_FPU)
-    target_flags &= ~MASK_VIS;
-
   /* Supply a default value for align_functions.  */
   if (align_functions == 0 && sparc_cpu == PROCESSOR_ULTRASPARC)
     align_functions = 32;
@@ -2938,9 +2945,10 @@ mem_min_alignment (mem, desired)
 	     completed, we already matched with proper alignments.
 	     If not running global_alloc, reload might give us
 	     unaligned pointer to local stack though.  */
-	  if (((cfun != 0 && REGNO_POINTER_ALIGN (regno) >= desired)
+	  if (((cfun != 0
+		&& REGNO_POINTER_ALIGN (regno) >= desired * BITS_PER_UNIT)
 	       || (optimize && reload_completed))
-	      && ((INTVAL (offset) & (desired - 1)) == 0))
+	      && (INTVAL (offset) & (desired - 1)) == 0)
 	    return 1;
 	}
       else
@@ -4057,22 +4065,25 @@ struct function_arg_record_value_parms
 {
   rtx ret;
   int slotno, named, regbase;
-  int nregs, intoffset;
+  unsigned int nregs;
+  int intoffset;
 };
 
 static void function_arg_record_value_3
-	PARAMS ((int, struct function_arg_record_value_parms *));
+	PARAMS ((HOST_WIDE_INT, struct function_arg_record_value_parms *));
 static void function_arg_record_value_2
-	PARAMS ((tree, int, struct function_arg_record_value_parms *));
+	PARAMS ((tree, HOST_WIDE_INT,
+		 struct function_arg_record_value_parms *));
 static void function_arg_record_value_1
-        PARAMS ((tree, int, struct function_arg_record_value_parms *));
+        PARAMS ((tree, HOST_WIDE_INT,
+		 struct function_arg_record_value_parms *));
 static rtx function_arg_record_value
 	PARAMS ((tree, enum machine_mode, int, int, int));
 
 static void
 function_arg_record_value_1 (type, startbitpos, parms)
      tree type;
-     int startbitpos;
+     HOST_WIDE_INT startbitpos;
      struct function_arg_record_value_parms *parms;
 {
   tree field;
@@ -4100,15 +4111,16 @@ function_arg_record_value_1 (type, startbitpos, parms)
     {
       if (TREE_CODE (field) == FIELD_DECL)
 	{
-	  int bitpos = startbitpos;
-	  if (DECL_FIELD_BITPOS (field))
-	    bitpos += TREE_INT_CST_LOW (DECL_FIELD_BITPOS (field));
+	  HOST_WIDE_INT bitpos = startbitpos;
+
+	  if (DECL_SIZE (field) != 0
+	      && host_integerp (bit_position (field), 1))
+	    bitpos += int_bit_position (field);
+
 	  /* ??? FIXME: else assume zero offset.  */
 
 	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
-	    {
-	      function_arg_record_value_1 (TREE_TYPE (field), bitpos, parms);
-	    }
+	    function_arg_record_value_1 (TREE_TYPE (field), bitpos, parms);
 	  else if (TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
 	           && TARGET_FPU
 	           && ! packed_p
@@ -4146,15 +4158,17 @@ function_arg_record_value_1 (type, startbitpos, parms)
 
 static void 
 function_arg_record_value_3 (bitpos, parms)
-     int bitpos;
+     HOST_WIDE_INT bitpos;
      struct function_arg_record_value_parms *parms;
 {
   enum machine_mode mode;
-  int regno, this_slotno, intslots, intoffset;
+  unsigned int regno;
+  int this_slotno, intslots, intoffset;
   rtx reg;
 
   if (parms->intoffset == -1)
     return;
+
   intoffset = parms->intoffset;
   parms->intoffset = -1;
 
@@ -4171,10 +4185,8 @@ function_arg_record_value_3 (bitpos, parms)
      at the moment but may wish to revisit.  */
 
   if (intoffset % BITS_PER_WORD != 0)
-    {
-      mode = mode_for_size (BITS_PER_WORD - intoffset%BITS_PER_WORD,
-			    MODE_INT, 0);
-    }
+    mode = mode_for_size (BITS_PER_WORD - intoffset % BITS_PER_WORD,
+			  MODE_INT, 0);
   else
     mode = word_mode;
 
@@ -4197,7 +4209,7 @@ function_arg_record_value_3 (bitpos, parms)
 static void
 function_arg_record_value_2 (type, startbitpos, parms)
      tree type;
-     int startbitpos;
+     HOST_WIDE_INT startbitpos;
      struct function_arg_record_value_parms *parms;
 {
   tree field;
@@ -4216,15 +4228,16 @@ function_arg_record_value_2 (type, startbitpos, parms)
     {
       if (TREE_CODE (field) == FIELD_DECL)
 	{
-	  int bitpos = startbitpos;
-	  if (DECL_FIELD_BITPOS (field))
-	    bitpos += TREE_INT_CST_LOW (DECL_FIELD_BITPOS (field));
+	  HOST_WIDE_INT bitpos = startbitpos;
+
+	  if (DECL_SIZE (field) != 0
+	      && host_integerp (bit_position (field), 1))
+	    bitpos += int_bit_position (field);
+
 	  /* ??? FIXME: else assume zero offset.  */
 
 	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
-	    {
-	      function_arg_record_value_2 (TREE_TYPE (field), bitpos, parms);
-	    }
+	    function_arg_record_value_2 (TREE_TYPE (field), bitpos, parms);
 	  else if (TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
 	           && TARGET_FPU
 	           && ! packed_p
@@ -4261,7 +4274,7 @@ function_arg_record_value (type, mode, slotno, named, regbase)
 {
   HOST_WIDE_INT typesize = int_size_in_bytes (type);
   struct function_arg_record_value_parms parms;
-  int nregs;
+  unsigned int nregs;
 
   parms.ret = NULL_RTX;
   parms.slotno = slotno;
@@ -5046,7 +5059,7 @@ sparc_emit_float_lib_cmp (x, y, comparison)
      rtx x, y;
      enum rtx_code comparison;
 {
-  char *qpfunc;
+  const char *qpfunc;
   rtx slot0, slot1, result, tem, tem2;
   enum machine_mode mode;
 

@@ -43,11 +43,6 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_CPU_DEFAULT ((char *)0)
 #endif
 
-/* Define appropriate architecture macros for preprocessor depending on
-   target switches.  */
-
-#define CPP_SPEC "%{posix: -D_POSIX_SOURCE} %(cpp_cpu)"
-
 /* Common CPP definitions used by CPP_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
 #define CPP_CPU_SPEC \
@@ -623,7 +618,7 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)			\
    ((STRICT_ALIGNMENT						\
      || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == DImode) \
-         && (ALIGN) < 4)) ? 1 : 0)
+         && (ALIGN) < 32)) ? 1 : 0)
 
 /* Standard register usage.  */
 
@@ -1288,7 +1283,7 @@ extern int rs6000_sysv_varargs_p;
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
    found in the variable current_function_outgoing_args_size.  */
-#define ACCUMULATE_OUTGOING_ARGS
+#define ACCUMULATE_OUTGOING_ARGS 1
 
 /* Value is the number of bytes of arguments automatically
    popped when returning from a subroutine call.

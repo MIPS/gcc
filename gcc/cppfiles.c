@@ -66,18 +66,8 @@ static unsigned int
 hash_IHASH (x)
      const void *x;
 {
-  IHASH *i = (IHASH *)x;
-  unsigned int r = 0, len = 0;
-  const U_CHAR *s = i->nshort;
-
-  if (i->hash != (unsigned long)-1)
-    return i->hash;
-
-  do
-    len++, r = r * 67 + (*s++ - 113);
-  while (*s && *s != '.');
-  i->hash = r + len;
-  return r + len;
+  const IHASH *i = (const IHASH *)x;
+  return i->hash;
 }
 
 /* Compare an existing IHASH structure with a potential one.  */
@@ -158,8 +148,9 @@ cpp_included (pfile, fname)
 {
   IHASH dummy, *ptr;
   dummy.nshort = fname;
-  dummy.hash = -1;
-  ptr = htab_find (pfile->all_include_files, (const void *)&dummy);
+  dummy.hash = _cpp_calc_hash (fname, strlen (fname));
+  ptr = htab_find_with_hash (pfile->all_include_files,
+			     (const void *)&dummy, dummy.hash);
   return (ptr != NULL);
 }
 
@@ -219,11 +210,12 @@ find_include_file (pfile, fname, search_start, ihash, before)
   int f;
   char *name;
 
-  dummy.hash = -1;
   dummy.nshort = fname;
+  dummy.hash = _cpp_calc_hash (fname, strlen (fname));
   path = (fname[0] == '/') ? ABSOLUTE_PATH : search_start;
-  slot = (IHASH **) htab_find_slot (pfile->all_include_files,
-				    (const void *)&dummy, 1);
+  slot = (IHASH **) htab_find_slot_with_hash (pfile->all_include_files,
+					      (const void *)&dummy,
+					      dummy.hash, 1);
 
   if (*slot && (ih = redundant_include_p (pfile, *slot, path)))
     {
@@ -251,7 +243,7 @@ find_include_file (pfile, fname, search_start, ihash, before)
 	  name[path->nlen] = '/';
 	  strcpy (&name[path->nlen+1], fname);
 	  _cpp_simplify_pathname (name);
-	  if (CPP_OPTIONS (pfile)->remap)
+	  if (CPP_OPTION (pfile, remap))
 	    name = remap_filename (pfile, name, path);
 
 	  f = open_include_file (pfile, name);
@@ -280,10 +272,20 @@ find_include_file (pfile, fname, search_start, ihash, before)
     }
   else
     {
-      ih = (IHASH *) xmalloc (sizeof (IHASH) + strlen (name)
-			      + strlen (fname) + 1);
-      ih->nshort = ih->name + strlen (fname) + 1;
-      strcpy ((char *)ih->nshort, fname);
+      char *s;
+      
+      if ((s = strstr (name, fname)) != NULL)
+	{
+	  ih = (IHASH *) xmalloc (sizeof (IHASH) + strlen (name));
+	  ih->nshort = ih->name + (s - name);
+	}
+      else
+	{
+	  ih = (IHASH *) xmalloc (sizeof (IHASH) + strlen (name)
+				  + strlen (fname) + 1);
+	  ih->nshort = ih->name + strlen (name) + 1;
+	  strcpy ((char *)ih->nshort, fname);
+	}
     }
   strcpy ((char *)ih->name, name);
   ih->foundhere = path;
@@ -367,7 +369,7 @@ read_name_map (pfile, dirname)
   char *name;
   FILE *f;
 
-  for (map_list_ptr = CPP_OPTIONS (pfile)->map_list; map_list_ptr;
+  for (map_list_ptr = CPP_OPTION (pfile, map_list); map_list_ptr;
        map_list_ptr = map_list_ptr->map_list_next)
     if (! strcmp (map_list_ptr->map_list_name, dirname))
       return map_list_ptr->map_list_map;
@@ -427,8 +429,8 @@ read_name_map (pfile, dirname)
       fclose (f);
     }
   
-  map_list_ptr->map_list_next = CPP_OPTIONS (pfile)->map_list;
-  CPP_OPTIONS (pfile)->map_list = map_list_ptr;
+  map_list_ptr->map_list_next = CPP_OPTION (pfile, map_list);
+  CPP_OPTION (pfile, map_list) = map_list_ptr;
 
   return map_list_ptr->map_list_map;
 }  
@@ -509,9 +511,9 @@ _cpp_execute_include (pfile, fname, len, no_reinclude, search_start)
   if (!search_start)
     {
       if (angle_brackets)
-	search_start = CPP_OPTIONS (pfile)->bracket_include;
-      else if (CPP_OPTIONS (pfile)->ignore_srcdir)
-	search_start = CPP_OPTIONS (pfile)->quote_include;
+	search_start = CPP_OPTION (pfile, bracket_include);
+      else if (CPP_OPTION (pfile, ignore_srcdir))
+	search_start = CPP_OPTION (pfile, quote_include);
       else
 	search_start = CPP_BUFFER (pfile)->actual_dir;
     }
@@ -534,7 +536,7 @@ _cpp_execute_include (pfile, fname, len, no_reinclude, search_start)
   
   if (fd == -1)
     {
-      if (CPP_OPTIONS (pfile)->print_deps_missing_files
+      if (CPP_OPTION (pfile, print_deps_missing_files)
 	  && CPP_PRINT_DEPS (pfile) > (angle_brackets ||
 				       (pfile->system_include_depth > 0)))
         {
@@ -546,10 +548,10 @@ _cpp_execute_include (pfile, fname, len, no_reinclude, search_start)
 	      struct file_name_list *ptr;
 	      /* If requested as a system header, assume it belongs in
 		 the first system header directory. */
-	      if (CPP_OPTIONS (pfile)->bracket_include)
-	        ptr = CPP_OPTIONS (pfile)->bracket_include;
+	      if (CPP_OPTION (pfile, bracket_include))
+	        ptr = CPP_OPTION (pfile, bracket_include);
 	      else
-	        ptr = CPP_OPTIONS (pfile)->quote_include;
+	        ptr = CPP_OPTION (pfile, quote_include);
 
 	      p = (char *) alloca (strlen (ptr->name)
 				   + strlen (fname) + 2);
@@ -584,7 +586,7 @@ _cpp_execute_include (pfile, fname, len, no_reinclude, search_start)
     deps_add_dep (pfile->deps, ihash->name);
 
   /* Handle -H option.  */
-  if (CPP_OPTIONS(pfile)->print_include_names)
+  if (CPP_OPTION (pfile, print_include_names))
     {
       cpp_buffer *fp = CPP_BUFFER (pfile);
       while ((fp = CPP_PREV_BUFFER (fp)) != NULL)
@@ -620,10 +622,15 @@ cpp_read_file (pfile, fname)
   if (fname == NULL)
     fname = "";
 
-  dummy.hash = -1;
   dummy.nshort = fname;
-  slot = (IHASH **) htab_find_slot (pfile->all_include_files,
-				    (const void *) &dummy, 1);
+  /* _cpp_calc_hash doesn't like zero-length strings.  */
+  if (*fname == 0)
+    dummy.hash = 0;
+  else
+    dummy.hash = _cpp_calc_hash (fname, strlen (fname));
+  slot = (IHASH **) htab_find_slot_with_hash (pfile->all_include_files,
+					      (const void *) &dummy,
+					      dummy.hash, 1);
   if (*slot && (ih = redundant_include_p (pfile, *slot, ABSOLUTE_PATH)))
     {
       if (ih == (IHASH *)-1)
@@ -735,18 +742,17 @@ read_include_file (pfile, fd, ihash)
     ihash->control_macro = (const U_CHAR *) "";  /* never re-include */
 
   close (fd);
-  fp->rlimit = fp->alimit = fp->buf + length;
+  fp->rlimit = fp->buf + length;
   fp->cur = fp->buf;
   if (ihash->foundhere != ABSOLUTE_PATH)
       fp->system_header_p = ihash->foundhere->sysp;
   fp->lineno = 1;
-  fp->colno = 1;
   fp->line_base = fp->buf;
   fp->cleanup = file_cleanup;
 
   /* The ->actual_dir field is only used when ignore_srcdir is not in effect;
      see do_include */
-  if (!CPP_OPTIONS (pfile)->ignore_srcdir)
+  if (!CPP_OPTION (pfile, ignore_srcdir))
     fp->actual_dir = actual_directory (pfile, ihash->name);
 
   pfile->input_stack_listing_current = 0;
@@ -812,7 +818,7 @@ actual_directory (pfile, fname)
   x = (struct file_name_list *) xmalloc (sizeof (struct file_name_list));
   x->name = dir;
   x->nlen = dlen;
-  x->next = CPP_OPTIONS (pfile)->quote_include;
+  x->next = CPP_OPTION (pfile, quote_include);
   x->alloc = pfile->actual_dirs;
   x->sysp = CPP_BUFFER (pfile)->system_header_p;
   x->name_map = NULL;

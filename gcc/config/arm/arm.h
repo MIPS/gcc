@@ -268,7 +268,6 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 #ifndef SUBTARGET_CPP_SPEC
 #define SUBTARGET_CPP_SPEC      ""
 #endif
-
 
 /* Run-time Target Specification.  */
 #ifndef TARGET_VERSION
@@ -2582,7 +2581,7 @@ extern int making_const_table;
            fprintf (STREAM, "\t.thumb_func\n") ;	\
         }						\
       if (TARGET_POKE_FUNCTION_NAME)			\
-        arm_poke_function_name (STREAM, NAME);		\
+        arm_poke_function_name (STREAM, (char *) NAME);	\
     }							\
   while (0)
 
@@ -2777,7 +2776,7 @@ extern int making_const_table;
   do										\
     {										\
       int mi_delta = (DELTA);							\
-      const char *mi_op = mi_delta < 0 ? "sub" : "add";				\
+      const char * mi_op = mi_delta < 0 ? "sub" : "add";			\
       int shift = 0;								\
       int this_regno = (aggregate_value_p (TREE_TYPE (TREE_TYPE (FUNCTION)))	\
 		        ? 1 : 0);						\

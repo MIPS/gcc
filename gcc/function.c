@@ -61,6 +61,10 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "tm_p.h"
 
+#ifndef ACCUMULATE_OUTGOING_ARGS
+#define ACCUMULATE_OUTGOING_ARGS 0
+#endif
+
 #ifndef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
 #endif
@@ -247,7 +251,8 @@ static rtx assign_stack_temp_for_type PARAMS ((enum machine_mode,
 static struct temp_slot *find_temp_slot_from_address  PARAMS ((rtx));
 static void put_reg_into_stack	PARAMS ((struct function *, rtx, tree,
 					 enum machine_mode, enum machine_mode,
-					 int, int, int, struct hash_table *));
+					 int, unsigned int, int,
+					 struct hash_table *));
 static void fixup_var_refs	PARAMS ((rtx, enum machine_mode, int, 
 					 struct hash_table *));
 static struct fixup_replacement
@@ -262,7 +267,7 @@ static rtx fixup_stack_1	PARAMS ((rtx, rtx));
 static void optimize_bit_field	PARAMS ((rtx, rtx, rtx *));
 static void instantiate_decls	PARAMS ((tree, int));
 static void instantiate_decls_1	PARAMS ((tree, int));
-static void instantiate_decl	PARAMS ((rtx, int, int));
+static void instantiate_decl	PARAMS ((rtx, HOST_WIDE_INT, int));
 static int instantiate_virtual_regs_1 PARAMS ((rtx *, rtx, int));
 static void delete_handlers	PARAMS ((void));
 static void pad_to_arg_alignment PARAMS ((struct args_size *, int,
@@ -440,6 +445,9 @@ void
 free_after_compilation (f)
      struct function *f;
 {
+  struct temp_slot *ts;
+  struct temp_slot *next;
+
   free_eh_status (f);
   free_expr_status (f);
   free_emit_status (f);
@@ -450,6 +458,13 @@ free_after_compilation (f)
 
   if (f->x_parm_reg_stack_loc)
     free (f->x_parm_reg_stack_loc);
+
+  for (ts = f->x_temp_slots; ts; ts = next)
+    {
+      next = ts->next;
+      free (ts);
+    }
+  f->x_temp_slots = NULL;
 
   f->arg_offset_rtx = NULL;
   f->return_rtx = NULL;
@@ -471,7 +486,6 @@ free_after_compilation (f)
   f->x_parm_birth_insn = NULL;
   f->x_last_parm_insn = NULL;
   f->x_parm_reg_stack_loc = NULL;
-  f->x_temp_slots = NULL;
   f->fixup_var_refs_queue = NULL;
   f->original_arg_vector = NULL;
   f->original_decl_initial = NULL;
@@ -709,7 +723,7 @@ assign_stack_temp_for_type (mode, size, keep, type)
 
 	  if (best_p->size - rounded_size >= alignment)
 	    {
-	      p = (struct temp_slot *) oballoc (sizeof (struct temp_slot));
+	      p = (struct temp_slot *) xmalloc (sizeof (struct temp_slot));
 	      p->in_use = p->addr_taken = 0;
 	      p->size = best_p->size - rounded_size;
 	      p->base_offset = best_p->base_offset + rounded_size;
@@ -739,7 +753,7 @@ assign_stack_temp_for_type (mode, size, keep, type)
     {
       HOST_WIDE_INT frame_offset_old = frame_offset;
 
-      p = (struct temp_slot *) oballoc (sizeof (struct temp_slot));
+      p = (struct temp_slot *) xmalloc (sizeof (struct temp_slot));
 
       /* We are passing an explicit alignment request to assign_stack_local.
 	 One side effect of that is assign_stack_local will not round SIZE
@@ -930,7 +944,10 @@ combine_temp_slots ()
 	      }
 	    /* Either delete Q or advance past it.  */
 	    if (delete_q)
-	      prev_q->next = q->next;
+	      {
+		prev_q->next = q->next;
+		free (q);
+	      }
 	    else
 	      prev_q = q;
 	  }
@@ -1451,19 +1468,20 @@ put_reg_into_stack (function, reg, type, promoted_mode, decl_mode, volatile_p,
      tree type;
      enum machine_mode promoted_mode, decl_mode;
      int volatile_p;
-     int original_regno;
+     unsigned int original_regno;
      int used_p;
      struct hash_table *ht;
 {
   struct function *func = function ? function : cfun;
   rtx new = 0;
-  int regno = original_regno;
+  unsigned int regno = original_regno;
 
   if (regno == 0)
     regno = REGNO (reg);
 
   if (regno < func->x_max_parm_reg)
     new = func->x_parm_reg_stack_loc[regno];
+
   if (new == 0)
     new = assign_stack_local_1 (decl_mode, GET_MODE_SIZE (decl_mode), 0, func);
 
@@ -2736,7 +2754,6 @@ static int cfa_offset;
 
 #ifndef STACK_DYNAMIC_OFFSET
 
-#ifdef ACCUMULATE_OUTGOING_ARGS
 /* The bottom of the stack points to the actual arguments.  If
    REG_PARM_STACK_SPACE is defined, this includes the space for the register
    parameters.  However, if OUTGOING_REG_PARM_STACK space is not defined,
@@ -2747,16 +2764,14 @@ static int cfa_offset;
 
 #if defined(REG_PARM_STACK_SPACE) && ! defined(OUTGOING_REG_PARM_STACK_SPACE)
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
-(current_function_outgoing_args_size	\
- + REG_PARM_STACK_SPACE (FNDECL) + (STACK_POINTER_OFFSET))
+((ACCUMULATE_OUTGOING_ARGS						      \
+  ? (current_function_outgoing_args_size + REG_PARM_STACK_SPACE (FNDECL)) : 0)\
+ + (STACK_POINTER_OFFSET))						      \
 
 #else
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
-(current_function_outgoing_args_size + (STACK_POINTER_OFFSET))
-#endif
-
-#else
-#define STACK_DYNAMIC_OFFSET(FNDECL) STACK_POINTER_OFFSET
+((ACCUMULATE_OUTGOING_ARGS ? current_function_outgoing_args_size : 0)	      \
+ + (STACK_POINTER_OFFSET))
 #endif
 #endif
 
@@ -2801,7 +2816,6 @@ gen_mem_addressof (reg, decl)
 
 /* If DECL has an RTL that is an ADDRESSOF rtx, put it into the stack.  */
 
-#if 0
 void
 flush_addressof (decl)
      tree decl;
@@ -2813,7 +2827,6 @@ flush_addressof (decl)
       && GET_CODE (XEXP (XEXP (DECL_RTL (decl), 0), 0)) == REG)
     put_addressof_into_stack (XEXP (DECL_RTL (decl), 0), 0);
 }
-#endif
 
 /* Force the register pointed to by R, an ADDRESSOF rtx, into the stack.  */
 
@@ -3026,7 +3039,7 @@ purge_addressof_1 (loc, insn, force, store, ht)
 		  start_sequence ();
 		  store_bit_field (sub, size_x, 0, GET_MODE (x),
 				   val, GET_MODE_SIZE (GET_MODE (sub)),
-				   GET_MODE_SIZE (GET_MODE (sub)));
+				   GET_MODE_ALIGNMENT (GET_MODE (sub)));
 
 		  /* Make sure to unshare any shared rtl that store_bit_field
 		     might have created.  */
@@ -3273,7 +3286,7 @@ purge_addressof (insns)
   /* When we actually purge ADDRESSOFs, we turn REGs into MEMs.  That
      requires a fixup pass over the instruction stream to correct
      INSNs that depended on the REG being a REG, and not a MEM.  But,
-     these fixup passes are slow.  Furthermore, more MEMs are not
+     these fixup passes are slow.  Furthermore, most MEMs are not
      mentioned in very many instructions.  So, we speed up the process
      by pre-calculating which REGs occur in which INSNs; that allows
      us to perform the fixup passes much more quickly.  */
@@ -3328,7 +3341,7 @@ instantiate_virtual_regs (fndecl, insns)
      rtx insns;
 {
   rtx insn;
-  int i;
+  unsigned int i;
 
   /* Compute the offsets to use for this function.  */
   in_arg_offset = FIRST_PARM_OFFSET (fndecl);
@@ -3446,7 +3459,7 @@ instantiate_decls_1 (let, valid_only)
 static void
 instantiate_decl (x, size, valid_only)
      rtx x;
-     int size;
+     HOST_WIDE_INT size;
      int valid_only;
 {
   enum machine_mode mode;
@@ -3476,21 +3489,23 @@ instantiate_decl (x, size, valid_only)
 
   instantiate_virtual_regs_1 (&addr, NULL_RTX, 0);
 
-  if (valid_only)
+  if (valid_only && size >= 0)
     {
+      unsigned HOST_WIDE_INT decl_size = size;
+
       /* Now verify that the resulting address is valid for every integer or
 	 floating-point mode up to and including SIZE bytes long.  We do this
 	 since the object might be accessed in any mode and frame addresses
 	 are shared.  */
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-	   mode != VOIDmode && GET_MODE_SIZE (mode) <= size;
+	   mode != VOIDmode && GET_MODE_SIZE (mode) <= decl_size;
 	   mode = GET_MODE_WIDER_MODE (mode))
 	if (! memory_address_p (mode, addr))
 	  return;
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
-	   mode != VOIDmode && GET_MODE_SIZE (mode) <= size;
+	   mode != VOIDmode && GET_MODE_SIZE (mode) <= decl_size;
 	   mode = GET_MODE_WIDER_MODE (mode))
 	if (! memory_address_p (mode, addr))
 	  return;
@@ -4336,8 +4351,8 @@ assign_parms (fndecl)
 	      if (GET_CODE (entry_parm) == PARALLEL)
 		emit_group_store (validize_mem (stack_parm), entry_parm,
 				  int_size_in_bytes (TREE_TYPE (parm)),
-				  (TYPE_ALIGN (TREE_TYPE (parm))
-				   / BITS_PER_UNIT));
+				  TYPE_ALIGN (TREE_TYPE (parm)));
+				  
 	      else
 		move_block_from_reg (REGNO (entry_parm),
 				     validize_mem (stack_parm), nregs,
@@ -4495,8 +4510,7 @@ assign_parms (fndecl)
 	      if (GET_CODE (entry_parm) == PARALLEL)
 		emit_group_store (validize_mem (stack_parm), entry_parm,
 				  int_size_in_bytes (TREE_TYPE (parm)),
-				  (TYPE_ALIGN (TREE_TYPE (parm))
-				   / BITS_PER_UNIT));
+				  TYPE_ALIGN (TREE_TYPE (parm)));
 	      else
 		move_block_from_reg (REGNO (entry_parm),
 				     validize_mem (stack_parm),
@@ -4523,7 +4537,7 @@ assign_parms (fndecl)
 	     may need to do it in a wider mode.  */
 
 	  register rtx parmreg;
-	  int regno, regnoi = 0, regnor = 0;
+	  unsigned int regno, regnoi = 0, regnor = 0;
 
 	  unsignedp = TREE_UNSIGNED (TREE_TYPE (parm));
 
@@ -4761,8 +4775,8 @@ assign_parms (fndecl)
 	  /* For pointer data type, suggest pointer register.  */
 	  if (POINTER_TYPE_P (TREE_TYPE (parm)))
 	    mark_reg_pointer (parmreg,
-			      (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (parm)))
-			       / BITS_PER_UNIT));
+			      TYPE_ALIGN (TREE_TYPE (TREE_TYPE (parm))));
+
 	}
       else
 	{
@@ -4917,7 +4931,7 @@ assign_parms (fndecl)
 
 rtx
 promoted_input_arg (regno, pmode, punsignedp)
-     int regno;
+     unsigned int regno;
      enum machine_mode *pmode;
      int *punsignedp;
 {
@@ -6439,7 +6453,7 @@ expand_function_end (filename, line, end_bindings)
       blktramp = change_address (initial_trampoline, BLKmode, tramp);
       emit_block_move (blktramp, initial_trampoline,
 		       GEN_INT (TRAMPOLINE_SIZE),
-		       TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT);
+		       TRAMPOLINE_ALIGNMENT);
 #endif
       INITIALIZE_TRAMPOLINE (tramp, XEXP (DECL_RTL (function), 0), context);
       seq = get_insns ();

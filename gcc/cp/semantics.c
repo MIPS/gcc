@@ -48,6 +48,7 @@
 static tree expand_cond PARAMS ((tree));
 static tree maybe_convert_cond PARAMS ((tree));
 static tree simplify_aggr_init_exprs_r PARAMS ((tree *, int *, void *));
+static void deferred_type_access_control PARAMS ((void));
 
 /* Record the fact that STMT was the last statement added to the
    statement tree.  */
@@ -1990,8 +1991,8 @@ finish_member_declaration (decl)
     = (current_access_specifier == access_protected_node);
   if (TREE_CODE (decl) == TEMPLATE_DECL)
     {
-      TREE_PRIVATE (DECL_RESULT (decl)) = TREE_PRIVATE (decl);
-      TREE_PROTECTED (DECL_RESULT (decl)) = TREE_PROTECTED (decl);
+      TREE_PRIVATE (DECL_TEMPLATE_RESULT (decl)) = TREE_PRIVATE (decl);
+      TREE_PROTECTED (DECL_TEMPLATE_RESULT (decl)) = TREE_PROTECTED (decl);
     }
 
   /* Mark the DECL as a member of the current class.  */
@@ -2726,17 +2727,12 @@ expand_body (fn)
   /* If possible, avoid generating RTL for this function.  Instead,
      just record it as an inline function, and wait until end-of-file
      to decide whether to write it out or not.  */
-  if (/* We have to generate RTL if we can't inline trees.  */
-      flag_inline_trees
-      /* Or if it's not an inline function.  */
-      && DECL_INLINE (fn)
+  if (/* We have to generate RTL if it's not an inline function.  */
+      (DECL_INLINE (fn) || DECL_COMDAT (fn))
       /* Or if we have to keep all inline functions anyhow.  */
       && !flag_keep_inline_functions
       /* Or if we actually have a reference to the function.  */
       && !DECL_NEEDED_P (fn)
-      /* Or if we're at the end-of-file, and this function is not
-	 DECL_COMDAT.  */
-      && (!at_eof || DECL_COMDAT (fn))
       /* Or if this is a nested function.  */
       && !decl_function_context (fn))
     {
@@ -2752,7 +2748,7 @@ expand_body (fn)
 	}
       /* Remember this function.  In finish_file we'll decide if
 	 we actually need to write this function out.  */
-      mark_inline_for_output (fn);
+      defer_fn (fn);
       /* Let the back-end know that this funtion exists.  */
       note_deferral_of_defined_inline_function (fn);
       return;

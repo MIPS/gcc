@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bitmap.h"
 #include "sbitmap.h"
 #include "varray.h"
+#include "partition.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -146,7 +147,9 @@ typedef struct basic_block_def {
   /* The edges into and out of the block.  */
   edge pred, succ;
 
-  /* Liveness info.  */
+  /* Liveness info.  Note that in SSA form, global_live_at_start does
+     not reflect the use of regs in phi functions, since the liveness
+     of these regs may depend on which edge was taken into the block.  */
   regset local_set;
   regset global_live_at_start;
   regset global_live_at_end;
@@ -228,7 +231,9 @@ extern void make_edge			PARAMS ((sbitmap *, basic_block,
 						 basic_block, int));
 extern void remove_edge			PARAMS ((edge));
 extern void create_basic_block		PARAMS ((int, rtx, rtx, rtx));
-
+extern void merge_blocks_nomove		PARAMS ((basic_block, basic_block));
+extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
+						 basic_block));
 
 /* Structure to hold information for each natural loop.  */
 struct loop
@@ -453,5 +458,37 @@ extern void debug_bb_n			PARAMS ((int));
 extern void dump_regset			PARAMS ((regset, FILE *));
 extern void debug_regset		PARAMS ((regset));
 
+/* This function is always defined so it can be called from the
+   debugger, and it is declared extern so we don't get warnings about
+   it being unused. */
+extern void verify_flow_info		PARAMS ((void));
+extern int flow_loop_outside_edge_p	PARAMS ((const struct loop *, edge));
+
+typedef struct conflict_graph_def *conflict_graph;
+
+/* Callback function when enumerating conflicts.  The arguments are
+   the smaller and larger regno in the conflict.  Returns zero if
+   enumeration is to continue, non-zero to halt enumeration.  */
+typedef int (*conflict_graph_enum_fn) PARAMS ((int, int, void *));
+
+
+/* Prototypes of operations on conflict graphs.  */
+
+extern conflict_graph conflict_graph_new 
+                                        PARAMS ((int));
+extern void conflict_graph_delete       PARAMS ((conflict_graph));
+extern int conflict_graph_add           PARAMS ((conflict_graph, 
+						 int, int));
+extern int conflict_graph_conflict_p    PARAMS ((conflict_graph, 
+						 int, int));
+extern void conflict_graph_enum         PARAMS ((conflict_graph, int, 
+						 conflict_graph_enum_fn, 
+						 void *));
+extern void conflict_graph_merge_regs   PARAMS ((conflict_graph, int,
+						 int));
+extern void conflict_graph_print        PARAMS ((conflict_graph, FILE*));
+extern conflict_graph conflict_graph_compute 
+                                        PARAMS ((regset,
+						 partition));
 
 #endif /* _BASIC_BLOCK_H */

@@ -1,24 +1,25 @@
 /* Garbage collection for the GNU compiler.
    Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
 
-   This file is part of GNU CC.
+This file is part of GNU CC.
 
-   GNU CC is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+GNU CC is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
 
-   GNU CC is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+GNU CC is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "gansidecl.h"
+#include "varray.h"
 
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
@@ -36,14 +37,17 @@ struct emit_status;
 struct expr_status;
 struct hash_table;
 struct label_node;
+struct rtx_def;
 struct rtvec_def;
 struct stmt_status;
 union  tree_node;
 struct varasm_status;
-struct varray_head_tag;
 
 /* Constants for general use.  */
 extern char *empty_string;
+
+/* Trees that have been marked, but whose children still need marking.  */
+extern varray_type ggc_pending_trees;
 
 /* Manipulate global roots that are needed between calls to gc.  */
 void ggc_add_root PARAMS ((void *base, int nelt, int size, void (*)(void *)));
@@ -64,7 +68,6 @@ extern void ggc_mark_roots PARAMS ((void));
 
 extern void ggc_mark_rtx_children PARAMS ((struct rtx_def *));
 extern void ggc_mark_rtvec_children PARAMS ((struct rtvec_def *));
-extern void ggc_mark_tree_children PARAMS ((union tree_node *));
 
 /* If EXPR is not NULL and previously unmarked, mark it and evaluate
    to true.  Otherwise evaluate to false.  */
@@ -78,11 +81,11 @@ extern void ggc_mark_tree_children PARAMS ((union tree_node *));
       ggc_mark_rtx_children (r__);              \
   } while (0)
 
-#define ggc_mark_tree(EXPR)                     \
-  do {                                          \
-    tree t__ = (EXPR);                          \
-    if (ggc_test_and_set_mark (t__))            \
-      ggc_mark_tree_children (t__);             \
+#define ggc_mark_tree(EXPR)				\
+  do {							\
+    tree t__ = (EXPR);					\
+    if (ggc_test_and_set_mark (t__))			\
+      VARRAY_PUSH_TREE (ggc_pending_trees, t__);	\
   } while (0)
 
 #define ggc_mark_rtvec(EXPR)                    \

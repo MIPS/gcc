@@ -1373,7 +1373,7 @@ memory_displacement_operand (op, mode)
   return parts.disp != NULL_RTX;
 }
 
-/* To avoid problems when jump re-emits comparisons like testqi_ext_0,
+/* To avoid problems when jump re-emits comparisons like testqi_ext_ccno_0,
    re-recognize the operand to avoid a copy_to_mode_reg that will fail.
 
    ??? It seems likely that this will only work because cmpsi is an
@@ -1449,12 +1449,12 @@ aligned_operand (op, mode)
   if (parts.index)
     {
       if (parts.scale < 4
-	  && REGNO_POINTER_ALIGN (REGNO (parts.index)) < 4)
+	  && REGNO_POINTER_ALIGN (REGNO (parts.index)) < 32)
 	return 0;
     }
   if (parts.base)
     {
-      if (REGNO_POINTER_ALIGN (REGNO (parts.base)) < 4)
+      if (REGNO_POINTER_ALIGN (REGNO (parts.base)) < 32)
 	return 0;
     }
   if (parts.disp)
@@ -1797,6 +1797,9 @@ ix86_compute_frame_size (size, nregs_on_stack, rpadding1, rpadding2)
 
   offset += nregs * UNITS_PER_WORD;
 
+  if (ACCUMULATE_OUTGOING_ARGS)
+    total_size += current_function_outgoing_args_size;
+
   total_size += offset;
 
   /* Align start of frame for local function.  */
@@ -1807,6 +1810,9 @@ ix86_compute_frame_size (size, nregs_on_stack, rpadding1, rpadding2)
   /* Align stack boundary. */
   padding2 = ((total_size + preferred_alignment - 1)
 	      & -preferred_alignment) - total_size;
+
+  if (ACCUMULATE_OUTGOING_ARGS)
+    padding2 += current_function_outgoing_args_size;
 
   if (nregs_on_stack)
     *nregs_on_stack = nregs;
@@ -3103,12 +3109,10 @@ print_operand (file, x, code)
 	  /* this is the size of op from size of operand */
 	  switch (GET_MODE_SIZE (GET_MODE (x)))
 	    {
-	    case 1:
-	      putc ('b', file);
-	      return;
-
 	    case 2:
-	      putc ('w', file);
+#ifdef HAVE_GAS_FILDS_FISTS
+	      putc ('s', file);
+#endif
 	      return;
 
 	    case 4:
@@ -3138,6 +3142,9 @@ print_operand (file, x, code)
 	      else
 	        putc ('l', file);
 	      return;
+
+	    default:
+	      abort ();
 	    }
 
 	case 'b':
@@ -3434,14 +3441,38 @@ split_di (operands, num, lo_half, hi_half)
    There is no guarantee that the operands are the same mode, as they
    might be within FLOAT or FLOAT_EXTEND expressions. */
 
+#ifndef SYSV386_COMPAT
+/* Set to 1 for compatibility with brain-damaged assemblers.  No-one
+   wants to fix the assemblers because that causes incompatibility
+   with gcc.  No-one wants to fix gcc because that causes
+   incompatibility with assemblers...  You can use the option of
+   -DSYSV386_COMPAT=0 if you recompile both gcc and gas this way.  */
+#define SYSV386_COMPAT 1
+#endif
+
 const char *
 output_387_binary_op (insn, operands)
      rtx insn;
      rtx *operands;
 {
-  static char buf[100];
-  rtx temp;
+  static char buf[30];
   const char *p;
+
+#ifdef ENABLE_CHECKING
+  /* Even if we do not want to check the inputs, this documents input
+     constraints.  Which helps in understanding the following code.  */
+  if (STACK_REG_P (operands[0])
+      && ((REG_P (operands[1])
+	   && REGNO (operands[0]) == REGNO (operands[1])
+	   && (STACK_REG_P (operands[2]) || GET_CODE (operands[2]) == MEM))
+	  || (REG_P (operands[2])
+	      && REGNO (operands[0]) == REGNO (operands[2])
+	      && (STACK_REG_P (operands[1]) || GET_CODE (operands[1]) == MEM)))
+      && (STACK_TOP_P (operands[1]) || STACK_TOP_P (operands[2])))
+    ; /* ok */
+  else
+    abort ();
+#endif
 
   switch (GET_CODE (operands[3]))
     {
@@ -3489,10 +3520,12 @@ output_387_binary_op (insn, operands)
     case PLUS:
       if (REG_P (operands[2]) && REGNO (operands[0]) == REGNO (operands[2]))
 	{
-	  temp = operands[2];
+	  rtx temp = operands[2];
 	  operands[2] = operands[1];
 	  operands[1] = temp;
 	}
+
+      /* know operands[0] == operands[1].  */
 
       if (GET_CODE (operands[2]) == MEM)
 	{
@@ -3503,16 +3536,23 @@ output_387_binary_op (insn, operands)
       if (find_regno_note (insn, REG_DEAD, REGNO (operands[2])))
 	{
 	  if (STACK_TOP_P (operands[0]))
-	    p = "p\t{%0,%2|%2, %0}";
+	    /* How is it that we are storing to a dead operand[2]?
+	       Well, presumably operands[1] is dead too.  We can't
+	       store the result to st(0) as st(0) gets popped on this
+	       instruction.  Instead store to operands[2] (which I
+	       think has to be st(1)).  st(1) will be popped later.
+	       gcc <= 2.8.1 didn't have this check and generated
+	       assembly code that the Unixware assembler rejected.  */
+	    p = "p\t{%0, %2|%2, %0}";	/* st(1) = st(0) op st(1); pop */
 	  else
-	    p = "p\t{%2,%0|%0, %2}";
+	    p = "p\t{%2, %0|%0, %2}";	/* st(r1) = st(r1) op st(0); pop */
 	  break;
 	}
 
       if (STACK_TOP_P (operands[0]))
-	p = "\t{%y2,%0|%0, %y2}";
+	p = "\t{%y2, %0|%0, %y2}";	/* st(0) = st(0) op st(r2) */
       else
-	p = "\t{%2,%0|%0, %2}";
+	p = "\t{%2, %0|%0, %2}";	/* st(r1) = st(r1) op st(0) */
       break;
 
     case MINUS:
@@ -3529,42 +3569,69 @@ output_387_binary_op (insn, operands)
 	  break;
 	}
 
-      if (! STACK_REG_P (operands[1]) || ! STACK_REG_P (operands[2]))
-	abort ();
-
-      /* Note that the Unixware assembler, and the AT&T assembler before
-	 that, are confusingly not reversed from Intel syntax in this
-	 area.  */
       if (find_regno_note (insn, REG_DEAD, REGNO (operands[2])))
 	{
+#if SYSV386_COMPAT
+	  /* The SystemV/386 SVR3.2 assembler, and probably all AT&T
+	     derived assemblers, confusingly reverse the direction of
+	     the operation for fsub{r} and fdiv{r} when the
+	     destination register is not st(0).  The Intel assembler
+	     doesn't have this brain damage.  Read !SYSV386_COMPAT to
+	     figure out what the hardware really does.  */
 	  if (STACK_TOP_P (operands[0]))
-	    p = "p\t%0,%2";
+	    p = "{p\t%0, %2|rp\t%2, %0}";
 	  else
-	    p = "rp\t%2,%0";
+	    p = "{rp\t%2, %0|p\t%0, %2}";
+#else
+	  if (STACK_TOP_P (operands[0]))
+	    /* As above for fmul/fadd, we can't store to st(0).  */
+	    p = "rp\t{%0, %2|%2, %0}";	/* st(1) = st(0) op st(1); pop */
+	  else
+	    p = "p\t{%2, %0|%0, %2}";	/* st(r1) = st(r1) op st(0); pop */
+#endif
 	  break;
 	}
 
       if (find_regno_note (insn, REG_DEAD, REGNO (operands[1])))
 	{
+#if SYSV386_COMPAT
 	  if (STACK_TOP_P (operands[0]))
-	    p = "rp\t%0,%1";
+	    p = "{rp\t%0, %1|p\t%1, %0}";
 	  else
-	    p = "p\t%1,%0";
+	    p = "{p\t%1, %0|rp\t%0, %1}";
+#else
+	  if (STACK_TOP_P (operands[0]))
+	    p = "p\t{%0, %1|%1, %0}";	/* st(1) = st(1) op st(0); pop */
+	  else
+	    p = "rp\t{%1, %0|%0, %1}";	/* st(r2) = st(0) op st(r2); pop */
+#endif
 	  break;
 	}
 
       if (STACK_TOP_P (operands[0]))
 	{
 	  if (STACK_TOP_P (operands[1]))
-	    p = "\t%y2,%0";
+	    p = "\t{%y2, %0|%0, %y2}";	/* st(0) = st(0) op st(r2) */
 	  else
-	    p = "r\t%y1,%0";
+	    p = "r\t{%y1, %0|%0, %y1}";	/* st(0) = st(r1) op st(0) */
 	  break;
 	}
       else if (STACK_TOP_P (operands[1]))
-	p = "\t%1,%0";
+	{
+#if SYSV386_COMPAT
+	  p = "{\t%1, %0|r\t%0, %1}";
+#else
+	  p = "r\t{%1, %0|%0, %1}";	/* st(r2) = st(0) op st(r2) */
+#endif
+	}
       else
-	p = "r\t%2,%0";
+	{
+#if SYSV386_COMPAT
+	  p = "{r\t%2, %0|\t%0, %2}";
+#else
+	  p = "\t{%2, %0|%0, %2}";	/* st(r1) = st(r1) op st(0) */
+#endif
+	}
       break;
 
     default:
@@ -3628,7 +3695,7 @@ output_fix_trunc (insn, operands)
 	  output_asm_insn ("mov{l}\t{%3, %1|%1, %3}", xops);
 	}
       else
-	output_asm_insn ("mov{l}\t{%3,%0|%0, %3}", operands);
+	output_asm_insn ("mov{l}\t{%3, %0|%0, %3}", operands);
     }
 
   return "";
@@ -4252,6 +4319,45 @@ ix86_unary_operator_ok (code, mode, operands)
   return TRUE;
 }
 
+/* Return TRUE or FALSE depending on whether the first SET in INSN
+   has source and destination with matching CC modes, and that the
+   CC mode is at least as constrained as REQ_MODE.  */
+
+int
+ix86_match_ccmode (insn, req_mode)
+     rtx insn;
+     enum machine_mode req_mode;
+{
+  rtx set;
+  enum machine_mode set_mode;
+
+  set = PATTERN (insn);
+  if (GET_CODE (set) == PARALLEL)
+    set = XVECEXP (set, 0, 0);
+  if (GET_CODE (set) != SET)
+    abort ();
+
+  set_mode = GET_MODE (SET_DEST (set));
+  switch (set_mode)
+    {
+    case CCmode:
+      if (req_mode == CCNOmode)
+	return 0;
+      /* FALLTHRU */
+    case CCNOmode:
+      if (req_mode == CCZmode)
+	return 0;
+      /* FALLTHRU */
+    case CCZmode:
+      break;
+
+    default:
+      abort ();
+    }
+
+  return (GET_MODE (SET_SRC (set)) == set_mode);
+}
+
 /* Produce an unsigned comparison for a given signed comparison.  */
 
 static enum rtx_code
@@ -4455,7 +4561,7 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
 		  abort ();
 		}
 
-	      emit_insn (gen_testqi_ext_0 (tmp, GEN_INT (mask)));
+	      emit_insn (gen_testqi_ext_ccno_0 (tmp, GEN_INT (mask)));
 	      intcmp_mode = CCNOmode;
 	    }
 	}
@@ -4470,7 +4576,7 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
 	  switch (code)
 	    {
 	    case GT:
-	      emit_insn (gen_testqi_ext_0 (tmp, GEN_INT (0x45)));
+	      emit_insn (gen_testqi_ext_ccno_0 (tmp, GEN_INT (0x45)));
 	      code = EQ;
 	      break;
 	    case LT:
@@ -4480,7 +4586,7 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
 	      code = EQ;
 	      break;
 	    case GE:
-	      emit_insn (gen_testqi_ext_0 (tmp, GEN_INT (0x05)));
+	      emit_insn (gen_testqi_ext_ccno_0 (tmp, GEN_INT (0x05)));
 	      code = EQ;
 	      break;
 	    case LE:
@@ -5490,7 +5596,8 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
   rtx align_4_label = gen_label_rtx ();
   rtx end_0_label = gen_label_rtx ();
   rtx mem;
-  rtx flags = gen_rtx_REG (CCNOmode, FLAGS_REG);
+  rtx no_flags = gen_rtx_REG (CCNOmode, FLAGS_REG);
+  rtx z_flags = gen_rtx_REG (CCNOmode, FLAGS_REG);
   rtx tmpreg = gen_reg_rtx (SImode);
 
   align = 0;
@@ -5512,25 +5619,25 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
 	  align_rtx = expand_binop (SImode, and_optab, scratch, GEN_INT (3),
 				    NULL_RTX, 0, OPTAB_WIDEN);
 
-	  emit_insn (gen_cmpsi_0 (align_rtx, const0_rtx));
+	  emit_insn (gen_cmpsi_ccz_1 (align_rtx, const0_rtx));
 
-	  tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
+	  tmp = gen_rtx_EQ (VOIDmode, z_flags, const0_rtx);
 	  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
 				      gen_rtx_LABEL_REF (VOIDmode,
 							 align_4_label),
 				      pc_rtx);
 	  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
 
-	  emit_insn (gen_cmpsi_1 (align_rtx, GEN_INT (2)));
+	  emit_insn (gen_cmpsi_ccno_1 (align_rtx, GEN_INT (2)));
 
-	  tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
+	  tmp = gen_rtx_EQ (VOIDmode, no_flags, const0_rtx);
 	  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
 				      gen_rtx_LABEL_REF (VOIDmode,
 							 align_2_label),
 				      pc_rtx);
 	  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, tmp));
 
-	  tmp = gen_rtx_GTU (VOIDmode, flags, const0_rtx);
+	  tmp = gen_rtx_GTU (VOIDmode, no_flags, const0_rtx);
 	  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
 				      gen_rtx_LABEL_REF (VOIDmode,
 							 align_3_label),
@@ -5545,9 +5652,9 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
 	  align_rtx = expand_binop (SImode, and_optab, scratch, GEN_INT (2),
 				    NULL_RTX, 0, OPTAB_WIDEN);
 
-	  emit_insn (gen_cmpsi_0 (align_rtx, const0_rtx));
+	  emit_insn (gen_cmpsi_ccz_1 (align_rtx, const0_rtx));
 
-	  tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
+	  tmp = gen_rtx_EQ (VOIDmode, z_flags, const0_rtx);
 	  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
 				      gen_rtx_LABEL_REF (VOIDmode,
 							 align_4_label),
@@ -5560,9 +5667,9 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
       /* Now compare the bytes.  */
 
       /* Compare the first n unaligned byte on a byte per byte basis. */
-      emit_insn (gen_cmpqi_0 (mem, const0_rtx));
+      emit_insn (gen_cmpqi_ccz_1 (mem, const0_rtx));
 
-      tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
+      tmp = gen_rtx_EQ (VOIDmode, z_flags, const0_rtx);
       tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
 				  gen_rtx_LABEL_REF (VOIDmode, end_0_label),
 				  pc_rtx);
@@ -5576,9 +5683,9 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
 	{
 	  emit_label (align_2_label);
 
-	  emit_insn (gen_cmpqi_0 (mem, const0_rtx));
+	  emit_insn (gen_cmpqi_ccz_1 (mem, const0_rtx));
 
-	  tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
+	  tmp = gen_rtx_EQ (VOIDmode, z_flags, const0_rtx);
 	  tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
 				      gen_rtx_LABEL_REF (VOIDmode,
 							 end_0_label),
@@ -5590,9 +5697,9 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
 	  emit_label (align_3_label);
 	}
 
-      emit_insn (gen_cmpqi_0 (mem, const0_rtx));
+      emit_insn (gen_cmpqi_ccz_1 (mem, const0_rtx));
 
-      tmp = gen_rtx_EQ (VOIDmode, flags, const0_rtx);
+      tmp = gen_rtx_EQ (VOIDmode, z_flags, const0_rtx);
       tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp, 
 				  gen_rtx_LABEL_REF (VOIDmode, end_0_label),
 				  pc_rtx);
@@ -5626,7 +5733,7 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
        emit_insn (gen_lshrsi3 (reg, reg, GEN_INT (16)));
 
        /* If zero is not in the first two bytes, move two bytes forward. */
-       emit_insn (gen_testsi_1 (tmpreg, GEN_INT (0x8080)));
+       emit_insn (gen_testsi_ccno_1 (tmpreg, GEN_INT (0x8080)));
        tmp = gen_rtx_REG (CCNOmode, FLAGS_REG);
        tmp = gen_rtx_EQ (VOIDmode, tmp, const0_rtx);
        emit_insn (gen_rtx_SET (VOIDmode, tmpreg,
@@ -5650,7 +5757,7 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx, scratch)
        rtx end_2_label = gen_label_rtx ();
        /* Is zero in the first two bytes? */
 
-       emit_insn (gen_testsi_1 (tmpreg, GEN_INT (0x8080)));
+       emit_insn (gen_testsi_ccno_1 (tmpreg, GEN_INT (0x8080)));
        tmp = gen_rtx_REG (CCNOmode, FLAGS_REG);
        tmp = gen_rtx_NE (VOIDmode, tmp, const0_rtx);
        tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp,

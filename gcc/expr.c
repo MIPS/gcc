@@ -45,6 +45,19 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "tm_p.h"
 
+#ifndef ACCUMULATE_OUTGOING_ARGS
+#define ACCUMULATE_OUTGOING_ARGS 0
+#endif
+
+/* Supply a default definition for PUSH_ARGS.  */
+#ifndef PUSH_ARGS
+#ifdef PUSH_ROUNDING
+#define PUSH_ARGS	!ACCUMULATE_OUTGOING_ARGS
+#else
+#define PUSH_ARGS	0
+#endif
+#endif
+
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
 
@@ -143,12 +156,15 @@ static void clear_by_pieces_1	PARAMS ((rtx (*) (rtx, ...),
 					 struct clear_by_pieces *));
 static int is_zeros_p		PARAMS ((tree));
 static int mostly_zeros_p	PARAMS ((tree));
-static void store_constructor_field PARAMS ((rtx, int, int, enum machine_mode,
+static void store_constructor_field PARAMS ((rtx, unsigned HOST_WIDE_INT,
+					     HOST_WIDE_INT, enum machine_mode,
 					     tree, tree, unsigned int, int));
-static void store_constructor	PARAMS ((tree, rtx, unsigned int, int, int));
-static rtx store_field		PARAMS ((rtx, int, int, enum machine_mode,
+static void store_constructor	PARAMS ((tree, rtx, unsigned int, int,
+					 HOST_WIDE_INT));
+static rtx store_field		PARAMS ((rtx, HOST_WIDE_INT,
+					 HOST_WIDE_INT, enum machine_mode,
 					 tree, enum machine_mode, int,
-					 unsigned int, int, int));
+					 unsigned int, HOST_WIDE_INT, int));
 static enum memory_use_mode
   get_memory_usage_from_modifier PARAMS ((enum expand_modifier));
 static tree save_noncopied_parts PARAMS ((tree, tree));
@@ -162,7 +178,8 @@ static rtx expand_increment	PARAMS ((tree, int, int));
 static void preexpand_calls	PARAMS ((tree));
 static void do_jump_by_parts_greater PARAMS ((tree, int, rtx, rtx));
 static void do_jump_by_parts_equality PARAMS ((tree, rtx, rtx));
-static void do_compare_and_jump	PARAMS ((tree, enum rtx_code, enum rtx_code, rtx, rtx));
+static void do_compare_and_jump	PARAMS ((tree, enum rtx_code, enum rtx_code,
+					 rtx, rtx));
 static rtx do_store_flag	PARAMS ((tree, rtx, enum machine_mode, int));
 
 /* Record for each mode whether we can move a register directly to or
@@ -187,8 +204,8 @@ static char direct_store[NUM_MACHINE_MODES];
 /* This macro is used to determine whether move_by_pieces should be called
    to perform a structure copy. */
 #ifndef MOVE_BY_PIECES_P
-#define MOVE_BY_PIECES_P(SIZE, ALIGN) (move_by_pieces_ninsns        \
-                                       (SIZE, ALIGN) < MOVE_RATIO)
+#define MOVE_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN) < MOVE_RATIO)
 #endif
 
 /* This array records the insn_code of insns to perform block moves.  */
@@ -289,7 +306,7 @@ init_expr ()
 
   pending_chain = 0;
   pending_stack_adjust = 0;
-  arg_space_so_far = 0;
+  stack_pointer_delta = 0;
   inhibit_defer_pop = 0;
   saveregs_value = 0;
   apply_args_value = 0;
@@ -1348,7 +1365,7 @@ convert_modes (mode, oldmode, x, unsignedp)
 
 /* MOVE_MAX_PIECES is the number of bytes at a time which we can
    move efficiently, as opposed to  MOVE_MAX which is the maximum
-   number of bhytes we can move with a single instruction. */
+   number of bytes we can move with a single instruction. */
 
 #ifndef MOVE_MAX_PIECES
 #define MOVE_MAX_PIECES   MOVE_MAX
@@ -1358,7 +1375,7 @@ convert_modes (mode, oldmode, x, unsignedp)
    from block FROM to block TO.  (These are MEM rtx's with BLKmode).
    The caller must pass FROM and TO
     through protect_from_queue before calling.
-   ALIGN (in bytes) is maximum alignment we can assume.  */
+   ALIGN is maximum alignment we can assume.  */
 
 void
 move_by_pieces (to, from, len, align)
@@ -1368,7 +1385,7 @@ move_by_pieces (to, from, len, align)
 {
   struct move_by_pieces data;
   rtx to_addr = XEXP (to, 0), from_addr = XEXP (from, 0);
-  int max_size = MOVE_MAX_PIECES + 1;
+  unsigned int max_size = MOVE_MAX_PIECES + 1;
   enum machine_mode mode = VOIDmode, tmode;
   enum insn_code icode;
 
@@ -1440,8 +1457,8 @@ move_by_pieces (to, from, len, align)
     }
 
   if (! SLOW_UNALIGNED_ACCESS (word_mode, align)
-      || align > MOVE_MAX || align >= BIGGEST_ALIGNMENT / BITS_PER_UNIT)
-    align = MOVE_MAX;
+      || align > MOVE_MAX * BITS_PER_UNIT || align >= BIGGEST_ALIGNMENT)
+    align = MOVE_MAX * BITS_PER_UNIT;
 
   /* First move what we can in the largest integer mode, then go to
      successively smaller modes.  */
@@ -1457,9 +1474,7 @@ move_by_pieces (to, from, len, align)
 	break;
 
       icode = mov_optab->handlers[(int) mode].insn_code;
-      if (icode != CODE_FOR_nothing
-	  && align >= MIN (BIGGEST_ALIGNMENT / BITS_PER_UNIT,
-			   (unsigned int) GET_MODE_SIZE (mode)))
+      if (icode != CODE_FOR_nothing && align >= GET_MODE_ALIGNMENT (mode))
 	move_by_pieces_1 (GEN_FCN (icode), mode, &data);
 
       max_size = GET_MODE_SIZE (mode);
@@ -1479,11 +1494,11 @@ move_by_pieces_ninsns (l, align)
      unsigned int align;
 {
   register int n_insns = 0;
-  int max_size = MOVE_MAX + 1;
+  unsigned int max_size = MOVE_MAX + 1;
 
   if (! SLOW_UNALIGNED_ACCESS (word_mode, align)
-      || align > MOVE_MAX || align >= BIGGEST_ALIGNMENT / BITS_PER_UNIT)
-    align = MOVE_MAX;
+      || align > MOVE_MAX * BITS_PER_UNIT || align >= BIGGEST_ALIGNMENT)
+    align = MOVE_MAX * BITS_PER_UNIT;
 
   while (max_size > 1)
     {
@@ -1499,8 +1514,7 @@ move_by_pieces_ninsns (l, align)
 	break;
 
       icode = mov_optab->handlers[(int) mode].insn_code;
-      if (icode != CODE_FOR_nothing
-	  && align >= GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT)
+      if (icode != CODE_FOR_nothing && align >= GET_MODE_ALIGNMENT (mode))
 	n_insns += l / GET_MODE_SIZE (mode), l %= GET_MODE_SIZE (mode);
 
       max_size = GET_MODE_SIZE (mode);
@@ -1567,8 +1581,7 @@ move_by_pieces_1 (genfun, mode, data)
    Both X and Y must be MEM rtx's (perhaps inside VOLATILE)
    with mode BLKmode.
    SIZE is an rtx that says how long they are.
-   ALIGN is the maximum alignment we can assume they have,
-   measured in bytes. 
+   ALIGN is the maximum alignment we can assume they have.
 
    Return the address of the new block, if memcpy is called and returns it,
    0 otherwise.  */
@@ -1610,7 +1623,7 @@ emit_block_move (x, y, size, align)
 	 including more than one in the machine description unless
 	 the more limited one has some advantage.  */
 
-      rtx opalign = GEN_INT (align);
+      rtx opalign = GEN_INT (align / BITS_PER_UNIT);
       enum machine_mode mode;
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
@@ -1920,8 +1933,8 @@ emit_group_load (dst, orig_src, ssize, align)
   for (i = start; i < XVECLEN (dst, 0); i++)
     {
       enum machine_mode mode = GET_MODE (XEXP (XVECEXP (dst, 0, i), 0));
-      int bytepos = INTVAL (XEXP (XVECEXP (dst, 0, i), 1));
-      int bytelen = GET_MODE_SIZE (mode);
+      HOST_WIDE_INT bytepos = INTVAL (XEXP (XVECEXP (dst, 0, i), 1));
+      unsigned int bytelen = GET_MODE_SIZE (mode);
       int shift = 0;
 
       /* Handle trailing fragments that run over the size of the struct.  */
@@ -1935,7 +1948,7 @@ emit_group_load (dst, orig_src, ssize, align)
 
       /* Optimize the access just a bit.  */
       if (GET_CODE (src) == MEM
-	  && align * BITS_PER_UNIT >= GET_MODE_ALIGNMENT (mode)
+	  && align >= GET_MODE_ALIGNMENT (mode)
 	  && bytepos * BITS_PER_UNIT % GET_MODE_ALIGNMENT (mode) == 0
 	  && bytelen == GET_MODE_SIZE (mode))
 	{
@@ -1957,18 +1970,15 @@ emit_group_load (dst, orig_src, ssize, align)
 	    abort ();
 	}
       else
-	{
-	  tmps[i] = extract_bit_field (src, bytelen*BITS_PER_UNIT,
-				       bytepos*BITS_PER_UNIT, 1, NULL_RTX,
-				       mode, mode, align, ssize);
-	}
+	tmps[i] = extract_bit_field (src, bytelen * BITS_PER_UNIT,
+				     bytepos * BITS_PER_UNIT, 1, NULL_RTX,
+				     mode, mode, align, ssize);
 
       if (BYTES_BIG_ENDIAN && shift)
-	{
-	  expand_binop (mode, ashl_optab, tmps[i], GEN_INT (shift),
-			tmps[i], 0, OPTAB_WIDEN);
-	}
+	expand_binop (mode, ashl_optab, tmps[i], GEN_INT (shift),
+		      tmps[i], 0, OPTAB_WIDEN);
     }
+
   emit_queue();
 
   /* Copy the extracted pieces into the proper (probable) hard regs.  */
@@ -2050,9 +2060,9 @@ emit_group_store (orig_dst, src, ssize, align)
   /* Process the pieces.  */
   for (i = start; i < XVECLEN (src, 0); i++)
     {
-      int bytepos = INTVAL (XEXP (XVECEXP (src, 0, i), 1));
+      HOST_WIDE_INT bytepos = INTVAL (XEXP (XVECEXP (src, 0, i), 1));
       enum machine_mode mode = GET_MODE (tmps[i]);
-      int bytelen = GET_MODE_SIZE (mode);
+      unsigned int bytelen = GET_MODE_SIZE (mode);
 
       /* Handle trailing fragments that run over the size of the struct.  */
       if (ssize >= 0 && bytepos + bytelen > ssize)
@@ -2068,7 +2078,7 @@ emit_group_store (orig_dst, src, ssize, align)
 
       /* Optimize the access just a bit.  */
       if (GET_CODE (dst) == MEM
-	  && align * BITS_PER_UNIT >= GET_MODE_ALIGNMENT (mode)
+	  && align >= GET_MODE_ALIGNMENT (mode)
 	  && bytepos * BITS_PER_UNIT % GET_MODE_ALIGNMENT (mode) == 0
 	  && bytelen == GET_MODE_SIZE (mode))
 	emit_move_insn (change_address (dst, mode,
@@ -2097,74 +2107,69 @@ emit_group_store (orig_dst, src, ssize, align)
    in registers regardless of the structure's alignment. */
 
 rtx
-copy_blkmode_from_reg (tgtblk,srcreg,type)
+copy_blkmode_from_reg (tgtblk, srcreg, type)
      rtx tgtblk;
      rtx srcreg;
      tree type;
 {
-      int bytes = int_size_in_bytes (type);
-      rtx src = NULL, dst = NULL;
-      int bitsize = MIN (TYPE_ALIGN (type), BITS_PER_WORD);
-      int bitpos, xbitpos, big_endian_correction = 0;
+  unsigned HOST_WIDE_INT bytes = int_size_in_bytes (type);
+  rtx src = NULL, dst = NULL;
+  unsigned HOST_WIDE_INT bitsize = MIN (TYPE_ALIGN (type), BITS_PER_WORD);
+  unsigned HOST_WIDE_INT bitpos, xbitpos, big_endian_correction = 0;
+
+  if (tgtblk == 0)
+    {
+      tgtblk = assign_stack_temp (BLKmode, bytes, 0);
+      MEM_SET_IN_STRUCT_P (tgtblk, AGGREGATE_TYPE_P (type));
+      preserve_temp_slots (tgtblk);
+    }
       
-      if (tgtblk == 0)
-	{
-	  tgtblk = assign_stack_temp (BLKmode, bytes, 0);
-	  MEM_SET_IN_STRUCT_P (tgtblk, AGGREGATE_TYPE_P (type));
-	  preserve_temp_slots (tgtblk);
-	}
-      
-      /* This code assumes srcreg is at least a full word.  If it isn't,
-	 copy it into a new pseudo which is a full word.  */
-      if (GET_MODE (srcreg) != BLKmode
-	  && GET_MODE_SIZE (GET_MODE (srcreg)) < UNITS_PER_WORD)
-	srcreg = convert_to_mode (word_mode, srcreg,
-				  TREE_UNSIGNED (type));
+  /* This code assumes srcreg is at least a full word.  If it isn't,
+     copy it into a new pseudo which is a full word.  */
+  if (GET_MODE (srcreg) != BLKmode
+      && GET_MODE_SIZE (GET_MODE (srcreg)) < UNITS_PER_WORD)
+    srcreg = convert_to_mode (word_mode, srcreg, TREE_UNSIGNED (type));
 
-      /* Structures whose size is not a multiple of a word are aligned
-	 to the least significant byte (to the right).  On a BYTES_BIG_ENDIAN
-	 machine, this means we must skip the empty high order bytes when
-	 calculating the bit offset.  */
-      if (BYTES_BIG_ENDIAN && bytes % UNITS_PER_WORD)
-	big_endian_correction = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD)
-						  * BITS_PER_UNIT));
+  /* Structures whose size is not a multiple of a word are aligned
+     to the least significant byte (to the right).  On a BYTES_BIG_ENDIAN
+     machine, this means we must skip the empty high order bytes when
+     calculating the bit offset.  */
+  if (BYTES_BIG_ENDIAN && bytes % UNITS_PER_WORD)
+    big_endian_correction
+      = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD) * BITS_PER_UNIT));
 
-      /* Copy the structure BITSIZE bites at a time.
+  /* Copy the structure BITSIZE bites at a time.
+     
+     We could probably emit more efficient code for machines which do not use
+     strict alignment, but it doesn't seem worth the effort at the current
+     time.  */
+  for (bitpos = 0, xbitpos = big_endian_correction;
+       bitpos < bytes * BITS_PER_UNIT;
+       bitpos += bitsize, xbitpos += bitsize)
+    {
+      /* We need a new source operand each time xbitpos is on a 
+	 word boundary and when xbitpos == big_endian_correction
+	 (the first time through).  */
+      if (xbitpos % BITS_PER_WORD == 0
+	  || xbitpos == big_endian_correction)
+	src = operand_subword_force (srcreg, xbitpos / BITS_PER_WORD, BLKmode);
 
-	 We could probably emit more efficient code for machines
-	 which do not use strict alignment, but it doesn't seem
-	 worth the effort at the current time.  */
-      for (bitpos = 0, xbitpos = big_endian_correction;
-	   bitpos < bytes * BITS_PER_UNIT;
-	   bitpos += bitsize, xbitpos += bitsize)
-	{
-
-	  /* We need a new source operand each time xbitpos is on a 
-	     word boundary and when xbitpos == big_endian_correction
-	     (the first time through).  */
-	  if (xbitpos % BITS_PER_WORD == 0
-	      || xbitpos == big_endian_correction)
-	    src = operand_subword_force (srcreg,
-					 xbitpos / BITS_PER_WORD, 
-					 BLKmode);
-
-	  /* We need a new destination operand each time bitpos is on
-	     a word boundary.  */
-	  if (bitpos % BITS_PER_WORD == 0)
-	    dst = operand_subword (tgtblk, bitpos / BITS_PER_WORD, 1, BLKmode);
+      /* We need a new destination operand each time bitpos is on
+	 a word boundary.  */
+      if (bitpos % BITS_PER_WORD == 0)
+	dst = operand_subword (tgtblk, bitpos / BITS_PER_WORD, 1, BLKmode);
 	      
-	  /* Use xbitpos for the source extraction (right justified) and
-	     xbitpos for the destination store (left justified).  */
-	  store_bit_field (dst, bitsize, bitpos % BITS_PER_WORD, word_mode,
-			   extract_bit_field (src, bitsize,
-					      xbitpos % BITS_PER_WORD, 1,
-					      NULL_RTX, word_mode,
-					      word_mode,
-					      bitsize / BITS_PER_UNIT,
-					      BITS_PER_WORD),
-			   bitsize / BITS_PER_UNIT, BITS_PER_WORD);
-	}
-      return tgtblk;
+      /* Use xbitpos for the source extraction (right justified) and
+	 xbitpos for the destination store (left justified).  */
+      store_bit_field (dst, bitsize, bitpos % BITS_PER_WORD, word_mode,
+		       extract_bit_field (src, bitsize,
+					  xbitpos % BITS_PER_WORD, 1,
+					  NULL_RTX, word_mode, word_mode,
+					  bitsize, BITS_PER_WORD),
+		       bitsize, BITS_PER_WORD);
+    }
+
+  return tgtblk;
 }
 
 
@@ -2225,10 +2230,9 @@ use_group_regs (call_fusage, regs)
     }
 }
 
-/* Generate several move instructions to clear LEN bytes of block TO.
-   (A MEM rtx with BLKmode).   The caller must pass TO through
-   protect_from_queue before calling. ALIGN (in bytes) is maximum alignment
-   we can assume.  */
+/* Generate several move instructions to clear LEN bytes of block TO.  (A MEM
+   rtx with BLKmode).  The caller must pass TO through protect_from_queue
+   before calling. ALIGN is maximum alignment we can assume.  */
 
 static void
 clear_by_pieces (to, len, align)
@@ -2238,7 +2242,7 @@ clear_by_pieces (to, len, align)
 {
   struct clear_by_pieces data;
   rtx to_addr = XEXP (to, 0);
-  int max_size = MOVE_MAX_PIECES + 1;
+  unsigned int max_size = MOVE_MAX_PIECES + 1;
   enum machine_mode mode = VOIDmode, tmode;
   enum insn_code icode;
 
@@ -2286,8 +2290,8 @@ clear_by_pieces (to, len, align)
     }
 
   if (! SLOW_UNALIGNED_ACCESS (word_mode, align)
-      || align > MOVE_MAX || align >= BIGGEST_ALIGNMENT / BITS_PER_UNIT)
-    align = MOVE_MAX;
+      || align > MOVE_MAX * BITS_PER_UNIT || align >= BIGGEST_ALIGNMENT)
+    align = MOVE_MAX * BITS_PER_UNIT;
 
   /* First move what we can in the largest integer mode, then go to
      successively smaller modes.  */
@@ -2303,8 +2307,7 @@ clear_by_pieces (to, len, align)
 	break;
 
       icode = mov_optab->handlers[(int) mode].insn_code;
-      if (icode != CODE_FOR_nothing
-	  && align >= GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT)
+      if (icode != CODE_FOR_nothing && align >= GET_MODE_ALIGNMENT (mode))
 	clear_by_pieces_1 (GEN_FCN (icode), mode, &data);
 
       max_size = GET_MODE_SIZE (mode);
@@ -2352,9 +2355,8 @@ clear_by_pieces_1 (genfun, mode, data)
     }
 }
 
-/* Write zeros through the storage of OBJECT.
-   If OBJECT has BLKmode, SIZE is its length in bytes and ALIGN is
-   the maximum alignment we can is has, measured in bytes.
+/* Write zeros through the storage of OBJECT.  If OBJECT has BLKmode, SIZE is
+   its length in bytes and ALIGN is the maximum alignment we can is has.
 
    If we call a function that returns the length of the block, return it.  */
 
@@ -2378,14 +2380,13 @@ clear_storage (object, size, align)
       if (GET_CODE (size) == CONST_INT
 	  && MOVE_BY_PIECES_P (INTVAL (size), align))
 	clear_by_pieces (object, INTVAL (size), align);
-
       else
 	{
 	  /* Try the most limited insn first, because there's no point
 	     including more than one in the machine description unless
 	     the more limited one has some advantage.  */
 
-	  rtx opalign = GEN_INT (align);
+	  rtx opalign = GEN_INT (align / BITS_PER_UNIT);
 	  enum machine_mode mode;
 
 	  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
@@ -2587,7 +2588,7 @@ emit_move_insn_1 (x, y)
   enum machine_mode mode = GET_MODE (x);
   enum machine_mode submode;
   enum mode_class class = GET_MODE_CLASS (mode);
-  int i;
+  unsigned int i;
 
   if (mode >= MAX_MACHINE_MODE)
       abort ();
@@ -2816,27 +2817,36 @@ push_block (size, extra, below)
       anti_adjust_stack (temp);
     }
 
-#if defined (STACK_GROWS_DOWNWARD) \
-    || (defined (ARGS_GROW_DOWNWARD) \
-	&& !defined (ACCUMULATE_OUTGOING_ARGS))
-
-  /* Return the lowest stack address when STACK or ARGS grow downward and
-     we are not aaccumulating outgoing arguments (the c4x port uses such
-     conventions).  */
-  temp = virtual_outgoing_args_rtx;
-  if (extra != 0 && below)
-    temp = plus_constant (temp, extra);
+#ifndef STACK_GROWS_DOWNWARD
+#ifdef ARGS_GROW_DOWNWARD
+  if (!ACCUMULATE_OUTGOING_ARGS)
 #else
-  if (GET_CODE (size) == CONST_INT)
-    temp = plus_constant (virtual_outgoing_args_rtx,
-			  - INTVAL (size) - (below ? 0 : extra));
-  else if (extra != 0 && !below)
-    temp = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
-		    negate_rtx (Pmode, plus_constant (size, extra)));
-  else
-    temp = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
-			 negate_rtx (Pmode, size));
+  if (0)
 #endif
+#else
+  if (1)
+#endif
+    {
+
+      /* Return the lowest stack address when STACK or ARGS grow downward and
+	 we are not aaccumulating outgoing arguments (the c4x port uses such
+	 conventions).  */
+      temp = virtual_outgoing_args_rtx;
+      if (extra != 0 && below)
+	temp = plus_constant (temp, extra);
+    }
+  else
+    {
+      if (GET_CODE (size) == CONST_INT)
+	temp = plus_constant (virtual_outgoing_args_rtx,
+			      - INTVAL (size) - (below ? 0 : extra));
+      else if (extra != 0 && !below)
+	temp = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
+			negate_rtx (Pmode, plus_constant (size, extra)));
+      else
+	temp = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
+			     negate_rtx (Pmode, size));
+    }
 
   return memory_address (GET_CLASS_NARROWEST_MODE (MODE_INT), temp);
 }
@@ -2873,7 +2883,7 @@ get_push_address (size)
    SIZE is an rtx for the size of data to be copied (in bytes),
    needed only if X is BLKmode.
 
-   ALIGN (in bytes) is maximum alignment we can assume.
+   ALIGN is maximum alignment we can assume.
 
    If PARTIAL and REG are both nonzero, then copy that many of the first
    words of X into registers starting with REG, and push the rest of X.
@@ -2967,6 +2977,7 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	 and if there is no difficulty with push insns that skip bytes
 	 on the stack for alignment purposes.  */
       if (args_addr == 0
+	  && PUSH_ARGS
 	  && GET_CODE (size) == CONST_INT
 	  && skip == 0
 	  && (MOVE_BY_PIECES_P ((unsigned) INTVAL (size) - used, align))
@@ -2974,7 +2985,7 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	     forces many pushes of a small amount of data,
 	     and such small pushes do rounding that causes trouble.  */
 	  && ((! SLOW_UNALIGNED_ACCESS (word_mode, align))
-	      || align >= BIGGEST_ALIGNMENT / BITS_PER_UNIT
+	      || align >= BIGGEST_ALIGNMENT
 	      || PUSH_ROUNDING (align) == align)
 	  && PUSH_ROUNDING (INTVAL (size)) == INTVAL (size))
 	{
@@ -2985,6 +2996,7 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	      && where_pad != none && where_pad != stack_direction)
 	    anti_adjust_stack (GEN_INT (extra));
 
+	  stack_pointer_delta += INTVAL (size) - used;
 	  move_by_pieces (gen_rtx_MEM (BLKmode, gen_push_operand ()), xinner,
 			  INTVAL (size) - used, align);
 
@@ -3075,7 +3087,7 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	    }
 	  else
 	    {
-	      rtx opalign = GEN_INT (align);
+	      rtx opalign = GEN_INT (align / BITS_PER_UNIT);
 	      enum machine_mode mode;
 	      rtx target = gen_rtx_MEM (BLKmode, temp);
 
@@ -3119,15 +3131,16 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 		}
 	    }
 
-#ifndef ACCUMULATE_OUTGOING_ARGS
-	  /* If the source is referenced relative to the stack pointer,
-	     copy it to another register to stabilize it.  We do not need
-	     to do this if we know that we won't be changing sp.  */
+	  if (!ACCUMULATE_OUTGOING_ARGS)
+	    {
+	      /* If the source is referenced relative to the stack pointer,
+		 copy it to another register to stabilize it.  We do not need
+		 to do this if we know that we won't be changing sp.  */
 
-	  if (reg_mentioned_p (virtual_stack_dynamic_rtx, temp)
-	      || reg_mentioned_p (virtual_outgoing_args_rtx, temp))
-	    temp = copy_to_reg (temp);
-#endif
+	      if (reg_mentioned_p (virtual_stack_dynamic_rtx, temp)
+		  || reg_mentioned_p (virtual_outgoing_args_rtx, temp))
+		temp = copy_to_reg (temp);
+	    }
 
 	  /* Make inhibit_defer_pop nonzero around the library call
 	     to force it to pop the bcopy-arguments right away.  */
@@ -3223,8 +3236,11 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	anti_adjust_stack (GEN_INT (extra));
 
 #ifdef PUSH_ROUNDING
-      if (args_addr == 0)
-	addr = gen_push_operand ();
+      if (args_addr == 0 && PUSH_ARGS)
+	{
+	  addr = gen_push_operand ();
+	  stack_pointer_delta += PUSH_ROUNDING (GET_MODE_SIZE (mode));
+	}
       else
 #endif
 	{
@@ -3323,8 +3339,7 @@ expand_assignment (to, from, want_value, suggest_reg)
       || TREE_CODE (to) == ARRAY_REF)
     {
       enum machine_mode mode1;
-      int bitsize;
-      int bitpos;
+      HOST_WIDE_INT bitsize, bitpos;
       tree offset;
       int unsignedp;
       int volatilep = 0;
@@ -3366,7 +3381,7 @@ expand_assignment (to, from, want_value, suggest_reg)
 	      && bitsize
 	      && (bitpos % bitsize) == 0 
 	      && (bitsize % GET_MODE_ALIGNMENT (mode1)) == 0
-	      && (alignment * BITS_PER_UNIT) == GET_MODE_ALIGNMENT (mode1))
+	      && alignment == GET_MODE_ALIGNMENT (mode1))
 	    {
 	      rtx temp = change_address (to_rtx, mode1,
 				         plus_constant (XEXP (to_rtx, 0),
@@ -3444,27 +3459,48 @@ expand_assignment (to, from, want_value, suggest_reg)
 			       TYPE_MODE (integer_type_node));
 	}
 
-      result = store_field (to_rtx, bitsize, bitpos, mode1, from,
-			    (want_value
-			     /* Spurious cast makes HPUX compiler happy.  */
-			     ? (enum machine_mode) TYPE_MODE (TREE_TYPE (to))
-			     : VOIDmode),
-			    unsignedp,
-			    /* Required alignment of containing datum.  */
-			    alignment,
-			    int_size_in_bytes (TREE_TYPE (tem)),
-			    get_alias_set (to));
-      preserve_temp_slots (result);
-      free_temp_slots ();
-      pop_temp_slots ();
+      /* If this is a varying-length object, we must get the address of
+	 the source and do an explicit block move.  */
+      if (bitsize < 0)
+	{
+	  unsigned int from_align;
+	  rtx from_rtx = expand_expr_unaligned (from, &from_align);
+	  rtx inner_to_rtx
+	    = change_address (to_rtx, VOIDmode,
+			      plus_constant (XEXP (to_rtx, 0),
+					     bitpos / BITS_PER_UNIT));
 
-      /* If the value is meaningful, convert RESULT to the proper mode.
-	 Otherwise, return nothing.  */
-      return (want_value ? convert_modes (TYPE_MODE (TREE_TYPE (to)),
-					  TYPE_MODE (TREE_TYPE (from)),
-					  result,
-					  TREE_UNSIGNED (TREE_TYPE (to)))
-	      : NULL_RTX);
+	  emit_block_move (inner_to_rtx, from_rtx, expr_size (from),
+			   MIN (alignment, from_align));
+	  free_temp_slots ();
+	  pop_temp_slots ();
+	  return to_rtx;
+	}
+      else
+	{
+	  result = store_field (to_rtx, bitsize, bitpos, mode1, from,
+				(want_value
+				 /* Spurious cast for HPUX compiler.  */
+				 ? ((enum machine_mode)
+				    TYPE_MODE (TREE_TYPE (to)))
+				 : VOIDmode),
+				unsignedp,
+				alignment,
+				int_size_in_bytes (TREE_TYPE (tem)),
+				get_alias_set (to));
+
+	  preserve_temp_slots (result);
+	  free_temp_slots ();
+	  pop_temp_slots ();
+
+	  /* If the value is meaningful, convert RESULT to the proper mode.
+	     Otherwise, return nothing.  */
+	  return (want_value ? convert_modes (TYPE_MODE (TREE_TYPE (to)),
+					      TYPE_MODE (TREE_TYPE (from)),
+					      result,
+					      TREE_UNSIGNED (TREE_TYPE (to)))
+		  : NULL_RTX);
+	}
     }
 
   /* If the rhs is a function call and its value is not an aggregate,
@@ -3493,10 +3529,10 @@ expand_assignment (to, from, want_value, suggest_reg)
 	 The Irix 6 ABI has examples of this.  */
       if (GET_CODE (to_rtx) == PARALLEL)
 	emit_group_load (to_rtx, value, int_size_in_bytes (TREE_TYPE (from)),
-			 TYPE_ALIGN (TREE_TYPE (from)) / BITS_PER_UNIT);
+			 TYPE_ALIGN (TREE_TYPE (from)));
       else if (GET_MODE (to_rtx) == BLKmode)
 	emit_block_move (to_rtx, value, expr_size (from),
-			 TYPE_ALIGN (TREE_TYPE (from)) / BITS_PER_UNIT);
+			 TYPE_ALIGN (TREE_TYPE (from)));
       else
 	{
 #ifdef POINTERS_EXTEND_UNSIGNED
@@ -3533,7 +3569,7 @@ expand_assignment (to, from, want_value, suggest_reg)
 
       if (GET_CODE (to_rtx) == PARALLEL)
 	emit_group_load (to_rtx, temp, int_size_in_bytes (TREE_TYPE (from)),
-			 TYPE_ALIGN (TREE_TYPE (from)) / BITS_PER_UNIT);
+			 TYPE_ALIGN (TREE_TYPE (from)));
       else
 	emit_move_insn (to_rtx, temp);
 
@@ -3859,8 +3895,7 @@ store_expr (exp, target, want_value)
 	  size = expr_size (exp);
 	  if (GET_CODE (size) == CONST_INT
 	      && INTVAL (size) < TREE_STRING_LENGTH (exp))
-	    emit_block_move (target, temp, size,
-			     TYPE_ALIGN (TREE_TYPE (exp)) / BITS_PER_UNIT);
+	    emit_block_move (target, temp, size, TYPE_ALIGN (TREE_TYPE (exp)));
 	  else
 	    {
 	      /* Compute the size of the data to copy from the string.  */
@@ -3874,7 +3909,7 @@ store_expr (exp, target, want_value)
 
 	      /* Copy that much.  */
 	      emit_block_move (target, temp, copy_size_rtx,
-			       TYPE_ALIGN (TREE_TYPE (exp)) / BITS_PER_UNIT);
+			       TYPE_ALIGN (TREE_TYPE (exp)));
 
 	      /* Figure out how much is left in TARGET that we have to clear.
 		 Do all calculations in ptr_mode.  */
@@ -3938,10 +3973,10 @@ store_expr (exp, target, want_value)
 	 The Irix 6 ABI has examples of this.  */
       else if (GET_CODE (target) == PARALLEL)
 	emit_group_load (target, temp, int_size_in_bytes (TREE_TYPE (exp)),
-			 TYPE_ALIGN (TREE_TYPE (exp)) / BITS_PER_UNIT);
+			 TYPE_ALIGN (TREE_TYPE (exp)));
       else if (GET_MODE (temp) == BLKmode)
 	emit_block_move (target, temp, expr_size (exp),
-			 TYPE_ALIGN (TREE_TYPE (exp)) / BITS_PER_UNIT);
+			 TYPE_ALIGN (TREE_TYPE (exp)));
       else
 	emit_move_insn (target, temp);
     }
@@ -4051,7 +4086,8 @@ static void
 store_constructor_field (target, bitsize, bitpos,
 			 mode, exp, type, align, cleared)
      rtx target;
-     int bitsize, bitpos;
+     unsigned HOST_WIDE_INT bitsize;
+     HOST_WIDE_INT bitpos;
      enum machine_mode mode;
      tree exp, type;
      unsigned int align;
@@ -4076,14 +4112,13 @@ store_constructor_field (target, bitsize, bitpos,
       store_constructor (exp, target, align, cleared, bitsize / BITS_PER_UNIT);
     }
   else
-    store_field (target, bitsize, bitpos, mode, exp, VOIDmode, 0, 
-		 (align + BITS_PER_UNIT - 1) / BITS_PER_UNIT,
+    store_field (target, bitsize, bitpos, mode, exp, VOIDmode, 0, align,
 		 int_size_in_bytes (type), 0);
 }
 
 /* Store the value of constructor EXP into the rtx TARGET.
    TARGET is either a REG or a MEM.
-   ALIGN is the maximum known alignment for TARGET, in bits.
+   ALIGN is the maximum known alignment for TARGET.
    CLEARED is true if TARGET is known to have been zero'd.
    SIZE is the number of bytes of TARGET we are allowed to modify: this
    may not be the same as the size of EXP if we are assigning to a field
@@ -4095,11 +4130,11 @@ store_constructor (exp, target, align, cleared, size)
      rtx target;
      unsigned int align;
      int cleared;
-     int size;
+     HOST_WIDE_INT size;
 {
   tree type = TREE_TYPE (exp);
 #ifdef WORD_REGISTER_OPERATIONS
-  rtx exp_size = expr_size (exp);
+  HOST_WIDE_INT exp_size = int_size_in_bytes (type);
 #endif
 
   /* We know our target cannot conflict, since safe_from_p has been called.  */
@@ -4130,8 +4165,7 @@ store_constructor (exp, target, align, cleared, size)
 
 	  /* If the constructor is empty, clear the union.  */
 	  if (! CONSTRUCTOR_ELTS (exp)  && ! cleared)
-	    clear_storage (target, expr_size (exp),
-			   TYPE_ALIGN (type) / BITS_PER_UNIT);
+	    clear_storage (target, expr_size (exp), TYPE_ALIGN (type));
 	}
 
       /* If we are building a static constructor into a register,
@@ -4156,8 +4190,7 @@ store_constructor (exp, target, align, cleared, size)
 		   || mostly_zeros_p (exp)))
 	{
 	  if (! cleared)
-	    clear_storage (target, GEN_INT (size),
-			   (align + BITS_PER_UNIT - 1) / BITS_PER_UNIT);
+	    clear_storage (target, GEN_INT (size), align);
 
 	  cleared = 1;
 	}
@@ -4175,10 +4208,10 @@ store_constructor (exp, target, align, cleared, size)
 	  tree value = TREE_VALUE (elt);
 #endif
 	  register enum machine_mode mode;
-	  int bitsize;
-	  int bitpos = 0;
+	  HOST_WIDE_INT bitsize;
+	  HOST_WIDE_INT bitpos = 0;
 	  int unsignedp;
-	  tree pos, constant = 0, offset = 0;
+	  tree offset;
 	  rtx to_rtx = target;
 
 	  /* Just ignore missing fields.
@@ -4190,8 +4223,8 @@ store_constructor (exp, target, align, cleared, size)
 	  if (cleared && is_zeros_p (TREE_VALUE (elt)))
 	    continue;
 
-	  if (TREE_CODE (DECL_SIZE (field)) == INTEGER_CST)
-	    bitsize = TREE_INT_CST_LOW (DECL_SIZE (field));
+	  if (host_integerp (DECL_SIZE (field), 1))
+	    bitsize = tree_low_cst (DECL_SIZE (field), 1);
 	  else
 	    bitsize = -1;
 
@@ -4200,29 +4233,23 @@ store_constructor (exp, target, align, cleared, size)
 	  if (DECL_BIT_FIELD (field))
 	    mode = VOIDmode;
 
-	  pos = DECL_FIELD_BITPOS (field);
-	  if (TREE_CODE (pos) == INTEGER_CST)
-	    constant = pos;
-	  else if (TREE_CODE (pos) == PLUS_EXPR
-		   && TREE_CODE (TREE_OPERAND (pos, 1)) == INTEGER_CST)
-	    constant = TREE_OPERAND (pos, 1), offset = TREE_OPERAND (pos, 0);
+	  offset = DECL_FIELD_OFFSET (field);
+	  if (host_integerp (offset, 0)
+	      && host_integerp (bit_position (field), 0))
+	    {
+	      bitpos = int_bit_position (field);
+	      offset = 0;
+	    }
 	  else
-	    offset = pos;
-
-	  if (constant)
-	    bitpos = TREE_INT_CST_LOW (constant);
-
+	    bitpos = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 0);
+			      
 	  if (offset)
 	    {
 	      rtx offset_rtx;
 
 	      if (contains_placeholder_p (offset))
-		offset = build (WITH_RECORD_EXPR, bitsizetype,
+		offset = build (WITH_RECORD_EXPR, sizetype,
 				offset, make_tree (TREE_TYPE (exp), target));
-
-	      offset = size_binop (EXACT_DIV_EXPR, offset,
-				   bitsize_int (BITS_PER_UNIT));
-	      offset = convert (sizetype, offset);
 
 	      offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, 0);
 	      if (GET_CODE (to_rtx) != MEM)
@@ -4242,6 +4269,7 @@ store_constructor (exp, target, align, cleared, size)
 				  gen_rtx_PLUS (ptr_mode, XEXP (to_rtx, 0),
 						force_reg (ptr_mode,
 							   offset_rtx)));
+	      align = DECL_OFFSET_ALIGN (field);
 	    }
 
 	  if (TREE_READONLY (field))
@@ -4257,14 +4285,13 @@ store_constructor (exp, target, align, cleared, size)
 	     start of a word, try to widen it to a full word.
 	     This special case allows us to output C++ member function
 	     initializations in a form that the optimizers can understand.  */
-	  if (constant
-	      && GET_CODE (target) == REG
+	  if (GET_CODE (target) == REG
 	      && bitsize < BITS_PER_WORD
 	      && bitpos % BITS_PER_WORD == 0
 	      && GET_MODE_CLASS (mode) == MODE_INT
 	      && TREE_CODE (value) == INTEGER_CST
-	      && GET_CODE (exp_size) == CONST_INT
-	      && bitpos + BITS_PER_WORD <= INTVAL (exp_size) * BITS_PER_UNIT)
+	      && exp_size >= 0
+	      && bitpos + BITS_PER_WORD <= exp_size * BITS_PER_UNIT)
 	    {
 	      tree type = TREE_TYPE (value);
 	      if (TYPE_PRECISION (type) < BITS_PER_WORD)
@@ -4281,10 +4308,7 @@ store_constructor (exp, target, align, cleared, size)
 	    }
 #endif
 	  store_constructor_field (to_rtx, bitsize, bitpos, mode,
-				   TREE_VALUE (elt), type, 
-				   MIN (align,
-					DECL_ALIGN (TREE_PURPOSE (elt))),
-				   cleared);
+				   TREE_VALUE (elt), type, align, cleared);
 	}
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
@@ -4315,19 +4339,21 @@ store_constructor (exp, target, align, cleared, size)
 	    {
 	      tree index = TREE_PURPOSE (elt);
 	      HOST_WIDE_INT this_node_count;
+
 	      if (index != NULL_TREE && TREE_CODE (index) == RANGE_EXPR)
 		{
 		  tree lo_index = TREE_OPERAND (index, 0);
 		  tree hi_index = TREE_OPERAND (index, 1);
 
-		  if (TREE_CODE (lo_index) != INTEGER_CST
-		      || TREE_CODE (hi_index) != INTEGER_CST)
+		  if (! host_integerp (lo_index, 1)
+		      || ! host_integerp (hi_index, 1))
 		    {
 		      need_to_clear = 1;
 		      break;
 		    }
-		  this_node_count = (TREE_INT_CST_LOW (hi_index)
-				     - TREE_INT_CST_LOW (lo_index) + 1);
+
+		  this_node_count = (tree_low_cst (hi_index, 1)
+				     - tree_low_cst (lo_index, 1) + 1);
 		}
 	      else
 		this_node_count = 1;
@@ -4344,8 +4370,7 @@ store_constructor (exp, target, align, cleared, size)
       if (need_to_clear && size > 0)
 	{
 	  if (! cleared)
-	    clear_storage (target, GEN_INT (size),
-			   (align + BITS_PER_UNIT - 1) / BITS_PER_UNIT);
+	    clear_storage (target, GEN_INT (size), align);
 	  cleared = 1;
 	}
       else
@@ -4360,8 +4385,8 @@ store_constructor (exp, target, align, cleared, size)
 	   elt = TREE_CHAIN (elt), i++)
 	{
 	  register enum machine_mode mode;
-	  int bitsize;
-	  int bitpos;
+	  HOST_WIDE_INT bitsize;
+	  HOST_WIDE_INT bitpos;
 	  int unsignedp;
 	  tree value = TREE_VALUE (elt);
 	  unsigned int align = TYPE_ALIGN (TREE_TYPE (value));
@@ -4374,13 +4399,9 @@ store_constructor (exp, target, align, cleared, size)
 	  unsignedp = TREE_UNSIGNED (elttype);
 	  mode = TYPE_MODE (elttype);
 	  if (mode == BLKmode)
-	    {
-	      if (TREE_CODE (TYPE_SIZE (elttype)) == INTEGER_CST
-		  && TREE_INT_CST_HIGH (TYPE_SIZE (elttype)) == 0)
-		bitsize = TREE_INT_CST_LOW (TYPE_SIZE (elttype));
-	      else
-		bitsize = -1;
-	    }
+	    bitsize = (host_integerp (TYPE_SIZE (elttype), 1)
+		       ? tree_low_cst (TYPE_SIZE (elttype), 1)
+		       : -1);
 	  else
 	    bitsize = GET_MODE_BITSIZE (mode);
 
@@ -4394,21 +4415,21 @@ store_constructor (exp, target, align, cleared, size)
 	      tree position;
 
 	      /* If the range is constant and "small", unroll the loop.  */
-	      if (TREE_CODE (lo_index) == INTEGER_CST
-		  && TREE_CODE (hi_index) == INTEGER_CST
-		  && (lo = TREE_INT_CST_LOW (lo_index),
-		      hi = TREE_INT_CST_LOW (hi_index),
+	      if (host_integerp (lo_index, 0)
+		  && host_integerp (hi_index, 0)
+		  && (lo = tree_low_cst (lo_index, 0),
+		      hi = tree_low_cst (hi_index, 0),
 		      count = hi - lo + 1,
 		      (GET_CODE (target) != MEM
 		       || count <= 2
-		       || (TREE_CODE (TYPE_SIZE (elttype)) == INTEGER_CST
-			   && TREE_INT_CST_LOW (TYPE_SIZE (elttype)) * count
-			   <= 40 * 8))))
+		       || (host_integerp (TYPE_SIZE (elttype), 1)
+			   && (tree_low_cst (TYPE_SIZE (elttype), 1) * count
+			       <= 40 * 8)))))
 		{
 		  lo -= minelt;  hi -= minelt;
 		  for (; lo <= hi; lo++)
 		    {
-		      bitpos = lo * TREE_INT_CST_LOW (TYPE_SIZE (elttype));
+		      bitpos = lo * tree_low_cst (TYPE_SIZE (elttype), 0);
 		      store_constructor_field (target, bitsize, bitpos, mode,
 					       value, type, align, cleared);
 		    }
@@ -4467,8 +4488,8 @@ store_constructor (exp, target, align, cleared, size)
 		  emit_label (loop_end);
 		}
 	    }
-	  else if ((index != 0 && TREE_CODE (index) != INTEGER_CST)
-	      || TREE_CODE (TYPE_SIZE (elttype)) != INTEGER_CST)
+	  else if ((index != 0 && ! host_integerp (index, 0))
+		   || ! host_integerp (TYPE_SIZE (elttype), 1))
 	    {
 	      rtx pos_rtx, addr;
 	      tree position;
@@ -4480,6 +4501,7 @@ store_constructor (exp, target, align, cleared, size)
 		index = convert (ssizetype,
 				 fold (build (MINUS_EXPR, index,
 					      TYPE_MIN_VALUE (domain))));
+
 	      position = size_binop (MULT_EXPR, index,
 				     convert (ssizetype,
 					      TYPE_SIZE_UNIT (elttype)));
@@ -4491,20 +4513,22 @@ store_constructor (exp, target, align, cleared, size)
 	  else
 	    {
 	      if (index != 0)
-		bitpos = ((TREE_INT_CST_LOW (index) - minelt)
-			  * TREE_INT_CST_LOW (TYPE_SIZE (elttype)));
+		bitpos = ((tree_low_cst (index, 0) - minelt)
+			  * tree_low_cst (TYPE_SIZE (elttype), 1));
 	      else
-		bitpos = (i * TREE_INT_CST_LOW (TYPE_SIZE (elttype)));
+		bitpos = (i * tree_low_cst (TYPE_SIZE (elttype), 1));
+
 	      store_constructor_field (target, bitsize, bitpos, mode, value,
 				       type, align, cleared);
 	    }
 	}
     }
-  /* set constructor assignments */
+
+  /* Set constructor assignments */
   else if (TREE_CODE (type) == SET_TYPE)
     {
       tree elt = CONSTRUCTOR_ELTS (exp);
-      int nbytes = int_size_in_bytes (type), nbits;
+      unsigned HOST_WIDE_INT nbytes = int_size_in_bytes (type), nbits;
       tree domain = TYPE_DOMAIN (type);
       tree domain_min, domain_max, bitlength;
 
@@ -4522,8 +4546,7 @@ store_constructor (exp, target, align, cleared, size)
       if (elt == NULL_TREE && size > 0)
 	{
 	  if (!cleared)
-	    clear_storage (target, GEN_INT (size),
-			   TYPE_ALIGN (type) / BITS_PER_UNIT);
+	    clear_storage (target, GEN_INT (size), TYPE_ALIGN (type));
 	  return;
 	}
 
@@ -4533,9 +4556,7 @@ store_constructor (exp, target, align, cleared, size)
 			      size_diffop (domain_max, domain_min),
 			      ssize_int (1));
 
-      if (nbytes < 0 || TREE_CODE (bitlength) != INTEGER_CST)
-	abort ();
-      nbits = TREE_INT_CST_LOW (bitlength);
+      nbits = tree_low_cst (bitlength, 1);
 
       /* For "small" sets, or "medium-sized" (up to 32 bytes) sets that
 	 are "complicated" (more than one range), initialize (the
@@ -4543,13 +4564,14 @@ store_constructor (exp, target, align, cleared, size)
       if (GET_MODE (target) != BLKmode || nbits <= 2 * BITS_PER_WORD
 	  || (nbytes <= 32 && TREE_CHAIN (elt) != NULL_TREE))
 	{
-	  int set_word_size = TYPE_ALIGN (TREE_TYPE (exp));
+	  unsigned int set_word_size = TYPE_ALIGN (TREE_TYPE (exp));
 	  enum machine_mode mode = mode_for_size (set_word_size, MODE_INT, 1);
 	  char *bit_buffer = (char *) alloca (nbits);
 	  HOST_WIDE_INT word = 0;
-	  int bit_pos = 0;
-	  int ibit = 0;
-	  int offset = 0;  /* In bytes from beginning of set.  */
+	  unsigned int bit_pos = 0;
+	  unsigned int ibit = 0;
+	  unsigned int offset = 0;  /* In bytes from beginning of set.  */
+
 	  elt = get_set_constructor_bits (exp, bit_buffer, nbits);
 	  for (;;)
 	    {
@@ -4560,6 +4582,7 @@ store_constructor (exp, target, align, cleared, size)
 		  else
 		    word |= 1 << bit_pos;
 		}
+
 	      bit_pos++;  ibit++;
 	      if (bit_pos >= set_word_size || ibit == nbits)
 		{
@@ -4567,6 +4590,7 @@ store_constructor (exp, target, align, cleared, size)
 		    {
 		      rtx datum = GEN_INT (word);
 		      rtx to_rtx;
+
 		      /* The assumption here is that it is safe to use
 			 XEXP if the set is multi-word, but not if
 			 it's single-word.  */
@@ -4581,6 +4605,7 @@ store_constructor (exp, target, align, cleared, size)
 			abort ();
 		      emit_move_insn (to_rtx, datum);
 		    }
+
 		  if (ibit == nbits)
 		    break;
 		  word = 0;
@@ -4590,19 +4615,16 @@ store_constructor (exp, target, align, cleared, size)
 	    }
 	}
       else if (!cleared)
-	{
-	  /* Don't bother clearing storage if the set is all ones.  */
-	  if (TREE_CHAIN (elt) != NULL_TREE
-	      || (TREE_PURPOSE (elt) == NULL_TREE
-		  ? nbits != 1
-		  : (TREE_CODE (TREE_VALUE (elt)) != INTEGER_CST
-		     || TREE_CODE (TREE_PURPOSE (elt)) != INTEGER_CST
-		     || ((HOST_WIDE_INT) TREE_INT_CST_LOW (TREE_VALUE (elt))
-			 - (HOST_WIDE_INT) TREE_INT_CST_LOW (TREE_PURPOSE (elt)) + 1
-			 != nbits))))
-	    clear_storage (target, expr_size (exp),
-			   TYPE_ALIGN (type) / BITS_PER_UNIT);
-	}
+	/* Don't bother clearing storage if the set is all ones.  */
+	if (TREE_CHAIN (elt) != NULL_TREE
+	    || (TREE_PURPOSE (elt) == NULL_TREE
+		? nbits != 1
+		: ( ! host_integerp (TREE_VALUE (elt), 0)
+		   || ! host_integerp (TREE_PURPOSE (elt), 0)
+		   || (tree_low_cst (TREE_VALUE (elt), 0)
+		       - tree_low_cst (TREE_PURPOSE (elt), 0) + 1
+		       != (HOST_WIDE_INT) nbits))))
+	  clear_storage (target, expr_size (exp), TYPE_ALIGN (type));
 	  
       for (; elt != NULL_TREE; elt = TREE_CHAIN (elt))
 	{
@@ -4613,10 +4635,10 @@ store_constructor (exp, target, align, cleared, size)
 #ifdef TARGET_MEM_FUNCTIONS
 	  HOST_WIDE_INT startb, endb;
 #endif
-	  rtx  bitlength_rtx, startbit_rtx, endbit_rtx, targetx;
+	  rtx bitlength_rtx, startbit_rtx, endbit_rtx, targetx;
 
 	  bitlength_rtx = expand_expr (bitlength,
-			    NULL_RTX, MEM, EXPAND_CONST_ADDRESS);
+				       NULL_RTX, MEM, EXPAND_CONST_ADDRESS);
 
 	  /* handle non-range tuple element like [ expr ]  */
 	  if (startbit == NULL_TREE)
@@ -4624,6 +4646,7 @@ store_constructor (exp, target, align, cleared, size)
 	      startbit = save_expr (endbit);
 	      endbit = startbit;
 	    }
+
 	  startbit = convert (sizetype, startbit);
 	  endbit = convert (sizetype, endbit);
 	  if (! integer_zerop (domain_min))
@@ -4643,6 +4666,7 @@ store_constructor (exp, target, align, cleared, size)
 					   0);
 	      emit_move_insn (targetx, target);
 	    }
+
 	  else if (GET_CODE (target) == MEM)
 	    targetx = target;
 	  else
@@ -4668,13 +4692,12 @@ store_constructor (exp, target, align, cleared, size)
 	    }
 	  else
 #endif
-	    {
-	      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__setbits"),
-				 0, VOIDmode, 4, XEXP (targetx, 0), Pmode,
-				 bitlength_rtx, TYPE_MODE (sizetype),
-				 startbit_rtx, TYPE_MODE (sizetype),
-				 endbit_rtx, TYPE_MODE (sizetype));
-	    }
+	    emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__setbits"),
+			       0, VOIDmode, 4, XEXP (targetx, 0), Pmode,
+			       bitlength_rtx, TYPE_MODE (sizetype),
+			       startbit_rtx, TYPE_MODE (sizetype),
+			       endbit_rtx, TYPE_MODE (sizetype));
+
 	  if (REG_P (target))
 	    emit_move_insn (target, targetx);
 	}
@@ -4696,7 +4719,7 @@ store_constructor (exp, target, align, cleared, size)
    has mode VALUE_MODE if that is convenient to do.
    In this case, UNSIGNEDP must be nonzero if the value is an unsigned type.
 
-   ALIGN is the alignment that TARGET is known to have, measured in bytes.
+   ALIGN is the alignment that TARGET is known to have.
    TOTAL_SIZE is the size in bytes of the structure, or -1 if varying.  
 
    ALIAS_SET is the alias set for the destination.  This value will
@@ -4707,13 +4730,14 @@ static rtx
 store_field (target, bitsize, bitpos, mode, exp, value_mode,
 	     unsignedp, align, total_size, alias_set)
      rtx target;
-     int bitsize, bitpos;
+     HOST_WIDE_INT bitsize;
+     HOST_WIDE_INT bitpos;
      enum machine_mode mode;
      tree exp;
      enum machine_mode value_mode;
      int unsignedp;
      unsigned int align;
-     int total_size;
+     HOST_WIDE_INT total_size;
      int alias_set;
 {
   HOST_WIDE_INT width_mask = 0;
@@ -4781,10 +4805,10 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode,
       /* If the field isn't aligned enough to store as an ordinary memref,
 	 store it as a bit field.  */
       || (mode != BLKmode && SLOW_UNALIGNED_ACCESS (mode, align)
-	  && (align * BITS_PER_UNIT < GET_MODE_ALIGNMENT (mode)
+	  && (align < GET_MODE_ALIGNMENT (mode)
 	      || bitpos % GET_MODE_ALIGNMENT (mode)))
       || (mode == BLKmode && SLOW_UNALIGNED_ACCESS (mode, align)
-	  && (TYPE_ALIGN (TREE_TYPE (exp)) > align * BITS_PER_UNIT
+	  && (TYPE_ALIGN (TREE_TYPE (exp)) > align
 	      || bitpos % TYPE_ALIGN (TREE_TYPE (exp)) != 0))
       /* If the RHS and field are a constant size and the size of the
 	 RHS isn't the same size as the bitfield, we must use bitfield
@@ -4818,7 +4842,7 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode,
 	 boundary.  If so, we simply do a block copy.  */
       if (GET_MODE (target) == BLKmode && GET_MODE (temp) == BLKmode)
 	{
-	  unsigned int exp_align = expr_align (exp) / BITS_PER_UNIT;
+	  unsigned int exp_align = expr_align (exp);
 
 	  if (GET_CODE (target) != MEM || GET_CODE (temp) != MEM
 	      || bitpos % BITS_PER_UNIT != 0)
@@ -4832,7 +4856,7 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode,
 	  align = MIN (exp_align, align);
 
 	  /* Find an alignment that is consistent with the bit position.  */
-	  while ((bitpos % (align * BITS_PER_UNIT)) != 0)
+	  while ((bitpos % align) != 0)
 	    align >>= 1;
 
 	  emit_block_move (target, temp,
@@ -4910,7 +4934,7 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode,
    giving the variable offset (in units) in *POFFSET.
    This offset is in addition to the bit position.
    If the position is not variable, we store 0 in *POFFSET.
-   We set *PALIGNMENT to the alignment in bytes of the address that will be
+   We set *PALIGNMENT to the alignment of the address that will be
    computed.  This is the alignment of the thing we return if *POFFSET
    is zero, but can be more less strictly aligned if *POFFSET is nonzero.
 
@@ -4929,25 +4953,29 @@ tree
 get_inner_reference (exp, pbitsize, pbitpos, poffset, pmode,
 		     punsignedp, pvolatilep, palignment)
      tree exp;
-     int *pbitsize;
-     int *pbitpos;
+     HOST_WIDE_INT *pbitsize;
+     HOST_WIDE_INT *pbitpos;
      tree *poffset;
      enum machine_mode *pmode;
      int *punsignedp;
      int *pvolatilep;
      unsigned int *palignment;
 {
-  tree orig_exp = exp;
   tree size_tree = 0;
   enum machine_mode mode = VOIDmode;
   tree offset = size_zero_node;
+  tree bit_offset = bitsize_zero_node;
   unsigned int alignment = BIGGEST_ALIGNMENT;
+  tree tem;
 
+  /* First get the mode, signedness, and size.  We do this from just the
+     outermost expression.  */
   if (TREE_CODE (exp) == COMPONENT_REF)
     {
       size_tree = DECL_SIZE (TREE_OPERAND (exp, 1));
       if (! DECL_BIT_FIELD (TREE_OPERAND (exp, 1)))
 	mode = DECL_MODE (TREE_OPERAND (exp, 1));
+
       *punsignedp = TREE_UNSIGNED (TREE_OPERAND (exp, 1));
     }
   else if (TREE_CODE (exp) == BIT_FIELD_REF)
@@ -4958,122 +4986,71 @@ get_inner_reference (exp, pbitsize, pbitpos, poffset, pmode,
   else
     {
       mode = TYPE_MODE (TREE_TYPE (exp));
+      *punsignedp = TREE_UNSIGNED (TREE_TYPE (exp));
+
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (TREE_TYPE (exp));
-
-      *pbitsize = GET_MODE_BITSIZE (mode);
-      *punsignedp = TREE_UNSIGNED (TREE_TYPE (exp));
+      else
+	*pbitsize = GET_MODE_BITSIZE (mode);
     }
       
-  if (size_tree)
+  if (size_tree != 0)
     {
-      if (TREE_CODE (size_tree) != INTEGER_CST)
+      if (! host_integerp (size_tree, 1))
 	mode = BLKmode, *pbitsize = -1;
       else
-	*pbitsize = TREE_INT_CST_LOW (size_tree);
+	*pbitsize = tree_low_cst (size_tree, 1);
     }
 
   /* Compute cumulative bit-offset for nested component-refs and array-refs,
      and find the ultimate containing object.  */
-
-  *pbitpos = 0;
-
   while (1)
     {
-      if (TREE_CODE (exp) == COMPONENT_REF || TREE_CODE (exp) == BIT_FIELD_REF)
+      if (TREE_CODE (exp) == BIT_FIELD_REF)
+	bit_offset = size_binop (PLUS_EXPR, bit_offset, TREE_OPERAND (exp, 2));
+      else if (TREE_CODE (exp) == COMPONENT_REF)
 	{
-	  tree pos = (TREE_CODE (exp) == COMPONENT_REF
-		      ? DECL_FIELD_BITPOS (TREE_OPERAND (exp, 1))
-		      : TREE_OPERAND (exp, 2));
-	  tree constant = bitsize_int (0), var = pos;
+	  tree field = TREE_OPERAND (exp, 1);
+	  tree this_offset = DECL_FIELD_OFFSET (field);
 
 	  /* If this field hasn't been filled in yet, don't go
 	     past it.  This should only happen when folding expressions
 	     made during type construction.  */
-	  if (pos == 0)
+	  if (this_offset == 0)
 	    break;
+	  else if (! TREE_CONSTANT (this_offset)
+		   && contains_placeholder_p (this_offset))
+	    this_offset = build (WITH_RECORD_EXPR, sizetype, this_offset, exp);
 
-	  /* Assume here that the offset is a multiple of a unit.
-	     If not, there should be an explicitly added constant.  */
-	  if (TREE_CODE (pos) == PLUS_EXPR
-	      && TREE_CODE (TREE_OPERAND (pos, 1)) == INTEGER_CST)
-	    constant = TREE_OPERAND (pos, 1), var = TREE_OPERAND (pos, 0);
-	  else if (TREE_CODE (pos) == INTEGER_CST)
-	    constant = pos, var = bitsize_int (0);
+	  offset = size_binop (PLUS_EXPR, offset, DECL_FIELD_OFFSET (field));
+	  bit_offset = size_binop (PLUS_EXPR, bit_offset,
+				   DECL_FIELD_BIT_OFFSET (field));
 
-	  *pbitpos += TREE_INT_CST_LOW (constant);
-	  offset
-	    = size_binop (PLUS_EXPR, offset,
-			  convert (sizetype,
-				   size_binop (EXACT_DIV_EXPR, var,
-					       bitsize_int (BITS_PER_UNIT))));
+	  if (! host_integerp (offset, 0))
+	    alignment = MIN (alignment, DECL_OFFSET_ALIGN (field));
 	}
-
       else if (TREE_CODE (exp) == ARRAY_REF)
 	{
-	  /* This code is based on the code in case ARRAY_REF in expand_expr
-	     below.  We assume here that the size of an array element is
-	     always an integral multiple of BITS_PER_UNIT.  */
-
 	  tree index = TREE_OPERAND (exp, 1);
 	  tree domain = TYPE_DOMAIN (TREE_TYPE (TREE_OPERAND (exp, 0)));
-	  tree low_bound
-	    = domain ? TYPE_MIN_VALUE (domain) : integer_zero_node;
-	  tree index_type = TREE_TYPE (index);
-	  tree xindex;
+	  tree low_bound = (domain ? TYPE_MIN_VALUE (domain) : 0);
 
-	  if (TYPE_PRECISION (index_type) != TYPE_PRECISION (sizetype))
-	    {
-	      index = convert (type_for_size (TYPE_PRECISION (sizetype), 0),
-			       index);
-	      index_type = TREE_TYPE (index);
-	    }
+	  /* We assume all arrays have sizes that are a multiple of a byte.
+	     First subtract the lower bound, if any, in the type of the
+	     index, then convert to sizetype and multiply by the size of the
+	     array element.  */
+	  if (low_bound != 0 && ! integer_zerop (low_bound))
+	    index = fold (build (MINUS_EXPR, TREE_TYPE (index),
+				 index, low_bound));
 
-	  /* Optimize the special-case of a zero lower bound.
-	     
-	     We convert the low_bound to sizetype to avoid some problems
-	     with constant folding.  (E.g. suppose the lower bound is 1,
-	     and its mode is QI.  Without the conversion,  (ARRAY
-	     +(INDEX-(unsigned char)1)) becomes ((ARRAY+(-(unsigned char)1))
-	     +INDEX), which becomes (ARRAY+255+INDEX).  Oops!)
-	     
-	     But sizetype isn't quite right either (especially if
-	     the lowbound is negative).  FIXME */
+	  if (! TREE_CONSTANT (index)
+	      && contains_placeholder_p (index))
+	    index = build (WITH_RECORD_EXPR, TREE_TYPE (index), index, exp);
 
-	  if (! integer_zerop (low_bound))
-	    index = fold (build (MINUS_EXPR, index_type, index,
-				 convert (sizetype, low_bound)));
-
-	  if (TREE_CODE (index) == INTEGER_CST)
-	    {
-	      index = convert (sbitsizetype, index);
-	      index_type = TREE_TYPE (index);
-	    }
-
-	  xindex = fold (build (MULT_EXPR, sbitsizetype, index,
-			        convert (sbitsizetype,
-					 TYPE_SIZE (TREE_TYPE (exp)))));
-
-	  if (TREE_CODE (xindex) == INTEGER_CST
-	      && TREE_INT_CST_HIGH (xindex) == 0)
-	    *pbitpos += TREE_INT_CST_LOW (xindex);
-	  else
-	    {
-	      /* Either the bit offset calculated above is not constant, or
-		 it overflowed.  In either case, redo the multiplication
-		 against the size in units.  This is especially important
-		 in the non-constant case to avoid a division at runtime.  */
-	      xindex
-		= fold (build (MULT_EXPR, ssizetype, index,
-			       convert (ssizetype,
-					TYPE_SIZE_UNIT (TREE_TYPE (exp)))));
-
-	      if (contains_placeholder_p (xindex))
-		xindex = build (WITH_RECORD_EXPR, ssizetype, xindex, exp);
-
-	      offset
-		= size_binop (PLUS_EXPR, offset, convert (sizetype, xindex));
-	    }
+	  offset = size_binop (PLUS_EXPR, offset,
+			       size_binop (MULT_EXPR,
+					   convert (sizetype, index),
+					   TYPE_SIZE_UNIT (TREE_TYPE (exp))));
 	}
       else if (TREE_CODE (exp) != NON_LVALUE_EXPR
 	       && ! ((TREE_CODE (exp) == NOP_EXPR
@@ -5088,7 +5065,7 @@ get_inner_reference (exp, pbitsize, pbitpos, poffset, pmode,
 
       /* If the offset is non-constant already, then we can't assume any
 	 alignment more than the alignment here.  */
-      if (! integer_zerop (offset))
+      if (! TREE_CONSTANT (offset))
 	alignment = MIN (alignment, TYPE_ALIGN (TREE_TYPE (exp)));
 
       exp = TREE_OPERAND (exp, 0);
@@ -5099,19 +5076,24 @@ get_inner_reference (exp, pbitsize, pbitpos, poffset, pmode,
   else if (TREE_TYPE (exp) != 0)
     alignment = MIN (alignment, TYPE_ALIGN (TREE_TYPE (exp)));
 
-  if (integer_zerop (offset))
-    offset = 0;
-
-  if (offset != 0 && contains_placeholder_p (offset))
-    offset = build (WITH_RECORD_EXPR, sizetype, offset, orig_exp);
+  /* If OFFSET is constant, see if we can return the whole thing as a
+     constant bit position.  Otherwise, split it up.  */
+  if (host_integerp (offset, 0)
+      && 0 != (tem = size_binop (MULT_EXPR, convert (bitsizetype, offset),
+				 bitsize_unit_node))
+      && 0 != (tem = size_binop (PLUS_EXPR, tem, bit_offset))
+      && host_integerp (tem, 0))
+    *pbitpos = tree_low_cst (tem, 0), *poffset = 0;
+  else
+    *pbitpos = tree_low_cst (bit_offset, 0), *poffset = offset;
 
   *pmode = mode;
-  *poffset = offset;
-  *palignment = alignment / BITS_PER_UNIT;
+  *palignment = alignment;
   return exp;
 }
 
 /* Subroutine of expand_exp: compute memory_usage from modifier.  */
+
 static enum memory_use_mode
 get_memory_usage_from_modifier (modifier)
      enum expand_modifier modifier;
@@ -5990,8 +5972,7 @@ expand_expr (exp, target, tmode, modifier)
       if (temp != 0)
 	{
 	  if (GET_CODE (temp) == MEM && GET_CODE (XEXP (temp, 0)) == REG)
-	    mark_reg_pointer (XEXP (temp, 0),
-			      DECL_ALIGN (exp) / BITS_PER_UNIT);
+	    mark_reg_pointer (XEXP (temp, 0), DECL_ALIGN (exp));
 
 	  return temp;
 	}
@@ -6343,15 +6324,15 @@ expand_expr (exp, target, tmode, modifier)
 		&& ((mode == BLKmode
 		     && ! (target != 0 && safe_from_p (target, exp, 1)))
 		    || TREE_ADDRESSABLE (exp)
-		    || (TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
-			&& TREE_INT_CST_HIGH (TYPE_SIZE_UNIT (type)) == 0
+		    || (host_integerp (TYPE_SIZE_UNIT (type), 1)
 			&& (! MOVE_BY_PIECES_P 
-			    (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (type)),
-			     TYPE_ALIGN (type) / BITS_PER_UNIT))
+			    (tree_low_cst (TYPE_SIZE_UNIT (type), 1),
+			     TYPE_ALIGN (type)))
 			&& ! mostly_zeros_p (exp))))
 	       || (modifier == EXPAND_INITIALIZER && TREE_CONSTANT (exp)))
 	{
 	  rtx constructor = output_constant_def (exp);
+
 	  if (modifier != EXPAND_CONST_ADDRESS
 	      && modifier != EXPAND_INITIALIZER
 	      && modifier != EXPAND_SUM
@@ -6615,8 +6596,7 @@ expand_expr (exp, target, tmode, modifier)
 
       {
 	enum machine_mode mode1;
-	int bitsize;
-	int bitpos;
+	HOST_WIDE_INT bitsize, bitpos;
 	tree offset;
 	int volatilep = 0;
 	unsigned int alignment;
@@ -6694,7 +6674,7 @@ expand_expr (exp, target, tmode, modifier)
 		&& bitsize != 0
 		&& (bitpos % bitsize) == 0 
 		&& (bitsize % GET_MODE_ALIGNMENT (mode1)) == 0
-		&& (alignment * BITS_PER_UNIT) == GET_MODE_ALIGNMENT (mode1))
+		&& alignment == GET_MODE_ALIGNMENT (mode1))
 	      {
 		rtx temp = change_address (op0, mode1,
 					   plus_constant (XEXP (op0, 0),
@@ -6768,7 +6748,7 @@ expand_expr (exp, target, tmode, modifier)
 		    || (mode1 != BLKmode
 			&& SLOW_UNALIGNED_ACCESS (mode1, alignment)
 			&& ((TYPE_ALIGN (TREE_TYPE (tem))
-			     < (unsigned int) GET_MODE_ALIGNMENT (mode))
+			     < GET_MODE_ALIGNMENT (mode))
 			    || (bitpos % GET_MODE_ALIGNMENT (mode) != 0)))
 		    /* If the type and the field are a constant size and the
 		       size of the type isn't the same size as the bitfield,
@@ -6782,7 +6762,7 @@ expand_expr (exp, target, tmode, modifier)
 		&& modifier != EXPAND_INITIALIZER
 		&& mode == BLKmode
 		&& SLOW_UNALIGNED_ACCESS (mode, alignment)
-		&& (TYPE_ALIGN (type) > alignment * BITS_PER_UNIT
+		&& (TYPE_ALIGN (type) > alignment
 		    || bitpos % TYPE_ALIGN (type) != 0)))
 	  {
 	    enum machine_mode ext_mode = mode;
@@ -6811,7 +6791,7 @@ expand_expr (exp, target, tmode, modifier)
 		emit_block_move (target, op0,
 				 GEN_INT ((bitsize + BITS_PER_UNIT - 1)
 					  / BITS_PER_UNIT),
-				 1);
+				 BITS_PER_UNIT);
 		
 		return target;
 	      }
@@ -8296,7 +8276,7 @@ expand_expr (exp, target, tmode, modifier)
 
       if (GET_CODE (op0) == REG
 	  && ! REG_USERVAR_P (op0))
-	mark_reg_pointer (op0, TYPE_ALIGN (TREE_TYPE (type)) / BITS_PER_UNIT);
+	mark_reg_pointer (op0, TYPE_ALIGN (TREE_TYPE (type)));
 
       /* If we might have had a temp slot, add an equivalent address
 	 for it.  */
@@ -8616,8 +8596,7 @@ expand_expr_unaligned (exp, palign)
 
       {
 	enum machine_mode mode1;
-	int bitsize;
-	int bitpos;
+	HOST_WIDE_INT bitsize, bitpos;
 	tree offset;
 	int volatilep = 0;
 	unsigned int alignment;
@@ -8719,7 +8698,7 @@ expand_expr_unaligned (exp, palign)
 	if (mode1 == VOIDmode
 	    || GET_CODE (op0) == REG || GET_CODE (op0) == SUBREG
 	    || (SLOW_UNALIGNED_ACCESS (mode1, alignment)
-		&& (TYPE_ALIGN (type) > alignment * BITS_PER_UNIT
+		&& (TYPE_ALIGN (type) > alignment
 		    || bitpos % TYPE_ALIGN (type) != 0)))
 	  {
 	    enum machine_mode ext_mode = mode_for_size (bitsize, MODE_INT, 1);
@@ -9146,7 +9125,10 @@ clear_pending_stack_adjust ()
       && EXIT_IGNORE_STACK
       && ! (DECL_INLINE (current_function_decl) && ! flag_no_inline)
       && ! flag_inline_functions)
-    pending_stack_adjust = 0;
+    {
+      stack_pointer_delta -= pending_stack_adjust,
+      pending_stack_adjust = 0;
+    }
 #endif
 }
 
@@ -9350,7 +9332,8 @@ do_jump (exp, if_false_label, if_true_label)
     case BIT_FIELD_REF:
     case ARRAY_REF:
       {
-	int bitsize, bitpos, unsignedp;
+	HOST_WIDE_INT bitsize, bitpos;
+	int unsignedp;
 	enum machine_mode mode;
 	tree type;
 	tree offset;
@@ -9359,9 +9342,8 @@ do_jump (exp, if_false_label, if_true_label)
 
 	/* Get description of this reference.  We don't actually care
 	   about the underlying object here.  */
-	get_inner_reference (exp, &bitsize, &bitpos, &offset,
-			     &mode, &unsignedp, &volatilep,
-			     &alignment);
+	get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode,
+			     &unsignedp, &volatilep, &alignment);
 
 	type = type_for_size (bitsize, unsignedp);
 	if (! SLOW_BYTE_ACCESS
@@ -10046,7 +10028,7 @@ do_compare_and_jump (exp, signed_code, unsigned_code, if_false_label,
   do_compare_rtx_and_jump (op0, op1, code, unsignedp, mode,
 			   ((mode == BLKmode)
 			    ? expr_size (TREE_OPERAND (exp, 0)) : NULL_RTX),
-			   MIN (align0, align1) / BITS_PER_UNIT,
+			   MIN (align0, align1),
 			   if_false_label, if_true_label);
 }
 

@@ -80,6 +80,10 @@ Boston, MA 02111-1307, USA.  */
 
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
 
+#ifndef ACCUMULATE_OUTGOING_ARGS
+#define ACCUMULATE_OUTGOING_ARGS 0
+#endif
+
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
 #endif
@@ -1970,8 +1974,7 @@ final (first, file, optimize, prescan)
 	  max_line = NOTE_LINE_NUMBER (insn);
     }
 
-  line_note_exists = (char *) oballoc (max_line + 1);
-  bzero (line_note_exists, max_line + 1);
+  line_note_exists = (char *) xcalloc (max_line + 1, sizeof (char));
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
@@ -2016,6 +2019,8 @@ final (first, file, optimize, prescan)
     add_bb (file);
 
   free_insn_eh_region ();
+  free (line_note_exists);
+  line_note_exists = NULL;
 }
 
 const char *
@@ -2279,10 +2284,10 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
       break;
 
     case BARRIER:
-#if defined (DWARF2_UNWIND_INFO) && !defined (ACCUMULATE_OUTGOING_ARGS)
+#if defined (DWARF2_UNWIND_INFO)
 	/* If we push arguments, we need to check all insns for stack
 	   adjustments.  */
-	if (dwarf2out_do_frame ())
+	if (!ACCUMULATE_OUTGOING_ARGS && dwarf2out_do_frame ())
 	  dwarf2out_frame_debug (insn);
 #endif
       break;
@@ -2885,9 +2890,10 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
 	debug_insn = insn;
 
-#if defined (DWARF2_UNWIND_INFO) && !defined (ACCUMULATE_OUTGOING_ARGS)
+#if defined (DWARF2_UNWIND_INFO)
 	/* If we push arguments, we want to know where the calls are.  */
-	if (GET_CODE (insn) == CALL_INSN && dwarf2out_do_frame ())
+	if (!ACCUMULATE_OUTGOING_ARGS && GET_CODE (insn) == CALL_INSN
+	    && dwarf2out_do_frame ())
 	  dwarf2out_frame_debug (insn);
 #endif
 
@@ -2934,19 +2940,22 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	output_asm_insn (template, recog_data.operand);
 
 #if defined (DWARF2_UNWIND_INFO)
-#if !defined (ACCUMULATE_OUTGOING_ARGS)
 	/* If we push arguments, we need to check all insns for stack
 	   adjustments.  */
-	if (GET_CODE (insn) == INSN && dwarf2out_do_frame ())
-	  dwarf2out_frame_debug (insn);
-#else
+	if (!ACCUMULATE_OUTGOING_ARGS)
+	  {
+	    if (GET_CODE (insn) == INSN && dwarf2out_do_frame ())
+	      dwarf2out_frame_debug (insn);
+	  }
+	else
+	  {
 #if defined (HAVE_prologue)
-	/* If this insn is part of the prologue, emit DWARF v2
-	   call frame info.  */
-	if (RTX_FRAME_RELATED_P (insn) && dwarf2out_do_frame ())
-	  dwarf2out_frame_debug (insn);
+	    /* If this insn is part of the prologue, emit DWARF v2
+	       call frame info.  */
+	    if (RTX_FRAME_RELATED_P (insn) && dwarf2out_do_frame ())
+	      dwarf2out_frame_debug (insn);
 #endif
-#endif
+	  }
 #endif
 
 #if 0

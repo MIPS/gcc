@@ -429,6 +429,11 @@ reg_referenced_p (x, body)
 	  return 1;
       return 0;
 
+    case COND_EXEC:
+      if (reg_overlap_mentioned_p (x, COND_EXEC_TEST (body)))
+	return 1;
+      return reg_referenced_p (x, COND_EXEC_CODE (body));
+
     default:
       return 0;
     }
@@ -824,13 +829,14 @@ find_last_value (x, pinsn, valid_to, allow_hwreg)
 
 int
 refers_to_regno_p (regno, endregno, x, loc)
-     int regno, endregno;
+     unsigned int regno, endregno;
      rtx x;
      rtx *loc;
 {
-  register int i;
-  register RTX_CODE code;
-  register const char *fmt;
+  int i;
+  unsigned int x_regno;
+  RTX_CODE code;
+  const char *fmt;
 
  repeat:
   /* The contents of a REG_NONNEG note is always zero, so we must come here
@@ -843,22 +849,22 @@ refers_to_regno_p (regno, endregno, x, loc)
   switch (code)
     {
     case REG:
-      i = REGNO (x);
+      x_regno = REGNO (x);
 
       /* If we modifying the stack, frame, or argument pointer, it will
 	 clobber a virtual register.  In fact, we could be more precise,
 	 but it isn't worth it.  */
-      if ((i == STACK_POINTER_REGNUM
+      if ((x_regno == STACK_POINTER_REGNUM
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	   || i == ARG_POINTER_REGNUM
+	   || x_regno == ARG_POINTER_REGNUM
 #endif
-	   || i == FRAME_POINTER_REGNUM)
+	   || x_regno == FRAME_POINTER_REGNUM)
 	  && regno >= FIRST_VIRTUAL_REGISTER && regno <= LAST_VIRTUAL_REGISTER)
 	return 1;
 
-      return (endregno > i
-	      && regno < i + (i < FIRST_PSEUDO_REGISTER 
-			      ? HARD_REGNO_NREGS (i, GET_MODE (x))
+      return (endregno > x_regno
+	      && regno < x_regno + (x_regno < FIRST_PSEUDO_REGISTER 
+				    ? HARD_REGNO_NREGS (x_regno, GET_MODE (x))
 			      : 1));
 
     case SUBREG:
@@ -867,8 +873,8 @@ refers_to_regno_p (regno, endregno, x, loc)
       if (GET_CODE (SUBREG_REG (x)) == REG
 	  && REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER)
 	{
-	  int inner_regno = REGNO (SUBREG_REG (x)) + SUBREG_WORD (x);
-	  int inner_endregno
+	  unsigned int inner_regno = REGNO (SUBREG_REG (x)) + SUBREG_WORD (x);
+	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
 			     ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
 
@@ -939,7 +945,7 @@ int
 reg_overlap_mentioned_p (x, in)
      rtx x, in;
 {
-  int regno, endregno;
+  unsigned int regno, endregno;
 
   /* Overly conservative.  */
   if (GET_CODE (x) == STRICT_LOW_PART)
@@ -948,59 +954,68 @@ reg_overlap_mentioned_p (x, in)
   /* If either argument is a constant, then modifying X can not affect IN.  */
   if (CONSTANT_P (x) || CONSTANT_P (in))
     return 0;
-  else if (GET_CODE (x) == SUBREG)
+
+  switch (GET_CODE (x))
     {
+    case SUBREG:
       regno = REGNO (SUBREG_REG (x));
       if (regno < FIRST_PSEUDO_REGISTER)
 	regno += SUBREG_WORD (x);
-    }
-  else if (GET_CODE (x) == REG)
-    regno = REGNO (x);
-  else if (GET_CODE (x) == MEM)
-    {
-      const char *fmt;
-      int i;
+      goto do_reg;
 
-      if (GET_CODE (in) == MEM)
-	return 1;
+    case REG:
+      regno = REGNO (x);
+    do_reg:
+      endregno = regno + (regno < FIRST_PSEUDO_REGISTER
+			  ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
+      return refers_to_regno_p (regno, endregno, in, NULL_PTR);
 
-      fmt = GET_RTX_FORMAT (GET_CODE (in));
+    case MEM:
+      {
+	const char *fmt;
+	int i;
 
-      for (i = GET_RTX_LENGTH (GET_CODE (in)) - 1; i >= 0; i--)
-	if (fmt[i] == 'e' && reg_overlap_mentioned_p (x, XEXP (in, i)))
+	if (GET_CODE (in) == MEM)
 	  return 1;
 
-      return 0;
+	fmt = GET_RTX_FORMAT (GET_CODE (in));
+	for (i = GET_RTX_LENGTH (GET_CODE (in)) - 1; i >= 0; i--)
+	  if (fmt[i] == 'e' && reg_overlap_mentioned_p (x, XEXP (in, i)))
+	    return 1;
+
+	return 0;
+      }
+
+    case SCRATCH:
+    case PC:
+    case CC0:
+      return reg_mentioned_p (x, in);
+
+    case PARALLEL:
+      if (GET_MODE (x) == BLKmode)
+	{
+	  register int i;
+
+	  /* If any register in here refers to it we return true.  */
+	  for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+	    if (reg_overlap_mentioned_p (SET_DEST (XVECEXP (x, 0, i)), in))
+	      return 1;
+	  return 0;
+	}
+      break;
+
+    default:
+      break;
     }
-  else if (GET_CODE (x) == SCRATCH || GET_CODE (x) == PC
-	   || GET_CODE (x) == CC0)
-    return reg_mentioned_p (x, in);
-  else if (GET_CODE (x) == PARALLEL
-	   && GET_MODE (x) == BLKmode)
-    {
-      register int i;
 
-      /* If any register in here refers to it
-	 we return true.  */
-      for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
-	if (reg_overlap_mentioned_p (SET_DEST (XVECEXP (x, 0, i)), in))
-	  return 1;
-      return 0;
-    }
-  else
-    abort ();
-
-  endregno = regno + (regno < FIRST_PSEUDO_REGISTER
-		      ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
-
-  return refers_to_regno_p (regno, endregno, in, NULL_PTR);
+  abort ();
 }
 
 /* Used for communications between the next few functions.  */
 
 static int reg_set_last_unknown;
 static rtx reg_set_last_value;
-static int reg_set_last_first_regno, reg_set_last_last_regno;
+static unsigned int reg_set_last_first_regno, reg_set_last_last_regno;
 
 /* Called via note_stores from reg_set_last.  */
 
@@ -1010,7 +1025,7 @@ reg_set_last_1 (x, pat, data)
      rtx pat;
      void *data ATTRIBUTE_UNUSED;
 {
-  int first, last;
+  unsigned int first, last;
 
   /* If X is not a register, or is not one in the range we care
      about, ignore.  */
@@ -1107,7 +1122,9 @@ note_stores (x, fun, data)
      void (*fun) PARAMS ((rtx, rtx, void *));
      void *data;
 {
-  if ((GET_CODE (x) == SET || GET_CODE (x) == CLOBBER))
+  if (GET_CODE (x) == COND_EXEC)
+    x = COND_EXEC_CODE (x);
+  if (GET_CODE (x) == SET || GET_CODE (x) == CLOBBER)
     {
       register rtx dest = SET_DEST (x);
       while ((GET_CODE (dest) == SUBREG
@@ -1134,6 +1151,8 @@ note_stores (x, fun, data)
       for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
 	{
 	  register rtx y = XVECEXP (x, 0, i);
+	  if (GET_CODE (y) == COND_EXEC)
+	    y = COND_EXEC_CODE (y);
 	  if (GET_CODE (y) == SET || GET_CODE (y) == CLOBBER)
 	    {
 	      register rtx dest = SET_DEST (y);
@@ -1149,6 +1168,7 @@ note_stores (x, fun, data)
 		  && GET_MODE (dest) == BLKmode)
 		{
 		  register int i;
+
 		  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
 		    (*fun) (SET_DEST (XVECEXP (dest, 0, i)), y, data);
 		}
@@ -1181,8 +1201,8 @@ dead_or_set_p (insn, x)
      rtx insn;
      rtx x;
 {
-  register int regno, last_regno;
-  register int i;
+  unsigned int regno, last_regno;
+  unsigned int i;
 
   /* Can't use cc0_rtx below since this file is used by genattrtab.c.  */
   if (GET_CODE (x) == CC0)
@@ -1208,10 +1228,10 @@ dead_or_set_p (insn, x)
 int
 dead_or_set_regno_p (insn, test_regno)
      rtx insn;
-     int test_regno;
+     unsigned int test_regno;
 {
-  int regno, endregno;
-  rtx link;
+  unsigned int regno, endregno;
+  rtx link, pattern;
 
   /* See if there is a death note for something that includes
      TEST_REGNO.  */
@@ -1234,7 +1254,12 @@ dead_or_set_regno_p (insn, test_regno)
       && find_regno_fusage (insn, CLOBBER, test_regno))
     return 1;
 
-  if (GET_CODE (PATTERN (insn)) == SET)
+  pattern = PATTERN (insn);
+
+  if (GET_CODE (pattern) == COND_EXEC)
+    pattern = COND_EXEC_CODE (pattern);
+
+  if (GET_CODE (pattern) == SET)
     {
       rtx dest = SET_DEST (PATTERN (insn));
  
@@ -1257,13 +1282,16 @@ dead_or_set_regno_p (insn, test_regno)
 
       return (test_regno >= regno && test_regno < endregno);
     }
-  else if (GET_CODE (PATTERN (insn)) == PARALLEL)
+  else if (GET_CODE (pattern) == PARALLEL)
     {
       register int i;
 
-      for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
+      for (i = XVECLEN (pattern, 0) - 1; i >= 0; i--)
 	{
-	  rtx body = XVECEXP (PATTERN (insn), 0, i);
+	  rtx body = XVECEXP (pattern, 0, i);
+
+	  if (GET_CODE (body) == COND_EXEC)
+	    body = COND_EXEC_CODE (body);
 
 	  if (GET_CODE (body) == SET || GET_CODE (body) == CLOBBER)
 	    {
@@ -1323,7 +1351,7 @@ rtx
 find_regno_note (insn, kind, regno)
      rtx insn;
      enum reg_note kind;
-     int regno;
+     unsigned int regno;
 {
   register rtx link;
 
@@ -1376,15 +1404,16 @@ find_reg_fusage (insn, code, datum)
     }
   else
     {
-      register int regno = REGNO (datum);
+      unsigned int regno = REGNO (datum);
 
       /* CALL_INSN_FUNCTION_USAGE information cannot contain references
 	 to pseudo registers, so don't bother checking.  */
 
       if (regno < FIRST_PSEUDO_REGISTER)
         {
-	  int end_regno = regno + HARD_REGNO_NREGS (regno, GET_MODE (datum));
-	  int i;
+	  unsigned int end_regno
+	    = regno + HARD_REGNO_NREGS (regno, GET_MODE (datum));
+	  unsigned int i;
 
 	  for (i = regno; i < end_regno; i++)
 	    if (find_regno_fusage (insn, code, i))
@@ -1402,7 +1431,7 @@ int
 find_regno_fusage (insn, code, regno)
      rtx insn;
      enum rtx_code code;
-     int regno;
+     unsigned int regno;
 {
   register rtx link;
 
@@ -1415,8 +1444,8 @@ find_regno_fusage (insn, code, regno)
 
   for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
     {
-      register int regnote;
-      register rtx op, reg;
+      unsigned int regnote;
+      rtx op, reg;
 
       if (GET_CODE (op = XEXP (link, 0)) == code
 	  && GET_CODE (reg = XEXP (op, 0)) == REG
@@ -1889,7 +1918,7 @@ rtx
 replace_regs (x, reg_map, nregs, replace_dest)
      rtx x;
      rtx *reg_map;
-     int nregs;
+     unsigned int nregs;
      int replace_dest;
 {
   register enum rtx_code code;
@@ -2165,7 +2194,7 @@ for_each_rtx (x, f, data)
 
 rtx
 regno_use_in (regno, x)
-     int regno;
+     unsigned int regno;
      rtx x;
 {
   register const char *fmt;

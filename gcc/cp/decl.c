@@ -4051,12 +4051,12 @@ pushdecl (x)
 	  if (oldlocal)
 	    {
 	      tree d = oldlocal;
+
 	      while (oldlocal
 		     && TREE_CODE (oldlocal) == VAR_DECL
 		     && DECL_DEAD_FOR_LOCAL (oldlocal))
-		{
-		  oldlocal = DECL_SHADOWED_FOR_VAR (oldlocal);
-		}
+		oldlocal = DECL_SHADOWED_FOR_VAR (oldlocal);
+
 	      if (oldlocal == NULL_TREE)
 		oldlocal = IDENTIFIER_NAMESPACE_VALUE (DECL_NAME (d));
 	    }
@@ -4452,8 +4452,8 @@ push_using_directive (used)
    want to be referenced by that name.  It is then up to the users of
    that name to decide what to do with that list.
 
-   DECL may also be a TEMPLATE_DECL, with a FUNCTION_DECL in its DECL_RESULT
-   slot.  It is dealt with the same way.
+   DECL may also be a TEMPLATE_DECL, with a FUNCTION_DECL in its
+   DECL_TEMPLATE_RESULT.  It is dealt with the same way.
 
    FLAGS is a bitwise-or of the following values:
      PUSH_LOCAL: Bind DECL in the current scope, rather than at
@@ -4938,7 +4938,7 @@ void
 push_switch ()
 {
   struct cp_switch *p
-    = (struct cp_switch *) oballoc (sizeof (struct cp_switch));
+    = (struct cp_switch *) xmalloc (sizeof (struct cp_switch));
   p->level = current_binding_level;
   p->next = switch_stack;
   switch_stack = p;
@@ -4947,7 +4947,11 @@ push_switch ()
 void
 pop_switch ()
 {
+  struct cp_switch *cs;
+  
+  cs = switch_stack;
   switch_stack = switch_stack->next;
+  free (cs);
 }
 
 /* Note that we've seen a definition of a case label, and complain if this
@@ -10647,9 +10651,21 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    t = ctype;
 	    while (t != NULL_TREE && CLASS_TYPE_P (t))
 	      {
-		if (CLASSTYPE_TEMPLATE_INFO (t) &&
-		    !CLASSTYPE_TEMPLATE_SPECIALIZATION (t))
+		/* You're supposed to have one `template <...>' 
+		   for every template class, but you don't need one
+		   for a full specialization.  For example:
+
+		     template <class T> struct S{};
+		     template <> struct S<int> { void f(); };
+		     void S<int>::f () {}
+
+		   is correct; there shouldn't be a `template <>' for
+		   the definition of `S<int>::f'.  */
+		if (CLASSTYPE_TEMPLATE_INFO (t)
+		    && (CLASSTYPE_TEMPLATE_INSTANTIATION (t)
+			|| uses_template_parms (CLASSTYPE_TI_ARGS (t))))
 		  template_count += 1;
+
 		t = TYPE_MAIN_DECL (t);
 		if (DECL_LANG_SPECIFIC (t))
 		  t = DECL_CONTEXT (t);
@@ -12424,7 +12440,7 @@ xref_tag (code_type_node, name, globalize)
 	      && template_class_depth (current_class_type) == 0)
 	    /* Since GLOBALIZE is true, we're declaring a global
 	       template, so we want this type.  */
-	    ref = DECL_RESULT (ref);
+	    ref = DECL_TEMPLATE_RESULT (ref);
 
 	  if (ref && TREE_CODE (ref) == TYPE_DECL
 	      && TREE_CODE (TREE_TYPE (ref)) == code)
@@ -14137,7 +14153,7 @@ finish_function (lineno, flags)
 	  if (! DECL_EXTERNAL (fndecl))
 	    DECL_NOT_REALLY_EXTERN (fndecl) = 1;
 	  DECL_EXTERNAL (fndecl) = 1;
-	  mark_inline_for_output (fndecl);
+	  defer_fn (fndecl);
 	}
 
 #if 0
@@ -14653,13 +14669,6 @@ mark_cp_function_context (f)
 {
   mark_lang_function (f->language);
 }
-
-int
-in_function_p ()
-{
-  return function_depth != 0;
-}
-
 
 void
 lang_mark_false_label_stack (l)

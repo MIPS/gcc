@@ -1,3 +1,38 @@
+Wed Apr  5 22:51:36 2000  Hans-Peter Nilsson  <hp@axis.com>
+
+	* execute/960327-1.c (f): Add a letter to s[] to avoid stack-frame
+	overwrite.
+
+2000-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* compile/20000405-2.c: New test.
+	* compile/20000405-3.c: New test.
+
+2000-04-05  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* compile/20000405-1.c: New test.
+
+Mon Apr  3 16:53:52 2000  Hans-Peter Nilsson  <hp@axis.com>
+
+	* execute/20000403-1.c: New test.
+
+2000-04-03  Geoff Keating  <geoffk@cygnus.com>
+
+	* execute/20000402-1.c: New test.
+
+Mon Apr  3 14:10:34 2000  Donald Lindsay  <dlindsay@cygnus.com>
+
+	* execute/va-arg-15.c: New test.
+	* execute/va-arg-16.c: New test.
+	* execute/va-arg-17.c: New test.
+	* execute/va-arg-18.c: New test.
+	* execute/va-arg-19.c: New test.
+
+2000-03-26  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* compile/20000326-1.c: New test.
+	* compile/20000326-2.c: New test.
+
 2000-03-24  Geoff Keating  <geoffk@cygnus.com>
 
 	* execute/va-arg-14.c: New test for va_start where the first

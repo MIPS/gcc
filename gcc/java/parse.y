@@ -317,6 +317,7 @@ static void add_inner_class_fields PARAMS ((tree, tree));
 
 static tree build_dot_class_method PARAMS ((tree));
 static tree build_dot_class_method_invocation PARAMS ((tree));
+static void create_new_parser_context PARAMS ((int));
 
 /* Number of error found so far. */
 int java_error_count; 
@@ -4569,12 +4570,22 @@ check_modifiers_consistency (flags)
   int acc_count = 0;
   tree cl = NULL_TREE;
 
-  THIS_MODIFIER_ONLY (flags, ACC_PUBLIC, 0, acc_count, cl);
-  THIS_MODIFIER_ONLY (flags, ACC_PRIVATE, 1, acc_count, cl);
-  THIS_MODIFIER_ONLY (flags, ACC_PROTECTED, 2, acc_count, cl);
+  THIS_MODIFIER_ONLY (flags, ACC_PUBLIC, PUBLIC_TK, acc_count, cl);
+  THIS_MODIFIER_ONLY (flags, ACC_PRIVATE, PRIVATE_TK, acc_count, cl);
+  THIS_MODIFIER_ONLY (flags, ACC_PROTECTED, PROTECTED_TK, acc_count, cl);
   if (acc_count > 1)
     parse_error_context
-      (cl, "Inconsistent member declaration. At most one of `public', `private', or `protected' may be specified");
+      (cl, "Inconsistent member declaration.  At most one of `public', `private', or `protected' may be specified");
+
+  acc_count = 0;
+  cl = NULL_TREE;
+  THIS_MODIFIER_ONLY (flags, ACC_FINAL, FINAL_TK - PUBLIC_TK,
+		      acc_count, cl);
+  THIS_MODIFIER_ONLY (flags, ACC_VOLATILE, VOLATILE_TK - PUBLIC_TK,
+		      acc_count, cl);
+  if (acc_count > 1)
+    parse_error_context (cl,
+			 "Inconsistent member declaration.  At most one of `final' or `volatile' may be specified");
 }
 
 /* Check the methode header METH for abstract specifics features */
@@ -9838,22 +9849,29 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
   /* Search interfaces */
   if (CLASS_INTERFACE (TYPE_NAME (class)))
     {
-      static tree searched_interfaces = NULL_TREE;
+      static struct hash_table t, *searched_interfaces = NULL;
       static int search_not_done = 0;
       int i, n;
       tree basetype_vec = TYPE_BINFO_BASETYPES (class);
 
-      /* Have we searched this interface already? We shoud use a hash
-         table, FIXME */
+      /* Search in the hash table, otherwise create a new one if
+         necessary and insert the new entry. */
+
       if (searched_interfaces)
-	{  
-	  tree current;  
-	  for (current = searched_interfaces; 
-	       current; current = TREE_CHAIN (current))
-	    if (TREE_VALUE (current) == class)
-	      return NULL;
+	{
+	  if (hash_lookup (searched_interfaces, 
+			   (const hash_table_key) class, FALSE, NULL))
+	    return NULL;
 	}
-      searched_interfaces = tree_cons (NULL_TREE, class, searched_interfaces);
+      else
+	{
+	  hash_table_init (&t, hash_newfunc, java_hash_hash_tree_node,
+			   java_hash_compare_tree_node);
+	  searched_interfaces = &t;
+	}
+
+      hash_lookup (searched_interfaces, 
+		   (const hash_table_key) class, TRUE, NULL);
 
       search_applicable_methods_list (lc, TYPE_METHODS (class), 
 				      name, arglist, &list, &all_list);
@@ -9878,7 +9896,8 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
 	    search_applicable_methods_list (lc, 
 					    TYPE_METHODS (object_type_node),
 					    name, arglist, &list, &all_list);
-	  searched_interfaces = NULL_TREE;  
+	  hash_table_free (searched_interfaces);
+	  searched_interfaces = NULL;  
 	}
     }
   /* Search classes */
@@ -11402,10 +11421,16 @@ check_final_assignment (lvalue, wfl)
       && JDECL_P (TREE_OPERAND (lvalue, 1)))
     lvalue = TREE_OPERAND (lvalue, 1);
 
-  if (TREE_CODE (lvalue) == FIELD_DECL
-      && FIELD_FINAL (lvalue)
-      && !DECL_CLINIT_P (current_function_decl)
-      && !DECL_FINIT_P (current_function_decl))
+  /* When generating class files, references to the `length' field
+     look a bit different.  */
+  if ((flag_emit_class_files
+       && TREE_CODE (lvalue) == COMPONENT_REF
+       && TYPE_ARRAY_P (TREE_TYPE (TREE_OPERAND (lvalue, 0)))
+       && FIELD_FINAL (TREE_OPERAND (lvalue, 1)))
+      || (TREE_CODE (lvalue) == FIELD_DECL
+	  && FIELD_FINAL (lvalue)
+	  && !DECL_CLINIT_P (current_function_decl)
+	  && !DECL_FINIT_P (current_function_decl)))
     {
       parse_error_context 
         (wfl, "Can't assign a value to the final variable `%s'",

@@ -2085,7 +2085,7 @@ cons_up_default_function (type, full_name, kind)
 #endif
     DECL_NOT_REALLY_EXTERN (fn) = 1;
 
-  mark_inline_for_output (fn);
+  defer_fn (fn);
 
 #ifdef DEBUG_DEFAULT_FUNCTIONS
   { char *fn_type = NULL;
@@ -3344,9 +3344,10 @@ identifier_type (decl)
      tree decl;
 {
   tree t;
+
   if (TREE_CODE (decl) == TEMPLATE_DECL)
     {
-      if (TREE_CODE (DECL_RESULT (decl)) == TYPE_DECL)
+      if (TREE_CODE (DECL_TEMPLATE_RESULT (decl)) == TYPE_DECL)
 	return PTYPENAME;
       else if (looking_for_template) 
 	return PFUNCNAME;

@@ -106,23 +106,23 @@ static int max_insns_skipped = 5;
 
 extern FILE * asm_out_file;
 
-/* True if we are currently building a constant table. */
+/* True if we are currently building a constant table.  */
 int making_const_table;
 
 /* Define the information needed to generate branch insns.  This is
-   stored from the compare operation. */
+   stored from the compare operation.  */
 rtx arm_compare_op0, arm_compare_op1;
 
-/* What type of floating point are we tuning for? */
+/* What type of floating point are we tuning for?  */
 enum floating_point_type arm_fpu;
 
-/* What type of floating point instructions are available? */
+/* What type of floating point instructions are available?  */
 enum floating_point_type arm_fpu_arch;
 
-/* What program mode is the cpu running in? 26-bit mode or 32-bit mode */
+/* What program mode is the cpu running in? 26-bit mode or 32-bit mode.  */
 enum prog_mode_type arm_prgmode;
 
-/* Set by the -mfp=... option */
+/* Set by the -mfp=... option.  */
 const char * target_fp_name = NULL;
 
 /* Used to parse -mstructure_size_boundary command line option.  */
@@ -156,10 +156,10 @@ static int tune_flags = 0;
 /* Nonzero if this is an "M" variant of the processor.  */
 int arm_fast_multiply = 0;
 
-/* Nonzero if this chip supports the ARM Architecture 4 extensions */
+/* Nonzero if this chip supports the ARM Architecture 4 extensions.  */
 int arm_arch4 = 0;
 
-/* Nonzero if this chip supports the ARM Architecture 5 extensions */
+/* Nonzero if this chip supports the ARM Architecture 5 extensions.  */
 int arm_arch5 = 0;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
@@ -184,11 +184,11 @@ const char * arm_pic_register_string = NULL;
 int arm_pic_register = 9;
 
 /* Set to one if we think that lr is only saved because of subroutine calls,
-   but all of these can be `put after' return insns */
+   but all of these can be `put after' return insns.  */
 int lr_save_eliminated;
 
 /* Set to 1 when a return insn is output, this means that the epilogue
-   is not needed. */
+   is not needed.  */
 int return_used_this_function;
 
 /* Set to 1 after arm_reorg has started.  Reset to start at the start of
@@ -213,7 +213,7 @@ char * arm_condition_codes[] =
 
 #define streq(string1, string2) (strcmp (string1, string2) == 0)
 
-/* Initialization code */
+/* Initialization code.  */
 
 struct processors
 {
@@ -337,7 +337,7 @@ arm_override_options ()
 		    /* If we have been given an architecture and a processor
 		       make sure that they are compatible.  We only generate
 		       a warning though, and we prefer the CPU over the
-		       architecture. */
+		       architecture.  */
 		    if (insn_flags != 0 && (insn_flags ^ sel->flags))
 		      warning ("switch -mcpu=%s conflicts with -march= switch",
 			       ptr->string);
@@ -703,7 +703,7 @@ use_return_insn (iscond)
     }
       
   /* Can't be done if any of the FPU regs are pushed, since this also
-     requires an insn */
+     requires an insn.  */
   if (TARGET_HARD_FLOAT)
     for (regno = FIRST_ARM_FP_REGNUM; regno <= LAST_ARM_FP_REGNUM; regno++)
       if (regs_ever_live[regno] && ! call_used_regs[regno])
@@ -748,7 +748,7 @@ const_ok_for_arm (i)
   return FALSE;
 }
 
-/* Return true if I is a valid constant for the operation CODE. */
+/* Return true if I is a valid constant for the operation CODE.  */
 static int
 const_ok_for_op (i, code)
      HOST_WIDE_INT i;
@@ -976,10 +976,8 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
       return 1;
     }
 
-
   /* Calculate a few attributes that may be useful for specific
-     optimizations. */
-
+     optimizations.  */
   for (i = 31; i >= 0; i--)
     {
       if ((remainder & (1 << i)) == 0)
@@ -1061,7 +1059,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
 	  temp1 = remainder & (unsigned HOST_WIDE_INT)0xffff0000;
 	  temp2 = remainder & 0x0000ffff;
 
-	  /* Overlaps outside this range are best done using other methods. */
+	  /* Overlaps outside this range are best done using other methods.  */
 	  for (i = 9; i < 24; i++)
 	    {
 	      if ((((temp2 | (temp2 << i))
@@ -1085,7 +1083,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
 		}
 	    }
 
-	  /* Don't duplicate cases already considered. */
+	  /* Don't duplicate cases already considered.  */
 	  for (i = 17; i < 24; i++)
 	    {
 	      if (((temp1 | (temp1 >> i)) == remainder)
@@ -1296,7 +1294,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
      We start by looking for the largest block of zeros that are aligned on
      a 2-bit boundary, we then fill up the temps, wrapping around to the
      top of the word when we drop off the bottom.
-     In the worst case this code should produce no more than four insns. */
+     In the worst case this code should produce no more than four insns.  */
   {
     int best_start = 0;
     int best_consecutive_zeros = 0;
@@ -1323,7 +1321,7 @@ arm_gen_constant (code, mode, val, target, source, subtargets, generate)
 
     /* Now start emitting the insns, starting with the one with the highest
        bit set: we do this so that the smallest number will be emitted last;
-       this is more likely to be combinable with addressing insns. */
+       this is more likely to be combinable with addressing insns.  */
     i = best_start;
     do
       {
@@ -1711,8 +1709,8 @@ arm_encode_call_attribute (decl, flag)
   char flag;
 {
   const char * str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
-  int    len = strlen (str);
-  char * newstr;
+  int          len = strlen (str);
+  char *       newstr;
 
   if (TREE_CODE (decl) != FUNCTION_DECL)
     return;
@@ -2294,7 +2292,7 @@ arm_rtx_costs (x, code, outer)
 
     case MULT:
       /* There is no point basing this on the tuning, since it is always the
-	 fast variant if it exists at all */
+	 fast variant if it exists at all.  */
       if (arm_fast_multiply && mode == DImode
 	  && (GET_CODE (XEXP (x, 0)) == GET_CODE (XEXP (x, 1)))
 	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
@@ -2311,7 +2309,8 @@ arm_rtx_costs (x, code, outer)
 				      & (unsigned HOST_WIDE_INT) 0xffffffff);
 	  int add_cost = const_ok_for_arm (i) ? 4 : 8;
 	  int j;
-	  /* Tune as appropriate */ 
+	  
+	  /* Tune as appropriate.  */ 
 	  int booth_unit_size = ((tune_flags & FL_FAST_MULT) ? 8 : 2);
 	  
 	  for (j = 0; i && j < 32; j += booth_unit_size)
@@ -2441,7 +2440,7 @@ arm_adjust_cost (insn, link, dep, cost)
       /* This is a load after a store, there is no conflict if the load reads
 	 from a cached area.  Assume that loads from the stack, and from the
 	 constant pool are cached, and that others will miss.  This is a 
-	 hack. */
+	 hack.  */
       
       if (CONSTANT_POOL_ADDRESS_P (XEXP (SET_SRC (i_pat), 0))
 	  || reg_mentioned_p (stack_pointer_rtx, XEXP (SET_SRC (i_pat), 0))
@@ -2454,7 +2453,7 @@ arm_adjust_cost (insn, link, dep, cost)
   return cost;
 }
 
-/* This code has been fixed for cross compilation. */
+/* This code has been fixed for cross compilation.  */
 
 static int fpa_consts_inited = 0;
 
@@ -2481,7 +2480,7 @@ init_fpa_table ()
   fpa_consts_inited = 1;
 }
 
-/* Return TRUE if rtx X is a valid immediate FPU constant. */
+/* Return TRUE if rtx X is a valid immediate FPU constant.  */
 
 int
 const_double_rtx_ok_for_fpu (x)
@@ -2504,7 +2503,7 @@ const_double_rtx_ok_for_fpu (x)
   return 0;
 }
 
-/* Return TRUE if rtx X is a valid immediate FPU constant. */
+/* Return TRUE if rtx X is a valid immediate FPU constant.  */
 
 int
 neg_const_double_rtx_ok_for_fpu (x)
@@ -2615,20 +2614,20 @@ bad_signed_byte_operand (op, mode)
 
   op = XEXP (op, 0);
 
-  /* A sum of anything more complex than reg + reg or reg + const is bad */
+  /* A sum of anything more complex than reg + reg or reg + const is bad.  */
   if ((GET_CODE (op) == PLUS || GET_CODE (op) == MINUS)
       && (! s_register_operand (XEXP (op, 0), VOIDmode)
 	  || (! s_register_operand (XEXP (op, 1), VOIDmode)
 	      && GET_CODE (XEXP (op, 1)) != CONST_INT)))
     return 1;
 
-  /* Big constants are also bad */
+  /* Big constants are also bad.  */
   if (GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT
       && (INTVAL (XEXP (op, 1)) > 0xff
 	  || -INTVAL (XEXP (op, 1)) > 0xff))
     return 1;
 
-  /* Everything else is good, or can will automatically be made so. */
+  /* Everything else is good, or can will automatically be made so.  */
   return 0;
 }
 
@@ -2725,7 +2724,7 @@ alignable_memory_operand (op, mode)
 	       && (GET_CODE (reg = XEXP (op, 0)) == REG
 		   || (GET_CODE (XEXP (op, 0)) == SUBREG
 		       && GET_CODE (reg = SUBREG_REG (XEXP (op, 0))) == REG))))
-	  && REGNO_POINTER_ALIGN (REGNO (reg)) >= 4);
+	  && REGNO_POINTER_ALIGN (REGNO (reg)) >= 32);
 }
 
 /* Similar to s_register_operand, but does not allow hard integer 
@@ -2909,7 +2908,7 @@ nonimmediate_soft_df_operand (op, mode)
   return FALSE;
 }
 
-/* Return TRUE for valid index operands. */
+/* Return TRUE for valid index operands.  */
 int
 index_operand (op, mode)
      rtx op;
@@ -2923,7 +2922,7 @@ index_operand (op, mode)
 
 /* Return TRUE for valid shifts by a constant. This also accepts any
    power of two on the (somewhat overly relaxed) assumption that the
-   shift operator in this case was a mult. */
+   shift operator in this case was a mult.  */
 
 int
 const_shift_operand (op, mode)
@@ -2972,7 +2971,7 @@ logical_binary_operator (x, mode)
     }
 }
 
-/* Return TRUE for shift operators. */
+/* Return TRUE for shift operators.  */
 
 int
 shift_operator (x, mode)
@@ -2993,15 +2992,16 @@ shift_operator (x, mode)
     }
 }
 
-int equality_operator (x, mode)
+/* Return TRUE if x is EQ or NE.  */
+int
+equality_operator (x, mode)
      rtx x;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return GET_CODE (x) == EQ || GET_CODE (x) == NE;
 }
 
-/* Return TRUE for SMIN SMAX UMIN UMAX operators. */
-
+/* Return TRUE for SMIN SMAX UMIN UMAX operators.  */
 int
 minmax_operator (x, mode)
      rtx x;
@@ -3015,11 +3015,8 @@ minmax_operator (x, mode)
   return code == SMIN || code == SMAX || code == UMIN || code == UMAX;
 }
 
-/* return TRUE if x is EQ or NE */
-
 /* Return TRUE if this is the condition code register, if we aren't given
-   a mode, accept any class CCmode register */
-
+   a mode, accept any class CCmode register.  */
 int
 cc_register (x, mode)
      rtx x;
@@ -3044,7 +3041,6 @@ cc_register (x, mode)
 /* Return TRUE if this is the condition code register, if we aren't given
    a mode, accept any class CCmode register which indicates a dominance
    expression.  */
-
 int
 dominant_cc_register (x, mode)
      rtx x;
@@ -3145,8 +3141,7 @@ minmax_code (x)
   abort ();
 }
 
-/* Return 1 if memory locations are adjacent */
-
+/* Return 1 if memory locations are adjacent.  */
 int
 adjacent_mem_locations (a, b)
      rtx a, b;
@@ -3235,7 +3230,7 @@ load_multiple_operation (op, mode)
       if (GET_CODE (elt) != SET
           || GET_CODE (SET_DEST (elt)) != REG
           || GET_MODE (SET_DEST (elt)) != SImode
-          || REGNO (SET_DEST (elt)) != dest_regno + i - base
+          || REGNO (SET_DEST (elt)) != (unsigned int)(dest_regno + i - base)
           || GET_CODE (SET_SRC (elt)) != MEM
           || GET_MODE (SET_SRC (elt)) != SImode
           || GET_CODE (XEXP (SET_SRC (elt), 0)) != PLUS
@@ -3303,7 +3298,7 @@ store_multiple_operation (op, mode)
       if (GET_CODE (elt) != SET
           || GET_CODE (SET_SRC (elt)) != REG
           || GET_MODE (SET_SRC (elt)) != SImode
-          || REGNO (SET_SRC (elt)) != src_regno + i - base
+          || REGNO (SET_SRC (elt)) != (unsigned int)(src_regno + i - base)
           || GET_CODE (SET_DEST (elt)) != MEM
           || GET_MODE (SET_DEST (elt)) != SImode
           || GET_CODE (XEXP (SET_DEST (elt), 0)) != PLUS
@@ -3379,7 +3374,7 @@ load_multiple_sequence (operands, nops, regs, base, load_offset)
 	    }
 	  else 
 	    {
-	      if (base_reg != REGNO (reg))
+	      if (base_reg != (int) REGNO (reg))
 		/* Not addressed from the same base register.  */
 		return 0;
 
@@ -3614,7 +3609,7 @@ store_multiple_sequence (operands, nops, regs, base, load_offset)
 	    }
 	  else 
 	    {
-	      if (base_reg != REGNO (reg))
+	      if (base_reg != (int) REGNO (reg))
 		/* Not addressed from the same base register.  */
 		return 0;
 
@@ -3798,8 +3793,7 @@ arm_naked_function_p (func)
   return a != NULL_TREE;
 }
 
-/* Routines for use in generating RTL */
-
+/* Routines for use in generating RTL.  */
 rtx
 arm_gen_load_multiple (base_regno, count, from, up, write_back, unchanging_p,
 		       in_struct_p, scalar_p)
@@ -4331,7 +4325,7 @@ arm_reload_in_hi (operands)
 	  base = find_replacement (&XEXP (ref, 0));
 	}
       else
-	/* The slot is out of range, or was dressed up in a SUBREG */
+	/* The slot is out of range, or was dressed up in a SUBREG.  */
 	base = reg_equiv_address[REGNO (ref)];
     }
   else
@@ -4348,13 +4342,13 @@ arm_reload_in_hi (operands)
     }
   else if (GET_CODE (base) == PLUS)
     {
-      /* The addend must be CONST_INT, or we would have dealt with it above */
+      /* The addend must be CONST_INT, or we would have dealt with it above.  */
       HOST_WIDE_INT hi, lo;
 
       offset += INTVAL (XEXP (base, 1));
       base = XEXP (base, 0);
 
-      /* Rework the address into a legal sequence of insns */
+      /* Rework the address into a legal sequence of insns.  */
       /* Valid range for lo is -4095 -> 4095 */
       lo = (offset >= 0
 	    ? (offset & 0xfff)
@@ -4378,7 +4372,7 @@ arm_reload_in_hi (operands)
 	  rtx base_plus = gen_rtx_REG (SImode, REGNO (operands[2]) + 1);
 
 	  /* Get the base address; addsi3 knows how to handle constants
-	     that require more than one insn */
+	     that require more than one insn.  */
 	  emit_insn (gen_addsi3 (base_plus, base, GEN_INT (hi)));
 	  base = base_plus;
 	  offset = lo;
@@ -4449,7 +4443,7 @@ arm_reload_out_hi (operands)
 	  base = find_replacement (&XEXP (ref, 0));
 	}
       else
-	/* The slot is out of range, or was dressed up in a SUBREG */
+	/* The slot is out of range, or was dressed up in a SUBREG.  */
 	base = reg_equiv_address[REGNO (ref)];
     }
   else
@@ -4494,13 +4488,13 @@ arm_reload_out_hi (operands)
     }
   else if (GET_CODE (base) == PLUS)
     {
-      /* The addend must be CONST_INT, or we would have dealt with it above */
+      /* The addend must be CONST_INT, or we would have dealt with it above.  */
       HOST_WIDE_INT hi, lo;
 
       offset += INTVAL (XEXP (base, 1));
       base = XEXP (base, 0);
 
-      /* Rework the address into a legal sequence of insns */
+      /* Rework the address into a legal sequence of insns.  */
       /* Valid range for lo is -4095 -> 4095 */
       lo = (offset >= 0
 	    ? (offset & 0xfff)
@@ -4550,7 +4544,7 @@ arm_reload_out_hi (operands)
 	    }
 
 	  /* Get the base address; addsi3 knows how to handle constants
-	     that require more than one insn */
+	     that require more than one insn.  */
 	  emit_insn (gen_addsi3 (base_plus, base, GEN_INT (hi)));
 	  base = base_plus;
 	  offset = lo;
@@ -4681,7 +4675,7 @@ arm_print_value (f, x)
    been inserted, the insns are then modified to reference the
    relevant entry in the pool.
 
-   Possible enhancements to the alogorithm (not implemented) are:
+   Possible enhancements to the algorithm (not implemented) are:
 
    1) For some processors and object formats, there may be benefit in
    aligning the pools to the start of cache lines; this alignment
@@ -5636,7 +5630,7 @@ arm_reorg (first)
 
 /* If the rtx is the correct value then return the string of the number.
    In this way we can ensure that valid double constants are generated even
-   when cross compiling. */
+   when cross compiling.  */
 char *
 fp_immediate_constant (x)
      rtx x;
@@ -5705,13 +5699,13 @@ print_multi_reg (stream, instr, reg, mask, hat)
   fprintf (stream, "}%s\n", hat ? "^" : "");
 }
 
-/* Output a 'call' insn. */
+/* Output a 'call' insn.  */
 
 char *
 output_call (operands)
      rtx * operands;
 {
-  /* Handle calls to lr using ip (which may be clobbered in subr anyway). */
+  /* Handle calls to lr using ip (which may be clobbered in subr anyway).  */
 
   if (REGNO (operands[0]) == LR_REGNUM)
     {
@@ -5749,7 +5743,7 @@ eliminate_lr2ip (x)
         }
       return 0;
     default:
-      /* Scan through the sub-elements and change any references there */
+      /* Scan through the sub-elements and change any references there.  */
       fmt = GET_RTX_FORMAT (code);
       
       for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -5763,15 +5757,14 @@ eliminate_lr2ip (x)
     }
 }
   
-/* Output a 'call' insn that is a reference in memory. */
+/* Output a 'call' insn that is a reference in memory.  */
 
 char *
 output_call_mem (operands)
      rtx * operands;
 {
-  operands[0] = copy_rtx (operands[0]); /* Be ultra careful */
-  /* Handle calls using lr by using ip (which may be clobbered in subr anyway).
-   */
+  operands[0] = copy_rtx (operands[0]); /* Be ultra careful.  */
+  /* Handle calls using lr by using ip (which may be clobbered in subr anyway).  */
   if (eliminate_lr2ip (&operands[0]))
     output_asm_insn ("mov%?\t%|ip, %|lr", operands);
 
@@ -5845,7 +5838,7 @@ char *
 output_mov_long_double_arm_from_arm (operands)
      rtx * operands;
 {
-  /* We have to be careful here because the two might overlap */
+  /* We have to be careful here because the two might overlap.  */
   int dest_start = REGNO (operands[0]);
   int src_start = REGNO (operands[1]);
   rtx ops[2];
@@ -5940,7 +5933,7 @@ output_move_double (operands)
 	  if (reg1 == IP_REGNUM)
 	    abort ();
 
-	  /* Ensure the second source is not overwritten */
+	  /* Ensure the second source is not overwritten.  */
 	  if (reg1 == reg0 + (WORDS_BIG_ENDIAN ? -1 : 1))
 	    output_asm_insn ("mov%?\t%Q0, %Q1\n\tmov%?\t%R0, %R1", operands);
 	  else
@@ -5993,7 +5986,7 @@ output_move_double (operands)
 	      operands[1] = GEN_INT (ARM_SIGN_EXTEND (INTVAL (operands[1])));
 	    }
 #else
-	  /* Sign extend the intval into the high-order word */
+	  /* Sign extend the intval into the high-order word.  */
 	  if (WORDS_BIG_ENDIAN)
 	    {
 	      otherops[1] = operands[1];
@@ -6015,7 +6008,7 @@ output_move_double (operands)
 	      break;
 
   	    case PRE_INC:
-	      abort (); /* Should never happen now */
+	      abort (); /* Should never happen now.  */
 	      break;
 
 	    case PRE_DEC:
@@ -6027,7 +6020,7 @@ output_move_double (operands)
 	      break;
 
 	    case POST_DEC:
-	      abort (); /* Should never happen now */
+	      abort (); /* Should never happen now.  */
 	      break;
 
 	    case LABEL_REF:
@@ -6090,7 +6083,7 @@ output_move_double (operands)
 	    }
 	}
       else
-	abort ();  /* Constraints should prevent this */
+	abort ();  /* Constraints should prevent this.  */
     }
   else if (code0 == MEM && code1 == REG)
     {
@@ -6104,7 +6097,7 @@ output_move_double (operands)
 	  break;
 
         case PRE_INC:
-	  abort (); /* Should never happen now */
+	  abort (); /* Should never happen now.  */
 	  break;
 
         case PRE_DEC:
@@ -6116,7 +6109,7 @@ output_move_double (operands)
 	  break;
 
         case POST_DEC:
-	  abort (); /* Should never happen now */
+	  abort (); /* Should never happen now.  */
 	  break;
 
 	case PLUS:
@@ -6179,14 +6172,15 @@ output_mov_immediate (operands)
       return "";
     }
 
-  /* If all else fails, make it out of ORRs or BICs as appropriate. */
+  /* If all else fails, make it out of ORRs or BICs as appropriate.  */
 
   for (i=0; i < 32; i++)
     if (n & 1 << i)
       n_ones++;
 
-  if (n_ones > 16)  /* Shorter to use MVN with BIC in this case. */
-    output_multi_immediate (operands, "mvn%?\t%0, %1", "bic%?\t%0, %0, %1", 1, ~n);
+  if (n_ones > 16)  /* Shorter to use MVN with BIC in this case.  */
+    output_multi_immediate (operands, "mvn%?\t%0, %1", "bic%?\t%0, %0, %1", 1,
+			    ~n);
   else
     output_multi_immediate (operands, "mov%?\t%0, %1", "orr%?\t%0, %0, %1", 1, n);
 
@@ -6239,14 +6233,14 @@ output_multi_immediate (operands, instr1, instr2, immed_op, n)
   if (n == 0)
     {
       operands[immed_op] = const0_rtx;
-      output_asm_insn (instr1, operands); /* Quick and easy output */
+      output_asm_insn (instr1, operands); /* Quick and easy output.  */
     }
   else
     {
       int i;
       char *instr = instr1;
 
-      /* Note that n is never zero here (which would give no output) */
+      /* Note that n is never zero here (which would give no output).  */
       for (i = 0; i < 32; i += 2)
 	{
 	  if (n & (3 << i))
@@ -6299,7 +6293,7 @@ arithmetic_instr (op, shift_first_arg)
    for the operation code.  The returned result should not be overwritten.
    OP is the rtx code of the shift.
    On exit, *AMOUNTP will be -1 if the shift is by a register, or a constant
-   shift. */
+   shift.  */
 
 static char *
 shift_op (op, amountp)
@@ -6374,8 +6368,7 @@ shift_op (op, amountp)
 }
 
 
-/* Obtain the shift from the POWER of two. */
-
+/* Obtain the shift from the POWER of two.  */
 static HOST_WIDE_INT
 int_log2 (power)
      HOST_WIDE_INT power;
@@ -6481,8 +6474,7 @@ output_ascii_pseudo_op (stream, p, len)
    NOTE: This code does not check for side-effect expressions in a SET_SRC:
    such a check should not be needed because these only update an existing
    value within a register; the register must still be set elsewhere within
-   the function. */
-
+   the function.  */
 static int
 pattern_really_clobbers_lr (x)
      rtx x;
@@ -6561,7 +6553,7 @@ function_really_clobbers_lr (first)
 
         case CALL_INSN:
 	  /* Don't yet know how to handle those calls that are not to a 
-	     SYMBOL_REF */
+	     SYMBOL_REF.  */
 	  if (GET_CODE (PATTERN (insn)) != PARALLEL)
 	    abort ();
 
@@ -6580,7 +6572,7 @@ function_really_clobbers_lr (first)
 		return 1;
 	      break;
 
-	    default:	/* Don't recognize it, be safe */
+	    default:	/* Don't recognize it, be safe.  */
 	      return 1;
 	    }
 
@@ -6594,7 +6586,7 @@ function_really_clobbers_lr (first)
 	  if ((next = next_nonnote_insn (insn)) == NULL)
 	    return 1;
 
-	  /* No need to worry about lr if the call never returns */
+	  /* No need to worry about lr if the call never returns.  */
 	  if (GET_CODE (next) == BARRIER)
 	    break;
 
@@ -6617,7 +6609,7 @@ function_really_clobbers_lr (first)
         }
     }
 
-  /* We have reached the end of the chain so lr was _not_ clobbered */
+  /* We have reached the end of the chain so lr was _not_ clobbered.  */
   return 0;
 }
 
@@ -6629,8 +6621,7 @@ output_return_instruction (operand, really_return, reverse)
 {
   char instr[100];
   int reg, live_regs = 0;
-  int volatile_func = (optimize > 0 
-		       && TREE_THIS_VOLATILE (current_function_decl));
+  int volatile_func = arm_volatile_func ();
 
   /* If a function is naked, don't use the "return" insn.  */
   if (arm_naked_function_p (current_function_decl))
@@ -6782,12 +6773,13 @@ output_return_instruction (operand, really_return, reverse)
    Such functions never return, and many memory cycles can be saved
    by not storing register values that will never be needed again.
    This optimization was added to speed up context switching in a
-   kernel application. */
-
+   kernel application.  */
 int
 arm_volatile_func ()
 {
-  return (optimize > 0 && TREE_THIS_VOLATILE (current_function_decl));
+  return (optimize > 0
+	  && current_function_nothrow
+	  && TREE_THIS_VOLATILE (current_function_decl));
 }
 
 /* Write the function name into the code section, directly preceding
@@ -6842,23 +6834,21 @@ arm_poke_function_name (stream, name)
    no stack frame requirement and no live registers execpt for `lr'.  If we
    can guarantee that by making all function calls into tail calls and that
    lr is not clobbered in any other way, then there is no need to push lr
-   onto the stack. */
-   
+   onto the stack.  */
 void
 output_arm_prologue (f, frame_size)
      FILE * f;
      int frame_size;
 {
   int reg, live_regs_mask = 0;
-  int volatile_func = (optimize > 0
-		       && TREE_THIS_VOLATILE (current_function_decl));
+  int volatile_func = arm_volatile_func ();
 
   /* Nonzero if we must stuff some register arguments onto the stack as if
      they were passed there.  */
   int store_arg_regs = 0;
 
   if (arm_ccfsm_state || arm_target_insn)
-    abort ();					/* Sanity check */
+    abort ();					/* Sanity check.  */
 
   if (arm_naked_function_p (current_function_decl))
     return;
@@ -6906,11 +6896,10 @@ output_arm_prologue (f, frame_size)
 
   if (live_regs_mask)
     {
-      /* if a di mode load/store multiple is used, and the base register
+      /* If a di mode load/store multiple is used, and the base register
 	 is r3, then r4 can become an ever live register without lr
 	 doing so,  in this case we need to push lr as well, or we
-	 will fail to get a proper return. */
-
+	 will fail to get a proper return.  */
       live_regs_mask |= 1 << LR_REGNUM;
       lr_save_eliminated = 0;
 
@@ -6930,7 +6919,7 @@ arm_output_epilogue ()
 {
   int reg;
   int live_regs_mask = 0;
-  /* If we need this, then it will always be at least this much */
+  /* If we need this, then it will always be at least this much.  */
   int floats_offset = 12;
   rtx operands[3];
   int frame_size = get_frame_size ();
@@ -7009,7 +6998,7 @@ arm_output_epilogue ()
 		{
 		  floats_offset += 12;
 		  
-		  /* We can't unstack more than four registers at once */
+		  /* We can't unstack more than four registers at once.  */
 		  if (start_reg - reg == 3)
 		    {
 		      asm_fprintf (f, "\tlfm\t%r, 4, [%r, #-%d]\n",
@@ -7185,7 +7174,7 @@ arm_output_epilogue ()
 
 	  if (current_function_pretend_args_size)
 	    {
-	      /* Unwind the pre-pushed regs */
+	      /* Unwind the pre-pushed regs.  */
 	      operands[0] = operands[1] = stack_pointer_rtx;
 	      operands[2] = GEN_INT (current_function_pretend_args_size);
 	      output_add_immediate (operands);
@@ -7195,7 +7184,7 @@ arm_output_epilogue ()
 	    asm_fprintf (f, "\tadd\t%r, %r, %r\n", SP_REGNUM, SP_REGNUM,
 			 REGNO (eh_ofs));
 	  
-	  /* And finally, go home */
+	  /* And finally, go home.  */
 	  if (TARGET_INTERWORK)
 	    asm_fprintf (f, "\tbx\t%r\n", return_regnum);
 	  else if (TARGET_APCS_32 || eh_ofs)
@@ -7237,7 +7226,6 @@ output_func_epilogue (frame_size)
    Unfortunately, since this insn does not reflect very well the actual
    semantics of the operation, we need to annotate the insn for the benefit
    of DWARF2 frame unwind information.  */
-
 static rtx
 emit_multi_reg_push (mask)
      int mask;
@@ -7373,8 +7361,7 @@ arm_expand_prologue ()
   int store_arg_regs = 0;
   /* If this function doesn't return, then there is no need to push
      the call-saved regs.  */
-  int volatile_func = (optimize > 0
-		       && TREE_THIS_VOLATILE (current_function_decl));
+  int volatile_func = arm_volatile_func ();
   rtx insn;
 
   /* Naked functions don't have prologues.  */
@@ -7691,7 +7678,7 @@ arm_print_operand (stream, x, code)
       else if (GET_CODE (x) == CONST_DOUBLE)
 	fprintf (stream, "#%s", fp_immediate_constant (x));
       else if (GET_CODE (x) == NEG)
-	abort (); /* This should never happen now. */
+	abort (); /* This should never happen now.  */
       else
 	{
 	  fputc ('#', stream);
@@ -7861,7 +7848,7 @@ arm_final_prescan_insn (insn)
      out what the conditions are when the jump isn't taken.  */
   int jump_clobbers = 0;
   
-  /* If we start with a return insn, we only succeed if we find another one. */
+  /* If we start with a return insn, we only succeed if we find another one.  */
   int seeking_return = 0;
   
   /* START_INSN will hold the insn from where we start looking.  This is the
@@ -8017,7 +8004,7 @@ arm_final_prescan_insn (insn)
 	      /* Succeed if the following insn is the target label.
 		 Otherwise fail.  
 		 If return insns are used then the last insn in a function 
-		 will be a barrier. */
+		 will be a barrier.  */
 	      this_insn = next_nonnote_insn (this_insn);
 	      if (this_insn && this_insn == label)
 		{
@@ -9746,7 +9733,7 @@ arm_strip_name_encoding (const char * name)
 }
 
 #ifdef AOF_ASSEMBLER
-/* Special functions only needed when producing AOF syntax assembler. */
+/* Special functions only needed when producing AOF syntax assembler.  */
 
 rtx aof_pic_label = NULL_RTX;
 struct pic_chain

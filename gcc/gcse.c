@@ -399,7 +399,7 @@ static rtx *cuid_insn;
 /* Maximum register number in function prior to doing gcse + 1.
    Registers created during this pass have regno >= max_gcse_regno.
    This is named with "gcse" to not collide with global of same name.  */
-static int max_gcse_regno;
+static unsigned int max_gcse_regno;
 
 /* Maximum number of cse-able expressions found.  */
 static int n_exprs;
@@ -519,9 +519,9 @@ struct null_pointer_info
   /* The basic block being processed.  */
   int current_block;
   /* The first register to be handled in this pass.  */
-  int min_reg;
+  unsigned int min_reg;
   /* One greater than the last register to be handled in this pass.  */
-  int max_reg;
+  unsigned int max_reg;
   sbitmap *nonnull_local;
   sbitmap *nonnull_killed;
 };
@@ -566,8 +566,8 @@ static void compute_expr_hash_table PARAMS ((void));
 static void dump_hash_table	PARAMS ((FILE *, const char *, struct expr **,
 					 int, int));
 static struct expr *lookup_expr	PARAMS ((rtx));
-static struct expr *lookup_set	PARAMS ((int, rtx));
-static struct expr *next_set	PARAMS ((int, struct expr *));
+static struct expr *lookup_set	PARAMS ((unsigned int, rtx));
+static struct expr *next_set	PARAMS ((unsigned int, struct expr *));
 static void reset_opr_set_tables PARAMS ((void));
 static int oprs_not_set_p	PARAMS ((rtx, rtx));
 static void mark_call		PARAMS ((rtx));
@@ -628,7 +628,8 @@ static int handle_avail_expr	PARAMS ((rtx, struct expr *));
 static int classic_gcse		PARAMS ((void));
 static int one_classic_gcse_pass PARAMS ((int));
 static void invalidate_nonnull_info PARAMS ((rtx, rtx, void *));
-static void delete_null_pointer_checks_1 PARAMS ((int *, sbitmap *, sbitmap *,
+static void delete_null_pointer_checks_1 PARAMS ((unsigned int *, sbitmap *,
+						  sbitmap *,
 						  struct null_pointer_info *));
 static rtx process_insert_insn	PARAMS ((struct expr *));
 static int pre_edge_insert	PARAMS ((struct edge_list *, struct expr **));
@@ -668,18 +669,13 @@ gcse_main (f, file)
   /* Identify the basic block information for this function, including
      successors and predecessors.  */
   max_gcse_regno = max_reg_num ();
-  find_basic_blocks (f, max_gcse_regno, file);
-  cleanup_cfg (f);
 
   if (file)
     dump_flow_info (file);
 
   /* Return if there's nothing to do.  */
   if (n_basic_blocks <= 1)
-    {
-      free_basic_block_vars (0);
-      return 0;
-    }
+    return 0;
 
   /* Trying to perform global optimizations on flow graphs which have
      a high connectivity will take a long time and is unlikely to be
@@ -690,10 +686,7 @@ gcse_main (f, file)
      a couple switch statements.  So we require a relatively large number
      of basic blocks and the ratio of edges to blocks to be high.  */
   if (n_basic_blocks > 1000 && n_edges / n_basic_blocks >= 20)
-    {
-      free_basic_block_vars (0);
-      return 0;
-    }
+    return 0;
 
   /* See what modes support reg/reg copy operations.  */
   if (! can_copy_init_p)
@@ -806,7 +799,6 @@ gcse_main (f, file)
 
   obstack_free (&gcse_obstack, NULL_PTR);
   free_reg_set_mem ();
-  free_basic_block_vars (0);
   return run_jump_opt_after_gcse;
 }
 
@@ -2124,9 +2116,9 @@ compute_hash_table (set_p)
   for (bb = 0; bb < n_basic_blocks; bb++)
     {
       rtx insn;
-      int regno;
+      unsigned int regno;
       int in_libcall_block;
-      int i;
+      unsigned int i;
 
       /* First pass over the instructions records information used to
 	 determine when registers and memory are first and last set.
@@ -2135,6 +2127,7 @@ compute_hash_table (set_p)
 
       for (i = 0; i < max_gcse_regno; i++)
 	reg_first_set[i] = reg_last_set[i] = NEVER_SET;
+
       mem_first_set = NEVER_SET;
       mem_last_set = NEVER_SET;
 
@@ -2321,7 +2314,7 @@ lookup_expr (pat)
 
 static struct expr *
 lookup_set (regno, pat)
-     int regno;
+     unsigned int regno;
      rtx pat;
 {
   unsigned int hash = hash_set (regno, set_hash_table_size);
@@ -2347,7 +2340,7 @@ lookup_set (regno, pat)
 
 static struct expr *
 next_set (regno, expr)
-     int regno;
+     unsigned int regno;
      struct expr *expr;
 {
   do
@@ -3074,7 +3067,7 @@ handle_avail_expr (insn, expr)
     {
       /* This is the case when the available expression that reaches
 	 here has already been handled as an available expression.  */
-      int regnum_for_replacing
+      unsigned int regnum_for_replacing
 	= REGNO (SET_SRC (PATTERN (insn_computes_expr)));
 
       /* If the register was created by GCSE we can't use `reg_set_table',
@@ -3093,7 +3086,7 @@ handle_avail_expr (insn, expr)
 
   if (!found_setting)
     {
-      int regnum_for_replacing
+      unsigned int regnum_for_replacing
 	= REGNO (SET_DEST (PATTERN (insn_computes_expr)));
 
       /* This shouldn't happen.  */
@@ -3836,7 +3829,7 @@ cprop_insn (insn, alter_jumps)
   for (reg_used = &reg_use_table[0]; reg_use_count > 0;
        reg_used++, reg_use_count--)
     {
-      int regno = REGNO (reg_used->reg_rtx);
+      unsigned int regno = REGNO (reg_used->reg_rtx);
       rtx pat, src;
       struct expr *set;
 
@@ -4868,10 +4861,8 @@ invalidate_nonnull_info (x, setter, data)
      rtx setter ATTRIBUTE_UNUSED;
      void *data;
 {
-  int offset, regno;
-  struct null_pointer_info* npi = (struct null_pointer_info *) data;
-
-  offset = 0;
+  unsigned int regno;
+  struct null_pointer_info *npi = (struct null_pointer_info *) data;
 
   while (GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
@@ -4894,7 +4885,7 @@ invalidate_nonnull_info (x, setter, data)
 
 static void
 delete_null_pointer_checks_1 (block_reg, nonnull_avin, nonnull_avout, npi)
-     int *block_reg;
+     unsigned int *block_reg;
      sbitmap *nonnull_avin;
      sbitmap *nonnull_avout;
      struct null_pointer_info *npi;
@@ -5063,24 +5054,16 @@ delete_null_pointer_checks (f)
      rtx f;
 {
   sbitmap *nonnull_avin, *nonnull_avout;
-  int *block_reg;
+  unsigned int *block_reg;
   int bb;
   int reg;
   int regs_per_pass;
   int max_reg;
   struct null_pointer_info npi;
 
-  /* First break the program into basic blocks.  */
-  find_basic_blocks (f, max_reg_num (), NULL);
-  cleanup_cfg (f);
-
   /* If we have only a single block, then there's nothing to do.  */
   if (n_basic_blocks <= 1)
-    {
-      /* Free storage allocated by find_basic_blocks.  */
-      free_basic_block_vars (0);
-      return;
-    }
+    return;
 
   /* Trying to perform global optimizations on flow graphs which have
      a high connectivity will take a long time and is unlikely to be
@@ -5091,11 +5074,7 @@ delete_null_pointer_checks (f)
      a couple switch statements.  So we require a relatively large number
      of basic blocks and the ratio of edges to blocks to be high.  */
   if (n_basic_blocks > 1000 && n_edges / n_basic_blocks >= 20)
-    {
-      /* Free storage allocated by find_basic_blocks.  */
-      free_basic_block_vars (0);
-      return;
-    }
+    return;
 
   /* We need four bitmaps, each with a bit for each register in each
      basic block.  */
@@ -5151,9 +5130,6 @@ delete_null_pointer_checks (f)
       delete_null_pointer_checks_1 (block_reg, nonnull_avin,
 				    nonnull_avout, &npi);
     }
-
-  /* Free storage allocated by find_basic_blocks.  */
-  free_basic_block_vars (0);
 
   /* Free the table of registers compared at the end of every block.  */
   free (block_reg);
