@@ -1,3 +1,7 @@
+2003-07-28  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030728-1.c: New test.
+
 2003-07-26  Paul Brook  <paul@nowt.org>
 
 	* gfortran.fortran-torture: New testsuite.
