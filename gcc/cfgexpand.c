@@ -1,4 +1,4 @@
-/* A pass lowering trees to rtl.
+/* A pass for lowering trees to RTL.
    Copyright (C) 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -36,13 +36,14 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "flags.h"
 
-/* Expand basic block BB fron trees to RTL form.  */
+/* Expand basic block BB from GIMPLE trees to RTL.  */
+
 static basic_block
 expand_block (basic_block bb, FILE * dump_file)
 {
   block_stmt_iterator bsi = bsi_start (bb);
   tree stmt = NULL;
-  rtx note;
+  rtx note, last;
   edge e;
 
   if (dump_file)
@@ -54,14 +55,15 @@ expand_block (basic_block bb, FILE * dump_file)
 
   if (!bsi_end_p (bsi))
     stmt = bsi_stmt (bsi);
+
   if (stmt && TREE_CODE (stmt) == LABEL_EXPR)
     {
-      rtx last = get_last_insn ();
+      last = get_last_insn ();
 
       (*lang_hooks.rtl_expand.stmt) (stmt);
 
       /* Java emits line number notes in the top of labels. 
-         ??? Make this to go once line number notes are obsoletted.  */
+         ??? Make this go away once line number notes are obsoleted.  */
       BB_HEAD (bb) = NEXT_INSN (last);
       if (GET_CODE (BB_HEAD (bb)) == NOTE)
 	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
@@ -70,16 +72,17 @@ expand_block (basic_block bb, FILE * dump_file)
     }
   else
     note = BB_HEAD (bb) = emit_note (NOTE_INSN_BASIC_BLOCK);
+
   NOTE_BASIC_BLOCK (note) = bb;
 
-  /* This flag is never used by RTL backend.  */
   for (e = bb->succ; e; e = e->succ_next)
     {
+      /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
 
-      /* At the moment not all abnormal edges match RTL representation.
+      /* At the moment not all abnormal edges match the RTL representation.
          It is safe to remove them here as find_sub_basic_blocks will
-         rediscover.  In future we should get this fixed properly.  */
+         rediscover them.  In the future we should get this fixed properly.  */
       if (e->flags & EDGE_ABNORMAL)
 	remove_edge (e);
     }
@@ -87,42 +90,34 @@ expand_block (basic_block bb, FILE * dump_file)
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree stmt = bsi_stmt (bsi);
-      rtx last = get_last_insn ();
+
+      last = get_last_insn ();
 
       if (!stmt)
 	continue;
 
+      /* Expand this statement, then evaluate the resulting RTL and
+	 fixup the CFG accordingly.  */
       (*lang_hooks.rtl_expand.stmt) (stmt);
       switch (TREE_CODE (stmt))
 	{
 	case COND_EXPR:
 	  {
-	    edge true_edge;
-	    edge false_edge;
-	    tree pred = TREE_OPERAND (stmt, 0);
-	    tree then_exp = TREE_OPERAND (stmt, 1);
-	    tree else_exp = TREE_OPERAND (stmt, 2);
-	    rtx last;
 	    basic_block new_bb, dest;
 	    edge new_edge;
+	    edge true_edge;
+	    edge false_edge;
+	    tree pred = COND_EXPR_COND (stmt);
+	    tree then_exp = COND_EXPR_THEN (stmt);
+	    tree else_exp = COND_EXPR_ELSE (stmt);
 
-	    /* One of the succestors can be fallthru.  */
-	    true_edge = bb->succ;
-	    false_edge = bb->succ->succ_next;
-	    if ((false_edge->flags & EDGE_TRUE_VALUE)
-		|| (true_edge->flags & EDGE_FALSE_VALUE))
-	      {
-	        false_edge = bb->succ;
-	        true_edge = bb->succ->succ_next;
-	      }
-	    if (!(false_edge->flags & EDGE_FALSE_VALUE)
-		&& (true_edge->flags & EDGE_TRUE_VALUE))
-	      abort ();
+	    extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
+	    /* These flags have no purpose in RTL land.  */
 	    true_edge->flags &= ~EDGE_TRUE_VALUE;
 	    false_edge->flags &= ~EDGE_FALSE_VALUE;
 
-	    /* We can either see pure conditional jump with one fallthru
+	    /* We can either have a pure conditional jump with one fallthru
 	       edge or two-way jump that needs to be decomposed into two
 	       basic blocks.  */
 	    if (TREE_CODE (then_exp) == GOTO_EXPR
@@ -140,6 +135,7 @@ expand_block (basic_block bb, FILE * dump_file)
 	    if (TREE_CODE (then_exp) != GOTO_EXPR
 		|| TREE_CODE (else_exp) != GOTO_EXPR)
 	      abort ();
+
 	    jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
 	    last = get_last_insn ();
 	    expand_expr (else_exp, const0_rtx, VOIDmode, 0);
@@ -169,7 +165,8 @@ expand_block (basic_block bb, FILE * dump_file)
 	      }
 	    return new_bb;
 	  }
-	  /* Update after expansion of sibling call.  */
+
+	/* Update after expansion of sibling call.  */
 	case CALL_EXPR:
 	case MODIFY_EXPR:
 	case RETURN_EXPR:
@@ -208,27 +205,32 @@ expand_block (basic_block bb, FILE * dump_file)
 		}
 	    }
 	  break;
+
 	default:
 	  break;
 	}
     }
+
   do_pending_stack_adjust ();
-  BB_END (bb) = get_last_insn ();
-  if (GET_CODE (BB_END (bb)) == BARRIER)
-    BB_END (bb) = PREV_INSN (BB_END (bb));
 
-  if (GET_CODE (BB_END (bb)) == JUMP_INSN
-      && (GET_CODE (PATTERN (BB_END (bb))) == ADDR_VEC
-	  || GET_CODE (PATTERN (BB_END (bb))) == ADDR_DIFF_VEC))
-    BB_END (bb) = PREV_INSN (PREV_INSN (BB_END (bb)));
-
+  /* Find the the block tail.  The last insn is the block is the insn
+     before a barrier and/or table jump insn.  */
+  last = get_last_insn ();
+  if (GET_CODE (last) == BARRIER)
+    last = PREV_INSN (last);
+  if (JUMP_TABLE_DATA_P (last))
+    last = PREV_INSN (PREV_INSN (last));
+  BB_END (bb) = last;
+ 
   if (dump_file)
     dump_bb (bb, dump_file, 0);
   update_bb_for_insn (bb);
   return bb;
 }
 
-/* Create basic block for initialization code.  */
+
+/* Create a basic block for initialization code.  */
+
 static basic_block
 construct_init_block (void)
 {
@@ -237,7 +239,7 @@ construct_init_block (void)
   tree bind_expr = DECL_SAVED_TREE (current_function_decl);
   tree block;
 
-  /* Expand start of outermost BIND_EXPR.  */
+  /* Expand the start of the outermost BIND_EXPR.  */
   if (TREE_CODE (bind_expr) != BIND_EXPR)
     abort ();
   block = BIND_EXPR_BLOCK (bind_expr);
@@ -246,7 +248,10 @@ construct_init_block (void)
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     if (e->dest == ENTRY_BLOCK_PTR->next_bb)
       break;
-  init_block = create_basic_block (NEXT_INSN (get_insns ()), get_last_insn (), ENTRY_BLOCK_PTR);
+
+  init_block = create_basic_block (NEXT_INSN (get_insns ()),
+				   get_last_insn (),
+				   ENTRY_BLOCK_PTR);
   if (e)
     {
       first_block = e->dest;
@@ -255,12 +260,14 @@ construct_init_block (void)
     }
   else
     make_edge (init_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
-  update_bb_for_insn (init_block);
 
+  update_bb_for_insn (init_block);
   return init_block;
 }
 
-/* Create block containing landing pads and similar stuff.  */
+
+/* Create a block containing landing pads and similar stuff.  */
+
 static void
 construct_exit_block (void)
 {
@@ -306,10 +313,16 @@ construct_exit_block (void)
   update_bb_for_insn (exit_block);
 }
 
-/* Convert IL representation from a GIMPLE to RTL.
-   We do conversion per basic block basis and preserve GIMPLE CFG.  This
-   imply some magic as CFG is partly consisting of RTL and partly of GIMPLE
-   basic blocks, so be curefull to not manipulate CFG during the expansion.  */
+
+/* Translate the intermediate representation contained in the CFG
+   from GIMPLE trees to RTL.
+
+   We do conversion per basic block and preserve/update the tree CFG.
+   This implies we have to do some magic as the CFG can simultaneously
+   consist of basic blocks containing RTL and GIMPLE trees.  This can
+   confuse the CFG hooks, so be curefull to not manipulate CFG during
+   the expansion.  */
+
 void
 tree_expand_cfg (void)
 {

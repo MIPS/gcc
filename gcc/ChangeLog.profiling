@@ -1,3 +1,9 @@
+2004-03-05  Steven Bosscher  <stevenb@suse.de>
+
+	* cfgexpand.c (expand_block, construct_init_block): Minor code
+	cleanups.  Use macros from tree.h.  Use extract_true_false_edge.
+	Comment updates.
+
 2004-03-03  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from tree-ssa (tree-profilng-merge-20040303)
