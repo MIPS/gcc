@@ -53,7 +53,8 @@ Boston, MA 02111-1307, USA.  */
 		       %{!p:%{profile:gcrt1.o%s} \
 			 %{!profile:crt1.o%s}}}} \
    crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
-#elif defined HAVE_LD_PIE
+#else
+#if defined HAVE_LD_PIE
 #define STARTFILE_SPEC \
   "%{!shared: \
      %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} \
@@ -69,6 +70,7 @@ Boston, MA 02111-1307, USA.  */
 			 %{!profile:crt1.o%s}}}} \
    crti.o%s %{static:crtbeginT.o%s}\
    %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
+#endif
 #endif
 
 /* Provide a ENDFILE_SPEC appropriate for GNU/Linux.  Here we tack on

@@ -1123,7 +1123,8 @@ do {						\
 %{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}} \
 %{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
 %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
-#elif defined HAVE_LD_PIE
+#else
+#if defined HAVE_LD_PIE
 #define	STARTFILE_LINUX_SPEC "\
 %{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:%{pie:Scrt1.o%s}%{!pie:crt1.o%s}}}} \
 %{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
@@ -1135,6 +1136,7 @@ do {						\
 %{mnewlib: ecrti.o%s} %{!mnewlib: crti.o%s} \
 %{static:crtbeginT.o%s} \
 %{!static:%{!shared:%{!pie:crtbegin.o%s}} %{shared|pie:crtbeginS.o%s}}"
+#endif
 #endif
 
 #define	ENDFILE_LINUX_SPEC "%{!shared:%{!pie:crtend.o%s}} %{shared|pie:crtendS.o%s} \
