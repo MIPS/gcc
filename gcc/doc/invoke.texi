@@ -258,6 +258,7 @@ in the following sections.
 -fdump-scalar-evolutions@r{[}-@var{n}@r{]} @gol
 -fdump-all-data-deps@r{[}-@var{n}@r{]}@gol
 -fdump-tree-loop@r{[}-@var{n}@r{]} -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
+-fdump-tree-vect@r{[}-@var{n}@r{]}@gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -fmem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
@@ -309,6 +310,7 @@ in the following sections.
 -fdisable-tree-ssa -ftree-dominator-opts -ftree-must-alias @gol
 -fscalar-evolutions -fall-data-deps @gol
 -ftree-loop-optimize -ftree-sra @gol
+-ftree-vectorize @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -3591,6 +3593,11 @@ name is made by appending @file{.dom} to the source file name.
 Dump each function after applying tree-level loop optimizations.  The file
 name is made by appending @file{.loop} to the source file name.
 
+@item vect
+@opindex fdump-tree-vect
+Dump each function after applying tree-level loop vectorization.  The file
+name is made by appending @file{.vect} to the source file name.
+
 @item all
 @opindex fdump-tree-all
 Enable all the available tree dumps with the flags provided in this option.
@@ -4344,6 +4351,10 @@ default at -O and higher.
 @item -ftree-loop-optimize
 Perform loop optimization on trees.  This flag is enabled by
 default at -O and higher.
+
+@item -ftree-vectorize
+Perform loop vectorization on trees.  This flag is disabled by
+default.
 
 @item -ftree-must-alias
 Perform must-alias analysis on trees.  This analysis will attempt to

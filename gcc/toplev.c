@@ -982,6 +982,9 @@ int flag_scalar_evolutions = 0;
 /* Enable the analysis of all data dependences.  */
 int flag_all_data_deps = 0;
 
+/* Enable loop vectorization on trees */
+int flag_tree_vectorize = 0;
+
 /* Enable promotion of virtual to real operands in must-alias situations.  */
 int flag_tree_must_alias = 0;
 
@@ -1200,7 +1203,8 @@ static const lang_independent_options f_options[] =
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
   { "tree-must-alias", &flag_tree_must_alias, 1 },
-  { "tree-loop-optimize", &flag_tree_loop, 1 }
+  { "tree-loop-optimize", &flag_tree_loop, 1 },
+  { "tree-vectorize", &flag_tree_vectorize, 1}
 };
 
 /* Here is a table, controlled by the tm.h file, listing each -m switch

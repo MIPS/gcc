@@ -731,6 +731,9 @@ extern int flag_scalar_evolutions;
 /* Enable the analysis of all the data dependences.  */
 extern int flag_all_data_deps;
 
+/* Enable loop vectorization on trees */
+extern int flag_tree_vectorize;
+
 /* Enable SSA->normal pass memory location coalescing.  */
 extern int flag_tree_combine_temps;
 

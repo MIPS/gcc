@@ -3607,6 +3607,7 @@ enum tree_dump_index
   TDI_dce_2,
   TDI_scev,                     /* dump scalar evolutions.  */
   TDI_alldd,                    /* dump all data dependences.  */
+  TDI_vect,                     /* dump each function after vectorization.  */
   TDI_tail2,			/* dump after tail recursion/tail call */
   TDI_optimized,
   TDI_mudflap2,

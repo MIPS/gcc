@@ -236,6 +236,9 @@ struct stmt_ann_d GTY(())
 
   /* Array of variables that have had their address taken in the statement.  */
   varray_type addresses_taken;
+
+  /* Auxiliary info specific to a pass.  */
+  PTR GTY ((skip (""))) aux; 
 };
 
 

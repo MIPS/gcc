@@ -536,6 +536,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dce = 1;
       flag_tree_dom = 1;
       flag_tree_loop = 0;
+      flag_tree_vectorize = 0;
       flag_tree_must_alias = 1;
       flag_tree_pre = 1;
       flag_scalar_evolutions = 1;
@@ -1410,6 +1411,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fall_data_deps:
       flag_all_data_deps = value;
+      break;
+
+    case OPT_ftree_vectorize:
+      flag_tree_vectorize = value;
       break;
 
     case OPT_ftree_combine_temps:

@@ -678,6 +678,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".dce2", "tree-dce2", 0, 0},
   {".scev", "scalar-evolutions", 0, 0},
   {".alldd", "all-data-deps", 0, 0},
+  {".vect", "tree-vect", 0, 0},
   {".tail2", "tree-tail2", 0, 0},
   {".optimized", "tree-optimized", 0, 0},
   {".mudflap2", "tree-mudflap2", 0, 0},

@@ -152,5 +152,8 @@ extern void dump_data_dependence_relations (FILE *, varray_type);
 extern void dump_data_dependence_direction (FILE *, 
 					    enum data_dependence_direction);
 
+/* API for vectorizer  */
+extern bool vec_array_base_name_differ_p (struct data_reference *, struct data_reference *);
+extern struct data_reference *vec_analyze_array (struct loop *, tree, tree);
 
 #endif  /* GCC_TREE_DATA_REF_H  */

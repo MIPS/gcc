@@ -1034,6 +1034,9 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
         ((TARGET_SPE && SPE_VECTOR_MODE (MODE))		\
 	 || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (MODE)))
 
+#define UNITS_PER_SIMD_WORD 	\
+	(TARGET_ALTIVEC ? 16 : (TARGET_SPE ? 8 : 0) )
+
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    For POWER and PowerPC, the GPRs can hold any mode, but values bigger
    than one register cannot go past R31.  The float

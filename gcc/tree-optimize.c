@@ -49,6 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-scalar-evolution.h"
 #include "tree-data-ref.h"
 #include "cgraph.h"
+#include "tree-vectorizer.h"
 
 static void tree_ssa_finish (tree *);
 
@@ -237,8 +238,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 	  tree_ssa_dce (fndecl, TDI_dce_2);
 	  ggc_collect ();
 
-#if 1
-      if (flag_scalar_evolutions)
+      if (flag_scalar_evolutions || flag_tree_vectorize)
 	{
 	  unsigned int i;
 	  struct loops *loops;
@@ -273,6 +273,23 @@ optimize_function_tree (tree fndecl, tree *chain)
 		  if (flag_all_data_deps)
 		    analyze_all_data_dependences (loop_nest);
 		}
+
+	      if (flag_tree_vectorize)
+		{
+		  bitmap_clear (vars_to_rename);
+
+		  vectorize_loops (fndecl, vars_to_rename, loops, ev_info, TDI_vect);
+#if 0
+		  /* CHECKME.  */
+	          compute_may_aliases (fndecl);
+#endif
+		  /* Run the SSA pass again if we need to rename new variables.  */
+         	  if (bitmap_first_set_bit (vars_to_rename) >= 0)
+            	      rewrite_into_ssa (fndecl, vars_to_rename, TDI_vect);
+
+	    	  DBG_VECT2 (dump_function_to_file (fndecl, stderr,
+                                 ~(TDF_RAW | TDF_SLIM | TDF_LINENO)));
+		}
 	      
 	      varray_clear (ev_info);
 	      varray_clear (loop_nests);
@@ -282,8 +299,7 @@ optimize_function_tree (tree fndecl, tree *chain)
 	      loop_optimizer_finalize (loops, NULL);
 	    }
 	}
-#endif
-      
+
 #ifdef ENABLE_CHECKING
 	  verify_ssa ();
 #endif

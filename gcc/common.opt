@@ -742,6 +742,10 @@ fall-data-deps
 Common
 Analyze all the data dependences 
 
+ftree-vectorize
+Common
+Enable loop vectorization on trees
+
 funit-at-a-time
 Common
 Compile whole compilation unit at a time

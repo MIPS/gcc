@@ -1,3 +1,38 @@
+2003-01-01  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.c: New file. Implements loop vectorization 
+        pass.
+        * tree-vectorizer.h: New file.
+        * Makefile.in: (tree-vectorizer.c,tree-vectorizer.h): New files.
+        * tree-dump.c: (dump_files): New dump file for the new
+        vectorization pass.
+        * tree.h: (TDI_vect): New dump index for the new vectorization 
+        pass.
+        * timevar.def (TV_TREE_VECTORIZATION): Support new
+        vectorization pass.
+        * opts.c: (flag_tree_vetorize): New flag to enable/disable the
+        new vectorization pass.
+        * flags.h: Same.
+        * toplev.c: Same.
+        * common.opt: (ftree-vectorize): Same.
+        * doc/invoke.texi: Document above new options.
+        * tree-optimize.c: (optimize_function_tree): Invoke the new
+        vetorization pass.
+        * tree-flow.h: (struct stmt_ann_d): New field (aux) to allow
+        recording information per stmt.
+        * tree-data-ref.c (vec_analyze_array): New function, exposing
+        API to the vectorizer.
+        (vec_array_base_name_differ_p): New function, exposing API to
+        the vectorizer.
+        * tree-data-ref.h: Same.
+        * defaults.h: (UNITS_PER_SIMD_WORD): Define.
+        * config/rs6000/rs6000.h: (UNITS_PER_SIMD_WORD): Same.
+        * target-def.h (TARGET_VECTYPE_FOR_SCALAR_TYPE): Declare a new
+        target hook for vectorization.
+        * target.h (vectype_for_scalar_type): Same.
+        * config/rs6000/rs6000.c: (rs6000_vectype_for_scalar_type):
+        Implement the above new target hook.
+ 	
 2003-12-31  Sebastian Pop  <s.pop@laposte.net>
 
 	* version.c (version_string): Change the identifier for the
