@@ -99,7 +99,8 @@ bool str_eq(const char *s1, const char *s2);
    if ptr1 < ptr2, or a value >0 if ptr1 > ptr2. */
 int ptr_cmp(const void *ptr1, const void *ptr2);
 
-
+extern inline int min(int, int);
+extern inline int max(int, int);
 extern inline int min(int a, int b) { if (a < b) return a; else return b; }
 extern inline int max(int a, int b) { if (a < b) return b; else return a; }
 EXTERN_C_END
