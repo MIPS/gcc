@@ -96,6 +96,8 @@ ggc_alloc_string (contents, length)
    If an identifier with that name has previously been referred to,
    the same node is returned this time.  */
 
+#undef get_identifier
+
 tree
 get_identifier (text)
      const char *text;

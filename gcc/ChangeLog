@@ -1,4 +1,12 @@
+2003-08-08  Roger Sayle  <roger@eyesopen.com>
+
+	* tree.h (get_identifier) Define a macro form of get_identifier
+	that calls get_identifier_with_length when the string is constant.
+	* stringpool.c (get_identifier): Undefine the macro before giving
+	the function definition.
+
 2003-08-11  Dale Johannesen  <dalej@apple.com>
+
 	* config/rs6000/rs6000.md (ctrsi, ctrdi):  Reenable handling of
 	decrement-and-branch farther away than 32 bits.
 

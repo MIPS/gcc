@@ -2218,6 +2218,13 @@ extern tree make_tree_vec		PARAMS ((int));
 
 extern tree get_identifier		PARAMS ((const char *));
 
+#if GCC_VERSION >= 3000
+#define get_identifier(str) \
+  (__builtin_constant_p (str)						\
+   ? get_identifier_with_length ((str), (unsigned) strlen (str))	\
+   : (get_identifier) (str))
+#endif
+
 /* Identical to get_identifier, except that the length is assumed
    known.  */
 
