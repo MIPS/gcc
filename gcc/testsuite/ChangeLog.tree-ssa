@@ -1,5 +1,10 @@
 2004-01-10  Paul Brook  <paul@codesourcery.com>
 
+	* gfortran.fortran-torture/execute/intrinsic_minmax.f90: Test
+	specific names.
+
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
 	* gfortran.fortran-torture/execute/intrinsic_transpose.f90: Test
 	complex variables.
 

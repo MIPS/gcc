@@ -981,6 +981,8 @@ gfc_conv_intrinsic_char (gfc_se * se, gfc_expr * expr)
     }
  */
 
+/* TODO: Mismatching types can occur when specific names are used.
+   These should be handled during resolution.  */
 static void
 gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, int op)
 {
@@ -997,8 +999,10 @@ gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, int op)
   type = gfc_typenode_for_spec (&expr->ts);
 
   limit = TREE_VALUE (arg);
+  if (TREE_TYPE (limit) != type)
+    limit = convert (type, limit);
   /* Only evaluate the argument once.  */
-  if (TREE_CODE (limit) != VAR_DECL || !TREE_CONSTANT (limit))
+  if (TREE_CODE (limit) != VAR_DECL && !TREE_CONSTANT (limit))
     limit = gfc_evaluate_now(limit, &se->pre);
 
   mvar = gfc_create_var (type, "M");
@@ -1006,11 +1010,14 @@ gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, int op)
   for (arg = TREE_CHAIN (arg); arg != NULL_TREE; arg = TREE_CHAIN (arg))
     {
       val = TREE_VALUE (arg);
+      if (TREE_TYPE (val) != type)
+	val = convert (type, val);
+
       /* Only evaluate the argument once.  */
-      if (TREE_CODE (val) != VAR_DECL || !TREE_CONSTANT (val))
+      if (TREE_CODE (val) != VAR_DECL && !TREE_CONSTANT (val))
         val = gfc_evaluate_now(val, &se->pre);
 
-      thencase = build_v (MODIFY_EXPR, mvar, val);
+      thencase = build_v (MODIFY_EXPR, mvar, convert (type, val));
 
       tmp = build (op, boolean_type_node, val, limit);
       tmp = build_v (COND_EXPR, tmp, thencase, elsecase);

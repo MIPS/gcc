@@ -1,3 +1,8 @@
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmax): Convert mismatched
+	types.
+
 2004-01-10  Huang Chun  <chunhuang73@hotmail.com>
 
 	* iresolve.c: Use correct kind.
