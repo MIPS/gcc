@@ -1,3 +1,17 @@
+2002-01-17  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* ra.c (conflicts_between_webs): Also consider conflicts in
+	uses of (uninitialized) hardregs.
+	(reg_alloc): Disable update_equiv_regs(); it's wrong after
+	allocation and before.
+
+	* dwarf2out.c (gen_namespace_die): Remove.
+	(dwarf_tag_name): Ignore namespace tag.
+	(scope_die_for): Ignore namespace decls.
+	(gen_decl_die, dwarf2out_decl): Likewise.
+
+	* libstdc++-v3/src/gen-num-limits.cc: Use __LONG_LONG_MAX__.
+
 2002-01-16  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	* ra.c (undef_to_size_word): Don't add the begin offset to the

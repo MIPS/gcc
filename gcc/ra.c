@@ -3338,12 +3338,17 @@ conflicts_between_webs (df)
      the conflict bitmaps of all defs.  Conflict bitmaps are only in
      webpart roots.  If they are in uses, those uses are roots, which
      means, that this is an uninitialized web, whose conflicts
-     don't matter.  */
-  for (i = 0; i < df->def_id; i++)
+     don't matter.  Nevertheless for hardregs we also need to check uses.
+     E.g. hardregs used for argument passing have no DEF in the RTL,
+     but if they have uses, they indeed conflict with all DEFs they
+     overlap.  */
+  for (i = 0; i < df->def_id + df->use_id; i++)
     {
       struct tagged_conflict *cl = web_parts[i].sub_conflicts;
       struct web *supweb1;
-      if (!cl)
+      if (!cl
+	  || (i >= df->def_id
+	      && DF_REF_REGNO (web_parts[i].ref) >= FIRST_PSEUDO_REGISTER))
 	continue;
       supweb1 = def2web[i];
       supweb1 = find_web_for_subweb (supweb1);
@@ -9368,7 +9373,14 @@ reg_alloc (void)
     regclass (get_insns (), max_reg_num (), rtl_dump_file); */
   rtl_dump_file = ra_dump_file;
 
-  update_equiv_regs ();
+  /* Also update_equiv_regs() can't be called after register allocation.
+     It might delete some pseudos, and insert other insns setting
+     up those pseudos in different places.  This of course screws up
+     the allocation because that may destroy a hardreg for another
+     pseudo.
+     XXX we probably should do something like that on our own.  I.e.
+     creating REG_EQUIV notes.  */
+  /*update_equiv_regs ();*/
   /* We must maintain our own reg_renumber[] array, because life_analysis()
      destroys any prior set up reg_renumber[].  */
   setup_renumber (1);
