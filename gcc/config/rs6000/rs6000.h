@@ -3079,6 +3079,9 @@ extern int function_arg_padding ();
 extern void toc_section ();
 extern void private_data_section ();
 extern void rs6000_fatal_bad_address ();
+extern void rs6000_emit_epilogue ();
+extern int mtcrf_operation ();
+extern int lmw_operation ();
 
 /* See nonlocal_goto_receiver for when this must be set.  */
 

@@ -1,5 +1,26 @@
 2000-01-12  Geoff Keating  <geoffk@cygnus.com>
 
+	* rs6000.md: Document 'unspec' values used.
+	(epilogue): New expander.
+	(movesi_to_cr_one): New expander.
+	(movesi_to_cr and following): New pattern.
+	(lmw): New pattern.
+	(return_internal_si): New pattern.
+	(return_internal_di): New pattern.
+	(return_and_restore_fpregs_si): New pattern.
+	(return_and_restore_fpregs_di): New pattern.
+	* rs6000.h: Declare new functions.
+	* rs6000.c (rs6000_stack_info): Use current_function_is_leaf
+	rather than rs6000_calls_p.
+	(rs6000_makes_calls): Delete.
+	(lmw_operation): New function.
+	(mtcrf_operation): New function.
+	(rs6000_emit_epilogue): New function.
+	(output_epilog): Call rs6000_emit_epilogue and final if
+	!TARGET_SCHED_PROLOG, instead of writing text unconditionally.
+
+2000-01-12  Geoff Keating  <geoffk@cygnus.com>
+
 	* aix43.h (SUBSUBTARGET_SWITCHES): Document switches.
 	* aix41.h (SUBSUBTARGET_SWITCHES): Document switches.
 	* aix.h (SUBTARGET_SWITCHES): Document switches.

@@ -1659,7 +1659,6 @@ function_arg_pass_by_reference (cum, mode, type, named)
 
   return 0;
 }
-
 
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments. 
@@ -2426,6 +2425,136 @@ store_multiple_operation (op, mode)
 	  || ! rtx_equal_p (XEXP (XEXP (SET_DEST (elt), 0), 0), dest_addr)
 	  || GET_CODE (XEXP (XEXP (SET_DEST (elt), 0), 1)) != CONST_INT
 	  || INTVAL (XEXP (XEXP (SET_DEST (elt), 0), 1)) != i * 4)
+	return 0;
+    }
+
+  return 1;
+}
+
+/* Return 1 for an PARALLEL suitable for mtcrf. */
+
+int
+mtcrf_operation (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  int count = XVECLEN (op, 0);
+  int i;
+  int bitmap = 0;
+  rtx src_reg;
+
+  /* Perform a quick check so we don't blow up below.  */
+  if (count < 2
+      || GET_CODE (XVECEXP (op, 0, 0)) != USE
+      || GET_CODE (XEXP (XVECEXP (op, 0, 0), 0)) != CONST_INT
+      || GET_CODE (XVECEXP (op, 0, 1)) != SET
+      || GET_CODE (SET_SRC (XVECEXP (op, 0, 1))) != UNSPEC
+      || XVECLEN (SET_SRC (XVECEXP (op, 0, 1)), 0) != 2)
+    return 0;
+  src_reg = XVECEXP (SET_SRC (XVECEXP (op, 0, 1)), 0, 0);
+  
+  if (GET_CODE (src_reg) != REG
+      || GET_MODE (src_reg) != SImode
+      || ! INT_REGNO_P (REGNO (src_reg)))
+    return 0;
+
+  for (i = 1; i < count; i++)
+    {
+      rtx exp = XVECEXP (op, 0, i);
+      rtx unspec;
+      int maskval;
+      
+      if (GET_CODE (exp) != SET
+	  || GET_CODE (SET_DEST (exp)) != REG
+	  || GET_MODE (SET_DEST (exp)) != CCmode
+	  || ! CR_REGNO_P (REGNO (SET_DEST (exp))))
+	return 0;
+      unspec = SET_SRC (exp);
+      maskval = 1 << (75 - REGNO (SET_DEST (exp)));
+      bitmap |= maskval;
+      
+      if (GET_CODE (unspec) != UNSPEC
+	  || XINT (unspec, 1) != 20
+	  || XVECLEN (unspec, 0) != 2
+	  || XVECEXP (unspec, 0, 0) != src_reg
+	  || GET_CODE (XVECEXP (unspec, 0, 1)) != CONST_INT
+	  || INTVAL (XVECEXP (unspec, 0, 1)) != maskval)
+	return 0;
+    }
+  return INTVAL (XEXP (XVECEXP (op, 0, 0), 0)) == bitmap;
+}
+
+
+/* Return 1 for an PARALLEL suitable for lmw. */
+
+int
+lmw_operation (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  int count = XVECLEN (op, 0);
+  int dest_regno;
+  rtx src_addr;
+  int base_regno;
+  HOST_WIDE_INT offset;
+  int i;
+
+  /* Perform a quick check so we don't blow up below.  */
+  if (count <= 1
+      || GET_CODE (XVECEXP (op, 0, 0)) != SET
+      || GET_CODE (SET_DEST (XVECEXP (op, 0, 0))) != REG
+      || GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != MEM)
+    return 0;
+
+  dest_regno = REGNO (SET_DEST (XVECEXP (op, 0, 0)));
+  src_addr = XEXP (SET_SRC (XVECEXP (op, 0, 0)), 0);
+
+  if (dest_regno > 31
+      || count != 32 - dest_regno)
+    return 0;
+
+  if (LEGITIMATE_INDIRECT_ADDRESS_P (src_addr))
+    {
+      offset = 0;
+      base_regno = REGNO (src_addr);
+    }
+  else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, src_addr))
+    {
+      offset = INTVAL (XEXP (src_addr, 1));
+      base_regno = REGNO (XEXP (src_addr, 0));
+    }
+  else
+    return 0;
+
+  for (i = 0; i < count; i++)
+    {
+      rtx elt = XVECEXP (op, 0, i);
+      rtx newaddr;
+      rtx addr_reg;
+      HOST_WIDE_INT newoffset;
+
+      if (GET_CODE (elt) != SET
+	  || GET_CODE (SET_DEST (elt)) != REG
+	  || GET_MODE (SET_DEST (elt)) != SImode
+	  || REGNO (SET_DEST (elt)) != dest_regno + i
+	  || GET_CODE (SET_SRC (elt)) != MEM
+	  || GET_MODE (SET_SRC (elt)) != SImode)
+	return 0;
+      newaddr = XEXP (SET_SRC (elt), 0);
+      if (LEGITIMATE_INDIRECT_ADDRESS_P (newaddr))
+	{
+	  newoffset = 0;
+	  addr_reg = newaddr;
+	}
+      else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, newaddr))
+	{
+	  addr_reg = XEXP (newaddr, 0);
+	  newoffset = INTVAL (XEXP (newaddr, 1));
+	}
+      else
+	return 0;
+      if (REGNO (addr_reg) != base_regno
+	  || newoffset != offset + 4 * i)
 	return 0;
     }
 
@@ -3577,27 +3706,6 @@ first_fp_reg_to_save ()
 
   return first_reg;
 }
-
-/* Return non-zero if this function makes calls.  */
-
-int
-rs6000_makes_calls ()
-{
-  rtx insn;
-
-  /* If we are profiling, we will be making a call to __mcount.
-     Under the System V ABI's, we store the LR directly, so
-     we don't need to do it here.  */
-  if (DEFAULT_ABI == ABI_AIX && profile_flag)
-    return 1;
-
-  for (insn = get_insns (); insn; insn = next_insn (insn))
-    if (GET_CODE (insn) == CALL_INSN)
-      return 1;
-
-  return 0;
-}
-
 
 /* Calculate the stack information for the current function.  This is
    complicated by having two separate calling sequences, the AIX calling
@@ -3759,7 +3867,7 @@ rs6000_stack_info ()
   info_ptr->fp_size = 8 * (64 - info_ptr->first_fp_reg_save);
 
   /* Does this function call anything? */
-  info_ptr->calls_p = rs6000_makes_calls ();
+  info_ptr->calls_p = ! current_function_is_leaf;
 
   /* Allocate space to save the toc. */
   if (abi == ABI_NT && info_ptr->calls_p)
@@ -4541,6 +4649,263 @@ output_prolog (file, size)
     }
 }
 
+/* Emit function epilogue as insns.  */
+
+void
+rs6000_emit_epilogue(sibcall)
+     int sibcall;
+{
+  rs6000_stack_t *info;
+  int saving_FPRs_inline;
+  int using_load_multiple;
+  int using_mfcr_multiple;
+  int use_backchain_to_restore_sp;
+  int sp_offset = 0;
+  rtx sp_reg_rtx = gen_rtx_REG (Pmode, 1);
+  rtx frame_reg_rtx = sp_reg_rtx;
+  enum machine_mode reg_mode = (TARGET_32BIT) ? SImode : DImode;
+  int reg_size = (TARGET_32BIT) ? 4 : 8;
+  rtx insn;
+  int i;
+
+  info = rs6000_stack_info ();
+  using_load_multiple = (TARGET_MULTIPLE && !TARGET_64BIT
+			 && info->first_gp_reg_save < 31);
+  saving_FPRs_inline = (sibcall
+			|| info->first_fp_reg_save == 64
+			|| FP_SAVE_INLINE (info->first_fp_reg_save));
+  use_backchain_to_restore_sp = (frame_pointer_needed 
+				 || current_function_calls_alloca
+				 || info->total_size > 32767);
+  using_mfcr_multiple = (rs6000_cpu == PROCESSOR_PPC601
+			 || rs6000_cpu == PROCESSOR_PPC603
+			 || rs6000_cpu == PROCESSOR_PPC750
+			 || optimize_size);
+
+  /* If we have a frame pointer, a call to alloca,  or a large stack
+     frame, restore the old stack pointer using the backchain.  Otherwise,
+     we know what size to update it with.  */
+  if (use_backchain_to_restore_sp)
+    {
+      /* Under V.4, don't reset the stack pointer until after we're done
+	 loading the saved registers.  */
+      if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+	frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+
+      insn = emit_move_insn (frame_reg_rtx,
+			     gen_rtx_MEM (reg_mode, sp_reg_rtx));
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+    }
+  else if (info->push_p)
+    {
+      if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+	sp_offset = info->total_size;
+      else
+	{
+	  insn
+	    = emit_insn (TARGET_32BIT
+			 ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
+				       GEN_INT (info->total_size))
+			 : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
+				       GEN_INT (info->total_size)));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
+    }
+  
+  /* Get the old lr if we saved it.  */
+  if (info->lr_save_p)
+    {
+      rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
+			       GEN_INT (info->lr_save_offset + sp_offset));
+      insn = emit_move_insn (gen_rtx_REG (Pmode, 0), 
+			     gen_rtx_MEM (Pmode, addr));
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
+  
+  /* Get the old cr if we saved it.  */
+  if (info->cr_save_p)
+    {
+      rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
+			       GEN_INT (info->cr_save_offset + sp_offset));
+      insn = emit_move_insn (gen_rtx_REG (reg_mode, 12), 
+			     gen_rtx_MEM (reg_mode, addr));
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
+  
+  /* Set LR here to try to overlap restores below.  */
+  if (info->lr_save_p)
+    RTX_FRAME_RELATED_P (emit_move_insn (gen_rtx_REG (Pmode, 
+						      LINK_REGISTER_REGNUM),
+					 gen_rtx_REG (Pmode, 0))) = 1;
+  
+  /* Restore GPRs.  This is done as a PARALLEL if we are using
+     the load-multiple instructions.  */
+  if (using_load_multiple)
+    {
+      rtvec p;
+      p = rtvec_alloc (32 - info->first_gp_reg_save);
+      for (i = 0; i < 32 - info->first_gp_reg_save; i++)
+	{
+	  rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
+				   GEN_INT (info->gp_save_offset 
+					    + sp_offset 
+					    + reg_size * i));
+	  RTVEC_ELT (p, i) = 
+	    gen_rtx_SET (VOIDmode,
+			 gen_rtx_REG (reg_mode, info->first_gp_reg_save + i),
+			 gen_rtx_MEM (reg_mode, addr));
+	}
+      insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
+  else
+    for (i = 0; i < 32 - info->first_gp_reg_save; i++)
+      if ((regs_ever_live[info->first_gp_reg_save+i] 
+	   && ! call_used_regs[info->first_gp_reg_save+i])
+	  || (i+info->first_gp_reg_save == PIC_OFFSET_TABLE_REGNUM
+	      && (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+	      && flag_pic == 1))
+	{
+	  rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
+				   GEN_INT (info->gp_save_offset 
+					    + sp_offset 
+					    + reg_size * i));
+	  insn = emit_move_insn (gen_rtx_REG (reg_mode, 
+					      info->first_gp_reg_save + i),
+				 gen_rtx_MEM (reg_mode, addr));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
+
+  /* Restore fpr's if we need to do it without calling a function.  */
+  if (saving_FPRs_inline)
+    for (i = 0; i < 64 - info->first_fp_reg_save; i++)
+      {
+	rtx addr;
+	addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
+			     GEN_INT (info->fp_save_offset 
+				      + sp_offset 
+				      + 8*i));
+	insn = emit_move_insn (gen_rtx_REG (DFmode, 
+					    info->first_fp_reg_save + i),
+			       gen_rtx_MEM (DFmode, addr));
+	RTX_FRAME_RELATED_P (insn) = 1;
+      }
+
+  /* If we saved cr, restore it here.  Just those that were used.  */
+  if (info->cr_save_p)
+    {
+      rtx r12_rtx = gen_rtx_REG (SImode, 12);
+      
+      if (using_mfcr_multiple)
+	{
+	  rtvec p;
+	  int mask = 0;
+	  int count = 0;
+
+	  for (i = 0; i < 8; i++)
+	    if (regs_ever_live[68+i] && ! call_used_regs[68+i])
+	      {
+		mask |= 1 << (7-i);
+		count++;
+	      }
+	  if (count == 0)
+	    abort();
+	  
+	  p = rtvec_alloc (count + 1);
+
+	  RTVEC_ELT (p, 0) = gen_rtx_USE (VOIDmode, GEN_INT (mask));
+	  count = 1;
+	  for (i = 0; i < 8; i++)
+	    if (regs_ever_live[68+i] && ! call_used_regs[68+i])
+	      {
+		rtvec r = rtvec_alloc (2);
+		RTVEC_ELT (r, 0) = r12_rtx;
+		RTVEC_ELT (r, 1) = GEN_INT (1 << (7-i));
+		RTVEC_ELT (p, count) =
+		  gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, 68+i), 
+			       gen_rtx_UNSPEC (CCmode, r, 20));
+		count++;
+	      }
+	  insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
+      else
+	for (i = 0; i < 8; i++)
+	  if (regs_ever_live[68+i] && ! call_used_regs[68+i])
+	    {
+	      insn = emit_insn (gen_movsi_to_cr_one (gen_rtx_REG (CCmode, 
+								  68+i),
+						     r12_rtx));
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	    }
+    }
+
+  /* If this is V.4, unwind the stack pointer after all of the loads
+     have been done. */
+  if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+    {
+      if (use_backchain_to_restore_sp)
+	{
+	  insn = emit_move_insn (sp_reg_rtx, frame_reg_rtx);
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
+      else if (sp_offset != 0)
+	{
+	  insn = emit_insn (Pmode == SImode
+			    ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
+					  GEN_INT (sp_offset))
+			    : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
+					  GEN_INT (sp_offset)));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
+    }
+
+  if (!sibcall)
+    {
+      rtvec p;
+      if (! saving_FPRs_inline)
+	p = rtvec_alloc (3 + 64 - info->first_fp_reg_save);
+      else
+	p = rtvec_alloc (2);
+
+      RTVEC_ELT (p, 0) = gen_rtx_USE (VOIDmode, 
+				      gen_rtx_REG (Pmode, 
+						   LINK_REGISTER_REGNUM));
+      RTVEC_ELT (p, 1) = gen_rtx_RETURN (VOIDmode);
+
+      /* If we have to restore more than two FP registers, branch to the
+	 restore function.  It will return to our caller.  */
+      if (! saving_FPRs_inline)
+	{
+	  int i;
+	  char rname[30];
+	  char *alloc_rname;
+
+	  sprintf (rname, "%s%d%s", RESTORE_FP_PREFIX, 
+		   info->first_fp_reg_save - 32, RESTORE_FP_SUFFIX);
+	  alloc_rname = ggc_alloc_string (rname, -1);
+	  RTVEC_ELT (p, 2) = gen_rtx_USE (VOIDmode,
+					  gen_rtx_SYMBOL_REF (Pmode,
+							      alloc_rname));
+
+	  for (i = 0; i < 64 - info->first_fp_reg_save; i++)
+	    {
+	      rtx addr;
+	      addr = gen_rtx_PLUS (Pmode, sp_reg_rtx,
+				   GEN_INT (info->fp_save_offset + 8*i));
+	      RTVEC_ELT (p, i+3) = 
+		gen_rtx_SET (VOIDmode,
+			     gen_rtx_REG (DFmode, info->first_fp_reg_save + i),
+			     gen_rtx_MEM (DFmode, addr));
+	    }
+	}
+      
+      insn = emit_jump_insn (gen_rtx_PARALLEL (VOIDmode, p));
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
+}
+
 /* Write function epilogue.  */
 
 void
@@ -4549,101 +4914,31 @@ output_epilog (file, size)
      int size ATTRIBUTE_UNUSED;
 {
   rs6000_stack_t *info = rs6000_stack_info ();
-  const char *load_reg = (TARGET_32BIT) ? "\t{l|lwz} %s,%d(%s)\n" : "\tld %s,%d(%s)\n";
-  rtx insn = get_last_insn ();
-  int sp_reg = 1;
-  int sp_offset = 0;
 
-  /* If the last insn was a BARRIER, we don't have to write anything except
-     the trace table.  */
-  if (GET_CODE (insn) == NOTE)
-    insn = prev_nonnote_insn (insn);
-  if (insn == 0 ||  GET_CODE (insn) != BARRIER)
+  if (! HAVE_epilogue)
     {
-      /* If we have a frame pointer, a call to alloca,  or a large stack
-	 frame, restore the old stack pointer using the backchain.  Otherwise,
-	 we know what size to update it with.  */
-      if (frame_pointer_needed || current_function_calls_alloca
-	  || info->total_size > 32767)
+      rtx insn = get_last_insn ();
+      /* If the last insn was a BARRIER, we don't have to write anything except
+	 the trace table.  */
+      if (GET_CODE (insn) == NOTE)
+	insn = prev_nonnote_insn (insn);
+      if (insn == 0 ||  GET_CODE (insn) != BARRIER)
 	{
-	  /* Under V.4, don't reset the stack pointer until after we're done
-	     loading the saved registers.  */
-	  if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
-	    sp_reg = 11;
+	  /* This is slightly ugly, but at least we don't have two
+	     copies of the epilogue-emitting code.  */
+	  start_sequence ();
 
-	  asm_fprintf (file, load_reg, reg_names[sp_reg], 0, reg_names[1]);
+	  /* A NOTE_INSN_DELETED is supposed to be at the start
+	     and end of the "toplevel" insn chain.  */
+	  emit_note (0, NOTE_INSN_DELETED);
+	  rs6000_emit_epilogue (FALSE);
+	  emit_note (0, NOTE_INSN_DELETED);
+
+	  if (TARGET_DEBUG_ARG)
+	    debug_rtx_list (get_insns(), 100);
+	  final (get_insns(), file, FALSE, FALSE);
+	  end_sequence ();
 	}
-      else if (info->push_p)
-	{
-	  if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
-	    sp_offset = info->total_size;
-	  else
-	    asm_fprintf (file, "\t{cal|la} %s,%d(%s)\n",
-			 reg_names[1], info->total_size, reg_names[1]);
-	}
-
-      /* Get the old lr if we saved it.  */
-      if (info->lr_save_p)
-	asm_fprintf (file, load_reg, reg_names[0], info->lr_save_offset + sp_offset, reg_names[sp_reg]);
-
-      /* Get the old cr if we saved it.  */
-      if (info->cr_save_p)
-	asm_fprintf (file, load_reg, reg_names[12], info->cr_save_offset + sp_offset, reg_names[sp_reg]);
-
-      /* Set LR here to try to overlap restores below.  */
-      if (info->lr_save_p)
-	asm_fprintf (file, "\tmtlr %s\n", reg_names[0]);
-
-      /* Restore gpr's.  */
-      if (! TARGET_MULTIPLE || info->first_gp_reg_save == 31 || TARGET_64BIT)
-	{
-	  int regno    = info->first_gp_reg_save;
-	  int loc      = info->gp_save_offset + sp_offset;
-	  int reg_size = (TARGET_32BIT) ? 4 : 8;
-
-	  for ( ; regno < 32; regno++, loc += reg_size)
-	    asm_fprintf (file, load_reg, reg_names[regno], loc, reg_names[sp_reg]);
-	}
-
-      else if (info->first_gp_reg_save != 32)
-	asm_fprintf (file, "\t{lm|lmw} %s,%d(%s)\n",
-		     reg_names[info->first_gp_reg_save],
-		     info->gp_save_offset + sp_offset,
-		     reg_names[sp_reg]);
-
-      /* Restore fpr's if we can do it without calling a function.  */
-      if (FP_SAVE_INLINE (info->first_fp_reg_save))
-	{
-	  int regno = info->first_fp_reg_save;
-	  int loc   = info->fp_save_offset + sp_offset;
-
-	  for ( ; regno < 64; regno++, loc += 8)
-	    asm_fprintf (file, "\tlfd %s,%d(%s)\n", reg_names[regno], loc, reg_names[sp_reg]);
-	}
-
-      /* If we saved cr, restore it here.  Just those of cr2, cr3, and cr4
-	 that were used.  */
-      if (info->cr_save_p)
-	asm_fprintf (file, "\tmtcrf %d,%s\n",
-		     (regs_ever_live[70] != 0) * 0x20
-		     + (regs_ever_live[71] != 0) * 0x10
-		     + (regs_ever_live[72] != 0) * 0x8, reg_names[12]);
-
-      /* If this is V.4, unwind the stack pointer after all of the loads
-	 have been done */
-      if (sp_offset != 0)
-	asm_fprintf (file, "\t{cal|la} %s,%d(%s)\n",
-		     reg_names[1], sp_offset, reg_names[1]);
-      else if (sp_reg != 1)
-	asm_fprintf (file, "\tmr %s,%s\n", reg_names[1], reg_names[sp_reg]);
-
-      /* If we have to restore more than two FP registers, branch to the
-	 restore function.  It will return to our caller.  */
-      if (info->first_fp_reg_save != 64 && !FP_SAVE_INLINE (info->first_fp_reg_save))
-	asm_fprintf (file, "\tb %s%d%s\n", RESTORE_FP_PREFIX,
-		     info->first_fp_reg_save - 32, RESTORE_FP_SUFFIX);
-      else
-	asm_fprintf (file, "\t{br|blr}\n");
     }
 
   /* Output a traceback table here.  See /usr/include/sys/debug.h for info
