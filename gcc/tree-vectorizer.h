@@ -28,6 +28,11 @@ enum vect_var_kind {
   vect_pointer_var
 };
 
+/* Defines type of operation: unary or binary. */
+enum operation_type {
+  unary_op = 1,
+  binary_op
+};
 
 /*-----------------------------------------------------------------*/
 /* Info on vectorized defs.                                        */
@@ -36,7 +41,7 @@ enum stmt_vec_info_type {
   undef_vec_info_type = 0,
   load_vec_info_type,
   store_vec_info_type,
-  binop_vec_info_type,
+  op_vec_info_type,
   assignment_vec_info_type
 };
 

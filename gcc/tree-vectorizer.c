@@ -168,12 +168,12 @@ static void vect_transform_loop_bound (loop_vec_info);
 static bool vect_transform_stmt (tree, block_stmt_iterator *);
 static tree vect_transform_load (tree, block_stmt_iterator *);
 static tree vect_transform_store (tree, block_stmt_iterator *);
-static tree vect_transform_binop (tree, block_stmt_iterator *);
+static tree vect_transform_op (tree, block_stmt_iterator *);
 static tree vect_transform_assignment (tree, block_stmt_iterator *);
 static void vect_align_data_ref (tree, tree);
 
 /* Utility functions for the analyses.  */
-static bool vect_is_supportable_binop (tree);
+static bool vect_is_supportable_op (tree);
 static bool vect_is_supportable_store (tree);
 static bool vect_is_supportable_load (tree);
 static bool vect_is_supportable_assignment (tree);
@@ -204,6 +204,16 @@ loop_vec_info new_loop_vec_info (struct loop *loop);
 void destroy_loop_vec_info (loop_vec_info);
 stmt_vec_info new_stmt_vec_info (tree stmt, struct loop *loop);
 
+/* Define number of arguments for each tree code.  */
+
+#define DEFTREECODE(SYM, STRING, TYPE, NARGS)   NARGS,
+
+int tree_nargs[] = {
+#include "tree.def"
+
+};
+
+#undef DEFTREECODE
 
 /* Function new_stmt_vec_info.
 
@@ -986,24 +996,24 @@ vect_transform_assignment (tree stmt, block_stmt_iterator *bsi)
 
 
 
-/* Function vect_transfom_binop.  */
 
 static tree
-vect_transform_binop (tree stmt, block_stmt_iterator *bsi)
+vect_transform_op (tree stmt, block_stmt_iterator *bsi)
 {
   tree vec_stmt;
   tree vec_dest;
   tree scalar_dest;
   tree operation;
-  tree op0, op1;
-  tree vec_oprnd0, vec_oprnd1;
+  tree op0, op1=NULL;
+  tree vec_oprnd0, vec_oprnd1=NULL;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   enum tree_code code;
   tree new_temp;
+  int op_type;
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "transform binop\n");
+    fprintf (tree_dump_file, "transform op\n");
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     abort ();
@@ -1019,22 +1029,38 @@ vect_transform_binop (tree stmt, block_stmt_iterator *bsi)
 
   /** Handle uses - get the vectorized defs from the defining stmts.  **/
 
+  /** Distinguish between binary and unary operations.  **/
+
+  op_type = tree_nargs[TREE_CODE (operation)];
+ 
+  if (op_type != unary_op && op_type != binary_op)
+    abort ();
+
   op0 = TREE_OPERAND (operation, 0);
-  op1 = TREE_OPERAND (operation, 1);
+  if (op_type == binary_op)
+    op1 = TREE_OPERAND (operation, 1);
 
   vec_oprnd0 = vect_get_vec_def_for_operand (op0, stmt);
   if (! vec_oprnd0)
     abort ();
 
-  vec_oprnd1 = vect_get_vec_def_for_operand (op1, stmt);
-  if (! vec_oprnd1)
-    abort ();
+  if(op_type == binary_op)
+    {
+      vec_oprnd1 = vect_get_vec_def_for_operand (op1, stmt);
+      if (! vec_oprnd1)
+	abort ();
+    }
 
   /** arguments are ready. create the new vector stmt.  **/
 
   code = TREE_CODE (operation);
-  vec_stmt = build (MODIFY_EXPR, vectype, vec_dest,
-		    build (code, vectype, vec_oprnd0, vec_oprnd1));
+  if (op_type == binary_op)
+      vec_stmt = build (MODIFY_EXPR, vectype, vec_dest,
+			build (code, vectype, vec_oprnd0, vec_oprnd1));
+  else
+      vec_stmt = build (MODIFY_EXPR, vectype, vec_dest,
+			build1 (code, vectype, vec_oprnd0));
+
   new_temp = make_ssa_name (vec_dest, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
 
@@ -1224,8 +1250,8 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
 
   switch (STMT_VINFO_TYPE (stmt_info))
     {
-    case binop_vec_info_type:
-      vec_stmt = vect_transform_binop (stmt, bsi);
+    case op_vec_info_type:
+      vec_stmt = vect_transform_op (stmt, bsi);
       break;
 
     case assignment_vec_info_type:
@@ -1445,23 +1471,24 @@ vect_is_simple_use (tree operand, struct loop *loop)
 }
 
 
-/* Function vect_is_supportable_binop.
+/* Function vect_is_supportable_op.
 
    Verify that STMT performs a binary operation and can be vectorized.  */
 
 static bool
-vect_is_supportable_binop (tree stmt)
+vect_is_supportable_op (tree stmt)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree operation;
   enum tree_code code;
-  tree op0, op1;
+  tree op;
   enum machine_mode vec_mode;
-  optab binoptab;
+  optab optab;
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   struct loop *loop = STMT_VINFO_LOOP (stmt_info);
+  int i,op_type;
 
-  /* Is binop? */
+  /* Is op? */
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -1475,37 +1502,56 @@ vect_is_supportable_binop (tree stmt)
   switch (code)
     {
     case PLUS_EXPR:
-      binoptab = add_optab;
+      optab = add_optab;
       break;
     case MULT_EXPR:
-      binoptab = smul_optab;
+      optab = smul_optab;
       break;
     case MINUS_EXPR:
-      binoptab = sub_optab;
+      optab = sub_optab;
+      break;
+    case BIT_AND_EXPR:
+      optab = and_optab;
+      break;
+    case BIT_XOR_EXPR:
+      optab = xor_optab;
+      break;
+    case BIT_IOR_EXPR:
+      optab = ior_optab;
+      break;
+    case BIT_NOT_EXPR:
+      optab = one_cmpl_optab;
       break;
     default:
       return false;
     }
+  
+  /* Support only unary or binary operations.  */
 
-  op0 = TREE_OPERAND (operation, 0);
-  op1 = TREE_OPERAND (operation, 1);
-
-  if (!vect_is_simple_use (op0, loop) || !vect_is_simple_use (op1, loop))
+  op_type = tree_nargs[code];
+  if (op_type != unary_op && op_type != binary_op)
+    return false;
+  
+  for (i = 0; i < op_type; i++)
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-        fprintf (tree_dump_file, 
-		"use not simple (not SSA_NAME/cst or defined out of loop).\n");
-      return false;
-    }	
+      op = TREE_OPERAND (operation, i);
+      if (!vect_is_simple_use (op, loop))
+	{
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, 
+		     "use not simple (not SSA_NAME or defined out of loop).\n");
+	  return false;
+	}	
+    } 
 
   /* Supportable by target?  */
 
-  if (!binoptab)
+  if (!optab)
     return false;
 
   vec_mode = TYPE_MODE (vectype);
 
-  if (binoptab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
+  if (optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
     {
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	fprintf (tree_dump_file, "op not supported by target\n");
@@ -1514,7 +1560,7 @@ vect_is_supportable_binop (tree stmt)
 
   /* FORNOW: Not considering the cost.  */
 
-  STMT_VINFO_TYPE (stmt_info) = binop_vec_info_type;
+  STMT_VINFO_TYPE (stmt_info) = op_vec_info_type;
 
   return true;
 }
@@ -1754,7 +1800,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	    }
 	  STMT_VINFO_VECTYPE (stmt_info) = vectype;
 
-	  ok = (vect_is_supportable_binop (stmt)
+	  ok = (vect_is_supportable_op (stmt)
 		|| vect_is_supportable_assignment (stmt)
 		|| vect_is_supportable_load (stmt)
 		|| vect_is_supportable_store (stmt));

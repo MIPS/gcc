@@ -1,3 +1,20 @@
+2004-03-09  Olga Golovonevsky <olga@il.ibm.com>
+            Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-vectorizer.c: (vect_transform_binop): Removed.
+        (vect_transform_op): New function instead of vect_transform_binop,
+        to support both unary and binary operations.
+        (vect_is_supportable_binop): Removed.
+        (vect_is_supportable_op): New function instead of
+        vect_is_supportable_binop to support additional codes.
+        * tree-vectorizer.h: (operation_type): New enum type declared.
+        * config/rs6000/altivec.md: (andvv16qi3, andv8hi3, one_cmplv16qi2,
+        one_cmplv8hi2, one_cmplv4si2, iorv16qi3, iorv8hi3,): New modelling.
+        (*movv4si_internal): Relax condition.
+        (*movv8hi_internal1): Likewise.
+        (*movv16qi_internal1): Likewise.
+        (*movv4sf_internal1): Likewise.
+
 2004-03-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (df.o): Remove FIBHEAP_H dependency.
