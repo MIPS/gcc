@@ -7244,7 +7244,12 @@ local_variable_p (struct ls_expr *ptr)
 {
   rtx base;
       
-  return 0;
+  /* This optimization is performed by faking a store to the
+     memory at the end of the block.  This doesn't work for
+     unchanging memories because multiple stores to unchanging
+     memory is illegal and alias analysis doesn't consider it.  */
+  if (RTX_UNCHANGING_P (ptr->pattern))
+    return 0;
   base = find_base_term (XEXP (ptr->pattern, 0));
   return (base
 	  && GET_CODE (base) == ADDRESS

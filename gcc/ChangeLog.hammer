@@ -1,3 +1,7 @@
+Wed Jun 25 22:22:15 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcse.c (local_variable_p): Proper fix.
+
 Wed Jun 25 21:22:22 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* gcse.c (local_variable_p): Temporarily disable.
