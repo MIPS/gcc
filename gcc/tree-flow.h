@@ -605,7 +605,7 @@ extern ref_list call_sites;
 extern HOST_WIDE_INT next_tree_ref_id;
 
 /* Accessors for the referenced_vars array.  */
-extern size_t num_referenced_vars;
+extern unsigned long num_referenced_vars;
 
 static inline tree referenced_var PARAMS ((size_t));
 static inline tree
@@ -665,7 +665,7 @@ extern void remove_tree_ann		PARAMS ((tree));
 extern tree_ann create_tree_ann 	PARAMS ((tree));
 extern tree_ref create_ref		PARAMS ((tree, HOST_WIDE_INT,
 						 basic_block, tree, tree,
-						 tree *, bool));
+						 tree *, int));
 extern void debug_ref			PARAMS ((tree_ref));
 extern void dump_ref			PARAMS ((FILE *, const char *, tree_ref,
       						 int, int));

@@ -89,7 +89,7 @@ static void insert_before_normal_stmt PARAMS ((tree, tree, basic_block));
 static void insert_after_ctrl_stmt PARAMS ((tree, basic_block));
 static void insert_after_normal_stmt PARAMS ((tree, tree, basic_block));
 static void insert_after_loop_body PARAMS ((tree, basic_block));
-static tree *find_expr_in_tree_helper PARAMS ((tree, tree, int, bool));
+static tree *find_expr_in_tree_helper PARAMS ((tree, tree, int, int));
 
 
 /* Create basic blocks.  */
@@ -2294,7 +2294,7 @@ find_expr_in_tree_helper (t, expr, level, substate)
      tree t;
      tree expr;
      int level;
-     bool substate;
+     int substate;
 {
   int i;
   tree *loc;

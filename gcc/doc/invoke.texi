@@ -249,7 +249,8 @@ in the following sections.
 -fdump-tree-original@r{[}-@var{n}@r{]} -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
 -fdump-tree-cfg -fdump-tree-dot @gol
--fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-ssapre@r{[}-@var{n}@r{]} @gol
+-fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
+-fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-simple@r{[}-raw@r{]} @gol
 -fmem-report @gol
 -fprofile-arcs  -ftest-coverage  -ftime-report @gol
@@ -289,7 +290,7 @@ in the following sections.
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
 -ftrapv -funroll-all-loops  -funroll-loops  @gol
--ftree-ssa  -fdisable-simple  -funroll-all-loops  -funroll-loops  @gol
+-fdisable-simple  -funroll-all-loops  -funroll-loops  @gol
 -ftree-pre -ftree-ccp  -ftree-dce @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -3156,9 +3157,7 @@ Print the list of reaching definitions for each variable used in the program.
 @item raw
 Print a raw representation of the tree.
 @item details
-Dump detailed information about the simplification process.  Each statement
-is printed before and after simplification (only used with
--fdump-tree-simple).
+Enable more detailed dumps (not honored by every dump option).
 @item all
 Turn on all options.
 @end table
@@ -3175,6 +3174,11 @@ Dump after all tree based optimization, to @file{@var{file}.optimized}.
 @item inlined
 Dump after function inlining, to @file{@var{file}.inlined}.
 
+@item simple
+@opindex fdump-tree-simple
+Dump each function before and after the simplification pass to a file.  The
+file name is made by appending @file{.simple} to the source file name.
+
 @item cfg
 @opindex fdump-tree-cfg
 Dump the control flow graph of each function to a file.  The file name is
@@ -3190,15 +3194,15 @@ file name is made by appending @file{.dot} to the source file name.
 Dump SSA related information to a file.  The file name is made by appending
 @file{.ssa} to the source file name.
 
-@item ssapre
-@opindex fdump-tree-ssapre
+@item ccp
+@opindex fdump-tree-ccp
+Dump each function before and after CCP.  The file name is made by appending
+@file{.ccp} to the source file name.
+
+@item pre
+@opindex fdump-tree-pre
 Dump trees after partial redundancy elimination.  The file name is made
 by appending @file{.pre} to the source file name.
-
-@item simple
-@opindex fdump-tree-simple
-Dump each function before and after the simplification pass to a file.  The
-file name is made by appending @file{.simple} to the source file name.
 
 @item dce
 @opindex fdump-tree-dce
@@ -3208,9 +3212,7 @@ Dump each function before and after DCE.  The file name is made by appending
 
 @item -fdump-tree-all-ssa @r{(C and C++ only)}
 @opindex fdump-tree-all-ssa @r{(C and C++ only)}
-Enable all SSA-related dumps described above.  This currently includes
-@samp{original}, @samp{optimized}, @samp{cfg}, @samp{dot},
-@samp{ssapre}, @samp{ccp}, @samp{ssa} and @samp{simple}.
+Enable all SSA-related dumps described above.
 
 @item -save-temps
 @opindex save-temps
@@ -3804,24 +3806,23 @@ those which have no call-preserved registers to use instead.
 For all machines, optimization level 2 and higher enables this flag by
 default.
 
-@item -ftree-ssa
-Enable optimizations on the tree representation based on the Static
-Single Assignment form (SSA). @emph{Note:} This feature is under
-development and should not be used in this version of GCC.
-
 @item -fdisable-simple
 Do not re-write trees into SIMPLE form.  This switch also disables
-tree-based optimizations (See @option{-ftree-ssa}).  @emph{Note:} This
-option is only useful when debugging the tree simplification pass in GCC.
+tree-based optimizations.  @emph{Note:} This option is only useful when
+debugging the tree simplification pass in GCC.
 
 @item -ftree-pre
-Perform Partial Redundancy Elimination (PRE) on trees.
+Perform Partial Redundancy Elimination (PRE) on trees.  @emph{Note:} This
+feature is under development and should not be used in this version of GCC.
 
 @item -ftree-ccp
 Perform sparse conditional constant propagation (CCP) on trees.
+@emph{Note:} This feature is under development and should not be used in
+this version of GCC.
 
 @item -ftree-dce
-Perform dead code elimination (DCE) on trees.
+Perform dead code elimination (DCE) on trees.  @emph{Note:} This feature is
+under development and should not be used in this version of GCC.
 
 @item -ftracer
 @opindex ftracer

@@ -697,7 +697,7 @@ create_ref (var, ref_type, bb, parent_stmt, parent_expr, operand_p, add_to_bb)
      tree parent_stmt;
      tree parent_expr;
      tree *operand_p;
-     bool add_to_bb;
+     int add_to_bb;
 {
   tree_ref ref;
 

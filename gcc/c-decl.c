@@ -6524,12 +6524,14 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 	{
 	  mudflap_c_function (fndecl);
 
-	  /* Simplify mudflap instrumentation.  */
+	  /* Simplify mudflap instrumentation.  FIXME  Long term: Would it
+	     be better for mudflap to simplify each tree as it generates
+	     them?  */
 	  simplify_function_tree (fndecl);
 	}
 
       /* Invoke the SSA tree optimizer.  */
-      if (flag_tree_ssa)
+      if (optimize >= 1)
 	optimize_function_tree (fndecl);
     }
 
