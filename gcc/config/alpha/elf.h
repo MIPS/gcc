@@ -304,6 +304,8 @@ void FN ()					\
 	3	.sdata
 	4	.bss
 	5	.sbss
+	6	.tdata
+	7	.tbss
 */
 
 #define DO_SELECT_SECTION(SECNUM, DECL, RELOC)			\
@@ -345,6 +347,8 @@ void FN ()					\
 	      else						\
 		SECNUM = 0x301;					\
 	    }							\
+	  if (DECL_THREAD_LOCAL (DECL))				\
+	    SECNUM = 6 + (SECNUM == 4);				\
 	 }							\
        else if (TREE_CODE (DECL) == CONSTRUCTOR)		\
 	 {							\
@@ -356,7 +360,8 @@ void FN ()					\
 								\
        /* Select small data sections based on size.  */		\
        size = int_size_in_bytes (TREE_TYPE (DECL));		\
-       if (size >= 0 && size <= g_switch_value)			\
+       if (size >= 0 && size <= g_switch_value			\
+	   && (SECNUM & 0xff) < 6)				\
 	 {							\
 	   if ((SECNUM & 0xff) >= 2)				\
 	     SECNUM += 1;					\
@@ -390,6 +395,12 @@ void FN ()					\
 							\
       switch (sec)					\
 	{						\
+	case 6:						\
+	  named_section (NULL_TREE, ".tdata", RELOC);	\
+	  break;					\
+	case 7:						\
+	  named_section (NULL_TREE, ".tbss", RELOC);	\
+	  break;					\
 	case 0x101:					\
 	  mergeable_string_section (DECL, ALIGN, 0);	\
 	  break;					\
@@ -421,7 +432,9 @@ void FN ()					\
 	{ ".data.",   ".gnu.linkonce.d." },				\
 	{ ".sdata.",  ".gnu.linkonce.s." },				\
 	{ ".bss.",    ".gnu.linkonce.b." },				\
-	{ ".sbss.",   ".gnu.linkonce.sb." }				\
+	{ ".sbss.",   ".gnu.linkonce.sb." },				\
+	{ ".tdata.",  ".gnu.linkonce.td." },				\
+	{ ".tbss.",   ".gnu.linkonce.tb." }				\
       };								\
 									\
       int nlen, plen, sec;						\

@@ -40,6 +40,15 @@
    (UNSPEC_LITUSE	12)
    (UNSPEC_SIBCALL	13)
    (UNSPEC_SYMBOL	14)
+
+   ;; TLS Support
+   (UNSPEC_TLSGD_CALL	15)
+   (UNSPEC_TLSLDM_CALL	16)
+   (UNSPEC_TLSGD	17)
+   (UNSPEC_TLSLDM	18)
+   (UNSPEC_DTPREL	19)
+   (UNSPEC_TPREL	20)
+   (UNSPEC_TP		21)
   ])
 
 ;; UNSPEC_VOLATILE:
@@ -57,6 +66,7 @@
    (UNSPECV_FORCE_MOV	9)
    (UNSPECV_LDGP1	10)
    (UNSPECV_PLDGP2	11)	; prologue ldgp
+   (UNSPECV_SET_TP	12)
   ])
 
 ;; Where necessary, the suffixes _le and _be are used to distinguish between
@@ -122,6 +132,17 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 
 (define_attr "length" ""
   (const_int 4))
+
+;; The USEGP attribute marks instructions that have relocations that use
+;; the GP.
+
+(define_attr "usegp" "no,yes"
+  (cond [(eq_attr "type" "ldsym,jsr")
+	   (const_string "yes")
+	 (eq_attr "type" "ild,fld,ist,fst")
+	   (symbol_ref "alpha_find_lo_sum_using_gp(insn)")
+	]
+	(const_string "no")))
 
 ;; On EV4 there are two classes of resources to consider: resources needed
 ;; to issue, and resources needed to execute.  IBUS[01] are in the first
@@ -637,12 +658,55 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   ""
   "")
 
+(define_insn "*adddi_er_lo16_dtp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(lo_sum:DI (match_operand:DI 1 "register_operand" "r")
+		   (match_operand:DI 2 "dtp16_symbolic_operand" "")))]
+  "HAVE_AS_TLS"
+  "lda %0,%2(%1)\t\t!dtprel")
+
+(define_insn "*adddi_er_hi32_dtp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(plus:DI (match_operand:DI 1 "register_operand" "r")
+		 (high:DI (match_operand:DI 2 "dtp32_symbolic_operand" ""))))]
+  "HAVE_AS_TLS"
+  "ldah %0,%2(%1)\t\t!dtprelhi")
+
+(define_insn "*adddi_er_lo32_dtp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(lo_sum:DI (match_operand:DI 1 "register_operand" "r")
+		   (match_operand:DI 2 "dtp32_symbolic_operand" "")))]
+  "HAVE_AS_TLS"
+  "lda %0,%2(%1)\t\t!dtprello")
+
+(define_insn "*adddi_er_lo16_tp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(lo_sum:DI (match_operand:DI 1 "register_operand" "r")
+		   (match_operand:DI 2 "tp16_symbolic_operand" "")))]
+  "HAVE_AS_TLS"
+  "lda %0,%2(%1)\t\t!tprel")
+
+(define_insn "*adddi_er_hi32_tp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(plus:DI (match_operand:DI 1 "register_operand" "r")
+		 (high:DI (match_operand:DI 2 "tp32_symbolic_operand" ""))))]
+  "HAVE_AS_TLS"
+  "ldah %0,%2(%1)\t\t!tprelhi")
+
+(define_insn "*adddi_er_lo32_tp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(lo_sum:DI (match_operand:DI 1 "register_operand" "r")
+		   (match_operand:DI 2 "tp32_symbolic_operand" "")))]
+  "HAVE_AS_TLS"
+  "lda %0,%2(%1)\t\t!tprello")
+
 (define_insn "*adddi_er_high_l"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(plus:DI (match_operand:DI 1 "register_operand" "r")
 		 (high:DI (match_operand:DI 2 "local_symbolic_operand" ""))))]
   "TARGET_EXPLICIT_RELOCS"
-  "ldah %0,%2(%1)\t\t!gprelhigh")
+  "ldah %0,%2(%1)\t\t!gprelhigh"
+  [(set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5106,6 +5170,43 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   "!TARGET_ABI_WINDOWS_NT"
   "call_pal 0x81"
   [(set_attr "type" "ibr")])
+
+;; For userland, we load the thread pointer from the TCB.
+;; For the kernel, we load the per-cpu private value.
+
+(define_insn "load_tp"
+  [(set (match_operand:DI 0 "register_operand" "=v")
+	(unspec:DI [(const_int 0)] UNSPEC_TP))]
+  "TARGET_ABI_OSF"
+{
+  if (TARGET_TLS_KERNEL)
+    return "call_pal 0x32";
+  else
+    return "call_pal 0x9e";
+}
+  [(set_attr "type" "ibr")])
+
+;; For completeness, and possibly a __builtin function, here's how to
+;; set the thread pointer.  Since we don't describe enough of this
+;; quantity for CSE, we have to use a volatile unspec, and then there's
+;; not much point in creating an R16_REG register class.
+
+(define_expand "set_tp"
+  [(set (reg:DI 16) (match_operand:DI 0 "input_operand" ""))
+   (unspec_volatile [(reg:DI 16)] UNSPECV_SET_TP)]
+  "TARGET_ABI_OSF"
+  "")
+
+(define_insn "*set_tp"
+  [(unspec_volatile [(reg:DI 16)] UNSPECV_SET_TP)]
+  "TARGET_ABI_OSF"
+{
+  if (TARGET_TLS_KERNEL)
+    return "call_pal 0x31";
+  else
+    return "call_pal 0x9f";
+}
+  [(set_attr "type" "ibr")])
 
 ;; Finally, we have the basic data motion insns.  The byte and word insns
 ;; are done via define_expand.  Start with the floating-point insns, since
@@ -5497,7 +5598,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
     return "lda %0,%2(%1)\t\t!gprel";
   else
     return "lda %0,%2(%1)\t\t!gprellow";
-})
+}
+  [(set_attr "usegp" "yes")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
@@ -5585,6 +5687,77 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
     }
 })
 
+(define_insn "movdi_er_tlsgd"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")
+		    (match_operand:DI 2 "symbolic_operand" "")
+		    (match_operand 3 "const_int_operand" "")]
+		   UNSPEC_TLSGD))]
+  "HAVE_AS_TLS"
+{
+  if (INTVAL (operands[3]) == 0)
+    return "lda %0,%2(%1)\t\t!tlsgd";
+  else
+    return "lda %0,%2(%1)\t\t!tlsgd!%3";
+})
+
+(define_insn "movdi_er_tlsldm"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")
+		    (match_operand 2 "const_int_operand" "")]
+		   UNSPEC_TLSLDM))]
+  "HAVE_AS_TLS"
+{
+  if (INTVAL (operands[2]) == 0)
+    return "lda %0,%&(%1)\t\t!tlsldm";
+  else
+    return "lda %0,%&(%1)\t\t!tlsldm!%2";
+})
+
+(define_insn "*movdi_er_gotdtp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")
+		    (match_operand:DI 2 "symbolic_operand" "")]
+		   UNSPEC_DTPREL))]
+  "HAVE_AS_TLS"
+  "ldq %0,%2(%1)\t\t!gotdtprel"
+  [(set_attr "type" "ild")
+   (set_attr "usegp" "yes")])
+
+(define_split
+  [(set (match_operand:DI 0 "register_operand" "")
+	(match_operand:DI 1 "gotdtp_symbolic_operand" ""))]
+  "HAVE_AS_TLS && reload_completed"
+  [(set (match_dup 0)
+	(unspec:DI [(match_dup 2)
+		    (match_dup 1)] UNSPEC_DTPREL))]
+{
+  operands[1] = XVECEXP (XEXP (operands[1], 0), 0, 0);
+  operands[2] = pic_offset_table_rtx;
+})
+
+(define_insn "*movdi_er_gottp"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "r")
+		    (match_operand:DI 2 "symbolic_operand" "")]
+		   UNSPEC_TPREL))]
+  "HAVE_AS_TLS"
+  "ldq %0,%2(%1)\t\t!gottprel"
+  [(set_attr "type" "ild")
+   (set_attr "usegp" "yes")])
+
+(define_split
+  [(set (match_operand:DI 0 "register_operand" "")
+	(match_operand:DI 1 "gottp_symbolic_operand" ""))]
+  "HAVE_AS_TLS && reload_completed"
+  [(set (match_dup 0)
+	(unspec:DI [(match_dup 2)
+		    (match_dup 1)] UNSPEC_TPREL))]
+{
+  operands[1] = XVECEXP (XEXP (operands[1], 0), 0, 0);
+  operands[2] = pic_offset_table_rtx;
+})
+
 (define_insn "*movdi_er_nofix"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,r,m,*f,*f,Q")
 	(match_operand:DI 1 "input_operand" "rJ,K,L,T,s,m,rJ,*fJ,Q,*f"))]
@@ -5602,7 +5775,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    fmov %R1,%0
    ldt %0,%1
    stt %R1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")
+   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*")])
 
 ;; The 'U' constraint matches symbolic operands on Unicos/Mk. Those should
 ;; have been split up by the rules above but we shouldn't reject the
@@ -5649,7 +5823,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    stt %R1,%0
    ftoit %1,%0
    itoft %1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")
+   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*,*,*")])
 
 (define_insn "*movdi_fix"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,Q,r,*f")
@@ -7023,7 +7198,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 	(plus:DI (pc) (const_int 4)))
    (unspec_volatile [(reg:DI 29)] UNSPECV_BLOCKAGE)
    (use (match_operand 3 "" ""))
-   (use (match_operand 4 "const_int_operand" ""))]
+   (use (match_operand 4 "" ""))]
   "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF"
   "jsr $26,(%1),%3%J4"
   [(set_attr "type" "jsr")])
@@ -7042,6 +7217,70 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
    jsr $26,%1"
   [(set_attr "type" "jsr")
    (set_attr "length" "*,*,8")])
+
+(define_insn_and_split "call_value_osf_tlsgd"
+  [(set (match_operand 0 "" "")
+	(call (mem:DI (match_operand:DI 1 "symbolic_operand" ""))
+	      (const_int 0)))
+   (unspec [(match_operand:DI 2 "const_int_operand" "")] UNSPEC_TLSGD_CALL)
+   (use (reg:DI 29))
+   (clobber (reg:DI 26))]
+  "HAVE_AS_TLS"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 3)
+	(unspec:DI [(match_dup 5)
+		    (match_dup 1)
+		    (match_dup 2)] UNSPEC_LITERAL))
+   (parallel [(set (match_dup 0)
+		   (call (mem:DI (match_dup 3))
+			 (const_int 0)))
+	      (set (reg:DI 26) (plus:DI (pc) (const_int 4)))
+	      (unspec_volatile [(match_dup 5)] UNSPECV_BLOCKAGE)
+	      (use (match_dup 1))
+	      (use (unspec [(match_dup 2)] UNSPEC_TLSGD_CALL))])
+   (set (match_dup 5)
+	(unspec_volatile:DI [(reg:DI 26) (match_dup 4)] UNSPECV_LDGP1))
+   (set (match_dup 5)
+	(unspec:DI [(match_dup 5) (match_dup 4)] UNSPEC_LDGP2))]
+{
+  operands[3] = gen_rtx_REG (Pmode, 27);
+  operands[4] = GEN_INT (alpha_next_sequence_number++);
+  operands[5] = pic_offset_table_rtx;
+}
+  [(set_attr "type" "multi")])
+
+(define_insn_and_split "call_value_osf_tlsldm"
+  [(set (match_operand 0 "" "")
+	(call (mem:DI (match_operand:DI 1 "symbolic_operand" ""))
+	      (const_int 0)))
+   (unspec [(match_operand:DI 2 "const_int_operand" "")] UNSPEC_TLSLDM_CALL)
+   (use (reg:DI 29))
+   (clobber (reg:DI 26))]
+  "HAVE_AS_TLS"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 3)
+	(unspec:DI [(match_dup 5)
+		    (match_dup 1)
+		    (match_dup 2)] UNSPEC_LITERAL))
+   (parallel [(set (match_dup 0)
+		   (call (mem:DI (match_dup 3))
+			 (const_int 0)))
+	      (set (reg:DI 26) (plus:DI (pc) (const_int 4)))
+	      (unspec_volatile [(match_dup 5)] UNSPECV_BLOCKAGE)
+	      (use (match_dup 1))
+	      (use (unspec [(match_dup 2)] UNSPEC_TLSLDM_CALL))])
+   (set (reg:DI 29)
+	(unspec_volatile:DI [(reg:DI 26) (match_dup 4)] UNSPECV_LDGP1))
+   (set (reg:DI 29)
+	(unspec:DI [(reg:DI 29) (match_dup 4)] UNSPEC_LDGP2))]
+{
+  operands[3] = gen_rtx_REG (Pmode, 27);
+  operands[4] = GEN_INT (alpha_next_sequence_number++);
+  operands[5] = pic_offset_table_rtx;
+}
+  [(set_attr "type" "multi")])
 
 (define_insn "*call_value_osf_1"
   [(set (match_operand 0 "" "")

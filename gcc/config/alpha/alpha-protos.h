@@ -33,6 +33,7 @@ extern void alpha_expand_prologue PARAMS ((void));
 extern void alpha_expand_epilogue PARAMS ((void));
 extern void alpha_output_filename PARAMS ((FILE *, const char *));
 extern void alpha_output_lineno PARAMS ((FILE *, int));
+const char * alpha_strip_name_encoding PARAMS ((const char *));
 
 #ifdef RTX_CODE
 extern int reg_or_0_operand PARAMS ((rtx, enum machine_mode));
@@ -151,6 +152,7 @@ extern void alpha_write_linkage PARAMS ((FILE *));
 
 #ifdef RTX_CODE
 extern rtx alpha_need_linkage PARAMS ((const char *, int));
+extern int alpha_find_lo_sum_using_gp PARAMS ((rtx));
 #endif
 
 #ifdef TREE_CODE
