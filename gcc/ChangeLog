@@ -1,11 +1,3 @@
-2003-12-06  Per Bothner  <pbothner@apple.com>
-
-	Implement a cache for linemap_lookup.
-	* line-map.h (struct_line_maps):  Add cache field.
-	* line-map.c (linemap_init):  Zero cache field.
-	(linemap_add):  Set cache field to offset of newly allocated map.
-	(linemap_lookup):  Use and set cache field.
-
 2003-12-05  Per Bothner  <pbothner@apple.com>
 
 	* line-map.h (source_location):  New typedef.
