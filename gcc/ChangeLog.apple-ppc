@@ -1,3 +1,8 @@
+2004-10-19  Fariborz Jahanian <fjahanian@apple.com>
+
+	* c-common.c (cw_asm_stmt): Set correct constraint for
+	vector arguments.
+
 2004-10-18  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3832999 (fix from mainline)

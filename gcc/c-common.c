@@ -6020,6 +6020,9 @@ cw_asm_stmt (tree expr, tree args)
 	  /* This is PowerPC-specific.  */
 	  if (TREE_CODE (TREE_TYPE (var)) == REAL_TYPE)
 	    str = build_string (2, "+f");
+	  else 
+	    if (TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE)
+	      str = build_string (2, "+v");
 	  else
 	    str = build_string (2, "+b");
 	  one = build_tree_list (build_tree_list (NULL_TREE, str), var);
