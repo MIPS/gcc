@@ -1,3 +1,7 @@
+2004-08-16  Matthew Sachs  <msachs@apple.com>
+
+	* Mark unmarked APPLE LOCAL changes and remove some ancient cruft
+
 2004-08-05  Robert Bowdidge <bowdidge@apple.com>
 
 	* Merge lno-branch as of 2004-07-19\ 00:00Z into

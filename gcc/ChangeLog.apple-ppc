@@ -1,3 +1,7 @@
+2004-08-16  Robert Bowdidge  <bowdidge@apple.com>
+
+	* Add -mdynamic-no-pic to Darwin-specific options
+
 2004-08-16  Caroline Tice  <ctice@apple.com>
 
 	Add hot/cold partitioning update that was accepted in FSF Mainline.
