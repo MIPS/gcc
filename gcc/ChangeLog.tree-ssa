@@ -1,3 +1,8 @@
+2004-02-12  Steven Bosscher  <stevenb@suse.de>
+
+	* doc/cfg.texi: New file.
+	* doc/ggcint.texi: Include it.  Add a new chapter.
+
 2004-02-11  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (OBJS-common): Add tree-ssa-forwprop.o
