@@ -8,15 +8,6 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
-
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -39,61 +30,106 @@ static st_option access_opt[] = {
   {"sequential", ACCESS_SEQUENTIAL},
   {"direct", ACCESS_DIRECT},
   {NULL}
-};
-
-static st_option action_opt[] =
+}, action_opt[] =
 {
-  { "read", ACTION_READ},
-  { "write", ACTION_WRITE},
-  { "readwrite", ACTION_READWRITE},
-  { NULL}
-};
+  {
+  "read", ACTION_READ}
+  ,
+  {
+  "write", ACTION_WRITE}
+  ,
+  {
+  "readwrite", ACTION_READWRITE}
+  ,
+  {
+  NULL}
+}
 
-static st_option blank_opt[] =
+, blank_opt[] =
 {
-  { "null", BLANK_NULL},
-  { "zero", BLANK_ZERO},
-  { NULL}
-};
+  {
+  "null", BLANK_NULL}
+  ,
+  {
+  "zero", BLANK_ZERO}
+  ,
+  {
+  NULL}
+}
 
-static st_option delim_opt[] =
+, delim_opt[] =
 {
-  { "none", DELIM_NONE},
-  { "apostrophe", DELIM_APOSTROPHE},
-  { "quote", DELIM_QUOTE},
-  { NULL}
-};
+  {
+  "none", DELIM_NONE}
+  ,
+  {
+  "apostrophe", DELIM_APOSTROPHE}
+  ,
+  {
+  "quote", DELIM_QUOTE}
+  ,
+  {
+  NULL}
+}
 
-static st_option form_opt[] =
+, form_opt[] =
 {
-  { "formatted", FORM_FORMATTED},
-  { "unformatted", FORM_UNFORMATTED},
-  { NULL}
-};
+  {
+  "formatted", FORM_FORMATTED}
+  ,
+  {
+  "unformatted", FORM_UNFORMATTED}
+  ,
+  {
+  NULL}
+}
 
-static st_option position_opt[] =
+, position_opt[] =
 {
-  { "asis", POSITION_ASIS},
-  { "rewind", POSITION_REWIND},
-  { "append", POSITION_APPEND},
-  { NULL}
-};
+  {
+  "asis", POSITION_ASIS}
+  ,
+  {
+  "rewind", POSITION_REWIND}
+  ,
+  {
+  "append", POSITION_APPEND}
+  ,
+  {
+  NULL}
+}
 
-static st_option status_opt[] =
+, status_opt[] =
 {
-  { "unknown", STATUS_UNKNOWN},
-  { "old", STATUS_OLD},
-  { "new", STATUS_NEW},
-  { "replace", STATUS_REPLACE},
-  { "scratch", STATUS_SCRATCH},
-  { NULL}
-};
+  {
+  "unknown", STATUS_UNKNOWN}
+  ,
+  {
+  "old", STATUS_OLD}
+  ,
+  {
+  "new", STATUS_NEW}
+  ,
+  {
+  "replace", STATUS_REPLACE}
+  ,
+  {
+  "scratch", STATUS_SCRATCH}
+  ,
+  {
+  NULL}
+}
 
-static st_option pad_opt[] =
+, pad_opt[] =
 {
-  { "yes", PAD_YES},
-  { "no", PAD_NO},
-  { NULL}
+  {
+  "yes", PAD_YES}
+  ,
+  {
+  "no", PAD_NO}
+  ,
+  {
+  NULL}
 };
 
 
@@ -105,6 +141,7 @@ static st_option pad_opt[] =
 void
 test_endfile (gfc_unit * u)
 {
+
   if (u->endfile == NO_ENDFILE && file_length (u->s) == file_position (u->s))
     u->endfile = AT_ENDFILE;
 }
@@ -116,6 +153,7 @@ test_endfile (gfc_unit * u)
 static void
 edit_modes (gfc_unit * u, unit_flags * flags)
 {
+
   /* Complain about attempts to change the unchangeable.  */
 
   if (flags->status != STATUS_UNSPECIFIED &&
@@ -216,12 +254,13 @@ new_unit (unit_flags * flags)
   stream *s;
   char tmpname[5 /* fort. */ + 10 /* digits of unit number */ + 1 /* 0 */];
 
-  /* Change unspecifieds to defaults.  Leave (flags->action ==
-     ACTION_UNSPECIFIED) alone so open_external() can set it based on
-     what type of open actually works.  */
+  /* Change unspecifieds to defaults.  */
 
   if (flags->access == ACCESS_UNSPECIFIED)
     flags->access = ACCESS_SEQUENTIAL;
+
+  if (flags->action == ACTION_UNSPECIFIED)
+    flags->action = ACTION_READWRITE;	/* Processor dependent.  */
 
   if (flags->form == FORM_UNSPECIFIED)
     flags->form = (flags->access == ACCESS_SEQUENTIAL)
@@ -323,14 +362,9 @@ new_unit (unit_flags * flags)
       internal_error ("new_unit(): Bad status");
     }
 
-  /* Make sure the file isn't already open someplace else.
-     Do not error if opening file preconnected to stdin, stdout, stderr.  */
+  /* Make sure the file isn't already open someplace else.  */
 
-  u = find_file ();
-  if (u != NULL
-      && (options.stdin_unit < 0 || u->unit_number != options.stdin_unit)
-      && (options.stdout_unit < 0 || u->unit_number != options.stdout_unit)
-      && (options.stderr_unit < 0 || u->unit_number != options.stderr_unit))
+  if (find_file () != NULL)
     {
       generate_error (ERROR_ALREADY_OPEN, NULL);
       goto cleanup;
@@ -338,7 +372,7 @@ new_unit (unit_flags * flags)
 
   /* Open file.  */
 
-  s = open_external (flags);
+  s = open_external (flags->action, flags->status);
   if (s == NULL)
     {
       generate_error (ERROR_OS, NULL);
@@ -382,7 +416,7 @@ new_unit (unit_flags * flags)
 
   test_endfile (u);
 
- cleanup:
+cleanup:
 
   /* Free memory associated with a temporary filename.  */
 
@@ -397,6 +431,7 @@ new_unit (unit_flags * flags)
 static void
 already_open (gfc_unit * u, unit_flags * flags)
 {
+
   if (ioparm.file == NULL)
     {
       edit_modes (u, flags);
@@ -423,9 +458,6 @@ already_open (gfc_unit * u, unit_flags * flags)
 
 
 /* Open file.  */
-
-extern void st_open (void);
-export_proto(st_open);
 
 void
 st_open (void)

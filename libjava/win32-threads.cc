@@ -126,7 +126,18 @@ _Jv_CondWait(_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu, jlong millis, jint na
   else if (millis == 0) time = INFINITE;
   else time = millis;
 
-  _Jv_MutexUnlock (mu);
+  // Record the current lock depth, so it can be restored
+  // when we reacquire it.
+  int count = mu->refcount;
+  int curcount = count;
+
+  // Call _Jv_MutexUnlock repeatedly until this thread
+  // has completely released the monitor.
+  while (curcount > 0)
+    {  
+      _Jv_MutexUnlock (mu);
+      --curcount;
+    }
 
   // Set up our array of three events:
   // - the auto-reset event (for notify())
@@ -164,7 +175,13 @@ _Jv_CondWait(_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu, jlong millis, jint na
   if (last_waiter)
     ResetEvent (cv->ev[1]);
 
-  _Jv_MutexLock (mu);
+  // Call _Jv_MutexLock repeatedly until the mutex's refcount is the
+  // same as before we originally released it.
+  while (curcount < count)
+    {  
+      _Jv_MutexLock (mu);
+      ++curcount;
+    }
   
   return interrupted ? _JV_INTERRUPTED : 0;
 }
@@ -245,6 +262,7 @@ _Jv_ThreadInitData (java::lang::Thread* obj)
 {
   _Jv_Thread_t *data = (_Jv_Thread_t*)_Jv_Malloc(sizeof(_Jv_Thread_t));
   data->flags = 0;
+  data->handle = 0;
   data->thread_obj = obj;
   data->interrupt_event = 0;
   InitializeCriticalSection (&data->interrupt_mutex);
@@ -258,6 +276,7 @@ _Jv_ThreadDestroyData (_Jv_Thread_t *data)
   DeleteCriticalSection (&data->interrupt_mutex);
   if (data->interrupt_event)
     CloseHandle(data->interrupt_event);
+  CloseHandle(data->handle);
   _Jv_Free(data);
 }
 
@@ -348,7 +367,6 @@ _Jv_ThreadStart (java::lang::Thread *thread, _Jv_Thread_t *data, _Jv_ThreadStart
     return;
   data->flags |= FLAG_START;
 
-  // FIXME: handle marking the info object for GC.
   info = (struct starter *) _Jv_AllocBytes (sizeof (struct starter));
   info->method = meth;
   info->data = data;
@@ -362,7 +380,7 @@ _Jv_ThreadStart (java::lang::Thread *thread, _Jv_Thread_t *data, _Jv_ThreadStart
   else
     data->flags |= FLAG_DAEMON;
 
-  GC_CreateThread(NULL, 0, really_start, info, 0, &id);
+  data->handle = GC_CreateThread(NULL, 0, really_start, info, 0, &id);
   _Jv_ThreadSetPriority(data, thread->getPriority());
 }
 

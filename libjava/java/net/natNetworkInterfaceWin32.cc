@@ -70,18 +70,18 @@ winsock2GetRealNetworkInterfaces (jstring* pjstrName,
       // have access to the real name under Winsock 2, we use
       // "lo" for the loopback interface and ethX for the
       // real ones.
-      char szName[30];
+      TCHAR szName[30];
       u_long lFlags = arInterfaceInfo[i].iiFlags;
 
       if (lFlags & IFF_LOOPBACK)
-        strcpy (szName, "lo");
+        _tcscpy (szName, _T("lo"));
       else
         {
-          strcpy (szName, "eth");
-          wsprintf(szName+3, "%d", nCurETHInterface++);
+          _tcscpy (szName, _T("eth"));
+          wsprintf(szName+3, _T("%d"), nCurETHInterface++);
         }
 
-      jstring if_name = JvNewStringLatin1 (szName);
+      jstring if_name = _Jv_Win32NewString (szName);
       java::net::Inet4Address* address =
         new java::net::Inet4Address (baddr, JvNewStringLatin1 (""));
       pjstrName[i] = if_name;
@@ -116,7 +116,16 @@ determineGetRealNetworkInterfacesFN ()
 ::java::util::Vector*
 java::net::NetworkInterface::getRealNetworkInterfaces ()
 {
-  static PfnGetRealNetworkInterfaces pfn =
+  // This next declaration used to be a static local,
+  // but this introduced a dependency on libsupc++ due
+  // to _cxa_guard_acquire and _cxa_guard_release.
+  // When Win95 is gone and we eventually get rid of
+  // winsock2GetRealNetworkInterfaces, we can rework
+  // all of this. Alternatively, we could move this all
+  // to win32.cc and initialize this at startup time,
+  // but that seems more trouble than it's worth at
+  // the moment.
+  PfnGetRealNetworkInterfaces pfn =
     determineGetRealNetworkInterfacesFN ();
     
   jstring arIFName[MAX_INTERFACES];

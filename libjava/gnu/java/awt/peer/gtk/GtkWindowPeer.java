@@ -40,8 +40,9 @@ package gnu.java.awt.peer.gtk;
 
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Insets;
 import java.awt.Window;
+import java.awt.Frame;
+import java.awt.event.WindowEvent;
 import java.awt.peer.WindowPeer;
 
 public class GtkWindowPeer extends GtkContainerPeer
@@ -56,30 +57,37 @@ public class GtkWindowPeer extends GtkContainerPeer
   static protected final int GDK_WINDOW_TYPE_HINT_DOCK = 6;
   static protected final int GDK_WINDOW_TYPE_HINT_DESKTOP = 7;
 
-  // Unfortunately, X does not provide a clean way to calculate the
-  // dimensions of a window's borders before it has been displayed.
-  // So when creating the application's first window we guess the
-  // border dimensions.  Then if need be for that window, we fix the
-  // dimensions upon receipt of the first configure event.  Windows
-  // created after the first one will use the latest inset values
-  // received in postConfigureEvent.
-  static Insets latestInsets = new Insets (20, 6, 6, 6);
+  private boolean hasBeenShown = false;
+  private int oldState = Frame.NORMAL;
+
+  native void gtkWindowSetTitle (String title);
+  native void gtkWindowSetResizable (boolean resizable);
+  native void gtkWindowSetModal (boolean modal);
 
   native void create (int type, boolean decorated,
 		      int width, int height,
-		      GtkWindowPeer parent);
+		      GtkWindowPeer parent,
+		      int[] insets);
 
   void create (int type, boolean decorated)
   {
     GtkWindowPeer parent_peer = null;
     Component parent = awtComponent.getParent();
+    int[] insets = new int [] { 0, 0, 0, 0 };
+
     if (parent != null)
       parent_peer = (GtkWindowPeer) awtComponent.getParent().getPeer();
 
     create (type, decorated,
 	    awtComponent.getWidth(),
 	    awtComponent.getHeight(),
-	    parent_peer);
+	    parent_peer,
+	    insets);
+
+    this.insets.top = insets [0];
+    this.insets.left = insets [1];
+    this.insets.bottom = insets [2];
+    this.insets.right = insets [3];
   }
 
   void create ()
@@ -88,17 +96,22 @@ public class GtkWindowPeer extends GtkContainerPeer
     create (GDK_WINDOW_TYPE_HINT_NORMAL, false);
   }
 
-  native void connectHooks ();
+  void setParent ()
+  {
+    setVisible (awtComponent.isVisible ());
+    setEnabled (awtComponent.isEnabled ());
+  }
+
+  void setVisibleAndEnabled ()
+  {
+  }
+
+  native void connectJObject ();
+  native void connectSignals ();
 
   public GtkWindowPeer (Window window)
   {
     super (window);
-  }
-
-  public void getArgs (Component component, GtkArgList args)
-  {
-    args.add ("visible", component.isVisible ());
-    args.add ("sensitive", component.isEnabled ());
   }
 
   native public void toBack ();
@@ -115,7 +128,7 @@ public class GtkWindowPeer extends GtkContainerPeer
 
   public void setTitle (String title)
   {
-    set ("title", title);
+    gtkWindowSetTitle (title);
   }
 
   native void setSize (int width, int height);
@@ -126,76 +139,37 @@ public class GtkWindowPeer extends GtkContainerPeer
     // false the window will shrink to the dimensions it had before it
     // was resizable.
     setSize (awtComponent.getWidth() - insets.left - insets.right,
-    	     awtComponent.getHeight() - insets.top - insets.bottom);
-    set ("allow_shrink", resizable);
-    set ("allow_grow", resizable);
+	     awtComponent.getHeight() - insets.top - insets.bottom);
+    gtkWindowSetResizable (resizable);
   }
 
   native void setBoundsCallback (Window window,
 				 int x, int y,
 				 int width, int height);
 
-  protected void postConfigureEvent (int x, int y, int width, int height,
-				     int top, int left, int bottom, int right)
+  protected void postInsetsChangedEvent (int top, int left,
+					 int bottom, int right)
   {
-    // Configure events tell us the location and dimensions of the
-    // window within the frame borders, and the dimensions of the
-    // frame borders (top, left, bottom, right).
+    insets.top = top;
+    insets.left = left;
+    insets.bottom = bottom;
+    insets.right = right;
+  }
 
-    // If our borders change we need to make sure that a new layout
-    // will happen, since Sun forgets to handle this case.
-    if (insets.top != top
-	|| insets.left != left
-	|| insets.bottom != bottom
-	|| insets.right != right)
-      {
-	// When our insets change, we receive a configure event with
-	// the new insets, the old window location and the old window
-	// dimensions.  We update our Window object's location and
-	// size using our old inset values.
-	setBoundsCallback ((Window) awtComponent,
-			   x - insets.left,
-			   y - insets.top,
-			   width + insets.left + insets.right,
-			   height + insets.top + insets.bottom);
+  protected void postConfigureEvent (int x, int y, int width, int height)
+  {
+    int frame_x = x - insets.left;
+    int frame_y = y - insets.top;
+    int frame_width = width + insets.left + insets.right;
+    int frame_height = height + insets.top + insets.bottom;
 
-	// The peer's dimensions do not get updated automatically when
-	// insets change so we need to do it manually.
-	setSize (width + (insets.left - left) + (insets.right - right),
-		 height + (insets.top - top) + (insets.bottom - bottom));
+    if (frame_x != awtComponent.getX()
+	|| frame_y != awtComponent.getY()
+	|| frame_width != awtComponent.getWidth()
+	|| frame_height != awtComponent.getHeight())
+      setBoundsCallback ((Window) awtComponent,
+			 frame_x, frame_y, frame_width, frame_height);
 
-	insets.top = top;
-	insets.left = left;
-	insets.bottom = bottom;
-	insets.right = right;
-
-	synchronized (latestInsets)
-	  {
-	    latestInsets.top = top;
-	    latestInsets.left = left;
-	    latestInsets.bottom = bottom;
-	    latestInsets.right = right;
-	  }
-      }
-    else
-      {
-	int frame_x = x - insets.left;
-	int frame_y = y - insets.top;
-	int frame_width = width + insets.left + insets.right;
-	int frame_height = height + insets.top + insets.bottom;
-
-	if (frame_x != awtComponent.getX()
-	    || frame_y != awtComponent.getY()
-	    || frame_width != awtComponent.getWidth()
-	    || frame_height != awtComponent.getHeight())
-	  {
-	    setBoundsCallback ((Window) awtComponent,
-			       frame_x,
-			       frame_y,
-			       frame_width,
-			       frame_height);
-	  }
-      }
     awtComponent.validate();
   }
 
@@ -210,5 +184,30 @@ public class GtkWindowPeer extends GtkContainerPeer
 		 awtComponent.getWidth(),
 		 awtComponent.getHeight());
     nativeSetVisible (b);
+  }
+
+  void postWindowEvent (int id, Window opposite, int newState)
+  {
+    if (id == WindowEvent.WINDOW_OPENED)
+      {
+	// Post a WINDOW_OPENED event the first time this window is shown.
+	if (!hasBeenShown)
+	  {
+	    q.postEvent (new WindowEvent ((Window) awtComponent, id,
+					  opposite));
+	    hasBeenShown = true;
+	  }
+      }
+    else if (id == WindowEvent.WINDOW_STATE_CHANGED)
+      {
+	if (oldState != newState)
+	  {
+	    q.postEvent (new WindowEvent ((Window) awtComponent, id, opposite,
+					  oldState, newState));
+	    oldState = newState;
+	  }
+      }
+    else
+      q.postEvent (new WindowEvent ((Window) awtComponent, id, opposite));
   }
 }

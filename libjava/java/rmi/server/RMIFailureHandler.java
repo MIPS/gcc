@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* RMIFailureHandler.java --
+   Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,5 +42,5 @@ public interface RMIFailureHandler
   /**
    * @exception IOException If an error occurs
    */
-  public boolean failure (Exception ex);
+  boolean failure (Exception ex);
 }

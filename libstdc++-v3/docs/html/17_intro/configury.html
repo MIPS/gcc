@@ -10,7 +10,9 @@
    <meta name="DESCRIPTION" content="configury for libstdc++" />
    <meta name="GENERATOR" content="vi and eight fingers" />
    <title>libstdc++-v3 configury</title>
-<link rel="StyleSheet" href="../lib3styles.css" />
+<link rel="StyleSheet" href="../lib3styles.css" type='text/css' />
+<link rel="Start" href="../documentation.html" type="text/html"
+ title="GNU C++ Standard Library" />
 </head>
 <body>
 
@@ -28,7 +30,7 @@ Canadian cross build.</code></p>
 <blockquote>
 No problem is insoluble in all conceivable circumstances.<br />
 -- The Cosmic AC,
-<a href="http://people.inf.elte.hu/simi/szovegek/Asimov1.html">The
+<a href="http://mit.edu/tylerc/www/twt/LQ1.htm">The
 Last Question</a>, by Isaac Asimov
 </blockquote>
 <ul>
@@ -43,12 +45,14 @@ Last Question</a>, by Isaac Asimov
 <hr />
 <h3><a name="deps">what comes from where</a></h3>
 <p class="centered"><img src="confdeps.png"
-  alt="Dependency graph in PNG graphics format.  (Get a better browser!)"></p>
+  alt="Dependency graph in PNG graphics format.  (Get a better browser!)" /></p>
 
 <p>Regenerate using a command sequence like
-   <code>"aclocal-1.7 &amp;&amp; autoconf2.50 &amp;&amp; autoheader2.50
+   <code>"aclocal-1.7 &amp;&amp; autoconf-2.59 &amp;&amp; autoheader-2.59
    &amp;&amp; automake-1.7"</code> as needed.  And/or configure with
-   --enable-maintainer-mode.
+   --enable-maintainer-mode.  The version numbers will vary depending on
+   <a href="http://gcc.gnu.org/install/prerequisites.html">the current
+   requirements</a> and your vendor's choice of installation names.
 </p>
 
 
@@ -163,7 +167,6 @@ Last Question</a>, by Isaac Asimov
     GLIBCXX_ENABLE_C_MBCHAR
     GLIBCXX_ENABLE_DEBUG
     GLIBCXX_ENABLE_DEBUG_FLAGS
-    GLIBCXX_ENABLE_LIBUNWIND_EXCEPTIONS
     GLIBCXX_ENABLE_LONG_LONG
     GLIBCXX_ENABLE_PCH
     GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
@@ -246,7 +249,8 @@ Last Question</a>, by Isaac Asimov
      <p>If you're wondering what that line noise in the last example was,
      that's how you embed autoconf special characters in output text.
      They're called
-<a href="http://www.gnu.org/manual/autoconf/html_node/autoconf_95.html#SEC95"><em>quadrigraphs</em></a>
+<a
+href="http://www.gnu.org/software/autoconf/manual/autoconf-2.57/html_node/autoconf_95.html#SEC95"><em>quadrigraphs</em></a>
      and you should use them whenever necessary.</p></li>
  <li><p>HELP-STRING is what you think it is.  Do not include the "default"
      text like we used to do; it will be done for you by GLIBCXX_ENABLE.

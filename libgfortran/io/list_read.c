@@ -8,15 +8,6 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
-
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -116,6 +107,7 @@ push_char (char c)
 static void
 free_saved (void)
 {
+
   if (saved_string == NULL)
     return;
 
@@ -173,6 +165,7 @@ done:
 static void
 unget_char (char c)
 {
+
   last_char = c;
 }
 
@@ -260,7 +253,7 @@ finish_separator (void)
 {
   char c;
 
- restart:
+restart:
   eat_spaces ();
 
   c = next_char ();
@@ -361,7 +354,7 @@ convert_integer (int length, int negative)
   free_saved ();
   return m;
 
- overflow:
+overflow:
   if (length == -1)
     st_sprintf (message, "Repeat count overflow in item %d of list input",
 		g.item_count);
@@ -441,11 +434,11 @@ parse_repeat (void)
 	}
     }
 
- done:
+done:
   repeat_count = repeat;
   return 0;
 
- bad_repeat:
+bad_repeat:
   st_sprintf (message, "Bad repeat count in item %d of list input",
 	      g.item_count);
 
@@ -521,7 +514,7 @@ read_logical (int length)
 
   return;
 
- bad_logical:
+bad_logical:
   st_sprintf (message, "Bad logical value while reading item %d",
 	      g.item_count);
 
@@ -589,7 +582,7 @@ read_integer (int length)
 	}
     }
 
- repeat:
+repeat:
   if (convert_integer (-1, 0))
     return;
 
@@ -615,7 +608,7 @@ read_integer (int length)
       break;
     }
 
- get_integer:
+get_integer:
   if (!isdigit (c))
     goto bad_integer;
   push_char (c);
@@ -637,7 +630,7 @@ read_integer (int length)
 	}
     }
 
- bad_integer:
+bad_integer:
   free_saved ();
 
   st_sprintf (message, "Bad integer for item %d in list input", g.item_count);
@@ -645,7 +638,7 @@ read_integer (int length)
 
   return;
 
- done:
+done:
   unget_char (c);
   eat_separator ();
 
@@ -717,7 +710,7 @@ read_character (int length)
 	}
     }
 
- got_repeat:
+got_repeat:
   if (convert_integer (-1, 0))
     return;
 
@@ -741,7 +734,7 @@ read_character (int length)
       break;
     }
 
- get_string:
+get_string:
   for (;;)
     {
       c = next_char ();
@@ -785,9 +778,10 @@ read_character (int length)
 	}
     }
 
-  /* At this point, we have to have a separator, or else the string is
-     invalid.  */
- done:
+/* At this point, we have to have a separator, or else the string is
+   invalid.  */
+
+done:
   c = next_char ();
   if (is_separator (c))
     {
@@ -867,7 +861,7 @@ parse_real (void *buffer, int length)
 	}
     }
 
- exp1:
+exp1:
   c = next_char ();
   if (c != '-' && c != '+')
     push_char ('+');
@@ -877,7 +871,7 @@ parse_real (void *buffer, int length)
       c = next_char ();
     }
 
- exp2:
+exp2:
   if (!isdigit (c))
     goto bad;
   push_char (c);
@@ -900,7 +894,7 @@ parse_real (void *buffer, int length)
 	}
     }
 
- done:
+done:
   unget_char (c);
   push_char ('\0');
 
@@ -909,7 +903,7 @@ parse_real (void *buffer, int length)
 
   return m;
 
- bad:
+bad:
   free_saved ();
   st_sprintf (message, "Bad floating point number for item %d", g.item_count);
   generate_error (ERROR_READ_VALUE, message);
@@ -972,7 +966,7 @@ read_complex (int length)
   saved_type = BT_COMPLEX;
   return;
 
- bad_complex:
+bad_complex:
   st_sprintf (message, "Bad complex value in item %d of list input",
 	      g.item_count);
 
@@ -1052,7 +1046,7 @@ read_real (int length)
 	  goto got_repeat;
 
 	CASE_SEPARATORS:
-          if (c != '\n' &&  c != ',')
+          if (c != '\n')
             unget_char (c);    /* Real number that is just a digit-string.  */
 	  goto done;
 
@@ -1061,7 +1055,7 @@ read_real (int length)
 	}
     }
 
- got_repeat:
+got_repeat:
   if (convert_integer (-1, 0))
     return;
 
@@ -1097,7 +1091,7 @@ read_real (int length)
 
   push_char (c);
 
- real_loop:
+real_loop:
   for (;;)
     {
       c = next_char ();
@@ -1136,7 +1130,7 @@ read_real (int length)
 	}
     }
 
- exp1:
+exp1:
   push_char ('e');
 
   c = next_char ();
@@ -1148,7 +1142,7 @@ read_real (int length)
       c = next_char ();
     }
 
- exp2:
+exp2:
   if (!isdigit (c))
     goto bad_real;
   push_char (c);
@@ -1173,7 +1167,7 @@ read_real (int length)
 	}
     }
 
- done:
+done:
   push_char ('\0');
   if (convert_real (value, saved_string, length))
     return;
@@ -1182,7 +1176,7 @@ read_real (int length)
   saved_type = BT_REAL;
   return;
 
- bad_real:
+bad_real:
   st_sprintf (message, "Bad real number in item %d of list input",
 	      g.item_count);
 
@@ -1287,6 +1281,7 @@ list_formatted_read (bt type, void *p, int len)
       repeat_count = 1;
     }
 
+
   switch (type)
     {
     case BT_INTEGER:
@@ -1314,7 +1309,7 @@ list_formatted_read (bt type, void *p, int len)
   if (ioparm.library_return != LIBRARY_OK)
     return;
 
- set_value:
+set_value:
   switch (saved_type)
     {
     case BT_COMPLEX:
@@ -1350,7 +1345,7 @@ list_formatted_read (bt type, void *p, int len)
 }
 
 void
-init_at_eol(void)
+init_at_eol()
 {
   at_eol = 0;
 }
@@ -1369,6 +1364,7 @@ finish_list_read (void)
       at_eol = 0;
       return;
     }
+
 
   do
     {
@@ -1444,7 +1440,7 @@ namelist_read (void)
       return;
     }
 
- restart:
+restart:
   c = next_char ();
   switch (c)
     {

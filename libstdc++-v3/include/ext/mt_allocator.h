@@ -1,6 +1,6 @@
 // MT-optimized allocator -*- C++ -*-
 
-// Copyright (C) 2003 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,837 +28,732 @@
 // the GNU General Public License.
 
 /** @file ext/mt_allocator.h
- *  This file is a GNU extension to the Standard C++ Library. 
+ *  This file is a GNU extension to the Standard C++ Library.
  *  You should only include this header if you are using GCC 3 or later.
  */
 
 #ifndef _MT_ALLOCATOR_H
 #define _MT_ALLOCATOR_H 1
 
+#include <new>
 #include <cstdlib>
-#include <bits/functexcept.h> 
-#include <bits/stl_threads.h>
+#include <bits/functexcept.h>
+#include <bits/gthr.h>
 #include <bits/atomicity.h>
-#include <bits/allocator_traits.h>
 
 namespace __gnu_cxx
 {
+  /**
+   *  This is a fixed size (power of 2) allocator which - when
+   *  compiled with thread support - will maintain one freelist per
+   *  size per thread plus a "global" one. Steps are taken to limit
+   *  the per thread freelist sizes (by returning excess back to
+   *  "global").
+   *
+   *  Further details:
+   *  http://gcc.gnu.org/onlinedocs/libstdc++/ext/mt_allocator.html
+   */
+  typedef void (*__destroy_handler)(void*);
+  typedef void (*__create_handler)(void);
 
-/**
- *  This is a fixed size (power of 2) allocator which - when compiled
- *  with thread support - will maintain one freelist per size per thread
- *  plus a "global" one. Steps are taken to limit the per thread freelist
- *  sizes (by returning excess back to "global").
- *
- *  Usage examples:
- *  @code
- *    vector<int, __gnu_cxx::__mt_alloc<0> > v1;
- *
- *    typedef std::__allocator<char, __gnu_cxx::__mt_alloc<0> > string_alloc;
- *    std::basic_string<char, std::char_traits<char>, string_alloc> s1;
- *  @endcode
- */
-  template<int __inst>
-    class __mt_alloc
+  struct __pool_base
+  {
+    // Using short int as type for the binmap implies we are never
+    // caching blocks larger than 65535 with this allocator.
+    typedef unsigned short int _Binmap_type;
+
+    // Variables used to configure the behavior of the allocator,
+    // assigned and explained in detail below.
+    struct _Tune
     {
-    private:
-      /*
-       * We need to create the initial lists and set up some variables
-       * before we can answer to the first request for memory. 
-       * The initialization of these variables is done at file scope 
-       * below class declaration.
-       */
-#ifdef __GTHREADS
-      static __gthread_once_t _S_once_mt;
-#endif
-      static bool _S_initialized;
+      // Compile time constants for the default _Tune values.
+      enum { _S_align = 8 };
+      enum { _S_max_bytes = 128 };
+      enum { _S_min_bin = 8 };
+      enum { _S_chunk_size = 4096 - 4 * sizeof(void*) };
+      enum { _S_max_threads = 4096 };
+      enum { _S_freelist_headroom = 10 };
 
-      /*
-       * Using short int as type for the binmap implies we are never caching
-       * blocks larger than 65535 with this allocator
-       */
-      typedef unsigned short int binmap_type;
-      static binmap_type* _S_binmap;
+      // Alignment needed.
+      // NB: In any case must be >= sizeof(_Block_record), that
+      // is 4 on 32 bit machines and 8 on 64 bit machines.
+      size_t	_M_align;
+      
+      // Allocation requests (after round-up to power of 2) below
+      // this value will be handled by the allocator. A raw new/
+      // call will be used for requests larger than this value.
+      size_t	_M_max_bytes; 
+      
+      // Size in bytes of the smallest bin.
+      // NB: Must be a power of 2 and >= _M_align.
+      size_t	_M_min_bin;
+      
+      // In order to avoid fragmenting and minimize the number of
+      // new() calls we always request new memory using this
+      // value. Based on previous discussions on the libstdc++
+      // mailing list we have choosen the value below.
+      // See http://gcc.gnu.org/ml/libstdc++/2001-07/msg00077.html
+      size_t	_M_chunk_size;
+      
+      // The maximum number of supported threads. For
+      // single-threaded operation, use one. Maximum values will
+      // vary depending on details of the underlying system. (For
+      // instance, Linux 2.4.18 reports 4070 in
+      // /proc/sys/kernel/threads-max, while Linux 2.6.6 reports
+      // 65534)
+      size_t 	_M_max_threads;
+      
+      // Each time a deallocation occurs in a threaded application
+      // we make sure that there are no more than
+      // _M_freelist_headroom % of used memory on the freelist. If
+      // the number of additional records is more than
+      // _M_freelist_headroom % of the freelist, we move these
+      // records back to the global pool.
+      size_t 	_M_freelist_headroom;
+      
+      // Set to true forces all allocations to use new().
+      bool 	_M_force_new; 
+      
+      explicit
+      _Tune()
+      : _M_align(_S_align), _M_max_bytes(_S_max_bytes), _M_min_bin(_S_min_bin),
+      _M_chunk_size(_S_chunk_size), _M_max_threads(_S_max_threads), 
+      _M_freelist_headroom(_S_freelist_headroom), 
+      _M_force_new(getenv("GLIBCXX_FORCE_NEW") ? true : false)
+      { }
 
-      static void _S_init();
-
-      /*
-       * Variables used to "tune" the behavior of the allocator, assigned
-       * and explained in detail below.
-       */
-      static size_t _S_max_bytes;
-      static size_t _S_chunk_size;
-      static size_t _S_max_threads;
-      static size_t _S_no_of_bins;
-      static size_t _S_freelist_headroom;
-
-      /*
-       * Each requesting thread is assigned an id ranging from 1 to 
-       * _S_max_threads. Thread id 0 is used as a global memory pool.
-       * In order to get constant performance on the thread assignment
-       * routine, we keep a list of free ids. When a thread first requests
-       * memory we remove the first record in this list and stores the address
-       * in a __gthread_key. When initializing the __gthread_key
-       * we specify a destructor. When this destructor (i.e. the thread dies)
-       * is called, we return the thread id to the back of this list.
-       */
-#ifdef __GTHREADS
-      struct thread_record
+      explicit
+      _Tune(size_t __align, size_t __maxb, size_t __minbin, size_t __chunk, 
+	    size_t __maxthreads, size_t __headroom, bool __force) 
+      : _M_align(__align), _M_max_bytes(__maxb), _M_min_bin(__minbin),
+      _M_chunk_size(__chunk), _M_max_threads(__maxthreads),
+      _M_freelist_headroom(__headroom), _M_force_new(__force)
+      { }
+      
+      bool
+      is_default() const
       {
-        /*
-         * Points to next free thread id record. NULL if last record in list.
-         */
-        thread_record* next;
+	bool __ret = true;
+	__ret &= _M_align == _S_align;
+	__ret &= _M_max_bytes == _S_max_bytes;
+	__ret &= _M_min_bin == _S_min_bin;
+	__ret &= _M_chunk_size == _S_chunk_size;
+	__ret &= _M_max_threads == _S_max_threads;
+	__ret &= _M_freelist_headroom == _S_freelist_headroom;
+	return __ret;
+      }
+    };
+    
+    struct _Block_address
+    {
+      void* 			_M_initial;
+      _Block_address* 		_M_next;
+    };
+    
+    const _Tune&
+    _M_get_options() const
+    { return _M_options; }
 
-        /*
-         * Thread id ranging from 1 to _S_max_threads.
-         */
-        size_t id;
-      };
+    void
+    _M_set_options(_Tune __t)
+    { 
+      if (!_M_init)
+	_M_options = __t;
+    }
 
-      static thread_record* _S_thread_freelist_first;
-      static thread_record* _S_thread_freelist_last;
-      static __gthread_mutex_t _S_thread_freelist_mutex;
-      static void _S_thread_key_destr(void* freelist_pos);
-      static __gthread_key_t _S_thread_key;
-      static size_t _S_get_thread_id();
-#endif
+    bool
+    _M_check_threshold(size_t __bytes)
+    { return __bytes > _M_options._M_max_bytes || _M_options._M_force_new; }
 
-      struct block_record
-      {
-        /*
-         * Points to the next block_record for its thread_id.
-         */
-        block_record* next;
+    size_t
+    _M_get_binmap(size_t __bytes)
+    { return _M_binmap[__bytes]; }
 
-        /*
-         * The thread id of the thread which has requested this block.
-         * All blocks are initially "owned" by global pool thread id 0.
-         */
-        size_t thread_id;
-      };
+    const size_t
+    _M_get_align()
+    { return _M_options._M_align; }
 
-      struct bin_record
-      {
-        /*
-         * An "array" of pointers to the first/last free block for each 
-         * thread id. Memory to these "arrays" is allocated in _S_init() 
-         * for _S_max_threads + global pool 0.
-         */
-        block_record** first;
-        block_record** last;
+    explicit __pool_base() 
+    : _M_options(_Tune()), _M_binmap(NULL), _M_init(false) { }
 
-        /*
-         * An "array" of counters used to keep track of the amount of blocks
-         * that are on the freelist/used for each thread id.
-         * Memory to these "arrays" is allocated in _S_init() 
-         * for _S_max_threads + global pool 0.
-         */
-        size_t* free;
-        size_t* used;
+    explicit __pool_base(const _Tune& __tune) 
+    : _M_options(__tune), _M_binmap(NULL), _M_init(false) { }
 
-        /*
-         * Each bin has its own mutex which is used to ensure data integrity 
-         * while changing "ownership" on a block.
-         * The mutex is initialized in _S_init().
-         */
+  protected:
+    // Configuration options.
+    _Tune 	       		_M_options;
+    
+    _Binmap_type* 		_M_binmap;
+
+    // We need to create the initial lists and set up some variables
+    // before we can answer to the first request for memory.
+    bool 			_M_init;
+  };
+
+  // Data describing the underlying memory pool, parameterized on
+  // threading support.
+  template<bool _Thread>
+    class __pool;
+
+  template<>
+    class __pool<true>;
+
+  template<>
+    class __pool<false>;
+
+
 #ifdef __GTHREADS
-        __gthread_mutex_t* mutex; 
-#endif
-      };
-
-      /*
-       * An "array" of bin_records each of which represents a specific 
-       * power of 2 size. Memory to this "array" is allocated in _S_init().
-       */
-      static bin_record* _S_bin;
-
+  // Specialization for thread enabled, via gthreads.h.
+  template<>
+    class __pool<true> : public __pool_base
+    {
     public:
-      static void*
-      allocate(size_t __n)
+      // Each requesting thread is assigned an id ranging from 1 to
+      // _S_max_threads. Thread id 0 is used as a global memory pool.
+      // In order to get constant performance on the thread assignment
+      // routine, we keep a list of free ids. When a thread first
+      // requests memory we remove the first record in this list and
+      // stores the address in a __gthread_key. When initializing the
+      // __gthread_key we specify a destructor. When this destructor
+      // (i.e. the thread dies) is called, we return the thread id to
+      // the front of this list.
+      struct _Thread_record
       {
+	// Points to next free thread id record. NULL if last record in list.
+	_Thread_record* volatile        _M_next;
+	
+	// Thread id ranging from 1 to _S_max_threads.
+	size_t                          _M_id;
+      };
+      
+      union _Block_record
+      {
+	// Points to the block_record of the next free block.
+	_Block_record* volatile         _M_next;
+	
+	// The thread id of the thread which has requested this block.
+	size_t                          _M_thread_id;
+      };
+      
+      struct _Bin_record
+      {
+	// An "array" of pointers to the first free block for each
+	// thread id. Memory to this "array" is allocated in
+	// _S_initialize() for _S_max_threads + global pool 0.
+	_Block_record** volatile        _M_first;
+	
+	// A list of the initial addresses of all allocated blocks.
+	_Block_address*		     	_M_address;
 
-        /*
-         * Requests larger than _S_max_bytes are handled by
-         * malloc/free directly
-         */
-        if (__n > _S_max_bytes)
-          {
-            void* __ret = malloc(__n);
-            if (!__ret) 
-              __throw_bad_alloc();
+	// An "array" of counters used to keep track of the amount of
+	// blocks that are on the freelist/used for each thread id.
+	// Memory to these "arrays" is allocated in _S_initialize() for
+	// _S_max_threads + global pool 0.
+	size_t* volatile                _M_free;
+	size_t* volatile                _M_used;
+	
+	// Each bin has its own mutex which is used to ensure data
+	// integrity while changing "ownership" on a block.  The mutex
+	// is initialized in _S_initialize().
+	__gthread_mutex_t*              _M_mutex;
+      };
+      
+      void
+      _M_initialize(__destroy_handler __d);
 
-            return __ret;
-          }
+      void
+      _M_initialize_once(__create_handler __c)
+      {
+	// Although the test in __gthread_once() would suffice, we
+	// wrap test of the once condition in our own unlocked
+	// check. This saves one function call to pthread_once()
+	// (which itself only tests for the once value unlocked anyway
+	// and immediately returns if set)
+	if (__builtin_expect(_M_init == false, false))
+	  {
+	    if (__gthread_active_p())
+	      __gthread_once(&_M_once, __c);
+	    if (!_M_init)
+	      __c();
+	  }
+      }
 
-        /*
-         * Although the test in __gthread_once() would suffice, we
-         * wrap test of the once condition in our own unlocked
-         * check. This saves one function call to pthread_once()
-         * (which itself only tests for the once value unlocked anyway
-         * and immediately returns if set)
-         */
-        if (!_S_initialized)
-          {
-#ifdef __GTHREADS
-            if (__gthread_active_p())
-              __gthread_once(&_S_once_mt, _S_init);
-            else
+      void
+      _M_destroy() throw();
+
+      char* 
+      _M_reserve_block(size_t __bytes, const size_t __thread_id);
+    
+      void
+      _M_reclaim_block(char* __p, size_t __bytes);
+    
+      const _Bin_record&
+      _M_get_bin(size_t __which)
+      { return _M_bin[__which]; }
+      
+      void
+      _M_adjust_freelist(const _Bin_record& __bin, _Block_record* __block, 
+			 size_t __thread_id)
+      {
+	if (__gthread_active_p())
+	  {
+	    __block->_M_thread_id = __thread_id;
+	    --__bin._M_free[__thread_id];
+	    ++__bin._M_used[__thread_id];
+	  }
+      }
+
+      void 
+      _M_destroy_thread_key(void* __freelist_pos);
+
+      size_t 
+      _M_get_thread_id();
+
+      explicit __pool() 
+      : _M_bin(NULL), _M_bin_size(1), _M_thread_freelist(NULL) 
+      {
+	// On some platforms, __gthread_once_t is an aggregate.
+	__gthread_once_t __tmp = __GTHREAD_ONCE_INIT;
+	_M_once = __tmp;
+      }
+
+      explicit __pool(const __pool_base::_Tune& __tune) 
+      : __pool_base(__tune), _M_bin(NULL), _M_bin_size(1), 
+      _M_thread_freelist(NULL) 
+      {
+	// On some platforms, __gthread_once_t is an aggregate.
+	__gthread_once_t __tmp = __GTHREAD_ONCE_INIT;
+	_M_once = __tmp;
+      }
+
+      ~__pool() { }
+
+    private:
+      // An "array" of bin_records each of which represents a specific
+      // power of 2 size. Memory to this "array" is allocated in
+      // _M_initialize().
+      _Bin_record* volatile	_M_bin;
+
+      // Actual value calculated in _M_initialize().
+      size_t 	       	     	_M_bin_size;
+
+      __gthread_once_t 		_M_once;
+      
+      _Thread_record* 		_M_thread_freelist;
+      void*			_M_thread_freelist_initial;
+    };
 #endif
-              {
-                _S_max_threads = 0;
-                _S_init();
-              }
-          }
 
-        /*
-         * Round up to power of 2 and figure out which bin to use
-         */
-        size_t bin = _S_binmap[__n];
+  // Specialization for single thread.
+  template<>
+    class __pool<false> : public __pool_base
+    {
+    public:
+      union _Block_record
+      {
+	// Points to the block_record of the next free block.
+	_Block_record* volatile         _M_next;
+      };
 
-#ifdef __GTHREADS
-        size_t thread_id = _S_get_thread_id();
-#else
-        size_t thread_id = 0;
-#endif
+      struct _Bin_record
+      {
+	// An "array" of pointers to the first free block.
+	_Block_record** volatile        _M_first;
 
-        block_record* block;
+	// A list of the initial addresses of all allocated blocks.
+	_Block_address*		     	_M_address;
+      };
+      
+      void
+      _M_initialize_once()
+      {
+	if (__builtin_expect(_M_init == false, false))
+	  _M_initialize();
+      }
 
-        /*
-         * Find out if we have blocks on our freelist.
-         * If so, go ahead and use them directly without
-         * having to lock anything.
-         */
-        if (_S_bin[bin].first[thread_id] == NULL)
-          {
-            /*
-             * Are we using threads?
-             * - Yes, lock and check if there are free blocks on the global 
-             *   list (and if not add new ones), get the first one 
-             *   and change owner.
-             * - No, all operations are made directly to global pool 0 
-             *   no need to lock or change ownership but check for free 
-             *   blocks on global list (and if not add new ones) and 
-             *   get the first one.
-             */
-#ifdef __GTHREADS
-            if (__gthread_active_p())
-              {
-                __gthread_mutex_lock(_S_bin[bin].mutex);
+      void
+      _M_destroy() throw();
 
-                if (_S_bin[bin].first[0] == NULL)
-                  {
-                    _S_bin[bin].first[0] = 
-                      (block_record*)malloc(_S_chunk_size);
+      char* 
+      _M_reserve_block(size_t __bytes, const size_t __thread_id);
+    
+      void
+      _M_reclaim_block(char* __p, size_t __bytes);
+    
+      size_t 
+      _M_get_thread_id() { return 0; }
+      
+      const _Bin_record&
+      _M_get_bin(size_t __which)
+      { return _M_bin[__which]; }
+      
+      void
+      _M_adjust_freelist(const _Bin_record&, _Block_record*, size_t)
+      { }
 
-                    if (!_S_bin[bin].first[0])
-                      {
-                        __gthread_mutex_unlock(_S_bin[bin].mutex);
-                        __throw_bad_alloc();
-                      }
+      explicit __pool() 
+      : _M_bin(NULL), _M_bin_size(1) { }
 
-                    size_t bin_t = 1 << bin;
-                    size_t block_count = 
-                      _S_chunk_size /(bin_t + sizeof(block_record));
+      explicit __pool(const __pool_base::_Tune& __tune) 
+      : __pool_base(__tune), _M_bin(NULL), _M_bin_size(1) { }
 
-                    _S_bin[bin].free[0] = block_count;
+      ~__pool() { }
 
-                    block_count--;
-                    block = _S_bin[bin].first[0];
+    private:
+      // An "array" of bin_records each of which represents a specific
+      // power of 2 size. Memory to this "array" is allocated in
+      // _M_initialize().
+      _Bin_record* volatile	_M_bin;
+      
+      // Actual value calculated in _M_initialize().
+      size_t 	       	     	_M_bin_size;     
 
-                    while (block_count > 0)
-                      {
-                        block->next = (block_record*)((char*)block + 
-                                      (bin_t + sizeof(block_record)));
-                        block = block->next;
-                        block_count--;
-                      }
+      void
+      _M_initialize();
+  };
 
-                    block->next = NULL;
-                    _S_bin[bin].last[0] = block;
-                  }
+  template<bool _Thread>
+    struct __common_pool_policy 
+    {
+      typedef __pool<_Thread> __pool_type;
 
-                block = _S_bin[bin].first[0];
+      template<typename _Tp1, bool _Thread1 = _Thread>
+        struct _M_rebind;
 
-                /*
-                 * Remove from list and count down the available counter on
-                 * global pool 0.
-                 */
-                _S_bin[bin].first[0] = _S_bin[bin].first[0]->next;
-                _S_bin[bin].free[0]--;
+      template<typename _Tp1>
+        struct _M_rebind<_Tp1, true>
+        { typedef __common_pool_policy<true> other; };
 
-                __gthread_mutex_unlock(_S_bin[bin].mutex);
+      template<typename _Tp1>
+        struct _M_rebind<_Tp1, false>
+        { typedef __common_pool_policy<false> other; };
 
-                /*
-                 * Now that we have removed the block from the global
-                 * freelist we can change owner and update the used
-                 * counter for this thread without locking.
-                 */
-                block->thread_id = thread_id;
-                _S_bin[bin].used[thread_id]++;
-              }
-            else
-#endif
-              {
-                _S_bin[bin].first[0] = (block_record*)malloc(_S_chunk_size);
-
-                if (!_S_bin[bin].first[0]) 
-                  __throw_bad_alloc();
-
-                size_t bin_t = 1 << bin;
-                size_t block_count = 
-                  _S_chunk_size / (bin_t + sizeof(block_record));
-
-                _S_bin[bin].free[0] = block_count;
-
-                block_count--;
-                block = _S_bin[bin].first[0];
-
-                while (block_count > 0)
-                  {
-                    block->next = (block_record*)((char*)block + 
-                                  (bin_t + sizeof(block_record)));
-                    block = block->next;
-                    block_count--;
-                  }
-
-                block->next = NULL;
-                _S_bin[bin].last[0] = block;
-
-                block = _S_bin[bin].first[0];
-
-                /*
-                 * Remove from list and count down the available counter on
-                 * global pool 0 and increase it's used counter.
-                 */
-                _S_bin[bin].first[0] = _S_bin[bin].first[0]->next;
-                _S_bin[bin].free[0]--;
-                _S_bin[bin].used[0]++;
-              }
-          }  
-        else
-          {
-            /*
-             * "Default" operation - we have blocks on our own freelist
-             * grab the first record and update the counters.
-             */
-            block = _S_bin[bin].first[thread_id];
-
-            _S_bin[bin].first[thread_id] = _S_bin[bin].first[thread_id]->next;
-            _S_bin[bin].free[thread_id]--;
-            _S_bin[bin].used[thread_id]++;
-          }
-
-        return (void*)((char*)block + sizeof(block_record));
+      static __pool_type&
+      _S_get_pool()
+      { 
+	static __pool_type _S_pool;
+	return _S_pool;
       }
 
       static void
-      deallocate(void* __p, size_t __n)
-      {
-        /*
-         * Requests larger than _S_max_bytes are handled by
-         * malloc/free directly
-         */
-        if (__n > _S_max_bytes)
-          {
-            free(__p);
-            return;
-          }
-
-        /*
-         * Round up to power of 2 and figure out which bin to use
-         */
-        size_t bin = _S_binmap[__n];
-
-#ifdef __GTHREADS
-        size_t thread_id = _S_get_thread_id();
-#else
-        size_t thread_id = 0;
-#endif
-
-        block_record* block = (block_record*)((char*)__p 
-					      - sizeof(block_record));
-
-        /*
-         * This block will always be at the back of a list and thus
-         * we set its next pointer to NULL.
-         */
-        block->next = NULL;
-
-#ifdef __GTHREADS
-        if (__gthread_active_p())
-          {
-            /*
-             * Calculate the number of records to remove from our freelist
-             */
-            int remove = _S_bin[bin].free[thread_id] - 
-                         (_S_bin[bin].used[thread_id] / _S_freelist_headroom);
-
-            /*
-             * The calculation above will almost always tell us to
-             * remove one or two records at a time, but this creates
-             * too much contention when locking and therefore we
-             * wait until the number of records is "high enough".
-             */
-            if (remove > (int)(100 * (_S_no_of_bins - bin)) && 
-                remove > (int)(_S_bin[bin].free[thread_id] / 
-                               _S_freelist_headroom))
-              {
-                __gthread_mutex_lock(_S_bin[bin].mutex);
-
-                while (remove > 0)
-                  {
-                    if (_S_bin[bin].first[0] == NULL)
-                      _S_bin[bin].first[0] = _S_bin[bin].first[thread_id];
-                    else
-                      _S_bin[bin].last[0]->next = _S_bin[bin].first[thread_id];
-
-                    _S_bin[bin].last[0] = _S_bin[bin].first[thread_id];
-
-                    _S_bin[bin].first[thread_id] = 
-                      _S_bin[bin].first[thread_id]->next;
-
-                    _S_bin[bin].free[0]++;
-                    _S_bin[bin].free[thread_id]--;
-
-                    remove--;
-                  }
-
-                _S_bin[bin].last[0]->next = NULL;
-
-                __gthread_mutex_unlock(_S_bin[bin].mutex);
-              }
-
-            /*
-             * Did we allocate this block?
-             * - Yes, return it to our freelist
-             * - No, return it to global pool
-             */
-            if (thread_id == block->thread_id)
-              {
-                if (_S_bin[bin].first[thread_id] == NULL)
-                  _S_bin[bin].first[thread_id] = block;
-                else
-                  _S_bin[bin].last[thread_id]->next = block;
-
-                _S_bin[bin].last[thread_id] = block;
-
-                _S_bin[bin].free[thread_id]++;
-                _S_bin[bin].used[thread_id]--;
-              }
-            else
-              {
-                __gthread_mutex_lock(_S_bin[bin].mutex);
-
-                if (_S_bin[bin].first[0] == NULL)
-                  _S_bin[bin].first[0] = block;
-                else
-                  _S_bin[bin].last[0]->next = block;
-
-                _S_bin[bin].last[0] = block;
-
-                _S_bin[bin].free[0]++;
-                _S_bin[bin].used[block->thread_id]--;
-
-                __gthread_mutex_unlock(_S_bin[bin].mutex);
-              }
-          }
-        else
-#endif
-          {
-            /*
-             * Single threaded application - return to global pool
-             */
-            if (_S_bin[bin].first[0] == NULL)
-              _S_bin[bin].first[0] = block;
-            else
-              _S_bin[bin].last[0]->next = block;
-
-            _S_bin[bin].last[0] = block;
-
-            _S_bin[bin].free[0]++;
-            _S_bin[bin].used[0]--;
-          }
-      }
-    };
-
-  template<int __inst>
-    void
-    __mt_alloc<__inst>::
-    _S_init()
-    {
-      /*
-       * Calculate the number of bins required based on _S_max_bytes,
-       * _S_no_of_bins is initialized to 1 below.
-       */
-      {
-        size_t bin_t = 1;
-        while (_S_max_bytes > bin_t)
-          {
-            bin_t = bin_t << 1;
-            _S_no_of_bins++;
-          }
-      }
-
-      /*
-       * Setup the bin map for quick lookup of the relevant bin
-       */
-      _S_binmap = (binmap_type*)
-        malloc ((_S_max_bytes + 1) * sizeof(binmap_type));
-
-      if (!_S_binmap) 
-        __throw_bad_alloc();
-
-      binmap_type* bp_t = _S_binmap;
-      binmap_type bin_max_t = 1;
-      binmap_type bin_t = 0;
-      for (binmap_type ct = 0; ct <= _S_max_bytes; ct++)
-        {
-          if (ct > bin_max_t)
-            {
-              bin_max_t <<= 1;
-              bin_t++;
-            }
-          *bp_t++ = bin_t;
-        }
-
-      /*
-       * If __gthread_active_p() create and initialize the list of
-       * free thread ids. Single threaded applications use thread id 0
-       * directly and have no need for this.
-       */
-#ifdef __GTHREADS
-      if (__gthread_active_p())
-        {
-          _S_thread_freelist_first = 
-            (thread_record*)malloc(sizeof(thread_record) * _S_max_threads);
-
-          if (!_S_thread_freelist_first) 
-            __throw_bad_alloc();
-
-          /*
-           * NOTE! The first assignable thread id is 1 since the global 
-           * pool uses id 0
-           */
-          size_t i;
-          for (i = 1; i < _S_max_threads; i++)
-            {
-              _S_thread_freelist_first[i - 1].next = 
-                &_S_thread_freelist_first[i];
-
-              _S_thread_freelist_first[i - 1].id = i;
-            }
-
-          /*
-           * Set last record and pointer to this
-           */
-          _S_thread_freelist_first[i - 1].next = NULL;
-          _S_thread_freelist_first[i - 1].id = i;
-          _S_thread_freelist_last = &_S_thread_freelist_first[i - 1];
-
-          /*
-           * Initialize per thread key to hold pointer to
-           * _S_thread_freelist NOTE! Here's an ugly workaround - if
-           * _S_thread_key_destr is not explicitly called at least
-           * once it won't be linked into the application. This is the
-           * behavior of template methods and __gthread_key_create()
-           * takes only a pointer to the function and does not cause
-           * the compiler to create an instance.
-           */
-          _S_thread_key_destr(NULL);
-          __gthread_key_create(&_S_thread_key, _S_thread_key_destr);
-        }
-#endif
-
-      /*
-       * Initialize _S_bin and its members
-       */
-      _S_bin = (bin_record*)malloc(sizeof(bin_record) * _S_no_of_bins);
-
-      if (!_S_bin) 
-        __throw_bad_alloc();
-
-      for (size_t bin = 0; bin < _S_no_of_bins; bin++)
-        {
-          _S_bin[bin].first = (block_record**)
-            malloc(sizeof(block_record*) * (_S_max_threads + 1));
-
-          if (!_S_bin[bin].first) 
-            __throw_bad_alloc();
-
-          _S_bin[bin].last = (block_record**)
-            malloc(sizeof(block_record*) * (_S_max_threads + 1));
-
-          if (!_S_bin[bin].last) 
-            __throw_bad_alloc();
-
-          _S_bin[bin].free = (size_t*)
-            malloc(sizeof(size_t) * (_S_max_threads + 1));
-
-          if (!_S_bin[bin].free) 
-            __throw_bad_alloc();
-
-          _S_bin[bin].used = (size_t*)
-            malloc(sizeof(size_t) * (_S_max_threads + 1));
-
-          if (!_S_bin[bin].used) 
-            __throw_bad_alloc();
-
-          /*
-           * Ugly workaround of what at the time of writing seems to be
-           * a parser problem - see PR c++/9779 for more info.
-           */
-#ifdef __GTHREADS
-          size_t s = sizeof(__gthread_mutex_t); 
-          _S_bin[bin].mutex = (__gthread_mutex_t*)malloc(s);
-
-          if (!_S_bin[bin].mutex) 
-            __throw_bad_alloc();
-
-#ifdef __GTHREAD_MUTEX_INIT
+      _S_initialize_once() 
+      { 
+	static bool __init;
+	if (__builtin_expect(__init == false, false))
 	  {
-	    // Do not copy a POSIX/gthr mutex once in use.
-	    __gthread_mutex_t __tmp = __GTHREAD_MUTEX_INIT;
-	    *_S_bin[bin].mutex = __tmp;
+	    _S_get_pool()._M_initialize_once(); 
+	    __init = true;
 	  }
+      }
+    };
+
+  template<>
+    struct __common_pool_policy<true>;
+
+#ifdef __GTHREADS
+  template<>
+    struct __common_pool_policy<true>
+    {
+      typedef __pool<true> __pool_type;
+
+      template<typename _Tp1, bool _Thread1 = true>
+        struct _M_rebind;
+
+      template<typename _Tp1>
+        struct _M_rebind<_Tp1, true>
+        { typedef __common_pool_policy<true> other; };
+
+      template<typename _Tp1>
+        struct _M_rebind<_Tp1, false>
+        { typedef __common_pool_policy<false> other; };
+
+      static __pool_type&
+      _S_get_pool()
+      { 
+	static __pool_type _S_pool;
+	return _S_pool;
+      }
+
+      static void
+      _S_destroy_thread_key(void* __freelist_pos)
+      { _S_get_pool()._M_destroy_thread_key(__freelist_pos); }
+      
+      static void
+      _S_initialize() 
+      { _S_get_pool()._M_initialize(_S_destroy_thread_key); }
+
+      static void
+      _S_initialize_once() 
+      { 
+	static bool __init;
+	if (__builtin_expect(__init == false, false))
+	  {
+	    _S_get_pool()._M_initialize_once(_S_initialize); 
+	    __init = true;
+	  }
+      }
+   };
+#endif
+
+
+  template<typename _Tp, bool _Thread>
+    struct __per_type_pool_policy
+    {
+      typedef __pool<_Thread> __pool_type;
+
+      template<typename _Tp1, bool _Thread1 = _Thread>
+        struct _M_rebind;
+
+      template<typename _Tp1>
+        struct _M_rebind<_Tp1, false>
+        { typedef __per_type_pool_policy<_Tp1, false> other; };
+
+      template<typename _Tp1>
+        struct _M_rebind<_Tp1, true>
+        { typedef __per_type_pool_policy<_Tp1, true> other; };
+
+      // Avoid static initialization ordering issues.
+      static __pool_type&
+      _S_get_pool() 
+      { 
+	// Sane defaults for the __pool_type.
+	const static size_t __align = __alignof__(_Tp) >= sizeof(typename __pool_type::_Block_record) ? __alignof__(_Tp) : sizeof(typename __pool_type::_Block_record);
+	static __pool_base::_Tune _S_tune(__align, sizeof(_Tp) * 128, (sizeof(_Tp) * 2) >= __align ? sizeof(_Tp) * 2 : __align, __pool_type::_Tune::_S_chunk_size, __pool_type::_Tune::_S_max_threads, __pool_type::_Tune::_S_freelist_headroom, getenv("GLIBCXX_FORCE_NEW") ? true : false);
+	static __pool_type _S_pool(_S_tune);
+	return _S_pool;
+      }
+
+      static void
+      _S_initialize_once() 
+      { 
+	static bool __init;
+	if (__builtin_expect(__init == false, false))
+	  {
+	    _S_get_pool()._M_initialize_once(); 
+	    __init = true;
+	  }
+      }
+    };
+
+  template<typename _Tp>
+    struct __per_type_pool_policy<_Tp, true>;
+
+#ifdef __GTHREADS
+  template<typename _Tp>
+    struct __per_type_pool_policy<_Tp, true>
+    {
+      typedef __pool<true> __pool_type;
+
+      template<typename _Tp1, bool _Thread1 = true>
+        struct _M_rebind;
+
+      template<typename _Tp1>
+        struct _M_rebind<_Tp1, false>
+        { typedef __per_type_pool_policy<_Tp1, false> other; };
+
+      template<typename _Tp1>
+        struct _M_rebind<_Tp1, true>
+        { typedef __per_type_pool_policy<_Tp1, true> other; };
+
+      // Avoid static initialization ordering issues.
+      static __pool_type&
+      _S_get_pool( ) 
+      { 
+	// Sane defaults for the __pool_type.
+	const static size_t __align = __alignof__(_Tp) >= sizeof(typename __pool_type::_Block_record) ? __alignof__(_Tp) : sizeof(typename __pool_type::_Block_record);
+	static __pool_base::_Tune _S_tune(__align, sizeof(_Tp) * 128, (sizeof(_Tp) * 2) >= __align ? sizeof(_Tp) * 2 : __align, __pool_type::_Tune::_S_chunk_size, __pool_type::_Tune::_S_max_threads, __pool_type::_Tune::_S_freelist_headroom, getenv("GLIBCXX_FORCE_NEW") ? true : false);
+	static __pool_type _S_pool(_S_tune);
+	return _S_pool;
+      }
+
+      static void
+      _S_destroy_thread_key(void* __freelist_pos)
+      { _S_get_pool()._M_destroy_thread_key(__freelist_pos); }
+      
+      static void
+      _S_initialize() 
+      { _S_get_pool()._M_initialize(_S_destroy_thread_key); }
+
+      static void
+      _S_initialize_once() 
+      { 
+	static bool __init;
+	if (__builtin_expect(__init == false, false))
+	  {
+	    _S_get_pool()._M_initialize_once(_S_initialize); 
+	    __init = true;
+	  }
+      }
+    };
+#endif
+
+  template<typename _Tp>
+    class __mt_alloc_base 
+    {
+    public:
+      typedef size_t                    size_type;
+      typedef ptrdiff_t                 difference_type;
+      typedef _Tp*                      pointer;
+      typedef const _Tp*                const_pointer;
+      typedef _Tp&                      reference;
+      typedef const _Tp&                const_reference;
+      typedef _Tp                       value_type;
+
+      pointer
+      address(reference __x) const
+      { return &__x; }
+
+      const_pointer
+      address(const_reference __x) const
+      { return &__x; }
+
+      size_type
+      max_size() const throw() 
+      { return size_t(-1) / sizeof(_Tp); }
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 402. wrong new expression in [some_] allocator::construct
+      void 
+      construct(pointer __p, const _Tp& __val) 
+      { ::new(__p) _Tp(__val); }
+
+      void 
+      destroy(pointer __p) { __p->~_Tp(); }
+    };
+
+#ifdef __GTHREADS
+#define __default_policy __common_pool_policy<true>
 #else
-	  { __GTHREAD_MUTEX_INIT_FUNCTION (_S_bin[bin].mutex); }
-#endif
+#define __default_policy __common_pool_policy<false>
 #endif
 
-          for (size_t thread = 0; thread <= _S_max_threads; thread++)
-            {
-              _S_bin[bin].first[thread] = NULL;
-              _S_bin[bin].last[thread] = NULL;
-              _S_bin[bin].free[thread] = 0;
-              _S_bin[bin].used[thread] = 0;
-            }
-        }
+  template<typename _Tp, typename _Poolp = __default_policy>
+    class __mt_alloc : public __mt_alloc_base<_Tp>, _Poolp
+    {
+    public:
+      typedef size_t                    	size_type;
+      typedef ptrdiff_t                 	difference_type;
+      typedef _Tp*                      	pointer;
+      typedef const _Tp*                	const_pointer;
+      typedef _Tp&                      	reference;
+      typedef const _Tp&                	const_reference;
+      typedef _Tp                       	value_type;
+      typedef _Poolp                  		__policy_type;
+      typedef typename _Poolp::__pool_type  	__pool_type;
 
-        _S_initialized = true;
+      template<typename _Tp1, typename _Poolp1 = _Poolp>
+        struct rebind
+        { 
+	  typedef typename _Poolp1::template _M_rebind<_Tp1>::other pol_type;
+	  typedef __mt_alloc<_Tp1, pol_type> other;
+	};
+
+      __mt_alloc() throw() 
+      { __policy_type::_S_get_pool(); }
+
+      __mt_alloc(const __mt_alloc&) throw() 
+      { __policy_type::_S_get_pool(); }
+
+      template<typename _Tp1, typename _Poolp1>
+        __mt_alloc(const __mt_alloc<_Tp1, _Poolp1>& obj) throw()  
+        { __policy_type::_S_get_pool(); }
+
+      ~__mt_alloc() throw() { }
+
+      pointer
+      allocate(size_type __n, const void* = 0);
+
+      void
+      deallocate(pointer __p, size_type __n);
+
+      const __pool_base::_Tune
+      _M_get_options()
+      { 
+	// Return a copy, not a reference, for external consumption.
+	return __pool_base::_Tune(this->_S_get_pool()._M_get_options()); 
+      }
+      
+      void
+      _M_set_options(__pool_base::_Tune __t)
+      { this->_S_get_pool()._M_set_options(__t); }
+    };
+
+  template<typename _Tp, typename _Poolp>
+    typename __mt_alloc<_Tp, _Poolp>::pointer
+    __mt_alloc<_Tp, _Poolp>::
+    allocate(size_type __n, const void*)
+    {
+      this->_S_initialize_once();
+
+      if (__builtin_expect(__n > this->max_size(), false))
+	std::__throw_bad_alloc();
+
+      // Requests larger than _M_max_bytes are handled by operator
+      // new/delete directly.
+      __pool_type& __pool = this->_S_get_pool();
+      const size_t __bytes = __n * sizeof(_Tp);
+      if (__pool._M_check_threshold(__bytes))
+	{
+	  void* __ret = ::operator new(__bytes);
+	  return static_cast<_Tp*>(__ret);
+	}
+      
+      // Round up to power of 2 and figure out which bin to use.
+      const size_t __which = __pool._M_get_binmap(__bytes);
+      const size_t __thread_id = __pool._M_get_thread_id();
+      
+      // Find out if we have blocks on our freelist.  If so, go ahead
+      // and use them directly without having to lock anything.
+      char* __c;
+      typedef typename __pool_type::_Bin_record _Bin_record;
+      const _Bin_record& __bin = __pool._M_get_bin(__which);
+      if (__bin._M_first[__thread_id])
+	{
+	  // Already reserved.
+	  typedef typename __pool_type::_Block_record _Block_record;
+	  _Block_record* __block = __bin._M_first[__thread_id];
+	  __bin._M_first[__thread_id] = __block->_M_next;
+	  
+	  __pool._M_adjust_freelist(__bin, __block, __thread_id);
+	  __c = reinterpret_cast<char*>(__block) + __pool._M_get_align();
+	}
+      else
+	{
+	  // Null, reserve.
+	  __c = __pool._M_reserve_block(__bytes, __thread_id);
+	}
+      return static_cast<_Tp*>(static_cast<void*>(__c));
     }
-
-#ifdef __GTHREADS
-  template<int __inst>
+  
+  template<typename _Tp, typename _Poolp>
     void
-    __mt_alloc<__inst>::
-    _S_thread_key_destr(void* freelist_pos)
+    __mt_alloc<_Tp, _Poolp>::
+    deallocate(pointer __p, size_type __n)
     {
-      /*
-       * This is due to the ugly workaround mentioned in _S_init()
-       */
-      if (freelist_pos == NULL)
-        return;
-
-      /*
-       * If the thread - when it dies - still have records on its
-       * freelist we return them to the global pool here.
-       */
-      for (size_t bin = 0; bin < _S_no_of_bins; bin++)
-        {
-          block_record* block = 
-            _S_bin[bin].first[((thread_record*)freelist_pos)->id];
-
-          if (block != NULL)
-            {
-              __gthread_mutex_lock(_S_bin[bin].mutex);
-
-              while (block != NULL)
-                {
-                  if (_S_bin[bin].first[0] == NULL)
-                    _S_bin[bin].first[0] = block;
-                  else
-                    _S_bin[bin].last[0]->next = block;
-
-                  _S_bin[bin].last[0] = block;
-
-                  block = block->next;
-
-                  _S_bin[bin].free[0]++;
-                }
-
-              _S_bin[bin].last[0]->next = NULL;
-
-              __gthread_mutex_unlock(_S_bin[bin].mutex);
-            }
-        }
-
-      /*
-       * Return this thread id record to thread_freelist
-       */
-      __gthread_mutex_lock(&_S_thread_freelist_mutex);
-
-      _S_thread_freelist_last->next = (thread_record*)freelist_pos;
-      _S_thread_freelist_last = (thread_record*)freelist_pos;
-      _S_thread_freelist_last->next = NULL;
-
-      __gthread_mutex_unlock(&_S_thread_freelist_mutex);
-
+      if (__builtin_expect(__p != 0, true))
+	{
+	  // Requests larger than _M_max_bytes are handled by
+	  // operators new/delete directly.
+	  __pool_type& __pool = this->_S_get_pool();
+	  const size_t __bytes = __n * sizeof(_Tp);
+	  if (__pool._M_check_threshold(__bytes))
+	    ::operator delete(__p);
+	  else
+	    __pool._M_reclaim_block(reinterpret_cast<char*>(__p), __bytes);
+	}
     }
-
-  template<int __inst>
-    size_t
-    __mt_alloc<__inst>::
-    _S_get_thread_id()
-    {
-      /*
-       * If we have thread support and it's active we check the thread
-       * key value and return it's id or if it's not set we take the
-       * first record from _S_thread_freelist and sets the key and
-       * returns it's id.
-       */
-      if (__gthread_active_p())
-        {
-          thread_record* freelist_pos;
-
-          if ((freelist_pos = 
-              (thread_record*)__gthread_getspecific(_S_thread_key)) == NULL)
-            {
-              __gthread_mutex_lock(&_S_thread_freelist_mutex);
-
-              /*
-               * Since _S_max_threads must be larger than the
-               * theoretical max number of threads of the OS the list
-               * can never be empty.
-               */
-              freelist_pos = _S_thread_freelist_first;
-              _S_thread_freelist_first = _S_thread_freelist_first->next;
-
-              __gthread_mutex_unlock(&_S_thread_freelist_mutex);
-
-              __gthread_setspecific(_S_thread_key, (void*)freelist_pos);
-
-              /*
-               * Since thread_ids may/will be reused (espcially in
-               * producer/consumer applications) we make sure that the
-               * list pointers and free counter is reset BUT as the
-               * "old" thread may still be owner of some memory (which
-               * is referred to by other threads and thus not freed)
-               * we don't reset the used counter.
-               */
-              for (size_t bin = 0; bin < _S_no_of_bins; bin++)
-                {
-                  _S_bin[bin].first[freelist_pos->id] = NULL;
-                  _S_bin[bin].last[freelist_pos->id] = NULL;
-                  _S_bin[bin].free[freelist_pos->id] = 0;
-                }
-            } 
-
-          return freelist_pos->id;
-        }
-
-      /*
-       * Otherwise (no thread support or inactive) all requests are
-       * served from the global pool 0.
-       */
-      return 0;
-    }
-
-  template<int __inst> __gthread_once_t
-  __mt_alloc<__inst>::_S_once_mt = __GTHREAD_ONCE_INIT;
-#endif
-
-  template<int __inst> bool
-  __mt_alloc<__inst>::_S_initialized = false;
-
-  template<int __inst> typename __mt_alloc<__inst>::binmap_type*
-  __mt_alloc<__inst>::_S_binmap = NULL;
-
-  /*
-   * Allocation requests (after round-up to power of 2) below this
-   * value will be handled by the allocator. A raw malloc/free() call
-   * will be used for requests larger than this value.
-   */
-  template<int __inst> size_t
-  __mt_alloc<__inst>::_S_max_bytes = 128;
-
-  /*
-   * In order to avoid fragmenting and minimize the number of malloc()
-   * calls we always request new memory using this value. Based on
-   * previous discussions on the libstdc++ mailing list we have
-   * choosen the value below. See
-   * http://gcc.gnu.org/ml/libstdc++/2001-07/msg00077.html
-   */
-  template<int __inst> size_t
-  __mt_alloc<__inst>::_S_chunk_size = 4096 - 4 * sizeof(void*);
-
-  /*
-   * The maximum number of supported threads. Our Linux 2.4.18 reports
-   * 4070 in /proc/sys/kernel/threads-max
-   */
-  template<int __inst> size_t
-  __mt_alloc<__inst>::_S_max_threads = 4096;
-
-  /*
-   * Actual value calculated in _S_init()
-   */
-  template<int __inst> size_t
-  __mt_alloc<__inst>::_S_no_of_bins = 1;
-
-  /*
-   * Each time a deallocation occurs in a threaded application we make
-   * sure that there are no more than _S_freelist_headroom % of used
-   * memory on the freelist. If the number of additional records is
-   * more than _S_freelist_headroom % of the freelist, we move these
-   * records back to the global pool.
-   */
-  template<int __inst> size_t
-  __mt_alloc<__inst>::_S_freelist_headroom = 10;
-
-  /*
-   * Actual initialization in _S_init()
-   */
-#ifdef __GTHREADS
-  template<int __inst> typename __mt_alloc<__inst>::thread_record*
-  __mt_alloc<__inst>::_S_thread_freelist_first = NULL;
-
-  template<int __inst> typename __mt_alloc<__inst>::thread_record*
-  __mt_alloc<__inst>::_S_thread_freelist_last = NULL;
-
-  template<int __inst> __gthread_mutex_t
-  __mt_alloc<__inst>::_S_thread_freelist_mutex = __GTHREAD_MUTEX_INIT;
-
-  /*
-   * Actual initialization in _S_init()
-   */
-  template<int __inst> __gthread_key_t
-  __mt_alloc<__inst>::_S_thread_key;
-#endif
-
-  template<int __inst> typename __mt_alloc<__inst>::bin_record*
-  __mt_alloc<__inst>::_S_bin = NULL;
-
-  template<int __inst>
+  
+  template<typename _Tp, typename _Poolp>
     inline bool
-    operator==(const __mt_alloc<__inst>&, const __mt_alloc<__inst>&)
+    operator==(const __mt_alloc<_Tp, _Poolp>&, const __mt_alloc<_Tp, _Poolp>&)
     { return true; }
-
-  template<int __inst>
+  
+  template<typename _Tp, typename _Poolp>
     inline bool
-    operator!=(const __mt_alloc<__inst>&, const __mt_alloc<__inst>&)
+    operator!=(const __mt_alloc<_Tp, _Poolp>&, const __mt_alloc<_Tp, _Poolp>&)
     { return false; }
+
+#undef __default_policy
 } // namespace __gnu_cxx
-
-namespace std
-{
-  template<typename _Tp, int __inst>
-    struct _Alloc_traits<_Tp, __gnu_cxx::__mt_alloc<__inst> >
-    {
-      static const bool _S_instanceless = true;
-      typedef __gnu_cxx:: __mt_alloc<__inst>		base_alloc_type;
-      typedef __simple_alloc<_Tp, base_alloc_type>	_Alloc_type;
-      typedef __allocator<_Tp, base_alloc_type>		allocator_type;
-    };
-
-  template<typename _Tp, typename _Tp1, int __inst>
-    struct _Alloc_traits<_Tp, 
-                         __allocator<_Tp1, __gnu_cxx::__mt_alloc<__inst> > >
-    {
-      static const bool _S_instanceless = true;
-      typedef __gnu_cxx:: __mt_alloc<__inst>		base_alloc_type;
-      typedef __simple_alloc<_Tp, base_alloc_type>	_Alloc_type;
-      typedef __allocator<_Tp, base_alloc_type>		allocator_type;
-    };
-} // namespace std
 
 #endif

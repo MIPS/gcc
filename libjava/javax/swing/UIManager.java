@@ -1,5 +1,5 @@
 /* UIManager.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -54,15 +54,22 @@ public class UIManager implements Serializable
   {
     String name, clazz;
 	
-    LookAndFeelInfo(String name, 
-                    String clazz)
+    public LookAndFeelInfo(String name, 
+			   String clazz)
     {
       this.name  = name;
       this.clazz = clazz;
     }
 
-    String getName()      { return name;  }
-    String getClassName() { return clazz; }
+    public String getName()
+    {
+      return name;
+    }
+    
+    public String getClassName()
+    {
+      return clazz;
+    }
   }
 
   private static final long serialVersionUID = -5547433830339189365L;
@@ -80,18 +87,31 @@ public class UIManager implements Serializable
     // Do nothing here.
   }
 
+  /**
+   * Add a <code>PropertyChangeListener</code> to the listener list.
+   *
+   * @param listener the listener to add
+   */
   public static void addPropertyChangeListener (PropertyChangeListener listener)
   {
     // FIXME
   }
 
+  /**
+   * Remove a <code>PropertyChangeListener</code> from the listener list.
+   *
+   * @param listener the listener to remove
+   */
   public static void removePropertyChangeListener (PropertyChangeListener listener)
-    // Remove a PropertyChangeListener from the listener list. 
   {
     // FIXME
   }
 
   /**
+   * Returns an array of all added <code>PropertyChangeListener</code> objects.
+   *
+   * @return an array of listeners
+   *
    * @since 1.4
    */
   public static PropertyChangeListener[] getPropertyChangeListeners ()
@@ -100,9 +120,11 @@ public class UIManager implements Serializable
     throw new Error ("Not implemented");
   }
 
+  /**
+   * Add a LookAndFeel to the list of auxiliary look and feels.
+   */
   public static void addAuxiliaryLookAndFeel (LookAndFeel l)
   {
-    // Add a LookAndFeel to the list of auxiliary look and feels. 
     if (aux_installed == null)
       {
         aux_installed = new LookAndFeel[1];
@@ -168,7 +190,7 @@ public class UIManager implements Serializable
   /**
    * Returns the default values for this look and feel. 
    */
-  static  UIDefaults getDefaults()
+  public static UIDefaults getDefaults()
   {
     return getLookAndFeel().getDefaults();
   }
@@ -176,10 +198,9 @@ public class UIManager implements Serializable
   /**
    * Returns a dimension from the defaults table. 
    */
-  static  Dimension getDimension(Object key)
+  public static Dimension getDimension(Object key)
   {
-    System.out.println("UIManager.getDim");
-    return new Dimension(200,100);
+    return (Dimension) getLookAndFeel().getDefaults().get(key);
   }
 
   /**
@@ -188,31 +209,35 @@ public class UIManager implements Serializable
    *
    * @param key an Object that specifies the font. Typically,
    *        this is a String such as
-   *        <code>&quot;TitledBorder.font&quot;</code>.
+   *        <code>TitledBorder.font</code>.
    */
   public static Font getFont(Object key)
   {
     return (Font) getLookAndFeel().getDefaults().get(key);
   }
 
-  static Icon getIcon(Object key)
-    // Returns an Icon from the defaults table. 
+  /**
+   * Returns an Icon from the defaults table.
+   */
+  public static Icon getIcon(Object key)
   {
     return (Icon) getLookAndFeel().getDefaults().get(key);
   }
   
-  static Insets getInsets(Object key)
-    // Returns an Insets object from the defaults table. 
+  /**
+   * Returns an Insets object from the defaults table.
+   */
+  public static Insets getInsets(Object key)
   {
     return (Insets) getLookAndFeel().getDefaults().getInsets(key);
   }
 
-  static LookAndFeelInfo[] getInstalledLookAndFeels()
+  public static LookAndFeelInfo[] getInstalledLookAndFeels()
   {
     return installed;
   }
 
-  static  int getInt(Object key)
+  public static int getInt(Object key)
   {
     Integer x = (Integer) getLookAndFeel().getDefaults().get(key);
     if (x == null)
@@ -220,7 +245,7 @@ public class UIManager implements Serializable
     return x.intValue();
   }
 
-  static  LookAndFeel getLookAndFeel()
+  public static LookAndFeel getLookAndFeel()
   {
     return look_and_feel;
   }
@@ -234,49 +259,71 @@ public class UIManager implements Serializable
     return getLookAndFeel().getDefaults();
   }
 
-  static String getString(Object key)
-    // Returns a string from the defaults table. 
+  /**
+   * Returns a string from the defaults table.
+   */
+  public static String getString(Object key)
   {
     return (String) getLookAndFeel().getDefaults().get(key);
   }
   
-  static String getSystemLookAndFeelClassName()
-    // Returns the name of the LookAndFeel class that implements the native systems look and feel if there is one, otherwise the name of the default cross platform LookAndFeel class. 
+  /**
+   * Returns the name of the LookAndFeel class that implements the
+   * native systems look and feel if there is one, otherwise the name
+   * of the default cross platform LookAndFeel class.
+   */
+  public static String getSystemLookAndFeelClassName()
   {
     return getCrossPlatformLookAndFeelClassName();
   }
 
+  /**
+   * Returns the Look and Feel object that renders the target component.
+   */
   public static ComponentUI getUI(JComponent target)
-    // Returns the L&F object that renders the target component. 
   {
-    ComponentUI ui = getDefaults().getUI(target);
-    //System.out.println("GET-UI-> " + ui + ", for " + target);
-    return ui;
+    return getDefaults().getUI(target);
   }
 
+  /**
+   * Creates a new look and feel and adds it to the current array.
+   */
   public static void installLookAndFeel(String name, String className)
-    // Creates a new look and feel and adds it to the current array. 
   {
   }
 
+  /**
+   * Adds the specified look and feel to the current array and then calls
+   * setInstalledLookAndFeels(javax.swing.UIManager.LookAndFeelInfo[]).
+   */
   public static void installLookAndFeel(LookAndFeelInfo info)
-    // Adds the specified look and feel to the current array and then calls setInstalledLookAndFeels(javax.swing.UIManager.LookAndFeelInfo[]). 
   {
   }
 
+  /**
+   * Stores an object in the defaults table.
+   */
   public static Object put(Object key, Object value)
-    // Stores an object in the defaults table. 
   {
     return getLookAndFeel().getDefaults().put(key,value);
   }
 
+  /**
+   * Replaces the current array of installed LookAndFeelInfos.
+   */
   public static void setInstalledLookAndFeels(UIManager.LookAndFeelInfo[] infos)
-    // Replaces the current array of installed LookAndFeelInfos. 
   {
   }
   
+  /**
+   * Set the current default look.
+   */
   public static void setLookAndFeel(LookAndFeel newLookAndFeel)
+    throws UnsupportedLookAndFeelException
   {
+    if (! newLookAndFeel.isSupportedLookAndFeel())
+      throw new UnsupportedLookAndFeelException(newLookAndFeel.getName());
+    
     if (look_and_feel != null)
       look_and_feel.uninitialize();
 
@@ -288,11 +335,13 @@ public class UIManager implements Serializable
     //repaint();
   }
 
+  /**
+   * Set the current default look and feel using a class name.
+   */
   public static void setLookAndFeel (String className)
     throws ClassNotFoundException, InstantiationException, IllegalAccessException,
     UnsupportedLookAndFeelException
   {
-    //          Set the current default look and feel using a class name.
     Class c = Class.forName(className);
     LookAndFeel a = (LookAndFeel) c.newInstance(); // throws class-cast-exception
     setLookAndFeel(a);

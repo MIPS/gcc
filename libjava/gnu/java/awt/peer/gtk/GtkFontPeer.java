@@ -38,10 +38,16 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 import java.awt.peer.FontPeer;
-import java.awt.Font;
+import java.awt.*;
+import java.awt.geom.*;
+import java.awt.font.*;
+import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.MissingResourceException;
+import java.text.*;
+import gnu.java.awt.peer.ClasspathFontPeer;
 
-public class GtkFontPeer implements FontPeer
+public class GtkFontPeer extends ClasspathFontPeer
 {
   private static ResourceBundle bundle;
   
@@ -57,13 +63,32 @@ public class GtkFontPeer implements FontPeer
       }
   }
 
-  final private String Xname; // uses %d for font size.
+  final private String Xname;
 
   public GtkFontPeer (String name, int style)
   {
+    // All fonts get a default size of 12 if size is not specified.
+    this(name, style, 12);
+  }
+
+  public GtkFontPeer (String name, int style, int size)
+  {
+    super(name, style, size);
+
+    String Xname = null;
     if (bundle != null)
-      Xname = bundle.getString (name.toLowerCase () + "." + style);
-    else
+      {
+	try
+	  {
+	    Xname = bundle.getString (name.toLowerCase () + "." + style);
+	  }
+	catch (MissingResourceException mre)
+	  {
+	    // ignored
+	  }
+      }
+
+    if (Xname == null)
       {
 	String weight;
 	String slant;
@@ -83,12 +108,114 @@ public class GtkFontPeer implements FontPeer
 	else
 	  spacing = "c";
 
-        Xname = "-*-*-" + weight + "-" + slant + "-normal-*-%d-*-*-*-" + spacing + "-*-*-*";
+        Xname = "-*-*-" + weight + "-" + slant + "-normal-*-*-" + size + "-*-*-" + spacing + "-*-*-*";
       }
+
+    this.Xname = Xname;
   }
 
   public String getXLFD ()
   {
     return Xname;
+  }
+
+
+  /* remaining methods are for static compatibility with the newer
+     ClasspathFontPeer superclass; none of these methods ever existed or
+     worked on the older FontPeer interface, but we need to pretend to
+     support them anyways. */
+
+  public boolean canDisplay (Font font, char c)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public int canDisplayUpTo (Font font, CharacterIterator i, int start, int limit)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public String getSubFamilyName (Font font, Locale locale)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public String getPostScriptName (Font font)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public int getNumGlyphs (Font font)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public int getMissingGlyphCode (Font font)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public byte getBaselineFor (Font font, char c)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public String getGlyphName (Font font, int glyphIndex)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public GlyphVector createGlyphVector (Font font,
+                                                 FontRenderContext frc,
+                                                 CharacterIterator ci)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public GlyphVector createGlyphVector (Font font, 
+                                                 FontRenderContext ctx, 
+                                                 int[] glyphCodes)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public GlyphVector layoutGlyphVector (Font font, 
+                                                 FontRenderContext frc, 
+                                                 char[] chars, int start, 
+                                                 int limit, int flags)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public FontMetrics getFontMetrics (Font font)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public boolean hasUniformLineMetrics (Font font)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public LineMetrics getLineMetrics (Font font, 
+                                              CharacterIterator ci, 
+                                              int begin, int limit, 
+                                              FontRenderContext rc)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public Rectangle2D getMaxCharBounds (Font font, 
+                                                FontRenderContext rc)
+  {
+    throw new UnsupportedOperationException();
+  }
+
+  public Rectangle2D getStringBounds (Font font, 
+                                               CharacterIterator ci, 
+                                               int begin, int limit, 
+                                               FontRenderContext frc)
+  {
+    throw new UnsupportedOperationException();
   }
 }

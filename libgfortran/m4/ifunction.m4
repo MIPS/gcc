@@ -1,7 +1,7 @@
 dnl Support macro file for intrinsic functions.
 dnl Contains the generic sections of the array functions.
 dnl This file is part of the GNU Fortran 95 Runtime Library (libgfortran)
-dnl Distributed under the GNU GPL with exception.  See COPYING for details.
+dnl Distributed under the GNU LGPL.  See COPYING for details.
 dnl
 dnl Pass the implementation for a single section as the parameter to
 dnl {MASK_}ARRAY_FUNCTION.
@@ -18,12 +18,8 @@ dnl Execution should be allowed to continue to the end of the block.
 dnl You should not return or break from the inner loop of the implementation.
 dnl Care should also be taken to avoid using the names defined in iparm.m4
 define(START_ARRAY_FUNCTION,
-`
-extern void name`'rtype_qual`_'atype_code (rtype *, atype *, index_type *);
-export_proto(name`'rtype_qual`_'atype_code);
-
-void
-name`'rtype_qual`_'atype_code (rtype *retarray, atype *array, index_type *pdim)
+`void
+`__'name`'rtype_qual`_'atype_code (rtype * retarray, atype *array, index_type *pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
@@ -73,10 +69,8 @@ name`'rtype_qual`_'atype_code (rtype *retarray, atype *array, index_type *pdim)
             retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
         }
 
-      retarray->data
-	 = internal_malloc_size (sizeof (rtype_name)
-		 		 * retarray->dim[rank-1].stride
-				 * extent[rank-1]);
+      retarray->data = internal_malloc (sizeof (rtype_name) * 
+                                        (retarray->dim[rank-1].stride * extent[rank-1]));
       retarray->base = 0;
     }
           
@@ -142,14 +136,8 @@ define(FINISH_ARRAY_FUNCTION,
     }
 }')dnl
 define(START_MASKED_ARRAY_FUNCTION,
-`
-extern void `m'name`'rtype_qual`_'atype_code (rtype *, atype *, index_type *,
-					       gfc_array_l4 *);
-export_proto(`m'name`'rtype_qual`_'atype_code);
-
-void
-`m'name`'rtype_qual`_'atype_code (rtype * retarray, atype * array,
-				  index_type *pdim, gfc_array_l4 * mask)
+`void
+`__m'name`'rtype_qual`_'atype_code (rtype * retarray, atype * array, index_type *pdim, gfc_array_l4 * mask)
 {
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];

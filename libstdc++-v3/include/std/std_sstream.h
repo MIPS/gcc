@@ -1,6 +1,7 @@
 // String based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2002, 2003, 2004
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -65,10 +66,9 @@ namespace std
       // Types:
       typedef _CharT 					char_type;
       typedef _Traits 					traits_type;
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 251. basic_stringbuf missing allocator_type
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 251. basic_stringbuf missing allocator_type
       typedef _Alloc				       	allocator_type;
-#endif
       typedef typename traits_type::int_type 		int_type;
       typedef typename traits_type::pos_type 		pos_type;
       typedef typename traits_type::off_type 		off_type;
@@ -111,8 +111,8 @@ namespace std
       */
       explicit
       basic_stringbuf(ios_base::openmode __mode = ios_base::in | ios_base::out)
-      : __streambuf_type(), _M_string()
-      { _M_stringbuf_init(__mode); }
+      : __streambuf_type(), _M_mode(__mode), _M_string()
+      { }
 
       /**
        *  @brief  Starts with an existing string buffer.
@@ -125,7 +125,7 @@ namespace std
       explicit
       basic_stringbuf(const __string_type& __str,
 		      ios_base::openmode __mode = ios_base::in | ios_base::out)
-      : __streambuf_type(), _M_string(__str.data(), __str.size())
+      : __streambuf_type(), _M_mode(), _M_string(__str.data(), __str.size())
       { _M_stringbuf_init(__mode); }
 
       // Get and set:
@@ -140,8 +140,7 @@ namespace std
       __string_type
       str() const
       {
-	const bool __testout = this->_M_mode & ios_base::out;
-	if (__testout)
+	if (this->pptr())
 	  {
 	    // The current egptr() may not be the actual string end.
 	    if (this->pptr() > this->egptr())
@@ -169,7 +168,7 @@ namespace std
       }
 
     protected:
-      // Common initialization code for both ctors goes here.
+      // Common initialization code goes here.
       /**
        *  @if maint
        *  @doctodo
@@ -220,7 +219,7 @@ namespace std
 	    // things will quickly blow up.
 	    
 	    // Step 1: Destroy the current internal array.
-	    _M_string = __string_type(__s, __n);
+	    _M_string.assign(__s, __n);
 	    
 	    // Step 2: Use the external array.
 	    _M_sync(__s, 0, 0);
@@ -254,20 +253,25 @@ namespace std
       {
 	const bool __testin = this->_M_mode & ios_base::in;
 	const bool __testout = this->_M_mode & ios_base::out;
-	const __size_type __len = _M_string.size();
+	char_type* __end = __base + _M_string.size();
 
 	if (__testin)
-	  this->setg(__base, __base + __i, __base + __len);
+	  this->setg(__base, __base + __i, __end);
 	if (__testout)
 	  {
-	    this->setp(__base, __base + _M_string.capacity());
+	    // If __base comes from setbuf we cannot trust capacity()
+	    // to match the size of the buffer area: in general, after
+	    // Step 1 above, _M_string.capacity() >= __n.
+	    if (__base == _M_string.data())
+	      this->setp(__base, __base + _M_string.capacity());
+	    else
+	      this->setp(__base, __end);
 	    this->pbump(__o);
-	    // We need a pointer to the string end anyway, even when
-	    // !__testin: in that case, however, for the correct
-	    // functioning of the streambuf inlines all the get area
-	    // pointers must be identical.
+	    // egptr() always tracks the string end. When !__testin,
+	    // for the correct functioning of the streambuf inlines
+	    // the other get area pointers are identical.
 	    if (!__testin)
-	      this->setg(__base + __len, __base + __len, __base + __len);
+	      this->setg(__end, __end, __end);
 	  }
       }
 
@@ -277,9 +281,8 @@ namespace std
       _M_update_egptr()
       {
 	const bool __testin = this->_M_mode & ios_base::in;
-	const bool __testout = this->_M_mode & ios_base::out;
 
-	if (__testout && this->pptr() > this->egptr())
+	if (this->pptr() && this->pptr() > this->egptr())
 	  if (__testin)
 	    this->setg(this->eback(), this->gptr(), this->pptr());
 	  else
@@ -304,10 +307,9 @@ namespace std
       // Types:
       typedef _CharT 					char_type;
       typedef _Traits 					traits_type;
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 251. basic_stringbuf missing allocator_type
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 251. basic_stringbuf missing allocator_type
       typedef _Alloc				       	allocator_type;
-#endif
       typedef typename traits_type::int_type 		int_type;
       typedef typename traits_type::pos_type 		pos_type;
       typedef typename traits_type::off_type 		off_type;
@@ -423,10 +425,9 @@ namespace std
       // Types:
       typedef _CharT 					char_type;
       typedef _Traits 					traits_type;
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 251. basic_stringbuf missing allocator_type
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 251. basic_stringbuf missing allocator_type
       typedef _Alloc				       	allocator_type;
-#endif
       typedef typename traits_type::int_type 		int_type;
       typedef typename traits_type::pos_type 		pos_type;
       typedef typename traits_type::off_type 		off_type;
@@ -542,10 +543,9 @@ namespace std
       // Types:
       typedef _CharT 					char_type;
       typedef _Traits 					traits_type;
-#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
-// 251. basic_stringbuf missing allocator_type
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 251. basic_stringbuf missing allocator_type
       typedef _Alloc				       	allocator_type;
-#endif
       typedef typename traits_type::int_type 		int_type;
       typedef typename traits_type::pos_type 		pos_type;
       typedef typename traits_type::off_type 		off_type;

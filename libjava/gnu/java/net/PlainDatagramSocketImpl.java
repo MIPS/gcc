@@ -1,5 +1,5 @@
 /* PlainDatagramSocketImpl.java -- Default DatagramSocket implementation
-   Copyright (C) 1998, 1999, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.java.net;
 
+import gnu.classpath.Configuration;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocketImpl;
@@ -45,9 +47,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
-import java.net.SocketOptions;
 import java.net.SocketException;
-import gnu.classpath.Configuration;
+import java.net.SocketOptions;
 
 /**
  * Written using on-line Java Platform 1.2 API Specification, as well
@@ -60,8 +61,8 @@ import gnu.classpath.Configuration;
  * It makes native calls to C routines that implement BSD style
  * SOCK_DGRAM sockets in the AF_INET family.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Warren Levy <warrenl@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Warren Levy (warrenl@cygnus.com)
  */
 public final class PlainDatagramSocketImpl extends DatagramSocketImpl
 {
@@ -94,7 +95,17 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
   /**
    * This is the actual underlying file descriptor
    */
-  int fnum = -1;
+  int native_fd = -1;
+  
+  /**
+   * Lock object to serialize threads wanting to receive 
+   */
+  private final Object RECEIVE_LOCK = new Object();
+  
+  /**
+   * Lock object to serialize threads wanting to send 
+   */
+  private final Object SEND_LOCK = new Object();
 
   // FIXME: Is this necessary?  Could it help w/ DatagramSocket.getLocalAddress?
   // InetAddress address;
@@ -116,7 +127,7 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
   {
     synchronized (this)
       {
-	if (fnum != -1)
+	if (native_fd != -1)
 	  close();
       }
     super.finalize();
@@ -124,7 +135,7 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
 
   public int getNativeFD()
   {
-    return fnum;
+    return native_fd;
   }
 
   /**
@@ -135,13 +146,13 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
    *
    * @exception SocketException If an error occurs
    */
-  protected native void bind(int lport, InetAddress laddr)
-	throws SocketException;
+  protected native void bind(int port, InetAddress addr)
+    throws SocketException;
 
-  protected native void connect (InetAddress i, int port)
-	throws SocketException;
+  protected native void connect(InetAddress addr, int port)
+    throws SocketException;
   
-  protected native void disconnect ();
+  protected native void disconnect();
   
   /**
    * Creates a new datagram socket
@@ -150,9 +161,9 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
    */
   protected native void create() throws SocketException;
   
-  protected native int peek(InetAddress i) throws IOException;
+  protected native int peek(InetAddress addr) throws IOException;
   
-  protected native int peekData (DatagramPacket dp) throws IOException;
+  protected native int peekData(DatagramPacket packet) throws IOException;
 
   /**
    * Sets the Time to Live value for the socket
@@ -179,7 +190,7 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
    *
    * @exception IOException If an error occurs
    */
-  protected native void send(DatagramPacket p) throws IOException;
+  protected native void send(DatagramPacket packet) throws IOException;
 
   /**
    * Receives a UDP packet from the network
@@ -188,7 +199,7 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
    *
    * @exception IOException IOException If an error occurs
    */
-  protected native void receive(DatagramPacket p) throws IOException;
+  protected native void receive(DatagramPacket packet) throws IOException;
 
   /**
    * Sets the value of an option on the socket
@@ -198,7 +209,8 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
    *
    * @exception SocketException If an error occurs
    */
-  public native void setOption(int optID, Object value) throws SocketException;
+  public native void setOption(int option_id, Object val)
+    throws SocketException;
 
   /**
    * Retrieves the value of an option on the socket
@@ -209,10 +221,23 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
    *
    * @exception SocketException If an error occurs
    */
-  public native Object getOption(int optID) throws SocketException;
-  
-  private native void mcastGrp(InetAddress inetaddr, NetworkInterface netIf,
-		               boolean join) throws IOException;
+  public native Object getOption(int option_id)
+    throws SocketException;
+
+  /**
+   * Joins or leaves a broadcasting group on a given network interface.
+   * If the network interface is <code>null</code> the group is join/left on
+   * all locale network interfaces.
+   * 
+   * @param inetAddr The broadcast address.
+   * @param netIf The network interface to join the group on.
+   * @param join True to join a broadcasting group, fals to leave it.
+   *
+   * @exception IOException If an error occurs.
+   */
+  private native void mcastGrp(InetAddress inetAddr, NetworkInterface netIf,
+		               boolean join)
+    throws IOException;
 
   /**
    * Closes the socket
@@ -254,9 +279,9 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
    *
    * @exception IOException If an error occurs
    */
-  protected void join(InetAddress inetaddr) throws IOException
+  protected void join(InetAddress addr) throws IOException
   {
-    mcastGrp(inetaddr, null, true);
+    mcastGrp(addr, null, true);
   }
 
   /**
@@ -266,20 +291,20 @@ public final class PlainDatagramSocketImpl extends DatagramSocketImpl
    *
    * @exception IOException If an error occurs
    */
-  protected void leave(InetAddress inetaddr) throws IOException
+  protected void leave(InetAddress addr) throws IOException
   {
-    mcastGrp(inetaddr, null, false);
+    mcastGrp(addr, null, false);
   }
 
-  protected void joinGroup (SocketAddress mcastaddr, NetworkInterface netIf)
-	  throws IOException
+  protected void joinGroup(SocketAddress mcastaddr, NetworkInterface netIf)
+    throws IOException
   {
-    mcastGrp(((InetSocketAddress)mcastaddr).getAddress(), netIf, true);
+    mcastGrp(((InetSocketAddress) mcastaddr).getAddress(), netIf, true);
   }
 
-  protected void leaveGroup (SocketAddress mcastaddr, NetworkInterface netIf)
-	  throws IOException
+  protected void leaveGroup(SocketAddress mcastaddr, NetworkInterface netIf)
+    throws IOException
   {
-    mcastGrp(((InetSocketAddress)mcastaddr).getAddress(), netIf, false);
+    mcastGrp(((InetSocketAddress) mcastaddr).getAddress(), netIf, false);
   }
 }

@@ -54,9 +54,10 @@ public class GtkTextComponentPeer extends GtkComponentPeer
     super (tc);
 
     setText (tc.getText ());
+    setCaretPosition(0);
   }
 
-  public native void connectHooks ();
+  public native void connectSignals ();
 
   public native int getCaretPosition ();
   public native void setCaretPosition (int pos);

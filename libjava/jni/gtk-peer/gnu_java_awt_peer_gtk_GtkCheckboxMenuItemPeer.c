@@ -37,7 +37,7 @@ exception statement from your version. */
 
 
 #include "gtkpeer.h"
-#include "gnu_java_awt_peer_gtk_GtkMenuItemPeer.h"
+#include "gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.h"
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer_create
@@ -46,12 +46,17 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer_create
   GtkWidget *widget;
   const char *str;
 
+  /* Create global reference and save it for future use */
+  NSA_SET_GLOBAL_REF (env, obj);
+
   str = (*env)->GetStringUTFChars (env, label, NULL);
 
   gdk_threads_enter ();
+  
   widget = gtk_check_menu_item_new_with_label (str);
   gtk_check_menu_item_set_show_toggle (GTK_CHECK_MENU_ITEM (widget), 1);
   gtk_widget_show (widget);
+
   gdk_threads_leave ();
 
   (*env)->ReleaseStringUTFChars (env, label, str);

@@ -13,6 +13,7 @@ details.  */
 #ifndef __JV_WIN32_THREADS__
 #define __JV_WIN32_THREADS__
 
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 //
@@ -75,6 +76,7 @@ typedef void _Jv_ThreadStartFunc (java::lang::Thread *);
 // Condition variables.
 //
 
+#define _Jv_HaveCondDestroy
 int _Jv_CondWait (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu, jlong millis, jint nanos);
 void _Jv_CondInit (_Jv_ConditionVariable_t *cv);
 void _Jv_CondDestroy (_Jv_ConditionVariable_t *cv);
@@ -85,6 +87,12 @@ int _Jv_CondNotifyAll (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *);
 // Mutexes.
 // We use CRITICAL_SECTIONs instead of CreateMutex() for better performance
 //
+
+// Returns 0 if the mutex lock is held by the current thread, and 1 otherwise.
+inline int _Jv_MutexCheckMonitor (_Jv_Mutex_t *mu)
+{
+  return (mu->owner != GetCurrentThreadId ( ));
+}
 
 inline void _Jv_MutexInit (_Jv_Mutex_t *mu)
 {

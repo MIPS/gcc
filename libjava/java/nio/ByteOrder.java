@@ -44,15 +44,15 @@ package java.nio;
  */
 public final class ByteOrder
 {
-  public static final ByteOrder BIG_ENDIAN     = new ByteOrder();
+  public static final ByteOrder BIG_ENDIAN = new ByteOrder();
   public static final ByteOrder LITTLE_ENDIAN  = new ByteOrder();
 
   /**
    * Returns the native byte order of the platform currently running.
    */
-  public static ByteOrder nativeOrder ()
+  public static ByteOrder nativeOrder()
   {
-    return (System.getProperty ("gnu.cpu.endian") == "big"
+    return (System.getProperty ("gnu.cpu.endian").equals("big")
             ? BIG_ENDIAN : LITTLE_ENDIAN);
   }
 
@@ -65,7 +65,7 @@ public final class ByteOrder
   }
 
   // This class can only be instantiated here.
-  private ByteOrder ()
+  private ByteOrder()
   {
   }
 }

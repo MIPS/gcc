@@ -66,6 +66,11 @@ package java.text;
 public final class CollationKey implements Comparable
 {
   /**
+   * This is the <code>Collator</code> this object was created from.
+   */
+  private Collator collator;
+
+  /**
    * This is the <code>String</code> this object represents.
    */
   private String originalText;
@@ -73,23 +78,13 @@ public final class CollationKey implements Comparable
   /**
    * This is the bit value for this key.
    */
-  private int[] key;
+  private byte[] key;
 
-  CollationKey (CollationElementIterator iter, String originalText,
-		int strength)
+  CollationKey (Collator collator, String originalText, byte[] key)
   {
+    this.collator = collator;
     this.originalText = originalText;
-
-    // Compute size of required array.
-    int size = 0;
-    while (RuleBasedCollator.next(iter, strength)
-	   != CollationElementIterator.NULLORDER)
-      ++size;
-
-    iter.reset();
-    key = new int[size];
-    for (int i = 0; i < size; i++)
-      key[i] = RuleBasedCollator.next(iter, strength);
+    this.key = key;
   }
 
   /**
@@ -134,12 +129,12 @@ public final class CollationKey implements Comparable
    * this object.  This will be true if and only if:
    * <p>
    * <ul>
-   * <li>The specified object must not be <code>null</code>
-   * <li>The specified object is an instance of <code>CollationKey</code>.
+   * <li>The specified object must not be <code>null</code></li>
+   * <li>The specified object is an instance of <code>CollationKey</code>.</li>
    * <li>The specified object was created from the same <code>Collator</code>
-   * as this object.
+   * as this object.</li>
    * <li>The specified object has the same source string and bit key as
-   * this object.
+   * this object.</li>
    * </ul>
    *
    * @param obj The <code>Object</code> to test for equality.
@@ -153,12 +148,14 @@ public final class CollationKey implements Comparable
 
     CollationKey ck = (CollationKey) obj;
 
-    if (key.length != ck.key.length)
+    if (ck.collator != collator)
       return false;
 
-    for (int i = 0; i < key.length; ++i)
-      if (key[i] != ck.key[i])
-	return false;
+    if (!ck.getSourceString ().equals (getSourceString ()))
+      return false;
+
+    if (!ck.toByteArray ().equals (toByteArray ()))
+      return false;
 
     return true;
   }
@@ -169,7 +166,7 @@ public final class CollationKey implements Comparable
    *
    * @return The source <code>String</code> for this object.
    */
-  public String getSourceString ()
+  public String getSourceString()
   {
     return originalText;
   }
@@ -181,7 +178,7 @@ public final class CollationKey implements Comparable
    *
    * @return A hash value for this object.
    */
-  public int hashCode ()
+  public int hashCode()
   {
     // We just follow BitSet instead of thinking up something new.
     long h = originalText.hashCode();
@@ -195,17 +192,8 @@ public final class CollationKey implements Comparable
    *
    * @param A byte array containing the collation bit sequence.
    */
-  public byte[] toByteArray ()
+  public byte[] toByteArray()
   {
-    byte[] r = new byte[4 * key.length];
-    int off = 0;
-    for (int i = 0; i < key.length; ++i)
-      {
-	r[off++] = (byte) ((key[i] >>> 24) & 255);
-	r[off++] = (byte) ((key[i] >>> 16) & 255);
-	r[off++] = (byte) ((key[i] >>>  8) & 255);
-	r[off++] = (byte) ((key[i]       ) & 255);
-      }
-    return r;
+    return key;
   }
 }

@@ -18,19 +18,17 @@ int main (void)
   void *values[MAX_ARGS];
   ffi_arg rint;
   signed char sc;
-  unsigned long ul;
 
   args[0] = &ffi_type_schar;
   values[0] = &sc;
-  
+
   /* Initialize the cif */
-  CHECK(ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 1, 
+  CHECK(ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 1,
 		     &ffi_type_schar, args) == FFI_OK);
-  
-  for (sc = (signed char) -127; 
+
+  for (sc = (signed char) -127;
        sc < (signed char) 127; sc++)
     {
-      ul++;
       ffi_call(&cif, FFI_FN(return_sc), &rint, values);
       CHECK(rint == (ffi_arg) sc);
     }

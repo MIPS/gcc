@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
+import java.beans.PropertyChangeEvent;
 
 import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;

@@ -42,6 +42,7 @@ package javax.security.auth.callback;
  * Signals that a {@link CallbackHandler} does not recognize a particular
  * {@link Callback}.
  *
+ * @version $Revision: 1.1 $
  */
 public class UnsupportedCallbackException extends Exception
 {

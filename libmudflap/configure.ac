@@ -24,7 +24,7 @@ AC_EXEEXT
 
 AM_ENABLE_MULTILIB(, ..)
 
-target_alias=${target_alias-$host_alias}
+target_alias=${target_alias-$target}
 AC_SUBST(target_alias)
 
 AC_CONFIG_HEADERS(config.h)
@@ -132,7 +132,11 @@ AC_SUBST(build_libmudflapth)
 
 AC_CHECK_LIB(dl, dlsym)
 
-TL_AC_GCC_VERSION([$srcdir/..])
+# Process the option "--enable-version-specific-runtime-libs"
+gcc_version_trigger=${srcdir}/../gcc/version.c
+gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([[^ \"]]*\)[[ \"]].*/\1/'`
+gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
+AC_SUBST(gcc_version)
 
 # Calculate toolexeclibdir
 # Also toolexecdir, though it's only used in toolexeclibdir
@@ -231,5 +235,5 @@ else
   multilib_arg=
 fi
 
-AC_CONFIG_FILES([Makefile testsuite/Makefile testsuite/mfconfig.exp])
+AC_CONFIG_FILES([Makefile testsuite/Makefile testsuite/mfconfig.exp mf-runtime.h])
 AC_OUTPUT

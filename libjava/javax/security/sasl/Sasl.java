@@ -1,5 +1,5 @@
 /* Sasl.java -- 
-   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -221,7 +221,7 @@ public class Sasl
    * breaking into future sessions. The property contains <code>"true"</code>
    * if mechanisms that implement forward secrecy between sessions are
    * required; <code>"false"</code> if such mechanisms are not required. The
-   * default is <code>"false"</code>.
+   * default is <code>"false"</code>.</p>
    *
    * <p>The value of this constant is <code>"javax.security.sasl.policy.forward"</code>.
    * </p>
@@ -233,6 +233,7 @@ public class Sasl
    * credentials are required. The property contains <code>"true"</code> if
    * mechanisms that pass client credentials are required; <code>"false"</code>
    * if such mechanisms are not required. The default is <code>"false"</code>.
+   * </p>
    *
    * <p>The value of this constant is <code>"javax.security.sasl.policy.credentials"</code>.
    * </p>
@@ -279,7 +280,7 @@ public class Sasl
   // -------------------------------------------------------------------------
 
   /**
-   * Creates a {@link SaslClient} for the specified mechanism.
+   * <p>Creates a {@link SaslClient} for the specified mechanism.</p>
    *
    * <p>This method uses the JCA Security Provider Framework, described in the
    * "Java Cryptography Architecture API Specification &amp; Reference", for
@@ -489,7 +490,7 @@ public class Sasl
   }
 
   /**
-   * Creates a {@link SaslServer} for the specified mechanism.
+   * <p>Creates a {@link SaslServer} for the specified mechanism.</p>
    *
    * <p>This method uses the JCA Security Provider Framework, described in the
    * "Java Cryptography Architecture API Specification &amp; Reference", for
@@ -520,7 +521,7 @@ public class Sasl
    *
    * <pre>
    *    SaslServerFactory.DIGEST-MD5     com.wiz.sasl.digest.ServerFactory
-   * </pre>
+   * </pre></p>
    *
    * <p>See the "Java Cryptography Architecture API Specification &amp;
    * Reference" for information about how to install and configure security

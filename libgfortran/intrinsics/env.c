@@ -6,26 +6,17 @@
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public
+modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
+version 2.1 of the License, or (at your option) any later version.
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Lesser General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
+You should have received a copy of the GNU Lesser General Public
+License along with libgfor; see the file COPYING.LIB.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -37,14 +28,13 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* GETENV (NAME, VALUE), g77 intrinsic for retrieving the value of
-   an environment variable. The name of the variable is specified in
-   NAME, and the result is stored into VALUE.  */
-
-void PREFIX(getenv) (char *, char *, gfc_charlen_type, gfc_charlen_type);
-export_proto_np(PREFIX(getenv));
+ an environment variable. The name of the variable is specified in
+ NAME, and the result is stored into VALUE.  */
 
 void 
-PREFIX(getenv) (char * name, char * value, gfc_charlen_type name_len, 
+prefix(getenv) (char * name, 
+		char * value, 
+		gfc_charlen_type name_len, 
 		gfc_charlen_type value_len)
 {
   char *name_nt;
@@ -99,16 +89,16 @@ PREFIX(getenv) (char * name, char * value, gfc_charlen_type name_len,
 /* Processor-specific failure code.  */
 #define GFC_FAILURE 42
 
-extern void get_environment_variable_i4 (char *, char *, GFC_INTEGER_4 *,
-					 GFC_INTEGER_4 *, GFC_LOGICAL_4 *,
-					 gfc_charlen_type, gfc_charlen_type);
-iexport_proto(get_environment_variable_i4);
-
 void
-get_environment_variable_i4 (char *name, char *value, GFC_INTEGER_4 *length,
-			     GFC_INTEGER_4 *status, GFC_LOGICAL_4 *trim_name,
-			     gfc_charlen_type name_len,
-			     gfc_charlen_type value_len)
+prefix(get_environment_variable_i4) 
+  (
+   char *name,
+   char *value,
+   GFC_INTEGER_4 *length,
+   GFC_INTEGER_4 *status,
+   GFC_LOGICAL_4 *trim_name,
+   gfc_charlen_type name_len,
+   gfc_charlen_type value_len)
 {
   int stat = GFC_SUCCESS, res_len = 0;
   char *name_nt;
@@ -169,21 +159,20 @@ get_environment_variable_i4 (char *name, char *value, GFC_INTEGER_4 *length,
   if (length != NULL)
     *length = res_len;
 }
-iexport(get_environment_variable_i4);
 
 
 /* INTEGER*8 wrapper for get_environment_variable.  */
 
-extern void get_environment_variable_i8 (char *, char *, GFC_INTEGER_8 *,
-					 GFC_INTEGER_8 *, GFC_LOGICAL_8 *,
-					 gfc_charlen_type, gfc_charlen_type);
-export_proto(get_environment_variable_i8);
-
 void
-get_environment_variable_i8 (char *name, char *value, GFC_INTEGER_8 *length,
-			     GFC_INTEGER_8 *status, GFC_LOGICAL_8 *trim_name,
-			     gfc_charlen_type name_len,
-			     gfc_charlen_type value_len)
+prefix(get_environment_variable_i8)
+  (
+   char *name,
+   char *value,
+   GFC_INTEGER_8 *length,
+   GFC_INTEGER_8 *status,
+   GFC_LOGICAL_8 *trim_name,
+   gfc_charlen_type name_len,
+   gfc_charlen_type value_len)
 {
   GFC_INTEGER_4 length4, status4;
   GFC_LOGICAL_4 trim_name4;
@@ -191,8 +180,8 @@ get_environment_variable_i8 (char *name, char *value, GFC_INTEGER_8 *length,
   if (trim_name)
     trim_name4 = *trim_name;
 
-  get_environment_variable_i4 (name, value, &length4, &status4, 
-			       &trim_name4, name_len, value_len);
+  prefix (get_environment_variable_i4) (name, value, &length4, &status4, 
+					&trim_name4, name_len, value_len);
 
   if (length)
     *length = length4;

@@ -46,6 +46,7 @@ import java.io.Serializable;
  * name information.
  *
  * @see CallbackHandler
+ * @version $Revision: 1.1 $
  */
 public class NameCallback implements Callback, Serializable
 {

@@ -39,7 +39,10 @@ exception statement from your version. */
 package gnu.java.awt.peer.gtk;
 
 import java.awt.AWTEvent;
+import java.awt.Color;
+import java.awt.Component;
 import java.awt.Container;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.event.PaintEvent;
@@ -87,45 +90,45 @@ public class GtkContainerPeer extends GtkComponentPeer
   public void setBounds (int x, int y, int width, int height)
   {
     super.setBounds (x, y, width, height);
-    awtComponent.validate ();
+  }
+
+  public void setFont(Font f)
+  {
+    super.setFont(f);
+    Component[] components = ((Container) awtComponent).getComponents();
+    for (int i = 0; i < components.length; i++)
+      {
+        GtkComponentPeer peer = (GtkComponentPeer) components[i].getPeer();
+        if (peer != null && ! peer.awtComponent.isFontSet())
+          peer.setFont(f);
+      }
   }
 
   public Graphics getGraphics ()
   {
-    return new GdkGraphics (this);
-  }
-
-  public void handleEvent (AWTEvent event)
-  {
-    int id = event.getID();
-      
-    switch (id)
-      {
-      case PaintEvent.PAINT:
-      case PaintEvent.UPDATE:
-	{
-	  try 
-	    {
-	      Graphics g = getGraphics ();
-	      g.setClip (((PaintEvent)event).getUpdateRect());
-
-	      if (id == PaintEvent.PAINT)
-		awtComponent.paint (g);
-	      else
-		awtComponent.update (g);
-	      
-	      g.dispose ();
-	    } 
-	  catch (InternalError e)
-	    { 
-	      System.err.println (e);
-	    }
-	}
-	break;
-      }
+    return super.getGraphics();
   }
 
   public void beginLayout () { }
   public void endLayout () { }
   public boolean isPaintPending () { return false; }
+
+  public void setBackground (Color c)
+  {
+    super.setBackground(c);
+  
+    Object components[] = ((Container) awtComponent).getComponents();
+    for (int i = 0; i < components.length; i++)
+      {
+        Component comp = (Component) components[i];
+
+        // If the child's background has not been explicitly set yet,
+        // it should inherit this container's background. This makes the
+        // child component appear as if it has a transparent background.
+        // Note that we do not alter the background property of the child,
+        // but only repaint the child with the parent's background color.
+        if (!comp.isBackgroundSet() && comp.getPeer() != null)
+          comp.getPeer().setBackground(c);
+      }
+  }
 }

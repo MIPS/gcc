@@ -37,11 +37,10 @@ exception statement from your version. */
 
 package java.security;
 
-import java.io.Serializable;
-import java.util.Random;
-import java.util.Enumeration;
-
 import gnu.java.security.Engine;
+
+import java.util.Enumeration;
+import java.util.Random;
 
 /**
  * An interface to a cryptographically secure pseudo-random number
@@ -88,13 +87,13 @@ public class SecureRandom extends Random
    */
   public SecureRandom()
   {
-    Provider p[] = Security.getProviders();
+    Provider[] p = Security.getProviders();
 
     //Format of Key: SecureRandom.algname
     String key;
 
     String classname = null;
-    int i, flag = 0;
+    int i;
     Enumeration e;
     for (i = 0; i < p.length; i++)
       {
@@ -113,7 +112,10 @@ public class SecureRandom extends Random
                         provider = p[i];
                         return;
                       }
-                    catch (Throwable ignore) { }
+                    catch (Throwable t)
+		      {
+			// Ignore.
+		      }
                   }
               }
           }
@@ -168,18 +170,20 @@ public class SecureRandom extends Random
    * @throws NoSuchAlgorithmException If no installed provider implements
    *         the given algorithm.
    */
-  public static SecureRandom getInstance(String algorithm) throws
-    NoSuchAlgorithmException
+  public static SecureRandom getInstance(String algorithm)
+    throws NoSuchAlgorithmException
   {
-    Provider p[] = Security.getProviders();
+    Provider[] p = Security.getProviders();
+    
     for (int i = 0; i < p.length; i++)
       {
         try
           {
             return getInstance(algorithm, p[i]);
           }
-        catch (NoSuchAlgorithmException ignored)
+        catch (NoSuchAlgorithmException e)
           {
+	    // Ignore.
           }
       }
 
@@ -285,7 +289,7 @@ public class SecureRandom extends Random
     // Therefore we test.
     if (secureRandomSpi != null)
       {
-        byte tmp[] = { (byte) (0xff & (seed >> 56)),
+        byte[] tmp = { (byte) (0xff & (seed >> 56)),
 		       (byte) (0xff & (seed >> 48)),
 		       (byte) (0xff & (seed >> 40)),
 		       (byte) (0xff & (seed >> 32)),
@@ -325,7 +329,7 @@ public class SecureRandom extends Random
     if (numBits == 0)
       return 0;
 
-    byte tmp[] = new byte[numBits / 8 + (1 * (numBits % 8))];
+    byte[] tmp = new byte[numBits / 8 + (1 * (numBits % 8))];
 
     secureRandomSpi.engineNextBytes(tmp);
     randomBytesUsed += tmp.length;
@@ -350,7 +354,7 @@ public class SecureRandom extends Random
    */
   public static byte[] getSeed(int numBytes)
   {
-    byte tmp[] = new byte[numBytes];
+    byte[] tmp = new byte[numBytes];
 
     new Random().nextBytes(tmp);
     return tmp;

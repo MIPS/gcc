@@ -31,5 +31,7 @@ struct term;
 
 
 #if defined( VOID_NULL_CHECK )
+#ifndef NULL
 #define NULL 0  /* typed NULL */
+#endif
 #endif  /* VOID_NULL_CHECK */

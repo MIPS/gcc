@@ -89,6 +89,16 @@ AC_MSG_CHECKING([whether to place generated files in the source directory])
 AC_MSG_RESULT($generated_files_in_srcdir)
 AM_CONDITIONAL(GENINSRC, test x$generated_files_in_srcdir = xyes)
 
-TL_AC_GCC_VERSION([$srcdir/..])
+# Get the version trigger filename from the toplevel
+if test "${with_gcc_version_trigger+set}" = set; then
+   gcc_version_trigger=$with_gcc_version_trigger
+else
+   gcc_version_trigger=${srcdir}/version.c
+fi
+changequote(,)dnl
+gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*"\([^"]*\)".*/\1/'`
+gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
+changequote([,])dnl
+AC_SUBST(gcc_version)
 
 AC_OUTPUT(Makefile install-defs.sh)

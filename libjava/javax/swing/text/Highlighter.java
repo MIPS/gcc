@@ -55,7 +55,8 @@ public interface Highlighter
 
   public interface HighlightPainter
   {
-    void paint(Graphics g, int p0, int p1, Shape bounds, JTextComponent c);
+    public void paint(Graphics g, int p0, int p1, Shape bounds,
+		      JTextComponent c);
   }
   
   void install(JTextComponent c);

@@ -2,29 +2,20 @@
    Copyright (C) 2002, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
-This file is part of the GNU Fortran 95 runtime library (libgfortran).
+This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public
+Libgfor is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
+version 2.1 of the License, or (at your option) any later version.
 
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
-
-Ligbfortran is distributed in the hope that it will be useful,
+Ligbfor is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Lesser General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
+You should have received a copy of the GNU Lesser General Public
+License along with libgfor; see the file COPYING.LIB.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -74,13 +65,9 @@ Boston, MA 02111-1307, USA.  */
 There are two variants of the PACK intrinsic: one, where MASK is
 array valued, and the other one where MASK is scalar.  */
 
-extern void pack (gfc_array_char *, const gfc_array_char *,
-		  const gfc_array_l4 *, const gfc_array_char *);
-export_proto(pack);
-
 void
-pack (gfc_array_char *ret, const gfc_array_char *array,
-      const gfc_array_l4 *mask, const gfc_array_char *vector)
+__pack (gfc_array_char * ret, const gfc_array_char * array,
+	const gfc_array_l4 * mask, const gfc_array_char * vector)
 {
   /* r.* indicates the return array.  */
   index_type rstride0;
@@ -136,6 +123,7 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
 
       if (vector != NULL) 
 	{ 
+
 	  /* The return array will have as many
 	     elements as there are in VECTOR.  */ 
 	  total = vector->dim[0].ubound + 1 - vector->dim[0].lbound; 
@@ -201,7 +189,7 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
       ret->dim[0].ubound = total - 1;
       ret->dim[0].stride = 1;
 
-      ret->data = internal_malloc_size (size * total);
+      ret->data = internal_malloc (size * total);
       ret->base = 0;
 
       if (total == 0)
@@ -278,13 +266,9 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
     }
 }
 
-extern void pack_s (gfc_array_char *ret, const gfc_array_char *array,
-		    const GFC_LOGICAL_4 *, const gfc_array_char *);
-export_proto(pack_s);
-
 void
-pack_s (gfc_array_char *ret, const gfc_array_char *array,
-	const GFC_LOGICAL_4 *mask, const gfc_array_char *vector)
+__pack_s (gfc_array_char * ret, const gfc_array_char * array,
+	  const GFC_LOGICAL_4 * mask, const gfc_array_char * vector)
 {
   /* r.* indicates the return array.  */
   index_type rstride0;
@@ -342,7 +326,7 @@ pack_s (gfc_array_char *ret, const gfc_array_char *array,
 	      ret->dim[0].lbound = 0;
 	      ret->dim[0].ubound = -1;
 	      ret->dim[0].stride = 1;
-	      ret->data = internal_malloc_size (0);
+	      ret->data = internal_malloc (0);
 	      ret->base = 0;
 	      
 	      return;
@@ -354,7 +338,7 @@ pack_s (gfc_array_char *ret, const gfc_array_char *array,
       ret->dim[0].ubound = total - 1;
       ret->dim[0].stride = 1;
 
-      ret->data = internal_malloc_size (size * total);
+      ret->data = internal_malloc (size * total);
       ret->base = 0;
     }
 

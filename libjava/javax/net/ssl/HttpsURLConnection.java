@@ -59,18 +59,10 @@ public abstract class HttpsURLConnection extends HttpURLConnection
   // Fields.
   // ------------------------------------------------------------------
 
-  /**
-   * The default verifier.
-   * This is lazily initialized as required.
-   * @see #getDefaultHostnameVerifier
-   */
+  /** The default verifier. */
   private static HostnameVerifier defaultVerifier;
 
-  /**
-   * The default factory.
-   * This is lazily initialized as required.
-   * @see #getDefaultSSLSocketFactory
-   */
+  /** The default factory. */
   private static SSLSocketFactory defaultFactory;
 
   /**
@@ -82,6 +74,21 @@ public abstract class HttpsURLConnection extends HttpURLConnection
    * This connection's socket factory.
    */
   private SSLSocketFactory factory;
+
+  // Static initializer.
+  // ------------------------------------------------------------------
+
+  static {
+    defaultVerifier = new TrivialHostnameVerifier();
+    try
+      {
+        defaultFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+      }
+    catch (Throwable t)
+      {
+        t.printStackTrace();
+      }
+  }
 
   // Constructor.
   // ------------------------------------------------------------------
@@ -95,6 +102,8 @@ public abstract class HttpsURLConnection extends HttpURLConnection
   protected HttpsURLConnection(URL url) throws IOException
   {
     super(url);
+    hostnameVerifier = defaultVerifier;
+    factory = defaultFactory;
   }
 
   // Class methods.
@@ -103,17 +112,11 @@ public abstract class HttpsURLConnection extends HttpURLConnection
   /**
    * Returns the default hostname verifier used in all new
    * connections.
-   * If the default verifier has not been set, a new default one will be
-   * provided by this method.
    *
    * @return The default hostname verifier.
    */
-  public static synchronized HostnameVerifier getDefaultHostnameVerifier()
+  public static HostnameVerifier getDefaultHostnameVerifier()
   {
-    if (defaultVerifier == null)
-      {
-        defaultVerifier = new TrivialHostnameVerifier();
-      }
     return defaultVerifier;
   }
 
@@ -134,33 +137,17 @@ public abstract class HttpsURLConnection extends HttpURLConnection
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
       sm.checkPermission(new SSLPermission("setHostnameVerifier"));
-    synchronized (HttpsURLConnection.class)
-      {
-        defaultVerifier = newDefault;
-      }
+    defaultVerifier = newDefault;
   }
 
   /**
    * Returns the default SSL socket factory used in all new
    * connections.
-   * If the default SSL socket factory has not been set, a new default one
-   * will be provided by this method.
    *
    * @return The default SSL socket factory.
    */
-  public static synchronized SSLSocketFactory getDefaultSSLSocketFactory()
+  public static SSLSocketFactory getDefaultSSLSocketFactory()
   {
-    if (defaultFactory == null)
-      {
-        try
-          {
-            defaultFactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
-          }
-        catch (Throwable t)
-          {
-            t.printStackTrace();
-          }
-      }
     return defaultFactory;
   }
 
@@ -181,10 +168,7 @@ public abstract class HttpsURLConnection extends HttpURLConnection
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
       sm.checkSetFactory();
-    synchronized (HttpsURLConnection.class)
-      {
-        defaultFactory = newDefault;
-      }
+    defaultFactory = newDefault;
   }
 
   // Instance methods.
@@ -197,10 +181,6 @@ public abstract class HttpsURLConnection extends HttpURLConnection
    */
   public HostnameVerifier getHostnameVerifier()
   {
-    if (hostnameVerifier == null)
-      {
-        hostnameVerifier = getDefaultHostnameVerifier();
-      }
     return hostnameVerifier;
   }
 
@@ -225,10 +205,6 @@ public abstract class HttpsURLConnection extends HttpURLConnection
    */
   public SSLSocketFactory getSSLSocketFactory()
   {
-    if (factory == null)
-      {
-        factory = getDefaultSSLSocketFactory();
-      }
     return factory;
   }
 

@@ -50,16 +50,22 @@ public class GdkFontMetrics extends FontMetrics
                        MAX_ADVANCE = 4;
 
   private int[] metrics;
-  private native int[] initState (String xlfd, int pts);
+  private native int[] initState (String fname, int style, int size);
 
   public GdkFontMetrics (Font font)
   {
     super (font);
-    metrics = initState (((GtkFontPeer)font.getPeer ()).getXLFD (), 
-			 font.getSize ());
+    metrics = initState (font.getName (), font.getStyle (), font.getSize ());
   }
 
-  native public int stringWidth (String str);
+  native public int stringWidth (String fname, int style, int size,
+                                 String str);
+
+  public int stringWidth (String str)
+  {
+    return stringWidth (font.getName (), font.getStyle (), font.getSize (),
+                        str);
+  }
 
   public int charWidth (char ch)
   {
@@ -71,15 +77,10 @@ public class GdkFontMetrics extends FontMetrics
     return stringWidth (new String (data, off, len));
   }
 
-  /* 
-     Sun's Motif implementation always returns 0 or 1 here (???), but
-     going by the X11 man pages, it seems as though we should return
-     font.ascent + font.descent.
-  */
+  // Sun's Motif implementation always returns 0 or 1 here (???).
   public int getLeading ()
   {
-    return 1;
-//      return metrics[ASCENT] + metrics[DESCENT];
+    return 0;
   }
 
   public int getAscent ()

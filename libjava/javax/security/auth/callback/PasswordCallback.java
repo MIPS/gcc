@@ -46,6 +46,7 @@ import java.io.Serializable;
  * password information.
  *
  * @see CallbackHandler,
+ * @version $Revision: 1.1 $
  */
 public class PasswordCallback implements Callback, Serializable
 {

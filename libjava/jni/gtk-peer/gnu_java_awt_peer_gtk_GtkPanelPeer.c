@@ -37,6 +37,7 @@ exception statement from your version. */
 
 
 #include "gtkpeer.h"
+#include "gnu_java_awt_peer_gtk_GtkComponentPeer.h"
 #include "gnu_java_awt_peer_gtk_GtkPanelPeer.h"
 
 JNIEXPORT void JNICALL 
@@ -45,23 +46,22 @@ Java_gnu_java_awt_peer_gtk_GtkPanelPeer_create
 {
   gpointer widget;
 
+  /* Create global reference and save it for future use */
+  NSA_SET_GLOBAL_REF (env, obj);
+
   gdk_threads_enter ();
+  
   widget = gtk_layout_new (NULL, NULL);
+
+  GTK_WIDGET_SET_FLAGS (widget, GTK_CAN_FOCUS);
+
   gdk_threads_leave ();
 
   NSA_SET_PTR (env, obj, widget);
 }
 
-typedef struct _GtkLayoutChild   GtkLayoutChild;
-
-struct _GtkLayoutChild {
-  GtkWidget *widget;
-  gint x;
-  gint y;
-};
-
 JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkPanelPeer_connectHooks
+Java_gnu_java_awt_peer_gtk_GtkPanelPeer_connectJObject
   (JNIEnv *env, jobject obj)
 {
   void *ptr;
@@ -72,34 +72,5 @@ Java_gnu_java_awt_peer_gtk_GtkPanelPeer_connectHooks
   gtk_widget_realize (GTK_WIDGET (ptr));
   connect_awt_hook (env, obj, 1, GTK_LAYOUT (ptr)->bin_window);
 
-/*    gtk_signal_connect (GTK_OBJECT (ptr), "size_request", GTK_SIGNAL_FUNC (sr), */
-/*  		      NULL); */
   gdk_threads_leave ();
 }
-
-/*
- * Make a new panel.
- */
-JNIEXPORT void JNICALL 
-Java_gnu_java_awt_peer_gtk_GtkPanelPeer_gtkPanelNew
-    (JNIEnv *env, jobject obj, jobject parent_obj)
-{
-  GtkWidget *layout;
-  void *parent;
-
-  parent = NSA_GET_PTR (env, parent_obj);
-
-  gdk_threads_enter ();
-  layout = gtk_layout_new (NULL, NULL);
-  
-  set_parent (layout, GTK_CONTAINER (parent));
-
-  gtk_widget_realize (layout);
-  connect_awt_hook (env, obj, 1, GTK_LAYOUT (layout)->bin_window);
-  set_visible (layout, 1);
-
-  NSA_SET_PTR (env, obj, layout);
-  gdk_threads_leave ();
-}
-
-

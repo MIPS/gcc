@@ -35,22 +35,23 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.swing.colorchooser;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.ComponentOrientation;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Image;
+import java.awt.LayoutManager;
 import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.awt.image.MemoryImageSource;
-
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
 import javax.swing.Icon;
@@ -64,6 +65,7 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+
 
 /**
  * This is the Default HSB Panel displayed in the JColorChooser.
@@ -375,7 +377,7 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
                                                                          b)));
       spinnerTrigger = false;
 
-      if (! handlingMouse && slider != null && ! slider.getValueIsAdjusting())
+      if (! handlingMouse)
         {
 	  updateImage();
 	  updateTrack();
@@ -417,6 +419,11 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 
     internalChange = true;
 
+    // spinnerTrigger, internalChange, and handlingMouse are used because of the
+    // we don't want things like: change spinner -> update chooser -> change spinner
+    // That's because the value from before and after the update can differ
+    // slightly because of the conversion.
+    // FIXME: Think of better way to deal with this.
     if (! spinnerTrigger)
       {
 	hSpinner.setValue(new Integer((int) (hsbVals[0] * 360)));
@@ -431,10 +438,8 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 	  slider.setValue(((Number) hSpinner.getValue()).intValue());
 	if (! handlingMouse)
 	  {
-	    gradientPoint.x = (int) ((1
-	                      - ((Number) sSpinner.getValue()).intValue() / 100f) * imgWidth);
-	    gradientPoint.y = (int) ((1
-	                      - ((Number) bSpinner.getValue()).intValue() / 100f) * imgHeight);
+	    gradientPoint.x = (int) ((1 - hsbVals[1]) * imgWidth);
+	    gradientPoint.y = (int) ((1 - hsbVals[2]) * imgHeight);
 	  }
 	break;
       case SLOCKED:
@@ -442,9 +447,8 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 	  slider.setValue(((Number) sSpinner.getValue()).intValue());
 	if (! handlingMouse)
 	  {
-	    gradientPoint.x = (int) (((Number) hSpinner.getValue()).intValue() / 360f * imgWidth);
-	    gradientPoint.y = (int) ((1
-	                      - ((Number) bSpinner.getValue()).intValue() / 100f) * imgHeight);
+	    gradientPoint.x = (int) (hsbVals[0] * imgWidth);
+	    gradientPoint.y = (int) ((1 - hsbVals[2]) * imgHeight);
 	  }
 	break;
       case BLOCKED:
@@ -452,19 +456,15 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 	  slider.setValue(((Number) bSpinner.getValue()).intValue());
 	if (! handlingMouse)
 	  {
-	    gradientPoint.x = (int) (((Number) hSpinner.getValue()).intValue() / 360f * imgWidth);
-	    gradientPoint.y = (int) ((1
-	                      - ((Number) sSpinner.getValue()).intValue() / 100f) * imgHeight);
+	    gradientPoint.x = (int) (hsbVals[0] * imgWidth);
+	    gradientPoint.y = (int) ((1 - hsbVals[1]) * imgHeight);
 	  }
 	break;
       }
     internalChange = false;
 
-    if (! handlingMouse && slider != null && ! slider.getValueIsAdjusting())
-      updateImage();
-
-    if (! handlingMouse || locked != HLOCKED)
-      updateTrack();
+    updateImage();
+    updateTrack();
     updateTextFields();
   }
 
@@ -856,17 +856,5 @@ class DefaultHSBChooserPanel extends AbstractColorChooserPanel
 
     trackImage = createImage(new MemoryImageSource(trackWidth, imgHeight,
                                                    trackPix, 0, trackWidth));
-  }
-
-  /**
-   * This method returns the HSB values for the currently selected color.
-   *
-   * @return The HSB values for the currently selected color.
-   */
-  private float[] getHSBValues()
-  {
-    Color c = getColorFromModel();
-    float[] f = Color.RGBtoHSB(c.getRed(), c.getGreen(), c.getBlue(), null);
-    return f;
   }
 }

@@ -1,6 +1,6 @@
 /* Part of CPP library.  File handling.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -161,7 +161,6 @@ static void open_file_failed (cpp_reader *pfile, _cpp_file *file);
 static struct file_hash_entry *search_cache (struct file_hash_entry *head,
 					     const cpp_dir *start_dir);
 static _cpp_file *make_cpp_file (cpp_reader *, cpp_dir *, const char *fname);
-static void destroy_cpp_file (_cpp_file *);
 static cpp_dir *make_cpp_dir (cpp_reader *, const char *dir_name, int sysp);
 static void allocate_file_hash_entries (cpp_reader *pfile);
 static struct file_hash_entry *new_file_hash_entry (cpp_reader *pfile);
@@ -173,6 +172,7 @@ static void read_name_map (cpp_dir *dir);
 static char *remap_filename (cpp_reader *pfile, _cpp_file *file);
 static char *append_file_to_dir (const char *fname, cpp_dir *dir);
 static bool validate_pch (cpp_reader *, _cpp_file *file, const char *pchname);
+static int pchf_adder (void **slot, void *data);
 static int pchf_save_compare (const void *e1, const void *e2);
 static int pchf_compare (const void *d_p, const void *e_p);
 static bool check_file_against_entries (cpp_reader *, _cpp_file *, bool);
@@ -437,15 +437,7 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir, bool f
       if (file->dir == NULL)
 	{
 	  if (search_path_exhausted (pfile, fname, file))
-	    {
-	      /* Although this file must not go in the cache, because
-		 the file found might depend on things (like the current file)
-		 that aren't represented in the cache, it still has to go in
-		 the list of all files so that #import works.  */
-	      file->next_file = pfile->all_files;
-	      pfile->all_files = file;
-	      return file;
-	    }
+	    return file;
 
 	  open_file_failed (pfile, file);
 	  if (invalid_pch)
@@ -675,38 +667,12 @@ should_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
       if ((import || f->once_only)
 	  && f->err_no == 0
 	  && f->st.st_mtime == file->st.st_mtime
-	  && f->st.st_size == file->st.st_size)
-	{
-	  _cpp_file *ref_file;
-	  bool same_file_p = false;
-
-	  if (f->buffer && !f->buffer_valid)
-	    {
-	      /* We already have a buffer but it is not valid, because
-		 the file is still stacked.  Make a new one.  */
-	      ref_file = make_cpp_file (pfile, f->dir, f->name);
-	      ref_file->path = f->path;
-	    }
-	  else
-	    /* The file is not stacked anymore.  We can reuse it.  */
-	    ref_file = f;
-
-	  same_file_p = read_file (pfile, ref_file)
-			/* Size might have changed in read_file().  */
-			&& ref_file->st.st_size == file->st.st_size
-			&& !memcmp (ref_file->buffer,
-				    file->buffer,
-				    file->st.st_size);
-
-	  if (f->buffer && !f->buffer_valid)
-	    {
-	      ref_file->path = 0;
-	      destroy_cpp_file (ref_file);
-	    }
-
-	  if (same_file_p)
-	    break;
-	}
+	  && f->st.st_size == file->st.st_size
+	  && read_file (pfile, f)
+	  /* Size might have changed in read_file().  */
+	  && f->st.st_size == file->st.st_size
+	  && !memcmp (f->buffer, file->buffer, f->st.st_size))
+	break;
     }
 
   return f == NULL;
@@ -902,16 +868,6 @@ make_cpp_file (cpp_reader *pfile, cpp_dir *dir, const char *fname)
   file->name = xstrdup (fname);
 
   return file;
-}
-
-/* Release a _cpp_file structure.  */
-static void
-destroy_cpp_file (_cpp_file *file)
-{
-  if (file->buffer)
-    free ((void *) file->buffer);
-  free ((void *) file->name);
-  free (file);
 }
 
 /* A hash of directory names.  The directory names are the path names
@@ -1447,6 +1403,58 @@ struct pchf_data {
 
 static struct pchf_data *pchf;
 
+/* Data for pchf_addr.  */
+struct pchf_adder_info
+{
+  cpp_reader *pfile;
+  struct pchf_data *d;
+};
+
+/* A hash traversal function to add entries into DATA->D.  */
+
+static int
+pchf_adder (void **slot, void *data)
+{
+  struct file_hash_entry *h = (struct file_hash_entry *) *slot;
+  struct pchf_adder_info *i = (struct pchf_adder_info *) data;
+
+  if (h->start_dir != NULL && h->u.file->stack_count != 0)
+    {
+      struct pchf_data *d = i->d;
+      _cpp_file *f = h->u.file;
+      size_t count = d->count++;
+
+      /* This should probably never happen, since if a read error occurred
+	 the PCH file shouldn't be written...  */
+      if (f->dont_read || f->err_no)
+	return 1;
+
+      d->entries[count].once_only = f->once_only;
+      /* |= is avoided in the next line because of an HP C compiler bug */
+      d->have_once_only = d->have_once_only | f->once_only; 
+      if (f->buffer_valid)
+	  md5_buffer ((const char *)f->buffer,
+		      f->st.st_size, d->entries[count].sum);
+      else
+	{
+	  FILE *ff;
+	  int oldfd = f->fd;
+
+	  if (!open_file (f))
+	    {
+	      open_file_failed (i->pfile, f);
+	      return 0;
+	    }
+	  ff = fdopen (f->fd, "rb");
+	  md5_stream (ff, d->entries[count].sum);
+	  fclose (ff);
+	  f->fd = oldfd;
+	}
+      d->entries[count].size = f->st.st_size;
+    }
+  return 1;
+}
+
 /* A qsort ordering function for pchf_entry structures.  */
 
 static int
@@ -1458,16 +1466,14 @@ pchf_save_compare (const void *e1, const void *e2)
 /* Create and write to F a pchf_data structure.  */
 
 bool
-_cpp_save_file_entries (cpp_reader *pfile, FILE *fp)
+_cpp_save_file_entries (cpp_reader *pfile, FILE *f)
 {
   size_t count = 0;
   struct pchf_data *result;
   size_t result_size;
-  _cpp_file *f;
+  struct pchf_adder_info pai;
 
-  for (f = pfile->all_files; f; f = f->next_file)
-    ++count;
-
+  count = htab_elements (pfile->file_hash);
   result_size = (sizeof (struct pchf_data)
 		 + sizeof (struct pchf_entry) * (count - 1));
   result = xcalloc (result_size, 1);
@@ -1475,43 +1481,9 @@ _cpp_save_file_entries (cpp_reader *pfile, FILE *fp)
   result->count = 0;
   result->have_once_only = false;
 
-  for (f = pfile->all_files; f; f = f->next_file)
-    {
-      size_t count;
-
-      /* This should probably never happen, since if a read error occurred
-	 the PCH file shouldn't be written...  */
-      if (f->dont_read || f->err_no)
-	continue;
-
-      if (f->stack_count == 0)
-	continue;
-
-      count = result->count++;
-
-      result->entries[count].once_only = f->once_only;
-      /* |= is avoided in the next line because of an HP C compiler bug */
-      result->have_once_only = result->have_once_only | f->once_only;
-      if (f->buffer_valid)
-	md5_buffer ((const char *)f->buffer,
-		    f->st.st_size, result->entries[count].sum);
-      else
-	{
-	  FILE *ff;
-	  int oldfd = f->fd;
-
-	  if (!open_file (f))
-	    {
-	      open_file_failed (pfile, f);
-	      return false;
-	    }
-	  ff = fdopen (f->fd, "rb");
-	  md5_stream (ff, result->entries[count].sum);
-	  fclose (ff);
-	  f->fd = oldfd;
-	}
-      result->entries[count].size = f->st.st_size;
-    }
+  pai.pfile = pfile;
+  pai.d = result;
+  htab_traverse (pfile->file_hash, pchf_adder, &pai);
 
   result_size = (sizeof (struct pchf_data)
                  + sizeof (struct pchf_entry) * (result->count - 1));
@@ -1519,7 +1491,7 @@ _cpp_save_file_entries (cpp_reader *pfile, FILE *fp)
   qsort (result->entries, result->count, sizeof (struct pchf_entry),
 	 pchf_save_compare);
 
-  return fwrite (result, result_size, 1, fp) == 1;
+  return fwrite (result, result_size, 1, f) == 1;
 }
 
 /* Read the pchf_data structure from F.  */

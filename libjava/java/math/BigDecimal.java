@@ -37,28 +37,26 @@ exception statement from your version. */
 
 package java.math;
 
-import java.math.BigInteger;
-
 public class BigDecimal extends Number implements Comparable
 {
   private BigInteger intVal;
   private int scale;
   private static final long serialVersionUID = 6108874887143696463L;
 
-  private final static BigDecimal ZERO = 
+  private static final BigDecimal ZERO = 
     new BigDecimal (BigInteger.valueOf (0), 0);
 
-  private final static BigDecimal ONE = 
+  private static final BigDecimal ONE = 
     new BigDecimal (BigInteger.valueOf (1), 0);
 
-  public final static int ROUND_UP = 0;
-  public final static int ROUND_DOWN = 1;
-  public final static int ROUND_CEILING = 2;
-  public final static int ROUND_FLOOR = 3;
-  public final static int ROUND_HALF_UP = 4;
-  public final static int ROUND_HALF_DOWN = 5;
-  public final static int ROUND_HALF_EVEN = 6;
-  public final static int ROUND_UNNECESSARY = 7;
+  public static final int ROUND_UP = 0;
+  public static final int ROUND_DOWN = 1;
+  public static final int ROUND_CEILING = 2;
+  public static final int ROUND_FLOOR = 3;
+  public static final int ROUND_HALF_UP = 4;
+  public static final int ROUND_HALF_DOWN = 5;
+  public static final int ROUND_HALF_EVEN = 6;
+  public static final int ROUND_UNNECESSARY = 7;
 
   public BigDecimal (BigInteger num) 
   {
@@ -271,7 +269,6 @@ public class BigDecimal extends Number implements Comparable
       return newScale == 0 ? ZERO : new BigDecimal (ZERO.intVal, newScale);
     
     // Ensure that pow gets a non-negative value.
-    int valScale = val.scale;
     BigInteger valIntVal = val.intVal;
     int power = newScale - (scale - val.scale);
     if (power < 0)

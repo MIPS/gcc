@@ -1,5 +1,5 @@
 /* DeflaterOutputStream.java - Output filter for compressing.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,11 +35,12 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.util.zip;
 
 import java.io.FilterOutputStream;
-import java.io.OutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 
 /* Written using on-line Java Platform 1.2 API Specification
  * and JCL book.
@@ -60,18 +61,23 @@ import java.io.IOException;
  */
 public class DeflaterOutputStream extends FilterOutputStream
 {
-  public void close () throws IOException
-  {
-    finish ();
-    out.close();
-  }
+  /** 
+   * This buffer is used temporarily to retrieve the bytes from the
+   * deflater and write them to the underlying output stream.  
+   */
+  protected byte[] buf;
 
+  /** 
+   * The deflater which is used to deflate the stream.
+   */
+  protected Deflater def;
+  
   /**
    * Deflates everything in the def's input buffers.  This will call
    * <code>def.deflate()</code> until all bytes from the input buffers
    * are processed.
    */
-  protected void deflate () throws IOException
+  protected void deflate() throws IOException
   {
     do
       {
@@ -87,9 +93,9 @@ public class DeflaterOutputStream extends FilterOutputStream
    * default buffer size.
    * @param out the output stream where deflated output should be written.
    */
-  public DeflaterOutputStream (OutputStream out)
+  public DeflaterOutputStream(OutputStream out)
   {
-    this (out, new Deflater (), 512);
+    this(out, new Deflater(), 512);
   }
 
   /** 
@@ -98,9 +104,9 @@ public class DeflaterOutputStream extends FilterOutputStream
    * @param out the output stream where deflated output should be written.
    * @param defl the underlying deflater.
    */
-  public DeflaterOutputStream (OutputStream out, Deflater defl)
+  public DeflaterOutputStream(OutputStream out, Deflater defl)
   {
-    this (out, defl, 512);
+    this(out, defl, 512);
   }
 
   /** 
@@ -113,7 +119,7 @@ public class DeflaterOutputStream extends FilterOutputStream
    */
   public DeflaterOutputStream(OutputStream out, Deflater defl, int bufsize)
   {
-    super (out);
+    super(out);
     if (bufsize <= 0)
       throw new IllegalArgumentException("bufsize <= 0");
     buf = new byte[bufsize];
@@ -125,16 +131,11 @@ public class DeflaterOutputStream extends FilterOutputStream
    * was the only way to ensure that all bytes are flushed in Sun's
    * JDK.  
    */
-  public void finish () throws IOException
+  public void finish() throws IOException
   {
-    if (inbufLength > 0)
-      {
-	def.setInput (inbuf, 0, inbufLength);
-	deflate ();
-	inbufLength = 0;
-      }
+    inbufWrite();
     def.finish();
-    while (! def.finished ())
+    while (! def.finished())
       {
 	int len = def.deflate(buf, 0, buf.length);
 	if (len > 0)
@@ -142,41 +143,53 @@ public class DeflaterOutputStream extends FilterOutputStream
       }
   }
 
-  public void write (int bval) throws IOException
+  /**
+   * Calls finish() and closes the stream. 
+   */
+  public void close() throws IOException
+  {
+    finish();
+    out.close();
+  }
+
+  /**
+   * Writes a single byte to the compressed output stream.
+   * @param bval the byte value.
+   */
+  public void write(int bval) throws IOException
   {
     if (inbuf == null)
-      {
-	inbuf = new byte[128];
-      }
+      inbuf = new byte[128];
     else if (inbufLength == inbuf.length)
-      {
-	def.setInput (inbuf, 0, inbufLength);
-	deflate ();
-	inbufLength = 0;
-      }
+      inbufWrite();
     inbuf[inbufLength++] = (byte) bval;
   }
 
-  public void write (byte[] buf, int off, int len) throws IOException
+  /**
+   * Writes a len bytes from an array to the compressed stream.
+   * @param buf the byte array.
+   * @param off the offset into the byte array where to start.
+   * @param len the number of bytes to write.
+   */
+  public void write(byte[] buf, int off, int len) throws IOException
+  {
+    inbufWrite();
+    def.setInput(buf, off, len);
+    deflate();
+  }
+
+  private void inbufWrite() throws IOException
   {
     if (inbufLength > 0)
       {
-	def.setInput (inbuf, 0, inbufLength);
-	deflate ();
+	int size = inbufLength;
 	inbufLength = 0;
+	write(inbuf, 0, size);
       }
-    def.setInput (buf, off, len);
-    deflate ();
   }
 
   // Used, if needed, for write(int).
   private byte[] inbuf;
   // Used length of inbuf.
   private int inbufLength;
-
-  // The retrieval buffer.
-  protected byte[] buf;
-
-  // Deflater used to compress data.
-  protected Deflater def;
 }

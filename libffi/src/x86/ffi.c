@@ -47,7 +47,7 @@
       else
 	  memcpy(argp, *p_argv, z);
 	}
-      p_argv++;
+  if (ecif->cif->flags == FFI_TYPE_STRUCT)
       argp += z;
   for (i = cif->nargs, p_arg = cif->arg_types; (i != 0); i--, p_arg++)
       z = (*p_arg)->size;
@@ -62,8 +62,8 @@
 /*@-exportheader@*/
 extern void ffi_call_STDCALL(void (*)(char *, extended_cif *),
 			  /*@out@*/ extended_cif *,
-			  unsigned, unsigned,
-			  /*@out@*/ unsigned *,
+      if ((sizeof(int) - 1) & (unsigned) argp)
+	argp = (char *) ALIGN(argp, sizeof(int));
 			  void (*fn)());
 /*@=declundef@*/
 /*@=exportheader@*/
@@ -110,3 +110,44 @@ ffi_call_STDCALL(void (*)(char *, extended_cif *),
       /*@=usedef@*/
       break;
 #endif /* X86_WIN32 */
+#ifndef X86_WIN32
+#endif
+#ifdef X86_WIN32
+    case FFI_TYPE_STRUCT:
+      if (cif->rtype->size == 1)
+        {
+          cif->flags = FFI_TYPE_SINT8; /* same as char size */
+        }
+      else if (cif->rtype->size == 2)
+        {
+          cif->flags = FFI_TYPE_SINT16; /* same as short size */
+        }
+      else if (cif->rtype->size == 4)
+        {
+          cif->flags = FFI_TYPE_INT; /* same as int type */
+        }
+      else if (cif->rtype->size == 8)
+        {
+          cif->flags = FFI_TYPE_SINT64; /* same as int64 type */
+        }
+      else
+        {
+          cif->flags = FFI_TYPE_STRUCT;
+        }
+      break;
+#endif
+
+      (cif->flags == FFI_TYPE_STRUCT))
+#ifdef X86_WIN32
+  else if (rtype == FFI_TYPE_SINT8) /* 1-byte struct  */
+    {
+      asm ("movsbl (%0),%%eax" : : "r" (resp) : "eax");
+    }
+  else if (rtype == FFI_TYPE_SINT16) /* 2-bytes struct */
+    {
+      asm ("movswl (%0),%%eax" : : "r" (resp) : "eax");
+    }
+#endif
+  if ( cif->flags == FFI_TYPE_STRUCT ) {
+      if ((sizeof(int) - 1) & (unsigned) argp) {
+	argp = (char *) ALIGN(argp, sizeof(int));

@@ -1,6 +1,5 @@
 /* Part of CPP library.  (Precompiled header reading/writing.)
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -654,7 +653,7 @@ cpp_read_state (cpp_reader *r, const char *name, FILE *f,
       size_t namelen;
       uchar *defn;
 
-      namelen = ustrcspn (data->defns[i], "( \n");
+      namelen = strcspn (data->defns[i], "( \n");
       h = cpp_lookup (r, data->defns[i], namelen);
       defn = data->defns[i] + namelen;
 

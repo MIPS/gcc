@@ -1,9 +1,7 @@
 .LFB1:
 .LCFI0:
-.LCFI1:
-.LCFI2:
 .LCFI3:
-.LCFI4:
+   PowerPC Assembly glue.
 .LCFI5:
 .LCFI6:
 .LFE1:
@@ -25,7 +23,8 @@ __FRAME_BEGIN__:
 .LECIE1:
 .LSFDE1:
       .4byte    .LEFDE1-.LASFDE1         /*  FDE Length */
-.LASFDE1:
+#define LIBFFI_ASM
+#include <fficonfig.h>
       .4byte    .LASFDE1-__FRAME_BEGIN__         /*  FDE CIE offset */
       .4byte    .LFB1    /*  FDE initial location */
       .4byte    .LFE1-.LFB1      /*  FDE address range */

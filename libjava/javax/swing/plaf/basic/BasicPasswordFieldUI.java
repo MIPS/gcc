@@ -41,7 +41,6 @@ package javax.swing.plaf.basic;
 import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.text.Element;
-import javax.swing.text.PasswordView;
 import javax.swing.text.View;
 
 public class BasicPasswordFieldUI extends BasicTextFieldUI
@@ -50,11 +49,6 @@ public class BasicPasswordFieldUI extends BasicTextFieldUI
   {
   }
 
-  public View create(Element elem)
-  {
-    return new PasswordView(elem);
-  }
-  
   public static ComponentUI createUI(JComponent c)
   {
     return new BasicPasswordFieldUI();

@@ -39,7 +39,6 @@ exception statement from your version. */
 package gnu.java.nio;
 
 import gnu.java.net.PlainSocketImpl;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -47,7 +46,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
 /**
- * @author Michael Koch (konqueror@gmx.de)
+ * @author Michael Koch
  */
 public final class NIOServerSocket extends ServerSocket
 {

@@ -210,11 +210,11 @@ public class XCanvasPeer implements CanvasPeer
   }
   public Image createImage(ImageProducer prod)
   {
-    throw new UnsupportedOperationException("FIXME, not implemented");
+    return new XOffScreenImage (config, window, prod, config.getColorModel());
   }
   public Image createImage(int width, int height)
   {
-    return new XOffScreenImage (config, window, width, height);
+    return new XOffScreenImage (config, window, width, height, config.getColorModel());
   }
   public void dispose()
   {
@@ -279,6 +279,32 @@ public class XCanvasPeer implements CanvasPeer
 
   public void handleEvent(AWTEvent event)
   {
+    int id = event.getID ();
+    
+    switch (id)
+    {
+      case PaintEvent.PAINT:
+      case PaintEvent.UPDATE:
+      {
+        try
+        {
+          Graphics g = getGraphics ();
+          g.setClip (((PaintEvent)event).getUpdateRect ());
+          
+          if (id == PaintEvent.PAINT)
+            component.paint (g);
+          else
+            component.update (g);
+          
+          g.dispose ();
+        }
+        catch (InternalError e)
+        {
+          System.err.println (e);
+        }
+      }
+      break;
+    }
   }
 
   public boolean isFocusTraversable()
@@ -398,7 +424,8 @@ public class XCanvasPeer implements CanvasPeer
       }
     else
       {
-	throw new UnsupportedOperationException("unmap not implemented");
+	window.unmap();
+	ensureFlush();	    
       }
   }
 	

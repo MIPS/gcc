@@ -1,5 +1,5 @@
 /* GtkComponentPeer.java -- Implements ComponentPeer with GTK
-   Copyright (C) 1998, 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,16 +42,19 @@ import java.awt.AWTEvent;
 import java.awt.BufferCapabilities;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Frame;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
 import java.awt.Image;
 import java.awt.Insets;
 import java.awt.ItemSelectable;
+import java.awt.KeyboardFocusManager;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
@@ -83,53 +86,89 @@ public class GtkComponentPeer extends GtkGenericPeer
   native int[] gtkWidgetGetForeground ();
   native int[] gtkWidgetGetBackground ();
   native void gtkWidgetSetVisible (boolean b);
-  native void gtkWidgetGetDimensions(int[] dim);
-  native void gtkWidgetGetLocationOnScreen(int[] point);
+  native void gtkWidgetGetDimensions (int[] dim);
+  native void gtkWidgetGetPreferredDimensions (int[] dim);
+  native void gtkWidgetGetLocationOnScreen (int[] point);
   native void gtkWidgetSetCursor (int type);
   native void gtkWidgetSetBackground (int red, int green, int blue);
   native void gtkWidgetSetForeground (int red, int green, int blue);
+  native void gtkWidgetSetSensitive (boolean sensitive);
+  native void gtkWidgetSetParent (ComponentPeer parent);
+  native void gtkWidgetRequestFocus ();
+  native void gtkWidgetDispatchKeyEvent (int id, long when, int mods,
+                                         int keyCode, int keyLocation);
+  native void gtkSetFont (String name, int style, int size);
+  native void gtkWidgetQueueDrawArea(int x, int y, int width, int height);
+  native void addExposeFilter();
+  native void removeExposeFilter();
 
   void create ()
   {
     throw new RuntimeException ();
   }
 
-  void initializeInsets ()
-  {
-    insets = new Insets (0, 0, 0, 0);
-  }
-
-  native void connectHooks ();
+  native void connectJObject ();
+  native void connectSignals ();
 
   protected GtkComponentPeer (Component awtComponent)
   {
     super (awtComponent);
     this.awtComponent = awtComponent;
+    insets = new Insets (0, 0, 0, 0);
 
-    /* temporary try/catch block until all peers use this creation method */
-    try {
-      create ();
-      
-      GtkArgList args = new GtkArgList ();
-      getArgs (awtComponent, args);
-      args.setArgs (this);
+    create ();
 
-      connectHooks ();
+    setParent ();
 
-      if (awtComponent.getForeground () != null)
-	setForeground (awtComponent.getForeground ());
-      if (awtComponent.getBackground () != null)
-	setBackground (awtComponent.getBackground ());
-      if (awtComponent.getFont() != null)
-	setFont(awtComponent.getFont());
+    connectJObject ();
+    connectSignals ();
 
-      initializeInsets ();
+    if (awtComponent.getForeground () != null)
+      setForeground (awtComponent.getForeground ());
+    if (awtComponent.getBackground () != null)
+      setBackground (awtComponent.getBackground ());
+    if (awtComponent.getFont() != null)
+      setFont(awtComponent.getFont());
 
-      setCursor (awtComponent.getCursor ());
-      Rectangle bounds = awtComponent.getBounds ();
-      setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
+    setCursor (awtComponent.getCursor ());
 
-    } catch (RuntimeException ex) { ; }
+    setComponentBounds ();
+
+    Rectangle bounds = awtComponent.getBounds ();
+    setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
+    setVisibleAndEnabled ();
+  }
+
+  void setParent ()
+  {
+    ComponentPeer p;
+    Component component = awtComponent;
+    do
+      {
+        component = component.getParent ();
+        p = component.getPeer ();
+      }
+    while (p instanceof java.awt.peer.LightweightPeer);
+
+    if (p != null)
+      gtkWidgetSetParent (p);
+  }
+
+  /*
+   * Set the bounds of this peer's AWT Component based on dimensions
+   * returned by the native windowing system.  Most Components impose
+   * their dimensions on the peers so the default implementation does
+   * nothing.  However some peers, like GtkFileDialogPeer, need to
+   * pass their size back to the AWT Component.
+   */
+  void setComponentBounds ()
+  {
+  }
+
+  void setVisibleAndEnabled ()
+  {
+    setVisible (awtComponent.isVisible ());
+    setEnabled (awtComponent.isEnabled ());
   }
 
   public int checkImage (Image image, int width, int height, 
@@ -146,7 +185,16 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Image createImage (int width, int height)
   {
-    GdkGraphics g = new GdkGraphics (width, height);
+    Graphics g;
+    if (GtkToolkit.useGraphics2D ())
+      {
+        Graphics2D g2 = new GdkGraphics2D (width, height);
+        g2.setBackground (getBackground ());
+        g = g2;
+      }
+    else
+      g = new GdkGraphics (width, height);
+
     return new GtkOffScreenImage (null, g, width, height);
   }
 
@@ -172,7 +220,10 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Graphics getGraphics ()
   {
-    return null;
+    if (GtkToolkit.useGraphics2D ())
+        return new GdkGraphics2D (this);
+    else
+        return new GdkGraphics (this);
   }
 
   public Point getLocationOnScreen () 
@@ -184,18 +235,12 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Dimension getMinimumSize () 
   {
-    int dim[]=new int[2];
-    gtkWidgetGetDimensions (dim);
-    Dimension d = new Dimension (dim[0],dim[1]);
-    return (d);
+    return minimumSize ();
   }
 
   public Dimension getPreferredSize ()
   {
-    int dim[]=new int[2];
-    gtkWidgetGetDimensions (dim);
-    Dimension d = new Dimension (dim[0],dim[1]);
-    return (d);
+    return preferredSize ();
   }
 
   public Toolkit getToolkit ()
@@ -205,6 +250,48 @@ public class GtkComponentPeer extends GtkGenericPeer
   
   public void handleEvent (AWTEvent event)
   {
+    int id = event.getID();
+    KeyEvent ke = null;
+
+    switch (id)
+      {
+      case PaintEvent.PAINT:
+      case PaintEvent.UPDATE:
+        {
+          try 
+            {
+              Graphics g = getGraphics ();
+          
+              // Some peers like GtkFileDialogPeer are repainted by Gtk itself
+              if (g == null)
+                break;
+		
+              g.setClip (((PaintEvent)event).getUpdateRect());
+
+              if (id == PaintEvent.PAINT)
+                awtComponent.paint (g);
+              else
+                awtComponent.update (g);
+
+              g.dispose ();
+            }
+          catch (InternalError e)
+            {
+              System.err.println (e);
+            }
+        }
+        break;
+      case KeyEvent.KEY_PRESSED:
+        ke = (KeyEvent) event;
+        gtkWidgetDispatchKeyEvent (ke.getID (), ke.getWhen (), ke.getModifiersEx (),
+                                   ke.getKeyCode (), ke.getKeyLocation ());
+        break;
+      case KeyEvent.KEY_RELEASED:
+        ke = (KeyEvent) event;
+        gtkWidgetDispatchKeyEvent (ke.getID (), ke.getWhen (), ke.getModifiersEx (),
+                                   ke.getKeyCode (), ke.getKeyLocation ());
+        break;
+      }
   }
   
   public boolean isFocusTraversable () 
@@ -214,17 +301,39 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Dimension minimumSize () 
   {
-    return getMinimumSize();
+    int dim[] = new int[2];
+
+    gtkWidgetGetPreferredDimensions (dim);
+
+    return new Dimension (dim[0], dim[1]);
   }
 
   public void paint (Graphics g)
   {
-    awtComponent.paint (g);
+    Component parent = awtComponent.getParent();
+    GtkComponentPeer parentPeer = null;
+    if ((parent instanceof Container) && !parent.isLightweight())
+      parentPeer = (GtkComponentPeer) parent.getPeer();
+
+    addExposeFilter();
+    if (parentPeer != null)
+      parentPeer.addExposeFilter();
+
+    Rectangle clip = g.getClipBounds();
+    gtkWidgetQueueDrawArea(clip.x, clip.y, clip.width, clip.height);
+
+    removeExposeFilter();
+    if (parentPeer != null)
+      parentPeer.removeExposeFilter();
   }
 
-  public Dimension preferredSize()
+  public Dimension preferredSize ()
   {
-    return getPreferredSize();
+    int dim[] = new int[2];
+
+    gtkWidgetGetPreferredDimensions (dim);
+
+    return new Dimension (dim[0], dim[1]);
   }
 
   public boolean prepareImage (Image image, int width, int height,
@@ -242,13 +351,12 @@ public class GtkComponentPeer extends GtkGenericPeer
       PrepareImage (GtkImage image, ImageObserver observer)
       {
 	this.image = image;
-	this.observer = observer;
+	image.setObserver (observer);
       }
       
       public void run ()
       {
-	// XXX: need to return data to image observer
-	image.source.startProduction (null);
+	image.source.startProduction (image);
       }
     }
 
@@ -267,7 +375,11 @@ public class GtkComponentPeer extends GtkGenericPeer
 				 new Rectangle (x, y, width, height)));
   }
 
-  native public void requestFocus ();
+  public void requestFocus ()
+  {
+    gtkWidgetRequestFocus();
+    postFocusEvent(FocusEvent.FOCUS_GAINED, false);
+  }
 
   public void reshape (int x, int y, int width, int height) 
   {
@@ -284,8 +396,34 @@ public class GtkComponentPeer extends GtkGenericPeer
   public void setBounds (int x, int y, int width, int height)
   {
     Component parent = awtComponent.getParent ();
-    
-    if (parent instanceof Window)
+
+    // Heavyweight components that are children of one or more
+    // lightweight containers have to be handled specially.  Because
+    // calls to GLightweightPeer.setBounds do nothing, GTK has no
+    // knowledge of the lightweight containers' positions.  So we have
+    // to add the offsets manually when placing a heavyweight
+    // component within a lightweight container.  The lightweight
+    // container may itself be in a lightweight container and so on,
+    // so we need to continue adding offsets until we reach a
+    // container whose position GTK knows -- that is, the first
+    // non-lightweight.
+    boolean lightweightChild = false;
+    Insets i;
+    while (parent.isLightweight ())
+      {
+	lightweightChild = true;
+
+	i = ((Container) parent).getInsets ();
+
+	x += parent.getX () + i.left;
+	y += parent.getY () + i.top;
+
+	parent = parent.getParent ();
+      }
+
+    // We only need to convert from Java to GTK coordinates if we're
+    // placing a heavyweight component in a Window.
+    if (parent instanceof Window && !lightweightChild)
       {
 	Insets insets = ((Window) parent).getInsets ();
 	// Convert from Java coordinates to GTK coordinates.
@@ -302,7 +440,7 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void setEnabled (boolean b)
   {
-    set ("sensitive", b);
+    gtkWidgetSetSensitive (b);
   }
 
   public void setFont (Font f)
@@ -310,6 +448,7 @@ public class GtkComponentPeer extends GtkGenericPeer
     // FIXME: This should really affect the widget tree below me.
     // Currently this is only handled if the call is made directly on
     // a text widget, which implements setFont() itself.
+    gtkSetFont(f.getName(), f.getStyle(), f.getSize());
   }
 
   public void setForeground (Color c) 
@@ -331,18 +470,14 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void setVisible (boolean b)
   {
-    set ("visible", b);
-  }
-  
-  public void hide () 
-  {
-    setVisible (false);
+    if (b)
+      show ();
+    else
+      hide ();
   }
 
-  public void show () 
-  {
-    setVisible (true);
-  }
+  public native void hide ();
+  public native void show ();
 
   protected void postMouseEvent(int id, long when, int mods, int x, int y, 
 				int clickCount, boolean popupTrigger) 
@@ -358,10 +493,28 @@ public class GtkComponentPeer extends GtkGenericPeer
   }
 
   protected void postKeyEvent (int id, long when, int mods,
-			       int keyCode, char keyChar, int keyLocation)
+                               int keyCode, char keyChar, int keyLocation)
   {
-    q.postEvent (new KeyEvent (awtComponent, id, when, mods,
-			       keyCode, keyChar, keyLocation));
+    KeyEvent keyEvent = new KeyEvent (awtComponent, id, when, mods,
+                                      keyCode, keyChar, keyLocation);
+
+    // Also post a KEY_TYPED event if keyEvent is a key press that
+    // doesn't represent an action or modifier key.
+    if (keyEvent.getID () == KeyEvent.KEY_PRESSED
+        && (!keyEvent.isActionKey ()
+            && keyCode != KeyEvent.VK_SHIFT
+            && keyCode != KeyEvent.VK_CONTROL
+            && keyCode != KeyEvent.VK_ALT))
+      {
+        synchronized (q)
+          {
+            q.postEvent (keyEvent);
+            q.postEvent (new KeyEvent (awtComponent, KeyEvent.KEY_TYPED, when, mods,
+                                        KeyEvent.VK_UNDEFINED, keyChar, keyLocation));
+          }
+      }
+    else
+      q.postEvent (keyEvent);
   }
 
   protected void postFocusEvent (int id, boolean temporary)
@@ -374,46 +527,6 @@ public class GtkComponentPeer extends GtkGenericPeer
     q.postEvent (new ItemEvent ((ItemSelectable)awtComponent, 
 				ItemEvent.ITEM_STATE_CHANGED,
 				item, stateChange));
-  }
-
-  public void getArgs (Component component, GtkArgList args)
-  {
-    args.add ("visible", component.isVisible ());
-    args.add ("sensitive", component.isEnabled ());
-
-    ComponentPeer p;
-
-    do
-      {
-	component = component.getParent ();
-	p = component.getPeer ();
-      } while (p instanceof java.awt.peer.LightweightPeer);
-    
-    if (p != null)
-      args.add ("parent", p);
-  }
-
-  native void set (String name, String value);
-  native void set (String name, boolean value);
-  native void set (String name, int value);
-  native void set (String name, float value);
-  native void set (String name, Object value);
-
-  void set (GtkArg arg)
-  {
-    String name = arg.getName ();
-    Object value = arg.getValue ();
-
-    if (value instanceof Boolean)
-      set (name, ((Boolean)value).booleanValue ());
-    else if (value instanceof Integer)
-      set (name, ((Integer)value).intValue ());
-    else if (value instanceof Float)
-      set (name, ((Float)value).floatValue ());
-    else if (value instanceof String)
-      set (name, ((String) value));
-    else
-      set (name, value);
   }
 
   public GraphicsConfiguration getGraphicsConfiguration ()

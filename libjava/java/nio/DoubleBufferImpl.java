@@ -1,5 +1,5 @@
 /* DoubleBufferImpl.java -- 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -52,7 +52,9 @@ final class DoubleBufferImpl extends DoubleBuffer
   
   DoubleBufferImpl (double[] buffer, int offset, int capacity, int limit, int position, int mark, boolean readOnly)
   {
-    super (buffer, offset, capacity, limit, position, mark);
+    super (capacity, limit, position, mark);
+    this.backing_buffer = buffer;
+    this.array_offset = offset;
     this.readOnly = readOnly;
   }
   
@@ -96,10 +98,16 @@ final class DoubleBufferImpl extends DoubleBuffer
   }
 
   /**
-   * Relative get method. Reads the next <code>double</code> from the buffer.
+   * Reads the <code>double</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferUnderflowException If there are no remaining
+   * <code>double</code>s in this buffer.
    */
-  final public double get ()
+  public double get ()
   {
+    checkForUnderflow();
+
     double result = backing_buffer [position ()];
     position (position () + 1);
     return result;
@@ -108,13 +116,15 @@ final class DoubleBufferImpl extends DoubleBuffer
   /**
    * Relative put method. Writes <code>value</code> to the next position
    * in the buffer.
-   * 
+   *
+   * @exception BufferOverflowException If there no remaining 
+   * space in this buffer.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
-  final public DoubleBuffer put (double value)
+  public DoubleBuffer put (double value)
   {
-    if (readOnly)
-      throw new ReadOnlyBufferException ();
+    checkIfReadOnly();
+    checkForOverflow();
 	  	    
     backing_buffer [position ()] = value;
     position (position () + 1);
@@ -128,8 +138,10 @@ final class DoubleBufferImpl extends DoubleBuffer
    * @exception IndexOutOfBoundsException If index is negative or not smaller
    * than the buffer's limit.
    */
-  final public double get (int index)
+  public double get (int index)
   {
+    checkIndex(index);
+
     return backing_buffer [index];
   }
   
@@ -141,16 +153,16 @@ final class DoubleBufferImpl extends DoubleBuffer
    * than the buffer's limit.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
-  final public DoubleBuffer put (int index, double value)
+  public DoubleBuffer put (int index, double value)
   {
-    if (readOnly)
-      throw new ReadOnlyBufferException ();
-    	    
+    checkIfReadOnly();
+    checkIndex(index);
+
     backing_buffer [index] = value;
     return this;
   }
   
-  final public ByteOrder order ()
+  public ByteOrder order ()
   {
     return ByteOrder.nativeOrder ();
   }

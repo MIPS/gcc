@@ -39,6 +39,7 @@ exception statement from your version. */
 package gnu.java.awt.peer.gtk;
 
 import java.awt.Adjustable;
+import java.awt.Dimension;
 import java.awt.ScrollPane;
 import java.awt.peer.ComponentPeer;
 import java.awt.peer.ScrollPanePeer;
@@ -46,15 +47,17 @@ import java.awt.peer.ScrollPanePeer;
 public class GtkScrollPanePeer extends GtkContainerPeer
   implements ScrollPanePeer
 {
-  native void create ();
+  native void create (int width, int height);
 
-  native void gtkScrolledWindowNew(ComponentPeer parent,
-				   int policy, int w, int h, int[] dims);
+  void create ()
+  {
+    create (awtComponent.getWidth (), awtComponent.getHeight ());
+  }
+
   native void gtkScrolledWindowSetScrollPosition(int x, int y);
   native void gtkScrolledWindowSetHScrollIncrement (int u);
   native void gtkScrolledWindowSetVScrollIncrement (int u);
-  native void gtkScrolledWindowSetSize(int w, int h);
-  
+
   public GtkScrollPanePeer (ScrollPane sp)
   {
     super (sp);
@@ -63,15 +66,32 @@ public class GtkScrollPanePeer extends GtkContainerPeer
   }
 
   native void setPolicy (int policy);
-  native public void childResized (int width, int height);
+  public void childResized (int width, int height)
+  {
+    int dim[] = new int[2];
+
+    gtkWidgetGetDimensions (dim);
+
+    // If the child is in this range, GTK adds both scrollbars, but
+    // the AWT doesn't.  So set the peer's scroll policy to
+    // GTK_POLICY_NEVER.
+    if ((width > dim[0] - getVScrollbarWidth ()
+	 && width <= dim[0])
+	&& (height > dim[1] - getHScrollbarHeight ()
+	    && height <= dim[1]))
+      setPolicy (ScrollPane.SCROLLBARS_NEVER);
+    else
+      setPolicy (((ScrollPane) awtComponent).getScrollbarDisplayPolicy ());
+  }
+
   native public int getHScrollbarHeight ();
   native public int getVScrollbarWidth ();
   native public void setScrollPosition (int x, int y);
 
-//    public Dimension getPreferredSize ()
-//    {
-//      return new Dimension (60, 60);
-//    }
+  public Dimension getPreferredSize ()
+  {
+    return awtComponent.getSize();
+  }
 
   public void setUnitIncrement (Adjustable adj, int u)
   {

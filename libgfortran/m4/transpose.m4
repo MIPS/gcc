@@ -1,30 +1,21 @@
 `/* Implementation of the TRANSPOSE intrinsic
-   Copyright 2003, 2005 Free Software Foundation, Inc.
+   Copyright 2003 Free Software Foundation, Inc.
    Contributed by Tobias Schlüter
 
-This file is part of the GNU Fortran 95 runtime library (libgfortran).
+This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public
+Libgfor is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
+version 2.1 of the License, or (at your option) any later version.
 
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
-
-Libgfortran is distributed in the hope that it will be useful,
+Ligbfor is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Lesser General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
+You should have received a copy of the GNU Lesser General Public
+License along with libgfor; see the file COPYING.LIB.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -33,11 +24,8 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
-extern void transpose_`'rtype_code (rtype * ret, rtype * source);
-export_proto(transpose_`'rtype_code);
-
 void
-transpose_`'rtype_code (rtype * ret, rtype * source)
+`__transpose_'rtype_kind (rtype * ret, rtype * source)
 {
   /* r.* indicates the return array.  */
   index_type rxstride, rystride;
@@ -64,7 +52,7 @@ transpose_`'rtype_code (rtype * ret, rtype * source)
       ret->dim[1].ubound = source->dim[0].ubound - source->dim[0].lbound;
       ret->dim[1].stride = ret->dim[0].ubound+1;
 
-      ret->data = internal_malloc_size (sizeof (rtype_name) * size0 (ret));
+      ret->data = internal_malloc (sizeof (rtype_name) * size0 (ret));
       ret->base = 0;
     }
 

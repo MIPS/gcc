@@ -5,7 +5,6 @@
 ##
 
 AUTOMAKE_OPTIONS = 1.8 foreign
-ACLOCAL_AMFLAGS = -I .. -I ../config
 MAINT_CHARSET = latin1
 SUBDIRS = testsuite
 

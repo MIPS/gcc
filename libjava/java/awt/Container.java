@@ -1,5 +1,5 @@
 /* Container.java -- parent container class in AWT
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation
+   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -41,16 +41,24 @@ import java.awt.event.AWTEventListener;
 import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
 import java.awt.event.MouseEvent;
+import java.awt.event.KeyEvent;
 import java.awt.peer.ContainerPeer;
 import java.awt.peer.LightweightPeer;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.io.ObjectInputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.EventListener;
+import java.util.Iterator;
+import java.util.HashSet;
 import java.util.Set;
 import javax.accessibility.Accessible;
+import javax.swing.SwingUtilities;
 
 /**
  * A generic window toolkit object that acts as a container for other objects.
@@ -91,6 +99,21 @@ public class Container extends Component
   transient ContainerListener containerListener;
   transient PropertyChangeSupport changeSupport; 
 
+  /** The focus traversal policy that determines how focus is
+      transferred between this Container and its children. */
+  private FocusTraversalPolicy focusTraversalPolicy;
+
+  /**
+   * The focus traversal keys, if not inherited from the parent or default
+   * keyboard manager. These sets will contain only AWTKeyStrokes that
+   * represent press and release events to use as focus control.
+   *
+   * @see #getFocusTraversalKeys(int)
+   * @see #setFocusTraversalKeys(int, Set)
+   * @since 1.4
+   */
+  transient Set[] focusTraversalKeys;
+
   /**
    * Default constructor for subclasses.
    */
@@ -105,7 +128,7 @@ public class Container extends Component
    */
   public int getComponentCount()
   {
-    return ncomponents;
+    return countComponents ();
   }
 
   /**
@@ -117,7 +140,7 @@ public class Container extends Component
    */
   public int countComponents()
   {
-    return getComponentCount();
+    return ncomponents;
   }
 
   /**
@@ -159,6 +182,25 @@ public class Container extends Component
   }
 
   /**
+   * Swaps the components at position i and j, in the container.
+   */
+
+  protected void swapComponents (int i, int j)
+  {   
+    synchronized (getTreeLock ())
+      {
+        if (i < 0 
+            || i >= component.length
+            || j < 0 
+            || j >= component.length)
+          throw new ArrayIndexOutOfBoundsException ();
+        Component tmp = component[i];
+        component[i] = component[j];
+        component[j] = tmp;
+      }
+  }
+
+  /**
    * Returns the insets for this container, which is the space used for
    * borders, the margin, etc.
    *
@@ -166,10 +208,7 @@ public class Container extends Component
    */
   public Insets getInsets()
   {
-    if (peer == null)
-      return new Insets(0, 0, 0, 0);
-    
-    return ((ContainerPeer) peer).getInsets();
+    return insets ();
   }
 
   /**
@@ -181,7 +220,10 @@ public class Container extends Component
    */
   public Insets insets()
   {
-    return getInsets();
+    if (peer == null)
+      return new Insets (0, 0, 0, 0);
+
+    return ((ContainerPeer) peer).getInsets ();
   }
 
   /**
@@ -376,6 +418,8 @@ public class Container extends Component
         if (layoutMgr != null)
           layoutMgr.removeLayoutComponent(r);
 
+        r.parent = null;
+
         // Post event to notify of adding the container.
         ContainerEvent ce = new ContainerEvent(this,
                                                ContainerEvent.COMPONENT_REMOVED,
@@ -443,8 +487,7 @@ public class Container extends Component
    */
   public void doLayout()
   {
-    if (layoutMgr != null)
-      layoutMgr.layoutContainer(this);
+    layout ();
   }
 
   /**
@@ -454,7 +497,8 @@ public class Container extends Component
    */
   public void layout()
   {
-    doLayout();
+    if (layoutMgr != null)
+      layoutMgr.layoutContainer (this);
   }
 
   /**
@@ -477,6 +521,20 @@ public class Container extends Component
           {
             validateTree();
           }
+      }
+  }
+
+  /**
+   * Recursively invalidates the container tree.
+   */
+  private void invalidateTree()
+  {
+    for (int i = 0; i < ncomponents; i++)
+      {
+        Component comp = component[i];
+        comp.invalidate();
+        if (comp instanceof Container)
+          ((Container) comp).invalidateTree();
       }
   }
 
@@ -525,7 +583,10 @@ public class Container extends Component
   public void setFont(Font f)
   {
     super.setFont(f);
-    // FIXME, should invalidate all children with font == null
+    // FIXME: Although it might make more sense to invalidate only
+    // those children whose font == null, Sun invalidates all children.
+    // So we'll do the same.
+    invalidateTree();
   }
 
   /**
@@ -535,7 +596,7 @@ public class Container extends Component
    */
   public Dimension getPreferredSize()
   {
-      return preferredSize();
+    return preferredSize ();
   }
 
   /**
@@ -547,10 +608,10 @@ public class Container extends Component
    */
   public Dimension preferredSize()
   {
-      if (layoutMgr != null)
-	  return layoutMgr.preferredLayoutSize(this);
-      else
-	  return super.preferredSize();
+    if (layoutMgr != null)
+      return layoutMgr.preferredLayoutSize (this);
+    else
+      return super.preferredSize ();
   }
 
   /**
@@ -560,7 +621,7 @@ public class Container extends Component
    */
   public Dimension getMinimumSize()
   {
-      return minimumSize();
+    return minimumSize ();
   }
 
   /**
@@ -572,10 +633,10 @@ public class Container extends Component
    */
   public Dimension minimumSize()
   {
-      if (layoutMgr != null)
-	  return layoutMgr.minimumLayoutSize(this);
-      else
-	  return super.minimumSize();
+    if (layoutMgr != null)
+      return layoutMgr.minimumLayoutSize (this);
+    else
+      return super.minimumSize ();
   }
 
   /**
@@ -643,8 +704,9 @@ public class Container extends Component
   {
     if (!isShowing())
       return;
-    super.paint(g);
-    visitChildren(g, GfxPaintVisitor.INSTANCE, true);
+    // Visit heavyweights as well, in case they were
+    // erased when we cleared the background for this container.
+    visitChildren(g, GfxPaintVisitor.INSTANCE, false);
   }
 
   /**
@@ -658,7 +720,6 @@ public class Container extends Component
    */
   public void update(Graphics g)
   {
-    g.clearRect(0, 0, width, height);
     super.update(g);
   }
 
@@ -795,6 +856,16 @@ public class Container extends Component
    */
   public void deliverEvent(Event e)
   {
+    if (!handleEvent (e))
+      {
+        synchronized (getTreeLock ())
+          {
+            Component parent = getParent ();
+
+            if (parent != null)
+              parent.deliverEvent (e);
+          }
+      }
   }
 
   /**
@@ -813,23 +884,7 @@ public class Container extends Component
    */
   public Component getComponentAt(int x, int y)
   {
-    synchronized (getTreeLock ())
-      {
-        if (! contains(x, y))
-          return null;
-        for (int i = 0; i < ncomponents; ++i)
-          {
-            // Ignore invisible children...
-            if (!component[i].isVisible())
-              continue;
-
-            int x2 = x - component[i].x;
-            int y2 = y - component[i].y;
-            if (component[i].contains(x2, y2))
-              return component[i];
-          }
-        return this;
-      }
+    return locate (x, y);
   }
 
   /**
@@ -849,7 +904,23 @@ public class Container extends Component
    */
   public Component locate(int x, int y)
   {
-    return getComponentAt(x, y);
+    synchronized (getTreeLock ())
+      {
+        if (!contains (x, y))
+          return null;
+        for (int i = 0; i < ncomponents; ++i)
+          {
+            // Ignore invisible children...
+            if (!component[i].isVisible ())
+              continue;
+
+            int x2 = x - component[i].x;
+            int y2 = y - component[i].y;
+            if (component[i].contains (x2, y2))
+              return component[i];
+          }
+        return this;
+      }
   }
 
   /**
@@ -866,7 +937,7 @@ public class Container extends Component
    */
   public Component getComponentAt(Point p)
   {
-    return getComponentAt(p.x, p.y);
+    return getComponentAt (p.x, p.y);
   }
 
   public Component findComponentAt(int x, int y)
@@ -966,7 +1037,7 @@ public class Container extends Component
   {
     String param = super.paramString();
     if (layoutMgr != null)
-      param = param + "," + layoutMgr.getClass().getName();
+      param = param + ",layout=" + layoutMgr.getClass().getName();
 
     return param;
   }
@@ -1030,9 +1101,89 @@ public class Container extends Component
       throw new IllegalArgumentException ();
 
     if (keystrokes == null)
-      throw new IllegalArgumentException ();
+      {
+        Container parent = getParent ();
 
-    throw new Error ("not implemented");
+        while (parent != null)
+          {
+            if (parent.areFocusTraversalKeysSet (id))
+              {
+                keystrokes = parent.getFocusTraversalKeys (id);
+                break;
+              }
+            parent = parent.getParent ();
+          }
+
+        if (keystrokes == null)
+          keystrokes = KeyboardFocusManager.getCurrentKeyboardFocusManager ().
+            getDefaultFocusTraversalKeys (id);
+      }
+
+    Set sa;
+    Set sb;
+    Set sc;
+    String name;
+    switch (id)
+      {
+      case KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS:
+        sa = getFocusTraversalKeys
+          (KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS);
+        sb = getFocusTraversalKeys
+          (KeyboardFocusManager.UP_CYCLE_TRAVERSAL_KEYS);
+        sc = getFocusTraversalKeys
+          (KeyboardFocusManager.DOWN_CYCLE_TRAVERSAL_KEYS);
+        name = "forwardFocusTraversalKeys";
+        break;
+      case KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS:
+        sa = getFocusTraversalKeys
+          (KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS);
+        sb = getFocusTraversalKeys
+          (KeyboardFocusManager.UP_CYCLE_TRAVERSAL_KEYS);
+        sc = getFocusTraversalKeys
+          (KeyboardFocusManager.DOWN_CYCLE_TRAVERSAL_KEYS);
+        name = "backwardFocusTraversalKeys";
+        break;
+      case KeyboardFocusManager.UP_CYCLE_TRAVERSAL_KEYS:
+        sa = getFocusTraversalKeys
+          (KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS);
+        sb = getFocusTraversalKeys
+          (KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS);
+        sc = getFocusTraversalKeys
+          (KeyboardFocusManager.DOWN_CYCLE_TRAVERSAL_KEYS);
+        name = "upCycleFocusTraversalKeys";
+        break;
+      case KeyboardFocusManager.DOWN_CYCLE_TRAVERSAL_KEYS:
+        sa = getFocusTraversalKeys
+          (KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS);
+        sb = getFocusTraversalKeys
+          (KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS);
+        sc = getFocusTraversalKeys
+          (KeyboardFocusManager.UP_CYCLE_TRAVERSAL_KEYS);
+        name = "downCycleFocusTraversalKeys";
+        break;
+      default:
+        throw new IllegalArgumentException ();
+      }
+
+    int i = keystrokes.size ();
+    Iterator iter = keystrokes.iterator ();
+
+    while (--i >= 0)
+      {
+        Object o = iter.next ();
+        if (!(o instanceof AWTKeyStroke)
+            || sa.contains (o) || sb.contains (o) || sc.contains (o)
+            || ((AWTKeyStroke) o).keyCode == KeyEvent.VK_UNDEFINED)
+          throw new IllegalArgumentException ();
+      }
+
+    if (focusTraversalKeys == null)
+      focusTraversalKeys = new Set[3];
+
+    keystrokes = Collections.unmodifiableSet (new HashSet (keystrokes));
+    firePropertyChange (name, focusTraversalKeys[id], keystrokes);
+
+    focusTraversalKeys[id] = keystrokes;
   }
   
   /**
@@ -1047,7 +1198,7 @@ public class Container extends Component
    *
    * @since 1.4
    */
-  public Set getFocusTraversalKeys(int id)
+  public Set getFocusTraversalKeys (int id)
   {
     if (id != KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS &&
         id != KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS &&
@@ -1055,9 +1206,18 @@ public class Container extends Component
         id != KeyboardFocusManager.DOWN_CYCLE_TRAVERSAL_KEYS)
       throw new IllegalArgumentException ();
 
-    return null;
+    Set s = null;
+
+    if (focusTraversalKeys != null)
+      s = focusTraversalKeys[id];
+
+    if (s == null && parent != null)
+      s = parent.getFocusTraversalKeys (id);
+
+    return s == null ? (KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                        .getDefaultFocusTraversalKeys(id)) : s;
   }
-  
+
   /**
    * Returns whether the Set of focus traversal keys for the given focus
    * traversal operation has been explicitly defined for this Container.
@@ -1072,7 +1232,7 @@ public class Container extends Component
    *
    * @since 1.4
    */
-  public boolean areFocusTraversalKeysSet(int id)
+  public boolean areFocusTraversalKeysSet (int id)
   {
     if (id != KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS &&
         id != KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS &&
@@ -1080,43 +1240,148 @@ public class Container extends Component
         id != KeyboardFocusManager.DOWN_CYCLE_TRAVERSAL_KEYS)
       throw new IllegalArgumentException ();
 
+    return focusTraversalKeys != null && focusTraversalKeys[id] != null;
+  }
+
+  /**
+   * Check whether the given Container is the focus cycle root of this
+   * Container's focus traversal cycle.  If this Container is a focus
+   * cycle root itself, then it will be in two different focus cycles
+   * -- it's own, and that of its ancestor focus cycle root's.  In
+   * that case, if <code>c</code> is either of those containers, this
+   * method will return true.
+   *
+   * @param c the candidate Container
+   *
+   * @return true if c is the focus cycle root of the focus traversal
+   * cycle to which this Container belongs, false otherwise
+   *
+   * @since 1.4
+   */
+  public boolean isFocusCycleRoot (Container c)
+  {
+    if (this == c
+        && isFocusCycleRoot ())
+      return true;
+
+    Container ancestor = getFocusCycleRootAncestor ();
+
+    if (c == ancestor)
+      return true;
+
     return false;
   }
-  
-  public boolean isFocusCycleRoot(Container c)
+
+  /**
+   * If this Container is a focus cycle root, set the focus traversal
+   * policy that determines the focus traversal order for its
+   * children.  If non-null, this policy will be inherited by all
+   * inferior focus cycle roots.  If <code>policy</code> is null, this
+   * Container will inherit its policy from the closest ancestor focus
+   * cycle root that's had its policy set.
+   *
+   * @param policy the new focus traversal policy for this Container or null
+   *
+   * @since 1.4
+   */
+  public void setFocusTraversalPolicy (FocusTraversalPolicy policy)
   {
-    return false;
+    focusTraversalPolicy = policy;
   }
-  
-  public void transferFocusBackward()
+
+  /**
+   * Return the focus traversal policy that determines the focus
+   * traversal order for this Container's children.  This method
+   * returns null if this Container is not a focus cycle root.  If the
+   * focus traversal policy has not been set explicitly, then this
+   * method will return an ancestor focus cycle root's policy instead.
+   *
+   * @return this Container's focus traversal policy or null
+   *
+   * @since 1.4
+   */
+  public FocusTraversalPolicy getFocusTraversalPolicy ()
   {
+    if (!isFocusCycleRoot ())
+      return null;
+
+    if (focusTraversalPolicy == null)
+      {
+        Container ancestor = getFocusCycleRootAncestor ();
+
+	if (ancestor != this)
+	  return ancestor.getFocusTraversalPolicy ();
+	else
+	  {
+	    KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
+
+	    return manager.getDefaultFocusTraversalPolicy ();
+	  }
+      }
+    else
+      return focusTraversalPolicy;
   }
-  
-  public void setFocusTraversalPolicy(FocusTraversalPolicy policy)
+
+  /**
+   * Check whether this Container's focus traversal policy has been
+   * explicitly set.  If it has not, then this Container will inherit
+   * its focus traversal policy from one of its ancestor focus cycle
+   * roots.
+   *
+   * @return true if focus traversal policy is set, false otherwise
+  */
+  public boolean isFocusTraversalPolicySet ()
   {
+    return focusTraversalPolicy == null;
   }
-  
-  public FocusTraversalPolicy getFocusTraversalPolicy()
+
+  /**
+   * Set whether or not this Container is the root of a focus
+   * traversal cycle.  This Container's focus traversal policy
+   * determines the order of focus traversal.  Some policies prevent
+   * the focus from being transferred between two traversal cycles
+   * until an up or down traversal operation is performed.  In that
+   * case, normal traversal (not up or down) is limited to this
+   * Container and all of this Container's descendents that are not
+   * descendents of inferior focus cycle roots.  In the default case
+   * however, ContainerOrderFocusTraversalPolicy is in effect, and it
+   * supports implicit down-cycle traversal operations.
+   *
+   * @return true if this is a focus cycle root, false otherwise
+   *
+   * @since 1.4
+   */
+  public void setFocusCycleRoot (boolean focusCycleRoot)
   {
-    return null;
+    this.focusCycleRoot = focusCycleRoot;
   }
-  
-  public boolean isFocusTraversalPolicySet()
+
+  /**
+   * Check whether this Container is a focus cycle root.
+   *
+   * @return true if this is a focus cycle root, false otherwise
+   *
+   * @since 1.4
+   */
+  public boolean isFocusCycleRoot ()
   {
-    return false;
+    return focusCycleRoot;
   }
-  
-  public void setFocusCycleRoot(boolean focusCycleRoot)
+
+  /**
+   * Transfer focus down one focus traversal cycle.  If this Container
+   * is a focus cycle root, then its default component becomes the
+   * focus owner, and this Container becomes the current focus cycle
+   * root.  No traversal will occur if this Container is not a focus
+   * cycle root.
+   *
+   * @since 1.4
+   */
+  public void transferFocusDownCycle ()
   {
-  }
-  
-  public boolean isFocusCycleRoot()
-  {
-    return false;
-  }
-  
-  public void transferFocusDownCycle()
-  {
+    KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
+
+    manager.downFocusCycle (this);
   }
 
   /**
@@ -1177,11 +1442,15 @@ public class Container extends Component
   {
     synchronized (getTreeLock ())
       {
-        for (int i = 0; i < ncomponents; ++i)
+        for (int i = ncomponents - 1; i >= 0; --i)
           {
             Component comp = component[i];
+            // If we're visiting heavyweights as well,
+            // don't recurse into Containers here. This avoids
+            // painting the same nested child multiple times.
             boolean applicable = comp.isVisible()
-              && (comp.isLightweight() || !lightweightOnly);
+              && (comp.isLightweight()
+                  || !lightweightOnly && ! (comp instanceof Container));
 
             if (applicable)
               visitChild(gfx, visitor, comp);
@@ -1206,26 +1475,41 @@ public class Container extends Component
                           Component comp)
   {
     Rectangle bounds = comp.getBounds();
-    Rectangle clip = gfx.getClipBounds().intersection(bounds);
+    Rectangle oldClip = gfx.getClipBounds();
+    if (oldClip == null)
+      oldClip = bounds;
+
+    Rectangle clip = oldClip.intersection(bounds);
 
     if (clip.isEmpty()) return;
 
-    Graphics gfx2 = gfx.create();
+    boolean clipped = false;
+    boolean translated = false;
     try
       {
-	gfx2.setClip(clip.x, clip.y, clip.width, clip.height);
-	gfx2.translate(bounds.x, bounds.y);
-
-	visitor.visit(comp, gfx2);
+        gfx.setClip(clip.x, clip.y, clip.width, clip.height);
+        clipped = true;
+        gfx.translate(bounds.x, bounds.y);
+        translated = true;
+        visitor.visit(comp, gfx);
       }
     finally
       {
-	gfx2.dispose ();
+        if (translated)
+          gfx.translate (-bounds.x, -bounds.y);
+        if (clipped)
+          gfx.setClip (oldClip.x, oldClip.y, oldClip.width, oldClip.height);
       }
   }
 
   void dispatchEventImpl(AWTEvent e)
   {
+    // Give lightweight dispatcher a chance to handle it.
+    if (eventTypeEnabled (e.id)
+        && dispatcher != null 
+        && dispatcher.handleEvent (e))
+      return;
+    
     if ((e.id <= ContainerEvent.CONTAINER_LAST
              && e.id >= ContainerEvent.CONTAINER_FIRST)
         && (containerListener != null
@@ -1296,12 +1580,77 @@ public class Container extends Component
             component[i].addNotify();
             if (component[i].isLightweight ())
 	      {
+
+                // If we're not lightweight, and we just got a lightweight
+                // child, we need a lightweight dispatcher to feed it events.
+                if (! this.isLightweight()) 
+                  {
+                    if (dispatcher == null)
+                      dispatcher = new LightweightDispatcher (this);
+                  }	
+	  
+
 		enableEvents(component[i].eventMask);
 		if (peer != null && !isLightweight ())
 		  enableEvents (AWTEvent.PAINT_EVENT_MASK);
 	      }
           }
       }
+  }
+
+  /**
+   * Deserialize this Container:
+   * <ol>
+   * <li>Read from the stream the default serializable fields.</li>
+   * <li>Read a list of serializable ContainerListeners as optional
+   * data.  If the list is null, no listeners will be registered.</li>
+   * <li>Read this Container's FocusTraversalPolicy as optional data.
+   * If this is null, then this Container will use a
+   * DefaultFocusTraversalPolicy.</li>
+   * </ol>
+   *
+   * @param s the stream to read from
+   * @throws ClassNotFoundException if deserialization fails
+   * @throws IOException if the stream fails
+   */
+  private void readObject (ObjectInputStream s)
+    throws ClassNotFoundException, IOException
+  {
+    s.defaultReadObject ();
+    String key = (String) s.readObject ();
+    while (key != null)
+      {
+        Object object = s.readObject ();
+        if ("containerL".equals (key))
+          addContainerListener((ContainerListener) object);
+        // FIXME: under what key is the focus traversal policy stored?
+        else if ("focusTraversalPolicy".equals (key))
+          setFocusTraversalPolicy ((FocusTraversalPolicy) object);
+
+        key = (String) s.readObject();
+      }
+  }
+
+  /**
+   * Serialize this Container:
+   * <ol>
+   * <li>Write to the stream the default serializable fields.</li>
+   * <li>Write the list of serializable ContainerListeners as optional
+   * data.</li>
+   * <li>Write this Container's FocusTraversalPolicy as optional data.</li>
+   * </ol>
+   *
+   * @param s the stream to write to
+   * @throws IOException if the stream fails
+   */
+  private void writeObject (ObjectOutputStream s) throws IOException
+  {
+    s.defaultWriteObject ();
+    AWTEventMulticaster.save (s, "containerL", containerListener);
+    if (focusTraversalPolicy instanceof Serializable)
+      s.writeObject (focusTraversalPolicy);
+    else
+      s.writeObject (null);
   }
 
   // Nested classes.
@@ -1468,68 +1817,171 @@ public class Container extends Component
           (ACCESSIBLE_CHILD_PROPERTY, e.getChild(), null);
       }
     } // class AccessibleContainerHandler
-  } // class AccessibleAWTPanel
+  } // class AccessibleAWTContainer
 } // class Container
 
 /**
- * Undocumented helper class.
- * STUBBED
+ * There is a helper class implied from stack traces called
+ * LightweightDispatcher, but since it is not part of the public API,
+ * rather than mimic it exactly we write something which does "roughly
+ * the same thing".
  */
-class LightweightDispatcher implements Serializable, AWTEventListener
+
+class LightweightDispatcher implements Serializable
 {
   private static final long serialVersionUID = 5184291520170872969L;
   private Container nativeContainer;
-  private Component focus;
-  private transient Component mouseEventTarget;
-  private transient Component targetLastEntered;
-  private transient boolean isMouseInNativeContainer;
   private Cursor nativeCursor;
   private long eventMask;
   
+  private transient Component mouseEventTarget;
+  private transient Component pressedComponent;
+  private transient Component lastComponentEntered;
+  private transient int pressCount;
+  
   LightweightDispatcher(Container c)
   {
+    nativeContainer = c;
   }
 
-  void dispose()
+  void acquireComponentForMouseEvent(MouseEvent me)
   {
+    int x = me.getX ();
+    int y = me.getY ();
+
+    // Find the candidate which should receive this event.
+    Component parent = nativeContainer;
+    Component candidate = null;
+    Point p = me.getPoint();
+    while (candidate == null && parent != null)
+      {
+        candidate =
+          SwingUtilities.getDeepestComponentAt(parent, p.x, p.y);
+        if (candidate == null || (candidate.eventMask & me.getID()) == 0)
+        {
+          candidate = null;
+          p = SwingUtilities.convertPoint(parent, p.x, p.y, parent.parent);
+          parent = parent.parent;
+        }
+      }
+
+    // If the only candidate we found was the native container itself,
+    // don't dispatch any event at all.  We only care about the lightweight
+    // children here.
+    if (candidate == nativeContainer)
+      candidate = null;
+
+    // If our candidate is new, inform the old target we're leaving.
+    if (lastComponentEntered != null
+        && lastComponentEntered.isShowing()
+        && lastComponentEntered != candidate)
+      {
+        // Old candidate could have been removed from 
+        // the nativeContainer so we check first.
+        if (SwingUtilities.isDescendingFrom(lastComponentEntered, nativeContainer))
+        {
+          Point tp = 
+            SwingUtilities.convertPoint(nativeContainer, 
+                                        x, y, lastComponentEntered);
+          MouseEvent exited = new MouseEvent (lastComponentEntered, 
+                                              MouseEvent.MOUSE_EXITED,
+                                              me.getWhen (), 
+                                              me.getModifiersEx (), 
+                                              tp.x, tp.y,
+                                              me.getClickCount (),
+                                              me.isPopupTrigger (),
+                                              me.getButton ());
+          lastComponentEntered.dispatchEvent (exited); 
+        }
+        lastComponentEntered = null;
+      }
+    // If we have a candidate, maybe enter it.
+    if (candidate != null)
+      {
+        mouseEventTarget = candidate;
+        if (candidate.isLightweight() 
+            && candidate.isShowing()
+            && candidate != nativeContainer
+            && candidate != lastComponentEntered)
+	  {			
+            lastComponentEntered = mouseEventTarget;
+            Point cp = SwingUtilities.convertPoint(nativeContainer, 
+                                                   x, y, lastComponentEntered);
+            MouseEvent entered = new MouseEvent (lastComponentEntered, 
+                                                 MouseEvent.MOUSE_ENTERED,
+                                                 me.getWhen (), 
+                                                 me.getModifiersEx (), 
+                                                 cp.x, cp.y,
+                                                 me.getClickCount (),
+                                                 me.isPopupTrigger (),
+                                                 me.getButton ());
+            lastComponentEntered.dispatchEvent (entered);
+          }
+      }
+
+    if (me.getID() == MouseEvent.MOUSE_RELEASED
+        || me.getID() == MouseEvent.MOUSE_PRESSED && pressCount > 0
+        || me.getID() == MouseEvent.MOUSE_DRAGGED)
+      // If any of the following events occur while a button is held down,
+      // they should be dispatched to the same component to which the
+      // original MOUSE_PRESSED event was dispatched:
+      //   - MOUSE_RELEASED
+      //   - MOUSE_PRESSED: another button pressed while the first is held down
+      //   - MOUSE_DRAGGED
+      if (SwingUtilities.isDescendingFrom(pressedComponent, nativeContainer))
+        mouseEventTarget = pressedComponent;
+    else if (me.getID() == MouseEvent.MOUSE_CLICKED)
+      {
+        // Don't dispatch CLICKED events whose target is not the same as the
+        // target for the original PRESSED event.
+        if (candidate != pressedComponent)
+          mouseEventTarget = null;
+        else if (pressCount == 0)
+          pressedComponent = null;
+      }
   }
 
-  void enableEvents(long l)
+  boolean handleEvent(AWTEvent e)
   {
+    if (e instanceof MouseEvent)
+      {
+        MouseEvent me = (MouseEvent) e;
+
+        acquireComponentForMouseEvent(me);
+	
+        // Avoid dispatching ENTERED and EXITED events twice.
+        if (mouseEventTarget != null
+            && mouseEventTarget.isShowing()
+            && e.getID() != MouseEvent.MOUSE_ENTERED
+            && e.getID() != MouseEvent.MOUSE_EXITED)
+          {
+            MouseEvent newEvt = 
+              SwingUtilities.convertMouseEvent(nativeContainer, me, 
+                                               mouseEventTarget);
+            mouseEventTarget.dispatchEvent(newEvt);
+
+            switch (e.getID())
+              {
+                case MouseEvent.MOUSE_PRESSED:
+                  if (pressCount++ == 0)
+                    pressedComponent = mouseEventTarget;
+                  break;
+
+                case MouseEvent.MOUSE_RELEASED:
+                  // Clear our memory of the original PRESSED event, only if
+                  // we're not expecting a CLICKED event after this. If
+                  // there is a CLICKED event after this, it will do clean up.
+                  if (--pressCount == 0
+                      && mouseEventTarget != pressedComponent)
+                    pressedComponent = null;
+                  break;
+              }
+              if (newEvt.isConsumed())
+                e.consume();
+          }
+      }
+    
+    return e.isConsumed();
   }
 
-  boolean dispatchEvent(AWTEvent e)
-  {
-    return true;
-  }
-
-  boolean isMouseGrab(MouseEvent e)
-  {
-    return true;
-  }
-
-  boolean processMouseEvent(MouseEvent e)
-  {
-    return true;
-  }
-
-  void trackMouseEnterExit(Component c, MouseEvent e)
-  {
-  }
-
-  void startListeningForOtherDrags()
-  {
-  }
-
-  void stopListeningForOtherDrags()
-  {
-  }
-
-  public void eventDispatched(AWTEvent e)
-  {
-  }
-
-  void retargetMouseEvent(Component c, int i, MouseEvent e)
-  {
-  }
 } // class LightweightDispatcher

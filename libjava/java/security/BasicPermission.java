@@ -1,5 +1,5 @@
 /* BasicPermission.java -- implements a simple named permission
-   Copyright (C) 1998, 1999, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,11 +35,12 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.security;
 
 import java.io.Serializable;
-import java.util.Hashtable;
 import java.util.Enumeration;
+import java.util.Hashtable;
 
 /**
  * This class implements a simple model for named permissions without an
@@ -80,9 +81,8 @@ public abstract class BasicPermission extends Permission
   private static final long serialVersionUID = 6279438298436773498L;
 
   /**
-   * Create a new instance with the specified permission name. If the name
-   * is empty, or contains an illegal wildcard character, an exception is
-   * thrown.
+   * Create a new instance with the specified permission name. If the
+   * name is empty an exception is thrown.
    *
    * @param name the name of this permission
    * @throws NullPointerException if name is null
@@ -91,12 +91,11 @@ public abstract class BasicPermission extends Permission
   public BasicPermission(String name)
   {
     super(name);
-    if (name.indexOf("*") != -1)
-      {
-        if ((! name.endsWith(".*") && ! name.equals("*"))
-            || name.indexOf("*") != name.lastIndexOf("*"))
-          throw new IllegalArgumentException("Bad wildcard: " + name);
-      }
+
+    // This routine used to check for illegal wildcards, but no such
+    // requirement exists in the specification and Sun's runtime
+    // doesn't appear to do it.
+
     if ("".equals(name))
       throw new IllegalArgumentException("Empty name");
   }

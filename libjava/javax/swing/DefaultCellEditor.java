@@ -1,5 +1,5 @@
 /* DefaultCellEditor.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,13 +37,15 @@ exception statement from your version. */
 
 package javax.swing;
 
-// Imports
-import java.awt.*;
-import java.awt.event.*;
-import java.io.*;
-import java.util.*;
-import javax.swing.table.*;
-import javax.swing.tree.*;
+import java.awt.Component;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.io.Serializable;
+import java.util.EventObject;
+import javax.swing.table.TableCellEditor;
+import javax.swing.tree.TreeCellEditor;
 
 /**
  * DefaultCellEditor
@@ -56,50 +58,34 @@ public class DefaultCellEditor
 {
   static final long serialVersionUID = 3564035141373880027L;
 
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * EditorDelegate
+   */
+  protected class EditorDelegate
+    implements ActionListener, ItemListener, Serializable
+  {
+    private static final long serialVersionUID = -1420007406015481933L;
 
-	/**
-	 * EditorDelegate
-	 */
-	protected class EditorDelegate implements ActionListener, 
-			ItemListener, Serializable {
+    /**
+     * value
+     */
+    protected Object value;
 
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
+    /**
+     * Constructor EditorDelegate
+     * @param value0 TODO
+     */
+    protected EditorDelegate()
+    {
+    }
 
-		/**
-		 * value
-		 */
-		protected Object value;
-
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor EditorDelegate
-		 * @param value0 TODO
-		 */
-		protected EditorDelegate(DefaultCellEditor editor) {
-			// TODO
-		} // EditorDelegate()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * setValue
-		 * @param event TODO
-		 */
-		public void setValue(Object event) {
-			// TODO
-		} // setValue()
+    /**
+     * setValue
+     * @param event TODO
+     */
+    public void setValue(Object event)
+    {
+    }
 
 		/**
 		 * getCellEditorValue
@@ -170,11 +156,6 @@ public class DefaultCellEditor
 
 	} // EditorDelegate
 
-
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
-
 	/**
 	 * editorComponent
 	 */
@@ -189,11 +170,6 @@ public class DefaultCellEditor
 	 * clickCountToStart
 	 */
 	protected int clickCountToStart;
-
-
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
 
 	/**
 	 * Constructor DefaultCellEditor
@@ -218,11 +194,6 @@ public class DefaultCellEditor
 	public DefaultCellEditor(JComboBox combobox) {
 		// TODO
 	} // DefaultCellEditor()
-
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
 
 	/**
 	 * getComponent
@@ -318,6 +289,4 @@ public class DefaultCellEditor
 			Object value, boolean isSelected, int row, int column) {
 		return null; // TODO
 	} // getTableCellEditorComponent()
-
-
-} // DefaultCellEditor
+}

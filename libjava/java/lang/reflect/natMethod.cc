@@ -28,6 +28,7 @@ details.  */
 #include <java/lang/Long.h>
 #include <java/lang/Float.h>
 #include <java/lang/Double.h>
+#include <java/lang/IllegalAccessException.h>
 #include <java/lang/IllegalArgumentException.h>
 #include <java/lang/NullPointerException.h>
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
@@ -141,51 +142,57 @@ get_ffi_type (jclass klass)
 jobject
 java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
 {
+  using namespace java::lang::reflect;
+  jclass iface = NULL;
+  
   if (parameter_types == NULL)
     getType ();
-
-  gnu::gcj::runtime::StackTrace *t 
-    = new gnu::gcj::runtime::StackTrace(4);
-  Class *caller = NULL;
-  try
-    {
-      for (int i = 1; !caller; i++)
-	{
-	  caller = t->classAt (i);
-	}
-    }
-  catch (::java::lang::ArrayIndexOutOfBoundsException *e)
-    {
-    }
-
+    
   jmethodID meth = _Jv_FromReflectedMethod (this);
-  jclass klass;
-  if (! java::lang::reflect::Modifier::isStatic(meth->accflags))
-    {
-      if (! obj)
-	throw new java::lang::NullPointerException;
-      klass = obj->getClass();
-      if (! declaringClass->isAssignableFrom(klass))
-	throw new java::lang::IllegalArgumentException;
+  jclass objClass;
 
-      // Find the possibly overloaded method based on the runtime type
-      // of the object.
-      meth = _Jv_LookupDeclaredMethod (klass, meth->name, meth->signature);
-    }
-  else
+  if (Modifier::isStatic(meth->accflags))
     {
       // We have to initialize a static class.  It is safe to do this
       // here and not in _Jv_CallAnyMethodA because JNI initializes a
       // class whenever a method lookup is done.
       _Jv_InitClass (declaringClass);
-      klass = declaringClass;
+      objClass = declaringClass;
+    }
+  else
+    {
+      objClass = JV_CLASS (obj);
+     
+      if (! _Jv_IsAssignableFrom (declaringClass, objClass))
+        throw new java::lang::IllegalArgumentException;
     }
 
-  if (! isAccessible() && ! _Jv_CheckAccess(caller, klass, meth->accflags))
-    throw new IllegalArgumentException;
+  // Check accessibility, if required.
+  if (! (Modifier::isPublic (meth->accflags) || this->isAccessible()))
+    {
+      gnu::gcj::runtime::StackTrace *t 
+	= new gnu::gcj::runtime::StackTrace(4);
+      Class *caller = NULL;
+      try
+	{
+	  for (int i = 1; !caller; i++)
+	    {
+	      caller = t->classAt (i);
+	    }
+	}
+      catch (::java::lang::ArrayIndexOutOfBoundsException *e)
+	{
+	}
 
+      if (! _Jv_CheckAccess(caller, objClass, meth->accflags))
+	throw new IllegalAccessException;
+    }
+
+  if (declaringClass->isInterface())
+    iface = declaringClass;
+  
   return _Jv_CallAnyMethodA (obj, return_type, meth, false,
-			     parameter_types, args);
+			     parameter_types, args, iface);
 }
 
 jint
@@ -239,7 +246,7 @@ _Jv_GetTypesFromSignature (jmethodID method,
 
   _Jv_Utf8Const* sig = method->signature;
   java::lang::ClassLoader *loader = declaringClass->getClassLoaderInternal();
-  char *ptr = sig->data;
+  char *ptr = sig->chars();
   int numArgs = 0;
   /* First just count the number of parameters. */
   for (; ; ptr++)
@@ -276,7 +283,7 @@ _Jv_GetTypesFromSignature (jmethodID method,
   JArray<jclass> *args = (JArray<jclass> *)
     JvNewObjectArray (numArgs, &java::lang::Class::class$, NULL);
   jclass* argPtr = elements (args);
-  for (ptr = sig->data; *ptr != '\0'; ptr++)
+  for (ptr = sig->chars(); *ptr != '\0'; ptr++)
     {
       int num_arrays = 0;
       jclass type;
@@ -333,11 +340,15 @@ _Jv_CallAnyMethodA (jobject obj,
 		    jclass return_type,
 		    jmethodID meth,
 		    jboolean is_constructor,
+		    jboolean is_virtual_call,
 		    JArray<jclass> *parameter_types,
 		    jvalue *args,
 		    jvalue *result,
-		    jboolean is_jni_call)
+		    jboolean is_jni_call,
+		    jclass iface)
 {
+  using namespace java::lang::reflect;
+  
 #ifdef USE_LIBFFI
   JvAssert (! is_constructor || ! obj);
   JvAssert (! is_constructor || return_type);
@@ -346,7 +357,7 @@ _Jv_CallAnyMethodA (jobject obj,
   // constructor does need a `this' argument, but it is one we create.
   jboolean needs_this = false;
   if (is_constructor
-      || ! java::lang::reflect::Modifier::isStatic(meth->accflags))
+      || ! Modifier::isStatic(meth->accflags))
     needs_this = true;
 
   int param_count = parameter_types->length;
@@ -368,7 +379,7 @@ _Jv_CallAnyMethodA (jobject obj,
   // the JDK 1.2 docs specify that the new object must be allocated
   // before argument conversions are done.
   if (is_constructor)
-    obj = JvAllocObject (return_type);
+    obj = _Jv_AllocObject (return_type);
 
   const int size_per_arg = sizeof(jvalue);
   ffi_cif cif;
@@ -457,9 +468,34 @@ _Jv_CallAnyMethodA (jobject obj,
       break;
     }
 
+  void *ncode;
+
+  // FIXME: If a vtable index is -1 at this point it is invalid, so we
+  // have to use the ncode.  
+  //
+  // This can happen because methods in final classes don't have
+  // vtable entries, but _Jv_isVirtualMethod() doesn't know that.  We
+  // could solve this problem by allocating a vtable index for methods
+  // in final classes.
+  if (is_virtual_call 
+      && ! Modifier::isFinal (meth->accflags)
+      && (_Jv_ushort)-1 != meth->index)
+    {
+      _Jv_VTable *vtable = *(_Jv_VTable **) obj;
+      if (iface == NULL)
+	ncode = vtable->get_method (meth->index);
+      else
+	ncode = _Jv_LookupInterfaceMethodIdx (vtable->clas, iface,
+					      meth->index);
+    }
+  else
+    {
+      ncode = meth->ncode;
+    }
+
   try
     {
-      ffi_call (&cif, (void (*)()) meth->ncode, &ffi_result, values);
+      ffi_call (&cif, (void (*)()) ncode, &ffi_result, values);
     }
   catch (Throwable *ex)
     {
@@ -525,7 +561,8 @@ _Jv_CallAnyMethodA (jobject obj,
 		    jmethodID meth,
 		    jboolean is_constructor,
 		    JArray<jclass> *parameter_types,
-		    jobjectArray args)
+		    jobjectArray args,
+		    jclass iface)
 {
   if (parameter_types->length == 0 && args == NULL)
     {
@@ -591,8 +628,9 @@ _Jv_CallAnyMethodA (jobject obj,
 
   jvalue ret_value;
   _Jv_CallAnyMethodA (obj, return_type, meth, is_constructor,
+  		      _Jv_isVirtualMethod (meth),
 		      parameter_types, argvals, &ret_value,
-		      false);
+		      false, iface);
 
   jobject r;
 #define VAL(Wrapper, Field)  (new Wrapper (ret_value.Field))

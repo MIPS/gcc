@@ -1,5 +1,5 @@
 /* Menu.java -- A Java AWT Menu
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,6 +41,7 @@ package java.awt;
 import java.awt.peer.MenuPeer;
 import java.io.Serializable;
 import java.util.Vector;
+import java.util.Enumeration;
 
 /**
   * This class represents a pull down or tear off menu in Java's AWT.
@@ -81,7 +82,7 @@ private boolean isHelpMenu;
 // From the serialization spec.  FIXME: what should it be?
 private int menuSerializedDataVersion;
 
-static final MenuItem separator = new MenuItem("-");
+static final String separatorLabel = "-";
 
 /*************************************************************************/
 
@@ -170,7 +171,7 @@ isTearOff()
 public int
 getItemCount()
 {
-  return(items.size());
+  return countItems ();
 }
 
 /**
@@ -182,7 +183,7 @@ getItemCount()
  */
 public int countItems ()
 {
-  return getItemCount ();
+  return items.size ();
 }
  
 /*************************************************************************/
@@ -294,7 +295,7 @@ insert(String label, int index)
 public void
 addSeparator()
 {
-  add(separator);
+  add(new MenuItem(separatorLabel));
 }
 
 /*************************************************************************/
@@ -312,7 +313,7 @@ addSeparator()
 public void
 insertSeparator(int index)
 {
-  insert(separator, index);
+  insert(new MenuItem(separatorLabel), index);
 }
 
 /*************************************************************************/
@@ -376,8 +377,14 @@ removeAll()
 public void
 addNotify()
 {
-  if (peer != null)
+  if (peer == null)
     peer = getToolkit().createMenu(this);
+  Enumeration e = items.elements();
+  while (e.hasMoreElements())
+  {
+    MenuItem mi = (MenuItem)e.nextElement();
+    mi.addNotify();
+  }    
   super.addNotify ();
 }
 
@@ -389,6 +396,12 @@ addNotify()
 public void
 removeNotify()
 {
+  Enumeration e = items.elements();
+  while (e.hasMoreElements())
+  {
+    MenuItem mi = (MenuItem) e.nextElement();
+    mi.removeNotify();
+  }
   super.removeNotify();
 }
 

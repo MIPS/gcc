@@ -1,5 +1,5 @@
 /* IIOServiceProvider.java -- General service provider for image I/O.
-   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -46,7 +46,7 @@ import java.util.Locale;
  *
  * @since 1.4
  *
- * @author Sascha Brawer (brawer@dandelis.ch)
+ * @author <a href="mailto:brawer@dandelis.ch">Sascha Brawer</a>
  */
 public abstract class IIOServiceProvider
   implements RegisterableService

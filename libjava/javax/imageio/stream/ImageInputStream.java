@@ -1,5 +1,5 @@
 /* ImageInputStream.java
-   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -49,7 +49,7 @@ import java.nio.ByteOrder;
  *
  * @since 1.4
  *
- * @author Sascha Brawer (brawer@dandelis.ch)
+ * @author <a href="mailto:brawer@dandelis.ch">Sascha Brawer</a>
  */
 public interface ImageInputStream
   extends DataInput
@@ -626,7 +626,8 @@ public interface ImageInputStream
   void seek(long pos)
     throws IOException;
 
-  void mark();
+  void mark()
+    throws IOException;
 
   void reset()
     throws IOException;

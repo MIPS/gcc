@@ -1,6 +1,6 @@
 /* -----------------------------------------------------------------------
    sysv.h - Copyright (c) 2003 Jakub Jelinek <jakub@redhat.com>
-   
+
    PowerPC64 Assembly glue.
 
    Permission is hereby granted, free of charge, to any person obtaining
@@ -23,7 +23,8 @@
    OTHER DEALINGS IN THE SOFTWARE.
    ----------------------------------------------------------------------- */
 
-#define LIBFFI_ASM	
+#define LIBFFI_ASM
+#include <fficonfig.h>
 #include <ffi.h>
 
 #ifdef __powerpc64__
@@ -121,6 +122,7 @@ ffi_call_LINUX64:
 .Lfp_return_value:
 	bf	28, .Lfloat_return_value
 	stfd	%f1, 0(%r30)
+	stfd	%f2, 8(%r30)	/* It might be a long double */
 	b	.Ldone_return_value
 .Lfloat_return_value:
 	stfs	%f1, 0(%r30)

@@ -1,108 +1,89 @@
 /* GdkGlyphVector.java -- Glyph vector object
-   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2003 Free Software Foundation, Inc.
 
-This file is part of GNU Classpath.
+   This file is part of GNU Classpath.
 
-GNU Classpath is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GNU Classpath is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-GNU Classpath is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
+   GNU Classpath is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+   You should have received a copy of the GNU General Public License
+   along with GNU Classpath; see the file COPYING.  If not, write to the
+   Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+   02111-1307 USA.
 
-Linking this library statically or dynamically with other modules is
-making a combined work based on this library.  Thus, the terms and
-conditions of the GNU General Public License cover the whole
-combination.
+   Linking this library statically or dynamically with other modules is
+   making a combined work based on this library.  Thus, the terms and
+   conditions of the GNU General Public License cover the whole
+   combination.
 
-As a special exception, the copyright holders of this library give you
-permission to link this library with independent modules to produce an
-executable, regardless of the license terms of these independent
-modules, and to copy and distribute the resulting executable under
-terms of your choice, provided that you also meet, for each linked
-independent module, the terms and conditions of the license of that
-module.  An independent module is a module which is not derived from
-or based on this library.  If you modify this library, you may extend
-this exception to your version of the library, but you are not
-obligated to do so.  If you do not wish to do so, delete this
-exception statement from your version. */
+   As a special exception, the copyright holders of this library give you
+   permission to link this library with independent modules to produce an
+   executable, regardless of the license terms of these independent
+   modules, and to copy and distribute the resulting executable under
+   terms of your choice, provided that you also meet, for each linked
+   independent module, the terms and conditions of the license of that
+   module.  An independent module is a module which is not derived from
+   or based on this library.  If you modify this library, you may extend
+   this exception to your version of the library, but you are not
+   obligated to do so.  If you do not wish to do so, delete this
+   exception statement from your version. */
 
 
 package gnu.java.awt.peer.gtk;
 
-import java.awt.Font;
-import java.awt.Rectangle;
-import java.awt.Shape;
-import java.awt.font.FontRenderContext;
-import java.awt.font.GlyphJustificationInfo;
-import java.awt.font.GlyphMetrics;
-import java.awt.font.GlyphVector;
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Point2D;
-import java.awt.geom.Rectangle2D;
+import java.awt.*;
+import java.awt.font.*;
+import java.awt.geom.*;
+import java.io.InputStream;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Locale;
+import java.util.Map;
+import java.util.StringTokenizer;
+import java.text.CharacterIterator;
+import java.text.AttributedCharacterIterator;
+import gnu.classpath.Configuration;
 
-public class GdkGlyphVector extends GlyphVector
+public class GdkGlyphVector extends GlyphVector 
 {
 
-  /* We use a simple representation for glyph vectors here. Glyph i
-   * consumes 8 doubles:
-   *
-   *      logical x: extents[ 10*i     ]
-   *      logical y: extents[ 10*i + 1 ]
-   *  logical width: extents[ 10*i + 2 ]
-   * logical height: extents[ 10*i + 3 ]
-   *
-   *       visual x: extents[ 10*i + 4 ]
-   *       visual y: extents[ 10*i + 5 ]
-   *   visual width: extents[ 10*i + 6 ]
-   *  visual height: extents[ 10*i + 7 ]
-   *
-   *   origin pos x: extents[ 10*i + 8 ]
-   *   origin pos y: extents[ 10*i + 9 ]
-   * 
-   * as well as one int, code[i], representing the glyph code in the font.
-   */
-
-  double [] extents;
-  int [] codes;
-
-  Font font;
-  FontRenderContext fontRenderContext;
-
-  Rectangle2D allLogical;
-  Rectangle2D allVisual;
-
-  public GdkGlyphVector(double[] extents, int[] codes, Font font, FontRenderContext frc)
+  static 
   {
-    this.extents = extents;
-    this.codes = codes;
-    this.font = font;
-    this.fontRenderContext = frc;
-
-    allLogical = new Rectangle2D.Double();
-    allVisual = new Rectangle2D.Double();
-    
-    for (int i = 0; i < codes.length; ++i)
+    if (Configuration.INIT_LOAD_LIBRARY)
       {
-        allLogical.add (new Rectangle2D.Double(extents[10*i    ] + extents[10*i + 8],
-                                               extents[10*i + 1] + extents[10*i + 9],
-                                               extents[10*i + 2],
-                                               extents[10*i + 3]));
-
-        allVisual.add (new Rectangle2D.Double(extents[10*i + 4] + extents[10*i + 8],
-                                              extents[10*i + 5] + extents[10*i + 9],
-                                              extents[10*i + 6],
-                                              extents[10*i + 7]));
+        System.loadLibrary("gtkpeer");
       }
+
+    if (GtkToolkit.useGraphics2D ())
+      initStaticState ();
   }
+  native static void initStaticState ();
+  private final int native_state = GtkGenericPeer.getUniqueInteger ();
+
+  private Font font;
+  private FontRenderContext ctx;
+    
+  private native void initState (GdkClasspathFontPeer peer, FontRenderContext ctx);
+  private native void setChars (String s);
+  private native void setGlyphCodes (int codes[]);
+  private native void dispose ();
+  private native int glyphCode (int idx);
+  private native int numGlyphs ();
+  private native int glyphCharIndex (int idx);
+  private native double[] allLogicalExtents ();
+  private native double[] allInkExtents ();
+  private native double[] glyphLogicalExtents (int idx);
+  private native double[] glyphInkExtents (int idx);
+  private native boolean glyphIsHorizontal (int idx);
+  private native boolean isEqual (GdkGlyphVector ggv);
+
 
   /* 
      geometric notes:
@@ -127,14 +108,26 @@ public class GdkGlyphVector extends GlyphVector
      
    */
 
-  public double[] getExtents() 
+
+  public GdkGlyphVector (Font f, GdkClasspathFontPeer peer, FontRenderContext c, String s)
   {
-    return extents;
+    font = f;
+    ctx = c;
+    initState (peer, ctx);
+    setChars (s);
   }
 
-  public int[] getCodes()
+  public GdkGlyphVector (Font f, GdkClasspathFontPeer peer, FontRenderContext c, int codes[])
   {
-    return codes;
+    font = f;
+    ctx = c;
+    initState (peer, ctx);
+    setGlyphCodes (codes);
+  }
+
+  protected void finalize ()
+  {
+    dispose ();
   }
 
   public Font getFont () 
@@ -144,15 +137,12 @@ public class GdkGlyphVector extends GlyphVector
 
   public FontRenderContext getFontRenderContext () 
   { 
-    return fontRenderContext; 
+    return ctx; 
   }
 
   public int getGlyphCharIndex (int glyphIndex) 
   { 
-    // FIXME: currently pango does not provide glyph-by-glyph
-    // reverse mapping information, so we assume a broken 1:1
-    // glyph model here. This is plainly wrong.
-    return glyphIndex;
+    return glyphCharIndex (glyphIndex); 
   }
 
   public int[] getGlyphCharIndices (int beginGlyphIndex, 
@@ -164,44 +154,50 @@ public class GdkGlyphVector extends GlyphVector
       ix = new int[numEntries];
 
     for (int i = 0; i < numEntries; i++)
-      ix[i] = getGlyphCharIndex (beginGlyphIndex + i);
+      ix[i] = glyphCharIndex (beginGlyphIndex + i);
     return ix;
   }
 
   public int getGlyphCode (int glyphIndex) 
   { 
-    return codes[glyphIndex];
+    return glyphCode (glyphIndex); 
   }
 
   public int[] getGlyphCodes (int beginGlyphIndex, int numEntries,
                               int[] codeReturn)
   {
-    if (codeReturn == null)
-      codeReturn = new int[numEntries];
+    int ix[] = codeReturn;
+    if (ix == null)
+      ix = new int[numEntries];
 
-    System.arraycopy(codes, beginGlyphIndex, codeReturn, 0, numEntries);
-    return codeReturn;
+    for (int i = 0; i < numEntries; i++)
+      ix[i] = glyphCode (beginGlyphIndex + i);
+    return ix;
   }
 
-  public Shape getGlyphLogicalBounds (int i)
+  public Shape getGlyphLogicalBounds (int glyphIndex)
   {
-    return new Rectangle2D.Double (extents[8*i], extents[8*i + 1],
-                                   extents[8*i + 2], extents[8*i + 3]);
+    double extents[] = glyphLogicalExtents (glyphIndex);
+    return new Rectangle2D.Double (extents[0], extents[1],
+                                   extents[2], extents[3]);
   }
     
-  public GlyphMetrics getGlyphMetrics (int i)
+  public GlyphMetrics getGlyphMetrics (int glyphIndex)
   {
-    // FIXME: pango does not yield vertical layout information at the
-    // moment.
+    double extents[] = glyphLogicalExtents (glyphIndex);
+    Rectangle2D log_bounds = new Rectangle2D.Double (extents[0], extents[1],
+                                                     extents[2], extents[3]);
 
-    boolean is_horizontal = true;
-    double advanceX = extents[8*i + 2]; // "logical width" == advanceX 
-    double advanceY = 0; 
-   
-    return new GlyphMetrics (is_horizontal, 
-                             (float) advanceX, (float) advanceY, 
-                             (Rectangle2D) getGlyphVisualBounds(i), 
-                             GlyphMetrics.STANDARD);
+    extents = glyphInkExtents (glyphIndex);
+    Rectangle2D ink_bounds = new Rectangle2D.Double (extents[0], extents[1],
+                                                     extents[2], extents[3]);
+      
+    boolean is_horizontal = glyphIsHorizontal (glyphIndex);
+
+    return new GlyphMetrics (is_horizontal,
+                             (float)(log_bounds.getWidth() + log_bounds.getX()), 
+                             (float)(log_bounds.getHeight() + log_bounds.getY()),
+                             ink_bounds, GlyphMetrics.STANDARD);
   }
 
   public Shape getGlyphOutline (int glyphIndex)
@@ -214,18 +210,20 @@ public class GdkGlyphVector extends GlyphVector
     throw new UnsupportedOperationException ();
   }
 
-  public Rectangle getGlyphPixelBounds (int i, 
+  public Rectangle getGlyphPixelBounds (int glyphIndex, 
                                         FontRenderContext renderFRC,
                                         float x, float y)
   {
-    return new Rectangle((int) x, (int) y,
-                         (int) extents[8*i + 6], (int) extents[8*i + 7]);
+    double extents[] = glyphInkExtents(glyphIndex);
+    return new Rectangle ((int)x, (int)y, (int)extents[2], (int)extents[3]);
   }
     
-  public Point2D getGlyphPosition (int i)
+  public Point2D getGlyphPosition (int glyphIndex)
   {
-    return new Point2D.Double (extents[10*i + 8], 
-                               extents[10*i + 9]);
+    float[] ret = new float[2 * (glyphIndex + 1)];
+    getGlyphPositions (0, glyphIndex + 1, ret);
+    return new Point2D.Float (ret[2 * glyphIndex], 
+                              ret[2 * glyphIndex + 1]);
   }
 
   public float[] getGlyphPositions (int beginGlyphIndex,
@@ -236,25 +234,35 @@ public class GdkGlyphVector extends GlyphVector
     if (fx == null)
       fx = new float[numEntries * 2];
 
+
+    float x = 0.0f;
+    float y = 0.0f;
     for (int i = 0; i < numEntries; ++i)
       {
-        fx[2*i    ] = (float) extents[10*i + 8];
-        fx[2*i + 1] = (float) extents[10*i + 9];
+        boolean is_horizontal = glyphIsHorizontal (beginGlyphIndex + i);
+        double log_extents[] = glyphLogicalExtents (beginGlyphIndex + i);
+        fx[2*i]     = x + (float)log_extents[0]; // x offset
+        fx[2*i + 1] = y + (float)log_extents[1]; // y offset
+        if (is_horizontal)
+          x += (float)log_extents[2]; // x advance ("logical width") in pango-ese
+        else
+          y += (float)log_extents[3]; // y advance ("logical height") in pango-ese
       }
     return fx;
   }
 
   public AffineTransform getGlyphTransform (int glyphIndex)
   {
-    // Glyphs don't have independent transforms in these simple glyph
+    // glyphs don't have independent transforms in these simple glyph
     // vectors; docs specify null is an ok return here.
     return null;  
   }
     
-  public Shape getGlyphVisualBounds (int i)
+  public Shape getGlyphVisualBounds (int glyphIndex)
   {
-    return new Rectangle2D.Double(extents[8*i + 4], extents[8*i + 5],
-                                  extents[8*i + 6], extents[8*i + 7]);
+    double extents[] = glyphInkExtents (glyphIndex);
+    return new Rectangle2D.Double (extents[0], extents[1], 
+                                   extents[2], extents[3]);
   }
     
   public int getLayoutFlags ()
@@ -264,12 +272,14 @@ public class GdkGlyphVector extends GlyphVector
 
   public Rectangle2D getLogicalBounds ()
   {
-    return allLogical;
+    double extents[] = allLogicalExtents ();
+    return new Rectangle2D.Double (extents[0], extents[1], 
+                                   extents[2], extents[3]);
   }
 
   public int getNumGlyphs ()
   {
-    return codes.length;
+    return numGlyphs ();
   }
 
   public Shape getOutline ()
@@ -280,28 +290,26 @@ public class GdkGlyphVector extends GlyphVector
   public Rectangle getPixelBounds (FontRenderContext renderFRC,
                                    float x, float y)
   {
-    return new Rectangle((int)x, 
-                         (int)y, 
-                         (int) allVisual.getWidth(),
-                         (int) allVisual.getHeight());
+    double extents[] = allInkExtents();
+    return new Rectangle ((int)x, (int)y, 
+                          (int)extents[2], (int)extents[3]);
   }
     
   public Rectangle2D getVisualBounds ()
   {
-    return allVisual;
+    double extents[] = allInkExtents();
+    return new Rectangle2D.Double (extents[0], extents[1], 
+                                   extents[2], extents[3]);
   }
 
   public void performDefaultLayout ()
   {
   }
     
-  public void setGlyphPosition (int i, Point2D newPos)
+  public void setGlyphPosition (int glyphIndex, Point2D newPos)
   {
-    extents[8*i    ] = newPos.getX();
-    extents[8*i + 1] = newPos.getY();
-
-    extents[8*i + 4] = newPos.getX();
-    extents[8*i + 5] = newPos.getY();
+    // should we be ok twiddling pango's structure here?
+    throw new UnsupportedOperationException ();      
   }
 
   public void setGlyphTransform (int glyphIndex,
@@ -319,31 +327,8 @@ public class GdkGlyphVector extends GlyphVector
     if (! (gv instanceof GdkGlyphVector))
       return false;
 
-    GdkGlyphVector ggv = (GdkGlyphVector) gv;
-
-    if ((ggv.codes.length != this.codes.length)
-        || (ggv.extents.length != this.extents.length))
-      return false;
-    
-    if ((ggv.font == null && this.font != null)
-        || (ggv.font != null && this.font == null)
-        || (!ggv.font.equals(this.font)))
-      return false;
-
-    if ((ggv.fontRenderContext == null && this.fontRenderContext != null)
-        || (ggv.fontRenderContext != null && this.fontRenderContext == null)
-        || (!ggv.fontRenderContext.equals(this.fontRenderContext)))
-      return false;
-
-    for (int i = 0; i < ggv.codes.length; ++i)
-      if (ggv.codes[i] != this.codes[i])
-        return false;
-
-    for (int i = 0; i < ggv.extents.length; ++i)
-      if (ggv.extents[i] != this.extents[i])
-        return false;
-
-    return true;
+    GdkGlyphVector ggv = (GdkGlyphVector)gv;
+    return isEqual(ggv);
   }
 
   public GlyphJustificationInfo getGlyphJustificationInfo(int idx)

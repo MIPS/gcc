@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2003  Free Software Foundation
+/* Copyright (C) 2000, 2003, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -98,10 +98,13 @@ public class XGraphics implements Cloneable, DirectRasterGraphics
     
   public void setFont(Font font)
   {
-    if ((metrics != null) && font.equals(metrics.getFont())) return;
-
+    if (font == null)
+      return;
+    if ((metrics != null) && font.equals(metrics.getFont()))
+      return;
     metrics = config.getXFontMetrics(font);
-    context.setFont(metrics.xfont);
+    if (metrics != null)
+      context.setFont(metrics.xfont);
   }
     
   public FontMetrics getFontMetrics(Font font)
@@ -130,12 +133,15 @@ public class XGraphics implements Cloneable, DirectRasterGraphics
        expose. */
     Rectangle newClipBounds = clip.getBounds();
     
+    /* FIXME: decide whether this test code is worth anything
+     * (as of 2004-01-29, it prints frequently)
     if ((clipBounds != null) && !clipBounds.contains(newClipBounds))
       {
 	System.err.println("warning: old clip ("+ clipBounds +") does " +
 			   "not fully contain new clip (" +
 			   newClipBounds + ")");
       }
+     */
     clipBounds = newClipBounds;
     Rectangle[] rects = { clipBounds };
     context.setClipRectangles(rects);
@@ -203,8 +209,7 @@ public class XGraphics implements Cloneable, DirectRasterGraphics
     if (img instanceof XOffScreenImage)
     {
       // FIXME: have to enforce clip, or is it OK as-is?
-      XGraphicsConfiguration.XOffScreenImage offScreenImage
-        = ((XGraphicsConfiguration.XOffScreenImage)img);
+      XOffScreenImage offScreenImage = (XOffScreenImage) img;
       Pixmap pixmap = offScreenImage.getPixmap ();
       context.copyArea (pixmap, 0, 0, x, y,
         offScreenImage.getWidth (), offScreenImage.getHeight ());

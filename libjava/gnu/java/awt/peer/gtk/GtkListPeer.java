@@ -38,19 +38,32 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
+import java.awt.AWTEvent;
 import java.awt.Dimension;
 import java.awt.List;
+import java.awt.event.MouseEvent;
+import java.awt.event.KeyEvent;
 import java.awt.peer.ListPeer;
 
 public class GtkListPeer extends GtkComponentPeer
   implements ListPeer
 {
-//    native void create (ComponentPeer parent, String [] items, boolean mode);
+  void create ()
+  {
+    List list = (List) awtComponent;
 
-  native void create ();
-  native void connectHooks ();
+    create (list.getRows ());
 
-  native void getSize (int rows, int dims[]);
+    setMultipleMode (list.isMultipleMode ());
+  }
+
+  native void create (int rows);
+  native void connectJObject ();
+  native void connectSignals ();
+  native void gtkSetFont (String name, int style, int size);
+  native void gtkWidgetRequestFocus ();
+
+  native void getSize (int rows, int visibleRows, int dims[]);
 
   public GtkListPeer (List list)
   {
@@ -81,18 +94,12 @@ public class GtkListPeer extends GtkComponentPeer
   
   public Dimension getMinimumSize (int rows)
   {
-    int dims[] = new int[2];
-
-    getSize (rows, dims);
-    return (new Dimension (dims[0], dims[1]));
+    return minimumSize (rows);
   }
 
   public Dimension getPreferredSize (int rows)
   {
-    int dims[] = new int[2];
-
-    getSize (rows, dims);
-    return (new Dimension (dims[0], dims[1]));
+    return preferredSize (rows);
   }
   
   public native int[] getSelectedIndexes ();
@@ -100,12 +107,20 @@ public class GtkListPeer extends GtkComponentPeer
 
   public Dimension minimumSize (int rows)
   {
-    return (getMinimumSize (rows));
+    int dims[] = new int[2];
+
+    int visibleRows = ((List) awtComponent).getRows();
+    getSize (rows, visibleRows, dims);
+    return new Dimension (dims[0], dims[1]);
   }
 
   public Dimension preferredSize (int rows)
   {
-    return (getPreferredSize (rows));
+    int dims[] = new int[2];
+
+    int visibleRows = ((List) awtComponent).getRows();
+    getSize (rows, visibleRows, dims);
+    return new Dimension (dims[0], dims[1]);
   }
 
   public void removeAll ()
@@ -119,6 +134,44 @@ public class GtkListPeer extends GtkComponentPeer
   public void setMultipleSelections (boolean b)
   {
     setMultipleMode (b);
+  }
+
+  public void handleEvent (AWTEvent e)
+  {
+    if (e.getID () == MouseEvent.MOUSE_CLICKED && isEnabled ())
+      {
+        // Only generate the ActionEvent on the second click of a
+        // multiple click.
+	MouseEvent me = (MouseEvent) e;
+	if (!me.isConsumed ()
+	    && (me.getModifiersEx () & MouseEvent.BUTTON1_DOWN_MASK) != 0
+	    && me.getClickCount() == 2)
+	  {
+            String selectedItem = ((List) awtComponent).getSelectedItem ();
+
+            // Double-click only generates an Action event if
+            // something is selected.
+            if (selectedItem != null)
+	      postActionEvent (((List) awtComponent).getSelectedItem (), 
+			       me.getModifiersEx ());
+	  }
+      }
+
+    if (e.getID () == KeyEvent.KEY_PRESSED)
+      {
+	KeyEvent ke = (KeyEvent) e;
+	if (!ke.isConsumed () && ke.getKeyCode () == KeyEvent.VK_ENTER)
+	  {
+            String selectedItem = ((List) awtComponent).getSelectedItem ();
+
+            // Enter only generates an Action event if something is
+            // selected.
+            if (selectedItem != null)
+	      postActionEvent (selectedItem, ke.getModifiersEx ());
+	  }
+      }
+
+    super.handleEvent (e);
   }
 
   protected void postItemEvent (int item, int stateChange)

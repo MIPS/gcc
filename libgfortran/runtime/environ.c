@@ -1,29 +1,20 @@
 /* Copyright (C) 2002-2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of the GNU Fortran 95 runtime library (libgfortran).
+This file is part of the GNU Fortran 95 runtime library (libgfor).
 
-Libgfortran is free software; you can redistribute it and/or modify
+Libgfor is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
-
-Libgfortran is distributed in the hope that it will be useful,
+Libgfor is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with libgfortran; see the file COPYING.  If not, write to
+along with libgfor; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -46,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
  * but other variables are checked during execution of the user's
  * program. */
 
-options_t options = { };
+options_t options;
 
 extern char **environ;
 
@@ -88,6 +79,7 @@ print_spaces (int n)
 static const char *
 var_source (variable * v)
 {
+
   if (getenv (v->name) == NULL)
     return "Default";
 
@@ -119,7 +111,7 @@ init_integer (variable * v)
   *v->var = atoi (p);
   return;
 
- set_default:
+set_default:
   *v->var = v->value;
   return;
 }
@@ -130,6 +122,7 @@ init_integer (variable * v)
 static void
 show_integer (variable * v)
 {
+
   st_printf ("%s  %d\n", var_source (v), *v->var);
 }
 
@@ -171,6 +164,7 @@ set_default:
 static void
 show_boolean (variable * v)
 {
+
   st_printf ("%s  %s\n", var_source (v), *v->var ? "Yes" : "No");
 }
 
@@ -294,6 +288,7 @@ set_default:
 static void
 show_sep (variable * v)
 {
+
   st_printf ("%s  \"%s\"\n", var_source (v), options.separator);
 }
 
@@ -335,21 +330,31 @@ static choice rounding[] = {
   {"DOWN", FP_ROUND_DOWN},
   {"ZERO", FP_ROUND_ZERO},
   {NULL}
-};
-
-static choice precision[] =
+}, precision[] =
 {
-  { "24", 1},
-  { "53", 2},
-  { "64", 0},
-  { NULL}
-};
+  {
+  "24", 1}
+  ,
+  {
+  "53", 2}
+  ,
+  {
+  "64", 0}
+  ,
+  {
+  NULL}
+}
 
-static choice signal_choices[] =
+, signal_choices[] =
 {
-  { "IGNORE", 1},
-  { "ABORT", 0},
-  { NULL}
+  {
+  "IGNORE", 1}
+  ,
+  {
+  "ABORT", 0}
+  ,
+  {
+  NULL}
 };
 
 
@@ -375,7 +380,7 @@ init_choice (variable * v, choice * c)
   *v->var = c->value;
   return;
 
- set_default:
+set_default:
   *v->var = v->value;
 }
 
@@ -383,6 +388,7 @@ init_choice (variable * v, choice * c)
 static void
 show_choice (variable * v, choice * c)
 {
+
   st_printf ("%s  ", var_source (v));
 
   for (; c->name; c++)
@@ -393,6 +399,7 @@ show_choice (variable * v, choice * c)
     st_printf ("%s\n", c->name);
   else
     st_printf ("(Unknown)\n");
+
 }
 
 
@@ -401,7 +408,6 @@ init_round (variable * v)
 {
   init_choice (v, rounding);
 }
-
 static void
 show_round (variable * v)
 {
@@ -413,7 +419,6 @@ init_precision (variable * v)
 {
   init_choice (v, precision);
 }
-
 static void
 show_precision (variable * v)
 {
@@ -425,7 +430,6 @@ init_signal (variable * v)
 {
   init_choice (v, signal_choices);
 }
-
 static void
 show_signal (variable * v)
 {
@@ -441,11 +445,6 @@ static variable variable_table[] = {
   {"GFORTRAN_STDOUT_UNIT", 6, &options.stdout_unit, init_integer,
    show_integer,
    "Unit number that will be preconnected to standard output\n"
-   "(No preconnection if negative)"},
-
-  {"GFORTRAN_STDERR_UNIT", 0, &options.stderr_unit, init_integer,
-   show_integer,
-   "Unit number that will be preconnected to standard error\n"
    "(No preconnection if negative)"},
 
   {"GFORTRAN_USE_STDERR", 1, &options.use_stderr, init_boolean,
@@ -565,7 +564,7 @@ check_buffered (int n)
     return 0;
 
   strcpy (name, "GFORTRAN_UNBUFFERED_");
-  strcat (name, gfc_itoa (n));
+  strcat (name, itoa (n));
 
   v.name = name;
   v.value = 2;
@@ -616,8 +615,7 @@ show_variables (void)
   char *p, **e;
   variable *v;
   int n;
-
-  /* TODO: print version number.  */
+/* TODO: print version number.  */
   st_printf ("GNU Fortran 95 runtime library version "
 	     "UNKNOWN" "\n\n");
 

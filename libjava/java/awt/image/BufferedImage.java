@@ -39,6 +39,7 @@ package java.awt.image;
 
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -46,6 +47,8 @@ import java.awt.Transparency;
 import java.awt.color.ColorSpace;
 import java.util.Hashtable;
 import java.util.Vector;
+import java.util.HashSet;
+import java.util.Iterator;
 import gnu.java.awt.ComponentDataBlitOp;
 
 /**
@@ -255,7 +258,8 @@ public class BufferedImage extends Image
   public WritableRaster copyData(WritableRaster dest)
   {
     if (dest == null)
-      dest = raster.createCompatibleWritableRaster();
+      dest = raster.createCompatibleWritableRaster(getMinX(), getMinY(),
+                                                   getWidth(),getHeight());
 
     int x = dest.getMinX();
     int y = dest.getMinY();
@@ -282,8 +286,9 @@ public class BufferedImage extends Image
 
   public Graphics2D createGraphics()
   {
-    throw new UnsupportedOperationException("not implemented");
-    // will require a lot of effort to implement
+    GraphicsEnvironment env;
+    env = GraphicsEnvironment.getLocalGraphicsEnvironment ();
+    return env.createGraphics (this);
   }
 
   public void flush() {
@@ -439,7 +444,57 @@ public class BufferedImage extends Image
     
   public ImageProducer getSource()
   {
-    throw new UnsupportedOperationException("not implemented");
+    return new ImageProducer() {
+        
+        HashSet consumers = new HashSet();
+
+        public void addConsumer(ImageConsumer ic)
+        {
+          consumers.add(ic);
+        }
+
+        public boolean isConsumer(ImageConsumer ic)
+        {
+          return consumers.contains(ic);
+        }
+
+        public void removeConsumer(ImageConsumer ic)
+        {
+          consumers.remove(ic);
+        }
+
+        public void startProduction(ImageConsumer ic)
+        {
+          int x = 0;
+          int y = 0;
+          int width = getWidth();
+          int height = getHeight();
+          int stride = width;
+          int offset = 0;
+          int[] pixels = getRGB(x, y, 
+                                width, height, 
+                                (int[])null, offset, stride);
+          ColorModel model = getColorModel();
+
+          consumers.add(ic);
+
+          Iterator i = consumers.iterator();
+          while(i.hasNext())
+            {
+              ImageConsumer c = (ImageConsumer) i.next();
+              c.setHints(ImageConsumer.SINGLEPASS);
+              c.setDimensions(getWidth(), getHeight());
+              c.setPixels(x, y, width, height, model, pixels, offset, stride);
+              c.imageComplete(ImageConsumer.STATICIMAGEDONE);
+            }
+        }
+
+        public void requestTopDownLeftRightResend(ImageConsumer ic)
+        {
+          startProduction(ic);
+        }
+
+      };
   }
   
   public Vector getSources()

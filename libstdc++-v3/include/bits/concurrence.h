@@ -28,11 +28,6 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file concurrence.h
- *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
- */
-
 #ifndef _CONCURRENCE_H
 #define _CONCURRENCE_H 1
 
@@ -76,10 +71,10 @@ namespace __gnu_cxx
 {
   typedef __glibcxx_mutex_type mutex_type;
   
-  /// @brief  Scoped lock idiom.
+  // Scoped lock idiom.
   // Acquire the mutex here with a constructor call, then release with
   // the destructor call in accordance with RAII style.
-  class lock
+   class lock
   {
     // Externally defined and initialized.
     mutex_type& device;

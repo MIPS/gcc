@@ -35,19 +35,19 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.util.zip;
 
 import java.io.BufferedInputStream;
 import java.io.DataInput;
+import java.io.EOFException;
 import java.io.File;
 import java.io.InputStream;
 import java.io.IOException;
-import java.io.EOFException;
 import java.io.RandomAccessFile;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 /**
  * This class represents a Zip archive.  You can ask for the contained
@@ -105,7 +105,7 @@ public class ZipFile implements ZipConstants
   public ZipFile(File file) throws ZipException, IOException
   {
     this.raf = new RandomAccessFile(file, "r");
-    this.name = file.getName();
+    this.name = file.getPath();
   }
 
   /**
@@ -134,7 +134,7 @@ public class ZipFile implements ZipConstants
 	  ("OPEN_DELETE mode not supported yet in java.util.zip.ZipFile");
       }
     this.raf = new RandomAccessFile(file, "r");
-    this.name = file.getName();
+    this.name = file.getPath();
   }
 
   /**
@@ -408,8 +408,18 @@ public class ZipFile implements ZipConstants
    * uncompressed data.  Normally zip entry should be an entry
    * returned by getEntry() or entries().
    *
+   * This implementation returns null if the requested entry does not
+   * exist.  This decision is not obviously correct, however, it does
+   * appear to mirror Sun's implementation, and it is consistant with
+   * their javadoc.  On the other hand, the old JCL book, 2nd Edition,
+   * claims that this should return a "non-null ZIP entry".  We have
+   * chosen for now ignore the old book, as modern versions of Ant (an
+   * important application) depend on this behaviour.  See discussion
+   * in this thread:
+   * http://gcc.gnu.org/ml/java-patches/2004-q2/msg00602.html
+   *
    * @param entry the entry to create an InputStream for.
-   * @return the input stream.
+   * @return the input stream, or null if the requested entry does not exist.
    *
    * @exception IOException if a i/o error occured.
    * @exception ZipException if the Zip archive is malformed.  
@@ -420,7 +430,7 @@ public class ZipFile implements ZipConstants
     String name = entry.getName();
     ZipEntry zipEntry = (ZipEntry) entries.get(name);
     if (zipEntry == null)
-      throw new NoSuchElementException(name);
+      return null;
 
     long start = checkLocalHeader(zipEntry);
     int method = zipEntry.getMethod();
@@ -438,7 +448,7 @@ public class ZipFile implements ZipConstants
   }
   
   /**
-   * Returns the name of this zip file.
+   * Returns the (path) name of this zip file.
    */
   public String getName()
   {

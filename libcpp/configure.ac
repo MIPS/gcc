@@ -46,7 +46,7 @@ AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_FUNCS(putc_unlocked fputc_unlocked fputs_unlocked \
         fwrite_unlocked fprintf_unlocked)
-AC_CHECK_DECLS([abort, basename, errno, getopt, putc_unlocked, fputc_unlocked,
+AC_CHECK_DECLS([abort, errno, putc_unlocked, fputc_unlocked,
         fputs_unlocked, fwrite_unlocked, fprintf_unlocked])
 
 # Checks for library functions.
@@ -57,7 +57,8 @@ ZW_GNU_GETTEXT_SISTER_DIR
 
 AC_CACHE_CHECK(for uchar, gcc_cv_type_uchar,
 [AC_TRY_COMPILE([
-#include <sys/types.h>
+#include "ansidecl.h"
+#include "system.h"
 ],
 [if ((uchar *)0) return 0;
  if (sizeof(uchar)) return 0;],
@@ -109,7 +110,6 @@ case $target in
 	x86_64-*-* | \
 	ia64-*-* | \
 	hppa*64*-*-* | parisc*64*-*-* | \
-	i[34567]86-*-solaris2.1[0-9]* | \
 	mips*-*-* | \
 	mmix-*-* | \
 	powerpc*-*-* | \

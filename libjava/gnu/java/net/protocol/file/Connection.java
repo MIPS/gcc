@@ -1,201 +1,282 @@
-// Connection.java - Implementation of URLConnection for file protocol.
+/* FileURLConnection.java -- URLConnection class for "file" protocol
+   Copyright (C) 1998, 1999, 2003 Free Software Foundation, Inc.
 
-/* Copyright (C) 1999  Free Software Foundation
+This file is part of GNU Classpath.
 
-   This file is part of libgcj.
+GNU Classpath is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+ 
+GNU Classpath is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
 
-This software is copyrighted work licensed under the terms of the
-Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
-details.  */
+You should have received a copy of the GNU General Public License
+along with GNU Classpath; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA.
+
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version.  */
 
 package gnu.java.net.protocol.file;
 
+import gnu.java.security.action.GetPropertyAction;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilePermission;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.Map;
-import java.util.Vector;
-import java.util.Hashtable;
-import java.util.Enumeration;
+import java.security.Permission;
+import java.security.AccessController;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 /**
+ * This subclass of java.net.URLConnection models a URLConnection via
+ * the "file" protocol.
+ *
+ * @author Aaron M. Renn <arenn@urbanophile.com>
+ * @author Nic Ferrier <nferrier@tapsellferrier.co.uk>
  * @author Warren Levy <warrenl@cygnus.com>
- * @date April 13, 1999.
  */
-
-/**
- * Written using on-line Java Platform 1.2 API Specification, as well
- * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
- * Status:  Minimal subset of functionality.
- */
-
-class Connection extends URLConnection
+public class Connection extends URLConnection
 {
-  private Hashtable hdrHash = new Hashtable();
-  private Vector hdrVec = new Vector();
-  private boolean gotHeaders = false;
-  private File fileIn;
-  private InputStream inputStream;
-  private OutputStream outputStream;
+  /**
+   * Default permission for a file
+   */
+  private static final String DEFAULT_PERMISSION = "read";
 
+  /**
+   * HTTP-style DateFormat, used to format the last-modified header.
+   */
+  private static SimpleDateFormat dateFormat
+    = new SimpleDateFormat("EEE, dd MMM yyyy hh:mm:ss 'GMT'",
+                           new Locale ("En", "Us", "Unix"));
+
+  private static String lineSeparator;
+  
+  /**
+   * This is a File object for this connection
+   */
+  private File file;
+
+  /**
+   * InputStream if we are reading from the file
+   */
+  private InputStream inputStream;
+
+  /**
+   * OutputStream if we are writing to the file
+   */
+  private OutputStream outputStream;
+  
+  /**
+   * FilePermission to read the file
+   */
+  private FilePermission permission;
+
+  /**
+   * Calls superclass constructor to initialize.
+   */
   public Connection(URL url)
   {
-    super(url);
-  }
+    super (url);
 
-  // Implementation of abstract method.
+    permission = new FilePermission(getURL().getFile(), DEFAULT_PERMISSION);
+  }
+  
+  /**
+   * "Connects" to the file by opening it.
+   */
   public void connect() throws IOException
   {
     // Call is ignored if already connected.
     if (connected)
       return;
-
+    
     // If not connected, then file needs to be openned.
-    String fname = url.getFile();
-    fileIn = new File(fname);
-    if (doInput)
-      inputStream = new BufferedInputStream(new FileInputStream(fileIn));
-    if (doOutput)
-      outputStream = new BufferedOutputStream(new FileOutputStream(fileIn));
+    file = new File (getURL().getFile());
+
+    if (! file.isDirectory())
+      {
+	if (doInput)
+	  inputStream = new BufferedInputStream(new FileInputStream(file));
+    
+	if (doOutput)
+	  outputStream = new BufferedOutputStream(new FileOutputStream(file));
+      }
+    else
+      {
+	if (doInput)
+	  {
+	    if (lineSeparator == null)
+	      {
+		GetPropertyAction getProperty = new GetPropertyAction("line.separator");
+		lineSeparator = (String) AccessController.doPrivileged(getProperty);
+	      }
+	    
+	    StringBuffer sb = new StringBuffer();
+	    String[] files = file.list();
+
+	    for (int index = 0; index < files.length; ++index)
+	       sb.append(files[index]).append(lineSeparator);
+
+	    inputStream = new ByteArrayInputStream(sb.toString().getBytes());
+	  }
+
+	if (doOutput)
+	  throw new ProtocolException
+	    ("file: protocol does not support output on directories");
+      }
+    
     connected = true;
   }
-
-  public InputStream getInputStream() throws IOException
+  
+  /**
+   * Opens the file for reading and returns a stream for it.
+   *
+   * @return An InputStream for this connection.
+   *
+   * @exception IOException If an error occurs
+   */
+  public InputStream getInputStream()
+    throws IOException
   {
-    if (! doInput)
+    if (!doInput)
       throw new ProtocolException("Can't open InputStream if doInput is false");
+    
     if (!connected)
       connect();
-
+    
     return inputStream;
   }
 
-  // Override default method in URLConnection.
-  public OutputStream getOutputStream() throws IOException
+  /**
+   * Opens the file for writing and returns a stream for it.
+   *
+   * @return An OutputStream for this connection.
+   *
+   * @exception IOException If an error occurs.
+   */
+  public OutputStream getOutputStream()
+    throws IOException
   {
-    if (! doOutput)
+    if (!doOutput)
       throw new
 	ProtocolException("Can't open OutputStream if doOutput is false");
 
     if (!connected)
       connect();
-
+    
     return outputStream;
   }
 
-  // Override default method in URLConnection.
-  public String getHeaderField(String name)
+  /**
+   * Get the last modified time of the resource.
+   *
+   * @return the time since epoch that the resource was modified.
+   */
+  public long getLastModified()
   {
     try
       {
-	getHeaders();
+	if (!connected)
+	  connect();
+
+	return file.lastModified();
       }
-    catch (IOException x)
+    catch (IOException e)
       {
-	return null;
+	return -1;
       }
-    return (String) hdrHash.get(name.toLowerCase());
   }
-
-  // Override default method in URLConnection.
-  public Map getHeaderFields()
+  
+  /**
+   *  Get an http-style header field. Just handle a few common ones. 
+   */
+  public String getHeaderField(String field)
   {
     try
       {
-	getHeaders();
-      }
-    catch (IOException x)
-      {
-	return null;
-      }
-    return hdrHash;
-  }
+	if (!connected)
+	  connect();
 
-  // Override default method in URLConnection.
-  public String getHeaderField(int n)
-  {
-    try
-      {
-	getHeaders();
+	if (field.equals("content-type"))
+          return guessContentTypeFromName(file.getName());
+	else if (field.equals("content-length"))
+          return Long.toString(file.length());
+	else if (field.equals("last-modified"))
+	  {
+	    synchronized (dateFormat)
+	      {
+        	return dateFormat.format(new Date(file.lastModified()));
+	      }
+	  }
       }
-    catch (IOException x)
+    catch (IOException e)
       {
-	return null;
+        // Fall through.
       }
-    if (n < hdrVec.size())
-      return getField ((String) hdrVec.elementAt(n));
-
     return null;
   }
 
-  // Override default method in URLConnection.
-  public String getHeaderFieldKey(int n)
+  /**
+   * Get the length of content.
+   *
+   * @return the length of the content.
+   */
+  public int getContentLength()
   {
     try
       {
-	getHeaders();
+	if (!connected)
+	  connect();
+        
+	return (int) file.length();
       }
-    catch (IOException x)
+    catch (IOException e)
       {
-	return null;
+	return -1;
       }
-    if (n < hdrVec.size())
-      return getKey ((String) hdrVec.elementAt(n));
-
-    return null;
   }
-
-  private String getKey(String str)
+  
+  /**
+   * This method returns a <code>Permission</code> object representing the
+   * permissions required to access this URL.  This method returns a
+   * <code>java.io.FilePermission</code> for the file's path with a read
+   * permission.
+   *
+   * @return A Permission object
+   */
+  public Permission getPermission() throws IOException
   {
-    if (str == null)
-      return null;
-    int index = str.indexOf(':');
-    if (index >= 0)
-      return str.substring(0, index);
-    else
-      return null;
-  }
-
-  private String getField(String str)
-  {
-    if (str == null)
-      return null;
-    int index = str.indexOf(':');
-    if (index >= 0)
-      return str.substring(index + 1).trim();
-    else
-      return str;
-  }
-
-  private void getHeaders() throws IOException
-  {
-    if (gotHeaders)
-      return;
-    gotHeaders = true;
-
-    connect();
-
-    // Yes, it is overkill to use the hash table and vector here since
-    // we're only putting one header in the file, but in case we need
-    // to add others later and for consistency, we'll implement it this way.
-
-    // Add the only header we know about right now:  Content-length.
-    long len = fileIn.length();
-    String line = "Content-length: " + len;
-    hdrVec.addElement(line);
-
-    // The key will never be null in this scenario since we build up the
-    // headers ourselves.  If we ever rely on getting a header from somewhere
-    // else, then we may have to check if the result of getKey() is null.
-    String key = getKey(line);
-    hdrHash.put(key.toLowerCase(), Long.toString(len));
+    return permission;
   }
 }

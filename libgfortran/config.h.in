@@ -15,15 +15,6 @@
 /* libm includes atanf */
 #undef HAVE_ATANF
 
-/* Define to 1 if the target supports __attribute__((alias(...))). */
-#undef HAVE_ATTRIBUTE_ALIAS
-
-/* Define to 1 if the target supports __attribute__((dllexport)). */
-#undef HAVE_ATTRIBUTE_DLLEXPORT
-
-/* Define to 1 if the target supports __attribute__((visibility(...))). */
-#undef HAVE_ATTRIBUTE_VISIBILITY
-
 /* libm includes ceilf */
 #undef HAVE_CEILF
 
@@ -54,12 +45,6 @@
 /* libm includes expf */
 #undef HAVE_EXPF
 
-/* libm includes fabsf */
-#undef HAVE_FABSF
-
-/* libm includes finite */
-#undef HAVE_FINITE
-
 /* libm includes floorf */
 #undef HAVE_FLOORF
 
@@ -86,9 +71,6 @@
 
 /* libm includes hypotf */
 #undef HAVE_HYPOTF
-
-/* Define to 1 if you have the <ieeefp.h> header file. */
-#undef HAVE_IEEEFP_H
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -123,9 +105,6 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
-/* Define to 1 if you have the `mkstemp' function. */
-#undef HAVE_MKSTEMP
-
 /* Define to 1 if you have a working `mmap' system call. */
 #undef HAVE_MMAP
 
@@ -136,7 +115,7 @@
 #undef HAVE_NEXTAFTERF
 
 /* libm includes powf */
-#undef HAVE_POWF
+# undef HAVE_POWF
 
 /* libm includes round */
 #undef HAVE_ROUND
@@ -152,9 +131,6 @@
 
 /* libm includes sinhf */
 #undef HAVE_SINHF
-
-/* Define to 1 if you have the `snprintf' function. */
-#undef HAVE_SNPRINTF
 
 /* libm includes sqrtf */
 #undef HAVE_SQRTF
@@ -176,18 +152,6 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
-
-/* Define to 1 if you have the `strtof' function. */
-#undef HAVE_STRTOF
-
-/* Define to 1 if `st_blksize' is member of `struct stat'. */
-#undef HAVE_STRUCT_STAT_ST_BLKSIZE
-
-/* Define to 1 if `st_blocks' is member of `struct stat'. */
-#undef HAVE_STRUCT_STAT_ST_BLOCKS
-
-/* Define to 1 if `st_rdev' is member of `struct stat'. */
-#undef HAVE_STRUCT_STAT_ST_RDEV
 
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #undef HAVE_SYS_MMAN_H
@@ -263,9 +227,6 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
-
-/* Define to 1 if the target is ILP32. */
-#undef TARGET_ILP32
 
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME

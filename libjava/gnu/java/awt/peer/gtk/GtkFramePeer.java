@@ -1,5 +1,5 @@
 /* GtkFramePeer.java -- Implements FramePeer with GTK
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,28 +41,91 @@ package gnu.java.awt.peer.gtk;
 import java.awt.Component;
 import java.awt.Frame;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
-import java.awt.Insets;
 import java.awt.MenuBar;
 import java.awt.Rectangle;
+import java.awt.Window;
 import java.awt.event.PaintEvent;
+import java.awt.image.ColorModel;
 import java.awt.peer.FramePeer;
 import java.awt.peer.MenuBarPeer;
 
 public class GtkFramePeer extends GtkWindowPeer
     implements FramePeer
 {
-  int menuBarHeight = 0;
-  native int getMenuBarHeight ();
+  private int menuBarHeight;
+  private MenuBarPeer menuBar;
+  native int getMenuBarHeight (MenuBarPeer bar);
 
-  native public void setMenuBarPeer (MenuBarPeer bar);
+  native void setMenuBarPeer (MenuBarPeer bar);
+  native void removeMenuBarPeer ();
+  native void moveLayout (int offset);
+  native void gtkLayoutSetVisible (boolean vis);
 
   public void setMenuBar (MenuBar bar)
   {
     if (bar == null)
-      setMenuBarPeer (null);
+    {    
+      if (menuBar != null)
+      {
+        gtkLayoutSetVisible(false);
+        removeMenuBarPeer(); 
+        menuBar = null;
+        moveLayout(menuBarHeight);
+        insets.top -= menuBarHeight;
+        menuBarHeight = 0;      
+        awtComponent.doLayout();
+        gtkLayoutSetVisible(true);
+      }
+    }
     else
-      setMenuBarPeer ((MenuBarPeer) bar.getPeer ());
+    {
+      gtkLayoutSetVisible(false);
+      int oldHeight = 0;
+      if (menuBar != null)
+      {
+        removeMenuBarPeer();
+        oldHeight = menuBarHeight;
+        insets.top -= menuBarHeight;
+      }
+      menuBar = (MenuBarPeer) ((MenuBar) bar).getPeer();
+      setMenuBarPeer(menuBar);
+      menuBarHeight = getMenuBarHeight (menuBar);
+      if (oldHeight != menuBarHeight)
+        moveLayout(oldHeight - menuBarHeight);
+      insets.top += menuBarHeight;
+      awtComponent.doLayout();
+      gtkLayoutSetVisible(true);
+    }
+  }
+
+  public void setBounds (int x, int y, int width, int height)
+  {
+    nativeSetBounds (x, y,
+		     width - insets.left - insets.right,
+		     height - insets.top - insets.bottom
+		     + menuBarHeight);
+  }  
+  
+  public void setResizable (boolean resizable)
+  {
+    // Call setSize; otherwise when resizable is changed from true to
+    // false the frame will shrink to the dimensions it had before it
+    // was resizable.
+    setSize (awtComponent.getWidth() - insets.left - insets.right,
+             awtComponent.getHeight() - insets.top - insets.bottom
+             + menuBarHeight);
+    gtkWindowSetResizable (resizable);
+  }
+
+  protected void postInsetsChangedEvent (int top, int left,
+					 int bottom, int right)
+  {
+    insets.top = top + menuBarHeight;
+    insets.left = left;
+    insets.bottom = bottom;
+    insets.right = right;
   }
 
   public GtkFramePeer (Frame frame)
@@ -70,53 +133,88 @@ public class GtkFramePeer extends GtkWindowPeer
     super (frame);
   }
 
-  void initializeInsets ()
-  {
-    // Unfortunately, X does not provide a clean way to calculate the
-    // dimensions of a frame's borders before it has been displayed.
-    // So we guess and then fix the dimensions upon receipt of the
-    // first configure event.
-    synchronized (latestInsets)
-      {
-	insets = new Insets (latestInsets.top,
-			     latestInsets.left,
-			     latestInsets.bottom,
-			     latestInsets.right);
-      }
-  }
-
   void create ()
   {
     // Create a normal decorated window.
     create (GDK_WINDOW_TYPE_HINT_NORMAL, true);
+
+    Frame frame = (Frame) awtComponent;
+
+    setMenuBar (frame.getMenuBar ());
+
+    setTitle (frame.getTitle ());
+    setResizable (frame.isResizable ());
+    setIconImage(frame.getIconImage());
   }
 
-  public void getArgs (Component component, GtkArgList args)
-  {
-    super.getArgs (component, args);
-
-    Frame frame = (Frame) component;
-
-    args.add ("title", frame.getTitle ());
-    args.add ("allow_shrink", frame.isResizable ());
-    args.add ("allow_grow", frame.isResizable ());
-  }
-
+  native void nativeSetIconImageFromDecoder (GdkPixbufDecoder decoder);
+  native void nativeSetIconImageFromData (int[] pixels, int width, int height);
   public void setIconImage (Image image) 
   {
-      /* TODO: Waiting on Toolkit Image routines */
+      if (image != null)
+        {
+          GtkImage img = (GtkImage) image;
+          // FIXME: Image should be loaded, but if not, do image loading here.
+          if (img.isLoaded())
+            {
+              if (img.getSource() instanceof GdkPixbufDecoder)
+                {
+                  nativeSetIconImageFromDecoder((GdkPixbufDecoder) img.getSource());
+                }
+              else
+                {
+                  int[] pixels = img.getPixelCache();
+                  ColorModel model = img.getColorModel();
+                  int[] data = new int[pixels.length * 4];
+                  for (int i = 0; i < pixels.length; i++)
+                    {
+                      data[i * 4] = model.getRed(pixels[i]);
+                      data[i * 4 + 1] = model.getGreen(pixels[i]);
+                      data[i * 4 + 2] = model.getBlue(pixels[i]);
+                      data[i * 4 + 3] = model.getAlpha(pixels[i]);
+                    }
+                  nativeSetIconImageFromData(data, img.getWidth(null), img.getHeight(null));
+                }
+            }
+        }
   }
 
   public Graphics getGraphics ()
   {
-    GdkGraphics g = new GdkGraphics (this);
-    g.translateNative (-insets.left, -insets.top);
+    Graphics g;
+    if (GtkToolkit.useGraphics2D ())
+      g = new GdkGraphics2D (this);
+    else
+      g = new GdkGraphics (this);
+    g.translate (-insets.left, -insets.top);
     return g;
   }
-
-  // FIXME: When MenuBars work, override postConfigureEvent and
-  // setBounds to account for MenuBar dimensions.
-
+  
+  protected void postConfigureEvent (int x, int y, int width, int height)
+  {
+    int frame_x = x - insets.left;
+    // Since insets.top includes the MenuBar height, we need to add back
+    // the MenuBar height to the frame's y position.
+    // If no MenuBar exists in this frame, the MenuBar height will be 0.
+    int frame_y = y - insets.top + menuBarHeight;
+    int frame_width = width + insets.left + insets.right;
+    // Ditto as above. Since insets.top already includes the MenuBar's height,
+    // we need to subtract the MenuBar's height from the top inset.
+    int frame_height = height + insets.top + insets.bottom - menuBarHeight;
+    if (frame_x != awtComponent.getX()
+        || frame_y != awtComponent.getY()
+        || frame_width != awtComponent.getWidth()
+        || frame_height != awtComponent.getHeight())
+      {
+        setBoundsCallback ((Window) awtComponent,
+                           frame_x,
+                           frame_y,
+                           frame_width,
+                           frame_height);
+      }
+    awtComponent.validate();
+  }
+  
   protected void postMouseEvent(int id, long when, int mods, int x, int y, 
 				int clickCount, boolean popupTrigger)
   {

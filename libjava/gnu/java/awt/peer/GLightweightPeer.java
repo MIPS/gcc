@@ -1,5 +1,5 @@
 /* GLightweightPeer.java --
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,7 +44,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -239,7 +238,7 @@ public class GLightweightPeer
 
   public void setBackground(Color color) {}
 
-  public void setBounds(int x, int y, int width, int height) { }
+  public void setBounds(int x, int y, int width, int height) {}
 
   public void setCursor(Cursor cursor) {}
 

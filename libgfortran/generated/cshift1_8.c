@@ -5,26 +5,17 @@
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public
+modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
+version 2.1 of the License, or (at your option) any later version.
 
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
-
-Ligbfortran is distributed in the hope that it will be useful,
+Ligbfor is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Lesser General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
+You should have received a copy of the GNU Lesser General Public
+License along with libgfor; see the file COPYING.LIB.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -34,15 +25,9 @@ Boston, MA 02111-1307, USA.  */
 #include <string.h>
 #include "libgfortran.h"
 
-void cshift1_8 (const gfc_array_char * ret,
-			   const gfc_array_char * array,
-			   const gfc_array_i8 * h, const GFC_INTEGER_8 * pwhich);
-export_proto(cshift1_8);
-
 void
-cshift1_8 (const gfc_array_char * ret,
-		      const gfc_array_char * array,
-		      const gfc_array_i8 * h, const GFC_INTEGER_8 * pwhich)
+__cshift1_8 (const gfc_array_char * ret, const gfc_array_char * array,
+    const gfc_array_i8 * h, const GFC_INTEGER_8 * pwhich)
 {
   /* r.* indicates the return array.  */
   index_type rstride[GFC_MAX_DIMENSIONS - 1];
@@ -56,7 +41,7 @@ cshift1_8 (const gfc_array_char * ret,
   index_type soffset;
   const char *sptr;
   const char *src;
-  /* h.* indicates the  array.  */
+  /* h.* indicates the shift array.  */
   index_type hstride[GFC_MAX_DIMENSIONS - 1];
   index_type hstride0;
   const GFC_INTEGER_8 *hptr;
@@ -85,7 +70,7 @@ cshift1_8 (const gfc_array_char * ret,
   size = GFC_DESCRIPTOR_SIZE (array);
   n = 0;
 
-  /* Initialized for avoiding compiler warnings.  */
+/* Initialized for avoiding compiler warnings.  */
   roffset = size;
   soffset = size;
   len = 0;
@@ -130,7 +115,7 @@ cshift1_8 (const gfc_array_char * ret,
 
   while (rptr)
     {
-      /* Do the  for this dimension.  */
+      /* Do the shift for this dimension.  */
       sh = *hptr;
       sh = (div (sh, len)).rem;
       if (sh < 0)
@@ -182,3 +167,4 @@ cshift1_8 (const gfc_array_char * ret,
         }
     }
 }
+

@@ -35,11 +35,11 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+package java.io;
+
 // NOTE: This implementation is very similar to that of PipedReader.  If you 
 // fix a bug in here, chances are you should make a similar change to the 
 // PipedReader code.
-
-package java.io;
 
 /**
   * An input stream that reads its bytes from an output stream
@@ -277,7 +277,7 @@ public class PipedInputStream extends InputStream
     * @param offset The index into the buffer at which to start writing.
     * @param len The maximum number of bytes to read.
     *
-    * @exception IOException If <code>close()/code> was called on this Piped
+    * @exception IOException If <code>close()</code> was called on this Piped
     *                        InputStream.
     */  
   public synchronized int read(byte[] buf, int offset, int len)

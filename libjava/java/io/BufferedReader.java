@@ -1,5 +1,5 @@
 /* BufferedReader.java
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
      Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -89,6 +89,11 @@ public class BufferedReader extends Reader
   static final int DEFAULT_BUFFER_SIZE = 8192;
 
   /**
+   * The line buffer for <code>readLine</code>.
+   */
+  private StringBuffer sbuf = null;
+
+  /**
     * Create a new <code>BufferedReader</code> that will read from the 
     * specified subordinate stream with a default buffer size of 8192 chars.
     *
@@ -106,10 +111,14 @@ public class BufferedReader extends Reader
    *
    * @param in The subordinate stream to read from
    * @param size The buffer size to use
+   *
+   * @exception IllegalArgumentException if size &lt;= 0
    */
   public BufferedReader(Reader in, int size)
   {
     super(in.lock);
+    if (size <= 0)
+      throw new IllegalArgumentException("Illegal buffer size: " + size);
     this.in = in;
     buffer = new char[size];
   }
@@ -161,11 +170,12 @@ public class BufferedReader extends Reader
    *        becomes invalid
    *
    * @exception IOException If an error occurs
+   * @exception IllegalArgumentException if readLimit is negative.
    */
   public void mark(int readLimit) throws IOException
   {
     if (readLimit < 0)
-      throw new IllegalArgumentException();
+      throw new IllegalArgumentException("Read-ahead limit is negative");
 
     synchronized (lock)
       {
@@ -280,9 +290,14 @@ public class BufferedReader extends Reader
    * @return The actual number of chars read, or -1 if end of stream.
    *
    * @exception IOException If an error occurs.
+   * @exception IndexOutOfBoundsException If offset and count are not
+   * valid regarding buf.
    */
   public int read(char[] buf, int offset, int count) throws IOException
   {
+    if (offset < 0 || offset + count > buf.length || count < 0)
+      throw new IndexOutOfBoundsException();
+
     synchronized (lock)
       {
 	checkStatus();
@@ -429,7 +444,7 @@ public class BufferedReader extends Reader
     int i = lineEnd(limit);
     if (i < limit)
       {
-	String str = new String(buffer, pos, i - pos);
+	String str = String.valueOf(buffer, pos, i - pos);
 	pos = i + 1;
 	// If the last char in the buffer is a '\r', we must remember
 	// to check if the next char to be read after the buffer is refilled
@@ -440,7 +455,10 @@ public class BufferedReader extends Reader
 	    pos++;
 	return str;
       }
-    StringBuffer sbuf = new StringBuffer(200);
+    if (sbuf == null)
+      sbuf = new StringBuffer(200);
+    else
+      sbuf.setLength(0);
     sbuf.append(buffer, pos, i - pos);
     pos = i;
     // We only want to return null when no characters were read before
@@ -450,12 +468,19 @@ public class BufferedReader extends Reader
     boolean eof = false;
     for (;;)
       {
-	int ch = read();
-	if (ch < 0)
+	// readLine should block. So we must not return until a -1 is reached.
+	if (pos >= limit)
 	  {
-	    eof = true;
-	    break;
+	    // here count == 0 isn't sufficient to give a failure.
+	    int count = fill();
+	    if (count < 0)
+	      {
+		eof = true;
+		break;
+	      }
+	    continue;
 	  }
+	int ch = buffer[pos++];
 	if (ch == '\n' || ch == '\r')
 	  {
 	    // Check here if a '\r' was the last char in the buffer; if so,
@@ -487,14 +512,17 @@ public class BufferedReader extends Reader
    *
    * @return The actual number of chars skipped.
    *
-   * @exception IOException If an error occurs
+   * @exception IOException If an error occurs.
+   * @exception IllegalArgumentException If count is negative.
    */
   public long skip(long count) throws IOException
   {
     synchronized (lock)
       {
 	checkStatus();
-	if (count <= 0)
+	if (count < 0)
+	  throw new IllegalArgumentException("skip value is negative");
+	if (count == 0)
 	  return 0;
 	// Yet again, we need to handle the special case of a readLine
 	// that has a '\r' at the end of the buffer.  In this case, we need
@@ -505,12 +533,13 @@ public class BufferedReader extends Reader
 	// skip the '\n' for us).  By doing this, we'll have to back up pos.
 	// That's easier than trying to keep track of whether we've skipped
 	// one element or not.
-	int ch;
 	if (pos > limit)
-	  if ((ch = read()) < 0)
-	    return 0;
-	  else
-	    --pos; 
+	  {
+	    if (read() < 0)
+	      return 0;
+	    else
+	      --pos; 
+	  }
 
 	int avail = limit - pos;
 

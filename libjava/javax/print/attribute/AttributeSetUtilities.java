@@ -41,11 +41,6 @@ import java.io.Serializable;
 
 public final class AttributeSetUtilities
 {
-  /**
-   * This class isn't intended to be instantiated.
-   */
-  private AttributeSetUtilities() {}
-
   private static class UnmodifiableAttributeSet
     implements AttributeSet, Serializable
   {
@@ -125,7 +120,7 @@ public final class AttributeSetUtilities
     }
   }
 
-  private static class UnmodifiableDocAttributeSet
+  public static class UnmodifiableDocAttributeSet
     extends UnmodifiableAttributeSet
     implements DocAttributeSet, Serializable
   {
@@ -135,7 +130,7 @@ public final class AttributeSetUtilities
     }
   }
 
-  private static class UnmodifiablePrintJobAttributeSet
+  public static class UnmodifiablePrintJobAttributeSet
     extends UnmodifiableAttributeSet
     implements PrintJobAttributeSet, Serializable
   {
@@ -145,7 +140,7 @@ public final class AttributeSetUtilities
     }
   }
 
-  private static class UnmodifiablePrintRequestAttributeSet
+  public static class UnmodifiablePrintRequestAttributeSet
     extends UnmodifiableAttributeSet
     implements PrintRequestAttributeSet, Serializable
   {
@@ -155,7 +150,7 @@ public final class AttributeSetUtilities
     }
   }
 
-  private static class UnmodifiablePrintServiceAttributeSet
+  public static class UnmodifiablePrintServiceAttributeSet
     extends UnmodifiableAttributeSet
     implements PrintServiceAttributeSet, Serializable
   {
@@ -165,7 +160,7 @@ public final class AttributeSetUtilities
     }
   }
 
-  private static class SynchronizedAttributeSet
+  public static class SynchronizedAttributeSet
     implements AttributeSet, Serializable
   {
     private AttributeSet set;
@@ -244,7 +239,7 @@ public final class AttributeSetUtilities
     }
   }
 
-  private static class SynchronizedDocAttributeSet
+  public static class SynchronizedDocAttributeSet
     extends SynchronizedAttributeSet
     implements DocAttributeSet, Serializable
   {
@@ -254,7 +249,7 @@ public final class AttributeSetUtilities
     }
   }
 
-  private static class SynchronizedPrintJobAttributeSet
+  public static class SynchronizedPrintJobAttributeSet
     extends SynchronizedAttributeSet
     implements PrintJobAttributeSet, Serializable
   {
@@ -264,7 +259,7 @@ public final class AttributeSetUtilities
     }
   }
 
-  private static class SynchronizedPrintRequestAttributeSet
+  public static class SynchronizedPrintRequestAttributeSet
     extends SynchronizedAttributeSet
     implements PrintRequestAttributeSet, Serializable
   {
@@ -274,7 +269,7 @@ public final class AttributeSetUtilities
     }
   }
 
-  private static class SynchronizedPrintServiceAttributeSet
+  public static class SynchronizedPrintServiceAttributeSet
     extends SynchronizedAttributeSet
     implements PrintServiceAttributeSet, Serializable
   {

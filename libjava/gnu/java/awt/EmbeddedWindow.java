@@ -1,5 +1,5 @@
 /* EmbeddedWindow.java --
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,30 +38,47 @@ exception statement from your version. */
 
 package gnu.java.awt;
 
+import gnu.classpath.Configuration;
 import gnu.java.awt.peer.EmbeddedWindowPeer;
+import gnu.java.security.action.SetAccessibleAction;
+
+import java.awt.Component;
 import java.awt.Frame;
 import java.awt.Toolkit;
+import java.lang.reflect.Field;
+import java.security.AccessController;
 
 /**
  * Represents an AWT window that can be embedded into another
  * application.
  * 
- * @author Michael Koch <konqueror@gmx.de>
+ * @author Michael Koch (konqueror@gmx.de)
  */
 public class EmbeddedWindow extends Frame
 {
-  private int window_id;
+  private long handle;
   
   /**
-   * Creates an window to be embedded into another application.
-   *
-   * @param window_id The native handle to the screen area where the AWT window
-   * should be embedded.
+   * Creates a window to be embedded into another application.  The
+   * window will only be embedded after its setHandle method has been
+   * called.
    */
-  public EmbeddedWindow (int window_id)
+  public EmbeddedWindow ()
   {
     super();
-    this.window_id = window_id;
+    this.handle = 0;
+  }
+  
+  /**
+   * Creates a window to be embedded into another application.
+   *
+   * @param handle the native handle to the screen area where the AWT
+   * window should be embedded
+   */
+  public EmbeddedWindow (long handle)
+  {
+    super();
+    this.handle = handle;
   }
   
   /**
@@ -73,15 +90,46 @@ public class EmbeddedWindow extends Frame
 
     if (! (tk instanceof EmbeddedWindowSupport))
       throw new UnsupportedOperationException
-        ("Embedded windows are not supported by the current peers: " + tk.getClass());
+        ("Embedded windows are not supported by the current peers: "
+	 + tk.getClass());
 
-    setWindowPeer (((EmbeddedWindowSupport) tk).createEmbeddedWindow (this));
+    // Circumvent the package-privateness of the AWT internal
+    // java.awt.Component.peer member variable.
+    try
+      {
+	Field peerField = Component.class.getDeclaredField("peer");
+	AccessController.doPrivileged(new SetAccessibleAction(peerField));
+	peerField.set(this, ((EmbeddedWindowSupport) tk).createEmbeddedWindow (this));
+      }
+    catch (IllegalAccessException e)
+      {
+	// This should never happen.
+      }
+    catch (NoSuchFieldException e)
+      {
+	// This should never happen.
+      }
+
     super.addNotify();
   }
 
-  // This method is only made native to circumvent the package-privateness of
-  // an AWT internal java.awt.Component.peer member variable.
-  native void setWindowPeer (EmbeddedWindowPeer peer);
+  /**
+   * If the native peer for this embedded window has been created,
+   * then setHandle will embed the window.  If not, setHandle tells
+   * us where to embed ourselves when our peer is created.
+   *
+   * @param handle the native handle to the screen area where the AWT
+   * window should be embedded
+   */
+  public void setHandle(long handle)
+  {
+    if (this.handle != 0)
+      throw new RuntimeException ("EmbeddedWindow is already embedded");
+
+    this.handle = handle;
+    if (getPeer() != null)
+      ((EmbeddedWindowPeer) getPeer()).embed (this.handle);
+  }
 
   /**
    * Gets the native handle of the screen area where the window will
@@ -89,8 +137,8 @@ public class EmbeddedWindow extends Frame
    *
    * @return The native handle that was passed to the constructor.
    */
-  public int getHandle()
+  public long getHandle()
   {
-    return window_id;
+    return handle;
   }
 }

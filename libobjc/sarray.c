@@ -1,5 +1,5 @@
 /* Sparse Arrays for Objective C dispatch tables
-   Copyright (C) 1993, 1995, 1996, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 1996, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -402,9 +402,6 @@ sarray_free (struct sarray *array) {
 #else
   old_buckets = array->buckets;
 #endif
-  
-  if ((array->is_copy_of) && ((array->is_copy_of->ref_count - 1) == 0))
-    sarray_free (array->is_copy_of);
 
   /* Free all entries that do not point to empty_bucket */
   for (counter = 0; counter <= old_max_index; counter++ ) {
@@ -462,6 +459,12 @@ sarray_free (struct sarray *array) {
 
 #endif
   
+  /* If this is a copy of another array, we free it (which might just
+   * decrement its reference count so it will be freed when no longer in use).
+   */
+  if (array->is_copy_of)
+    sarray_free (array->is_copy_of);
+
   /* free array */
   sarray_free_garbage (array);
 }

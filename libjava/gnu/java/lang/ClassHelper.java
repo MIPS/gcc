@@ -38,8 +38,14 @@ exception statement from your version. */
 
 package gnu.java.lang;
 
-import java.util.*;
-import java.lang.reflect.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * ClassHelper has various methods that ought to have been in Class.
@@ -73,20 +79,6 @@ public class ClassHelper
     if (lastInd == -1)
       return name;
     return name.substring(lastInd + 1);
-  }
-
-  /**
-   * Strip the last portion of the name (after the last dot).
-   *
-   * @param name the name to get package of
-   * @return the package name, or "" if no package
-   */
-  public static String getPackagePortion(String name)
-  {
-    int lastInd = name.lastIndexOf('.');
-    if (lastInd == -1)
-      return "";
-    return name.substring(0, lastInd);
   }
 
   /** Cache of methods found in getAllMethods(). */

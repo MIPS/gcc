@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* RegistryHandler.java --
+   Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -48,11 +48,11 @@ public interface RegistryHandler
   /**
    * @deprecated
    */
-  public Registry registryStub (String host, int port)
+  Registry registryStub (String host, int port)
     throws RemoteException, UnknownHostException;
 
   /**
    * @deprecated
    */
-  public Registry registryImpl (int port) throws RemoteException;
+  Registry registryImpl (int port) throws RemoteException;
 }

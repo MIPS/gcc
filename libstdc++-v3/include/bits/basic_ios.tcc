@@ -1,6 +1,6 @@
 // basic_ios member functions -*- C++ -*-
 
-// Copyright (C) 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,17 +37,17 @@ namespace std
   template<typename _CharT, typename _Traits>
     void
     basic_ios<_CharT, _Traits>::clear(iostate __state)
-    { 
+    {
       if (this->rdbuf())
 	_M_streambuf_state = __state;
       else
 	  _M_streambuf_state = __state | badbit;
-      if ((this->rdstate() & this->exceptions()))
-	__throw_ios_failure("basic_ios::clear");
+      if (this->exceptions() & this->rdstate())
+	__throw_ios_failure(__N("basic_ios::clear"));
     }
-  
+
   template<typename _CharT, typename _Traits>
-    basic_streambuf<_CharT, _Traits>* 
+    basic_streambuf<_CharT, _Traits>*
     basic_ios<_CharT, _Traits>::rdbuf(basic_streambuf<_CharT, _Traits>* __sb)
     {
       basic_streambuf<_CharT, _Traits>* __old = _M_streambuf;
@@ -60,50 +60,49 @@ namespace std
     basic_ios<_CharT, _Traits>&
     basic_ios<_CharT, _Traits>::copyfmt(const basic_ios& __rhs)
     {
-      // Per 27.1.1, do not call imbue, yet must trash all caches
-      // associated with imbue()
-
-      // Alloc any new word array first, so if it fails we have "rollback".
-      _Words* __words = (__rhs._M_word_size <= _S_local_word_size) ?
-	                 _M_local_word : new _Words[__rhs._M_word_size];
-
-      // Bump refs before doing callbacks, for safety.
-      _Callback_list* __cb = __rhs._M_callbacks;
-      if (__cb) 
-	__cb->_M_add_reference();
-      _M_call_callbacks(erase_event);
-      if (_M_word != _M_local_word) 
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 292. effects of a.copyfmt (a)
+      if (this != &__rhs)
 	{
-	  delete [] _M_word;
-	  _M_word = 0;
+	  // Per 27.1.1, do not call imbue, yet must trash all caches
+	  // associated with imbue()
+
+	  // Alloc any new word array first, so if it fails we have "rollback".
+	  _Words* __words = (__rhs._M_word_size <= _S_local_word_size) ?
+	                     _M_local_word : new _Words[__rhs._M_word_size];
+
+	  // Bump refs before doing callbacks, for safety.
+	  _Callback_list* __cb = __rhs._M_callbacks;
+	  if (__cb)
+	    __cb->_M_add_reference();
+	  _M_call_callbacks(erase_event);
+	  if (_M_word != _M_local_word)
+	    {
+	      delete [] _M_word;
+	      _M_word = 0;
+	    }
+	  _M_dispose_callbacks();
+
+	  // NB: Don't want any added during above.
+	  _M_callbacks = __cb;
+	  for (int __i = 0; __i < __rhs._M_word_size; ++__i)
+	    __words[__i] = __rhs._M_word[__i];
+	  _M_word = __words;
+	  _M_word_size = __rhs._M_word_size;
+
+	  this->flags(__rhs.flags());
+	  this->width(__rhs.width());
+	  this->precision(__rhs.precision());
+	  this->tie(__rhs.tie());
+	  this->fill(__rhs.fill());
+	  _M_ios_locale = __rhs.getloc();
+	  _M_cache_locale(_M_ios_locale);
+
+	  _M_call_callbacks(copyfmt_event);
+
+	  // The next is required to be the last assignment.
+	  this->exceptions(__rhs.exceptions());
 	}
-      _M_dispose_callbacks();
-
-      // NB: Don't want any added during above.
-      _M_callbacks = __cb;  
-      for (int __i = 0; __i < __rhs._M_word_size; ++__i)
-	__words[__i] = __rhs._M_word[__i];
-      if (_M_word != _M_local_word) 
-	{
-	  delete [] _M_word;
-	  _M_word = 0;
-	}
-      _M_word = __words;
-      _M_word_size = __rhs._M_word_size;
-
-      this->flags(__rhs.flags());
-      this->width(__rhs.width());
-      this->precision(__rhs.precision());
-      this->tie(__rhs.tie());
-      this->fill(__rhs.fill());
-      _M_ios_locale = __rhs.getloc();
-      _M_cache_locale(_M_ios_locale);
-
-      _M_call_callbacks(copyfmt_event);
-
-      // The next is required to be the last assignment.
-      this->exceptions(__rhs.exceptions());
-
       return *this;
     }
 
@@ -167,14 +166,22 @@ namespace std
     {
       if (__builtin_expect(has_facet<__ctype_type>(__loc), true))
 	_M_ctype = &use_facet<__ctype_type>(__loc);
+      else
+	_M_ctype = 0;
+
       if (__builtin_expect(has_facet<__num_put_type>(__loc), true))
-	_M_num_put = &use_facet<__num_put_type>(__loc); 
+	_M_num_put = &use_facet<__num_put_type>(__loc);
+      else
+	_M_num_put = 0;
+
       if (__builtin_expect(has_facet<__num_get_type>(__loc), true))
-	_M_num_get = &use_facet<__num_get_type>(__loc); 
+	_M_num_get = &use_facet<__num_get_type>(__loc);
+      else
+	_M_num_get = 0;
     }
 
   // Inhibit implicit instantiations for required instantiations,
-  // which are defined via explicit instantiations elsewhere.  
+  // which are defined via explicit instantiations elsewhere.
   // NB:  This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
   extern template class basic_ios<char>;
@@ -185,4 +192,4 @@ namespace std
 #endif
 } // namespace std
 
-#endif 
+#endif

@@ -1,5 +1,5 @@
 /* BasicComboPopup.java --
-   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,12 +35,10 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package javax.swing.plaf.basic;
 
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
@@ -54,18 +52,16 @@ import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseMotionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-
 import javax.swing.ComboBoxModel;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPopupMenu;
-import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
@@ -74,6 +70,7 @@ import javax.swing.event.ListSelectionListener;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 
+
 /**
  * UI Delegate for ComboPopup
  *
@@ -81,32 +78,37 @@ import javax.swing.event.PopupMenuListener;
  */
 public class BasicComboPopup extends JPopupMenu implements ComboPopup
 {
-  /* Timer for autoscrolling */
   protected Timer autoscrollTimer;
 
-  /** ComboBox associated with this popup */
+  /**
+   * ComboBox associated with this popup
+   */
   protected JComboBox comboBox;
 
-  /** FIXME: Need to document */
-  protected boolean hasEntered;
-
-  /**
-   * Indicates whether the scroll bar located in popup menu with comboBox's
-   * list of items is currently autoscrolling. This happens when mouse event
-   * originated in the combo box and is dragged outside of its bounds
+  /*
+   * FIXME: Document fields below
    */
+  protected boolean hasEntered;
   protected boolean isAutoScrolling;
 
-  /** ItemListener listening to the selection changes in the combo box */
+  /**
+   * ItemListener listening to the selection changes in the combo box
+   */
   protected ItemListener itemListener;
 
-  /** This listener is not used */
+  /**
+   * This listener is not used
+   */
   protected KeyListener keyListener;
 
-  /** JList which is used to display item is the combo box */
+  /**
+   * JList which is used to display item is the combo box
+   */
   protected JList list;
 
-  /** This listener is not used */
+  /**
+   * This listener is not used
+   */
   protected ListDataListener listDataListener;
 
   /**
@@ -121,10 +123,14 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
    */
   protected MouseMotionListener listMouseMotionListener;
 
-  /** This listener is not used */
+  /**
+   * This listener is not used
+   */
   protected ListSelectionListener listSelectionListener;
 
-  /** MouseListener listening to mouse events occuring in the combo box */
+  /**
+   * MouseListener listening to mouse events occuring in the combo box
+   */
   protected MouseListener mouseListener;
 
   /**
@@ -139,19 +145,21 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
    */
   protected PropertyChangeListener propertyChangeListener;
 
-  /** direction for scrolling down list of combo box's items */
-  protected static final int SCROLL_DOWN = 1;
-
-  /** direction for scrolling up list of combo box's items */
-  protected static final int SCROLL_UP = 0;
-
-  /** Indicates auto scrolling direction */
+  /*
+   * FIXME: Document fields below
+   */
+  protected static int SCROLL_DOWN = 1;
+  protected static int SCROLL_UP = 0;
   protected int scrollDirection;
 
-  /** JScrollPane that contains list portion of the combo box */
+  /**
+   * JScrollPane that contains list portion of the combo box
+   */
   protected JScrollPane scroller;
 
-  /** This field is not used */
+  /**
+   * This field is not used
+   */
   protected boolean valueIsAdjusting;
 
   /**
@@ -163,7 +171,19 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
   {
     this.comboBox = comboBox;
     installComboBoxListeners();
-    configurePopup();
+
+    // initialize list that will be used to display elements of the combo box	
+    this.list = createList();
+    ((JLabel) list.getCellRenderer()).setHorizontalAlignment(SwingConstants.LEFT);
+    configureList();
+
+    // initialize scroller. Add list to the scroller.	
+    scroller = createScroller();
+    configureScroller();
+
+    // add scroller with list inside of it to JPopupMenu
+    super.add(scroller);
+
     setLightWeightPopupEnabled(comboBox.isLightWeightPopupEnabled());
   }
 
@@ -176,20 +196,10 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
 
     // popup should have same width as the comboBox and should be hight anough
     // to display number of rows equal to 'maximumRowCount' property
-    int popupHeight = getPopupHeightForRowCount(comboBox.getMaximumRowCount());
+    int popupHeight = getPopupHeightForRowCount(comboBox.getMaximumRowCount())
+                      + 4;
 
-    list.setPreferredSize(new Dimension(cbBounds.width, popupHeight));
     super.setPopupSize(cbBounds.width, popupHeight);
-
-    // Highlight selected item in the combo box's drop down list
-    if (comboBox.getSelectedIndex() != -1)
-      list.setSelectedIndex(comboBox.getSelectedIndex());
-
-    //scroll scrollbar s.t. selected item is visible
-    JScrollBar scrollbar = scroller.getVerticalScrollBar();
-    int selectedIndex = comboBox.getSelectedIndex();
-    if (selectedIndex > comboBox.getMaximumRowCount())
-      scrollbar.setValue(getPopupHeightForRowCount(selectedIndex));
 
     // location specified is relative to comboBox
     super.show(comboBox, 0, cbBounds.height);
@@ -283,10 +293,7 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
    */
   protected void firePopupMenuWillBecomeVisible()
   {
-    PopupMenuListener[] ll = comboBox.getPopupMenuListeners();
-
-    for (int i = 0; i < ll.length; i++)
-      ll[i].popupMenuWillBecomeVisible(new PopupMenuEvent(comboBox));
+    // FIXME: Need to implement
   }
 
   /**
@@ -295,10 +302,7 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
    */
   protected void firePopupMenuWillBecomeInvisible()
   {
-    PopupMenuListener[] ll = comboBox.getPopupMenuListeners();
-
-    for (int i = 0; i < ll.length; i++)
-      ll[i].popupMenuWillBecomeInvisible(new PopupMenuEvent(comboBox));
+    // FIXME: Need to implement
   }
 
   /**
@@ -307,10 +311,7 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
    */
   protected void firePopupMenuCanceled()
   {
-    PopupMenuListener[] ll = comboBox.getPopupMenuListeners();
-
-    for (int i = 0; i < ll.length; i++)
-      ll[i].popupMenuCanceled(new PopupMenuEvent(comboBox));
+    // FIXME: Need to implement
   }
 
   /**
@@ -439,7 +440,11 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
   protected void configureList()
   {
     list.setModel(comboBox.getModel());
-    list.setVisibleRowCount(comboBox.getMaximumRowCount());
+
+    if (comboBox.getItemCount() < comboBox.getMaximumRowCount())
+      list.setVisibleRowCount(comboBox.getItemCount());
+    else
+      list.setVisibleRowCount(comboBox.getMaximumRowCount());
     installListListeners();
   }
 
@@ -488,17 +493,7 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
    */
   protected void configurePopup()
   {
-    // initialize list that will be used to display combo box's items
-    this.list = createList();
-    ((JLabel) list.getCellRenderer()).setHorizontalAlignment(SwingConstants.LEFT);
-    configureList();
-
-    // initialize scroller. Add list to the scroller.	
-    scroller = createScroller();
-    configureScroller();
-
-    // add scroller with list inside of it to JPopupMenu
-    super.add(scroller);
+    // FIXME: Need to implement
   }
 
   /*
@@ -557,68 +552,37 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
   }
 
   /**
-   * This method start scrolling combo box's list of items  either up or down
-   * depending on the specified 'direction'
+   * DOCUMENT ME!
    *
-   * @param direction of the scrolling.
+   * @param direction DOCUMENT ME!
    */
   protected void startAutoScrolling(int direction)
   {
-    // FIXME: add timer
-    isAutoScrolling = true;
-
-    if (direction == SCROLL_UP)
-      autoScrollUp();
-    else
-      autoScrollDown();
+    // FIXME: Need to implement
   }
 
   /**
-   * This method stops scrolling the combo box's list of items
+   * DOCUMENT ME!
    */
   protected void stopAutoScrolling()
   {
-    // FIXME: add timer
-    isAutoScrolling = false;
+    // FIXME: Need to implement
   }
 
   /**
-   * This method scrolls up list of combo box's items up and highlights that
-   * just became visible.
+   * DOCUMENT ME!
    */
   protected void autoScrollUp()
   {
-    // scroll up the scroll bar to make the item above visible    
-    JScrollBar scrollbar = scroller.getVerticalScrollBar();
-    int scrollToNext = list.getScrollableUnitIncrement(super.getBounds(),
-                                                       SwingConstants.VERTICAL,
-                                                       SCROLL_UP);
-
-    scrollbar.setValue(scrollbar.getValue() - scrollToNext);
-
-    // If we haven't reached the begging of the combo box's list of items, 
-    // then highlight next element above currently highlighted element	
-    if (list.getSelectedIndex() != 0)
-      list.setSelectedIndex(list.getSelectedIndex() - 1);
+    // FIXME: Need to implement
   }
 
   /**
-   * This method scrolls down list of combo box's and highlights item in the
-   * list that just became visible.
+   * DOCUMENT ME!
    */
   protected void autoScrollDown()
   {
-    // scroll scrollbar down to make next item visible    
-    JScrollBar scrollbar = scroller.getVerticalScrollBar();
-    int scrollToNext = list.getScrollableUnitIncrement(super.getBounds(),
-                                                       SwingConstants.VERTICAL,
-                                                       SCROLL_DOWN);
-    scrollbar.setValue(scrollbar.getValue() + scrollToNext);
-
-    // If we haven't reached the end of the combo box's list of items
-    // then highlight next element below currently highlighted element
-    if (list.getSelectedIndex() + 1 != comboBox.getItemCount())
-      list.setSelectedIndex(list.getSelectedIndex() + 1);
+    // FIXME: Need to implement
   }
 
   /**
@@ -679,8 +643,8 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
     for (int i = 0; i < maxRowCount; i++)
       {
 	Component comp = rend.getListCellRendererComponent(list,
-	                                                   comboBox.getModel()
-	                                                           .getElementAt(i),
+	                                                   list.getModel()
+	                                                       .getElementAt(i),
 	                                                   -1, false, false);
 	Dimension dim = comp.getPreferredSize();
 	totalHeight += dim.height;
@@ -748,36 +712,15 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
     }
 
     /**
-     * This method is invoked whenever mouse event was originated in the combo
-     * box and released either in the combBox list of items or in the combo
-     * box itself.
+     * This method is invoked whenever mouse is released
      *
      * @param e MouseEvent that should be handled
      */
     public void mouseReleased(MouseEvent e)
     {
-      // Get component over which mouse was released
-      Component src = (Component) e.getSource();
-      int x = e.getX();
-      int y = e.getY();
-      Component releasedComponent = SwingUtilities.getDeepestComponentAt(src,
-                                                                         x, y);
-
-      // if mouse was released inside the bounds of combo box then do nothing,
-      // Otherwise if mouse was released inside the list of combo box items
-      // then change selection and close popup
-      if (! (releasedComponent instanceof JComboBox))
-        {
-	  // List model contains the item over which mouse is released,
-	  // since it is updated every time the mouse is moved over a different
-	  // item in the list. Now that the mouse is released we need to
-	  // update model of the combo box as well. 	  
-	  comboBox.setSelectedIndex(list.getSelectedIndex());
-
-	  if (isAutoScrolling)
-	    stopAutoScrolling();
-	  hide();
-        }
+      // FIXME: should handle dragging events here, if
+      // mouse was dragged and released over the list of combobox's items,
+      // then item over which it was released should be selected.
     }
   }
 
@@ -794,70 +737,13 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
     {
     }
 
-    /**
-     * This method is responsible for highlighting item in the drop down list
-     * over which the mouse is currently being dragged.
-     */
     public void mouseDragged(MouseEvent e)
     {
-      // convert point of the drag event relative to combo box list component
-      // figure out over which list cell the mouse is currently being dragged
-      // and highlight the cell. The list model is changed but the change has 
-      // no effect on combo box's data model. The list model is changed so 
-      // that the appropriate item would be highlighted in the combo box's 
-      // list.
-      if (BasicComboPopup.this.isVisible())
-        {
-	  int cbHeight = (int) comboBox.getPreferredSize().getHeight();
-	  int popupHeight = BasicComboPopup.this.getSize().height;
-
-	  // if mouse is dragged inside the the combo box's items list.
-	  if (e.getY() > cbHeight && ! (e.getY() - cbHeight >= popupHeight))
-	    {
-	      int index = list.locationToIndex(new Point(e.getX(),
-	                                                 (int) (e.getY()
-	                                                 - cbHeight)));
-
-	      int firstVisibleIndex = list.getFirstVisibleIndex();
-
-	      // list.locationToIndex returns item's index that would
-	      // be located at the specified point if the first item that
-	      // is visible is item 0. However in the JComboBox it is not 
-	      // necessarily the case since list is contained in the 
-	      // JScrollPane so we need to adjust the index returned. 
-	      if (firstVisibleIndex != 0)
-		// FIXME: adjusted index here is off by one. I am adding one
-		// here to compensate for that. This should be
-		// index += firstVisibleIndex. Remove +1 once the bug is fixed.
-		index += firstVisibleIndex + 1;
-
-	      list.setSelectedIndex(index);
-	    }
-	  else
-	    {
-	      // if mouse is being dragged at the bottom of combo box's list 
-	      // of items or at the very top then scroll the list in the 
-	      // desired direction.
-	      boolean movingUP = e.getY() < cbHeight;
-	      boolean movingDown = e.getY() > cbHeight;
-
-	      if (movingUP)
-	        {
-		  scrollDirection = SCROLL_UP;
-		  startAutoScrolling(SCROLL_UP);
-	        }
-	      else if (movingDown)
-	        {
-		  scrollDirection = SCROLL_DOWN;
-		  startAutoScrolling(SCROLL_DOWN);
-	        }
-	    }
-        }
     }
   }
 
   /**
-   * ItemHandler is an item listener that listens to selection events occuring
+   * ItemHandler is an item listener that listens to selection event occuring
    * in the combo box. FIXME: should specify here what it does when item is
    * selected or deselected in the combo box list.
    */
@@ -917,11 +803,9 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
 
     public void mouseMoved(MouseEvent anEvent)
     {
-      // Highlight list cells over which the mouse is located. 
-      // This changes list model, but has no effect on combo box's data model
-      int index = list.locationToIndex(anEvent.getPoint());
-      list.setSelectedIndex(index);
-      list.repaint();
+      // FIXME: Need to implement
+      // NOTE: the change isn't reflected in data model of the combo box.
+      // The items are only highlited, but not selected
     }
   }
 
@@ -938,15 +822,9 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
 
     public void propertyChange(PropertyChangeEvent e)
     {
-      if (e.getPropertyName().equals("renderer"))
+      if (e.getPropertyName().equals(JComboBox.RENDERER_CHANGED_PROPERTY))
         {
 	  list.setCellRenderer((ListCellRenderer) e.getNewValue());
-	  revalidate();
-	  repaint();
-        }
-      if (e.getPropertyName().equals("dataModel"))
-        {
-	  list.setModel((ComboBoxModel) e.getNewValue());
 	  revalidate();
 	  repaint();
         }

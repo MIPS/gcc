@@ -20,13 +20,13 @@ details.  */
 #define HANDLE_FPE 1
 
 #define SIGNAL_HANDLER(_name)	\
-static void _name (int _dummy)
+static void _name (int _dummy __attribute__ ((__unused__)))
 
 #define MAKE_THROW_FRAME(_exception)					\
 do									\
 {									\
   void **_p = (void **)&_dummy;						\
-  struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;	\
+  volatile struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;	\
 									\
   /* Advance the program counter so that it is after the start of the	\
      instruction:  the x86 exception handler expects			\
@@ -40,7 +40,7 @@ while (0)
 do									\
 {									\
   void **_p = (void **)&_dummy;						\
-  struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;	\
+  volatile struct sigcontext_struct *_regs = (struct sigcontext_struct *)++_p;\
 									\
   register unsigned char *_eip = (unsigned char *)_regs->eip;		\
 									\

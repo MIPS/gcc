@@ -86,22 +86,22 @@ public class InputContext
   private static final ArrayList descriptors = new ArrayList();
   static
   {
-    Enumeration enum;
+    Enumeration e;
     try
       {
-        enum = ClassLoader.getSystemResources
+        e = ClassLoader.getSystemResources
           ("META_INF/services/java.awt.im.spi.InputMethodDescriptor");
       }
     catch (IOException ex)
       {
         // XXX Should we do something else?
-        enum = EmptyEnumeration.getInstance();
+        e = EmptyEnumeration.getInstance();
       }
-    while (enum.hasMoreElements())
+    while (e.hasMoreElements())
       {
-        URL url = (URL) enum.nextElement();
-        BufferedReader in;
-        String line;
+        URL url = (URL) e.nextElement();
+        BufferedReader in = null;
+        String line = null;
         try
           {
             in = new BufferedReader
@@ -125,7 +125,7 @@ public class InputContext
                   }
                 line = in.readLine().trim();
               }
-            catch (IOException e)
+            catch (IOException ex)
               {
                 continue outer;
               }

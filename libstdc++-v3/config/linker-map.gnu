@@ -1,6 +1,6 @@
 ## Linker script for GNU ld 2.13.91+ only.
 ##
-## Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ##
@@ -27,7 +27,15 @@ GLIBCXX_3.4 {
     # Names inside the 'extern' block are demangled names.
     extern "C++"
     {
-      std::[A-Za-k]*;
+      std::[A-Za-h]*;
+      std::i[a-n]*;
+      std::ios_base::[A-Ha-z]*;
+      std::ios_base::_M_grow_words*;
+      std::ios_base::_M_init*;
+      std::ios_base::Init::[A-Za-z]*;
+      std::ios_base::[J-Za-z]*;
+      std::i[p-z]*;
+      std::[A-Zj-k]*;
       std::length_error*;
       std::logic_error*;
       std::locale::[A-Za-e]*;
@@ -38,7 +46,7 @@ GLIBCXX_3.4 {
       std::locale::facet::_S_destroy_c_locale*;
       std::locale::[A-Zg-h]*;
       std::locale::id::[A-Za-z]*;
-      std::locale::id::_S_highwater;
+      std::locale::id::_M_id*;
       std::locale::[A-Zj-z]*;
       std::locale::_[A-Ha-z]*;
       std::locale::_Impl::[A-Za-z]*;
@@ -47,8 +55,12 @@ GLIBCXX_3.4 {
       std::locale::_S_normalize_category*;
       std::locale::_[T-Za-z]*;
       std::[A-Zm-z]*;
+      std::_List_node_base::hook*;
+      std::_List_node_base::swap*;
+      std::_List_node_base::unhook*;
+      std::_List_node_base::reverse*;
+      std::_List_node_base::transfer*;
       std::__throw_*;
-      std::__basic_file*;
       std::__timepunct*;
       std::__numeric_limits_base*;
       std::__num_base::_S_format_float*;
@@ -57,10 +69,38 @@ GLIBCXX_3.4 {
       std::__num_base::_S_atoms_out;
       std::__moneypunct_cache*;
       std::__numpunct_cache*;
-      std::__timepunct_cache*
+      std::__timepunct_cache*;
+      __gnu_debug::_Safe_iterator_base*;
+      __gnu_debug::_Safe_sequence_base*;
+      __gnu_debug::_Error_formatter*;
+      __gnu_norm::_List_node_base::hook*;
+      __gnu_norm::_List_node_base::swap*;
+      __gnu_norm::_List_node_base::unhook*;
+      __gnu_norm::_List_node_base::reverse*;
+      __gnu_norm::_List_node_base::transfer*
     };
 
     # Names not in an 'extern' block are mangled names.
+
+    # operator new(size_t)
+    _Znw[jm];
+    # operator new(size_t, std::nothrow_t const&)
+    _Znw[jm]RKSt9nothrow_t;
+
+    # operator delete(void*)
+    _ZdlPv;
+    # operator delete(void*, std::nothrow_t const&)
+    _ZdlPvRKSt9nothrow_t;
+
+    # operator new[](size_t)
+    _Zna[jm];
+    # operator new[](size_t, std::nothrow_t const&)
+    _Zna[jm]RKSt9nothrow_t;
+
+    # operator delete[](void*)
+    _ZdaPv;
+    # operator delete[](void*, std::nothrow_t const&)
+    _ZdaPvRKSt9nothrow_t;
 
     # std::locale destructors
     _ZNSt6localeD*;
@@ -68,21 +108,42 @@ GLIBCXX_3.4 {
     # std::locale::facet destructors
     _ZNSt6locale5facetD*;
 	 
-    # std::locale::_Impl constructors, destrutors
+    # std::locale::_Impl constructors, destructors
     _ZNSt6locale5_ImplC*;
     _ZNSt6locale5_ImplD*;
+
+    # std::ios_base, std::ios_base::Init destructors
+    _ZNSt8ios_baseD*;
+    _ZNSt8ios_base4InitD*;
 
     # bool has_facet 
     _ZSt9has_facet*;
 
     # _Rb_tree
+    _ZSt18_Rb_tree_decrementPKSt18_Rb_tree_node_base;
     _ZSt18_Rb_tree_decrementPSt18_Rb_tree_node_base;
+    _ZSt18_Rb_tree_incrementPKSt18_Rb_tree_node_base;
     _ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base;
-    _ZSt18_Rb_tree_rebalancePSt18_Rb_tree_node_baseRS0_;
     _ZSt20_Rb_tree_black_countPKSt18_Rb_tree_node_baseS1_;
     _ZSt20_Rb_tree_rotate_leftPSt18_Rb_tree_node_baseRS0_;
     _ZSt21_Rb_tree_rotate_rightPSt18_Rb_tree_node_baseRS0_;
     _ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_;
+    _ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_;
+
+    # std::__basic_file
+    _ZNKSt12__basic_fileIcE7is_openEv;
+    _ZNSt12__basic_fileIcE2fdEv;
+    _ZNSt12__basic_fileIcE4openEPKcSt13_Ios_Openmodei;
+    _ZNSt12__basic_fileIcE4syncEv;
+    _ZNSt12__basic_fileIcE5closeEv;
+    _ZNSt12__basic_fileIcE6xsgetn*;
+    _ZNSt12__basic_fileIcE6xsputn*;
+    _ZNSt12__basic_fileIcE7seekoff*;
+    _ZNSt12__basic_fileIcE8sys_openE*St13_Ios_Openmode;
+    _ZNSt12__basic_fileIcE8xsputn_2*;
+    _ZNSt12__basic_fileIcE9showmanycEv;
+    _ZNSt12__basic_fileIcEC*;
+    _ZNSt12__basic_fileIcED*;
 
     # virtual table
     _ZTVNSt8ios_base7failureE;
@@ -109,6 +170,8 @@ GLIBCXX_3.4 {
     _ZTISt10__num_base;
     _ZTISt21__ctype_abstract_baseI[cw]E;
     _ZTISt23__codecvt_abstract_baseI[cw]c11__mbstate_tE;
+    _ZTIN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
+    _ZTIN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
 
     # typeinfo name
     _ZTSNSt8ios_base7failureE;
@@ -120,6 +183,8 @@ GLIBCXX_3.4 {
     _ZTSSt10__num_base;
     _ZTSSt21__ctype_abstract_baseI[cw]E;
     _ZTSSt23__codecvt_abstract_baseI[cw]c11__mbstate_tE;
+    _ZTSN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
+    _ZTSN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
 
     # function-scope static objects requires a guard variable.
     _ZGVNSt*;
@@ -162,22 +227,17 @@ GLIBCXX_3.4 {
     sqrtf;
     sqrtl;
     copysignf;
-    nan;
     __signbit;
     __signbitf;
     __signbitl;
 
-    # __gnu_cxx::__pool_alloc
-    _ZN9__gnu_cxx12__pool_allocILb1ELi0EE8allocateE[jm];
-    _ZN9__gnu_cxx12__pool_allocILb1ELi0EE10deallocateEPv[jm];
-
     # __gnu_cxx::stdio_sync_filebuf
     _ZTVN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
 
-    # Needed only when generic cpu's atomicity.h is in use.
-    _ZN9__gnu_cxx17_Atomic_add_mutexE;
-    _ZN9__gnu_cxx22_Atomic_add_mutex_onceE;
-    _ZN9__gnu_cxx31__gthread_atomic_add_mutex_onceEv;
+    # __gnu_cxx::__atomic_add
+    # __gnu_cxx::__exchange_and_add
+    _ZN9__gnu_cxx12__atomic_add*;
+    _ZN9__gnu_cxx18__exchange_and_add*;
 
   # DO NOT DELETE THIS LINE.  Port-specific symbols, if any, will be here.
 
@@ -185,6 +245,58 @@ GLIBCXX_3.4 {
     *;
 };
 
+GLIBCXX_3.4.1 {
+ 
+    _ZNSt12__basic_fileIcE4fileEv;
+ 
+} GLIBCXX_3.4;
+ 
+GLIBCXX_3.4.2 {
+
+    _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EE4fileEv;
+
+    _ZN9__gnu_cxx17__pool_alloc_base9_M_refillE[jm];
+    _ZN9__gnu_cxx17__pool_alloc_base16_M_get_free_listE[jm];
+    _ZN9__gnu_cxx17__pool_alloc_base12_M_get_mutexEv;
+
+} GLIBCXX_3.4.1;
+
+GLIBCXX_3.4.3 {
+ 
+    _ZN9__gnu_cxx6__poolILb0EE13_M_initializeEv;
+    _ZN9__gnu_cxx6__poolILb1EE13_M_initializeEPFvPvE;
+    _ZN9__gnu_cxx6__poolILb1EE21_M_destroy_thread_keyEPv;
+    _ZN9__gnu_cxx6__poolILb1EE16_M_get_thread_idEv;
+    _ZN9__gnu_cxx6__poolILb[01]EE16_M_reserve_blockE[jm][jm];
+    _ZN9__gnu_cxx6__poolILb[01]EE16_M_reclaim_blockEPc[jm];
+    _ZN9__gnu_cxx6__poolILb[01]EE10_M_destroyEv;
+
+    _ZN9__gnu_cxx9free_list12_S_free_listE;
+    _ZN9__gnu_cxx9free_list12_S_bfl_mutexE;
+    _ZN9__gnu_cxx9free_list6_M_getE*;
+    _ZN9__gnu_cxx9free_list8_M_clearEv;
+
+    # stub functions from libmath
+    acosf;
+    acosl;
+    asinf;
+    asinl;
+    atanf;
+    atanl;
+    ceilf;
+    ceill;
+    floorf;
+    floorl;
+    fmodf;
+    fmodl;
+    frexpf;
+    frexpl;
+    ldexpf;
+    ldexpl;
+    modff;
+    modfl;
+
+} GLIBCXX_3.4.2;
 
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {
@@ -221,57 +333,68 @@ CXXABI_1.3 {
     __gxx_personality_sj0;
     __dynamic_cast;
 
-    # operator new(size_t)
-    _Znw[jm];
-    # operator new(size_t, std::nothrow_t const&)
-    _Znw[jm]RKSt9nothrow_t;
+    # *_type_info classes, ctor and dtor
+    _ZN10__cxxabiv117__array_type_info*;
+    _ZN10__cxxabiv117__class_type_info*;
+    _ZN10__cxxabiv116__enum_type_info*;
+    _ZN10__cxxabiv120__function_type_info*;
+    _ZN10__cxxabiv123__fundamental_type_info*;
+    _ZN10__cxxabiv117__pbase_type_info*;
+    _ZN10__cxxabiv129__pointer_to_member_type_info*;
+    _ZN10__cxxabiv119__pointer_type_info*;
+    _ZN10__cxxabiv120__si_class_type_info*;
+    _ZN10__cxxabiv121__vmi_class_type_info*;
 
-    # operator delete(void*)
-    _ZdlPv;
-    # operator delete(void*, std::nothrow_t const&)
-    _ZdlPvRKSt9nothrow_t;
-
-    # operator new[](size_t)
-    _Zna[jm];
-    # operator new[](size_t, std::nothrow_t const&)
-    _Zna[jm]RKSt9nothrow_t;
-
-    # operator delete[](void*)
-    _ZdaPv;
-    # operator delete[](void*, std::nothrow_t const&)
-    _ZdaPvRKSt9nothrow_t;
+    # *_type_info classes, member functions
+    _ZNK10__cxxabiv117__class_type_info*;
+    _ZNK10__cxxabiv120__function_type_info*;
+    _ZNK10__cxxabiv117__pbase_type_info*;
+    _ZNK10__cxxabiv129__pointer_to_member_type_info*;
+    _ZNK10__cxxabiv119__pointer_type_info*;
+    _ZNK10__cxxabiv120__si_class_type_info*;
+    _ZNK10__cxxabiv121__vmi_class_type_info*;
 
     # virtual table
+    _ZTVN10__cxxabiv117__array_type_infoE;
     _ZTVN10__cxxabiv117__class_type_infoE;
+    _ZTVN10__cxxabiv116__enum_type_infoE;
+    _ZTVN10__cxxabiv120__function_type_infoE;
+    _ZTVN10__cxxabiv123__fundamental_type_infoE;
+    _ZTVN10__cxxabiv117__pbase_type_infoE;
+    _ZTVN10__cxxabiv129__pointer_to_member_type_infoE;
+    _ZTVN10__cxxabiv119__pointer_type_infoE;
     _ZTVN10__cxxabiv120__si_class_type_infoE;
     _ZTVN10__cxxabiv121__vmi_class_type_infoE;
-    _ZTVN10__cxxabiv123__fundamental_type_infoE;
-    _ZTVN10__cxxabiv117__array_type_infoE;
-    _ZTVN10__cxxabiv120__function_type_infoE;
-    _ZTVN10__cxxabiv116__enum_type_infoE;
-    _ZTVN10__cxxabiv117__pbase_type_infoE;
-    _ZTVN10__cxxabiv119__pointer_type_infoE;
-    _ZTVN10__cxxabiv129__pointer_to_member_type_infoE;
 
     # typeinfo structure (and some names)
     _ZTI[a-z];
     _ZTIP[a-z];
     _ZTIPK[a-z];
+    _ZTIN10__cxxabiv117__array_type_infoE;
     _ZTIN10__cxxabiv117__class_type_infoE;
+    _ZTIN10__cxxabiv116__enum_type_infoE;
+    _ZTIN10__cxxabiv120__function_type_infoE;
+    _ZTIN10__cxxabiv123__fundamental_type_infoE;
+    _ZTIN10__cxxabiv117__pbase_type_infoE;
+    _ZTIN10__cxxabiv129__pointer_to_member_type_infoE;
+    _ZTIN10__cxxabiv119__pointer_type_infoE;
     _ZTIN10__cxxabiv120__si_class_type_infoE;
     _ZTIN10__cxxabiv121__vmi_class_type_infoE;
-    _ZTIN10__cxxabiv123__fundamental_type_infoE;
-    _ZTIN10__cxxabiv117__array_type_infoE;
-    _ZTIN10__cxxabiv120__function_type_infoE;
-    _ZTIN10__cxxabiv116__enum_type_infoE;
-    _ZTIN10__cxxabiv117__pbase_type_infoE;
-    _ZTIN10__cxxabiv119__pointer_type_infoE;
-    _ZTIN10__cxxabiv129__pointer_to_member_type_infoE;
 
     # typeinfo name
     _ZTS[a-z];
     _ZTSP[a-z];
     _ZTSPK[a-z];
+    _ZTSN10__cxxabiv117__array_type_infoE;
+    _ZTSN10__cxxabiv117__class_type_infoE;
+    _ZTSN10__cxxabiv116__enum_type_infoE;
+    _ZTSN10__cxxabiv120__function_type_infoE;
+    _ZTSN10__cxxabiv123__fundamental_type_infoE;
+    _ZTSN10__cxxabiv117__pbase_type_infoE;
+    _ZTSN10__cxxabiv129__pointer_to_member_type_infoE;
+    _ZTSN10__cxxabiv119__pointer_type_infoE;
+    _ZTSN10__cxxabiv120__si_class_type_infoE;
+    _ZTSN10__cxxabiv121__vmi_class_type_infoE;
 
     # __gnu_cxx::_verbose_terminate_handler()
     _ZN9__gnu_cxx27__verbose_terminate_handlerEv;

@@ -43,6 +43,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Shape;
 
+
 public class FieldView extends PlainView
 {
   public FieldView(Element elem)
@@ -78,6 +79,7 @@ public class FieldView extends PlainView
       {
 	// This should never happen.
 	text = "";
+	System.out.println("Michael: FieldView.getPreferredSpan: Error");
       }
     
     return fm.stringWidth(text);

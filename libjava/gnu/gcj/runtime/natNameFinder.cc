@@ -1,6 +1,6 @@
 // natNameFinder.cc - native helper methods for NameFinder.java
 
-/* Copyright (C) 2002  Free Software Foundation, Inc
+/* Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc
 
    This file is part of libgcj.
 
@@ -48,6 +48,17 @@ details.  */
 
 #endif /* ! __USER_LABEL_PREFIX__ */
 
+java::lang::StackTraceElement*
+gnu::gcj::runtime::NameFinder::newElement (java::lang::String* fileName,
+                                           jint lineNumber,
+                                           java::lang::String* className,
+                                           java::lang::String* methName,
+                                           jboolean isNative)
+{
+  return new java::lang::StackTraceElement( fileName, lineNumber,
+                                            className, methName, isNative);
+}
+                                          
 java::lang::String*
 gnu::gcj::runtime::NameFinder::getExternalLabel (java::lang::String* name)
 {
@@ -56,7 +67,7 @@ gnu::gcj::runtime::NameFinder::getExternalLabel (java::lang::String* name)
   char *newName = (char *) JvMalloc (pfxLen + nameLen + 1);
   *(newName + 0) = '\0';
   strcpy (newName, LABEL_PREFIX);
-  JvGetStringUTFRegion (name, 0, nameLen, newName + pfxLen);
+  JvGetStringUTFRegion (name, 0, name->length(), newName + pfxLen);
   *(newName + pfxLen + nameLen) = '\0';
   return JvNewStringLatin1 (newName);
 }

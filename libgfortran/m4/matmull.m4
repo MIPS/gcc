@@ -2,29 +2,20 @@
    Copyright 2002 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
-This file is part of the GNU Fortran 95 runtime library (libgfortran).
+This file is part of the GNU Fortran 95 runtime library (libgfor).
 
 Libgfortran is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public
+modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
+version 2.1 of the License, or (at your option) any later version.
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Lesser General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
+You should have received a copy of the GNU Lesser General Public
+License along with libgfor; see the file COPYING.LIB.  If not,
 write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -36,12 +27,8 @@ include(iparm.m4)dnl
 
 /* Dimensions: retarray(x,y) a(x, count) b(count,y).
    Either a or b can be rank 1.  In this case x or y is 1.  */
-
-extern void matmul_`'rtype_code (rtype *, gfc_array_l4 *, gfc_array_l4 *);
-export_proto(matmul_`'rtype_code);
-
 void
-matmul_`'rtype_code (rtype * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
+`__matmul_'rtype_code (rtype * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
 {
   GFC_INTEGER_4 *abase;
   GFC_INTEGER_4 *bbase;
@@ -90,8 +77,7 @@ matmul_`'rtype_code (rtype * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
           retarray->dim[1].stride = retarray->dim[0].ubound+1;
         }
           
-      retarray->data
-	= internal_malloc_size (sizeof (rtype_name) * size0 (retarray));
+      retarray->data = internal_malloc (sizeof (rtype_name) * size0 (retarray));
       retarray->base = 0;
     }
 
@@ -194,3 +180,4 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       dest += rystride - (rxstride * xcount);
     }
 }
+
