@@ -1,5 +1,5 @@
 /* Target definitions for x86 running Darwin.
-   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -58,7 +58,7 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_ALTIVEC_SPEC "%<faltivec"
 
 #undef ASM_SPEC
-#define ASM_SPEC "-arch i686 -force_cpusubtype_ALL"
+#define ASM_SPEC "-arch i386 -force_cpusubtype_ALL"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS					\

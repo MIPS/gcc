@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -6235,7 +6235,8 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
   switch (TREE_CODE (arg))
     {
     case INTEGER_CST:
-      sprintf (buf + strlen (buf), "%lld", tree_low_cst (arg, 0));
+      /* APPLE LOCAL 32-bit HOST_WIDE_INT */
+      sprintf (buf + strlen (buf), "%lld", (long long int)tree_low_cst (arg, 0));
       break;
 
     case IDENTIFIER_NODE:
@@ -6324,7 +6325,8 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep);
       /* Convert bit pos to byte pos, rounding down (this is asm,
 	 after all). */
-      sprintf (buf + strlen (buf), "%lld", bitpos / BITS_PER_UNIT);
+      /* APPLE LOCAL 32-bit HOST_WIDE_INT */
+      sprintf (buf + strlen (buf), "%lld", (long long int) (bitpos / BITS_PER_UNIT));
       strcat (buf, "(");
       op0 = TREE_OPERAND (arg, 0);
       /* Catch a couple different flavors of component refs.  */

@@ -1,3 +1,11 @@
+2005-01-06  Stuart Hastings <stuart@apple.com>
+
+        Radar 3941684
+        * gcc/c-common.c (print_cw_asm_operand): Casts for long long format.
+        * gcc/gcc.c (process_command): Malloc overflowing static char array.
+        * gcc/config/i386/dariwn.h (ASM_SPEC): Revert to i386.
+        * gcc/config/i386/i386.h (STACK_BOUNDARY): Must be of indeterminate signedness.
+
 2005-01-06  Mike Stump  <mrs@apple.com>
 
 	* c-pch.c (c_common_pch_pragma): Add indirection for pch files for distcc.

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -790,7 +790,13 @@ extern int x86_prefetch_sse;
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
 /* APPLE LOCAL compiler should obey -mpreferred-stack-boundary (radar 3232990) */
-#define STACK_BOUNDARY ((ix86_preferred_stack_boundary > 128) ? 128 : ix86_preferred_stack_boundary)
+/* prefer * #define STACK_BOUNDARY ((ix86_preferred_stack_boundary > 128) ? 128 : ix86_preferred_stack_boundary) */
+/*  We're going to extremes to yield a result of indeterminite
+    signedness here; this macro will be expanded in signed and
+    unsigned contexts, and mixed signedness induces fatal
+    warnings.  Radar 3941684.  */
+#define STACK_BOUNDARY ((ix86_preferred_stack_boundary >=  128) ? 128 : \
+			(ix86_preferred_stack_boundary == 64) ? 64 : 32)
 
 /* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
