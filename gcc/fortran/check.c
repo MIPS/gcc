@@ -1352,7 +1352,13 @@ gfc_check_repeat (gfc_expr * x, gfc_expr * y)
   if (type_check (x, 0, BT_CHARACTER) == FAILURE)
     return FAILURE;
 
+  if (scalar_check (x, 0) == FAILURE)
+    return FAILURE;
+
   if (type_check (y, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (y, 1) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -1664,6 +1670,19 @@ gfc_check_verify (gfc_expr * x, gfc_expr * y, gfc_expr * z)
     return FAILURE;
 
   return SUCCESS;
+}
+
+
+try
+gfc_check_trim (gfc_expr * x)
+{
+  if (type_check (x, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (x, 0) == FAILURE)
+    return FAILURE;
+
+   return SUCCESS;
 }
 
 

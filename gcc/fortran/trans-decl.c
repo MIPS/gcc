@@ -116,6 +116,8 @@ tree gfor_fndecl_string_len_trim;
 tree gfor_fndecl_string_index;
 tree gfor_fndecl_string_scan;
 tree gfor_fndecl_string_verify;
+tree gfor_fndecl_string_trim;
+tree gfor_fndecl_string_repeat;
 tree gfor_fndecl_adjustl;
 tree gfor_fndecl_adjustr;
 
@@ -1285,6 +1287,24 @@ gfc_build_intrinsic_function_decls (void)
                                      5, gfc_strlen_type_node, pchar_type_node,
                                      gfc_strlen_type_node, pchar_type_node,
                                      gfc_logical4_type_node);
+
+  gfor_fndecl_string_trim = 
+    gfc_build_library_function_decl (get_identifier (PREFIX("string_trim")),
+                                     void_type_node,
+                                     4,
+                                     build_pointer_type (gfc_strlen_type_node),
+                                     ppvoid_type_node,
+                                     gfc_strlen_type_node,
+                                     pchar_type_node);
+
+  gfor_fndecl_string_repeat =
+    gfc_build_library_function_decl (get_identifier (PREFIX("string_repeat")),
+                                     void_type_node,
+                                     4,
+                                     pchar_type_node,
+                                     gfc_strlen_type_node,
+                                     pchar_type_node,
+                                     gfc_int4_type_node);
 
   gfor_fndecl_adjustl =
     gfc_build_library_function_decl (get_identifier (PREFIX("adjustl")),

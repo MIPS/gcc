@@ -1552,7 +1552,7 @@ add_functions (void)
   make_generic ("transpose", GFC_ISYM_TRANSPOSE);
 
   add_sym_1 ("trim", 0, 1, BT_CHARACTER, dc,
-	     NULL, gfc_simplify_trim, gfc_resolve_trim,
+	     gfc_check_trim, gfc_simplify_trim, gfc_resolve_trim,
 	     stg, BT_CHARACTER, dc, 0);
 
   make_generic ("trim", GFC_ISYM_TRIM);

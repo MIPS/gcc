@@ -1,3 +1,8 @@
+2003-10-11  Huang Chun  <jiwang@mail.edu.cn>
+
+	* gfortran.fortran-torture/execute/intrinsic_len.f90: New test.
+	* gfortran.fortran-torture/execute/intrinsic_trim.f90: New test.
+
 2003-10-11  Paul Brook  <paul@nowt.org>
 
 	* gfortran.fortran-torture/execute/specifics.f90: New test.

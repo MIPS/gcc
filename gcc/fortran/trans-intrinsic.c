@@ -1773,6 +1773,7 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
   tree len;
   tree type;
   tree decl;
+  gfc_symbol *sym;
   gfc_se argse;
   gfc_expr *arg;
 
@@ -1784,7 +1785,14 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
   switch (arg->expr_type)
     {
     case EXPR_VARIABLE:
-      decl = gfc_get_symbol_decl (arg->symtree->n.sym);
+      sym = arg->symtree->n.sym;
+      decl = gfc_get_symbol_decl (sym);
+      if (decl == current_function_decl && sym->attr.function
+            && (sym->result == sym))
+        {
+          decl = gfc_get_fake_result_decl (sym);
+        }
+
       assert (GFC_DECL_STRING (decl));
       len = GFC_DECL_STRING_LENGTH (decl);
       assert (len);
@@ -2965,6 +2973,79 @@ gfc_conv_intrinsic_sr_kind (gfc_se * se, gfc_expr * expr)
 }
 
 
+/* Generate code for TRIM (A) intrinsic function.  */
+
+static void
+gfc_conv_intrinsic_trim (gfc_se * se, gfc_expr * expr)
+{
+  tree var;
+  tree len;
+  tree addr;
+  tree tmp;
+  tree arglist;
+  tree type;
+  tree cond;
+
+  arglist = NULL_TREE;
+
+  type = build_pointer_type (gfc_character1_type_node);
+  var = gfc_create_var (type, "pstr");
+  addr = build1 (ADDR_EXPR, ppvoid_type_node, var);
+  len = gfc_create_var (gfc_int4_type_node, "len");
+
+  tmp = gfc_conv_intrinsic_function_args (se, expr);
+  arglist = gfc_chainon_list (arglist, build1 (ADDR_EXPR, 
+	build_pointer_type(TREE_TYPE(len)), len));
+  arglist = gfc_chainon_list (arglist, addr);
+  arglist = chainon (arglist, tmp);
+  
+  tmp = gfc_build_function_call (gfor_fndecl_string_trim, arglist);
+  gfc_add_expr_to_block (&se->pre, tmp);
+
+  /* Free the temporary afterwards, if necessary.  */
+  cond = build (GT_EXPR, boolean_type_node, len, integer_zero_node);
+  arglist = gfc_chainon_list (NULL_TREE, addr);
+  tmp = gfc_build_function_call (gfor_fndecl_internal_free, arglist);
+  tmp = build_v (COND_EXPR, cond, tmp, build_empty_stmt ());
+  gfc_add_expr_to_block (&se->post, tmp);
+
+  se->expr = var;
+  se->string_length = len;
+}
+
+
+/* Generate code for REPEAT (STRING, NCOPIES) intrinsic function.  */
+
+static void
+gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
+{
+  tree tmp;
+  tree len;
+  tree args;
+  tree arglist;
+  tree ncopies;
+  tree var;
+  tree type;
+
+  args = gfc_conv_intrinsic_function_args (se, expr);
+  len = TREE_VALUE (args);
+  tmp = gfc_advance_chain (args, 2);
+  ncopies = TREE_VALUE (tmp);
+  len = fold (build (MULT_EXPR, gfc_int4_type_node, len, ncopies));
+  type = gfc_get_character_type (expr->ts.kind, expr->ts.cl);
+  var = gfc_conv_string_tmp (se, build_pointer_type (type), len);
+
+  arglist = NULL_TREE;
+  arglist = gfc_chainon_list (arglist, var);
+  arglist = chainon (arglist, args);
+  tmp = gfc_build_function_call (gfor_fndecl_string_repeat, arglist);
+  gfc_add_expr_to_block (&se->pre, tmp);
+
+  se->expr = var;
+  se->string_length = len;
+}
+
+
 /* Generate code for an intrinsic function.  Some map directly to library
    calls, others get special handling.  In some cases the name of the function
    used depends on the type specifiers.  */
@@ -2998,9 +3079,15 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       abort ();
 
     case GFC_ISYM_CSHIFT:
-    case GFC_ISYM_REPEAT:
-    case GFC_ISYM_TRIM:
       gfc_todo_error ("Intrinsic %s", expr->value.function.name);
+
+    case GFC_ISYM_REPEAT:
+      gfc_conv_intrinsic_repeat (se, expr);
+      break;
+
+    case GFC_ISYM_TRIM:
+      gfc_conv_intrinsic_trim (se, expr);
+      break;
 
     case GFC_ISYM_SI_KIND:
       gfc_conv_intrinsic_si_kind (se, expr);

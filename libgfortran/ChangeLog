@@ -1,3 +1,8 @@
+2003-10-11  Huang Chun  <jiwang@mail.edu.cn>
+
+	* intrinsics/string_intrinsics.c (string_trim): New function.
+	(string_repeat): New function.
+
 2003-10-11  Paul Brook  <paul@nowt.org>
 
 	* intrinsics/dprod_r8.f90: New file.

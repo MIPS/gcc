@@ -64,6 +64,11 @@ GFC_INTEGER_4 string_scan (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
 GFC_INTEGER_4 string_verify (GFC_INTEGER_4, const char *, GFC_INTEGER_4,
                              const char *, GFC_LOGICAL_4);
 
+#define string_trim prefix(string_trim)
+void string_trim (GFC_INTEGER_4 *, void **, GFC_INTEGER_4, const char *);
+
+#define string_repeat prefix(string_repeat)
+void string_repeat (char *, GFC_INTEGER_4, const char *, GFC_INTEGER_4);
 
 /* The two areas may overlap so we use memmove.  */
 
@@ -157,6 +162,32 @@ concat_string (GFC_INTEGER_4 destlen, char * dest,
 
   memcpy (dest, s2, len2);
   memset (&dest[len2], ' ', destlen - len2);
+}
+
+
+/* Return string with all trailing blanks removed.  */
+
+void
+string_trim (GFC_INTEGER_4 * len, void ** dest, GFC_INTEGER_4 slen, const char * src)
+{
+  int i;
+
+  /* Determine length of result string.  */
+  for (i = slen - 1; i >= 0; i--)
+    {
+      if (src[i] != ' ')
+        break;
+    }
+  *len = i + 1;
+
+  if (*len > 0)
+    {
+      /* Allocate space for result string.  */
+      internal_malloc (dest, *len);
+
+      /* copy string if necessary.  */
+      memmove (*dest, src, *len);
+    }
 }
 
 
@@ -337,3 +368,27 @@ string_verify (GFC_INTEGER_4 slen, const char * str, GFC_INTEGER_4 setlen,
 
   return 0;
 }
+
+
+/* Concatenate several copies of a string.  */
+
+void
+string_repeat (char * dest, GFC_INTEGER_4 slen, 
+               const char * src, GFC_INTEGER_4 ncopies)
+{
+  int i;
+
+  /* See if ncopies is valid.  */
+  if (ncopies < 0)
+    {
+      /* The error is already reported.  */
+      runtime_error ("Augument NCOPIES is negative.");
+    }
+
+  /* Copy characters.  */
+  for (i = 0; i < ncopies; i++) 
+    {
+      memmove (dest + (i * slen), src, slen);
+    }
+}
+

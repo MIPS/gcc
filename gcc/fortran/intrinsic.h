@@ -90,6 +90,7 @@ try gfc_check_spread (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_sum (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_transfer (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_transpose (gfc_expr *);
+try gfc_check_trim (gfc_expr *);
 try gfc_check_ubound (gfc_expr *, gfc_expr *);
 try gfc_check_unpack (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_verify (gfc_expr *, gfc_expr *, gfc_expr *);
