@@ -1,3 +1,17 @@
+2005-01-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/i386/i386-protos.h (ix86_function_value): Accept two
+	arguments, like the target macro.
+	* config/i386/i386.h (FUNCTION_VALUE): Pass both arguments.
+	* config/i386/i386.c (ix86_function_value): Accept the second
+	argument of the target macro.
+	(ix86_function_ok_for_sibcall): Pass a function pointer to
+	ix86_function_value.
+	(ix86_function_value, ix86_libcall_value) [!TARGET_64BIT]: Adjust
+	call to ix86_value_regno).
+	(ix86_value_regno): Add support for returning floating point values
+	in SSE registers.
+
 2005-01-18  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/19406

@@ -1696,7 +1696,7 @@ enum reg_class
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
-   ix86_function_value (VALTYPE)
+   ix86_function_value (VALTYPE, FUNC)
 
 #define FUNCTION_VALUE_REGNO_P(N) \
   ix86_function_value_regno_p (N)
