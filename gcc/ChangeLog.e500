@@ -1,3 +1,7 @@
+2003-08-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/spe.md ("*nabssf2_gpr"): New.
+
 2003-08-11  Aldy Hernandez  <aldyh@redhat.com>
   
         * cp/call.c (standard_conversion): Opaque pointers interconvert.
