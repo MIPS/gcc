@@ -1969,12 +1969,20 @@ dump_block_info (buffer, bb, spc)
       output_add_string (buffer, ".  PRED:");
       for (e = bb->pred; e; e = e->pred_next)
 	if (e->src)
-	  output_formatted_scalar (buffer, " %d", e->src->index);
+	  {
+	    output_formatted_scalar (buffer, " %d", e->src->index);
+	    if (e->flags & EDGE_ABNORMAL)
+	      output_add_string (buffer, "(ab)");
+	  }
 
       output_add_string (buffer, ".  SUCC:");
       for (e = bb->succ; e; e = e->succ_next)
 	if (e->dest)
-	  output_formatted_scalar (buffer, " %d", e->dest->index);
+	  {
+	    output_formatted_scalar (buffer, " %d", e->dest->index);
+	    if (e->flags & EDGE_ABNORMAL)
+	      output_add_string (buffer, "(ab)");
+	  }
 
       output_add_character (buffer, '.');
 

@@ -1,3 +1,19 @@
+2003-06-16  Andrew Macleod  <amacleod@redhat.com>
+
+	* tree-cfg.c (find_insert_location): Check for control_altering stmts,
+	and abort if its an unrecognized BB ending stmt.
+	(bsi_commit_first_edge_insert): Rename to bsi_insert_on_edge_immediate,
+	externalize, and change the interface to an on-demand inserter.
+	(bsi_commit_edge_inserts): Call bsi_insert_on_edge_immediate().
+	* tree-flow.h (bsi_insert_on_edge_immediate): Prototype.
+	* tree-pretty-print.c (dump_block_info): Add 'ab' for abnormal edges.
+	* tree-ssa-dce.c (process_worklist): Use sparse bitmaps.
+	* tree-ssa-live.c (calculate_live_on_entry): Abort if ssa_name has a
+	definition, but is also live on entry.
+	* tree-ssa.c (coalesce_ssa_name): Call abort() instead of error(), and
+	provide more detailed info.
+	(rewrite_out_of_ssa): Provide CFG dumps before and after rewritting.
+
 2003-06-16  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mf_mark): Use GC-compatible htab_create_ggc.

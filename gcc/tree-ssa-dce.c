@@ -318,12 +318,10 @@ process_worklist (void)
   basic_block bb;
   tree i, j;
   edge e;
-  sbitmap cond_checked, goto_checked;
+  bitmap cond_checked, goto_checked;
 
-  cond_checked = sbitmap_alloc (n_basic_blocks);
-  goto_checked = sbitmap_alloc (n_basic_blocks);
-  sbitmap_zero (cond_checked);
-  sbitmap_zero (goto_checked);
+  cond_checked = BITMAP_XMALLOC ();
+  goto_checked = BITMAP_XMALLOC ();
 
   while (VARRAY_ACTIVE_SIZE (worklist) > 0)
     {
@@ -342,9 +340,9 @@ process_worklist (void)
 	 as necessary since it is control flow.  A block's predecessors only
 	 need to be checked once.  */
       bb = bb_for_stmt (i);
-      if (bb && !TEST_BIT (goto_checked, bb->index))
+      if (bb && !bitmap_bit_p (goto_checked, bb->index))
         {
-	  SET_BIT (goto_checked, bb->index);
+	  bitmap_set_bit (goto_checked, bb->index);
 	  for (e = bb->pred; e != NULL; e = e->pred_next)
 	    {
 	      basic_block p = e->src;
@@ -371,9 +369,9 @@ process_worklist (void)
 	     This only needs to be done once per block.  */
 
 	  k = bb_for_stmt (i)->index;
-	  if (!TEST_BIT (cond_checked, k))
+	  if (!bitmap_bit_p (cond_checked, k))
 	    {
-	      SET_BIT (cond_checked, k);
+	      bitmap_set_bit (cond_checked, k);
 	      for (e = bb->pred; e; e = e->pred_next)
 		{
 		  basic_block pred, par;
@@ -430,8 +428,8 @@ process_worklist (void)
 	    }
 	}
     }
-  sbitmap_free (cond_checked);
-  sbitmap_free (goto_checked);
+  BITMAP_XFREE (cond_checked);
+  BITMAP_XFREE (goto_checked);
 }
 
 

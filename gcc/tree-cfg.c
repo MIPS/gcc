@@ -139,7 +139,6 @@ static inline void bsi_update_from_tsi
 		(block_stmt_iterator *, tree_stmt_iterator);
 static tree_stmt_iterator bsi_link_after
 		(tree_stmt_iterator *, tree, basic_block, tree);
-static block_stmt_iterator bsi_commit_first_edge_insert (edge, tree);
 
 /* Values returned by location parameter of find_insert_location.  */
 
@@ -3566,7 +3565,7 @@ bsi_insert_before (block_stmt_iterator *curr_bsi, tree t,
    edges to be redirected.  
 
    Note that upon entry to this function, src is *not* the switch stmt's block
-   any more. commit_one_edge_insertion() has already split the edge from
+   any more. bsi_insert_on_edge_immediate() has already split the edge from
    src->dest, so we have   original_src -> src -> dest. This new src block 
    is currently empty. 
    
@@ -3795,8 +3794,19 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
 	    break;
 
 	  default:
-	    ret = dest->head_tree_p;
-	    break;
+	    if (is_ctrl_altering_stmt (stmt))
+	      {
+	        /* The block ends in a CALL or something else which likely has
+		   abnormal edges.  In that case, we simple create a new block
+		   right after this one, and then fall through to the 
+		   destination  block.  */
+		ret = handle_switch_split (new_block, dest);
+		*location = EDGE_INSERT_LOCATION_AFTER;
+		break;
+	      }
+
+	    /* All cases ought to have been covered by now.  */
+	    abort ();
 	}
     }
   else
@@ -3808,10 +3818,16 @@ find_insert_location (basic_block src, basic_block dest, basic_block new_block,
 /* This routine inserts a stmt on an edge. Every attempt is made to place the
    stmt in an existing basic block, but sometimes that isn't possible.  When
    it isn't possible, a new basic block is created, edges updated, and the 
-   stmt is added to the new block.  An iterator to the new stmt is returned.  */
+   stmt is added to the new block.  An iterator to the new stmt is returned.
+   If a pointer to a BSI is passed in, and the stmt is inserted before or after
+   an existing stmt in a block, old_bsi will be returned with an iterator for
+   that stmt (The equivilent of BSI_SAME_STMT on an insert_before or after.
+   If a created_block is passed in, and the edge is split, the new block is
+   returned through this parameter.  */
 
-static block_stmt_iterator 
-bsi_commit_first_edge_insert (edge e, tree stmt)
+block_stmt_iterator 
+bsi_insert_on_edge_immediate (edge e, tree stmt, block_stmt_iterator *old_bsi,
+			      basic_block *created_block)
 {
   basic_block src, dest, new_bb;
   block_stmt_iterator bsi, tmp;
@@ -3822,12 +3838,21 @@ bsi_commit_first_edge_insert (edge e, tree stmt)
   bb_ann_t ann;
   edge e2;
 
+  if (old_bsi)
+    old_bsi->tp = (tree *)NULL;
+  if (created_block)
+    *created_block = (basic_block)NULL;
+
   first = last = NULL_TREE;
   src = e->src;
   dest = e->dest;
 
   /* Cannot insert on an abnormal edge.  */
   if (e->flags & EDGE_ABNORMAL)
+    abort ();
+
+  /* No immediate edge insertion if there are already pending inserts.  */
+  if (PENDING_STMT (e))
     abort ();
 
   num_exit = num_entry = 0;
@@ -3851,27 +3876,35 @@ bsi_commit_first_edge_insert (edge e, tree stmt)
       /* If it is an empty block, simply insert after this bsi, and the new stmt
 	 will become the only stmt in the block.  */
       if (bsi_end_p (bsi))
-        {
-	  bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-	  return bsi;
-        }
-
-      last = bsi_stmt (bsi);
-
-      /* If the last stmt isn't a control altering stmt, then we can simply
-         append this stmt to the basic block. This should mean the edge is
-	 a fallthrough edge.  */
-
-      if (!is_ctrl_stmt (last) && !is_ctrl_altering_stmt (last))
 	{
 	  bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
 	  return bsi;
 	}
 
+      last = bsi_stmt (bsi);
+
+      /* If the last stmt isn't a control altering stmt, then we can simply
+	 append this stmt to the basic block. This should mean the edge is
+	 a fallthrough edge.  */
+
+      if (!is_ctrl_stmt (last) && !is_ctrl_altering_stmt (last))
+	{
+	  bsi_insert_after (&bsi, stmt, BSI_SAME_STMT);
+	  if (old_bsi)
+	    *old_bsi = bsi;
+	  bsi_next (&bsi);
+	  return bsi;
+	}
+
       /* If the last stmt is a GOTO, the we can simply insert before it.  */
       if (TREE_CODE (last) == GOTO_EXPR || TREE_CODE (last) == LOOP_EXPR)
-        {
+	{
 	  bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+	  if (old_bsi)
+	    {
+	      *old_bsi = bsi;
+	      bsi_next (old_bsi);
+	    }
 	  return bsi;
 	}
     }
@@ -3885,16 +3918,21 @@ bsi_commit_first_edge_insert (edge e, tree stmt)
       /* If it is an empty block, simply insert after this bsi, and the new stmt
 	 will become the only stmt in the block.  */
       if (bsi_end_p (bsi))
-        {
+	{
 	  bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
 	  return bsi;
-        }
+	}
 
       /* If the first stmt isnt a label, insert before it.  */
       first = bsi_stmt (bsi);
       if (!is_label_stmt (first))
-        {
+	{
 	  bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+	  if (old_bsi)
+	    {
+	      *old_bsi = bsi;
+	      bsi_next (old_bsi);
+	    }
 	  return bsi;
 	}
 
@@ -3904,14 +3942,22 @@ bsi_commit_first_edge_insert (edge e, tree stmt)
 	  if (!is_label_stmt (bsi_stmt (bsi)))
 	    {
 	      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
+	      if (old_bsi)
+		{
+		  *old_bsi = bsi;
+		  bsi_next (old_bsi);
+		}
 	      return bsi;
 	    }
 	  tmp = bsi;
 	}
-        
+
       /* If this point is reached, then the block consists of nothing but 
 	 labels, and tmp points to the last one. Insert after it.  */
-      bsi_insert_after (&tmp, stmt, BSI_NEW_STMT);
+      bsi_insert_after (&tmp, stmt, BSI_SAME_STMT);
+      if (old_bsi)
+	*old_bsi = tmp;
+      bsi_next (&tmp);
       return tmp;
     }
 
@@ -3921,6 +3967,9 @@ bsi_commit_first_edge_insert (edge e, tree stmt)
   ann->phi_nodes = NULL_TREE;
   ann->ephi_nodes = NULL_TREE;
   ann->dom_children = (bitmap) NULL;
+
+  if (created_block)
+    *created_block = new_bb;
 
   tsi = find_insert_location (src, dest, new_bb, &location);
   parent = parent_stmt (tsi_stmt (tsi));
@@ -4010,7 +4059,7 @@ bsi_commit_edge_inserts (int update_annotations, int *new_blocks)
 	    SET_PENDING_STMT (e, NULL_TREE);
 	    next_stmt = TREE_CHAIN (stmt);
 	    /* The first insert will create a new basic block if needed.  */
-	    ret = bsi = bsi_commit_first_edge_insert (e, stmt);
+	    ret = bsi = bsi_insert_on_edge_immediate (e, stmt, NULL, NULL);
 	    count++;
 	    stmt = next_stmt;
 	    for ( ; stmt; stmt = next_stmt)

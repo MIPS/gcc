@@ -545,6 +545,27 @@ calculate_live_on_entry (var_map map)
       live_worklist (live, stack, i);
     });
 
+#ifdef ENABLE_CHECKING
+   /* Check for live on entry partitions and report those with a DEF in
+      the program. This will typically mean an optimization has done
+      something wrong.  */
+  for (num=0, i = 0; i < num_var_partitions (map); i++)
+    {
+      if (TEST_BIT (live_entry_blocks (live, i), 0))
+        {
+	  var = partition_to_var (map, i);
+	  if (!IS_EMPTY_STMT (SSA_NAME_DEF_STMT (var)))
+	    {
+	      num++;
+	      print_generic_expr (stderr, var, TDF_SLIM);
+	      fprintf (stderr, " is defined, but is also live on entry.");
+	    }
+	}
+    }
+  if (num > 0)
+    abort ();
+#endif
+
   return live;
 }
 

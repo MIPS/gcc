@@ -1365,7 +1365,16 @@ coalesce_ssa_name (var_map map)
 		   a copy in the DEST block instead, and use it in the 
 		   PHI node. Adding a new partition/version at this point
 		   is really a bad idea, so for now, PUNT!.  */
-		error ("Different root vars across an abnormal edge\n");
+		fprintf (stderr, "\nDifferent root vars '\n");
+		print_generic_expr (stderr, 
+				    root_var (rv, find_root_var (rv, x)),
+				    TDF_SLIM);
+		fprintf (stderr, "' and '");
+		print_generic_expr (stderr, 
+				    root_var (rv, find_root_var (rv, y)),
+				    TDF_SLIM);
+		fprintf (stderr, "' across an abnormal edge\n");
+		abort ();
 	      }
 
 	    if (x != y)
@@ -1392,7 +1401,18 @@ coalesce_ssa_name (var_map map)
 		    conflict_graph_merge_regs (graph, x, y);
 		  }
 		else
-		  error ("Vars Conflict across an abnormal edge\n");
+		  {
+		    fprintf (stderr, "\n");
+		    print_generic_expr (stderr, 
+					partition_to_var (map, x), 
+					TDF_SLIM);
+		    fprintf (stderr, " and ");
+		    print_generic_expr (stderr, 
+					partition_to_var (map, y), 
+					TDF_SLIM);
+		    fprintf (stderr, " conflict across an abnormal edge\n");
+		    abort ();
+		  }
 	      }
 	  }
 
@@ -1560,6 +1580,9 @@ rewrite_out_of_ssa (tree fndecl)
 
   tree_ssa_dump_file = dump_begin (TDI_optimized, &tree_ssa_dump_flags);
 
+  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    dump_tree_cfg (tree_ssa_dump_file, tree_ssa_dump_flags & ~TDF_DETAILS);
+
   map = create_ssa_var_map ();
 
   /* Shrink the map to include only referenced variables.  Exclude variables
@@ -1651,6 +1674,9 @@ rewrite_out_of_ssa (tree fndecl)
 
   /* If any copies were inserted on edges, actually insert them now.  */
   bsi_commit_edge_inserts (0, NULL);
+
+  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    dump_tree_cfg (tree_ssa_dump_file, tree_ssa_dump_flags & ~TDF_DETAILS);
 
   /* Do some cleanups which reduce the amount of data the
      tree->rtl expanders deal with.  */

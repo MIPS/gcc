@@ -337,6 +337,9 @@ extern void bsi_insert_before	PARAMS ((block_stmt_iterator *, tree, enum bsi_ite
 extern void bsi_insert_after	PARAMS ((block_stmt_iterator *, tree, enum bsi_iterator_update));
 extern void bsi_insert_on_edge	PARAMS ((edge, tree));
 extern int bsi_commit_edge_inserts	PARAMS ((int, int *));
+extern block_stmt_iterator bsi_insert_on_edge_immediate	
+		PARAMS ((edge, tree, block_stmt_iterator *, basic_block *));
+
 extern void bsi_replace		PARAMS ((block_stmt_iterator, tree));
 
 /* Stmt list insertion routines.  */
