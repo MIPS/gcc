@@ -1,3 +1,9 @@
+2003-10-22  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow-inline.h (add_dom_child): XMALLOC, not GGC_ALLOC, 
+	the bitmap.
+	(clear_dom_children): XFREE the bitmap.
+
 2003-10-22  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-live.c (new_tree_live_info, (delete_tree_live_info, 
