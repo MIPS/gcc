@@ -83,7 +83,6 @@ struct GTY(()) def_blocks_d
   tree var;
   bitmap def_blocks;
   bitmap livein_blocks;
-  bitmap phi_insertion_points;
 };
 
 /* Hash table to store the current reaching definition for every variable in
@@ -149,16 +148,15 @@ static void rewrite_add_phi_arguments (struct dom_walk_data *,
 				       basic_block, tree);
 static void delete_tree_ssa (tree);
 static void mark_def_sites (sbitmap);
-static void compute_global_livein (varray_type);
+static void compute_global_livein (bitmap, bitmap);
 static void set_def_block (tree, basic_block);
 static void set_livein_block (tree, basic_block);
 static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *, sbitmap);
-static void insert_phis_for_deferred_variables (varray_type);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *);
 static void register_new_def (tree, tree, varray_type *);
-static void insert_phi_nodes_for (tree, bitmap *, varray_type);
+static void insert_phi_nodes_for (tree, bitmap *);
 static tree remove_annotations_r (tree *, int *, void *);
 static tree get_reaching_def (tree);
 static tree get_value_for (tree, htab_t);
@@ -323,10 +321,22 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   globals = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (globals);
 
-  /* Initialize dominance frontier and immediate dominator bitmaps.  */
+  /* Initialize dominance frontier and immediate dominator bitmaps. 
+
+     Also count the number of predecessors for each block.  Doing so
+     can save significant time during PHI insertion for large graphs.  */
   dfs = (bitmap *) xmalloc (n_basic_blocks * sizeof (bitmap *));
   FOR_EACH_BB (bb)
-    dfs[bb->index] = BITMAP_XMALLOC ();
+    {
+      edge e;
+      int count = 0;
+
+      for (e = bb->pred; e; e = e->pred_next)
+	count++;
+
+      bb_ann (bb)->num_preds = count;
+      dfs[bb->index] = BITMAP_XMALLOC ();
+    }
 
   /* Compute immediate dominators, dominance frontiers and the dominator
      tree.  FIXME: DFS and dominator tree information should be cached.
@@ -410,46 +420,26 @@ build_dominator_tree (dominance_info idom)
     }
 }
 
-/* Compute global livein information for one or more objects.
-
-   DEF_BLOCKS is a varray of struct def_blocks_d pointers, one for
-   each object of interest.
-
-   Each of the struct def_blocks_d entries points to a set of
-   blocks where the variable is locally live at the start of
-   a block and the set of blocks where the variable is defined.
+/* Compute global livein information given the set of blockx where
+   an object is locally live at the start of the block (LIVEIN)
+   and the set of blocks where the object is defined (DEF_BLOCKS).
 
    Note: This routine augments the existing local livein information
-   to include global livein.  Ie, it modifies the underlying LIVEIN
-   bitmap for each object. 
-
-   We can get great speedups by performing life analysis for several
-   objects in parallel, but this design also allows for per-variable
-   life computation by having a varray with a single element.  */
+   to include global livein.  Ie, it modifies the underlying bitmap
+   for LIVEIN.  */
 
 static void
-compute_global_livein (varray_type def_maps)
+compute_global_livein (bitmap livein, bitmap def_blocks)
 {
   basic_block bb, *worklist, *tos;
-  bitmap in_worklist = BITMAP_XMALLOC ();
-  struct def_blocks_d *def_map;
-  unsigned int n_elements = VARRAY_ACTIVE_SIZE (def_maps);
-  unsigned int i;
 
   tos = worklist
     = (basic_block *) xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
 
-  /* Build a bitmap of all the blocks which belong in the worklist.  */
-  for (i = 0; i < n_elements; i++)
-    {
-      def_map = VARRAY_GENERIC_PTR (def_maps, i);
-      bitmap_a_or_b (in_worklist, in_worklist, def_map->livein_blocks);
-    }
-    
-  /* Initialize the worklist itself.  */
+  /* Initialize the worklist.  */
   FOR_EACH_BB (bb)
     {
-      if (bitmap_bit_p (in_worklist, bb->index))
+      if (bitmap_bit_p (livein, bb->index))
 	*tos++ = bb;
     }
 
@@ -460,46 +450,25 @@ compute_global_livein (varray_type def_maps)
 
       /* Pull a block off the worklist.  */
       bb = *--tos;
-      bitmap_clear_bit (in_worklist, bb->index);
 
-      for (i = 0; i < n_elements; i++)
+      /* For each predecessor block.  */
+      for (e = bb->pred; e; e = e->pred_next)
 	{
-	  def_map = VARRAY_GENERIC_PTR (def_maps, i);
+	  basic_block pred = e->src;
+	  int pred_index = pred->index;
 
-	  /* If its not live into this block, don't look at it any further. */
-	  if (!bitmap_bit_p (def_map->livein_blocks, bb->index))
-	    continue;
-
-	  /* For each predecessor block.  */
-	  for (e = bb->pred; e; e = e->pred_next)
+	  /* None of this is necessary for the entry block.  */
+	  if (pred != ENTRY_BLOCK_PTR
+	      && ! bitmap_bit_p (livein, pred_index)
+	      && ! bitmap_bit_p (def_blocks, pred_index))
 	    {
-	      basic_block pred = e->src;
-	      int pred_index = pred->index;
-
-	      /* None of this is necessary for the entry block.  */
-	      if (pred != ENTRY_BLOCK_PTR)
-		{
-		  /* Update livein_blocks for each element in the 
-		     def_maps vector.  */
-		    if (! bitmap_bit_p (def_map->livein_blocks, pred_index)
-			&& ! bitmap_bit_p (def_map->def_blocks, pred_index))
-		      {
-			bitmap_set_bit (def_map->livein_blocks, pred_index);
-
-			/* If this block is not in the worklist, then add
-			   it to the worklist.  */
-			if (! bitmap_bit_p (in_worklist, pred_index))
-			  {
-			    *tos++ = pred;
-			    bitmap_set_bit (in_worklist, pred_index);
-			  }
-		      }
-	        }
+	      *tos++ = pred;
+	      bitmap_set_bit (livein, pred_index);
 	    }
 	}
     }
+
   free (worklist);
-  BITMAP_XFREE (in_worklist);
 }
 
 /* Collect definition sites for every variable in the function.
@@ -696,11 +665,8 @@ static void
 insert_phi_nodes (bitmap *dfs, sbitmap globals)
 {
   size_t i;
-  varray_type def_maps;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
-
-  VARRAY_GENERIC_PTR_INIT (def_maps, HOST_BITS_PER_WIDE_INT, "def_maps");
 
   /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
      an assignment or PHI node will be pushed to this stack.  */
@@ -715,19 +681,11 @@ insert_phi_nodes (bitmap *dfs, sbitmap globals)
       tree var = referenced_var (i);
       var_ann_t ann = var_ann (var);
 
-      /* If we have queued enough variables, then drain the queue.  */
-      if (VARRAY_ACTIVE_SIZE (def_maps) == HOST_BITS_PER_WIDE_INT)
-	insert_phis_for_deferred_variables (def_maps);
-
       if (TEST_BIT (globals, ann->uid))
-	insert_phi_nodes_for (var, dfs, def_maps);
+	insert_phi_nodes_for (var, dfs);
     });
 
-  if (VARRAY_ACTIVE_SIZE (def_maps) != 0)
-    insert_phis_for_deferred_variables (def_maps);
-
   work_stack = NULL;
-  def_maps = NULL;
   timevar_pop (TV_TREE_INSERT_PHI_NODES);
 }
 
@@ -837,9 +795,9 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	{
 	  tree currdef;
 
-	  /* Ignore PHI nodes that have already been renamed.  */
-	  if (!TEST_BIT (vars_to_rename,
-			 var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->uid))
+	  /* If this PHI node has already been rewritten, then there is
+	     nothing to do.  */
+	  if (PHI_REWRITTEN (phi))
 	    continue;
 
 	  currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
@@ -1905,58 +1863,15 @@ htab_statistics (FILE *file, htab_t htab)
 		  Helpers for the main SSA building functions
 ---------------------------------------------------------------------------*/
 
-/* When using fully pruned SSA form we need to compute global life
-   information for each object using fully pruned SSA form.
-
-   For large CFGs with many variable performing a per-object global
-   life analysis can be extremely expensive.  So instead we queue
-   objects so that we can compute life information for several in
-   parallel.
-
-   This routine drains the queue of deferred objects and inserts
-   PHI nodes for those objects.   The queue of objects is DEF_MAPS,
-   a virtual array of struct def_blocks_d pointers, one for each
-   object.  */
-
-static void
-insert_phis_for_deferred_variables (varray_type def_maps)
-{
-  unsigned int i;
-  unsigned int num_elements;
-
-  /* Compute global life information for the variables we have deferred.  */
-  compute_global_livein (def_maps);
-
-  /* Now insert PHIs for each of the deferred variables.  */
-  num_elements = VARRAY_ACTIVE_SIZE (def_maps);
-  for (i = 0; i < num_elements; i++)
-    {
-      /* Pop an element off the list and restore enough state
-	 so that we can insert its PHI nodes.  */
-      struct def_blocks_d *def_map = VARRAY_GENERIC_PTR (def_maps, i);
-      tree var = def_map->var;
-      bitmap phi_insertion_points = def_map->phi_insertion_points;
-      unsigned bb_index;
-
-      VARRAY_POP (def_maps);
-      EXECUTE_IF_SET_IN_BITMAP (phi_insertion_points, 0, bb_index,
-	{
-	  if (bitmap_bit_p (def_map->livein_blocks, bb_index))
-	    create_phi_node (var, BASIC_BLOCK (bb_index));
-	});
-
-      def_map->phi_insertion_points = NULL;
-    }
-}
-
 /* Insert PHI nodes for variable VAR.  */
 
 static void
-insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
+insert_phi_nodes_for (tree var, bitmap *dfs)
 {
   struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
   unsigned phi_vector_lengths = 0;
+  int use_fully_pruned_ssa = 0;
   int bb_index;
 
   def_map = get_def_blocks_for (var);
@@ -1986,7 +1901,6 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
      heuristic.  */
   while (VARRAY_ACTIVE_SIZE (work_stack) > 0)
     {
-      edge e;
       basic_block bb = VARRAY_TOP_BB (work_stack);
       int bb_index = bb->index;
 
@@ -1998,8 +1912,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
 
 	  if (! bitmap_bit_p (phi_insertion_points, bb_index))
 	    {
-	      for (e = bb->pred; e; e = e->pred_next)
-		phi_vector_lengths++;
+	      phi_vector_lengths += bb_ann (bb)->num_preds;
 	      VARRAY_PUSH_BB (work_stack, bb);
 	      bitmap_set_bit (phi_insertion_points, bb_index);
 	    }
@@ -2024,21 +1937,19 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
      as the testcase for the compiler running wild eating memory.  */
   if (phi_vector_lengths > 64)
     {
-      /* Save away enough information so that we can defer PHI
-	 insertion for this variable.  */
-      def_map->phi_insertion_points = phi_insertion_points;
-      VARRAY_PUSH_GENERIC_PTR (def_maps, def_map);
-      return;
+      use_fully_pruned_ssa = 1;
+      compute_global_livein (def_map->livein_blocks, def_map->def_blocks);
     }
 
   EXECUTE_IF_SET_IN_BITMAP (phi_insertion_points, 0, bb_index,
     {
-      create_phi_node (var, BASIC_BLOCK (bb_index));
+      if (! use_fully_pruned_ssa
+	  || bitmap_bit_p (def_map->livein_blocks, bb_index))
+	create_phi_node (var, BASIC_BLOCK (bb_index));
     });
 
   phi_insertion_points = NULL;
 }
-
 
 /* Rewrite statement pointed by iterator SI into SSA form. 
 

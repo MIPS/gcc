@@ -945,13 +945,12 @@ create_phi_node (tree var, basic_block bb)
 {
   tree phi;
   bb_ann_t ann;
-  int len;
-  edge e;
 
-  for (len = 0, e = bb->pred; e; e = e->pred_next)
-    len++;
+  phi = make_phi_node (var, bb_ann (bb)->num_preds);
 
-  phi = make_phi_node (var, len);
+  /* This is a new phi node, so note that is has not yet been
+     rewritten. */
+  PHI_REWRITTEN (phi) = 0;
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   ann = bb_ann (bb);
@@ -1123,6 +1122,11 @@ remove_all_phi_nodes_for (sbitmap vars)
 	  /* Only add PHI nodes for variables not in VARS.  */
 	  if (!TEST_BIT (vars, var_ann (var)->uid))
 	    {
+	      /* If we're not removing this PHI node, then it must have
+		 been rewritten by a previous call into the SSA rewriter.
+		 Note that fact in PHI_REWRITTEN.  */
+	      PHI_REWRITTEN (phi) = 1;
+
 	      if (new_phi_list == NULL_TREE)
 		new_phi_list = last_phi = phi;
 	      else

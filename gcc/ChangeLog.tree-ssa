@@ -1,3 +1,33 @@
+2003-10-16  Jeff Law  <law@redhat.com>
+
+	* tree-dfa.c (create_phi_node):  Clear PHI_REWRITTEN on all new PHIs
+	(remove_all_phi_nodes_for): Set PHI_REWRITTEN on any PHIs which are
+	not removed.
+	* tree-ssa.c (rewrite_add_phi_arguments): Check the PHI node itself
+	to see if it has already been rewritten.
+	* tree.h (PHI_REWRITTEN): New accessor macro.
+	(struct phi_node): New field rewritten.
+ 
+	* tree-flow.h (struct bb_ann_d): New field num_preds.
+	* tree-dfa.c (create_phi_node): Get the number of predecessors from
+	the block's annotation.
+	* tree-ssa.c (rewrite_into_ssa): Compute number of preds for each
+	block and store it into the block's annotation.
+	(insert_phi_nodes_for): Get the number of preds for each block
+	from the block's annotation.
+
+	* tree-ssa.c: Remove parallel lifetime analysis code from April 2003.
+	(def_blocks_d): Remove PHI_INSERTION_POINTS field.
+	(compute_global_livein): Accept livein/def bitmaps to use for
+	life analyis rather than a varray of variables.  Callers updated.
+	Rewritten to compute life information for one variable at a
+	time instead of several variables at once.
+	(insert_phis_for_deferred_variables): Remove.
+	(insert_phi_nodes_for): Lose varray argument.  Callers updated.
+	No longer mess with deferring PHI insertions for variables.
+	(insert_phi_nodes): No longer need to deal with deferred variables.
+	Kill everything related to them.
+
 2003-10-15  Jeff Law  <law@redhat.com>
 
 	* domwalk.c, domwalk.h: New files.

@@ -1027,6 +1027,10 @@ struct tree_ssa_name GTY(())
 
 /* In a PHI_NODE node.  */
 #define PHI_RESULT(NODE)	PHI_NODE_CHECK (NODE)->phi.result
+
+/* Nonzero if the PHI node was rewritten by a previous pass through the
+   SSA renamer.  */
+#define PHI_REWRITTEN(NODE)	PHI_NODE_CHECK (NODE)->phi.rewritten
 #define PHI_NUM_ARGS(NODE)	PHI_NODE_CHECK (NODE)->phi.num_args
 #define PHI_ARG_CAPACITY(NODE)	PHI_NODE_CHECK (NODE)->phi.capacity
 #define PHI_ARG_ELT(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I)
@@ -1047,6 +1051,11 @@ struct tree_phi_node GTY(())
   tree result;
   int num_args;
   int capacity;
+
+  /* Nonzero if the PHI node was rewritten by a previous pass through the
+     SSA renamer.  */
+  int rewritten;
+
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
 

@@ -306,6 +306,10 @@ struct bb_ann_d
   /* EUSE/ELEFT/EKILL/EPHI nodes created in this block.  */
   varray_type erefs;
 
+  /* Number of predecessors for this block.  This is only valid during
+     SSA rewriting.  It is not maintained after conversion into SSA form.  */
+  int num_preds;
+
   /* Set of blocks immediately dominated by this node.  */
   bitmap dom_children;
 };
