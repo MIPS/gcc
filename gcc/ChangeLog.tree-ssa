@@ -1,3 +1,8 @@
+2003-12-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-dfa.c (get_memory_tag_for): Don't put things with different
+	points-to sets in the same memory tag.
+	
 2003-12-18  Jan Hubicka  <jh@suse.cz>
 
 	* c-common.c (handle_nonnull_attribute, check_function_nonnull):
