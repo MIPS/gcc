@@ -1,3 +1,90 @@
+2003-03-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_select_rtx_section): Add align
+	argument.  Call mergeable_constant_section instead of const_section.
+	(rs6000_select_section): Add align argument.  Put __thread vars
+	into .tdata/.tbss.  Put constants into mergeable sections where
+	appropriate.
+	(rs6000_unique_section): Put __thread vars into .tdata/.tbss resp.
+	.gnu.linkonce.td./.gnu.linkonce.tb.
+	* config/rs6000/rs6000-protos.h (rs6000_select_section,
+	rs6000_select_rtx_section): Add align argument.
+	* config/rs6000/sysv4.h (SELECT_RTX_SECTION): Pass ALIGN down to
+	rs6000_select_rtx_section.
+	(SELECT_SECTION): Pass ALIGN down to rs6000_select_section.
+
+2003-03-25  Janis Johnson  <janis187@us.ibm.com>
+	    Alan Modra  <amodra@bigpond.net.au>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/linux64.h (ASM_OUTPUT_LABELREF): Handle TLS symbols.
+	* config/rs6000/rs6000-protos.h (rs6000_tls_referenced_p,
+	rs6000_tls_symbol_ref): New prototypes.
+	* config/rs6000/rs6000.c (rs6000_tls_size, rs6000_tls_size_string):
+	New.
+	(TARGET_HAVE_TLS, TARGET_CANNOT_FORCE_CONST_MEM): Define.
+	(rs6000_override_options): Call rs6000_parse_tls_size_option.
+	(rs6000_parse_tls_size_option): New.
+	(constant_pool_expr_1): Return 0 if tls_symbolic_operand_type.
+	(rs6000_legitimize_address): Call legitimize_tls_address for TLS
+	addresses.
+	(rs6000_tls_get_addr, rs6000_got_sym, legitimize_tls_address,
+	tls_symbolic_operand_type, rs6000_tls_symbol_ref,
+	rs6000_tls_referenced_p, rs6000_tls_symbol_ref_1): New functions.
+	(rs6000_legitimate_address): Return 0 if tls_symbolic_operand_type.
+	(rs6000_emit_move): Call legitimize_tls_address for TLS SYMBOL_REFs.
+	(get_some_local_dynamic_name, get_some_local_dynamic_name_1): New
+	function.
+	(print_operand): Handle '&'.
+	(rs6000_encode_section_info): Call encode_tls_info for __thread
+	variables.
+	(encode_tls_info): New function.
+	* config/rs6000/rs6000.h (HAVE_AS_TLS): Define to 0 if not already
+	defined.
+	(struct machine_function): Add some_ld_name.
+	(LEGITIMATE_CONSTANT_P): Return 0 if rs6000_tls_referenced_p.
+	(PRINT_OPERAND_PUNCT_VALID_P): Make '&' valid.
+	(PREDICATE_CODES): Add rs6000_tls_symbol_ref.
+	(uses_TOC): Look for UNSPEC_TOC inside of USE.
+	* config/rs6000/rs6000.md (UNSPEC_FRSP, UNSPEC_TIE, UNSPEC_TOCPTR,
+	UNSPEC_TOC, UNSPEC_MOVSI_GOT, UNSPEC_FCTIWZ, UNSPEC_MOVESI_FROM_CR,
+	UNSPEC_MOVESI_TO_CR, UNSPEC_TLSGD, UNSPEC_TLSLD, UNSPEC_TLSDTPREL,
+	UNSPEC_TLSDTPRELHA, UNSPEC_TLSDTPRELLO, UNSPEC_TLSGOTDTPREL,
+	UNSPEC_TLSTPREL, UNSPEC_TLSTPRELHA, UNSPEC_TLSTPRELLO,
+	UNSPEC_TLSGOTTPREL, UNSPEC_TLSTLS): New.
+	(UNSPECV_BLOCK, UNSPECV_EH_RR): New constants.
+	(tls_gd_32, tls_gd_64, tls_ld_32, tls_ld_64, tls_dtprel_32,
+	tls_dtprel_64, tls_dtprel_ha_32, tls_dtprel_ha_64, tls_dtprel_lo_32,
+	tls_dtprel_lo_64, tls_got_dtprel_32, tls_got_dtprel_64, tls_tprel_32,
+	tls_tprel_64, tls_tprel_ha_32, tls_tprel_ha_64, tls_tprel_lo_32,
+	tls_tprel_lo_64, tls_got_tprel_32, tls_got_tprel_64, tls_tls_32,
+	tls_tls_64): New patterns.
+	(load_toc_v4_PIC_1): Add USE around UNSPEC.
+	(load_toc_v4_PIC_1b): Likewise.  Correct assembly to match rtl.
+	* config/rs6000/sysv4.h (SUBTARGET_OPTIONS): Add -mtls-size.
+	* configure.in (HAVE_AS_TLS): Add powerpc and powerpc64 tests.
+	* configure: Rebuilt.
+
+2003-03-13  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_flag_pic): Delete.
+	(rs6000_binds_local_p, TARGET_BINDS_LOCAL_P): Remove.
+	(rs6000_override_options): Don't clear flag_pic for ABI_AIX.
+	(rs6000_emit_prologue <save_LR_around_toc_setup>): Test ABI_AIX as
+	well as flag_pic.
+	(rs6000_encode_section_info): Test !TARGET_AIX as well as ABI_AIX.
+	* config/rs6000/rs6000.h (LEGITIMATE_LO_SUM_ADDRESS_P): Test ABI_AIX
+	as well as flag_pic.
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Likewise.
+	* config/rs6000/linux64.h (ENCODE_SECTION_INFO): Remove.
+
+2002-10-30  David Edelsohn  <edelsohn@gnu.org>
+	    Torbjorn Granlund  <tege@swox.com>
+
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_1): Use preferred form
+	for addressibility.
+	(load_toc_v4_PIC_1b): Same.
+
 2002-10-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* toplev.c (rest_of_decl_compilation): Call of dwarf2out_decl for

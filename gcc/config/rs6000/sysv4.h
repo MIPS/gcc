@@ -81,12 +81,15 @@ extern enum rs6000_sdata_type rs6000_sdata;
 /* Strings provided by SUBTARGET_OPTIONS */
 extern const char *rs6000_abi_name;
 extern const char *rs6000_sdata_name;
+extern const char *rs6000_tls_size_string; /* For -mtls-size= */
 
 /* Override rs6000.h definition.  */
 #undef	SUBTARGET_OPTIONS
-#define	SUBTARGET_OPTIONS						\
-  { "call-",  &rs6000_abi_name, N_("Select ABI calling convention") },	\
-  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling") }
+#define	SUBTARGET_OPTIONS						    \
+  { "call-",  &rs6000_abi_name, N_("Select ABI calling convention") },      \
+  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling") }, \
+  { "tls-size=", &rs6000_tls_size_string,				    \
+   N_("Specify bit size of immediate TLS offsets") }
 
 /* Max # of bytes for variables to automatically be put into the .sdata
    or .sdata2 sections.  */
@@ -248,8 +251,9 @@ do {									\
 	     rs6000_sdata_name);					\
     }									\
 									\
-  else if (flag_pic &&							\
-	   (rs6000_sdata == SDATA_EABI || rs6000_sdata == SDATA_SYSV))	\
+  else if (flag_pic && DEFAULT_ABI != ABI_AIX				\
+	   && (rs6000_sdata == SDATA_EABI				\
+	       || rs6000_sdata == SDATA_SYSV))				\
     {									\
       rs6000_sdata = SDATA_DATA;					\
       error ("-f%s and -msdata=%s are incompatible",			\
@@ -291,7 +295,7 @@ do {									\
     }									\
 									\
   /* Treat -fPIC the same as -mrelocatable.  */				\
-  if (flag_pic > 1)							\
+  if (flag_pic > 1 && DEFAULT_ABI != ABI_AIX)				\
     target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC; \
 									\
   else if (TARGET_RELOCATABLE)						\
@@ -424,7 +428,8 @@ do {									\
 
 /* Put PC relative got entries in .got2.  */
 #define	MINIMAL_TOC_SECTION_ASM_OP \
-  ((TARGET_RELOCATABLE || flag_pic) ? "\t.section\t\".got2\",\"aw\"" : "\t.section\t\".got1\",\"aw\"")
+  (TARGET_RELOCATABLE || (flag_pic && DEFAULT_ABI != ABI_AIX)		\
+   ? "\t.section\t\".got2\",\"aw\"" : "\t.section\t\".got1\",\"aw\"")
 
 #define	SDATA_SECTION_ASM_OP "\t.section\t\".sdata\",\"aw\""
 #define	SDATA2_SECTION_ASM_OP "\t.section\t\".sdata2\",\"a\""
@@ -561,7 +566,8 @@ fini_section ()								\
 
 /* Override elfos.h definition.  */
 #undef	SELECT_RTX_SECTION
-#define	SELECT_RTX_SECTION(MODE, X, ALIGN) rs6000_select_rtx_section (MODE, X)
+#define	SELECT_RTX_SECTION(MODE, X, ALIGN) \
+  rs6000_select_rtx_section (MODE, X, ALIGN)
 
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
@@ -570,7 +576,8 @@ fini_section ()								\
 
 /* Override elfos.h definition.  */
 #undef	SELECT_SECTION
-#define	SELECT_SECTION(DECL, RELOC, ALIGN) rs6000_select_section (DECL, RELOC)
+#define	SELECT_SECTION(DECL, RELOC, ALIGN) \
+  rs6000_select_section (DECL, RELOC, ALIGN)
 
 /* A C statement to build up a unique section name, expressed as a
    STRING_CST node, and assign it to DECL_SECTION_NAME (decl).
@@ -856,11 +863,15 @@ extern int fixuplabelno;
 
 /* This macro gets just the user-specified name
    out of the string in a SYMBOL_REF.  Discard
-   a leading * or @.  */
+   a leading * or @ and %[GLil].  */
 #define	STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
 do {									\
   const char *_name = SYMBOL_NAME;					\
-  while (*_name == '*' || *_name == '@')				\
+  if (*_name == '@')							\
+    _name++;								\
+  else if (*_name == '%')						\
+    _name += 2;								\
+  if (*_name == '*')							\
     _name++;								\
   (VAR) = _name;							\
 } while (0)
@@ -873,6 +884,9 @@ do {									\
 #define	ASM_OUTPUT_LABELREF(FILE,NAME)		\
 do {						\
   const char *_name = NAME;			\
+  if (*_name == '%')				\
+    _name+=2;					\
+ 						\
   if (*_name == '@')				\
     _name++;					\
  						\
