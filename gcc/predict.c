@@ -934,6 +934,11 @@ tree_estimate_probability (void)
 
       for (e = bb->succ; e; e = e->succ_next)
 	{
+	  /* ??? Implementation of this predictor is partly broken.
+	     We should use high level prediction scheme here.  Also it has
+	     reversed hitrate until we implement NULL/CONST/NEGATIVE_RETURN
+	     heursitics.  */
+#if 0
 	  /* Predict early returns to be probable, as we've already taken
 	     care for error returns and other are often used for fast paths
 	     trought function.  */
@@ -945,6 +950,7 @@ tree_estimate_probability (void)
 	       && !predicted_by_p (bb, PRED_NEGATIVE_RETURN)
 	       && !last_basic_block_p (e->dest))
 	    predict_edge_def (e, PRED_EARLY_RETURN, TAKEN);
+#endif
 
 	  /* Look for block we are guarding (ie we dominate it,
 	     but it doesn't postdominate us).  */
