@@ -1,5 +1,10 @@
 2002-02-28  Sebastian Pop  <s.pop@laposte.net>
 
+	* tree-dfa.c (find_refs_in_stmt): Changed if/else statements in
+	a switch.
+
+2002-02-28  Sebastian Pop  <s.pop@laposte.net>
+
 	* c-simplify.c (simplify_if_stmt): Deleted.
 	(new_simplified_if): New function.
 	(make_type_writable): New function.

@@ -135,83 +135,82 @@ find_refs_in_stmt (t, bb)
     return;
 
   code = TREE_CODE (t);
-
-  if (code == EXPR_STMT)
-    find_refs_in_expr (EXPR_STMT_EXPR (t), VARUSE, bb, t, t);
-
-  /* The condition nodes for IF_STMT, SWITCH_STMT and WHILE_STMT are not
-     modeled in the flowgraph, so they need to be looked at separately.  */
-  else if (code == IF_STMT)
-    find_refs_in_expr (IF_COND (t), VARUSE, bb, t, t);
-
-  else if (code == SWITCH_STMT)
-    find_refs_in_expr (SWITCH_COND (t), VARUSE, bb, t, t);
-
-  else if (code == WHILE_STMT)
-    find_refs_in_expr (WHILE_COND (t), VARUSE, bb, t, t);
-
-  /* There is no need to check the children nodes for DO_STMTs and
-     FOR_STMTs, because they're in separate basic blocks.  */
-  else if (code == FOR_STMT)
-    ;				/* Nothing to do.  */
-
-  else if (code == DO_STMT)
-    ;				/* Nothing to do.  */
-
-  else if (code == ASM_STMT)
+  switch (code)
     {
+    case EXPR_STMT:
+      find_refs_in_expr (EXPR_STMT_EXPR (t), VARUSE, bb, t, t);
+      break;
+
+      /* The condition nodes for IF_STMT, SWITCH_STMT and WHILE_STMT are not
+	 modeled in the flowgraph, so they need to be looked at separately.  */
+    case IF_STMT:
+      find_refs_in_expr (IF_COND (t), VARUSE, bb, t, t);
+      break;
+      
+    case SWITCH_STMT:
+      find_refs_in_expr (SWITCH_COND (t), VARUSE, bb, t, t);
+      break;
+
+    case WHILE_STMT:
+      find_refs_in_expr (WHILE_COND (t), VARUSE, bb, t, t);
+      break;
+
+      /* There is no need to check the children nodes for DO_STMTs and
+	 FOR_STMTs, because they're in separate basic blocks.  */
+    case FOR_STMT:
+    case DO_STMT:
+      break;	                        /* Nothing to do.  */
+
+    case ASM_STMT:
       find_refs_in_expr (ASM_INPUTS (t), VARUSE, bb, t, t);
       find_refs_in_expr (ASM_OUTPUTS (t), VARDEF, bb, t, t);
       find_refs_in_expr (ASM_CLOBBERS (t), VARDEF, bb, t, t);
-    }
+      break;
 
-  else if (code == RETURN_STMT)
-    find_refs_in_expr (RETURN_EXPR (t), VARUSE, bb, t, t);
+    case RETURN_STMT:
+      find_refs_in_expr (RETURN_EXPR (t), VARUSE, bb, t, t);
+      break;
 
-  else if (code == GOTO_STMT)
-    find_refs_in_expr (GOTO_DESTINATION (t), VARUSE, bb, t, t);
+    case GOTO_STMT:
+      find_refs_in_expr (GOTO_DESTINATION (t), VARUSE, bb, t, t);
+      break;
 
-  else if (code == DECL_STMT)
-    {
+    case DECL_STMT:
       if (TREE_CODE (DECL_STMT_DECL (t)) == VAR_DECL)
 	{
 	  tree decl = DECL_STMT_DECL (t);
 	  if (DECL_INITIAL (decl))
 	    find_refs_in_expr (decl, VARDEF, bb, t, t);
 	}
-    }
+      break;
 
-  else if (code == LABEL_STMT)
-    find_refs_in_expr (LABEL_STMT_LABEL (t), VARUSE, bb, t, t);
+    case LABEL_STMT:
+      find_refs_in_expr (LABEL_STMT_LABEL (t), VARUSE, bb, t, t);
+      break;
 
-  else if (code == STMT_EXPR)
-    find_refs_in_stmt (STMT_EXPR_STMT (t), bb);
+    case STMT_EXPR:
+      find_refs_in_stmt (STMT_EXPR_STMT (t), bb);
+      break;
 
-  else if (code == CONTINUE_STMT)
-    ;				/* Nothing to do.  */
+    case CONTINUE_STMT:
+    case CASE_LABEL:
+    case BREAK_STMT:
+    case COMPOUND_STMT:
+    case SCOPE_STMT:
+    case FILE_STMT:
+      break;				/* Nothing to do.  */
 
-  else if (code == CASE_LABEL)
-    ;				/* Nothing to do.  */
-
-  else if (code == BREAK_STMT)
-    ;				/* Nothing to do.  */
-
-  else if (code == COMPOUND_STMT)
-    ;				/* Nothing to do.  */
-
-  else if (code == SCOPE_STMT)
-    ;				/* Nothing to do.  */
-
-  else
-    {
-      prep_stmt (t);
-      error ("unhandled statement node in find_refs_in_stmt():");
-      fprintf (stderr, "\n");
-      tree_debug_bb (bb);
-      fprintf (stderr, "\n");
-      debug_tree (t);
-      fprintf (stderr, "\n");
-      abort ();
+    default:
+      {
+	prep_stmt (t);
+	error ("unhandled statement node in find_refs_in_stmt():");
+	fprintf (stderr, "\n");
+	tree_debug_bb (bb);
+	fprintf (stderr, "\n");
+	debug_tree (t);
+	fprintf (stderr, "\n");
+	abort ();
+      }
     }
 }
 
