@@ -52,6 +52,13 @@ static int exec_threshold[N_ROUNDS] = {500, 200, 50, 0};
 /* Length of unconditional jump instruction.  */
 static int uncond_jump_length;
 
+/* Array of flags that the bb was visited in copy_bb_p to avoid infinite
+   loop.  */
+static unsigned int *copy_bb_p_visited;
+
+/* The size of the previous array.  */
+static int copy_bb_p_visited_size;
+
 struct trace
 {
   /* First and last basic block of the trace.  */
@@ -378,6 +385,18 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		  RBI (bb)->next = new_bb;
 		  RBI (bb)->visited = *n_traces;
 		  bb = new_bb;
+
+		  if (n_basic_blocks > copy_bb_p_visited_size)
+		    {
+		      /* Realloc the COPY_BB_P_VISITED array, copying of data
+		         is not necessary.  */
+		      free (copy_bb_p_visited);
+  		      copy_bb_p_visited_size = 4 * n_basic_blocks / 3;
+		      copy_bb_p_visited = xcalloc (copy_bb_p_visited_size,
+			  			   sizeof (unsigned int));
+		      if (!copy_bb_p_visited)
+			abort ();
+		    }
 		}
 	      else
 		{
@@ -484,8 +503,21 @@ copy_bb_p (bb, trace, size_can_grow)
 {
   int size = 0;
   rtx insn;
-  basic_block first = bb;
+  static unsigned int id;
 
+  if (id == UINT_MAX)
+    {
+      int i;
+
+      id = 1;
+      /* We are starting again with ID 1 so clear the flags.  */
+      for (i = 0; i < copy_bb_p_visited_size; i++)
+	copy_bb_p_visited[i] = 0;
+    }
+  else
+    id++;
+    
+  
   if (!bb->frequency)
     return false;
   if (!bb->pred || !bb->pred->pred_next)
@@ -495,6 +527,8 @@ copy_bb_p (bb, trace, size_can_grow)
       edge e, best_edge;
       int prob_lower, prob_higher;
       int freq_lower, freq_higher;
+
+      copy_bb_p_visited[bb->index] = id;
 
       if (RBI (bb)->visited == trace)
 	return false;
@@ -529,10 +563,13 @@ copy_bb_p (bb, trace, size_can_grow)
 	    best_edge = e;
 	}
       if (!best_edge || !RBI (best_edge->dest)->visited
-	  || RBI (best_edge->dest)->visited == trace)
+	  || RBI (best_edge->dest)->visited == trace
+	  || copy_bb_p_visited[best_edge->dest->index] == id)
 	/* All edges point to EXIT_BLOCK or to the same trace
 	   OR the selected successor has not been visited yet
-	   OR we have found a loop (so the trace will be terminated).  */
+	   OR we have found a loop (so the trace will be terminated)
+	   OR we have reached the bb that was already visited
+	      in this run of copy_bb_p.  */
 	{
 	  if (size_can_grow || size <= uncond_jump_length)
 	    return true;
@@ -540,8 +577,6 @@ copy_bb_p (bb, trace, size_can_grow)
 	    return false;
 	}
       bb = best_edge->dest;
-      if (bb == first)
-	return false;
     }
   return false;
 }
@@ -574,9 +609,16 @@ reorder_basic_blocks ()
 
   cfg_layout_initialize ();
 
+  copy_bb_p_visited_size = MAX (4 * n_basic_blocks / 3, 10);
+  copy_bb_p_visited = xcalloc (copy_bb_p_visited_size, sizeof (unsigned int));
+  if (!copy_bb_p_visited)
+    abort ();
+  
   set_edge_can_fallthru_flag ();
   uncond_jump_length = get_uncond_jump_length ();
   find_traces ();
+
+  free (copy_bb_p_visited);
 
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);

@@ -3069,8 +3069,8 @@ get_mem_expr_from_op (op, paddressp)
 
   *paddressp = 0;
 
-  if (GET_CODE (op) == REG && ORIGINAL_REGNO (op) >= FIRST_PSEUDO_REGISTER)
-    return REGNO_DECL (ORIGINAL_REGNO (op));
+  if (GET_CODE (op) == REG)
+    return REG_EXPR (op);
   else if (GET_CODE (op) != MEM)
     return 0;
 
@@ -3114,16 +3114,22 @@ output_asm_operand_names (operands, oporder, nops)
   for (i = 0; i < nops; i++)
     {
       int addressp;
-      tree expr = get_mem_expr_from_op (operands[oporder[i]], &addressp);
+      rtx op = operands[oporder[i]];
+      tree expr = get_mem_expr_from_op (op, &addressp);
 
+      fprintf (asm_out_file, "%c%s",
+	       wrote ? ',' : '\t', wrote ? "" : ASM_COMMENT_START);
+      wrote = 1;
       if (expr)
 	{
-	  fprintf (asm_out_file, "%c%s %s",
-		   wrote ? ',' : '\t', wrote ? "" : ASM_COMMENT_START,
+	  fprintf (asm_out_file, "%s %s",
 		   addressp ? "*" : "");
 	  print_mem_expr (asm_out_file, expr);
 	  wrote = 1;
 	}
+      else if (REG_P (op) && ORIGINAL_REGNO (op)
+	       && ORIGINAL_REGNO (op) != REGNO (op))
+	fprintf (asm_out_file, " tmp%i", ORIGINAL_REGNO (op));
     }
 }
 

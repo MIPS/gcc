@@ -1460,7 +1460,7 @@ struct tree_type
    ? (NODE)->decl.rtl					\
    : (make_decl_rtl (NODE, NULL), (NODE)->decl.rtl))
 /* Set the DECL_RTL for NODE to RTL.  */
-#define SET_DECL_RTL(NODE, RTL) (DECL_CHECK (NODE)->decl.rtl = (RTL))
+#define SET_DECL_RTL(NODE, RTL) set_decl_rtl (NODE, RTL)
 /* Returns non-zero if the DECL_RTL for NODE has already been set.  */
 #define DECL_RTL_SET_P(NODE)  (DECL_CHECK (NODE)->decl.rtl != NULL)
 /* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
@@ -3139,6 +3139,9 @@ extern void dump_node			PARAMS ((tree, int, FILE *));
 extern int dump_switch_p                PARAMS ((const char *));
 extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 
+/* Assign the RTX to declaration.  */
+
+extern void set_decl_rtl		PARAMS ((tree, rtx));
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

@@ -3679,7 +3679,7 @@ remove_constant_addition (x)
   rtx exp = *x;
 
   if (GET_CODE (exp) == CONST)
-    exp = XEXP (exp, 0);
+    exp = copy_rtx (XEXP (exp, 0));
   if (GET_CODE (exp) == CONST_INT)
     {
       addval = INTVAL (exp);
@@ -9691,6 +9691,7 @@ load_mems (loop)
 	 out of the loop just because this REG is neither a
 	 user-variable nor used in the loop test.  */
       reg = gen_reg_rtx (GET_MODE (mem));
+      set_reg_attrs_from_mem (reg, mem);
       REG_USERVAR_P (reg) = 1;
       loop_info->mems[i].reg = reg;
 

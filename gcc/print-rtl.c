@@ -405,6 +405,29 @@ print_rtx (in_rtx)
 	    else
 	      fprintf (outfile, " %d", value);
 
+	    if (GET_CODE (in_rtx) == REG && REG_ATTRS (in_rtx))
+	      {
+		tree decl;
+		fputs (" [", outfile);
+		if (ORIGINAL_REGNO (in_rtx) != REGNO (in_rtx))
+		  fprintf (outfile, "orig:%i ", ORIGINAL_REGNO (in_rtx));
+		decl = REG_EXPR (in_rtx);
+		if (decl)
+		  fprintf (outfile, "%s",
+			   DECL_NAME (decl)
+			   ? IDENTIFIER_POINTER (DECL_NAME (decl))
+			   : TREE_CODE (decl) == RESULT_DECL ? "<result>"
+			   : "<anonymous>");
+
+		if (REG_OFFSET (in_rtx))
+		  {
+		    fputc ('+', outfile);
+		    fprintf (outfile, HOST_WIDE_INT_PRINT_DEC,
+			     REG_OFFSET (in_rtx));
+		  }
+		fputc (']', outfile);
+	      }
+
 	    if (is_insn && &INSN_CODE (in_rtx) == &XINT (in_rtx, i)
 		&& XINT (in_rtx, i) >= 0
 		&& (name = get_insn_name (XINT (in_rtx, i))) != NULL)

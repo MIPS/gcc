@@ -148,6 +148,9 @@ static htab_t const_int_htab;
 /* A hash table storing memory attribute structures.  */
 static htab_t mem_attrs_htab;
 
+/* A hash table storing register attribute structures.  */
+static htab_t reg_attrs_htab;
+
 /* start_sequence and gen_sequence can make a lot of rtx expressions which are
    shortly thrown away.  We use two mechanisms to prevent this waste:
 
@@ -195,6 +198,11 @@ static void mem_attrs_mark		PARAMS ((const void *));
 static mem_attrs *get_mem_attrs		PARAMS ((HOST_WIDE_INT, tree, rtx,
 						 rtx, unsigned int,
 						 enum machine_mode));
+static hashval_t reg_attrs_htab_hash    PARAMS ((const void *));
+static int reg_attrs_htab_eq            PARAMS ((const void *,
+						 const void *));
+static void reg_attrs_mark		PARAMS ((const void *));
+static reg_attrs *get_reg_attrs		PARAMS ((tree, int));
 static tree component_ref_for_mem_expr	PARAMS ((tree));
 
 /* Probability of the conditional branch currently proceeded by try_split.
@@ -306,6 +314,74 @@ get_mem_attrs (alias, expr, offset, size, align, mode)
     {
       *slot = ggc_alloc (sizeof (mem_attrs));
       memcpy (*slot, &attrs, sizeof (mem_attrs));
+    }
+
+  return *slot;
+}
+
+/* Returns a hash code for X (which is a really a reg_attrs *).  */
+
+static hashval_t
+reg_attrs_htab_hash (x)
+     const void *x;
+{
+  reg_attrs *p = (reg_attrs *) x;
+
+  return ((p->offset * 1000) ^ (long) p->decl);
+}
+
+/* Returns non-zero if the value represented by X (which is really a
+   reg_attrs *) is the same as that given by Y (which is also really a
+   reg_attrs *).  */
+
+static int
+reg_attrs_htab_eq (x, y)
+     const void *x;
+     const void *y;
+{
+  reg_attrs *p = (reg_attrs *) x;
+  reg_attrs *q = (reg_attrs *) y;
+
+  return (p->decl == q->decl && p->offset == q->offset);
+}
+
+/* This routine is called when we determine that we need a reg_attrs entry.
+   It marks the associated decl and RTL as being used, if present.  */
+
+static void
+reg_attrs_mark (x)
+     const void *x;
+{
+  reg_attrs *p = (reg_attrs *) x;
+
+  if (p->decl)
+    ggc_mark_tree (p->decl);
+}
+
+/* Allocate a new reg_attrs structure and insert it into the hash table if
+   one identical to it is not already in the table.  We are doing this for
+   MEM of mode MODE.  */
+
+static reg_attrs *
+get_reg_attrs (decl, offset)
+     tree decl;
+     int offset;
+{
+  reg_attrs attrs;
+  void **slot;
+
+  /* If everything is the default, we can just return zero.  */
+  if (decl == 0 && offset == 0)
+    return 0;
+
+  attrs.decl = decl;
+  attrs.offset = offset;
+
+  slot = htab_find_slot (reg_attrs_htab, &attrs, INSERT);
+  if (*slot == 0)
+    {
+      *slot = ggc_alloc (sizeof (reg_attrs));
+      memcpy (*slot, &attrs, sizeof (reg_attrs));
     }
 
   return *slot;
@@ -700,6 +776,68 @@ gen_reg_rtx (mode)
   val = gen_raw_REG (mode, reg_rtx_no);
   regno_reg_rtx[reg_rtx_no++] = val;
   return val;
+}
+
+/* Generate an register with same attributes as REG,
+   but offsetted by OFFSET.  */
+
+rtx
+gen_rtx_REG_offset (reg, mode, regno, offset)
+     enum machine_mode mode;
+     unsigned int regno;
+     int offset;
+     rtx reg;
+{
+  rtx new = gen_rtx_REG (mode, regno);
+  REG_ATTRS (new) = get_reg_attrs (REG_EXPR (reg),
+		 		   REG_OFFSET (reg) + offset);
+  return new;
+}
+
+/* Set the decl for MEM to DECL.  */
+
+void
+set_reg_attrs_from_mem (reg, mem)
+     rtx reg;
+     rtx mem;
+{
+  if (MEM_OFFSET (mem) && GET_CODE (MEM_OFFSET (mem)) == CONST_INT)
+    REG_ATTRS (reg)
+      = get_reg_attrs (MEM_EXPR (mem), INTVAL (MEM_OFFSET (mem)));
+}
+
+/* Assign the RTX X to declaration T.  */
+void
+set_decl_rtl (t, x)
+     tree t;
+     rtx x;
+{
+  DECL_CHECK (t)->decl.rtl = x;
+
+  if (!x)
+    return;
+  /* For register, we maitain the reverse information too.  */
+  if (GET_CODE (x) == REG)
+    REG_ATTRS (x) = get_reg_attrs (t, 0);
+  else if (GET_CODE (x) == SUBREG)
+    REG_ATTRS (SUBREG_REG (x))
+      = get_reg_attrs (t, -SUBREG_BYTE (x));
+  if (GET_CODE (x) == CONCAT)
+    {
+      REG_ATTRS (XEXP (x, 0)) = get_reg_attrs (t, 0);
+      REG_ATTRS (XEXP (x, 1))
+        = get_reg_attrs (t, GET_MODE_UNIT_SIZE (GET_MODE (XEXP (x, 0))));
+    }
+  if (GET_CODE (x) == PARALLEL)
+    {
+      int i;
+      for (i = 0; i < XVECLEN (x, 0); i++)
+	{
+	  rtx x = XVECEXP (x, 0, i);
+	  if (REG_P (XEXP (x, 0)))
+	    REG_ATTRS (XEXP (x, 0)) = get_reg_attrs (t, INTVAL (XEXP (x, 1)));
+	}
+    }
 }
 
 /* Identify REG (which may be a CONCAT) as a user register.  */
@@ -1829,6 +1967,19 @@ set_mem_attributes (ref, t, objectp)
 	   || TREE_CODE (t) == ARRAY_RANGE_REF
 	   || TREE_CODE (t) == BIT_FIELD_REF)
     MEM_IN_STRUCT_P (ref) = 1;
+}
+
+/* Set the decl for MEM to DECL.  */
+
+void
+set_mem_attrs_from_reg (mem, reg)
+     rtx mem;
+     rtx reg;
+{
+  MEM_ATTRS (mem)
+    = get_mem_attrs (MEM_ALIAS_SET (mem), REG_EXPR (reg),
+		     GEN_INT (REG_OFFSET (reg)),
+		     MEM_SIZE (mem), MEM_ALIGN (mem), GET_MODE (mem));
 }
 
 /* Set the alias set of MEM to SET.  */
@@ -4829,7 +4980,10 @@ init_emit_once (line_numbers)
 
   mem_attrs_htab = htab_create (37, mem_attrs_htab_hash,
 				mem_attrs_htab_eq, NULL);
+  reg_attrs_htab = htab_create (37, reg_attrs_htab_hash,
+				reg_attrs_htab_eq, NULL);
   ggc_add_deletable_htab (mem_attrs_htab, 0, mem_attrs_mark);
+  ggc_add_deletable_htab (reg_attrs_htab, 0, reg_attrs_mark);
 
   no_line_numbers = ! line_numbers;
 

@@ -664,6 +664,12 @@ extern void maybe_set_unchanging PARAMS ((rtx, tree));
    corresponding to REF, set the memory attributes.  OBJECTP is nonzero
    if we are making a new object of this type.  */
 extern void set_mem_attributes PARAMS ((rtx, tree, int));
+
+/* Set the DECL for MEM to attributes of REG.  */
+extern void set_mem_attrs_from_reg PARAMS ((rtx, rtx));
+
+/* Set the DECL for REG to attributes of MEM.  */
+extern void set_reg_attrs_from_mem PARAMS ((rtx, rtx));
 #endif
 
 /* Assemble the static constant template for function entry trampolines.  */

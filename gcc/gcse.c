@@ -6725,6 +6725,7 @@ build_store_vectors ()
 		  if (st)
 		    {
 		      rtx r = gen_reg_rtx (GET_MODE (ptr->pattern));
+		      set_reg_attrs_from_mem (r, ptr->pattern);
 		      if (gcse_file)
 			fprintf (gcse_file, "Removing redundant store:\n");
 		      replace_store_insn (r, XEXP (st, 0), bb);
@@ -6936,7 +6937,10 @@ delete_store (expr, bb)
   rtx reg, i, del;
 
   if (expr->reaching_reg == NULL_RTX)
-    expr->reaching_reg = gen_reg_rtx (GET_MODE (expr->pattern));
+    {
+      expr->reaching_reg = gen_reg_rtx (GET_MODE (expr->pattern));
+      set_reg_attrs_from_mem (expr->reaching_reg, expr->pattern);
+    }
   
 
   /* If there is more than 1 store, the earlier ones will be dead, 
