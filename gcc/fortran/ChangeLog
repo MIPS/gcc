@@ -1,3 +1,9 @@
+2004-01-13  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/12912
+	* lang-specs.h: Enable compilation of files ending
+	in .f, .for and .FOR.
+
 2004-01-11  Paul Brook  <paul@codesourcery.com>
 
 	* trans-stmt.c (gfc_trans_if_1): New function.

@@ -10,5 +10,9 @@ This file is licensed under the GPL.  */
 {".f90", "@f95", 0},
 {".f95", "@f95", 0},
 {"@f95", "%{!E:f951 %i %<ffixed-format %(cc1_options) %{J*} %{I*}\
-         %{!fsyntax-only:%(invoke_as)}}", 0}
-,
+         %{!fsyntax-only:%(invoke_as)}}", 0},
+{".f",   "@f77", 0},
+{".for", "@f77", 0},
+{".FOR", "@f77", 0},
+{"@f77", "%{!E:f951 %i %{!ffree-form:-ffixed-form} %(cc1_options) %{J*} %{I*}\
+         %{!fsyntax-only:%(invoke_as)}}", 0},
