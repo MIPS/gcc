@@ -1,5 +1,11 @@
 2005-03-24  Tom Tromey  <tromey@redhat.com>
 
+	* tree.hh (tree_generator::binary_operator): Updated.
+	* tree.cc (binary_operator): Added result_type argument.
+	(visit_comparison): Updated.
+
+2005-03-24  Tom Tromey  <tromey@redhat.com>
+
 	* tree.hh (tree_generator::binary_operator): Declare.
 	(tree_generator::arith_shift): Likewise.
 	* tree.cc (visit_block): Annotate result.

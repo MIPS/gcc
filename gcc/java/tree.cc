@@ -1003,14 +1003,16 @@ void
 tree_generator::binary_operator (model_element *element,
 				 tree_code code,
 				 const ref_expression &lhs,
-				 const ref_expression &rhs)
+				 const ref_expression &rhs,
+				 tree result_type)
 {
   lhs->visit (this);
   tree lhs_tree = current;
   rhs->visit (this);
   tree rhs_tree = current;
-  current = build2 (code, gcc_builtins->map_type (lhs->type ()),
-		    lhs_tree, rhs_tree);
+  if (result_type == NULL_TREE)
+    result_type = gcc_builtins->map_type (lhs->type ());
+  current = build2 (code, result_type, lhs_tree, rhs_tree);
   TREE_SIDE_EFFECTS (current) = (TREE_SIDE_EFFECTS (lhs_tree)
 				 || TREE_SIDE_EFFECTS (rhs_tree));
   annotate (current, element);
@@ -1410,7 +1412,7 @@ tree_generator::visit_comparison (model_equal *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (elt, EQ_EXPR, lhs, rhs);
+  binary_operator (elt, EQ_EXPR, lhs, rhs, type_jboolean);
 }
 
 void
@@ -1418,7 +1420,7 @@ tree_generator::visit_comparison (model_notequal *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (elt, NE_EXPR, lhs, rhs);
+  binary_operator (elt, NE_EXPR, lhs, rhs, type_jboolean);
 }
 
 void
@@ -1426,7 +1428,7 @@ tree_generator::visit_comparison (model_lessthan *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (elt, LT_EXPR, lhs, rhs);
+  binary_operator (elt, LT_EXPR, lhs, rhs, type_jboolean);
 }
 
 void
@@ -1434,7 +1436,7 @@ tree_generator::visit_comparison (model_greaterthan *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (elt, GT_EXPR, lhs, rhs);
+  binary_operator (elt, GT_EXPR, lhs, rhs, type_jboolean);
 }
 
 void
@@ -1442,7 +1444,7 @@ tree_generator::visit_comparison (model_lessthanequal *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (elt, LE_EXPR, lhs, rhs);
+  binary_operator (elt, LE_EXPR, lhs, rhs, type_jboolean);
 }
 
 void
@@ -1450,7 +1452,7 @@ tree_generator::visit_comparison (model_greaterthanequal *elt,
 				  const ref_expression &lhs,
 				  const ref_expression &rhs)
 {
-  binary_operator (elt, GE_EXPR, lhs, rhs);
+  binary_operator (elt, GE_EXPR, lhs, rhs, type_jboolean);
 }
 
 void

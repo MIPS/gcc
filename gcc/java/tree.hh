@@ -115,7 +115,7 @@ class tree_generator : public visitor
   tree arith_shift (model_element *, tree_code, const ref_expression &,
 		    const ref_expression &, bool);
   void binary_operator (model_element *, tree_code, const ref_expression &,
-			const ref_expression &);
+			const ref_expression &, tree = NULL_TREE);
   tree build_jni_stub ();
   tree handle_string_literal (const std::string &);
   tree build_int (jint, tree = NULL_TREE);
