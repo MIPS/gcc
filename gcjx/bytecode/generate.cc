@@ -34,35 +34,6 @@ width_of_type (model_type *t)
   return wide_p (t) ? 2 : 1;
 }
 
-bytecode_generator::finally_creator::finally_creator (bytecode_generator *gen,
-						      finally_handler &h)
-  : generator (gen),
-    handler (h),
-    saved_depth (gen->max_stack),
-    saved_block (gen->current_block)
-{
-  assert (generator->stack_depth == 0);
-
-  handler.start = generator->new_bytecode_block ();
-  handler.end = generator->new_bytecode_block ();
-  generator->define (handler.start);
-
-  // We find the maximum stack used by the 'finally' clause and then
-  // use that to affect the maximum stack depth at places where the
-  // clause is emitted.
-  generator->max_stack = 0;
-}
-
-bytecode_generator::finally_creator::~finally_creator ()
-{
-  generator->define (handler.end);
-  handler.max_stack = generator->max_stack;
-
-  generator->current_block = saved_block;
-  generator->current_block->set_next (NULL);
-  generator->max_stack = saved_depth;
-}
-
 bytecode_generator::bytecode_generator (model_method *m,
 					output_constant_pool *cp)
   : method (m),
@@ -130,6 +101,8 @@ bytecode_generator::generate ()
 	  work = new_work;
 	}
 
+      changed = false;
+
       // Update exception handlers.
       for (std::list<handler>::iterator i = handlers.begin ();
 	   i != handlers.end ();
@@ -168,7 +141,6 @@ bytecode_generator::generate ()
       first_block = first_block->update ();
 
       int pc = 0;
-      changed = false;
       int last_line = -1;
       line_count = 0;
       for (bytecode_block *work = first_block; work; work = work->next ())
@@ -364,34 +336,20 @@ bytecode_generator::note_line (model_element *elt)
 void
 bytecode_generator::emit_saved_cleanup (const finally_handler &handler)
 {
-  const bytecode_block *start = handler.start;
-  const bytecode_block *old_end = handler.end;
-
-  bytecode_block *new_end (new_bytecode_block ());
-  bytecode_block *block = start->clone (this, old_end, new_end);
-
-  // Add BLOCK to the end of the block list, then advance so we're
-  // pointing at the new end of the list.  We needn't worry too much
-  // about dead code due to relocation processing, which happens
-  // later.
-  current_block->set_next (block);
-  while (current_block->next ())
-    current_block = current_block->next ();
-
-  // This handler might have caused the maximum stack depth to
-  // increase.  This could happen if the stack is not empty at the
-  // point at which we emit the duplicated 'finally' code.
-  if (handler.max_stack + stack_depth > max_stack)
-    max_stack = handler.max_stack + stack_depth;
-
-  define (new_end);
-}
-
-bool
-bytecode_generator::any_cleanups_p (const model_stmt *upto)
-{
-  fstackt::reverse_iterator i = finally_stack.rbegin ();
-  return i != finally_stack.rend () && (*i).statement != upto;
+  // Visit the block to generate the code again.  This might be
+  // inefficient, but keeping copies of the emitted code and cloning
+  // it turned out to be quite complicated, due to embedded finally
+  // blocks.
+  if (handler.block)
+    handler.block->visit (this);
+  else if (handler.variable != -1)
+    {
+      // 'NULL' represents the handler for a synchronized block.
+      model_class *obj = global->get_compiler ()->java_lang_Object ();
+      emit_load (obj, handler.variable);
+      emit (op_monitorexit);
+      reduce_stack (obj);
+    }
 }
 
 void
@@ -404,14 +362,23 @@ bytecode_generator::call_cleanups (const model_stmt *upto)
   // will reject.  In theory switching to 'jsr' would only require
   // changes in this method and some minor changes to 'finally' code
   // generation in visit_try.
+  if (finally_stack.empty ())
+    return;
+
+  // Because we re-emit the code for 'finally' whenever we need it, we
+  // must arrange on each such occasion for the finally stack to
+  // appear as it did just outside the 'try' statement.  So, we save a
+  // copy of the finally stack and pop off elements as we go along.
   bool last_was_ours = false;
-  for (fstackt::reverse_iterator i = finally_stack.rbegin ();
-       ! last_was_ours && i != finally_stack.rend ();
-       ++i)
+  fstackt save = finally_stack;
+  while (! last_was_ours && ! finally_stack.empty ())
     {
-      last_was_ours = (*i).statement == upto;
-      emit_saved_cleanup (*i);
+      finally_handler h = finally_stack.back ();
+      finally_stack.pop_back ();
+      emit_saved_cleanup (h);
+      last_was_ours = h.statement == upto;
     }
+  finally_stack = save;
 }
 
 
@@ -1145,14 +1112,7 @@ bytecode_generator::visit_synchronized (model_synchronized *sync,
   }
   emit_store (expr->type (), sync_obj);
 
-  // First generate the code for the 'finally' clause.
-  finally_handler finally_info (sync);
-  {
-    finally_creator creator (this, finally_info);
-    emit_load (expr->type (), sync_obj);
-    emit (op_monitorexit);
-    reduce_stack (expr->type ());
-  }
+  finally_handler finally_info (sync, NULL, sync_obj);
 
   // Start of the 'try'.
   bytecode_block *try_zone = new_bytecode_block ();
@@ -1161,31 +1121,35 @@ bytecode_generator::visit_synchronized (model_synchronized *sync,
   // The 'finally' exception handler.
   bytecode_block *finally_exc = new_bytecode_block ();
 
-  // Note a finally block for 'break', and also add the finally
-  // handler.
-  stack_temporary<finally_handler> push (finally_stack,
-					 finally_info);
-  add_exception_handler (NULL, finally_exc, try_zone, try_end);
+  {
+    // Note a finally block for 'break'.
+    stack_temporary<finally_handler> push (finally_stack, finally_info);
 
-  // Enter the monitor.
-  define (try_zone);
-  emit_load (expr->type (), sync_obj);
-  emit (op_monitorenter);
-  reduce_stack (expr->type ());
+    // Enter the monitor.
+    define (try_zone);
+    emit_load (expr->type (), sync_obj);
+    emit (op_monitorenter);
+    reduce_stack (expr->type ());
 
-  body->visit (this);
+    body->visit (this);
+
+    // Make sure we add this after we've visited the body, so that
+    // embedded handlers are emitted in the correct order.
+    add_exception_handler (NULL, finally_exc, try_zone, try_end);
+  }
 
   // For the normal exit, inline the finally handler.
   bytecode_block *done = NULL;
   if (body->can_complete_normally ())
     {
-      call_cleanups (sync);
+      emit_saved_cleanup (finally_info);
       done = new_bytecode_block ();
       emit_relocation (reloc_goto, done);
     }
 
   // This might seem like strange placement, but the current thinking
-  // is that a monitorexit failure should just keep on trying.
+  // is that a monitorexit failure should just keep on trying.  So,
+  // the inlined finally handler is inside the try.
   define (try_end);
 
   // Emit the finally handler as an exception handler.
@@ -1222,70 +1186,76 @@ bytecode_generator::visit_try (model_try *trystmt,
 {
   note_line (trystmt);
 
-  // We generate the code for the finally clause first.  This lets us
-  // have the finally code available for inline expansion (see
-  // call_cleanups) in the catch clauses, and it also lets us make
-  // sure that the variables used in the finally clause are considered
-  // live while generating code for the try and catch clauses.
-  finally_handler finally_info (trystmt);
-  {
-    finally_creator creator (this, finally_info);
-    if (finally)
-      finally->visit (this);
-  }
+  finally_handler finally_info (trystmt, finally.get ());
 
-  // FIXME:  push_scope_override (vars, trystmt);   ... ?
-
-  // Push the finally code onto the finally stack, and remove it from
-  // the main line of code.
-  // FIXME: this penalizes us if there is no 'finally' code.
-  stack_temporary<finally_handler> push (finally_stack, finally_info);
-
-  // Emit the 'try' clause.
   bytecode_block *try_zone = new_bytecode_block ();
   bytecode_block *try_end = new_bytecode_block ();
-  bytecode_block *done = new_bytecode_block ();
-  define (try_zone);
-  body->visit (this);
-  define (try_end);
-  if (body->can_complete_normally ())
-    {
-      call_cleanups (trystmt);
-      if (! finally || finally->can_complete_normally ())
-	emit_relocation (reloc_goto, done);
-    }
+  bytecode_block *done = NULL;
 
-  for (std::list<ref_catch>::const_iterator i = catchers.begin ();
-       i != catchers.end ();
-       ++i)
-    {
-      bytecode_block *handler = new_bytecode_block ();
-      add_exception_handler ((*i)->get_parameter_type (), handler,
-			     try_zone, try_end);
-      define (handler);
-      (*i)->visit (this);
-      if ((*i)->can_complete_normally ())
-	{
-	  call_cleanups (trystmt);
-	  emit_relocation (reloc_goto, done);
-	}
-    }
+  {
+    // Push the finally code onto the finally stack, and remove it
+    // from the main line of code.  We introduce a new scope here so
+    // that the finally handler won't be around when we go to emit it
+    // later on.
+
+    // This doesn't much penalize us if there is no finally handler.
+    // It would, though, if we were emitting 'jsr's.
+    stack_temporary<finally_handler> push (finally_stack, finally_info);
+
+    // Emit the 'try' clause.
+    define (try_zone);
+    body->visit (this);
+    define (try_end);
+    if (body->can_complete_normally ())
+      {
+	// We just emit one copy of the cleanup inline, and one copy
+	// as an exception handler.
+	done = new_bytecode_block ();
+	emit_relocation (reloc_goto, done);
+      }
+
+    for (std::list<ref_catch>::const_iterator i = catchers.begin ();
+	 i != catchers.end ();
+	 ++i)
+      {
+	bytecode_block *handler = new_bytecode_block ();
+	add_exception_handler ((*i)->get_parameter_type (), handler,
+			       try_zone, try_end);
+	define (handler);
+	(*i)->visit (this);
+	if ((*i)->can_complete_normally ())
+	  {
+	    if (! done)
+	      done = new_bytecode_block ();
+	    emit_relocation (reloc_goto, done);
+	  }
+      }
+  }
 
   if (finally)
     {
-      // Now re-emit the finally clause as an exception handler.
+      // Emit the finally clause as an exception handler.
       bytecode_block *finally_exc = new_bytecode_block ();
       add_exception_handler (NULL, finally_exc, try_zone, try_end);
       define (finally_exc);
       model_type *thr = global->get_compiler ()->java_lang_Throwable ();
       increase_stack (thr);
+      temporary_local finally_obj (vars, NULL);
+      emit_store (thr, finally_obj);
       emit_saved_cleanup (finally_info);
+      emit_load (thr, finally_obj);
       emit (op_athrow);
       reduce_stack (thr);
       non_normal_completion (false);
     }
 
-  define (done);
+  if (done)
+    {
+      // If the try clause or one of the exception handlers got here,
+      // we want to emit the finally handler inline.
+      define (done);
+      emit_saved_cleanup (finally_info);
+    }
 }
 
 void
@@ -3681,9 +3651,7 @@ bytecode_generator::add_exception_handler (model_type *type,
   hand.start = start;
   hand.end = end;
 
-  // Pushing on the front preserves the proper ordering when we emit
-  // the handlers.
-  handlers.push_front (hand);
+  handlers.push_back (hand);
 }
 
 void

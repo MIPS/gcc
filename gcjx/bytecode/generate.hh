@@ -59,26 +59,23 @@ class bytecode_generator : public visitor
     model_type *type;
   };
 
-  // This is used to represent 'finally' handlers.
+  // Information pertaining to a 'finally' clause.
   struct finally_handler
   {
-    // Corresponding statement.
+    // The 'try' or 'synchronized' statement.
     const model_stmt *statement;
-    // Starting code block.
-    bytecode_block *start;
-    // Ending code block (empty block).
-    bytecode_block *end;
-    // Maximum depth reached by code in the handler.  We use this to
-    // update the method's max_stack whenever we emit a copy of the
-    // handler code -- this can cause an increase if the stack is not
-    // empty at the point at which the copy is emitted.
-    int max_stack;
+    // Corresponding block.  If this is NULL and variable != -1, this
+    // finally handler represents the finally part of a 'synchronized'
+    // block.  This can be NULL for an ordinary try statement if it
+    // has no finally clause; in this case variable will be -1.
+    model_block *block;
+    // Variable used by the 'try'.
+    int variable;
 
-    finally_handler (const model_stmt *s)
+    finally_handler (const model_stmt *s, model_block *b, int v = -1)
       : statement (s),
-	start (NULL),
-	end (NULL),
-	max_stack (0)
+	block (b),
+	variable (v)
     {
     }
   };
@@ -193,7 +190,6 @@ class bytecode_generator : public visitor
   void reduce_stack (model_type *);
 
   void emit_saved_cleanup (const finally_handler &);
-  bool any_cleanups_p (const model_stmt *);
   void call_cleanups (const model_stmt *);
 
   void emit (jbyte);
@@ -315,31 +311,6 @@ class bytecode_generator : public visitor
       true_target = true_save;
       false_target = false_save;
     }
-  };
-
-  // This is used when creating a 'finally' clause.  It understands
-  // how to clean up after the code is emitted, and how to create a
-  // finally handler object.  An object of this class fills in the
-  // finally handler when it goes out of scope; the idea is, create
-  // one, emit the code, and then close the scope.
-  class finally_creator
-  {
-    // Attached generator.
-    bytecode_generator *generator;
-
-    // Finally handler we fill in.
-    finally_handler &handler;
-
-    // Saved maximum stack depth.
-    int saved_depth;
-
-    // Saved current block.
-    bytecode_block *saved_block;
-
-  public:
-
-    finally_creator (bytecode_generator *, finally_handler &);
-    ~finally_creator ();
   };
 
   // For access to new_bytecode_block.

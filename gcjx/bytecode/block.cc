@@ -1,6 +1,6 @@
 // Bytecode blocks.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -189,58 +189,6 @@ bytecode_block::relocate (int &local_pc, bytecode_stream *out)
   // The size of the bytecode doesn't include any use lengths.
   local_pc += cumulative_delta + bytecode.size ();
   return changed;
-}
-
-bytecode_block *
-bytecode_block::clone (bytecode_generator *gen,
-		       const bytecode_block *old_finish,
-		       bytecode_block *new_finish) const
-{
-  bytecode_block *result = NULL;
-  bytecode_block *prev = NULL;
-  const bytecode_block *iter = this;
-
-  std::map<const bytecode_block *, bytecode_block *> remap;
-  remap[old_finish] = new_finish;
-
-  // fixme could also == old_finish ?
-  while (iter != NULL)
-    {
-      bytecode_block *newval = gen->new_bytecode_block ();
-      newval->line = iter->line;
-      newval->relocations = iter->relocations;
-      newval->bytecode = iter->bytecode;
-      newval->fall_through = iter->fall_through;
-
-      if (prev)
-	prev->next_block = newval;
-      prev = newval;
-      if (! result)
-	result = newval;
-
-      remap[iter] = newval;
-      iter = iter->next_block;
-    }
-
-  // Now walk over the result and rewrite all the relocations.
-  for (bytecode_block *riter = result;
-       riter != NULL;
-       riter = riter->next_block)
-    {
-      for (std::list<ref_relocation>::iterator i = riter->relocations.begin ();
-	   i != riter->relocations.end ();
-	   ++i)
-	{
-	  ref_relocation &reloc = *i;
-	  bytecode_block *targ = reloc->get_target ();
-	  std::map<const bytecode_block *, bytecode_block *>::const_iterator
-	    found = remap.find (targ);
-	  if (found != remap.end ())
-	    reloc = new relocation (reloc.get (), remap[targ]);
-	}
-    }
-
-  return result;
 }
 
 bool

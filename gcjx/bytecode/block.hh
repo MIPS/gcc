@@ -1,6 +1,6 @@
 // Bytecode blocks.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -139,11 +139,6 @@ public:
   /// @return false if the relocation is for a block-terminating
   /// (unconditional) branch.
   bool emit_relocation (relocation_kind what, bytecode_block *dest);
-
-  /// Make a deep copy of this block.
-  bytecode_block *clone (bytecode_generator *,
-			 const bytecode_block *,
-			 bytecode_block *) const;
 
   /// @return true if live.
   bool live_p () const

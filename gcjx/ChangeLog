@@ -1,5 +1,25 @@
 2005-01-14  Tom Tromey  <tromey@redhat.com>
 
+	* bytecode/block.cc (clone): Removed.
+	* bytecode/block.hh (bytecode_block::clone): Removed.
+	* bytecode/generate.cc (emit_saved_cleanup): Rewrote.
+	(visit_synchronized): Updated.
+	(visit_try): Likewise.
+	(finally_creator): Removed.
+	(~finally_creator): Likewise.
+	(visit_try): Only emit inline cleanups once.
+	(generate): Clear 'changed' before updating handlers.
+	(any_cleanups_p): Removed.
+	(add_exception_handler): Push handlers on back of the list again.
+	* bytecode/generate.hh (bytecode_generator::finally_handler):
+	Removed start, end, max_stack fields.  Added 'block'
+	and 'variable' fields.
+	(finally_handler): Updated.
+	(bytecode_generator::finally_creator): Removed.
+	(bytecode_generator::any_cleanups_p): Likewise.
+
+2005-01-14  Tom Tromey  <tromey@redhat.com>
+
 	* model/field.cc (type): Use const_cast.
 
 2005-01-14  Tom Tromey  <tromey@redhat.com>
